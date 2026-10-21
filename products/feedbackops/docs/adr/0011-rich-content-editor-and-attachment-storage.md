@@ -1,0 +1,81 @@
+# Rich Content Editor (TipTap) and attachment storage
+
+> Amended 2026-05-22 (issue #22): the two-implementation storage design in "Inline Attachments and storage abstraction" and "What this ADR locks" is replaced by a single S3-compatible backend (STORAGE_S3_* env); see Amendment below. Editor, server-proxied transfer and Rich Table decisions are unchanged.
+
+## Status
+
+Accepted. Storage amended 2026-05-22.
+
+FeedbackOps has four rich-content surfaces (`VOC description`, `Reporter Reply`, `Public Update`, `Internal Comment`) that share one editor foundation per GLOSSARY.md and `docs/design/15-data-contracts.md`. Each surface restricts toolbar actions and rendering separately. This ADR locks the editor choice, the attachment storage shape, and the Rich Table decision left open by the data contracts.
+
+## Editor: TipTap
+
+The frontend uses **TipTap** (ProseMirror-based) as the shared editor foundation. We pick TipTap because:
+
+- ProseMirror is the only widely-used editor core with proven Korean IME handling (composition events, deletion across composed characters). Lexical and Slate have outstanding IME edge cases reported by Korean teams.
+- The extension ecosystem (`@tiptap/extension-image`, `@tiptap/extension-table`, `@tiptap/extension-mention`, etc.) covers our planned features without forking.
+- TipTap documents serialize to structured JSON, which matches `docs/implementation/01-coding-conventions.md`'s "Store rich content in structured editor documents or sanitized HTML approved by the backend contract." We store the JSON, not HTML.
+
+Backend persistence is **TipTap JSON in a `jsonb` column**; the schema is versioned via a `schema_version` field inside the document so a future TipTap upgrade does not require a data migration day-one. Sanitization happens server-side using `@tiptap/html` to reject unknown nodes, attributes, and inline-style payloads.
+
+The editor configuration lives in `packages/ui/src/rich-content/` so all four surfaces import the same base and pass a `mode: 'voc' | 'reporter_reply' | 'public_update' | 'internal_comment'` to gate toolbar actions, embeds, and rendering — matching the relationship in GLOSSARY.md: "Each rich-content surface may restrict toolbar actions, embeds, and rendering according to visibility and safety needs."
+
+## Inline Attachments and storage abstraction
+
+Inline images (`Inline Attachment` in GLOSSARY.md) and file attachments share one storage path. The backend exposes an `AttachmentStorage` interface in `apps/backend/src/modules/attachments`:
+
+```text
+AttachmentStorage
+- put(key, stream, contentType, byteLength): write
+- get(key): stream
+- head(key): metadata
+- delete(key): remove
+```
+
+Two implementations selected by `ATTACHMENT_STORAGE` env var:
+
+- `LocalFsAttachmentStorage` — for local dev. Writes under `./.dev-data/attachments/<workspace_id>/<uuid>`. Fast, zero infra.
+- `S3CompatibleAttachmentStorage` — for staging and production. Uses `@aws-sdk/client-s3` against an S3-compatible endpoint (AWS S3, internal MinIO, or any other compliant store). Bucket and endpoint set by `S3_BUCKET`, `S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`.
+
+The interface lets dev/CI run without any S3 dependency while production swaps in MinIO or AWS S3 by env var alone. Storing files in Postgres (`bytea` / large objects) was rejected because backups and replication grow uncontrollably with attachment volume.
+
+## Upload and download flow: server-proxied
+
+All uploads and downloads go through the backend. There are no pre-signed URLs in MVP.
+
+`docs/implementation/01-coding-conventions.md` requires: "Enforce visibility on every attachment and rich-content render path." Pre-signed URLs hand the storage layer a token whose lifetime, scope, and audit trail are owned by the storage provider, not by FeedbackOps. With server-proxied transfer:
+
+- Every read passes through application-level permission checks: `Reporter Summary` visibility, Internal Comment scope, Sensitive Permission gating for restricted Findings.
+- Every read can emit an audit row when the spec requires it (e.g. Sensitive Permission viewing).
+- A future ADR can introduce pre-signed URLs for a specific high-volume path (Survey CSV export, large Task attachments) without changing the default.
+
+The trade-off is bandwidth through the backend. We accept this for MVP given internal workforce-sized load.
+
+## Rich Table
+
+`Rich Table` stays **out of MVP** as the data contract already framed it ("spike-gated"). The editor blocks the table toolbar action and rejects paste content that resolves to table nodes; the rejection UI directs the user to upload the spreadsheet as a file attachment instead. Read-rendering of table nodes that already exist in stored documents (none, in practice, for greenfield MVP) is allowed.
+
+Bringing Rich Table in later means enabling the TipTap table extension, adding size limits (rows × columns × cell text length), and deciding the public-facing surface restrictions — that work warrants a new ADR.
+
+## What this ADR locks
+
+- TipTap is the single editor foundation; documents are stored as TipTap JSON in `jsonb`.
+- One `AttachmentStorage` abstraction with two implementations (local FS for dev, S3-compatible for prod), swapped by env var.
+- All attachment reads and writes go through the backend; no pre-signed URLs in MVP.
+- Rich Table is excluded from MVP creation flows; users upload spreadsheets as attachments.
+
+## Reopening
+
+Switching editors, dropping the storage abstraction, introducing pre-signed URLs, or enabling Rich Table each warrants a new ADR with a migration story for existing rich-content documents and stored attachments.
+
+## Amendment — 2026-05-22 (Issue #22, PLAN-22)
+
+Issue #22 supersedes the dual-implementation sketch above (`LocalFsAttachmentStorage` + `S3CompatibleAttachmentStorage`) in favor of a **single `S3CompatStorageBackend`** running against MinIO in dev and prod, env-swappable to AWS S3 / Cloudflare R2 later via `STORAGE_S3_*` (`STORAGE_S3_ENDPOINT`, `STORAGE_S3_REGION`, `STORAGE_S3_BUCKET`, `STORAGE_S3_ACCESS_KEY_ID`, `STORAGE_S3_SECRET_ACCESS_KEY`, `STORAGE_S3_FORCE_PATH_STYLE=true`). The local-FS path is dropped; `docker compose -f docker-compose.dev.yml up -d minio` makes the bucket reachable in one command, and the CI / fresh-checkout boot story is the same one container as production. The `S3_*` env names in the original §"Inline Attachments and storage abstraction" are superseded by the `STORAGE_S3_*` names above; the rest of that section (workspace-prefixed keys, server-proxied reads, no pre-signed URLs, audit vocab) stands.
+
+## Amendment — 2026-05-22 (Issue #22 post-merge hotfix)
+
+Two follow-up clarifications land on top of the #22 amendment above. Source: `fix/22-storage-lazy-and-attachments-grants` (commits `0d1c6ba`, `c6f361a`).
+
+1. **Storage init is lazy.** `getStorage()` no longer reads `STORAGE_S3_*` env vars or constructs an `S3Client` at module load / boot time. Env validation and client construction are deferred until the first `put` / `get` / `delete` / `exists` call on the returned backend. Effect: the backend boots cleanly (`/healthz`, all non-attachment routes operational) without any `STORAGE_S3_*` env set; the first attachment request then fails loudly with `storage.unavailable` (502) and the existing Korean toast. Production semantics are preserved — a misconfigured prod still surfaces a hard, observable error on the first real upload — but boot-time crashes on unrelated routes are eliminated (T-10, see PLAN-22 §3).
+
+2. **`fops_app` role holds DELETE on `voc.voc_attachments`.** Migration `0016_voc_attachments_grants.sql` grants `DELETE ON voc.voc_attachments TO fops_app`. This is required because the **purge worker** (`core.attachments_purge`, registered hourly per migration 0014 and #22 §C4b) is the legitimate row-deleter when a row's `voc_id IS NULL AND comment_id IS NULL AND created_at < now() - 24h`. User-initiated paths still use **archive over delete** — `archived_at` / `archived_by_actor_id` set on the row, never a DB `DELETE` — preserving the audit trail. The "archive over delete" invariant is enforced at the **service layer** (`apps/backend/src/modules/attachments/service.ts`), not by withholding the DB grant; the grant exists strictly so the purge job can reclaim orphaned uploads.

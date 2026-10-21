@@ -1,0 +1,336 @@
+import type { SurveyType } from '@fops/shared';
+import { sql } from 'drizzle-orm';
+import { sqlUuidArray } from '../../db/sql-arrays.js';
+import type { Tx } from '../../db/tx.js';
+
+export type SurveyResponseEvidenceSubject = {
+  response_id: string;
+  survey_id: string;
+  survey_display_id: string;
+  survey_type: SurveyType;
+  survey_status: 'draft' | 'open' | 'closed';
+  primary_managed_system_id: string;
+  analytics_area_id: string | null;
+  identity_protected: boolean;
+};
+
+export async function lockResponseEvidenceSubject(
+  tx: Tx,
+  workspaceId: string,
+  responseId: string,
+): Promise<SurveyResponseEvidenceSubject | null> {
+  const result = await tx.execute<SurveyResponseEvidenceSubject>(
+    sql`select * from survey.lock_response_evidence_subject(${workspaceId}, ${responseId})`,
+  );
+  return result.rows[0] ?? null;
+}
+
+export async function readResponseTextCandidate(
+  tx: Tx,
+  workspaceId: string,
+  responseId: string,
+  questionId: string,
+): Promise<{ question_id: string; question_label: string; raw_text: string } | null> {
+  const result = await tx.execute<{
+    question_id: string;
+    question_label: string;
+    raw_text: string;
+  }>(
+    sql`select * from survey.read_response_text_candidate(${workspaceId}, ${responseId}, ${questionId})`,
+  );
+  return result.rows[0] ?? null;
+}
+
+export async function insertApprovedExcerpt(
+  tx: Tx,
+  input: {
+    workspaceId: string;
+    surveyId: string;
+    responseId: string;
+    questionId: string;
+    redactedExcerpt: string;
+    approvedBy: string;
+  },
+): Promise<{ approved_excerpt_id: string; question_id: string; redacted_excerpt: string }> {
+  const result = await tx.execute<{
+    approved_excerpt_id: string;
+    question_id: string;
+    redacted_excerpt: string;
+  }>(sql`
+    insert into survey.survey_response_excerpt_approvals
+      (workspace_id, survey_id, response_id, question_id, redacted_excerpt, approved_by)
+    values
+      (${input.workspaceId}, ${input.surveyId}, ${input.responseId}, ${input.questionId},
+       ${input.redactedExcerpt}, ${input.approvedBy})
+    returning id as approved_excerpt_id, question_id, redacted_excerpt
+  `);
+  const row = result.rows[0];
+  if (!row) throw new Error('approved excerpt insert did not return a row');
+  return row;
+}
+
+export async function revokeApprovedExcerpt(
+  tx: Tx,
+  input: { workspaceId: string; responseId: string; approvedExcerptId: string },
+): Promise<{
+  approved_excerpt_id: string;
+  question_id: string;
+  redacted_excerpt: string;
+  revoked_now: boolean;
+} | null> {
+  // #569: fops_app has no SELECT on response_id, so the (response, approval)
+  // binding check runs in the definer; the app then revokes by approval id only.
+  const approval = await tx.execute<{
+    question_id: string;
+    redacted_excerpt: string;
+    is_active: boolean;
+  }>(
+    sql`select * from survey.read_response_excerpt_approval(${input.workspaceId}, ${input.responseId}, ${input.approvedExcerptId})`,
+  );
+  const current = approval.rows[0];
+  if (!current) return null;
+  if (!current.is_active) {
+    return {
+      approved_excerpt_id: input.approvedExcerptId,
+      question_id: current.question_id,
+      redacted_excerpt: current.redacted_excerpt,
+      revoked_now: false,
+    };
+  }
+  const result = await tx.execute<{
+    approved_excerpt_id: string;
+    question_id: string;
+    redacted_excerpt: string;
+  }>(sql`
+    update survey.survey_response_excerpt_approvals
+       set revoked_at = now()
+     where workspace_id = ${input.workspaceId}
+       and id = ${input.approvedExcerptId}
+       and revoked_at is null
+    returning id as approved_excerpt_id, question_id, redacted_excerpt
+  `);
+  const revoked = result.rows[0];
+  if (revoked) return { ...revoked, revoked_now: true };
+  // A concurrent transaction revoked the approval between the definer check and
+  // this update; report it as already-revoked like the single-statement path did.
+  return {
+    approved_excerpt_id: input.approvedExcerptId,
+    question_id: current.question_id,
+    redacted_excerpt: current.redacted_excerpt,
+    revoked_now: false,
+  };
+}
+
+export async function readApprovedResultExcerpts(
+  tx: Tx,
+  workspaceId: string,
+  surveyId: string,
+): Promise<Array<{ approved_excerpt_id: string; question_id: string; redacted_excerpt: string }>> {
+  const result = await tx.execute<{
+    approved_excerpt_id: string;
+    question_id: string;
+    redacted_excerpt: string;
+  }>(sql`select * from survey.read_approved_result_excerpts(${workspaceId}, ${surveyId})`);
+  return result.rows;
+}
+
+export async function readApprovedResultExcerptsPersonal(
+  tx: Tx,
+  workspaceId: string,
+  surveyId: string,
+): Promise<
+  Array<{
+    approved_excerpt_id: string;
+    question_id: string;
+    redacted_excerpt: string;
+    response_id: string;
+  }>
+> {
+  const result = await tx.execute<{
+    approved_excerpt_id: string;
+    question_id: string;
+    redacted_excerpt: string;
+    response_id: string;
+  }>(sql`select * from survey.read_approved_result_excerpts_personal(${workspaceId}, ${surveyId})`);
+  return result.rows;
+}
+
+export async function listDerivedFindingsForSurvey(
+  tx: Tx,
+  workspaceId: string,
+  surveyId: string,
+  includeUnapproved: boolean,
+): Promise<Array<{ finding_id: string; primary_managed_system_id: string }>> {
+  const result = await tx.execute<{ finding_id: string; primary_managed_system_id: string }>(sql`
+    SELECT * FROM survey.read_derived_findings(
+      ${workspaceId}::uuid, ${surveyId}::uuid, ${includeUnapproved}::boolean)
+  `);
+  return result.rows;
+}
+
+/** Safe approval projection for one response. It never reads response answers. */
+export async function readApprovedResponseExcerpts(
+  tx: Tx,
+  workspaceId: string,
+  responseId: string,
+  approvedExcerptIds: string[],
+): Promise<
+  Array<{
+    approved_excerpt_id: string;
+    question_id: string;
+    redacted_excerpt: string;
+  }>
+> {
+  if (approvedExcerptIds.length === 0) return [];
+  const ids = sql`ARRAY[${sql.join(
+    approvedExcerptIds.map((id) => sql`${id}`),
+    sql`, `,
+  )}]::uuid[]`;
+  // #569: reads the per-response binding in the definer; fops_app cannot
+  // filter the approvals table on response_id directly.
+  const result = await tx.execute<{
+    approved_excerpt_id: string;
+    question_id: string;
+    redacted_excerpt: string;
+  }>(
+    sql`select * from survey.read_approved_response_excerpts(${workspaceId}, ${responseId}, ${ids})`,
+  );
+  return result.rows;
+}
+
+/**
+ * Direct fops_app metadata projection. Unlike readResponseTextCandidate this
+ * cannot reach survey_response_answers, so resolving a template label never
+ * crosses the audited raw-answer seam.
+ */
+export async function readSurveyQuestionLabel(
+  tx: Tx,
+  workspaceId: string,
+  surveyId: string,
+  questionId: string,
+): Promise<{ question_id: string; question_label: string } | null> {
+  const result = await tx.execute<{ question_id: string; question_label: string }>(sql`
+    select id as question_id, prompt as question_label
+      from survey.survey_questions
+     where workspace_id = ${workspaceId}
+       and survey_id = ${surveyId}
+       and id = ${questionId}
+       and kind = 'text'
+  `);
+  return result.rows[0] ?? null;
+}
+
+/** A stored highlight is safe to project only while its own approval remains active. */
+export async function hasActiveApprovedResponseExcerpt(
+  tx: Tx,
+  workspaceId: string,
+  responseId: string,
+  approvedExcerptId: string,
+): Promise<boolean> {
+  // #569: the (response, approval) binding is resolved by the definer reader;
+  // a returned row exists only while the approval is active.
+  const rows = await readApprovedResponseExcerpts(tx, workspaceId, responseId, [approvedExcerptId]);
+  return rows.length > 0;
+}
+
+export async function bindFindingResponse(
+  tx: Tx,
+  workspaceId: string,
+  findingId: string,
+  responseId: string,
+): Promise<void> {
+  await tx.execute(
+    sql`select survey.bind_finding_response(${workspaceId}, ${findingId}, ${responseId})`,
+  );
+}
+
+export async function bindHighlightResponse(
+  tx: Tx,
+  workspaceId: string,
+  highlightId: string,
+  responseId: string,
+  approvalId: string,
+): Promise<void> {
+  await tx.execute(
+    sql`select survey.bind_highlight_response(${workspaceId}, ${highlightId}, ${responseId}, ${approvalId})`,
+  );
+}
+
+export type FindingHighlightEvidence = {
+  highlight_id: string;
+  primary_managed_system_id: string;
+  survey_type: SurveyType;
+  survey_display_id: string;
+  identity_protected: boolean;
+  question_label: string;
+  approved_excerpt_snapshot: string;
+};
+
+export async function readFindingHighlightEvidence(
+  tx: Tx,
+  workspaceId: string,
+  findingId: string,
+  highlightIds: string[],
+): Promise<FindingHighlightEvidence[]> {
+  if (highlightIds.length === 0) return [];
+  const result = await tx.execute<FindingHighlightEvidence>(sql`
+    select * from survey.read_finding_highlight_evidence(
+      ${workspaceId}, ${findingId}, ${sqlUuidArray(highlightIds)})
+  `);
+  return result.rows;
+}
+
+/** Bounded cross-Finding reader; locks the entire batch's responses in UUID order. */
+export async function readInventoryHighlightEvidence(
+  tx: Tx,
+  workspaceId: string,
+  highlightIds: string[],
+): Promise<FindingHighlightEvidence[]> {
+  if (highlightIds.length === 0) return [];
+  const result = await tx.execute<FindingHighlightEvidence>(sql`
+    select * from survey.read_inventory_highlight_evidence(
+      ${workspaceId}, ${sqlUuidArray(highlightIds)})
+  `);
+  return result.rows;
+}
+
+/** Safe approval columns only; eligibility is applied before the bounded page. */
+export async function readEvidenceCandidatePage(
+  tx: Tx,
+  workspaceId: string,
+  surveyId: string,
+  questionIds: string[],
+  after: string | null,
+  limit: number,
+): Promise<
+  Array<{ approved_excerpt_id: string; redacted_excerpt: string; question_label: string }>
+> {
+  if (questionIds.length === 0) return [];
+  const result = await tx.execute<{
+    approved_excerpt_id: string;
+    redacted_excerpt: string;
+    question_label: string;
+  }>(sql`
+    SELECT a.id AS approved_excerpt_id, a.redacted_excerpt, q.prompt AS question_label
+    FROM survey.survey_response_excerpt_approvals a
+    JOIN survey.survey_questions q ON q.workspace_id=a.workspace_id AND q.survey_id=a.survey_id
+      AND q.id=a.question_id AND q.kind='text'
+    WHERE a.workspace_id=${workspaceId}::uuid AND a.survey_id=${surveyId}::uuid
+      AND a.revoked_at IS NULL AND a.question_id=ANY(${sqlUuidArray(questionIds)})
+      AND (${after}::uuid IS NULL OR a.id>${after}::uuid)
+    ORDER BY a.id LIMIT ${limit}
+  `);
+  return result.rows;
+}
+
+/** Internal selection resolution; no response UUID is serialized to the caller. */
+export async function lockAttachmentResponse(
+  tx: Tx,
+  workspaceId: string,
+  approvalId: string,
+): Promise<string | null> {
+  const result = await tx.execute<{ response_id: string }>(sql`
+    SELECT response_id FROM survey.lock_attachment_response(${workspaceId}::uuid, ${approvalId}::uuid)
+  `);
+  return result.rows[0]?.response_id ?? null;
+}

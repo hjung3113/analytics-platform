@@ -1,0 +1,355 @@
+import { sql } from 'drizzle-orm';
+import {
+  boolean,
+  check,
+  foreignKey,
+  index,
+  integer,
+  jsonb,
+  pgSchema,
+  smallint,
+  text,
+  timestamp,
+  unique,
+  uniqueIndex,
+  uuid,
+} from 'drizzle-orm/pg-core';
+
+import { actors, analyticsAreas, managedSystems, workspaces } from './core.js';
+import { evidenceHighlights, findings } from './finding.js';
+
+export const surveySchema = pgSchema('survey');
+
+export const surveys = surveySchema.table(
+  'surveys',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    displayId: text('display_id').notNull(),
+    type: text('type').notNull(),
+    status: text('status').notNull().default('draft'),
+    title: text('title').notNull(),
+    description: text('description'),
+    primaryManagedSystemId: uuid('primary_managed_system_id')
+      .notNull()
+      .references(() => managedSystems.id),
+    analyticsAreaId: uuid('analytics_area_id').references(() => analyticsAreas.id),
+    operatorActorId: uuid('operator_actor_id')
+      .notNull()
+      .references(() => actors.id),
+    responsesIdentityProtected: boolean('responses_identity_protected').notNull().default(false),
+    createdBy: uuid('created_by')
+      .notNull()
+      .references(() => actors.id),
+    openedAt: timestamp('opened_at', { withTimezone: true }),
+    closedAt: timestamp('closed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    recoveryOutcomeIdx: index('surveys_recovery_outcome_idx')
+      .on(t.workspaceId, t.primaryManagedSystemId, t.id)
+      .where(sql`${t.type} = 'outcome' AND ${t.status} = 'closed'`),
+    workspaceDisplayUq: uniqueIndex('surveys_workspace_display_id_uq').on(
+      t.workspaceId,
+      t.displayId,
+    ),
+    workspaceManagedSystemStatusCreatedAtIdx: index(
+      'surveys_workspace_managed_system_status_created_at_idx',
+    ).on(t.workspaceId, t.primaryManagedSystemId, t.status, t.createdAt.desc()),
+    workspaceOperatorStatusIdx: index('surveys_workspace_operator_status_idx').on(
+      t.workspaceId,
+      t.operatorActorId,
+      t.status,
+    ),
+    typeCheck: check('surveys_type_check', sql`${t.type} in ('discovery','validation','outcome')`),
+    statusCheck: check('surveys_status_check', sql`${t.status} in ('draft','open','closed')`),
+    lifecycleCheck: check(
+      'surveys_lifecycle_check',
+      sql`(${t.status} = 'draft' and ${t.openedAt} is null and ${t.closedAt} is null) or (${t.status} = 'open' and ${t.openedAt} is not null and ${t.closedAt} is null) or (${t.status} = 'closed' and ${t.openedAt} is not null and ${t.closedAt} is not null)`,
+    ),
+  }),
+);
+
+export const surveyQuestions = surveySchema.table(
+  'survey_questions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    surveyId: uuid('survey_id')
+      .notNull()
+      .references(() => surveys.id),
+    kind: text('kind').notNull(),
+    prompt: text('prompt').notNull(),
+    isRequired: boolean('is_required').notNull().default(false),
+    options: jsonb('options'),
+    ratingMin: integer('rating_min'),
+    ratingMax: integer('rating_max'),
+    ratingLowLabel: text('rating_low_label'),
+    ratingHighLabel: text('rating_high_label'),
+    sortOrder: integer('sort_order').notNull(),
+    branchDepth: smallint('branch_depth').notNull().default(0),
+    branchParentQuestionId: uuid('branch_parent_question_id'),
+    branchParentDepth: smallint('branch_parent_depth'),
+    branchTriggerOptionKey: text('branch_trigger_option_key'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    surveyIdIdUq: unique('survey_questions_survey_id_id_uq').on(t.surveyId, t.id),
+    surveyIdIdDepthUq: unique('survey_questions_survey_id_id_branch_depth_uq').on(
+      t.surveyId,
+      t.id,
+      t.branchDepth,
+    ),
+    surveySortOrderIdx: index('survey_questions_survey_sort_order_idx').on(
+      t.surveyId,
+      t.sortOrder,
+      t.id,
+    ),
+    kindCheck: check(
+      'survey_questions_kind_check',
+      sql`${t.kind} in ('single_choice','multiple_choice','rating','text')`,
+    ),
+    sortOrderCheck: check('survey_questions_sort_order_check', sql`${t.sortOrder} >= 0`),
+    branchDepthCheck: check('survey_questions_branch_depth_check', sql`${t.branchDepth} in (0,1)`),
+    branchStructureCheck: check(
+      'survey_questions_branch_structure_check',
+      sql`(${t.branchDepth} = 0 and ${t.branchParentQuestionId} is null and ${t.branchParentDepth} is null and ${t.branchTriggerOptionKey} is null) or (${t.branchDepth} = 1 and ${t.branchParentQuestionId} is not null and ${t.branchParentDepth} = 0 and ${t.branchTriggerOptionKey} is not null)`,
+    ),
+    branchParentFk: foreignKey({
+      name: 'survey_questions_branch_parent_fk',
+      columns: [t.surveyId, t.branchParentQuestionId, t.branchParentDepth],
+      foreignColumns: [t.surveyId, t.id, t.branchDepth],
+    }).onDelete('restrict'),
+  }),
+);
+
+export const surveyResponses = surveySchema.table(
+  'survey_responses',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    surveyId: uuid('survey_id')
+      .notNull()
+      .references(() => surveys.id),
+    respondentActorId: uuid('respondent_actor_id')
+      .notNull()
+      .references(() => actors.id),
+    identityProtected: boolean('identity_protected').notNull(),
+    submittedAt: timestamp('submitted_at', { withTimezone: true }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    workspaceIdUq: unique('survey_responses_workspace_id_uq').on(t.workspaceId, t.id),
+    surveyIdIdUq: unique('survey_responses_survey_id_id_uq').on(t.surveyId, t.id),
+    surveyRespondentActorUq: uniqueIndex('survey_responses_survey_respondent_actor_uq').on(
+      t.surveyId,
+      t.respondentActorId,
+    ),
+  }),
+);
+
+export const surveyResponseAnswers = surveySchema.table(
+  'survey_response_answers',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    surveyId: uuid('survey_id').notNull(),
+    responseId: uuid('response_id').notNull(),
+    questionId: uuid('question_id').notNull(),
+    answerKind: text('answer_kind').notNull(),
+    answerValue: jsonb('answer_value').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    responseQuestionUq: unique('survey_response_answers_response_id_question_id_uq').on(
+      t.responseId,
+      t.questionId,
+    ),
+    answerKindCheck: check(
+      'survey_response_answers_answer_kind_check',
+      sql`${t.answerKind} in ('single_choice','multiple_choice','rating','text')`,
+    ),
+    responseSurveyFk: foreignKey({
+      name: 'survey_response_answers_response_survey_fk',
+      columns: [t.surveyId, t.responseId],
+      foreignColumns: [surveyResponses.surveyId, surveyResponses.id],
+    }),
+    questionSurveyFk: foreignKey({
+      name: 'survey_response_answers_question_survey_fk',
+      columns: [t.surveyId, t.questionId],
+      foreignColumns: [surveyQuestions.surveyId, surveyQuestions.id],
+    }),
+  }),
+);
+
+export const surveyResponseExcerptApprovals = surveySchema.table(
+  'survey_response_excerpt_approvals',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    surveyId: uuid('survey_id')
+      .notNull()
+      .references(() => surveys.id),
+    responseId: uuid('response_id').notNull(),
+    questionId: uuid('question_id').notNull(),
+    redactedExcerpt: text('redacted_excerpt').notNull(),
+    approvedBy: uuid('approved_by')
+      .notNull()
+      .references(() => actors.id),
+    approvedAt: timestamp('approved_at', { withTimezone: true }).notNull().defaultNow(),
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+  },
+  (t) => ({
+    workspaceResponseIdUq: unique('excerpt_approvals_workspace_response_id_uq').on(
+      t.workspaceId,
+      t.responseId,
+      t.id,
+    ),
+    workspaceSurveyActiveIdx: index('survey_response_excerpt_approvals_workspace_survey_active_idx')
+      .on(t.workspaceId, t.surveyId, t.approvedAt.desc())
+      .where(sql`${t.revokedAt} is null`),
+    responseSurveyFk: foreignKey({
+      name: 'survey_response_excerpt_approvals_response_survey_fk',
+      columns: [t.surveyId, t.responseId],
+      foreignColumns: [surveyResponses.surveyId, surveyResponses.id],
+    }),
+    questionSurveyFk: foreignKey({
+      name: 'survey_response_excerpt_approvals_question_survey_fk',
+      columns: [t.surveyId, t.questionId],
+      foreignColumns: [surveyQuestions.surveyId, surveyQuestions.id],
+    }),
+  }),
+);
+
+export const outcomeFollowUpDecisions = surveySchema.table(
+  'outcome_follow_up_decisions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    surveyId: uuid('survey_id')
+      .notNull()
+      .references(() => surveys.id),
+    responseId: uuid('response_id').notNull(),
+    managedSystemId: uuid('managed_system_id')
+      .notNull()
+      .references(() => managedSystems.id),
+    state: text('state').notNull(),
+    reason: text('reason').notNull(),
+    decidedByActorId: uuid('decided_by_actor_id')
+      .notNull()
+      .references(() => actors.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    workspaceResponseUq: unique('outcome_follow_up_decisions_workspace_response_uq').on(
+      t.workspaceId,
+      t.responseId,
+    ),
+    stateCheck: check(
+      'outcome_follow_up_decisions_state_check',
+      sql`${t.state} in ('no_follow_up','reopened')`,
+    ),
+    reasonNonemptyCheck: check(
+      'outcome_follow_up_decisions_reason_nonempty',
+      sql`${t.reason} <> ''`,
+    ),
+    responseSurveyFk: foreignKey({
+      name: 'outcome_follow_up_decisions_response_survey_fk',
+      columns: [t.surveyId, t.responseId],
+      foreignColumns: [surveyResponses.surveyId, surveyResponses.id],
+    }),
+  }),
+);
+
+// Survey owns these protected extensions; the runtime role has no table privileges.
+export const findingResponseBindings = surveySchema.table(
+  'finding_response_bindings',
+  {
+    workspaceId: uuid('workspace_id').notNull(),
+    findingId: uuid('finding_id').primaryKey(),
+    responseId: uuid('response_id').notNull(),
+    historicalGeneratedTitle: text('historical_generated_title').notNull(),
+    historicalGeneratedSummary: text('historical_generated_summary').notNull(),
+  },
+  (t) => ({
+    workspaceParentUq: unique('finding_bindings_workspace_parent_uq').on(
+      t.workspaceId,
+      t.findingId,
+    ),
+    workspaceResponseIdx: index('finding_bindings_workspace_response_idx').on(
+      t.workspaceId,
+      t.responseId,
+      t.findingId,
+    ),
+    parentFk: foreignKey({
+      name: 'finding_bindings_parent_fk',
+      columns: [t.workspaceId, t.findingId],
+      foreignColumns: [findings.workspaceId, findings.id],
+    }).onDelete('cascade'),
+    responseFk: foreignKey({
+      name: 'finding_bindings_response_fk',
+      columns: [t.workspaceId, t.responseId],
+      foreignColumns: [surveyResponses.workspaceId, surveyResponses.id],
+    }),
+  }),
+);
+
+export const highlightResponseBindings = surveySchema.table(
+  'highlight_response_bindings',
+  {
+    workspaceId: uuid('workspace_id').notNull(),
+    highlightId: uuid('highlight_id').primaryKey(),
+    responseId: uuid('response_id').notNull(),
+    approvedExcerptId: uuid('approved_excerpt_id').notNull(),
+    approvedExcerptSnapshot: text('approved_excerpt_snapshot').notNull(),
+  },
+  (t) => ({
+    workspaceParentUq: unique('highlight_bindings_workspace_parent_uq').on(
+      t.workspaceId,
+      t.highlightId,
+    ),
+    workspaceResponseIdx: index('highlight_bindings_workspace_response_idx').on(
+      t.workspaceId,
+      t.responseId,
+      t.highlightId,
+    ),
+    workspaceApprovalIdx: index('highlight_bindings_workspace_approval_idx').on(
+      t.workspaceId,
+      t.approvedExcerptId,
+    ),
+    parentFk: foreignKey({
+      name: 'highlight_bindings_parent_fk',
+      columns: [t.workspaceId, t.highlightId],
+      foreignColumns: [evidenceHighlights.workspaceId, evidenceHighlights.id],
+    }).onDelete('cascade'),
+    approvalFk: foreignKey({
+      name: 'highlight_bindings_approval_response_fk',
+      columns: [t.workspaceId, t.responseId, t.approvedExcerptId],
+      foreignColumns: [
+        surveyResponseExcerptApprovals.workspaceId,
+        surveyResponseExcerptApprovals.responseId,
+        surveyResponseExcerptApprovals.id,
+      ],
+    }),
+    responseFk: foreignKey({
+      name: 'highlight_bindings_response_fk',
+      columns: [t.workspaceId, t.responseId],
+      foreignColumns: [surveyResponses.workspaceId, surveyResponses.id],
+    }),
+  }),
+);

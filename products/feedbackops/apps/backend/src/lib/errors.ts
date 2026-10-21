@@ -1,0 +1,111 @@
+// Backend-side helpers for the ADR-0012 error envelope. Maps `code` family to
+// HTTP status per the table in ADR-0012:25-34. Controllers throw an HttpError
+// or call `sendError` from a handler; application services raise the same
+// instance and a Fastify error handler renders the envelope.
+
+import type { ErrorCode, SimilarityPreviewBudgetDetail } from '@fops/shared';
+import type { FastifyReply } from 'fastify';
+
+const STATUS_BY_PREFIX: ReadonlyArray<[string, number]> = [
+  ['auth.workspace_mismatch', 403],
+  ['auth.', 401],
+  ['permission.', 403],
+  ['not_found.', 404],
+  ['conflict.', 409],
+  ['validation.', 422],
+  ['voc.', 422],
+  ['rich_content.', 422],
+  ['attachment.', 422],
+  ['reporter_facing_status.', 422],
+  ['rate_limited.', 429],
+  ['internal.', 500],
+  ['upstream.', 502],
+  // PLAN-22 C3a: object-store unavailable bubbles as 502 per OQ-2 default.
+  ['storage.', 502],
+  // PLAN-22 C3a: stub-path marker until C3b lands real implementation.
+  ['not_implemented.', 501],
+];
+
+export function statusForCode(code: ErrorCode): number {
+  for (const [prefix, status] of STATUS_BY_PREFIX) {
+    if (code.startsWith(prefix)) return status;
+  }
+  return 500;
+}
+
+export type DetailField = {
+  path: ReadonlyArray<string | number>;
+  code: string;
+  message?: string;
+};
+
+export type DetailShape =
+  | SimilarityPreviewBudgetDetail
+  | {
+      fields: DetailField[];
+      hint?: string | undefined;
+      max_bytes?: number;
+      mime_type?: string;
+      reason?: string | null;
+      detail?: { reason: string | null };
+    }
+  | { retry_after_seconds: number }
+  | { resource_id?: string; resource_type?: string }
+  | { capability: string }
+  | { reason: string }
+  | {
+      requiredScope?: string[];
+      requestable_permission: {
+        permission: string;
+        managed_system_id?: string | null;
+        reason_required?: boolean;
+      };
+    }
+  | { request_id: string; review_route: string }
+  | { deny_ids: string[]; lift_route: string }
+  | { current_revision: number }
+  | { current_updated_at: string }
+  | { current_triage_state: string }
+  | {
+      /** api/next-actions.md structured action failure carried on a 409. */
+      failure_code: 'action_no_longer_available' | 'recovery_item_resolved';
+    }
+  | undefined;
+
+export class HttpError extends Error {
+  readonly code: ErrorCode;
+  readonly detail?: Exclude<DetailShape, undefined>;
+  constructor(code: ErrorCode, message: string, detail?: DetailShape) {
+    super(message);
+    this.code = code;
+    if (detail !== undefined) this.detail = detail;
+  }
+}
+
+export function sendError(
+  reply: FastifyReply,
+  code: ErrorCode,
+  message: string,
+  detail?: DetailShape,
+): FastifyReply {
+  const body: Record<string, unknown> = { code, message };
+  if (detail !== undefined) body.detail = detail;
+  return reply.code(statusForCode(code)).send(body);
+}
+
+// Slim down Zod issue payloads before they reach a client. Review HTTP-M-1:
+// raw `ZodIssue` arrays leak internal field paths, discriminator codes, and
+// in some Zod versions an `input` snapshot. ADR-0012:25-34 expects a stable
+// `{ code, message, detail }` contract; the `detail.fields` array should
+// expose only the path + error code the client needs to identify which
+// field failed validation.
+export type ZodIssueShape = { path?: unknown; code?: unknown };
+export function fieldsFromZodIssues(issues: ReadonlyArray<ZodIssueShape>): Array<{
+  path: ReadonlyArray<string | number>;
+  code: string;
+}> {
+  return issues.map((iss) => ({
+    path: Array.isArray(iss.path) ? (iss.path as Array<string | number>) : [],
+    code: typeof iss.code === 'string' ? iss.code : 'invalid',
+  }));
+}

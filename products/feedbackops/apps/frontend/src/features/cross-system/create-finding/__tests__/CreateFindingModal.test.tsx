@@ -1,0 +1,340 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const { navigate, useLocation } = vi.hoisted(() => ({
+  navigate: vi.fn(),
+  useLocation: vi.fn(),
+}));
+vi.mock('@tanstack/react-router', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@tanstack/react-router')>();
+  return { ...actual, useNavigate: () => navigate, useLocation };
+});
+vi.mock('@/lib/api/analytics-areas', () => ({ fetchAnalyticsAreas: vi.fn() }));
+vi.mock('sonner', () => ({ toast: { error: vi.fn() } }));
+
+import { type AnalyticsAreaDto, fetchAnalyticsAreas } from '@/lib/api/analytics-areas';
+import { FINDING_SEVERITY_LABELS } from '@/lib/copy/enum-labels';
+import { type FindingSeverity, findingSeveritySchema } from '@fops/shared';
+import { CreateFindingModal } from '../CreateFindingModal';
+
+const IDS = {
+  voc: '10000000-0000-4000-8000-000000000001',
+  managedSystem: '10000000-0000-4000-8000-000000000002',
+  inheritedArea: '10000000-0000-4000-8000-000000000003',
+  replacementArea: '10000000-0000-4000-8000-000000000004',
+} as const;
+
+function area(id: string, name: string, slug: string): AnalyticsAreaDto {
+  return {
+    id,
+    workspace_id: '10000000-0000-4000-8000-000000000099',
+    managed_system_id: IDS.managedSystem,
+    slug,
+    name,
+    owner_team_id: null,
+    archived_at: null,
+    archived_by_actor_id: null,
+    created_at: '2026-08-01T00:00:00.000Z',
+    updated_at: '2026-08-01T00:00:00.000Z',
+  };
+}
+
+const AREAS = [
+  area(IDS.inheritedArea, '재무 전환 분석', 'finance-conversion'),
+  area(IDS.replacementArea, '서비스 안정성 분석', 'service-reliability'),
+];
+
+function renderModal(
+  sourceAnalyticsAreaId: string | null,
+  client = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  }),
+  defaults: { defaultTitle?: string; defaultSeverity?: FindingSeverity } = {},
+) {
+  return render(
+    <QueryClientProvider client={client}>
+      <CreateFindingModal
+        vocId={IDS.voc}
+        managedSystemId={IDS.managedSystem}
+        sourceAnalyticsAreaId={sourceAnalyticsAreaId}
+        {...defaults}
+        open
+        onClose={vi.fn()}
+      />
+    </QueryClientProvider>,
+  );
+}
+
+function submitValidForm(title = 'VOC 기반 Finding'): void {
+  fireEvent.change(screen.getByLabelText(/제목/), { target: { value: title } });
+  fireEvent.change(screen.getByLabelText(/요약/), {
+    target: { value: '소스 VOC의 분석 결과를 실행 가능한 판단으로 정리합니다.' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Finding 생성' }));
+}
+
+async function submittedBody(): Promise<Record<string, unknown>> {
+  await waitFor(() => expect(globalThis.fetch).toHaveBeenCalledTimes(1));
+  const [url, init] = vi.mocked(globalThis.fetch).mock.calls[0] ?? [];
+  expect(url).toBe(`/vocs/${IDS.voc}/create-finding`);
+  expect(init).toMatchObject({ method: 'POST' });
+  return JSON.parse(String(init?.body)) as Record<string, unknown>;
+}
+
+describe('CreateFindingModal Analytics Area inheritance', () => {
+  const originalFetch = globalThis.fetch;
+
+  beforeEach(() => {
+    navigate.mockReset();
+    useLocation.mockReset();
+    useLocation.mockReturnValue({ pathname: '/', href: '/' });
+    vi.mocked(fetchAnalyticsAreas).mockReset();
+    vi.mocked(fetchAnalyticsAreas).mockResolvedValue({ items: AREAS, total: AREAS.length });
+    globalThis.fetch = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ id: '10000000-0000-4000-8000-000000000050' }), {
+          status: 201,
+          headers: { 'content-type': 'application/json' },
+        }),
+    ) as typeof globalThis.fetch;
+  });
+
+  it('renders a named cancel action', () => {
+    renderModal(null);
+
+    expect(screen.getByRole('button', { name: '취소' })).toBeInTheDocument();
+  });
+
+  it.each(findingSeveritySchema.options)(
+    'renders a display label for severity %s',
+    async (severity) => {
+      renderModal(null);
+      await screen.findByTestId('create-finding-aa-picker');
+      fireEvent.keyDown(screen.getByRole('combobox', { name: '심각도' }), {
+        key: 'ArrowDown',
+      });
+
+      expect(
+        await screen.findByRole('option', { name: FINDING_SEVERITY_LABELS[severity] }),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole('option', { name: severity })).not.toBeInTheDocument();
+    },
+  );
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    vi.restoreAllMocks();
+  });
+
+  it('AC-B5a submits the inherited source VOC Analytics Area exactly once', async () => {
+    renderModal(IDS.inheritedArea);
+    expect(await screen.findByRole('radio', { name: '재무 전환 분석' })).toHaveAttribute(
+      'data-state',
+      'on',
+    );
+
+    submitValidForm();
+
+    expect(await submittedBody()).toMatchObject({ analytics_area_id: IDS.inheritedArea });
+  });
+
+  it('AC-B5b submits a replacement Analytics Area selected before creation', async () => {
+    renderModal(IDS.inheritedArea);
+    fireEvent.click(await screen.findByRole('radio', { name: '서비스 안정성 분석' }));
+    expect(screen.getByRole('radio', { name: '서비스 안정성 분석' })).toHaveAttribute(
+      'data-state',
+      'on',
+    );
+
+    submitValidForm();
+
+    expect(await submittedBody()).toMatchObject({ analytics_area_id: IDS.replacementArea });
+  });
+
+  it('AC-B5c omits analytics_area_id when the source VOC has no area', async () => {
+    renderModal(null);
+    expect(await screen.findByTestId('create-finding-aa-picker')).toBeInTheDocument();
+
+    submitValidForm();
+
+    const body = await submittedBody();
+    expect(body).toMatchObject({
+      title: 'VOC 기반 Finding',
+      summary: '소스 VOC의 분석 결과를 실행 가능한 판단으로 정리합니다.',
+    });
+    expect(body).not.toHaveProperty('analytics_area_id');
+  });
+
+  it('AC-681-1 defaults from a high-severity VOC and lets the user edit the values', async () => {
+    renderModal(null, undefined, {
+      defaultTitle: '리포트 속도 저하',
+      defaultSeverity: 'high',
+    });
+    await screen.findByTestId('create-finding-aa-picker');
+
+    const title = screen.getByLabelText(/제목/);
+    const severity = screen.getByRole('combobox', { name: '심각도' });
+    expect(title).toHaveValue('리포트 속도 저하');
+    expect(severity).toHaveTextContent(FINDING_SEVERITY_LABELS.high);
+
+    fireEvent.change(title, { target: { value: 'VOC에서 수정한 Finding 제목' } });
+    fireEvent.click(severity);
+    fireEvent.click(await screen.findByRole('option', { name: FINDING_SEVERITY_LABELS.medium }));
+    submitValidForm('VOC에서 수정한 Finding 제목');
+
+    expect(await submittedBody()).toMatchObject({
+      title: 'VOC에서 수정한 Finding 제목',
+      severity: 'medium',
+    });
+  });
+
+  it('navigates to the selected Finding and retains the exact VOC origin URL', async () => {
+    const origin =
+      `/vocs?view=triage&managedSystem=${IDS.managedSystem}` +
+      `&selected=${IDS.voc}&tab=high&filter.severity=critical`;
+    useLocation.mockReturnValue({ pathname: '/vocs', href: origin });
+    // A Findings list cached before the create must be refetched on landing (#587 warm cache).
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    const findingsListKey = ['findings', { managedSystemId: undefined, execution: undefined }];
+    client.setQueryData(findingsListKey, { items: [] });
+    renderModal(null, client);
+    submitValidForm();
+
+    await submittedBody();
+    await waitFor(() =>
+      expect(navigate).toHaveBeenCalledWith({
+        to: '/findings',
+        search: {
+          selected: '10000000-0000-4000-8000-000000000050',
+          returnTo: origin,
+        },
+      }),
+    );
+    expect(client.getQueryState(findingsListKey)?.isInvalidated).toBe(true);
+  });
+
+  it('pins returnTo to the source VOC after the Triage queue advanced its selection', async () => {
+    // Opening the modal optimistically removes the source VOC and advances the
+    // queue, so the router location already points at the NEXT item by submit time.
+    const nextVocId = '10000000-0000-4000-8000-000000000099';
+    useLocation.mockReturnValue({
+      pathname: '/vocs',
+      href: `/vocs?view=triage&selected=${nextVocId}&tab=untriaged`,
+    });
+    renderModal(null);
+    submitValidForm();
+
+    await submittedBody();
+    await waitFor(() =>
+      expect(navigate).toHaveBeenCalledWith({
+        to: '/findings',
+        search: {
+          selected: '10000000-0000-4000-8000-000000000050',
+          returnTo: `/vocs?view=triage&selected=${IDS.voc}&tab=untriaged`,
+        },
+      }),
+    );
+  });
+
+  it('omits returnTo when the modal is not mounted on a VOC list URL', async () => {
+    useLocation.mockReturnValue({ pathname: '/', href: 'http://localhost/' });
+    renderModal(null);
+    submitValidForm();
+
+    await submittedBody();
+    await waitFor(() =>
+      expect(navigate).toHaveBeenCalledWith({
+        to: '/findings',
+        search: { selected: '10000000-0000-4000-8000-000000000050' },
+      }),
+    );
+  });
+
+  it('keeps pristine fields clear and shows Korean errors after empty submit', async () => {
+    renderModal(null);
+    await screen.findByTestId('create-finding-aa-picker');
+
+    const title = screen.getByLabelText(/제목/);
+    const summary = screen.getByLabelText(/요약/);
+    expect(title).toHaveFocus();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(title).not.toHaveAttribute('aria-invalid', 'true');
+    expect(summary).not.toHaveAttribute('aria-invalid', 'true');
+
+    fireEvent.blur(title);
+    expect(screen.queryByText('제목을 입력해 주세요.')).not.toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(title).not.toHaveAttribute('aria-invalid', 'true');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Finding 생성' }));
+
+    expect(await screen.findByText('제목을 입력해 주세요.')).toBeInTheDocument();
+    expect(screen.getByText('요약을 입력해 주세요.')).toBeInTheDocument();
+    expect(screen.getAllByRole('alert')).toHaveLength(2);
+    expect(title).toHaveValue('');
+    expect(summary).toHaveValue('');
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+  });
+
+  it('shows the touched field error on blur and preserves its value', async () => {
+    renderModal(null);
+    const title = screen.getByLabelText(/제목/);
+    const summary = screen.getByLabelText(/요약/);
+    fireEvent.change(title, { target: { value: '   ' } });
+    fireEvent.blur(title);
+
+    expect(await screen.findByText('제목을 입력해 주세요.')).toBeInTheDocument();
+    expect(screen.queryByText('요약을 입력해 주세요.')).not.toBeInTheDocument();
+    expect(title).toHaveValue('   ');
+    expect(summary).not.toHaveAttribute('aria-invalid', 'true');
+  });
+
+  it('shows only the title error after the user types, clears, and blurs it', async () => {
+    renderModal(null);
+    const title = screen.getByLabelText(/제목/);
+
+    fireEvent.blur(title);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    fireEvent.focus(title);
+    fireEvent.change(title, { target: { value: '임시 제목' } });
+    fireEvent.change(title, { target: { value: '' } });
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    fireEvent.blur(title);
+
+    expect(await screen.findByText('제목을 입력해 주세요.')).toBeInTheDocument();
+    expect(screen.queryByText('요약을 입력해 주세요.')).not.toBeInTheDocument();
+    expect(title).toHaveValue('');
+  });
+
+  it.each([
+    ['제목', 'title', '   ', '유효한 요약'],
+    ['요약', 'summary', '   ', '유효한 제목'],
+  ])(
+    'does not submit a whitespace-only %s and shows its validation error',
+    async (label, field, whitespace, validValue) => {
+      renderModal(null);
+      const input = screen.getByLabelText(new RegExp(label));
+      fireEvent.change(input, { target: { value: whitespace } });
+      fireEvent.change(screen.getByLabelText(new RegExp(field === 'title' ? '요약' : '제목')), {
+        target: { value: validValue },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Finding 생성' }));
+
+      await waitFor(() => expect(input).toHaveAttribute('aria-invalid', 'true'));
+      expect(screen.getByRole('alert')).toBeInTheDocument();
+      expect(globalThis.fetch).not.toHaveBeenCalled();
+    },
+  );
+
+  it('submits trimmed title and summary exactly once', async () => {
+    renderModal(null);
+    fireEvent.change(screen.getByLabelText(/제목/), { target: { value: '  유효한 제목  ' } });
+    fireEvent.change(screen.getByLabelText(/요약/), { target: { value: '  유효한 요약  ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Finding 생성' }));
+
+    expect(await submittedBody()).toMatchObject({ title: '유효한 제목', summary: '유효한 요약' });
+  });
+});

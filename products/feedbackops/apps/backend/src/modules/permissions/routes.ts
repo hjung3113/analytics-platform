@@ -1,0 +1,680 @@
+// Permission routes. Thin controllers per AGENTS.md:65-66 — every DB read of
+// permission_* tables happens inside permission services. The route's only
+// jobs are: parse + validate query params, look up the actor's role_level,
+// call the service, and shape the response envelope.
+
+import type { FastifyPluginAsync } from 'fastify';
+import { z } from 'zod';
+
+import {
+  type ApprovePermissionRequest,
+  type Capability,
+  type CreatePermissionRequest,
+  type DenyPermissionRequest,
+  type NeedMoreInfoPermissionRequest,
+  type RejectPermissionRequest,
+  type RevokePermissionBody,
+  approvePermissionRequestSchema,
+  cancelPermissionRequestSchema,
+  createPermissionRequestSchema,
+  denyPermissionRequestSchema,
+  directPermissionGrantSchema,
+  editPermissionRequestSchema,
+  isCapability,
+  needMoreInfoPermissionRequestSchema,
+  rejectPermissionRequestSchema,
+  revokePermissionBodySchema,
+  submitMoreInfoPermissionRequestSchema,
+} from '@fops/shared';
+import { HttpError, fieldsFromZodIssues, sendError } from '../../lib/errors.js';
+import { optionalIdempotencyKey } from '../../lib/http-headers.js';
+import { requireSession } from '../../middleware/require-session.js';
+import { requireWorkspace } from '../../middleware/require-workspace.js';
+import type { SessionService } from '../auth/session-service.js';
+import { applyAdminModuleBypass } from './check-service.js';
+import type { ActorContext, CheckService, Decision } from './check-service.js';
+import type { DecisionService } from './decision-service.js';
+import type { GrantAdminService } from './grant-admin-service.js';
+import type { RequestService } from './request-service.js';
+import type { SelectedReadService } from './selected-read-service.js';
+import { type FrontendState, toFrontendState } from './state-mapper.js';
+
+// Export the exact parser used by the approve route so its shared-contract
+// binding can be asserted without booting Fastify or opening a database.
+export const approvePermissionRequestBodySchema = approvePermissionRequestSchema;
+
+export interface PermissionsRoutesOptions {
+  sessionService: SessionService;
+  checkService: CheckService;
+  requestService: RequestService;
+  selectedReadService: SelectedReadService;
+  decisionService: DecisionService;
+  grantAdminService: GrantAdminService;
+  workspaceId: string;
+  rateLimitConfig?: {
+    mutation: Record<string, unknown>;
+    sensitive: Record<string, unknown>;
+  };
+}
+
+export const permissionsRoutes: FastifyPluginAsync<PermissionsRoutesOptions> = async (
+  app,
+  opts,
+) => {
+  const {
+    sessionService,
+    checkService,
+    requestService,
+    selectedReadService,
+    decisionService,
+    grantAdminService,
+    workspaceId,
+    rateLimitConfig,
+  } = opts;
+
+  // ── GET /me/permissions/check ───────────────────────────────────────────
+  // Query: capability=<cap>&managed_system_id=<uuid?>
+  // Returns: { state, decision }
+  //
+  // ADR-0015 mutation tier does not apply (GET). The global per-Actor limit
+  // already covers this surface.
+  app.route({
+    method: 'GET',
+    url: '/me/permissions/check',
+    preHandler: [requireSession(sessionService), requireWorkspace(workspaceId)],
+    schema: {
+      querystring: z.object({
+        capability: z.string().min(1),
+        managed_system_id: z.string().uuid().optional(),
+      }),
+    },
+    handler: async (req, reply) => {
+      const sess = req.session;
+      if (!sess) throw new HttpError('internal.unexpected', 'session missing after middleware');
+
+      const q = req.query as { capability: string; managed_system_id?: string };
+      if (!isCapability(q.capability)) {
+        return sendError(reply, 'validation.unknown_capability', 'unknown capability', {
+          capability: q.capability,
+        });
+      }
+      const capability: Capability = q.capability;
+
+      const actor: ActorContext = {
+        actor_id: sess.actor_id,
+        workspace_id: sess.workspace_id,
+        role_level: sess.role_level,
+      };
+
+      // The generic check answers for `roleSatisfies` only. Domain modules that
+      // layer their own admin bypass (Finding, Task Request, Survey) would let
+      // this actor through, so mirror that rule here — otherwise the frontend
+      // gate hides an action the enforcing route allows (issue #372).
+      const decision: Decision = applyAdminModuleBypass(
+        sess.role_level,
+        capability,
+        await checkService.checkCapability(actor, capability, {
+          workspace_id: sess.workspace_id,
+          ...(q.managed_system_id !== undefined ? { managed_system_id: q.managed_system_id } : {}),
+        }),
+      );
+
+      // Look up the actor's currently-open request (pending|needs_more_info)
+      // for this capability AND the same managed-system scope so the state
+      // mapper picks `pending_request` only for the matching scope tuple.
+      // Matches the scope predicate of the partial unique index
+      // `permission_requests_active_uq` (workspace, requester, capability,
+      // COALESCE(managed_system_id, sentinel)). A null query MS hits null
+      // rows; a concrete MS UUID hits exactly its own rows.
+      const openRequestSummary = await requestService.findOpenRequestSummary(actor, capability, {
+        workspace_id: sess.workspace_id,
+        ...(q.managed_system_id !== undefined ? { managed_system_id: q.managed_system_id } : {}),
+      });
+
+      const state: FrontendState = toFrontendState(decision, openRequestSummary);
+      return { state, decision };
+    },
+  });
+
+  // ── POST /permission-requests ───────────────────────────────────────────
+  // Slice 1 #5 — the first audited mutation. Idempotency-Key honored
+  // (ADR-0015), audit row committed in the same transaction (ADR-0008).
+  app.route({
+    method: 'GET',
+    url: '/me/permissions/scope',
+    preHandler: [requireSession(sessionService), requireWorkspace(workspaceId)],
+    schema: { querystring: z.object({ capability: z.string().min(1) }) },
+    handler: async (req, reply) => {
+      const sess = req.session;
+      if (!sess) throw new HttpError('internal.unexpected', 'session missing after middleware');
+      const q = req.query as { capability: string };
+      if (!isCapability(q.capability)) {
+        return sendError(reply, 'validation.unknown_capability', 'unknown capability', {
+          capability: q.capability,
+        });
+      }
+      const scope = await checkService.capabilityScope(
+        {
+          actor_id: sess.actor_id,
+          workspace_id: sess.workspace_id,
+          role_level: sess.role_level,
+        },
+        q.capability,
+        { workspace_id: sess.workspace_id },
+      );
+      return { scope };
+    },
+  });
+
+  app.route({
+    method: 'POST',
+    url: '/permission-requests',
+    preHandler: [requireSession(sessionService), requireWorkspace(workspaceId)],
+    ...(rateLimitConfig ? { config: { rateLimit: rateLimitConfig.mutation as never } } : {}),
+    schema: {
+      body: createPermissionRequestSchema,
+    },
+    handler: async (req, reply) => {
+      const sess = req.session;
+      if (!sess) throw new HttpError('internal.unexpected', 'session missing after middleware');
+
+      const idempotencyKey = optionalIdempotencyKey(req.headers as Record<string, unknown>);
+
+      const body = req.body as CreatePermissionRequest;
+
+      // Unknown capability check happens inside the service (returns 422), but
+      // we can short-circuit here for a cleaner envelope.
+      if (!isCapability(body.requested_capability)) {
+        return sendError(reply, 'validation.unknown_capability', 'unknown capability', {
+          capability: body.requested_capability,
+        });
+      }
+
+      const actor: ActorContext = {
+        actor_id: sess.actor_id,
+        workspace_id: sess.workspace_id,
+        role_level: sess.role_level,
+      };
+
+      const result = await requestService.createRequest(
+        actor,
+        body,
+        idempotencyKey !== undefined ? { idempotencyKey } : {},
+      );
+
+      return reply.code(result.status).send(result.body);
+    },
+  });
+
+  app.route({
+    method: 'POST',
+    url: '/permission-requests/:id/submit-more-info',
+    preHandler: [requireSession(sessionService), requireWorkspace(workspaceId)],
+    ...(rateLimitConfig ? { config: { rateLimit: rateLimitConfig.mutation as never } } : {}),
+    handler: async (req, reply) => {
+      const sess = req.session;
+      if (!sess) throw new HttpError('internal.unexpected', 'session missing after middleware');
+
+      const idempotencyKey = optionalIdempotencyKey(req.headers as Record<string, unknown>);
+
+      const parsedParams = z.object({ id: z.string().uuid() }).safeParse(req.params);
+      if (!parsedParams.success) {
+        return sendError(reply, 'validation.failed', 'invalid permission request id', {
+          fields: fieldsFromZodIssues(parsedParams.error.issues),
+        });
+      }
+
+      const parsedBody = submitMoreInfoPermissionRequestSchema.safeParse(
+        req.body === undefined ? {} : req.body,
+      );
+      if (!parsedBody.success) {
+        return sendError(reply, 'validation.failed', 'invalid request body', {
+          fields: fieldsFromZodIssues(parsedBody.error.issues),
+        });
+      }
+
+      const actor: ActorContext = {
+        actor_id: sess.actor_id,
+        workspace_id: sess.workspace_id,
+        role_level: sess.role_level,
+      };
+      const result = await requestService.submitMoreInfoRequest(
+        actor,
+        parsedParams.data.id,
+        parsedBody.data,
+        idempotencyKey ? { idempotencyKey } : {},
+      );
+      return reply.code(result.status).send(result.body);
+    },
+  });
+
+  app.route({
+    method: 'PATCH',
+    url: '/permission-requests/:id',
+    preHandler: [requireSession(sessionService), requireWorkspace(workspaceId)],
+    ...(rateLimitConfig ? { config: { rateLimit: rateLimitConfig.mutation as never } } : {}),
+    handler: async (req, reply) => {
+      const sess = req.session;
+      if (!sess) throw new HttpError('internal.unexpected', 'session missing after middleware');
+
+      const idempotencyKey = optionalIdempotencyKey(req.headers as Record<string, unknown>);
+
+      const parsedParams = z.object({ id: z.string().uuid() }).safeParse(req.params);
+      if (!parsedParams.success) {
+        return sendError(reply, 'validation.failed', 'invalid permission request id', {
+          fields: fieldsFromZodIssues(parsedParams.error.issues),
+        });
+      }
+
+      const parsedBody = editPermissionRequestSchema.safeParse(
+        req.body === undefined ? {} : req.body,
+      );
+      if (!parsedBody.success) {
+        return sendError(reply, 'validation.failed', 'invalid request body', {
+          fields: fieldsFromZodIssues(parsedBody.error.issues),
+        });
+      }
+
+      const actor: ActorContext = {
+        actor_id: sess.actor_id,
+        workspace_id: sess.workspace_id,
+        role_level: sess.role_level,
+      };
+      const result = await requestService.editRequest(
+        actor,
+        parsedParams.data.id,
+        parsedBody.data,
+        idempotencyKey ? { idempotencyKey } : {},
+      );
+      return reply.code(result.status).send(result.body);
+    },
+  });
+
+  app.route({
+    method: 'POST',
+    url: '/permission-requests/:id/cancel',
+    preHandler: [requireSession(sessionService), requireWorkspace(workspaceId)],
+    ...(rateLimitConfig ? { config: { rateLimit: rateLimitConfig.mutation as never } } : {}),
+    handler: async (req, reply) => {
+      const sess = req.session;
+      if (!sess) throw new HttpError('internal.unexpected', 'session missing after middleware');
+
+      const idempotencyKey = optionalIdempotencyKey(req.headers as Record<string, unknown>);
+
+      const parsedParams = z.object({ id: z.string().uuid() }).safeParse(req.params);
+      if (!parsedParams.success) {
+        return sendError(reply, 'validation.failed', 'invalid permission request id', {
+          fields: fieldsFromZodIssues(parsedParams.error.issues),
+        });
+      }
+
+      const parsedBody = cancelPermissionRequestSchema.safeParse(
+        req.body === undefined ? {} : req.body,
+      );
+      if (!parsedBody.success) {
+        return sendError(reply, 'validation.failed', 'invalid request body', {
+          fields: fieldsFromZodIssues(parsedBody.error.issues),
+        });
+      }
+
+      const actor: ActorContext = {
+        actor_id: sess.actor_id,
+        workspace_id: sess.workspace_id,
+        role_level: sess.role_level,
+      };
+      const result = await requestService.cancelRequest(
+        actor,
+        parsedParams.data.id,
+        parsedBody.data,
+        idempotencyKey ? { idempotencyKey } : {},
+      );
+      return reply.code(result.status).send(result.body);
+    },
+  });
+
+  for (const route of [
+    { url: '/permission-requests/:id', read: selectedReadService.ownerDetail },
+    { url: '/permissions/requests/:id', read: selectedReadService.adminDetail },
+  ]) {
+    app.route({
+      method: 'GET',
+      url: route.url,
+      preHandler: [requireSession(sessionService), requireWorkspace(workspaceId)],
+      schema: { params: z.object({ id: z.string().uuid() }) },
+      handler: async (req) => {
+        const sess = req.session;
+        if (!sess) throw new HttpError('internal.unexpected', 'session missing after middleware');
+        return route.read(
+          {
+            actor_id: sess.actor_id,
+            workspace_id: sess.workspace_id,
+            role_level: sess.role_level,
+          },
+          (req.params as { id: string }).id,
+        );
+      },
+    });
+  }
+
+  // ── GET /permission-requests/mine ───────────────────────────────────────
+  // Returns the caller's open (pending|needs_more_info) permission requests.
+  app.route({
+    method: 'GET',
+    url: '/permission-requests/mine',
+    preHandler: [requireSession(sessionService), requireWorkspace(workspaceId)],
+    handler: async (req) => {
+      const sess = req.session;
+      if (!sess) throw new HttpError('internal.unexpected', 'session missing after middleware');
+
+      const actor: ActorContext = {
+        actor_id: sess.actor_id,
+        workspace_id: sess.workspace_id,
+        role_level: sess.role_level,
+      };
+
+      const requests = await requestService.listMine(actor);
+      return { requests };
+    },
+  });
+
+  // ── GET /permission-requests ────────────────────────────────────────────
+  // Admin-only workspace-wide list of open (pending|needs_more_info) requests
+  // plus a count (issue #87). The service enforces the workspace.admin gate;
+  // non-admins get permission.denied → 403 via the error mapper.
+  app.route({
+    method: 'GET',
+    url: '/permission-requests',
+    preHandler: [requireSession(sessionService), requireWorkspace(workspaceId)],
+    handler: async (req, reply) => {
+      const sess = req.session;
+      if (!sess) throw new HttpError('internal.unexpected', 'session missing after middleware');
+
+      const actor: ActorContext = {
+        actor_id: sess.actor_id,
+        workspace_id: sess.workspace_id,
+        role_level: sess.role_level,
+      };
+
+      const parsed = z
+        .object({
+          status: z
+            .enum([
+              'pending',
+              'needs_more_info',
+              'approved',
+              'rejected',
+              'cancelled',
+              'expired',
+              'revoked',
+              'all',
+            ])
+            .optional(),
+        })
+        .safeParse(req.query);
+      if (!parsed.success) {
+        return sendError(reply, 'validation.failed', 'invalid query parameters', {
+          fields: fieldsFromZodIssues(parsed.error.issues),
+        });
+      }
+      return await requestService.listAllActive(actor, parsed.data.status);
+    },
+  });
+
+  // Canonical review-console route. Keep the older singular endpoint above
+  // for clients shipped before the console; both retain the same default
+  // open-request behavior when `status` is omitted.
+  app.route({
+    method: 'GET',
+    url: '/permissions/requests',
+    preHandler: [requireSession(sessionService), requireWorkspace(workspaceId)],
+    handler: async (req, reply) => {
+      const sess = req.session;
+      if (!sess) throw new HttpError('internal.unexpected', 'session missing after middleware');
+      const parsed = z
+        .object({
+          status: z
+            .enum([
+              'pending',
+              'needs_more_info',
+              'approved',
+              'rejected',
+              'cancelled',
+              'expired',
+              'revoked',
+              'all',
+            ])
+            .optional(),
+        })
+        .safeParse(req.query);
+      if (!parsed.success) {
+        return sendError(reply, 'validation.failed', 'invalid query parameters', {
+          fields: fieldsFromZodIssues(parsed.error.issues),
+        });
+      }
+      return await requestService.listAllActive(
+        {
+          actor_id: sess.actor_id,
+          workspace_id: sess.workspace_id,
+          role_level: sess.role_level,
+        },
+        parsed.data.status,
+      );
+    },
+  });
+
+  app.route({
+    method: 'GET',
+    url: '/permissions/grant-options',
+    preHandler: [requireSession(sessionService), requireWorkspace(workspaceId)],
+    handler: async (req, reply) => {
+      const sess = req.session;
+      if (!sess) throw new HttpError('internal.unexpected', 'session missing after middleware');
+      const actor: ActorContext = {
+        actor_id: sess.actor_id,
+        workspace_id: sess.workspace_id,
+        role_level: sess.role_level,
+      };
+      const decision = await checkService.checkCapability(actor, 'workspace.admin', {
+        workspace_id: actor.workspace_id,
+      });
+      if (!decision.allow) throw new HttpError('permission.denied', 'workspace.admin required');
+      const query = z.object({ actor_id: z.string().uuid() }).strict().safeParse(req.query);
+      if (!query.success)
+        return sendError(reply, 'validation.failed', 'invalid recipient', {
+          fields: fieldsFromZodIssues(query.error.issues),
+        });
+      return grantAdminService.grantOptions(actor, query.data.actor_id);
+    },
+  });
+
+  app.route({
+    method: 'POST',
+    url: '/permissions/grants',
+    preHandler: [requireSession(sessionService), requireWorkspace(workspaceId)],
+    ...(rateLimitConfig ? { config: { rateLimit: rateLimitConfig.sensitive as never } } : {}),
+    handler: async (req, reply) => {
+      const sess = req.session;
+      if (!sess) throw new HttpError('internal.unexpected', 'session missing after middleware');
+      const idempotencyKey = optionalIdempotencyKey(req.headers as Record<string, unknown>);
+      const parsed = directPermissionGrantSchema.safeParse(req.body ?? {});
+      if (!parsed.success)
+        return sendError(reply, 'validation.failed', 'invalid direct grant', {
+          fields: fieldsFromZodIssues(parsed.error.issues),
+        });
+      const result = await grantAdminService.grant(
+        { actor_id: sess.actor_id, workspace_id: sess.workspace_id, role_level: sess.role_level },
+        parsed.data,
+        idempotencyKey ? { idempotencyKey } : {},
+      );
+      return reply.code(result.status).send(result.body);
+    },
+  });
+  const activePermissionListRoutes = [
+    {
+      url: '/permissions/grants',
+      list: (actor: ActorContext) => grantAdminService.listGrants(actor),
+    },
+    {
+      url: '/permissions/denies',
+      list: (actor: ActorContext) => grantAdminService.listDenies(actor),
+    },
+  ];
+
+  for (const route of activePermissionListRoutes) {
+    app.route({
+      method: 'GET',
+      url: route.url,
+      preHandler: [requireSession(sessionService), requireWorkspace(workspaceId)],
+      handler: async (req) => {
+        const sess = req.session;
+        if (!sess) throw new HttpError('internal.unexpected', 'session missing after middleware');
+        return route.list({
+          actor_id: sess.actor_id,
+          workspace_id: sess.workspace_id,
+          role_level: sess.role_level,
+        });
+      },
+    });
+  }
+
+  const revocationRoutes: Array<{
+    url: string;
+    invoke: (
+      actor: ActorContext,
+      id: string,
+      body: RevokePermissionBody,
+      idempotencyKey?: string,
+    ) => Promise<{ status: number; body: unknown }>;
+  }> = [
+    {
+      url: '/permissions/grants/:id/revoke',
+      invoke: (actor, id, body, idempotencyKey) =>
+        grantAdminService.revokeGrant(actor, id, body, { idempotencyKey }),
+    },
+    {
+      url: '/permissions/denies/:id/revoke',
+      invoke: (actor, id, body, idempotencyKey) =>
+        grantAdminService.revokeDeny(actor, id, body, { idempotencyKey }),
+    },
+  ];
+
+  for (const route of revocationRoutes) {
+    app.route({
+      method: 'POST',
+      url: route.url,
+      preHandler: [requireSession(sessionService), requireWorkspace(workspaceId)],
+      ...(rateLimitConfig ? { config: { rateLimit: rateLimitConfig.sensitive as never } } : {}),
+      handler: async (req, reply) => {
+        const sess = req.session;
+        if (!sess) throw new HttpError('internal.unexpected', 'session missing after middleware');
+        const idempotencyKey = optionalIdempotencyKey(req.headers as Record<string, unknown>);
+        const parsedParams = z.object({ id: z.string().uuid() }).safeParse(req.params);
+        if (!parsedParams.success) {
+          return sendError(reply, 'validation.failed', 'invalid permission id', {
+            fields: fieldsFromZodIssues(parsedParams.error.issues),
+          });
+        }
+        const parsed = revokePermissionBodySchema.safeParse(req.body ?? {});
+        if (!parsed.success) {
+          return sendError(reply, 'validation.failed', 'invalid request body', {
+            fields: fieldsFromZodIssues(parsed.error.issues),
+          });
+        }
+        const actor: ActorContext = {
+          actor_id: sess.actor_id,
+          workspace_id: sess.workspace_id,
+          role_level: sess.role_level,
+        };
+        const result = await route.invoke(
+          actor,
+          parsedParams.data.id,
+          parsed.data,
+          idempotencyKey || undefined,
+        );
+        return reply.code(result.status).send(result.body);
+      },
+    });
+  }
+
+  const decisionRoutes: Array<{
+    suffix: string;
+    schema: z.ZodType;
+    invoke: (
+      actor: ActorContext,
+      id: string,
+      body: unknown,
+      idempotencyKey?: string,
+    ) => Promise<{ status: number; body: unknown }>;
+  }> = [
+    {
+      suffix: 'approve',
+      schema: approvePermissionRequestBodySchema,
+      invoke: (actor, id, body, idempotencyKey) =>
+        decisionService.approveRequest(actor, id, body as ApprovePermissionRequest, {
+          idempotencyKey,
+        }),
+    },
+    {
+      suffix: 'reject',
+      schema: rejectPermissionRequestSchema,
+      invoke: (actor, id, body, idempotencyKey) =>
+        decisionService.rejectRequest(actor, id, body as RejectPermissionRequest, {
+          idempotencyKey,
+        }),
+    },
+    {
+      suffix: 'need-more-info',
+      schema: needMoreInfoPermissionRequestSchema,
+      invoke: (actor, id, body, idempotencyKey) =>
+        decisionService.needMoreInfoRequest(actor, id, body as NeedMoreInfoPermissionRequest, {
+          idempotencyKey,
+        }),
+    },
+    {
+      suffix: 'deny',
+      schema: denyPermissionRequestSchema,
+      invoke: (actor, id, body, idempotencyKey) =>
+        decisionService.denyRequest(actor, id, body as DenyPermissionRequest, {
+          idempotencyKey,
+        }),
+    },
+  ];
+
+  for (const route of decisionRoutes) {
+    app.route({
+      method: 'POST',
+      url: `/permissions/requests/:id/${route.suffix}`,
+      preHandler: [requireSession(sessionService), requireWorkspace(workspaceId)],
+      ...(rateLimitConfig ? { config: { rateLimit: rateLimitConfig.sensitive as never } } : {}),
+      handler: async (req, reply) => {
+        const sess = req.session;
+        if (!sess) throw new HttpError('internal.unexpected', 'session missing after middleware');
+        const idempotencyKey = optionalIdempotencyKey(req.headers as Record<string, unknown>);
+        const parsed = route.schema.safeParse(req.body ?? {});
+        if (!parsed.success) {
+          return sendError(reply, 'validation.failed', 'invalid request body', {
+            fields: fieldsFromZodIssues(parsed.error.issues),
+          });
+        }
+        const actor: ActorContext = {
+          actor_id: sess.actor_id,
+          workspace_id: sess.workspace_id,
+          role_level: sess.role_level,
+        };
+        const parsedParams = z.object({ id: z.string().uuid() }).safeParse(req.params);
+        if (!parsedParams.success) {
+          return sendError(reply, 'validation.failed', 'invalid permission request id', {
+            fields: fieldsFromZodIssues(parsedParams.error.issues),
+          });
+        }
+        const result = await route.invoke(
+          actor,
+          parsedParams.data.id,
+          parsed.data,
+          idempotencyKey || undefined,
+        );
+        return reply.code(result.status).send(result.body);
+      },
+    });
+  }
+};

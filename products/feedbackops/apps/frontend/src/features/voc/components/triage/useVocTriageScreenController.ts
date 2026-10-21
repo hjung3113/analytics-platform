@@ -1,0 +1,153 @@
+import type { FindingSeverity, VocListItem } from '@fops/shared';
+import { useEffect, useRef, useState } from 'react';
+import { type TriageQueueOutcome, useTriageQueue } from '../../hooks/useTriageQueue';
+import type { TriageInput } from '../../lib/triage-types';
+
+export interface VocTriageScreenControllerArgs {
+  items: VocListItem[];
+  selectedId: string | null;
+  queueContext: string;
+  queueSettled: boolean;
+  activeTab: string;
+  onAdvanceVoc: (id: string | null) => void;
+}
+
+export interface VocTriageScreenController {
+  liveQueue: VocListItem[];
+  selectedVoc: VocListItem | null;
+  serverReviewPostponedAt: string | null;
+  deepLinkTargetMissing: boolean;
+  createFindingTarget: {
+    vocId: string;
+    managedSystemId: string;
+    analyticsAreaId: string | null;
+    defaultTitle: string;
+    defaultSeverity: FindingSeverity;
+  } | null;
+  handleAct: (
+    kind: 'confirm' | 'finding' | 'skip',
+    context?: {
+      vocId: string;
+      managedSystemId: string;
+      analyticsAreaId: string | null;
+      title: string;
+      severity: FindingSeverity;
+    },
+  ) => void;
+  handleOptimisticRemove: (vocId: string, input?: TriageInput) => void;
+  handleOptimisticPostpone: (vocId: string, input?: TriageInput) => void;
+  handleOptimisticRestore: (vocId: string, input?: TriageInput) => void;
+  handleQueueOutcome: (input: TriageInput, outcome: TriageQueueOutcome) => void;
+  handleOptimisticRollback: (vocId: string, input?: TriageInput) => void;
+  closeCreateFinding: () => void;
+}
+
+export function useVocTriageScreenController({
+  items,
+  selectedId,
+  queueContext,
+  queueSettled,
+  activeTab,
+  onAdvanceVoc,
+}: VocTriageScreenControllerArgs): VocTriageScreenController {
+  const { liveQueue, optimisticRemove, optimisticRestore, optimisticPostpone, commandEnded } =
+    useTriageQueue(items, queueContext, queueSettled);
+  const [createFindingTarget, setCreateFindingTarget] = useState<{
+    vocId: string;
+    managedSystemId: string;
+    analyticsAreaId: string | null;
+    defaultTitle: string;
+    defaultSeverity: FindingSeverity;
+  } | null>(null);
+
+  // Keep session history in a ref because a refetch removes the item from both
+  // `items` and the live queue before selection can determine whether it was
+  // previously present.
+  const everInQueueRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    for (const voc of items) everInQueueRef.current.add(voc.id);
+  }, [items]);
+
+  const removedSelectionRef = useRef<{ vocId: string; nextId: string | null } | null>(null);
+  const selectedInQueue = liveQueue.find((voc) => voc.id === selectedId) ?? null;
+  // Preserve the distinction between a previously queued selection, which may
+  // auto-advance after removal, and a missing deep link, which must not fall
+  // back to a different VOC.
+  const deepLinkTargetMissing =
+    selectedId !== null &&
+    selectedInQueue === null &&
+    !items.some((voc) => voc.id === selectedId) &&
+    !everInQueueRef.current.has(selectedId);
+  const actionFallback =
+    removedSelectionRef.current?.vocId === selectedId
+      ? (liveQueue.find((voc) => voc.id === removedSelectionRef.current?.nextId) ?? null)
+      : (liveQueue[0] ?? null);
+  const selectedVoc = deepLinkTargetMissing ? null : (selectedInQueue ?? actionFallback);
+
+  function handleAct(
+    kind: 'confirm' | 'finding' | 'skip',
+    context?: {
+      vocId: string;
+      managedSystemId: string;
+      analyticsAreaId: string | null;
+      title: string;
+      severity: FindingSeverity;
+    },
+  ): void {
+    if (kind === 'finding' && context) {
+      setCreateFindingTarget({
+        vocId: context.vocId,
+        managedSystemId: context.managedSystemId,
+        analyticsAreaId: context.analyticsAreaId,
+        defaultTitle: context.title,
+        defaultSeverity: context.severity,
+      });
+    }
+  }
+
+  function advance(vocId: string, removing: boolean): void {
+    const index = liveQueue.findIndex((voc) => voc.id === vocId);
+    const next = liveQueue[index + 1] ?? liveQueue.find((voc) => voc.id !== vocId);
+    if (removing) removedSelectionRef.current = { vocId, nextId: next?.id ?? null };
+    // A singleton mark keeps its row and selection; removal clears the pin.
+    if (next || removing) onAdvanceVoc(next?.id ?? null);
+  }
+
+  function handleOptimisticRemove(vocId: string, input?: TriageInput): void {
+    const item = items.find((voc) => voc.id === vocId);
+    if (!item) return;
+    advance(vocId, true);
+    optimisticRemove(vocId, input);
+  }
+
+  function handleOptimisticPostpone(vocId: string, input?: TriageInput): void {
+    if (activeTab === 'untriaged') {
+      handleOptimisticRemove(vocId, input);
+      return;
+    }
+    optimisticPostpone(vocId, input);
+    advance(vocId, false);
+  }
+
+  return {
+    liveQueue,
+    selectedVoc,
+    serverReviewPostponedAt:
+      items.find((voc) => voc.id === selectedVoc?.id)?.review_postponed_at ?? null,
+    deepLinkTargetMissing,
+    createFindingTarget,
+    handleAct,
+    handleOptimisticRemove,
+    handleOptimisticPostpone,
+    handleQueueOutcome: (input, outcome) => commandEnded(input, outcome),
+    handleOptimisticRollback: (vocId, input) => optimisticRestore(vocId, 'rollback', input),
+    // Undo does not reselect or refocus the restored VOC (owner, 2026-10-10: cost > gain).
+    // Restore closes the Finding creation dialog only when it targets this VOC (#1030).
+    // To reinstate, see #957 (reselection) and #964 (focus correction after sonner's focus return).
+    handleOptimisticRestore: (vocId, input) => {
+      setCreateFindingTarget((current) => (current?.vocId === vocId ? null : current));
+      optimisticRestore(vocId, undefined, input);
+    },
+    closeCreateFinding: () => setCreateFindingTarget(null),
+  };
+}

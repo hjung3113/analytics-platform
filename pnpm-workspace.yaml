@@ -1,5 +1,5 @@
 # docs/integration/platform-packages.md §3.
-# The FeedbackOps submodule (products/feedbackops) keeps its own workspace; no FeedbackOps package joins this one (ADR-0046, #441).
+# products/feedbackops (a plain directory since #592) keeps its own nested workspace; no FeedbackOps package joins this one (ADR-0046, #441).
 # prototypes/* are standalone npm units.
 packages:
   - apps/*

@@ -1,0 +1,539 @@
+import {
+  createFindingFromSurveyResponseRequestSchema,
+  listSurveysQuerySchema,
+  outcomeFollowUpDecisionRequestSchema,
+  recoveryPresentationPatchSchema,
+  surveyEvidenceCandidatesQuerySchema,
+  surveyQuestionKindSchema,
+  surveyResponseSubmissionSchema,
+  surveyStartingPointSchema,
+  surveyTypeSchema,
+} from '@fops/shared';
+import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
+import { z } from 'zod';
+import { fieldsFromZodIssues, sendError } from '../../lib/errors.js';
+import { requireIdempotencyKey } from '../../lib/http-headers.js';
+import { requireSession } from '../../middleware/require-session.js';
+import { requireWorkspace } from '../../middleware/require-workspace.js';
+import type { SessionService } from '../auth/session-service.js';
+import { hashRequestBody } from '../core/idempotency/canonicalize.js';
+import type { FindingsService } from '../findings/service.js';
+import type { SurveysService } from './service.js';
+const uuid = z.string().uuid();
+const options = z
+  .array(z.object({ key: z.string().min(1), label: z.string().min(1) }).strict())
+  .min(2)
+  .max(50);
+const create = z
+  .object({
+    type: surveyTypeSchema,
+    title: z.string().min(1),
+    description: z.string().optional(),
+    primary_managed_system_id: uuid,
+    analytics_area_id: uuid.optional(),
+    operator_actor_id: uuid.optional(),
+    responses_identity_protected: z.boolean(),
+    starting_point: surveyStartingPointSchema.optional(),
+  })
+  .strict();
+const update = z
+  .object({
+    type: surveyTypeSchema.optional(),
+    title: z.string().min(1).optional(),
+    description: z.string().optional(),
+    primary_managed_system_id: uuid.optional(),
+    analytics_area_id: uuid.optional(),
+    operator_actor_id: uuid.optional(),
+    responses_identity_protected: z.boolean().optional(),
+  })
+  .strict()
+  .refine((value) => Object.keys(value).length > 0, { message: 'at least one field is required' });
+const reorder = z.object({ question_ids: z.array(uuid) }).strict();
+const question = z
+  .object({
+    kind: surveyQuestionKindSchema,
+    prompt: z.string().min(1),
+    is_required: z.boolean().optional(),
+    options: options.optional(),
+    rating_min: z.number().int().optional(),
+    rating_max: z.number().int().optional(),
+    rating_low_label: z.string().nullable().optional(),
+    rating_high_label: z.string().nullable().optional(),
+    sort_order: z.number().int().nonnegative().optional(),
+    branch_parent_question_id: uuid.nullable().optional(),
+    branch_trigger_option_key: z.string().min(1).nullable().optional(),
+  })
+  .strict();
+const emptyQuery = z.object({}).strict();
+const mySurveyResponsesQuery = z
+  .object({
+    limit: z.coerce.number().int().min(1).max(100).default(50),
+    cursor: z.string().optional(),
+  })
+  .strict();
+const myAnswerableSurveysQuery = z
+  .object({
+    limit: z.coerce.number().int().min(1).max(100).default(50),
+    cursor: z.string().optional(),
+  })
+  .strict();
+const evidenceCandidate = z.object({ question_id: uuid }).strict();
+const approvedExcerpt = z
+  .object({ question_id: uuid, redacted_excerpt: z.string().min(1) })
+  .strict();
+export interface SurveysRoutesOptions {
+  sessionService: SessionService;
+  surveysService: SurveysService;
+  findingsService: FindingsService;
+  workspaceId: string;
+  rateLimitConfig?: { mutation?: Record<string, unknown>; read?: Record<string, unknown> };
+}
+function actor(req: FastifyRequest) {
+  if (!req.session) throw new Error('session missing');
+  return {
+    actor_id: req.session.actor_id,
+    workspace_id: req.session.workspace_id,
+    role_level: req.session.role_level,
+  } as const;
+}
+function validId(id: string): boolean {
+  return uuid.safeParse(id).success;
+}
+export const surveysRoutes: FastifyPluginAsync<SurveysRoutesOptions> = async (app, opts) => {
+  const pre = [requireSession(opts.sessionService), requireWorkspace(opts.workspaceId)];
+  const rate = (kind: 'read' | 'mutation') =>
+    opts.rateLimitConfig?.[kind]
+      ? { config: { rateLimit: opts.rateLimitConfig[kind] as never } }
+      : {};
+  const parse = <T extends z.ZodTypeAny>(schema: T, body: unknown, reply: FastifyReply) => {
+    const x = schema.safeParse(body ?? {});
+    if (!x.success) {
+      sendError(reply, 'validation.failed', 'invalid request body', {
+        fields: fieldsFromZodIssues(x.error.issues),
+      });
+      return null;
+    }
+    return x.data;
+  };
+  app.get('/me/survey-responses', { preHandler: pre, ...rate('read') }, async (req, reply) => {
+    const query = mySurveyResponsesQuery.safeParse(req.query);
+    if (!query.success)
+      return sendError(reply, 'validation.failed', 'invalid query parameters', {
+        fields: fieldsFromZodIssues(query.error.issues),
+      });
+    return reply.header('cache-control', 'private, no-cache').send(
+      await opts.surveysService.getMySurveyResponses(actor(req), {
+        limit: query.data.limit,
+        ...(query.data.cursor === undefined ? {} : { cursor: query.data.cursor }),
+      }),
+    );
+  });
+  app.get('/me/answerable-surveys', { preHandler: pre, ...rate('read') }, async (req, reply) => {
+    const query = myAnswerableSurveysQuery.safeParse(req.query);
+    if (!query.success)
+      return sendError(reply, 'validation.failed', 'invalid query parameters', {
+        fields: fieldsFromZodIssues(query.error.issues),
+      });
+    return reply.header('cache-control', 'private, no-cache').send(
+      await opts.surveysService.getMyAnswerableSurveys(actor(req), {
+        limit: query.data.limit,
+        ...(query.data.cursor === undefined ? {} : { cursor: query.data.cursor }),
+      }),
+    );
+  });
+  app.get('/surveys', { preHandler: pre, ...rate('read') }, async (req, reply) => {
+    const q = listSurveysQuerySchema.safeParse(req.query);
+    if (!q.success)
+      return sendError(reply, 'validation.failed', 'invalid query parameters', {
+        fields: fieldsFromZodIssues(q.error.issues),
+      });
+    return reply.send(
+      await opts.surveysService.listSurvey(
+        actor(req),
+        q.data.managed_system_id === 'all' ? undefined : q.data.managed_system_id,
+        q.data,
+      ),
+    );
+  });
+  app.get('/surveys/templates', { preHandler: pre, ...rate('read') }, async (req, reply) => {
+    const query = z.object({ managed_system_id: uuid }).strict().safeParse(req.query);
+    if (!query.success)
+      return sendError(reply, 'validation.failed', 'invalid query parameters', {
+        fields: fieldsFromZodIssues(query.error.issues),
+      });
+    return reply
+      .header('cache-control', 'private, no-cache')
+      .send(await opts.surveysService.getSurveyTemplates(actor(req), query.data.managed_system_id));
+  });
+  app.get('/surveys/copy-sources', { preHandler: pre, ...rate('read') }, async (req, reply) => {
+    const query = z
+      .object({
+        managed_system_id: uuid,
+        q: z.string().trim().max(200).optional(),
+        limit: z.coerce.number().int().min(1).max(50).default(20),
+        cursor: z.string().min(1).max(1024).optional(),
+      })
+      .strict()
+      .safeParse(req.query);
+    if (!query.success)
+      return sendError(reply, 'validation.failed', 'invalid query parameters', {
+        fields: fieldsFromZodIssues(query.error.issues),
+      });
+    return reply.header('cache-control', 'private, no-cache').send(
+      await opts.surveysService.getSurveyCopySources(actor(req), {
+        managed_system_id: query.data.managed_system_id,
+        limit: query.data.limit,
+        ...(query.data.q !== undefined ? { q: query.data.q } : {}),
+        ...(query.data.cursor !== undefined ? { cursor: query.data.cursor } : {}),
+      }),
+    );
+  });
+  app.get('/surveys/:id/copy-source', { preHandler: pre, ...rate('read') }, async (req, reply) => {
+    const id = (req.params as { id: string }).id;
+    if (!validId(id)) return sendError(reply, 'validation.failed', 'id must be a valid UUID');
+    const query = z.object({}).strict().safeParse(req.query);
+    if (!query.success)
+      return sendError(reply, 'validation.failed', 'invalid query parameters', {
+        fields: fieldsFromZodIssues(query.error.issues),
+      });
+    return reply
+      .header('cache-control', 'private, no-cache')
+      .send(await opts.surveysService.getSurveyCopySource(actor(req), id));
+  });
+  app.get('/surveys/:id', { preHandler: pre, ...rate('read') }, async (req, reply) => {
+    const id = (req.params as { id: string }).id;
+    if (!validId(id)) return sendError(reply, 'validation.failed', 'id must be a valid UUID');
+    return reply.send(await opts.surveysService.getSurvey(actor(req), id));
+  });
+  app.get('/surveys/:id/form', { preHandler: pre, ...rate('read') }, async (req, reply) => {
+    const id = (req.params as { id: string }).id;
+    if (!validId(id)) return sendError(reply, 'validation.failed', 'id must be a valid UUID');
+    return reply.send(await opts.surveysService.getRespondentForm(actor(req), id));
+  });
+  app.get(
+    '/surveys/:id/evidence-candidates',
+    { preHandler: pre, ...rate('read') },
+    async (req, reply) => {
+      const id = (req.params as { id: string }).id;
+      if (!validId(id)) return sendError(reply, 'validation.failed', 'id must be a valid UUID');
+      const query = parse(surveyEvidenceCandidatesQuerySchema, req.query, reply);
+      if (!query) return;
+      return reply
+        .header('cache-control', 'private, no-store')
+        .send(await opts.surveysService.getEvidenceCandidates(actor(req), id, query));
+    },
+  );
+  app.get('/surveys/:id/results', { preHandler: pre, ...rate('read') }, async (req, reply) => {
+    const id = (req.params as { id: string }).id;
+    if (!validId(id)) return sendError(reply, 'validation.failed', 'id must be a valid UUID');
+    const q = emptyQuery.safeParse(req.query);
+    if (!q.success)
+      return sendError(reply, 'validation.failed', 'invalid query parameters', {
+        fields: fieldsFromZodIssues(q.error.issues),
+      });
+    return reply.send(await opts.surveysService.getSurveyResults(actor(req), id));
+  });
+  app.get(
+    '/surveys/:id/outcome-follow-up/recovery-items',
+    { preHandler: pre, ...rate('read') },
+    async (req, reply) => {
+      const id = (req.params as { id: string }).id;
+      if (!validId(id)) return sendError(reply, 'validation.failed', 'id must be a valid UUID');
+      const parsed = z
+        .object({
+          presentation: z.enum(['visible', 'hidden']).default('visible'),
+          limit: z.coerce.number().int().min(1).max(100).default(50),
+          cursor: z.string().min(1).max(4096).optional(),
+        })
+        .strict()
+        .safeParse(req.query);
+      if (!parsed.success)
+        return sendError(reply, 'validation.failed', 'invalid recovery query', {
+          fields: fieldsFromZodIssues(parsed.error.issues),
+        });
+      return reply
+        .header('cache-control', 'private, no-store')
+        .send(await opts.surveysService.listOutcomeRecovery(actor(req), id, parsed.data));
+    },
+  );
+  app.get(
+    '/surveys/:id/outcome-follow-up/history',
+    { preHandler: pre, ...rate('read') },
+    async (req, reply) => {
+      const id = (req.params as { id: string }).id;
+      if (!validId(id)) return sendError(reply, 'validation.failed', 'id must be a valid UUID');
+      const parsed = z
+        .object({
+          limit: z.coerce.number().int().min(1).max(100).default(50),
+          cursor: z.string().min(1).max(4096).optional(),
+        })
+        .strict()
+        .safeParse(req.query);
+      if (!parsed.success)
+        return sendError(reply, 'validation.failed', 'invalid history query', {
+          fields: fieldsFromZodIssues(parsed.error.issues),
+        });
+      return reply
+        .header('cache-control', 'private, no-store')
+        .send(await opts.surveysService.getOutcomeRecoveryHistory(actor(req), id, parsed.data));
+    },
+  );
+  app.get(
+    '/survey-responses/:id/outcome-follow-up/presentation',
+    { preHandler: pre, ...rate('read') },
+    async (req, reply) => {
+      const id = (req.params as { id: string }).id;
+      if (!validId(id)) return sendError(reply, 'validation.failed', 'id must be a valid UUID');
+      const parsed = emptyQuery.safeParse(req.query);
+      if (!parsed.success)
+        return sendError(reply, 'validation.failed', 'invalid query parameters', {
+          fields: fieldsFromZodIssues(parsed.error.issues),
+        });
+      return reply
+        .header('cache-control', 'private, no-store')
+        .send(await opts.surveysService.getOutcomeRecoveryPresentation(actor(req), id));
+    },
+  );
+  app.patch(
+    '/survey-responses/:id/outcome-follow-up/presentation',
+    { preHandler: pre, ...rate('mutation') },
+    async (req, reply) => {
+      const id = (req.params as { id: string }).id;
+      if (!validId(id)) return sendError(reply, 'validation.failed', 'id must be a valid UUID');
+      const query = emptyQuery.safeParse(req.query);
+      if (!query.success)
+        return sendError(reply, 'validation.failed', 'invalid query parameters', {
+          fields: fieldsFromZodIssues(query.error.issues),
+        });
+      const parsed = recoveryPresentationPatchSchema.safeParse(req.body);
+      if (!parsed.success)
+        return sendError(reply, 'validation.failed', 'invalid presentation', {
+          fields: fieldsFromZodIssues(parsed.error.issues),
+        });
+      return reply
+        .header('cache-control', 'private, no-store')
+        .send(
+          await opts.surveysService.patchOutcomeRecoveryPresentation(actor(req), id, parsed.data),
+        );
+    },
+  );
+  app.get(
+    '/surveys/:id/outcome-follow-up',
+    { preHandler: pre, ...rate('read') },
+    async (req, reply) => {
+      const id = (req.params as { id: string }).id;
+      if (!validId(id)) return sendError(reply, 'validation.failed', 'id must be a valid UUID');
+      const q = emptyQuery.safeParse(req.query);
+      if (!q.success)
+        return sendError(reply, 'validation.failed', 'invalid query parameters', {
+          fields: fieldsFromZodIssues(q.error.issues),
+        });
+      return reply.send(await opts.surveysService.getOutcomeFollowUp(actor(req), id));
+    },
+  );
+  app.post(
+    '/survey-responses/:id/create-finding',
+    { preHandler: pre, ...rate('mutation') },
+    async (req, reply) => {
+      const id = (req.params as { id: string }).id;
+      if (!validId(id)) return sendError(reply, 'validation.failed', 'id must be a valid UUID');
+      const body = parse(createFindingFromSurveyResponseRequestSchema, req.body, reply);
+      if (!body) return;
+      const r = await opts.findingsService.createFindingFromSurveyResponse({
+        actor: actor(req),
+        responseId: id,
+        input: body,
+        idempotencyKey: requireIdempotencyKey(req.headers as Record<string, unknown>),
+        requestHash: hashRequestBody({
+          body,
+          route: 'survey_response.create_finding',
+          responseId: id,
+        }),
+      });
+      return reply.code(r.status).send(r.body);
+    },
+  );
+  const followUpCommand = (
+    suffix: 'mark-no-follow-up' | 'reopen-follow-up',
+    op: 'markNoFollowUp' | 'reopenFollowUp',
+  ) =>
+    app.post(
+      `/survey-responses/:id/${suffix}`,
+      { preHandler: pre, ...rate('mutation') },
+      async (req, reply) => {
+        const id = (req.params as { id: string }).id;
+        if (!validId(id)) return sendError(reply, 'validation.failed', 'id must be a valid UUID');
+        const body = parse(outcomeFollowUpDecisionRequestSchema, req.body, reply);
+        if (!body) return;
+        const idempotencyKey = requireIdempotencyKey(req.headers as Record<string, unknown>);
+        const r = await opts.surveysService[op]({
+          actor: actor(req),
+          responseId: id,
+          input: body,
+          idempotencyKey,
+          requestHash: hashRequestBody({
+            body,
+            route: `survey_response.${suffix === 'mark-no-follow-up' ? 'mark_no_follow_up' : 'reopen_follow_up'}`,
+            responseId: id,
+          }),
+        });
+        return reply.code(r.status).send(r.body);
+      },
+    );
+  followUpCommand('mark-no-follow-up', 'markNoFollowUp');
+  followUpCommand('reopen-follow-up', 'reopenFollowUp');
+  app.delete(
+    '/survey-responses/:id/approved-excerpts/:approved_excerpt_id',
+    { preHandler: pre, ...rate('mutation') },
+    async (req, reply) => {
+      const { id, approved_excerpt_id } = req.params as {
+        id: string;
+        approved_excerpt_id: string;
+      };
+      if (!validId(id) || !validId(approved_excerpt_id))
+        return sendError(reply, 'validation.failed', 'id must be a valid UUID');
+      return reply.send(
+        await opts.surveysService.revokeEvidenceExcerpt(actor(req), id, approved_excerpt_id),
+      );
+    },
+  );
+  app.post(
+    '/survey-responses/:id/evidence-excerpt-candidates',
+    { preHandler: pre, ...rate('mutation') },
+    async (req, reply) => {
+      const id = (req.params as { id: string }).id;
+      if (!validId(id)) return sendError(reply, 'validation.failed', 'id must be a valid UUID');
+      const b = parse(evidenceCandidate, req.body, reply);
+      if (!b) return;
+      return reply.send(
+        await opts.surveysService.readEvidenceExcerptCandidate(actor(req), id, b.question_id),
+      );
+    },
+  );
+  app.post(
+    '/survey-responses/:id/approved-excerpts',
+    { preHandler: pre, ...rate('mutation') },
+    async (req, reply) => {
+      const id = (req.params as { id: string }).id;
+      if (!validId(id)) return sendError(reply, 'validation.failed', 'id must be a valid UUID');
+      const b = parse(approvedExcerpt, req.body, reply);
+      if (!b) return;
+      return reply
+        .code(201)
+        .send(await opts.surveysService.approveEvidenceExcerpt(actor(req), id, b));
+    },
+  );
+  app.post(
+    '/surveys/:id/responses',
+    { preHandler: pre, ...rate('mutation') },
+    async (req, reply) => {
+      const id = (req.params as { id: string }).id;
+      if (!validId(id)) return sendError(reply, 'validation.failed', 'id must be a valid UUID');
+      const b = parse(surveyResponseSubmissionSchema, req.body, reply);
+      if (!b) return;
+      const r = await opts.surveysService.submitResponse({
+        actor: actor(req),
+        surveyId: id,
+        input: b,
+        idempotencyKey: requireIdempotencyKey(req.headers as Record<string, unknown>),
+        requestHash: hashRequestBody({ body: b, route: 'survey.submit_response', surveyId: id }),
+      });
+      return reply.code(r.status).send(r.body);
+    },
+  );
+  app.post('/surveys', { preHandler: pre, ...rate('mutation') }, async (req, reply) => {
+    const b = parse(create, req.body, reply);
+    if (!b) return;
+    const r = await opts.surveysService.createSurvey({
+      actor: actor(req),
+      input: b,
+      idempotencyKey: requireIdempotencyKey(req.headers as Record<string, unknown>),
+      requestHash: hashRequestBody({ ...b, route: 'survey.create' }),
+    });
+    return reply.code(r.status).send(r.body);
+  });
+  app.patch('/surveys/:id', { preHandler: pre, ...rate('mutation') }, async (req, reply) => {
+    const id = (req.params as { id: string }).id;
+    if (!validId(id)) return sendError(reply, 'validation.failed', 'id must be a valid UUID');
+    const b = parse(update, req.body, reply);
+    if (!b) return;
+    const r = await opts.surveysService.updateSurveyFields({
+      actor: actor(req),
+      surveyId: id,
+      input: b,
+      idempotencyKey: requireIdempotencyKey(req.headers as Record<string, unknown>),
+      requestHash: hashRequestBody({ body: b, route: 'survey.update', surveyId: id }),
+    });
+    return reply.code(r.status).send(r.body);
+  });
+  app.patch(
+    '/surveys/:id/questions/reorder',
+    { preHandler: pre, ...rate('mutation') },
+    async (req, reply) => {
+      const id = (req.params as { id: string }).id;
+      if (!validId(id)) return sendError(reply, 'validation.failed', 'id must be a valid UUID');
+      const b = parse(reorder, req.body, reply);
+      if (!b) return;
+      const r = await opts.surveysService.reorderQuestions({
+        actor: actor(req),
+        surveyId: id,
+        questionIds: b.question_ids,
+        idempotencyKey: requireIdempotencyKey(req.headers as Record<string, unknown>),
+        requestHash: hashRequestBody({ body: b, route: 'survey.questions.reorder', surveyId: id }),
+      });
+      return reply.code(r.status).send(r.body);
+    },
+  );
+  const qcmd = (
+    method: 'POST' | 'PATCH' | 'DELETE',
+    url: string,
+    op: 'createQuestion' | 'updateQuestion' | 'deleteQuestion',
+  ) =>
+    app.route({
+      method,
+      url,
+      preHandler: pre,
+      ...rate('mutation'),
+      handler: async (req, reply) => {
+        const p = req.params as { id: string; question_id?: string };
+        if (!validId(p.id) || (p.question_id && !validId(p.question_id)))
+          return sendError(reply, 'validation.failed', 'id must be a valid UUID');
+        const b = method === 'DELETE' ? undefined : parse(question, req.body, reply);
+        if (method !== 'DELETE' && !b) return;
+        const r = (await opts.surveysService[op]({
+          actor: actor(req),
+          surveyId: p.id,
+          ...(p.question_id ? { questionId: p.question_id } : {}),
+          ...(b ? { input: b } : {}),
+          idempotencyKey: requireIdempotencyKey(req.headers as Record<string, unknown>),
+          requestHash: hashRequestBody({
+            body: b ?? {},
+            route: op,
+            surveyId: p.id,
+            questionId: p.question_id,
+          }),
+        } as never)) as { status: number; body: unknown };
+        return reply.code(r.status).send(r.body);
+      },
+    });
+  qcmd('POST', '/surveys/:id/questions', 'createQuestion');
+  qcmd('PATCH', '/surveys/:id/questions/:question_id', 'updateQuestion');
+  qcmd('DELETE', '/surveys/:id/questions/:question_id', 'deleteQuestion');
+  for (const target of ['open', 'close'] as const)
+    app.post(
+      `/surveys/:id/${target}`,
+      { preHandler: pre, ...rate('mutation') },
+      async (req, reply) => {
+        const id = (req.params as { id: string }).id;
+        if (!validId(id)) return sendError(reply, 'validation.failed', 'id must be a valid UUID');
+        const fn = target === 'open' ? 'openSurvey' : 'closeSurvey';
+        const r = (await opts.surveysService[fn]({
+          actor: actor(req),
+          surveyId: id,
+          idempotencyKey: requireIdempotencyKey(req.headers as Record<string, unknown>),
+          requestHash: hashRequestBody({ route: `survey.${target}`, surveyId: id }),
+        } as never)) as { status: number; body: unknown };
+        return reply.code(r.status).send(r.body);
+      },
+    );
+};

@@ -1,0 +1,272 @@
+import { fetchVocOwnerCandidates } from '@/lib/api/voc-owner-candidates';
+import { analyticsAreasCatalogQuery } from '@/lib/cross-system/analyticsAreasCatalog';
+import { useVocDetail } from '@/lib/cross-system/useVocDetail';
+import type { FindingSeverity, VocListItem } from '@fops/shared';
+import { type PickerOption, UndoToast } from '@fops/ui';
+import { useQuery } from '@tanstack/react-query';
+import * as React from 'react';
+import { toast } from 'sonner';
+import { useTriageCommand } from '../../hooks/useTriageCommand';
+import { useTriagePanelState } from '../../hooks/useTriagePanelState';
+import type { TriageQueueOutcome } from '../../hooks/useTriageQueue';
+import type { CallToken } from '../../hooks/useUndoableMutation';
+import type { TriageInput } from '../../lib/triage-types';
+import type { OwnerCandidate } from './OwnerPicker';
+
+export function useTriagePanelController({
+  voc,
+  serverReviewPostponedAt = null,
+  onAct,
+  onOptimisticRemove,
+  onOptimisticPostpone,
+  onProcessed,
+  onOptimisticRestore,
+  onOptimisticRollback,
+  onQueueOutcome,
+  onMutationFailure,
+}: {
+  voc: VocListItem;
+  serverReviewPostponedAt?: string | null;
+  onAct?: (
+    kind: 'confirm' | 'finding' | 'skip',
+    context?: {
+      vocId: string;
+      managedSystemId: string;
+      analyticsAreaId: string | null;
+      title: string;
+      severity: FindingSeverity;
+    },
+  ) => void;
+  onOptimisticRemove?: (vocId: string, input?: TriageInput) => void;
+  onOptimisticPostpone?: (vocId: string, input?: TriageInput) => void;
+  onProcessed?: (delta: 1 | -1) => void;
+  onMutationFailure?: (vocId: string) => void;
+  onQueueOutcome?: (input: TriageInput, outcome: TriageQueueOutcome) => void;
+  onOptimisticRollback?: (vocId: string, input?: TriageInput) => void;
+  onOptimisticRestore?: (vocId: string, input?: TriageInput) => void;
+}) {
+  const { panelState, baseline, dispatch, dirty } = useTriagePanelState(voc);
+  const ownerCandidatesQuery = useQuery({
+    queryKey: ['voc', voc.id, 'owner-candidates'] as const,
+    queryFn: ({ signal }) => fetchVocOwnerCandidates(voc.id, signal),
+  });
+  const actors = ownerCandidatesQuery.data?.actors;
+  const vocDetailQuery = useVocDetail(voc.id);
+  // Ref for the scrollable body — used by DetailPanelSectionNav to observe anchors
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+
+  // The VOC-scoped advisory list shares the mutation eligibility validator.
+  const candidates: OwnerCandidate[] = React.useMemo(() => {
+    if (!actors) return [];
+    return actors.map((a) => ({
+      id: a.id,
+      display_name: a.display_name,
+      eligible: a.eligible,
+      // Actor list has no teams (ADR-0018); OwnerPicker still wants kind.
+      kind: 'user' as const,
+    }));
+  }, [actors]);
+
+  // Build actor map for TriageSummaryCard display
+  const actorMap = React.useMemo(() => {
+    const map = new Map<string, { display_name: string }>();
+    for (const c of candidates) {
+      map.set(c.id, { display_name: c.display_name });
+    }
+    return map;
+  }, [candidates]);
+
+  const analyticsAreasQuery = useQuery(analyticsAreasCatalogQuery(voc.primary_managed_system_id));
+  const aaOptions: PickerOption[] = React.useMemo(
+    () =>
+      (analyticsAreasQuery.data?.items ?? [])
+        .filter(
+          (area) =>
+            area.managed_system_id === voc.primary_managed_system_id &&
+            (area.archived_at === null || area.id === voc.analytics_area_id),
+        )
+        .map((area) => ({
+          id: area.id,
+          label: area.archived_at === null ? area.name : `${area.name} (보관됨)`,
+          archived: area.archived_at !== null,
+        })),
+    [analyticsAreasQuery.data?.items, voc.analytics_area_id, voc.primary_managed_system_id],
+  );
+
+  const currentOwnerId = panelState.ownerUserId ?? panelState.ownerTeamId;
+  const baselineAreaName = aaOptions.find((area) => area.id === baseline.analyticsAreaId)?.label;
+  const stagedAreaName = aaOptions.find((area) => area.id === panelState.analyticsAreaId)?.label;
+
+  // ── mutation setup ──────────────────────────────────────────────────────────
+
+  // Undo state machine — HTTP adapter, compensation order, and the error
+  // matrix live in useTriageCommand (issue #481). The controller keeps panel state,
+  // input assembly, and the toast UI.
+  const { panelLocked, isSubmitting, commit, undoLast } = useTriageCommand({
+    voc,
+    serverReviewPostponedAt,
+    onProcessed,
+    onOptimisticRestore,
+    onOptimisticRollback,
+    onQueueOutcome,
+    onMutationFailure,
+  });
+
+  // Keep a stable ref to undoLast so the toast closure always sees the latest version.
+  // (The closure in toast.custom captures undoLast at call time; the ref stays current.)
+  // REV-3 Cluster X: undoLast accepts an optional CallToken so toasts can bind
+  // their undo action to the specific call that produced them.
+  const undoLastRef = React.useRef<(token?: CallToken) => void>(() => {
+    /* no-op until mounted */
+  });
+
+  // Keep the ref current
+  undoLastRef.current = undoLast;
+
+  // ── handlers ───────────────────────────────────────────────────────────────
+
+  const handleConfirmOrFinding = React.useCallback(
+    (kind: 'confirm' | 'finding') => {
+      if (panelLocked) return;
+      const input: TriageInput = {
+        kind,
+        vocId: voc.id,
+        ifMatch: voc.updated_at,
+        severity: panelState.severity,
+        ownerUserId: panelState.ownerUserId,
+        ownerTeamId: panelState.ownerTeamId,
+        analyticsAreaId: panelState.analyticsAreaId,
+      };
+
+      // Optimistic remove synchronously
+      onOptimisticRemove?.(voc.id, ...(onQueueOutcome ? [input] : []));
+
+      // Fire the undoable mutation — error surfaces via mutationState+lastError.
+      // REV-3 Cluster X: capture the per-call token so the toast we issue
+      // below binds its undo to THIS call only. Once a follow-up mutate
+      // replaces the current call, this toast becomes inert.
+      const callToken: CallToken = commit(input, () => {
+        toast.dismiss(successToastId);
+      });
+
+      // Show UndoToast via sonner's toast.custom
+      // Prototype ref: screen-voc-create.jsx:699-730 → UndoToast positioning
+      const message =
+        kind === 'finding' ? `${voc.display_id} Finding 만들기` : `${voc.display_id} Triage 확정됨`;
+
+      const successToastId = toast.custom(
+        (toastId) => (
+          <UndoToast
+            message={message}
+            onAction={() => {
+              // REV-3 Cluster X: pass the token so undoLast no-ops if this is
+              // a stale toast (a newer mutation has since started).
+              undoLastRef.current(callToken);
+              toast.dismiss(toastId);
+            }}
+            onDismiss={() => {
+              toast.dismiss(toastId);
+            }}
+            duration={4000}
+          />
+        ),
+        // #960: UndoToast owns the focus/pointer-pausable timer; Infinity
+        // disables sonner's own timer so it never dismisses the toast first.
+        { duration: Number.POSITIVE_INFINITY },
+      );
+
+      onAct?.(kind, {
+        vocId: voc.id,
+        managedSystemId: voc.primary_managed_system_id,
+        analyticsAreaId: panelState.analyticsAreaId,
+        title: voc.title,
+        severity: (panelState.severity ?? voc.severity ?? 'medium') as FindingSeverity,
+      });
+    },
+    [
+      panelLocked,
+      voc.id,
+      voc.display_id,
+      voc.updated_at,
+      voc.primary_managed_system_id,
+      voc.title,
+      voc.severity,
+      panelState,
+      onOptimisticRemove,
+      onQueueOutcome,
+      onAct,
+      commit,
+    ],
+  );
+
+  const handleSkip = React.useCallback(() => {
+    if (panelLocked || voc.triage_state !== 'untriaged' || voc.review_postponed_at != null) return;
+    const input: TriageInput = {
+      kind: 'skip',
+      vocId: voc.id,
+      ifMatch: voc.updated_at,
+    };
+
+    // The active tab determines whether postponing removes or marks the row.
+    (onOptimisticPostpone ?? onOptimisticRemove)?.(voc.id, ...(onQueueOutcome ? [input] : []));
+
+    // REV-3 Cluster X: capture per-call token and bind the toast's undo to it.
+    const callToken: CallToken = commit(input, () => {
+      toast.dismiss(successToastId);
+    });
+
+    const message = `${voc.display_id} 보류 처리됨`;
+    const successToastId = toast.custom(
+      (toastId) => (
+        <UndoToast
+          message={message}
+          onAction={() => {
+            undoLastRef.current(callToken);
+            toast.dismiss(toastId);
+          }}
+          onDismiss={() => {
+            toast.dismiss(toastId);
+          }}
+          duration={4000}
+        />
+      ),
+      // #960: UndoToast owns the focus/pointer-pausable timer; Infinity
+      // disables sonner's own timer so it never dismisses the toast first.
+      { duration: Number.POSITIVE_INFINITY },
+    );
+
+    onAct?.('skip');
+  }, [
+    panelLocked,
+    voc.id,
+    voc.display_id,
+    voc.updated_at,
+    onOptimisticRemove,
+    onOptimisticPostpone,
+    onQueueOutcome,
+    voc.triage_state,
+    voc.review_postponed_at,
+    onAct,
+    commit,
+  ]);
+
+  return {
+    panelState,
+    baseline,
+    dispatch,
+    dirty,
+    vocDetailQuery,
+    scrollRef,
+    candidates,
+    actorMap,
+    analyticsAreasQuery,
+    aaOptions,
+    currentOwnerId,
+    baselineAreaName,
+    stagedAreaName,
+    panelLocked,
+    isSubmitting,
+    handleConfirmOrFinding,
+    handleSkip,
+  };
+}

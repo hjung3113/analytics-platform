@@ -1,0 +1,283 @@
+import type { VocDetailEnvelope } from '@fops/shared';
+import { Button, DetailPanelSectionNav, DirtyConfirmation } from '@fops/ui';
+import type { PanelSection } from '@fops/ui';
+import * as React from 'react';
+
+import { CreateFindingModal } from '@/features/cross-system/create-finding/CreateFindingModal';
+import { TaskRequestDraftCard } from '@/features/cross-system/request-task/TaskRequestDraftCard';
+import type { MeResponse } from '@/lib/auth/useMe';
+import {
+  SAME_MANAGED_SYSTEM_VOC_LABEL,
+  VOC_DETAIL_BODY_LABEL,
+  VOC_FOLLOW_UP_COPY,
+} from '@/lib/copy/voc';
+import { ComposerSection } from './ComposerSection';
+import { type ConversationPostSignal, ConversationTimeline } from './ConversationTimeline';
+import { DescriptionSection } from './DescriptionSection';
+import { DetailHeader } from './DetailHeader';
+import { IdentityMetadataStrip, IdentitySection } from './IdentitySection';
+import { LinkedEntityTrailSection, hasVisibleFollowUp } from './LinkedEntityTrailSection';
+import { LinkedExecutionSection } from './LinkedExecutionSection';
+import { NextActionFooter } from './NextActionFooter';
+import { NoFollowUpSection } from './NoFollowUpSection';
+import { PublicUpdateReviewModal } from './PublicUpdateReviewModal';
+import { SimilarVocSection } from './SimilarVocSection';
+import { TriageBlock } from './TriageBlock';
+import { useVocDetailPanelController } from './useVocDetailPanelController';
+
+export interface FullDetailViewProps {
+  voc: VocDetailEnvelope;
+  vocId: string;
+  managedSystemId?: string;
+  onClose: () => void;
+  isReporterOnOwnVoc: boolean;
+  canRenderAllowedTask: boolean;
+  me: MeResponse | null;
+}
+
+// ADR-0057 A2 amendment localizes Korean navigation while preserving domain nouns.
+// Prototype deviation (screen-voc.jsx:175-185): issue #519 and the user's Option C decision
+// pin the core navigation and move Description/Conversation into an overflow menu.
+// Execution section only shown when there's an active finding/task (Slice 4+).
+export const VOC_DETAIL_SECTIONS: PanelSection[] = [
+  { id: 'overview', label: '요약' },
+  { id: 'triage', label: 'Triage' },
+  { id: 'description', label: VOC_DETAIL_BODY_LABEL, overflow: true },
+  { id: 'trail', label: '이력' },
+  { id: 'conversation', label: '대화', overflow: true },
+  { id: 'compose', label: '작성' },
+];
+
+export function FullDetailView({
+  voc,
+  vocId,
+  managedSystemId,
+  onClose,
+  isReporterOnOwnVoc,
+  canRenderAllowedTask,
+  me,
+}: FullDetailViewProps): React.ReactElement {
+  const {
+    setComposerDirty,
+    dirtyConfirmOpen,
+    createFindingOpen,
+    setCreateFindingOpen,
+    requestTaskOpen,
+    setRequestTaskOpen,
+    reviewOpen,
+    setReviewOpen,
+    scrollRef,
+    actorNamesById,
+    analyticsAreasById,
+    canTriage,
+    noFollowUpScope,
+    linkedTask,
+    requestTaskIsPending,
+    pendingReviewCount,
+    canCreateFinding,
+    canRequestTask,
+    showsSimilarVocSection,
+    isReporterArm,
+    handleClose,
+    handleDirtyConfirm,
+    handleDirtyCancel,
+    closeRequestTaskDraft,
+    handleRequestTaskSubmit,
+    handleSimilarVocSelect,
+    handleOpenTriage,
+    handleOpenTask,
+    handleOpenFinding,
+    handleOpenCluster,
+    handleOpenRequest,
+  } = useVocDetailPanelController({
+    voc,
+    vocId,
+    onClose,
+    canRenderAllowedTask,
+    me,
+    ...(managedSystemId !== undefined ? { managedSystemId } : {}),
+  });
+
+  // One sequence across all successful posts: the latest post selects its timeline tab.
+  const [postSignal, setPostSignal] = React.useState<ConversationPostSignal>({
+    tab: 'public',
+    seq: 0,
+  });
+
+  const detailSections = isReporterArm
+    ? VOC_DETAIL_SECTIONS.filter((section) => section.id !== 'triage')
+    : showsSimilarVocSection
+      ? [
+          ...VOC_DETAIL_SECTIONS.slice(0, 4),
+          { id: 'similar', label: SAME_MANAGED_SYSTEM_VOC_LABEL, overflow: true },
+          ...VOC_DETAIL_SECTIONS.slice(4),
+        ]
+      : VOC_DETAIL_SECTIONS;
+
+  return (
+    <>
+      <div className="flex flex-col h-full" data-testid="voc-detail-panel">
+        <DetailHeader vocId={vocId} displayId={voc.display_id} onClose={handleClose} />
+
+        {/* Section nav — sticky anchor tabs (prototype: screen-voc.jsx:191) */}
+        <DetailPanelSectionNav sections={detailSections} scrollRef={scrollRef} />
+
+        <div
+          ref={scrollRef}
+          className="flex flex-col flex-1 min-h-0 overflow-y-auto pt-7 px-6 pb-16"
+        >
+          <div data-anchor="overview">
+            <IdentitySection
+              voc={voc}
+              reporterDisplayName={actorNamesById.get(voc.reporter_id) ?? me?.actor.display_name}
+            />
+          </div>
+          {!isReporterArm && (
+            <div data-anchor="triage">
+              <TriageBlock
+                voc={voc}
+                ownerDisplayName={
+                  voc.owner_user_id != null ? (actorNamesById.get(voc.owner_user_id) ?? null) : null
+                }
+                analyticsAreaName={
+                  voc.analytics_area_id != null
+                    ? (analyticsAreasById.get(voc.analytics_area_id) ?? null)
+                    : null
+                }
+                canTriage={canTriage}
+                onOpenTriage={handleOpenTriage}
+              />
+            </div>
+          )}
+          <div data-anchor="description">
+            <DescriptionSection voc={voc} isReporterOnOwnVoc={isReporterOnOwnVoc} />
+            {/* Managed System and source context remain visible below the body. */}
+            <IdentityMetadataStrip voc={voc} />
+          </div>
+          {!isReporterArm && (
+            <NoFollowUpSection
+              key={noFollowUpScope}
+              vocId={vocId}
+              state={voc.follow_up}
+              canTriage={canTriage}
+              actorNames={actorNamesById}
+            />
+          )}
+          <div data-anchor="trail">
+            <LinkedExecutionSection
+              voc={voc}
+              isReporterContext={!canRenderAllowedTask}
+              linkedTask={linkedTask}
+            />
+            <LinkedEntityTrailSection
+              links={voc.links ?? []}
+              trails={voc.linked_execution.trails}
+              onOpenCluster={handleOpenCluster}
+              onOpenRequest={handleOpenRequest}
+              isReporterContext={!canRenderAllowedTask}
+              onOpenTask={handleOpenTask}
+              onOpenFinding={handleOpenFinding}
+            />
+            {requestTaskOpen && (
+              <TaskRequestDraftCard
+                sourceKind="VOC"
+                sourceDisplayId={voc.display_id}
+                evidenceSummaryDefault={`VOC ${voc.display_id}: ${voc.title}`}
+                isSubmitting={requestTaskIsPending}
+                source={{ type: 'voc', id: vocId }}
+                onClose={closeRequestTaskDraft}
+                onSubmit={handleRequestTaskSubmit}
+              />
+            )}
+          </div>
+          {showsSimilarVocSection && (
+            <div data-anchor="similar">
+              <SimilarVocSection
+                similar={voc.similar}
+                similarCount={voc.similar_count}
+                onSelect={handleSimilarVocSelect}
+              />
+            </div>
+          )}
+          <div data-anchor="conversation">
+            <ConversationTimeline
+              voc={voc}
+              canTriage={canTriage}
+              actorNamesById={actorNamesById}
+              postSignal={postSignal}
+            />
+          </div>
+          <div data-anchor="compose">
+            <ComposerSection
+              voc={voc}
+              me={me}
+              canTriage={canTriage}
+              onDirtyChange={setComposerDirty}
+              onConversationPosted={(tab) =>
+                setPostSignal((previous) => ({ tab, seq: previous.seq + 1 }))
+              }
+            />
+            {canCreateFinding && pendingReviewCount > 0 && (
+              <div className="mt-2 flex justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setReviewOpen(true)}
+                  data-testid="public-update-review-button"
+                >
+                  리뷰{' '}
+                  <span className="ml-1 rounded-full bg-surface-row-hover px-1.5 py-0.5 text-xs">
+                    {pendingReviewCount}
+                  </span>
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <NextActionFooter
+          voc={voc}
+          {...(canCreateFinding
+            ? {
+                primaryAction: {
+                  label: hasVisibleFollowUp(voc, !canRenderAllowedTask)
+                    ? VOC_FOLLOW_UP_COPY.showExecution
+                    : VOC_FOLLOW_UP_COPY.createFinding,
+                  onClick: () => {
+                    if (hasVisibleFollowUp(voc, !canRenderAllowedTask)) {
+                      scrollRef.current?.querySelector('[data-anchor="trail"]')?.scrollIntoView();
+                    } else setCreateFindingOpen(true);
+                  },
+                },
+              }
+            : {})}
+          {...(canRequestTask
+            ? {
+                secondaryAction: {
+                  label: VOC_FOLLOW_UP_COPY.requestTask,
+                  onClick: () => setRequestTaskOpen(true),
+                  testId: 'voc-request-task-button',
+                },
+              }
+            : {})}
+        />
+      </div>
+
+      <DirtyConfirmation
+        open={dirtyConfirmOpen}
+        onConfirm={handleDirtyConfirm}
+        onCancel={handleDirtyCancel}
+      />
+      <CreateFindingModal
+        vocId={vocId}
+        managedSystemId={voc.primary_managed_system_id}
+        sourceAnalyticsAreaId={voc.analytics_area_id ?? null}
+        defaultTitle={voc.title}
+        defaultSeverity={voc.severity ?? 'medium'}
+        open={createFindingOpen}
+        onClose={() => setCreateFindingOpen(false)}
+      />
+      <PublicUpdateReviewModal voc={voc} open={reviewOpen} onOpenChange={setReviewOpen} />
+    </>
+  );
+}

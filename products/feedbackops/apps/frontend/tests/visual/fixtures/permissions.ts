@@ -1,0 +1,256 @@
+import {
+  listActorsResponseSchema,
+  permissionDecisionResultSchema,
+  permissionRequestAdminDetailSchema,
+  resolveCoverageThresholds,
+} from '@fops/shared';
+import { z } from 'zod';
+
+import type { AdminPermissionRequestRow } from '../../../src/lib/api';
+import { adminSettingsFixtureSchema } from './admin-settings';
+
+// The permission-review visual scenario needs self-approval to remain decidable.
+// Admin-settings scenarios retain their explicit forbidden fixture instead.
+export const permissionSettingsFixture = adminSettingsFixtureSchema.parse({
+  coverage_thresholds: resolveCoverageThresholds(),
+  voc_cluster_suggestions_enabled: false,
+  permission_self_approval: 'allowed',
+  survey_anonymity_threshold: 9,
+});
+
+export const PERMISSION_IDS = {
+  pendingSensitive: '11111111-1111-4111-8111-111111111111',
+  pendingRead: '22222222-2222-4222-8222-222222222222',
+  selfApproval: '88888888-8888-4888-8888-888888888888',
+  needsMoreInfo: '33333333-3333-4333-8333-333333333333',
+  approved: '44444444-4444-4444-8444-444444444444',
+  rejected: '55555555-5555-4555-8555-555555555555',
+  grant: '66666666-6666-4666-8666-666666666666',
+  deny: '77777777-7777-4777-8777-777777777777',
+} as const;
+
+// This fixed future date stays after the visual harness clock (2026-07-21).
+export const PERMISSION_EXPIRATION_VISUAL_DATE = '2026-12-31T23:59:59.000Z';
+
+export const workspaceActorsFixture = listActorsResponseSchema.parse({
+  actors: [
+    {
+      id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      display_name: 'Named Requester',
+      email: 'named.requester@example.test',
+      role_level: 'developer',
+      actor_type: 'internal_member',
+    },
+    {
+      id: '11111111-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      display_name: 'Admin One',
+      email: 'admin.one@example.test',
+      role_level: 'admin',
+      actor_type: 'internal_member',
+    },
+    {
+      id: '22222222-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      display_name: 'Admin Two',
+      email: 'admin.two@example.test',
+      role_level: 'admin',
+      actor_type: 'internal_member',
+    },
+  ],
+});
+
+export const permissionRequests: AdminPermissionRequestRow[] = [
+  {
+    id: PERMISSION_IDS.pendingSensitive,
+    requester_actor_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    requested_capability: 'workspace.admin',
+    requested_managed_system_id: null,
+    revision: 1,
+    requested_expiration: null,
+    reason: '워크스페이스 설정을 검토해야 합니다.',
+    status: 'pending',
+    created_at: '2026-07-06T09:00:00.000Z',
+  },
+  {
+    id: PERMISSION_IDS.pendingRead,
+    requester_actor_id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+    requested_capability: 'workspace.read',
+    requested_managed_system_id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+    revision: 1,
+    requested_expiration: null,
+    reason: '운영 현황을 확인해야 합니다.',
+    status: 'pending',
+    created_at: '2026-07-05T09:00:00.000Z',
+  },
+  {
+    id: PERMISSION_IDS.selfApproval,
+    requester_actor_id: '22222222-2222-4222-8222-222222222222',
+    requested_capability: 'task.self_approve_request',
+    requested_managed_system_id: null,
+    revision: 1,
+    requested_expiration: null,
+    reason: '정시 release를 위해 self-approval 감사 캡처가 필요합니다.',
+    status: 'pending',
+    created_at: '2026-07-05T08:00:00.000Z',
+  },
+  {
+    id: PERMISSION_IDS.needsMoreInfo,
+    requester_actor_id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+    requested_capability: 'voc.triage',
+    requested_managed_system_id: null,
+    revision: 1,
+    requested_expiration: null,
+    reason: '추가 검토 정보를 보완 중입니다.',
+    status: 'needs_more_info',
+    created_at: '2026-07-04T09:00:00.000Z',
+  },
+  {
+    id: PERMISSION_IDS.approved,
+    requester_actor_id: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+    requested_capability: 'workspace.read',
+    requested_managed_system_id: null,
+    revision: 1,
+    requested_expiration: null,
+    reason: '승인된 읽기 권한입니다.',
+    status: 'approved',
+    created_at: '2026-07-03T09:00:00.000Z',
+  },
+  {
+    id: PERMISSION_IDS.rejected,
+    requester_actor_id: 'ffffffff-ffff-4fff-8fff-ffffffffffff',
+    requested_capability: 'finding.manage',
+    requested_managed_system_id: null,
+    revision: 1,
+    requested_expiration: null,
+    reason: '거절된 삭제 권한입니다.',
+    status: 'rejected',
+    created_at: '2026-07-02T09:00:00.000Z',
+  },
+];
+
+export const emptyPermissionRequests: AdminPermissionRequestRow[] = [];
+
+// These schema-parsed templates keep mock decision responses contract-valid at fixture load.
+export const permissionDecisionResultTemplates = {
+  approve: permissionDecisionResultSchema.parse({
+    id: PERMISSION_IDS.pendingRead,
+    revision: 2,
+    updated_at: '2026-07-18T00:00:00.000Z',
+    status: 'approved',
+    grant_id: PERMISSION_IDS.grant,
+  }),
+  reject: permissionDecisionResultSchema.parse({
+    id: PERMISSION_IDS.pendingRead,
+    revision: 2,
+    updated_at: '2026-07-18T00:00:00.000Z',
+    status: 'rejected',
+  }),
+  'need-more-info': permissionDecisionResultSchema.parse({
+    id: PERMISSION_IDS.pendingRead,
+    revision: 2,
+    updated_at: '2026-07-18T00:00:00.000Z',
+    status: 'needs_more_info',
+  }),
+  deny: permissionDecisionResultSchema.parse({
+    id: PERMISSION_IDS.pendingRead,
+    revision: 2,
+    updated_at: '2026-07-18T00:00:00.000Z',
+    status: 'rejected',
+    deny_id: PERMISSION_IDS.deny,
+  }),
+};
+
+export type PermissionScenarioName =
+  | 'stale-review'
+  | 'cancelled-history'
+  | 'risk-signals'
+  | 'populated'
+  | 'empty'
+  | 'permission-request-detail-named'
+  | 'requested-expiration'
+  | 'blocked-contact-admin';
+
+export const permissionVisualScenarios = z
+  .array(z.enum(['permission-request-detail-named', 'blocked-contact-admin']))
+  .parse(['permission-request-detail-named', 'blocked-contact-admin']);
+
+export function createPermissionRequestsScenario(
+  name: PermissionScenarioName = 'populated',
+): AdminPermissionRequestRow[] {
+  const requests = structuredClone(name === 'empty' ? emptyPermissionRequests : permissionRequests);
+  if (name === 'cancelled-history') {
+    const row = requests.find((candidate) => candidate.id === PERMISSION_IDS.rejected);
+    if (row) row.status = 'cancelled';
+  }
+  if (name === 'requested-expiration') {
+    const request = requests.find((candidate) => candidate.id === PERMISSION_IDS.pendingRead);
+    if (!request) throw new Error('Requested-expiration visual fixture is missing its request');
+    request.requester_actor_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+    request.requested_expiration = PERMISSION_EXPIRATION_VISUAL_DATE;
+  }
+  return requests;
+}
+
+export function permissionAdminDetailFixture(
+  row: AdminPermissionRequestRow,
+  includeRiskSignals = false,
+) {
+  return permissionRequestAdminDetailSchema.parse({
+    ...row,
+    updated_at: row.created_at,
+    requested_object_type: null,
+    requested_object_id: null,
+    source_object_type: null,
+    source_object_id: null,
+    source_action_id: null,
+    source_summary: null,
+    return_route_intent: null,
+    requester: {
+      id: row.requester_actor_id,
+      display_name:
+        workspaceActorsFixture.actors.find((actor) => actor.id === row.requester_actor_id)
+          ?.display_name ?? '',
+      role_level: includeRiskSignals ? 'developer' : 'user',
+    },
+    effective_access: {
+      decision: { allow: false, reason: 'no_grant', requestable: null },
+      scope: { kind: 'scoped', managed_system_ids: [] },
+      expires_at: null,
+      granted_managed_system_id: null,
+    },
+    administrative_authority: {
+      capability: 'workspace.admin',
+      allowed: true,
+      is_requester: row.requester_actor_id === '22222222-2222-4222-8222-222222222222',
+      permission_self_approval: 'allowed',
+      self_approval_required: row.requester_actor_id === '22222222-2222-4222-8222-222222222222',
+    },
+    approval_scope_candidates: [{ managed_system_id: row.requested_managed_system_id }],
+    matching_denies: [],
+    risk_indicators: includeRiskSignals
+      ? [
+          { code: 'sensitive_capability', evidence: { capability: 'workspace.admin' } },
+          { code: 'workspace_scope', evidence: { managed_system_id: null } },
+          { code: 'no_expiration', evidence: { requested_expiration: null } },
+          {
+            code: 'active_deny',
+            evidence: {
+              denies: [
+                {
+                  id: '77777777-7777-4777-8777-777777777777',
+                  managed_system_id: null,
+                },
+                {
+                  id: '88888888-8888-4888-8888-888888888888',
+                  managed_system_id: '99999999-9999-4999-8999-999999999999',
+                },
+              ],
+            },
+          },
+        ]
+      : [],
+    allowed_actions:
+      row.status === 'pending' || row.status === 'needs_more_info'
+        ? ['approve', 'reject', 'need_more_info', 'deny']
+        : [],
+  });
+}

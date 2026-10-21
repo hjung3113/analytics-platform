@@ -1,0 +1,145 @@
+import { z } from 'zod';
+import { listPageSchema } from '../list-page.js';
+
+export const taskRequestStatusSchema = z.enum([
+  'pending_review',
+  'approved',
+  'rejected',
+  'needs_more_evidence',
+  'converted',
+]);
+export type TaskRequestStatus = z.infer<typeof taskRequestStatusSchema>;
+
+export const taskRequestSourceTypeSchema = z.enum(['finding', 'voc', 'voc_cluster']);
+export type TaskRequestSourceType = z.infer<typeof taskRequestSourceTypeSchema>;
+
+export const createTaskRequestFromFindingRequestSchema = z
+  .object({
+    evidence_summary: z.string().trim().min(1).max(4000),
+    requested_outcome: z.string().trim().min(1).max(4000),
+    assigned_reviewer_actor_id: z.string().uuid().nullable().optional(),
+    assigned_reviewer_team_id: z.string().uuid().nullable().optional(),
+  })
+  .strict();
+export type CreateTaskRequestFromFindingRequest = z.infer<
+  typeof createTaskRequestFromFindingRequestSchema
+>;
+export const createTaskRequestRequestSchema = createTaskRequestFromFindingRequestSchema;
+export type CreateTaskRequestRequest = z.infer<typeof createTaskRequestRequestSchema>;
+export const createTaskRequestFromVocRequestSchema = createTaskRequestRequestSchema;
+export type CreateTaskRequestFromVocRequest = CreateTaskRequestRequest;
+export const createTaskRequestFromVocClusterRequestSchema = createTaskRequestRequestSchema;
+export type CreateTaskRequestFromVocClusterRequest = CreateTaskRequestRequest;
+
+export const listTaskRequestsQuerySchema = z
+  .object({
+    status: taskRequestStatusSchema.optional(),
+    reviewer: z.union([z.string().uuid(), z.literal('me')]).optional(),
+    reviewer_team_id: z.string().uuid().optional(),
+    managed_system_id: z.union([z.string().uuid(), z.literal('all')]).optional(),
+    cursor: z.string().optional(),
+    limit: z.coerce.number().int().min(1).max(100).optional(),
+  })
+  .strict();
+export type ListTaskRequestsQuery = z.infer<typeof listTaskRequestsQuerySchema>;
+
+export const approveTaskRequestRequestSchema = z
+  .object({
+    reason: z.string().trim().max(4000).optional(),
+  })
+  .strict();
+export type ApproveTaskRequestRequest = z.infer<typeof approveTaskRequestRequestSchema>;
+
+export const rejectTaskRequestRequestSchema = z
+  .object({
+    reason: z.string().trim().min(1).max(4000),
+  })
+  .strict();
+export type RejectTaskRequestRequest = z.infer<typeof rejectTaskRequestRequestSchema>;
+
+export const requestMoreEvidenceTaskRequestRequestSchema = z
+  .object({
+    note: z.string().trim().min(1).max(4000),
+  })
+  .strict();
+export type RequestMoreEvidenceTaskRequestRequest = z.infer<
+  typeof requestMoreEvidenceTaskRequestRequestSchema
+>;
+
+export const taskRequestDtoSchema = z
+  .object({
+    id: z.string().uuid(),
+    workspace_id: z.string().uuid(),
+    display_id: z.string(),
+    source_type: taskRequestSourceTypeSchema,
+    source_id: z.string().uuid(),
+    primary_managed_system_id: z.string().uuid(),
+    evidence_summary: z.string(),
+    requested_outcome: z.string(),
+    requester_actor_id: z.string().uuid(),
+    status: taskRequestStatusSchema,
+    assigned_reviewer_actor_id: z.string().uuid().nullable(),
+    assigned_reviewer_team_id: z.string().uuid().nullable(),
+    reviewer_actor_id: z.string().uuid().nullable(),
+    decision_reason: z.string().nullable(),
+    decided_at: z.string().datetime().nullable(),
+    created_at: z.string().datetime(),
+    updated_at: z.string().datetime(),
+    default_resolved: z.boolean().optional(),
+    source_rule: z
+      .enum([
+        'explicit',
+        'explicit_null',
+        'managed_system_reviewer',
+        'managed_system_owner',
+        'analytics_area_owner',
+        'workspace_fallback_queue',
+      ])
+      .optional(),
+    managed_system_id: z.string().uuid().optional(),
+    source: z
+      .object({
+        type: taskRequestSourceTypeSchema,
+        id: z.string().uuid(),
+        relation_type: z.literal('requested_task'),
+        link_id: z.string().uuid(),
+        display_id: z.string().optional(),
+        title: z.string().optional(),
+        evidence_count: z.number().int().nonnegative().optional(),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict();
+export type TaskRequestDto = z.infer<typeof taskRequestDtoSchema>;
+
+export const listTaskRequestsResponseSchema = z
+  .object({
+    items: z.array(taskRequestDtoSchema),
+    page: listPageSchema
+      .extend({
+        status_counts: z
+          .object({
+            pending_review: z.number().int().nonnegative(),
+            approved: z.number().int().nonnegative(),
+            rejected: z.number().int().nonnegative(),
+            needs_more_evidence: z.number().int().nonnegative(),
+            converted: z.number().int().nonnegative(),
+          })
+          .strict()
+          .optional(),
+      })
+      .optional(),
+  })
+  .strict();
+export type ListTaskRequestsResponse = z.infer<typeof listTaskRequestsResponseSchema>;
+
+export const assignTaskRequestReviewerRequestSchema = z
+  .object({
+    assigned_reviewer_actor_id: z.string().uuid().nullable(),
+    assigned_reviewer_team_id: z.string().uuid().nullable(),
+  })
+  .strict();
+export type AssignTaskRequestReviewerRequest = z.infer<
+  typeof assignTaskRequestReviewerRequestSchema
+>;

@@ -84,12 +84,12 @@ https://platform.example/analytics/cycle-time?v=1&scopeId=MEM&from=2026-09-25T09
 ## 3. 소유 경계
 
 - **플랫폼 소유:** inbound 경로, `v`·전역 키, `returnTo` 규칙, `packages/contracts/src/feedbackops-link.ts`.
-- **FeedbackOps 소유:** path, strict search 스키마, MS uuid, VOC/survey uuid. 서브모듈 관찰 커밋을 이 문서 헤더에 적어 기준을 고정한다.
-- 어느 쪽도 상대 저장소(`products/feedbackops/`, 원본 저장소)를 직접 고치지 않는다.
+- **FeedbackOps 소유:** path, strict search 스키마, MS uuid, VOC/survey uuid. 관찰 기준 커밋(합류 뒤에는 이 저장소의 커밋)을 이 문서 헤더에 적어 기준을 고정한다.
+- 두 쪽은 같은 저장소에 있지만 소유는 위와 같다. FeedbackOps 쪽 키를 바꾸는 변경은 아래 §4 절차로만 한다(동결된 원본 FeedbackOps 저장소는 고치지 않는다, #592).
 
 ## 4. 변경 절차
 
-1. FeedbackOps 라우트·스키마 변경은 원본 저장소 PR로 한다 → 이 문서를 갱신한다. 서브모듈은 플랫폼이 그 코드를 빌드에 쓸 때만 올린다. 링크 키만 바뀌면 원본 커밋을 헤더에 관찰 기준으로 적고 올리지 않는다(`platformReturn`, #448).
+1. FeedbackOps 라우트·스키마 변경은 `products/feedbackops/`를 고치는 이 저장소 PR로 한다(#592) → 이 문서를 같은 PR에서 갱신하고 링크 키가 바뀌면 헤더의 관찰 기준 커밋을 고친다(`platformReturn`, #448).
 2. 새 키로 조회 의미가 바뀌면 플랫폼은 `v` bump(06 §6.4), 이 통합 문서는 `contract` bump를 함께 올린다.
 3. **생성기는 이 문서 allowlist 밖의 키를 내지 않는다.** 허용 전 생성기 변경 금지. 테스트(`feedbackops-link.test.ts`)가 이 불변을 단언한다.
 

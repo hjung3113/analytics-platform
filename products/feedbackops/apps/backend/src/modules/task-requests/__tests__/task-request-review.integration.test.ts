@@ -1,0 +1,630 @@
+// Task Request review queue + decisions (#133).
+//
+// Gate: DATABASE_URL + DATABASE_URL_MIGRATE + WORKSPACE_ID. The conductor runs
+// this outside the sandbox after applying migration 0024.
+
+import { randomUUID } from 'node:crypto';
+
+import type { FastifyInstance } from 'fastify';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+
+import { loadConfig } from '../../../config.js';
+import { type DbHandle, createDb } from '../../../db/client.js';
+import { initBoss, shutdownBoss } from '../../../lib/jobs.js';
+import { buildServer } from '../../../server.js';
+import { insertDevActor } from '../../../test-support/actor-fixtures.js';
+import { SESSION_COOKIE_NAME, loginAs } from '../../../test-support/auth.js';
+import { insertMsDirectly } from '../../../test-support/core-fixtures.js';
+import { createFailAfterEnqueueNotificationDispatcher } from '../../../test-support/fail-after-enqueue-dispatcher.js';
+import { uid } from '../../../test-support/ids.js';
+import { grantCapability } from '../../../test-support/permissions-fixtures.js';
+import { cleanupReadTestTables } from '../../../test-support/voc-fixtures.js';
+import {
+  NOTIFICATION_DISPATCH_QUEUE,
+  type RecordingNotificationDispatcher,
+  createRecordingNotificationDispatcher,
+} from '../../notifications/port.js';
+import { insertTaskRequestRow } from './_seed-helpers.js';
+
+const APP_URL = process.env.DATABASE_URL ?? '';
+const MIGRATE_URL = process.env.DATABASE_URL_MIGRATE ?? '';
+const WORKSPACE_ID = process.env.WORKSPACE_ID ?? '';
+const runIntegration = Boolean(APP_URL && MIGRATE_URL && WORKSPACE_ID);
+
+const SLUG_PREFIX = 'it-task-request';
+
+describe.skipIf(!runIntegration)('task-request review queue and decisions (#133)', () => {
+  let dbHandle: DbHandle;
+  let migrateHandle: DbHandle;
+  let app: FastifyInstance;
+  let rollbackApp: FastifyInstance;
+  let boss: Awaited<ReturnType<typeof initBoss>>;
+  let adminCookie: string;
+  let userCookie: string;
+  let adminActorId: string;
+  let userActorId: string;
+  let notifications: RecordingNotificationDispatcher;
+  let failAfterEnqueue: ReturnType<typeof createFailAfterEnqueueNotificationDispatcher>;
+
+  beforeAll(async () => {
+    process.env.NODE_ENV = 'test';
+    dbHandle = createDb(APP_URL);
+    migrateHandle = createDb(MIGRATE_URL);
+    boss = await initBoss({ connectionString: APP_URL, log: { info() {}, warn() {}, error() {} } });
+    notifications = createRecordingNotificationDispatcher();
+    failAfterEnqueue = createFailAfterEnqueueNotificationDispatcher(boss);
+    app = await buildServer({
+      config: loadConfig(),
+      dbHandle,
+      notificationDispatcher: notifications,
+    });
+    rollbackApp = await buildServer({
+      config: loadConfig(),
+      dbHandle,
+      notificationDispatcher: failAfterEnqueue.dispatcher,
+    });
+    await app.ready();
+    await rollbackApp.ready();
+
+    adminCookie = await loginAs(app, 'mock-admin-1');
+    userCookie = await loginAs(app, 'mock-user-1');
+
+    const actors = await dbHandle.pool.query<{ id: string; external_id: string }>(
+      `select id, external_id
+         from core.actors
+        where workspace_id = $1
+          and external_id in ('mock-admin-1', 'mock-user-1')`,
+      [WORKSPACE_ID],
+    );
+    adminActorId = actors.rows.find((row) => row.external_id === 'mock-admin-1')?.id ?? '';
+    userActorId = actors.rows.find((row) => row.external_id === 'mock-user-1')?.id ?? '';
+    if (!adminActorId || !userActorId) throw new Error('seed actors not found');
+  });
+
+  beforeEach(async () => {
+    await cleanupFixtures();
+    notifications.jobs.splice(0);
+    failAfterEnqueue.attemptedPayloads.length = 0;
+  });
+
+  afterEach(cleanupFailedNotificationJobs);
+
+  afterAll(async () => {
+    await cleanupFailedNotificationJobs();
+    await cleanupFixtures();
+    await shutdownBoss(boss).catch(() => {});
+    await rollbackApp?.close();
+    await app?.close();
+    await dbHandle?.close();
+    await migrateHandle?.close();
+  });
+
+  async function cleanupFailedNotificationJobs(): Promise<void> {
+    const correlationIds =
+      failAfterEnqueue?.attemptedPayloads.map((payload) => payload.correlation_id) ?? [];
+    if (!migrateHandle || correlationIds.length === 0) return;
+    await migrateHandle.pool.query(
+      `delete from pgboss.job
+        where name = $1 and data ->> 'correlation_id' = any($2::text[])`,
+      [NOTIFICATION_DISPATCH_QUEUE, correlationIds],
+    );
+  }
+
+  async function cleanupFixtures(): Promise<void> {
+    if (!migrateHandle) return;
+    await migrateHandle.pool.query(
+      `delete from core.audit_log
+        where workspace_id = $1
+          and event_type in (
+            'task_request_approved',
+            'task_request_rejected',
+            'task_request_needs_more_evidence',
+            'task_request_self_approval_denied'
+          )`,
+      [WORKSPACE_ID],
+    );
+    await migrateHandle.pool.query(
+      `delete from task_request.task_requests
+        where workspace_id = $1
+          and primary_managed_system_id in (
+            select id from core.managed_systems where workspace_id = $1 and slug like $2
+          )`,
+      [WORKSPACE_ID, `${SLUG_PREFIX}%`],
+    );
+    await migrateHandle.pool.query(
+      `delete from permission.permission_grants
+        where workspace_id = $1
+          and (
+            actor_id in (
+              select id from core.actors
+               where workspace_id = $1
+                 and (external_id like 'mock-dev-read-%' or external_id = 'mock-user-1')
+            )
+            or capability = 'task_request.self_approve'
+          )`,
+      [WORKSPACE_ID],
+    );
+    await migrateHandle.pool.query(
+      `delete from core.idempotency_keys
+        where actor_id in (
+          select id from core.actors
+           where workspace_id = $1
+             and (
+               external_id in ('mock-admin-1', 'mock-user-1')
+               or external_id like 'mock-dev-read-%'
+             )
+        )`,
+      [WORKSPACE_ID],
+    );
+    await migrateHandle.pool.query(
+      `delete from core.rate_limits
+        where key like $1 || ':%'
+           or key like '127.0.0.%'`,
+      [WORKSPACE_ID],
+    );
+    await migrateHandle.pool.query(
+      'delete from core.responsibility_default_failures where workspace_id = $1 and managed_system_id in (select id from core.managed_systems where workspace_id = $1 and slug like $2)',
+      [WORKSPACE_ID, `${SLUG_PREFIX}%`],
+    );
+    await cleanupReadTestTables(dbHandle, WORKSPACE_ID, SLUG_PREFIX);
+  }
+
+  async function seedTaskRequest(
+    input: {
+      msId?: string;
+      requesterActorId?: string;
+      status?: 'pending_review' | 'approved' | 'rejected' | 'needs_more_evidence' | 'converted';
+      title?: string;
+    } = {},
+  ): Promise<{ id: string; msId: string }> {
+    const msId =
+      input.msId ??
+      (await insertMsDirectly(dbHandle, WORKSPACE_ID, uid(SLUG_PREFIX), 'Task Request MS'));
+    const row = await insertTaskRequestRow(migrateHandle, {
+      workspaceId: WORKSPACE_ID,
+      sourceId: randomUUID(),
+      primaryManagedSystemId: msId,
+      evidenceSummary: `${input.title ?? 'Seeded'} evidence summary`,
+      requestedOutcome: `${input.title ?? 'Seeded'} requested outcome`,
+      requesterActorId: input.requesterActorId ?? userActorId,
+      status: input.status ?? 'pending_review',
+    });
+    return { id: row.id, msId };
+  }
+
+  function listTaskRequests(cookie: string, status?: string) {
+    const query = status === undefined ? '' : `?status=${status}`;
+    return app.inject({
+      method: 'GET',
+      url: `/task-requests${query}`,
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${cookie}` },
+    });
+  }
+
+  function decide(
+    cookie: string,
+    taskRequestId: string,
+    action: 'approve' | 'reject' | 'request-more-evidence',
+    payload: Record<string, unknown>,
+    idempotencyKey = randomUUID(),
+    targetApp: FastifyInstance = app,
+  ) {
+    return targetApp.inject({
+      method: 'POST',
+      url: `/task-requests/${taskRequestId}/${action}`,
+      headers: {
+        cookie: `${SESSION_COOKIE_NAME}=${cookie}`,
+        'content-type': 'application/json',
+        'idempotency-key': idempotencyKey,
+      },
+      payload,
+    });
+  }
+
+  it('list: admin sees all, developer sees manageable Managed Systems, user is denied', async () => {
+    const visible = await seedTaskRequest({ title: 'Visible' });
+    const hidden = await seedTaskRequest({ title: 'Hidden' });
+
+    const adminList = await listTaskRequests(adminCookie);
+    expect(adminList.statusCode).toBe(200);
+    const adminIds = adminList
+      .json<{ items: Array<{ id: string }> }>()
+      .items.map((item) => item.id);
+    expect(adminIds).toEqual(expect.arrayContaining([visible.id, hidden.id]));
+
+    const { id: devId, externalId } = await insertDevActor(dbHandle, WORKSPACE_ID, uid('trq'));
+    await grantCapability(
+      dbHandle,
+      WORKSPACE_ID,
+      devId,
+      'finding.manage',
+      visible.msId,
+      adminActorId,
+    );
+    const devCookie = await loginAs(app, externalId);
+
+    const devList = await listTaskRequests(devCookie, 'pending_review');
+    expect(devList.statusCode).toBe(200);
+    const devIds = devList.json<{ items: Array<{ id: string }> }>().items.map((item) => item.id);
+    expect(devIds).toContain(visible.id);
+    expect(devIds).not.toContain(hidden.id);
+
+    const denied = await listTaskRequests(userCookie);
+    expect(denied.statusCode).toBe(403);
+    expect(denied.json<{ code: string }>().code).toBe('permission.denied');
+  });
+
+  it.each([
+    [
+      'approve',
+      { reason: 'Ready for execution.' },
+      'approved',
+      'task_request.approved',
+      'task_request_approved',
+      '작업 요청이 승인되었습니다.',
+    ],
+    [
+      'reject',
+      { reason: 'Not actionable yet.' },
+      'rejected',
+      'task_request.rejected',
+      'task_request_rejected',
+      '작업 요청이 반려되었습니다.',
+    ],
+    [
+      'request-more-evidence',
+      { note: 'Please attach the source evidence.' },
+      'needs_more_evidence',
+      'task_request.needs_more_evidence',
+      'task_request_needs_more_evidence',
+      '작업 요청에 추가 근거가 필요합니다.',
+    ],
+  ] as const)(
+    'notifies the creator after Task Request %s',
+    async (action, payload, status, eventType, auditEventType, summary) => {
+      const request = await seedTaskRequest();
+      const response = await decide(adminCookie, request.id, action, payload);
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toMatchObject({ id: request.id, status });
+      expect(notifications.jobs).toEqual([
+        expect.objectContaining({
+          workspace_id: WORKSPACE_ID,
+          actor_id: userActorId,
+          event_type: eventType,
+          subject_type: 'task_request',
+          subject_id: request.id,
+          summary,
+          detail: {
+            task_request_id: request.id,
+            primary_managed_system_id: request.msId,
+          },
+          correlation_id: expect.any(String),
+        }),
+      ]);
+
+      const audit = await migrateHandle.pool.query(
+        `select 1 from core.audit_log
+          where workspace_id = $1 and event_type = $2 and subject_id = $3`,
+        [WORKSPACE_ID, auditEventType, request.id],
+      );
+      expect(audit.rowCount).toBe(1);
+
+      if (action === 'approve') {
+        const alreadyApproved = await decide(adminCookie, request.id, 'approve', {
+          reason: 'Already approved.',
+        });
+        expect(alreadyApproved.statusCode).toBe(200);
+        expect(notifications.jobs).toHaveLength(1);
+
+        const taskTable = await dbHandle.pool.query<{ exists: boolean }>(
+          `select to_regclass('task.tasks') is not null as exists`,
+        );
+        if (taskTable.rows[0]?.exists) {
+          const tasks = await dbHandle.pool.query<{ n: number }>(
+            'select count(*)::int as n from task.tasks where workspace_id = $1',
+            [WORKSPACE_ID],
+          );
+          expect(tasks.rows[0]?.n).toBe(0);
+        }
+      }
+    },
+  );
+
+  it('reject requires a reason and emits no notification when validation fails', async () => {
+    const request = await seedTaskRequest();
+    const missingReason = await decide(adminCookie, request.id, 'reject', {});
+    expect(missingReason.statusCode).toBe(422);
+    expect(missingReason.json<{ code: string }>().code).toBe('validation.failed');
+    expect(notifications.jobs).toEqual([]);
+  });
+
+  it('invalid transition: approve rejected request -> validation.failed invalid_transition', async () => {
+    const request = await seedTaskRequest({ status: 'rejected' });
+
+    const res = await decide(adminCookie, request.id, 'approve', { reason: 'Changed my mind.' });
+    expect(res.statusCode).toBe(422);
+    const body = res.json<{ code: string; detail: { fields: Array<{ code: string }> } }>();
+    expect(body.code).toBe('validation.failed');
+    expect(body.detail.fields).toContainEqual({ path: ['status'], code: 'invalid_transition' });
+  });
+
+  it.each([0, 3])(
+    'enforces the shared sensitive bucket (preused=%s), rolls back 429 and retries the identical key',
+    async (preused) => {
+      const { id: devId, externalId } = await insertDevActor(
+        dbHandle,
+        WORKSPACE_ID,
+        uid('rate-self'),
+      );
+      const msId = await insertMsDirectly(dbHandle, WORKSPACE_ID, uid(SLUG_PREFIX), 'Rate Self MS');
+      await grantCapability(dbHandle, WORKSPACE_ID, devId, 'finding.manage', msId, adminActorId);
+      await grantCapability(
+        dbHandle,
+        WORKSPACE_ID,
+        devId,
+        'task_request.self_approve',
+        msId,
+        adminActorId,
+      );
+      const cookie = await loginAs(app, externalId);
+      const rateKey = `${WORKSPACE_ID}:${devId}`;
+      if (preused)
+        await migrateHandle.pool.query(
+          `insert into core.rate_limits (key, route_group, counter, expires_at) values ($1, 'sensitive', $2, now() + interval '1 minute')`,
+          [rateKey, preused],
+        );
+      for (let i = 0; i < 5 - preused; i++) {
+        const row = await seedTaskRequest({ msId, requesterActorId: devId });
+        expect((await decide(cookie, row.id, 'approve', { reason: '검토 완료' })).statusCode).toBe(
+          200,
+        );
+      }
+      const rejected = await seedTaskRequest({ msId, requesterActorId: devId });
+      const key = randomUUID();
+      const payload = { reason: '검토 완료' };
+      const response = await decide(cookie, rejected.id, 'approve', payload, key);
+      expect(response.statusCode).toBe(429);
+      expect(response.json()).toMatchObject({
+        code: 'rate_limited.actor',
+        message: 'rate limit exceeded',
+        detail: { retry_after_seconds: expect.any(Number) },
+      });
+      expect(Number(response.headers['retry-after'])).toBeGreaterThan(0);
+      expect(
+        (
+          await migrateHandle.pool.query(
+            'select status from task_request.task_requests where id = $1',
+            [rejected.id],
+          )
+        ).rows,
+      ).toEqual([{ status: 'pending_review' }]);
+      expect(
+        (
+          await migrateHandle.pool.query('select id from core.audit_log where subject_id = $1', [
+            rejected.id,
+          ])
+        ).rowCount,
+      ).toBe(0);
+      expect(
+        (
+          await migrateHandle.pool.query(
+            'select key from core.idempotency_keys where actor_id = $1 and key = $2',
+            [devId, key],
+          )
+        ).rowCount,
+      ).toBe(0);
+      expect(notifications.jobs.some((job) => job.subject_id === rejected.id)).toBe(false);
+      expect(
+        (
+          await migrateHandle.pool.query(
+            'select id from core.notifications where subject_id = $1',
+            [rejected.id],
+          )
+        ).rowCount,
+      ).toBe(0);
+      const counters = await migrateHandle.pool.query<{ counter: number }>(
+        `select counter from core.rate_limits where key = $1 and route_group = 'mutation'`,
+        [rateKey],
+      );
+      expect(counters.rows[0]?.counter).toBe(6 - preused);
+      await migrateHandle.pool.query(
+        `update core.rate_limits set expires_at = now() - interval '1 second' where key = $1 and route_group = 'sensitive'`,
+        [rateKey],
+      );
+      expect((await decide(cookie, rejected.id, 'approve', payload, key)).statusCode).toBe(200);
+      expect(
+        (
+          await migrateHandle.pool.query(
+            'select key from core.idempotency_keys where actor_id = $1 and key = $2',
+            [devId, key],
+          )
+        ).rowCount,
+      ).toBe(1);
+    },
+  );
+
+  it('allows six peer approvals without consuming sensitive capacity', async () => {
+    const { id: devId, externalId } = await insertDevActor(
+      dbHandle,
+      WORKSPACE_ID,
+      uid('rate-peer'),
+    );
+    const msId = await insertMsDirectly(dbHandle, WORKSPACE_ID, uid(SLUG_PREFIX), 'Rate Peer MS');
+    await grantCapability(dbHandle, WORKSPACE_ID, devId, 'finding.manage', msId, adminActorId);
+    const cookie = await loginAs(app, externalId);
+    for (let i = 0; i < 6; i++) {
+      const row = await seedTaskRequest({ msId, requesterActorId: userActorId });
+      expect((await decide(cookie, row.id, 'approve', {})).statusCode).toBe(200);
+    }
+    expect(
+      (
+        await migrateHandle.pool.query(
+          `select counter from core.rate_limits where key = $1 and route_group = 'sensitive'`,
+          [`${WORKSPACE_ID}:${devId}`],
+        )
+      ).rowCount,
+    ).toBe(0);
+  });
+
+  it('self-approval by requester without capability is denied and audited', async () => {
+    const { id: devId, externalId } = await insertDevActor(dbHandle, WORKSPACE_ID, uid('self'));
+    const msId = await insertMsDirectly(dbHandle, WORKSPACE_ID, uid(SLUG_PREFIX), 'Self Review MS');
+    await grantCapability(dbHandle, WORKSPACE_ID, devId, 'finding.manage', msId, adminActorId);
+    const devCookie = await loginAs(app, externalId);
+    const request = await seedTaskRequest({ msId, requesterActorId: devId });
+
+    const res = await decide(devCookie, request.id, 'approve', { reason: 'I own the follow-up.' });
+    expect(res.statusCode).toBe(403);
+    expect(res.json<{ code: string }>().code).toBe('permission.denied');
+
+    const audit = await migrateHandle.pool.query<{ detail: Record<string, unknown> }>(
+      `select detail
+         from core.audit_log
+        where workspace_id = $1
+          and event_type = 'task_request_self_approval_denied'
+          and subject_id = $2`,
+      [WORKSPACE_ID, request.id],
+    );
+    expect(audit.rowCount).toBe(1);
+    expect(audit.rows[0]?.detail).toMatchObject({
+      requester_actor_id: devId,
+      reason_present: true,
+      capability_present: false,
+    });
+    expect(notifications.jobs).toEqual([]);
+  });
+
+  it('settles a self-approval while the shared app pool has only one free connection', async () => {
+    // The server shares dbHandle.pool. Hold every connection but one, so the command
+    // transaction takes the last one; the limiter must not need another from this pool.
+    const request = await seedTaskRequest({ requesterActorId: adminActorId });
+    const max = dbHandle.pool.options.max;
+    const held = await Promise.all(Array.from({ length: max - 1 }, () => dbHandle.pool.connect()));
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const response = await Promise.race([
+        decide(adminCookie, request.id, 'approve', {
+          reason: 'Owner approval under pool pressure.',
+        }),
+        new Promise<never>((_resolve, reject) => {
+          timer = setTimeout(
+            () => reject(new Error('self-approval did not settle with one free pool connection')),
+            5_000,
+          );
+        }),
+      ]);
+      expect([200, 429]).toContain(response.statusCode);
+    } finally {
+      clearTimeout(timer);
+      for (const client of held) client.release();
+    }
+  }, 15_000);
+
+  it('self-approval by requester with admin role and reason is approved with sensitive audit detail', async () => {
+    const request = await seedTaskRequest({ requesterActorId: adminActorId });
+
+    const res = await decide(adminCookie, request.id, 'approve', {
+      reason: 'Emergency owner approval.',
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ id: request.id, status: 'approved' });
+
+    const audit = await migrateHandle.pool.query<{ detail: Record<string, unknown> }>(
+      `select detail
+         from core.audit_log
+        where workspace_id = $1
+          and event_type = 'task_request_approved'
+          and subject_id = $2`,
+      [WORKSPACE_ID, request.id],
+    );
+    expect(audit.rows[0]?.detail).toMatchObject({
+      self_approval: true,
+      sensitive: true,
+      reason: 'Emergency owner approval.',
+    });
+    expect(notifications.jobs).toMatchObject([
+      expect.objectContaining({
+        actor_id: adminActorId,
+        event_type: 'task_request.approved',
+        subject_id: request.id,
+        detail: {
+          task_request_id: request.id,
+          primary_managed_system_id: request.msId,
+        },
+      }),
+    ]);
+  });
+
+  it('idempotency: same Idempotency-Key replays the same decision result', async () => {
+    const request = await seedTaskRequest();
+    const key = randomUUID();
+    const payload = { reason: 'Repeatable approval.' };
+
+    const first = await decide(adminCookie, request.id, 'approve', payload, key);
+    const second = await decide(adminCookie, request.id, 'approve', payload, key);
+
+    expect(first.statusCode).toBe(200);
+    expect(second.statusCode).toBe(200);
+    expect(second.json()).toEqual(first.json());
+    expect(notifications.jobs).toHaveLength(1);
+
+    const auditCount = await migrateHandle.pool.query<{ n: number }>(
+      `select count(*)::int as n
+         from core.audit_log
+        where workspace_id = $1
+          and event_type = 'task_request_approved'
+          and subject_id = $2`,
+      [WORKSPACE_ID, request.id],
+    );
+    expect(auditCount.rows[0]?.n).toBe(1);
+  });
+
+  it.each([
+    ['approve', { reason: 'Transactional notification check.' }, 'task_request_approved'],
+    ['reject', { reason: 'Transactional notification check.' }, 'task_request_rejected'],
+    [
+      'request-more-evidence',
+      { note: 'Transactional notification check.' },
+      'task_request_needs_more_evidence',
+    ],
+  ] as const)(
+    'rolls back Task Request %s after successful notification enqueue',
+    async (action, payload, auditEventType) => {
+      const request = await seedTaskRequest();
+
+      const response = await decide(
+        adminCookie,
+        request.id,
+        action,
+        payload,
+        randomUUID(),
+        rollbackApp,
+      );
+
+      expect(response.statusCode).toBeGreaterThanOrEqual(500);
+      expect(response.statusCode).toBeLessThan(600);
+      expect(failAfterEnqueue.attemptedPayloads).toHaveLength(1);
+      expect(failAfterEnqueue.attemptedPayloads[0]).toMatchObject({
+        subject_id: request.id,
+      });
+      const row = await dbHandle.pool.query<{ status: string }>(
+        'select status from task_request.task_requests where id = $1',
+        [request.id],
+      );
+      expect(row.rows[0]?.status).toBe('pending_review');
+      const audit = await migrateHandle.pool.query(
+        `select 1 from core.audit_log
+          where workspace_id = $1 and event_type = $2 and subject_id = $3`,
+        [WORKSPACE_ID, auditEventType, request.id],
+      );
+      expect(audit.rowCount).toBe(0);
+      const jobs = await migrateHandle.pool.query(
+        `select 1 from pgboss.job
+          where name = $1 and data ->> 'subject_id' = $2`,
+        [NOTIFICATION_DISPATCH_QUEUE, request.id],
+      );
+      expect(jobs.rowCount).toBe(0);
+    },
+  );
+});

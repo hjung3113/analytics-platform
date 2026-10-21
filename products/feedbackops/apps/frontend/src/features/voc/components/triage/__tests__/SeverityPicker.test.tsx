@@ -1,0 +1,48 @@
+import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import { SeverityPicker } from '../SeverityPicker';
+
+describe('SeverityPicker', () => {
+  it('renders all 4 severity chips', () => {
+    render(<SeverityPicker value={null} onChange={vi.fn()} />);
+    expect(screen.getByRole('button', { name: /낮음/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /중간/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /높음/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /심각/ })).toBeInTheDocument();
+  });
+
+  it('calls onChange with the selected severity when a chip is clicked', () => {
+    const onChange = vi.fn();
+    render(<SeverityPicker value={null} onChange={onChange} />);
+    fireEvent.click(screen.getByRole('button', { name: /높음/ }));
+    expect(onChange).toHaveBeenCalledWith('high');
+  });
+
+  it('marks the active chip with data-active="true"', () => {
+    render(<SeverityPicker value="critical" onChange={vi.fn()} />);
+    const criticalBtn = screen.getByRole('button', { name: /심각/ });
+    expect(criticalBtn).toHaveAttribute('data-active', 'true');
+    // others should not be active
+    expect(screen.getByRole('button', { name: /낮음/ })).toHaveAttribute('data-active', 'false');
+  });
+
+  it('disables all chips when disabled prop is true', () => {
+    render(<SeverityPicker value={null} onChange={vi.fn()} disabled />);
+    const buttons = screen.getAllByRole('button');
+    for (const btn of buttons) {
+      expect(btn).toBeDisabled();
+    }
+  });
+
+  // Prototype ref: screen-voc-create.jsx:459 — inline HelpTip (?) icon per chip.
+  it('renders an inline HelpTip icon for each chip with its tip as the label', () => {
+    render(<SeverityPicker value={null} onChange={vi.fn()} />);
+    const lowTip = screen.getByTestId('severity-helptip-low');
+    expect(lowTip).toBeInTheDocument();
+    expect(lowTip).toHaveAttribute('aria-label', '관찰만 · 운영 영향 없음');
+    expect(screen.getByTestId('severity-helptip-critical')).toHaveAttribute(
+      'aria-label',
+      '서비스 영향 · 즉시 대응',
+    );
+  });
+});

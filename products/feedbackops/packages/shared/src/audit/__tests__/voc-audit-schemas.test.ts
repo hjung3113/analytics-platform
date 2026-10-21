@@ -1,0 +1,603 @@
+import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
+
+import { AUDIT_EVENT_DETAIL_SCHEMAS, AUDIT_EVENT_TYPES } from '../../enums/audit-events.js';
+import { vocClusterCreatedDetailSchema, vocClusterUpdatedDetailSchema } from '../voc-cluster.js';
+import {
+  internalCommentCreatedDetailSchema,
+  publicUpdateCreatedDetailSchema,
+  reporterFacingStatusChangedDetailSchema,
+  reporterReplyCreatedDetailSchema,
+  vocAnalyticsAreaLinkedDetailSchema,
+  vocClusterDecisionRecordedDetailSchema,
+  vocCreatedDetailSchema,
+  vocDescriptionEditedDetailSchema,
+  vocOwnerAssignedDetailSchema,
+  vocSeveritySetDetailSchema,
+  vocTriageCommittedDetailSchema,
+  vocTriagePostponeClearedDetailSchema,
+  vocTriagePostponedDetailSchema,
+} from '../voc.js';
+
+const U = '01919b8c-0000-7000-8000-000000000001';
+
+describe('vocCreatedDetailSchema', () => {
+  it('accepts required shape', () => {
+    const parsed = vocCreatedDetailSchema.parse({
+      voc_id: U,
+      workspace_id: U,
+      primary_managed_system_id: U,
+      analytics_area_id: null,
+      reporter_id: U,
+      source_context: 'direct_use',
+    });
+    expect(parsed.source_context).toBe('direct_use');
+  });
+
+  it.each([
+    'explicit',
+    'managed_system_owner',
+    'analytics_area_owner',
+    'workspace_fallback_queue',
+  ] as const)('retains safe %s routing metadata in the existing creation audit', (rule) => {
+    const metadata = {
+      owner_user_id: null,
+      owner_team_id: null,
+      default_resolved: rule === 'managed_system_owner' || rule === 'analytics_area_owner',
+      source_rule: rule,
+      managed_system_id: U,
+    };
+    const parsed = vocCreatedDetailSchema.parse({
+      voc_id: U,
+      workspace_id: U,
+      primary_managed_system_id: U,
+      analytics_area_id: null,
+      reporter_id: U,
+      source_context: 'direct_use',
+      ...metadata,
+    });
+    expect(parsed).toMatchObject(metadata);
+  });
+
+  it('rejects bad source_context', () => {
+    expect(() =>
+      vocCreatedDetailSchema.parse({
+        voc_id: U,
+        workspace_id: U,
+        primary_managed_system_id: U,
+        analytics_area_id: null,
+        reporter_id: U,
+        source_context: 'phone_call',
+      }),
+    ).toThrow(z.ZodError);
+  });
+});
+
+describe('vocClusterUpdatedDetailSchema workspace fields', () => {
+  it('accepts workspace field and confirmation provenance changes', () => {
+    const confirmedAt = '2026-07-15T01:02:03.000Z';
+    const parsed = vocClusterUpdatedDetailSchema.parse({
+      voc_cluster_id: U,
+      primary_managed_system_id: U,
+      changes: {
+        severity: { from: null, to: 'critical' },
+        confidence: { from: null, to: 'high' },
+        rationale: { from: null, to: 'Repeated customer impact' },
+        owner_user_id: { from: null, to: U },
+        confirmed_by: { from: null, to: U },
+        confirmed_at: { from: null, to: confirmedAt },
+      },
+    });
+
+    expect(parsed.changes.confirmed_at?.to).toBe(confirmedAt);
+  });
+
+  it('rejects workspace field values outside the contract', () => {
+    expect(() =>
+      vocClusterUpdatedDetailSchema.parse({
+        voc_cluster_id: U,
+        primary_managed_system_id: U,
+        changes: { severity: { from: null, to: 'urgent' } },
+      }),
+    ).toThrow(z.ZodError);
+  });
+});
+
+describe('vocTriageCommittedDetailSchema', () => {
+  it('accepts atomic shape with severity high, owner set, cluster_decision confirm', () => {
+    const parsed = vocTriageCommittedDetailSchema.parse({
+      voc_id: U,
+      severity: 'high',
+      owner_user_id: U,
+      owner_team_id: null,
+      analytics_area_id: null,
+      cluster_decision: 'confirm',
+    });
+    expect(parsed.severity).toBe('high');
+    expect(parsed.cluster_decision).toBe('confirm');
+  });
+
+  it('accepts null severity (dismissal path)', () => {
+    const parsed = vocTriageCommittedDetailSchema.parse({
+      voc_id: U,
+      severity: null,
+      owner_user_id: null,
+      owner_team_id: null,
+      analytics_area_id: null,
+      cluster_decision: 'dismiss',
+    });
+    expect(parsed.severity).toBeNull();
+    expect(parsed.cluster_decision).toBe('dismiss');
+  });
+
+  it('triaged with non-null severity', () => {
+    const parsed = vocTriageCommittedDetailSchema.parse({
+      voc_id: U,
+      severity: 'critical',
+      owner_user_id: U,
+      owner_team_id: null,
+      analytics_area_id: U,
+      cluster_decision: null,
+    });
+    expect(parsed.severity).toBe('critical');
+  });
+});
+
+describe('vocSeveritySetDetailSchema', () => {
+  it('accepts from=null to=critical', () => {
+    const parsed = vocSeveritySetDetailSchema.parse({
+      voc_id: U,
+      from: null,
+      to: 'critical',
+    });
+    expect(parsed.to).toBe('critical');
+  });
+
+  it('accepts from=high to=null (severity-clear / de-triage path)', () => {
+    const parsed = vocSeveritySetDetailSchema.parse({
+      voc_id: U,
+      from: 'high',
+      to: null,
+    });
+    expect(parsed.from).toBe('high');
+    expect(parsed.to).toBeNull();
+  });
+
+  it('rejects no-op severity_set (from === to, both non-null)', () => {
+    expect(() =>
+      vocSeveritySetDetailSchema.parse({
+        voc_id: U,
+        from: 'high',
+        to: 'high',
+      }),
+    ).toThrow();
+  });
+
+  it('rejects no-op severity_set (from === to, both null)', () => {
+    // from=null, to=null means no change — must be rejected by the refine.
+    expect(() =>
+      vocSeveritySetDetailSchema.parse({
+        voc_id: U,
+        from: null,
+        to: null,
+      }),
+    ).toThrow();
+  });
+});
+
+describe('vocOwnerAssignedDetailSchema', () => {
+  it('accepts user to team reassignment', () => {
+    const parsed = vocOwnerAssignedDetailSchema.parse({
+      voc_id: U,
+      from: { user_id: U, team_id: null },
+      to: { user_id: null, team_id: U },
+    });
+    expect(parsed.from.user_id).toBe(U);
+    expect(parsed.to.team_id).toBe(U);
+  });
+
+  it('rejects no-op owner assignment (from === to)', () => {
+    expect(() =>
+      vocOwnerAssignedDetailSchema.parse({
+        voc_id: U,
+        from: { user_id: U, team_id: null },
+        to: { user_id: U, team_id: null },
+      }),
+    ).toThrow();
+  });
+
+  it('rejects both-populated from (XOR violation)', () => {
+    expect(() =>
+      vocOwnerAssignedDetailSchema.parse({
+        voc_id: U,
+        from: { user_id: U, team_id: U },
+        to: { user_id: null, team_id: U },
+      }),
+    ).toThrow();
+  });
+
+  it('rejects both-populated to (XOR violation)', () => {
+    expect(() =>
+      vocOwnerAssignedDetailSchema.parse({
+        voc_id: U,
+        from: { user_id: U, team_id: null },
+        to: { user_id: U, team_id: U },
+      }),
+    ).toThrow();
+  });
+});
+
+describe('vocAnalyticsAreaLinkedDetailSchema', () => {
+  it('accepts null to uuid', () => {
+    const parsed = vocAnalyticsAreaLinkedDetailSchema.parse({
+      voc_id: U,
+      from: null,
+      to: U,
+    });
+    expect(parsed.to).toBe(U);
+  });
+
+  it('rejects no-op analytics_area_linked (from === to)', () => {
+    expect(() =>
+      vocAnalyticsAreaLinkedDetailSchema.parse({
+        voc_id: U,
+        from: U,
+        to: U,
+      }),
+    ).toThrow();
+  });
+});
+
+describe('vocClusterDecisionRecordedDetailSchema', () => {
+  it('accepts confirm', () => {
+    const parsed = vocClusterDecisionRecordedDetailSchema.parse({
+      voc_id: U,
+      decision: 'confirm',
+    });
+    expect(parsed.decision).toBe('confirm');
+  });
+
+  it('rejects maybe', () => {
+    expect(() =>
+      vocClusterDecisionRecordedDetailSchema.parse({
+        voc_id: U,
+        decision: 'maybe',
+      }),
+    ).toThrow(z.ZodError);
+  });
+});
+
+describe('publicUpdateCreatedDetailSchema', () => {
+  it('accepts skip=true with skip_reason >= 8 chars', () => {
+    const parsed = publicUpdateCreatedDetailSchema.parse({
+      voc_id: U,
+      public_update_id: U,
+      actor_id: U,
+      skip_public_update: true,
+      skip_reason: 'too long to explain briefly',
+    });
+    expect(parsed.skip_public_update).toBe(true);
+  });
+
+  it('accepts skip=false with null skip_reason', () => {
+    const parsed = publicUpdateCreatedDetailSchema.parse({
+      voc_id: U,
+      public_update_id: U,
+      actor_id: U,
+      skip_public_update: false,
+      skip_reason: null,
+    });
+    expect(parsed.skip_public_update).toBe(false);
+    expect(parsed.skip_reason).toBeNull();
+  });
+
+  it('rejects null public_update_id', () => {
+    expect(() =>
+      publicUpdateCreatedDetailSchema.parse({
+        voc_id: U,
+        public_update_id: null,
+        actor_id: U,
+        skip_public_update: false,
+        skip_reason: null,
+      }),
+    ).toThrow(z.ZodError);
+  });
+
+  it('rejects skip=false with non-null skip_reason', () => {
+    expect(() =>
+      publicUpdateCreatedDetailSchema.parse({
+        voc_id: U,
+        public_update_id: U,
+        actor_id: U,
+        skip_public_update: false,
+        skip_reason: 'some reason here',
+      }),
+    ).toThrow();
+  });
+
+  it('rejects skip=true with skip_reason too short', () => {
+    expect(() =>
+      publicUpdateCreatedDetailSchema.parse({
+        voc_id: U,
+        public_update_id: U,
+        actor_id: U,
+        skip_public_update: true,
+        skip_reason: 'short',
+      }),
+    ).toThrow();
+  });
+
+  it('rejects skip=true with null skip_reason', () => {
+    expect(() =>
+      publicUpdateCreatedDetailSchema.parse({
+        voc_id: U,
+        public_update_id: U,
+        actor_id: U,
+        skip_public_update: true,
+        skip_reason: null,
+      }),
+    ).toThrow();
+  });
+});
+
+describe('reporterFacingStatusChangedDetailSchema', () => {
+  it('accepts paired_with public_update', () => {
+    const parsed = reporterFacingStatusChangedDetailSchema.parse({
+      voc_id: U,
+      from: 'received',
+      to: 'reviewing',
+      paired_with: 'public_update',
+    });
+    expect(parsed.paired_with).toBe('public_update');
+  });
+
+  it('accepts paired_with skip', () => {
+    const parsed = reporterFacingStatusChangedDetailSchema.parse({
+      voc_id: U,
+      from: 'reviewing',
+      to: 'resolved',
+      paired_with: 'skip',
+    });
+    expect(parsed.paired_with).toBe('skip');
+  });
+});
+
+describe('reporterReplyCreatedDetailSchema', () => {
+  it('accepts required shape', () => {
+    const parsed = reporterReplyCreatedDetailSchema.parse({
+      voc_id: U,
+      reporter_reply_id: U,
+      actor_id: U,
+    });
+    expect(parsed.reporter_reply_id).toBe(U);
+  });
+});
+
+describe('internalCommentCreatedDetailSchema', () => {
+  it('accepts mentions array of UUIDs', () => {
+    const parsed = internalCommentCreatedDetailSchema.parse({
+      voc_id: U,
+      internal_comment_id: U,
+      actor_id: U,
+      mentions: [U],
+    });
+    expect(parsed.mentions).toHaveLength(1);
+  });
+
+  it('rejects non-uuid in mentions', () => {
+    expect(() =>
+      internalCommentCreatedDetailSchema.parse({
+        voc_id: U,
+        internal_comment_id: U,
+        actor_id: U,
+        mentions: ['not-a-uuid'],
+      }),
+    ).toThrow(z.ZodError);
+  });
+
+  it('accepts empty mentions array (no-mention path allowed — Slice 3 #16 C0 relax)', () => {
+    // .min(1) was removed in Slice 3 #16 C0 to allow the no-mentions path.
+    const result = internalCommentCreatedDetailSchema.parse({
+      voc_id: U,
+      internal_comment_id: U,
+      actor_id: U,
+      mentions: [],
+    });
+    expect(result.mentions).toEqual([]);
+  });
+});
+
+describe('vocTriagePostponedDetailSchema', () => {
+  it('accepts valid voc_id and actor_id', () => {
+    const parsed = vocTriagePostponedDetailSchema.parse({
+      voc_id: U,
+      actor_id: U,
+    });
+    expect(parsed.voc_id).toBe(U);
+    expect(parsed.actor_id).toBe(U);
+  });
+
+  it('rejects missing actor_id', () => {
+    expect(() => vocTriagePostponedDetailSchema.parse({ voc_id: U })).toThrow(z.ZodError);
+  });
+
+  it('rejects missing voc_id', () => {
+    expect(() => vocTriagePostponedDetailSchema.parse({ actor_id: U })).toThrow(z.ZodError);
+  });
+
+  it('rejects non-uuid voc_id', () => {
+    expect(() =>
+      vocTriagePostponedDetailSchema.parse({ voc_id: 'not-a-uuid', actor_id: U }),
+    ).toThrow(z.ZodError);
+  });
+
+  it('rejects non-uuid actor_id', () => {
+    expect(() =>
+      vocTriagePostponedDetailSchema.parse({ voc_id: U, actor_id: 'not-a-uuid' }),
+    ).toThrow(z.ZodError);
+  });
+
+  it('is registered in AUDIT_EVENT_DETAIL_SCHEMAS', () => {
+    expect(AUDIT_EVENT_TYPES).toContain('voc_triage_postponed');
+    expect(AUDIT_EVENT_DETAIL_SCHEMAS).toHaveProperty('voc_triage_postponed');
+  });
+});
+
+describe('vocTriagePostponeClearedDetailSchema', () => {
+  it('accepts the same shape as voc_triage_postponed', () => {
+    const parsed = vocTriagePostponeClearedDetailSchema.parse({ voc_id: U, actor_id: U });
+    expect(parsed).toEqual({ voc_id: U, actor_id: U });
+  });
+
+  it('rejects a missing voc_id or actor_id', () => {
+    expect(() => vocTriagePostponeClearedDetailSchema.parse({ actor_id: U })).toThrow(z.ZodError);
+    expect(() => vocTriagePostponeClearedDetailSchema.parse({ voc_id: U })).toThrow(z.ZodError);
+  });
+});
+
+describe('vocDescriptionEditedDetailSchema', () => {
+  const hash64 = 'a'.repeat(64);
+
+  it('accepts title-only changes', () => {
+    const result = vocDescriptionEditedDetailSchema.parse({
+      voc_id: U,
+      changes: { title: { from: 'Old title', to: 'New title' } },
+    });
+    expect(result.changes.title?.to).toBe('New title');
+  });
+
+  it('accepts description_rich_content-only changes', () => {
+    const result = vocDescriptionEditedDetailSchema.parse({
+      voc_id: U,
+      changes: { description_rich_content: { from_hash: hash64, to_hash: hash64 } },
+    });
+    expect(result.changes.description_rich_content?.from_hash).toBe(hash64);
+  });
+
+  it('accepts attachments-only changes', () => {
+    const result = vocDescriptionEditedDetailSchema.parse({
+      voc_id: U,
+      changes: { attachments: { from: [], to: [] } },
+    });
+    expect(result.changes.attachments?.from).toEqual([]);
+  });
+
+  it('accepts all 3 fields in changes', () => {
+    const result = vocDescriptionEditedDetailSchema.parse({
+      voc_id: U,
+      changes: {
+        title: { from: 'A', to: 'B' },
+        description_rich_content: { from_hash: hash64, to_hash: hash64 },
+        attachments: { from: [], to: [] },
+      },
+    });
+    expect(Object.keys(result.changes)).toHaveLength(3);
+  });
+
+  it('rejects empty changes object', () => {
+    expect(() =>
+      vocDescriptionEditedDetailSchema.parse({
+        voc_id: U,
+        changes: {},
+      }),
+    ).toThrow();
+  });
+
+  it('rejects from_hash that is not 64 chars', () => {
+    expect(() =>
+      vocDescriptionEditedDetailSchema.parse({
+        voc_id: U,
+        changes: { description_rich_content: { from_hash: 'short', to_hash: hash64 } },
+      }),
+    ).toThrow();
+  });
+
+  it('rejects to_hash that is not 64 chars', () => {
+    expect(() =>
+      vocDescriptionEditedDetailSchema.parse({
+        voc_id: U,
+        changes: { description_rich_content: { from_hash: hash64, to_hash: 'short' } },
+      }),
+    ).toThrow();
+  });
+
+  it('is registered in AUDIT_EVENT_DETAIL_SCHEMAS', () => {
+    expect(AUDIT_EVENT_TYPES).toContain('voc_description_edited');
+    expect(AUDIT_EVENT_DETAIL_SCHEMAS).toHaveProperty('voc_description_edited');
+  });
+});
+
+describe('AUDIT_EVENT_TYPES registry', () => {
+  const VOC_EVENTS = [
+    'voc_created',
+    'voc_triage_committed',
+    'voc_severity_set',
+    'voc_owner_assigned',
+    'voc_analytics_area_linked',
+    'voc_cluster_decision_recorded',
+    'public_update_created',
+    'reporter_facing_status_changed',
+    'reporter_reply_created',
+    'internal_comment_created',
+    'voc_triage_postponed',
+    'voc_triage_postpone_cleared',
+    'voc_description_edited',
+  ] as const;
+
+  it.each(VOC_EVENTS)('%s is in AUDIT_EVENT_TYPES and has a detail schema', (event) => {
+    expect(AUDIT_EVENT_TYPES).toContain(event);
+    expect(AUDIT_EVENT_DETAIL_SCHEMAS).toHaveProperty(event);
+  });
+});
+
+describe('VOC cluster audit event registry', () => {
+  const VOC_CLUSTER_EVENTS = ['voc_cluster_created', 'voc_cluster_updated'] as const;
+
+  it.each(VOC_CLUSTER_EVENTS)('%s is in AUDIT_EVENT_TYPES and has a detail schema', (event) => {
+    expect(AUDIT_EVENT_TYPES).toContain(event);
+    expect(AUDIT_EVENT_DETAIL_SCHEMAS).toHaveProperty(event);
+  });
+});
+
+describe('vocClusterCreatedDetailSchema', () => {
+  it('accepts required shape', () => {
+    expect(
+      vocClusterCreatedDetailSchema.parse({
+        voc_cluster_id: U,
+        primary_managed_system_id: U,
+        title: 'Cluster title',
+        summary_present: true,
+        status: 'draft',
+      }),
+    ).toMatchObject({ voc_cluster_id: U, status: 'draft' });
+  });
+});
+
+describe('vocClusterUpdatedDetailSchema', () => {
+  it('accepts changed title, summary, and status', () => {
+    expect(
+      vocClusterUpdatedDetailSchema.parse({
+        voc_cluster_id: U,
+        primary_managed_system_id: U,
+        changes: {
+          title: { from: 'Old title', to: 'New title' },
+          summary: { from: null, to: 'New summary' },
+          status: { from: 'draft', to: 'confirmed' },
+        },
+      }),
+    ).toMatchObject({
+      voc_cluster_id: U,
+      changes: { status: { from: 'draft', to: 'confirmed' } },
+    });
+  });
+
+  it('rejects an empty changes object', () => {
+    expect(() =>
+      vocClusterUpdatedDetailSchema.parse({
+        voc_cluster_id: U,
+        primary_managed_system_id: U,
+        changes: {},
+      }),
+    ).toThrow();
+  });
+});

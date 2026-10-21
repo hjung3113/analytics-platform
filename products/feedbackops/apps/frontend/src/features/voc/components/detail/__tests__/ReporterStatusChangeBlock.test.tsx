@@ -1,0 +1,249 @@
+// ReporterStatusChangeBlock.test.tsx — TDD RED
+// C4.1: 7 tests — order, forbidden DOM disabled, forbidden Callout, gate Callout,
+//        with-body preview, empty-body preview, 변경 예정 chip.
+//
+// Prototype ref: docs/design-prototype/screen-voc.jsx:537-655
+
+import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import { ReporterStatusChangeBlock } from '../ReporterStatusChangeBlock';
+import type { VocDetailEnvelope } from '@fops/shared';
+
+// ── Minimal VOC fixture ─────────────────────────────────────────────────────
+
+const BASE_VOC: VocDetailEnvelope = {
+  id: 'voc-uuid-1111',
+  display_id: 'VOC-0001',
+  title: '테스트 VOC 제목',
+  primary_managed_system_id: 'ms-1',
+  analytics_area_id: null,
+  reporter_id: 'actor-1',
+  owner_user_id: null,
+  owner_team_id: null,
+  severity: null,
+  reporter_facing_status: 'received',
+  triage_state: 'untriaged',
+  source_context: 'direct_use',
+  created_at: '2026-01-01T00:00:00Z',
+  updated_at: '2026-01-01T00:00:00Z',
+  similar_count: 0,
+  similar: { items: [] },
+  attachments: [],
+  attachment_count: 0,
+  description_rich_content: { type: 'doc', content: [] },
+  next_actions: [],
+  next_reporter_states: {
+    allowed: ['reviewing', 'assigned'],
+    forbidden: { resolved: '결과 확인 전에 해결됨으로 바꿀 수 없습니다.' },
+  },
+  linked_execution: { findingRef: null, taskRef: null },
+  conversation_timeline: [],
+  conversation_page: { has_more: false },
+  permission_decisions: {},
+};
+
+const OWNER = {
+  id: 'actor-owner',
+  display_name: '김담당',
+  email: 'owner@feedbackops.local',
+};
+
+// ── Tests ──────────────────────────────────────────────────────────────────
+
+describe('ReporterStatusChangeBlock', () => {
+  it('renders picker with current status first, then allowed, then forbidden (API reason suffix)', async () => {
+    render(
+      <ReporterStatusChangeBlock
+        voc={BASE_VOC}
+        nextStatus="received"
+        onChangeStatus={vi.fn()}
+        draftDoc={null}
+        owner={OWNER}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('combobox'));
+    const options = await screen.findAllByRole('option');
+
+    // First option is current status
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    expect(options[0]!.textContent).toContain('접수됨');
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    expect(options[0]!.textContent).toContain('(현재)');
+
+    // Allowed statuses come next (before forbidden)
+    const allowedLabels = ['검토 중', '담당자 배정됨'];
+    for (const label of allowedLabels) {
+      const opt = options.find((option) => option.textContent?.trim() === label);
+      expect(opt).toBeTruthy();
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      expect(opt).not.toHaveAttribute('aria-disabled', 'true');
+    }
+
+    // A forbidden status with an API reason shows that reason instead of the generic suffix
+    const resolvedOpt = options.find((option) => option.textContent?.includes('해결됨'));
+    expect(resolvedOpt).toBeTruthy();
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    expect(resolvedOpt).toHaveAttribute('aria-disabled', 'true');
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    expect(resolvedOpt!.textContent).toContain('결과 확인 전에 해결됨으로 바꿀 수 없습니다.');
+    expect(resolvedOpt!.textContent).not.toContain('차단됨');
+  });
+
+  it('forbidden statuses remain disabled options', async () => {
+    render(
+      <ReporterStatusChangeBlock
+        voc={BASE_VOC}
+        nextStatus="received"
+        onChangeStatus={vi.fn()}
+        draftDoc={null}
+        owner={OWNER}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('combobox'));
+    const options = await screen.findAllByRole('option');
+
+    // All statuses not in allowed and not current are disabled
+    const disabled = options.filter((option) => option.getAttribute('aria-disabled') === 'true');
+    expect(disabled).toHaveLength(5);
+    // Without an API reason the generic suffix remains; with one it is replaced.
+    expect(disabled.filter((option) => option.textContent?.includes('차단됨'))).toHaveLength(4);
+  });
+
+  it('emits the selected allowed status through the shared picker', async () => {
+    const onChangeStatus = vi.fn();
+    render(
+      <ReporterStatusChangeBlock
+        voc={BASE_VOC}
+        nextStatus="received"
+        onChangeStatus={onChangeStatus}
+        draftDoc={null}
+        owner={OWNER}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('combobox'));
+    fireEvent.click(await screen.findByRole('option', { name: '검토 중' }));
+
+    expect(onChangeStatus).toHaveBeenCalledWith('reviewing');
+  });
+
+  it('shows red Callout when forbidden status is selected (via onChangeStatus)', () => {
+    // The parent controls nextStatus; simulate selecting a forbidden value
+    const { rerender } = render(
+      <ReporterStatusChangeBlock
+        voc={BASE_VOC}
+        nextStatus="received"
+        onChangeStatus={vi.fn()}
+        draftDoc={null}
+        owner={OWNER}
+      />,
+    );
+
+    // Rerender with forbidden status
+    rerender(
+      <ReporterStatusChangeBlock
+        voc={BASE_VOC}
+        nextStatus="resolved"
+        onChangeStatus={vi.fn()}
+        draftDoc={null}
+        owner={OWNER}
+      />,
+    );
+
+    // Red callout should appear
+    const title = screen.getByText('선택한 상태로는 더 이상 전환할 수 없습니다');
+    expect(title).toBeInTheDocument();
+    expect(title.closest('[data-tone]')?.getAttribute('data-tone')).toBe('red');
+
+    // #356: the seeded forbidden reason is appended, not replaced by the
+    // changed-status framing — dropping it loses the only concrete rule the
+    // backend gave us for this pair.
+    const reason = screen.getByTestId('reporter-status-forbidden-reason').textContent ?? '';
+    expect(reason).toContain(BASE_VOC.next_reporter_states?.forbidden?.resolved);
+  });
+
+  it('shows amber Callout when reporter_status_gate blocks next status', () => {
+    const vocWithGate = {
+      ...BASE_VOC,
+      reporter_status_gate: {
+        blocking_for: ['reviewing'] as never,
+        reason: '연결된 Task가 doing 상태입니다.',
+      },
+    } as VocDetailEnvelope;
+
+    render(
+      <ReporterStatusChangeBlock
+        voc={vocWithGate}
+        nextStatus="reviewing"
+        onChangeStatus={vi.fn()}
+        draftDoc={null}
+        owner={OWNER}
+      />,
+    );
+
+    // Amber callout for gate
+    expect(screen.getByText('연결된 Task 상태 확인 필요')).toBeInTheDocument();
+    const callout = screen.getByText('연결된 Task 상태 확인 필요').closest('[data-tone]');
+    expect(callout?.getAttribute('data-tone')).toBe('amber');
+  });
+
+  it('renders reporter preview card with body excerpt when draft has content', () => {
+    const draftDoc = {
+      type: 'doc' as const,
+      content: [
+        {
+          type: 'paragraph',
+          content: [{ type: 'text', text: '안녕하세요, 처리 중입니다.' }],
+        },
+      ],
+    };
+
+    render(
+      <ReporterStatusChangeBlock
+        voc={BASE_VOC}
+        nextStatus="reviewing"
+        onChangeStatus={vi.fn()}
+        draftDoc={draftDoc}
+        owner={OWNER}
+      />,
+    );
+
+    // Preview card should be present with "Reporter가 보게 될 화면 미리보기" label
+    expect(screen.getByText('제출자가 보게 될 화면 미리보기')).toBeInTheDocument();
+    // VOC display_id shown in preview
+    expect(screen.getByText('VOC-0001')).toBeInTheDocument();
+  });
+
+  it('renders italic placeholder in preview card when draft is empty', () => {
+    render(
+      <ReporterStatusChangeBlock
+        voc={BASE_VOC}
+        nextStatus="reviewing"
+        onChangeStatus={vi.fn()}
+        draftDoc={null}
+        owner={OWNER}
+      />,
+    );
+
+    expect(
+      screen.getByText('공개 메시지 본문을 입력하면 여기에서 미리 볼 수 있습니다.'),
+    ).toBeInTheDocument();
+  });
+
+  it('shows 변경 예정 chip when next status differs from current and no gate blocks it', () => {
+    render(
+      <ReporterStatusChangeBlock
+        voc={BASE_VOC}
+        nextStatus="reviewing"
+        onChangeStatus={vi.fn()}
+        draftDoc={null}
+        owner={OWNER}
+      />,
+    );
+
+    // 변경 예정 chip appears when staged (nextStatus !== voc.reporter_facing_status) and no gate
+    expect(screen.getByText('변경 예정')).toBeInTheDocument();
+  });
+});

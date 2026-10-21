@@ -1,0 +1,118 @@
+import { type VocListItem, vocListItemSchema } from '@fops/shared';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import { TriageRow } from '../TriageRow';
+
+const BASE_VOC: VocListItem = {
+  id: '00000000-0000-0000-0000-000000000001',
+  display_id: 'VOC-001',
+  title: 'Test VOC title',
+  primary_managed_system_id: 'ms-1',
+  analytics_area_id: null,
+  reporter_id: 'u1',
+  owner_user_id: null,
+  owner_team_id: null,
+  severity: 'high',
+  reporter_facing_status: 'received',
+  triage_state: 'untriaged',
+  source_context: 'direct_use',
+  created_at: '2026-01-01T00:00:00.000Z',
+  updated_at: '2026-01-01T00:00:00.000Z',
+  similar_count: 0,
+  review_postponed_at: null,
+  attachment_count: 0,
+};
+
+describe('TriageRow', () => {
+  it('mirrors prototype expanded row padding and min height', () => {
+    render(<TriageRow voc={BASE_VOC} selected={false} onSelect={vi.fn()} />);
+    const row = screen.getByRole('button');
+    expect(row.className).toContain('min-h-row-expanded');
+    expect(row.className).toContain('py-3.5');
+    expect(row.className).toContain('px-5');
+  });
+
+  it('renders the voc title and display_id', () => {
+    render(<TriageRow voc={BASE_VOC} selected={false} onSelect={vi.fn()} />);
+    expect(screen.getByText('Test VOC title')).toBeInTheDocument();
+    expect(screen.getByText('VOC-001')).toBeInTheDocument();
+  });
+
+  it('shows the shared unassigned badge when owner is unset', () => {
+    render(<TriageRow voc={BASE_VOC} selected={false} onSelect={vi.fn()} />);
+    expect(screen.getByText('담당자 없음')).toBeInTheDocument();
+  });
+
+  it('shows "Analytics Area 미지정" when analytics_area_id is null', () => {
+    render(<TriageRow voc={BASE_VOC} selected={false} onSelect={vi.fn()} />);
+    expect(screen.getByText('Analytics Area 미지정')).toBeInTheDocument();
+  });
+
+  it('uses danger tone only for missing owner and keeps the area while omitting the row peer count', () => {
+    render(
+      <TriageRow voc={{ ...BASE_VOC, similar_count: 3 }} selected={false} onSelect={vi.fn()} />,
+    );
+
+    const owner = screen.getByText('담당자 없음');
+    expect(owner).toBeInTheDocument();
+    const area = screen.getByText('Analytics Area 미지정');
+    expect(area).toHaveClass('text-text-muted');
+    expect(area).not.toHaveClass('text-text-danger', 'text-text-warning', 'text-accent-primary');
+    expect(screen.queryByText('같은 Managed System의 VOC 3건')).not.toBeInTheDocument();
+  });
+
+  it('describes postponed status, missing owner and missing Analytics Area on focus', () => {
+    render(
+      <TriageRow
+        voc={{ ...BASE_VOC, review_postponed_at: '2026-10-09T00:00:00.000Z' }}
+        selected={false}
+        onSelect={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByRole('button', { name: 'VOC-001 Test VOC title' }),
+    ).toHaveAccessibleDescription('접수됨 보류 Analytics Area 미지정 담당자 없음');
+  });
+
+  it('calls onSelect when clicked', () => {
+    const onSelect = vi.fn();
+    render(<TriageRow voc={BASE_VOC} selected={false} onSelect={onSelect} />);
+    const row = screen.getByRole('button');
+    fireEvent.click(row);
+    expect(onSelect).toHaveBeenCalledOnce();
+  });
+
+  it('applies selected styling when selected=true', () => {
+    render(<TriageRow voc={BASE_VOC} selected={true} onSelect={vi.fn()} />);
+    const row = screen.getByRole('button');
+    // Selected row should have a data-selected attribute or specific class
+    expect(row).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('does NOT show the unassigned badge when owner_user_id is set', () => {
+    const vocWithOwner = { ...BASE_VOC, owner_user_id: 'u-owner-1' };
+    render(<TriageRow voc={vocWithOwner} selected={false} onSelect={vi.fn()} />);
+    expect(screen.queryByText('담당자 없음')).not.toBeInTheDocument();
+  });
+
+  it('does NOT show "Analytics Area 미지정" when analytics_area_id is set', () => {
+    const vocWithArea = { ...BASE_VOC, analytics_area_id: 'aa-1' };
+    render(<TriageRow voc={vocWithArea} selected={false} onSelect={vi.fn()} />);
+    expect(screen.queryByText('Analytics Area 미지정')).not.toBeInTheDocument();
+  });
+});
+
+it.each([
+  [null, '심각도 미지정'],
+  ['medium', '심각도 중간'],
+] as const)('announces %s without inventing low', (severity, label) => {
+  const voc = vocListItemSchema.parse({
+    ...BASE_VOC,
+    severity,
+    primary_managed_system_id: BASE_VOC.id,
+    reporter_id: BASE_VOC.id,
+  });
+  render(<TriageRow voc={voc} selected={false} onSelect={vi.fn()} />);
+  expect(screen.getAllByLabelText(label)).toHaveLength(1);
+  expect(screen.queryByLabelText('low')).not.toBeInTheDocument();
+});

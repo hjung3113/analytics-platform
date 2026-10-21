@@ -65,9 +65,9 @@
 
 새 화면 설계 절차(Requirements → IA → Screen Spec → Wireframe → Open Decisions)는 `.agents/skills/analysis-platform-wireframe/SKILL.md`.
 
-## FeedbackOps 서브모듈
+## FeedbackOps (`products/feedbackops/`)
 
-`products/feedbackops/`는 별도 저장소의 특정 커밋을 가리키는 독립 제품이다. 내부 작업은 그 디렉터리의 `AGENTS.md`를 따르고, 플랫폼 규칙을 소급 적용하지 않는다. 서브모듈 수정·참조 커밋 갱신은 요청받은 범위에서만 하고, 통합 계약이 충돌하면 한쪽을 임의로 고치지 말고 사용자에게 올린다. 절차는 `docs/integration/repository-layout.md`.
+`products/feedbackops/`는 이 저장소의 일반 디렉터리다(서브모듈 아님, [ADR-0066](docs/adr/0066-feedbackops-merges-into-platform.md), #592). 도구 통일 전까지는 자체 중첩 pnpm workspace·lockfile·Node 22·pnpm 9·Biome·turbo를 유지하고 SDK는 태그 `sdk-v0.5.0`의 `@ap/ui`로 받는다. 플랫폼 루트 workspace·lockfile에는 들어오지 않는다. 내부 작업은 그 디렉터리의 `AGENTS.md`를 따르고 명령은 그 디렉터리에서 실행하며, 플랫폼 규칙을 소급 적용하지 않는다. CI는 `.github/workflows/feedbackops.yml`(그 디렉터리가 바뀔 때만). 통합 계약이 충돌하면 한쪽을 임의로 고치지 말고 사용자에게 올린다. 구조는 `docs/integration/repository-layout.md`.
 
 ## 폴더별 지침
 
@@ -81,7 +81,7 @@
 | [`tooling/`](tooling/AGENTS.md) | 공유 tsconfig·경계 lint·메뉴 생성기(`pnpm gen:menu`)·CSS selector 비교 |
 | [`site/`](site/AGENTS.md) | 도입 소개 페이지(정적, workspace 밖)와 Pages 조립 |
 | [`prototypes/`](prototypes/AGENTS.md) | 통합 전 Kernel 단위 프로토타입(보존, 새 기능 금지) |
-| [`products/feedbackops/`](products/feedbackops/AGENTS.md) | 독립 제품 서브모듈(위 경계 참조) |
+| [`products/feedbackops/`](products/feedbackops/AGENTS.md) | FeedbackOps 제품 디렉터리(자체 중첩 workspace, 위 경계 참조) |
 
 ## 에이전트 자산
 

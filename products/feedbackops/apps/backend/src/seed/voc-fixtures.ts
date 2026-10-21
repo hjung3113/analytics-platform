@@ -1,0 +1,314 @@
+// Slice 3 #12 — deterministic VOC seed fixtures.
+//
+// 12 VOC rows spanning every reporter_facing_status, triage_state, severity,
+// source_context, and owner combination. Three conversation rows per VOC
+// (one public_update, one reporter_reply, one internal_comment). Two VOCs
+// carry a linkedFinding permission decision in voc_permission_decisions_seed_fixture.
+//
+// Idempotency: delete-and-recreate all seed rows scoped by workspace +
+// display_id LIKE 'VOC-SEED-%' on each invocation. ON DELETE cascade from
+// vocs clears conversation + fixture rows automatically. display_id is
+// server-generated so user input can never produce the 'VOC-SEED-' prefix.
+//
+// Stable UUIDs: sha1('fops-slice3-voc:<label>') → UUID v5-style (bits set
+// per RFC 4122 §4.3 — version nibble = 5, variant bits = 10xx).
+
+import { createHash } from 'node:crypto';
+
+import pg from 'pg';
+import { and, eq, sql } from 'drizzle-orm';
+
+import type { DbHandle } from '../db/client.js';
+import { vocPublicUpdates, vocReporterReplies, vocInternalComments, vocs } from '../db/schema/voc.js';
+import { actors, analyticsAreas, managedSystems, teams } from '../db/schema/core.js';
+
+// ── Seed team fixture helper ───────────────────────────────────────────────
+/**
+ * Ensures the '[seed] VOC owner team' fixture exists in the workspace.
+ *
+ * Uses the fops_migrate role (DATABASE_URL_MIGRATE) so fops_app never needs
+ * INSERT on core.teams — ADR-0019 preserved. Idempotent via WHERE NOT EXISTS.
+ *
+ * Must be called BEFORE seedSlice3Vocs so the team row is present when the
+ * VOC fixtures resolve it via SELECT.
+ */
+export async function ensureSeedTeam(workspaceId: string, migrateUrl: string): Promise<void> {
+  const pool = new pg.Pool({ connectionString: migrateUrl });
+  try {
+    await pool.query(
+      `INSERT INTO "core"."teams" ("workspace_id", "name")
+       SELECT $1, '[seed] VOC owner team'
+       WHERE NOT EXISTS (
+         SELECT 1 FROM "core"."teams"
+         WHERE workspace_id = $1 AND name = '[seed] VOC owner team' AND archived_at IS NULL
+       )`,
+      [workspaceId],
+    );
+  } finally {
+    await pool.end();
+  }
+}
+
+// ── Stable UUID helper ─────────────────────────────────────────────────────
+const NAMESPACE = 'fops-slice3-voc';
+
+/**
+ * Returns a deterministic UUID v5-style value by SHA-1 hashing the given
+ * label scoped to workspaceId. Version nibble (13th hex char) is forced to
+ * '5'; variant nibble (17th hex char) is forced to '8' (variant 1,
+ * RFC 4122 §4.1.1). Workspace scoping prevents cross-workspace primary-key
+ * collisions when the same DB hosts multiple seeded workspaces (e.g. the
+ * test-support second workspace).
+ */
+function stableUuid(workspaceId: string, label: string): string {
+  const h = createHash('sha1').update(`${NAMESPACE}:${workspaceId}:${label}`).digest('hex');
+  const chars = h.split('');
+  // Set version = 5
+  chars[12] = '5';
+  // Set variant = 8..b (10xx → 8)
+  chars[16] = '8';
+  return [
+    chars.slice(0, 8).join(''),
+    chars.slice(8, 12).join(''),
+    chars.slice(12, 16).join(''),
+    chars.slice(16, 20).join(''),
+    chars.slice(20, 32).join(''),
+  ].join('-');
+}
+
+const SEED_EVALUATED_AT = '2026-05-17T10:00:00.000Z';
+const RICH_EMPTY = { type: 'doc', content: [] } as const;
+
+// Natural predecessor for each status, used to seed realistic transitions.
+// 'received' maps to itself (no prior state). Sourced from
+// docs/design-prototype/data.js · REPORTER_STATUS_TRANSITIONS.
+const PRIOR_STATUS: Record<string, string> = {
+  received: 'received',
+  reviewing: 'received',
+  assigned: 'reviewing',
+  progress: 'assigned',
+  prep: 'progress',
+  resolved: 'progress',
+  reopened: 'resolved',
+  closed: 'resolved',
+};
+
+interface VocSeedRow {
+  label: string;
+  displayNum: string; // zero-padded 2-digit number e.g. '01'
+  status:
+    | 'received'
+    | 'reviewing'
+    | 'assigned'
+    | 'progress'
+    | 'prep'
+    | 'resolved'
+    | 'reopened'
+    | 'closed';
+  triage: 'untriaged' | 'triaged' | 'needs_more_information' | 'dismissed_not_actionable';
+  severity: 'low' | 'medium' | 'high' | 'critical' | null;
+  source: 'direct_use' | 'proxy_report' | 'operational_discovery' | 'stakeholder_request';
+  owner: 'user' | 'team' | 'none';
+  decision?: {
+    kind: 'linkedFinding';
+    state: 'request_access' | 'summary_visible';
+    category: string;
+    reason: string;
+    required_scope?: string[];
+  };
+}
+
+const SEED_ROWS: VocSeedRow[] = [
+  // 1. received / untriaged / null severity / direct_use / no owner
+  { label: 'voc-01', displayNum: '01', status: 'received',  triage: 'untriaged',                severity: null,       source: 'direct_use',            owner: 'none' },
+  // 2. reviewing / untriaged / null severity / proxy_report / user owner
+  { label: 'voc-02', displayNum: '02', status: 'reviewing', triage: 'untriaged',                severity: null,       source: 'proxy_report',          owner: 'user' },
+  // 3. assigned / triaged / low / stakeholder_request / team owner
+  { label: 'voc-03', displayNum: '03', status: 'assigned',  triage: 'triaged',                  severity: 'low',      source: 'stakeholder_request',   owner: 'team' },
+  // 4. progress / triaged / medium / operational_discovery / user owner
+  { label: 'voc-04', displayNum: '04', status: 'progress',  triage: 'triaged',                  severity: 'medium',   source: 'operational_discovery', owner: 'user' },
+  // 5. prep / triaged / high / direct_use / team owner
+  { label: 'voc-05', displayNum: '05', status: 'prep',      triage: 'triaged',                  severity: 'high',     source: 'direct_use',            owner: 'team' },
+  // 6. resolved / triaged / critical / direct_use / user owner
+  { label: 'voc-06', displayNum: '06', status: 'resolved',  triage: 'triaged',                  severity: 'critical', source: 'direct_use',            owner: 'user' },
+  // 7. reopened / triaged / medium / direct_use / user owner
+  { label: 'voc-07', displayNum: '07', status: 'reopened',  triage: 'triaged',                  severity: 'medium',   source: 'direct_use',            owner: 'user' },
+  // 8. closed / triaged / low / proxy_report / team owner
+  { label: 'voc-08', displayNum: '08', status: 'closed',    triage: 'triaged',                  severity: 'low',      source: 'proxy_report',          owner: 'team' },
+  // 9. received / needs_more_information / null severity / direct_use / no owner
+  { label: 'voc-09', displayNum: '09', status: 'received',  triage: 'needs_more_information',   severity: null,       source: 'direct_use',            owner: 'none' },
+  // 10. received / dismissed_not_actionable / null severity / direct_use / no owner
+  { label: 'voc-10', displayNum: '10', status: 'received',  triage: 'dismissed_not_actionable', severity: null,       source: 'direct_use',            owner: 'none' },
+  // 11. progress / triaged / high / direct_use / user + request_access linkedFinding
+  {
+    label: 'voc-11', displayNum: '11', status: 'progress',  triage: 'triaged',                  severity: 'high',     source: 'direct_use',            owner: 'user',
+    decision: { kind: 'linkedFinding', state: 'request_access', category: 'Linked Finding · scope outside Managed System', reason: 'developer_outside_managed_system_scope', required_scope: ['tableau'] },
+  },
+  // 12. resolved / triaged / medium / direct_use / user + summary_visible linkedFinding
+  {
+    label: 'voc-12', displayNum: '12', status: 'resolved',  triage: 'triaged',                  severity: 'medium',   source: 'direct_use',            owner: 'user',
+    decision: { kind: 'linkedFinding', state: 'summary_visible', category: 'Linked Finding · safe summary only', reason: 'restricted_finding_same_managed_system' },
+  },
+];
+
+export interface VocSeedResult {
+  vocsInserted: number;
+  conversationRowsInserted: number;
+  permissionFixturesInserted: number;
+}
+
+export async function seedSlice3Vocs(handle: DbHandle, workspaceId: string): Promise<VocSeedResult> {
+  return handle.db.transaction(async (tx) => {
+    // ── Idempotency: delete seed rows by display_id prefix ───────────────
+    // display_id is server-generated ('VOC-SEED-NN'); user input cannot
+    // reproduce this prefix. Filtering by title would risk wiping real VOCs.
+    // ON DELETE cascade clears voc_public_updates, voc_reporter_replies,
+    // voc_internal_comments, voc_attachments, and voc_permission_decisions_seed_fixture.
+    await tx
+      .delete(vocs)
+      .where(and(eq(vocs.workspaceId, workspaceId), sql`${vocs.displayId} like 'VOC-SEED-%'`));
+
+    // ── Resolve first managed system ──────────────────────────────────────
+    const [ms] = await tx
+      .select({ id: managedSystems.id })
+      .from(managedSystems)
+      .where(
+        and(
+          eq(managedSystems.workspaceId, workspaceId),
+          sql`${managedSystems.archivedAt} IS NULL`,
+        ),
+      )
+      .orderBy(managedSystems.createdAt, managedSystems.id)
+      .limit(1);
+    if (!ms) throw new Error('seedSlice3Vocs: no managed_systems row for workspace');
+
+    // ── Resolve a matching analytics area (optional) ─────────────────────
+    const [aa] = await tx
+      .select({ id: analyticsAreas.id })
+      .from(analyticsAreas)
+      .where(
+        and(
+          eq(analyticsAreas.workspaceId, workspaceId),
+          eq(analyticsAreas.managedSystemId, ms.id),
+          sql`${analyticsAreas.archivedAt} IS NULL`,
+        ),
+      )
+      .limit(1);
+
+    // ── Resolve first actor in workspace (used as reporter + user owner) ──
+    const [reporter] = await tx
+      .select({ id: actors.id })
+      .from(actors)
+      .where(eq(actors.workspaceId, workspaceId))
+      .orderBy(actors.createdAt, actors.externalId)
+      .limit(1);
+    if (!reporter) throw new Error('seedSlice3Vocs: no actors row for workspace');
+
+    // ── Resolve seed team (created by ensureSeedTeam via fops_migrate) ───────
+    // ADR-0019: fops_app has no INSERT on core.teams. The '[seed] VOC owner
+    // team' row is created by ensureSeedTeam (called from seed/index.ts before
+    // this function) using DATABASE_URL_MIGRATE. Only SELECT needed here.
+    const SEED_TEAM_NAME = '[seed] VOC owner team';
+    const [existingTeam] = await tx
+      .select({ id: teams.id })
+      .from(teams)
+      .where(and(eq(teams.workspaceId, workspaceId), eq(teams.name, SEED_TEAM_NAME)))
+      .limit(1);
+    if (!existingTeam) {
+      throw new Error(
+        `seed: missing [seed] VOC owner team for workspace ${workspaceId}. ` +
+        `ensureSeedTeam should have created it; check DATABASE_URL_MIGRATE is set.`,
+      );
+    }
+    const seedTeamId = existingTeam.id;
+
+    let convRows = 0;
+    let fixtureRows = 0;
+
+    for (const row of SEED_ROWS) {
+      const vocId = stableUuid(workspaceId, row.label);
+
+      // ── Insert VOC ──────────────────────────────────────────────────────
+      await tx.insert(vocs).values({
+        id: vocId,
+        workspaceId,
+        // Bypass next_voc_display_id() — fixture rows use deterministic slugs
+        // so seed is stable across DB resets. Production CREATE route still
+        // calls next_voc_display_id().
+        displayId: `VOC-SEED-${row.displayNum}`,
+        primaryManagedSystemId: ms.id,
+        analyticsAreaId: aa?.id ?? null,
+        reporterId: reporter.id,
+        title: `[seed] ${row.label} ${row.status}`,
+        descriptionRichContent: RICH_EMPTY,
+        severity: row.severity,
+        reporterFacingStatus: row.status,
+        triageState: row.triage,
+        ownerUserId: row.owner === 'user' ? reporter.id : null,
+        ownerTeamId: row.owner === 'team' ? seedTeamId : null,
+        sourceContext: row.source,
+      });
+
+      // ── Insert three conversation rows ──────────────────────────────────
+      // public_update (any actor) — use the natural predecessor as statusBefore
+      // so the seed exercises real transitions (e.g. received → reviewing for
+      // voc-02). voc-01 (received) keeps the degenerate received → received
+      // because there is no prior state.
+      const before = PRIOR_STATUS[row.status] ?? row.status;
+      await tx.insert(vocPublicUpdates).values({
+        id: stableUuid(workspaceId, `${row.label}:public-update-1`),
+        vocId,
+        actorId: reporter.id,
+        bodyRichContent: RICH_EMPTY,
+        reporterFacingStatusBefore: before,
+        reporterFacingStatusAfter: row.status,
+      });
+      // reporter_reply (trigger enforces actor = reporter)
+      // MUST equal vocs.reporter_id — enforced by trigger
+      // voc_reporter_reply_actor_must_be_reporter. Refactors that swap the
+      // actor source will fail the trigger at insert time.
+      await tx.insert(vocReporterReplies).values({
+        id: stableUuid(workspaceId, `${row.label}:reporter-reply-1`),
+        vocId,
+        actorId: reporter.id,
+        bodyRichContent: RICH_EMPTY,
+      });
+      // internal_comment (any actor)
+      await tx.insert(vocInternalComments).values({
+        id: stableUuid(workspaceId, `${row.label}:internal-comment-1`),
+        vocId,
+        actorId: reporter.id,
+        bodyRichContent: RICH_EMPTY,
+      });
+      convRows += 3;
+
+      // ── Insert permission decision fixture (voc-11, voc-12 only) ────────
+      if (row.decision) {
+        const linkedFinding: Record<string, unknown> = {
+          decision_id: stableUuid(workspaceId, `${row.label}:decision:linkedFinding`),
+          state: row.decision.state,
+          category: row.decision.category,
+          evaluated_at: SEED_EVALUATED_AT,
+          reason: row.decision.reason,
+        };
+        if (row.decision.required_scope) {
+          linkedFinding.required_scope = row.decision.required_scope;
+        }
+        const envelope = { linkedFinding };
+        await tx.execute(
+          sql`
+            INSERT INTO voc.voc_permission_decisions_seed_fixture (voc_id, envelope)
+            VALUES (${vocId}, ${JSON.stringify(envelope)}::jsonb)
+          `,
+        );
+        fixtureRows += 1;
+      }
+    }
+
+    return {
+      vocsInserted: SEED_ROWS.length,
+      conversationRowsInserted: convRows,
+      permissionFixturesInserted: fixtureRows,
+    };
+  });
+}

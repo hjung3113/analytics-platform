@@ -1,0 +1,531 @@
+// VOC Cluster detail panel: detail query, role gate, Execution / Members /
+// Properties sections, CTA footer, and cross-system flow mounts.
+
+import {
+  Button,
+  DetailPanelHeader,
+  DetailPanelSectionNav,
+  FieldRow,
+  ManagedSystemPill,
+  OutlineBadge,
+  type PanelSection,
+  PanelSectionTitle,
+  SeverityBadge,
+  SkeletonBlocks,
+  UnassignedBadge,
+} from '@fops/ui';
+import { Link, useNavigate } from '@tanstack/react-router';
+import { Plus } from 'lucide-react';
+import * as React from 'react';
+import { useState } from 'react';
+import { toast } from 'sonner';
+
+import { TaskRequestDraftCard } from '@/features/cross-system/request-task/TaskRequestDraftCard';
+import { useConfirmCluster } from '@/features/voc-cluster/hooks/useConfirmCluster';
+import { useRemoveClusterMember } from '@/features/voc-cluster/hooks/useRemoveClusterMember';
+import { useRequestTaskFromCluster } from '@/features/voc-cluster/hooks/useRequestTaskFromCluster';
+import { useVocClusterDetail } from '@/features/voc-cluster/hooks/useVocClusterDetail';
+import { type ApiError, errorMapper, useIdempotencyKey } from '@/lib/api';
+import { useMe } from '@/lib/auth/useMe';
+import {
+  FINDING_CONFIDENCE_LABELS,
+  FINDING_SEVERITY_LABELS,
+  FINDING_STATUS_LABELS,
+} from '@/lib/copy/enum-labels';
+import { VOC_CLUSTER_GROUPING_REASON_LABEL } from '@/lib/copy/voc-cluster';
+import { useManagedSystem } from '@/lib/cross-system/useManagedSystem';
+import { useWorkspaceActors } from '@/lib/cross-system/useWorkspaceActors';
+import { formatShortDate } from '@/lib/format/datetime';
+import { shortId } from '@/lib/identity';
+import { formatRecordDocumentTitle, useDocumentTitle } from '@/lib/router/document-title';
+
+import { ClusterStatusBadge } from '../../lib/presentation';
+import { AddVocModal } from '../modals/AddVocModal';
+import { CreateFindingFromClusterModal } from '../modals/CreateFindingFromClusterModal';
+import { LinkExistingFindingModal } from '../modals/LinkExistingFindingModal';
+import type { VocClusterDetailPresentation, VocClusterMemberPresentation } from '../types';
+import { VocClusterMemberRow } from './VocClusterMemberRow';
+
+function SectionDivider(): React.ReactElement {
+  return <hr className="border-border-subtle" />;
+}
+
+function clusterDisplayId(data: {
+  id: string;
+  display_id?: string | null;
+}): string {
+  return data.display_id?.trim() ? data.display_id : 'VOC Cluster';
+}
+
+// ADR-0057 A2 amendment localizes Korean navigation and preserves domain nouns.
+export function buildVocClusterDetailSections(): PanelSection[] {
+  return [
+    { id: 'overview', label: '요약' },
+    { id: 'why', label: VOC_CLUSTER_GROUPING_REASON_LABEL },
+    { id: 'execution', label: '실행' },
+    { id: 'members', label: '멤버' },
+    { id: 'properties', label: '속성' },
+  ];
+}
+
+export function VocClusterDetailPanel({
+  clusterId,
+  onClose,
+}: {
+  clusterId: string;
+  onClose?: () => void;
+}): React.ReactElement {
+  const { data, isLoading, isError, isSuccess, isFetching, error } = useVocClusterDetail(clusterId);
+  useDocumentTitle(
+    isSuccess && !isFetching && data?.id === clusterId
+      ? formatRecordDocumentTitle({ displayId: data.display_id, title: data.title })
+      : null,
+  );
+  const presentation = data as (typeof data & VocClusterDetailPresentation) | undefined;
+  const managedSystem = useManagedSystem(data?.primary_managed_system_id);
+  const { data: me } = useMe();
+  const workspaceActors = useWorkspaceActors({ retry: false, staleTime: 0 });
+  const actorNamesById = Object.fromEntries(
+    (workspaceActors.actors ?? []).map((actor) => [actor.id, actor.display_name]),
+  );
+  const ownerName = data?.owner_user_id ? actorNamesById[data.owner_user_id] : undefined;
+  const confirmerName = data?.confirmed_by ? actorNamesById[data.confirmed_by] : undefined;
+  const canMutate = me?.actor.role_level === 'admin' || me?.actor.role_level === 'developer';
+
+  const [addVocOpen, setAddVocOpen] = useState(false);
+  const addVocButtonRef = React.useRef<HTMLButtonElement>(null);
+  const [createFindingOpen, setCreateFindingOpen] = useState(false);
+  const [linkFindingOpen, setLinkFindingOpen] = useState(false);
+  const [requestTaskOpen, setRequestTaskOpen] = useState(false);
+  const { key: requestTaskIdempotencyKey, markConsumed: markRequestTaskConsumed } =
+    useIdempotencyKey();
+
+  const confirmMutation = useConfirmCluster();
+  const removeMemberMutation = useRemoveClusterMember();
+  const requestTaskMutation = useRequestTaskFromCluster({
+    clusterId,
+    idempotencyKey: requestTaskIdempotencyKey,
+    onError: (err: ApiError) => toast.error(errorMapper(err.envelope).message),
+  });
+  const navigate = useNavigate();
+  const sectionScrollRef = React.useRef<HTMLDivElement>(null);
+
+  if (isLoading) {
+    return (
+      <div
+        className="flex flex-col gap-4 p-6"
+        aria-label="Cluster 상세 불러오는 중"
+        data-testid="cluster-detail-skeleton"
+      >
+        <SkeletonBlocks
+          blocks={[
+            { kind: 'title', size: 'large', width: 'half' },
+            { kind: 'line', width: 'full' },
+            { kind: 'line', width: 'three-quarters' },
+            { kind: 'body', size: 'large', width: 'full' },
+          ]}
+        />
+      </div>
+    );
+  }
+
+  if (isError || !data) {
+    const code = (error as { code?: string } | null)?.code;
+    return (
+      <div
+        className="flex flex-col items-center justify-center py-16 px-6 text-center"
+        data-testid="cluster-detail-error"
+      >
+        <p className="text-sm text-text-danger">
+          {code === 'not_found.record'
+            ? 'Cluster를 찾을 수 없습니다.'
+            : '데이터를 불러오지 못했습니다.'}
+        </p>
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-3"
+          onClick={() => void navigate({ to: '/voc-clusters' })}
+        >
+          목록으로
+        </Button>
+      </div>
+    );
+  }
+
+  const members: VocClusterMemberPresentation[] = presentation?.members ?? [];
+  const linkedFindings = presentation?.linked_findings ?? [];
+
+  function handleConfirm() {
+    confirmMutation.mutate(clusterId, {
+      onSuccess: () => toast.success('Cluster가 확정되었습니다.'),
+      onError: (err: ApiError) => toast.error(errorMapper(err.envelope).message),
+    });
+  }
+
+  function handleRemoveMember(vocId: string) {
+    removeMemberMutation.mutate(
+      { clusterId, vocId },
+      {
+        onSuccess: () => toast.success('VOC가 Cluster에서 제거되었습니다.'),
+        onError: (err: ApiError) => toast.error(errorMapper(err.envelope).message),
+      },
+    );
+  }
+
+  function closeRequestTaskDraft(): void {
+    requestTaskMutation.reset();
+    setRequestTaskOpen(false);
+  }
+
+  return (
+    <aside
+      className="flex h-full min-h-0 flex-col bg-surface-detail"
+      data-testid="cluster-detail-panel"
+    >
+      <DetailPanelHeader
+        kind="cluster"
+        id={clusterDisplayId(data)}
+        onClose={onClose ?? (() => void navigate({ to: '/voc-clusters' }))}
+      />
+      <DetailPanelSectionNav
+        scrollRef={sectionScrollRef}
+        sections={buildVocClusterDetailSections()}
+      />
+      <div ref={sectionScrollRef} className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
+        <div className="flex flex-col gap-6">
+          <section data-anchor="overview" className="flex flex-col gap-3">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <ClusterStatusBadge status={data.status} surface="detail" />
+                {data.severity && (
+                  <SeverityBadge
+                    severity={data.severity}
+                    label={FINDING_SEVERITY_LABELS[data.severity]}
+                  />
+                )}
+                {data.confidence && (
+                  <OutlineBadge data-testid="cluster-detail-confidence-badge">
+                    신뢰도 · {FINDING_CONFIDENCE_LABELS[data.confidence]}
+                  </OutlineBadge>
+                )}
+              </div>
+              <h1
+                className="text-xl font-semibold text-text-primary"
+                data-testid="cluster-detail-title"
+              >
+                {data.title}
+              </h1>
+            </div>
+            {data.summary ? (
+              <div className="flex flex-col gap-1">
+                <PanelSectionTitle>요약</PanelSectionTitle>
+                <p
+                  className="text-sm text-text-primary whitespace-pre-wrap"
+                  data-testid="cluster-detail-summary"
+                >
+                  {data.summary}
+                </p>
+              </div>
+            ) : (
+              <p className="text-sm text-text-muted" data-testid="cluster-detail-summary-empty">
+                요약이 없습니다.
+              </p>
+            )}
+          </section>
+
+          <SectionDivider />
+
+          <section data-anchor="why" className="flex flex-col gap-1">
+            <PanelSectionTitle>{VOC_CLUSTER_GROUPING_REASON_LABEL}</PanelSectionTitle>
+            {data.rationale ? (
+              <p
+                className="rounded-md border border-border-subtle bg-surface-card p-3 text-sm text-text-primary whitespace-pre-wrap"
+                data-testid="cluster-detail-rationale"
+              >
+                {data.rationale}
+              </p>
+            ) : (
+              <p className="text-sm text-text-muted" data-testid="cluster-detail-rationale-empty">
+                그룹화 이유가 없습니다.
+              </p>
+            )}
+          </section>
+
+          <SectionDivider />
+
+          <section className="flex flex-col gap-3" data-anchor="execution">
+            <PanelSectionTitle>실행</PanelSectionTitle>
+            {linkedFindings.length > 0 ? (
+              <div className="flex flex-col gap-2" data-testid="cluster-linked-findings-list">
+                {linkedFindings.map((finding) => (
+                  <div
+                    key={finding.id}
+                    className="flex flex-col gap-2 rounded-md border border-border-subtle bg-surface-card p-4"
+                    data-testid={`cluster-linked-finding-${finding.id}`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <OutlineBadge data-testid={`finding-status-badge-${finding.status}`}>
+                        {FINDING_STATUS_LABELS[finding.status]}
+                      </OutlineBadge>
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-xs text-text-muted">{finding.display_id}</span>
+                    </div>
+                    <Link
+                      to="/findings/$findingId"
+                      params={{ findingId: finding.id }}
+                      className="text-sm text-accent-primary underline underline-offset-2 hover:text-accent-primary/80"
+                    >
+                      Finding 열기
+                    </Link>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2" data-testid="cluster-execution-empty">
+                {canMutate && (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() => setCreateFindingOpen(true)}
+                    data-testid="cluster-execution-create-finding"
+                  >
+                    Finding 생성
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setLinkFindingOpen(true)}
+                  disabled={!canMutate}
+                  data-testid="cluster-link-existing-finding-button"
+                >
+                  기존 Finding 연결
+                </Button>
+              </div>
+            )}
+            {canMutate && requestTaskOpen && (
+              <TaskRequestDraftCard
+                sourceKind="VOC Cluster"
+                sourceDisplayId={data.display_id}
+                evidenceSummaryDefault={data.summary ?? data.title}
+                isSubmitting={requestTaskMutation.isPending}
+                source={{ type: 'voc_cluster', id: clusterId }}
+                onClose={closeRequestTaskDraft}
+                onSubmit={(values) => {
+                  requestTaskMutation.mutate(values, {
+                    onSuccess: () => {
+                      markRequestTaskConsumed();
+                      setRequestTaskOpen(false);
+                      requestTaskMutation.reset();
+                      toast.success('Task Request가 생성되었습니다.');
+                    },
+                  });
+                }}
+              />
+            )}
+          </section>
+
+          <SectionDivider />
+
+          {/* Member VOC list */}
+          <section className="flex flex-col gap-3" data-anchor="members">
+            <div className="flex items-center justify-between">
+              <PanelSectionTitle>멤버 VOC ({members.length})</PanelSectionTitle>
+              {canMutate && data.status === 'draft' && (
+                <Button
+                  ref={addVocButtonRef}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setAddVocOpen(true)}
+                  data-testid="cluster-add-voc-button"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  VOC 추가
+                </Button>
+              )}
+            </div>
+
+            {members.length === 0 ? (
+              <div
+                className="rounded-md border border-dashed border-border-subtle bg-surface-card p-6 flex items-center justify-center text-sm text-text-muted"
+                data-testid="cluster-members-empty"
+              >
+                아직 VOC가 없습니다.
+              </div>
+            ) : (
+              <div
+                data-testid="cluster-members-list"
+                className="overflow-hidden rounded-md border border-border-subtle bg-surface-card"
+              >
+                {members.slice(0, 4).map((member, i) => (
+                  <VocClusterMemberRow
+                    key={member.voc_id}
+                    member={member}
+                    last={i === Math.min(members.length, 4) - 1}
+                    canRemove={canMutate && data.status === 'draft'}
+                    onRemove={() => handleRemoveMember(member.voc_id)}
+                    isRemoving={
+                      removeMemberMutation.isPending &&
+                      removeMemberMutation.variables?.vocId === member.voc_id
+                    }
+                  />
+                ))}
+                {members.length > 4 && (
+                  <div
+                    className="border-t border-border-subtle px-4 py-2 text-xs text-text-muted"
+                    data-testid="cluster-members-more"
+                  >
+                    +{members.length - 4} 더보기
+                  </div>
+                )}
+              </div>
+            )}
+          </section>
+
+          <SectionDivider />
+
+          <section className="flex flex-col gap-2" data-anchor="properties">
+            <PanelSectionTitle>속성</PanelSectionTitle>
+            <FieldRow label="Managed System" inset="none">
+              <span data-testid="cluster-detail-managed-system">
+                <ManagedSystemPill
+                  name={managedSystem?.name ?? 'Managed System'}
+                  {...(managedSystem?.mark ? { mark: managedSystem.mark } : {})}
+                  {...(managedSystem ? { archived: managedSystem.archived } : {})}
+                />
+              </span>
+            </FieldRow>
+            <FieldRow label="심각도" inset="none">
+              <span data-testid="cluster-detail-severity">
+                {data.severity ? FINDING_SEVERITY_LABELS[data.severity] : '미지정'}
+              </span>
+            </FieldRow>
+            <FieldRow label="신뢰도" inset="none">
+              <span data-testid="cluster-detail-confidence">
+                {data.confidence ? FINDING_CONFIDENCE_LABELS[data.confidence] : '미지정'}
+              </span>
+            </FieldRow>
+            <FieldRow label="담당자" inset="none">
+              <span className="flex flex-col gap-0.5" data-testid="cluster-detail-owner">
+                <span>
+                  {data.owner_user_id ? (ownerName ?? GLOSSARY.unknownUser) : <UnassignedBadge />}
+                </span>
+                {data.owner_user_id && !ownerName && (
+                  <span className="font-mono text-xs text-text-muted">
+                    {shortId(data.owner_user_id)}
+                  </span>
+                )}
+              </span>
+            </FieldRow>
+            <FieldRow label="확정자" inset="none">
+              <span className="flex flex-col gap-0.5" data-testid="cluster-detail-confirmed-by">
+                <span>
+                  {data.confirmed_by ? (confirmerName ?? GLOSSARY.unknownUser) : '대기 중'}
+                </span>
+                {data.confirmed_by && !confirmerName && (
+                  <span className="font-mono text-xs text-text-muted">
+                    {shortId(data.confirmed_by)}
+                  </span>
+                )}
+              </span>
+            </FieldRow>
+            <FieldRow label="확정일" inset="none">
+              <span data-testid="cluster-detail-confirmed-at">
+                {data.confirmed_at ? formatShortDate(data.confirmed_at) : '대기 중'}
+              </span>
+            </FieldRow>
+          </section>
+        </div>
+      </div>
+
+      {/* CTA footer */}
+      <div
+        className="sticky bottom-0 bg-surface-canvas border-t border-border-subtle px-6 py-3 flex flex-wrap items-center gap-2"
+        data-testid="cluster-cta-footer"
+      >
+        {canMutate || linkedFindings.length > 0 ? (
+          <>
+            {/* Confirm button — only shown when draft */}
+            {canMutate && data.status === 'draft' && (
+              <Button
+                variant={linkedFindings.length > 0 ? 'secondary' : 'default'}
+                size="sm"
+                onClick={handleConfirm}
+                disabled={confirmMutation.isPending}
+                data-testid="cluster-confirm-button"
+              >
+                확정
+              </Button>
+            )}
+            {linkedFindings[0] !== undefined && (
+              <Button asChild variant="primary" size="sm">
+                <Link
+                  to="/findings/$findingId"
+                  params={{ findingId: linkedFindings[0].id }}
+                  data-testid="cluster-open-finding-button"
+                >
+                  Finding 열기
+                </Link>
+              </Button>
+            )}
+            {canMutate && (
+              <Button
+                variant={linkedFindings.length > 0 ? 'secondary' : 'outline'}
+                size="sm"
+                onClick={() => setCreateFindingOpen(true)}
+                data-testid="cluster-create-finding-button"
+              >
+                Finding 생성
+              </Button>
+            )}
+            {canMutate && (
+              <Button
+                variant={linkedFindings.length > 0 ? 'secondary' : 'outline'}
+                size="sm"
+                onClick={() => setRequestTaskOpen(true)}
+                data-testid="cluster-request-task-button"
+              >
+                Task 요청
+              </Button>
+            )}
+          </>
+        ) : (
+          <span className="text-xs text-text-muted" data-testid="cluster-cta-hint">
+            관리자 또는 개발자 권한이 있어야 Cluster를 관리할 수 있습니다.
+          </span>
+        )}
+      </div>
+
+      {/* Add VOC modal */}
+      {canMutate && (
+        <AddVocModal
+          open={addVocOpen}
+          clusterId={clusterId}
+          onClose={() => setAddVocOpen(false)}
+          returnFocusRef={addVocButtonRef}
+        />
+      )}
+
+      {/* Create Finding modal */}
+      {canMutate && (
+        <CreateFindingFromClusterModal
+          open={createFindingOpen}
+          clusterId={clusterId}
+          onClose={() => setCreateFindingOpen(false)}
+        />
+      )}
+      {canMutate && (
+        <LinkExistingFindingModal
+          open={linkFindingOpen}
+          clusterId={clusterId}
+          onClose={() => setLinkFindingOpen(false)}
+        />
+      )}
+    </aside>
+  );
+}
+
+import { GLOSSARY } from '@/lib/copy/glossary';
