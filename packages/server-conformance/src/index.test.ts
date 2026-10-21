@@ -1,3 +1,4 @@
+import { optionSamples, referenceSelectionPorts } from './selection-ports.test-support';
 import { describe, expect, it } from 'vitest';
 import {
   defineAction, defineEndpoint, emptyGlobal, projectContext,
@@ -6,6 +7,32 @@ import {
 } from '@ap/contracts';
 import { planServerConformance, runServerConformance, type ActionCase, type ConformanceCase, type PortSamples, type ServerConformanceHarness } from './index';
 
+const SELECTION_PORT_SKIP_IDS = [
+      'selection ports · options paging',
+      'selection ports · search paging',
+      'selection ports · options query',
+      'selection ports · search query',
+      'selection ports · dependent options',
+      'selection ports · denied-room options',
+      'selection ports · options lower clamp',
+      'selection ports · search lower clamp',
+      'selection ports · options upper clamp',
+      'selection ports · search upper clamp',
+      'selection ports · options authorization',
+      'selection ports · search authorization',
+      'selection ports · resolution authorization',
+      'selection ports · explicit denied-room filter',
+      'selection ports · resolve authorized',
+      'selection ports · resolve forbidden no detail',
+      'selection ports · resolve cross-site absent',
+      'selection ports · resolve order and duplicates',
+      'selection ports · options invalid input',
+      'selection ports · search invalid input',
+      'selection ports · resolution invalid input',
+      'selection ports · options cursor identity',
+      'selection ports · search cursor identity',
+      'selection ports · global metadata needs no equipment permission',
+];
 const spec = defineEndpoint<{ page: number }, { rows: number }>({
   id: 'fixture.list',
   menuId: 'fixture',
@@ -74,6 +101,7 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
   const usageRows: (UsageEvent & { userId: string; receivedAt: number })[] = [];
   const actionRecords = new Map<string, { hash: string; response: ActionResponse<unknown> }>();
   return {
+    ...referenceSelectionPorts(),
     session: () => {
       if (session === null || breaks.has('session-identity')) {
         session = {
@@ -683,6 +711,7 @@ describe('server conformance kit (#145)', () => {
       'port · reportClientError: a missing field is rejected',
       'actions: no sample',
       'condition: no sample',
+      ...SELECTION_PORT_SKIP_IDS,
     ]);
   });
 
@@ -995,6 +1024,7 @@ describe('server conformance kit (#145)', () => {
       'port · entityAudit of a destination in an ungranted room → forbidden',
       'actions: no sample',
       'condition: no sample',
+      ...SELECTION_PORT_SKIP_IDS,
     ]);
   });
 
@@ -1071,7 +1101,7 @@ describe('declared maxRows oversize check (#175)', () => {
     const cases = [{ spec: exportSpec, params: { tail: 'p95' } }];
     const h = { ...oversizeHarness('too_large'), cases };
     expect(planServerConformance(h).filter(c => c.mode === 'skipped').map(c => c.id))
-      .toEqual([`${exportSpec.id} · declares maxRows but has no oversizeParams sample — oversize check not run`, 'actions: no sample', 'condition: no sample']);
+      .toEqual([`${exportSpec.id} · declares maxRows but has no oversizeParams sample — oversize check not run`, 'actions: no sample', 'condition: no sample', ...SELECTION_PORT_SKIP_IDS]);
     const skipped = (await runServerConformance(h)).find(r => r.id === `${exportSpec.id} · declares maxRows but has no oversizeParams sample — oversize check not run`);
     // #175 follow-up P2-A: a check that did not run is reported as skipped, never as a pass.
     expect(skipped).toEqual({ id: `${exportSpec.id} · declares maxRows but has no oversizeParams sample — oversize check not run`, status: 'skipped', failure: null });
@@ -1085,7 +1115,7 @@ describe('declared maxRows oversize check (#175)', () => {
   });
 
   it('plans no skipped check when the case provides oversizeParams', () => {
-    expect(planServerConformance(oversizeHarness('too_large')).filter(c => c.mode === 'skipped').map(c => c.id)).toEqual(['actions: no sample', 'condition: no sample']);
+    expect(planServerConformance(oversizeHarness('too_large')).filter(c => c.mode === 'skipped').map(c => c.id)).toEqual(['actions: no sample', 'condition: no sample', ...SELECTION_PORT_SKIP_IDS]);
   });
 
   it('passes on a server that answers too_large with no data', async () => {
@@ -1162,7 +1192,7 @@ describe('menuAction conformance (#501)', () => {
     const h = actionHarness();
     const noVersion = { ...h, actions: [{ spec: actionSpec, input: { text: 'hello' } }] };
     expect(planServerConformance(noVersion).filter(c => c.mode === 'skipped').map(c => c.id))
-      .toEqual(['fixture.save · declares version concurrency but has no currentVersion sample — action checks not run', 'condition: no sample']);
+      .toEqual(['fixture.save · declares version concurrency but has no currentVersion sample — action checks not run', 'condition: no sample', ...SELECTION_PORT_SKIP_IDS]);
   });
 
   it('passes the reference adapter', async () => {
@@ -1326,4 +1356,73 @@ describe('required Context samples (#553)', () => {
     expect(results.filter(c => c.id.includes('required selection')).map(c => c.status)).toEqual(['passed', 'passed']);
     expect(results.find(c => c.id.includes('granted request'))?.status).toBe('passed');
   });
+});
+
+it('plans individual visible selection-port skips without option evidence', () => {
+  const plan = planServerConformance(harness());
+  expect(plan.find(c => c.id === 'selection ports · options paging')?.mode).toBe('skipped');
+  expect(plan.find(c => c.id === 'selection ports · search upper clamp')?.mode).toBe('skipped');
+});
+
+
+it('passes all sampled selection-port checks and individually skips absent upper-clamp evidence', async () => {
+  const h = harness(); h.ports = { ...h.ports, condition: undefined, options: optionSamples };
+  const results = await runServerConformance(h);
+  expect(results.filter(r => r.failure)).toEqual([]);
+  const plan = planServerConformance(h);
+  expect(plan.find(c => c.id === 'selection ports · options upper clamp')?.mode).toBe('skipped');
+  expect(plan.find(c => c.id === 'selection ports · search upper clamp')?.mode).toBe('skipped');
+});
+
+it.each([
+  ['options paging', 'listAxisOptions', async () => ({ items: [{ id: 'A', label: 'A' }], nextCursor: 'repeated' })],
+  ['search paging', 'searchEquipment', async () => ({ items: [{ ...optionSamples.equipment[0], room: 'DIFF' }], nextCursor: null, total: 999 })],
+  ['options query', 'listAxisOptions', async () => ({ items: [{ id: 'A', label: 'A' }, { id: 'B', label: 'B' }], nextCursor: null })],
+  ['search query', 'searchEquipment', async () => ({ items: optionSamples.equipment, nextCursor: null })],
+  ['dependent options', 'listAxisOptions', async () => ({ items: [{ id: 'A', label: 'A' }, { id: 'B', label: 'B' }], nextCursor: null })],
+  ['denied-room options', 'listAxisOptions', async () => ({ items: [{ id: 'DENIED', label: 'secret' }], nextCursor: null })],
+  ['options lower clamp', 'listAxisOptions', async () => ({ items: [], nextCursor: null })],
+  ['search lower clamp', 'searchEquipment', async () => ({ items: [], nextCursor: null })],
+  ['options authorization', 'listAxisOptions', async () => ({ items: [], nextCursor: null })],
+  ['search authorization', 'searchEquipment', async () => ({ items: [], nextCursor: null })],
+  ['resolution authorization', 'resolveSelection', async () => ({ items: [] })],
+  ['explicit denied-room filter', 'searchEquipment', async () => ({ items: [], nextCursor: null })],
+  ['resolve authorized', 'resolveSelection', async () => ({ items: [{ id: 'eq-1', status: 'not_found' }] })],
+  ['resolve forbidden no detail', 'resolveSelection', async () => ({ items: [{ id: 'eq-denied', status: 'forbidden', summary: optionSamples.equipment[0] }] })],
+  ['resolve cross-site absent', 'resolveSelection', async () => ({ items: [{ id: 'eq-foreign', status: 'forbidden' }, { id: 'eq-absent', status: 'not_found' }] })],
+  ['resolve order and duplicates', 'resolveSelection', async () => ({ items: [{ id: 'eq-1', status: 'not_found' }, { id: 'eq-absent', status: 'not_found' }] })],
+  ['options invalid input', 'listAxisOptions', async () => ({ items: [], nextCursor: null })],
+  ['search invalid input', 'searchEquipment', async () => ({ items: [], nextCursor: null })],
+  ['resolution invalid input', 'resolveSelection', async () => ({ items: [] })],
+  ['options cursor identity', 'listAxisOptions', async () => ({ items: [{ id: 'A', label: 'A' }], nextCursor: 'cursor' })],
+  ['search cursor identity', 'searchEquipment', async () => ({ items: [optionSamples.equipment[0]], nextCursor: 'cursor' })],
+  ['global metadata needs no equipment permission', 'listAxisOptions', async () => { throw new Error('equipment permission required'); }],
+] as const)('detects a reference-adapter mutant violating %s', async (name, method, replacement) => {
+  const h = harness(); h.ports = { ...h.ports, condition: undefined, options: optionSamples };
+  h.adapter = { ...h.adapter, [method]: replacement } as PlatformAdapter;
+  const check = planServerConformance(h).find(c => c.id === `selection ports · ${name}`)!;
+  let failed = false;
+  try { failed = (await check.run()) !== null; } catch { failed = true; }
+  expect(failed).toBe(true);
+});
+
+it.each(['options', 'search'] as const)('proves the %s upper clamp with over 200 authorized samples and detects its mutant', async port => {
+  const values = Array.from({ length: 205 }, (_, n) => `v-${n.toString().padStart(3, '0')}`);
+  const sample = { ...optionSamples, upperOptions: values, upperEquipment: values, equipment: values.map(id => ({ equipmentId: id, room: 'PHOTO', axes: { classification: [id] } })) };
+  const h = harness(); h.ports = { ...h.ports, options: sample };
+  h.adapter = { ...h.adapter, ...referenceSelectionPorts(sample) };
+  const check = planServerConformance(h).find(c => c.id === `selection ports · ${port} upper clamp`)!;
+  expect(check.mode).toBe('granted');
+  expect(await check.run()).toBeNull();
+  if (port === 'options') h.adapter.listAxisOptions = async () => ({ items: values.map(id => ({ id, label: id })), nextCursor: null });
+  else h.adapter.searchEquipment = async () => ({ items: sample.equipment, nextCursor: null });
+  expect(await check.run()).toBeTruthy();
+});
+
+it('detects an otherwise correct search whose total includes denied rows', async () => {
+  const h = harness(); h.ports = { ...h.ports, options: optionSamples };
+  const send = h.adapter.searchEquipment;
+  h.adapter.searchEquipment = async input => ({ ...await send(input), total: 999 });
+  const check = planServerConformance(h).find(c => c.id === 'selection ports · search paging')!;
+  expect(await check.run()).toContain('Total');
 });

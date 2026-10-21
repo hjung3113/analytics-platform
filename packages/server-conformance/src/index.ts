@@ -1,3 +1,5 @@
+import { planSelectionPortChecks, type OptionPortSamples } from './selection-ports';
+export type { OptionPortSamples } from './selection-ports';
 /**
  * Server boundary conformance kit (#145, #152). Judges any `PlatformAdapter` implementation — the mock today,
  * the in-house server adapter later — against the menu query contract (docs/integration/real-server-checklist.md,
@@ -43,6 +45,7 @@ export type ActionCase = {
  * site the actor also holds a grant in.
  */
 export type PortSamples = {
+  options?: OptionPortSamples;
   /** A declared endpoint plus app-owned axis values that demonstrate narrowing. */
   condition?: { endpoint: string; axisA: { id: string; values: readonly [string, string] }; axisB: { id: string; value: string }; nonHistoryAxisId: string };
   /**
@@ -388,7 +391,7 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
     }
   }
 
-  return [...checks, ...planPortChecks(harness), ...planActionChecks(harness), ...planConditionChecks(harness)];
+  return [...checks, ...planPortChecks(harness), ...planActionChecks(harness), ...planConditionChecks(harness), ...planSelectionPortChecks(harness)];
 }
 
 const describeAction = (r: ActionResponse<unknown>): string => `${r.outcome}${r.message ? ` (${r.message})` : ''}`;

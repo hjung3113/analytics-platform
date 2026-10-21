@@ -1,3 +1,4 @@
+import { EQUIPMENT_AXES } from '../equipmentAxes';
 // <gen:menu-mock-imports>
 import { analyticsMock } from '@ap/menu-analytics/mock';
 import { equipmentMock } from '@ap/menu-equipment/mock';
@@ -37,6 +38,6 @@ export const MOCK_AUDIT_EVENTS: readonly AuditEvent[] = [...metricsAuditEvents];
  * Menu mocks are registered in MOCK_ENDPOINTS by `pnpm gen:menu`; a production build never reaches this file.
  */
 export const createAssembly: CreateAssembly = ({ registry }) => ({
-  adapter: createMockAdapter({ endpoints: MOCK_ENDPOINTS, registry, auditEvents: MOCK_AUDIT_EVENTS }),
+  adapter: createMockAdapter({ equipmentAxes: EQUIPMENT_AXES, endpoints: MOCK_ENDPOINTS, registry, auditEvents: MOCK_AUDIT_EVENTS }),
   topBarTools: <DevTools />,
 });

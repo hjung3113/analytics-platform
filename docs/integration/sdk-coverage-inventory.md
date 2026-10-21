@@ -75,7 +75,7 @@
 
 | 기능 | AP | FO | EV | 판정 |
 | --- | --- | --- | --- | --- |
-| 전역 Context·Scope·기간·Selection | `GlobalContext`·`GlobalContextBar`·`ScopeSelector`·`evaluateSelection` | 없음(전부 미지원 선언) | `time` 적용, Selection 참조 | ✅ AP |
+| 전역 Context·Scope·기간·Selection | `GlobalContext`·`GlobalContextBar`·`ScopeSelector`·세 조회 포트/Kernel 훅(legacy `evaluateSelection` 유지) | 없음(전부 미지원 선언) | `time` 적용, Selection 참조 | ✅ AP |
 | Trust·신뢰 표시 | `Trust`·`DataTrustIndicator`·`OutcomeBanners` | 없음 | `EvidenceBadge`(4단계) | ✅ AP. ⬜ EV Evidence는 제품 어휘 |
 | 시간 정밀도 | 원천 정밀도 보존(06 §6.3) | 해당 없음 | 밀리초 3자리 고정, 초과 정밀도는 거부(EV ADR-0009가 EV#44를 정함) | ✅ AP 규칙. EV는 거부(fail-closed)로 맞춤 |
 

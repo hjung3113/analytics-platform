@@ -1,3 +1,4 @@
+import { EQUIPMENT_AXES } from './equipmentAxes';
 /**
  * Server boundary conformance (#145): the adapter-agnostic kit judged against the mock adapter, over every menu
  * endpoint the app registers. The in-house server adapter runs the same harness shape
@@ -54,7 +55,7 @@ describe('conformance harness covers what the app registers', () => {
 });
 
 describeServerConformance('server boundary conformance — mock adapter', {
-  adapter: createMockAdapter({ endpoints, registry, auditEvents: MOCK_AUDIT_EVENTS }),
+  adapter: createMockAdapter({ equipmentAxes: EQUIPMENT_AXES, endpoints, registry, auditEvents: MOCK_AUDIT_EVENTS }),
   cases,
   context: { scopeId: 'MEM', from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00' },
   foreignScopeId: 'XIA',
@@ -63,6 +64,14 @@ describeServerConformance('server boundary conformance — mock adapter', {
   // DIFF is a real MEM room granted to admin only — the room re-check sample (06 §22). cycle-time-trend is a
   // time axis, so the annotation range is wall-clock (06 §16).
   ports: {
+    options: {
+      axisId: 'model', knownValues: ['Lithius-Pro', 'Tactras'], query: 'Lithius', queryValue: 'Lithius-Pro',
+      equipment: EQUIPMENT.filter(e => e.site === 'MEM' && USERS[GRANTED].grants.MEM.includes(e.room)).map(e => ({ equipmentId: e.equipmentId, room: e.room, axes: Object.fromEntries(EQUIPMENT_AXES.map(a => [a.id, [e[a.id as 'maker']]])) })),
+      deniedRoomId: EQUIPMENT.find(e => e.site === 'MEM' && e.room === 'DIFF')!.equipmentId, deniedRoom: 'DIFF',
+      foreignSiteId: EQUIPMENT.find(e => e.site === 'XIA')!.equipmentId, absentId: '__absent_equipment__',
+      deniedOption: { axisId: 'stgroup', value: EQUIPMENT.find(e => e.site === 'MEM' && e.room === 'DIFF')!.stgroup },
+      parent: { axisId: 'maker', value: 'TEL', childValue: 'Lithius-Pro' },
+    },
     condition: {
       endpoint: 'equipment.master.page',
       axisA: { id: 'stgroup', values: [conditionSample.stgroup, secondGroup.stgroup] },

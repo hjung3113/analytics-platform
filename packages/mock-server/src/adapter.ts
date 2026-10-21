@@ -3,8 +3,9 @@
  * The app's mock assembly (apps/platform-web/src/dev/mock-assembly.tsx, ADR-0009) hands the object returned by
  * createMockAdapter to main.tsx through `#platform-assembly`; production builds never contain it. A real server adapter replaces this file, not the kernel.
  */
-import type { AuditEvent, ContextKey, MenuMeta, PlatformAdapter, Session } from '@ap/contracts';
+import type { AuditEvent, EquipmentAxisDescriptor, ContextKey, MenuMeta, PlatformAdapter, Session } from '@ap/contracts';
 import { instantEpochMs, requiredContextError } from '@ap/contracts';
+import { createSelectionPorts } from './selection-ports';
 import { contextShapeError } from './context-validation';
 import { checkScope, getEntity, getRole, matchesCondition, recordUsage, reportClientError, subscribeServer, usageSummary, validateScope } from './server';
 import { AUDIT_TYPES, auditTrail, entityAudit } from './audit';
@@ -59,6 +60,7 @@ function checkAuditSeeds(seeds: readonly AuditEvent[]): void {
 
 export function createMockAdapter(o: {
   endpoints: readonly AnyMockEndpoint[];
+  equipmentAxes?: readonly EquipmentAxisDescriptor[];
   /** Declared writes (ADR-0054); registered like endpoints. */
   actions?: readonly AnyMockAction[];
   registry: { menus: readonly (Omit<MenuMeta, 'group' | 'permission'> & { permission: string })[] };
@@ -137,6 +139,7 @@ export function createMockAdapter(o: {
   }
 
   return {
+    ...createSelectionPorts(o.equipmentAxes),
     session: () => sessionFor(getRole()),
     validateScope: (scopeId, signal) => validateScope(getRole(), scopeId, signal),
     publishedMetrics: () => PUBLISHED_METRICS,
