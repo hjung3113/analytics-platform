@@ -6,12 +6,12 @@
 import { errorCodeSchema } from '@fops/shared';
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 
+import type { Db } from '../../db/client.js';
 import { sendError, statusForCode } from '../../lib/errors.js';
 import { SESSION_COOKIE_NAME } from '../../middleware/require-session.js';
 import type { ActorRecord, SessionRecord, SessionService } from '../auth/session-service.js';
-import type { CheckService } from '../permissions/check-service.js';
-import type { Db } from '../../db/client.js';
 import type { EntityLinkProviderRegistry } from '../entity-links/provider-types.js';
+import type { CheckService } from '../permissions/check-service.js';
 import { createPlatformAuditService } from './audit-service.js';
 import { envelope } from './envelope.js';
 import { resolvePlatformPermissions } from './permissions.js';

@@ -3,9 +3,9 @@
 // `core.audit_log` only through the allowlisted projection (core/audit), never directly.
 
 import type { Db } from '../../db/client.js';
+import { type PlatformAuditRow, platformAuditEvents } from '../core/audit/index.js';
 import type { EntityLinkProviderRegistry } from '../entity-links/provider-types.js';
 import type { CheckService } from '../permissions/check-service.js';
-import { platformAuditEvents, type PlatformAuditRow } from '../core/audit/index.js';
 import { AUDIT_ACTION_BY_EVENT_TYPE, type PlatformAuditAction } from './audit-actions.js';
 import {
   ENTITY_AUDIT_READABLE_TYPES,
