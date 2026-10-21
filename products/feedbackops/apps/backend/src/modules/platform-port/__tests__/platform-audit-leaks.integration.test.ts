@@ -281,14 +281,15 @@ describe.skipIf(!runIntegration)('platform audit projection hides what it must (
         ).toMatchObject({ outcome: 'empty' });
       }
 
-      // The control capability's rows are all there: 5 + 2 for the requester, 2 for the admin.
+      // The control capability's rows are all there: 5 for the requester (create, edit, answer,
+      // cancel, create again), 2 for the admin (need more info, reject).
       const requesterRows = await search(viewer, {
         type: 'permission_request',
         actor: control.requester.externalId,
         pageSize: 100,
       });
-      expect(requesterRows.data?.total).toBe(7);
-      expect(idsOf(requesterRows)).toHaveLength(7);
+      expect(requesterRows.data?.total).toBe(5);
+      expect(idsOf(requesterRows)).toHaveLength(5);
       const adminRows = await search(viewer, {
         type: 'permission_request',
         actor: control.admin.externalId,
@@ -302,10 +303,10 @@ describe.skipIf(!runIntegration)('platform audit projection hides what it must (
       const paged = await search(viewer, {
         type: 'permission_request',
         actor: control.requester.externalId,
-        page: 4,
+        page: 3,
         pageSize: 2,
       });
-      expect(paged.data).toMatchObject({ total: 7 });
+      expect(paged.data).toMatchObject({ total: 5 });
       expect(idsOf(paged)).toHaveLength(1);
     });
   });
