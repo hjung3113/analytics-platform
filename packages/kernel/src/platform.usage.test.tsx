@@ -329,6 +329,22 @@ describe('usage entry navigation path (#605)', () => {
     expect(entries(events)).toEqual(['lots:sidebar:null']);
   });
 
+  it('an unmarked move is direct when it leads to the tab\'s first entry (opened on the board)', async () => {
+    const { events } = mountNav('/board');
+    await settle();
+    await click('plain');
+    expect(entries(events)).toEqual(['equipment:direct:null']);
+  });
+
+  it('a user switched on the board keeps their first marked move', async () => {
+    const fixture = mountNav('/board');
+    await settle();
+    act(() => fixture.setSessionUser('other'));
+    await settle();
+    await click('sidebar');
+    expect(entries(fixture.events)).toEqual(['lots:sidebar:null']);
+  });
+
   it('StrictMode keeps the via of the real entry', async () => {
     const { events } = mountNav('/equipment', true);
     await settle();

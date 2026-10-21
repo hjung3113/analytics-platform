@@ -77,7 +77,7 @@ export type UsageSource = 'main' | 'board';
  * How a main-screen entry was reached. Closed set: `sidebar` (menu link, rail section/board button), `switcher` (space switcher),
  * `palette` (command palette), `board` (leaving or opening from the analysis board), `return` (return-to-origin link),
  * `crossLink` (06 §22 cross-menu Context link), `drill` (a drill step landing on another path), `history` (Back/Forward),
- * `direct` (the tab's first entry: new tab, reload, typed address), `link` (any other in-app navigation).
+ * `direct` (the tab's first entry when unmarked: new tab, reload, typed address; an explicit mark wins), `link` (any other in-app navigation).
  */
 export type UsageVia = 'sidebar' | 'switcher' | 'palette' | 'board' | 'return' | 'crossLink' | 'drill' | 'history' | 'direct' | 'link';
 /**

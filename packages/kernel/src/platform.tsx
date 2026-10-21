@@ -360,7 +360,7 @@ function useScreenState(app: AppValue, source: ScreenSource): { screen: ScreenSt
   const navigate = useCallback((next: string, options?: { replace?: boolean; focus?: PageFocus; via?: UsageVia }) => {
     const trail = usageNav.current;
     const before = trail.via;
-    if (mode === 'main') trail.via = options?.via ?? 'link';
+    if (mode === 'main') trail.via = options?.via ?? null;
     const moved = go(next, options);
     if (mode === 'main' && !moved) trail.via = before;
     return moved;
@@ -738,7 +738,11 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
   const userIdRef = useRef(userId);
   const usageNav = useRef<UsageNavTrail>({ user: userId, via: null, seen: false, prev: null });
   // A layout effect: it must be current before the previous usage effect's passive cleanup reads it on a role switch.
-  useLayoutEffect(() => { userIdRef.current = userId; });
+  useLayoutEffect(() => {
+    userIdRef.current = userId;
+    // The identity boundary: a new session user starts the navigation trail over before any of their marks arrive.
+    if (usageNav.current.user !== userId) usageNav.current = { user: userId, via: null, seen: false, prev: null };
+  });
 
   const absoluteUrl = useCallback((next: string) => location.absoluteUrl(next), [location]);
   const defaultRangeTo = adapter.defaultRangeTo();
