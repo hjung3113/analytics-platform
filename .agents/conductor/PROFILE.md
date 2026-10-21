@@ -18,7 +18,7 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
 
 - `python3 $ENGINE/launch-worker.py <n> <slug>`가 하는 일(설정 `launch`):
   - Orca worktree를 `origin/main`에서 만들고 이름으로 찾아 브랜치 이름을 바꾼다.
-  - 서브모듈을 init하고 `pnpm install`을 돌린다.
+  - `pnpm install`을 돌린다(FeedbackOps는 `products/feedbackops/` 일반 디렉터리이고 자체 workspace라 루트 설치에 들어가지 않는다, #592).
   - 설정 셸을 닫는다.
   - 전역 `impl-rules.md`·`review-rules.md`에 [`addenda/`](addenda/)를 붙여 worktree `.review/00-IMPL-RULES.md`·`00-REVIEW-RULES.md`로 쓰고, `.review/W-<n>-TASK.md` 맨 앞 줄은 그 구현 규칙 포인터다.
   - 공유 실행기를 부른다.
@@ -49,7 +49,7 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
 - UX 리뷰 증거의 기본은 리뷰어가 브랜치·기준 미리보기를 직접 조작하는 것이다. ego-browser가 실패하면 다시 시도·대체하는 규칙은 전역 스킬 7d를 따르고, 호스트 캡처 → 자료 판정으로 바꿨다면 그 사실을 VERIFY에 적는다(#436 — 리뷰어 런타임이 바뀌어 예전 "처음부터 호스트 캡처" 기본을 버렸다).
 - 확인은 `ego-browser`로 한다. 막히면 `apps/platform-e2e`의 Playwright 일회용 캡처로 대신하고, 대신했다고 말한다.
 - 미리보기는 `$ENGINE/app-preview.py start <checkout> --name <n>-branch`(기준은 `<n>-main`)로 띄운다. mock 조립 vite가 5180–5199 사이 빈 포트에 뜨고, 백엔드는 없다.
-- 기준 worktree 설치: 서브모듈 init + `pnpm install --frozen-lockfile`.
+- 기준 worktree 설치: `pnpm install --frozen-lockfile`.
 - 캡처는 차트 canvas와 표 행이 그려진 뒤에 찍는다. 같은 턴에 `stop`한다.
 
 ## Review
@@ -57,7 +57,7 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
 - 계획은 `python3 $ENGINE/review-plan.py <checkout> [--base origin/main]`으로 세운다. 규칙은 `conductor.json`의 `review_plan`이고, 엔진 저장소의 이 레포 케이스(`engine/tests/ap/test-review-plan.py`)가 고정한다.
 - 플래그별 처리:
   - `flags.permission`·`flags.instructions`는 전역 스킬 7a를 따른다.
-  - `flags.e2e`·`flags.submodule`이 있으면 Verify 3단계(E2E)와 gitlink 검사를 했는지 확인한다.
+  - `flags.e2e`가 있으면 Verify 3단계(E2E)를 했는지 확인한다. `flags.submodule`(`products/feedbackops/` 변경)이면 FeedbackOps 게이트(`products/feedbackops/`에서 `scripts/ci/gate.sh static|unit|integration`, CI는 `.github/workflows/feedbackops.yml`)를 확인한다.
   - `flags.contract`면 06 계약·ADR을 고친 곳을 코드 리뷰어 작업에 적는다.
 - 리뷰어 규칙:
   - 코드 리뷰어는 전역 `templates/review-rules.md` + [`addenda/review-rules.md`](addenda/review-rules.md)(작업자 worktree에서는 `.review/00-REVIEW-RULES.md`로 합쳐져 있다). 브리프 사전 점검은 전역 `templates/brief-check.md` + [`addenda/brief-check.md`](addenda/brief-check.md).
@@ -139,7 +139,7 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
 - 일반 `git worktree add`로 만든 기준 worktree에는 Orca 터미널 리뷰어를 띄울 수 없다. 거기서는 미리보기만 돌린다.
 - 메인 체크아웃의 `node_modules`는 병합이 쌓이면 낡는다. 마감 검사 전에 `pnpm install --frozen-lockfile`.
 - 이 프로필의 상대 경로(`addenda/`)는 `$CONDUCTOR` 기준이다. 레포 루트에서 그대로 실행하면 "No such file"이다.
-- 이슈 번호가 없는 작업(마감 정리 등)은 `launch-worker.py`가 worktree를 만들지 못한다(`--issue`가 숫자를 요구). 손으로 한다: `orca worktree create --setup skip`(`--issue` 없이) → 서브모듈·설치 → 설정 셸 닫기 → TASK 작성 → 공유 실행기.
+- 이슈 번호가 없는 작업(마감 정리 등)은 `launch-worker.py`가 worktree를 만들지 못한다(`--issue`가 숫자를 요구). 손으로 한다: `orca worktree create --setup skip`(`--issue` 없이) → 설치 → 설정 셸 닫기 → TASK 작성 → 공유 실행기.
 - E2E는 vite dev 서버 위에서 돈다. 호스트 검사(루트 test·E2E)가 도는 worktree의 소스를 고치지 않는다 — HMR이 화면을 다시 그려 우연한 E2E 실패가 난다(#403: 검사 중 `module.ts` 수정 → Scope 메뉴 항목 detached). 고칠 것이 생기면 검사가 끝난 뒤 고치고 다시 돌린다.
 - E2E 포트는 4190 고정(`apps/platform-e2e/playwright.config.ts`, `--strictPort`)이라 다른 세션이 E2E를 돌리면 `is already used`로 바로 실패한다. 그 프로세스는 건드리지 말고(`lsof -nP -iTCP:4190 -sTCP:LISTEN`으로 cwd 확인) 포트가 빌 때까지 기다린 뒤 돌린다(#489).
 - `ship-pr.sh --issue`가 PR 본문의 `Closes #n`으로 이미 닫힌 이슈를 다시 닫으려다 `Could not close the issue`로 끝나면 머지는 됐어도 `--worktree` 정리와 `--archive-review`가 돌지 않고 JSON에 `merged`가 빠진다([conductor-engine#58](https://github.com/hjung3113/conductor-engine/issues/58)). 그때는 `gh pr list --head <branch> --state all`로 병합을 확인하고, worktree의 `.review/`를 손으로 보관한 뒤 worktree를 지운다(#546).

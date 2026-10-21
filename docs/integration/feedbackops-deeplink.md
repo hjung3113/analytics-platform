@@ -85,7 +85,7 @@ https://platform.example/analytics/cycle-time?v=1&scopeId=MEM&from=2026-09-25T09
 
 - **플랫폼 소유:** inbound 경로, `v`·전역 키, `returnTo` 규칙, `packages/contracts/src/feedbackops-link.ts`.
 - **FeedbackOps 소유:** path, strict search 스키마, MS uuid, VOC/survey uuid. 관찰 기준 커밋(합류 뒤에는 이 저장소의 커밋)을 이 문서 헤더에 적어 기준을 고정한다.
-- 어느 쪽도 상대 저장소(`products/feedbackops/`, 원본 저장소)를 직접 고치지 않는다.
+- 두 쪽은 같은 저장소에 있지만 소유는 위와 같다. FeedbackOps 쪽 키를 바꾸는 변경은 아래 §4 절차로만 한다(동결된 원본 FeedbackOps 저장소는 고치지 않는다, #592).
 
 ## 4. 변경 절차
 

@@ -1,6 +1,6 @@
 # Issue tracker: GitHub
 
-Issues and PRDs for this repo live as GitHub issues on `hjung3113/FeedbackOps`. Use the `gh` CLI for all operations.
+Issues and PRDs for FeedbackOps live as GitHub issues on `hjung3113/analytics-platform` (label `area:feedbackops`) since #592; the old `hjung3113/FeedbackOps` tracker is frozen. Use the `gh` CLI for all operations.
 
 ## Conventions
 
