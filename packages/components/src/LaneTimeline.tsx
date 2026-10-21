@@ -84,7 +84,7 @@ export function LaneTimeline(props: LaneTimelineProps) {
           <TooltipTrigger asChild><Button type="button" variant="ghost" size="icon-xs" aria-label={tx({ ko: '조작 방법', en: 'How to interact' })}><Info className="size-3.5" aria-hidden /></Button></TooltipTrigger>
           <TooltipContent>{tx({ ko: 'Ctrl/⌘ + 휠: 확대 · 끌기: 이동 · 방향키: 탐색 · Enter: 선택 · Escape: 해제', en: 'Ctrl/⌘ + wheel: Zoom · Drag: Pan · Arrows: Navigate · Enter: Select · Escape: Clear' })}</TooltipContent>
         </Tooltip></TooltipProvider>
-        <Button size="toolbar" variant="ghost" onClick={() => engine.current?.zoom(0.8)}>Zoom +</Button><Button size="toolbar" variant="ghost" onClick={() => engine.current?.zoom(1.25)}>Zoom −</Button><Button size="toolbar" variant="ghost" onClick={() => engine.current?.resetZoom()}>{tx({ ko: '확대 초기화', en: 'Zoom Reset' })}</Button>
+        <Button size="toolbar" variant="ghost" onClick={() => engine.current?.zoom(0.8)}>{tx({ ko: '확대', en: 'Zoom in' })}</Button><Button size="toolbar" variant="ghost" onClick={() => engine.current?.zoom(1.25)}>{tx({ ko: '축소', en: 'Zoom out' })}</Button><Button size="toolbar" variant="ghost" onClick={() => engine.current?.resetZoom()}>{tx({ ko: '확대 초기화', en: 'Zoom Reset' })}</Button>
       </div>
     </header>
     <p className="px-4 py-2 text-text-secondary">{tx({ ko: 'UTC · orphan: 시작 미확인 · open: 종료 미확인', en: 'UTC · orphan: start unknown · open: end unknown' })}</p>
