@@ -93,7 +93,7 @@ FeedbackOps를 플랫폼 앱 하나·서버 하나·저장소 하나로 합친�
 | — | 권한·업무 시스템 통합 결정(§5) | [#596](https://github.com/hjung3113/analytics-platform/issues/596) | 사용자 답, #98 |
 | 5 | 독립 앱 은퇴: 옛 URL 리다이렉트, 링크 계약 정리, FeedbackOps 저장소 보관 | [#597](https://github.com/hjung3113/analytics-platform/issues/597) | 3, 4, #151 |
 
-사내 확인(#150 SSO, #151 배포·인프라)은 단계와 병행한다. 운영 배포의 선행 조건이지만 단계 1–4는 mock 인증과 throwaway DB로 진행한다.
+사내 확인(#150 SSO, #151 배포·인프라)은 단계와 병행한다. 운영 배포의 선행 조건이지만 단계 1–4는 mock 인증과 throwaway DB로 진행한다. 첫 사내 사용은 SSO 답을 기다리지 않고 Keycloak(사내 이메일 도메인 가입·이메일 인증)을 OIDC IdP로 두고 연다. 사내 로그인은 Windows 로그인 정보로 연동된다(사용자 관찰 → Active Directory)라서, 답이 오면 Keycloak을 Entra ID·AD FS로 위임하거나 AD에 LDAP·Kerberos로 연동한다. IdP가 바뀌면 `sub`이 바뀌므로 전환 때 인증된 email로 기존 Actor를 한 번 연결한다 — [#603](https://github.com/hjung3113/analytics-platform/issues/603).
 
 ## 7. Open
 
