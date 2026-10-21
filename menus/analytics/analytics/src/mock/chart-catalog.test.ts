@@ -58,6 +58,13 @@ describe('chart catalog projected endpoint', () => {
     expect(data.pareto.some(item => item.label === '기타')).toBe(false);
     expect((await adapter.menuQuery({ endpoint: chartCatalogEndpoint.id, params: { kind }, context })).data).toEqual(data);
   });
+  it('keeps one null heatmap cell and one missing coordinate for a period of one bucket', async () => {
+    const short = { ...context, to: '2026-09-25T10:00:00' };
+    const { data } = await adapter.menuQuery({ endpoint: chartCatalogEndpoint.id, params: { kind: 'heatmap' }, context: short }) as { data: CatalogData };
+    expect(data.heatmap.xLabels).toEqual([short.from]);
+    expect(data.heatmap.cells.filter(cell => cell.value === null)).toHaveLength(1);
+    expect(data.heatmap.cells).toHaveLength(data.heatmap.yLabels.length - 1);
+  });
   it('rejects an unknown kind', async () => {
     const response = await adapter.menuQuery({ endpoint: chartCatalogEndpoint.id, params: { kind: 'unknown' }, context });
     expect(response.outcome).toBe('error');

@@ -19,7 +19,7 @@ export const chartCatalogMock = defineMockEndpoint(chartCatalogEndpoint, {
     const yLabels = targets.map(row => row.equipmentId);
     return {
       current, previous, previousFrom: stamp(start - duration), previousTo: context.from,
-      heatmap: { xLabels, yLabels, cells: yLabels.flatMap((y, j) => xLabels.flatMap((x, i) => j === yLabels.length - 1 && i === xLabels.length - 1 ? [] : [{ x, y, value: i === 1 && j === 0 ? null : 20 + i * 5 + j * 3 }])) },
+      heatmap: { xLabels, yLabels, cells: yLabels.flatMap((y, j) => xLabels.flatMap((x, i) => j === yLabels.length - 1 && i === xLabels.length - 1 ? [] : [{ x, y, value: i === Math.min(1, xLabels.length - 1) && j === 0 ? null : 20 + i * 5 + j * 3 }])) },
       donut: targets.slice(0, 4).map((row, i) => ({ id: row.equipmentId, label: row.equipmentId, value: 40 - i * 7 })),
       scatter: targets.map((row, i) => ({ id: row.equipmentId, x: i === 0 ? null : 20 + i * 5, y: 30 + i * 3, group: row.room })),
       boxPlot: targets.slice(0, 3).map((row, i) => ({ id: row.equipmentId, label: row.equipmentId, stats: { min: 10 + i, q1: 20 + i, median: 25 + i, q3: 30 + i, max: 40 + i, n: 18 + i } })),
