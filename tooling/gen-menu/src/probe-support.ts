@@ -8,6 +8,7 @@ export const PROBE_SPACE = 'analytics';
 export const PROBE_PACKAGE_REL = `menus/${PROBE_SPACE}/${PROBE_FOLDER}`;
 export const PROBE_TEST_REL = 'apps/platform-web/src/gen-probe.test.ts';
 export const PROBE_GROUP_ID_MEMBER = " | 'genProbe';";
+export const PROBE_GROUP_ID_SET_ENTRY = ', genProbe: true';
 export const PROBE_GROUPS_ROW = `  { id: 'genProbe', label: { ko: '생성 확인', en: 'Gen probe' }, icon: LayoutDashboard, space: 'analytics' },`;
 
 /** Fail-closed `git status --porcelain --untracked-files=all` (F8): any git failure throws. */
@@ -53,6 +54,11 @@ export function insertGroupIdMember(root: string): void {
   const line = lines[at];
   if (line === undefined || !line.endsWith(';')) throw new GenMenuError('GroupId line does not end with ;');
   lines[at] = `${line.slice(0, -1)}${PROBE_GROUP_ID_MEMBER}`;
+  // GROUP_ID_SET is a Record<GroupId, true>, so a new GroupId member fails typecheck until it is listed there too (#548).
+  const setAt = lines.findIndex(l => l.startsWith('const GROUP_ID_SET: Record<GroupId, true> = {'));
+  const setLine = lines[setAt];
+  if (setLine === undefined || !setLine.endsWith(' };')) throw new GenMenuError('GROUP_ID_SET line not found in packages/contracts/src/menu.ts');
+  lines[setAt] = `${setLine.slice(0, -' };'.length)}${PROBE_GROUP_ID_SET_ENTRY} };`;
   writeFileSync(path, lines.join('\n'));
 }
 
