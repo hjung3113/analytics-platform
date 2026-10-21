@@ -32,5 +32,7 @@ platform install, lint or test for FeedbackOps work.
 8. **Error envelopes (FeedbackOps routes):** validation and denial responses carry their fields under `detail`;
    assert `body.detail.fields`, not `body.fields`. Routes under `/api/v1/platform` follow ADR-0069 instead.
 9. **Rate-limit keys** are `<workspace_id>:<actor_id>`.
-10. Before finishing, run `pnpm exec biome format --write` on every file you created or changed under
-    `products/feedbackops/` (the FE Biome gate fails on format alone — #603, #620).
+10. Before finishing, run `pnpm exec biome check --write <file> …` with the explicit path of every file you created
+    or changed under `products/feedbackops/` (format and import order — the FE Biome gate fails on either: #603,
+    #620, #621). Never pass a directory: `biome format --write apps/backend/src` rewrote 51 files the task did not
+    own (#621).

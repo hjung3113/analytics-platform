@@ -77,10 +77,7 @@ import {
   createPgBossNotificationDispatcher,
   notificationRoutes,
 } from './modules/notifications/index.js';
-import {
-  platformPortRoutes,
-  PLATFORM_PORT_PREFIX,
-} from './modules/platform-port/index.js';
+import { platformPortRoutes, PLATFORM_PORT_PREFIX } from './modules/platform-port/index.js';
 import {
   createCheckService,
   createDecisionService,
@@ -787,6 +784,8 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     sessionService,
     checkService,
     workspaceId,
+    db: dbHandle.db,
+    providers: buildEntityLinkProviders(),
   });
   await app.register(navRoutes, {
     sessionService,

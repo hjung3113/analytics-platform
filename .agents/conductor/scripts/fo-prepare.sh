@@ -16,7 +16,8 @@ fo="$worktree/products/feedbackops"
 [ -f "$fo/pnpm-workspace.yaml" ] || { echo "fo-prepare: $fo is not the FeedbackOps workspace" >&2; exit 1; }
 
 echo "== install $fo"
-pnpm --dir "$fo" install --frozen-lockfile --config.confirmModulesPurge=false </dev/null
+# cd, not --dir: corepack picks the pnpm version from the cwd, and the root pins pnpm 11, which refuses FO's 9.15 (#621).
+(cd "$fo" && pnpm install --frozen-lockfile --config.confirmModulesPurge=false </dev/null)
 
 # verify-db.sh templates the issue env file from $fo/.env, replacing only the DATABASE_URL lines. A fresh worktree has
 # no .env (gitignored), so seed it from the committed .env.example (development defaults, no secrets).
