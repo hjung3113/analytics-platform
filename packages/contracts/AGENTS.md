@@ -4,6 +4,7 @@
 
 ## 파일
 
+- `query-history.ts` — 적용 이력 저장 포트·항목·키와 결정적 정렬/id. 저장소가 병합·횟수·시각·20건 보존을 소유한다(06 §11).
 - `url.ts` — 전역 Context URL codec(`parseQuery`, `buildQuery`, `isAppRelativePath` 등). 06 §6 URL 계약의 구현.
 - `feedbackops-link.ts` — FeedbackOps ↔ 플랫폼 딥링크 codec. 원본은 [통합 계약](../../docs/integration/feedbackops-deeplink.md)이며 이 파일은 구현이다.
 - `menu.ts` — `MenuMeta`(manifest 선언부), `ContextKey`, `Capability`, `PageType`, `Permission`과 그 런타임 목록 `PERMISSIONS`(검증기·선택지가 공유하는 유일한 값 목록, #49).

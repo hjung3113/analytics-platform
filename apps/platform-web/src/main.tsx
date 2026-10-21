@@ -8,6 +8,7 @@ import { createBasePathLocation, I18nProvider, PlatformProvider } from '@ap/kern
 import { setFeedbackOpsOrigin } from '@ap/menu-notice-voc/feedbackops-origin';
 import { createAssembly } from '#platform-assembly';
 import { readFeedbackOpsOrigin } from './feedbackops-origin';
+import { createLocalQueryHistoryStore } from './query-history-store';
 import { EQUIPMENT_AXES } from './equipmentAxes';
 import { registry } from './menus';
 import { appSlots } from './slots';
@@ -20,12 +21,13 @@ setFeedbackOpsOrigin(feedbackOpsOrigin);
 
 // The build picks the assembly (#153, ADR-0009): mock + DevTools in dev/--mode mock, the real adapter in production.
 const assembly = createAssembly({ registry });
+const queryHistory = createLocalQueryHistoryStore();
 const location = import.meta.env.BASE_URL === '/' ? undefined : createBasePathLocation(import.meta.env.BASE_URL);
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <I18nProvider>
-      <PlatformProvider equipmentAxes={EQUIPMENT_AXES} adapter={assembly.adapter} registry={registry} location={location} slots={appSlots(assembly, feedbackOpsOrigin)}>
+      <PlatformProvider queryHistory={queryHistory} equipmentAxes={EQUIPMENT_AXES} adapter={assembly.adapter} registry={registry} location={location} slots={appSlots(assembly, feedbackOpsOrigin)}>
         <AppShell><RouteOutlet /></AppShell>
       </PlatformProvider>
     </I18nProvider>

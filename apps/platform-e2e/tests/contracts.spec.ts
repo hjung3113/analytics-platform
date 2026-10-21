@@ -3229,6 +3229,45 @@ test.describe('일괄 적용 조회 바 (06 §11·§19, ADR-0061)', () => {
     await page.getByRole('button', { name: '칸 1 선택' }).click();
     await expect(page.getByRole('region', { name: '칸 1 · 분석 Context' })).toContainText('적용 안 된 변경 1개');
   });
+  test('최근 조건은 bare 재방문과 수동 선택에서 초안만 복원하고 적용 때 분석 요청을 한 번 보낸다', async ({ page }, testInfo) => {
+    await signInAs(page, 'engineer');
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const requestCount = () => page.evaluate(() => performance.getEntriesByName('platform:mock-menu-query')
+      .filter(entry => (entry as PerformanceMark).detail?.endpoint === 'analytics.cycle.kpi').length);
+    await page.goto('/analytics/cycle-time?scopeId=MEM');
+    await expectScopeValid(page, 'MEM · 메모리');
+    let bar = await expandQuery(page);
+    await bar.getByRole('button', { name: '공정', exact: true }).click();
+    await page.getByRole('option', { name: 'PHOTO', exact: true }).click();
+    await page.keyboard.press('Escape');
+    await page.getByRole('button', { name: '일', exact: true }).click();
+    await bar.getByRole('button', { name: '적용', exact: true }).click();
+    await expect(page.getByRole('region', { name: '적용된 조회 조건' })).toContainText('요약 조회 완료');
+    await page.getByRole('button', { name: '주', exact: true }).click();
+    await bar.getByRole('button', { name: '적용', exact: true }).click();
+    await expect.poll(() => query(page).get('granularity')).toBe('week');
+    await expect(page.getByRole('region', { name: '적용된 조회 조건' })).toContainText('집계 주');
+    await bar.getByRole('button', { name: '최근 조건', exact: true }).click();
+    await expect(page.getByRole('option')).toHaveCount(2);
+    await page.keyboard.press('Escape');
+    await page.goto('/analytics/cycle-time?scopeId=MEM');
+    await expectScopeValid(page, 'MEM · 메모리');
+    bar = await expandQuery(page);
+    await expect(page.getByRole('button', { name: '주', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    const before = await requestCount();
+    expect(before).toBe(0);
+    await expect(page.getByText('요약 조회 완료', { exact: false })).toHaveCount(0);
+    await bar.getByRole('button', { name: '최근 조건', exact: true }).click();
+    await page.getByRole('option', { name: /집계 일/ }).click();
+    await expect(page.getByRole('button', { name: '일', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    expect(await requestCount()).toBe(before);
+    expect(query(page).has('granularity')).toBe(false);
+    await bar.getByRole('button', { name: '적용', exact: true }).click();
+    await expect(page.getByRole('region', { name: '적용된 조회 조건' })).toContainText('요약 조회 완료');
+    expect(await requestCount()).toBe(before + 1);
+    await evidence(page, testInfo, 'query-history-draft-restore');
+  });
+
 });
 
 test.describe('차트 카탈로그 — 종류별 상호작용 (06 §16, #530)', () => {

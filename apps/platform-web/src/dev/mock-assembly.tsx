@@ -37,7 +37,15 @@ export const MOCK_AUDIT_EVENTS: readonly AuditEvent[] = [...metricsAuditEvents];
  * Mock assembly (#153, ADR-0009): what `#platform-assembly` resolves to in `vite` dev and `--mode mock` builds.
  * Menu mocks are registered in MOCK_ENDPOINTS by `pnpm gen:menu`; a production build never reaches this file.
  */
-export const createAssembly: CreateAssembly = ({ registry }) => ({
-  adapter: createMockAdapter({ equipmentAxes: EQUIPMENT_AXES, endpoints: MOCK_ENDPOINTS, registry, auditEvents: MOCK_AUDIT_EVENTS }),
-  topBarTools: <DevTools />,
-});
+export const createAssembly: CreateAssembly = ({ registry }) => {
+  const adapter = createMockAdapter({ equipmentAxes: EQUIPMENT_AXES, endpoints: MOCK_ENDPOINTS, registry, auditEvents: MOCK_AUDIT_EVENTS });
+  return {
+    adapter: { ...adapter, menuQuery(request, signal) {
+      // Mock analysis is in-process, so browser Network cannot count it. Endpoint-only marks give
+      // the committed harness an observable request seam without copying any Context/filter values.
+      performance.mark('platform:mock-menu-query', { detail: { endpoint: request.endpoint } });
+      return adapter.menuQuery(request, signal);
+    } },
+    topBarTools: <DevTools />,
+  };
+};

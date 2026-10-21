@@ -1,3 +1,4 @@
+import { QueryHistoryControl } from './QueryHistoryControl';
 import { QueryBar } from './QueryBar';
 import { CalendarDays, ChevronDown, Link2, RotateCcw, X } from 'lucide-react';
 import { useContext, type ReactNode } from 'react';
@@ -32,7 +33,7 @@ export function GlobalContextBar({ label, whenEmpty = null }: {
   whenEmpty?: ReactNode;
 } = {}) {
   const { route } = usePlatform();
-  return route?.menu.query?.mode === 'apply' ? <QueryBar label={label} /> : <LiveContextBar label={label} whenEmpty={whenEmpty} />;
+  return route?.menu.query?.mode === 'apply' ? <QueryBar label={label} historySlot={<QueryHistoryControl />} /> : <LiveContextBar label={label} whenEmpty={whenEmpty} />;
 }
 
 function LiveContextBar({ label, whenEmpty }: { label?: { visible: string; region: string }; whenEmpty: ReactNode }) {

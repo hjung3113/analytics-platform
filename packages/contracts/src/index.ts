@@ -15,3 +15,5 @@ export { CONTEXT_FIELDS, missingRequiredContext, requiredContextError } from './
 
 export { PortError } from './selection-ports.js';
 export type { PortErrorCode, MembershipPeriod, AxisOptionsInput, AxisOption, AxisOptionsPage, EquipmentSummary, EquipmentSearchInput, EquipmentSearchPage, SelectionResolveInput, SelectionResolution, SelectionResolveResult } from './selection-ports.js';
+export { compareHistoryText, compareQueryHistory, queryHistoryId } from './query-history.js';
+export type { QueryHistoryKey, QueryHistoryEntry, QueryHistoryStore } from './query-history.js';

@@ -40,3 +40,5 @@ Platform Component 층(06 §13) + 차트 계약(§16) + 페이지 archetype 골�
 `pnpm --filter @ap/components test`로 좁혀 본 뒤 루트 검사(루트 `AGENTS.md`). 소비 화면을 `pnpm dev`로 확인.
 
 - `querySummary.ts` owns the shared full-value draft/applied formatter; injected axis labels and consumer page labels stay data inputs. `PageFilterBar mode="draft"` keeps controlled fields but omits its Apply/form-submit behavior. `PlatformPage.queryBarExtension` supplies draft/applied page summaries and validation issues; board `QueryBarExtensionsProvider` shares metadata between the separate body/bar providers per pane/menu/params/session. `queryResult` supplies the authoritative summary query status/completion to the applied result strip, including pane content without a page header; it never starts or aggregates queries. See 06 §11 and the query-summary/result tests.
+
+- `QueryBarExtension.historyPageSummary(global,page)`는 소비자가 임의 이력 후보의 실제값과 유효 기본값을 요약하는 순수 함수다. 칸 본문/바 공유에도 함수 참조를 유지하며 현재 초안 요약을 다른 이력에 재사용하지 않는다(06 §11).

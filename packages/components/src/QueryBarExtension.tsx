@@ -1,8 +1,11 @@
 import { createContext, useContext, useEffect, useMemo, useSyncExternalStore, type ReactNode } from 'react';
 import { usePlatform } from '@ap/kernel';
+import type { GlobalContext, Pair } from '@ap/contracts';
 import type { PageFilterSummaryItem } from './PageFilterBar';
 
 export type QueryBarExtension = {
+  /** Pure arbitrary-candidate formatter; never captures current draft values. */
+  historyPageSummary?: (global: GlobalContext, page: readonly Pair[]) => readonly PageFilterSummaryItem[];
   pageSummary: readonly PageFilterSummaryItem[];
   /** Applied labels are separate: a draft label must never describe a result. */
   appliedPageSummary?: readonly PageFilterSummaryItem[];
@@ -34,8 +37,9 @@ export function usePublishQueryBarExtension(value: QueryBarExtension | undefined
   const { paneId, route } = usePlatform();
   const key = extensionKey(paneId, route);
   const serialized = JSON.stringify(value);
+  const formatter = value?.historyPageSummary;
   // A value snapshot avoids publishing a new object for unrelated query completion renders.
-  const snapshot: QueryBarExtension | undefined = useMemo(() => serialized === undefined ? undefined : JSON.parse(serialized) as QueryBarExtension, [serialized]);
+  const snapshot: QueryBarExtension | undefined = useMemo(() => serialized === undefined ? undefined : { ...JSON.parse(serialized) as QueryBarExtension, historyPageSummary: formatter }, [serialized, formatter]);
   useEffect(() => {
     if (!store || !paneId) return;
     store.put(key, snapshot);

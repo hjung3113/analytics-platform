@@ -340,3 +340,25 @@ describe('platform inbound Condition builder parity (#552)', () => {
     expect(code(() => buildPlatformInboundLink({ ...target, context: { ...emptyGlobal, ...input } }))).toBe(expected);
   });
 });
+
+it('history restores only draft and leaves FeedbackOps platformReturn on the applied address', async () => {
+  const { createElement } = await import('react');
+  const { act, cleanup, render, waitFor } = await import('@testing-library/react');
+  const { I18nProvider, PlatformProvider, usePlatform } = await import('@ap/kernel');
+  const { testAdapter, testSession } = await import('@ap/kernel/testing');
+  const { registry } = await import('./menus');
+  const session = testSession(['platform:view', 'analytics:view']);
+  let platform!: ReturnType<typeof usePlatform>;
+  function Probe() { platform = usePlatform(); return null; }
+  const store = { list: async () => [{ id: 'old', query: '?v=1&scopeId=MEM&from=2026-09-01T00:00:00&to=2026-09-02T00:00:00&roomNames=PHOTO&granularity=day', schemaVersion: 1 as const, count: 1, lastAppliedAt: 1 }], record: async () => {}, remove: async () => {}, clear: async () => {} };
+  window.history.replaceState(null, '', '/analytics/cycle-time?scopeId=MEM');
+  try {
+    render(createElement(I18nProvider, null, createElement(PlatformProvider, { registry, adapter: testAdapter({ session: () => session, validateScope: async () => ({ status: 'valid', grantedRooms: ['PHOTO'] }) }), queryHistory: store, children: createElement(Probe) })));
+    await waitFor(() => expect(platform.queryDraft.draft.page).toEqual([['granularity', 'day']]));
+    await act(async () => {});
+    const applied = P + platform.url;
+    const link = buildFeedbackOpsLink({ origin: F, target: { kind: 'voc-create', platformReturn: platformReturnFor(applied, P + platform.pathname) } });
+    expect(new URL(link).searchParams.get('platformReturn')).toBe(P + '/analytics/cycle-time?scopeId=MEM');
+    expect(link).not.toContain('granularity'); expect(platform.global.from).toBeNull();
+  } finally { cleanup(); }
+});

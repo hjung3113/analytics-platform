@@ -1,17 +1,22 @@
 import { useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { buildQuery, emptyGlobal, incompleteMetricPair, missingRequiredContext, parseQuery, sameGlobal, shift, type EquipmentAxisDescriptor, type GlobalContext, type Pair, type PlatformAdapter, type Session } from '@ap/contracts';
+import { createHistoryState, useScreenHistory, canonicalHistoryQuery, historyChanged } from './query-history';
+import { queryHistoryId, type QueryHistoryStore, type QueryHistoryKey, type QueryHistoryEntry } from '@ap/contracts';
 import { classifyMetricInit } from './metric-init';
 import { CONTEXT_LABELS, type MenuEntry } from './registry';
 import { dropResetKeys } from './paneContext';
 import type { QueryDraft, QueryMissing } from './query-draft';
 import type { ScopeState } from './platform';
 
-type Values = QueryDraft['draft'];
-type Snapshot = { identity: string; session: Session; address: string; draft: Values; pending: { source: string; target: string; dispatching: boolean } | null };
+export type DraftValues = QueryDraft['draft'];
+type Values = DraftValues;
+type RecordEvent = { port: QueryHistoryStore; key: QueryHistoryKey; entry: QueryHistoryEntry };
+type Snapshot = { identity: string; session: Session; address: string; addressGeneration: number; draft: Values; editRevision: number; historyInitialized: boolean; pageBasis?: GlobalContext; lastRestoreRevision?: number; pending: { source: string; target: string; dispatching: boolean; editRevision: number; record?: RecordEvent } | null };
 export function createDraftStore() {
   let snapshot: Snapshot | null = null;
   const listeners = new Set<() => void>();
   return {
+    history: createHistoryState(),
     get: () => snapshot,
     subscribe: (fn: () => void) => { listeners.add(fn); return () => { listeners.delete(fn); }; },
     put: (next: Snapshot) => { if (snapshot !== next) { snapshot = next; listeners.forEach(fn => fn()); } },
@@ -19,26 +24,30 @@ export function createDraftStore() {
 }
 export type DraftStore = ReturnType<typeof createDraftStore>;
 
-type Inputs = {
+export type DraftInputs = {
+  history?: QueryHistoryStore; revision: number; currentRevision: () => number; allowed: boolean;
   store?: DraftStore; menu: MenuEntry | null; identity: string; session: Session; url: string;
   global: GlobalContext; page: Pair[]; extras: Pair[]; defaultRangeTo: string; scope: ScopeState;
   adapter: PlatformAdapter; axes: readonly EquipmentAxisDescriptor[]; invalid: boolean;
   commit: (next: string, how: 'push') => boolean;
   setGlobal: QueryDraft['setDraftGlobal']; setPage: QueryDraft['setDraftPage'];
 };
-function defaults(input: Inputs): Values {
+function defaults(input: DraftInputs): Values {
   return { global: { ...emptyGlobal, scopeId: input.global.scopeId, ...(input.menu?.context.time === 'apply' ? { from: shift(input.defaultRangeTo, -24), to: input.defaultRangeTo } : {}) }, page: [] };
 }
-function initial(input: Inputs): Values {
+function initial(input: DraftInputs): Values {
   return input.global.from === null && input.global.to === null && !input.invalid
     ? { global: { ...input.global, from: defaults(input).global.from, to: defaults(input).global.to }, page: input.page }
     : { global: input.global, page: input.page };
 }
-function reconcile(state: Snapshot | null, input: Inputs): Snapshot {
-  if (!state || state.identity !== input.identity || state.session !== input.session) return { identity: input.identity, session: input.session, address: input.url, draft: initial(input), pending: null };
-  if (state.pending && state.pending.target === input.url) return { ...state, address: input.url, pending: null };
+function reconcile(state: Snapshot | null, input: DraftInputs): Snapshot {
+  if (!state || state.identity !== input.identity || state.session !== input.session) return { identity: input.identity, session: input.session, address: input.url, addressGeneration: (state?.addressGeneration ?? -1) + 1, draft: initial(input), editRevision: 0, historyInitialized: false, pageBasis: undefined, pending: null };
+  if (state.pending && state.pending.target === input.url) {
+    const restoredAfterClick = (state.lastRestoreRevision ?? -1) > state.pending.editRevision;
+    return { ...state, address: input.url, addressGeneration: state.addressGeneration + 1, pageBasis: restoredAfterClick ? state.pageBasis : input.global, pending: null };
+  }
   if (state.pending?.source === input.url || state.address === input.url) return state;
-  return { ...state, address: input.url, draft: initial(input), pending: null };
+  return { ...state, address: input.url, addressGeneration: (state?.addressGeneration ?? -1) + 1, draft: initial(input), editRevision: 0, historyInitialized: false, pageBasis: undefined, lastRestoreRevision: undefined, pending: null };
 }
 export function queryMissing(menu: MenuEntry | null, global: GlobalContext, page: Pair[]): QueryMissing[] {
   return [
@@ -52,7 +61,7 @@ export function appliedQueryPolicy(menu: MenuEntry | null, global: GlobalContext
 }
 
 /** Round-trip through the codec, checking the fields the serializer deliberately omits for incomplete pairs. */
-function normalize(input: Inputs, values: Values): Values {
+function normalize(input: DraftInputs, values: Values): Values {
   let g = values.global;
   if ((g.from === null) !== (g.to === null)) throw new RangeError('partial_period');
   if (g.metricVersion !== null && g.metricId === null) throw new RangeError('metric_pair');
@@ -77,7 +86,7 @@ function dirtyFields(applied: Values, draft: Values): string[] {
   const keys = [...new Set([...applied.page, ...draft.page].map(([key]) => key))];
   return [...changed, ...keys.filter(key => (applied.page.find(([k]) => k === key)?.[1] || null) !== (draft.page.find(([k]) => k === key)?.[1] || null))];
 }
-export function useScreenDraft(input: Inputs): QueryDraft {
+export function useScreenDraft(input: DraftInputs) {
   const [local] = useState(createDraftStore);
   const active = useRef(true);
   useLayoutEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
@@ -85,12 +94,29 @@ export function useScreenDraft(input: Inputs): QueryDraft {
   const snapshot = useSyncExternalStore(store.subscribe, store.get);
   const state = reconcile(snapshot, input);
   const mode = input.menu?.query?.mode ?? 'live';
-  useLayoutEffect(() => { if (mode === 'apply') store.put(reconcile(store.get(), input)); });
-  if (mode === 'live') return { mode, draft: { global: input.global, page: input.page }, dirty: [], setDraftGlobal: input.setGlobal, setDraftPage: input.setPage, apply() {}, revert() {}, reset() {}, missing: [], canApply: true, applying: false };
+  useLayoutEffect(() => {
+    if (mode !== 'apply') return;
+    const pending = store.get()?.pending;
+    store.put(reconcile(store.get(), input));
+    if (pending?.target === input.url && pending.record) {
+      const event = pending.record;
+      void Promise.resolve().then(() => event.port.record(event.key, event.entry)).then(() => historyChanged(event.port, event.key)).catch(() => {
+        const view = store.history.get();
+        if (view.tag?.session === input.session && view.tag.revision === input.revision && view.tag.identity === input.identity && view.tag.port === event.port) store.history.put({ ...view, status: 'unavailable', rows: [] });
+      });
+    }
+  });
+  const replace = (values: Values) => {
+    const previous = reconcile(store.get(), input);
+    const next = normalize(input, values);
+    store.put({ ...previous, draft: next, pageBasis: next.global, lastRestoreRevision: previous.editRevision + 1, editRevision: previous.editRevision + 1, historyInitialized: true });
+  };
+  const queryHistory = useScreenHistory(input, store, values => normalize(input, values), replace);
+  if (mode === 'live') return { queryHistory, queryDraft: { mode, draft: { global: input.global, page: input.page }, dirty: [], setDraftGlobal: input.setGlobal, setDraftPage: input.setPage, apply() {}, revert() {}, reset() {}, missing: [], canApply: true, applying: false } satisfies QueryDraft };
   const current = () => reconcile(store.get(), input);
   const candidate = (values: Values) => {
     const next = normalize(input, values);
-    return { ...next, page: dropResetKeys(input.menu, next.page, input.global, next.global) };
+    return { ...next, page: dropResetKeys(input.menu, next.page, current().pageBasis ?? input.global, next.global) };
   };
   const scopeValid = (g: GlobalContext) => !input.menu?.requiresScope || (input.scope.status === 'valid' && input.scope.scopeId === g.scopeId && input.scope.validatedFor === input.session);
   let final = state.draft; let valid = !input.invalid;
@@ -100,9 +126,9 @@ export function useScreenDraft(input: Inputs): QueryDraft {
   const edit = (values: Values) => {
     const previous = current();
     const next = candidate(values);
-    store.put({ ...previous, draft: next });
+    store.put({ ...previous, draft: next, editRevision: previous.editRevision + 1 });
   };
-  return {
+  return { queryHistory, queryDraft: {
     mode, draft: state.draft, dirty: dirtyFields({ global: input.global, page: input.page }, state.draft), missing, canApply, applying: state.pending?.dispatching === true,
     setDraftGlobal(patch) {
       if ('scopeId' in patch && patch.scopeId !== input.global.scopeId) { input.setGlobal({ scopeId: patch.scopeId }); return; }
@@ -121,8 +147,10 @@ export function useScreenDraft(input: Inputs): QueryDraft {
       if (queryMissing(input.menu, next.global, next.page).length || missingRequiredContext(['time'], next.global).length || !scopeValid(next.global)) return;
       if (sameGlobal(input.global, next.global) && JSON.stringify([...input.page].sort()) === JSON.stringify([...next.page].sort())) return;
       const target = input.url.split('?')[0] + buildQuery(next.global, next.page, input.extras);
-      const pending = { source: input.url, target, dispatching: true };
-      store.put({ ...previous, draft: next, pending });
+      const query = canonicalHistoryQuery(next, input.menu?.pageKeys ?? []);
+      const record: RecordEvent | undefined = input.history && input.menu ? { port: input.history, key: { userId: input.session.user.id, menuId: input.menu.id, scopeId: next.global.scopeId }, entry: { id: queryHistoryId(query), query, schemaVersion: 1, lastAppliedAt: Date.now(), count: 1 } } : undefined;
+      const pending = { source: input.url, target, dispatching: true, editRevision: previous.editRevision + 1, record };
+      store.put({ ...previous, draft: next, pending, editRevision: previous.editRevision + 1 });
       try { if (!input.commit(target, 'push')) store.put({ ...previous, draft: next, pending: null }); }
       catch (error) { store.put({ ...previous, pending: null }); throw error; }
       // Address acknowledgement may be arbitrarily delayed. Dispatch itself finishes this turn; keep the
@@ -132,7 +160,7 @@ export function useScreenDraft(input: Inputs): QueryDraft {
         if (latest?.pending === pending) store.put({ ...latest, pending: { ...pending, dispatching: false } });
       });
     },
-    revert() { store.put({ ...current(), draft: { global: input.global, page: input.page } }); },
-    reset() { store.put({ ...current(), draft: defaults(input) }); },
-  };
+    revert() { const previous = current(); store.put({ ...previous, draft: { global: input.global, page: input.page }, pageBasis: undefined, editRevision: previous.editRevision + 1 }); },
+    reset() { const previous = current(); store.put({ ...previous, draft: defaults(input), pageBasis: undefined, editRevision: previous.editRevision + 1 }); },
+  } satisfies QueryDraft };
 }

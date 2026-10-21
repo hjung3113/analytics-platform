@@ -26,3 +26,5 @@
 스크립트(#153): `build`는 mock 데모(`--mode mock`, CI와 CSS selector 비교가 쓴다), `build:prod`는 `AP_PLATFORM_ASSEMBLY`가 없으면 실패하고 `scripts/typecheck-assembly.ts`로 조립 모듈 타입을 검사한다, `check:prod-graph`는 운영 모듈 그래프에 mock·`src/dev`가 없음을 확인한다(CI는 `--force-mock`·`--force-mock-build`로 검사가 아직 무는지도 확인). 설계 이유는 [ADR-0009](../../docs/adr/0009-production-assembly-injection.md)·[체크리스트 §1](../../docs/integration/real-server-checklist.md), 조립 계약 타입은 `src/platform-assembly.d.ts`다.
 
 lint(#153): `@ap/mock-server`는 `src/dev/**`·`src/server-conformance.test.ts`·`src/published-metrics.test.ts`에서만, 메뉴 `/mock` 서브패스는 `src/dev/**`에서만 import할 수 있고 `src/main.tsx`는 FeedbackOps origin 서브패스만 허용된다. 원본은 `tooling/eslint/src/index.js`(`app` 프리셋). `import.meta.glob('./dev/*')`은 lint가 못 보므로 `check:prod-graph`가 잡는다.
+
+- `src/query-history-store.ts` — SDK 이력 포트의 브라우저 로컬 구현(06 §11). 튜플 키·schema 검증·Web Locks 직렬화·20건 병합/보존을 소유하고 `main.tsx`에서 주입한다. 저장 예외는 고정 비민감 오류로 거부하며 내용은 계측에 보내지 않는다. mock 조립의 `platform:mock-menu-query` performance mark는 E2E 요청 계수용 endpoint 이름만 담으며 Context는 포함하지 않는다.

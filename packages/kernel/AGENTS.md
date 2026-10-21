@@ -34,3 +34,5 @@ Platform Kernel 런타임(06 §4). 메뉴 목록도, 서버 구현도 모른다.
 ## 검증
 
 `pnpm --filter @ap/kernel test`로 좁혀 본 뒤 루트 검사(루트 `AGENTS.md`)(앱 통합 테스트가 Registry·URL을 실제 메뉴로 검증).
+
+- `query-history.ts` — `useQueryHistory`와 논리적 초안 소유 이력 상태. 세션/revision/Scope 변경 첫 렌더부터 이전 행을 숨기고 기존 Scope·room grant·resolveSelection 검증 후에만 값을 제공한다. 복원은 원자적 초안 전체 교체이며 Apply 주소 확인에서만 occurrence를 기록한다(06 §11). 검증 `query-history.test.tsx`·`platform.pane.test.tsx`.

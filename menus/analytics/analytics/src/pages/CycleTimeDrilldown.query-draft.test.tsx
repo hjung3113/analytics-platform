@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
-import type { MenuQuery } from '@ap/contracts';
+import { useQueryBarExtension } from '@ap/components';
+import { emptyGlobal, type MenuQuery } from '@ap/contracts';
 import { Timer } from 'lucide-react';
 import { createRegistry, I18nProvider, PlatformProvider, useQueryDraft } from '@ap/kernel';
 import { memoryStorage, testAdapter, testSession } from '@ap/kernel/testing';
@@ -52,4 +53,16 @@ it.each(['', '&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00'])('shows the sha
   await waitFor(() => expect(screen.getAllByText(/room_name.*선택/).length).toBeGreaterThan(0));
   expect(screen.queryByText('전역 기간이 URL에 확정되면 조회합니다.')).toBeNull();
   expect(send).not.toHaveBeenCalled();
+});
+it('formats historical page defaults from that candidate rather than the current draft', async () => {
+  vi.stubGlobal('localStorage', memoryStorage());
+  const session = testSession(['analytics:view', 'platform:view']);
+  window.history.replaceState(null, '', '/analytics/cycle-time?scopeId=MEM');
+  const candidate = { ...emptyGlobal, scopeId: 'MEM', from: '2026-09-01T00:00:00', to: '2026-09-08T00:00:00' };
+  function Summary() {
+    const extension = useQueryBarExtension();
+    return <p>{extension?.historyPageSummary?.(candidate, [['percentile', 'all'], ['sort', 'equipmentId:asc']]).map(item => `${item.label} ${item.value}`).join(' · ') ?? 'missing formatter'}</p>;
+  }
+  render(<I18nProvider><PlatformProvider registry={registry} adapter={testAdapter({ session: () => session })} slots={{ contextBar: <Summary /> }}><CycleTimeDrilldown params={{}} /></PlatformProvider></I18nProvider>);
+  await waitFor(() => expect(screen.getByText('집계 일 · 느린 실행 기준 전체 실행 · 정렬 Equipment A→Z')).toBeTruthy());
 });

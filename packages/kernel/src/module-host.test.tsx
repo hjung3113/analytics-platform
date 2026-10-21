@@ -612,3 +612,23 @@ it('inherits optional apply metadata through mountModule and gates host.query wi
   expect(calls).toHaveLength(1);
   await act(async () => { calls[0].resolve(ok(calls[0].request)); await response; });
 });
+it('history initialization leaves module snapshots, links and query gate applied-only', async () => {
+  const m = manifest(); m.screens = m.screens.map(screen => screen.id === 'list' ? { ...screen, query: { mode: 'apply' } } : screen);
+  const registry = makeRegistry(m); const session = testSession(['fx:view']);
+  const send = vi.fn(async () => ({ outcome: 'empty' as const, data: null, assessments: [], trust: null, correlationId: 'test' }));
+  const store = { list: async () => [{ id: 'old', query: '?v=1&from=2026-09-01T00:00:00&to=2026-09-02T00:00:00&q=historical', schemaVersion: 1 as const, count: 1, lastAppliedAt: 1 }], record: async () => {}, remove: async () => {}, clear: async () => {} };
+  const ports = { status: vi.fn(), focusTarget: vi.fn(), detail: { show: vi.fn(), clear: vi.fn() } } satisfies ModuleShellPorts;
+  let host!: ModuleHost; let platform!: ReturnType<typeof usePlatform>;
+  function HistoryProbe() { platform = usePlatform(); host = useModuleHost(registry.menuById('fx:list') as never, {}, ports); return null; }
+  window.history.replaceState(null, '', '/fx');
+  render(<I18nProvider><PlatformProvider registry={registry} adapter={testAdapter({ session: () => session, menuQuery: send })} queryHistory={store}><HistoryProbe /></PlatformProvider></I18nProvider>);
+  await act(async () => {});
+  expect(platform.queryDraft.draft.page).toEqual([['q', 'historical']]);
+  expect(host.context().values).toEqual({ from: null, to: null, roomNames: null });
+  expect(host.page('q')).toBeNull();
+  expect(host.href({ screen: 'list' })?.href).not.toContain('historical');
+  expect(await host.query!(spec, { page: 0 })).toMatchObject({ outcome: 'error', message: expect.stringContaining('not_ready') });
+  expect(send).not.toHaveBeenCalled();
+  act(() => host.setPage({ q: 'applied-writer' }));
+  expect(platform.page).toEqual([['q', 'applied-writer']]);
+});

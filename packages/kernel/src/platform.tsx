@@ -9,6 +9,8 @@ import { CONTEXT_LABELS, isBoardPath, pathFor, routeParamNames, type MenuEntry, 
 import { useI18n } from './i18n';
 import { dropResetKeys, paneHref } from './paneContext';
 import { appliedQueryPolicy, createDraftStore, useScreenDraft, type DraftStore } from './draft-state';
+import type { QueryHistory } from './query-history';
+import type { QueryHistoryStore } from '@ap/contracts';
 import type { QueryDraft, QueryMissing } from './query-draft';
 import { createRefreshEpochs, type RefreshEpochs } from './refresh-epochs';
 import { buildQuery, ContractError, emptyGlobal, type EquipmentAxisDescriptor, type ContextKey, type GlobalContext, incompleteMetricPair, type ModuleScopedId, isAppRelativePath, type Pair, type ParsedQuery, parseQuery, type Permission, type PlatformAdapter, sameGlobal, type Session, type SessionUser, shift, type SpaceDef, type SpaceId, type Text, type UsageEvent } from '@ap/contracts';
@@ -54,6 +56,8 @@ export type LinkResolution = {
 
 type Platform = {
   queryDraft: QueryDraft;
+  queryHistory: QueryHistory;
+  queryHistoryStore?: QueryHistoryStore;
   queryPolicy: { ready: boolean; idle: boolean; missing: readonly QueryMissing[] };
   equipmentAxes: readonly EquipmentAxisDescriptor[];
   registry: Registry;
@@ -240,7 +244,7 @@ function counterStore(adapter: PlatformAdapter) {
 let fallbackUsageSession: string | null = null;
 
 /** Fields of the screen state: what a menu page reads about the screen it is shown on (the main screen or one board pane). */
-type ScreenFields = 'queryDraft' | 'queryPolicy' | 'url' | 'pathname' | 'route' | 'platformScreen' | 'contractError' | 'metricInit' | 'global' | 'page' | 'extras' | 'pageParam' | 'pageNavigation' | 'navigate' | 'setGlobal' | 'setPage' | 'resetContext' | 'linkTo' | 'resolveLink' | 'reportError' | 'returnTarget' | 'returnOrigin' | 'scope' | 'retryScope' | 'currentSpace';
+type ScreenFields = 'queryHistory' | 'queryDraft' | 'queryPolicy' | 'url' | 'pathname' | 'route' | 'platformScreen' | 'contractError' | 'metricInit' | 'global' | 'page' | 'extras' | 'pageParam' | 'pageNavigation' | 'navigate' | 'setGlobal' | 'setPage' | 'resetContext' | 'linkTo' | 'resolveLink' | 'reportError' | 'returnTarget' | 'returnOrigin' | 'scope' | 'retryScope' | 'currentSpace';
 /** Shell navigation state that always follows the main screen, even when read from inside a pane (ADR-0049). */
 type MainBoundFields = 'visibleMenus' | 'sidebarSpace' | 'spaceResume' | 'spaceEntry' | 'switchSpace';
 type ScreenState = Pick<Platform, ScreenFields | 'screenMode' | 'paneId' | 'paneLabel'>;
@@ -249,6 +253,7 @@ type AppState = Omit<Platform, ScreenFields | MainBoundFields | 'screenMode' | '
 /** App-internal handles the screen layers need; never part of the public `usePlatform()` value. */
 type AppInternal = {
   selectionPortCache: PortCache;
+  currentRevision: () => number;
   enters: (menu: MenuEntry) => boolean;
   usageSessionId: string;
   userIdRef: { readonly current: string };
@@ -572,17 +577,17 @@ function useScreenState(app: AppValue, source: ScreenSource): { screen: ScreenSt
 
   const queryPolicy = { ...appliedQueryPolicy(route?.menu ?? null, global, page, routeContractError !== null || metricInit.phase !== 'skip'),
     ready: route?.menu.query?.mode !== 'apply' || !route.menu.requiresScope || (scopeView.status === 'valid' && scopeView.scopeId === global.scopeId && scopeView.validatedFor === session) };
-  const queryDraft = useScreenDraft({ store: source.draftStore, menu: route?.menu ?? null, identity: `${route?.menu.id ?? ''}\0${pathname}`, session, url,
+  const { queryDraft, queryHistory } = useScreenDraft({ store: source.draftStore, menu: route?.menu ?? null, identity: `${route?.menu.id ?? ''}\0${pathname}`, session, url,
     global, page, extras, defaultRangeTo, scope: scopeView, adapter, axes: equipmentAxes, invalid: routeContractError !== null,
-    commit, setGlobal, setPage });
-  const screen: ScreenState = { queryDraft, queryPolicy,
+    commit, setGlobal, setPage, history: app.pub.queryHistoryStore, revision: app.pub.revision, currentRevision: app.internal.currentRevision, allowed: route !== null && app.pub.canOpen(route.menu.id) });
+  const screen: ScreenState = { queryDraft, queryHistory, queryPolicy,
     url, pathname, route, platformScreen, pageNavigation, contractError: routeContractError, metricInit, global, page, extras, pageParam, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, reportError, returnTarget, returnOrigin,
     currentSpace, scope: scopeView, retryScope, screenMode: mode, paneId, paneLabel,
   };
   return { screen, sidebarSpace };
 }
 
-export function PlatformProvider({ adapter, registry, location = browserLocation, slots = {}, equipmentAxes = NO_EQUIPMENT_AXES, children }: { equipmentAxes?: readonly EquipmentAxisDescriptor[]; location?: PlatformLocation; adapter: PlatformAdapter; registry: Registry; slots?: PlatformSlots; children: ReactNode }) {
+export function PlatformProvider({ adapter, registry, location = browserLocation, slots = {}, equipmentAxes = NO_EQUIPMENT_AXES, queryHistory, children }: { queryHistory?: QueryHistoryStore; equipmentAxes?: readonly EquipmentAxisDescriptor[]; location?: PlatformLocation; adapter: PlatformAdapter; registry: Registry; slots?: PlatformSlots; children: ReactNode }) {
   const { menuById } = registry;
   // Bound here so class-based adapters keep their receiver when React calls these.
   const sessionStore = useMemo(() => ({ subscribe: (l: () => void) => adapter.subscribe(l), get: () => adapter.session() }), [adapter]);
@@ -710,11 +715,11 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
   const defaultRangeTo = adapter.defaultRangeTo();
 
   const pub: AppState = {
-    registry, adapter, location, absoluteUrl, equipmentAxes,
+    registry, adapter, location, absoluteUrl, equipmentAxes, queryHistoryStore: queryHistory,
     session, user, revision, refreshEpochs, can, canOpen, globalMenus, menusInSpace, accessibleSpaces, lastScope, favorites, toggleFavorite, recent,
     toasts, toast, dismissToast, defaultRangeTo, slots, paletteOpen, setPaletteOpen, paletteSession, switcherOpen, setSwitcherOpen, switcherSession,
   };
-  const value: AppValue = { pub, internal: { selectionPortCache, enters, usageSessionId, userIdRef, mainNavigation: pageNavigation, initialUrl, recordVisit, rememberScope } };
+  const value: AppValue = { pub, internal: { currentRevision: revisions.get, selectionPortCache, enters, usageSessionId, userIdRef, mainNavigation: pageNavigation, initialUrl, recordVisit, rememberScope } };
   return <AppContext.Provider value={value}><MainScreenProvider app={value}>{children}</MainScreenProvider></AppContext.Provider>;
 }
 
