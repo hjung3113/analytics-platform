@@ -332,7 +332,9 @@ export type StoredUsageEvent = UsageEvent & { userId: string; receivedAt: number
 
 const usageEvents: StoredUsageEvent[] = [];
 
-const SPACE_IDS = ['analytics', 'metrics', 'operations', 'log-dev', 'improvement'] as const satisfies readonly SpaceId[];
+// A Record keeps the list complete: a new SpaceId member fails typecheck until it is listed here (#590).
+const SPACE_ID_SET: Record<SpaceId, true> = { analytics: true, metrics: true, clas: true, operations: true, 'log-dev': true, improvement: true };
+const SPACE_IDS = Object.keys(SPACE_ID_SET);
 
 function validSpaceId(spaceId: unknown): spaceId is SpaceId | null {
   return spaceId === null || (typeof spaceId === 'string' && (SPACE_IDS as readonly string[]).includes(spaceId));

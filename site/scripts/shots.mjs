@@ -661,13 +661,16 @@ try {
     [],
     [],
   );
-  // 02 핵심 장면 카드의 확대 조각: 같은 화면에서 조건 바(왼쪽 560px)와 데이터 신뢰 패널을 원본 크기로 잘라 낸다.
+  // 02 핵심 장면 카드의 확대 조각: 조건 바(왼쪽 560px)와 데이터 신뢰 패널을 원본 크기로 잘라 낸다.
+  // 사이클타임은 적용 방식 조회 바(#553)를 쓰므로, 전역 조건 바가 그대로 있는 생산성 개요에서 찍는다.
   await capture(
     "inset-context",
     "조건 바 확대",
     "기간·사이트·공정 조건이 모인 전역 조건 바의 왼쪽을 원본 크기로 봅니다.",
     "shell",
-    async () => {},
+    async () => {
+      await go(productivity);
+    },
     async () => {
       // 조건 바 왼쪽(기간·빠른 범위·room_name 칩)까지를 칩 경계에서 끊는다. 경계에 걸리는 오른쪽 데이터 신뢰 배지는 찍는 동안만 숨긴다.
       const bar = page.getByRole("button", { name: "링크 복사", exact: true }).locator("xpath=ancestor::*[contains(concat(' ', normalize-space(@class), ' '), ' sticky ')][1]");
@@ -680,8 +683,16 @@ try {
         }
         return right;
       });
+      // 생산성 개요의 sticky 묶음에는 페이지 머리도 들어 있어, 높이는 조건 칩 줄로만 자른다.
+      const row = await bar.evaluate((el) => {
+        const chip = [...el.querySelectorAll("button")].find((b) => /^room_name/.test(b.textContent.trim()));
+        let line = chip.parentElement;
+        while (line && line !== el && line.getBoundingClientRect().height < 40) line = line.parentElement;
+        const r = line.getBoundingClientRect();
+        return { top: r.top, bottom: r.bottom };
+      });
       const clip = await unionClip([bar], 0);
-      return { clip: { ...clip, width: cutX - clip.x }, hideSticky: false };
+      return { clip: { ...clip, y: row.top, height: row.bottom - row.top, width: cutX - clip.x }, hideSticky: false };
     },
   );
   await capture(
@@ -721,7 +732,7 @@ try {
   await capture(
     "system-switcher",
     "업무 시스템 전환기",
-    "MARS에서 BRAVO 등 업무 시스템을 바꾸는 전환기입니다.",
+    "MARS·BRAVO·CLAS 업무 시스템을 바꾸는 전환기입니다.",
     "shell",
     async () => {
       await go(productivity);
@@ -729,6 +740,7 @@ try {
       const dialog = page.getByRole("dialog", { name: "업무 시스템 전환", exact: true });
       await expect(dialog).toBeVisible();
       await expect(dialog).toContainText("BRAVO");
+      await expect(dialog.getByRole("button", { name: /^CLAS/ })).toBeVisible();
       // 대화상자 뒤의 화면 내용이 가장자리에 비치지 않게 앱 루트를 숨기고, 테두리까지 온전히 찍는다.
       await page.evaluate(() => {
         const root = document.getElementById("root");
@@ -737,6 +749,25 @@ try {
     },
     () => unionClip([page.getByRole("dialog", { name: "업무 시스템 전환", exact: true })], 14).then((clip) => ({ clip, cover: true, hideSticky: false })),
   );
+  // CLAS 공간의 견본 화면(#590): 설비별 동작시간 TopN 막대와 모듈별 동작 흐름(LaneTimeline).
+  await capture(
+    "clas-operation-time",
+    "CLAS · 설비 동작시간",
+    "CLAS에서 설비별 동작시간 순위와 모듈별 동작 흐름을 봅니다.",
+    "charts",
+    async () => {
+      viewportHeight = 1560;
+      await go(`/clas/operation-time?${period}`);
+      await page.getByRole("region", { name: "설비별 동작시간", exact: true }).locator("canvas").waitFor();
+      await page.getByRole("img", { name: /모듈별 동작 흐름$/ }).first().waitFor();
+    },
+    () => {
+      // 셸 머리(CLAS > 설비 동작시간)부터 흐름 칸까지 한 화면에 담는다.
+      const viewport = page.viewportSize();
+      return { clip: { x: 0, y: 0, width: viewport.width, height: viewport.height }, hideSticky: false };
+    },
+  );
+  viewportHeight = 900;
   // Console screens need the demo's platform-admin role (the same switch D8 tells readers to use).
   await page.evaluate(() => localStorage.setItem("platform:role", JSON.stringify("admin")));
   await capture(

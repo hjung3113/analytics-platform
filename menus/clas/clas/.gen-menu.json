@@ -1,0 +1,12 @@
+{
+  "group": "clas",
+  "folder": "clas",
+  "space": "clas",
+  "menuId": "operation-time",
+  "page": "OperationTime",
+  "path": "/clas/operation-time",
+  "pageType": "analysis",
+  "labelKo": "설비 동작시간",
+  "labelEn": "Equipment operation time",
+  "binding": "clas"
+}

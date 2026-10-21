@@ -19,6 +19,7 @@
     "@ap/kernel": "workspace:*",
     "@ap/menu-admin": "workspace:*",
     "@ap/menu-analytics": "workspace:*",
+    "@ap/menu-clas": "workspace:*",
     "@ap/menu-equipment": "workspace:*",
     "@ap/menu-home": "workspace:*",
     "@ap/menu-imp-my-work": "workspace:*",
