@@ -1,4 +1,4 @@
-import { emptyGlobal, projectContext } from '@ap/contracts';
+import { emptyGlobal, missingRequiredContext, projectContext } from '@ap/contracts';
 import type { ApiResponse, EndpointSpec, GlobalContext } from '@ap/contracts';
 import { nextCorrelation, serve } from './server';
 import { contextShapeError } from './context-validation';
@@ -127,6 +127,9 @@ export async function serveEndpoint(
   if (endpoint.spec.context.metric === 'apply' && req.context.metricVersion !== null && req.context.metricId === null) {
     return requestError('context key metricVersion requires metricId (06 §6.1)');
   }
+
+  const missingRequired = missingRequiredContext(endpoint.spec.requiredContext ?? [], req.context);
+  if (missingRequired.length) return requestError(`required Context ${missingRequired.join(', ')} is missing`);
 
   // Build handler input from the validated projection; emptyGlobal keeps non-applied fields neutral.
   // No non-applied request key reaches scope resolution, time-domain checks, or the handler.

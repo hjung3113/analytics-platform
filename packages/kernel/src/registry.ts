@@ -137,6 +137,15 @@ export function createRegistry({ spaces, groups, menus }: { spaces: readonly Spa
       if (parentSpace !== undefined && parentSpace !== groupSpace.get(m.group)) fail(`Menu "${m.id}" parent "${parent.id}" is in another space`);
     }
     const clash = m.pageKeys.find(k => GLOBAL_KEYS.has(k));
+    if (m.query) {
+      if (m.query.mode !== 'apply' || m.context.time !== 'apply') fail(`Menu "${m.id}" apply mode requires time: apply`);
+      for (const key of m.query.required?.context ?? []) {
+        if (!Object.hasOwn(CONTEXT_LABELS, key) || m.context[key] !== 'apply') fail(`Menu "${m.id}" required Context "${key}" must be applied`);
+      }
+      for (const { key, label } of m.query.required?.page ?? []) {
+        if (!m.pageKeys.includes(key) || !label?.ko?.trim() || !label?.en?.trim()) fail(`Menu "${m.id}" required page "${key}" needs a declared key and nonempty labels`);
+      }
+    }
     if (clash) fail(`Menu "${m.id}" page key "${clash}" collides with a global Context key`);
     const foreignReset = (m.contextResetKeys ?? []).find(k => !m.pageKeys.includes(k));
     if (foreignReset) fail(`Menu "${m.id}" contextResetKey "${foreignReset}" is not a declared pageKeys entry`);

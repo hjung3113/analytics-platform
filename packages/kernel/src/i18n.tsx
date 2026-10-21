@@ -94,6 +94,8 @@ const dict = {
   sharedOutcomeTimeout: { ko: '시간 초과', en: 'timeout' },
   sharedOutcomeEmpty: { ko: '0건', en: 'zero rows' },
   stateTimeoutBody: { ko: '조회가 제한 시간 안에 끝나지 않았습니다. 기간을 줄이거나 집계 단위를 키워 다시 시도하세요.', en: 'The query did not finish in time. Shorten the period or coarsen the granularity and retry.' },
+  stateIdle: { ko: '아직 조회하지 않았습니다', en: 'No query has run yet' },
+  queryMissing: { ko: '{label}을(를) 선택하세요', en: 'Select {label}' },
   stateEmpty: { ko: '조건에 맞는 결과가 없습니다', en: 'No matching result' },
   stateEmptyBody: { ko: '조회는 성공했고 결과가 0건입니다. 조건을 바꿔 다시 조회하세요.', en: 'The query succeeded with zero rows. Change the conditions and query again.' },
   stateForbidden: { ko: '이 Scope에 접근 권한이 없습니다', en: 'You do not have access to this scope' },

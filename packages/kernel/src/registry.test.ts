@@ -17,6 +17,9 @@ const menu = (id: string, path: string, extra: Partial<PlatformMenuEntry> = {}):
 const catalog = menu('catalog', '/metrics', { primary: true });
 
 describe('createRegistry validation (platform-packages.md §5)', () => {
+  it('rejects apply mode without an address-reproducible period', () => {
+    expect(() => createRegistry({ spaces, groups, menus: [{ ...catalog, query: { mode: 'apply' } }] })).toThrow(/apply.*time/);
+  });
   it('passes the optional single-menu sidebar label declaration through unchanged (type + pass-through; no runtime rule)', () => {
     const group: GroupDef = { ...groups[0], hideLabelWhenSingle: true };
     const registry = createRegistry({ spaces, groups: [group], menus: [catalog] });
@@ -305,4 +308,14 @@ describe('paneHref', () => {
   it.each([['', '/metrics/a%2Fb'], ['a=1', '/metrics/a%2Fb?a=1'], ['?a=1', '/metrics/a%2Fb?a=1']])('builds a pane address with query %s', (query, href) => {
     expect(paneHref(registry, { menuId: 'detail', params: { id: 'a/b' }, query })).toBe(href);
   });
+});
+
+it.each([
+  { context: ['selection'] },
+  { context: ['unknown'] },
+  { page: [{ key: 'unknown', label: { ko: '값', en: 'Value' } }] },
+  { page: [{ key: 'filter', label: { ko: '', en: 'Value' } }] },
+])('rejects unusable query required declarations %j', required => {
+  const entry = { ...catalog, context: { ...none, time: 'apply' as const }, pageKeys: ['filter'], query: { mode: 'apply' as const, required } };
+  expect(() => createRegistry({ spaces, groups, menus: [entry as MenuEntry] })).toThrow(/required/);
 });

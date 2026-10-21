@@ -108,10 +108,12 @@ export function OutcomeView<T>({ response, onRetry, emptyAction, compact, childr
 export function QueryView<T>({ query, children, skeletonRows, skeletonHeight, emptyAction, compact, widgetName, hideWidgetName }: {
   query: QueryState<T>; children: (data: T, response: ApiResponse<T>) => ReactNode; skeletonRows?: number; skeletonHeight?: number; emptyAction?: ReactNode; compact?: boolean; widgetName?: string; hideWidgetName?: boolean;
 }) {
-  const { t } = useI18n();
+  const { t, tx } = useI18n();
   const analysisSection = useContext(AnalysisSectionContext);
   const chart = analysisSection?.kind === 'chart';
   const grouped = useSharedOutcome(query.response, query.refetch, widgetName, query.status);
+  if (query.status === 'idle') return <StateMessage icon={<HelpCircle className="size-4" aria-hidden />} title={t('stateIdle')}
+    body={query.missing.length ? <ul>{query.missing.map(item => <li key={item.key}>{t('queryMissing', { label: tx(item.label) })}</li>)}</ul> : undefined} compact={compact} />;
   if (!query.response) return <LoadingBlock rows={skeletonRows} height={skeletonHeight} className={chart ? 'row-span-2 pr-12' : undefined} />;
   const response = query.response;
   return <div aria-busy={query.status === 'refreshing'} className={cn('relative', chart && 'row-span-2', chart && response.outcome === 'ok' && 'grid grid-rows-subgrid gap-y-0', analysisSection && response.outcome !== 'ok' && 'pr-12')}>

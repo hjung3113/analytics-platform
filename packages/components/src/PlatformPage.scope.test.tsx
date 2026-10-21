@@ -191,7 +191,7 @@ describe('PlatformPage shared outcome placement (#55)', () => {
     window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
     const adapter = adapterWith(async () => ({ status: 'valid', grantedRooms: [] }));
     const response = { ...forbidden, outcome: 'error' as const, message: 'Same response' };
-    const query = { response, status: 'done' as const, refetch: () => {} };
+    const query = { missing: [], completedAt: null, response, status: 'done' as const, refetch: () => {} };
     const view = render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}>
       <PlatformPage><section data-testid="consumer-body">
         <QueryView query={query} widgetName="First">{() => null}</QueryView>

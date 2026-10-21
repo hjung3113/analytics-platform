@@ -44,6 +44,8 @@ export type MenuMeta = {
   /** Scope must be selected and server-validated before this page queries data. */
   requiresScope: boolean;
   context: Record<ContextKey, Capability>;
+  /** Opt-in deferred analysis execution. The address remains the applied query. */
+  query?: { mode: 'apply'; required?: { context?: readonly ContextKey[]; page?: readonly { key: string; label: Text }[] } };
   pageType: PageType;
   features: { export: boolean; savedView: boolean; annotate: boolean; compare: boolean; /** The menu can be shown in an analysis-board pane (ADR-0049). Absent = false. */ board?: boolean };
   /** Registered page-owned URL keys (§6.1). Only these survive on this route besides globals/extras. */

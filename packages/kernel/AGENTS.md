@@ -19,6 +19,8 @@ Platform Kernel 런타임(06 §4). 메뉴 목록도, 서버 구현도 모른다.
 - `testing.ts` — 테스트 전용 공개 진입점 `@ap/kernel/testing`(어댑터·세션·공간 fixture, ADR-0040). `index.ts`에서 내보내지 않는다.
 - `i18n.tsx` — `I18nProvider`, `useI18n()`(`tx`, `lang`), `contractErrorSentence()`(계약 오류 문장), `invalidValueSentence()`(잘못된 URL 값 경고 문장 한 곳 — `value`·`filter`·`plain`·`drillGap`), `topicParticle()`(한국어 조사 은/는, #410부터 공개). `metric-init.ts` — 지표 쌍 초기화 분류.
 
+- `query-draft.ts`의 `useQueryDraft()` — live/apply 초안·필수 누락·원자적 적용 API(06 §11, ADR-0061). 보드 본문·편집기 Provider는 공통 `PaneQueryDraftProvider screens`에서 칸별 저장소를 공유한다. query.ts는 분석 요청만 idle로 게이트하고 QueryState.completedAt으로 수락한 응답 시각을 준다. 검증 `query-draft.test.tsx`.
+
 ## 규칙
 
 - import 가능: `@ap/contracts`와 React·아이콘 라이브러리. `ui`/`components`/`shell`/앱/mock import 금지.

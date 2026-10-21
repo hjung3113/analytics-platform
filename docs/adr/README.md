@@ -67,6 +67,8 @@
 | [0059](0059-app-injected-equipment-axes-and-condition.md) | 설비 축은 앱 주입, Condition은 다중축·다중값 맵, 소속 기준·옵션 페이지·고정 Selection 평가 | Decided(2026-10-21, 코디네이터·사용자가 되돌릴 수 있음) — #552·#513, 구현 전 |
 | [0060](0060-analysis-board-pane-sizing-collapse-maximize.md) | 분석 보드는 화면 안 그리드·열별 크기 조절·칸 접기·최대화를 사용하고 시트·레이아웃별로 저장한다 | Decided(2026-10-21, 사용자) — #536 |
 
+| [0061](0061-query-draft-applied-address-and-required-gate.md) | 조회 초안은 칸에 두고 Apply 한 번으로 적용 주소를 확정한다 | Decided(2026-10-21, 코디네이터·사용자가 되돌릴 수 있음) — #553 SDK |
+
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 
 ## 형식

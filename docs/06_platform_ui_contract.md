@@ -163,6 +163,8 @@ Domain logic이 Kernel로 역류하지 않도록 한다.
 
 화면(`component`) 없이 manifest만 등록한 메뉴도 허용한다. 사이드바·팔레트에 '예정'으로 표시되고 선언(권한·pageType·Context capability)만 보여 준다.
 
+**조회 실행 선언(Decided, [ADR-0061](adr/0061-query-draft-applied-address-and-required-gate.md)):** 선택적 `query: { mode: 'apply', required?: { context?: ContextKey[], page?: {key,label: Text}[] } }`로 일괄 적용을 선택한다. 부재는 live 모드다. Apply는 time capability가 apply여야 하며 필수 Context는 메뉴가 apply하는 알려진 키, 필수 page는 `pageKeys`와 비어 있지 않은 ko/en label이어야 한다. Scope는 `requiresScope`로 선언한다. 엔드포인트의 선택적 `requiredContext`도 그 엔드포인트가 apply하는 키만 받는다. Apply 메뉴와 엔드포인트가 함께 apply하는 키의 명시적 required 선언은 일치해야 한다(등록 검증). 보조 엔드포인트의 작은 투영에는 메뉴의 다른 필수 키를 강요하지 않는다. 서버는 [ADR-0019](adr/0019-menu-query-endpoint-declaration.md)의 모든 투영 필드 구조적 존재 검사에 더해 required의 의미적 존재를 검사한다. 초안 API·실행은 §11, 서버 표본은 [연결 체크리스트](integration/real-server-checklist.md) §4를 따른다.
+
 ### 금지
 
 - 신규 메뉴 추가 때 Sidebar JSX 직접 수정
@@ -287,6 +289,8 @@ Global Context와 Page-local Filter를 같은 Chip 스타일로 혼용하지 않
 
 **복수 설비 시간축 병합 가드 (Decided):** 서로 다른 설비를 같은 시간축/버킷으로 병합하는 조회는 **서버 소유 assertion**이 있을 때만 허용한다(비보장을 "경고 후 허용"으로 약화하지 않는다). `scopeId`나 클라이언트가 보낸 시간역 id는 증명이 아니다. 최소 assertion 계약: `(equipmentId, timeDomainId, validFrom, validTo)`, 범위 `[validFrom, validTo)`(해당 설비의 naive wall-clock, 내부 정밀도 유지 — 지금 특정 테이블·마이그레이션을 요구하지 않는다). 실제 조회 대상 설비 전체에 대해 요청 `[from, to)` 전체가 빈틈없이 덮이고, 그 구간들의 `timeDomainId`가 모두 같을 때만 병합을 허용한다(한 설비가 요청 중간에 도메인을 바꿔도 v1 병합은 거절). 덮이지 않은 구간이 있으면 `time_domain_unverified`, 확인된 도메인 불일치가 있으면 `time_domain_mismatch`이며, 둘 다 `outcome=error`(요청 검증 오류, correlation id)로 처리하고 `empty`/`unknown`/경고 후 병합으로 위장하지 않는다. 이력 없는 현재 스냅샷으로 과거 구간을 소급 증명하지 않는다. 서로 다른 시간역의 **분리** 조회는 계속 허용한다.
 
+**Apply 모드 기본 기간 예외(Decided, ADR-0061):** 아래 물질화 시계와 범위 계산은 재사용하지만 기간 양쪽이 없는 유효 주소에서는 기본 기간을 초안에만 둔다. 적용 URL에는 쓰지 않고 조회하지 않는다(§11). live 메뉴의 URL 물질화는 유지한다. 부분·잘못된 기간은 두 모드 모두 오류로 거부하며 보정하지 않는다.
+
 **기본 구간 물질화 시계 `defaultRangeTo` (Decided):** 브라우저 로컬 now, 서버 UTC 문자열 절단, "watermark = now = Data through" 등식은 모두 쓰지 않는다. 서버가 해당 시간역·데이터셋의 기본 조회 상한 `defaultRangeTo`(배타적 초 경계, wall-clock)를 제공한다. `defaultRangeTo`는 half-open 구간의 상한이므로 그 값 자체는 §6.3의 경계 규칙에 따라 항상 제외된다. 서버가 이 값을 정할 때 "포함"이 뜻하는 것은 **포함하려는 마지막 실제 데이터 시각이 `defaultRangeTo`보다 항상 이전이 되도록**(그 시각이 필터로 잘리지 않도록) 상한을 잡는다는 것이지, 상한 이전 데이터가 모두 도착했거나 집계가 완전하다는 뜻이 아니다 — 예를 들어 포함하려는 마지막 시각이 `10:00:00.000` 또는 `10:00:00.500`이면 `defaultRangeTo`는 최소 `10:00:01`이어야 한다. 기본 구간은 `[defaultRangeTo − Δ, defaultRangeTo)`(naive 길이 산술, 자정 비정렬)로 물질화하며, 산출 불가 시 자동 물질화하지 않고 기간 선택을 요구한다. 현재 포트(`defaultRangeTo(): string`)는 항상 값을 준다 — 산출 불가 분기는 실서버 연결(#154) 때 포트에 더한다(결정 대기, `.planning/README.md`). 한 번 물질화한 URL 기간을 데이터 갱신만으로 자동 이동시키지 않는다. 사용자가 명시적으로 고르는 기간 프리셋(`1일/7일/사용자 지정`)은 이 메커니즘을 그대로 재사용해 Δ=24h/168h로 확정했다(2026-09-22). 최초 진입 시 자동 물질화되는 기본 Δ 숫자 자체는 별도로 Open이다.
 
 `defaultRangeTo`와 자동 재집계 창의 원천 진행 경계 `R`(정의는 [01 지연 완료 허용 시간](01_architecture_and_data_contract.md#late-arrival-policy) 참조)은 서로 다른 계약 필드이며 항상 같은 값은 아니다. **`R`이 존재할 때만** 같은 시간역·대상 조건에서 `defaultRangeTo ≤ R`인 경우에만 그 기본 구간을 자동 물질화하고, 만족하는 값이 없으면 마지막 점을 버리거나 `R`을 올리지 않고 기간 선택을 요구한다(L2). `R`이 아직 없는 경우(첫 mart 세대 생성 전, 워커 일시 중단 등)에는 이 비교를 적용하지 않는다 — `defaultRangeTo`가 독립적으로 유효하면 그대로 자동 물질화하고, 자동 재집계만 보류한다([01 정책](01_architecture_and_data_contract.md#late-arrival-policy) 참조).
@@ -315,6 +319,8 @@ Global Context와 Page-local Filter를 같은 Chip 스타일로 혼용하지 않
 **`returnTo`(page key; 메커니즘 Decided, 필드명 Candidate):** 상세 목적지 메뉴는 `pageKeys`에 `returnTo`를 선언해 출발 화면의 전체 URL을 받는다. 값은 앱 내 상대경로여야 하며(`//`·`\`·`#`·제어문자·경로 안 `:`은 거부, 절대 URL은 항상 거부) 등록된 비상세 메뉴 경로로 매칭되고 그 메뉴의 `pageKeys`로 파싱될 때만 채택한다. 아니면 `parent` 메뉴(없으면 홈)로 복귀한다.
 
 **URL vs 세션/최근방문 우선순위, 누락값 (Decided):** URL에 있는 키는 항상 이긴다. URL에 없는 키를 세션/최근방문으로 채우지 않는다(세션은 제안값일 뿐이며, 적용하는 순간 URL에 기록한다). 키 부재는 공개 스키마가 정의한 "선택 없음 / 기본 의미 / 필수 누락" 중 하나로만 해석하고, 필수값을 임의 Scope나 떠다니는 최신 지표 버전으로 대체하지 않는다. 시간을 요구하는 메뉴에서 기간 양쪽이 모두 없으면 기본 구간이 정의·검증 가능할 때만 절대 `from`/`to`를 URL에 물질화하고(불가하면 기간 선택 요구), **한쪽만 있으면 형식 오류로 거부한다**(보정하지 않음). 상대적인 "최근 기간"이 물질화되기 전의 URL은 시점 의존 진입점이며 재현 가능한 분석 링크가 아니다.
+
+**Apply 모드 URL 소유 예외(Decided, ADR-0061):** URL(보드에서는 칸 주소)은 적용한 global/page만 소유하고 초안은 소유하지 않는다. 위 기본 기간 URL 물질화는 live 메뉴에 해당하며 Apply에서는 §6.3의 초안 예외를 따른다. 명시적 유효 기간과 필수값이 있는 deep link·Back/Forward·저장된 칸은 세션의 과거 실행 여부와 무관하게 같은 조건을 실행한다. 초안 복원(#554)은 이 주소 복원과 다르며 자동 실행하지 않는다. 기존 링크·드릴·returnTo와 setGlobal·setPage는 적용된 값과 주소만 사용한다.
 
 **URL 계약 버전 `v` (Decided):** 양의 정수 query `v`, 생략은 `v=1`로 해석한다. 인바운드 URL은 그 버전 디코더로만 해석하며 북마크의 `v`를 자동으로 최신으로 rewrite하지 않는다(조회 신원을 바꾸지 않기 위함). helper가 **새로** 만드는 정규 URL은 동등 요청을 새 버전으로 표현할 수 있는지 검증한 뒤에만 현재 `v`를 명시하고, 불가능하면 지원 중인 원래 버전을 보존하거나 전환 불가를 알린다. 미지원 `v`(미래 또는 sunset 이후)는 부분 추측 없이 전체 거부한다. `v`는 `metricVersion`·DB 마이그레이션·메뉴 구현 버전과 별개다. 같은 `v` 안에서 등록된 의미-동등 별칭만 허용하고, 별칭으로 기존 값의 의미를 바꾸지 않는다. sunset 날짜/기간은 별도 공지·정책으로 정하며 이 결정에 포함하지 않는다.
 
@@ -507,6 +513,17 @@ Create VOC from current context
 **다중축·소속 기준(Decided, 2026-10-21; 구현 전 — [ADR-0059](adr/0059-app-injected-equipment-axes-and-condition.md)):** 바는 앱이 주입한 여러 축과 축별 여러 값을 표시·편집하고 축 간 AND / 축 안 OR의 적용 조건을 요약한다. “그 시점 소속 / 지금 소속” 선택과 현재 적용한 기준을 표시하며 이력 없는 축을 쓰면 지금 소속만 허용한다. 미지원 축·무효 조합·옵션 갱신 시 기존 값을 조용히 지우지 않고 사유를 표시한다. 후보의 서버 검색·페이징과 고정 선택의 페이지 밖 보존은 §6.4를 따른다. 구체 UI는 실앱 시안 승인 뒤 구현한다.
 
 Line·PRC 그룹은 URL로 전달되면 요약과 제거 동작만 표시한다. 편집기는 시안 승인 뒤 구현한다(2026-10-21 사용자 정정 — 소유자 #552). Condition 요약은 주입 descriptor 순서의 축 이름과 값, `asOf`일 때 “그 시점 소속”을 표시하고 PRC 그룹에도 같은 기준 표시를 붙인다.
+
+### 일괄 적용 조회(Decided, ADR-0061)
+
+- `useQueryDraft()`는 `{ mode, draft: {global,page}, dirty, setDraftGlobal, setDraftPage, apply, revert, reset, missing, canApply, applying }`를 제공한다. live에서는 적용값을 비추고 setter가 기존 API로 통과한다. dirty는 비어 있고 apply/revert/reset은 no-op이다.
+- 초안은 논리적 화면마다 하나다. 본 화면·다른 칸은 격리하고 같은 칸의 본문·Context 바는 시트 수명 소유자 `PaneQueryDraftProvider screens` 아래서 같은 저장소를 읽는다. 칸 선택·숨김·접힘·편집기 재마운트는 초안을 보존한다. 칸/시트 제거, 메뉴·경로 params·세션 교체는 폐기한다.
+- 초안 setter는 URL·조회·적용 결과를 바꾸지 않는다. global setter는 codec·주입 축·소속 기준을 검증하며 실제 의미 변경 시 `contextResetKeys`를 즉시 초안 page에서 제거한다. page setter는 선언된 키만 받고 null/빈 문자열은 삭제한다. 미지원 등록 Context와 extras는 Apply의 한 번의 push에도 보존한다. 잘못된 기간·지표 쌍·축·이력 미지원 asOf는 명시적 오류이며 자동 보정하지 않는다. 초기화는 Scope와 기본 기간만 가진 초안 + 빈 page, 되돌림은 적용 global/page다.
+- dirty는 정규화한 의미가 바뀐 GlobalContext 필드명과 page 키 목록이다. 집합·Condition 순서 변경은 dirty가 아니다. Apply는 정확히 최종 후보의 required와 Scope를 검사하며 global 변경으로 제거될 required page도 누락으로 본다. 불가·동일 후보는 no-op이다. 초기화 경로의 초안 id-only 지표는 서버 발행 버전을 먼저 채워 한 번에 커밋한다. 미등록·미발행은 거부하며 비초기화 경로의 incomplete 쌍 오류는 유지한다. URL id-only 확인 replace는 초안 기본 기간을 적용하지 않는다.
+- 주소의 실제 변경은 다른 writer·링크·history·보드 일괄 적용 모두 초안을 새 적용값으로 rebase한다. 같은 주소 이동은 유지한다. Scope 선택은 기존 즉시 API로 Site 경계 필드를 지운 뒤 rebase한다. 자체 Apply의 지연 반영은 클릭 뒤 편집을 보존하고 중복 호출을 동기 억제한다. `applying`은 현재 turn의 커밋 전달 중이며 조회 loading과 별개다. 전달 뒤 false로 정착하고 미확인 제안은 중복 억제만 유지한다(주소 확인/다른 주소 이동 때 해제).
+- 실행 게이트는 주소의 명시적 유효한 from/to + 선언 필수값이다. bare route, v/extras만, Scope만, page만, 미지원 Context만 있는 주소는 idle이다. 필수 Scope는 현재 세션에서 검증해야 요청할 수 있다. 시간 없는 Apply opt-in은 실행 여부를 주소로 재현할 표현이 없어 Registry 오류로 거부한다. 실행 marker나 세션 hasApplied flag를 추가하지 않는다.
+- 필수 Context의 대응은 time→from+to, roomNames→roomNames, line→lineNames, prcGroup→prcGroups, condition→condition, selection→selection, lot→lotIds, ppid→ppid, recipe→recipeIds, metric→metricId+metricVersion이다. null/undefined는 누락, 기간·지표는 유효한 완전한 쌍이어야 한다. 집합 `[]`는 존재이며 기존 원천 조회 없는 empty 응답을 유지한다. 빈 page는 누락이다. `missing`은 `{key,label: Text}[]`이고 Context에는 CONTEXT_LABELS, page에는 선언 label을 사용하며 queryMissing 사전으로 선택 사유를 번역한다. 필수값 없이 실행 전이면 missing=[]와 일반 조회 전 문구를 쓴다.
+- 분석 요청(useMenuQuery, 공유 menuRequest를 쓰는 useMenuFetch·ModuleHost.query)에 게이트를 적용한다. fetch.ready는 false이며 직접 호출도 adapter 대신 기존 not_ready envelope로 답한다. raw usePlatformQuery·목적지/entity·감사·주석은 보조 요청으로 유지한다. Scope·session·투영 검증은 유지하고 required는 서버 검증을 대신하지 않는다. 실제 메뉴 opt-in과 조회 바 UI, #554 저장소·복원은 별도 범위다.
 
 ### Context 변경 규칙
 
@@ -961,6 +978,7 @@ Status        Provisional
 최소 상태:
 
 ```text
+Idle (not yet queried / required conditions missing)
 Loading
 Refreshing same context
 No matching result
@@ -977,6 +995,8 @@ Unknown
 
 ### 규칙
 
+- QueryState는 idle/loading/refreshing/done과 response, missing, completedAt(number|null), refetch를 제공한다. Apply 게이트의 idle은 중립적인 “아직 조회하지 않았습니다”와 번역된 누락 사유 목록이며 skeleton·empty·오류가 아니다. 이전 결과·시각을 즉시 가리고 진행 요청을 취소하며 늦은 응답을 버린다. refetch·refreshEpoch도 닫힌 게이트를 열지 않는다. 기존 enabled=false·Scope 검증·live 의미는 유지한다.
+- completedAt은 현재 identity에 수락한 모든 종결 응답(오류·timeout·클라이언트 합성 오류 포함)의 클라이언트 epoch ms이며 trust.updatedAt(원천 갱신 시각)과 다르다. 동일 identity refresh는 이전 결과·시각을 유지하고 완료 때 갱신한다. identity 교체·idle에서는 둘 다 null이고 취소·stale 응답은 시각을 찍지 않는다. 초안 편집만으로 적용 결과·시각을 무효화하지 않는다.
 - `Not collected`, `Processing delayed`, `Insufficient coverage` 등 원인을 주장하는 상태는 Backend/status source가 현재 요청 Context에 대해 그 원인을 확인한 경우에만 표시한다. 상태 원천과 관측 기준시각을 연결할 수 있어야 하며, UI가 행 수만으로 원인을 추론하지 않는다.
 - 성공한 조회가 0건이라는 사실만 확인되면 `No matching result`를 표시한다. 원인/가용성 상태를 확인할 수 없으면 `Unknown`으로 표시한다. **0건 ≠ 수집 중단·미수집·파서 지연**이다. 권한 제한 역시 서버가 확인한 경우에만 그 사유를 표시한다.
 - 상태 원천이 아직 없거나 원천 조회에 실패했다면 원인을 단정하지 않는다. taxonomy의 존재가 해당 상태 판정 기능의 구현을 뜻하지 않는다.

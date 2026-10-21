@@ -1,0 +1,138 @@
+import { useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { buildQuery, emptyGlobal, incompleteMetricPair, missingRequiredContext, parseQuery, sameGlobal, shift, type EquipmentAxisDescriptor, type GlobalContext, type Pair, type PlatformAdapter, type Session } from '@ap/contracts';
+import { classifyMetricInit } from './metric-init';
+import { CONTEXT_LABELS, type MenuEntry } from './registry';
+import { dropResetKeys } from './paneContext';
+import type { QueryDraft, QueryMissing } from './query-draft';
+import type { ScopeState } from './platform';
+
+type Values = QueryDraft['draft'];
+type Snapshot = { identity: string; session: Session; address: string; draft: Values; pending: { source: string; target: string; dispatching: boolean } | null };
+export function createDraftStore() {
+  let snapshot: Snapshot | null = null;
+  const listeners = new Set<() => void>();
+  return {
+    get: () => snapshot,
+    subscribe: (fn: () => void) => { listeners.add(fn); return () => { listeners.delete(fn); }; },
+    put: (next: Snapshot) => { if (snapshot !== next) { snapshot = next; listeners.forEach(fn => fn()); } },
+  };
+}
+export type DraftStore = ReturnType<typeof createDraftStore>;
+
+type Inputs = {
+  store?: DraftStore; menu: MenuEntry | null; identity: string; session: Session; url: string;
+  global: GlobalContext; page: Pair[]; extras: Pair[]; defaultRangeTo: string; scope: ScopeState;
+  adapter: PlatformAdapter; axes: readonly EquipmentAxisDescriptor[]; invalid: boolean;
+  commit: (next: string, how: 'push') => boolean;
+  setGlobal: QueryDraft['setDraftGlobal']; setPage: QueryDraft['setDraftPage'];
+};
+function defaults(input: Inputs): Values {
+  return { global: { ...emptyGlobal, scopeId: input.global.scopeId, ...(input.menu?.context.time === 'apply' ? { from: shift(input.defaultRangeTo, -24), to: input.defaultRangeTo } : {}) }, page: [] };
+}
+function initial(input: Inputs): Values {
+  return input.global.from === null && input.global.to === null && !input.invalid
+    ? { global: { ...input.global, from: defaults(input).global.from, to: defaults(input).global.to }, page: input.page }
+    : { global: input.global, page: input.page };
+}
+function reconcile(state: Snapshot | null, input: Inputs): Snapshot {
+  if (!state || state.identity !== input.identity || state.session !== input.session) return { identity: input.identity, session: input.session, address: input.url, draft: initial(input), pending: null };
+  if (state.pending && state.pending.target === input.url) return { ...state, address: input.url, pending: null };
+  if (state.pending?.source === input.url || state.address === input.url) return state;
+  return { ...state, address: input.url, draft: initial(input), pending: null };
+}
+export function queryMissing(menu: MenuEntry | null, global: GlobalContext, page: Pair[]): QueryMissing[] {
+  return [
+    ...missingRequiredContext(menu?.query?.required?.context ?? [], global).map(key => ({ key, label: CONTEXT_LABELS[key] })),
+    ...(menu?.query?.required?.page ?? []).filter(({ key }) => !page.some(([k, value]) => k === key && value !== '')).map(item => ({ ...item })),
+  ];
+}
+export function appliedQueryPolicy(menu: MenuEntry | null, global: GlobalContext, page: Pair[], invalid: boolean) {
+  const missing = queryMissing(menu, global, page);
+  return { idle: menu?.query?.mode === 'apply' && (invalid || missingRequiredContext(['time'], global).length > 0 || missing.length > 0), missing };
+}
+
+/** Round-trip through the codec, checking the fields the serializer deliberately omits for incomplete pairs. */
+function normalize(input: Inputs, values: Values): Values {
+  let g = values.global;
+  if ((g.from === null) !== (g.to === null)) throw new RangeError('partial_period');
+  if (g.metricVersion !== null && g.metricId === null) throw new RangeError('metric_pair');
+  const metric = classifyMetricInit(input.adapter.publishedMetrics(), input.menu?.initializesMetric === true, g.metricId, g.metricVersion);
+  if (metric.phase === 'blocked') throw new RangeError(metric.reason);
+  if (metric.phase === 'confirm') g = { ...g, metricVersion: metric.metricVersion };
+  const pairError = incompleteMetricPair(input.menu, g.metricId, g.metricVersion);
+  if (pairError) throw pairError;
+  const parsed = parseQuery(buildQuery(g, values.page), input.menu?.pageKeys);
+  for (const axisId of Object.keys(parsed.global.condition ?? {})) {
+    const axis = input.axes.find(a => a.id === axisId);
+    if (!axis) throw new RangeError('invalid_condition');
+    if (parsed.global.membershipBasis === 'asOf' && !axis.membershipHistory) throw new RangeError('membership_basis_unsupported');
+  }
+  if (g.membershipBasis !== null && parsed.global.membershipBasis === null) throw new RangeError('membership_basis_pair');
+  return { global: parsed.global, page: parsed.page.filter(([, value]) => value !== '') };
+}
+function dirtyFields(applied: Values, draft: Values): string[] {
+  const normalized = (g: GlobalContext) => parseQuery(buildQuery(g)).global;
+  const a = normalized(applied.global); const b = normalized(draft.global);
+  const changed = (Object.keys(emptyGlobal) as (keyof GlobalContext)[]).filter(key => JSON.stringify(a[key]) !== JSON.stringify(b[key]));
+  const keys = [...new Set([...applied.page, ...draft.page].map(([key]) => key))];
+  return [...changed, ...keys.filter(key => (applied.page.find(([k]) => k === key)?.[1] || null) !== (draft.page.find(([k]) => k === key)?.[1] || null))];
+}
+export function useScreenDraft(input: Inputs): QueryDraft {
+  const [local] = useState(createDraftStore);
+  const active = useRef(true);
+  useLayoutEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
+  const store = input.store ?? local;
+  const snapshot = useSyncExternalStore(store.subscribe, store.get);
+  const state = reconcile(snapshot, input);
+  const mode = input.menu?.query?.mode ?? 'live';
+  useLayoutEffect(() => { if (mode === 'apply') store.put(reconcile(store.get(), input)); });
+  if (mode === 'live') return { mode, draft: { global: input.global, page: input.page }, dirty: [], setDraftGlobal: input.setGlobal, setDraftPage: input.setPage, apply() {}, revert() {}, reset() {}, missing: [], canApply: true, applying: false };
+  const current = () => reconcile(store.get(), input);
+  const candidate = (values: Values) => {
+    const next = normalize(input, values);
+    return { ...next, page: dropResetKeys(input.menu, next.page, input.global, next.global) };
+  };
+  const scopeValid = (g: GlobalContext) => !input.menu?.requiresScope || (input.scope.status === 'valid' && input.scope.scopeId === g.scopeId && input.scope.validatedFor === input.session);
+  let final = state.draft; let valid = !input.invalid;
+  try { final = candidate(state.draft); } catch { valid = false; }
+  const missing = queryMissing(input.menu, final.global, final.page);
+  const canApply = valid && missing.length === 0 && missingRequiredContext(['time'], final.global).length === 0 && scopeValid(final.global) && state.pending === null;
+  const edit = (values: Values) => {
+    const previous = current();
+    const next = candidate(values);
+    store.put({ ...previous, draft: next });
+  };
+  return {
+    mode, draft: state.draft, dirty: dirtyFields({ global: input.global, page: input.page }, state.draft), missing, canApply, applying: state.pending?.dispatching === true,
+    setDraftGlobal(patch) {
+      if ('scopeId' in patch && patch.scopeId !== input.global.scopeId) { input.setGlobal({ scopeId: patch.scopeId }); return; }
+      edit({ ...current().draft, global: { ...current().draft.global, ...patch } });
+    },
+    setDraftPage(patch) {
+      for (const key of Object.keys(patch)) if (!input.menu?.pageKeys.includes(key)) throw new RangeError(`Undeclared page key ${key}`);
+      const values = current().draft;
+      edit({ ...values, page: [...values.page.filter(([key]) => !Object.hasOwn(patch, key)), ...Object.entries(patch).filter((entry): entry is Pair => entry[1] !== null && entry[1] !== '')] });
+    },
+    apply() {
+      const previous = current();
+      if (!active.current || previous.pending || input.invalid) return;
+      let next: Values;
+      try { next = candidate(previous.draft); } catch { return; }
+      if (queryMissing(input.menu, next.global, next.page).length || missingRequiredContext(['time'], next.global).length || !scopeValid(next.global)) return;
+      if (sameGlobal(input.global, next.global) && JSON.stringify([...input.page].sort()) === JSON.stringify([...next.page].sort())) return;
+      const target = input.url.split('?')[0] + buildQuery(next.global, next.page, input.extras);
+      const pending = { source: input.url, target, dispatching: true };
+      store.put({ ...previous, draft: next, pending });
+      try { if (!input.commit(target, 'push')) store.put({ ...previous, draft: next, pending: null }); }
+      catch (error) { store.put({ ...previous, pending: null }); throw error; }
+      // Address acknowledgement may be arbitrarily delayed. Dispatch itself finishes this turn; keep the
+      // proposal only for duplicate suppression and recognizing its echo, not as a request spinner.
+      queueMicrotask(() => {
+        const latest = store.get();
+        if (latest?.pending === pending) store.put({ ...latest, pending: { ...pending, dispatching: false } });
+      });
+    },
+    revert() { store.put({ ...current(), draft: { global: input.global, page: input.page } }); },
+    reset() { store.put({ ...current(), draft: defaults(input) }); },
+  };
+}

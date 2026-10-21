@@ -41,7 +41,7 @@ const kpi: DrillData['kpi'] = {
   cycle: { jobs: 3, p50: 1, p95: 2 }, throughput: { jobs: 2, started: 3 },
 };
 const done = (data: DrillData): QueryState<DrillData> => ({
-  status: 'done', refetch: vi.fn(),
+  status: 'done', missing: [], completedAt: null, refetch: vi.fn(),
   response: { outcome: 'ok', data, assessments: [], trust: null, correlationId: 'c' } as ApiResponse<DrillData>,
 });
 const drillData: DrillData = {

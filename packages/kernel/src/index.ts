@@ -16,3 +16,6 @@ export { useModuleHost, type ModuleShellPorts } from './module-host';
 
 export { useEquipmentAxes } from './platform';
 export { labelledCondition } from './equipmentAxes';
+
+export { useQueryDraft, type QueryDraft, type QueryMissing } from './query-draft';
+export { PaneQueryDraftProvider } from './platform';

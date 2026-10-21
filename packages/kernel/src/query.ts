@@ -1,10 +1,13 @@
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
+import type { QueryMissing } from './query-draft';
 import { usePlatform } from './platform';
 import { projectContext, type ApiResponse, type AssessmentKind, type EndpointSpec, type EntityRef, type MenuQueryContext, serializeGlobal } from '@ap/contracts';
 
 export type QueryState<T> = {
   /** loading: no result for the current Context yet. refreshing: same Context re-query, prior result kept. */
-  status: 'loading' | 'refreshing' | 'done';
+  status: 'idle' | 'loading' | 'refreshing' | 'done';
+  missing: readonly QueryMissing[];
+  completedAt: number | null;
   response: ApiResponse<T> | null;
   refetch: () => void;
 };
@@ -18,38 +21,44 @@ export type QueryState<T> = {
  * like `refetch()` (prior result kept, `refreshing`).
  */
 export function usePlatformQuery<T>(run: (signal: AbortSignal) => Promise<ApiResponse<T>>, pageInputs: unknown = null, enabled = true, identity: 'context' | 'session' = 'context', refreshEpoch = 0): QueryState<T> {
+  return useQueryLifecycle(run, pageInputs, enabled, identity, refreshEpoch, null);
+}
+
+function useQueryLifecycle<T>(run: (signal: AbortSignal) => Promise<ApiResponse<T>>, pageInputs: unknown, enabled: boolean, identity: 'context' | 'session', refreshEpoch: number, idle: readonly QueryMissing[] | null): QueryState<T> {
   const { global, user, revision } = usePlatform();
   const key = JSON.stringify(identity === 'session'
-    ? [revision, user.id, pageInputs]
-    : [revision, user.id, serializeGlobal(global), pageInputs]);
-  const [result, setResult] = useState<{ identity: string; response: ApiResponse<T> } | null>(null);
+    ? [revision, user.id, idle !== null, pageInputs]
+    : [revision, user.id, idle !== null, serializeGlobal(global), pageInputs]);
+  const [result, setResult] = useState<{ identity: string; response: ApiResponse<T>; completedAt: number } | null>(null);
   const [tick, setTick] = useState(0);
   const [inFlight, setInFlight] = useState<{ identity: string; tick: number } | null>(null);
   const runRef = useRef(run);
-  runRef.current = run;
+  useLayoutEffect(() => { runRef.current = run; });
 
   useEffect(() => {
+    if (idle !== null) { setResult(null); setInFlight(null); return; }
     if (!enabled) return;
     const controller = new AbortController();
     setInFlight({ identity: key, tick });
     runRef.current(controller.signal).then(response => {
       if (controller.signal.aborted) return;
-      setResult({ identity: key, response });
+      setResult({ identity: key, response, completedAt: Date.now() });
       setInFlight(null);
     }).catch(error => {
       // Only the Kernel's own abort means superseded (#183); any other rejection — even an adapter-internal
       // AbortError timeout — is the normal error path (error outcome + retry), like validateScope since #167.
       if (controller.signal.aborted) return;
-      setResult({ identity: key, response: { outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'client-' + Date.now().toString(16), message: String(error) } });
+      setResult({ identity: key, completedAt: Date.now(), response: { outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'client-' + Date.now().toString(16), message: String(error) } });
       setInFlight(null);
     });
     return () => controller.abort();
   }, [key, tick, refreshEpoch, enabled]);
 
   const refetch = useCallback(() => setTick(t => t + 1), []);
+  if (idle !== null) return { status: 'idle', response: null, missing: idle, completedAt: null, refetch };
   const current = result?.identity === key ? result.response : null;
   const busy = inFlight?.identity === key || (enabled && !current);
-  return { status: !current ? 'loading' : busy ? 'refreshing' : 'done', response: current, refetch };
+  return { status: !current ? 'loading' : busy ? 'refreshing' : 'done', response: current, missing: [], completedAt: current ? result!.completedAt : null, refetch };
 }
 
 /**
@@ -82,7 +91,7 @@ function hasExactAssessmentKinds(actual: readonly { kind: AssessmentKind }[], ex
 
 /** Applied set keys sent as `[]`: the only requests whose `empty` reply may skip the kind check (06 §6 명시적 공집합). */
 function requestedEmptySet(projected: MenuQueryContext): boolean {
-  return [projected.selection, projected.roomNames, projected.lotIds, projected.recipeIds]
+  return [projected.selection, projected.roomNames, projected.lineNames, projected.prcGroups, projected.lotIds, projected.recipeIds]
     .some(value => Array.isArray(value) && value.length === 0);
 }
 
@@ -105,20 +114,20 @@ function checkMenuResponse<P, T>(spec: EndpointSpec<P, T>, projected: MenuQueryC
 }
 
 /** What the request gates read from the platform; a host port reads it at call time instead of from a hook. */
-export type MenuRequestInputs = Pick<ReturnType<typeof usePlatform>, 'adapter' | 'global' | 'scope' | 'session'>;
+export type MenuRequestInputs = Pick<ReturnType<typeof usePlatform>, 'adapter' | 'global' | 'scope' | 'session' | 'queryPolicy'>;
 
 /**
  * The request gates shared by useMenuQuery, useMenuFetch and the module host port: Scope validated for this session,
  * absolute period when time applies, Context projection and the assessment check. Not a hook.
  */
-export function menuRequest<P, T>(spec: EndpointSpec<P, T>, { adapter, global, scope, session }: MenuRequestInputs) {
+export function menuRequest<P, T>(spec: EndpointSpec<P, T>, { adapter, global, scope, session, queryPolicy }: MenuRequestInputs) {
   const projected = projectContext(spec, global);
   const scopeReady = !spec.requiresScope || (scope.status === 'valid' && scope.scopeId === global.scopeId && scope.validatedFor === session);
   const periodReady = spec.context.time !== 'apply' || (global.from !== null && global.to !== null);
   const send = async (params: P, signal?: AbortSignal): Promise<ApiResponse<T>> =>
     checkMenuResponse(spec, projected, await adapter.menuQuery({ endpoint: spec.id, context: projected, params }, signal));
   const notReady = (): ApiResponse<T> => ({ outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'client-' + Date.now().toString(16), message: `not_ready: ${spec.id} waits for a validated Scope and period` });
-  return { projected, ready: scopeReady && periodReady, send, notReady };
+  return { projected, ready: scopeReady && periodReady && queryPolicy.ready && !queryPolicy.idle, send, notReady };
 }
 
 /**
@@ -139,7 +148,7 @@ export function useMenuQuery<P, T>(spec: EndpointSpec<P, T>, params: NoInfer<P>,
   const { projected, ready, send } = menuRequest(spec, platform);
   const { refreshEpochs } = platform;
   const epoch = useSyncExternalStore(refreshEpochs.subscribe, () => refreshEpochs.get(spec.id));
-  return usePlatformQuery<T>(signal => send(params, signal), [spec.id, projected, params], enabled && ready, 'session', epoch);
+  return useQueryLifecycle<T>(signal => send(params, signal), [spec.id, projected, params], enabled && ready, 'session', epoch, platform.queryPolicy.idle ? platform.queryPolicy.missing : null);
 }
 
 export type MenuFetch<P, T> = {

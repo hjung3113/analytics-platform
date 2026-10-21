@@ -7,7 +7,7 @@
  */
 import { beforeAll, describe, expect, it } from 'vitest';
 import {
-  emptyGlobal, parseDateTime, parseQuery, projectContext, type Condition,
+  CONTEXT_FIELDS, emptyGlobal, missingRequiredContext, parseDateTime, parseQuery, projectContext, type Condition,
   type ActionResponse, type AnnotationInput, type AnyActionSpec, type AnyEndpointSpec, type ApiResponse, type Assessment, type AssessmentKind, type ClientErrorReport, type EntityRef,
   type GlobalContext, type MenuAction, type MenuQuery, type Permission, type PlatformAdapter, type Trust, type UsageEvent, type UsageSummary,
 } from '@ap/contracts';
@@ -16,6 +16,8 @@ export type ConformanceCase = {
   spec: AnyEndpointSpec;
   /** Params the granted actor's request succeeds with (`ok` or `empty`). Must be a plain object. */
   params: Record<string, unknown>;
+  /** Valid applied Context sample values, merged with the harness Scope/period before projection. */
+  context?: Partial<GlobalContext>;
   /**
    * Params whose result exceeds the spec's declared `limits.maxRows`. The check is derived when both the declaration
    * and this sample exist; it expects `too_large` with no data (#175). A declaration without this sample plans a
@@ -137,7 +139,7 @@ const ANNOTATION_ROW_KEYS = ['id', 'chartId', 'scopeId', 'from', 'to', 'text', '
 const REJECTIONS: readonly ApiResponse<unknown>['outcome'][] = ['forbidden', 'error', 'too_large', 'timeout'];
 
 function baseRequest(harness: ServerConformanceHarness, c: ConformanceCase): MenuQuery {
-  const global: GlobalContext = { ...emptyGlobal, ...harness.context };
+  const global: GlobalContext = { ...emptyGlobal, ...harness.context, ...c.context };
   return { endpoint: c.spec.id, context: projectContext(c.spec, global), params: c.params };
 }
 
@@ -213,11 +215,13 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
   }];
 
   for (const c of harness.cases) {
+    const caseStart = checks.length;
     const { spec } = c;
     const base = baseRequest(harness, c);
     const applied = Object.keys(base.context) as (keyof GlobalContext)[];
     const name = (what: string) => `${spec.id} · ${what}`;
 
+    const noSample = missingRequiredContext(spec.requiredContext ?? [], base.context).length > 0;
     checks.push({
       id: name('granted request succeeds with exactly the declared assessment kinds'),
       mode: 'granted',
@@ -226,6 +230,12 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
         if (r.outcome !== 'ok' && r.outcome !== 'empty') return `expected ok or empty, got ${describeResponse(r)}`;
         const missing = missingEnvelopeKey(r, 'assessments');
         if (missing) return missing;
+        if (SET_KEYS.some(key => Array.isArray(base.context[key]) && base.context[key]!.length === 0)) {
+          const missingTrust = missingEnvelopeKey(r, 'trust');
+          if (missingTrust) return missingTrust;
+          if (r.outcome !== 'empty' || r.assessments.length > 0 || r.trust !== null) return 'an explicit empty set is answered without reading a source (06 §19): empty, no assessments, null trust';
+          return null;
+        }
         if (!sameKinds(r.assessments, spec.kinds)) {
           return `assessments [${r.assessments.map(a => a.kind).join(', ')}] ≠ declared [${spec.kinds.join(', ')}]`;
         }
@@ -272,6 +282,17 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
         mode: 'granted',
         run: expectOutcome(send({ ...base, context: { ...base.context, [key]: emptyGlobal[key] } }), 'error', 'a key the endpoint does not apply (Q3)'),
       });
+    }
+    for (const key of spec.requiredContext ?? []) {
+      for (const mutation of ['null', 'omitted'] as const) {
+        const context = { ...base.context };
+        for (const field of CONTEXT_FIELDS[key]) {
+          if (mutation === 'omitted') delete context[field];
+          else context[field] = null;
+        }
+        checks.push({ id: name(`required ${key} ${mutation} → error`), mode: 'granted',
+          run: expectOutcome(send({ ...base, context }), 'error', 'a required Context item must be present') });
+      }
     }
     for (const key of applied) {
       const context = { ...base.context };
@@ -359,6 +380,12 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
       mode: 'permission',
       run: () => harness.withoutPermission(spec.permission, expectOutcome(send(base), 'forbidden', 'the endpoint permission is re-checked per request')),
     });
+    if (noSample) {
+      for (const check of checks.slice(caseStart)) {
+        check.mode = 'skipped';
+        check.id += ' — required Context: no valid sample';
+      }
+    }
   }
 
   return [...checks, ...planPortChecks(harness), ...planActionChecks(harness), ...planConditionChecks(harness)];

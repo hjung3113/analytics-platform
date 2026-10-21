@@ -16,6 +16,8 @@ export type EndpointSpec<P, T> = {
   requiresScope: boolean;
   /** Applied Context capabilities; an absent key is unsupported. */
   context: Partial<Record<ContextKey, Exclude<Capability, 'unsupported'>>>;
+  /** Applied Context fields that must be semantically present (empty sets remain present). */
+  requiredContext?: readonly ContextKey[];
   /** Assessment kinds for which the server returns exactly one assessment each. */
   kinds: readonly AssessmentKind[];
   /**

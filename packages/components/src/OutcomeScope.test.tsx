@@ -11,7 +11,7 @@ import { useI18n } from '@ap/kernel';
 
 const response = (outcome: ApiResponse<unknown>['outcome'] = 'error', message = 'Same response', assessments: Assessment[] = []): ApiResponse<unknown> =>
   ({ outcome, message, assessments, data: null, trust: null, correlationId: 'corr-widget' });
-const query = (r = response(), retry = vi.fn()): QueryState<unknown> => ({ response: r, refetch: retry, status: 'done' });
+const query = (r = response(), retry = vi.fn()): QueryState<unknown> => ({ response: r, refetch: retry, missing: [], completedAt: null, status: 'done' });
 const Widget = ({ q, name = 'Widget A', hide = false }: { q: QueryState<unknown>; name?: string; hide?: boolean }) =>
   <QueryView query={q} widgetName={name} hideWidgetName={hide}>{() => <p>Success</p>}</QueryView>;
 const Page = ({ children }: { children: ReactNode }) => <I18nProvider><div data-outcome-focus-target role="region" aria-label="Page content" tabIndex={-1}><OutcomeScope><OutcomeBanners />{children}</OutcomeScope></div></I18nProvider>;
@@ -21,6 +21,18 @@ function textWithoutDetail(node: HTMLElement) {
   return clone.textContent ?? '';
 }
 afterEach(cleanup);
+
+it('unregisters grouped outcomes when their queries become idle without leaving a retry banner', () => {
+  const first = query(); const second = query();
+  const view = render(<Page><Widget q={first} /><Widget q={second} name="Widget B" /></Page>);
+  expect(screen.getByRole('group', { name: '위젯 상태 요약' })).toBeVisible();
+  const idle: QueryState<unknown> = { status: 'idle', response: null, completedAt: null, missing: [], refetch: vi.fn() };
+  view.rerender(<Page><Widget q={idle} /><Widget q={idle} name="Widget B" /></Page>);
+  expect(screen.queryByRole('group', { name: '위젯 상태 요약' })).toBeNull();
+  expect(screen.queryByRole('alert')).toBeNull();
+  expect(screen.queryByRole('button', { name: '다시 시도' })).toBeNull();
+  expect(screen.getAllByText('아직 조회하지 않았습니다')).toHaveLength(2);
+});
 
 describe('shared outcome contract #55', () => {
   it('announces one error banner, preserves named compact states and retries exactly its members', () => {
@@ -93,7 +105,7 @@ describe('shared outcome contract #55', () => {
     const view = render(<Page><Widget q={empty} /><Widget q={empty} /><Widget q={a} /><Widget q={b} /><Widget q={c} /></Page>);
     const banners = view.container.querySelectorAll('[data-outcome-banner]');
     expect(banners).toHaveLength(2); expect(banners[0]).toHaveTextContent('위젯 3개'); expect(banners[1]).toHaveTextContent('위젯 2개');
-    view.rerender(<Page><Widget q={{ ...a, response: null, status: 'loading' }} /><Widget q={b} /></Page>);
+    view.rerender(<Page><Widget q={{ ...a, response: null, missing: [], completedAt: null, status: 'loading' }} /><Widget q={b} /></Page>);
     expect(view.container.querySelectorAll('[data-outcome-banner]')).toHaveLength(0);
   });
   it('keeps neighboring page scopes isolated', () => {
@@ -136,7 +148,7 @@ describe('Fix round 1 regressions', () => {
   });
   it('renders the second matching arrival compact on its first commit', async () => {
     const a = query(); const b = query();
-    const view = render(<Page><Widget q={a} /><Widget q={{ ...b, response: null, status: 'loading' }} name="Widget B" /></Page>);
+    const view = render(<Page><Widget q={a} /><Widget q={{ ...b, response: null, missing: [], completedAt: null, status: 'loading' }} name="Widget B" /></Page>);
     const alerts: Element[] = [];
     const observer = new MutationObserver(records => records.forEach(record => {
       if (record.attributeName === 'role' && record.oldValue === 'alert' && record.target instanceof Element) alerts.push(record.target);
@@ -157,7 +169,7 @@ describe('Fix round 1 regressions', () => {
     function Retrying() {
       const [pending, setPending] = useState(false);
       const [r] = useState(response);
-      return <Page>{retries.map((retry, i) => <Widget key={i} name={`Widget ${i}`} q={{ response: r, status: pending ? 'refreshing' : 'done', refetch: () => { retry(); setPending(true); } }} />)}</Page>;
+      return <Page>{retries.map((retry, i) => <Widget key={i} name={`Widget ${i}`} q={{ missing: [], completedAt: null, response: r, status: pending ? 'refreshing' : 'done', refetch: () => { retry(); setPending(true); } }} />)}</Page>;
     }
     const view = render(<Retrying />);
     const button = within(screen.getByRole('group', { name: '위젯 상태 요약' })).getByRole('button');
@@ -284,9 +296,9 @@ describe('Fix round 1 refresh settlement', () => {
     const view = render(page(a, b));
     const button = within(screen.getByRole('group', { name: '위젯 상태 요약' })).getByRole('button');
     button.focus(); fireEvent.click(button);
-    view.rerender(page({ ...a, status: 'refreshing' }, { ...b, status: 'refreshing' }));
+    view.rerender(page({ ...a, missing: [], completedAt: null, status: 'refreshing' }, { ...b, missing: [], completedAt: null, status: 'refreshing' }));
     const settledA = { ...a, response: response() }; const settledB = { ...b, response: response() };
-    view.rerender(page(settledA, { ...b, status: 'refreshing' }));
+    view.rerender(page(settledA, { ...b, missing: [], completedAt: null, status: 'refreshing' }));
     expect(button).toHaveAttribute('aria-busy', 'true'); fireEvent.click(button);
     expect(a.refetch).toHaveBeenCalledTimes(1); expect(b.refetch).toHaveBeenCalledTimes(1);
     view.rerender(page(settledA, settledB));
@@ -305,7 +317,7 @@ describe('Fix round 1 peer lookup', () => {
       return <span>{grouped ? 'Compact arrival' : 'Full arrival'}</span>;
     }
     const a = query(); const b = query();
-    const view = render(<Page><Widget q={a} /><Arrival q={{ ...b, response: null, status: 'loading' }} /></Page>);
+    const view = render(<Page><Widget q={a} /><Arrival q={{ ...b, response: null, missing: [], completedAt: null, status: 'loading' }} /></Page>);
     view.rerender(<Page><Widget q={a} /><Arrival q={b} /></Page>);
     expect(decisions[0]).toBe(true);
   });
