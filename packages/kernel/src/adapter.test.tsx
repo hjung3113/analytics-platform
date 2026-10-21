@@ -96,6 +96,9 @@ describe('adapter shape', () => {
       async validateScope() { return { status: 'valid' as const, grantedRooms: [] }; }
       publishedMetrics() { return []; }
       defaultRangeTo() { return '2026-09-26T09:00:00'; }
+      async listAxisOptions() { return { items: [], nextCursor: null }; }
+      async searchEquipment() { return { items: [], nextCursor: null }; }
+      async resolveSelection() { return { items: [] }; }
       async contextOptions() { return { stgroup: [], team: [], makerModel: [] }; }
       async evaluateSelection() { return { inCondition: [], outOfCondition: [] }; }
       async getEntity() { return { outcome: 'empty' as const, data: null, assessments: [], trust: null, correlationId: 'cls' }; }

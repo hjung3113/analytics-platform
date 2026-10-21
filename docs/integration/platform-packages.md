@@ -77,6 +77,7 @@
 
 - 역할 전환과 응답 시나리오 시뮬레이터(`setRole`, `setScenario`)는 **실서버에 없는 개발 기능**이다. `Platform` 컨텍스트에서 빼고 `apps/platform-web`의 dev 도구가 레일 아래 `topBarTools` 슬롯에 붙인다. 운영 빌드에는 포함하지 않는다 — mock 조립(`src/dev/mock-assembly.tsx`)이 `topBarTools`로 넘기고, 운영 빌드는 그 조립을 쓰지 않으며 빌드 단계 그래프 검사가 막는다(#153, ADR-0009).
 - **무효화 계약 보존:** 현재 `usePlatformQuery`는 결과 identity에 `role`·`scenario`를 넣어, 전환 즉시 이전 결과를 숨기고 재조회한다. 분리 후에는 dev 도구가 mock 어댑터의 상태를 바꾸고 어댑터가 `subscribe` 리스너를 호출한다. Kernel은 알림을 받으면 ① `session()`을 다시 읽고 ② 세션 객체가 바뀌었으면 현재 Scope를 재검증하고 ③ revision을 올린다(시나리오처럼 세션이 그대로인 변경은 ③만). `usePlatformQuery`의 identity는 `[revision, user 식별자, 전역 Context, page 입력]`이 되어 지금과 같은 시점에 이전 결과를 숨긴다. 실서버에서는 재로그인·권한 변경 알림이 같은 경로를 탄다. 검증: 역할·시나리오 전환 직후 이전 결과가 한 프레임도 보이지 않을 것(`kernel/adapter.test.tsx`).
+- listAxisOptions·searchEquipment·resolveSelection은 필수 어댑터 멤버다. 외부 어댑터도 구현해야 한다. 의미·오류·페이징·Kernel 훅/화면 캐시 원본은 [06 §6.4](../06_platform_ui_contract.md#64-url-계약-decided-필드명enum-문자열은-candidate)다. contextOptions·evaluateSelection은 deprecated 호환 포트로 남는다.
 - `matchesCondition` 같은 조건 판정은 서버 책임이다. 셸은 조건·방·Selection이 바뀔 때 `evaluateSelection`을 다시 호출하고 결과(후보, 조건 결과 개수, 조건 밖 선택)만 표시한다. 이전 요청 결과를 새 결과로 보이지 않는 요청 수명주기는 `usePlatformQuery`와 같은 규칙을 따른다.
 
 ## 5. 메뉴 패키지 계약과 템플릿

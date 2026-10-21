@@ -1,3 +1,4 @@
+import { createPortCache, type PortCache } from './selection-port-cache';
 import type { LucideIcon } from 'lucide-react';
 import { createBrowserLocation, type PlatformLocation } from './location';
 import { use, createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
@@ -247,6 +248,7 @@ type MainBound = Pick<Platform, MainBoundFields>;
 type AppState = Omit<Platform, ScreenFields | MainBoundFields | 'screenMode' | 'paneId' | 'paneLabel'>;
 /** App-internal handles the screen layers need; never part of the public `usePlatform()` value. */
 type AppInternal = {
+  selectionPortCache: PortCache;
   enters: (menu: MenuEntry) => boolean;
   usageSessionId: string;
   userIdRef: { readonly current: string };
@@ -588,6 +590,7 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
   const revisions = useMemo(() => counterStore(adapter), [adapter]);
   const revision = useSyncExternalStore(revisions.subscribe, revisions.get);
   const [refreshEpochs] = useState(createRefreshEpochs);
+  const selectionPortCache = useMemo(() => createPortCache(), [adapter, session, revision]);
   const user = session.user;
   const userId = user.id;
   const [initialUrl] = useState(() => location.read() ?? '');
@@ -711,7 +714,7 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
     session, user, revision, refreshEpochs, can, canOpen, globalMenus, menusInSpace, accessibleSpaces, lastScope, favorites, toggleFavorite, recent,
     toasts, toast, dismissToast, defaultRangeTo, slots, paletteOpen, setPaletteOpen, paletteSession, switcherOpen, setSwitcherOpen, switcherSession,
   };
-  const value: AppValue = { pub, internal: { enters, usageSessionId, userIdRef, mainNavigation: pageNavigation, initialUrl, recordVisit, rememberScope } };
+  const value: AppValue = { pub, internal: { selectionPortCache, enters, usageSessionId, userIdRef, mainNavigation: pageNavigation, initialUrl, recordVisit, rememberScope } };
   return <AppContext.Provider value={value}><MainScreenProvider app={value}>{children}</MainScreenProvider></AppContext.Provider>;
 }
 
@@ -890,6 +893,7 @@ export function PaneScreenProvider({ paneId, paneLabel, screen, onChange, onLeav
     return true;
   }, [navigation, url, commit, matchRoute, canOpen]);
 
+  useEffect(() => app.internal.selectionPortCache.retain(`pane:${paneId}`), [app.internal.selectionPortCache, paneId]);
   const source: ScreenSource = { draftStore: draftStores?.get(paneId), mode: 'pane', paneId, paneLabel, url, navigation, commit, go, sidebarSpace: main.sidebarSpace, countsUsage: countUsage };
   const state = useScreenState(app, source);
   return <PaneScreenContext.Provider value={state.screen}>{children}</PaneScreenContext.Provider>;
@@ -931,4 +935,11 @@ export function useEquipmentAxes(): readonly EquipmentAxisDescriptor[] {
   const app = useContext(AppContext);
   if (!app) throw new Error('useEquipmentAxes outside PlatformProvider');
   return app.pub.equipmentAxes;
+}
+
+/** Internal screen request store; intentionally absent from the SDK index. */
+export function useSelectionPortCache(): PortCache {
+  const app = useContext(AppContext);
+  if (!app) throw new Error('Selection ports outside PlatformProvider');
+  return app.internal.selectionPortCache;
 }

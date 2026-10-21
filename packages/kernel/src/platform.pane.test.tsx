@@ -1,3 +1,4 @@
+import { useEquipmentSearch } from './selection-ports';
 import { StrictMode, useLayoutEffect, useState, type ReactNode } from 'react';
 import { act, cleanup, render } from '@testing-library/react';
 import { House } from 'lucide-react';
@@ -522,5 +523,37 @@ describe('PaneScreenProvider — query lifecycle per pane', () => {
     await act(async () => { pending.resolve('late'); });
     expect(results.get('a')).toBeNull();
     expect(h.calls.length).toBe(callsBefore);
+  });
+});
+
+describe('selection metadata screen ownership', () => {
+  it('isolates main and two panes, shares a selected pane owner, resets Scope and drops removed pane caches', async () => {
+    const calls: string[] = [];
+    const values = new Map<string, ReturnType<typeof useEquipmentSearch>>();
+    const f = fixture({ searchEquipment: async input => { calls.push(input.scopeId); return { items: [{ equipmentId: input.scopeId, room: 'R', axes: {} }], nextCursor: null }; } });
+    function Reader({ id }: { id: string }) { values.set(id, useEquipmentSearch()); return null; }
+    const ui = (show: boolean) => <>
+      <Reader id="main" />
+      {show && <Pane id="a" initial={screenA('?scopeId=A')} spies={spies()}><Reader id="a" /></Pane>}
+      {show && <PaneScreenProvider paneId="a" screen={screenA('?scopeId=A')} countUsage={false} onChange={() => {}} onLeave={() => {}}><Reader id="a-bar" /></PaneScreenProvider>}
+      <Pane id="b" initial={screenA('?scopeId=B')} spies={spies()}><Reader id="b" /></Pane>
+    </>;
+    const tree = mount(ui(true), f.adapter);
+    await flush(); await flush();
+    expect(calls.sort()).toEqual(['A', 'B', 'MEM']);
+    expect(values.get('main')!.items[0].equipmentId).toBe('MEM');
+    expect(values.get('a')!.items[0].equipmentId).toBe('A');
+    expect(values.get('a-bar')!.items).toBe(values.get('a')!.items);
+    expect(values.get('b')!.items[0].equipmentId).toBe('B');
+    await act(async () => at('b').setGlobal({ scopeId: 'B2' }));
+    await flush();
+    expect(values.get('b')!.items[0].equipmentId).toBe('B2');
+    expect(values.get('a')!.items[0].equipmentId).toBe('A');
+    tree.rerender(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}>{ui(false)}</PlatformProvider></I18nProvider>);
+    await flush();
+    tree.rerender(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}>{ui(true)}</PlatformProvider></I18nProvider>);
+    await flush(); await flush();
+    expect(calls.filter(id => id === 'A')).toHaveLength(2);
+    expect(calls.filter(id => id === 'MEM')).toHaveLength(1);
   });
 });

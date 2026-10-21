@@ -29,6 +29,9 @@
 | `validateScope(scopeId)` | `GET /api/v1/platform/scopes/{scopeId}/check` | 경로 `scopeId` | `ScopeCheck` |
 | `contextOptions(scopeId)` | `GET /api/v1/platform/context-options?scopeId=…` | 쿼리 `scopeId` | `ConditionOptions` |
 | `evaluateSelection(input)` | `POST /api/v1/platform/selection/evaluate` | `SelectionInput` | `SelectionEvaluation` |
+| `listAxisOptions(input)` | Candidate: `POST /api/axis-options` | `AxisOptionsInput` | `AxisOptionsPage` |
+| `searchEquipment(input)` | Candidate: `POST /api/equipment-search` | `EquipmentSearchInput` | `EquipmentSearchPage` |
+| `resolveSelection(input)` | Candidate: `POST /api/selection-resolve` | `SelectionResolveInput` | `SelectionResolveResult` |
 | `getEntity(ref)` | `POST /api/v1/platform/entity` | `EntityRef` | `ApiResponse<unknown>` |
 | `menuQuery(req)` | `POST /api/v1/menu-query` | `MenuQuery`(`{ endpoint, context, params }` 그대로) | `ApiResponse<unknown>` |
 | `menuAction(req)` | Candidate: `POST` + `Idempotency-Key`·`If-Match` 헤더([ADR-0054](../adr/0054-write-port-declared-actions-idempotency-version.md)) — 경로·헤더·상태 코드는 #149가 정한다 | `MenuAction`(`{ action, context, input, idempotencyKey, expectedVersion? }`) | `ActionResponse<unknown>` |
@@ -42,6 +45,10 @@
 | `saveAnnotation(input)` | `POST /api/v1/platform/annotations` | `AnnotationInput`(작성자·`at`·`id` 없음 — 있으면 거부) | `ApiResponse<ChartAnnotation>` |
 | `deleteAnnotation(ref)` | `POST /api/v1/platform/annotations/delete` | `{ chartId, scopeId, id }`(그 밖의 키는 `saveAnnotation`과 같이 거부) | `ApiResponse<{ id: string }>` |
 
+새 세 조회 경로는 별도 Candidate 매핑이며 위 /api/v1/platform 접두사 제안과 통합할 최종 경로는 백엔드 합의 때 확정한다. 성공은 HTTP 200 + 자기 JSON 타입(빈 페이지도 성공), 판정 실패는 4xx + `{code,message,field?}`다. invalid_input·invalid_cursor·invalid_period·unknown_axis·membership_basis_unsupported는 400, scope_forbidden·room_forbidden은 403, unknown_scope는 404다. 어댑터는 이를 PortError로 reject한다(HTTP 200 envelope 정책의 예외). 의미 원본은 [06 §6.4](../06_platform_ui_contract.md#64-url-계약-decided-필드명enum-문자열은-candidate)다.
+
+`listAxisOptions`의 JSON `axisId`는 주입 축 id 또는 SDK 전역 집합 키 `lineNames`·`prcGroups`다. 전역 키도 같은 경로와 페이지/오류 타입으로 전송하며, `parents`에는 다른 전역 키(예: `{roomNames:["PHOTO"]}`)의 배열 맵을 보낸다. 서버는 요청 Scope의 부여된 행에서만 옵션을 도출한다. `searchEquipment`와 성공한 `resolveSelection`의 `summary.axes`는 Line·PRC 소속도 담는다. 의미·부모 제한·맵 키 원본은 [06 §6.4](../06_platform_ui_contract.md#64-url-계약-decided-필드명enum-문자열은-candidate)다.
+
 `recordUsage`의 본문을 배열이 아닌 `{ events }`로 감싸는 이유: 최상위 JSON 배열은 나중에 필드(예: 배치 id)를 더할 수 없다.
 
 **`menuQuery`의 엔드포인트 id는 경로가 아니라 본문에 둔다** [제안]. 이유: (1) 경로 하나라 프록시·인증·로그·rate limit 설정이 한 번이다. (2) 서버는 어차피 본문의 `endpoint`로 자기 선언 사본을 찾는다(체크리스트 §3 1단계 — "등록된 엔드포인트"도 요청 모양 판정의 일부) — 경로에도 있으면 둘이 다를 때의 규칙이 하나 더 생긴다. (3) 클라이언트가 경로를 조립하지 않으므로 `MenuQuery`를 그대로 직렬화하면 끝이다. 대안(한 줄): `POST /api/v1/menu-query/{endpointId}` — 접근 로그에서 엔드포인트별 집계가 쉽지만, 같은 정보는 서버가 구조화 로그에 `endpoint` 필드로 남기면 된다.
@@ -52,7 +59,7 @@
 
 **[제안] 판정된 결과는 전부 HTTP 200.** envelope 메서드는 서버가 판정한 모든 결과(`ok`·`empty`·`forbidden`·`too_large`·`timeout`·판정 단계의 `error`)를 **200 + envelope**로 답한다. 클라이언트는 상태 코드를 `outcome`으로 바꾸는 표를 갖지 않는다 — `outcome`의 원본은 하나(본문)다. 권한 거부도 403이 아니라 200 + `forbidden`이다(체크리스트 §3 3·4단계, 거부 응답에는 데이터·행 필드 없음).
 
-비 envelope 메서드(`validateScope`·`contextOptions`·`evaluateSelection`)도 판정 결과는 200 + 자기 타입이다(`ScopeCheck.status: 'forbidden'`도 200). 요청 모양이 틀린 경우(모르는 키 등)는 422.
+기존 비 envelope 메서드(`validateScope`·`contextOptions`·`evaluateSelection`)도 판정 결과는 200 + 자기 타입이다(`ScopeCheck.status: 'forbidden'`도 200). 요청 모양이 틀린 경우(모르는 키 등)는 422.
 
 **[제안] fire-and-forget(`recordUsage`·`reportClientError`)의 판정된 거부는 200 + `{ accepted: 0 }`/`{ accepted: false }`** — 필수다(체크리스트 §2 "거부는 `accepted: 0`/`false`", 적합성 묶음 `expectAccepted`/`expectReported`는 resolve를 기대하고 reject를 실패로 센다). 모르는 키(`userId`·`url` 등)도 판정된 거부다. 422는 본문이 JSON으로 파싱조차 안 되는 경우에만 쓰고, 어댑터는 그 422도 `{ accepted: 0 }`/`{ accepted: false }`로 **푼다**(§2.2).
 
@@ -60,7 +67,7 @@
 
 **[제안] 서버 `message`는 사용자에게 보일 수 있는 짧은 문장이나 코드다.** `StateView`는 `forbidden`·`too_large`·`error`의 `message`를 화면에 그대로 렌더한다. 예외 문자열(`str(exc)`)·SQL·테이블명·스택·행 id·개인 값은 싣지 않는다(#101과 같은 이유). 상세는 서버 로그에 correlationId로 남긴다.
 
-200이 아닌 것은 **전송·인프라 실패에만** 쓴다:
+기존 포트에서 200이 아닌 것은 **전송·인프라 실패에만** 쓴다(새 세 포트의 판정 실패 4xx는 §1 예외):
 
 | HTTP | 뜻 | 누가 |
 | --- | --- | --- |
@@ -95,6 +102,7 @@ envelope 메서드는 **reject하지 않는다**(체크리스트 §2). 실패는
 ### 2.2 그 밖의 묶음
 
 - **비 envelope 비동기**(`validateScope`·`contextOptions`·`evaluateSelection`): 위 실패 상황에서 **reject**한다. 응답 모양 검사는 위 표의 실패 상황(JSON 아님·필수 필드 없음)만 보고, 모르는 키는 무시한다. **어댑터 내부 타임아웃은 `AbortError`로 reject하지 않는 것을 권한다** — `AbortSignal.timeout`(`TimeoutError`)을 쓰거나 `AbortError`가 아닌 오류로 감싼다. Kernel은 `AbortError`라는 이름으로 취소를 판정하지 않는다(#183 — 취소 판정은 `kernelSignal.aborted`뿐이다), 그래서 이 표기는 이제 로그·디버깅 가독성을 위한 취향일 뿐 필수가 아니다. `validateScope`는 어댑터가 내부에서 짧게 재시도해도 된다(체크리스트 §2) [제안: 네트워크 실패·502/503에 한해 1회].
+- **새 비 envelope 조회**(listAxisOptions·searchEquipment·resolveSelection): 성공 페이지/해석 데이터만 resolve한다. 성공한 빈 페이지는 `{items:[],nextCursor:null}`이고 total 부재는 0이 아니다. §1의 4xx는 PortError(code,message,field?), 네트워크/타임아웃/잘못된 응답은 다른 오류로 reject한다. 실패를 ApiResponse나 빈 성공으로 변환하지 않는다. 내부 AbortError도 오류·재시도 대상이며 Kernel의 signal.aborted만 취소다.
 - **fire-and-forget**(`recordUsage`·`reportClientError`): 200이면 본문(`{ accepted }`), 422면 `{ accepted: 0 }`/`{ accepted: false }`로 **푼다**(필수 — §2, 적합성 묶음이 거부 호출의 resolve를 기대한다). 그 밖의 전송 실패(네트워크·5xx 등)는 reject해도 된다(Kernel이 무시). 재시도하지 않는다.
 - **동기 스냅샷**은 네트워크를 타지 않는다(§3).
 

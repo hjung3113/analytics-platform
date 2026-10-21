@@ -1,3 +1,4 @@
+import type { AxisOptionsInput, AxisOptionsPage, EquipmentSearchInput, EquipmentSearchPage, SelectionResolveInput, SelectionResolveResult } from './selection-ports.js';
 import type { Text } from './i18n.js';
 import type { Permission, SpaceId } from './menu.js';
 import type { ModuleScopedId } from './host.js';
@@ -172,8 +173,14 @@ export type PlatformAdapter = {
   /** Current session. Must return the same object until the session changes (it is a store snapshot). */
   session(): Session;
   validateScope(scopeId: string, signal?: AbortSignal): Promise<ScopeCheck>;
+  /** Non-envelope metadata reads. Every call rechecks session, Scope and rooms; limits clamp to 1–200. */
+  listAxisOptions(input: AxisOptionsInput, signal?: AbortSignal): Promise<AxisOptionsPage>;
+  searchEquipment(input: EquipmentSearchInput, signal?: AbortSignal): Promise<EquipmentSearchPage>;
+  resolveSelection(input: SelectionResolveInput, signal?: AbortSignal): Promise<SelectionResolveResult>;
   publishedMetrics(): readonly PublishedMetric[];
+  /** @deprecated Migrate to listAxisOptions (ADR-0059). */
   contextOptions(scopeId: string, signal?: AbortSignal): Promise<ConditionOptions>;
+  /** @deprecated Migrate to searchEquipment / resolveSelection (ADR-0059). */
   evaluateSelection(input: SelectionInput, signal?: AbortSignal): Promise<SelectionEvaluation>;
   /** One destination row by ref (detail pages). Not an analysis query: no GlobalContext, no Selection substitute. */
   getEntity(ref: EntityRef, signal?: AbortSignal): Promise<ApiResponse<unknown>>;

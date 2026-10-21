@@ -1,10 +1,12 @@
 AnyGroupId | type | type AnyGroupId = @ap/contracts#GroupId | @ap/contracts#ModuleScopedId
+AxisOptionsParams | type | type AxisOptionsParams = { axisId: string; context?: @ap/kernel#PortContext; enabled?: boolean; pageSize?: number; parents?: @ap/contracts#AxisOptionsInput['parents']; query?: string; }
 BOARD_PATH | const | const BOARD_PATH: "/board"
 CONTEXT_LABELS | const | const CONTEXT_LABELS: Record<@ap/contracts#ContextKey, @ap/contracts#Text>
 DrillInvalid | type | type DrillInvalid = { key: string; label: @ap/contracts#Text; value: string; }
 DrillLevelState | type | type DrillLevelState = { key: string; label: @ap/contracts#Text; value: null | string; }
 DrillState | type | type DrillState = { depth: number; enter: (key: string, value: string) => void; goTo: (n: number) => void; invalid: @ap/kernel#DrillInvalid | null; levels: @ap/kernel#DrillLevelState[]; trail: @ap/kernel#DrillTrailStep[]; }
 DrillTrailStep | type | type DrillTrailStep = { key: string; label: @ap/contracts#Text; value: string; }
+EquipmentSearchParams | type | type EquipmentSearchParams = { context?: @ap/kernel#PortContext; enabled?: boolean; pageSize?: number; query?: string; }
 ErrorGuidance | type | type ErrorGuidance = { action: @ap/kernel#Key; cause: @ap/kernel#Key; code: null | string; }
 FeedbackOpsEntry | type | type FeedbackOpsEntry = { href: null | string; id: @ap/kernel#FeedbackOpsEntryId; label: @ap/contracts#Text; }
 FeedbackOpsEntryId | type | type FeedbackOpsEntryId = 'survey' | 'task' | 'voc' | 'voc-create'
@@ -36,6 +38,10 @@ PlatformLocation | type | type PlatformLocation = { absoluteUrl: (url: string) =
 PlatformMenuEntry | type | type PlatformMenuEntry = @ap/contracts#MenuMeta & { component?: LazyExoticComponent<ComponentType<@ap/kernel#PageProps>>; icon: LucideIcon; module?: undefined; moduleScreen?: undefined; }
 PlatformProvider | function | function PlatformProvider({ adapter, registry, location, slots, equipmentAxes, children }: { adapter: @ap/contracts#PlatformAdapter; children: ReactNode; equipmentAxes?: readonly @ap/contracts#EquipmentAxisDescriptor[]; location?: @ap/kernel#PlatformLocation; registry: @ap/kernel#Registry; slots?: @ap/kernel#PlatformSlots; }): import("react").JSX.Element
 PlatformSlots | type | type PlatformSlots = { boardEntry?: ReactNode; contextBar?: ReactNode; feedbackOps?: @ap/kernel#FeedbackOpsSlot; plannedSpaces?: readonly @ap/kernel#PlannedSpace[]; topBarTools?: ReactNode; }
+PortContext | type | type PortContext = { condition: @ap/contracts#Condition | null; lineNames: @ap/contracts#IdSet; membershipBasis: 'asOf' | null; period: @ap/contracts#MembershipPeriod | null; prcGroups: @ap/contracts#IdSet; roomNames: @ap/contracts#IdSet; scopeId: string; }
+PortFailure | type | type PortFailure = { code: @ap/contracts#PortErrorCode | null; message: string; retryable: boolean; }
+PortPageResult | type | type PortPageResult<T> = PortPageState<T> & { loadMore: () => void; retry: () => void; }
+PortStatus | type | type PortStatus = 'error' | 'idle' | 'loading' | 'ready'
 QueryDraft | type | type QueryDraft = { apply: () => void; applying: boolean; canApply: boolean; dirty: readonly string[]; draft: { global: @ap/contracts#GlobalContext; page: @ap/contracts#Pair[]; }; missing: readonly @ap/kernel#QueryMissing[]; mode: 'apply' | 'live'; reset: () => void; revert: () => void; setDraftGlobal: (patch: Partial<@ap/contracts#GlobalContext>) => void; setDraftPage: (patch: Record<string, null | string>) => void; }
 QueryMissing | type | type QueryMissing = { key: string; label: @ap/contracts#Text; }
 QueryState | type | type QueryState<T> = { completedAt: null | number; missing: readonly @ap/kernel#QueryMissing[]; refetch: () => void; response: @ap/contracts#ApiResponse<T> | null; status: 'done' | 'idle' | 'loading' | 'refreshing'; }
@@ -44,6 +50,8 @@ Recent | type | type Recent = { at: number; menuId: string; url: string; }
 Registry | type | type Registry = { groupById: (id: @ap/kernel#AnyGroupId) => @ap/kernel#GroupDef; groups: readonly @ap/kernel#GroupDef[]; matchRoute: (pathname: string) => @ap/kernel#RouteMatch | null; menuById: (id: string) => @ap/kernel#MenuEntry; menus: readonly @ap/kernel#MenuEntry[]; safeReturnTo: (value: null | string) => null | string; spaceById: (id: @ap/contracts#SpaceId) => @ap/contracts#SpaceDef; spaceOf: (menu: @ap/kernel#MenuEntry) => @ap/contracts#SpaceDef | null; spaces: readonly @ap/contracts#SpaceDef[]; }
 RegistryError | class | class RegistryError extends Error { }
 RequestState | type | type RequestState<T> = { data: T | null; retry: () => void; status: 'done' | 'error' | 'loading'; }
+ResolvedSelectionParams | type | type ResolvedSelectionParams = { enabled?: boolean; scopeId?: string; }
+ResolvedSelectionResult | type | type ResolvedSelectionResult = { byId: ReadonlyMap<string, 'forbidden' | 'not_found' | 'ok'>; error: @ap/kernel#PortFailure | null; retry: () => void; status: @ap/kernel#PortStatus; summaries: ReadonlyMap<string, @ap/contracts#EquipmentSummary>; }
 ReturnContextKey | type | type ReturnContextKey = 'scope' | @ap/contracts#ContextKey
 ReturnOrigin | type | type ReturnOrigin = { href: string; menuLabel: @ap/contracts#Text; revertedContext: @ap/kernel#ReturnContextKey[]; trail: { label: @ap/contracts#Text; value: string; }[]; }
 RouteMatch | type | type RouteMatch = { menu: @ap/kernel#MenuEntry; params: Record<string, string>; }
@@ -67,9 +75,11 @@ pathFor | function | function pathFor(menu: @ap/kernel#MenuEntry, params?: Recor
 routeParamNames | function | function routeParamNames(path: string): string[]
 topicParticle | function | function topicParticle(name: string): '는' | '은'
 useAdapterRequest | function | function useAdapterRequest<T>(run: (signal: AbortSignal) => Promise<T>, key: unknown, enabled?: boolean): @ap/kernel#RequestState<T>
+useAxisOptions | function | function useAxisOptions(params: @ap/kernel#AxisOptionsParams): @ap/kernel#PortPageResult<@ap/contracts#AxisOption>
 useDrill | function | function useDrill(): @ap/kernel#DrillState
 useEntityQuery | function | function useEntityQuery<T>(ref: @ap/contracts#EntityRef, pageInputs?: unknown, enabled?: boolean): @ap/kernel#QueryState<T>
 useEquipmentAxes | function | function useEquipmentAxes(): readonly @ap/contracts#EquipmentAxisDescriptor[]
+useEquipmentSearch | function | function useEquipmentSearch(params?: @ap/kernel#EquipmentSearchParams): @ap/kernel#PortPageResult<@ap/contracts#EquipmentSummary>
 useI18n | function | function useI18n(): I18n
 useMenuAction | function | function useMenuAction<I, T>(spec: @ap/contracts#ActionSpec<I, T>): @ap/kernel#MenuActionState<I, T>
 useMenuFetch | function | function useMenuFetch<P, T>(spec: @ap/contracts#EndpointSpec<P, T>): @ap/kernel#MenuFetch<P, T>
@@ -79,6 +89,7 @@ usePlatform | function | function usePlatform(): Platform
 usePlatformOptional | function | function usePlatformOptional(): Platform | null
 usePlatformQuery | function | function usePlatformQuery<T>(run: (signal: AbortSignal) => Promise<@ap/contracts#ApiResponse<T>>, pageInputs?: unknown, enabled?: boolean, identity?: 'context' | 'session', refreshEpoch?: number): @ap/kernel#QueryState<T>
 useQueryDraft | function | function useQueryDraft(): @ap/kernel#QueryDraft
+useResolvedSelection | function | function useResolvedSelection(ids: readonly string[], params?: @ap/kernel#ResolvedSelectionParams): @ap/kernel#ResolvedSelectionResult
 withPaneContext | function | function withPaneContext(menu: Pick<@ap/kernel#MenuEntry, 'contextResetKeys' | 'pageKeys'>, query: string, global: @ap/contracts#GlobalContext): string
 # reachable types
 GroupBase | type | type GroupBase = { hideLabelWhenSingle?: boolean; icon: LucideIcon; label: @ap/contracts#Text; space: @ap/contracts#SpaceId | null; }
@@ -86,6 +97,7 @@ I18n | type | type I18n = { lang: @ap/kernel#Lang; setLang: (lang: @ap/kernel#La
 PageFocus | type | type PageFocus = 'drill' | 'page' | 'return'
 PaletteSession | type | type PaletteSession = { claim: (owner: symbol) => void; isCurrent: () => boolean; isSelecting: () => boolean; opener: HTMLElement | null; release: (owner: symbol) => void; select: () => void; }
 Platform | type | type Platform = { absoluteUrl: (url: string) => string; accessibleSpaces: readonly @ap/contracts#SpaceDef[]; adapter: @ap/contracts#PlatformAdapter; can: (permission: @ap/contracts#ModuleScopedId | @ap/contracts#Permission) => boolean; canOpen: (menuId: string) => boolean; contractError: @ap/contracts#ContractError | null; currentSpace: @ap/contracts#SpaceDef | null; defaultRangeTo: string; dismissToast: (id: number) => void; equipmentAxes: readonly @ap/contracts#EquipmentAxisDescriptor[]; extras: @ap/contracts#Pair[]; favorites: string[]; global: @ap/contracts#GlobalContext; globalMenus: @ap/kernel#MenuEntry[]; lastScope: null | string; linkTo: (menuId: string, options?: @ap/kernel#LinkOptions) => string; location: @ap/kernel#PlatformLocation; menusInSpace: (spaceId: @ap/contracts#SpaceId) => @ap/kernel#MenuEntry[]; metricInit: @ap/kernel#MetricInit; navigate: (url: string, options?: { focus?: PageFocus; replace?: boolean; }) => boolean; page: @ap/contracts#Pair[]; pageNavigation: @ap/kernel#PageNavigation; pageParam: (key: string) => null | string; paletteOpen: boolean; paletteSession: PaletteSession | null; paneId: null | string; paneLabel: null | string; pathname: string; platformScreen: 'board' | null; queryDraft: @ap/kernel#QueryDraft; queryPolicy: { idle: boolean; missing: readonly @ap/kernel#QueryMissing[]; ready: boolean; }; recent: @ap/kernel#Recent[]; refreshEpochs: RefreshEpochs; registry: @ap/kernel#Registry; reportError: (error: unknown) => string; resetContext: () => void; resolveLink: (menuId: string, options?: @ap/kernel#LinkOptions) => @ap/kernel#LinkResolution; retryScope: () => void; returnOrigin: () => @ap/kernel#ReturnOrigin; returnTarget: () => string; revision: number; route: null | { menu: @ap/kernel#MenuEntry; params: Record<string, string>; }; scope: @ap/kernel#ScopeState; screenMode: 'main' | 'pane'; session: @ap/contracts#Session; setGlobal: (patch: Partial<@ap/contracts#GlobalContext>, options?: { replace?: boolean; silent?: boolean; }) => void; setPage: (patch: Record<string, null | string>, options?: { focus?: PageFocus; replace?: boolean; }) => void; setPaletteOpen: (open: boolean) => void; setSwitcherOpen: (open: boolean) => void; sidebarSpace: @ap/contracts#SpaceDef | null; slots: @ap/kernel#PlatformSlots; spaceEntry: (spaceId: @ap/contracts#SpaceId) => null | { href: string; menuId: string; resumed: boolean; }; spaceResume: (spaceId: @ap/contracts#SpaceId) => null | { href: string; menuId: string; }; switchSpace: (spaceId: @ap/contracts#SpaceId) => void; switcherOpen: boolean; switcherSession: PaletteSession | null; toast: (text: string, tone?: @ap/kernel#Toast['tone'], detail?: string) => void; toasts: @ap/kernel#Toast[]; toggleFavorite: (menuId: string) => void; url: string; user: @ap/contracts#SessionUser; visibleMenus: @ap/kernel#MenuEntry[]; }
+PortPageState | type | type PortPageState<T> = { error: @ap/kernel#PortFailure | null; hasMore: boolean; items: T[]; loadMoreError: @ap/kernel#PortFailure | null; loadingMore: boolean; status: @ap/kernel#PortStatus; total?: number; }
 RefreshEpochs | type | type RefreshEpochs = { bump: (endpointIds: readonly string[]) => void; get: (endpointId: string) => number; subscribe: (listener: () => void) => () => void; total: () => number; }
 ResetRule | type | type ResetRule = Pick<@ap/kernel#MenuEntry, 'contextResetKeys'>
 createPageNavigation | function | function createPageNavigation(initialUrl: string, isBlocked?: () => boolean): { advance(next: string, focus?: PageFocus): void; cancel(): void; claimsDetailFocus(): boolean; consume(path: string): PageFocus | null; materialize(next: string): void; notify(): void; requestReturn(href: string): void; subscribe(listener: () => void): () => void; }

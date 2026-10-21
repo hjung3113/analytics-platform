@@ -34,3 +34,10 @@ describe('memoryStorage', () => {
     expect(storage.getItem('b')).toBeNull();
   });
 });
+
+it('provides empty paged metadata and ordered missing-ID resolutions by default', async () => {
+  const adapter = testAdapter();
+  expect(await adapter.listAxisOptions({ scopeId: 'S', axisId: 'custom', limit: 50 })).toEqual({ items: [], nextCursor: null });
+  expect(await adapter.searchEquipment({ scopeId: 'S', roomNames: null, lineNames: null, prcGroups: null, condition: null, membershipBasis: null, limit: 50 })).toEqual({ items: [], nextCursor: null });
+  expect(await adapter.resolveSelection({ scopeId: 'S', ids: ['b', 'a', 'b'] })).toEqual({ items: [{ id: 'b', status: 'not_found' }, { id: 'a', status: 'not_found' }] });
+});
