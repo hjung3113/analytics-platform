@@ -322,6 +322,13 @@ describe('usage entry navigation path (#605)', () => {
     expect(entries(events)).toEqual(['equipment:direct:null', 'home:link:equipment']);
   });
 
+  it('a marked move is reported as marked even when it leads to the tab\'s first entry (opened on the board)', async () => {
+    const { events } = mountNav('/board');
+    await settle();
+    await click('sidebar');
+    expect(entries(events)).toEqual(['lots:sidebar:null']);
+  });
+
   it('StrictMode keeps the via of the real entry', async () => {
     const { events } = mountNav('/equipment', true);
     await settle();

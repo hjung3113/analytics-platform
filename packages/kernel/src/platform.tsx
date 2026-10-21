@@ -298,12 +298,13 @@ type ScreenSource = {
 
 /**
  * Consumes the pending navigation mark at the real entry (inside the stay's timer, so StrictMode's fake mount never
- * takes it) and moves the trail to this menu. The tab's first entry is `direct` with no previous menu; a new session
+ * takes it) and moves the trail to this menu. Unmarked, the tab's first entry is `direct` with no previous menu; a new session
  * user starts the trail over so a previous user's menu never travels (docs/05, ADR-0020).
  */
 function takeNavigation(trail: UsageNavTrail, userId: string, menuId: string): { via: UsageVia; fromMenuId: string | null } {
   if (trail.user !== userId) Object.assign(trail, { user: userId, via: null, seen: false, prev: null });
-  const taken = { via: trail.seen ? trail.via ?? 'link' : 'direct', fromMenuId: trail.prev };
+  // A pending mark wins; with none, the tab's first entry is `direct` (opened, reloaded, typed) and a later one `link`.
+  const taken = { via: trail.via ?? (trail.seen ? 'link' : 'direct'), fromMenuId: trail.prev };
   Object.assign(trail, { via: null, seen: true, prev: menuId });
   return taken;
 }
