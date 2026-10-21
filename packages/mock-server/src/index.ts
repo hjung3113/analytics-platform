@@ -9,7 +9,7 @@ export {
 } from './jobs';
 
 export {
-  aggregateUsage, getEntity, getRole, getScenario, resetUsage, resolveEquipment, setRole,
+  aggregateUsage, getEntity, getRole, getScenario, resetUsage, resolveEquipment, setRole, storedUsage,
   setScenario, subscribeServer, type Scenario, type StoredUsageEvent,
 } from './server';
 

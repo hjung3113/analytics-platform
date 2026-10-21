@@ -77,7 +77,7 @@ function OpenInBoardDialogBody({ control }: { control: HeaderOverflowDialogContr
     }
     writeStoredBoard(user.id, next);
     control.close();
-    navigate(`${BOARD_PATH}?sheet=${encodeURIComponent(next.activeSheetId)}`, { focus: 'page' });
+    navigate(`${BOARD_PATH}?sheet=${encodeURIComponent(next.activeSheetId)}`, { focus: 'page', via: 'board' });
   };
   const pick = (value: string) => { setDestination(value as Destination); setSheetId(''); setPaneIndex(null); setProblem(null); };
 

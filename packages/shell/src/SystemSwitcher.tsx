@@ -65,7 +65,7 @@ export function SystemSwitcher() {
     event.preventDefault();
     const changesPage = href.split('?')[0] !== pathname;
     close(() => {
-      if (!navigate(href, changesPage ? { focus: 'page' } : undefined) || !changesPage) triggerRef.current?.focus({ preventScroll: true });
+      if (!navigate(href, changesPage ? { focus: 'page', via: 'switcher' } : { via: 'switcher' }) || !changesPage) triggerRef.current?.focus({ preventScroll: true });
     });
   };
 

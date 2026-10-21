@@ -27,7 +27,7 @@ export function AppRail() {
           const name = tx(group.label);
           return <Tooltip key={group.id}><TooltipTrigger asChild>
             <button type="button" aria-label={name} aria-current={active ? 'true' : undefined}
-              onClick={() => { if (!active) navigate(linkTo(firstOpenableMenu(items).id), { focus: 'page' }); }}
+              onClick={() => { if (!active) navigate(linkTo(firstOpenableMenu(items).id), { focus: 'page', via: 'sidebar' }); }}
               className={cn('relative grid size-8 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover', active && 'bg-surface-row-selected text-accent-primary')}>
               {active && <span data-current-marker aria-hidden className="absolute inset-y-2 left-0 w-0.5 rounded-pill bg-accent-primary" />}
               <Icon className="size-4" aria-hidden />
@@ -41,7 +41,7 @@ export function AppRail() {
           className="grid size-8 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover"><Search className="size-4" aria-hidden /></button>
       </TooltipTrigger><TooltipContent side="right">{t('searchPlaceholder')} · {shortcutLabel('K')}</TooltipContent></Tooltip>
       {showBoard && <Tooltip><TooltipTrigger asChild>
-        <button type="button" onClick={() => { if (platformScreen !== 'board') navigate(BOARD_PATH, { focus: 'page' }); }} aria-label={boardLabel} aria-current={platformScreen === 'board' ? 'page' : undefined}
+        <button type="button" onClick={() => { if (platformScreen !== 'board') navigate(BOARD_PATH, { focus: 'page', via: 'sidebar' }); }} aria-label={boardLabel} aria-current={platformScreen === 'board' ? 'page' : undefined}
           className={cn('grid size-8 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover', platformScreen === 'board' && 'bg-surface-row-selected text-accent-primary')}><LayoutGrid className="size-4" aria-hidden /></button>
       </TooltipTrigger><TooltipContent side="right">{boardLabel}</TooltipContent></Tooltip>}
       {overall && can(overall.permission) && <Tooltip><TooltipTrigger asChild>

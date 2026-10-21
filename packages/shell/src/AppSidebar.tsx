@@ -115,7 +115,7 @@ function NavItem({ menu, active, collapsed, href, labelPrefix }: { menu: MenuEnt
   const { linkTo } = usePlatform();
   const { tx, t } = useI18n();
   const Icon = menu.icon;
-  const link = <PlatformLink href={href ?? linkTo(menu.id)} aria-label={labelPrefix ? `${labelPrefix}: ${tx(menu.label)}` : tx(menu.label)} aria-current={active ? 'page' : undefined}
+  const link = <PlatformLink via="sidebar" href={href ?? linkTo(menu.id)} aria-label={labelPrefix ? `${labelPrefix}: ${tx(menu.label)}` : tx(menu.label)} aria-current={active ? 'page' : undefined}
     className={cn('relative flex min-h-8 items-center gap-2 rounded-md px-3 py-1.5 text-sm text-text-secondary hover:bg-surface-row-hover hover:text-text-primary', collapsed && 'justify-center px-0', active && 'bg-surface-row-selected font-semibold text-text-primary')}>
     {active && <span data-current-marker aria-hidden className="absolute inset-y-2 left-0 w-0.5 rounded-pill bg-accent-primary" />}
     <Icon className="size-4 shrink-0" aria-hidden />

@@ -51,6 +51,8 @@
 
 `recordUsage`의 본문을 배열이 아닌 `{ events }`로 감싸는 이유: 최상위 JSON 배열은 나중에 필드(예: 배치 id)를 더할 수 없다.
 
+`UsageEvent`의 선택 필드(#605): `source`·`stayId`(보드 칸)와 본 화면 `entry` 전용 `via`(`sidebar`·`switcher`·`palette`·`board`·`return`·`crossLink`·`drill`·`history`·`direct`·`link` 중 하나)·`fromMenuId`(메뉴 id 문자열 또는 `null`)다. `via`가 집합 밖이거나 `fromMenuId`가 메뉴 id도 `null`도 아니거나, `dwell`·`source: 'board'` 이벤트에 두 필드가 있으면 배치 전체를 `{ accepted: 0 }`으로 거부한다.
+
 **`menuQuery`의 엔드포인트 id는 경로가 아니라 본문에 둔다** [제안]. 이유: (1) 경로 하나라 프록시·인증·로그·rate limit 설정이 한 번이다. (2) 서버는 어차피 본문의 `endpoint`로 자기 선언 사본을 찾는다(체크리스트 §3 1단계 — "등록된 엔드포인트"도 요청 모양 판정의 일부) — 경로에도 있으면 둘이 다를 때의 규칙이 하나 더 생긴다. (3) 클라이언트가 경로를 조립하지 않으므로 `MenuQuery`를 그대로 직렬화하면 끝이다. 대안(한 줄): `POST /api/v1/menu-query/{endpointId}` — 접근 로그에서 엔드포인트별 집계가 쉽지만, 같은 정보는 서버가 구조화 로그에 `endpoint` 필드로 남기면 된다.
 
 다른 대안(한 줄씩): 메서드마다 REST 리소스로 나누기(`GET /audit-events?...`) — 중첩 필터를 쿼리스트링에 인코딩해야 해서 기각. JSON-RPC 한 경로(`POST /api/v1/rpc { method, args }`) — 프록시·로그에서 메서드 구분이 안 되고 FastAPI 라우팅·OpenAPI 이점을 잃어서 기각.

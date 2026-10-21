@@ -13,7 +13,7 @@ import type { QueryHistory } from './query-history';
 import type { QueryHistoryStore } from '@ap/contracts';
 import type { QueryDraft, QueryMissing } from './query-draft';
 import { createRefreshEpochs, type RefreshEpochs } from './refresh-epochs';
-import { buildQuery, ContractError, emptyGlobal, type EquipmentAxisDescriptor, type ContextKey, type GlobalContext, incompleteMetricPair, type ModuleScopedId, isAppRelativePath, type Pair, type ParsedQuery, parseQuery, type Permission, type PlatformAdapter, sameGlobal, type Session, type SessionUser, shift, type SpaceDef, type SpaceId, type Text, type UsageEvent } from '@ap/contracts';
+import { buildQuery, ContractError, emptyGlobal, type EquipmentAxisDescriptor, type ContextKey, type GlobalContext, incompleteMetricPair, type ModuleScopedId, isAppRelativePath, type Pair, type ParsedQuery, parseQuery, type Permission, type PlatformAdapter, sameGlobal, type Session, type SessionUser, shift, type SpaceDef, type SpaceId, type Text, type UsageEvent, type UsageVia } from '@ap/contracts';
 
 const NO_EQUIPMENT_AXES: readonly EquipmentAxisDescriptor[] = [];
 
@@ -80,7 +80,7 @@ type Platform = {
   extras: Pair[];
   pageParam: (key: string) => string | null;
   pageNavigation: PageNavigation;
-  navigate: (url: string, options?: { replace?: boolean; focus?: PageFocus }) => boolean;
+  navigate: (url: string, options?: { replace?: boolean; focus?: PageFocus; via?: UsageVia }) => boolean;
   setGlobal: (patch: Partial<GlobalContext>, options?: { replace?: boolean; silent?: boolean }) => void;
   setPage: (patch: Record<string, string | null>, options?: { replace?: boolean; focus?: PageFocus }) => void;
   resetContext: () => void;
@@ -257,11 +257,14 @@ type AppInternal = {
   enters: (menu: MenuEntry) => boolean;
   usageSessionId: string;
   userIdRef: { readonly current: string };
+  /** Main-screen navigation trail for usage `entry` (#605): the last navigation's `via` and the menu of the screen shown before. Never persisted. */
+  usageNav: { current: UsageNavTrail };
   mainNavigation: ReturnType<typeof createPageNavigation>;
   initialUrl: string;
   recordVisit: (menuId: string, url: string) => void;
   rememberScope: (scopeId: string) => void;
 };
+type UsageNavTrail = { user: string; via: UsageVia | null; seen: boolean; prev: string | null };
 type AppValue = { pub: AppState; internal: AppInternal };
 
 const AppContext = createContext<AppValue | null>(null);
@@ -293,6 +296,19 @@ type ScreenSource = {
   countsUsage?: boolean;
 };
 
+/**
+ * Consumes the pending navigation mark at the real entry (inside the stay's timer, so StrictMode's fake mount never
+ * takes it) and moves the trail to this menu. Unmarked, the tab's first entry is `direct` with no previous menu; a new session
+ * user starts the trail over so a previous user's menu never travels (docs/05, ADR-0020).
+ */
+function takeNavigation(trail: UsageNavTrail, userId: string, menuId: string): { via: UsageVia; fromMenuId: string | null } {
+  if (trail.user !== userId) Object.assign(trail, { user: userId, via: null, seen: false, prev: null });
+  // A pending mark wins; with none, the tab's first entry is `direct` (opened, reloaded, typed) and a later one `link`.
+  const taken = { via: trail.via ?? (trail.seen ? 'link' : 'direct'), fromMenuId: trail.prev };
+  Object.assign(trail, { via: null, seen: true, prev: menuId });
+  return taken;
+}
+
 function makeStayId(): string {
   try { return crypto.randomUUID(); } catch { return `stay-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`; }
 }
@@ -304,7 +320,7 @@ function makeStayId(): string {
  */
 function useScreenState(app: AppValue, source: ScreenSource): { screen: ScreenState; sidebarSpace: SpaceDef | null } {
   const { registry, adapter, session, user, can, canOpen, toast, accessibleSpaces, defaultRangeTo, equipmentAxes } = app.pub;
-  const { enters, usageSessionId, userIdRef } = app.internal;
+  const { enters, usageSessionId, userIdRef, usageNav } = app.internal;
   const { matchRoute, menuById, safeReturnTo } = registry;
   const { url, navigation: pageNavigation, commit, go, mode, paneId } = source;
   const paneLabel = source.paneLabel ?? null;
@@ -340,7 +356,15 @@ function useScreenState(app: AppValue, source: ScreenSource): { screen: ScreenSt
   const page = parsed?.page ?? [];
   const extras = parsed?.extras ?? [];
 
-  const navigate = useCallback((next: string, options?: { replace?: boolean; focus?: PageFocus }) => go(next, options), [go]);
+  // Only the main screen's navigation marks how the next entry was reached; a pane that leaves hands over to the main one (onLeave).
+  const navigate = useCallback((next: string, options?: { replace?: boolean; focus?: PageFocus; via?: UsageVia }) => {
+    const trail = usageNav.current;
+    const before = trail.via;
+    if (mode === 'main') trail.via = options?.via ?? null;
+    const moved = go(next, options);
+    if (mode === 'main' && !moved) trail.via = before;
+    return moved;
+  }, [go, mode, usageNav]);
 
   // A deliberate global-Context change drops the manifest's contextResetKeys (e.g. the result-set page index)
   // from the page pairs in the SAME navigation — one history entry, so Back returns to the pre-change URL
@@ -483,7 +507,11 @@ function useScreenState(app: AppValue, source: ScreenSource): { screen: ScreenSt
   const lastAdmitted = useRef<string | null>(null);
   const countsUsage = source.countsUsage !== false;
   useEffect(() => {
-    if (!countsUsage || !route || routeContractError || !can(route.menu.permission) || !enters(route.menu)) return;
+    if (!countsUsage || !route || routeContractError || !can(route.menu.permission) || !enters(route.menu)) {
+      // The main screen is not a menu now (board, contract error, no access): the next entry's `fromMenuId` is null.
+      if (mode === 'main' && countsUsage) usageNav.current.prev = null;
+      return;
+    }
     const admitKey = `${userId}\0${paneId ?? ''}\0${route.menu.id}\0${pathname}`;
     if (lastAdmitted.current === admitKey) return;
     lastAdmitted.current = admitKey;
@@ -513,7 +541,7 @@ function useScreenState(app: AppValue, source: ScreenSource): { screen: ScreenSt
     const timer = setTimeout(() => {
       if (userIdRef.current !== admitUser) return;
       enteredAt = Date.now();
-      record({ name: 'entry', menuId: menu.id, spaceId, path: menu.path, at: enteredAt, sessionId: usageSessionId, ...provenance });
+      record({ name: 'entry', menuId: menu.id, spaceId, path: menu.path, at: enteredAt, sessionId: usageSessionId, ...provenance, ...(mode === 'main' ? takeNavigation(usageNav.current, admitUser, menu.id) : {}) });
       document.addEventListener('visibilitychange', onHidden);
     }, 0);
     return () => {
@@ -522,7 +550,7 @@ function useScreenState(app: AppValue, source: ScreenSource): { screen: ScreenSt
       lastAdmitted.current = null;
       sendDwell();
     };
-  }, [countsUsage, route, routeContractError, pathname, userId, can, enters, registry, adapter, usageSessionId, userIdRef, paneId, mode]);
+  }, [countsUsage, route, routeContractError, pathname, userId, can, enters, registry, adapter, usageSessionId, userIdRef, usageNav, paneId, mode]);
 
   const pageParam = useCallback((key: string) => page.find(([k]) => k === key)?.[1] ?? null, [page]);
   const resolveReturnOrigin = useCallback((): ReturnOrigin => {
@@ -708,8 +736,13 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
   // Latest session user id, readable from a usage effect's cleanup at call time: a role switch
   // re-renders before the previous effect's cleanup runs, so the closure's own userId is stale there.
   const userIdRef = useRef(userId);
+  const usageNav = useRef<UsageNavTrail>({ user: userId, via: null, seen: false, prev: null });
   // A layout effect: it must be current before the previous usage effect's passive cleanup reads it on a role switch.
-  useLayoutEffect(() => { userIdRef.current = userId; });
+  useLayoutEffect(() => {
+    userIdRef.current = userId;
+    // The identity boundary: a new session user starts the navigation trail over before any of their marks arrive.
+    if (usageNav.current.user !== userId) usageNav.current = { user: userId, via: null, seen: false, prev: null };
+  });
 
   const absoluteUrl = useCallback((next: string) => location.absoluteUrl(next), [location]);
   const defaultRangeTo = adapter.defaultRangeTo();
@@ -719,7 +752,7 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
     session, user, revision, refreshEpochs, can, canOpen, globalMenus, menusInSpace, accessibleSpaces, lastScope, favorites, toggleFavorite, recent,
     toasts, toast, dismissToast, defaultRangeTo, slots, paletteOpen, setPaletteOpen, paletteSession, switcherOpen, setSwitcherOpen, switcherSession,
   };
-  const value: AppValue = { pub, internal: { currentRevision: revisions.get, selectionPortCache, enters, usageSessionId, userIdRef, mainNavigation: pageNavigation, initialUrl, recordVisit, rememberScope } };
+  const value: AppValue = { pub, internal: { currentRevision: revisions.get, selectionPortCache, enters, usageSessionId, userIdRef, usageNav, mainNavigation: pageNavigation, initialUrl, recordVisit, rememberScope } };
   return <AppContext.Provider value={value}><MainScreenProvider app={value}>{children}</MainScreenProvider></AppContext.Provider>;
 }
 
@@ -752,11 +785,12 @@ function MainScreenProvider({ app, children }: { app: AppValue; children: ReactN
       // Back/Forward across menus arrives like a link (06 §26): the title takes focus and a carried
       // `focus=` does not claim the detail panel (ADR-0032). Same-screen history keeps the close-button claim.
       pageNavigation.advance(next, next.split('?')[0] !== pathname ? 'page' : undefined);
+      app.internal.usageNav.current.via = 'history';
       setUrl(next);
     };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
-  }, [pageNavigation, location, pathname]);
+  }, [pageNavigation, location, pathname, app.internal.usageNav]);
 
   // Recent visits (the main screen's own history; a pane never writes them).
   useEffect(() => {
@@ -810,7 +844,7 @@ function MainScreenProvider({ app, children }: { app: AppValue; children: ReactN
   const switchSpace = useCallback((spaceId: SpaceId) => {
     if (currentSpace?.id === spaceId) return;
     const entry = spaceEntry(spaceId);
-    if (entry) navigate(entry.href, { focus: 'page' });
+    if (entry) navigate(entry.href, { focus: 'page', via: 'switcher' });
   }, [currentSpace, spaceEntry, navigate]);
 
   // Stable while the five members are: an unrelated main Scope update must not re-render every pane consumer.
@@ -925,13 +959,14 @@ export function usePlatformOptional(): Platform | null {
 }
 
 /** Anchor that navigates through the kernel (keeps modifier-click/open-in-new-tab behavior). */
-export function PlatformLink({ href, children, className, onNavigate, ...rest }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string; onNavigate?: () => void }) {
+export function PlatformLink({ href, children, className, onNavigate, via, ...rest }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string; onNavigate?: () => void; /** How this link is reported in the usage entry it leads to (default `link`). */ via?: UsageVia }) {
   const { navigate, location, pathname } = usePlatform();
   return <a href={location.href(href)} className={className} {...rest} onClick={e => {
     rest.onClick?.(e);
     if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     e.preventDefault();
-    if (navigate(href, href.split('?')[0] !== pathname ? { focus: 'page' } : undefined)) onNavigate?.();
+    const focus = href.split('?')[0] !== pathname ? { focus: 'page' as const } : undefined;
+    if (navigate(href, via ? { ...focus, via } : focus)) onNavigate?.();
   }}>{children}</a>;
 }
 

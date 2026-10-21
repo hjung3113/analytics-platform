@@ -2,7 +2,7 @@
  * Mock request validation + response envelope (docs/06 §19): exclusive `outcome` plus declared `assessments[]`.
  * Every page query goes through `serve()` so Scope/room grants are re-validated per request (§6.2).
  */
-import { parseDateTime, periodHours, type ApiResponse, type ClientErrorReport, type Assessment, type AssessmentKind, type Condition, type EntityRef, type GlobalContext, type Permission, type ScopeCheck, type SpaceId, type Trust, type UsageEvent, type UsageRange, type UsageSummary } from '@ap/contracts';
+import { parseDateTime, periodHours, type ApiResponse, type ClientErrorReport, type Assessment, type AssessmentKind, type Condition, type EntityRef, type GlobalContext, type Permission, type ScopeCheck, type SpaceId, type Trust, type UsageEvent, type UsageRange, type UsageSummary, type UsageVia } from '@ap/contracts';
 import { EQUIPMENT, SITES, TIME_DOMAIN_ASSERTIONS, USERS, type Equipment, type RoleId, type TimeDomainAssertion } from './world';
 
 /**
@@ -348,7 +348,7 @@ function invalidUsageId(value: string, max: number): boolean {
 /** Declared wire fields (docs/05 v1) — anything else a client sends is an unknown key. */
 const USAGE_KEYS = ['name', 'menuId', 'spaceId', 'path', 'at', 'sessionId'] as const;
 /** Optional on any event (absent = legacy main); not counted as required. */
-const USAGE_OPTIONAL_KEYS = ['source', 'stayId'] as const;
+const USAGE_OPTIONAL_KEYS = ['source', 'stayId', 'via', 'fromMenuId'] as const;
 
 /** True when the event is not exactly the declared wire shape for its name (unknown or missing keys). */
 function hasUnknownUsageKeys(e: UsageEvent): boolean {
@@ -362,6 +362,17 @@ function invalidUsageProvenance(e: UsageEvent): boolean {
   if ('source' in e && e.source !== 'main' && e.source !== 'board') return true;
   if ('stayId' in e) return e.source !== 'board' || invalidUsageId(e.stayId as string, 80);
   return false;
+}
+
+/** Closed `UsageVia` set; a Record keeps it complete (a new member fails typecheck until listed here, #605). */
+const USAGE_VIA_SET: Record<UsageVia, true> = { sidebar: true, switcher: true, palette: true, board: true, return: true, crossLink: true, drill: true, history: true, direct: true, link: true };
+
+/** `via`/`fromMenuId` (#605): main-screen entry only, `via` in the closed set, `fromMenuId` a menu id or null. */
+function invalidUsageNavigation(e: UsageEvent): boolean {
+  if (!('via' in e) && !('fromMenuId' in e)) return false;
+  if (e.name !== 'entry' || (e.source !== undefined && e.source !== 'main')) return true;
+  if ('via' in e && !(typeof e.via === 'string' && Object.hasOwn(USAGE_VIA_SET, e.via))) return true;
+  return 'fromMenuId' in e && e.fromMenuId !== null && (typeof e.fromMenuId !== 'string' || invalidUsageId(e.fromMenuId, 80));
 }
 
 /**
@@ -380,6 +391,7 @@ export async function recordUsage(events: readonly UsageEvent[], opts?: { role?:
     || invalidUsageId(e.path, 200)
     || typeof e.sessionId !== 'string'
     || invalidUsageProvenance(e)
+    || invalidUsageNavigation(e)
     || !validSpaceId(e.spaceId)
     || typeof e.name !== 'string' || (e.name !== 'entry' && e.name !== 'dwell')
     || typeof e.at !== 'number' || !Number.isFinite(e.at)
@@ -401,6 +413,8 @@ export async function recordUsage(events: readonly UsageEvent[], opts?: { role?:
       ...(e.name === 'dwell' && { dwellMs: e.dwellMs, enteredAt: e.enteredAt }),
       ...(e.source !== undefined && { source: e.source }),
       ...(e.stayId !== undefined && { stayId: e.stayId }),
+      ...(e.via !== undefined && { via: e.via }),
+      ...(e.fromMenuId !== undefined && { fromMenuId: e.fromMenuId }),
       userId, receivedAt,
     });
   }
