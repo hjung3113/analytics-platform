@@ -19,6 +19,16 @@ function HistorySession() {
   const [confirm, setConfirm] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
   const list = useRef<HTMLDivElement>(null);
+  const clearButton = useRef<HTMLButtonElement>(null);
+  const cancelButton = useRef<HTMLButtonElement>(null);
+  const confirmationFocus = useRef<'cancel' | 'clear' | 'list' | null>(null);
+  useLayoutEffect(() => {
+    const target = confirmationFocus.current;
+    confirmationFocus.current = null;
+    if (target === 'cancel') cancelButton.current?.focus();
+    else if (target === 'clear') clearButton.current?.focus();
+    else if (target === 'list') list.current?.focus();
+  });
   const removalFocus = useRef<number | null>(null);
   useLayoutEffect(() => {
     if (removalFocus.current === null || history.status === 'loading') return;
@@ -67,9 +77,9 @@ function HistorySession() {
       {history.status === 'ready' && history.entries.length === 0 && <p className="text-xs text-text-secondary">{ko ? '최근 조회 조건이 없습니다.' : 'No recent conditions.'}</p>}
       {confirm ? <div role="group" aria-label={ko ? '최근 조건 모두 지우기 확인' : 'Confirm clearing history'} className="flex flex-wrap items-center gap-2">
         <span className="text-xs text-text-secondary">{ko ? '최근 조건을 모두 지울까요?' : 'Clear all recent conditions?'}</span>
-        <Button type="button" variant="ghost" size="toolbar" onClick={() => setConfirm(false)}>{ko ? '취소' : 'Cancel'}</Button>
-        <Button type="button" variant="secondary" size="toolbar" onClick={() => { setConfirm(false); void history.clear(); list.current?.focus(); }}>{ko ? '지우기 확인' : 'Confirm clear'}</Button>
-      </div> : <Button type="button" variant="ghost" size="toolbar" disabled={history.entries.length === 0} onClick={() => setConfirm(true)}>{ko ? '모두 지우기' : 'Clear all'}</Button>}
+        <Button ref={cancelButton} type="button" variant="ghost" size="toolbar" onClick={() => { confirmationFocus.current = 'clear'; setConfirm(false); }}>{ko ? '취소' : 'Cancel'}</Button>
+        <Button type="button" variant="secondary" size="toolbar" onClick={() => { confirmationFocus.current = 'list'; setConfirm(false); void history.clear(); }}>{ko ? '지우기 확인' : 'Confirm clear'}</Button>
+      </div> : <Button ref={clearButton} type="button" variant="ghost" size="toolbar" disabled={history.entries.length === 0} onClick={() => { confirmationFocus.current = 'cancel'; setConfirm(true); }}>{ko ? '모두 지우기' : 'Clear all'}</Button>}
       </div>
     </PopoverContent>
   </Popover>;

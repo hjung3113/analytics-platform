@@ -11,7 +11,7 @@ import type { ScopeState } from './platform';
 export type DraftValues = QueryDraft['draft'];
 type Values = DraftValues;
 type RecordEvent = { port: QueryHistoryStore; key: QueryHistoryKey; entry: QueryHistoryEntry };
-type Snapshot = { identity: string; session: Session; address: string; draft: Values; editRevision: number; historyInitialized: boolean; pageBasis?: GlobalContext; pending: { source: string; target: string; dispatching: boolean; record?: RecordEvent } | null };
+type Snapshot = { identity: string; session: Session; address: string; addressGeneration: number; draft: Values; editRevision: number; historyInitialized: boolean; pageBasis?: GlobalContext; pending: { source: string; target: string; dispatching: boolean; editRevision: number; record?: RecordEvent } | null };
 export function createDraftStore() {
   let snapshot: Snapshot | null = null;
   const listeners = new Set<() => void>();
@@ -41,10 +41,10 @@ function initial(input: DraftInputs): Values {
     : { global: input.global, page: input.page };
 }
 function reconcile(state: Snapshot | null, input: DraftInputs): Snapshot {
-  if (!state || state.identity !== input.identity || state.session !== input.session) return { identity: input.identity, session: input.session, address: input.url, draft: initial(input), editRevision: 0, historyInitialized: false, pageBasis: undefined, pending: null };
-  if (state.pending && state.pending.target === input.url) return { ...state, address: input.url, pageBasis: input.global, pending: null };
+  if (!state || state.identity !== input.identity || state.session !== input.session) return { identity: input.identity, session: input.session, address: input.url, addressGeneration: (state?.addressGeneration ?? -1) + 1, draft: initial(input), editRevision: 0, historyInitialized: false, pageBasis: undefined, pending: null };
+  if (state.pending && state.pending.target === input.url) return { ...state, address: input.url, addressGeneration: state.addressGeneration + 1, pageBasis: state.editRevision === state.pending.editRevision ? input.global : state.pageBasis, pending: null };
   if (state.pending?.source === input.url || state.address === input.url) return state;
-  return { ...state, address: input.url, draft: initial(input), editRevision: 0, historyInitialized: false, pageBasis: undefined, pending: null };
+  return { ...state, address: input.url, addressGeneration: (state?.addressGeneration ?? -1) + 1, draft: initial(input), editRevision: 0, historyInitialized: false, pageBasis: undefined, pending: null };
 }
 export function queryMissing(menu: MenuEntry | null, global: GlobalContext, page: Pair[]): QueryMissing[] {
   return [
@@ -146,7 +146,7 @@ export function useScreenDraft(input: DraftInputs) {
       const target = input.url.split('?')[0] + buildQuery(next.global, next.page, input.extras);
       const query = canonicalHistoryQuery(next, input.menu?.pageKeys ?? []);
       const record: RecordEvent | undefined = input.history && input.menu ? { port: input.history, key: { userId: input.session.user.id, menuId: input.menu.id, scopeId: next.global.scopeId }, entry: { id: queryHistoryId(query), query, schemaVersion: 1, lastAppliedAt: Date.now(), count: 1 } } : undefined;
-      const pending = { source: input.url, target, dispatching: true, record };
+      const pending = { source: input.url, target, dispatching: true, editRevision: previous.editRevision + 1, record };
       store.put({ ...previous, draft: next, pending, editRevision: previous.editRevision + 1 });
       try { if (!input.commit(target, 'push')) store.put({ ...previous, draft: next, pending: null }); }
       catch (error) { store.put({ ...previous, pending: null }); throw error; }

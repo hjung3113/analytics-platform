@@ -55,3 +55,25 @@ it('masks unavailable values, keeps remove outside options and cancels clear con
 it('has no control without an injected store', () => {
   mount(false); expect(screen.queryByRole('button', { name: '최근 조건' })).toBeNull();
 });
+
+it('keeps keyboard focus through clear confirmation, cancellation and the empty list', async () => {
+  const store = mount();
+  vi.mocked(store.clear).mockImplementation(async () => { vi.mocked(store.list).mockResolvedValue([]); });
+  fireEvent.click(screen.getByRole('button', { name: '최근 조건' }));
+  await screen.findByRole('option', { name: /own-history/ });
+  const clear = screen.getByRole('button', { name: '모두 지우기' });
+  act(() => clear.focus());
+  fireEvent.click(clear);
+  const cancel = screen.getByRole('button', { name: '취소' });
+  expect(cancel).toHaveFocus();
+  fireEvent.click(cancel);
+  expect(screen.getByRole('button', { name: '모두 지우기' })).toHaveFocus();
+  expect(store.clear).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: '모두 지우기' }));
+  const confirm = screen.getByRole('button', { name: '지우기 확인' });
+  act(() => confirm.focus());
+  fireEvent.click(confirm);
+  await screen.findByText('최근 조회 조건이 없습니다.');
+  expect(store.clear).toHaveBeenCalledTimes(1);
+  expect(screen.getByRole('listbox')).toHaveFocus();
+});

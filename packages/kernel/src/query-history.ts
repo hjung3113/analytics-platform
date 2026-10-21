@@ -173,8 +173,9 @@ export function useScreenHistory(input: DraftInputs, store: DraftStore, normaliz
       const source = history.get(); const index = source.rows.indexOf(row);
       if (index < 0 || row.status !== 'ready') return false;
       const revision = store.get()?.editRevision;
+      const addressGeneration = store.get()?.addressGeneration;
       const checked = await validate([source.raw[index]]);
-      if (!current() || history.get() !== source || store.get()?.editRevision !== revision) return false;
+      if (!current() || history.get() !== source || store.get()?.editRevision !== revision || store.get()?.addressGeneration !== addressGeneration) return false;
       if (checked[0]?.status !== 'ready') { history.put({ ...source, rows: source.rows.map((old, i) => i === index ? checked[0] : old) }); return false; }
       replace(checked[0].candidate); return true;
     },

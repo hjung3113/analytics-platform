@@ -247,3 +247,52 @@ it.each(['scope', 'selection'] as const)('aborts pending history %s checks on re
   view.unmount();
   expect(signals[1].aborted).toBe(true);
 });
+
+it.each([false, true])('rejects a pending restore after a same-route address rebase (return to original: %s)', async returnToOriginal => {
+  const session = testSession(['platform:view']);
+  const pending = deferred<{ status: 'valid'; grantedRooms: string[] }>();
+  let delay = false;
+  const adapter = testAdapter({ session: () => session, validateScope: () => delay ? pending.promise : Promise.resolve({ status: 'valid', grantedRooms: [] }) });
+  const applied = { ...global, scopeId: 'MEM' };
+  const store: QueryHistoryStore = { list: async () => [entry(buildQuery(applied, [['filter', 'restored']]))], record: async () => {}, remove: async () => {}, clear: async () => {} };
+  const original = '/' + buildQuery(applied, [['filter', 'original']]);
+  window.history.replaceState(null, '', original);
+  render(<I18nProvider><PlatformProvider registry={registry} adapter={adapter} queryHistory={store}><Probe /></PlatformProvider></I18nProvider>);
+  await waitFor(() => expect(screen.scope.status).toBe('valid'));
+  act(() => history.open());
+  await waitFor(() => expect(history.entries[0]?.status).toBe('ready'));
+  delay = true;
+  let restoring!: Promise<boolean>;
+  act(() => { restoring = history.restore(history.entries[0]); });
+  act(() => { window.history.pushState(null, '', '/' + buildQuery(applied, [['filter', 'external']])); window.dispatchEvent(new PopStateEvent('popstate')); });
+  if (returnToOriginal) act(() => { window.history.replaceState(null, '', original); window.dispatchEvent(new PopStateEvent('popstate')); });
+  const rebased = screen.queryDraft.draft;
+  await act(async () => { pending.resolve({ status: 'valid', grantedRooms: [] }); expect(await restoring).toBe(false); });
+  expect(screen.queryDraft.draft).toEqual(rebased);
+  expect(screen.queryDraft.draft.page).toEqual([['filter', returnToOriginal ? 'original' : 'external']]);
+});
+
+it('preserves restored reset-key provenance after an older pane Apply acknowledgement', async () => {
+  const session = testSession(['platform:view']);
+  const changed = vi.fn();
+  const restored = { ...global, from: '2026-08-01T00:00:00' };
+  const store: QueryHistoryStore = { list: async () => [entry(buildQuery(restored, [['page', '7']]))], record: async () => {}, remove: async () => {}, clear: async () => {} };
+  let echo!: (value: PaneScreen) => void;
+  function Pane() {
+    const [value, setValue] = useState<PaneScreen>({ menuId: 'home', params: {}, query: buildQuery(global) }); echo = setValue;
+    return <PaneQueryDraftProvider screens={{ one: value }}><PaneScreenProvider paneId="one" screen={value} onChange={changed} onLeave={() => {}}><Probe /></PaneScreenProvider></PaneQueryDraftProvider>;
+  }
+  window.history.replaceState(null, '', '/');
+  render(<I18nProvider><PlatformProvider registry={registry} adapter={testAdapter({ session: () => session })} queryHistory={store}><Pane /></PlatformProvider></I18nProvider>);
+  await waitFor(() => expect(history.status).toBe('ready'));
+  act(() => history.open());
+  await waitFor(() => expect(history.entries[0]?.status).toBe('ready'));
+  act(() => { screen.queryDraft.setDraftPage({ filter: 'clicked' }); screen.queryDraft.apply(); });
+  expect(changed).toHaveBeenCalledTimes(1);
+  await act(async () => { expect(await history.restore(history.entries[0])).toBe(true); });
+  act(() => echo(changed.mock.calls[0][0]));
+  expect(screen.queryDraft.draft).toEqual({ global: restored, page: [['page', '7']] });
+  act(() => screen.queryDraft.apply());
+  expect(changed).toHaveBeenCalledTimes(2);
+  expect(changed.mock.calls[1][0].query).toBe(buildQuery(restored, [['page', '7']]));
+});
