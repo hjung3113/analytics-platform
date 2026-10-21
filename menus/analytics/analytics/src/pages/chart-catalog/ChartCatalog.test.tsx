@@ -58,7 +58,7 @@ describe('chart catalog route and lifetime', () => {
     cleanup(); mount(new URL(state).searchParams.get('kind')!);
     expect((await screen.findByRole('tab', { name: /^막대 / })).getAttribute('aria-selected')).toBe('true');
   });
-  it('opens/closes the rail with focus return, supports separator keys, and restores persisted width', async () => {
+  it('opens/closes the rail with focus return, supports separator keys, and keeps the width while the page stays open', async () => {
     mount(); await screen.findByRole('img');
     click('동작·지원 열기');
     expect(document.activeElement).toBe(screen.getByRole('button', { name: '동작·지원 접기' }));
@@ -71,7 +71,6 @@ describe('chart catalog route and lifetime', () => {
     fireEvent.keyDown(separator, { key: 'End' });
     click('동작·지원 접기');
     expect(document.activeElement).toBe(screen.getByRole('button', { name: '동작·지원 열기' }));
-    cleanup(); mount(); await screen.findByRole('img');
     click('동작·지원 열기'); expect(screen.getByRole('separator').getAttribute('aria-valuenow')).toBe('420');
     click('너비 초기화'); expect(screen.getByRole('separator').getAttribute('aria-valuenow')).toBe('300');
   });

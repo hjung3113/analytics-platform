@@ -9,14 +9,9 @@ import { kindLabels, statusLabels, supportCounts, supportFor } from './support';
 import { useWorkspace } from './useWorkspace';
 
 type Preference = { open: boolean; width: number };
-const preferenceKey = 'platform:chart-catalog:rail:v1';
+// In-memory only: menu code cannot touch web storage (lint); persisting the rail waits for a
+// component-owned panel preference (#575, backlog).
 function readPreference(): Preference {
-  try {
-    const value: unknown = JSON.parse(localStorage.getItem(preferenceKey) ?? 'null');
-    if (value && typeof value === 'object' && 'open' in value && 'width' in value && typeof value.open === 'boolean' && typeof value.width === 'number' && Number.isFinite(value.width)) {
-      return { open: value.open, width: Math.max(240, Math.min(420, value.width)) };
-    }
-  } catch { /* Storage can be denied; the preference remains in memory. */ }
   return { open: false, width: 300 };
 }
 
@@ -49,9 +44,6 @@ function CatalogWorkspace({ query }: { query: QueryState<CatalogData> }) {
   const maxWidth = narrow ? 420 : Math.max(240, Math.min(420, width - 480 - 24));
   const effectiveWidth = Math.min(preference.width, maxWidth);
   const support = supportFor(kind, route?.menu.features);
-  useEffect(() => {
-    try { localStorage.setItem(preferenceKey, JSON.stringify(preference)); } catch { /* Memory-only when storage is denied. */ }
-  }, [preference]);
   useLayoutEffect(() => {
     panel.current?.style.setProperty('--catalog-support-width', `${effectiveWidth}px`);
   }, [effectiveWidth, preference.open, focus, narrow]);
