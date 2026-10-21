@@ -13,6 +13,7 @@ import {
 import { attentionRows, computeKpis, drillEquipmentRows, drillStgroupRows, occupancyBreakdown, trendBuckets } from './productivity';
 import { executionOccurrence } from './execution';
 import { cycleMock } from './cycle';
+import { chartCatalogMock } from './chart-catalog';
 
 /** Kernel period gate makes a null period unreachable; degrade to empty data instead of crashing a raw engine call. */
 const EMPTY_KPIS: KpisData = {
@@ -105,4 +106,5 @@ export const analyticsMock: readonly AnyMockEndpoint[] = [
   }),
   executionOccurrence,
   ...cycleMock,
+  chartCatalogMock,
 ];

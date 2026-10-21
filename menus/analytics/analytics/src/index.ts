@@ -12,6 +12,13 @@ const noFeatures = { export: false, savedView: false, annotate: false, compare: 
 
 export const manifests: MenuEntry[] = [
   {
+    id: 'chart-catalog', group: 'analytics', label: { ko: '차트 카탈로그', en: 'Chart catalog' },
+    description: { ko: '차트 종류별 동작과 지원 조건을 확인합니다.', en: 'Explore chart interactions and support conditions.' },
+    path: '/analytics/chart-catalog', icon: Activity, permission: 'analytics:view', requiresScope: true, pageType: 'analysis',
+    context: { ...none, time: 'apply' }, features: { export: true, savedView: false, annotate: true, compare: true }, pageKeys: ['kind'],
+    component: lazy(() => import('./pages/chart-catalog/ChartCatalog')),
+  },
+  {
     id: 'productivity-overview', primary: true, group: 'analytics', label: { ko: '생산성 개요', en: 'Productivity overview' },
     description: { ko: '물리 점유율, 비Process 체류, 사이클타임 P50·P95, Job 처리량을 요약합니다.', en: 'Occupancy, non-process dwell, cycle time P50/P95 and job throughput.' },
     path: '/analytics/productivity', icon: Activity, permission: 'analytics:view', requiresScope: true, pageType: 'overview',

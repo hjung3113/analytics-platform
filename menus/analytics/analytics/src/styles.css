@@ -1,1 +1,5 @@
 @source "./";
+
+/* Menu-local rail; #575 owns the future shared workspace API. */
+.catalog-support-panel { width: var(--catalog-support-width, 300px); }
+.catalog-support-stacked { max-height: 40%; width: 100%; }

@@ -36,3 +36,15 @@ test.describe('하위 경로 배포 (06 §6.4)', () => {
     await evidence(page, testInfo, 'base-path-navigation');
   });
 });
+
+test('차트 카탈로그의 /demo/ 직접 kind 링크와 새로고침 (06 §16, #530)', async ({ page }, testInfo) => {
+  await signInAs(page, 'engineer');
+  await page.goto(`${BASE}/analytics/chart-catalog?v=1&scopeId=MEM&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00&kind=pareto`);
+  await expect(page.getByRole('heading', { name: '차트 카탈로그', level: 1 })).toBeVisible();
+  await expect(page.getByRole('tab', { name: /^파레토 / })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('region', { name: '차트 작업 영역', exact: true }).getByRole('img')).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('tab', { name: /^파레토 / })).toHaveAttribute('aria-selected', 'true');
+  expect(new URL(page.url()).pathname).toBe(`${BASE}/analytics/chart-catalog`);
+  await evidence(page, testInfo, 'base-path-chart-catalog');
+});

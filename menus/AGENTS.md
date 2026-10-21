@@ -7,7 +7,7 @@ Registry 7개 그룹마다 하나의 패키지(`@ap/menu-<group>`)다. 메뉴가
 | `@ap/menu-home` | `menus/_global/home` | `overview` | OperationsHome |
 | `@ap/menu-equipment` | `menus/analytics/equipment` | `equipment` | EquipmentMaster, EquipmentDetail |
 | `@ap/menu-master-data` | `menus/analytics/master-data` | `masterData` | 없음(계획 메뉴 manifest만) |
-| `@ap/menu-analytics` | `menus/analytics/analytics` | `analytics` | ProductivityOverview, CycleTimeDrilldown, ExecutionDetail + Wafer Journey(계획) |
+| `@ap/menu-analytics` | `menus/analytics/analytics` | `analytics` | ProductivityOverview, CycleTimeDrilldown, ExecutionDetail, ChartCatalog + Wafer Journey(계획) |
 | `@ap/menu-metrics` | `menus/metrics/metrics` | `metrics` | MetricCatalog, MetricDetail |
 | `@ap/menu-notice-voc` | `menus/_global/notice-voc` | `noticeVoc` | MyVocHistory(내 VOC, #60 — 조회는 메뉴 엔드포인트 `noticeVoc.myVocHistory`·`mySurveyHistory`, #131) + 공지(계획) |
 | `@ap/menu-admin` | `menus/operations/admin` | `admin` | AccessDirectory(권한/역할 조회 전용, #49), AuditTrail(변경 감사, #50), UsageOverview, RegistryCatalog |
