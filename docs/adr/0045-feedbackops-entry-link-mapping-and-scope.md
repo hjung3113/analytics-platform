@@ -1,6 +1,6 @@
 # FeedbackOps 진입 링크: 매핑은 앱 정적 표, 설문은 목록·상세까지, 복귀는 FeedbackOps에 요청, 전체 진입은 전용 권한
 
-상태: **Decided (2026-10-19).** #81의 결정 질문을 닫는다. 구현은 #251(링크 계약·매핑 연결)이 맡는다. 이 결정은 [ADR-0027](0027-feedbackops-stays-standalone-entry-links.md)의 "공간 → Managed System 매핑"과 "전체 링크 노출 권한(Candidate)"을 정한다.
+상태: **Decided (2026-10-19)**, 결정 1(매핑 원천)은 [ADR-0067](0067-permission-scope-and-business-system-link.md)이 서버 연결 표로 개정했다(2026-10-22, 서버가 생기기 전까지는 정적 표 그대로). #81의 결정 질문을 닫는다. 구현은 #251(링크 계약·매핑 연결)이 맡는다. 이 결정은 [ADR-0027](0027-feedbackops-stays-standalone-entry-links.md)의 "공간 → Managed System 매핑"과 "전체 링크 노출 권한(Candidate)"을 정한다.
 - 결정자: 사용자 — 2026-10-19, 네 질문에 답함(매핑 원천 "앱 설정 정적 표", 설문 "목록·상세만", 복귀 "FeedbackOps에 복귀 요청", 전체 링크 "협업 담당자 권한"). 나머지 세 항목(VOC prefill, VOC 상세 view, 계약 버전)은 에이전트가 #81 권고대로 정했고 사용자가 같은 메시지에서 보고받았다.
 
 #81은 phase-1 딥링크(#61)를 넓히려면 FeedbackOps 쪽 결정이 필요한 항목을 모은 이슈였다. 이슈를 쓴 뒤 FeedbackOps가 바뀌었다(서브모듈 `dc7638f`, 원본 develop에서 확인): VOC(`/vocs`)·Task(`/tasks`)·설문(`/surveys`) 목록이 모두 `managedSystem` 검색 키를 받고(Task·설문은 uuid 또는 `all`), 공개 설문 링크 ADR-0036은 Rejected(2026-10-13)이며 응답자는 AD 인증 내부 사용자다. FeedbackOps의 `returnTo`는 생겼지만 같은 앱 안 경로 세 개(`/home`·`/integration`·`/integration/coverage`)만 받는다. VOC 생성은 여전히 `managedSystem` 외의 미리 채움 키가 없다.

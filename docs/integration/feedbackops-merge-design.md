@@ -54,9 +54,13 @@ FeedbackOps를 플랫폼 앱 하나·서버 하나·저장소 하나로 합친�
 
 다른 업무 공간 사이드바의 FeedbackOps 블록([ADR-0045](../adr/0045-feedbackops-entry-link-mapping-and-scope.md))은 새 탭 링크에서 셸 안 이동 + 업무 시스템 미리 채움 + 복귀로 바뀐다.
 
-### 3.3 권한·레지스트리 관리 — 결정 대기
+### 3.3 권한·레지스트리 관리 — Decided ([ADR-0067](../adr/0067-permission-scope-and-business-system-link.md))
 
-[#596](https://github.com/hjung3113/analytics-platform/issues/596)(ready-for-human) 답에 따라 정한다. 후보: 권한 요청 승인·부여/거부 목록·Managed System 레지스트리는 운영 콘솔로, Analytics Area 관리는 메뉴 Registry에서 파생(Analytics Area의 정의가 "관리되는 분석 메뉴 맥락"이므로). 답 전에는 FeedbackOps `/admin/*` 화면을 피드백 운영 시스템 안에 그대로 옮긴다.
+- **최종 위치:**
+  - 운영 콘솔: 권한 요청 승인, 부여·거부 목록
+  - `피드백 운영` 설정: Managed System Registry와 기본값, 공간 연결, Analytics Area. Analytics Area는 메뉴 Registry에서 자동 생성하지 않고 메뉴 id를 선택해 연결한다.
+- **합류 단계 1–4:** FeedbackOps `/admin/*`를 `피드백 운영` 안에 그대로 옮긴다. 승인 화면을 콘솔로 옮기는 것은 ADR-0067 결정 2의 스키마가 들어간 뒤에 따로 한다.
+- **누출 조건:** `console:access`로 승인 권한이나 FeedbackOps 감사 상세를 열지 않는다.
 
 ## 4. 서버 출발점 (Candidate)
 
@@ -156,19 +160,22 @@ FeedbackOps를 플랫폼 앱 하나·서버 하나·저장소 하나로 합친�
   - 플랫폼은 IdP 그룹 claim 사양을 기다린다(#98, O2).
   - 두 결정이 부딪힌다. 결정은 #596 질문 2에서 한다.
 
-## 5. 권한·업무 시스템 통합 (Candidate, 결정은 #596)
+## 5. 권한·업무 시스템 통합 (Decided, [ADR-0067](../adr/0067-permission-scope-and-business-system-link.md))
 
-- 플랫폼이 소유: 신원(세션), 역할, 업무 시스템별 부여·거부, 요청·승인 화면, 감사.
-- FeedbackOps가 소유: 도메인 판정("이 VOC를 Triage할 수 있나", "이 Task를 바꿀 수 있나"). 플랫폼 부여를 읽어서 판정하고, 판정 결과의 감사는 같은 감사 저장소에 남긴다.
-- Managed System은 FeedbackOps의 범위·필터·기본값·Developer 권한 맥락이다. 플랫폼 업무 시스템과의 관계(1:1로 한 레지스트리, 또는 업무 시스템 아래 여럿)는 #596 질문 1.
-- 플랫폼 화면은 권한을 표시만 한다. 판정의 원본은 서버다(06 §17, FeedbackOps 경계 규칙과 같음).
+- **부여 체계는 FeedbackOps 것 하나다.**
+  - Role Level은 유지하고, 플랫폼 권한은 FeedbackOps Capability 어휘로 합친다. `@ap/contracts` `PERMISSIONS`와는 계약 테스트로 묶는다.
+  - 범위는 `scope_kind`(`managed_system | space | site | site_room`)로 표현하고, 구현은 앞의 둘만 한다.
+  - 출시 조건: 판정·유효 권한·목록·unique 인덱스를 한 변경으로 고치고, kind별 누출 테스트를 넣는다.
+- **Managed System과 업무 시스템:** 레지스트리는 둘이고 연결 표로 잇는다. 키는 `(workspace_id, space_id)`이고, 값은 `managed_system_id`다. 연결은 기본값과 이동에만 쓰이고 권한을 주지 않는다.
+- **판정:** FeedbackOps 도메인 판정은 그대로 FeedbackOps 백엔드가 한다. 플랫폼 화면은 권한을 표시만 한다(06 §17).
+- **Admin 승인:** workspace 수준을 유지한다. 부여·거부·역할 쓰기는 모두 `sessionVersion`을 바꾼다.
 
 ## 6. 단계 (Candidate)
 
 | 단계 | 내용 | 이슈 | 선행 |
 | --- | --- | --- | --- |
 | 0 | 결정·설계 기록(이 문서, ADR-0066, FeedbackOps ADR-0072) | — | — |
-| 1 | 저장소 합류: 코드를 workspace로, 도구(Node 26.7·pnpm 11·turbo)·게이트·CI·지침 합치기. 독립 앱은 그대로 동작 | [#592](https://github.com/hjung3113/analytics-platform/issues/592) | 0 |
+| 1 | 저장소 합류. 1a는 서브모듈을 디렉터리로 바꾸고 CI를 옮겼다(완료, #612). 1b는 도구 통일(Node 26.7, pnpm 11, lockfile 하나, `@ap/ui` `workspace:*`)이고 #594 전에 SDK 세션과 맞춘다 | [#592](https://github.com/hjung3113/analytics-platform/issues/592) | 0 |
 | 2 | 실서버 출발점: §4 공통 부분, 실어댑터 조립 | [#593](https://github.com/hjung3113/analytics-platform/issues/593) | 1 |
 | 3 | 전역 기능 화면(§3.1) — 시안 컨펌 먼저 | [#594](https://github.com/hjung3113/analytics-platform/issues/594) | 1, 2 |
 | 4 | 피드백 운영 업무 시스템(§3.2) — 시안 컨펌 먼저 | [#595](https://github.com/hjung3113/analytics-platform/issues/595) | 1, 2 |

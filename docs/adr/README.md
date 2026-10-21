@@ -72,6 +72,7 @@
 | [0064](0064-topn-bar-and-lane-timeline.md) | TopN은 ChartSpec, Lane 시간선은 독립 Canvas 2D 부품 | Decided(2026-10-21, 코디네이터 위임) — #576 |
 | [0065](0065-log-dev-and-improvement-spaces-work-queue-first.md) | 표준 로그 개발·개선 실행 공간은 내 작업 우선(C) 메뉴 구성, 메뉴는 예정으로 등록 | Decided(2026-10-21, 사용자) — #252 |
 | [0066](0066-feedbackops-merges-into-platform.md) | FeedbackOps를 플랫폼에 합친다 — 모두가 쓰는 기능은 플랫폼 전역, 관리자·개발자 화면은 업무 시스템 하나, 서버는 FeedbackOps 백엔드에서 출발, 독립 앱 은퇴 | Decided(2026-10-21, 사용자) — 0027·0038 대체, 설계 [합류 설계](../integration/feedbackops-merge-design.md), 지도 #598 |
+| [0067](0067-permission-scope-and-business-system-link.md) | 권한은 FeedbackOps 부여 체계 하나로 업무 시스템까지 넓히고(`scope_kind`, 누출 테스트가 출시 조건), Managed System은 공간에 연결만 하며(권한을 주지 않음), 관리 화면은 최종적으로 콘솔(승인)과 피드백 운영(도메인 설정)으로 나눈다 | Decided(2026-10-22, 코디네이터, 사용자 위임) — #596, ADR-0045 결정 1 개정 |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 
