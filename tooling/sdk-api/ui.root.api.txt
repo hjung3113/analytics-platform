@@ -111,6 +111,9 @@ ListToolbarProps | interface | interface ListToolbarProps { action?: React.React
 ListToolbarTab | interface | interface ListToolbarTab { badgeCount?: number; controlsId?: string; disabled?: boolean; icon?: LucideIcon; id?: string; label: string; testId?: string; tip?: string; urgent?: boolean; value: string; }
 Mention | const | const Mention: Node<any, any>
 MentionAttrs | interface | interface MentionAttrs { actor_id: string; }
+MultiCombobox | function | function MultiCombobox({ values, onValuesChange, options, getLabel, label, 'aria-labelledby': labelledBy, listboxLabel, emptyText, selectedSummaryLabel, moreLabel, clearAllLabel, removeLabel, placeholder, searchPlaceholder, search: controlledSearch, onSearchChange, loading, loadingText, error, onRetry, retryLabel, hasMore, onLoadMore, maxVisibleChips, maxSelected, maxSelectedText, disabled, id, className, 'aria-invalid': invalid, 'aria-describedby': describedBy, }: @ap/ui#MultiComboboxProps): React.JSX.Element
+MultiComboboxOption | interface | interface MultiComboboxOption { description?: string; disabled?: boolean; label: string; value: string; }
+MultiComboboxProps | type | type MultiComboboxProps = MultiComboboxBaseProps & ({ 'aria-labelledby': string; label?: string; } | { 'aria-labelledby'?: string; label: string; }) & ({ maxSelected: number; maxSelectedText: string; } | { maxSelected?: undefined; maxSelectedText?: string; })
 NestedTextBlock | function | function NestedTextBlock({ children, className }: @ap/ui#NestedTextBlockProps): React.JSX.Element
 NestedTextBlockProps | interface | interface NestedTextBlockProps { children: React.ReactNode; className?: string; }
 ObjectRow | const | const ObjectRow: React.ForwardRefExoticComponent<@ap/ui#ObjectRowProps & React.RefAttributes<HTMLDivElement>>
@@ -240,6 +243,7 @@ ClientSanitizeSurface | type | type ClientSanitizeSurface = UISurface
 DialogContentProps | interface | interface DialogContentProps extends React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> { closeLabel?: string; scrim?: 'modal' | 'palette'; }
 DialogFooterProps | interface | interface DialogFooterProps extends React.HTMLAttributes<HTMLDivElement> { spacing?: 'compact' | 'default'; }
 LegacyVariant | type | type LegacyVariant = 'primary' | 'subtle'
+MultiComboboxBaseProps | interface | interface MultiComboboxBaseProps { 'aria-describedby'?: string; 'aria-invalid'?: React.AriaAttributes['aria-invalid']; className?: string; clearAllLabel: string; disabled?: boolean; emptyText: string; error?: string; getLabel?: (value: string) => string; hasMore?: boolean; id?: string; listboxLabel: string; loading?: boolean; loadingText: string; maxVisibleChips?: number; moreLabel: string; onLoadMore?: () => void; onRetry?: () => void; onSearchChange?: (search: string) => void; onValuesChange: (values: string[]) => void; options: readonly @ap/ui#MultiComboboxOption[]; placeholder?: string; removeLabel: (label: string) => string; retryLabel: string; search?: string; searchPlaceholder?: string; selectedSummaryLabel: (count: number) => string; values: readonly string[]; }
 PopoverContentPadding | type | type PopoverContentPadding = 'compact' | 'default' | 'none'
 PopoverContentProps | interface | interface PopoverContentProps extends React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Content> { padding?: PopoverContentPadding; }
 RadioGroupAppearance | type | type RadioGroupAppearance = 'default' | 'segmented'
