@@ -47,7 +47,8 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
 1. 바뀐 패키지 검사.
 2. 루트 `pnpm lint && pnpm typecheck && pnpm test --concurrency=2 && pnpm build`를 순서대로 한 번 돌린다. test의 상한은 CI와 같고, 빠지면 과부하로 시간 초과 실패가 난다([operations.md](../../docs/agents/operations.md)). 의존 패키지가 바뀐 브랜치는 캐시를 피하려 `pnpm exec turbo run <task> --filter='!@fops/*' --force`(test는 `--concurrency=2`)로 돌린다.
 3. Kernel·셸·공통 컴포넌트·mock 서버가 바뀌었으면 E2E를 돌린다. 새 describe만 먼저(`cd apps/platform-e2e && pnpm exec playwright test -g "<describe>"`), 그다음 관련 E2E 또는 전체 `pnpm e2e`.
-4. `python3 $ENGINE/worker-hygiene.py <worktree>`: 이유 없는 새 `eslint-disable`과 `eslint-suppressions.json` 증가는 실패, 공백만 바뀐 변경은 보고만 한다(설정 `worker_hygiene`).
+5. **FeedbackOps(`products/feedbackops/**`)를 바꿨으면** 그 디렉터리에서 `scripts/ci/gate.sh static --base origin/main`, `unit`, `integration` 세 단계를 모두 돌린다. integration은 임시 DB에서 돌리고 5434는 쓰지 않는다. 플랫폼 루트 검사는 FeedbackOps를 보지 않는다. 한 단계라도 빼면 CI가 대신 잡는다(#620: unit을 빼서 proxy 완전성 테스트 실패를 CI에서야 봤다). 새 파일은 커밋 전에 `pnpm exec biome format --write`를 돌린다(#603·#620에서 포맷만으로 static 실패).
+6. `python3 $ENGINE/worker-hygiene.py <worktree>`: 이유 없는 새 `eslint-disable`과 `eslint-suppressions.json` 증가는 실패, 공백만 바뀐 변경은 보고만 한다(설정 `worker_hygiene`).
 
 디자인 lint 오류는 메시지가 알려 주는 토큰·variant·부품으로 고치고, suppressions에 새 위반을 더하지 않는다. 기계적으로 직접 고쳐도 되는 것에는 빠진 mock 등록(`MOCK_ENDPOINTS`, `server-conformance.test.ts`의 `PARAMS`)도 들어간다.
 
@@ -144,6 +145,8 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
 
 - 작업자 함정은 [`docs/agents/operations.md`](../../docs/agents/operations.md)에 있다: 새 worktree 설치, pnpm 11, CSS selector CI, 캡처, mock 등록.
 - 일반 `git worktree add`로 만든 기준 worktree에는 Orca 터미널 리뷰어를 띄울 수 없다. 거기서는 미리보기만 돌린다.
+- 여러 세션이 이 저장소에 ADR을 쓴다(M6, #598). 번호는 #598에 "ADR-NNNN 예약" 코멘트를 남긴 뒤에 쓴다. 예약하기 전에 `origin/main`과 열린 PR을 모두 확인한다. 같은 시각에 다른 세션이 0067을 먼저 머지해서, 충돌 난 PR을 0068로 다시 올렸다(#613 → #616).
+- 머지가 거절되면(`gh pr merge`가 `--auto`를 권하는 메시지) 원격 브랜치를 지우기 전에 `gh pr view <n> --json state`로 상태를 확인한다. 지우면 PR이 닫힌다(#613).
 - 메인 체크아웃의 `node_modules`는 병합이 쌓이면 낡는다. 마감 검사 전에 `pnpm install --frozen-lockfile`.
 - 이 프로필의 상대 경로(`addenda/`)는 `$CONDUCTOR` 기준이다. 레포 루트에서 그대로 실행하면 "No such file"이다.
 - 이슈 번호가 없는 작업(마감 정리 등)은 `launch-worker.py`가 worktree를 만들지 못한다(`--issue`가 숫자를 요구). 손으로 한다: `orca worktree create --setup skip`(`--issue` 없이) → 설치 → 설정 셸 닫기 → TASK 작성 → 공유 실행기.
