@@ -37,8 +37,8 @@
           "match": {
             "any": [
               {
-                "exact": [
-                  "products/feedbackops"
+                "prefix": [
+                  "products/feedbackops/"
                 ]
               },
               {
@@ -134,8 +134,8 @@
       {
         "name": "submodule",
         "match": {
-          "exact": [
-            "products/feedbackops"
+          "prefix": [
+            "products/feedbackops/"
           ]
         }
       },
@@ -190,7 +190,7 @@
     ],
     "marker": "apps/platform-web/vite.config.ts",
     "ready_file": "node_modules/.modules.yaml",
-    "ready_hint": "node_modules missing: submodule init + pnpm install --frozen-lockfile first",
+    "ready_hint": "node_modules missing: pnpm install --frozen-lockfile first",
     "command": [
       "pnpm",
       "--filter",
@@ -210,20 +210,6 @@
     "branch_prefix": "feat/",
     "orca_setup": "skip",
     "install": [
-      {
-        "run": [
-          "git",
-          "submodule",
-          "update",
-          "--init",
-          "--depth",
-          "1",
-          "-q",
-          "--",
-          "products/feedbackops"
-        ],
-        "fail": "submodule init failed"
-      },
       {
         "run": [
           "pnpm",

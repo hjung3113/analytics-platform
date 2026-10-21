@@ -2,7 +2,7 @@
 
 ## 현재 단계
 
-FeedbackOps 원본 개발을 유지하면서 동일 체크아웃에서 코드를 참고하고 플랫폼 설계를 구체화한다. 공통 계약과 책임 범위를 확정한 뒤 통합 구현을 시작한다. 플랫폼 프론트엔드는 루트 pnpm workspace다. 패키지 추출은 완료됐다([패키지 경계](platform-packages.md)). FeedbackOps 서브모듈은 플랫폼 workspace에 포함하지 않는다(#441, [ADR-0046](../adr/0046-design-system-source-moves-to-platform-whole-package.md)). 서버·DB·배포 통합 여부는 아직 확정하지 않았다.
+FeedbackOps 원본 개발을 유지하면서 동일 체크아웃에서 코드를 참고하고 플랫폼 설계를 구체화한다. 공통 계약과 책임 범위를 확정한 뒤 통합 구현을 시작한다. 플랫폼 프론트엔드는 루트 pnpm workspace다. 패키지 추출은 완료됐다([패키지 경계](platform-packages.md)). `products/feedbackops/`는 플랫폼 workspace에 포함하지 않는다(#441, [ADR-0046](../adr/0046-design-system-source-moves-to-platform-whole-package.md)). 서버·DB·배포 통합 여부는 아직 확정하지 않았다.
 
 기존 플랫폼 문서는 링크와 소유권을 보존하기 위해 `docs/`에 유지한다. `docs/platform/` 이동이나 공통 코드 추출은 이번 연결에 포함하지 않는다.
 
@@ -23,7 +23,7 @@ FeedbackOps 원본 개발을 유지하면서 동일 체크아웃에서 코드를
 | `menus/` | 공간별 `menus/<space>/<group>/` 메뉴 Consumer 패키지(`@ap/menu-<group>`, 전역은 `_global`) |
 | `tooling/` | 공유 도구: tsconfig, eslint 경계 규칙, `gen-menu`, `css-selectors` |
 | `prototypes/` | 통합 전 Kernel 단위 프로토타입(개별 npm 프로젝트, workspace 밖). 보존 |
-| `products/feedbackops/` | FeedbackOps 원본 Git 저장소의 고정 커밋 |
+| `products/feedbackops/` | FeedbackOps 제품 디렉터리(자체 중첩 workspace, 이력 합류 `c73c55c5`) |
 | `products/feedbackops/apps/frontend/` | 기존 React 프론트엔드. `src/features/`에 업무 화면 구성 |
 | `products/feedbackops/apps/backend/` | 기존 Fastify 백엔드. `src/modules/`에 업무 및 공통 기능 구현 |
 | `products/feedbackops/packages/shared/` | FeedbackOps 프론트·백엔드 공유 계약. 아직 플랫폼 공통 계약은 아님 |
@@ -35,40 +35,15 @@ FeedbackOps의 인증·권한·감사·VOC·Finding·Task 등은 기존 구현�
 
 ## 원본 및 버전
 
-- 원본: `https://github.com/hjung3113/FeedbackOps`
-- 갱신 대상 브랜치: `develop`
-- 최초 연결 커밋: `b5dd614ac8da3792cb1627e7daeffb8fc9c4944e`
-- 실제 참조 버전의 기준: 부모 저장소의 gitlink. 위 최초 연결 커밋은 이력 정보다.
+- `products/feedbackops/`는 이 저장소의 일반 디렉터리다(서브모듈 아님, [ADR-0066](../adr/0066-feedbackops-merges-into-platform.md), #592). FeedbackOps `develop` `c73c55c5`의 이력을 그대로 합쳤다(디렉터리 내용은 그 커밋과 같다).
+- 원본 저장소 `https://github.com/hjung3113/FeedbackOps`는 `c73c55c5`에서 동결되고 은퇴한다(#597). 이후 FeedbackOps 변경은 이 저장소의 PR(`feat/<n>-<slug>`, `main`)로만 한다.
+- 도구는 아직 통일하지 않았다(1a단계): `products/feedbackops/`는 자체 중첩 pnpm workspace·lockfile·Node 22·pnpm 9·Biome·turbo를 쓰고 SDK는 태그 `sdk-v0.5.0`의 `@ap/ui`로 받는다. 도구 통일은 다음 단계다(#598).
 
-서브모듈은 원본 커밋을 참조한다. 원본의 미추적 파일·환경 변수·의존성 설치 디렉터리·로컬 데이터는 복사하지 않는다. 원본에서 계속 개발해도 부모 저장소의 참조 커밋은 자동으로 바뀌지 않는다.
+## 설치와 검증
 
-## 초기화와 현재 버전 확인
+FeedbackOps 명령은 `products/feedbackops/`에서 실행한다(`pnpm install --frozen-lockfile`, `scripts/ci/gate.sh static|unit|integration`). 플랫폼 루트 `pnpm install`은 이 디렉터리를 설치하지 않는다. CI는 `.github/workflows/feedbackops.yml`이고 `products/feedbackops/**`가 바뀐 PR에서만 돈다.
 
-부모 저장소 루트에서 실행한다.
-
-```sh
-git submodule update --init --recursive
-git submodule status
-git -C products/feedbackops status --short
-git -C products/feedbackops log -1 --oneline
-```
-
-`update --init`은 부모 저장소에 기록된 커밋을 복원한다. 최신 원본을 가져오는 명령이 아니다. 기존 서브모듈 작업 내용이 있다면 먼저 확인하고 보존한다.
-
-## 원본 변경을 반영하는 절차
-
-원본 개발은 기존 FeedbackOps 체크아웃에서 진행한다. 이 저장소의 참조를 갱신할 때는 내부 작업 트리가 깨끗한지 확인하고, 아래 명령으로 원본 변경을 검토한다.
-
-```sh
-git -C products/feedbackops status --short
-git -C products/feedbackops fetch origin
-git -C products/feedbackops log --oneline HEAD..origin/develop
-git -C products/feedbackops diff --stat HEAD origin/develop
-```
-
-반영할 커밋을 정한 뒤 해당 커밋으로 detached checkout하고, 부모 저장소에서 `git diff --submodule=log`로 변경을 검토한다. FeedbackOps 패키지는 플랫폼 workspace가 아니므로 gitlink를 갱신해도 `pnpm-lock.yaml`은 바뀌지 않는다. `git add products/feedbackops`는 부모 저장소의 참조 커밋만 스테이징한다. 커밋·푸시는 별도 작업 권한에 따른다. 단순 부모 저장소 `git pull`만으로 서브모듈 작업 트리 갱신까지 완료됐다고 가정하지 않는다.
-
-플랫폼 workspace에 `@fops/*` 패키지가 없으므로 루트 스크립트에 `--filter='!@fops/*'`가 없고 `turbo.json`에도 서브모듈 파일을 전역 해시에 넣는 `globalDependencies`가 없다(#441). 가드 `.github/scripts/check-platform-turbo-scope.mjs`가 작업 그래프에 `@fops/*`가 다시 들어오지 않는지 확인한다. 의존 패키지 해시는 스크립트 없는 `transit` 태스크가 전파한다(#390).
+플랫폼 workspace에 `@fops/*` 패키지가 없으므로 루트 스크립트에 `--filter='!@fops/*'`가 없고 `turbo.json`에도 FeedbackOps 파일을 전역 해시에 넣는 `globalDependencies`가 없다(#441). 가드 `.github/scripts/check-platform-turbo-scope.mjs`가 작업 그래프에 `@fops/*`가 다시 들어오지 않는지 확인한다. 의존 패키지 해시는 스크립트 없는 `transit` 태스크가 전파한다(#390).
 
 ## 디자인 시스템 이전 기록 (#441, ADR-0046)
 
@@ -82,13 +57,13 @@ git -C products/feedbackops diff --stat HEAD origin/develop
 
 - 플랫폼 설계: 저장소 루트에서 시작하고 `AGENTS.md` → `docs/INDEX.md`를 읽는다.
 - FeedbackOps 탐색: `products/feedbackops/`에서 시작하고 그 안의 `AGENTS.md` → `README.md`를 읽는다.
-- FeedbackOps 기능 개발: 기존 원본 체크아웃을 기본으로 사용한다. 참조용 서브모듈의 detached HEAD에서 바로 커밋하지 않는다.
+- FeedbackOps 기능 개발: 이 저장소의 `products/feedbackops/`에서 브랜치를 만들어 작업한다(루트 `AGENTS.md`).
 - 개발 서버·패키지 설치·테스트는 FeedbackOps 앱·백엔드에서는 자체 workspace 설정을 기준으로 실행한다. 플랫폼 앱은 루트에서 `pnpm install` 후 `pnpm dev`/`pnpm test`로 실행하며, FeedbackOps `packages/ui`와 `packages/shared`만 공유한다.
 - DB 통합 테스트는 초기화·재시드 동작이 있으므로 기존 데이터를 가진 DB에 실행하지 않는다.
 
 ## FeedbackOps 통합 방식 (Decided, 2026-09-26)
 
-> **2026-10-21: FeedbackOps는 플랫폼에 합친다([ADR-0066](../adr/0066-feedbackops-merges-into-platform.md), [합류 설계](feedbackops-merge-design.md)).** 아래 1·2단계는 합류 단계 4까지의 전환 규칙으로만 유효하고, 서브모듈은 합류 단계 1(#592)에서 workspace 디렉터리가 된다.
+> **2026-10-21: FeedbackOps는 플랫폼에 합친다([ADR-0066](../adr/0066-feedbackops-merges-into-platform.md), [합류 설계](feedbackops-merge-design.md)).** 아래 1·2단계는 합류 단계 4까지의 전환 규칙으로만 유효하다. 서브모듈은 합류 단계 1a(#592)에서 일반 디렉터리가 됐다.
 
 FeedbackOps는 플랫폼의 **공통 협업 서비스**다. 독립 앱으로 남고, 플랫폼은 각 업무 공간 안에 그 시스템으로 좁힌 진입 링크와 권한자용 전체 허브 링크를 둔다([ADR-0027](../adr/0027-feedbackops-stays-standalone-entry-links.md)([06 §9.1](../06_platform_ui_contract.md#91-워크스페이스-decided-2026-09-26), [ADR-0026](../adr/0026-multi-workspace-app-boundaries-and-feedbackops-scoping.md)). 단계적으로 연결한다.
 
@@ -99,4 +74,4 @@ FeedbackOps는 플랫폼의 **공통 협업 서비스**다. 독립 앱으로 남
 
 ## 다음 설계에서 확정할 항목
 
-Scope와 Managed System의 관계, 권한 검증 책임, 메뉴·URL·Context 계약, 감사·알림 계약, 실행·배포 단위를 결정한다. 그 결과를 바탕으로 공통 코드 추출과 서브모듈의 정식 편입 여부를 정한다. 답이 필요한 질문과 미결 범위는 [`.planning/README.md`](../../.planning/README.md)에 있다.
+Scope와 Managed System의 관계, 권한 검증 책임, 메뉴·URL·Context 계약, 감사·알림 계약, 실행·배포 단위를 결정한다. 그 결과를 바탕으로 공통 코드 추출과 FeedbackOps 도구 통일 여부를 정한다. 답이 필요한 질문과 미결 범위는 [`.planning/README.md`](../../.planning/README.md)에 있다.

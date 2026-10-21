@@ -13,7 +13,7 @@ Issues and PRDs for this repo live as GitHub issues on `hjung3113/FeedbackOps`. 
 
 Infer the repo from `git remote -v` — `gh` does this automatically when run inside a clone.
 
-PRs in this repo target `develop`, so merging a PR never auto-closes its issue. Close issues explicitly with `gh issue close`.
+Work on `products/feedbackops/` now lives in `hjung3113/analytics-platform` (#592): issues are filed there and PRs target `main`, so `Closes #n` closes them. The old FeedbackOps issue tracker is frozen with the repository (#597).
 
 ## Pull requests as a triage surface
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # The CI gate (#794): root AGENTS.md → Verification, split into three stages any
-# CI can call. `.github/workflows/ci.yml` runs them on GitHub Actions; another CI
+# CI can call. `.github/workflows/feedbackops.yml` (repo root) runs them on GitHub Actions; another CI
 # runs the same three commands after `pnpm install --frozen-lockfile` on Node 22.
 #
 #   scripts/ci/gate.sh static [--base <ref>]

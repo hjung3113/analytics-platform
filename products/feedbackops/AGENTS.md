@@ -11,7 +11,7 @@
 
 ## Finish Line And Stops
 
-- **Finish line for an issue:** the touched behavior has passing tests, the [gate](#verification) is green, docs affected by the change are updated in the same PR, and a PR to `develop` is open. Merge and close the issue only when auto-merge was granted in this session; otherwise the user merges. For other multi-step work, state the success criteria up front and verify them before claiming completion.
+- **Finish line for an issue:** the touched behavior has passing tests, the [gate](#verification) is green, docs affected by the change are updated in the same PR, and a PR to `main` is open. Merge and close the issue only when auto-merge was granted in this session; otherwise the user merges. For other multi-step work, state the success criteria up front and verify them before claiming completion.
 - **Keep going** through steps that don't need the user. **Stop and report** on a documentation conflict that no tiebreak covers ([Source Of Truth](#source-of-truth)), and before any merge, push, or release the user has not authorized in this session.
 
 ## UI Authority
@@ -29,10 +29,8 @@ Frontend specifics (visual baselines): `apps/frontend/AGENTS.md`.
 
 ## Git Workflow
 
-- **Per-issue feature branch.** `feature/<issue-number>-<slug>` branched from `develop`. Never commit directly to `develop` or `main`. `fix/<n>-<slug>` for hot-fixes; `chore/<slug>` for housekeeping (may target `develop` via small PR).
-- **Issue complete → PR to `develop`.** Delete the feature branch on merge.
-- **Slice complete → PR `develop` → `main`.** User owns the final `develop` → `main` merge and any tag/release. No agent push to `main`.
-- **Hooks.** Enable once per clone: `git config core.hooksPath .githooks`. `.githooks/pre-commit` refuses commits on `develop` and on `main` (README-only commits on `main` are allowed); `.githooks/pre-push` blocks direct pushes to `main` that touch files other than `README*`. Client-side only; the real gate is GitHub branch protection: `develop` and `main` require the three CI checks (`Static gates`, `Unit tests (frontend, ui, shared)`, `Backend integration`) with admins included and block force pushes and deletion, so every change, README-only ones included, lands through a PR whose checks are green. A ruleset on `main` allows only merge commits, so release PRs never squash.
+- **Branches and PRs follow the root analytics-platform `AGENTS.md`:** `feat/<n>-<slug>` from `main`, PR to `main`, issues on `hjung3113/analytics-platform`. The FeedbackOps repository is frozen at `c73c55c5` and retires (#597).
+- **Hooks.** `.githooks/` came from the standalone repository and is inert here (`core.hooksPath` is not set in the platform repo); do not enable it.
 
 ## Monorepo Boundaries
 
@@ -100,8 +98,9 @@ Shipped user-facing strings are implemented in `apps/frontend/src/lib/copy/*`; u
 ## Verification
 
 - **The gate is `pnpm --filter backend test:integration` + `pnpm typecheck` + `pnpm check:boundaries` + `pnpm gate:db-migration-drift` + `pnpm gate:fe-typecheck` + `pnpm gate:fe-lint` + `pnpm lint:design`** (plus the visual harness, `apps/frontend/tests/visual/`, when a screen changes). `pnpm test` / `pnpm --filter backend test` alone is **not** the gate: the backend integration suites are env-gated and all skip without a database, so a green there covers only the unit path (#204). The integration command loads `.env` and **truncates + re-seeds the target database** before the run — point it at a throwaway database, never the dev database on 5434 (recipe: `apps/backend/AGENTS.md` → Verification, provisioning a throwaway database). See `apps/backend/AGENTS.md` → Verification for the env, the reset contract, and the `ALLOW_SKIPPED_INTEGRATION=1` opt-out.
-- **CI.** `.github/workflows/ci.yml` (#794) runs this gate on every PR to `develop`/`main` and every push to them, through `scripts/ci/gate.sh` (`static [--base <ref>]`, `unit`, `integration`); another CI can call the same script. Branch protection (see Git Workflow → Hooks) makes its three checks a merge requirement. The visual harness is not in CI (its baselines are darwin-only), so a screen change still needs a local visual run.
-- The FE gates have setup traps (a fresh worktree needs the generated route tree first; the lint gate diffs committed history against a base ref — pass `--base origin/develop`). Read `scripts/gates/AGENTS.md` before running them or touching their baselines/allowlists.
+- **Where to run.** Run the gate commands from `products/feedbackops/` (its own pnpm workspace, Node 22, pnpm 9).
+- **CI.** `.github/workflows/feedbackops.yml` (repo root; runs only when `products/feedbackops/**` changes) runs this gate on PRs and pushes to `main`, through `scripts/ci/gate.sh` (`static [--base <ref>]`, `unit`, `integration`); another CI can call the same script. The visual harness is not in CI (its baselines are darwin-only), so a screen change still needs a local visual run.
+- The FE gates have setup traps (a fresh worktree needs the generated route tree first; the lint gate diffs committed history against a base ref — pass `--base origin/main`). Read `scripts/gates/AGENTS.md` before running them or touching their baselines/allowlists.
 - For behavior changes and bug fixes, write or update the failing test first, then make the smallest change that passes it. If TDD is not practical, state why and still add verification for the touched behavior.
 - Add or update tests for product invariants touched by the change.
 - For frontend work, verify desktop 1440 states when layout or interaction changes (see `apps/frontend/AGENTS.md` → New Surfaces And Gaps and Visual Baselines).

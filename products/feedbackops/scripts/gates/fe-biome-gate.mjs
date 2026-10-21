@@ -7,7 +7,7 @@
 // lint/a11y/noLabelWithoutControl diagnostics that way). A whole-repo count is
 // not usable as an oracle here — `biome check .` reports thousands of
 // diagnostics dominated by untracked `.review/` scratch, and the totals differ
-// per checkout, so develop and a worktree cannot be compared. The files the
+// per checkout, so main and a worktree cannot be compared. The files the
 // branch touches CAN be compared, and that is the scope this gate enforces.
 //
 // Contract: every changed tracked file that biome understands must be free of
@@ -27,9 +27,11 @@ const gateDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(gateDir, '..', '..');
 const allowlistPath = join(gateDir, 'frontend-biome-allowlist.txt');
 const baseArgIndex = process.argv.indexOf('--base');
-const baseRef = baseArgIndex === -1 ? 'develop' : process.argv[baseArgIndex + 1];
+const baseRef = baseArgIndex === -1 ? 'origin/main' : process.argv[baseArgIndex + 1];
 const listOnly = process.argv.includes('--list');
 
+// products/feedbackops sits two levels below the git top level: `git diff --relative` (run with cwd = repoRoot)
+// limits the diff to this directory and prints paths relative to it, so platform files never enter the list.
 const git = (...args) => {
   const run = spawnSync('git', args, { cwd: repoRoot, encoding: 'utf8' });
   if (run.status !== 0) {
@@ -40,7 +42,7 @@ const git = (...args) => {
 };
 
 const base = git('merge-base', 'HEAD', baseRef);
-const changed = git('diff', '--name-only', '--diff-filter=ACMR', base, 'HEAD')
+const changed = git('diff', '--relative', '--name-only', '--diff-filter=ACMR', base, 'HEAD')
   .split('\n')
   .filter((path) => /\.(ts|tsx|js|jsx|mjs|cjs|json|jsonc)$/.test(path))
   .filter((path) => existsSync(join(repoRoot, path)));

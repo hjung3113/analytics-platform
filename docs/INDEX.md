@@ -61,7 +61,7 @@
 
 통합 계약(`docs/integration/`):
 
-- [저장소 구조](integration/repository-layout.md) — 폴더 구조, FeedbackOps 서브모듈 연결·갱신 절차.
+- [저장소 구조](integration/repository-layout.md) — 폴더 구조, FeedbackOps 디렉터리 구조와 연결.
 - [패키지 경계](integration/platform-packages.md) — 패키지 의존 방향, 메뉴 템플릿, 결정(2026-09-26, 세부 타입 이름은 Candidate).
 - [실서버 연결 체크리스트](integration/real-server-checklist.md) — `PlatformAdapter` 메서드별 의미, `menuQuery` 판정 순서·등록 검증, 적합성 묶음 실행. Candidate.
 - [전송 형식 초안](integration/http-adapter-contract.md) — 메서드별 HTTP 경로·요청/응답, 상태 코드와 `outcome`, 세션·CSRF, 백엔드 담당 질문. Candidate(#149 합의 대기).

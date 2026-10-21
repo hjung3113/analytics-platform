@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 # 경로 필터 없이 매 push/PR마다 6개 Job을 모두 실행한다(레포가 작아 단순함 우선).
-# 프로토타입 4개 Job은 submodules: false, 플랫폼 workspace·계약 E2E Job은 FeedbackOps workspace 패키지 때문에 true를 쓴다.
+# FeedbackOps는 서브모듈이 아니라 products/feedbackops/ 디렉터리라 checkout 옵션이 따로 없다(FeedbackOps CI는 feedbackops.yml). 프로토타입 4개 Job은 submodules: false를 명시한다.
 
 jobs:
   python-codec:
@@ -114,8 +114,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-        with:
-          submodules: true
       # pnpm 버전은 루트 package.json의 packageManager를 따른다.
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v5
@@ -167,8 +165,6 @@ jobs:
       PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/apps/platform-e2e/.browsers
     steps:
       - uses: actions/checkout@v5
-        with:
-          submodules: true
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v5
         with:

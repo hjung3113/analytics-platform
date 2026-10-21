@@ -28,11 +28,11 @@
 
 ## 새 worktree와 pnpm
 
-- `orca worktree create --setup run|skip`은 의존성을 설치하지 않는다 → `git submodule update --init --depth 1 -q -- products/feedbackops && pnpm install --frozen-lockfile --config.optimistic-repeat-install=false`. 기본으로 생기는 셸 탭은 닫는다.
+- `orca worktree create --setup run|skip`은 의존성을 설치하지 않는다 → `pnpm install --frozen-lockfile --config.optimistic-repeat-install=false`. 기본으로 생기는 셸 탭은 닫는다.
 - pnpm 11은 설정(`pnpm-workspace.yaml`)만 바뀌면 "Already up to date"로 건너뛴다 → `pnpm install --config.optimistic-repeat-install=false`.
-- FeedbackOps 서브모듈은 플랫폼 workspace 밖이다(#441, ADR-0046): gitlink를 올려도 플랫폼 lockfile·turbo 해시는 바뀌지 않는다([저장소 구조](../integration/repository-layout.md)). 가드 `.github/scripts/check-platform-turbo-scope.mjs`는 `@fops/*` 패키지가 작업 그래프에 다시 들어오지 않았는지 확인한다. 의존 패키지 해시는 스크립트 없는 `transit` 태스크가 전파하고(#390), `--only`는 의존 해시까지 지워 로컬 캐시가 CI를 못 따라가게 하므로(#388) 쓰지 않는다.
+- `products/feedbackops/`는 플랫폼 workspace 밖이다(#441, ADR-0046; 서브모듈에서 디렉터리로, #592): 그 안의 변경은 플랫폼 lockfile·turbo 해시를 바꾸지 않는다([저장소 구조](../integration/repository-layout.md)). 가드 `.github/scripts/check-platform-turbo-scope.mjs`는 `@fops/*` 패키지가 작업 그래프에 다시 들어오지 않았는지 확인한다. 의존 패키지 해시는 스크립트 없는 `transit` 태스크가 전파하고(#390), `--only`는 의존 해시까지 지워 로컬 캐시가 CI를 못 따라가게 하므로(#388) 쓰지 않는다.
 
-- 새 worktree에서 문서 링크 검사 전에 서브모듈을 init한다(`git submodule update --init --depth 1 -- products/feedbackops`). 안 하면 FeedbackOps 링크가 깨진 것으로 나온다. 실행은 `node .github/scripts/check-doc-links.mjs`.
+- 문서 링크 검사는 `node .github/scripts/check-doc-links.mjs`로 직접 돌려도 된다(`products/`는 검사에서 제외된다).
 
 ## macOS 셸(zsh·BSD)
 
@@ -77,7 +77,7 @@
 - 루트 `pnpm test`(터보 병렬)에서만 `Unable to find role …`로 실패하고 그 파일 단독 실행은 통과하면 첫 `findBy*`의 기본 대기(1000ms)를 먼저 의심한다. 진단 루프: 해당 패키지에서 CPU 부하(`while :; do :; done`을 `ncpu×2`개 백그라운드)를 걸고 그 파일을 8–16회 반복해 실패 수를 센다. 고치기 전후와, 원래 코드(변경을 되돌린 것)를 같은 부하로 비교해 변경이 원인인지 가른다. 부하 프로세스는 반드시 `pkill`로 끝낸다. `*.compact-action.test.tsx`는 첫 `findByRole`에 `{ timeout: 8000 }`을 쓴다(#434·#437).
 - 한 파일을 고친 뒤 같은 구조의 형제 파일이 "안 깨진다"고 한 번 측정으로 단정하지 않는다. 형제마다 같은 부하 루프를 돈다(#437이 #434의 그 판단을 정정했다).
 - 터보 `test`는 첫 실패에서 나머지를 중단한다. 실패 하나로 끝난 루트 `pnpm test`는 나머지 패키지와 `build`를 검증하지 못한 것이므로, 고친 뒤 처음부터 다시 돌린다.
-- `node_modules`가 없는 worktree에서 `pnpm docs:links`는 의존성 확인에서 막힌다. 서브모듈을 init한 뒤 `node .github/scripts/check-doc-links.mjs`를 직접 돌리면 같은 검사다(새 파일은 `git add -N`으로 추적에 올려야 "untracked" 오류가 사라진다).
+- `node_modules`가 없는 worktree에서 `pnpm docs:links`는 의존성 확인에서 막힌다. `node .github/scripts/check-doc-links.mjs`를 직접 돌리면 같은 검사다(새 파일은 `git add -N`으로 추적에 올려야 "untracked" 오류가 사라진다).
 
 ## E2E 포트와 코드 이전 PR (SDK 이전 슬라이스, 2026-10-19)
 
