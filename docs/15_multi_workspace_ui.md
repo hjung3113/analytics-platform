@@ -1,6 +1,6 @@
 # 15. 멀티 워크스페이스 v2 — UI·IA·화면 설계
 
-상태: **Decided — UX 구성 원칙(2026-10-08 사용자 승인). 공간 마지막 화면 복원은 사용자+공간별 탭 세션([ADR-0028](adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md), [06 §9.1](06_platform_ui_contract.md#91-워크스페이스-decided-2026-09-26))** / **Candidate — 표 열 등 다른 사용자 설정 저장, 아직 없는 공간의 메뉴 귀속·기술 구현** / **Decided — Managed System 매핑(앱 정적 표, 공간당 하나, [ADR-0045](adr/0045-feedbackops-entry-link-mapping-and-scope.md), 2026-10-19)** / **Open — 인증**. FeedbackOps 진입은 링크다([ADR-0027](adr/0027-feedbackops-stays-standalone-entry-links.md), 2026-10-09 — 화면을 옮기지 않는다). **Decided(방향, 2026-10-18) — 시스템 전환기 + 시스템별 레일([ADR-0042](adr/0042-system-switcher-and-system-owned-rail.md)); 화면 사양 §3.2 Decided(2026-10-19, 전환기 A안).**
+상태: **Decided — UX 구성 원칙(2026-10-08 사용자 승인). 공간 마지막 화면 복원은 사용자+공간별 탭 세션([ADR-0028](adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md), [06 §9.1](06_platform_ui_contract.md#91-워크스페이스-decided-2026-09-26))** / **Candidate — 표 열 등 다른 사용자 설정 저장** / **Decided — 표준 로그 개발·개선 실행 메뉴 구성([ADR-0065](adr/0065-log-dev-and-improvement-spaces-work-queue-first.md), 2026-10-21, 화면은 예정)** / **Decided — Managed System 매핑(앱 정적 표, 공간당 하나, [ADR-0045](adr/0045-feedbackops-entry-link-mapping-and-scope.md), 2026-10-19)** / **Open — 인증**. FeedbackOps 진입은 링크다([ADR-0027](adr/0027-feedbackops-stays-standalone-entry-links.md), 2026-10-09 — 화면을 옮기지 않는다). **Decided(방향, 2026-10-18) — 시스템 전환기 + 시스템별 레일([ADR-0042](adr/0042-system-switcher-and-system-owned-rail.md)); 화면 사양 §3.2 Decided(2026-10-19, 전환기 A안).**
 
 > 이 문서는 **업무 시스템별 독립 워크스페이스**의 화면 설계·도입 계획이다. 플랫폼 전체 Navigation/Context/Permission의 단일 계약은 [06 §9·9.1](06_platform_ui_contract.md#9-information-architecture)이고, 이 문서는 이를 소비하는 상세 설계다. 기존 백엔드/DB의 소유권이나 구현 완료를 선언하지 않는다.
 
@@ -18,7 +18,7 @@
 | --- | --- | --- |
 | 생산성 분석 엔지니어 | 설비/기간별 분석 → 상세 → 관련 로그·개선 과제 | 분석 전용 메뉴, 컨텍스트 보존, 명시적 교차 링크 |
 | 지표 관리자 | 지표 정의·버전·발행·영향도 조회 | 지표 전용 카탈로그/이력·관리 메뉴 |
-| 표준 로그 개발 담당자 | 모델·개발 단계·검증 Round·결함·협력사 검토 | 모델별 전용 메뉴 트리, 검증용 고밀도 표·상세 |
+| 표준 로그 개발 담당자 | 모델·개발 단계·검증 Round·결함·협력사 검토 | 내 검증 대기에서 모델 상세로, 검증용 고밀도 표·상세(ADR-0065) |
 | 개선 담당자 | 분석 인사이트의 현장 적용, 과제·적용 이력·실적 | 개선 워크플로와 실적 비교 화면 |
 | 개발·운영 담당자 | 서버 앱·적재 파이프라인·가공 상태·운영 설정 | 운영 전용 콘솔, 접근 권한 |
 | 업무 시스템 사용자 | 시스템별 VOC·Task·설문 이용 | 현재 시스템으로 자동 범위를 좁힌 공통 협업 메뉴 |
@@ -39,12 +39,16 @@ Equipment Platform
 │   ├── BRAVO (지표관리)
 │   │   ├── 지표 카탈로그 · 정의/버전 · 발행/이력 · 사용처
 │   │   └── [이 시스템의 협업] VOC · Task · 설문
-│   ├── 표준 로그 개발
-│   │   ├── 개발 현황 / 설비 모델 · 단계별 진행
-│   │   ├── Alpha·Beta / 검증 Round / 규칙·결함 / 협력사 검토
+│   ├── 표준 로그 개발 (ADR-0065, 메뉴는 모두 예정)
+│   │   ├── 내 작업: 내 검증 대기 · 최근 모델
+│   │   ├── 모델: 모델 목록 (상세 안: 단계 → 검증 Round → 재검증 · 협력사 검토 XLSX)
+│   │   ├── 전체 모아 보기: 결함 큐 · 협력사 검토 현황
+│   │   ├── 기준: 검증 규칙
 │   │   └── [이 시스템의 협업] VOC · Task · 설문
-│   └── 개선 실행
-│       ├── 개선 과제 / 대상 설비 / 현장 적용 / 성과 입력·검증
+│   └── 개선 실행 (ADR-0065, 메뉴는 모두 예정)
+│       ├── 내 작업: 내 과제
+│       ├── 과제: 과제 목록 (상세 안: 적용 → 전후 실적 → 효과 검증)
+│       ├── 보고: 효과 보고서 · 설비별 적용 이력
 │       └── [이 시스템의 협업] VOC · Task · 설문
 ├── 지원 워크스페이스: 개발·운영 콘솔 (권한자)
 │   ├── 서버 앱 / 적재·파서 파이프라인 / 배치·작업 이력

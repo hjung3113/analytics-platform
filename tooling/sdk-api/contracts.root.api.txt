@@ -45,7 +45,7 @@ GLOBAL_KEYS | const | const GLOBAL_KEYS: Set<string>
 GROUP_IDS | const | const GROUP_IDS: readonly @ap/contracts#GroupId[]
 GlobalContext | type | type GlobalContext = { condition: @ap/contracts#Condition | null; from: null | string; lineNames: @ap/contracts#IdSet; lotIds: @ap/contracts#IdSet; membershipBasis: 'asOf' | null; metricId: null | string; metricVersion: null | string; ppid: null | string; prcGroups: @ap/contracts#IdSet; recipeIds: @ap/contracts#IdSet; roomNames: @ap/contracts#IdSet; scopeId: null | string; selection: @ap/contracts#IdSet; to: null | string; }
 Grain | type | type Grain = 'day' | 'hour' | 'week'
-GroupId | type | type GroupId = 'admin' | 'analytics' | 'equipment' | 'masterData' | 'metrics' | 'noticeVoc' | 'overview'
+GroupId | type | type GroupId = 'admin' | 'analytics' | 'equipment' | 'impMyWork' | 'impReports' | 'impTasks' | 'logCross' | 'logModels' | 'logMyWork' | 'logRules' | 'masterData' | 'metrics' | 'noticeVoc' | 'overview'
 HOST_CONTRACTS | const | const HOST_CONTRACTS: readonly [ 1 ]
 HostContract | type | type HostContract = 1
 HostFeature | type | type HostFeature = 'detailSlot' | 'query' | 'write'
@@ -91,7 +91,7 @@ Session | type | type Session = { scopes: readonly @ap/contracts#ScopeOption[]; 
 SessionUser | type | type SessionUser = { id: string; name: string; permissions: readonly (@ap/contracts#ModuleScopedId | @ap/contracts#Permission)[]; title: @ap/contracts#Text; }
 SiteGrant | type | type SiteGrant = { grantedRooms: readonly string[]; id: string; label: string; totalRooms: number; }
 SpaceDef | type | type SpaceDef = { description: @ap/contracts#Text; homeMenuId: string; id: @ap/contracts#SpaceId; label: @ap/contracts#Text; permission?: @ap/contracts#Permission; subtitle?: @ap/contracts#Text; }
-SpaceId | type | type SpaceId = 'analytics' | 'metrics' | 'operations'
+SpaceId | type | type SpaceId = 'analytics' | 'improvement' | 'log-dev' | 'metrics' | 'operations'
 Text | type | type Text = { en: string; ko: string; }
 Trust | type | type Trust = { coverage: null | number; dataThrough: null | string; metricVersion?: string; provisional: boolean; source: string; updatedAt: string; }
 UsageEvent | type | type UsageEvent = { at: number; dwellMs?: number; enteredAt?: number; menuId: string; name: @ap/contracts#UsageEventName; path: string; sessionId: string; source?: @ap/contracts#UsageSource; spaceId: @ap/contracts#SpaceId | null; stayId?: string; }

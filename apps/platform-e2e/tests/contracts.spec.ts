@@ -1359,12 +1359,14 @@ test.describe('워크스페이스 (06 §9.1)', () => {
   // without narrowing the 54 rows, so page=2 is a real page and Back can restore it exactly.
   const EQUIPMENT_URL = `/equipment?v=1&scopeId=MEM&${PERIOD}&lotIds=LOT-0001&page=2`;
 
-  test('진입 가능한 공간이 하나뿐인 역할도 전환기가 있고 카드는 하나이며 운영 콘솔 메뉴가 보이지 않는다', async ({ page }, testInfo) => {
+  test('권한이 좁은 역할은 메뉴가 허락하는 공간 카드만 보고 운영 콘솔 메뉴가 보이지 않는다', async ({ page }, testInfo) => {
     await signInAs(page, 'viewer');
     await page.goto('/metrics');
     await expect(systemSwitcher(page)).toBeVisible();
     const popover = await openSwitcher(page);
     await expect(popover.getByRole('button', { name: /^BRAVO/ })).toHaveAttribute('aria-current', 'true');
+    // #252 (ADR-0065): the two planned workspaces carry no entry permission, so every signed-in role sees them.
+    await expect(popover.getByRole('button', { name: /^(표준 로그 개발|개선 실행)/ })).toHaveCount(2);
     await expect(popover.getByRole('button', { name: /^(MARS|운영 콘솔)/ })).toHaveCount(0);
     await page.keyboard.press('Escape');
     await expect(popover).toHaveCount(0);
@@ -1374,7 +1376,7 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     await page.getByRole('button', { name: '메뉴 검색…' }).click();
     await expect(page.getByRole('option', { name: /권한\/역할 관리/ })).toHaveCount(0);
     await page.keyboard.press('Escape');
-    await evidence(page, testInfo, 'no-switcher-viewer');
+    await evidence(page, testInfo, 'viewer-limited-spaces');
   });
 
   test('engineer는 전환기에 MARS와 BRAVO 카드를 갖고 운영 콘솔은 보이지 않는다', async ({ page }, testInfo) => {

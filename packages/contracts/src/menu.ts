@@ -8,11 +8,11 @@ export type ContextKey = 'time' | 'roomNames' | 'line' | 'prcGroup' | 'condition
 /** apply = direct query filter · reference = carried/visible, not a query filter · unsupported = preserved, not applied */
 export type Capability = 'apply' | 'reference' | 'unsupported';
 export type PageType = 'overview' | 'analysis' | 'management' | 'catalog' | 'workflow';
-export type GroupId = 'overview' | 'equipment' | 'masterData' | 'analytics' | 'metrics' | 'noticeVoc' | 'admin';
+export type GroupId = 'overview' | 'equipment' | 'masterData' | 'analytics' | 'metrics' | 'noticeVoc' | 'admin' | 'logMyWork' | 'logModels' | 'logCross' | 'logRules' | 'impMyWork' | 'impTasks' | 'impReports';
 /** The platform's closed group list at runtime (a module group is `<moduleId>:<name>`, ADR-0053). The Record keeps it complete: a new GroupId member fails typecheck until it is listed here. */
-const GROUP_ID_SET: Record<GroupId, true> = { overview: true, equipment: true, masterData: true, analytics: true, metrics: true, noticeVoc: true, admin: true };
+const GROUP_ID_SET: Record<GroupId, true> = { overview: true, equipment: true, masterData: true, analytics: true, metrics: true, noticeVoc: true, admin: true, logMyWork: true, logModels: true, logCross: true, logRules: true, impMyWork: true, impTasks: true, impReports: true };
 export const GROUP_IDS: readonly GroupId[] = Object.keys(GROUP_ID_SET) as GroupId[];
-export type SpaceId = 'analytics' | 'metrics' | 'operations';
+export type SpaceId = 'analytics' | 'metrics' | 'operations' | 'log-dev' | 'improvement';
 /** Sidebar-visible group set + entry permission (06 §9.1). Groups declare membership via GroupDef.space, menus never do. */
 export type SpaceDef = {
   id: SpaceId;
