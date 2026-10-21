@@ -17,7 +17,7 @@
 - 필수값은 UX 게이트이며 서버 검증을 대신하지 않는다. 메뉴의 `required.context/page`와 엔드포인트의 `requiredContext`를 검증한다. 집합 `[]`는 존재하는 값이며 기존 원천 조회 없는 empty 계약을 유지한다. [ADR-0019](0019-menu-query-endpoint-declaration.md)의 투영 필드 구조적 존재 규칙도 유지한다. 보조 엔드포인트의 작은 투영은 허용한다.
 - 게이트는 메뉴 분석 요청(`useMenuQuery`, `useMenuFetch`, `ModuleHost.query`)에 적용한다. raw `usePlatformQuery`, 목적지/entity, 감사·주석 요청은 보조 요청으로 유지한다. idle은 이전 결과·완료시각을 즉시 숨기고 진행 요청을 취소한다. refetch나 invalidation으로 게이트를 열 수 없다.
 - `completedAt`은 수락한 모든 종결 응답(오류·타임아웃·클라이언트 합성 오류 포함)의 클라이언트 epoch ms다. `trust.updatedAt`은 원천 갱신 시각으로 별개다. 동일 identity refresh는 이전 값과 시각을 유지하고, identity 교체·idle은 모두 숨긴다. 취소·늦은 응답은 시각을 찍지 않는다.
-- QueryView idle은 중립적인 조회 전 상태와 번역된 누락 사유 목록이다. skeleton·empty·오류를 재사용하지 않는다. 실제 메뉴는 아직 opt-in하지 않는다. #554의 저장소·payload 복원·UI는 이 결정의 구현 범위에 포함하지 않는다.
+- QueryView idle은 중립적인 조회 전 상태와 번역된 누락 사유 목록이다. skeleton·empty·오류를 재사용하지 않는다. 첫 Apply 소비자는 cycle-time(#553)이며 최근 조회 이력은 #554와 06 §11의 계약을 따른다.
 
 ## Considered Options
 

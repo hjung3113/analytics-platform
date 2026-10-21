@@ -64,9 +64,8 @@
 | [0051](0051-analysis-board-pane-header-signal-chips-numbered-selection.md) | 분석 보드 칸 머리는 다른 키만 칩(`같음 N` 팝오버, 동작 `⋯`), 선택된 칸은 번호 배지 + 왼쪽 2px 막대 + 머리 선택 표면 | Decided(2026-10-19, 코디네이터 — 사용자가 UX 리뷰 판정에 위임) — #421 |
 | [0057](0057-legend-tree-arrow-key-row-navigation.md) | LegendTree의 행 이동은 APG 트리 방향키로 하고, 체크·펼침·선택·정렬은 기본 키보드 경로로 조작한다 | Decided(2026-10-20, 사용자 spec + 코디네이터) — #539, 06 §26 Tab 하한의 행 이동 예외 |
 | [0058](0058-analysis-chart-spec-union.md) | 종류별 차트는 AnalysisChart의 ChartSpec 판별 union으로 받고 기존 시간축 프레임은 유지한다 | Decided(2026-10-20, 코디네이터 — 사용자 위임) — #545 |
-| [0059](0059-app-injected-equipment-axes-and-condition.md) | 설비 축은 앱 주입, Condition은 다중축·다중값 맵, 소속 기준·옵션 페이지·고정 Selection 평가 | Decided(2026-10-21, 코디네이터·사용자가 되돌릴 수 있음) — #552·#513, 포트·훅 구현 / UI·실이력 미구현 |
+| [0059](0059-app-injected-equipment-axes-and-condition.md) | 설비 축은 앱 주입, Condition은 다중축·다중값 맵, 소속 기준·옵션 페이지·고정 Selection 평가 | Decided(2026-10-21, 코디네이터·사용자가 되돌릴 수 있음) — #552·#513, Apply UI 구현 / live UI·과거 소속 평가 미구현 |
 | [0060](0060-analysis-board-pane-sizing-collapse-maximize.md) | 분석 보드는 화면 안 그리드·열별 크기 조절·칸 접기·최대화를 사용하고 시트·레이아웃별로 저장한다 | Decided(2026-10-21, 사용자) — #536 |
-
 | [0061](0061-query-draft-applied-address-and-required-gate.md) | 조회 초안은 칸에 두고 Apply 한 번으로 적용 주소를 확정한다 | Decided(2026-10-21, 코디네이터·사용자가 되돌릴 수 있음) — #553 SDK |
 | [0062](0062-chart-catalog-focus-layout.md) | 차트 카탈로그는 D 집중형 + E 오른쪽 지원 레일 resize | Decided(2026-10-21, 소유자 위임에 따른 코디네이터) — #530, 공통 Panel 이관은 #575 |
 | [0063](0063-consumer-owned-chart-pieces-and-unbounded-drill.md) | 메뉴가 조립하는 차트 활성화·범주 줄·표시 제어, 드릴 깊이 상한 제거 | Decided(2026-10-21, 사용자) — #541·#580 S4, 0025의 깊이 제한 대체 |

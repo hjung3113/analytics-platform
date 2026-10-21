@@ -6,6 +6,10 @@ export function paneRootOf(el: HTMLElement | null): HTMLElement | null {
   return el?.closest<HTMLElement>(PANE_ROOT_SELECTOR) ?? null;
 }
 
+export function drillDestinationOf(scope: ParentNode): HTMLElement | null {
+  return scope.querySelector<HTMLElement>('[aria-current="step"]') ?? scope.querySelector<HTMLElement>('[data-platform-page] h1');
+}
+
 export function paneRootById(id: string): HTMLElement | null {
   return Array.from(document.querySelectorAll<HTMLElement>(PANE_ROOT_SELECTOR)).find(el => el.dataset.paneId === id) ?? null;
 }

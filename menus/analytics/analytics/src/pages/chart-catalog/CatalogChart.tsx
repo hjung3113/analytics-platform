@@ -47,11 +47,12 @@ export function CatalogChart({ kind, data, height }: { kind: CatalogKind; data: 
     return { current: make(false), previous: make(true) };
   }, [data, kind, currentLabel, previousLabel]);
   const densityInstants = useMemo(() => data.lane?.flatMap(lane => lane.segments.map(segment => segment.start)), [data.lane]);
+  const lanes = data.lane ?? [];
   const unit = kind === 'bar' || kind === 'donut' || kind === 'pareto' || kind === 'topNBar' ? tx({ ko: '건', en: 'jobs' }) : tx({ ko: '분', en: 'min' });
   const common = { chartId: `chart-catalog-${kind}`, title, description, metricVersion: 'synthetic v1', unit, size: 'hero' as const, height,
     trust: { source: tx({ ko: '합성 데이터', en: 'Synthetic data' }), updated: displayTime(global.to), coverage: tx({ ko: '견본 데이터', en: 'Sample data' }) } };
   return <>
-    {kind === 'lane' ? <LaneTimeline key={identity} lanes={data.lane ?? []} ariaLabel={title} description={description} trust={common.trust} height={height} densityInstants={densityInstants} outlineWidthsByRank={{ high: 3, mid: 2, low: 1.5 }} /> : spec ? <AnalysisChart {...common} spec={spec} /> : <AnalysisChartFrame {...common} series={series.current} compareSeries={series.previous} />}
+    {kind === 'lane' ? <LaneTimeline key={identity} lanes={lanes} ariaLabel={title} description={description} trust={common.trust} height={height} densityInstants={densityInstants} outlineWidthsByRank={{ high: 3, mid: 2, low: 1.5 }} formatTooltip={() => tx({ ko: '작업 구간', en: 'Work interval' })} /> : spec ? <AnalysisChart {...common} spec={spec} /> : <AnalysisChartFrame {...common} series={series.current} compareSeries={series.previous} />}
     {detail?.identity === identity && <p ref={result} role="status" aria-label={tx({ ko: '상세 결과', en: 'Details result' })} className="t-caption px-4 py-2 text-text-secondary">
       {tx({ ko: '상세 대상', en: 'Details target' })}: {detail.target}
     </p>}

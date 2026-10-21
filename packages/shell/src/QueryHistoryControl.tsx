@@ -52,6 +52,7 @@ function HistorySession() {
   };
   const time = (epoch: number) => {
     const minutes = Math.max(0, Math.floor((Date.now() - epoch) / 60_000));
+    if (minutes === 0) return ko ? '방금' : 'just now';
     return new Intl.RelativeTimeFormat(lang, { numeric: 'auto' }).format(-(minutes < 60 ? minutes : minutes < 1440 ? Math.floor(minutes / 60) : Math.floor(minutes / 1440)), minutes < 60 ? 'minute' : minutes < 1440 ? 'hour' : 'day');
   };
   return <Popover open={open} onOpenChange={value => { setOpen(value); setConfirm(false); if (value) history.open(); }}>

@@ -51,7 +51,7 @@ it('keeps its handle stable, reveals by index/ID, resets and offers keyboard sel
   const region = screen.getByRole('region', { name: 'Timeline' });
   fireEvent.keyDown(region, { key: 'ArrowRight' }); fireEvent.keyDown(region, { key: 'Enter' });
   expect(onSelectedChange).toHaveBeenLastCalledWith('segment-1');
-  expect(screen.getByRole('status')).toHaveTextContent('segment-1');
+  expect(screen.getByRole('status')).toHaveTextContent('1970-01-01 00:00:00');
   fireEvent.keyDown(region, { key: 'Escape' }); expect(onSelectedChange).toHaveBeenLastCalledWith(null);
   rerender(<I18nProvider><LaneTimeline ref={ref} lanes={[...lanes].reverse()} ariaLabel="Timeline" /></I18nProvider>); flush();
   expect(ref.current).toBe(handle);
@@ -63,7 +63,7 @@ it('selects and clears on pointer click, exposes semantic hover text and clamps 
   const canvas = screen.getByRole('img');
   fireEvent.pointerMove(canvas, { clientX: 300, clientY: 12 });
   const tooltip = screen.getByRole('tooltip');
-  expect(tooltip).toHaveTextContent('orphan'); expect(tooltip).toHaveTextContent('open');
+  expect(tooltip).toHaveTextContent('시작 미확인'); expect(tooltip).toHaveTextContent('종료 미확인');
   expect(parseFloat(tooltip.style.left)).toBeGreaterThanOrEqual(8);
   expect(parseFloat(tooltip.style.top)).toBeGreaterThanOrEqual(8);
   fireEvent.pointerDown(canvas, { clientX: 300, clientY: 12, pointerId: 1, button: 0 });
@@ -149,8 +149,8 @@ it('keeps scroll-only interactions outside React and reset/reveal preserve a sta
   expect(context.fillText.mock.calls.length).toBeGreaterThan(beforeReset);
 });
 it('shares the standard source/updated/coverage footer and exposes a consumer description', () => {
-  mountLane(<LaneTimeline ariaLabel="Timeline" lanes={lanes} description="Intervals in UTC" trust={{ source: 'Sample source', updated: '2026-10-21', coverage: 'Complete' }} />);
-  expect(screen.getByText('Intervals in UTC')).toBeVisible();
+  mountLane(<LaneTimeline ariaLabel="Timeline" lanes={lanes} description="Intervals" trust={{ source: 'Sample source', updated: '2026-10-21', coverage: 'Complete' }} />);
+  expect(screen.getByText('Intervals')).toBeVisible();
   expect(screen.getByText('Sample source')).toBeVisible();
   expect(screen.getByText(/Complete/)).toBeVisible();
 });
@@ -160,11 +160,11 @@ it('restores the same-segment tooltip after Escape clears the hover', () => {
   const canvas = screen.getByRole('img');
   fireEvent.pointerMove(canvas, { clientX: 300, clientY: 12 });
   const tooltip = screen.getByRole('tooltip');
-  expect(tooltip).toHaveTextContent('depth 0');
+  expect(tooltip).toHaveTextContent('깊이 0');
   fireEvent.keyDown(region, { key: 'Escape' });
   fireEvent.pointerMove(canvas, { clientX: 300, clientY: 12 });
   expect(tooltip).toBeVisible();
-  expect(tooltip).toHaveTextContent('depth 0');
+  expect(tooltip).toHaveTextContent('깊이 0');
 });
 it('keeps the tooltip at full width and flips left of the cursor near the right edge', () => {
   Object.defineProperty(window, 'innerWidth', { configurable: true, value: 600 });
@@ -182,13 +182,30 @@ it('keeps the tooltip at full width and flips left of the cursor near the right 
   }
 });
 it('packs title, subtitle and controls into one header row and keeps only boundary semantics above the plot', async () => {
-  mountLane(<LaneTimeline ariaLabel="Timeline" lanes={lanes} description="Intervals in UTC" />); flush();
+  mountLane(<LaneTimeline ariaLabel="Timeline" lanes={lanes} description="Intervals" />); flush();
   const header = screen.getByRole('region', { name: 'Timeline' }).querySelector('header')!;
   expect(header.querySelector('h3')!.textContent).toBe('Timeline');
-  expect(header.querySelector('p')!.textContent).toBe('Intervals in UTC');
+  expect(header.querySelector('p')!.textContent).toBe('Intervals');
   expect(header).toContainElement(screen.getByRole('button', { name: '확대' }).closest('[role=toolbar]'));
-  expect(screen.getByText(/^UTC · orphan: 시작 미확인 · open: 종료 미확인$/)).toBeVisible();
+  expect(screen.getByText(/^시작 미확인 · 종료 미확인$/)).toBeVisible();
   expect(screen.getByText(/Ctrl\/⌘ \+ 휠: 확대/)).toHaveClass('sr-only');
   fireEvent.focus(screen.getByRole('button', { name: '조작 방법' }));
   expect(await screen.findByRole('tooltip')).toHaveTextContent('끌기: 이동');
+});
+
+it('renders wall-clock summaries without UTC or catalog-internal tokens', () => {
+  mountLane(<LaneTimeline lanes={[{ id: 'lane-0', label: '설비 1', segments: [{ id: 'segment-0-0', start: 0, end: 1_000, depth: 2, rank: 'high', startBoundary: 'orphan', endBoundary: 'open' }] }]} ariaLabel="Timeline" selectedId="segment-0-0" />); flush();
+  fireEvent.pointerMove(screen.getByRole('img'), { clientX: 300, clientY: 12 });
+  const rendered = document.body.textContent ?? '';
+  expect(rendered).not.toContain('UTC');
+  expect(rendered).not.toContain('segment-0-0');
+  expect(rendered).not.toContain('depth');
+  expect(rendered).not.toContain('high');
+  expect(rendered).not.toContain('orphan');
+  expect(rendered).not.toContain('open');
+  expect(rendered).toContain('깊이 2');
+  expect(rendered).toContain('우선순위 높음');
+  expect(rendered).toContain('시작 미확인');
+  expect(rendered).toContain('종료 미확인');
+  expect(rendered).toContain('1970-01-01 00:00:00');
 });

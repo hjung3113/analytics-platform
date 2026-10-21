@@ -32,7 +32,7 @@ async function mount(props: Partial<AnalysisChartFrameProps> = {}) {
 function pointEvent(name: string) {
   act(() => plot.onEvents?.[name]?.({ seriesId: 'one', name: 'Row B | B1', value: 2, dataIndex: 0 }, {} as never));
 }
-afterEach(() => { cleanup(); vi.useRealTimers(); });
+afterEach(() => { cleanup(); });
 
 describe('AnalysisChartFrame SDK pieces (#541)', () => {
   it('activates a clicked point with its category, series and value without navigation', async () => {
@@ -42,31 +42,26 @@ describe('AnalysisChartFrame SDK pieces (#541)', () => {
     expect(onActivate).toHaveBeenCalledWith({ x: 'Row B | B1', seriesId: 'one', value: 2 });
     expect(window.location.search).toBe('?v=1');
   });
-  it('cancels the delayed legacy click path on double click', async () => {
+  it('activates only on the native double-click in double-click mode', async () => {
     const onActivate = vi.fn(); const onPointClick = vi.fn();
     await mount({ pointActivation: { on: 'dblclick', onActivate }, onPointClick });
-    vi.useFakeTimers();
     pointEvent('click'); pointEvent('click'); pointEvent('dblclick');
-    act(() => { vi.runAllTimers(); });
     expect(onActivate).toHaveBeenCalledTimes(1);
     expect(onPointClick).not.toHaveBeenCalled();
   });
   it('never runs the click path before a slow native double-click activation', async () => {
     const onActivate = vi.fn(); const onPointClick = vi.fn();
     await mount({ pointActivation: { on: 'dblclick', onActivate }, onPointClick });
-    vi.useFakeTimers();
     pointEvent('click');
-    act(() => { vi.advanceTimersByTime(400); });
+    await new Promise(resolve => setTimeout(resolve, 400));
     pointEvent('click'); pointEvent('dblclick');
-    act(() => { vi.runAllTimers(); });
     expect(onActivate).toHaveBeenCalledExactlyOnceWith({ x: 'Row B | B1', seriesId: 'one', value: 2 });
     expect(onPointClick).not.toHaveBeenCalled();
   });
   it('only selects on a single click when opting into double click', async () => {
     const onPointClick = vi.fn();
     await mount({ pointActivation: { on: 'dblclick', onActivate: vi.fn() }, onPointClick });
-    vi.useFakeTimers(); pointEvent('click');
-    act(() => { vi.runAllTimers(); });
+    pointEvent('click');
     expect(onPointClick).not.toHaveBeenCalled();
   });
   it('keeps the existing onPointClick immediate without new props', async () => {
@@ -156,17 +151,14 @@ describe('AnalysisChartFrame SDK pieces (#541)', () => {
     fireEvent.click(screen.getByRole('checkbox', { name: 'One' }));
     expect(screen.queryByText('표시할 시리즈를 모두 껐습니다')).toBeNull();
   });
-  it('cancels pending activation work when brushing starts or the frame unmounts', async () => {
-    const onPointClick = vi.fn();
-    const view = await mount({ pointActivation: { on: 'dblclick', onActivate: vi.fn() }, onPointClick });
-    vi.useFakeTimers(); pointEvent('click');
+  it('does not activate points while brushing and unmounts without delayed work', async () => {
+    const onActivate = vi.fn(); const onPointClick = vi.fn();
+    const view = await mount({ pointActivation: { on: 'dblclick', onActivate }, onPointClick });
     fireEvent.click(screen.getByRole('button', { name: '구간 선택' }));
-    act(() => { vi.runAllTimers(); });
-    expect(onPointClick).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: '구간 선택' }));
-    pointEvent('click'); view.unmount();
-    act(() => { vi.runAllTimers(); });
-    expect(onPointClick).not.toHaveBeenCalled();
+    pointEvent('click'); pointEvent('dblclick');
+    expect(onActivate).not.toHaveBeenCalled(); expect(onPointClick).not.toHaveBeenCalled();
+    view.unmount();
+    expect(onActivate).not.toHaveBeenCalled(); expect(onPointClick).not.toHaveBeenCalled();
   });
   it('keeps disabled consumer actions unavailable', async () => {
     const onSelect = vi.fn(); await mount({ pointActions: [{ id: 'inspect', label: 'Inspect', onSelect, disabled: true }] });

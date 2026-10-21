@@ -29,9 +29,9 @@ it('clips geometry, preserves semantic flags, selects deepest then last input on
   // x=256.5 hits all three marks; the later shallow 'c' must lose to the deeper 'b'.
   expect(hitTest(rects, 256.5, 10)?.segment.id).toBe('b');
   expect(rects.find(rect => rect.segment.id === 'c')!.width).toBe(1.5);
-  expect(segmentSummary(rects.find(rect => rect.segment.id === 'b')!.segment)).toContain('orphan');
-  expect(segmentSummary(rects.find(rect => rect.segment.id === 'b')!.segment)).toContain('open');
-  expect(segmentSummary(rects[0].segment)).not.toContain('orphan');
+  expect(segmentSummary(rects.find(rect => rect.segment.id === 'b')!.segment, 'ko')).toContain('시작 미확인');
+  expect(segmentSummary(rects.find(rect => rect.segment.id === 'b')!.segment, 'ko')).toContain('종료 미확인');
+  expect(segmentSummary(rects[0].segment, 'ko')).not.toContain('시작 미확인');
 });
 it('drops invalid ranges and duplicate IDs, normalizes invalid depth and sorts density copies', () => {
   vi.spyOn(console, 'error').mockImplementation(() => {});

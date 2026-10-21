@@ -9,7 +9,7 @@ import type { ThemeColorToken } from '@ap/ui/theme';
 import { AnalysisSectionContext, resolveAnalysisChartSize, analysisChartHeight, type ChartSize } from './AnalysisSectionContext';
 import { chartTheme, EChart, strokeToken, token } from './EChart';
 import { downloadChartCsv } from './analysisChartCsv';
-import { paneRootOf } from './pageFocus';
+import { drillDestinationOf, paneRootOf } from './pageFocus';
 import { assignNoteLevels, noteLabelWidths } from './annotationLayout';
 
 import { AnalysisChartPart, ChartHeading, ChartTrustFooter } from './analysisChartFrameParts';
@@ -547,7 +547,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
                 // Complete that handoff after the scope is released; never restore the old opener.
                 if (!active || active === document.body || pointMenuContent.current?.contains(active)) {
                   const scope = paneRootOf(session.opener) ?? document;
-                  const destination = scope.querySelector<HTMLElement>('[aria-current="step"]') ?? scope.querySelector<HTMLElement>('[data-platform-page] h1');
+                  const destination = drillDestinationOf(scope);
                   destination?.focus({ preventScroll: true });
                 }
                 return;

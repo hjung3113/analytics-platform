@@ -239,7 +239,7 @@ it('renders the standalone Lane consumer with labels and keyboard selection', as
     expect(screen.getByText('Lane 1', { exact: true })).toBeTruthy();
     const timeline = screen.getByRole('region', { name: 'Lane 시간선 차트' });
     fireEvent.keyDown(timeline, { key: 'Enter' });
-    expect(summary().textContent).toContain('segment');
+    expect(summary().textContent).toContain('깊이 0');
     expect(screen.queryByRole('button', { name: '내보내기' })).toBeNull();
   } finally { query.mockImplementation(previous); vi.unstubAllGlobals(); }
 });

@@ -1,11 +1,11 @@
 import { isThemeColorToken, readColorToken, type ThemeColorToken } from '@ap/ui/theme';
 import type { LaneTimelineProps } from './LaneTimeline';
-import { clampView, densityBins, GUTTER, HEADER_HEIGHT, hitTest, laneDiagnostic, laneTickLabel, niceTicks, outlineStyle, ROW_HEIGHT, segmentSummary, visibleRects, type LaneModel, type LaneRect } from './laneTimelineGeometry';
+import { clampView, densityBins, GUTTER, HEADER_HEIGHT, hitTest, laneDiagnostic, laneTickLabel, niceTicks, outlineStyle, ROW_HEIGHT, segmentText, visibleRects, type LaneModel, type LaneRect } from './laneTimelineGeometry';
 
 type RendererInput = {
   root: HTMLElement; scroll: HTMLDivElement; canvas: HTMLCanvasElement; axis: HTMLCanvasElement;
   spacer: HTMLDivElement; tooltip: HTMLDivElement; model: LaneModel; props: LaneTimelineProps;
-  selectedId: string | null; savedView: { model?: LaneModel; view?: [number, number] }; onSelect: (id: string | null) => void; onHover: (text: string | null) => void;
+  selectedId: string | null; lang: 'ko' | 'en'; savedView: { model?: LaneModel; view?: [number, number] }; onSelect: (id: string | null) => void; onHover: (text: string | null) => void;
 };
 const defaultPalette: ThemeColorToken[] = ['chart-series-1', 'chart-series-2', 'chart-series-3', 'chart-series-4'];
 /** Owns all mutable view geometry, event subscriptions and frame scheduling. No React state. */
@@ -114,7 +114,7 @@ export function createLaneRenderer(input: RendererInput) {
     }
     const bounds = canvas.getBoundingClientRect();
     const rect = hitTest(rects, event.clientX - bounds.left, event.clientY - bounds.top);
-    const text = rect ? `${model.lanes[rect.laneIndex].label} · ${props.formatTooltip?.(rect.segment, model.lanes[rect.laneIndex]) ?? segmentSummary(rect.segment)}${props.formatTooltip ? ` · ${segmentSummary(rect.segment)}` : ''}` : null;
+    const text = rect ? segmentText(model, rect, props.formatTooltip, input.lang) : null;
     if (lastHover !== text) { lastHover = text; input.onHover(text); }
     tooltip.hidden = !text;
     // Fix the width before measuring: shrink-to-fit would collapse it against the right-edge clamp (UX #576 U1).
