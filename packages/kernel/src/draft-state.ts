@@ -11,7 +11,7 @@ import type { ScopeState } from './platform';
 export type DraftValues = QueryDraft['draft'];
 type Values = DraftValues;
 type RecordEvent = { port: QueryHistoryStore; key: QueryHistoryKey; entry: QueryHistoryEntry };
-type Snapshot = { identity: string; session: Session; address: string; addressGeneration: number; draft: Values; editRevision: number; historyInitialized: boolean; pageBasis?: GlobalContext; pending: { source: string; target: string; dispatching: boolean; editRevision: number; record?: RecordEvent } | null };
+type Snapshot = { identity: string; session: Session; address: string; addressGeneration: number; draft: Values; editRevision: number; historyInitialized: boolean; pageBasis?: GlobalContext; lastRestoreRevision?: number; pending: { source: string; target: string; dispatching: boolean; editRevision: number; record?: RecordEvent } | null };
 export function createDraftStore() {
   let snapshot: Snapshot | null = null;
   const listeners = new Set<() => void>();
@@ -42,9 +42,12 @@ function initial(input: DraftInputs): Values {
 }
 function reconcile(state: Snapshot | null, input: DraftInputs): Snapshot {
   if (!state || state.identity !== input.identity || state.session !== input.session) return { identity: input.identity, session: input.session, address: input.url, addressGeneration: (state?.addressGeneration ?? -1) + 1, draft: initial(input), editRevision: 0, historyInitialized: false, pageBasis: undefined, pending: null };
-  if (state.pending && state.pending.target === input.url) return { ...state, address: input.url, addressGeneration: state.addressGeneration + 1, pageBasis: state.editRevision === state.pending.editRevision ? input.global : state.pageBasis, pending: null };
+  if (state.pending && state.pending.target === input.url) {
+    const restoredAfterClick = (state.lastRestoreRevision ?? -1) > state.pending.editRevision;
+    return { ...state, address: input.url, addressGeneration: state.addressGeneration + 1, pageBasis: restoredAfterClick ? state.pageBasis : input.global, pending: null };
+  }
   if (state.pending?.source === input.url || state.address === input.url) return state;
-  return { ...state, address: input.url, addressGeneration: (state?.addressGeneration ?? -1) + 1, draft: initial(input), editRevision: 0, historyInitialized: false, pageBasis: undefined, pending: null };
+  return { ...state, address: input.url, addressGeneration: (state?.addressGeneration ?? -1) + 1, draft: initial(input), editRevision: 0, historyInitialized: false, pageBasis: undefined, lastRestoreRevision: undefined, pending: null };
 }
 export function queryMissing(menu: MenuEntry | null, global: GlobalContext, page: Pair[]): QueryMissing[] {
   return [
@@ -106,7 +109,7 @@ export function useScreenDraft(input: DraftInputs) {
   const replace = (values: Values) => {
     const previous = reconcile(store.get(), input);
     const next = normalize(input, values);
-    store.put({ ...previous, draft: next, pageBasis: next.global, editRevision: previous.editRevision + 1, historyInitialized: true });
+    store.put({ ...previous, draft: next, pageBasis: next.global, lastRestoreRevision: previous.editRevision + 1, editRevision: previous.editRevision + 1, historyInitialized: true });
   };
   const queryHistory = useScreenHistory(input, store, values => normalize(input, values), replace);
   if (mode === 'live') return { queryHistory, queryDraft: { mode, draft: { global: input.global, page: input.page }, dirty: [], setDraftGlobal: input.setGlobal, setDraftPage: input.setPage, apply() {}, revert() {}, reset() {}, missing: [], canApply: true, applying: false } satisfies QueryDraft };

@@ -169,6 +169,28 @@ it('shares sibling readers of one logical pane, isolates others, and preserves e
   act(() => recreate());
   expect(seen.get('a')!.draft.page).toEqual([]);
 });
+it('keeps reset-key edits after acknowledging a second ordinary Apply with an intervening page edit', () => {
+  const session = testSession(['platform:view']);
+  const changed = vi.fn();
+  let echo!: (value: PaneScreen) => void;
+  function Pane() {
+    const [value, setValue] = useState<PaneScreen>({ menuId: 'home', params: {}, query: period }); echo = setValue;
+    return <PaneQueryDraftProvider screens={{ one: value }}><PaneScreenProvider paneId="one" screen={value} onChange={changed} onLeave={() => {}}><Probe /></PaneScreenProvider></PaneQueryDraftProvider>;
+  }
+  window.history.replaceState(null, '', '/');
+  render(<I18nProvider><PlatformProvider registry={registry} adapter={testAdapter({ session: () => session })}><Pane /></PlatformProvider></I18nProvider>);
+  act(() => { draft.setDraftPage({ filter: 'first' }); draft.apply(); });
+  expect(changed).toHaveBeenCalledTimes(1);
+  act(() => echo(changed.mock.calls[0][0]));
+  act(() => { draft.setDraftGlobal({ from: '2026-09-24T09:00:00' }); draft.apply(); });
+  expect(changed).toHaveBeenCalledTimes(2);
+  act(() => draft.setDraftPage({ filter: 'after click' }));
+  act(() => echo(changed.mock.calls[1][0]));
+  expect(draft.draft.global.from).toBe('2026-09-24T09:00:00');
+  expect(platform.global.from).toBe('2026-09-24T09:00:00');
+  act(() => draft.setDraftPage({ page: '7' }));
+  expect(draft.draft.page).toEqual([['filter', 'after click'], ['page', '7']]);
+});
 it.each(['', '?v=1&extra=value', '?scopeId=MEM', '?filter=value', '?ppid=unsupported', period, '?from=2026-09-25T09:00:00', '?from=bad&to=worse'])('derives pane execution from the applied address %s', async search => {
   const session = testSession(['platform:view']);
   const send = vi.fn(async () => ({ outcome: 'ok' as const, data: 7, assessments: [], trust: null, correlationId: 'result' }));
