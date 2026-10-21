@@ -12,7 +12,8 @@ import { GRID_GAP, PANE_HEADER_HEIGHT, STACKED_PANE_MIN_HEIGHT } from './layout'
 import { RouteOutlet } from '../RouteOutlet';
 import { AppRail } from '../AppRail';
 import { AppShell } from '../AppShell';
-import { MAX_SHEETS, type Board, type Sheet } from './boardModel';
+import { MAX_SHEETS } from './boardModel';
+import { legacyBoard as boardOf, legacySheet as sheet, seedLegacy as seed, storedLegacy as stored, V1_KEY as KEY, V2_KEY } from './__fixtures__/legacyBoard';
 
 const features = { export: false, savedView: false, annotate: false, compare: false, board: true };
 const apply = { ...noContext, time: 'apply' as const };
@@ -43,12 +44,7 @@ function makeRegistry(over: { board?: boolean } = {}) {
   });
 }
 
-const sheet = (id: string, over: Partial<Sheet> = {}): Sheet => ({ id, name: id, layout: '1x1', selected: 0, panes: [null], ...over });
-const boardOf = (sheets: Sheet[], active = sheets[0].id): Board => ({ v: 1, activeSheetId: active, sheets });
 const alpha = (query = '') => ({ menuId: 'alpha', params: {}, query });
-const KEY = 'platform:board:u1';
-const stored = (): Board => JSON.parse(localStorage.getItem(KEY)!) as Board;
-const seed = (board: Board) => localStorage.setItem(KEY, JSON.stringify(board));
 const w1 = '?from=2026-09-01T00:00:00&to=2026-09-02T00:00:00';
 const w2 = '?from=2026-08-01T00:00:00&to=2026-08-02T00:00:00';
 
@@ -80,6 +76,7 @@ describe('storage (docs/16 §7)', () => {
     expect(screen.getByRole('tab', { name: '시트 1' })).toHaveAttribute('aria-selected', 'true');
     expect(within(paneGroup(1)).getByRole('button', { name: '분석 화면 넣기' })).toBeInTheDocument();
     expect(localStorage.getItem(KEY)).toBeNull();
+    expect(localStorage.getItem(V2_KEY)).toBeNull();
     expect(window.location.search).toMatch(/^\?sheet=s/);
     fireEvent.click(screen.getByRole('button', { name: '시트 추가' }));
     await settle();
@@ -138,8 +135,29 @@ describe('storage (docs/16 §7)', () => {
     expect(localStorage.getItem(KEY)).toBe(raw);
     fireEvent.click(screen.getByRole('button', { name: '시트 추가' }));
     await settle();
-    expect(stored().v).toBe(1);
+    expect(JSON.parse(localStorage.getItem(V2_KEY)!).v).toBe(2);
+    expect(localStorage.getItem(KEY)).toBe(raw);
     expect(stored().sheets).toHaveLength(2);
+  });
+
+  it('says once that a board saved by a newer build is not saved here, and never writes it', async () => {
+    const newer = JSON.stringify({ v: 3, anything: true });
+    localStorage.setItem(V2_KEY, newer);
+    mount('/board');
+    await settle();
+    expect(await screen.findByText('더 새 버전에서 저장한 보드라 이 화면에서는 저장하지 않습니다.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '시트 추가' }));
+    await settle();
+    expect(screen.getAllByRole('tab')).toHaveLength(2);
+    expect(localStorage.getItem(V2_KEY)).toBe(newer);
+  });
+
+  it('says that an unreadable board was set aside, and keeps the original value', async () => {
+    localStorage.setItem(V2_KEY, '{nope');
+    mount('/board');
+    await settle();
+    expect(await screen.findByText('저장된 보드를 읽을 수 없어 새 보드로 시작했습니다. 원래 값은 따로 보관했습니다.')).toBeInTheDocument();
+    expect(localStorage.getItem('platform:board:corrupt-backup:v2:u1')).toBe('{nope');
   });
 
   it('re-reads the board when the signed-in user changes', async () => {
@@ -608,6 +626,7 @@ describe('narrow stacking (docs/16 §4)', () => {
     act(() => { notify(764); });
     expect(grid()).toHaveAttribute('data-columns', '2');
     expect(localStorage.getItem(KEY)).toContain('"layout":"2x2"');
+    expect(localStorage.getItem(V2_KEY)).toBeNull();
   });
   it('keeps saved unequal ratios through the actual 692px boundary and logical-column collapse while stacked', async () => {
     const arrangement = { columns: [20, 80], rows: [[40, 60], [70, 30]], collapsed: [] };

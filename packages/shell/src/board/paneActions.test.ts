@@ -2,10 +2,10 @@ import { admitPaneScreen, canMountPaneScreen } from './boardMenus';
 import { House } from 'lucide-react';
 import { describe, expect, it } from 'vitest';
 import { parseQuery } from '@ap/contracts';
-import { createRegistry } from '@ap/kernel';
+import { createRegistry, type PaneScreen } from '@ap/kernel';
 import { noContext, testSpace } from '@ap/kernel/testing';
 import { applyContextToSheet, defaultQuery, copyContextToSheet, paneSignals, replacementScreen } from './paneActions';
-import type { Sheet } from './boardModel';
+import { v2Sheet } from './__fixtures__/legacyBoard';
 
 const features = { export: false, savedView: false, annotate: false, compare: false, board: true };
 const entry = (id: string, path: string, over: Record<string, unknown> = {}) => ({
@@ -25,9 +25,9 @@ const registry = createRegistry({
 });
 const canOpen = (menuId: string) => menuId !== 'locked';
 const pane = (query: string, menuId = 'alpha') => ({ menuId, params: {}, query });
-const sheet = (panes: Sheet['panes']): Sheet => ({ id: 's', name: 's', layout: '1x2', selected: 0, panes });
+const sheet = (panes: (PaneScreen | null)[]) => v2Sheet('s', { layout: '1x2', panes });
 const condition = (axis: string) => `?equipmentGroup=${encodeURIComponent(JSON.stringify({ axis, id: 'X' }))}`;
-const differing = (panes: Sheet['panes']) => paneSignals(registry, canOpen, panes, '없음').map(signal => signal?.differing.map(row => row.key) ?? null);
+const differing = (panes: (PaneScreen | null)[]) => paneSignals(registry, canOpen, panes, '없음').map(signal => signal?.differing.map(row => row.key) ?? null);
 
 describe('paneSignals compares the Context itself, not its displayed text', () => {
   it('a Condition on another axis with the same id differs', () => {

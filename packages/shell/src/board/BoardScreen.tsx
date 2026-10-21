@@ -8,8 +8,8 @@ import { BoardContextBar } from './BoardContextBar';
 import { BoardPane } from './BoardPane';
 import { SheetTabs } from './SheetTabs';
 import {
-  BOARD_LAYOUTS, canCollapse, defaultArrangement, getArrangement, setArrangement, addSheet, applyPaneEdits, droppedPaneCount, editPane, goBackPane, layoutShape, moveSheet, previousAt, removeSheet, renameSheet,
-  restoreLayout, restorePane, restoreSheet, revertPaneEdits, selectPane, setActiveSheet, setLayout, setPane, type Board, type BoardLayout, type LayoutChange, type PaneEdit,
+  BOARD_LAYOUTS, canCollapse, defaultArrangement, getArrangement, setArrangement, addSheet, applyPaneEdits, droppedPaneCount, editPane, goBackPane, layoutOf, layoutShape, moveSheet, previousAt, removeSheet, renameSheet,
+  restoreLayout, restorePane, restoreSheet, revertPaneEdits, screens, selectedIndex, selectPane, setActiveSheet, setLayout, setPane, type Board, type BoardLayout, type LayoutChange, type PaneEdit,
 } from './boardModel';
 import { canMountPaneScreen } from './boardMenus';
 import { applyContextToSheet, copyContextToSheet, defaultQuery, firstEmptyPane, paneNumbers, paneSignals, replacementScreen } from './paneActions';
@@ -36,7 +36,7 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
   const { user, url, pathname, navigate, registry, recent, pageNavigation, canOpen } = usePlatform();
   const { lang, t } = useI18n();
   const text = boardText(lang);
-  const { board, update } = useBoardStore(user.id, text.sheetPrefix);
+  const { board, update, storageNotice } = useBoardStore(user.id, text.sheetPrefix);
   const heading = useRef<HTMLHeadingElement>(null);
   const [confirmLayout, setConfirmLayout] = useState<BoardLayout | null>(null);
 
@@ -64,7 +64,14 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
   const latest = useRef(board);
   useEffect(() => { latest.current = board; });
 
+  // A stored value this build did not use (newer version, unreadable) is said once per user, in the toast every other board message uses.
+  useEffect(() => {
+    if (storageNotice !== null) toast.info(storageNotice === 'newer' ? text.storageNewer : text.storageCorrupt, { id: 'board-storage-notice' });
+  }, [storageNotice, user.id, text]);
+
   const sheetId = sheet.id;
+  const layout = layoutOf(sheet);
+  const paneScreens = screens(sheet);
   const onLeave = (href: string) => { navigate(href, { focus: 'page', via: 'board' }); };
   const writePane = (index: number, screen: PaneScreen | null) => update(b => setPane(b, sheetId, index, screen));
 
@@ -75,20 +82,20 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
     return true;
   };
   const clearPane = (index: number) => {
-    const previous = sheet.panes[index];
+    const previous = paneScreens[index];
     writePane(index, null);
     if (previous) raiseUndo(text, text.paneCleared(index + 1), () => { undo(b => restorePane(b, sheetId, index, previous)); });
   };
-  const applyLayout = (layout: BoardLayout) => {
-    const after = setLayout(board, sheetId, layout).sheets.find(s => s.id === sheetId) ?? sheet;
-    const change: LayoutChange = { sheetId, before: sheet, after, layout };
-    const dropped = droppedPaneCount(sheet, layout);
-    update(b => setLayout(b, sheetId, layout));
+  const applyLayout = (target: BoardLayout) => {
+    const after = setLayout(board, sheetId, target).sheets.find(s => s.id === sheetId) ?? sheet;
+    const change: LayoutChange = { sheetId, before: sheet, after, layout: target };
+    const dropped = droppedPaneCount(sheet, target);
+    update(b => setLayout(b, sheetId, target));
     if (dropped > 0) raiseUndo(text, text.shrunk(dropped), () => { undo(b => restoreLayout(b, change)); });
   };
-  const requestLayout = (layout: BoardLayout) => {
-    if (layout === sheet.layout) return;
-    if (droppedPaneCount(sheet, layout) > 0) setConfirmLayout(layout); else applyLayout(layout);
+  const requestLayout = (target: BoardLayout) => {
+    if (target === layout) return;
+    if (droppedPaneCount(sheet, target) > 0) setConfirmLayout(target); else applyLayout(target);
   };
   const deleteSheet = (id: string) => {
     const result = removeSheet(board, id, text.sheetPrefix);
@@ -124,18 +131,18 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
     editPanes(edits, text.copied(paneNumbers(edits.map(e => e.index)), target.name), targetId);
   };
   const replaceScreen = (index: number, menu: MenuEntry) => {
-    const old = sheet.panes[index];
+    const old = paneScreens[index];
     if (!old) return;
     editPanes([{ index, before: old, after: replacementScreen(registry, canOpen, old, menu, defaultQuery(registry, recent)), fresh: true }], text.replaced(index + 1));
   };
   const duplicate = (index: number) => {
-    const from = sheet.panes[index];
+    const from = paneScreens[index];
     const to = firstEmptyPane(sheet);
     if (!from || to === -1 || !canMountPaneScreen(registry, canOpen, from)) return;
     editPanes([{ index: to, before: null, after: { ...from, params: { ...from.params } }, fresh: true }], text.duplicated(index + 1, to + 1));
   };
   const openFull = (index: number) => {
-    const screen = sheet.panes[index];
+    const screen = paneScreens[index];
     const menu = screen ? registry.menus.find(m => m.id === screen.menuId) : null;
     if (screen && menu) navigate(paneHref(registry, screen), { focus: 'page', via: 'board' });
   };
@@ -148,31 +155,31 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
       document.querySelector<HTMLElement>('[data-board-context-row] button:not(:disabled), [data-board-context-row] [tabindex="0"]')?.focus({ preventScroll: true });
     }, 0);
     return () => clearTimeout(timer);
-  }, [editRequest, user.id, sheetId, sheet.layout]);
+  }, [editRequest, user.id, sheetId, layout]);
 
-  const unavailable = (index: number) => { const own = sheet.panes[index]; return own !== null && !canMountPaneScreen(registry, canOpen, own); };
+  const unavailable = (index: number) => { const own = paneScreens[index]; return own !== null && !canMountPaneScreen(registry, canOpen, own); };
   const applyOff = (index: number) => (unavailable(index) ? text.paneUnavailable : applyContextToSheet(registry, canOpen, sheet, index)?.others ? null : text.applyToAllNone);
   const duplicateOff = (index: number) => (unavailable(index) ? text.paneUnavailable : emptyIndex === -1 ? text.noEmptyPane : null);
   const axes = useEquipmentAxes();
-  const signals = paneSignals(registry, canOpen, sheet.panes, text.noneValue, axes, lang, t('membershipAsOf'));
+  const signals = paneSignals(registry, canOpen, paneScreens, text.noneValue, axes, lang, t('membershipAsOf'));
   const emptyIndex = firstEmptyPane(sheet);
   const insert = (index: number, menu: MenuEntry) => writePane(index, { menuId: menu.id, params: {}, query: defaultQuery(registry, recent) });
 
   const shrinkCount = confirmLayout ? droppedPaneCount(sheet, confirmLayout) : 0;
   const cancelShrink = useRef<HTMLButtonElement>(null);
-  const selected = sheet.selected;
-  const { rows, columns } = layoutShape(sheet.layout);
+  const selected = selectedIndex(sheet);
+  const { rows, columns } = layoutShape(layout);
   const grid = useRef<HTMLDivElement>(null);
   const panel = useRef<HTMLDivElement>(null);
   const guidance = useRef<HTMLElement>(null);
-  const allEmpty = sheet.panes.every(screen => screen === null);
+  const allEmpty = paneScreens.every(screen => screen === null);
   const height = useGridHeight(panel, guidance, allEmpty);
   const width = useElementWidth(grid);
   const drawn = drawnColumns(columns, width);
   const stacked = drawn !== columns;
   const arrangement = getArrangement(sheet);
-  const tracks = effectiveTracks(sheet.layout, arrangement, width, height);
-  const owner = `${user.id}.${sheetId}.${sheet.layout}`;
+  const tracks = effectiveTracks(layout, arrangement, width, height);
+  const owner = `${user.id}.${sheetId}.${layout}`;
   const identity = `${owner}.${stacked}`;
   const [presentation, setPresentation] = useState<{ identity: string; maximized: number | null }>({ identity, maximized: null });
   // Identity changes cancel transient presentation before children commit; no outgoing focus handoff survives.
@@ -218,13 +225,13 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
   }, [maximized, identity]);
   const saved = (change: Partial<typeof arrangement>) => update(b => {
     const current = b.sheets.find(s => s.id === sheetId);
-    return current ? setArrangement(b, sheetId, sheet.layout, { ...getArrangement(current), ...change }) : b;
+    return current ? setArrangement(b, sheetId, layout, { ...getArrangement(current), ...change }) : b;
   });
   const collapse = (index: number) => saved({ collapsed: arrangement.collapsed.includes(index)
-    ? arrangement.collapsed.filter(i => i !== index) : canCollapse(sheet.layout, arrangement.collapsed, index) ? [...arrangement.collapsed, index] : arrangement.collapsed });
-  const stackedHeights = sheet.panes.map((_, i) => PANE_HEADER_HEIGHT + (arrangement.collapsed.includes(i) ? 0 : STACKED_PANE_MIN_HEIGHT - PANE_HEADER_HEIGHT));
+    ? arrangement.collapsed.filter(i => i !== index) : canCollapse(layout, arrangement.collapsed, index) ? [...arrangement.collapsed, index] : arrangement.collapsed });
+  const stackedHeights = paneScreens.map((_, i) => PANE_HEADER_HEIGHT + (arrangement.collapsed.includes(i) ? 0 : STACKED_PANE_MIN_HEIGHT - PANE_HEADER_HEIGHT));
   const gridHeight = maximized !== null ? Math.max(height, PANE_HEADER_HEIGHT + PANE_BODY_MIN_HEIGHT)
-    : stacked ? stackedHeights.reduce((a, b) => a + b, 0) + GRID_GAP * (sheet.panes.length - 1) : tracks.height;
+    : stacked ? stackedHeights.reduce((a, b) => a + b, 0) + GRID_GAP * (paneScreens.length - 1) : tracks.height;
   const panePlacement = (index: number) => {
     if (maximized !== null) return { left: 0, top: 0, width: '100%', height: gridHeight };
     if (stacked) return { left: 0, width: '100%', top: stackedHeights.slice(0, index).reduce((a, b) => a + b + GRID_GAP, 0), height: stackedHeights[index] };
@@ -250,15 +257,15 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
         </Popover>
       </div>
       <div className="flex shrink-0 items-center gap-2">
-      <Button type="button" variant="ghost" size="sm" onClick={() => saved(defaultArrangement(sheet.layout))}>{text.resetSize}</Button>
-      <ToggleGroup type="single" appearance="filter" aria-label={text.layout} value={sheet.layout} onValueChange={value => { if (value) requestLayout(value as BoardLayout); }}>
-        {BOARD_LAYOUTS.map(layout => <ToggleGroupItem key={layout} value={layout} size="sm" appearance="selected-filter" aria-label={text.layoutOption(layout)}>{layout.replace('x', '×')}</ToggleGroupItem>)}
+      <Button type="button" variant="ghost" size="sm" onClick={() => saved(defaultArrangement(layout))}>{text.resetSize}</Button>
+      <ToggleGroup type="single" appearance="filter" aria-label={text.layout} value={layout} onValueChange={value => { if (value) requestLayout(value as BoardLayout); }}>
+        {BOARD_LAYOUTS.map(option => <ToggleGroupItem key={option} value={option} size="sm" appearance="selected-filter" aria-label={text.layoutOption(option)}>{option.replace('x', '×')}</ToggleGroupItem>)}
       </ToggleGroup>
       </div>
     </header>
-    <PaneQueryDraftProvider key={sheetId} screens={Object.fromEntries(sheet.panes.map((screen, index) => [paneIdOf(sheetId, index), screen]))}>
+    <PaneQueryDraftProvider key={sheetId} screens={Object.fromEntries(paneScreens.map((screen, index) => [paneIdOf(sheetId, index), screen]))}>
     <QueryBarExtensionsProvider>
-    <BoardContextBar key={`${sheetId}.${selected}`} paneId={paneIdOf(sheetId, selected)} number={selected + 1} screen={sheet.panes[selected]} onChange={(next, how) => update(b => editPane(b, sheetId, selected, next, how))} onLeave={onLeave} />
+    <BoardContextBar key={`${sheetId}.${selected}`} paneId={paneIdOf(sheetId, selected)} number={selected + 1} screen={paneScreens[selected]} onChange={(next, how) => update(b => editPane(b, sheetId, selected, next, how))} onLeave={onLeave} />
     <div ref={panel} id={PANEL_ID} role="tabpanel" aria-labelledby={`board-tab-${sheetId}`} className="min-h-0 flex-1 overflow-auto p-3">
       {allEmpty && <section ref={guidance} aria-label={text.emptyGuidanceTitle} className="mb-3 rounded-md border border-border-subtle bg-surface-card px-4 py-3">
         <h2 className="text-sm font-semibold text-text-primary">{text.emptyGuidanceTitle}</h2>
@@ -267,9 +274,9 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
       </section>}
       <div ref={grid} onFocusCapture={event => { lastGridFocus.current = event.target; }}
         onBlurCapture={event => { if (event.relatedTarget) lastGridFocus.current = event.relatedTarget; }} data-board-grid data-columns={drawn} data-rows={rows} style={{ '--board-height': `${gridHeight}px` } as CSSProperties} className="relative h-(--board-height)">
-        {sheet.panes.map((screen, index) => <BoardPane key={`${user.id}.${sheetId}.${index}`} paneId={paneIdOf(sheetId, index)} number={index + 1} screen={screen} selected={index === selected} Outlet={Outlet}
+        {paneScreens.map((screen, index) => <BoardPane key={`${user.id}.${sheetId}.${index}`} paneId={paneIdOf(sheetId, index)} number={index + 1} screen={screen} selected={index === selected} Outlet={Outlet}
           placement={panePlacement(index)} hidden={maximized !== null && maximized !== index} collapsed={arrangement.collapsed.includes(index)} maximized={maximized === index}
-          sizing={sheet.panes.length >= 2} canMaximize={!stacked} collapseOff={maximized !== null ? text.maximizedCollapseOff : !arrangement.collapsed.includes(index) && !canCollapse(sheet.layout, arrangement.collapsed, index) ? text.lastExpanded : null}
+          sizing={paneScreens.length >= 2} canMaximize={!stacked} collapseOff={maximized !== null ? text.maximizedCollapseOff : !arrangement.collapsed.includes(index) && !canCollapse(layout, arrangement.collapsed, index) ? text.lastExpanded : null}
           onCollapse={() => collapse(index)} onMaximize={() => toggleMaximize(index)}
           signal={signals[index]} hasPrevious={previousAt(sheet, index) !== null}
           applyAllOff={applyOff(index)} duplicateOff={duplicateOff(index)}

@@ -6,7 +6,9 @@ import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@
 import type { Session } from '@ap/contracts';
 import { PlatformPage } from '@ap/components';
 import { RouteOutlet } from '../RouteOutlet';
-import { MAX_SHEETS, type Board, type Sheet } from './boardModel';
+import { MAX_SHEETS } from './boardModel';
+import { legacyBoard as boardOf, legacySheet as sheet, seedLegacy as seed, storedLegacy as stored, V1_KEY as KEY, V2_KEY } from './__fixtures__/legacyBoard';
+import type { BoardV1 as Board } from './boardMigrate';
 import { OpenInBoardAction } from './OpenInBoardAction';
 
 const features = { export: false, savedView: false, annotate: false, compare: false, board: true };
@@ -28,11 +30,6 @@ const registry = createRegistry({
   ],
 });
 
-const sheet = (id: string, over: Partial<Sheet> = {}): Sheet => ({ id, name: id, layout: '1x1', selected: 0, panes: [null], ...over });
-const boardOf = (sheets: Sheet[], active = sheets[0].id): Board => ({ v: 1, activeSheetId: active, sheets });
-const KEY = 'platform:board:u1';
-const stored = (): Board => JSON.parse(localStorage.getItem(KEY)!) as Board;
-const seed = (board: Board) => localStorage.setItem(KEY, JSON.stringify(board));
 const w1 = 'from=2026-09-01T00:00:00&to=2026-09-02T00:00:00';
 const beta = { menuId: 'beta', params: {}, query: `?${w1}` };
 
@@ -74,6 +71,7 @@ describe('분석 보드에 열기… (docs/16 §6)', () => {
     fireEvent.click(await within(dialog).findByRole('radio', { name: '칸 1 · 베타' }));
     expect(within(dialog).getByText('칸 1의 화면을 바꿉니다')).toBeInTheDocument();
     expect(JSON.parse(localStorage.getItem(KEY)!)).toEqual(boardOf([sheet('a', { panes: [beta] })]));
+    expect(localStorage.getItem(V2_KEY)).toBeNull();
     expect(window.location.pathname).toBe('/alpha');
   });
 
@@ -146,6 +144,7 @@ describe('분석 보드에 열기… (docs/16 §6)', () => {
     await settle();
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(localStorage.getItem(KEY)).toBeNull();
+    expect(localStorage.getItem(V2_KEY)).toBeNull();
     expect(window.location.pathname).toBe('/alpha');
     expect(screen.getByRole('button', { name: '더보기' })).toHaveFocus();
   });
@@ -166,6 +165,7 @@ describe('분석 보드에 열기… (docs/16 §6)', () => {
     await settle();
     expect(within(dialog).getByText(changed)).toBeInTheDocument();
     expect(stored()).toEqual(filled);
+    expect(localStorage.getItem(V2_KEY)).toBeNull();
     expect(window.location.pathname).toBe('/alpha');
     expect(screen.getByRole('dialog', { name: '분석 보드에 열기' })).toBeInTheDocument();
   });
@@ -189,6 +189,7 @@ describe('분석 보드에 열기… (docs/16 §6)', () => {
     await settle();
     expect(within(dialog).getByText(changed)).toBeInTheDocument();
     expect(stored()).toEqual(after);
+    expect(localStorage.getItem(V2_KEY)).toBeNull();
     expect(window.location.pathname).toBe('/alpha');
   });
 
@@ -209,6 +210,41 @@ describe('분석 보드에 열기… (docs/16 §6)', () => {
     expect(within(open).queryByText('u1 sheet')).toBeNull();
     fireEvent.click(within(open).getByRole('radio', { name: '기존 칸 바꾸기' }));
     expect(within(open).queryByRole('radio', { name: 'u1 sheet' })).toBeNull();
+  });
+});
+
+describe('V1 storage (#575 D1)', () => {
+  it('opening a screen over a board that is stored only as V1 writes V2, keeps every V1 sheet, leaves the V1 value alone and shows the result', async () => {
+    const original = boardOf([sheet('a', { name: '내 비교', layout: '1x2', panes: [beta, beta] })]);
+    seed(original);
+    const raw = localStorage.getItem(KEY);
+    mount(`/alpha?${w1}&tab=x`);
+    await settle();
+    const dialog = await openDialog();
+    fireEvent.click(within(dialog).getByRole('button', { name: '열기' }));
+    await settle();
+    const written = JSON.parse(localStorage.getItem(V2_KEY)!) as { v: number; sheets: { name: string }[] };
+    expect(written.v).toBe(2);
+    expect(written.sheets.map(s => s.name)).toEqual(['내 비교', '시트 1']);
+    expect(localStorage.getItem(KEY)).toBe(raw);
+    expect(localStorage.getItem('platform:board:v1-backup:u1')).toBe(raw);
+    expect(stored().sheets[0]).toMatchObject({ layout: '1x2', panes: [beta, beta] });
+    expect(await screen.findByRole('tab', { name: '내 비교' })).toBeInTheDocument();
+    expect(await screen.findByRole('tab', { name: '시트 1', selected: true })).toBeInTheDocument();
+  });
+
+  it('over a board saved by a newer build it writes nothing, says so and keeps the dialog open', async () => {
+    const newer = JSON.stringify({ v: 3, anything: true });
+    localStorage.setItem(V2_KEY, newer);
+    mount(`/alpha?${w1}`);
+    await settle();
+    const dialog = await openDialog();
+    fireEvent.click(within(dialog).getByRole('button', { name: '열기' }));
+    await settle();
+    expect(within(dialog).getByRole('alert')).toHaveTextContent('더 새 버전에서 저장한 보드라 이 화면에서는 저장하지 않습니다.');
+    expect(localStorage.getItem(V2_KEY)).toBe(newer);
+    expect(window.location.pathname).toBe('/alpha');
+    expect(screen.getByRole('dialog', { name: '분석 보드에 열기' })).toBeInTheDocument();
   });
 });
 
