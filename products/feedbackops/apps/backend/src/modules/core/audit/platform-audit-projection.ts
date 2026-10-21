@@ -3,7 +3,7 @@ import { z } from 'zod';
 import type { Tx } from '../../../db/tx.js';
 
 // ADR-0069 decision 6: the allowlisted audit projection for the platform audit screen.
-// The allowlist (subject types, survey_response exclusion, sensitive rows, columns) lives in
+// The allowlist (subject types, survey_response subjects/links, sensitive capabilities and rows, columns) lives in
 // `core.platform_audit_events` (migration 0074); this wrapper only passes filters and parses.
 // Caller owns request authorization.
 
@@ -23,7 +23,8 @@ export interface PlatformAuditFilter {
   sort: { field: 'at' | 'actor' | 'action' | 'source' | 'targetType'; desc: boolean };
   /** null = every row (entity audit). */
   limit: number | null;
-  offset: number;
+  /** bigint: a far page's offset exceeds SQL integer; past the end it yields no rows and the true total. */
+  offset: bigint;
 }
 
 export interface PlatformAuditRow {
@@ -58,7 +59,7 @@ export async function platformAuditEvents(
       ${f.from ? f.from.toISOString() : null}::timestamptz,
       ${f.to ? f.to.toISOString() : null}::timestamptz,
       ${JSON.stringify(f.actionByEventType)}::jsonb, ${f.sort.field}::text, ${f.sort.desc}::boolean,
-      ${f.limit}::integer, ${f.offset}::integer)
+      ${f.limit}::integer, ${f.offset.toString()}::bigint)
   `);
   const parsed = result.rows.map((row) => rowSchema.parse(row));
   const rows: PlatformAuditRow[] = [];

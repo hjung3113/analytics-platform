@@ -348,6 +348,17 @@ describe.skipIf(!runIntegration)('platform port audit reads (#621)', () => {
       expect(past).toMatchObject({ outcome: 'ok', data: { items: [], total: 5 } });
     });
 
+    it.each([
+      ['page past SQL integer offset, pageSize 1', { page: 2147483649, pageSize: 1 }],
+      ['page past SQL integer offset, pageSize 100', { page: 2147483649, pageSize: 100 }],
+      ['largest safe page, pageSize 100', { page: Number.MAX_SAFE_INTEGER, pageSize: 100 }],
+    ])(
+      'a far page (%s) is ok with [] and the true total — no 500, no reset to page 1',
+      async (_name, paging) => {
+        expect(await mine(paging)).toMatchObject({ outcome: 'ok', data: { items: [], total: 5 } });
+      },
+    );
+
     it('no match → empty with null data; a non-uuid targetId matches nothing (not an error)', async () => {
       expect(await search({ actor: `${PREFIX}-nobody` })).toMatchObject({
         outcome: 'empty',
@@ -365,6 +376,7 @@ describe.skipIf(!runIntegration)('platform port audit reads (#621)', () => {
       ['pageSize 0', { pageSize: 0 }],
       ['page 0', { page: 0 }],
       ['page fractional', { page: 1.5 }],
+      ['page beyond the safe integer range', { page: 2 ** 53 }],
       ['unknown key', { nope: 1 }],
       ['bad action', { action: 'explode' }],
       ['bad source', { source: 'robot' }],

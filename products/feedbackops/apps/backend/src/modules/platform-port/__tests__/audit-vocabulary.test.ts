@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { AUDIT_EVENT_TYPES } from '@fops/shared';
+import { AUDIT_EVENT_TYPES, CAPABILITIES, isSensitiveCapability } from '@fops/shared';
 import { describe, expect, it } from 'vitest';
 
 import { AUDIT_ACTION_BY_EVENT_TYPE, PLATFORM_AUDIT_ACTIONS } from '../audit-actions.js';
@@ -76,5 +76,18 @@ describe('toAuditEvent field mapping', () => {
 
   it('marks a system actor as source system', () => {
     expect(toAuditEvent({ ...row, actorType: 'system' }).source).toBe('system');
+  });
+});
+
+describe('0074 permission allowlist vs the capability registry', () => {
+  it('lists exactly the non-sensitive capabilities (DB-free twin of the integration it.each)', () => {
+    const sql = readFileSync(
+      new URL('../../../../migrations/0074_platform_audit_projection.sql', import.meta.url),
+      'utf8',
+    );
+    const list = /\(l\.detail ->> 'capability'\) = ANY \(ARRAY\[([^\]]+)\]/.exec(sql)?.[1];
+    if (list === undefined) throw new Error('capability allowlist not found in 0074');
+    const listed = [...list.matchAll(/'([^']+)'/g)].map((m) => m[1] as string).sort();
+    expect(listed).toEqual(CAPABILITIES.filter((c) => !isSensitiveCapability(c)).sort());
   });
 });

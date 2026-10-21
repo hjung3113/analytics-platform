@@ -9,7 +9,7 @@ GRANT SELECT (id, external_id, actor_type) ON core.actors TO fops_core_audit_rea
 CREATE FUNCTION core.platform_audit_events(
   p_workspace uuid, p_subject_type text, p_subject_id uuid, p_actor text, p_action text,
   p_source text, p_from timestamptz, p_to timestamptz, p_actions jsonb,
-  p_sort text, p_desc boolean, p_limit integer, p_offset integer
+  p_sort text, p_desc boolean, p_limit integer, p_offset bigint
 )
 RETURNS TABLE (
   audit_id uuid, occurred_at timestamptz, actor_external_id text, actor_kind text,
@@ -30,6 +30,16 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog AS $$
         'voc_cluster_suggestion','workspace'])
       AND left(l.event_type, 15) <> 'survey_response'
       AND (l.detail ->> 'sensitive') IS DISTINCT FROM 'true'
+      -- Permission rows: only the non-sensitive capabilities (CAPABILITY_META.sensitive = false in
+      -- packages/shared); later lifecycle events carry no `sensitive` marker. No capability = excluded.
+      AND (left(l.subject_type, 11) <> 'permission_' AND left(l.event_type, 11) <> 'permission_'
+        OR (l.detail ->> 'capability') = ANY (ARRAY['workspace.read','voc.triage','voc.read',
+          'finding.read','finding.manage','survey.read']))
+      -- Entity links: both endpoint types must be present and neither a survey response (ADR-0064).
+      AND (l.subject_type <> 'entity_link' AND left(l.event_type, 12) <> 'entity_link.'
+        OR (l.detail -> 'source' ->> 'type' IS NOT NULL AND l.detail -> 'target' ->> 'type' IS NOT NULL
+          AND l.detail -> 'source' ->> 'type' <> 'survey_response'
+          AND l.detail -> 'target' ->> 'type' <> 'survey_response'))
   ), filt AS (
     SELECT * FROM base b
     WHERE b.action IS NOT NULL
@@ -69,17 +79,17 @@ $$;
 --> statement-breakpoint
 GRANT CREATE ON SCHEMA core TO fops_core_audit_reader_owner;
 --> statement-breakpoint
-ALTER FUNCTION core.platform_audit_events(uuid,text,uuid,text,text,text,timestamptz,timestamptz,jsonb,text,boolean,integer,integer)
+ALTER FUNCTION core.platform_audit_events(uuid,text,uuid,text,text,text,timestamptz,timestamptz,jsonb,text,boolean,integer,bigint)
   OWNER TO fops_core_audit_reader_owner;
 --> statement-breakpoint
 REVOKE CREATE ON SCHEMA core FROM fops_core_audit_reader_owner;
 --> statement-breakpoint
 SET ROLE fops_core_audit_reader_owner;
 --> statement-breakpoint
-REVOKE ALL ON FUNCTION core.platform_audit_events(uuid,text,uuid,text,text,text,timestamptz,timestamptz,jsonb,text,boolean,integer,integer)
+REVOKE ALL ON FUNCTION core.platform_audit_events(uuid,text,uuid,text,text,text,timestamptz,timestamptz,jsonb,text,boolean,integer,bigint)
   FROM PUBLIC, fops_app;
 --> statement-breakpoint
-GRANT EXECUTE ON FUNCTION core.platform_audit_events(uuid,text,uuid,text,text,text,timestamptz,timestamptz,jsonb,text,boolean,integer,integer)
+GRANT EXECUTE ON FUNCTION core.platform_audit_events(uuid,text,uuid,text,text,text,timestamptz,timestamptz,jsonb,text,boolean,integer,bigint)
   TO fops_app;
 --> statement-breakpoint
 RESET ROLE;

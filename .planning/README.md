@@ -79,7 +79,7 @@
 
 ## 그 다음 — FeedbackOps 합류 (M6, 지도 #598)
 
-> 2026-10-21: #592 1a단계 완료(서브모듈 → 디렉터리, CI 이전; 도구 통일은 다음 단계). [ADR-0066](../docs/adr/0066-feedbackops-merges-into-platform.md)이 아래 M5 계획(ADR-0027)을 대체했다. 단계는 [합류 설계](../docs/integration/feedbackops-merge-design.md) §6: #592 저장소 → #593 실서버 → #594 전역 기능·#595 피드백 운영 시스템 → #597 독립 앱 은퇴, #596 권한·업무 시스템 Decided([ADR-0068](../docs/adr/0068-permission-scope-and-business-system-link.md), 2026-10-22). #593 실서버([ADR-0069](../docs/adr/0069-platform-port-in-feedbackops-backend.md)): #620 전송 기반·세션 끝, #621 감사 읽기 끝(허용 목록 definer 투영 `core.platform_audit_events`, 사유·설문 응답·sensitive 행 미노출), 다음 #623 → #622. 사내 확인 #150·#151은 병행. #603 Keycloak 임시 IdP(로컬 스택·사내 런북). 아래 M5 서술은 전환 기간의 진입 링크 기록으로만 남는다.
+> 2026-10-21: #592 1a단계 완료(서브모듈 → 디렉터리, CI 이전; 도구 통일은 다음 단계). [ADR-0066](../docs/adr/0066-feedbackops-merges-into-platform.md)이 아래 M5 계획(ADR-0027)을 대체했다. 단계는 [합류 설계](../docs/integration/feedbackops-merge-design.md) §6: #592 저장소 → #593 실서버 → #594 전역 기능·#595 피드백 운영 시스템 → #597 독립 앱 은퇴, #596 권한·업무 시스템 Decided([ADR-0068](../docs/adr/0068-permission-scope-and-business-system-link.md), 2026-10-22). #593 실서버([ADR-0069](../docs/adr/0069-platform-port-in-feedbackops-backend.md)): #620 전송 기반·세션 끝, #621 감사 읽기 끝(허용 목록 definer 투영 `core.platform_audit_events`, 사유 미노출, SQL이 설문 응답 주체·연결, 민감 권한 요청 이력, sensitive 행을 제외), 다음 #623 → #622. 사내 확인 #150·#151은 병행. #603 Keycloak 임시 IdP(로컬 스택·사내 런북). 아래 M5 서술은 전환 기간의 진입 링크 기록으로만 남는다.
 
 FeedbackOps 화면은 플랫폼으로 옮기지 않는다. FeedbackOps가 VOC → Evidence → Finding → Task 흐름을 전담하고, 각 업무 공간은 그 시스템으로 좁힌 진입 링크만 둔다([ADR-0027](../docs/adr/0027-feedbackops-stays-standalone-entry-links.md), ADR-0018 대체). 남은 일은 매핑과 링크 계약이다.
 

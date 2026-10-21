@@ -631,8 +631,10 @@ composition is the accepted limit; stolen-app-credential unlinkability is not cl
 function owned by `fops_core_audit_reader_owner` (`fops_app` holds EXECUTE only). The owner gains
 column SELECT on `core.audit_log(actor_id)` and `core.actors(id, external_id, actor_type)` and
 nothing else; `fops_app` still has no SELECT on `core.audit_log`. The allowlist (18 subject types,
-no `survey_response*` rows, no `detail.sensitive = true`, no `summary`/`detail` output) is in the
-function body. Callers: `modules/core/audit/platform-audit-projection.ts`, used by
+no `survey_response*` rows, no `entity_link` whose `detail.source/target.type` is missing or
+`survey_response`, permission rows only for the non-sensitive `detail.capability` list (pinned to
+`CAPABILITY_META` by a test), no `detail.sensitive = true`, no `summary`/`detail` output) is in the
+function body. `p_offset` is `bigint` so a far page returns no rows and the true total. Callers: `modules/core/audit/platform-audit-projection.ts`, used by
 `modules/platform-port` (ADR-0069 decision 6).
 
 ### #1109 approved Survey attachment extension (0066)

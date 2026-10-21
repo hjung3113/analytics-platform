@@ -76,7 +76,7 @@ export function createPlatformAuditService(deps: PlatformAuditServiceDeps) {
       actionByEventType: AUDIT_ACTION_BY_EVENT_TYPE,
       sort: query.sort,
       limit: query.pageSize,
-      offset: (query.page - 1) * query.pageSize,
+      offset: BigInt(query.page - 1) * BigInt(query.pageSize),
     });
     if (total === 0) return { outcome: 'empty' };
     return { outcome: 'ok', data: { items: rows.map(toAuditEvent), total } };
@@ -114,7 +114,7 @@ export function createPlatformAuditService(deps: PlatformAuditServiceDeps) {
       actionByEventType: AUDIT_ACTION_BY_EVENT_TYPE,
       sort: { field: 'at', desc: true },
       limit: null,
-      offset: 0,
+      offset: 0n,
     });
     if (rows.length === 0) return { outcome: 'empty' };
     return { outcome: 'ok', data: { events: rows.map(toAuditEvent) } };

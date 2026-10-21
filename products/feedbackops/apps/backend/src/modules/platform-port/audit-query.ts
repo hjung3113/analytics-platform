@@ -140,7 +140,7 @@ export function parseAuditQuery(body: unknown): ParsedAuditQuery | null {
   const to = toAt === undefined ? undefined : parseInstant(toAt);
   if (from === null || to === null) return null;
   if (from && to && from.getTime() >= to.getTime()) return null;
-  if (page !== undefined && (typeof page !== 'number' || !Number.isInteger(page) || page < 1)) {
+  if (page !== undefined && (typeof page !== 'number' || !Number.isSafeInteger(page) || page < 1)) {
     return null;
   }
   if (
