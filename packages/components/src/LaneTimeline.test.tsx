@@ -4,6 +4,7 @@ import { Profiler, createRef, type ReactElement } from 'react';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { LaneTimeline, type LaneTimelineHandle } from './LaneTimeline';
+import { AnalysisSectionContext } from './AnalysisSectionContext';
 const lanes = Array.from({ length: 40 }, (_, i) => ({ id: `lane-${i}`, label: `Lane ${i}`, segments: [{ id: `segment-${i}`, start: i * 10, end: i * 10 + 100 }] }));
 function mountLane(element: ReactElement) { return render(<I18nProvider>{element}</I18nProvider>); }
 let queue: Map<number, FrameRequestCallback>; let counter: number;
@@ -207,4 +208,15 @@ it('renders wall-clock summaries without UTC or catalog-internal tokens', () => 
   expect(rendered).toContain('시작 미확인');
   expect(rendered).toContain('종료 미확인');
   expect(rendered).toContain('1970-01-01 00:00:00');
+});
+
+// #599: inside an AnalysisLayout section the corner collapse button sits over the header's right edge, so the
+// header reserves the same right gutter as AnalysisChart (pr-12); a free-standing timeline keeps its own padding.
+it('reserves the section collapse-button gutter in its header only inside an analysis section', () => {
+  const section = { title: '모듈별 동작 흐름', kind: 'breakdown' as const, collapse: () => {} };
+  const { container, unmount } = mountLane(<AnalysisSectionContext.Provider value={section}><LaneTimeline lanes={lanes} ariaLabel="Timeline" /></AnalysisSectionContext.Provider>);
+  expect(container.querySelector('header')).toHaveClass('pr-12');
+  unmount();
+  const plain = mountLane(<LaneTimeline lanes={lanes} ariaLabel="Timeline" />);
+  expect(plain.container.querySelector('header')).not.toHaveClass('pr-12');
 });
