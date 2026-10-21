@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { PlatformAdapter } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, usePlatform } from '@ap/kernel';
 import { testAdapter, testSession } from '@ap/kernel/testing';
-import { createAssembly } from '#platform-assembly';
+import { createAssembly, type Assembly } from '#platform-assembly';
 import { GROUPS, SPACES, registry } from './menus';
 import { appSlots } from './slots';
 
@@ -12,8 +12,8 @@ import { appSlots } from './slots';
 const probeRun = process.env.GEN_MENU_PROBE === '1';
 
 describe('workspace assembly (#260)', () => {
-  it('enters productivity analysis at equipment-master for a partial-permission session (#264)', () => {
-    const assembly = createAssembly({ registry });
+  it('enters productivity analysis at equipment-master for a partial-permission session (#264)', async () => {
+    const assembly = await createAssembly({ registry }) as Assembly;
     const session = testSession(['platform:view', 'equipment:view'], { user: { id: 'partial', name: 'partial', title: { ko: '부분 권한', en: 'Partial access' } } });
     const adapter: PlatformAdapter = { ...assembly.adapter, session: () => session };
     function Probe() {
@@ -91,8 +91,8 @@ describe('workspace assembly (#260)', () => {
     expect(registry.menuById('voc').path).toBe('/voc');
   });
 
-  it.skipIf(probeRun)('gives a viewer the spaces their menus allow and the global utilities, and the app passes the FeedbackOps slot', () => {
-    const assembly = createAssembly({ registry });
+  it.skipIf(probeRun)('gives a viewer the spaces their menus allow and the global utilities, and the app passes the FeedbackOps slot', async () => {
+    const assembly = await createAssembly({ registry }) as Assembly;
     const slots = appSlots(assembly, null);
     expect(slots.topBarTools).toBe(assembly.topBarTools);
     // The real composition (#251): mapped spaces get four entries, disabled while the origin is absent; operations has no row.

@@ -71,6 +71,9 @@ importers:
       '@ap/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@ap/http-adapter':
+        specifier: workspace:*
+        version: link:../../packages/http-adapter
       '@ap/kernel':
         specifier: workspace:*
         version: link:../../packages/kernel

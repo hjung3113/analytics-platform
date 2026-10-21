@@ -21,3 +21,14 @@ export const wrongArgument: CreateAssembly = (o: string) => ({ adapter: o as unk
 export const renamedTools: CreateAssembly = () => ({ adapter, tools: null });
 
 export const ok: CreateAssembly = () => ({ adapter, topBarTools: null });
+
+// A real assembly awaits the bootstrap (#154): a Promise of the same shapes is fine, and so are the two non-mount answers.
+export const asyncOk: CreateAssembly = async () => ({ adapter, topBarTools: null });
+export const redirectOk: CreateAssembly = async () => ({ redirect: '/auth/login' });
+export const screenOk: CreateAssembly = () => ({ screen: null });
+
+// @ts-expect-error — a Promise of a wrong shape is still wrong.
+export const asyncWrongAdapter: CreateAssembly = async () => ({ adapter: { menuQuery: 1 }, topBarTools: null });
+
+// @ts-expect-error — a redirect target is a string.
+export const wrongRedirect: CreateAssembly = () => ({ redirect: 1 });

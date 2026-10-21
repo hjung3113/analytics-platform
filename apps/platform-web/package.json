@@ -6,6 +6,7 @@
   "scripts": {
     "lint": "eslint .",
     "dev": "vite --host 127.0.0.1",
+    "dev:real": "vite --host 127.0.0.1 --mode real",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "build": "tsc --noEmit && vite build --mode mock",
@@ -16,6 +17,7 @@
   "dependencies": {
     "@ap/components": "workspace:*",
     "@ap/contracts": "workspace:*",
+    "@ap/http-adapter": "workspace:*",
     "@ap/kernel": "workspace:*",
     "@ap/menu-admin": "workspace:*",
     "@ap/menu-analytics": "workspace:*",
