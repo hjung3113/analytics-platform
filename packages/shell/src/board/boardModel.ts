@@ -338,7 +338,8 @@ export function setLayout(board: Board, sheetId: string, layout: BoardLayout): B
 export function restoreLayout(board: Board, change: LayoutChange): Board | null {
   const sheet = board.sheets.find(s => s.id === change.sheetId);
   if (!sheet || !samePanes(sheet, change.after)) return null;
-  const selectedPaneId = sheet.selectedPaneId === change.after.selectedPaneId ? change.before.selectedPaneId : sheet.selectedPaneId;
+  // A later selection is kept by pane number: the restored slots may have other ids than the ones now on the sheet.
+  const selectedPaneId = sheet.selectedPaneId === change.after.selectedPaneId ? change.before.selectedPaneId : (change.before.panes[selectedIndex(sheet)] ?? change.before.panes[0]).id;
   const layout = layoutOf(change.before);
   return normalizeBoard(mapSheet(board, change.sheetId, s => withGrid({ ...s, panes: change.before.panes, selectedPaneId }, layout, memoryOf(s, layout))));
 }

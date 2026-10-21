@@ -195,6 +195,18 @@ describe('panes and layouts', () => {
     expect(selectedIndex(moved.sheets[0])).toBe(1);
   });
 
+  it('undo keeps a later selection by pane number when the shrink and regrow recreated the slot', () => {
+    const { board, id } = base();
+    const { after, change } = shrink(setPane(board, id, 1, null), id);
+    const recreated = setLayout(setLayout(after, id, '1x1'), id, '1x2');
+    const selected = selectPane(recreated, id, 1);
+    // Re-fill pane 2 would change the panes, so the undo target is only valid while pane 2 is empty again as in `after`.
+    const target = { ...change, after: { ...change.after, panes: recreated.sheets[0].panes } };
+    const restored = restoreLayout(selected, target)!;
+    expect(layoutOf(restored.sheets[0])).toBe('2x2');
+    expect(selectedIndex(restored.sheets[0])).toBe(1);
+  });
+
   it('undo of a 1×1 shrink after growing back to 2×2 and selecting pane 4 restores nothing, so the selection stays inside the panes', () => {
     const { board, id } = base();
     const { after, change } = shrink(board, id, '1x1');

@@ -233,6 +233,23 @@ describe('V1 storage (#575 D1)', () => {
     expect(await screen.findByRole('tab', { name: '시트 1', selected: true })).toBeInTheDocument();
   });
 
+  it('a newer board that appears after the dialog opened says it is not saved, not that the pane changed', async () => {
+    seed(boardOf([sheet('a', { name: '비교', layout: '1x2', panes: [beta, null] })]));
+    mount(`/alpha?${w1}`);
+    await settle();
+    const dialog = await openDialog();
+    fireEvent.click(within(dialog).getByRole('radio', { name: '기존 시트의 빈 칸' }));
+    fireEvent.click(within(dialog).getByRole('radio', { name: '비교' }));
+    fireEvent.click(within(dialog).getByRole('radio', { name: '칸 2 · 비어 있음' }));
+    const newer = JSON.stringify({ v: 3, anything: true });
+    localStorage.setItem(V2_KEY, newer);
+    fireEvent.click(within(dialog).getByRole('button', { name: '열기' }));
+    await settle();
+    expect(within(dialog).getByRole('alert')).toHaveTextContent('더 새 버전에서 저장한 보드라 이 화면에서는 저장하지 않습니다.');
+    expect(localStorage.getItem(V2_KEY)).toBe(newer);
+    expect(screen.getByRole('dialog', { name: '분석 보드에 열기' })).toBeInTheDocument();
+  });
+
   it('over a board saved by a newer build it writes nothing, says so and keeps the dialog open', async () => {
     const newer = JSON.stringify({ v: 3, anything: true });
     localStorage.setItem(V2_KEY, newer);

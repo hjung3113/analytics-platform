@@ -73,7 +73,7 @@ export function saveBoard(storage: KeyValueStore, userId: string, board: Board):
 }
 
 /** The stored board for code outside the board screen (`분석 보드에 열기…`): read and write through the same functions the hook uses. */
-export const readStoredBoard = (userId: string, prefix: string): Board => loadBoard(browserStorage, userId, prefix).board;
+export const readStoredBoard = (userId: string, prefix: string): LoadedBoard => loadBoard(browserStorage, userId, prefix);
 export const writeStoredBoard = (userId: string, board: Board): boolean => saveBoard(browserStorage, userId, board);
 
 /**
@@ -89,7 +89,8 @@ export function useBoardStore(userId: string, prefix: string): { board: Board; u
       if (previous.userId !== userId) return previous;
       const next = change(previous.board);
       if (next === previous.board) return previous;
-      if (!previous.readOnly) saveBoard(browserStorage, userId, next);
+      // A newer build may have written since the load: that refusal latches this session read-only, with the notice.
+      if (!previous.readOnly && !saveBoard(browserStorage, userId, next)) return { ...previous, board: next, notice: 'newer', readOnly: true };
       return { ...previous, board: next };
     });
   }, [userId]);

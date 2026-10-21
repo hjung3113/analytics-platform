@@ -45,7 +45,7 @@ function OpenInBoardDialogBody({ control }: { control: HeaderOverflowDialogContr
   const screen = useCurrentScreen();
   const menuName = (menuId: string) => { const menu = registry.menus.find(m => m.id === menuId); return menu ? tx(menu.label) : menuId; };
   // Read when the dialog opens; the confirm re-reads and checks the chosen target again, so a board changed in another tab is never overwritten with stale data.
-  const [board, setBoard] = useState<Board>(() => readStoredBoard(user.id, text.sheetPrefix));
+  const [board, setBoard] = useState<Board>(() => readStoredBoard(user.id, text.sheetPrefix).board);
   const full = board.sheets.length >= MAX_SHEETS;
   const withEmpty = board.sheets.filter(s => s.panes.some(p => p.screen === null));
   const [destination, setDestination] = useState<Destination>(() => initialDestination(board));
@@ -59,7 +59,10 @@ function OpenInBoardDialogBody({ control }: { control: HeaderOverflowDialogContr
 
   const confirm = () => {
     if (!screen || !ready) return;
-    const current = readStoredBoard(user.id, text.sheetPrefix);
+    const stored = readStoredBoard(user.id, text.sheetPrefix);
+    // A board from a newer build is never written: say so before judging the destination, which that board cannot contain.
+    if (stored.readOnly) { setProblem(text.boardNotSaved); return; }
+    const current = stored.board;
     let next: Board | null = null;
     if (destination === 'new') next = openScreenInNewSheet(current, text.sheetPrefix, screen);
     else if (paneIndex !== null && sheet) {

@@ -167,6 +167,24 @@ describe('the board hook and the open-in-board entry', () => {
     expect(localStorage.getItem(V2_KEY)).toBe(raw);
   });
 
+  it('a newer value written by another tab after load makes the session read-only with the notice, even if the value is later replaced', () => {
+    const { result } = renderHook(() => useBoardStore('u1', '시트'));
+    act(() => { result.current.update(b => addSheet(b, '시트')); });
+    expect(result.current.storageNotice).toBeNull();
+    const newer = JSON.stringify({ v: 3 });
+    localStorage.setItem(V2_KEY, newer);
+    act(() => { result.current.update(b => addSheet(b, '시트')); });
+    expect(result.current.board.sheets).toHaveLength(3);
+    expect(result.current.storageNotice).toBe('newer');
+    expect(localStorage.getItem(V2_KEY)).toBe(newer);
+    const other = JSON.stringify(v2());
+    localStorage.setItem(V2_KEY, other);
+    act(() => { result.current.update(b => addSheet(b, '시트')); });
+    expect(result.current.board.sheets).toHaveLength(4);
+    expect(result.current.storageNotice).toBe('newer');
+    expect(localStorage.getItem(V2_KEY)).toBe(other);
+  });
+
   it('reports a corrupt value and writes V2 on the next edit', () => {
     localStorage.setItem(V1_KEY, '{nope');
     const { result } = renderHook(() => useBoardStore('u1', '시트'));
@@ -179,7 +197,7 @@ describe('the board hook and the open-in-board entry', () => {
 
   it('readStoredBoard and writeStoredBoard use the same keys; a write over a newer value reports false', () => {
     localStorage.setItem(V1_KEY, JSON.stringify(v1()));
-    expect(screens(readStoredBoard('u1', '시트').sheets[0])).toEqual([shot('a'), null]);
+    expect(screens(readStoredBoard('u1', '시트').board.sheets[0])).toEqual([shot('a'), null]);
     expect(writeStoredBoard('u1', freshBoard('시트'))).toBe(true);
     expect(localStorage.getItem(V1_BACKUP)).not.toBeNull();
     localStorage.setItem(V2_KEY, JSON.stringify({ v: 3 }));
