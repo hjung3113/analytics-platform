@@ -194,17 +194,16 @@ it('packs title, subtitle and controls into one header row and keeps only bounda
 });
 
 it('renders wall-clock summaries without UTC or catalog-internal tokens', () => {
-  mountLane(<LaneTimeline lanes={[{ id: 'lane-0', label: '설비 1', segments: [{ id: 'segment-0-0', start: 0, end: 1_000, depth: 2, rank: 'high', startBoundary: 'orphan', endBoundary: 'open' }] }]} ariaLabel="Timeline" selectedId="segment-0-0" />); flush();
+  mountLane(<LaneTimeline lanes={[{ id: 'lane-0', label: '설비 1', segments: [{ id: 'segment-0-0', start: 0, end: 1_000, depth: 2, rank: '높음', startBoundary: 'orphan', endBoundary: 'open' }] }]} ariaLabel="Timeline" selectedId="segment-0-0" />); flush();
   fireEvent.pointerMove(screen.getByRole('img'), { clientX: 300, clientY: 12 });
   const rendered = document.body.textContent ?? '';
   expect(rendered).not.toContain('UTC');
   expect(rendered).not.toContain('segment-0-0');
   expect(rendered).not.toContain('depth');
-  expect(rendered).not.toContain('high');
   expect(rendered).not.toContain('orphan');
   expect(rendered).not.toContain('open');
   expect(rendered).toContain('깊이 2');
-  expect(rendered).toContain('우선순위 높음');
+  expect(rendered).toContain('깊이 2 · 높음');
   expect(rendered).toContain('시작 미확인');
   expect(rendered).toContain('종료 미확인');
   expect(rendered).toContain('1970-01-01 00:00:00');

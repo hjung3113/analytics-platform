@@ -82,7 +82,7 @@ function QueryBarSession({ label, historySlot }: QueryBarProps) {
   const copy = useCopyLink(ko ? '현재 적용된 조건의 링크를 복사했습니다. 받는 사람의 권한으로 서버가 다시 검증합니다.' : 'Copied the applied link. The server re-validates for the recipient.');
   const invalid = (key: string) => missing.some(m => m.key === key);
   const issues = reasons.length
-    ? <Alert id={reasonId}><AlertDescription>{reasons.map(r => <p key={r.key}>{r.reason}</p>)}</AlertDescription></Alert>
+    ? <Alert id={reasonId} role="status"><AlertDescription>{reasons.map(r => <p key={r.key}>{r.reason}</p>)}</AlertDescription></Alert>
     : <span id={reasonId} className="sr-only" />;
   const actions = <div role="group" aria-label={ko ? '조회 조건 동작' : 'Query actions'} className={board ? 'flex shrink-0 items-center gap-2' : 'flex flex-wrap items-center gap-2'}>
     <span className="text-xs text-text-secondary">{ko ? `적용 안 된 변경 ${dirty.length}개` : `${dirty.length} unapplied changes`}</span>

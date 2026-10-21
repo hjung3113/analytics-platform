@@ -141,7 +141,7 @@ export function createRegistry({ spaces, groups, menus }: { spaces: readonly Spa
       if (m.query.mode !== 'apply' || m.context.time !== 'apply') fail(`Menu "${m.id}" apply mode requires time: apply`);
       const contextError = requiredContextError(m.query.required?.context ?? [], m.context);
       if (contextError) {
-        const detail = contextError.replace(/^required Context (.+) must be applied$/, 'required Context "$1" must be applied');
+        const detail = contextError.replace(/^required Context ([\s\S]*) must be applied$/, 'required Context "$1" must be applied');
         fail(`Menu "${m.id}" ${detail}`);
       }
       for (const { key, label } of m.query.required?.page ?? []) {

@@ -80,5 +80,5 @@ it('provides twelve TopN values and forty multi-depth lanes with explicit bounda
   expect(segments.some(segment => segment.depth === 2)).toBe(true);
   expect(segments.some(segment => segment.startBoundary === 'orphan')).toBe(true);
   expect(segments.some(segment => segment.endBoundary === 'open')).toBe(true);
-  expect(new Set(segments.map(segment => segment.rank))).toEqual(new Set(['high', 'mid', 'low']));
+  expect(new Set(segments.map(segment => segment.rank))).toEqual(new Set(['높음', '보통', '낮음']));
 });

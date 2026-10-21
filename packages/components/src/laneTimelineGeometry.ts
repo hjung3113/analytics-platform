@@ -29,14 +29,9 @@ export function prepareLanes(input: TimelineLane[], instants: number[]): LaneMod
   return { lanes, flat, byId: new Map(flat.map(item => [item.segment.id, item])), domain: min === Infinity ? [0, 1] : min === max ? [Math.max(-8.64e15, min - 1), Math.min(8.64e15, max + 1)] : [min, max], density: instants.filter(Number.isFinite).sort((a, b) => a - b) };
 }
 export function utcTick(time: number) { return new Date(time).toISOString().slice(0, 19).replace('T', ' '); }
-const rankLabels: Record<'ko' | 'en', Record<string, string>> = {
-  ko: { high: '높음', mid: '보통', low: '낮음' },
-  en: { high: 'High', mid: 'Medium', low: 'Low' },
-};
 export function segmentSummary(segment: TimelineSegment, lang: 'ko' | 'en') {
   const ko = lang === 'ko';
-  const rank = segment.rank ? rankLabels[lang][segment.rank] ?? segment.rank : null;
-  return `${utcTick(segment.start)} – ${utcTick(segment.end)} · ${ko ? '깊이' : 'Depth'} ${segment.depth ?? 0}${rank ? ` · ${ko ? '우선순위' : 'Priority'} ${rank}` : ''}${segment.startBoundary === 'orphan' ? ` · ${ko ? '시작 미확인' : 'Start unknown'}` : ''}${segment.endBoundary === 'open' ? ` · ${ko ? '종료 미확인' : 'End unknown'}` : ''}`;
+  return `${utcTick(segment.start)} – ${utcTick(segment.end)} · ${ko ? '깊이' : 'Depth'} ${segment.depth ?? 0}${segment.rank ? ` · ${segment.rank}` : ''}${segment.startBoundary === 'orphan' ? ` · ${ko ? '시작 미확인' : 'Start unknown'}` : ''}${segment.endBoundary === 'open' ? ` · ${ko ? '종료 미확인' : 'End unknown'}` : ''}`;
 }
 export function segmentText(
   model: LaneModel,

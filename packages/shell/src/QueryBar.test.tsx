@@ -152,7 +152,8 @@ it('merges consumer page diagnostics into the only Apply gate', async () => {
   expect(draft.canApply).toBe(true);
   expect(screen.getByRole('button', { name: '적용' })).toBeDisabled();
   expect(screen.getByText('집계: 허용되지 않은 값')).toBeTruthy();
-  const gate = screen.getByRole('alert');
+  const gate = screen.getByText('집계: 허용되지 않은 값').closest('[role]') as HTMLElement;
+  expect(gate).toHaveAttribute('role', 'status');
   expect(screen.getByRole('region', { name: '조회 조건' })).toContainElement(gate);
   expect(gate.parentElement).toHaveClass('px-3');
 });

@@ -3304,7 +3304,7 @@ test.describe('차트 카탈로그 — 종류별 상호작용 (06 §16, #530)', 
         await expect(workspace.getByText('Lane 1', { exact: true })).toBeVisible();
         const timeline = workspace.getByRole('region', { name: 'Lane 시간선 차트', exact: true });
         await timeline.focus(); await timeline.press('Enter');
-        await expect(summary).toContainText('segment-0-0');
+        await expect(summary).toContainText(/Lane 1 · .*2026-\d\d-\d\d \d\d:\d\d:\d\d – 2026-\d\d-\d\d \d\d:\d\d:\d\d/);
         await timeline.press('Escape'); await expect(summary).toContainText('선택 없음');
       } else {
         if (kind === 'topNBar') {

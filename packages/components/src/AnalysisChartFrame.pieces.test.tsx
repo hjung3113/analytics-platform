@@ -151,14 +151,20 @@ describe('AnalysisChartFrame SDK pieces (#541)', () => {
     fireEvent.click(screen.getByRole('checkbox', { name: 'One' }));
     expect(screen.queryByText('표시할 시리즈를 모두 껐습니다')).toBeNull();
   });
-  it('does not activate points while brushing and unmounts without delayed work', async () => {
+  it('does not activate points while brushing and leaves no delayed work after unmount', async () => {
     const onActivate = vi.fn(); const onPointClick = vi.fn();
-    const view = await mount({ pointActivation: { on: 'dblclick', onActivate }, onPointClick });
+    const settle = () => act(() => new Promise<void>(resolve => { setTimeout(resolve, 50); }));
+    const view = await mount({ pointActivation: { on: 'click', onActivate }, onPointClick });
+    pointEvent('click');
+    expect(onActivate).toHaveBeenCalledTimes(1); expect(onPointClick).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole('button', { name: '구간 선택' }));
     pointEvent('click'); pointEvent('dblclick');
-    expect(onActivate).not.toHaveBeenCalled(); expect(onPointClick).not.toHaveBeenCalled();
-    view.unmount();
-    expect(onActivate).not.toHaveBeenCalled(); expect(onPointClick).not.toHaveBeenCalled();
+    await settle();
+    expect(onActivate).toHaveBeenCalledTimes(1); expect(onPointClick).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: '구간 선택' }));
+    pointEvent('click'); view.unmount();
+    await settle();
+    expect(onActivate).toHaveBeenCalledTimes(2); expect(onPointClick).toHaveBeenCalledTimes(2);
   });
   it('keeps disabled consumer actions unavailable', async () => {
     const onSelect = vi.fn(); await mount({ pointActions: [{ id: 'inspect', label: 'Inspect', onSelect, disabled: true }] });

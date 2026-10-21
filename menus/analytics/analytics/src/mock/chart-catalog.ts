@@ -26,7 +26,7 @@ export const chartCatalogMock = defineMockEndpoint(chartCatalogEndpoint, {
       topNBar: Array.from({ length: 12 }, (_, i) => ({ id: `item-${i}`, label: `Item ${i + 1}`, value: 60 - i * 3, colorToken: i % 2 === 0 ? 'chart-series-1' : 'chart-series-2' })),
       lane: Array.from({ length: 40 }, (_, i) => ({ id: `lane-${i}`, label: `Lane ${i + 1}`, segments: Array.from({ length: 6 }, (_, j) => ({
         id: `segment-${i}-${j}`, start: start + duration * (j / 8), end: start + duration * ((j + 2) / 8), depth: j % 3,
-        rank: ['high', 'mid', 'low'][j % 3], ...(j === 0 ? { startBoundary: 'orphan' as const } : {}), ...(j === 5 ? { endBoundary: 'open' as const } : {}),
+        rank: ['높음', '보통', '낮음'][j % 3], ...(j === 0 ? { startBoundary: 'orphan' as const } : {}), ...(j === 5 ? { endBoundary: 'open' as const } : {}),
       })) })),
       pareto: targets.map((row, i) => ({ id: row.equipmentId, label: row.equipmentId, value: 40 - i * 5 })),
     };
