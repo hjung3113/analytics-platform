@@ -62,7 +62,7 @@ function candidate(input: DraftInputs, entry: QueryHistoryEntry, normalize: (val
     return normalized;
   } catch { return null; }
 }
-function base(entry: QueryHistoryEntry) { return { id: entry.id, lastAppliedAt: entry.lastAppliedAt, count: entry.count }; }
+function base(entry: Pick<QueryHistoryEntry, 'id' | 'lastAppliedAt' | 'count'>) { return { id: entry.id, lastAppliedAt: entry.lastAppliedAt, count: entry.count }; }
 
 export function useScreenHistory(input: DraftInputs, store: DraftStore, normalize: (values: DraftValues) => DraftValues, replace: (values: DraftValues) => void): QueryHistory {
   const history = store.history;
