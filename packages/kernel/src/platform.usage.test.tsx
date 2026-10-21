@@ -4,7 +4,7 @@ import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PlatformAdapter, Session, SpaceDef, UsageEvent } from '@ap/contracts';
 import { I18nProvider } from './i18n';
-import { PlatformProvider, usePlatform } from './platform';
+import { PlatformLink, PlatformProvider, usePlatform } from './platform';
 import { createRegistry } from './registry';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from './testing';
 
@@ -241,5 +241,110 @@ describe('usage events (docs/05 메뉴 활용률 계측)', () => {
     act(() => screen.getByTestId('leave').click());
     await settle();
     expect(window.location.pathname).toBe('/admin/roles');
+  });
+});
+
+// Navigation path (#605): `via` + `fromMenuId` on main-screen entries only.
+const navRegistry = createRegistry({
+  spaces: [spaces[0]!],
+  groups: [{ id: 'equipment', label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: 'analytics' }],
+  menus: [
+    { id: 'home', group: 'equipment', label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features: noFeatures, pageKeys: ['page'] },
+    { id: 'equipment', group: 'equipment', primary: true, label: { ko: '설비', en: 'Equipment' }, description: { ko: '', en: '' }, path: '/equipment', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features: noFeatures, pageKeys: ['page'] },
+    { id: 'lots', group: 'equipment', label: { ko: 'Lot', en: 'Lots' }, description: { ko: '', en: '' }, path: '/lots', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features: noFeatures, pageKeys: [] },
+  ],
+});
+
+function NavProbe() {
+  const { navigate, setPage } = usePlatform();
+  return <div>
+    <button type="button" data-testid="sidebar" onClick={() => navigate('/lots', { via: 'sidebar' })}>sidebar</button>
+    <button type="button" data-testid="plain" onClick={() => navigate('/equipment')}>plain</button>
+    <button type="button" data-testid="home" onClick={() => navigate('/')}>home</button>
+    <button type="button" data-testid="board" onClick={() => navigate('/board')}>board</button>
+    <button type="button" data-testid="same-path" onClick={() => navigate('/equipment?page=9', { via: 'palette' })}>same</button>
+    <button type="button" data-testid="page" onClick={() => setPage({ page: '2' })}>page</button>
+    <PlatformLink data-testid="link" href="/lots" via="switcher">link</PlatformLink>
+  </div>;
+}
+
+function mountNav(url: string, strict = false) {
+  window.history.replaceState(null, '', url);
+  const fixture = recordingFixture(ANALYST);
+  const ui = <I18nProvider><PlatformProvider adapter={fixture.adapter} registry={navRegistry}><NavProbe /></PlatformProvider></I18nProvider>;
+  render(strict ? <StrictMode>{ui}</StrictMode> : ui);
+  return fixture;
+}
+const click = async (id: string) => { act(() => screen.getByTestId(id).click()); await settle(); };
+const entries = (events: UsageEvent[]) => events.filter(e => e.name === 'entry').map(e => `${e.menuId}:${e.via}:${e.fromMenuId}`);
+
+describe('usage entry navigation path (#605)', () => {
+  it('the tab\'s first entry is direct with no previous menu', async () => {
+    const { events } = mountNav('/equipment');
+    await settle();
+    expect(events).toEqual([expect.objectContaining({ name: 'entry', via: 'direct', fromMenuId: null })]);
+  });
+
+  it('a marked navigate and a marked PlatformLink carry their via and the previous menu; an unmarked one is link', async () => {
+    const { events } = mountNav('/equipment');
+    await settle();
+    await click('sidebar');
+    await click('plain');
+    await click('link');
+    expect(entries(events)).toEqual(['equipment:direct:null', 'lots:sidebar:equipment', 'equipment:link:lots', 'lots:switcher:equipment']);
+  });
+
+  it('Back/Forward is history', async () => {
+    const { events } = mountNav('/equipment');
+    await settle();
+    await click('sidebar');
+    await act(async () => { window.history.back(); await new Promise(r => setTimeout(r, 30)); });
+    await settle();
+    expect(entries(events)).toEqual(['equipment:direct:null', 'lots:sidebar:equipment', 'equipment:history:lots']);
+  });
+
+  it('a screen without a menu (board) resets the previous menu to null; home is the menu home', async () => {
+    const { events } = mountNav('/equipment');
+    await settle();
+    await click('board');
+    await click('plain');
+    await click('home');
+    await click('plain');
+    expect(entries(events)).toEqual(['equipment:direct:null', 'equipment:link:null', 'home:link:equipment', 'equipment:link:home']);
+  });
+
+  it('a query-only change and a same-path navigate never leak their via into a later unmarked move', async () => {
+    const { events } = mountNav('/equipment');
+    await settle();
+    await click('same-path'); // marked palette, same pathname: no entry, mark stays pending
+    await click('page');
+    await click('home'); // unmarked: overwrites the stale mark
+    expect(entries(events)).toEqual(['equipment:direct:null', 'home:link:equipment']);
+  });
+
+  it('StrictMode keeps the via of the real entry', async () => {
+    const { events } = mountNav('/equipment', true);
+    await settle();
+    await click('sidebar');
+    expect(entries(events)).toEqual(['equipment:direct:null', 'lots:sidebar:equipment']);
+  });
+
+  it('dwell events carry neither field', async () => {
+    const { events } = mountNav('/equipment');
+    await settle();
+    await click('sidebar');
+    const dwell = events.find(e => e.name === 'dwell');
+    expect(dwell).toBeDefined();
+    expect(dwell).not.toHaveProperty('via');
+    expect(dwell).not.toHaveProperty('fromMenuId');
+  });
+
+  it('a new session user starts the trail over', async () => {
+    const fixture = mountNav('/equipment');
+    await settle();
+    await click('sidebar');
+    act(() => fixture.setSessionUser('other'));
+    await settle();
+    expect(entries(fixture.events)).toEqual(['equipment:direct:null', 'lots:sidebar:equipment', 'lots:direct:null']);
   });
 });

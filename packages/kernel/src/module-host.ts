@@ -114,7 +114,7 @@ export function useModuleHost(entry: ModuleMenuEntry, params: Readonly<Record<st
       // Arrival focus is requested when the pathname changes, as PlatformLink does (06 §26, ADR-0032).
       navigate: (target, options) => {
         const link = resolve(target);
-        return link !== null && instance.state === 'active' && p.navigate(link.href, link.href.split('?')[0] !== p.pathname ? { ...options, focus: 'page' } : options);
+        return link !== null && instance.state === 'active' && p.navigate(link.href, link.href.split('?')[0] !== p.pathname ? { ...options, focus: 'page', via: 'link' } : { ...options, via: 'link' });
       },
       returnTarget: () => p.returnTarget(),
       context() {

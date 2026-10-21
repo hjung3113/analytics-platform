@@ -64,7 +64,7 @@ export function CommandPalette() {
     if (!m) return;
     const href = linkTo(m.id);
     const changesPage = href.split('?')[0] !== pathname;
-    if (navigate(href, changesPage ? { focus: 'page' } : undefined) && changesPage) paletteSession?.select();
+    if (navigate(href, changesPage ? { focus: 'page', via: 'palette' } : { via: 'palette' }) && changesPage) paletteSession?.select();
     setPaletteOpen(false);
   };
 

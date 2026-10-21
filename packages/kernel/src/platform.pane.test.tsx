@@ -262,7 +262,7 @@ describe('PaneScreenProvider — app-only effects stay on the main screen', () =
 });
 
 describe('PaneScreenProvider — usage', () => {
-  it('a pane records entry and dwell for its menu with source board, two same-menu panes each count, main stays legacy-shaped', async () => {
+  it('a pane records entry and dwell for its menu with source board, two same-menu panes each count, main entry adds only via/fromMenuId (#605), pane entries stay pane-shaped', async () => {
     const { adapter, events } = fixture();
     const ui = (show: boolean) => <>{show && <><Pane id="a1" initial={screenA()} spies={spies()} /><Pane id="a2" initial={screenA()} spies={spies()} /></>}</>;
     const view = mount(ui(true), adapter, '/plain');
@@ -274,7 +274,8 @@ describe('PaneScreenProvider — usage', () => {
     expect(board.every(e => e.menuId === 'board-a')).toBe(true);
     expect(new Set(board.map(e => e.stayId)).size).toBe(2);
     const main = entries.find(e => e.menuId === 'plain')!;
-    expect(Object.keys(main).sort()).toEqual(['at', 'menuId', 'name', 'path', 'sessionId', 'spaceId']);
+    expect(Object.keys(main).sort()).toEqual(['at', 'fromMenuId', 'menuId', 'name', 'path', 'sessionId', 'spaceId', 'via']);
+    expect(board.every(e => !('via' in e) && !('fromMenuId' in e))).toBe(true);
     view.rerender(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}>{ui(false)}</PlatformProvider></I18nProvider>);
     const dwells = events.filter(e => e.name === 'dwell' && e.source === 'board');
     expect(dwells).toHaveLength(2);

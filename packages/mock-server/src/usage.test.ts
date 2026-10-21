@@ -215,3 +215,27 @@ describe('board usage provenance (ADR-0049)', () => {
     ]);
   });
 });
+
+describe('usage navigation path (#605)', () => {
+  it('accepts via and fromMenuId (a menu id or null) on a main entry and stores them on the row', async () => {
+    expect((await recordUsage([entry({ via: 'sidebar', fromMenuId: 'home' }), entry({ source: 'main', via: 'direct', fromMenuId: null }), entry({ via: 'link' })])).accepted).toBe(3);
+    const rows = storedUsage();
+    expect(rows[0]).toMatchObject({ via: 'sidebar', fromMenuId: 'home' });
+    expect(rows[1]).toMatchObject({ via: 'direct', fromMenuId: null });
+    expect('fromMenuId' in rows[2]).toBe(false);
+  });
+
+  it.each([
+    ['a via outside the closed set', entry({ via: 'bookmark' as never })],
+    ['a via that is an inherited property name', entry({ via: 'toString' as never })],
+    ['a fromMenuId that is not a menu id', entry({ via: 'link', fromMenuId: '/equipment?x=1' })],
+    ['a numeric fromMenuId', entry({ via: 'link', fromMenuId: 7 as never })],
+    ['via on a dwell', entry({ name: 'dwell', dwellMs: 10, enteredAt: 1_000, via: 'link' })],
+    ['fromMenuId on a dwell', entry({ name: 'dwell', dwellMs: 10, enteredAt: 1_000, fromMenuId: null })],
+    ['via on a board event', entry({ source: 'board', stayId: 'stay-a', via: 'link' })],
+    ['fromMenuId on a board event', entry({ source: 'board', stayId: 'stay-a', fromMenuId: 'home' })],
+  ])('rejects the whole batch for %s', async (_why, bad) => {
+    expect((await recordUsage([entry({ via: 'link' }), bad])).accepted).toBe(0);
+    expect(storedUsage()).toHaveLength(0);
+  });
+});

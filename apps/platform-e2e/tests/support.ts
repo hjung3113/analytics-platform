@@ -100,3 +100,8 @@ export async function usageVisits(page: Page, rowId: string): Promise<number> {
   await expect(cell).toBeVisible();
   return Number((await cell.innerText()).trim());
 }
+
+/** Raw usage rows the mock server stored for this tab (dev-server handle `window.__apUsageEvents`, no `@ap/*` import). */
+export async function storedUsageEvents(page: Page): Promise<Record<string, unknown>[]> {
+  return page.evaluate(() => (window as unknown as { __apUsageEvents: () => Record<string, unknown>[] }).__apUsageEvents());
+}

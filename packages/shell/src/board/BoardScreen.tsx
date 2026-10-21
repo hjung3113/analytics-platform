@@ -65,7 +65,7 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
   useEffect(() => { latest.current = board; });
 
   const sheetId = sheet.id;
-  const onLeave = (href: string) => { navigate(href, { focus: 'page' }); };
+  const onLeave = (href: string) => { navigate(href, { focus: 'page', via: 'board' }); };
   const writePane = (index: number, screen: PaneScreen | null) => update(b => setPane(b, sheetId, index, screen));
 
   /** Runs an undo only if nothing changed what it would restore (the model returns null); otherwise says so and changes nothing. */
@@ -137,7 +137,7 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
   const openFull = (index: number) => {
     const screen = sheet.panes[index];
     const menu = screen ? registry.menus.find(m => m.id === screen.menuId) : null;
-    if (screen && menu) navigate(paneHref(registry, screen), { focus: 'page' });
+    if (screen && menu) navigate(paneHref(registry, screen), { focus: 'page', via: 'board' });
   };
   // `Context 바에서 편집`: the bar row is keyed by the selected pane, so it remounts for the new one; focus its first control afterwards.
   const [editRequest, setEditRequest] = useState(0);

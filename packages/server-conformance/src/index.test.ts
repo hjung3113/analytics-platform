@@ -346,11 +346,16 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
       const token = (v: unknown, max: number) => typeof v === 'string' && v.length > 0 && v.length <= max
         && (breaks.has('usage-allows-query') ? !/[#&\s]/.test(v) : !/[?#&\s]/.test(v));
       const invalid = (e: UsageEvent) => {
-        const allowed = e.name === 'dwell' ? [...USAGE_KEYS, 'dwellMs', 'enteredAt', 'source', 'stayId'] : [...USAGE_KEYS, 'source', 'stayId'];
+        const allowed = e.name === 'dwell' ? [...USAGE_KEYS, 'dwellMs', 'enteredAt', 'source', 'stayId'] : [...USAGE_KEYS, 'source', 'stayId', 'via', 'fromMenuId'];
+        // #605: via/fromMenuId belong to a main entry only and `via` is a closed set ('usage-accepts-bad-via' lets any string through).
+        const VIA = ['sidebar', 'switcher', 'palette', 'board', 'return', 'crossLink', 'drill', 'history', 'direct', 'link'];
+        const badNavigation = (e.via !== undefined && !breaks.has('usage-accepts-bad-via') && !VIA.includes(e.via))
+          || (e.via !== undefined && typeof e.via !== 'string')
+          || (e.fromMenuId !== undefined && e.fromMenuId !== null && !token(e.fromMenuId, 80));
         const badProvenance = (!breaks.has('usage-accepts-bad-source') && e.source !== undefined && e.source !== 'main' && e.source !== 'board')
           || (!breaks.has('usage-accepts-orphan-stay') && e.stayId !== undefined && (e.source !== 'board' || !token(e.stayId, 80)));
         return Object.keys(e).some(k => !allowed.includes(k) && !(breaks.has('usage-client-user') && k === 'userId'))
-          || badProvenance
+          || badProvenance || badNavigation
           || (breaks.has('usage-rejects-board') && e.source === 'board')
           || !token(e.menuId, 80) || !token(e.path, 200)
           || typeof e.sessionId !== 'string'
@@ -690,6 +695,8 @@ describe('server conformance kit (#145)', () => {
       'port · recordUsage accepts a board entry and dwell (source, stayId)',
       'port · recordUsage accepts an explicit main source and a legacy event without one',
       'port · recordUsage: an unknown source is rejected',
+      'port · recordUsage accepts via and fromMenuId on a main entry',
+      'port · recordUsage: a via outside the closed set is rejected',
       'port · recordUsage: a stayId without board source is rejected',
       'port · recordUsage: an unknown key next to source is rejected',
       'port · recordUsage accepts a global menu (spaceId null)',
@@ -833,6 +840,7 @@ describe('server conformance kit (#145)', () => {
     ['usage-allows-negative-dwell', 'port · recordUsage: a negative dwellMs is rejected'],
     ['usage-rejects-board', 'port · recordUsage accepts a board entry and dwell (source, stayId)'],
     ['usage-accepts-bad-source', 'port · recordUsage: an unknown source is rejected'],
+    ['usage-accepts-bad-via', 'port · recordUsage: a via outside the closed set is rejected'],
     ['usage-accepts-orphan-stay', 'port · recordUsage: a stayId without board source is rejected'],
     ['usage-aggregates-by-client-at', 'port · usageSummary counts by receive time, not the client at'],
     // client-error-rejects-all fails every positive report, including the global-menu sample — asserted below.

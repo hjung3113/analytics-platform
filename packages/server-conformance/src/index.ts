@@ -1219,6 +1219,19 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
     nonEnvelope: true,
     run: expectAccepted([badUsageEvent({ source: 'sidebar' })], 0, 'a source other than main/board — the whole call rejects'),
   });
+  // Navigation path (#605): `via` and `fromMenuId` on a main-screen entry only; `via` is a closed set.
+  checks.push({
+    id: 'port · recordUsage accepts via and fromMenuId on a main entry',
+    mode: 'granted',
+    nonEnvelope: true,
+    run: expectAccepted([{ ...usageEntry, via: 'sidebar', fromMenuId: ports.usage.menuId }, { ...usageEntry, source: 'main', via: 'direct', fromMenuId: null }], 2, 'a main entry with via and fromMenuId (a menu id or null)'),
+  });
+  checks.push({
+    id: 'port · recordUsage: a via outside the closed set is rejected',
+    mode: 'granted',
+    nonEnvelope: true,
+    run: expectAccepted([badUsageEvent({ via: 'bookmark' })], 0, 'a via outside the closed set — the whole call rejects'),
+  });
   checks.push({
     id: 'port · recordUsage: a stayId without board source is rejected',
     mode: 'granted',

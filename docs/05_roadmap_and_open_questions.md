@@ -47,6 +47,7 @@ MVP는 데스크톱 웹 브라우저만 지원한다. 1024px 미만 화면과 �
 이 계측은 메뉴가 쌓이면 붙이는 부가기능이 아니라 **Platform Kernel 자체의 관측 범위**(Menu Registry가 실제로 어떻게 쓰이는지)다. 06 §24의 반복 확인 기준은 여기 적용되지 않는다.
 
 - **수집 필드**: 식별 필드만 보낸다(menuId·spaceId·경로 패턴·시각·탭 sessionId·dwellMs). 조회조건·필터 **값**은 넣지 않는다 — 필터 사용 신호가 필요해지면 page 키 이름만 더한다([ADR-0020](adr/0020-usage-events-identity-fields-only.md), 2026-09-22의 "조회조건 포함"을 대체).
+- **화면 이동 경로(#605)**: 본 화면 `entry`에만 선택 필드 두 개를 더한다. `via`는 닫힌 집합(`sidebar`·`switcher`·`palette`·`board`·`return`·`crossLink`·`drill`·`history`·`direct`·`link`)으로, 이동을 일으킨 쪽(사이드바·레일·전환기·팔레트·보드·복귀 링크)이 `navigate`·`PlatformLink`의 선택 `via`로 표시하고 표시 없는 앱 안 이동은 `link`, 뒤로·앞으로는 `history`, 이 탭의 첫 entry는 `direct`다. `fromMenuId`는 이 탭의 JS 실행 범위에서 바로 앞 본 화면의 메뉴 id이고(플랫폼 홈은 메뉴 `home`), 앞 화면이 메뉴가 아니면(보드·계약 오류 화면) 이 탭의 첫 entry와 같이 `null`이다. 저장하지 않아 새로고침하면 처음부터다. `dwell`과 `source: 'board'` 이벤트에는 두 필드가 없다(서버는 있으면 배치 전체를 거부한다). 경로·Context 값은 보내지 않는다([ADR-0020](adr/0020-usage-events-identity-fields-only.md) 결과 보충). 운영 콘솔의 "다음으로 간 화면" 보기와 메뉴 쪽 `crossLink` 표시는 2부(시안 컨펌 뒤)다.
 - **분석 보드 칸 출처**: 보드 칸의 진입·체류는 같은 필드에 선택 필드 `source: 'board'`와 불투명 `stayId`(칸이 열려 있는 한 번의 체류마다 하나, 그 체류의 진입·모든 dwell에 같고 다시 들어오면 새로 만든다)를 더한다(ADR-0049, #496). `source`가 없거나 `'main'`이면 본 화면이고 기존 이벤트와 바이트가 같다. `stayId`는 `source: 'board'`일 때만 허용하며, 그 dwell은 `enteredAt` 대신 (사용자, 세션, 메뉴, source, stayId)로 하나로 합친다 — 같은 시각에 열린 두 칸이 서로를 덮어쓰지 않게 하려는 것이다. 칸 id·Context 값은 보내지 않는다.
 - **보존 기간**: 무제한(자동 삭제 없음). 개발자가 필요할 때 수동으로 지울 경로는 둔다.
 - **열람 권한**: 개발자·운영자 기본 열람. 그 밖의 계정은 운영자가 개별로 부여할 때만. 서버 재검증 원칙(06 §17)을 따르고 별도 권한 모델을 만들지 않는다.

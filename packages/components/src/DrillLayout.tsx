@@ -143,7 +143,7 @@ export function ReturnLink() {
   const origin = returnOrigin();
   const trail = origin.trail.map(step => step.value).join(' › ');
   const text = trail ? `← ${tx(origin.menuLabel)} (${trail})` : `← ${tx(origin.menuLabel)}`;
-  return <Button asChild variant="secondary" size="sm"><PlatformLink href={origin.href} onNavigate={() => {
+  return <Button asChild variant="secondary" size="sm"><PlatformLink via="return" href={origin.href} onNavigate={() => {
     requestReturnFocus(pageNavigation, origin.href);
     if (origin.revertedContext.length) toast(t('returnContextReverted', { items: origin.revertedContext.map(key => tx(RETURN_CONTEXT_LABELS[key])).join(', ') }));
   }}>{text}</PlatformLink></Button>;
