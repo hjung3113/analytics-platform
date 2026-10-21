@@ -1983,18 +1983,15 @@ test.describe('메뉴 활용률 (06 §4, docs/05 — kernel이 recordUsage로 �
 
   test('사이드바로 메뉴를 옮기면 도착 entry에 via sidebar와 앞 메뉴 id가 실린다 (#605)', async ({ page }) => {
     await signInAs(page, 'admin');
-    await page.goto('/equipment?v=1&scopeId=MEM');
+    // The sidebar shows only the chosen rail section; the console's admin section has two menus (roles → audit).
+    await page.goto('/admin/roles');
     const nav = page.getByRole('navigation', { name: '주 메뉴' });
-    await expect(nav.getByRole('link', { name: '설비 마스터' })).toBeVisible();
-    const hrefs = await nav.getByRole('link').evaluateAll(links => links.map(link => link.getAttribute('href') ?? ''));
-    const next = hrefs.find(href => href.startsWith('/') && !href.startsWith('//') && href.split('?')[0] !== '/equipment');
-    expect(next, 'a second menu in the sidebar').toBeDefined();
-    await nav.locator(`a[href="${next}"]`).first().click();
+    await nav.getByRole('link', { name: '변경 감사' }).click();
+    await expect(page).toHaveURL(/\/admin\/audit/);
     await expect.poll(async () => (await storedUsageEvents(page)).filter(e => e.name === 'entry' && e.via === 'sidebar').length, { timeout: 10_000 }).toBeGreaterThan(0);
     const rows = (await storedUsageEvents(page)).filter(e => e.name === 'entry');
-    expect(rows[0]).toMatchObject({ via: 'direct', fromMenuId: null });
-    expect(rows[1]).toMatchObject({ via: 'sidebar', fromMenuId: rows[0].menuId });
-    expect(rows[1].menuId).not.toBe(rows[0].menuId);
+    expect(rows[0]).toMatchObject({ menuId: 'admin-roles', via: 'direct', fromMenuId: null });
+    expect(rows[1]).toMatchObject({ menuId: 'admin-audit', via: 'sidebar', fromMenuId: 'admin-roles' });
   });
 });
 
