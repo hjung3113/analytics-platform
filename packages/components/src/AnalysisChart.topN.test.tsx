@@ -22,6 +22,10 @@ it('stably sorts a copy, limits to eight, preserves zero and shares the table pr
   expect(data.tableValues.map(row => row[0])).toEqual(data.rows.map(row => row.label));
   expect(topNData({ kind: 'topNBar', items: [items[3]] }, false, '').empty).toBe(false);
 });
+it('caps bar thickness at 24px while the row-height projection stays unchanged', () => {
+  const series = topNData({ kind: 'topNBar', items }, false, 'ea').option([]).series as { barMaxWidth: number }[];
+  expect(series[0].barMaxWidth).toBe(24);
+});
 it('starts collapsed, exposes the controlled plot and uses computed height', async () => {
   mount({ kind: 'topNBar', items });
   const toggle = screen.getByRole('button', { name: '표시' });
@@ -91,7 +95,7 @@ it('exports exactly the visible table projection under the manifest gate and pre
   fireEvent.click(screen.getByRole('button', { name: '내보내기' }));
   expect(downloadChartCsv).toHaveBeenLastCalledWith(expect.anything(), ['이름', '값'], [['Item 9', '9 ea'], ['Item 7', '8 ea']]);
   const bars = (plot.option as { series: { barMaxWidth: number; data: { itemStyle: { color: string } }[] }[] }).series;
-  expect(bars[0].barMaxWidth).toBe(16);
+  expect(bars[0].barMaxWidth).toBe(24);
   expect(bars[0].data[0].itemStyle.color).toBe(readColorToken('chart-series-1'));
   view.unmount(); mount(spec, false); expect(screen.queryByRole('button', { name: '내보내기' })).toBeNull();
 });

@@ -1,5 +1,6 @@
 import { useEffect, useId, useImperativeHandle, useMemo, useRef, useState, type Ref, type ReactNode } from 'react';
-import { Button } from '@ap/ui';
+import { Info } from 'lucide-react';
+import { Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { useI18n } from '@ap/kernel';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import { prepareLanes, segmentSummary } from './laneTimelineGeometry';
@@ -69,15 +70,25 @@ export function LaneTimeline(props: LaneTimelineProps) {
       } else if (event.key === 'Enter' && focused) {
         event.preventDefault(); setLocalSelection(focused.segment.id); props.onSelectedChange?.(focused.segment.id);
       } else if (event.key === 'Escape') {
-        event.preventDefault(); setLocalSelection(null); props.onSelectedChange?.(null); setHover(null);
+        event.preventDefault(); setLocalSelection(null); props.onSelectedChange?.(null); engine.current?.clearHover(); setHover(null);
       } else if (event.key === '+' || event.key === '=') { event.preventDefault(); engine.current?.zoom(0.8); }
       else if (event.key === '-') { event.preventDefault(); engine.current?.zoom(1.25); }
     }}>
-    <header className="flex flex-wrap items-center justify-between gap-2 px-4 py-2"><h3 className="t-card-title">{props.ariaLabel}</h3>
-      <div className="flex gap-1"><Button size="toolbar" variant="ghost" onClick={() => engine.current?.zoom(0.8)}>Zoom +</Button><Button size="toolbar" variant="ghost" onClick={() => engine.current?.zoom(1.25)}>Zoom −</Button><Button size="toolbar" variant="ghost" onClick={() => engine.current?.resetZoom()}>{tx({ ko: '확대 초기화', en: 'Zoom Reset' })}</Button></div>
+    <header className="flex flex-wrap items-start justify-between gap-2 px-4 pt-3">
+      <div className="min-w-0">
+        <h3 className="t-card-title">{props.ariaLabel}</h3>
+        {props.description && <p className="text-xs text-text-muted">{props.description}</p>}
+      </div>
+      <div role="toolbar" aria-label={tx({ ko: '차트 동작', en: 'Chart actions' })} className="ml-auto flex flex-wrap items-center justify-end gap-1">
+        <TooltipProvider delayDuration={200}><Tooltip>
+          <TooltipTrigger asChild><Button type="button" variant="ghost" size="icon-xs" aria-label={tx({ ko: '조작 방법', en: 'How to interact' })}><Info className="size-3.5" aria-hidden /></Button></TooltipTrigger>
+          <TooltipContent>{tx({ ko: 'Ctrl/⌘ + 휠: 확대 · 끌기: 이동 · 방향키: 탐색 · Enter: 선택 · Escape: 해제', en: 'Ctrl/⌘ + wheel: Zoom · Drag: Pan · Arrows: Navigate · Enter: Select · Escape: Clear' })}</TooltipContent>
+        </Tooltip></TooltipProvider>
+        <Button size="toolbar" variant="ghost" onClick={() => engine.current?.zoom(0.8)}>Zoom +</Button><Button size="toolbar" variant="ghost" onClick={() => engine.current?.zoom(1.25)}>Zoom −</Button><Button size="toolbar" variant="ghost" onClick={() => engine.current?.resetZoom()}>{tx({ ko: '확대 초기화', en: 'Zoom Reset' })}</Button>
+      </div>
     </header>
-    {props.description && <p className="px-4 py-2 text-text-secondary">{props.description}</p>}
-    <p id={helpId} className="px-4 py-2 text-text-secondary">{tx({ ko: 'UTC · Ctrl/⌘ + 휠: 확대 · 끌기: 이동 · 방향키: 탐색 · Enter: 선택 · Escape: 해제 · orphan: 시작 미확인 · open: 종료 미확인', en: 'UTC · Ctrl/⌘ + wheel: Zoom · Drag: Pan · Arrows: Navigate · Enter: Select · Escape: Clear · orphan: start unknown · open: end unknown' })}</p>
+    <p className="px-4 py-2 text-text-secondary">{tx({ ko: 'UTC · orphan: 시작 미확인 · open: 종료 미확인', en: 'UTC · orphan: start unknown · open: end unknown' })}</p>
+    <p id={helpId} className="sr-only">{tx({ ko: 'UTC · Ctrl/⌘ + 휠: 확대 · 끌기: 이동 · 방향키: 탐색 · Enter: 선택 · Escape: 해제 · orphan: 시작 미확인 · open: 종료 미확인', en: 'UTC · Ctrl/⌘ + wheel: Zoom · Drag: Pan · Arrows: Navigate · Enter: Select · Escape: Clear · orphan: start unknown · open: end unknown' })}</p>
     <div className="overflow-x-auto">
       <div className="min-w-[352px]">
         <canvas ref={axis} aria-hidden className="block w-full" />

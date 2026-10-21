@@ -915,11 +915,11 @@ scatter의 null 좌표는 표에 미확인으로 남기고 플롯에서는 제�
 
 ### TopN·Lane 시간선 (Decided, #576)
 
-[ADR-0064](adr/0064-topn-bar-and-lane-timeline.md)의 `topNBar`는 소비자가 집계한 전체 항목을 받아 안정 내림차순·기본 상위 8개를 표시한다. 음수·비유한 값·잘못된 색·중복 ID는 제외(첫 유효 항목), 잘못된 N은 8로 복구하며 개발 진단을 남긴다. 0은 데이터다. 표시 토큰에 해당하는 소비자 범례만 토큰당 한 번 표시한다. 기본 접힘, controlled/uncontrolled 펼침, `hideWhenEmpty`(기본 false)를 제공한다. 명시 height가 없으면 플롯은 `max(120, 표시 수 × 28 + 24)`px이며 긴 라벨 전문은 툴팁·표로 확인한다. Pareto의 기타·누적률을 만들지 않는다.
+[ADR-0064](adr/0064-topn-bar-and-lane-timeline.md)의 `topNBar`는 소비자가 집계한 전체 항목을 받아 안정 내림차순·기본 상위 8개를 표시한다. 음수·비유한 값·잘못된 색·중복 ID는 제외(첫 유효 항목), 잘못된 N은 8로 복구하며 개발 진단을 남긴다. 0은 데이터다. 표시 토큰에 해당하는 소비자 범례만 토큰당 한 번 표시한다. 기본 접힘, controlled/uncontrolled 펼침, `hideWhenEmpty`(기본 false)를 제공한다. 명시 height가 없으면 플롯은 `max(120, 표시 수 × 28 + 24)`px이며 긴 라벨 전문은 툴팁·표로 확인한다. 막대 두께는 최대 24px로 제한한다. Pareto의 기타·누적률을 만들지 않는다.
 
 `LaneTimeline`은 `AnalysisChart` union 밖의 직접 Canvas 2D 시간선이다. UTC epoch ms, 소비자 depth/rank·색 토큰·의미적 orphan/open 경계를 받는다. 112px gutter·24px 행·depth당 2px inset(최소 높이 2px)·최소 구간 폭 1.5px, 최소 전체 폭 352px 아래에서는 가로 스크롤한다. 축은 세로 스크롤 밖에 고정하고 backing canvas와 hit-test는 가시 행만 대상으로 한다. 가장 깊은 구간, 동률은 나중 입력이 우선한다. rank strong/weak/off는 원래 두께/절반 두께·alpha·점선/숨김이며 선택 강조는 독립이다. orphan은 꺾쇠, open은 점선 끝과 텍스트로 표현하며 viewport clip으로 만들거나 지우지 않는다.
 
-확대·이동·scroll은 refs와 dirty rAF만 갱신하고 React render를 추가하지 않는다. modifier 없는 wheel은 네이티브 세로 스크롤이다. 확대는 포인터/키보드 중심을 기준으로 데이터 domain 내 최소 1ms부터 전체 폭까지다. `resetZoom`은 시간 범위만 복원하며 `reveal(index)`·`revealById(id)`는 유효 입력의 flatten 순서로 행·시간을 드러낸다. density는 데이터 변경 때 복사·정렬하고 viewport bin 이진 검색을 사용한다. ResizeObserver·DPR·테마 변경 redraw와 모든 구독/raf cleanup을 소유한다. DOM 툴팁과 키보드 요약은 시간·depth·rank·경계 의미를 글로도 제공한다. 잘못된 시간/역전/중복 ID는 제외, 잘못된 depth는 0, 빈/무효 palette는 기본 색으로 복구한다. 선택·viewport는 로컬이며 URL·Global Context를 쓰지 않는다. 공개 타입·사용 예는 [SDK 차트](integration/sdk-charts.md).
+확대·이동·scroll은 refs와 dirty rAF만 갱신하고 React render를 추가하지 않는다. modifier 없는 wheel은 네이티브 세로 스크롤이다. 확대는 포인터/키보드 중심을 기준으로 데이터 domain 내 최소 1ms부터 전체 폭까지다. `resetZoom`은 시간 범위만 복원하며 `reveal(index)`·`revealById(id)`는 유효 입력의 flatten 순서로 행·시간을 드러낸다. density는 데이터 변경 때 복사·정렬하고 viewport bin 이진 검색을 사용한다. 시간축 눈금은 범위에 따라 분·시·일의 UTC 달력 단위 간격이고 기본 라벨은 시:분, 날짜는 첫 눈금과 날짜 경계(00:00 UTC)에 한 번 표시한다(`formatTick` 재정의 우선). ResizeObserver·DPR·테마 변경 redraw와 모든 구독/raf cleanup을 소유한다. DOM 툴팁과 키보드 요약은 시간·depth·rank·경계 의미를 글로도 제공한다. 잘못된 시간/역전/중복 ID는 제외, 잘못된 depth는 0, 빈/무효 palette는 기본 색으로 복구한다. 선택·viewport는 로컬이며 URL·Global Context를 쓰지 않는다. 공개 타입·사용 예는 [SDK 차트](integration/sdk-charts.md).
 
 ### 상태 분리
 

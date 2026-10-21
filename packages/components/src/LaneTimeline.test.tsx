@@ -154,3 +154,41 @@ it('shares the standard source/updated/coverage footer and exposes a consumer de
   expect(screen.getByText('Sample source')).toBeVisible();
   expect(screen.getByText(/Complete/)).toBeVisible();
 });
+it('restores the same-segment tooltip after Escape clears the hover', () => {
+  mountLane(<LaneTimeline lanes={[{ id: 'a', label: 'Lane', segments: [{ id: 's', start: 0, end: 100 }] }]} ariaLabel="Timeline" />); flush();
+  const region = screen.getByRole('region', { name: 'Timeline' });
+  const canvas = screen.getByRole('img');
+  fireEvent.pointerMove(canvas, { clientX: 300, clientY: 12 });
+  const tooltip = screen.getByRole('tooltip');
+  expect(tooltip).toHaveTextContent('depth 0');
+  fireEvent.keyDown(region, { key: 'Escape' });
+  fireEvent.pointerMove(canvas, { clientX: 300, clientY: 12 });
+  expect(tooltip).toBeVisible();
+  expect(tooltip).toHaveTextContent('depth 0');
+});
+it('keeps the tooltip at full width and flips left of the cursor near the right edge', () => {
+  Object.defineProperty(window, 'innerWidth', { configurable: true, value: 600 });
+  try {
+    mountLane(<LaneTimeline lanes={[{ id: 'a', label: 'Lane', segments: [{ id: 's', start: 0, end: 100 }] }]} ariaLabel="Timeline" />); flush();
+    const canvas = screen.getByRole('img');
+    fireEvent.pointerMove(canvas, { clientX: 560, clientY: 12 });
+    const tooltip = screen.getByRole('tooltip');
+    expect(tooltip.style.width.replace(/[\s*]/g, '')).toBe('min(320px,calc(100vw-16px))');
+    expect(tooltip.style.left).toBe('228px');
+    fireEvent.pointerMove(canvas, { clientX: 200, clientY: 12 });
+    expect(tooltip.style.left).toBe('212px');
+  } finally {
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1024 });
+  }
+});
+it('packs title, subtitle and controls into one header row and keeps only boundary semantics above the plot', async () => {
+  mountLane(<LaneTimeline ariaLabel="Timeline" lanes={lanes} description="Intervals in UTC" />); flush();
+  const header = screen.getByRole('region', { name: 'Timeline' }).querySelector('header')!;
+  expect(header.querySelector('h3')!.textContent).toBe('Timeline');
+  expect(header.querySelector('p')!.textContent).toBe('Intervals in UTC');
+  expect(header).toContainElement(screen.getByRole('button', { name: 'Zoom +' }).closest('[role=toolbar]'));
+  expect(screen.getByText(/^UTC · orphan: 시작 미확인 · open: 종료 미확인$/)).toBeVisible();
+  expect(screen.getByText(/Ctrl\/⌘ \+ 휠: 확대/)).toHaveClass('sr-only');
+  fireEvent.focus(screen.getByRole('button', { name: '조작 방법' }));
+  expect(await screen.findByRole('tooltip')).toHaveTextContent('끌기: 이동');
+});

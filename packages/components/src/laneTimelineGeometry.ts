@@ -32,13 +32,24 @@ export function utcTick(time: number) { return new Date(time).toISOString().repl
 export function segmentSummary(segment: TimelineSegment) {
   return `${segment.id} · ${utcTick(segment.start)} – ${utcTick(segment.end)} · depth ${segment.depth ?? 0}${segment.rank ? ` · ${segment.rank}` : ''}${segment.startBoundary === 'orphan' ? ' · orphan' : ''}${segment.endBoundary === 'open' ? ' · open' : ''}`;
 }
+const MINUTE = 60_000; const HOUR = 3_600_000; const DAY = 86_400_000;
+// Calendar steps only: epoch ms aligns with UTC minute/hour/midnight boundaries, so every tick lands on a wall-clock unit.
+const UNIT_STEPS: Record<number, number[]> = { [MINUTE]: [1, 2, 5, 10, 15, 30], [HOUR]: [1, 2, 3, 6, 12], [DAY]: [1, 2, 5, 10] };
 export function niceTicks(view: [number, number], width: number): number[] {
   const desired = (view[1] - view[0]) / Math.max(1, Math.floor(width / 160));
-  const base = 10 ** Math.floor(Math.log10(Math.max(1, desired)));
-  const step = [1, 2, 5, 10].map(n => n * base).find(n => n >= desired) ?? base * 10;
+  const unit = desired <= HOUR ? MINUTE : desired <= DAY ? HOUR : DAY;
+  const steps = UNIT_STEPS[unit];
+  const step = steps.map(n => n * unit).find(n => n >= desired) ?? steps[steps.length - 1] * unit * 10;
   const ticks: number[] = [];
   for (let t = Math.ceil(view[0] / step) * step; t <= view[1] && ticks.length < 100; t += step) ticks.push(t);
   return ticks;
+}
+/** Axis text is time-only; the date appears once at the first tick and at each 00:00 UTC boundary. */
+export function laneTickLabel(time: number, first: boolean) {
+  const date = new Date(time);
+  const clock = `${String(date.getUTCHours()).padStart(2, '0')}:${String(date.getUTCMinutes()).padStart(2, '0')}`;
+  const withDate = first || time % DAY === 0;
+  return withDate ? `${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')} ${clock}` : clock;
 }
 function lowerBound(values: number[], value: number) {
   let lo = 0; let hi = values.length;

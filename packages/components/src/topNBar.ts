@@ -33,7 +33,7 @@ export function topNData(spec: TopNBarSpec, ko: boolean, unit: string): KindProj
         tooltip: { ...theme.tooltip, renderMode: 'richText', formatter: (p: { dataIndex: number }) => tableValues[p.dataIndex]?.join(' · ') ?? '' },
         xAxis: { type: 'value', min: 0, axisLine: theme.axisLine, axisLabel: theme.axisLabel, splitLine: theme.splitLine },
         yAxis: { type: 'category', inverse: true, data: rows.map(row => row.label), axisLine: theme.axisLine, axisLabel: { ...theme.axisLabel, width: 112, overflow: 'truncate', interval: 0 } },
-        series: [{ type: 'bar', barMaxWidth: 16, data: rows.map(row => ({ value: row.value, itemStyle: { color: token(row.color), borderColor: token('chart-selection-outline'), borderWidth: active.includes(row.key) ? 2 : 0 } })) }],
+        series: [{ type: 'bar', barMaxWidth: 24, data: rows.map(row => ({ value: row.value, itemStyle: { color: token(row.color), borderColor: token('chart-selection-outline'), borderWidth: active.includes(row.key) ? 2 : 0 } })) }],
       };
     },
   };

@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest';
-import { prepareLanes, niceTicks, densityBins, visibleRects, hitTest, segmentSummary, outlineStyle } from './laneTimelineGeometry';
+import { prepareLanes, niceTicks, densityBins, visibleRects, hitTest, segmentSummary, outlineStyle, laneTickLabel } from './laneTimelineGeometry';
 const lanes = [{ id: 'a', label: 'A', segments: [{ id: 'a', start: 0, end: 100 }, { id: 'b', start: 20, end: 80, depth: 2, startBoundary: 'orphan' as const, endBoundary: 'open' as const }, { id: 'c', start: 50, end: 50 }] }];
 it('uses UTC ticks and viewport bins without mutating unsorted input', () => {
   const ticks = niceTicks([0, 10000], 500);
@@ -7,11 +7,27 @@ it('uses UTC ticks and viewport bins without mutating unsorted input', () => {
   expect(new Set(ticks.map(t => new Date(t).toISOString())).size).toBe(ticks.length);
   expect(densityBins([0, 1, 10, 11, 20], [0, 20], 2)).toEqual([2, 3]);
 });
+it('picks calendar-unit UTC ticks for a 1-day span (12h) and a 6-hour span (2h)', () => {
+  expect(niceTicks([Date.UTC(2026, 9, 21), Date.UTC(2026, 9, 22)], 600))
+    .toEqual([Date.UTC(2026, 9, 21), Date.UTC(2026, 9, 21, 12), Date.UTC(2026, 9, 22)]);
+  expect(niceTicks([Date.UTC(2026, 9, 21, 6), Date.UTC(2026, 9, 21, 12)], 600))
+    .toEqual([Date.UTC(2026, 9, 21, 6), Date.UTC(2026, 9, 21, 8), Date.UTC(2026, 9, 21, 10), Date.UTC(2026, 9, 21, 12)]);
+});
+it('labels ticks with time only and adds the date once at the first tick and each day boundary', () => {
+  expect(laneTickLabel(Date.UTC(2026, 9, 21), true)).toBe('10-21 00:00');
+  expect(laneTickLabel(Date.UTC(2026, 9, 21, 12), false)).toBe('12:00');
+  expect(laneTickLabel(Date.UTC(2026, 9, 22), false)).toBe('10-22 00:00');
+  expect(laneTickLabel(Date.UTC(2026, 9, 21, 12, 30), false)).toBe('12:30');
+});
 it('clips geometry, preserves semantic flags, selects deepest then last input on overlap', () => {
   const model = prepareLanes(lanes, []);
   const rects = visibleRects(model, [30, 70], 400, 24, 0);
   expect(rects.find(rect => rect.segment.id === 'b')).toMatchObject({ x: 112, y: 4, height: 16, width: 288 });
+  // Paints depth 0 with the last-input tie ('c') after 'a', and the deepest mark ('b') last.
+  expect(rects.map(rect => rect.segment.id)).toEqual(['a', 'c', 'b']);
   expect(hitTest(rects, 250, 10)?.segment.id).toBe('b');
+  // x=256.5 hits all three marks; the later shallow 'c' must lose to the deeper 'b'.
+  expect(hitTest(rects, 256.5, 10)?.segment.id).toBe('b');
   expect(rects.find(rect => rect.segment.id === 'c')!.width).toBe(1.5);
   expect(segmentSummary(rects.find(rect => rect.segment.id === 'b')!.segment)).toContain('orphan');
   expect(segmentSummary(rects.find(rect => rect.segment.id === 'b')!.segment)).toContain('open');

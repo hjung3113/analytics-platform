@@ -1,6 +1,6 @@
 import { isThemeColorToken, readColorToken, type ThemeColorToken } from '@ap/ui/theme';
 import type { LaneTimelineProps } from './LaneTimeline';
-import { clampView, densityBins, GUTTER, HEADER_HEIGHT, hitTest, laneDiagnostic, niceTicks, outlineStyle, ROW_HEIGHT, segmentSummary, utcTick, visibleRects, type LaneModel, type LaneRect } from './laneTimelineGeometry';
+import { clampView, densityBins, GUTTER, HEADER_HEIGHT, hitTest, laneDiagnostic, laneTickLabel, niceTicks, outlineStyle, ROW_HEIGHT, segmentSummary, visibleRects, type LaneModel, type LaneRect } from './laneTimelineGeometry';
 
 type RendererInput = {
   root: HTMLElement; scroll: HTMLDivElement; canvas: HTMLCanvasElement; axis: HTMLCanvasElement;
@@ -51,12 +51,11 @@ export function createLaneRenderer(input: RendererInput) {
       const computed = getComputedStyle(root);
       header.font = `${computed.fontSize || '12px'} ${computed.fontFamily || 'sans-serif'}`;
       header.fillStyle = color('text-secondary'); header.textBaseline = 'middle';
-      let previousEnd = GUTTER; const labels = new Set<string>();
-      for (const tick of niceTicks(view, plotWidth)) {
-        const text = props.formatTick?.(tick) ?? utcTick(tick); const textWidth = Math.min(plotWidth, header.measureText(text).width);
+      let previousEnd = GUTTER;
+      for (const [index, tick] of niceTicks(view, plotWidth).entries()) {
+        const text = props.formatTick?.(tick) ?? laneTickLabel(tick, index === 0); const textWidth = Math.min(plotWidth, header.measureText(text).width);
         const left = Math.max(GUTTER, Math.min(width - textWidth, x(tick) - textWidth / 2));
-        if (left < previousEnd || labels.has(text)) continue;
-        labels.add(text);
+        if (left < previousEnd) continue;
         header.fillText(text, left, 14, plotWidth); previousEnd = left + textWidth + 12;
       }
       const bins = densityBins(model.density, view, Math.max(1, Math.floor(plotWidth / 8)));
@@ -118,10 +117,13 @@ export function createLaneRenderer(input: RendererInput) {
     const text = rect ? `${model.lanes[rect.laneIndex].label} · ${props.formatTooltip?.(rect.segment, model.lanes[rect.laneIndex]) ?? segmentSummary(rect.segment)}${props.formatTooltip ? ` · ${segmentSummary(rect.segment)}` : ''}` : null;
     if (lastHover !== text) { lastHover = text; input.onHover(text); }
     tooltip.hidden = !text;
-    tooltip.style.maxWidth = `${Math.min(320, window.innerWidth - 16)}px`;
+    // Fix the width before measuring: shrink-to-fit would collapse it against the right-edge clamp (UX #576 U1).
+    tooltip.style.width = 'min(320px, calc(100vw - 16px))';
     const place = () => {
       const tipWidth = tooltip.offsetWidth || 320; const tipHeight = tooltip.offsetHeight || 80;
-      tooltip.style.left = `${Math.max(8, Math.min(window.innerWidth - tipWidth - 8, event.clientX + 12))}px`;
+      const flip = event.clientX + 12 + tipWidth > window.innerWidth - 8;
+      const left = flip ? event.clientX - 12 - tipWidth : event.clientX + 12;
+      tooltip.style.left = `${Math.max(8, Math.min(window.innerWidth - tipWidth - 8, left))}px`;
       tooltip.style.top = `${Math.max(8, Math.min(window.innerHeight - tipHeight - 8, event.clientY + 12))}px`;
     };
     place();
@@ -159,6 +161,8 @@ export function createLaneRenderer(input: RendererInput) {
   resize();
   return {
     resetZoom: () => setView([...model.domain]), zoom, reveal,
+    // Escape clears the React tooltip; the cache must follow or the next same-segment move would keep it empty (C3).
+    clearHover: () => { lastHover = null; tooltip.hidden = true; },
     revealById: (id: string) => { const item = model.byId.get(id); if (item) reveal(item.index); },
     destroy() {
       input.savedView.model = model; input.savedView.view = [...view];
