@@ -34,6 +34,7 @@ Files: realm [`deploy/keycloak/feedbackops-realm.json`](../../../deploy/keycloak
 ## In-house deployment checklist
 
 - Run Keycloak with `start` (not `start-dev`) behind HTTPS, a real database (`KC_DB=postgres`, own database and credentials, not the FeedbackOps one), `KC_HOSTNAME` set to the public HTTPS hostname. Backend `OIDC_ISSUER_URL` must be `https://<host>/realms/feedbackops`.
+- Set `KC_REALM_FRONTEND_URL=https://<host>` too: the realm's `frontendUrl` attribute takes precedence over `KC_HOSTNAME` for this realm, and the local default `http://localhost:8085` would otherwise go into the discovery document's `issuer` and the verification-mail links. After deploying, check that `https://<host>/realms/feedbackops/.well-known/openid-configuration` reports that `issuer`, and that a verification mail's link starts with `https://<host>/`.
 - Company SMTP relay: set `KC_SMTP_HOST`, `KC_SMTP_PORT`, `KC_SMTP_FROM`; if the relay needs auth/TLS, adjust `smtpServer` in the realm (the file ships with `auth`, `ssl`, `starttls` off, for Mailpit). This is separate from FeedbackOps' own notification mail (`SMTP_*`).
 - `KC_ALLOWED_EMAIL_PATTERN`: the company domain, e.g. `^[^@]+@company[.]com$`.
 - Client secret: generate a random value, give the same value to Keycloak (`FEEDBACKOPS_CLIENT_SECRET`) and the backend (`OIDC_CLIENT_SECRET`) through the secret store; never use `local-dev-secret`. Set `FEEDBACKOPS_REDIRECT_URI=https://<frontend-host>/auth/callback` and `FEEDBACKOPS_WEB_ORIGIN=https://<frontend-host>`.

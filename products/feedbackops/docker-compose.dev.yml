@@ -77,22 +77,23 @@ services:
       KC_SMTP_PORT: '1025'
       KC_SMTP_FROM: feedbackops@example.com
       KC_REALM_FRONTEND_URL: http://localhost:8085
+    # Loopback only: a local IdP with admin/admin must not be reachable from the network.
     ports:
-      - '8085:8080'
+      - '127.0.0.1:8085:8080'
     volumes:
       - ./deploy/keycloak/feedbackops-realm.json:/opt/keycloak/data/import/feedbackops-realm.json:ro
     depends_on:
       - mailpit
 
-  # Mailpit: catches Keycloak's verification mail locally. UI http://localhost:8025, SMTP 1025.
+  # Mailpit: catches Keycloak's verification mail locally. UI http://localhost:8025 (loopback only);
+  # Keycloak reaches its SMTP port 1025 on the compose network, so that port is not published.
   mailpit:
     profiles: ['auth']
     image: axllent/mailpit:v1.31.3
     container_name: feedbackops-mailpit
     mem_limit: 256m
     ports:
-      - '8025:8025'
-      - '1025:1025'
+      - '127.0.0.1:8025:8025'
 
 volumes:
   feedbackops-db-data:
