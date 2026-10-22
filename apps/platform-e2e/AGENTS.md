@@ -21,6 +21,7 @@
 - 로컬 통과·CI 실패는 CPU 감속(`Emulation.setCPUThrottlingRate` 8)으로 재현하고 main과 비교한다. 고정 URL의 `page`는 그 필터 조합에서 실제 범위 안이어야 한다(#314 — 1건으로 걸러진 표에서 `page=2`).
 - 새 페이지는 `about:blank`에서 시작해 `history.length`가 1이 아니다. replace 확인은 "Back 한 번이 앱을 떠난다(`about:blank`)"로 단언한다.
 - 순차 Tab 루프는 넉넉한 상한(300)과 도달 단언을 함께 둔다. 실패하면 error-context 스냅숏으로 포커스 위치부터 본다(#356).
+- 끌어 놓기는 `locator.dragTo` 대신 사람처럼 끈다(누름 → 여러 단계 이동 → 목표 위 작은 이동 몇 번 → 놓기, dock 보드의 `dragTab`). `dragTo`는 목표에서 한 번만 움직여서, 끄는 사이 조회가 끝나 포인터 아래 요소가 바뀌면 브라우저가 놓기 없이 끌기를 끝낸다(main CI 39782412595, CPU 감속 6–8에서 20번 중 5–6번 재현).
 
 ## 실행과 보고
 
