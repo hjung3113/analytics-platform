@@ -658,3 +658,17 @@ bounded reason, deciding Actor/time, creation/update timestamps and nullable
 append-only history. `fops_app` has SELECT/INSERT and UPDATE only on decision,
 reason, actor and transition timestamps, with no DELETE or key updates. Existing
 table grants are unchanged. Drizzle-generated journal/snapshot accompany the SQL.
+
+### #622 platform port usage and client errors (0075)
+
+`0075_platform_usage_client_errors.sql` creates the schema `platform` (drizzle `db/schema/platform.ts`;
+not in the `drizzle.config.ts` `schemaFilter`, like `dashboard`) owned by `modules/platform-port`
+(ADR-0069 decision 1). `platform.usage_events` holds menu entry/dwell events: identity fields only,
+server actor and `received_at`, client `at`/`entered_at` kept but never read for the summary. A dwell
+merges into the earlier one of the same stay through two partial unique indexes — keyed by `stay_id`
+when present, else by `(workspace, actor, session, menu, entered_at)` — and the route picks the
+matching `ON CONFLICT … WHERE` per row. `platform.client_errors` holds the five report fields plus
+actor and the server request id. Grants: `fops_app` has `INSERT, SELECT, UPDATE` on `usage_events` and
+`INSERT` only on `client_errors`; `USAGE` on the schema for `fops_app` and `fops_migrate`. There is no
+retention job (usage is unlimited with a manual delete path, docs/05; client-error retention is in
+`.planning/backlog.md`) and no annotation table.

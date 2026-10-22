@@ -25,7 +25,7 @@ The following directories are the server-registered module surfaces (with
 | Navigation | `apps/backend/src/modules/nav` |
 | Notifications | `apps/backend/src/modules/notifications` |
 | Permission | `apps/backend/src/modules/permissions` |
-| Platform Port | `apps/backend/src/modules/platform-port` — reads other modules only through their services and barrels: `auth` (session, actor list), `permissions` check service, the VOC read service (`resolveVocReference`), the Findings service (`getFinding`), the Tasks service (`getTask`) and `core/audit` (allowlisted projection); never a repo, never the entity-link provider `canRead`; writes only `core.sessions.csrf_token` |
+| Platform Port | `apps/backend/src/modules/platform-port` — reads other modules only through their services and barrels: `auth` (session, actor list), `permissions` check service, the VOC read service (`resolveVocReference`), the Findings service (`getFinding`), the Tasks service (`getTask`) and `core/audit` (allowlisted projection); never a repo, never the entity-link provider `canRead`; writes only its own `platform.*` tables (`usage_events`, `client_errors`; ADR-0069 decision 1) and `core.sessions.csrf_token` |
 | Saved Views | `apps/backend/src/modules/saved-views` |
 | Survey | `apps/backend/src/modules/surveys` |
 | Task Request | `apps/backend/src/modules/task-requests` |

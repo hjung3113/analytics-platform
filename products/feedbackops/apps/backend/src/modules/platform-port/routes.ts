@@ -1,7 +1,8 @@
 // Platform port — `/api/v1/platform/*` (ADR-0069). A Fastify plugin registered with
 // that prefix: camelCase JSON, `Cache-Control: no-store` on every response and a
 // plugin-scoped error handler. It reads other modules through their services
-// (session, permission check) and writes nothing outside `core.sessions.csrf_token`.
+// (session, permission check) and writes only its own tables — `platform.usage_events`,
+// `platform.client_errors` — plus `core.sessions.csrf_token` (ADR-0069 decision 1).
 
 import { errorCodeSchema } from '@fops/shared';
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
@@ -16,11 +17,14 @@ import type { TasksService } from '../tasks/index.js';
 import type { VocReadService } from '../voc/index.js';
 import { createAccessDirectoryService } from './access-directory.js';
 import { createPlatformAuditService } from './audit-service.js';
+import { createPlatformClientErrorService, parseClientError } from './client-errors.js';
+import { requireCsrf } from './csrf.js';
 import { createEntityReader } from './entity-read.js';
 import { envelope } from './envelope.js';
-import { resolvePlatformPermissions } from './permissions.js';
+import { holdsPlatformPermission, resolvePlatformPermissions } from './permissions.js';
 import { sessionVersionOf } from './session-version.js';
 import { titleFor } from './titles.js';
+import { createPlatformUsageService, parseUsageBatch } from './usage.js';
 
 export const PLATFORM_PORT_PREFIX = '/api/v1/platform';
 
@@ -66,6 +70,9 @@ export const platformPortRoutes: FastifyPluginAsync<PlatformPortOptions> = async
     entityReader,
   });
   const access = createAccessDirectoryService({ db: opts.db, checkService: opts.checkService });
+  const usage = createPlatformUsageService({ db: opts.db, checkService: opts.checkService });
+  const clientErrors = createPlatformClientErrorService({ db: opts.db });
+  const csrf = requireCsrf(opts.sessionService);
 
   // A body that is not valid JSON is a judged malformed request (HTTP 200 + `error` envelope,
   // ADR-0069 decision 2), not a framework 4xx: hand the route a sentinel instead of throwing.
@@ -221,4 +228,51 @@ export const platformPortRoutes: FastifyPluginAsync<PlatformPortOptions> = async
     const result = await access.accessDirectory(actorOf(loaded), body);
     return envelope(req, result.outcome, result.data ?? null, result.message);
   });
+
+  // Fire-and-forget writes (http-adapter-contract §6): CSRF failure stays 403 `csrf.invalid` (the
+  // adapter re-checks the session on it), no cookie 401; every judged rejection is HTTP 200 with
+  // `accepted: 0 / false`. Plain JSON, not an envelope. No per-route rate-limit tier: only the global
+  // 100/min/actor applies, since the kernel sends one POST per event (~2 per navigation). Above that a
+  // 429 is dropped silently by the adapter.
+  app.post('/usage-events', { preHandler: csrf }, async (req, reply) => {
+    const loaded = await authenticate(req, reply, true);
+    if (!loaded) return reply;
+    const events = req.body === MALFORMED_BODY ? null : parseUsageBatch(req.body);
+    if (!events) return { accepted: 0 };
+    await usage.recordUsage(actorOf(loaded), events);
+    return { accepted: events.length };
+  });
+
+  app.get('/usage-summary', async (req, reply) => {
+    const loaded = await authenticate(req, reply, true);
+    if (!loaded) return reply;
+    const result = await usage.usageSummary(actorOf(loaded), req.query);
+    return envelope(req, result.outcome, result.data ?? null, result.message);
+  });
+
+  app.post('/client-errors', { preHandler: csrf }, async (req, reply) => {
+    const loaded = await authenticate(req, reply, true);
+    if (!loaded) return reply;
+    const report = req.body === MALFORMED_BODY ? null : parseClientError(req.body);
+    if (!report) return { accepted: false };
+    await clientErrors.reportClientError(actorOf(loaded), req.id, report);
+    return { accepted: true };
+  });
+
+  // Annotations are a gate only (#622 decision 6): `analytics:view` is never granted and FeedbackOps
+  // has no sites, so every call is `forbidden`. Storage, validation, the site grant, author-only
+  // delete and its ADR-0041 audit are NOT implemented — recorded in .planning/backlog.md
+  // (## 작은 후속, "주석 저장"); the full ADR-0041 order is validation → site grant → lookup.
+  async function annotationGate(req: FastifyRequest, reply: FastifyReply) {
+    const loaded = await authenticate(req, reply, true);
+    if (!loaded) return reply;
+    if (!(await holdsPlatformPermission(opts.checkService, actorOf(loaded), 'analytics:view'))) {
+      return envelope(req, 'forbidden', null, 'No permission analytics:view');
+    }
+    // Unreachable while the table says `never`; failing closed beats an unfinished write path.
+    return envelope(req, 'error', null, 'Annotations are not implemented');
+  }
+  app.get('/annotations', annotationGate);
+  app.post('/annotations', { preHandler: csrf }, annotationGate);
+  app.post('/annotations/delete', { preHandler: csrf }, annotationGate);
 };
