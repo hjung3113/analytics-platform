@@ -13,19 +13,19 @@ import type { SessionService } from '../modules/auth/session-service.js';
 export const SESSION_COOKIE_NAME = 'fops_session';
 
 export function requireSession(sessionService: SessionService): preHandlerHookHandler {
+  // An async preHandler that sends a reply must return it: otherwise Fastify still runs the route
+  // handler, and the denial response would hide a write that already happened (#638).
   return async function requireSessionHandler(
     req: FastifyRequest,
     reply: FastifyReply,
-  ): Promise<void> {
+  ): Promise<FastifyReply | undefined> {
     const cookie = req.cookies?.[SESSION_COOKIE_NAME];
     if (!cookie) {
-      sendError(reply, 'auth.session_invalid', 'session cookie missing');
-      return;
+      return sendError(reply, 'auth.session_invalid', 'session cookie missing');
     }
     const loaded = await sessionService.loadAndTouch(cookie);
     if (!loaded) {
-      sendError(reply, 'auth.session_invalid', 'session not active');
-      return;
+      return sendError(reply, 'auth.session_invalid', 'session not active');
     }
     req.session = {
       session_id: loaded.session.id,
