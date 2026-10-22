@@ -5,8 +5,8 @@ import {
   previewRateLimitedMessage,
   rateLimitedMessage,
 } from '../copy/rate-limit';
-import { UnauthenticatedError } from './auth';
 import { ApiError, type ApiErrorEnvelope, type MappedError, type Tone } from './types';
+import { UnauthenticatedError } from './unauthenticated';
 
 export const GENERIC_ERROR_MESSAGE = '일시적 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.';
 

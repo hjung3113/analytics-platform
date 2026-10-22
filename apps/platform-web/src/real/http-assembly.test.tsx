@@ -17,8 +17,13 @@ function assemblyFor(result: BootstrapResult) {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe('real assembly (#154)', () => {
-  it('ready → the adapter with no top-bar tools', async () => {
-    expect(await assemblyFor({ kind: 'ready', adapter }).create()).toEqual({ adapter, topBarTools: null });
+  it('ready → the adapter with no top-bar tools and the FeedbackOps API under /api/fo (ADR-0071)', async () => {
+    const outcome = await assemblyFor({ kind: 'ready', adapter }).create();
+    expect(outcome).toEqual({ adapter, topBarTools: null, feedbackOpsApi: { basePath: '/api/fo', onSessionLost: expect.any(Function) } });
+    const replace = vi.fn();
+    vi.stubGlobal('location', { ...window.location, replace });
+    (outcome as { feedbackOpsApi: { onSessionLost: () => void } }).feedbackOpsApi.onSessionLost();
+    expect(replace).toHaveBeenCalledWith(loginHref(where));
   });
 
   it('login → redirect to /auth/login with return_to fully encoded (an unencoded & would cut the Context)', async () => {

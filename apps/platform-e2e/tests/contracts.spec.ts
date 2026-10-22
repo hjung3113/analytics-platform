@@ -1886,6 +1886,14 @@ test.describe('전역 기능 자리 (ADR-0070, 06 §9.1·§10)', () => {
     await expect(systemSwitcher(page)).toHaveAccessibleName('시스템 및 플랫폼 메뉴');
   });
 
+  test('mock 미리보기의 알림 화면은 실서버 필요 상태를 보이고 FeedbackOps 목록을 열지 않는다 (ADR-0071)', async ({ page }) => {
+    await signInAs(page, 'viewer');
+    await page.goto('/notifications');
+    await expect(page.getByRole('main').getByRole('heading', { name: '알림' })).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: '실서버 필요' })).toBeVisible();
+    await expect(page.getByTestId('home-inbox-list')).toHaveCount(0);
+  });
+
   test('플랫폼 사이드바는 업무 사이드바와 접힘 상태를 함께 쓴다', async ({ page }) => {
     await signInAs(page, 'admin');
     await page.goto('/');

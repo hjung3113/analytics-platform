@@ -1,1 +1,1 @@
-export { menu as default } from '@ap/eslint-config';
+export { foBridgeMenu as default } from '@ap/eslint-config';

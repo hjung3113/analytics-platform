@@ -11,8 +11,12 @@ declare module '#platform-assembly' {
   import type { PlatformAdapter } from '@ap/contracts';
   import type { Registry } from '@ap/kernel';
 
-  /** What a build injects: the server adapter and its top-bar tools (DevTools in mock builds; production writes `null`). */
-  export type Assembly = { adapter: PlatformAdapter; topBarTools: ReactNode };
+  /**
+   * What a build injects: the server adapter and its top-bar tools (DevTools in mock builds; production writes `null`).
+   * `feedbackOpsApi` (real assemblies only; absent in mock) is where the FeedbackOps bridge screens call and what they do
+   * when the FeedbackOps session is lost (ADR-0071). Structural: the Kernel and this contract know no menu.
+   */
+  export type Assembly = { adapter: PlatformAdapter; topBarTools: ReactNode; feedbackOpsApi?: { basePath: string; onSessionLost: () => void } };
   /**
    * What `createAssembly` may answer (#154, http-adapter-contract §3 안 B): the assembly to mount, a `redirect` target
    * (`main.tsx` calls `window.location.replace`, e.g. to the login page), or a `screen` rendered instead of the app

@@ -1,11 +1,12 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
-import { apiClient } from '../client';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { apiClient, apiRequest, configureApiClient } from '../client';
 import { ApiError } from '../types';
 
 const originalFetch = global.fetch;
 
 afterEach(() => {
   global.fetch = originalFetch;
+  configureApiClient({ basePath: '' });
 });
 
 type MockFetchArgs = {
@@ -17,19 +18,23 @@ type MockFetchArgs = {
 
 function mockFetch(response: MockFetchArgs): typeof fetch {
   const headers = new Headers(response.headers);
-  return vi.fn(async () =>
-    ({
-      ok: response.ok ?? true,
-      status: response.status ?? 200,
-      headers,
-      text: async () =>
-        response.jsonBody !== undefined ? JSON.stringify(response.jsonBody) : '',
-    } as Response),
+  return vi.fn(
+    async () =>
+      ({
+        ok: response.ok ?? true,
+        status: response.status ?? 200,
+        headers,
+        text: async () =>
+          response.jsonBody !== undefined ? JSON.stringify(response.jsonBody) : '',
+      }) as Response,
   ) as unknown as typeof fetch;
 }
 
 function getCallInit(fetchMock: typeof fetch): RequestInit {
-  const calls = (fetchMock as unknown as ReturnType<typeof vi.fn>).mock.calls as [string, RequestInit][];
+  const calls = (fetchMock as unknown as ReturnType<typeof vi.fn>).mock.calls as [
+    string,
+    RequestInit,
+  ][];
   const first = calls[0];
   if (!first) throw new Error('fetch was not called');
   return first[1];
@@ -168,5 +173,44 @@ describe('apiClient', () => {
     });
     const res = await apiClient('GET', '/x');
     expect(res.rateLimit).toBeUndefined();
+  });
+});
+
+describe('configureApiClient', () => {
+  const parseAny = (data: unknown): unknown => data;
+
+  it('prefixes every request path with the base path', async () => {
+    const fetchMock = mockFetch({ status: 200, jsonBody: { ok: true } });
+    global.fetch = fetchMock;
+    configureApiClient({ basePath: '/api/fo' });
+    await apiRequest('GET', '/notifications?unread=true', parseAny);
+    expect(fetchMock).toHaveBeenCalledWith('/api/fo/notifications?unread=true', expect.anything());
+  });
+
+  it('calls onUnauthorized once on a 401 and still rejects with the ApiError', async () => {
+    global.fetch = mockFetch({
+      ok: false,
+      status: 401,
+      jsonBody: { code: 'auth.session_invalid', message: 'no session' },
+    });
+    const onUnauthorized = vi.fn();
+    configureApiClient({ basePath: '/api/fo', onUnauthorized });
+    await expect(apiRequest('GET', '/notifications', parseAny)).rejects.toMatchObject({
+      name: 'ApiError',
+      status: 401,
+    });
+    expect(onUnauthorized).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not call onUnauthorized on a 403', async () => {
+    global.fetch = mockFetch({
+      ok: false,
+      status: 403,
+      jsonBody: { code: 'permission.denied', message: 'denied' },
+    });
+    const onUnauthorized = vi.fn();
+    configureApiClient({ basePath: '/api/fo', onUnauthorized });
+    await expect(apiRequest('GET', '/notifications', parseAny)).rejects.toBeInstanceOf(ApiError);
+    expect(onUnauthorized).not.toHaveBeenCalled();
   });
 });

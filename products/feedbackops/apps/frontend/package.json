@@ -3,6 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "exports": {
+    "./global-screens": "./src/global-screens/index.ts"
+  },
   "scripts": {
     "dev": "vite",
     "gen:routes": "node ../../scripts/generate-routes.mjs",

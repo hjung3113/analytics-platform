@@ -1,30 +1,14 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider } from '@tanstack/react-router';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { registerSurveyQueryDefaults } from './features/surveys/policy/resultsReadDenial';
-import { ApiError } from './lib/api/types';
+import { createFoQueryClient, shouldRetryQuery } from './lib/query/query-client';
 import { createAppRouter } from './lib/router/app-router';
 import './styles.css';
 
-export { createAppRouter };
+export { createAppRouter, shouldRetryQuery };
 
-export function shouldRetryQuery(failureCount: number, error: unknown): boolean {
-  if (
-    error instanceof ApiError &&
-    error.status >= 400 &&
-    error.status < 500 &&
-    error.status !== 429
-  ) {
-    return false;
-  }
-  return failureCount < 3;
-}
-
-const queryClient = new QueryClient({ defaultOptions: { queries: { retry: shouldRetryQuery } } });
-// Sticky Survey results-read denial markers must never be garbage-collected
-// while the payloads they protect stay cached; see registerSurveyQueryDefaults.
-registerSurveyQueryDefaults(queryClient);
+const queryClient = createFoQueryClient();
 const router = createAppRouter(queryClient);
 
 declare module '@tanstack/react-router' {

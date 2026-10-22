@@ -11,7 +11,7 @@
 - `platform-app`에 모여 있는 Kernel·UI·공통 컴포넌트·셸을 패키지로 나눈다. 메뉴는 **패키지 경계 밖에서** 선언만으로 얹히게 한다(06 §3: "플랫폼 기능은 개별 메뉴 import 관계를 알지 못해야 한다").
 - 새 메뉴를 만들 때 쓸 템플릿(생성기)의 모양을 정한다.
 - 서버는 mock을 유지한다(05 Decided). mock은 교체 가능한 어댑터 뒤로 숨긴다.
-- **범위 밖:** 워크스페이스 층 구현(06 §9.1), Storybook·시각 회귀. 이들은 이 경계 위에서 후속 PR로 진행한다. FeedbackOps 앱·백엔드는 자체 pnpm workspace에 두고, `packages/ui`와 `packages/shared`만 플랫폼 workspace에 포함한다. 플랫폼 코드는 UI primitive를 `@ap/ui`를 통해 소비한다.
+- **범위 밖:** 워크스페이스 층 구현(06 §9.1), Storybook·시각 회귀. 이들은 이 경계 위에서 후속 PR로 진행한다. FeedbackOps 앱·백엔드는 `products/feedbackops/`에 두며 루트 pnpm workspace의 일부다(#642). 플랫폼 코드는 UI primitive를 `@ap/ui`를 통해 소비한다.
 
 ## 3. 패키지 구성
 
@@ -30,7 +30,7 @@
 | `@ap/mock-server` | (개발용) | `world`·`server`·`jobs`와 이들만 보는 단위 테스트(`explicit-empty`, `time-domain`). `PlatformAdapter` mock 구현 `createMockAdapter({ endpoints, registry, auditEvents? })`(감사 시드는 ADR-0048), 메뉴 조회 엔진 `serveEndpoint`(선언 사본으로 요청 모양·권한·Scope·한도 판정)와 핸들러 정의 `defineMockEndpoint`. 메뉴별 핸들러는 메뉴 패키지가 소유한다 | 없음 | `contracts` |
 | `@ap/http-adapter` | (운영) | 실서버 클라이언트: `bootstrapHttpAdapter(options)`가 `GET /api/v1/platform/bootstrap`을 읽고 `ready`(`PlatformAdapter`)·`login`·`unavailable`을 돌려준다(reject 없음). 포트 메서드를 [전송 형식](http-adapter-contract.md) §1대로 HTTP로 옮기고 §2 변환·§4 `subscribe` 폴링·§5 취소/타임아웃·§6 CSRF·§7 Correlation ID를 지킨다. React·DOM 컴포넌트 없음(`fetch`·`AbortSignal`·`crypto`만). 앱은 운영 조립 `apps/platform-web/src/real/**`에서만 import한다(경계 lint) | 없음 | `contracts` |
 | `@ap/server-conformance` | (검사) | 서버 경계 적합성 묶음(#145, #152): 엔드포인트 선언과 표본 요청으로 `PlatformAdapter`가 메뉴 조회 계약과 포트 메서드 계약(세션·Scope·목적지·감사·콘솔 조회·주석·활용률·오류 보고)을 지키는지 판정. mock과 사내 실어댑터에 같은 잣대 | 없음 | `contracts`(+ vitest) |
-| `@ap/menu-<group>` | Consumer | Registry의 7개 그룹마다 하나: `home`(overview), `equipment`, `master-data`, `analytics`, `metrics`, `notice-voc`, `admin`. 화면이 아직 없는 계획 메뉴(공정·레시피 마스터, Wafer Journey, 공지 등)도 `component` 없는 manifest로 자기 그룹 패키지가 소유한다(셸이 미구현 화면으로 표시). 각 패키지가 `manifests`(여러 메뉴 가능)와 화면·도메인 컴포넌트, 조회 선언 `src/endpoints.ts`, 서버 쪽 핸들러 `src/mock/`(서브패스 `./mock`, 앱 mock 조립 `src/dev/mock-assembly.tsx`만 import — 운영 빌드에는 없음, ADR-0009)을 가진다 | 있음 | `contracts`, `kernel`, `components`, `ui` (`src/mock/**`는 `contracts`·`mock-server`·자기 `endpoints.ts`만) |
+| `@ap/menu-<group>` | Consumer | Registry의 그룹마다 하나: `home`(overview), `my-activity`, `equipment`, `master-data`, `analytics`, `metrics`, `notice-voc`, `admin` 등. 화면이 아직 없는 계획 메뉴(공정·레시피 마스터, Wafer Journey, 공지 등)도 `component` 없는 manifest로 자기 그룹 패키지가 소유한다(셸이 미구현 화면으로 표시). 각 패키지가 `manifests`(여러 메뉴 가능)와 화면·도메인 컴포넌트, 조회 선언 `src/endpoints.ts`, 서버 쪽 핸들러 `src/mock/`(서브패스 `./mock`, 앱 mock 조립 `src/dev/mock-assembly.tsx`만 import — 운영 빌드에는 없음, ADR-0009)을 가진다 | 있음 | `contracts`, `kernel`, `components`, `ui` (`src/mock/**`는 `contracts`·`mock-server`·자기 `endpoints.ts`만) |
 | `apps/platform-web` | 조립 지점 | `main.tsx`, IA 설정(`SPACES`·`GROUPS`), 메뉴 등록, 어댑터 주입, dev 도구(역할 전환·응답 시나리오) | 있음 | 전부 |
 | `apps/platform-e2e` | (검사) | 조립된 앱을 브라우저로 띄워 플랫폼 계약을 검사하는 Playwright 블랙박스 테스트와 항목별 보고(#44) | 없음 | 없음(`@ap/*` import 금지, 브라우저로만 관찰) |
 | `tooling/*` | 개발 환경 | 공유 tsconfig, lint 설정(경계·계약 규칙), 메뉴 생성기 | — | — |
@@ -65,7 +65,7 @@
 5. `contracts`는 React·브라우저 API에 타입 수준으로도 의존하지 않는다(향후 백엔드와 공유할 수 있게). 아이콘·화면 컴포넌트처럼 React 타입이 필요한 manifest 필드는 `kernel`의 `MenuEntry`가 소유한다.
 6. 규칙 1–3은 테스트 파일에도 적용한다. 층을 넘는 검증은 그 위층(메뉴 또는 앱)의 통합 테스트로 둔다.
 7. **모듈 패키지**(다른 저장소에서 플랫폼에 올라오는 화면 묶음, [ADR-0053](../adr/0053-host-module-contract-v1.md))는 `@ap/contracts`와 `@ap/ui`(+ `@ap/ui` CSS 하위 경로·`@ap/ui/theme`·`@ap/ui/theme-tokens.json`)만 import한다. `@ap/kernel`·`@ap/shell`·`@ap/components`·`menu-*`·`mock-server`는 import하지 않는다. `tooling/eslint`의 `hostModule` 프리셋이 강제하며, 이 저장소의 실제 패키지에는 적용하지 않고, 고정 모듈 fixture(`packages/shell/src/__fixtures__/module-fixture/`, 패키지가 아닌 디렉터리 — `hostModuleDir`가 그 디렉터리를 경계로 강제하고 `tooling/eslint` 회귀 테스트가 고정)에만 쓴다. 앱에는 마운트하지 않는다. 모듈은 자기 패키지 루트 안의 상대 import만 쓴다(패키지 이름 접두사와 무관). 열린 어휘(`<moduleId>:` 권한·그룹)와 등록 `mountModule`은 Kernel이 소유한다. 모듈 id는 플랫폼 권한 네임스페이스(`PERMISSIONS`의 `:` 앞)를 쓸 수 없고, 화면 id는 메뉴 id `<moduleId>:<screenId>`로 등록된다.
-8. `@fops/*` 직접 import는 `@ap/ui`에서 공개 진입점 `@fops/ui`를 소비하는 경우만 허용한다. primitive는 나머지 모든 플랫폼 코드에서 `@ap/ui`를 통해 쓴다(ADR-0011).
+8. 어떤 플랫폼 패키지도 `@fops/*`를 import하지 않는다(ADR-0046, #441 — 디자인 시스템은 `@ap/ui`로 옮겨 왔고 `@fops/ui`가 `@ap/ui`에 의존한다). primitive는 모든 플랫폼 코드에서 `@ap/ui`를 통해 쓴다(ADR-0011). **예외는 하나다:** `@ap/menu-my-activity`는 정확히 `@fops/frontend/global-screens`만 import할 수 있다(ADR-0071). `tooling/eslint`의 `foBridgeMenu` 프리셋이 강제하고(다른 `@fops/*` 경로와 다른 메뉴·층은 그대로 막힌다), 진입점의 import 그래프(라우터·로그인 셸·`@/lib/api` 배럴 없음, 네트워크 호출은 `client.ts` 하나)는 `menus/_global/my-activity/src/fo-entry-graph.test.ts`가 고정한다.
 9. **실어댑터** `http-adapter`는 `contracts`만 import한다(React 없음). 이를 import할 수 있는 곳은 앱의 운영 조립 `apps/platform-web/src/real/**`(와 그 테스트)뿐이고, `main.tsx`·`src/dev/**`·그 밖의 앱 파일·다른 패키지·메뉴는 `tooling/eslint`가 막는다(#154).
 
 ## 4. Kernel 포트: `PlatformAdapter`

@@ -16,6 +16,8 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { type HostSeam, HostSeamProvider } from '@/lib/host/host-seam';
+import { tanstackHost } from '@/lib/host/tanstack-host';
 import { InboxPanel, notificationTarget } from '../InboxPanel';
 
 const VOC_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
@@ -213,7 +215,9 @@ function renderInbox() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
+      <HostSeamProvider value={tanstackHost}>
+        <RouterProvider router={router} />
+      </HostSeamProvider>
     </QueryClientProvider>,
   );
   return { push, queryClient, router };
@@ -578,5 +582,154 @@ describe('InboxPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
     await screen.findByText('읽지 않은 알림이 없습니다.');
     expect(calls.filter(({ method }) => method === 'GET')).toHaveLength(2);
+  });
+});
+
+describe('host seam', () => {
+  function renderWithSeam(notifyError = vi.fn()) {
+    const seam: HostSeam = {
+      canLink: () => false,
+      Link: () => null,
+      notifyError,
+    };
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <HostSeamProvider value={seam}>
+          <InboxPanel />
+        </HostSeamProvider>
+      </QueryClientProvider>,
+    );
+    return { notifyError };
+  }
+
+  it('renders an unread notification the host cannot link with a noninteractive body and explicit actions', async () => {
+    const { calls } = installNotificationFetch([makeNotification()]);
+    renderWithSeam();
+
+    const row = await screen.findByTestId(`home-inbox-row-${NOTIFICATION_ID}`);
+    expect(within(row).queryByRole('link')).not.toBeInTheDocument();
+    expect(
+      within(row).queryByRole('button', { name: /VOC 담당자로 지정되었습니다/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(row)
+        .getAllByRole('button')
+        .map((button) => button.getAttribute('aria-label')),
+    ).toEqual(['읽음으로 표시', '보관']);
+    fireEvent.click(within(row).getByText('VOC 담당자로 지정되었습니다.'));
+    expect(calls.filter(({ method }) => method === 'POST')).toEqual([]);
+
+    fireEvent.click(within(row).getByRole('button', { name: '읽음으로 표시' }));
+
+    await waitFor(() =>
+      expect(calls).toContainEqual({
+        path: `/notifications/${NOTIFICATION_ID}/read`,
+        method: 'POST',
+      }),
+    );
+  });
+
+  it('keeps only the archive action on a read notification the host cannot link', async () => {
+    installNotificationFetch([makeNotification({ read_at: '2026-07-27T01:00:00.000Z' })]);
+    renderWithSeam();
+    fireEvent.click(await screen.findByRole('radio', { name: '전체' }));
+
+    const row = await screen.findByTestId(`home-inbox-row-${NOTIFICATION_ID}`);
+    expect(within(row).queryByRole('link')).not.toBeInTheDocument();
+    expect(within(row).getAllByRole('button')).toHaveLength(1);
+    expect(within(row).getByRole('button', { name: '보관' })).toBeInTheDocument();
+  });
+
+  it('reports a failed mark-read through the host', async () => {
+    installNotificationFetch([makeNotification()]);
+    const { notifyError } = renderWithSeam();
+    await screen.findByTestId(`home-inbox-row-${NOTIFICATION_ID}`);
+    globalThis.fetch = vi.fn(async () =>
+      jsonResponse({ code: 'internal.unexpected', message: 'boom' }, 500),
+    ) as typeof globalThis.fetch;
+
+    fireEvent.click(screen.getByRole('button', { name: '읽음으로 표시' }));
+
+    await waitFor(() => expect(notifyError).toHaveBeenCalledTimes(1));
+    expect(notifyError).toHaveBeenCalledWith(expect.any(String));
+  });
+});
+
+describe('focus after a row action', () => {
+  const ID_1 = '11111111-1111-4111-8111-111111111111';
+  const ID_2 = '22222222-2222-4222-8222-222222222222';
+  const ID_3 = '33333333-3333-4333-8333-333333333333';
+  const row = (id: string) => screen.findByTestId(`home-inbox-row-${id}`);
+  const three = () =>
+    [ID_1, ID_2, ID_3].map((id) =>
+      makeNotification({ id, subject_id: id, summary: `알림 ${id.slice(0, 1)}` }),
+    );
+
+  it('moves to the next row action after Mark as read removes the row from Unread', async () => {
+    const user = userEvent.setup();
+    installNotificationFetch(three());
+    renderInbox();
+    await user.click(within(await row(ID_2)).getByRole('button', { name: '읽음으로 표시' }));
+
+    await waitFor(() =>
+      expect(screen.queryByTestId(`home-inbox-row-${ID_2}`)).not.toBeInTheDocument(),
+    );
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        within(screen.getByTestId(`home-inbox-row-${ID_3}`)).getByRole('button', {
+          name: '읽음으로 표시',
+        }),
+      ),
+    );
+  });
+
+  it('moves to the previous row when the last row is archived', async () => {
+    const user = userEvent.setup();
+    installNotificationFetch(three());
+    renderInbox();
+    await user.click(within(await row(ID_3)).getByRole('button', { name: '보관' }));
+
+    await waitFor(() =>
+      expect(screen.queryByTestId(`home-inbox-row-${ID_3}`)).not.toBeInTheDocument(),
+    );
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        within(screen.getByTestId(`home-inbox-row-${ID_2}`)).getByRole('button', {
+          name: '읽음으로 표시',
+        }),
+      ),
+    );
+  });
+
+  it('moves to the empty state when the list empties', async () => {
+    const user = userEvent.setup();
+    installNotificationFetch([makeNotification()]);
+    renderInbox();
+    await user.click(within(await row(NOTIFICATION_ID)).getByRole('button', { name: '보관' }));
+
+    const empty = await screen.findByText('읽지 않은 알림이 없습니다.');
+    await waitFor(() => expect(document.activeElement).toBe(empty.closest('[tabindex="-1"]')));
+  });
+
+  it('moves to the same row Archive when Mark as read keeps the row in All', async () => {
+    const user = userEvent.setup();
+    installNotificationFetch(three());
+    renderInbox();
+    await user.click(await screen.findByRole('radio', { name: '전체' }));
+    await user.click(within(await row(ID_2)).getByRole('button', { name: '읽음으로 표시' }));
+
+    await waitFor(() =>
+      expect(
+        within(screen.getByTestId(`home-inbox-row-${ID_2}`)).queryByRole('button', {
+          name: '읽음으로 표시',
+        }),
+      ).not.toBeInTheDocument(),
+    );
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        within(screen.getByTestId(`home-inbox-row-${ID_2}`)).getByRole('button', { name: '보관' }),
+      ),
+    );
   });
 });

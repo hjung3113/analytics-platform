@@ -23,7 +23,7 @@ Home is not a chart-only dashboard and must not duplicate source-system workflow
 
 - `apps/frontend/src/routes/_authed/home.tsx` — Home route and URL state.
 - `apps/frontend/src/features/home/HomeScreen.tsx` — Home queues, assigned-work panel, and coverage surface.
-- `apps/frontend/src/features/home/InboxPanel.tsx` — notification inbox list, filters, and empty/error states.
+- `apps/frontend/src/features/home/InboxPanel.tsx` — notification inbox list, filters, and empty/error states. Also mounted by the platform bridge (`src/global-screens`, platform ADR-0071) through the `lib/host` seam.
 - `apps/frontend/src/features/home/homeNavigation.tsx` — Home sidebar queue destinations.
 - `apps/frontend/src/lib/copy/home.ts` — Home, queue, coverage, and notification inbox copy.
 

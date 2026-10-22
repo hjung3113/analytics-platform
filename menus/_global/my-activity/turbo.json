@@ -1,0 +1,19 @@
+{
+  "$schema": "../../../node_modules/turbo/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "transit": {
+      "dependsOn": ["@ap/components#transit", "@ap/contracts#transit", "@ap/kernel#transit", "@ap/ui#transit"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/products/feedbackops/apps/frontend/src/**",
+        "$TURBO_ROOT$/products/feedbackops/apps/frontend/package.json",
+        "$TURBO_ROOT$/products/feedbackops/packages/shared/src/**",
+        "$TURBO_ROOT$/products/feedbackops/packages/ui/src/**"
+      ]
+    },
+    "build": {
+      "dependsOn": ["transit", "@ap/components#build", "@ap/contracts#build", "@ap/kernel#build", "@ap/ui#build"]
+    }
+  }
+}

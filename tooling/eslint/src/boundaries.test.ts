@@ -9,6 +9,7 @@ import {
   app,
   components,
   contracts,
+  foBridgeMenu,
   hostModule,
   hostModuleDir,
   httpAdapter,
@@ -37,6 +38,7 @@ const PRESETS: Record<string, Linter.Config[]> = {
   'menus/_global/home': menu,
   'menus/analytics/analytics': menu,
   'menus/metrics/metrics': menu,
+  'menus/_global/my-activity': foBridgeMenu,
   'apps/platform-web': app,
 };
 
@@ -512,6 +514,30 @@ for (const file of FEEDBACKOPS_BOUNDARY_FILES) {
     { file, code: `void import('@fops/ui/src/button');`, rule: 'ap/restricted-import-source', token: '@ap/ui' },
   );
 }
+
+// Rule 8 exception (ADR-0071): the bridge menu imports exactly @fops/frontend/global-screens; every other menu still cannot.
+const BRIDGE = 'menus/_global/my-activity/src/pages/x.tsx';
+const GLOBAL_SCREENS = '@fops/frontend/global-screens';
+rows.push(
+  { file: BRIDGE, code: `import { InboxPanel } from '${GLOBAL_SCREENS}';`, rule: '' },
+  { file: BRIDGE, code: `void import('${GLOBAL_SCREENS}');`, rule: '' },
+  { file: MENU, code: `import { InboxPanel } from '${GLOBAL_SCREENS}';`, rule: 'no-restricted-imports', token: '@ap/ui' },
+  { file: MENU, code: `void import('${GLOBAL_SCREENS}');`, rule: 'ap/restricted-import-source', token: '@ap/ui' },
+);
+for (const source of ['@fops/frontend', '@fops/frontend/src/main', '@fops/frontend/global-screens/FoScreenRoot', '@fops/ui', '@fops/shared']) {
+  rows.push(
+    { file: BRIDGE, code: `import { x } from '${source}';`, rule: 'no-restricted-imports', token: '@ap/ui' },
+    { file: BRIDGE, code: `void import('${source}');`, rule: 'ap/restricted-import-source', token: '@ap/ui' },
+  );
+}
+
+// The FO API slot (fo-api) is main.tsx-only, like feedbackops-origin.
+rows.push(
+  { file: 'apps/platform-web/src/main.tsx', code: `import { setFoApi } from '@ap/menu-my-activity/fo-api';`, rule: '' },
+  { file: 'apps/platform-web/src/main.tsx', code: `void import('@ap/menu-my-activity/fo-api');`, rule: '' },
+  { file: 'apps/platform-web/src/menus.ts', code: `import { setFoApi } from '@ap/menu-my-activity/fo-api';`, rule: 'no-restricted-imports' },
+  { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '@ap/menu-my-activity/src/fo-api';`, rule: 'no-restricted-imports' },
+);
 
 rows.push(
   { file: 'packages/ui/src/x.ts', code: `import { x } from '@fops/shared';`, rule: 'no-restricted-imports', token: '@ap/ui' },

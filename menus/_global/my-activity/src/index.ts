@@ -1,7 +1,8 @@
 /**
  * @ap/menu-my-activity — myActivity group manifests (내 활동, ADR-0070, #594).
- * Planned menus only: the FeedbackOps screens arrive in later #594 PRs (#651, #653, #657).
+ * 알림 is the FeedbackOps InboxPanel through the bridge (ADR-0071, #651); surveys and permission requests are planned (#653, #657).
  */
+import { lazy } from 'react';
 import { Bell, ClipboardList, KeyRound } from 'lucide-react';
 import type { Capability, ContextKey } from '@ap/contracts';
 import type { MenuEntry } from '@ap/kernel';
@@ -15,6 +16,7 @@ export const manifests: MenuEntry[] = [
     description: { ko: 'VOC 상태 변경·권한 결정·설문 요청 알림', en: 'Notifications for VOC status, permission decisions and survey requests' },
     path: '/notifications', icon: Bell, permission: 'platform:view', requiresScope: false, pageType: 'management',
     context: none, features: noFeatures, pageKeys: [],
+    component: lazy(() => import('./pages/Notifications')),
   },
   {
     id: 'surveys', group: 'myActivity', label: { ko: '설문', en: 'Surveys' },

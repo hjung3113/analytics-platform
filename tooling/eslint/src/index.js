@@ -50,13 +50,16 @@ const escapeRegex = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const devRegex = (devAllow = []) =>
   devAllow.length === 0 ? DEV_REGEX : `^(?!(?:${devAllow.map(escapeRegex).join('|')})$)${DEV_REGEX.slice(1)}`;
 
-// Menu subpaths: the FeedbackOps origin slot is src/main.tsx ONLY; each menu's exact `/mock` export is
+// Menu subpaths: the FeedbackOps origin slot and the bridge's FO API slot (fo-api) are src/main.tsx ONLY; each menu's exact `/mock` export is
 // src/dev/** only. Every other menu subpath and any `*/src` import stays banned.
 // NOTE: the gitignore-style `*` in `menu-*/mock` also matches an empty name (no way to say
 // "one or more" here), so a `menu-/mock` source is not rejected on this side; the dynamic-import
 // side (import-source.js) uses `[^/]+` for the same pattern.
 const MENU_MOCK_SUBPATH = 'menu-*/mock';
 const FEEDBACKOPS_ORIGIN_SUBPATH = 'menu-notice-voc/feedbackops-origin';
+const FO_API_SUBPATH = 'menu-my-activity/fo-api';
+// Rule 8 exception (platform ADR-0071): the FeedbackOps bridge menu imports exactly this entry; nothing else under @fops/*.
+const FO_BRIDGE_ENTRY = '@fops/frontend/global-screens';
 const UI_THEME_SUBPATHS = ['ui/theme', 'ui/theme-tokens.json'];
 
 // Restriction data is the single decision source: each layer declares
@@ -71,12 +74,14 @@ const UI_THEME_SUBPATHS = ['ui/theme', 'ui/theme-tokens.json'];
 // Deep subpaths are banned for everyone, except subpaths matched by allowSubpaths.
 const TABLE_ENGINE_PACKAGES = ['@tanstack/react-table', '@tanstack/react-virtual', '@tanstack/table-core', '@tanstack/virtual-core'];
 const MENU_RESTRICTION = { allow: MENU_ALLOW, denyReact: false, denyTableEngine: true, mockAllowed: false, allowSubpaths: UI_THEME_SUBPATHS };
+// allowFeedbackOps: exact @fops/* sources exempted from the FeedbackOps ban (only the bridge menu, FO_BRIDGE_ENTRY).
+const FO_BRIDGE_RESTRICTION = { ...MENU_RESTRICTION, allowFeedbackOps: [FO_BRIDGE_ENTRY] };
 const MENU_MOCK_RESTRICTION = { allow: ['contracts'], denyReact: true, denyTableEngine: true, mockAllowed: true };
 // #154: the real-server adapter reaches the app through src/real/** only (APP_REAL_FILES below).
 const APP_RESTRICTION = { allow: null, denyReact: false, mockAllowed: false, denyDev: true, denyHttpAdapter: true, allowSubpaths: [...UI_THEME_SUBPATHS, DOCK_ENTRY_SUBPATH] };
-// src/main.tsx is the composition root: only the FeedbackOps origin slot subpath; no mock, no ./dev (#153).
+// src/main.tsx is the composition root: only the FeedbackOps origin and FO API slot subpaths; no mock, no ./dev (#153).
 const APP_REAL_RESTRICTION = { ...APP_RESTRICTION, denyHttpAdapter: false };
-const APP_MAIN_RESTRICTION = { ...APP_RESTRICTION, allowSubpaths: [...UI_THEME_SUBPATHS, DOCK_ENTRY_SUBPATH, FEEDBACKOPS_ORIGIN_SUBPATH] };
+const APP_MAIN_RESTRICTION = { ...APP_RESTRICTION, allowSubpaths: [...UI_THEME_SUBPATHS, DOCK_ENTRY_SUBPATH, FEEDBACKOPS_ORIGIN_SUBPATH, FO_API_SUBPATH] };
 // The mock assembly and DevTools: mock-server and the menu `/mock` subpaths.
 const APP_DEV_RESTRICTION = { allow: null, denyReact: false, mockAllowed: true, denyHttpAdapter: true, allowSubpaths: [...UI_THEME_SUBPATHS, MENU_MOCK_SUBPATH] };
 // The conformance test: mock-server, and from ./dev only the mock assembly's MOCK_ENDPOINTS list (#153 follow-up —
@@ -85,12 +90,16 @@ const APP_CONFORMANCE_RESTRICTION = { ...APP_RESTRICTION, mockAllowed: true, dev
 // published-metrics.test.ts keeps the mock-server exemption but never the menu-subpath allowance.
 const APP_PUBLISHED_METRICS_RESTRICTION = { ...APP_RESTRICTION, mockAllowed: true };
 
-function importRestrictions({ allow, denyReact, denyTableEngine, mockAllowed, allowSubpaths = [], denyDev = false, devAllow = [], denyHttpAdapter = false, allowDockEngine = false, allowRadix = false }) {
+function importRestrictions({ allow, denyReact, denyTableEngine, mockAllowed, allowSubpaths = [], denyDev = false, devAllow = [], denyHttpAdapter = false, allowDockEngine = false, allowRadix = false, allowFeedbackOps = [] }) {
   const negations = [
     ...(allow === null ? [] : allow.map((name) => `!${pkg(name)}`)),
     ...(mockAllowed ? [`!${pkg('mock-server')}`] : []),
   ];
-  const feedbackOpsPatterns = [{ group: ['@fops/*', '@fops/*/*', '@fops/*/*/**'], message: FEEDBACKOPS_MESSAGE }];
+  // A gitignore-style `!source` cannot re-include a source whose parent `@fops/<pkg>` the first glob already ignores,
+  // so a layer with exact exemptions uses a negative-lookahead regex instead.
+  const feedbackOpsPatterns = allowFeedbackOps.length === 0
+    ? [{ group: ['@fops/*', '@fops/*/*', '@fops/*/*/**'], message: FEEDBACKOPS_MESSAGE }]
+    : [{ regex: `^@fops/(?!(?:${allowFeedbackOps.map((source) => escapeRegex(source.slice('@fops/'.length))).join('|')})$)`, message: FEEDBACKOPS_MESSAGE }];
   return [
     'error',
     {
@@ -453,17 +462,16 @@ export const hostModuleDir = (dir) => hostModule.map(({ plugins: _ap, ...config 
   rules: { ...config.rules, 'ap/no-relative-package-escape': ['error', { root: dir }] },
 }));
 
-/** @type {import('eslint').Linter.Config[]} */
-export const menu = [
+const menuPreset = (restriction) => [
   REACT_HOOKS,
   layerConfig({
-    restriction: MENU_RESTRICTION,
+    restriction,
     extraRules: {
       ...menuContractRules,
       'ap/no-menu-mock-import': 'error',
     },
   }),
-  testEntryOverride(MENU_RESTRICTION, ABOVE_COMPONENTS_TEST_ENTRIES),
+  testEntryOverride(restriction, ABOVE_COMPONENTS_TEST_ENTRIES),
   {
     files: ['src/mock/**/*.{ts,tsx}'],
     rules: {
@@ -473,6 +481,15 @@ export const menu = [
   },
   designSystem(),
 ];
+
+/** @type {import('eslint').Linter.Config[]} */
+export const menu = menuPreset(MENU_RESTRICTION);
+
+/**
+ * `menu` plus the one FeedbackOps entry the bridge menu (menu-my-activity) may import (platform ADR-0071).
+ * @type {import('eslint').Linter.Config[]}
+ */
+export const foBridgeMenu = menuPreset(FO_BRIDGE_RESTRICTION);
 
 // App: all package entries allowed, deep subpaths, mock-server and ./dev banned (#153). src/main.tsx keeps only
 // the FeedbackOps origin subpath; src/dev/** sees mock-server and the menu `/mock`
