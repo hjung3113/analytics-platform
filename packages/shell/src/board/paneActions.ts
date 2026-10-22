@@ -127,7 +127,7 @@ export function applyContextToSheet(registry: Registry, canOpen: CanOpen, sheet:
     others++;
     if (sameGlobal(global, source)) return;
     const query = withContext(menuOf(registry, pane)!, pane.query, source);
-    if (query !== null) edits.push({ index, before: pane, after: { ...pane, query } });
+    if (query !== null) edits.push({ index, paneId: sheet.panes[index].id, before: pane, after: { ...pane, query } });
   });
   return { edits, others };
 }
@@ -141,7 +141,7 @@ export function copyContextToSheet(registry: Registry, canOpen: CanOpen, from: S
     const global = source[index];
     if (index >= from.panes.length || pane === null || global == null || target[index] === null || sameGlobal(target[index]!, global)) return;
     const query = withContext(menuOf(registry, pane)!, pane.query, global);
-    if (query !== null) edits.push({ index, before: pane, after: { ...pane, query } });
+    if (query !== null) edits.push({ index, paneId: to.panes[index].id, before: pane, after: { ...pane, query } });
   });
   return edits;
 }

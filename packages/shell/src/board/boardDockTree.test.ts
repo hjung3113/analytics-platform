@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { isValidDockTree } from '@ap/components/dock';
 import { activateInTree, defaultTree, effectiveTree, fromDockTree, reconcileSelection, toDockTree } from './boardDockTree';
 import {
-  addPane, closePane, freshBoard, normalizeBoard, restoreClosedPane, resetTree, selectPane, selectPaneActive, setPane, setTree, withGrid,
+  addPane, applyPaneEdits, closePane, freshBoard, normalizeBoard, restoreClosedPane, restorePane, resetTree, revertPaneEdits, selectPane, selectPaneActive, setPane, setTree, withGrid,
   type Board, type LayoutNode, type Sheet,
 } from './boardModel';
 import { defaultArrangement } from './boardTypes';
@@ -149,16 +149,38 @@ describe('addPane', () => {
     expect(sheet.selectedPaneId).toBe(sheet.panes[1].id);
     expect(sheet.tree).toEqual(row([50, 50], g([ids[0]]), g([sheet.panes[1].id])));
   });
-  it('docks beside the selected pane, not the last one', () => {
+  it('on the default arrangement the result is the default arrangement of one pane more: 1 → 2 → 3 → 2×2', () => {
+    let board = freshBoard('시트');
+    const shapes: LayoutNode[] = [];
+    for (let n = 1; n < 4; n++) {
+      board = addPane(board, sid(board));
+      shapes.push(sheetOf(board).tree);
+      expect(sheetOf(board).tree).toEqual(defaultTree(idsOf(board)));
+      expect(sheetOf(board).selectedPaneId).toBe(idsOf(board)[n]);
+    }
+    const [one, two, four] = [shapes[0]!, shapes[1]!, shapes[2]!];
+    expect(one).toEqual(row([50, 50], g([idsOf(board)[0]!]), g([idsOf(board)[1]!])));
+    expect(two).toEqual(row([50, 50], g([idsOf(board)[0]!]), col([50, 50], g([idsOf(board)[1]!]), g([idsOf(board)[2]!]))));
+    expect(four).toEqual(row([50, 50], col([50, 50], g([idsOf(board)[0]!]), g([idsOf(board)[2]!])), col([50, 50], g([idsOf(board)[1]!]), g([idsOf(board)[3]!]))));
+  });
+  it('on any other arrangement it splits the largest group along its longer side and selects the new pane there', () => {
     const { board, ids } = boardOf(3);
-    const first = selectPaneActive(board, sid(board), 0);
-    const next = addPane(first, sid(first));
-    const added = sheetOf(next).panes[3].id;
-    const order: string[] = [];
-    const walk = (n: LayoutNode) => (n.type === 'group' ? order.push(...n.panes) : n.children.forEach(walk));
-    walk(sheetOf(next).tree);
-    expect(order.indexOf(added)).toBe(order.indexOf(ids[0]) + 1);
-    expect(isValidDockTree(toDockTree(sheetOf(next).tree), idsOf(next))).toBe(true);
+    // Pane 1 takes 70% of the width: it is the largest group and wider than tall, so the new pane goes to its right (a sibling in the same row).
+    const wide = setTree(board, sid(board), row([70, 30], g([ids[0]!]), col([50, 50], g([ids[1]!]), g([ids[2]!]))));
+    const right = sheetOf(addPane(wide, sid(wide)));
+    expect(right.tree).toEqual(row([35, 35, 30], g([ids[0]!]), g([right.panes[3]!.id]), col([50, 50], g([ids[1]!]), g([ids[2]!]))));
+    expect(right.selectedPaneId).toBe(right.panes[3]!.id);
+    expect(isValidDockTree(toDockTree(right.tree), right.panes.map(p => p.id))).toBe(true);
+    // Three equal columns are taller than wide: the first (a tie) is split, the new pane goes below it.
+    const columns = setTree(board, sid(board), row([34, 33, 33], g([ids[0]!]), g([ids[1]!]), g([ids[2]!])));
+    const below = sheetOf(addPane(columns, sid(columns)));
+    expect(below.tree).toEqual(row([34, 33, 33], col([50, 50], g([ids[0]!]), g([below.panes[3]!.id])), g([ids[1]!]), g([ids[2]!])));
+  });
+  it('a resized default arrangement is not the default any more', () => {
+    const { board, ids } = boardOf(2);
+    const resized = setTree(board, sid(board), row([70, 30], g([ids[0]!]), g([ids[1]!])));
+    const next = sheetOf(addPane(resized, sid(resized)));
+    expect(next.tree).toEqual(row([35, 35, 30], g([ids[0]!]), g([next.panes[2]!.id]), g([ids[1]!])));
   });
   it('can leave the selection alone', () => {
     const { board, ids } = boardOf(1);
@@ -249,6 +271,31 @@ describe('closePane', () => {
       expect(restored).not.toBeNull();
       expect(isValidDockTree(toDockTree(sheetOf(restored!).tree), ids)).toBe(true);
     });
+    it('keeps the sizes the user set after the close: a resized branch stays resized, the restored pane only gets its own place back', () => {
+      const { board, ids } = withScreens(3);
+      const emptied = setPane(board, sid(board), 1, null);
+      const closed = closePane(emptied, sid(emptied), 1)!;
+      const resized = setTree(closed.board, sid(closed.board), row([70, 30], g([ids[0]!]), g([ids[2]!])));
+      expect(sheetOf(restoreClosedPane(resized, closed.closed)!).tree).toEqual(row([70, 30], g([ids[0]!]), col([50, 50], g([ids[1]!]), g([ids[2]!]))));
+    });
+    it('keeps the sizes of every other group of a 2×2 whose pane 2 was closed and the others resized', () => {
+      const { board, ids } = withScreens(4);
+      const emptied = setPane(board, sid(board), 1, null);
+      const closed = closePane(emptied, sid(emptied), 1)!;
+      expect(sheetOf(closed.board).tree).toEqual(row([50, 50], col([50, 50], g([ids[0]!]), g([ids[2]!])), g([ids[3]!])));
+      const resized = setTree(closed.board, sid(closed.board), row([70, 30], col([80, 20], g([ids[0]!]), g([ids[2]!])), g([ids[3]!])));
+      expect(sheetOf(restoreClosedPane(resized, closed.closed)!).tree)
+        .toEqual(row([70, 30], col([80, 20], g([ids[0]!]), g([ids[2]!])), col([50, 50], g([ids[1]!]), g([ids[3]!]))));
+    });
+    it('gives a restored pane in a branch its old share and takes it from its siblings in proportion to what they have now', () => {
+      const { board, ids } = withScreens(3);
+      const wide = setTree(board, sid(board), row([20, 30, 50], g([ids[0]!]), g([ids[1]!]), g([ids[2]!])));
+      const emptied = setPane(wide, sid(wide), 1, null);
+      const closed = closePane(emptied, sid(emptied), 1)!;
+      const resized = setTree(closed.board, sid(closed.board), row([40, 60], g([ids[0]!]), g([ids[2]!])));
+      const tree = sheetOf(restoreClosedPane(resized, closed.closed)!).tree;
+      expect(tree.type === 'branch' ? tree.sizes : []).toEqual([28, 30, 42]);
+    });
     it('is null (nothing restored) once the panes changed or the sheet is full again', () => {
       const { board } = withScreens(3);
       const emptied = setPane(board, sid(board), 1, null);
@@ -259,5 +306,36 @@ describe('closePane', () => {
       expect(restoreClosedPane(again, closed.closed)).toBeNull();
       expect(normalizeBoard(again)).toBe(again);
     });
+  });
+});
+
+describe('undo addresses a pane by its slot, not its number (a close renumbers the panes)', () => {
+  const setup = () => {
+    // Panes [A, B, C]: B has a screen, A and C are empty.
+    const { board, ids } = boardOf(3);
+    return { board: setPane(board, sid(board), 1, screen('b')), ids };
+  };
+  it('a clear undone after an earlier pane closed puts the screen back in the cleared slot and leaves the one now at its old number alone', () => {
+    const { board, ids } = setup();
+    const cleared = setPane(board, sid(board), 1, null);
+    const closedA = closePane(cleared, sid(cleared), 0)!.board;
+    expect(idsOf(closedA)).toEqual([ids[1], ids[2]]);
+    const restored = sheetOf(restorePane(closedA, sid(closedA), 1, screen('b'), ids[1]!)!);
+    expect(restored.panes.map(p => p.screen?.menuId ?? null)).toEqual(['b', null]);
+  });
+  it('is null when the cleared slot itself is gone', () => {
+    const { board, ids } = setup();
+    const cleared = setPane(board, sid(board), 1, null);
+    const closedB = closePane(cleared, sid(cleared), 1)!.board;
+    expect(restorePane(closedB, sid(closedB), 1, screen('b'), ids[1]!)).toBeNull();
+  });
+  it('an edit with a slot id is reverted in that slot after a close, and refused once the slot is gone', () => {
+    const { board, ids } = setup();
+    const edit = { index: 1, paneId: ids[1]!, before: screen('b'), after: { ...screen('b'), query: '?x=2' } };
+    const applied = applyPaneEdits(board, sid(board), [edit]);
+    const closedA = closePane(applied, sid(applied), 0)!.board;
+    expect(sheetOf(revertPaneEdits(closedA, sid(closedA), [edit])!).panes.map(p => p.screen?.query ?? null)).toEqual(['', null]);
+    const withoutB = setPane(closedA, sid(closedA), 0, null);
+    expect(revertPaneEdits(closePane(withoutB, sid(withoutB), 0)!.board, sid(board), [edit])).toBeNull();
   });
 });

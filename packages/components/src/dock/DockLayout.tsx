@@ -23,6 +23,13 @@ const tabOf = (target: EventTarget | null, root: Element | null) => {
   return tab && tab.closest('[data-dock-layout]') === root ? tab : null;
 };
 const NAVIGATION_KEYS = new Set(['Enter', ' ', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End']);
+const TABBABLE = 'a[href], button, input:not([type="hidden"]), select, textarea, summary, [tabindex], [contenteditable="true"]';
+
+/** What Tab can reach inside `root`, in DOM order: not disabled, not `tabindex=-1`, not inside an `inert`/`hidden` subtree, not hidden from layout. */
+function tabbablesIn(root: HTMLElement): HTMLElement[] {
+  return Array.from(root.querySelectorAll<HTMLElement>(TABBABLE)).filter(element => element.tabIndex >= 0 && !(element as HTMLButtonElement).disabled
+    && !element.closest('[inert], [hidden]') && (typeof element.checkVisibility !== 'function' || element.checkVisibility({ visibilityProperty: true })));
+}
 
 /** Opens the group's actions the way a pointer user would: Radix `DropdownMenuTrigger` opens on `pointerdown`, other triggers on `click`. */
 function openGroupMenu(tab: HTMLElement): boolean {
@@ -47,7 +54,7 @@ function openGroupMenu(tab: HTMLElement): boolean {
  * - **Group menu.** `renderGroupActions` output marks its menu trigger `data-dock-group-menu`; Shift+F10 or ContextMenu on a tab opens it.
  */
 export function DockLayout(props: DockLayoutProps) {
-  const { panels, layout, onLayoutChange, onActivate, maximizedPanelId = null, onMaximizedChange, onPanelDelete, renderTab, renderGroupActions, separatorLabel, stackBelow, label } = props;
+  const { panels, layout, onLayoutChange, onActivate, maximizedPanelId = null, onMaximizedChange, onPanelDelete, renderTab, renderGroupActions, separatorLabel, stackBelow, label, currentPanelId, tabA11y } = props;
   const { t } = useI18n();
   const instanceId = useId();
   const container = useRef<HTMLDivElement>(null);
@@ -75,8 +82,10 @@ export function DockLayout(props: DockLayoutProps) {
   const firstActive = dockGroups(layout)[0]?.active ?? '';
   const [choice, setChoice] = useState<{ base: string; id: string } | null>(null);
   const stackedChoice = choice && choice.base === firstActive ? choice.id : undefined;
-  const display = useMemo(() => (narrow ? stackedTree(layout, stackedChoice) : layout), [narrow, layout, stackedChoice]);
   const known = useMemo(() => new Set(panelOrder(layout)), [layout]);
+  // The host's current panel wins over the display-only choice: it is the panel the host works on, so it is the one shown.
+  const shown = currentPanelId !== undefined && known.has(currentPanelId) ? currentPanelId : stackedChoice;
+  const display = useMemo(() => (narrow ? stackedTree(layout, shown, panels.map(panel => panel.id)) : layout), [narrow, layout, shown, panels]);
   const maximized = !narrow && maximizedPanelId !== null && known.has(maximizedPanelId) ? maximizedPanelId : null;
   const visible = useMemo(() => visiblePanelIds(display, maximized), [display, maximized]);
 
@@ -97,6 +106,49 @@ export function DockLayout(props: DockLayoutProps) {
     const focus = document.activeElement;
     if (previous && !maximized && (focus === document.body || focus === null || container.current?.contains(focus))) focusTab(previous);
   }, [maximized, focusTab]);
+
+  /**
+   * Tab order: a group's tab, then its visible panel's content, then the next group's tab (the engine's DOM puts every tab strip before every
+   * panel). Only the step between a tab and its content, and the step out of a panel's first or last stop, are made here; Tab inside the
+   * content is the browser's. Returns whether it moved focus; at the ends of the layout it leaves Tab to the browser.
+   */
+  const moveTabStop = (target: EventTarget | null, backward: boolean): boolean => {
+    const root = container.current;
+    if (!root || !(target instanceof HTMLElement)) return false;
+    const stops = Array.from(root.querySelectorAll<HTMLElement>('[role="tab"][data-tab-panel-id][aria-selected="true"]'))
+      .filter(tab => tabOf(tab, root) !== null)
+      .map(tab => {
+        const panel = Array.from(root.querySelectorAll<HTMLElement>('[data-dock-panel]')).find(item => item.dataset.dockPanel === tab.dataset.tabPanelId && item.dataset.dockVisible === 'true' && item.closest('[data-dock-layout]') === root) ?? null;
+        return { tab, panel, group: tab.closest('.dv-groupview') };
+      });
+    const enter = (stop: { tab: HTMLElement; panel: HTMLElement | null }, last: boolean) => {
+      const items = stop.panel ? tabbablesIn(stop.panel) : [];
+      const to = stop.panel ? (last ? items[items.length - 1] : items[0]) ?? stop.panel : stop.tab;
+      to.focus({ preventScroll: true });
+    };
+    const tab = tabOf(target, root);
+    if (tab) {
+      const at = stops.findIndex(stop => stop.group === tab.closest('.dv-groupview'));
+      if (at < 0) return false;
+      if (!backward) { if (!stops[at]!.panel) return false; enter(stops[at]!, false); return true; }
+      if (at === 0) return false;
+      enter(stops[at - 1]!, true);
+      return true;
+    }
+    const panel = target.closest<HTMLElement>('[data-dock-panel]');
+    if (!panel || panel.closest('[data-dock-layout]') !== root) return false;
+    const at = stops.findIndex(stop => stop.panel === panel);
+    if (at < 0) return false;
+    const items = tabbablesIn(panel);
+    if (backward) {
+      if (target !== panel && target !== items[0]) return false;
+      stops[at]!.tab.focus({ preventScroll: true });
+      return true;
+    }
+    if (target !== (items[items.length - 1] ?? panel) || at + 1 >= stops.length) return false;
+    stops[at + 1]!.tab.focus({ preventScroll: true });
+    return true;
+  };
 
   const onKeyDownCapture = (event: KeyboardEvent<HTMLDivElement>) => {
     // The engine closes a focused tab on Delete/Backspace (dockview-core main.esm.mjs:9568); closing is a platform command, so the key stops here.
@@ -121,6 +173,11 @@ export function DockLayout(props: DockLayoutProps) {
       if (openGroupMenu(tab)) { event.preventDefault(); event.stopPropagation(); }
       return;
     }
+    if (event.key === 'Tab' && !event.altKey && !event.ctrlKey && !event.metaKey && !event.defaultPrevented && moveTabStop(event.target, event.shiftKey)) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
     if (tab && NAVIGATION_KEYS.has(event.key)) {
       // The engine has already moved focus; the tab that has it is the one the user chose.
       const focused = tabOf(document.activeElement, container.current) ?? tab;
@@ -143,7 +200,7 @@ export function DockLayout(props: DockLayoutProps) {
     <ChunkLoadBoundary key={attempt} onError={() => { setFailed(true); }}>
       <Suspense fallback={<div role="status" aria-busy className="h-full w-full"><Skeleton className="h-full w-full" /></div>}>
         <DockEngine panels={panels} layout={layout} display={display} interactive={!narrow} maximizedPanelId={maximized} visible={visible} minPanelSize={minPanelSize}
-          onLayoutChange={onLayoutChange} onActivate={activate} renderTab={renderTab} renderGroupActions={renderGroupActions} separatorLabel={separatorLabel}
+          onLayoutChange={onLayoutChange} onActivate={activate} renderTab={renderTab} renderGroupActions={renderGroupActions} tabA11y={tabA11y} separatorLabel={separatorLabel}
           containerRef={container} instanceId={instanceId} />
       </Suspense>
     </ChunkLoadBoundary>

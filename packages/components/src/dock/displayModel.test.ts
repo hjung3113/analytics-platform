@@ -18,6 +18,14 @@ describe('stackedTree (narrow display)', () => {
   });
 });
 
+describe('stackedTree order', () => {
+  const layout = row([50, 50], group(['a', 'b'], 'b'), column([50, 50], group(['c']), group(['d'], 'd')));
+  it('puts the tabs in the caller\'s order when it has one, and keeps the active tab', () => {
+    expect(stackedTree(layout, undefined, ['d', 'c', 'b', 'a'])).toEqual(group(['d', 'c', 'b', 'a'], 'b'));
+    expect(stackedTree(layout, 'c', ['a', 'b', 'c', 'd'])).toEqual(group(['a', 'b', 'c', 'd'], 'c'));
+  });
+});
+
 describe('visiblePanelIds', () => {
   const layout = row([50, 50], group(['a', 'b'], 'b'), group(['c']));
   it.each<[string, string | null, string[]]>([

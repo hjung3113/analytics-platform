@@ -595,6 +595,7 @@ test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
     await page.keyboard.press('Delete');
     await expect(paneTab(page, 2)).toHaveText(/^칸 2 · 빈 칸$/);
     await expect(paneTabs(page)).toHaveCount(2);
+    await expect(paneTab(page, 2)).toBeFocused();
     await expect(page.getByText('칸 2을 비웠습니다')).toBeVisible();
     await evidence(page, testInfo, 'board-dock-delete-empties');
     // The pane is empty now: Delete on its tab does nothing more.
@@ -609,7 +610,7 @@ test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await signInWithDockBoard(page, [populated('dock', '1x2', 2)]);
     await dockReady(page, 2);
-    const separator = page.getByRole('separator', { name: '열 너비 조절' });
+    const separator = page.getByRole('separator', { name: '칸 1과 칸 2 너비 조절' });
     const before = Number(await separator.getAttribute('aria-valuenow'));
     await separator.focus();
     await page.keyboard.press('ArrowRight');
@@ -658,6 +659,34 @@ test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
     expect(await sheetNames()).toEqual(before);
     await expect(paneTabs(page)).toHaveCount(2);
     await expect(groups(page)).toHaveCount(2);
+  });
+
+  test('탭에서 Tab은 그 칸 안으로 들어가고 Shift+Tab은 탭으로 돌아온다', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await signInWithDockBoard(page, [populated('dock', '1x2', 2)]);
+    await dockReady(page, 2);
+    const paneOfFocus = () => page.evaluate(() => document.activeElement?.closest('[data-pane-index]')?.getAttribute('data-pane-index') ?? null);
+    await paneTab(page, 1).focus();
+    await page.keyboard.press('Tab');
+    await expect.poll(paneOfFocus).toBe('0');
+    await page.keyboard.press('Shift+Tab');
+    await expect(paneTab(page, 1)).toBeFocused();
+  });
+
+  test('칸 추가로 4칸을 만들면 1280×800에서도 두 그룹 폭이고 가로 스크롤이 없다', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await signInWithDockBoard(page, [populated('dock', '1x1', 1)]);
+    await dockReady(page, 1);
+    for (let n = 2; n <= 4; n++) {
+      await page.getByRole('button', { name: '칸 추가' }).click();
+      await expect(paneTabs(page)).toHaveCount(n);
+    }
+    await expect(groups(page)).toHaveCount(4);
+    const lefts = await groups(page).evaluateAll(items => Array.from(new Set(items.map(item => Math.round(item.getBoundingClientRect().left)))));
+    expect(lefts).toHaveLength(2);
+    const overflow = await page.locator('#board-panel').evaluate(panel => panel.scrollWidth - panel.clientWidth);
+    expect(overflow).toBeLessThanOrEqual(0);
+    await evidence(page, testInfo, 'board-dock-add-pane-2x2-1280');
   });
 
   test('1440×900에서 모든 칸 본문은 120px 이상이다', async ({ page }, testInfo) => {

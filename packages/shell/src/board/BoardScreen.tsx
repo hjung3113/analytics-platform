@@ -93,8 +93,10 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
   };
   const clearPane = (index: number) => {
     const previous = paneScreens[index];
+    const slotId = sheet.panes[index].id;
     writePane(index, null);
-    if (previous) raiseUndo(text, text.paneCleared(index + 1), () => { undo(b => restorePane(b, sheetId, index, previous)); });
+    // The undo names the slot: a pane closed since renumbers the others, and `index` would then be another pane.
+    if (previous) raiseUndo(text, text.paneCleared(index + 1), () => { undo(b => restorePane(b, sheetId, index, previous, slotId)); });
   };
   const applyLayout = (target: BoardLayout) => {
     const after = setLayout(board, sheetId, target).sheets.find(s => s.id === sheetId) ?? sheet;
@@ -143,17 +145,17 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
   const replaceScreen = (index: number, menu: MenuEntry) => {
     const old = paneScreens[index];
     if (!old) return;
-    editPanes([{ index, before: old, after: replacementScreen(registry, canOpen, old, menu, defaultQuery(registry, recent)), fresh: true }], text.replaced(index + 1));
+    editPanes([{ index, paneId: sheet.panes[index].id, before: old, after: replacementScreen(registry, canOpen, old, menu, defaultQuery(registry, recent)), fresh: true }], text.replaced(index + 1));
   };
   const duplicate = (index: number) => {
     const from = paneScreens[index];
     const to = firstEmptyPane(sheet);
     if (!from || (to === -1 && !canGrow) || !canMountPaneScreen(registry, canOpen, from)) return;
-    if (to !== -1) { editPanes([{ index: to, before: null, after: { ...from, params: { ...from.params } }, fresh: true }], text.duplicated(index + 1, to + 1)); return; }
+    if (to !== -1) { editPanes([{ index: to, paneId: sheet.panes[to].id, before: null, after: { ...from, params: { ...from.params } }, fresh: true }], text.duplicated(index + 1, to + 1)); return; }
     // No empty pane: the dock renderer makes a new one for the copy, and the undo takes it away again.
     const grown = addPane(board, sheetId, false);
     const slotId = grown.sheets.find(s => s.id === sheetId)!.panes[sheet.panes.length].id;
-    const edit: PaneEdit = { index: sheet.panes.length, before: null, after: { ...from, params: { ...from.params } }, fresh: true };
+    const edit: PaneEdit = { index: sheet.panes.length, paneId: slotId, before: null, after: { ...from, params: { ...from.params } }, fresh: true };
     update(() => applyPaneEdits(grown, sheetId, [edit]));
     raiseUndo(text, text.duplicated(index + 1, edit.index + 1), () => {
       undo(b => {
@@ -305,7 +307,7 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
       </div>
       {dock ? <div className="flex shrink-0 items-center gap-2">
         {!canGrow && <span id="board-add-pane-off" className="text-tiny text-text-muted">{text.paneLimit}</span>}
-        <Button type="button" variant="ghost" size="sm" disabled={!canGrow} aria-describedby={canGrow ? undefined : 'board-add-pane-off'} onClick={() => update(b => addPane(b, sheetId))}>{text.addPane}</Button>
+        <Button type="button" variant="ghost" size="sm" disabled={!canGrow} aria-describedby={canGrow ? undefined : 'board-add-pane-off'} onClick={() => { if (dockMaximized !== null) maximizeDock(null); update(b => addPane(b, sheetId)); }}>{text.addPane}</Button>
         <Button type="button" variant="ghost" size="sm" onClick={() => update(b => resetTree(b, sheetId))}>{text.defaultLayout}</Button>
       </div> : <div className="flex shrink-0 items-center gap-2">
       <Button type="button" variant="ghost" size="sm" onClick={() => saved(defaultArrangement(layout))}>{text.resetSize}</Button>

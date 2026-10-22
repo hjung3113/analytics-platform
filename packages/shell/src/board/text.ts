@@ -4,6 +4,8 @@ import type { Lang } from '@ap/kernel';
 const numberRange = (from: number, to: number) => (from === to ? `${from}` : `${from}–${to}`);
 /** Whether the Korean reading of a pane number (1–4) ends in a consonant, for the particle after it: 일 삼 yes, 이 사 no. */
 const hasFinalConsonant = (n: number) => n === 1 || n === 3;
+/** `와`/`과` after the Korean reading of a pane number. */
+const withParticle = (n: number) => (hasFinalConsonant(n) ? '과' : '와');
 
 /** Board strings (docs/16). Local to the board: the kernel dictionary only carries words several screens share. */
 const KO = {
@@ -12,7 +14,8 @@ const KO = {
   layout: '레이아웃',
   resetSize: '크기 초기화',
   columnSize: '열 너비 조절',
-  rowSize: (a: number, b: number) => `칸 ${a}과 칸 ${b} 높이 조절`,
+  rowSize: (a: number, b: number) => `칸 ${a}${withParticle(a)} 칸 ${b} 높이 조절`,
+  columnSizeBetween: (a: number, b: number) => `칸 ${a}${withParticle(a)} 칸 ${b} 너비 조절`,
   collapsePane: (n: number) => `칸 ${n} 접기`,
   expandPane: (n: number) => `칸 ${n} 펼치기`,
   maximizePane: (n: number) => `칸 ${n} 최대화`,
@@ -123,6 +126,7 @@ const KO = {
   splitDown: '아래로 나누기',
   moveToGroup: (m: number) => `칸 ${m} 묶음으로 옮기기`,
   groupActions: (n: number) => `칸 ${n} 묶음 동작`,
+  paneEditing: '편집 대상 칸',
 };
 
 type Strings<T> = { [K in keyof T]: T[K] extends (...args: infer A) => string ? (...args: A) => string : string };
@@ -133,6 +137,7 @@ const EN: Strings<typeof KO> = {
   resetSize: 'Reset sizes',
   columnSize: 'Resize columns',
   rowSize: (a: number, b: number) => `Resize panes ${a} and ${b} vertically`,
+  columnSizeBetween: (a: number, b: number) => `Resize panes ${a} and ${b} horizontally`,
   collapsePane: (n: number) => `Collapse pane ${n}`,
   expandPane: (n: number) => `Expand pane ${n}`,
   maximizePane: (n: number) => `Maximize pane ${n}`,
@@ -240,6 +245,7 @@ const EN: Strings<typeof KO> = {
   splitDown: 'Split below',
   moveToGroup: (m: number) => `Move into the tabs of pane ${m}`,
   groupActions: (n: number) => `Pane ${n} tab group actions`,
+  paneEditing: 'Editing target pane',
 };
 
 export type BoardText = Strings<typeof KO>;

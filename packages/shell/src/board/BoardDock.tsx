@@ -49,6 +49,19 @@ export function BoardDock({ sheet, update, paneProps, onSelect, onClear, onClose
   const tree = effectiveTree(sheet);
   const latestSelected = useRef(sheet.selectedPaneId);
   useEffect(() => { latestSelected.current = sheet.selectedPaneId; });
+  const tabOfPane = (paneId: string) => Array.from(wrap.current?.querySelectorAll<HTMLElement>('[role="tab"][data-tab-panel-id]') ?? []).find(tab => tab.dataset.tabPanelId === paneId);
+  /** Focus goes to a pane's tab once the engine has laid the new tree out: the tab it had may have been rebuilt or moved to another group. */
+  const focusTabSoon = (paneId: string) => {
+    let tries = 0;
+    const attempt = () => {
+      const tab = tabOfPane(paneId);
+      if (tab?.isConnected) { tab.focus({ preventScroll: true }); return; }
+      if (++tries < 10 && wrap.current?.isConnected) setTimeout(attempt, 30);
+    };
+    setTimeout(attempt, 0);
+  };
+  // A group command that moves the pane puts focus back on that pane's tab (its `⋯` may be gone with the group it left).
+  const focusAfterMenu = useRef<string | null>(null);
 
   // After a maximize ends the group `⋯` takes focus, else the pane, else the page heading. Below `DockLayout`'s own effect, which focuses the
   // restored tab first and would overwrite this.
@@ -56,7 +69,8 @@ export function BoardDock({ sheet, update, paneProps, onSelect, onClear, onClose
   useEffect(() => {
     const was = wasMaximized.current;
     wasMaximized.current = maximizedPaneId;
-    if (was === null || maximizedPaneId !== null) return;
+    // Not when the selection has moved on (`칸 추가` ended the maximize and selected the new pane): focus stays where the user pressed.
+    if (was === null || maximizedPaneId !== null || latestSelected.current !== was) return;
     const usable = (element: HTMLElement | null | undefined): element is HTMLElement => !!element && element.isConnected && !element.closest('[inert], [hidden]');
     const tab = Array.from(wrap.current?.querySelectorAll<HTMLElement>('[role="tab"][data-tab-panel-id]') ?? []).find(item => item.dataset.tabPanelId === was);
     const trigger = tab?.closest('.dv-groupview')?.querySelector<HTMLElement>('[data-dock-group-menu]');
@@ -73,12 +87,16 @@ export function BoardDock({ sheet, update, paneProps, onSelect, onClear, onClose
       render: () => <BoardPane {...props} dock onClosePane={slot.screen === null && sheet.panes.length > 1 ? () => {
         onClosePane(index);
         // The pane (and the menu that closed it) is gone: focus goes to the selected pane's tab.
-        setTimeout(() => {
-          Array.from(wrap.current?.querySelectorAll<HTMLElement>('[role="tab"][data-tab-panel-id]') ?? []).find(tab => tab.dataset.tabPanelId === latestSelected.current)?.focus({ preventScroll: true });
-        }, 0);
+        setTimeout(() => { tabOfPane(latestSelected.current)?.focus({ preventScroll: true }); }, 0);
       } : undefined} />,
     };
   });
+
+  const clearFrom = (button: HTMLElement, index: number) => {
+    button.closest<HTMLElement>('[role="tab"]')?.focus({ preventScroll: true });
+    onSelect(index);
+    onClear(index);
+  };
 
   const renderTab = (paneId: string) => {
     const index = indexOfPane(sheet, paneId);
@@ -88,15 +106,21 @@ export function BoardDock({ sheet, update, paneProps, onSelect, onClear, onClose
       {index === selected && <span aria-hidden data-pane-tab-mark className="size-1.5 shrink-0 rounded-full bg-accent-primary" />}
       <span className="truncate">{text.paneTab(index + 1, nameOf(slot.screen))}</span>
       {slot.screen !== null && <button type="button" tabIndex={-1} aria-label={text.clearPane(index + 1)} title={text.clearPane(index + 1)}
-        onClick={event => {
-          event.stopPropagation();
-          event.currentTarget.closest<HTMLElement>('[role="tab"]')?.focus({ preventScroll: true });
-          onClear(index);
-        }}
+        // The pointer clears on press: the press also selects the pane and the tab may be rebuilt before the release, so a click would never come.
+        // A click without a press (detail 0: keyboard, assistive technology) clears too.
+        onPointerDown={event => { if (event.button === 0) { event.stopPropagation(); clearFrom(event.currentTarget, index); } }}
+        onClick={event => { event.stopPropagation(); if (event.detail === 0) clearFrom(event.currentTarget, index); }}
         className="grid size-5 shrink-0 place-items-center rounded-xs text-text-muted hover:bg-surface-sunken hover:text-text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring">
         <X className="size-3" aria-hidden />
       </button>}
     </span>;
+  };
+
+  const tabA11y = (paneId: string) => {
+    const index = indexOfPane(sheet, paneId);
+    const slot = sheet.panes[index];
+    if (!slot) return undefined;
+    return { description: index === selected ? text.paneEditing : undefined, keyShortcuts: slot.screen === null ? 'Shift+F10' : 'Delete Shift+F10' };
   };
 
   const command = (build: (dock: ReturnType<typeof toDockTree>) => ReturnType<typeof toDockTree>) => update(b => {
@@ -120,20 +144,24 @@ export function BoardDock({ sheet, update, paneProps, onSelect, onClear, onClose
           <MoreHorizontal className="size-3.5" aria-hidden />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent align="end" onCloseAutoFocus={event => {
+        const moved = focusAfterMenu.current;
+        focusAfterMenu.current = null;
+        if (moved !== null) { event.preventDefault(); focusTabSoon(moved); }
+      }}>
         {restoring
           ? <DropdownMenuItem onSelect={() => onMaximizedChange(null)}>{text.restoreSize}</DropdownMenuItem>
           : <DropdownMenuItem onSelect={() => onMaximizedChange(group.active)}>{text.maximizePane(n)}</DropdownMenuItem>}
         {!restoring && <>
           {mine.panes.length >= 2 && <>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => { const target = mine.panes.find(id => id !== group.active)!; command(dock => movePanel(dock, group.active, { panelId: target, position: 'right' })); }}>{text.splitRight}</DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => { const target = mine.panes.find(id => id !== group.active)!; command(dock => movePanel(dock, group.active, { panelId: target, position: 'bottom' })); }}>{text.splitDown}</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => { const target = mine.panes.find(id => id !== group.active)!; focusAfterMenu.current = group.active; command(dock => movePanel(dock, group.active, { panelId: target, position: 'right' })); }}>{text.splitRight}</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => { const target = mine.panes.find(id => id !== group.active)!; focusAfterMenu.current = group.active; command(dock => movePanel(dock, group.active, { panelId: target, position: 'bottom' })); }}>{text.splitDown}</DropdownMenuItem>
           </>}
           {others.length > 0 && <DropdownMenuSeparator />}
           {others.map(other => {
             const first = Math.min(...other.panes.map(numberOf));
-            return <DropdownMenuItem key={other.panes[0]} onSelect={() => command(dock => movePanel(dock, group.active, { panelId: other.active, position: 'center' }))}>{text.moveToGroup(first)}</DropdownMenuItem>;
+            return <DropdownMenuItem key={other.panes[0]} onSelect={() => { focusAfterMenu.current = group.active; command(dock => movePanel(dock, group.active, { panelId: other.active, position: 'center' })); }}>{text.moveToGroup(first)}</DropdownMenuItem>;
           })}
         </>}
       </DropdownMenuContent>
@@ -148,7 +176,8 @@ export function BoardDock({ sheet, update, paneProps, onSelect, onClear, onClose
       onPanelDelete={id => { const index = indexOfPane(sheet, id); if (index >= 0 && sheet.panes[index].screen !== null) onClear(index); }}
       maximizedPanelId={maximizedPaneId} onMaximizedChange={onMaximizedChange}
       renderTab={renderTab} renderGroupActions={renderGroupActions}
-      separatorLabel={info => (info.dir === 'row' ? text.columnSize : text.rowSize(numberOf(info.before[0]!), numberOf(info.after[0]!)))}
+      separatorLabel={info => (info.dir === 'row' ? text.columnSizeBetween : text.rowSize)(numberOf(info.before[0]!), numberOf(info.after[0]!))}
+      currentPanelId={sheet.selectedPaneId} tabA11y={tabA11y}
       minPanelSize={MIN_PANEL_SIZE} stackBelow={STACK_BELOW} />
   </div>;
 }

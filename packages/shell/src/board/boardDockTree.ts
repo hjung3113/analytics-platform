@@ -64,3 +64,50 @@ export function defaultTree(ids: readonly string[]): LayoutNode {
 
 /** The structure of a tree without sizes and active tabs: what "the same arrangement" means for an undo that must not undo a later resize. */
 export const treeShape = (node: LayoutNode): unknown => (node.type === 'group' ? node.panes : { dir: node.dir, children: node.children.map(treeShape) });
+
+/** The panes under a node, as one order-free key: two nodes with the same key hold the same panes. */
+const paneKey = (node: LayoutNode, without?: string): string => groupsOf(node).flatMap(g => g.panes).filter(id => id !== without).sort().join('\n');
+
+/**
+ * `before` (a tree that held `slotId`) with every size and active tab that still exists in `current` (the same tree after `slotId` was
+ * removed and the user went on) taken from `current`. Only what the removal changed comes from `before`: the restored pane's own share, which
+ * the survivors of that branch give up in proportion, so a resize made after the removal stays a resize. Nodes are matched by the panes they hold.
+ */
+export function reinsertPane(before: LayoutNode, current: LayoutNode, slotId: string): LayoutNode {
+  const byPanes = new Map<string, LayoutNode>();
+  const collect = (node: LayoutNode) => { byPanes.set(paneKey(node), node); if (node.type === 'branch') node.children.forEach(collect); };
+  collect(current);
+  const adopt = (node: LayoutNode): LayoutNode => {
+    const match = byPanes.get(paneKey(node, slotId));
+    if (node.type === 'group') return { ...node, panes: [...node.panes], active: match?.type === 'group' ? match.active : node.active };
+    let sizes = [...node.sizes];
+    if (match?.type === 'branch' && match.dir === node.dir) {
+      const own = node.children.findIndex(child => child.type === 'group' && child.panes.length === 1 && child.panes[0] === slotId);
+      if (match.children.length === node.children.length) sizes = [...match.sizes];
+      else if (own >= 0 && match.children.length === node.children.length - 1) {
+        const rest = 100 - node.sizes[own]!;
+        sizes = match.sizes.map(size => (size * rest) / 100);
+        sizes.splice(own, 0, node.sizes[own]!);
+      }
+    }
+    return { ...node, sizes, children: node.children.map(adopt) };
+  };
+  return adopt(before);
+}
+
+/** The area a board is assumed to have when a pure function must pick the longer side of a group (the real size is only known to the renderer). */
+const NOMINAL_BOARD = { width: 1200, height: 700 };
+
+/** The group with the most area (the first in depth-first order on a tie) and its size in the nominal board. */
+export function largestGroup(tree: LayoutNode): { group: GroupNode; width: number; height: number } {
+  let best: { group: GroupNode; width: number; height: number } | null = null;
+  const walk = (node: LayoutNode, width: number, height: number) => {
+    if (node.type === 'group') {
+      if (!best || width * height > best.width * best.height + 1e-6) best = { group: node, width, height };
+      return;
+    }
+    node.children.forEach((child, i) => { walk(child, node.dir === 'row' ? (width * node.sizes[i]!) / 100 : width, node.dir === 'row' ? height : (height * node.sizes[i]!) / 100); });
+  };
+  walk(tree, NOMINAL_BOARD.width, NOMINAL_BOARD.height);
+  return best!;
+}

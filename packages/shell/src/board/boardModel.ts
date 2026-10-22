@@ -1,6 +1,6 @@
 import { addPanel, isValidDockTree, removePanel } from '@ap/components/dock';
 import type { PaneScreen } from '@ap/kernel';
-import { activateInTree, defaultTree, effectiveTree, fromDockTree, reconcileSelection, toDockTree, treeShape } from './boardDockTree';
+import { activateInTree, defaultTree, effectiveTree, fromDockTree, largestGroup, reconcileSelection, reinsertPane, toDockTree, treeShape } from './boardDockTree';
 import { defaultLayoutFor, gridOf, memoryOf, withGrid, withGridMemory } from './boardGrid';
 import {
   MAX_PANES, MAX_SHEETS, columnPanes, isRatioVector, isRecord, layoutShape, makeId, paneCount, parseArrangementEntry, parseGridMemory, parsePane,
@@ -277,13 +277,19 @@ export function goBackPane(board: Board, sheetId: string, index: number): Board 
  * One pane an action changed: what it held and what the action left. `fresh` marks a whole new screen (replace, duplicate), which
  * also drops the pane's `이전 화면`; without it only the pane's own Context changed and `previous` stays.
  */
-export type PaneEdit = { index: number; before: PaneScreen | null; after: PaneScreen | null; fresh?: boolean };
+export type PaneEdit = { index: number; before: PaneScreen | null; after: PaneScreen | null; fresh?: boolean; paneId?: string };
+
+/** The edit's pane in `sheet`: by slot id when the edit has one (pane numbers shift when a pane closes), else by `index`. -1 when the slot is gone. */
+const editIndex = (sheet: Sheet, edit: PaneEdit): number => (edit.paneId === undefined ? edit.index : indexOfPane(sheet, edit.paneId));
 
 /** Writes one edit's pane. A Context-only edit leaves the pane's `previous` alone; a whole new screen (or none) goes through `setPane`. */
 function writeEdit(board: Board, sheetId: string, edit: PaneEdit, screen: PaneScreen | null): Board {
+  const sheet = board.sheets.find(s => s.id === sheetId);
+  if (!sheet) return board;
+  const index = editIndex(sheet, edit);
   return edit.fresh || edit.before === null || edit.after === null
-    ? setPane(board, sheetId, edit.index, screen)
-    : mapSheet(board, sheetId, s => mapSlot(s, edit.index, slot => ({ ...slot, screen })));
+    ? setPane(board, sheetId, index, screen)
+    : mapSheet(board, sheetId, s => mapSlot(s, index, slot => ({ ...slot, screen })));
 }
 
 export function applyPaneEdits(board: Board, sheetId: string, edits: readonly PaneEdit[]): Board {
@@ -293,7 +299,7 @@ export function applyPaneEdits(board: Board, sheetId: string, edits: readonly Pa
 /** Undo of `applyPaneEdits`. Null — nothing restored — unless every edited pane still holds what the action left. */
 export function revertPaneEdits(board: Board, sheetId: string, edits: readonly PaneEdit[]): Board | null {
   const sheet = board.sheets.find(s => s.id === sheetId);
-  if (!sheet || edits.some(e => e.index >= sheet.panes.length || !samePane(sheet.panes[e.index].screen, e.after))) return null;
+  if (!sheet || edits.some(e => { const at = editIndex(sheet, e); return at < 0 || at >= sheet.panes.length || !samePane(sheet.panes[at].screen, e.after); })) return null;
   return normalizeBoard(edits.reduce((b, edit) => writeEdit(b, sheetId, edit, edit.before), board));
 }
 
@@ -304,11 +310,13 @@ export function openScreenInNewSheet(board: Board, prefix: string, screen: PaneS
   return setPane(added, added.activeSheetId, 0, screen);
 }
 
-/** Undo of a pane clear. Null — nothing restored — unless the slot is still there and still empty. */
-export function restorePane(board: Board, sheetId: string, index: number, screen: PaneScreen): Board | null {
+/** Undo of a pane clear. Null — nothing restored — unless the slot is still there and still empty. `paneId` names the slot when given (a close may have renumbered the panes since), else `index` does. */
+export function restorePane(board: Board, sheetId: string, index: number, screen: PaneScreen, paneId?: string): Board | null {
   const sheet = board.sheets.find(s => s.id === sheetId);
-  if (!sheet || index >= sheet.panes.length || sheet.panes[index].screen !== null) return null;
-  return normalizeBoard(setPane(board, sheetId, index, screen));
+  if (!sheet) return null;
+  const at = paneId === undefined ? index : indexOfPane(sheet, paneId);
+  if (at < 0 || at >= sheet.panes.length || sheet.panes[at].screen !== null) return null;
+  return normalizeBoard(setPane(board, sheetId, at, screen));
 }
 
 /** How many panes with a screen a layout change would drop. Empty overflow panes cost nothing. */
@@ -376,12 +384,22 @@ export const resetTree = (board: Board, sheetId: string): Board => mapSheet(boar
   return JSON.stringify(tree) === JSON.stringify(s.tree) ? s : { ...s, tree };
 });
 
-/** `칸 추가` (dock renderer): a new empty pane as the last number, docked right of the selected pane's group. Selected unless `select` is false. Unchanged at 4 panes. */
+/**
+ * `칸 추가` (dock renderer): a new empty pane as the last number. On the default arrangement of the sheet's panes the result is the default
+ * arrangement of those panes plus the new one (four panes become 2×2); on any other it splits the largest group along its longer side. Selected
+ * unless `select` is false. Unchanged at 4 panes.
+ */
 export function addPane(board: Board, sheetId: string, select = true): Board {
   return mapSheet(board, sheetId, s => {
     if (s.panes.length >= MAX_PANES) return s;
-    const slot = newSlot(new Set(s.panes.map(p => p.id)));
-    const tree = fromDockTree(addPanel(toDockTree(effectiveTree(s)), slot.id, { panelId: s.selectedPaneId, position: 'right' }));
+    const ids = s.panes.map(p => p.id);
+    const slot = newSlot(new Set(ids));
+    let tree: LayoutNode;
+    if (JSON.stringify(s.tree) === JSON.stringify(defaultTree(ids))) tree = defaultTree([...ids, slot.id]);
+    else {
+      const target = largestGroup(effectiveTree(s));
+      tree = fromDockTree(addPanel(toDockTree(effectiveTree(s)), slot.id, { panelId: target.group.active, position: target.width >= target.height ? 'right' : 'bottom' }));
+    }
     return reconcileSelection({ ...s, panes: [...s.panes, slot], selectedPaneId: select ? slot.id : s.selectedPaneId, tree });
   });
 }
@@ -406,7 +424,7 @@ export function closePane(board: Board, sheetId: string, index: number): { board
 
 /**
  * Undo of `closePane`: the pane returns under its old number. Where it sits in the tree is restored while the arrangement is still the one
- * the close left; after a later move it is docked right of the selected pane instead. Null — nothing restored — once the sheet's panes are
+ * the close left, keeping the sizes the user set since (`reinsertPane`); after a later move it is docked right of the selected pane instead. Null — nothing restored — once the sheet's panes are
  * not the ones the close left or the sheet is back at 4 panes.
  */
 export function restoreClosedPane(board: Board, closed: ClosedPane): Board | null {
@@ -418,6 +436,6 @@ export function restoreClosedPane(board: Board, closed: ClosedPane): Board | nul
   const reselect = closed.before.selectedPaneId === slot.id && sheet.selectedPaneId === closed.after.selectedPaneId;
   const selectedPaneId = reselect ? slot.id : sheet.selectedPaneId;
   const sameArrangement = JSON.stringify(treeShape(sheet.tree)) === JSON.stringify(treeShape(closed.after.tree));
-  const tree = sameArrangement ? closed.before.tree : fromDockTree(addPanel(toDockTree(effectiveTree(sheet)), slot.id, { panelId: sheet.selectedPaneId, position: 'right' }));
+  const tree = sameArrangement ? reinsertPane(closed.before.tree, sheet.tree, slot.id) : fromDockTree(addPanel(toDockTree(effectiveTree(sheet)), slot.id, { panelId: sheet.selectedPaneId, position: 'right' }));
   return normalizeBoard(mapSheet(board, closed.sheetId, s => reconcileSelection({ ...s, panes, selectedPaneId, tree: activateInTree(tree, selectedPaneId) })));
 }

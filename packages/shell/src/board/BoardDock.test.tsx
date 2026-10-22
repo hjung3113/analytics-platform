@@ -412,3 +412,199 @@ describe('dock renderer: maximize, Escape and the narrow display', () => {
     await waitFor(() => { expect(document.querySelectorAll('.dv-groupview')).toHaveLength(2); });
   });
 });
+
+describe('dock renderer: narrow display follows the selected pane (C1, U9)', () => {
+  afterEach(() => { observer.resize(900, 600); });
+  const visibleFlag = (n: number) => paneRoot(n).closest('[data-dock-panel]')?.getAttribute('data-dock-visible');
+
+  it('shows the selected pane, not the first group\'s, and a tab chosen there selects that pane (the Context bar follows)', async () => {
+    seed(boardOf([sheet('a', { layout: '1x2', panes: [alpha(w1), beta(w2)] })]));
+    mount('/board?sheet=a');
+    await ready();
+    await userEvent.click(tabOf('칸 2 · 베타'));
+    await settle();
+    observer.resize(600);
+    await waitFor(() => { expect(document.querySelectorAll('.dv-groupview')).toHaveLength(1); });
+    await waitFor(() => { expect(visibleFlag(2)).toBe('true'); });
+    expect(visibleFlag(1)).toBe('false');
+    expect(tabOf('칸 2 · 베타')).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('region', { name: '칸 2 · 분석 Context' })).toBeInTheDocument();
+    await userEvent.click(tabOf('칸 1 · 알파'));
+    await settle();
+    expect(screen.getByRole('region', { name: '칸 1 · 분석 Context' })).toBeInTheDocument();
+    expect(visibleFlag(1)).toBe('true');
+    expect(v2().sheets[0].selectedPaneId).toBe(v2().sheets[0].panes[0].id);
+  });
+
+  it('칸 추가 in the narrow display shows the new pane it selects', async () => {
+    seed(boardOf([sheet('a', { layout: '1x2', panes: [alpha(w1), beta(w2)] })]));
+    mount('/board?sheet=a');
+    await ready();
+    observer.resize(600);
+    await waitFor(() => { expect(document.querySelectorAll('.dv-groupview')).toHaveLength(1); });
+    fireEvent.click(screen.getByRole('button', { name: '칸 추가' }));
+    await waitFor(() => { expect(tabLabels()).toHaveLength(3); });
+    await waitFor(() => { expect(visibleFlag(3)).toBe('true'); });
+    expect(screen.getByRole('region', { name: '칸 3 · 분석 Context' })).toBeInTheDocument();
+    expect(tabOf('칸 3 · 빈 칸')).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('lists the tabs in pane-number order, whatever the wide arrangement is', async () => {
+    seed(boardOf([sheet('a', { layout: '2x2', panes: [alpha(w1), beta(w1), alpha(w2), beta(w2)] })]));
+    mount('/board?sheet=a');
+    await ready();
+    expect(tabLabels()).toEqual(['칸 1 · 알파', '칸 3 · 알파', '칸 2 · 베타', '칸 4 · 베타']);
+    observer.resize(600);
+    await waitFor(() => { expect(document.querySelectorAll('.dv-groupview')).toHaveLength(1); });
+    await waitFor(() => { expect(tabLabels()).toEqual(['칸 1 · 알파', '칸 2 · 베타', '칸 3 · 알파', '칸 4 · 베타']); });
+  });
+});
+
+describe('dock renderer: 칸 추가 (C2, U4)', () => {
+  it('while a pane is maximized it ends the maximize first, so the new selected pane is on screen', async () => {
+    seed(boardOf([sheet('a', { layout: '1x2', panes: [alpha(w1), beta(w2)] })]));
+    mount('/board?sheet=a');
+    await ready();
+    await chooseGroupItem(1, '칸 1 최대화');
+    await waitFor(() => { expect(paneRoot(2).closest('[inert]')).not.toBeNull(); });
+    fireEvent.click(screen.getByRole('button', { name: '칸 추가' }));
+    await waitFor(() => { expect(tabLabels()).toHaveLength(3); });
+    await waitFor(() => { expect(paneRoot(3).closest('[inert]')).toBeNull(); });
+    expect(paneRoot(1).closest('[inert]')).toBeNull();
+    expect(paneRoot(2).closest('[inert]')).toBeNull();
+    expect(v2().sheets[0].selectedPaneId).toBe(v2().sheets[0].panes[2].id);
+    expect(screen.getByRole('region', { name: '칸 3 · 분석 Context' })).toBeInTheDocument();
+  });
+
+  it('builds the default arrangement of one pane more: four panes via 칸 추가 are 2×2', async () => {
+    seed(boardOf([sheet('a')]));
+    mount('/board?sheet=a');
+    await ready();
+    for (let n = 2; n <= 4; n++) {
+      fireEvent.click(screen.getByRole('button', { name: '칸 추가' }));
+      await waitFor(() => { expect(tabLabels()).toHaveLength(n); });
+    }
+    const [p1, p2, p3, p4] = v2().sheets[0].panes.map(p => p.id);
+    expect(tree()).toEqual({
+      type: 'branch', dir: 'row', sizes: [50, 50],
+      children: [
+        { type: 'branch', dir: 'column', sizes: [50, 50], children: [group([p1!]), group([p3!])] },
+        { type: 'branch', dir: 'column', sizes: [50, 50], children: [group([p2!]), group([p4!])] },
+      ],
+    });
+    expect(v2().sheets[0].selectedPaneId).toBe(p4);
+  });
+});
+
+describe('dock renderer: clearing a pane keeps focus on its tab (U1, U5)', () => {
+  it('Delete on a tab leaves focus on that tab, and a second Delete does nothing to another pane', async () => {
+    seed(boardOf([sheet('a', { layout: '2x2', panes: [alpha(w1), beta(w2), alpha(w2), beta(w1)] })]));
+    mount('/board?sheet=a');
+    await ready();
+    tabOf('칸 2 · 베타').focus();
+    await userEvent.keyboard('{Delete}');
+    await waitFor(() => { expect(tabLabels()).toContain('칸 2 · 빈 칸'); });
+    await settle();
+    expect(document.activeElement).toBe(tabOf('칸 2 · 빈 칸'));
+    await userEvent.keyboard('{Delete}');
+    await settle();
+    expect(v2().sheets[0].panes.map(p => p.screen === null)).toEqual([false, true, false, false]);
+  });
+
+  it('the X clears on the first click whether or not the pane is selected, selects it, and focus stays on its tab', async () => {
+    seed(boardOf([sheet('a', { layout: '2x2', panes: [alpha(w1), beta(w2), alpha(w2), beta(w1)] })]));
+    mount('/board?sheet=a');
+    await ready();
+    await userEvent.click(screen.getByRole('button', { name: '칸 4 비우기' }));
+    await waitFor(() => { expect(tabLabels()).toContain('칸 4 · 빈 칸'); });
+    await settle();
+    expect(await screen.findByText('칸 4을 비웠습니다')).toBeInTheDocument();
+    expect(v2().sheets[0].selectedPaneId).toBe(v2().sheets[0].panes[3].id);
+    expect(document.activeElement).toBe(tabOf('칸 4 · 빈 칸'));
+    expect(v2().sheets[0].panes.map(p => p.screen === null)).toEqual([false, false, false, true]);
+  });
+});
+
+describe('dock renderer: undo addresses panes by slot (C3)', () => {
+  it('undoing a clear after an earlier pane was closed restores the cleared pane and leaves the one now at its old number empty', async () => {
+    let board = freshBoard('시트');
+    const id = board.sheets[0].id;
+    board = addPane(addPane(board, id), id);
+    board = setPane(board, id, 1, alpha(w1));
+    seedV2(board);
+    mount(`/board?sheet=${id}`);
+    await ready();
+    expect(tabLabels()).toEqual(['칸 1 · 빈 칸', '칸 2 · 알파', '칸 3 · 빈 칸']);
+    fireEvent.click(screen.getByRole('button', { name: '칸 2 비우기' }));
+    await settle();
+    openMenu(within(paneRoot(1)).getByRole('button', { name: '칸 1 동작' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: '칸 1 닫기' }));
+    await settle();
+    expect(tabLabels()).toEqual(['칸 1 · 빈 칸', '칸 2 · 빈 칸']);
+    const toast = (await screen.findByText('칸 2을 비웠습니다')).closest<HTMLElement>('[data-sonner-toast]')!;
+    fireEvent.click(within(toast).getByRole('button', { name: '실행 취소' }));
+    await settle();
+    expect(v2().sheets[0].panes.map(p => p.screen?.query ?? null)).toEqual([w1, null]);
+    expect(tabLabels()).toEqual(['칸 1 · 알파', '칸 2 · 빈 칸']);
+  });
+});
+
+describe('dock renderer: keyboard order and focus (U2, U3)', () => {
+  it('Tab on a tab goes into its pane, Shift+Tab from the pane returns to the tab, and Tab out of a pane reaches the next group\'s tab', async () => {
+    seed(boardOf([sheet('a', { layout: '1x2', panes: [alpha(w1), beta(w2)] })]));
+    mount('/board?sheet=a');
+    await ready();
+    tabOf('칸 1 · 알파').focus();
+    await userEvent.tab();
+    expect(paneRoot(1).contains(document.activeElement)).toBe(true);
+    await userEvent.tab({ shift: true });
+    expect(document.activeElement).toBe(tabOf('칸 1 · 알파'));
+    // From the last stop of pane 1 the next stop is pane 2's tab; Shift+Tab from that tab is back in pane 1.
+    const stops = Array.from(paneRoot(1).closest('[data-dock-panel]')!.querySelectorAll<HTMLElement>('button, [tabindex="0"], a[href], input')).filter(el => el.tabIndex >= 0);
+    act(() => { stops[stops.length - 1]!.focus(); });
+    await userEvent.tab();
+    expect(document.activeElement).toBe(tabOf('칸 2 · 베타'));
+    await userEvent.tab({ shift: true });
+    expect(paneRoot(1).contains(document.activeElement)).toBe(true);
+    await userEvent.tab({ shift: true });
+    await userEvent.tab({ shift: true });
+    expect(paneRoot(1).contains(document.activeElement)).toBe(false);
+  });
+
+  it('after a group ⋯ command focus lands on the moved pane\'s tab (merge, split right, split down)', async () => {
+    seed(boardOf([sheet('a', { layout: '1x2', panes: [alpha(w1), beta(w2)] })]));
+    mount('/board?sheet=a');
+    await ready();
+    await chooseGroupItem(1, '칸 2 묶음으로 옮기기');
+    await waitFor(() => { expect(document.activeElement).toBe(tabOf('칸 1 · 알파')); });
+    await chooseGroupItem(1, '아래로 나누기');
+    await waitFor(() => { expect(document.activeElement).toBe(tabOf('칸 1 · 알파')); });
+    await chooseGroupItem(1, '칸 2 묶음으로 옮기기');
+    await chooseGroupItem(1, '오른쪽으로 나누기');
+    await waitFor(() => { expect(document.activeElement).toBe(tabOf('칸 1 · 알파')); });
+  });
+});
+
+describe('dock renderer: assistive technology and names (U7, Noticed)', () => {
+  it('the selected pane\'s tab says it is the editing target, and tabs advertise the keys that act', async () => {
+    seed(boardOf([sheet('a', { layout: '1x2', panes: [alpha(w1), null] })]));
+    mount('/board?sheet=a');
+    await ready();
+    await waitFor(() => { expect(tabOf('칸 1 · 알파')).toHaveAttribute('aria-description', '편집 대상 칸'); });
+    expect(tabOf('칸 2 · 빈 칸')).not.toHaveAttribute('aria-description');
+    expect(tabOf('칸 1 · 알파')).toHaveAttribute('aria-keyshortcuts', 'Delete Shift+F10');
+    expect(tabOf('칸 2 · 빈 칸')).toHaveAttribute('aria-keyshortcuts', 'Shift+F10');
+    await userEvent.click(tabOf('칸 2 · 빈 칸'));
+    await waitFor(() => { expect(tabOf('칸 2 · 빈 칸')).toHaveAttribute('aria-description', '편집 대상 칸'); });
+    expect(tabOf('칸 1 · 알파')).not.toHaveAttribute('aria-description');
+  });
+
+  it('names every separator by the two panes it sits between, with 와/과 by the number\'s final consonant', async () => {
+    seed(boardOf([sheet('a', { layout: '2x2', panes: [alpha(w1), beta(w2), alpha(w2), beta(w1)] })]));
+    mount('/board?sheet=a');
+    await ready();
+    await waitFor(() => { expect(screen.getAllByRole('separator')).toHaveLength(3); });
+    expect(screen.getAllByRole('separator').map(item => item.getAttribute('aria-label') ?? item.textContent).sort())
+      .toEqual(['칸 1과 칸 2 너비 조절', '칸 1과 칸 3 높이 조절', '칸 2와 칸 4 높이 조절']);
+  });
+});
