@@ -33,4 +33,5 @@ UI Primitive 층(06 §13)과 디자인 시스템 CSS. 플랫폼 개념(Context, 
 ## 검증
 
 `pnpm --filter @ap/ui test`로 좁혀 본 뒤 루트 검사(루트 `AGENTS.md`). 토큰·스타일 변경은 `pnpm dev`로 화면을 직접 확인한다.
+- 이 패키지를 바꾸면 `pnpm -C products/feedbackops typecheck`도 돌린다. FeedbackOps가 workspace의 `@ap/ui`를 바로 쓰는데 루트 `pnpm typecheck|test`는 `@fops/*`를 빼므로, 깨지는 변경이 루트 검사를 통과하고 CI(`feedbackops.yml`)에서야 드러난다.
 - `@formkit/auto-animate@0.10.0` 패치는 `useListMotion`이 남아 있는 동안 유지한다(`patches/@formkit__auto-animate@0.10.0.patch`, 루트 `pnpm-workspace.yaml`의 `patchedDependencies`). 패치가 없으면 `useListMotion` 테스트 2건(destroy 뒤 polling 타이머)이 실패한다. 패치 변경 후에는 `pnpm install` 결과와 workspace state를 확인한다.

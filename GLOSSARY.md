@@ -118,6 +118,9 @@ FeedbackOps가 VOC·Task·설문을 묶는 협업 범위. 업무 시스템이나
 제품 개선·개발 요청을 처리하는 공통 협업 객체. 로그 결함·검증 Round(표준 로그 개발), 개선 과제·실적(개선 실행), 지표 정의·버전(지표관리)과 이름이 비슷해도 다른 객체이며 관계만 링크한다.
 _Avoid_: 이슈 — 시스템마다 뜻이 달라 단독으로 쓰지 않는다.
 
+**피드백 운영** (업무 시스템):
+FeedbackOps의 관리자·개발자 화면(수신함·Triage·Finding·Task·설문 관리·피드백 운영 설정 등)을 올리는 업무 시스템. 모든 사용자가 쓰는 VOC 등록·내 VOC·설문 응답은 여기가 아니라 플랫폼 전역 기능이다. 이름은 Candidate다([ADR-0066](docs/adr/0066-feedbackops-merges-into-platform.md), 배치는 [합류 설계](docs/integration/feedbackops-merge-design.md) §3.2).
+
 ### 분석 조건과 분석 보드
 
 **분석 Context**:
@@ -141,3 +144,18 @@ _Avoid_: 패널, 패인 — 상세 패널과 섞인다.
 
 **기본 조건**:
 새 칸이 처음 받는 분석 Context. `분석 보드에 열기`로 넣으면 누른 화면의 조건, 보드에서 직접 넣으면 마지막으로 본 본 화면의 조건이다. 복사일 뿐 상속이 아니다.
+
+### 조회·드릴·데이터 신뢰
+
+**page key** (`pageKeys`):
+메뉴가 manifest에 선언하고 URL에 쓰는 그 화면 고유의 상태 키(예: 표 페이지 번호, 드릴 단계 값, `returnTo`). 전역 Context 키가 아니다. 그중 `contextResetKeys`에 함께 선언한 키는 사용자가 전역 Context를 바꾸면 지워진다([06 §6.4](docs/06_platform_ui_contract.md)).
+
+**드릴** (드릴 단계, `drill.levels`):
+한 화면 안에서 단계별로 좁혀 들어가는 조회(예: 공정 → StGroup → 설비). 메뉴가 manifest에 단계 순서(page key와 표시 이름)를 선언하고 단계 수에 상한이 없다. 단계마다 page key 하나를 URL에 쓰고, 올라가거나 값을 바꾸면 뒤 단계 키를 지운다. 경로 바로 보이고 단계마다 본문을 바꾼다([ADR-0025](docs/adr/0025-drilldown-level-page-keys-path-bar-layout.md), [ADR-0063](docs/adr/0063-consumer-owned-chart-pieces-and-unbounded-drill.md)).
+_Avoid_: 드릴다운 메뉴 — 별도 메뉴가 아니라 한 메뉴 안의 단계다.
+
+**초안 / 적용** (Draft / Apply, `query.mode: 'apply'`):
+여러 조회 조건을 모아 한 번에 실행하는 메뉴의 조회 방식. 편집 중인 조건은 칸의 초안에만 있고, `적용`을 눌러야 URL(적용 주소)에 쓰이고 조회가 실행된다. 선언이 없는 메뉴는 바꾸는 즉시 적용되는 live 모드다. 필수 조건이 비면 조회하지 않는 idle 상태다([ADR-0061](docs/adr/0061-query-draft-applied-address-and-required-gate.md)).
+
+**Data Trust** (`trust`):
+조회 결과 숫자의 상태 — 갱신 시각(`updatedAt`), 데이터 기준 시각(`dataThrough`), Coverage, 지표 버전, 잠정(provisional) 여부, 원천. 응답 봉투의 `trust`로 오고 `DataTrustIndicator`가 같은 어휘로 보인다. 그 조회의 신뢰이며 화면이 말하는 대상의 상태가 아니다([06 §18](docs/06_platform_ui_contract.md#18-data-trust-contract)).
