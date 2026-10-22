@@ -68,6 +68,22 @@ describe('ChartSize fill', () => {
     await waitFor(() => { expect(plotHeight).toBe(700); });
   });
 
+  it.each<[string, (size?: 'fill') => ReactElement]>([['AnalysisChartFrame', frame], ['AnalysisChart', donut]])('%s: the fill root is bounded and the plot wrapper can shrink, so the chart height follows a smaller measure', async (_name, build) => {
+    observer.resize(800, 700);
+    render(shell(build('fill')));
+    const plot = (await screen.findByRole('img')).parentElement!;
+    const root = screen.getAllByRole('region')[0]!;
+    expect(root).toHaveClass('h-full', 'min-h-0');
+    expect(root).not.toHaveClass('min-h-full');
+    expect(plot).toHaveClass('min-h-0', 'flex-1');
+    expect(plot).not.toHaveClass('min-h-80');
+    await waitFor(() => { expect(plotHeight).toBe(700); });
+    observer.resize(800, 450);
+    await waitFor(() => { expect(plotHeight).toBe(450); });
+    observer.resize(800, 100);
+    await waitFor(() => { expect(plotHeight).toBe(320); });
+  });
+
   it('a top-N bar keeps its row-count height until it is measured, then fills', async () => {
     observer.resize(800, 640);
     render(shell(topN('fill')));

@@ -13,7 +13,7 @@ export const workspaceText = {
   actions: (title: string): Text => ({ ko: `${title} 동작`, en: `${title} actions` }),
   splitRight: { ko: '오른쪽으로 나누기', en: 'Split to the right' },
   splitDown: { ko: '아래로 나누기', en: 'Split below' },
-  moveToGroup: (n: number): Text => ({ ko: `묶음 ${n}으로 옮기기`, en: `Move into group ${n}` }),
+  moveToGroup: (title: string): Text => ({ ko: `${title} 묶음으로 옮기기`, en: `Move into ${title}'s group` }),
   hide: { ko: '숨기기', en: 'Hide' },
   separatorColumns: (before: string, after: string): Text => ({ ko: `${before}과(와) ${after} 사이 너비`, en: `Width between ${before} and ${after}` }),
   separatorRows: (before: string, after: string): Text => ({ ko: `${before}과(와) ${after} 사이 높이`, en: `Height between ${before} and ${after}` }),

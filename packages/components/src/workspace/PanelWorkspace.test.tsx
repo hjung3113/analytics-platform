@@ -135,7 +135,7 @@ describe('PanelWorkspace: remount 0, query 0', () => {
     await waitFor(() => { expect(document.querySelector('[data-dock-panel="trend"]')).toHaveAttribute('data-dock-visible', 'true'); });
     expectUntouched();
 
-    await chooseFromMenu('지표 동작', '묶음 1으로 옮기기');
+    await chooseFromMenu('지표 동작', '추세 묶음으로 옮기기');
     await waitFor(() => { expect(groups()).toEqual([['kpi', 'trend'], ['detail', 'selector']]); });
     expectUntouched();
   });

@@ -188,7 +188,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, l
   const groupActions = (group: { panels: string[]; active: string }) => {
     const id = group.active;
     const menu = dockLayoutMenu(state.layout, id, { maximized: maximizedId !== null && group.panels.includes(maximizedId), orderOf: other => reading.indexOf(other as (typeof reading)[number]) });
-    return <WorkspaceGroupActions key={id} title={titleOf(id)} menu={menu}
+    return <WorkspaceGroupActions key={id} title={titleOf(id)} titleOf={titleOf} menu={menu}
       onMaximize={maximize => { setMaximized(maximize ? id : null); }}
       onSplit={position => { if (!menu.maximized && menu.split) { const target = menu.split; layoutChange(current => ({ ...current, layout: movePanel(current.layout, id, { panelId: target, position }) })); } }}
       onMove={target => { layoutChange(current => ({ ...current, layout: movePanel(current.layout, id, { panelId: target, position: 'center' }) })); }}

@@ -27,11 +27,22 @@ describe('PlatformPage layout', () => {
     expect(body).toContainElement(screen.getByText('본문'));
   });
 
+  it('fill: the children sit in a remaining-height slot below the outcome banners, so the body never exceeds its height', () => {
+    mount({ layout: 'fill' });
+    const body = document.querySelector<HTMLElement>('[data-platform-page-content]')!;
+    expect(body).toHaveClass('flex', 'flex-col');
+    const slot = document.querySelector<HTMLElement>('[data-platform-page-fill]')!;
+    expect(slot).toHaveClass('min-h-0', 'flex-1');
+    expect(slot.parentElement).toBe(body);
+    expect(slot).toContainElement(screen.getByText('본문'));
+  });
+
   it.each<[string, Partial<PlatformPageProps>]>([['no prop', {}], ['flow', { layout: 'flow' }]])('%s: unchanged — grows with its content', (_name, props) => {
     mount(props);
     const root = document.querySelector<HTMLElement>('[data-platform-page]')!;
     expect(root).not.toHaveAttribute('data-page-layout');
     expect(root.className).toBe('flex min-h-full flex-col');
     expect(document.querySelector('[data-platform-page-content]')!.className).toBe('flex-1 px-8 pb-9 pt-7');
+    expect(document.querySelector('[data-platform-page-fill]')).toBeNull();
   });
 });
