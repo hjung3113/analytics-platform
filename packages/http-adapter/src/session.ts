@@ -40,7 +40,10 @@ export type SessionStore = {
   /** In-memory only: never written to storage. Replaced by every successful bootstrap. */
   csrfToken(): string;
   subscribe(onChange: () => void): () => void;
-  /** Starts a re-check (single-flight). Never rejects; `onChange` or `onSessionLost` is the observable result. */
+  /**
+   * Starts a re-check (single-flight). `onChange` or `onSessionLost` is the observable result; a server answer or a
+   * throwing listener never rejects it, only an internal bug does.
+   */
   recheck(): Promise<void>;
 };
 
@@ -68,15 +71,28 @@ export function createSessionStore(initial: BootstrapPayload, config: SessionSto
     pollTimer = null;
   };
 
+  // A throwing `onChange` listener must not stop the others or turn the re-check into a rejection; the browser still
+  // reports it (`reportError`). Anything else that throws in a re-check stays visible as a rejection.
   const notify = () => {
-    for (const listener of [...listeners]) listener();
+    for (const listener of [...listeners]) {
+      try {
+        listener();
+      } catch (error) {
+        globalThis.reportError?.(error);
+      }
+    }
   };
 
   const loseSession = () => {
     if (lost) return;
     lost = true;
     stopTimers();
-    onSessionLost?.();
+    // Same isolation as notify(): a throwing consumer callback is reported, never a rejection of recheck().
+    try {
+      onSessionLost?.();
+    } catch (error) {
+      globalThis.reportError?.(error);
+    }
   };
 
   const scheduleRetry = (delay: number) => {
@@ -117,12 +133,9 @@ export function createSessionStore(initial: BootstrapPayload, config: SessionSto
     if (lost) return Promise.resolve();
     if (inflight) return inflight;
     if (Date.now() < blockedUntil) return Promise.resolve();
-    // A throwing `onChange` listener must not turn the re-check into an unhandled rejection.
-    inflight = run()
-      .catch(() => undefined)
-      .finally(() => {
-        inflight = null;
-      });
+    inflight = run().finally(() => {
+      inflight = null;
+    });
     return inflight;
   }
 

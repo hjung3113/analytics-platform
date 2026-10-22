@@ -32,17 +32,17 @@ const TABLE = {
     call: (a) => a.evaluateSelection({ scopeId: 'fab-a' } as never),
   },
   listAxisOptions: {
-    http: { method: 'POST', path: '/api/axis-options', body: { scopeId: 'fab-a', axisId: 'room', limit: 10 } },
+    http: { method: 'POST', path: '/api/v1/platform/axis-options', body: { scopeId: 'fab-a', axisId: 'room', limit: 10 } },
     reply: PAGE,
     call: (a) => a.listAxisOptions({ scopeId: 'fab-a', axisId: 'room', limit: 10 }),
   },
   searchEquipment: {
-    http: { method: 'POST', path: '/api/equipment-search', body: { scopeId: 'fab-a', limit: 5 } },
+    http: { method: 'POST', path: '/api/v1/platform/equipment-search', body: { scopeId: 'fab-a', limit: 5 } },
     reply: PAGE,
     call: (a) => a.searchEquipment({ scopeId: 'fab-a', limit: 5 } as never),
   },
   resolveSelection: {
-    http: { method: 'POST', path: '/api/selection-resolve', body: { scopeId: 'fab-a', ids: ['e1'] } },
+    http: { method: 'POST', path: '/api/v1/platform/selection-resolve', body: { scopeId: 'fab-a', ids: ['e1'] } },
     reply: { items: [] },
     call: (a) => a.resolveSelection({ scopeId: 'fab-a', ids: ['e1'] }),
   },

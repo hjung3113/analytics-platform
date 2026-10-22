@@ -1,11 +1,9 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'react';
-import type { ActionResponse, ActionResult, ActionSpec, AnyActionSpec, MenuAction } from '@ap/contracts';
+import { clientCorrelationId, type ActionResponse, type ActionResult, type ActionSpec, type AnyActionSpec, type MenuAction } from '@ap/contracts';
 import { usePlatform } from './platform';
 
 /** What the write gates read from the platform; a host port reads it at call time instead of from a hook. */
 export type ActionRequestInputs = Pick<ReturnType<typeof usePlatform>, 'adapter' | 'global' | 'scope' | 'session' | 'refreshEpochs'>;
-
-const clientId = () => 'client-' + Date.now().toString(16);
 
 /** Scope validated for this session when the action requires one (the same gate as `menuRequest`). */
 export function actionReady(spec: Pick<AnyActionSpec, 'requiresScope'>, { global, scope, session }: Pick<ActionRequestInputs, 'global' | 'scope' | 'session'>): boolean {
@@ -23,7 +21,7 @@ export function actionRequest<I, T>(spec: ActionSpec<I, T>, input: I, expectedVe
   if (spec.concurrency === 'none' && expectedVersion !== undefined) throw new RangeError(`Action "${spec.id}" is not versioned and takes no expectedVersion`);
   const ready = actionReady(spec, inputs);
   const notReady = (): ActionResult<T> => ({
-    outcome: 'error', data: null, version: null, fieldErrors: [], replayed: false, correlationId: clientId(), message: `not_ready: ${spec.id} waits for a validated Scope`,
+    outcome: 'error', data: null, version: null, fieldErrors: [], replayed: false, correlationId: clientCorrelationId(), message: `not_ready: ${spec.id} waits for a validated Scope`,
   });
   if (!ready) return { ready, notReady, send: () => Promise.resolve(notReady()) };
   const request: MenuAction<I> = {
@@ -38,7 +36,7 @@ export function actionRequest<I, T>(spec: ActionSpec<I, T>, input: I, expectedVe
     try {
       response = await inputs.adapter.menuAction(request);
     } catch (error) {
-      response = { outcome: 'unknown', data: null, version: null, fieldErrors: [], replayed: false, correlationId: clientId(), message: String(error) };
+      response = { outcome: 'unknown', data: null, version: null, fieldErrors: [], replayed: false, correlationId: clientCorrelationId(), message: String(error) };
     }
     if (response.outcome === 'ok' || response.outcome === 'conflict' || response.outcome === 'unknown') inputs.refreshEpochs.bump(spec.invalidates.map(endpoint => endpoint.id));
     const result = response as ActionResult<T>;

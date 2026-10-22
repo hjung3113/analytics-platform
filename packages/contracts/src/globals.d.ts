@@ -23,3 +23,12 @@ declare class URL {
 interface AbortSignal {
   readonly aborted: boolean;
 }
+
+/**
+ * Web Crypto — used only by `correlation.ts`; exists in browsers and Node. `randomUUID` is absent outside a secure
+ * context (plain HTTP), so it is optional here.
+ */
+declare var crypto: {
+  getRandomValues<T extends Uint8Array>(array: T): T;
+  randomUUID?(): string;
+} | undefined;

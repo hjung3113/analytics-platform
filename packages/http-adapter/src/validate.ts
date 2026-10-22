@@ -99,7 +99,7 @@ export type BootstrapPayload = {
   csrfToken: string;
 };
 
-function isSession(value: unknown): boolean {
+function isSession(value: unknown): value is Session {
   if (!isRecord(value)) return false;
   const { user, scopes } = value;
   if (!isRecord(user) || !isNonEmpty(user['id']) || !isString(user['name'])) return false;
@@ -123,7 +123,7 @@ export function toBootstrap(value: unknown): BootstrapPayload | null {
   if (!isString(defaultRangeTo) || !WALL_CLOCK.test(defaultRangeTo)) return null;
   if (!isNonEmpty(sessionVersion) || !isNonEmpty(csrfToken)) return null;
   return {
-    session: session as unknown as Session,
+    session,
     publishedMetrics: publishedMetrics as PublishedMetric[],
     defaultRangeTo,
     sessionVersion,

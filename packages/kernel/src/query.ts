@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { QueryMissing } from './query-draft';
 import { usePlatform } from './platform';
-import { projectContext, type ApiResponse, type AssessmentKind, type EndpointSpec, type EntityRef, type MenuQueryContext, serializeGlobal } from '@ap/contracts';
+import { clientCorrelationId, projectContext, type ApiResponse, type AssessmentKind, type EndpointSpec, type EntityRef, type MenuQueryContext, serializeGlobal } from '@ap/contracts';
 
 export type QueryState<T> = {
   /** loading: no result for the current Context yet. refreshing: same Context re-query, prior result kept. */
@@ -48,7 +48,7 @@ function useQueryLifecycle<T>(run: (signal: AbortSignal) => Promise<ApiResponse<
       // Only the Kernel's own abort means superseded (#183); any other rejection — even an adapter-internal
       // AbortError timeout — is the normal error path (error outcome + retry), like validateScope since #167.
       if (controller.signal.aborted) return;
-      setResult({ identity: key, completedAt: Date.now(), response: { outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'client-' + Date.now().toString(16), message: String(error) } });
+      setResult({ identity: key, completedAt: Date.now(), response: { outcome: 'error', data: null, assessments: [], trust: null, correlationId: clientCorrelationId(), message: String(error) } });
       setInFlight(null);
     });
     return () => controller.abort();
@@ -126,7 +126,7 @@ export function menuRequest<P, T>(spec: EndpointSpec<P, T>, { adapter, global, s
   const periodReady = spec.context.time !== 'apply' || (global.from !== null && global.to !== null);
   const send = async (params: P, signal?: AbortSignal): Promise<ApiResponse<T>> =>
     checkMenuResponse(spec, projected, await adapter.menuQuery({ endpoint: spec.id, context: projected, params }, signal));
-  const notReady = (): ApiResponse<T> => ({ outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'client-' + Date.now().toString(16), message: `not_ready: ${spec.id} waits for a validated Scope and period` });
+  const notReady = (): ApiResponse<T> => ({ outcome: 'error', data: null, assessments: [], trust: null, correlationId: clientCorrelationId(), message: `not_ready: ${spec.id} waits for a validated Scope and period` });
   return { projected, ready: scopeReady && periodReady && queryPolicy.ready && !queryPolicy.idle, send, notReady };
 }
 

@@ -82,6 +82,7 @@ describe('mountModule (ADR-0053)', () => {
     ['screen path with encoded dot segment', () => mount(manifest({ screens: [screen('list', '%2e%2e/admin')] }), { list: Screen }), /relative/],
     ['screen path with mixed-case encoded dot segment', () => mount(manifest({ screens: [screen('list', '%2E%2e/admin')] }), { list: Screen }), /relative/],
     ['screen path with encoded single dot', () => mount(manifest({ screens: [screen('list', '%2e/x')] }), { list: Screen }), /relative/],
+    ['screen path with invalid percent escape', () => mount(manifest({ screens: [screen('list', '%zz/admin')] }), { list: Screen }), /relative/],
     ['screen path with backslash', () => mount(manifest({ screens: [screen('list', 'a\\b')] }), { list: Screen }), /relative/],
     ['screen path with query', () => mount(manifest({ screens: [screen('list', 'items?x=1')] }), { list: Screen }), /relative/],
     ['screen path with hash', () => mount(manifest({ screens: [screen('list', 'items#x')] }), { list: Screen }), /relative/],

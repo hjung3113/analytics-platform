@@ -3,7 +3,7 @@ import { flexRender, getCoreRowModel, useReactTable, type Column, type ColumnDef
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, Columns3, Copy, Download, FileSpreadsheet, FileText, Loader2, Pin, PinOff } from 'lucide-react';
 import { CONTEXT_LABELS, labelledCondition, useEquipmentAxes, useI18n, usePlatform } from '@ap/kernel';
-import { type EquipmentAxisDescriptor, type ApiResponse, type Capability, type ContextKey, type GlobalContext, type PageQuery, type PageResult, type PageSort, serializeGlobal, type Trust } from '@ap/contracts';
+import { clientCorrelationId, type EquipmentAxisDescriptor, type ApiResponse, type Capability, type ContextKey, type GlobalContext, type PageQuery, type PageResult, type PageSort, serializeGlobal, type Trust } from '@ap/contracts';
 import { Button, Checkbox, cn, DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, isProductionEnv, Label, Popover, PopoverContent, PopoverTrigger, shortcutLabel, Skeleton, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { AnalysisSectionContext } from './AnalysisSectionContext';
 import { toColumnDef } from './columnDef';
@@ -265,7 +265,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
           identity: requestIdentity,
           response: {
             outcome: 'error', data: null, assessments: [], trust: null,
-            correlationId: 'client-' + Date.now().toString(16), message: String(error),
+            correlationId: clientCorrelationId(), message: String(error),
           },
         });
       });

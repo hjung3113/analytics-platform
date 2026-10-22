@@ -31,6 +31,9 @@
 | 다음 릴리스 | contracts | `GroupId`에 `myActivity` 추가(#594) — 추가형 | 없음 — 소비자가 `GROUP_ID_SET`을 자체 정의했다면 새 멤버를 더한다. |
 | 다음 릴리스 | kernel | `dict`에 `platformMenu`·`platformMenuShared`·`switcherSystemsHeading`·`platformName` 추가, `switcherTitle`·`switcherCurrent` 문구 변경, `platformHome`은 `@deprecated`(셸이 더 쓰지 않음, 다음 릴리스 뒤 제거 예고 — #650, ADR-0070) | 없음 — `t('platformHome')`을 쓰는 소비자는 `t('home')`이나 메뉴 라벨로 옮긴다 |
 | 다음 릴리스 | contracts·kernel | `UsageEvent`에 선택 필드 `via`·`fromMenuId`, `navigate`·`PlatformLink`에 선택 `via` — 추가형 (#605) | 없음 — 기존 호출은 그대로 동작한다. 표시 없는 이동은 `link`로 기록된다 |
+| 다음 릴리스 | kernel | **깨짐** — `dropResetKeys` 공개 export 제거(`sdk-v0.10.0` 예고, #660). Kernel 내부 도우미로만 남는다 | `withPaneContext` |
+| 다음 릴리스 | kernel | 동작 — 점 세그먼트 판정 하나로(`hasDotSegment`는 `location.ts`로 옮김, 이름·시그니처 그대로). 잘못된 percent escape는 점 세그먼트로 본다(fail-closed): `createBasePathLocation`이 그런 basePath에 throw하고, `mountModule`이 그런 `prefix`·화면 경로를 `RegistryError`로 거부한다(#660) | 경로에 날것 `%`가 있으면 `%25`로 인코딩한다 |
+| 다음 릴리스 | contracts | `clientCorrelationId()` 추가 — 클라이언트 `client-…` 상관 ID(#660). Kernel·공통 컴포넌트가 만드는 `client-…` id가 `client-<uuid>`(보안 컨텍스트 밖은 `client-<epoch hex>-<16 hex>`)로 바뀐다 | 없음 — 추가만. `client-` 접두사만 기대한다 |
 | `sdk-v0.11.0` | contracts | **깨짐** — `Condition`이 축 유니언(`{axis:'makerModel'…}`)에서 앱이 주입한 축의 다중값 맵 `Readonly<Record<string, readonly string[]>>`로 바뀌고 `ConditionAxis`가 없어짐(#552, ADR-0059) | 조건 값을 축 id → 값 목록 맵으로 만든다(축 간 AND·축 안 OR). 기존 링크는 플랫폼이 읽어 옮긴다 |
 | `sdk-v0.11.0` | contracts | **깨짐** — `PlatformAdapter`에 필수 `listAxisOptions`·`searchEquipment`·`resolveSelection` 추가, `PortError`(#552, ADR-0059). `contextOptions`·`evaluateSelection`은 `@deprecated`(제거 아님) | 외부 어댑터가 세 메서드를 구현한다 |
 | `sdk-v0.11.0` | contracts | **깨짐** — `ContextKey`에 `line`·`prcGroup`, `GlobalContext`·`SelectionInput`에 필수 `lineNames`·`prcGroups`·`membershipBasis`(#552) | 손으로 만든 `GlobalContext`·`Record<ContextKey, …>`에 새 필드·멤버를 더한다 |

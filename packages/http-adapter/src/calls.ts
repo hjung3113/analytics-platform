@@ -114,17 +114,21 @@ export async function actionCall(context: CallContext, request: Omit<SendRequest
   return response ?? unknown('invalid_envelope', correlationId);
 }
 
+/** A parsed 2xx body and the response's correlation id, kept so a later shape check can still name the response. */
+export type PlainReply = { value: unknown; correlationId: string };
+
 /** The parsed 2xx body of a non-envelope call, or a rejection with a short code. */
-function plainResult(raw: Raw): unknown {
+function plainResult(raw: Raw): PlainReply {
   const failed = failure(raw);
   if (failed) throw new TransportError(failed.code, failed.correlationId);
+  const correlationId = raw.kind === 'response' ? raw.correlationId : '';
   const parsed = body(raw);
-  if (!parsed.ok) throw new TransportError('invalid_response', raw.kind === 'response' ? raw.correlationId : '');
-  return parsed.value;
+  if (!parsed.ok) throw new TransportError('invalid_response', correlationId);
+  return { value: parsed.value, correlationId };
 }
 
 /** Non-envelope reads (and fire-and-forget): the parsed 2xx body, or a rejection with a short code. */
-export async function plainCall(context: CallContext, request: Omit<SendRequest, 'timeoutMs'>, options: CallOptions = {}): Promise<unknown> {
+export async function plainCall(context: CallContext, request: Omit<SendRequest, 'timeoutMs'>, options: CallOptions = {}): Promise<PlainReply> {
   const raw = await send(context, request, options);
   if (raw.kind === 'aborted') throw abortError();
   return plainResult(raw);
@@ -138,7 +142,7 @@ function safeField(field: unknown): string | undefined {
   return typeof field === 'string' && /^[A-Za-z0-9_.[\]-]{1,100}$/.test(field) ? field : undefined;
 }
 
-export async function portCall(context: CallContext, request: Omit<SendRequest, 'timeoutMs'>, signal?: AbortSignal): Promise<unknown> {
+export async function portCall(context: CallContext, request: Omit<SendRequest, 'timeoutMs'>, signal?: AbortSignal): Promise<PlainReply> {
   const raw = await send(context, request, { signal });
   if (raw.kind === 'aborted') throw abortError();
   if (raw.kind === 'response' && raw.status >= 400 && raw.status < 500 && raw.status !== 401) {
