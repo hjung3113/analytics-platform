@@ -40,7 +40,7 @@ export default function EChartImpl({ option, height = 280, onEvents, onReady, on
     observer?.observe(el.current);
     onReady?.(instance);
     return () => { observer?.disconnect(); instance.dispose(); chart.current = null; };
-    // Deps intentionally empty: effect owns mount/unmount only (would trip react-hooks/exhaustive-deps if that rule is enabled).
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the effect owns mount/unmount only; onReady is read once at mount
   }, []);
 
   useEffect(() => {
