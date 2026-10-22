@@ -193,7 +193,9 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, opt
         path: '/',
         expires: expiresAt,
       });
-      if (req.headers['content-type']?.startsWith('application/x-www-form-urlencoded')) {
+      if (
+        req.headers['content-type']?.toLowerCase().startsWith('application/x-www-form-urlencoded')
+      ) {
         return reply.redirect(sanitizeReturnTo(return_to), 302);
       }
       return {

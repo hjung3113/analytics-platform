@@ -264,11 +264,14 @@ describe.skipIf(!runIntegration)('Slice 1 #3 auth integration', () => {
   describe('mock-login form body', () => {
     const FORM = { 'content-type': 'application/x-www-form-urlencoded' };
 
-    it('form POST → 302 to /, real session cookie', async () => {
+    it.each([
+      'application/x-www-form-urlencoded',
+      'Application/X-WWW-Form-Urlencoded; charset=UTF-8',
+    ])('form POST (%s) → 302 to /, real session cookie', async (contentType) => {
       const res = await app.inject({
         method: 'POST',
         url: '/auth/mock-login',
-        headers: { ...FORM, 'user-agent': 'integration-test' },
+        headers: { 'content-type': contentType, 'user-agent': 'integration-test' },
         payload: new URLSearchParams({ external_id: 'mock-admin-1' }).toString(),
       });
       expect(res.statusCode).toBe(302);
