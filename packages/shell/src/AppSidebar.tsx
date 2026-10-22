@@ -111,15 +111,16 @@ function FeedbackOpsBlock({ collapsed }: { collapsed: boolean }) {
   </nav>;
 }
 
-function NavItem({ menu, active, collapsed, href, labelPrefix }: { menu: MenuEntry; active: boolean; collapsed: boolean; href?: string; labelPrefix?: string }) {
+export function NavItem({ menu, active, collapsed, href, labelPrefix, label: labelOverride }: { menu: MenuEntry; active: boolean; collapsed: boolean; href?: string; labelPrefix?: string; label?: string }) {
   const { linkTo } = usePlatform();
   const { tx, t } = useI18n();
   const Icon = menu.icon;
-  const link = <PlatformLink via="sidebar" href={href ?? linkTo(menu.id)} aria-label={labelPrefix ? `${labelPrefix}: ${tx(menu.label)}` : tx(menu.label)} aria-current={active ? 'page' : undefined}
+  const label = labelOverride ?? tx(menu.label);
+  const link = <PlatformLink via="sidebar" href={href ?? linkTo(menu.id)} aria-label={labelPrefix ? `${labelPrefix}: ${label}` : label} aria-current={active ? 'page' : undefined}
     className={cn('relative flex min-h-8 items-center gap-2 rounded-md px-3 py-1.5 text-sm text-text-secondary hover:bg-surface-row-hover hover:text-text-primary', collapsed && 'justify-center px-0', active && 'bg-surface-row-selected font-semibold text-text-primary')}>
     {active && <span data-current-marker aria-hidden className="absolute inset-y-2 left-0 w-0.5 rounded-pill bg-accent-primary" />}
     <Icon className="size-4 shrink-0" aria-hidden />
-    {!collapsed && <><span className="min-w-0 flex-1 truncate">{tx(menu.label)}</span>{!menu.component && !menu.moduleScreen && <span className="rounded-pill bg-surface-row-selected px-1.5 py-0.5 text-caption font-semibold text-text-secondary">{t('planned')}</span>}</>}
+    {!collapsed && <><span className="min-w-0 flex-1 truncate">{label}</span>{!menu.component && !menu.moduleScreen && <span className="rounded-pill bg-surface-row-selected px-1.5 py-0.5 text-caption font-semibold text-text-secondary">{t('planned')}</span>}</>}
   </PlatformLink>;
-  return collapsed ? <Tooltip><TooltipTrigger asChild>{link}</TooltipTrigger><TooltipContent side="right">{tx(menu.label)}{!menu.component && !menu.moduleScreen && ` · ${t('planned')}`}</TooltipContent></Tooltip> : link;
+  return collapsed ? <Tooltip><TooltipTrigger asChild>{link}</TooltipTrigger><TooltipContent side="right">{label}{!menu.component && !menu.moduleScreen && ` · ${t('planned')}`}</TooltipContent></Tooltip> : link;
 }

@@ -35,8 +35,10 @@ async function managedSystemOf(page: Page, space: string) {
   return [...found][0];
 }
 
-function feedbackOpsOverallLink(page: Page) {
-  return page.getByRole('navigation', { name: '앱 레일' }).getByRole('link', { name: 'FeedbackOps 전체 — 새 탭' });
+/** `FeedbackOps 전체` lives in the user menu (ADR-0070): opens `사용자 메뉴` and returns the menu item. */
+async function feedbackOpsOverallLink(page: Page) {
+  await page.getByRole('navigation', { name: '앱 레일' }).getByRole('button', { name: '사용자 메뉴' }).click();
+  return page.getByRole('menuitem', { name: 'FeedbackOps 전체 — 새 탭' });
 }
 
 function expectExactQueryKeys(url: URL, keys: string[]) {
@@ -69,12 +71,12 @@ function railSection(page: Page, name: string) {
   return page.getByRole('navigation', { name: '앱 레일' }).getByRole('group', { name: '시스템 섹션' }).getByRole('button', { name, exact: true });
 }
 function systemSwitcher(page: Page) {
-  return page.getByRole('navigation', { name: '앱 레일' }).getByRole('button', { name: /^업무 시스템 전환/ });
+  return page.getByRole('navigation', { name: '앱 레일' }).getByRole('button', { name: /^시스템 및 플랫폼 메뉴/ });
 }
 /** Opens the switcher and returns its popover. */
 async function openSwitcher(page: Page) {
   await systemSwitcher(page).click();
-  const popover = page.getByRole('dialog', { name: '업무 시스템 전환' });
+  const popover = page.getByRole('dialog', { name: '시스템 및 플랫폼 메뉴' });
   await expect(popover).toBeVisible();
   return popover;
 }
@@ -1766,7 +1768,7 @@ test.describe('워크스페이스 (06 §9.1)', () => {
   test('관리자는 전환기로 운영 콘솔을 오가며 전역 Context를 보존한다', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
     await page.goto(EQUIPMENT_URL);
-    await expect(systemSwitcher(page)).toHaveAccessibleName('업무 시스템 전환 · 현재: MARS');
+    await expect(systemSwitcher(page)).toHaveAccessibleName('시스템 및 플랫폼 메뉴 · 현재: MARS');
     const nav = page.getByRole('navigation', { name: '주 메뉴' });
     await expect(nav.getByRole('link', { name: '설비 마스터' })).toBeVisible();
     await expect(nav.getByRole('link', { name: '권한/역할 관리' })).toHaveCount(0);
@@ -1789,7 +1791,7 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     await expect(nav.getByRole('link', { name: '권한/역할 관리' })).toBeVisible();
     await expect(nav.getByRole('link', { name: '설비 마스터' })).toHaveCount(0);
     // Current markers: the switcher names the system, the rail section carries aria-current="true" (not "page").
-    await expect(systemSwitcher(page)).toHaveAccessibleName('업무 시스템 전환 · 현재: 운영 콘솔');
+    await expect(systemSwitcher(page)).toHaveAccessibleName('시스템 및 플랫폼 메뉴 · 현재: 운영 콘솔');
     await expect(railSection(page, '관리·감사')).toHaveAttribute('aria-current', 'true');
     await evidence(page, testInfo, 'admin-operations');
 
@@ -1798,7 +1800,7 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     await page.goBack();
     await expect.poll(() => page.url().replace(/^https?:\/\/[^/]+/, '')).toBe(EQUIPMENT_URL);
     await expect(nav.getByRole('link', { name: '설비 마스터' })).toBeVisible();
-    await expect(systemSwitcher(page)).toHaveAccessibleName('업무 시스템 전환 · 현재: MARS');
+    await expect(systemSwitcher(page)).toHaveAccessibleName('시스템 및 플랫폼 메뉴 · 현재: MARS');
     await expect(railSection(page, '설비관리')).toHaveAttribute('aria-current', 'true');
     await evidence(page, testInfo, 'admin-history-back');
 
@@ -1827,22 +1829,25 @@ test.describe('워크스페이스 (06 §9.1)', () => {
   });
 });
 
-test.describe('플랫폼 홈 · 전역 화면 (ADR-0028)', () => {
-  test('viewer는 홈에서 공지와 내 VOC를 열고, 전역 화면에는 사이드바가 없다', async ({ page }, testInfo) => {
+test.describe('플랫폼 홈 · 전역 화면 (ADR-0028, ADR-0070)', () => {
+  test('viewer는 홈에서 공지와 내 VOC를 열고, 전역 화면에는 업무 사이드바 대신 플랫폼 사이드바가 있다', async ({ page }, testInfo) => {
     await signInAs(page, 'viewer');
     await page.goto('/');
     await expect(page.getByRole('heading', { name: '플랫폼 홈' })).toBeVisible();
     await expect(page.getByRole('navigation', { name: '주 메뉴' })).toHaveCount(0);
+    await expect(page.getByRole('navigation', { name: '플랫폼 메뉴' })).toBeVisible();
     // Outside a system the switcher stays, names no current system, and the rail has no section area.
-    await expect(systemSwitcher(page)).toHaveAccessibleName('업무 시스템 전환');
+    await expect(systemSwitcher(page)).toHaveAccessibleName('시스템 및 플랫폼 메뉴');
     await expect(page.getByRole('group', { name: '시스템 섹션' })).toHaveCount(0);
     await (await headerMore(page)).getByRole('link', { name: '내 VOC' }).click();
     await expect.poll(() => new URL(page.url()).pathname).toBe('/voc');
     await expect(page.getByRole('navigation', { name: '주 메뉴' })).toHaveCount(0);
+    await expect(page.getByRole('navigation', { name: '플랫폼 메뉴' })).toBeVisible();
     await page.goto('/');
     await page.getByRole('link', { name: '공지 목록' }).click();
     await expect.poll(() => new URL(page.url()).pathname).toBe('/notices');
     await expect(page.getByRole('navigation', { name: '주 메뉴' })).toHaveCount(0);
+    await expect(page.getByRole('navigation', { name: '플랫폼 메뉴' })).toBeVisible();
     await evidence(page, testInfo, 'viewer-home-global');
   });
 
@@ -1850,7 +1855,7 @@ test.describe('플랫폼 홈 · 전역 화면 (ADR-0028)', () => {
     await signInAs(page, 'engineer');
     await page.goto('/notices');
     await expect(page.getByRole('navigation', { name: '주 메뉴' })).toHaveCount(0);
-    await expect(systemSwitcher(page)).toHaveAccessibleName('업무 시스템 전환');
+    await expect(systemSwitcher(page)).toHaveAccessibleName('시스템 및 플랫폼 메뉴');
     await expect(page.getByRole('group', { name: '시스템 섹션' })).toHaveCount(0);
     const popover = await openSwitcher(page);
     await expect(popover.getByRole('button', { name: /^MARS/ })).toBeVisible();
@@ -1858,11 +1863,82 @@ test.describe('플랫폼 홈 · 전역 화면 (ADR-0028)', () => {
     for (const name of [/^MARS/, /^BRAVO/]) await expect(popover.getByRole('button', { name })).not.toHaveAttribute('aria-current', 'true');
     await page.keyboard.press('Escape');
     await page.goto('/equipment?v=1&scopeId=MEM');
-    await expect(systemSwitcher(page)).toHaveAccessibleName('업무 시스템 전환 · 현재: MARS');
+    await expect(systemSwitcher(page)).toHaveAccessibleName('시스템 및 플랫폼 메뉴 · 현재: MARS');
     await expect(railSection(page, '설비관리')).toHaveAttribute('aria-current', 'true');
     await expect(page.getByRole('navigation', { name: '주 메뉴' }).getByRole('link', { name: '설비 마스터' })).toHaveAttribute('aria-current', 'page');
     await evidence(page, testInfo, 'global-rail-marker');
   });
+});
+
+test.describe('전역 기능 자리 (ADR-0070, 06 §9.1·§10)', () => {
+  test('전환기의 플랫폼 메뉴에서 알림을 열면 팝오버가 닫히고 플랫폼 사이드바가 그 화면을 가리킨다', async ({ page }, testInfo) => {
+    await signInAs(page, 'viewer');
+    await page.goto('/metrics');
+    const popover = await openSwitcher(page);
+    const platformMenu = popover.getByRole('navigation', { name: '플랫폼 메뉴' });
+    await expect(platformMenu.getByRole('link')).toHaveText(['홈', '알림', '설문', '권한 요청', '내 VOC', '공지']);
+    await evidence(page, testInfo, 'platform-menu-switcher');
+    await platformMenu.getByRole('link', { name: '알림' }).click();
+    await expect(popover).toHaveCount(0);
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/notifications');
+    await expect(page.getByRole('main').getByRole('heading', { name: '알림' })).toBeFocused();
+    await expect(page.getByRole('navigation', { name: '플랫폼 메뉴' }).getByRole('link', { name: '알림' })).toHaveAttribute('aria-current', 'page');
+    await expect(systemSwitcher(page)).toHaveAccessibleName('시스템 및 플랫폼 메뉴');
+  });
+
+  test('플랫폼 사이드바는 업무 사이드바와 접힘 상태를 함께 쓴다', async ({ page }) => {
+    await signInAs(page, 'admin');
+    await page.goto('/');
+    const platformNav = page.getByRole('navigation', { name: '플랫폼 메뉴' });
+    await expect(platformNav.getByRole('group').first()).toBeVisible();
+    await page.keyboard.press('[');
+    await expect(page.getByRole('button', { name: '사이드바 펼치기' })).toBeVisible();
+    await page.goto('/equipment?v=1&scopeId=MEM');
+    await expect(page.getByRole('button', { name: '사이드바 펼치기' })).toBeVisible();
+    await page.keyboard.press('[');
+    await expect(page.getByRole('button', { name: '사이드바 접기' })).toBeVisible();
+  });
+
+  test('메뉴 검색은 플랫폼 메뉴 목적지를 플랫폼 › 그룹 › 메뉴로 찾는다', async ({ page }) => {
+    await signInAs(page, 'viewer');
+    await page.goto('/');
+    await page.keyboard.press('Control+K');
+    await page.getByRole('combobox', { name: '메뉴 검색' }).fill('권한 요청');
+    const option = page.getByRole('option', { name: /권한 요청/ });
+    await expect(option).toContainText('플랫폼 › 내 활동 › 권한 요청');
+    await page.keyboard.press('Enter');
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/permission-requests');
+  });
+
+  test('사용자 메뉴의 언어 항목이 화면 언어를 바꾼다', async ({ page }) => {
+    await signInAs(page, 'viewer');
+    await page.goto('/');
+    const rail = page.getByRole('navigation', { name: '앱 레일' });
+    await rail.getByRole('button', { name: '사용자 메뉴' }).click();
+    await page.getByRole('menuitem', { name: /^언어/ }).click();
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+    await page.getByRole('menuitem', { name: /^Language/ }).click();
+    await expect(page.locator('html')).toHaveAttribute('lang', 'ko');
+  });
+
+  for (const width of [1440, 1024]) {
+    test(`전역 화면 배치: 사이드바가 본문을 가리지 않는다 (${width}px)`, async ({ page }, testInfo) => {
+      await page.setViewportSize({ width, height: 900 });
+      await signInAs(page, 'viewer');
+      for (const path of ['/', '/voc']) {
+        await page.goto(path);
+        await expect(page.getByRole('navigation', { name: '플랫폼 메뉴' })).toBeVisible();
+        const overflow = await page.evaluate(() => {
+          const main = document.querySelector('#platform-main')!;
+          const aside = document.querySelector('aside[data-collapsed]')!;
+          return { scrollWidth: main.scrollWidth, clientWidth: main.clientWidth, asideRight: aside.getBoundingClientRect().right, mainLeft: main.getBoundingClientRect().left };
+        });
+        expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
+        expect(overflow.asideRight).toBeLessThanOrEqual(overflow.mainLeft);
+        if (path === '/') await evidence(page, testInfo, `platform-sidebar-${width}`);
+      }
+    });
+  }
 });
 
 test.describe('목적지 단건 조회 (06 §6.2, §22)', () => {
@@ -2978,7 +3054,7 @@ test.describe('메뉴 이동 포커스 (06 §26)', () => {
     // System switcher, by keyboard: open focuses the current card, Tab stays inside, a real choice closes it and the title takes the focus.
     await systemSwitcher(page).focus();
     await page.keyboard.press('Enter');
-    const popover = page.getByRole('dialog', { name: '업무 시스템 전환' });
+    const popover = page.getByRole('dialog', { name: '시스템 및 플랫폼 메뉴' });
     await expect(popover.getByRole('button', { name: /^MARS/ })).toBeFocused();
     for (let step = 0; step < 12; step++) {
       await page.keyboard.press('Tab');
@@ -3324,22 +3400,25 @@ test.describe('FeedbackOps 공간별 진입(#251)', () => {
     await expect(page.getByRole('navigation', { name: /^FeedbackOps/ })).toHaveCount(0);
   });
 
-  test('레일의 FeedbackOps 전체 링크는 admin에게 보이고 /home을 새 탭으로 연다', async ({ page }, testInfo) => {
+  test('사용자 메뉴의 FeedbackOps 전체 링크는 admin에게 보이고 /home을 새 탭으로 연다', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
     await page.goto(PRODUCTIVITY);
-    await expect(feedbackOpsOverallLink(page)).toHaveAttribute('href', `${ORIGIN}/home`);
-    await expect(feedbackOpsOverallLink(page)).toHaveAttribute('target', '_blank');
-    await expect(feedbackOpsOverallLink(page)).toHaveAttribute('rel', /noopener/);
-    await expect(feedbackOpsOverallLink(page)).toHaveAttribute('rel', /noreferrer/);
+    await expect(page.getByRole('navigation', { name: '앱 레일' }).getByRole('link', { name: /FeedbackOps 전체/ })).toHaveCount(0);
+    const overall = await feedbackOpsOverallLink(page);
+    await expect(overall).toHaveAttribute('href', `${ORIGIN}/home`);
+    await expect(overall).toHaveAttribute('target', '_blank');
+    await expect(overall).toHaveAttribute('rel', /noopener/);
+    await expect(overall).toHaveAttribute('rel', /noreferrer/);
     await evidence(page, testInfo, 'feedbackops-overall-admin');
   });
 
   for (const role of ['engineer', 'viewer'] as const) {
-    test(`레일의 FeedbackOps 전체 링크는 ${role}에게 보이지 않는다`, async ({ page }) => {
+    test(`사용자 메뉴의 FeedbackOps 전체 링크는 ${role}에게 보이지 않는다`, async ({ page }) => {
       await signInAs(page, role);
       await page.goto('/metrics');
       await expect(page.getByRole('navigation', { name: '앱 레일' })).toBeVisible();
-      await expect(feedbackOpsOverallLink(page)).toHaveCount(0);
+      await expect(await feedbackOpsOverallLink(page)).toHaveCount(0);
+      await page.keyboard.press('Escape');
     });
   }
 });
@@ -3489,7 +3568,8 @@ test.describe('FeedbackOps 진입 링크 회귀(#451, 06 §22)', () => {
     await page.goto('/metrics');
     await managedSystemOf(page, 'BRAVO');
     await expect(page.getByRole('navigation', { name: /^FeedbackOps/ })).toHaveCount(1);
-    await expect(feedbackOpsOverallLink(page)).toHaveCount(0);
+    await expect(await feedbackOpsOverallLink(page)).toHaveCount(0);
+    await page.keyboard.press('Escape');
   });
 
   test('공간 둘(engineer)은 전환기로 옮긴 공간마다 그 공간 블록을 그리고 전체 링크가 없다', async ({ page }) => {
@@ -3500,7 +3580,8 @@ test.describe('FeedbackOps 진입 링크 회귀(#451, 06 §22)', () => {
     await chooseSystem(page, 'BRAVO');
     await expect.poll(() => new URL(page.url()).pathname).toBe('/metrics');
     expect(await managedSystemOf(page, 'BRAVO')).not.toBe(analytics);
-    await expect(feedbackOpsOverallLink(page)).toHaveCount(0);
+    await expect(await feedbackOpsOverallLink(page)).toHaveCount(0);
+    await page.keyboard.press('Escape');
   });
 
   test('공간 셋(admin)은 두 공간 블록, 운영 콘솔 블록 없음, 전체 링크 있음', async ({ page }, testInfo) => {
@@ -3514,7 +3595,7 @@ test.describe('FeedbackOps 진입 링크 회귀(#451, 06 §22)', () => {
     await chooseSystem(page, '운영 콘솔');
     await expect.poll(() => new URL(page.url()).pathname).toBe('/admin/roles');
     await expect(page.getByRole('navigation', { name: /^FeedbackOps/ })).toHaveCount(0);
-    await expect(feedbackOpsOverallLink(page)).toBeVisible();
+    await expect(await feedbackOpsOverallLink(page)).toBeVisible();
     await evidence(page, testInfo, 'feedbackops-space-count-admin');
   });
 });

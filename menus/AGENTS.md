@@ -9,7 +9,8 @@ Registry 그룹마다 하나의 패키지(`@ap/menu-<group>`)다. 메뉴가 `man
 | `@ap/menu-master-data` | `menus/analytics/master-data` | `masterData` | 없음(계획 메뉴 manifest만) |
 | `@ap/menu-analytics` | `menus/analytics/analytics` | `analytics` | ProductivityOverview, CycleTimeDrilldown, ExecutionDetail, ChartCatalog + Wafer Journey(계획) |
 | `@ap/menu-metrics` | `menus/metrics/metrics` | `metrics` | MetricCatalog, MetricDetail |
-| `@ap/menu-notice-voc` | `menus/_global/notice-voc` | `noticeVoc` | MyVocHistory(내 VOC, #60 — 조회는 메뉴 엔드포인트 `noticeVoc.myVocHistory`·`mySurveyHistory`, #131) + 공지(계획) |
+| `@ap/menu-notice-voc` | `menus/_global/notice-voc` | `noticeVoc` | MyVocHistory(내 VOC, #60 — 조회는 메뉴 엔드포인트 `noticeVoc.myVocHistory`·`mySurveyHistory`, #131) + 공지(계획). 내 VOC가 공지 앞이다(전환기 `플랫폼 메뉴`의 마지막이 공지) |
+| `@ap/menu-my-activity` | `menus/_global/my-activity` | `myActivity` | 없음(계획 메뉴 manifest만 — 알림·설문·권한 요청, 권한은 `platform:view`, ADR-0070, #594) |
 | `@ap/menu-admin` | `menus/operations/admin` | `admin` | AccessDirectory(권한/역할 조회 전용, #49), AuditTrail(변경 감사, #50), UsageOverview, RegistryCatalog |
 | `@ap/menu-log-my-work`·`-log-models`·`-log-cross`·`-log-rules` | `menus/log-dev/*` | `logMyWork`·`logModels`·`logCross`·`logRules` | 없음(계획 메뉴 manifest만, ADR-0065) |
 | `@ap/menu-imp-my-work`·`-imp-tasks`·`-imp-reports` | `menus/improvement/*` | `impMyWork`·`impTasks`·`impReports` | 없음(계획 메뉴 manifest만, ADR-0065) |

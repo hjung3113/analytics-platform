@@ -154,10 +154,9 @@ describe('sidebar of the current section (15 §3.2)', () => {
     expect(view.container.querySelector('aside')).toHaveAttribute('data-collapsed', 'true');
   });
 
-  it('keeps the old sidebar outside a system', () => {
-    const view = mount('/?v=1');
+  it('draws no business sidebar outside a system', () => {
+    mount('/?v=1');
     expect(screen.queryByRole('navigation', { name: '주 메뉴' })).toBeNull();
-    expect(view.container.querySelector('aside[data-collapsed]')).toBeNull();
   });
 });
 

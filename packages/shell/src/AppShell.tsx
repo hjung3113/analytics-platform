@@ -5,6 +5,7 @@ import { LoadingBlock } from '@ap/components';
 import { cn, DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { CommandPalette } from './CommandPalette';
 import { AppSidebar } from './AppSidebar';
+import { PlatformSidebar } from './PlatformSidebar';
 import { AppRail } from './AppRail';
 
 const COLLAPSE_KEY = 'platform:sidebar-collapsed';
@@ -21,6 +22,8 @@ function ShellLayout({ children }: { children: ReactNode }) {
   // The board is a platform screen like the home and global utilities: no business-system sidebar (docs/16 §4).
   const globalScreen = platformScreen === 'board' || (route !== null && registry.spaceOf(route.menu) === null);
   const showSidebar = sidebarSpace !== null && !globalScreen;
+  // Registry screens outside every space (home, 내 활동, 공지) draw the platform sidebar; the board and unmatched paths do not (ADR-0070).
+  const showPlatformSidebar = route !== null && registry.spaceOf(route.menu) === null;
   const [collapsed, setCollapsed] = useState(() => {
     try { const v = localStorage.getItem(COLLAPSE_KEY); return v === null ? window.innerWidth < 1440 : v === '1'; } catch { return false; }
   });
@@ -38,6 +41,7 @@ function ShellLayout({ children }: { children: ReactNode }) {
     <a href="#platform-main" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-sm focus:bg-surface-card focus:px-3 focus:py-2">{t('skipToContent')}</a>
     <AppRail />
     {showSidebar && <AppSidebar collapsed={collapsed} onToggle={toggle} />}
+    {showPlatformSidebar && <PlatformSidebar collapsed={collapsed} onToggle={toggle} />}
     <div className="flex min-w-0 flex-1 flex-col">
       <main id="platform-main" tabIndex={-1} className="min-h-0 min-w-0 flex-1 overflow-y-auto outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring">
         <Suspense fallback={<div className="p-5"><LoadingBlock rows={6} height={320} /></div>}>{children}</Suspense>

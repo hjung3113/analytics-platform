@@ -1,3 +1,4 @@
+import userEvent from '@testing-library/user-event';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { DetailDrawer } from '@ap/components';
 import { House } from 'lucide-react';
@@ -72,16 +73,22 @@ function mount(permissions: Session['user']['permissions'] = ['platform:view'], 
 
 function openSwitcher() {
   vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
-  fireEvent.click(screen.getByRole('button', { name: /^업무 시스템 전환/ }));
-  return screen.getByRole('dialog', { name: '업무 시스템 전환' });
+  fireEvent.click(screen.getByRole('button', { name: /^시스템 및 플랫폼 메뉴/ }));
+  return screen.getByRole('dialog', { name: '시스템 및 플랫폼 메뉴' });
 }
+
+async function openUserMenu() {
+  await userEvent.setup().click(within(screen.getByRole('navigation', { name: '앱 레일' })).getByRole('button', { name: '사용자 메뉴' }));
+  return screen.getByRole('menu');
+}
+const overallItem = () => screen.queryByRole('menuitem', { name: 'FeedbackOps 전체 — 새 탭' });
 
 describe('rail space navigation', () => {
   it('omits all space buttons with only one accessible space and keeps global tools', () => {
     mount();
     expect(screen.queryByRole('button', { name: /^공간:/ })).toBeNull();
     const rail = screen.getByRole('navigation', { name: '앱 레일' });
-    expect(within(rail).getByRole('button', { name: '업무 시스템 전환 · 현재: 분석' })).toBeTruthy();
+    expect(within(rail).getByRole('button', { name: '시스템 및 플랫폼 메뉴 · 현재: 분석' })).toBeTruthy();
     expect(within(rail).getByRole('button', { name: '메뉴 검색…' })).toBeTruthy();
     expect(within(rail).getByRole('button', { name: 'injected tool' })).toBeTruthy();
     expect(within(rail).getByRole('button', { name: '도움말' })).toBeTruthy();
@@ -100,7 +107,7 @@ describe('rail space navigation', () => {
     expect(new URLSearchParams(window.location.search).get('scopeId')).toBe('MEM');
     expect(push).toHaveBeenCalledTimes(1);
     // pathname changes at pushState, before React re-renders the switcher label: wait for the DOM, not the URL.
-    expect(await screen.findByRole('button', { name: '업무 시스템 전환 · 현재: 운영 콘솔' })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: '시스템 및 플랫폼 메뉴 · 현재: 운영 콘솔' })).toBeTruthy();
     const rail = screen.getByRole('navigation', { name: '앱 레일' });
     expect(within(rail).getByRole('button', { name: '관리' }).getAttribute('aria-current')).toBe('true');
     const nav = screen.getByRole('navigation', { name: '주 메뉴' });
@@ -232,12 +239,14 @@ describe('shell accessibility (#194 FIX2)', () => {
     expect(within(recent).queryByRole('link')).toBeNull();
   });
 
-  it('names the language state and next action before and after a toggle', () => {
+  it('moves the language toggle into the user menu, which stays open after switching', async () => {
     mount();
-    const toggle = screen.getByRole('button', { name: '언어: 한국어 — English로 전환' });
-    expect(toggle).toHaveClass('text-text-secondary');
-    fireEvent.click(toggle);
-    expect(screen.getByRole('button', { name: 'Language: English — 한국어로 전환' })).toBe(toggle);
+    expect(within(screen.getByRole('navigation', { name: '앱 레일' })).queryByRole('button', { name: /언어|Language/ })).toBeNull();
+    const menu = await openUserMenu();
+    const user = userEvent.setup();
+    await user.click(within(menu).getByRole('menuitem', { name: /^언어/ }));
+    expect(within(screen.getByRole('menu')).getByRole('menuitem', { name: /^Language/ })).toBeTruthy();
+    expect(document.documentElement.lang).toBe('en');
   });
 
   it('marks only the current menu and section with a persistent shape, and keeps groups out of region/headings', async () => {
@@ -392,29 +401,32 @@ function logoRegistry() {
 
 describe('workspace shell layout (15 §3.1)', () => {
   it('offers the platform home inside the switcher, not as a rail logo link, and shows a plain mark when / is unregistered', () => {
-    mount();
+    mount(['platform:view'], true, logoRegistry());
     const rail = screen.getByRole('navigation', { name: '앱 레일' });
     expect(within(rail).queryByRole('link', { name: '플랫폼 홈' })).toBeNull();
-    const home = within(openSwitcher()).getByRole('link', { name: '플랫폼 홈' });
+    const home = within(within(openSwitcher()).getByRole('navigation', { name: '플랫폼 메뉴' })).getByRole('link', { name: '홈' });
     expect(home.getAttribute('href')).toMatch(/^\//);
+    expect(screen.queryByRole('link', { name: '플랫폼 홈' })).toBeNull();
     cleanup();
     mount(['platform:view'], false, sidebarRegistry('equipment', '설비관리', ['equipment-home']));
     openSwitcher();
-    expect(screen.queryByRole('link', { name: '플랫폼 홈' })).toBeNull();
+    expect(screen.queryByRole('link', { name: '홈' })).toBeNull();
+    expect(screen.queryByRole('navigation', { name: '플랫폼 메뉴' })).toBeNull();
   });
 
   it('omits the switcher home link when / is registered but cannot be opened', () => {
     window.history.replaceState(null, '', '/?v=1');
     mount(['notice:view'], true, logoRegistry());
-    expect(screen.getByRole('button', { name: '업무 시스템 전환' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '시스템 및 플랫폼 메뉴' })).toBeTruthy();
     openSwitcher();
+    expect(screen.queryByRole('link', { name: '홈' })).toBeNull();
     expect(screen.queryByRole('link', { name: '플랫폼 홈' })).toBeNull();
   });
 
   it.each([
-    ['home', '/?v=1', '업무 시스템 전환'],
-    ['notices', '/notices?v=1', '업무 시스템 전환'],
-    ['space', '/equipment?v=1', '업무 시스템 전환 · 현재: 분석'],
+    ['home', '/?v=1', '시스템 및 플랫폼 메뉴'],
+    ['notices', '/notices?v=1', '시스템 및 플랫폼 메뉴'],
+    ['space', '/equipment?v=1', '시스템 및 플랫폼 메뉴 · 현재: 분석'],
   ])('names the switcher by the current system only inside a space (%s)', (_label, url, name) => {
     window.history.replaceState(null, '', url);
     mount(['platform:view', 'notice:view'], true, logoRegistry());
@@ -424,7 +436,7 @@ describe('workspace shell layout (15 §3.1)', () => {
     expect(rail.querySelector('a[aria-current]')).toBeNull();
   });
 
-  it('renders FeedbackOps entries in slot order outside the scroll region, and the overall rail link', () => {
+  it('renders FeedbackOps entries in slot order outside the scroll region, and the overall link in the user menu', async () => {
     mount(['platform:view', 'feedbackops:access'], true, registry, { feedbackOps: feedbackSlot });
     const block = screen.getByRole('navigation', { name: 'FeedbackOps · 분석' });
     const scroll = document.querySelector('.shell-scroll');
@@ -443,12 +455,12 @@ describe('workspace shell layout (15 §3.1)', () => {
     }
     expect(within(block).getByText('새 탭에서 열립니다')).toBeTruthy();
     const rail = screen.getByRole('navigation', { name: '앱 레일' });
-    const overall = within(rail).getByRole('link', { name: 'FeedbackOps 전체 — 새 탭' });
+    expect(within(rail).queryByRole('link', { name: /FeedbackOps 전체/ })).toBeNull();
+    await openUserMenu();
+    const overall = overallItem()!;
     expect(overall).toHaveAttribute('href', 'https://example.test/all');
     expect(overall).toHaveAttribute('target', '_blank');
     expect(overall).toHaveAttribute('rel', 'noopener noreferrer');
-    expect(overall.hasAttribute('aria-current')).toBe(false);
-    expect(overall.compareDocumentPosition(within(rail).getByRole('button', { name: 'injected tool' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('shows only entry icons, in the same order, when the sidebar is collapsed', () => {
@@ -474,18 +486,23 @@ describe('workspace shell layout (15 §3.1)', () => {
     expect(within(screen.getByRole('navigation', { name: '앱 레일' })).queryByRole('link', { name: /FeedbackOps 전체/ })).toBeNull();
   });
 
-  it('keeps the overall rail link when the block is empty', () => {
+  it('keeps the overall user-menu link when the block is empty', async () => {
     mount(['platform:view', 'feedbackops:access'], true, registry, { feedbackOps: { entriesFor: () => [], overall: { href: 'https://example.test/all', permission: 'feedbackops:access' } } });
     expect(screen.queryByRole('navigation', { name: /^FeedbackOps/ })).toBeNull();
-    expect(within(screen.getByRole('navigation', { name: '앱 레일' })).getByRole('link', { name: 'FeedbackOps 전체 — 새 탭' })).toBeTruthy();
+    await openUserMenu();
+    expect(overallItem()).toBeTruthy();
   });
 
-  it('hides the overall rail link unless the user holds the slot permission, and shows it when held', () => {
-    mount(['platform:view'], true, registry, { feedbackOps: feedbackSlot });
+  it.each([
+    ['held', ['platform:view', 'feedbackops:access'] as Permission[], feedbackSlot, true],
+    ['not held', ['platform:view'] as Permission[], feedbackSlot, false],
+    ['slot overall null', ['platform:view', 'feedbackops:access'] as Permission[], { entriesFor: () => [], overall: null } as FeedbackOpsSlot, false],
+  ])('shows FeedbackOps 전체 only in the user menu and only when the permission is held (%s)', async (_label, permissions, slot, shown) => {
+    mount(permissions, true, registry, { feedbackOps: slot });
     expect(within(screen.getByRole('navigation', { name: '앱 레일' })).queryByRole('link', { name: /FeedbackOps 전체/ })).toBeNull();
-    cleanup();
-    mount(['platform:view', 'feedbackops:access'], true, registry, { feedbackOps: feedbackSlot });
-    expect(within(screen.getByRole('navigation', { name: '앱 레일' })).getByRole('link', { name: 'FeedbackOps 전체 — 새 탭' })).toHaveAttribute('href', 'https://example.test/all');
+    await openUserMenu();
+    if (shown) expect(overallItem()).toHaveAttribute('href', 'https://example.test/all');
+    else expect(overallItem()).toBeNull();
   });
 
   it.each([
@@ -530,11 +547,11 @@ describe('workspace shell layout (15 §3.1)', () => {
     expect(within(dialog).getByRole('button', { name: /운영 콘솔/ }).hasAttribute('aria-current')).toBe(false);
   });
 
-  it('hides the sidebar when no space is accessible', () => {
+  it('draws the platform sidebar instead of the business one when no space is accessible', () => {
     window.history.replaceState(null, '', '/?v=1');
     mount(['platform:view'], true, globalShellRegistry('equipment:view'));
     expect(screen.queryByRole('navigation', { name: '주 메뉴' })).toBeNull();
-    expect(screen.queryByRole('complementary')).toBeNull();
+    expect(screen.getByRole('navigation', { name: '플랫폼 메뉴' })).toBeTruthy();
   });
 
   it('keeps the fallback sidebar on an unmatched path and still withholds the rail sections, the current card and the FeedbackOps block', () => {
@@ -648,5 +665,82 @@ describe('toast layer above palette scrim (#310)', () => {
     const toastHost = screen.getByText('내보내기를 시작합니다.').closest('[aria-live="polite"]');
     expect(toastHost).toBeInTheDocument();
     expect(Number(toastHost!.className.match(/z-\[?(\d+)\]?/)![1])).toBeGreaterThan(Number(overlay!.className.match(/z-\[?(\d+)\]?/)![1]));
+  });
+});
+
+function platformSidebarRegistry() {
+  const entry = (id: string, group: GroupId, path: string, label: string, permission: Permission, primary: boolean) => ({ ...menu(id, group, path, permission), label: { ko: label, en: label }, primary });
+  return createRegistry({
+    spaces: [testSpace({ homeMenuId: 'equipment' })],
+    groups: [
+      { id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: null, hideLabelWhenSingle: true },
+      { id: 'myActivity', label: { ko: '내 활동', en: 'My activity' }, icon: House, space: null },
+      { id: 'noticeVoc', label: { ko: '공지', en: 'Notices' }, icon: House, space: null, hideLabelWhenSingle: true },
+      { id: 'equipment', label: { ko: '설비', en: 'Equipment' }, icon: House, space: 'analytics' },
+    ],
+    menus: [
+      entry('notices', 'noticeVoc', '/notices', '공지', 'notice:view', true),
+      entry('alerts', 'myActivity', '/alerts', '알림', 'platform:view', true),
+      entry('surveys', 'myActivity', '/surveys', '설문', 'equipment:view', false),
+      entry('home', 'overview', '/', '플랫폼 홈', 'platform:view', true),
+      entry('equipment', 'equipment', '/equipment', '설비 목록', 'platform:view', true),
+    ],
+  });
+}
+const PLATFORM_PERMISSIONS: Permission[] = ['platform:view', 'notice:view', 'equipment:view'];
+
+describe('platform sidebar (ADR-0070)', () => {
+  beforeEach(() => { localStorage.setItem('platform:sidebar-collapsed', '0'); });
+
+  it.each([['/?v=1'], ['/alerts?v=1'], ['/notices?v=1']])('replaces the business sidebar on the global screen %s', url => {
+    window.history.replaceState(null, '', url);
+    mount(PLATFORM_PERMISSIONS, true, platformSidebarRegistry());
+    const nav = screen.getByRole('navigation', { name: '플랫폼 메뉴' });
+    expect(screen.queryByRole('navigation', { name: '주 메뉴' })).toBeNull();
+    expect(within(nav).getAllByRole('group').map(group => group.getAttribute('aria-label'))).toEqual(['개요', '내 활동', '공지']);
+    expect(within(nav).getAllByRole('link').map(link => link.getAttribute('aria-label'))).toEqual(['홈', '알림', '설문', '공지']);
+    expect(within(nav).getByText('내 활동')).toBeTruthy();
+    expect(within(nav).queryByText('개요')).toBeNull();
+    expect(within(nav).getAllByText('공지')).toHaveLength(1);
+    expect(within(nav).getAllByRole('link').filter(link => link.getAttribute('aria-current') === 'page')).toHaveLength(1);
+    expect(within(nav).getByRole('link', { name: url.startsWith('/alerts') ? '알림' : url.startsWith('/notices') ? '공지' : '홈' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.queryByRole('region', { name: '즐겨찾기' })).toBeNull();
+    expect(screen.queryByRole('navigation', { name: /^FeedbackOps/ })).toBeNull();
+  });
+
+  it('omits a destination whose menu permission the user lacks', () => {
+    window.history.replaceState(null, '', '/?v=1');
+    mount(['platform:view', 'notice:view'], true, platformSidebarRegistry());
+    const nav = screen.getByRole('navigation', { name: '플랫폼 메뉴' });
+    expect(within(nav).queryByRole('link', { name: '설문' })).toBeNull();
+    expect(within(nav).getByRole('link', { name: '알림' })).toBeTruthy();
+  });
+
+  it('keeps the business sidebar on a space screen and draws neither sidebar on the board', () => {
+    window.history.replaceState(null, '', '/equipment?v=1');
+    mount(PLATFORM_PERMISSIONS, true, platformSidebarRegistry());
+    expect(screen.getByRole('navigation', { name: '주 메뉴' })).toBeTruthy();
+    expect(screen.queryByRole('navigation', { name: '플랫폼 메뉴' })).toBeNull();
+    cleanup();
+    window.history.replaceState(null, '', '/board');
+    mount(PLATFORM_PERMISSIONS, true, platformSidebarRegistry());
+    expect(screen.queryByRole('navigation', { name: '주 메뉴' })).toBeNull();
+    expect(screen.queryByRole('navigation', { name: '플랫폼 메뉴' })).toBeNull();
+  });
+
+  it('shares one collapse state with the business sidebar: button and [ key toggle platform:sidebar-collapsed', () => {
+    window.history.replaceState(null, '', '/?v=1');
+    const view = mount(PLATFORM_PERMISSIONS, true, platformSidebarRegistry());
+    fireEvent.click(screen.getByRole('button', { name: '사이드바 접기' }));
+    expect(localStorage.getItem('platform:sidebar-collapsed')).toBe('1');
+    expect(view.container.querySelector('aside[data-collapsed]')).toHaveAttribute('data-collapsed', 'true');
+    expect(screen.getByRole('button', { name: '사이드바 펼치기' })).toHaveAttribute('aria-keyshortcuts', '[');
+    fireEvent.keyDown(document.body, { key: '[' });
+    expect(localStorage.getItem('platform:sidebar-collapsed')).toBe('0');
+    fireEvent.keyDown(document.body, { key: '[' });
+    cleanup();
+    window.history.replaceState(null, '', '/equipment?v=1');
+    const space = mount(PLATFORM_PERMISSIONS, true, platformSidebarRegistry());
+    expect(space.container.querySelector('aside[data-collapsed]')).toHaveAttribute('data-collapsed', 'true');
   });
 });

@@ -1,6 +1,6 @@
-import { CircleHelp, ExternalLink, LayoutGrid, LogOut, Search } from 'lucide-react';
+import { CircleHelp, ExternalLink, LayoutGrid, Languages, LogOut, Search } from 'lucide-react';
 import { BOARD_PATH, useI18n, usePlatform } from '@ap/kernel';
-import { cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger, shortcutLabel, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
+import { cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger, shortcutLabel, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { SystemSwitcher } from './SystemSwitcher';
 import { placeableMenus } from './board/boardMenus';
 import { firstOpenableMenu, useSystemSections } from './systemSections';
@@ -9,7 +9,6 @@ import { firstOpenableMenu, useSystemSections } from './systemSections';
 export function AppRail() {
   const { slots, user, setPaletteOpen, navigate, linkTo, can, canOpen, registry, platformScreen } = usePlatform();
   const { t, tx, lang, setLang } = useI18n();
-  const languageLabel = lang === 'ko' ? '언어: 한국어 — English로 전환' : 'Language: English — 한국어로 전환';
   const overallLabel = lang === 'ko' ? 'FeedbackOps 전체 — 새 탭' : 'FeedbackOps overall — new tab';
   const systems = useSystemSections();
   const overall = slots.feedbackOps?.overall ?? null;
@@ -44,10 +43,6 @@ export function AppRail() {
         <button type="button" onClick={() => { if (platformScreen !== 'board') navigate(BOARD_PATH, { focus: 'page', via: 'sidebar' }); }} aria-label={boardLabel} aria-current={platformScreen === 'board' ? 'page' : undefined}
           className={cn('grid size-8 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover', platformScreen === 'board' && 'bg-surface-row-selected text-accent-primary')}><LayoutGrid className="size-4" aria-hidden /></button>
       </TooltipTrigger><TooltipContent side="right">{boardLabel}</TooltipContent></Tooltip>}
-      {overall && can(overall.permission) && <Tooltip><TooltipTrigger asChild>
-        <a href={overall.href} target="_blank" rel="noopener noreferrer" aria-label={overallLabel}
-          className="grid size-8 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover"><ExternalLink className="size-4" aria-hidden /></a>
-      </TooltipTrigger><TooltipContent side="right">{overallLabel}</TooltipContent></Tooltip>}
       <div className="flex shrink-0 flex-col items-center gap-1">{slots.topBarTools}</div>
       <Popover>
         <PopoverTrigger asChild><button type="button" aria-label={lang === 'ko' ? '도움말' : 'Help'} title={lang === 'ko' ? '도움말' : 'Help'} className="grid size-8 place-items-center rounded-md text-text-secondary hover:bg-surface-sunken"><CircleHelp className="size-4" aria-hidden /></button></PopoverTrigger>
@@ -61,11 +56,6 @@ export function AppRail() {
         </PopoverContent>
       </Popover>
 
-      <Tooltip><TooltipTrigger asChild>
-        <button type="button" aria-label={languageLabel} onClick={() => setLang(lang === 'ko' ? 'en' : 'ko')}
-          className="grid size-8 place-items-center rounded-md text-caption font-semibold text-text-secondary hover:bg-surface-row-hover">{lang === 'ko' ? '한' : 'EN'}</button>
-      </TooltipTrigger><TooltipContent side="right">{languageLabel}</TooltipContent></Tooltip>
-
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button type="button" aria-label={t('profile')} title={user.name} className="grid size-8 place-items-center rounded-pill hover:bg-surface-row-hover">
@@ -75,6 +65,15 @@ export function AppRail() {
         </DropdownMenuTrigger>
         <DropdownMenuContent side="right" align="end" className="w-64">
           <DropdownMenuLabel>{user.name} · {tx(user.title)}</DropdownMenuLabel>
+          <DropdownMenuItem onSelect={event => { event.preventDefault(); setLang(lang === 'ko' ? 'en' : 'ko'); }}>
+            <Languages className="mr-2 size-3.5" aria-hidden />{lang === 'ko' ? '언어' : 'Language'} <span className="ml-auto text-caption text-text-muted">{lang === 'ko' ? '한국어 → English' : 'English → 한국어'}</span>
+          </DropdownMenuItem>
+          {overall && can(overall.permission) && <DropdownMenuItem asChild>
+            <a href={overall.href} target="_blank" rel="noopener noreferrer" aria-label={overallLabel}>
+              <ExternalLink className="mr-2 size-3.5" aria-hidden />{lang === 'ko' ? 'FeedbackOps 전체' : 'FeedbackOps overall'} <span className="ml-auto text-caption text-text-muted">{lang === 'ko' ? '새 탭 · 담당자' : 'New tab · operators'}</span>
+            </a>
+          </DropdownMenuItem>}
+          <DropdownMenuSeparator />
           <DropdownMenuItem disabled><LogOut className="mr-2 size-3.5" aria-hidden />{t('signOut')} <span className="ml-auto text-caption">{t('signOutUnavailable')}</span></DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

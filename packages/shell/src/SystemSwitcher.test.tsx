@@ -20,12 +20,16 @@ function buildRegistry(opts: { startOpen?: boolean } = {}) {
     ],
     groups: [
       { id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: null },
+      { id: 'myActivity', label: { ko: '내 활동', en: 'My activity' }, icon: House, space: null },
+      { id: 'noticeVoc', label: { ko: '공지', en: 'Notices' }, icon: House, space: null },
       { id: 'analytics', label: { ko: '사이클', en: 'Cycle' }, icon: House, space: 'analytics' },
       { id: 'metrics', label: { ko: '지표', en: 'Metric' }, icon: Boxes, space: 'metrics' },
       { id: 'admin', label: { ko: '관리', en: 'Admin' }, icon: Wrench, space: 'operations' },
     ],
     menus: [
       menu('start', 'overview', '/', '플랫폼 홈', { permission: opts.startOpen === false ? 'equipment:view' : 'notice:view' }),
+      menu('notices', 'noticeVoc', '/notices', '공지', { permission: 'notice:view' }),
+      menu('alerts', 'myActivity', '/alerts', '알림'),
       menu('cycle', 'analytics', '/cycle', '사이클'),
       menu('catalog', 'metrics', '/metrics', '카탈로그', { permission: 'metrics:view' }),
       menu('definitions', 'metrics', '/metrics/definitions', '정의', { permission: 'metrics:view', primary: false }),
@@ -67,10 +71,10 @@ function mount({ permissions = ['platform:view', 'metrics:view', 'console:access
   return render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry} slots={slots}><AppShell><Routes /></AppShell></PlatformProvider></I18nProvider>);
 }
 
-const trigger = () => screen.getByRole('button', { name: /^업무 시스템 전환/ });
+const trigger = () => screen.getByRole('button', { name: /^시스템 및 플랫폼 메뉴/ });
 function open() {
   fireEvent.click(trigger());
-  return screen.getByRole('dialog', { name: '업무 시스템 전환' });
+  return screen.getByRole('dialog', { name: '시스템 및 플랫폼 메뉴' });
 }
 const cardOf = (name: string) => screen.getByRole('button', { name: new RegExp(`^${name}`) });
 
@@ -85,22 +89,22 @@ afterEach(() => { lazyMenuId = null; cleanup(); vi.restoreAllMocks(); vi.unstubA
 describe('SystemSwitcher button (15 §3.2)', () => {
   it('names the button and its visible tooltip with the current system', async () => {
     mount();
-    expect(trigger()).toHaveAccessibleName('업무 시스템 전환 · 현재: MARS');
+    expect(trigger()).toHaveAccessibleName('시스템 및 플랫폼 메뉴 · 현재: MARS');
     fireEvent.focus(trigger());
-    expect(await screen.findByRole('tooltip')).toHaveTextContent('업무 시스템 전환 · 현재: MARS');
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('시스템 및 플랫폼 메뉴 · 현재: MARS');
   });
 
   it('drops the current system outside a space and keeps the button', async () => {
     mount({ url: '/?v=1' });
-    expect(trigger()).toHaveAccessibleName('업무 시스템 전환');
+    expect(trigger()).toHaveAccessibleName('시스템 및 플랫폼 메뉴');
     fireEvent.focus(trigger());
-    expect(await screen.findByRole('tooltip')).toHaveTextContent(/^업무 시스템 전환$/);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(/^시스템 및 플랫폼 메뉴$/);
   });
 
   it('has an English name', () => {
     localStorage.setItem('platform:lang', 'en');
     mount();
-    expect(screen.getByRole('button', { name: 'Switch business system · current: MARS' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Systems and platform menu · current: MARS' })).toBeTruthy();
   });
 });
 
@@ -149,7 +153,7 @@ describe('SystemSwitcher popover', () => {
     fireEvent.click(row);
     await act(async () => { await new Promise(resolve => setTimeout(resolve, 20)); });
     expect(window.location.href).toBe(before);
-    expect(screen.getByRole('dialog', { name: '업무 시스템 전환' })).toBeTruthy();
+    expect(screen.getByRole('dialog', { name: '시스템 및 플랫폼 메뉴' })).toBeTruthy();
   });
 
   it('shows the subtitle on its own line in real and planned rows when declared, and not for a space without one', () => {
@@ -168,14 +172,14 @@ describe('SystemSwitcher popover', () => {
   it('writes the English subtitle in English', () => {
     localStorage.setItem('platform:lang', 'en');
     mount();
-    fireEvent.click(screen.getByRole('button', { name: /^Switch business system/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Systems and platform menu/ }));
     expect(within(cardOf('MARS')).getByText('Productivity analysis')).toBeTruthy();
     expect(within(screen.getByRole('button', { name: /^CLAS/ })).getByText('Productivity analysis')).toBeTruthy();
   });
 
   it('keeps the subtitle out of the trigger name, its tooltip and the current badge', async () => {
     mount();
-    expect(trigger()).toHaveAccessibleName('업무 시스템 전환 · 현재: MARS');
+    expect(trigger()).toHaveAccessibleName('시스템 및 플랫폼 메뉴 · 현재: MARS');
     fireEvent.focus(trigger());
     expect(await screen.findByRole('tooltip')).not.toHaveTextContent('생산성 분석');
   });
@@ -185,23 +189,54 @@ describe('SystemSwitcher popover', () => {
     expect(within(open()).queryByText('준비 중')).toBeNull();
   });
 
-  it('shows the platform home only when / can be opened', () => {
+  it('shows 홈 in the platform menu only when / can be opened', () => {
     mount();
-    expect(within(open()).getByRole('link', { name: '플랫폼 홈' })).toBeTruthy();
+    expect(within(within(open()).getByRole('navigation', { name: '플랫폼 메뉴' })).getByRole('link', { name: '홈' })).toBeTruthy();
     cleanup();
     mount({ permissions: ['platform:view', 'metrics:view', 'console:access', 'notice:view'], registry: buildRegistry({ startOpen: false }) });
-    expect(within(open()).queryByRole('link', { name: '플랫폼 홈' })).toBeNull();
+    expect(within(within(open()).getByRole('navigation', { name: '플랫폼 메뉴' })).queryByRole('link', { name: '홈' })).toBeNull();
+    expect(screen.queryByRole('link', { name: '플랫폼 홈' })).toBeNull();
   });
 
-  it('with no accessible system, focuses the home link and states the empty case', () => {
+  it('lists the platform destinations in group order with 홈 first, none of them a system card', () => {
+    mount();
+    const dialog = open();
+    const nav = within(dialog).getByRole('navigation', { name: '플랫폼 메뉴' });
+    expect(within(nav).getAllByRole('link').map(link => link.textContent)).toEqual(['홈', '알림', '공지']);
+    expect(within(nav).queryAllByRole('button')).toHaveLength(0);
+    expect(within(dialog).getByText('업무 시스템')).toBeTruthy();
+    expect(dialog.querySelectorAll('[data-switcher-card]')).toHaveLength(3);
+  });
+
+  it('omits a platform destination whose permission is missing', () => {
+    mount({ permissions: ['notice:view'], url: '/?v=1' });
+    const nav = within(open()).getByRole('navigation', { name: '플랫폼 메뉴' });
+    expect(within(nav).getAllByRole('link').map(link => link.textContent)).toEqual(['홈', '공지']);
+  });
+
+  it('marks the current platform destination with aria-current', () => {
+    mount({ url: '/alerts?v=1' });
+    const nav = within(open()).getByRole('navigation', { name: '플랫폼 메뉴' });
+    expect(within(nav).getByRole('link', { name: '알림' })).toHaveAttribute('aria-current', 'page');
+    expect(within(nav).getByRole('link', { name: '홈' })).not.toHaveAttribute('aria-current');
+  });
+
+  it('focuses the current card inside a space even with a platform section', () => {
+    mount();
+    open();
+    expect(cardOf('MARS')).toHaveFocus();
+  });
+
+  it('with no accessible system, focuses the first platform link and states the empty case', () => {
     mount({ permissions: ['notice:view'], url: '/?v=1' });
     const dialog = open();
     expect(within(dialog).getByText('접근 가능한 업무 시스템이 없습니다')).toBeTruthy();
     expect(within(dialog).queryByRole('button', { name: /MARS/ })).toBeNull();
-    expect(within(dialog).getByRole('link', { name: '플랫폼 홈' })).toHaveFocus();
+    expect(within(dialog).getByRole('link', { name: '홈' })).toHaveFocus();
+    expect(within(dialog).getByRole('navigation', { name: '플랫폼 메뉴' })).toBeTruthy();
   });
 
-  it('with no system and no home, focuses the empty notice', () => {
+  it('with no system and no platform destination, focuses the empty notice', () => {
     mount({ permissions: [], url: '/?v=1', registry: buildRegistry({ startOpen: false }) });
     const dialog = open();
     expect(within(dialog).queryByRole('link')).toBeNull();
@@ -220,7 +255,7 @@ describe('SystemSwitcher keyboard and focus (06 §26, ADR-0032)', () => {
   it('keeps Tab inside the popover in both directions', () => {
     mount();
     const dialog = open();
-    const home = within(dialog).getByRole('link', { name: '플랫폼 홈' });
+    const home = within(dialog).getAllByRole('link')[0]!;
     const last = within(dialog).getByRole('button', { name: /표준 로그 개발/ });
     last.focus();
     fireEvent.keyDown(last, { key: 'Tab' });
@@ -238,18 +273,19 @@ describe('SystemSwitcher keyboard and focus (06 §26, ADR-0032)', () => {
     fireEvent.click(document.activeElement!);
     await waitFor(() => expect(window.location.pathname).toBe('/metrics'));
     await waitFor(() => expect(screen.getByRole('heading', { name: '카탈로그' })).toHaveFocus());
-    expect(screen.queryByRole('dialog', { name: '업무 시스템 전환' })).toBeNull();
+    expect(screen.queryByRole('dialog', { name: '시스템 및 플랫폼 메뉴' })).toBeNull();
     expect(new URLSearchParams(window.location.search).get('scopeId')).toBe('MEM');
     await act(async () => { await new Promise(resolve => setTimeout(resolve, 30)); });
     expect(screen.getByRole('heading', { name: '카탈로그' })).toHaveFocus();
     expect(screen.queryByRole('tooltip')).toBeNull();
   });
 
-  it('follows the platform home link and lands on the home title', async () => {
+  it('follows the 홈 link of the platform menu, closes first and lands on the home title', async () => {
     mount();
-    fireEvent.click(within(open()).getByRole('link', { name: '플랫폼 홈' }));
+    fireEvent.click(within(open()).getByRole('link', { name: '홈' }));
     await waitFor(() => expect(window.location.pathname).toBe('/'));
     await waitFor(() => expect(screen.getByRole('heading', { name: '플랫폼 홈' })).toHaveFocus());
+    expect(screen.queryByRole('dialog', { name: '시스템 및 플랫폼 메뉴' })).toBeNull();
   });
 
   it('does nothing when the current card is chosen again, closes and returns to the button', async () => {
@@ -257,7 +293,7 @@ describe('SystemSwitcher keyboard and focus (06 §26, ADR-0032)', () => {
     const push = vi.spyOn(window.history, 'pushState');
     open();
     fireEvent.click(cardOf('MARS'));
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: '업무 시스템 전환' })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '시스템 및 플랫폼 메뉴' })).toBeNull());
     await waitFor(() => expect(trigger()).toHaveFocus());
     expect(push).not.toHaveBeenCalled();
     expect(window.location.pathname).toBe('/cycle');
@@ -267,21 +303,21 @@ describe('SystemSwitcher keyboard and focus (06 §26, ADR-0032)', () => {
     mount();
     fireEvent.keyDown(open(), { key: 'Escape' });
     await waitFor(() => expect(trigger()).toHaveFocus());
-    expect(screen.queryByRole('dialog', { name: '업무 시스템 전환' })).toBeNull();
+    expect(screen.queryByRole('dialog', { name: '시스템 및 플랫폼 메뉴' })).toBeNull();
     (document.activeElement as HTMLElement).blur();
 
     open();
     await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); });
     fireEvent.pointerDown(document.body);
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: '업무 시스템 전환' })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '시스템 및 플랫폼 메뉴' })).toBeNull());
     await waitFor(() => expect(trigger()).toHaveFocus());
     (document.activeElement as HTMLElement).blur();
 
     const button = trigger();
     fireEvent.click(button);
-    expect(screen.getByRole('dialog', { name: '업무 시스템 전환' })).toBeTruthy();
+    expect(screen.getByRole('dialog', { name: '시스템 및 플랫폼 메뉴' })).toBeTruthy();
     fireEvent.click(button);
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: '업무 시스템 전환' })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '시스템 및 플랫폼 메뉴' })).toBeNull());
     await waitFor(() => expect(trigger()).toHaveFocus());
   });
 
@@ -329,7 +365,7 @@ describe('SystemSwitcher focus ownership and lifecycle (ADR-0032)', () => {
     window.history.go(step === 1 ? 1 : -1);
     const arrival = step === 1 ? '카탈로그' : '사이클';
     await waitFor(() => expect(screen.getByRole('heading', { name: arrival })).toHaveFocus());
-    expect(screen.queryByRole('dialog', { name: '업무 시스템 전환' })).toBeNull();
+    expect(screen.queryByRole('dialog', { name: '시스템 및 플랫폼 메뉴' })).toBeNull();
     await act(async () => { await new Promise(resolve => setTimeout(resolve, 30)); });
     expect(screen.getByRole('heading', { name: arrival })).toHaveFocus();
     expect(trigger()).not.toHaveFocus();
@@ -345,7 +381,7 @@ describe('SystemSwitcher focus ownership and lifecycle (ADR-0032)', () => {
     // Outside the modal popover the page is aria-hidden, so the title is found by the hidden option here.
     const title = await screen.findByRole('heading', { name: '카탈로그', hidden: true });
     expect(title).not.toHaveFocus();
-    fireEvent.keyDown(screen.getByRole('dialog', { name: '업무 시스템 전환' }), { key: 'Escape' });
+    fireEvent.keyDown(screen.getByRole('dialog', { name: '시스템 및 플랫폼 메뉴' }), { key: 'Escape' });
     await waitFor(() => expect(screen.getByRole('heading', { name: '카탈로그' })).toHaveFocus());
     expect(trigger()).not.toHaveFocus();
   });

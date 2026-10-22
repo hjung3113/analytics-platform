@@ -2,15 +2,17 @@ import { CornerDownLeft, Search } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { type MenuEntry, useI18n, usePlatform } from '@ap/kernel';
 import type { Text } from '@ap/contracts';
+import { usePlatformMenu } from './platformMenu';
 import { cn, Dialog, DialogContent, DialogTitle } from '@ap/ui';
 
 /** §10: menu navigation is the palette's base responsibility; entity search/action commands are Deferred. */
 export function CommandPalette() {
-  const { paletteOpen, setPaletteOpen, paletteSession, menusInSpace, accessibleSpaces, globalMenus, recent, navigate, linkTo, registry, pathname } = usePlatform();
+  const { paletteOpen, setPaletteOpen, paletteSession, menusInSpace, accessibleSpaces, recent, navigate, linkTo, registry, pathname } = usePlatform();
   const { t, tx, text, lang } = useI18n();
   const [q, setQ] = useState('');
   const [active, setActive] = useState(0);
   const platformLabel = text('palettePlatform');
+  const platformMenus = usePlatformMenu().sections.flatMap(section => section.items);
   const paletteOwner = useRef(Symbol('CommandPalette'));
   const disposalTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => {
@@ -47,10 +49,10 @@ export function CommandPalette() {
       const items = sort(menusInSpace(space.id)).filter(m => matches(m, [space.label.ko, space.label.en]));
       if (items.length) bundles.push({ key: space.id, label: space.label, items });
     }
-    const globals = sort(globalMenus).filter(m => matches(m, [platformLabel.ko, platformLabel.en]));
+    const globals = sort(platformMenus).filter(m => matches(m, [platformLabel.ko, platformLabel.en]));
     if (globals.length) bundles.push({ key: 'platform', label: platformLabel, items: globals });
     return bundles;
-  }, [accessibleSpaces, menusInSpace, globalMenus, recent, q, registry, platformLabel]);
+  }, [accessibleSpaces, menusInSpace, platformMenus, recent, q, registry, platformLabel]);
 
   const items = sections.flatMap(section => section.items);
   const activeId = items[active]?.id;
