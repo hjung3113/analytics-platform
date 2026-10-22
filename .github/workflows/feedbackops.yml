@@ -1,6 +1,7 @@
 # FeedbackOps gate (moved from products/feedbackops/.github/workflows/ci.yml, #592).
-# FeedbackOps keeps its own nested pnpm workspace, Node and pnpm, so this workflow installs inside
-# products/feedbackops and runs only when that directory (or this file) changes.
+# FeedbackOps is part of the root pnpm workspace (ADR-0066, #642): this workflow installs at the repo root with the root
+# pnpm/Node/lockfile, then runs the gates from products/feedbackops. It runs when that directory, the shared @ap/ui
+# package or the workspace toolchain files change.
 # The commands live in products/feedbackops/scripts/ci/gate.sh; this file provides Node, pnpm and Postgres.
 name: FeedbackOps
 
@@ -8,11 +9,21 @@ on:
   pull_request:
     paths:
       - 'products/feedbackops/**'
+      - 'packages/ui/**'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'package.json'
+      - '.nvmrc'
       - '.github/workflows/feedbackops.yml'
   push:
     branches: [main]
     paths:
       - 'products/feedbackops/**'
+      - 'packages/ui/**'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'package.json'
+      - '.nvmrc'
       - '.github/workflows/feedbackops.yml'
   workflow_dispatch:
 
@@ -39,13 +50,14 @@ jobs:
           fetch-depth: 0
       - uses: pnpm/action-setup@v4
         with:
-          package_json_file: products/feedbackops/package.json
+          package_json_file: package.json
       - uses: actions/setup-node@v5
         with:
-          node-version-file: products/feedbackops/.nvmrc
+          node-version-file: .nvmrc
           cache: pnpm
-          cache-dependency-path: products/feedbackops/pnpm-lock.yaml
+          cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
+        working-directory: .
       - name: Typecheck, boundaries, migration drift, FE typecheck, design lint, FE Biome
         run: |
           base=""
@@ -64,13 +76,14 @@ jobs:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
         with:
-          package_json_file: products/feedbackops/package.json
+          package_json_file: package.json
       - uses: actions/setup-node@v5
         with:
-          node-version-file: products/feedbackops/.nvmrc
+          node-version-file: .nvmrc
           cache: pnpm
-          cache-dependency-path: products/feedbackops/pnpm-lock.yaml
+          cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
+        working-directory: .
       - run: scripts/ci/gate.sh unit
 
   integration:
@@ -95,13 +108,14 @@ jobs:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
         with:
-          package_json_file: products/feedbackops/package.json
+          package_json_file: package.json
       - uses: actions/setup-node@v5
         with:
-          node-version-file: products/feedbackops/.nvmrc
+          node-version-file: .nvmrc
           cache: pnpm
-          cache-dependency-path: products/feedbackops/pnpm-lock.yaml
+          cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
+        working-directory: .
       - run: scripts/ci/gate.sh integration
         env:
           CI_PG_ADMIN_URL: postgres://postgres:postgres@localhost:5432/postgres

@@ -34,5 +34,5 @@ Each item is an independent, measured trap. Check this list before blaming a sel
 ## Environment
 
 - "No registered route" usually means a stale generated `apps/frontend/src/routeTree.gen.ts` (gitignored). It is missing in a fresh worktree and stale after adding a route or rebasing. Check `grep -c <route symbol> apps/frontend/src/routeTree.gen.ts`; regenerate with `pnpm gen:routes`.
-- Run frontend vitest on Node 22 (`.nvmrc`). Newer default Node versions produce false failures from a missing `localStorage`.
+- Frontend vitest runs on Node 26.7 with `--no-experimental-webstorage` in the worker (`vitest.config.ts`): Node's built-in `localStorage` otherwise shadows jsdom's (#642).
 - Outside a secure context (http on a non-localhost origin) browsers drop `crypto.randomUUID` and `navigator.clipboard`. Test fallback paths as primary paths (stub `crypto` both with only `getRandomValues` and as `undefined`), copy the backend's validation regex into the test oracle, and branch success messages on the actual result.

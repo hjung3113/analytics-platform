@@ -191,9 +191,12 @@ export function TaskRequestConversionForm({
         <FieldLabel htmlFor="task-request-convert-analytics-area">Analytics Area</FieldLabel>
         <Select
           value={analyticsAreaValue}
-          onValueChange={(value) =>
-            conversion.setAnalyticsAreaId(value === NO_SELECTION ? '' : value)
-          }
+          onValueChange={(value) => {
+            // Radix Select ≥2.3 replays its hidden native select's change on a value change; while the
+            // unresolved placeholder option is not registered yet that reads as "" and would erase it.
+            if (value === '') return;
+            conversion.setAnalyticsAreaId(value === NO_SELECTION ? '' : value);
+          }}
         >
           <SelectTrigger
             id="task-request-convert-analytics-area"

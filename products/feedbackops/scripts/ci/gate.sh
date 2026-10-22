@@ -2,7 +2,7 @@
 #
 # The CI gate (#794): root AGENTS.md → Verification, split into three stages any
 # CI can call. `.github/workflows/feedbackops.yml` (repo root) runs them on GitHub Actions; another CI
-# runs the same three commands after `pnpm install --frozen-lockfile` on Node 22.
+# runs the same three commands after `pnpm install --frozen-lockfile` at the repo root (Node 26.7, root .nvmrc).
 #
 #   scripts/ci/gate.sh static [--base <ref>]
 #       route tree, root typecheck, boundaries (+ its fixture test), the

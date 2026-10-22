@@ -1,17 +1,22 @@
 # syntax=docker/dockerfile:1.7
-FROM node:22.11.0-bookworm-slim AS build
+# Build context is the repository root (docker-compose.release.yml `context: ../..`): FeedbackOps is part of the root pnpm
+# workspace and its lockfile (ADR-0066, #642).
+FROM node:26.7.0-bookworm-slim AS build
 
 WORKDIR /workspace
-RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
+# Node >= 25 no longer ships corepack.
+RUN npm install -g pnpm@11.1.1
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY patches ./patches
-COPY packages/shared/package.json ./packages/shared/package.json
-COPY apps/backend/package.json ./apps/backend/package.json
+COPY products/feedbackops/package.json ./products/feedbackops/package.json
+COPY products/feedbackops/tsconfig.base.json ./products/feedbackops/tsconfig.base.json
+COPY products/feedbackops/packages/shared/package.json ./products/feedbackops/packages/shared/package.json
+COPY products/feedbackops/apps/backend/package.json ./products/feedbackops/apps/backend/package.json
 RUN pnpm install --filter @fops/backend... --frozen-lockfile
 
-COPY packages/shared ./packages/shared
-COPY apps/backend ./apps/backend
+COPY products/feedbackops/packages/shared ./products/feedbackops/packages/shared
+COPY products/feedbackops/apps/backend ./products/feedbackops/apps/backend
 RUN pnpm --filter @fops/backend... build \
   && pnpm --filter @fops/shared exec tsc -p tsconfig.json --noEmit false
 
@@ -20,21 +25,24 @@ RUN pnpm --filter @fops/backend... build \
 # deployed copy at it; the committed workspace package remains unchanged.
 # pnpm deploy hardlinks workspace files, so overwrite with --remove-destination
 # and unlink package.json before rewriting it (never edit the shared inode).
-RUN pnpm --filter @fops/backend deploy --prod /deploy \
+# pnpm 11 deploy needs injected workspace packages. The flag is passed here, not set in pnpm-workspace.yaml, so platform
+# packages keep linking their workspace dependencies. `--legacy` would skip the lockfile and re-resolve ranges. The
+# auto-animate patch belongs to the frontend only, so deploy must tolerate it being unused for this package.
+RUN pnpm --filter @fops/backend deploy --prod --config.inject-workspace-packages=true --config.allow-unused-patches=true /deploy \
   && mkdir -p /deploy/dist /deploy/node_modules/@fops/shared/dist \
-  && cp -a --remove-destination apps/backend/dist/. /deploy/dist/ \
-  && cp -a --remove-destination packages/shared/dist/. /deploy/node_modules/@fops/shared/dist/ \
+  && cp -a --remove-destination products/feedbackops/apps/backend/dist/. /deploy/dist/ \
+  && cp -a --remove-destination products/feedbackops/packages/shared/dist/. /deploy/node_modules/@fops/shared/dist/ \
   && node --input-type=module -e 'import { readFileSync, rmSync, writeFileSync } from "node:fs"; const path = "/deploy/node_modules/@fops/shared/package.json"; const pkg = JSON.parse(readFileSync(path, "utf8")); rmSync(path); pkg.main = "./dist/index.js"; pkg.exports = { ".": "./dist/index.js", "./enums": "./dist/enums/index.js" }; writeFileSync(path, JSON.stringify(pkg, null, 2));'
 
 FROM build AS migrate
-WORKDIR /workspace/apps/backend
-COPY --chmod=755 apps/backend/docker-migrate-entrypoint.sh /usr/local/bin/migrate-entrypoint
+WORKDIR /workspace/products/feedbackops/apps/backend
+COPY --chmod=755 products/feedbackops/apps/backend/docker-migrate-entrypoint.sh /usr/local/bin/migrate-entrypoint
 USER node
 ENTRYPOINT ["/usr/local/bin/migrate-entrypoint"]
-# Call the binaries directly: corepack would try to download pnpm at runtime as the node user.
+# Call the binaries directly: pnpm would try to resolve itself at runtime as the node user.
 CMD ["node_modules/.bin/drizzle-kit", "migrate"]
 
-FROM node:22.11.0-bookworm-slim AS runtime
+FROM node:26.7.0-bookworm-slim AS runtime
 ENV NODE_ENV=production HOST=0.0.0.0 PORT=3001
 WORKDIR /app
 COPY --from=build --chown=node:node /deploy/ ./
