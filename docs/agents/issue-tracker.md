@@ -37,4 +37,4 @@ Run `gh issue view <number> --comments`.
 
 ## Milestones
 
-Milestones are the progress authority per track (`M1 플랫폼 기능 기반`, `M2 디자인 시스템`, `M3 FeedbackOps 1단계`, `M4 사내 적용`, `M5 FeedbackOps 2단계`(지도 #213, ADR-0066이 대체), `M6 FeedbackOps 합류`(지도 #598)). The at-a-glance board is `.planning/README.md`.
+Milestones are the progress authority per track. Open: `M4 사내 적용`, `M6 FeedbackOps 합류`(지도 #598), `M7 MARS 이관`(#552 #555 #556 #557), `M8 SDK 계약·품질`(#669 #670 #671). Closed: `M1 플랫폼 기능 기반`, `M2 디자인 시스템`·`M3 FeedbackOps 1단계`(둘 다 2026-10-23), `M5 FeedbackOps 2단계`(지도 #213, ADR-0066이 대체). M7·M8은 2026-10-23에 만들었고, 같은 날 `area:*`가 없던 이슈 21건에 영역 라벨을 달았다(#670 D7). The at-a-glance board is `.planning/README.md`.

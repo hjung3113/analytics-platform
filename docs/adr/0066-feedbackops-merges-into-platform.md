@@ -3,6 +3,7 @@
 - Status: Decided (2026-10-21) — 방향. 세부 계약은 [합류 설계](../integration/feedbackops-merge-design.md)(Candidate)와 그 Open 항목.
 - Decider: 사용자 — "플랫폼으로 들어갈 기능은 VOC, 공지, 권한 관리(이건 이제 플랫폼 내부 시스템 단위까지 확장), 설문 … 관리자나 개발자만 보면 되는 메뉴들은 별도 시스템으로 플랫폼에 추가", "플랫폼에 합치고 한번에 하는 게 오히려 빠른 길 아닌가", "방향 자체는 동의함"(2026-10-21).
 - Supersedes: [ADR-0027](0027-feedbackops-stays-standalone-entry-links.md)(화면은 옮기지 않고 링크만), [ADR-0038](0038-host-module-contract-and-feedbackops-mounting.md)(한 원본·두 호스트, Proposed였음). [ADR-0045](0045-feedbackops-entry-link-mapping-and-scope.md)의 진입 링크는 합류 단계 4까지 그대로 쓴다.
+- Amended (2026-10-23, [ADR-0073](0073-feedbackops-backend-tests-may-import-conformance-and-http-adapter.md)): FeedbackOps가 받는 플랫폼 패키지는 `@ap/ui` 하나라는 합류 경계에 예외 하나를 둔다. FeedbackOps 백엔드 테스트 코드는 `@ap/server-conformance`·`@ap/http-adapter`를 devDependencies로 import할 수 있다. 런타임 코드는 그대로 `@ap/ui`만 쓰고, 이를 검사로 막는다.
 - Scope: 지도 [#598](https://github.com/hjung3113/analytics-platform/issues/598), 마일스톤 `M6 FeedbackOps 합류`. FeedbackOps 쪽 기록은 FeedbackOps ADR-0072.
 
 ## 맥락
