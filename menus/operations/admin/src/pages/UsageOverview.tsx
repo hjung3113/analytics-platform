@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { type UsageSummary } from '@ap/contracts';
 import { useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
-import { type PlatformColumn, encodeTableSort, PlatformDataTable, PlatformPage, QueryView, sortAndPage, TableUrlWarning, useTableUrlWarning } from '@ap/components';
+import { type PlatformColumn, PlatformDataTable, PlatformPage, QueryView, sortAndPage, TableUrlWarning, useTableUrlState } from '@ap/components';
 import { formatLastUsed, joinUsageRows, type UsageRow } from '../usage-rows';
 
 const SORT_FIELDS = ['id', 'spaceId', 'visits', 'distinctUsers', 'lastUsedAt'] as const;
@@ -13,13 +13,13 @@ const SORT_FIELDS = ['id', 'spaceId', 'visits', 'distinctUsers', 'lastUsedAt'] a
 export default function UsageOverview() {
   const { lang } = useI18n();
   const ko = lang === 'ko';
-  const { adapter, registry, setPage } = usePlatform();
+  const { adapter, registry } = usePlatform();
   // Session identity: period·room changes must not hide the counts.
   const q = usePlatformQuery<UsageSummary>(signal => adapter.usageSummary({ preset: 'all' }, signal), null, true, 'session');
   // §6.1 page keys (sort/page): invalid wire values alert instead of substituting — same as EquipmentMaster.
   // #304 FIX1 (06 §19): the warning keeps each field's user name and the raw value as entered (quoted,
   // untruncated), one sentence per field — never `key=value`.
-  const { parsedSort, parsedPage, invalid: tableInvalid, sentences: invalidTableSentences } = useTableUrlWarning(SORT_FIELDS);
+  const { urlState: tableUrlState, invalid: tableInvalid, sentences: invalidTableSentences } = useTableUrlState(SORT_FIELDS);
   const columns = useMemo<PlatformColumn<UsageRow>[]>(() => [
     { id: 'id', header: ko ? '메뉴 ID' : 'Menu ID', cell: row => <span className="t-mono">{String(row.id)}</span> },
     { id: 'label', header: ko ? '메뉴' : 'Menu', sortable: false, cell: row => row.label[lang] },
@@ -42,11 +42,7 @@ export default function UsageOverview() {
           subtitle={ko ? '방문 사용자는 세션 사용자 기준으로 집계합니다.' : 'Distinct users are counted per session user.'}
           columns={columns} getRowId={row => row.id} filterKey=""
           preferenceKey="admin-usage:columns:v1" pageSize={25}
-          urlState={parsedSort.ok && parsedPage.ok ? {
-            page: parsedPage.page === 1 ? null : parsedPage.page,
-            sorting: parsedSort.sorting,
-            onChange: ({ page, sorting }, reason) => setPage({ sort: encodeTableSort(sorting), page: page === null ? null : String(page) }, { replace: reason === 'clamp' }),
-          } : undefined}
+          urlState={tableUrlState}
           loadPage={async page => ({ outcome: 'ok', data: sortAndPage(rows, page), assessments: [], trust: null, correlationId: 'client-usage' })}
         />;
       }}</QueryView>}

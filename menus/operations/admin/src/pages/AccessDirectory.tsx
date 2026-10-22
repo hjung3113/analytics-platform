@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { PERMISSIONS, type AccessPrincipal, type AccessSortField } from '@ap/contracts';
 import { invalidValueSentence, useI18n, usePlatform, type Text } from '@ap/kernel';
 import { PanelRight } from 'lucide-react';
-import { DetailDrawer, RowAction, ManagementLayout, PageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, FilterUrlWarning, TableUrlWarning, encodeTableSort, useManagementFilters, useTableUrlWarning } from '@ap/components';
+import { DetailDrawer, RowAction, ManagementLayout, PageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, FilterUrlWarning, TableUrlWarning, useManagementFilters, useTableUrlState } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
 import { grantTotals, menusForPermissions } from '../access-rows';
 import { ACCESS_PAGE_KEYS, SORT_FIELDS, badAccessFilterKeys, parseAccessKeys } from '../access-query';
@@ -38,7 +38,8 @@ export default function AccessDirectory() {
   const parsed = parseAccessKeys(raw);
   // A bad filter key keeps the screen's own alert (its reset clears every key); only a bad sort/page is the shared table warning, which keeps applied filters.
   const badFilterKeys = badAccessFilterKeys(raw);
-  const tableWarning = useTableUrlWarning(SORT_FIELDS);
+  // A user sort/page change moves rows between pages, so the focused row leaves with them (bot review P2).
+  const tableWarning = useTableUrlState(SORT_FIELDS, { extraPatch: reason => reason === 'user' ? { focus: null, tab: null } : undefined });
   // Adapter filter JSON (role + permission only): a focus change must not refetch the table.
   const filterKey = JSON.stringify(parsed.ok ? parsed.filters : null);
   // Draft + apply (ADR-0037): both fields are drafts held above ManagementLayout; apply is one setPage that also returns to page 1.
@@ -140,12 +141,8 @@ export default function AccessDirectory() {
         filters={filterSlot}
         columns={columns} getRowId={row => row.id} filterKey={filterKey}
         preferenceKey="admin-roles:columns:v1" pageSize={25} activeRowId={parsed.focus}
-        urlState={{
-          page: parsed.page,
-          sorting: parsed.sorting,
-          // A user sort/page change moves rows between pages, so the focused row leaves with them (bot review P2).
-          onChange: ({ page, sorting }, reason) => setPage({ sort: encodeTableSort(sorting), page: page === null ? null : String(page), ...(reason === 'user' && { focus: null, tab: null }) }, { replace: reason === 'clamp' }),
-        }}
+        // parsed.ok implies a valid sort/page under the same SORT_FIELDS, so the shared urlState is defined here.
+        urlState={tableWarning.urlState}
         loadPage={async (pageQuery, signal) => {
           const { filters } = parsed;
           const sort = pageQuery.sorting[0];

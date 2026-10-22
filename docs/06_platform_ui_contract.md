@@ -848,6 +848,7 @@ Cell padding     4px 12px
 - 내보내기 메뉴 항목은 그림자 없는 메뉴 전용 모양 + inset 초점 링을 쓴다. 공유 Radix primitive는 바꾸지 않는다. 복사 중에는 `aria-busy`와 함께 스피너를 보인다.
 - 클립보드 경로는 오류 폴백이 아니라 **기능 감지**(`isSecureContext && navigator.clipboard.write && ClipboardItem`)로 고른다. 보안 컨텍스트는 클릭·keydown 안에서 `clipboard.write([ClipboardItem({ text/plain, text/html: Promise<Blob> })])`를 부르고 내용은 `exportRows`가 끝난 뒤 채운다(여러 페이지 선택도 전부 복사). Promise 값 `ClipboardItem`을 동기적으로 거부하는 브라우저는 비보안 경로(현재 페이지에 불러온 선택 행만)로 내려가며, 버튼과 단축키가 같은 경로를 쓴다.
 - 비보안 경로는 클릭·keydown 안에서 document 수준 일회성 capture `copy` 리스너(text/plain·text/html 설정 + `preventDefault`)를 걸고 `execCommand('copy')`를 부르며, `finally`에서 리스너를 반드시 제거한다. 표 `section`에 리스너를 달지 않는다(Chromium은 이 이벤트를 selection 노드나 `<body>`로 보낸다).
+- 글자만 복사하는 곳(상세 패널 링크 복사 등)은 `@ap/ui`의 `copyText`를 쓴다. 같은 기능 감지 규칙이다: 보안 컨텍스트는 `writeText`가 resolve해야 성공이고 거절은 실패로 알린다(폴백 없음). 비보안 컨텍스트는 위 capture `copy` 리스너 + `execCommand('copy')`이고, 리스너가 실제로 글자를 채워야 성공이다(#673).
 
 ### Platform Table과 Domain Table의 경계
 

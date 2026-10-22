@@ -8,6 +8,7 @@ import {
   DropdownMenuTrigger,
 } from '../components/shadcn/dropdown-menu.js';
 import { cn } from '../utils/cn.js';
+import { copyText } from '../utils/copyText.js';
 import type { DetailPanelKind } from './DetailPanelHeader.js';
 
 export interface DetailPanelHeaderActionsProps {
@@ -23,46 +24,6 @@ const DEFERRED_ITEMS: Array<{ label: string; disabledReason: string }> = [
   { label: '구독', disabledReason: '이후 제공 예정입니다' },
   { label: '보관', disabledReason: '이후 제공 예정입니다' },
 ];
-
-/**
- * Copies `text`, returning whether it actually landed on the clipboard.
- *
- * `navigator.clipboard` is secure-context only, so it is absent whenever the
- * app is served over http from anything but localhost — which is exactly how
- * the dev server is reached when it binds 0.0.0.0 and someone else on the
- * network opens it by IP. `document.execCommand('copy')` still works there.
- */
-async function writeToClipboard(text: string): Promise<boolean> {
-  if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-    try {
-      await navigator.clipboard.writeText(text);
-      return true;
-    } catch {
-      // Permission denied or a detached document — fall through to the range copy.
-    }
-  }
-  if (typeof document === 'undefined' || !document.body) return false;
-
-  const scratch = document.createElement('textarea');
-  scratch.value = text;
-  scratch.setAttribute('readonly', '');
-  // Kept in the viewport but invisible: `display:none` is not selectable, and
-  // an off-screen position makes some browsers scroll on focus.
-  scratch.style.position = 'fixed';
-  scratch.style.top = '0';
-  scratch.style.opacity = '0';
-  scratch.style.pointerEvents = 'none';
-  document.body.appendChild(scratch);
-  scratch.select();
-  let copied = false;
-  try {
-    copied = document.execCommand('copy');
-  } catch {
-    copied = false;
-  }
-  scratch.remove();
-  return copied;
-}
 
 const iconButtonCls = cn(
   'flex items-center justify-center rounded p-1',
@@ -82,7 +43,8 @@ export function DetailPanelHeaderActions({
     const absolute =
       typeof window !== 'undefined' ? new URL(copyUrl, window.location.href).href : copyUrl;
 
-    if (await writeToClipboard(absolute)) {
+    // One success rule for every link copy (06 §15, #673): feature-detected path, success only when the text landed.
+    if (await copyText(absolute)) {
       toast.success('링크가 복사되었습니다.');
     } else {
       // Saying "복사되었습니다" after copying nothing is worse than failing:

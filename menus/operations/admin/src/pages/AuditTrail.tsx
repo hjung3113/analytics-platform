@@ -2,7 +2,7 @@ import { useId, useMemo, useState } from 'react';
 import { formatInstant, instantEpochMs, type AuditEvent, type AuditSortField, type Text } from '@ap/contracts';
 import { PlatformLink, invalidValueSentence, useI18n, usePlatform } from '@ap/kernel';
 import { Minus, ArrowRight } from 'lucide-react';
-import { ManagementLayout, RowAction, PageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, FilterUrlWarning, TableUrlWarning, encodeTableSort, useManagementFilters, useTableUrlWarning } from '@ap/components';
+import { ManagementLayout, RowAction, PageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, FilterUrlWarning, TableUrlWarning, useManagementFilters, useTableUrlState } from '@ap/components';
 import { Input, StatusBadge } from '@ap/ui';
 import { auditDestination } from '../audit-destination';
 import { ACTION_LABEL, AUDIT_PAGE_KEYS, SORT_FIELDS, SOURCE_LABEL, TYPE_LABEL, auditKeyProblem, parseAuditKeys, type AuditKeyProblem, type AuditTargetType } from '../audit-query';
@@ -99,7 +99,7 @@ export default function AuditTrail() {
   const { lang } = useI18n();
   const ko = lang === 'ko';
   const timeZone = viewerTimeZone();
-  const { adapter, global, linkTo, pageParam, setPage } = usePlatform();
+  const { adapter, global, linkTo, pageParam } = usePlatform();
   const raw = {
     type: pageParam('type'), actor: pageParam('actor'), action: pageParam('action'), source: pageParam('source'),
     fromAt: pageParam('fromAt'), toAt: pageParam('toAt'), targetId: pageParam('targetId'),
@@ -111,7 +111,7 @@ export default function AuditTrail() {
   // screen's own alert (its reset clears every key); only a bad sort/page is the shared table warning, which keeps applied filters.
   const filterProblem = auditKeyProblem({ ...raw, sort: null, page: null });
   const filterKeyProblem = filterProblem && isFilterAuditKeyProblem(filterProblem) ? filterProblem : null;
-  const tableWarning = useTableUrlWarning(SORT_FIELDS);
+  const tableWarning = useTableUrlState(SORT_FIELDS);
   const filterKey = JSON.stringify(parsed.ok ? parsed.filters : null);
   // Draft + apply (ADR-0037): every field is a draft held above ManagementLayout. The draft holds viewer-local display
   // text; the raw URL instants stay in `raw` for resolveTime. The draft rebases (and the time metadata resets) when any
@@ -188,11 +188,8 @@ export default function AuditTrail() {
         filters={filterSlot}
         columns={columns} getRowId={row => row.id} filterKey={filterKey}
         preferenceKey="admin-audit:columns:v1" pageSize={25}
-        urlState={{
-          page: parsed.page,
-          sorting: parsed.sorting,
-          onChange: ({ page, sorting }, reason) => setPage({ sort: encodeTableSort(sorting), page: page === null ? null : String(page) }, { replace: reason === 'clamp' }),
-        }}
+        // parsed.ok implies a valid sort/page under the same SORT_FIELDS, so the shared urlState is defined here.
+        urlState={tableWarning.urlState}
         loadPage={async (pageQuery, signal) => {
           const { filters } = parsed;
           const sort = pageQuery.sorting[0];

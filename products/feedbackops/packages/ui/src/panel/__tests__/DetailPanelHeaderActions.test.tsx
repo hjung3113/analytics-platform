@@ -34,13 +34,37 @@ afterEach(() => {
   delete (navigator as { clipboard?: unknown }).clipboard;
   // biome-ignore lint/performance/noDelete: same, for the execCommand shim
   delete (document as { execCommand?: unknown }).execCommand;
+  // biome-ignore lint/performance/noDelete: same, for the secure-context shim
+  delete (window as { isSecureContext?: unknown }).isSecureContext;
 });
 
-/** Installs exactly the copy mechanisms a case wants available. */
-function stubClipboard(options: { writeText?: () => Promise<void>; execCommand?: boolean }) {
+/**
+ * Installs exactly the copy mechanisms a case wants available. The copy follows the shared `copyText` rule
+ * (06 §15, #673): a writeText case is a secure context; otherwise `execCommand('copy')` succeeds only when it
+ * returns true and dispatches a copy event the listener fills (`fires`, as Chromium does on `<body>`).
+ */
+function stubClipboard(options: {
+  writeText?: () => Promise<void>;
+  execCommand?: boolean;
+  fires?: boolean;
+}) {
   setClipboard(options.writeText ? { writeText: vi.fn(options.writeText) } : undefined);
+  Object.defineProperty(window, 'isSecureContext', {
+    value: Boolean(options.writeText),
+    configurable: true,
+    writable: true,
+  });
   if (options.execCommand !== undefined) {
-    document.execCommand = vi.fn(() => options.execCommand as boolean);
+    document.execCommand = vi.fn((command: string) => {
+      if (command === 'copy' && options.fires !== false) {
+        const event = new Event('copy', { bubbles: true, cancelable: true }) as Event & {
+          clipboardData?: { setData: (type: string, value: string) => void };
+        };
+        event.clipboardData = { setData: vi.fn() };
+        document.body.dispatchEvent(event);
+      }
+      return options.execCommand as boolean;
+    });
   }
 }
 
@@ -120,7 +144,7 @@ describe('DetailPanelHeaderActions — copy link', () => {
     expect(toast.error).toHaveBeenCalled();
   });
 
-  it('falls back when the Clipboard API rejects', async () => {
+  it('reports failure when the Clipboard API rejects — no execCommand fallback (06 §15, #673)', async () => {
     const user = userEvent.setup();
     stubClipboard({
       writeText: async () => {
@@ -133,8 +157,24 @@ describe('DetailPanelHeaderActions — copy link', () => {
 
     await user.click(screen.getByRole('button', { name: '링크 복사' }));
 
+    expect(document.execCommand).not.toHaveBeenCalled();
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(toast.error).toHaveBeenCalledWith(
+      '링크를 복사하지 못했습니다. 주소창의 URL을 직접 복사해 주세요.',
+    );
+  });
+
+  it('reports failure when execCommand returns true but copies nothing (06 §15, #673)', async () => {
+    const user = userEvent.setup();
+    stubClipboard({ execCommand: true, fires: false });
+    const { toast } = await import('sonner');
+    render(<DetailPanelHeaderActions {...defaultProps} />);
+
+    await user.click(screen.getByRole('button', { name: '링크 복사' }));
+
     expect(document.execCommand).toHaveBeenCalledWith('copy');
-    expect(toast.success).toHaveBeenCalledWith('링크가 복사되었습니다.');
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(toast.error).toHaveBeenCalled();
   });
 });
 

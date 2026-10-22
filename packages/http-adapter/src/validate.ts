@@ -1,10 +1,7 @@
-import type { ActionOutcome, ActionResponse, ApiResponse, Outcome, PublishedMetric, Session } from '@ap/contracts';
+import { isRecord, type ActionOutcome, type ActionResponse, type ApiResponse, type Outcome, type PublishedMetric, type Session } from '@ap/contracts';
 
 const OUTCOMES: readonly string[] = ['ok', 'empty', 'error', 'forbidden', 'too_large', 'timeout'];
 const ACTION_OUTCOMES: readonly string[] = ['ok', 'invalid', 'conflict', 'forbidden', 'not_found', 'error', 'unknown'];
-
-export const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
 
 const ASSESSMENT_KINDS: readonly string[] = ['collection', 'processing_delay', 'coverage', 'time_domain', 'respondent_history'];
 const ASSESSMENT_STATES: readonly string[] = ['confirmed', 'clear', 'unknown'];

@@ -25,8 +25,10 @@ const PUBLIC_EXPORTS = [
   'Tabs', 'TabsContent', 'TabsList', 'TabsTrigger',
   'Tooltip', 'TooltipContent', 'TooltipProvider', 'TooltipTrigger',
   'cn',
+  'copyText',
   'isMacPlatform', 'isProductionEnv',
   'prefersReducedMotion',
+  'readLocalStorage', 'writeLocalStorage',
   'shortcutLabel',
   'useDetailPanelSlot', 'useDetailPanelSlotHost',
   // Moved from FeedbackOps in #442 (ADR-0046/0047).

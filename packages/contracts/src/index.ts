@@ -3,6 +3,7 @@ export * from './adapter.js';
 export { clientCorrelationId } from './correlation.js';
 export * from './audit.js';
 export * from './feedbackops-link.js';
+export { isRecord } from './guards.js';
 export * from './host.js';
 export * from './i18n.js';
 export * from './instant.js';

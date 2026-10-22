@@ -4,7 +4,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, Columns3, Copy, Download, FileSpreadsheet, FileText, Loader2, Pin, PinOff } from 'lucide-react';
 import { CONTEXT_LABELS, labelledCondition, useEquipmentAxes, useI18n, usePlatform } from '@ap/kernel';
 import { clientCorrelationId, type EquipmentAxisDescriptor, type ApiResponse, type Capability, type ContextKey, type GlobalContext, type PageQuery, type PageResult, type PageSort, serializeGlobal, type Trust } from '@ap/contracts';
-import { Button, Checkbox, cn, DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, isProductionEnv, Label, Popover, PopoverContent, PopoverTrigger, shortcutLabel, Skeleton, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
+import { Button, Checkbox, cn, DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, isProductionEnv, Label, Popover, PopoverContent, PopoverTrigger, readLocalStorage, shortcutLabel, Skeleton, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, writeLocalStorage } from '@ap/ui';
 import { AnalysisSectionContext } from './AnalysisSectionContext';
 import { toColumnDef } from './columnDef';
 import { DataTrustIndicator } from './DataTrustIndicator';
@@ -126,15 +126,15 @@ function globalContextRows(global: GlobalContext, context: Readonly<Partial<Reco
 type Preferences = { sizing: ColumnSizingState; visibility: VisibilityState; pinning: ColumnPinningState };
 const defaults: Preferences = { sizing: {}, visibility: {}, pinning: { left: [], right: [] } };
 function readPreferences(key: string): Preferences {
-  try {
-    const p = JSON.parse(localStorage.getItem(key) || 'null');
+  return readLocalStorage(key, raw => {
+    const p = JSON.parse(raw || 'null');
     if (!p || typeof p !== 'object') return defaults;
     return {
       sizing: Object.fromEntries(Object.entries(p.sizing || {}).filter(([, v]) => typeof v === 'number' && v >= 60 && v <= 600)) as ColumnSizingState,
       visibility: Object.fromEntries(Object.entries(p.visibility || {}).filter(([, v]) => typeof v === 'boolean')) as VisibilityState,
       pinning: { left: Array.isArray(p.pinning?.left) ? p.pinning.left.filter((v: unknown) => typeof v === 'string') : [], right: [] },
     };
-  } catch { return defaults; }
+  }, defaults);
 }
 
 export type TableUrlState = {
@@ -272,7 +272,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
     return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- requestIdentity already encodes page, sort and page size; the effect re-runs only when it changes
   }, [requestIdentity]);
-  useEffect(() => { try { localStorage.setItem(p.preferenceKey, JSON.stringify(preferences)); } catch { /* memory-only */ } }, [preferences, p.preferenceKey]);
+  useEffect(() => { writeLocalStorage(p.preferenceKey, JSON.stringify(preferences)); /* memory-only when storage refuses */ }, [preferences, p.preferenceKey]);
 
   // Same Context (page/sort/retry) keeps the last rows visible while loading; a new Context hides them.
   const sameContext = result !== null && JSON.parse(result.identity)[0] === contextIdentity;

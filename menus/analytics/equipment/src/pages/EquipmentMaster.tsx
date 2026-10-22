@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { PlatformLink, useI18n, useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
 import { equipmentExportEndpoint, equipmentMakersEndpoint, equipmentPageEndpoint, type Equipment } from '../endpoints';
 import { PanelRight } from 'lucide-react';
-import { DetailDrawer, RowAction, ManagementLayout, PageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, TableUrlWarning, encodeTableSort, useManagementFilters, useTableUrlWarning } from '@ap/components';
+import { DetailDrawer, RowAction, ManagementLayout, PageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, TableUrlWarning, useManagementFilters, useTableUrlState } from '@ap/components';
 import { Button } from '@ap/ui';
 import { EquipmentPanel, EquipmentStatus } from './EquipmentDetail';
 import { exportFilterSummary, exportParams, fields, sortFields, statusText } from './data';
@@ -20,7 +20,7 @@ export default function EquipmentMaster() {
   const validTab = ['attributes', 'validity', 'audit'].includes(drawerTab);
   // §13: the fullscreen link carries the viewed tab when the destination knows it; the default tab stays off the URL.
   const detailPage = validTab && drawerTab !== 'attributes' ? { tab: drawerTab } : undefined;
-  const { parsedSort, parsedPage, invalid: tableInvalid, sentences: invalidTableSentences } = useTableUrlWarning(sortFields);
+  const { urlState: tableUrlState, invalid: tableInvalid, sentences: invalidTableSentences } = useTableUrlState(sortFields);
   const filterKey = JSON.stringify([q, status, maker]);
   // #173 review P2-4: the full list is no longer the render gate. Maker options come from a small distinct-values
   // endpoint; the table renders its own outcomes.
@@ -56,11 +56,7 @@ export default function EquipmentMaster() {
       title={ko ? '설비 목록' : 'Equipment list'} ariaLabel={ko ? '설비 마스터 목록' : 'Equipment master list'}
       subtitle={ko ? '행을 체크하면 내보내거나, ‘선택 설비로 분석’으로 그 설비들을 분석할 수 있습니다.' : 'Check rows to export them, or to analyse them with ‘Analyze selected equipment’.'}
       columns={columns} getRowId={e => e.equipmentId} filterKey={filterKey} preferenceKey="equipment-master:columns:v1" activeRowId={focus} pageSize={25}
-      urlState={parsedSort.ok && parsedPage.ok ? {
-        page: parsedPage.page === 1 ? null : parsedPage.page,
-        sorting: parsedSort.sorting,
-        onChange: ({ page, sorting }, reason) => setPage({ sort: encodeTableSort(sorting), page: page === null ? null : String(page) }, { replace: reason === 'clamp' }),
-      } : undefined}
+      urlState={tableUrlState}
       loadPage={(page, signal) => pages.fetch({ q, status, maker, ...page }, signal)}
       filters={filterSlot}
       rowAction={(e, { compact }) => <RowAction compact={compact} icon={PanelRight} label={ko ? `${e.equipmentId} 보기` : `View ${e.equipmentId}`} text={ko ? '보기' : 'View'} onClick={() => setPage({ focus: e.equipmentId, tab: null })} />}

@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { useI18n, usePlatform } from '@ap/kernel';
-import { Button, cn } from '@ap/ui';
+import { Button, cn, readLocalStorage, writeLocalStorage } from '@ap/ui';
 import { AnalysisCollapseButton, AnalysisSectionContext } from './AnalysisSectionContext';
 import { useInWorkspacePanel } from './workspace/panelContext';
 
@@ -17,10 +17,10 @@ export type AnalysisLayoutProps = {
 };
 
 function readCollapsed(key: string): string[] {
-  try {
-    const value: unknown = JSON.parse(localStorage.getItem(key) ?? '[]');
+  return readLocalStorage(key, raw => {
+    const value: unknown = JSON.parse(raw ?? '[]');
     return Array.isArray(value) ? value.filter((id): id is string => typeof id === 'string') : [];
-  } catch { return []; }
+  }, []);
 }
 
 export function AnalysisLayout(props: AnalysisLayoutProps) {
@@ -74,7 +74,7 @@ function AnalysisLayoutBody({ kpi, charts, breakdown, density = 'regular', stora
     const next = sections.filter(section => section.id === id ? nextCollapsed : collapsed.includes(section.id)).map(section => section.id);
     pendingFocus.current = { id, collapsed: nextCollapsed };
     setCollapsed(next);
-    try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch { /* preference stays in memory */ }
+    writeLocalStorage(storageKey, JSON.stringify(next)); // preference stays in memory when storage refuses
   }
 
   function renderSection(section: AnalysisSection, kind: 'kpi' | 'chart' | 'breakdown', index = 0) {

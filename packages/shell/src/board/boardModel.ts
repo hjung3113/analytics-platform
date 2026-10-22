@@ -1,9 +1,10 @@
 import { addPanel, isValidDockTree, removePanel } from '@ap/components/dock';
+import { isRecord } from '@ap/contracts';
 import type { PaneScreen } from '@ap/kernel';
 import { activateInTree, defaultTree, effectiveTree, fromDockTree, largestGroup, reconcileSelection, reinsertPane, toDockTree, treeShape } from './boardDockTree';
 import { defaultLayoutFor, gridOf, memoryOf, withGrid, withGridMemory } from './boardGrid';
 import {
-  MAX_PANES, MAX_SHEETS, columnPanes, isRatioVector, isRecord, layoutShape, makeId, paneCount, parseArrangementEntry, parseGridMemory, parsePane,
+  MAX_PANES, MAX_SHEETS, columnPanes, isRatioVector, layoutShape, makeId, paneCount, parseArrangementEntry, parseGridMemory, parsePane,
   type Arrangement, type Board, type BoardLayout, type LayoutNode, type PaneSlot, type Sheet,
 } from './boardTypes';
 

@@ -7,6 +7,18 @@ import type { Text } from './i18n.js';
 export type ContextKey = 'time' | 'roomNames' | 'line' | 'prcGroup' | 'condition' | 'selection' | 'lot' | 'ppid' | 'recipe' | 'metric';
 /** apply = direct query filter · reference = carried/visible, not a query filter · unsupported = preserved, not applied */
 export type Capability = 'apply' | 'reference' | 'unsupported';
+/**
+ * A manifest's `context` record: every key `unsupported` except the ones the menu declares (06 §5). Returns a new object per call.
+ * The base Record lists every ContextKey, so a new key fails typecheck here once instead of in every menu.
+ */
+export function contextCapabilities(declared: Partial<Record<ContextKey, Capability>> = {}): Record<ContextKey, Capability> {
+  return {
+    time: 'unsupported', roomNames: 'unsupported', line: 'unsupported', prcGroup: 'unsupported', condition: 'unsupported', selection: 'unsupported',
+    lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported', ...declared,
+  };
+}
+/** A manifest's `features` with every flag off (`board` absent = false). Spread it to turn one on: `{ ...NO_FEATURES, export: true }`. */
+export const NO_FEATURES: Readonly<MenuMeta['features']> = Object.freeze({ export: false, savedView: false, annotate: false, compare: false });
 export type PageType = 'overview' | 'analysis' | 'management' | 'catalog' | 'workflow';
 export type GroupId = 'overview' | 'myActivity' | 'equipment' | 'masterData' | 'analytics' | 'metrics' | 'noticeVoc' | 'admin' | 'clas' | 'logMyWork' | 'logModels' | 'logCross' | 'logRules' | 'impMyWork' | 'impTasks' | 'impReports';
 /** The platform's closed group list at runtime (a module group is `<moduleId>:<name>`, ADR-0053). The Record keeps it complete: a new GroupId member fails typecheck until it is listed here. */

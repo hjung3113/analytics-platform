@@ -1,3 +1,4 @@
+import { isRecord } from '@ap/contracts';
 import type { PaneScreen } from '@ap/kernel';
 
 /** `rows x columns`; panes are numbered row by row, so `1x2` is two side by side and `2x1` two stacked. */
@@ -27,8 +28,6 @@ export type Board = { v: 2; activeSheetId: string; sheets: Sheet[] };
 
 export const paneCount = (layout: BoardLayout) => ({ '1x1': 1, '1x2': 2, '2x1': 2, '2x2': 4 })[layout];
 export const layoutShape = (layout: BoardLayout) => ({ rows: Number(layout[0]), columns: Number(layout[2]) });
-
-export const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
 
 export function makeId(prefix: string, taken: ReadonlySet<string>): string {
   for (;;) {
