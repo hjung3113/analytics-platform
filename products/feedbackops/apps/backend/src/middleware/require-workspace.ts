@@ -7,20 +7,24 @@ import type { FastifyReply, FastifyRequest, preHandlerHookHandler } from 'fastif
 import { sendError } from '../lib/errors.js';
 
 export function requireWorkspace(expectedWorkspaceId: string): preHandlerHookHandler {
+  // An async preHandler that sends a reply must return it: otherwise Fastify still runs the route
+  // handler, and the denial response would hide a write that already happened (#638).
   return async function requireWorkspaceHandler(
     req: FastifyRequest,
     reply: FastifyReply,
-  ): Promise<void> {
+  ): Promise<FastifyReply | undefined> {
     if (!req.session) {
       // Programmer error: requireWorkspace was registered without
       // requireSession in front. Treat as session_invalid to avoid leaking
       // the misconfiguration to clients.
-      sendError(reply, 'auth.session_invalid', 'session context missing');
-      return;
+      return sendError(reply, 'auth.session_invalid', 'session context missing');
     }
     if (req.session.workspace_id !== expectedWorkspaceId) {
-      sendError(reply, 'auth.workspace_mismatch', 'session is bound to a different workspace');
-      return;
+      return sendError(
+        reply,
+        'auth.workspace_mismatch',
+        'session is bound to a different workspace',
+      );
     }
   };
 }
