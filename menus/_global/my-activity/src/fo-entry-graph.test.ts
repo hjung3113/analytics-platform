@@ -17,8 +17,10 @@ const PACKAGE_ENTRIES: Record<string, string> = {
 };
 const SPECIFIER = /(?:\bfrom\s*|\bimport\s*\(\s*|\bimport\s+)['"]([^'"]+)['"]/g;
 
+/** Like the project resolver: a `.js`/`.jsx` specifier names its `.ts`/`.tsx` source (FeedbackOps shared re-exports spell `.js`). */
 function resolveFile(base: string): string | null {
-  for (const candidate of [base, `${base}.ts`, `${base}.tsx`, join(base, 'index.ts'), join(base, 'index.tsx')]) {
+  const stem = base.replace(/\.jsx?$/, '');
+  for (const candidate of [base, `${base}.ts`, `${base}.tsx`, `${stem}.ts`, `${stem}.tsx`, join(base, 'index.ts'), join(base, 'index.tsx')]) {
     if (existsSync(candidate) && statSync(candidate).isFile()) return candidate;
   }
   return null;
@@ -27,6 +29,7 @@ function resolveFile(base: string): string | null {
 function walk() {
   const files = new Map<string, string>();
   const specifiers = new Set<string>();
+  const unresolved: string[] = [];
   const queue = [ENTRY];
   while (queue.length > 0) {
     const file = queue.pop()!;
@@ -40,17 +43,24 @@ function walk() {
       else if (specifier!.startsWith('.')) target = resolveFile(resolve(dirname(file), specifier!));
       else if (specifier! in PACKAGE_ENTRIES) target = PACKAGE_ENTRIES[specifier!]!;
       if (target !== null) queue.push(target);
+      else if (specifier!.startsWith('@/') || specifier!.startsWith('.')) unresolved.push(`${relative(FO, file)} -> ${specifier}`);
     }
   }
-  return { files, specifiers };
+  return { files, specifiers, unresolved };
 }
 
-const { files, specifiers } = walk();
+const { files, specifiers, unresolved } = walk();
 const reached = [...files.keys()].map(file => relative(FRONTEND_SRC, file));
 
 describe('FeedbackOps bridge entry graph (ADR-0071)', () => {
   it('reaches the InboxPanel', () => {
     expect(reached).toContain('features/home/InboxPanel.tsx');
+  });
+
+  it('resolves every local import edge and walks past the package barrels', () => {
+    expect(unresolved).toEqual([]);
+    expect(files.size).toBeGreaterThan(60);
+    expect([...files.keys()].map(file => relative(FO, file))).toContain('packages/shared/src/notifications.ts');
   });
 
   it('imports no router', () => {

@@ -7,6 +7,7 @@ import { memoryStorage, testAdapter, testSession } from '@ap/kernel/testing';
 import { manifests } from '../index';
 import { setFoApi } from '../fo-api';
 import Notifications from './Notifications';
+import { foQueryClient } from '../fo/FoBridge';
 
 // The real manifests in their global group; a space needs one menu of its own, so a filler stands in for it.
 const filler = { ...manifests[1]!, primary: true, id: 'filler', group: 'noticeVoc', path: '/filler' } as MenuEntry;
@@ -111,13 +112,26 @@ describe('Notifications through the FeedbackOps bridge', () => {
     expect(calls.filter(c => /^\/api\/fo\/(me|auth)/.test(c.path) || /^\/(me|auth)/.test(c.path))).toEqual([]);
   });
 
-  it('a 401 calls onSessionLost and shows the list error without any login UI or /me request', async () => {
+  it('a 401 calls onSessionLost and shows the session-expired state without any login UI or /me request', async () => {
     const calls = stubFetch(() => json({ code: 'auth.session_invalid', message: 'no session' }, 401));
     mount(switchableAdapter().adapter);
-    expect(await screen.findByText('알림을 불러오지 못했습니다.')).toBeTruthy();
+    expect(await screen.findByText('세션이 만료되었습니다')).toBeTruthy();
+    expect(screen.queryByTestId('home-inbox-list')).toBeNull();
     expect(onSessionLost).toHaveBeenCalledTimes(1);
     expect(document.querySelector('form')).toBeNull();
     expect(calls.filter(c => /(^|\/)(me|auth)(\/|$|\?)/.test(c.path))).toEqual([]);
+  });
+
+  it.each([['mark-read', '읽음으로 표시'], ['archive', '보관']])('a %s 401 after the list loaded retires the subtree and clears the cache before the redirect', async (_name, label) => {
+    stubFetch((_path, method) => method === 'POST' ? json({ code: 'auth.session_invalid', message: 'no session' }, 401) : listOf(notification(ID_A)));
+    mount(switchableAdapter().adapter);
+    const row = await screen.findByTestId(`home-inbox-row-${ID_A}`);
+    expect(foQueryClient.getQueryCache().getAll().length).toBeGreaterThan(0);
+    fireEvent.click(within(row).getByRole('button', { name: label }));
+    await waitFor(() => expect(onSessionLost).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.queryByTestId(`home-inbox-row-${ID_A}`)).toBeNull());
+    expect(screen.queryByTestId('home-inbox-list')).toBeNull();
+    expect(foQueryClient.getQueryCache().getAll()).toEqual([]);
   });
 
   it('a failed mark-read raises a danger Kernel toast with the mapped message', async () => {

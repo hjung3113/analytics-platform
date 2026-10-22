@@ -100,25 +100,69 @@ export function InboxPanel(): React.ReactElement {
       return { ...current, [id]: nextCount };
     });
   };
+  const items = list.data?.pages.flatMap((page) => page.items) ?? [];
+  const sectionRef = React.useRef<HTMLElement>(null);
+  const emptyRef = React.useRef<HTMLDivElement>(null);
+  // Where the row that was just acted on sat; set by an action, consumed once focus has fallen to <body>.
+  const focusAfterAction = React.useRef<{ id: string; index: number } | null>(null);
+  const rememberFocus = (id: string): void => {
+    focusAfterAction.current = { id, index: items.findIndex((item) => item.id === id) };
+  };
+  const forgetFocus = (): void => {
+    focusAfterAction.current = null;
+  };
   const markRead = useMutation<NotificationDto, ApiError, string>({
     mutationFn: markNotificationRead,
     onMutate: (id) => updatePendingActionCount(id, 1),
     onSettled: (_data, _error, id) => updatePendingActionCount(id, -1),
     onSuccess: invalidateNotifications,
-    onError: reportMutationError,
+    onError: (error) => {
+      forgetFocus();
+      reportMutationError(error);
+    },
   });
   const archive = useMutation<NotificationDto, ApiError, string>({
     mutationFn: archiveNotification,
     onMutate: (id) => updatePendingActionCount(id, 1),
     onSettled: (_data, _error, id) => updatePendingActionCount(id, -1),
     onSuccess: invalidateNotifications,
-    onError: reportMutationError,
+    onError: (error) => {
+      forgetFocus();
+      reportMutationError(error);
+    },
   });
-  const items = list.data?.pages.flatMap((page) => page.items) ?? [];
+  // A row action removes the row (or its own button) from the DOM and focus drops to <body>: keep the keyboard
+  // user in the list — the same row's next action, else the next row, the previous one, or the empty state.
+  // Runs after every render until focus is placed (the same row's buttons stay disabled while its action settles).
+  React.useLayoutEffect(() => {
+    const pending = focusAfterAction.current;
+    if (pending === null) return;
+    if (document.activeElement !== null && document.activeElement !== document.body) {
+      focusAfterAction.current = null;
+      return;
+    }
+    const rows = Array.from(
+      sectionRef.current?.querySelectorAll<HTMLElement>('li[data-notification-id]') ?? [],
+    );
+    if (rows.length === 0) {
+      if (emptyRef.current === null) return;
+      emptyRef.current.focus();
+      focusAfterAction.current = null;
+      return;
+    }
+    const sameRow = rows.find((row) => row.getAttribute('data-notification-id') === pending.id);
+    const fallback = rows[Math.min(Math.max(pending.index, 0), rows.length - 1)];
+    const target = (sameRow ?? fallback)?.querySelector<HTMLElement>(
+      '[data-row-actions] button:not(:disabled)',
+    );
+    if (target === null || target === undefined) return;
+    target.focus();
+    focusAfterAction.current = null;
+  });
   const rowActionPending = (id: string): boolean => (pendingActionCounts[id] ?? 0) > 0;
 
   return (
-    <section className="space-y-3" data-testid="home-inbox-list">
+    <section ref={sectionRef} className="space-y-3" data-testid="home-inbox-list">
       <ToggleGroup
         type="single"
         value={filter}
@@ -155,10 +199,12 @@ export function InboxPanel(): React.ReactElement {
       ) : null}
 
       {!list.isPending && !list.isError && items.length === 0 ? (
-        <ListStateMessage
-          variant="empty"
-          title={filter === 'unread' ? HOME_INBOX_COPY.emptyUnread : HOME_INBOX_COPY.emptyAll}
-        />
+        <div ref={emptyRef} tabIndex={-1}>
+          <ListStateMessage
+            variant="empty"
+            title={filter === 'unread' ? HOME_INBOX_COPY.emptyUnread : HOME_INBOX_COPY.emptyAll}
+          />
+        </div>
       ) : null}
 
       {!list.isPending && !list.isError && items.length > 0 ? (
@@ -169,8 +215,14 @@ export function InboxPanel(): React.ReactElement {
                 key={notification.id}
                 notification={notification}
                 actionsDisabled={rowActionPending(notification.id)}
-                onMarkRead={() => markRead.mutate(notification.id)}
-                onArchive={() => archive.mutate(notification.id)}
+                onMarkRead={() => {
+                  rememberFocus(notification.id);
+                  markRead.mutate(notification.id);
+                }}
+                onArchive={() => {
+                  rememberFocus(notification.id);
+                  archive.mutate(notification.id);
+                }}
               />
             ))}
           </ul>
@@ -207,12 +259,16 @@ function NotificationRow({
   const host = useHostSeam();
   const target = notificationTarget(notification);
   const linkTarget = target !== null && host.canLink(target) ? target : null;
+  // The host has a target for this row but cannot open it: the body promises nothing; read/archive stay on their buttons.
+  const hostCannotLink = target !== null && linkTarget === null;
   const subjectTitle =
     notification.subject_ref?.visibility_state === 'allowed'
       ? subjectRefTitle(notification, notification.subject_ref.title)
       : null;
   const titleTooltipOnArchive =
-    subjectTitle !== null && linkTarget === null && notification.read_at !== null;
+    subjectTitle !== null &&
+    linkTarget === null &&
+    (notification.read_at !== null || hostCannotLink);
   const mainClassName = [
     'flex min-w-0 flex-1 items-center gap-3 pl-4 pr-2 text-left',
     notification.subject_ref ? 'py-1' : 'py-3',
@@ -254,7 +310,7 @@ function NotificationRow({
       <time className="shrink-0 text-xs text-text-muted" dateTime={notification.created_at}>
         {formatRelativeTime(notification.created_at)}
       </time>
-      {linkTarget === null && notification.read_at === null && (
+      {linkTarget === null && !hostCannotLink && notification.read_at === null && (
         <span className="sr-only"> — {HOME_INBOX_COPY.markAsRead}</span>
       )}
     </>
@@ -267,7 +323,7 @@ function NotificationRow({
       <HostLink to={linkTarget} className={interactiveClassName} onClick={onMainClick}>
         {mainContent}
       </HostLink>
-    ) : notification.read_at === null ? (
+    ) : notification.read_at === null && !hostCannotLink ? (
       <button type="button" className={interactiveClassName} onClick={onMainClick}>
         {mainContent}
       </button>
@@ -291,6 +347,7 @@ function NotificationRow({
     <li
       className="flex min-h-row-default items-center border-b border-border-subtle last:border-b-0"
       data-testid={`home-inbox-row-${notification.id}`}
+      data-notification-id={notification.id}
     >
       {subjectTitle === null || titleTooltipOnArchive ? (
         mainControl
@@ -300,7 +357,7 @@ function NotificationRow({
           <TooltipContent>{subjectTitle}</TooltipContent>
         </Tooltip>
       )}
-      <span className="flex shrink-0 items-center gap-1 px-2">
+      <span className="flex shrink-0 items-center gap-1 px-2" data-row-actions="">
         {notification.read_at === null && (
           <Button
             type="button"
