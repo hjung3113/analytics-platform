@@ -17,23 +17,14 @@ interface CatalogEntry {
 
 export const CATALOG: Partial<Record<ErrorCode, CatalogEntry>> = {
   // auth.*
-  'auth.session_invalid': {
-    tone: 'error',
-    message: '세션이 유효하지 않습니다. 다시 로그인해 주세요.',
-  },
+  'auth.session_invalid':  { tone: 'error', message: '세션이 유효하지 않습니다. 다시 로그인해 주세요.' },
   'auth.session_required': { tone: 'error', message: '로그인이 필요합니다.' },
-  'auth.session_expired': {
-    tone: 'warning',
-    message: '세션이 만료되었습니다. 다시 로그인해 주세요.',
-  },
+  'auth.session_expired':  { tone: 'warning', message: '세션이 만료되었습니다. 다시 로그인해 주세요.' },
   'auth.workspace_mismatch': { tone: 'error', message: '워크스페이스 접근 권한이 없습니다.' },
 
   // permission.*
-  'permission.denied': { tone: 'error', message: '권한이 없습니다.' },
-  'permission.scope_required': {
-    tone: 'error',
-    message: '해당 Managed System에 대한 권한이 없습니다.',
-  },
+  'permission.denied':         { tone: 'error', message: '권한이 없습니다.' },
+  'permission.scope_required': { tone: 'error', message: '해당 Managed System에 대한 권한이 없습니다.' },
 
   // rate_limited.*
   'rate_limited.actor': {
@@ -54,54 +45,24 @@ export const CATALOG: Partial<Record<ErrorCode, CatalogEntry>> = {
   },
 
   // validation.*
-  'validation.failed': { tone: 'error', message: '입력값이 올바르지 않습니다.' },
-  'validation.malformed_request': { tone: 'error', message: '요청 형식이 잘못되었습니다.' },
-  'validation.unknown_capability': { tone: 'error', message: '알 수 없는 권한입니다.' },
-  'validation.malformed_idempotency_key': {
-    tone: 'error',
-    message: 'Idempotency-Key가 잘못된 형식입니다. 새로고침 후 다시 시도해 주세요.',
-  },
-  'validation.sensitive_reason_required': {
-    tone: 'error',
-    message: '민감한 작업입니다. 사유를 입력해 주세요.',
-  },
-  'validation.immutable_field': { tone: 'error', message: '이 필드는 변경할 수 없습니다.' },
-  'validation.unexpected_field': {
-    tone: 'error',
-    message: '허용되지 않는 필드가 포함되어 있습니다.',
-  },
+  'validation.failed':                    { tone: 'error', message: '입력값이 올바르지 않습니다.' },
+  'validation.malformed_request':         { tone: 'error', message: '요청 형식이 잘못되었습니다.' },
+  'validation.unknown_capability':        { tone: 'error', message: '알 수 없는 권한입니다.' },
+  'validation.malformed_idempotency_key': { tone: 'error', message: 'Idempotency-Key가 잘못된 형식입니다. 새로고침 후 다시 시도해 주세요.' },
+  'validation.sensitive_reason_required': { tone: 'error', message: '민감한 작업입니다. 사유를 입력해 주세요.' },
+  'validation.immutable_field':           { tone: 'error', message: '이 필드는 변경할 수 없습니다.' },
+  'validation.unexpected_field':          { tone: 'error', message: '허용되지 않는 필드가 포함되어 있습니다.' },
 
   // conflict.*
-  'conflict.idempotency_key_reuse': {
-    tone: 'error',
-    message: '같은 요청 키로 다른 작업을 시도했습니다. 새로고침 후 다시 시도해 주세요.',
-  },
-  'conflict.capability_already_granted': {
-    tone: 'info',
-    message: '이미 권한이 부여되어 있습니다.',
-  },
-  'conflict.capability_already_denied': { tone: 'info', message: '이미 권한이 거부되어 있습니다.' },
-  'conflict.permission_request_duplicate': {
-    tone: 'info',
-    message: '동일한 권한 요청이 이미 진행 중입니다.',
-  },
-  'conflict.permission_not_active': {
-    tone: 'info',
-    message: '이미 처리되었거나 만료되어 더 이상 활성 상태가 아닙니다.',
-  },
-  'conflict.duplicate_slug': { tone: 'error', message: '이미 사용 중인 식별자입니다.' },
-  'conflict.parent_archived': {
-    tone: 'error',
-    message: '상위 항목이 보관되어 더 이상 변경할 수 없습니다.',
-  },
-  'conflict.record_archived': {
-    tone: 'error',
-    message: '이 항목은 보관되어 더 이상 변경할 수 없습니다.',
-  },
-  'conflict.saved_view_name_taken': {
-    tone: 'error',
-    message: '이미 사용 중인 저장된 보기 이름입니다.',
-  },
+  'conflict.idempotency_key_reuse':        { tone: 'error', message: '같은 요청 키로 다른 작업을 시도했습니다. 새로고침 후 다시 시도해 주세요.' },
+  'conflict.capability_already_granted':   { tone: 'info',  message: '이미 권한이 부여되어 있습니다.' },
+  'conflict.capability_already_denied':    { tone: 'info',  message: '이미 권한이 거부되어 있습니다.' },
+  'conflict.permission_request_duplicate': { tone: 'info',  message: '동일한 권한 요청이 이미 진행 중입니다.' },
+  'conflict.permission_not_active':        { tone: 'info',  message: '이미 처리되었거나 만료되어 더 이상 활성 상태가 아닙니다.' },
+  'conflict.duplicate_slug':               { tone: 'error', message: '이미 사용 중인 식별자입니다.' },
+  'conflict.parent_archived':              { tone: 'error', message: '상위 항목이 보관되어 더 이상 변경할 수 없습니다.' },
+  'conflict.record_archived':              { tone: 'error', message: '이 항목은 보관되어 더 이상 변경할 수 없습니다.' },
+  'conflict.saved_view_name_taken':        { tone: 'error', message: '이미 사용 중인 저장된 보기 이름입니다.' },
   'conflict.stale_write': {
     tone: 'warning',
     message: (detail) =>
@@ -109,22 +70,10 @@ export const CATALOG: Partial<Record<ErrorCode, CatalogEntry>> = {
         ? '요청 내용이 변경되었습니다. 최신 요청을 확인한 후 다시 시도해 주세요.'
         : '다른 사용자가 먼저 변경했습니다. 최신 내용을 불러올까요?',
   },
-  'conflict.triage_already_committed': {
-    tone: 'error',
-    message: '이미 Triage가 완료되어 본인이 직접 수정할 수 없습니다.',
-  },
-  'conflict.survey_not_open': {
-    tone: 'error',
-    message: '이 Survey는 현재 응답을 받을 수 없습니다.',
-  },
-  'conflict.survey_response_already_submitted': {
-    tone: 'info',
-    message: '이 Survey에는 이미 응답을 제출했습니다.',
-  },
-  'conflict.survey_results_unavailable': {
-    tone: 'error',
-    message: '이 Survey는 아직 결과를 볼 수 없습니다.',
-  },
+  'conflict.triage_already_committed':     { tone: 'error', message: '이미 Triage가 완료되어 본인이 직접 수정할 수 없습니다.' },
+  'conflict.survey_not_open':              { tone: 'error', message: '이 Survey는 현재 응답을 받을 수 없습니다.' },
+  'conflict.survey_response_already_submitted': { tone: 'info', message: '이 Survey에는 이미 응답을 제출했습니다.' },
+  'conflict.survey_results_unavailable':   { tone: 'error', message: '이 Survey는 아직 결과를 볼 수 없습니다.' },
 
   // not_found.*
   'not_found.record': { tone: 'error', message: '존재하지 않거나 접근할 수 없는 항목입니다.' },
@@ -133,57 +82,27 @@ export const CATALOG: Partial<Record<ErrorCode, CatalogEntry>> = {
   'internal.unexpected': { tone: 'error', message: GENERIC_ERROR_MESSAGE },
 
   // voc.*
-  'voc.severity_not_user_settable': {
-    tone: 'error',
-    message: '심각도는 Triage 단계에서만 설정할 수 있습니다.',
-  },
-  'voc.reporter_status_via_public_update_only': {
-    tone: 'error',
-    message: '공개 상태는 공개 업데이트를 통해서만 변경됩니다.',
-  },
+  'voc.severity_not_user_settable':             { tone: 'error', message: '심각도는 Triage 단계에서만 설정할 수 있습니다.' },
+  'voc.reporter_status_via_public_update_only': { tone: 'error', message: '공개 상태는 공개 업데이트를 통해서만 변경됩니다.' },
 
   // rich_content.*
-  'rich_content.disallowed_node': {
-    tone: 'error',
-    message: '허용되지 않는 콘텐츠 요소가 포함되어 있습니다.',
-  },
-  'rich_content.disallowed_attr': {
-    tone: 'error',
-    message: '허용되지 않는 콘텐츠 속성이 포함되어 있습니다.',
-  },
-  'rich_content.invalid_attr_value': {
-    tone: 'error',
-    message: '콘텐츠 속성 값이 올바르지 않습니다.',
-  },
-  'rich_content.missing_required_attr': {
-    tone: 'error',
-    message: '필수 콘텐츠 속성이 누락되었습니다.',
-  },
-  'rich_content.external_image_forbidden': {
-    tone: 'error',
-    message: '외부 이미지 링크는 허용되지 않습니다.',
-  },
+  'rich_content.disallowed_node':          { tone: 'error', message: '허용되지 않는 콘텐츠 요소가 포함되어 있습니다.' },
+  'rich_content.disallowed_attr':          { tone: 'error', message: '허용되지 않는 콘텐츠 속성이 포함되어 있습니다.' },
+  'rich_content.invalid_attr_value':       { tone: 'error', message: '콘텐츠 속성 값이 올바르지 않습니다.' },
+  'rich_content.missing_required_attr':    { tone: 'error', message: '필수 콘텐츠 속성이 누락되었습니다.' },
+  'rich_content.external_image_forbidden': { tone: 'error', message: '외부 이미지 링크는 허용되지 않습니다.' },
 
   // attachment.* (PLAN-22 C5 — pending_storage_slice row retired; BE may still emit it
   // transiently while C4 lands and it falls back to the generic envelope copy by design).
-  'attachment.too_large': { tone: 'error', message: '첨부 파일 크기가 허용 한도를 초과했습니다.' },
+  'attachment.too_large':        { tone: 'error', message: '첨부 파일 크기가 허용 한도를 초과했습니다.' },
   'attachment.unsupported_type': { tone: 'error', message: '허용되지 않는 파일 형식입니다.' },
 
   // storage.*
-  'storage.unavailable': {
-    tone: 'error',
-    message: '파일 저장소에 접근할 수 없습니다. 잠시 후 다시 시도해 주세요.',
-  },
+  'storage.unavailable': { tone: 'error', message: '파일 저장소에 접근할 수 없습니다. 잠시 후 다시 시도해 주세요.' },
 
   // reporter_facing_status.*
-  'reporter_facing_status.invalid_transition': {
-    tone: 'warning',
-    message: '허용되지 않는 상태 전환입니다.',
-  },
-  'reporter_facing_status.gate_blocked': {
-    tone: 'warning',
-    message: '권한 게이트로 상태를 변경할 수 없습니다.',
-  },
+  'reporter_facing_status.invalid_transition': { tone: 'warning', message: '허용되지 않는 상태 전환입니다.' },
+  'reporter_facing_status.gate_blocked':       { tone: 'warning', message: '권한 게이트로 상태를 변경할 수 없습니다.' },
 };
 
 export function errorMapper(
@@ -214,7 +133,10 @@ export function errorMapper(
   return { tone, message, action };
 }
 
-export function mapUnknownError(error: unknown, opts?: { onRetry?: () => void }): MappedError {
+export function mapUnknownError(
+  error: unknown,
+  opts?: { onRetry?: () => void },
+): MappedError {
   if (error instanceof ApiError) return errorMapper(error.envelope, opts);
   if (error instanceof UnauthenticatedError) {
     return errorMapper({ code: 'auth.session_required', message: '' }, opts);
