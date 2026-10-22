@@ -4,21 +4,12 @@ import { describe, expect, it } from 'vitest';
 
 import { AUDIT_ACTION_BY_EVENT_TYPE, PLATFORM_AUDIT_ACTIONS } from '../audit-actions.js';
 import { toAuditEvent } from '../audit-service.js';
+import { platformVocab } from './platform-vocab.js';
 
-// The platform's `AuditAction` (repo root, outside this workspace — read as text, not imported).
-const AUDIT_TS = new URL(
-  '../../../../../../../../packages/contracts/src/audit.ts',
-  import.meta.url,
-);
+// The platform's `AuditAction` vocabulary (@ap/contracts/vocab.json).
+const platformActions = (): string[] => platformVocab().auditActions;
 
-function platformActions(): string[] {
-  const text = readFileSync(AUDIT_TS, 'utf8');
-  const union = /export type AuditAction\s*=\s*([^;]+);/.exec(text)?.[1];
-  if (union === undefined) throw new Error('AuditAction not found in audit.ts');
-  return [...union.matchAll(/'([^']+)'/g)].map((m) => m[1] as string);
-}
-
-describe('audit action map vs packages/contracts AuditAction', () => {
+describe('audit action map vs @ap/contracts AuditAction', () => {
   it('uses only platform actions, and the action list is the whole platform vocabulary', () => {
     const vocabulary = platformActions();
     expect([...PLATFORM_AUDIT_ACTIONS].sort()).toEqual([...vocabulary].sort());

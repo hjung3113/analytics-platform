@@ -4,7 +4,9 @@
 
 import type { FastifyRequest } from 'fastify';
 
-export type Outcome = 'ok' | 'empty' | 'error' | 'forbidden' | 'too_large' | 'timeout';
+/** `OUTCOMES` of the root `packages/contracts/src/response.ts`; `outcome-vocabulary.test.ts` pins it. */
+export const OUTCOMES = ['ok', 'empty', 'error', 'forbidden', 'too_large', 'timeout'] as const;
+export type Outcome = (typeof OUTCOMES)[number];
 
 export interface ApiEnvelope<T> {
   outcome: Outcome;

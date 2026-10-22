@@ -16,6 +16,11 @@ import { fileURLToPath } from 'node:url';
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const repoRoot = resolve(packageRoot, '../..');
 const sourceManifestPath = join(packageRoot, 'package.json');
+/** The second entry point (#674): generated vocabulary JSON for servers outside the workspace, shipped as-is. */
+const VOCAB_ENTRY = './vocab.json';
+const VOCAB_SOURCE = './src/vocab.json';
+const VOCAB_DIST = './dist/vocab.json';
+const ENTRY_POINTS = ['.', VOCAB_ENTRY].join(',');
 let temporaryRoot;
 
 function oneLine(value) {
@@ -67,15 +72,15 @@ function validateSourceManifest() {
   if (manifest.exports?.['.'] !== './src/index.ts') {
     fail('workspace exports["."] must keep pointing to ./src/index.ts');
   }
-  if (Object.keys(manifest.exports ?? {}).join(',') !== '.') {
-    fail('the package must expose only the . entry point');
+  if (Object.keys(manifest.exports ?? {}).join(',') !== ENTRY_POINTS || manifest.exports[VOCAB_ENTRY] !== VOCAB_SOURCE) {
+    fail(`the package must expose only the . and ${VOCAB_ENTRY} entry points`);
   }
   if (!Array.isArray(manifest.files) || !manifest.files.includes('dist')) {
     fail('package.json files must include dist');
   }
   const publishExports = manifest.publishConfig?.exports;
-  if (!publishExports || Object.keys(publishExports).join(',') !== '.') {
-    fail('publishConfig.exports must expose only the . entry point');
+  if (!publishExports || Object.keys(publishExports).join(',') !== ENTRY_POINTS || publishExports[VOCAB_ENTRY] !== VOCAB_DIST) {
+    fail(`publishConfig.exports must expose only the . and ${VOCAB_ENTRY} entry points`);
   }
   validateExports(publishExports['.'], 'publishConfig');
 }
@@ -138,6 +143,8 @@ function writeConsumerFiles(consumerRoot) {
     "  if (typeof value !== 'function') throw new Error(`${name} is not a function`);",
     '}',
     "if (!Array.isArray(PERMISSIONS) || PERMISSIONS.length === 0) throw new Error('PERMISSIONS is not a non-empty value');",
+    "const { default: vocab } = await import('@ap/contracts/vocab.json', { with: { type: 'json' } });",
+    "if (JSON.stringify(vocab.permissions) !== JSON.stringify(PERMISSIONS)) throw new Error('vocab.json permissions differ from PERMISSIONS');",
     '',
   ].join('\n'));
   for (const [name, module, moduleResolution] of [
@@ -184,9 +191,10 @@ function main() {
   const packedManifestPath = join(extractedPackage, 'package.json');
   if (!existsSync(packedManifestPath)) fail('packed archive has no package.json');
   const packedManifest = readJson(packedManifestPath);
-  if (Object.keys(packedManifest.exports ?? {}).join(',') !== '.') {
-    fail('packed package must expose only the . entry point');
+  if (Object.keys(packedManifest.exports ?? {}).join(',') !== ENTRY_POINTS || packedManifest.exports[VOCAB_ENTRY] !== VOCAB_DIST) {
+    fail(`packed package must expose only the . and ${VOCAB_ENTRY} entry points`);
   }
+  if (!archiveFiles.has(VOCAB_DIST.slice('./'.length))) fail(`packed archive is missing ${VOCAB_DIST}`);
   const packedExports = packedManifest.exports['.'];
   validateExports(packedExports, 'packed package');
   for (const target of Object.values(packedExports)) {

@@ -1457,3 +1457,97 @@ it.each(['lineNames', 'prcGroups'] as const)('checks optional global %s evidence
     expect(await check.run()).toBeTruthy();
   }
 });
+
+describe('declared gaps: implemented ports, site grants, siteless destinations (#674)', () => {
+  // Earlier suites assign `h.ports.condition` on the shared PORTS object; these runs need no Condition sample.
+  const fresh = () => ({ ...harness(), ports: { ...PORTS, condition: undefined } });
+  const ALL_METHODS = Object.keys(referenceAdapter({ permissions: new Set(), console: false })) as (keyof PlatformAdapter)[];
+
+  it('tags every planned check with the port methods it calls, all of them adapter members', () => {
+    const h = { ...actionHarness(), cases: [{ spec, params: { page: 0 } }], ports: { ...PORTS, options: optionSamples } };
+    for (const check of planServerConformance(h)) {
+      expect(check.uses?.length, check.id).toBeGreaterThan(0);
+      for (const method of check.uses!) expect(ALL_METHODS, check.id).toContain(method);
+    }
+  });
+
+  // The declared tag is checked against what the check really calls: each run check, alone, through a recording
+  // adapter. A check calling a port it does not declare would run (and fail or pass) on a server lacking that port.
+  it('every run check calls only the port methods it declares', async () => {
+    const base = { ...actionHarness(), cases: [{ spec, params: { page: 0 } }], ports: { ...PORTS, options: optionSamples, condition: { endpoint: spec.id, axisA: { id: 'alpha', values: ['a1', 'a2'] as const }, axisB: { id: 'beta', value: 'b1' }, nonHistoryAxisId: 'alpha' } } };
+    const called = new Set<string>();
+    const recording = new Proxy(base.adapter, {
+      get(target, key, receiver) {
+        const value = Reflect.get(target, key, receiver);
+        if (typeof value !== 'function') return value;
+        return (...args: unknown[]) => {
+          called.add(String(key));
+          return (value as (...a: unknown[]) => unknown).apply(target, args);
+        };
+      },
+    });
+    const h = { ...base, adapter: recording };
+    const undeclared: string[] = [];
+    for (const check of planServerConformance(h)) {
+      if (check.mode === 'skipped') continue;
+      called.clear();
+      const run = check.mode === 'granted' ? () => h.asGranted(check.run) : check.mode === 'console' ? () => h.asConsole(check.run) : check.run;
+      await run().catch(() => null);
+      const extra = [...called].filter(method => !check.uses!.includes(method as keyof PlatformAdapter));
+      if (extra.length > 0) undeclared.push(`${check.id}: ${extra.join(', ')}`);
+    }
+    expect(undeclared).toEqual([]);
+  });
+
+
+
+  it('skips, never runs, every check that calls a method outside implemented', async () => {
+    const h = fresh();
+    const implemented = ALL_METHODS.filter(m => !['menuQuery', 'menuAction', 'saveAnnotation', 'listAnnotations', 'deleteAnnotation', 'validateScope'].includes(m));
+    const boom = async () => { throw new Error('not implemented'); };
+    const adapter = { ...h.adapter, menuQuery: boom, saveAnnotation: boom, listAnnotations: boom, deleteAnnotation: boom, validateScope: boom } as PlatformAdapter;
+    const results = await runServerConformance({ ...h, adapter, implemented });
+    expect(results.filter(r => r.status === 'failed')).toEqual([]);
+    const skipped = results.filter(r => r.status === 'skipped').map(r => r.id);
+    expect(skipped).toContain('unknown endpoint → error — not implemented: menuQuery');
+    expect(skipped).toContain('fixture.list · without analytics:view → forbidden — not implemented: menuQuery');
+    expect(skipped).toContain('port · deleteAnnotation by the author removes the note — not implemented: listAnnotations, saveAnnotation, deleteAnnotation');
+    expect(skipped).toContain('port · evaluateSelection lists only equipment in granted rooms — not implemented: validateScope');
+    // A check already skipped for want of a sample still names the port gap.
+    expect(skipped).toContain('actions: no sample — not implemented: menuAction');
+    expect(results.find(r => r.id === 'port · getEntity(sample) → ok with the row')?.status).toBe('passed');
+  });
+
+  it('skips the site checks on a server with no site grants, and only those', async () => {
+    const h = fresh();
+    const session = { ...h.adapter.session(), scopes: [] };
+    const results = await runServerConformance({ ...h, adapter: { ...h.adapter, session: () => session }, siteGrants: false });
+    expect(results.filter(r => r.status === 'failed')).toEqual([]);
+    const skipped = results.filter(r => r.status === 'skipped').map(r => r.id);
+    expect(skipped).toContain('port · session lists the granted sites and not the foreign one — no site grants');
+    expect(skipped).toContain('fixture.list · a site without a grant → forbidden — no site grants');
+    expect(skipped).toContain('port · listAnnotations at a site without a grant → forbidden — no site grants');
+    expect(results.find(r => r.id === 'port · recordUsage accepts a valid entry and dwell')?.status).toBe('passed');
+  });
+
+  // A Scope-requiring endpoint or action sends `context.scopeId` in every request: with no site grants that id is a
+  // placeholder, so none of its checks may run — the granted read and the oversize read included.
+  it('skips every check of a Scope-requiring endpoint or action on a server with no site grants', () => {
+    const h = { ...actionHarness(), ports: { ...PORTS, condition: undefined }, cases: [{ spec, params: { page: 0 } }] };
+    const planned = planServerConformance({ ...h, siteGrants: false });
+    const scoped = planned.filter(c => c.id.startsWith(`${spec.id} · `) || c.id.startsWith(`${actionSpec.id} · `));
+    expect(scoped.length).toBeGreaterThan(0);
+    for (const check of scoped) expect({ id: check.id, mode: check.mode }).toEqual({ id: check.id, mode: 'skipped' });
+    expect(planned.map(c => c.id)).toContain(`${spec.id} · granted request succeeds with exactly the declared assessment kinds — no site grants`);
+  });
+
+  it('skips the site and null-Scope entity checks for a siteless destination sample', () => {
+    const h = fresh();
+    const ports = { ...PORTS, entity: { ref: { type: 'metric', id: 'cycle_time', scopeId: null }, permission: 'metrics:view' as Permission } };
+    const skipped = planServerConformance({ ...h, ports }).filter(c => c.mode === 'skipped').map(c => c.id);
+    for (const method of ['getEntity', 'entityAudit']) {
+      expect(skipped).toContain(`port · ${method} at a site without a grant → forbidden — siteless destination type`);
+      expect(skipped).toContain(`port · ${method} with a null Scope → forbidden — siteless destination type`);
+    }
+  });
+});

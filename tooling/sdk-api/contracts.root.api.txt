@@ -1,3 +1,4 @@
+AUDIT_ACTIONS | const | const AUDIT_ACTIONS: readonly [ "create", "update", "retire", "sync", "delete" ]
 AccessDirectoryPage | type | type AccessDirectoryPage = { items: readonly @ap/contracts#AccessPrincipal[]; total: number; }
 AccessDirectoryQuery | type | type AccessDirectoryQuery = { page?: number; pageSize?: number; permission?: @ap/contracts#Permission; role?: string; sort?: { desc: boolean; field: @ap/contracts#AccessSortField; }; }
 AccessPrincipal | type | type AccessPrincipal = { id: string; name: string; permissions: readonly @ap/contracts#Permission[]; role: string; sites: readonly @ap/contracts#SiteGrant[]; title: @ap/contracts#Text; }
@@ -13,7 +14,7 @@ AnyEndpointSpec | type | type AnyEndpointSpec = @ap/contracts#EndpointSpec<any, 
 ApiResponse | type | type ApiResponse<T> = { assessments: @ap/contracts#Assessment[]; correlationId: string; data: T | null; message?: string; outcome: @ap/contracts#Outcome; trust: @ap/contracts#Trust | null; }
 Assessment | type | type Assessment = { detail?: string; explainsEmpty?: boolean; kind: @ap/contracts#AssessmentKind; observedAt?: string; reason?: 'check_failed' | 'source_unavailable'; state: 'clear' | 'confirmed' | 'unknown'; statusSource?: string; }
 AssessmentKind | type | type AssessmentKind = 'collection' | 'coverage' | 'processing_delay' | 'respondent_history' | 'time_domain'
-AuditAction | type | type AuditAction = 'create' | 'delete' | 'retire' | 'sync' | 'update'
+AuditAction | type | type AuditAction = (typeof @ap/contracts#AUDIT_ACTIONS)[number]
 AuditEvent | type | type AuditEvent = { action: @ap/contracts#AuditAction; actor: string; at: string; changes?: Record<string, [ null | string, null | string ]>; id: string; reason?: string; source: @ap/contracts#AuditSource; target: @ap/contracts#AuditTarget; }
 AuditSortField | type | type AuditSortField = 'action' | 'actor' | 'at' | 'source' | 'targetType'
 AuditSource | type | type AuditSource = 'system' | 'user'
@@ -62,7 +63,8 @@ ModuleScreenMeta | type | type ModuleScreenMeta = Omit<@ap/contracts#MenuMeta, '
 ModuleScreenProps | type | type ModuleScreenProps = { host: @ap/contracts#ModuleHost; params: Readonly<Record<string, string>>; }
 ModuleStatus | type | type ModuleStatus = 'auth_required' | 'identity_mismatch' | 'ready' | 'unavailable'
 ModuleTarget | type | type ModuleTarget = { menuId: string; page?: Record<string, string>; params?: Record<string, string>; returnTo?: boolean; } | { page?: Record<string, string>; params?: Record<string, string>; returnTo?: boolean; screen: string; }
-Outcome | type | type Outcome = 'empty' | 'error' | 'forbidden' | 'ok' | 'timeout' | 'too_large'
+OUTCOMES | const | const OUTCOMES: readonly [ "ok", "empty", "error", "forbidden", "too_large", "timeout" ]
+Outcome | type | type Outcome = (typeof @ap/contracts#OUTCOMES)[number]
 PERMISSIONS | const | const PERMISSIONS: readonly [ "platform:view", "equipment:view", "master:view", "analytics:view", "metrics:view", "notice:view", "voc:view", "console:access", "feedbackops:access" ]
 PLATFORM_RETURN_MAX | const | const PLATFORM_RETURN_MAX: 2048
 PageQuery | type | type PageQuery = { page: number; pageSize: number; sorting: @ap/contracts#PageSort[]; }
@@ -80,6 +82,7 @@ PublishedMetric | type | type PublishedMetric = { metricId: string; publishedVer
 QueryHistoryEntry | type | type QueryHistoryEntry = { count: number; id: string; lastAppliedAt: number; query: string; schemaVersion: 1; }
 QueryHistoryKey | type | type QueryHistoryKey = { menuId: string; scopeId: null | string; userId: string; }
 QueryHistoryStore | type | type QueryHistoryStore = { clear(key: @ap/contracts#QueryHistoryKey): Promise<void>; list(key: @ap/contracts#QueryHistoryKey): Promise<readonly @ap/contracts#QueryHistoryEntry[]>; record(key: @ap/contracts#QueryHistoryKey, entry: @ap/contracts#QueryHistoryEntry): Promise<void>; remove(key: @ap/contracts#QueryHistoryKey, id: string): Promise<void>; }
+SPACE_IDS | const | const SPACE_IDS: readonly [ "analytics", "metrics", "clas", "operations", "log-dev", "improvement" ]
 ScopeCheck | type | type ScopeCheck = { grantedRooms: string[]; status: 'forbidden' | 'unknown_scope' | 'valid'; }
 ScopeOption | type | type ScopeOption = { grantedRooms: number; id: string; label: string; totalRooms: number; }
 SelectionEvaluation | type | type SelectionEvaluation = { inCondition: @ap/contracts#EquipmentOption[]; outOfCondition: string[]; }
@@ -91,16 +94,17 @@ Session | type | type Session = { scopes: readonly @ap/contracts#ScopeOption[]; 
 SessionUser | type | type SessionUser = { id: string; name: string; permissions: readonly (@ap/contracts#ModuleScopedId | @ap/contracts#Permission)[]; title: @ap/contracts#Text; }
 SiteGrant | type | type SiteGrant = { grantedRooms: readonly string[]; id: string; label: string; totalRooms: number; }
 SpaceDef | type | type SpaceDef = { description: @ap/contracts#Text; homeMenuId: string; id: @ap/contracts#SpaceId; label: @ap/contracts#Text; permission?: @ap/contracts#Permission; subtitle?: @ap/contracts#Text; }
-SpaceId | type | type SpaceId = 'analytics' | 'clas' | 'improvement' | 'log-dev' | 'metrics' | 'operations'
+SpaceId | type | type SpaceId = (typeof @ap/contracts#SPACE_IDS)[number]
 Text | type | type Text = { en: string; ko: string; }
 Trust | type | type Trust = { coverage: null | number; dataThrough: null | string; metricVersion?: string; provisional: boolean; source: string; updatedAt: string; }
+USAGE_VIAS | const | const USAGE_VIAS: readonly [ "sidebar", "switcher", "palette", "board", "return", "crossLink", "drill", "history", "direct", "link" ]
 UsageEvent | type | type UsageEvent = { at: number; dwellMs?: number; enteredAt?: number; fromMenuId?: null | string; menuId: string; name: @ap/contracts#UsageEventName; path: string; sessionId: string; source?: @ap/contracts#UsageSource; spaceId: @ap/contracts#SpaceId | null; stayId?: string; via?: @ap/contracts#UsageVia; }
 UsageEventName | type | type UsageEventName = 'dwell' | 'entry'
 UsageMenuSummary | type | type UsageMenuSummary = { distinctUsers: number; lastUsedAt: number; menuId: string; visits: number; }
 UsageRange | type | type UsageRange = { from: number; to: number; } | { preset: 'all'; }
 UsageSource | type | type UsageSource = 'board' | 'main'
 UsageSummary | type | type UsageSummary = { menus: @ap/contracts#UsageMenuSummary[]; preset: 'all' | 'range'; }
-UsageVia | type | type UsageVia = 'board' | 'crossLink' | 'direct' | 'drill' | 'history' | 'link' | 'palette' | 'return' | 'sidebar' | 'switcher'
+UsageVia | type | type UsageVia = (typeof @ap/contracts#USAGE_VIAS)[number]
 bucketStart | function | function bucketStart(instant: string, grain: @ap/contracts#Grain): string
 buildFeedbackOpsLink | function | function buildFeedbackOpsLink(input: { origin: string; target: @ap/contracts#FeedbackOpsTarget; }): string
 buildPlatformInboundLink | function | function buildPlatformInboundLink(input: { context: @ap/contracts#GlobalContext; hop: @ap/contracts#PlatformHop; origin: string; returnTo?: string; }): string

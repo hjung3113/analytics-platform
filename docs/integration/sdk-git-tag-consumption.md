@@ -28,6 +28,7 @@
 | 버전 | 패키지 | 바뀐 공개 API | 이전 방법 |
 | --- | --- | --- | --- |
 | 다음 릴리스 | components | 호스트 전용 진입점 `@ap/components/dock` 추가(`DockLayout`·`DockNode`·`normalizeDockTree`·`isValidDockTree`와 순수 명령 `movePanel` 등, #575, ADR-0067). 새 런타임 의존 `dockview-react` 8.6.1(정확한 고정)은 엔진 청크에서만 불리고 공개 타입·JSON에는 나오지 않는다. 메뉴·모듈 패키지는 import할 수 없다 | 없음 — 추가만 |
+| 다음 릴리스 | contracts | 어휘 런타임 목록 `SPACE_IDS`·`USAGE_VIAS`·`AUDIT_ACTIONS`·`OUTCOMES` 추가, `SpaceId`·`UsageVia`·`AuditAction`·`Outcome`은 같은 멤버를 그 목록에서 도출하도록 바뀜(타입 동일). 새 진입점 `@ap/contracts/vocab.json`(생성 산출물 — `PERMISSIONS`와 위 네 목록, #674) | 없음 — 추가만, 타입 멤버는 그대로 |
 | 다음 릴리스 | contracts | `GroupId`에 `myActivity` 추가(#594) — 추가형 | 없음 — 소비자가 `GROUP_ID_SET`을 자체 정의했다면 새 멤버를 더한다. |
 | 다음 릴리스 | kernel | `dict`에 `platformMenu`·`platformMenuShared`·`switcherSystemsHeading`·`platformName` 추가, `switcherTitle`·`switcherCurrent` 문구 변경, `platformHome`은 `@deprecated`(셸이 더 쓰지 않음, 다음 릴리스 뒤 제거 예고 — #650, ADR-0070) | 없음 — `t('platformHome')`을 쓰는 소비자는 `t('home')`이나 메뉴 라벨로 옮긴다 |
 | 다음 릴리스 | components | `PanelWorkspace`·`PanelWorkspaceLayout`(루트, **Candidate**), 호스트 전용 `WorkspaceCommandsHost`·`useWorkspaceCommands`·`dockLayoutMenu`(`@ap/components/dock`), `DockPanel`의 선택 `minWidth`·`minHeight`, `PlatformPage`의 선택 `layout`('flow' 기본 / 'fill'), `ChartSize`에 `'fill'` 추가(#575 3a, ADR-0067) | 없음 — 추가만 |

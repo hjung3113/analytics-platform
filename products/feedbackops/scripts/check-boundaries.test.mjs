@@ -308,6 +308,99 @@ runCase(
   ['apps/backend/src/modules/tasks/comma-join.ts:1', 'apps/backend/src/modules/tasks/using.ts:1'],
 );
 
+runCase(
+  'rule 11 allows @ap/ui in source and other @ap/* packages in tests only',
+  {
+    ...zero,
+    [join('packages', 'ui', 'src', 'index.ts')]:
+      "export { Button } from '@ap/ui';\nimport '@ap/ui/styles.css';\n",
+    [join(MODULES, 'platform-port', '__tests__', 'conformance.test.ts')]: [
+      "import { describeServerConformance } from '@ap/server-conformance';",
+      "import { bootstrapHttpAdapter } from '@ap/http-adapter';",
+    ].join('\n'),
+    [join('apps', 'backend', 'src', 'test-support', 'vocab.ts')]:
+      "import type { Permission } from '@ap/contracts';\n",
+    [join('apps', 'frontend', 'tests', 'visual', 'probe.ts')]:
+      "import { PERMISSIONS } from '@ap/contracts';\n",
+  },
+  true,
+  'boundaries: OK',
+);
+
+runCase(
+  'rule 11 rejects a non-ui platform package imported from source',
+  {
+    ...zero,
+    [join(MODULES, 'platform-port', 'permissions.ts')]:
+      "import { PERMISSIONS } from '@ap/contracts';\n",
+    [join('apps', 'frontend', 'src', 'lib', 'shell.ts')]: "export * from '@ap/shell';\n",
+    [join('packages', 'shared', 'src', 'kernel.ts')]: "const k = await import('@ap/kernel');\n",
+  },
+  false,
+  [
+    'apps/backend/src/modules/platform-port/permissions.ts:1',
+    'apps/frontend/src/lib/shell.ts:1',
+    'packages/shared/src/kernel.ts:1',
+  ],
+);
+
+runCase(
+  'rule 11 allows @ap/ui as a runtime dependency and other @ap/* packages as devDependencies',
+  {
+    ...zero,
+    [join('apps', 'frontend', 'package.json')]: JSON.stringify({
+      dependencies: { '@ap/ui': 'git+https://example.test/sdk.git#sdk-v0.5.0', react: '19.0.0' },
+    }),
+    [join('apps', 'backend', 'package.json')]: JSON.stringify({
+      dependencies: { fastify: '5.2.0' },
+      devDependencies: {
+        '@ap/contracts': 'link:../../../../packages/contracts',
+        '@ap/http-adapter': 'link:../../../../packages/http-adapter',
+        '@ap/server-conformance': 'link:../../../../packages/server-conformance',
+      },
+    }),
+    [join('packages', 'shared', 'package.json')]: JSON.stringify({ name: '@fops/shared' }),
+  },
+  true,
+  'boundaries: OK',
+);
+
+runCase(
+  'rule 11 rejects a non-ui platform package under runtime dependencies',
+  {
+    ...zero,
+    [join('apps', 'backend', 'package.json')]: JSON.stringify({
+      dependencies: { '@ap/contracts': 'link:../../../../packages/contracts' },
+    }),
+    [join('packages', 'shared', 'package.json')]: JSON.stringify({
+      dependencies: { '@ap/ui': '0.5.0', '@ap/kernel': '0.5.0' },
+    }),
+  },
+  false,
+  [
+    'apps/backend/package.json: dependencies may list only @ap/ui from the platform; @ap/contracts',
+    'packages/shared/package.json: dependencies may list only @ap/ui from the platform; @ap/kernel',
+  ],
+);
+
+runCase(
+  'rule 11 also reads the FeedbackOps root manifest and peer/optional dependencies',
+  {
+    ...zero,
+    'package.json': JSON.stringify({ dependencies: { '@ap/kernel': 'workspace:*' } }),
+    [join('packages', 'ui', 'package.json')]: JSON.stringify({
+      peerDependencies: { react: '^19.0.0', '@ap/contracts': 'workspace:*' },
+      optionalDependencies: { '@ap/http-adapter': 'workspace:*' },
+    }),
+  },
+  false,
+  [
+    'package.json: dependencies may list only @ap/ui from the platform; @ap/kernel',
+    'packages/ui/package.json: peerDependencies may list only @ap/ui from the platform; @ap/contracts',
+    'packages/ui/package.json: optionalDependencies may list only @ap/ui from the platform; @ap/http-adapter',
+  ],
+);
+
 if (failures > 0) {
   console.error(`\n${failures} test case(s) failed`);
   process.exit(1);

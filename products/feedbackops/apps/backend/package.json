@@ -11,7 +11,7 @@
     "test": "vitest run",
     "test:integration": "bash ../../scripts/test-integration.sh",
     "test:watch": "vitest",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.platform-tests.json",
     "db:generate": "node scripts/bundle-schema.mjs && drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:check": "drizzle-kit check",
@@ -36,6 +36,9 @@
     "zod": "3.25.67"
   },
   "devDependencies": {
+    "@ap/contracts": "workspace:*",
+    "@ap/http-adapter": "workspace:*",
+    "@ap/server-conformance": "workspace:*",
     "@types/node": "22.10.2",
     "@types/pg": "8.11.10",
     "aws-sdk-client-mock": "^4.1.0",
