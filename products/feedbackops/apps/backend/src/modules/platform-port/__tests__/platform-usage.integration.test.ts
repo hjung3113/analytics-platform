@@ -136,10 +136,12 @@ describe.skipIf(!runIntegration)(
         )
       ).rows;
     const errorRows = async () =>
+      // fops_app has INSERT only on client_errors (no read API), so the test reads as fops_migrate.
       (
-        await dbHandle.pool.query('select * from platform.client_errors where menu_id like $1', [
-          `${PREFIX}%`,
-        ])
+        await migrateHandle.pool.query(
+          'select * from platform.client_errors where menu_id like $1',
+          [`${PREFIX}%`],
+        )
       ).rows;
     const clearMine = async () => {
       await migrateHandle.pool.query('delete from platform.usage_events where menu_id like $1', [

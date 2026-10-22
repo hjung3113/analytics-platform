@@ -20,14 +20,15 @@ function digest(value: string): Buffer {
  * body is sent directly rather than through `sendError`.
  */
 export function requireCsrf(sessionService: SessionService): preHandlerHookHandler {
+  // An async preHandler that sends a reply must return it: otherwise Fastify still runs the route
+  // handler, and a 403 response would hide a write that already happened (#622).
   return async function requireCsrfHandler(
     req: FastifyRequest,
     reply: FastifyReply,
-  ): Promise<void> {
+  ): Promise<FastifyReply | undefined> {
     const cookie = req.cookies?.[SESSION_COOKIE_NAME];
     if (!cookie) {
-      sendError(reply, 'auth.session_invalid', 'session cookie missing');
-      return;
+      return sendError(reply, 'auth.session_invalid', 'session cookie missing');
     }
     const header = req.headers[CSRF_HEADER_NAME];
     const expected = await sessionService.getCsrfToken(cookie);
@@ -37,7 +38,8 @@ export function requireCsrf(sessionService: SessionService): preHandlerHookHandl
       expected !== null &&
       timingSafeEqual(digest(header), digest(expected));
     if (!ok) {
-      reply.code(403).send({ code: 'csrf.invalid', message: 'csrf token mismatch' });
+      return reply.code(403).send({ code: 'csrf.invalid', message: 'csrf token mismatch' });
     }
+    return undefined;
   };
 }
