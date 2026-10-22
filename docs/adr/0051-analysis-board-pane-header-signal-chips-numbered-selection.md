@@ -2,6 +2,8 @@
 
 상태: **Decided (2026-10-19, 결정자: 코디네이터 — 사용자가 시안 확인을 Opus UX 리뷰에 맡기고 그 판정으로 정하라고 함. 되돌릴 수 있음)** — 구현은 [#421](https://github.com/hjung3113/analytics-platform/issues/421). 화면 사양은 [16 §4](../16_analysis_board.md#4-화면-구조-decided).
 
+dock 모드([ADR-0067](0067-dockview-layout-engine-board-v2.md))에서 번호·메뉴명은 탭에 있고 칩 줄은 칸 안 머리에 둔다.
+
 [16](../16_analysis_board.md)의 1차 동작은 정해졌지만 칸 머리 모양은 정하지 않았다. 사례 조사([분석 보드 화면 패턴](../research/2026-10-19-analysis-board-patterns.md)) 뒤 세 안을 아티팩트 시안으로 만들고(사용자 요청으로 실제 앱 `?variant=` 대신), UX 리뷰가 1440×900 2×2, 1280×800 + 상세 440px, 좁은 화면에서 비교했다.
 
 ## 결정

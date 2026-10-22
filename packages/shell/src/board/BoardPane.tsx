@@ -11,6 +11,9 @@ import { boardText } from './text';
 
 export type BoardPaneProps = {
   paneId: string;
+  /** Dock renderer: the pane fills its dock panel (the panel owns visibility and the frame), the head leaves the number and menu name to the tab, and an empty pane may offer `칸 닫기`. */
+  dock?: boolean;
+  onClosePane?: () => void;
   placement?: { left: number; top: number; width: number | string; height: number };
   hidden?: boolean;
   collapsed?: boolean;
@@ -50,7 +53,7 @@ export type BoardPaneProps = {
  * `tabIndex=-1`). Focus inside the pane, a press on it and any header control select it first. `바꾸기` chains the picker and a confirm
  * dialog off the `⋯` menu; focus ends on the `⋯` trigger (or the pane root when the trigger is gone).
  */
-export function BoardPane({ placement, hidden = false, collapsed = false, maximized = false, sizing = false, canMaximize = false, collapseOff = null, onCollapse, onMaximize, paneId, number, screen, selected, Outlet, signal, hasPrevious, applyAllOff, duplicateOff, onSelect, onChange, onLeave, onInsert, onClear, onBack, onApplyAll, onOpenFull, onReplace, onDuplicate, onEditContext }: BoardPaneProps) {
+export function BoardPane({ dock = false, onClosePane, placement, hidden = false, collapsed = false, maximized = false, sizing = false, canMaximize = false, collapseOff = null, onCollapse, onMaximize, paneId, number, screen, selected, Outlet, signal, hasPrevious, applyAllOff, duplicateOff, onSelect, onChange, onLeave, onInsert, onClear, onBack, onApplyAll, onOpenFull, onReplace, onDuplicate, onEditContext }: BoardPaneProps) {
   const { registry } = usePlatform();
   const { tx, lang } = useI18n();
   const text = boardText(lang);
@@ -79,10 +82,11 @@ export function BoardPane({ placement, hidden = false, collapsed = false, maximi
 
   return <TransientOverlayScope active={!hidden}><div ref={root} id={`board-pane-${paneId}`} data-pane-index={number - 1} data-maximized={maximized} style={placement ? { '--pane-left': `${placement.left}px`, '--pane-top': `${placement.top}px`, '--pane-width': typeof placement.width === 'number' ? `${placement.width}px` : placement.width, '--pane-height': `${placement.height}px` } as CSSProperties : undefined} hidden={hidden} inert={hidden || undefined} aria-hidden={hidden || undefined} role="group" aria-label={text.pane(number)} data-pane-id={paneId} tabIndex={-1} data-selected={selected}
     onFocus={onSelect} onPointerDownCapture={onSelect}
-    className={cn('relative flex min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border bg-surface-card outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring',
-      selected ? 'border-border-selected' : 'border-border-subtle', placement && 'absolute left-(--pane-left) top-(--pane-top) h-(--pane-height) w-(--pane-width)', hidden && 'hidden')}>
+    className={cn('relative flex min-h-0 min-w-0 flex-col overflow-hidden bg-surface-card outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring',
+      dock ? 'h-full w-full' : cn('rounded-lg border', selected ? 'border-border-selected' : 'border-border-subtle'),
+      placement && 'absolute left-(--pane-left) top-(--pane-top) h-(--pane-height) w-(--pane-width)', hidden && 'hidden')}>
     {selected && <span aria-hidden data-pane-selected-bar className="absolute inset-y-0 left-0 z-10 w-0.5 bg-accent-primary" />}
-    <PaneHeader sizing={sizing} collapsed={collapsed} maximized={maximized} canMaximize={canMaximize} collapseOff={collapseOff}
+    <PaneHeader variant={dock ? 'dock' : 'grid'} onClosePane={onClosePane} sizing={sizing} collapsed={collapsed} maximized={maximized} canMaximize={canMaximize} collapseOff={collapseOff}
       onCollapse={() => { onSelect(); onCollapse?.(); }} onMaximize={() => { onSelect(); onMaximize?.(); }} presentationHidden={hidden}
       number={number} selected={selected} systemLabel={space ? tx(space.label) : null}
       menuName={menu ? menuName : screen ? <span className="t-mono">{screen.menuId}</span> : null}

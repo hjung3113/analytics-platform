@@ -59,6 +59,8 @@ function mount(url = '/board?sheet=a', permissions: Session['user']['permissions
 const openMenu = (trigger: HTMLElement) => { act(() => { trigger.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0 })); }); };
 const settle = () => act(() => new Promise(resolve => setTimeout(resolve, 30)));
 const paneGroup = (n: number) => screen.getByRole('group', { name: `칸 ${n}` });
+/** The Kernel pane id the mounted board gave pane `n`: `<sheet>.<slot id>`; a migrated V1 seed mints random slot ids, so tests read it instead of spelling it. */
+const paneIdOf = (n: number) => document.querySelector(`[data-pane-index="${n - 1}"]`)!.getAttribute('data-pane-id')!;
 
 beforeEach(() => {
   for (const name of ['localStorage', 'sessionStorage'] as const) {
@@ -211,7 +213,9 @@ describe('panes', () => {
     await settle();
     expect(within(paneGroup(1)).getByTestId('from')).toHaveTextContent('2026-09-01T00:00:00');
     expect(within(paneGroup(2)).getByTestId('from')).toHaveTextContent('2026-08-01T00:00:00');
-    expect(within(paneGroup(2)).getByTestId('pane')).toHaveTextContent('a.1');
+    expect(within(paneGroup(2)).getByTestId('pane')).toHaveTextContent(`${paneIdOf(2)}`);
+    expect(paneIdOf(2)).toMatch(/^a\.p\w+$/);
+    expect(paneIdOf(2)).not.toBe(paneIdOf(1));
   });
 
   it('editing the selected pane through the Context bar changes only that pane\'s stored screen', async () => {
@@ -240,7 +244,7 @@ describe('panes', () => {
     expect(within(paneGroup(2)).getByRole('button', { name: '칸 2 선택' })).toHaveAttribute('aria-pressed', 'true');
     expect(paneGroup(2).querySelector('[data-pane-selected-bar]')).not.toBeNull();
     expect(paneGroup(1).querySelector('[data-pane-selected-bar]')).toBeNull();
-    expect(paneGroup(1)).toHaveAttribute('data-pane-id', 'a.0');
+    expect(paneGroup(1)).toHaveAttribute('data-pane-id', expect.stringMatching(/^a\.p\w+$/));
     expect(paneGroup(1)).toHaveAttribute('tabindex', '-1');
   });
 
@@ -715,10 +719,11 @@ describe('pane sizing and retained presentation', () => {
     expect(screen.getByRole('button', { name: '칸 3 접기' })).toBeDisabled();
     expect(paneGroup(1).querySelector('[data-pane-body]')).toHaveAttribute('inert');
     const trigger = screen.getByRole('button', { name: '칸 2 최대화' });
+    const firstPaneId = paneIdOf(1);
     fireEvent.click(trigger);
     expect(paneGroup(2)).toHaveAttribute('data-maximized', 'true');
     expect(screen.queryByRole('group', { name: '칸 1' })).toBeNull();
-    expect(document.querySelector('[data-pane-id="a.0"]')).toHaveAttribute('inert');
+    expect(document.querySelector(`[data-pane-id="${firstPaneId}"]`)).toHaveAttribute('inert');
     fireEvent.keyDown(trigger, { key: 'Escape' });
     await settle();
     expect(trigger).toHaveFocus();
@@ -768,7 +773,7 @@ describe('stateful Outlet presentation lifetime', () => {
     let current = testSession(['platform:view']);
     render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => current, subscribe: l => { listeners.add(l); return () => { listeners.delete(l); }; } })} registry={makeRegistry()}><BoardScreen Outlet={Stateful} /></PlatformProvider></I18nProvider>);
     await settle();
-    const input = screen.getByRole('textbox', { name: 'local a.0' });
+    const input = screen.getByRole('textbox', { name: `local ${paneIdOf(1)}` });
     const body = input.closest('[data-pane-body]') as HTMLElement;
     body.scrollTop = 75;
     fireEvent.change(input, { target: { value: 'kept' } });
@@ -780,28 +785,28 @@ describe('stateful Outlet presentation lifetime', () => {
     expect(screen.queryByRole('button', { name: '칸 2 최대화' })).toBeNull();
     expect(screen.queryByRole('separator')).toBeNull();
     act(() => { resize(764); });
-    expect(screen.getByRole('textbox', { name: 'local a.0' })).toBe(input);
+    expect(screen.getByRole('textbox', { name: `local ${paneIdOf(1)}` })).toBe(input);
     expect(input).toHaveValue('kept'); expect(body.scrollTop).toBe(75);
     expect(mounted).toHaveBeenCalledTimes(4); expect(unmounted).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('radio', { name: '1×2 레이아웃' }));
     fireEvent.click(screen.getByRole('button', { name: '비우고 줄이기' })); await settle();
     expect(unmounted).toHaveBeenCalledTimes(2);
-    expect(screen.getByRole('textbox', { name: 'local a.0' })).toBe(input);
+    expect(screen.getByRole('textbox', { name: `local ${paneIdOf(1)}` })).toBe(input);
     fireEvent.click(screen.getByRole('button', { name: '실행 취소' })); await settle();
     expect(mounted).toHaveBeenCalledTimes(6);
-    expect(screen.getByRole('textbox', { name: 'local a.0' })).toBe(input);
+    expect(screen.getByRole('textbox', { name: `local ${paneIdOf(1)}` })).toBe(input);
     expect(body.scrollTop).toBe(75);
     fireEvent.click(screen.getByRole('tab', { name: 'b' })); await settle();
     expect(unmounted).toHaveBeenCalledTimes(6); expect(mounted).toHaveBeenCalledTimes(7);
     fireEvent.click(screen.getByRole('tab', { name: 'a' })); await settle();
-    expect(screen.getByRole('textbox', { name: 'local a.0' })).toHaveValue('initial');
+    expect(screen.getByRole('textbox', { name: `local ${paneIdOf(1)}` })).toHaveValue('initial');
     expect(mounted).toHaveBeenCalledTimes(11);
     localStorage.setItem('platform:board:u2', JSON.stringify(boardOf([sheet('a', { panes: [alpha()] })])));
     current = { ...current, user: { ...current.user, id: 'u2' } };
     act(() => { listeners.forEach(l => l()); }); await settle();
     expect(unmounted).toHaveBeenCalledTimes(11);
     expect(mounted).toHaveBeenCalledTimes(12);
-    expect(screen.getByRole('textbox', { name: 'local a.0' })).toHaveValue('initial');
+    expect(screen.getByRole('textbox', { name: `local ${paneIdOf(1)}` })).toHaveValue('initial');
   });
 });
 
@@ -819,7 +824,7 @@ describe('docked detail overlay lifetime', () => {
     const current = testSession(['platform:view']);
     render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => current })} registry={makeRegistry()}><AppShell><BoardScreen Outlet={DetailOwner} /></AppShell></PlatformProvider></I18nProvider>);
     await settle();
-    fireEvent.click(screen.getByRole('button', { name: 'detail a.0' }));
+    fireEvent.click(screen.getByRole('button', { name: `detail ${paneIdOf(1)}` }));
     expect(screen.getByRole('dialog', { name: 'owned detail' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: transition === 'collapse owner' ? '칸 1 접기' : '칸 2 최대화' }));
     fireEvent.click(screen.getByRole('button', { name: 'detail options' }));

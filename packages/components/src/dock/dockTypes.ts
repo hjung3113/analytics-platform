@@ -20,6 +20,11 @@ export type DockLayoutProps = {
   onActivate?: (panelId: string) => void;
   maximizedPanelId?: string | null;
   onMaximizedChange?: (panelId: string | null) => void;
+  /**
+   * Delete/Backspace on a focused tab. The engine's own close stays blocked either way; this is the host's chance to give the key a
+   * meaning (the board empties the pane). Receives the tab's panel id.
+   */
+  onPanelDelete?: (panelId: string) => void;
   /** Tab content; the default is the title. The tab itself (role, focus, drag) belongs to the engine. */
   renderTab?: (panelId: string, state: { active: boolean; groupFocused: boolean }) => ReactNode;
   /**
@@ -27,6 +32,16 @@ export type DockLayoutProps = {
    * ContextMenu key on a focused tab focus it and open it (a `pointerdown` for Radix `DropdownMenuTrigger`, otherwise a `click`).
    */
   renderGroupActions?: (group: { panels: string[]; active: string }) => ReactNode;
+  /**
+   * The panel the host treats as current (the board's selected pane). The narrow display shows it, so what the user sees and what the host
+   * works on stay the same panel; without it the narrow display follows the first group's active tab and the user's own tab choice.
+   */
+  currentPanelId?: string;
+  /**
+   * Spoken extras of a panel's tab, set on the engine's tab element (the engine owns it): `description` is its `aria-description`, `keyShortcuts`
+   * its `aria-keyshortcuts` (the keys the tab answers to, e.g. `Delete Shift+F10`).
+   */
+  tabA11y?: (panelId: string) => { description?: string; keyShortcuts?: string } | undefined;
   separatorLabel: (info: DockSeparatorInfo) => string;
   /** px, for Home/End and clamps. Default `{ width: 240, height: 160 }`. */
   minPanelSize?: { width: number; height: number };

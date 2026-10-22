@@ -17,7 +17,7 @@ import { isProgrammaticFocus, programmaticFocus } from './programmaticFocus';
 import { canonicalDockTree, type DockNode } from './schema';
 import './dock.css';
 
-export type DockEngineProps = Pick<DockLayoutProps, 'panels' | 'layout' | 'onLayoutChange' | 'renderTab' | 'renderGroupActions' | 'separatorLabel'> & {
+export type DockEngineProps = Pick<DockLayoutProps, 'panels' | 'layout' | 'onLayoutChange' | 'renderTab' | 'renderGroupActions' | 'tabA11y' | 'separatorLabel'> & {
   /** What the engine shows: `layout`, or the one-group stack of the narrow display. */
   display: DockNode;
   /** False in the narrow display: no drag and drop, nothing reported. */
@@ -41,6 +41,7 @@ type Context = {
   display: DockNode;
   renderTab: DockEngineProps['renderTab'];
   renderGroupActions: DockEngineProps['renderGroupActions'];
+  tabA11y: DockEngineProps['tabA11y'];
   onActivate: (panelId: string) => void;
 };
 
@@ -57,7 +58,7 @@ function PanelHost({ api }: IDockviewPanelProps) {
   const id = api.id;
   const visible = engine.visible.has(id);
   const panel = engine.panels.get(id);
-  return <div id={`${engine.instanceId}-panel-${id}`} data-dock-panel={id} data-dock-visible={visible} inert={!visible} className="h-full min-h-0 min-w-0 overflow-auto"
+  return <div id={`${engine.instanceId}-panel-${id}`} data-dock-panel={id} data-dock-visible={visible} inert={!visible} tabIndex={-1} className="h-full min-h-0 min-w-0 overflow-auto focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
     onFocus={event => {
       // Focus moving into the panel from outside it is the user choosing the panel. Not: focus the dock itself moved, or an event of a nested
       // layout (its panel belongs to that layout's `onActivate`).
@@ -74,7 +75,19 @@ function PanelHost({ api }: IDockviewPanelProps) {
 function DockTab({ api }: IDockviewPanelHeaderProps) {
   const engine = useEngine();
   const id = api.id;
-  return <span data-dock-tab={id} className="flex min-w-0 items-center truncate">
+  const mark = useRef<HTMLSpanElement>(null);
+  const a11y = engine.tabA11y?.(id);
+  const description = a11y?.description;
+  const keyShortcuts = a11y?.keyShortcuts;
+  // The tab element belongs to the engine; the host's spoken extras are set on it from the content the engine puts inside.
+  useLayoutEffect(() => {
+    const tab = mark.current?.closest<HTMLElement>('[role="tab"]');
+    if (!tab) return;
+    const set = (name: string, value: string | undefined) => { if (value === undefined) tab.removeAttribute(name); else tab.setAttribute(name, value); };
+    set('aria-description', description);
+    set('aria-keyshortcuts', keyShortcuts);
+  }, [description, keyShortcuts]);
+  return <span ref={mark} data-dock-tab={id} className="flex min-w-0 items-center truncate">
     {engine.renderTab?.(id, { active: engine.active.has(id), groupFocused: engine.focused.has(id) }) ?? engine.panels.get(id)?.title ?? id}
   </span>;
 }
@@ -121,7 +134,7 @@ function readEngine(api: DockviewApi, stored: DockNode): { tree: DockNode; measu
 }
 
 export default function DockEngine({
-  panels, layout, display, interactive, maximizedPanelId, visible, minPanelSize, onLayoutChange, onActivate, renderTab, renderGroupActions, separatorLabel,
+  panels, layout, display, interactive, maximizedPanelId, visible, minPanelSize, onLayoutChange, onActivate, renderTab, renderGroupActions, tabA11y, separatorLabel,
   containerRef, instanceId,
 }: DockEngineProps) {
   const [api, setApi] = useState<DockviewApi | null>(null);
@@ -222,6 +235,7 @@ export default function DockEngine({
     }
     if (!rebuild) { applied.current = { key, meta }; return; }
     const focusedBefore = containerRef.current?.contains(document.activeElement) ? document.activeElement : null;
+    const focusedTabId = focusedBefore instanceof HTMLElement ? focusedBefore.closest<HTMLElement>('[role="tab"]')?.dataset.tabPanelId : undefined;
     applying.current = true;
     try {
       api.fromJSON(toEngineLayout(wanted, wantedPanels, minimum, { width: api.width, height: api.height }) as unknown as SerializedLayout, { reuseExistingPanels: true });
@@ -231,7 +245,9 @@ export default function DockEngine({
     applied.current = { key, meta };
     emitted.current = null;
     if (focusedBefore instanceof HTMLElement && !focusedBefore.isConnected) {
-      const tab = containerRef.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
+      // The same panel's tab if it is still there (the tab is rebuilt when its title changes), else the first active tab.
+      const tabs = Array.from(containerRef.current?.querySelectorAll<HTMLElement>('[role="tab"][data-tab-panel-id]') ?? []);
+      const tab = tabs.find(item => focusedTabId !== undefined && item.dataset.tabPanelId === focusedTabId) ?? tabs.find(item => item.getAttribute('aria-selected') === 'true');
       if (tab) programmaticFocus(() => { tab.focus({ preventScroll: true }); });
     }
     setReconciles(value => value + 1);
@@ -281,8 +297,8 @@ export default function DockEngine({
     const active = new Set<string>();
     const collect = (node: DockNode) => { if (node.type === 'group') active.add(node.active); else node.children.forEach(collect); };
     collect(canonicalDisplay);
-    return { instanceId, panels: panelMap, visible, active, focused: new Set(focusGroup), display: canonicalDisplay, renderTab, renderGroupActions, onActivate };
-  }, [instanceId, panelMap, visible, focusedPanel, canonicalDisplay, renderTab, renderGroupActions, onActivate]);
+    return { instanceId, panels: panelMap, visible, active, focused: new Set(focusGroup), display: canonicalDisplay, renderTab, renderGroupActions, tabA11y, onActivate };
+  }, [instanceId, panelMap, visible, focusedPanel, canonicalDisplay, renderTab, renderGroupActions, tabA11y, onActivate]);
 
   // Separator keys change the layout without the engine having moved: the parent's answer is applied to the engine (or reverted if it ignores it).
   const separate = (next: DockNode) => {

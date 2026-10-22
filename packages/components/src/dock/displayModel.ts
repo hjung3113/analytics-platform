@@ -4,9 +4,13 @@ import { dockGroups, type DockNode } from './schema';
 
 type Dir = 'row' | 'column';
 
-/** Narrow display: one group of every panel in depth-first order, showing the first group's active panel (or the local choice). */
-export function stackedTree(layout: DockNode, choice?: string): DockNode {
-  const panels = panelOrder(layout);
+/**
+ * Narrow display: one group of every panel, showing the first group's active panel (or the choice). Tabs are in `order` when the caller
+ * has one (the board's pane numbers), else in depth-first order of the layout.
+ */
+export function stackedTree(layout: DockNode, choice?: string, order?: readonly string[]): DockNode {
+  const depthFirst = panelOrder(layout);
+  const panels = order ? [...depthFirst].sort((a, b) => order.indexOf(a) - order.indexOf(b)) : depthFirst;
   const first = dockGroups(layout)[0];
   const active = choice && panels.includes(choice) ? choice : first?.active ?? panels[0] ?? '';
   return { type: 'group', panels, active };

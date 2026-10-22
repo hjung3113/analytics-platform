@@ -96,6 +96,18 @@ describe('DockLayout close is blocked (D7)', () => {
     expect(calls.layout).toHaveLength(0);
   });
 
+  it.each(['{Delete}', '{Backspace}'])('%s reports the tab to onPanelDelete and still closes nothing', async key => {
+    const deleted: string[] = [];
+    const { calls } = mountDock({ layout: row([50, 50], group(['a', 'b']), group(['c'])), props: { onPanelDelete: id => { deleted.push(id); } } });
+    await ready();
+    screen.getByRole('tab', { name: '패널 b' }).focus();
+    await userEvent.keyboard(key);
+    expect(deleted).toEqual(['b']);
+    expect(groupsOnScreen()).toEqual([['a', 'b'], ['c']]);
+    expect(screen.getByTestId('content-b')).toBeInTheDocument();
+    expect(calls.layout).toHaveLength(0);
+  });
+
   it('renders no close button in any tab', async () => {
     mountDock({ layout: row([50, 50], group(['a', 'b']), group(['c'])) });
     await ready();
@@ -521,5 +533,56 @@ describe('DockLayout nested activation (C3)', () => {
     await waitFor(() => { expect(screen.getByRole('tab', { name: '안쪽 x' })).toHaveFocus(); });
     expect(calls.activate).toEqual([]);
     expect(inner).toEqual([]);
+  });
+});
+
+describe('DockLayout host controls: current panel, tab order, tab speech', () => {
+  afterEach(() => { observer.resize(900, 600); });
+
+  it('the narrow display shows the host\'s current panel instead of the first group\'s active tab, and tabs follow the panels\' order', async () => {
+    observer.resize(500, 600);
+    mountDock({ layout: row([50, 50], group(['a', 'b'], 'b'), group(['c'])), ids: ['c', 'a', 'b'], props: { stackBelow: 692, currentPanelId: 'c' } });
+    await ready();
+    await waitFor(() => { expect(screen.getAllByRole('tablist')).toHaveLength(1); });
+    expect(groupsOnScreen()).toEqual([['c', 'a', 'b']]);
+    expect(activeTabs()).toEqual(['c']);
+    expect(root('c')).not.toHaveAttribute('inert');
+    expect(root('b')).toHaveAttribute('inert');
+  });
+
+  it('sets the description and the key shortcuts the host gives a tab on the tab itself', async () => {
+    mountDock({
+      layout: row([50, 50], group(['a', 'b'], 'a'), group(['c'])),
+      props: { tabA11y: id => (id === 'a' ? { description: '편집 대상', keyShortcuts: 'Delete Shift+F10' } : id === 'c' ? { keyShortcuts: 'Shift+F10' } : undefined) },
+    });
+    await ready();
+    const tab = (id: string) => screen.getByRole('tab', { name: `패널 ${id}` });
+    await waitFor(() => { expect(tab('a')).toHaveAttribute('aria-description', '편집 대상'); });
+    expect(tab('a')).toHaveAttribute('aria-keyshortcuts', 'Delete Shift+F10');
+    expect(tab('b')).not.toHaveAttribute('aria-description');
+    expect(tab('c')).not.toHaveAttribute('aria-description');
+    expect(tab('c')).toHaveAttribute('aria-keyshortcuts', 'Shift+F10');
+  });
+
+  it('Tab runs tab → its content → the next group\'s tab, and Shift+Tab runs it backwards; a panel without a stop takes focus itself', async () => {
+    mountDock({ layout: row([50, 50], group(['a']), group(['c'])), ids: ['a', 'c'], inner: id => (id === 'a' ? <><button type="button">first a</button><button type="button">last a</button></> : null) });
+    await ready();
+    const tab = (id: string) => screen.getByRole('tab', { name: `패널 ${id}` });
+    tab('a').focus();
+    await userEvent.tab();
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'first a' }));
+    await userEvent.tab();
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'last a' }));
+    await userEvent.tab();
+    expect(document.activeElement).toBe(tab('c'));
+    await userEvent.tab();
+    expect(document.activeElement).toBe(root('c'));
+    await userEvent.tab({ shift: true });
+    expect(document.activeElement).toBe(tab('c'));
+    await userEvent.tab({ shift: true });
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'last a' }));
+    await userEvent.tab({ shift: true });
+    await userEvent.tab({ shift: true });
+    expect(document.activeElement).toBe(tab('a'));
   });
 });

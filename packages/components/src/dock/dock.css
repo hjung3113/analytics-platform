@@ -15,7 +15,7 @@
   --dv-activegroup-visiblepanel-tab-color: var(--color-text-primary);
   --dv-activegroup-hiddenpanel-tab-color: var(--color-text-secondary);
   --dv-inactivegroup-visiblepanel-tab-color: var(--color-text-secondary);
-  --dv-inactivegroup-hiddenpanel-tab-color: var(--color-text-muted);
+  --dv-inactivegroup-hiddenpanel-tab-color: var(--color-text-secondary);
   --dv-separator-border: var(--color-border-subtle);
   --dv-paneview-header-border-color: var(--color-border-subtle);
   --dv-sash-color: transparent;
@@ -43,4 +43,12 @@
 .ap-dock .dv-tab:focus-visible {
   outline: 2px solid var(--color-focus-ring);
   outline-offset: -2px;
+}
+
+/* The title sits in the middle of the 32px tab with the same side padding whether the group has one tab or several (the engine's single-tab rule zeroes it). */
+.ap-dock .dv-tab,
+.ap-dock .dv-tabs-and-actions-container.dv-single-tab.dv-full-width-single-tab .dv-tabs-container .dv-tab {
+  display: flex;
+  align-items: center;
+  padding: 0 0.5rem;
 }
