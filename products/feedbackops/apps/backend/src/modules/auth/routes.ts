@@ -10,8 +10,9 @@ import { z } from 'zod';
 import { sendError } from '../../lib/errors.js';
 import { SESSION_COOKIE_NAME, requireSession } from '../../middleware/require-session.js';
 import { requireWorkspace } from '../../middleware/require-workspace.js';
-import { OIDC_TX_COOKIE_NAME } from './oidc-tx-cookie.js';
 import type { AuthProvider, CompleteLoginResult, LoginStart } from './auth-provider.js';
+import { OIDC_TX_COOKIE_NAME } from './oidc-tx-cookie.js';
+import { sanitizeReturnTo } from './return-to.js';
 import type { SessionService } from './session-service.js';
 
 export interface AuthRoutesOptions {
@@ -129,11 +130,17 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, opt
   app.route({
     method: 'GET',
     url: '/auth/mock-login',
-    handler: async (_req, reply) => {
+    schema: {
+      querystring: z.object({ return_to: z.string().optional() }),
+    },
+    handler: async (req, reply) => {
       if (isProd || authProvider.name !== 'mock') {
         return sendError(reply, 'not_found.record', 'mock login is not available');
       }
-      const started = await authProvider.startLogin();
+      const query = req.query as { return_to?: string };
+      const started = await authProvider.startLogin({
+        ...(typeof query.return_to === 'string' ? { returnTo: query.return_to } : {}),
+      });
       // Only the mock provider is wired here; narrow the seam union explicitly.
       if (!('html' in started)) {
         return sendError(reply, 'internal.unexpected', 'mock provider returned a redirect');
@@ -143,17 +150,35 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, opt
   });
 
   // ── POST /auth/mock-login ─────────────────────────────────────────────
+  // The picker form posts urlencoded (no JS); the FO frontend posts JSON.
+  // Form posts get a 302 to the sanitized return_to, JSON keeps the 200 body.
+  // Parser is scoped to this plugin. First value wins for repeated keys.
+  app.addContentTypeParser(
+    'application/x-www-form-urlencoded',
+    { parseAs: 'string' },
+    (_req, body, done) => {
+      try {
+        const parsed: Record<string, string> = {};
+        for (const [key, value] of new URLSearchParams(body as string)) {
+          if (!Object.hasOwn(parsed, key)) parsed[key] = value;
+        }
+        done(null, parsed);
+      } catch (err) {
+        done(err as Error, undefined);
+      }
+    },
+  );
   app.route({
     method: 'POST',
     url: '/auth/mock-login',
     schema: {
-      body: z.object({ external_id: z.string().min(1) }),
+      body: z.object({ external_id: z.string().min(1), return_to: z.string().optional() }),
     },
     handler: async (req, reply) => {
       if (isProd || authProvider.name !== 'mock') {
         return sendError(reply, 'not_found.record', 'mock login is not available');
       }
-      const { external_id } = req.body as { external_id: string };
+      const { external_id, return_to } = req.body as { external_id: string; return_to?: string };
       const claims = await authProvider.completeLogin({ external_id });
       const ua = req.headers['user-agent'];
       const { session, actor, expiresAt } = await sessionService.provisionAndIssueSession({
@@ -168,6 +193,11 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, opt
         path: '/',
         expires: expiresAt,
       });
+      if (
+        req.headers['content-type']?.toLowerCase().startsWith('application/x-www-form-urlencoded')
+      ) {
+        return reply.redirect(sanitizeReturnTo(return_to), 302);
+      }
       return {
         actor: {
           id: actor.id,
