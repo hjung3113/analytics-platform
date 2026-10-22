@@ -2,7 +2,7 @@ import { useId, useLayoutEffect, useRef, useState, type ReactNode, type Componen
 import { parseDateTime, shift, type GlobalContext, type IdSet } from '@ap/contracts';
 import { CONTEXT_LABELS, useAxisOptions, useEquipmentSearch, useI18n, usePlatform, useQueryDraft, useResolvedSelection, type PortContext } from '@ap/kernel';
 import { formatQuerySummary, querySummaryItems, useCopyLink, useQueryBarExtension } from '@ap/components';
-import { Alert, AlertDescription, Button, Input, MultiCombobox, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
+import { Alert, AlertDescription, Button, Input, MultiCombobox, Popover, PopoverContent, PopoverTrigger, readLocalStorage, writeLocalStorage } from '@ap/ui';
 
 export type QueryBarProps = {
   label?: { visible: string; region: string };
@@ -33,7 +33,7 @@ function QueryBarSession({ label, historySlot }: QueryBarProps) {
   const preference = `platform:query-bar-collapsed:${route?.menu.id}`;
   const [expanded, setExpanded] = useState(() => {
     if (board) return false;
-    try { return localStorage.getItem(preference) !== 'true'; } catch { return true; }
+    return readLocalStorage(preference, v => v !== 'true', true);
   });
   const [editError, setEditError] = useState<string | null>(null);
   useLayoutEffect(() => {
@@ -43,7 +43,7 @@ function QueryBarSession({ label, historySlot }: QueryBarProps) {
   const toggle = (open: boolean) => {
     focusFirst.current = open;
     setExpanded(open);
-    if (!board) try { localStorage.setItem(preference, String(!open)); } catch { /* optional preference */ }
+    if (!board) writeLocalStorage(preference, String(!open)); // optional preference
     if (!open) disclosure.current?.focus();
   };
   const write = (patch: Partial<GlobalContext>) => {

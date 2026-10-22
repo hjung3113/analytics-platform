@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { AlertTriangle, BookOpen, FilePen } from 'lucide-react';
 import { CONTEXT_LABELS, type PageProps, PlatformLink, type QueryState, invalidValueSentence, topicParticle, useI18n, useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
-import { PageFilterBar, RowAction, type PlatformColumn, PlatformDataTable, PlatformPage, QueryView, StateMessage, TableUrlWarning, encodeTableSort, useTableUrlWarning } from '@ap/components';
+import { PageFilterBar, RowAction, type PlatformColumn, PlatformDataTable, PlatformPage, QueryView, StateMessage, TableUrlWarning, useTableUrlState } from '@ap/components';
 import { Button } from '@ap/ui';
 import {
   DOMAINS, STATUSES, catalogExportEndpoint, catalogListEndpoint, catalogPageEndpoint, metricPairEndpoint, sortColumns,
@@ -79,7 +79,7 @@ export default function MetricCatalogPage(_: PageProps) {
   const statusIllegal = status !== null && !STATUSES.includes(status as PublicationState);
   const domainIllegal = domain !== null && !DOMAINS.includes(domain as typeof DOMAINS[number]);
   // §6.1 page keys: sort/page are URL-owned; invalid wire values alert instead of substituting (never "empty rows").
-  const { parsedSort, parsedPage, invalid: tableInvalid, sentences: invalidTableSentences } = useTableUrlWarning(sortColumns);
+  const { urlState: tableUrlState, invalid: tableInvalid, sentences: invalidTableSentences } = useTableUrlState(sortColumns);
   // #304 FIX1 (06 §19): each invalid field keeps its user name and the raw value as entered (quoted, untruncated),
   // one sentence per field — never `key=value`.
   const invalidFilterSentences = [
@@ -135,11 +135,7 @@ export default function MetricCatalogPage(_: PageProps) {
         getRowId={row => row.metricId}
         filterKey={JSON.stringify([q, status, domain, lang])}
         pageSize={8}
-        urlState={parsedSort.ok && parsedPage.ok ? {
-          page: parsedPage.page === 1 ? null : parsedPage.page,
-          sorting: parsedSort.sorting,
-          onChange: ({ page, sorting }, reason) => setPage({ sort: encodeTableSort(sorting), page: page === null ? null : String(page) }, { replace: reason === 'clamp' }),
-        } : undefined}
+        urlState={tableUrlState}
         activeRowId={activeRowId}
         loadPage={(query, signal) => pages.fetch({ ...filter, ...query }, signal)}
         rowAction={(row, { compact }) => {

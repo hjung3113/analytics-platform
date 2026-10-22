@@ -22,10 +22,10 @@ import type {
   UsageRange,
   UsageSummary,
 } from '@ap/contracts';
+import { isRecord } from '@ap/contracts';
 import { envelopeCall, actionCall, plainCall, portCall, TransportError, type CallContext, type PlainReply } from './calls.js';
 import type { SessionStore } from './session.js';
 import type { Transport } from './transport.js';
-import { isRecord } from './validate.js';
 
 const PLATFORM = '/api/v1/platform';
 

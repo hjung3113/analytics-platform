@@ -1,7 +1,7 @@
-import { PortError, type ActionResponse, type ApiResponse, type MenuAction, type PortErrorCode } from '@ap/contracts';
+import { isRecord, PortError, type ActionResponse, type ApiResponse, type MenuAction, type PortErrorCode } from '@ap/contracts';
 import { abortError, parseJson, type Parsed, type Raw, type SendRequest, type Transport } from './transport.js';
 import type { SessionStore } from './session.js';
-import { isRecord, safeMessage, toActionResponse, toEnvelope } from './validate.js';
+import { safeMessage, toActionResponse, toEnvelope } from './validate.js';
 
 /**
  * A transport failure of a non-envelope or fire-and-forget method. `code` is one of the short strings of contract §2.1

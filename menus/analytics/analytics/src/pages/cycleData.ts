@@ -3,6 +3,7 @@
  * what both halves share (metric resolution, anchors, bins, bucket ends, the execution key) lives in `../endpoints`.
  */
 import { bucketStart, parseDateTime, type PageSort } from '@ap/contracts';
+import { encodeTableSort, parseTableSort } from '@ap/components';
 import { BINS, bucketEnd, binIndex, isAnchor, type Granularity, type SlowExportFilter, type SlowFilter, type SlowRow, type TailMode } from '../endpoints';
 
 export const SORT_COLUMNS = ['cycleMin', 'delta', 'anchor', 'equipmentId', 'room', 'recipe', 'lotId', 'quality'] as const;
@@ -29,13 +30,15 @@ export function resolveTail(raw: string | null): { ok: true; value: TailMode; ex
 
 export function parseSortParam(raw: string | null): { ok: true; id: SortColumn; desc: boolean; explicit: boolean } | { ok: false } {
   if (raw === null || raw === '') return { ok: true, id: 'cycleMin', desc: true, explicit: false };
-  const match = /^([A-Za-z]+):(asc|desc)$/.exec(raw);
-  if (!match || !SORT_COLUMNS.includes(match[1] as SortColumn)) return { ok: false };
-  return { ok: true, id: match[1] as SortColumn, desc: match[2] === 'desc', explicit: true };
+  // The shared §6.1 codec; every SORT_COLUMNS id is letters-only, so its wider column grammar accepts nothing more here.
+  const parsed = parseTableSort(raw, SORT_COLUMNS);
+  const sort = parsed.ok ? parsed.sorting[0] : undefined;
+  if (!sort) return { ok: false };
+  return { ok: true, id: sort.id as SortColumn, desc: sort.desc, explicit: true };
 }
 
 export function encodeSort(id: string, desc: boolean): string {
-  return `${id}:${desc ? 'desc' : 'asc'}`;
+  return encodeTableSort([{ id, desc }])!;
 }
 
 /** §6.1 bucket: a naive datetime aligned to the grain boundary (bucketStart(bucket, grain) === bucket). No snapping; out-of-period but aligned stays valid. */

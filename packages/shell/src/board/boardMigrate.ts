@@ -1,7 +1,8 @@
+import { isRecord } from '@ap/contracts';
 import type { PaneScreen } from '@ap/kernel';
 import { withGrid, withGridMemory } from './boardGrid';
 import {
-  BOARD_LAYOUTS, MAX_SHEETS, defaultArrangement, isDefaultArrangement, isRecord, makeId, paneCount, parseArrangementEntry, parsePane,
+  BOARD_LAYOUTS, MAX_SHEETS, defaultArrangement, isDefaultArrangement, makeId, paneCount, parseArrangementEntry, parsePane,
   type Arrangement, type Board, type BoardLayout, type PaneSlot, type Sheet,
 } from './boardTypes';
 

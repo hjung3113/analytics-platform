@@ -1,7 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
 import { ChevronDown, ChevronUp, Search } from 'lucide-react';
 import { useI18n } from '@ap/kernel';
-import { Button, cn, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ap/ui';
+import { Button, cn, Input, readLocalStorage, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, writeLocalStorage } from '@ap/ui';
 
 export type PageFilterOption = { value: string; label: string };
 
@@ -209,9 +209,7 @@ function StaticPageFilterBar({ label, fields, actions, onApply, mode, orientatio
 }
 
 function readCollapsedPreference(key: string): boolean {
-  try {
-    return JSON.parse(localStorage.getItem(key) ?? 'false') === true;
-  } catch { return false; }
+  return readLocalStorage(key, raw => JSON.parse(raw ?? 'false') === true, false);
 }
 
 function CollapsiblePageFilterBar({ label, fields, actions, onApply, mode, summaryItems, collapsedActions, hasPendingChanges, storageKey }: PageFilterBarShared & {
@@ -238,7 +236,7 @@ function CollapsiblePageFilterBar({ label, fields, actions, onApply, mode, summa
   function toggle(nextCollapsed: boolean) {
     pendingFocus.current = nextCollapsed ? 'expand' : 'collapse';
     setCollapsed(nextCollapsed);
-    try { localStorage.setItem(storageKey, JSON.stringify(nextCollapsed)); } catch { /* preference stays in memory */ }
+    writeLocalStorage(storageKey, JSON.stringify(nextCollapsed)); // preference stays in memory when storage refuses
   }
 
   const summaryText = `${summaryItems.map(item => `${item.label} ${item.value}`).join(' · ')}${hasPendingChanges ? ` · ${t('pageFilterPendingChanges')}` : ''}`;

@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { invalidValueSentence, useI18n, usePlatform } from '@ap/kernel';
 import { Button } from '@ap/ui';
-import { parsePageIndex, parseTableSort } from './PlatformDataTable';
+import { encodeTableSort, parsePageIndex, parseTableSort, type TableUrlState } from './PlatformDataTable';
 import { StateMessage } from './StateView';
 import { focusPageFallback } from './pageFocus';
 
@@ -22,6 +22,34 @@ export function useTableUrlWarning(allowedSort: readonly string[]) {
     !parsedPage.ok ? invalidValueSentence(lang, 'value', text('invalidTablePage'), pageRaw ?? '') : null,
   ].filter((sentence): sentence is string => sentence !== null);
   return { parsedSort, parsedPage, invalid: !parsedSort.ok || !parsedPage.ok, sentences };
+}
+
+/** Why the table asked for a sort/page write (`TableUrlState.onChange`'s reason). */
+export type TableUrlChangeReason = Parameters<TableUrlState['onChange']>[1];
+
+/**
+ * `useTableUrlWarning` plus the controlled `urlState` for `PlatformDataTable` (§6.1): `undefined` while sort or page is invalid
+ * (the page shows `TableUrlWarning` instead), else the parsed values (page 1 kept off the URL as `null`) and one `onChange` that
+ * writes `sort` and `page` in one `setPage` — a `replace` entry only for the table's own `clamp`, a history entry otherwise.
+ * `extraPatch(reason)` adds page-owned keys to that same write (e.g. closing the focused row on a user sort/page change).
+ */
+export function useTableUrlState(
+  allowedSort: readonly string[],
+  options?: { extraPatch?: (reason: TableUrlChangeReason) => Record<string, string | null> | undefined },
+) {
+  const warning = useTableUrlWarning(allowedSort);
+  const { setPage } = usePlatform();
+  const { parsedSort, parsedPage } = warning;
+  const extraPatch = options?.extraPatch;
+  const urlState: TableUrlState | undefined = parsedSort.ok && parsedPage.ok ? {
+    page: parsedPage.page === 1 ? null : parsedPage.page,
+    sorting: parsedSort.sorting,
+    onChange: ({ page, sorting }, reason) => setPage(
+      { sort: encodeTableSort(sorting), page: page === null ? null : String(page), ...extraPatch?.(reason) },
+      { replace: reason === 'clamp' },
+    ),
+  } : undefined;
+  return { ...warning, urlState };
 }
 
 function UrlWarning({ title, sentences, action, filters }: { title: string; sentences: readonly string[]; action: ReactNode; filters?: ReactNode }) {

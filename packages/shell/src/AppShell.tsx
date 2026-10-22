@@ -2,7 +2,7 @@ import { AlertTriangle, Info, X, XCircle } from 'lucide-react';
 import { Suspense, useEffect, useState, type ReactNode } from 'react';
 import { useI18n, usePlatform } from '@ap/kernel';
 import { LoadingBlock } from '@ap/components';
-import { cn, DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
+import { cn, DetailPanelSlotProvider, readLocalStorage, useDetailPanelSlotHost, writeLocalStorage } from '@ap/ui';
 import { CommandPalette } from './CommandPalette';
 import { AppSidebar } from './AppSidebar';
 import { PlatformSidebar } from './PlatformSidebar';
@@ -25,9 +25,9 @@ function ShellLayout({ children }: { children: ReactNode }) {
   // Registry screens outside every space (home, 내 활동, 공지) draw the platform sidebar; the board and unmatched paths do not (ADR-0070).
   const showPlatformSidebar = route !== null && registry.spaceOf(route.menu) === null;
   const [collapsed, setCollapsed] = useState(() => {
-    try { const v = localStorage.getItem(COLLAPSE_KEY); return v === null ? window.innerWidth < 1440 : v === '1'; } catch { return false; }
+    return readLocalStorage(COLLAPSE_KEY, v => v === null ? window.innerWidth < 1440 : v === '1', false);
   });
-  const toggle = () => setCollapsed(c => { try { localStorage.setItem(COLLAPSE_KEY, c ? '0' : '1'); } catch { /* ignore */ } return !c; });
+  const toggle = () => setCollapsed(c => { writeLocalStorage(COLLAPSE_KEY, c ? '0' : '1'); return !c; });
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;

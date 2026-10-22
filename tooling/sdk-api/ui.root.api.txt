@@ -223,10 +223,12 @@ WorkbenchShellProps | interface | interface WorkbenchShellProps { children: Reac
 badgeVariants | const | const badgeVariants: (props?: ({ variant?: "default" | "destructive" | "outline" | "secondary" | null | undefined; } & import("class-variance-authority/types").ClassProp) | undefined) => string
 buttonVariants | const | const buttonVariants: (props?: ({ size?: "icon-sm" | "icon-xs" | "lg" | "md" | "sm" | "toolbar" | null | undefined; variant?: "default" | "destructive" | "ghost" | "link" | "outline" | "secondary" | null | undefined; } & import("class-variance-authority/types").ClassProp) | undefined) => string
 cn | function | function cn(...inputs: ClassValue[]): string
+copyText | function | function copyText(text: string): Promise<boolean>
 isMacPlatform | function | function isMacPlatform(): boolean
 isProductionEnv | function | function isProductionEnv(meta: { env?: { PROD?: boolean; }; }, g: { process?: { env?: { NODE_ENV?: string; }; }; }): boolean
 isToastTarget | function | function isToastTarget(target: EventTarget | null): boolean
 prefersReducedMotion | function | function prefersReducedMotion(): boolean
+readLocalStorage | function | function readLocalStorage<T>(key: string, decode: (raw: null | string) => T, fallback: T): T
 readMotionTiming | function | function readMotionTiming(duration: 'base' | 'fast' | 'slow', easing: 'enter' | 'exit' | 'standard'): { durationMs: number; easing: string; }
 shortcutLabel | function | function shortcutLabel(key: string): string
 toast | const | const toast: ((message: titleT, data?: ExternalToast) => number | string) & { custom: (jsx: (id: number | string) => React.ReactElement, data?: ExternalToast) => number | string; dismiss: (id?: number | string) => number | string; error: (message: React.ReactNode | titleT, data?: ExternalToast) => number | string; info: (message: React.ReactNode | titleT, data?: ExternalToast) => number | string; loading: (message: React.ReactNode | titleT, data?: ExternalToast) => number | string; message: (message: React.ReactNode | titleT, data?: ExternalToast) => number | string; promise: <ToastData>(promise: PromiseT<ToastData>, data?: PromiseData<ToastData>) => (number & { unwrap: () => Promise<ToastData>; }) | (string & { unwrap: () => Promise<ToastData>; }) | { unwrap: () => Promise<ToastData>; }; success: (message: React.ReactNode | titleT, data?: ExternalToast) => number | string; warning: (message: React.ReactNode | titleT, data?: ExternalToast) => number | string; } & { getHistory: () => (ToastT | ToastToDismiss)[]; getToasts: () => (ToastT | ToastToDismiss)[]; }
@@ -234,6 +236,7 @@ useDetailPanelContent | function | function useDetailPanelContent(node: ReactNod
 useDetailPanelSlot | function | function useDetailPanelSlot(options?: { onSuperseded?: () => void; }): HTMLElement | null
 useDetailPanelSlotHost | function | function useDetailPanelSlotHost(): { expanded: boolean; open: boolean; ref: (host: HTMLElement | null) => void; toggle: () => void; }
 useListMotion | function | function useListMotion(): RefCallback<HTMLElement>
+writeLocalStorage | function | function writeLocalStorage(key: string, value: null | string): boolean
 # reachable types
 ButtonSize | type | type ButtonSize = NonNullable<VariantProps<typeof @ap/ui#buttonVariants>['size']>
 ButtonVariant | type | type ButtonVariant = LegacyVariant | ShadcnVariant

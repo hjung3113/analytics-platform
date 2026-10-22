@@ -20,6 +20,8 @@ export { cn } from './utils/cn';
 export { prefersReducedMotion } from './utils/motion';
 export { isProductionEnv } from './utils/isProductionEnv';
 export { isMacPlatform, shortcutLabel } from './utils/platform';
+export { copyText } from './utils/copyText';
+export { readLocalStorage, writeLocalStorage } from './utils/storage';
 
 export { DetailPanelSlotProvider, useDetailPanelSlot, useDetailPanelSlotHost } from './DetailPanelSlot';
 

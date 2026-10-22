@@ -1,13 +1,10 @@
 // Test-only public entry `@ap/kernel/testing` (ADR-0040, #381): adapter, session and space fixtures.
 // Import only from test files (*.test.ts(x), test-support.ts, test-setup.ts); the boundary lint rejects production imports.
 // Deliberately not exported from src/index.ts.
-import type { ActionResponse, ApiResponse, Capability, ContextKey, ModuleScopedId, Permission, PlatformAdapter, ScopeOption, Session, SessionUser, SpaceDef } from '@ap/contracts';
+import { contextCapabilities, type ActionResponse, type ApiResponse, type Capability, type ContextKey, type ModuleScopedId, type Permission, type PlatformAdapter, type ScopeOption, type Session, type SessionUser, type SpaceDef } from '@ap/contracts';
 
 /** Every Context key 'unsupported': the no-op Global Context capability record (06 §6). */
-export const noContext: Record<ContextKey, Capability> = {
-  time: 'unsupported', roomNames: 'unsupported', line: 'unsupported', prcGroup: 'unsupported', condition: 'unsupported', selection: 'unsupported',
-  lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported',
-};
+export const noContext: Record<ContextKey, Capability> = contextCapabilities();
 
 /** analytics space fixture. Pass the fields the test means (id · homeMenuId · permission · label); the rest are filler. */
 export function testSpace(over: Partial<SpaceDef> = {}): SpaceDef {

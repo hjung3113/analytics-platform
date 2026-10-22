@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
+import { isRecord } from '@ap/contracts';
 import { migrateV1 } from './boardMigrate';
 import { atFirstPanes, freshBoard, parseBoardV2, type Board } from './boardModel';
-import { isRecord } from './boardTypes';
 
 const v2Key = (userId: string) => `platform:board:v2:${userId}`;
 const v1Key = (userId: string) => `platform:board:${userId}`;

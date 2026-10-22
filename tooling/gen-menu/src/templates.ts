@@ -124,14 +124,8 @@ function indexTs(i: MenuInputs): string {
   return `/** ${menuPackage(i.folder)} — ${i.group} group. Scaffold: one primary menu, no domain data. */
 import { lazy } from 'react';
 import { LayoutDashboard } from 'lucide-react';
-import type { Capability, ContextKey } from '${PACKAGE_PREFIX}contracts';
+import { NO_FEATURES, contextCapabilities } from '${PACKAGE_PREFIX}contracts';
 import type { PlatformMenuEntry } from '${PACKAGE_PREFIX}kernel';
-
-const none: Record<ContextKey, Capability> = {
-  time: 'unsupported', roomNames: 'unsupported', line: 'unsupported', prcGroup: 'unsupported', condition: 'unsupported', selection: 'unsupported',
-  lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported',
-};
-const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
 
 export const manifests: PlatformMenuEntry[] = [
   {
@@ -139,7 +133,7 @@ export const manifests: PlatformMenuEntry[] = [
     label: { ko: '${i.labelKo}', en: '${i.labelEn}' },
     description: { ko: '${i.labelKo}', en: '${i.labelEn}' },
     path: '${i.path}', icon: LayoutDashboard, permission: '${SCAFFOLD_PERMISSION}',
-    requiresScope: false, context: none, pageType: '${i.pageType}', features: noFeatures, pageKeys: [],
+    requiresScope: false, context: contextCapabilities(), pageType: '${i.pageType}', features: NO_FEATURES, pageKeys: [],
     component: lazy(() => import('./pages/${i.page}')),
   },
 ];
@@ -331,7 +325,7 @@ describe('manifest', () => {
 
 function mockIndexTest(i: MenuInputs): string {
   return `import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { ApiResponse, Capability, ContextKey, MenuMeta } from '${PACKAGE_PREFIX}contracts';
+import { NO_FEATURES, contextCapabilities, type ApiResponse, type MenuMeta } from '${PACKAGE_PREFIX}contracts';
 import { createMockAdapter, getRole, setRole } from '${PACKAGE_PREFIX}mock-server';
 import { ${i.group}Mock } from './index';
 import { sampleEndpoint } from '../endpoints';
@@ -342,10 +336,6 @@ import { sampleEndpoint } from '../endpoints';
  * so this test restates the registration-relevant fields the adapter validates against.
  * manifest('../index.ts')를 바꾸면 여기도 같이 바꾼다.
  */
-const none: Record<ContextKey, Capability> = {
-  time: 'unsupported', roomNames: 'unsupported', line: 'unsupported', prcGroup: 'unsupported', condition: 'unsupported', selection: 'unsupported',
-  lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported',
-};
 const sampleMenu: MenuMeta = {
   id: ${str(i.menuId)},
   group: '${i.group}',
@@ -354,9 +344,9 @@ const sampleMenu: MenuMeta = {
   path: ${str(i.path)},
   permission: '${SCAFFOLD_PERMISSION}',
   requiresScope: false,
-  context: none,
+  context: contextCapabilities(),
   pageType: '${i.pageType}',
-  features: { export: false, savedView: false, annotate: false, compare: false },
+  features: NO_FEATURES,
   pageKeys: [],
 };
 

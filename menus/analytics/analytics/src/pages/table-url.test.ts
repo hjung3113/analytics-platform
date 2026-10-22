@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cycleTailFilterLabel, parseBucket, parseBin } from './cycleData';
+import { SORT_COLUMNS, cycleTailFilterLabel, encodeSort, parseBucket, parseBin, parseSortParam } from './cycleData';
 
 // §6.1 cycle-time page keys: bucket must sit exactly on a grain boundary (no snapping),
 // out-of-period but aligned stays valid; bin is one BINS id or an ordered range.
@@ -65,5 +65,27 @@ describe('parseBin', () => {
     expect(parseBin('0-30..nope')).toEqual({ ok: false });
     expect(parseBin('..')).toEqual({ ok: false });
     expect(parseBin('45-60..45-60..45-60')).toEqual({ ok: false });
+  });
+});
+
+// #673: the cycle sort key rides on the shared table codec; the accepted inputs stay exactly the old `[A-Za-z]+:(asc|desc)` set.
+describe('parseSortParam / encodeSort', () => {
+  it('defaults to cycleMin desc, not explicit, when absent', () => {
+    expect(parseSortParam(null)).toEqual({ ok: true, id: 'cycleMin', desc: true, explicit: false });
+    expect(parseSortParam('')).toEqual({ ok: true, id: 'cycleMin', desc: true, explicit: false });
+  });
+
+  it('accepts every listed column in both directions and round-trips encodeSort', () => {
+    for (const id of SORT_COLUMNS) {
+      for (const desc of [true, false]) {
+        const raw = encodeSort(id, desc);
+        expect(raw).toBe(`${id}:${desc ? 'desc' : 'asc'}`);
+        expect(parseSortParam(raw)).toEqual({ ok: true, id, desc, explicit: true });
+      }
+    }
+  });
+
+  it.each(['nope:asc', 'cycleMin', 'cycleMin:up', 'cycleMin:ASC', 'cycleMin:asc:asc', ':asc', 'cycleMin1:asc', 'cycle_min:asc', ' cycleMin:asc'])('rejects %s', raw => {
+    expect(parseSortParam(raw)).toEqual({ ok: false });
   });
 });

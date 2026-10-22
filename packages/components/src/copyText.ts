@@ -1,36 +1,8 @@
 import { useI18n, usePlatform } from '@ap/kernel';
+import { copyText } from '@ap/ui';
 
-/**
- * Clipboard text copy for link buttons (#300), chosen by feature detection — never by `.catch`: in an insecure
- * context (in-house HTTP) `navigator.clipboard` is undefined and touching it throws synchronously (06 §15).
- * Secure context: `navigator.clipboard.writeText`, called synchronously inside the gesture and awaited (a
- * synchronous throw still resolves `false` — #300 Do 1: exceptions resolve false).
- * Otherwise a one-shot document capture `copy` listener fills `text/plain` and `execCommand('copy')` runs —
- * still synchronously inside the click, before any await, so the user gesture is not lost. The listener counts
- * as handled only when it actually set the data and cancelled the event; a command that copies nothing, a
- * refusal, an exception or missing support all resolve `false`. The listener is removed in `finally`
- * (same mechanism as the PlatformDataTable insecure path, 06 §15 계약).
- */
-export function copyText(text: string): Promise<boolean> {
-  if (typeof window !== 'undefined' && window.isSecureContext && typeof navigator.clipboard?.writeText === 'function') {
-    try {
-      return navigator.clipboard.writeText(text).then(() => true, () => false);
-    } catch {
-      return Promise.resolve(false); // the write threw synchronously before returning a promise
-    }
-  }
-  let handled = false;
-  const onDocumentCopy = (e: ClipboardEvent) => {
-    if (!e.clipboardData) return;
-    e.clipboardData.setData('text/plain', text);
-    e.preventDefault();
-    handled = true;
-  };
-  document.addEventListener('copy', onDocumentCopy, true);
-  let copied = false;
-  try { copied = document.execCommand('copy'); } catch { copied = false; } finally { document.removeEventListener('copy', onDocumentCopy, true); }
-  return Promise.resolve(copied === true && handled);
-}
+// The plain-text copy and its one success rule live in @ap/ui (06 §15, #673); re-exported so the components API keeps `copyText`.
+export { copyText };
 
 /**
  * Link-copy click handler (#300): copies the deployment-aware absolute URL and toasts the caller's success text only after the

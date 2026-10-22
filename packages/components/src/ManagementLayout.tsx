@@ -1,7 +1,7 @@
 import { useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { PanelLeftClose, SlidersHorizontal } from 'lucide-react';
 import { useI18n } from '@ap/kernel';
-import { Button, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
+import { Button, Popover, PopoverContent, PopoverTrigger, readLocalStorage, writeLocalStorage } from '@ap/ui';
 
 export type ManagementLayoutProps = {
   /** Page-owned filters, usually a column PageFilterBar or its form. */
@@ -18,7 +18,7 @@ export type ManagementLayoutProps = {
 
 const COLLAPSE_KEY = 'platform:filter-rail-collapsed';
 function initialCollapsed() {
-  try { return localStorage.getItem(COLLAPSE_KEY) === '1'; } catch { return false; }
+  return readLocalStorage(COLLAPSE_KEY, v => v === '1', false);
 }
 
 /** Management slots (06 §12.6): respond to available content width, including a docked detail. */
@@ -77,10 +77,7 @@ export function ManagementLayout({ filter, activeFilterCount = 0, pendingFilterC
   const setRailCollapsed = (next: boolean) => {
     pendingFocus.current = document.activeElement;
     setCollapsed(next);
-    try {
-      if (next) localStorage.setItem(COLLAPSE_KEY, '1');
-      else localStorage.removeItem(COLLAPSE_KEY);
-    } catch { /* preference stays in memory */ }
+    writeLocalStorage(COLLAPSE_KEY, next ? '1' : null); // preference stays in memory when storage refuses
   };
   const pending = pendingFilterCount > 0;
   // The marker is visible text but aria-hidden so the accessible name stays `필터 · N`; a hidden sentence describes the state.

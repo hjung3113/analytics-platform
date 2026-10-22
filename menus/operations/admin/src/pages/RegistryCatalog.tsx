@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { AlertTriangle, PanelRight } from 'lucide-react';
 import { CONTEXT_LABELS, PAGE_TYPE_LABELS, useI18n, usePlatform } from '@ap/kernel';
 import type { Text } from '@ap/contracts';
-import { DetailDrawer, RowAction, type PlatformColumn, encodeTableSort, PlatformDataTable, PlatformPage, sortAndPage, StateMessage, TableUrlWarning, useTableUrlWarning } from '@ap/components';
+import { DetailDrawer, RowAction, type PlatformColumn, PlatformDataTable, PlatformPage, sortAndPage, StateMessage, TableUrlWarning, useTableUrlState } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
 import { toRegistryRow, type RegistryRow } from '../registry-rows';
 
@@ -23,7 +23,7 @@ export default function RegistryCatalog() {
   const focus = pageParam('focus');
   // #304 FIX1 (06 §19): the warning keeps each field's user name and the raw value as entered (quoted,
   // untruncated), one sentence per field — never `key=value`.
-  const { parsedSort, parsedPage, invalid: tableInvalid, sentences: invalidTableSentences } = useTableUrlWarning(SORT_FIELDS);
+  const { urlState: tableUrlState, invalid: tableInvalid, sentences: invalidTableSentences } = useTableUrlState(SORT_FIELDS);
   // Every registered menu stays: planned, navHidden and other-permission rows included (design §1).
   const rows = useMemo(() => registry.menus.map(menu => toRegistryRow(menu, registry)), [registry]);
   // Full 8-key context, one badge per value — the PlannedPage capability list, copied inline (do not extract).
@@ -76,11 +76,7 @@ export default function RegistryCatalog() {
           subtitle={ko ? '모든 등록된 메뉴가 표시됩니다(예정·숨김 포함). 레지스트리는 지표 데이터가 아니므로 신뢰도 표시가 없습니다.' : 'Every registered menu is listed (planned and hidden included). Not mart data, so there is no trust indicator.'}
           columns={columns} getRowId={row => row.id} filterKey=""
           preferenceKey="admin-registry:columns:v1" pageSize={25} activeRowId={focus}
-          urlState={parsedSort.ok && parsedPage.ok ? {
-            page: parsedPage.page === 1 ? null : parsedPage.page,
-            sorting: parsedSort.sorting,
-            onChange: ({ page, sorting }, reason) => setPage({ sort: encodeTableSort(sorting), page: page === null ? null : String(page) }, { replace: reason === 'clamp' }),
-          } : undefined}
+          urlState={tableUrlState}
           rowAction={(row, { compact }) => <RowAction compact={compact} icon={PanelRight} label={ko ? `${row.id} 보기` : `View ${row.id}`} text={ko ? '보기' : 'View'} onClick={() => setPage({ focus: row.id })} />}
           loadPage={async page => {
             // Client envelope: the rows are the registry projection, not a server result — trust is null.

@@ -63,6 +63,7 @@ ModuleScreenMeta | type | type ModuleScreenMeta = Omit<@ap/contracts#MenuMeta, '
 ModuleScreenProps | type | type ModuleScreenProps = { host: @ap/contracts#ModuleHost; params: Readonly<Record<string, string>>; }
 ModuleStatus | type | type ModuleStatus = 'auth_required' | 'identity_mismatch' | 'ready' | 'unavailable'
 ModuleTarget | type | type ModuleTarget = { menuId: string; page?: Record<string, string>; params?: Record<string, string>; returnTo?: boolean; } | { page?: Record<string, string>; params?: Record<string, string>; returnTo?: boolean; screen: string; }
+NO_FEATURES | const | const NO_FEATURES: Readonly<@ap/contracts#MenuMeta['features']>
 OUTCOMES | const | const OUTCOMES: readonly [ "ok", "empty", "error", "forbidden", "too_large", "timeout" ]
 Outcome | type | type Outcome = (typeof @ap/contracts#OUTCOMES)[number]
 PERMISSIONS | const | const PERMISSIONS: readonly [ "platform:view", "equipment:view", "master:view", "analytics:view", "metrics:view", "notice:view", "voc:view", "console:access", "feedbackops:access" ]
@@ -113,6 +114,7 @@ clientCorrelationId | function | function clientCorrelationId(): string
 compareHistoryText | function | function compareHistoryText(a: string, b: string): number
 compareQueryHistory | function | function compareQueryHistory(a: @ap/contracts#QueryHistoryEntry, b: @ap/contracts#QueryHistoryEntry): number
 conditionLabel | function | function conditionLabel(c: @ap/contracts#Condition): string
+contextCapabilities | function | function contextCapabilities(declared?: Partial<Record<@ap/contracts#ContextKey, @ap/contracts#Capability>>): Record<@ap/contracts#ContextKey, @ap/contracts#Capability>
 defineAction | const | const defineAction: <I, T>(spec: Omit<@ap/contracts#ActionSpec<I, T>, "_types">) => @ap/contracts#ActionSpec<I, T>
 defineEndpoint | const | const defineEndpoint: <P, T>(spec: Omit<@ap/contracts#EndpointSpec<P, T>, "_types">) => @ap/contracts#EndpointSpec<P, T>
 emptyGlobal | const | const emptyGlobal: @ap/contracts#GlobalContext
@@ -122,6 +124,7 @@ formatMetricVersion | function | function formatMetricVersion(version: string): 
 incompleteMetricPair | function | function incompleteMetricPair(menu: null | { initializesMetric?: boolean; }, metricId: null | string, metricVersion: null | string): @ap/contracts#ContractError | null
 instantEpochMs | function | function instantEpochMs(instant: string): number
 isAppRelativePath | function | function isAppRelativePath(value: string): boolean
+isRecord | const | const isRecord: (value: unknown) => value is Record<string, unknown>
 missingRequiredContext | function | function missingRequiredContext(keys: readonly @ap/contracts#ContextKey[], context: Partial<@ap/contracts#GlobalContext>): @ap/contracts#ContextKey[]
 normalizeSet | function | function normalizeSet(values: string[], field?: string, urlKey?: string): string[]
 parseDateTime | function | function parseDateTime(value: string, field: string, urlKey?: string): Date
