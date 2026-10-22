@@ -7,9 +7,9 @@ import { I18nProvider, PlatformProvider, createRegistry, useMenuQuery, usePlatfo
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { PlatformPage } from '@ap/components';
 import { RouteOutlet } from '../RouteOutlet';
-import { addPane, freshBoard, parseBoardV2, setPane, type Board, type LayoutNode } from './boardModel';
+import { addPane, freshBoard, parseBoardV2, setPane, setTree, type Board, type LayoutNode } from './boardModel';
 import { BOARD_LAYOUT_ENGINE_KEY } from './layoutEngine';
-import { legacyBoard as boardOf, legacySheet as sheet, seedLegacy as seed, V2_KEY } from './__fixtures__/legacyBoard';
+import { legacyBoard as boardOf, legacySheet as sheet, seedLegacy as seed, v2Board, V2_KEY } from './__fixtures__/legacyBoard';
 
 // jsdom has no ResizeObserver and no geometry: every observed element reports the shared size, and `resize` re-reports it.
 function installResizeObserver() {
@@ -99,12 +99,15 @@ const ready = async () => {
   await settle();
 };
 const paneTabs = () => Array.from(document.querySelectorAll<HTMLElement>('[role="tab"][data-tab-panel-id]'));
-const tabLabels = () => paneTabs().map(tab => tab.textContent);
-const tabOf = (label: string) => paneTabs().find(tab => tab.textContent === label)!;
+// A tab is named by the engine (`칸 n · 메뉴명`); its content is the badge, the name and the X.
+const tabLabels = () => paneTabs().map(tab => tab.getAttribute('aria-label'));
+const tabOf = (label: string) => paneTabs().find(tab => tab.getAttribute('aria-label') === label)!;
+const badgeOf = (label: string) => tabOf(label).querySelector('[data-pane-badge]')!;
 const paneRoot = (n: number) => document.querySelector<HTMLElement>(`[data-pane-index="${n - 1}"]`)!;
-const groupMenu = (n: number) => screen.getAllByRole('button', { name: `칸 ${n} 묶음 동작` })[0];
+// The head of the pane that is its group's active tab sits in that group's strip: one `칸 N 동작` menu with the content and the layout actions.
+const paneMenu = (n: number) => screen.getAllByRole('button', { name: `칸 ${n} 동작` })[0];
 const chooseGroupItem = async (n: number, item: string) => {
-  openMenu(groupMenu(n));
+  openMenu(paneMenu(n));
   fireEvent.click(await screen.findByRole('menuitem', { name: item }));
   await settle();
 };
@@ -151,17 +154,19 @@ describe('dock renderer: tabs, selection and the Context bar', () => {
     expect(tree()).toEqual(group([p2.id, p1.id], p2.id));
   });
 
-  it('marks the selected pane\'s tab and keeps the numbers after a move', async () => {
+  it('fills the selected pane\'s tab badge like the Context bar\'s (no dot), and keeps the numbers after a move', async () => {
     seed(boardOf([sheet('a', { layout: '1x2', panes: [alpha(w1), beta(w2)] })]));
     mount('/board?sheet=a');
     await ready();
-    expect(tabOf('칸 1 · 알파').querySelector('[data-pane-tab-mark]')).not.toBeNull();
-    expect(tabOf('칸 2 · 베타').querySelector('[data-pane-tab-mark]')).toBeNull();
+    expect(badgeOf('칸 1 · 알파')).toHaveAttribute('data-selected', 'true');
+    expect(badgeOf('칸 2 · 베타')).toHaveAttribute('data-selected', 'false');
+    expect(document.querySelector('[data-pane-tab-mark]')).toBeNull();
     await chooseGroupItem(1, '칸 2 묶음으로 옮기기');
     expect(tabLabels().sort()).toEqual(['칸 1 · 알파', '칸 2 · 베타']);
     expect(paneRoot(1)).toHaveAttribute('data-pane-index', '0');
-    // A background tab is `visibility: hidden`, which role queries (and the accessible name) skip; its DOM is still there.
-    expect(paneRoot(2).querySelector('[aria-label="칸 2 동작"]')).not.toBeNull();
+    // Only the pane that is its group's active tab draws a head; the one in the background has none until it is in front.
+    expect(document.querySelector('[data-pane-head-slot]')).toHaveAttribute('data-pane-head-slot', v2().sheets[0].panes[0].id);
+    expect(screen.queryAllByRole('button', { name: '칸 2 동작' })).toHaveLength(0);
   });
 
   it('gives every pane the Kernel id `<sheet>.<slot id>`, unchanged by a move', async () => {
@@ -245,7 +250,7 @@ describe('dock renderer: Delete = 비우기, X, 칸 추가, 칸 닫기, 복제',
     await ready();
     expect(tabLabels()).toEqual(['칸 1 · 알파', '칸 2 · 빈 칸', '칸 3 · 알파']);
     const calls = menuQuery.mock.calls.length;
-    openMenu(within(paneRoot(2)).getByRole('button', { name: '칸 2 동작' }));
+    openMenu(paneMenu(2));
     fireEvent.click(await screen.findByRole('menuitem', { name: '칸 2 닫기' }));
     await settle();
     expect(tabLabels()).toEqual(['칸 1 · 알파', '칸 2 · 알파']);
@@ -259,17 +264,18 @@ describe('dock renderer: Delete = 비우기, X, 칸 추가, 칸 닫기, 복제',
     expect(menuQuery.mock.calls.length).toBe(calls);
   });
 
-  it('offers 칸 닫기 only for an empty pane that is not the sheet\'s only pane', async () => {
+  it('offers 칸 닫기 only for an empty pane that is not the sheet\'s only pane, and always the layout actions', async () => {
     seed(boardOf([sheet('a')]));
     mount('/board?sheet=a');
     await ready();
-    expect(within(paneRoot(1)).queryByRole('button', { name: '칸 1 동작' })).toBeNull();
+    openMenu(paneMenu(1));
+    expect(await screen.findByRole('menuitem', { name: '칸 1 최대화' })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: '칸 1 닫기' })).toBeNull();
     cleanup();
     seed(boardOf([sheet('a', { layout: '1x2', panes: [alpha(w1), null] })]));
     mount('/board?sheet=a');
     await ready();
-    expect(within(paneRoot(1)).getByRole('button', { name: '칸 1 동작' })).toBeInTheDocument();
-    openMenu(within(paneRoot(1)).getByRole('button', { name: '칸 1 동작' }));
+    openMenu(paneMenu(1));
     expect(await screen.findByRole('menuitem', { name: '복제' })).toBeInTheDocument();
     expect(screen.queryByRole('menuitem', { name: '칸 1 닫기' })).toBeNull();
   });
@@ -278,7 +284,7 @@ describe('dock renderer: Delete = 비우기, X, 칸 추가, 칸 닫기, 복제',
     seed(boardOf([sheet('a', { layout: '1x2', panes: [alpha(w1), beta(w2)] })]));
     mount('/board?sheet=a');
     await ready();
-    openMenu(within(paneRoot(1)).getByRole('button', { name: '칸 1 동작' }));
+    openMenu(paneMenu(1));
     const item = await screen.findByRole('menuitem', { name: '복제' });
     expect(item).not.toHaveAttribute('aria-disabled', 'true');
     fireEvent.click(item);
@@ -296,7 +302,7 @@ describe('dock renderer: Delete = 비우기, X, 칸 추가, 칸 닫기, 복제',
     seed(boardOf([sheet('a', { layout: '2x2', panes: [alpha(w1), beta(w1), alpha(w2), beta(w2)] })]));
     mount('/board?sheet=a');
     await ready();
-    openMenu(within(paneRoot(1)).getByRole('button', { name: '칸 1 동작' }));
+    openMenu(paneMenu(1));
     const item = await screen.findByRole('menuitem', { name: /복제/ });
     expect(item).toHaveAttribute('aria-disabled', 'true');
     expect(item).toHaveTextContent('빈 칸이 없습니다');
@@ -323,7 +329,7 @@ describe('dock renderer: group commands', () => {
     seed(boardOf([sheet('a', { layout: '1x2', panes: [alpha(w1), beta(w2)] })]));
     mount('/board?sheet=a');
     await ready();
-    openMenu(groupMenu(1));
+    openMenu(paneMenu(1));
     expect(await screen.findByRole('menuitem', { name: '칸 2 묶음으로 옮기기' })).toBeInTheDocument();
     expect(screen.queryByRole('menuitem', { name: '오른쪽으로 나누기' })).toBeNull();
     expect(screen.queryByRole('menuitem', { name: '아래로 나누기' })).toBeNull();
@@ -384,7 +390,7 @@ describe('dock renderer: permission revoke', () => {
 });
 
 describe('dock renderer: maximize, Escape and the narrow display', () => {
-  it('maximize from the group menu hides the other panes; Escape restores and focuses the group menu', async () => {
+  it('maximize from the pane menu hides the other panes; Escape restores and focuses the maximize toggle', async () => {
     seed(boardOf([sheet('a', { layout: '1x2', panes: [alpha(w1), beta(w2)] })]));
     mount('/board?sheet=a');
     await ready();
@@ -392,11 +398,12 @@ describe('dock renderer: maximize, Escape and the narrow display', () => {
     await waitFor(() => { expect(paneRoot(1).closest('[inert]')).not.toBeNull(); });
     expect(paneRoot(2).closest('[inert]')).toBeNull();
     expect(v2().sheets[0].selectedPaneId).toBe(v2().sheets[0].panes[1].id);
-    act(() => { groupMenu(2).focus(); });
-    fireEvent.keyDown(groupMenu(2), { key: 'Escape' });
+    const toggle = () => screen.getByRole('button', { name: '원래 크기로' });
+    act(() => { toggle().focus(); });
+    fireEvent.keyDown(toggle(), { key: 'Escape' });
     await waitFor(() => { expect(paneRoot(1).closest('[inert]')).toBeNull(); });
     await settle();
-    expect(document.activeElement).toBe(groupMenu(2));
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: '칸 2 최대화' }));
   });
 
   it('below 692px every pane sits in one tab group, and nothing is stored', async () => {
@@ -537,7 +544,7 @@ describe('dock renderer: undo addresses panes by slot (C3)', () => {
     expect(tabLabels()).toEqual(['칸 1 · 빈 칸', '칸 2 · 알파', '칸 3 · 빈 칸']);
     fireEvent.click(screen.getByRole('button', { name: '칸 2 비우기' }));
     await settle();
-    openMenu(within(paneRoot(1)).getByRole('button', { name: '칸 1 동작' }));
+    openMenu(paneMenu(1));
     fireEvent.click(await screen.findByRole('menuitem', { name: '칸 1 닫기' }));
     await settle();
     expect(tabLabels()).toEqual(['칸 1 · 빈 칸', '칸 2 · 빈 칸']);
@@ -550,25 +557,43 @@ describe('dock renderer: undo addresses panes by slot (C3)', () => {
 });
 
 describe('dock renderer: keyboard order and focus (U2, U3)', () => {
-  it('Tab on a tab goes into its pane, Shift+Tab from the pane returns to the tab, and Tab out of a pane reaches the next group\'s tab', async () => {
+  it('Tab on a tab goes through the buttons of its head into its pane, Shift+Tab returns the same way, and Tab out of a pane reaches the next group\'s tab', async () => {
     seed(boardOf([sheet('a', { layout: '1x2', panes: [alpha(w1), beta(w2)] })]));
     mount('/board?sheet=a');
     await ready();
+    const panelOf = (n: number) => paneRoot(n).closest<HTMLElement>('[data-dock-panel]')!;
+    const slot = (n: number) => document.querySelector<HTMLElement>(`[data-pane-head-slot="${paneRoot(n).dataset.paneId?.replace(/^a\./, '')}"]`)!;
     tabOf('칸 1 · 알파').focus();
     await userEvent.tab();
-    expect(paneRoot(1).contains(document.activeElement)).toBe(true);
+    expect(slot(1).contains(document.activeElement)).toBe(true);
+    for (let step = 0; step < 6 && slot(1).contains(document.activeElement); step++) await userEvent.tab();
+    expect(panelOf(1).contains(document.activeElement)).toBe(true);
     await userEvent.tab({ shift: true });
+    expect(slot(1).contains(document.activeElement)).toBe(true);
+    for (let step = 0; step < 6 && slot(1).contains(document.activeElement); step++) await userEvent.tab({ shift: true });
     expect(document.activeElement).toBe(tabOf('칸 1 · 알파'));
     // From the last stop of pane 1 the next stop is pane 2's tab; Shift+Tab from that tab is back in pane 1.
-    const stops = Array.from(paneRoot(1).closest('[data-dock-panel]')!.querySelectorAll<HTMLElement>('button, [tabindex="0"], a[href], input')).filter(el => el.tabIndex >= 0);
-    act(() => { stops[stops.length - 1]!.focus(); });
+    const stops = Array.from(panelOf(1).querySelectorAll<HTMLElement>('button, [tabindex="0"], a[href], input')).filter(el => el.tabIndex >= 0);
+    act(() => { (stops[stops.length - 1] ?? panelOf(1)).focus(); });
     await userEvent.tab();
     expect(document.activeElement).toBe(tabOf('칸 2 · 베타'));
     await userEvent.tab({ shift: true });
-    expect(paneRoot(1).contains(document.activeElement)).toBe(true);
-    await userEvent.tab({ shift: true });
-    await userEvent.tab({ shift: true });
-    expect(paneRoot(1).contains(document.activeElement)).toBe(false);
+    expect(panelOf(1).contains(document.activeElement)).toBe(true);
+  });
+
+  it('on the default 2×2 Tab visits the tab groups in reading order: 칸 1, 2, 3, 4', async () => {
+    seed(boardOf([sheet('a', { layout: '2x2', panes: [alpha(w1), beta(w2), alpha(w2), beta(w1)] })]));
+    mount('/board?sheet=a');
+    await ready();
+    const visited: string[] = [];
+    tabOf('칸 1 · 알파').focus();
+    visited.push(document.activeElement?.getAttribute('aria-label') ?? '');
+    for (let step = 0; step < 60 && visited.length < 4; step++) {
+      await userEvent.tab();
+      const tab = document.activeElement?.closest('[role="tab"]');
+      if (tab && document.activeElement === tab) visited.push(tab.getAttribute('aria-label') ?? '');
+    }
+    expect(visited).toEqual(['칸 1 · 알파', '칸 2 · 베타', '칸 3 · 알파', '칸 4 · 베타']);
   });
 
   it('after a group ⋯ command focus lands on the moved pane\'s tab (merge, split right, split down)', async () => {
@@ -606,5 +631,316 @@ describe('dock renderer: assistive technology and names (U7, Noticed)', () => {
     await waitFor(() => { expect(screen.getAllByRole('separator')).toHaveLength(3); });
     expect(screen.getAllByRole('separator').map(item => item.getAttribute('aria-label') ?? item.textContent).sort())
       .toEqual(['칸 1과 칸 2 너비 조절', '칸 1과 칸 3 높이 조절', '칸 2와 칸 4 높이 조절']);
+  });
+});
+
+describe('dock renderer: the pane head is one strip per group (ADR-0067 2c)', () => {
+  const menuNames = () => {
+    const menu = screen.getByRole('menu');
+    return Array.from(menu.querySelectorAll('[role="menuitem"], [role="separator"]')).map(element => (element.getAttribute('role') === 'separator' ? '---' : element.textContent ?? ''));
+  };
+  const indexOfItem = (names: string[], text: string) => names.findIndex(name => name.startsWith(text));
+
+  it('one 칸 N 동작 menu per group: the content actions, a separator, then the layout actions; there is no group menu', async () => {
+    seed(boardOf([sheet('a', { layout: '1x2', panes: [alpha(w1), beta(w2)] })]));
+    mount('/board?sheet=a');
+    await ready();
+    expect(screen.queryByRole('button', { name: /묶음 동작/ })).toBeNull();
+    expect(screen.getAllByRole('button', { name: /^칸 \d 동작$/ })).toHaveLength(2);
+    openMenu(paneMenu(1));
+    await screen.findByRole('menuitem', { name: '복제' });
+    const names = menuNames();
+    // The pane menu always had a separator before `비우기`; the layout group starts after the one that follows it.
+    const separator = names.indexOf('---', indexOfItem(names, '비우기'));
+    expect(indexOfItem(names, '이 조건을 시트의 모든 칸에 적용')).toBeLessThan(separator);
+    expect(indexOfItem(names, '본 화면에서 열기')).toBeLessThan(separator);
+    expect(indexOfItem(names, '바꾸기')).toBeLessThan(separator);
+    expect(indexOfItem(names, '복제')).toBeLessThan(separator);
+    expect(indexOfItem(names, '비우기')).toBeLessThan(separator);
+    expect(indexOfItem(names, '비우기')).toBeGreaterThan(names.indexOf('---'));
+    expect(indexOfItem(names, '칸 1 최대화')).toBeGreaterThan(separator);
+    expect(indexOfItem(names, '칸 2 묶음으로 옮기기')).toBeGreaterThan(indexOfItem(names, '칸 1 최대화'));
+    expect(names.some(name => name.startsWith('오른쪽으로 나누기'))).toBe(false);
+  });
+
+  it('lists the moves into other groups by ascending pane number', async () => {
+    seed(boardOf([sheet('a', { layout: '2x2', panes: [alpha(w1), beta(w2), alpha(w2), beta(w1)] })]));
+    mount('/board?sheet=a');
+    await ready();
+    openMenu(paneMenu(4));
+    await screen.findByRole('menu');
+    const moves = menuNames().filter(name => name.endsWith('묶음으로 옮기기'));
+    expect(moves).toEqual(['칸 1 묶음으로 옮기기', '칸 2 묶음으로 옮기기', '칸 3 묶음으로 옮기기']);
+  });
+
+  it('while maximized the layout group keeps only 원래 크기로 and the content group stays', async () => {
+    seed(boardOf([sheet('a', { layout: '1x2', panes: [alpha(w1), beta(w2)] })]));
+    mount('/board?sheet=a');
+    await ready();
+    await chooseGroupItem(1, '칸 1 최대화');
+    await waitFor(() => { expect(paneRoot(2).closest('[inert]')).not.toBeNull(); });
+    openMenu(paneMenu(1));
+    await screen.findByRole('menuitem', { name: '복제' });
+    const names = menuNames();
+    expect(indexOfItem(names, '원래 크기로')).toBeGreaterThan(names.indexOf('---'));
+    expect(names.some(name => name.startsWith('칸 1 최대화'))).toBe(false);
+    expect(names.some(name => name.endsWith('묶음으로 옮기기'))).toBe(false);
+    expect(names.some(name => name.endsWith('나누기'))).toBe(false);
+  });
+
+  it('an empty pane offers 칸 N 닫기 then the layout actions, and the only pane has no 닫기', async () => {
+    seed(boardOf([sheet('a', { layout: '1x2', panes: [alpha(w1), null] })]));
+    mount('/board?sheet=a');
+    await ready();
+    await userEvent.click(tabOf('칸 2 · 빈 칸'));
+    await settle();
+    openMenu(paneMenu(2));
+    await screen.findByRole('menuitem', { name: '칸 2 닫기' });
+    const names = menuNames();
+    expect(names.indexOf('칸 2 닫기')).toBeLessThan(names.indexOf('---'));
+    expect(indexOfItem(names, '칸 2 최대화')).toBeGreaterThan(names.indexOf('---'));
+    expect(names.some(name => name === '복제')).toBe(false);
+  });
+
+  it('the maximize toggle is in the head; its name flips, and the toggle, Escape and the menu each restore with focus on the toggle', async () => {
+    seed(boardOf([sheet('a', { layout: '1x2', panes: [alpha(w1), beta(w2)] })]));
+    mount('/board?sheet=a');
+    await ready();
+    const toggle = (name: string) => screen.getByRole('button', { name });
+    // The toggle itself.
+    await userEvent.click(toggle('칸 1 최대화'));
+    await waitFor(() => { expect(paneRoot(2).closest('[inert]')).not.toBeNull(); });
+    await userEvent.click(toggle('원래 크기로'));
+    await waitFor(() => { expect(paneRoot(2).closest('[inert]')).toBeNull(); });
+    await waitFor(() => { expect(document.activeElement).toBe(toggle('칸 1 최대화')); });
+    // Escape.
+    await userEvent.click(toggle('칸 1 최대화'));
+    await waitFor(() => { expect(paneRoot(2).closest('[inert]')).not.toBeNull(); });
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => { expect(paneRoot(2).closest('[inert]')).toBeNull(); });
+    await waitFor(() => { expect(document.activeElement).toBe(toggle('칸 1 최대화')); });
+    // The menu.
+    await userEvent.click(toggle('칸 1 최대화'));
+    await waitFor(() => { expect(paneRoot(2).closest('[inert]')).not.toBeNull(); });
+    await chooseGroupItem(1, '원래 크기로');
+    await waitFor(() => { expect(paneRoot(2).closest('[inert]')).toBeNull(); });
+    await waitFor(() => { expect(document.activeElement).toBe(toggle('칸 1 최대화')); });
+  });
+
+  it('Shift+F10 on a tab opens 칸 N 동작 with the first item focused; a right-click opens the same menu', async () => {
+    seed(boardOf([sheet('a', { layout: '1x2', panes: [alpha(w1), beta(w2)] })]));
+    mount('/board?sheet=a');
+    await ready();
+    tabOf('칸 1 · 알파').focus();
+    await userEvent.keyboard('{Shift>}{F10}{/Shift}');
+    await screen.findByRole('menuitem', { name: '복제' });
+    await waitFor(() => { expect(document.activeElement?.getAttribute('role')).toBe('menuitem'); });
+    expect(document.activeElement).toBe(screen.getByRole('menu').querySelector('[role="menuitem"]:not([data-disabled])'));
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => { expect(screen.queryByRole('menu')).toBeNull(); });
+    fireEvent.contextMenu(tabOf('칸 2 · 베타'));
+    expect(await screen.findByRole('menuitem', { name: '칸 2 최대화' })).toBeInTheDocument();
+  });
+
+  it('Shift+F10 on a background tab makes it the active, selected tab first, then opens its menu', async () => {
+    seed(boardOf([sheet('a', { layout: '1x2', panes: [alpha(w1), beta(w2)] })]));
+    mount('/board?sheet=a');
+    await ready();
+    await chooseGroupItem(1, '칸 2 묶음으로 옮기기');
+    expect(tabOf('칸 1 · 알파')).toHaveAttribute('aria-selected', 'true');
+    tabOf('칸 2 · 베타').focus();
+    await userEvent.keyboard('{Shift>}{F10}{/Shift}');
+    expect(await screen.findByRole('menuitem', { name: '칸 2 최대화' })).toBeInTheDocument();
+    expect(tabOf('칸 2 · 베타')).toHaveAttribute('aria-selected', 'true');
+    // The open menu hides the rest of the page from role queries; the store says which pane the Context bar reads.
+    expect(v2().sheets[0].selectedPaneId).toBe(v2().sheets[0].panes[1].id);
+    await waitFor(() => { expect(document.activeElement?.getAttribute('role')).toBe('menuitem'); });
+  });
+
+  it('changing the active tab of a group closes the open 같음 popover and ⋯ menu of the head it leaves', async () => {
+    seed(boardOf([sheet('a', { layout: '1x2', panes: [alpha(w1), alpha(w1)] })]));
+    mount('/board?sheet=a');
+    await ready();
+    await chooseGroupItem(1, '칸 2 묶음으로 옮기기');
+    await userEvent.click(screen.getByRole('button', { name: /^칸 1의 같은 조건/ }));
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    await userEvent.click(tabOf('칸 2 · 알파'));
+    await settle();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    openMenu(paneMenu(2));
+    await screen.findByRole('menu');
+    await userEvent.click(tabOf('칸 1 · 알파'), { pointerEventsCheck: 0 });
+    await settle();
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(screen.queryAllByRole('button', { name: '칸 2 동작' })).toHaveLength(0);
+    expect(screen.getAllByRole('button', { name: '칸 1 동작' })).toHaveLength(1);
+  });
+
+  it('칸 추가 puts focus on the new pane\'s tab at 3 and at 4 panes, where the button disables', async () => {
+    seed(boardOf([sheet('a', { layout: '1x2', panes: [alpha(w1), beta(w2)] })]));
+    mount('/board?sheet=a');
+    await ready();
+    await userEvent.click(screen.getByRole('button', { name: '칸 추가' }));
+    await waitFor(() => { expect(tabLabels()).toContain('칸 3 · 빈 칸'); });
+    await waitFor(() => { expect(document.activeElement).toBe(tabOf('칸 3 · 빈 칸')); });
+    await userEvent.click(screen.getByRole('button', { name: '칸 추가' }));
+    await waitFor(() => { expect(tabLabels()).toContain('칸 4 · 빈 칸'); });
+    await waitFor(() => { expect(document.activeElement).toBe(tabOf('칸 4 · 빈 칸')); });
+    expect(screen.getByRole('button', { name: '칸 추가' })).toBeDisabled();
+  });
+});
+
+describe('dock renderer: the head narrows against its tabs at 340px (docs/16 §4)', () => {
+  const STRIP = 340;
+  /** Measured parts of the head: the system chip 43px, the toggle and ⋯ 60px, a chip 107px, `+N` 27px, `같음 N` 50px. */
+  const measure = (strip: number) => vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+    const width = this.classList.contains('dv-tabs-and-actions-container') ? strip
+      : this.dataset.headFixed === 'actions' ? 60
+        : this.hasAttribute('data-head-fixed') ? 43
+          : this.dataset.chipMeasure === 'chip' ? 107
+            : this.dataset.chipMeasure === 'same' ? 50
+              : this.dataset.chipMeasure === 'more' ? 27 : 0;
+    return { width, height: 0, top: 0, left: 0, right: width, bottom: 0, x: 0, y: 0, toJSON: () => ({}) };
+  });
+  /** `count` content panes: the first `together` in one tab group (pane 1 active), the rest each alone. The time differs between panes. */
+  const seedGroup = (count: number, together: number) => {
+    let board = freshBoard('시트');
+    const id = board.sheets[0].id;
+    for (let n = 1; n < count; n++) board = addPane(board, id);
+    for (let n = 0; n < count; n++) board = setPane(board, id, n, alpha(n % 2 === 0 ? w1 : w2));
+    const ids = board.sheets[0].panes.map(pane => pane.id);
+    const grouped: LayoutNode = { type: 'group', panes: ids.slice(0, together), active: ids[0]! };
+    const rest = ids.slice(together).map(pane => group([pane]));
+    const tree: LayoutNode = rest.length === 0 ? grouped : { type: 'branch', dir: 'row', sizes: [grouped, ...rest].map(() => 100 / (rest.length + 1)), children: [grouped, ...rest] };
+    seedV2(setTree(board, id, tree));
+    return id;
+  };
+  const head = () => screen.getByRole('group', { name: '칸 1 머리' });
+  const slotAttributes = () => ({ compact: head().hasAttribute('data-dock-compact'), wrap: head().hasAttribute('data-dock-wrap') });
+
+  it.each([
+    { tabs: 1, compact: false, wrap: false },
+    { tabs: 2, compact: true, wrap: false },
+    { tabs: 3, compact: true, wrap: true },
+  ])('with $tabs tab(s): background tabs shrink to their badge $compact, the head moves to its own row $wrap; differing chips fold into +N until it does', async ({ tabs, compact, wrap }) => {
+    const id = seedGroup(3, tabs);
+    measure(STRIP);
+    mount(`/board?sheet=${id}`);
+    await ready();
+    await waitFor(() => { expect(slotAttributes()).toEqual({ compact, wrap }); });
+    const more = within(head()).queryByRole('button', { name: /조건 \d+개 더 보기/ });
+    // Three tabs leave no room for the folded row beside them: the head takes a row of its own, wide enough for every chip.
+    expect(more === null).toBe(wrap);
+    expect(head().querySelector('[data-pane-chip="time"]') !== null).toBe(wrap);
+  });
+
+  it('a strip wide enough for the tabs at their minimum and every chip keeps them all', async () => {
+    const id = seedGroup(3, 2);
+    measure(900);
+    mount(`/board?sheet=${id}`);
+    await ready();
+    await waitFor(() => { expect(head().querySelector('[data-pane-chip="time"]')).not.toBeNull(); });
+    expect(slotAttributes()).toEqual({ compact: false, wrap: false });
+    expect(within(head()).queryByRole('button', { name: /더 보기/ })).toBeNull();
+  });
+  /** Panes 1 and 2 in one group, no difference between them: the head has no chips and only its summary button (`같음 N`, or `조건 N` beside an empty pane). */
+  const seedSummaryOnly = (secondEmpty: boolean) => {
+    let board = freshBoard('시트');
+    const id = board.sheets[0].id;
+    board = addPane(board, id);
+    board = setPane(board, id, 0, alpha(w1));
+    if (!secondEmpty) board = setPane(board, id, 1, alpha(w1));
+    const ids = board.sheets[0].panes.map(pane => pane.id);
+    seedV2(setTree(board, id, group(ids)));
+    return id;
+  };
+
+  it.each([
+    { name: '같음 N beside an identical pane', secondEmpty: false },
+    { name: '조건 N of a single screen beside an empty pane', secondEmpty: true },
+  ])('C4: the visible summary button is counted with no difference chips too ($name): two tabs at 340px leave it no room, so the head takes its own row', async ({ secondEmpty }) => {
+    const id = seedSummaryOnly(secondEmpty);
+    measure(STRIP);
+    mount(`/board?sheet=${id}`);
+    await ready();
+    expect(within(head()).getByRole('button', { name: /^칸 1의 (같은 조건|조건)/ })).toBeInTheDocument();
+    await waitFor(() => { expect(slotAttributes()).toEqual({ compact: true, wrap: true }); });
+  });
+
+  it('U4: the floors of the tabs are measured: tabs that need less than the spec constants keep two tabs on one row at 335px, where the constants (136 + 46) would wrap', async () => {
+    const id = seedGroup(3, 2);
+    const spy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      const width = this.classList.contains('dv-tabs-and-actions-container') ? 335
+        : this.classList.contains('dv-tab') ? 120
+          : this.hasAttribute('data-dock-tab-shrinkable') ? 64
+            : this.dataset.headFixed === 'actions' ? 60
+              : this.hasAttribute('data-head-fixed') ? 43
+                : this.dataset.chipMeasure === 'chip' ? 107
+                  : this.dataset.chipMeasure === 'same' ? 50
+                    : this.dataset.chipMeasure === 'more' ? 27 : 0;
+      return { width, height: 0, top: 0, left: 0, right: width, bottom: 0, x: 0, y: 0, toJSON: () => ({}) };
+    });
+    try {
+      mount(`/board?sheet=${id}`);
+      await ready();
+      await waitFor(() => { expect(slotAttributes()).toEqual({ compact: true, wrap: false }); });
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('U4: the head\'s icon buttons (maximize, ⋯) are 28px', async () => {
+    const id = seedGroup(3, 1);
+    mount(`/board?sheet=${id}`);
+    await ready();
+    for (const name of ['칸 1 최대화', '칸 1 동작']) expect(within(head()).getByRole('button', { name }).className).toContain('size-7');
+  });
+
+});
+
+describe('dock renderer: focus requests are answered once (FIX1 C2, C3)', () => {
+  it('C2: a sheet round trip after 칸 추가 does not focus the added pane again', async () => {
+    // A V2 board, so the pane ids the dock was told about are the stored ones when the sheet comes back.
+    seedV2(v2Board(boardOf([sheet('a', { layout: '1x2', panes: [null, null] }), sheet('other')])));
+    mount('/board?sheet=a');
+    await ready();
+    await userEvent.click(screen.getByRole('button', { name: '칸 추가' }));
+    await waitFor(() => { expect(document.activeElement).toBe(tabOf('칸 3 · 빈 칸')); });
+    const sheetTab = (name: string) => document.querySelector<HTMLElement>(`[data-sheet-id="${name}"]`)!;
+    await userEvent.click(sheetTab('other'));
+    await waitFor(() => { expect(document.querySelector('[data-board-dock]')).not.toBeNull(); });
+    // The dock of the returned sheet takes a while to draw its tabs in jsdom; the retries of a late focus request are spaced out so one would land after that.
+    const real = globalThis.setTimeout;
+    const spaced = vi.spyOn(globalThis, 'setTimeout').mockImplementation(((callback: () => void, delay?: number) => real(callback, delay === 30 ? 300 : delay)) as unknown as typeof setTimeout);
+    try {
+      await userEvent.click(sheetTab('a'));
+      await ready();
+      await act(() => new Promise(resolve => { real(resolve, 800); }));
+    } finally {
+      spaced.mockRestore();
+    }
+    expect(document.activeElement).toBe(sheetTab('a'));
+    expect(document.activeElement).not.toBe(tabOf('칸 3 · 빈 칸'));
+  });
+
+  it('C3: restoring after another tab of the group became active puts focus on that pane\'s toggle, by toggle and by Escape', async () => {
+    seed(boardOf([sheet('a', { layout: '1x2', panes: [alpha(w1), beta(w2)] })]));
+    mount('/board?sheet=a');
+    await ready();
+    await chooseGroupItem(2, '칸 1 묶음으로 옮기기');
+    await userEvent.click(tabOf('칸 1 · 알파'));
+    await settle();
+    const toggle = (name: string) => screen.getByRole('button', { name });
+    for (const restore of ['toggle', 'escape'] as const) {
+      await userEvent.click(tabOf('칸 1 · 알파'));
+      await settle();
+      await userEvent.click(toggle('칸 1 최대화'));
+      await waitFor(() => { expect(toggle('원래 크기로')).toBeInTheDocument(); });
+      await userEvent.click(tabOf('칸 2 · 베타'));
+      await settle();
+      if (restore === 'toggle') await userEvent.click(toggle('원래 크기로'));
+      else { tabOf('칸 2 · 베타').focus(); await userEvent.keyboard('{Escape}'); }
+      await waitFor(() => { expect(document.activeElement).toBe(toggle('칸 2 최대화')); });
+    }
   });
 });

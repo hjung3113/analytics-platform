@@ -180,6 +180,10 @@ test.describe('토큰 소비 계약 (06 §23, ADR-0011/ADR-0058)', () => {
 });
 
 test.describe('분석 보드 계약 (16 §4–§7, ADR-0049·0051)', () => {
+  // The default renderer is the dock since ADR-0067 2c; this contract pins the grid renderer, which stays the fallback.
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => { localStorage.setItem('platform:board-layout-engine', 'grid'); });
+  });
   type BoardTestRole = 'engineer' | 'viewer';
   type BoardPaneSeed = { menuId: string; params: Record<string, string>; query: string };
   type BoardSheetSeed = { id: string; name: string; layout: '1x1' | '1x2' | '2x1' | '2x2'; arrangement?: Partial<Record<'1x1' | '1x2' | '2x1' | '2x2', { columns: number[]; rows: number[][]; collapsed: number[] }>>; selected: number; panes: (BoardPaneSeed | null)[] };
@@ -522,13 +526,16 @@ test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
   }
 
   const paneTabs = (page: Page) => page.locator('[data-dock-layout] [role="tab"][data-tab-panel-id]');
-  const paneTab = (page: Page, number: number) => paneTabs(page).filter({ hasText: new RegExp(`^칸 ${number} · `) });
+  // A tab is named by the engine (`칸 N · 메뉴명`); its content is the badge, the name and the X.
+  const paneTab = (page: Page, number: number) => paneTabs(page).and(page.locator(`[aria-label^="칸 ${number} · "]`));
   const groups = (page: Page) => page.locator('[data-dock-layout] .dv-groupview');
   // `has` matches inside each group, so its locator must not start at `[data-dock-layout]` (an ancestor of the group).
-  const groupOfTab = (page: Page, number: number) => groups(page).filter({ has: page.locator('[role="tab"][data-tab-panel-id]').filter({ hasText: new RegExp(`^칸 ${number} · `) }) });
+  const groupOfTab = (page: Page, number: number) => groups(page).filter({ has: page.locator(`[role="tab"][data-tab-panel-id][aria-label^="칸 ${number} · "]`) });
   const groupBody = (page: Page, number: number) => groupOfTab(page, number).locator('.dv-content-container');
   const contextOf = (page: Page, number: number) => page.getByRole('region', { name: `칸 ${number} · 분석 Context` });
-  const groupMenuOf = (page: Page, number: number) => groupOfTab(page, number).locator('[data-dock-group-menu]');
+  /** The pane's head is the right end of its group's strip: the maximize toggle and the one `⋯` menu. */
+  const paneMenuOf = (page: Page, number: number) => groupOfTab(page, number).getByRole('button', { name: `칸 ${number} 동작` });
+  const maximizeOf = (page: Page, number: number) => groupOfTab(page, number).getByRole('button', { name: `칸 ${number} 최대화` });
   /** Marks every pane root so a remount (which would re-query) shows as a lost mark. */
   const markPanes = (page: Page) => page.locator('[data-pane-id]').evaluateAll(panes => panes.forEach(pane => { (pane as HTMLElement).dataset.dockProbe = 'same'; }));
   const marked = (page: Page) => page.locator('[data-dock-probe="same"]');
@@ -593,7 +600,7 @@ test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
     await dockReady(page, 2);
     await paneTab(page, 2).focus();
     await page.keyboard.press('Delete');
-    await expect(paneTab(page, 2)).toHaveText(/^칸 2 · 빈 칸$/);
+    await expect(paneTab(page, 2)).toHaveAttribute('aria-label', '칸 2 · 빈 칸');
     await expect(paneTabs(page)).toHaveCount(2);
     await expect(paneTab(page, 2)).toBeFocused();
     await expect(page.getByText('칸 2을 비웠습니다')).toBeVisible();
@@ -603,7 +610,7 @@ test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
     await page.keyboard.press('Delete');
     await expect(paneTabs(page)).toHaveCount(2);
     await page.getByRole('button', { name: '실행 취소' }).click();
-    await expect(paneTab(page, 2)).not.toHaveText(/빈 칸/);
+    await expect(paneTab(page, 2)).not.toHaveAttribute('aria-label', /빈 칸/);
   });
 
   test('열 경계는 방향키로 5%씩 움직인다', async ({ page }, testInfo) => {
@@ -618,18 +625,42 @@ test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
     await evidence(page, testInfo, 'board-dock-separator');
   });
 
-  test('최대화는 Esc로 풀리고 포커스는 그룹 ⋯로 돌아온다', async ({ page }, testInfo) => {
+  test('최대화는 칸 머리의 토글로 하고 Esc로 풀리며 포커스는 토글로 돌아온다', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await signInWithDockBoard(page, [populated('dock', '1x2', 2)]);
     await dockReady(page, 2);
-    await groupMenuOf(page, 1).click();
-    await page.getByRole('menuitem', { name: '칸 1 최대화' }).click();
+    await maximizeOf(page, 1).click();
     await expect(page.locator('[data-pane-index="1"]').first()).toBeHidden();
+    await expect(groupOfTab(page, 1).getByRole('button', { name: '원래 크기로' })).toBeVisible();
     await evidence(page, testInfo, 'board-dock-maximized');
-    await groupMenuOf(page, 1).focus();
     await page.keyboard.press('Escape');
     await expect(page.locator('[data-pane-index="1"]').first()).toBeVisible();
-    await expect(groupMenuOf(page, 1)).toBeFocused();
+    await expect(maximizeOf(page, 1)).toBeFocused();
+    // The toggle itself restores too.
+    await maximizeOf(page, 1).click();
+    await expect(page.locator('[data-pane-index="1"]').first()).toBeHidden();
+    await groupOfTab(page, 1).getByRole('button', { name: '원래 크기로' }).click();
+    await expect(page.locator('[data-pane-index="1"]').first()).toBeVisible();
+    await expect(maximizeOf(page, 1)).toBeFocused();
+  });
+
+  test('최대화한 채 창 크기를 바꾸고 풀어도 열 비율이 그대로다', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await signInWithDockBoard(page, [populated('dock', '2x2', 4)]);
+    await dockReady(page, 4);
+    const widths = async () => Promise.all([1, 2, 3, 4].map(async number => (await groupOfTab(page, number).boundingBox())!.width));
+    // Pane 1 and 2 share a row, 3 and 4 the other: each pair is half of the board.
+    const spread = async () => { const [a, b, c, d] = await widths(); return Math.max(Math.abs(a! - b!), Math.abs(c! - d!)); };
+    await expect.poll(spread).toBeLessThanOrEqual(2);
+    await maximizeOf(page, 1).click();
+    await expect(page.locator('[data-pane-index="1"]').first()).toBeHidden();
+    await page.setViewportSize({ width: 900, height: 900 });
+    await page.keyboard.press('Escape');
+    await expect(page.locator('[data-pane-index="1"]').first()).toBeVisible();
+    await expect.poll(spread).toBeLessThanOrEqual(2);
+    expect(Math.min(...await widths())).toBeGreaterThanOrEqual(340);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expect.poll(spread).toBeLessThanOrEqual(2);
   });
 
   test('691px에서는 한 탭 그룹에 모든 칸이 있고 692px에서는 나란히 선다', async ({ page }, testInfo) => {
@@ -661,16 +692,95 @@ test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
     await expect(groups(page)).toHaveCount(2);
   });
 
-  test('탭에서 Tab은 그 칸 안으로 들어가고 Shift+Tab은 탭으로 돌아온다', async ({ page }) => {
+  test('탭에서 Tab은 칸 머리의 버튼을 거쳐 그 칸 안으로 들어가고 Shift+Tab은 탭으로 돌아온다', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await signInWithDockBoard(page, [populated('dock', '1x2', 2)]);
     await dockReady(page, 2);
     const paneOfFocus = () => page.evaluate(() => document.activeElement?.closest('[data-pane-index]')?.getAttribute('data-pane-index') ?? null);
+    const inHead = () => page.evaluate(() => document.activeElement?.closest('[data-pane-head-slot]') !== null);
+    // While the screen is still loading the pane has no focusable control yet; wait for its first one.
+    await expect(page.locator('[data-pane-index="0"]').getByRole('radio', { name: '시간' })).toBeVisible();
     await paneTab(page, 1).focus();
     await page.keyboard.press('Tab');
+    await expect.poll(inHead).toBe(true);
+    for (let step = 0; step < 6 && await inHead(); step++) await page.keyboard.press('Tab');
     await expect.poll(paneOfFocus).toBe('0');
-    await page.keyboard.press('Shift+Tab');
+    for (let step = 0; step < 6 && !(await inHead()); step++) await page.keyboard.press('Shift+Tab');
+    for (let step = 0; step < 6 && await inHead(); step++) await page.keyboard.press('Shift+Tab');
     await expect(paneTab(page, 1)).toBeFocused();
+  });
+
+  test('기본 2×2에서 Tab은 칸 1→2→3→4 순서다', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await signInWithDockBoard(page, [populated('dock', '2x2', 4)]);
+    await dockReady(page, 4);
+    await paneTab(page, 1).focus();
+    const visited = [1];
+    for (let step = 0; step < 400 && visited.length < 4; step++) {
+      await page.keyboard.press('Tab');
+      const label = await page.evaluate(() => (document.activeElement?.getAttribute('role') === 'tab' ? document.activeElement.getAttribute('aria-label') : null));
+      const number = label ? Number(/^칸 (\d) · /.exec(label)?.[1]) : NaN;
+      if (!Number.isNaN(number)) visited.push(number);
+    }
+    expect(visited).toEqual([1, 2, 3, 4]);
+  });
+
+  test('행 비율이 다른 두 열에서 읽기 순서가 DOM 순서와 달라도 Tab은 마지막 칸 뒤에서 보드 밖으로 나가고 Shift+Tab은 첫 칸 앞으로 나간다', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await signInWithDockBoard(page, [populated('dock', '2x2', 4)]);
+    await dockReady(page, 4);
+    // Left column 1 over 3 at 75/25, right column 2 over 4 at 50/50: the group tops read 1, 2, 4, 3 while the engine keeps 1, 3, 2, 4.
+    const separator = page.getByRole('separator', { name: '칸 1과 칸 3 높이 조절' });
+    const before = Number(await separator.getAttribute('aria-valuenow'));
+    await separator.focus();
+    for (let step = 0; step < 5; step++) await page.keyboard.press('ArrowDown');
+    await expect.poll(async () => Number(await separator.getAttribute('aria-valuenow'))).toBeCloseTo(before + 25, 0);
+    // Start once every granted pane has drawn its screen (pane 4, DIFF, has no grant): the number of stops must not depend on load timing.
+    for (const index of [0, 1, 2]) await expect(page.locator(`[data-pane-index="${index}"]`).getByRole('radio', { name: '시간' })).toBeVisible();
+    const outside = () => page.evaluate(() => { const focus = document.activeElement; return focus !== null && focus !== document.body && !focus.closest('[data-dock-layout]'); });
+    const visited: number[] = [];
+    const note = async () => {
+      const label = await page.evaluate(() => (document.activeElement?.getAttribute('role') === 'tab' ? document.activeElement.getAttribute('aria-label') : null));
+      const number = label ? Number(/^칸 (\d) · /.exec(label)?.[1]) : NaN;
+      if (!Number.isNaN(number) && visited.at(-1) !== number) visited.push(number);
+    };
+    await paneTab(page, 1).focus();
+    await note();
+    for (let step = 0; step < 400 && !(await outside()); step++) { await page.keyboard.press('Tab'); await note(); }
+    expect(visited).toEqual([1, 2, 4, 3]);
+    expect(await outside()).toBe(true);
+    // Back: out of the layout before the first group.
+    await paneTab(page, 1).focus();
+    await page.keyboard.press('Shift+Tab');
+    expect(await outside()).toBe(true);
+  });
+
+  test('창을 줄여 좁은 폭이 된 직후에도 보드에 가로 스크롤이 없다', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await signInWithDockBoard(page, [populated('dock', '2x2', 4)]);
+    await dockReady(page, 4);
+    await page.setViewportSize({ width: 721, height: 900 });
+    await expect(page.locator('[data-dock-layout]')).toHaveAttribute('data-dock-narrow', 'true');
+    // The board's own scroll container, not only the document: an overlay left at its old position widens the former.
+    const board = page.getByRole('tabpanel').filter({ has: page.locator('[data-board-dock]') });
+    await expect.poll(() => board.evaluate(element => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(0);
+  });
+
+  test('기본값은 dock이다: 렌더러 설정이 없으면 칸마다 탭 띠와 칸 머리가 있다', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await signInAs(page, 'engineer');
+    // No `platform:board-layout-engine`: the browser asked for nothing.
+    await page.addInitScript(({ value }) => {
+      if (sessionStorage.getItem('platform:board-fixture-seeded:engineer')) return;
+      localStorage.setItem('platform:board:engineer', JSON.stringify(value));
+      sessionStorage.setItem('platform:board-fixture-seeded:engineer', '1');
+    }, { value: { v: 1, activeSheetId: 'dock', sheets: [populated('dock', '1x2', 2)] } });
+    await page.goto('/board?sheet=dock');
+    await expect(page.locator('[data-dock-layout]')).toBeVisible();
+    await expect(paneTabs(page)).toHaveCount(2);
+    await expect(page.getByRole('group', { name: '칸 1 머리' })).toBeVisible();
+    await expect(page.locator('[data-board-grid]')).toHaveCount(0);
+    expect(await page.evaluate(() => localStorage.getItem('platform:board-layout-engine'))).toBeNull();
   });
 
   test('칸 추가로 4칸을 만들면 1280×800에서도 두 그룹 폭이고 가로 스크롤이 없다', async ({ page }, testInfo) => {
@@ -3451,6 +3561,8 @@ test.describe('일괄 적용 조회 바 (06 §11·§19, ADR-0061)', () => {
   });
   test('선택 칸 전환은 각 초안을 보존하고 편집 패널을 닫는다', async ({ page }) => {
     await signInAs(page, 'engineer');
+    // `칸 N 선택` is the grid pane head's button; the dock selects by its tabs.
+    await page.addInitScript(() => { localStorage.setItem('platform:board-layout-engine', 'grid'); });
     await page.addInitScript(period => {
       const screen = { menuId: 'cycle-time', params: {}, query: `?scopeId=MEM&roomNames=PHOTO&${period}` };
       localStorage.setItem('platform:board:engineer', JSON.stringify({ v: 1, activeSheetId: 'drafts', sheets: [{ id: 'drafts', name: '초안', layout: '1x2', selected: 0, panes: [screen, screen] }] }));

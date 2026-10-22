@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isValidDockTree, normalizeDockTree, type DockNode } from './schema';
+import { dockGroupsInReadingOrder, isValidDockTree, normalizeDockTree, type DockNode } from './schema';
 
 const group = (panels: string[], active = panels[0]!): DockNode => ({ type: 'group', panels, active });
 const row = (sizes: number[], ...children: DockNode[]): DockNode => ({ type: 'branch', dir: 'row', sizes, children });
@@ -68,5 +68,24 @@ describe('isValidDockTree', () => {
     ['null', null, false],
   ])('%s', (_name, tree, expected) => {
     expect(isValidDockTree(tree, IDS)).toBe(expected);
+  });
+});
+
+describe('dockGroupsInReadingOrder', () => {
+  const read = (tree: DockNode) => dockGroupsInReadingOrder(tree).map(item => item.panels.join(''));
+
+  it('reads two columns of two by rows: the default 2×2 of [1 3 | 2 4] is 1, 2, 3, 4', () => {
+    expect(read(row([50, 50], column([50, 50], group(['a']), group(['c'])), column([50, 50], group(['b']), group(['d']))))).toEqual(['a', 'b', 'c', 'd']);
+  });
+
+  it('orders by the top edge first, then the left one, whatever the sizes', () => {
+    expect(read(row([30, 70], group(['a']), column([20, 80], group(['b']), group(['c']))))).toEqual(['a', 'b', 'c']);
+    expect(read(column([50, 50], row([40, 60], group(['a']), group(['b'])), row([70, 30], group(['c']), group(['d']))))).toEqual(['a', 'b', 'c', 'd']);
+    expect(read(row([50, 50], group(['a']), group(['b'])))).toEqual(['a', 'b']);
+    expect(read(group(['a', 'b']))).toEqual(['ab']);
+  });
+
+  it('a group that is taller starts at the same top as its neighbour: the left one first', () => {
+    expect(read(row([50, 50], group(['a']), column([50, 50], group(['b']), group(['c']))))).toEqual(['a', 'b', 'c']);
   });
 });

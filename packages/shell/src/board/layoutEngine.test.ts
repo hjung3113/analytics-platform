@@ -6,9 +6,9 @@ beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); });
 afterEach(() => { vi.unstubAllGlobals(); });
 
 describe('board.layoutEngine flag', () => {
-  it('defaults to the grid renderer', () => {
-    expect(BOARD_LAYOUT_ENGINE_DEFAULT).toBe('grid');
-    expect(readLayoutEngine()).toBe('grid');
+  it('defaults to the dock renderer', () => {
+    expect(BOARD_LAYOUT_ENGINE_DEFAULT).toBe('dock');
+    expect(readLayoutEngine()).toBe('dock');
   });
   it.each(['dock', 'grid'] as const)('honours %s', value => {
     localStorage.setItem(BOARD_LAYOUT_ENGINE_KEY, value);

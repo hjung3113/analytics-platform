@@ -42,6 +42,8 @@ type Context = {
   renderTab: DockEngineProps['renderTab'];
   renderGroupActions: DockEngineProps['renderGroupActions'];
   tabA11y: DockEngineProps['tabA11y'];
+  /** Counts the reconciles: the engine rebuilds tab elements in one, so what is set on them from outside is set again. */
+  reconciles: number;
   onActivate: (panelId: string) => void;
 };
 
@@ -86,7 +88,7 @@ function DockTab({ api }: IDockviewPanelHeaderProps) {
     const set = (name: string, value: string | undefined) => { if (value === undefined) tab.removeAttribute(name); else tab.setAttribute(name, value); };
     set('aria-description', description);
     set('aria-keyshortcuts', keyShortcuts);
-  }, [description, keyShortcuts]);
+  }, [description, keyShortcuts, engine.reconciles]);
   return <span ref={mark} data-dock-tab={id} className="flex min-w-0 items-center truncate">
     {engine.renderTab?.(id, { active: engine.active.has(id), groupFocused: engine.focused.has(id) }) ?? engine.panels.get(id)?.title ?? id}
   </span>;
@@ -94,10 +96,24 @@ function DockTab({ api }: IDockviewPanelHeaderProps) {
 
 function GroupActions({ activePanel, panels }: IDockviewHeaderActionsProps) {
   const engine = useEngine();
-  if (!engine.renderGroupActions) return null;
+  const slot = useRef<HTMLDivElement>(null);
+  const [stripWidth, setStripWidth] = useState(0);
   const anchor = activePanel?.id ?? panels[0]?.id;
-  const group = anchor ? groupOf(engine.display, anchor) : undefined;
-  return group ? <div className="flex h-full items-center pr-1">{engine.renderGroupActions(group)}</div> : null;
+  const group = engine.renderGroupActions && anchor ? groupOf(engine.display, anchor) : undefined;
+  const drawn = group !== undefined;
+  // The header strip is the slot's container; its width is what the host fits the tabs and its own content into.
+  useLayoutEffect(() => {
+    const strip = slot.current?.closest<HTMLElement>('.dv-tabs-and-actions-container');
+    if (!strip) return;
+    const measure = () => { setStripWidth(Math.round(strip.getBoundingClientRect().width)); };
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(strip);
+    return () => { observer.disconnect(); };
+  }, [drawn]);
+  if (!engine.renderGroupActions || !group) return null;
+  return <div ref={slot} data-dock-group-actions data-dock-active={group.active} className="flex h-full min-w-0 items-center">{engine.renderGroupActions(group, { stripWidth })}</div>;
 }
 
 const COMPONENTS = { panel: PanelHost };
@@ -217,11 +233,34 @@ export default function DockEngine({
     };
   }, [api, check, containerRef]);
 
+  /** Puts the live engine on `live.current.canonicalDisplay` (shares at the engine's current size) and brings focus back to the tab it had. */
+  const applyLayout = useCallback((target: DockviewApi, appliedKey: string, appliedMeta: string) => {
+    const { canonicalDisplay: wanted, panels: wantedPanels, minPanelSize: minimum } = live.current;
+    const focusedBefore = containerRef.current?.contains(document.activeElement) ? document.activeElement : null;
+    const focusedTabId = focusedBefore instanceof HTMLElement ? focusedBefore.closest<HTMLElement>('[role="tab"]')?.dataset.tabPanelId : undefined;
+    applying.current = true;
+    try {
+      target.fromJSON(toEngineLayout(wanted, wantedPanels, minimum, { width: target.width, height: target.height }) as unknown as SerializedLayout, { reuseExistingPanels: true });
+    } finally {
+      applying.current = false;
+    }
+    applied.current = { key: appliedKey, meta: appliedMeta };
+    emitted.current = null;
+    if (focusedBefore instanceof HTMLElement && !focusedBefore.isConnected) {
+      // The same panel's tab if it is still there (the tab is rebuilt when its title changes), else the first active tab.
+      const tabs = Array.from(containerRef.current?.querySelectorAll<HTMLElement>('[role="tab"][data-tab-panel-id]') ?? []);
+      const tab = tabs.find(item => focusedTabId !== undefined && item.dataset.tabPanelId === focusedTabId) ?? tabs.find(item => item.getAttribute('aria-selected') === 'true');
+      if (tab) programmaticFocus(() => { tab.focus({ preventScroll: true }); });
+    }
+    setReconciles(value => value + 1);
+    scheduleMeasure();
+  }, [containerRef, scheduleMeasure]);
+
   // Bring the engine to `display` without remounting any panel: `fromJSON(…, { reuseExistingPanels: true })` re-parents the live panels
   // (dockview-core main.esm.mjs:17640). Never `clear()` and never `close()` (those dispose panels, D9).
   useEffect(() => {
     if (!api) return;
-    const { canonicalDisplay: wanted, panels: wantedPanels, minPanelSize: minimum } = live.current;
+    const { canonicalDisplay: wanted, panels: wantedPanels } = live.current;
     const engineIds = api.panels.map(panel => panel.id).sort().join('\n');
     const wantedIds = wantedPanels.map(panel => panel.id).sort().join('\n');
     const answered = pending.current;
@@ -234,33 +273,26 @@ export default function DockEngine({
       rebuild = !sameDockTree(readEngine(api, wanted).tree, wanted, { sizes: false });
     }
     if (!rebuild) { applied.current = { key, meta }; return; }
-    const focusedBefore = containerRef.current?.contains(document.activeElement) ? document.activeElement : null;
-    const focusedTabId = focusedBefore instanceof HTMLElement ? focusedBefore.closest<HTMLElement>('[role="tab"]')?.dataset.tabPanelId : undefined;
-    applying.current = true;
-    try {
-      api.fromJSON(toEngineLayout(wanted, wantedPanels, minimum, { width: api.width, height: api.height }) as unknown as SerializedLayout, { reuseExistingPanels: true });
-    } finally {
-      applying.current = false;
-    }
-    applied.current = { key, meta };
-    emitted.current = null;
-    if (focusedBefore instanceof HTMLElement && !focusedBefore.isConnected) {
-      // The same panel's tab if it is still there (the tab is rebuilt when its title changes), else the first active tab.
-      const tabs = Array.from(containerRef.current?.querySelectorAll<HTMLElement>('[role="tab"][data-tab-panel-id]') ?? []);
-      const tab = tabs.find(item => focusedTabId !== undefined && item.dataset.tabPanelId === focusedTabId) ?? tabs.find(item => item.getAttribute('aria-selected') === 'true');
-      if (tab) programmaticFocus(() => { tab.focus({ preventScroll: true }); });
-    }
-    setReconciles(value => value + 1);
-    scheduleMeasure();
-  }, [api, key, meta, epoch, containerRef, scheduleMeasure]);
+    applyLayout(api, key, meta);
+  }, [api, key, meta, epoch, applyLayout]);
 
-  // Maximize is the engine's group maximize and is never stored, so it is re-asserted after every reconcile.
+  // Maximize is the engine's group maximize and is never stored, so it is re-asserted after every reconcile. The engine hides the other groups
+  // with the px size they had, and gives that size back on restore whatever the container became meanwhile: a resize in between leaves the
+  // shares skewed (and below the minimum), so a restore after a resize puts the stored shares back at the current size.
+  const maximizedAt = useRef<{ width: number; height: number } | null>(null);
   useEffect(() => {
     if (!api) return;
     const target = maximizedPanelId ? api.getPanel(maximizedPanelId) : undefined;
-    if (target) { if (!target.api.isMaximized()) target.api.maximize(); } else if (api.hasMaximizedGroup()) api.exitMaximizedGroup();
+    if (target) {
+      if (!target.api.isMaximized()) { maximizedAt.current ??= { width: api.width, height: api.height }; target.api.maximize(); }
+    } else if (api.hasMaximizedGroup()) {
+      const at = maximizedAt.current;
+      maximizedAt.current = null;
+      api.exitMaximizedGroup();
+      if (at && (at.width !== api.width || at.height !== api.height) && applied.current) applyLayout(api, applied.current.key, applied.current.meta);
+    }
     scheduleMeasure();
-  }, [api, maximizedPanelId, key, epoch, reconciles, scheduleMeasure]);
+  }, [api, maximizedPanelId, key, epoch, reconciles, scheduleMeasure, applyLayout]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -297,8 +329,8 @@ export default function DockEngine({
     const active = new Set<string>();
     const collect = (node: DockNode) => { if (node.type === 'group') active.add(node.active); else node.children.forEach(collect); };
     collect(canonicalDisplay);
-    return { instanceId, panels: panelMap, visible, active, focused: new Set(focusGroup), display: canonicalDisplay, renderTab, renderGroupActions, tabA11y, onActivate };
-  }, [instanceId, panelMap, visible, focusedPanel, canonicalDisplay, renderTab, renderGroupActions, tabA11y, onActivate]);
+    return { instanceId, panels: panelMap, visible, active, focused: new Set(focusGroup), display: canonicalDisplay, renderTab, renderGroupActions, tabA11y, reconciles, onActivate };
+  }, [instanceId, panelMap, visible, focusedPanel, canonicalDisplay, renderTab, renderGroupActions, tabA11y, reconciles, onActivate]);
 
   // Separator keys change the layout without the engine having moved: the parent's answer is applied to the engine (or reverted if it ignores it).
   const separate = (next: DockNode) => {

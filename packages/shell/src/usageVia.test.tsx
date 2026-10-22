@@ -81,6 +81,8 @@ describe('shell navigation marks the usage entry (#605)', () => {
   it('leaving the board with a pane\'s 본 화면에서 열기 is via board, and the board is not a previous menu', async () => {
     const board: BoardV1 = { v: 1, activeSheetId: 'a', sheets: [{ id: 'a', name: 'a', layout: '1x1', selected: 0, panes: [{ menuId: 'beta', params: {}, query: '' }] }] };
     localStorage.setItem('platform:board:u1', JSON.stringify(board));
+    // The pane's own `칸 1 동작` button inside the pane group is the grid head; the dock draws it in the group's strip.
+    localStorage.setItem('platform:board-layout-engine', 'grid');
     mount('/alpha');
     await settle();
     fireEvent.click(screen.getByRole('button', { name: /분석 보드/ }));

@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PlatformAdapter, Session } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { BOARD_LAYOUT_ENGINE_KEY } from './layoutEngine';
 import { DetailDrawer, PlatformPage } from '@ap/components';
 import { Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
 import { BoardScreen } from './BoardScreen';
@@ -66,6 +67,8 @@ beforeEach(() => {
   for (const name of ['localStorage', 'sessionStorage'] as const) {
     vi.stubGlobal(name, memoryStorage());
   }
+  // These suites pin the grid renderer, which stays the fallback (the default is the dock since ADR-0067 2c).
+  localStorage.setItem(BOARD_LAYOUT_ENGINE_KEY, 'grid');
   Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value: vi.fn() });
   vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
 });

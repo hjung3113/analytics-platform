@@ -41,6 +41,28 @@ export function dockGroups(node: DockNode): Group[] {
   return node.type === 'group' ? [node] : node.children.flatMap(dockGroups);
 }
 
+/**
+ * Groups in reading order: by the top edge each occupies, then the left edge (computed from the shares; a tolerance absorbs rounding). The
+ * default 2×2 of `[1 3 | 2 4]` columns reads 1 2 / 3 4, where depth-first order says 1 3 2 4.
+ */
+export function dockGroupsInReadingOrder(node: DockNode): Group[] {
+  const placed: { group: Group; top: number; left: number }[] = [];
+  const walk = (current: DockNode, top: number, left: number, height: number, width: number) => {
+    if (current.type === 'group') { placed.push({ group: current, top, left }); return; }
+    const total = sum(current.sizes) || 1;
+    let offset = 0;
+    current.children.forEach((child, index) => {
+      const share = (current.sizes[index] ?? 0) / total;
+      if (current.dir === 'row') walk(child, top, left + offset * width, height, share * width);
+      else walk(child, top + offset * height, left, share * height, width);
+      offset += share;
+    });
+  };
+  walk(node, 0, 0, 1, 1);
+  const same = (a: number, b: number) => Math.abs(a - b) < 1e-3;
+  return placed.sort((a, b) => (same(a.top, b.top) ? a.left - b.left : a.top - b.top)).map(item => item.group);
+}
+
 function parse(raw: unknown, allowed: ReadonlySet<string>, seen: Set<string>): DockNode | null {
   if (!isRecord(raw)) return null;
   if (raw.type === 'group') {

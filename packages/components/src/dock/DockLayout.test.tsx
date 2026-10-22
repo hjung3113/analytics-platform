@@ -1,7 +1,9 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { useMemo, useState } from 'react';
-import { act, cleanup, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
 import { DockLayout } from './DockLayout';
 import { activeTabs, column, group, groupsOnScreen, installResizeObserver, mountDock, mounts, resetMounts, row } from './__tests__/harness';
@@ -63,6 +65,37 @@ describe('DockLayout reconcile (D9: remount 0)', () => {
     await waitFor(() => { expect(root('a')).toHaveAttribute('data-dock-visible', 'true'); });
     expect(document.querySelectorAll('.dv-view:not(.visible) .dv-groupview')).toHaveLength(0);
     expect(mounts).toEqual({ a: 1, b: 1, c: 1 });
+  });
+
+  // The engine caches a hidden group's px size and restores it as it was; a resize in between would leave the shares skewed (#575 2c).
+  it('resizing while a group is maximized and then restoring keeps the stored column proportions', async () => {
+    const widths = () => Array.from(document.querySelectorAll<HTMLElement>('.dv-view')).filter(view => view.querySelector(':scope > .dv-groupview')).map(view => parseFloat(view.style.width));
+    const frame = () => act(() => new Promise<void>(resolve => { setTimeout(resolve, 60); }));
+    // jsdom has no layout parent, and the engine ignores a resize of an element without one.
+    Object.defineProperty(HTMLElement.prototype, 'offsetParent', { configurable: true, get() { return this.parentNode; } });
+    try {
+      const { controls } = mountDock({ layout: row([50, 50], group(['a']), group(['c'])) });
+      await ready();
+      await frame();
+      const [left0, right0] = widths();
+      expect(left0! + right0!).toBeGreaterThan(800);
+      controls.setMaximized('a');
+      await waitFor(() => { expect(root('c')).toHaveAttribute('data-dock-visible', 'false'); });
+      observer.resize(600, 600);
+      await frame();
+      controls.setMaximized(null);
+      await waitFor(() => { expect(root('c')).toHaveAttribute('data-dock-visible', 'true'); });
+      await frame();
+      const [left, right] = widths();
+      expect(left! + right!).toBeLessThan(700);
+      expect(Math.abs(left! - right!)).toBeLessThanOrEqual(2);
+      observer.resize(900, 600);
+      await frame();
+      const [wideLeft, wideRight] = widths();
+      expect(Math.abs(wideLeft! - wideRight!)).toBeLessThanOrEqual(2);
+    } finally {
+      delete (HTMLElement.prototype as { offsetParent?: unknown }).offsetParent;
+    }
   });
 
   it('a layout change while maximized keeps the maximize and still remounts nothing', async () => {
@@ -368,6 +401,31 @@ describe('DockLayout group menu from the keyboard (D19)', () => {
     expect(await screen.findByRole('menuitem', { name: '그룹 항목' })).toBeInTheDocument();
   });
 
+  it('opens the menu with its first item focused, so Enter acts at once', async () => {
+    mountDock({ layout: row([50, 50], group(['a', 'b']), group(['c'])), props: { renderGroupActions: actions } });
+    await ready();
+    screen.getByRole('tab', { name: '패널 a' }).focus();
+    await userEvent.keyboard('{Shift>}{F10}{/Shift}');
+    const item = await screen.findByRole('menuitem', { name: '그룹 항목' });
+    await waitFor(() => { expect(document.activeElement).toBe(item); });
+  });
+
+  it('a right-click on a tab opens the same menu', async () => {
+    mountDock({ layout: row([50, 50], group(['a', 'b']), group(['c'])), props: { renderGroupActions: actions } });
+    await ready();
+    fireEvent.contextMenu(screen.getByRole('tab', { name: '패널 c' }));
+    expect(await screen.findByRole('menuitem', { name: '그룹 항목' })).toBeInTheDocument();
+  });
+
+  it('on a background tab it activates that tab first (onActivate), then opens the menu', async () => {
+    const { calls } = mountDock({ layout: row([50, 50], group(['a', 'b'], 'a'), group(['c'])), props: { renderGroupActions: actions } });
+    await ready();
+    screen.getByRole('tab', { name: '패널 b' }).focus();
+    await userEvent.keyboard('{Shift>}{F10}{/Shift}');
+    expect(await screen.findByRole('menuitem', { name: '그룹 항목' })).toBeInTheDocument();
+    expect(calls.activate).toEqual(['b']);
+  });
+
   it('opens a click-toggled trigger too', async () => {
     mountDock({
       layout: row([50, 50], group(['a']), group(['c'])),
@@ -584,5 +642,195 @@ describe('DockLayout host controls: current panel, tab order, tab speech', () =>
     await userEvent.tab({ shift: true });
     await userEvent.tab({ shift: true });
     expect(document.activeElement).toBe(tab('a'));
+  });
+});
+
+describe('DockLayout header slot and Tab order of a group (2c)', () => {
+  const slot = (group: string[]) => (_: unknown, state: { stripWidth: number }) => (
+    <><button type="button">{group.join('')} first {state.stripWidth}</button><button type="button">{group.join('')} last</button></>
+  );
+
+  it('hands the strip width to renderGroupActions and marks the slot with the group\'s active tab', async () => {
+    const spy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      const width = this.classList.contains('dv-tabs-and-actions-container') ? 321 : 0;
+      return { width, height: 0, top: 0, left: 0, right: width, bottom: 0, x: 0, y: 0, toJSON: () => ({}) };
+    });
+    try {
+      mountDock({ layout: row([50, 50], group(['a', 'b'], 'b'), group(['c'])), props: { renderGroupActions: (g, state) => <span data-testid={`slot-${g.active}`}>{state.stripWidth}</span> } });
+      await ready();
+      await waitFor(() => { expect(screen.getByTestId('slot-b')).toHaveTextContent('321'); });
+      expect(screen.getByTestId('slot-c')).toHaveTextContent('321');
+      expect(screen.getByTestId('slot-b').closest('[data-dock-group-actions]')).toHaveAttribute('data-dock-active', 'b');
+      expect(screen.getByTestId('slot-b').closest('[role="tablist"]')).toBeNull();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('Tab runs the active tab → the slot\'s buttons → the content, and Shift+Tab runs back the same way', async () => {
+    mountDock({ layout: row([50, 50], group(['a']), group(['c'])), ids: ['a', 'c'], inner: id => (id === 'a' ? <button type="button">content a</button> : null),
+      props: { renderGroupActions: group => <><button type="button">{group.active} one</button><button type="button">{group.active} two</button></> } });
+    await ready();
+    const tab = (id: string) => screen.getByRole('tab', { name: `패널 ${id}` });
+    tab('a').focus();
+    const order: (string | null)[] = [];
+    for (let step = 0; step < 3; step++) { await userEvent.tab(); order.push(document.activeElement?.textContent ?? null); }
+    expect(order).toEqual(['a one', 'a two', 'content a']);
+    await userEvent.tab();
+    expect(document.activeElement).toBe(tab('c'));
+    await userEvent.tab({ shift: true });
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'content a' }));
+    await userEvent.tab({ shift: true });
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'a two' }));
+    await userEvent.tab({ shift: true });
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'a one' }));
+    await userEvent.tab({ shift: true });
+    expect(document.activeElement).toBe(tab('a'));
+  });
+
+  it('visits the groups in reading order, not the engine\'s tree order: two columns of two read a, b / c, d', async () => {
+    mountDock({ layout: row([50, 50], column([50, 50], group(['a']), group(['c'])), column([50, 50], group(['b']), group(['d']))), ids: ['a', 'b', 'c', 'd'] });
+    await ready();
+    expect(groupsOnScreen().flat()).toEqual(['a', 'c', 'b', 'd']);
+    screen.getByRole('tab', { name: '패널 a' }).focus();
+    const visited = ['a'];
+    for (let step = 0; step < 12 && visited.length < 4; step++) {
+      await userEvent.tab();
+      const tab = document.activeElement?.closest<HTMLElement>('[role="tab"]');
+      if (tab) visited.push(tab.dataset.tabPanelId ?? '');
+    }
+    expect(visited).toEqual(['a', 'b', 'c', 'd']);
+    for (let step = 0; step < 12 && visited.length < 7; step++) {
+      await userEvent.tab({ shift: true });
+      const tab = document.activeElement?.closest<HTMLElement>('[role="tab"]');
+      if (tab) visited.push(tab.dataset.tabPanelId ?? '');
+    }
+    expect(visited.slice(4)).toEqual(['c', 'b', 'a']);
+  });
+});
+
+describe('DockLayout keyboard order, FIX1 (#575 2c)', () => {
+  const tab = (id: string) => screen.getByRole('tab', { name: `패널 ${id}` });
+  const slot = (g: { active: string }) => <><button type="button">{g.active} one</button><button type="button">{g.active} two</button></>;
+  /** What a Radix roving-focus group does: the wrapper is a tab stop that hands focus to its item. */
+  const roving = (id: string) => <div tabIndex={0} data-testid={`wrap-${id}`} onFocus={event => { if (event.target === event.currentTarget) event.currentTarget.querySelector('button')?.focus(); }}><button type="button">{id} item</button></div>;
+  const outside: HTMLElement[] = [];
+  const outsideButton = (label: string, where: 'before' | 'after') => {
+    const button = document.createElement('button');
+    button.textContent = label;
+    if (where === 'before') document.body.prepend(button); else document.body.append(button);
+    outside.push(button);
+    return button;
+  };
+  afterEach(() => { outside.splice(0).forEach(button => { button.remove(); }); });
+
+  it('O1: Shift+Tab from the first control of a content whose first stop is a roving-focus wrapper goes to its own head, then its own tab', async () => {
+    mountDock({ layout: row([50, 50], group(['a']), group(['c'])), ids: ['a', 'c'], inner: id => roving(id), props: { renderGroupActions: slot } });
+    await ready();
+    screen.getByRole('button', { name: 'c item' }).focus();
+    await userEvent.tab({ shift: true });
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'c two' }));
+    await userEvent.tab({ shift: true });
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'c one' }));
+    await userEvent.tab({ shift: true });
+    expect(document.activeElement).toBe(tab('c'));
+    await userEvent.tab({ shift: true });
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'a item' }));
+  });
+
+  it('C1: after the last group in reading order Tab leaves the layout, with unequal row ratios where reading order is not DOM order', async () => {
+    mountDock({
+      layout: row([50, 50], column([75, 25], group(['a']), group(['c'])), column([50, 50], group(['b']), group(['d']))), ids: ['a', 'b', 'c', 'd'],
+      inner: id => <button type="button">content {id}</button>,
+    });
+    await ready();
+    const before = outsideButton('before layout', 'before');
+    const next = outsideButton('after layout', 'after');
+    // Reading order is a, b, d, c (c sits lowest); the engine keeps panels in tree order a, c, b, d.
+    expect(groupsOnScreen().flat()).toEqual(['a', 'c', 'b', 'd']);
+    tab('a').focus();
+    const visited: string[] = ['a'];
+    for (let step = 0; step < 14 && document.activeElement !== next; step++) {
+      await userEvent.tab();
+      const stop = document.activeElement?.closest<HTMLElement>('[role="tab"]');
+      if (stop) visited.push(stop.dataset.tabPanelId ?? '');
+    }
+    expect(visited).toEqual(['a', 'b', 'd', 'c']);
+    expect(document.activeElement).toBe(next);
+    // Back: next → the last control of c, ... → tab a → the focusable before the layout.
+    for (let step = 0; step < 14 && document.activeElement !== before; step++) await userEvent.tab({ shift: true });
+    expect(document.activeElement).toBe(before);
+    tab('a').focus();
+    await userEvent.tab({ shift: true });
+    expect(document.activeElement).toBe(before);
+  });
+
+  it('O2: Tab into a pane with nothing to stop at lands on the content\'s own focus target, not the engine panel', async () => {
+    mountDock({ layout: row([50, 50], group(['a']), group(['c'])), ids: ['a', 'c'], inner: id => <div tabIndex={-1} data-testid={`pane-${id}`}>pane {id}</div> });
+    await ready();
+    tab('c').focus();
+    await userEvent.tab();
+    expect(document.activeElement).toBe(screen.getByTestId('pane-c'));
+    await userEvent.tab({ shift: true });
+    expect(document.activeElement).toBe(tab('c'));
+    tab('a').focus();
+    await userEvent.tab();
+    expect(document.activeElement).toBe(screen.getByTestId('pane-a'));
+    await userEvent.tab();
+    expect(document.activeElement).toBe(tab('c'));
+    // Entering the previous group from behind lands on the same target.
+    await userEvent.tab({ shift: true });
+    expect(document.activeElement).toBe(screen.getByTestId('pane-a'));
+  });
+
+  it('Esc on a menu that a tab opened (Shift+F10) returns focus to that tab', async () => {
+    mountDock({
+      layout: row([50, 50], group(['a', 'b']), group(['c'])),
+      props: { renderGroupActions: () => (
+        <DropdownMenu><DropdownMenuTrigger asChild><button type="button" data-dock-group-menu>그룹 동작</button></DropdownMenuTrigger>
+          <DropdownMenuContent><DropdownMenuItem>그룹 항목</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
+      ) },
+    });
+    await ready();
+    tab('a').focus();
+    await userEvent.keyboard('{Shift>}{F10}{/Shift}');
+    await screen.findByRole('menuitem', { name: '그룹 항목' });
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => { expect(screen.queryByRole('menu')).toBeNull(); });
+    await waitFor(() => { expect(document.activeElement).toBe(tab('a')); });
+  });
+});
+
+describe('DockLayout tab extras and clipping, FIX1 (#575 2c)', () => {
+  it('U2: every tab keeps its aria-keyshortcuts and the selected one its aria-description after panels move between groups', async () => {
+    const { controls } = mountDock({
+      layout: row([50, 50], group(['a', 'b'], 'a'), group(['c'])),
+      props: { tabA11y: id => ({ keyShortcuts: 'Delete Shift+F10', description: id === 'a' ? '편집 대상 칸' : undefined }) },
+    });
+    await ready();
+    const tab = (id: string) => screen.getByRole('tab', { name: `패널 ${id}` });
+    await waitFor(() => { expect(tab('a')).toHaveAttribute('aria-keyshortcuts', 'Delete Shift+F10'); });
+    controls.setLayout(row([50, 50], group(['a']), group(['b', 'c'], 'b')));
+    await waitFor(() => { expect(groupsOnScreen()).toEqual([['a'], ['b', 'c']]); });
+    await waitFor(() => {
+      for (const id of ['a', 'b', 'c']) expect(tab(id)).toHaveAttribute('aria-keyshortcuts', 'Delete Shift+F10');
+      expect(tab('a')).toHaveAttribute('aria-description', '편집 대상 칸');
+    });
+  });
+
+  it('U3: the layout clips its content, so an overlay left at an old position cannot widen the container it sits in', async () => {
+    mountDock({ layout: row([50, 50], group(['a']), group(['c'])), ids: ['a', 'c'] });
+    await ready();
+    expect(screen.getByRole('region', { name: '테스트 배치' }).className).toContain('overflow-hidden');
+  });
+});
+
+describe('dock.css, FIX1 (#575 2c): rules jsdom cannot lay out', () => {
+  it('U1: every strip has a 1px border-subtle line under it inside its 40px; U5: the wrapped row is right-aligned', () => {
+    const css = readFileSync(resolve(process.cwd(), 'src/dock/dock.css'), 'utf8');
+    const strip = /\.ap-dock \.dv-tabs-and-actions-container \{([^}]*)\}/.exec(css)?.[1] ?? '';
+    expect(strip).toContain('box-sizing: border-box');
+    expect(strip).toContain('border-bottom: 1px solid var(--color-border-subtle)');
+    expect(css).toMatch(/\[data-dock-wrap\]\) \.dv-right-actions-container > \[data-dock-group-actions\] \{ margin-left: auto; \}/);
   });
 });

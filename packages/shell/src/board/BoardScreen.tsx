@@ -231,6 +231,17 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
     if (index >= 0) select(index);
     setPresentation({ identity, maximized: null, dockMaximized: index >= 0 ? paneId : null });
   };
+  /** `칸 추가` (dock): ends a maximize so the new pane, which the model selects, is on screen, and tells the dock which tab to focus. */
+  const dockKey = `${user.id}.${sheetId}`;
+  const [newPane, setNewPane] = useState<{ id: string; dock: string } | null>(null);
+  const addDockPane = () => {
+    // The new pane's id is made here, so the dock can be told which tab to focus.
+    const grown = addPane(board, sheetId);
+    const added = grown === board ? undefined : grown.sheets.find(s => s.id === sheetId)?.panes.at(-1);
+    if (dockMaximized !== null) maximizeDock(null);
+    update(() => grown);
+    if (added) setNewPane({ id: added.id, dock: dockKey });
+  };
   const lastGridFocus = useRef<EventTarget | null>(null);
   const focusPresentation = useRef<{ identity: string; owner: string; index: number; trigger: HTMLElement | null } | null>(null);
   useLayoutEffect(() => {
@@ -307,7 +318,7 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
       </div>
       {dock ? <div className="flex shrink-0 items-center gap-2">
         {!canGrow && <span id="board-add-pane-off" className="text-tiny text-text-muted">{text.paneLimit}</span>}
-        <Button type="button" variant="ghost" size="sm" disabled={!canGrow} aria-describedby={canGrow ? undefined : 'board-add-pane-off'} onClick={() => { if (dockMaximized !== null) maximizeDock(null); update(b => addPane(b, sheetId)); }}>{text.addPane}</Button>
+        <Button type="button" variant="ghost" size="sm" disabled={!canGrow} aria-describedby={canGrow ? undefined : 'board-add-pane-off'} onClick={() => addDockPane()}>{text.addPane}</Button>
         <Button type="button" variant="ghost" size="sm" onClick={() => update(b => resetTree(b, sheetId))}>{text.defaultLayout}</Button>
       </div> : <div className="flex shrink-0 items-center gap-2">
       <Button type="button" variant="ghost" size="sm" onClick={() => saved(defaultArrangement(layout))}>{text.resetSize}</Button>
@@ -327,8 +338,8 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
       </section>}
       {dock ? <div className="relative min-h-(--dock-min) flex-1" style={{ '--dock-min': `${STACKED_PANE_MIN_HEIGHT}px` } as CSSProperties}>
         <div className="absolute inset-0">
-          <BoardDock key={`${user.id}.${sheetId}`} sheet={sheet} update={update} paneProps={paneProps} onSelect={select} onClear={clearPane} onClosePane={closeEmptyPane}
-            maximizedPaneId={dockMaximized} onMaximizedChange={maximizeDock} heading={heading} />
+          <BoardDock key={dockKey} sheet={sheet} update={update} paneProps={paneProps} onSelect={select} onClear={clearPane} onClosePane={closeEmptyPane}
+            maximizedPaneId={dockMaximized} onMaximizedChange={maximizeDock} newPane={newPane?.dock === dockKey ? newPane : null} onNewPaneHandled={() => { setNewPane(null); }} heading={heading} />
         </div>
       </div> : <div ref={grid} onFocusCapture={event => { lastGridFocus.current = event.target; }}
         onBlurCapture={event => { if (event.relatedTarget) lastGridFocus.current = event.relatedTarget; }} data-board-grid data-columns={drawn} data-rows={rows} style={{ '--board-height': `${gridHeight}px` } as CSSProperties} className="relative h-(--board-height)">
