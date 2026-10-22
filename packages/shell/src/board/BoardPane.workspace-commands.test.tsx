@@ -1,0 +1,117 @@
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { House } from 'lucide-react';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
+import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { PanelWorkspace, PlatformPage, type PanelWorkspaceLayout } from '@ap/components';
+import { RouteOutlet } from '../RouteOutlet';
+import { BOARD_LAYOUT_ENGINE_KEY } from './layoutEngine';
+import { legacyBoard as boardOf, legacySheet as sheet, seedLegacy as seed } from './__fixtures__/legacyBoard';
+
+// jsdom has no ResizeObserver and no geometry: every observed element reports the shared size.
+function installResizeObserver() {
+  class FakeResizeObserver {
+    constructor(private readonly callback: ResizeObserverCallback) {}
+    observe(target: Element) {
+      const rect = { width: 900, height: 600, top: 0, left: 0, right: 900, bottom: 600, x: 0, y: 0 };
+      this.callback([{ target, contentRect: rect } as ResizeObserverEntry], this as unknown as ResizeObserver);
+    }
+    unobserve() {}
+    disconnect() {}
+  }
+  const previous = (globalThis as { ResizeObserver?: unknown }).ResizeObserver;
+  (globalThis as { ResizeObserver?: unknown }).ResizeObserver = FakeResizeObserver;
+  return () => { (globalThis as { ResizeObserver?: unknown }).ResizeObserver = previous; };
+}
+let restore = () => {};
+beforeAll(() => { restore = installResizeObserver(); });
+afterAll(() => { restore(); });
+
+const features = { export: false, savedView: false, annotate: false, compare: false, board: true };
+const apply = { ...noContext, time: 'apply' as const };
+const group = (panels: string[], active?: string): PanelWorkspaceLayout => ({ type: 'group', panels, active });
+const PRESETS = [
+  { id: 'balanced', label: { ko: '기본', en: 'Balanced' }, layout: { type: 'branch' as const, dir: 'row' as const, sizes: [6, 4], children: [group(['main']), group(['side'])] } },
+  { id: 'focus', label: { ko: '집중', en: 'Focus' }, layout: group(['main', 'side']) },
+];
+function Workspace() {
+  return <PlatformPage>
+    <PanelWorkspace persistKey="ws" label={{ ko: '작업 영역', en: 'Workspace' }} initialPreset="balanced" presets={PRESETS}
+      panels={[{ id: 'main', title: { ko: '본문', en: 'Main' }, primary: true, render: () => <p>main panel</p> }, { id: 'side', title: { ko: '곁', en: 'Side' }, render: () => <p>side panel</p> }]} />
+  </PlatformPage>;
+}
+function Plain() { return <PlatformPage><p>plain body</p></PlatformPage>; }
+const entry = (id: string, path: string, over: Record<string, unknown> = {}) => ({
+  id, group: 'equipment' as const, label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House, permission: 'platform:view' as const,
+  requiresScope: false, context: apply, pageType: 'analysis' as const, features, pageKeys: ['tab'], ...over,
+});
+const registry = createRegistry({
+  spaces: [testSpace({ homeMenuId: 'home' })],
+  groups: [{ id: 'equipment', label: { ko: '그룹', en: 'Group' }, icon: House, space: 'analytics' }],
+  menus: [
+    { ...entry('home', '/', { component: Plain, features: { ...features, board: false } }), primary: true },
+    entry('ws', '/ws', { component: Workspace, label: { ko: '작업', en: 'Work' } }),
+    entry('beta', '/beta', { component: Plain, label: { ko: '베타', en: 'Beta' } }),
+  ],
+});
+const pane = (menuId: string) => ({ menuId, params: {}, query: '?from=2026-09-01T00:00:00&to=2026-09-02T00:00:00' });
+
+const settle = () => act(() => new Promise(resolve => setTimeout(resolve, 30)));
+const openMenu = (trigger: HTMLElement) => { act(() => { trigger.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0 })); }); };
+function mount() {
+  window.history.replaceState(null, '', '/board?sheet=a');
+  const session = testSession(['platform:view']);
+  return render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}><RouteOutlet /></PlatformProvider></I18nProvider>);
+}
+const ready = async () => {
+  await waitFor(() => { expect(screen.getAllByRole('button', { name: /^칸 \d 동작$/ }).length).toBeGreaterThan(0); });
+  await settle();
+};
+const openActions = async (n: number) => { openMenu(screen.getAllByRole('button', { name: `칸 ${n} 동작` })[0]); await settle(); };
+
+beforeEach(() => {
+  for (const name of ['localStorage', 'sessionStorage'] as const) vi.stubGlobal(name, memoryStorage());
+  localStorage.setItem(BOARD_LAYOUT_ENGINE_KEY, 'dock');
+  Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value: vi.fn() });
+});
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
+
+describe('board pane hosts menu workspace commands (ADR-0067 decision 3)', () => {
+  it('a workspace in the pane draws no toolbar and lists its presets as radios, then 기본 배치, in the pane menu', async () => {
+    seed(boardOf([sheet('a', { layout: '1x2', panes: [pane('ws'), pane('beta')] })]));
+    mount();
+    await ready();
+    expect(await screen.findByText('main panel')).toBeInTheDocument();
+    expect(screen.queryByRole('radiogroup')).toBeNull();
+    await openActions(1);
+    const radios = await screen.findAllByRole('menuitemradio');
+    expect(radios.map(radio => radio.textContent)).toEqual(['기본', '집중']);
+    expect(radios[0]).toHaveAttribute('aria-checked', 'true');
+    expect(radios[1]).toHaveAttribute('aria-checked', 'false');
+    const items = screen.getAllByRole('menuitem').map(item => item.textContent);
+    expect(items).toContain('기본 배치');
+    expect(items.indexOf('기본 배치')).toBeGreaterThan(items.indexOf('비우기'));
+  });
+
+  it('choosing a preset item runs the workspace command', async () => {
+    seed(boardOf([sheet('a', { layout: '1x2', panes: [pane('ws'), pane('beta')] })]));
+    mount();
+    await ready();
+    await openActions(1);
+    fireEvent.click(await screen.findByRole('menuitemradio', { name: '집중' }));
+    await settle();
+    await openActions(1);
+    expect(await screen.findByRole('menuitemradio', { name: '집중' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('menuitemradio', { name: '기본' })).toHaveAttribute('aria-checked', 'false');
+  });
+
+  it('a pane without a workspace keeps its menu unchanged', async () => {
+    seed(boardOf([sheet('a', { layout: '1x2', panes: [pane('ws'), pane('beta')] })]));
+    mount();
+    await ready();
+    await openActions(2);
+    await screen.findAllByRole('menuitem');
+    expect(screen.queryAllByRole('menuitemradio')).toHaveLength(0);
+    expect(screen.queryByRole('menuitem', { name: '기본 배치' })).toBeNull();
+  });
+});

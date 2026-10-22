@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { AlertTriangle, ArrowRight, Gauge, Hash, RotateCw, Timer, X } from 'lucide-react';
 import { periodHours, type GlobalContext, type Pair, type Trust } from '@ap/contracts';
 import { type PageProps, PlatformLink, invalidValueSentence, useI18n, useMenuFetch, useMenuQuery, useQueryDraft, usePlatform } from '@ap/kernel';
-import { AnalysisLayout, RowAction, AnalysisChartFrame, DataTrustIndicator, PageFilterBar, type Delta, type PlatformColumn, parsePageIndex, PlatformDataTable, PlatformPage, QueryView, StatCard, StateMessage } from '@ap/components';
+import { PanelWorkspace, RowAction, AnalysisChartFrame, DataTrustIndicator, PageFilterBar, type Delta, type PlatformColumn, parsePageIndex, PlatformDataTable, PlatformPage, QueryView, StatCard, StateMessage } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
 import {
   CYCLE_VERSION_NOTE, PAGE_METRIC_ID, bucketEnd, cycleDistEndpoint, cycleExportEndpoint, cycleKpiEndpoint, cycleSlowPageEndpoint,
@@ -156,7 +156,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
   ].filter(([, , ok]) => !ok).map(([key, label]) => ({ key: String(key), label: String(label), reason: unknownRaw(draftParam(String(key))) }));
   const resetFilters = <Button type="button" variant="ghost" size="toolbar" onClick={() => queryDraft.setDraftPage({ granularity: null, percentile: null, sort: null, bucket: null, bin: null, page: null })}>{ko ? '페이지 조건 기본값' : 'Reset page filters'}</Button>;
 
-  return <PlatformPage
+  return <PlatformPage layout="fill"
     queryResult={{ completedAt: kpi.completedAt, status: kpi.status }}
     queryBarExtension={{ pageSummary, appliedPageSummary, historyPageSummary, issues }}
     description={ko
@@ -191,11 +191,28 @@ export default function CycleTimeDrilldown(_: PageProps) {
     {invalidPage ? <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />} title={ko ? '페이지 키 값이 올바르지 않습니다' : 'Invalid page key'}
       body={pageRefusals.map((sentence, index) => <p key={index}>{sentence} {ko ? '페이지 조건을 기본값으로 되돌리세요.' : 'Reset the page conditions.'}</p>)} />
       : kpi.status === 'idle' ? <QueryView query={kpi}>{() => null}</QueryView>
-        : <AnalysisLayout
-          kpi={{ id: 'summary', title: ko ? '사이클타임 요약' : 'Cycle time summary', node: <>
+        : <PanelWorkspace
+          persistKey="drilldown"
+          label={{ ko: '사이클타임 분석 영역', en: 'Cycle time workspace' }}
+          initialPreset="balanced"
+          presets={[
+            { id: 'balanced', label: { ko: '기본', en: 'Balanced' }, layout: { type: 'branch', dir: 'column', sizes: [62, 38], children: [
+              { type: 'branch', dir: 'row', sizes: [68, 32], children: [
+                { type: 'group', panels: ['trend'] },
+                { type: 'branch', dir: 'column', sizes: [45, 55], children: [{ type: 'group', panels: ['summary'] }, { type: 'group', panels: ['distribution'] }] },
+              ] },
+              { type: 'group', panels: ['slow'] },
+            ] } },
+            { id: 'focus', label: { ko: '집중', en: 'Focus' }, layout: { type: 'branch', dir: 'row', sizes: [70, 30], children: [
+              { type: 'group', panels: ['trend'] },
+              { type: 'group', panels: ['summary', 'distribution', 'slow'] },
+            ] } },
+          ]}
+          panels={[
+          { id: 'summary', title: { ko: '사이클타임 요약', en: 'Cycle time summary' }, render: () => <div className="space-y-3 p-3">
           <div className="relative" data-testid="cycle-kpi">
             <QueryView widgetName={ko ? '사이클타임 요약' : 'Cycle time summary'} query={kpi}>
-              {data => <div className="grid grid-cols-2 gap-3 @min-[960px]/analysis:grid-cols-4">
+              {data => <div className="grid grid-cols-2 gap-3">
                 <StatCard icon={Timer} chip="blue" label="P50" value={formatMin(data.p50, lang)} unit={ko ? '분' : 'min'} delta={cycleDelta(data.p50, data.prevP50)} caption={ko ? '적용 모집단' : 'Applied population'} />
                 <StatCard icon={Gauge} chip="amber" label="P95" value={formatMin(data.p95, lang)} unit={ko ? '분' : 'min'} delta={cycleDelta(data.p95, data.prevP95)} caption={ko ? '적용 모집단' : 'Applied population'} />
                 <StatCard icon={Hash} chip="teal" label={ko ? '실행 수' : 'Executions'} value={data.count.toLocaleString(ko ? 'ko-KR' : 'en-US')} caption={ko ? '완료된 합성 Job' : 'Completed synthetic jobs'} />
@@ -206,13 +223,12 @@ export default function CycleTimeDrilldown(_: PageProps) {
           <p className="text-xs text-text-muted">{ko
             ? '0.1분 단위로 반올림합니다. 진행 중인 Job은 넣지 않습니다. 느린 실행은 표시된 P95 이상(같은 값 포함)입니다. 증감은 직전 같은 길이의 기간과 비교하며, 줄어든 것을 개선으로 칠합니다. 빈 구간은 0이 아닙니다.'
             : 'Rounded to 0.1 min. In-progress jobs are not included. Slow means at or above the displayed P95, including ties. Deltas compare with the previous period of the same length and treat a decrease as an improvement. An empty bucket is not zero.'}</p>
-
-          </> }}
-          charts={[
-            { id: 'trend', title: ko ? '사이클타임 추세' : 'Cycle time trend', node:
+          </div> },
+            { id: 'trend', primary: true, title: { ko: '사이클타임 추세', en: 'Cycle time trend' }, render: () =>
             <QueryView widgetName={ko ? '사이클타임 추세' : 'Cycle time trend'} query={trend} skeletonHeight={280}>
               {(data, response) => <AnalysisChartFrame
                 chartId="cycle-time-trend"
+                size="fill"
                 title={ko ? '사이클타임 추세' : 'Cycle time trend'}
                 description={ko ? `버킷별 P50/P95 · ${granularity === 'hour' ? '시간' : granularity === 'day' ? '일' : '주'} · 단위 분` : `P50/P95 by bucket · ${granularity === 'hour' ? 'hour' : granularity === 'day' ? 'day' : 'week'} · minutes`}
                 metricVersion={metricLabel(metric, ko)}
@@ -243,7 +259,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
               />}
             </QueryView>
             },
-            { id: 'distribution', title: ko ? '사이클타임 분포' : 'Cycle time distribution', node:
+            { id: 'distribution', title: { ko: '사이클타임 분포', en: 'Cycle time distribution' }, render: () =>
             <QueryView widgetName={ko ? '사이클타임 분포' : 'Cycle time distribution'} query={dist} skeletonHeight={220}>
               {(data, response) => <AnalysisChartFrame
                 chartId="cycle-time-distribution"
@@ -253,15 +269,14 @@ export default function CycleTimeDrilldown(_: PageProps) {
                 xType="category"
                 unit={ko ? '건' : 'jobs'}
                 valueFormat={value => Math.round(value).toLocaleString(ko ? 'ko-KR' : 'en-US')}
-                height={220}
+                size="fill"
                 series={[{ id: 'hist', name: ko ? '실행 수' : 'Executions', color: 'chart-blue', kind: 'bar', points: data.bins.map((item): [string, number] => [item.id, item.count]) }]}
                 trust={chartTrust(response.trust, unknown)}
                 selectionActions={selection => <Button size="toolbar" onClick={() => setPage({ bin: selection.from === selection.to ? selection.from : `${selection.from}..${selection.to}`, page: null })}>{ko ? '이 구간 실행 보기' : 'Show executions in this range'}</Button>}
               />}
             </QueryView>
             },
-          ]}
-          breakdown={{ id: 'slow', title: ko ? '느린 실행' : 'Slow executions', node: <>
+          { id: 'slow', title: { ko: '느린 실행', en: 'Slow executions' }, render: () => <div className="space-y-3 p-3">
           <PlatformDataTable<SlowRow>
             title={ko ? '느린 실행' : 'Slow executions'}
             subtitle={ko
@@ -310,7 +325,8 @@ export default function CycleTimeDrilldown(_: PageProps) {
             ? '미확정은 정상으로 채우지 않습니다. 검토 표시는 불량·수율이 아닙니다.'
             : 'Unconfirmed is not filled in as pass. A review flag is not a defect or a yield.'}</p>
           {kpi.response && kpi.response.outcome === 'ok' && <DataTrustIndicator trust={kpi.response.trust} assessments={kpi.response.assessments} />}
-          </> }}
+          </div> },
+          ]}
         />}
   </PlatformPage>;
 }

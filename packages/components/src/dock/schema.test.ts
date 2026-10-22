@@ -13,6 +13,7 @@ describe('normalizeDockTree', () => {
     ['garbage: an unknown node type', { type: 'tab' }, group(['a', 'b', 'c'])],
     ['garbage: a branch without children', { type: 'branch', dir: 'row', sizes: [], children: 'x' }, group(['a', 'b', 'c'])],
     ['garbage: a group whose panels are not an array', { type: 'group', panels: 'a', active: 'a' }, group(['a', 'b', 'c'])],
+    ['garbage: an array is not a node, even one carrying node fields', Object.assign(['x'], { type: 'group', panels: ['c', 'a'], active: 'c' }), group(['a', 'b', 'c'])],
     ['valid tree is kept', row([60, 40], group(['a', 'b'], 'b'), group(['c'])), row([60, 40], group(['a', 'b'], 'b'), group(['c']))],
     ['unknown id dropped', group(['a', 'zzz', 'b', 'c']), group(['a', 'b', 'c'])],
     ['duplicate id in one group dropped', group(['a', 'a', 'b', 'c']), group(['a', 'b', 'c'])],

@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, type QueryState } from '@ap/kernel';
 import type { ApiResponse } from '@ap/contracts';
 import { QueryView } from './StateView';
+import { InWorkspacePanelProvider } from './workspace/panelContext';
 
 afterEach(cleanup);
 
@@ -63,4 +64,16 @@ it('renders idle with localized missing reasons and without loading or outcome c
   expect(screen.getByRole('listitem')).toHaveTextContent('기간을(를) 선택하세요');
   expect(screen.queryByText('불러오는 중')).not.toBeInTheDocument();
   expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+});
+
+describe('QueryView inside a workspace panel', () => {
+  const ok = (): QueryState<string> => ({ response: { outcome: 'ok', data: 'x', assessments: [], trust: null, correlationId: 'c' }, refetch: vi.fn(), missing: [], completedAt: null, status: 'done' });
+
+  it('takes the panel height so a fill chart inside has a bounded parent; elsewhere it is unchanged', () => {
+    const { container, unmount } = render(<I18nProvider><InWorkspacePanelProvider value><QueryView query={ok()}>{data => <p>{data}</p>}</QueryView></InWorkspacePanelProvider></I18nProvider>);
+    expect(container.querySelector('p')!.parentElement).toHaveClass('h-full', 'min-h-0');
+    unmount();
+    const plain = render(<I18nProvider><QueryView query={ok()}>{data => <p>{data}</p>}</QueryView></I18nProvider>);
+    expect(plain.container.querySelector('p')!.parentElement).not.toHaveClass('h-full');
+  });
 });

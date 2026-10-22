@@ -3,6 +3,7 @@ import { useLayoutEffect, useRef, useState, type CSSProperties, type ComponentTy
 import { createPortal } from 'react-dom';
 import { PaneScreenProvider, useI18n, usePlatform, type MenuEntry, type PaneScreen } from '@ap/kernel';
 import { StateMessage } from '@ap/components';
+import { WorkspaceCommandsHost } from '@ap/components/dock';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, cn, TransientOverlayScope } from '@ap/ui';
 import { admitPaneScreen } from './boardMenus';
 import { PaneHeader, type DockStrip } from './PaneHeader';
@@ -108,7 +109,7 @@ export function BoardPane({ dock = false, dockHead, onClosePane, placement, hidd
   // The dock draws the head of the pane that is its group's active tab into that group's strip; the state it holds (an open menu, the picker) stays with the pane.
   const header = dock ? (dockHead ? createPortal(headElement, dockHead.slot) : null) : headElement;
 
-  return <TransientOverlayScope active={!hidden}><div ref={root} id={`board-pane-${paneId}`} data-pane-index={number - 1} data-maximized={maximized} style={placement ? { '--pane-left': `${placement.left}px`, '--pane-top': `${placement.top}px`, '--pane-width': typeof placement.width === 'number' ? `${placement.width}px` : placement.width, '--pane-height': `${placement.height}px` } as CSSProperties : undefined} hidden={hidden} inert={hidden || undefined} aria-hidden={hidden || undefined} role="group" aria-label={text.pane(number)} data-pane-id={paneId} tabIndex={-1} data-selected={selected}
+  return <TransientOverlayScope active={!hidden}><WorkspaceCommandsHost><div ref={root} id={`board-pane-${paneId}`} data-pane-index={number - 1} data-maximized={maximized} style={placement ? { '--pane-left': `${placement.left}px`, '--pane-top': `${placement.top}px`, '--pane-width': typeof placement.width === 'number' ? `${placement.width}px` : placement.width, '--pane-height': `${placement.height}px` } as CSSProperties : undefined} hidden={hidden} inert={hidden || undefined} aria-hidden={hidden || undefined} role="group" aria-label={text.pane(number)} data-pane-id={paneId} tabIndex={-1} data-selected={selected}
     onFocus={onSelect} onPointerDownCapture={onSelect}
     className={cn('relative flex min-h-0 min-w-0 flex-col overflow-hidden bg-surface-card outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring',
       dock ? 'h-full w-full' : cn('rounded-lg border', selected ? 'border-border-selected' : 'border-border-subtle'),
@@ -157,5 +158,5 @@ export function BoardPane({ dock = false, dockHead, onClosePane, placement, hidd
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
-  </div></TransientOverlayScope>;
+  </div></WorkspaceCommandsHost></TransientOverlayScope>;
 }

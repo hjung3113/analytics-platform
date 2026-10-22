@@ -32,9 +32,14 @@ describe('PlatformPage layout', () => {
     const body = document.querySelector<HTMLElement>('[data-platform-page-content]')!;
     expect(body).toHaveClass('flex', 'flex-col');
     const slot = document.querySelector<HTMLElement>('[data-platform-page-fill]')!;
-    expect(slot).toHaveClass('min-h-0', 'flex-1');
+    expect(slot).toHaveClass('flex-1');
     expect(slot.parentElement).toBe(body);
     expect(slot).toContainElement(screen.getByText('본문'));
+  });
+
+  it('fill: the body keeps a 560 px minimum so a tall chrome scrolls the page instead of crushing the workspace', () => {
+    mount({ layout: 'fill' });
+    expect(document.querySelector<HTMLElement>('[data-platform-page-fill]')).toHaveClass('min-h-[560px]');
   });
 
   it.each<[string, Partial<PlatformPageProps>]>([['no prop', {}], ['flow', { layout: 'flow' }]])('%s: unchanged — grows with its content', (_name, props) => {

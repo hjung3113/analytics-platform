@@ -65,6 +65,7 @@
 - V1 저장값은 백업과 grid 대체 렌더러로 되돌릴 수 있다. 정리 전까지 렌더러가 둘이다.
 - 무료 엔진에 없는 키보드 크기 조절·키보드 도킹은 플랫폼 코드(separator, `⋯` 명령)로 갖는다.
 - 3a(2026-10-22): 메뉴 façade API가 구현됐다 — `PanelWorkspace`(`panels`·`presets`·`initialPreset`·`compactPreset`·`persistKey`·`label`·`compactBelow`, 루트 export, Candidate), 호스트 전용 `WorkspaceCommandsHost`·`useWorkspaceCommands`·`dockLayoutMenu`(`@ap/components/dock`), `PlatformPage layout`, `ChartSize 'fill'`. 아직 어떤 화면도 쓰지 않는다(첫 소비자는 3b). 명세는 06 §12.8.
+- 3b(2026-10-23): 첫 소비자는 사이클타임 드릴다운(`persistKey="drilldown"`, 프리셋 `balanced`·`focus`, 코드 opt-in)이다. 보드 칸은 `WorkspaceCommandsHost`로 감싸 도구줄 없이 프리셋·숨긴 패널·`기본 배치`를 칸 `⋯` 메뉴에 싣는다. `PlatformPage layout="fill"`의 본문은 최소 560px을 지킨다(머리가 뷰포트를 채우면 페이지가 스크롤). 명세는 06 §12.8.
 - Dockview 고정 판: 8.6.1로 확정한다(2026-10-22, 구현 2단계 2a). 배포 14일 기준의 최신판은 8.4.1이지만 그 판에는 수용 기준에 걸린 결함이 남아 있다 — StrictMode·Activity에서 인스턴스가 다시 만들어짐(#1670, 8.5.0 수정), `clear()` 뒤 비율 소실(#1694, 8.6.0), `renderer:'always'` 패널의 첫 마운트 크기(#1689, 8.6.1), 중첩 숨김 상태(#1697·#1698, 8.6.1). 결정 1의 예외를 적용한다. 판을 올릴 때는 이 결함들의 회귀를 `DockLayout` 테스트와 E2E로 다시 확인한다.
 
 ## 고려한 대안

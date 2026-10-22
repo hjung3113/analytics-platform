@@ -332,7 +332,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
         },
       ],
     };
-    // Deps intentionally restricted to the chart inputs below (would trip react-hooks/exhaustive-deps if that rule is enabled).
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `format` and `xValue` are rebuilt every render (consumers pass inline `valueFormat`); they only follow `lang` and `xType`, which are listed, so the option is rebuilt from the chart inputs below only.
   }, [displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations, noteSpans, noteLevels, timeExtent, chartWidth, p.markLines, p.unit, lang, p.stacked, instanceReady]);
 
   // Re-arm the brush cursor after each option replacement, and once the instance becomes ready.

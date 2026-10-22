@@ -16,7 +16,7 @@ export type WorkspacePreset = { id: string; layout: PanelWorkspaceLayout };
 /** Static identifiers only: nothing from data can reach a storage key. */
 export const WORKSPACE_ID = /^[a-z][a-z0-9._-]{0,63}$/;
 
-const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
 
 /** Ratios -> shares of 100; anything unusable is left for `normalizeDockTree` (equal shares). */
 function toShares(layout: unknown): unknown {

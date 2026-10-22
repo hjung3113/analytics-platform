@@ -121,6 +121,12 @@ describe('normalizeWorkspaceState', () => {
     expect(panelOrder(state.layout)).not.toContain('kpi');
   });
 
+  it('does not treat an array as a layout node, even one carrying node fields', () => {
+    const layout = Object.assign([], { type: 'group', panels: ['detail', 'trend'] });
+    const state = normalizeWorkspaceState({ v: 1, preset: 'focus', layout, hidden: [] }, spec);
+    expect(state.layout).toEqual(presetTree(focus.layout, IDS));
+  });
+
   it('does not throw on a cyclic value', () => {
     const loop: Record<string, unknown> = { type: 'branch', dir: 'row', sizes: [100], children: [] };
     (loop.children as unknown[]).push(loop);
