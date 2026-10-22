@@ -13,7 +13,7 @@
 
 | 바뀌는 것 | 그대로인 것 |
 | --- | --- |
-| 운영 조립 모듈(`createAssembly` → 실어댑터, `AP_PLATFORM_ASSEMBLY`, #154) | Kernel(`@ap/kernel`)·셸·공통 컴포넌트·`@ap/contracts` 타입 |
+| 운영 조립 모듈(`createAssembly` → 실어댑터, `AP_PLATFORM_ASSEMBLY`, #154; 이 레포의 실서버 조립은 `apps/platform-web/src/real/http-assembly.tsx` + `@ap/http-adapter`) | Kernel(`@ap/kernel`)·셸·공통 컴포넌트·`@ap/contracts` 타입 |
 | 운영 빌드에서 mock 핸들러·dev 도구 제외(#153 완료 — CI `check:prod-graph`) | 메뉴 화면(`menus/*/*/src/pages`)과 엔드포인트 선언(`menus/*/*/src/endpoints.ts`) |
 | 서버: 메뉴 `src/mock/` 계산 → 사내 FastAPI 핸들러(파서 Postgres·mart SQL, #155) | 판정 규칙(체크리스트 §3 순서), 06 §19 응답 envelope, URL·딥링크 계약 |
 | 인증: Mock 역할 전환 → 사내 SSO 세션(#150) | 개발·E2E는 계속 mock으로 돈다(`pnpm dev`·`pnpm e2e`) |
@@ -108,7 +108,7 @@
 
 - [ ] 사내 테스트 서버 대상 적합성 묶음 전부 통과(#152로 넓힌 범위 포함) — 실행 기록을 #154에 남긴다.
 - [ ] 체크리스트 §2 표의 메서드 전부가 실어댑터로 동작, §3 판정 순서·등록 검증이 서버에 있음.
-- [ ] 운영 빌드는 빌드 단계에서 mock·dev 모듈 금지 검사(#153); 실어댑터 조립을 넣은 운영 빌드 통과는 #154.
+- [ ] 운영 빌드는 빌드 단계에서 mock·dev 모듈 금지 검사(#153); 실어댑터 조립을 넣은 운영 빌드 통과는 #154다. 그 증거는 조립을 주입한 빌드(`AP_PLATFORM_ASSEMBLY=… build:prod`, 가드가 실어댑터를 포함한 전체 그래프를 검사한다)이고, 기본 `check:prod-graph`는 조립을 제외(external)하므로 실어댑터 그래프의 증거가 아니다.
 - [ ] 사내 SSO로 로그인 → 세션 부트스트랩 → 권한 다른 두 계정에서 메뉴·데이터 범위가 다르게 보임(서버 판정).
 - [ ] 세션 만료·재로그인 때 이전 결과가 한 프레임도 보이지 않음(체크리스트 §2 `subscribe`).
 - [ ] 오류 화면의 Correlation ID로 서버 로그를 찾을 수 있음.

@@ -12,6 +12,7 @@ import { createLocalQueryHistoryStore } from './query-history-store';
 import { EQUIPMENT_AXES } from './equipmentAxes';
 import { registry } from './menus';
 import { appSlots } from './slots';
+import { startOrFail } from './startup-failure';
 import { AppShell, RouteOutlet } from '@ap/shell';
 
 // Composition root owns the FeedbackOps origin (issue #60 §4): menus never read the env, the adapter
@@ -20,16 +21,29 @@ const feedbackOpsOrigin = readFeedbackOpsOrigin(import.meta.env.VITE_FEEDBACKOPS
 setFeedbackOpsOrigin(feedbackOpsOrigin);
 
 // The build picks the assembly (#153, ADR-0009): mock + DevTools in dev/--mode mock, the real adapter in production.
-const assembly = createAssembly({ registry });
+// It may be asynchronous (the real assembly awaits the bootstrap, #154), so the tree mounts after it answers; it can
+// also ask for a redirect (login) or a replacement screen (server unavailable) instead of the app.
 const queryHistory = createLocalQueryHistoryStore();
 const location = import.meta.env.BASE_URL === '/' ? undefined : createBasePathLocation(import.meta.env.BASE_URL);
+const root = createRoot(document.getElementById('root')!);
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <I18nProvider>
-      <PlatformProvider queryHistory={queryHistory} equipmentAxes={EQUIPMENT_AXES} adapter={assembly.adapter} registry={registry} location={location} slots={appSlots(assembly, feedbackOpsOrigin)}>
-        <AppShell><RouteOutlet /></AppShell>
-      </PlatformProvider>
-    </I18nProvider>
-  </StrictMode>,
-);
+void startOrFail(root, async () => {
+  const assembly = await Promise.resolve(createAssembly({ registry }));
+  if ('redirect' in assembly) {
+    window.location.replace(assembly.redirect);
+    return;
+  }
+  if ('screen' in assembly) {
+    root.render(<StrictMode>{assembly.screen}</StrictMode>);
+    return;
+  }
+  root.render(
+    <StrictMode>
+      <I18nProvider>
+        <PlatformProvider queryHistory={queryHistory} equipmentAxes={EQUIPMENT_AXES} adapter={assembly.adapter} registry={registry} location={location} slots={appSlots(assembly, feedbackOpsOrigin)}>
+          <AppShell><RouteOutlet /></AppShell>
+        </PlatformProvider>
+      </I18nProvider>
+    </StrictMode>,
+  );
+});
