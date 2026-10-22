@@ -26,16 +26,16 @@ FeedbackOps를 플랫폼 앱 하나·서버 하나·저장소 하나로 합친�
 
 ### 3.1 플랫폼 전역 기능 — 모든 사용자
 
-공간 밖 전역 유틸리티 자리([ADR-0028](../adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md))에 둔다. 이슈 [#594](https://github.com/hjung3113/analytics-platform/issues/594).
+공간 밖 전역 유틸리티 자리([ADR-0028](../adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md))에 둔다. 이슈 [#594](https://github.com/hjung3113/analytics-platform/issues/594). 화면 배치는 Decided([ADR-0070](../adr/0070-global-features-platform-menu-and-voc-drawer.md)): 전역 화면은 플랫폼 사이드바(`홈` / `내 활동` / `공지`), 업무 시스템 안은 전환기 팝오버의 `플랫폼 메뉴` 구역.
 
 | 기능 | 지금 FeedbackOps | 플랫폼에서 |
 | --- | --- | --- |
-| VOC 등록 | `/vocs` 생성 폼 | 어느 화면에서든 열린다. 지금 메뉴·Context를 VOC에 붙인다(Analytics Area·Managed System 기본값). |
+| VOC 등록 | `/vocs` 생성 폼 | 레일 `VOC 등록` → 오른쪽 도킹 드로어(본문을 밀어냄). 열 때 지금 메뉴·Context를 지울 수 있는 칩으로 고정해 붙이고, Analytics Area·Managed System은 ADR-0068 연결에서 채운다(없으면 직접 선택). 오른쪽 패널은 하나(ADR-0070) |
 | 내 VOC·신고자 VOC 상세 | `/vocs` 내 VOC 탭·상세 | 전역 `내 VOC`(1단계 읽기 화면 대체, M3 #84–#86) |
-| 설문 참여·응답 | `/surveys/participate`, `/surveys/$id/respond` | 전역 `설문 참여` |
-| 알림함 | 알림 모듈(신고자 알림, Slice 65) | 셸 알림 진입. VOC 상태 변경·권한 결정·설문 요청 |
-| 권한 요청 | 요청 대화상자·`requestable_permission` 오류 | 전역 요청·철회·내 요청 상태. 승인 쪽은 §3.3 |
-| 내 활동 | (없음) | 내 VOC·내 권한 요청·설문 참여를 한 화면에 |
+| 설문 참여·응답 | `/surveys/participate`, `/surveys/$id/respond` | 전역 `설문` 전체 페이지. 알림·홈·플랫폼 메뉴에서 진입, 제출 뒤 출발 화면으로 복귀, VOC를 만들지 않음(ADR-0070) |
+| 알림함 | 알림 모듈(신고자 알림, Slice 65) | 레일 알림 종(읽지 않은 수 배지) → 팝오버 → `모두 보기` 알림 페이지. VOC 상태 변경·권한 결정·설문 요청. 읽음은 설문 완료와 별개(ADR-0070) |
+| 권한 요청 | 요청 대화상자·`requestable_permission` 오류 | 전역 요청·철회·내 요청 상태. 공간 0개 홈의 `권한 요청` 버튼(ADR-0070). 승인 쪽은 §3.3 |
+| 내 활동 | (없음) | 별도 페이지가 아니다. 사이드바 묶음 `내 활동`과 홈의 `내 할 일`(응답할 설문·바뀐 내 VOC·권한 요청)(ADR-0070) |
 | 공지 | (없음) | 이미 플랫폼 전역 |
 
 ### 3.2 `피드백 운영` 업무 시스템 — 관리자·개발자
@@ -52,7 +52,7 @@ FeedbackOps를 플랫폼 앱 하나·서버 하나·저장소 하나로 합친�
 | 홈 | 대시보드(액션 큐) | `/home` |
 | 설정 | 피드백 운영 설정 | `/admin/settings` |
 
-다른 업무 공간 사이드바의 FeedbackOps 블록([ADR-0045](../adr/0045-feedbackops-entry-link-mapping-and-scope.md))은 새 탭 링크에서 셸 안 이동 + 업무 시스템 미리 채움 + 복귀로 바뀐다.
+다른 업무 공간 사이드바의 FeedbackOps 블록([ADR-0045](../adr/0045-feedbackops-entry-link-mapping-and-scope.md))은 새 탭 링크에서 셸 안 이동 + 업무 시스템 미리 채움 + 복귀로 바뀐다. `VOC 등록` 항목은 블록에서 빠지고 레일로 간다([ADR-0070](../adr/0070-global-features-platform-menu-and-voc-drawer.md)).
 
 ### 3.3 권한·레지스트리 관리 — Decided ([ADR-0068](../adr/0068-permission-scope-and-business-system-link.md))
 

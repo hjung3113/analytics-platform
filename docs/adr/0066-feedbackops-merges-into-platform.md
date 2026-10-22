@@ -19,7 +19,7 @@ ADR-0027은 FeedbackOps를 독립 앱으로 두고 업무 공간에서 새 탭 �
 ## 결정
 
 1. **FeedbackOps는 플랫폼의 일부가 된다.** 독립 앱으로 남지 않는다. 코드는 이 저장소의 workspace로 옮기고, 플랫폼 셸이 유일한 호스트다. 독립 FeedbackOps 앱은 합류가 끝나면 은퇴한다.
-2. **모든 사용자가 쓰는 기능은 플랫폼 전역 기능이다**(공간 밖, ADR-0028의 전역 유틸리티 자리): VOC 등록(어느 화면에서든, 지금 메뉴와 Context를 붙여)·내 VOC·신고자 VOC 상세, 설문 참여·응답, 알림함, 권한 요청, 내 활동, 공지(이미 전역).
+2. **모든 사용자가 쓰는 기능은 플랫폼 전역 기능이다**(공간 밖, ADR-0028의 전역 유틸리티 자리): VOC 등록(어느 화면에서든, 지금 메뉴와 Context를 붙여)·내 VOC·신고자 VOC 상세, 설문 참여·응답, 알림함, 권한 요청, 내 활동, 공지(이미 전역). 화면 배치(플랫폼 메뉴·VOC 등록 드로어·설문 페이지·홈 순서)는 [ADR-0070](0070-global-features-platform-menu-and-voc-drawer.md).
 3. **관리자·개발자만 쓰는 화면은 업무 시스템 하나로 올린다**(이름 Candidate `피드백 운영`, ADR-0042 시스템 전환기·시스템별 레일): 수신함·Triage·VOC Cluster, Evidence·Coverage·Links, Finding·Task Request·Task·Milestone, 대시보드(액션 큐), 설문 관리, 피드백 운영 설정.
 4. **화면은 다시 쓰지 않고 옮긴다.** FeedbackOps 화면 코드를 Kernel 라우팅·Registry에 맞춰 옮긴다. ADR-0018 A안의 "플랫폼 메뉴로 재작성"이 아니다.
 5. **화면은 보는 사람 기준으로 나누고, 데이터 주인은 나누지 않는다.** 전역 기능 화면도 FeedbackOps 백엔드의 같은 도메인 API를 쓴다. VOC·설문·Finding·Task의 저장소는 하나이고, 시스템 간 이력은 `entity_links`가 원본이며, VOC 상태 기계 셋은 서로 자동 매핑하지 않는다(FeedbackOps ADR-0005). 설문 응답에서 VOC를 만들지 않는다.
