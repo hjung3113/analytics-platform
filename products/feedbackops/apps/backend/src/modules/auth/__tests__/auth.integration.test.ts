@@ -260,19 +260,115 @@ describe.skipIf(!runIntegration)('Slice 1 #3 auth integration', () => {
       expect(post).toBeNull();
     }
   });
-});
 
-describe.skipIf(!runIntegration)('Slice 1 #3 production guard (now boot-level per HTTP-H-1)', () => {
-  // Review HTTP-H-1 promoted the route-level 404 to a boot-time refusal.
-  // The original two route tests (GET/POST /auth/mock-login → 404 in prod)
-  // are no longer reachable because buildServer refuses to instantiate
-  // with NODE_ENV=production + AUTH_PROVIDER=mock. The boot-refusal
-  // assertion lives in `src/server.test.ts` (`AUTH_PROVIDER switch >
-  // NODE_ENV=production + AUTH_PROVIDER=mock refuses to boot`). The
-  // route-level 404 stays in `auth/routes.ts:36,52` as defense-in-depth
-  // for the case where the boot guard is removed; testing it requires
-  // bypassing the guard, which we deliberately do not do.
-  it('boot-level refusal asserted in src/server.test.ts', () => {
-    expect(true).toBe(true);
+  describe('mock-login form body', () => {
+    const FORM = { 'content-type': 'application/x-www-form-urlencoded' };
+
+    it('form POST → 302 to /, real session cookie', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/auth/mock-login',
+        headers: { ...FORM, 'user-agent': 'integration-test' },
+        payload: new URLSearchParams({ external_id: 'mock-admin-1' }).toString(),
+      });
+      expect(res.statusCode).toBe(302);
+      expect(res.headers.location).toBe('/');
+      const cookie = extractSessionCookie(res.headers['set-cookie']);
+      expect(cookie).toBeTruthy();
+      const me = await app.inject({
+        method: 'GET',
+        url: '/me',
+        headers: { cookie: `${SESSION_COOKIE_NAME}=${cookie}` },
+      });
+      expect(me.statusCode).toBe(200);
+      expect(me.json().actor.external_id).toBe('mock-admin-1');
+    });
+
+    it.each([
+      ['/vocs?status=open', '/vocs?status=open'],
+      ['//evil.example', '/'],
+      ['https://evil.example/x', '/'],
+      ['/\\evil.example', '/'],
+      ['/\t/evil.example', '/'],
+    ])('form POST return_to %j → Location %j', async (returnTo, location) => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/auth/mock-login',
+        headers: { ...FORM, 'user-agent': 'integration-test' },
+        payload: new URLSearchParams({
+          external_id: 'mock-admin-1',
+          return_to: returnTo,
+        }).toString(),
+      });
+      expect(res.statusCode).toBe(302);
+      expect(res.headers.location).toBe(location);
+    });
+
+    it('JSON POST ignores return_to and keeps the 200 body', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/auth/mock-login',
+        headers: { 'user-agent': 'integration-test' },
+        payload: { external_id: 'mock-admin-1', return_to: '/vocs' },
+      });
+      expect(res.statusCode).toBe(200);
+      expect(res.headers.location).toBeUndefined();
+      expect(res.json().actor.external_id).toBe('mock-admin-1');
+    });
+
+    it('form POST without external_id → same 422 as JSON', async () => {
+      const form = await app.inject({
+        method: 'POST',
+        url: '/auth/mock-login',
+        headers: FORM,
+        payload: new URLSearchParams({ return_to: '/vocs' }).toString(),
+      });
+      const json = await app.inject({
+        method: 'POST',
+        url: '/auth/mock-login',
+        payload: {},
+      });
+      expect(form.statusCode).toBe(422);
+      expect(json.statusCode).toBe(422);
+      expect(form.json().code).toBe(json.json().code);
+      expect(form.json().detail.fields).toEqual(json.json().detail.fields);
+      expect(form.headers['set-cookie']).toBeUndefined();
+    });
+
+    it.each(['/auth/login', '/auth/mock-login'])(
+      'GET %s?return_to= puts a sanitized hidden return_to in the picker',
+      async (path) => {
+        const kept = await app.inject({
+          method: 'GET',
+          url: `${path}?return_to=${encodeURIComponent('/vocs?a=1&b=2')}`,
+        });
+        expect(kept.statusCode).toBe(200);
+        expect(kept.body).toContain('name="return_to" value="/vocs?a=1&amp;b=2"');
+        const dropped = await app.inject({
+          method: 'GET',
+          url: `${path}?return_to=${encodeURIComponent('//evil.example')}`,
+        });
+        expect(dropped.statusCode).toBe(200);
+        expect(dropped.body).not.toContain('name="return_to"');
+      },
+    );
   });
 });
+
+describe.skipIf(!runIntegration)(
+  'Slice 1 #3 production guard (now boot-level per HTTP-H-1)',
+  () => {
+    // Review HTTP-H-1 promoted the route-level 404 to a boot-time refusal.
+    // The original two route tests (GET/POST /auth/mock-login → 404 in prod)
+    // are no longer reachable because buildServer refuses to instantiate
+    // with NODE_ENV=production + AUTH_PROVIDER=mock. The boot-refusal
+    // assertion lives in `src/server.test.ts` (`AUTH_PROVIDER switch >
+    // NODE_ENV=production + AUTH_PROVIDER=mock refuses to boot`). The
+    // route-level 404 stays in `auth/routes.ts:36,52` as defense-in-depth
+    // for the case where the boot guard is removed; testing it requires
+    // bypassing the guard, which we deliberately do not do.
+    it('boot-level refusal asserted in src/server.test.ts', () => {
+      expect(true).toBe(true);
+    });
+  },
+);

@@ -15,6 +15,7 @@ import type { Db } from '../../db/client.js';
 import { actors } from '../../db/schema/core.js';
 import { HttpError } from '../../lib/errors.js';
 import type { AuthClaims, AuthProvider, CompleteLoginInput } from './auth-provider.js';
+import { sanitizeReturnTo } from './return-to.js';
 
 export interface MockAuthProviderDeps {
   db: Db;
@@ -25,7 +26,12 @@ export function createMockAuthProvider(deps: MockAuthProviderDeps): AuthProvider
   return {
     name: 'mock',
 
-    async startLogin() {
+    async startLogin(ctx) {
+      const returnTo = sanitizeReturnTo(ctx?.returnTo);
+      const returnToInput =
+        returnTo === '/'
+          ? ''
+          : `\n          <input type="hidden" name="return_to" value="${escapeHtml(returnTo)}" />`;
       const rows = await deps.db
         .select({
           externalId: actors.externalId,
@@ -41,7 +47,7 @@ export function createMockAuthProvider(deps: MockAuthProviderDeps): AuthProvider
         .map(
           (r) => `
         <form method="POST" action="/auth/mock-login">
-          <input type="hidden" name="external_id" value="${escapeHtml(r.externalId)}" />
+          <input type="hidden" name="external_id" value="${escapeHtml(r.externalId)}" />${returnToInput}
           <button type="submit">
             <strong>${escapeHtml(r.displayName)}</strong>
             <small> (${escapeHtml(r.roleLevel)})</small>
