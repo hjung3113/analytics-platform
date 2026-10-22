@@ -67,7 +67,7 @@
 
 ## FeedbackOps (`products/feedbackops/`)
 
-`products/feedbackops/`는 이 저장소의 일반 디렉터리다(서브모듈 아님, [ADR-0066](docs/adr/0066-feedbackops-merges-into-platform.md), #592). 도구 통일 전까지는 자체 중첩 pnpm workspace·lockfile·Node 22·pnpm 9·Biome·turbo를 유지하고 SDK는 태그 `sdk-v0.5.0`의 `@ap/ui`로 받는다. 플랫폼 루트 workspace·lockfile에는 들어오지 않는다. 내부 작업은 그 디렉터리의 `AGENTS.md`를 따르고 명령은 그 디렉터리에서 실행하며, 플랫폼 규칙을 소급 적용하지 않는다. CI는 `.github/workflows/feedbackops.yml`(그 디렉터리가 바뀔 때만). 통합 계약이 충돌하면 한쪽을 임의로 고치지 말고 사용자에게 올린다. 구조는 `docs/integration/repository-layout.md`.
+`products/feedbackops/`는 이 저장소의 일반 디렉터리다(서브모듈 아님, [ADR-0066](docs/adr/0066-feedbackops-merges-into-platform.md), #592). 루트 pnpm workspace의 일부이고(#642) Node 26.7·pnpm 11·루트 lockfile·turbo를 함께 쓰며 `@ap/ui`는 `workspace:*`로 받는다. 린트는 자체 Biome이고, 루트 `lint|typecheck|test|build`는 FeedbackOps를 뺀다. 내부 작업은 그 디렉터리의 `AGENTS.md`를 따르고 명령은 그 디렉터리에서 실행하며, 플랫폼 규칙을 소급 적용하지 않는다. CI는 `.github/workflows/feedbackops.yml`(그 디렉터리, `packages/ui`, 루트 manifest·lockfile이 바뀔 때). 통합 계약이 충돌하면 한쪽을 임의로 고치지 말고 사용자에게 올린다. 구조는 `docs/integration/repository-layout.md`.
 
 ## 폴더별 지침
 
@@ -81,7 +81,7 @@
 | [`tooling/`](tooling/AGENTS.md) | 공유 tsconfig·경계 lint·메뉴 생성기(`pnpm gen:menu`)·CSS selector 비교 |
 | [`site/`](site/AGENTS.md) | 도입 소개 페이지(정적, workspace 밖)와 Pages 조립 |
 | [`prototypes/`](prototypes/AGENTS.md) | 통합 전 Kernel 단위 프로토타입(보존, 새 기능 금지) |
-| [`products/feedbackops/`](products/feedbackops/AGENTS.md) | FeedbackOps 제품 디렉터리(자체 중첩 workspace, 위 경계 참조) |
+| [`products/feedbackops/`](products/feedbackops/AGENTS.md) | FeedbackOps 제품 디렉터리(루트 workspace의 `@fops/*`, 위 경계 참조) |
 
 ## 에이전트 자산
 
