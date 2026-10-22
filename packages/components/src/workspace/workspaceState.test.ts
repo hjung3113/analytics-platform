@@ -1,0 +1,175 @@
+import { describe, expect, it } from 'vitest';
+import { panelOrder } from '../dock/commands';
+import { dockGroups, isValidDockTree, type DockNode } from '../dock/schema';
+import { applyPreset, hidePanel, initialWorkspaceState, normalizeWorkspaceState, presetTree, resetLayout, showPanel, type PanelWorkspaceLayout, type WorkspacePreset, type WorkspaceSpec } from './workspaceState';
+
+const IDS = ['trend', 'selector', 'detail', 'kpi'];
+const group = (panels: string[], active?: string): PanelWorkspaceLayout => ({ type: 'group', panels, active });
+const balanced: WorkspacePreset = {
+  id: 'balanced',
+  layout: { type: 'branch', dir: 'row', sizes: [1, 3, 1], children: [group(['selector']), { type: 'branch', dir: 'column', sizes: [1, 3], children: [group(['kpi']), group(['trend'])] }, group(['detail'])] },
+};
+const focus: WorkspacePreset = { id: 'focus', layout: { type: 'branch', dir: 'row', sizes: [7, 3], children: [group(['trend']), group(['selector', 'detail', 'kpi'])] } };
+const spec: WorkspaceSpec = { panelIds: IDS, primaryId: 'trend', presets: [balanced, focus], initialPreset: 'balanced' };
+
+const groupsOf = (tree: DockNode) => dockGroups(tree).map(g => g.panels);
+const initial = initialWorkspaceState(spec);
+
+/** The share of the whole area a panel's group takes, from the branch shares. */
+function areaOf(tree: DockNode, panelId: string): number {
+  const walk = (node: DockNode, share: number): number => {
+    if (node.type === 'group') return node.panels.includes(panelId) ? share : 0;
+    return node.children.reduce((total, child, index) => total + walk(child, share * (node.sizes[index]! / 100)), 0);
+  };
+  return walk(tree, 1);
+}
+
+describe('presetTree', () => {
+  it('turns ratios into shares and keeps the arrangement', () => {
+    const tree = presetTree(balanced.layout, IDS);
+    expect(groupsOf(tree)).toEqual([['selector'], ['kpi'], ['trend'], ['detail']]);
+    expect(tree).toMatchObject({ type: 'branch', dir: 'row', sizes: [20, 60, 20] });
+    expect(isValidDockTree(tree, IDS)).toBe(true);
+  });
+
+  it('drops ids that are not given and adds the ones the preset does not name to its first group', () => {
+    expect(groupsOf(presetTree(balanced.layout, ['trend', 'selector']))).toEqual([['selector'], ['trend']]);
+    expect(groupsOf(presetTree(group(['trend']), ['trend', 'kpi']))).toEqual([['trend', 'kpi']]);
+  });
+});
+
+describe('initialWorkspaceState', () => {
+  it('is the initial preset with nothing hidden', () => {
+    expect(initial).toMatchObject({ v: 1, preset: 'balanced', hidden: [] });
+    expect(panelOrder(initial.layout).sort()).toEqual([...IDS].sort());
+  });
+});
+
+describe('normalizeWorkspaceState', () => {
+  const good = { v: 1, preset: 'focus', layout: presetTree(focus.layout, IDS), hidden: [] };
+  const withLayout = (layout: unknown) => ({ ...good, layout });
+
+  it('keeps a valid state as it is', () => {
+    expect(normalizeWorkspaceState(JSON.parse(JSON.stringify(good)), spec)).toEqual(good);
+  });
+
+  it.each<[string, unknown]>([
+    ['undefined', undefined],
+    ['null', null],
+    ['a string', 'x'],
+    ['a number', 7],
+    ['an array', []],
+    ['a missing version', { ...good, v: undefined }],
+    ['a wrong version', { ...good, v: 2 }],
+    ['an object without a layout', { v: 1 }],
+    ['a layout that is no tree', { ...good, layout: 'nope' }],
+    ['a layout naming no known panel', withLayout({ type: 'group', panels: ['zz'], active: 'zz' })],
+  ])('repairs %s to a valid state for every panel', (_name, raw) => {
+    const state = normalizeWorkspaceState(raw, spec);
+    expect(state.v).toBe(1);
+    expect(isValidDockTree(state.layout, IDS.filter(id => !state.hidden.includes(id)))).toBe(true);
+    expect(state.hidden).toEqual([]);
+  });
+
+  it('falls back to the initial preset for an unknown one and keeps the layout', () => {
+    const state = normalizeWorkspaceState({ ...good, preset: 'gone' }, spec);
+    expect(state.preset).toBe('balanced');
+    expect(groupsOf(state.layout)).toEqual([['trend'], ['selector', 'detail', 'kpi']]);
+  });
+
+  it.each<[string, unknown, string[][]]>([
+    ['an unknown id', withLayout({ type: 'group', panels: ['trend', 'selector', 'ghost', 'detail', 'kpi'], active: 'ghost' }), [['trend', 'selector', 'detail', 'kpi']]],
+    ['a duplicate id', withLayout({ type: 'branch', dir: 'row', sizes: [50, 50], children: [group(['trend', 'kpi']), group(['kpi', 'selector', 'detail'])] }), [['trend', 'kpi'], ['selector', 'detail']]],
+    ['an empty group', withLayout({ type: 'branch', dir: 'row', sizes: [50, 50], children: [group([]), group(['trend', 'selector', 'detail', 'kpi'])] }), [['trend', 'selector', 'detail', 'kpi']]],
+  ])('repairs %s', (_name, raw, expected) => {
+    expect(groupsOf(normalizeWorkspaceState(raw, spec).layout)).toEqual(expected);
+  });
+
+  it.each<[string, number[]]>([
+    ['sizes that do not add up', [30, 30]],
+    ['a negative size', [-10, 110]],
+    ['a non-finite size', [Number.NaN, 100]],
+    ['too few sizes', [100]],
+  ])('replaces %s by equal shares', (_name, sizes) => {
+    const raw = withLayout({ type: 'branch', dir: 'row', sizes, children: [group(['trend', 'kpi']), group(['selector', 'detail'])] });
+    expect(normalizeWorkspaceState(raw, spec).layout).toMatchObject({ type: 'branch', sizes: [50, 50] });
+  });
+
+  it('adds a panel that is neither in the tree nor hidden to the primary\'s group, behind its active tab', () => {
+    const raw = withLayout({ type: 'branch', dir: 'row', sizes: [50, 50], children: [group(['selector']), group(['detail', 'trend'], 'trend')] });
+    const state = normalizeWorkspaceState(raw, spec);
+    expect(groupsOf(state.layout)).toEqual([['selector'], ['detail', 'trend', 'kpi']]);
+    expect(dockGroups(state.layout)[1]!.active).toBe('trend');
+  });
+
+  it('puts the primary back when the stored tree lacks it', () => {
+    const raw = withLayout({ type: 'group', panels: ['selector', 'detail'], active: 'selector' });
+    expect(panelOrder(normalizeWorkspaceState(raw, spec).layout).sort()).toEqual([...IDS].sort());
+  });
+
+  it('keeps hidden panels out of the tree, and drops the primary, unknown ids and duplicates from the hidden list', () => {
+    const raw = { v: 1, preset: 'focus', hidden: ['detail', 'detail', 'trend', 'ghost', 7], layout: presetTree(focus.layout, ['trend', 'selector', 'kpi']) };
+    const state = normalizeWorkspaceState(raw, spec);
+    expect(state.hidden).toEqual(['detail']);
+    expect(panelOrder(state.layout)).not.toContain('detail');
+    expect(panelOrder(state.layout)).toContain('trend');
+  });
+
+  it('puts a hidden panel the tree still names out of the tree', () => {
+    const state = normalizeWorkspaceState({ ...good, hidden: ['kpi'] }, spec);
+    expect(state.hidden).toEqual(['kpi']);
+    expect(panelOrder(state.layout)).not.toContain('kpi');
+  });
+
+  it('does not throw on a cyclic value', () => {
+    const loop: Record<string, unknown> = { type: 'branch', dir: 'row', sizes: [100], children: [] };
+    (loop.children as unknown[]).push(loop);
+    expect(() => normalizeWorkspaceState({ v: 1, preset: 'focus', layout: loop, hidden: [] }, spec)).not.toThrow();
+  });
+});
+
+describe('commands', () => {
+  it('applyPreset arranges the panels that are shown and leaves hidden ones hidden', () => {
+    const hidden = hidePanel(initial, 'detail', 'trend');
+    const next = applyPreset(hidden, focus);
+    expect(next.preset).toBe('focus');
+    expect(next.hidden).toEqual(['detail']);
+    expect(groupsOf(next.layout)).toEqual([['trend'], ['selector', 'kpi']]);
+  });
+
+  it('resetLayout is the current preset\'s arrangement of every panel and clears hidden', () => {
+    const moved = hidePanel(applyPreset(initial, focus), 'kpi', 'trend');
+    const reset = resetLayout(moved, focus);
+    expect(reset.hidden).toEqual([]);
+    expect(reset.preset).toBe('focus');
+    expect(reset.layout).toEqual(presetTree(focus.layout, IDS));
+  });
+
+  it.each(['selector', 'detail', 'kpi'])('hidePanel(%s) never makes the primary smaller, in either preset', id => {
+    for (const preset of [balanced, focus]) {
+      const state = applyPreset(initial, preset);
+      const before = areaOf(state.layout, 'trend');
+      const next = hidePanel(state, id, 'trend');
+      expect(next.hidden).toEqual([id]);
+      expect(panelOrder(next.layout)).not.toContain(id);
+      expect(areaOf(next.layout, 'trend')).toBeGreaterThanOrEqual(before - 1e-9);
+      expect(isValidDockTree(next.layout, IDS.filter(other => other !== id))).toBe(true);
+    }
+  });
+
+  it('hidePanel leaves the primary, a hidden panel and an unknown id alone', () => {
+    expect(hidePanel(initial, 'trend', 'trend')).toBe(initial);
+    expect(hidePanel(initial, 'ghost', 'trend')).toBe(initial);
+    const hidden = hidePanel(initial, 'detail', 'trend');
+    expect(hidePanel(hidden, 'detail', 'trend')).toBe(hidden);
+  });
+
+  it('showPanel adds the panel back as the active tab of the primary\'s group', () => {
+    const shown = showPanel(hidePanel(initial, 'detail', 'trend'), 'detail', 'trend');
+    expect(shown.hidden).toEqual([]);
+    const home = dockGroups(shown.layout).find(g => g.panels.includes('trend'))!;
+    expect(home.panels).toEqual(['trend', 'detail']);
+    expect(home.active).toBe('detail');
+    expect(showPanel(initial, 'detail', 'trend')).toBe(initial);
+  });
+});

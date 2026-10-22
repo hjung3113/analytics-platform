@@ -664,6 +664,17 @@ Domain 메뉴는 가능하면 이 Archetype을 조합하고, 새로운 Page Type
 - 단계 진입은 행 끝 들어가기 버튼(접근 이름 `<값> 들어가기`)처럼 눈에 보이는 동작으로 한다. 메뉴가 §16의 `pointActivation`을 선택하고 키보드로 같은 동작을 실행할 수 있으면 차트 지점 활성화로도 진입할 수 있다. 행 전체 클릭은 진입 동작으로 쓰지 않는다(교차 필터와 구분).
 - 객체 하나인 마지막 단계는 오른쪽 상세 슬롯(ADR-0013)으로 연다. 슬롯을 닫으면 바로 앞 단계로 올라간다.
 
+### 12.8 PanelWorkspace (Candidate, [ADR-0067](adr/0067-dockview-layout-engine-board-v2.md) 결정 3–9·18–22)
+
+패널이 4개 이상인 밀집 분석 메뉴가 쓰는 선택 레이아웃이다. 메뉴가 패널·프리셋·기본 패널을 선언하고, 탭·끌기·나누기·최대화·숨긴 패널 목록·기본 배치·브라우저 로컬 선호는 플랫폼이 소유한다. 그 밖의 메뉴는 `AnalysisLayout`(§12.6)을 그대로 쓴다. `@ap/components` 루트의 `PanelWorkspace`이고(메뉴는 `@ap/components/dock`을 import할 수 없다), 소비자가 둘 이상 확인될 때까지 Candidate다(§24).
+
+- **props:** `panels`(`id`·`title`·`render`·`primary?`·`minWidth?`·`minHeight?` — 기본 패널은 정확히 하나, 숨길 수 없고 비는 자리를 먼저 얻는다), `presets`(`id`·`label`·`layout`: 그룹 `{type:'group', panels, active?}` 또는 `{type:'branch', dir, sizes(비율), children}`)·`initialPreset`·`compactPreset?`·`persistKey`·`label`·`compactBelow?`(기본 900px, 컨테이너 폭). 패널 id와 `persistKey`는 `^[a-z][a-z0-9._-]{0,63}$` 정적 식별자다(저장 키에 데이터 값이 들어가지 않게).
+- **리마운트 0:** 프리셋 전환·`기본 배치`·이동·나누기·탭 선택·최대화는 이미 마운트된 패널을 재배치하므로 상태와 조회가 유지된다. 숨긴 패널의 하위 트리는 내려가므로 숨겨도 살아야 하는 상태는 workspace 위에 둔다.
+- **도구줄 또는 호스트 명령:** 단독이면 프리셋 선택(`SegmentedRadio`)·`숨긴 패널 n`(0이면 꺼짐, 누르면 다시 보기 목록)·`기본 배치` 한 줄이 위에 붙는다. `WorkspaceCommandsHost`(`@ap/components/dock`, 호스트 전용) 안이면 도구줄이 없고 같은 명령이 `useWorkspaceCommands()`로 호스트의 메뉴(보드 칸 메뉴)에 간다. 패널 그룹 띠는 보드의 확정 띠(칩 C)와 같다: 최대화 토글과 `<제목> 동작` `⋯`(최대화·복원, 그룹에 패널 둘 이상이면 나누기, `묶음 N으로 옮기기`, `숨기기` — 기본 패널은 없음). 메뉴 항목 계산은 보드와 공유하는 `dockLayoutMenu`다.
+- **좁은 폭:** `compactBelow`보다 좁으면 `compactPreset` 배치를 메모리에서만 그린다(그 사이 한 변경은 저장하지 않고 넓어지면 저장된 배치로 돌아온다). `compactPreset`이 없으면 한 탭 그룹으로 쌓아 보이기만 한다.
+- **로컬 선호:** `platform:workspace:v1:<사용자>:<메뉴>:<persistKey>`(`{v, preset, layout, hidden}`; 최대화는 저장하지 않음). 마운트 때 한 번 읽고(조회 없음) 변경 300ms 뒤 쓰며 언마운트·`pagehide`에 즉시 쓴다. 저장소 접근은 모두 try/catch이고 사용자·메뉴가 없으면 메모리에만 둔다. 같은 메뉴·키를 보이는 두 칸은 하나를 공유하고 마지막 쓴 쪽이 이긴다. 깨진 값은 고쳐서 쓴다(`normalizeWorkspaceState`).
+- **높이 채움:** `PlatformPage layout="fill"`이면 페이지가 컨테이너(본 화면 main, 보드 칸 본문) 높이를 채우고 본문이 머리 아래 남은 높이를 차지한다(`data-page-layout="fill"`, 기본 `flow`는 그대로). 차트의 `size="fill"`은 그림 상자가 컨테이너가 남기는 높이(최소 320px, 측정 전 320px — 단 TopN 막대는 측정 전 `max(120, 행 수·28+24)`px를 쓰고 측정되면 같은 규칙으로 채운다)를 쓴다. 패널 안에서는 카드·차트 제목 `<h2>`가 탭과 겹치므로 시각적으로만 숨긴다(`sr-only`, 접근 이름 유지).
+
 ---
 
 ## 13. Shared Component Layers

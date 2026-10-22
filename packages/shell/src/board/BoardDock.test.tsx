@@ -335,6 +335,21 @@ describe('dock renderer: group commands', () => {
     expect(screen.queryByRole('menuitem', { name: '아래로 나누기' })).toBeNull();
   });
 
+  it('lists the move targets by lowest pane number, not by where the groups sit', async () => {
+    let board = freshBoard('시트');
+    const id = board.sheets[0].id;
+    for (let n = 1; n < 3; n++) board = addPane(board, id);
+    for (let n = 0; n < 3; n++) board = setPane(board, id, n, alpha(n % 2 === 0 ? w1 : w2));
+    const [p1, p2, p3] = board.sheets[0].panes.map(pane => pane.id);
+    // Reading order is 3, 2, 1 (pane 3 on the left, 2 above 1 on the right): a menu that ordered by position would list 칸 3 first.
+    seedV2(setTree(board, id, { type: 'branch', dir: 'row', sizes: [50, 50], children: [group([p3!]), { type: 'branch', dir: 'column', sizes: [50, 50], children: [group([p2!]), group([p1!])] }] }));
+    mount(`/board?sheet=${id}`);
+    await ready();
+    openMenu(paneMenu(1));
+    await screen.findByRole('menuitem', { name: '칸 2 묶음으로 옮기기' });
+    expect(screen.getAllByRole('menuitem').map(item => item.textContent).filter(text => text?.endsWith('묶음으로 옮기기'))).toEqual(['칸 2 묶음으로 옮기기', '칸 3 묶음으로 옮기기']);
+  });
+
   it('기본 배치 puts the default tree back', async () => {
     seed(boardOf([sheet('a', { layout: '1x2', panes: [alpha(w1), beta(w2)] })]));
     mount('/board?sheet=a');

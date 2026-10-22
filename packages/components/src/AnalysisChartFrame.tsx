@@ -6,7 +6,8 @@ import { useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
 import { formatDateTime, parseDateTime } from '@ap/contracts';
 import { Button, cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, prefersReducedMotion } from '@ap/ui';
 import type { ThemeColorToken } from '@ap/ui/theme';
-import { AnalysisSectionContext, resolveAnalysisChartSize, analysisChartHeight, type ChartSize } from './AnalysisSectionContext';
+import { AnalysisSectionContext, resolveAnalysisChartSize, analysisChartHeight, fillChartHeight, type ChartSize } from './AnalysisSectionContext';
+import { useElementHeight } from './useElementHeight';
 import { chartTheme, EChart, strokeToken, token } from './EChart';
 import { downloadChartCsv } from './analysisChartCsv';
 import { drillDestinationOf, paneRootOf } from './pageFocus';
@@ -146,7 +147,8 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const analysisSection = useContext(AnalysisSectionContext);
   const size = resolveAnalysisChartSize(p.size, analysisSection);
   const compact = size === 'compact';
-  const height = p.height ?? analysisChartHeight(size, 260);
+  const fill = useElementHeight(size === 'fill');
+  const height = p.height ?? (size === 'fill' ? fillChartHeight(fill.height) : analysisChartHeight(size, 260));
   const { setGlobal, toast, global, adapter, route, url } = usePlatform();
   const features = route?.menu.features;
   const canCompare = !!features?.compare && !!p.compareSeries?.length;
@@ -519,7 +521,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
 
   // min-w-0: the plot canvas owns a fixed px width; without it that width becomes the card's min-content and a
   // grid cell can never shrink the card (the ResizeObserver then never sees a smaller width on column switch).
-  return <section role="region" aria-labelledby={titleId} data-analysis-chart={analysisSection ? '' : undefined} className="relative flex min-w-0 flex-col rounded-lg border border-border-subtle bg-surface-card">
+  return <section role="region" aria-labelledby={titleId} data-analysis-chart={analysisSection ? '' : undefined} className={cn('relative flex min-w-0 flex-col rounded-lg border border-border-subtle bg-surface-card', size === 'fill' && 'h-full min-h-0')}>
     {/* Pinned to the card corner so a wrapping toolbar never strands it on its own line. */}
     <AnalysisChartPart enabled={analysisSection !== null}>
     <header className={cn('flex flex-wrap items-start justify-between gap-2 px-4 pt-3', analysisSection && 'pr-12')}>
@@ -621,7 +623,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
     </AnalysisChartPart>
     <AnalysisChartPart enabled={analysisSection !== null} body>
     {allSeries.length > 0 && visible.length === 0 && <p role="status" className="px-4 py-3 text-text-secondary">{lang === 'ko' ? '표시할 시리즈를 모두 껐습니다' : 'All series are turned off'}</p>}
-    <div ref={pointChart} className="px-2" role={pointControls ? 'group' : undefined} aria-label={pointControls ? (lang === 'ko' ? '차트 지점' : 'Chart points') : undefined} tabIndex={pointControls ? 0 : undefined}
+    <div ref={node => { pointChart.current = node; fill.ref(node); }} className={cn('px-2', size === 'fill' && 'min-h-0 flex-1 overflow-y-auto')} role={pointControls ? 'group' : undefined} aria-label={pointControls ? (lang === 'ko' ? '차트 지점' : 'Chart points') : undefined} tabIndex={pointControls ? 0 : undefined}
       onContextMenu={event => { if (p.pointActions?.length) event.preventDefault(); }}
       onKeyDown={event => {
         if ((event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) && p.pointActions?.length) {

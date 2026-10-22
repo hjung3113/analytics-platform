@@ -1,6 +1,6 @@
 /**
  * Dock layout schema (ADR-0067 decision 4): one recursive tree shared by the board and the menu workspace.
- * Maximize is never stored. `hidden`/`preset` are workspace-only and arrive with the menu façade.
+ * Maximize is never stored. A menu workspace's `hidden` list and `preset` live in its own state (`PanelWorkspace`), not in this tree.
  */
 export type DockNode =
   | { type: 'group'; panels: string[]; active: string }
