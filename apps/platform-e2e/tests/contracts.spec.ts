@@ -725,6 +725,46 @@ test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
     expect(visited).toEqual([1, 2, 3, 4]);
   });
 
+  test('행 비율이 다른 두 열에서 읽기 순서가 DOM 순서와 달라도 Tab은 마지막 칸 뒤에서 보드 밖으로 나가고 Shift+Tab은 첫 칸 앞으로 나간다', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await signInWithDockBoard(page, [populated('dock', '2x2', 4)]);
+    await dockReady(page, 4);
+    // Left column 1 over 3 at 75/25, right column 2 over 4 at 50/50: the group tops read 1, 2, 4, 3 while the engine keeps 1, 3, 2, 4.
+    const separator = page.getByRole('separator', { name: '칸 1과 칸 3 높이 조절' });
+    const before = Number(await separator.getAttribute('aria-valuenow'));
+    await separator.focus();
+    for (let step = 0; step < 5; step++) await page.keyboard.press('ArrowDown');
+    await expect.poll(async () => Number(await separator.getAttribute('aria-valuenow'))).toBeCloseTo(before + 25, 0);
+    await expect(page.locator('[data-dock-layout] [data-pane-body]').first()).toBeVisible();
+    const outside = () => page.evaluate(() => { const focus = document.activeElement; return focus !== null && focus !== document.body && !focus.closest('[data-dock-layout]'); });
+    const visited: number[] = [];
+    const note = async () => {
+      const label = await page.evaluate(() => (document.activeElement?.getAttribute('role') === 'tab' ? document.activeElement.getAttribute('aria-label') : null));
+      const number = label ? Number(/^칸 (\d) · /.exec(label)?.[1]) : NaN;
+      if (!Number.isNaN(number) && visited.at(-1) !== number) visited.push(number);
+    };
+    await paneTab(page, 1).focus();
+    await note();
+    for (let step = 0; step < 120 && !(await outside()); step++) { await page.keyboard.press('Tab'); await note(); }
+    expect(visited).toEqual([1, 2, 4, 3]);
+    expect(await outside()).toBe(true);
+    // Back: out of the layout before the first group.
+    await paneTab(page, 1).focus();
+    await page.keyboard.press('Shift+Tab');
+    expect(await outside()).toBe(true);
+  });
+
+  test('창을 줄여 좁은 폭이 된 직후에도 보드에 가로 스크롤이 없다', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await signInWithDockBoard(page, [populated('dock', '2x2', 4)]);
+    await dockReady(page, 4);
+    await page.setViewportSize({ width: 721, height: 900 });
+    await expect(page.locator('[data-dock-layout]')).toHaveAttribute('data-dock-narrow', 'true');
+    // The board's own scroll container, not only the document: an overlay left at its old position widens the former.
+    const board = page.getByRole('tabpanel').filter({ has: page.locator('[data-board-dock]') });
+    await expect.poll(() => board.evaluate(element => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(0);
+  });
+
   test('기본값은 dock이다: 렌더러 설정이 없으면 칸마다 탭 띠와 칸 머리가 있다', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await signInAs(page, 'engineer');

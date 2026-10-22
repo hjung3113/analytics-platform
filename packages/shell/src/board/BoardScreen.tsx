@@ -232,14 +232,15 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
     setPresentation({ identity, maximized: null, dockMaximized: index >= 0 ? paneId : null });
   };
   /** `칸 추가` (dock): ends a maximize so the new pane, which the model selects, is on screen, and tells the dock which tab to focus. */
-  const [newPane, setNewPane] = useState<{ id: string } | null>(null);
+  const dockKey = `${user.id}.${sheetId}`;
+  const [newPane, setNewPane] = useState<{ id: string; dock: string } | null>(null);
   const addDockPane = () => {
     // The new pane's id is made here, so the dock can be told which tab to focus.
     const grown = addPane(board, sheetId);
     const added = grown === board ? undefined : grown.sheets.find(s => s.id === sheetId)?.panes.at(-1);
     if (dockMaximized !== null) maximizeDock(null);
     update(() => grown);
-    if (added) setNewPane({ id: added.id });
+    if (added) setNewPane({ id: added.id, dock: dockKey });
   };
   const lastGridFocus = useRef<EventTarget | null>(null);
   const focusPresentation = useRef<{ identity: string; owner: string; index: number; trigger: HTMLElement | null } | null>(null);
@@ -337,8 +338,8 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
       </section>}
       {dock ? <div className="relative min-h-(--dock-min) flex-1" style={{ '--dock-min': `${STACKED_PANE_MIN_HEIGHT}px` } as CSSProperties}>
         <div className="absolute inset-0">
-          <BoardDock key={`${user.id}.${sheetId}`} sheet={sheet} update={update} paneProps={paneProps} onSelect={select} onClear={clearPane} onClosePane={closeEmptyPane}
-            maximizedPaneId={dockMaximized} onMaximizedChange={maximizeDock} newPane={newPane} heading={heading} />
+          <BoardDock key={dockKey} sheet={sheet} update={update} paneProps={paneProps} onSelect={select} onClear={clearPane} onClosePane={closeEmptyPane}
+            maximizedPaneId={dockMaximized} onMaximizedChange={maximizeDock} newPane={newPane?.dock === dockKey ? newPane : null} onNewPaneHandled={() => { setNewPane(null); }} heading={heading} />
         </div>
       </div> : <div ref={grid} onFocusCapture={event => { lastGridFocus.current = event.target; }}
         onBlurCapture={event => { if (event.relatedTarget) lastGridFocus.current = event.relatedTarget; }} data-board-grid data-columns={drawn} data-rows={rows} style={{ '--board-height': `${gridHeight}px` } as CSSProperties} className="relative h-(--board-height)">

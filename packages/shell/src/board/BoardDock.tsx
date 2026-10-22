@@ -27,8 +27,10 @@ export type BoardDockProps = {
   onClosePane: (index: number) => void;
   maximizedPaneId: string | null;
   onMaximizedChange: (paneId: string | null) => void;
-  /** `칸 추가` created this pane: focus goes to its tab once the dock shows it. */
+  /** `칸 추가` created this pane: focus goes to its tab once the dock shows it. A request is for one dock (the user's sheet) and is answered once. */
   newPane: { id: string } | null;
+  /** The dock has taken the `newPane` request; the owner drops it so a later mount of this dock does not focus a pane added long ago. */
+  onNewPaneHandled: () => void;
   heading: RefObject<HTMLHeadingElement | null>;
 };
 
@@ -47,7 +49,7 @@ function HeadSlot({ paneId, stripWidth, tabs, setHead }: { paneId: string; strip
  * The dock renderer of a sheet (ADR-0067, docs/16 §4): the sheet's layout tree on a `DockLayout`, each pane a `BoardPane` in its panel. The tree
  * is the sheet's own; every change the dock reports or a group command makes goes through `setTree`, which keeps the selection on the active tab.
  */
-export function BoardDock({ sheet, update, paneProps, onSelect, onClear, onClosePane, maximizedPaneId, onMaximizedChange, newPane, heading }: BoardDockProps) {
+export function BoardDock({ sheet, update, paneProps, onSelect, onClear, onClosePane, maximizedPaneId, onMaximizedChange, newPane, onNewPaneHandled, heading }: BoardDockProps) {
   const { lang, tx } = useI18n();
   const { registry } = usePlatform();
   const text = boardText(lang);
@@ -93,22 +95,29 @@ export function BoardDock({ sheet, update, paneProps, onSelect, onClear, onClose
     });
   }, []);
 
-  // After a maximize ends the toggle of the restored pane takes focus (the same button whichever way the user restored: toggle, Esc, menu), else
-  // the pane, else the page heading. Below `DockLayout`'s own effect, which focuses the restored tab first and would overwrite this.
+  // After a maximize ends the toggle of the pane that is now the group's current one takes focus (the same button whichever way the user restored:
+  // toggle, Esc, menu), else the pane, else the page heading. Below `DockLayout`'s own effect, which focuses the restored tab first and would overwrite this.
   const wasMaximized = useRef<string | null>(null);
   useEffect(() => {
     const was = wasMaximized.current;
     wasMaximized.current = maximizedPaneId;
-    // Not when the selection has moved on (`칸 추가` ended the maximize and selected the new pane): focus stays where the user pressed.
-    if (was === null || maximizedPaneId !== null || latestSelected.current !== was) return;
-    focusSoon(() => toggleOfPane(was), () => {
-      const pane = Array.from(wrap.current?.querySelectorAll<HTMLElement>('[data-pane-id]') ?? []).find(item => item.dataset.paneIndex === String(numberOf(was) - 1));
+    if (was === null || maximizedPaneId !== null) return;
+    // The group may have changed its active tab while it was maximized: its current pane is the selected one. Not when the selection has moved to
+    // another group (`칸 추가` ended the maximize and selected the new pane there): focus stays where the user pressed.
+    const current = latestSelected.current;
+    if (!groupHolding(tree, was)?.panes.includes(current)) return;
+    focusSoon(() => toggleOfPane(current), () => {
+      const pane = Array.from(wrap.current?.querySelectorAll<HTMLElement>('[data-pane-id]') ?? []).find(item => item.dataset.paneIndex === String(numberOf(current) - 1));
       if (usable(pane)) pane.focus({ preventScroll: true }); else heading.current?.focus({ preventScroll: true });
     });
   }, [maximizedPaneId]);
 
-  // `칸 추가` made a pane: its tab takes focus (the button may have just disabled itself at the fourth).
-  useEffect(() => { if (newPane) focusTabSoon(newPane.id); }, [newPane]);
+  // `칸 추가` made a pane: its tab takes focus (the button may have just disabled itself at the fourth). The request is answered once.
+  useEffect(() => {
+    if (!newPane) return;
+    focusTabSoon(newPane.id);
+    onNewPaneHandled();
+  }, [newPane]);
 
   const maximizedHere = (paneId: string) => maximizedPaneId !== null && !!groupHolding(tree, maximizedPaneId)?.panes.includes(paneId);
   const command = (build: (dock: ReturnType<typeof toDockTree>) => ReturnType<typeof toDockTree>) => update(b => {
@@ -177,7 +186,7 @@ export function BoardDock({ sheet, update, paneProps, onSelect, onClear, onClose
         // A click without a press (detail 0: keyboard, assistive technology) clears too.
         onPointerDown={event => { if (event.button === 0) { event.stopPropagation(); clearFrom(event.currentTarget, index); } }}
         onClick={event => { event.stopPropagation(); if (event.detail === 0) clearFrom(event.currentTarget, index); }}
-        className="grid size-5 shrink-0 place-items-center rounded-xs text-text-muted hover:bg-surface-sunken hover:text-text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring">
+        className="grid size-4 shrink-0 place-items-center rounded-xs text-text-muted hover:bg-surface-sunken hover:text-text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring">
         <X className="size-3" aria-hidden />
       </button>}
     </span>;

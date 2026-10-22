@@ -42,6 +42,8 @@ type Context = {
   renderTab: DockEngineProps['renderTab'];
   renderGroupActions: DockEngineProps['renderGroupActions'];
   tabA11y: DockEngineProps['tabA11y'];
+  /** Counts the reconciles: the engine rebuilds tab elements in one, so what is set on them from outside is set again. */
+  reconciles: number;
   onActivate: (panelId: string) => void;
 };
 
@@ -86,7 +88,7 @@ function DockTab({ api }: IDockviewPanelHeaderProps) {
     const set = (name: string, value: string | undefined) => { if (value === undefined) tab.removeAttribute(name); else tab.setAttribute(name, value); };
     set('aria-description', description);
     set('aria-keyshortcuts', keyShortcuts);
-  }, [description, keyShortcuts]);
+  }, [description, keyShortcuts, engine.reconciles]);
   return <span ref={mark} data-dock-tab={id} className="flex min-w-0 items-center truncate">
     {engine.renderTab?.(id, { active: engine.active.has(id), groupFocused: engine.focused.has(id) }) ?? engine.panels.get(id)?.title ?? id}
   </span>;
@@ -327,8 +329,8 @@ export default function DockEngine({
     const active = new Set<string>();
     const collect = (node: DockNode) => { if (node.type === 'group') active.add(node.active); else node.children.forEach(collect); };
     collect(canonicalDisplay);
-    return { instanceId, panels: panelMap, visible, active, focused: new Set(focusGroup), display: canonicalDisplay, renderTab, renderGroupActions, tabA11y, onActivate };
-  }, [instanceId, panelMap, visible, focusedPanel, canonicalDisplay, renderTab, renderGroupActions, tabA11y, onActivate]);
+    return { instanceId, panels: panelMap, visible, active, focused: new Set(focusGroup), display: canonicalDisplay, renderTab, renderGroupActions, tabA11y, reconciles, onActivate };
+  }, [instanceId, panelMap, visible, focusedPanel, canonicalDisplay, renderTab, renderGroupActions, tabA11y, reconciles, onActivate]);
 
   // Separator keys change the layout without the engine having moved: the parent's answer is applied to the engine (or reverted if it ignores it).
   const separate = (next: DockNode) => {

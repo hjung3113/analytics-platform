@@ -9,7 +9,7 @@ import { PlatformPage } from '@ap/components';
 import { RouteOutlet } from '../RouteOutlet';
 import { addPane, freshBoard, parseBoardV2, setPane, setTree, type Board, type LayoutNode } from './boardModel';
 import { BOARD_LAYOUT_ENGINE_KEY } from './layoutEngine';
-import { legacyBoard as boardOf, legacySheet as sheet, seedLegacy as seed, V2_KEY } from './__fixtures__/legacyBoard';
+import { legacyBoard as boardOf, legacySheet as sheet, seedLegacy as seed, v2Board, V2_KEY } from './__fixtures__/legacyBoard';
 
 // jsdom has no ResizeObserver and no geometry: every observed element reports the shared size, and `resize` re-reports it.
 function installResizeObserver() {
@@ -842,5 +842,105 @@ describe('dock renderer: the head narrows against its tabs at 340px (docs/16 §4
     await waitFor(() => { expect(head().querySelector('[data-pane-chip="time"]')).not.toBeNull(); });
     expect(slotAttributes()).toEqual({ compact: false, wrap: false });
     expect(within(head()).queryByRole('button', { name: /더 보기/ })).toBeNull();
+  });
+  /** Panes 1 and 2 in one group, no difference between them: the head has no chips and only its summary button (`같음 N`, or `조건 N` beside an empty pane). */
+  const seedSummaryOnly = (secondEmpty: boolean) => {
+    let board = freshBoard('시트');
+    const id = board.sheets[0].id;
+    board = addPane(board, id);
+    board = setPane(board, id, 0, alpha(w1));
+    if (!secondEmpty) board = setPane(board, id, 1, alpha(w1));
+    const ids = board.sheets[0].panes.map(pane => pane.id);
+    seedV2(setTree(board, id, group(ids)));
+    return id;
+  };
+
+  it.each([
+    { name: '같음 N beside an identical pane', secondEmpty: false },
+    { name: '조건 N of a single screen beside an empty pane', secondEmpty: true },
+  ])('C4: the visible summary button is counted with no difference chips too ($name): two tabs at 340px leave it no room, so the head takes its own row', async ({ secondEmpty }) => {
+    const id = seedSummaryOnly(secondEmpty);
+    measure(STRIP);
+    mount(`/board?sheet=${id}`);
+    await ready();
+    expect(within(head()).getByRole('button', { name: /^칸 1의 (같은 조건|조건)/ })).toBeInTheDocument();
+    await waitFor(() => { expect(slotAttributes()).toEqual({ compact: true, wrap: true }); });
+  });
+
+  it('U4: the floors of the tabs are measured: tabs that need less than the spec constants keep two tabs on one row at 335px, where the constants (136 + 46) would wrap', async () => {
+    const id = seedGroup(3, 2);
+    const spy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      const width = this.classList.contains('dv-tabs-and-actions-container') ? 335
+        : this.classList.contains('dv-tab') ? 120
+          : this.hasAttribute('data-dock-tab-shrinkable') ? 64
+            : this.dataset.headFixed === 'actions' ? 60
+              : this.hasAttribute('data-head-fixed') ? 43
+                : this.dataset.chipMeasure === 'chip' ? 107
+                  : this.dataset.chipMeasure === 'same' ? 50
+                    : this.dataset.chipMeasure === 'more' ? 27 : 0;
+      return { width, height: 0, top: 0, left: 0, right: width, bottom: 0, x: 0, y: 0, toJSON: () => ({}) };
+    });
+    try {
+      mount(`/board?sheet=${id}`);
+      await ready();
+      await waitFor(() => { expect(slotAttributes()).toEqual({ compact: true, wrap: false }); });
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('U4: the head\'s icon buttons (maximize, ⋯) are 28px', async () => {
+    const id = seedGroup(3, 1);
+    mount(`/board?sheet=${id}`);
+    await ready();
+    for (const name of ['칸 1 최대화', '칸 1 동작']) expect(within(head()).getByRole('button', { name }).className).toContain('size-7');
+  });
+
+});
+
+describe('dock renderer: focus requests are answered once (FIX1 C2, C3)', () => {
+  it('C2: a sheet round trip after 칸 추가 does not focus the added pane again', async () => {
+    // A V2 board, so the pane ids the dock was told about are the stored ones when the sheet comes back.
+    seedV2(v2Board(boardOf([sheet('a', { layout: '1x2', panes: [null, null] }), sheet('other')])));
+    mount('/board?sheet=a');
+    await ready();
+    await userEvent.click(screen.getByRole('button', { name: '칸 추가' }));
+    await waitFor(() => { expect(document.activeElement).toBe(tabOf('칸 3 · 빈 칸')); });
+    const sheetTab = (name: string) => document.querySelector<HTMLElement>(`[data-sheet-id="${name}"]`)!;
+    await userEvent.click(sheetTab('other'));
+    await waitFor(() => { expect(document.querySelector('[data-board-dock]')).not.toBeNull(); });
+    // The dock of the returned sheet takes a while to draw its tabs in jsdom; the retries of a late focus request are spaced out so one would land after that.
+    const real = globalThis.setTimeout;
+    const spaced = vi.spyOn(globalThis, 'setTimeout').mockImplementation(((callback: () => void, delay?: number) => real(callback, delay === 30 ? 300 : delay)) as unknown as typeof setTimeout);
+    try {
+      await userEvent.click(sheetTab('a'));
+      await ready();
+      await act(() => new Promise(resolve => { real(resolve, 800); }));
+    } finally {
+      spaced.mockRestore();
+    }
+    expect(document.activeElement).toBe(sheetTab('a'));
+    expect(document.activeElement).not.toBe(tabOf('칸 3 · 빈 칸'));
+  });
+
+  it('C3: restoring after another tab of the group became active puts focus on that pane\'s toggle, by toggle and by Escape', async () => {
+    seed(boardOf([sheet('a', { layout: '1x2', panes: [alpha(w1), beta(w2)] })]));
+    mount('/board?sheet=a');
+    await ready();
+    await chooseGroupItem(2, '칸 1 묶음으로 옮기기');
+    await userEvent.click(tabOf('칸 1 · 알파'));
+    await settle();
+    const toggle = (name: string) => screen.getByRole('button', { name });
+    for (const restore of ['toggle', 'escape'] as const) {
+      await userEvent.click(tabOf('칸 1 · 알파'));
+      await settle();
+      await userEvent.click(toggle('칸 1 최대화'));
+      await waitFor(() => { expect(toggle('원래 크기로')).toBeInTheDocument(); });
+      await userEvent.click(tabOf('칸 2 · 베타'));
+      await settle();
+      if (restore === 'toggle') await userEvent.click(toggle('원래 크기로'));
+      else { tabOf('칸 2 · 베타').focus(); await userEvent.keyboard('{Escape}'); }
+      await waitFor(() => { expect(document.activeElement).toBe(toggle('칸 2 최대화')); });
+    }
   });
 });

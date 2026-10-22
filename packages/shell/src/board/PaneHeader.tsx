@@ -45,8 +45,35 @@ export function fitChips(input: ChipFit): { visible: number; overflow: boolean; 
 /** Dock strip: the least width a tab takes while its name is cut to 64px (badge, name, X, padding), and a background tab that keeps its badge only. */
 const TAB_FLOOR = 136;
 const TAB_FLOOR_COMPACT = 46;
+const TAB_NAME_MIN = 64;
 const DOCK_PADDING = 4;
+/** The strip's icon buttons are 28px (docs/16 §4.4); the grid head keeps `icon-sm`. */
+const DOCK_ICON = 'size-7';
 export type DockStrip = { width: number; tabs: number };
+
+/**
+ * What the strip's tabs need at the least, measured on the tabs themselves (the constants above are the spec's, used where the DOM has no size):
+ * a tab keeps its badge, its action and its name down to 64px; a background tab in `compact` keeps its badge and padding only. A tab whose name is
+ * hidden (it is compact now) says nothing about its full floor, so the constant stands in.
+ */
+function tabFloors(strip: HTMLElement | null, compact: boolean): number[] {
+  const width = (item: Element) => item.getBoundingClientRect().width;
+  return Array.from(strip?.querySelectorAll<HTMLElement>('.dv-tab') ?? []).map(tab => {
+    const active = tab.classList.contains('dv-active-tab');
+    const fallback = active || !compact ? TAB_FLOOR : TAB_FLOOR_COMPACT;
+    const own = width(tab);
+    if (own <= 0) return fallback;
+    if (compact && !active) {
+      const badge = tab.querySelector('[data-pane-badge]');
+      const style = getComputedStyle(tab);
+      const padding = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+      return badge && width(badge) > 0 && padding > 0 ? width(badge) + padding : fallback;
+    }
+    const name = tab.querySelector('[data-dock-tab-shrinkable]');
+    const nameWidth = name ? width(name) : 0;
+    return name && nameWidth <= 0 ? fallback : own - Math.max(0, nameWidth - TAB_NAME_MIN);
+  });
+}
 
 /**
  * How many difference chips fit in the head. Measurements happen after layout, and a zero-width first paint shows all chips. In the dock the
@@ -73,7 +100,14 @@ function useVisibleChips(head: RefObject<HTMLDivElement | null>, count: number, 
         setLayout({ visible: fit.visible, overflow: fit.overflow, compact: false, wrap: false });
         return;
       }
-      const roomFor = (compact: boolean) => width - (compact ? TAB_FLOOR + TAB_FLOOR_COMPACT * Math.max(0, tabs - 1) : TAB_FLOOR * tabs);
+      const stripElement = element.closest<HTMLElement>('.dv-tabs-and-actions-container');
+      const roomFor = (compact: boolean) => {
+        const floors = tabFloors(stripElement, compact);
+        // The strip lists as many tabs as the group has; a count that disagrees (first paint) falls back to the spec's constants.
+        const used = floors.length === tabs ? floors.reduce((sum, w) => sum + w, 0)
+          : compact ? TAB_FLOOR + TAB_FLOOR_COMPACT * Math.max(0, tabs - 1) : TAB_FLOOR * tabs;
+        return width - used;
+      };
       let compact = false;
       let wrap = false;
       let fit = fitChips({ ...input, width: roomFor(false) });
@@ -82,13 +116,13 @@ function useVisibleChips(head: RefObject<HTMLDivElement | null>, count: number, 
         fit = fitChips({ ...input, width: roomFor(true) });
         if (fit.tight) { wrap = true; fit = fitChips({ ...input, width }); }
       }
-      setLayout({ visible: fit.visible, overflow: fit.overflow, compact, wrap });
+      setLayout(previous => (previous.visible === fit.visible && previous.overflow === fit.overflow && previous.compact === compact && previous.wrap === wrap ? previous : { visible: fit.visible, overflow: fit.overflow, compact, wrap }));
     };
     measure();
     if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(measure);
     // The head alone is not enough: a fixed group or a measuring chip can change size (`이전 화면` appears, the language changes) with the head's width unchanged.
-    for (const target of [element, ...element.querySelectorAll('[data-head-fixed], [data-chip-measure]')]) observer.observe(target);
+    for (const target of [element, ...element.querySelectorAll('[data-head-fixed], [data-chip-measure]'), ...(strip ? element.closest('.dv-tabs-and-actions-container')?.querySelectorAll('.dv-tab') ?? [] : [])]) observer.observe(target);
     return () => observer.disconnect();
   }, [head, count, signature, sameCount, nameMin, nameMinSqueezed, strip !== null, stripWidth, tabs]);
   return { visible: Math.min(layout.visible, count), overflow: count > 0 && layout.overflow, compact: layout.compact, wrap: layout.wrap };
@@ -178,11 +212,12 @@ export function PaneHeader(props: PaneHeaderProps) {
   }, [props.presentationHidden, bodyHidden, afterMenuClose]);
   const chips = signal?.compared ? signal.differing : [];
   const signature = chips.map(c => `${c.key}:${c.value}`).join('|');
-  const { visible: visibleCount, overflow, compact, wrap } = useVisibleChips(head, chips.length, signature, signal?.compared ? signal.same.length : 0, dock ? 0 : MENU_NAME_MIN_WIDTH, dock ? 0 : MENU_NAME_MIN_WIDTH_SQUEEZED, dock ? props.strip ?? null : null);
+  const sameCount = signal ? (signal.compared ? signal.same.length : signal.rows.length) : 0;
+  // The dock fits the summary button whether or not there are differing chips; the grid only has one to fit next to chips.
+  const { visible: visibleCount, overflow, compact, wrap } = useVisibleChips(head, chips.length, signature, dock ? (active ? sameCount : 0) : signal?.compared ? signal.same.length : 0, dock ? 0 : MENU_NAME_MIN_WIDTH, dock ? 0 : MENU_NAME_MIN_WIDTH_SQUEEZED, dock ? props.strip ?? null : null);
   const shown = chips.slice(0, visibleCount);
   const hiddenDifferences = chips.length - shown.length;
   const hidden = overflow ? hiddenDifferences + (signal?.compared ? signal.same.length : 0) : 0;
-  const sameCount = signal ? (signal.compared ? signal.same.length : signal.rows.length) : 0;
   const label = (key: (typeof chips)[number]['key']) => tx(RETURN_CONTEXT_LABELS[key]);
   const chipText = (chip: (typeof chips)[number]) => `${label(chip.key)} ${chip.value ?? text.unsetValue}`;
   const open = (event: { currentTarget: HTMLElement }) => { onSelect(); lastTrigger.current = event.currentTarget; setPopover(true); };
@@ -208,11 +243,11 @@ export function PaneHeader(props: PaneHeaderProps) {
         {shown.map(chip => <span key={chip.key} data-pane-chip={chip.key} className={PANE_CHIP}>{chipText(chip)}</span>)}
         {hidden > 0 && <button type="button" data-pane-chip="more" aria-haspopup="dialog" aria-expanded={popover} aria-label={text.contextMoreName(number, hidden)} onClick={open} className={cn(PANE_CHIP, 'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring')}>{text.contextMore(hidden)}</button>}
       </div>}
-      {chips.length > 0 && <div aria-hidden inert className="pointer-events-none invisible absolute left-0 top-0 flex gap-1">
+      {(chips.length > 0 || (dock && active && sameCount > 0)) && <div aria-hidden inert className="pointer-events-none invisible absolute left-0 top-0 flex gap-1">
         {chips.map(chip => <span key={chip.key} data-chip-measure="chip" className={PANE_CHIP}>{chipText(chip)}</span>)}
-        <span data-chip-measure="more" className={PANE_CHIP}>{text.contextMore(chips.length + (signal?.compared ? sameCount : 0))}</span>
+        {chips.length > 0 && <span data-chip-measure="more" className={PANE_CHIP}>{text.contextMore(chips.length + (signal?.compared ? sameCount : 0))}</span>}
         {active && sameCount > 0 && <span className={buttonVariants({ variant: 'ghost', size: 'toolbar' })} data-chip-measure="same">
-          {text.contextSame(sameCount)}
+          {signal?.compared ? text.contextSame(sameCount) : text.contextCount(sameCount)}
         </span>}
       </div>}
       {active && signal && sameCount > 0 && hidden === 0 && <Button type="button" variant="ghost" size="toolbar" aria-haspopup="dialog" aria-expanded={popover}
@@ -220,7 +255,7 @@ export function PaneHeader(props: PaneHeaderProps) {
         {signal.compared ? text.contextSame(sameCount) : text.contextCount(sameCount)}
       </Button>}
       <div data-head-fixed="actions" className="flex shrink-0 items-center gap-1">
-        {active && hasPrevious && <Button type="button" variant="ghost" size="icon-sm" aria-label={text.previousScreen} title={text.previousScreen}
+        {active && hasPrevious && <Button type="button" variant="ghost" size="icon-sm" className={dock ? DOCK_ICON : undefined} aria-label={text.previousScreen} title={text.previousScreen}
           onClick={() => { onSelect(); props.onBack(); }}><CornerUpLeft className="size-3.5" aria-hidden /></Button>}
         {props.sizing && <>
           <Button type="button" variant="ghost" size="icon-sm" aria-expanded={!props.collapsed} aria-label={props.collapsed ? text.expandPane(number) : text.collapsePane(number)}
@@ -232,12 +267,12 @@ export function PaneHeader(props: PaneHeaderProps) {
             {props.maximized ? <Minimize2 className="size-3.5" aria-hidden /> : <Maximize2 className="size-3.5" aria-hidden />}
           </Button>}
         </>}
-        {dock && <Button type="button" variant="ghost" size="icon-sm" data-pane-maximize aria-label={props.maximized ? text.restoreSize : text.maximizePane(number)} title={props.maximized ? text.restoreSize : text.maximizePane(number)} onClick={props.onMaximize}>
+        {dock && <Button type="button" variant="ghost" size="icon-sm" className={DOCK_ICON} data-pane-maximize aria-label={props.maximized ? text.restoreSize : text.maximizePane(number)} title={props.maximized ? text.restoreSize : text.maximizePane(number)} onClick={props.onMaximize}>
           {props.maximized ? <Minimize2 className="size-3.5" aria-hidden /> : <Maximize2 className="size-3.5" aria-hidden />}
         </Button>}
         {(hasContentMenu || dock) && <DropdownMenu open={menuOpen} onOpenChange={open => { if (open) cancelMenuFocus.current = false; setMenuOpen(open); }}>
           <DropdownMenuTrigger asChild>
-            <Button ref={menuTrigger} type="button" variant="ghost" size="icon-sm" data-dock-group-menu={dock ? '' : undefined} aria-label={text.paneActions(number)} title={text.paneActions(number)} onPointerDown={onSelect}><MoreHorizontal className="size-3.5" aria-hidden /></Button>
+            <Button ref={menuTrigger} type="button" variant="ghost" size="icon-sm" className={dock ? DOCK_ICON : undefined} data-dock-group-menu={dock ? '' : undefined} aria-label={text.paneActions(number)} title={text.paneActions(number)} onPointerDown={onSelect}><MoreHorizontal className="size-3.5" aria-hidden /></Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end"
             onCloseAutoFocus={event => {
