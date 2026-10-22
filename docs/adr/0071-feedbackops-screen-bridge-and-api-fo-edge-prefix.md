@@ -3,7 +3,7 @@
 - Status: Decided (2026-10-22) — 코디네이터 결정, 사용자 위임, 되돌릴 수 있음
 - Scope: [#594](https://github.com/hjung3113/analytics-platform/issues/594), 단위 이슈 [#651](https://github.com/hjung3113/analytics-platform/issues/651). [합류 설계](../integration/feedbackops-merge-design.md) §7의 O5(라우팅 이전)·O13(FeedbackOps API 경로)을 #594 범위에서 닫는다.
 - 갱신: [ADR-0069](0069-platform-port-in-feedbackops-backend.md) 결정 3(O13)·결정 4(CSRF)의 FeedbackOps 경로 부분.
-- 바탕: [ADR-0066](0066-feedbackops-merges-into-platform.md)(화면은 옮기고 다시 쓰지 않는다), [ADR-0070](0070-global-features-platform-menu-and-voc-drawer.md)("여기서 정하지 않는 것"으로 O5·O13을 #594 구현에 넘겼다), [ADR-0046](0046-feedbackops-design-system-into-ap-ui.md)(플랫폼 패키지는 `@fops/*`를 import하지 않는다).
+- 바탕: [ADR-0066](0066-feedbackops-merges-into-platform.md)(화면은 옮기고 다시 쓰지 않는다), [ADR-0070](0070-global-features-platform-menu-and-voc-drawer.md)("여기서 정하지 않는 것"으로 O5·O13을 #594 구현에 넘겼다), [ADR-0046](0046-design-system-source-moves-to-platform-whole-package.md)(플랫폼 패키지는 `@fops/*`를 import하지 않는다).
 - 이 문서의 FeedbackOps ADR은 `FO ADR-NNNN`으로 적는다(FO ADR-0071은 `platformReturn`이다).
 
 ## 맥락
