@@ -146,7 +146,16 @@ export function InboxPanel({
   React.useLayoutEffect(() => {
     const pending = focusAfterAction.current;
     if (pending === null) return;
-    if (document.activeElement !== null && document.activeElement !== document.body) {
+    const active = document.activeElement;
+    // The clicked button is still focused while it is disabled for the pending action: keep waiting until it unmounts or re-enables.
+    if (
+      active instanceof HTMLElement &&
+      sectionRef.current?.contains(active) &&
+      active.matches(':disabled')
+    ) {
+      return;
+    }
+    if (active !== null && active !== document.body) {
       focusAfterAction.current = null;
       return;
     }
@@ -220,7 +229,13 @@ export function InboxPanel({
 
       {!list.isPending && !list.isError && items.length > 0 ? (
         <TooltipProvider delayDuration={400}>
-          <ul className="overflow-hidden rounded-md border border-border-subtle bg-surface-card">
+          <ul
+            className={
+              recent
+                ? 'bg-surface-card'
+                : 'overflow-hidden rounded-md border border-border-subtle bg-surface-card'
+            }
+          >
             {items.map((notification) => (
               <NotificationRow
                 key={notification.id}

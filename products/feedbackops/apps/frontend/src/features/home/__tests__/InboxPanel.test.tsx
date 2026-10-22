@@ -758,3 +758,60 @@ describe('focus after a row action', () => {
     );
   });
 });
+
+describe('focus while a row action is pending', () => {
+  const ID_1 = '11111111-1111-4111-8111-111111111111';
+  const ID_2 = '22222222-2222-4222-8222-222222222222';
+
+  it.each(['page', 'recent'] as const)(
+    'keeps waiting on the disabled clicked button, then lands on the same row Archive (%s)',
+    async (variant) => {
+      const user = userEvent.setup();
+      const { fetchMock } = installNotificationFetch(
+        [ID_1, ID_2].map((id) => makeNotification({ id, subject_id: id })),
+      );
+      const innerFetch = globalThis.fetch;
+      let releasePost: (() => void) | undefined;
+      globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (init?.method === 'POST') {
+          await new Promise<void>((resolve) => {
+            releasePost = resolve;
+          });
+        }
+        return innerFetch(input, init);
+      }) as typeof globalThis.fetch;
+      const seam: HostSeam = { canLink: () => false, Link: () => null, notifyError: vi.fn() };
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      render(
+        <QueryClientProvider client={queryClient}>
+          <HostSeamProvider value={seam}>
+            <div data-testid="scope">
+              <InboxPanel variant={variant} />
+            </div>
+          </HostSeamProvider>
+        </QueryClientProvider>,
+      );
+      if (variant === 'page') await user.click(await screen.findByRole('radio', { name: '전체' }));
+      const second = await screen.findByTestId(`home-inbox-row-${ID_2}`);
+      const markRead = within(second).getByRole('button', { name: '읽음으로 표시' });
+      markRead.focus();
+      fireEvent.click(markRead);
+
+      await waitFor(() => expect(markRead).toBeDisabled());
+      expect(document.activeElement).toBe(markRead);
+      await act(async () => {
+        releasePost?.();
+      });
+
+      await waitFor(() =>
+        expect(document.activeElement).toBe(
+          within(screen.getByTestId(`home-inbox-row-${ID_2}`)).getByRole('button', {
+            name: '보관',
+          }),
+        ),
+      );
+      expect(screen.getByTestId('scope')).toContainElement(document.activeElement as HTMLElement);
+      expect(fetchMock).toHaveBeenCalled();
+    },
+  );
+});
