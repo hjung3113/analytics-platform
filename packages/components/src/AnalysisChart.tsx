@@ -9,7 +9,7 @@ import { downloadChartCsv } from './analysisChartCsv';
 import { chartData, chartColors as colors, cellKey as keyOf, chartDiagnostic as diagnostic } from './analysisChartData';
 import { KindLegend } from './analysisChartKinds';
 import { heatmapSymbolSize } from './analysisChartGeometry';
-import { AnalysisSectionContext, resolveAnalysisChartSize, analysisChartHeight, fillChartHeight, type ChartSize } from './AnalysisSectionContext';
+import { AnalysisSectionContext, resolveAnalysisChartSize, analysisChartHeight, fillChartHeight, FILL_CARD_CLASS, FILL_PLOT_CLASS, type ChartSize } from './AnalysisSectionContext';
 import { useElementHeight } from './useElementHeight';
 import { AnalysisChartPart, ChartHeading, ChartTrustFooter } from './analysisChartFrameParts';
 
@@ -193,7 +193,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
     toast(lang === 'ko' ? `${p.chartId}.csv 내보냄` : `Exported ${p.chartId}.csv`);
   }
   if (spec.kind === 'topNBar' && spec.hideWhenEmpty && empty) return null;
-  return <section role="region" aria-labelledby={titleId} aria-describedby={summaryId} data-analysis-chart={section ? '' : undefined} className={cn('relative flex min-w-0 flex-col rounded-lg border border-border-subtle bg-surface-card', size === 'fill' && 'h-full min-h-0')}>
+  return <section role="region" aria-labelledby={titleId} aria-describedby={summaryId} data-analysis-chart={section ? '' : undefined} className={cn('relative flex min-w-0 flex-col rounded-lg border border-border-subtle bg-surface-card', size === 'fill' && FILL_CARD_CLASS)}>
     <AnalysisChartPart enabled={section !== null}>
       <header className={cn('flex flex-wrap items-start justify-between gap-2 px-4 pt-3', section && 'pr-12')}>
         <ChartHeading titleId={titleId} title={p.title} description={p.description} metricVersion={p.metricVersion} compact={compact} />
@@ -229,7 +229,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
     </AnalysisChartPart>
     <ChartCollapseBody enabled={spec.kind === 'topNBar'} bodyRef={collapsibleBody} id={bodyId} expanded={expanded}>
     <AnalysisChartPart enabled={section !== null} body>
-      {!expanded ? null : empty ? <p className="px-4 py-3 text-text-secondary">{p.emptyText ?? (lang === 'ko' ? '데이터 없음' : 'No data')}</p> : <div ref={fill.ref} className={cn('relative', size === 'fill' && 'min-h-0 flex-1 overflow-y-auto')}>
+      {!expanded ? null : empty ? <p className="px-4 py-3 text-text-secondary">{p.emptyText ?? (lang === 'ko' ? '데이터 없음' : 'No data')}</p> : <div ref={fill.ref} className={cn('relative', size === 'fill' && FILL_PLOT_CLASS)}>
         <EChart key={spec.kind} onReady={instance => { chart.current = instance; setInstanceReady(generation => generation + 1); }} onResize={() => measureGrid(chart.current)} option={option} height={height} ariaLabel={typeof p.title === 'string' ? p.title : p.chartId} onEvents={{
           click: params => { if (params.componentType !== 'series') return; const key = extended ? extended.seriesKeys[params.seriesIndex]?.[params.dataIndex] : rows[params.dataIndex]?.key; if (key) toggle(key); },
           finished: (_, instance) => measureGrid(instance),

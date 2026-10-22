@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { Timer } from 'lucide-react';
 import type { ApiResponse, MenuQuery } from '@ap/contracts';
 import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
@@ -39,6 +39,8 @@ describe('CycleTimeDrilldown compact action', () => {
   it('shows 상세 as an icon link with the same name and the execution-detail href', async () => {
     window.history.replaceState(null, '', '/analytics/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&from=2026-09-26T00:00:00&to=2026-09-26T09:00:00');
     render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><CycleTimeDrilldown params={{}} /></PlatformProvider></I18nProvider>);
+    // The default layout keeps the slow list in a background tab behind the distribution.
+    fireEvent.keyDown(await screen.findByRole('tab', { name: '느린 실행' }), { key: 'Enter' });
     // The first render of this page exceeds the 1s default wait under parallel load (#434, #437).
     const link = await screen.findByRole('link', { name: 'EQ-1 · 2026-09-26 01:02:03 상세' }, { timeout: 8000 });
     expect(link.getAttribute('href')).toContain('EQ-1');

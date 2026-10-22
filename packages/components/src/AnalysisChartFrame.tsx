@@ -1,12 +1,12 @@
 import { unknownLabel } from './analysisChartShared';
 import { BrushIcon, Download, GitCompare, MessageSquarePlus, MoreHorizontal, RotateCcw, Table2, ZoomIn } from 'lucide-react';
-import { useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { ECharts, EChartsCoreOption } from 'echarts/core';
 import { useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
 import { formatDateTime, parseDateTime } from '@ap/contracts';
 import { Button, cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, prefersReducedMotion } from '@ap/ui';
 import type { ThemeColorToken } from '@ap/ui/theme';
-import { AnalysisSectionContext, resolveAnalysisChartSize, analysisChartHeight, fillChartHeight, type ChartSize } from './AnalysisSectionContext';
+import { AnalysisSectionContext, resolveAnalysisChartSize, analysisChartHeight, fillChartHeight, FILL_CARD_CLASS, FILL_PLOT_CLASS, type ChartSize } from './AnalysisSectionContext';
 import { useElementHeight } from './useElementHeight';
 import { chartTheme, EChart, strokeToken, token } from './EChart';
 import { downloadChartCsv } from './analysisChartCsv';
@@ -163,6 +163,9 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   // Focus anchors for the confirm row (#297 UX): it unmounts on both outcomes, so its handlers hand focus back —
   // cancel to the "Apply analysis range…" button, apply (selection cleared by the Context change) to the brush toggle.
   const brushToggle = useRef<HTMLButtonElement | null>(null);
+  const rangeStart = useRef<HTMLButtonElement | null>(null);
+  // Set when the keyboard turns brush mode on in a fill card: the range form appears then and takes focus (ADR-0067 decision 21).
+  const focusRangeForm = useRef(false);
   const applyRangeButton = useRef<HTMLButtonElement | null>(null);
   const annotateButton = useRef<HTMLButtonElement | null>(null);
   const [hidden, setHidden] = useState<Set<string>>(new Set());
@@ -229,6 +232,9 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const points = useMemo(() => pointControls ? displayed.flatMap(s => s.points.map(([x, value]) => ({ x, seriesId: s.id, value }))) : [], [pointControls, displayed]);
   const selectedPoint = points.find(point => pointKey(point) === selectedPointKey) ?? points[0];
   const format = p.valueFormat ?? ((v: number) => v.toLocaleString(lang === 'ko' ? 'ko-KR' : 'en-US', { maximumFractionDigits: 1 }));
+  // The tooltip reads the formatter when it opens, so a consumer's new `valueFormat` takes effect without rebuilding the option.
+  const formatRef = useRef(format);
+  useLayoutEffect(() => { formatRef.current = format; });
   // One row per distinct x across the visible series (#297): Compare series carry different dates, so the
   // old array-index join put one series' values under another's dates. Rows run in x order (time: ascending
   // ISO strings sort chronologically; category: the axis order), each x once — duplicate categories collapse
@@ -300,7 +306,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
       grid: { left: 52, right: 20, top: 16, bottom: 44, ...(horizontal ? { containLabel: true } : {}) },
       tooltip: {
         trigger: 'axis', confine: true, textStyle: { fontSize: 12 },
-        valueFormatter: (v: number | null) => (v === null || v === undefined ? unknownLabel(lang === 'ko') : `${format(v)} ${p.unit}`),
+        valueFormatter: (v: number | null) => (v === null || v === undefined ? unknownLabel(lang === 'ko') : `${formatRef.current(v)} ${p.unit}`),
       },
       xAxis: horizontal ? { type: 'value', min: 0, name: p.unit, splitLine: theme.splitLine } : xType === 'time'
         ? { type: 'time', axisLine: theme.axisLine, axisLabel: { hideOverlap: true }, splitLine: { show: false } }
@@ -332,7 +338,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
         },
       ],
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `format` and `xValue` are rebuilt every render (consumers pass inline `valueFormat`); they only follow `lang` and `xType`, which are listed, so the option is rebuilt from the chart inputs below only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `xValue` is rebuilt every render but only follows `xType`, which is listed; the tooltip reads `format` through `formatRef`, so an inline `valueFormat` never rebuilds the option.
   }, [displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations, noteSpans, noteLevels, timeExtent, chartWidth, p.markLines, p.unit, lang, p.stacked, instanceReady]);
 
   // Re-arm the brush cursor after each option replacement, and once the instance becomes ready.
@@ -497,6 +503,16 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const fourHour = global.to ? presetWindow(4, timeBounds, global.to) : null;
   const fallbackRange: Selection | null = timeBounds.length >= 2 ? { from: timeBounds[0], to: timeBounds[timeBounds.length - 1] } : null;
   const draft = rangeDraft ?? selection ?? fallbackRange;
+  // A fill card gives the plot the space: the start/end form and the empty-selection hint appear while brushing or once a range exists
+  // (ADR-0067 decision 21); notes, errors and the confirm row keep their place. Other sizes always show them.
+  const rangeUi = size !== 'fill' || brushMode || !!selection;
+  const annotationAlert = canAnnotate && scopeId !== null && !!annotationQuery.response && !['ok', 'empty'].includes(annotationQuery.response.outcome);
+  const showSummary = rangeUi || !!clipNotice || !!preview || note !== null || annotations.length > 0 || annotationAlert;
+  useEffect(() => {
+    if (!focusRangeForm.current || !brushMode) return;
+    focusRangeForm.current = false;
+    rangeStart.current?.focus({ preventScroll: true });
+  }, [brushMode, showSummary]);
   function commitRange(range: Selection) {
     const snapped = snapOutward(toMs(range.from), toMs(range.to), timeBounds);
     if (!snapped) { setPreview(null); return; }
@@ -521,7 +537,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
 
   // min-w-0: the plot canvas owns a fixed px width; without it that width becomes the card's min-content and a
   // grid cell can never shrink the card (the ResizeObserver then never sees a smaller width on column switch).
-  return <section role="region" aria-labelledby={titleId} data-analysis-chart={analysisSection ? '' : undefined} className={cn('relative flex min-w-0 flex-col rounded-lg border border-border-subtle bg-surface-card', size === 'fill' && 'h-full min-h-0')}>
+  return <section role="region" aria-labelledby={titleId} data-analysis-chart={analysisSection ? '' : undefined} className={cn('relative flex min-w-0 flex-col rounded-lg border border-border-subtle bg-surface-card', size === 'fill' && FILL_CARD_CLASS)}>
     {/* Pinned to the card corner so a wrapping toolbar never strands it on its own line. */}
     <AnalysisChartPart enabled={analysisSection !== null}>
     <header className={cn('flex flex-wrap items-start justify-between gap-2 px-4 pt-3', analysisSection && 'pr-12')}>
@@ -567,7 +583,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
         {p.extraActions != null && <div className="flex items-center gap-1">{p.extraActions}</div>}
         <div className="flex flex-wrap items-center gap-1">
           <Button variant="ghost" size="toolbar" onClick={() => setZoom(([a, b]) => { const q = (b - a) / 4; return [a + q, b - q]; })} title={lang === 'ko' ? '확대 (Shift+휠도 가능)' : 'Zoom in (Shift+wheel)'}><ZoomIn className="size-3.5" aria-hidden />{lang === 'ko' ? '확대' : 'Zoom'}</Button>
-          <Button ref={brushToggle} variant={brushMode ? 'secondary' : 'ghost'} size="toolbar" aria-pressed={brushMode} onClick={() => setBrushMode(b => !b)}><BrushIcon className="size-3.5" aria-hidden />{lang === 'ko' ? '구간 선택' : 'Brush'}</Button>
+          <Button ref={brushToggle} variant={brushMode ? 'secondary' : 'ghost'} size="toolbar" aria-pressed={brushMode} onClick={event => { if (size === 'fill' && !brushMode && event.detail === 0) focusRangeForm.current = true; setBrushMode(b => !b); }}><BrushIcon className="size-3.5" aria-hidden />{lang === 'ko' ? '구간 선택' : 'Brush'}</Button>
           {showKeyboard && <div role="group" aria-label={lang === 'ko' ? '빠른 구간 선택' : 'Quick range'} className="flex items-center gap-1">
             {oneHour && <Button variant="ghost" size="toolbar" onClick={() => commitRange(oneHour)}>{lang === 'ko' ? '1시간' : '1h'}</Button>}
             {fourHour && <Button variant="ghost" size="toolbar" onClick={() => commitRange(fourHour)}>{lang === 'ko' ? '4시간' : '4h'}</Button>}
@@ -623,7 +639,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
     </AnalysisChartPart>
     <AnalysisChartPart enabled={analysisSection !== null} body>
     {allSeries.length > 0 && visible.length === 0 && <p role="status" className="px-4 py-3 text-text-secondary">{lang === 'ko' ? '표시할 시리즈를 모두 껐습니다' : 'All series are turned off'}</p>}
-    <div ref={node => { pointChart.current = node; fill.ref(node); }} className={cn('px-2', size === 'fill' && 'min-h-0 flex-1 overflow-y-auto')} role={pointControls ? 'group' : undefined} aria-label={pointControls ? (lang === 'ko' ? '차트 지점' : 'Chart points') : undefined} tabIndex={pointControls ? 0 : undefined}
+    <div ref={node => { pointChart.current = node; fill.ref(node); }} className={cn('px-2', size === 'fill' && FILL_PLOT_CLASS)} role={pointControls ? 'group' : undefined} aria-label={pointControls ? (lang === 'ko' ? '차트 지점' : 'Chart points') : undefined} tabIndex={pointControls ? 0 : undefined}
       onContextMenu={event => { if (p.pointActions?.length) event.preventDefault(); }}
       onKeyDown={event => {
         if ((event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) && p.pointActions?.length) {
@@ -643,11 +659,11 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
       </table>
     </div>}
 
-    <section aria-label={lang === 'ko' ? '선택 요약' : 'Selection summary'} aria-live="polite" className="mx-4 mb-3 min-h-9 rounded-md bg-surface-sunken px-3 py-2 text-xs">
-      {showKeyboard && draft && <div role="group" aria-label={lang === 'ko' ? '시작과 끝으로 구간 선택' : 'Choose a range by start and end'} className="mb-2 flex flex-wrap items-center gap-2">
+    {showSummary && <section aria-label={lang === 'ko' ? '선택 요약' : 'Selection summary'} aria-live="polite" className="mx-4 mb-3 min-h-9 rounded-md bg-surface-sunken px-3 py-2 text-xs">
+      {rangeUi && showKeyboard && draft && <div role="group" aria-label={lang === 'ko' ? '시작과 끝으로 구간 선택' : 'Choose a range by start and end'} className="mb-2 flex flex-wrap items-center gap-2">
         <span className="text-text-secondary">{lang === 'ko' ? '시작' : 'Start'}</span>
         <Select value={draft.from} onValueChange={chooseStart}>
-          <SelectTrigger aria-label={lang === 'ko' ? '구간 시작' : 'Range start'} className="h-8 w-44 border-border-control">
+          <SelectTrigger ref={rangeStart} aria-label={lang === 'ko' ? '구간 시작' : 'Range start'} className="h-8 w-44 border-border-control">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -665,7 +681,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
         </Select>
         <Button size="toolbar" onClick={() => commitRange(draft)}>{lang === 'ko' ? '선택' : 'Select'}</Button>
       </div>}
-      {!selection ? <span className="text-text-secondary">{showKeyboard
+      {!selection ? rangeUi && <span className="text-text-secondary">{showKeyboard
         ? (lang === 'ko' ? '선택 구간 없음 — 시작·끝이나 빠른 구간, 또는 구간 선택으로 구간을 선택하면 요약·주석·구간 적용을 할 수 있습니다.' : 'No selection — choose a start and end, a quick range, or brush a range to summarize, annotate or apply it.')
         : (lang === 'ko' ? '선택 구간 없음 — 구간 선택으로 구간을 선택하면 요약·주석·구간 적용을 할 수 있습니다.' : 'No selection — brush a range to summarize, annotate or apply it.')}</span>
         : <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -694,7 +710,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
         <Button size="toolbar" type="submit" disabled={saving}>{lang === 'ko' ? '저장' : 'Save'}</Button>
         <Button size="toolbar" type="button" variant="ghost" onClick={closeNote}>{t('cancel')}</Button>
       </form>}
-      {canAnnotate && scopeId !== null && annotationQuery.response && !['ok', 'empty'].includes(annotationQuery.response.outcome) && <p role="alert" className="mt-2 flex items-center gap-2 border-t border-border-subtle pt-1.5 text-tiny text-text-secondary">
+      {annotationAlert && <p role="alert" className="mt-2 flex items-center gap-2 border-t border-border-subtle pt-1.5 text-tiny text-text-secondary">
         {lang === 'ko' ? '주석을 불러오지 못했습니다. 차트는 그대로 사용할 수 있습니다.' : 'Could not load annotations. The chart is unaffected.'}
         <Button size="toolbar" variant="ghost" onClick={refetchAnnotations}>{lang === 'ko' ? '다시 시도' : 'Retry'}</Button>
       </p>}
@@ -714,7 +730,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
             : <Button ref={el => { if (el) deleteButtons.current.set(a.id, el); else deleteButtons.current.delete(a.id); }} size="toolbar" variant="ghost" className="ml-2" aria-label={lang === 'ko' ? `삭제: ${a.text}` : `Delete note: ${a.text}`} onClick={() => setPendingDelete(a.id)}>{lang === 'ko' ? '삭제' : 'Delete'}</Button>)}
         </li>)}
       </ul>}
-    </section>
+    </section>}
 
     <ChartTrustFooter trust={p.trust} />
     </AnalysisChartPart>

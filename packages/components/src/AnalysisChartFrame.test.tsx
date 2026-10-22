@@ -113,14 +113,14 @@ function mount(
   adapter: PlatformAdapter,
   features: typeof off,
   url = '/?v=1&scopeId=MEM',
-  chart: { series?: ChartSeries[]; compareSeries?: ChartSeries[]; markLines?: { y: number; label: string }[] } = {},
+  chart: { series?: ChartSeries[]; compareSeries?: ChartSeries[]; markLines?: { y: number; label: string }[]; size?: 'fill'; valueFormat?: (value: number) => string } = {},
 ) {
   window.history.replaceState(null, '', url);
   return render(<I18nProvider><PlatformProvider adapter={adapter} registry={registryWith(features)}>
     <SwitchScope />
     <SwitchRooms />
     <ToastProbe />
-    <AnalysisChartFrame chartId="chart-1" title="Chart" series={chart.series ?? series} compareSeries={chart.compareSeries ?? compareSeries} markLines={chart.markLines} unit="ea" />
+    <AnalysisChartFrame chartId="chart-1" title="Chart" series={chart.series ?? series} compareSeries={chart.compareSeries ?? compareSeries} markLines={chart.markLines} unit="ea" size={chart.size} valueFormat={chart.valueFormat} />
   </PlatformProvider></I18nProvider>);
 }
 const brushAndOpenNote = async () => {
@@ -1087,4 +1087,60 @@ it.each([['Export title', 'Export title'], [<strong>Rich title</strong>, 'sized'
     expect(text.split('\r\n')[0]).toBe(`# ${expectedTitle} · scopeId=MEM · from=2026-10-01T00:00:00 · to=2026-10-02T00:00:00 · metricVersion=v2 · unit=kg`);
     expect(DownloadURL.revokeObjectURL).toHaveBeenCalledWith('blob:metadata');
   } finally { vi.unstubAllGlobals(); }
+});
+
+describe('fill card: the start/end range form is on demand (ADR-0067 decision 21)', () => {
+  const hour = (h: number) => `2026-10-16T${String(h).padStart(2, '0')}:00:00`;
+  const hourly: ChartSeries = { id: 's1', name: 'S1', color: 'chart-blue', points: [16, 17, 18, 19, 20, 21, 22].map(h => [hour(h), 1] as [string, number]) };
+  const period = '/?v=1&scopeId=MEM&from=2026-10-16T16:00:00&to=2026-10-16T23:00:00';
+  const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
+  beforeAll(() => { HTMLElement.prototype.scrollIntoView = () => {}; });
+  afterAll(() => { HTMLElement.prototype.scrollIntoView = originalScrollIntoView; });
+
+  it('a fill chart has no selection summary or range fields until brush mode is on or a range exists; other sizes always have them', async () => {
+    mount(fixture().adapter, off, period, { series: [hourly], compareSeries: [], size: 'fill' });
+    const toggle = await screen.findByRole('button', { name: '구간 선택' });
+    expect(screen.queryByRole('region', { name: '선택 요약' })).toBeNull();
+    expect(screen.queryByRole('combobox', { name: '구간 시작' })).toBeNull();
+    fireEvent.click(toggle);
+    expect(await screen.findByRole('combobox', { name: '구간 시작' })).toBeTruthy();
+    fireEvent.click(toggle);
+    expect(screen.queryByRole('combobox', { name: '구간 시작' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: '1시간' }));
+    expect(screen.getByRole('region', { name: '선택 요약' }).textContent).toContain('선택 구간:');
+    cleanup();
+    mount(fixture().adapter, off, period, { series: [hourly], compareSeries: [] });
+    expect(await screen.findByRole('combobox', { name: '구간 시작' })).toBeTruthy();
+  });
+
+  it('opening brush mode from the keyboard puts focus on the first field; a pointer click leaves it on the button', async () => {
+    mount(fixture().adapter, off, period, { series: [hourly], compareSeries: [], size: 'fill' });
+    const toggle = await screen.findByRole('button', { name: '구간 선택' });
+    fireEvent.click(toggle, { detail: 1 });
+    await screen.findByRole('combobox', { name: '구간 시작' });
+    expect(document.activeElement).not.toBe(screen.getByRole('combobox', { name: '구간 시작' }));
+    fireEvent.click(toggle, { detail: 1 });
+    fireEvent.click(toggle, { detail: 0 });
+    const start = await screen.findByRole('combobox', { name: '구간 시작' });
+    await waitFor(() => { expect(document.activeElement).toBe(start); });
+  });
+});
+
+describe('valueFormat is read when the tooltip needs it (C2)', () => {
+  it('a new valueFormat from the consumer takes effect without rebuilding the option', async () => {
+    const formatter = () => (plotProps!.option as unknown as { tooltip: { valueFormatter: (value: number) => string } }).tooltip.valueFormatter(3);
+    const { adapter } = fixture();
+    const view = mount(adapter, off, '/?v=1&scopeId=MEM', { valueFormat: value => `A${value}` });
+    await screen.findByRole('img');
+    expect(formatter()).toBe('A3 ea');
+    const optionBefore = plotProps!.option;
+    view.rerender(<I18nProvider><PlatformProvider adapter={adapter} registry={registryWith(off)}>
+      <SwitchScope />
+      <SwitchRooms />
+      <ToastProbe />
+      <AnalysisChartFrame chartId="chart-1" title="Chart" series={series} compareSeries={compareSeries} unit="ea" valueFormat={value => `B${value}`} />
+    </PlatformProvider></I18nProvider>);
+    await waitFor(() => { expect(formatter()).toBe('B3 ea'); });
+    expect(plotProps!.option).toBe(optionBefore);
+  });
 });

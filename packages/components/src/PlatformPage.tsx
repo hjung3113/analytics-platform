@@ -102,7 +102,7 @@ export type PlatformPageProps = {
   crumbs?: { label: ReactNode; href?: string }[];
   /**
    * `flow` (default): the page grows with its content. `fill`: the page takes its container's height (the main area, or a board pane's
-   * body) and the body takes what the header leaves, so a `PanelWorkspace` child fills it; the body keeps at least 560 px, so a tall chrome scrolls the page instead of crushing the workspace. Opt in only for a workspace page.
+   * body) and the body takes what the header leaves, so a `PanelWorkspace` child fills it; the body keeps at least 520 px (a 300 px plot plus the card chrome), so a tall chrome scrolls the page instead of crushing the workspace. Opt in only for a workspace page.
    */
   layout?: 'flow' | 'fill';
   children: ReactNode;
@@ -287,7 +287,7 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
       {queryResult.completedAt !== null && (queryResult.status === 'done' || queryResult.status === 'refreshing') && <span>{lang === 'ko' ? '요약 조회 완료' : 'Summary response completed'} {formatInstant(queryResult.completedAt, lang)}</span>}
     </section>}
     {contextExtension && !gate && <div className="px-8 pt-3">{contextExtension}</div>}
-    <div data-platform-page-content tabIndex={-1} className={layout === 'fill' ? 'flex min-h-0 flex-1 flex-col px-8 pb-9 pt-7' : 'flex-1 px-8 pb-9 pt-7'}>{gate ?? <OutcomeScope><OutcomeBanners />{layout === 'fill' ? <div data-platform-page-fill className="min-h-[560px] flex-1">{children}</div> : children}</OutcomeScope>}</div>
+    <div data-platform-page-content tabIndex={-1} className={layout === 'fill' ? 'flex flex-1 flex-col px-8 pb-9 pt-7' : 'flex-1 px-8 pb-9 pt-7'}>{gate ?? <OutcomeScope><OutcomeBanners />{layout === 'fill' ? <div data-platform-page-fill className="min-h-[520px] flex-1">{children}</div> : children}</OutcomeScope>}</div>
   </div></QueryBarExtensionContext.Provider>;
 }
 

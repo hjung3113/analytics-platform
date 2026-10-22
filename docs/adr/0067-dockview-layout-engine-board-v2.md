@@ -66,6 +66,7 @@
 - 무료 엔진에 없는 키보드 크기 조절·키보드 도킹은 플랫폼 코드(separator, `⋯` 명령)로 갖는다.
 - 3a(2026-10-22): 메뉴 façade API가 구현됐다 — `PanelWorkspace`(`panels`·`presets`·`initialPreset`·`compactPreset`·`persistKey`·`label`·`compactBelow`, 루트 export, Candidate), 호스트 전용 `WorkspaceCommandsHost`·`useWorkspaceCommands`·`dockLayoutMenu`(`@ap/components/dock`), `PlatformPage layout`, `ChartSize 'fill'`. 아직 어떤 화면도 쓰지 않는다(첫 소비자는 3b). 명세는 06 §12.8.
 - 3b(2026-10-23): 첫 소비자는 사이클타임 드릴다운(`persistKey="drilldown"`, 프리셋 `balanced`·`focus`, 코드 opt-in)이다. 보드 칸은 `WorkspaceCommandsHost`로 감싸 도구줄 없이 프리셋·숨긴 패널·`기본 배치`를 칸 `⋯` 메뉴에 싣는다. `PlatformPage layout="fill"`의 본문은 최소 560px을 지킨다(머리가 뷰포트를 채우면 페이지가 스크롤). 명세는 06 §12.8.
+- 3b FIX1(2026-10-23, 조정자 결정, 소유자가 되돌릴 수 있음): 접힌 두 바 1440×900에서 작업 영역 560px이면 추세 카드 안 그림이 63px로 눌려 안 보였다. `balanced`를 추세가 전체 높이를 갖는 모양으로 바꾸고(요약 위·분포/느린 실행 탭 아래), `size="fill"` 차트는 시작·끝 입력을 `구간 선택`이 켜졌거나 선택이 있을 때만 그리며(결정 21 보강), 그림 상자는 320px 아래로 줄지 않고 모자라면 카드가 커져 패널 본문이 스크롤된다. 엔진이 그룹 컨테이너에 다는 `region` 랜드마크는 지운다. fill 본문 최소 높이는 520px(그림 300px + 카드 머리·탭 띠·도구 줄)로 정했다 — 1440×900에서 접힌 두 바 아래 남는 549px 안에 들어가 main이 스크롤되지 않는다.
 - Dockview 고정 판: 8.6.1로 확정한다(2026-10-22, 구현 2단계 2a). 배포 14일 기준의 최신판은 8.4.1이지만 그 판에는 수용 기준에 걸린 결함이 남아 있다 — StrictMode·Activity에서 인스턴스가 다시 만들어짐(#1670, 8.5.0 수정), `clear()` 뒤 비율 소실(#1694, 8.6.0), `renderer:'always'` 패널의 첫 마운트 크기(#1689, 8.6.1), 중첩 숨김 상태(#1697·#1698, 8.6.1). 결정 1의 예외를 적용한다. 판을 올릴 때는 이 결함들의 회귀를 `DockLayout` 테스트와 E2E로 다시 확인한다.
 
 ## 고려한 대안

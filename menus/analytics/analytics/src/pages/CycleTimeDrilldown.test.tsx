@@ -154,6 +154,12 @@ describe('CycleTimeDrilldown workspace (ADR-0067 3b)', () => {
     for (const name of ['사이클타임 요약', '사이클타임 추세', '사이클타임 분포', '느린 실행']) expect(await screen.findByRole('tab', { name })).toBeTruthy();
     expect(screen.getByRole('radio', { name: '기본' }).getAttribute('aria-checked')).toBe('true');
     expect(screen.getByRole('radio', { name: '집중' }).getAttribute('aria-checked')).not.toBe('true');
+    // balanced: trend and summary each have a group; distribution (active) and slow share the third one.
+    const groups = ['사이클타임 추세', '사이클타임 요약', '사이클타임 분포', '느린 실행'].map(name => screen.getByRole('tab', { name }).closest('.dv-groupview'));
+    expect(new Set(groups).size).toBe(3);
+    expect(groups[2]).toBe(groups[3]);
+    expect(screen.getByRole('tab', { name: '사이클타임 분포' }).getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByRole('tab', { name: '느린 실행' }).getAttribute('aria-selected')).toBe('false');
   });
 
   it('keeps showing the invalid-page message instead of the workspace', async () => {

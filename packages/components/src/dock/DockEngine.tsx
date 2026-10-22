@@ -302,6 +302,25 @@ export default function DockEngine({
     return () => { observer.disconnect(); };
   }, [containerRef, scheduleMeasure]);
 
+  // The engine makes every group container a `region` named after its active panel, which duplicates the panel's own region name (a chart
+  // card) and is no landmark of ours: each group's tab panel is already labelled by its tab. Removed on mount and whenever the engine sets
+  // them again (title or active panel change).
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const strip = (group: Element) => { group.removeAttribute('role'); group.removeAttribute('aria-label'); };
+    const stripAll = () => { container.querySelectorAll('.dv-groupview').forEach(strip); };
+    stripAll();
+    const observer = new MutationObserver(records => {
+      for (const record of records) {
+        if (record.type === 'attributes' && record.target instanceof Element && record.target.classList.contains('dv-groupview')) strip(record.target);
+        else if (record.type === 'childList' && Array.from(record.addedNodes).some(node => node instanceof Element && (node.classList.contains('dv-groupview') || node.querySelector('.dv-groupview')))) stripAll();
+      }
+    });
+    observer.observe(container, { subtree: true, childList: true, attributes: true, attributeFilter: ['role', 'aria-label'] });
+    return () => { observer.disconnect(); };
+  }, [containerRef, api]);
+
   // Which group holds focus drives the tab's `groupFocused`.
   useEffect(() => {
     const container = containerRef.current;

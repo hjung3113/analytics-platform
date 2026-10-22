@@ -196,12 +196,9 @@ export default function CycleTimeDrilldown(_: PageProps) {
           label={{ ko: '사이클타임 분석 영역', en: 'Cycle time workspace' }}
           initialPreset="balanced"
           presets={[
-            { id: 'balanced', label: { ko: '기본', en: 'Balanced' }, layout: { type: 'branch', dir: 'column', sizes: [62, 38], children: [
-              { type: 'branch', dir: 'row', sizes: [68, 32], children: [
-                { type: 'group', panels: ['trend'] },
-                { type: 'branch', dir: 'column', sizes: [45, 55], children: [{ type: 'group', panels: ['summary'] }, { type: 'group', panels: ['distribution'] }] },
-              ] },
-              { type: 'group', panels: ['slow'] },
+            { id: 'balanced', label: { ko: '기본', en: 'Balanced' }, layout: { type: 'branch', dir: 'row', sizes: [68, 32], children: [
+              { type: 'group', panels: ['trend'] },
+              { type: 'branch', dir: 'column', sizes: [38, 62], children: [{ type: 'group', panels: ['summary'] }, { type: 'group', panels: ['distribution', 'slow'] }] },
             ] } },
             { id: 'focus', label: { ko: '집중', en: 'Focus' }, layout: { type: 'branch', dir: 'row', sizes: [70, 30], children: [
               { type: 'group', panels: ['trend'] },
