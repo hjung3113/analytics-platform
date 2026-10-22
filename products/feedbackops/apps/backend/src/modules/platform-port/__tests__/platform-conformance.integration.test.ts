@@ -231,6 +231,11 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
     process.env.NODE_ENV = 'test';
     dbHandle = createDb(APP_URL);
     migrateHandle = createDb(MIGRATE_URL);
+    // The global limiter keys unauthenticated requests by req.ip (127.0.0.1 under app.inject) in
+    // core.rate_limits, shared by every suite in the run. This file sends about 30 of them (route
+    // probes without a session, mock-logins), so it clears the table on the way in and out; left
+    // behind, they push a later suite's mock-login over the 50/min limit (#681).
+    await migrateHandle.pool.query('delete from core.rate_limits');
     app = await buildServer({ config: loadConfig(), dbHandle });
     await app.ready();
 
@@ -284,6 +289,7 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
       }
     }
     if (msId) await q('delete from core.managed_systems where id = $1', [msId]);
+    await migrateHandle?.pool.query('delete from core.rate_limits');
     await app?.close();
     await dbHandle?.close();
     await migrateHandle?.close();
