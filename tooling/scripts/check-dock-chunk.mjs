@@ -23,7 +23,8 @@ function staticImports(code) {
   const found = new Set();
   const patterns = [
     /\bimport\s*["']([^"']+)["']/g,
-    /\b(?:import|export)\s*(?:[\w$*{}\s,]|\bas\b)*?\bfrom\s*["']([^"']+)["']/g,
+    // One character class (`as` is word characters): overlapping alternatives backtrack without end on a large chunk.
+    /\b(?:import|export)\s*[\w$*{}\s,]*?\bfrom\s*["']([^"']+)["']/g,
   ];
   for (const pattern of patterns) for (const match of code.matchAll(pattern)) found.add(match[1]);
   return [...found];
@@ -111,6 +112,11 @@ function selfTest() {
     ['a base path before the asset folder', true, {
       'index.html': page('/sub/assets/index-a.js'),
       'assets/index-a.js': 'const L=()=>import("./DockEngine-c.js");',
+      'assets/DockEngine-c.js': engine,
+    }],
+    ['a long export list with no `from` finishes (no runaway backtracking)', true, {
+      'index.html': page('/assets/index-a.js'),
+      'assets/index-a.js': `export{${'a as b,'.repeat(20000)}};const L=()=>import("./DockEngine-c.js");`,
       'assets/DockEngine-c.js': engine,
     }],
     ['no engine chunk anywhere (the check would prove nothing)', false, { 'index.html': page('/assets/index-a.js'), 'assets/index-a.js': 'export const a=1;' }],

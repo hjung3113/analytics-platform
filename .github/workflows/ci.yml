@@ -132,7 +132,9 @@ jobs:
       - run: pnpm test --concurrency=2
       - run: pnpm build
       # ADR-0067 (#575): the Dockview engine stays a lazy chunk — no start-up chunk of the app contains it.
-      - run: pnpm check:dock-chunk
+      - run: |
+          pnpm check:dock-chunk
+          pnpm check:dock-chunk --self-test
       # #520: snapshot the built declaration surface before sdk:pack clears and rebuilds dist.
       - name: SDK public API snapshots
         run: |
