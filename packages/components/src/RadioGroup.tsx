@@ -5,7 +5,7 @@ export type SegmentedRadioOption<T extends string> = { value: T; label: ReactNod
 
 const KEYS = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'];
 
-export function SegmentedRadio<T extends string>({ label, labelledBy, value, onChange, onActivate, options, className }: {
+export function SegmentedRadio<T extends string>({ label, labelledBy, value, onChange, onActivate, options, className, disabled, describedBy }: {
   label: string;
   /** Visible label element id. When set, the group uses aria-labelledby instead of aria-label. */
   labelledBy?: string;
@@ -15,6 +15,10 @@ export function SegmentedRadio<T extends string>({ label, labelledBy, value, onC
   onActivate?: (option: T) => void;
   options: readonly SegmentedRadioOption<T>[];
   className?: string;
+  /** Every option is off (the group stays in the page, announced as disabled). */
+  disabled?: boolean;
+  /** Id of the element that explains the group (used with `disabled`). */
+  describedBy?: string;
 }) {
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
   // The value this control last reported. Radix checks the item it focuses while an arrow key is held, which would
@@ -30,7 +34,7 @@ export function SegmentedRadio<T extends string>({ label, labelledBy, value, onC
   // defers focus to a timer. Handling the keys in the capture phase with preventDefault makes Radix skip its own handler.
   const onKeyDownCapture = (event: KeyboardEvent<HTMLDivElement>) => {
     const key = event.key;
-    if (!KEYS.includes(key)) return;
+    if (disabled || !KEYS.includes(key)) return;
     event.preventDefault();
     const selected = options.findIndex(option => option.value === value);
     const focused = refs.current.findIndex(node => node === document.activeElement);
@@ -50,6 +54,8 @@ export function SegmentedRadio<T extends string>({ label, labelledBy, value, onC
     onValueChange={next => report(next as T)}
     {...(labelledBy ? { 'aria-labelledby': labelledBy } : { 'aria-label': label })}
     onKeyDownCapture={onKeyDownCapture}
+    disabled={disabled}
+    aria-describedby={describedBy}
     className={className}>
     {options.map((option, index) => <RadioGroupItem
       key={option.value}

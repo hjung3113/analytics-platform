@@ -68,15 +68,17 @@ describe('ChartSize fill', () => {
     await waitFor(() => { expect(plotHeight).toBe(700); });
   });
 
-  it.each<[string, (size?: 'fill') => ReactElement]>([['AnalysisChartFrame', frame], ['AnalysisChart', donut]])('%s: the fill root is bounded and the plot wrapper can shrink, so the chart height follows a smaller measure', async (_name, build) => {
+  it.each<[string, (size?: 'fill') => ReactElement]>([['AnalysisChartFrame', frame], ['AnalysisChart', donut]])('%s: the fill card grows below 320 px and its plot box can shrink, so the chart height follows a smaller measure', async (_name, build) => {
     observer.resize(800, 700);
     render(shell(build('fill')));
     const plot = (await screen.findByRole('img')).parentElement!;
     const root = screen.getAllByRole('region')[0]!;
-    expect(root).toHaveClass('h-full', 'min-h-0');
-    expect(root).not.toHaveClass('min-h-full');
-    expect(plot).toHaveClass('min-h-0', 'flex-1');
-    expect(plot).not.toHaveClass('min-h-80');
+    // Below 320 px the card grows (the container's body scrolls) instead of the plot box scrolling a 320 px canvas: the card is at least as
+    // tall as its container, the plot box has a definite zero flex basis (so it never sizes the card) and a 320 px minimum.
+    expect(root).toHaveClass('min-h-full');
+    expect(root).not.toHaveClass('h-full');
+    expect(plot).toHaveClass('grow', 'basis-0', 'min-h-80', 'overflow-hidden');
+    expect(plot).not.toHaveClass('overflow-y-auto');
     await waitFor(() => { expect(plotHeight).toBe(700); });
     observer.resize(800, 450);
     await waitFor(() => { expect(plotHeight).toBe(450); });

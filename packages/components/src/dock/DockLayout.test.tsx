@@ -34,6 +34,23 @@ describe('DockLayout reconcile (D9: remount 0)', () => {
     expect(screen.getByRole('region', { name: '테스트 배치' })).toBeInTheDocument();
   });
 
+  it('group containers are not landmarks: the only regions are the layout root and what panel content declares, also after the engine re-sets them', async () => {
+    const { controls } = mountDock({ layout: row([50, 50], group(['a', 'b'], 'a'), group(['c'])), inner: id => <section role="region" aria-label={`card ${id}`}>x</section> });
+    await ready();
+    const regions = () => screen.getAllByRole('region', { hidden: true }).map(element => element.getAttribute('aria-label'));
+    const expectNoGroupRegion = () => {
+      expect(document.querySelectorAll('.dv-groupview[role], .dv-groupview[aria-label]')).toHaveLength(0);
+      expect(regions().filter(name => name !== '테스트 배치' && !name?.startsWith('card '))).toEqual([]);
+    };
+    expectNoGroupRegion();
+    controls.setLayout(row([50, 50], group(['a', 'b'], 'b'), group(['c'])));
+    await waitFor(() => { expect(activeTabs()).toContain('b'); });
+    await waitFor(expectNoGroupRegion);
+    controls.setTitleSuffix(' 2');
+    await waitFor(() => { expect(screen.getAllByRole('tab').some(tab => tab.textContent?.includes(' 2'))).toBe(true); });
+    await waitFor(expectNoGroupRegion);
+  });
+
   it.each<[string, ReturnType<typeof row>, ReturnType<typeof row>, string[][]]>([
     ['a layout change moves a panel to another group', row([50, 50], group(['a', 'b']), group(['c'])), row([50, 50], group(['a']), group(['b', 'c'])), [['a'], ['b', 'c']]],
     ['a layout change tabs two panels together', row([34, 33, 33], group(['a']), group(['b']), group(['c'])), row([50, 50], group(['a', 'b']), group(['c'])), [['a', 'b'], ['c']]],

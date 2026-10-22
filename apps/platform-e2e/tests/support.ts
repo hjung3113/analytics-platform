@@ -55,6 +55,11 @@ export async function lotColumn(page: Page): Promise<string[]> {
   return values;
 }
 
+/** The cycle-time workspace keeps the slow-execution list in a background tab of the default layout (ADR-0067 3b): bring it forward before reading its table. */
+export async function showSlowExecutions(page: Page) {
+  await page.getByRole('tab', { name: '느린 실행' }).click();
+}
+
 /** Header → cell text map of the first data row in the main result table (06 §6.1 fixtures). */
 export async function firstRowByColumn(page: Page): Promise<Record<string, string>> {
   const table = page.getByRole('main').getByRole('table').first();

@@ -1,8 +1,9 @@
 import { ChevronDown, ChevronUp, Maximize2, Minimize2, CornerUpLeft, MoreHorizontal } from 'lucide-react';
 import { useId, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { RETURN_CONTEXT_LABELS, useI18n } from '@ap/kernel';
+import { useWorkspaceCommands } from '@ap/components/dock';
 import {
-  Button, buttonVariants, cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+  Button, buttonVariants, cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger,
   Popover, PopoverAnchor, PopoverContent,
 } from '@ap/ui';
 import { PANE_CHIP } from '../contextChip';
@@ -226,6 +227,10 @@ export function PaneHeader(props: PaneHeaderProps) {
     role: 'group', 'aria-label': text.paneHead(number), 'data-dock-selected': selected ? '' : undefined, 'data-dock-compact': compact ? '' : undefined, 'data-dock-wrap': wrap ? '' : undefined,
   } : {};
   const hasContentMenu = active || props.onClosePane;
+  // A menu workspace in this pane draws no toolbar and offers its commands here (ADR-0067 decision 3).
+  const workspaceCommands = useWorkspaceCommands();
+  const presetCommands = workspaceCommands.filter(command => command.kind === 'radio');
+  const otherCommands = workspaceCommands.filter(command => command.kind !== 'radio');
   return <div ref={head} data-pane-head {...dockProps}
     className={cn('relative flex items-center gap-2', dock ? 'h-full min-w-0 pr-1' : cn('h-10 shrink-0 border-b border-border-subtle px-2', selected ? 'bg-surface-row-selected' : 'bg-surface-card'))}>
     <Popover open={popover} onOpenChange={setPopover}>
@@ -296,8 +301,16 @@ export function PaneHeader(props: PaneHeaderProps) {
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={() => props.onClear()}>{text.clear}</DropdownMenuItem>
             </>}
-            {dock && props.dockMenu && <>
+            {workspaceCommands.length > 0 && <>
               {hasContentMenu && <DropdownMenuSeparator />}
+              <DropdownMenuLabel>{text.screenLayout}</DropdownMenuLabel>
+              {presetCommands.length > 0 && <DropdownMenuRadioGroup value={presetCommands.find(command => command.checked)?.id ?? ''} onValueChange={id => { presetCommands.find(command => command.id === id)?.run(); }}>
+                {presetCommands.map(command => <DropdownMenuRadioItem key={command.id} value={command.id} disabled={command.disabled}>{command.label}</DropdownMenuRadioItem>)}
+              </DropdownMenuRadioGroup>}
+              {otherCommands.map(command => <DropdownMenuItem key={command.id} disabled={command.disabled} onSelect={() => command.run()}>{command.label}</DropdownMenuItem>)}
+            </>}
+            {dock && props.dockMenu && <>
+              {(hasContentMenu || workspaceCommands.length > 0) && <DropdownMenuSeparator />}
               {props.dockMenu(afterMenuClose)}
             </>}
           </DropdownMenuContent>

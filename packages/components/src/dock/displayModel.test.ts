@@ -57,6 +57,13 @@ describe('dockBoundaries', () => {
     expect(wide).toMatchObject({ minAfter: 480 });
   });
 
+  it('uses a panel\'s own minimum, the largest of a group\'s tabs, so keyboard limits match the engine', () => {
+    const own = new Map([['a', { minWidth: 480 }], ['c', { minWidth: 100 }]]);
+    const [boundary] = dockBoundaries(row([50, 50], group(['a', 'x']), group(['c'])), MIN, own);
+    expect(boundary).toMatchObject({ minBefore: 480, minAfter: 100 });
+    expect(pairBounds({ ...boundary!, beforePercent: 50, pairPercent: 100 }, 1000)).toMatchObject({ min: 48, max: 90 });
+  });
+
   it('has none for a single group', () => {
     expect(dockBoundaries(group(['a', 'b']), MIN)).toEqual([]);
   });

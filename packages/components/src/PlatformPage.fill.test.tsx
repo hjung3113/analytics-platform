@@ -17,13 +17,15 @@ const mount = (props: Partial<PlatformPageProps> = {}) => render(<I18nProvider><
 afterEach(() => { cleanup(); window.history.replaceState(null, '', '/'); });
 
 describe('PlatformPage layout', () => {
-  it('fill: the root takes its container\'s height and the body may shrink under it', () => {
+  it('fill: the root takes its container\'s height; the body takes the rest but never less than its content (banners + the 520 px slot)', () => {
     mount({ layout: 'fill' });
     const root = document.querySelector<HTMLElement>('[data-platform-page]')!;
     expect(root).toHaveAttribute('data-page-layout', 'fill');
     expect(root).toHaveClass('h-full', 'min-h-0', 'flex', 'flex-col');
     const body = document.querySelector<HTMLElement>('[data-platform-page-content]')!;
-    expect(body).toHaveClass('min-h-0', 'flex-1');
+    expect(body).toHaveClass('flex-1');
+    // Not `min-h-0`: a banner above the 520 px slot grows the body (the page scrolls) instead of pushing the workspace out of it.
+    expect(body).not.toHaveClass('min-h-0');
     expect(body).toContainElement(screen.getByText('본문'));
   });
 
@@ -32,9 +34,14 @@ describe('PlatformPage layout', () => {
     const body = document.querySelector<HTMLElement>('[data-platform-page-content]')!;
     expect(body).toHaveClass('flex', 'flex-col');
     const slot = document.querySelector<HTMLElement>('[data-platform-page-fill]')!;
-    expect(slot).toHaveClass('min-h-0', 'flex-1');
+    expect(slot).toHaveClass('flex-1');
     expect(slot.parentElement).toBe(body);
     expect(slot).toContainElement(screen.getByText('본문'));
+  });
+
+  it('fill: the body keeps a 520 px minimum so a tall chrome scrolls the page instead of crushing the workspace', () => {
+    mount({ layout: 'fill' });
+    expect(document.querySelector<HTMLElement>('[data-platform-page-fill]')).toHaveClass('min-h-[520px]');
   });
 
   it.each<[string, Partial<PlatformPageProps>]>([['no prop', {}], ['flow', { layout: 'flow' }]])('%s: unchanged — grows with its content', (_name, props) => {

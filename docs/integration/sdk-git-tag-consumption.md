@@ -32,6 +32,7 @@
 | 다음 릴리스 | contracts | `GroupId`에 `myActivity` 추가(#594) — 추가형 | 없음 — 소비자가 `GROUP_ID_SET`을 자체 정의했다면 새 멤버를 더한다. |
 | 다음 릴리스 | kernel | `dict`에 `platformMenu`·`platformMenuShared`·`switcherSystemsHeading`·`platformName` 추가, `switcherTitle`·`switcherCurrent` 문구 변경, `platformHome`은 `@deprecated`(셸이 더 쓰지 않음, 다음 릴리스 뒤 제거 예고 — #650, ADR-0070) | 없음 — `t('platformHome')`을 쓰는 소비자는 `t('home')`이나 메뉴 라벨로 옮긴다 |
 | 다음 릴리스 | components | `PanelWorkspace`·`PanelWorkspaceLayout`(루트, **Candidate**), 호스트 전용 `WorkspaceCommandsHost`·`useWorkspaceCommands`·`dockLayoutMenu`(`@ap/components/dock`), `DockPanel`의 선택 `minWidth`·`minHeight`, `PlatformPage`의 선택 `layout`('flow' 기본 / 'fill'), `ChartSize`에 `'fill'` 추가(#575 3a, ADR-0067) | 없음 — 추가만 |
+| 다음 릴리스 | components | `SegmentedRadio`에 선택 `disabled`·`describedBy`(좁은 폭에서 작업 영역 프리셋을 끄고 이유를 잇는다, #575 3b) — 추가형 | 없음 — 추가만 |
 | 다음 릴리스 | contracts·kernel | `UsageEvent`에 선택 필드 `via`·`fromMenuId`, `navigate`·`PlatformLink`에 선택 `via` — 추가형 (#605) | 없음 — 기존 호출은 그대로 동작한다. 표시 없는 이동은 `link`로 기록된다 |
 | 다음 릴리스 | kernel | `PlatformSlots`에 선택 슬롯 `notifications`(`NotificationsSlot`: `menuId`·`UnreadCount`·`Recent`)와 `dict` 키 `unreadNamed`·`unreadCount`·`viewAll` 추가 (#652) | 없음 — 추가만 |
 | 다음 릴리스 | kernel | **깨짐** — `dropResetKeys` 공개 export 제거(`sdk-v0.10.0` 예고, #660). Kernel 내부 도우미로만 남는다 | `withPaneContext` |

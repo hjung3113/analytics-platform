@@ -167,6 +167,7 @@ export default function DockEngine({
   const dragging = useRef(false);
   const canonicalDisplay = useMemo(() => canonicalDockTree(display), [display]);
   const key = useMemo(() => JSON.stringify(canonicalDisplay), [canonicalDisplay]);
+  const panelMinimums = useMemo(() => new Map(panels.map(panel => [panel.id, { minWidth: panel.minWidth, minHeight: panel.minHeight }])), [panels]);
   const meta = useMemo(() => JSON.stringify([panels.map(panel => [panel.id, panel.title, panel.minWidth, panel.minHeight]), minPanelSize]), [panels, minPanelSize]);
   // The effects below run on what changed (key, meta, epoch), not on every new object identity; they read the rest from here.
   const live = useRef({ layout, interactive, onLayoutChange, canonicalDisplay, panels, minPanelSize });
@@ -302,6 +303,25 @@ export default function DockEngine({
     return () => { observer.disconnect(); };
   }, [containerRef, scheduleMeasure]);
 
+  // The engine makes every group container a `region` named after its active panel, which duplicates the panel's own region name (a chart
+  // card) and is no landmark of ours: each group's tab panel is already labelled by its tab. Removed on mount and whenever the engine sets
+  // them again (title or active panel change).
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const strip = (group: Element) => { group.removeAttribute('role'); group.removeAttribute('aria-label'); };
+    const stripAll = () => { container.querySelectorAll('.dv-groupview').forEach(strip); };
+    stripAll();
+    const observer = new MutationObserver(records => {
+      for (const record of records) {
+        if (record.type === 'attributes' && record.target instanceof Element && record.target.classList.contains('dv-groupview')) strip(record.target);
+        else if (record.type === 'childList' && Array.from(record.addedNodes).some(node => node instanceof Element && (node.classList.contains('dv-groupview') || node.querySelector('.dv-groupview')))) stripAll();
+      }
+    });
+    observer.observe(container, { subtree: true, childList: true, attributes: true, attributeFilter: ['role', 'aria-label'] });
+    return () => { observer.disconnect(); };
+  }, [containerRef, api]);
+
   // Which group holds focus drives the tab's `groupFocused`.
   useEffect(() => {
     const container = containerRef.current;
@@ -346,7 +366,7 @@ export default function DockEngine({
         onReady={onReady} onWillDrop={onWillDrop} theme={THEME} defaultRenderer="always" singleTabMode="fullwidth"
         disableFloatingGroups disableDnd={!interactive} announcements={false} />
     </div>
-    {interactive && !maximizedPanelId && <DockSeparators layout={layout} rects={rects} minPanelSize={minPanelSize} instanceId={instanceId} label={separatorLabel} onChange={separate} />}
+    {interactive && !maximizedPanelId && <DockSeparators layout={layout} rects={rects} minPanelSize={minPanelSize} panelMinimums={panelMinimums} instanceId={instanceId} label={separatorLabel} onChange={separate} />}
   </EngineContext.Provider>;
 }
 

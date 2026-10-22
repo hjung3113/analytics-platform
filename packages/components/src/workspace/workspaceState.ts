@@ -2,8 +2,8 @@
  * Pure state of a menu workspace (ADR-0067 decisions 3-5, 18-20): which preset is current, the dock tree, which panels are hidden.
  * Maximize is never part of it. No React, no storage.
  */
-import { activatePanel, addPanel, panelOrder, removePanel } from '../dock/commands';
-import { normalizeDockTree, type DockNode } from '../dock/schema';
+import { activatePanel, addPanel, groupOf, panelOrder, removePanel } from '../dock/commands';
+import { dockGroupsInReadingOrder, normalizeDockTree, type DockNode } from '../dock/schema';
 
 /** The arrangement a preset describes. Structurally the dock tree; `sizes` are ratios (any positive numbers, only their proportions count). */
 export type PanelWorkspaceLayout =
@@ -16,7 +16,7 @@ export type WorkspacePreset = { id: string; layout: PanelWorkspaceLayout };
 /** Static identifiers only: nothing from data can reach a storage key. */
 export const WORKSPACE_ID = /^[a-z][a-z0-9._-]{0,63}$/;
 
-const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
 
 /** Ratios -> shares of 100; anything unusable is left for `normalizeDockTree` (equal shares). */
 function toShares(layout: unknown): unknown {
@@ -104,10 +104,28 @@ export function hidePanel(state: WorkspaceState, panelId: string, primaryId: str
   return { ...state, layout: removePanel(state.layout, panelId), hidden: [...state.hidden, panelId] };
 }
 
-/** Brings `panelId` back as the active tab of the primary's group. */
-export function showPanel(state: WorkspaceState, panelId: string, primaryId: string): WorkspaceState {
+/**
+ * Brings `panelId` back without covering the primary: into the group of a panel that shares its group in `preset` and is still shown
+ * (the active tab there, unless that group holds the primary, which then stays active); else into the first group in reading order that
+ * does not hold the primary; else to the right of the primary.
+ */
+export function showPanel(state: WorkspaceState, panelId: string, primaryId: string, preset: WorkspacePreset): WorkspaceState {
   if (!state.hidden.includes(panelId)) return state;
-  return { ...state, layout: addPanel(state.layout, panelId, { panelId: primaryId, position: 'center' }), hidden: state.hidden.filter(id => id !== panelId) };
+  const shown = panelOrder(state.layout);
+  const home = groupOf(presetTree(preset.layout, [...shown, ...state.hidden]), panelId);
+  const sibling = home?.panels.find(id => id !== panelId && shown.includes(id));
+  const other = dockGroupsInReadingOrder(state.layout).find(group => !group.panels.includes(primaryId));
+  const into = sibling ?? other?.active;
+  const primaryActive = groupActive(state.layout, primaryId);
+  let layout = addPanel(state.layout, panelId, into !== undefined ? { panelId: into, position: 'center' } : { panelId: primaryId, position: 'right' });
+  if (into !== undefined && groupOf(layout, panelId)?.panels.includes(primaryId) && primaryActive) layout = activatePanel(layout, primaryActive);
+  return { ...state, layout, hidden: state.hidden.filter(id => id !== panelId) };
+}
+
+/** The tab that should take focus after `panelId` was hidden: the one now active in the group it left, else the primary's. */
+export function tabAfterHide(before: WorkspaceState, after: WorkspaceState, panelId: string, primaryId: string): string {
+  const left = groupOf(before.layout, panelId)?.panels.find(id => id !== panelId);
+  return (left !== undefined ? groupOf(after.layout, left)?.active : undefined) ?? primaryId;
 }
 
 export const sameWorkspaceState = (a: WorkspaceState, b: WorkspaceState) => JSON.stringify(a) === JSON.stringify(b);

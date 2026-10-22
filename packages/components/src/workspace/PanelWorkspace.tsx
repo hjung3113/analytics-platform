@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { useI18n, usePlatform, type Text } from '@ap/kernel';
 import { isProductionEnv } from '@ap/ui';
 import { activatePanel, movePanel, panelOrder } from '../dock/commands';
+import { focusTabSoon } from '../dock/focusTab';
 import { DockLayout } from '../dock/DockLayout';
 import type { DockPanel } from '../dock/dockTypes';
 import { dockLayoutMenu } from '../dock/layoutMenu';
@@ -12,7 +13,7 @@ import { workspaceText } from './text';
 import { PRESET_PREFIX, RESET_ID, SHOW_PREFIX, WorkspaceToolbar } from './WorkspaceToolbar';
 import { WorkspaceGroupActions } from './WorkspaceGroupActions';
 import { readWorkspaceState, sameWorkspaceState, workspaceStorageKey, writeWorkspaceState, WORKSPACE_WRITE_DELAY_MS } from './workspaceStorage';
-import { applyPreset, hidePanel, initialWorkspaceState, presetTree, resetLayout, showPanel, WORKSPACE_ID, type PanelWorkspaceLayout, type WorkspaceSpec, type WorkspaceState } from './workspaceState';
+import { applyPreset, hidePanel, initialWorkspaceState, presetTree, resetLayout, showPanel, tabAfterHide, WORKSPACE_ID, type PanelWorkspaceLayout, type WorkspaceSpec, type WorkspaceState } from './workspaceState';
 
 export type { PanelWorkspaceLayout } from './workspaceState';
 
@@ -106,13 +107,14 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, l
   const [width, setWidth] = useState<number | null>(null);
   useLayoutEffect(() => {
     const element = root.current;
-    if (!element || compactPreset === undefined) return;
+    if (!element) return;
     const observer = new ResizeObserver(entries => { const entry = entries[entries.length - 1]; if (entry) setWidth(entry.contentRect.width); });
     observer.observe(element);
     return () => { observer.disconnect(); };
-  }, [compactPreset]);
+  }, []);
   const compactSpec = compactPreset === undefined ? undefined : presets.find(preset => preset.id === compactPreset);
-  const compact = compactSpec !== undefined && width !== null && width < compactBelow;
+  const stacked = width !== null && width < compactBelow;
+  const compact = compactSpec !== undefined && stacked;
   const [compactState, setCompactState] = useState<WorkspaceState | null>(null);
   if (!compact && compactState !== null) setCompactState(null);
   const derived: WorkspaceState = compact ? { ...stored, preset: compactSpec.id, layout: presetTree(compactSpec.layout, panelOrder(stored.layout)) } : stored;
@@ -123,29 +125,30 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, l
   const maximizedId = maximized !== null && shown.includes(maximized) ? maximized : null;
 
   // Commands read the latest render at call time, so their identity depends on what they display only.
-  const live = useRef({ compact, derived, presets, primaryId });
-  useLayoutEffect(() => { live.current = { compact, derived, presets, primaryId }; });
+  const live = useRef({ compact, stacked, derived, presets, primaryId });
+  useLayoutEffect(() => { live.current = { compact, stacked, derived, presets, primaryId }; });
   const update = useCallback((change: (current: WorkspaceState) => WorkspaceState) => {
     if (live.current.compact) setCompactState(previous => change(previous ?? live.current.derived));
     else setStored(previous => change(previous));
   }, []);
 
   const shape = JSON.stringify({
+    stacked,
     presets: presets.map(preset => [preset.id, tx(preset.label)]),
     current: state.preset,
     hidden: state.hidden.map(id => [id, titleOf(id)]),
   });
   const commands = useMemo<readonly WorkspaceCommand[]>(() => {
-    const parsed = JSON.parse(shape) as { presets: [string, string][]; current: string; hidden: [string, string][] };
+    const parsed = JSON.parse(shape) as { stacked: boolean; presets: [string, string][]; current: string; hidden: [string, string][] };
     const preset = (id: string) => live.current.presets.find(candidate => candidate.id === id);
     return [
       ...parsed.presets.map(([id, text]): WorkspaceCommand => ({
-        id: `${PRESET_PREFIX}${id}`, label: text, kind: 'radio', checked: id === parsed.current,
-        run: () => { const next = preset(id); if (next) update(current => applyPreset(current, next)); },
+        id: `${PRESET_PREFIX}${id}`, label: text, kind: 'radio', checked: id === parsed.current, disabled: parsed.stacked,
+        run: () => { const next = preset(id); if (next && !live.current.stacked) update(current => applyPreset(current, next)); },
       })),
       ...parsed.hidden.map(([id, text]): WorkspaceCommand => ({
         id: `${SHOW_PREFIX}${id}`, label: tx(workspaceText.showPanel(text)), kind: 'action',
-        run: () => { update(current => showPanel(current, id, live.current.primaryId)); },
+        run: () => { update(current => showPanel(current, id, live.current.primaryId, preset(current.preset) ?? live.current.presets[0]!)); },
       })),
       {
         id: RESET_ID, label: tx(workspaceText.resetLayout), kind: 'action',
@@ -184,20 +187,27 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, l
     render: () => <InWorkspacePanelProvider value>{panel.render()}</InWorkspacePanelProvider>,
   }));
   const reading = dockGroupsInReadingOrder(state.layout);
+  const focusTab = (panelId: string) => { focusTabSoon(() => root.current, panelId); };
+  const closeFocus = useRef<(() => void) | null>(null);
   const layoutChange = (change: (current: WorkspaceState) => WorkspaceState) => { update(change); };
   const groupActions = (group: { panels: string[]; active: string }) => {
     const id = group.active;
     const menu = dockLayoutMenu(state.layout, id, { maximized: maximizedId !== null && group.panels.includes(maximizedId), orderOf: other => reading.indexOf(other as (typeof reading)[number]) });
-    return <WorkspaceGroupActions key={id} title={titleOf(id)} titleOf={titleOf} menu={menu}
+    return <WorkspaceGroupActions key={id} title={titleOf(id)} titleOf={titleOf} menu={menu} closeFocus={closeFocus}
       onMaximize={maximize => { setMaximized(maximize ? id : null); }}
-      onSplit={position => { if (!menu.maximized && menu.split) { const target = menu.split; layoutChange(current => ({ ...current, layout: movePanel(current.layout, id, { panelId: target, position }) })); } }}
-      onMove={target => { layoutChange(current => ({ ...current, layout: movePanel(current.layout, id, { panelId: target, position: 'center' }) })); }}
-      onHide={id === primaryId ? undefined : () => { setMaximized(null); layoutChange(current => hidePanel(current, id, primaryId)); }} />;
+      onSplit={position => { if (!menu.maximized && menu.split) { closeFocus.current = () => { focusTab(id); }; const target = menu.split; layoutChange(current => ({ ...current, layout: movePanel(current.layout, id, { panelId: target, position }) })); } }}
+      onMove={target => { closeFocus.current = () => { focusTab(id); }; layoutChange(current => ({ ...current, layout: movePanel(current.layout, id, { panelId: target, position: 'center' }) })); }}
+      onHide={id === primaryId ? undefined : () => {
+        setMaximized(null);
+        const next = hidePanel(state, id, primaryId);
+        closeFocus.current = () => { focusTab(tabAfterHide(state, next, id, primaryId)); };
+        layoutChange(current => hidePanel(current, id, primaryId));
+      }} />;
   };
 
   return <WorkspaceDepthProvider value={depth}>
     <div ref={root} data-panel-workspace data-workspace-compact={compact ? '' : undefined} className="flex h-full min-h-0 w-full min-w-0 flex-col gap-2">
-      {!hosted && <WorkspaceToolbar commands={commands} />}
+      {!hosted && <WorkspaceToolbar commands={commands} onShown={focusTab} />}
       <div className="min-h-0 flex-1">
         <DockLayout panels={dockPanels} layout={state.layout} label={tx(label)}
           onLayoutChange={next => { layoutChange(current => ({ ...current, layout: next })); }}

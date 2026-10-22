@@ -11,7 +11,7 @@ type Branch = Extract<DockNode, { type: 'branch' }>;
 
 const SUM_TOLERANCE = 0.01;
 
-const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
 const isDir = (value: unknown): value is 'row' | 'column' => value === 'row' || value === 'column';
 const sum = (values: readonly number[]) => values.reduce((total, value) => total + value, 0);
 const validSizes = (sizes: unknown, count: number): sizes is number[] =>

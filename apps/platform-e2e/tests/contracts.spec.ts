@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { contextBar, evidence, expectScopeValid, firstRowByColumn, lotColumn, mainHeading, query, rowMapsByColumn, setScenario, signInAs, storedUsageEvents, switchScope, tableStatusLine, usageVisits } from './support';
+import { contextBar, evidence, expectScopeValid, firstRowByColumn, lotColumn, mainHeading, query, rowMapsByColumn, setScenario, showSlowExecutions, signInAs, storedUsageEvents, switchScope, tableStatusLine, usageVisits } from './support';
 
 /**
  * Platform contract checks (#44). Each `describe` is one contract area of docs/06; each test is one reported check.
@@ -1639,6 +1639,7 @@ test.describe('메뉴 간 Context 보존과 미적용 표시 (06 §6, §22)', ()
   test('지원하지 않는 Context는 지우지 않고 "미사용"으로 표시하고, 지원 메뉴로 가면 조회에 적용된다', async ({ page }, testInfo) => {
     // Pick a Lot that really exists in the period so the destination can prove the filter, not just the chip.
     await page.goto(`/analytics/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}`);
+    await showSlowExecutions(page);
     const lots = await lotColumn(page);
     const lot = lots[0];
     expect(lots.some(l => l !== lot), 'fixture needs more than one Lot in the unfiltered period').toBe(true);
@@ -1661,6 +1662,7 @@ test.describe('메뉴 간 Context 보존과 미적용 표시 (06 §6, §22)', ()
     await expect(appliedLot).toContainText(lot);
     await expect(appliedLot).not.toContainText('이 화면에서 미사용');
     await appliedEditor.close();
+    await showSlowExecutions(page);
     const filtered = await lotColumn(page);
     expect(filtered.length).toBeGreaterThan(0);
     expect(new Set(filtered)).toEqual(new Set([lot]));
@@ -2321,6 +2323,7 @@ test.describe('returnTo 복귀 (06 §22)', () => {
     await page.goto(`${base}&sort=anchor:asc`);
     await expect(page.getByTestId('page-filter-bar')).toBeVisible();
     await expect(page.getByRole('combobox', { name: '느린 실행 기준' })).toBeVisible();
+    await showSlowExecutions(page);
     const first = await firstRowByColumn(page);
     const anchor = first['시작'].replace(' ', 'T');
     const bucket = `${anchor.slice(0, 13)}:00:00`;
@@ -2343,6 +2346,7 @@ test.describe('returnTo 복귀 (06 §22)', () => {
 
     // Row-level contract: every displayed row sits in [bucket, bucket+1h), inside the bin range, ascending by 시작.
     const expectRowsFiltered = async () => {
+      await showSlowExecutions(page);
       const rows = await rowMapsByColumn(page);
       expect(rows.length).toBeGreaterThan(0);
       const anchors = rows.map(row => row['시작'].replace(' ', 'T'));
@@ -2778,8 +2782,12 @@ test.describe('차트 계약 (06 §16 — Brush → 구간 적용 확인, 주석
       throw new Error(`Tab did not reach ${accessibleName} within 40 steps`);
     }
 
-    // Begin at an earlier chart action; Tab traversal must reach the start control.
-    await frame.getByRole('button', { name: '초기화', exact: true }).click();
+    // A fill chart (cycle-time is a workspace page, ADR-0067 decision 21) shows the start/end form on demand: open it with the
+    // keyboard from `구간 선택`, which puts focus on the start control. Then Tab traversal from an earlier action still reaches it.
+    await frame.getByRole('button', { name: '구간 선택', exact: true }).focus();
+    await page.keyboard.press('Enter');
+    await expect(start).toBeFocused();
+    await frame.getByRole('button', { name: '초기화', exact: true }).focus();
     await tabToControl('구간 시작', start);
 
     // fallbackRange spans 09:00–09:00 next day; two start steps pick 11:00 and one end step picks 08:00.
@@ -2906,66 +2914,320 @@ test.describe('차트 계약 (06 §16 — Brush → 구간 적용 확인, 주석
   });
 });
 
-test.describe('분석 레이아웃 차트 2열·접기 (06 §12.6, ADR-0022)', () => {
-  test('그림 영역을 같은 행에 맞추고 접힌 차트·표를 기억하여 칩으로 복원한다', async ({ page }, testInfo) => {
+// 사이클타임은 3b에서 PanelWorkspace로 옮겨 갔다. 차트 2개가 한 행에 서는 정렬 검사는 AnalysisLayout 소비자(차트 2개 이상)가 없어
+// 내렸다(.planning/backlog.md). 접기·칩·기억·포커스는 남은 소비자인 OperationTime으로 검사한다.
+test.describe('분석 레이아웃 접기 (06 §12.6, ADR-0022)', () => {
+  test('접힌 차트·분해 영역을 기억하여 칩으로 복원하고 포커스를 옮긴다', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto(`/analytics/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}`);
-    const trend = page.getByRole('region', { name: '사이클타임 추세', exact: true });
-    const distribution = page.getByRole('region', { name: '사이클타임 분포', exact: true });
-    const trendPlot = trend.getByRole('img', { name: /^사이클타임 추세/ });
-    const distributionPlot = distribution.getByRole('img', { name: /^사이클타임 분포/ });
-    await expect(trendPlot).toBeVisible();
-    await expect(distributionPlot).toBeVisible();
-    await expect.poll(async () => {
-      const a = (await trend.boundingBox())!;
-      const b = (await distribution.boundingBox())!;
-      return Math.abs(a.y - b.y);
-    }).toBeLessThanOrEqual(2);
-    await expect.poll(async () => {
-      const a = (await trendPlot.boundingBox())!;
-      const b = (await distributionPlot.boundingBox())!;
-      return Math.abs(a.y - b.y);
-    }).toBeLessThanOrEqual(2);
-    const pairedTrend = (await trend.boundingBox())!;
-    const pairedDistribution = (await distribution.boundingBox())!;
-    expect(pairedDistribution.x).toBeGreaterThanOrEqual(pairedTrend.x + pairedTrend.width);
-    await evidence(page, testInfo, 'analysis-two-columns-aligned-plots');
-
-    await page.getByRole('button', { name: '사이클타임 분포 접기' }).click();
+    await page.goto(`/clas/operation-time?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}`);
+    const ranking = page.getByRole('region', { name: '설비별 동작시간', exact: true });
+    await expect(ranking).toBeVisible();
     const collapsed = page.getByRole('group', { name: '접힌 항목' });
-    const distributionChip = collapsed.getByRole('button', { name: '사이클타임 분포 펼치기' });
-    await expect(distributionChip).toBeVisible();
-    await expect(distributionChip).toBeFocused();
-    await expect(distribution).toHaveCount(0);
-    await expect.poll(async () => (await trend.boundingBox())!.width).toBeGreaterThan(pairedTrend.width * 1.8);
-    const fullTrend = (await trend.boundingBox())!;
-    expect(Math.abs(fullTrend.width - (pairedDistribution.x + pairedDistribution.width - pairedTrend.x))).toBeLessThanOrEqual(2);
-    await evidence(page, testInfo, 'analysis-distribution-collapsed');
+    await expect(collapsed).toHaveCount(0);
+
+    await page.getByRole('button', { name: '설비별 동작시간 접기' }).click();
+    const rankingChip = collapsed.getByRole('button', { name: '설비별 동작시간 펼치기' });
+    await expect(rankingChip).toBeVisible();
+    await expect(rankingChip).toBeFocused();
+    await expect(ranking).toHaveCount(0);
+    await evidence(page, testInfo, 'analysis-ranking-collapsed');
     await page.reload();
-    await expect(distributionChip).toBeVisible();
-    await expect(distribution).toHaveCount(0);
-    await expect(trendPlot).toBeVisible();
-    await expect.poll(async () => (await trend.boundingBox())!.width).toBeGreaterThan(pairedTrend.width * 1.8);
+    await expect(rankingChip).toBeVisible();
+    await expect(ranking).toHaveCount(0);
     await evidence(page, testInfo, 'analysis-collapse-persisted');
 
-    await distributionChip.click();
-    await expect(page.getByRole('button', { name: '사이클타임 분포 접기' })).toBeFocused();
-    await expect(distributionPlot).toBeVisible();
-    await expect.poll(async () => (await trend.boundingBox())!.width).toBeLessThan(fullTrend.width * 0.6);
+    await rankingChip.click();
+    await expect(page.getByRole('button', { name: '설비별 동작시간 접기' })).toBeFocused();
+    await expect(ranking).toBeVisible();
     await expect(collapsed).toHaveCount(0);
-    await evidence(page, testInfo, 'analysis-distribution-restored');
+    await evidence(page, testInfo, 'analysis-ranking-restored');
 
-    const table = page.getByRole('region', { name: '느린 실행 목록', exact: true });
-    await page.getByRole('button', { name: '느린 실행 접기' }).click();
-    const tableChip = collapsed.getByRole('button', { name: '느린 실행 펼치기' });
-    await expect(tableChip).toBeFocused();
-    await expect(table).toHaveCount(0);
+    // The breakdown's title carries the equipment id, so match its fixed tail.
+    await page.getByRole('button', { name: /모듈별 동작 흐름 접기$/ }).click();
+    const flowChip = collapsed.getByRole('button', { name: /모듈별 동작 흐름 펼치기$/ });
+    await expect(flowChip).toBeFocused();
+    await expect(page.getByRole('button', { name: /모듈별 동작 흐름 접기$/ })).toHaveCount(0);
     await evidence(page, testInfo, 'analysis-breakdown-collapsed');
-    await tableChip.click();
-    await expect(page.getByRole('button', { name: '느린 실행 접기' })).toBeFocused();
-    await expect(table).toBeVisible();
+    await flowChip.click();
+    await expect(page.getByRole('button', { name: /모듈별 동작 흐름 접기$/ })).toBeFocused();
     await expect(collapsed).toHaveCount(0);
     await evidence(page, testInfo, 'analysis-breakdown-restored');
+  });
+});
+
+test.describe('메뉴 작업 영역 (ADR-0067 3b)', () => {
+  // 첫 소비자는 사이클타임 드릴다운(PanelWorkspace, persistKey `drilldown`, 프리셋 기본·집중). 각 검사는 자기 저장소로 혼자 선다.
+  const CYCLE = `/analytics/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}`;
+  const TITLES = { summary: '사이클타임 요약', trend: '사이클타임 추세', distribution: '사이클타임 분포', slow: '느린 실행' } as const;
+
+  /** The dock region of the menu workspace; inside a board pane the board's own dock is the outer `[data-dock-layout]`. */
+  const workspace = (page: Page) => page.getByRole('region', { name: '사이클타임 분석 영역', exact: true });
+  /** The tab group holding a panel's tab (`has` starts below the group, at the tab). */
+  const groupOf = (page: Page, title: string) => workspace(page).locator('.dv-groupview').filter({ has: page.getByRole('tab', { name: title }) });
+  const trendPlot = (page: Page) => page.getByRole('img', { name: /^사이클타임 추세/ });
+  const mainScrolls = (page: Page) => page.locator('#platform-main').evaluate(element => element.scrollHeight > element.clientHeight + 1);
+
+  /** The two stored collapse flags are cleared before every load, so the bars start expanded (the default). */
+  async function expandedBarsAtLoad(page: Page) {
+    await page.addInitScript(() => {
+      localStorage.removeItem('platform:query-bar-collapsed:cycle-time');
+      localStorage.removeItem('platform:page-filter-collapsed:cycle-time');
+    });
+  }
+  async function collapseBars(page: Page) {
+    await page.getByRole('button', { name: '조회 조건 접기' }).click();
+    await page.getByRole('button', { name: '페이지 필터 접기' }).click();
+  }
+  async function workspaceReady(page: Page) {
+    await expect(workspace(page)).toBeVisible();
+    await expect(trendPlot(page)).toBeVisible();
+    await expect(page.getByRole('img', { name: /^사이클타임 분포/ })).toBeVisible();
+    await expect(page.getByTestId('cycle-kpi')).toBeVisible();
+  }
+  /** Requests the cycle endpoints took, counted by the mock server's marks (export excluded). */
+  const cycleRequests = (page: Page) => page.evaluate(() => performance.getEntriesByName('platform:mock-menu-query')
+    .filter(entry => /^analytics\.cycle\.(kpi|trend|dist|slow)$/.test(String((entry as PerformanceMark).detail?.endpoint))).length);
+  /** The plot the user sees: the canvas box clipped by every scrolling or clipping ancestor (a canvas can be taller than the window it sits in). */
+  const visiblePlotHeight = (page: Page) => workspace(page).getByRole('region', { name: TITLES.trend, exact: true }).locator('canvas').first().evaluate(canvas => {
+    const box = canvas.getBoundingClientRect();
+    let top = box.top; let bottom = box.bottom;
+    for (let element = canvas.parentElement; element; element = element.parentElement) {
+      if (getComputedStyle(element).overflowY === 'visible') continue;
+      const clip = element.getBoundingClientRect();
+      top = Math.max(top, clip.top); bottom = Math.min(bottom, clip.bottom);
+    }
+    return Math.max(0, bottom - top);
+  });
+
+  test('기본 배치: 추세가 높이의 55% 이상(320px 이상)·가장 넓고 보이는 그림이 300px 이상이며, 막대를 펼치면 작업 영역이 520px 아래로 찌그러지지 않는다', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expandedBarsAtLoad(page);
+    await page.goto(CYCLE);
+    await workspaceReady(page);
+    await collapseBars(page);
+
+    const region = (await workspace(page).boundingBox())!;
+    const trend = (await groupOf(page, TITLES.trend).boundingBox())!;
+    expect(trend.height / region.height).toBeGreaterThanOrEqual(0.55);
+    expect(trend.height).toBeGreaterThanOrEqual(320);
+    // The trend takes the full workspace height and the widest column; the others stack in the narrower column beside it.
+    for (const title of [TITLES.summary, TITLES.distribution]) expect(trend.width).toBeGreaterThan((await groupOf(page, title).boundingBox())!.width);
+    expect(await visiblePlotHeight(page)).toBeGreaterThanOrEqual(300);
+    expect(await mainScrolls(page)).toBe(false);
+    await evidence(page, testInfo, 'workspace-balanced-1440x900');
+
+    // The trend declares a 480 px minimum: Home on the separator beside it stops there, not at the global 240 px.
+    const sideSeparator = workspace(page).getByRole('separator', { name: /^사이클타임 추세 · .+ 사이 너비$/ });
+    await sideSeparator.focus();
+    await page.keyboard.press('Home');
+    await expect.poll(async () => (await groupOf(page, TITLES.trend).boundingBox())!.width).toBeGreaterThanOrEqual(479);
+
+    await page.getByRole('button', { name: '조회 조건 펼치기' }).click();
+    await page.getByRole('button', { name: '페이지 필터 펼치기' }).click();
+    // The fill body keeps 520 px (toolbar included): the page scrolls instead of crushing the workspace.
+    await expect.poll(async () => (await page.locator('[data-panel-workspace]').boundingBox())!.height).toBeGreaterThanOrEqual(519.5);
+    expect(await mainScrolls(page)).toBe(true);
+    await evidence(page, testInfo, 'workspace-min-height-expanded-bars');
+  });
+
+  test('프리셋 전환·기본 배치·숨김·최대화는 조회를 다시 보내지 않는다', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(CYCLE);
+    await workspaceReady(page);
+    await page.waitForTimeout(500);
+    const before = await cycleRequests(page);
+    expect(before).toBeGreaterThanOrEqual(3);
+
+    await page.getByRole('radio', { name: '집중' }).click();
+    await expect(page.getByRole('radio', { name: '집중' })).toBeChecked();
+    await page.getByRole('radio', { name: '기본', exact: true }).click();
+    await expect(page.getByRole('radio', { name: '기본', exact: true })).toBeChecked();
+    await page.getByRole('button', { name: '기본 배치', exact: true }).click();
+    await page.getByRole('button', { name: `${TITLES.distribution} 동작` }).click();
+    await page.getByRole('menuitem', { name: '숨기기' }).click();
+    await expect(page.getByRole('tab', { name: TITLES.distribution })).toHaveCount(0);
+    await page.getByRole('button', { name: '숨긴 패널 1' }).click();
+    await page.getByRole('menuitem', { name: `${TITLES.distribution} 다시 보기` }).click();
+    await expect(page.getByRole('tab', { name: TITLES.distribution })).toBeVisible();
+    // Showing the panel again can leave another tab active in the trend's group; the maximize toggle belongs to the active tab.
+    await groupOf(page, TITLES.trend).getByRole('tab', { name: TITLES.trend }).click();
+    await groupOf(page, TITLES.trend).getByRole('button', { name: `${TITLES.trend} 최대화` }).click();
+    await groupOf(page, TITLES.trend).getByRole('button', { name: '원래 크기로' }).click();
+    await expect(groupOf(page, TITLES.trend).getByRole('button', { name: `${TITLES.trend} 최대화` })).toBeVisible();
+
+    await page.waitForTimeout(500);
+    expect(await cycleRequests(page)).toBe(before);
+  });
+
+  test('추세 차트 높이는 컨테이너를 따른다: 최대화하면 커지고 복원하면 원래 높이로 돌아온다', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expandedBarsAtLoad(page);
+    await page.goto(CYCLE);
+    await workspaceReady(page);
+    await collapseBars(page);
+    // Read the original only once the layout has settled after the bars collapse (the first ≥ 300 reading can still be growing).
+    let original = -1;
+    await expect.poll(async () => {
+      const previous = original;
+      original = await visiblePlotHeight(page);
+      return original >= 300 && Math.abs(original - previous) < 0.5;
+    }, { intervals: [200] }).toBe(true);
+
+    await groupOf(page, TITLES.trend).getByRole('button', { name: `${TITLES.trend} 최대화` }).click();
+    await expect.poll(() => visiblePlotHeight(page)).toBeGreaterThan(original + 4);
+    await evidence(page, testInfo, 'workspace-trend-maximized');
+    await groupOf(page, TITLES.trend).getByRole('button', { name: '원래 크기로' }).click();
+    await expect.poll(async () => Math.abs((await visiblePlotHeight(page)) - original)).toBeLessThanOrEqual(4);
+  });
+
+  test('응답 배너가 떠도 작업 영역은 페이지 본문 안에 머물고 520px을 지킨다(배너 전후에는 main이 스크롤되지 않는다)', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expandedBarsAtLoad(page);
+    await page.goto(CYCLE);
+    await workspaceReady(page);
+    await collapseBars(page);
+    const insideBody = async () => {
+      const body = (await page.locator('[data-platform-page-content]').boundingBox())!;
+      const box = (await page.locator('[data-panel-workspace]').boundingBox())!;
+      return box.y >= body.y - 1 && box.y + box.height <= body.y + body.height + 1;
+    };
+    expect(await insideBody()).toBe(true);
+    expect(await mainScrolls(page)).toBe(false);
+
+    await setScenario(page, '서버 오류 (error)');
+    await expect(page.getByRole('main').locator('[data-outcome-banner]')).toHaveCount(1);
+    await expect.poll(() => insideBody()).toBe(true);
+    // The banner takes height from a body that is already at the 520 px minimum, so the page may scroll here; the workspace must not shrink.
+    // Measured on the fill root (toolbar + dock), the element the minimum applies to; the named dock region excludes the toolbar.
+    expect((await page.locator('[data-panel-workspace]').boundingBox())!.height).toBeGreaterThanOrEqual(519.5);
+    await evidence(page, testInfo, 'workspace-with-banner');
+
+    await setScenario(page, '정상');
+    await expect(page.getByRole('main').locator('[data-outcome-banner]')).toHaveCount(0);
+    await expect.poll(() => insideBody()).toBe(true);
+    expect(await mainScrolls(page)).toBe(false);
+  });
+
+  test('프리셋과 숨긴 패널은 브라우저에 기억되어 새로고침 뒤에도 같다', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(CYCLE);
+    await workspaceReady(page);
+    await page.getByRole('radio', { name: '집중' }).click();
+    // `집중` puts summary, distribution and slow in one tab group; the group's menu acts on its active tab.
+    await page.getByRole('tab', { name: TITLES.distribution }).click();
+    await page.getByRole('button', { name: `${TITLES.distribution} 동작` }).click();
+    await page.getByRole('menuitem', { name: '숨기기' }).click();
+    await expect(page.getByRole('button', { name: '숨긴 패널 1' })).toBeEnabled();
+    // The preference is written 300 ms after the change.
+    await page.waitForTimeout(600);
+    const stored = () => page.evaluate(() => Object.entries(localStorage)
+      .filter(([key]) => /^platform:workspace:v1:.+:cycle-time:drilldown$/.test(key)).map(([, value]) => JSON.parse(value) as { preset: string; hidden: string[] }));
+    expect(await stored()).toMatchObject([{ preset: 'focus', hidden: ['distribution'] }]);
+
+    await page.reload();
+    await expect(workspace(page)).toBeVisible();
+    await expect(page.getByRole('radio', { name: '집중' })).toBeChecked();
+    await expect(page.getByRole('button', { name: '숨긴 패널 1' })).toBeEnabled();
+    await expect(page.getByRole('tab', { name: TITLES.distribution })).toHaveCount(0);
+    await expect(page.getByRole('tab', { name: TITLES.slow })).toBeVisible();
+    expect(await stored()).toMatchObject([{ preset: 'focus', hidden: ['distribution'] }]);
+    await evidence(page, testInfo, 'workspace-preference-restored');
+  });
+
+  /** The V1 board and the dock flag go in one init script, so the first load already draws the dock with cycle-time in the pane. */
+  type PaneSeed = { menuId: string; params: Record<string, string>; query: string };
+  const cyclePane = (): PaneSeed => ({ menuId: 'cycle-time', params: {}, query: `?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}` });
+  const productivityPane = (): PaneSeed => ({ menuId: 'productivity-overview', params: {}, query: `?v=1&scopeId=MEM&roomNames=ETCH&${PERIOD}` });
+  async function seedDockBoard(page: Page, layout: '1x1' | '1x2', panes: PaneSeed[]) {
+    await signInAs(page, 'engineer');
+    await page.addInitScript(({ value }) => {
+      localStorage.setItem('platform:board-layout-engine', 'dock');
+      localStorage.setItem('platform:page-filter-collapsed:cycle-time', 'true');
+      const seeded = 'platform:board-fixture-seeded:engineer';
+      if (sessionStorage.getItem(seeded)) return;
+      localStorage.setItem('platform:board:engineer', JSON.stringify(value));
+      sessionStorage.setItem(seeded, '1');
+    }, { value: { v: 1, activeSheetId: 'ws', sheets: [{ id: 'ws', name: '작업 영역', layout, selected: 0, panes }] } });
+  }
+
+  test('보드 칸 안에서는 작업 영역 도구줄이 없고 칸 ⋯ 메뉴가 프리셋(라디오)과 기본 배치를 싣는다', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1600, height: 900 });
+    await seedDockBoard(page, '1x1', [cyclePane()]);
+    await page.goto('/board?sheet=ws');
+    await expect(workspace(page)).toBeVisible();
+    await expect(workspace(page).locator('.dv-groupview')).toHaveCount(3);
+    await expect(page.getByRole('toolbar', { name: '배치' })).toHaveCount(0);
+
+    await page.getByRole('button', { name: '칸 1 동작' }).click();
+    await expect(page.getByRole('menuitemradio', { name: '기본', exact: true })).toBeChecked();
+    await expect(page.getByRole('menuitemradio', { name: '집중' })).not.toBeChecked();
+    await expect(page.getByRole('menuitem', { name: '기본 배치', exact: true })).toBeVisible();
+    await evidence(page, testInfo, 'board-pane-menu-workspace-commands');
+    await page.getByRole('menuitemradio', { name: '집중' }).click();
+    await expect(workspace(page).locator('.dv-groupview')).toHaveCount(2);
+
+    await page.getByRole('button', { name: '칸 1 동작' }).click();
+    await expect(page.getByRole('menuitemradio', { name: '집중' })).toBeChecked();
+    await page.keyboard.press('Escape');
+  });
+
+  /** Drags like a person (press, stepped move, small moves over the target, release); the board's `dragTab` takes board tabs only. */
+  async function dragLike(page: Page, source: Locator, target: Locator, position: { x: number; y: number }) {
+    await source.scrollIntoViewIfNeeded();
+    const from = (await source.boundingBox())!;
+    const box = (await target.boundingBox())!;
+    const x = box.x + position.x;
+    const y = box.y + position.y;
+    await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(x, y, { steps: 8 });
+    for (let i = 0; i < 6; i++) {
+      await page.waitForTimeout(80);
+      await page.mouse.move(x + (i % 2 === 0 ? -2 : 2), y);
+    }
+    await page.mouse.up();
+  }
+
+  test('중첩 끌기는 거절된다: 칸 안 작업 영역의 탭은 보드 칸 띠나 다른 칸으로 옮겨지지 않는다', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1600, height: 900 });
+    await seedDockBoard(page, '1x2', [cyclePane(), productivityPane()]);
+    await page.goto('/board?sheet=ws');
+    await expect(workspace(page)).toBeVisible();
+    await expect(trendPlot(page)).toBeVisible();
+
+    // The inner workspace is a dock too: every board locator starts at a tab named `칸 N ·` or at the group holding one.
+    const boardTab = (number: number) => page.locator(`[role="tab"][data-tab-panel-id][aria-label^="칸 ${number} · "]`);
+    const boardGroup = (number: number) => page.locator('[data-dock-layout] .dv-groupview').filter({ has: boardTab(number) });
+    const boardTabLabels = () => page.locator('[role="tab"][data-tab-panel-id][aria-label^="칸 "]').evaluateAll(tabs => tabs.map(tab => tab.getAttribute('aria-label')));
+    const innerTabLabels = () => workspace(page).getByRole('tab').evaluateAll(tabs => tabs.map(tab => tab.textContent?.trim()));
+    const stored = () => page.evaluate(() => JSON.stringify(Object.entries(localStorage)
+      .filter(([key]) => key.startsWith('platform:board:v2:') || key.startsWith('platform:workspace:v1:')).sort(([a], [b]) => a.localeCompare(b))));
+    await expect(boardTab(1)).toBeVisible();
+    await expect(boardTab(2)).toBeVisible();
+    await page.waitForTimeout(600);
+    const snapshot = { stored: await stored(), board: await boardTabLabels(), inner: await innerTabLabels() };
+    expect(snapshot.board).toHaveLength(2);
+    expect(snapshot.inner.length).toBeGreaterThanOrEqual(2);
+    await expect(boardGroup(1)).toHaveCount(1);
+    await expect(boardGroup(2)).toHaveCount(1);
+
+    const innerTab = workspace(page).getByRole('tab', { name: TITLES.trend });
+    const body2 = boardGroup(2).locator('.dv-content-container');
+    const body2Box = (await body2.boundingBox())!;
+    // onto the other pane's tab, onto the middle and the right edge of the other pane, onto this pane's own board tab
+    await dragLike(page, innerTab, boardTab(2), { x: 20, y: 10 });
+    await dragLike(page, innerTab, body2, { x: body2Box.width / 2, y: body2Box.height / 2 });
+    await dragLike(page, innerTab, body2, { x: body2Box.width - 6, y: body2Box.height / 2 });
+    await dragLike(page, innerTab, boardTab(1), { x: 20, y: 10 });
+    await page.waitForTimeout(600);
+
+    expect(await boardTabLabels()).toEqual(snapshot.board);
+    expect(await innerTabLabels()).toEqual(snapshot.inner);
+    expect(await stored()).toBe(snapshot.stored);
+    await expect(boardGroup(1)).toHaveCount(1);
+    await expect(boardGroup(2)).toHaveCount(1);
+    await expect(workspace(page)).toHaveCount(1);
+    await evidence(page, testInfo, 'board-nested-drag-refused');
   });
 });
 

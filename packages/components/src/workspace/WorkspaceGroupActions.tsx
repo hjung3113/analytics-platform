@@ -1,3 +1,4 @@
+import type { RefObject } from 'react';
 import { Maximize2, Minimize2, MoreHorizontal } from 'lucide-react';
 import { useI18n } from '@ap/kernel';
 import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@ap/ui';
@@ -10,11 +11,13 @@ const ICON = 'size-7';
  * Header-right content of a panel group (chrome C of the board's strip, ADR-0067 decision 16): the maximize toggle and one `⋯` menu for the
  * group's active panel. `hide` is absent for the primary panel.
  */
-export function WorkspaceGroupActions({ title, titleOf, menu, onMaximize, onSplit, onMove, onHide }: {
+export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaximize, onSplit, onMove, onHide }: {
   title: string;
   /** A panel's title, naming each move target by its active panel. */
   titleOf: (panelId: string) => string;
   menu: DockLayoutMenu;
+  /** Set by an action that moves the panel: run once the menu has closed, instead of returning focus to the `⋯` trigger (which may be gone). */
+  closeFocus: RefObject<(() => void) | null>;
   onMaximize: (maximize: boolean) => void;
   onSplit: (position: 'right' | 'bottom') => void;
   onMove: (target: string) => void;
@@ -32,7 +35,13 @@ export function WorkspaceGroupActions({ title, titleOf, menu, onMaximize, onSpli
       <DropdownMenuTrigger asChild>
         <Button type="button" variant="ghost" size="icon-sm" className={ICON} data-dock-group-menu aria-label={actions} title={actions}><MoreHorizontal className="size-3.5" aria-hidden /></Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent align="end" onCloseAutoFocus={event => {
+        const next = closeFocus.current;
+        closeFocus.current = null;
+        if (next === null) return;
+        event.preventDefault();
+        next();
+      }}>
         {menu.maximized
           ? <DropdownMenuItem onSelect={() => { onMaximize(false); }}>{tx(workspaceText.restore)}</DropdownMenuItem>
           : <>
