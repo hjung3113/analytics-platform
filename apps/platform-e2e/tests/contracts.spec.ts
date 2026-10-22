@@ -548,9 +548,25 @@ test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
     await expect(page.locator('[data-dock-layout] [data-pane-body]')).toHaveCount(panes);
     await expect(page.locator('[data-dock-layout] [data-pane-body]').first()).toBeVisible();
   }
+  /**
+   * Drags like a person: press, stepped move, a few small moves over the target, release. `dragTo` sends one move, and when a
+   * pane's query resolves mid-drag the element under the pointer is replaced; with no later dragover the browser ends the drag
+   * without a drop (CI 39782412595, reproduced at CPU throttle 6–8: 5–6 of 20). The engine draws panel content in an overlay above
+   * the group body, so the point is "covered" by design — pointer coordinates, not an actionability check.
+   */
   async function dragTab(page: Page, from: number, onto: Locator, position: { x: number; y: number }) {
-    // The engine draws panel content in an overlay above the group body, so the drop point is "covered" by design: skip that check.
-    await paneTab(page, from).dragTo(onto, { targetPosition: position, force: true });
+    const source = (await paneTab(page, from).boundingBox())!;
+    const target = (await onto.boundingBox())!;
+    const x = target.x + position.x;
+    const y = target.y + position.y;
+    await page.mouse.move(source.x + source.width / 2, source.y + source.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(x, y, { steps: 8 });
+    for (let i = 0; i < 6; i++) {
+      await page.waitForTimeout(80);
+      await page.mouse.move(x + (i % 2 === 0 ? -2 : 2), y);
+    }
+    await page.mouse.up();
   }
 
   test('탭을 고르면 그 칸이 선택되고 Context 바가 그 칸을 편집한다', async ({ page }, testInfo) => {
