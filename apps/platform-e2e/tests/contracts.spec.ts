@@ -698,6 +698,8 @@ test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
     await dockReady(page, 2);
     const paneOfFocus = () => page.evaluate(() => document.activeElement?.closest('[data-pane-index]')?.getAttribute('data-pane-index') ?? null);
     const inHead = () => page.evaluate(() => document.activeElement?.closest('[data-pane-head-slot]') !== null);
+    // While the screen is still loading the pane has no focusable control yet; wait for its first one.
+    await expect(page.locator('[data-pane-index="0"]').getByRole('radio', { name: '시간' })).toBeVisible();
     await paneTab(page, 1).focus();
     await page.keyboard.press('Tab');
     await expect.poll(inHead).toBe(true);
