@@ -993,8 +993,8 @@ try {
     "shell",
     async () => {
       await go(productivity);
-      await button("업무 시스템 전환 · 현재: MARS").click();
-      const dialog = page.getByRole("dialog", { name: "업무 시스템 전환", exact: true });
+      await button("시스템 및 플랫폼 메뉴 · 현재: MARS").click();
+      const dialog = page.getByRole("dialog", { name: "시스템 및 플랫폼 메뉴", exact: true });
       await expect(dialog).toBeVisible();
       await expect(dialog).toContainText("BRAVO");
       await expect(dialog.getByRole("button", { name: /^CLAS/ })).toBeVisible();
@@ -1004,7 +1004,7 @@ try {
         if (root) root.style.visibility = "hidden";
       });
     },
-    () => unionClip([page.getByRole("dialog", { name: "업무 시스템 전환", exact: true })], 14).then((clip) => ({ clip, cover: true, hideSticky: false })),
+    () => unionClip([page.getByRole("dialog", { name: "시스템 및 플랫폼 메뉴", exact: true })], 14).then((clip) => ({ clip, cover: true, hideSticky: false })),
   );
   // CLAS 공간의 견본 화면(#590): 설비별 동작시간 TopN 막대와 모듈별 동작 흐름(LaneTimeline).
   await capture(

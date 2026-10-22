@@ -29,9 +29,20 @@ describe('workspace assembly (#260)', () => {
     vi.unstubAllGlobals();
   });
 
+  it('registers the 내 활동 placeholders as global planned menus behind platform:view (ADR-0070)', () => {
+    for (const [id, path] of [['notifications', '/notifications'], ['surveys', '/surveys'], ['permission-requests', '/permission-requests']] as const) {
+      const entry = registry.menuById(id);
+      expect(entry).toMatchObject({ group: 'myActivity', path, permission: 'platform:view' });
+      expect(registry.spaceOf(entry)).toBeNull();
+      expect(entry.component).toBeUndefined();
+      expect(entry.moduleScreen).toBeUndefined();
+    }
+  });
+
   it.skipIf(probeRun)('registers six spaces and the decided group order', () => {
     expect(GROUPS.map(group => [group.id, group.space])).toEqual([
       ['overview', null],
+      ['myActivity', null],
       ['noticeVoc', null],
       ['analytics', 'analytics'],
       ['equipment', 'analytics'],

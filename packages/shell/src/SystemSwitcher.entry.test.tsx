@@ -38,8 +38,8 @@ afterEach(() => { cleanup(); override = null; vi.unstubAllGlobals(); });
 function open() {
   const session = testSession(['platform:view']);
   render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}><TooltipProvider><SystemSwitcher /></TooltipProvider></PlatformProvider></I18nProvider>);
-  fireEvent.click(screen.getByRole('button', { name: /^업무 시스템 전환/ }));
-  return screen.getByRole('dialog', { name: '업무 시스템 전환' });
+  fireEvent.click(screen.getByRole('button', { name: /^시스템 및 플랫폼 메뉴/ }));
+  return screen.getByRole('dialog', { name: '시스템 및 플랫폼 메뉴' });
 }
 
 describe('SystemSwitcher space entry (B6)', () => {

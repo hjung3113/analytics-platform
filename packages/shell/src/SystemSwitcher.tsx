@@ -1,6 +1,7 @@
-import { Check, ChevronDown, House, LayoutGrid } from 'lucide-react';
+import { Check, ChevronDown, LayoutGrid } from 'lucide-react';
 import { useEffect, useId, useRef, type MouseEvent } from 'react';
 import { PlatformLink, useI18n, usePlatform } from '@ap/kernel';
+import { usePlatformMenu } from './platformMenu';
 import { cn, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipTrigger } from '@ap/ui';
 
 const CARD = 'flex w-full items-start gap-2 rounded-md border px-3 py-2.5 text-left hover:bg-surface-row-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring';
@@ -11,7 +12,7 @@ const CARD = 'flex w-full items-start gap-2 rounded-md border px-3 py-2.5 text-l
  * from `onCloseAutoFocus`, after the focus trap is gone, so the Kernel arrival focus (ADR-0032) lands on the new title.
  */
 export function SystemSwitcher() {
-  const { currentSpace, accessibleSpaces, spaceEntry, switchSpace, registry, resolveLink, navigate, pathname, slots, switcherOpen: open, setSwitcherOpen, switcherSession } = usePlatform();
+  const { currentSpace, accessibleSpaces, spaceEntry, switchSpace, registry, resolveLink, navigate, pathname, route, slots, switcherOpen: open, setSwitcherOpen, switcherSession } = usePlatform();
   const { t, tx } = useI18n();
   const titleId = useId();
   const contentRef = useRef<HTMLDivElement>(null);
@@ -45,9 +46,8 @@ export function SystemSwitcher() {
     const entry = spaceEntry(space.id);
     return entry === null ? [] : [{ space, entry }];
   });
-  const homeMenu = registry.matchRoute('/')?.menu;
-  const homeOpened = homeMenu !== undefined ? resolveLink(homeMenu.id) : null;
-  const homeLink = homeOpened?.allowed === true ? homeOpened : null;
+  const platform = usePlatformMenu();
+  const platformItems = platform.sections.flatMap(section => section.items);
   const planned = slots.plannedSpaces ?? [];
   const label = currentSpace === null ? t('switcherTitle') : t('switcherCurrent', { space: tx(currentSpace.label) });
   const TriggerIcon = currentSpace === null ? LayoutGrid : spaceIcon(currentSpace.homeMenuId);
@@ -60,7 +60,7 @@ export function SystemSwitcher() {
     pendingMove.current = move && switcherSession ? { move, session: switcherSession } : null;
     setSwitcherOpen(false);
   };
-  const goHome = (event: MouseEvent<HTMLAnchorElement>, href: string) => {
+  const goPlatform = (event: MouseEvent<HTMLAnchorElement>, href: string) => {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     event.preventDefault();
     const changesPage = href.split('?')[0] !== pathname;
@@ -86,7 +86,7 @@ export function SystemSwitcher() {
           const root = contentRef.current;
           const target = root?.querySelector<HTMLElement>('[data-switcher-current]')
             ?? root?.querySelector<HTMLElement>('[data-switcher-card]')
-            ?? root?.querySelector<HTMLElement>('[data-switcher-home]')
+            ?? root?.querySelector<HTMLElement>('[data-switcher-platform]')
             ?? root?.querySelector<HTMLElement>('[data-switcher-empty]');
           target?.focus({ preventScroll: true });
         }}
@@ -109,11 +109,21 @@ export function SystemSwitcher() {
         }}>
         <div className="flex items-center justify-between border-b border-border-subtle px-4 py-3">
           <h2 id={titleId} className="text-sm font-semibold">{t('switcherTitle')}</h2>
-          {homeLink && <PlatformLink data-switcher-home href={homeLink.href} onClick={event => goHome(event, homeLink.href)}
-            className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-text-secondary hover:bg-surface-row-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring">
-            <House className="size-3.5" aria-hidden />{t('platformHome')}
-          </PlatformLink>}
         </div>
+        {platformItems.length > 0 && <nav aria-label={t('platformMenu')} className="border-b border-border-subtle px-4 py-3">
+          <p className="mb-1.5 text-caption font-semibold text-text-muted">{t('platformMenu')} <span className="font-normal">· {t('platformMenuShared')}</span></p>
+          <ul className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm">{platformItems.map((menu, at) => {
+            const link = resolveLink(menu.id);
+            return <li key={menu.id} className="flex items-center gap-1.5">
+              {at > 0 && <span aria-hidden className="text-text-muted">·</span>}
+              <PlatformLink data-switcher-platform href={link.href} aria-current={route?.menu.id === menu.id ? 'page' : undefined} onClick={event => goPlatform(event, link.href)}
+                className="rounded-md px-1.5 py-0.5 text-text-secondary hover:bg-surface-row-hover hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring aria-[current=page]:font-semibold aria-[current=page]:text-text-primary">
+                {platform.labelOf(menu)}
+              </PlatformLink>
+            </li>;
+          })}</ul>
+        </nav>}
+        <p className="px-4 pt-3 text-caption font-semibold text-text-muted">{t('switcherSystemsHeading')}</p>
         {cards.length === 0
           ? <p data-switcher-empty tabIndex={-1} className="px-4 py-6 text-center text-sm text-text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring">{t('switcherEmpty')}</p>
           : <ul className="grid grid-cols-2 gap-2 p-3">{cards.map(({ space, entry }) => {

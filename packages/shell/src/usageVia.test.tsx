@@ -20,10 +20,12 @@ const entry = (id: string, path: string, label: string, over: Record<string, unk
 const registry = createRegistry({
   spaces: [testSpace({ homeMenuId: 'alpha' }), testSpace({ id: 'operations', label: { ko: '운영 콘솔', en: 'Ops' }, homeMenuId: 'ops' })],
   groups: [
+    { id: 'myActivity', label: { ko: '내 활동', en: 'My activity' }, icon: House, space: null },
     { id: 'equipment', label: { ko: '그룹', en: 'Group' }, icon: House, space: 'analytics' },
     { id: 'admin', label: { ko: '관리', en: 'Admin' }, icon: House, space: 'operations' },
   ],
   menus: [
+    { ...entry('alerts', '/alerts', '알림', { primary: true }), group: 'myActivity' as const },
     entry('alpha', '/alpha', '알파', { primary: true }),
     entry('beta', '/beta', '베타'),
     { ...entry('ops', '/ops', '운영 홈', { features: { ...features, board: false } }), group: 'admin' as const, primary: true },
@@ -71,11 +73,21 @@ describe('shell navigation marks the usage entry (#605)', () => {
   it('a space card in the switcher is via switcher', async () => {
     mount('/alpha');
     await settle();
-    fireEvent.click(screen.getByRole('button', { name: /^업무 시스템 전환/ }));
-    fireEvent.click(within(screen.getByRole('dialog', { name: '업무 시스템 전환' })).getByRole('button', { name: /운영 콘솔/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^시스템 및 플랫폼 메뉴/ }));
+    fireEvent.click(within(screen.getByRole('dialog', { name: '시스템 및 플랫폼 메뉴' })).getByRole('button', { name: /운영 콘솔/ }));
     await waitFor(() => expect(window.location.pathname).toBe('/ops'));
     await settle();
     expect(entries()).toEqual(['alpha:direct:null', 'ops:switcher:alpha']);
+  });
+
+  it('a platform-menu link in the switcher is via switcher', async () => {
+    mount('/alpha');
+    await settle();
+    fireEvent.click(screen.getByRole('button', { name: /^시스템 및 플랫폼 메뉴/ }));
+    fireEvent.click(within(within(screen.getByRole('dialog', { name: '시스템 및 플랫폼 메뉴' })).getByRole('navigation', { name: '플랫폼 메뉴' })).getByRole('link', { name: '알림' }));
+    await waitFor(() => expect(window.location.pathname).toBe('/alerts'));
+    await settle();
+    expect(entries()).toEqual(['alpha:direct:null', 'alerts:switcher:alpha']);
   });
 
   it('leaving the board with a pane\'s 본 화면에서 열기 is via board, and the board is not a previous menu', async () => {

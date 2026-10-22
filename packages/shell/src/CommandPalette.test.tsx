@@ -2,6 +2,7 @@ import { Suspense, lazy, useLayoutEffect, useRef, useState, type ReactNode } fro
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { GroupId } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, PlatformLink, usePlatform } from '@ap/kernel';
 import { PlatformPage } from '@ap/components';
 import { CommandPalette } from './CommandPalette';
@@ -9,7 +10,7 @@ import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@
 
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
 const page = lazy(async () => ({ default: () => null }));
-const menu = (id: string, group: 'overview' | 'equipment' | 'admin' | 'noticeVoc', path: string, label: { ko: string; en: string }, over: object = {}) => ({
+const menu = (id: string, group: GroupId, path: string, label: { ko: string; en: string }, over: object = {}) => ({
   id, group, path, label, description: { ko: '', en: '' }, icon: House, permission: 'platform:view' as const,
   requiresScope: false, context: noContext, pageType: 'overview' as const, features: noFeatures, pageKeys: [], ...over,
 });
@@ -52,15 +53,15 @@ function Open() {
   return <button type="button" onClick={() => setPaletteOpen(true)}>open palette</button>;
 }
 
-function mount(extra?: ReactNode) {
-  const session = testSession(['platform:view', 'console:access', 'notice:view']);
+function mount(extra?: ReactNode, useRegistry = registry, permissions: Parameters<typeof testSession>[0] = ['platform:view', 'console:access', 'notice:view']) {
+  const session = testSession(permissions);
   const forbidden = { outcome: 'forbidden' as const, data: null, assessments: [], trust: null, correlationId: 'fixture' };
   const adapter = testAdapter({
     session: () => session,
     getEntity: async () => forbidden,
     listAnnotations: async () => forbidden,
   });
-  render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><Open />{extra}<CommandPalette /></PlatformProvider></I18nProvider>);
+  render(<I18nProvider><PlatformProvider adapter={adapter} registry={useRegistry}><Open />{extra}<CommandPalette /></PlatformProvider></I18nProvider>);
   fireEvent.click(screen.getByRole('button', { name: 'open palette' }));
 }
 
@@ -116,6 +117,34 @@ describe('CommandPalette space bundles (06 §9.1)', () => {
     expect(screen.getByRole('option', { name: /홈/ }).textContent).not.toContain('Overview');
     expect(screen.getByRole('option', { name: /공지/ }).textContent).not.toContain('Catalog');
     expect(screen.queryByRole('option', { name: /공지 상세/ })).toBeNull();
+  });
+
+  // MENUS order (notices, permission-gated survey, alerts, home) differs from GROUPS order (overview, myActivity, noticeVoc).
+  const globalOrderRegistry = createRegistry({
+    spaces: [testSpace({ id: 'analytics', label: { ko: 'MARS', en: 'MARS' }, homeMenuId: 'equipment' })],
+    groups: [
+      { id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: null },
+      { id: 'myActivity', label: { ko: '내 활동', en: 'My activity' }, icon: House, space: null },
+      { id: 'noticeVoc', label: { ko: '공지·VOC', en: 'Notice & VOC' }, icon: House, space: null },
+      { id: 'equipment', label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: 'analytics' },
+    ],
+    menus: [
+      menu('notices', 'noticeVoc', '/notices', { ko: '공지', en: 'Notices' }, { primary: true, permission: 'notice:view', component: page }),
+      menu('surveys', 'myActivity', '/surveys', { ko: '설문', en: 'Surveys' }, { permission: 'console:access', component: page }),
+      menu('alerts', 'myActivity', '/alerts', { ko: '알림', en: 'Notifications' }, { primary: true, component: page }),
+      menu('start', 'overview', '/', { ko: '플랫폼 홈', en: 'Platform home' }, { primary: true, component: page }),
+      menu('equipment', 'equipment', '/equipment', { ko: '설비', en: 'Equipment' }, { primary: true, component: page }),
+    ],
+  });
+
+  it('lists the platform destinations in group order with the 플랫폼 › group › menu path, and omits one without permission', () => {
+    storage.clear();
+    mount(undefined, globalOrderRegistry, ['platform:view', 'notice:view']);
+    expect(screen.getAllByRole('option').map(option => option.id)).toEqual(['palette-equipment', 'palette-start', 'palette-alerts', 'palette-notices']);
+    expect(subtitle('palette-start')).toBe('플랫폼 › 개요 › 플랫폼 홈');
+    expect(subtitle('palette-alerts')).toBe('플랫폼 › 내 활동 › 알림');
+    expect(subtitle('palette-notices')).toBe('플랫폼 › 공지·VOC › 공지');
+    expect(screen.queryByRole('option', { name: /설문/ })).toBeNull();
   });
 
   it('finds global menus by 플랫폼 and hides empty bundles', () => {
