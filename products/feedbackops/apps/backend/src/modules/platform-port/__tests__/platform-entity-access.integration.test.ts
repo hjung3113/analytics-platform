@@ -49,6 +49,7 @@ describe.skipIf(!runIntegration)('platform port entity + access reads (#623)', (
   let migrateHandle: DbHandle;
   let app: FastifyInstance;
   const actorIds: string[] = [];
+  const isolatedActorIds: string[] = []; // kept out of actorIds: the directory tests assert exact sets
   let msId = '';
   let n = 0;
 
@@ -184,9 +185,13 @@ describe.skipIf(!runIntegration)('platform port entity + access reads (#623)', (
     await q('delete from finding.findings where primary_managed_system_id = $1', [msId]);
     await q('delete from permission.permission_grants where managed_system_id = $1', [msId]);
     await q('delete from voc.vocs where primary_managed_system_id = $1', [msId]);
-    if (actorIds.length > 0) {
-      await q('delete from core.sessions where actor_id = any($1::uuid[])', [actorIds]);
-      await q('delete from core.actors where id = any($1::uuid[])', [actorIds]);
+    const allActorIds = [...actorIds, ...isolatedActorIds];
+    if (allActorIds.length > 0) {
+      await q('delete from permission.permission_grants where actor_id = any($1::uuid[])', [
+        allActorIds,
+      ]);
+      await q('delete from core.sessions where actor_id = any($1::uuid[])', [allActorIds]);
+      await q('delete from core.actors where id = any($1::uuid[])', [allActorIds]);
     }
     if (msId) await q('delete from core.managed_systems where id = $1', [msId]);
     await app?.close();
@@ -365,6 +370,35 @@ describe.skipIf(!runIntegration)('platform port entity + access reads (#623)', (
         ).toBe('error');
       },
     );
+  });
+
+  describe('console access is independent of entity reads', () => {
+    it('a user with only a workspace-scoped workspace.admin grant opens the directory but reads no entity', async () => {
+      const consoleUser = await newPerson('user', `${PREFIX} N6 console`);
+      actorIds.splice(actorIds.indexOf(consoleUser.id), 1);
+      isolatedActorIds.push(consoleUser.id);
+      await grantCapability(
+        migrateHandle,
+        WORKSPACE_ID,
+        consoleUser.id,
+        'workspace.admin',
+        null,
+        admin.id,
+      );
+
+      const directory = await call('/access-directory/search', { pageSize: 100 }, consoleUser);
+      expect(directory.outcome).toBe('ok');
+
+      for (const kind of ['voc', 'finding', 'task'] as const) {
+        for (const path of ['/entity', '/entity/audit']) {
+          expect(await call(path, entityOf()[kind].ref(), consoleUser)).toMatchObject({
+            outcome: 'forbidden',
+            data: null,
+            message: 'Not readable',
+          });
+        }
+      }
+    });
   });
 
   describe('accessDirectory', () => {
