@@ -30,4 +30,5 @@
 - 실패한 검사는 Playwright의 실패 스크린샷(`screenshot: 'only-on-failure'`)이 그 항목의 증거로 들어간다.
 - 보고: `contract-report/README.md`(항목별 통과/불안정/실패 표) + `evidence/`(스크린샷) + `results.json`. 실패 추적은 `playwright-report/`. 모두 git에 넣지 않는다.
 - CI Job `Platform contracts (E2E)`가 표를 Job 요약에 싣고 `platform-contract-report` 아티팩트로 올린다.
+- CI는 스위트를 shard 3개 Job(`Platform contracts (E2E shard i/3)`, `pnpm e2e --shard=i/3 --reporter=list,blob`)으로 나눠 돌리고, 병합 Job `Platform contracts (E2E)`가 blob을 `pnpm --filter @ap/platform-e2e e2e:merge`(`playwright.merge.config.ts`)로 합쳐 하나의 보고를 만든다(#666). 판정은 병합 Job이 shard 결과로 낸다. `fullyParallel: true`는 shard가 파일이 아니라 테스트 단위로 나뉘게 하려는 것이고, 워커가 1개라 실행 순서는 그대로다. shard 하나만 재현하려면 `pnpm e2e --shard=2/3` — 인자 앞에 `--`를 넣지 않는다(Playwright가 파일 필터로 읽는다). `e2e:base-path`는 shard 3에서 한 번만 돈다.
 - lint·typecheck는 루트 `pnpm lint`·`pnpm typecheck`에 포함된다. `pnpm test`에는 포함되지 않는다.
