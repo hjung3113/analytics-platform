@@ -45,7 +45,7 @@ GLOBAL_KEYS | const | const GLOBAL_KEYS: Set<string>
 GROUP_IDS | const | const GROUP_IDS: readonly @ap/contracts#GroupId[]
 GlobalContext | type | type GlobalContext = { condition: @ap/contracts#Condition | null; from: null | string; lineNames: @ap/contracts#IdSet; lotIds: @ap/contracts#IdSet; membershipBasis: 'asOf' | null; metricId: null | string; metricVersion: null | string; ppid: null | string; prcGroups: @ap/contracts#IdSet; recipeIds: @ap/contracts#IdSet; roomNames: @ap/contracts#IdSet; scopeId: null | string; selection: @ap/contracts#IdSet; to: null | string; }
 Grain | type | type Grain = 'day' | 'hour' | 'week'
-GroupId | type | type GroupId = 'admin' | 'analytics' | 'clas' | 'equipment' | 'impMyWork' | 'impReports' | 'impTasks' | 'logCross' | 'logModels' | 'logMyWork' | 'logRules' | 'masterData' | 'metrics' | 'noticeVoc' | 'overview'
+GroupId | type | type GroupId = 'admin' | 'analytics' | 'clas' | 'equipment' | 'impMyWork' | 'impReports' | 'impTasks' | 'logCross' | 'logModels' | 'logMyWork' | 'logRules' | 'masterData' | 'metrics' | 'myActivity' | 'noticeVoc' | 'overview'
 HOST_CONTRACTS | const | const HOST_CONTRACTS: readonly [ 1 ]
 HostContract | type | type HostContract = 1
 HostFeature | type | type HostFeature = 'detailSlot' | 'query' | 'write'
