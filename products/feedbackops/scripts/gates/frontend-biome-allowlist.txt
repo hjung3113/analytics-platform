@@ -489,3 +489,6 @@ apps/frontend/src/features/voc/components/create/__tests__/VocDescriptionToolbar
 apps/backend/src/modules/auth/routes.ts lint/correctness/noUnusedVariables -- pre-existing on develop (measured 2026-10-19); surfaced by #1278 touching the file
 apps/backend/src/modules/auth/routes.ts organizeImports -- pre-existing on develop (measured 2026-10-19); surfaced by #1278 touching the file
 apps/backend/src/__tests__/config-attachment-origin.test.ts format -- pre-existing on develop (measured 2026-10-19); surfaced by #1278 touching the file
+apps/backend/src/modules/auth/oidc-auth-provider.ts lint/complexity/useLiteralKeys -- pre-existing on main (measured 2026-10-22, same count on origin/main); surfaced by #635 moving sanitizeReturnTo out of the file
+apps/backend/src/modules/auth/oidc-auth-provider.ts lint/style/useTemplate -- pre-existing on main (measured 2026-10-22, same count on origin/main); surfaced by #635 moving sanitizeReturnTo out of the file
+apps/backend/src/modules/auth/oidc-auth-provider.ts organizeImports -- pre-existing on main (measured 2026-10-22, same count on origin/main); surfaced by #635 moving sanitizeReturnTo out of the file
