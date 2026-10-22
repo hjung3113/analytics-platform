@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useId, useRef } from 'react';
 import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@ap/ui';
 import { useI18n } from '@ap/kernel';
 import type { WorkspaceCommand } from '../dock/WorkspaceCommandsHost';
@@ -23,11 +23,12 @@ export function WorkspaceToolbar({ commands, onShown }: { commands: readonly Wor
   // Presets cannot be changed while the compact arrangement shows (it is the preset): they are off, with the reason on the control.
   const compactOff = presets.length > 0 && presets.every(command => command.disabled);
   const reason = tx(workspaceText.compactPresetOff);
+  const reasonId = useId();
   return <div role="toolbar" aria-label={tx(workspaceText.layout)} data-workspace-toolbar className="flex flex-wrap items-center gap-2">
     {presets.length > 1 && <span className="inline-flex" title={compactOff ? reason : undefined}>
-      <SegmentedRadio label={tx(workspaceText.layout)} value={current} disabled={compactOff} describedBy={compactOff ? 'workspace-compact-off' : undefined} onChange={next => { presets.find(command => command.id === next)?.run(); }}
+      <SegmentedRadio label={tx(workspaceText.layout)} value={current} disabled={compactOff} describedBy={compactOff ? reasonId : undefined} onChange={next => { presets.find(command => command.id === next)?.run(); }}
         options={presets.map(command => ({ value: command.id, label: command.label }))} />
-      {compactOff && <span id="workspace-compact-off" className="sr-only">{reason}</span>}
+      {compactOff && <span id={reasonId} className="sr-only">{reason}</span>}
     </span>}
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
