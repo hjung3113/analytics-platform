@@ -524,7 +524,8 @@ test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
   const paneTabs = (page: Page) => page.locator('[data-dock-layout] [role="tab"][data-tab-panel-id]');
   const paneTab = (page: Page, number: number) => paneTabs(page).filter({ hasText: new RegExp(`^칸 ${number} · `) });
   const groups = (page: Page) => page.locator('[data-dock-layout] .dv-groupview');
-  const groupOfTab = (page: Page, number: number) => groups(page).filter({ has: paneTab(page, number) });
+  // `has` matches inside each group, so its locator must not start at `[data-dock-layout]` (an ancestor of the group).
+  const groupOfTab = (page: Page, number: number) => groups(page).filter({ has: page.locator('[role="tab"][data-tab-panel-id]').filter({ hasText: new RegExp(`^칸 ${number} · `) }) });
   const groupBody = (page: Page, number: number) => groupOfTab(page, number).locator('.dv-content-container');
   const contextOf = (page: Page, number: number) => page.getByRole('region', { name: `칸 ${number} · 분석 Context` });
   const groupMenuOf = (page: Page, number: number) => groupOfTab(page, number).locator('[data-dock-group-menu]');
@@ -534,9 +535,13 @@ test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
   async function dockReady(page: Page, panes: number) {
     await page.goto('/board?sheet=dock');
     await expect(paneTabs(page)).toHaveCount(panes);
+    // The tabs exist a frame before the engine shows its panels.
+    await expect(page.locator('[data-dock-layout] [data-pane-body]')).toHaveCount(panes);
+    await expect(page.locator('[data-dock-layout] [data-pane-body]').first()).toBeVisible();
   }
   async function dragTab(page: Page, from: number, onto: Locator, position: { x: number; y: number }) {
-    await paneTab(page, from).dragTo(onto, { targetPosition: position });
+    // The engine draws panel content in an overlay above the group body, so the drop point is "covered" by design: skip that check.
+    await paneTab(page, from).dragTo(onto, { targetPosition: position, force: true });
   }
 
   test('탭을 고르면 그 칸이 선택되고 Context 바가 그 칸을 편집한다', async ({ page }, testInfo) => {
