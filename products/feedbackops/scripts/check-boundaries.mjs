@@ -12,6 +12,11 @@
 //   9. Backend modules MUST NOT import another module's __tests__/_seed-helpers.
 //  10. Modules outside Core owners/tests MUST NOT use owner tables in raw SQL or import owner symbols;
 //      src/test-support also MUST NOT import owner symbols from db/schema/core.
+//  11. Source outside tests (apps/*, packages/*) MUST NOT import a platform package `@ap/*` other than
+//      `@ap/ui` (ADR-0073, #674). Tests (__tests__/, tests/, test-support/, *.test.*) may import
+//      `@ap/contracts`, `@ap/server-conformance` and `@ap/http-adapter` as devDependencies.
+//      The manifests say the same: no FeedbackOps manifest (root, apps/*, packages/*) lists an `@ap/*` package
+//      other than `@ap/ui` under dependencies, peerDependencies or optionalDependencies (devDependencies are fine).
 
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { basename, dirname, join, relative, resolve, sep } from 'node:path';
@@ -71,6 +76,11 @@ const RULES = [
     kind: 'foreign-core-owner-table-access',
     msg: 'backend code must access Managed Systems and Analytics Areas through their owner surfaces',
   },
+  ...['apps', 'packages'].map((scope) => ({
+    scope,
+    kind: 'platform-package-imports',
+    msg: 'FeedbackOps source may import only @ap/ui from the platform; other @ap/* packages are for tests only (ADR-0073)',
+  })),
 ];
 
 const EXT = new Set(['.ts', '.tsx', '.mts', '.cts', '.js', '.jsx']);
@@ -138,6 +148,14 @@ function collectImportSpecifiers(file, content) {
   };
   visit(source);
   return out;
+}
+
+function isTestPath(file) {
+  const parts = relative(ROOT, file).split(sep);
+  return (
+    parts.some((part) => part === '__tests__' || part === 'tests' || part === 'test-support') ||
+    /\.(test|spec)\.[^.]+$/.test(basename(file))
+  );
 }
 
 function collectCoreOwnerTableImports(file, content) {
@@ -304,6 +322,18 @@ for (const rule of RULES) {
       }
       continue;
     }
+    if (rule.kind === 'platform-package-imports') {
+      if (isTestPath(file)) continue;
+      for (const { specifier, line } of collectImportSpecifiers(file, content)) {
+        if (/^@ap\//.test(specifier) && !/^@ap\/ui(?:\/|$)/.test(specifier)) {
+          violations++;
+          console.error(
+            `[boundary] ${relative(ROOT, file)}:${line}: ${rule.msg} (imports ${specifier})`,
+          );
+        }
+      }
+      continue;
+    }
     if (rule.kind === 'foreign-core-owner-table-access') {
       const srcSegment = moduleSegment(file);
       const modulesRoot = join(ROOT, 'apps/backend/src/modules');
@@ -344,6 +374,40 @@ for (const rule of RULES) {
       if (pat.test(content)) {
         violations++;
         console.error(`[boundary] ${relative(ROOT, file)}: ${rule.msg} (matched ${pat})`);
+      }
+    }
+  }
+}
+
+// Rule 11, manifest half (ADR-0073 decision 3): runtime dependencies carry only @ap/ui. Every manifest that can reach the
+// product's runtime graph is read: the FeedbackOps root and each apps/* and packages/* package; peer and optional
+// dependencies count as runtime.
+const RUNTIME_DEP_FIELDS = ['dependencies', 'peerDependencies', 'optionalDependencies'];
+const manifests = [join(ROOT, 'package.json')];
+for (const group of ['apps', 'packages']) {
+  let names = [];
+  try {
+    names = readdirSync(join(ROOT, group));
+  } catch {
+    continue;
+  }
+  for (const name of names) manifests.push(join(ROOT, group, name, 'package.json'));
+}
+for (const manifest of manifests) {
+  let pkg;
+  try {
+    pkg = JSON.parse(readFileSync(manifest, 'utf8'));
+  } catch (err) {
+    if (err.code === 'ENOENT' || err.code === 'ENOTDIR') continue;
+    throw err;
+  }
+  for (const field of RUNTIME_DEP_FIELDS) {
+    for (const dep of Object.keys(pkg[field] ?? {})) {
+      if (/^@ap\//.test(dep) && dep !== '@ap/ui') {
+        violations++;
+        console.error(
+          `[boundary] ${relative(ROOT, manifest)}: ${field} may list only @ap/ui from the platform; ${dep} belongs in devDependencies (ADR-0073)`,
+        );
       }
     }
   }

@@ -1,0 +1,48 @@
+{
+  "permissions": [
+    "platform:view",
+    "equipment:view",
+    "master:view",
+    "analytics:view",
+    "metrics:view",
+    "notice:view",
+    "voc:view",
+    "console:access",
+    "feedbackops:access"
+  ],
+  "spaceIds": [
+    "analytics",
+    "metrics",
+    "clas",
+    "operations",
+    "log-dev",
+    "improvement"
+  ],
+  "usageVias": [
+    "sidebar",
+    "switcher",
+    "palette",
+    "board",
+    "return",
+    "crossLink",
+    "drill",
+    "history",
+    "direct",
+    "link"
+  ],
+  "auditActions": [
+    "create",
+    "update",
+    "retire",
+    "sync",
+    "delete"
+  ],
+  "outcomes": [
+    "ok",
+    "empty",
+    "error",
+    "forbidden",
+    "too_large",
+    "timeout"
+  ]
+}

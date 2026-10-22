@@ -2,8 +2,9 @@
 //
 // The platform's `Session.user.permissions` is a closed list (`PERMISSIONS` in the
 // root `packages/contracts/src/menu.ts`). This table maps every entry to the rule
-// that grants it here; `permissions-vocabulary.test.ts` reads that file as text
-// and fails when an entry is missing or listed twice (ADR-0068 "one vocabulary").
+// that grants it here; `permissions-vocabulary.test.ts` reads the generated
+// `@ap/contracts/vocab.json` and fails when an entry is missing or listed twice
+// (ADR-0068 "one vocabulary").
 
 import type { CheckService } from '../permissions/check-service.js';
 

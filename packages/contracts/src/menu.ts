@@ -12,7 +12,9 @@ export type GroupId = 'overview' | 'myActivity' | 'equipment' | 'masterData' | '
 /** The platform's closed group list at runtime (a module group is `<moduleId>:<name>`, ADR-0053). The Record keeps it complete: a new GroupId member fails typecheck until it is listed here. */
 const GROUP_ID_SET: Record<GroupId, true> = { overview: true, myActivity: true, equipment: true, masterData: true, analytics: true, metrics: true, noticeVoc: true, admin: true, clas: true, logMyWork: true, logModels: true, logCross: true, logRules: true, impMyWork: true, impTasks: true, impReports: true };
 export const GROUP_IDS: readonly GroupId[] = Object.keys(GROUP_ID_SET) as GroupId[];
-export type SpaceId = 'analytics' | 'metrics' | 'clas' | 'operations' | 'log-dev' | 'improvement';
+/** The space vocabulary at runtime — emitted to `vocab.json` for servers outside this workspace (#674). */
+export const SPACE_IDS = ['analytics', 'metrics', 'clas', 'operations', 'log-dev', 'improvement'] as const;
+export type SpaceId = typeof SPACE_IDS[number];
 /** Sidebar-visible group set + entry permission (06 §9.1). Groups declare membership via GroupDef.space, menus never do. */
 export type SpaceDef = {
   id: SpaceId;

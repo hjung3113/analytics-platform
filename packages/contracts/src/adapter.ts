@@ -79,7 +79,8 @@ export type UsageSource = 'main' | 'board';
  * `crossLink` (06 §22 cross-menu Context link), `drill` (a drill step landing on another path), `history` (Back/Forward),
  * `direct` (the tab's first entry when unmarked: new tab, reload, typed address; an explicit mark wins), `link` (any other in-app navigation).
  */
-export type UsageVia = 'sidebar' | 'switcher' | 'palette' | 'board' | 'return' | 'crossLink' | 'drill' | 'history' | 'direct' | 'link';
+export const USAGE_VIAS = ['sidebar', 'switcher', 'palette', 'board', 'return', 'crossLink', 'drill', 'history', 'direct', 'link'] as const;
+export type UsageVia = typeof USAGE_VIAS[number];
 /**
  * A render failure the kernel's route error boundary contained (issue #101). Identity fields only, like UsageEvent:
  * no URL, Context value, stack, component stack or `Error.message` — a thrown message is free text that can carry

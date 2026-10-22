@@ -69,8 +69,25 @@ export type PortSamples = {
   otherGrantedScopeId: string;
 };
 
+/** One `PlatformAdapter` member — the unit a server declares as implemented (#674). */
+export type PortMethod = keyof PlatformAdapter;
+
 export type ServerConformanceHarness = {
   adapter: PlatformAdapter;
+  /**
+   * The port methods this server implements (#674). Absent = every method. A check that calls a method outside the
+   * list is planned as skipped with ` — not implemented: <methods>` in its id: the gap stays visible (a readiness
+   * table), never a pass and never a failure.
+   */
+  implemented?: readonly PortMethod[];
+  /**
+   * False when the server grants no sites yet (`session().scopes` is `[]` — the FeedbackOps backend until site·room
+   * grants exist, ADR-0069 decision 8). Every check that needs a granted site is then planned as skipped with
+   * ` — no site grants` — every check of a Scope-requiring endpoint or action among them (each request carries
+   * `context.scopeId`) — so `context.scopeId`, `foreignScopeId` and `ports.otherGrantedScopeId` are placeholders no run
+   * check sends. Default true.
+   */
+  siteGrants?: boolean;
   cases: readonly ConformanceCase[];
   /** Applied Context values a granted request uses: a granted site and an absolute period inside every endpoint limit. */
   context: { scopeId: string; from: string; to: string };
@@ -121,6 +138,10 @@ export type ConformanceCheck = {
    * method threw/rejected instead.
    */
   nonEnvelope?: boolean;
+  /** The port methods `run` calls; a method outside `harness.implemented` turns the check into a skipped one. */
+  uses?: readonly PortMethod[];
+  /** The check needs a granted site; `harness.siteGrants: false` turns it into a skipped one. */
+  needsSites?: boolean;
   run: () => Promise<string | null>;
 };
 
@@ -214,6 +235,7 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
   const checks: ConformanceCheck[] = [{
     id: 'unknown endpoint → error',
     mode: 'granted',
+    uses: ['menuQuery'],
     run: expectOutcome(send({ endpoint: UNKNOWN_ENDPOINT, context: {}, params: {} }), 'error', 'an unregistered endpoint id'),
   }];
 
@@ -324,11 +346,13 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
       checks.push({
         id: name('a site without a grant → forbidden'),
         mode: 'granted',
+        needsSites: true,
         run: expectOutcome(send({ ...base, context: { ...base.context, scopeId: harness.foreignScopeId } }), 'forbidden', 'Scope is re-validated per request'),
       });
       checks.push({
         id: name('a null Scope → forbidden'),
         mode: 'granted',
+        needsSites: true,
         run: expectOutcome(send({ ...base, context: { ...base.context, scopeId: null } }), 'forbidden', 'a Scope-requiring endpoint has no site to read'),
       });
     }
@@ -383,6 +407,11 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
       mode: 'permission',
       run: () => harness.withoutPermission(spec.permission, expectOutcome(send(base), 'forbidden', 'the endpoint permission is re-checked per request')),
     });
+    for (const check of checks.slice(caseStart)) {
+      check.uses = ['menuQuery'];
+      // A Scope-requiring endpoint sends `context.scopeId` in every request, so each of its checks needs a granted site.
+      if (spec.requiresScope) check.needsSites = true;
+    }
     if (noSample) {
       for (const check of checks.slice(caseStart)) {
         check.mode = 'skipped';
@@ -391,7 +420,29 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
     }
   }
 
-  return [...checks, ...planPortChecks(harness), ...planActionChecks(harness), ...planConditionChecks(harness), ...planSelectionPortChecks(harness)];
+  return declareGaps(harness, [...checks, ...planPortChecks(harness), ...planActionChecks(harness), ...planConditionChecks(harness), ...planSelectionPortChecks(harness)]);
+}
+
+/**
+ * Applies the harness's declared gaps (#674): a check calling an unimplemented method, or needing a site on a server
+ * with no site grants, is planned as skipped and says why in its id. A check already skipped for want of a sample
+ * still names the unimplemented methods, so the readiness table shows the port gap rather than only a missing sample.
+ */
+function declareGaps(harness: ServerConformanceHarness, checks: ConformanceCheck[]): ConformanceCheck[] {
+  const implemented = harness.implemented ? new Set<PortMethod>(harness.implemented) : null;
+  for (const check of checks) {
+    // Every check declares the ports it calls where it is defined; an untagged one would dodge `implemented`.
+    if (!check.uses?.length) throw new Error(`conformance check declares no port methods (uses): ${check.id}`);
+    const missing = implemented ? (check.uses ?? []).filter(method => !implemented.has(method)) : [];
+    if (missing.length > 0) {
+      check.mode = 'skipped';
+      check.id += ` — not implemented: ${missing.join(', ')}`;
+    } else if (check.mode !== 'skipped' && harness.siteGrants === false && check.needsSites) {
+      check.mode = 'skipped';
+      check.id += ' — no site grants';
+    }
+  }
+  return checks;
 }
 
 const describeAction = (r: ActionResponse<unknown>): string => `${r.outcome}${r.message ? ` (${r.message})` : ''}`;
@@ -405,10 +456,11 @@ const describeAction = (r: ActionResponse<unknown>): string => `${r.outcome}${r.
 function planActionChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
   const { adapter } = harness;
   if (!harness.actions?.length) {
-    return [{ id: 'actions: no sample', mode: 'skipped', run: async () => null }];
+    return [{ id: 'actions: no sample', mode: 'skipped', uses: ['menuAction'], run: async () => null }];
   }
   const checks: ConformanceCheck[] = [];
   for (const c of harness.actions) {
+    const actionStart = checks.length;
     const { spec } = c;
     const versioned = spec.concurrency === 'version';
     const name = (what: string) => `${spec.id} · ${what}`;
@@ -510,6 +562,7 @@ function planActionChecks(harness: ServerConformanceHarness): ConformanceCheck[]
       checks.push({
         id: name('a site without a grant → forbidden'),
         mode: 'sequential',
+        needsSites: true,
         run: async () => want(await sendGranted(await prepare({ scopeId: harness.foreignScopeId })), 'forbidden', 'a foreign scope'),
       });
     }
@@ -524,14 +577,17 @@ function planActionChecks(harness: ServerConformanceHarness): ConformanceCheck[]
         return want(r, 'ok', 'the same key with a valid input') ?? (r.replayed ? 'a fresh write after an invalid answer must not be a replay' : null);
       },
     });
+    // A Scope-requiring action sends `context.scopeId` in every request (`prepare`), so each check needs a granted site.
+    if (spec.requiresScope) for (const check of checks.slice(actionStart)) check.needsSites = true;
   }
+  for (const check of checks) check.uses = ['menuAction'];
   return checks;
 }
 
 /** Axis vocabulary and data come entirely from the harness. */
 function planConditionChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
   const sample = harness.ports.condition;
-  if (!sample) return [{ id: 'condition: no sample', mode: 'skipped', run: async () => null }];
+  if (!sample) return [{ id: 'condition: no sample', mode: 'skipped', uses: ['evaluateSelection'], run: async () => null }];
   const { axisA, axisB } = sample;
   const evaluate = async (condition: Condition) => {
     const r = await harness.adapter.evaluateSelection({ ...emptyGlobal, scopeId: harness.context.scopeId, condition });
@@ -551,7 +607,7 @@ function planConditionChecks(harness: ServerConformanceHarness): ConformanceChec
   const endpointCase = harness.cases.find(c => c.spec.id === sample.endpoint);
   const invalidChecks: ConformanceCheck[] = malformed.flatMap(({ label, patch }) => {
     const checks: ConformanceCheck[] = [{
-      id: `condition · evaluateSelection rejects ${label}`, mode: 'granted', nonEnvelope: true,
+      id: `condition · evaluateSelection rejects ${label}`, mode: 'granted', nonEnvelope: true, uses: ['evaluateSelection'],
       run: async () => {
         try {
           await harness.adapter.evaluateSelection({ ...emptyGlobal, scopeId: harness.context.scopeId, ...patch } as Parameters<PlatformAdapter['evaluateSelection']>[0]);
@@ -564,36 +620,38 @@ function planConditionChecks(harness: ServerConformanceHarness): ConformanceChec
     if (endpointCase) {
       const base = baseRequest(harness, endpointCase);
       if (Object.keys(patch).every(key => key in base.context)) checks.push({
-        id: `condition · menuQuery rejects ${label}`, mode: 'granted',
+        id: `condition · menuQuery rejects ${label}`, mode: 'granted', uses: ['menuQuery'],
         run: expectOutcome(() => harness.adapter.menuQuery({ ...base, context: { ...base.context, ...patch } }), 'error', label),
       });
     }
     return checks;
   });
 
-  return [
+  const conditionChecks: ConformanceCheck[] = [
     ...invalidChecks,
-    { id: 'condition · AND narrows across axes', mode: 'granted', nonEnvelope: true, run: async () => {
+    { id: 'condition · AND narrows across axes', mode: 'granted', nonEnvelope: true, uses: ['evaluateSelection'], run: async () => {
       const [base, both] = await Promise.all([evaluate(single), evaluate({ ...single, [axisB.id]: [axisB.value] })]);
       return both.size > 0 && both.size < base.size && [...both].every(id => base.has(id)) ? null : 'AND must produce a non-empty strict subset for the supplied sample';
     } },
-    { id: 'condition · OR includes each value', mode: 'granted', nonEnvelope: true, run: async () => {
+    { id: 'condition · OR includes each value', mode: 'granted', nonEnvelope: true, uses: ['evaluateSelection'], run: async () => {
       const [a, b, either] = await Promise.all([evaluate(single), evaluate({ [axisA.id]: [axisA.values[1]] }), evaluate({ [axisA.id]: axisA.values })]);
       const union = new Set([...a, ...b]);
       return a.size > 0 && b.size > 0 && either.size === union.size && [...union].every(id => either.has(id)) ? null : 'OR must equal the union of the two non-empty samples';
     } },
-    { id: 'condition · v1 single axis is equivalent', mode: 'granted', nonEnvelope: true, run: async () => {
+    { id: 'condition · v1 single axis is equivalent', mode: 'granted', nonEnvelope: true, uses: ['evaluateSelection'], run: async () => {
       const legacy = parseQuery('?equipmentGroup=' + encodeURIComponent(JSON.stringify({ axis: axisA.id, id: axisA.values[0] }))).global.condition!;
       const [a, b] = await Promise.all([evaluate(single), evaluate(legacy)]);
       return a.size === b.size && [...a].every(id => b.has(id)) ? null : 'v1 decoding changed the matching equipment';
     } },
-    { id: 'condition · asOf without history → error', mode: 'granted', run: async () => {
+    { id: 'condition · asOf without history → error', mode: 'granted', uses: ['menuQuery'], run: async () => {
       const c = harness.cases.find(c => c.spec.id === sample.endpoint);
       if (!c || c.spec.context.condition !== 'apply') return 'condition sample needs a condition-applying endpoint';
       const base = baseRequest(harness, c);
       return expectOutcome(() => harness.adapter.menuQuery({ ...base, context: { ...base.context, condition: { [sample.nonHistoryAxisId]: [axisA.values[0]] }, membershipBasis: 'asOf' } }), 'error', 'asOf on a non-history axis')();
     } },
   ];
+  for (const check of conditionChecks) check.needsSites = true;
+  return conditionChecks;
 }
 
 /**
@@ -606,8 +664,15 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
   const entityRef = ports.entity.ref;
   const ungrantedRoomRef = ports.entity.ungrantedRoomRef;
   const checks: ConformanceCheck[] = [];
+  // Entity checks that only mean something for a site-scoped destination type (skipped for a siteless sample).
+  const siteEntityChecks = new Set<ConformanceCheck>();
+  const atSite = (check: ConformanceCheck): ConformanceCheck => {
+    siteEntityChecks.add(check);
+    return check;
+  };
   checks.push({
     id: 'port · session() returns the same object until the session changes',
+    uses: ['session'],
     mode: 'granted',
     nonEnvelope: true,
     run: async () => (Object.is(adapter.session(), adapter.session())
@@ -616,6 +681,8 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
   });
   checks.push({
     id: 'port · session lists the granted sites and not the foreign one',
+    uses: ['session'],
+    needsSites: true,
     mode: 'granted',
     nonEnvelope: true,
     run: async () => {
@@ -631,6 +698,7 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
   });
   checks.push({
     id: 'port · subscribe returns an unsubscribe function',
+    uses: ['subscribe'],
     mode: 'granted',
     nonEnvelope: true,
     run: async () => {
@@ -648,6 +716,8 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
   });
   checks.push({
     id: 'port · validateScope(granted site) → valid with its rooms',
+    uses: ['validateScope'],
+    needsSites: true,
     mode: 'granted',
     nonEnvelope: true,
     run: async () => {
@@ -659,6 +729,8 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
   });
   checks.push({
     id: 'port · validateScope(second granted site) → valid',
+    uses: ['validateScope'],
+    needsSites: true,
     mode: 'granted',
     nonEnvelope: true,
     run: async () => {
@@ -670,6 +742,8 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
   });
   checks.push({
     id: 'port · validateScope(foreign site) → forbidden with no rooms',
+    uses: ['validateScope'],
+    needsSites: true,
     mode: 'granted',
     nonEnvelope: true,
     run: async () => {
@@ -681,6 +755,8 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
   });
   checks.push({
     id: 'port · validateScope(unknown site) → unknown_scope',
+    uses: ['validateScope'],
+    needsSites: true,
     mode: 'granted',
     nonEnvelope: true,
     run: async () => {
@@ -694,6 +770,7 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
   // methods, so each check judges the returned shape, never a 06 §19 envelope.
   checks.push({
     id: 'port · publishedMetrics() returns well-formed pointers',
+    uses: ['publishedMetrics'],
     mode: 'granted',
     nonEnvelope: true,
     run: async () => {
@@ -712,6 +789,7 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
   });
   checks.push({
     id: 'port · defaultRangeTo() is a naive wall-clock',
+    uses: ['defaultRangeTo'],
     mode: 'granted',
     nonEnvelope: true,
     run: async () => {
@@ -727,6 +805,8 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
   });
   checks.push({
     id: 'port · contextOptions(granted site) returns the option lists',
+    uses: ['contextOptions'],
+    needsSites: true,
     mode: 'granted',
     nonEnvelope: true,
     run: async () => {
@@ -746,6 +826,8 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
   // whole granted set and checks the server's own grant filter, not a client-sent room list.
   checks.push({
     id: 'port · evaluateSelection lists only equipment in granted rooms',
+    uses: ['validateScope', 'evaluateSelection'],
+    needsSites: true,
     mode: 'granted',
     nonEnvelope: true,
     run: async () => {
@@ -774,6 +856,8 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
   });
   checks.push({
     id: 'port · evaluateSelection at a site without a grant lists no equipment',
+    uses: ['evaluateSelection'],
+    needsSites: true,
     mode: 'granted',
     nonEnvelope: true,
     run: async () => {
@@ -794,6 +878,7 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
   });
   checks.push({
     id: 'port · getEntity(sample) → ok with the row',
+    uses: ['getEntity'],
     mode: 'granted',
     run: async () => {
       const r = await adapter.getEntity(entityRef);
@@ -804,30 +889,38 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
   });
   checks.push({
     id: 'port · getEntity of an unregistered type → error',
+    uses: ['getEntity'],
     mode: 'granted',
     run: expectOutcome(() => adapter.getEntity({ ...entityRef, type: UNKNOWN_ENTITY_TYPE }), 'error', 'an unregistered entity type'),
   });
-  checks.push({
+  checks.push(atSite({
     id: 'port · getEntity at a site without a grant → forbidden',
+    uses: ['getEntity'],
+    needsSites: true,
     mode: 'granted',
     run: expectOutcome(() => adapter.getEntity({ ...entityRef, scopeId: harness.foreignScopeId }), 'forbidden', 'a site the granted actor holds no grant for'),
-  });
-  checks.push({
+  }));
+  checks.push(atSite({
     id: 'port · getEntity with a null Scope → forbidden',
+    uses: ['getEntity'],
+    needsSites: true,
     mode: 'granted',
     run: expectOutcome(() => adapter.getEntity({ ...entityRef, scopeId: null }), 'forbidden', 'a null Scope leaves no site to read'),
-  });
+  }));
   // 06 §22 (checklist §2 getEntity): site 검증 뒤 그 객체의 room을 다시 검증 — the sample sits at a granted
   // site in a room the granted account does NOT hold. No sample → a visible skipped check, never a silent drop.
-  checks.push({
+  checks.push(atSite({
     id: 'port · getEntity of a destination in an ungranted room → forbidden',
+    uses: ['getEntity'],
+    needsSites: true,
     mode: ungrantedRoomRef ? 'granted' : 'skipped',
     run: ungrantedRoomRef
       ? expectOutcome(() => adapter.getEntity(ungrantedRoomRef), 'forbidden', 'the site is granted but this destination\'s room is not (06 §22 room re-check)')
       : async () => null, // never called: skipped checks are filtered out of every run
-  });
+  }));
   checks.push({
     id: `port · getEntity without ${ports.entity.permission} → forbidden`,
+    uses: ['getEntity'],
     mode: 'permission',
     run: () => harness.withoutPermission(
       ports.entity.permission,
@@ -836,6 +929,7 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
   });
   checks.push({
     id: 'port · entityAudit(sample) → events',
+    uses: ['entityAudit'],
     mode: 'granted',
     run: async () => {
       const r = await adapter.entityAudit(entityRef);
@@ -850,29 +944,37 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
   });
   checks.push({
     id: 'port · entityAudit of an unregistered type → error',
+    uses: ['entityAudit'],
     mode: 'granted',
     run: expectOutcome(() => adapter.entityAudit({ ...entityRef, type: UNKNOWN_ENTITY_TYPE }), 'error', 'an unregistered entity type'),
   });
-  checks.push({
+  checks.push(atSite({
     id: 'port · entityAudit at a site without a grant → forbidden',
+    uses: ['entityAudit'],
+    needsSites: true,
     mode: 'granted',
     run: expectOutcome(() => adapter.entityAudit({ ...entityRef, scopeId: harness.foreignScopeId }), 'forbidden', 'a site the granted actor holds no grant for'),
-  });
-  checks.push({
+  }));
+  checks.push(atSite({
     id: 'port · entityAudit with a null Scope → forbidden',
+    uses: ['entityAudit'],
+    needsSites: true,
     mode: 'granted',
     run: expectOutcome(() => adapter.entityAudit({ ...entityRef, scopeId: null }), 'forbidden', 'a site-scoped destination type with a null Scope leaves no site to read (adapter.ts: same gates as getEntity)'),
-  });
+  }));
   // Same room re-check on the audit read (adapter.ts: same gates as getEntity).
-  checks.push({
+  checks.push(atSite({
     id: 'port · entityAudit of a destination in an ungranted room → forbidden',
+    uses: ['entityAudit'],
+    needsSites: true,
     mode: ungrantedRoomRef ? 'granted' : 'skipped',
     run: ungrantedRoomRef
       ? expectOutcome(() => adapter.entityAudit(ungrantedRoomRef), 'forbidden', 'the site is granted but this destination\'s room is not (06 §22 room re-check)')
       : async () => null, // never called: skipped checks are filtered out of every run
-  });
+  }));
   checks.push({
     id: `port · entityAudit without ${ports.entity.permission} → forbidden`,
+    uses: ['entityAudit'],
     mode: 'permission',
     run: () => harness.withoutPermission(
       ports.entity.permission,
@@ -892,6 +994,7 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
   for (const read of consoleReads) {
     checks.push({
       id: `port · ${read.method} as a console actor → ok`,
+      uses: [read.method],
       mode: 'console',
       run: async () => {
         if (!read.allowEmpty) {
@@ -919,6 +1022,7 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
     });
     checks.push({
       id: `port · ${read.method} without console:access → forbidden`,
+      uses: [read.method],
       mode: 'permission',
       run: () => harness.withoutPermission(
         CONSOLE_ACCESS,
@@ -928,6 +1032,7 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
   }
   checks.push({
     id: 'port · accessDirectory is not mart data: no assessments, null trust',
+    uses: ['accessDirectory'],
     mode: 'console',
     run: async () => {
       const r = await adapter.accessDirectory({});
@@ -953,6 +1058,8 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
   });
   checks.push({
     id: 'port · saveAnnotation then listAnnotations at the same site returns the note',
+    uses: ANNOTATION_METHODS,
+    needsSites: true,
     mode: 'granted',
     run: async () => {
       const input = annotationInput(harness.context.scopeId);
@@ -991,6 +1098,8 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
   });
   checks.push({
     id: 'port · a note saved at one site is not listed at another',
+    uses: ANNOTATION_METHODS,
+    needsSites: true,
     mode: 'granted',
     run: async () => {
       const saved = await adapter.saveAnnotation(annotationInput(harness.context.scopeId));
@@ -1005,26 +1114,36 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
   });
   checks.push({
     id: 'port · listAnnotations at a site without a grant → forbidden',
+    uses: ANNOTATION_METHODS,
+    needsSites: true,
     mode: 'granted',
     run: expectOutcome(() => adapter.listAnnotations({ chartId, scopeId: harness.foreignScopeId }), 'forbidden', 'a site the granted actor holds no grant for'),
   });
   checks.push({
     id: 'port · saveAnnotation at a site without a grant → forbidden',
+    uses: ANNOTATION_METHODS,
+    needsSites: true,
     mode: 'granted',
     run: expectOutcome(() => adapter.saveAnnotation(annotationInput(harness.foreignScopeId)), 'forbidden', 'a site the granted actor holds no grant for'),
   });
   checks.push({
     id: 'port · listAnnotations with a null Scope → forbidden',
+    uses: ANNOTATION_METHODS,
+    needsSites: true,
     mode: 'granted',
     run: expectOutcome(() => adapter.listAnnotations({ chartId, scopeId: null }), 'forbidden', 'a null scope is not a request the server answers, never "all sites"'),
   });
   checks.push({
     id: 'port · saveAnnotation with a null Scope → forbidden',
+    uses: ANNOTATION_METHODS,
+    needsSites: true,
     mode: 'granted',
     run: expectOutcome(() => adapter.saveAnnotation(annotationInput(null)), 'forbidden', 'a null scope is not a request the server answers, never "all sites"'),
   });
   checks.push({
     id: 'port · saveAnnotation carrying an at → error, nothing stored',
+    uses: ANNOTATION_METHODS,
+    needsSites: true,
     mode: 'granted',
     run: async () => {
       const input = annotationInput(harness.context.scopeId);
@@ -1040,6 +1159,8 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
   // adapter.ts saveAnnotation: a user/at/id in the input is an unknown key — one check, both calls.
   checks.push({
     id: 'port · saveAnnotation carrying an id or a user → error',
+    uses: ANNOTATION_METHODS,
+    needsSites: true,
     mode: 'granted',
     run: async () => {
       const input = annotationInput(harness.context.scopeId);
@@ -1054,6 +1175,8 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
   });
   checks.push({
     id: 'port · annotations are not mart data: no assessments, null trust',
+    uses: ANNOTATION_METHODS,
+    needsSites: true,
     mode: 'granted',
     run: async () => {
       const saved = await adapter.saveAnnotation(annotationInput(harness.context.scopeId));
@@ -1076,6 +1199,8 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
   });
   checks.push({
     id: `port · listAnnotations without ${annotationPermission} → forbidden`,
+    uses: ANNOTATION_METHODS,
+    needsSites: true,
     mode: 'permission',
     run: () => harness.withoutPermission(
       annotationPermission,
@@ -1084,6 +1209,8 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
   });
   checks.push({
     id: `port · saveAnnotation without ${annotationPermission} → forbidden`,
+    uses: ANNOTATION_METHODS,
+    needsSites: true,
     mode: 'permission',
     run: () => harness.withoutPermission(
       annotationPermission,
@@ -1112,6 +1239,8 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
   };
   checks.push({
     id: 'port · deleteAnnotation by the author removes the note',
+    uses: ANNOTATION_METHODS,
+    needsSites: true,
     mode: 'sequential',
     run: async () => {
       const saved = await savedAndListed();
@@ -1131,6 +1260,8 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
   });
   checks.push({
     id: 'port · deleteAnnotation by another user → forbidden and the note stays',
+    uses: ANNOTATION_METHODS,
+    needsSites: true,
     mode: 'sequential',
     run: async () => {
       const saved = await savedAndListed();
@@ -1154,21 +1285,29 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
   });
   checks.push({
     id: 'port · deleteAnnotation of an id not at this site → empty',
+    uses: ANNOTATION_METHODS,
+    needsSites: true,
     mode: 'granted',
     run: expectOutcome(() => adapter.deleteAnnotation(deleteRef(`ann-missing-${crypto.randomUUID().slice(0, 8)}`)), 'empty', 'an id that is not in this chart·site answers empty, never revealing a row elsewhere'),
   });
   checks.push({
     id: 'port · deleteAnnotation at a site without a grant → forbidden',
+    uses: ANNOTATION_METHODS,
+    needsSites: true,
     mode: 'granted',
     run: expectOutcome(() => adapter.deleteAnnotation(deleteRef('ann-1', harness.foreignScopeId)), 'forbidden', 'a site the granted actor holds no grant for'),
   });
   checks.push({
     id: 'port · deleteAnnotation with a null Scope → forbidden',
+    uses: ANNOTATION_METHODS,
+    needsSites: true,
     mode: 'granted',
     run: expectOutcome(() => adapter.deleteAnnotation(deleteRef('ann-1', null)), 'forbidden', 'a null scope is not a request the server answers, never "all sites"'),
   });
   checks.push({
     id: `port · deleteAnnotation without ${annotationPermission} → forbidden`,
+    uses: ANNOTATION_METHODS,
+    needsSites: true,
     mode: 'permission',
     run: () => harness.withoutPermission(
       annotationPermission,
@@ -1191,6 +1330,7 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
   };
   checks.push({
     id: 'port · recordUsage accepts a valid entry and dwell',
+    uses: ['recordUsage'],
     mode: 'granted',
     nonEnvelope: true,
     run: expectAccepted([usageEntry, usageDwell], 2, 'a valid entry and dwell'),
@@ -1203,18 +1343,21 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
   const boardDwell: UsageEvent = { ...usageDwell, source: 'board', stayId: 'conformance-stay-1' };
   checks.push({
     id: 'port · recordUsage accepts a board entry and dwell (source, stayId)',
+    uses: ['recordUsage'],
     mode: 'granted',
     nonEnvelope: true,
     run: expectAccepted([boardEntry, boardDwell], 2, 'a valid board entry and dwell with source and stayId'),
   });
   checks.push({
     id: 'port · recordUsage accepts an explicit main source and a legacy event without one',
+    uses: ['recordUsage'],
     mode: 'granted',
     nonEnvelope: true,
     run: expectAccepted([{ ...usageEntry, source: 'main' }, usageEntry], 2, 'an explicit main source next to a legacy event without source'),
   });
   checks.push({
     id: 'port · recordUsage: an unknown source is rejected',
+    uses: ['recordUsage'],
     mode: 'granted',
     nonEnvelope: true,
     run: expectAccepted([badUsageEvent({ source: 'sidebar' })], 0, 'a source other than main/board — the whole call rejects'),
@@ -1222,78 +1365,91 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
   // Navigation path (#605): `via` and `fromMenuId` on a main-screen entry only; `via` is a closed set.
   checks.push({
     id: 'port · recordUsage accepts via and fromMenuId on a main entry',
+    uses: ['recordUsage'],
     mode: 'granted',
     nonEnvelope: true,
     run: expectAccepted([{ ...usageEntry, via: 'sidebar', fromMenuId: ports.usage.menuId }, { ...usageEntry, source: 'main', via: 'direct', fromMenuId: null }], 2, 'a main entry with via and fromMenuId (a menu id or null)'),
   });
   checks.push({
     id: 'port · recordUsage: a via outside the closed set is rejected',
+    uses: ['recordUsage'],
     mode: 'granted',
     nonEnvelope: true,
     run: expectAccepted([badUsageEvent({ via: 'bookmark' })], 0, 'a via outside the closed set — the whole call rejects'),
   });
   checks.push({
     id: 'port · recordUsage: a stayId without board source is rejected',
+    uses: ['recordUsage'],
     mode: 'granted',
     nonEnvelope: true,
     run: expectAccepted([badUsageEvent({ stayId: 'conformance-stay-1' })], 0, 'a stayId on a non-board event — the whole call rejects'),
   });
   checks.push({
     id: 'port · recordUsage: an unknown key next to source is rejected',
+    uses: ['recordUsage'],
     mode: 'granted',
     nonEnvelope: true,
     run: expectAccepted([{ ...boardEntry, paneId: 'p1' } as unknown as UsageEvent], 0, 'an unknown key on a board event — the whole call rejects'),
   });
   checks.push({
     id: 'port · recordUsage accepts a global menu (spaceId null)',
+    uses: ['recordUsage'],
     mode: 'granted',
     nonEnvelope: true,
     run: expectAccepted([{ ...usageEntry, spaceId: null }], 1, 'a global menu (spaceId null)'),
   });
   checks.push({
     id: 'port · recordUsage: spaceId feedback is rejected',
+    uses: ['recordUsage'],
     mode: 'granted',
     nonEnvelope: true,
     run: expectAccepted([badUsageEvent({ spaceId: 'feedback' })], 0, 'the removed feedback space id'),
   });
   checks.push({
     id: 'port · recordUsage: an unknown spaceId is rejected',
+    uses: ['recordUsage'],
     mode: 'granted',
     nonEnvelope: true,
     run: expectAccepted([badUsageEvent({ spaceId: 'nope' })], 0, 'an unknown space id'),
   });
   checks.push({
     id: 'port · recordUsage: one bad event rejects the whole call',
+    uses: ['recordUsage'],
     mode: 'granted',
     nonEnvelope: true,
     run: expectAccepted([usageEntry, badUsageEvent({ url: '/equipment?scopeId=MEM' })], 0, 'one bad event among a valid one — the whole call rejects (checklist §5)'),
   });
   checks.push({
     id: 'port · recordUsage: a client userId is rejected',
+    uses: ['recordUsage'],
     mode: 'granted',
     nonEnvelope: true,
     run: expectAccepted([badUsageEvent({ userId: 'someone-else' })], 0, 'a client-sent userId — the server stamps the session user'),
   });
   checks.push({
     id: 'port · recordUsage: a concrete path with a query is rejected',
+    uses: ['recordUsage'],
     mode: 'granted',
     nonEnvelope: true,
     run: expectAccepted([badUsageEvent({ path: `${usageEntry.path}?scopeId=MEM` })], 0, 'a concrete pathname with a query — only the manifest route pattern travels'),
   });
   checks.push({
     id: 'port · recordUsage: a non-numeric at is rejected',
+    uses: ['recordUsage'],
     mode: 'granted',
     nonEnvelope: true,
     run: expectAccepted([badUsageEvent({ at: 'now' })], 0, 'a non-numeric at'),
   });
   checks.push({
     id: 'port · recordUsage: a non-numeric enteredAt is rejected',
+    uses: ['recordUsage'],
     mode: 'granted',
     nonEnvelope: true,
     run: expectAccepted([{ ...usageDwell, enteredAt: 'then' } as unknown as UsageEvent], 0, 'a non-numeric enteredAt'),
   });
   checks.push({
     id: 'port · recordUsage: a negative dwellMs is rejected',
+    uses: ['recordUsage'],
     mode: 'granted',
     nonEnvelope: true,
     run: expectAccepted([{ ...usageDwell, dwellMs: -1 }], 0, 'a negative dwellMs'),
@@ -1307,6 +1463,7 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
   // never inside a concurrent granted/console batch, where switching actors would race the batch's role.
   checks.push({
     id: 'port · usageSummary counts by receive time, not the client at',
+    uses: ['recordUsage', 'usageSummary'],
     mode: 'sequential',
     run: async () => {
       const visitsOf = (r: ApiResponse<UsageSummary>): number => r.data?.menus.find(m => m.menuId === ports.usage.menuId)?.visits ?? 0;
@@ -1348,6 +1505,7 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
   };
   checks.push({
     id: 'port · reportClientError accepts the sample',
+    uses: ['reportClientError'],
     mode: 'granted',
     nonEnvelope: true,
     run: expectReported(ports.clientError, true, 'the sample report is the declared wire shape'),
@@ -1355,42 +1513,49 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
   // Same space rule as recordUsage: clone the sample with spaceId null, and reject the removed id and any unknown string.
   checks.push({
     id: 'port · reportClientError accepts a global menu (spaceId null)',
+    uses: ['reportClientError'],
     mode: 'granted',
     nonEnvelope: true,
     run: expectReported({ ...ports.clientError, spaceId: null }, true, 'a global menu (spaceId null)'),
   });
   checks.push({
     id: 'port · reportClientError: spaceId feedback is rejected',
+    uses: ['reportClientError'],
     mode: 'granted',
     nonEnvelope: true,
     run: expectReported(badErrorReport({ spaceId: 'feedback' }), false, 'the removed feedback space id'),
   });
   checks.push({
     id: 'port · reportClientError: an unknown spaceId is rejected',
+    uses: ['reportClientError'],
     mode: 'granted',
     nonEnvelope: true,
     run: expectReported(badErrorReport({ spaceId: 'nope' }), false, 'an unknown space id'),
   });
   checks.push({
     id: 'port · reportClientError: an unknown key (free-text message) is rejected',
+    uses: ['reportClientError'],
     mode: 'granted',
     nonEnvelope: true,
     run: expectReported(badErrorReport({ message: 'Cannot read properties of undefined (lot L-123)' }), false, 'a free-text message is an unknown key'),
   });
   checks.push({
     id: 'port · reportClientError: an absolute URL path is rejected',
+    uses: ['reportClientError'],
     mode: 'granted',
     nonEnvelope: true,
     run: expectReported(badErrorReport({ path: 'https://example.com/equipment' }), false, 'an absolute URL — only the app-relative manifest route pattern travels'),
   });
   checks.push({
     id: 'port · reportClientError: a path with a query is rejected',
+    uses: ['reportClientError'],
     mode: 'granted',
     nonEnvelope: true,
     run: expectReported(badErrorReport({ path: `${ports.clientError.path}?scopeId=MEM` }), false, 'a path with a query string'),
   });
   checks.push({
     id: 'port · reportClientError: a free-text name is rejected',
+    uses: ['reportClientError'],
     mode: 'granted',
     nonEnvelope: true,
     run: expectReported(badErrorReport({ name: 'TypeError: lot L-123 missing' }), false, 'a free-text name — name is identifier-shaped only'),
@@ -1398,12 +1563,24 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
   const { name: _reportedName, ...reportWithoutName } = ports.clientError;
   checks.push({
     id: 'port · reportClientError: a missing field is rejected',
+    uses: ['reportClientError'],
     mode: 'granted',
     nonEnvelope: true,
     run: expectReported(reportWithoutName as ClientErrorReport, false, 'a report missing its name'),
   });
+  const siteScopedEntity = entityRef.scopeId !== null;
+  for (const check of siteEntityChecks) {
+    // A siteless destination type answers `scopeId: null` (checklist §2 entityAudit): no site to refuse, no room to re-check.
+    if (!siteScopedEntity && check.mode !== 'skipped') {
+      check.mode = 'skipped';
+      check.id += ' — siteless destination type';
+    }
+  }
   return checks;
 }
+
+/** The annotation checks save, list and delete across one another, so each declares the whole annotation port. */
+const ANNOTATION_METHODS: readonly PortMethod[] = ['listAnnotations', 'saveAnnotation', 'deleteAnnotation'];
 
 /** Runs every planned check: granted checks concurrently as the granted actor, then console checks concurrently as the console actor, then sequential checks one at a time (each switching actors itself), then permission checks one at a time. Skipped checks are not run — they stay visible in the returned list by id. */
 export async function runServerConformance(harness: ServerConformanceHarness): Promise<ConformanceResult[]> {

@@ -1,5 +1,7 @@
 /** Response envelope (docs/06 §18–19): exclusive `outcome` plus declared `assessments[]`. Field names are Candidates. */
-export type Outcome = 'ok' | 'empty' | 'error' | 'forbidden' | 'too_large' | 'timeout';
+/** The outcome vocabulary at runtime — emitted to `vocab.json` (#674). */
+export const OUTCOMES = ['ok', 'empty', 'error', 'forbidden', 'too_large', 'timeout'] as const;
+export type Outcome = typeof OUTCOMES[number];
 /** §19: the platform owns the kind list; a query must not drop an applicable kind because its source is unimplemented. */
 export type AssessmentKind = 'collection' | 'processing_delay' | 'coverage' | 'time_domain' | 'respondent_history';
 export type Assessment = {

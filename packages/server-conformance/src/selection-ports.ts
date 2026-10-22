@@ -159,6 +159,38 @@ export function planSelectionPortChecks(h: ServerConformanceHarness): Conformanc
     id: `selection ports · ${name}`,
     mode: !sample || (name === 'global lineNames options' && !sample.globalOptions?.some(option => option.axisId === 'lineNames')) || (name === 'global prcGroups options' && !sample.globalOptions?.some(option => option.axisId === 'prcGroups')) || (name === 'dependent options' && !sample.parent) || (name === 'denied-room options' && !sample.deniedOption) || (name === 'options upper clamp' && !sample.upperOptions) || (name === 'search upper clamp' && !sample.upperEquipment) ? 'skipped' : name === 'global metadata needs no equipment permission' ? 'sequential' : 'granted',
     nonEnvelope: true,
+    uses: SELECTION_USES[name],
+    needsSites: true,
     run: runs[name],
   }));
 }
+
+/** The selection port methods each named check calls (#674 `harness.implemented`), declared per check: a new name must add its row. */
+const SELECTION_USES: Record<typeof names[number], NonNullable<ConformanceCheck['uses']>> = {
+  'global lineNames options': ['listAxisOptions'],
+  'global prcGroups options': ['listAxisOptions'],
+  'options paging': ['listAxisOptions'],
+  'search paging': ['searchEquipment'],
+  'options query': ['listAxisOptions'],
+  'search query': ['searchEquipment'],
+  'dependent options': ['listAxisOptions'],
+  'denied-room options': ['listAxisOptions'],
+  'options lower clamp': ['listAxisOptions'],
+  'search lower clamp': ['searchEquipment'],
+  'options upper clamp': ['listAxisOptions'],
+  'search upper clamp': ['searchEquipment'],
+  'options authorization': ['listAxisOptions'],
+  'search authorization': ['searchEquipment'],
+  'resolution authorization': ['resolveSelection'],
+  'explicit denied-room filter': ['searchEquipment'],
+  'resolve authorized': ['resolveSelection'],
+  'resolve forbidden no detail': ['resolveSelection'],
+  'resolve cross-site absent': ['resolveSelection'],
+  'resolve order and duplicates': ['resolveSelection'],
+  'options invalid input': ['listAxisOptions'],
+  'search invalid input': ['searchEquipment'],
+  'resolution invalid input': ['resolveSelection'],
+  'options cursor identity': ['listAxisOptions'],
+  'search cursor identity': ['searchEquipment'],
+  'global metadata needs no equipment permission': ['listAxisOptions', 'searchEquipment', 'resolveSelection'],
+};

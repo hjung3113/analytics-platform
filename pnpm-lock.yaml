@@ -1423,6 +1423,15 @@ importers:
         specifier: 3.25.67
         version: 3.25.67
     devDependencies:
+      '@ap/contracts':
+        specifier: workspace:*
+        version: link:../../../../packages/contracts
+      '@ap/http-adapter':
+        specifier: workspace:*
+        version: link:../../../../packages/http-adapter
+      '@ap/server-conformance':
+        specifier: workspace:*
+        version: link:../../../../packages/server-conformance
       '@types/node':
         specifier: 22.10.2
         version: 22.10.2

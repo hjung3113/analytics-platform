@@ -37,7 +37,7 @@ FeedbackOps의 인증·권한·감사·VOC·Finding·Task 등은 기존 구현�
 
 - `products/feedbackops/`는 이 저장소의 일반 디렉터리다(서브모듈 아님, [ADR-0066](../adr/0066-feedbackops-merges-into-platform.md), #592). FeedbackOps `develop` `c73c55c5`의 이력을 그대로 합쳤다(디렉터리 내용은 그 커밋과 같다).
 - 원본 저장소 `https://github.com/hjung3113/FeedbackOps`는 `c73c55c5`에서 동결되고 은퇴한다(#597). 이후 FeedbackOps 변경은 이 저장소의 PR(`feat/<n>-<slug>`, `main`)로만 한다.
-- 도구는 통일했다(1b단계, #642): `products/feedbackops/`는 루트 pnpm workspace의 일부이고 Node 26.7·pnpm 11·루트 `pnpm-lock.yaml`·루트 turbo를 쓰며 `@ap/ui`는 `workspace:*`로 받는다. 린터는 FeedbackOps가 Biome를 계속 쓴다.
+- 도구는 통일했다(1b단계, #642): `products/feedbackops/`는 루트 pnpm workspace의 일부이고 Node 26.7·pnpm 11·루트 `pnpm-lock.yaml`·루트 turbo를 쓰며 `@ap/ui`는 `workspace:*`로 받는다. 런타임 `dependencies`에 올 수 있는 플랫폼 패키지는 `@ap/ui` 하나다. 백엔드 테스트(실서버 적합성 #674)만 `@ap/server-conformance`·`@ap/http-adapter`·`@ap/contracts`를 `devDependencies`로 받는다([ADR-0073](../adr/0073-feedbackops-backend-tests-may-import-conformance-and-http-adapter.md), `products/feedbackops/scripts/check-boundaries.mjs` 규칙 11이 import와 `package.json`을 함께 검사). 린터는 FeedbackOps가 Biome를 계속 쓴다.
 
 ## 설치와 검증
 
