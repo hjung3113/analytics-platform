@@ -2,6 +2,8 @@
 // Per AGENTS.md the frontend never enforces backend permissions; these helpers
 // only surface what the server says.
 
+import { UnauthenticatedError } from './unauthenticated';
+
 export interface MeResponse {
   actor: {
     id: string;
@@ -15,11 +17,7 @@ export interface MeResponse {
   platform_return_origins?: string[];
 }
 
-export class UnauthenticatedError extends Error {
-  constructor() {
-    super('unauthenticated');
-  }
-}
+export { UnauthenticatedError };
 
 export class MeRequestError extends Error {
   readonly status: number;

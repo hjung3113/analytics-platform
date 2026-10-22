@@ -45,6 +45,8 @@ import {
   useUnreadNotificationCount,
 } from '@/lib/cross-system/useUnreadNotificationCount';
 import { formatRelativeTime } from '@/lib/format/datetime';
+import { HostSeamProvider } from '@/lib/host/host-seam';
+import { tanstackHost } from '@/lib/host/tanstack-host';
 import { InternalLink } from '@/lib/router/InternalLink';
 import { hrefWithManagedSystem } from '@/lib/router/managed-system-href';
 import { AnswerableSurveysPanel } from './AnswerableSurveysPanel';
@@ -144,7 +146,10 @@ export function HomeScreen({
         if (value === 'dashboard' || value === 'inbox') onTabChange?.(value);
       }}
     >
-      <PageShell contentClassName="max-w-none" detailPanel={activeTab === 'dashboard' ? recovery?.detailPanel : undefined}>
+      <PageShell
+        contentClassName="max-w-none"
+        detailPanel={activeTab === 'dashboard' ? recovery?.detailPanel : undefined}
+      >
         <section data-testid="home-screen">
           <header className="mb-6 flex items-start justify-between gap-4">
             <div>
@@ -261,7 +266,9 @@ export function HomeScreen({
             )}
           </TabsContent>
           <TabsContent value="inbox" className="mt-0">
-            <InboxPanel />
+            <HostSeamProvider value={tanstackHost}>
+              <InboxPanel />
+            </HostSeamProvider>
           </TabsContent>
         </section>
       </PageShell>

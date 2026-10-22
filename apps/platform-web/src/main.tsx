@@ -6,6 +6,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createBasePathLocation, I18nProvider, PlatformProvider } from '@ap/kernel';
 import { setFeedbackOpsOrigin } from '@ap/menu-notice-voc/feedbackops-origin';
+import { setFoApi } from '@ap/menu-my-activity/fo-api';
 import { createAssembly } from '#platform-assembly';
 import { readFeedbackOpsOrigin } from './feedbackops-origin';
 import { createLocalQueryHistoryStore } from './query-history-store';
@@ -37,6 +38,8 @@ void startOrFail(root, async () => {
     root.render(<StrictMode>{assembly.screen}</StrictMode>);
     return;
   }
+  // The bridge screens' FeedbackOps API comes from the assembly (ADR-0071); mock builds have none → "실서버 필요".
+  setFoApi(assembly.feedbackOpsApi ?? null);
   root.render(
     <StrictMode>
       <I18nProvider>

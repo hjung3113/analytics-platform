@@ -2,11 +2,14 @@ import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 import tailwindcss from '@tailwindcss/vite';
 import { ASSEMBLY_SPECIFIER, prodGraphGuard } from './scripts/prod-graph.ts';
+import { realDevProxy } from './scripts/real-dev-proxy.ts';
 import { chooseAssembly, MOCK_MODES, type AssemblyChoice } from './scripts/assembly-choice.ts';
 
 /** `#platform-assembly` (src/platform-assembly.d.ts) is resolved here by mode — #153, ADR-0009. */
 const MOCK_ASSEMBLY = fileURLToPath(new URL('./src/dev/mock-assembly.tsx', import.meta.url));
 const REAL_ASSEMBLY = fileURLToPath(new URL('./src/real/http-assembly.tsx', import.meta.url));
+/** FeedbackOps sources reached through @fops/frontend/global-screens import themselves with the `@/` alias (ADR-0071). */
+const FO_SRC = fileURLToPath(new URL('../../products/feedbackops/apps/frontend/src', import.meta.url));
 const BACKEND_ORIGIN = process.env.AP_BACKEND_ORIGIN ?? 'http://127.0.0.1:3011';
 
 /**
@@ -32,8 +35,8 @@ export default defineConfig(({ mode, command, isPreview = false }) => {
   return {
     base: process.env.AP_BASE_PATH ?? '/',
     plugins: [tailwindcss(), ...(guardGraph(mode) ? [prodGraphGuard()] : [])],
-    resolve: { alias: assemblyAlias(choice) },
-    server: choice.kind === 'real-dev' ? { proxy: { '/api': BACKEND_ORIGIN, '/auth': BACKEND_ORIGIN } } : undefined,
+    resolve: { alias: { '@': FO_SRC, ...assemblyAlias(choice) } },
+    server: choice.kind === 'real-dev' ? { proxy: realDevProxy(BACKEND_ORIGIN) } : undefined,
     test: { environment: 'jsdom', setupFiles: ['./src/test-setup.ts'] },
   };
 });

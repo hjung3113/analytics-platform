@@ -1,5 +1,6 @@
 import { Alert, AlertDescription, AlertTitle, Button } from '@ap/ui';
 import { bootstrapHttpAdapter, type BootstrapResult, type HttpAdapterOptions } from '@ap/http-adapter';
+import { FO_API_PREFIX } from '../../scripts/real-dev-proxy.ts';
 import type { AssemblyOutcome, CreateAssembly } from '#platform-assembly';
 
 /**
@@ -39,8 +40,9 @@ type Deps = {
 export function createRealAssembly({ bootstrap, where }: Deps): () => Promise<AssemblyOutcome> {
   return async () => {
     const login: AssemblyOutcome = { redirect: loginHref(where()) };
-    const result = await bootstrap({ onSessionLost: () => window.location.replace(loginHref(where())) });
-    if (result.kind === 'ready') return { adapter: result.adapter, topBarTools: null };
+    const onSessionLost = () => window.location.replace(loginHref(where()));
+    const result = await bootstrap({ onSessionLost });
+    if (result.kind === 'ready') return { adapter: result.adapter, topBarTools: null, feedbackOpsApi: { basePath: FO_API_PREFIX, onSessionLost } };
     if (result.kind === 'login') return login;
     return { screen: <Unavailable correlationId={result.correlationId} /> };
   };

@@ -29,12 +29,12 @@ describe('workspace assembly (#260)', () => {
     vi.unstubAllGlobals();
   });
 
-  it('registers the 내 활동 placeholders as global planned menus behind platform:view (ADR-0070)', () => {
+  it('registers the 내 활동 menus as global menus behind platform:view; only 알림 has a screen so far (ADR-0070, ADR-0071)', () => {
     for (const [id, path] of [['notifications', '/notifications'], ['surveys', '/surveys'], ['permission-requests', '/permission-requests']] as const) {
       const entry = registry.menuById(id);
       expect(entry).toMatchObject({ group: 'myActivity', path, permission: 'platform:view' });
       expect(registry.spaceOf(entry)).toBeNull();
-      expect(entry.component).toBeUndefined();
+      if (id === 'notifications') expect(entry.component).toBeDefined(); else expect(entry.component).toBeUndefined();
       expect(entry.moduleScreen).toBeUndefined();
     }
   });

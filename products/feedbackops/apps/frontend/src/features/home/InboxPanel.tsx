@@ -10,23 +10,22 @@ import {
   TooltipTrigger,
 } from '@fops/ui';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Link } from '@tanstack/react-router';
 import { Archive, Check } from 'lucide-react';
 import * as React from 'react';
-import { toast } from 'sonner';
 
 import { ListStateMessage } from '@/components/ListStateMessage';
+import { mapUnknownError } from '@/lib/api/errorMapper';
 import {
-  type ApiError,
   archiveNotification,
   fetchNotifications,
-  mapUnknownError,
   markNotificationRead,
   notificationsQueryKey,
-} from '@/lib/api';
+} from '@/lib/api/notifications';
+import type { ApiError } from '@/lib/api/types';
 import { getCapabilityDisplayLabel } from '@/lib/copy/capabilities';
 import { HOME_INBOX_COPY } from '@/lib/copy/home';
 import { formatRelativeTime } from '@/lib/format/datetime';
+import { HostLink, useHostSeam } from '@/lib/host/host-seam';
 
 type InboxFilter = 'unread' | 'all';
 
@@ -60,10 +59,6 @@ export function notificationTarget(notification: NotificationDto): string | null
   }
 }
 
-function reportMutationError(error: ApiError): void {
-  toast.error(mapUnknownError(error).message);
-}
-
 // Permission notifications carry the raw capability key as the subject title.
 function subjectRefTitle(notification: NotificationDto, title: string): string {
   const carriesCapability =
@@ -76,6 +71,10 @@ export function InboxPanel(): React.ReactElement {
   const [filter, setFilter] = React.useState<InboxFilter>('unread');
   const [pendingActionCounts, setPendingActionCounts] = React.useState<Record<string, number>>({});
   const queryClient = useQueryClient();
+  const { notifyError } = useHostSeam();
+  const reportMutationError = (error: ApiError): void => {
+    notifyError(mapUnknownError(error).message);
+  };
   const list = useInfiniteQuery({
     queryKey: [...notificationsQueryKey, 'list', filter] as const,
     initialPageParam: undefined as string | undefined,
@@ -205,14 +204,15 @@ function NotificationRow({
   onMarkRead: () => void;
   onArchive: () => void;
 }): React.ReactElement {
+  const host = useHostSeam();
   const target = notificationTarget(notification);
-  const targetLocation = target === null ? null : new URL(target, 'http://feedbackops.local');
+  const linkTarget = target !== null && host.canLink(target) ? target : null;
   const subjectTitle =
     notification.subject_ref?.visibility_state === 'allowed'
       ? subjectRefTitle(notification, notification.subject_ref.title)
       : null;
   const titleTooltipOnArchive =
-    subjectTitle !== null && targetLocation === null && notification.read_at !== null;
+    subjectTitle !== null && linkTarget === null && notification.read_at !== null;
   const mainClassName = [
     'flex min-w-0 flex-1 items-center gap-3 pl-4 pr-2 text-left',
     notification.subject_ref ? 'py-1' : 'py-3',
@@ -254,7 +254,7 @@ function NotificationRow({
       <time className="shrink-0 text-xs text-text-muted" dateTime={notification.created_at}>
         {formatRelativeTime(notification.created_at)}
       </time>
-      {target === null && notification.read_at === null && (
+      {linkTarget === null && notification.read_at === null && (
         <span className="sr-only"> — {HOME_INBOX_COPY.markAsRead}</span>
       )}
     </>
@@ -263,15 +263,10 @@ function NotificationRow({
     if (notification.read_at === null) onMarkRead();
   };
   const mainControl: React.ReactElement =
-    targetLocation !== null ? (
-      <Link
-        to={targetLocation.pathname as never}
-        search={Object.fromEntries(targetLocation.searchParams) as never}
-        className={interactiveClassName}
-        onClick={onMainClick}
-      >
+    linkTarget !== null ? (
+      <HostLink to={linkTarget} className={interactiveClassName} onClick={onMainClick}>
         {mainContent}
-      </Link>
+      </HostLink>
     ) : notification.read_at === null ? (
       <button type="button" className={interactiveClassName} onClick={onMainClick}>
         {mainContent}

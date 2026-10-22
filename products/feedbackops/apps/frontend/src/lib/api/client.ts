@@ -33,6 +33,21 @@ export interface ApiResponse<T> {
 
 // PUT is intentionally excluded: the locked API contract auto-mints Idempotency-Key
 // only for POST/PATCH/DELETE. Include PUT explicitly if a future endpoint opts in.
+let basePath = '';
+let onUnauthorized: (() => void) | undefined;
+
+/**
+ * Hosts that mount FeedbackOps screens behind a path prefix (the platform
+ * bridge, `/api/fo`) set it once; the standalone app never calls this.
+ */
+export function configureApiClient(config: {
+  basePath: string;
+  onUnauthorized?: () => void;
+}): void {
+  basePath = config.basePath;
+  onUnauthorized = config.onUnauthorized;
+}
+
 const MUTATION_METHODS = new Set(['POST', 'PATCH', 'DELETE']);
 
 /**
@@ -95,7 +110,7 @@ async function sendRequest(
   } else if (opts.body !== undefined) {
     fetchInit.body = JSON.stringify(opts.body);
   }
-  const res = await fetch(path, fetchInit);
+  const res = await fetch(basePath + path, fetchInit);
 
   const etag = res.headers.get('etag') ?? undefined;
   const requestId = res.headers.get('x-request-id') ?? undefined;
@@ -117,6 +132,7 @@ async function sendRequest(
   const text = await res.text();
 
   if (!res.ok) {
+    if (res.status === 401) onUnauthorized?.();
     // Error envelopes are decoded here, exactly as before (a non-JSON error
     // body still throws the raw SyntaxError — unchanged legacy behavior).
     const errorData = text ? (JSON.parse(text) as unknown) : undefined;

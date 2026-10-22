@@ -16,6 +16,8 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { type HostSeam, HostSeamProvider } from '@/lib/host/host-seam';
+import { tanstackHost } from '@/lib/host/tanstack-host';
 import { InboxPanel, notificationTarget } from '../InboxPanel';
 
 const VOC_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
@@ -213,7 +215,9 @@ function renderInbox() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
+      <HostSeamProvider value={tanstackHost}>
+        <RouterProvider router={router} />
+      </HostSeamProvider>
     </QueryClientProvider>,
   );
   return { push, queryClient, router };
@@ -578,5 +582,65 @@ describe('InboxPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
     await screen.findByText('읽지 않은 알림이 없습니다.');
     expect(calls.filter(({ method }) => method === 'GET')).toHaveLength(2);
+  });
+});
+
+describe('host seam', () => {
+  function renderWithSeam(notifyError = vi.fn()) {
+    const seam: HostSeam = {
+      canLink: () => false,
+      Link: () => null,
+      notifyError,
+    };
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <HostSeamProvider value={seam}>
+          <InboxPanel />
+        </HostSeamProvider>
+      </QueryClientProvider>,
+    );
+    return { notifyError };
+  }
+
+  it('renders an unread notification the host cannot link as a mark-read button', async () => {
+    const { calls } = installNotificationFetch([makeNotification()]);
+    renderWithSeam();
+
+    const row = await screen.findByTestId(`home-inbox-row-${NOTIFICATION_ID}`);
+    expect(within(row).queryByRole('link')).not.toBeInTheDocument();
+    fireEvent.click(within(row).getAllByRole('button')[0] as HTMLElement);
+
+    await waitFor(() =>
+      expect(calls).toContainEqual({
+        path: `/notifications/${NOTIFICATION_ID}/read`,
+        method: 'POST',
+      }),
+    );
+  });
+
+  it('keeps only the archive action on a read notification the host cannot link', async () => {
+    installNotificationFetch([makeNotification({ read_at: '2026-07-27T01:00:00.000Z' })]);
+    renderWithSeam();
+    fireEvent.click(await screen.findByRole('radio', { name: '전체' }));
+
+    const row = await screen.findByTestId(`home-inbox-row-${NOTIFICATION_ID}`);
+    expect(within(row).queryByRole('link')).not.toBeInTheDocument();
+    expect(within(row).getAllByRole('button')).toHaveLength(1);
+    expect(within(row).getByRole('button', { name: '보관' })).toBeInTheDocument();
+  });
+
+  it('reports a failed mark-read through the host', async () => {
+    installNotificationFetch([makeNotification()]);
+    const { notifyError } = renderWithSeam();
+    await screen.findByTestId(`home-inbox-row-${NOTIFICATION_ID}`);
+    globalThis.fetch = vi.fn(async () =>
+      jsonResponse({ code: 'internal.unexpected', message: 'boom' }, 500),
+    ) as typeof globalThis.fetch;
+
+    fireEvent.click(screen.getByRole('button', { name: '읽음으로 표시' }));
+
+    await waitFor(() => expect(notifyError).toHaveBeenCalledTimes(1));
+    expect(notifyError).toHaveBeenCalledWith(expect.any(String));
   });
 });

@@ -76,8 +76,9 @@
 | [0066](0066-feedbackops-merges-into-platform.md) | FeedbackOps를 플랫폼에 합친다 — 모두가 쓰는 기능은 플랫폼 전역, 관리자·개발자 화면은 업무 시스템 하나, 서버는 FeedbackOps 백엔드에서 출발, 독립 앱 은퇴 | Decided(2026-10-21, 사용자) — 0027·0038 대체, 설계 [합류 설계](../integration/feedbackops-merge-design.md), 지도 #598 |
 | [0067](0067-dockview-layout-engine-board-v2.md) | 보드와 분석 작업 영역은 같은 무료 Dockview 엔진을 쓰고, 보드 저장 모델을 칸 번호 순서의 V2로 옮긴다(grid는 대체 렌더러) | Decided(2026-10-22, 사용자 — #575 P0 추천 채택, 구현 세부는 코디네이터) |
 | [0068](0068-permission-scope-and-business-system-link.md) | 권한은 FeedbackOps 부여 체계 하나로 업무 시스템까지 넓히고(`scope_kind`, 누출 테스트가 출시 조건), Managed System은 공간에 연결만 하며(권한을 주지 않음), 관리 화면은 최종적으로 콘솔(승인)과 피드백 운영(도메인 설정)으로 나눈다 | Decided(2026-10-22, 코디네이터, 사용자 위임) — #596, ADR-0045 결정 1 개정 |
-| [0069](0069-platform-port-in-feedbackops-backend.md) | 플랫폼 포트는 FeedbackOps 백엔드의 `/api/v1/platform` 모듈로 두고 그 접두사에만 플랫폼 전송 규약(200 envelope·camelCase·no-store·CSRF 토큰)을 적용한다. 권한 이름 대응표, 감사는 definer 투영만, 부트스트랩 임시 값 | Decided(2026-10-22, 코디네이터, 사용자 위임) — #593(#620–#623) |
+| [0069](0069-platform-port-in-feedbackops-backend.md) | 플랫폼 포트는 FeedbackOps 백엔드의 `/api/v1/platform` 모듈로 두고 그 접두사에만 플랫폼 전송 규약(200 envelope·camelCase·no-store·CSRF 토큰)을 적용한다. 권한 이름 대응표, 감사는 definer 투영만, 부트스트랩 임시 값 | Decided(2026-10-22, 코디네이터, 사용자 위임) — #593(#620–#623). 결정 3·4(FO 경로) 0071 갱신 |
 | [0070](0070-global-features-platform-menu-and-voc-drawer.md) | 전역 기능은 플랫폼 메뉴로 모은다(전역 화면은 사이드바, 업무 시스템 안은 `시스템 및 플랫폼 메뉴` 팝오버), 레일에 VOC 등록·알림, VOC 등록은 오른쪽 도킹 드로어(Context 고정 칩), 설문은 전체 페이지, 홈은 카드 → 내 할 일 | Decided(2026-10-22, 사용자 — 수정 P1) — #594, 0028·0042 부분 대체, 구현 전 |
+| [0071](0071-feedbackops-screen-bridge-and-api-fo-edge-prefix.md) | FeedbackOps 화면은 `@fops/frontend/global-screens` 다리(메뉴 `my-activity` 하나만 import, 호스트 이음매)로 올리고, 그 화면의 API는 `/api/fo`로 부르며 플랫폼 앞단이 접두사를 뗀다(FeedbackOps 경로는 그대로). 세션 세대마다 QueryClient를 비운다. mock에서는 `실서버 필요` | Decided(2026-10-22, 코디네이터, 사용자 위임) — #594(#651), 0069 결정 3·4 갱신 |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 
