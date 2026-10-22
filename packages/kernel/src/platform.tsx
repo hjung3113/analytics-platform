@@ -1,7 +1,7 @@
 import { createPortCache, type PortCache } from './selection-port-cache';
 import type { LucideIcon } from 'lucide-react';
 import { createBrowserLocation, hasDotSegment, type PlatformLocation } from './location';
-import { use, createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { use, createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ComponentType, type ReactNode } from 'react';
 import { createPaletteFocus, useFocusGate, type PaletteSession } from './paletteFocus';
 import { createPageNavigation, type PageFocus, type PageNavigation } from './pageNavigation';
 import { classifyMetricInit, type MetricInit } from './metric-init';
@@ -37,13 +37,20 @@ export type FeedbackOpsSlot = {
 /** A business system that is announced but cannot be entered yet. Display only — not in the Registry, no permission, no menu (ADR-0042). */
 export type PlannedSpace = { id: string; label: Text; /** Optional second line in the switcher row; same non-blank ko/en rule as SpaceDef.subtitle. */ subtitle?: Text; icon: LucideIcon };
 /**
+ * The rail bell and the platform-menu unread badge (ADR-0070 decision 4, 15 §3.2, #652). Components, so the shell never imports a menu.
+ * `UnreadCount` calls `children(count)` at one stable position on every render; `null` draws no badge (unknown, failed, no notification
+ * server, session ended). `Recent` is the popover body. Absent slot → no bell and no badge.
+ */
+export type NotificationsSlot = { menuId: string; UnreadCount: ComponentType<{ children: (count: number | null) => ReactNode }>; Recent: ComponentType };
+/**
  * Shell slots (docs/06 §8) the app fills at composition time, so platform components never import the shell.
  * contextBar: rendered by PlatformPage above page content. topBarTools: extra controls at the bottom of the app rail (today the mock dev tools).
  * feedbackOps: space-scoped entries and the overall link (ADR-0027, ADR-0028).
  * plannedSpaces: the system switcher's not-yet-available rows (ADR-0042, 15 §3.2).
  * boardEntry: the `분석 보드에 열기…` item `PlatformPage` appends to a board menu's `⋯` menu (docs/16 §6); components never import the shell.
+ * notifications: the rail bell and the platform-menu unread badge (ADR-0070 decision 4, #652).
  */
-export type PlatformSlots = { contextBar?: ReactNode; topBarTools?: ReactNode; feedbackOps?: FeedbackOpsSlot; plannedSpaces?: readonly PlannedSpace[]; boardEntry?: ReactNode };
+export type PlatformSlots = { contextBar?: ReactNode; topBarTools?: ReactNode; feedbackOps?: FeedbackOpsSlot; plannedSpaces?: readonly PlannedSpace[]; boardEntry?: ReactNode; notifications?: NotificationsSlot };
 export type LinkOptions = { params?: Record<string, string>; page?: Record<string, string>; global?: Partial<GlobalContext>; returnTo?: boolean };
 export type LinkResolution = {
   href: string;

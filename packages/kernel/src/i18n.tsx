@@ -155,6 +155,9 @@ const dict = {
   switcherCurrent: { ko: '시스템 및 플랫폼 메뉴 · 현재: {space}', en: 'Systems and platform menu · current: {space}' },
   platformMenu: { ko: '플랫폼 메뉴', en: 'Platform menu' },
   platformMenuShared: { ko: '모든 시스템에서 공통', en: 'Shared by every system' },
+  unreadNamed: { ko: '{label}, 읽지 않음 {count}건', en: '{label}, {count} unread' },
+  unreadCount: { ko: '읽지 않음 {count}', en: '{count} unread' },
+  viewAll: { ko: '모두 보기', en: 'View all' },
   switcherSystemsHeading: { ko: '업무 시스템', en: 'Business systems' },
   platformName: { ko: '분석 플랫폼', en: 'Analytics platform' },
   /** @deprecated Unused since #650 (the switcher's 플랫폼 메뉴 shows `home`). Kept one SDK release for consumers (ADR-0044); remove after. */

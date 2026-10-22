@@ -6,6 +6,7 @@ import type { GroupId, Permission } from '@ap/contracts';
 import { DetailDrawer, PlatformPage } from '@ap/components';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform, type PlatformSlots } from '@ap/kernel';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import userEvent from '@testing-library/user-event';
 import { AppShell } from './AppShell';
 
 function menu(id: string, group: GroupId, path: string, label: string, over: object = {}) {
@@ -428,3 +429,73 @@ describe('SystemSwitcher focus ownership and lifecycle (ADR-0032)', () => {
   });
 });
 
+
+describe('notifications slot (ADR-0070 decision 4)', () => {
+  let unread: number | null = 3;
+  const slot = (): PlatformSlots => ({ ...SLOT, notifications: { menuId: 'alerts', UnreadCount: ({ children }) => <>{children(unread)}</>, Recent: () => <p>recent body</p> } });
+  const bell = () => screen.getByRole('button', { name: /^알림/ });
+  beforeEach(() => { unread = 3; });
+
+  it('draws no bell without the slot', () => {
+    mount();
+    expect(screen.queryByRole('button', { name: /^알림/ })).toBeNull();
+  });
+
+  it.each([
+    [null, '알림', null],
+    [3, '알림, 읽지 않음 3건', '3'],
+    [120, '알림, 읽지 않음 120건', '99+'],
+  ] as const)('names the rail bell for %j unread', (count, name, pill) => {
+    unread = count;
+    mount({ slots: slot() });
+    expect(bell()).toHaveAccessibleName(name);
+    if (pill === null) expect(bell().textContent).toBe('');
+    else expect(bell().textContent).toBe(pill);
+  });
+
+  it('opens with Enter, focuses the dialog, shows the header and body, and Esc returns focus to the bell', async () => {
+    const user = userEvent.setup();
+    mount({ slots: slot() });
+    screen.getByRole('button', { name: /^메뉴 검색/ }).focus();
+    await user.tab();
+    if (document.activeElement !== bell()) await user.tab();
+    expect(bell()).toHaveFocus();
+    await user.keyboard('{Enter}');
+    const dialog = await screen.findByRole('dialog', { name: '알림' });
+    expect(dialog.contains(document.activeElement)).toBe(true);
+    expect(within(dialog).getByRole('heading', { name: '알림' }).parentElement).toHaveTextContent('읽지 않음 3');
+    expect(within(dialog).getByText('recent body')).toBeTruthy();
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '알림' })).toBeNull());
+    expect(bell()).toHaveFocus();
+  });
+
+  it.each([['/cycle?v=1&scopeId=MEM'], ['/alerts?v=1']])('모두 보기 from %s closes the popover and leaves focus with the destination', async url => {
+    mount({ slots: slot(), url });
+    fireEvent.click(bell());
+    const dialog = await screen.findByRole('dialog', { name: '알림' });
+    fireEvent.click(within(dialog).getByRole('link', { name: '모두 보기' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '알림' })).toBeNull());
+    expect(window.location.pathname).toBe('/alerts');
+    if (url.startsWith('/cycle')) {
+      await waitFor(() => expect(screen.getByRole('heading', { name: '알림' })).toHaveFocus());
+      await act(async () => { await new Promise(resolve => setTimeout(resolve, 20)); });
+      expect(screen.getByRole('heading', { name: '알림' })).toHaveFocus();
+    } else {
+      await waitFor(() => expect(bell()).toHaveFocus());
+    }
+  });
+
+  it.each([[3, '알림, 읽지 않음 3건', '3'], [null, '알림', null]] as const)('badges the switcher link and the platform sidebar for %j unread', (count, name, pill) => {
+    unread = count;
+    mount({ slots: slot(), url: '/alerts?v=1' });
+    const nav = within(open()).getByRole('navigation', { name: '플랫폼 메뉴' });
+    const link = within(nav).getByRole('link', { name });
+    if (pill !== null) expect(link).toHaveTextContent(pill);
+    fireEvent.keyDown(screen.getByRole('dialog', { name: '시스템 및 플랫폼 메뉴' }), { key: 'Escape' });
+    const sidebar = () => within(screen.getByRole('navigation', { name: '플랫폼 메뉴' })).getByRole('link', { name });
+    expect(sidebar()).toHaveAttribute('aria-current', 'page');
+    fireEvent.keyDown(document.body, { key: '[' });
+    expect(sidebar()).toBeTruthy();
+  });
+});

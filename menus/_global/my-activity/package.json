@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./fo-api": "./src/fo-api.ts",
+    "./notifications-slot": "./src/notifications-slot.tsx",
     "./styles.css": "./src/styles.css"
   },
   "scripts": {

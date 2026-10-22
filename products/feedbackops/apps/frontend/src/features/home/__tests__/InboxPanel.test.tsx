@@ -16,6 +16,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { HOME_INBOX_COPY } from '@/lib/copy/home';
 import { type HostSeam, HostSeamProvider } from '@/lib/host/host-seam';
 import { tanstackHost } from '@/lib/host/tanstack-host';
 import { InboxPanel, notificationTarget } from '../InboxPanel';
@@ -586,7 +587,7 @@ describe('InboxPanel', () => {
 });
 
 describe('host seam', () => {
-  function renderWithSeam(notifyError = vi.fn()) {
+  function renderWithSeam(notifyError = vi.fn(), variant?: 'recent') {
     const seam: HostSeam = {
       canLink: () => false,
       Link: () => null,
@@ -596,7 +597,7 @@ describe('host seam', () => {
     render(
       <QueryClientProvider client={queryClient}>
         <HostSeamProvider value={seam}>
-          <InboxPanel />
+          <InboxPanel {...(variant ? { variant } : {})} />
         </HostSeamProvider>
       </QueryClientProvider>,
     );
@@ -639,6 +640,30 @@ describe('host seam', () => {
     expect(within(row).queryByRole('link')).not.toBeInTheDocument();
     expect(within(row).getAllByRole('button')).toHaveLength(1);
     expect(within(row).getByRole('button', { name: '보관' })).toBeInTheDocument();
+  });
+
+  it('recent variant lists read and unread rows once, without the filter or load-more', async () => {
+    const readId = '99999999-9999-4999-8999-999999999999';
+    const { calls } = installNotificationFetch(
+      [
+        makeNotification(),
+        makeNotification({ id: readId, subject_id: readId, read_at: '2026-07-27T01:00:00.000Z' }),
+      ],
+      { hasMore: true },
+    );
+    renderWithSeam(undefined, 'recent');
+
+    expect(await screen.findByTestId(`home-inbox-row-${NOTIFICATION_ID}`)).toBeInTheDocument();
+    expect(screen.getByTestId(`home-inbox-row-${readId}`)).toBeInTheDocument();
+    expect(
+      screen.queryByRole('group', { name: HOME_INBOX_COPY.filterLabel }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: HOME_INBOX_COPY.loadMore }),
+    ).not.toBeInTheDocument();
+    expect(calls.filter(({ method }) => method === 'GET').map(({ path }) => path)).toEqual([
+      '/notifications?limit=10',
+    ]);
   });
 
   it('reports a failed mark-read through the host', async () => {

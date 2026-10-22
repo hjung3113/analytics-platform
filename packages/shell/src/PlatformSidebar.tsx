@@ -3,6 +3,7 @@ import { useI18n, usePlatform } from '@ap/kernel';
 import { cn, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { NavItem } from './AppSidebar';
 import { usePlatformMenu } from './platformMenu';
+import { MenuUnread } from './unread';
 
 /**
  * Sidebar of the global screens outside any space (home, 내 활동, 공지; 15 §3.2, ADR-0070). Same shell, collapse
@@ -32,7 +33,7 @@ export function PlatformSidebar({ collapsed, onToggle }: { collapsed: boolean; o
             return <div key={group.id} role="group" aria-label={tx(group.label)}>
               {!collapsed && headed && <p className={cn('mx-2 mb-1 text-caption font-semibold uppercase tracking-wide text-text-muted', index === 0 ? 'mt-1.5' : 'mt-3.5')}>{tx(group.label)}</p>}
               {((collapsed && index > 0) || (!collapsed && !headed && index > 0)) && <div className="mx-3 my-1.5 border-t border-border-subtle" aria-hidden />}
-              <ul className="space-y-0.5">{items.map(menu => <li key={menu.id}><NavItem menu={menu} active={menu.id === activeId} collapsed={collapsed} label={labelOf(menu)} /></li>)}</ul>
+              <ul className="space-y-0.5">{items.map(menu => <li key={menu.id}><MenuUnread menuId={menu.id}>{count => <NavItem menu={menu} active={menu.id === activeId} collapsed={collapsed} label={labelOf(menu)} unread={count} />}</MenuUnread></li>)}</ul>
             </div>;
           })}
         </nav>

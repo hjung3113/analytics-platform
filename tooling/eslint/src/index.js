@@ -50,7 +50,7 @@ const escapeRegex = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const devRegex = (devAllow = []) =>
   devAllow.length === 0 ? DEV_REGEX : `^(?!(?:${devAllow.map(escapeRegex).join('|')})$)${DEV_REGEX.slice(1)}`;
 
-// Menu subpaths: the FeedbackOps origin slot and the bridge's FO API slot (fo-api) are src/main.tsx ONLY; each menu's exact `/mock` export is
+// Menu subpaths: the FeedbackOps origin slot, the bridge's FO API slot (fo-api) and its notifications slot are src/main.tsx ONLY; each menu's exact `/mock` export is
 // src/dev/** only. Every other menu subpath and any `*/src` import stays banned.
 // NOTE: the gitignore-style `*` in `menu-*/mock` also matches an empty name (no way to say
 // "one or more" here), so a `menu-/mock` source is not rejected on this side; the dynamic-import
@@ -58,6 +58,7 @@ const devRegex = (devAllow = []) =>
 const MENU_MOCK_SUBPATH = 'menu-*/mock';
 const FEEDBACKOPS_ORIGIN_SUBPATH = 'menu-notice-voc/feedbackops-origin';
 const FO_API_SUBPATH = 'menu-my-activity/fo-api';
+const NOTIFICATIONS_SLOT_SUBPATH = 'menu-my-activity/notifications-slot';
 // Rule 8 exception (platform ADR-0071): the FeedbackOps bridge menu imports exactly this entry; nothing else under @fops/*.
 const FO_BRIDGE_ENTRY = '@fops/frontend/global-screens';
 const UI_THEME_SUBPATHS = ['ui/theme', 'ui/theme-tokens.json'];
@@ -79,9 +80,9 @@ const FO_BRIDGE_RESTRICTION = { ...MENU_RESTRICTION, allowFeedbackOps: [FO_BRIDG
 const MENU_MOCK_RESTRICTION = { allow: ['contracts'], denyReact: true, denyTableEngine: true, mockAllowed: true };
 // #154: the real-server adapter reaches the app through src/real/** only (APP_REAL_FILES below).
 const APP_RESTRICTION = { allow: null, denyReact: false, mockAllowed: false, denyDev: true, denyHttpAdapter: true, allowSubpaths: [...UI_THEME_SUBPATHS, DOCK_ENTRY_SUBPATH] };
-// src/main.tsx is the composition root: only the FeedbackOps origin and FO API slot subpaths; no mock, no ./dev (#153).
+// src/main.tsx is the composition root: only the FeedbackOps origin, FO API and notifications slot subpaths; no mock, no ./dev (#153).
 const APP_REAL_RESTRICTION = { ...APP_RESTRICTION, denyHttpAdapter: false };
-const APP_MAIN_RESTRICTION = { ...APP_RESTRICTION, allowSubpaths: [...UI_THEME_SUBPATHS, DOCK_ENTRY_SUBPATH, FEEDBACKOPS_ORIGIN_SUBPATH, FO_API_SUBPATH] };
+const APP_MAIN_RESTRICTION = { ...APP_RESTRICTION, allowSubpaths: [...UI_THEME_SUBPATHS, DOCK_ENTRY_SUBPATH, FEEDBACKOPS_ORIGIN_SUBPATH, FO_API_SUBPATH, NOTIFICATIONS_SLOT_SUBPATH] };
 // The mock assembly and DevTools: mock-server and the menu `/mock` subpaths.
 const APP_DEV_RESTRICTION = { allow: null, denyReact: false, mockAllowed: true, denyHttpAdapter: true, allowSubpaths: [...UI_THEME_SUBPATHS, MENU_MOCK_SUBPATH] };
 // The conformance test: mock-server, and from ./dev only the mock assembly's MOCK_ENDPOINTS list (#153 follow-up —
@@ -142,7 +143,7 @@ function importRestrictions({ allow, denyReact, denyTableEngine, mockAllowed, al
 // own tests import `./testing`).
 const TEST_ENTRY_SUBPATH = 'kernel/testing';
 const COMPONENTS_TEST_ENTRY_SUBPATH = 'components/testing';
-const TEST_ENTRY_FILES = ['**/*.test.{ts,tsx}', '**/test-support.ts', '**/test-setup.ts'];
+const TEST_ENTRY_FILES = ['**/*.test.{ts,tsx}', '**/test-support.{ts,tsx}', '**/test-setup.ts'];
 const testEntryOverride = (restriction, subpaths = [TEST_ENTRY_SUBPATH]) => {
   const withEntry = { ...restriction, allowSubpaths: [...(restriction.allowSubpaths ?? []), ...subpaths] };
   return {

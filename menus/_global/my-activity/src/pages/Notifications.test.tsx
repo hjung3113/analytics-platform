@@ -1,80 +1,9 @@
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { useState } from 'react';
+import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { UserRound } from 'lucide-react';
-import { I18nProvider, PlatformProvider, createRegistry, usePlatform, type MenuEntry } from '@ap/kernel';
-import { memoryStorage, testAdapter, testSession } from '@ap/kernel/testing';
-import { manifests } from '../index';
+import { memoryStorage } from '@ap/kernel/testing';
 import { setFoApi } from '../fo-api';
-import Notifications from './Notifications';
-import { foQueryClient } from '../fo/FoBridge';
-
-// The real manifests in their global group; a space needs one menu of its own, so a filler stands in for it.
-const filler = { ...manifests[1]!, primary: true, id: 'filler', group: 'noticeVoc', path: '/filler' } as MenuEntry;
-const registry = createRegistry({
-  spaces: [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'filler' }],
-  groups: [
-    { id: 'myActivity', label: { ko: '내 활동', en: 'My activity' }, icon: UserRound, space: null },
-    { id: 'noticeVoc', label: { ko: '공지·VOC', en: 'Notice·VOC' }, icon: UserRound, space: 'analytics' },
-  ],
-  menus: [...manifests, filler],
-});
-
-const ID_A = '11111111-1111-4111-8111-111111111111';
-const ID_B = '22222222-2222-4222-8222-222222222222';
-
-function notification(id: string, over: Record<string, unknown> = {}) {
-  return {
-    id, event_type: 'voc.assigned_to_me', subject_type: 'voc', subject_id: id, summary: `VOC 담당자로 지정되었습니다 (${id.slice(0, 2)}).`,
-    detail: { voc_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' }, created_at: '2026-07-27T00:00:00.000Z', read_at: null, archived_at: null, ...over,
-  };
-}
-
-const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
-const listOf = (...items: unknown[]) => json({ items, page: { has_more: false }, unread_count: items.length });
-
-type Call = { path: string; method: string; credentials: RequestCredentials | undefined };
-
-/** Stubs `fetch`: `handle` answers by path; every request is recorded. */
-function stubFetch(handle: (path: string, method: string, calls: Call[]) => Response | Promise<Response>) {
-  const calls: Call[] = [];
-  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-    const call = { path: String(input), method: init?.method ?? 'GET', credentials: init?.credentials };
-    calls.push(call);
-    return handle(call.path, call.method, calls);
-  }));
-  return calls;
-}
-
-/** An adapter whose session the test can replace; `notify` announces the change (the Kernel bumps `revision`). */
-function switchableAdapter(initialUser = 'user-a') {
-  const listeners = new Set<() => void>();
-  let session = testSession(['platform:view'], { user: { id: initialUser, name: initialUser, title: { ko: initialUser, en: initialUser } } });
-  const adapter = testAdapter({ session: () => session, subscribe: onChange => { listeners.add(onChange); return () => { listeners.delete(onChange); }; } });
-  return {
-    adapter,
-    setUser: (id: string) => { session = testSession(['platform:view'], { user: { id, name: id, title: { ko: id, en: id } } }); },
-    notify: () => { for (const listener of [...listeners]) listener(); },
-  };
-}
-
-function ToastProbe() {
-  const { toasts } = usePlatform();
-  return <ul aria-label="toasts">{toasts.map(t => <li key={t.id} data-tone={t.tone}>{t.text}</li>)}</ul>;
-}
-
-function Harness() {
-  const [shown, setShown] = useState(true);
-  return <>
-    <button type="button" onClick={() => setShown(value => !value)}>toggle</button>
-    <ToastProbe />
-    {shown && <Notifications />}
-  </>;
-}
-
-function mount(adapter: ReturnType<typeof testAdapter>) {
-  return render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><Harness /></PlatformProvider></I18nProvider>);
-}
+import { foQueryClient } from '../fo/session';
+import { ID_A, ID_B, listOf, mount, notification, stubFetch, switchableAdapter, json } from '../fo/test-support';
 
 beforeEach(() => {
   vi.stubGlobal('localStorage', memoryStorage());

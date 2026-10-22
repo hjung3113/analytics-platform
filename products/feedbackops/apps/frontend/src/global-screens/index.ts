@@ -4,6 +4,7 @@
 // or reach the network outside `lib/api/client.ts` (a test in the bridge menu walks this graph).
 export { configureApiClient } from '@/lib/api/client';
 export { InboxPanel } from '@/features/home/InboxPanel';
+export { useUnreadNotificationCount } from '@/lib/cross-system/useUnreadNotificationCount';
 export type { HostLinkProps, HostSeam } from '@/lib/host/host-seam';
 export { createFoQueryClient } from '@/lib/query/query-client';
 export { FoScreenRoot } from './FoScreenRoot';

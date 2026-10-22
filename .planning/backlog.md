@@ -4,7 +4,9 @@
 
 ## 작은 후속 (확인된 것)
 
-- **구현 안 함 — 알림 목적지 연결(#651):** 플랫폼의 알림 페이지는 VOC·Task·권한 승인 대상 알림을 링크 없이 그린다(이음매 `canLink`가 항상 `false`; 읽음·보관 동작은 그대로). 이유: 이 대상들의 플랫폼 목적지(내 VOC 상세, 운영 화면)가 아직 없다. 다시 볼 조건: #654 내 VOC(`view=my&selected`) 또는 #595 운영 화면이 목적지를 만들 때.
+- **구현 안 함 — 알림 목적지 연결(#651):** 플랫폼의 알림 페이지는 VOC·Task·권한 승인 대상 알림을 링크 없이 그린다(이음매 `canLink`가 항상 `false`; 읽음·보관 동작은 그대로). 이유: 이 대상들의 플랫폼 목적지(내 VOC 상세, 운영 화면)가 아직 없다. 다시 볼 조건: #654 내 VOC(`view=my&selected`) 또는 #595 운영 화면이 목적지를 만들 때. 팝오버(#652)의 행도 같다 — 목적지가 생기면 팝오버 행 링크를 누를 때 팝오버를 닫는다.
+- **구현 안 함 — 알림 팝오버 `모두 읽음`(#652):** 이유: FeedbackOps 백엔드에 일괄 읽음 경로가 없고 `POST /notifications/:id/read`만 있다. 보이는 10건만 읽으면 "모두"가 거짓이 된다. 다시 볼 조건: FeedbackOps에 일괄 읽음 경로를 둘 때.
+- **구현 안 함 — 설문·권한 요청 배지(#652):** 이유: 그 화면이 아직 옮겨지지 않았다(manifest에 component 없음). 다시 볼 조건: #653 설문, #657 권한 요청.
 - **구현 안 함 — FeedbackOps raw-fetch API 모듈의 `/api/fo` 기준 경로(#651):** `lib/api/actors.ts`·`analytics-areas.ts`·`auth.ts`·`managed-systems.ts`·`nav.ts`·`permissions.ts`는 `client.ts`의 `sendRequest`를 거치지 않고 `fetch(`를 직접 부른다. 다리 진입점의 그래프에 들어 있지 않아 이번에는 건드리지 않았다. 다시 볼 조건: 그 모듈을 쓰는 첫 옮기는 화면(예: #657의 `permissions.ts`). 그래프 테스트(`menus/_global/my-activity/src/fo-entry-graph.test.ts`)가 `client.ts` 밖의 `fetch(`가 그래프에 들어오면 실패한다.
 - **구현 안 함 — FeedbackOps 린터 통일(#642):** FeedbackOps는 Biome·oxlint를 그대로 쓰고 플랫폼은 ESLint다. 루트 `lint`는 `@fops/*`를 빼고, FeedbackOps 린트는 `feedbackops.yml`의 `gate.sh static`이 돈다. 이유: #642는 Node·pnpm·lockfile·`@ap/ui` 통일만 맡았고, 린터를 바꾸면 FeedbackOps 전체 파일과 Biome 허용 목록이 바뀐다. 다시 볼 조건: #595가 FeedbackOps 화면을 플랫폼 메뉴로 옮길 때, 또는 두 린터의 규칙 충돌이 실제로 생길 때.
 - **구현 안 함 — FeedbackOps 의존 버전 맞추기(#642):** FeedbackOps는 `lucide-react 0.469.0`(플랫폼 1.48), vite 5·vitest 2·typescript 5.7을 그대로 쓴다. lucide는 FeedbackOps용 한 벌이 따로 있다(아이콘은 상태가 없어 동작 문제 없음, 번들 크기만). Radix와 React는 #642에서 플랫폼 버전으로 하나가 됐다. 이유: 버전을 올리면 아이콘 이름·테스트 러너 동작이 바뀌어 #642 범위를 넘는다. 다시 볼 조건: #595가 FeedbackOps 화면을 플랫폼 빌드로 옮길 때.

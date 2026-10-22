@@ -7,6 +7,7 @@ import { createRoot } from 'react-dom/client';
 import { createBasePathLocation, I18nProvider, PlatformProvider } from '@ap/kernel';
 import { setFeedbackOpsOrigin } from '@ap/menu-notice-voc/feedbackops-origin';
 import { setFoApi } from '@ap/menu-my-activity/fo-api';
+import { notificationsSlot } from '@ap/menu-my-activity/notifications-slot';
 import { createAssembly } from '#platform-assembly';
 import { readFeedbackOpsOrigin } from './feedbackops-origin';
 import { createLocalQueryHistoryStore } from './query-history-store';
@@ -43,7 +44,7 @@ void startOrFail(root, async () => {
   root.render(
     <StrictMode>
       <I18nProvider>
-        <PlatformProvider queryHistory={queryHistory} equipmentAxes={EQUIPMENT_AXES} adapter={assembly.adapter} registry={registry} location={location} slots={appSlots(assembly, feedbackOpsOrigin)}>
+        <PlatformProvider queryHistory={queryHistory} equipmentAxes={EQUIPMENT_AXES} adapter={assembly.adapter} registry={registry} location={location} slots={appSlots(assembly, feedbackOpsOrigin, notificationsSlot)}>
           <AppShell><RouteOutlet /></AppShell>
         </PlatformProvider>
       </I18nProvider>

@@ -1910,6 +1910,29 @@ test.describe('전역 기능 자리 (ADR-0070, 06 §9.1·§10)', () => {
     await expect(page.getByTestId('home-inbox-list')).toHaveCount(0);
   });
 
+  test('레일 알림 종은 mock에서 배지 없이 보이고 키보드로 팝오버를 열고 모두 보기로 알림 화면에 간다 (#652)', async ({ page }) => {
+    await signInAs(page, 'viewer');
+    await page.goto('/metrics');
+    const rail = page.getByRole('navigation', { name: '앱 레일' });
+    const bell = rail.getByRole('button', { name: /^알림/ });
+    await expect(bell).toHaveAccessibleName('알림');
+    await expect(bell).not.toHaveText(/\d/);
+    await bell.focus();
+    await page.keyboard.press('Enter');
+    const dialog = page.getByRole('dialog', { name: '알림' });
+    await expect(dialog.getByRole('status')).toContainText('실서버 필요');
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+    await expect(bell).toBeFocused();
+    await bell.click();
+    await page.getByRole('dialog', { name: '알림' }).getByRole('link', { name: '모두 보기' }).click();
+    await expect(page.getByRole('dialog', { name: '알림' })).toHaveCount(0);
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/notifications');
+    await expect(page.getByRole('main').getByRole('heading', { name: '알림' })).toBeFocused();
+    const popover = await openSwitcher(page);
+    await expect(popover.getByRole('navigation', { name: '플랫폼 메뉴' }).getByRole('link', { name: '알림' })).toHaveAccessibleName('알림');
+  });
+
   test('플랫폼 사이드바는 업무 사이드바와 접힘 상태를 함께 쓴다', async ({ page }) => {
     await signInAs(page, 'admin');
     await page.goto('/');

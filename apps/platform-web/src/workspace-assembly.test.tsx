@@ -1,7 +1,7 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { PlatformAdapter } from '@ap/contracts';
-import { I18nProvider, PlatformProvider, usePlatform } from '@ap/kernel';
+import { I18nProvider, PlatformProvider, usePlatform, type NotificationsSlot } from '@ap/kernel';
 import { testAdapter, testSession } from '@ap/kernel/testing';
 import { createAssembly, type Assembly } from '#platform-assembly';
 import { GROUPS, SPACES, registry } from './menus';
@@ -104,14 +104,16 @@ describe('workspace assembly (#260)', () => {
 
   it.skipIf(probeRun)('gives a viewer the spaces their menus allow and the global utilities, and the app passes the FeedbackOps slot', async () => {
     const assembly = await createAssembly({ registry }) as Assembly;
-    const slots = appSlots(assembly, null);
+    const fakeSlot: NotificationsSlot = { menuId: 'notifications', UnreadCount: ({ children }) => children(null), Recent: () => null };
+    const slots = appSlots(assembly, null, fakeSlot);
     expect(slots.topBarTools).toBe(assembly.topBarTools);
     // The real composition (#251): mapped spaces get four entries, disabled while the origin is absent; operations has no row.
     expect(slots.feedbackOps?.entriesFor('metrics')?.map(entry => [entry.id, entry.href])).toEqual([['voc-create', null], ['voc', null], ['task', null], ['survey', null]]);
     expect(slots.feedbackOps?.entriesFor('operations')).toBeNull();
     expect(slots.feedbackOps?.overall).toBeNull();
-    expect(appSlots(assembly, 'https://feedbackops.example').feedbackOps?.entriesFor('metrics')?.every(entry => entry.href?.startsWith('https://feedbackops.example/'))).toBe(true);
-    expect(Object.keys(slots)).toEqual(['contextBar', 'topBarTools', 'feedbackOps', 'plannedSpaces', 'boardEntry']);
+    expect(appSlots(assembly, 'https://feedbackops.example', fakeSlot).feedbackOps?.entriesFor('metrics')?.every(entry => entry.href?.startsWith('https://feedbackops.example/'))).toBe(true);
+    expect(Object.keys(slots)).toEqual(['contextBar', 'topBarTools', 'feedbackOps', 'plannedSpaces', 'boardEntry', 'notifications']);
+    expect(slots.notifications).toBe(fakeSlot);
     // Planned systems are display-only rows for the switcher: no Registry space or menu carries their id.
     // CLAS left the planned list for a real space (#590); log-dev and improvement left it in #252.
     expect(slots.plannedSpaces).toEqual([]);

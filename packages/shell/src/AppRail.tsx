@@ -3,6 +3,7 @@ import { BOARD_PATH, useI18n, usePlatform } from '@ap/kernel';
 import { cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger, shortcutLabel, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { SystemSwitcher } from './SystemSwitcher';
 import { placeableMenus } from './board/boardMenus';
+import { NotificationsBell } from './NotificationsBell';
 import { firstOpenableMenu, useSystemSections } from './systemSections';
 
 /** System switcher, the current system's section buttons and global tools; the app keeps ownership of topBarTools. */
@@ -43,7 +44,9 @@ export function AppRail() {
         <button type="button" onClick={() => { if (platformScreen !== 'board') navigate(BOARD_PATH, { focus: 'page', via: 'sidebar' }); }} aria-label={boardLabel} aria-current={platformScreen === 'board' ? 'page' : undefined}
           className={cn('grid size-8 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover', platformScreen === 'board' && 'bg-surface-row-selected text-accent-primary')}><LayoutGrid className="size-4" aria-hidden /></button>
       </TooltipTrigger><TooltipContent side="right">{boardLabel}</TooltipContent></Tooltip>}
+      {slots.notifications && canOpen(slots.notifications.menuId) && <NotificationsBell slot={slots.notifications} />}
       <div className="flex shrink-0 flex-col items-center gap-1">{slots.topBarTools}</div>
+      <div className="my-1 w-6 shrink-0 border-t border-border-subtle" aria-hidden />
       <Popover>
         <PopoverTrigger asChild><button type="button" aria-label={lang === 'ko' ? '도움말' : 'Help'} title={lang === 'ko' ? '도움말' : 'Help'} className="grid size-8 place-items-center rounded-md text-text-secondary hover:bg-surface-sunken"><CircleHelp className="size-4" aria-hidden /></button></PopoverTrigger>
         <PopoverContent side="right" align="end" className="w-72">
