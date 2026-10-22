@@ -716,7 +716,7 @@ test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
     await dockReady(page, 4);
     await paneTab(page, 1).focus();
     const visited = [1];
-    for (let step = 0; step < 80 && visited.length < 4; step++) {
+    for (let step = 0; step < 400 && visited.length < 4; step++) {
       await page.keyboard.press('Tab');
       const label = await page.evaluate(() => (document.activeElement?.getAttribute('role') === 'tab' ? document.activeElement.getAttribute('aria-label') : null));
       const number = label ? Number(/^칸 (\d) · /.exec(label)?.[1]) : NaN;
@@ -735,7 +735,8 @@ test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
     await separator.focus();
     for (let step = 0; step < 5; step++) await page.keyboard.press('ArrowDown');
     await expect.poll(async () => Number(await separator.getAttribute('aria-valuenow'))).toBeCloseTo(before + 25, 0);
-    await expect(page.locator('[data-dock-layout] [data-pane-body]').first()).toBeVisible();
+    // Start once every granted pane has drawn its screen (pane 4, DIFF, has no grant): the number of stops must not depend on load timing.
+    for (const index of [0, 1, 2]) await expect(page.locator(`[data-pane-index="${index}"]`).getByRole('radio', { name: '시간' })).toBeVisible();
     const outside = () => page.evaluate(() => { const focus = document.activeElement; return focus !== null && focus !== document.body && !focus.closest('[data-dock-layout]'); });
     const visited: number[] = [];
     const note = async () => {
@@ -745,7 +746,7 @@ test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
     };
     await paneTab(page, 1).focus();
     await note();
-    for (let step = 0; step < 120 && !(await outside()); step++) { await page.keyboard.press('Tab'); await note(); }
+    for (let step = 0; step < 400 && !(await outside()); step++) { await page.keyboard.press('Tab'); await note(); }
     expect(visited).toEqual([1, 2, 4, 3]);
     expect(await outside()).toBe(true);
     // Back: out of the layout before the first group.
