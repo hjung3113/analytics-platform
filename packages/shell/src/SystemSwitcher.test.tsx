@@ -49,11 +49,13 @@ function Page() {
     {late && pageParam('focus') && <DetailDrawer title="Detail" onClose={() => setPage({ focus: null })} tabs={[{ id: 'a', label: 'A', content: 'content' }]} />}
   </PlatformPage>;
 }
-// A destination that resolves late (a lazy chunk): its title only mounts after `lazyDelay` ms.
+// A destination that resolves late (a lazy chunk): its title mounts only when the test calls resolveLazy(), never on a
+// timer, so the order "reopen, then arrive" holds on a slow runner too (#668).
 let lazyMenuId: string | null = null;
+let resolveLazy: () => void = () => {};
 function Slow() {
   const [ready, setReady] = useState(false);
-  useEffect(() => { const timer = setTimeout(() => setReady(true), 60); return () => clearTimeout(timer); }, []);
+  useEffect(() => { resolveLazy = () => setReady(true); return () => { resolveLazy = () => {}; }; }, []);
   return ready ? <Page /> : null;
 }
 function Routes() {
@@ -84,7 +86,7 @@ beforeEach(() => {
   Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value: vi.fn() });
   sessionStorage.clear();
 });
-afterEach(() => { lazyMenuId = null; cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+afterEach(() => { lazyMenuId = null; resolveLazy = () => {}; cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe('SystemSwitcher button (15 §3.2)', () => {
   it('names the button and its visible tooltip with the current system', async () => {
@@ -378,6 +380,8 @@ describe('SystemSwitcher focus ownership and lifecycle (ADR-0032)', () => {
     fireEvent.click(cardOf('BRAVO'));
     await waitFor(() => expect(window.location.pathname).toBe('/metrics'));
     open();
+    expect(screen.queryByRole('heading', { name: '카탈로그', hidden: true })).toBeNull();
+    act(() => resolveLazy());
     // Outside the modal popover the page is aria-hidden, so the title is found by the hidden option here.
     const title = await screen.findByRole('heading', { name: '카탈로그', hidden: true });
     expect(title).not.toHaveFocus();
