@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { panelOrder } from '../dock/commands';
+import { groupOf, panelOrder } from '../dock/commands';
 import { dockGroups, isValidDockTree, type DockNode } from '../dock/schema';
-import { applyPreset, hidePanel, initialWorkspaceState, normalizeWorkspaceState, presetTree, resetLayout, showPanel, type PanelWorkspaceLayout, type WorkspacePreset, type WorkspaceSpec } from './workspaceState';
+import { applyPreset, hidePanel, initialWorkspaceState, normalizeWorkspaceState, presetTree, resetLayout, showPanel, tabAfterHide, type PanelWorkspaceLayout, type WorkspacePreset, type WorkspaceSpec } from './workspaceState';
 
 const IDS = ['trend', 'selector', 'detail', 'kpi'];
 const group = (panels: string[], active?: string): PanelWorkspaceLayout => ({ type: 'group', panels, active });
@@ -170,12 +170,42 @@ describe('commands', () => {
     expect(hidePanel(hidden, 'detail', 'trend')).toBe(hidden);
   });
 
-  it('showPanel adds the panel back as the active tab of the primary\'s group', () => {
-    const shown = showPanel(hidePanel(initial, 'detail', 'trend'), 'detail', 'trend');
-    expect(shown.hidden).toEqual([]);
-    const home = dockGroups(shown.layout).find(g => g.panels.includes('trend'))!;
-    expect(home.panels).toEqual(['trend', 'detail']);
-    expect(home.active).toBe('detail');
-    expect(showPanel(initial, 'detail', 'trend')).toBe(initial);
+  it.each([balanced, focus])('showPanel never covers the primary ($id)', preset => {
+    const start = applyPreset(initial, preset);
+    for (const id of ['selector', 'detail', 'kpi']) {
+      const shown = showPanel(hidePanel(start, id, 'trend'), id, 'trend', preset);
+      expect(shown.hidden).toEqual([]);
+      expect(isValidDockTree(shown.layout, IDS)).toBe(true);
+      expect(groupOf(shown.layout, 'trend')!.active).toBe('trend');
+      expect(groupOf(shown.layout, id)!.panels).not.toContain('trend');
+    }
+    expect(showPanel(initial, 'detail', 'trend', balanced)).toBe(initial);
+  });
+
+  it('showPanel puts the panel into the group of a preset sibling that is still shown, as the active tab', () => {
+    const hidden = hidePanel(applyPreset(initial, focus), 'detail', 'trend');
+    const shown = showPanel(hidden, 'detail', 'trend', focus);
+    expect(groupsOf(shown.layout)).toEqual([['trend'], ['selector', 'kpi', 'detail']]);
+    expect(groupOf(shown.layout, 'detail')!.active).toBe('detail');
+  });
+
+  it('showPanel without a sibling goes to the first group in reading order that is not the primary\'s', () => {
+    const shown = showPanel(hidePanel(initial, 'detail', 'trend'), 'detail', 'trend', balanced);
+    expect(groupsOf(shown.layout)).toEqual([['selector', 'detail'], ['kpi'], ['trend']]);
+  });
+
+  it('showPanel splits to the right of the primary when only its group exists', () => {
+    const alone = { ...initial, layout: presetTree(group(['trend']), ['trend']), hidden: ['detail'] };
+    const shown = showPanel(alone, 'detail', 'trend', balanced);
+    expect(groupsOf(shown.layout)).toEqual([['trend'], ['detail']]);
+    expect(shown.layout).toMatchObject({ type: 'branch', dir: 'row' });
+  });
+
+  it('tabAfterHide names the tab now active in the group the panel left, else the primary', () => {
+    const state = applyPreset(initial, focus);
+    const afterDetail = hidePanel(state, 'detail', 'trend');
+    expect(tabAfterHide(state, afterDetail, 'detail', 'trend')).toBe(groupOf(afterDetail.layout, 'selector')!.active);
+    const lone = hidePanel(initial, 'detail', 'trend');
+    expect(tabAfterHide(initial, lone, 'detail', 'trend')).toBe('trend');
   });
 });

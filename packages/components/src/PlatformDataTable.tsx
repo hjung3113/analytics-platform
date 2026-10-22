@@ -11,6 +11,7 @@ import { DataTrustIndicator } from './DataTrustIndicator';
 import { OutcomeView } from './StateView';
 import { exportCell, exportColumns, toClipboardHtml, toCsv, toTsv, toXlsx } from './tableExport';
 import { SCROLLPORT_LABEL } from './scrollportLabel';
+import { useInWorkspacePanel } from './workspace/panelContext';
 import { ACTION_PIN_MIN_SCROLL, ROW_AREA_FALLBACK, useTableFit } from './tableFit';
 
 export type { PageQuery, PageResult } from '@ap/contracts';
@@ -193,6 +194,7 @@ export type PlatformDataTableProps<T> = {
 export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const { t, lang } = useI18n();
   const analysisSection = useContext(AnalysisSectionContext);
+  const inPanel = useInWorkspacePanel();
   const { global, user, revision, route, toast } = usePlatform();
   const axes = useEquipmentAxes();
   // Registry declares export capability (§5); the table never offers Export on a menu that did not declare it.
@@ -688,7 +690,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   return <section ref={section} tabIndex={-1} aria-label={p.ariaLabel} onKeyDown={onShortcut} className="flex flex-col rounded-lg border border-border-subtle bg-surface-card">
     <div className={cn('flex min-h-11 flex-wrap items-center justify-between gap-2 p-3', analysisSection && 'pr-12')}>
       <div className="min-w-0">
-        <h2 className="t-card-title">{p.title}</h2>
+        <h2 className={cn('t-card-title', inPanel && 'sr-only')}>{p.title}</h2>
         {p.subtitle && <p className="text-xs text-text-muted">{p.subtitle}</p>}
       </div>
       <div className="flex flex-wrap items-center gap-2">

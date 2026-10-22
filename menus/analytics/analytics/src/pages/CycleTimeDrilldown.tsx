@@ -221,7 +221,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
             ? '0.1분 단위로 반올림합니다. 진행 중인 Job은 넣지 않습니다. 느린 실행은 표시된 P95 이상(같은 값 포함)입니다. 증감은 직전 같은 길이의 기간과 비교하며, 줄어든 것을 개선으로 칠합니다. 빈 구간은 0이 아닙니다.'
             : 'Rounded to 0.1 min. In-progress jobs are not included. Slow means at or above the displayed P95, including ties. Deltas compare with the previous period of the same length and treat a decrease as an improvement. An empty bucket is not zero.'}</p>
           </div> },
-            { id: 'trend', primary: true, title: { ko: '사이클타임 추세', en: 'Cycle time trend' }, render: () =>
+            { id: 'trend', primary: true, minWidth: 480, minHeight: 320, title: { ko: '사이클타임 추세', en: 'Cycle time trend' }, render: () =>
             <QueryView widgetName={ko ? '사이클타임 추세' : 'Cycle time trend'} query={trend} skeletonHeight={280}>
               {(data, response) => <AnalysisChartFrame
                 chartId="cycle-time-trend"

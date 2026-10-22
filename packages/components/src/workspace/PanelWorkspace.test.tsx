@@ -210,6 +210,98 @@ describe('PanelWorkspace: toolbar', () => {
   });
 });
 
+describe('PanelWorkspace: focus after a panel menu action', () => {
+  const tabOf = (id: string) => document.querySelector<HTMLElement>(`[role="tab"][data-tab-panel-id="${id}"]`);
+  const focusedTab = () => (document.activeElement as HTMLElement | null)?.dataset.tabPanelId;
+
+  it('hide: the tab now active in the group the panel left', async () => {
+    mountWorkspace({ initialPreset: 'focus' });
+    await ready();
+    await userEvent.click(tabOf('selector')!);
+    await settle();
+    await chooseFromMenu('선택기 동작', '숨기기');
+    await waitFor(() => { expect(document.activeElement).toBe(tabOf(focusedTab() ?? 'none')); });
+    expect(['detail', 'kpi']).toContain(focusedTab());
+  });
+
+  it('hide: the primary\'s tab when the group is gone', async () => {
+    mountWorkspace();
+    await ready();
+    await chooseFromMenu('상세 동작', '숨기기');
+    await waitFor(() => { expect(focusedTab()).toBe('trend'); });
+  });
+
+  it.each([['오른쪽으로 나누기'], ['아래로 나누기']])('split (%s): the moved panel\'s tab', async item => {
+    mountWorkspace({ initialPreset: 'focus' });
+    await ready();
+    await userEvent.click(tabOf('selector')!);
+    await settle();
+    await chooseFromMenu('선택기 동작', item);
+    await waitFor(() => { expect(focusedTab()).toBe('selector'); });
+  });
+
+  it('move into another group: the moved panel\'s tab', async () => {
+    mountWorkspace();
+    await ready();
+    await userEvent.click(screen.getAllByRole('button', { name: '상세 동작' })[0]!);
+    const items = await screen.findAllByRole('menuitem', { name: /묶음으로 옮기기/ });
+    await userEvent.click(items[0]!);
+    await settle();
+    await waitFor(() => { expect(focusedTab()).toBe('detail'); });
+  });
+
+  it('show from the hidden list: the shown panel\'s tab', async () => {
+    mountWorkspace();
+    await ready();
+    await chooseFromMenu('상세 동작', '숨기기');
+    await userEvent.click(screen.getByRole('button', { name: '숨긴 패널 1' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: '상세 다시 보기' }));
+    await waitFor(() => { expect(focusedTab()).toBe('detail'); });
+  });
+
+  it('show keeps the primary visible and active', async () => {
+    mountWorkspace();
+    await ready();
+    await chooseFromMenu('상세 동작', '숨기기');
+    await userEvent.click(screen.getByRole('button', { name: '숨긴 패널 1' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: '상세 다시 보기' }));
+    await waitFor(() => { expect(document.querySelector('[data-dock-panel="detail"]')).not.toBeNull(); });
+    expect(document.querySelector('[data-dock-panel="trend"]')?.getAttribute('data-dock-visible')).toBe('true');
+    expect(tabOf('trend')).toHaveAttribute('aria-selected', 'true');
+  });
+});
+
+describe('PanelWorkspace: stacked width', () => {
+  it('turns the preset radios off with a reason while the panels are stacked, and back on after widening', async () => {
+    mountWorkspace({ compactPreset: 'stack' });
+    await ready();
+    expect(screen.getByRole('radio', { name: '집중' })).toBeEnabled();
+    observer.resize(600);
+    const radios = await screen.findAllByRole('radio');
+    await waitFor(() => { radios.forEach(radio => { expect(radio).toBeDisabled(); }); });
+    const group = screen.getByRole('radiogroup', { name: '배치' });
+    expect(group).toHaveAttribute('aria-describedby');
+    expect(document.getElementById(group.getAttribute('aria-describedby')!)).toHaveTextContent('좁은 폭에서는 한 묶음으로 보입니다');
+    expect(group.parentElement).toHaveAttribute('title', '좁은 폭에서는 한 묶음으로 보입니다');
+    observer.resize(1200);
+    await waitFor(() => { expect(screen.getByRole('radio', { name: '집중' })).toBeEnabled(); });
+  });
+
+  it('does the same without a compact preset, and the host commands are disabled too', async () => {
+    mountWorkspace();
+    await ready();
+    observer.resize(600);
+    await waitFor(() => { expect(screen.getByRole('radio', { name: '집중' })).toBeDisabled(); });
+    expect(screen.getByRole('button', { name: '기본 배치' })).toBeEnabled();
+  });
+
+  it('names a separator without a Korean particle', async () => {
+    mountWorkspace();
+    await ready();
+    expect(screen.getAllByRole('separator').map(separator => separator.getAttribute('aria-label'))).toContain('선택기 · 지표 사이 너비');
+  });
+});
+
 describe('PanelWorkspace: commands host', () => {
   let commands: readonly WorkspaceCommand[] = [];
   function Reader() { commands = useWorkspaceCommands(); return null; }

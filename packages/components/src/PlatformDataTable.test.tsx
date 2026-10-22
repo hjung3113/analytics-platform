@@ -9,6 +9,7 @@ import { DetailDrawer } from './DetailDrawer';
 import { ManagementLayout } from './ManagementLayout';
 import { toColumnDef } from './columnDef';
 import * as publicApi from './index';
+import { InWorkspacePanelProvider } from './workspace/panelContext';
 import { readXlsx } from './xlsxTestReader';
 import { PlatformDataTable, type PageQuery, type PageResult, type PlatformDataTableProps, type TableUrlState } from './PlatformDataTable';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
@@ -58,6 +59,17 @@ function UncontrolledHarness(props: { loadPage: PlatformDataTableProps<Row>['loa
     />
   </PlatformProvider></I18nProvider>;
 }
+
+describe('PlatformDataTable inside a workspace panel', () => {
+  it('draws its title heading visually hidden (the panel tab names it) and keeps the accessible name', async () => {
+    const view = render(<InWorkspacePanelProvider value><UncontrolledHarness loadPage={makeLoadPage(3)} /></InWorkspacePanelProvider>);
+    const heading = await screen.findByRole('heading', { name: 'T' });
+    expect(heading).toHaveClass('sr-only');
+    view.unmount();
+    render(<UncontrolledHarness loadPage={makeLoadPage(3)} />);
+    expect(await screen.findByRole('heading', { name: 'T' })).not.toHaveClass('sr-only');
+  });
+});
 
 describe('PlatformDataTable controlled mode (urlState)', () => {
   it('renders the given sort and page, and loadPage receives the 0-based page', async () => {

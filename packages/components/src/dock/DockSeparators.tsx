@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
 import { cn } from '@ap/ui';
 import { resizeBoundary } from './commands';
-import { dockBoundaries, pairBounds, type DockBoundary } from './displayModel';
+import { dockBoundaries, pairBounds, type DockBoundary, type PanelMinimums } from './displayModel';
 import type { DockSeparatorInfo } from './dockTypes';
 import type { DockNode } from './schema';
 
@@ -36,16 +36,18 @@ function place(boundary: DockBoundary, rects: Readonly<Record<string, DockRect>>
  * branch. They are an overlay positioned from the groups' rects on every engine layout event, so they move with the engine's sash; pointer
  * drag stays the engine's sash (the overlay ignores the pointer). Arrow keys move the boundary 5% of the pair, Home/End go to its limits.
  */
-export function DockSeparators({ layout, rects, minPanelSize, instanceId, label, onChange }: {
+export function DockSeparators({ layout, rects, minPanelSize, panelMinimums, instanceId, label, onChange }: {
   layout: DockNode;
   rects: Readonly<Record<string, DockRect>>;
   minPanelSize: { width: number; height: number };
+  /** Panels that declare their own minimum: Home/End and the arrow keys stop at it, like the engine. */
+  panelMinimums?: PanelMinimums;
   instanceId: string;
   label: (info: DockSeparatorInfo) => string;
   onChange: (next: DockNode) => void;
 }) {
   return <>
-    {dockBoundaries(layout, minPanelSize).map(boundary => {
+    {dockBoundaries(layout, minPanelSize, panelMinimums).map(boundary => {
       const spot = place(boundary, rects);
       const bounds = pairBounds(boundary, spot.pairPx);
       const row = boundary.dir === 'row';

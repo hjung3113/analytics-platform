@@ -167,6 +167,7 @@ export default function DockEngine({
   const dragging = useRef(false);
   const canonicalDisplay = useMemo(() => canonicalDockTree(display), [display]);
   const key = useMemo(() => JSON.stringify(canonicalDisplay), [canonicalDisplay]);
+  const panelMinimums = useMemo(() => new Map(panels.map(panel => [panel.id, { minWidth: panel.minWidth, minHeight: panel.minHeight }])), [panels]);
   const meta = useMemo(() => JSON.stringify([panels.map(panel => [panel.id, panel.title, panel.minWidth, panel.minHeight]), minPanelSize]), [panels, minPanelSize]);
   // The effects below run on what changed (key, meta, epoch), not on every new object identity; they read the rest from here.
   const live = useRef({ layout, interactive, onLayoutChange, canonicalDisplay, panels, minPanelSize });
@@ -365,7 +366,7 @@ export default function DockEngine({
         onReady={onReady} onWillDrop={onWillDrop} theme={THEME} defaultRenderer="always" singleTabMode="fullwidth"
         disableFloatingGroups disableDnd={!interactive} announcements={false} />
     </div>
-    {interactive && !maximizedPanelId && <DockSeparators layout={layout} rects={rects} minPanelSize={minPanelSize} instanceId={instanceId} label={separatorLabel} onChange={separate} />}
+    {interactive && !maximizedPanelId && <DockSeparators layout={layout} rects={rects} minPanelSize={minPanelSize} panelMinimums={panelMinimums} instanceId={instanceId} label={separatorLabel} onChange={separate} />}
   </EngineContext.Provider>;
 }
 

@@ -91,6 +91,10 @@ describe('board pane hosts menu workspace commands (ADR-0067 decision 3)', () =>
     const items = screen.getAllByRole('menuitem').map(item => item.textContent);
     expect(items).toContain('기본 배치');
     expect(items.indexOf('기본 배치')).toBeGreaterThan(items.indexOf('비우기'));
+    // The group is named by a label that is not an item and sits above the presets.
+    const label = screen.getByText('화면 배치');
+    expect(label.closest('[role="menuitem"], [role="menuitemradio"]')).toBeNull();
+    expect(label.compareDocumentPosition(radios[0]!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('choosing a preset item runs the workspace command', async () => {

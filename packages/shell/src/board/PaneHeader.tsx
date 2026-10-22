@@ -3,7 +3,7 @@ import { useId, useLayoutEffect, useRef, useState, type ReactNode, type RefObjec
 import { RETURN_CONTEXT_LABELS, useI18n } from '@ap/kernel';
 import { useWorkspaceCommands } from '@ap/components/dock';
 import {
-  Button, buttonVariants, cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger,
+  Button, buttonVariants, cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger,
   Popover, PopoverAnchor, PopoverContent,
 } from '@ap/ui';
 import { PANE_CHIP } from '../contextChip';
@@ -303,6 +303,7 @@ export function PaneHeader(props: PaneHeaderProps) {
             </>}
             {workspaceCommands.length > 0 && <>
               {hasContentMenu && <DropdownMenuSeparator />}
+              <DropdownMenuLabel>{text.screenLayout}</DropdownMenuLabel>
               {presetCommands.length > 0 && <DropdownMenuRadioGroup value={presetCommands.find(command => command.checked)?.id ?? ''} onValueChange={id => { presetCommands.find(command => command.id === id)?.run(); }}>
                 {presetCommands.map(command => <DropdownMenuRadioItem key={command.id} value={command.id} disabled={command.disabled}>{command.label}</DropdownMenuRadioItem>)}
               </DropdownMenuRadioGroup>}

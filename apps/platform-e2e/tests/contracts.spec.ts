@@ -3016,6 +3016,12 @@ test.describe('메뉴 작업 영역 (ADR-0067 3b)', () => {
     expect(await mainScrolls(page)).toBe(false);
     await evidence(page, testInfo, 'workspace-balanced-1440x900');
 
+    // The trend declares a 480 px minimum: Home on the separator beside it stops there, not at the global 240 px.
+    const sideSeparator = workspace(page).getByRole('separator', { name: /^사이클타임 추세 · .+ 사이 너비$/ });
+    await sideSeparator.focus();
+    await page.keyboard.press('Home');
+    await expect.poll(async () => (await groupOf(page, TITLES.trend).boundingBox())!.width).toBeGreaterThanOrEqual(479);
+
     await page.getByRole('button', { name: '조회 조건 펼치기' }).click();
     await page.getByRole('button', { name: '페이지 필터 펼치기' }).click();
     // The fill body keeps 520 px (toolbar included): the page scrolls instead of crushing the workspace.

@@ -15,6 +15,7 @@ export const workspaceText = {
   splitDown: { ko: '아래로 나누기', en: 'Split below' },
   moveToGroup: (title: string): Text => ({ ko: `${title} 묶음으로 옮기기`, en: `Move into ${title}'s group` }),
   hide: { ko: '숨기기', en: 'Hide' },
-  separatorColumns: (before: string, after: string): Text => ({ ko: `${before}과(와) ${after} 사이 너비`, en: `Width between ${before} and ${after}` }),
-  separatorRows: (before: string, after: string): Text => ({ ko: `${before}과(와) ${after} 사이 높이`, en: `Height between ${before} and ${after}` }),
+  separatorColumns: (before: string, after: string): Text => ({ ko: `${before} · ${after} 사이 너비`, en: `Width between ${before} and ${after}` }),
+  separatorRows: (before: string, after: string): Text => ({ ko: `${before} · ${after} 사이 높이`, en: `Height between ${before} and ${after}` }),
+  compactPresetOff: { ko: '좁은 폭에서는 한 묶음으로 보입니다', en: 'Shown as one group at this width' },
 } satisfies Record<string, Text | ((...args: never[]) => Text)>;

@@ -43,14 +43,18 @@ export type DockBoundary = {
   minAfter: number;
 };
 
-function minAlong(node: DockNode, axis: Dir, min: { width: number; height: number }): number {
-  if (node.type === 'group') return axis === 'row' ? min.width : min.height;
-  const parts = node.children.map(child => minAlong(child, axis, min));
+/** A panel's own minimum in px along the axes; what it leaves out falls back to the layout's `min`. */
+export type PanelMinimums = ReadonlyMap<string, { minWidth?: number; minHeight?: number }>;
+
+function minAlong(node: DockNode, axis: Dir, min: { width: number; height: number }, own?: PanelMinimums): number {
+  // A group keeps the largest minimum of its tabs, so a boundary never asks the engine for less than it will keep.
+  if (node.type === 'group') return Math.max(...node.panels.map(id => (axis === 'row' ? own?.get(id)?.minWidth ?? min.width : own?.get(id)?.minHeight ?? min.height)));
+  const parts = node.children.map(child => minAlong(child, axis, min, own));
   return node.dir === axis ? parts.reduce((total, part) => total + part, 0) : Math.max(...parts);
 }
 
 /** Every boundary between adjacent children of a branch, in depth-first order. */
-export function dockBoundaries(layout: DockNode, min: { width: number; height: number }): DockBoundary[] {
+export function dockBoundaries(layout: DockNode, min: { width: number; height: number }, own?: PanelMinimums): DockBoundary[] {
   const found: DockBoundary[] = [];
   const walk = (node: DockNode, path: number[]) => {
     if (node.type === 'group') return;
@@ -61,7 +65,7 @@ export function dockBoundaries(layout: DockNode, min: { width: number; height: n
         key: `${path.join('.')}/${index}`, path, index, dir: node.dir, before: panelOrder(before), after: panelOrder(after),
         beforeControl: dockGroups(before)[0]!.active, afterControl: dockGroups(after)[0]!.active,
         pairPercent: node.sizes[index]! + node.sizes[index + 1]!, beforePercent: node.sizes[index]!,
-        minBefore: minAlong(before, node.dir, min), minAfter: minAlong(after, node.dir, min),
+        minBefore: minAlong(before, node.dir, min, own), minAfter: minAlong(after, node.dir, min, own),
       });
     }
     node.children.forEach((child, at) => { walk(child, [...path, at]); });
