@@ -68,16 +68,13 @@ fail() {
 }
 
 prepare_node22() {
+  # FeedbackOps runs on the platform's Node 26.7 since #642 (the name is kept for its callers).
   local major=
   if command -v node >/dev/null 2>&1; then
     major=$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null) || major=
   fi
-  if [[ "$major" != 22 && -d /opt/homebrew/opt/node@22/bin ]]; then
-    export PATH="/opt/homebrew/opt/node@22/bin:$PATH"
-    major=$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null) || return 1
-  fi
-  if [[ "$major" != 22 ]]; then
-    printf 'ERROR: visual harness needs Node 22 on PATH; found major version %s\n' "${major:-unknown}" >&2
+  if [[ "$major" != 26 ]]; then
+    printf 'ERROR: visual harness needs Node 26 on PATH; found major version %s\n' "${major:-unknown}" >&2
     return 1
   fi
 }
