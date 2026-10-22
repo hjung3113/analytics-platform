@@ -16,6 +16,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { HOME_INBOX_COPY } from '@/lib/copy/home';
 import { type HostSeam, HostSeamProvider } from '@/lib/host/host-seam';
 import { tanstackHost } from '@/lib/host/tanstack-host';
 import { InboxPanel, notificationTarget } from '../InboxPanel';
@@ -586,7 +587,7 @@ describe('InboxPanel', () => {
 });
 
 describe('host seam', () => {
-  function renderWithSeam(notifyError = vi.fn()) {
+  function renderWithSeam(notifyError = vi.fn(), variant?: 'recent') {
     const seam: HostSeam = {
       canLink: () => false,
       Link: () => null,
@@ -596,7 +597,7 @@ describe('host seam', () => {
     render(
       <QueryClientProvider client={queryClient}>
         <HostSeamProvider value={seam}>
-          <InboxPanel />
+          <InboxPanel {...(variant ? { variant } : {})} />
         </HostSeamProvider>
       </QueryClientProvider>,
     );
@@ -639,6 +640,30 @@ describe('host seam', () => {
     expect(within(row).queryByRole('link')).not.toBeInTheDocument();
     expect(within(row).getAllByRole('button')).toHaveLength(1);
     expect(within(row).getByRole('button', { name: '보관' })).toBeInTheDocument();
+  });
+
+  it('recent variant lists read and unread rows once, without the filter or load-more', async () => {
+    const readId = '99999999-9999-4999-8999-999999999999';
+    const { calls } = installNotificationFetch(
+      [
+        makeNotification(),
+        makeNotification({ id: readId, subject_id: readId, read_at: '2026-07-27T01:00:00.000Z' }),
+      ],
+      { hasMore: true },
+    );
+    renderWithSeam(undefined, 'recent');
+
+    expect(await screen.findByTestId(`home-inbox-row-${NOTIFICATION_ID}`)).toBeInTheDocument();
+    expect(screen.getByTestId(`home-inbox-row-${readId}`)).toBeInTheDocument();
+    expect(
+      screen.queryByRole('group', { name: HOME_INBOX_COPY.filterLabel }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: HOME_INBOX_COPY.loadMore }),
+    ).not.toBeInTheDocument();
+    expect(calls.filter(({ method }) => method === 'GET').map(({ path }) => path)).toEqual([
+      '/notifications?limit=10',
+    ]);
   });
 
   it('reports a failed mark-read through the host', async () => {
@@ -732,4 +757,61 @@ describe('focus after a row action', () => {
       ),
     );
   });
+});
+
+describe('focus while a row action is pending', () => {
+  const ID_1 = '11111111-1111-4111-8111-111111111111';
+  const ID_2 = '22222222-2222-4222-8222-222222222222';
+
+  it.each(['page', 'recent'] as const)(
+    'keeps waiting on the disabled clicked button, then lands on the same row Archive (%s)',
+    async (variant) => {
+      const user = userEvent.setup();
+      const { fetchMock } = installNotificationFetch(
+        [ID_1, ID_2].map((id) => makeNotification({ id, subject_id: id })),
+      );
+      const innerFetch = globalThis.fetch;
+      let releasePost: (() => void) | undefined;
+      globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (init?.method === 'POST') {
+          await new Promise<void>((resolve) => {
+            releasePost = resolve;
+          });
+        }
+        return innerFetch(input, init);
+      }) as typeof globalThis.fetch;
+      const seam: HostSeam = { canLink: () => false, Link: () => null, notifyError: vi.fn() };
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      render(
+        <QueryClientProvider client={queryClient}>
+          <HostSeamProvider value={seam}>
+            <div data-testid="scope">
+              <InboxPanel variant={variant} />
+            </div>
+          </HostSeamProvider>
+        </QueryClientProvider>,
+      );
+      if (variant === 'page') await user.click(await screen.findByRole('radio', { name: '전체' }));
+      const second = await screen.findByTestId(`home-inbox-row-${ID_2}`);
+      const markRead = within(second).getByRole('button', { name: '읽음으로 표시' });
+      markRead.focus();
+      fireEvent.click(markRead);
+
+      await waitFor(() => expect(markRead).toBeDisabled());
+      expect(document.activeElement).toBe(markRead);
+      await act(async () => {
+        releasePost?.();
+      });
+
+      await waitFor(() =>
+        expect(document.activeElement).toBe(
+          within(screen.getByTestId(`home-inbox-row-${ID_2}`)).getByRole('button', {
+            name: '보관',
+          }),
+        ),
+      );
+      expect(screen.getByTestId('scope')).toContainElement(document.activeElement as HTMLElement);
+      expect(fetchMock).toHaveBeenCalled();
+    },
+  );
 });

@@ -1,5 +1,5 @@
 import { createElement, type ReactNode } from 'react';
-import type { PlannedSpace, PlatformSlots } from '@ap/kernel';
+import type { NotificationsSlot, PlannedSpace, PlatformSlots } from '@ap/kernel';
 import { GlobalContextBar, OpenInBoardAction } from '@ap/shell';
 import { feedbackOpsSlot } from './feedbackops-systems';
 
@@ -7,6 +7,6 @@ import { feedbackOpsSlot } from './feedbackops-systems';
 export const PLANNED_SPACES: readonly PlannedSpace[] = [];
 
 /** Slots `main.tsx` passes to PlatformProvider. `feedbackOpsOrigin` is the one value `main.tsx` read from the env (#60). */
-export function appSlots(assembly: { topBarTools: ReactNode }, feedbackOpsOrigin: string | null): PlatformSlots {
-  return { contextBar: createElement(GlobalContextBar), topBarTools: assembly.topBarTools, feedbackOps: feedbackOpsSlot(feedbackOpsOrigin), plannedSpaces: PLANNED_SPACES, boardEntry: createElement(OpenInBoardAction) };
+export function appSlots(assembly: { topBarTools: ReactNode }, feedbackOpsOrigin: string | null, notifications: NotificationsSlot): PlatformSlots {
+  return { contextBar: createElement(GlobalContextBar), topBarTools: assembly.topBarTools, feedbackOps: feedbackOpsSlot(feedbackOpsOrigin), plannedSpaces: PLANNED_SPACES, boardEntry: createElement(OpenInBoardAction), notifications };
 }

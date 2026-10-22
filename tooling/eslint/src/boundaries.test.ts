@@ -539,6 +539,16 @@ rows.push(
   { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '@ap/menu-my-activity/src/fo-api';`, rule: 'no-restricted-imports' },
 );
 
+// The notifications slot is main.tsx-only as well (#652); `src/slots.ts` receives the value as a parameter.
+rows.push(
+  { file: 'apps/platform-web/src/main.tsx', code: `import { notificationsSlot } from '@ap/menu-my-activity/notifications-slot';`, rule: '' },
+  { file: 'apps/platform-web/src/main.tsx', code: `void import('@ap/menu-my-activity/notifications-slot');`, rule: '' },
+  { file: 'apps/platform-web/src/slots.ts', code: `import { notificationsSlot } from '@ap/menu-my-activity/notifications-slot';`, rule: 'no-restricted-imports' },
+  { file: 'apps/platform-web/src/menus.ts', code: `import { notificationsSlot } from '@ap/menu-my-activity/notifications-slot';`, rule: 'no-restricted-imports' },
+  { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '@ap/menu-my-activity/src/notifications-slot';`, rule: 'no-restricted-imports' },
+  { file: 'menus/_global/my-activity/src/fo/test-support.tsx', code: `import { testAdapter } from '@ap/kernel/testing';`, rule: '' },
+);
+
 rows.push(
   { file: 'packages/ui/src/x.ts', code: `import { x } from '@fops/shared';`, rule: 'no-restricted-imports', token: '@ap/ui' },
   { file: 'packages/ui/src/x.ts', code: `void import('@fops/shared');`, rule: 'ap/restricted-import-source', token: '@ap/ui' },

@@ -67,8 +67,15 @@ function subjectRefTitle(notification: NotificationDto, title: string): string {
   return carriesCapability && isCapability(title) ? getCapabilityDisplayLabel(title) : title;
 }
 
-export function InboxPanel(): React.ReactElement {
-  const [filter, setFilter] = React.useState<InboxFilter>('unread');
+// `'recent'` is the platform bell popover body (platform ADR-0071): the latest notifications, read and unread, no filter, no paging.
+export function InboxPanel({
+  variant = 'page',
+}: {
+  variant?: 'page' | 'recent';
+} = {}): React.ReactElement {
+  const recent = variant === 'recent';
+  const [pageFilter, setFilter] = React.useState<InboxFilter>('unread');
+  const filter: InboxFilter = recent ? 'all' : pageFilter;
   const [pendingActionCounts, setPendingActionCounts] = React.useState<Record<string, number>>({});
   const queryClient = useQueryClient();
   const { notifyError } = useHostSeam();
@@ -76,15 +83,17 @@ export function InboxPanel(): React.ReactElement {
     notifyError(mapUnknownError(error).message);
   };
   const list = useInfiniteQuery({
-    queryKey: [...notificationsQueryKey, 'list', filter] as const,
+    queryKey: [...notificationsQueryKey, 'list', recent ? 'recent' : filter] as const,
     initialPageParam: undefined as string | undefined,
     queryFn: ({ pageParam, signal }) =>
       fetchNotifications({
+        ...(recent ? { limit: 10 } : {}),
         ...(filter === 'unread' ? { unread: true } : {}),
         ...(pageParam !== undefined ? { cursor: pageParam } : {}),
         signal,
       }),
-    getNextPageParam: (lastPage) => (lastPage.page.has_more ? lastPage.page.cursor : undefined),
+    getNextPageParam: (lastPage) =>
+      !recent && lastPage.page.has_more ? lastPage.page.cursor : undefined,
     retry: false,
   });
   const invalidateNotifications = (): Promise<void> =>
@@ -137,7 +146,16 @@ export function InboxPanel(): React.ReactElement {
   React.useLayoutEffect(() => {
     const pending = focusAfterAction.current;
     if (pending === null) return;
-    if (document.activeElement !== null && document.activeElement !== document.body) {
+    const active = document.activeElement;
+    // The clicked button is still focused while it is disabled for the pending action: keep waiting until it unmounts or re-enables.
+    if (
+      active instanceof HTMLElement &&
+      sectionRef.current?.contains(active) &&
+      active.matches(':disabled')
+    ) {
+      return;
+    }
+    if (active !== null && active !== document.body) {
       focusAfterAction.current = null;
       return;
     }
@@ -163,25 +181,27 @@ export function InboxPanel(): React.ReactElement {
 
   return (
     <section ref={sectionRef} className="space-y-3" data-testid="home-inbox-list">
-      <ToggleGroup
-        type="single"
-        value={filter}
-        onValueChange={(value) => {
-          if (value === 'unread' || value === 'all') setFilter(value);
-        }}
-        variant="outline"
-        size="sm"
-        appearance="filter"
-        className="w-fit"
-        aria-label={HOME_INBOX_COPY.filterLabel}
-      >
-        <ToggleGroupItem value="unread" appearance="selected-filter">
-          {HOME_INBOX_COPY.unread}
-        </ToggleGroupItem>
-        <ToggleGroupItem value="all" appearance="selected-filter">
-          {HOME_INBOX_COPY.all}
-        </ToggleGroupItem>
-      </ToggleGroup>
+      {recent ? null : (
+        <ToggleGroup
+          type="single"
+          value={filter}
+          onValueChange={(value) => {
+            if (value === 'unread' || value === 'all') setFilter(value);
+          }}
+          variant="outline"
+          size="sm"
+          appearance="filter"
+          className="w-fit"
+          aria-label={HOME_INBOX_COPY.filterLabel}
+        >
+          <ToggleGroupItem value="unread" appearance="selected-filter">
+            {HOME_INBOX_COPY.unread}
+          </ToggleGroupItem>
+          <ToggleGroupItem value="all" appearance="selected-filter">
+            {HOME_INBOX_COPY.all}
+          </ToggleGroupItem>
+        </ToggleGroup>
+      )}
 
       {list.isPending ? (
         <div className="space-y-2" aria-busy="true" data-testid="home-inbox-loading">
@@ -209,7 +229,13 @@ export function InboxPanel(): React.ReactElement {
 
       {!list.isPending && !list.isError && items.length > 0 ? (
         <TooltipProvider delayDuration={400}>
-          <ul className="overflow-hidden rounded-md border border-border-subtle bg-surface-card">
+          <ul
+            className={
+              recent
+                ? 'bg-surface-card'
+                : 'overflow-hidden rounded-md border border-border-subtle bg-surface-card'
+            }
+          >
             {items.map((notification) => (
               <NotificationRow
                 key={notification.id}

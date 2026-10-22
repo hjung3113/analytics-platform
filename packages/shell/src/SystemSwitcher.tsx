@@ -2,6 +2,7 @@ import { Check, ChevronDown, LayoutGrid } from 'lucide-react';
 import { useEffect, useId, useRef, type MouseEvent } from 'react';
 import { PlatformLink, useI18n, usePlatform } from '@ap/kernel';
 import { usePlatformMenu } from './platformMenu';
+import { formatUnread, MenuUnread } from './unread';
 import { cn, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipTrigger } from '@ap/ui';
 
 const CARD = 'flex w-full items-start gap-2 rounded-md border px-3 py-2.5 text-left hover:bg-surface-row-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring';
@@ -116,10 +117,16 @@ export function SystemSwitcher() {
             const link = resolveLink(menu.id);
             return <li key={menu.id} className="flex items-center gap-1.5">
               {at > 0 && <span aria-hidden className="text-text-muted">·</span>}
-              <PlatformLink data-switcher-platform href={link.href} aria-current={route?.menu.id === menu.id ? 'page' : undefined} onClick={event => goPlatform(event, link.href)}
-                className="rounded-md px-1.5 py-0.5 text-text-secondary hover:bg-surface-row-hover hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring aria-[current=page]:font-semibold aria-[current=page]:text-text-primary">
-                {platform.labelOf(menu)}
-              </PlatformLink>
+              <MenuUnread menuId={menu.id}>{count => {
+                const name = platform.labelOf(menu);
+                const unread = count !== null && count > 0 ? count : 0;
+                return <PlatformLink data-switcher-platform href={link.href} aria-current={route?.menu.id === menu.id ? 'page' : undefined} onClick={event => goPlatform(event, link.href)}
+                  {...(unread > 0 ? { 'aria-label': t('unreadNamed', { label: name, count: unread }) } : {})}
+                  className="rounded-md px-1.5 py-0.5 text-text-secondary hover:bg-surface-row-hover hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring aria-[current=page]:font-semibold aria-[current=page]:text-text-primary">
+                  {name}
+                  {unread > 0 && <span aria-hidden className="ml-1 rounded-pill bg-surface-row-selected px-1.5 text-caption font-semibold text-text-secondary">{formatUnread(unread)}</span>}
+                </PlatformLink>;
+              }}</MenuUnread>
             </li>;
           })}</ul>
         </nav>}
