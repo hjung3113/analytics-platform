@@ -15,7 +15,7 @@ concurrency:
   # Superseded PR runs are cancelled; every push to main runs to the end so a red main is never hidden.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-# 경로 필터 없이 매 push/PR마다 6개 Job을 모두 실행한다(레포가 작아 단순함 우선).
+# 경로 필터 없이 매 push/PR마다 6개 Job을 모두 실행한다(레포가 작아 단순함 우선). E2E는 shard 3개 Job + 병합 Job(#666)이다.
 # FeedbackOps는 서브모듈이 아니라 products/feedbackops/ 디렉터리라 checkout 옵션이 따로 없다(FeedbackOps CI는 feedbackops.yml). 프로토타입 4개 Job은 submodules: false를 명시한다.
 
 jobs:
@@ -167,10 +167,19 @@ jobs:
           if out=$(pnpm --filter @ap/platform-web exec node scripts/check-prod-graph.ts --force-mock-build 2>&1); then echo "$out"; exit 1; fi
           echo "$out" | grep -q 'failed as it must' && echo "$out" | grep -q 'production build bundles mock/dev code'
 
-  platform-contracts-e2e:
-    name: Platform contracts (E2E)
+  # #666: the contract suite (~600 s of tests on one worker) runs as 3 Playwright shards in parallel. Each shard starts
+  # its own dev server and runs its contiguous slice serially (fullyParallel + workers: 1), so evidence stays in contract
+  # order. 3 shards: measured slices from run 39778668812 are 209/203/188 s against ~55 s fixed setup per job, which puts
+  # the E2E path at or under the workspace job; a 4th shard would save under a minute of wall clock for a fourth setup.
+  platform-contracts-e2e-shard:
+    name: Platform contracts (E2E shard ${{ matrix.shard }}/3)
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      # Every shard runs to the end so the merged report lists every failing contract, not only the first shard's.
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     env:
       # 설치와 실행이 같은 경로를 보도록 Job 전체에 명시한다(config는 기본 캐시를 쓰고 이 변수를 따른다).
       PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/apps/platform-e2e/.browsers
@@ -183,9 +192,56 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @ap/platform-e2e exec playwright install --with-deps chromium
-      - run: pnpm e2e
+      # pnpm forwards the flags to `playwright test` as they are (no `--`, which Playwright would read as file filters).
+      # The blob reporter replaces the configured reporters; the final job merges the blobs into one contract report.
+      - run: pnpm e2e --shard=${{ matrix.shard }}/3 --reporter=list,blob
       # 하위 경로 배포(#318, ADR-0030): 별도 mock 빌드·preview(4191)에서 base 유지 계약을 확인한다.
-      - run: pnpm e2e:base-path
+      # Runs once, on the lightest shard (the last slice), and regardless of the shard's own result.
+      - if: ${{ matrix.shard == 3 && !cancelled() }}
+        run: pnpm e2e:base-path
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: platform-e2e-blob-${{ matrix.shard }}
+          path: apps/platform-e2e/blob-report/
+          retention-days: 1
+      - uses: actions/upload-artifact@v4
+        if: ${{ matrix.shard == 3 && !cancelled() }}
+        with:
+          name: platform-e2e-base-path-report
+          path: apps/platform-e2e/contract-report/base-path/
+          retention-days: 1
+
+  # One job under the old name: it merges the shard blobs into the single per-item report and carries the verdict, so a
+  # required status check keeps naming `Platform contracts (E2E)` however the shards change.
+  platform-contracts-e2e:
+    name: Platform contracts (E2E)
+    needs: platform-contracts-e2e-shard
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '26.7.0'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: platform-e2e-blob-*
+          path: apps/platform-e2e/blob-report
+          merge-multiple: true
+      # Writes contract-report/ (README.md, results.json, evidence/) and playwright-report/ as one serial run would.
+      - run: pnpm --filter @ap/platform-e2e e2e:merge
+      # After the merge: the contract reporter clears contract-report/ when it starts.
+      - uses: actions/download-artifact@v4
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        with:
+          name: platform-e2e-base-path-report
+          path: apps/platform-e2e/contract-report/base-path
       # 항목별 통과/실패 표를 Job 요약에 싣고, 증거 스크린샷은 아티팩트로 남긴다(#44). 실패해도 보고는 남긴다.
       - name: Contract report → job summary
         if: ${{ !cancelled() }}
@@ -198,3 +254,10 @@ jobs:
             apps/platform-e2e/contract-report/
             apps/platform-e2e/playwright-report/
           retention-days: 14
+      # The merge succeeds even when contracts failed; the verdict is the shards' result (failure, or skipped/cancelled
+      # when a shard never ran).
+      - name: Shard verdict
+        if: ${{ !cancelled() }}
+        run: |
+          echo "shards: ${{ needs.platform-contracts-e2e-shard.result }}"
+          test "${{ needs.platform-contracts-e2e-shard.result }}" = success

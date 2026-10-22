@@ -12,6 +12,10 @@ export default defineConfig({
   testDir: './tests',
   testIgnore: 'base-path.spec.ts',
   workers: 1,
+  // #666: CI splits the suite with `--shard`. Sharding divides test groups, and without this the one spec file is one
+  // group, so every test would land in shard 1. With one worker it changes nothing locally: tests still run one at a
+  // time in file order, and each shard runs its contiguous slice the same way.
+  fullyParallel: true,
   // A contract gate does not retry: an intermittent violation is a violation. The reporter still marks flaky if retries are enabled locally.
   retries: 0,
   outputDir: './test-results',

@@ -765,6 +765,10 @@ describe('PlatformDataTable table-owned export (#173)', () => {
       const height = this.getAttribute('role') === 'row' ? 32 : 420;
       return { height, width: 800, top: 0, left: 0, right: 800, bottom: height, x: 0, y: 0, toJSON: () => ({}) } as DOMRect;
     });
+    // Exports release their blob URLs on a 1s timer (#666): fake setTimeout so this block can flush those timers
+    // instead of sleeping. shouldAdvanceTime keeps the fake clock moving with real time, so waitFor/findBy timeouts and
+    // Radix timers behave as they do on real timers.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'], shouldAdvanceTime: true });
     URL.createObjectURL = (blob: Blob) => { downloads.push({ name: '', blob }); return 'blob:test'; };
     URL.revokeObjectURL = () => {};
     vi.spyOn(HTMLElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
@@ -772,10 +776,11 @@ describe('PlatformDataTable table-owned export (#173)', () => {
       if (last) last.name = this.download;
     });
   });
-  afterAll(async () => {
-    // Exports release their blob URLs on a 1s timer; let the last ones fire before jsdom's (absent)
-    // revokeObjectURL is restored, or the timer throws after this block.
-    await new Promise(resolve => setTimeout(resolve, 1100));
+  afterAll(() => {
+    // Fire the last 1s revoke timers while the stub is still in place: jsdom's revokeObjectURL is absent, so a timer
+    // firing after the restore below would throw after this block.
+    vi.runOnlyPendingTimers();
+    vi.useRealTimers();
     vi.restoreAllMocks();
     if (originalOffsetHeight) Object.defineProperty(HTMLElement.prototype, 'offsetHeight', originalOffsetHeight);
     if (originalOffsetWidth) Object.defineProperty(HTMLElement.prototype, 'offsetWidth', originalOffsetWidth);
@@ -1019,7 +1024,7 @@ describe('PlatformDataTable table-owned export (#173)', () => {
       await exportVia(FILTERED_CSV);
       await waitFor(() => expect(downloads.length).toBeGreaterThanOrEqual(1));
       expect(revocations).not.toContain('blob:revoke-test'); // synchronous revoke would race the download
-      await new Promise(resolve => setTimeout(resolve, 1050));
+      vi.advanceTimersByTime(1000); // the block's fake clock (beforeAll)
       expect(revocations).toContain('blob:revoke-test');
     } finally {
       URL.revokeObjectURL = stubbedRevoke;
