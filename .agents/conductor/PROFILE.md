@@ -18,15 +18,15 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
 
 - `python3 $ENGINE/launch-worker.py <n> <slug>`가 하는 일(설정 `launch`):
   - Orca worktree를 `origin/main`에서 만들고 이름으로 찾아 브랜치 이름을 바꾼다.
-  - `pnpm install`을 돌린다(FeedbackOps는 `products/feedbackops/` 일반 디렉터리이고 자체 workspace라 루트 설치에 들어가지 않는다, #592).
+  - `pnpm install`을 돌린다(FeedbackOps `products/feedbackops/`도 루트 workspace의 일부라 이 한 번의 설치가 덮는다, ADR-0066·#642).
   - 설정 셸을 닫는다.
   - 전역 `impl-rules.md`·`review-rules.md`에 [`addenda/`](addenda/)를 붙여 worktree `.review/00-IMPL-RULES.md`·`00-REVIEW-RULES.md`로 쓰고, `.review/W-<n>-TASK.md` 맨 앞 줄은 그 구현 규칙 포인터다.
   - 공유 실행기를 부른다.
 - 필요한 환경 변수: `WAVE_STATE`·`WAVE_BRIEFS`·`AP_MAIN`. 역할은 `WORKER_ROLE`, 덮어쓰기는 `WORKER_MODEL`·`WORKER_EFFORT`로 준다.
 - 16GB 머신이라 동시에 1–2개만, 파일이 겹치지 않는 이슈만 병렬로 돌린다(메모리 기록은 `docs/agents/operations.md`).
 - **FeedbackOps 이슈는 모드 `fo`로 띄운다:** `python3 $ENGINE/launch-worker.py <n> <slug> fo`.
-  - FeedbackOps(`products/feedbackops/`)는 자체 중첩 workspace라 루트 설치로는 `node_modules`가 생기지 않는다. 그러면 작업자가 아무 검사도 못 돌린다(#620).
-  - 모드 훅 `scripts/fo-prepare.sh`가 그 workspace를 설치하고 FeedbackOps `verify-db.sh create <n>`으로 이슈 DB(5439)를 만든다.
+  - FeedbackOps(`products/feedbackops/`)는 루트 workspace의 일부이고 Node 26.7·pnpm 11을 루트와 같이 쓴다. 설치는 런처의 루트 설치가 끝낸다(#642).
+  - 모드 훅 `scripts/fo-prepare.sh`는 설치하지 않고, `.env`를 채운 뒤 FeedbackOps `verify-db.sh create <n>`으로 이슈 DB(5439)를 만든다.
   - 규칙 덧붙임은 `addenda/impl-rules-fo.md`다.
   - **선행 조건:** verify 컨테이너가 떠 있어야 한다. FeedbackOps가 설치되고 `products/feedbackops/.env`가 있는 checkout에서 `bash products/feedbackops/.claude/conductor/scripts/verify-db.sh up`을 한 번 돌린다. 5434 개발 DB는 쓰지 않는다.
   - `.env`는 git에 없는 파일이다. 없으면 `fo-prepare.sh`가 `.env.example`로 만든다. `up`을 돌릴 checkout에는 손으로 `cp .env.example .env`를 해 둔다.

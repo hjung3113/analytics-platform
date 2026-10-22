@@ -175,7 +175,7 @@ FeedbackOps를 플랫폼 앱 하나·서버 하나·저장소 하나로 합친�
 | 단계 | 내용 | 이슈 | 선행 |
 | --- | --- | --- | --- |
 | 0 | 결정·설계 기록(이 문서, ADR-0066, FeedbackOps ADR-0072) | — | — |
-| 1 | 저장소 합류. 1a는 서브모듈을 디렉터리로 바꾸고 CI를 옮겼다(완료, #612). 1b는 도구 통일(Node 26.7, pnpm 11, lockfile 하나, `@ap/ui` `workspace:*`)이고 #594 전에 SDK 세션과 맞춘다 | [#592](https://github.com/hjung3113/analytics-platform/issues/592) | 0 |
+| 1 | 저장소 합류. 1a는 서브모듈을 디렉터리로 바꾸고 CI를 옮겼다(완료, #612). 1b는 도구 통일(Node 26.7, pnpm 11, lockfile 하나, `@ap/ui` `workspace:*`)로 완료했다([#642](https://github.com/hjung3113/analytics-platform/issues/642)) | [#592](https://github.com/hjung3113/analytics-platform/issues/592) | 0 |
 | 2 | 실서버 출발점: §4 공통 부분, 실어댑터 조립 | [#593](https://github.com/hjung3113/analytics-platform/issues/593) | 1 |
 | 3 | 전역 기능 화면(§3.1) — 시안 컨펌 먼저 | [#594](https://github.com/hjung3113/analytics-platform/issues/594) | 1, 2 |
 | 4 | 피드백 운영 업무 시스템(§3.2) — 시안 컨펌 먼저 | [#595](https://github.com/hjung3113/analytics-platform/issues/595) | 1, 2 |

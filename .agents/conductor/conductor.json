@@ -250,7 +250,7 @@
           "{worktree}"
         ],
         "hook_log": ".review/fo-prepare.log",
-        "hook_fail": "FeedbackOps install or issue DB failed (see {worktree}/.review/fo-prepare.log; is the verify container up? PROFILE §Launch mode fo)",
+        "hook_fail": "FeedbackOps issue DB failed (see {worktree}/.review/fo-prepare.log; is the verify container up? PROFILE §Launch mode fo)",
         "skip_if_state": "env.verify.{issue}",
         "copy_from_state": "env.verify.{issue}",
         "copy_to": ".review/env.verify",

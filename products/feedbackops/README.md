@@ -44,7 +44,7 @@ Five ideas carry the product:
 
 ## Running it locally
 
-Requires Node 22 (`.nvmrc`), [pnpm](https://pnpm.io/), and Docker (or your own PostgreSQL with the `pgvector` extension).
+Requires Node 26.7 (root `.nvmrc`), [pnpm](https://pnpm.io/), and Docker (or your own PostgreSQL with the `pgvector` extension).
 
 ```bash
 pnpm install

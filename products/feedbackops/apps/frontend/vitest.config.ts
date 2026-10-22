@@ -10,6 +10,11 @@ export default defineConfig({
     },
   },
   test: {
+    // jest-dom's vitest entry imports 'vitest'. Externalised, it resolves the platform's vitest 3 hoisted into the shared
+    // pnpm store and registers matchers on a second expect (#642); inlined, 'vitest' is the runner's own copy.
+    server: { deps: { inline: ['@testing-library/jest-dom'] } },
+    // Node >= 25 ships a built-in localStorage global that shadows jsdom's; turn it off in the worker (#642).
+    poolOptions: { forks: { execArgv: ['--no-experimental-webstorage'] } },
     environment: 'jsdom',
     globals: false,
     setupFiles: ['./src/test/setup.ts'],

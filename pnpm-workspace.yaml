@@ -1,18 +1,25 @@
 # docs/integration/platform-packages.md §3.
-# products/feedbackops (a plain directory since #592) keeps its own nested workspace; no FeedbackOps package joins this one (ADR-0046, #441).
+# products/feedbackops joins this workspace (ADR-0066 decision 1, #642); its packages are @fops/* and the root scripts exclude them.
 # prototypes/* are standalone npm units.
 packages:
   - apps/*
   - packages/*
   - menus/*/*
   - tooling/*
+  - products/feedbackops
+  - products/feedbackops/apps/*
+  - products/feedbackops/packages/*
 allowBuilds:
+  "@biomejs/biome": true
   esbuild: true
 patchedDependencies:
   "@formkit/auto-animate@0.10.0": patches/@formkit__auto-animate@0.10.0.patch
 # FeedbackOps resolves every @tiptap package to 3.23.5 (its lockfile at a8d768b8). The ^3.23.5 ranges of starter-kit's
 # extensions otherwise float to 3.32.0, whose extension-list needs a newer @tiptap/core (#443).
 overrides:
+  # FeedbackOps' backend declares tsx 4.19.2; vite 7 lists tsx as an optional peer, so without this removal pnpm adds tsx to the
+  # peer suffix of every platform vite/vitest instance and rewrites all platform importers (#642). Platform never uses that peer.
+  "vite>tsx": "-"
   "@tiptap/extension-blockquote": 3.23.5
   "@tiptap/extension-bold": 3.23.5
   "@tiptap/extension-bubble-menu": 3.23.5

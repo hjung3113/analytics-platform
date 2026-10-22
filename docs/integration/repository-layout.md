@@ -23,7 +23,7 @@ FeedbackOps 원본 개발을 유지하면서 동일 체크아웃에서 코드를
 | `menus/` | 공간별 `menus/<space>/<group>/` 메뉴 Consumer 패키지(`@ap/menu-<group>`, 전역은 `_global`) |
 | `tooling/` | 공유 도구: tsconfig, eslint 경계 규칙, `gen-menu`, `css-selectors` |
 | `prototypes/` | 통합 전 Kernel 단위 프로토타입(개별 npm 프로젝트, workspace 밖). 보존 |
-| `products/feedbackops/` | FeedbackOps 제품 디렉터리(자체 중첩 workspace, 이력 합류 `c73c55c5`) |
+| `products/feedbackops/` | FeedbackOps 제품 디렉터리(루트 workspace의 일부, 이력 합류 `c73c55c5`) |
 | `products/feedbackops/apps/frontend/` | 기존 React 프론트엔드. `src/features/`에 업무 화면 구성 |
 | `products/feedbackops/apps/backend/` | 기존 Fastify 백엔드. `src/modules/`에 업무 및 공통 기능 구현 |
 | `products/feedbackops/packages/shared/` | FeedbackOps 프론트·백엔드 공유 계약. 아직 플랫폼 공통 계약은 아님 |
@@ -37,17 +37,17 @@ FeedbackOps의 인증·권한·감사·VOC·Finding·Task 등은 기존 구현�
 
 - `products/feedbackops/`는 이 저장소의 일반 디렉터리다(서브모듈 아님, [ADR-0066](../adr/0066-feedbackops-merges-into-platform.md), #592). FeedbackOps `develop` `c73c55c5`의 이력을 그대로 합쳤다(디렉터리 내용은 그 커밋과 같다).
 - 원본 저장소 `https://github.com/hjung3113/FeedbackOps`는 `c73c55c5`에서 동결되고 은퇴한다(#597). 이후 FeedbackOps 변경은 이 저장소의 PR(`feat/<n>-<slug>`, `main`)로만 한다.
-- 도구는 아직 통일하지 않았다(1a단계): `products/feedbackops/`는 자체 중첩 pnpm workspace·lockfile·Node 22·pnpm 9·Biome·turbo를 쓰고 SDK는 태그 `sdk-v0.5.0`의 `@ap/ui`로 받는다. 도구 통일은 다음 단계다(#598).
+- 도구는 통일했다(1b단계, #642): `products/feedbackops/`는 루트 pnpm workspace의 일부이고 Node 26.7·pnpm 11·루트 `pnpm-lock.yaml`·루트 turbo를 쓰며 `@ap/ui`는 `workspace:*`로 받는다. 린터는 FeedbackOps가 Biome를 계속 쓴다.
 
 ## 설치와 검증
 
-FeedbackOps 명령은 `products/feedbackops/`에서 실행한다(`pnpm install --frozen-lockfile`, `scripts/ci/gate.sh static|unit|integration`). 플랫폼 루트 `pnpm install`은 이 디렉터리를 설치하지 않는다. CI는 `.github/workflows/feedbackops.yml`이고 `products/feedbackops/**`가 바뀐 PR에서만 돈다.
+설치는 저장소 루트에서 한 번(`pnpm install --frozen-lockfile`)이고 FeedbackOps도 거기서 설치된다. FeedbackOps 명령은 `products/feedbackops/`에서 실행한다(`scripts/ci/gate.sh static|unit|integration`, `pnpm typecheck`). CI는 `.github/workflows/feedbackops.yml`이고 `products/feedbackops/**`·`packages/ui/**`·루트 도구 파일이 바뀐 PR에서만 돈다.
 
-플랫폼 workspace에 `@fops/*` 패키지가 없으므로 루트 스크립트에 `--filter='!@fops/*'`가 없고 `turbo.json`에도 FeedbackOps 파일을 전역 해시에 넣는 `globalDependencies`가 없다(#441). 가드 `.github/scripts/check-platform-turbo-scope.mjs`가 작업 그래프에 `@fops/*`가 다시 들어오지 않는지 확인한다. 의존 패키지 해시는 스크립트 없는 `transit` 태스크가 전파한다(#390).
+루트 `lint|typecheck|test|build` 스크립트는 `--filter='!@fops/*' --filter='!feedbackops'`로 FeedbackOps를 뺀다: FeedbackOps 게이트는 Postgres와 자체 검사가 필요해 `scripts/ci/gate.sh`로 돈다. FeedbackOps의 turbo 작업(`gen:routes`, `test`·`typecheck`의 `dependsOn`)은 각 패키지의 `turbo.json`(`extends: ["//"]`)이 선언하고 `products/feedbackops/`의 `pnpm build|dev|test|typecheck`가 `--filter='@fops/*'`로 돌린다. 가드 `.github/scripts/check-platform-turbo-scope.mjs`가 루트 작업 그래프에 `@fops/*`가 들어오지 않는지 확인한다. 의존 패키지 해시는 스크립트 없는 `transit` 태스크가 전파한다(#390).
 
 ## 디자인 시스템 이전 기록 (#441, ADR-0046)
 
-- 출처: FeedbackOps `packages/ui` 커밋 `a8d768b8`(`origin/develop`, 2026-10-19). 값·클래스 문자열은 그대로 옮겼다. FeedbackOps 루트의 `patchedDependencies`(`@formkit/auto-animate@0.10.0`)도 함께 가져왔다(`patches/`, `pnpm-workspace.yaml`).
+- 출처: FeedbackOps `packages/ui` 커밋 `a8d768b8`(`origin/develop`, 2026-10-19). 값·클래스 문자열은 그대로 옮겼다. FeedbackOps 루트의 `patchedDependencies`(`@formkit/auto-animate@0.10.0`)도 함께 가져왔다(`patches/`, `pnpm-workspace.yaml`). FeedbackOps 쪽 사본은 #642에서 지웠다.
 - 옮긴 것(1묶음, `packages/ui/src/`): `styles/`(tokens·semantic·theme·compat + 소비 계약·토큰 충실도·대비 테스트), `utils/`(cn·motion·toast-target·useListMotion), `internal/useHorizontalOverflow`, `components/`(Button·KeyboardShortcut·SkeletonBlocks·SkeletonRows), `components/shadcn/` 22개(alert-dialog·alert·avatar·badge·button·card·checkbox·combobox·dialog·dropdown-menu·hover-card·input·label·popover·radio-group·select·sheet·skeleton·tabs·textarea·toggle-group·tooltip)와 그 테스트. 플랫폼 확장 CSS는 `platform-tokens.css`로 이름을 바꿨다(옛 `tokens.css`).
 - 2묶음(#442, `packages/ui/src/`): `layout/`(ListShell·PageShell·ShellHeader·ToolbarKicker·WorkbenchShell, `useDetailPanelSlot`은 플랫폼 슬롯의 `layout/useDetailPanelContent`로 대체 — [ADR-0047](../adr/0047-detail-panel-slot-single-registrant-model.md)), `panel/`, `toolbar/`, `forms/`, `feedback/`과 그 테스트, 그리고 `DetailPanelHeader`가 쓰는 `badges/StatusBadgeFrame.tsx` 한 개. oxlint 주석은 `eslint-disable-next-line … -- 이유`로 바꿨다.
 - 3묶음(#443, `packages/ui/src/`)에서 `badges/`(나머지 전부)·`data/`·`entity/`·`identity/`·`indicators/`·`permissions/`·`rich-content/`와 `components/{ChipPicker,ManagedSystemPicker,AnalyticsAreaPicker}`를 옮겨 당시 전체 이전을 끝냈다. ADR-0050/#479는 도메인 결합 배지(`StatusBadgeFrame` 제외)·`entity/LinkedEntityTrail`·pickers·`rich-content/`와 전용 테스트를 SDK에서 되돌리고 allowlist 사본 parity test와 turbo 입력을 제거했다. SDK에는 `data/ObjectRow`·`identity/{UserAvatar,UserChip}`·`indicators/{ProgressMeter,SeverityIndicator}`·`permissions/PermissionBlockedPanel`이 남고, `StatusBadgeFrame`은 #442부터 유지한다. 패키지 수준 `shells` 테스트도 남는다. FeedbackOps에만 남는 파일은 `components.json`과 FeedbackOps `AGENTS.md`다. rich-content는 ADR-0052/#483에서 SDK에 복원했다(allowlist 사본 parity test 포함).

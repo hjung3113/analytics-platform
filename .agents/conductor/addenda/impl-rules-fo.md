@@ -1,7 +1,7 @@
 # FeedbackOps addendum to 00-IMPL-RULES.md (read both) — launch mode `fo`
 
-FeedbackOps is `products/feedbackops/`, its own pnpm workspace (Node 22, pnpm 9, Biome, own lockfile; #592). The
-launcher already installed it. Run every FeedbackOps command **from `products/feedbackops/`**; never run the root
+FeedbackOps is `products/feedbackops/`, part of the root pnpm workspace (root Node 26.7, pnpm 11 and lockfile; Biome
+for its own lint; ADR-0066, #642). The launcher's root install already covers it. Run every FeedbackOps command **from `products/feedbackops/`**; never run the root
 platform install, lint or test for FeedbackOps work.
 
 1. Read `products/feedbackops/AGENTS.md`, `products/feedbackops/apps/backend/AGENTS.md` and every module `AGENTS.md`

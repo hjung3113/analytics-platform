@@ -13,7 +13,7 @@ for (const taskName of taskNames) {
   const jsonStart = output.indexOf('{');
   if (jsonStart === -1) throw new Error(`${taskName}: Turbo dry run did not emit JSON`);
   const plan = JSON.parse(output.slice(jsonStart));
-  // ADR-0046 (#441): products/feedbackops keeps its own nested workspace; no @fops/* package may rejoin this graph.
+  // ADR-0066 (#642): @fops/* packages share the workspace but the root scripts filter them out; FeedbackOps gates run via its own CI.
   const feedbackOpsTasks = plan.tasks
     .filter(({ package: packageName }) => packageName?.startsWith('@fops/'))
     .map(({ taskId }) => taskId);

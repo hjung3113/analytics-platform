@@ -1,0 +1,23 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "gen:routes": {
+      "inputs": [
+        "package.json",
+        "src/routes/**",
+        "vite.config.ts",
+        "../../scripts/generate-routes.mjs",
+        "$TURBO_ROOT$/pnpm-lock.yaml"
+      ],
+      "outputs": ["src/routeTree.gen.ts"]
+    },
+    "test": {
+      "dependsOn": ["gen:routes", "^build"],
+      "outputs": ["coverage/**"]
+    },
+    "typecheck": {
+      "dependsOn": ["gen:routes", "^build"]
+    }
+  }
+}

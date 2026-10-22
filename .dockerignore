@@ -1,0 +1,24 @@
+# Build context for the FeedbackOps release images (products/feedbackops/docker-compose.release.yml, #642): only what
+# those Dockerfiles COPY. Everything else in the repository stays out of the context.
+*
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!patches
+!packages/ui
+!tooling/eslint/package.json
+!tooling/tsconfig/package.json
+!products/feedbackops
+
+**/node_modules
+**/dist
+**/build
+**/coverage
+**/test-results
+**/.turbo
+**/.env*
+!**/.env.example
+products/feedbackops/.review
+products/feedbackops/.claude
+products/feedbackops/docs
+products/feedbackops/apps/frontend/tests/visual/baselines
