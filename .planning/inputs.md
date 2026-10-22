@@ -6,11 +6,10 @@
 
 | 담당 | 질문지 | 답에 기대는 이슈 |
 | --- | --- | --- |
-| 사내 SSO | [사내 적용 가이드](../docs/integration/in-house-rollout.md) §3 | #150 → #86, #98 나머지 절반, #154, #155 |
+| 사내 SSO | [사내 적용 가이드](../docs/integration/in-house-rollout.md) §3 | #150 → #98 나머지 절반, #154, #155 |
 | 사내 인프라 | 사내 적용 가이드 §3 | #151 |
-| 사내 백엔드(FastAPI) | [전송 형식 초안](../docs/integration/http-adapter-contract.md) §10, 사내 적용 가이드 §3 | #149 합의, #148 의견 → #154, #155, #165 |
+| 사내 백엔드 | [전송 형식](../docs/integration/http-adapter-contract.md) §10, 사내 적용 가이드 §3 | #149 합의, #148 의견 → #154, #155, #165 |
 | 파서 담당 | [적재 워커 상태 스키마 초안](../docs/integration/ingest-status-schema.md) §7 | #37 → #51, #155의 신뢰 원천 |
-| FeedbackOps 저장소 | FeedbackOps#548, FeedbackOps#549, [딥링크 계약](../docs/integration/feedbackops-deeplink.md) §5 | #84, #85, #81 |
 | 업무 수요 확인 | — | #163(자유 피벗), #164(셀 범위 복붙·채우기) |
 
 #165(폴링·계산 세대)와 #155(서버)를 시작할 때는 [플랫폼 구축 리서치 종합](../docs/research/platform-build-2026-09-22/SYNTHESIS.md) §5(요청 경쟁·계산 기준·접근 가능성 분리, 읽기 수명, export 권한, 성능 측정)를 설계 입력으로 읽는다.
