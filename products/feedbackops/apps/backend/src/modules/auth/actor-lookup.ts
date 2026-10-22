@@ -132,3 +132,21 @@ export async function listWorkspaceResponsibilityActors(
     )
     .orderBy(actors.displayName, actors.id);
 }
+
+export interface WorkspaceMember {
+  id: string;
+  display_name: string;
+  role_level: string;
+}
+
+/** Internal members of a workspace (system actors are not people), for directory-style reads. */
+export async function listWorkspaceInternalMembers(
+  db: Db,
+  workspaceId: string,
+): Promise<WorkspaceMember[]> {
+  const rows = await db
+    .select({ id: actors.id, display_name: actors.displayName, role_level: actors.roleLevel })
+    .from(actors)
+    .where(and(eq(actors.workspaceId, workspaceId), eq(actors.actorType, 'internal_member')));
+  return rows;
+}

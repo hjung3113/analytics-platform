@@ -35,15 +35,15 @@
 | `listAxisOptions(input)` | Candidate: `POST /api/axis-options` | `AxisOptionsInput` | `AxisOptionsPage` |
 | `searchEquipment(input)` | Candidate: `POST /api/equipment-search` | `EquipmentSearchInput` | `EquipmentSearchPage` |
 | `resolveSelection(input)` | Candidate: `POST /api/selection-resolve` | `SelectionResolveInput` | `SelectionResolveResult` |
-| `getEntity(ref)` | `POST /api/v1/platform/entity` | `EntityRef` | `ApiResponse<unknown>` |
+| `getEntity(ref)` | `POST /api/v1/platform/entity` — FeedbackOps 구현됨(#623): type `voc`·`finding`·`task`, 게이트는 각 FeedbackOps 상세 읽기(`resolveVocReference`·`getFinding`·`getTask`), 없는/볼 수 없는/uuid 아닌 id는 하나의 `forbidden`, `scopeId` 있음·그 밖의 type은 `error` | `EntityRef` | `ApiResponse<unknown>` |
 | `menuQuery(req)` | `POST /api/v1/menu-query` | `MenuQuery`(`{ endpoint, context, params }` 그대로) | `ApiResponse<unknown>` |
 | `menuAction(req)` | `POST /api/v1/menu-action` + 헤더 `Idempotency-Key`(= `req.idempotencyKey`)·`If-Match`(`req.expectedVersion`이 있을 때만, 따옴표 없는 opaque 문자열 그대로)·`X-CSRF-Token`([ADR-0054](../adr/0054-write-port-declared-actions-idempotency-version.md), [ADR-0069](../adr/0069-platform-port-in-feedbackops-backend.md) 결정 4). 서버 경로·상태 코드는 후속 이슈가 채운다(Candidate). 실패 변환: 서버가 보낸 올바른 `ActionResponse`(200)만 그대로 쓰고, 네트워크·타임아웃·5xx·그 밖의 상태·`invalid_response`·`invalid_envelope`·401·3xx는 `outcome: 'unknown'`(`data: null`, `version: null`, `fieldErrors: []`, `replayed: false`, `correlationId`, `message`는 §2.1의 짧은 코드)로 바꾼다 — 반영 여부를 모르기 때문이다. 401·3xx는 세션 재확인(§4)을 시작하고 403(CSRF)은 재부트스트랩으로 토큰을 갱신한다. 어느 경우도 자동 재전송하지 않는다 | `MenuAction`(`{ action, context, input, idempotencyKey, expectedVersion? }` 그대로) | `ActionResponse<unknown>` |
 | `recordUsage(events)` | `POST /api/v1/platform/usage-events` | `{ events: UsageEvent[] }` | `{ accepted: number }` |
 | `reportClientError(report)` | `POST /api/v1/platform/client-errors` | `ClientErrorReport` | `{ accepted: boolean }` |
 | `usageSummary(range)` | `GET /api/v1/platform/usage-summary?preset=all` 또는 `?from=…&to=…`(epoch ms) | 쿼리 | `ApiResponse<UsageSummary>` |
 | `auditTrail(query)` | `POST /api/v1/platform/audit-trail/search` — FeedbackOps 구현됨(#621) | `AuditTrailQuery` | `ApiResponse<AuditTrailPage>` |
-| `entityAudit(ref)` | `POST /api/v1/platform/entity/audit` — FeedbackOps 구현됨(#621) | `EntityRef` | `ApiResponse<{ events: AuditEvent[] }>` |
-| `accessDirectory(query)` | `POST /api/v1/platform/access-directory/search` | `AccessDirectoryQuery` | `ApiResponse<AccessDirectoryPage>` |
+| `entityAudit(ref)` | `POST /api/v1/platform/entity/audit` — FeedbackOps 구현됨(#621), 게이트는 `getEntity`와 같은 판정·type 셋(#623) | `EntityRef` | `ApiResponse<{ events: AuditEvent[] }>` |
+| `accessDirectory(query)` | `POST /api/v1/platform/access-directory/search` — FeedbackOps 구현됨(#623): `console:access`, 워크스페이스 내부 구성원만, `sites: []` | `AccessDirectoryQuery` | `ApiResponse<AccessDirectoryPage>` |
 | `listAnnotations(ref)` | `GET /api/v1/platform/annotations?chartId=…&scopeId=…` | 쿼리(`scopeId` 없으면 빼고 보냄 → 서버 `forbidden`) | `ApiResponse<{ items: ChartAnnotation[] }>` |
 | `saveAnnotation(input)` | `POST /api/v1/platform/annotations` | `AnnotationInput`(작성자·`at`·`id` 없음 — 있으면 거부) | `ApiResponse<ChartAnnotation>` |
 | `deleteAnnotation(ref)` | `POST /api/v1/platform/annotations/delete` | `{ chartId, scopeId, id }`(그 밖의 키는 `saveAnnotation`과 같이 거부) | `ApiResponse<{ id: string }>` |

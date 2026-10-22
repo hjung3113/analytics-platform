@@ -26,14 +26,8 @@ export const AUDIT_TRAIL_SUBJECT_TYPES = [
   'workspace',
 ] as const;
 
-/** Entity types whose audit `entityAudit` answers: those with a `canRead` provider that can say yes. */
-export const ENTITY_AUDIT_READABLE_TYPES = [
-  'voc',
-  'finding',
-  'voc_cluster',
-  'task_request',
-  'task',
-] as const;
+/** Entity types `getEntity` and `entityAudit` answer (ADR-0069 decision 9): the shared read gate's types. */
+export const ENTITY_READABLE_TYPES = ['voc', 'finding', 'task'] as const;
 
 export const AUDIT_SOURCES = ['user', 'system'] as const;
 export type PlatformAuditSource = (typeof AUDIT_SOURCES)[number];

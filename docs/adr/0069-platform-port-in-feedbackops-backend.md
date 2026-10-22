@@ -1,6 +1,7 @@
 # ADR-0069 — 플랫폼 포트는 FeedbackOps 백엔드의 `/api/v1/platform` 모듈로 두고, 그 접두사에만 플랫폼 전송 규약을 적용한다
 
 - Status: Decided (2026-10-22) — 코디네이터 결정. 사용자가 합류 진행을 위임했다. 되돌릴 수 있다.
+- Amended (2026-10-22, #623): 결정 9의 "provider `canRead`"를 "소유 모듈의 상세 읽기 판정(`resolveVocReference`·`getFinding`·`getTask`)"으로, 결정 6의 `entityAudit` 게이트도 같은 판정으로 바꿨다. `entityAudit`의 type은 voc·finding·task 셋으로 좁혔다.
 - Scope: [#593](https://github.com/hjung3113/analytics-platform/issues/593)과 단위 이슈 [#620](https://github.com/hjung3113/analytics-platform/issues/620)–[#623](https://github.com/hjung3113/analytics-platform/issues/623). [합류 설계](../integration/feedbackops-merge-design.md) §4·§7의 O9·O10·O11·O13·O14·O16·O19·O20을 닫는다.
 - 바탕: [ADR-0066](0066-feedbackops-merges-into-platform.md) 결정 6(실서버는 FeedbackOps 백엔드에서 출발), [ADR-0068](0068-permission-scope-and-business-system-link.md)(부여 체계 하나, `console:access`는 승인 권한이 아님), [HTTP 어댑터 계약](../integration/http-adapter-contract.md)(Candidate).
 
@@ -45,7 +46,7 @@
 6. **감사 노출 범위(O16).**
    - 감사 읽기는 SECURITY DEFINER 투영 함수로만 한다. 앱 DB role에 `core.audit_log` SELECT를 주지 않는다(FO migration 0064 경계를 유지).
    - 투영은 `AuditEvent` 필드(시각, 행위자 표시, `AuditAction`, 대상 ref, 요약)만 낸다. 사유 원문, 개인 설문 응답, sensitive 상세는 내지 않는다.
-   - 전역 `auditTrail`은 `console:access`가 있어야 하고, 단건 `entityAudit`은 대상 엔티티의 조회 권한(provider `canRead`)이 있어야 한다.
+   - 전역 `auditTrail`은 `console:access`가 있어야 하고, 단건 `entityAudit`은 `getEntity`와 같은 게이트(결정 9: 소유 모듈의 상세 읽기 판정)를 통과해야 한다. provider `canRead`는 FeedbackOps 상세 엔드포인트보다 느슨해서(Finding·Task가 상위 역할을 요구하지 않고 Task는 `finding.read`만 본다) 포트가 상세 엔드포인트가 거절하는 것을 내주게 되기 때문이다.
    - `console:access`로 FeedbackOps 감사 상세가 열리지 않는다(ADR-0068 결정 3).
 7. **권한 이름 대응(O9).** FeedbackOps 판정 결과에서 플랫폼 `PERMISSIONS`를 계산한다. 표 하나로 두고, 계약 테스트로 `PERMISSIONS` 전체가 표에 있는지 확인한다(ADR-0068 결정 2의 "어휘 원천 하나").
 
@@ -62,7 +63,7 @@
    - `defaultRangeTo`는 서버의 KST wall-clock 현재 시각을 분 단위로 내린 값이다(06 §6.3 형식).
    - 세 값 모두 **임시**다. 다시 볼 조건: O4 분석 데이터 서버 결정, #98.
 9. **FeedbackOps 엔티티의 `getEntity`(O19).**
-   - VOC·Finding·Task를 `scopeId: null` type으로 받고, Managed System 판정은 서버 안에서 provider `canRead`로 한다.
+   - VOC·Finding·Task를 `scopeId: null` type으로 받고, Managed System 판정은 서버 안에서 소유 모듈의 상세 읽기 판정(VOC `resolveVocReference`, Finding `getFinding`, Task `getTask`)으로 한다. provider `canRead`는 쓰지 않는다 — FeedbackOps 상세 엔드포인트보다 느슨해서 포트가 그 엔드포인트가 거절하는 것을 내주게 된다. `getEntity`는 type이 `voc`·`finding`·`task`뿐이고(`voc_cluster`·`task_request`는 `error`), 읽을 수 있으면 식별자·제목·상태 필드만 낸다.
    - 볼 수 없는 행과 없는 행은 둘 다 `forbidden`으로 답한다. 행이 있는지 드러내지 않기 위해서다. VOC의 지금 규칙에 맞춘 것이고, Finding의 404/403 차이는 이 포트에서 따르지 않는다.
    - `empty`는 type이 등록돼 있고 볼 수 있는 상태인데 결과가 비어 있을 때만 쓴다.
 

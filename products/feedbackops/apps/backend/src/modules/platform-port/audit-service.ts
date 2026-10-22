@@ -4,15 +4,10 @@
 
 import type { Db } from '../../db/client.js';
 import { type PlatformAuditRow, platformAuditEvents } from '../core/audit/index.js';
-import type { EntityLinkProviderRegistry } from '../entity-links/provider-types.js';
 import type { CheckService } from '../permissions/check-service.js';
 import { AUDIT_ACTION_BY_EVENT_TYPE, type PlatformAuditAction } from './audit-actions.js';
-import {
-  ENTITY_AUDIT_READABLE_TYPES,
-  isUuid,
-  parseAuditQuery,
-  parseEntityRef,
-} from './audit-query.js';
+import { isUuid, parseAuditQuery } from './audit-query.js';
+import type { EntityReader } from './entity-read.js';
 import type { Outcome } from './envelope.js';
 import { type PlatformActor, holdsPlatformPermission } from './permissions.js';
 
@@ -35,7 +30,8 @@ export interface AuditJudgement<T> {
 export interface PlatformAuditServiceDeps {
   db: Db;
   checkService: CheckService;
-  providers: EntityLinkProviderRegistry;
+  /** The shared read gate: `entityAudit` releases exactly what `getEntity` would. */
+  entityReader: EntityReader;
 }
 
 export function toAuditEvent(row: PlatformAuditRow): PlatformAuditEvent {
@@ -48,8 +44,6 @@ export function toAuditEvent(row: PlatformAuditRow): PlatformAuditEvent {
     target: { type: row.subjectType, id: row.subjectId, scopeId: null },
   };
 }
-
-const ROLE_LEVELS = ['admin', 'developer', 'user'] as const;
 
 export function createPlatformAuditService(deps: PlatformAuditServiceDeps) {
   async function auditTrail(
@@ -86,31 +80,13 @@ export function createPlatformAuditService(deps: PlatformAuditServiceDeps) {
     actor: PlatformActor,
     body: unknown,
   ): Promise<AuditJudgement<{ events: PlatformAuditEvent[] }>> {
-    const ref = parseEntityRef(body);
-    if (!ref) return { outcome: 'error', message: 'Invalid entity reference' };
-    if (ref.scopeId !== null) return { outcome: 'error', message: 'Entity audit has no scope' };
-    // The explicit list comes first: the registry also holds the opaque survey_response provider.
-    if (!(ENTITY_AUDIT_READABLE_TYPES as readonly string[]).includes(ref.type)) {
-      return { outcome: 'error', message: 'Unknown entity type' };
-    }
-    const type = ref.type as (typeof ENTITY_AUDIT_READABLE_TYPES)[number];
-    // One answer for a bad id, a missing row and an unreadable row: existence is never revealed.
-    const forbidden: AuditJudgement<never> = { outcome: 'forbidden', message: 'Not readable' };
-    if (!isUuid(ref.id)) return forbidden;
-    const provider = deps.providers[type];
-    const subject = await provider.getPermissionSubject(deps.db, actor.workspace_id, ref.id);
-    if (!subject) return forbidden;
-    const roleLevel = ROLE_LEVELS.find((r) => r === actor.role_level) ?? 'user';
-    const readable = await provider.canRead(
-      { db: deps.db, checkService: deps.checkService },
-      { actor_id: actor.actor_id, workspace_id: actor.workspace_id, role_level: roleLevel },
-      subject,
-    );
-    if (!readable) return forbidden;
+    const gate = await deps.entityReader.gateEntity(actor, body);
+    if (!gate.ok) return { outcome: gate.outcome, message: gate.message };
+    const { type, id } = gate.ref;
     const { rows } = await platformAuditEvents(deps.db, {
       workspaceId: actor.workspace_id,
       subjectType: type,
-      subjectId: ref.id,
+      subjectId: id,
       actionByEventType: AUDIT_ACTION_BY_EVENT_TYPE,
       sort: { field: 'at', desc: true },
       limit: null,

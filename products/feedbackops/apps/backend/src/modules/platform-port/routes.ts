@@ -10,32 +10,29 @@ import type { Db } from '../../db/client.js';
 import { sendError, statusForCode } from '../../lib/errors.js';
 import { SESSION_COOKIE_NAME } from '../../middleware/require-session.js';
 import type { ActorRecord, SessionRecord, SessionService } from '../auth/session-service.js';
-import type { EntityLinkProviderRegistry } from '../entity-links/provider-types.js';
+import type { FindingsService } from '../findings/index.js';
 import type { CheckService } from '../permissions/check-service.js';
+import type { TasksService } from '../tasks/index.js';
+import type { VocReadService } from '../voc/index.js';
+import { createAccessDirectoryService } from './access-directory.js';
 import { createPlatformAuditService } from './audit-service.js';
+import { createEntityReader } from './entity-read.js';
 import { envelope } from './envelope.js';
 import { resolvePlatformPermissions } from './permissions.js';
 import { sessionVersionOf } from './session-version.js';
+import { titleFor } from './titles.js';
 
 export const PLATFORM_PORT_PREFIX = '/api/v1/platform';
-
-const ROLE_TITLES: Record<string, { ko: string; en: string }> = {
-  user: { ko: '사용자', en: 'User' },
-  developer: { ko: '개발자', en: 'Developer' },
-  admin: { ko: '관리자', en: 'Admin' },
-};
-
-function titleFor(roleLevel: string): { ko: string; en: string } {
-  return ROLE_TITLES[roleLevel] ?? { ko: '사용자', en: 'User' };
-}
 
 export interface PlatformPortOptions {
   sessionService: SessionService;
   checkService: CheckService;
   workspaceId: string;
-  /** Audit reads go through the allowlisted projection; entity reads through the providers. */
+  /** Audit reads go through the allowlisted projection; entity reads through the owning modules' services. */
   db: Db;
-  providers: EntityLinkProviderRegistry;
+  vocReadService: VocReadService;
+  findingsService: FindingsService;
+  tasksService: TasksService;
   now?: () => Date;
 }
 
@@ -58,11 +55,17 @@ const MALFORMED_BODY = Symbol('malformed-json-body');
 
 export const platformPortRoutes: FastifyPluginAsync<PlatformPortOptions> = async (app, opts) => {
   const now = opts.now ?? (() => new Date());
+  const entityReader = createEntityReader({
+    vocReadService: opts.vocReadService,
+    findingsService: opts.findingsService,
+    tasksService: opts.tasksService,
+  });
   const audit = createPlatformAuditService({
     db: opts.db,
     checkService: opts.checkService,
-    providers: opts.providers,
+    entityReader,
   });
+  const access = createAccessDirectoryService({ db: opts.db, checkService: opts.checkService });
 
   // A body that is not valid JSON is a judged malformed request (HTTP 200 + `error` envelope,
   // ADR-0069 decision 2), not a framework 4xx: hand the route a sentinel instead of throwing.
@@ -197,6 +200,25 @@ export const platformPortRoutes: FastifyPluginAsync<PlatformPortOptions> = async
     if (!loaded) return reply;
     const body = req.body === MALFORMED_BODY ? null : req.body;
     const result = await audit.entityAudit(actorOf(loaded), body);
+    return envelope(req, result.outcome, result.data ?? null, result.message);
+  });
+
+  // O19: a readable row is never `empty` for getEntity — `empty` is unreachable today.
+  app.post('/entity', async (req, reply) => {
+    const loaded = await authenticate(req, reply, true);
+    if (!loaded) return reply;
+    const body = req.body === MALFORMED_BODY ? null : req.body;
+    const gate = await entityReader.gateEntity(actorOf(loaded), body);
+    return gate.ok
+      ? envelope(req, 'ok', gate.entity)
+      : envelope(req, gate.outcome, null, gate.message);
+  });
+
+  app.post('/access-directory/search', async (req, reply) => {
+    const loaded = await authenticate(req, reply, true);
+    if (!loaded) return reply;
+    const body = req.body === MALFORMED_BODY ? null : req.body;
+    const result = await access.accessDirectory(actorOf(loaded), body);
     return envelope(req, result.outcome, result.data ?? null, result.message);
   });
 };

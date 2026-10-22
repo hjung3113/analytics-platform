@@ -4,6 +4,7 @@
 
 ## 작은 후속 (확인된 것)
 
+- **구현 안 함 — `server-conformance`의 `getEntity`·`entityAudit` site 사례와 FeedbackOps 표본(#623):** 묶음의 `PortSamples.entity`와 site 사례는 site가 있는 type을 가정한다. FeedbackOps type은 site가 없고(`scopeId: null`, 값이 있으면 `error`) 묶음은 FeedbackOps 표본으로 통과할 수 없다. 이유: 이 가정을 바꾸는 일은 #623 범위 밖이다. 다시 볼 조건: FeedbackOps가 적합성 묶음을 돌릴 때(#154 B) 또는 묶음에 site 없는 표본 모드가 생길 때.
 - **구현 안 함 — 감사 읽기의 opaque id·scope 열(#621, O16):** FeedbackOps `core.audit_log.subject_id`를 text로 바꾸는 일과 `scope_id` 열 추가는 하지 않았다. 이유: FeedbackOps 대상은 모두 uuid이고 `scopeId: null`이며(ADR-0069 결정 9), opaque id나 site 범위를 쓰는 감사 쓰기가 아직 없다. 다시 볼 조건: 플랫폼이 opaque id·scope를 쓰는 type(equipment/metric)의 감사 이벤트를 FeedbackOps `core.audit_log`에 쓰기 시작할 때.
 - **구현 안 함 — 보드 저장 탭 간 경합(#575 1단계 리뷰 C2):** 새 버전 확인과 쓰기 사이에 다른 탭(더 새 빌드)이 쓰면 덮어쓸 수 있다. 이유: 둘 다 같은 동기 실행 안이라 창이 매우 좁고, 막으려면 저장을 Web Locks 비동기로 바꿔야 한다. 다시 볼 조건: 서버 저장(#294)이나 여러 빌드가 동시에 도는 배포에서 보드 손실이 보고될 때.
 - **구현 안 함 — 소개 사이트 잔여 관찰(#607 리뷰):** 모바일 목차 summary가 브라우저 기본 ▶ 표식이다. 부록 L74(도식 A 설명)는 본문에서 빠진 도식을 서술하며 "진행 중" 표기가 남아 있다. 이유: #607 범위의 사실·흐름 수정 밖의 표식·부록 정리다. 다시 볼 조건: 다음 사이트 갱신 때.
