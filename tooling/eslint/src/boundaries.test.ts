@@ -75,8 +75,8 @@ interface Row {
   /** Repo-relative file path; space and group segments pick menu packages; other packages use two segments. */
   file: string;
   code: string;
-  /** Expected rule id; '' means the code must lint clean. */
-  rule: string;
+  /** Expected rule id; '' means the code must lint clean; null is a linter report with no rule (an unused disable directive). */
+  rule: string | null;
   /** Distinct substring of the expected message, to pin which selector fired. */
   token?: string;
 }
@@ -536,6 +536,23 @@ rows.push(
   { file: MENU.replace('x.tsx', 'X.tsx'), code: `export const X = () => <div className="w-[320px]" />;`, rule: '' },
   { file: MENU.replace('x.tsx', 'X.tsx'), code: `export const X = () => <div className="text-[12px]" />;`, rule: 'shadcn/no-arbitrary-values' },
   { file: MENU.replace('x.tsx', 'X.tsx'), code: `const TONE = 'text-red-500';\nexport const X = () => <div className={TONE} />;`, rule: 'shadcn/no-raw-colors' },
+  // Review follow-up (2026-10-22): class constants in .ts files are checked too (not only .tsx), every UI preset.
+  { file: 'menus/_global/home/src/tone.ts', code: `export const TONE = 'text-red-500';`, rule: 'shadcn/no-raw-colors' },
+  { file: 'packages/shell/src/chip.ts', code: `export const CHIP = 'text-[12px]';`, rule: 'shadcn/no-arbitrary-values' },
+  { file: 'packages/components/src/tone.ts', code: `export const TONE = 'bg-red-500';`, rule: 'shadcn/no-raw-colors' },
+  { file: 'apps/platform-web/src/tone.ts', code: `export const TONE = 'bg-surface-card text-xs';`, rule: '' },
+  { file: 'packages/shell/src/chip.test.ts', code: `export const CHIP = 'text-[12px]';`, rule: '' },
+  { file: 'packages/ui/src/theme/tokens.generated.ts', code: `export const T = ['text-primary'];`, rule: '' },
+  // The --color-* variable shorthand bypasses both color rules; local layout variables stay allowed.
+  { file: MENU.replace('x.tsx', 'X.tsx'), code: `export const X = () => <div className="bg-(--color-red-500)" />;`, rule: 'ap/no-color-var-shorthand' },
+  { file: 'packages/shell/src/chip.ts', code: 'export const C = `hover:text-(--color-accent-primary)`;', rule: 'ap/no-color-var-shorthand' },
+  { file: 'packages/shell/src/rail.ts', code: `export const W = 'w-(--rail-width)';`, rule: '' },
+  // Radix primitives are wrapped once in @ap/ui (ADR-0046).
+  { file: 'packages/ui/src/x.ts', code: `import * as Dialog from '@radix-ui/react-dialog';\nexport { Dialog };`, rule: '' },
+  { file: 'packages/components/src/x.ts', code: `import * as Dialog from '@radix-ui/react-dialog';\nexport { Dialog };`, rule: 'no-restricted-imports', token: '@radix-ui' },
+  { file: 'menus/_global/home/src/x.ts', code: `import { Slot } from '@radix-ui/react-slot';\nexport { Slot };`, rule: 'no-restricted-imports', token: '@radix-ui' },
+  // A disable comment that suppresses nothing fails.
+  { file: 'packages/kernel/src/x.ts', code: `// eslint-disable-next-line no-console\nexport const n = 1;`, rule: null, token: 'Unused eslint-disable' },
 );
 
 describe('boundary + contract fixtures', () => {

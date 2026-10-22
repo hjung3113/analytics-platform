@@ -1,12 +1,21 @@
 {
   "$schema": "../../node_modules/turbo/schema.json",
-  "extends": ["//"],
+  "extends": [
+    "//"
+  ],
   "tasks": {
     "test": {
       "inputs": [
         "$TURBO_DEFAULT$",
         "../../packages/ui/src/rich-content/**",
         "../../products/feedbackops/packages/shared/src/rich-content/**"
+      ]
+    },
+    "build": {
+      "env": [
+        "AP_BACKEND_ORIGIN",
+        "AP_BASE_PATH",
+        "AP_PLATFORM_ASSEMBLY"
       ]
     }
   }

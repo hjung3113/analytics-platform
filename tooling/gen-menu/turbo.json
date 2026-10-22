@@ -1,0 +1,20 @@
+{
+  "$schema": "../../node_modules/turbo/schema.json",
+  "extends": [
+    "//"
+  ],
+  "tasks": {
+    "test": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/menus/*/*/src/**",
+        "$TURBO_ROOT$/menus/*/*/package.json",
+        "$TURBO_ROOT$/apps/platform-web/package.json",
+        "$TURBO_ROOT$/apps/platform-web/src/menus.ts",
+        "$TURBO_ROOT$/apps/platform-web/src/dev/mock-assembly.tsx",
+        "$TURBO_ROOT$/apps/platform-web/src/style.css",
+        "$TURBO_ROOT$/packages/contracts/src/menu.ts"
+      ]
+    }
+  }
+}

@@ -7,6 +7,7 @@ import noRelativePackageEscape from './relative-escape.js';
 import restrictedImportSource from './import-source.js';
 import { noMenuMockImport } from './menu-boundaries.js';
 import noShellIdLiteralComparison from './no-shell-id-literal-comparison.js';
+import noColorVarShorthand from './no-color-var-shorthand.js';
 
 const pkg = (name) => `${PACKAGE_PREFIX}${name}`;
 
@@ -17,6 +18,8 @@ const REACT_MESSAGE = 'react / react-dom are not allowed in this package.';
 const FEEDBACKOPS_MESSAGE = `@fops/* is not a platform dependency; the design system lives in ${pkg('ui')} (ADR-0046).`;
 // #160: the table engine is components-internal; menus declare columns with the platform types.
 const HTTP_ADAPTER_MESSAGE = `${PACKAGE_PREFIX}http-adapter is imported only by the production assembly in apps/platform-web/src/real/** (#154).`;
+// Radix primitives are wrapped once in the design system (ADR-0046); every other layer composes the ui wrappers.
+const RADIX_MESSAGE = `@radix-ui/* is wrapped by ${pkg('ui')}; import the ${pkg('ui')} component instead (ADR-0046).`;
 const TABLE_ENGINE_MESSAGE = `The table engine belongs to ${PACKAGE_PREFIX}components; menus use the platform column types (PlatformColumn).`;
 
 // ADR-0067 (#575): the dock layout engine is components-internal (a lazy chunk behind the components `dock` subpath); that entry is host-only.
@@ -81,7 +84,7 @@ const APP_CONFORMANCE_RESTRICTION = { ...APP_RESTRICTION, mockAllowed: true, dev
 // published-metrics.test.ts keeps the mock-server exemption but never the menu-subpath allowance.
 const APP_PUBLISHED_METRICS_RESTRICTION = { ...APP_RESTRICTION, mockAllowed: true };
 
-function importRestrictions({ allow, denyReact, denyTableEngine, mockAllowed, allowSubpaths = [], denyDev = false, devAllow = [], denyHttpAdapter = false, allowDockEngine = false }) {
+function importRestrictions({ allow, denyReact, denyTableEngine, mockAllowed, allowSubpaths = [], denyDev = false, devAllow = [], denyHttpAdapter = false, allowDockEngine = false, allowRadix = false }) {
   const negations = [
     ...(allow === null ? [] : allow.map((name) => `!${pkg(name)}`)),
     ...(mockAllowed ? [`!${pkg('mock-server')}`] : []),
@@ -116,6 +119,7 @@ function importRestrictions({ allow, denyReact, denyTableEngine, mockAllowed, al
         ...(denyReact ? [{ group: ['react/*', 'react-dom/*'], message: REACT_MESSAGE }] : []),
         ...(denyTableEngine ? [{ group: TABLE_ENGINE_PACKAGES.map((name) => `${name}/*`), message: TABLE_ENGINE_MESSAGE }] : []),
         ...(allowDockEngine ? [] : [{ group: DOCK_ENGINE_PACKAGES.map((name) => `${name}/*`), message: DOCK_ENGINE_MESSAGE }]),
+        ...(allowRadix ? [] : [{ group: ['@radix-ui/*', '@radix-ui/*/**'], message: RADIX_MESSAGE }]),
         ...(denyDev ? [{ regex: devRegex(devAllow), message: DEV_MESSAGE }] : []),
       ],
     },
@@ -236,6 +240,8 @@ function layerConfig({ restriction, extraRules = {} }) {
   return {
     ignores: ['dist/**', 'coverage/**'],
     files: ['**/*.{ts,tsx}'],
+    // A disable comment that no longer suppresses anything is an error, so stale exceptions cannot pile up.
+    linterOptions: { reportUnusedDisableDirectives: 'error' },
     languageOptions: {
       parser: tsParser,
       ecmaVersion: 'latest',
@@ -252,6 +258,7 @@ function layerConfig({ restriction, extraRules = {} }) {
           'no-hand-built-url': noHandBuiltUrl,
           'no-menu-mock-import': noMenuMockImport,
           'no-shell-id-literal-comparison': noShellIdLiteralComparison,
+          'no-color-var-shorthand': noColorVarShorthand,
         },
       },
     },
@@ -266,7 +273,8 @@ function layerConfig({ restriction, extraRules = {} }) {
 
 // #228: design-system rules (@shadcn/lint) for packages that render UI. The theme is the app's Tailwind entry,
 // named by the root components.json; components are the ui primitives and the shared components. Every rule is an
-// error; findings that predate #228 live in each package's eslint-suppressions.json until they are fixed.
+// error. There are no suppression files (removed in #236/#241): an exception is an inline eslint-disable-next-line with
+// its reason, and an unused one fails (reportUnusedDisableDirectives). Class strings in .ts files are checked too.
 // The options mirror FeedbackOps' .oxlintrc.json (FeedbackOps ADR-0062), the source of the shared design system:
 // screens may add layout to a component, containers also spacing, and the 50px headers never a height. The last
 // matching contract wins.
@@ -307,6 +315,7 @@ const DESIGN_SYSTEM_RULES = {
   'shadcn/no-inline-styles': 'error',
   'shadcn/no-unknown-classes': 'error',
   'shadcn/require-static-classes': 'error',
+  'ap/no-color-var-shorthand': 'error',
 };
 // Where the primitives are defined (the ui package) they style themselves, as in FeedbackOps packages/ui: no restyle
 // or static-class check; arbitrary layout values stay allowed.
@@ -317,8 +326,9 @@ const COMPONENT_SOURCE_RULES = {
 };
 /** @param {{ componentSource?: boolean }} [options] componentSource: true where the components themselves are defined. */
 const designSystem = ({ componentSource = false } = {}) => ({
-  files: ['**/*.tsx'],
-  ignores: ['**/*.test.tsx'],
+  files: ['**/*.{ts,tsx}'],
+  // Generated token tables list token names, not class strings.
+  ignores: ['**/*.test.{ts,tsx}', '**/*.generated.ts'],
   plugins: { shadcn },
   settings: {
     shadcn: {
@@ -342,7 +352,7 @@ export const contracts = [
 /** @type {import('eslint').Linter.Config[]} */
 export const ui = [
   BUILD_OUTPUT,
-  layerConfig({ restriction: { allow: [], denyReact: false, mockAllowed: false } }),
+  layerConfig({ restriction: { allow: [], denyReact: false, mockAllowed: false, allowRadix: true } }),
   designSystem({ componentSource: true }),
 ];
 

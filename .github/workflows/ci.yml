@@ -12,7 +12,8 @@ permissions:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Superseded PR runs are cancelled; every push to main runs to the end so a red main is never hidden.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # 경로 필터 없이 매 push/PR마다 6개 Job을 모두 실행한다(레포가 작아 단순함 우선).
 # FeedbackOps는 서브모듈이 아니라 products/feedbackops/ 디렉터리라 checkout 옵션이 따로 없다(FeedbackOps CI는 feedbackops.yml). 프로토타입 4개 Job은 submodules: false를 명시한다.
@@ -21,6 +22,7 @@ jobs:
   python-codec:
     name: Python codec (kernel-context-url-scope)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: prototypes/kernel-context-url-scope
@@ -40,6 +42,7 @@ jobs:
   unit-a-app-shell:
     name: Unit A (kernel-app-shell)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: prototypes/kernel-app-shell
@@ -61,6 +64,7 @@ jobs:
   unit-b-chart-frame:
     name: Unit B (kernel-chart-frame)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: prototypes/kernel-chart-frame
@@ -82,6 +86,7 @@ jobs:
   unit-c-platform-table:
     name: Unit C (kernel-platform-table)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: prototypes/kernel-platform-table
@@ -112,6 +117,7 @@ jobs:
   platform-workspace:
     name: Platform workspace (pnpm monorepo)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
       # pnpm 버전은 루트 package.json의 packageManager를 따른다.
@@ -128,8 +134,8 @@ jobs:
       - run: pnpm docs:links
       - run: pnpm lint
       - run: pnpm typecheck
-      # #166: vitest workers × parallel packages oversubscribe the runner → cap turbo concurrency
-      - run: pnpm test --concurrency=2
+      # #166: turbo concurrency is capped at 2 in turbo.json (vitest workers × parallel packages oversubscribe a runner or a 16 GB Mac)
+      - run: pnpm test
       - run: pnpm build
       # ADR-0067 (#575): the Dockview engine stays a lazy chunk — no start-up chunk of the app contains it.
       - run: |
@@ -164,6 +170,7 @@ jobs:
   platform-contracts-e2e:
     name: Platform contracts (E2E)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     env:
       # 설치와 실행이 같은 경로를 보도록 Job 전체에 명시한다(config는 기본 캐시를 쓰고 이 변수를 따른다).
       PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/apps/platform-e2e/.browsers
