@@ -205,13 +205,14 @@ describe('menu query contracts', () => {
     expect(endpoints).toHaveLength(2);
     expect(projectContext(endpointA, emptyGlobal)).toStrictEqual({ from: null, to: null });
 
-    const checkUseMenuQueryTypes = () => {
+    // Never called: a hook-named function so the Rules of Hooks accept the type-only calls inside.
+    const useMenuQueryTypeChecks = () => {
       const total: { total: number } = useMenuQueryShape(endpointA, { granularity: 'hour' });
       // @ts-expect-error a declared hour/day endpoint rejects week
       useMenuQueryShape(endpointA, { granularity: 'week' });
       void total;
     };
-    void checkUseMenuQueryTypes;
+    void useMenuQueryTypeChecks;
 
     expect(Object.keys(endpointB.paramKeys)).toStrictEqual(['cursor']);
   });

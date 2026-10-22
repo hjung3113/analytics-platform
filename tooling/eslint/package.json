@@ -14,7 +14,8 @@
   "dependencies": {
     "@shadcn/lint": "^0.2.0",
     "@typescript-eslint/parser": "^8.70.1",
-    "eslint": "^10.11.0"
+    "eslint": "^10.11.0",
+    "eslint-plugin-react-hooks": "7.1.1"
   },
   "devDependencies": {
     "@ap/tsconfig": "workspace:*",

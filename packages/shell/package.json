@@ -18,7 +18,6 @@
     "@ap/contracts": "workspace:*",
     "@ap/kernel": "workspace:*",
     "@ap/ui": "workspace:*",
-    "@radix-ui/react-dialog": "^1.1.23",
     "lucide-react": "^1.48.0"
   },
   "peerDependencies": {

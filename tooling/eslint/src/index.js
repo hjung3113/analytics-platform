@@ -1,5 +1,6 @@
 import { plugin as shadcn } from '@shadcn/lint';
 import tsParser from '@typescript-eslint/parser';
+import reactHooks from 'eslint-plugin-react-hooks';
 
 import { PACKAGE_PREFIX } from './prefix.js';
 import noHandBuiltUrl from './hand-built-url.js';
@@ -339,6 +340,17 @@ const designSystem = ({ componentSource = false } = {}) => ({
   rules: componentSource ? COMPONENT_SOURCE_RULES : DESIGN_SYSTEM_RULES,
 });
 
+// React layers: the Rules of Hooks are an error; a missing effect dependency is a warning. An intended omission gets a
+// next-line disable comment that states its reason (review follow-up 2026-10-22).
+const REACT_HOOKS = {
+  files: ['**/*.{ts,tsx}'],
+  plugins: { 'react-hooks': reactHooks },
+  rules: {
+    'react-hooks/rules-of-hooks': 'error',
+    'react-hooks/exhaustive-deps': 'warn',
+  },
+};
+
 // Build output (the SDK release `dist`, ADR-0056) is emitted code with source comments copied in; a config object that holds
 // only `ignores` is global, so no rule and no inline directive of the emitted files is evaluated.
 const BUILD_OUTPUT = { ignores: ['dist/**'] };
@@ -351,6 +363,7 @@ export const contracts = [
 
 /** @type {import('eslint').Linter.Config[]} */
 export const ui = [
+  REACT_HOOKS,
   BUILD_OUTPUT,
   layerConfig({ restriction: { allow: [], denyReact: false, mockAllowed: false, allowRadix: true } }),
   designSystem({ componentSource: true }),
@@ -358,6 +371,7 @@ export const ui = [
 
 /** @type {import('eslint').Linter.Config[]} */
 export const kernel = [
+  REACT_HOOKS,
   BUILD_OUTPUT,
   layerConfig({ restriction: { allow: ['contracts'], denyReact: false, mockAllowed: false } }),
 ];
@@ -368,6 +382,7 @@ const SHELL_RESTRICTION = { allow: ['contracts', 'kernel', 'ui', 'components'], 
 
 /** @type {import('eslint').Linter.Config[]} */
 export const components = [
+  REACT_HOOKS,
   BUILD_OUTPUT,
   layerConfig({ restriction: COMPONENTS_RESTRICTION }),
   testEntryOverride(COMPONENTS_RESTRICTION),
@@ -378,6 +393,7 @@ export const components = [
 
 /** @type {import('eslint').Linter.Config[]} */
 export const shell = [
+  REACT_HOOKS,
   BUILD_OUTPUT,
   layerConfig({
     restriction: SHELL_RESTRICTION,
@@ -439,6 +455,7 @@ export const hostModuleDir = (dir) => hostModule.map(({ plugins: _ap, ...config 
 
 /** @type {import('eslint').Linter.Config[]} */
 export const menu = [
+  REACT_HOOKS,
   layerConfig({
     restriction: MENU_RESTRICTION,
     extraRules: {
@@ -472,6 +489,7 @@ const appOverride = (files, restriction) => ({
 
 /** @type {import('eslint').Linter.Config[]} */
 export const app = [
+  REACT_HOOKS,
   layerConfig({ restriction: APP_RESTRICTION }),
   testEntryOverride(APP_RESTRICTION, ABOVE_COMPONENTS_TEST_ENTRIES),
   appOverride(['src/main.tsx'], APP_MAIN_RESTRICTION),
