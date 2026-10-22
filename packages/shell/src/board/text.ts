@@ -1,5 +1,10 @@
 import type { Lang } from '@ap/kernel';
 
+/** `3` or `3–4`: pane numbers from `from` to `to`. */
+const numberRange = (from: number, to: number) => (from === to ? `${from}` : `${from}–${to}`);
+/** Whether the Korean reading of a pane number (1–4) ends in a consonant, for the particle after it: 일 삼 yes, 이 사 no. */
+const hasFinalConsonant = (n: number) => n === 1 || n === 3;
+
 /** Board strings (docs/16). Local to the board: the kernel dictionary only carries words several screens share. */
 const KO = {
   board: '분석 보드',
@@ -104,6 +109,20 @@ const KO = {
   storageNewer: '더 새 버전에서 저장한 보드라 이 화면에서는 저장하지 않습니다.',
   storageCorrupt: '저장된 보드를 읽을 수 없어 새 보드로 시작했습니다. 원래 값은 따로 보관했습니다.',
   boardNotSaved: '더 새 버전에서 저장한 보드라 이 화면에서는 저장하지 않습니다.',
+  paneTab: (n: number, name: string | null) => (name === null ? `칸 ${n} · 빈 칸` : `칸 ${n} · ${name}`),
+  addPane: '칸 추가',
+  paneLimit: '칸은 시트당 4개까지입니다.',
+  defaultLayout: '기본 배치',
+  closePane: (n: number) => `칸 ${n} 닫기`,
+  paneClosed: (closed: number, count: number) => {
+    const shifted = count > closed;
+    return `칸 ${closed}${closed % 2 === 0 ? '를' : '을'} 닫았습니다.` + (shifted
+      ? ` 칸 ${numberRange(closed + 1, count)}${hasFinalConsonant(count) ? '은' : '는'} 칸 ${numberRange(closed, count - 1)}${hasFinalConsonant(count - 1) ? '이' : '가'} 됩니다.` : '');
+  },
+  splitRight: '오른쪽으로 나누기',
+  splitDown: '아래로 나누기',
+  moveToGroup: (m: number) => `칸 ${m} 묶음으로 옮기기`,
+  groupActions: (n: number) => `칸 ${n} 묶음 동작`,
 };
 
 type Strings<T> = { [K in keyof T]: T[K] extends (...args: infer A) => string ? (...args: A) => string : string };
@@ -210,6 +229,17 @@ const EN: Strings<typeof KO> = {
   storageNewer: 'This board was saved by a newer version, so this screen does not save it.',
   storageCorrupt: 'The saved board could not be read, so a new board was started. The original value was kept aside.',
   boardNotSaved: 'This board was saved by a newer version, so this screen does not save it.',
+  paneTab: (n: number, name: string | null) => (name === null ? `Pane ${n} · empty` : `Pane ${n} · ${name}`),
+  addPane: 'Add pane',
+  paneLimit: 'A sheet has at most 4 panes.',
+  defaultLayout: 'Default layout',
+  closePane: (n: number) => `Close pane ${n}`,
+  paneClosed: (closed: number, count: number) => `Closed pane ${closed}.` + (count > closed
+    ? ` Pane${count - closed === 1 ? '' : 's'} ${numberRange(closed + 1, count)} ${count - closed === 1 ? 'becomes' : 'become'} pane${count - closed === 1 ? '' : 's'} ${numberRange(closed, count - 1)}.` : ''),
+  splitRight: 'Split to the right',
+  splitDown: 'Split below',
+  moveToGroup: (m: number) => `Move into the tabs of pane ${m}`,
+  groupActions: (n: number) => `Pane ${n} tab group actions`,
 };
 
 export type BoardText = Strings<typeof KO>;

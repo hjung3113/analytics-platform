@@ -1,4 +1,6 @@
+import { addPanel, isValidDockTree, removePanel } from '@ap/components/dock';
 import type { PaneScreen } from '@ap/kernel';
+import { activateInTree, defaultTree, effectiveTree, fromDockTree, reconcileSelection, toDockTree, treeShape } from './boardDockTree';
 import { defaultLayoutFor, gridOf, memoryOf, withGrid, withGridMemory } from './boardGrid';
 import {
   MAX_PANES, MAX_SHEETS, columnPanes, isRatioVector, isRecord, layoutShape, makeId, paneCount, parseArrangementEntry, parseGridMemory, parsePane,
@@ -346,3 +348,76 @@ export function restoreLayout(board: Board, change: LayoutChange): Board | null 
 
 /** A board as it is opened: the first pane of every sheet selected (docs/16 §4). The stored selection is never used for arrival. */
 export const atFirstPanes = (board: Board): Board => (board.sheets.every(s => selectedIndex(s) === 0) ? board : { ...board, sheets: board.sheets.map(s => (selectedIndex(s) === 0 ? s : { ...s, selectedPaneId: s.panes[0].id })) });
+
+/** Puts `index`'s pane in front of its group as well as selecting it (dock renderer). Unlike `selectPane` this writes the tree, which the grid reads as which pane of a collapsed column is open. */
+export function selectPaneActive(board: Board, sheetId: string, index: number): Board {
+  return mapSheet(board, sheetId, s => {
+    const id = paneIdAt(s, index);
+    if (id === null) return s;
+    const tree = activateInTree(s.tree, id);
+    return s.selectedPaneId === id && tree === s.tree ? s : { ...s, selectedPaneId: id, tree };
+  });
+}
+
+/**
+ * Stores the layout tree the dock renderer reports or a group command builds. A tree that is not exactly the sheet's panes (each in one group
+ * once, sizes that sum to 100) is ignored, and so is one the sheet already has. The selection then follows the tree (`reconcileSelection`).
+ */
+export function setTree(board: Board, sheetId: string, tree: LayoutNode): Board {
+  return mapSheet(board, sheetId, s => {
+    if (!isValidDockTree(toDockTree(tree), s.panes.map(p => p.id)) || JSON.stringify(tree) === JSON.stringify(s.tree)) return s;
+    return reconcileSelection({ ...s, tree });
+  });
+}
+
+/** `기본 배치`: the default tree for the sheet's pane count, the selected pane in front of its group. */
+export const resetTree = (board: Board, sheetId: string): Board => mapSheet(board, sheetId, s => {
+  const tree = activateInTree(defaultTree(s.panes.map(p => p.id)), s.selectedPaneId);
+  return JSON.stringify(tree) === JSON.stringify(s.tree) ? s : { ...s, tree };
+});
+
+/** `칸 추가` (dock renderer): a new empty pane as the last number, docked right of the selected pane's group. Selected unless `select` is false. Unchanged at 4 panes. */
+export function addPane(board: Board, sheetId: string, select = true): Board {
+  return mapSheet(board, sheetId, s => {
+    if (s.panes.length >= MAX_PANES) return s;
+    const slot = newSlot(new Set(s.panes.map(p => p.id)));
+    const tree = fromDockTree(addPanel(toDockTree(effectiveTree(s)), slot.id, { panelId: s.selectedPaneId, position: 'right' }));
+    return reconcileSelection({ ...s, panes: [...s.panes, slot], selectedPaneId: select ? slot.id : s.selectedPaneId, tree });
+  });
+}
+
+/** What `closePane` removed and the sheet on both sides of it, so the undo can put the pane back where it was and only while nothing else changed the panes. */
+export type ClosedPane = { sheetId: string; slot: PaneSlot; index: number; before: Sheet; after: Sheet };
+
+/**
+ * `칸 닫기` (dock renderer): removes an empty pane from the sheet and the tree; later panes move down one number. Null for a pane with a
+ * screen and for a sheet's only pane. A closed selected pane hands the selection to the pane that takes its number (the last one if it was last).
+ */
+export function closePane(board: Board, sheetId: string, index: number): { board: Board; closed: ClosedPane } | null {
+  const sheet = board.sheets.find(s => s.id === sheetId);
+  const slot = sheet?.panes[index];
+  if (!sheet || !slot || slot.screen !== null || sheet.panes.length <= 1) return null;
+  const panes = sheet.panes.filter((_, i) => i !== index);
+  const selectedPaneId = sheet.selectedPaneId === slot.id ? panes[Math.min(index, panes.length - 1)].id : sheet.selectedPaneId;
+  const tree = activateInTree(fromDockTree(removePanel(toDockTree(effectiveTree(sheet)), slot.id)), selectedPaneId);
+  const after = reconcileSelection({ ...sheet, panes, selectedPaneId, tree });
+  return { board: mapSheet(board, sheetId, () => after), closed: { sheetId, slot, index, before: sheet, after } };
+}
+
+/**
+ * Undo of `closePane`: the pane returns under its old number. Where it sits in the tree is restored while the arrangement is still the one
+ * the close left; after a later move it is docked right of the selected pane instead. Null — nothing restored — once the sheet's panes are
+ * not the ones the close left or the sheet is back at 4 panes.
+ */
+export function restoreClosedPane(board: Board, closed: ClosedPane): Board | null {
+  const sheet = board.sheets.find(s => s.id === closed.sheetId);
+  const ids = (s: Sheet) => s.panes.map(p => p.id).join('\n');
+  if (!sheet || sheet.panes.length >= MAX_PANES || ids(sheet) !== ids(closed.after)) return null;
+  const { slot, index } = closed;
+  const panes = [...sheet.panes.slice(0, index), slot, ...sheet.panes.slice(index)];
+  const reselect = closed.before.selectedPaneId === slot.id && sheet.selectedPaneId === closed.after.selectedPaneId;
+  const selectedPaneId = reselect ? slot.id : sheet.selectedPaneId;
+  const sameArrangement = JSON.stringify(treeShape(sheet.tree)) === JSON.stringify(treeShape(closed.after.tree));
+  const tree = sameArrangement ? closed.before.tree : fromDockTree(addPanel(toDockTree(effectiveTree(sheet)), slot.id, { panelId: sheet.selectedPaneId, position: 'right' }));
+  return normalizeBoard(mapSheet(board, closed.sheetId, s => reconcileSelection({ ...s, panes, selectedPaneId, tree: activateInTree(tree, selectedPaneId) })));
+}

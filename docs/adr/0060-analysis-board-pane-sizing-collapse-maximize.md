@@ -1,6 +1,6 @@
 # 분석 보드는 화면 안 그리드와 열별 크기 조절·칸 접기·최대화를 쓴다
 
-상태: **Decided (2026-10-21, 결정자: 사용자)** — [#536](https://github.com/hjung3113/analytics-platform/issues/536). 세부 동작·저장 계약은 [16 §4](../16_analysis_board.md#4-화면-구조-decided)·[§7](../16_analysis_board.md#7-저장url조회-decided-1차)이 소유한다. 사용자 컨펌: [실제 앱 시안 D](https://claude.ai/artifact/9TU7C6Y7AyR2H3NigroPz7).
+상태: **Decided (2026-10-21, 결정자: 사용자)** — dock 렌더러에서는 [ADR-0067](0067-dockview-layout-engine-board-v2.md)이 대체한다(격자 렌더러에는 그대로 적용). [#536](https://github.com/hjung3113/analytics-platform/issues/536). 세부 동작·저장 계약은 [16 §4](../16_analysis_board.md#4-화면-구조-decided)·[§7](../16_analysis_board.md#7-저장url조회-decided-1차)이 소유한다. 사용자 컨펌: [실제 앱 시안 D](https://claude.ai/artifact/9TU7C6Y7AyR2H3NigroPz7).
 
 ## 문제
 

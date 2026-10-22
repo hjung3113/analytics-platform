@@ -39,7 +39,7 @@ function openGroupMenu(tab: HTMLElement): boolean {
  * Host-only entry `@ap/components/dock`; the engine is a lazy chunk and never appears in this API.
  *
  * - **Never rebuilds.** A new `layout` is reconciled onto the live engine; no panel remounts, nothing is closed (D9).
- * - **No engine close.** Tabs have no close button and Delete/Backspace on a tab does nothing (D7).
+ * - **No engine close.** Tabs have no close button and Delete/Backspace on a tab never closes it; `onPanelDelete` lets the host give the key a meaning (D7).
  * - **Activation is the user's.** `onActivate` fires only for pointer/keyboard use of a tab or focus moving into a panel (D6).
  * - **Hidden means inert.** A panel that is not on screen (background tab, hidden by a maximize, hidden by the narrow display) is `inert`
  *   and its Radix overlays are closed (D13).
@@ -47,7 +47,7 @@ function openGroupMenu(tab: HTMLElement): boolean {
  * - **Group menu.** `renderGroupActions` output marks its menu trigger `data-dock-group-menu`; Shift+F10 or ContextMenu on a tab opens it.
  */
 export function DockLayout(props: DockLayoutProps) {
-  const { panels, layout, onLayoutChange, onActivate, maximizedPanelId = null, onMaximizedChange, renderTab, renderGroupActions, separatorLabel, stackBelow, label } = props;
+  const { panels, layout, onLayoutChange, onActivate, maximizedPanelId = null, onMaximizedChange, onPanelDelete, renderTab, renderGroupActions, separatorLabel, stackBelow, label } = props;
   const { t } = useI18n();
   const instanceId = useId();
   const container = useRef<HTMLDivElement>(null);
@@ -100,7 +100,12 @@ export function DockLayout(props: DockLayoutProps) {
 
   const onKeyDownCapture = (event: KeyboardEvent<HTMLDivElement>) => {
     // The engine closes a focused tab on Delete/Backspace (dockview-core main.esm.mjs:9568); closing is a platform command, so the key stops here.
-    if ((event.key === 'Delete' || event.key === 'Backspace') && tabOf(event.target, container.current)) { event.preventDefault(); event.stopPropagation(); }
+    const tab = (event.key === 'Delete' || event.key === 'Backspace') ? tabOf(event.target, container.current) : null;
+    if (tab) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (tab.dataset.tabPanelId) onPanelDelete?.(tab.dataset.tabPanelId);
+    }
   };
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const tab = tabOf(event.target, container.current);

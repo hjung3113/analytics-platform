@@ -20,6 +20,11 @@ export type DockLayoutProps = {
   onActivate?: (panelId: string) => void;
   maximizedPanelId?: string | null;
   onMaximizedChange?: (panelId: string | null) => void;
+  /**
+   * Delete/Backspace on a focused tab. The engine's own close stays blocked either way; this is the host's chance to give the key a
+   * meaning (the board empties the pane). Receives the tab's panel id.
+   */
+  onPanelDelete?: (panelId: string) => void;
   /** Tab content; the default is the title. The tab itself (role, focus, drag) belongs to the engine. */
   renderTab?: (panelId: string, state: { active: boolean; groupFocused: boolean }) => ReactNode;
   /**

@@ -3,14 +3,17 @@ import { PaneQueryDraftProvider, useEquipmentAxes } from '@ap/kernel';
 import { useEffect, useLayoutEffect, useRef, useState, type ComponentType, type CSSProperties } from 'react';
 import { HardDrive } from 'lucide-react';
 import { BOARD_PATH, paneHref, useI18n, usePlatform, type MenuEntry, type PaneScreen } from '@ap/kernel';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, Popover, PopoverContent, PopoverTrigger, Toaster, ToggleGroup, ToggleGroupItem, UndoToast, toast } from '@ap/ui';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, cn, Popover, PopoverContent, PopoverTrigger, Toaster, ToggleGroup, ToggleGroupItem, UndoToast, toast } from '@ap/ui';
 import { BoardContextBar } from './BoardContextBar';
+import { BoardDock, type DockPaneProps } from './BoardDock';
 import { BoardPane } from './BoardPane';
 import { SheetTabs } from './SheetTabs';
 import {
-  BOARD_LAYOUTS, canCollapse, defaultArrangement, getArrangement, setArrangement, addSheet, applyPaneEdits, droppedPaneCount, editPane, goBackPane, layoutOf, layoutShape, moveSheet, previousAt, removeSheet, renameSheet,
-  restoreLayout, restorePane, restoreSheet, revertPaneEdits, screens, selectedIndex, selectPane, setActiveSheet, setLayout, setPane, type Board, type BoardLayout, type LayoutChange, type PaneEdit,
+  BOARD_LAYOUTS, canCollapse, defaultArrangement, getArrangement, setArrangement, addPane, addSheet, applyPaneEdits, closePane, droppedPaneCount, editPane, goBackPane, indexOfPane, layoutOf, layoutShape, moveSheet, previousAt, removeSheet, renameSheet,
+  resetTree, restoreClosedPane, restoreLayout, restorePane, restoreSheet, revertPaneEdits, screens, selectedIndex, selectPane, selectPaneActive, setActiveSheet, setLayout, setPane, type Board, type BoardLayout, type LayoutChange, type PaneEdit,
 } from './boardModel';
+import { MAX_PANES } from './boardTypes';
+import { readLayoutEngine } from './layoutEngine';
 import { canMountPaneScreen } from './boardMenus';
 import { applyContextToSheet, copyContextToSheet, defaultQuery, firstEmptyPane, paneNumbers, paneSignals, replacementScreen } from './paneActions';
 import { useBoardStore } from './boardStore';
@@ -19,7 +22,8 @@ import { PaneSplitter } from './PaneSplitter';
 import { boardText, type BoardText } from './text';
 
 const PANEL_ID = 'board-panel';
-const paneIdOf = (sheetId: string, index: number) => `${sheetId}.${index}`;
+/** The Kernel's id for a pane: the sheet and the pane's slot, so moving or renumbering a pane never changes it. */
+const paneIdOf = (sheetId: string, slotId: string) => `${sheetId}.${slotId}`;
 const sheetHref = (id: string) => `${BOARD_PATH}?sheet=${encodeURIComponent(id)}`;
 
 function raiseUndo(text: BoardText, message: string, onUndo: () => void) {
@@ -37,6 +41,9 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
   const { lang, t } = useI18n();
   const text = boardText(lang);
   const { board, update, storageNotice } = useBoardStore(user.id, text.sheetPrefix);
+  // Which renderer draws the panes is a browser setting read once per visit (`board.layoutEngine`, default grid).
+  const [engine] = useState(readLayoutEngine);
+  const dock = engine === 'dock';
   const heading = useRef<HTMLHeadingElement>(null);
   const [confirmLayout, setConfirmLayout] = useState<BoardLayout | null>(null);
 
@@ -74,6 +81,9 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
   const paneScreens = screens(sheet);
   const onLeave = (href: string) => { navigate(href, { focus: 'page', via: 'board' }); };
   const writePane = (index: number, screen: PaneScreen | null) => update(b => setPane(b, sheetId, index, screen));
+  const paneKey = (index: number) => paneIdOf(sheetId, sheet.panes[index].id);
+  /** Selecting also puts the pane in front of its group in the dock renderer only: the grid reads a collapsed column's active tab as the open pane. */
+  const select = (index: number) => update(b => (dock ? selectPaneActive : selectPane)(b, sheetId, index));
 
   /** Runs an undo only if nothing changed what it would restore (the model returns null); otherwise says so and changes nothing. */
   const undo = (restore: (b: Board) => Board | null): boolean => {
@@ -138,8 +148,26 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
   const duplicate = (index: number) => {
     const from = paneScreens[index];
     const to = firstEmptyPane(sheet);
-    if (!from || to === -1 || !canMountPaneScreen(registry, canOpen, from)) return;
-    editPanes([{ index: to, before: null, after: { ...from, params: { ...from.params } }, fresh: true }], text.duplicated(index + 1, to + 1));
+    if (!from || (to === -1 && !canGrow) || !canMountPaneScreen(registry, canOpen, from)) return;
+    if (to !== -1) { editPanes([{ index: to, before: null, after: { ...from, params: { ...from.params } }, fresh: true }], text.duplicated(index + 1, to + 1)); return; }
+    // No empty pane: the dock renderer makes a new one for the copy, and the undo takes it away again.
+    const grown = addPane(board, sheetId, false);
+    const slotId = grown.sheets.find(s => s.id === sheetId)!.panes[sheet.panes.length].id;
+    const edit: PaneEdit = { index: sheet.panes.length, before: null, after: { ...from, params: { ...from.params } }, fresh: true };
+    update(() => applyPaneEdits(grown, sheetId, [edit]));
+    raiseUndo(text, text.duplicated(index + 1, edit.index + 1), () => {
+      undo(b => {
+        const reverted = revertPaneEdits(b, sheetId, [edit]);
+        const at = reverted?.sheets.find(x => x.id === sheetId)?.panes.findIndex(p => p.id === slotId) ?? -1;
+        return reverted && ((at >= 0 ? closePane(reverted, sheetId, at)?.board : null) ?? reverted);
+      });
+    });
+  };
+  const closeEmptyPane = (index: number) => {
+    const result = closePane(board, sheetId, index);
+    if (!result) return;
+    update(b => closePane(b, sheetId, index)?.board ?? b);
+    raiseUndo(text, text.paneClosed(index + 1, sheet.panes.length), () => { undo(b => restoreClosedPane(b, result.closed)); });
   };
   const openFull = (index: number) => {
     const screen = paneScreens[index];
@@ -148,7 +176,7 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
   };
   // `Context 바에서 편집`: the bar row is keyed by the selected pane, so it remounts for the new one; focus its first control afterwards.
   const [editRequest, setEditRequest] = useState(0);
-  const editContext = (index: number) => { update(b => selectPane(b, sheetId, index)); setEditRequest(n => n + 1); };
+  const editContext = (index: number) => { select(index); setEditRequest(n => n + 1); };
   useEffect(() => {
     if (editRequest === 0) return;
     const timer = setTimeout(() => {
@@ -159,7 +187,8 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
 
   const unavailable = (index: number) => { const own = paneScreens[index]; return own !== null && !canMountPaneScreen(registry, canOpen, own); };
   const applyOff = (index: number) => (unavailable(index) ? text.paneUnavailable : applyContextToSheet(registry, canOpen, sheet, index)?.others ? null : text.applyToAllNone);
-  const duplicateOff = (index: number) => (unavailable(index) ? text.paneUnavailable : emptyIndex === -1 ? text.noEmptyPane : null);
+  const canGrow = dock && sheet.panes.length < MAX_PANES;
+  const duplicateOff = (index: number) => (unavailable(index) ? text.paneUnavailable : emptyIndex === -1 && !canGrow ? text.noEmptyPane : null);
   const axes = useEquipmentAxes();
   const signals = paneSignals(registry, canOpen, paneScreens, text.noneValue, axes, lang, t('membershipAsOf'));
   const emptyIndex = firstEmptyPane(sheet);
@@ -179,23 +208,31 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
   const stacked = drawn !== columns;
   const arrangement = getArrangement(sheet);
   const tracks = effectiveTracks(layout, arrangement, width, height);
-  const owner = `${user.id}.${sheetId}.${layout}`;
+  const owner = `${user.id}.${sheetId}.${dock ? 'dock' : layout}`;
   const identity = `${owner}.${stacked}`;
-  const [presentation, setPresentation] = useState<{ identity: string; maximized: number | null }>({ identity, maximized: null });
+  const [presentation, setPresentation] = useState<{ identity: string; maximized: number | null; dockMaximized: string | null }>({ identity, maximized: null, dockMaximized: null });
   // Identity changes cancel transient presentation before children commit; no outgoing focus handoff survives.
   if (presentation.identity !== identity) {
-    setPresentation({ identity, maximized: null });
+    setPresentation({ identity, maximized: null, dockMaximized: null });
     if (confirmLayout !== null) setConfirmLayout(null);
     if (editRequest !== 0) setEditRequest(0);
   }
   const maximized = presentation.identity === identity ? presentation.maximized : null;
+  const dockMaximized = presentation.identity === identity ? presentation.dockMaximized : null;
   const toggleMaximize = (index: number) => {
-    update(b => selectPane(b, sheetId, index));
-    setPresentation({ identity, maximized: maximized === index ? null : index });
+    select(index);
+    setPresentation({ identity, maximized: maximized === index ? null : index, dockMaximized: null });
+  };
+  /** The dock renderer's maximize is a group command; the maximized pane is the one the user is working in, so it is selected. */
+  const maximizeDock = (paneId: string | null) => {
+    const index = paneId === null ? -1 : indexOfPane(sheet, paneId);
+    if (index >= 0) select(index);
+    setPresentation({ identity, maximized: null, dockMaximized: index >= 0 ? paneId : null });
   };
   const lastGridFocus = useRef<EventTarget | null>(null);
   const focusPresentation = useRef<{ identity: string; owner: string; index: number; trigger: HTMLElement | null } | null>(null);
   useLayoutEffect(() => {
+    if (dock) return;
     const previous = focusPresentation.current;
     const stackingRestore = stacked && previous?.owner === owner && previous.trigger === lastGridFocus.current
       && document.activeElement === document.body;
@@ -211,18 +248,18 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
     }
     focusPresentation.current = maximized === null ? null : { identity, owner, index: maximized,
       trigger: grid.current?.querySelector<HTMLElement>(`[data-pane-index="${maximized}"] [data-pane-maximize]`) ?? null };
-  }, [maximized, identity, owner, stacked]);
+  }, [dock, maximized, identity, owner, stacked]);
   useEffect(() => {
-    if (maximized === null) return;
+    if (dock || maximized === null) return;
     // Radix handles Escape at document capture; React detail/consumer handlers run before window bubble.
     const escape = (event: KeyboardEvent) => {
       if (event.key !== 'Escape' || event.defaultPrevented) return;
       event.preventDefault();
-      setPresentation({ identity, maximized: null });
+      setPresentation({ identity, maximized: null, dockMaximized: null });
     };
     window.addEventListener('keydown', escape);
     return () => window.removeEventListener('keydown', escape);
-  }, [maximized, identity]);
+  }, [dock, maximized, identity]);
   const saved = (change: Partial<typeof arrangement>) => update(b => {
     const current = b.sheets.find(s => s.id === sheetId);
     return current ? setArrangement(b, sheetId, layout, { ...getArrangement(current), ...change }) : b;
@@ -241,6 +278,16 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
       top: row === 0 ? 0 : tracks.heights[column][0] + GRID_GAP, width: tracks.widths[column], height: tracks.heights[column][row] };
   };
 
+  /** What both renderers wire for a pane; each adds its own frame and sizing. */
+  const paneProps = (index: number): DockPaneProps => ({
+    paneId: paneKey(index), number: index + 1, screen: paneScreens[index], selected: index === selected, Outlet,
+    signal: signals[index], hasPrevious: previousAt(sheet, index) !== null, applyAllOff: applyOff(index), duplicateOff: duplicateOff(index),
+    onSelect: () => select(index), onChange: (next, how) => update(b => editPane(b, sheetId, index, next, how)), onLeave,
+    onInsert: menu => insert(index, menu), onClear: () => clearPane(index), onBack: () => update(b => goBackPane(b, sheetId, index)),
+    onApplyAll: () => applyToAll(index), onOpenFull: () => openFull(index), onReplace: menu => replaceScreen(index, menu),
+    onDuplicate: () => duplicate(index), onEditContext: () => editContext(index),
+  });
+
   return <div data-board className="flex h-full min-h-0 flex-col">
     <header className="flex h-[50px] shrink-0 items-center justify-between gap-3 overflow-x-auto border-b border-border-subtle bg-surface-canvas px-4">
       <div className="flex min-w-0 items-center gap-3">
@@ -256,43 +303,46 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
           </PopoverContent>
         </Popover>
       </div>
-      <div className="flex shrink-0 items-center gap-2">
+      {dock ? <div className="flex shrink-0 items-center gap-2">
+        {!canGrow && <span id="board-add-pane-off" className="text-tiny text-text-muted">{text.paneLimit}</span>}
+        <Button type="button" variant="ghost" size="sm" disabled={!canGrow} aria-describedby={canGrow ? undefined : 'board-add-pane-off'} onClick={() => update(b => addPane(b, sheetId))}>{text.addPane}</Button>
+        <Button type="button" variant="ghost" size="sm" onClick={() => update(b => resetTree(b, sheetId))}>{text.defaultLayout}</Button>
+      </div> : <div className="flex shrink-0 items-center gap-2">
       <Button type="button" variant="ghost" size="sm" onClick={() => saved(defaultArrangement(layout))}>{text.resetSize}</Button>
       <ToggleGroup type="single" appearance="filter" aria-label={text.layout} value={layout} onValueChange={value => { if (value) requestLayout(value as BoardLayout); }}>
         {BOARD_LAYOUTS.map(option => <ToggleGroupItem key={option} value={option} size="sm" appearance="selected-filter" aria-label={text.layoutOption(option)}>{option.replace('x', '×')}</ToggleGroupItem>)}
       </ToggleGroup>
-      </div>
+      </div>}
     </header>
-    <PaneQueryDraftProvider key={sheetId} screens={Object.fromEntries(paneScreens.map((screen, index) => [paneIdOf(sheetId, index), screen]))}>
+    <PaneQueryDraftProvider key={sheetId} screens={Object.fromEntries(paneScreens.map((screen, index) => [paneKey(index), screen]))}>
     <QueryBarExtensionsProvider>
-    <BoardContextBar key={`${sheetId}.${selected}`} paneId={paneIdOf(sheetId, selected)} number={selected + 1} screen={paneScreens[selected]} onChange={(next, how) => update(b => editPane(b, sheetId, selected, next, how))} onLeave={onLeave} />
-    <div ref={panel} id={PANEL_ID} role="tabpanel" aria-labelledby={`board-tab-${sheetId}`} className="min-h-0 flex-1 overflow-auto p-3">
+    <BoardContextBar key={paneKey(selected)} paneId={paneKey(selected)} number={selected + 1} screen={paneScreens[selected]} onChange={(next, how) => update(b => editPane(b, sheetId, selected, next, how))} onLeave={onLeave} />
+    <div ref={panel} id={PANEL_ID} role="tabpanel" aria-labelledby={`board-tab-${sheetId}`} className={cn('min-h-0 flex-1 overflow-auto p-3', dock && 'flex flex-col')}>
       {allEmpty && <section ref={guidance} aria-label={text.emptyGuidanceTitle} className="mb-3 rounded-md border border-border-subtle bg-surface-card px-4 py-3">
         <h2 className="text-sm font-semibold text-text-primary">{text.emptyGuidanceTitle}</h2>
         <p className="mt-1 text-xs text-text-secondary">{text.sheetGuidance}</p>
         <p className="text-xs text-text-secondary">{text.paneGuidance}</p>
       </section>}
-      <div ref={grid} onFocusCapture={event => { lastGridFocus.current = event.target; }}
+      {dock ? <div className="relative min-h-(--dock-min) flex-1" style={{ '--dock-min': `${STACKED_PANE_MIN_HEIGHT}px` } as CSSProperties}>
+        <div className="absolute inset-0">
+          <BoardDock key={`${user.id}.${sheetId}`} sheet={sheet} update={update} paneProps={paneProps} onSelect={select} onClear={clearPane} onClosePane={closeEmptyPane}
+            maximizedPaneId={dockMaximized} onMaximizedChange={maximizeDock} heading={heading} />
+        </div>
+      </div> : <div ref={grid} onFocusCapture={event => { lastGridFocus.current = event.target; }}
         onBlurCapture={event => { if (event.relatedTarget) lastGridFocus.current = event.relatedTarget; }} data-board-grid data-columns={drawn} data-rows={rows} style={{ '--board-height': `${gridHeight}px` } as CSSProperties} className="relative h-(--board-height)">
-        {paneScreens.map((screen, index) => <BoardPane key={`${user.id}.${sheetId}.${index}`} paneId={paneIdOf(sheetId, index)} number={index + 1} screen={screen} selected={index === selected} Outlet={Outlet}
+        {paneScreens.map((screen, index) => <BoardPane key={`${user.id}.${paneKey(index)}`} {...paneProps(index)}
           placement={panePlacement(index)} hidden={maximized !== null && maximized !== index} collapsed={arrangement.collapsed.includes(index)} maximized={maximized === index}
           sizing={paneScreens.length >= 2} canMaximize={!stacked} collapseOff={maximized !== null ? text.maximizedCollapseOff : !arrangement.collapsed.includes(index) && !canCollapse(layout, arrangement.collapsed, index) ? text.lastExpanded : null}
-          onCollapse={() => collapse(index)} onMaximize={() => toggleMaximize(index)}
-          signal={signals[index]} hasPrevious={previousAt(sheet, index) !== null}
-          applyAllOff={applyOff(index)} duplicateOff={duplicateOff(index)}
-          onSelect={() => update(b => selectPane(b, sheetId, index))} onChange={(next, how) => update(b => editPane(b, sheetId, index, next, how))} onLeave={onLeave}
-          onInsert={menu => insert(index, menu)} onClear={() => clearPane(index)} onBack={() => update(b => goBackPane(b, sheetId, index))}
-          onApplyAll={() => applyToAll(index)} onOpenFull={() => openFull(index)} onReplace={menu => replaceScreen(index, menu)}
-          onDuplicate={() => duplicate(index)} onEditContext={() => editContext(index)} />)}
-        {!stacked && maximized === null && columns === 2 && <PaneSplitter key={`${identity}.columns`} label={text.columnSize} controls={`board-pane-${paneIdOf(sheetId, 0)}`}
+          onCollapse={() => collapse(index)} onMaximize={() => toggleMaximize(index)} />)}
+        {!stacked && maximized === null && columns === 2 && <PaneSplitter key={`${identity}.columns`} label={text.columnSize} controls={`board-pane-${paneKey(0)}`}
           value={tracks.widths[0] / (tracks.widths[0] + tracks.widths[1]) * 100} bounds={tracks.columnBounds} extent={tracks.widths[0] + tracks.widths[1]}
           placement={{ left: tracks.widths[0], top: 0, width: GRID_GAP, height: tracks.height }} onChange={values => saved({ columns: values })} />}
         {!stacked && maximized === null && rows === 2 && Array.from({ length: columns }, (_, c) => !arrangement.collapsed.includes(c) && !arrangement.collapsed.includes(c + columns)
-          ? <PaneSplitter key={`${identity}.rows.${c}`} horizontal label={text.rowSize(c + 1, c + columns + 1)} controls={`board-pane-${paneIdOf(sheetId, c)}`}
+          ? <PaneSplitter key={`${identity}.rows.${c}`} horizontal label={text.rowSize(c + 1, c + columns + 1)} controls={`board-pane-${paneKey(c)}`}
             value={tracks.heights[c][0] / (tracks.height - GRID_GAP) * 100} bounds={tracks.rowBounds[c]} extent={tracks.height - GRID_GAP}
             placement={{ left: c === 0 ? 0 : tracks.widths[0] + GRID_GAP, top: tracks.heights[c][0], width: tracks.widths[c], height: GRID_GAP }}
             onChange={values => saved({ rows: arrangement.rows.map((r, i) => i === c ? values : r) })} /> : null)}
-      </div>
+      </div>}
     </div>
     </QueryBarExtensionsProvider>
     </PaneQueryDraftProvider>

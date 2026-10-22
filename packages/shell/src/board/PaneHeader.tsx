@@ -22,7 +22,7 @@ const CHIP_GAP = 4;
  * How many difference chips fit in the head. Overflow squeezes the menu name minimum; same conditions fold into
  * the overflow count whenever the full row does not fit. Measurements happen after layout, and a zero-width first paint shows all chips.
  */
-function useVisibleChips(head: RefObject<HTMLDivElement | null>, count: number, signature: string, sameCount: number) {
+function useVisibleChips(head: RefObject<HTMLDivElement | null>, count: number, signature: string, sameCount: number, nameMin: number, nameMinSqueezed: number) {
   const [layout, setLayout] = useState({ visible: count, overflow: false });
   useLayoutEffect(() => {
     const element = head.current;
@@ -35,13 +35,13 @@ function useVisibleChips(head: RefObject<HTMLDivElement | null>, count: number, 
       const chips = widthOf('[data-chip-measure="chip"]');
       const [more = 0] = widthOf('[data-chip-measure="more"]');
       const [same = 0] = widthOf('[data-chip-measure="same"]');
-      const available = width - HEAD_PADDING - fixed - MENU_NAME_MIN_WIDTH - HEAD_GAP * (count > 0 ? 3 : 2);
+      const available = width - HEAD_PADDING - fixed - nameMin - HEAD_GAP * (count > 0 ? 3 : 2);
       const allChips = chips.reduce((sum, w) => sum + w, 0) + CHIP_GAP * Math.max(0, count - 1);
       if (allChips + (sameCount > 0 ? same + HEAD_GAP : 0) <= available) {
         setLayout({ visible: count, overflow: false });
         return;
       }
-      const overflowAvailable = available + MENU_NAME_MIN_WIDTH - MENU_NAME_MIN_WIDTH_SQUEEZED;
+      const overflowAvailable = available + nameMin - nameMinSqueezed;
       let fit = 0;
       for (let k = sameCount > 0 ? count : count - 1; k >= 0; k--) {
         const used = chips.slice(0, k).reduce((sum, w) => sum + w, 0)
@@ -57,11 +57,15 @@ function useVisibleChips(head: RefObject<HTMLDivElement | null>, count: number, 
     // The head alone is not enough: a fixed group or a measuring chip can change size (`이전 화면` appears, the language changes) with the head's width unchanged.
     for (const target of [element, ...element.querySelectorAll('[data-head-fixed], [data-chip-measure]')]) observer.observe(target);
     return () => observer.disconnect();
-  }, [head, count, signature, sameCount]);
+  }, [head, count, signature, sameCount, nameMin, nameMinSqueezed]);
   return { visible: Math.min(layout.visible, count), overflow: count > 0 && layout.overflow };
 }
 
 export type PaneHeaderProps = {
+  /** `dock`: the pane's number and menu name are on its tab, so the head keeps the system chip, the Context chips and the actions only; maximize is a group command. */
+  variant?: 'grid' | 'dock';
+  /** Dock renderer, empty pane: offers `칸 닫기` in the `⋯` menu. */
+  onClosePane?: () => void;
   sizing?: boolean;
   collapsed?: boolean;
   maximized?: boolean;
@@ -106,6 +110,7 @@ export type PaneHeaderProps = {
  */
 export function PaneHeader(props: PaneHeaderProps) {
   const { number, selected, systemLabel, menuName, active, signal, hasPrevious, applyAllOff, duplicateOff, menuTrigger, onSelect, afterMenuClose } = props;
+  const dock = props.variant === 'dock';
   const { lang, tx } = useI18n();
   const text = boardText(lang);
   const head = useRef<HTMLDivElement>(null);
@@ -132,7 +137,7 @@ export function PaneHeader(props: PaneHeaderProps) {
   }, [props.presentationHidden, bodyHidden, afterMenuClose]);
   const chips = signal?.compared ? signal.differing : [];
   const signature = chips.map(c => `${c.key}:${c.value}`).join('|');
-  const { visible: visibleCount, overflow } = useVisibleChips(head, chips.length, signature, signal?.compared ? signal.same.length : 0);
+  const { visible: visibleCount, overflow } = useVisibleChips(head, chips.length, signature, signal?.compared ? signal.same.length : 0, dock ? 0 : MENU_NAME_MIN_WIDTH, dock ? 0 : MENU_NAME_MIN_WIDTH_SQUEEZED);
   const shown = chips.slice(0, visibleCount);
   const hiddenDifferences = chips.length - shown.length;
   const hidden = overflow ? hiddenDifferences + (signal?.compared ? signal.same.length : 0) : 0;
@@ -145,13 +150,14 @@ export function PaneHeader(props: PaneHeaderProps) {
     <Popover open={popover} onOpenChange={setPopover}>
       <PopoverAnchor asChild><span className="absolute inset-x-0 bottom-0" aria-hidden /></PopoverAnchor>
       <div data-head-fixed className="flex shrink-0 items-center gap-2">
-        <button type="button" aria-label={text.selectPane(number)} aria-pressed={selected} onClick={onSelect}
+        {!dock && <button type="button" aria-label={text.selectPane(number)} aria-pressed={selected} onClick={onSelect}
           className="rounded-xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring">
           <PaneBadge label={text.pane(number)} selected={selected} />
-        </button>
+        </button>}
         {systemLabel && <span data-pane-system className="shrink-0 rounded-xs border border-border-subtle px-1.5 text-caption text-text-secondary">{systemLabel}</span>}
       </div>
-      <span className={cn('flex-1 truncate text-sm font-medium text-text-primary', overflow && chips.length > 0 ? 'min-w-16' : 'min-w-24')}>{menuName}</span>
+      {dock ? <span className="flex-1" aria-hidden />
+        : <span className={cn('flex-1 truncate text-sm font-medium text-text-primary', overflow && chips.length > 0 ? 'min-w-16' : 'min-w-24')}>{menuName}</span>}
       {(shown.length > 0 || hidden > 0) && <div data-pane-chips className="flex shrink-0 items-center gap-1">
         {shown.map(chip => <span key={chip.key} data-pane-chip={chip.key} className={PANE_CHIP}>{chipText(chip)}</span>)}
         {hidden > 0 && <button type="button" data-pane-chip="more" aria-haspopup="dialog" aria-expanded={popover} aria-label={text.contextMoreName(number, hidden)} onClick={open} className={cn(PANE_CHIP, 'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring')}>{text.contextMore(hidden)}</button>}
@@ -180,7 +186,7 @@ export function PaneHeader(props: PaneHeaderProps) {
             {props.maximized ? <Minimize2 className="size-3.5" aria-hidden /> : <Maximize2 className="size-3.5" aria-hidden />}
           </Button>}
         </>}
-        {active && <DropdownMenu open={menuOpen} onOpenChange={open => { if (open) cancelMenuFocus.current = false; setMenuOpen(open); }}>
+        {(active || props.onClosePane) && <DropdownMenu open={menuOpen} onOpenChange={open => { if (open) cancelMenuFocus.current = false; setMenuOpen(open); }}>
           <DropdownMenuTrigger asChild>
             <Button ref={menuTrigger} type="button" variant="ghost" size="icon-sm" aria-label={text.paneActions(number)} title={text.paneActions(number)} onPointerDown={onSelect}><MoreHorizontal className="size-3.5" aria-hidden /></Button>
           </DropdownMenuTrigger>
@@ -193,6 +199,8 @@ export function PaneHeader(props: PaneHeaderProps) {
               event.preventDefault();
               next();
             }}>
+            {!active && props.onClosePane && <DropdownMenuItem onSelect={() => { afterMenuClose.current = () => {}; props.onClosePane?.(); }}>{text.closePane(number)}</DropdownMenuItem>}
+            {active && <>
             <DropdownMenuItem disabled={applyAllOff !== null} aria-describedby={applyAllOff !== null ? `${id}-apply-off` : undefined} onSelect={() => props.onApplyAll()}>
               <span className="grid">{text.applyToAll}{applyAllOff !== null && <span id={`${id}-apply-off`} className="text-tiny text-text-muted">{applyAllOff}</span>}</span>
             </DropdownMenuItem>
@@ -203,6 +211,7 @@ export function PaneHeader(props: PaneHeaderProps) {
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={() => props.onClear()}>{text.clear}</DropdownMenuItem>
+            </>}
           </DropdownMenuContent>
         </DropdownMenu>}
       </div>

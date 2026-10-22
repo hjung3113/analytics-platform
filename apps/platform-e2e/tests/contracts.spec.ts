@@ -501,6 +501,172 @@ test.describe('분석 보드 계약 (16 §4–§7, ADR-0049·0051)', () => {
   });
 });
 
+test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
+  type DockPaneSeed = { menuId: string; params: Record<string, string>; query: string };
+  type DockSheetSeed = { id: string; name: string; layout: '1x1' | '1x2' | '2x1' | '2x2'; selected: number; panes: (DockPaneSeed | null)[] };
+
+  const screenOf = (query: string): DockPaneSeed => ({ menuId: 'productivity-overview', params: {}, query: `?${query}` });
+  const sheetOf = (id: string, name: string, layout: DockSheetSeed['layout'], panes: DockSheetSeed['panes']): DockSheetSeed => ({ id, name, layout, selected: 0, panes });
+  const populated = (id: string, layout: DockSheetSeed['layout'], count: number) => sheetOf(id, '도킹', layout, Array.from({ length: count }, (_, i) => screenOf(`v=1&scopeId=MEM&${PERIOD}&roomNames=${['PHOTO', 'ETCH', 'CVD', 'DIFF'][i]}`)));
+
+  /** The V1 board and the renderer flag go in the same init script, so the first load already draws the dock. */
+  async function signInWithDockBoard(page: Page, sheets: DockSheetSeed[]) {
+    await signInAs(page, 'engineer');
+    await page.addInitScript(({ value }) => {
+      const seeded = 'platform:board-fixture-seeded:engineer';
+      localStorage.setItem('platform:board-layout-engine', 'dock');
+      if (sessionStorage.getItem(seeded)) return;
+      localStorage.setItem('platform:board:engineer', JSON.stringify(value));
+      sessionStorage.setItem(seeded, '1');
+    }, { value: { v: 1, activeSheetId: sheets[0].id, sheets } });
+  }
+
+  const paneTabs = (page: Page) => page.locator('[data-dock-layout] [role="tab"][data-tab-panel-id]');
+  const paneTab = (page: Page, number: number) => paneTabs(page).filter({ hasText: new RegExp(`^칸 ${number} · `) });
+  const groups = (page: Page) => page.locator('[data-dock-layout] .dv-groupview');
+  const groupOfTab = (page: Page, number: number) => groups(page).filter({ has: paneTab(page, number) });
+  const groupBody = (page: Page, number: number) => groupOfTab(page, number).locator('.dv-content-container');
+  const contextOf = (page: Page, number: number) => page.getByRole('region', { name: `칸 ${number} · 분석 Context` });
+  const groupMenuOf = (page: Page, number: number) => groupOfTab(page, number).locator('[data-dock-group-menu]');
+  /** Marks every pane root so a remount (which would re-query) shows as a lost mark. */
+  const markPanes = (page: Page) => page.locator('[data-pane-id]').evaluateAll(panes => panes.forEach(pane => { (pane as HTMLElement).dataset.dockProbe = 'same'; }));
+  const marked = (page: Page) => page.locator('[data-dock-probe="same"]');
+  async function dockReady(page: Page, panes: number) {
+    await page.goto('/board?sheet=dock');
+    await expect(paneTabs(page)).toHaveCount(panes);
+  }
+  async function dragTab(page: Page, from: number, onto: Locator, position: { x: number; y: number }) {
+    await paneTab(page, from).dragTo(onto, { targetPosition: position });
+  }
+
+  test('탭을 고르면 그 칸이 선택되고 Context 바가 그 칸을 편집한다', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await signInWithDockBoard(page, [populated('dock', '2x2', 4)]);
+    await dockReady(page, 4);
+    await expect(contextOf(page, 1)).toBeVisible();
+    await paneTab(page, 3).click();
+    await expect(contextOf(page, 3)).toBeVisible();
+    await expect(paneTab(page, 3)).toHaveAttribute('aria-selected', 'true');
+    await evidence(page, testInfo, 'board-dock-tab-select');
+  });
+
+  test('탭을 다른 그룹 가운데에 끌면 한 그룹의 두 탭이 되고 칸은 다시 마운트되지 않는다', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await signInWithDockBoard(page, [populated('dock', '1x2', 2)]);
+    await dockReady(page, 2);
+    await expect(groups(page)).toHaveCount(2);
+    await markPanes(page);
+    const body = groupBody(page, 1);
+    const box = (await body.boundingBox())!;
+    await dragTab(page, 2, body, { x: box.width / 2, y: box.height / 2 });
+    await expect(groups(page)).toHaveCount(1);
+    await expect(groups(page).first().locator('[role="tab"][data-tab-panel-id]')).toHaveCount(2);
+    await expect(marked(page)).toHaveCount(2);
+    await evidence(page, testInfo, 'board-dock-merge');
+  });
+
+  test('탭을 가장자리에 끌면 그룹이 나뉜다', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await signInWithDockBoard(page, [populated('dock', '1x2', 2)]);
+    await dockReady(page, 2);
+    const body = groupBody(page, 1);
+    const box = (await body.boundingBox())!;
+    await dragTab(page, 2, body, { x: box.width / 2, y: box.height / 2 });
+    await expect(groups(page)).toHaveCount(1);
+    await markPanes(page);
+    const merged = groupBody(page, 1);
+    const mergedBox = (await merged.boundingBox())!;
+    await dragTab(page, 2, merged, { x: mergedBox.width - 6, y: mergedBox.height / 2 });
+    await expect(groups(page)).toHaveCount(2);
+    await expect(marked(page)).toHaveCount(2);
+    await evidence(page, testInfo, 'board-dock-split');
+  });
+
+  test('탭의 Delete는 칸을 비우고 되돌리기로 복원한다 — 엔진 닫기는 없다', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await signInWithDockBoard(page, [populated('dock', '1x2', 2)]);
+    await dockReady(page, 2);
+    await paneTab(page, 2).focus();
+    await page.keyboard.press('Delete');
+    await expect(paneTab(page, 2)).toHaveText(/^칸 2 · 빈 칸$/);
+    await expect(paneTabs(page)).toHaveCount(2);
+    await expect(page.getByText('칸 2을 비웠습니다')).toBeVisible();
+    await evidence(page, testInfo, 'board-dock-delete-empties');
+    // The pane is empty now: Delete on its tab does nothing more.
+    await paneTab(page, 2).focus();
+    await page.keyboard.press('Delete');
+    await expect(paneTabs(page)).toHaveCount(2);
+    await page.getByRole('button', { name: '실행 취소' }).click();
+    await expect(paneTab(page, 2)).not.toHaveText(/빈 칸/);
+  });
+
+  test('열 경계는 방향키로 5%씩 움직인다', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await signInWithDockBoard(page, [populated('dock', '1x2', 2)]);
+    await dockReady(page, 2);
+    const separator = page.getByRole('separator', { name: '열 너비 조절' });
+    const before = Number(await separator.getAttribute('aria-valuenow'));
+    await separator.focus();
+    await page.keyboard.press('ArrowRight');
+    await expect.poll(async () => Number(await separator.getAttribute('aria-valuenow'))).toBeCloseTo(before + 5, 0);
+    await evidence(page, testInfo, 'board-dock-separator');
+  });
+
+  test('최대화는 Esc로 풀리고 포커스는 그룹 ⋯로 돌아온다', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await signInWithDockBoard(page, [populated('dock', '1x2', 2)]);
+    await dockReady(page, 2);
+    await groupMenuOf(page, 1).click();
+    await page.getByRole('menuitem', { name: '칸 1 최대화' }).click();
+    await expect(page.locator('[data-pane-index="1"]').first()).toBeHidden();
+    await evidence(page, testInfo, 'board-dock-maximized');
+    await groupMenuOf(page, 1).focus();
+    await page.keyboard.press('Escape');
+    await expect(page.locator('[data-pane-index="1"]').first()).toBeVisible();
+    await expect(groupMenuOf(page, 1)).toBeFocused();
+  });
+
+  test('691px에서는 한 탭 그룹에 모든 칸이 있고 692px에서는 나란히 선다', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await signInWithDockBoard(page, [populated('dock', '1x2', 2)]);
+    await dockReady(page, 2);
+    // The real dock width decides the viewport sizes immediately either side of its 692px threshold.
+    const measured = (await page.locator('[data-dock-layout]').boundingBox())!.width;
+    await page.setViewportSize({ width: Math.round(1440 - measured + 691), height: 900 });
+    await expect(page.locator('[data-dock-layout]')).toHaveAttribute('data-dock-narrow', 'true');
+    await expect(page.locator('[data-dock-layout] [role="tablist"]')).toHaveCount(1);
+    await expect(groups(page)).toHaveCount(1);
+    await expect(groups(page).first().locator('[role="tab"][data-tab-panel-id]')).toHaveCount(2);
+    await evidence(page, testInfo, 'board-dock-narrow');
+    await page.setViewportSize({ width: Math.round(1440 - measured + 693), height: 900 });
+    await expect(page.locator('[data-dock-layout]')).toHaveAttribute('data-dock-narrow', 'false');
+    await expect(groups(page)).toHaveCount(2);
+  });
+
+  test('칸 탭을 시트 탭에 끌어도 시트 순서와 칸은 그대로다', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await signInWithDockBoard(page, [populated('dock', '1x2', 2), sheetOf('other', '다른 시트', '1x1', [null])]);
+    await dockReady(page, 2);
+    const sheetNames = () => page.getByRole('tablist', { name: '시트' }).getByRole('tab').allTextContents();
+    const before = await sheetNames();
+    await paneTab(page, 2).dragTo(page.getByRole('tab', { name: '다른 시트' }));
+    expect(await sheetNames()).toEqual(before);
+    await expect(paneTabs(page)).toHaveCount(2);
+    await expect(groups(page)).toHaveCount(2);
+  });
+
+  test('1440×900에서 모든 칸 본문은 120px 이상이다', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await signInWithDockBoard(page, [populated('dock', '2x2', 4)]);
+    await dockReady(page, 4);
+    await expect(contextOf(page, 1)).toBeVisible();
+    const heights = await page.locator('[data-pane-body]').evaluateAll(bodies => bodies.map(body => body.getBoundingClientRect().height));
+    expect(heights).toHaveLength(4);
+    for (const height of heights) expect(height).toBeGreaterThanOrEqual(120);
+    await evidence(page, testInfo, 'board-dock-2x2');
+  });
+});
+
 test.describe('관리 레이아웃 필터 레일 (06 §12.6, ADR-0022)', () => {
   test('1440 설비 마스터는 접기 기억과 펼치기 포커스를 제공한다', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 });

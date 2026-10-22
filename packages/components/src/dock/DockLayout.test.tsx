@@ -96,6 +96,18 @@ describe('DockLayout close is blocked (D7)', () => {
     expect(calls.layout).toHaveLength(0);
   });
 
+  it.each(['{Delete}', '{Backspace}'])('%s reports the tab to onPanelDelete and still closes nothing', async key => {
+    const deleted: string[] = [];
+    const { calls } = mountDock({ layout: row([50, 50], group(['a', 'b']), group(['c'])), props: { onPanelDelete: id => { deleted.push(id); } } });
+    await ready();
+    screen.getByRole('tab', { name: '패널 b' }).focus();
+    await userEvent.keyboard(key);
+    expect(deleted).toEqual(['b']);
+    expect(groupsOnScreen()).toEqual([['a', 'b'], ['c']]);
+    expect(screen.getByTestId('content-b')).toBeInTheDocument();
+    expect(calls.layout).toHaveLength(0);
+  });
+
   it('renders no close button in any tab', async () => {
     mountDock({ layout: row([50, 50], group(['a', 'b']), group(['c'])) });
     await ready();
