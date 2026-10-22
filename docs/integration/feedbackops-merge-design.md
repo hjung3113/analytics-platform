@@ -205,7 +205,7 @@ FeedbackOps를 플랫폼 앱 하나·서버 하나·저장소 하나로 합친�
 | O16 | 감사 읽기 노출 범위: FeedbackOps event → `AuditAction` 매핑, `console:access`가 볼 detail의 범위(사유·설문·이메일), `subject_id` text 전환·`scope_id` 추가 migration | #593 + FeedbackOps 개인정보 규칙(FO ADR-0033·0066), 사용자 — **Decided: [ADR-0069](../adr/0069-platform-port-in-feedbackops-backend.md) 결정 6** — 구현 #621(`subject_id` text·`scope_id`는 `.planning/backlog.md`에 구현 안 함으로 기록) |
 | O17 | 적합성 묶음 시드 계정(권한 하나씩 뺀 계정, site 두 곳 계정, 다른 주석 작성자)을 mock 로그인 시드로 만들지 | #593 |
 | O18 | 체크리스트 §5 "#98 전에는 부여·회수 쓰기 없음"과 이미 구현된 FeedbackOps 부여·승인 쓰기(FO ADR-0066)의 충돌. 체크리스트를 고칠지, 쓰기를 FeedbackOps 범위로 한정할지 | #596 |
-| O19 | FeedbackOps 엔티티의 `EntityRef.scopeId`(`null` + 서버 안 Managed System 판정). 행이 있는지 드러나는 방식(Finding 404/403 대 플랫폼 `empty`/`forbidden`)을 맞출지 | 06 §22 소유자(사용자), #596 — **Decided: [ADR-0069](../adr/0069-platform-port-in-feedbackops-backend.md) 결정 9** |
+| O19 | FeedbackOps 엔티티의 `EntityRef.scopeId`(`null` + 서버 안 Managed System 판정). 행이 있는지 드러나는 방식(Finding 404/403 대 플랫폼 `empty`/`forbidden`)을 맞출지 | 06 §22 소유자(사용자), #596 — **Decided: [ADR-0069](../adr/0069-platform-port-in-feedbackops-backend.md) 결정 9, 구현 #623** |
 | O20 | Correlation ID 헤더 이름과 Fastify `reqId`·로그 필드 `request_id`를 하나로 맞출지 | #151(사내 표준), #593 — **Decided: [ADR-0069](../adr/0069-platform-port-in-feedbackops-backend.md) 결정 5** |
 | O21 | 세션 만료: 지금은 12시간 고정이고 유휴 만료가 없다. #150 정책이 sliding이면 폴링을 활동에서 빼는 처리가 필요하다 | #150 |
 

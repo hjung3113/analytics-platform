@@ -77,7 +77,6 @@ import {
   createPgBossNotificationDispatcher,
   notificationRoutes,
 } from './modules/notifications/index.js';
-import { platformPortRoutes, PLATFORM_PORT_PREFIX } from './modules/platform-port/index.js';
 import {
   createCheckService,
   createDecisionService,
@@ -87,6 +86,7 @@ import {
   permissionRecoveryProjection,
   permissionsRoutes,
 } from './modules/permissions/index.js';
+import { PLATFORM_PORT_PREFIX, platformPortRoutes } from './modules/platform-port/index.js';
 import { createSavedViewsService, savedViewsRoutes } from './modules/saved-views/index.js';
 import {
   createSurveysService,
@@ -785,7 +785,9 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     checkService,
     workspaceId,
     db: dbHandle.db,
-    providers: buildEntityLinkProviders(),
+    vocReadService,
+    findingsService,
+    tasksService,
   });
   await app.register(navRoutes, {
     sessionService,
