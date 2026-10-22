@@ -7,7 +7,7 @@ type ResetRule = Pick<MenuEntry, 'contextResetKeys'>;
 /**
  * The one rule for a deliberate global-Context change (06 §6.4): the menu's `contextResetKeys` (e.g. the result-set page index) leave
  * the page pairs when `next` differs from `current`, and stay when it does not. `setGlobal` and `withPaneContext` both use it.
- * @deprecated Kernel-internal; removed in the next SDK release. Use withPaneContext.
+ * Kernel-internal (no longer a public export since #660); outside the kernel use `withPaneContext`.
  */
 export function dropResetKeys(menu: ResetRule | null | undefined, pairs: Pair[], current: GlobalContext, next: GlobalContext): Pair[] {
   const keys = menu?.contextResetKeys;

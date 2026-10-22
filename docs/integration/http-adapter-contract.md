@@ -32,9 +32,9 @@
 | `validateScope(scopeId)` | `GET /api/v1/platform/scopes/{scopeId}/check` | 경로 `scopeId` | `ScopeCheck` |
 | `contextOptions(scopeId)` | `GET /api/v1/platform/context-options?scopeId=…` | 쿼리 `scopeId` | `ConditionOptions` |
 | `evaluateSelection(input)` | `POST /api/v1/platform/selection/evaluate` | `SelectionInput` | `SelectionEvaluation` |
-| `listAxisOptions(input)` | Candidate: `POST /api/axis-options` | `AxisOptionsInput` | `AxisOptionsPage` |
-| `searchEquipment(input)` | Candidate: `POST /api/equipment-search` | `EquipmentSearchInput` | `EquipmentSearchPage` |
-| `resolveSelection(input)` | Candidate: `POST /api/selection-resolve` | `SelectionResolveInput` | `SelectionResolveResult` |
+| `listAxisOptions(input)` | Candidate: `POST /api/v1/platform/axis-options` | `AxisOptionsInput` | `AxisOptionsPage` |
+| `searchEquipment(input)` | Candidate: `POST /api/v1/platform/equipment-search` | `EquipmentSearchInput` | `EquipmentSearchPage` |
+| `resolveSelection(input)` | Candidate: `POST /api/v1/platform/selection-resolve` | `SelectionResolveInput` | `SelectionResolveResult` |
 | `getEntity(ref)` | `POST /api/v1/platform/entity` — FeedbackOps 구현됨(#623): type `voc`·`finding`·`task`, 게이트는 각 FeedbackOps 상세 읽기(`resolveVocReference`·`getFinding`·`getTask`), 없는/볼 수 없는/uuid 아닌 id는 하나의 `forbidden`, `scopeId` 있음·그 밖의 type은 `error` | `EntityRef` | `ApiResponse<unknown>` |
 | `menuQuery(req)` | `POST /api/v1/menu-query` | `MenuQuery`(`{ endpoint, context, params }` 그대로) | `ApiResponse<unknown>` |
 | `menuAction(req)` | `POST /api/v1/menu-action` + 헤더 `Idempotency-Key`(= `req.idempotencyKey`)·`If-Match`(`req.expectedVersion`이 있을 때만, 따옴표 없는 opaque 문자열 그대로)·`X-CSRF-Token`([ADR-0054](../adr/0054-write-port-declared-actions-idempotency-version.md), [ADR-0069](../adr/0069-platform-port-in-feedbackops-backend.md) 결정 4). 서버 경로·상태 코드는 후속 이슈가 채운다(Candidate). 실패 변환: 서버가 보낸 올바른 `ActionResponse`(200)만 그대로 쓰고, 네트워크·타임아웃·5xx·그 밖의 상태·`invalid_response`·`invalid_envelope`·401·3xx는 `outcome: 'unknown'`(`data: null`, `version: null`, `fieldErrors: []`, `replayed: false`, `correlationId`, `message`는 §2.1의 짧은 코드)로 바꾼다 — 반영 여부를 모르기 때문이다. 401·3xx는 세션 재확인(§4)을 시작하고 403(CSRF)은 재부트스트랩으로 토큰을 갱신한다. 어느 경우도 자동 재전송하지 않는다 | `MenuAction`(`{ action, context, input, idempotencyKey, expectedVersion? }` 그대로) | `ActionResponse<unknown>` |
@@ -50,7 +50,7 @@
 
 FeedbackOps의 `auditTrail`·`entityAudit`(#621, [ADR-0069](../adr/0069-platform-port-in-feedbackops-backend.md) 결정 6·7·9): 응답의 `AuditEvent`에는 `changes`·`reason`을 싣지 않는다(사유·메모 본문과 민감 detail은 내보내지 않는다). `target.type`은 FeedbackOps `subject_type` 18종(voc, finding, task, task_request, entity_link, voc_cluster, permission_request, permission_grant, permission_deny, survey, survey_question, managed_system, analytics_area, milestone, attachment, public_update_review_candidate, voc_cluster_suggestion, workspace)이고 `scopeId`는 항상 `null`이다. SQL이 셋을 뺀다: ① 설문 응답 주체·event와 한쪽 끝이 `survey_response`인 `entity_link` 행, ② `detail.capability`가 비민감 허용 목록(`CAPABILITY_META.sensitive = false`)에 없는 권한 행(민감 권한 요청의 수정·취소·결정 이력 포함), ③ `detail.sensitive = true` 행. 빠진 행은 `items`·`total`·`targetId` 필터·페이지에 나타나지 않는다. `page`는 안전한 정수(≤ 2^53−1)만 받고, 끝을 넘은 먼 페이지는 `ok`·`items: []`·실제 `total`이다. `entityAudit`의 `type`은 voc·finding·voc_cluster·task_request·task만 받으며 그 밖(`survey_response` 포함)은 `error`, 읽을 수 없거나 없는 대상은 모두 `forbidden`이다. `sync` 액션에 대응하는 FeedbackOps event는 아직 없다.
 
-새 세 조회 경로는 별도 Candidate 매핑이며 위 /api/v1/platform 접두사 제안과 통합할 최종 경로는 백엔드 합의 때 확정한다. 성공은 HTTP 200 + 자기 JSON 타입(빈 페이지도 성공), 판정 실패는 4xx + `{code,message,field?}`다. invalid_input·invalid_cursor·invalid_period·unknown_axis·membership_basis_unsupported는 400, scope_forbidden·room_forbidden은 403, unknown_scope는 404다. 어댑터는 이를 PortError로 reject한다(HTTP 200 envelope 정책의 예외). 의미 원본은 [06 §6.4](../06_platform_ui_contract.md#64-url-계약-decided-필드명enum-문자열은-candidate)다.
+새 세 조회 경로도 다른 플랫폼 포트와 같은 `/api/v1/platform/...` 접두사 아래의 Candidate 매핑이다(#660, FeedbackOps 백엔드에 아직 구현 없음). 최종 경로는 백엔드 구현 때 확정한다. 성공은 HTTP 200 + 자기 JSON 타입(빈 페이지도 성공), 판정 실패는 4xx + `{code,message,field?}`다. invalid_input·invalid_cursor·invalid_period·unknown_axis·membership_basis_unsupported는 400, scope_forbidden·room_forbidden은 403, unknown_scope는 404다. 어댑터는 이를 PortError로 reject한다(HTTP 200 envelope 정책의 예외). 의미 원본은 [06 §6.4](../06_platform_ui_contract.md#64-url-계약-decided-필드명enum-문자열은-candidate)다.
 
 `listAxisOptions`의 JSON `axisId`는 주입 축 id 또는 SDK 전역 집합 키 `lineNames`·`prcGroups`다. 전역 키도 같은 경로와 페이지/오류 타입으로 전송하며, `parents`에는 다른 전역 키(예: `{roomNames:["PHOTO"]}`)의 배열 맵을 보낸다. 서버는 요청 Scope의 부여된 행에서만 옵션을 도출한다. `searchEquipment`와 성공한 `resolveSelection`의 `summary.axes`는 Line·PRC 소속도 담는다. 의미·부모 제한·맵 키 원본은 [06 §6.4](../06_platform_ui_contract.md#64-url-계약-decided-필드명enum-문자열은-candidate)다.
 
@@ -181,7 +181,7 @@ GET /api/v1/platform/bootstrap
 - 어댑터는 요청마다 id를 만들어 헤더로 보낸다(`req-<epoch16>-<rand>` [제안]). Kernel은 `client-…`를 "서버에 닿지 않은 응답"에 쓰므로 다른 접두사를 써서, 화면 id만 보고 서버 로그를 찾을지 판단할 수 있게 한다. 난수는 `crypto.getRandomValues`로 만든다 — `crypto.randomUUID`는 보안 컨텍스트(HTTPS)에서만 되고 HTTP 가능성은 [#151] Open이다. 서버는 받은 id를 로그 `correlation_id`로 쓰고 **envelope `correlationId`에 그대로 되돌린다**. 헤더가 없으면 서버가 만들어 응답 헤더와 envelope에 싣는다.
 - **[백엔드] 받은 id 검증**: 형식(예: `^[A-Za-z0-9._-]{1,128}$`)이 맞을 때만 쓰고, 아니면 서버가 새로 만들어 응답 헤더와 envelope에 싣는다 — 로그 주입(개행·제어문자)과 아주 긴 값을 막는다.
 - 변환 envelope(§2.1)는 요청 id(또는 응답 헤더 id)를 쓴다 — 실패해도 화면의 id로 서버 로그를 찾을 수 있다.
-- 렌더 실패(#101)의 `ClientErrorReport.correlationId`는 Kernel Error Boundary가 만든 `client-…` id이고, `reportClientError` 요청 헤더에도 같은 id를 실어 보낸다 [제안] — 화면 id → 오류 보고 행 → 서버 로그가 한 id로 이어진다.
+- 렌더 실패(#101)의 `ClientErrorReport.correlationId`는 Kernel Error Boundary가 만든 `client-…` id이고(Kernel·공통 컴포넌트의 `client-…` id는 모두 `@ap/contracts` `clientCorrelationId()`가 만든다: `crypto.randomUUID`, 보안 컨텍스트 밖에서는 epoch ms + `getRandomValues` 난수 — 같은 ms의 두 실패도 다른 id, #660), `reportClientError` 요청 헤더에도 같은 id를 실어 보낸다 [제안] — 화면 id → 오류 보고 행 → 서버 로그가 한 id로 이어진다.
 - 서버 로그 수집처와 검색 방법은 [#151] (가이드 §3.2).
 
 ## 8. 버전

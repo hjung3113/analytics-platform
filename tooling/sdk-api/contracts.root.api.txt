@@ -105,6 +105,7 @@ bucketStart | function | function bucketStart(instant: string, grain: @ap/contra
 buildFeedbackOpsLink | function | function buildFeedbackOpsLink(input: { origin: string; target: @ap/contracts#FeedbackOpsTarget; }): string
 buildPlatformInboundLink | function | function buildPlatformInboundLink(input: { context: @ap/contracts#GlobalContext; hop: @ap/contracts#PlatformHop; origin: string; returnTo?: string; }): string
 buildQuery | function | function buildQuery(g: @ap/contracts#GlobalContext, page?: @ap/contracts#Pair[], extras?: @ap/contracts#Pair[]): string
+clientCorrelationId | function | function clientCorrelationId(): string
 compareHistoryText | function | function compareHistoryText(a: string, b: string): number
 compareQueryHistory | function | function compareQueryHistory(a: @ap/contracts#QueryHistoryEntry, b: @ap/contracts#QueryHistoryEntry): number
 conditionLabel | function | function conditionLabel(c: @ap/contracts#Condition): string

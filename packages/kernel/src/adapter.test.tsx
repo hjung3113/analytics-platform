@@ -85,6 +85,29 @@ describe('per-user kernel state', () => {
     act(() => f.switchTo('b'));
     expect(screen.getByTestId('favs').textContent).toBe('m-b');
   });
+
+  it('falls back from corrupted stored favorites, recents and scope instead of throwing', async () => {
+    localStorage.setItem('platform:favorites:user-a', JSON.stringify({ not: 'a list' }));
+    localStorage.setItem('platform:recent:user-a', JSON.stringify(42));
+    localStorage.setItem('platform:lastScope:user-a', JSON.stringify(7));
+    localStorage.setItem('platform:favorites:user-b', JSON.stringify(['m-b', 3, null]));
+    localStorage.setItem('platform:recent:user-b', JSON.stringify([
+      { menuId: 'm-b', url: '/b', at: 1 }, { menuId: 5, url: '/x', at: 2 }, { menuId: 'm-c', url: 'https://evil.example/', at: 3 }, 'junk',
+    ]));
+    const f = fixture();
+    let platform: ReturnType<typeof usePlatform> | null = null;
+    // The probe only captures state, so a throw can come from the kernel alone.
+    function State() { platform = usePlatform(); return null; }
+    const state = () => ({ favorites: platform!.favorites, recent: platform!.recent.map(r => `${r.menuId}@${r.url}`), lastScope: platform!.lastScope });
+    render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={f.adapter} registry={registry}><State /></PlatformProvider></I18nProvider>);
+    // The home route records a visit on mount: it must start from an empty list, not the stored number.
+    expect(state()).toEqual({ favorites: [], recent: ['home@/'], lastScope: null });
+    act(() => platform!.toggleFavorite('home'));
+    expect(state().favorites).toEqual(['home']);
+    // Per entry: valid entries survive, malformed ones and an off-app URL are dropped; the visit to home still records.
+    act(() => f.switchTo('b'));
+    expect(state()).toEqual({ favorites: ['m-b'], recent: ['home@/', 'm-b@/b'], lastScope: null });
+  });
 });
 
 describe('adapter shape', () => {

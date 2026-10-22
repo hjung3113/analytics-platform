@@ -26,7 +26,7 @@
 
    - [#533](https://github.com/hjung3113/analytics-platform/issues/533) 실행 취소 토스트 Enter 두 번 실행(BX-4) — 완료.
 
-   - [#534](https://github.com/hjung3113/analytics-platform/issues/534) 품질 후속(Q3–Q7, F1–F3) — 완료. `dropResetKeys`는 제거 예고만 했다(ADR-0044 한 릴리스 예고, [backlog](backlog.md)).
+   - [#534](https://github.com/hjung3113/analytics-platform/issues/534) 품질 후속(Q3–Q7, F1–F3) — 완료. `dropResetKeys`는 제거 예고만 했고, 공개 export 제거는 [#660](https://github.com/hjung3113/analytics-platform/issues/660)이 한다(ADR-0044 한 릴리스 예고).
 
    - [#535](https://github.com/hjung3113/analytics-platform/issues/535) 다른 칸 상세가 열리면 이전 칸 상세를 닫음(BX-2) — 완료(`useDetailPanelSlot` `onSuperseded`, 06 §13·ADR-0047 보충).
 

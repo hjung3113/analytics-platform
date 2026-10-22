@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { House } from 'lucide-react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createBrowserLocation, createBasePathLocation, type PlatformLocation, I18nProvider, PlatformProvider, PlatformLink, usePlatform, createRegistry } from './index';
+import { hasDotSegment, isDotSegment } from './location';
 import { noContext, testAdapter, testSession, testSpace } from './testing';
 
 const registry = createRegistry({
@@ -116,5 +117,32 @@ describe('location boundary (06 §6.4)', () => {
 
   it.each(['/demo/%2e%2e/app/', '/demo/%2E%2e/app/', '/demo/%2e/app/'])('rejects a base whose dot segments fold to another path: %s', base => {
     expect(() => createBasePathLocation(base)).toThrow();
+  });
+
+  it('rejects a base with an invalid percent escape (fail-closed)', () => {
+    expect(() => createBasePathLocation('/demo/%zz/app/')).toThrow();
+    expect(() => createBasePathLocation('/demo/%E0%A4%A/app/')).toThrow();
+  });
+});
+
+describe('dot-segment check (one rule for basePath, module paths, routing and board panes)', () => {
+  it.each(['.', '..', '%2e', '%2E', '%2e%2e', '%2E%2e', '.%2e', '%2e.'])('treats %s as a dot segment', segment => {
+    expect(isDotSegment(segment)).toBe(true);
+  });
+
+  it.each(['%', '%zz', '%E0%A4%A', 'a%2'])('treats the invalid escape %s as a dot segment (fail-closed)', segment => {
+    expect(isDotSegment(segment)).toBe(true);
+  });
+
+  it.each(['', 'a', '...', '.a', '%2e%2e%2e', 'MEM%2DPHOTO', '%EB%B6%84%EC%84%9D'])('passes the ordinary segment %s', segment => {
+    expect(isDotSegment(segment)).toBe(false);
+  });
+
+  it('checks every segment of a pathname', () => {
+    expect(hasDotSegment('/equipment/MEM-PHOTO-0103')).toBe(false);
+    expect(hasDotSegment('/')).toBe(false);
+    expect(hasDotSegment('/equipment/%2e%2e')).toBe(true);
+    expect(hasDotSegment('/a/./b')).toBe(true);
+    expect(hasDotSegment('/equipment/%zz')).toBe(true);
   });
 });

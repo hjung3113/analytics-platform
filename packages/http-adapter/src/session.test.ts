@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createSessionStore } from './session.js';
 import { bootstrapBody, ENVELOPE, json, ready, type Call, type Handler } from './test-support.js';
+import type { Transport } from './transport.js';
+import { toBootstrap } from './validate.js';
 
 const FIVE_MIN = 300_000;
 const QUERY = { endpoint: 'e.x', context: {}, params: {} } as never;
@@ -312,5 +315,46 @@ describe('subscribe, polling and re-check (contract §4)', () => {
       await expect(adapter.menuQuery(QUERY)).resolves.toMatchObject({ message: 'session_expired' });
       await vi.advanceTimersByTimeAsync(0);
     });
+  });
+});
+
+describe('re-check failure scope', () => {
+  const initial = toBootstrap(bootstrapBody('v1'))!;
+  const answering = (version: string): Transport => ({
+    send: async () => ({ kind: 'response', status: 200, ok: true, correlationId: 'srv-b', text: JSON.stringify(bootstrapBody(version)) }),
+  });
+
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  it('a throwing listener neither rejects the re-check nor stops the other listeners, and is reported', async () => {
+    const reported = vi.fn();
+    vi.stubGlobal('reportError', reported);
+    const store = createSessionStore(initial, { transport: answering('v2'), pollMs: 1e9, timeoutMs: 1000 });
+    const boom = new Error('listener bug');
+    const after = vi.fn();
+    const stop = [store.subscribe(() => { throw boom; }), store.subscribe(after)];
+    await expect(store.recheck()).resolves.toBeUndefined();
+    expect(after).toHaveBeenCalledTimes(1);
+    expect(reported).toHaveBeenCalledWith(boom);
+    expect(store.session().user.id).toBe('u1');
+    stop.forEach((s) => s());
+  });
+
+  it('a throwing onSessionLost does not reject the re-check and is reported', async () => {
+    const reported = vi.fn();
+    vi.stubGlobal('reportError', reported);
+    const loggedOut: Transport = { send: async () => ({ kind: 'response', status: 401, ok: false, correlationId: 'srv-c', text: '' }) };
+    const boom = new Error('consumer bug');
+    const store = createSessionStore(initial, { transport: loggedOut, pollMs: 1e9, timeoutMs: 1000, onSessionLost: () => { throw boom; } });
+    await expect(store.recheck()).resolves.toBeUndefined();
+    expect(reported).toHaveBeenCalledWith(boom);
+  });
+
+  it('an unexpected failure inside the re-check is not swallowed', async () => {
+    const broken: Transport = { send: () => Promise.reject(new TypeError('transport bug')) };
+    const store = createSessionStore(initial, { transport: broken, pollMs: 1e9, timeoutMs: 1000 });
+    await expect(store.recheck()).rejects.toThrow('transport bug');
+    // Single-flight is released: the next re-check runs again instead of returning the settled promise.
+    await expect(store.recheck()).rejects.toThrow('transport bug');
   });
 });

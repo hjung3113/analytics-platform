@@ -136,6 +136,13 @@ describe('non-envelope reads reject (contract §2.2)', () => {
     expect((error as Error).name).not.toBe('AbortError');
   });
 
+  it('a 200 of the wrong shape keeps the response correlation id', async () => {
+    const { adapter } = await ready(() => json({ unexpected: true }, { headers: { 'Content-Type': 'application/json', 'X-Correlation-Id': 'srv-shape' } }));
+    expect(await adapter.validateScope('fab-a').catch((e: unknown) => e)).toMatchObject({ code: 'invalid_response', correlationId: 'srv-shape' });
+    const port = await adapter.listAxisOptions({ scopeId: 'fab-a', axisId: 'room', limit: 5 }).catch((e: unknown) => e);
+    expect(port).toMatchObject({ code: 'invalid_response', correlationId: 'srv-shape' });
+  });
+
   it('a 401 on a plain read starts a session re-check', async () => {
     const { adapter, calls } = await ready(() => new Response('', { status: 401 }));
     await adapter.contextOptions('fab-a').catch(() => undefined);

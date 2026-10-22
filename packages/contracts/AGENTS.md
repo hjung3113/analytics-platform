@@ -16,8 +16,9 @@
 - `response.ts` — 응답·Trust envelope(`ApiResponse`, `Trust`, `Assessment`, `Outcome`). 06 §18–19.
 - `host.ts` — 호스트 → 모듈 계약 1판([ADR-0053](../../docs/adr/0053-host-module-contract-v1.md)): `ModuleManifest`·`ModuleScreenMeta`·`ModuleHost`·`ModuleScreenProps`·`ModuleTarget`·`ModuleStatus`, 열린 어휘 `ModuleScopedId`(`<moduleId>:<name>`), 받아들일 버전 `HOST_CONTRACTS`, 선택 기능 `HostFeature`(`query`·`detailSlot`·`write` — `write`는 `host.act`와 `ActionResult`, ADR-0054). 노드·요소는 `unknown`이다. `Permission`·`GroupId`·`SpaceId`는 플랫폼 고유 닫힌 목록 그대로이고 `SessionUser.permissions`만 `ModuleScopedId`를 함께 받는다.
 - `adapter.ts` — `PlatformAdapter` 포트와 입출력 타입. 설계는 [패키지 경계](../../docs/integration/platform-packages.md) §4.
+- `correlation.ts` — `clientCorrelationId()`: 클라이언트가 만드는 `client-…` 상관 ID(오류 화면·클라이언트 오류 보고). 형식 제약은 파일 주석.
 - `audit.ts`, `i18n.ts` — `AuditEvent`, `Text`.
-- `globals.d.ts` — DOM lib 없이 쓰는 최소 `URLSearchParams`·`AbortSignal` 선언.
+- `globals.d.ts` — DOM lib 없이 쓰는 최소 `URLSearchParams`·`URL`·`AbortSignal`·`crypto` 선언.
 
 ## 규칙
 

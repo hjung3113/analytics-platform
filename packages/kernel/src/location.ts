@@ -45,9 +45,18 @@ export function createBasePathLocation(basePath: string): PlatformLocation {
   };
 }
 
-/** Raw or percent-encoded '.'/'..' segments: folding them would move the deployment boundary. */
+/**
+ * Raw or percent-encoded '.'/'..' segments (`%2e`, `%2E`, `.%2e`), after one decode: folding them would move a URL
+ * boundary. An invalid percent escape counts as a dot segment (fail-closed): this is a security boundary, and a
+ * segment that cannot be decoded cannot be shown to stay put.
+ */
 export function isDotSegment(segment: string): boolean {
-  let decoded = segment;
-  try { decoded = decodeURIComponent(segment); } catch { /* invalid escape keeps the raw segment */ }
+  let decoded: string;
+  try { decoded = decodeURIComponent(segment); } catch { return true; }
   return decoded === '.' || decoded === '..';
+}
+
+/** Any path segment of `pathname` is a dot segment, by the {@link isDotSegment} rule. */
+export function hasDotSegment(pathname: string): boolean {
+  return pathname.split('/').some(isDotSegment);
 }

@@ -22,7 +22,7 @@ import type {
   UsageRange,
   UsageSummary,
 } from '@ap/contracts';
-import { envelopeCall, actionCall, plainCall, portCall, TransportError, type CallContext } from './calls.js';
+import { envelopeCall, actionCall, plainCall, portCall, TransportError, type CallContext, type PlainReply } from './calls.js';
 import type { SessionStore } from './session.js';
 import type { Transport } from './transport.js';
 import { isRecord } from './validate.js';
@@ -36,9 +36,9 @@ export type AdapterConfig = {
   fireAndForgetTimeoutMs: number;
 };
 
-/** A 2xx whose body is not the documented type is a broken response, not a result. */
-function shaped<T>(value: unknown, ok: (record: Record<string, unknown>) => boolean): T {
-  if (!isRecord(value) || !ok(value)) throw new TransportError('invalid_response', '');
+/** A 2xx whose body is not the documented type is a broken response, not a result; it keeps the response's correlation id. */
+function shaped<T>({ value, correlationId }: PlainReply, ok: (record: Record<string, unknown>) => boolean): T {
+  if (!isRecord(value) || !ok(value)) throw new TransportError('invalid_response', correlationId);
   return value as T;
 }
 
@@ -70,13 +70,13 @@ export function createHttpAdapter(config: AdapterConfig): PlatformAdapter {
       return shaped<SelectionEvaluation>(value, (r) => Array.isArray(r['inCondition']) && Array.isArray(r['outOfCondition']));
     },
     async listAxisOptions(input, signal) {
-      return shaped<AxisOptionsPage>(await portCall(context, { method: 'POST', path: '/api/axis-options', body: input }, signal), isPage);
+      return shaped<AxisOptionsPage>(await portCall(context, { method: 'POST', path: `${PLATFORM}/axis-options`, body: input }, signal), isPage);
     },
     async searchEquipment(input, signal) {
-      return shaped<EquipmentSearchPage>(await portCall(context, { method: 'POST', path: '/api/equipment-search', body: input }, signal), isPage);
+      return shaped<EquipmentSearchPage>(await portCall(context, { method: 'POST', path: `${PLATFORM}/equipment-search`, body: input }, signal), isPage);
     },
     async resolveSelection(input, signal) {
-      return shaped<SelectionResolveResult>(await portCall(context, { method: 'POST', path: '/api/selection-resolve', body: input }, signal), (r) => Array.isArray(r['items']));
+      return shaped<SelectionResolveResult>(await portCall(context, { method: 'POST', path: `${PLATFORM}/selection-resolve`, body: input }, signal), (r) => Array.isArray(r['items']));
     },
 
     getEntity: (ref: EntityRef, signal) => envelope({ method: 'POST', path: `${PLATFORM}/entity`, body: ref }, signal),

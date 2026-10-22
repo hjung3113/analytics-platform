@@ -134,6 +134,7 @@ describe('spaceResume (06 §9.1)', () => {
     ['a dot segment', '/equipment/.'],
     ['a dot-dot segment', '/equipment/..'],
     ['a mixed dot encoding', '/equipment/.%2e'],
+    ['an invalid percent escape', '/equipment/%E0%A4%A'],
     ['a double slash', '/equipment//MEM-PHOTO-0103'],
   ])('returns null for %s', (_label, stored) => {
     sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ analytics: stored }));

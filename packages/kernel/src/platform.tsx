@@ -1,6 +1,6 @@
 import { createPortCache, type PortCache } from './selection-port-cache';
 import type { LucideIcon } from 'lucide-react';
-import { createBrowserLocation, type PlatformLocation } from './location';
+import { createBrowserLocation, hasDotSegment, type PlatformLocation } from './location';
 import { use, createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { createPaletteFocus, useFocusGate, type PaletteSession } from './paletteFocus';
 import { createPageNavigation, type PageFocus, type PageNavigation } from './pageNavigation';
@@ -13,7 +13,7 @@ import type { QueryHistory } from './query-history';
 import type { QueryHistoryStore } from '@ap/contracts';
 import type { QueryDraft, QueryMissing } from './query-draft';
 import { createRefreshEpochs, type RefreshEpochs } from './refresh-epochs';
-import { buildQuery, ContractError, emptyGlobal, type EquipmentAxisDescriptor, type ContextKey, type GlobalContext, incompleteMetricPair, type ModuleScopedId, isAppRelativePath, type Pair, type ParsedQuery, parseQuery, type Permission, type PlatformAdapter, sameGlobal, type Session, type SessionUser, shift, type SpaceDef, type SpaceId, type Text, type UsageEvent, type UsageVia } from '@ap/contracts';
+import { buildQuery, clientCorrelationId, ContractError, emptyGlobal, type EquipmentAxisDescriptor, type ContextKey, type GlobalContext, incompleteMetricPair, type ModuleScopedId, isAppRelativePath, type Pair, type ParsedQuery, parseQuery, type Permission, type PlatformAdapter, sameGlobal, type Session, type SessionUser, shift, type SpaceDef, type SpaceId, type Text, type UsageEvent, type UsageVia } from '@ap/contracts';
 
 const NO_EQUIPMENT_AXES: readonly EquipmentAxisDescriptor[] = [];
 
@@ -181,11 +181,35 @@ function consecutiveDrillTrail(menu: MenuEntry, search: string): { label: Text; 
   return trail;
 }
 
-function read<T>(key: string, fallback: T): T {
-  try { const raw = localStorage.getItem(key); return raw ? (JSON.parse(raw) as T) : fallback; } catch { return fallback; }
+/** A stored preference must pass `decode`: bad JSON or a value `decode` rejects (undefined) reads as `fallback`. Never throws. */
+function readPreference<T>(key: string, decode: (value: unknown) => T | undefined, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return fallback;
+    return decode(JSON.parse(raw)) ?? fallback;
+  } catch {
+    return fallback;
+  }
 }
-function write(key: string, value: unknown) {
+function writePreference(key: string, value: unknown) {
   try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* memory-only */ }
+}
+/** String entries only; a non-list is rejected. */
+function decodeFavorites(value: unknown): string[] | undefined {
+  return Array.isArray(value) ? value.filter((id): id is string => typeof id === 'string') : undefined;
+}
+/** Well-formed entries only; a stored URL must stay app-relative because the shell navigates to it. */
+function decodeRecent(value: unknown): Recent[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  return value.filter((entry): entry is Recent => {
+    if (entry === null || typeof entry !== 'object') return false;
+    const r = entry as Record<string, unknown>;
+    return typeof r.menuId === 'string' && typeof r.url === 'string' && isAppRelativePath(r.url)
+      && typeof r.at === 'number' && Number.isFinite(r.at);
+  });
+}
+function decodeScopeId(value: unknown): string | null | undefined {
+  return typeof value === 'string' ? value : undefined;
 }
 
 function spaceLastKey(userId: string) {
@@ -207,17 +231,6 @@ function readSpaceLast(userId: string): Record<string, string> {
   } catch {
     return {};
   }
-}
-
-/** A path segment that is `.` or `..` after one decode (`%2e`, `%2E`, `.%2e`, and the literal forms). */
-export function hasDotSegment(pathname: string): boolean {
-  for (const segment of pathname.split('/')) {
-    if (segment === '') continue;
-    let decoded: string;
-    try { decoded = decodeURIComponent(segment); } catch { return true; }
-    if (decoded === '.' || decoded === '..') return true;
-  }
-  return false;
 }
 
 function sameParams(a: Record<string, string>, b: Record<string, string>): boolean {
@@ -590,7 +603,7 @@ function useScreenState(app: AppValue, source: ScreenSource): { screen: ScreenSt
 
   const reportError = useCallback((error: unknown): string => {
     pageNavigation.cancel();
-    const correlationId = `client-${Date.now().toString(16)}-${Math.random().toString(16).slice(2, 6)}`;
+    const correlationId = clientCorrelationId();
     if (!route) return correlationId;
     try {
       // Only an identifier-shaped Error.name leaves the client; the message is free text and stays out (see ClientErrorReport).
@@ -634,9 +647,9 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
     const pageNavigation = createPageNavigation(initialUrl, () => paletteFocus.isBlocked() || switcherFocus.isBlocked());
     return { pageNavigation, paletteFocus, switcherFocus };
   });
-  const [favorites, setFavorites] = useState<string[]>(() => read(`platform:favorites:${userId}`, [] as string[]));
-  const [recent, setRecent] = useState<Recent[]>(() => read(`platform:recent:${userId}`, [] as Recent[]));
-  const [lastScope, setLastScope] = useState<string | null>(() => read<string | null>(`platform:lastScope:${userId}`, null));
+  const [favorites, setFavorites] = useState<string[]>(() => readPreference(`platform:favorites:${userId}`, decodeFavorites, []));
+  const [recent, setRecent] = useState<Recent[]>(() => readPreference(`platform:recent:${userId}`, decodeRecent, []));
+  const [lastScope, setLastScope] = useState<string | null>(() => readPreference(`platform:lastScope:${userId}`, decodeScopeId, null));
   // Tab-scoped usage session id (docs/05): sessionStorage, never localStorage — tabs must not share it.
   const [usageSessionId] = useState(() => {
     try {
@@ -654,9 +667,9 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
   const [loadedFor, setLoadedFor] = useState(userId);
   if (loadedFor !== userId) {
     setLoadedFor(userId);
-    setFavorites(read(`platform:favorites:${userId}`, []));
-    setRecent(read(`platform:recent:${userId}`, []));
-    setLastScope(read(`platform:lastScope:${userId}`, null));
+    setFavorites(readPreference(`platform:favorites:${userId}`, decodeFavorites, []));
+    setRecent(readPreference(`platform:recent:${userId}`, decodeRecent, []));
+    setLastScope(readPreference(`platform:lastScope:${userId}`, decodeScopeId, null));
   }
   const [toasts, setToasts] = useState<Toast[]>([]);
   const { open: paletteOpen, session: paletteSession, setOpen: setPaletteOpen } = useFocusGate(paletteFocus, session);
@@ -720,7 +733,7 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
   const toggleFavorite = useCallback((menuId: string) => {
     setFavorites(list => {
       const next = list.includes(menuId) ? list.filter(id => id !== menuId) : [...list, menuId];
-      write(`platform:favorites:${userId}`, next);
+      writePreference(`platform:favorites:${userId}`, next);
       return next;
     });
   }, [userId]);
@@ -728,11 +741,11 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
   const recordVisit = useCallback((menuId: string, url: string) => {
     setRecent(list => {
       const next = [{ menuId, url, at: Date.now() }, ...list.filter(r => r.menuId !== menuId)].slice(0, 12);
-      write(`platform:recent:${userId}`, next);
+      writePreference(`platform:recent:${userId}`, next);
       return next;
     });
   }, [userId]);
-  const rememberScope = useCallback((scopeId: string) => { setLastScope(scopeId); write(`platform:lastScope:${userId}`, scopeId); }, [userId]);
+  const rememberScope = useCallback((scopeId: string) => { setLastScope(scopeId); writePreference(`platform:lastScope:${userId}`, scopeId); }, [userId]);
   // Latest session user id, readable from a usage effect's cleanup at call time: a role switch
   // re-renders before the previous effect's cleanup runs, so the closure's own userId is stale there.
   const userIdRef = useRef(userId);
