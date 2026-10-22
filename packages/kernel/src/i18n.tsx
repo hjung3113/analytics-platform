@@ -157,6 +157,8 @@ const dict = {
   platformMenuShared: { ko: '모든 시스템에서 공통', en: 'Shared by every system' },
   switcherSystemsHeading: { ko: '업무 시스템', en: 'Business systems' },
   platformName: { ko: '분석 플랫폼', en: 'Analytics platform' },
+  /** @deprecated Unused since #650 (the switcher's 플랫폼 메뉴 shows `home`). Kept one SDK release for consumers (ADR-0044); remove after. */
+  platformHome: { ko: '플랫폼 홈', en: 'Platform home' },
   switcherCurrentBadge: { ko: '현재', en: 'Current' },
   switcherResume: { ko: '이어서: {menu}', en: 'Resume: {menu}' },
   switcherStart: { ko: '시작: {menu}', en: 'Start: {menu}' },

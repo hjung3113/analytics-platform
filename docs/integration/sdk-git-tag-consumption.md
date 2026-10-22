@@ -29,6 +29,7 @@
 | --- | --- | --- | --- |
 | 다음 릴리스 | components | 호스트 전용 진입점 `@ap/components/dock` 추가(`DockLayout`·`DockNode`·`normalizeDockTree`·`isValidDockTree`와 순수 명령 `movePanel` 등, #575, ADR-0067). 새 런타임 의존 `dockview-react` 8.6.1(정확한 고정)은 엔진 청크에서만 불리고 공개 타입·JSON에는 나오지 않는다. 메뉴·모듈 패키지는 import할 수 없다 | 없음 — 추가만 |
 | 다음 릴리스 | contracts | `GroupId`에 `myActivity` 추가(#594) — 추가형 | 없음 — 소비자가 `GROUP_ID_SET`을 자체 정의했다면 새 멤버를 더한다. |
+| 다음 릴리스 | kernel | `dict`에 `platformMenu`·`platformMenuShared`·`switcherSystemsHeading`·`platformName` 추가, `switcherTitle`·`switcherCurrent` 문구 변경, `platformHome`은 `@deprecated`(셸이 더 쓰지 않음, 다음 릴리스 뒤 제거 예고 — #650, ADR-0070) | 없음 — `t('platformHome')`을 쓰는 소비자는 `t('home')`이나 메뉴 라벨로 옮긴다 |
 | 다음 릴리스 | contracts·kernel | `UsageEvent`에 선택 필드 `via`·`fromMenuId`, `navigate`·`PlatformLink`에 선택 `via` — 추가형 (#605) | 없음 — 기존 호출은 그대로 동작한다. 표시 없는 이동은 `link`로 기록된다 |
 | `sdk-v0.11.0` | contracts | **깨짐** — `Condition`이 축 유니언(`{axis:'makerModel'…}`)에서 앱이 주입한 축의 다중값 맵 `Readonly<Record<string, readonly string[]>>`로 바뀌고 `ConditionAxis`가 없어짐(#552, ADR-0059) | 조건 값을 축 id → 값 목록 맵으로 만든다(축 간 AND·축 안 OR). 기존 링크는 플랫폼이 읽어 옮긴다 |
 | `sdk-v0.11.0` | contracts | **깨짐** — `PlatformAdapter`에 필수 `listAxisOptions`·`searchEquipment`·`resolveSelection` 추가, `PortError`(#552, ADR-0059). `contextOptions`·`evaluateSelection`은 `@deprecated`(제거 아님) | 외부 어댑터가 세 메서드를 구현한다 |
