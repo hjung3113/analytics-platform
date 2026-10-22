@@ -50,6 +50,7 @@ export function createLaneRenderer(input: RendererInput) {
     if (header) {
       const computed = getComputedStyle(root);
       header.font = `${computed.fontSize || '12px'} ${computed.fontFamily || 'sans-serif'}`;
+      // eslint-disable-next-line shadcn/no-raw-colors -- canvas reads a theme token by name (color()), not a class string
       header.fillStyle = color('text-secondary'); header.textBaseline = 'middle';
       let previousEnd = GUTTER;
       for (const [index, tick] of niceTicks(view, plotWidth).entries()) {
@@ -71,10 +72,12 @@ export function createLaneRenderer(input: RendererInput) {
       ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
       const outline = outlineStyle(segment.rank, props.outlineWidthsByRank, props.outlineMode ?? 'strong');
       const borderWidth = Math.min(outline.width, rect.width, rect.height);
+      // eslint-disable-next-line shadcn/no-raw-colors -- canvas reads a theme token by name (color()), not a class string
       ctx.lineWidth = borderWidth; ctx.globalAlpha = outline.alpha; ctx.setLineDash(outline.dash); ctx.strokeStyle = color('border-strong');
       if (borderWidth) ctx.strokeRect(rect.x + borderWidth / 2, rect.y + borderWidth / 2, Math.max(0, rect.width - borderWidth), Math.max(0, rect.height - borderWidth));
       ctx.globalAlpha = 1; ctx.setLineDash([]);
       // Semantic boundaries are glyphs on the visible rect, even when its time edge is clipped.
+      // eslint-disable-next-line shadcn/no-raw-colors -- canvas reads a theme token by name (color()), not a class string
       ctx.strokeStyle = color('text-primary'); ctx.lineWidth = 1.5;
       if (segment.startBoundary === 'orphan') {
         ctx.beginPath(); ctx.moveTo(rect.x + 5, rect.y + 2); ctx.lineTo(rect.x + 1, rect.y + rect.height / 2); ctx.lineTo(rect.x + 5, rect.y + rect.height - 2); ctx.stroke();

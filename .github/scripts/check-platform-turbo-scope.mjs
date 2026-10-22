@@ -7,7 +7,6 @@ let failed = false;
 
 for (const taskName of taskNames) {
   const args = [taskName, '--dry=json'];
-  if (taskName === 'test') args.push('--concurrency=2');
 
   const output = execFileSync('pnpm', args, { cwd: repoRoot, encoding: 'utf8' });
   const jsonStart = output.indexOf('{');
