@@ -15,4 +15,5 @@ export * from './task-request.js';
 export * from './task.js';
 export * from './survey.js';
 export * from './dashboard.js';
+export * from './platform.js';
 export * from './survey-recovery.js';

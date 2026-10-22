@@ -117,9 +117,9 @@ FeedbackOps를 플랫폼 앱 하나·서버 하나·저장소 하나로 합친�
 | `accessDirectory` | 모양만 다름 | `GET /actors`(게이트 없음, `modules/auth/list-actors-routes.ts:61-95`). `GET /permissions/grants`·`/denies`(admin만, `modules/permissions/grant-admin-service.ts:79-88`) | 행은 사람 × (역할, 유효 권한[], site별 room)이다. filter·sort·page·`total`이 없다. 게이트 차이는 4.3 |
 | `auditTrail` | 새로 만듦(저장소는 있음) | 쓰기만 있다(`modules/core/audit/audit-service.ts:37-57`). 스키마는 `db/schema/core.ts:207-226` | `subject_id`가 uuid라 opaque id(설비)를 못 담고 `scope_id` 열도 없다. `event_type`을 `AuditAction` 다섯 값에 매핑해야 한다. 노출 범위는 O16. **구현됨(#621):** SECURITY DEFINER 투영 `core.platform_audit_events`(migration 0074)로 읽고 매핑은 `platform-port/audit-actions.ts`. `subject_id` text 전환·`scope_id`는 구현 안 함(`.planning/backlog.md` 작은 후속) |
 | `entityAudit` | 새로 만듦 | 위와 같다. 볼 수 있는지 판정은 provider `canRead`를 다시 쓴다 | type별 조회 게이트 + 대상 감사 행. **구현됨(#621):** 허용 type 5종(voc·finding·voc_cluster·task_request·task) |
-| `recordUsage`·`usageSummary` | 새로 만듦 | 없음 | 표, 수신 시각, 거부는 200 + `accepted: 0`, keepalive를 받는 CSRF. `console:access` 원천은 O9 |
-| `reportClientError` | 새로 만듦 | 없음 | 식별 필드만 받는 엄격 검증, 200 + `accepted: false` |
-| `listAnnotations`·`saveAnnotation`·`deleteAnnotation` | 새로 만듦 | 없음 | 표, 작성자 판정, site 부여 검사(O11), 삭제 감사 event(ADR-0041) |
+| `recordUsage`·`usageSummary` | 새로 만듦 | 없음 | 표, 수신 시각, 거부는 200 + `accepted: 0`, keepalive를 받는 CSRF. `console:access` 원천은 O9. **구현됨(#622):** 자체 스키마 `platform`(migration 0075, `usage_events`)·검증은 mock과 같다 |
+| `reportClientError` | 새로 만듦 | 없음 | 식별 필드만 받는 엄격 검증, 200 + `accepted: false`. **구현됨(#622):** `platform.client_errors`(삽입 전용) |
+| `listAnnotations`·`saveAnnotation`·`deleteAnnotation` | 새로 만듦 | 없음 | 표, 작성자 판정, site 부여 검사(O11), 삭제 감사 event(ADR-0041). **게이트만 구현(#622):** 항상 `forbidden`, 저장·검증·삭제 감사는 구현 안 함(`.planning/backlog.md` 작은 후속) |
 | `validateScope`·`contextOptions`·`evaluateSelection`·`listAxisOptions`·`searchEquipment`·`resolveSelection`·`menuQuery`·`menuAction` | 범위 밖 | 없음. `/me/permissions/scope`는 Managed System 목록이지 site 판정이 아니다 | O4. `menuAction`의 재생 전 권한 확인 순서는 FO ADR-0066과 같다 |
 | 체크리스트 §3 기동 시 엔드포인트 등록 검증 | 범위 밖 | 없음 | `menuQuery`와 함께 간다(O4) |
 | 체크리스트 §4 적합성 계정 | 모양만 다름 | mock 로그인으로 세션을 바꿀 수 있다(`modules/auth/routes.ts:146-182`). 시드는 Admin·MS별 Developer·User | 권한 하나씩 뺀 계정, site 두 곳 계정, 다른 주석 작성자 계정이 필요하다(O17) |

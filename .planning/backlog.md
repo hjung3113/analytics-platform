@@ -4,6 +4,8 @@
 
 ## 작은 후속 (확인된 것)
 
+- **구현 안 함 — 차트 주석 저장·검증·작성자 삭제와 삭제 감사(#622):** `listAnnotations`·`saveAnnotation`·`deleteAnnotation`은 게이트만 있고 항상 `forbidden`이다(주석 표·감사 event type·migration 없음). 이유: `analytics:view`는 아무에게도 부여되지 않고 FeedbackOps에는 site가 없어 모든 호출이 `forbidden`이다. 켤 때 정할 것: ADR-0041의 `reason`·`changes`·`target.scopeId`와 #621 투영(`changes`·`reason` 없음, `scopeId: null`)의 차이, uuid id. `packages/server-conformance` 주석 사례 17건 중 약 8건(저장 후 목록, site 격리, `at`·`id`·`user` 키 → `error`, 작성자·타인 삭제, id 없음 → `empty`)은 그때까지 FeedbackOps로 통과할 수 없다. 다시 볼 조건: site/room 부여(#98, O11) 또는 `analytics:view` 부여가 생길 때.
+- **구현 안 함 — 클라이언트 오류 보존 기간(#622):** `platform.client_errors`는 지우는 작업이 없다. 이유: 식별 필드만 있고 개인정보가 없으며 양이 적다. 다시 볼 조건: 표가 약 10만 행을 넘거나 운영·개인정보 요청이 기간을 정할 때.
 - **구현 안 함 — `server-conformance`의 `getEntity`·`entityAudit` site 사례와 FeedbackOps 표본(#623):** 묶음의 `PortSamples.entity`와 site 사례는 site가 있는 type을 가정한다. FeedbackOps type은 site가 없고(`scopeId: null`, 값이 있으면 `error`) 묶음은 FeedbackOps 표본으로 통과할 수 없다. 이유: 이 가정을 바꾸는 일은 #623 범위 밖이다. 다시 볼 조건: FeedbackOps가 적합성 묶음을 돌릴 때(#154 B) 또는 묶음에 site 없는 표본 모드가 생길 때.
 - **구현 안 함 — 감사 읽기의 opaque id·scope 열(#621, O16):** FeedbackOps `core.audit_log.subject_id`를 text로 바꾸는 일과 `scope_id` 열 추가는 하지 않았다. 이유: FeedbackOps 대상은 모두 uuid이고 `scopeId: null`이며(ADR-0069 결정 9), opaque id나 site 범위를 쓰는 감사 쓰기가 아직 없다. 다시 볼 조건: 플랫폼이 opaque id·scope를 쓰는 type(equipment/metric)의 감사 이벤트를 FeedbackOps `core.audit_log`에 쓰기 시작할 때.
 - **구현 안 함 — 보드 저장 탭 간 경합(#575 1단계 리뷰 C2):** 새 버전 확인과 쓰기 사이에 다른 탭(더 새 빌드)이 쓰면 덮어쓸 수 있다. 이유: 둘 다 같은 동기 실행 안이라 창이 매우 좁고, 막으려면 저장을 Web Locks 비동기로 바꿔야 한다. 다시 볼 조건: 서버 저장(#294)이나 여러 빌드가 동시에 도는 배포에서 보드 손실이 보고될 때.

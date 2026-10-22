@@ -526,6 +526,13 @@
       "when": 1792622637306,
       "tag": "0074_platform_audit_projection",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1792630858740,
+      "tag": "0075_platform_usage_client_errors",
+      "breakpoints": true
     }
   ]
 }

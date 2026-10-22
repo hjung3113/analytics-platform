@@ -127,7 +127,7 @@ Kernel은 받은 `ok`/`empty`의 kind가 선언과 다르면 `contract_violation
 ## 5. 세션·사용자
 
 - 클라이언트는 사용자 id·actor를 보내지 않는다. 사용자는 서버가 세션으로 찍는다(활용률·오류 보고·감사·내 VOC).
-- 시각은 계약마다 다르다. 감사·차트 주석·오류 보고는 서버가 기록 시각을 찍는다. 활용률 이벤트는 서버가 **수신 시각**을 찍고, `usageSummary`의 기간 필터·`lastUsedAt`은 그 수신 시각으로 계산한다. 이벤트의 `at`·`enteredAt`(클라이언트 epoch ms)은 모양(유한한 숫자)을 검사한 뒤 버리지 않고 저장한다 — 하나라도 어긋나면 호출 전체를 거부한다. `enteredAt`은 같은 진입의 dwell을 하나로 합치는 키이고(보드 칸 이벤트는 `source: 'board'`와 `stayId`를 함께 저장하고 그 dwell은 (사용자, 세션, 메뉴, `source`, `stayId`)로 합친다), `dwellMs`는 클라이언트가 계산한 값이다(서버가 다시 계산하지 않음). 원본 동작: `packages/mock-server/src/server.ts` `recordUsage`·`aggregateUsage`.
+- 시각은 계약마다 다르다. 감사·차트 주석·오류 보고는 서버가 기록 시각을 찍는다. 활용률 이벤트는 서버가 **수신 시각**을 찍고, `usageSummary`의 기간 필터·`lastUsedAt`은 그 수신 시각으로 계산한다. 이벤트의 `at`·`enteredAt`(클라이언트 epoch ms)은 모양(유한한 숫자 — FeedbackOps 구현(#622)은 정수 열에 담으려고 안전 정수만 받는다)을 검사한 뒤 버리지 않고 저장한다 — 하나라도 어긋나면 호출 전체를 거부한다. `enteredAt`은 같은 진입의 dwell을 하나로 합치는 키이고(보드 칸 이벤트는 `source: 'board'`와 `stayId`를 함께 저장하고 그 dwell은 (사용자, 세션, 메뉴, `source`, `stayId`)로 합친다), `dwellMs`는 클라이언트가 계산한 값이다(서버가 다시 계산하지 않음). 원본 동작: `packages/mock-server/src/server.ts` `recordUsage`·`aggregateUsage`.
 - 인증은 FeedbackOps 방식(AuthProvider: Mock + OIDC 계열, 서버 세션)으로 정했다(#35). 실제 IdP 설정값은 사내 SSO 사양 확인 뒤.
 - 역할 소속의 원천은 IdP 그룹 claim 사양이 나올 때까지 보류(#98). 그 전에는 부여·회수 쓰기를 만들지 않는다.
 
