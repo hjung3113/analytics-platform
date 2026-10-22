@@ -47,6 +47,9 @@
 - 병렬 PR은 `05`·`06`·`DESIGN.md`·i18n 사전·E2E helper에서 자주 충돌한다 — 하나씩 병합하며 푼다.
 - CSS selector CI: 의도한 클래스 제거는 PR에 `css-removal-ok` 라벨 + 이유 코멘트(라벨만 달아도 재평가된다).
 - 앱 `src/style.css`의 `@import "tailwindcss"`는 소스를 지정하지 않아 Tailwind가 `apps/platform-web/` 아래 Markdown까지 훑는다. 문서에 `z-30`·`wide:pr-[32rem]` 같은 글자가 있으면 CSS가 생기므로, 그런 문서를 지우거나 고치면 CSS selector 비교가 "제거"로 실패할 수 있다(#220). 소스 코드에 그 클래스가 없는지 `git grep`으로 확인하고 `css-removal-ok`.
+- 브랜치를 한 커밋으로 합칠 때는 `git reset --soft $(git merge-base HEAD origin/main)`을 쓴다. worktree들은 `origin/*`를 함께 쓰므로, 다른 worktree의 fetch로 `origin/main`이 앞서 있으면 `reset --soft origin/main`이 그 사이 병합된 PR을 되돌리는 커밋을 만든다(2026-10-23 #676이 #664를 되돌릴 뻔함, CSS selector 비교가 잡음). 커밋 뒤 `git diff origin/main --stat`이 이 PR의 파일만 보이는지 확인한다.
+- Tailwind는 테스트 파일의 문자열도 클래스로 읽는다(`'row-1'` → `.row-1`). 테스트 id·URL 값에 Tailwind 유틸리티 모양 문자열을 쓰지 않는다(CSS selector 비교가 "추가"로 실패).
+- 주석 줄이 `// eslint-disable…`로 시작하면 설명문이어도 지시어로 읽힌다(규칙 이름 없음 오류). 그 단어로 줄을 시작하지 않는다.
 - PR 대기는 CI 완료(+시간 상한)로만 한다. 리뷰 봇은 새 커밋을 다시 리뷰하지 않을 수 있다. `Closes #n` 자동 닫힘이 늦으면 병합 뒤 한 번 확인하고 직접 닫는다.
 
 ## 브라우저 확인과 캡처
