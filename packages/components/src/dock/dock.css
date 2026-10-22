@@ -52,6 +52,13 @@
   align-items: center;
   padding: 0 0.5rem;
 }
+/* The engine wraps the host's tab content in a block of the strip's height: centre that content too, or it sits at the top of the strip. */
+.ap-dock .dv-tab > .dv-react-part {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  min-width: 0;
+}
 
 /* One 40px strip per group (docs/16 §4.1): the tab list, the free space, then the host's slot for the active tab. Tabs give way before the slot does.
    The 1px line under it is inside the 40px (border-box), so the strip and the body stay apart on a group that is not selected. */

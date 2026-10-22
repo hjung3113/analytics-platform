@@ -809,6 +809,25 @@ test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
     for (const height of heights) expect(height).toBeGreaterThanOrEqual(120);
     await evidence(page, testInfo, 'board-dock-2x2');
   });
+
+  test('칸 머리 띠의 탭 내용은 띠의 세로 가운데에 있다', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await signInWithDockBoard(page, [populated('dock', '1x2', 2)]);
+    await dockReady(page, 2);
+    // The badge of the tab and the buttons of the pane head share the strip's middle line (the engine wraps tab content in its own block).
+    const offsets = await page.locator('[data-dock-layout] .dv-tabs-and-actions-container').evaluateAll(strips => strips.map(strip => {
+      const middle = (element: Element | null) => { const box = element!.getBoundingClientRect(); return box.top + box.height / 2; };
+      const line = strip.getBoundingClientRect();
+      const stripMiddle = line.top + (line.height - 1) / 2;
+      return [middle(strip.querySelector('.dv-tab [data-selected]')) - stripMiddle, middle(strip.querySelector('[data-dock-group-actions] button')) - stripMiddle];
+    }));
+    expect(offsets).toHaveLength(2);
+    for (const [tab, head] of offsets) {
+      expect(Math.abs(tab)).toBeLessThanOrEqual(2);
+      expect(Math.abs(head)).toBeLessThanOrEqual(2);
+    }
+    await evidence(page, testInfo, 'board-dock-strip-middle');
+  });
 });
 
 test.describe('관리 레이아웃 필터 레일 (06 §12.6, ADR-0022)', () => {
