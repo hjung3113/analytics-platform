@@ -1,8 +1,9 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { useI18n, usePlatform } from '@ap/kernel';
-import { Button } from '@ap/ui';
+import { Button, cn } from '@ap/ui';
 import { AnalysisCollapseButton, AnalysisSectionContext } from './AnalysisSectionContext';
+import { useInWorkspacePanel } from './workspace/panelContext';
 
 export type AnalysisSection = { id: string; title: string; node: ReactNode; span?: 'full' };
 export type AnalysisLayoutProps = {
@@ -31,6 +32,8 @@ export function AnalysisLayout(props: AnalysisLayoutProps) {
 
 function AnalysisLayoutBody({ kpi, charts, breakdown, density = 'regular', storageKey }: AnalysisLayoutProps & { storageKey: string }) {
   const { t } = useI18n();
+  // The workspace tab already shows the KPI strip's name.
+  const inPanel = useInWorkspacePanel();
   const root = useRef<HTMLDivElement>(null);
   const sections = [kpi, ...charts, breakdown].filter((section): section is AnalysisSection => section !== undefined);
   const [collapsed, setCollapsed] = useState(() => readCollapsed(storageKey));
@@ -82,7 +85,7 @@ function AnalysisLayoutBody({ kpi, charts, breakdown, density = 'regular', stora
         data-analysis-section={section.id} data-analysis-kind={kind}
         className={kind === 'chart' ? `relative min-w-0${section.span === 'full' ? ' col-span-full' : span ? ' col-span-2' : ''}` : 'relative min-w-0 space-y-2'}>
         {kind === 'kpi' && <div className="flex items-center justify-between gap-2 text-xs text-text-secondary">
-          <h2 className="font-medium">{section.title}</h2><AnalysisCollapseButton />
+          <h2 className={cn('font-medium', inPanel && 'sr-only')}>{section.title}</h2><AnalysisCollapseButton />
         </div>}
         {kind !== 'kpi' && <AnalysisCollapseButton className="absolute right-3 top-3 z-[1]" />}
         {section.node}

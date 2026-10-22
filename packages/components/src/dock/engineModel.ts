@@ -18,7 +18,7 @@ export type EngineLayout = {
 export const NOMINAL_SIZE = 1000;
 
 export function toEngineLayout(
-  tree: DockNode, panels: readonly { id: string; title: string }[], min: { width: number; height: number }, size: { width: number; height: number },
+  tree: DockNode, panels: readonly { id: string; title: string; minWidth?: number; minHeight?: number }[], min: { width: number; height: number }, size: { width: number; height: number },
 ): EngineLayout {
   const width = size.width > 0 ? size.width : NOMINAL_SIZE;
   const height = size.height > 0 ? size.height : NOMINAL_SIZE;
@@ -39,7 +39,7 @@ export function toEngineLayout(
   return {
     grid: { root, width, height, orientation: flat.type === 'branch' && flat.dir === 'column' ? 'VERTICAL' : 'HORIZONTAL' },
     panels: Object.fromEntries(panels.map(panel => [panel.id, {
-      id: panel.id, contentComponent: 'panel', tabComponent: 'tab', title: panel.title, renderer: 'always' as const, minimumWidth: min.width, minimumHeight: min.height,
+      id: panel.id, contentComponent: 'panel', tabComponent: 'tab', title: panel.title, renderer: 'always' as const, minimumWidth: panel.minWidth ?? min.width, minimumHeight: panel.minHeight ?? min.height,
     }])),
   };
 }

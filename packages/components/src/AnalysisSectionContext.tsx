@@ -23,9 +23,16 @@ export function resolveAnalysisChartSize(size: ChartSize | undefined, section: C
   return size ?? (section?.kind === 'chart' ? section.span === 'full' ? 'hero' : section.density === 'compact' ? 'compact' : 'regular' : 'regular');
 }
 
-export type ChartSize = 'regular' | 'compact' | 'hero';
+/** `fill`: the plot takes the height its container leaves (`max(320, available)`; 320 until measured). */
+export type ChartSize = 'regular' | 'compact' | 'hero' | 'fill';
+
+/** The least plot height of the `fill` size, px. */
+export const FILL_CHART_MIN_HEIGHT = 320;
+
+/** `fill` plot height for a measured container height (null = not measured yet). */
+export const fillChartHeight = (available: number | null) => Math.max(FILL_CHART_MIN_HEIGHT, available ?? 0);
 
 /** Keep each frame’s established regular default while sharing compact/hero heights. */
 export function analysisChartHeight(size: ChartSize, regularHeight: number) {
-  return size === 'hero' ? 360 : size === 'compact' ? 200 : regularHeight;
+  return size === 'hero' ? 360 : size === 'compact' ? 200 : size === 'fill' ? FILL_CHART_MIN_HEIGHT : regularHeight;
 }

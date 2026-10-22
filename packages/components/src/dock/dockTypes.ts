@@ -6,6 +6,9 @@ export type DockPanel = {
   /** Accessible name of the tab and the panel, already localised. */
   title: string;
   render: () => ReactNode;
+  /** px, this panel's own minimum; falls back to `minPanelSize`. The engine enforces it; the platform separators' keyboard limits still use `minPanelSize`. */
+  minWidth?: number;
+  minHeight?: number;
 };
 
 export type DockSeparatorInfo = { dir: 'row' | 'column'; before: string[]; after: string[] };

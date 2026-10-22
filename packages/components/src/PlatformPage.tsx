@@ -10,6 +10,7 @@ import { DataTrustIndicator } from './DataTrustIndicator';
 import { type HeaderYield, nextHeaderYield, openHeaderYield } from './headerYield';
 import { consumePageFocus, drillDestinationOf, focusPageFallback } from './pageFocus';
 import { StateMessage } from './StateView';
+import { useInWorkspacePanel } from './workspace/panelContext';
 
 function withTrustYield(node: ReactNode, yieldState: HeaderYield): ReactNode {
   if (!isValidElement(node) || node.type !== DataTrustIndicator) return node;
@@ -99,11 +100,16 @@ export type PlatformPageProps = {
   queryResult?: { completedAt: number | null; status: 'idle' | 'loading' | 'refreshing' | 'done' };
   /** Extra crumbs between the menu and the current object. */
   crumbs?: { label: ReactNode; href?: string }[];
+  /**
+   * `flow` (default): the page grows with its content. `fill`: the page takes its container's height (the main area, or a board pane's
+   * body) and the body takes what the header leaves, so a `PanelWorkspace` child fills it. Opt in only for a workspace page.
+   */
+  layout?: 'flow' | 'fill';
   children: ReactNode;
 };
 
 /** §8 Shell Slots. Pages never insert global UI outside these slots. */
-export function PlatformPage({ title, description, primaryAction, secondaryActions, contextExtension, dataTrustSummary, queryBarExtension, queryResult, crumbs = [], children }: PlatformPageProps) {
+export function PlatformPage({ title, description, primaryAction, secondaryActions, contextExtension, dataTrustSummary, queryBarExtension, queryResult, crumbs = [], layout = 'flow', children }: PlatformPageProps) {
   const { global, page, equipmentAxes, route, favorites, toggleFavorite, scope, retryScope, setGlobal, lastScope, linkTo, registry, slots, url, pathname, pageNavigation, currentSpace, screenMode, canOpen } = usePlatform();
   // A board pane draws content only: the board owns the pane head and the Context bar, and no arrival focus moves here (ADR-0049).
   const inPane = screenMode === 'pane';
@@ -222,7 +228,7 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
   const leftGroupControls = (favoriteTarget ? 1 : 0) + (hasDescription && headerYield.description ? 1 : 0);
   const leftGroupMinWidth = `calc(7rem + ${leftGroupControls * 1.5}rem + ${(leftGroupItems - 1) * 0.5}rem)`;
 
-  return <QueryBarExtensionContext.Provider value={queryBarExtension}><div ref={root} data-platform-page className="flex min-h-full flex-col">
+  return <QueryBarExtensionContext.Provider value={queryBarExtension}><div ref={root} data-platform-page data-page-layout={layout === 'fill' ? 'fill' : undefined} className={layout === 'fill' ? 'flex h-full min-h-0 flex-col' : 'flex min-h-full flex-col'}>
     {!inPane && <div ref={stickyHeader} data-page-sticky-header className="sticky top-0 z-20 shrink-0 bg-surface-canvas">
       <header ref={pageHeader} onFocus={event => {
         const header = event.currentTarget;
@@ -281,7 +287,7 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
       {queryResult.completedAt !== null && (queryResult.status === 'done' || queryResult.status === 'refreshing') && <span>{lang === 'ko' ? '요약 조회 완료' : 'Summary response completed'} {formatInstant(queryResult.completedAt, lang)}</span>}
     </section>}
     {contextExtension && !gate && <div className="px-8 pt-3">{contextExtension}</div>}
-    <div data-platform-page-content tabIndex={-1} className="flex-1 px-8 pb-9 pt-7">{gate ?? <OutcomeScope><OutcomeBanners />{children}</OutcomeScope>}</div>
+    <div data-platform-page-content tabIndex={-1} className={layout === 'fill' ? 'min-h-0 flex-1 px-8 pb-9 pt-7' : 'flex-1 px-8 pb-9 pt-7'}>{gate ?? <OutcomeScope><OutcomeBanners />{children}</OutcomeScope>}</div>
   </div></QueryBarExtensionContext.Provider>;
 }
 
@@ -289,10 +295,12 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
 export function Panel({ title, subtitle, actions, children, className, bodyClassName, id }: {
   title?: ReactNode; subtitle?: ReactNode; actions?: ReactNode; children: ReactNode; className?: string; bodyClassName?: string; id?: string;
 }) {
+  // The workspace tab already shows this title.
+  const inPanel = useInWorkspacePanel();
   return <section aria-labelledby={title && id ? id : undefined} className={cn('rounded-lg border border-border-subtle bg-surface-card', className)}>
     {(title || actions) && <header className="flex flex-wrap items-start justify-between gap-2 px-4 pb-2 pt-3">
       <div>
-        {title && <h2 id={id} className="t-card-title">{title}</h2>}
+        {title && <h2 id={id} className={cn('t-card-title', inPanel && 'sr-only')}>{title}</h2>}
         {subtitle && <p className="text-xs text-text-muted">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}

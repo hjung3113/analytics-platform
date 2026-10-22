@@ -9,7 +9,8 @@ import { downloadChartCsv } from './analysisChartCsv';
 import { chartData, chartColors as colors, cellKey as keyOf, chartDiagnostic as diagnostic } from './analysisChartData';
 import { KindLegend } from './analysisChartKinds';
 import { heatmapSymbolSize } from './analysisChartGeometry';
-import { AnalysisSectionContext, resolveAnalysisChartSize, analysisChartHeight, type ChartSize } from './AnalysisSectionContext';
+import { AnalysisSectionContext, resolveAnalysisChartSize, analysisChartHeight, fillChartHeight, type ChartSize } from './AnalysisSectionContext';
+import { useElementHeight } from './useElementHeight';
 import { AnalysisChartPart, ChartHeading, ChartTrustFooter } from './analysisChartFrameParts';
 
 export type HeatmapCell = { x: string; y: string; value: number | null };
@@ -105,7 +106,9 @@ export function AnalysisChart(p: AnalysisChartProps) {
   const brushable = isBrushableKind(spec.kind);
   const singleSelect = isSingleSelectKind(spec.kind);
   const { cells, rows, total, extended } = useMemo(() => chartData(spec, lang === 'ko', p.unit), [spec, lang, p.unit]);
-  const height = p.height ?? (spec.kind === 'topNBar' ? Math.max(120, rows.length * 28 + 24) : analysisChartHeight(size, 280));
+  // `fill`: the plot box takes the height its container leaves; a top-N bar keeps its row-count height only until that is measured.
+  const fill = useElementHeight(size === 'fill');
+  const height = p.height ?? (size === 'fill' && fill.height !== null ? fillChartHeight(fill.height) : spec.kind === 'topNBar' ? Math.max(120, rows.length * 28 + 24) : analysisChartHeight(size, 280));
   const keys = useMemo(() => rows.map(row => row.key), [rows]);
   const contextKey = JSON.stringify(global);
   const [previousContext, setPreviousContext] = useState(contextKey);
@@ -190,7 +193,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
     toast(lang === 'ko' ? `${p.chartId}.csv 내보냄` : `Exported ${p.chartId}.csv`);
   }
   if (spec.kind === 'topNBar' && spec.hideWhenEmpty && empty) return null;
-  return <section role="region" aria-labelledby={titleId} aria-describedby={summaryId} data-analysis-chart={section ? '' : undefined} className="relative flex min-w-0 flex-col rounded-lg border border-border-subtle bg-surface-card">
+  return <section role="region" aria-labelledby={titleId} aria-describedby={summaryId} data-analysis-chart={section ? '' : undefined} className={cn('relative flex min-w-0 flex-col rounded-lg border border-border-subtle bg-surface-card', size === 'fill' && 'min-h-full')}>
     <AnalysisChartPart enabled={section !== null}>
       <header className={cn('flex flex-wrap items-start justify-between gap-2 px-4 pt-3', section && 'pr-12')}>
         <ChartHeading titleId={titleId} title={p.title} description={p.description} metricVersion={p.metricVersion} compact={compact} />
@@ -226,7 +229,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
     </AnalysisChartPart>
     <ChartCollapseBody enabled={spec.kind === 'topNBar'} bodyRef={collapsibleBody} id={bodyId} expanded={expanded}>
     <AnalysisChartPart enabled={section !== null} body>
-      {!expanded ? null : empty ? <p className="px-4 py-3 text-text-secondary">{p.emptyText ?? (lang === 'ko' ? '데이터 없음' : 'No data')}</p> : <div className="relative">
+      {!expanded ? null : empty ? <p className="px-4 py-3 text-text-secondary">{p.emptyText ?? (lang === 'ko' ? '데이터 없음' : 'No data')}</p> : <div ref={fill.ref} className={cn('relative', size === 'fill' && 'min-h-80 flex-1')}>
         <EChart key={spec.kind} onReady={instance => { chart.current = instance; setInstanceReady(generation => generation + 1); }} onResize={() => measureGrid(chart.current)} option={option} height={height} ariaLabel={typeof p.title === 'string' ? p.title : p.chartId} onEvents={{
           click: params => { if (params.componentType !== 'series') return; const key = extended ? extended.seriesKeys[params.seriesIndex]?.[params.dataIndex] : rows[params.dataIndex]?.key; if (key) toggle(key); },
           finished: (_, instance) => measureGrid(instance),

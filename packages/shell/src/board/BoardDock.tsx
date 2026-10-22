@@ -1,9 +1,9 @@
 import { X } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
-import { DockLayout, movePanel, type DockPanel } from '@ap/components/dock';
+import { DockLayout, dockLayoutMenu, movePanel, type DockPanel } from '@ap/components/dock';
 import { useI18n, usePlatform, type PaneScreen } from '@ap/kernel';
 import { DropdownMenuItem, DropdownMenuSeparator } from '@ap/ui';
-import { effectiveTree, fromDockTree, groupHolding, groupsOf, toDockTree } from './boardDockTree';
+import { effectiveTree, fromDockTree, groupHolding, toDockTree } from './boardDockTree';
 import { indexOfPane, selectedIndex, setTree, type Board, type Sheet } from './boardModel';
 import { BoardPane, type BoardPaneProps } from './BoardPane';
 import { PaneBadge } from './PaneBadge';
@@ -131,22 +131,22 @@ export function BoardDock({ sheet, update, paneProps, onSelect, onClear, onClose
 
   /** The layout group of a pane's `칸 N 동작` menu: maximize or restore, split a tab group, move into another. A move puts focus back on the pane's tab. */
   const layoutMenu = (paneId: string) => (afterMenuClose: RefObject<(() => void) | null>) => {
-    const mine = groupHolding(tree, paneId);
     const n = numberOf(paneId);
-    if (maximizedHere(paneId)) {
+    // Move targets are numbered by the lowest pane number of the group (a dock tree does not carry it), so the board hands the helper that order.
+    const menu = dockLayoutMenu(toDockTree(tree), paneId, { maximized: maximizedHere(paneId), orderOf: group => Math.min(...group.panels.map(numberOf)) });
+    if (menu.maximized) {
       return <DropdownMenuItem onSelect={() => { afterMenuClose.current = () => { focusSoon(() => toggleOfPane(paneId)); }; onMaximizedChange(null); }}>{text.restoreSize}</DropdownMenuItem>;
     }
-    const others = mine ? groupsOf(tree).filter(candidate => candidate !== mine).map(candidate => ({ group: candidate, first: Math.min(...candidate.panes.map(numberOf)) })).sort((a, b) => a.first - b.first) : [];
     const move = (build: Parameters<typeof command>[0]) => { afterMenuClose.current = () => { focusTabSoon(paneId); }; command(build); };
     return <>
       <DropdownMenuItem onSelect={() => onMaximizedChange(paneId)}>{text.maximizePane(n)}</DropdownMenuItem>
-      {mine && mine.panes.length >= 2 && <>
+      {menu.split !== null && <>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => { const target = mine.panes.find(id => id !== paneId)!; move(dock => movePanel(dock, paneId, { panelId: target, position: 'right' })); }}>{text.splitRight}</DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => { const target = mine.panes.find(id => id !== paneId)!; move(dock => movePanel(dock, paneId, { panelId: target, position: 'bottom' })); }}>{text.splitDown}</DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => { move(dock => movePanel(dock, paneId, { panelId: menu.split!, position: 'right' })); }}>{text.splitRight}</DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => { move(dock => movePanel(dock, paneId, { panelId: menu.split!, position: 'bottom' })); }}>{text.splitDown}</DropdownMenuItem>
       </>}
-      {others.length > 0 && <DropdownMenuSeparator />}
-      {others.map(other => <DropdownMenuItem key={other.group.panes[0]} onSelect={() => { move(dock => movePanel(dock, paneId, { panelId: other.group.active, position: 'center' })); }}>{text.moveToGroup(other.first)}</DropdownMenuItem>)}
+      {menu.moves.length > 0 && <DropdownMenuSeparator />}
+      {menu.moves.map(other => <DropdownMenuItem key={other.group.panels[0]} onSelect={() => { move(dock => movePanel(dock, paneId, { panelId: other.target, position: 'center' })); }}>{text.moveToGroup(other.order)}</DropdownMenuItem>)}
     </>;
   };
 

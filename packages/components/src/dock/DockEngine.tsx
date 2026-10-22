@@ -167,7 +167,7 @@ export default function DockEngine({
   const dragging = useRef(false);
   const canonicalDisplay = useMemo(() => canonicalDockTree(display), [display]);
   const key = useMemo(() => JSON.stringify(canonicalDisplay), [canonicalDisplay]);
-  const meta = useMemo(() => JSON.stringify([panels.map(panel => [panel.id, panel.title]), minPanelSize]), [panels, minPanelSize]);
+  const meta = useMemo(() => JSON.stringify([panels.map(panel => [panel.id, panel.title, panel.minWidth, panel.minHeight]), minPanelSize]), [panels, minPanelSize]);
   // The effects below run on what changed (key, meta, epoch), not on every new object identity; they read the rest from here.
   const live = useRef({ layout, interactive, onLayoutChange, canonicalDisplay, panels, minPanelSize });
   useLayoutEffect(() => { live.current = { layout, interactive, onLayoutChange, canonicalDisplay, panels, minPanelSize }; });
