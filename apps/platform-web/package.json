@@ -33,6 +33,7 @@
     "@ap/menu-log-rules": "workspace:*",
     "@ap/menu-master-data": "workspace:*",
     "@ap/menu-metrics": "workspace:*",
+    "@ap/menu-my-activity": "workspace:*",
     "@ap/menu-notice-voc": "workspace:*",
     "@ap/mock-server": "workspace:*",
     "@ap/shell": "workspace:*",

@@ -4,12 +4,13 @@
  * live in their own menu package (docs/integration/platform-packages.md §5); the app concatenates them.
  */
 import {
-  BarChart3, ClipboardList, Cpu, Database, FileSearch, Gauge, Inbox, LayoutDashboard, LineChart, Megaphone, Ruler, ShieldCheck,
+  BarChart3, ClipboardList, Cpu, Database, FileSearch, Gauge, Inbox, LayoutDashboard, LineChart, Megaphone, Ruler, ShieldCheck, UserRound,
 } from 'lucide-react';
 import type { SpaceDef } from '@ap/contracts';
 import { createRegistry, type GroupDef, type MenuEntry } from '@ap/kernel';
 // <gen:menu-imports>
 import { manifests as home } from '@ap/menu-home';
+import { manifests as myActivity } from '@ap/menu-my-activity';
 import { manifests as equipment } from '@ap/menu-equipment';
 import { manifests as masterData } from '@ap/menu-master-data';
 import { manifests as analytics } from '@ap/menu-analytics';
@@ -28,6 +29,7 @@ import { manifests as impReports } from '@ap/menu-imp-reports';
 
 export const GROUPS: GroupDef[] = [
   { id: 'overview', label: { ko: '운영 개요', en: 'Overview' }, icon: LayoutDashboard, space: null, hideLabelWhenSingle: true },
+  { id: 'myActivity', label: { ko: '내 활동', en: 'My activity' }, icon: UserRound, space: null },
   { id: 'noticeVoc', label: { ko: '공지·VOC', en: 'Notice & VOC' }, icon: Megaphone, space: null },
   { id: 'analytics', label: { ko: '생산성 분석', en: 'Analytics' }, icon: BarChart3, space: 'analytics' },
   { id: 'equipment', label: { ko: '설비관리', en: 'Equipment' }, icon: Cpu, space: 'analytics' },
@@ -58,6 +60,7 @@ export const SPACES: SpaceDef[] = [
 export const MENUS: MenuEntry[] = [
   // <gen:menu-spreads>
   ...home,
+  ...myActivity,
   ...equipment,
   ...masterData,
   ...analytics,
