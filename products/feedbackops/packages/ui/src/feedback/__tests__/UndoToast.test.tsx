@@ -5,6 +5,7 @@
 
 import * as React from 'react';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { UndoToast } from '../UndoToast.js';
 
@@ -56,7 +57,9 @@ describe('UndoToast', () => {
     expect(onDismiss).toHaveBeenCalledOnce();
   });
 
-  it('calls onAction when Enter is pressed on the button', () => {
+  // Enter activates the button through its native click only (@ap/ui #533 removed the keydown handler that ran it twice).
+  it('calls onAction once when Enter is pressed on the focused button', async () => {
+    const user = userEvent.setup();
     const onAction = vi.fn();
     render(
       <UndoToast
@@ -66,7 +69,9 @@ describe('UndoToast', () => {
       />,
     );
     const btn = screen.getByRole('button', { name: '실행 취소' });
-    fireEvent.keyDown(btn, { key: 'Enter', code: 'Enter' });
+    await user.tab();
+    expect(btn).toHaveFocus();
+    await user.keyboard('{Enter}');
     expect(onAction).toHaveBeenCalledOnce();
   });
 });

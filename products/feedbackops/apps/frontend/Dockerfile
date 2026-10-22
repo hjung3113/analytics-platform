@@ -16,6 +16,8 @@ COPY products/feedbackops/packages/ui/package.json ./products/feedbackops/packag
 COPY packages/ui/package.json ./packages/ui/package.json
 COPY tooling/eslint/package.json ./tooling/eslint/package.json
 COPY tooling/tsconfig/package.json ./tooling/tsconfig/package.json
+# packages/ui/tsconfig.json extends @ap/tsconfig/base.json, which vite reads when it transforms @ap/ui source.
+COPY tooling/tsconfig/base.json ./tooling/tsconfig/base.json
 RUN pnpm install --filter @fops/frontend... --frozen-lockfile
 
 COPY products/feedbackops/apps/frontend ./products/feedbackops/apps/frontend

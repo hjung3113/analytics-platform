@@ -8,6 +8,7 @@
 !packages/ui
 !tooling/eslint/package.json
 !tooling/tsconfig/package.json
+!tooling/tsconfig/base.json
 !products/feedbackops
 
 **/node_modules
