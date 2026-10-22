@@ -125,7 +125,8 @@ const KO = {
   splitRight: '오른쪽으로 나누기',
   splitDown: '아래로 나누기',
   moveToGroup: (m: number) => `칸 ${m} 묶음으로 옮기기`,
-  groupActions: (n: number) => `칸 ${n} 묶음 동작`,
+  paneHead: (n: number) => `칸 ${n} 머리`,
+  emptyTabName: '빈 칸',
   paneEditing: '편집 대상 칸',
 };
 
@@ -244,7 +245,8 @@ const EN: Strings<typeof KO> = {
   splitRight: 'Split to the right',
   splitDown: 'Split below',
   moveToGroup: (m: number) => `Move into the tabs of pane ${m}`,
-  groupActions: (n: number) => `Pane ${n} tab group actions`,
+  paneHead: (n: number) => `Pane ${n} header`,
+  emptyTabName: 'Empty',
   paneEditing: 'Editing target pane',
 };
 

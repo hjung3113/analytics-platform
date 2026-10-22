@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
-import { act, cleanup, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
 import { DockLayout } from './DockLayout';
 import { activeTabs, column, group, groupsOnScreen, installResizeObserver, mountDock, mounts, resetMounts, row } from './__tests__/harness';
@@ -63,6 +63,37 @@ describe('DockLayout reconcile (D9: remount 0)', () => {
     await waitFor(() => { expect(root('a')).toHaveAttribute('data-dock-visible', 'true'); });
     expect(document.querySelectorAll('.dv-view:not(.visible) .dv-groupview')).toHaveLength(0);
     expect(mounts).toEqual({ a: 1, b: 1, c: 1 });
+  });
+
+  // The engine caches a hidden group's px size and restores it as it was; a resize in between would leave the shares skewed (#575 2c).
+  it('resizing while a group is maximized and then restoring keeps the stored column proportions', async () => {
+    const widths = () => Array.from(document.querySelectorAll<HTMLElement>('.dv-view')).filter(view => view.querySelector(':scope > .dv-groupview')).map(view => parseFloat(view.style.width));
+    const frame = () => act(() => new Promise<void>(resolve => { setTimeout(resolve, 60); }));
+    // jsdom has no layout parent, and the engine ignores a resize of an element without one.
+    Object.defineProperty(HTMLElement.prototype, 'offsetParent', { configurable: true, get() { return this.parentNode; } });
+    try {
+      const { controls } = mountDock({ layout: row([50, 50], group(['a']), group(['c'])) });
+      await ready();
+      await frame();
+      const [left0, right0] = widths();
+      expect(left0! + right0!).toBeGreaterThan(800);
+      controls.setMaximized('a');
+      await waitFor(() => { expect(root('c')).toHaveAttribute('data-dock-visible', 'false'); });
+      observer.resize(600, 600);
+      await frame();
+      controls.setMaximized(null);
+      await waitFor(() => { expect(root('c')).toHaveAttribute('data-dock-visible', 'true'); });
+      await frame();
+      const [left, right] = widths();
+      expect(left! + right!).toBeLessThan(700);
+      expect(Math.abs(left! - right!)).toBeLessThanOrEqual(2);
+      observer.resize(900, 600);
+      await frame();
+      const [wideLeft, wideRight] = widths();
+      expect(Math.abs(wideLeft! - wideRight!)).toBeLessThanOrEqual(2);
+    } finally {
+      delete (HTMLElement.prototype as { offsetParent?: unknown }).offsetParent;
+    }
   });
 
   it('a layout change while maximized keeps the maximize and still remounts nothing', async () => {
@@ -368,6 +399,31 @@ describe('DockLayout group menu from the keyboard (D19)', () => {
     expect(await screen.findByRole('menuitem', { name: '그룹 항목' })).toBeInTheDocument();
   });
 
+  it('opens the menu with its first item focused, so Enter acts at once', async () => {
+    mountDock({ layout: row([50, 50], group(['a', 'b']), group(['c'])), props: { renderGroupActions: actions } });
+    await ready();
+    screen.getByRole('tab', { name: '패널 a' }).focus();
+    await userEvent.keyboard('{Shift>}{F10}{/Shift}');
+    const item = await screen.findByRole('menuitem', { name: '그룹 항목' });
+    await waitFor(() => { expect(document.activeElement).toBe(item); });
+  });
+
+  it('a right-click on a tab opens the same menu', async () => {
+    mountDock({ layout: row([50, 50], group(['a', 'b']), group(['c'])), props: { renderGroupActions: actions } });
+    await ready();
+    fireEvent.contextMenu(screen.getByRole('tab', { name: '패널 c' }));
+    expect(await screen.findByRole('menuitem', { name: '그룹 항목' })).toBeInTheDocument();
+  });
+
+  it('on a background tab it activates that tab first (onActivate), then opens the menu', async () => {
+    const { calls } = mountDock({ layout: row([50, 50], group(['a', 'b'], 'a'), group(['c'])), props: { renderGroupActions: actions } });
+    await ready();
+    screen.getByRole('tab', { name: '패널 b' }).focus();
+    await userEvent.keyboard('{Shift>}{F10}{/Shift}');
+    expect(await screen.findByRole('menuitem', { name: '그룹 항목' })).toBeInTheDocument();
+    expect(calls.activate).toEqual(['b']);
+  });
+
   it('opens a click-toggled trigger too', async () => {
     mountDock({
       layout: row([50, 50], group(['a']), group(['c'])),
@@ -584,5 +640,69 @@ describe('DockLayout host controls: current panel, tab order, tab speech', () =>
     await userEvent.tab({ shift: true });
     await userEvent.tab({ shift: true });
     expect(document.activeElement).toBe(tab('a'));
+  });
+});
+
+describe('DockLayout header slot and Tab order of a group (2c)', () => {
+  const slot = (group: string[]) => (_: unknown, state: { stripWidth: number }) => (
+    <><button type="button">{group.join('')} first {state.stripWidth}</button><button type="button">{group.join('')} last</button></>
+  );
+
+  it('hands the strip width to renderGroupActions and marks the slot with the group\'s active tab', async () => {
+    const spy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      const width = this.classList.contains('dv-tabs-and-actions-container') ? 321 : 0;
+      return { width, height: 0, top: 0, left: 0, right: width, bottom: 0, x: 0, y: 0, toJSON: () => ({}) };
+    });
+    try {
+      mountDock({ layout: row([50, 50], group(['a', 'b'], 'b'), group(['c'])), props: { renderGroupActions: (g, state) => <span data-testid={`slot-${g.active}`}>{state.stripWidth}</span> } });
+      await ready();
+      await waitFor(() => { expect(screen.getByTestId('slot-b')).toHaveTextContent('321'); });
+      expect(screen.getByTestId('slot-c')).toHaveTextContent('321');
+      expect(screen.getByTestId('slot-b').closest('[data-dock-group-actions]')).toHaveAttribute('data-dock-active', 'b');
+      expect(screen.getByTestId('slot-b').closest('[role="tablist"]')).toBeNull();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('Tab runs the active tab → the slot\'s buttons → the content, and Shift+Tab runs back the same way', async () => {
+    mountDock({ layout: row([50, 50], group(['a']), group(['c'])), ids: ['a', 'c'], inner: id => (id === 'a' ? <button type="button">content a</button> : null),
+      props: { renderGroupActions: group => <><button type="button">{group.active} one</button><button type="button">{group.active} two</button></> } });
+    await ready();
+    const tab = (id: string) => screen.getByRole('tab', { name: `패널 ${id}` });
+    tab('a').focus();
+    const order: (string | null)[] = [];
+    for (let step = 0; step < 3; step++) { await userEvent.tab(); order.push(document.activeElement?.textContent ?? null); }
+    expect(order).toEqual(['a one', 'a two', 'content a']);
+    await userEvent.tab();
+    expect(document.activeElement).toBe(tab('c'));
+    await userEvent.tab({ shift: true });
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'content a' }));
+    await userEvent.tab({ shift: true });
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'a two' }));
+    await userEvent.tab({ shift: true });
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'a one' }));
+    await userEvent.tab({ shift: true });
+    expect(document.activeElement).toBe(tab('a'));
+  });
+
+  it('visits the groups in reading order, not the engine\'s tree order: two columns of two read a, b / c, d', async () => {
+    mountDock({ layout: row([50, 50], column([50, 50], group(['a']), group(['c'])), column([50, 50], group(['b']), group(['d']))), ids: ['a', 'b', 'c', 'd'] });
+    await ready();
+    expect(groupsOnScreen().flat()).toEqual(['a', 'c', 'b', 'd']);
+    screen.getByRole('tab', { name: '패널 a' }).focus();
+    const visited = ['a'];
+    for (let step = 0; step < 12 && visited.length < 4; step++) {
+      await userEvent.tab();
+      const tab = document.activeElement?.closest<HTMLElement>('[role="tab"]');
+      if (tab) visited.push(tab.dataset.tabPanelId ?? '');
+    }
+    expect(visited).toEqual(['a', 'b', 'c', 'd']);
+    for (let step = 0; step < 12 && visited.length < 7; step++) {
+      await userEvent.tab({ shift: true });
+      const tab = document.activeElement?.closest<HTMLElement>('[role="tab"]');
+      if (tab) visited.push(tab.dataset.tabPanelId ?? '');
+    }
+    expect(visited.slice(4)).toEqual(['c', 'b', 'a']);
   });
 });

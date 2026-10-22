@@ -1,18 +1,34 @@
 import { Ban } from 'lucide-react';
-import { useLayoutEffect, useRef, useState, type CSSProperties, type ComponentType } from 'react';
+import { useLayoutEffect, useRef, useState, type CSSProperties, type ComponentType, type ReactNode, type RefObject } from 'react';
+import { createPortal } from 'react-dom';
 import { PaneScreenProvider, useI18n, usePlatform, type MenuEntry, type PaneScreen } from '@ap/kernel';
 import { StateMessage } from '@ap/components';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, cn, TransientOverlayScope } from '@ap/ui';
 import { admitPaneScreen } from './boardMenus';
-import { PaneHeader } from './PaneHeader';
+import { PaneHeader, type DockStrip } from './PaneHeader';
 import type { PaneSignal } from './paneActions';
 import { PanePicker } from './PanePicker';
 import { boardText } from './text';
 
+/** Where and how the dock renderer shows a pane's head: the slot in its group's strip it is the active tab of (absent while the pane is a background tab). */
+export type DockHead = {
+  slot: HTMLElement;
+  strip: DockStrip;
+  /** The pane's group is the maximized one. */
+  maximized: boolean;
+  onMaximize: () => void;
+  /** The layout group of the `⋯` menu. */
+  menu: (afterMenuClose: RefObject<(() => void) | null>) => ReactNode;
+};
+
 export type BoardPaneProps = {
   paneId: string;
-  /** Dock renderer: the pane fills its dock panel (the panel owns visibility and the frame), the head leaves the number and menu name to the tab, and an empty pane may offer `칸 닫기`. */
+  /**
+   * Dock renderer: the pane fills its dock panel (the panel owns visibility and the frame). Its head is not drawn here but in `dockHead.slot`, in the
+   * strip of its tab group (the number and menu name are on the tab), and an empty pane may offer `칸 닫기`.
+   */
   dock?: boolean;
+  dockHead?: DockHead;
   onClosePane?: () => void;
   placement?: { left: number; top: number; width: number | string; height: number };
   hidden?: boolean;
@@ -53,7 +69,7 @@ export type BoardPaneProps = {
  * `tabIndex=-1`). Focus inside the pane, a press on it and any header control select it first. `바꾸기` chains the picker and a confirm
  * dialog off the `⋯` menu; focus ends on the `⋯` trigger (or the pane root when the trigger is gone).
  */
-export function BoardPane({ dock = false, onClosePane, placement, hidden = false, collapsed = false, maximized = false, sizing = false, canMaximize = false, collapseOff = null, onCollapse, onMaximize, paneId, number, screen, selected, Outlet, signal, hasPrevious, applyAllOff, duplicateOff, onSelect, onChange, onLeave, onInsert, onClear, onBack, onApplyAll, onOpenFull, onReplace, onDuplicate, onEditContext }: BoardPaneProps) {
+export function BoardPane({ dock = false, dockHead, onClosePane, placement, hidden = false, collapsed = false, maximized = false, sizing = false, canMaximize = false, collapseOff = null, onCollapse, onMaximize, paneId, number, screen, selected, Outlet, signal, hasPrevious, applyAllOff, duplicateOff, onSelect, onChange, onLeave, onInsert, onClear, onBack, onApplyAll, onOpenFull, onReplace, onDuplicate, onEditContext }: BoardPaneProps) {
   const { registry } = usePlatform();
   const { tx, lang } = useI18n();
   const text = boardText(lang);
@@ -80,21 +96,25 @@ export function BoardPane({ dock = false, onClosePane, placement, hidden = false
     setReplaceWith(null);
   }, [hidden, bodyHidden]);
 
+  const headElement = <PaneHeader variant={dock ? 'dock' : 'grid'} strip={dockHead?.strip} dockMenu={dockHead?.menu} onClosePane={onClosePane} sizing={sizing} collapsed={collapsed} maximized={dock ? dockHead?.maximized : maximized} canMaximize={canMaximize} collapseOff={collapseOff}
+    onCollapse={() => { onSelect(); onCollapse?.(); }} onMaximize={() => { onSelect(); (dock ? dockHead?.onMaximize : onMaximize)?.(); }} presentationHidden={hidden}
+    number={number} selected={selected} systemLabel={space ? tx(space.label) : null}
+    menuName={menu ? menuName : screen ? <span className="t-mono">{screen.menuId}</span> : null}
+    active={screen !== null && admitted} signal={signal} hasPrevious={hasPrevious} applyAllOff={applyAllOff} duplicateOff={duplicateOff}
+    menuTrigger={menuTrigger} afterMenuClose={afterMenuClose}
+    onSelect={onSelect} onBack={onBack} onApplyAll={onApplyAll} onOpenFull={onOpenFull} onDuplicate={onDuplicate} onEditContext={onEditContext}
+    onReplace={() => { onSelect(); picked.current = false; pickMode.current = 'replace'; setPicking('replace'); }}
+    onClear={() => { afterMenuClose.current = () => root.current?.focus({ preventScroll: true }); onSelect(); onClear(); }} />;
+  // The dock draws the head of the pane that is its group's active tab into that group's strip; the state it holds (an open menu, the picker) stays with the pane.
+  const header = dock ? (dockHead ? createPortal(headElement, dockHead.slot) : null) : headElement;
+
   return <TransientOverlayScope active={!hidden}><div ref={root} id={`board-pane-${paneId}`} data-pane-index={number - 1} data-maximized={maximized} style={placement ? { '--pane-left': `${placement.left}px`, '--pane-top': `${placement.top}px`, '--pane-width': typeof placement.width === 'number' ? `${placement.width}px` : placement.width, '--pane-height': `${placement.height}px` } as CSSProperties : undefined} hidden={hidden} inert={hidden || undefined} aria-hidden={hidden || undefined} role="group" aria-label={text.pane(number)} data-pane-id={paneId} tabIndex={-1} data-selected={selected}
     onFocus={onSelect} onPointerDownCapture={onSelect}
     className={cn('relative flex min-h-0 min-w-0 flex-col overflow-hidden bg-surface-card outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring',
       dock ? 'h-full w-full' : cn('rounded-lg border', selected ? 'border-border-selected' : 'border-border-subtle'),
       placement && 'absolute left-(--pane-left) top-(--pane-top) h-(--pane-height) w-(--pane-width)', hidden && 'hidden')}>
     {selected && <span aria-hidden data-pane-selected-bar className="absolute inset-y-0 left-0 z-10 w-0.5 bg-accent-primary" />}
-    <PaneHeader variant={dock ? 'dock' : 'grid'} onClosePane={onClosePane} sizing={sizing} collapsed={collapsed} maximized={maximized} canMaximize={canMaximize} collapseOff={collapseOff}
-      onCollapse={() => { onSelect(); onCollapse?.(); }} onMaximize={() => { onSelect(); onMaximize?.(); }} presentationHidden={hidden}
-      number={number} selected={selected} systemLabel={space ? tx(space.label) : null}
-      menuName={menu ? menuName : screen ? <span className="t-mono">{screen.menuId}</span> : null}
-      active={screen !== null && admitted} signal={signal} hasPrevious={hasPrevious} applyAllOff={applyAllOff} duplicateOff={duplicateOff}
-      menuTrigger={menuTrigger} afterMenuClose={afterMenuClose}
-      onSelect={onSelect} onBack={onBack} onApplyAll={onApplyAll} onOpenFull={onOpenFull} onDuplicate={onDuplicate} onEditContext={onEditContext}
-      onReplace={() => { onSelect(); picked.current = false; pickMode.current = 'replace'; setPicking('replace'); }}
-      onClear={() => { afterMenuClose.current = () => root.current?.focus({ preventScroll: true }); onSelect(); onClear(); }} />
+    {header}
     <TransientOverlayScope active={!bodyHidden}><div data-pane-body hidden={bodyHidden} inert={bodyHidden || undefined} className="min-h-0 flex-1 overflow-auto">
       {screen === null
         ? <div className="grid h-full place-items-center p-6">

@@ -4,13 +4,13 @@
 .ap-dock {
   color-scheme: light;
   --dv-group-view-background-color: var(--color-surface-card);
-  --dv-tabs-and-actions-container-background-color: var(--color-surface-sunken);
-  --dv-tabs-and-actions-container-height: 32px;
+  --dv-tabs-and-actions-container-background-color: var(--color-surface-card);
+  --dv-tabs-and-actions-container-height: 40px;
   --dv-tabs-and-actions-container-font-size: 12px;
-  --dv-activegroup-visiblepanel-tab-background-color: var(--color-surface-card);
-  --dv-activegroup-hiddenpanel-tab-background-color: var(--color-surface-sunken);
-  --dv-inactivegroup-visiblepanel-tab-background-color: var(--color-surface-card);
-  --dv-inactivegroup-hiddenpanel-tab-background-color: var(--color-surface-sunken);
+  --dv-activegroup-visiblepanel-tab-background-color: transparent;
+  --dv-activegroup-hiddenpanel-tab-background-color: transparent;
+  --dv-inactivegroup-visiblepanel-tab-background-color: transparent;
+  --dv-inactivegroup-hiddenpanel-tab-background-color: transparent;
   --dv-tab-divider-color: var(--color-border-subtle);
   --dv-activegroup-visiblepanel-tab-color: var(--color-text-primary);
   --dv-activegroup-hiddenpanel-tab-color: var(--color-text-secondary);
@@ -51,4 +51,41 @@
   display: flex;
   align-items: center;
   padding: 0 0.5rem;
+}
+
+/* One 40px strip per group (docs/16 §4): the tab list, the free space, then the host's slot for the active tab. Tabs give way before the slot does. */
+.ap-dock .dv-scrollable { flex: 0 1 auto; min-width: 0; }
+.ap-dock .dv-tabs-and-actions-container.dv-single-tab.dv-full-width-single-tab .dv-scrollable { flex: 1 1 0; }
+.ap-dock .dv-tabs-container { overflow: hidden; }
+.ap-dock .dv-tab { flex-shrink: 1; min-width: 0; }
+.ap-dock .dv-right-actions-container { flex: 0 0 auto; }
+.ap-dock .dv-tabs-and-actions-container.dv-single-tab.dv-full-width-single-tab .dv-tabs-container .dv-tab { flex-grow: 0; }
+
+/* The group whose active pane the host works on: the host's selection surface on the whole strip and its bar at the left edge. */
+.ap-dock .dv-tabs-and-actions-container:has([data-dock-selected]) {
+  --dv-tabs-and-actions-container-background-color: var(--color-surface-row-selected);
+  background-color: var(--color-surface-row-selected);
+  box-shadow: inset 2px 0 0 var(--color-accent-primary);
+}
+
+/* The active tab of a group with several tabs: a 2px accent bar under it and semibold (DESIGN.md tabs). One tab has no bar. */
+.ap-dock .dv-tabs-and-actions-container:not(.dv-single-tab) .dv-tab.dv-active-tab {
+  font-weight: 600;
+  box-shadow: inset 0 -2px 0 var(--color-accent-primary);
+}
+
+/* Narrowing (host asks with `data-dock-compact`): a background tab keeps its badge only; its action shows while the tab is hovered or has focus. */
+.ap-dock .dv-tabs-and-actions-container:has([data-dock-compact]) .dv-tab:not(.dv-active-tab) [data-dock-tab-shrinkable] { display: none; }
+.ap-dock .dv-tabs-and-actions-container:has([data-dock-compact]) .dv-tab:not(.dv-active-tab) [data-dock-tab-action] { display: none; }
+.ap-dock .dv-tabs-and-actions-container:has([data-dock-compact]) .dv-tab:not(.dv-active-tab):hover [data-dock-tab-action],
+.ap-dock .dv-tabs-and-actions-container:has([data-dock-compact]) .dv-tab:not(.dv-active-tab):focus-within [data-dock-tab-action] { display: grid; }
+
+/* Last step (host asks with `data-dock-wrap`): the slot takes its own 40px row under the tabs. */
+.ap-dock .dv-tabs-and-actions-container:has([data-dock-wrap]) { flex-wrap: wrap; height: auto; }
+.ap-dock .dv-tabs-and-actions-container:has([data-dock-wrap]) .dv-void-container { flex: 1 1 0; min-width: 0; height: var(--dv-tabs-and-actions-container-height); }
+.ap-dock .dv-tabs-and-actions-container:has([data-dock-wrap]) .dv-right-actions-container {
+  flex: 0 0 100%;
+  height: var(--dv-tabs-and-actions-container-height);
+  justify-content: flex-end;
+  border-top: 1px solid var(--color-border-subtle);
 }

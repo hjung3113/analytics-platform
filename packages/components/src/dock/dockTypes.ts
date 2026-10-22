@@ -28,10 +28,16 @@ export type DockLayoutProps = {
   /** Tab content; the default is the title. The tab itself (role, focus, drag) belongs to the engine. */
   renderTab?: (panelId: string, state: { active: boolean; groupFocused: boolean }) => ReactNode;
   /**
-   * Header-right slot of every group, e.g. the group `⋯` menu. The element that opens the menu carries `data-dock-group-menu`; Shift+F10 and the
-   * ContextMenu key on a focused tab focus it and open it (a `pointerdown` for Radix `DropdownMenuTrigger`, otherwise a `click`).
+   * Header-right slot of every group (its active tab's area, e.g. the pane's chips and `⋯` menu), a sibling of the tab list. `stripWidth` is the
+   * px width of the group's whole header strip, for a host that fits its content against the tabs. The element that opens the group's menu
+   * carries `data-dock-group-menu`: Shift+F10, the ContextMenu key and a right-click on a tab activate that tab (through `onActivate`), then
+   * open it with the keyboard, so its first item has focus (a `keydown` for Radix `DropdownMenuTrigger`, otherwise a `click`).
+   *
+   * Hooks on the content (plain attributes, CSS only): `data-dock-compact` anywhere in the slot collapses the parts of background tabs marked
+   * `data-dock-tab-shrinkable` (the action marked `data-dock-tab-action` shows on hover and focus only); `data-dock-wrap` moves the slot to its
+   * own row under the tabs; `data-dock-selected` gives the whole strip the host's selection surface and bar.
    */
-  renderGroupActions?: (group: { panels: string[]; active: string }) => ReactNode;
+  renderGroupActions?: (group: { panels: string[]; active: string }, state: { stripWidth: number }) => ReactNode;
   /**
    * The panel the host treats as current (the board's selected pane). The narrow display shows it, so what the user sees and what the host
    * works on stay the same panel; without it the narrow display follows the first group's active tab and the user's own tab choice.
