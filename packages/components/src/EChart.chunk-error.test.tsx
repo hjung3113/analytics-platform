@@ -24,6 +24,7 @@ function MockImpl(props: EChartProps) {
   useEffect(() => {
     implState.instances++;
     props.onReady?.({ dispose: () => {} } as unknown as ECharts);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the mock reports readiness once on mount, like the real chart
   }, []);
   return <div data-testid="chart-plot" role="img" aria-label={props.ariaLabel} style={{ height: props.height, width: '100%' }} />;
 }

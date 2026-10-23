@@ -350,14 +350,14 @@ const designSystem = ({ componentSource = false } = {}) => ({
   rules: componentSource ? COMPONENT_SOURCE_RULES : DESIGN_SYSTEM_RULES,
 });
 
-// React layers: the Rules of Hooks are an error; a missing effect dependency is a warning. An intended omission gets a
+// React layers: the Rules of Hooks are an error; a missing effect dependency is an error too. An intended omission gets a
 // next-line disable comment that states its reason (review follow-up 2026-10-22).
 const REACT_HOOKS = {
   files: ['**/*.{ts,tsx}'],
   plugins: { 'react-hooks': reactHooks },
   rules: {
     'react-hooks/rules-of-hooks': 'error',
-    'react-hooks/exhaustive-deps': 'warn',
+    'react-hooks/exhaustive-deps': 'error',
   },
 };
 

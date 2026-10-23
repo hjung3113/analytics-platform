@@ -135,6 +135,7 @@ export function DockLayout(props: DockLayoutProps) {
   const [attempt, setAttempt] = useState(0);
   const [failed, setFailed] = useState(false);
   // A new lazy component per attempt re-runs the rejected chunk import on retry.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `attempt` is the deliberate re-run trigger: it is not read, a retry only needs a new lazy component
   const DockEngine = useMemo(() => lazy(() => import('./DockEngine')), [attempt]);
   const retry = useCallback(() => { setFailed(false); setAttempt(value => value + 1); }, []);
 

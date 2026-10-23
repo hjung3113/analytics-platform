@@ -61,6 +61,7 @@ function useDevChecks(props: PanelWorkspaceProps) {
     if (!presets.some(preset => preset.id === initialPreset)) problems.push(`initialPreset "${initialPreset}" is not a preset`);
     if (compactPreset !== undefined && !presets.some(preset => preset.id === compactPreset)) problems.push(`compactPreset "${compactPreset}" is not a preset`);
     if (problems.length > 0) console.error(`[PanelWorkspace] ${problems.join('; ')}`);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `signature` serialises exactly the inputs read above, so the check re-runs only when they change, not on every new array identity
   }, [signature]);
 }
 

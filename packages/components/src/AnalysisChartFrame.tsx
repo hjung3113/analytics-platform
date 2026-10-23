@@ -247,9 +247,10 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
     return order.map(x => [x, displayed.map(s => s.points.find(([px]) => px === x)?.[1] ?? null)] as const);
   }, [displayed, xType, categories]);
 
+  const onVisibleSeriesChange = p.onVisibleSeriesChange;
   const resetLocal = useCallback(() => {
-    setHidden(new Set()); p.onVisibleSeriesChange?.(allSeries.map(s => s.id)); setSelectedPointKey(null); setPointMenuOpen(false); setCompare(false); setBrushMode(false); setZoom([0, 100]); setSelection(null); setPreview(null); closeNote(); setClipNotice(null); setRangeDraft(null);
-  }, [closeNote, p.onVisibleSeriesChange, allSeries]);
+    setHidden(new Set()); onVisibleSeriesChange?.(allSeries.map(s => s.id)); setSelectedPointKey(null); setPointMenuOpen(false); setCompare(false); setBrushMode(false); setZoom([0, 100]); setSelection(null); setPreview(null); closeNote(); setClipNotice(null); setRangeDraft(null);
+  }, [closeNote, onVisibleSeriesChange, allSeries]);
   // Global Context changes invalidate local selection (it described the previous result).
   const contextKey = JSON.stringify(global);
   useEffect(() => { setSelection(null); setPreview(null); closeNote(); setZoom([0, 100]); setClipNotice(null); setRangeDraft(null);
@@ -392,15 +393,18 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
       if (!point) return;
       if (pointControls) setSelectedPointKey(pointKey(point));
       // Native double-click recognition is OS-defined; no timer can safely commit a click first.
-      if (p.pointActivation?.on !== 'dblclick') {
-        p.onPointClick?.(point.x, point.seriesId);
-        p.pointActivation?.onActivate(point);
+      const onPointClick = p.onPointClick;
+      const pointActivation = p.pointActivation;
+      if (pointActivation?.on !== 'dblclick') {
+        onPointClick?.(point.x, point.seriesId);
+        pointActivation?.onActivate(point);
       }
     },
     dblclick: (params: PointEvent) => {
-      if (brushMode || p.pointActivation?.on !== 'dblclick') return;
+      const activation = p.pointActivation;
+      if (brushMode || activation?.on !== 'dblclick') return;
       const point = eventPoint(params);
-      if (point) { setSelectedPointKey(pointKey(point)); p.pointActivation.onActivate(point); }
+      if (point) { setSelectedPointKey(pointKey(point)); activation.onActivate(point); }
     },
     contextmenu: (params: PointEvent) => {
       if (brushMode || !p.pointActions?.length) return;

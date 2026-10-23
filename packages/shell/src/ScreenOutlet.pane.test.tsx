@@ -59,6 +59,7 @@ function Subscriber({ host }: { host: ModuleHost }) {
   return <button type="button" onClick={() => host.reportError(new Error('x'))}>report</button>;
 }
 function useStateEffect(host: ModuleHost, onChange: () => void) {
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- the test counts one subscription per host; the callback is read at call time
   useEffect(() => { state.subscribed += 1; return host.subscribe(onChange); }, [host]);
 }
 function Probe({ id }: { id: string }) { state.platforms.set(id, usePlatform()); return null; }

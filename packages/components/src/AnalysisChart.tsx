@@ -156,21 +156,23 @@ export function AnalysisChart(p: AnalysisChartProps) {
       series: [{ type: 'pie', radius: ['55%', '80%'], selectedMode: false, emphasis: { focus: 'none', scale: false }, label: { show: false }, data: rows.map(row => ({ name: row.label, value: row.value, itemStyle: { color: token(row.color!), borderColor: token(colors.selection), borderWidth: active.includes(row.key) ? 1.5 : 0 } })) }],
     };
     return { option, scale, domain, ramp, validThreshold };
+  // `size`, `height` and `lang` are deliberate re-run triggers: a new option object makes ECharts re-lay out the plot for the new size/language.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional triggers, see comment above
   }, [spec, cells, rows, extended, active, plotSize, valueText, size, height, lang]);
+  const measureGrid = useCallback((instance: ECharts | null) => {
+    if (spec.kind !== 'heatmap' || !instance || instance.isDisposed?.()) return;
+    // ECharts exposes the laid-out grid through its runtime model (not in its public TS surface).
+    const grid = (instance as unknown as { getModel?: () => { getComponent: (name: string) => { coordinateSystem?: { getRect: () => { width: number; height: number } } } | undefined } }).getModel?.().getComponent('grid');
+    const rect = grid?.coordinateSystem?.getRect();
+    if (rect) setPlotSize(old => old.width === rect.width && old.height === rect.height ? old : { width: rect.width, height: rect.height });
+  }, [spec.kind]);
   // notMerge replaces the brush model; restore the toolbox cursor after that replacement.
   useEffect(() => {
     if (brushable && chart.current && !chart.current.isDisposed?.()) {
       chart.current.dispatchAction({ type: 'takeGlobalCursor', key: 'brush', brushOption: { brushType: brushMode ? 'rect' : false, brushMode: 'single' } }, { silent: true });
     }
     measureGrid(chart.current);
-  }, [option, brushMode, instanceReady]);
-  function measureGrid(instance: ECharts | null) {
-    if (spec.kind !== 'heatmap' || !instance || instance.isDisposed?.()) return;
-    // ECharts exposes the laid-out grid through its runtime model (not in its public TS surface).
-    const grid = (instance as unknown as { getModel?: () => { getComponent: (name: string) => { coordinateSystem?: { getRect: () => { width: number; height: number } } } | undefined } }).getModel?.().getComponent('grid');
-    const rect = grid?.coordinateSystem?.getRect();
-    if (rect) setPlotSize(old => old.width === rect.width && old.height === rect.height ? old : { width: rect.width, height: rect.height });
-  }
+  }, [option, brushMode, instanceReady, brushable, measureGrid]);
   const summary = extended?.summary ?? (spec.kind === 'heatmap' ? (lang === 'ko' ? `${cells.length}칸 · ${spec.xLabels.length * spec.yLabels.length - cells.length}칸 비어 있음 · ${cells.filter(c => c.value === null).length}칸 미확인 · 단위 ${p.unit}` : `${cells.length} cells · ${spec.xLabels.length * spec.yLabels.length - cells.length} missing · ${cells.filter(c => c.value === null).length} unknown · Unit ${p.unit}`) : `${rows.length}${lang === 'ko' ? '개 항목 · 합계' : ' slices · Total'} ${format(total)} ${p.unit}`);
   const selectedRows = rows.filter(row => active.includes(row.key));
   let selectionSummary = active.length ? `${selectedRows.map(row => row.label).join(', ')} · ${active.length}${lang === 'ko' ? (spec.kind === 'heatmap' ? '칸 선택' : '개 선택') : ' selected'}` : (lang === 'ko' ? '선택 없음' : 'No selection');

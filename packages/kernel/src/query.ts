@@ -32,11 +32,12 @@ function useQueryLifecycle<T>(run: (signal: AbortSignal) => Promise<ApiResponse<
   const [result, setResult] = useState<{ identity: string; response: ApiResponse<T>; completedAt: number } | null>(null);
   const [tick, setTick] = useState(0);
   const [inFlight, setInFlight] = useState<{ identity: string; tick: number } | null>(null);
+  const isIdle = idle !== null;
   const runRef = useRef(run);
   useLayoutEffect(() => { runRef.current = run; });
 
   useEffect(() => {
-    if (idle !== null) { setResult(null); setInFlight(null); return; }
+    if (isIdle) { setResult(null); setInFlight(null); return; }
     if (!enabled) return;
     const controller = new AbortController();
     setInFlight({ identity: key, tick });
@@ -52,7 +53,7 @@ function useQueryLifecycle<T>(run: (signal: AbortSignal) => Promise<ApiResponse<
       setInFlight(null);
     });
     return () => controller.abort();
-  }, [key, tick, refreshEpoch, enabled]);
+  }, [key, tick, refreshEpoch, enabled, isIdle]);
 
   const refetch = useCallback(() => setTick(t => t + 1), []);
   if (idle !== null) return { status: 'idle', response: null, missing: idle, completedAt: null, refetch };

@@ -25,12 +25,14 @@ const instance = {
 vi.mock('./EChartImpl', () => ({ default: MockImpl }));
 function MockImpl(next: EChartProps) {
   props = next;
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- mock reports readiness once on mount, like the real chart
   useEffect(() => { next.onReady?.(instance as never); }, []);
   useEffect(() => {
     // Model replacement resets ECharts' brush cursor, then finishes layout.
     currentOption = next.option;
     armed = false;
     next.onEvents?.finished?.({}, instance as never);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-runs only when the option is replaced, not on every new onEvents object
   }, [next.option]);
   return <div role="img" aria-label={next.ariaLabel} />;
 }

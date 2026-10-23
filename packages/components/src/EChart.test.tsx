@@ -29,6 +29,7 @@ function MockImpl(props: EChartProps) {
     implState.instances.push(instance);
     props.onReady?.(instance as unknown as ECharts);
     return () => { instance.dispose(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the mock creates one instance on mount, like the real chart
   }, []);
   return <div data-testid="chart-plot" role="img" aria-label={props.ariaLabel} style={{ height: props.height, width: '100%' }} />;
 }

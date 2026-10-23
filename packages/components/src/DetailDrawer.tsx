@@ -64,7 +64,9 @@ function DetailContent({ superseded, title, subtitle, headerActions, context, ta
     const claim = pageNavigation?.claimsDetailFocus() ?? true;
     if (claim) close.current?.focus({ preventScroll: true });
     return () => {
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- the cleanup must read the latest flag; a copy taken at mount would never see the supersession
       if (superseded.current) return;
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- the cleanup asks the live panel node whether focus is inside, not a mount-time copy
       const inside = panel.current?.contains(document.activeElement) ?? false;
       // A panel that never took focus must not treat the untouched body as its own.
       const restore = claim ? inside || document.activeElement === document.body : inside || (document.activeElement === document.body && focusInside.current);

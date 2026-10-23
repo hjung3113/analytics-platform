@@ -1,4 +1,4 @@
-import { createContext, useContext, useLayoutEffect, useRef, useState, type Dispatch, type SetStateAction, type ReactNode } from 'react';
+import { createContext, useContext, useEffectEvent, useLayoutEffect, useRef, useState, type Dispatch, type SetStateAction, type ReactNode } from 'react';
 import type { ContextKey } from '@ap/contracts';
 import { useI18n } from '@ap/kernel';
 import { cn, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
@@ -120,15 +120,21 @@ export function ContextBarLayout({ controls, revision, actions, barName }: {
     finally { recoveringFocus.current = false; }
   };
   const placement = controls.map(control => `${control.key}:${hidden.some(c => c.key === control.key) ? 'overflow' : 'inline'}`).join(',');
-  useLayoutEffect(() => {
+  // The effect fires when the placement string changes; what it reads (controls, hidden, drafts) is the latest render's.
+  const syncPlacements = useEffectEvent(() => {
     const next = new Map<ContextKey, string>(controls.map(control => [control.key, hidden.some(c => c.key === control.key) ? 'overflow' : 'inline']));
     const active = Object.entries(drafts).filter(([field, value]) => field.endsWith(':open') && value === true).map(([field]) => field.split(':')[0] as ContextKey);
     const moved = [focusedKey.current, ...active].some(key => key && placements.current.has(key) && placements.current.get(key) !== next.get(key));
     placements.current = next;
     if (!hidden.length) setOverflowOpen(false);
+    return moved;
+  });
+  const refocusBar = useEffectEvent(focusBar);
+  useLayoutEffect(() => {
+    const moved = syncPlacements();
     // Run after Radix's mount/close autofocus; disconnected triggers cannot return focus themselves.
     let cancelled = false;
-    if (moved) queueMicrotask(() => { if (!cancelled) focusBar(); });
+    if (moved) queueMicrotask(() => { if (!cancelled) refocusBar(); });
     return () => { cancelled = true; };
   }, [placement]);
   const activeHidden = hidden.some(control => drafts[`${control.key}:open`] === true);

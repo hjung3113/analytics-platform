@@ -587,7 +587,7 @@ rows.push(
   { file: 'packages/ui/src/x.ts', code: `import * as Dialog from '@radix-ui/react-dialog';\nexport { Dialog };`, rule: '' },
   { file: 'packages/components/src/x.ts', code: `import * as Dialog from '@radix-ui/react-dialog';\nexport { Dialog };`, rule: 'no-restricted-imports', token: '@radix-ui' },
   { file: 'menus/_global/home/src/x.ts', code: `import { Slot } from '@radix-ui/react-slot';\nexport { Slot };`, rule: 'no-restricted-imports', token: '@radix-ui' },
-  // React layers: Rules of Hooks (error) and effect dependencies (warning); non-React layers do not load the plugin.
+  // React layers: Rules of Hooks (error) and effect dependencies (error); non-React layers do not load the plugin.
   { file: 'packages/kernel/src/x.ts', code: `import { useState } from 'react';\nexport function f(on: boolean) { if (on) useState(0); }`, rule: 'react-hooks/rules-of-hooks' },
   { file: MENU.replace('x.tsx', 'X.tsx'), code: `import { useEffect } from 'react';\nexport function X({ n }: { n: number }) { useEffect(() => { void n; }, []); return null; }`, rule: 'react-hooks/exhaustive-deps' },
   { file: 'packages/contracts/src/x.ts', code: `export function f(on: boolean) { return on; }`, rule: '' },

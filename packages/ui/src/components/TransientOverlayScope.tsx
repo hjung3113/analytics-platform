@@ -32,10 +32,11 @@ function useScopedOverlay(props: OpenProps): OpenProps {
   const [local, setLocal] = useState(props.defaultOpen ?? false);
   const active = scope?.active ?? true;
   const open = props.open ?? local;
+  const onOpenChange = props.onOpenChange;
   useLayoutEffect(() => {
-    if (!active && open) { setLocal(false); props.onOpenChange?.(false); }
-  }, [active, open, props.onOpenChange]);
-  return { open: active && open, onOpenChange: next => { setLocal(next); props.onOpenChange?.(next); } };
+    if (!active && open) { setLocal(false); onOpenChange?.(false); }
+  }, [active, open, onOpenChange]);
+  return { open: active && open, onOpenChange: next => { setLocal(next); onOpenChange?.(next); } };
 }
 
 /** Read the live flag: Radix dispatches close autofocus after unmount, possibly after an identity change. */

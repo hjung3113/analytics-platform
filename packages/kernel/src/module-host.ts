@@ -203,5 +203,6 @@ export function useModuleHost(entry: ModuleMenuEntry, params: Readonly<Record<st
     }
     return host;
     // The host is rebuilt when what its synchronous reads depend on changes; `ports` are read through portsRef.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `usePlatform()` returns a fresh object every render: depending on it would rebuild the host each render, so the memo lists the platform values the snapshot reads
   }, [entry, params, lang, revision, url, session, scope, ports.detail, instance]);
 }

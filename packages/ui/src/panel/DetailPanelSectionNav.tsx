@@ -154,6 +154,7 @@ export function DetailPanelSectionNav({
       const anchor = root.querySelector<HTMLElement>(`[data-anchor="${section.id}"]`);
       if (anchor) anchor.style.scrollMarginTop = `${cover}px`;
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `sectionKey` is the content key of `sections`: a new array with the same sections must not rebuild this callback
   }, [scrollRef, sectionKey]);
 
   React.useEffect(() => {
@@ -236,6 +237,7 @@ export function DetailPanelSectionNav({
       observer.disconnect();
       root.removeEventListener('scroll', recomputeAfterJump);
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `sectionKey` is the content key of `sections`: the observer is rebuilt only when the section list really changes
   }, [admitUserScroll, isSuppressed, scrollRef, sectionKey]);
 
   const scrollTo = React.useCallback(
