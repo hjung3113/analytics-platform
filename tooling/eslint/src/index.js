@@ -291,7 +291,7 @@ function layerConfig({ restriction, extraRules = {} }) {
 // named by the root components.json; components are the ui primitives and the shared components. Every rule is an
 // error. There are no suppression files (removed in #236/#241): an exception is an inline eslint-disable-next-line with
 // its reason, and an unused one fails (reportUnusedDisableDirectives). Class strings in .ts files are checked too.
-// The options mirror FeedbackOps' .oxlintrc.json (FeedbackOps ADR-0062), the source of the shared design system:
+// The options mirror FeedbackOps' .oxlintrc.json (FO ADR-0062), the source of the shared design system:
 // screens may add layout to a component, containers also spacing, and the 50px headers never a height. The last
 // matching contract wins.
 const RESTYLE_CONTRACTS = [

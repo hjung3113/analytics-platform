@@ -9,7 +9,7 @@
 
 ## 결정
 
-- **토큰·타이포는 FeedbackOps 것을 쓴다.** FeedbackOps ADR-0058의 소비 계약 그대로다(Samsung 블루 `#1428a0`, 캔버스 `#f3f7fe`, 본문 14px, Inter + Pretendard). FeedbackOps에 없는 플랫폼 전용 키는 **플랫폼 확장 층**에 둔다(차트·카테고리 색, 타이포 역할 클래스, `surface-sunken` 등). 이 층은 FeedbackOps 값 위에서 표현한다.
+- **토큰·타이포는 FeedbackOps 것을 쓴다.** FO ADR-0058의 소비 계약 그대로다(Samsung 블루 `#1428a0`, 캔버스 `#f3f7fe`, 본문 14px, Inter + Pretendard). FeedbackOps에 없는 플랫폼 전용 키는 **플랫폼 확장 층**에 둔다(차트·카테고리 색, 타이포 역할 클래스, `surface-sunken` 등). 이 층은 FeedbackOps 값 위에서 표현한다.
 - **셸은 FeedbackOps AppFrame 구조를 플랫폼 `@ap/shell`이 그린다.**
   - 레일(52px): 공간 전환, 명령 팔레트, 도움말, 언어, 프로필, 앱이 주입하는 도구.
   - 밝은 사이드바(240px, 접으면 56px): 그룹은 섹션 제목이고, Scope 선택은 사이드바 머리에 둔다.

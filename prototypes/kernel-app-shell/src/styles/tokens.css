@@ -1,5 +1,5 @@
 /* Platform semantic color tokens — values only; Tailwind utilities are declared in ../style.css `@theme`.
- * Names and R G B triple format are ported from FeedbackOps ADR-0021
+ * Names and R G B triple format are ported from FO ADR-0021
  * (packages/ui/src/styles/tokens.css + semantic.css @ b5dd614) so `rgb(var(--x))` composes with opacity modifiers.
  * Values come from this repo's DESIGN.md `colors:` — docs/04 ports FeedbackOps naming only, DESIGN.md stays the palette.
  * Not ported: FeedbackOps status-reporter/status-internal/severity/confidence/managed-system (VOC domain vocabulary),

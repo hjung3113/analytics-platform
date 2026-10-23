@@ -1112,7 +1112,7 @@ Unknown
 - **사용자용 가공 상태 조회(분석 공간):** 단계별 상태, 원인 분류(예: 파일 미수신, 형식 오류, 처리 대기), 원천이 제공한 경우의 예상 해소 시점, 현재 Context를 담은 "VOC로 문의" 동작을 보여준다. 원시 오류 메시지·스택·단계 로그·재처리 동작은 노출하지 않는다.
 - **개발자용 트레이스(운영 콘솔):** 같은 원천의 원시 오류, 단계별 로그, 재처리 동작까지 보여준다. 원문 로그·설정 파일 drill-through는 [05](05_roadmap_and_open_questions.md#결정-상태)의 defer 결정을 따르며 이 결정으로 열리지 않는다.
 - **가공 실패는 별도 상태가 아니다(2026-09-28):** 적재 워커가 실패를 보고해도 사용자 화면은 `Processing delayed` + 원인 분류(예: 원천 형식 오류, 처리 오류)로 보인다. 사용자에게 실패와 대기는 모두 "아직 가공되지 않음"이고 대응 경로(VOC 문의)도 같다. 실패·재시도 구분은 개발자용 트레이스가 보인다. 원인 분류 목록은 [적재 워커 상태 기록 스키마](integration/ingest-status-schema.md) §4(초안)를 따른다.
-- 두 화면은 같은 원천을 공유하고 표시 수준만 다르다. 사용자에게 보이는 상태와 내부 처리 상태를 자동으로 동일시하지 않는다(FeedbackOps ADR-0005 원칙과 같음).
+- 두 화면은 같은 원천을 공유하고 표시 수준만 다르다. 사용자에게 보이는 상태와 내부 처리 상태를 자동으로 동일시하지 않는다(FO ADR-0005 원칙과 같음).
 
 ### 응답 스키마 형태 (Decided; 필드명·enum 문자열은 Candidate)
 
@@ -1234,11 +1234,11 @@ FeedbackOps로 나가는 외부 hop은 `linkTo`가 아니라 [FeedbackOps 딥링
 > 디자인 시스템 원본 소유는 [ADR-0043](adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md)(2026-10-19)으로 플랫폼으로 바뀌었다. 코드를 SDK로 옮기기 전까지 이 절의 FeedbackOps 원본·재수출 규칙대로 동작한다.
 
 
-**한/영 지원 범위(Decided, 2026-09-24):** UI 문구와 정적 본문만 번역한다. VOC·공지의 사용자 입력 본문, EquipmentID·room_name·분임조 이름 등 마스터 값과 식별자는 번역하지 않는다. 언어 설정은 현재 브라우저 localStorage에만 저장한다(§4). 사용자 계정 선호값으로 서버에 보존하는 것은 Candidate이며 저장소/API는 구현 시 확정한다. 언어 변경이 Context 값이나 URL 식별자를 바꾸지 않는다. CJK 폰트는 FeedbackOps ADR-0058의 Inter + Pretendard Variable 소비 계약을 따른다.
+**한/영 지원 범위(Decided, 2026-09-24):** UI 문구와 정적 본문만 번역한다. VOC·공지의 사용자 입력 본문, EquipmentID·room_name·분임조 이름 등 마스터 값과 식별자는 번역하지 않는다. 언어 설정은 현재 브라우저 localStorage에만 저장한다(§4). 사용자 계정 선호값으로 서버에 보존하는 것은 Candidate이며 저장소/API는 구현 시 확정한다. 언어 변경이 Context 값이나 URL 식별자를 바꾸지 않는다. CJK 폰트는 FO ADR-0058의 Inter + Pretendard Variable 소비 계약을 따른다.
 
 ### Token value source (Decided — ADR-0011)
 
-공유 색·반경·간격·폰트·본문 값의 원본은 플랫폼이다: [tokens.css](../packages/ui/src/styles/tokens.css)·[semantic.css](../packages/ui/src/styles/semantic.css)·[theme.css](../packages/ui/src/styles/theme.css)·[compat.css](../packages/ui/src/styles/compat.css)는 FeedbackOps `a8d768b8`에서 `@ap/ui`로 옮겼고([ADR-0046](adr/0046-design-system-source-moves-to-platform-whole-package.md), #441) 값은 그대로다. 소비 순서·본문·레이어 없는 webfont 규칙은 [FeedbackOps ADR-0058](../products/feedbackops/docs/adr/0058-tailwind-v4-css-first-theme.md) §2(이전 시점의 설명)를 따른다. FeedbackOps `@fops/ui`는 소비 전환 전까지 FeedbackOps에 그대로 남는 별개의 사본이다. 플랫폼이 별도 값 스케일을 만들지 않는다([ADR-0011](adr/0011-design-direction-feedbackops-shell.md)).
+공유 색·반경·간격·폰트·본문 값의 원본은 플랫폼이다: [tokens.css](../packages/ui/src/styles/tokens.css)·[semantic.css](../packages/ui/src/styles/semantic.css)·[theme.css](../packages/ui/src/styles/theme.css)·[compat.css](../packages/ui/src/styles/compat.css)는 FeedbackOps `a8d768b8`에서 `@ap/ui`로 옮겼고([ADR-0046](adr/0046-design-system-source-moves-to-platform-whole-package.md), #441) 값은 그대로다. 소비 순서·본문·레이어 없는 webfont 규칙은 [FO ADR-0058](../products/feedbackops/docs/adr/0058-tailwind-v4-css-first-theme.md) §2(이전 시점의 설명)를 따른다. FeedbackOps `@fops/ui`는 소비 전환 전까지 FeedbackOps에 그대로 남는 별개의 사본이다. 플랫폼이 별도 값 스케일을 만들지 않는다([ADR-0011](adr/0011-design-direction-feedbackops-shell.md)).
 
 플랫폼 전용 theme 키·차트/카테고리/아이콘 색·`t-*` 역할·반응형/detail-panel 확장과 label/control pairing의 설계 원본은 [DESIGN 플랫폼 확장](../DESIGN.md#platform-extension-layer) 및 [허용 전경/표면](../DESIGN.md#allowed-foregroundsurface-pairs)이다. `packages/ui/src/styles/`는 그 구현을 소유한다(플랫폼 확장 값은 `platform-tokens.css`). 제거된 어두운 navigation 확장은 다시 도입하지 않는다.
 
@@ -1327,7 +1327,7 @@ Full experience.
 - §19 공유 응답은 배너 하나가 announce하며 그룹 위젯에는 중복 alert/status live region을 두지 않는다
 - 선택 상태는 색 + shape/text 병행
 - 입력 기준(Decided, 2026-10-12): 사용자는 Windows에서 키보드와 마우스를 함께 쓴다. 키보드 동작·단축키 표기·스크린리더 주장은 Windows 기준으로 설계·검증하고, macOS 확인은 Windows 스크린리더 동작의 증거가 아니다. 위 키보드 하한(Tab·Enter·Space·Escape로 모든 컨트롤 도달·조작, 끌기 같은 포인터 제스처는 끌지 않는 경로 유지)은 그대로다. 예외: 표 열 너비 조절은 마우스 끌기만 둔다([ADR-0024](adr/0024-table-column-controls-drag-width-pin-in-list.md)). `LegendTree`의 행 이동은 APG 트리 방향키를 쓰고, 나머지 조작은 Tab·Enter·Space로 제공한다([ADR-0057](adr/0057-legend-tree-arrow-key-row-navigation.md)). 단축키는 그 사용자의 잦은 일을 빠르게 할 때만 더하고, 기본 경로로 일을 끝낼 수 있으면 키보드 전용 모드·화면 단축키 안내를 따로 만들지 않는다
-- 모션은 공유 FeedbackOps 모션 토큰(150/200/300ms, 표준·진입·퇴장 곡선)과 overlay 진입 모션을 그대로 쓰고(overlay는 진입만 — 닫히는 레이어가 남아 있으면 다음 Escape를 가로채므로 닫으면 바로 사라진다, FeedbackOps ADR-0063 개정·#312), `prefers-reduced-motion`에서는 공유 CSS가 지속 시간을 사실상 0으로 줄인다. 플랫폼에서 모션을 덮어쓰지 않는다
+- 모션은 공유 FeedbackOps 모션 토큰(150/200/300ms, 표준·진입·퇴장 곡선)과 overlay 진입 모션을 그대로 쓰고(overlay는 진입만 — 닫히는 레이어가 남아 있으면 다음 Escape를 가로채므로 닫으면 바로 사라진다, FO ADR-0063 개정·#312), `prefers-reduced-motion`에서는 공유 CSS가 지속 시간을 사실상 0으로 줄인다. 플랫폼에서 모션을 덮어쓰지 않는다
 
 ---
 

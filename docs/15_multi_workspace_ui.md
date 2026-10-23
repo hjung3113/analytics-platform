@@ -195,7 +195,7 @@ FeedbackOps 화면은 플랫폼으로 옮기지 않는다([ADR-0027](adr/0027-fe
 - 현재 시스템 Sidebar의 진입(VOC, Task, 설문)은 FeedbackOps를 **새 탭**으로 연다(`VOC 등록`은 레일 드로어로 옮겼다 — ADR-0070, #656). 링크에는 그 시스템의 Managed System(`managedSystem`)을 실어 FeedbackOps가 그 시스템의 요청만 기본으로 보이게 한다.
 - 공간에 대응하는 Managed System 매핑이 없으면 진입을 그리지 않는다. 시스템 범위 없이 열면 다른 시스템의 요청이 보이기 때문이다.
 - 사용자용·담당자용 메뉴 구분, triage·Finding·Task Request·설문 빌더 같은 역할별 기능은 FeedbackOps 안에서 FeedbackOps 권한으로 갈린다. 플랫폼은 진입 링크만 고른다.
-- VOC 보고자 상태와 내부 Task 상태는 자동 매핑하지 않는다(FeedbackOps ADR-0005).
+- VOC 보고자 상태와 내부 Task 상태는 자동 매핑하지 않는다(FO ADR-0005).
 - FeedbackOps에서 플랫폼으로 돌아오는 복귀는 FeedbackOps가 복귀 파라미터를 열기 전까지 새 탭 닫기로 대신한다(#81).
 
 ### 6.2 전체 협업 허브

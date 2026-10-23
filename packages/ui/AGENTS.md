@@ -17,12 +17,12 @@ UI Primitive 층(06 §13)과 디자인 시스템 CSS. 플랫폼 개념(Context, 
 
 - 디자인 시스템 원본은 이 패키지다(플랫폼/SDK 소유, [ADR-0043](../../docs/adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md)·[ADR-0046](../../docs/adr/0046-design-system-source-moves-to-platform-whole-package.md)). 토큰·유틸·primitive 묶음은 #441에서 FeedbackOps `a8d768b8` 값 그대로 옮겼고(이전 기록: [저장소 구조](../../docs/integration/repository-layout.md)), FeedbackOps `@fops/ui`는 FeedbackOps에 그대로 남는 별개의 사본이다. 이전된 묶음의 모양 변경은 여기서 먼저 한다.
 - import 가능: 외부 라이브러리만. `@fops/*`와 `@ap/*`는 어떤 패키지에서도 import하지 않는다(경계 lint가 강제).
-- 공유 토큰·폰트·반경·본문 값의 원본은 [tokens.css](src/styles/tokens.css)·[semantic.css](src/styles/semantic.css)이고 소비 계약은 [FeedbackOps ADR-0058](../../products/feedbackops/docs/adr/0058-tailwind-v4-css-first-theme.md)의 기록을 따른다(플랫폼 결정: [ADR-0011](../../docs/adr/0011-design-direction-feedbackops-shell.md)). 플랫폼 확장의 설계 원본은 [DESIGN.md](../../DESIGN.md#platform-extension-layer)이며 이 패키지는 구현을 소유한다. 토큰 파일 밖에서 hex 값 금지.
+- 공유 토큰·폰트·반경·본문 값의 원본은 [tokens.css](src/styles/tokens.css)·[semantic.css](src/styles/semantic.css)이고 소비 계약은 [FO ADR-0058](../../products/feedbackops/docs/adr/0058-tailwind-v4-css-first-theme.md)의 기록을 따른다(플랫폼 결정: [ADR-0011](../../docs/adr/0011-design-direction-feedbackops-shell.md)). 플랫폼 확장의 설계 원본은 [DESIGN.md](../../DESIGN.md#platform-extension-layer)이며 이 패키지는 구현을 소유한다. 토큰 파일 밖에서 hex 값 금지.
 - 앱은 Tailwind → `@ap/ui/styles.css` 순서로 import한다. 이 진입점은 tokens·semantic(`layer(base)`) → theme → compat → `platform-tokens.css`(`layer(base)`) → `@source` 순서를 유지한다(캐스케이드 순서 변경 금지). 폰트는 앱에서 레이어 없이 import한다.
 - label·vivid accent·control 경계의 역할과 허용 표면은 [DESIGN 접근성 pairing](../../DESIGN.md#accessibility-pairing-rules)을 따른다. 새 소비자도 이 조합을 확인한다.
 - `DialogContent`·`SheetContent`를 플랫폼에서 렌더링하면 `closeLabel`, `Combobox`를 렌더링하면 `listboxLabel`·`emptyText`를 i18n에서 전달한다(FeedbackOps#749).
 - 명령 팔레트는 `DialogContent scrim="palette"`를 사용한다(#310, FeedbackOps #1050); 다른 `DialogContent`는 기본 모달 scrim을 유지한다.
-- 모션(토큰, overlay 진입·퇴장, reduced-motion)은 `theme.css`·`compat.css`와 primitive에서 그대로 온다(FeedbackOps ADR-0063, 06 §26). 플랫폼에서 덮어쓰지 않는다. `useListMotion`·모션 상수는 FeedbackOps 소비용으로 공개했지만 플랫폼 화면은 아직 쓰지 않는다(06 §24, #289). `prefersReducedMotion`의 첫 소비자는 EChartImpl의 Canvas reduced-motion이다(#297).
+- 모션(토큰, overlay 진입·퇴장, reduced-motion)은 `theme.css`·`compat.css`와 primitive에서 그대로 온다(FO ADR-0063, 06 §26). 플랫폼에서 덮어쓰지 않는다. `useListMotion`·모션 상수는 FeedbackOps 소비용으로 공개했지만 플랫폼 화면은 아직 쓰지 않는다(06 §24, #289). `prefersReducedMotion`의 첫 소비자는 EChartImpl의 Canvas reduced-motion이다(#297).
 - 상태 색은 `StatusBadge`/`Tone`으로만 노출한다. 새 Tone은 DESIGN 변경이다.
 - 데이터 조회, 권한 판단, 라우팅, 도메인 문구를 넣지 않는다. 그런 조합은 `@ap/components`다.
 - shadcn 컴포넌트를 공개하려면 `src/index.ts`에 export하고 `src/public-exports.test.ts` 목록을 같이 고친다. `styles/index.css`의 `@source "../"`가 이 패키지 `src` 전체를 스캔한다.
