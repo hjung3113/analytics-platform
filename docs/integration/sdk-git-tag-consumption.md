@@ -36,6 +36,7 @@
 | 다음 릴리스 | components | `SegmentedRadio`에 선택 `disabled`·`describedBy`(좁은 폭에서 작업 영역 프리셋을 끄고 이유를 잇는다, #575 3b) — 추가형 | 없음 — 추가만 |
 | 다음 릴리스 | contracts·kernel | `UsageEvent`에 선택 필드 `via`·`fromMenuId`, `navigate`·`PlatformLink`에 선택 `via` — 추가형 (#605) | 없음 — 기존 호출은 그대로 동작한다. 표시 없는 이동은 `link`로 기록된다 |
 | 다음 릴리스 | kernel | `PlatformSlots`에 선택 슬롯 `notifications`(`NotificationsSlot`: `menuId`·`UnreadCount`·`Recent`)와 `dict` 키 `unreadNamed`·`unreadCount`·`viewAll` 추가 (#652) | 없음 — 추가만 |
+| 다음 릴리스 | kernel·ui | `PlatformSlots`에 선택 슬롯 `vocCompose`(`VocComposeSlot`: `Compose`)와 타입 `VocComposeContext`·`VocComposeContextItem`·`VocComposeProps` 추가, `useDetailPanelSlotHost()`가 `activation: number`를 더 돌려준다 (#655) | 없음 — 추가만 |
 | 다음 릴리스 | kernel | **깨짐** — `dropResetKeys` 공개 export 제거(`sdk-v0.10.0` 예고, #660). Kernel 내부 도우미로만 남는다 | `withPaneContext` |
 | 다음 릴리스 | kernel | 동작 — 점 세그먼트 판정 하나로(`hasDotSegment`는 `location.ts`로 옮김, 이름·시그니처 그대로). 잘못된 percent escape는 점 세그먼트로 본다(fail-closed): `createBasePathLocation`이 그런 basePath에 throw하고, `mountModule`이 그런 `prefix`·화면 경로를 `RegistryError`로 거부한다(#660) | 경로에 날것 `%`가 있으면 `%25`로 인코딩한다 |
 | 다음 릴리스 | contracts | 추가 — `PORT_ERROR_CODES`, `isPortError`; `ContractError`가 `name`을 갖는다(#671 B8, ADR-0074) | 없음 — 외부 어댑터는 그대로; 판별은 `isPortError` 권장 |

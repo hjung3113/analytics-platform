@@ -8,6 +8,8 @@ interface DetailPanelSlot {
   activeKey: string | undefined;
   /** True when the active registrant is not a closed (`null`) content registrant. */
   open: boolean;
+  /** Increments when a detail becomes visible (a new visible registrant, or a listed one going from closed to a node); never on re-render, close, clear or resume. */
+  activation: number;
   expanded: boolean;
   toggle: () => void;
   setHost: (host: HTMLElement | null) => void;
@@ -42,14 +44,19 @@ export function DetailPanelSlotProvider({ children }: { children: ReactNode }) {
   const [contents, setContents] = useState<ReadonlyMap<string, ReactNode>>(() => new Map());
   // One registrant list for portal (`register`) and content (`setContent`) registrants: the last one wins.
   const keys = useRef<string[]>([]);
+  // Mirror of `contents` for the activation rule: setContent needs the previous node synchronously.
+  const shown = useRef(new Map<string, boolean>());
+  // Counts detail panels that became visible; the shell hides a docked drawer on each increment (06 §13).
+  const [activation, setActivation] = useState(0);
   const portals = useRef(new Map<string, (winner: string) => void>());
   const unregister = useCallback((key: string) => {
     portals.current.delete(key);
     keys.current = keys.current.filter(existing => existing !== key);
     setActiveKey(keys.current.at(-1));
   }, []);
-  const takeSlot = useCallback((key: string) => {
+  const takeSlot = useCallback((key: string, visible: boolean) => {
     if (keys.current.includes(key)) return;
+    if (visible) setActivation(count => count + 1);
     const outgoing = keys.current.at(-1);
     warnOnOverlap(keys.current.length);
     keys.current = [...keys.current, key];
@@ -60,19 +67,24 @@ export function DetailPanelSlotProvider({ children }: { children: ReactNode }) {
   }, []);
   const register = useCallback((key: string, onSuperseded: (winner: string) => void) => {
     portals.current.set(key, onSuperseded);
-    takeSlot(key);
+    takeSlot(key, true);
     return () => unregister(key);
   }, [takeSlot, unregister]);
   const actions = useMemo<DetailPanelSlotActions>(() => ({
     setContent: (key, node) => {
       // A registrant that is already listed keeps its place: a new node must not reclaim the slot.
-      takeSlot(key);
+      const wasShown = shown.current.get(key) === true;
+      shown.current.set(key, node != null);
+      if (keys.current.includes(key)) {
+        if (node != null && !wasShown) setActivation(count => count + 1);
+      } else takeSlot(key, node != null);
       setContents(prev => {
         if (prev.get(key) === node) return prev;
         return new Map(prev).set(key, node);
       });
     },
     clearContent: key => {
+      shown.current.delete(key);
       setContents(prev => {
         if (!prev.has(key)) return prev;
         const next = new Map(prev);
@@ -98,7 +110,7 @@ export function DetailPanelSlotProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [expanded]);
   const fullscreen = useMemo(() => ({ expanded, toggle }), [expanded, toggle]);
-  const value = useMemo(() => ({ host, activeKey, open, expanded, toggle, setHost, register }), [host, activeKey, open, expanded, toggle, register]);
+  const value = useMemo(() => ({ host, activeKey, open, activation, expanded, toggle, setHost, register }), [host, activeKey, open, activation, expanded, toggle, register]);
   const activeContent = activeKey !== undefined && host ? contents.get(activeKey) : undefined;
   return <DetailPanelSlotActionsContext.Provider value={actions}>
     <DetailPanelSlotContext.Provider value={value}>
@@ -136,5 +148,5 @@ export function useDetailPanelSlot(options?: { onSuperseded?: () => void }): HTM
 export function useDetailPanelSlotHost() {
   const slot = useContext(DetailPanelSlotContext);
   if (!slot) throw new Error('Detail panel host requires DetailPanelSlotProvider.');
-  return { ref: slot.setHost, open: slot.open, expanded: slot.expanded, toggle: slot.toggle };
+  return { ref: slot.setHost, open: slot.open, activation: slot.activation, expanded: slot.expanded, toggle: slot.toggle };
 }
