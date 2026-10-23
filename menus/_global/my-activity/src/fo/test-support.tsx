@@ -7,10 +7,11 @@ import { I18nProvider, PlatformProvider, createRegistry, usePlatform, type MenuE
 import { testAdapter, testSession } from '@ap/kernel/testing';
 import { manifests } from '../index';
 import Notifications from '../pages/Notifications';
-import { groupId, spaceId } from '@ap/contracts';
+import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
+import { groupId, spaceId, type Permission } from '@ap/contracts';
 
 // The real manifests in their global group; a space needs one menu of its own, so a filler stands in for it.
-const filler = { ...manifests[1]!, primary: true, id: 'filler', group: 'noticeVoc', path: '/filler' } as MenuEntry;
+const filler = { ...manifests.find(m => m.id === 'surveys')!, primary: true, id: 'filler', group: 'noticeVoc', path: '/filler' } as MenuEntry;
 export const registry = createRegistry({
   spaces: [{ id: spaceId('analytics'), label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'filler' }],
   groups: [
@@ -47,13 +48,13 @@ export function stubFetch(handle: (path: string, method: string, calls: Call[]) 
 }
 
 /** An adapter whose session the test can replace; `notify` announces the change (the Kernel bumps `revision`). */
-export function switchableAdapter(initialUser = 'user-a') {
+export function switchableAdapter(initialUser = 'user-a', permissions: Permission[] = ['platform:view']) {
   const listeners = new Set<() => void>();
-  let session = testSession(['platform:view'], { user: { id: initialUser, name: initialUser, title: { ko: initialUser, en: initialUser } } });
+  let session = testSession(permissions, { user: { id: initialUser, name: initialUser, title: { ko: initialUser, en: initialUser } } });
   const adapter = testAdapter({ session: () => session, subscribe: onChange => { listeners.add(onChange); return () => { listeners.delete(onChange); }; } });
   return {
     adapter,
-    setUser: (id: string) => { session = testSession(['platform:view'], { user: { id, name: id, title: { ko: id, en: id } } }); },
+    setUser: (id: string) => { session = testSession(permissions, { user: { id, name: id, title: { ko: id, en: id } } }); },
     notify: () => { for (const listener of [...listeners]) listener(); },
   };
 }
@@ -84,8 +85,14 @@ export function TestRoutes() {
   return Page ? <Suspense fallback={null}><Page key={route.menu.id} params={route.params} /></Suspense> : null;
 }
 
-/** Mounts the platform at `url` (the real manifests, so path params and `returnTo` resolve as in the app). */
+/** The shell's docked detail slot, where `DetailDrawer` portals its content. */
+function DetailSlotHost() {
+  const slot = useDetailPanelSlotHost();
+  return <aside ref={slot.ref} aria-label="상세 패널" />;
+}
+
+/** Mounts the platform at `url` (the real manifests, so path params and `returnTo` resolve as in the app), with the detail slot a page may open into. */
 export function mountAt(adapter: ReturnType<typeof testAdapter>, url: string) {
   window.history.replaceState(null, '', url);
-  return render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><ToastProbe /><TestRoutes /></PlatformProvider></I18nProvider>);
+  return render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider><ToastProbe /><TestRoutes /><DetailSlotHost /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
 }

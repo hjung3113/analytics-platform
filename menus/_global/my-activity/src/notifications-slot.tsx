@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import type { NotificationsSlot } from '@ap/kernel';
-import { FoScreenRoot, InboxPanel, useUnreadNotificationCount, type HostSeam } from '@fops/frontend/global-screens';
+import { FoScreenRoot, InboxPanel, useUnreadNotificationCount, type HostSeam } from '@fops/frontend/global-screens/core';
 import { FoBridge, UnlinkedLink } from './fo/FoBridge';
 import { foQueryClient, useFoSession } from './fo/session';
 

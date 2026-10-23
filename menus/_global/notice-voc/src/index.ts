@@ -1,9 +1,8 @@
 /**
  * @ap/menu-notice-voc — noticeVoc group manifests (docs/06 §5, §9).
- * Menus declare, the kernel's createRegistry validates and the shell consumes.
+ * Menus declare, the kernel's createRegistry validates and the shell consumes. 내 VOC moved to @ap/menu-my-activity (#654).
  */
-import { lazy } from 'react';
-import { Megaphone, MessageSquareWarning } from 'lucide-react';
+import { Megaphone } from 'lucide-react';
 import type { MenuEntry } from '@ap/kernel';
 import { groupId, type Capability, type ContextKey } from '@ap/contracts';
 
@@ -13,13 +12,6 @@ const none: Record<ContextKey, Capability> = { time: 'unsupported', roomNames: '
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
 
 export const manifests: MenuEntry[] = [
-  {
-    id: 'voc', group: GROUP, label: { ko: '내 VOC', en: 'VOC' },
-    description: { ko: '내가 접수한 VOC 상태. 등록은 FeedbackOps로 이동합니다.', en: 'Status of VOCs you filed. Filing opens FeedbackOps.' },
-    path: '/voc', icon: MessageSquareWarning, permission: 'voc:view', requiresScope: false, pageType: 'management', context: none,
-    features: noFeatures, pageKeys: ['cursor'],
-    component: lazy(() => import('./pages/MyVocHistory')),
-  },
   {
     id: 'notices', primary: true, group: GROUP, label: { ko: '공지', en: 'Notices' },
     description: { ko: '공지 목록/상세', en: 'Notice list/detail' },

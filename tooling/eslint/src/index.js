@@ -59,11 +59,11 @@ const devRegex = (devAllow = []) =>
 // "one or more" here), so a `menu-/mock` source is not rejected on this side; the dynamic-import
 // side (import-source.js) uses `[^/]+` for the same pattern.
 const MENU_MOCK_SUBPATH = 'menu-*/mock';
-const FEEDBACKOPS_ORIGIN_SUBPATH = 'menu-notice-voc/feedbackops-origin';
 const FO_API_SUBPATH = 'menu-my-activity/fo-api';
 const NOTIFICATIONS_SLOT_SUBPATH = 'menu-my-activity/notifications-slot';
-// Rule 8 exception (platform ADR-0071): the FeedbackOps bridge menu imports exactly this entry; nothing else under @fops/*.
-const FO_BRIDGE_ENTRY = '@fops/frontend/global-screens';
+// Rule 8 exception (platform ADR-0071): the FeedbackOps bridge menu imports exactly these entries (the screen barrel and
+// its eager-code subset `/core`); nothing else under @fops/*.
+const FO_BRIDGE_ENTRIES = ['@fops/frontend/global-screens', '@fops/frontend/global-screens/core'];
 const UI_THEME_SUBPATHS = ['ui/theme', 'ui/theme-tokens.json'];
 
 // Restriction data is the single decision source: each layer declares
@@ -78,14 +78,14 @@ const UI_THEME_SUBPATHS = ['ui/theme', 'ui/theme-tokens.json'];
 // Deep subpaths are banned for everyone, except subpaths matched by allowSubpaths.
 const TABLE_ENGINE_PACKAGES = ['@tanstack/react-table', '@tanstack/react-virtual', '@tanstack/table-core', '@tanstack/virtual-core'];
 const MENU_RESTRICTION = { allow: MENU_ALLOW, denyReact: false, denyTableEngine: true, mockAllowed: false, allowSubpaths: UI_THEME_SUBPATHS };
-// allowFeedbackOps: exact @fops/* sources exempted from the FeedbackOps ban (only the bridge menu, FO_BRIDGE_ENTRY).
-const FO_BRIDGE_RESTRICTION = { ...MENU_RESTRICTION, allowFeedbackOps: [FO_BRIDGE_ENTRY] };
+// allowFeedbackOps: exact @fops/* sources exempted from the FeedbackOps ban (only the bridge menu, FO_BRIDGE_ENTRIES).
+const FO_BRIDGE_RESTRICTION = { ...MENU_RESTRICTION, allowFeedbackOps: FO_BRIDGE_ENTRIES };
 const MENU_MOCK_RESTRICTION = { allow: ['contracts'], denyReact: true, denyTableEngine: true, mockAllowed: true };
 // #154: the real-server adapter reaches the app through src/real/** only (APP_REAL_FILES below).
 const APP_RESTRICTION = { allow: null, denyReact: false, mockAllowed: false, denyDev: true, denyHttpAdapter: true, allowSubpaths: [...UI_THEME_SUBPATHS, DOCK_ENTRY_SUBPATH, HOST_ENTRY_SUBPATH] };
 // src/main.tsx is the composition root: only the FeedbackOps origin, FO API and notifications slot subpaths; no mock, no ./dev (#153).
 const APP_REAL_RESTRICTION = { ...APP_RESTRICTION, denyHttpAdapter: false };
-const APP_MAIN_RESTRICTION = { ...APP_RESTRICTION, allowSubpaths: [...UI_THEME_SUBPATHS, DOCK_ENTRY_SUBPATH, HOST_ENTRY_SUBPATH, FEEDBACKOPS_ORIGIN_SUBPATH, FO_API_SUBPATH, NOTIFICATIONS_SLOT_SUBPATH] };
+const APP_MAIN_RESTRICTION = { ...APP_RESTRICTION, allowSubpaths: [...UI_THEME_SUBPATHS, DOCK_ENTRY_SUBPATH, HOST_ENTRY_SUBPATH, FO_API_SUBPATH, NOTIFICATIONS_SLOT_SUBPATH] };
 // The mock assembly and DevTools: mock-server and the menu `/mock` subpaths.
 const APP_DEV_RESTRICTION = { allow: null, denyReact: false, mockAllowed: true, denyHttpAdapter: true, allowSubpaths: [...UI_THEME_SUBPATHS, MENU_MOCK_SUBPATH] };
 // The conformance test: mock-server, and from ./dev only the mock assembly's MOCK_ENDPOINTS list (#153 follow-up —

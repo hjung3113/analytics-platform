@@ -21,6 +21,7 @@ export interface ConversationTimelineProps {
   voc: VocDetailEnvelope;
   canTriage: boolean;
   actorNamesById?: ReadonlyMap<string, string> | undefined;
+  meActor?: { id: string; display_name: string } | null | undefined;
   /** Latest successful post selects 공개, or 내부 when canTriage permits it. */
   postSignal?: ConversationPostSignal;
 }
@@ -29,6 +30,7 @@ export function ConversationTimeline({
   voc,
   canTriage,
   actorNamesById,
+  meActor,
   postSignal,
 }: ConversationTimelineProps): React.ReactElement {
   const [selectedTab, setSelectedTab] = React.useState<'public' | 'internal'>('public');
@@ -107,6 +109,7 @@ export function ConversationTimeline({
             inline={publicEntries}
             hasMore={voc.conversation_page.has_more}
             actorNamesById={actorNamesById}
+            meActor={meActor}
           />
         </TabsContent>
         {canTriage && (
@@ -116,6 +119,7 @@ export function ConversationTimeline({
               inline={internalEntries}
               hasMore={voc.conversation_page.has_more}
               actorNamesById={actorNamesById}
+              meActor={meActor}
             />
           </TabsContent>
         )}

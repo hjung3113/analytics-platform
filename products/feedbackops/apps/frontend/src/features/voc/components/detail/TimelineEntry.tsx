@@ -1,6 +1,5 @@
 // TimelineEntry — single conversation entry with kind chip + rich body.
 
-import { useMe } from '@/lib/auth/useMe';
 import { GLOSSARY } from '@/lib/copy/glossary';
 import { formatRelativeTime } from '@/lib/format/datetime';
 import type { ConversationEntry } from '@fops/shared';
@@ -28,18 +27,22 @@ const KIND_LABELS: Record<ConversationEntry['kind'], string> = {
 export interface TimelineEntryProps {
   entry: ConversationEntry;
   actorDisplayName?: string | undefined;
+  /** The signed-in actor, used as the display-name fallback when `actorDisplayName` is absent. */
+  meActor?: { id: string; display_name: string } | null | undefined;
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
 
-export function TimelineEntry({ entry, actorDisplayName }: TimelineEntryProps): React.ReactElement {
-  const { data: me } = useMe();
-
+export function TimelineEntry({
+  entry,
+  actorDisplayName,
+  meActor,
+}: TimelineEntryProps): React.ReactElement {
   const actorUser: { display_name: string } =
     actorDisplayName !== undefined
       ? { display_name: actorDisplayName }
-      : me?.actor.id === entry.actor_id
-      ? { display_name: me.actor.display_name }
+      : meActor?.id === entry.actor_id
+      ? { display_name: meActor.display_name }
       : { display_name: GLOSSARY.unknownUser };
 
   const rendererMode =

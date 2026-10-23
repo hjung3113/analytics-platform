@@ -51,21 +51,6 @@ async function linkUrl(link: Locator) {
   return new URL(href!);
 }
 
-async function expectMyVocLinks(page: Page, expectedReturn: string) {
-  const createUrl = await linkUrl(page.getByRole('link', { name: 'VOC 등록' }));
-  expectExactQueryKeys(createUrl, ['action', 'platformReturn']);
-  expect(createUrl.searchParams.get('action')).toBe('create');
-  expect(createUrl.searchParams.getAll('platformReturn')).toEqual([expectedReturn]);
-
-  const firstRowUrl = await linkUrl(page.getByLabel('스크롤 가능한 행 영역', { exact: true })
-    .getByRole('link', { name: /FeedbackOps에서 보기$/ }).first());
-  expectExactQueryKeys(firstRowUrl, ['view', 'selected', 'platformReturn']);
-  expect(firstRowUrl.searchParams.get('view')).toBe('inbox');
-  expect(firstRowUrl.searchParams.get('selected')).toMatch(UUID);
-  expect(firstRowUrl.searchParams.getAll('platformReturn')).toEqual([expectedReturn]);
-  return firstRowUrl;
-}
-
 /** Rail section buttons of the current system (15 §3.2). `exact` keeps '생산성 분석' apart from the switcher's '… 현재: MARS'. */
 function railSection(page: Page, name: string) {
   return page.getByRole('navigation', { name: '앱 레일' }).getByRole('group', { name: '시스템 섹션' }).getByRole('button', { name, exact: true });
@@ -1907,7 +1892,7 @@ test.describe('전역 기능 자리 (ADR-0070, 06 §9.1·§10)', () => {
     await page.goto('/metrics');
     const popover = await openSwitcher(page);
     const platformMenu = popover.getByRole('navigation', { name: '플랫폼 메뉴' });
-    await expect(platformMenu.getByRole('link')).toHaveText(['홈', '알림', '설문', '권한 요청', '내 VOC', '공지']);
+    await expect(platformMenu.getByRole('link')).toHaveText(['홈', '알림', '내 VOC', '설문', '권한 요청', '공지']);
     await evidence(page, testInfo, 'platform-menu-switcher');
     await platformMenu.getByRole('link', { name: '알림' }).click();
     await expect(popover).toHaveCount(0);
@@ -1964,10 +1949,30 @@ test.describe('전역 기능 자리 (ADR-0070, 06 §9.1·§10)', () => {
     await expect(page.getByRole('status')).toContainText('실서버 필요');
     await expect(sidebarSurveys).toHaveAttribute('aria-current', 'page');
     const switcher = await openSwitcher(page);
-    await expect(switcher.getByRole('navigation', { name: '플랫폼 메뉴' }).getByRole('link')).toHaveText(['홈', '알림', '설문', '권한 요청', '내 VOC', '공지']);
+    await expect(switcher.getByRole('navigation', { name: '플랫폼 메뉴' }).getByRole('link')).toHaveText(['홈', '알림', '내 VOC', '설문', '권한 요청', '공지']);
 
     await page.goto('/surveys/not-a-uuid/respond');
     await expect(page.getByText('설문을 찾을 수 없습니다')).toBeVisible();
+  });
+
+  test('내 VOC는 mock에서 실서버 필요 상태를 보이고 상세 주소는 내 VOC 아래에 놓이며 잘못된 VOC ID는 찾을 수 없음이다 (#654)', async ({ page }) => {
+    await signInAs(page, 'viewer');
+    await page.goto('/metrics');
+    const popover = await openSwitcher(page);
+    await popover.getByRole('navigation', { name: '플랫폼 메뉴' }).getByRole('link', { name: '내 VOC' }).click();
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/voc');
+    await expect(page.getByRole('main').getByRole('heading', { name: '내 VOC' })).toBeFocused();
+    await expect(page.getByRole('status')).toContainText('실서버 필요');
+    const sidebarVoc = page.getByRole('navigation', { name: '플랫폼 메뉴' }).getByRole('link', { name: '내 VOC', exact: true });
+    await expect(sidebarVoc).toHaveAttribute('aria-current', 'page');
+
+    await page.goto('/voc/11111111-1111-4111-8111-111111111111');
+    await expect(page.getByRole('main').getByRole('heading', { name: '내 VOC 상세' })).toBeVisible();
+    await expect(page.getByRole('status')).toContainText('실서버 필요');
+    await expect(sidebarVoc).toHaveAttribute('aria-current', 'page');
+
+    await page.goto('/voc/not-a-uuid');
+    await expect(page.getByText('VOC를 찾을 수 없습니다')).toBeVisible();
   });
 
   test('플랫폼 사이드바는 업무 사이드바와 접힘 상태를 함께 쓴다', async ({ page }) => {
@@ -3629,16 +3634,16 @@ test.describe('표 쪽 이동 포커스 (06 §26)', () => {
 });
 
 test.describe('표 높이·고정 동작 열 (06 §15, ADR-0037)', () => {
-  test('짧은 VOC 결과는 240px보다 작고 행 영역에 빈 스크롤이 없다', async ({ page }, testInfo) => {
+  // #654: the old subject (`/voc` MyVocHistory table) moved to FeedbackOps; the short-result case now uses a narrowed equipment table.
+  test('짧은 설비 결과는 240px보다 작고 행 영역에 빈 스크롤이 없다', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto('/voc?v=1');
+    await page.goto('/equipment?v=1&scopeId=MEM&q=PHOTO-0103');
     const rows = page.getByLabel('스크롤 가능한 행 영역', { exact: true });
-    // E2E sets VITE_FEEDBACKOPS_ORIGIN (#251), so the VOC row action is a link, not the disabled button.
-    await expect(rows.getByRole('link', { name: /보기$/ }).first()).toBeVisible();
+    await expect(rows.getByRole('button', { name: /보기$/ }).first()).toBeVisible();
     await expect.poll(() => rows.evaluate(el => el.clientHeight)).toBeGreaterThan(0);
     await expect.poll(() => rows.evaluate(el => el.getBoundingClientRect().height)).toBeLessThan(240);
     await expect.poll(() => rows.evaluate(el => el.scrollHeight - el.clientHeight)).toBe(0);
-    await evidence(page, testInfo, 'voc-content-height');
+    await evidence(page, testInfo, 'equipment-short-content-height');
   });
 
   test('긴 설비 결과는 안쪽에서 스크롤하고 쪽 넘김은 화면 안에 있다', async ({ page }, testInfo) => {
@@ -3795,28 +3800,6 @@ test.describe('FeedbackOps 진입 링크 회귀(#451, 06 §22)', () => {
     await evidence(page, testInfo, 'feedbackops-return-current-url');
   });
 
-  test('내 VOC 커서 페이지에서도 FeedbackOps 복귀 URL을 갱신한다', async ({ page }, testInfo) => {
-    await signInAs(page, 'engineer');
-    await page.goto('/voc?v=1');
-    await expect(mainHeading(page)).toBeVisible();
-
-    const create = page.getByRole('link', { name: 'VOC 등록' });
-    const rows = page.getByLabel('스크롤 가능한 행 영역', { exact: true });
-    const firstRowLink = rows.getByRole('link', { name: /FeedbackOps에서 보기$/ }).first();
-    await expect(create).toBeVisible();
-    await expect(firstRowLink).toBeVisible();
-    const initialReturn = page.url();
-    const initialRowUrl = await expectMyVocLinks(page, initialReturn);
-
-    await page.getByRole('button', { name: '더 보기', exact: true }).click();
-    await expect.poll(() => query(page).get('cursor')).toBe('mock:engineer:2');
-    await expect.poll(async () => (await linkUrl(firstRowLink)).searchParams.get('selected'))
-      .not.toBe(initialRowUrl.searchParams.get('selected'));
-    const cursorReturn = page.url();
-    await expectMyVocLinks(page, cursorReturn);
-    await evidence(page, testInfo, 'feedbackops-return-voc-cursor');
-  });
-
   test('새로고침·Back·Forward 뒤에도 공간 링크는 현재 URL과 managedSystem을 유지한다', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
     await page.goto(PRODUCTIVITY);
@@ -3877,9 +3860,6 @@ test.describe('FeedbackOps 진입 링크 회귀(#451, 06 §22)', () => {
       expect(destinations.sort()).toEqual(['surveys', 'tasks', 'vocs:create', 'vocs:inbox']);
     }
 
-    await page.goto('/voc?v=1');
-    await expect(mainHeading(page)).toBeVisible();
-    await expectMyVocLinks(page, page.url());
     await evidence(page, testInfo, 'feedbackops-query-keys');
   });
 

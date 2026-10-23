@@ -41,6 +41,7 @@ It does not own Task status, Survey Response conversion, Finding persistence, or
 - `apps/frontend/src/features/voc/routes/InboxRoute.tsx` — inbox/My VOC list state, filters, and detail selection.
 - `apps/frontend/src/features/voc/routes/TriageRoute.tsx` — triage permission gate, session processed count, and queue state.
 - `apps/frontend/src/features/voc/routes/CreateRoute.tsx` — VOC creation route composition.
+- `apps/frontend/src/features/voc/components/reporter/` — bridge-safe reporter perspective (`MyVocListScreen`, `ReporterVocDetail`) for the platform `내 VOC` (platform ADR-0071); the standalone `/vocs?view=my` is unchanged.
 - `apps/frontend/src/features/voc/components/list/VocList.tsx` — VOC list rows and loading/empty/error states.
 - `apps/frontend/src/features/voc/components/triage/VocTriageScreen.tsx` — triage queue screen and selected panel.
 - `apps/frontend/src/features/voc/components/triage/useVocTriageScreenController.ts` — screen-session selection history, Finding target, and queue action handlers.

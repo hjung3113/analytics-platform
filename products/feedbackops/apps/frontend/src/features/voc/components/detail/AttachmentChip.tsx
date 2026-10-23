@@ -8,9 +8,11 @@
 // PLAN-22 §Bug-1 (2026-05-22).
 
 import { Paperclip } from 'lucide-react';
-import * as React from 'react';
+import type * as React from 'react';
 
 import type { LinkedAttachment } from '@fops/shared';
+
+import { apiHref } from '@/lib/api/client';
 
 import { formatFileSize } from '../../lib/format-file-size';
 
@@ -22,7 +24,7 @@ export function AttachmentChip({ attachment }: AttachmentChipProps): React.React
   // Anchor with href triggers a same-origin GET that carries the session
   // cookie; Content-Disposition: attachment makes the browser download
   // instead of navigate. download attr is a hint; the server header wins.
-  const href = `/attachments/${attachment.id}/download`;
+  const href = apiHref(`/attachments/${attachment.id}/download`);
   return (
     <a
       data-testid="attachment-chip"
@@ -54,10 +56,7 @@ export function AttachmentChipList({
 }: AttachmentChipListProps): React.ReactElement | null {
   if (!attachments || attachments.length === 0) return null;
   return (
-    <div
-      data-testid="attachment-chip-list"
-      className="flex flex-wrap gap-2 mt-2"
-    >
+    <div data-testid="attachment-chip-list" className="flex flex-wrap gap-2 mt-2">
       {attachments.map((a) => (
         <AttachmentChip key={a.id} attachment={a} />
       ))}

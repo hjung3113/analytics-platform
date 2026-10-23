@@ -78,6 +78,12 @@ vi.mock('@/lib/api', async (importOriginal) => {
   return { ...actual, apiClient: apiClientMock };
 });
 
+// useVocList imports the client module directly (bridge-safe graph, #654), not the barrel mocked above.
+vi.mock('@/lib/api/client', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/client')>()),
+  apiClient: apiClientMock,
+}));
+
 // ── Stub useVocListPages ────────────────────────────────────────────────────────────
 
 const MOCK_VOC_ITEMS = [

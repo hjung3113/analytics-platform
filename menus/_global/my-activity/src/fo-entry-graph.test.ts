@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest';
  */
 const FO = fileURLToPath(new URL('../../../../products/feedbackops', import.meta.url));
 const FRONTEND_SRC = join(FO, 'apps/frontend/src');
-const ENTRY = join(FRONTEND_SRC, 'global-screens/index.ts');
+const ENTRIES = [join(FRONTEND_SRC, 'global-screens/index.ts'), join(FRONTEND_SRC, 'global-screens/core.ts')];
 const PACKAGE_ENTRIES: Record<string, string> = {
   '@fops/ui': join(FO, 'packages/ui/src/index.ts'),
   '@fops/shared': join(FO, 'packages/shared/src/index.ts'),
@@ -30,7 +30,7 @@ function walk() {
   const files = new Map<string, string>();
   const specifiers = new Set<string>();
   const unresolved: string[] = [];
-  const queue = [ENTRY];
+  const queue = [...ENTRIES];
   while (queue.length > 0) {
     const file = queue.pop()!;
     if (files.has(file)) continue;
@@ -52,13 +52,27 @@ function walk() {
 const { files, specifiers, unresolved } = walk();
 const reached = [...files.keys()].map(file => relative(FRONTEND_SRC, file));
 
+const EAGER_MODULES = ['notifications-slot.tsx', 'fo/FoBridge.tsx', 'fo/session.ts'];
+const FULL_ENTRY_IMPORT = /\bimport\s+(?!type\b)[^;]*?from\s*['"]@fops\/frontend\/global-screens['"]/;
+
 describe('FeedbackOps bridge entry graph (ADR-0071)', () => {
+  it.each(EAGER_MODULES)('keeps the eagerly loaded %s off the screen barrel (main chunk)', file => {
+    const text = readFileSync(fileURLToPath(new URL(file, import.meta.url)), 'utf8');
+    expect(text).toMatch(/from\s*['"]@fops\/frontend\/global-screens\/core['"]/);
+    expect(FULL_ENTRY_IMPORT.test(text)).toBe(false);
+  });
+
   it('reaches the InboxPanel', () => {
     expect(reached).toContain('features/home/InboxPanel.tsx');
   });
 
   it('reaches the survey screens and their hooks', () => {
     expect(reached).toEqual(expect.arrayContaining(['features/surveys/components/participation/SurveyParticipationScreens.tsx', 'features/surveys/hooks/useSurveys.ts']));
+  });
+
+  it('reaches the reporter VOC screens and not the operator inbox or detail panel', () => {
+    expect(reached).toEqual(expect.arrayContaining(['features/voc/components/reporter/MyVocListScreen.tsx', 'features/voc/components/reporter/ReporterVocDetail.tsx']));
+    expect(reached.filter(file => /^features\/voc\/(routes\/|components\/(list\/VocList\.tsx|detail\/(VocDetailPanel|FullDetailView)\.tsx))/.test(file))).toEqual([]);
   });
 
   it('resolves every local import edge and walks past the package barrels', () => {
