@@ -1,4 +1,4 @@
-import { PortError, type EquipmentSummary, type PortErrorCode } from '@ap/contracts';
+import { isPortError, type EquipmentSummary, type PortErrorCode } from '@ap/contracts';
 import type { ConformanceCheck, ServerConformanceHarness } from './index';
 
 /** All vocabulary and authorization evidence belong to the integrating app/server. */
@@ -22,7 +22,7 @@ function canonical(value: unknown): unknown {
 const same = (a: unknown, b: unknown) => JSON.stringify(canonical(a)) === JSON.stringify(canonical(b));
 async function rejects(run: () => Promise<unknown>, code: PortErrorCode): Promise<string | null> {
   try { await run(); return `Expected rejection ${code}, received successful data`; }
-  catch (e) { return e instanceof PortError && e.code === code ? null : `Expected PortError ${code}, got ${String(e)}`; }
+  catch (e) { return isPortError(e) && e.code === code ? null : `Expected PortError ${code}, got ${String(e)}`; }
 }
 async function pages<T>(send: (cursor: string | null) => Promise<{ items: T[]; nextCursor: string | null }>, id: (item: T) => string): Promise<{ items: T[]; failure: string | null }> {
   const cursors = new Set<string>(); const ids = new Set<string>(); const items: T[] = [];

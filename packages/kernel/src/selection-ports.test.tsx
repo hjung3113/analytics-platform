@@ -200,6 +200,25 @@ it.each(['options', 'search', 'resolve'] as const)('%s exposes nonretryable Port
   expect(send).toHaveBeenCalledTimes(1);
 });
 
+it('treats a PortError-shaped rejection from another contracts copy as a judged failure', async () => {
+  const foreign = { name: 'PortError', code: 'scope_forbidden', message: 'denied' };
+  const send = vi.fn(async () => { throw foreign; });
+  let result: ReturnType<typeof useAxisOptions>;
+  function Probe() { result = useAxisOptions({ axisId: 'a' }); return null; }
+  mount(fixture({ listAxisOptions: send }), <Probe />);
+  await waitFor(() => expect(result!.status).toBe('error'));
+  expect(result!.error).toMatchObject({ code: 'scope_forbidden', retryable: false });
+});
+
+it('isPortError is structural: name and a known code, nothing else', async () => {
+  const { PortError, isPortError } = await import('@ap/contracts');
+  expect(isPortError(new PortError('invalid_cursor', 'x'))).toBe(true);
+  expect(isPortError({ name: 'PortError', code: 'room_forbidden', message: 'x' })).toBe(true);
+  expect(isPortError({ name: 'PortError', code: 'nope', message: 'x' })).toBe(false);
+  expect(isPortError({ name: 'Error', code: 'room_forbidden', message: 'x' })).toBe(false);
+  for (const v of [null, undefined, 'PortError', new Error('x')]) expect(isPortError(v)).toBe(false);
+});
+
 it('never dispatches through callbacks retained from an unmounted hook', async () => {
   const send = vi.fn<PlatformAdapter['searchEquipment']>().mockResolvedValue({ items: [], nextCursor: 'more' });
   let result: ReturnType<typeof useEquipmentSearch>;

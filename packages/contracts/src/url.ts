@@ -5,7 +5,7 @@
  */
 export class ContractError extends Error {
   /** `field` (the URL key) and `raw` (its value as written) are set only when one key's one value is at fault; `message` stays the English diagnostic. */
-  constructor(public code: string, message: string, public field?: string, public raw?: string) { super(message); }
+  constructor(public code: string, message: string, public field?: string, public raw?: string) { super(message); this.name = 'ContractError'; }
 }
 const fail = (code: string, message: string, field?: string, raw?: string): never => { throw new ContractError(code, message, field, raw); };
 

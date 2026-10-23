@@ -1,4 +1,4 @@
-import { isRecord, PortError, type ActionResponse, type ApiResponse, type MenuAction, type PortErrorCode } from '@ap/contracts';
+import { isRecord, PORT_ERROR_CODES, PortError, type ActionResponse, type ApiResponse, type MenuAction, type PortErrorCode } from '@ap/contracts';
 import { abortError, parseJson, type Parsed, type Raw, type SendRequest, type Transport } from './transport.js';
 import type { SessionStore } from './session.js';
 import { safeMessage, toActionResponse, toEnvelope } from './validate.js';
@@ -134,8 +134,6 @@ export async function plainCall(context: CallContext, request: Omit<SendRequest,
   return plainResult(raw);
 }
 
-const PORT_CODES: readonly string[] = ['invalid_input', 'unknown_axis', 'invalid_cursor', 'invalid_period', 'membership_basis_unsupported', 'unknown_scope', 'scope_forbidden', 'room_forbidden'];
-
 /** The three selection ports: a judged 4xx `{code,message,field?}` is a PortError, everything else a transport rejection. */
 /** A PortError `field` names an input field; anything that does not look like one is dropped (same reason as `safeMessage`). */
 function safeField(field: unknown): string | undefined {
@@ -148,7 +146,7 @@ export async function portCall(context: CallContext, request: Omit<SendRequest, 
   if (raw.kind === 'response' && raw.status >= 400 && raw.status < 500 && raw.status !== 401) {
     const parsed = parseJson(raw.text);
     const value = parsed.ok ? parsed.value : null;
-    if (isRecord(value) && typeof value['code'] === 'string' && PORT_CODES.includes(value['code']) && typeof value['message'] === 'string') {
+    if (isRecord(value) && typeof value['code'] === 'string' && (PORT_ERROR_CODES as readonly string[]).includes(value['code']) && typeof value['message'] === 'string') {
       throw new PortError(value['code'] as PortErrorCode, safeMessage(value['message']), safeField(value['field']));
     }
   }
