@@ -24,3 +24,4 @@ export {
   VocComposeScreen,
   type VocComposeScreenProps,
 } from '@/features/voc/components/compose/VocComposeScreen';
+export { PermissionRequestsScreen } from '@/features/home/permission-requests/PermissionRequestsScreen';

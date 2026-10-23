@@ -46,3 +46,4 @@ export const permissionDecisionsEnvelopeSchema = z.record(z.string(), permission
 export type PermissionDecisionsEnvelope = Record<string, PermissionDecision>;
 
 export * from './selected-detail.js';
+export * from './mine.js';

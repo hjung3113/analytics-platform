@@ -18,10 +18,9 @@ export function permissionCheckQueryKey(args: UsePermissionCheckArgs) {
   return ['permission-check', args.capability, args.managedSystemId ?? null] as const;
 }
 
-// Issue #5: shared query key for the open-requests list. Exported here for
-// symmetry with permissionCheckQueryKey so the request-access button can
-// invalidate both keys on a successful POST.
-export const permissionRequestsMineKey = ['permission-requests-mine'] as const;
+// Issue #5: shared query key for the open-requests list, defined next to its fetch (#657) and re-exported here
+// so the request-access button can invalidate both keys on a successful POST.
+export { permissionRequestsMineKey } from '@/lib/api/permission-requests';
 
 export function usePermissionCheck(args: UsePermissionCheckArgs) {
   return useQuery<PermissionCheckResponse>({

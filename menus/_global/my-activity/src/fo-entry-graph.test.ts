@@ -83,6 +83,11 @@ describe('FeedbackOps bridge entry graph (ADR-0071)', () => {
     expect(reached.filter(file => /^lib\/(auth\/|api\/(managed-systems|analytics-areas)\.ts$)/.test(file))).toEqual([]);
   });
 
+  it('reaches the permission requests page and its bridge-safe api module, not the standalone permissions api', () => {
+    expect(reached).toEqual(expect.arrayContaining(['features/home/permission-requests/PermissionRequestsScreen.tsx', 'lib/api/permission-requests.ts']));
+    expect(reached).not.toContain('lib/api/permissions.ts');
+  });
+
   it('resolves every local import edge and walks past the package barrels', () => {
     expect(unresolved).toEqual([]);
     expect(files.size).toBeGreaterThan(60);

@@ -28,7 +28,7 @@ GET /me/permissions/scope?capability={capability}
 POST /permission-requests
 GET /permission-requests          # admin-only workspace list (#87)
 GET /permissions/requests         # canonical review-console list
-GET /permission-requests/mine     # caller's open requests
+GET /permission-requests/mine     # caller's open requests; ?status=all = own requests in every status (newest 50)
 POST /permissions/requests/:id/approve
 POST /permissions/requests/:id/reject
 POST /permissions/requests/:id/need-more-info
@@ -435,8 +435,12 @@ action or queue write; derived status lists reflect current request. No owner re
 
 ### Requester mine and `GET /permission-requests/:id` (#1080 / #1081)
 
-Mine stays session-only and owner/open scoped; add revision, requested_expiration,
-updated_at and return_route_intent to existing items. Selected owner detail returns
+Mine stays session-only and owner scoped. Without a query it returns only the caller's open
+(`pending` | `needs_more_info`) requests, newest first, unbounded as before. `?status=all` (#657)
+returns every status of the caller's own requests in the caller's workspace, ordered `created_at desc, id desc`,
+at most the newest 50 (no truncation signal). The item shape is the same; only `status` takes all seven values.
+Any other `status` value or any other query key is `422 validation.failed`. Items carry revision, requested_expiration,
+updated_at and return_route_intent. Selected owner detail returns
 current request identity, reason, supported requested scope, source/return intent,
 status/timestamps/revision, latest Admin question (nullable), typed editable scope
 candidates and allowed actions (edit only pending, supplement only needs_more_info,
