@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createBasePathLocation, I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
 import { copyText, useCopyLink } from './copyText';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { groupId, spaceId } from '@ap/contracts';
 
 function secureClipboard() {
   const clipboard = { writeText: vi.fn(async () => {}) };
@@ -142,8 +143,8 @@ const session = testSession(['platform:view'], { user: { id: 'u' } });
 const adapter = testAdapter({ session: () => session });
 const registry = createRegistry({
   spaces: [testSpace()],
-  groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }],
-  menus: [{ id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'management', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] }],
+  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
+  menus: [{ id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'management', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] }],
 });
 
 function mountHook() {

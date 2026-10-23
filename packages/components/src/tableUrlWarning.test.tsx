@@ -6,15 +6,16 @@ import { House } from 'lucide-react';
 import { I18nProvider, PlatformProvider, createRegistry, type MenuEntry } from '@ap/kernel';
 import { FilterUrlWarning, TableUrlWarning, useTableUrlWarning } from './tableUrlWarning';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { groupId, spaceId } from '@ap/contracts';
 
 afterEach(cleanup);
 
 const menu: MenuEntry = {
-  id: 'home', path: '/list', primary: true, group: 'overview', label: { ko: '목록', en: 'List' }, description: { ko: '', en: '' }, icon: House,
+  id: 'home', path: '/list', primary: true, group: groupId('overview'), label: { ko: '목록', en: 'List' }, description: { ko: '', en: '' }, icon: House,
   permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'management',
   features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: ['sort', 'page', 'q'],
 };
-const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }], menus: [menu] });
+const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }], menus: [menu] });
 const session = testSession(['platform:view']);
 
 function Probe() {

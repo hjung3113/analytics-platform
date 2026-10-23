@@ -12,6 +12,7 @@ import { analysisChartHeight, fillChartHeight, resolveAnalysisChartSize } from '
 import type { EChartProps } from './EChart';
 import { Panel } from './PlatformPage';
 import { InWorkspacePanelProvider } from './workspace/panelContext';
+import { groupId, spaceId } from '@ap/contracts';
 
 let plotHeight: number | undefined;
 vi.mock('./EChartImpl', () => ({ default: FakePlot }));
@@ -28,8 +29,8 @@ afterEach(() => { cleanup(); plotHeight = undefined; observer.resize(800, 600); 
 const features = { export: false, savedView: false, annotate: false, compare: false };
 const registry = createRegistry({
   spaces: [testSpace()],
-  groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }],
-  menus: [{ id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features, pageKeys: [] }],
+  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
+  menus: [{ id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features, pageKeys: [] }],
 });
 const session = testSession(['platform:view']);
 const adapter = testAdapter({ session: () => session });

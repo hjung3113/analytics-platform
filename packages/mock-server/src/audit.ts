@@ -11,8 +11,7 @@
  * mart trust. `partial` and `too_large` do not apply to `auditTrail` (not a mart, no period budget);
  * `entityAudit` consults `partial` through getEntity's shared counter.
  */
-import type { ApiResponse, Assessment, AuditAction, AuditEvent, AuditSortField, AuditSource, AuditTrailPage, AuditTrailQuery, EntityRef } from '@ap/contracts';
-import { instantEpochMs } from '@ap/contracts';
+import { instantEpochMs, menuPermission, type ApiResponse, type Assessment, type AuditAction, type AuditEvent, type AuditSortField, type AuditSource, type AuditTrailPage, type AuditTrailQuery, type EntityRef } from '@ap/contracts';
 import { checkScope, getRole, getScenario, nextCorrelation, partialFails, sleep } from './server';
 import { AUDIT_EVENTS } from './audit-fixtures';
 import { runtimeAuditEvents } from './annotations';
@@ -143,7 +142,7 @@ export async function entityAudit(ref: EntityRef, signal?: AbortSignal, opts?: A
   // 1. Unknown entity type, before the permission check (same as getEntity).
   if (ref.type !== 'equipment' && ref.type !== 'metric') return { ...base, outcome: 'error', message: 'Unknown entity type' };
   // 2. The destination's own view permission — not console:access.
-  const permission = ref.type === 'equipment' ? 'equipment:view' : 'metrics:view';
+  const permission = ref.type === 'equipment' ? menuPermission('equipment:view') : menuPermission('metrics:view');
   if (!USERS[requestRole].permissions.includes(permission)) return { ...base, outcome: 'forbidden', message: `No permission ${permission}` };
   // 3. Scenario early returns, same as getEntity() (shared partial counter).
   if (s === 'timeout') return { ...base, outcome: 'timeout', message: 'Query exceeded 30s budget' };

@@ -8,7 +8,6 @@ import {
 } from './generate.ts';
 import { PACKAGE_PREFIX } from './prefix.ts';
 
-const CONTRACTS_MENU = 'packages/contracts/src/menu.ts';
 const MENUS_MARKERS = [IMPORT_START, IMPORT_END, GROUPS_END, SPREADS_START, SPREADS_END] as const;
 const MOCK_ASSEMBLY_MARKERS = [MOCK_IMPORTS_START, MOCK_IMPORTS_END, MOCK_SPREADS_START, MOCK_SPREADS_END] as const;
 
@@ -17,7 +16,6 @@ export type RepoShape = {
   menusTs: string;
   mockAssemblyTsx: string;
   styleCss: string;
-  contracts: string;
   appPkg: string;
   /** Space/leaf folder paths under menus/. */
   folders: string[];
@@ -44,7 +42,6 @@ export function loadShape(root: string): RepoShape {
     menusTs: readFileSync(join(root, MENUS_TS), 'utf8'),
     mockAssemblyTsx: readFileSync(join(root, MOCK_ASSEMBLY_TSX), 'utf8'),
     styleCss: readFileSync(join(root, STYLE_CSS), 'utf8'),
-    contracts: readFileSync(join(root, CONTRACTS_MENU), 'utf8'),
     appPkg: readFileSync(join(root, APP_PKG), 'utf8'),
     folders,
     cssFolders,
@@ -65,12 +62,6 @@ function markerIndex(lines: string[], marker: string): number {
 
 function section(lines: string[], start: string, end: string): string {
   return lines.slice(markerIndex(lines, start) + 1, markerIndex(lines, end)).join('\n');
-}
-
-function groupUnion(contracts: string): string[] {
-  const line = contracts.split('\n').find(l => l.startsWith('export type GroupId ='));
-  if (line === undefined) throw new Error(`GroupId union line not found in ${CONTRACTS_MENU}`);
-  return [...line.matchAll(/'([^']+)'/g)].map(m => m[1]);
 }
 
 const toBinding = (folder: string): string => folder.replace(/-([a-z0-9])/g, (_, c: string) => c.toUpperCase());
@@ -108,16 +99,12 @@ export function checkMarkers(shape: RepoShape): void {
   }
 }
 
-/** Every GroupId union member owns exactly one GROUPS row and exactly one menu index owner. */
+/** Every group the app declares in GROUPS (the closed list, ADR-0072) is owned by exactly one menu index. */
 export function checkGroups(shape: RepoShape): void {
-  const union = groupUnion(shape.contracts);
   const rows = groupSpaces(shape.menusTs);
   for (const folder of shape.folders) {
     if (folder.split('/').length !== 2) throw new Error(`one-level menu package: menus/${folder}`);
     if (!Object.hasOwn(shape.indexes, folder)) throw new Error(`missing manifest owner: menus/${folder}/src/index.ts`);
-  }
-  for (const group of rows.keys()) {
-    if (!union.includes(group)) throw new Error(`GROUPS '${group}' is not in GroupId`);
   }
   const owners = Object.entries(shape.indexes).map(([folder, text]) => ({
     folder,
@@ -133,8 +120,7 @@ export function checkGroups(shape: RepoShape): void {
       }
     }
   }
-  for (const group of union) {
-    if (!rows.has(group)) throw new Error(`group '${group}' must have exactly one GROUPS row, found 0`);
+  for (const group of rows.keys()) {
     const owned = owners.filter(o => o.entries.some(e => e.group === group));
     if (owned.length !== 1) {
       throw new Error(`group '${group}' must be owned by exactly one menus/*/*/src/index.ts, found ${owned.length === 0 ? 'none' : owned.map(o => o.folder).join(',')}`);
@@ -195,7 +181,7 @@ export function checkWiring(shape: RepoShape): void {
 export function checkNoProbe(shape: RepoShape, skip: boolean): void {
   if (skip) return;
   const surfaces = [
-    [CONTRACTS_MENU, shape.contracts], [MENUS_TS, shape.menusTs], [MOCK_ASSEMBLY_TSX, shape.mockAssemblyTsx],
+    [MENUS_TS, shape.menusTs], [MOCK_ASSEMBLY_TSX, shape.mockAssemblyTsx],
     [STYLE_CSS, shape.styleCss], [APP_PKG, shape.appPkg],
   ] as const;
   for (const name of ['genProbe', 'gen-probe']) {

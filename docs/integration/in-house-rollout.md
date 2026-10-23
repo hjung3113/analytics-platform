@@ -95,7 +95,7 @@
 실제 메뉴는 사내에서 새로 만든다. 이 저장소의 메뉴 화면은 플랫폼 계약을 검증하는 견본이다. 사내 메뉴 개발자는 아래 순서를 따르고, 규칙의 원본은 각 링크다.
 
 1. **시작 전:** [06](../06_platform_ui_contract.md) §5 Menu Extension Contract와 §29 Platform-first Definition of Done을 읽고, Page Archetype(§12)·쓸 공통 컴포넌트·연결할 메뉴(§22)를 먼저 적는다. 화면 설계는 [설계 스킬](../../.agents/skills/analysis-platform-wireframe/SKILL.md) 절차(Requirements → IA → Screen Spec → Wireframe → Open Decisions).
-2. **그룹·패키지:** 기존 그룹에 manifest를 추가한다. 새 그룹은 사람이 `GroupId`·`GROUPS` 행을 먼저 추가한 뒤 `pnpm gen:menu`로 만든다. 패키지 규칙은 [menus/AGENTS.md](../../menus/AGENTS.md).
+2. **그룹·패키지:** 기존 그룹에 manifest를 추가한다. 새 그룹은 사람이 앱 조립 파일(`apps/platform-web/src/menus.ts`)의 `GROUPS` 행을 먼저 추가한 뒤(그룹 id는 `groupId('…')`, 새 공간·권한도 같은 파일의 `SPACES`·`PERMISSIONS`에 선언하고 계약 패키지는 고치지 않는다, ADR-0072) `pnpm gen:menu`로 만든다. 패키지 규칙은 [menus/AGENTS.md](../../menus/AGENTS.md).
 3. **조회 선언:** `menus/<space>/<g>/src/endpoints.ts`에 `defineEndpoint`로 권한(데이터 접근 권한 — 메뉴 권한과 다를 수 있음)·적용 Context·params 키·assessment kind·한도를 선언한다. 서버 판정 규칙은 [체크리스트 §3](real-server-checklist.md), 결정은 [ADR-0019](../adr/0019-menu-query-endpoint-declaration.md).
 4. **화면:** [페이지 작성 가이드](../../apps/platform-web/README.md#페이지-작성-가이드-consumer-규칙).
 5. **서버 쪽:** 개발 중에는 `menus/<space>/<g>/src/mock/`에 핸들러를 둔다(생성기가 앱 mock 조립에 등록하고 운영 빌드에는 실리지 않는다). 실서버에는 같은 엔드포인트 id로 FastAPI 핸들러를 만든다(선언 사본 공유 방식은 #148).

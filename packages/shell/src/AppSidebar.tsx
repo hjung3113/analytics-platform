@@ -1,17 +1,10 @@
-import { ChevronLeft, ChevronRight, ClipboardList, Clock3, ExternalLink, ListTodo, MessageSquarePlus, MessagesSquare, Star } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock3, ExternalLink, Star } from 'lucide-react';
 import { platformReturnFor } from '@ap/contracts';
-import { type FeedbackOpsEntryId, type MenuEntry, PlatformLink, useI18n, usePlatform } from '@ap/kernel';
+import { type MenuEntry, PlatformLink, useI18n, usePlatform } from '@ap/kernel';
 import { cn, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { ScopeSelector } from './ScopeSelector';
 import { useSystemSections } from './systemSections';
 import { formatUnread } from './unread';
-
-const FEEDBACK_ICONS: Record<FeedbackOpsEntryId, typeof Star> = {
-  'voc-create': MessageSquarePlus,
-  voc: MessagesSquare,
-  task: ListTodo,
-  survey: ClipboardList,
-};
 
 export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
   const { visibleMenus, route, favorites, recent, registry, sidebarSpace } = usePlatform();
@@ -88,7 +81,7 @@ function FeedbackOpsBlock({ collapsed }: { collapsed: boolean }) {
   return <nav aria-label={heading} className="shrink-0 border-t border-border-subtle px-2 py-2">
     {!collapsed && <p className="mx-2 mb-1 text-caption font-semibold text-text-muted">{heading}</p>}
     <ul className="space-y-0.5">{entries.map(entry => {
-      const Icon = FEEDBACK_ICONS[entry.id];
+      const Icon = entry.icon;
       const label = tx(entry.label);
       const name = lang === 'ko' ? `${label} — ${spaceName}, FeedbackOps, 새 탭` : `${label} — ${spaceName}, FeedbackOps, new tab`;
       if (entry.href === null) {
@@ -99,14 +92,14 @@ function FeedbackOpsBlock({ collapsed }: { collapsed: boolean }) {
           <Icon className="size-4 shrink-0" aria-hidden />
           {!collapsed && <span className="min-w-0 flex-1 truncate">{label}</span>}
         </span>;
-        return <li key={entry.id}><Tooltip><TooltipTrigger asChild>{disabled}</TooltipTrigger><TooltipContent side="right">{disabledName}</TooltipContent></Tooltip></li>;
+        return <li key={entry.key}><Tooltip><TooltipTrigger asChild>{disabled}</TooltipTrigger><TooltipContent side="right">{disabledName}</TooltipContent></Tooltip></li>;
       }
       const link = <a href={entry.href} target="_blank" rel="noopener noreferrer" aria-label={name}
         className={cn('flex min-h-8 items-center gap-2 rounded-md px-3 py-1.5 text-sm text-text-secondary hover:bg-surface-row-hover hover:text-text-primary', collapsed && 'justify-center px-0')}>
         <Icon className="size-4 shrink-0" aria-hidden />
         {!collapsed && <><span className="min-w-0 flex-1 truncate">{label}</span><ExternalLink className="size-3.5 shrink-0" aria-hidden /></>}
       </a>;
-      return <li key={entry.id}><Tooltip><TooltipTrigger asChild>{link}</TooltipTrigger><TooltipContent side="right">{name}</TooltipContent></Tooltip></li>;
+      return <li key={entry.key}><Tooltip><TooltipTrigger asChild>{link}</TooltipTrigger><TooltipContent side="right">{name}</TooltipContent></Tooltip></li>;
     })}</ul>
     {!collapsed && entries.some(entry => entry.href !== null) && <p className="px-3 pt-1 text-caption text-text-muted">{lang === 'ko' ? '새 탭에서 열립니다' : 'Opens in a new tab'}</p>}
   </nav>;

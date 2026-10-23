@@ -64,8 +64,8 @@ describe('generated manifest test uses the real space (#548)', () => {
       expect(test).toContain('space: null }');
       expect(test).toContain('expect(registry.spaceOf(menu)).toBeNull();');
     } else {
-      expect(test).toContain(`id: '${c.space}'`);
-      expect(test).toContain(`space: '${c.space}' }`);
+      expect(test).toContain(`id: spaceId('${c.space}')`);
+      expect(test).toContain(`space: spaceId('${c.space}') }`);
       expect(test).toContain(`expect(registry.spaceOf(menu)?.id).toBe('${c.space}');`);
     }
     if (c.space !== 'analytics') expect(test).not.toContain("'analytics'");

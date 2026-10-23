@@ -8,7 +8,7 @@
 // grants exist), is a visible skipped test, never a pass. Annotations are a gate only (#622
 // decision 6, .planning/backlog.md "주석 저장"), so they are declared not implemented.
 
-import type { PlatformAdapter } from '@ap/contracts';
+import { type PlatformAdapter, menuPermission, spaceId } from '@ap/contracts';
 import { bootstrapHttpAdapter } from '@ap/http-adapter';
 import { type PortMethod, describeServerConformance } from '@ap/server-conformance';
 import type { FastifyInstance } from 'fastify';
@@ -356,12 +356,12 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
         chartId: 'conformance-chart',
         from: '2026-10-01T00:00:00',
         to: '2026-10-01T01:00:00',
-        permission: 'analytics:view',
+        permission: menuPermission('analytics:view'),
       },
       usage: {
         name: 'entry',
         menuId: `${PREFIX}-menu`,
-        spaceId: 'improvement',
+        spaceId: spaceId('improvement'),
         path: '/fo-conformance',
         at: 0,
         sessionId: `${PREFIX}-tab`,
@@ -369,7 +369,7 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
       clientError: {
         correlationId: 'client-conformance',
         menuId: `${PREFIX}-menu`,
-        spaceId: 'improvement',
+        spaceId: spaceId('improvement'),
         path: '/fo-conformance',
         name: 'TypeError',
       },

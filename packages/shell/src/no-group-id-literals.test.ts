@@ -8,13 +8,8 @@ import { describe, expect, it } from 'vitest';
 // string or template literal equal to a GroupId member, whatever the syntax (===, switch, includes, filter callbacks).
 // vitest (package script and turbo) runs from the package root; import.meta.url is not a file path under jsdom.
 const here = join(process.cwd(), 'src');
-const contracts = readFileSync(join(process.cwd(), '../contracts/src/menu.ts'), 'utf8');
-
-function groupIds(source: string): string[] {
-  const line = source.split('\n').find(l => l.startsWith('export type GroupId ='));
-  if (line === undefined) throw new Error('GroupId union not found in @ap/contracts menu.ts');
-  return [...line.matchAll(/'([^']+)'/g)].map(m => m[1]);
-}
+// The sample app's group ids (apps/platform-web/src/menus.ts). The list is the app's to declare (ADR-0072), so this test carries its own copy.
+const ids = ['overview', 'myActivity', 'equipment', 'masterData', 'analytics', 'metrics', 'noticeVoc', 'admin', 'clas', 'logMyWork', 'logModels', 'logCross', 'logRules', 'impMyWork', 'impTasks', 'impReports'];
 
 function shellSources(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
@@ -37,13 +32,6 @@ export function groupIdLiterals(code: string, ids: readonly string[]): string[] 
 }
 
 describe('shell source has no Registry group id literals (#201)', () => {
-  const ids = groupIds(contracts);
-
-  it('reads the GroupId union', () => {
-    expect(ids).toContain('overview');
-    expect(ids.length).toBeGreaterThanOrEqual(7);
-  });
-
   it('catches the forms a narrow lint rule would miss', () => {
     for (const code of [
       "registry.groups.filter(g => g.id === 'overview')",

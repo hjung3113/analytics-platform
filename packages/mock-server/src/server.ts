@@ -2,7 +2,7 @@
  * Mock request validation + response envelope (docs/06 §19): exclusive `outcome` plus declared `assessments[]`.
  * Every page query goes through `serve()` so Scope/room grants are re-validated per request (§6.2).
  */
-import { parseDateTime, periodHours, type ApiResponse, type ClientErrorReport, type Assessment, type AssessmentKind, type Condition, type EntityRef, type GlobalContext, type Permission, type ScopeCheck, type SpaceId, type Trust, type UsageEvent, type UsageRange, type UsageSummary, type UsageVia } from '@ap/contracts';
+import { parseDateTime, periodHours, type ApiResponse, type ClientErrorReport, type Assessment, type AssessmentKind, type Condition, type EntityRef, type GlobalContext, type Permission, type ScopeCheck, type SpaceId, type Trust, type UsageEvent, type UsageRange, type UsageSummary, type UsageVia, menuPermission } from '@ap/contracts';
 import { EQUIPMENT, SITES, TIME_DOMAIN_ASSERTIONS, USERS, type Equipment, type RoleId, type TimeDomainAssertion } from './world';
 
 /**
@@ -302,7 +302,7 @@ export async function getEntity(ref: EntityRef, signal?: AbortSignal, opts?: Get
   // 1. Unknown entity type.
   if (ref.type !== 'equipment') return { ...base, outcome: 'error', message: 'Unknown entity type' };
   // 2. Endpoint permission. A missing permission outranks every response scenario.
-  if (!USERS[requestRole].permissions.includes('equipment:view')) return { ...base, outcome: 'forbidden', message: 'No permission equipment:view' };
+  if (!USERS[requestRole].permissions.includes(menuPermission('equipment:view'))) return { ...base, outcome: 'forbidden', message: 'No permission equipment:view' };
   // 3. Scenario early returns, same as serve() (shared partialCounter).
   if (s === 'timeout') return { ...base, outcome: 'timeout', message: 'Query exceeded 30s budget' };
   if (s === 'error') return { ...base, outcome: 'error', message: 'Upstream mart query failed' };
@@ -332,17 +332,14 @@ export type StoredUsageEvent = UsageEvent & { userId: string; receivedAt: number
 
 const usageEvents: StoredUsageEvent[] = [];
 
-// A Record keeps the list complete: a new SpaceId member fails typecheck until it is listed here (#590).
-const SPACE_ID_SET: Record<SpaceId, true> = { analytics: true, metrics: true, clas: true, operations: true, 'log-dev': true, improvement: true };
-const SPACE_IDS = Object.keys(SPACE_ID_SET);
-
-function validSpaceId(spaceId: unknown): spaceId is SpaceId | null {
-  return spaceId === null || (typeof spaceId === 'string' && (SPACE_IDS as readonly string[]).includes(spaceId));
-}
-
 /** True when the id is not a string, or carries anything the manifest route pattern must not: empty, `?`, `#`, `&`, whitespace, too long. */
 function invalidUsageId(value: string, max: number): boolean {
   return typeof value !== 'string' || !value || value.length > max || /[?#&\s]/.test(value);
+}
+
+/** The server does not know the app's spaces (ADR-0072): a space id is null or an id of the same shape as a menu id. */
+function validSpaceId(spaceId: unknown): spaceId is SpaceId | null {
+  return spaceId === null || (typeof spaceId === 'string' && !invalidUsageId(spaceId, 80));
 }
 
 /** Declared wire fields (docs/05 v1) — anything else a client sends is an unknown key. */

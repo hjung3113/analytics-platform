@@ -1,22 +1,22 @@
 import { describe, expect, it } from 'vitest';
 import { lazy } from 'react';
 import { House } from 'lucide-react';
-import type { Capability, ContextKey } from '@ap/contracts';
 import { createRegistry, type MenuEntry, type ModuleMenuEntry, type PlatformMenuEntry } from '@ap/kernel';
 import { formatCapabilities, toRegistryRow } from './registry-rows';
+import { groupId, spaceId, type Capability, type ContextKey } from '@ap/contracts';
 
 const unsupported: Record<ContextKey, Capability> = { time: 'unsupported', roomNames: 'unsupported', line: 'unsupported', prcGroup: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' };
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
 const spaceSubtitle = 'Registry projection fixture subtitle';
 const menu = (over: Partial<PlatformMenuEntry>): MenuEntry => ({
-  id: 'x', group: 'admin', label: { ko: '기본', en: 'Default' }, description: { ko: '', en: '' }, path: '/x', icon: House,
+  id: 'x', group: groupId('admin'), label: { ko: '기본', en: 'Default' }, description: { ko: '', en: '' }, path: '/x', icon: House,
   permission: 'platform:view', requiresScope: false, context: unsupported, pageType: 'management', features: noFeatures, pageKeys: [], ...over,
 });
 
 // One menu with a component, one without (planned) — covers both status branches.
 const registry = createRegistry({
-  spaces: [{ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, subtitle: { ko: spaceSubtitle, en: 'Registry projection fixture subtitle' }, description: { ko: '목적', en: 'Purpose' }, permission: 'console:access', homeMenuId: 'admin-roles' }],
-  groups: [{ id: 'admin', label: { ko: '관리·감사', en: 'Administration' }, icon: House, space: 'operations' }],
+  spaces: [{ id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations console' }, subtitle: { ko: spaceSubtitle, en: 'Registry projection fixture subtitle' }, description: { ko: '목적', en: 'Purpose' }, permission: 'console:access', homeMenuId: 'admin-roles' }],
+  groups: [{ id: groupId('admin'), label: { ko: '관리·감사', en: 'Administration' }, icon: House, space: spaceId('operations') }],
   menus: [
     menu({ id: 'admin-roles', primary: true, label: { ko: '권한/역할 관리', en: 'Roles & access' }, path: '/admin/roles', permission: 'console:access',
       pageKeys: ['sort', 'page', 'focus'], context: { ...unsupported, time: 'apply' }, component: lazy(async () => ({ default: () => null })) }),
@@ -70,14 +70,14 @@ describe('toRegistryRow', () => {
 
   it('labels a global utility menu 전역 and shows a space menu with its space label', () => {
     const globalRegistry = createRegistry({
-      spaces: [{ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, description: { ko: '목적', en: 'Purpose' }, permission: 'console:access', homeMenuId: 'admin-roles' }],
+      spaces: [{ id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations console' }, description: { ko: '목적', en: 'Purpose' }, permission: 'console:access', homeMenuId: 'admin-roles' }],
       groups: [
-        { id: 'admin', label: { ko: '관리·감사', en: 'Administration' }, icon: House, space: 'operations' },
-        { id: 'noticeVoc', label: { ko: '공지·VOC', en: 'Notice & VOC' }, icon: House, space: null },
+        { id: groupId('admin'), label: { ko: '관리·감사', en: 'Administration' }, icon: House, space: spaceId('operations') },
+        { id: groupId('noticeVoc'), label: { ko: '공지·VOC', en: 'Notice & VOC' }, icon: House, space: null },
       ],
       menus: [
         menu({ id: 'admin-roles', primary: true, path: '/admin/roles', permission: 'console:access' }),
-        menu({ id: 'notices', group: 'noticeVoc', primary: true, path: '/notices', permission: 'notice:view' }),
+        menu({ id: 'notices', group: groupId('noticeVoc'), primary: true, path: '/notices', permission: 'notice:view' }),
       ],
     });
     expect(toRegistryRow(globalRegistry.menuById('notices'), globalRegistry)).toMatchObject({
@@ -101,8 +101,8 @@ const moduleMenu = (): ModuleMenuEntry => ({
   requiresScope: false, context: unsupported, pageType: 'management', features: noFeatures, pageKeys: [], primary: true, moduleScreen: () => null,
 });
 const moduleRegistry = () => createRegistry({
-  spaces: [{ id: 'operations', label: { ko: '운영', en: 'Ops' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'fx-home' }],
-  groups: [{ id: 'fx:main', module: 'fx', label: { ko: '모듈', en: 'Module' }, icon: House, space: 'operations' }],
+  spaces: [{ id: spaceId('operations'), label: { ko: '운영', en: 'Ops' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'fx-home' }],
+  groups: [{ id: 'fx:main', module: 'fx', label: { ko: '모듈', en: 'Module' }, icon: House, space: spaceId('operations') }],
   menus: [moduleMenu()],
 });
 

@@ -6,15 +6,15 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import type { ApiResponse, PageQuery, PageResult, PageSort } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
 import { PlatformDataTable, type PlatformDataTableProps } from './PlatformDataTable';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { groupId, spaceId, type ApiResponse, type PageQuery, type PageResult, type PageSort } from '@ap/contracts';
 
 const registryWith = (exportFeature: boolean) => createRegistry({
   spaces: [testSpace({ homeMenuId: 'copy-menu' })],
-  groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }],
-  menus: [{ id: 'copy-menu', group: 'overview', primary: true, label: { ko: '복사', en: 'Copy' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'management', features: { export: exportFeature, savedView: false, annotate: false, compare: false }, pageKeys: [] }],
+  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
+  menus: [{ id: 'copy-menu', group: groupId('overview'), primary: true, label: { ko: '복사', en: 'Copy' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'management', features: { export: exportFeature, savedView: false, annotate: false, compare: false }, pageKeys: [] }],
 });
 const exportRegistry = registryWith(true);
 

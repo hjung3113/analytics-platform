@@ -2,39 +2,40 @@ import { useEffect, useState } from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Boxes, House, Wrench } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { GroupId, Permission } from '@ap/contracts';
 import { DetailDrawer, PlatformPage } from '@ap/components';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform, type PlatformSlots } from '@ap/kernel';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import userEvent from '@testing-library/user-event';
 import { AppShell } from './AppShell';
+import { groupId, menuPermission, spaceId, type GroupId, type Permission } from '@ap/contracts';
 
 function menu(id: string, group: GroupId, path: string, label: string, over: object = {}) {
   return { id, group, path, permission: 'platform:view' as const, primary: true, label: { ko: label, en: `${label}-en` }, description: { ko: '', en: '' }, icon: House, requiresScope: false, context: noContext, pageType: 'overview' as const, features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: ['focus', 'tab'], ...over };
 }
 function buildRegistry(opts: { startOpen?: boolean } = {}) {
   return createRegistry({
+    permissions: [menuPermission('equipment:view'), menuPermission('metrics:view')],
     spaces: [
-      testSpace({ id: 'analytics', label: { ko: 'MARS', en: 'MARS' }, subtitle: { ko: '생산성 분석', en: 'Productivity analysis' }, homeMenuId: 'cycle' }),
-      testSpace({ id: 'metrics', label: { ko: 'BRAVO', en: 'BRAVO' }, subtitle: { ko: '지표관리', en: 'Metrics' }, homeMenuId: 'catalog', permission: 'metrics:view' }),
-      testSpace({ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations' }, homeMenuId: 'roles', permission: 'console:access' }),
+      testSpace({ id: spaceId('analytics'), label: { ko: 'MARS', en: 'MARS' }, subtitle: { ko: '생산성 분석', en: 'Productivity analysis' }, homeMenuId: 'cycle' }),
+      testSpace({ id: spaceId('metrics'), label: { ko: 'BRAVO', en: 'BRAVO' }, subtitle: { ko: '지표관리', en: 'Metrics' }, homeMenuId: 'catalog', permission: menuPermission('metrics:view') }),
+      testSpace({ id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations' }, homeMenuId: 'roles', permission: 'console:access' }),
     ],
     groups: [
-      { id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: null },
-      { id: 'myActivity', label: { ko: '내 활동', en: 'My activity' }, icon: House, space: null },
-      { id: 'noticeVoc', label: { ko: '공지', en: 'Notices' }, icon: House, space: null },
-      { id: 'analytics', label: { ko: '사이클', en: 'Cycle' }, icon: House, space: 'analytics' },
-      { id: 'metrics', label: { ko: '지표', en: 'Metric' }, icon: Boxes, space: 'metrics' },
-      { id: 'admin', label: { ko: '관리', en: 'Admin' }, icon: Wrench, space: 'operations' },
+      { id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: null },
+      { id: groupId('myActivity'), label: { ko: '내 활동', en: 'My activity' }, icon: House, space: null },
+      { id: groupId('noticeVoc'), label: { ko: '공지', en: 'Notices' }, icon: House, space: null },
+      { id: groupId('analytics'), label: { ko: '사이클', en: 'Cycle' }, icon: House, space: spaceId('analytics') },
+      { id: groupId('metrics'), label: { ko: '지표', en: 'Metric' }, icon: Boxes, space: spaceId('metrics') },
+      { id: groupId('admin'), label: { ko: '관리', en: 'Admin' }, icon: Wrench, space: spaceId('operations') },
     ],
     menus: [
-      menu('start', 'overview', '/', '플랫폼 홈', { permission: opts.startOpen === false ? 'equipment:view' : 'notice:view' }),
-      menu('notices', 'noticeVoc', '/notices', '공지', { permission: 'notice:view' }),
-      menu('alerts', 'myActivity', '/alerts', '알림'),
-      menu('cycle', 'analytics', '/cycle', '사이클'),
-      menu('catalog', 'metrics', '/metrics', '카탈로그', { permission: 'metrics:view' }),
-      menu('definitions', 'metrics', '/metrics/definitions', '정의', { permission: 'metrics:view', primary: false }),
-      menu('roles', 'admin', '/ops/roles', '권한', { permission: 'console:access' }),
+      menu('start', groupId('overview'), '/', '플랫폼 홈', { permission: opts.startOpen === false ? menuPermission('equipment:view') : 'notice:view' }),
+      menu('notices', groupId('noticeVoc'), '/notices', '공지', { permission: 'notice:view' }),
+      menu('alerts', groupId('myActivity'), '/alerts', '알림'),
+      menu('cycle', groupId('analytics'), '/cycle', '사이클'),
+      menu('catalog', groupId('metrics'), '/metrics', '카탈로그', { permission: menuPermission('metrics:view') }),
+      menu('definitions', groupId('metrics'), '/metrics/definitions', '정의', { permission: menuPermission('metrics:view'), primary: false }),
+      menu('roles', groupId('admin'), '/ops/roles', '권한', { permission: 'console:access' }),
     ],
   });
 }
@@ -65,7 +66,7 @@ function Routes() {
   return route.menu.id === lazyMenuId ? <Slow key={route.menu.id} /> : <Page key={route.menu.id} />;
 }
 
-function mount({ permissions = ['platform:view', 'metrics:view', 'console:access', 'notice:view'], url = '/cycle?v=1&scopeId=MEM', registry = buildRegistry(), slots = SLOT }: {
+function mount({ permissions = ['platform:view', menuPermission('metrics:view'), 'console:access', 'notice:view'], url = '/cycle?v=1&scopeId=MEM', registry = buildRegistry(), slots = SLOT }: {
   permissions?: Permission[]; url?: string; registry?: ReturnType<typeof buildRegistry>; slots?: PlatformSlots;
 } = {}) {
   window.history.replaceState(null, '', url);
@@ -136,7 +137,7 @@ describe('SystemSwitcher popover', () => {
   });
 
   it('keeps registry order and shows only accessible systems', () => {
-    mount({ permissions: ['platform:view', 'metrics:view'] });
+    mount({ permissions: ['platform:view', menuPermission('metrics:view')] });
     open();
     const names = within(screen.getByRole('dialog')).getAllByRole('button').map(button => button.textContent ?? '');
     expect(names.some(text => text.startsWith('운영 콘솔'))).toBe(false);
@@ -196,7 +197,7 @@ describe('SystemSwitcher popover', () => {
     mount();
     expect(within(within(open()).getByRole('navigation', { name: '플랫폼 메뉴' })).getByRole('link', { name: '홈' })).toBeTruthy();
     cleanup();
-    mount({ permissions: ['platform:view', 'metrics:view', 'console:access', 'notice:view'], registry: buildRegistry({ startOpen: false }) });
+    mount({ permissions: ['platform:view', menuPermission('metrics:view'), 'console:access', 'notice:view'], registry: buildRegistry({ startOpen: false }) });
     expect(within(within(open()).getByRole('navigation', { name: '플랫폼 메뉴' })).queryByRole('link', { name: '홈' })).toBeNull();
     expect(screen.queryByRole('link', { name: '플랫폼 홈' })).toBeNull();
   });

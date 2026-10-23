@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createMockAdapter, EQUIPMENT, getRole, setRole } from '@ap/mock-server';
-import { emptyGlobal, type MenuMeta } from '@ap/contracts';
+import { emptyGlobal, type MenuMeta, groupId, menuPermission } from '@ap/contracts';
 import { chartCatalogEndpoint, CHART_KINDS, type CatalogData } from '../endpoints';
 import { chartCatalogMock } from './chart-catalog';
 
 const menu: MenuMeta = {
-  id: 'chart-catalog', group: 'analytics', label: { ko: '차트 카탈로그', en: 'Chart catalog' },
+  id: 'chart-catalog', group: groupId('analytics'), label: { ko: '차트 카탈로그', en: 'Chart catalog' },
   description: { ko: '', en: '' }, path: '/analytics/chart-catalog', pageType: 'analysis',
-  permission: 'analytics:view', requiresScope: true,
+  permission: menuPermission('analytics:view'), requiresScope: true,
   context: { time: 'apply', roomNames: 'unsupported', line: 'unsupported', prcGroup: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' },
   features: { export: true, savedView: false, compare: true, annotate: true }, pageKeys: ['kind'],
 };

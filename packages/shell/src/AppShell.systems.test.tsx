@@ -1,35 +1,35 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Boxes, House, Wrench } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { GroupId, Permission } from '@ap/contracts';
 import { I18nProvider, PlatformLink, PlatformProvider, createRegistry } from '@ap/kernel';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { AppShell } from './AppShell';
+import { groupId, spaceId, type GroupId, type Permission } from '@ap/contracts';
 
 function menu(id: string, group: GroupId, path: string, label: string, over: object = {}) {
   return { id, group, path, permission: 'platform:view' as const, primary: false, label: { ko: label, en: label }, description: { ko: '', en: '' }, icon: House, requiresScope: false, context: noContext, pageType: 'overview' as const, features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [], ...over };
 }
 const registry = createRegistry({
   spaces: [
-    testSpace({ id: 'analytics', label: { ko: 'MARS', en: 'MARS' }, subtitle: { ko: '생산성 분석', en: 'Productivity analysis' }, homeMenuId: 'cycle-list' }),
-    testSpace({ id: 'metrics', label: { ko: 'BRAVO', en: 'BRAVO' }, subtitle: { ko: '지표관리', en: 'Metrics' }, homeMenuId: 'catalog' }),
-    testSpace({ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations' }, homeMenuId: 'roles', permission: 'console:access' }),
+    testSpace({ id: spaceId('analytics'), label: { ko: 'MARS', en: 'MARS' }, subtitle: { ko: '생산성 분석', en: 'Productivity analysis' }, homeMenuId: 'cycle-list' }),
+    testSpace({ id: spaceId('metrics'), label: { ko: 'BRAVO', en: 'BRAVO' }, subtitle: { ko: '지표관리', en: 'Metrics' }, homeMenuId: 'catalog' }),
+    testSpace({ id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations' }, homeMenuId: 'roles', permission: 'console:access' }),
   ],
   groups: [
-    { id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: null },
-    { id: 'analytics', label: { ko: '사이클', en: 'Cycle' }, icon: Boxes, space: 'analytics' },
-    { id: 'equipment', label: { ko: '설비', en: 'Equipment' }, icon: Wrench, space: 'analytics' },
-    { id: 'metrics', label: { ko: '지표관리', en: 'Metrics' }, icon: House, space: 'metrics' },
-    { id: 'admin', label: { ko: '관리', en: 'Admin' }, icon: Wrench, space: 'operations' },
+    { id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: null },
+    { id: groupId('analytics'), label: { ko: '사이클', en: 'Cycle' }, icon: Boxes, space: spaceId('analytics') },
+    { id: groupId('equipment'), label: { ko: '설비', en: 'Equipment' }, icon: Wrench, space: spaceId('analytics') },
+    { id: groupId('metrics'), label: { ko: '지표관리', en: 'Metrics' }, icon: House, space: spaceId('metrics') },
+    { id: groupId('admin'), label: { ko: '관리', en: 'Admin' }, icon: Wrench, space: spaceId('operations') },
   ],
   menus: [
-    menu('start', 'overview', '/', '플랫폼 홈', { primary: true }),
-    menu('cycle-list', 'analytics', '/cycle', '사이클 목록', { primary: true }),
-    menu('cycle-detail', 'analytics', '/cycle/:id', '사이클 상세', { navHidden: true, parent: 'cycle-list' }),
-    menu('equip-list', 'equipment', '/equip', '설비 목록', { primary: true }),
-    menu('equip-master', 'equipment', '/equip/master', '설비 마스터'),
-    menu('catalog', 'metrics', '/metrics', '지표 카탈로그', { primary: true }),
-    menu('roles', 'admin', '/ops', '권한', { primary: true, permission: 'console:access' }),
+    menu('start', groupId('overview'), '/', '플랫폼 홈', { primary: true }),
+    menu('cycle-list', groupId('analytics'), '/cycle', '사이클 목록', { primary: true }),
+    menu('cycle-detail', groupId('analytics'), '/cycle/:id', '사이클 상세', { navHidden: true, parent: 'cycle-list' }),
+    menu('equip-list', groupId('equipment'), '/equip', '설비 목록', { primary: true }),
+    menu('equip-master', groupId('equipment'), '/equip/master', '설비 마스터'),
+    menu('catalog', groupId('metrics'), '/metrics', '지표 카탈로그', { primary: true }),
+    menu('roles', groupId('admin'), '/ops', '권한', { primary: true, permission: 'console:access' }),
   ],
 });
 
@@ -136,9 +136,9 @@ describe('sidebar of the current section (15 §3.2)', () => {
 
   it('omits the second line when the section is named like the system', () => {
     const equalLabels = createRegistry({
-      spaces: [testSpace({ id: 'metrics', label: { ko: '지표관리', en: 'Metrics' }, subtitle: { ko: '부제', en: 'Subtitle' }, homeMenuId: 'catalog' })],
-      groups: [{ id: 'metrics', label: { ko: '지표관리', en: 'Metrics' }, icon: House, space: 'metrics' }],
-      menus: [menu('catalog', 'metrics', '/metrics', '지표 카탈로그', { primary: true })],
+      spaces: [testSpace({ id: spaceId('metrics'), label: { ko: '지표관리', en: 'Metrics' }, subtitle: { ko: '부제', en: 'Subtitle' }, homeMenuId: 'catalog' })],
+      groups: [{ id: groupId('metrics'), label: { ko: '지표관리', en: 'Metrics' }, icon: House, space: spaceId('metrics') }],
+      menus: [menu('catalog', groupId('metrics'), '/metrics', '지표 카탈로그', { primary: true })],
     });
     const view = mount('/metrics?v=1', ['platform:view'], equalLabels);
     const head = view.container.querySelector('aside > div')!;

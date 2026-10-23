@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { emptyGlobal, parseDateTime, type Capability, type ContextKey, type MenuMeta } from '@ap/contracts';
+import { emptyGlobal, parseDateTime, type Capability, type ContextKey, type MenuMeta, groupId, menuPermission } from '@ap/contracts';
 import { createMockAdapter, EQUIPMENT, getRole, setRole } from '@ap/mock-server';
 import { clasMock, operationTimeMock } from './index';
 import { operationTimeEndpoint, type OperationTimeData } from '../endpoints';
@@ -15,9 +15,9 @@ const none: Record<ContextKey, Capability> = {
   lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported',
 };
 const menu: MenuMeta = {
-  id: 'operation-time', group: 'clas',
+  id: 'operation-time', group: groupId('clas'),
   label: { ko: '설비 동작시간', en: 'Equipment operation time' }, description: { ko: '', en: '' },
-  path: '/clas/operation-time', permission: 'analytics:view', requiresScope: true,
+  path: '/clas/operation-time', permission: menuPermission('analytics:view'), requiresScope: true,
   context: { ...none, time: 'apply', roomNames: 'apply' }, pageType: 'analysis',
   features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: ['eqp'],
 };

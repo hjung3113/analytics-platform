@@ -1,7 +1,7 @@
 // Platform port `accessDirectory` (ADR-0069 decisions 7, 8): the console access directory over the
 // workspace's internal members. Judges a request and returns an outcome; the route wraps it in the
 // envelope. Permissions come from the one rule table (`resolvePlatformPermissions`), re-ordered to
-// the platform's canonical `PERMISSIONS` order; FeedbackOps has no sites, so `sites` is always [].
+// the platform's canonical permission order; FeedbackOps has no sites, so `sites` is always [].
 
 import type { Db } from '../../db/client.js';
 import { listWorkspaceInternalMembers } from '../auth/index.js';
@@ -19,7 +19,7 @@ export const ACCESS_SORT_FIELDS = ['name', 'role', 'permissionCount', 'grantCoun
 type AccessSortField = (typeof ACCESS_SORT_FIELDS)[number];
 
 const ACCESS_QUERY_KEYS = ['role', 'permission', 'page', 'pageSize', 'sort'] as const;
-/** Canonical `PERMISSIONS` order (the table is pinned to menu.ts by permissions-vocabulary.test.ts). */
+/** Canonical order of the kernel permissions (the table is pinned to menu.ts by permissions-vocabulary.test.ts). */
 const CANONICAL_PERMISSIONS: readonly string[] = PLATFORM_PERMISSION_TABLE.map((e) => e.permission);
 const PERMISSION_CONCURRENCY = 8;
 
@@ -56,9 +56,10 @@ export function parseAccessQuery(body: unknown): ParsedAccessQuery | null {
   ) {
     return null;
   }
+  // Any `<namespace>:<action>`: an app's menu permissions are not listed here and nobody in this workspace holds them (ADR-0072).
   if (
     permission !== undefined &&
-    (typeof permission !== 'string' || !CANONICAL_PERMISSIONS.includes(permission))
+    (typeof permission !== 'string' || !/^[^\s:?#&/]+:[^\s:?#&/]+$/.test(permission))
   ) {
     return null;
   }

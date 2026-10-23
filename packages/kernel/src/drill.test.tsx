@@ -6,6 +6,7 @@ import { I18nProvider } from './i18n';
 import { PlatformProvider, usePlatform, type ReturnOrigin } from './platform';
 import { createRegistry, type MenuEntry, type PlatformMenuEntry } from './registry';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from './testing';
+import { groupId, spaceId } from '@ap/contracts';
 
 const features = { export: false, savedView: false, annotate: false, compare: false };
 const drillKeys = ['drillRoom', 'drillStgroup', 'drillEquipment'] as const;
@@ -13,7 +14,7 @@ const level = (key: string, ko: string, en: string) => ({ key, label: { ko, en }
 
 function entry(partial: Pick<PlatformMenuEntry, 'id' | 'path'> & Partial<PlatformMenuEntry>): MenuEntry {
   return {
-    group: 'overview', label: { ko: partial.id, en: partial.id }, description: { ko: '', en: '' }, icon: House,
+    group: groupId('overview'), label: { ko: partial.id, en: partial.id }, description: { ko: '', en: '' }, icon: House,
     permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'overview', features, pageKeys: [],
     ...partial,
   };
@@ -21,7 +22,7 @@ function entry(partial: Pick<PlatformMenuEntry, 'id' | 'path'> & Partial<Platfor
 
 const registry = createRegistry({
   spaces: [testSpace()],
-  groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }],
+  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
   menus: [
     entry({ id: 'home', path: '/', primary: true, label: { ko: '홈', en: 'Home' } }),
     entry({

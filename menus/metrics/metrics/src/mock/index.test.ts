@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { Capability, ContextKey, MenuMeta, PageResult } from '@ap/contracts';
 import { createMockAdapter, getRole, setRole, USERS, type RoleId } from '@ap/mock-server';
 import { metricsAuditEvents, metricsMock } from './index';
 import { METRICS } from './catalog';
@@ -7,6 +6,7 @@ import {
   catalogExportEndpoint, catalogListEndpoint, catalogPageEndpoint, definitionEndpoint, metricPairEndpoint,
   type CatalogList, type CatalogRow, type DefinitionPayload, type PairVerdict,
 } from '../endpoints';
+import { groupId, menuPermission, type Capability, type ContextKey, type MenuMeta, type PageResult } from '@ap/contracts';
 
 const none: Record<ContextKey, Capability> = {
   time: 'unsupported', roomNames: 'unsupported', line: 'unsupported', prcGroup: 'unsupported', condition: 'unsupported', selection: 'unsupported',
@@ -14,7 +14,7 @@ const none: Record<ContextKey, Capability> = {
 };
 /** Inline mirrors of the metric-catalog and metric-detail manifests in '../index.ts'. 바꾸면 같이 바꾼다. */
 const base = {
-  group: 'metrics' as const, description: { ko: '', en: '' }, permission: 'metrics:view' as const, requiresScope: false, pageType: 'catalog' as const,
+  group: groupId('metrics'), description: { ko: '', en: '' }, permission: menuPermission('metrics:view'), requiresScope: false, pageType: 'catalog' as const,
   context: { ...none, metric: 'apply' as const, selection: 'reference' as const }, features: { export: true, savedView: false, annotate: false, compare: false },
 };
 const catalogMenu: MenuMeta = { ...base, id: 'metric-catalog', label: { ko: '지표 카탈로그', en: 'Metric catalog' }, path: '/metrics', pageKeys: ['q', 'status', 'domain', 'sort', 'page'] };

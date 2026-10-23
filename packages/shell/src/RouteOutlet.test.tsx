@@ -2,11 +2,11 @@ import { lazy } from 'react';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ClientErrorReport, PlatformAdapter } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform, usePlatformQuery } from '@ap/kernel';
 import { RouteOutlet } from './RouteOutlet';
 import { reloadApp } from './reload';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { groupId, spaceId, type ClientErrorReport, type PlatformAdapter } from '@ap/contracts';
 
 vi.mock('./reload', () => ({ reloadApp: vi.fn() }));
 
@@ -19,7 +19,7 @@ function hasTextWithoutChild(node: Element | null, needle: string) {
   return Array.from(node.children).every(child => !child.textContent?.includes(needle));
 }
 const menu = (id: string, path: string, over: object = {}) => ({
-  id, group: 'equipment' as const, label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House, permission: 'platform:view' as const,
+  id, group: groupId('equipment'), label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House, permission: 'platform:view' as const,
   requiresScope: false, context: noContext, pageType: 'analysis' as const, features: noFeatures, pageKeys: [], ...over,
 });
 
@@ -32,8 +32,8 @@ const lazyMissing = lazy(() => Promise.reject(new TypeError('Failed to fetch dyn
 function Flaky() { if (broken) throw new TypeError('flaky'); return <p>flaky ok</p>; }
 
 const registry = createRegistry({
-  spaces: [testSpace({ id: 'analytics' })],
-  groups: [{ id: 'equipment', label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: 'analytics' }],
+  spaces: [testSpace({ id: spaceId('analytics') })],
+  groups: [{ id: groupId('equipment'), label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: spaceId('analytics') }],
   menus: [
     menu('home', '/home', { primary: true, component: () => <p>home page</p> }),
     menu('metricpage', '/metricpage', { component: () => <p>metric page</p>, initializesMetric: true, pageKeys: [], context: { ...noContext, metric: 'apply' as const } }),
@@ -161,16 +161,16 @@ describe('global utility routes and the null-sidebar home link (06 §9.1)', () =
   function NoticePage() { return <p>notice page</p>; }
   function SecretPage() { return <p>secret page</p>; }
   const globalMenu = (id: string, path: string, over: object = {}) => ({
-    id, group: 'noticeVoc' as const, label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House,
+    id, group: groupId('noticeVoc'), label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House,
     permission: 'notice:view' as const, requiresScope: false, context: noContext, pageType: 'catalog' as const, features: noFeatures, pageKeys: [], ...over,
   });
   function globalRegistry(withRoot: boolean) {
     return createRegistry({
-      spaces: [testSpace({ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, subtitle: { ko: deniedSpaceSubtitle, en: 'Denial-only space subtitle' }, permission: 'console:access', homeMenuId: 'roles' })],
+      spaces: [testSpace({ id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations console' }, subtitle: { ko: deniedSpaceSubtitle, en: 'Denial-only space subtitle' }, permission: 'console:access', homeMenuId: 'roles' })],
       groups: [
-        { id: 'admin', label: { ko: '관리', en: 'Admin' }, icon: House, space: 'operations' },
-        { id: 'noticeVoc', label: { ko: '공지·VOC', en: 'Notice' }, icon: House, space: null },
-        ...(withRoot ? [{ id: 'overview' as const, label: { ko: '개요', en: 'Overview' }, icon: House, space: null }] : []),
+        { id: groupId('admin'), label: { ko: '관리', en: 'Admin' }, icon: House, space: spaceId('operations') },
+        { id: groupId('noticeVoc'), label: { ko: '공지·VOC', en: 'Notice' }, icon: House, space: null },
+        ...(withRoot ? [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: null }] : []),
       ],
       menus: [
         globalMenu('roles', '/admin/roles', { group: 'admin', permission: 'console:access', primary: true }),
@@ -245,15 +245,15 @@ describe('global query admission under RouteOutlet (06 §9.1)', () => {
   }
   function queryRegistry() {
     const item = (id: string, group: 'admin' | 'noticeVoc', path: string, over: object = {}) => ({
-      id, group, path, label: { ko: id, en: id }, description: { ko: '', en: '' }, icon: House,
+      id, group: groupId(group), path, label: { ko: id, en: id }, description: { ko: '', en: '' }, icon: House,
       permission: 'notice:view' as const, requiresScope: false, context: noContext, pageType: 'catalog' as const,
       features: noFeatures, pageKeys: [], ...over,
     });
     return createRegistry({
-      spaces: [testSpace({ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, permission: 'console:access', homeMenuId: 'roles' })],
+      spaces: [testSpace({ id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations console' }, permission: 'console:access', homeMenuId: 'roles' })],
       groups: [
-        { id: 'admin', label: { ko: '관리', en: 'Admin' }, icon: House, space: 'operations' },
-        { id: 'noticeVoc', label: { ko: '공지·VOC', en: 'Notice' }, icon: House, space: null },
+        { id: groupId('admin'), label: { ko: '관리', en: 'Admin' }, icon: House, space: spaceId('operations') },
+        { id: groupId('noticeVoc'), label: { ko: '공지·VOC', en: 'Notice' }, icon: House, space: null },
       ],
       menus: [
         item('roles', 'admin', '/admin/roles', { primary: true, permission: 'console:access', component: querying('roles page') }),
@@ -309,8 +309,8 @@ describe('global query admission under RouteOutlet (06 §9.1)', () => {
 describe('planned menu without a context bar (#304)', () => {
   it('does not mention the context bar or show id, path, or permission', async () => {
     const planned = createRegistry({
-      spaces: [testSpace({ id: 'analytics', homeMenuId: 'planned' })],
-      groups: [{ id: 'equipment', label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: 'analytics' }],
+      spaces: [testSpace({ id: spaceId('analytics'), homeMenuId: 'planned' })],
+      groups: [{ id: groupId('equipment'), label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: spaceId('analytics') }],
       menus: [menu('planned', '/planned', { primary: true, label: { ko: '예정 메뉴', en: 'Planned menu' } })],
     });
     const session = testSession(['platform:view']);

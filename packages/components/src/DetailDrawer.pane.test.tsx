@@ -6,15 +6,16 @@ import { I18nProvider, PaneScreenProvider, PlatformProvider, createRegistry, typ
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { DetailDrawer } from './DetailDrawer';
+import { groupId, spaceId } from '@ap/contracts';
 
 const features = { export: false, savedView: false, annotate: false, compare: false, board: true };
 const menu = (id: string, path: string, over: Record<string, unknown> = {}) => ({
-  id, group: 'overview' as const, label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House, permission: 'platform:view' as const,
+  id, group: groupId('overview'), label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House, permission: 'platform:view' as const,
   requiresScope: false, context: { ...noContext, time: 'apply' as const }, pageType: 'overview' as const, features, pageKeys: ['tab'], ...over,
 });
 const registry = createRegistry({
   spaces: [testSpace({ homeMenuId: 'home' })],
-  groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }],
+  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
   menus: [{ ...menu('home', '/'), primary: true }, menu('other', '/other'), menu('item', '/item/:id', { navHidden: true })],
 });
 

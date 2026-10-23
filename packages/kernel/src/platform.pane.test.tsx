@@ -3,7 +3,7 @@ import { StrictMode, useLayoutEffect, useState, type ReactNode } from 'react';
 import { act, cleanup, render } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { defineEndpoint, type ApiResponse, type EndpointSpec, type MenuQuery, type PlatformAdapter, type Session, type UsageEvent } from '@ap/contracts';
+import { defineEndpoint, type ApiResponse, type EndpointSpec, type MenuQuery, type PlatformAdapter, type Session, type UsageEvent, groupId, spaceId } from '@ap/contracts';
 import { I18nProvider } from './i18n';
 import { PaneQueryDraftProvider, PaneScreenProvider, PlatformProvider, usePlatform, type PaneScreen } from './platform';
 import { useMenuFetch, useMenuQuery } from './query';
@@ -13,14 +13,14 @@ import { noContext, testAdapter, testSession, testSpace } from './testing';
 const features = { export: false, savedView: false, annotate: false, compare: false };
 const apply = { ...noContext, time: 'apply' as const };
 const entry = (id: string, path: string, over: Record<string, unknown> = {}) => ({
-  id, group: 'equipment' as const, label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House, permission: 'platform:view' as const,
+  id, group: groupId('equipment'), label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House, permission: 'platform:view' as const,
   requiresScope: false, context: noContext, pageType: 'analysis' as const, features: { ...features, board: true }, pageKeys: ['page', 'tab', 'returnTo'], ...over,
 });
 const registry = createRegistry({
-  spaces: [testSpace({ homeMenuId: 'main' }), testSpace({ id: 'operations', label: { ko: '운영', en: 'Ops' }, permission: 'console:access', homeMenuId: 'ops' })],
+  spaces: [testSpace({ homeMenuId: 'main' }), testSpace({ id: spaceId('operations'), label: { ko: '운영', en: 'Ops' }, permission: 'console:access', homeMenuId: 'ops' })],
   groups: [
-    { id: 'equipment', label: { ko: '그룹', en: 'Group' }, icon: House, space: 'analytics' },
-    { id: 'admin', label: { ko: '운영', en: 'Ops' }, icon: House, space: 'operations' },
+    { id: groupId('equipment'), label: { ko: '그룹', en: 'Group' }, icon: House, space: spaceId('analytics') },
+    { id: groupId('admin'), label: { ko: '운영', en: 'Ops' }, icon: House, space: spaceId('operations') },
   ],
   menus: [
     { ...entry('main', '/main', { features, context: apply, contextResetKeys: ['page'], requiresScope: true }), primary: true },
@@ -30,8 +30,8 @@ const registry = createRegistry({
     entry('plain', '/plain', { features }),
     entry('locked', '/locked', { permission: 'console:access' }),
     entry('metric', '/metric', { context: { ...apply, metric: 'apply' }, initializesMetric: true }),
-    { ...entry('ops', '/ops', { features, permission: 'console:access' }), group: 'admin' as const, primary: true },
-    { ...entry('ops-board', '/ops-board'), group: 'admin' as const },
+    { ...entry('ops', '/ops', { features, permission: 'console:access' }), group: groupId('admin'), primary: true },
+    { ...entry('ops-board', '/ops-board'), group: groupId('admin') },
   ],
 });
 
@@ -351,7 +351,7 @@ describe('PaneScreenProvider — Scope and spaces', () => {
     expect(at('shell').global.roomNames).toBeNull();
     expect(at('shell').url.startsWith('/main')).toBe(true);
     expect(at('shell').linkTo('board-b')).toContain('scopeId=MEM');
-    expect(at('shell').spaceEntry('analytics')?.href).toContain('scopeId=MEM');
+    expect(at('shell').spaceEntry(spaceId('analytics'))?.href).toContain('scopeId=MEM');
     act(() => { at('shell').setGlobal({ roomNames: ['M1'] }); });
     expect(at('shell').global.roomNames).toEqual(['M1']);
     expect(at('p').global.roomNames).toEqual(['R9']);

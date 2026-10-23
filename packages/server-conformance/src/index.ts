@@ -1336,8 +1336,8 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
     run: expectAccepted([usageEntry, usageDwell], 2, 'a valid entry and dwell'),
   });
   // Global utility menus send spaceId null (06 §9.1). Null is always valid on this port, so the check clones
-  // the harness sample instead of skipping when no separate global sample was given. 'feedback' is a removed
-  // space id; any other string outside the declared SpaceId union is unknown.
+  // the harness sample instead of skipping when no separate global sample was given. The server does not
+  // know the app's spaces (ADR-0072), so it judges a space id by shape only: a malformed one is rejected.
   // Board provenance (ADR-0049): `source` is optional (absent = legacy main), `board` carries an opaque stayId.
   const boardEntry: UsageEvent = { ...usageEntry, source: 'board', stayId: 'conformance-stay-1' };
   const boardDwell: UsageEvent = { ...usageDwell, source: 'board', stayId: 'conformance-stay-1' };
@@ -1399,18 +1399,11 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
     run: expectAccepted([{ ...usageEntry, spaceId: null }], 1, 'a global menu (spaceId null)'),
   });
   checks.push({
-    id: 'port · recordUsage: spaceId feedback is rejected',
+    id: 'port · recordUsage: a malformed spaceId is rejected',
     uses: ['recordUsage'],
     mode: 'granted',
     nonEnvelope: true,
-    run: expectAccepted([badUsageEvent({ spaceId: 'feedback' })], 0, 'the removed feedback space id'),
-  });
-  checks.push({
-    id: 'port · recordUsage: an unknown spaceId is rejected',
-    uses: ['recordUsage'],
-    mode: 'granted',
-    nonEnvelope: true,
-    run: expectAccepted([badUsageEvent({ spaceId: 'nope' })], 0, 'an unknown space id'),
+    run: expectAccepted([badUsageEvent({ spaceId: 'a b' })], 0, 'a space id with whitespace'),
   });
   checks.push({
     id: 'port · recordUsage: one bad event rejects the whole call',
@@ -1510,7 +1503,7 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
     nonEnvelope: true,
     run: expectReported(ports.clientError, true, 'the sample report is the declared wire shape'),
   });
-  // Same space rule as recordUsage: clone the sample with spaceId null, and reject the removed id and any unknown string.
+  // Same space rule as recordUsage: clone the sample with spaceId null, and reject a malformed space id.
   checks.push({
     id: 'port · reportClientError accepts a global menu (spaceId null)',
     uses: ['reportClientError'],
@@ -1519,18 +1512,11 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
     run: expectReported({ ...ports.clientError, spaceId: null }, true, 'a global menu (spaceId null)'),
   });
   checks.push({
-    id: 'port · reportClientError: spaceId feedback is rejected',
+    id: 'port · reportClientError: a malformed spaceId is rejected',
     uses: ['reportClientError'],
     mode: 'granted',
     nonEnvelope: true,
-    run: expectReported(badErrorReport({ spaceId: 'feedback' }), false, 'the removed feedback space id'),
-  });
-  checks.push({
-    id: 'port · reportClientError: an unknown spaceId is rejected',
-    uses: ['reportClientError'],
-    mode: 'granted',
-    nonEnvelope: true,
-    run: expectReported(badErrorReport({ spaceId: 'nope' }), false, 'an unknown space id'),
+    run: expectReported(badErrorReport({ spaceId: 'a b' }), false, 'a space id with whitespace'),
   });
   checks.push({
     id: 'port · reportClientError: an unknown key (free-text message) is rejected',

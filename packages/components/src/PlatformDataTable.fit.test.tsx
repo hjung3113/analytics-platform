@@ -7,18 +7,18 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ApiResponse, PageQuery, PageResult } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { PlatformDataTable, type PlatformDataTableProps } from './PlatformDataTable';
 import { RowAction } from './RowAction';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { groupId, spaceId, type ApiResponse, type PageQuery, type PageResult } from '@ap/contracts';
 
 afterEach(cleanup);
 
 const registryWith = (exportFeature: boolean) => createRegistry({
   spaces: [testSpace({ homeMenuId: 'fit-menu' })],
-  groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }],
-  menus: [{ id: 'fit-menu', group: 'overview', primary: true, label: { ko: '맞춤', en: 'Fit' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'management', features: { export: exportFeature, savedView: false, annotate: false, compare: false }, pageKeys: [] }],
+  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
+  menus: [{ id: 'fit-menu', group: groupId('overview'), primary: true, label: { ko: '맞춤', en: 'Fit' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'management', features: { export: exportFeature, savedView: false, annotate: false, compare: false }, pageKeys: [] }],
 });
 const session = testSession(['platform:view'], { user: { id: 'user-a' } });
 const adapter = testAdapter({ session: () => session });

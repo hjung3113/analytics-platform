@@ -1,6 +1,6 @@
 import type { ComponentType, LazyExoticComponent } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import { GLOBAL_KEYS, GROUP_IDS, PERMISSIONS, isAppRelativePath, parseQuery, requiredContextError, type ContextKey, type GroupId, type HostFeature, type MenuMeta, type ModuleScopedId, type ModuleScreenProps, type PageType, type SpaceDef, type SpaceId, type Text } from '@ap/contracts';
+import { GLOBAL_KEYS, KERNEL_PERMISSIONS, isAppRelativePath, parseQuery, requiredContextError, type ContextKey, type GroupId, type HostFeature, type MenuMeta, type MenuPermission, type ModuleScopedId, type ModuleScreenProps, type PageType, type Permission, type SpaceDef, type SpaceId, type Text } from '@ap/contracts';
 
 /** docs/06 §5: menus declare, the shell consumes. Metadata lives in @ap/contracts; this adds the React bindings. */
 export type PageProps = { params: Record<string, string> };
@@ -31,7 +31,7 @@ export type ModuleMenuEntry = Omit<MenuMeta, 'group' | 'permission'> & {
 
 export type MenuEntry = PlatformMenuEntry | ModuleMenuEntry;
 
-/** Group ids a menu can name: the closed platform list or a module-prefixed id. */
+/** Group ids a menu can name: one the app declares or a module-prefixed id. */
 export type AnyGroupId = GroupId | ModuleScopedId;
 
 type GroupBase = {
@@ -52,6 +52,8 @@ export type Registry = {
   groups: readonly GroupDef[];
   menus: readonly MenuEntry[];
   spaces: readonly SpaceDef[];
+  /** Every permission a menu or space may name: the kernel's, then the app's declared ones, in declaration order. The one runtime list for selects and validators. */
+  permissions: readonly Permission[];
   groupById: (id: AnyGroupId) => GroupDef;
   spaceById: (id: SpaceId) => SpaceDef;
   /** Space of the menu's group — membership lives on the group, never on the menu. Null when the group is a global utility (06 §9.1). */
@@ -68,12 +70,14 @@ export type Registry = {
 
 export class RegistryError extends Error {}
 
-const PLATFORM_PERMISSIONS: readonly string[] = PERMISSIONS;
-const PLATFORM_GROUPS: readonly string[] = GROUP_IDS;
-/** Namespaces of the platform's own permissions; a module id may not take one, so a module grant never equals a platform grant. */
-const RESERVED_MODULE_IDS = new Set<string>(PERMISSIONS.map(p => p.split(':')[0]));
-export const isPlatformPermission = (value: string) => PLATFORM_PERMISSIONS.includes(value);
-export const isReservedModuleId = (id: string) => RESERVED_MODULE_IDS.has(id);
+const namespaceOf = (permission: string) => permission.split(':')[0];
+const KERNEL_NAMESPACES = new Set<string>(KERNEL_PERMISSIONS.map(namespaceOf));
+/** True when `id` is the namespace of a kernel permission; a module id may not take one. `createRegistry` also reserves the namespaces of the app's declared permissions. */
+export const isKernelNamespace = (id: string) => KERNEL_NAMESPACES.has(id);
+/** An id the URL and the Registry can carry as is: non-empty, no whitespace, none of `? # & /`. */
+const isIdShape = (id: unknown): id is string => typeof id === 'string' && /^[^\s?#&/]+$/.test(id);
+/** `<namespace>:<action>`, each part an id shape without `:`. */
+const isPermissionShape = (value: unknown): value is string => typeof value === 'string' && /^[^\s:?#&/]+:[^\s:?#&/]+$/.test(value);
 
 const segments = (path: string) => path.split('/').filter(Boolean);
 const isParam = (seg: string) => seg.startsWith(':');
@@ -87,10 +91,22 @@ export const isBoardPath = (pathname: string) => pathname.replace(/\/+$/, '') ==
  * Validates the declared IA once and returns the lookup functions the kernel and shell use
  * (docs/integration/platform-packages.md §5). Throws RegistryError on any violation.
  */
-export function createRegistry({ spaces, groups, menus }: { spaces: readonly SpaceDef[]; groups: readonly GroupDef[]; menus: readonly MenuEntry[] }): Registry {
+export function createRegistry({ spaces, groups, menus, permissions: declared = [] }: { spaces: readonly SpaceDef[]; groups: readonly GroupDef[]; menus: readonly MenuEntry[]; /** The app's menu permissions. Omit when the menus use only kernel permissions. */ permissions?: readonly MenuPermission[] }): Registry {
   const fail = (message: string): never => { throw new RegistryError(message); };
+  const permissions: readonly Permission[] = [...KERNEL_PERMISSIONS, ...declared];
+  const reserved = new Set<string>(permissions.map(namespaceOf));
+  const isPlatformPermission = (value: string) => (permissions as readonly string[]).includes(value);
+  const seenPermissions = new Set<string>();
+  for (const p of declared) {
+    if (!isPermissionShape(p)) fail(`Declared permission "${String(p)}" must be "<namespace>:<action>" without whitespace or ? # & /`);
+    if ((KERNEL_PERMISSIONS as readonly string[]).includes(p)) fail(`Declared permission "${p}" duplicates a kernel permission`);
+    if (seenPermissions.has(p)) fail(`Duplicate declared permission "${p}"`);
+    seenPermissions.add(p);
+  }
   const spaceByIdMap = new Map<SpaceId, SpaceDef>();
   for (const s of spaces) {
+    if (!isIdShape(s.id)) fail(`Space id "${String(s.id)}" must be non-empty without whitespace or ? # & /`);
+    if (s.permission !== undefined && !isPlatformPermission(s.permission)) fail(`Space "${s.id}" permission "${s.permission}" is not a platform permission (kernel or declared)`);
     if (spaceByIdMap.has(s.id)) fail(`Duplicate space id "${s.id}"`);
     spaceByIdMap.set(s.id, s);
   }
@@ -105,11 +121,12 @@ export function createRegistry({ spaces, groups, menus }: { spaces: readonly Spa
   for (const g of groups) {
     if (groupIds.has(g.id)) fail(`Duplicate group id "${g.id}"`);
     if (g.space !== null && !spaceByIdMap.has(g.space)) fail(`Group "${g.id}" uses undeclared space "${g.space}"`);
+    if (!isIdShape(g.id)) fail(`Group id "${String(g.id)}" must be non-empty without whitespace or ? # & /`);
     if (g.module === undefined) {
-      if (!PLATFORM_GROUPS.includes(g.id)) fail(`Group "${g.id}" has no module and is not a platform group`);
+      if (g.id.includes(':')) fail(`Group "${g.id}" has no module and is not a platform group id (no ":" allowed)`);
     } else {
       if (!g.id.startsWith(`${g.module}:`)) fail(`Group "${g.id}" of module "${g.module}" needs the "${g.module}:" prefix`);
-      if (isReservedModuleId(g.module)) fail(`Group "${g.id}" module "${g.module}" is a reserved platform namespace`);
+      if (reserved.has(g.module)) fail(`Group "${g.id}" module "${g.module}" is a reserved platform namespace`);
     }
     groupIds.add(g.id);
     groupSpace.set(g.id, g.space);
@@ -120,12 +137,12 @@ export function createRegistry({ spaces, groups, menus }: { spaces: readonly Spa
     if (segments(m.path)[0] === BOARD_PATH.slice(1)) fail(`Menu "${m.id}" path "${m.path}" is reserved for the analysis board (${BOARD_PATH})`);
     if (!groupIds.has(m.group)) fail(`Menu "${m.id}" uses undeclared group "${m.group}"`);
     if (m.module === undefined) {
-      if (!isPlatformPermission(m.permission)) fail(`Menu "${m.id}" has no module and permission "${m.permission}" is not a platform permission`);
+      if (!isPlatformPermission(m.permission)) fail(`Menu "${m.id}" has no module and permission "${m.permission}" is not a platform permission (kernel or declared)`);
       if ((m as { moduleScreen?: unknown }).moduleScreen !== undefined) fail(`Menu "${m.id}" carries a moduleScreen but no module`);
     } else {
       if (!m.permission.startsWith(`${m.module}:`)) fail(`Menu "${m.id}" of module "${m.module}" permission "${m.permission}" needs the "${m.module}:" prefix`);
       if (isPlatformPermission(m.permission)) fail(`Menu "${m.id}" of module "${m.module}" permission "${m.permission}" is a reserved platform permission`);
-      if (isReservedModuleId(m.module)) fail(`Menu "${m.id}" module "${m.module}" is a reserved platform namespace`);
+      if (reserved.has(m.module)) fail(`Menu "${m.id}" module "${m.module}" is a reserved platform namespace`);
     }
     if (groupOwner.get(m.group) !== m.module) fail(`Menu "${m.id}" and its group "${m.group}" belong to different modules`);
     if (m.parent !== undefined) {
@@ -225,7 +242,7 @@ export function createRegistry({ spaces, groups, menus }: { spaces: readonly Spa
     return value;
   };
 
-  return { groups, menus, spaces, groupById, spaceById, spaceOf, menuById, matchRoute, safeReturnTo };
+  return { groups, menus, spaces, permissions, groupById, spaceById, spaceOf, menuById, matchRoute, safeReturnTo };
 }
 
 /** Parameter names declared by route segments, in route order. */

@@ -6,6 +6,7 @@ import { I18nProvider, PlatformProvider, createRegistry, useDrill, usePlatform, 
 import { PlatformPage } from './PlatformPage';
 import { DrillLayout, ReturnLink } from './DrillLayout';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { groupId, spaceId } from '@ap/contracts';
 
 const features = { export: false, savedView: false, annotate: false, compare: false };
 const keys = ['drillRoom', 'drillStgroup', 'drillLine', 'drillEquipment'] as const;
@@ -13,7 +14,7 @@ const level = (key: string, ko: string, en: string) => ({ key, label: { ko, en }
 
 function entry(partial: Pick<PlatformMenuEntry, 'id' | 'path'> & Partial<PlatformMenuEntry>): PlatformMenuEntry {
   return {
-    group: 'overview', label: { ko: partial.id, en: partial.id }, description: { ko: '', en: '' }, icon: House,
+    group: groupId('overview'), label: { ko: partial.id, en: partial.id }, description: { ko: '', en: '' }, icon: House,
     permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'overview', features, pageKeys: [],
     ...partial,
   };
@@ -21,7 +22,7 @@ function entry(partial: Pick<PlatformMenuEntry, 'id' | 'path'> & Partial<Platfor
 
 const registry = createRegistry({
   spaces: [testSpace()],
-  groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }],
+  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
   menus: [
     entry({ id: 'home', path: '/', primary: true, label: { ko: '홈', en: 'Home' } }),
     entry({
@@ -282,7 +283,7 @@ it.each(['preset', 'reset', 'history', 'setPage', 'navigate'])('preserves Contex
 it.each(['defaults', 'metric defaults', 'other navigation', 'history', 'denied'])('binds cold ReturnLink focus to its navigation with %s', async action => {
   const coldRegistry = createRegistry({
     spaces: [testSpace()],
-    groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }],
+    groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
     menus: [
       entry({ id: 'home', path: '/', primary: true }),
       entry({ id: 'source', path: '/source', context: { ...noContext, time: 'apply' }, initializesMetric: action === 'metric defaults' }),
@@ -369,7 +370,7 @@ describe('unbounded drill path (#541)', () => {
     const deepKeys = ['a', 'b', 'c', 'd', 'e', 'f'];
     const deepRegistry = createRegistry({
       spaces: [testSpace()],
-      groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }],
+      groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
       menus: [entry({ id: 'home', path: '/', primary: true, pageKeys: deepKeys, contextResetKeys: deepKeys, drill: { levels: deepKeys.map(key => level(key, key, key)) } })],
     });
     window.history.replaceState(null, '', '/?v=1&a=1&b=2&c=3&d=4&e=5&f=6');

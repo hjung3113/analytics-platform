@@ -4,11 +4,12 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { createBrowserLocation, createBasePathLocation, type PlatformLocation, I18nProvider, PlatformProvider, PlatformLink, usePlatform, createRegistry } from './index';
 import { hasDotSegment, isDotSegment } from './location';
 import { noContext, testAdapter, testSession, testSpace } from './testing';
+import { groupId, spaceId } from '@ap/contracts';
 
 const registry = createRegistry({
   spaces: [testSpace()],
-  groups: [{ id: 'overview', label: { ko: '홈', en: 'Home' }, icon: House, space: 'analytics' }],
-  menus: [{ id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'management', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: ['tab'] }],
+  groups: [{ id: groupId('overview'), label: { ko: '홈', en: 'Home' }, icon: House, space: spaceId('analytics') }],
+  menus: [{ id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'management', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: ['tab'] }],
 });
 const session = testSession(['platform:view']);
 const adapter = testAdapter({ session: () => session });

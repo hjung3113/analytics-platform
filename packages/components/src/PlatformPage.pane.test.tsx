@@ -2,19 +2,19 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { useState, type ReactNode } from 'react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { PlatformAdapter, ScopeCheck } from '@ap/contracts';
 import { I18nProvider, PaneScreenProvider, PlatformProvider, createRegistry, usePlatform, type PaneScreen } from '@ap/kernel';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { DetailDrawer } from './DetailDrawer';
 import { focusPageFallback } from './pageFocus';
 import { PlatformPage } from './PlatformPage';
+import { groupId, spaceId, type PlatformAdapter, type ScopeCheck } from '@ap/contracts';
 
 const features = { export: false, savedView: false, annotate: false, compare: false, board: true };
 const registry = createRegistry({
   spaces: [testSpace({ homeMenuId: 'home' })],
-  groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }],
-  menus: [{ id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: true, context: noContext, pageType: 'overview', features, pageKeys: ['x'] }],
+  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
+  menus: [{ id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: true, context: noContext, pageType: 'overview', features, pageKeys: ['x'] }],
 });
 
 function adapterWith(validateScope: PlatformAdapter['validateScope']): PlatformAdapter {

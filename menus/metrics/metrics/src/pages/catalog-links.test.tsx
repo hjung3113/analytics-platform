@@ -9,12 +9,15 @@ import type { PlatformColumn } from '@ap/components';
 import type { CatalogRow } from '../endpoints';
 import { manifests } from '../index';
 import MetricCatalogPage from './MetricCatalog';
+import { groupId, spaceId } from '@ap/contracts';
+import { PERMISSION } from '../permission';
 
 const mode = vi.hoisted(() => ({ compact: false }));
 const origin = '/metrics?v=1&q=time&sort=nameSort:asc';
 const registry = createRegistry({
-  spaces: [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'metric-catalog' }],
-  groups: [{ id: 'metrics', label: { ko: '지표관리', en: 'Metrics' }, icon: Gauge, space: 'analytics' }],
+  permissions: [PERMISSION],
+  spaces: [{ id: spaceId('analytics'), label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'metric-catalog' }],
+  groups: [{ id: groupId('metrics'), label: { ko: '지표관리', en: 'Metrics' }, icon: Gauge, space: spaceId('analytics') }],
   menus: manifests,
 });
 const adapter = testAdapter();

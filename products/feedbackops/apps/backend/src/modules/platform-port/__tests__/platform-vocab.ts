@@ -7,8 +7,7 @@ import { createRequire } from 'node:module';
  * Test-only: FeedbackOps src depends on no `@ap/*` package but `@ap/ui` (check-boundaries rule 11).
  */
 export interface PlatformVocab {
-  permissions: string[];
-  spaceIds: string[];
+  kernelPermissions: string[];
   usageVias: string[];
   auditActions: string[];
   outcomes: string[];

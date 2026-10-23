@@ -16,7 +16,7 @@ describe('remove', () => {
     const root = fresh();
     const menusPath = join(root, 'apps/platform-web/src/menus.ts');
     const text = readFileSync(menusPath, 'utf8');
-    writeFileSync(menusPath, text.replace("icon: LayoutDashboard, space: 'analytics'", `icon: LayoutDashboard, space: ${space === null ? 'null' : "'analytics'"}`));
+    writeFileSync(menusPath, text.replace("icon: LayoutDashboard, space: spaceId('analytics')", `icon: LayoutDashboard, space: ${space === null ? 'null' : "spaceId('analytics')"}`));
     const spaceFolder = space ?? '_global';
     const parent = join(root, 'menus', spaceFolder);
     mkdirSync(parent, { recursive: true });
@@ -36,7 +36,7 @@ describe('remove', () => {
   it('removes an empty global space directory', () => {
     const root = fresh();
     const path = join(root, 'apps/platform-web/src/menus.ts');
-    writeFileSync(path, readFileSync(path, 'utf8').replace("icon: LayoutDashboard, space: 'analytics'", 'icon: LayoutDashboard, space: null'));
+    writeFileSync(path, readFileSync(path, 'utf8').replace("icon: LayoutDashboard, space: spaceId('analytics')", 'icon: LayoutDashboard, space: null'));
     generate(root);
     expect(runCli(['--remove', FIXTURE_GROUP], root).status).toBe(0);
     expect(existsSync(join(root, 'menus/_global'))).toBe(false);

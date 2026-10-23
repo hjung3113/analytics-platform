@@ -1,11 +1,11 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { PlatformAdapter } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, usePlatform, type NotificationsSlot } from '@ap/kernel';
 import { testAdapter, testSession } from '@ap/kernel/testing';
 import { createAssembly, type Assembly } from '#platform-assembly';
 import { GROUPS, SPACES, registry } from './menus';
 import { appSlots } from './slots';
+import { spaceId, type PlatformAdapter } from '@ap/contracts';
 
 // The gen-menu probe (tooling/gen-menu/scripts/probe.ts) adds a `genProbe` group in the analytics space and runs the
 // whole suite with GEN_MENU_PROBE=1; the two tests that pin the exact decided IA skip during that run only.
@@ -18,7 +18,7 @@ describe('workspace assembly (#260)', () => {
     const adapter: PlatformAdapter = { ...assembly.adapter, session: () => session };
     function Probe() {
       const { spaceEntry } = usePlatform();
-      return <p data-testid="entry">{JSON.stringify(spaceEntry('analytics'))}</p>;
+      return <p data-testid="entry">{JSON.stringify(spaceEntry(spaceId('analytics')))}</p>;
     }
     vi.stubGlobal('localStorage', { getItem: () => null, setItem: () => {} });
     vi.stubGlobal('sessionStorage', { getItem: () => null, setItem: () => {} });
@@ -116,10 +116,10 @@ describe('workspace assembly (#260)', () => {
     const slots = appSlots(assembly, null, fakeSlot);
     expect(slots.topBarTools).toBe(assembly.topBarTools);
     // The real composition (#251): mapped spaces get four entries, disabled while the origin is absent; operations has no row.
-    expect(slots.feedbackOps?.entriesFor('metrics')?.map(entry => [entry.id, entry.href])).toEqual([['voc-create', null], ['voc', null], ['task', null], ['survey', null]]);
-    expect(slots.feedbackOps?.entriesFor('operations')).toBeNull();
+    expect(slots.feedbackOps?.entriesFor(spaceId('metrics'))?.map(entry => [entry.key, entry.href])).toEqual([['voc-create', null], ['voc', null], ['task', null], ['survey', null]]);
+    expect(slots.feedbackOps?.entriesFor(spaceId('operations'))).toBeNull();
     expect(slots.feedbackOps?.overall).toBeNull();
-    expect(appSlots(assembly, 'https://feedbackops.example', fakeSlot).feedbackOps?.entriesFor('metrics')?.every(entry => entry.href?.startsWith('https://feedbackops.example/'))).toBe(true);
+    expect(appSlots(assembly, 'https://feedbackops.example', fakeSlot).feedbackOps?.entriesFor(spaceId('metrics'))?.every(entry => entry.href?.startsWith('https://feedbackops.example/'))).toBe(true);
     expect(Object.keys(slots)).toEqual(['contextBar', 'topBarTools', 'feedbackOps', 'plannedSpaces', 'boardEntry', 'notifications']);
     expect(slots.notifications).toBe(fakeSlot);
     // Planned systems are display-only rows for the switcher: no Registry space or menu carries their id.

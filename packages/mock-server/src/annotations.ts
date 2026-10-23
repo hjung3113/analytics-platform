@@ -5,16 +5,16 @@
  * data: trust is null and assessments are empty on every branch, so this does not go through finish().
  * The server stamps the author and `at`; the wire input has no field for either and an unknown key rejects the call.
  */
-import type { AnnotationInput, AnnotationRef, ApiResponse, Assessment, AuditEvent, ChartAnnotation } from '@ap/contracts';
 import { checkScope, getRole, getScenario, nextCorrelation, sleep } from './server';
 import { USERS, type RoleId } from './world';
+import { menuPermission, type AnnotationInput, type AnnotationRef, type ApiResponse, type Assessment, type AuditEvent, type ChartAnnotation } from '@ap/contracts';
 
 export type AnnotationOptions = { role?: RoleId; latency?: number };
 /** `mine` is computed per response from the requesting role and never stored. */
 type StoredAnnotation = Omit<ChartAnnotation, 'mine'> & { authorId: string };
 
 /** The chart menus' permission. A server-side constant like getEntity's type map, never a client argument. */
-const ANNOTATION_PERMISSION = 'analytics:view' as const;
+const ANNOTATION_PERMISSION = menuPermission('analytics:view');
 const REF_KEYS = ['chartId', 'scopeId'] as const;
 const INPUT_KEYS = [...REF_KEYS, 'from', 'to', 'text'] as const;
 const DELETE_KEYS = [...REF_KEYS, 'id'] as const;

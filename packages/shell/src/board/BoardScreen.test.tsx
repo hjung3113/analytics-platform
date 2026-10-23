@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { PlatformAdapter, Session } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { BOARD_LAYOUT_ENGINE_KEY } from './layoutEngine';
@@ -15,11 +14,12 @@ import { AppRail } from '../AppRail';
 import { AppShell } from '../AppShell';
 import { MAX_SHEETS } from './boardModel';
 import { legacyBoard as boardOf, legacySheet as sheet, seedLegacy as seed, storedLegacy as stored, V1_KEY as KEY, V2_KEY } from './__fixtures__/legacyBoard';
+import { groupId, spaceId, type PlatformAdapter, type Session } from '@ap/contracts';
 
 const features = { export: false, savedView: false, annotate: false, compare: false, board: true };
 const apply = { ...noContext, time: 'apply' as const };
 const entry = (id: string, path: string, over: Record<string, unknown> = {}) => ({
-  id, group: 'equipment' as const, label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House, permission: 'platform:view' as const,
+  id, group: groupId('equipment'), label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House, permission: 'platform:view' as const,
   requiresScope: false, context: apply, pageType: 'analysis' as const, features, pageKeys: ['tab'], ...over,
 });
 function Body() {
@@ -28,10 +28,10 @@ function Body() {
 }
 function makeRegistry(over: { board?: boolean } = {}) {
   return createRegistry({
-    spaces: [testSpace({ homeMenuId: 'home' }), testSpace({ id: 'operations', label: { ko: '운영 콘솔', en: 'Ops' }, permission: 'console:access', homeMenuId: 'ops' })],
+    spaces: [testSpace({ homeMenuId: 'home' }), testSpace({ id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Ops' }, permission: 'console:access', homeMenuId: 'ops' })],
     groups: [
-      { id: 'equipment', label: { ko: '그룹', en: 'Group' }, icon: House, space: 'analytics' },
-      { id: 'admin', label: { ko: '관리', en: 'Admin' }, icon: House, space: 'operations' },
+      { id: groupId('equipment'), label: { ko: '그룹', en: 'Group' }, icon: House, space: spaceId('analytics') },
+      { id: groupId('admin'), label: { ko: '관리', en: 'Admin' }, icon: House, space: spaceId('operations') },
     ],
     menus: [
       { ...entry('home', '/', { component: Body, features: { ...features, board: over.board ?? false } }), primary: true },
@@ -39,7 +39,7 @@ function makeRegistry(over: { board?: boolean } = {}) {
       entry('beta', '/beta', { component: Body, label: { ko: '베타', en: 'Beta' }, features: { ...features, board: over.board ?? true } }),
       entry('item', '/item/:id', { component: Body, navHidden: true }),
       entry('plain', '/plain', { component: Body, features: { ...features, board: false } }),
-      { ...entry('ops', '/ops', { component: Body, permission: 'console:access', features: { ...features, board: false } }), group: 'admin' as const, primary: true },
+      { ...entry('ops', '/ops', { component: Body, permission: 'console:access', features: { ...features, board: false } }), group: groupId('admin'), primary: true },
       entry('locked', '/locked', { component: Body, permission: 'console:access', label: { ko: '잠김', en: 'Locked' } }),
     ],
   });

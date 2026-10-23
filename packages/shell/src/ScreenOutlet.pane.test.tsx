@@ -1,34 +1,34 @@
 import { StrictMode, useEffect, useState, type ReactNode } from 'react';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { House } from 'lucide-react';
+import { House, ListTodo } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ActionResponse, ApiResponse, ClientErrorReport, MenuAction, MenuQuery, ModuleHost, ModuleScopedId, ModuleScreenProps, Permission, PlatformAdapter } from '@ap/contracts';
 import { I18nProvider, PaneScreenProvider, PlatformProvider, createRegistry, mountModule, usePlatform, type FeedbackOpsSlot, type PaneScreen } from '@ap/kernel';
 import { DetailPanelSlotProvider } from '@ap/ui';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { AppSidebar } from './AppSidebar';
 import { ItemScreen, ListScreen, manifest } from './__fixtures__/module-fixture';
 import { RouteOutlet, ScreenOutlet } from './RouteOutlet';
+import { groupId, spaceId, type ActionResponse, type ApiResponse, type ClientErrorReport, type MenuAction, type MenuQuery, type ModuleHost, type ModuleScopedId, type ModuleScreenProps, type Permission, type PlatformAdapter } from '@ap/contracts';
 
 const features = { export: false, savedView: false, annotate: false, compare: false, board: true };
 const menu = (id: string, path: string, over: object = {}) => ({
-  id, group: 'equipment' as const, label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House, permission: 'platform:view' as const,
+  id, group: groupId('equipment'), label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House, permission: 'platform:view' as const,
   requiresScope: false, context: noContext, pageType: 'analysis' as const, features, pageKeys: ['tab'], ...over,
 });
 function Crash(): never { throw new Error('boom'); }
 
 const { menus: moduleMenus, groups: moduleGroups } = mountModule(manifest, { list: (props: ModuleScreenProps) => <ProbeList {...props} />, item: ItemScreen }, {
-  prefix: '/fixture', groupSpace: { 'fixture:main': 'analytics' }, config: { apiBase: 'https://api.example' },
+  prefix: '/fixture', groupSpace: { 'fixture:main': spaceId('analytics') }, config: { apiBase: 'https://api.example' },
   icons: { groups: { 'fixture:main': House }, screens: { list: House, item: House } },
 });
 const registry = createRegistry({
   spaces: [
     testSpace({ homeMenuId: 'home' }),
-    testSpace({ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations' }, permission: 'console:access', homeMenuId: 'ops' }),
+    testSpace({ id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations' }, permission: 'console:access', homeMenuId: 'ops' }),
   ],
   groups: [
-    { id: 'equipment', label: { ko: '설비', en: 'Equipment' }, icon: House, space: 'analytics' },
-    { id: 'admin', label: { ko: '관리', en: 'Admin' }, icon: House, space: 'operations' },
+    { id: groupId('equipment'), label: { ko: '설비', en: 'Equipment' }, icon: House, space: spaceId('analytics') },
+    { id: groupId('admin'), label: { ko: '관리', en: 'Admin' }, icon: House, space: spaceId('operations') },
     ...moduleGroups,
   ],
   menus: [
@@ -38,8 +38,8 @@ const registry = createRegistry({
     menu('crash', '/crash', { component: Crash }),
     menu('planned', '/planned'),
     menu('scoped', '/scoped', { context: { ...noContext, roomNames: 'apply' as const }, component: () => <p>scoped page</p> }),
-    { ...menu('ops', '/ops', { permission: 'console:access', component: () => <p>ops page</p> }), group: 'admin' as const, primary: true },
-    { ...menu('ops-child', '/ops/child', { component: () => <p>ops child page</p> }), group: 'admin' as const },
+    { ...menu('ops', '/ops', { permission: 'console:access', component: () => <p>ops page</p> }), group: groupId('admin'), primary: true },
+    { ...menu('ops-child', '/ops/child', { component: () => <p>ops child page</p> }), group: groupId('admin') },
     ...moduleMenus.map(m => ({ ...m, features: { ...m.features, board: true } })),
   ],
 });
@@ -182,7 +182,7 @@ describe('ScreenOutlet renders the pane screen with the same gates (ADR-0049)', 
 
 describe('shell chrome outside a pane keeps following the main screen', () => {
   const feedback = (returns: (string | undefined)[]): FeedbackOpsSlot => ({
-    entriesFor: (_space, platformReturn) => { returns.push(platformReturn); return [{ id: 'task', label: { ko: 'Task', en: 'Task' }, href: `https://fo.example/?return=${encodeURIComponent(platformReturn ?? '')}` }]; },
+    entriesFor: (_space, platformReturn) => { returns.push(platformReturn); return [{ key: 'task', icon: ListTodo, label: { ko: 'Task', en: 'Task' }, href: `https://fo.example/?return=${encodeURIComponent(platformReturn ?? '')}` }]; },
     overall: null,
   });
 

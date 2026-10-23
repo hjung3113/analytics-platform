@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import type { SpaceDef } from '@ap/contracts';
 import { createRegistry, type GroupDef } from '@ap/kernel';
 import { manifests } from './index';
 import { operationTimeEndpoint } from './endpoints';
+import { PERMISSION } from './permission';
+import { spaceId, type SpaceDef } from '@ap/contracts';
 
 describe('manifest', () => {
   it('is the only menu of its group and passes createRegistry', () => {
@@ -12,9 +13,9 @@ describe('manifest', () => {
     expect(menu.pageKeys).toEqual(['eqp']);
     expect(menu.pageType).toBe('analysis');
     expect(menu.group).toBe('clas');
-    const spaces: SpaceDef[] = [{ id: 'clas', label: { ko: '공간', en: 'Space' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: menu.id }];
-    const groups: GroupDef[] = [{ id: menu.group, label: { ko: 'g', en: 'g' }, icon: menu.icon, space: 'clas' }];
-    const registry = createRegistry({ spaces, groups, menus: manifests });
+    const spaces: SpaceDef[] = [{ id: spaceId('clas'), label: { ko: '공간', en: 'Space' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: menu.id }];
+    const groups: GroupDef[] = [{ id: menu.group, label: { ko: 'g', en: 'g' }, icon: menu.icon, space: spaceId('clas') }];
+    const registry = createRegistry({ spaces, groups, menus: manifests, permissions: [PERMISSION] });
     expect(registry.menuById('operation-time').path).toBe('/clas/operation-time');
     expect(registry.spaceOf(menu)?.id).toBe('clas');
   });

@@ -4,22 +4,25 @@
  */
 import { lazy } from 'react';
 import { Boxes, Cpu } from 'lucide-react';
-import { NO_FEATURES, contextCapabilities } from '@ap/contracts';
+import { NO_FEATURES, contextCapabilities, groupId } from '@ap/contracts';
 import type { MenuEntry } from '@ap/kernel';
+import { PERMISSION } from './permission';
+
+const GROUP = groupId('equipment');
 
 export const manifests: MenuEntry[] = [
   {
-    id: 'equipment-master', primary: true, group: 'equipment', label: { ko: '설비 마스터', en: 'Equipment master' },
+    id: 'equipment-master', primary: true, group: GROUP, label: { ko: '설비 마스터', en: 'Equipment master' },
     description: { ko: '설비 속성과 유효구간 이력을 조회하고 상세·감사 이력을 확인합니다.', en: 'Browse equipment attributes with validity history, details and audit.' },
-    path: '/equipment', icon: Boxes, permission: 'equipment:view', requiresScope: true, pageType: 'management',
+    path: '/equipment', icon: Boxes, permission: PERMISSION, requiresScope: true, pageType: 'management',
     context: contextCapabilities({ time: 'reference', roomNames: 'apply', condition: 'apply', selection: 'apply' }),
     features: { ...NO_FEATURES, export: true, board: true }, pageKeys: ['q', 'status', 'maker', 'focus', 'sort', 'page', 'tab'], contextResetKeys: ['page'],
     component: lazy(() => import('./pages/EquipmentMaster')),
   },
   {
-    id: 'equipment-detail', group: 'equipment', parent: 'equipment-master', navHidden: true, label: { ko: '설비 상세', en: 'Equipment detail' },
+    id: 'equipment-detail', group: GROUP, parent: 'equipment-master', navHidden: true, label: { ko: '설비 상세', en: 'Equipment detail' },
     description: { ko: '열어 본 설비는 설비 선택과 별개입니다.', en: 'The equipment you open is separate from the equipment selection.' },
-    path: '/equipment/:equipmentId', icon: Cpu, permission: 'equipment:view', requiresScope: true, pageType: 'management',
+    path: '/equipment/:equipmentId', icon: Cpu, permission: PERMISSION, requiresScope: true, pageType: 'management',
     context: contextCapabilities({ time: 'reference', roomNames: 'reference', condition: 'reference', selection: 'reference' }),
     features: NO_FEATURES, pageKeys: ['tab', 'returnTo'],
     component: lazy(() => import('./pages/EquipmentDetail')),

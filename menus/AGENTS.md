@@ -29,7 +29,7 @@ Registry 그룹마다 하나의 패키지(`@ap/menu-<group>`)다. 메뉴가 `man
 
 ## 새 그룹 패키지
 
-새 그룹은 사람이 먼저 `GroupId`(`packages/contracts/src/menu.ts`)와 `GROUPS` 행(`apps/platform-web/src/menus.ts`)을 추가한 뒤 `pnpm gen:menu <group> --label-ko … --label-en …`, `pnpm install` 순으로 만든다(생성물·배선은 [tooling/AGENTS.md](../tooling/AGENTS.md)). 생성기는 `GROUPS` 행의 `space`에 따라 `menus/<space>/<group>/`에 만들고, `space: null`은 `menus/_global/`에 둔다. 그룹 소속의 원본은 폴더이며 `repo-invariants`가 선언과 일치하는지 검사한다([ADR-0031](../docs/adr/0031-menu-folders-by-space.md)). `SPACES` 목록은 앱 조립 지점에서 관리한다. 결과는 스켈레톤이지 Domain Done이 아니며 메뉴를 여러 개 한 번에 생성하지 않는다. `overview`는 `menus/_global/home`이 소유한다.
+새 그룹은 사람이 먼저 `GROUPS` 행(`apps/platform-web/src/menus.ts`, id는 `groupId('…')`)을 추가한 뒤(계약 패키지는 고치지 않는다, ADR-0072. 패키지는 자기 그룹·권한을 `const GROUP = groupId('…')`·`menuPermission('…')` 한 곳에 쓰고 새 권한은 앱의 `PERMISSIONS`에도 선언한다) `pnpm gen:menu <group> --label-ko … --label-en …`, `pnpm install` 순으로 만든다(생성물·배선은 [tooling/AGENTS.md](../tooling/AGENTS.md)). 생성기는 `GROUPS` 행의 `space`에 따라 `menus/<space>/<group>/`에 만들고, `space: null`은 `menus/_global/`에 둔다. 그룹 소속의 원본은 폴더이며 `repo-invariants`가 선언과 일치하는지 검사한다([ADR-0031](../docs/adr/0031-menu-folders-by-space.md)). `SPACES` 목록은 앱 조립 지점에서 관리한다. 결과는 스켈레톤이지 Domain Done이 아니며 메뉴를 여러 개 한 번에 생성하지 않는다. `overview`는 `menus/_global/home`이 소유한다.
 
 ## 검증
 

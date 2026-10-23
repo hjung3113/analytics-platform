@@ -1,30 +1,31 @@
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Session, SpaceDef } from '@ap/contracts';
 import { I18nProvider } from './i18n';
 import { PlatformProvider, usePlatform } from './platform';
 import { createRegistry, type PlatformMenuEntry } from './registry';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from './testing';
+import { groupId, spaceId, menuPermission, type Session, type SpaceDef } from '@ap/contracts';
 
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
 const spaces: SpaceDef[] = [
-  testSpace({ id: 'analytics', homeMenuId: 'equipment' }),
-  testSpace({ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, permission: 'console:access', homeMenuId: 'admin-roles' }),
+  testSpace({ id: spaceId('analytics'), homeMenuId: 'equipment' }),
+  testSpace({ id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations console' }, permission: 'console:access', homeMenuId: 'admin-roles' }),
 ];
 const registry = createRegistry({
+  permissions: [menuPermission('analytics:view')],
   spaces,
   groups: [
-    { id: 'equipment', label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: 'analytics' },
-    { id: 'admin', label: { ko: '관리·감사', en: 'Administration' }, icon: House, space: 'operations' },
-    { id: 'noticeVoc', label: { ko: '공지·VOC', en: 'Notice & VOC' }, icon: House, space: null },
+    { id: groupId('equipment'), label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: spaceId('analytics') },
+    { id: groupId('admin'), label: { ko: '관리·감사', en: 'Administration' }, icon: House, space: spaceId('operations') },
+    { id: groupId('noticeVoc'), label: { ko: '공지·VOC', en: 'Notice & VOC' }, icon: House, space: null },
   ],
   menus: [
-    { id: 'equipment', group: 'equipment', primary: true, label: { ko: '설비', en: 'Equipment' }, description: { ko: '', en: '' }, path: '/equipment', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features: noFeatures, pageKeys: ['page'] },
-    { id: 'equipment-detail', group: 'equipment', label: { ko: '설비 상세', en: 'Equipment detail' }, description: { ko: '', en: '' }, path: '/equipment/:equipmentId', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features: noFeatures, pageKeys: [], navHidden: true, parent: 'equipment' },
-    { id: 'admin-roles', group: 'admin', primary: true, label: { ko: '권한/역할 관리', en: 'Roles' }, description: { ko: '', en: '' }, path: '/admin/roles', icon: House, permission: 'console:access', requiresScope: false, context: noContext, pageType: 'management', features: noFeatures, pageKeys: [] },
-    { id: 'admin-child', group: 'admin', label: { ko: '콘솔 하위', en: 'Console child' }, description: { ko: '', en: '' }, path: '/admin/child', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'management', features: noFeatures, pageKeys: [] },
-    { id: 'notices', group: 'noticeVoc', primary: true, label: { ko: '공지', en: 'Notices' }, description: { ko: '', en: '' }, path: '/notices', icon: House, permission: 'notice:view', requiresScope: false, context: noContext, pageType: 'management', features: noFeatures, pageKeys: [] },
+    { id: 'equipment', group: groupId('equipment'), primary: true, label: { ko: '설비', en: 'Equipment' }, description: { ko: '', en: '' }, path: '/equipment', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features: noFeatures, pageKeys: ['page'] },
+    { id: 'equipment-detail', group: groupId('equipment'), label: { ko: '설비 상세', en: 'Equipment detail' }, description: { ko: '', en: '' }, path: '/equipment/:equipmentId', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features: noFeatures, pageKeys: [], navHidden: true, parent: 'equipment' },
+    { id: 'admin-roles', group: groupId('admin'), primary: true, label: { ko: '권한/역할 관리', en: 'Roles' }, description: { ko: '', en: '' }, path: '/admin/roles', icon: House, permission: 'console:access', requiresScope: false, context: noContext, pageType: 'management', features: noFeatures, pageKeys: [] },
+    { id: 'admin-child', group: groupId('admin'), label: { ko: '콘솔 하위', en: 'Console child' }, description: { ko: '', en: '' }, path: '/admin/child', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'management', features: noFeatures, pageKeys: [] },
+    { id: 'notices', group: groupId('noticeVoc'), primary: true, label: { ko: '공지', en: 'Notices' }, description: { ko: '', en: '' }, path: '/notices', icon: House, permission: 'notice:view', requiresScope: false, context: noContext, pageType: 'management', features: noFeatures, pageKeys: [] },
   ],
 });
 
@@ -42,15 +43,15 @@ function fixture(permissions: Session['user']['permissions']) {
 function Probe() {
   const { pathname, spaceResume, switchSpace, navigate } = usePlatform();
   const show = (id: 'analytics' | 'operations') => {
-    const resume = spaceResume(id);
+    const resume = spaceResume(spaceId(id));
     return resume ? `${resume.menuId}|${resume.href}` : 'null';
   };
   return <div>
     <p data-testid="ana">{show('analytics')}</p>
     <p data-testid="ops">{show('operations')}</p>
     <p data-testid="path">{pathname}</p>
-    <button type="button" data-testid="to-ops" onClick={() => switchSpace('operations')}>ops</button>
-    <button type="button" data-testid="to-ana" onClick={() => switchSpace('analytics')}>ana</button>
+    <button type="button" data-testid="to-ops" onClick={() => switchSpace(spaceId('operations'))}>ops</button>
+    <button type="button" data-testid="to-ana" onClick={() => switchSpace(spaceId('analytics'))}>ana</button>
     <button type="button" data-testid="to-notices" onClick={() => navigate('/notices?v=1&scopeId=MEM')}>notices</button>
   </div>;
 }
@@ -176,13 +177,14 @@ describe('spaceResume (06 §9.1)', () => {
 
 // Deliberately interleaved menus: sidebar group order wins over global menu order.
 const entryRegistry = createRegistry({
+  permissions: [menuPermission('analytics:view')],
   spaces,
-  groups: [...registry.groups, { id: 'analytics', label: { ko: '분석', en: 'Analysis' }, icon: House, space: 'analytics' }],
+  groups: [...registry.groups, { id: groupId('analytics'), label: { ko: '분석', en: 'Analysis' }, icon: House, space: spaceId('analytics') }],
   menus: [
     registry.menuById('admin-roles'),
-    { ...(registry.menuById('admin-child') as PlatformMenuEntry), id: 'later-group', group: 'analytics', primary: true, path: '/analysis/later' },
+    { ...(registry.menuById('admin-child') as PlatformMenuEntry), id: 'later-group', group: groupId('analytics'), primary: true, path: '/analysis/later' },
     registry.menuById('admin-child'),
-    { ...registry.menuById('equipment'), permission: 'analytics:view' },
+    { ...registry.menuById('equipment'), permission: menuPermission('analytics:view') },
     { ...registry.menuById('equipment-detail'), navHidden: false },
     { ...registry.menuById('equipment'), id: 'hidden', primary: false, path: '/hidden', navHidden: true },
     { ...registry.menuById('equipment'), id: 'first', primary: false, path: '/first' },
@@ -210,18 +212,18 @@ describe('spaceEntry and canOpen (#264)', () => {
   ])('chooses %s', (_label, permissions, stored, expected) => {
     if (stored) sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ analytics: stored }));
     mountEntry(permissions);
-    expect(entryPlatform.spaceEntry('analytics')).toEqual(expected);
+    expect(entryPlatform.spaceEntry(spaceId('analytics'))).toEqual(expected);
   });
 
   it('pushes the first openable menu and keeps current-space and denied-space switches inert', () => {
     mountEntry(ANALYST);
     const push = vi.spyOn(window.history, 'pushState');
-    act(() => entryPlatform.switchSpace('analytics'));
+    act(() => entryPlatform.switchSpace(spaceId('analytics')));
     expect(push).toHaveBeenCalledWith(null, '', '/first?v=1&scopeId=MEM');
-    act(() => entryPlatform.switchSpace('analytics'));
-    act(() => entryPlatform.switchSpace('operations'));
+    act(() => entryPlatform.switchSpace(spaceId('analytics')));
+    act(() => entryPlatform.switchSpace(spaceId('operations')));
     expect(push).toHaveBeenCalledTimes(1);
-    expect(entryPlatform.spaceEntry('operations')).toBeNull();
+    expect(entryPlatform.spaceEntry(spaceId('operations'))).toBeNull();
     push.mockRestore();
   });
 

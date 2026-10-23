@@ -6,6 +6,7 @@ import type { ThemeColorToken } from '@ap/ui/theme';
  * Pages import from here, never from `src/mock/**`.
  */
 import { defineEndpoint, parseDateTime, shift, type PageQuery, type PageResult, type PageSort } from '@ap/contracts';
+import { PERMISSION } from './permission';
 
 export type Granularity = 'hour' | 'day' | 'week';
 export type KpiKey = 'occupancy' | 'dwell' | 'cycleTime' | 'throughput';
@@ -96,7 +97,7 @@ export const kpisEndpoint = defineEndpoint<Record<never, true>, KpisData>({
   id: 'analytics.productivity.kpis',
   menuId: 'productivity-overview',
   paramKeys: {},
-  permission: 'analytics:view',
+  permission: PERMISSION,
   requiresScope: true,
   context,
   kinds: ['collection', 'processing_delay', 'coverage', 'time_domain'],
@@ -108,7 +109,7 @@ export const trendEndpoint = defineEndpoint<{ kpi: KpiKey; granularity: Granular
   id: 'analytics.productivity.trend',
   menuId: 'productivity-overview',
   paramKeys: { kpi: true, granularity: true },
-  permission: 'analytics:view',
+  permission: PERMISSION,
   requiresScope: true,
   context,
   kinds: ['collection', 'processing_delay', 'coverage'],
@@ -120,7 +121,7 @@ export const breakdownEndpoint = defineEndpoint<{ axis: 'room' | 'stgroup' }, Br
   id: 'analytics.productivity.breakdown',
   menuId: 'productivity-overview',
   paramKeys: { axis: true },
-  permission: 'analytics:view',
+  permission: PERMISSION,
   requiresScope: true,
   context,
   kinds: ['collection', 'processing_delay', 'coverage'],
@@ -132,7 +133,7 @@ export const drillEndpoint = defineEndpoint<DrillParams, DrillData>({
   id: 'analytics.productivity.drill',
   menuId: 'productivity-overview',
   paramKeys: { level: true, room: true, stgroup: true },
-  permission: 'analytics:view',
+  permission: PERMISSION,
   requiresScope: true,
   context,
   kinds: ['collection', 'processing_delay', 'coverage'],
@@ -144,7 +145,7 @@ export const attentionEndpoint = defineEndpoint<Record<never, true>, AttentionRo
   id: 'analytics.productivity.attention',
   menuId: 'productivity-overview',
   paramKeys: {},
-  permission: 'analytics:view',
+  permission: PERMISSION,
   requiresScope: true,
   context,
   kinds: ['collection', 'processing_delay', 'coverage'],
@@ -167,7 +168,7 @@ export const occurrenceEndpoint = defineEndpoint<OccurrenceParams, OccurrenceRes
   id: 'analytics.execution.occurrence',
   menuId: 'execution-detail',
   paramKeys: { equipmentId: true, entityType: true, anchor: true, metricVersion: true },
-  permission: 'analytics:view',
+  permission: PERMISSION,
   requiresScope: true,
   context: {},
   kinds: ['collection', 'processing_delay', 'coverage'],
@@ -262,7 +263,7 @@ export type SlowPageParams = SlowFilter & PageQuery;
 const cycleContext = { time: 'apply', roomNames: 'apply', line: 'apply', prcGroup: 'apply', condition: 'apply', selection: 'apply', lot: 'apply', ppid: 'apply', recipe: 'apply', metric: 'apply' } as const;
 const cycleBase = {
   menuId: 'cycle-time',
-  permission: 'analytics:view',
+  permission: PERMISSION,
   requiresScope: true,
   context: cycleContext,
   requiredContext: ['time', 'roomNames'],
@@ -329,6 +330,6 @@ export type CatalogData = {
   lane?: { id: string; label: string; segments: { id: string; start: number; end: number; depth?: number; rank?: string; startBoundary?: 'orphan'; endBoundary?: 'open' }[] }[];
 };
 export const chartCatalogEndpoint = defineEndpoint<{ kind: CatalogKind }, CatalogData>({
-  id: 'analytics.chartCatalog', menuId: 'chart-catalog', permission: 'analytics:view', requiresScope: true,
+  id: 'analytics.chartCatalog', menuId: 'chart-catalog', permission: PERMISSION, requiresScope: true,
   context: { time: 'apply' }, paramKeys: { kind: true }, kinds: ['collection', 'coverage'], mergeTimeDomain: true,
 });

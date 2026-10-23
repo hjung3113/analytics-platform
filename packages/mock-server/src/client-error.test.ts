@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import type { ClientErrorReport } from '@ap/contracts';
 import { getRole, reportClientError, resetClientErrors, setRole, storedClientErrors } from './server';
 import type { RoleId } from './world';
+import { spaceId, type ClientErrorReport } from '@ap/contracts';
 
 const report = (over: Partial<ClientErrorReport> = {}): ClientErrorReport => ({
-  correlationId: 'client-1a2b-c3d4', menuId: 'equipment-master', spaceId: 'analytics', path: '/equipment', name: 'TypeError', ...over,
+  correlationId: 'client-1a2b-c3d4', menuId: 'equipment-master', spaceId: spaceId('analytics'), path: '/equipment', name: 'TypeError', ...over,
 });
 
 let previousRole: RoleId = getRole();
@@ -33,9 +33,9 @@ describe('client error reports (issue #101)', () => {
     expect(storedClientErrors()[0].spaceId).toBeNull();
   });
 
-  it('accepts metrics and rejects the removed feedback space id', async () => {
-    expect(await reportClientError(report({ spaceId: 'metrics' }))).toEqual({ accepted: true });
-    expect(await reportClientError(report({ correlationId: 'client-feedback', spaceId: 'feedback' as never }))).toEqual({ accepted: false });
+  it('accepts metrics and rejects a malformed space id', async () => {
+    expect(await reportClientError(report({ spaceId: spaceId('metrics') }))).toEqual({ accepted: true });
+    expect(await reportClientError(report({ correlationId: 'client-feedback', spaceId: 'a b' as never }))).toEqual({ accepted: false });
     expect(storedClientErrors().map(row => row.spaceId)).toEqual(['metrics']);
   });
 
@@ -43,7 +43,7 @@ describe('client error reports (issue #101)', () => {
     ['correlation id without the client- prefix', { correlationId: 'corr-1' }],
     ['menu id with a query string', { menuId: 'equipment?x=1' }],
     ['path with whitespace', { path: '/a b' }],
-    ['unknown space', { spaceId: 'nowhere' as never }],
+    ['malformed space', { spaceId: 'now here' as never }],
     ['absolute URL as path', { path: 'https://example.test/private-id' }],
     ['protocol-relative path', { path: '//example.test/path' }],
     ['name that is not identifier-shaped', { name: 'lot A1023 failed' }],

@@ -2,7 +2,7 @@ import type { ComponentType } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { HOST_CONTRACTS, type HostFeature, type ModuleManifest, type ModuleScreenProps, type SpaceId } from '@ap/contracts';
 import { isDotSegment } from './location';
-import { isReservedModuleId, RegistryError, type ModuleGroupDef, type ModuleMenuEntry } from './registry';
+import { isKernelNamespace, RegistryError, type ModuleGroupDef, type ModuleMenuEntry } from './registry';
 
 export type MountOptions = {
   /** Absolute app path the module lives under, e.g. `/collab`. No params, no trailing slash. */
@@ -37,7 +37,7 @@ export function mountModule(
   if (!(HOST_CONTRACTS as readonly number[]).includes(manifest.module.contract)) fail(`${at} declares unsupported contract ${String(manifest.module.contract)}`);
   for (const feature of manifest.requires) if (!features.includes(feature)) fail(`${at} requires host feature "${feature}" which this host does not provide`);
   for (const key of manifest.config ?? []) if (!Object.hasOwn(config, key)) fail(`${at} needs config key "${key}"`);
-  if (isReservedModuleId(id)) fail(`${at} id is a reserved platform namespace`);
+  if (isKernelNamespace(id)) fail(`${at} id is a reserved platform namespace`);
   if (!isPathPattern(prefix) || !prefix.startsWith('/') || prefix.endsWith('/') || prefix.split('/').some(s => s.startsWith(':'))) {
     fail(`${at} prefix "${prefix}" must be an absolute app path without params or a trailing slash`);
   }

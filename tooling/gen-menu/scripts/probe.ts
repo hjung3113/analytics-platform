@@ -8,7 +8,7 @@ import {
 import { PACKAGE_PREFIX } from '../src/prefix.ts';
 import { mockImportLine, mockSpreadLine, type MenuInputs, type PageType } from '../src/templates.ts';
 import {
-  PROBE_FOLDER, PROBE_PACKAGE_REL, PROBE_SPACE, PROBE_TEST_REL, assertCleanTree, gitPorcelain, insertGroupIdMember,
+  PROBE_FOLDER, PROBE_PACKAGE_REL, PROBE_SPACE, PROBE_TEST_REL, assertCleanTree, gitPorcelain,
   insertGroupsRow, preflightReservedPaths, runRevert, writeRegistryTest,
   type RevertOutcome, type RevertSteps,
 } from '../src/probe-support.ts';
@@ -16,11 +16,10 @@ import {
 /**
  * §4 create-then-delete verification (coordinator-run, once, not CI): the committed tree must be
  * verifiably clean (F8 fail-closed) and reserved paths are preflighted. The revert is ordered
- * (F8/F3): --remove runs FIRST, while the hand-edited genProbe GroupId member and GROUPS row are
+ * (F8/F3): --remove runs FIRST, while the hand-edited genProbe GROUPS row is
  * still in place; only afterwards are the hand-edited files restored from pre-run snapshots.
  */
 const ROOT = resolveRoot();
-const CONTRACTS_MENU = join(ROOT, 'packages/contracts/src/menu.ts');
 const MENUS = join(ROOT, MENUS_TS);
 const MAIN = join(ROOT, MOCK_ASSEMBLY_TSX);
 const STYLE = join(ROOT, STYLE_CSS);
@@ -65,11 +64,11 @@ function restoreFile(path: string, snapshot: string): void {
   if (readFileSync(path, 'utf8') !== snapshot) writeFileSync(path, snapshot);
 }
 
-function buildRevertSteps(snapshots: { contracts: string; menus: string; main: string; style: string; appPkg: string }): RevertSteps {
+function buildRevertSteps(snapshots: { menus: string; main: string; style: string; appPkg: string }): RevertSteps {
   return {
     // (1) the probe test is owned by this run — preflight guaranteed it did not exist before.
     deleteProbeTest: () => rmSync(join(ROOT, PROBE_TEST_REL), { force: true }),
-    // (2) --remove FIRST, while the genProbe GroupId member and GROUPS row still exist.
+    // (2) --remove FIRST, while the genProbe GROUPS row still exists.
     remove: () => {
       const res = spawnSync('pnpm', ['gen:menu', '--remove', 'genProbe'], { cwd: ROOT, encoding: 'utf8' });
       process.stderr.write(`${res.stdout ?? ''}${res.stderr ?? ''}`);
@@ -79,7 +78,7 @@ function buildRevertSteps(snapshots: { contracts: string; menus: string; main: s
     // Each restore is attempted independently — one failure must not suppress the other.
     restoreHandEdits: () => {
       const failures: string[] = [];
-      for (const [path, snapshot] of [[CONTRACTS_MENU, snapshots.contracts], [MENUS, snapshots.menus]] as const) {
+      for (const [path, snapshot] of [[MENUS, snapshots.menus]] as const) {
         try {
           restoreFile(path, snapshot);
           if (readFileSync(path, 'utf8') !== snapshot) throw new GenMenuError(`${path} does not match its pre-run snapshot`);
@@ -94,7 +93,6 @@ function buildRevertSteps(snapshots: { contracts: string; menus: string; main: s
     fallbackRestore: () => {
       const failures: string[] = [];
       const touched: [string, string][] = [
-        [CONTRACTS_MENU, snapshots.contracts],
         [MENUS, snapshots.menus],
         [MAIN, snapshots.main],
         [STYLE, snapshots.style],
@@ -134,7 +132,6 @@ function main(): { fallback: boolean; failures: { step: string; message: string 
   assertCleanTree(ROOT);
   preflightReservedPaths(ROOT);
   const snapshots = {
-    contracts: readFileSync(CONTRACTS_MENU, 'utf8'),
     menus: readFileSync(MENUS, 'utf8'),
     main: readFileSync(MAIN, 'utf8'),
     style: readFileSync(STYLE, 'utf8'),
@@ -143,7 +140,6 @@ function main(): { fallback: boolean; failures: { step: string; message: string 
   let gateError: unknown;
   let outcome: RevertOutcome | undefined;
   try {
-    insertGroupIdMember(ROOT);
     insertGroupsRow(ROOT);
     run('pnpm', ['gen:menu', PROBE_ARGS.group, '--label-ko', PROBE_ARGS.labelKo, '--label-en', PROBE_ARGS.labelEn, '--path', PROBE_ARGS.path, '--page-type', PROBE_ARGS.pageType]);
     verifyGeneratedScaffold();

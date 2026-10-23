@@ -2,8 +2,7 @@ import { type ReactElement } from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { AnnotationInput, ApiResponse, AnnotationRef, ChartAnnotation, PlatformAdapter } from '@ap/contracts';
-import { parseDateTime } from '@ap/contracts';
+import { parseDateTime, groupId, spaceId, type AnnotationInput, type ApiResponse, type AnnotationRef, type ChartAnnotation, type PlatformAdapter } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
 import userEvent from '@testing-library/user-event';
 import { AnalysisSectionContext } from './AnalysisSectionContext';
@@ -60,8 +59,8 @@ const off = { export: false, savedView: false, annotate: false, compare: false }
 const on = { export: true, savedView: false, annotate: true, compare: true };
 const registryWith = (features: typeof off) => createRegistry({
   spaces: [testSpace()],
-  groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }],
-  menus: [{ id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features, pageKeys: [] }],
+  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
+  menus: [{ id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features, pageKeys: [] }],
 });
 
 const envelope = { data: null, assessments: [], trust: null, correlationId: 'fixture' };

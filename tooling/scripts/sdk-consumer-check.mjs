@@ -105,7 +105,7 @@ export default defineConfig({
 @import "@ap/shell/styles.css";
 `,
   'src/App.tsx': `import { House } from 'lucide-react';
-import { PERMISSIONS, type Permission } from '@ap/contracts';
+import { groupId, KERNEL_PERMISSIONS, spaceId, type Permission } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { Button } from '@ap/ui';
@@ -115,10 +115,10 @@ import { DockLayout, normalizeDockTree } from '@ap/components/dock';
 import { AppShell } from '@ap/shell';
 
 const registry = createRegistry({
-  spaces: [testSpace({ id: 'analytics', homeMenuId: 'home' })],
-  groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics', hideLabelWhenSingle: true }],
+  spaces: [testSpace({ id: spaceId('analytics'), homeMenuId: 'home' })],
+  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics'), hideLabelWhenSingle: true }],
   menus: [{
-    id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/',
+    id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/',
     icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'overview',
     features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [],
   }],
@@ -130,7 +130,7 @@ export const adapter = testAdapter({ session: () => session });
 /** Kernel hook used under a Provider from the same kernel copy; components and shell render around it. */
 function Probe() {
   const { session: current } = usePlatform();
-  const known: readonly Permission[] = PERMISSIONS;
+  const known: readonly Permission[] = KERNEL_PERMISSIONS;
   const token = THEME_COLOR_TOKENS[0];
   return (
     <section data-testid="probe" data-user={current.user.id} data-permissions={known.length} data-token={token} data-resolved={typeof readColorToken} data-dock={typeof DockLayout + ':' + normalizeDockTree(null, ['a']).type}>

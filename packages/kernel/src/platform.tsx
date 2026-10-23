@@ -10,20 +10,20 @@ import { useI18n } from './i18n';
 import { dropResetKeys, paneHref } from './paneContext';
 import { appliedQueryPolicy, createDraftStore, useScreenDraft, type DraftStore } from './draft-state';
 import type { QueryHistory } from './query-history';
-import type { QueryHistoryStore } from '@ap/contracts';
 import type { QueryDraft, QueryMissing } from './query-draft';
 import { createRefreshEpochs, type RefreshEpochs } from './refresh-epochs';
-import { buildQuery, clientCorrelationId, ContractError, emptyGlobal, type EquipmentAxisDescriptor, type ContextKey, type GlobalContext, incompleteMetricPair, type ModuleScopedId, isAppRelativePath, type Pair, type ParsedQuery, parseQuery, type Permission, type PlatformAdapter, sameGlobal, type Session, type SessionUser, shift, type SpaceDef, type SpaceId, type Text, type UsageEvent, type UsageVia } from '@ap/contracts';
+import { buildQuery, clientCorrelationId, ContractError, emptyGlobal, type EquipmentAxisDescriptor, type ContextKey, type GlobalContext, incompleteMetricPair, type ModuleScopedId, isAppRelativePath, type Pair, type ParsedQuery, parseQuery, type Permission, type PlatformAdapter, sameGlobal, type Session, type SessionUser, shift, type SpaceDef, type SpaceId, type Text, type UsageEvent, type UsageVia, type QueryHistoryStore } from '@ap/contracts';
 
 const NO_EQUIPMENT_AXES: readonly EquipmentAxisDescriptor[] = [];
 
 export type ScopeState = { scopeId: string | null; status: 'none' | 'validating' | 'valid' | 'forbidden' | 'unknown_scope' | 'error'; validatedFor: Session | null; grantedRooms: string[] };
 export type Recent = { menuId: string; url: string; at: number };
 export type Toast = { id: number; text: string; tone: 'info' | 'warning' | 'danger'; detail?: string };
-/** FeedbackOps entry the shell draws for one space. The shell picks the icon from `id` (ADR-0028). */
-export type FeedbackOpsEntryId = 'voc-create' | 'voc' | 'task' | 'survey';
-/** `href: null` draws the entry as a disabled link (15 §8: the FeedbackOps address is missing or invalid). */
-export type FeedbackOpsEntry = { id: FeedbackOpsEntryId; label: Text; href: string | null };
+/**
+ * FeedbackOps entry the shell draws for one space (ADR-0028, ADR-0072 decision 5). The app supplies the icon; `key` is only a React key,
+ * the shell never branches on it. `href: null` draws the entry as a disabled link (15 §8: the FeedbackOps address is missing or invalid).
+ */
+export type FeedbackOpsEntry = { key: string; label: Text; href: string | null; icon: LucideIcon };
 /**
  * Space-scoped FeedbackOps links from the app's Managed System mapping (ADR-0027, ADR-0045).
  * `entriesFor` returns null for a space without a mapping; an absent slot draws neither the block nor the rail link.

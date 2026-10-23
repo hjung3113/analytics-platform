@@ -38,9 +38,6 @@ ${deps.join('\n')}
 function makeWiredRepo(): string {
   const root = mkdtempSync(join(tmpdir(), 'gen-menu-repo-'));
   writeFileSync(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - menus/*/*\n');
-  mkdirSync(join(root, 'packages/contracts/src'), { recursive: true });
-  const union = GROUPS.map(g => `'${g.group}'`).join(' | ');
-  writeFileSync(join(root, 'packages/contracts/src/menu.ts'), `export type GroupId = ${union};\n`);
   mkdirSync(join(root, 'apps/platform-web/src/dev'), { recursive: true });
 
   const imports = GROUPS.map(g => `import { manifests as ${binding(g.folder)} } from '${PACKAGE_PREFIX}menu-${g.folder}';`).join('\n');
@@ -203,8 +200,8 @@ describe('wiring invariants against a fixture repo', () => {
 
   it('skips the probe-name check only under GEN_MENU_PROBE', () => {
     const root = fresh();
-    const contracts = join(root, 'packages/contracts/src/menu.ts');
-    writeFileSync(contracts, readFileSync(contracts, 'utf8').replace(" | 'quality'", " | 'genProbe'"));
+    const menusTs = join(root, 'apps/platform-web/src/menus.ts');
+    writeFileSync(menusTs, `${readFileSync(menusTs, 'utf8')}// genProbe\n`);
     expect(() => checkNoProbe(loadShape(root), false)).toThrow(/genProbe/);
     expect(() => checkNoProbe(loadShape(root), true)).not.toThrow();
   });

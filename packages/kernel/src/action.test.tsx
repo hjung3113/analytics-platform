@@ -2,7 +2,7 @@ import { StrictMode, useLayoutEffect } from 'react';
 import { act, cleanup, render } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { defineAction, defineEndpoint, type ActionOutcome, type ActionResponse, type ActionResult, type MenuAction, type MenuQuery, type Session } from '@ap/contracts';
+import { defineAction, defineEndpoint, type ActionOutcome, type ActionResponse, type ActionResult, type MenuAction, type MenuQuery, type Session, groupId, spaceId } from '@ap/contracts';
 import { useMenuAction, type MenuActionState } from './action';
 import { I18nProvider } from './i18n';
 import { PaneScreenProvider, PlatformProvider } from './platform';
@@ -26,8 +26,8 @@ const scoped = action({ id: 'fx.save-s', requiresScope: true });
 const meta = { description: { ko: '', en: '' }, icon: House, permission: 'platform:view' as const, requiresScope: false, context: noContext, pageType: 'analysis' as const, pageKeys: [] };
 const registry = createRegistry({
   spaces: [testSpace()],
-  groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }],
-  menus: [{ ...meta, id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, path: '/', features: { export: false, savedView: false, annotate: false, compare: false, board: true } }],
+  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
+  menus: [{ ...meta, id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, path: '/', features: { export: false, savedView: false, annotate: false, compare: false, board: true } }],
 });
 
 const response = (outcome: ActionOutcome, over: Partial<ActionResponse<{ id: string }>> = {}): ActionResponse<{ id: string }> => ({

@@ -6,6 +6,7 @@ import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testi
 import { AnalysisChartFrame, type AnalysisChartFrameProps, type ChartSeries } from './AnalysisChartFrame';
 import type { EChartProps } from './EChart';
 import { downloadChartCsv } from './analysisChartCsv';
+import { groupId, spaceId } from '@ap/contracts';
 vi.mock('./analysisChartCsv', () => ({ downloadChartCsv: vi.fn() }));
 
 let plot: EChartProps;
@@ -15,8 +16,8 @@ const series: ChartSeries[] = [
   { id: 'two', name: 'Two', color: 'chart-purple', kind: 'bar', points: [['Row B | B1', 3], ['Row A | A1', 5]] },
 ];
 const registry = createRegistry({
-  spaces: [testSpace()], groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }],
-  menus: [{ id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features: { export: true, savedView: false, annotate: false, compare: true }, pageKeys: [] }],
+  spaces: [testSpace()], groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
+  menus: [{ id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features: { export: true, savedView: false, annotate: false, compare: true }, pageKeys: [] }],
 });
 const session = testSession(['platform:view']);
 const adapter = testAdapter({ session: () => session });

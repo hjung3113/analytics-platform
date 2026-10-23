@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { defineEndpoint, emptyGlobal, projectContext, shift, type Capability, type ContextKey, type GlobalContext, type MenuMeta } from '@ap/contracts';
+import { defineEndpoint, emptyGlobal, projectContext, shift, type Capability, type ContextKey, type GlobalContext, type MenuMeta, groupId, menuPermission } from '@ap/contracts';
 import { createMockAdapter, cycleMinutes, DATA_THROUGH, defineMockEndpoint, EQUIPMENT, getRole, jobsForEquipmentDay, setRole, type AnyMockEndpoint, type RoleId } from '@ap/mock-server';
 import { executionOccurrence } from './execution';
 import { occurrenceEndpoint, type Execution, type OccurrenceParams, type OccurrenceResult } from '../endpoints';
@@ -13,11 +13,11 @@ const none: Record<ContextKey, Capability> = {
 /** Inline mirror of execution-detail's registration fields: every Context key is reference-only. */
 const executionMenu: MenuMeta = {
   id: 'execution-detail',
-  group: 'analytics',
+  group: groupId('analytics'),
   label: { ko: '실행 상세', en: 'Execution detail' },
   description: { ko: '', en: '' },
   path: '/analytics/executions/:equipmentId',
-  permission: 'analytics:view',
+  permission: menuPermission('analytics:view'),
   requiresScope: true,
   context: {
     ...none,

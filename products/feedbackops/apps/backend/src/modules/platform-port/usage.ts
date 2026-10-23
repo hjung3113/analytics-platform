@@ -10,16 +10,6 @@ import type { CheckService } from '../permissions/check-service.js';
 import type { AuditJudgement } from './audit-service.js';
 import { type PlatformActor, holdsPlatformPermission } from './permissions.js';
 
-/** `SpaceId` of the root `packages/contracts/src/menu.ts`; `usage-vocabulary.test.ts` pins it. */
-export const PLATFORM_SPACE_IDS = [
-  'analytics',
-  'metrics',
-  'clas',
-  'operations',
-  'log-dev',
-  'improvement',
-] as const;
-
 /** `UsageVia` of the root `packages/contracts/src/adapter.ts`; `usage-vocabulary.test.ts` pins it. */
 export const PLATFORM_USAGE_VIA = [
   'sidebar',
@@ -52,8 +42,9 @@ export function validIdentifier(value: unknown, maxLength: number): value is str
   );
 }
 
-export function validSpaceId(value: unknown): value is (typeof PLATFORM_SPACE_IDS)[number] | null {
-  return value === null || (PLATFORM_SPACE_IDS as readonly unknown[]).includes(value);
+/** A space id is null (a global menu) or an identifier like a menu id: this server does not know the app's spaces (ADR-0072), so it judges the shape only. */
+export function validSpaceId(value: unknown): value is string | null {
+  return value === null || validIdentifier(value, 80);
 }
 
 export interface ParsedUsageEvent {

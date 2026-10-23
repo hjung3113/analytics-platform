@@ -9,9 +9,9 @@
  * operator role and this is the console index over every site, same reason as auditTrail — hiding a site's
  * assignment would hide the assignment. SiteGrant room names are master values (ADR-0005), never translated.
  */
-import { PERMISSIONS, type AccessDirectoryPage, type AccessDirectoryQuery, type AccessPrincipal, type AccessSortField, type ApiResponse, type Assessment } from '@ap/contracts';
+import { type AccessDirectoryPage, type AccessDirectoryQuery, type AccessPrincipal, type AccessSortField, type ApiResponse, type Assessment } from '@ap/contracts';
 import { getRole, getScenario, nextCorrelation, sleep } from './server';
-import { SITES, USERS, type RoleId } from './world';
+import { SITES, USERS, WORLD_PERMISSIONS, type RoleId } from './world';
 
 export type AccessOptions = { role?: RoleId; latency?: number };
 
@@ -28,7 +28,7 @@ function invalidAccessQuery(query: AccessDirectoryQuery): boolean {
   if (Object.keys(query).some(key => !(ACCESS_QUERY_KEYS as readonly string[]).includes(key))) return true;
   // Same token rule as the audit actor filter: not a string, empty, over 80 chars, or URL/whitespace-bearing.
   if (query.role !== undefined && (typeof query.role !== 'string' || !query.role || query.role.length > 80 || /[?#&\s]/.test(query.role))) return true;
-  if (query.permission !== undefined && !(PERMISSIONS as readonly string[]).includes(query.permission)) return true;
+  if (query.permission !== undefined && !(WORLD_PERMISSIONS as readonly string[]).includes(query.permission)) return true;
   if (query.sort !== undefined) {
     if (typeof query.sort !== 'object' || query.sort === null) return true;
     if (Object.keys(query.sort).some(key => key !== 'field' && key !== 'desc')) return true;

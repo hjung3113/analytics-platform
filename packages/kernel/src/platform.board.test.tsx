@@ -1,19 +1,19 @@
 import { act, cleanup, render } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { UsageEvent } from '@ap/contracts';
 import { I18nProvider } from './i18n';
 import { PaneScreenProvider, PlatformProvider, usePlatform } from './platform';
 import { createRegistry } from './registry';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from './testing';
+import { groupId, spaceId, type UsageEvent } from '@ap/contracts';
 
 const features = { export: false, savedView: false, annotate: false, compare: false, board: true };
 const registry = createRegistry({
   spaces: [testSpace({ homeMenuId: 'main' })],
-  groups: [{ id: 'equipment', label: { ko: '그룹', en: 'Group' }, icon: House, space: 'analytics' }],
+  groups: [{ id: groupId('equipment'), label: { ko: '그룹', en: 'Group' }, icon: House, space: spaceId('analytics') }],
   menus: [
-    { id: 'main', group: 'equipment', primary: true, label: { ko: '본', en: 'Main' }, description: { ko: '', en: '' }, path: '/main', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features, pageKeys: [] },
-    { id: 'boards', group: 'equipment', label: { ko: '보드들', en: 'Boards' }, description: { ko: '', en: '' }, path: '/boards', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features, pageKeys: [] },
+    { id: 'main', group: groupId('equipment'), primary: true, label: { ko: '본', en: 'Main' }, description: { ko: '', en: '' }, path: '/main', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features, pageKeys: [] },
+    { id: 'boards', group: groupId('equipment'), label: { ko: '보드들', en: 'Boards' }, description: { ko: '', en: '' }, path: '/boards', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features, pageKeys: [] },
   ],
 });
 

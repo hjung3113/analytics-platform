@@ -8,8 +8,7 @@ DrillState | type | type DrillState = { depth: number; enter: (key: string, valu
 DrillTrailStep | type | type DrillTrailStep = { key: string; label: @ap/contracts#Text; value: string; }
 EquipmentSearchParams | type | type EquipmentSearchParams = { context?: @ap/kernel#PortContext; enabled?: boolean; pageSize?: number; query?: string; }
 ErrorGuidance | type | type ErrorGuidance = { action: @ap/kernel#Key; cause: @ap/kernel#Key; code: null | string; }
-FeedbackOpsEntry | type | type FeedbackOpsEntry = { href: null | string; id: @ap/kernel#FeedbackOpsEntryId; label: @ap/contracts#Text; }
-FeedbackOpsEntryId | type | type FeedbackOpsEntryId = 'survey' | 'task' | 'voc' | 'voc-create'
+FeedbackOpsEntry | type | type FeedbackOpsEntry = { href: null | string; icon: LucideIcon; key: string; label: @ap/contracts#Text; }
 FeedbackOpsSlot | type | type FeedbackOpsSlot = { entriesFor: (spaceId: @ap/contracts#SpaceId, platformReturn?: string) => null | readonly @ap/kernel#FeedbackOpsEntry[]; overall: null | { href: string; permission: @ap/contracts#Permission; }; }
 GroupDef | type | type GroupDef = @ap/kernel#ModuleGroupDef | @ap/kernel#PlatformGroupDef
 I18nProvider | function | function I18nProvider({ children }: { children: ReactNode; }): import("react").JSX.Element
@@ -50,7 +49,7 @@ QueryMissing | type | type QueryMissing = { key: string; label: @ap/contracts#Te
 QueryState | type | type QueryState<T> = { completedAt: null | number; missing: readonly @ap/kernel#QueryMissing[]; refetch: () => void; response: @ap/contracts#ApiResponse<T> | null; status: 'done' | 'idle' | 'loading' | 'refreshing'; }
 RETURN_CONTEXT_LABELS | const | const RETURN_CONTEXT_LABELS: Record<@ap/kernel#ReturnContextKey, @ap/contracts#Text>
 Recent | type | type Recent = { at: number; menuId: string; url: string; }
-Registry | type | type Registry = { groupById: (id: @ap/kernel#AnyGroupId) => @ap/kernel#GroupDef; groups: readonly @ap/kernel#GroupDef[]; matchRoute: (pathname: string) => @ap/kernel#RouteMatch | null; menuById: (id: string) => @ap/kernel#MenuEntry; menus: readonly @ap/kernel#MenuEntry[]; safeReturnTo: (value: null | string) => null | string; spaceById: (id: @ap/contracts#SpaceId) => @ap/contracts#SpaceDef; spaceOf: (menu: @ap/kernel#MenuEntry) => @ap/contracts#SpaceDef | null; spaces: readonly @ap/contracts#SpaceDef[]; }
+Registry | type | type Registry = { groupById: (id: @ap/kernel#AnyGroupId) => @ap/kernel#GroupDef; groups: readonly @ap/kernel#GroupDef[]; matchRoute: (pathname: string) => @ap/kernel#RouteMatch | null; menuById: (id: string) => @ap/kernel#MenuEntry; menus: readonly @ap/kernel#MenuEntry[]; permissions: readonly @ap/contracts#Permission[]; safeReturnTo: (value: null | string) => null | string; spaceById: (id: @ap/contracts#SpaceId) => @ap/contracts#SpaceDef; spaceOf: (menu: @ap/kernel#MenuEntry) => @ap/contracts#SpaceDef | null; spaces: readonly @ap/contracts#SpaceDef[]; }
 RegistryError | class | class RegistryError extends Error { }
 RequestState | type | type RequestState<T> = { data: T | null; retry: () => void; status: 'done' | 'error' | 'loading'; }
 ResolvedSelectionParams | type | type ResolvedSelectionParams = { enabled?: boolean; scopeId?: string; }
@@ -65,7 +64,7 @@ classifyMetricInit | function | function classifyMetricInit(published: readonly 
 contractErrorSentence | function | function contractErrorSentence(lang: @ap/kernel#Lang, error: { code: string; field?: string; raw?: string; }): string
 createBasePathLocation | function | function createBasePathLocation(basePath: string): @ap/kernel#PlatformLocation
 createBrowserLocation | function | function createBrowserLocation(): @ap/kernel#PlatformLocation
-createRegistry | function | function createRegistry({ spaces, groups, menus }: { groups: readonly @ap/kernel#GroupDef[]; menus: readonly @ap/kernel#MenuEntry[]; spaces: readonly @ap/contracts#SpaceDef[]; }): @ap/kernel#Registry
+createRegistry | function | function createRegistry({ spaces, groups, menus, permissions: declared }: { groups: readonly @ap/kernel#GroupDef[]; menus: readonly @ap/kernel#MenuEntry[]; permissions?: readonly @ap/contracts#MenuPermission[]; spaces: readonly @ap/contracts#SpaceDef[]; }): @ap/kernel#Registry
 errorGuidance | function | function errorGuidance(message: string | undefined): @ap/kernel#ErrorGuidance
 hasDotSegment | function | function hasDotSegment(pathname: string): boolean
 invalidValueSentence | function | function invalidValueSentence(lang: @ap/kernel#Lang, kind: 'drillGap' | 'filter' | 'plain' | 'value', field: @ap/contracts#Text, raw: string): string

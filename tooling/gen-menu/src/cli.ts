@@ -11,8 +11,8 @@ Usage:
   pnpm gen:menu <group> [--menu <id>] [--label-ko <s>] [--label-en <s>] [--path <route>] [--page-type <archetype>] [--dry-run] [--root <dir>]
   pnpm gen:menu --remove <group> [--dry-run] [--root <dir>]
 
-<group> must already exist in the GroupId union (packages/contracts/src/menu.ts)
-and GROUPS (apps/platform-web/src/menus.ts); the generator does not add sidebar groups.
+<group> must already exist in GROUPS (apps/platform-web/src/menus.ts), the app's declaration;
+the generator does not add sidebar groups.
 Archetypes: overview | analysis | management | catalog | workflow (default overview).`;
 
 type Args = {

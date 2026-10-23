@@ -6,7 +6,7 @@
  * (1..80 chars, no URL/whitespace marks) and a well-formed token that matches nobody is valid — it
  * answers `empty`, never a parse error.
  */
-import { PERMISSIONS, type AccessSortField, type PageSort, type Permission } from '@ap/contracts';
+import type { AccessSortField, PageSort, Permission } from '@ap/contracts';
 import { parsePageIndex, parseTableSort } from '@ap/components';
 
 /** The six page keys of `admin-roles`; the reset button clears exactly these. */
@@ -28,11 +28,11 @@ export type ParsedAccessKeys =
 /** True when the operator text is not a plain token: empty, over 80 chars, or URL/whitespace-bearing. */
 const invalidText = (value: string): boolean => !value || value.length > 80 || /[?#&\s]/.test(value);
 
-/** The filter keys (not sort/page) whose wire value is unusable, in role → permission → focus order. */
-export function badAccessFilterKeys(raw: { role: string | null; permission: string | null; focus: string | null }): ('role' | 'permission' | 'focus')[] {
+/** The filter keys (not sort/page) whose wire value is unusable, in role → permission → focus order. `permissions` is the registry's list (`registry.permissions`). */
+export function badAccessFilterKeys(raw: { role: string | null; permission: string | null; focus: string | null }, permissions: readonly string[]): ('role' | 'permission' | 'focus')[] {
   const bad: ('role' | 'permission' | 'focus')[] = [];
   if (raw.role !== null && invalidText(raw.role)) bad.push('role');
-  if (raw.permission !== null && !(PERMISSIONS as readonly string[]).includes(raw.permission)) bad.push('permission');
+  if (raw.permission !== null && !permissions.includes(raw.permission)) bad.push('permission');
   if (raw.focus !== null && invalidText(raw.focus)) bad.push('focus');
   return bad;
 }
@@ -41,13 +41,13 @@ export function badAccessFilterKeys(raw: { role: string | null; permission: stri
  *  `Invalid access filter` is already invalid here, so a bad value never reaches the adapter. */
 export function parseAccessKeys(raw: {
   role: string | null; permission: string | null; sort: string | null; page: string | null; focus: string | null;
-}): ParsedAccessKeys {
+}, permissions: readonly string[]): ParsedAccessKeys {
   const parsedSort = parseTableSort(raw.sort, SORT_FIELDS);
   const parsedPage = parsePageIndex(raw.page);
   if (!parsedSort.ok || !parsedPage.ok) return { ok: false };
   // `focus` selects the drawer row; it is never sent to accessDirectory. Same token grammar as `role`,
   // so a malformed focus fails the page parse (adapter not called) while an unknown one is the drawer alert.
-  if (badAccessFilterKeys(raw).length > 0) return { ok: false };
+  if (badAccessFilterKeys(raw, permissions).length > 0) return { ok: false };
   return {
     ok: true,
     filters: { role: raw.role, permission: raw.permission as Permission | null },

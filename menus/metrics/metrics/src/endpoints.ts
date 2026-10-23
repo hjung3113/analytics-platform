@@ -4,6 +4,7 @@
  * (`versionDiff`). The synthetic catalog itself and every lookup live in `src/mock/` (the server half).
  */
 import { defineEndpoint, type AuditEvent, type PageQuery, type PageResult, type PageSort } from '@ap/contracts';
+import { PERMISSION } from './permission';
 
 export type Text = { ko: string; en: string };
 export type Lang = 'ko' | 'en';
@@ -132,7 +133,7 @@ export type CatalogFilter = { q: string | null; status: string | null; domain: s
 export type CatalogList = { rows: CatalogRow[]; filterProblem: 'status' | 'domain' | null };
 
 /** Metric catalog and detail apply no site Context: metrics are not site data (no Scope). */
-const base = { permission: 'metrics:view', requiresScope: false, kinds: ['processing_delay'], mergeTimeDomain: false } as const;
+const base = { permission: PERMISSION, requiresScope: false, kinds: ['processing_delay'], mergeTimeDomain: false } as const;
 
 /**
  * The global metric pair judged by the server against the catalog (06 §6.1): membership, other metric, conflict.

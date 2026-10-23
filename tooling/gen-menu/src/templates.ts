@@ -124,12 +124,12 @@ function indexTs(i: MenuInputs): string {
   return `/** ${menuPackage(i.folder)} — ${i.group} group. Scaffold: one primary menu, no domain data. */
 import { lazy } from 'react';
 import { LayoutDashboard } from 'lucide-react';
-import { NO_FEATURES, contextCapabilities } from '${PACKAGE_PREFIX}contracts';
+import { NO_FEATURES, contextCapabilities, groupId } from '${PACKAGE_PREFIX}contracts';
 import type { PlatformMenuEntry } from '${PACKAGE_PREFIX}kernel';
 
 export const manifests: PlatformMenuEntry[] = [
   {
-    id: '${i.menuId}', primary: true, group: '${i.group}',
+    id: '${i.menuId}', primary: true, group: groupId('${i.group}'),
     label: { ko: '${i.labelKo}', en: '${i.labelEn}' },
     description: { ko: '${i.labelKo}', en: '${i.labelEn}' },
     path: '${i.path}', icon: LayoutDashboard, permission: '${SCAFFOLD_PERMISSION}',
@@ -287,15 +287,15 @@ ${slotsMarkup}
 
 function manifestTest(i: MenuInputs): string {
   // The group's real space from GROUPS (#548): null is a global utility with no space to declare.
-  const space = i.space === null ? 'null' : `'${i.space}'`;
+  const space = i.space === null ? 'null' : `spaceId('${i.space}')`;
   const spaces = i.space === null
     ? '[]'
-    : `[{ id: '${i.space}', label: { ko: '공간', en: 'Space' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: menu.id }]`;
+    : `[{ id: spaceId('${i.space}'), label: { ko: '공간', en: 'Space' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: menu.id }]`;
   const spaceExpect = i.space === null
     ? 'expect(registry.spaceOf(menu)).toBeNull();'
     : `expect(registry.spaceOf(menu)?.id).toBe('${i.space}');`;
   return `import { describe, expect, it } from 'vitest';
-import type { SpaceDef } from '${PACKAGE_PREFIX}contracts';
+import { ${i.space === null ? '' : 'spaceId, '}type SpaceDef } from '${PACKAGE_PREFIX}contracts';
 import { createRegistry, type GroupDef } from '${PACKAGE_PREFIX}kernel';
 import { manifests } from './index';
 import { sampleEndpoint } from './endpoints';
@@ -325,7 +325,7 @@ describe('manifest', () => {
 
 function mockIndexTest(i: MenuInputs): string {
   return `import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { NO_FEATURES, contextCapabilities, type ApiResponse, type MenuMeta } from '${PACKAGE_PREFIX}contracts';
+import { NO_FEATURES, contextCapabilities, groupId, type ApiResponse, type MenuMeta } from '${PACKAGE_PREFIX}contracts';
 import { createMockAdapter, getRole, setRole } from '${PACKAGE_PREFIX}mock-server';
 import { ${i.group}Mock } from './index';
 import { sampleEndpoint } from '../endpoints';
@@ -338,7 +338,7 @@ import { sampleEndpoint } from '../endpoints';
  */
 const sampleMenu: MenuMeta = {
   id: ${str(i.menuId)},
-  group: '${i.group}',
+  group: groupId('${i.group}'),
   label: { ko: ${str(i.labelKo)}, en: ${str(i.labelEn)} },
   description: { ko: ${str(i.labelKo)}, en: ${str(i.labelEn)} },
   path: ${str(i.path)},

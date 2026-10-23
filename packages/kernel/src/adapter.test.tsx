@@ -1,6 +1,5 @@
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { useState } from 'react';
-import type { ApiResponse, PlatformAdapter, SelectionEvaluation, Session } from '@ap/contracts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from './i18n';
 import { PlatformProvider, usePlatform } from './platform';
@@ -8,11 +7,12 @@ import { useAdapterRequest, useEntityQuery, usePlatformQuery } from './query';
 import { createRegistry } from './registry';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from './testing';
 import { House } from 'lucide-react';
+import { groupId, spaceId, type ApiResponse, type PlatformAdapter, type SelectionEvaluation, type Session } from '@ap/contracts';
 
 const registry = createRegistry({
   spaces: [testSpace()],
-  groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }],
-  menus: [{ id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] }],
+  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
+  menus: [{ id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] }],
 });
 
 /** Fixture adapter: no mock server, so these tests pin the kernel side of the port (platform-packages.md §4). */
@@ -245,8 +245,8 @@ describe('useEntityQuery (session identity)', () => {
 describe('setGlobal drops contextResetKeys in the same navigation (06 §6.4)', () => {
   const stateful = createRegistry({
     spaces: [testSpace()],
-    groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }],
-    menus: [{ id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: ['sort', 'page', 'bucket'], contextResetKeys: ['page', 'bucket'] }],
+    groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
+    menus: [{ id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: ['sort', 'page', 'bucket'], contextResetKeys: ['page', 'bucket'] }],
   });
 
   function UrlProbe() {

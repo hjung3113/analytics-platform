@@ -2,7 +2,7 @@
  * Synthetic server world. Values are fabricated for the prototype; they are not parser data,
  * real Site names, grants or equipment. Master values (IDs, team names) are never translated.
  */
-import { PERMISSIONS, type Permission, type PublishedMetric } from '@ap/contracts';
+import { KERNEL_PERMISSIONS, menuPermission, type Permission, type PublishedMetric } from '@ap/contracts';
 
 export type Site = { id: string; label: string; rooms: string[] };
 export const SITES: Site[] = [
@@ -13,7 +13,11 @@ export const SITES: Site[] = [
 
 export type RoleId = 'engineer' | 'admin' | 'viewer';
 export type User = { role: RoleId; name: string; title: { ko: string; en: string }; permissions: Permission[]; grants: Record<string, string[]> };
-const ALL: Permission[] = [...PERMISSIONS];
+/** The fabricated world holds the permissions of the sample menus too (the app declares the same four, ADR-0072); it has no import path to the app. */
+const SAMPLE_MENU_PERMISSIONS = [menuPermission('equipment:view'), menuPermission('master:view'), menuPermission('analytics:view'), menuPermission('metrics:view')];
+/** Every permission this world's users can hold, kernel first. */
+export const WORLD_PERMISSIONS: readonly Permission[] = [...KERNEL_PERMISSIONS, ...SAMPLE_MENU_PERMISSIONS];
+const ALL: Permission[] = [...WORLD_PERMISSIONS];
 export const USERS: Record<RoleId, User> = {
   engineer: {
     role: 'engineer', name: 'Process Engineer', title: { ko: '공정 엔지니어', en: 'Process engineer' },
@@ -26,7 +30,7 @@ export const USERS: Record<RoleId, User> = {
   },
   viewer: {
     role: 'viewer', name: 'Field Requester', title: { ko: '현업 문의자', en: 'Field requester' },
-    permissions: ['platform:view', 'metrics:view', 'notice:view', 'voc:view'],
+    permissions: ['platform:view', menuPermission('metrics:view'), 'notice:view', 'voc:view'],
     grants: { MEM: ['PHOTO'] },
   },
 };

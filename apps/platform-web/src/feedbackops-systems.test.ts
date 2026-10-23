@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { feedbackOpsSlot, FEEDBACKOPS_MANAGED_SYSTEMS } from './feedbackops-systems';
 import { SPACES } from './menus';
+import { spaceId } from '@ap/contracts';
 
 const F = 'https://feedbackops.example';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -15,13 +16,23 @@ describe('FEEDBACKOPS_MANAGED_SYSTEMS (ADR-0045)', () => {
     expect(new Set(values).size).toBe(values.length);
     for (const space of Object.keys(FEEDBACKOPS_MANAGED_SYSTEMS)) expect(SPACES.some(s => s.id === space)).toBe(true);
   });
+
+  it('keys the map by the space ids SPACES declares: a key that names no declared space fails typecheck (ADR-0072)', () => {
+    // @ts-expect-error 'nowhere' is not a space id in SPACES
+    const unknown: typeof FEEDBACKOPS_MANAGED_SYSTEMS = { nowhere: 'x' };
+    void unknown;
+  });
+
+  it('gives every entry the icon the app supplies', () => {
+    for (const entry of feedbackOpsSlot(F).entriesFor(spaceId('analytics'))!) expect(entry.icon).toBeDefined();
+  });
 });
 
 describe('feedbackOpsSlot', () => {
   it.each(['analytics', 'metrics'] as const)('draws four entries for %s, in order, scoped to that space only', space => {
-    const entries = feedbackOpsSlot(F).entriesFor(space)!;
+    const entries = feedbackOpsSlot(F).entriesFor(spaceId(space))!;
     const uuid = FEEDBACKOPS_MANAGED_SYSTEMS[space]!;
-    expect(entries.map(entry => entry.id)).toEqual(['voc-create', 'voc', 'task', 'survey']);
+    expect(entries.map(entry => entry.key)).toEqual(['voc-create', 'voc', 'task', 'survey']);
     expect(entries.map(entry => entry.label)).toEqual([
       { ko: 'VOC 등록', en: 'Submit VOC' }, { ko: 'VOC', en: 'VOC' }, { ko: 'Task', en: 'Tasks' }, { ko: '설문', en: 'Surveys' },
     ]);
@@ -39,18 +50,18 @@ describe('feedbackOpsSlot', () => {
 
   it('carries the page it was drawn on as platformReturn on all four entries (FO ADR-0071)', () => {
     const back = 'https://platform.example/analytics/cycle-time?v=1&scopeId=MEM';
-    const entries = feedbackOpsSlot(F).entriesFor('analytics', back)!;
+    const entries = feedbackOpsSlot(F).entriesFor(spaceId('analytics'), back)!;
     for (const entry of entries) expect(new URL(entry.href!).searchParams.getAll('platformReturn')).toEqual([back]);
     expect(feedbackOpsSlot(F).overall!.href).toBe(`${F}/home`);
   });
 
   it('gives a space without a mapping row no block', () => {
-    expect(feedbackOpsSlot(F).entriesFor('operations')).toBeNull();
+    expect(feedbackOpsSlot(F).entriesFor(spaceId('operations'))).toBeNull();
   });
 
   it('gives a space no block when its mapped value is not a uuid', () => {
     vi.spyOn(FEEDBACKOPS_MANAGED_SYSTEMS as Record<string, string>, 'analytics', 'get').mockReturnValue('MEM');
-    expect(feedbackOpsSlot(F).entriesFor('analytics')).toBeNull();
+    expect(feedbackOpsSlot(F).entriesFor(spaceId('analytics'))).toBeNull();
   });
 
   it.each([
@@ -59,8 +70,8 @@ describe('feedbackOpsSlot', () => {
     ['with a path', 'https://feedbackops.example/app'],
   ])('keeps the four mapped entries but disabled (href null) and hides overall when the origin is %s', (_name, origin) => {
     const slot = feedbackOpsSlot(origin);
-    expect(slot.entriesFor('analytics')!.map(entry => entry.href)).toEqual([null, null, null, null]);
-    expect(slot.entriesFor('operations')).toBeNull();
+    expect(slot.entriesFor(spaceId('analytics'))!.map(entry => entry.href)).toEqual([null, null, null, null]);
+    expect(slot.entriesFor(spaceId('operations'))).toBeNull();
     expect(slot.overall).toBeNull();
   });
 

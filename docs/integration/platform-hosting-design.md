@@ -40,8 +40,8 @@
 | --- | --- | --- | --- | --- | --- |
 | 모듈 식별·계약 버전 | `module.id`, `contract: 1`, 필수·선택 호스트 기능 | 받아들일 계약 버전 | 없음 | `equipment-visualization` | `feedbackops` |
 | 화면 | 화면 id, **모듈 상대 경로**, 이름·설명(`Text`), pageType, `navHidden`·`parent`(모듈 안) | 경로 접두사(예 `/equipment/topview`, `/collab`), 아이콘 매핑 | `MenuMeta`(경로는 앱 절대 경로) | `topview`·`replay` | `voc-create`·`vocs`·`voc-detail`·`tasks`… |
-| 그룹 | 모듈 안 묶음(사이드바 섹션 후보) | 어느 공간에 둘지(`GroupDef.space`), 그룹 id | `GroupDef`(id는 닫힌 `GroupId`) | 기존 `equipment` 그룹에 합침 | `voc`·`task`·`survey` 묶음 |
-| 권한 | 화면·조회의 권한 문자열(모듈 접두사) | 그 문자열을 세션 권한에 싣는 것(서버) | `Permission`(닫힌 목록 8개) | `equipment:view`(기존), `equipment:topview:edit`·`equipment:replay:view` 후보(미승인) | FeedbackOps capability를 표시용으로 투영 |
+| 그룹 | 모듈 안 묶음(사이드바 섹션 후보) | 어느 공간에 둘지(`GroupDef.space`), 그룹 id | `GroupDef`(id는 앱이 선언하는 브랜드 `GroupId`, ADR-0072) | 기존 `equipment` 그룹에 합침 | `voc`·`task`·`survey` 묶음 |
+| 권한 | 화면·조회의 권한 문자열(모듈 접두사) | 그 문자열을 세션 권한에 싣는 것(서버) | `Permission`(Kernel 고유 `KERNEL_PERMISSIONS` + 앱이 선언한 `MenuPermission`, ADR-0072) | `equipment:view`(기존), `equipment:topview:edit`·`equipment:replay:view` 후보(미승인) | FeedbackOps capability를 표시용으로 투영 |
 | page key | 등록 키, `contextResetKeys`, `returnTo` 수용 여부 | — | `pageKeys` 등 | `at`, `anchor`, `layoutRevision` | `view`·`selected`·`managedSystem`·`action` |
 | Context capability | 8개 키별 `apply`/`reference`/`unsupported`, `requiresScope` | — | `context`, `requiresScope` | `time: apply`, `selection: reference` | 전부 `unsupported`, `requiresScope: false` |
 | 데이터 | 플랫폼 서버 조회면 `EndpointSpec`; 제품 서버면 "자기 API 사용"과 필요한 설정 키 | 엔드포인트의 서버 사본, 제품 API 기준 경로 | `EndpointSpec`·`defineEndpoint` | `equipment.topview.*` 4종 | 없음(FeedbackOps API, `apiBase` 설정) |
@@ -92,7 +92,7 @@
 
 | # | 빠진 것 | 왜 필요한가 | 제안(Candidate) |
 | --- | --- | --- | --- |
-| G1 | 열린 어휘: `GroupId`·`SpaceId`·`Permission`이 `@ap/contracts`의 닫힌 union·상수 목록 | 다른 저장소 모듈이 권한·그룹을 더하려면 플랫폼 계약 파일을 고쳐야 한다 | 모듈 접두사가 붙은 문자열(`feedbackops:*`, `equipment:topview:*`)을 허용하고 등록 때 검증. 플랫폼 고유 권한은 지금 목록 유지 |
+| G1 | 열린 어휘: `GroupId`·`SpaceId`·`Permission`이 `@ap/contracts`의 닫힌 union·상수 목록 | 다른 저장소 모듈이 권한·그룹을 더하려면 플랫폼 계약 파일을 고쳐야 한다 | 모듈 접두사가 붙은 문자열(`feedbackops:*`, `equipment:topview:*`)을 허용하고 등록 때 검증. 플랫폼 고유 권한은 지금 목록 유지 → ADR-0072로 `KERNEL_PERMISSIONS`만 남고 그룹·공간·메뉴 권한은 앱이 선언 |
 | G2 | 모듈 경로 접두사 | `matchRoute`는 앱 절대 경로·길이 일치만 매칭한다. 모듈은 자기 상대 경로만 알아야 두 호스트에서 같은 manifest를 쓴다 | 연결 패키지가 접두사를 정하고 Kernel이 등록 때 합친다. 경로 충돌 검사는 지금 규칙 그대로 |
 | G3 | React 밖 호스트 포트 | 화면 props는 `{ params }`뿐이고 나머지는 `usePlatform()` 훅 — 모듈이 `@ap/kernel`을 import해야 한다 | `@ap/contracts`에 `ModuleHost` 타입, Kernel이 구현해 화면 props로 넘김(`{ params, host }`) |
 | G4 | 모듈 상태 | 제품 서버 인증 실패·신원 불일치를 모듈마다 다르게 그리면 로그인 화면이 셸 안에 생긴다 | `host.status(...)` 또는 화면 반환 상태로 `auth_required`·`identity_mismatch`·`unavailable`. 호스트가 공통 화면과 조치(새 탭 로그인 등)를 그림 |

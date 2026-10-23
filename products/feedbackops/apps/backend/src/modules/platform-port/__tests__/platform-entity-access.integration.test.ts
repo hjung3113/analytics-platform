@@ -584,7 +584,7 @@ describe.skipIf(!runIntegration)('platform port entity + access reads (#623)', (
       ['role with &', { role: 'a&b' }],
       ['role over 80 chars', { role: 'a'.repeat(81) }],
       ['non-string role', { role: 5 }],
-      ['unknown permission', { permission: 'admin:all' }],
+      ['malformed permission', { permission: 'admin all' }],
       ['non-string permission', { permission: 3 }],
       ['page 0', { page: 0 }],
       ['page fractional', { page: 1.5 }],

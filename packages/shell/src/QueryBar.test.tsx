@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { defineEndpoint, type PlatformAdapter } from '@ap/contracts';
+import { defineEndpoint, type PlatformAdapter, groupId, spaceId } from '@ap/contracts';
 import { QueryBarExtensionContext, type QueryBarExtension } from '@ap/components';
 import { House } from 'lucide-react';
 import { createRegistry, I18nProvider, PlatformProvider, usePlatform, useQueryDraft, useMenuQuery, PaneQueryDraftProvider, PaneScreenProvider } from '@ap/kernel';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { GlobalContextBar, contextBarVisible } from './GlobalContextBar';
 
-const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }], menus: [{ id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: true, context: { ...noContext, time: 'apply', roomNames: 'apply', condition: 'apply', selection: 'apply', prcGroup: 'apply' }, query: { mode: 'apply', required: { context: ['time', 'roomNames'] } }, pageKeys: ['grain'], pageType: 'analysis', features: { export: false, savedView: false, annotate: false, compare: false } }] });
+const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }], menus: [{ id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: true, context: { ...noContext, time: 'apply', roomNames: 'apply', condition: 'apply', selection: 'apply', prcGroup: 'apply' }, query: { mode: 'apply', required: { context: ['time', 'roomNames'] } }, pageKeys: ['grain'], pageType: 'analysis', features: { export: false, savedView: false, annotate: false, compare: false } }] });
 const endpoint = defineEndpoint<null, unknown>({ id: 'fixture.query', menuId: 'home', paramKeys: {}, permission: 'platform:view', requiresScope: true, context: { time: 'apply', roomNames: 'apply' }, requiredContext: ['time', 'roomNames'], kinds: ['collection'], mergeTimeDomain: false });
 const send = vi.fn(async () => ({ outcome: 'empty' as const, data: null, assessments: [], trust: null, correlationId: 'test' }));
 let draft: ReturnType<typeof useQueryDraft>;

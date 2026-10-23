@@ -4,6 +4,7 @@
  * live in `src/mock/` (the server half). Pages import from here, never from `src/mock/**`.
  */
 import { defineEndpoint, type PageQuery, type PageResult, type PageSort } from '@ap/contracts';
+import { PERMISSION } from './permission';
 
 /** Destination type for the equipment detail (docs/06 §22). A literal: the menu learns no mock internals. */
 export const EQUIPMENT_ENTITY_TYPE = 'equipment';
@@ -27,7 +28,7 @@ export const equipmentPageEndpoint = defineEndpoint<EquipmentPageParams, PageRes
   id: 'equipment.master.page',
   menuId: 'equipment-master',
   paramKeys: { q: true, status: true, maker: true, page: true, pageSize: true, sorting: true },
-  permission: 'equipment:view',
+  permission: PERMISSION,
   requiresScope: true,
   context,
   kinds: ['collection', 'processing_delay', 'coverage'],
@@ -43,7 +44,7 @@ export const equipmentMakersEndpoint = defineEndpoint<Record<never, never>, stri
   id: 'equipment.master.makers',
   menuId: 'equipment-master',
   paramKeys: {},
-  permission: 'equipment:view',
+  permission: PERMISSION,
   requiresScope: true,
   context,
   kinds: ['collection', 'processing_delay', 'coverage'],
@@ -61,7 +62,7 @@ export const equipmentExportEndpoint = defineEndpoint<EquipmentExportFilter, Equ
   id: 'equipment.master.export',
   menuId: 'equipment-master',
   paramKeys: { q: true, status: true, maker: true, ids: true, sorting: true },
-  permission: 'equipment:view',
+  permission: PERMISSION,
   requiresScope: true,
   context,
   kinds: ['collection', 'processing_delay', 'coverage'],

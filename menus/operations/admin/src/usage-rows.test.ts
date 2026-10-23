@@ -1,20 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { House } from 'lucide-react';
-import type { UsageMenuSummary } from '@ap/contracts';
 import { createRegistry, type MenuEntry, type PlatformMenuEntry } from '@ap/kernel';
 import { joinUsageRows, formatLastUsed } from './usage-rows';
+import { groupId, spaceId, type UsageMenuSummary } from '@ap/contracts';
 
 const none = { time: 'unsupported', roomNames: 'unsupported', line: 'unsupported', prcGroup: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
 const spaceSubtitle = 'Usage projection fixture subtitle';
 const menu = (over: Partial<PlatformMenuEntry>): MenuEntry => ({
-  id: 'x', group: 'admin', label: { ko: '기본', en: 'Default' }, description: { ko: '', en: '' }, path: '/x', icon: House,
+  id: 'x', group: groupId('admin'), label: { ko: '기본', en: 'Default' }, description: { ko: '', en: '' }, path: '/x', icon: House,
   permission: 'platform:view', requiresScope: false, context: none, pageType: 'management', features: noFeatures, pageKeys: [], ...over,
 });
 
 const registry = createRegistry({
-  spaces: [{ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, subtitle: { ko: spaceSubtitle, en: 'Usage projection fixture subtitle' }, description: { ko: '목적', en: 'Purpose' }, permission: 'console:access', homeMenuId: 'admin-roles' }],
-  groups: [{ id: 'admin', label: { ko: '관리·감사', en: 'Administration' }, icon: House, space: 'operations' }],
+  spaces: [{ id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations console' }, subtitle: { ko: spaceSubtitle, en: 'Usage projection fixture subtitle' }, description: { ko: '목적', en: 'Purpose' }, permission: 'console:access', homeMenuId: 'admin-roles' }],
+  groups: [{ id: groupId('admin'), label: { ko: '관리·감사', en: 'Administration' }, icon: House, space: spaceId('operations') }],
   menus: [
     menu({ id: 'admin-roles', primary: true, label: { ko: '권한/역할 관리', en: 'Roles & access' }, path: '/admin/roles', permission: 'console:access' }),
     menu({ id: 'admin-usage', label: { ko: '메뉴 활용률', en: 'Menu usage' }, path: '/admin/usage', permission: 'console:access' }),
@@ -35,14 +35,14 @@ describe('joinUsageRows', () => {
 
   it('labels a global utility menu 전역', () => {
     const globalRegistry = createRegistry({
-      spaces: [{ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, description: { ko: '목적', en: 'Purpose' }, permission: 'console:access', homeMenuId: 'admin-roles' }],
+      spaces: [{ id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations console' }, description: { ko: '목적', en: 'Purpose' }, permission: 'console:access', homeMenuId: 'admin-roles' }],
       groups: [
-        { id: 'admin', label: { ko: '관리·감사', en: 'Administration' }, icon: House, space: 'operations' },
-        { id: 'noticeVoc', label: { ko: '공지·VOC', en: 'Notice & VOC' }, icon: House, space: null },
+        { id: groupId('admin'), label: { ko: '관리·감사', en: 'Administration' }, icon: House, space: spaceId('operations') },
+        { id: groupId('noticeVoc'), label: { ko: '공지·VOC', en: 'Notice & VOC' }, icon: House, space: null },
       ],
       menus: [
         menu({ id: 'admin-roles', primary: true, path: '/admin/roles', permission: 'console:access' }),
-        menu({ id: 'notices', group: 'noticeVoc', primary: true, label: { ko: '공지', en: 'Notices' }, path: '/notices', permission: 'notice:view' }),
+        menu({ id: 'notices', group: groupId('noticeVoc'), primary: true, label: { ko: '공지', en: 'Notices' }, path: '/notices', permission: 'notice:view' }),
       ],
     });
     expect(joinUsageRows(globalRegistry, []).find(row => row.id === 'notices')).toMatchObject({

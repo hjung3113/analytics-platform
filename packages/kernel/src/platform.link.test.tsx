@@ -1,31 +1,32 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, describe, expect, it } from 'vitest';
-import type { Session, SpaceDef } from '@ap/contracts';
 import type { LinkOptions, LinkResolution } from './platform';
 import { I18nProvider } from './i18n';
 import { PlatformProvider, usePlatform } from './platform';
 import { createRegistry } from './registry';
 import { noContext, testAdapter, testSession, testSpace } from './testing';
+import { groupId, spaceId, type Permission, menuPermission, type Session, type SpaceDef } from '@ap/contracts';
 
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
-const entry = (id: string, group: 'equipment' | 'admin', path: string, permission: 'platform:view' | 'analytics:view' | 'console:access', pageKeys: string[]) => ({
-  id, group, label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House, permission, requiresScope: false, context: noContext, pageType: 'analysis' as const, features: noFeatures, pageKeys,
+const entry = (id: string, group: 'equipment' | 'admin', path: string, permission: Permission, pageKeys: string[]) => ({
+  id, group: groupId(group), label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House, permission, requiresScope: false, context: noContext, pageType: 'analysis' as const, features: noFeatures, pageKeys,
 });
 
 const spaces: SpaceDef[] = [
   testSpace({ homeMenuId: 'source' }),
-  testSpace({ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, permission: 'console:access', homeMenuId: 'ops-home' }),
+  testSpace({ id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations console' }, permission: 'console:access', homeMenuId: 'ops-home' }),
 ];
 const registry = createRegistry({
+  permissions: [menuPermission('analytics:view')],
   spaces,
   groups: [
-    { id: 'equipment', label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: 'analytics' },
-    { id: 'admin', label: { ko: '관리·감사', en: 'Administration' }, icon: House, space: 'operations' },
+    { id: groupId('equipment'), label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: spaceId('analytics') },
+    { id: groupId('admin'), label: { ko: '관리·감사', en: 'Administration' }, icon: House, space: spaceId('operations') },
   ],
   menus: [
     { ...entry('source', 'equipment', '/source', 'platform:view', []), primary: true },
-    entry('analysis', 'equipment', '/analysis', 'analytics:view', ['tab']),
+    entry('analysis', 'equipment', '/analysis', menuPermission('analytics:view'), ['tab']),
     { ...entry('ops-home', 'admin', '/ops', 'console:access', []), primary: true },
     // Weaker menu permission than its space's gate: only the space entry can deny it.
     entry('ops-child', 'admin', '/ops/child', 'platform:view', []),
@@ -122,9 +123,9 @@ describe('return fallback without a fixed home ID (#298)', () => {
     { name: 'emergency fallback with an accessible space but denied space home', url: '/analysis?v=1', root: false, permissions: ['analytics:view'] as Session['user']['permissions'], id: null, href: '/' },
     { name: 'space home when platform home absent', url: '/analysis?v=1', root: false, permissions: VIEWER, id: 'source', href: '/source?v=1' },
   ])('$name', ({ url, root, permissions, id, href }) => {
-    const fallbackRegistry = createRegistry({
+    const fallbackRegistry = createRegistry({ permissions: [menuPermission('analytics:view')],
       spaces, groups: registry.groups,
-      menus: [...registry.menus, ...(root ? [entry('platform-start', 'equipment', '/', 'analytics:view', [])] : [])],
+      menus: [...registry.menus, ...(root ? [entry('platform-start', 'equipment', '/', menuPermission('analytics:view'), [])] : [])],
     });
     window.history.replaceState(null, '', url);
     render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={fixture(permissions)} registry={fallbackRegistry}><ReturnProbe /></PlatformProvider></I18nProvider>);
@@ -142,7 +143,7 @@ describe('return permission and reverted Context (#298 FIX1)', () => {
     return <output>{JSON.stringify({ target: platform.returnTarget(), origin: platform.returnOrigin() })}</output>;
   }
   function mountReturn(current: string, origin: string, permissions = VIEWER, parent = 'source') {
-    const returnRegistry = createRegistry({
+    const returnRegistry = createRegistry({ permissions: [menuPermission('analytics:view')],
       spaces, groups: registry.groups,
       menus: [...registry.menus,
         entry('platform-start', 'equipment', '/', 'console:access', []),

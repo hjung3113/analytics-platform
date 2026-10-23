@@ -2,11 +2,11 @@ import { Suspense, lazy, useLayoutEffect, useRef, useState, type ReactNode } fro
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { GroupId } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, PlatformLink, usePlatform } from '@ap/kernel';
 import { PlatformPage } from '@ap/components';
 import { CommandPalette } from './CommandPalette';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { groupId, spaceId, type GroupId } from '@ap/contracts';
 
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
 const page = lazy(async () => ({ default: () => null }));
@@ -17,21 +17,21 @@ const menu = (id: string, group: GroupId, path: string, label: { ko: string; en:
 
 const registry = createRegistry({
   spaces: [
-    testSpace({ id: 'analytics', label: { ko: 'MARS', en: 'MARS' }, subtitle: { ko: '생산성 분석', en: 'Productivity analysis' }, homeMenuId: 'home' }),
-    testSpace({ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, permission: 'console:access', homeMenuId: 'roles' }),
+    testSpace({ id: spaceId('analytics'), label: { ko: 'MARS', en: 'MARS' }, subtitle: { ko: '생산성 분석', en: 'Productivity analysis' }, homeMenuId: 'home' }),
+    testSpace({ id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations console' }, permission: 'console:access', homeMenuId: 'roles' }),
   ],
   groups: [
-    { id: 'overview', label: { ko: '분석', en: 'Analytics' }, icon: House, space: 'analytics' },
-    { id: 'equipment', label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: 'analytics' },
-    { id: 'admin', label: { ko: '관리·감사', en: 'Administration' }, icon: House, space: 'operations' },
-    { id: 'noticeVoc', label: { ko: '공지·VOC', en: 'Notice & VOC' }, icon: House, space: null },
+    { id: groupId('overview'), label: { ko: '분석', en: 'Analytics' }, icon: House, space: spaceId('analytics') },
+    { id: groupId('equipment'), label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: spaceId('analytics') },
+    { id: groupId('admin'), label: { ko: '관리·감사', en: 'Administration' }, icon: House, space: spaceId('operations') },
+    { id: groupId('noticeVoc'), label: { ko: '공지·VOC', en: 'Notice & VOC' }, icon: House, space: null },
   ],
   menus: [
-    menu('home', 'overview', '/home', { ko: '홈', en: 'Home' }, { primary: true, pageType: 'overview', component: page }),
-    menu('equipment', 'equipment', '/equipment', { ko: '설비', en: 'Equipment' }, { primary: true, pageType: 'analysis', component: page }),
-    menu('roles', 'admin', '/admin/roles', { ko: '권한', en: 'Roles' }, { primary: true, permission: 'console:access', pageType: 'management', component: page }),
-    menu('notices', 'noticeVoc', '/notices', { ko: '공지', en: 'Notices' }, { primary: true, permission: 'notice:view', pageType: 'catalog' }),
-    menu('notices-detail', 'noticeVoc', '/notices/:id', { ko: '공지 상세', en: 'Notice detail' }, { permission: 'notice:view', navHidden: true, parent: 'notices' }),
+    menu('home', groupId('overview'), '/home', { ko: '홈', en: 'Home' }, { primary: true, pageType: 'overview', component: page }),
+    menu('equipment', groupId('equipment'), '/equipment', { ko: '설비', en: 'Equipment' }, { primary: true, pageType: 'analysis', component: page }),
+    menu('roles', groupId('admin'), '/admin/roles', { ko: '권한', en: 'Roles' }, { primary: true, permission: 'console:access', pageType: 'management', component: page }),
+    menu('notices', groupId('noticeVoc'), '/notices', { ko: '공지', en: 'Notices' }, { primary: true, permission: 'notice:view', pageType: 'catalog' }),
+    menu('notices-detail', groupId('noticeVoc'), '/notices/:id', { ko: '공지 상세', en: 'Notice detail' }, { permission: 'notice:view', navHidden: true, parent: 'notices' }),
   ],
 });
 
@@ -121,19 +121,19 @@ describe('CommandPalette space bundles (06 §9.1)', () => {
 
   // MENUS order (notices, permission-gated survey, alerts, home) differs from GROUPS order (overview, myActivity, noticeVoc).
   const globalOrderRegistry = createRegistry({
-    spaces: [testSpace({ id: 'analytics', label: { ko: 'MARS', en: 'MARS' }, homeMenuId: 'equipment' })],
+    spaces: [testSpace({ id: spaceId('analytics'), label: { ko: 'MARS', en: 'MARS' }, homeMenuId: 'equipment' })],
     groups: [
-      { id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: null },
-      { id: 'myActivity', label: { ko: '내 활동', en: 'My activity' }, icon: House, space: null },
-      { id: 'noticeVoc', label: { ko: '공지·VOC', en: 'Notice & VOC' }, icon: House, space: null },
-      { id: 'equipment', label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: 'analytics' },
+      { id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: null },
+      { id: groupId('myActivity'), label: { ko: '내 활동', en: 'My activity' }, icon: House, space: null },
+      { id: groupId('noticeVoc'), label: { ko: '공지·VOC', en: 'Notice & VOC' }, icon: House, space: null },
+      { id: groupId('equipment'), label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: spaceId('analytics') },
     ],
     menus: [
-      menu('notices', 'noticeVoc', '/notices', { ko: '공지', en: 'Notices' }, { primary: true, permission: 'notice:view', component: page }),
-      menu('surveys', 'myActivity', '/surveys', { ko: '설문', en: 'Surveys' }, { permission: 'console:access', component: page }),
-      menu('alerts', 'myActivity', '/alerts', { ko: '알림', en: 'Notifications' }, { primary: true, component: page }),
-      menu('start', 'overview', '/', { ko: '플랫폼 홈', en: 'Platform home' }, { primary: true, component: page }),
-      menu('equipment', 'equipment', '/equipment', { ko: '설비', en: 'Equipment' }, { primary: true, component: page }),
+      menu('notices', groupId('noticeVoc'), '/notices', { ko: '공지', en: 'Notices' }, { primary: true, permission: 'notice:view', component: page }),
+      menu('surveys', groupId('myActivity'), '/surveys', { ko: '설문', en: 'Surveys' }, { permission: 'console:access', component: page }),
+      menu('alerts', groupId('myActivity'), '/alerts', { ko: '알림', en: 'Notifications' }, { primary: true, component: page }),
+      menu('start', groupId('overview'), '/', { ko: '플랫폼 홈', en: 'Platform home' }, { primary: true, component: page }),
+      menu('equipment', groupId('equipment'), '/equipment', { ko: '설비', en: 'Equipment' }, { primary: true, component: page }),
     ],
   });
 
@@ -355,8 +355,8 @@ function mountNavigation({ delayed = false, denied = false, url = '/home?v=1', c
       <input aria-label="filter" onChange={e => setPage({ filter: e.target.value })} />
       <PlatformLink href={cold ? '/equipment?v=1&metricId=CT' : '/equipment?v=1'}>equipment link</PlatformLink>
       <PlatformLink href="/admin/roles?v=1">denied link</PlatformLink>
-      <button onClick={() => switchSpace('operations')}>switch operations</button>
-      <button onClick={() => switchSpace('analytics')}>switch analytics</button>
+      <button onClick={() => switchSpace(spaceId('operations'))}>switch operations</button>
+      <button onClick={() => switchSpace(spaceId('analytics'))}>switch analytics</button>
       <button onClick={() => navigate('/home?v=1')}>another navigation</button>
       <button onClick={() => navigate('/equipment?v=1', { replace: true })}>replace navigation</button>
       <button onClick={() => setPaletteOpen(true)}>reopen palette</button>

@@ -1,10 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { Capability, ContextKey, MenuMeta, PageResult } from '@ap/contracts';
 import { createMockAdapter, getRole, setRole, type RoleId } from '@ap/mock-server';
 import { cycleMock, percentile, population, slowExecutions } from './cycle';
 import { CYCLE_MAX_HOURS, cycleExportEndpoint, cycleKpiEndpoint, cycleSlowPageEndpoint, executionKey, type CycleKpi, type SlowRow } from '../endpoints';
 import { EQUIPMENT } from '@ap/mock-server';
-import { emptyGlobal } from '@ap/contracts';
+import { emptyGlobal, groupId, menuPermission, type Capability, type ContextKey, type MenuMeta, type PageResult } from '@ap/contracts';
 
 const none: Record<ContextKey, Capability> = {
   time: 'unsupported', roomNames: 'unsupported', line: 'unsupported', prcGroup: 'unsupported', condition: 'unsupported', selection: 'unsupported',
@@ -13,8 +12,8 @@ const none: Record<ContextKey, Capability> = {
 /** Inline mirror of the cycle-time manifest in '../index.ts' (permission, requiresScope, context). 바꾸면 같이 바꾼다. */
 const cycleMenu: MenuMeta = {
   query: { mode: 'apply', required: { context: ['time', 'roomNames'] } },
-  id: 'cycle-time', group: 'analytics', label: { ko: '사이클타임 상세', en: 'Cycle time detail' }, description: { ko: '', en: '' },
-  path: '/analytics/cycle-time', permission: 'analytics:view', requiresScope: true, pageType: 'analysis',
+  id: 'cycle-time', group: groupId('analytics'), label: { ko: '사이클타임 상세', en: 'Cycle time detail' }, description: { ko: '', en: '' },
+  path: '/analytics/cycle-time', permission: menuPermission('analytics:view'), requiresScope: true, pageType: 'analysis',
   context: { ...none, time: 'apply', roomNames: 'apply', line: 'apply', prcGroup: 'apply', condition: 'apply', selection: 'apply', lot: 'apply', ppid: 'apply', recipe: 'apply', metric: 'apply' },
   features: { export: true, savedView: false, annotate: true, compare: true }, pageKeys: ['granularity', 'percentile', 'sort', 'page', 'bucket', 'bin'],
 };

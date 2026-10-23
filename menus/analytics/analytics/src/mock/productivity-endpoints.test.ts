@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { ApiResponse, Capability, ContextKey, MenuMeta } from '@ap/contracts';
 import { createMockAdapter, getRole, setRole, type AnyMockEndpoint } from '@ap/mock-server';
 import { analyticsMock } from './index';
 import {
   METRIC_VERSIONS, attentionEndpoint, breakdownEndpoint, drillEndpoint, kpisEndpoint, trendEndpoint,
   type AttentionRow, type BreakdownRow, type DrillData, type KpisData, type TrendData,
 } from '../endpoints';
+import { groupId, menuPermission, type ApiResponse, type Capability, type ContextKey, type MenuMeta } from '@ap/contracts';
 
 /**
  * Minimal inline MenuMeta mirroring the `productivity-overview` manifest in `src/index.ts`
@@ -19,11 +19,11 @@ const none: Record<ContextKey, Capability> = {
 };
 const productivityMenu: MenuMeta = {
   id: 'productivity-overview',
-  group: 'analytics',
+  group: groupId('analytics'),
   label: { ko: '생산성 개요', en: 'Productivity overview' },
   description: { ko: '', en: '' },
   path: '/analytics/productivity',
-  permission: 'analytics:view',
+  permission: menuPermission('analytics:view'),
   requiresScope: true,
   context: { ...none, time: 'apply', roomNames: 'apply', condition: 'apply', selection: 'apply', ppid: 'apply', recipe: 'apply', metric: 'reference' },
   pageType: 'overview',
@@ -40,11 +40,11 @@ const productivityMenu: MenuMeta = {
 /** Inline mirror for the second endpoint owner registered by analyticsMock (#115). */
 const executionMenu: MenuMeta = {
   id: 'execution-detail',
-  group: 'analytics',
+  group: groupId('analytics'),
   label: { ko: '실행 상세', en: 'Execution detail' },
   description: { ko: '', en: '' },
   path: '/analytics/executions/:equipmentId',
-  permission: 'analytics:view',
+  permission: menuPermission('analytics:view'),
   requiresScope: true,
   context: {
     ...none,
@@ -60,11 +60,11 @@ const executionMenu: MenuMeta = {
 const cycleMenu: MenuMeta = {
   query: { mode: 'apply', required: { context: ['time', 'roomNames'] } },
   id: 'cycle-time',
-  group: 'analytics',
+  group: groupId('analytics'),
   label: { ko: '사이클타임 상세', en: 'Cycle time detail' },
   description: { ko: '', en: '' },
   path: '/analytics/cycle-time',
-  permission: 'analytics:view',
+  permission: menuPermission('analytics:view'),
   requiresScope: true,
   context: { ...none, time: 'apply', roomNames: 'apply', line: 'apply', prcGroup: 'apply', condition: 'apply', selection: 'apply', lot: 'apply', ppid: 'apply', recipe: 'apply', metric: 'apply' },
   pageType: 'analysis',
@@ -73,9 +73,9 @@ const cycleMenu: MenuMeta = {
 };
 
 const chartCatalogMenu: MenuMeta = {
-  id: 'chart-catalog', group: 'analytics', label: { ko: '차트 카탈로그', en: 'Chart catalog' },
+  id: 'chart-catalog', group: groupId('analytics'), label: { ko: '차트 카탈로그', en: 'Chart catalog' },
   description: { ko: '차트 종류별 동작과 지원 조건을 확인합니다.', en: 'Explore chart interactions and support conditions.' },
-  path: '/analytics/chart-catalog', permission: 'analytics:view', requiresScope: true, pageType: 'analysis',
+  path: '/analytics/chart-catalog', permission: menuPermission('analytics:view'), requiresScope: true, pageType: 'analysis',
   context: { ...none, time: 'apply' }, features: { export: true, savedView: false, annotate: true, compare: true }, pageKeys: ['kind'],
 };
 const registry = { menus: [productivityMenu, executionMenu, cycleMenu, chartCatalogMenu] };

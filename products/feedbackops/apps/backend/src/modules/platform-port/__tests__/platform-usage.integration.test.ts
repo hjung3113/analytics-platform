@@ -265,7 +265,7 @@ describe.skipIf(!runIntegration)(
         ['dwell keys on an entry', [entry({ dwellMs: 1, enteredAt: 1 })]],
         ['path with a query', [entry({ path: '/operations/usage?lot=A1' })]],
         ['menuId with whitespace', [entry({ menuId: 'a b' })]],
-        ['unknown spaceId', [entry({ spaceId: 'finance' })]],
+        ['malformed spaceId', [entry({ spaceId: 'my space' })]],
         ['missing spaceId key', [(({ spaceId: _s, ...rest }) => rest)(entry())]],
         ['negative dwellMs', [dwell({ dwellMs: -1 })]],
         ['fractional dwellMs', [dwell({ dwellMs: 1.5 })]],
@@ -550,7 +550,7 @@ describe.skipIf(!runIntegration)(
         ['a missing field', (({ name: _n, ...rest }) => rest)(report())],
         ['a correlationId without the client- prefix', report({ correlationId: 'srv-1' })],
         ['a correlationId over 80 chars', report({ correlationId: `client-${'x'.repeat(80)}` })],
-        ['an unknown spaceId', report({ spaceId: 'finance' })],
+        ['a malformed spaceId', report({ spaceId: 'my space' })],
         ['a numeric menuId', report({ menuId: 5 })],
         ['an array body', [report()]],
       ])('answers accepted false and stores nothing for %s', async (_label, body) => {

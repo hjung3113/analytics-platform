@@ -6,10 +6,10 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { ApiResponse } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
 import { PlatformDataTable, type PlatformDataTableProps } from './PlatformDataTable';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { groupId, spaceId, type ApiResponse } from '@ap/contracts';
 
 const mockBlobResolvers: ((blob: Blob) => void)[] = [];
 vi.mock('write-excel-file/browser', () => ({
@@ -20,8 +20,8 @@ afterEach(cleanup);
 
 const registry = createRegistry({
   spaces: [testSpace({ homeMenuId: 'export-menu' })],
-  groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }],
-  menus: [{ id: 'export-menu', group: 'overview', primary: true, label: { ko: '내보내기', en: 'Export' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'management', features: { export: true, savedView: false, annotate: false, compare: false }, pageKeys: [] }],
+  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
+  menus: [{ id: 'export-menu', group: groupId('overview'), primary: true, label: { ko: '내보내기', en: 'Export' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'management', features: { export: true, savedView: false, annotate: false, compare: false }, pageKeys: [] }],
 });
 
 const session = testSession(['platform:view'], { user: { id: 'user-a' } });

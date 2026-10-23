@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { parseClientError } from '../client-errors.js';
-import { parseUsageBatch, parseUsageRange } from '../usage.js';
+import { parseUsageBatch, parseUsageRange, validSpaceId } from '../usage.js';
 
 const entry = {
   name: 'entry',
@@ -35,7 +35,7 @@ describe('parseUsageBatch', () => {
     ['dwell keys on an entry', { ...entry, dwellMs: 1, enteredAt: 1 }],
     ['query in path', { ...entry, path: '/a?b=1' }],
     ['stayId on a main event', { ...entry, stayId: 's' }],
-    ['unknown space', { ...entry, spaceId: 'finance' }],
+    ['space id with whitespace', { ...entry, spaceId: 'my space' }],
     ['fractional at', { ...entry, at: 1.5 }],
     ['negative dwellMs', { ...entry, name: 'dwell', dwellMs: -1, enteredAt: 1 }],
   ])('rejects %s', (_label, event) => {
@@ -93,5 +93,32 @@ describe('parseClientError', () => {
     [{ ...ok, correlationId: 'srv-1' }],
   ])('rejects %j', (body) => {
     expect(parseClientError(body)).toBeNull();
+  });
+});
+
+describe('validSpaceId (the server does not know the app’s spaces, ADR-0072)', () => {
+  it.each(['analytics', 'log-dev', 'a-space-this-server-was-never-told-about'])(
+    'accepts %s',
+    (id) => {
+      expect(validSpaceId(id)).toBe(true);
+    },
+  );
+
+  it('accepts null for a global menu', () => {
+    expect(validSpaceId(null)).toBe(true);
+  });
+
+  it.each([
+    ['empty', ''],
+    ['whitespace', 'a b'],
+    ['query mark', 'a?b'],
+    ['hash', 'a#b'],
+    ['ampersand', 'a&b'],
+    ['over 80 characters', 'x'.repeat(81)],
+    ['a number', 5],
+    ['undefined', undefined],
+    ['an object', {}],
+  ])('rejects %s', (_label, value) => {
+    expect(validSpaceId(value)).toBe(false);
   });
 });

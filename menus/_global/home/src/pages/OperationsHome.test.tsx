@@ -1,41 +1,42 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Permission, PlatformAdapter, Session } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { memoryStorage, testAdapter, testSession } from '@ap/kernel/testing';
 import OperationsHome from './OperationsHome';
+import { groupId, menuPermission, spaceId, type Permission, type PlatformAdapter, type Session } from '@ap/contracts';
 
 const none = { time: 'unsupported', roomNames: 'unsupported', line: 'unsupported', prcGroup: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
 const purpose = { ko: '목적', en: 'Purpose' };
 
 function menu(id: string, group: 'overview' | 'equipment' | 'metrics' | 'noticeVoc' | 'admin', path: string, permission: Permission, label: { ko: string; en: string }, primary = false, pageKeys: string[] = []) {
-  return { id, group, path, permission, primary, label, description: { ko: '', en: '' }, icon: House, requiresScope: false, context: none, pageType: 'overview' as const, features: noFeatures, pageKeys };
+  return { id, group: groupId(group), path, permission, primary, label, description: { ko: '', en: '' }, icon: House, requiresScope: false, context: none, pageType: 'overview' as const, features: noFeatures, pageKeys };
 }
 
 const registry = createRegistry({
+  permissions: [menuPermission('analytics:view'), menuPermission('equipment:view'), menuPermission('metrics:view')],
   spaces: [
-    { id: 'analytics', label: { ko: 'MARS', en: 'MARS' }, subtitle: { ko: '생산성 분석', en: 'Productivity analysis' }, description: { ko: '설비·기간별 생산성과 사이클타임을 분석합니다.', en: 'Analyze productivity and cycle time by equipment and period.' }, homeMenuId: 'equipment' },
-    { id: 'metrics', label: { ko: 'BRAVO', en: 'BRAVO' }, subtitle: { ko: '지표관리', en: 'Metrics' }, description: { ko: '지표 정의·버전·발행을 관리합니다.', en: 'Manage metric definitions, versions, and releases.' }, homeMenuId: 'catalog' },
-    { id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, description: purpose, permission: 'console:access', homeMenuId: 'admin-roles' },
+    { id: spaceId('analytics'), label: { ko: 'MARS', en: 'MARS' }, subtitle: { ko: '생산성 분석', en: 'Productivity analysis' }, description: { ko: '설비·기간별 생산성과 사이클타임을 분석합니다.', en: 'Analyze productivity and cycle time by equipment and period.' }, homeMenuId: 'equipment' },
+    { id: spaceId('metrics'), label: { ko: 'BRAVO', en: 'BRAVO' }, subtitle: { ko: '지표관리', en: 'Metrics' }, description: { ko: '지표 정의·버전·발행을 관리합니다.', en: 'Manage metric definitions, versions, and releases.' }, homeMenuId: 'catalog' },
+    { id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations console' }, description: purpose, permission: 'console:access', homeMenuId: 'admin-roles' },
   ],
   groups: [
-    { id: 'overview', label: { ko: '운영 개요', en: 'Overview' }, icon: House, space: null },
-    { id: 'equipment', label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: 'analytics' },
-    { id: 'metrics', label: { ko: '지표관리', en: 'Metrics' }, icon: House, space: 'metrics' },
-    { id: 'noticeVoc', label: { ko: '공지·VOC', en: 'Notice & VOC' }, icon: House, space: null },
-    { id: 'admin', label: { ko: '관리·감사', en: 'Administration' }, icon: House, space: 'operations' },
+    { id: groupId('overview'), label: { ko: '운영 개요', en: 'Overview' }, icon: House, space: null },
+    { id: groupId('equipment'), label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: spaceId('analytics') },
+    { id: groupId('metrics'), label: { ko: '지표관리', en: 'Metrics' }, icon: House, space: spaceId('metrics') },
+    { id: groupId('noticeVoc'), label: { ko: '공지·VOC', en: 'Notice & VOC' }, icon: House, space: null },
+    { id: groupId('admin'), label: { ko: '관리·감사', en: 'Administration' }, icon: House, space: spaceId('operations') },
   ],
   menus: [
     menu('home', 'overview', '/', 'platform:view', { ko: '플랫폼 홈', en: 'Platform home' }, true),
-    menu('equipment', 'equipment', '/equipment', 'equipment:view', { ko: '설비', en: 'Equipment' }, true, ['page']),
-    menu('catalog', 'metrics', '/metrics', 'metrics:view', { ko: '지표 카탈로그', en: 'Metric catalog' }, true, ['page']),
-    menu('x1', 'metrics', '/x1', 'metrics:view', { ko: '추가1', en: 'Extra 1' }),
-    menu('x2', 'metrics', '/x2', 'metrics:view', { ko: '추가2', en: 'Extra 2' }),
-    menu('x3', 'metrics', '/x3', 'metrics:view', { ko: '추가3', en: 'Extra 3' }),
-    menu('x4', 'metrics', '/x4', 'metrics:view', { ko: '추가4', en: 'Extra 4' }),
-    menu('x5', 'metrics', '/x5', 'metrics:view', { ko: '추가5', en: 'Extra 5' }),
+    menu('equipment', 'equipment', '/equipment', menuPermission('equipment:view'), { ko: '설비', en: 'Equipment' }, true, ['page']),
+    menu('catalog', 'metrics', '/metrics', menuPermission('metrics:view'), { ko: '지표 카탈로그', en: 'Metric catalog' }, true, ['page']),
+    menu('x1', 'metrics', '/x1', menuPermission('metrics:view'), { ko: '추가1', en: 'Extra 1' }),
+    menu('x2', 'metrics', '/x2', menuPermission('metrics:view'), { ko: '추가2', en: 'Extra 2' }),
+    menu('x3', 'metrics', '/x3', menuPermission('metrics:view'), { ko: '추가3', en: 'Extra 3' }),
+    menu('x4', 'metrics', '/x4', menuPermission('metrics:view'), { ko: '추가4', en: 'Extra 4' }),
+    menu('x5', 'metrics', '/x5', menuPermission('metrics:view'), { ko: '추가5', en: 'Extra 5' }),
     menu('notices', 'noticeVoc', '/notices', 'notice:view', { ko: '공지', en: 'Notices' }, true),
     menu('voc', 'noticeVoc', '/voc', 'voc:view', { ko: 'VOC', en: 'VOC' }),
     menu('admin-roles', 'admin', '/admin/roles', 'console:access', { ko: '권한/역할', en: 'Roles' }, true),
@@ -79,15 +80,16 @@ const BOTH = ['platform:view', 'equipment:view', 'metrics:view', 'notice:view', 
 describe('platform home launcher', () => {
   it('links a partial-permission space card to its first openable menu without a continue line', async () => {
     const partialRegistry = createRegistry({
+      permissions: [menuPermission('analytics:view'), menuPermission('equipment:view'), menuPermission('metrics:view')],
       spaces: registry.spaces,
       groups: registry.groups,
       menus: [
         ...registry.menus,
-        menu('analysis-home', 'equipment', '/analysis-home', 'analytics:view', { ko: '분석 홈', en: 'Analysis home' }),
+        menu('analysis-home', 'equipment', '/analysis-home', menuPermission('analytics:view'), { ko: '분석 홈', en: 'Analysis home' }),
       ],
     });
     const partialSpaces = partialRegistry.spaces.map(space => space.id === 'analytics' ? { ...space, homeMenuId: 'analysis-home' } : space);
-    const withDeniedHome = createRegistry({ spaces: partialSpaces, groups: partialRegistry.groups, menus: partialRegistry.menus });
+    const withDeniedHome = createRegistry({ permissions: [menuPermission('analytics:view'), menuPermission('equipment:view'), menuPermission('metrics:view')], spaces: partialSpaces, groups: partialRegistry.groups, menus: partialRegistry.menus });
     window.history.replaceState(null, '', '/?v=1&scopeId=MEM&page=9');
     render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter(['platform:view', 'equipment:view'])} registry={withDeniedHome}><OperationsHome /></PlatformProvider></I18nProvider>);
     await settled();

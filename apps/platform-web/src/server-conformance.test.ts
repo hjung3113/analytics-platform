@@ -5,11 +5,11 @@ import { EQUIPMENT_AXES } from './equipmentAxes';
  * (docs/integration/real-server-checklist.md). The endpoint list is the mock assembly's own MOCK_ENDPOINTS (#153) — lint lets exactly this test import it.
  */
 import { describe, expect, it } from 'vitest';
-import type { Permission } from '@ap/contracts';
 import { createMockAdapter, EQUIPMENT, getRole, setRole, USERS, type RoleId } from '@ap/mock-server';
 import { describeServerConformance, type ConformanceCase } from '@ap/server-conformance';
 import { MOCK_AUDIT_EVENTS, MOCK_ENDPOINTS } from './dev/mock-assembly';
 import { registry } from './menus';
+import { menuPermission, spaceId, type Permission } from '@ap/contracts';
 
 /** Exactly what the app registers: the mock assembly's list, not a copy. */
 const endpoints = MOCK_ENDPOINTS;
@@ -86,12 +86,12 @@ describeServerConformance('server boundary conformance — mock adapter', {
     },
     entity: {
       ref: { type: 'equipment', id: 'MEM-PHOTO-0103', scopeId: 'MEM' },
-      permission: 'equipment:view',
+      permission: menuPermission('equipment:view'),
       ungrantedRoomRef: { type: 'equipment', id: 'MEM-DIFF-0176', scopeId: 'MEM' },
     },
-    annotation: { chartId: 'cycle-time-trend', from: '2026-09-25T10:00:00', to: '2026-09-25T11:00:00', permission: 'analytics:view' },
-    usage: { name: 'entry', menuId: 'equipment', spaceId: 'analytics', path: '/equipment', at: Date.now(), sessionId: 'conformance-tab' },
-    clientError: { correlationId: 'client-conformance', menuId: 'equipment', spaceId: 'analytics', path: '/equipment', name: 'TypeError' },
+    annotation: { chartId: 'cycle-time-trend', from: '2026-09-25T10:00:00', to: '2026-09-25T11:00:00', permission: menuPermission('analytics:view') },
+    usage: { name: 'entry', menuId: 'equipment', spaceId: spaceId('analytics'), path: '/equipment', at: Date.now(), sessionId: 'conformance-tab' },
+    clientError: { correlationId: 'client-conformance', menuId: 'equipment', spaceId: spaceId('analytics'), path: '/equipment', name: 'TypeError' },
     otherGrantedScopeId: 'FDRY',
   },
   asGranted: async fn => {

@@ -7,6 +7,7 @@ import { memoryStorage, testAdapter, testSession } from '@ap/kernel/testing';
 import { manifests } from '../../index';
 import { type CatalogData } from '../../endpoints';
 import ChartCatalog from './ChartCatalog';
+import { groupId, menuPermission, spaceId } from '@ap/contracts';
 
 // Canvas is an external rendering boundary; keep the real public chart components and controls.
 const canvas = vi.hoisted(() => ({ init: vi.fn(), dispose: vi.fn(), options: [] as unknown[] }));
@@ -15,8 +16,9 @@ vi.mock('../../../../../../packages/components/node_modules/echarts/core.js', ()
   return { setOption: (option: unknown) => canvas.options.push(option), on: vi.fn(), off: vi.fn(), dispose: canvas.dispose, resize: vi.fn(), dispatchAction: vi.fn(), getWidth: () => 800, getHeight: () => 300, getModel: () => ({ getComponent: () => null }) };
 } }));
 const registry = createRegistry({
-  spaces: [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '분석 목적', en: 'Analysis purpose' }, permission: 'analytics:view', homeMenuId: 'productivity-overview' }],
-  groups: [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, icon: Activity, space: 'analytics' }], menus: manifests,
+  permissions: [menuPermission('analytics:view')],
+  spaces: [{ id: spaceId('analytics'), label: { ko: '분석', en: 'Analytics' }, description: { ko: '분석 목적', en: 'Analysis purpose' }, permission: menuPermission('analytics:view'), homeMenuId: 'productivity-overview' }],
+  groups: [{ id: groupId('analytics'), label: { ko: '분석', en: 'Analytics' }, icon: Activity, space: spaceId('analytics') }], menus: manifests,
 });
 const fixture: CatalogData = {
   current: [{ at: '2026-09-25T09:00:00', sourceAt: '2026-09-25T09:00:00', value: 24 }, { at: '2026-09-25T21:00:00', sourceAt: '2026-09-25T21:00:00', value: 32 }],

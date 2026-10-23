@@ -1,5 +1,6 @@
 /** @ap/menu-clas — CLAS equipment operation time (#590). Synthetic sample contract; the real CLAS server owns the data. */
 import { defineEndpoint } from '@ap/contracts';
+import { PERMISSION } from './permission';
 
 export const OPERATION_KINDS = ['process', 'transfer', 'wait'] as const;
 export type OperationKind = typeof OPERATION_KINDS[number];
@@ -22,7 +23,7 @@ export const operationTimeEndpoint = defineEndpoint<{ eqp: string }, OperationTi
   id: 'clas.operationTime',
   menuId: 'operation-time',
   paramKeys: { eqp: true },
-  permission: 'analytics:view',
+  permission: PERMISSION,
   requiresScope: true,
   context: { time: 'apply', roomNames: 'apply' },
   kinds: ['collection', 'coverage'],
