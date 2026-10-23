@@ -4,8 +4,8 @@ import { useHostPlatform, usePlatform } from './platform';
 import * as root from './index';
 import * as host from './host';
 
-// ADR-0075: one runtime value, two types. A menu sees MenuPlatform; the shell, components and app see HostPlatform.
-describe('MenuPlatform and HostPlatform (ADR-0075)', () => {
+// ADR-0076: one runtime value, two types. A menu sees MenuPlatform; the shell, components and app see HostPlatform.
+describe('MenuPlatform and HostPlatform (ADR-0076)', () => {
   it('keeps host-only fields off usePlatform() and on useHostPlatform()', () => {
     expectTypeOf(usePlatform).returns.toEqualTypeOf<MenuPlatform>();
     expectTypeOf(useHostPlatform).returns.toEqualTypeOf<HostPlatform>();

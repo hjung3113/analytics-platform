@@ -28,9 +28,9 @@ const DOCK_ENGINE_PACKAGES = ['dockview', 'dockview-react', 'dockview-core'];
 const DOCK_ENGINE_MESSAGE = `The dock layout engine (dockview) belongs to ${PACKAGE_PREFIX}components (ADR-0067); hosts import DockLayout from ${PACKAGE_PREFIX}components/dock.`;
 const DOCK_ENTRY_SUBPATH = 'components/dock';
 const DOCK_ENTRY_MESSAGE = `${PACKAGE_PREFIX}components/dock is a host-only entry (shell and app); menu and module packages do not import it (ADR-0067).`;
-// ADR-0075: the full platform value and the shell-only Providers live on a host-only kernel entry; menus use usePlatform() from the root.
+// ADR-0076: the full platform value and the shell-only Providers live on a host-only kernel entry; menus use usePlatform() from the root.
 const HOST_ENTRY_SUBPATH = 'kernel/host';
-const HOST_ENTRY_MESSAGE = `${PACKAGE_PREFIX}kernel/host is the shell, components and app surface; menus use usePlatform() from ${PACKAGE_PREFIX}kernel (ADR-0075).`;
+const HOST_ENTRY_MESSAGE = `${PACKAGE_PREFIX}kernel/host is the shell, components and app surface; menus use usePlatform() from ${PACKAGE_PREFIX}kernel (ADR-0076).`;
 
 const MENU_ALLOW = ['contracts', 'kernel', 'components', 'ui'];
 // #153 (ADR-0009): the production graph carries no mock. src/main.tsx gets its adapter from `#platform-assembly`

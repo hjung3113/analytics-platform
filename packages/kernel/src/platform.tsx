@@ -62,7 +62,7 @@ export type LinkResolution = {
 
 
 /**
- * The full platform value the shell, the platform components and the app read through `useHostPlatform()` (`@ap/kernel/host`, ADR-0075).
+ * The full platform value the shell, the platform components and the app read through `useHostPlatform()` (`@ap/kernel/host`, ADR-0076).
  * Menus see the narrow `MenuPlatform` of the same runtime value, so a change to a shell-only field never breaks a menu.
  */
 export type HostPlatform = {
@@ -162,7 +162,7 @@ export type HostPlatform = {
 };
 
 /**
- * What a menu page sees through `usePlatform()` (ADR-0075): the same runtime value as `HostPlatform`, narrowed to the menu contract.
+ * What a menu page sees through `usePlatform()` (ADR-0076): the same runtime value as `HostPlatform`, narrowed to the menu contract.
  * A field a menu needs that is missing here moves up from `HostPlatform`; a menu never imports `@ap/kernel/host`.
  */
 export type MenuPlatform = Pick<HostPlatform, 'route' | 'url' | 'pathname' | 'absoluteUrl' | 'location' | 'global' | 'page' | 'pageParam' | 'setGlobal' | 'setPage' | 'resetContext' | 'navigate' | 'linkTo' | 'resolveLink' | 'session' | 'user' | 'revision' | 'can' | 'canOpen' | 'scope' | 'toast' | 'toasts' | 'registry' | 'adapter' | 'favorites' | 'toggleFavorite' | 'recent' | 'accessibleSpaces' | 'spaceEntry'>;
@@ -978,7 +978,7 @@ function useMerged(): HostPlatform | null {
   return useMemo(() => (app && main && screen ? { ...app.pub, ...main, ...screen } : null), [app, main, screen]);
 }
 
-/** The menu contract (ADR-0075). The same runtime value as `useHostPlatform()`, typed down to `MenuPlatform`. */
+/** The menu contract (ADR-0076). The same runtime value as `useHostPlatform()`, typed down to `MenuPlatform`. */
 export function usePlatform(): MenuPlatform {
   return useHostPlatform();
 }
@@ -988,7 +988,7 @@ export function usePlatformOptional(): MenuPlatform | null {
   return useMerged();
 }
 
-/** The full platform value for the shell, the platform components and the app (`@ap/kernel/host`, ADR-0075). Menus use `usePlatform()`. */
+/** The full platform value for the shell, the platform components and the app (`@ap/kernel/host`, ADR-0076). Menus use `usePlatform()`. */
 export function useHostPlatform(): HostPlatform {
   const value = useMerged();
   if (!value) throw new Error('usePlatform outside PlatformProvider');
