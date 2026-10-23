@@ -1323,6 +1323,7 @@ Full experience.
 - icon-only action에는 accessible label
 - 오류 메시지는 원인/행동을 텍스트로 제공
 - fill 페이지 머리 접기의 토글 이름·포커스 이동·안내 규칙은 §12.8이 소유한다(#680)
+- 작업 영역 높이 방식(§12.8, #686): 라디오 묶음 이름 `높이 방식`(도구줄 `SegmentedRadio`, 호스트 메뉴에서는 보이는 이름표에 `aria-labelledby`)과 옵션 `화면 맞춤`/`아래로 쌓기`(툴팁이 하는 일을 설명), 좁은 폭에서 비활성이면 이유(`좁은 폭에서는 화면 맞춤으로 보입니다`)를 `aria-describedby`로 읽는다. 줄 경계 `role=separator`의 이름은 `<위 패널 제목> 아래 높이`(`aria-valuenow`·`min`·`max`는 px)이고, 그룹 `⋯`의 `아래 새 줄로 옮기기`는 끌지 않고 새 줄을 만드는 키보드 경로이며 아래 띠(`여기에 놓으면 아래에 새 줄`)는 끌기 전용이다
 - §19 공유 응답은 배너 하나가 announce하며 그룹 위젯에는 중복 alert/status live region을 두지 않는다
 - 선택 상태는 색 + shape/text 병행
 - 입력 기준(Decided, 2026-10-12): 사용자는 Windows에서 키보드와 마우스를 함께 쓴다. 키보드 동작·단축키 표기·스크린리더 주장은 Windows 기준으로 설계·검증하고, macOS 확인은 Windows 스크린리더 동작의 증거가 아니다. 위 키보드 하한(Tab·Enter·Space·Escape로 모든 컨트롤 도달·조작, 끌기 같은 포인터 제스처는 끌지 않는 경로 유지)은 그대로다. 예외: 표 열 너비 조절은 마우스 끌기만 둔다([ADR-0024](adr/0024-table-column-controls-drag-width-pin-in-list.md)). `LegendTree`의 행 이동은 APG 트리 방향키를 쓰고, 나머지 조작은 Tab·Enter·Space로 제공한다([ADR-0057](adr/0057-legend-tree-arrow-key-row-navigation.md)). 단축키는 그 사용자의 잦은 일을 빠르게 할 때만 더하고, 기본 경로로 일을 끝낼 수 있으면 키보드 전용 모드·화면 단축키 안내를 따로 만들지 않는다
