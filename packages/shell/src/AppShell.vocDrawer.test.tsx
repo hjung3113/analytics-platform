@@ -1,13 +1,14 @@
 import userEvent from '@testing-library/user-event';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { House } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry, type PlatformSlots, type VocComposeProps } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
-import { useDetailPanelContent } from '@ap/ui';
+import { Popover, PopoverContent, PopoverTrigger, useDetailPanelContent } from '@ap/ui';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import type { Session } from '@ap/contracts';
 import { groupId, spaceId } from '@ap/contracts';
 import { AppShell } from './AppShell';
 
@@ -54,10 +55,10 @@ function Screen() {
 }
 function SecondDetail() { useDetailPanelContent(<p>다른 상세 본문</p>); return null; }
 
-function mount(url = '/?v=1&granularity=day&q=x&scopeId=MEM', slots: PlatformSlots = SLOTS) {
+function mount(url = '/?v=1&granularity=day&q=x&scopeId=MEM', slots: PlatformSlots = SLOTS, reg = registry) {
   window.history.replaceState(null, '', url);
   const session = testSession(['platform:view']);
-  return render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry} slots={slots}>
+  return render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={reg} slots={slots}>
     <AppShell><Screen /></AppShell>
   </PlatformProvider></I18nProvider>);
 }
@@ -88,11 +89,18 @@ describe('rail button (S3)', () => {
     expect(drawer()).toBeNull();
   });
 
-  it('sits between the analysis board and the bell position in DOM order and toggles aria-expanded', () => {
-    mount();
+  it('sits between the analysis board and the bell in DOM order and toggles aria-expanded', () => {
+    const boardMenu = { ...menu('home', '홈', '/', ['focus', 'granularity', 'q']), features: { export: false, savedView: false, annotate: false, compare: false, board: true } };
+    const withBell = createRegistry({
+      spaces: [testSpace({ id: spaceId('analytics'), label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'home' })],
+      groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
+      menus: [boardMenu, menu('alerts', '알림', '/alerts', [])],
+    });
+    mount('/?v=1', { ...SLOTS, notifications: { menuId: 'alerts', UnreadCount: ({ children }) => <>{children(0)}</>, Recent: () => <p>recent body</p> } }, withBell);
     const names = rail().getAllByRole('button').map(button => button.getAttribute('aria-label'));
-    expect(names.indexOf('VOC 등록')).toBeGreaterThan(names.indexOf('메뉴 검색…'));
-    expect(names.indexOf('VOC 등록')).toBeLessThan(names.indexOf('도움말'));
+    expect(names).toEqual(expect.arrayContaining(['분석 보드', 'VOC 등록', '알림']));
+    expect(names.indexOf('분석 보드')).toBeLessThan(names.indexOf('VOC 등록'));
+    expect(names.indexOf('VOC 등록')).toBeLessThan(names.indexOf('알림'));
     expect(railButton()).toHaveAttribute('aria-expanded', 'false');
     expect(railButton()).toHaveAttribute('aria-controls', drawer().id);
     openDrawer();
@@ -311,4 +319,101 @@ it('does not use an overlay: no scrim, and the body is not inert', () => {
   expect(screen.getByRole('main').closest('[inert]')).toBeNull();
   expect(drawer().closest('[role="dialog"]')).toBeNull();
   expect(screen.getByLabelText('본문 입력')).toBeEnabled();
+});
+
+describe('session and slot lifecycle (C1, C3)', () => {
+  const userA = testSession(['platform:view'], { user: { id: 'a', name: 'A' } });
+  const userB = testSession(['platform:view'], { user: { id: 'b', name: 'B' } });
+  /** An adapter whose session can be swapped under a mounted Provider, as a re-login or role switch does. */
+  function mountSwitchable(slots: PlatformSlots = SLOTS) {
+    window.history.replaceState(null, '', '/?v=1&q=secret');
+    let current: Session = userA;
+    const listeners = new Set<() => void>();
+    const adapter = testAdapter({ session: () => current, subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener); } });
+    const tree = (s: PlatformSlots) => <I18nProvider><PlatformProvider adapter={adapter} registry={registry} slots={s}><AppShell><Screen /></AppShell></PlatformProvider></I18nProvider>;
+    const view = render(tree(slots));
+    return { view, tree, switchTo: (next: Session) => { current = next; act(() => listeners.forEach(listener => listener())); } };
+  }
+
+  it.each([['open', false], ['hidden with a draft', true]])('a session change while %s drops the Context and the draft, and the next open freezes fresh', async (_name, hide) => {
+    const { switchTo } = mountSwitchable();
+    openDrawer();
+    await makeDirty();
+    expect(last().context.items.map(item => item.id)).toContain('page:q');
+    if (hide) fireEvent.click(screen.getByRole('button', { name: '상세 열기' }));
+    switchTo(userB);
+    expect(drawer().hidden).toBe(true);
+    expect(within(drawer()).queryByLabelText('내용')).toBeNull();
+    expect(document.body).not.toHaveTextContent('secret');
+    expect(railButton()).toHaveAccessibleName('VOC 등록');
+    fireEvent.click(screen.getByRole('button', { name: '다른 화면으로' }));
+    openDrawer();
+    expect(seen.mounts).toBe(2);
+    expect(within(drawer()).getByLabelText('내용')).toHaveValue('');
+    expect(last().context.items[0].value).toBe('분석 · 다른 화면');
+  });
+
+  it.each([['open', false], ['hidden with a draft', true]])('removing the slot while %s resets the drawer, and returning the slot reopens nothing', async (_name, hide) => {
+    const { view, tree } = mountSwitchable();
+    openDrawer();
+    await makeDirty();
+    if (hide) fireEvent.click(screen.getByRole('button', { name: '상세 열기' }));
+    view.rerender(tree({}));
+    expect(rail().queryByRole('button', { name: /^VOC 등록/ })).toBeNull();
+    expect(drawer()).toBeNull();
+    view.rerender(tree(SLOTS));
+    expect(drawer().hidden).toBe(true);
+    expect(within(drawer()).queryByLabelText('내용')).toBeNull();
+    expect(railButton()).toHaveAttribute('aria-expanded', 'false');
+    expect(railButton()).toHaveAccessibleName('VOC 등록');
+    openDrawer();
+    expect(seen.mounts).toBe(2);
+    expect(within(drawer()).getByLabelText('내용')).toHaveValue('');
+  });
+});
+
+describe('a detail takes the position (C2, C4)', () => {
+  /** Focuses its close button when it mounts, like DetailDrawer's arrival focus. */
+  function FocusingDetail() {
+    const button = useRef<HTMLButtonElement>(null);
+    useLayoutEffect(() => { button.current?.focus(); }, []);
+    return <button ref={button} type="button">상세 닫기</button>;
+  }
+  function FocusScreen() {
+    const [on, setOn] = useState(false);
+    useDetailPanelContent(on ? <FocusingDetail /> : undefined);
+    return <button type="button" onClick={() => setOn(true)}>포커스 상세 열기</button>;
+  }
+
+  it('the detail focuses its close button inside the visible aside while the drawer was open', () => {
+    window.history.replaceState(null, '', '/?v=1');
+    const session = testSession(['platform:view']);
+    render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry} slots={SLOTS}>
+      <AppShell><FocusScreen /></AppShell>
+    </PlatformProvider></I18nProvider>);
+    openDrawer();
+    fireEvent.click(screen.getByRole('button', { name: '포커스 상세 열기' }));
+    expect(detailAside().hidden).toBe(false);
+    expect(drawer().hidden).toBe(true);
+    expect(within(detailAside()).getByRole('button', { name: '상세 닫기' })).toHaveFocus();
+  });
+
+  it('a Popover opened from the hidden Compose is closed by a detail takeover and the form value stays', async () => {
+    function PopoverCompose(props: VocComposeProps) {
+      return <div>
+        <FakeCompose {...props} />
+        <Popover><PopoverTrigger asChild><button type="button">선택 열기</button></PopoverTrigger><PopoverContent>떠 있는 선택 목록</PopoverContent></Popover>
+      </div>;
+    }
+    mount('/?v=1', { vocCompose: { Compose: PopoverCompose } });
+    openDrawer();
+    await makeDirty();
+    fireEvent.click(within(drawer()).getByRole('button', { name: '선택 열기' }));
+    expect(screen.getByText('떠 있는 선택 목록')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: '다른 상세 등록' }));
+    expect(drawer().hidden).toBe(true);
+    expect(screen.queryByText('떠 있는 선택 목록')).toBeNull();
+    openDrawer();
+    expect(within(drawer()).getByLabelText('내용')).toHaveValue('a');
+  });
 });

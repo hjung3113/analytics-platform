@@ -1,7 +1,7 @@
 import { X } from 'lucide-react';
-import { useCallback, useEffect, useId, useMemo, useReducer, useRef, type KeyboardEvent, type RefObject } from 'react';
+import { createContext, useCallback, useEffect, useId, useMemo, useReducer, useRef, type KeyboardEvent, type RefObject } from 'react';
 import type { Lang, VocComposeContext, VocComposeSlot } from '@ap/kernel';
-import { Button, cn } from '@ap/ui';
+import { Button, cn, TransientOverlayScope } from '@ap/ui';
 import { freezeVocContext, type VocFreezeInput } from './vocContext';
 
 const TEXT = {
@@ -11,9 +11,11 @@ const TEXT = {
 
 type Session = { frozen: VocFreezeInput; removed: ReadonlySet<string>; dirty: boolean };
 type FocusTarget = { to: 'rail' | 'heading' | 'continue'; n: number };
-type State = { session: Session | null; visible: boolean; confirming: boolean; focus: FocusTarget | null };
+/** `owner` is the Kernel session the draft belongs to; `activation` is the detail slot counter at the time the drawer was shown. */
+type State = { owner: unknown; activation: number; session: Session | null; visible: boolean; confirming: boolean; focus: FocusTarget | null };
 type Action =
-  | { type: 'open'; frozen: VocFreezeInput }
+  | { type: 'open'; frozen: VocFreezeInput; activation: number }
+  | { type: 'reset'; owner: unknown }
   | { type: 'requestClose' }
   | { type: 'drop' }
   | { type: 'keepWriting' }
@@ -26,12 +28,14 @@ const focusOn = (state: State, to: FocusTarget['to']): FocusTarget => ({ to, n: 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
     // The Context freezes only when there is no kept session; reopening a kept one shows it unchanged (ADR-0070 decision 5).
-    case 'open': return { session: state.session ?? { frozen: action.frozen, removed: new Set(), dirty: false }, visible: true, confirming: false, focus: focusOn(state, 'heading') };
+    case 'open': return { ...state, activation: action.activation, session: state.session ?? { frozen: action.frozen, removed: new Set(), dirty: false }, visible: true, confirming: false, focus: focusOn(state, 'heading') };
+    // A new session owner or a removed slot discards the frozen Context, the draft and the confirmation; focus is left where it is.
+    case 'reset': return { owner: action.owner, activation: state.activation, session: null, visible: false, confirming: false, focus: state.focus };
     case 'requestClose':
       if (!state.visible) return state;
       if (state.confirming || state.session?.dirty) return { ...state, confirming: true, focus: focusOn(state, 'continue') };
-      return { session: null, visible: false, confirming: false, focus: focusOn(state, 'rail') };
-    case 'drop': return { session: null, visible: false, confirming: false, focus: focusOn(state, 'rail') };
+      return { ...state, session: null, visible: false, confirming: false, focus: focusOn(state, 'rail') };
+    case 'drop': return { ...state, session: null, visible: false, confirming: false, focus: focusOn(state, 'rail') };
     case 'keepWriting': return { ...state, confirming: false, focus: focusOn(state, 'heading') };
     // Another right panel took the position: the draft and its Context stay mounted behind `hidden`.
     case 'hide': return state.visible ? { ...state, visible: false, confirming: false } : state;
@@ -60,22 +64,25 @@ export type VocDrawerController = {
   draftHidden: boolean;
 };
 
+/** The drawer controller for the rail button: shell-internal (not exported from the package), so the public `AppRail()` stays prop-less. */
+export const VocDrawerContext = createContext<VocDrawerController | null>(null);
+
 /**
  * State of the docked VOC drawer (ADR-0070 decision 5, 06 §8): the frozen Context, the kept draft, the close confirmation and focus.
  * `snapshot` reads the host at open time; `activation` is the detail slot's counter, and a new visible detail takes the right position.
+ * `owner` is the Kernel session: when it changes, or the slot disappears, the Context and the draft are dropped in that same render.
  */
-export function useVocDrawer(slot: VocComposeSlot | undefined, snapshot: () => VocFreezeInput, activation: number): VocDrawerController | null {
-  const [state, dispatch] = useReducer(reducer, { session: null, visible: false, confirming: false, focus: null });
+export function useVocDrawer(slot: VocComposeSlot | undefined, snapshot: () => VocFreezeInput, activation: number, owner: unknown): VocDrawerController | null {
+  const [state, dispatch] = useReducer(reducer, owner, (initial): State => ({ owner: initial, activation, session: null, visible: false, confirming: false, focus: null }));
+  if (state.owner !== owner || (slot === undefined && (state.session !== null || state.visible))) dispatch({ type: 'reset', owner });
   const panelId = useId();
   const railButton = useRef<HTMLButtonElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const keepButton = useRef<HTMLButtonElement>(null);
-  const seen = useRef(activation);
-  useEffect(() => {
-    if (seen.current === activation) return;
-    seen.current = activation;
-    dispatch({ type: 'hide' });
-  }, [activation]);
+  // The visible flag follows the activation in the same render, so a new detail's first focus lands in a visible aside; the effect only syncs the stored state.
+  const visible = state.visible && state.activation === activation;
+  const stale = state.visible && !visible;
+  useEffect(() => { if (stale) dispatch({ type: 'hide' }); }, [stale]);
   useEffect(() => {
     if (state.focus === null) return;
     const target = state.focus.to === 'rail' ? railButton : state.focus.to === 'heading' ? heading : keepButton;
@@ -93,10 +100,10 @@ export function useVocDrawer(slot: VocComposeSlot | undefined, snapshot: () => V
   const onDirtyChange = useCallback((dirty: boolean) => dispatch({ type: 'dirty', dirty }), []);
   if (slot === undefined) return null;
   return {
-    slot, panelId, visible: state.visible, confirming: state.confirming, context, railButton, heading, keepButton,
-    toggle: () => dispatch(state.visible ? { type: 'requestClose' } : { type: 'open', frozen: snapshot() }),
+    slot, panelId, visible, confirming: state.confirming && visible, context, railButton, heading, keepButton,
+    toggle: () => dispatch(visible ? { type: 'requestClose' } : { type: 'open', frozen: snapshot(), activation }),
     requestClose, drop, keepWriting, removeChip, onDirtyChange, onSubmitted: drop,
-    draftHidden: !state.visible && session !== null && session.dirty,
+    draftHidden: !visible && session !== null && session.dirty,
   };
 }
 
@@ -137,7 +144,9 @@ export function VocDrawer({ voc, lang }: { voc: VocDrawerController; lang: Lang 
         </div>
       </div>}
       <div className="min-h-0 flex-1">
-        <slot.Compose context={context} onSubmitted={voc.onSubmitted} onCancel={voc.requestClose} onDirtyChange={voc.onDirtyChange} />
+        <TransientOverlayScope active={voc.visible}>
+          <slot.Compose context={context} onSubmitted={voc.onSubmitted} onCancel={voc.requestClose} onDirtyChange={voc.onDirtyChange} />
+        </TransientOverlayScope>
       </div>
     </div>}
   </aside>;

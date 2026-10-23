@@ -1,3 +1,4 @@
+import { useContext } from 'react';
 import { CircleHelp, ExternalLink, LayoutGrid, Languages, LogOut, MessageSquarePlus, Search } from 'lucide-react';
 import { useI18n } from '@ap/kernel';
 import { BOARD_PATH, useHostPlatform } from '@ap/kernel/host';
@@ -6,10 +7,11 @@ import { SystemSwitcher } from './SystemSwitcher';
 import { placeableMenus } from './board/boardMenus';
 import { NotificationsBell } from './NotificationsBell';
 import { firstOpenableMenu, useSystemSections } from './systemSections';
-import type { VocDrawerController } from './VocDrawer';
+import { VocDrawerContext } from './VocDrawer';
 
 /** System switcher, the current system's section buttons and global tools; the app keeps ownership of topBarTools. */
-export function AppRail({ voc = null }: { voc?: VocDrawerController | null }) {
+export function AppRail() {
+  const voc = useContext(VocDrawerContext);
   const { slots, user, setPaletteOpen, navigate, linkTo, can, canOpen, registry, platformScreen } = useHostPlatform();
   const { t, tx, lang, setLang } = useI18n();
   const overallLabel = lang === 'ko' ? 'FeedbackOps 전체 — 새 탭' : 'FeedbackOps overall — new tab';
