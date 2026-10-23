@@ -3,13 +3,14 @@ import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry, useQueryDraft } from '@ap/kernel';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { groupId, spaceId } from '@ap/contracts';
 import { PlatformPage, type PlatformPageProps } from './PlatformPage';
 
 const features = { export: false, savedView: false, annotate: false, compare: false };
 const registry = createRegistry({
   spaces: [testSpace()],
-  groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }],
-  menus: [{ id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: { ...noContext, time: 'apply', roomNames: 'apply' }, query: { mode: 'apply' }, features, pageType: 'analysis', pageKeys: ['sort'] }],
+  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
+  menus: [{ id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: { ...noContext, time: 'apply', roomNames: 'apply' }, query: { mode: 'apply' }, features, pageType: 'analysis', pageKeys: ['sort'] }],
 });
 const session = testSession(['platform:view']);
 const adapter = testAdapter({ session: () => session });
