@@ -73,6 +73,12 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
 - 성능: 측정 도구가 없다. 회귀를 실제로 재었을 때만 `review-perf`를 띄우고, 그 밖에는 코드 리뷰어 작업에 성능 관점을 넣는다.
 - 충돌을 정하는 순서의 맨 앞: 권한·데이터 누출 규칙 → ADR·06 계약·기록된 사용자 결정.
 - 과거 병합으로 맞춰 본 결과: #247(드릴다운) → code+ux+perf, permission·e2e·contract / #246(표 컬럼) → code+ux, e2e / #248·#253(문서) → 리뷰 없음.
+- **큰 범위의 계획 리뷰**(사용자 2026-10-23): `impl-complex` 브리프, 06 계약·패키지 경계·SDK 공개 API(`sdk:api`)를 바꾸는 브리프는 작업자를 띄우기 전에 브리프 점검과 별도로 `review-quality` 페르소나가 브리프를 본다. 보는 것은 아래 `Review lens: quality`의 기준이다: SDK·플랫폼·메뉴 역할 경계, 의존 방향, 공통화, 공개 API 모양, 코드 품질. 지적은 브리프에 넣고 시작한다. 엔진 단계가 생기기 전까지는 이 절이 규칙이다(conductor-engine#80).
+- **병합 전 문서 단계**(사용자 2026-10-23): 이슈·묶음마다 마지막 수정 라운드 뒤, 병합 전에 두 가지를 한다.
+  1. 문서 동기화 작업자: diff를 소유 문서([`docs/AGENTS.md`](../../docs/AGENTS.md) 소유권)에 이어 본다. 대상은 06 계약 절, ADR, `docs/integration/*`, 요구·화면 문서, `GLOSSARY.md`, 폴더 `AGENTS.md`, `.planning/README.md`·`backlog.md`이고, 어긋난 곳을 고친다. 보고서에는 확인한 코드↔문서 연결을 적는다.
+  2. 문서 리뷰: 문서 diff를 `review-check`가 본다. 코드와 맞는지, 계약 소유 문서가 한 곳인지, 용어, 링크(`pnpm docs:links`)를 확인한다. 문서만 바꾼 PR도 이 리뷰는 받는다.
+  엔진 단계와 역할이 생기기 전까지는 이 절이 규칙이다(conductor-engine#81).
+- 스킬·엔진·템플릿·페르소나를 고쳐야 하는 일은 이 레포가 아니라 conductor-engine 이슈로 올린다(`$ENGINE/upstream-file.sh`).
 
 ## Review lens: UX
 
