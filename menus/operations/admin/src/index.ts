@@ -4,32 +4,34 @@
  */
 import { lazy } from 'react';
 import { ClipboardList, FileClock, Library, Users } from 'lucide-react';
-import { NO_FEATURES, contextCapabilities } from '@ap/contracts';
+import { NO_FEATURES, contextCapabilities, groupId } from '@ap/contracts';
 import type { MenuEntry } from '@ap/kernel';
+
+const GROUP = groupId('admin');
 
 export const manifests: MenuEntry[] = [
   {
-    id: 'admin-roles', primary: true, group: 'admin', label: { ko: '권한/역할 관리', en: 'Roles & access' },
+    id: 'admin-roles', primary: true, group: GROUP, label: { ko: '권한/역할 관리', en: 'Roles & access' },
     description: { ko: '메뉴 × 데이터 Scope 권한', en: 'Menu × data-scope permissions' },
     path: '/admin/roles', icon: Users, permission: 'console:access', requiresScope: false, pageType: 'management', context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['role', 'permission', 'sort', 'page', 'focus', 'tab'],
     component: lazy(() => import('./pages/AccessDirectory')),
   },
   {
-    id: 'admin-audit', group: 'admin', label: { ko: '변경 감사', en: 'Audit trail' },
+    id: 'admin-audit', group: GROUP, label: { ko: '변경 감사', en: 'Audit trail' },
     description: { ko: '전역 Audit Trail (각 상세에도 탭으로 노출)', en: 'Global audit trail (also a tab on each detail)' },
     path: '/admin/audit', icon: FileClock, permission: 'console:access', requiresScope: false, pageType: 'management', context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['type', 'actor', 'action', 'source', 'fromAt', 'toAt', 'targetId', 'sort', 'page'],
     component: lazy(() => import('./pages/AuditTrail')),
   },
   {
-    id: 'admin-usage', group: 'admin', label: { ko: '메뉴 활용률', en: 'Menu usage' },
+    id: 'admin-usage', group: GROUP, label: { ko: '메뉴 활용률', en: 'Menu usage' },
     description: { ko: 'Menu Registry 활용 계측 (Kernel 관측 기능)', en: 'Menu registry usage instrumentation (kernel observability)' },
     path: '/admin/usage', icon: ClipboardList, permission: 'console:access', requiresScope: false, pageType: 'management', context: contextCapabilities(), features: NO_FEATURES, pageKeys: ['sort', 'page'],
     component: lazy(() => import('./pages/UsageOverview')),
   },
   {
-    id: 'admin-registry', group: 'admin', label: { ko: '메뉴 레지스트리', en: 'Menu registry' },
+    id: 'admin-registry', group: GROUP, label: { ko: '메뉴 레지스트리', en: 'Menu registry' },
     description: { ko: '등록된 메뉴 선언을 조회합니다.', en: 'Registered menu declarations.' },
     path: '/admin/registry', icon: Library, permission: 'console:access', requiresScope: false, pageType: 'catalog', context: contextCapabilities(), features: NO_FEATURES, pageKeys: ['sort', 'page', 'focus'],
     component: lazy(() => import('./pages/RegistryCatalog')),

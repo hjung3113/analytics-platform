@@ -3,17 +3,18 @@ import { House } from 'lucide-react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from './index';
 import { noContext, testAdapter, testSession, testSpace } from './testing';
+import { groupId, spaceId } from '@ap/contracts';
 
 const features = { export: false, savedView: false, annotate: false, compare: false };
 const entry = (partial: { id: string; path: string; pageKeys: string[]; primary?: boolean; parent?: string; navHidden?: boolean }) => ({
-  group: 'equipment' as const, label: { ko: partial.id, en: partial.id }, description: { ko: '', en: '' }, icon: House,
+  group: groupId('equipment'), label: { ko: partial.id, en: partial.id }, description: { ko: '', en: '' }, icon: House,
   permission: 'platform:view' as const, requiresScope: false, context: noContext, pageType: 'overview' as const, features,
   ...partial,
 });
 
 const registry = createRegistry({
   spaces: [testSpace({ homeMenuId: 'equipment' })],
-  groups: [{ id: 'equipment', label: { ko: '설비', en: 'Equipment' }, icon: House, space: 'analytics' }],
+  groups: [{ id: groupId('equipment'), label: { ko: '설비', en: 'Equipment' }, icon: House, space: spaceId('analytics') }],
   menus: [
     entry({ id: 'equipment', path: '/equipment', pageKeys: ['focus'], primary: true }),
     entry({ id: 'detail', path: '/detail', pageKeys: ['returnTo'], parent: 'equipment', navHidden: true }),

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { PERMISSIONS, type AccessPrincipal, type AccessSortField } from '@ap/contracts';
+import { type AccessPrincipal, type AccessSortField } from '@ap/contracts';
 import { invalidValueSentence, useI18n, usePlatform, type Text } from '@ap/kernel';
 import { PanelRight } from 'lucide-react';
 import { DetailDrawer, RowAction, ManagementLayout, PageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, FilterUrlWarning, TableUrlWarning, useManagementFilters, useTableUrlState } from '@ap/components';
@@ -35,9 +35,9 @@ export default function AccessDirectory() {
   const drawerTab = pageParam('tab') ?? 'permissions';
   const validTab = ['permissions', 'sites'].includes(drawerTab);
   // §6.1 page keys: an invalid wire value alerts instead of substituting, and no adapter call is made.
-  const parsed = parseAccessKeys(raw);
+  const parsed = parseAccessKeys(raw, registry.permissions);
   // A bad filter key keeps the screen's own alert (its reset clears every key); only a bad sort/page is the shared table warning, which keeps applied filters.
-  const badFilterKeys = badAccessFilterKeys(raw);
+  const badFilterKeys = badAccessFilterKeys(raw, registry.permissions);
   // A user sort/page change moves rows between pages, so the focused row leaves with them (bot review P2).
   const tableWarning = useTableUrlState(SORT_FIELDS, { extraPatch: reason => reason === 'user' ? { focus: null, tab: null } : undefined });
   // Adapter filter JSON (role + permission only): a focus change must not refetch the table.
@@ -46,7 +46,7 @@ export default function AccessDirectory() {
   const { draft, clearButton, recoverButton, barProps, layoutProps } = useManagementFilters({ applied: { permission: raw.permission ?? '', role: raw.role ?? '' }, clearKeys: ACCESS_PAGE_KEYS });
   // Recovery from an invalid URL always offers the reset (`recoverButton`, focus to main first — 06 §26); the filter footer and the empty state only when a filter is applied.
   const filters = <PageFilterBar orientation="column" label={ko ? '필터' : 'Filters'} fields={[
-      { kind: 'select', key: 'permission', label: ko ? '권한' : 'Permission', value: draft.values.permission, emptyOptionLabel: ko ? '전체' : 'All', options: PERMISSIONS.map(value => ({ value, label: value })), onValueChange: value => draft.set('permission', value) },
+      { kind: 'select', key: 'permission', label: ko ? '권한' : 'Permission', value: draft.values.permission, emptyOptionLabel: ko ? '전체' : 'All', options: registry.permissions.map(value => ({ value, label: value })), onValueChange: value => draft.set('permission', value) },
       { kind: 'text', key: 'role', label: ko ? '역할 정확 일치' : 'Exact role', value: draft.values.role, onValueChange: value => draft.set('role', value) },
     ]} {...barProps} />;
   const columns = useMemo<PlatformColumn<AccessPrincipal>[]>(() => [

@@ -11,12 +11,11 @@
  * mart trust. `partial` and `too_large` do not apply to `auditTrail` (not a mart, no period budget);
  * `entityAudit` consults `partial` through getEntity's shared counter.
  */
-import type { ApiResponse, Assessment, AuditAction, AuditEvent, AuditSortField, AuditSource, AuditTrailPage, AuditTrailQuery, EntityRef } from '@ap/contracts';
-import { instantEpochMs } from '@ap/contracts';
+import { instantEpochMs, menuPermission, type ApiResponse, type Assessment, type AuditAction, type AuditEvent, type AuditSortField, type AuditSource, type AuditTrailPage, type AuditTrailQuery, type EntityRef } from '@ap/contracts';
 import { checkScope, getRole, getScenario, nextCorrelation, partialFails, sleep } from './server';
 import { AUDIT_EVENTS } from './audit-fixtures';
 import { runtimeAuditEvents } from './annotations';
-import { EQUIPMENT, USERS, type RoleId } from './world';
+import { EQUIPMENT, activeWorld, type RoleId } from './world';
 
 /** `seeds`: audit events the app's mock assembly hands in (menu-owned destinations such as metrics, ADR-0048); they join the store as-is. */
 export type AuditOptions = { role?: RoleId; latency?: number; seeds?: readonly AuditEvent[] };
@@ -103,7 +102,7 @@ export async function auditTrail(query: AuditTrailQuery, signal?: AbortSignal, o
   await sleep(opts?.latency ?? 80, signal);
   const base = { correlationId, data: null, trust: null, assessments: [] as Assessment[] };
   // Operator permission beats every scenario and every filter (a targetId here is search text, not the detail read).
-  if (!USERS[requestRole].permissions.includes('console:access')) return { ...base, outcome: 'forbidden', message: 'No permission console:access' };
+  if (!activeWorld().users[requestRole].permissions.includes('console:access')) return { ...base, outcome: 'forbidden', message: 'No permission console:access' };
   if (s === 'timeout') return { ...base, outcome: 'timeout', message: 'Query exceeded 30s budget' };
   if (s === 'error') return { ...base, outcome: 'error', message: 'Upstream mart query failed' };
   if (s === 'forbidden') return { ...base, outcome: 'forbidden', message: 'Permission revoked (scenario)' };
@@ -143,8 +142,8 @@ export async function entityAudit(ref: EntityRef, signal?: AbortSignal, opts?: A
   // 1. Unknown entity type, before the permission check (same as getEntity).
   if (ref.type !== 'equipment' && ref.type !== 'metric') return { ...base, outcome: 'error', message: 'Unknown entity type' };
   // 2. The destination's own view permission — not console:access.
-  const permission = ref.type === 'equipment' ? 'equipment:view' : 'metrics:view';
-  if (!USERS[requestRole].permissions.includes(permission)) return { ...base, outcome: 'forbidden', message: `No permission ${permission}` };
+  const permission = ref.type === 'equipment' ? menuPermission('equipment:view') : menuPermission('metrics:view');
+  if (!activeWorld().users[requestRole].permissions.includes(permission)) return { ...base, outcome: 'forbidden', message: `No permission ${permission}` };
   // 3. Scenario early returns, same as getEntity() (shared partial counter).
   if (s === 'timeout') return { ...base, outcome: 'timeout', message: 'Query exceeded 30s budget' };
   if (s === 'error') return { ...base, outcome: 'error', message: 'Upstream mart query failed' };

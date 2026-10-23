@@ -1,6 +1,6 @@
 # ADR-0072 — `@ap/contracts`는 견본 메뉴 어휘를 닫힌 목록으로 갖지 않는다: 그룹·공간·메뉴 권한은 브랜드 문자열이고 목록은 앱이 선언하며 Registry가 런타임에 검증한다
 
-- Status: Decided (2026-10-23), 구현 전 — 구현은 [#671](https://github.com/hjung3113/analytics-platform/issues/671) B9.
+- Status: Decided (2026-10-23), implemented in [#671](https://github.com/hjung3113/analytics-platform/issues/671) B9.
 - Decider: 사용자 — [#670](https://github.com/hjung3113/analytics-platform/issues/670) D1의 추천(브랜드 문자열 + Registry 런타임 검증, 닫힌 목록은 앱이 선언, Kernel 고유 권한만 contracts)을 그대로 채택했다(2026-10-23).
 - Scope: 2026-10-22 전체 리뷰(아키텍처) 후속. 관련: [ADR-0053](0053-host-module-contract-v1.md) G1(모듈 어휘는 이미 열린 `<moduleId>:` 문자열), [#428](https://github.com/hjung3113/analytics-platform/issues/428)(외부 확장 계약).
 - Amends: ADR-0053 G1의 "플랫폼 고유 `PERMISSIONS`·`GroupId`·`SpaceId` 목록은 그대로 둔다".

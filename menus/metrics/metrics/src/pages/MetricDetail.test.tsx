@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
-import type { ApiResponse, AuditEvent, Capability, ContextKey, EntityRef, MenuQuery, PlatformAdapter } from '@ap/contracts';
 import { Activity, Gauge, Timer } from 'lucide-react';
 import { createRegistry, I18nProvider, PlatformProvider, type MenuEntry } from '@ap/kernel';
 import { memoryStorage, testAdapter, testSession } from '@ap/kernel/testing';
@@ -10,6 +9,7 @@ import MetricDetailPage from './MetricDetail';
 import {
   type DefinitionPayload, type MetricDef, type MetricVersion, type UsagePayload,
 } from '../endpoints';
+import { groupId, menuPermission, spaceId, type ApiResponse, type AuditEvent, type Capability, type ContextKey, type EntityRef, type MenuQuery, type PlatformAdapter } from '@ap/contracts';
 
 // #299 B-10: the Data Trust indicator next to the definition must not claim "확정" for a draft
 // version. The envelope below reproduces the real mock definition response (06 §19 envelope:
@@ -21,25 +21,26 @@ const noFeatures = { export: false, savedView: false, annotate: false, compare: 
 // usage rows resolveLink into analytics menus; cross-package manifests are not importable, so the
 // registry carries id-honest stubs for the two destinations the usage table links to.
 const consumerMenus: MenuEntry[] = [
-  { id: 'productivity-overview', primary: true, group: 'analytics', label: { ko: '생산성 개요', en: 'Productivity overview' },
+  { id: 'productivity-overview', primary: true, group: groupId('analytics'), label: { ko: '생산성 개요', en: 'Productivity overview' },
     description: { ko: '물리 점유율, 비Process 체류, 사이클타임 P50·P95, Job 처리량을 요약합니다.', en: 'Occupancy, non-process dwell, cycle time P50/P95 and job throughput.' },
-    path: '/analytics/productivity', icon: Activity, permission: 'analytics:view', requiresScope: true, pageType: 'overview',
+    path: '/analytics/productivity', icon: Activity, permission: menuPermission('analytics:view'), requiresScope: true, pageType: 'overview',
     context: { ...none, time: 'apply', roomNames: 'apply', condition: 'apply', selection: 'apply', ppid: 'apply', recipe: 'apply', metric: 'reference' }, features: { ...noFeatures, export: true }, pageKeys: [] },
-  { id: 'cycle-time', group: 'analytics', label: { ko: '사이클타임 상세', en: 'Cycle time detail' },
+  { id: 'cycle-time', group: groupId('analytics'), label: { ko: '사이클타임 상세', en: 'Cycle time detail' },
     description: { ko: '사이클타임 분포에서 느린 실행을 찾아 실행 상세로 드릴다운합니다.', en: 'Find slow executions in the cycle-time distribution and drill into them.' },
-    path: '/analytics/cycle-time', icon: Timer, permission: 'analytics:view', requiresScope: true, pageType: 'analysis',
+    path: '/analytics/cycle-time', icon: Timer, permission: menuPermission('analytics:view'), requiresScope: true, pageType: 'analysis',
     context: { ...none, time: 'apply', roomNames: 'apply', condition: 'apply', selection: 'apply', lot: 'apply', ppid: 'apply', recipe: 'apply', metric: 'apply' },
     features: { export: true, savedView: false, annotate: true, compare: true }, pageKeys: ['granularity', 'percentile', 'sort', 'page', 'bucket', 'bin'], contextResetKeys: ['page', 'bucket', 'bin'], initializesMetric: true },
 ];
 
 const registry = createRegistry({
+  permissions: [menuPermission('analytics:view'), menuPermission('metrics:view')],
   spaces: [
-    { id: 'metrics', label: { ko: '지표', en: 'Metrics' }, description: { ko: '지표 카탈로그', en: 'Metric catalog' }, permission: 'metrics:view', homeMenuId: 'metric-catalog' },
-    { id: 'analytics', label: { ko: '생산성 분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, permission: 'analytics:view', homeMenuId: 'productivity-overview' },
+    { id: spaceId('metrics'), label: { ko: '지표', en: 'Metrics' }, description: { ko: '지표 카탈로그', en: 'Metric catalog' }, permission: menuPermission('metrics:view'), homeMenuId: 'metric-catalog' },
+    { id: spaceId('analytics'), label: { ko: '생산성 분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, permission: menuPermission('analytics:view'), homeMenuId: 'productivity-overview' },
   ],
   groups: [
-    { id: 'metrics', label: { ko: '지표', en: 'Metrics' }, icon: Gauge, space: 'metrics' },
-    { id: 'analytics', label: { ko: '생산성 분석', en: 'Productivity' }, icon: Timer, space: 'analytics' },
+    { id: groupId('metrics'), label: { ko: '지표', en: 'Metrics' }, icon: Gauge, space: spaceId('metrics') },
+    { id: groupId('analytics'), label: { ko: '생산성 분석', en: 'Productivity' }, icon: Timer, space: spaceId('analytics') },
   ],
   menus: [...manifests, ...consumerMenus],
 });

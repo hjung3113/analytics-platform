@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import type { Capability, ContextKey, MenuMeta } from '@ap/contracts';
 import { createMockAdapter, getRole, setRole, USERS, type RoleId } from '@ap/mock-server';
 import { homeMock } from './index';
 import { noticesEndpoint, type Notice } from '../endpoints';
+import { groupId, type Capability, type ContextKey, type MenuMeta } from '@ap/contracts';
 
 const none: Record<ContextKey, Capability> = {
   time: 'unsupported', roomNames: 'unsupported', line: 'unsupported', prcGroup: 'unsupported', condition: 'unsupported', selection: 'unsupported',
@@ -10,8 +10,8 @@ const none: Record<ContextKey, Capability> = {
 };
 const base = { description: { ko: '', en: '' }, requiresScope: false, context: none, features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] };
 /** Inline mirrors of the home manifest and the notice menu that declares `notice:view` (registration checks the name exists). */
-const homeMenu: MenuMeta = { ...base, id: 'home', group: 'overview', label: { ko: '운영 개요', en: 'Operations overview' }, path: '/', permission: 'platform:view', pageType: 'overview' };
-const noticeMenu: MenuMeta = { ...base, id: 'notices', group: 'noticeVoc', label: { ko: '공지', en: 'Notices' }, path: '/notices', permission: 'notice:view', pageType: 'management' };
+const homeMenu: MenuMeta = { ...base, id: 'home', group: groupId('overview'), label: { ko: '운영 개요', en: 'Operations overview' }, path: '/', permission: 'platform:view', pageType: 'overview' };
+const noticeMenu: MenuMeta = { ...base, id: 'notices', group: groupId('noticeVoc'), label: { ko: '공지', en: 'Notices' }, path: '/notices', permission: 'notice:view', pageType: 'management' };
 
 const adapter = createMockAdapter({ endpoints: [...homeMock], registry: { menus: [homeMenu, noticeMenu] } });
 const previousRole: RoleId = getRole();

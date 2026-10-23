@@ -7,6 +7,7 @@ import { PanelWorkspace, PlatformPage, type PanelWorkspaceLayout } from '@ap/com
 import { RouteOutlet } from '../RouteOutlet';
 import { BOARD_LAYOUT_ENGINE_KEY } from './layoutEngine';
 import { legacyBoard as boardOf, legacySheet as sheet, seedLegacy as seed } from './__fixtures__/legacyBoard';
+import { groupId, spaceId } from '@ap/contracts';
 
 // jsdom has no ResizeObserver and no geometry: every observed element reports the shared size.
 function installResizeObserver() {
@@ -42,12 +43,12 @@ function Workspace() {
 }
 function Plain() { return <PlatformPage><p>plain body</p></PlatformPage>; }
 const entry = (id: string, path: string, over: Record<string, unknown> = {}) => ({
-  id, group: 'equipment' as const, label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House, permission: 'platform:view' as const,
+  id, group: groupId('equipment'), label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House, permission: 'platform:view' as const,
   requiresScope: false, context: apply, pageType: 'analysis' as const, features, pageKeys: ['tab'], ...over,
 });
 const registry = createRegistry({
   spaces: [testSpace({ homeMenuId: 'home' })],
-  groups: [{ id: 'equipment', label: { ko: '그룹', en: 'Group' }, icon: House, space: 'analytics' }],
+  groups: [{ id: groupId('equipment'), label: { ko: '그룹', en: 'Group' }, icon: House, space: spaceId('analytics') }],
   menus: [
     { ...entry('home', '/', { component: Plain, features: { ...features, board: false } }), primary: true },
     entry('ws', '/ws', { component: Workspace, label: { ko: '작업', en: 'Work' } }),

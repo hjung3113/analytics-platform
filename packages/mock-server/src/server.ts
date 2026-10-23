@@ -2,8 +2,8 @@
  * Mock request validation + response envelope (docs/06 §19): exclusive `outcome` plus declared `assessments[]`.
  * Every page query goes through `serve()` so Scope/room grants are re-validated per request (§6.2).
  */
-import { parseDateTime, periodHours, type ApiResponse, type ClientErrorReport, type Assessment, type AssessmentKind, type Condition, type EntityRef, type GlobalContext, type Permission, type ScopeCheck, type SpaceId, type Trust, type UsageEvent, type UsageRange, type UsageSummary, type UsageVia } from '@ap/contracts';
-import { EQUIPMENT, SITES, TIME_DOMAIN_ASSERTIONS, USERS, type Equipment, type RoleId, type TimeDomainAssertion } from './world';
+import { parseDateTime, periodHours, type ApiResponse, type ClientErrorReport, type Assessment, type AssessmentKind, type Condition, type EntityRef, type GlobalContext, type Permission, type ScopeCheck, type SpaceId, type Trust, type UsageEvent, type UsageRange, type UsageSummary, type UsageVia, menuPermission } from '@ap/contracts';
+import { EQUIPMENT, SITES, TIME_DOMAIN_ASSERTIONS, activeWorld, type Equipment, type RoleId, type TimeDomainAssertion } from './world';
 
 /**
  * Server-side state the dev tools can flip: the signed-in role (a stand-in for SSO) and the response scenario.
@@ -12,7 +12,7 @@ import { EQUIPMENT, SITES, TIME_DOMAIN_ASSERTIONS, USERS, type Equipment, type R
 export type Scenario = 'normal' | 'slow' | 'empty' | 'error' | 'forbidden' | 'too_large' | 'timeout' | 'partial' | 'unknown_status' | 'malformed' | 'scope_error';
 const ROLE_KEY = 'platform:role';
 function storedRole(): RoleId {
-  try { const raw = localStorage.getItem(ROLE_KEY); const role = raw ? JSON.parse(raw) : null; return role in USERS ? role : 'engineer'; } catch { return 'engineer'; }
+  try { const raw = localStorage.getItem(ROLE_KEY); const role = raw ? JSON.parse(raw) : null; return role in activeWorld().users ? role : 'engineer'; } catch { return 'engineer'; }
 }
 let role: RoleId = storedRole();
 let scenario: Scenario = 'normal';
@@ -45,7 +45,7 @@ export const sleep = (ms: number, signal?: AbortSignal) => new Promise<void>((re
 export function checkScope(role: RoleId, scopeId: string | null): ScopeCheck {
   if (!scopeId) return { status: 'unknown_scope', grantedRooms: [] };
   if (!SITES.some(s => s.id === scopeId)) return { status: 'unknown_scope', grantedRooms: [] };
-  const grants = USERS[role].grants[scopeId];
+  const grants = activeWorld().users[role].grants[scopeId];
   return grants?.length ? { status: 'valid', grantedRooms: grants } : { status: 'forbidden', grantedRooms: [] };
 }
 
@@ -225,7 +225,7 @@ export async function serve<T>(o: ServeOptions<T>): Promise<ApiResponse<T>> {
   const base = { correlationId, data: null, trust: null, assessments: [] as Assessment[] };
   // Menu permission (§17): the same rule as menu visibility and route access, re-validated per request
   // with the pinned role. A missing permission outranks every response scenario.
-  if (!USERS[requestRole].permissions.includes(o.permission)) return { ...base, outcome: 'forbidden', message: `No permission ${o.permission}` };
+  if (!activeWorld().users[requestRole].permissions.includes(o.permission)) return { ...base, outcome: 'forbidden', message: `No permission ${o.permission}` };
   if (s === 'timeout') return { ...base, outcome: 'timeout', message: 'Query exceeded 30s budget' };
   if (s === 'error') return { ...base, outcome: 'error', message: 'Upstream mart query failed' };
   // Every other widget query fails so pages can show a local failure next to healthy widgets (§19 Partial widget failure).
@@ -302,7 +302,7 @@ export async function getEntity(ref: EntityRef, signal?: AbortSignal, opts?: Get
   // 1. Unknown entity type.
   if (ref.type !== 'equipment') return { ...base, outcome: 'error', message: 'Unknown entity type' };
   // 2. Endpoint permission. A missing permission outranks every response scenario.
-  if (!USERS[requestRole].permissions.includes('equipment:view')) return { ...base, outcome: 'forbidden', message: 'No permission equipment:view' };
+  if (!activeWorld().users[requestRole].permissions.includes(menuPermission('equipment:view'))) return { ...base, outcome: 'forbidden', message: 'No permission equipment:view' };
   // 3. Scenario early returns, same as serve() (shared partialCounter).
   if (s === 'timeout') return { ...base, outcome: 'timeout', message: 'Query exceeded 30s budget' };
   if (s === 'error') return { ...base, outcome: 'error', message: 'Upstream mart query failed' };
@@ -332,17 +332,14 @@ export type StoredUsageEvent = UsageEvent & { userId: string; receivedAt: number
 
 const usageEvents: StoredUsageEvent[] = [];
 
-// A Record keeps the list complete: a new SpaceId member fails typecheck until it is listed here (#590).
-const SPACE_ID_SET: Record<SpaceId, true> = { analytics: true, metrics: true, clas: true, operations: true, 'log-dev': true, improvement: true };
-const SPACE_IDS = Object.keys(SPACE_ID_SET);
-
-function validSpaceId(spaceId: unknown): spaceId is SpaceId | null {
-  return spaceId === null || (typeof spaceId === 'string' && (SPACE_IDS as readonly string[]).includes(spaceId));
-}
-
 /** True when the id is not a string, or carries anything the manifest route pattern must not: empty, `?`, `#`, `&`, whitespace, too long. */
 function invalidUsageId(value: string, max: number): boolean {
   return typeof value !== 'string' || !value || value.length > max || /[?#&\s]/.test(value);
+}
+
+/** The server does not know the app's spaces (ADR-0072): a space id is null or an id of the same shape as a menu id. */
+function validSpaceId(spaceId: unknown): spaceId is SpaceId | null {
+  return spaceId === null || (typeof spaceId === 'string' && !invalidUsageId(spaceId, 80));
 }
 
 /** Declared wire fields (docs/05 v1) — anything else a client sends is an unknown key. */
@@ -398,7 +395,7 @@ export async function recordUsage(events: readonly UsageEvent[], opts?: { role?:
     || (e.name === 'dwell' && (typeof e.enteredAt !== 'number' || !Number.isFinite(e.enteredAt)
       || typeof e.dwellMs !== 'number' || e.dwellMs < 0 || !Number.isInteger(e.dwellMs))));
   if (invalid) return { accepted: 0 };
-  const userId = USERS[opts?.role ?? role].role;
+  const userId = activeWorld().users[opts?.role ?? role].role;
   const receivedAt = Date.now();
   for (const e of events) {
     if (e.name === 'dwell') {
@@ -466,7 +463,7 @@ export async function reportClientError(report: ClientErrorReport, opts?: { role
     || !validSpaceId(report.spaceId)
     || typeof report.name !== 'string' || !/^[A-Za-z_$][\w$]{0,79}$/.test(report.name);
   if (invalid) return { accepted: false };
-  clientErrors.push({ ...report, userId: USERS[opts?.role ?? role].role, receivedAt: Date.now() });
+  clientErrors.push({ ...report, userId: activeWorld().users[opts?.role ?? role].role, receivedAt: Date.now() });
   if (clientErrors.length > CLIENT_ERROR_CAP) clientErrors.splice(0, clientErrors.length - CLIENT_ERROR_CAP);
   return { accepted: true };
 }
@@ -489,7 +486,7 @@ export async function usageSummary(range: UsageRange, signal?: AbortSignal, opts
   const correlationId = nextCorrelation();
   await sleep(opts?.latency ?? 80, signal);
   const base = { correlationId, data: null, trust: null, assessments: [] as Assessment[] };
-  if (!USERS[requestRole].permissions.includes('console:access')) return { ...base, outcome: 'forbidden', message: 'No permission console:access' };
+  if (!activeWorld().users[requestRole].permissions.includes('console:access')) return { ...base, outcome: 'forbidden', message: 'No permission console:access' };
   if (s === 'timeout') return { ...base, outcome: 'timeout', message: 'Query exceeded 30s budget' };
   if (s === 'error') return { ...base, outcome: 'error', message: 'Upstream mart query failed' };
   if (s === 'forbidden') return { ...base, outcome: 'forbidden', message: 'Permission revoked (scenario)' };

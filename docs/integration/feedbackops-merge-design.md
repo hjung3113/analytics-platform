@@ -129,7 +129,7 @@ FeedbackOps를 플랫폼 앱 하나·서버 하나·저장소 하나로 합친�
 
 | | 플랫폼 계약 | FeedbackOps |
 | --- | --- | --- |
-| 권한 어휘 | 닫힌 enum, 콜론 표기(`packages/contracts/src/menu.ts:30`) | capability 11개, 점 표기(`packages/shared/src/enums/capabilities.ts:13-25`) |
+| 권한 어휘 | Kernel 고유 권한 `KERNEL_PERMISSIONS` + 앱이 선언한 메뉴 권한, 콜론 표기(`packages/contracts/src/menu.ts`, ADR-0072) | capability 11개, 점 표기(`packages/shared/src/enums/capabilities.ts:13-25`) |
 | 역할 | 서버 데이터, 계약이 고정하지 않음 | `admin`·`developer`·`user`(FO ADR-0048) |
 | 데이터 범위 | Scope = site, 그 안의 room_name 부여(ADR-0004·0005) | Managed System(FO ADR-0001). site·room이 없다 |
 | 판정 순서 | 권한 → site → 행 조회 → room | workspace → 명시적 거부 → workspace 부여 → 역할 → Managed System 범위 부여 → 요청 가능 여부(`modules/permissions/check-service.ts:119-246`) |
@@ -163,7 +163,7 @@ FeedbackOps를 플랫폼 앱 하나·서버 하나·저장소 하나로 합친�
 ## 5. 권한·업무 시스템 통합 (Decided, [ADR-0068](../adr/0068-permission-scope-and-business-system-link.md))
 
 - **부여 체계는 FeedbackOps 것 하나다.**
-  - Role Level은 유지하고, 플랫폼 권한은 FeedbackOps Capability 어휘로 합친다. `@ap/contracts` `PERMISSIONS`와는 계약 테스트로 묶는다.
+  - Role Level은 유지하고, 플랫폼 권한은 FeedbackOps Capability 어휘로 합친다. `@ap/contracts` `KERNEL_PERMISSIONS`와는 계약 테스트로 묶는다(앱이 선언한 메뉴 권한은 FeedbackOps가 부여하지 않으므로 표에 없다, ADR-0072).
   - 범위는 `scope_kind`(`managed_system | space | site | site_room`)로 표현하고, 구현은 앞의 둘만 한다.
   - 출시 조건: 판정·유효 권한·목록·unique 인덱스를 한 변경으로 고치고, kind별 누출 테스트를 넣는다.
 - **Managed System과 업무 시스템:** 레지스트리는 둘이고 연결 표로 잇는다. 키는 `(workspace_id, space_id)`이고, 값은 `managed_system_id`다. 연결은 기본값과 이동에만 쓰이고 권한을 주지 않는다.

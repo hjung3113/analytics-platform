@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { defineAction, defineEndpoint, type FieldError, type MenuMeta } from '@ap/contracts';
+import { defineAction, defineEndpoint, type FieldError, type MenuMeta, groupId, menuPermission } from '@ap/contracts';
 import { createMockAdapter } from './adapter';
 import { defineMockAction, serveAction, type AnyMockAction } from './actions';
 import { defineMockEndpoint, MockRegistrationError } from './endpoints';
@@ -12,8 +12,8 @@ const OTHER_KEY = '0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d';
 
 function menuMeta(o: Partial<Pick<MenuMeta, 'id' | 'permission' | 'requiresScope'>> = {}): MenuMeta {
   return {
-    id: o.id ?? 'owner', group: 'analytics', label: { ko: '메뉴', en: 'Menu' }, description: { ko: '', en: '' }, path: '/owner',
-    permission: o.permission ?? 'analytics:view', requiresScope: o.requiresScope ?? true,
+    id: o.id ?? 'owner', group: groupId('analytics'), label: { ko: '메뉴', en: 'Menu' }, description: { ko: '', en: '' }, path: '/owner',
+    permission: o.permission ?? menuPermission('analytics:view'), requiresScope: o.requiresScope ?? true,
     context: { time: 'unsupported', roomNames: 'unsupported', line: 'unsupported', prcGroup: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' },
     pageType: 'analysis', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [],
   };
@@ -21,11 +21,11 @@ function menuMeta(o: Partial<Pick<MenuMeta, 'id' | 'permission' | 'requiresScope
 const registry = { menus: [menuMeta()] };
 
 const query = defineEndpoint<{ term: string }, unknown>({
-  id: 'analytics.items', menuId: 'owner', paramKeys: { term: true }, permission: 'analytics:view', requiresScope: true,
+  id: 'analytics.items', menuId: 'owner', paramKeys: { term: true }, permission: menuPermission('analytics:view'), requiresScope: true,
   context: {}, kinds: ['collection'], mergeTimeDomain: false,
 });
 const spec = defineAction<Input, { id: number }>({
-  id: 'analytics.save', menuId: 'owner', inputKeys: { text: true }, permission: 'analytics:view',
+  id: 'analytics.save', menuId: 'owner', inputKeys: { text: true }, permission: menuPermission('analytics:view'),
   requiresScope: true, concurrency: 'version', invalidates: [query],
 });
 const plainSpec = defineAction<Input, { id: number }>({ ...spec, id: 'analytics.append', concurrency: 'none', invalidates: [] });
@@ -67,7 +67,7 @@ describe('serveAction judgment order (ADR-0054)', () => {
 
   it.each([
     ['a non-object request', 'nope'],
-    ['an unexpected top-level key', req({ permission: 'analytics:view' })],
+    ['an unexpected top-level key', req({ permission: menuPermission('analytics:view') })],
     ['a missing action', (({ action: _a, ...rest }) => rest)(req())],
     ['a missing context', (({ context: _c, ...rest }) => rest)(req())],
     ['a missing input', (({ input: _i, ...rest }) => rest)(req())],

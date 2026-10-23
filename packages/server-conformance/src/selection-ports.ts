@@ -1,4 +1,4 @@
-import { isPortError, type EquipmentSummary, type PortErrorCode } from '@ap/contracts';
+import { isPortError, menuPermission, type EquipmentSummary, type PortErrorCode } from '@ap/contracts';
 import type { ConformanceCheck, ServerConformanceHarness } from './index';
 
 /** All vocabulary and authorization evidence belong to the integrating app/server. */
@@ -150,7 +150,7 @@ export function planSelectionPortChecks(h: ServerConformanceHarness): Conformanc
       if (!first.nextCursor) return 'Paging evidence did not yield a cursor';
       return await rejects(() => a.searchEquipment({ ...search, cursor: first.nextCursor, query: '__changed__' }), 'invalid_cursor') ?? await rejects(() => a.searchEquipment({ ...search, cursor: '__malformed__' }), 'invalid_cursor');
     },
-    'global metadata needs no equipment permission': () => h.withoutPermission('equipment:view', async () => {
+    'global metadata needs no equipment permission': () => h.withoutPermission(menuPermission('equipment:view'), async () => {
       const option = await a.listAxisOptions(options); const candidates = await a.searchEquipment(search); const resolved = await a.resolveSelection(resolve);
       return option.items.length && candidates.items.length && resolved.items[0]?.status === 'ok' ? null : 'Global metadata incorrectly requires equipment:view';
     }),

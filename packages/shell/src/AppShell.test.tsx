@@ -1,23 +1,24 @@
 import userEvent from '@testing-library/user-event';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { DetailDrawer } from '@ap/components';
-import { House } from 'lucide-react';
+import { House, ListTodo, MessageSquarePlus, Rocket, Star } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { GroupId, Permission, PlatformAdapter, Session } from '@ap/contracts';
-import type { FeedbackOpsSlot, PlatformSlots } from '@ap/kernel';
 import { I18nProvider, PlatformProvider, usePlatform, createRegistry } from '@ap/kernel';
+import type { FeedbackOpsSlot, PlatformSlots } from '@ap/kernel';
 import { AppShell } from './AppShell';
 import { AppRail } from './AppRail';
 import { AppSidebar } from './AppSidebar';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { groupId, menuPermission, spaceId, type GroupId, type Permission, type PlatformAdapter, type Session } from '@ap/contracts';
 
 function menu(id: string, group: GroupId, path: string, permission: Permission) {
   return { id, group, path, permission, primary: true, label: { ko: '운영 홈', en: 'Operations home' }, description: { ko: '', en: '' }, icon: House, requiresScope: false, context: noContext, pageType: 'overview' as const, features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] };
 }
 const registry = createRegistry({
-  spaces: [testSpace({ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, subtitle: { ko: 'FeedbackOps 검사 전용 시스템 부제', en: 'FeedbackOps fixture system subtitle' }, homeMenuId: 'home' }), testSpace({ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations' }, homeMenuId: 'ops', permission: 'console:access' })],
-  groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics', hideLabelWhenSingle: true }, { id: 'admin', label: { ko: '관리', en: 'Admin' }, icon: House, space: 'operations' }],
-  menus: [menu('ops', 'admin', '/ops', 'console:access'), { id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: ['focus', 'tab'] }],
+  permissions: [menuPermission('equipment:view')],
+  spaces: [testSpace({ id: spaceId('analytics'), label: { ko: '분석', en: 'Analytics' }, subtitle: { ko: 'FeedbackOps 검사 전용 시스템 부제', en: 'FeedbackOps fixture system subtitle' }, homeMenuId: 'home' }), testSpace({ id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations' }, homeMenuId: 'ops', permission: 'console:access' })],
+  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics'), hideLabelWhenSingle: true }, { id: groupId('admin'), label: { ko: '관리', en: 'Admin' }, icon: House, space: spaceId('operations') }],
+  menus: [menu('ops', groupId('admin'), '/ops', 'console:access'), { id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: ['focus', 'tab'] }],
 });
 
 const forbidden = { outcome: 'forbidden' as const, data: null, assessments: [], trust: null, correlationId: 'fixture' };
@@ -37,12 +38,13 @@ function sidebarRegistry(groupId: GroupId, groupLabel: string, menuIds: string[]
     primary: index === 0,
   }));
   return createRegistry({
+    permissions: [menuPermission('equipment:view')],
     spaces: [testSpace({ homeMenuId: menuIds[0] })],
     groups: [{
       id: groupId,
       label: { ko: groupLabel, en: groupLabel },
       icon: House,
-      space: 'analytics',
+      space: spaceId('analytics'),
       ...(hideLabelWhenSingle ? { hideLabelWhenSingle: true } : {}),
     }],
     menus,
@@ -164,7 +166,7 @@ describe('light sidebar', () => {
 
 describe('declared single-menu sidebar group labels', () => {
   it('omits the label for a non-overview group when declared and showing one menu', () => {
-    const view = sidebarRegistry('equipment', '설비관리', ['equipment-home'], true);
+    const view = sidebarRegistry(groupId('equipment'), '설비관리', ['equipment-home'], true);
     mount(['platform:view'], false, view);
 
     const group = screen.getByRole('group', { name: '설비관리' });
@@ -173,7 +175,7 @@ describe('declared single-menu sidebar group labels', () => {
   });
 
   it('shows the label for overview when the group has no declaration', () => {
-    const view = sidebarRegistry('overview', '운영 개요', ['overview-home']);
+    const view = sidebarRegistry(groupId('overview'), '운영 개요', ['overview-home']);
     mount(['platform:view'], false, view);
 
     const group = screen.getByRole('group', { name: '운영 개요' });
@@ -181,7 +183,7 @@ describe('declared single-menu sidebar group labels', () => {
   });
 
   it('shows the label for a declared group when two menus are visible', () => {
-    const view = sidebarRegistry('equipment', '설비관리', ['equipment-home', 'equipment-list'], true);
+    const view = sidebarRegistry(groupId('equipment'), '설비관리', ['equipment-home', 'equipment-list'], true);
     mount(['platform:view'], false, view);
 
     const group = screen.getByRole('group', { name: '설비관리' });
@@ -358,43 +360,45 @@ it('opens the named slot and selected tab from URL focus/tab and clears focus on
 
 const feedbackSlot: FeedbackOpsSlot = {
   entriesFor: spaceId => spaceId === 'analytics' ? [
-    { id: 'task', label: { ko: 'Task', en: 'Task' }, href: 'https://example.test/task' },
-    { id: 'voc-create', label: { ko: 'VOC 등록', en: 'File a VOC' }, href: 'https://example.test/new' },
+    { key: 'task', icon: ListTodo, label: { ko: 'Task', en: 'Task' }, href: 'https://example.test/task' },
+    { key: 'voc-create', icon: MessageSquarePlus, label: { ko: 'VOC 등록', en: 'File a VOC' }, href: 'https://example.test/new' },
   ] : spaceId === 'operations' ? [] : null,
   overall: { href: 'https://example.test/all', permission: 'feedbackops:access' },
 };
 
 function globalShellRegistry(equipmentPermission: Permission = 'platform:view') {
   return createRegistry({
+    permissions: [menuPermission('equipment:view')],
     spaces: [
-      testSpace({ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'equipment' }),
-      testSpace({ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations' }, homeMenuId: 'ops', permission: 'console:access' }),
+      testSpace({ id: spaceId('analytics'), label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'equipment' }),
+      testSpace({ id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations' }, homeMenuId: 'ops', permission: 'console:access' }),
     ],
     groups: [
-      { id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: null },
-      { id: 'equipment', label: { ko: '설비', en: 'Equipment' }, icon: House, space: 'analytics' },
-      { id: 'admin', label: { ko: '관리', en: 'Admin' }, icon: House, space: 'operations' },
+      { id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: null },
+      { id: groupId('equipment'), label: { ko: '설비', en: 'Equipment' }, icon: House, space: spaceId('analytics') },
+      { id: groupId('admin'), label: { ko: '관리', en: 'Admin' }, icon: House, space: spaceId('operations') },
     ],
     menus: [
-      { id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] },
-      menu('equipment', 'equipment', '/equipment', equipmentPermission),
-      menu('ops', 'admin', '/ops', 'console:access'),
+      { id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] },
+      menu('equipment', groupId('equipment'), '/equipment', equipmentPermission),
+      menu('ops', groupId('admin'), '/ops', 'console:access'),
     ],
   });
 }
 
 function logoRegistry() {
   return createRegistry({
+    permissions: [menuPermission('equipment:view')],
     spaces: [testSpace({ homeMenuId: 'equipment' })],
     groups: [
-      { id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: null },
-      { id: 'noticeVoc', label: { ko: '공지', en: 'Notices' }, icon: House, space: null },
-      { id: 'equipment', label: { ko: '설비', en: 'Equipment' }, icon: House, space: 'analytics' },
+      { id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: null },
+      { id: groupId('noticeVoc'), label: { ko: '공지', en: 'Notices' }, icon: House, space: null },
+      { id: groupId('equipment'), label: { ko: '설비', en: 'Equipment' }, icon: House, space: spaceId('analytics') },
     ],
     menus: [
-      { id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] },
-      { id: 'notices', group: 'noticeVoc', primary: true, label: { ko: '공지', en: 'Notices' }, description: { ko: '', en: '' }, path: '/notices', icon: House, permission: 'notice:view', requiresScope: false, context: noContext, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] },
-      menu('equipment', 'equipment', '/equipment', 'platform:view'),
+      { id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] },
+      { id: 'notices', group: groupId('noticeVoc'), primary: true, label: { ko: '공지', en: 'Notices' }, description: { ko: '', en: '' }, path: '/notices', icon: House, permission: 'notice:view', requiresScope: false, context: noContext, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] },
+      menu('equipment', groupId('equipment'), '/equipment', 'platform:view'),
     ],
   });
 }
@@ -408,7 +412,7 @@ describe('workspace shell layout (15 §3.1)', () => {
     expect(home.getAttribute('href')).toMatch(/^\//);
     expect(screen.queryByRole('link', { name: '플랫폼 홈' })).toBeNull();
     cleanup();
-    mount(['platform:view'], false, sidebarRegistry('equipment', '설비관리', ['equipment-home']));
+    mount(['platform:view'], false, sidebarRegistry(groupId('equipment'), '설비관리', ['equipment-home']));
     openSwitcher();
     expect(screen.queryByRole('link', { name: '홈' })).toBeNull();
     expect(screen.queryByRole('navigation', { name: '플랫폼 메뉴' })).toBeNull();
@@ -434,6 +438,18 @@ describe('workspace shell layout (15 §3.1)', () => {
     expect(within(rail).getByRole('button', { name })).toBeTruthy();
     expect(within(rail).queryByRole('link', { name: '플랫폼 홈' })).toBeNull();
     expect(rail.querySelector('a[aria-current]')).toBeNull();
+  });
+
+  it('draws each FeedbackOps entry with the icon the slot passes, whatever its key (ADR-0072)', () => {
+    mount(['platform:view'], true, registry, { feedbackOps: { entriesFor: id => id === 'analytics' ? [
+      { key: 'first', icon: Star, label: { ko: '첫째', en: 'First' }, href: 'https://example.test/a' },
+      { key: 'task', icon: Rocket, label: { ko: '둘째', en: 'Second' }, href: null },
+    ] : null, overall: null } });
+    const block = screen.getByRole('navigation', { name: 'FeedbackOps · 분석' });
+    const [first, second] = within(block).getAllByRole('link').map(link => link.querySelector('svg')!);
+
+    expect(first.classList.contains('lucide-star')).toBe(true);
+    expect(second.classList.contains('lucide-rocket')).toBe(true);
   });
 
   it('renders FeedbackOps entries in slot order outside the scroll region, and the overall link in the user menu', async () => {
@@ -511,8 +527,8 @@ describe('workspace shell layout (15 §3.1)', () => {
   ])('draws an entry with a null href as a focusable disabled link (%s)', (lang, reason) => {
     localStorage.setItem('platform:lang', lang);
     mount(['platform:view'], true, registry, { feedbackOps: { entriesFor: id => id === 'analytics' ? [
-      { id: 'task', label: { ko: 'Task', en: 'Task' }, href: null },
-      { id: 'voc-create', label: { ko: 'VOC 등록', en: 'File a VOC' }, href: 'https://example.test/new' },
+      { key: 'task', icon: ListTodo, label: { ko: 'Task', en: 'Task' }, href: null },
+      { key: 'voc-create', icon: MessageSquarePlus, label: { ko: 'VOC 등록', en: 'File a VOC' }, href: 'https://example.test/new' },
     ] : null, overall: null } });
     const block = screen.getByRole('navigation', { name: /^FeedbackOps/ });
     const disabled = within(block).getAllByRole('link').find(link => link.getAttribute('aria-disabled') === 'true')!;
@@ -529,8 +545,8 @@ describe('workspace shell layout (15 §3.1)', () => {
   it('drops the new-tab caption when every entry is disabled (UX-1)', () => {
     localStorage.setItem('platform:sidebar-collapsed', '0');
     mount(['platform:view'], true, registry, { feedbackOps: { entriesFor: id => id === 'analytics' ? [
-      { id: 'voc-create', label: { ko: 'VOC 등록', en: 'File a VOC' }, href: null },
-      { id: 'task', label: { ko: 'Task', en: 'Task' }, href: null },
+      { key: 'voc-create', icon: MessageSquarePlus, label: { ko: 'VOC 등록', en: 'File a VOC' }, href: null },
+      { key: 'task', icon: ListTodo, label: { ko: 'Task', en: 'Task' }, href: null },
     ] : null, overall: null } });
     const block = screen.getByRole('navigation', { name: /^FeedbackOps/ });
     expect(within(block).getAllByRole('link')).toHaveLength(2);
@@ -549,7 +565,7 @@ describe('workspace shell layout (15 §3.1)', () => {
 
   it('draws the platform sidebar instead of the business one when no space is accessible', () => {
     window.history.replaceState(null, '', '/?v=1');
-    mount(['platform:view'], true, globalShellRegistry('equipment:view'));
+    mount(['platform:view'], true, globalShellRegistry(menuPermission('equipment:view')));
     expect(screen.queryByRole('navigation', { name: '주 메뉴' })).toBeNull();
     expect(screen.getByRole('navigation', { name: '플랫폼 메뉴' })).toBeTruthy();
   });
@@ -580,7 +596,7 @@ describe('workspace shell layout (15 §3.1)', () => {
     const seen: string[] = [];
     window.history.replaceState(null, '', '/ops?v=1');
     mount(['platform:view'], true, registry, { feedbackOps: {
-      entriesFor: spaceId => { seen.push(spaceId); return [{ id: 'task', label: { ko: 'Task', en: 'Task' }, href: 'https://example.test/task' }]; },
+      entriesFor: spaceId => { seen.push(spaceId); return [{ key: 'task', icon: ListTodo, label: { ko: 'Task', en: 'Task' }, href: 'https://example.test/task' }]; },
       overall: null,
     } });
     expect(screen.queryByRole('navigation', { name: /^FeedbackOps/ })).toBeNull();
@@ -598,7 +614,7 @@ describe('workspace shell layout (15 §3.1)', () => {
     };
     window.history.replaceState(null, '', '/ops?v=1');
     render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry} slots={{ feedbackOps: {
-      entriesFor: spaceId => { seen.push(spaceId); return [{ id: 'task', label: { ko: 'Task', en: 'Task' }, href: 'https://example.test/task' }]; },
+      entriesFor: spaceId => { seen.push(spaceId); return [{ key: 'task', icon: ListTodo, label: { ko: 'Task', en: 'Task' }, href: 'https://example.test/task' }]; },
       overall: null,
     } }}>
       <AppShell><input aria-label="editor" /></AppShell>
@@ -617,7 +633,7 @@ describe('workspace shell layout (15 §3.1)', () => {
     const seen: string[] = [];
     window.history.replaceState(null, '', '/unregistered?v=1');
     mount(['platform:view', 'console:access'], true, registry, { feedbackOps: {
-      entriesFor: spaceId => { seen.push(spaceId); return [{ id: 'task', label: { ko: 'Task', en: 'Task' }, href: 'https://example.test/task' }]; },
+      entriesFor: spaceId => { seen.push(spaceId); return [{ key: 'task', icon: ListTodo, label: { ko: 'Task', en: 'Task' }, href: 'https://example.test/task' }]; },
       overall: null,
     } });
     expect(screen.queryByRole('navigation', { name: /^FeedbackOps/ })).toBeNull();
@@ -671,23 +687,24 @@ describe('toast layer above palette scrim (#310)', () => {
 function platformSidebarRegistry() {
   const entry = (id: string, group: GroupId, path: string, label: string, permission: Permission, primary: boolean) => ({ ...menu(id, group, path, permission), label: { ko: label, en: label }, primary });
   return createRegistry({
+    permissions: [menuPermission('equipment:view')],
     spaces: [testSpace({ homeMenuId: 'equipment' })],
     groups: [
-      { id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: null, hideLabelWhenSingle: true },
-      { id: 'myActivity', label: { ko: '내 활동', en: 'My activity' }, icon: House, space: null },
-      { id: 'noticeVoc', label: { ko: '공지', en: 'Notices' }, icon: House, space: null, hideLabelWhenSingle: true },
-      { id: 'equipment', label: { ko: '설비', en: 'Equipment' }, icon: House, space: 'analytics' },
+      { id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: null, hideLabelWhenSingle: true },
+      { id: groupId('myActivity'), label: { ko: '내 활동', en: 'My activity' }, icon: House, space: null },
+      { id: groupId('noticeVoc'), label: { ko: '공지', en: 'Notices' }, icon: House, space: null, hideLabelWhenSingle: true },
+      { id: groupId('equipment'), label: { ko: '설비', en: 'Equipment' }, icon: House, space: spaceId('analytics') },
     ],
     menus: [
-      entry('notices', 'noticeVoc', '/notices', '공지', 'notice:view', true),
-      entry('alerts', 'myActivity', '/alerts', '알림', 'platform:view', true),
-      entry('surveys', 'myActivity', '/surveys', '설문', 'equipment:view', false),
-      entry('home', 'overview', '/', '플랫폼 홈', 'platform:view', true),
-      entry('equipment', 'equipment', '/equipment', '설비 목록', 'platform:view', true),
+      entry('notices', groupId('noticeVoc'), '/notices', '공지', 'notice:view', true),
+      entry('alerts', groupId('myActivity'), '/alerts', '알림', 'platform:view', true),
+      entry('surveys', groupId('myActivity'), '/surveys', '설문', menuPermission('equipment:view'), false),
+      entry('home', groupId('overview'), '/', '플랫폼 홈', 'platform:view', true),
+      entry('equipment', groupId('equipment'), '/equipment', '설비 목록', 'platform:view', true),
     ],
   });
 }
-const PLATFORM_PERMISSIONS: Permission[] = ['platform:view', 'notice:view', 'equipment:view'];
+const PLATFORM_PERMISSIONS: Permission[] = ['platform:view', 'notice:view', menuPermission('equipment:view')];
 
 describe('platform sidebar (ADR-0070)', () => {
   beforeEach(() => { localStorage.setItem('platform:sidebar-collapsed', '0'); });

@@ -9,6 +9,7 @@ import { AnalysisSectionContext } from './AnalysisSectionContext';
 import { AnalysisChart, type AnalysisChartProps, type ChartSpec } from './AnalysisChart';
 import { readColorToken, type ThemeColorToken } from '@ap/ui/theme';
 import type { EChartProps } from './EChart';
+import { groupId, spaceId } from '@ap/contracts';
 
 let plot: EChartProps;
 vi.mock('./EChartImpl', () => ({ default: (props: EChartProps) => { plot = props; return <div role="img" aria-label={props.ariaLabel} />; } }));
@@ -267,7 +268,7 @@ it.each(['초기화', 'context'])('clears the pending drag on %s so brushEnd can
 const sizeSession = testSession(['platform:view']);
 const sizeAdapter = testAdapter({ session: () => sizeSession });
 function sizedChart(props: Partial<AnalysisChartProps> = {}, context: React.ContextType<typeof AnalysisSectionContext> = null) {
-  const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: 'overview', label: { ko: 'G', en: 'G' }, icon: House, space: 'analytics' }], menus: [{ id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features: { export: true, compare: true, annotate: true, savedView: false }, pageKeys: [] }] });
+  const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: { ko: 'G', en: 'G' }, icon: House, space: spaceId('analytics') }], menus: [{ id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features: { export: true, compare: true, annotate: true, savedView: false }, pageKeys: [] }] });
   return <I18nProvider><PlatformProvider adapter={sizeAdapter} registry={registry}>
     <AnalysisSectionContext.Provider value={context}><AnalysisChart chartId="size" title="Sized" unit="ea" spec={heat} {...props} /></AnalysisSectionContext.Provider>
   </PlatformProvider></I18nProvider>;

@@ -7,14 +7,15 @@ import { I18nProvider, PlatformProvider, createRegistry, usePlatform, type MenuE
 import { testAdapter, testSession } from '@ap/kernel/testing';
 import { manifests } from '../index';
 import Notifications from '../pages/Notifications';
+import { groupId, spaceId } from '@ap/contracts';
 
 // The real manifests in their global group; a space needs one menu of its own, so a filler stands in for it.
 const filler = { ...manifests[1]!, primary: true, id: 'filler', group: 'noticeVoc', path: '/filler' } as MenuEntry;
 export const registry = createRegistry({
-  spaces: [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'filler' }],
+  spaces: [{ id: spaceId('analytics'), label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'filler' }],
   groups: [
-    { id: 'myActivity', label: { ko: '내 활동', en: 'My activity' }, icon: UserRound, space: null },
-    { id: 'noticeVoc', label: { ko: '공지·VOC', en: 'Notice·VOC' }, icon: UserRound, space: 'analytics' },
+    { id: groupId('myActivity'), label: { ko: '내 활동', en: 'My activity' }, icon: UserRound, space: null },
+    { id: groupId('noticeVoc'), label: { ko: '공지·VOC', en: 'Notice·VOC' }, icon: UserRound, space: spaceId('analytics') },
   ],
   menus: [...manifests, filler],
 });

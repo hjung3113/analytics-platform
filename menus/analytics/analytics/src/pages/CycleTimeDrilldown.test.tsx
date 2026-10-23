@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import type { ApiResponse, MenuQuery, PlatformAdapter } from '@ap/contracts';
 import type { CycleKpi } from '../endpoints';
 import { Timer } from 'lucide-react';
 import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
@@ -9,6 +8,7 @@ import { memoryStorage, testAdapter, testSession } from '@ap/kernel/testing';
 import { manifests } from '../index';
 import CycleTimeDrilldown from './CycleTimeDrilldown';
 import { installWorkspaceGeometry } from './workspaceTestSupport';
+import { groupId, menuPermission, spaceId, type ApiResponse, type MenuQuery, type PlatformAdapter } from '@ap/contracts';
 
 const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
 let restoreGeometry = () => {};
@@ -20,8 +20,9 @@ afterAll(() => {
 });
 
 const registry = createRegistry({
-  spaces: [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, permission: 'analytics:view', homeMenuId: 'productivity-overview' }],
-  groups: [{ id: 'analytics', label: { ko: '생산성 분석', en: 'Productivity' }, icon: Timer, space: 'analytics' }],
+  permissions: [menuPermission('analytics:view')],
+  spaces: [{ id: spaceId('analytics'), label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, permission: menuPermission('analytics:view'), homeMenuId: 'productivity-overview' }],
+  groups: [{ id: groupId('analytics'), label: { ko: '생산성 분석', en: 'Productivity' }, icon: Timer, space: spaceId('analytics') }],
   menus: manifests,
 });
 

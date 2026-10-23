@@ -2,11 +2,11 @@ import { StrictMode, useEffect } from 'react';
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Session, SpaceDef } from '@ap/contracts';
 import { I18nProvider } from './i18n';
 import { PlatformProvider, usePlatform } from './platform';
 import { createRegistry } from './registry';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from './testing';
+import { groupId, spaceId, type Session, type SpaceDef } from '@ap/contracts';
 
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
 
@@ -14,19 +14,19 @@ const noFeatures = { export: false, savedView: false, annotate: false, compare: 
 // admin-child is a non-home console menu whose permission ('platform:view') is weaker than its space's
 // gate ('console:access') — so a space denial on it cannot be masked by the menu-permission guard.
 const spaces: SpaceDef[] = [
-  testSpace({ id: 'analytics', homeMenuId: 'equipment' }),
-  testSpace({ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, permission: 'console:access', homeMenuId: 'admin-roles' }),
+  testSpace({ id: spaceId('analytics'), homeMenuId: 'equipment' }),
+  testSpace({ id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations console' }, permission: 'console:access', homeMenuId: 'admin-roles' }),
 ];
 const registry = createRegistry({
   spaces,
   groups: [
-    { id: 'equipment', label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: 'analytics' },
-    { id: 'admin', label: { ko: '관리·감사', en: 'Administration' }, icon: House, space: 'operations' },
+    { id: groupId('equipment'), label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: spaceId('analytics') },
+    { id: groupId('admin'), label: { ko: '관리·감사', en: 'Administration' }, icon: House, space: spaceId('operations') },
   ],
   menus: [
-    { id: 'equipment', group: 'equipment', primary: true, label: { ko: '설비', en: 'Equipment' }, description: { ko: '', en: '' }, path: '/equipment', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features: noFeatures, pageKeys: ['page'] },
-    { id: 'admin-roles', group: 'admin', primary: true, label: { ko: '권한/역할 관리', en: 'Roles & access' }, description: { ko: '', en: '' }, path: '/admin/roles', icon: House, permission: 'console:access', requiresScope: false, context: noContext, pageType: 'management', features: noFeatures, pageKeys: [] },
-    { id: 'admin-child', group: 'admin', label: { ko: '콘솔 하위', en: 'Console child' }, description: { ko: '', en: '' }, path: '/admin/child', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'management', features: noFeatures, pageKeys: [] },
+    { id: 'equipment', group: groupId('equipment'), primary: true, label: { ko: '설비', en: 'Equipment' }, description: { ko: '', en: '' }, path: '/equipment', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features: noFeatures, pageKeys: ['page'] },
+    { id: 'admin-roles', group: groupId('admin'), primary: true, label: { ko: '권한/역할 관리', en: 'Roles & access' }, description: { ko: '', en: '' }, path: '/admin/roles', icon: House, permission: 'console:access', requiresScope: false, context: noContext, pageType: 'management', features: noFeatures, pageKeys: [] },
+    { id: 'admin-child', group: groupId('admin'), label: { ko: '콘솔 하위', en: 'Console child' }, description: { ko: '', en: '' }, path: '/admin/child', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'management', features: noFeatures, pageKeys: [] },
   ],
 });
 
@@ -44,15 +44,15 @@ function fixture(permissions: Session['user']['permissions']) {
 function SpaceProbe() {
   const { pathname, currentSpace, sidebarSpace, accessibleSpaces, visibleMenus, menusInSpace, recent, switchSpace } = usePlatform();
   return <div>
-    <button type="button" data-testid="to-operations" onClick={() => switchSpace('operations')}>ops</button>
-    <button type="button" data-testid="to-analytics" onClick={() => switchSpace('analytics')}>ana</button>
+    <button type="button" data-testid="to-operations" onClick={() => switchSpace(spaceId('operations'))}>ops</button>
+    <button type="button" data-testid="to-analytics" onClick={() => switchSpace(spaceId('analytics'))}>ana</button>
     <p data-testid="pathname">{pathname}</p>
     <p data-testid="current">{currentSpace?.id ?? '-'}</p>
     <p data-testid="sidebar">{sidebarSpace?.id}</p>
     <p data-testid="accessible">{accessibleSpaces.map(s => s.id).join(',')}</p>
     <p data-testid="visible">{visibleMenus.map(m => m.id).join(',')}</p>
-    <p data-testid="ana-menus">{menusInSpace('analytics').map(m => m.id).join(',')}</p>
-    <p data-testid="ops-menus">{menusInSpace('operations').map(m => m.id).join(',')}</p>
+    <p data-testid="ana-menus">{menusInSpace(spaceId('analytics')).map(m => m.id).join(',')}</p>
+    <p data-testid="ops-menus">{menusInSpace(spaceId('operations')).map(m => m.id).join(',')}</p>
     <p data-testid="recent">{recent.map(r => r.menuId).join(',')}</p>
   </div>;
 }

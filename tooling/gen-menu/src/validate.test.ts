@@ -24,8 +24,8 @@ describe('validation refusals (exit 1, nothing written)', () => {
     expect(menusTree(root)).toEqual(['menus/analytics/metric-catalog/src/index.ts']);
   };
 
-  it('rejects a group missing from the GroupId union', () => {
-    expectRefused(refix(), ['ghost', ...GEN_ARGS], /GroupId union/);
+  it('rejects a group the app does not declare in GROUPS', () => {
+    expectRefused(refix(), ['ghost', ...GEN_ARGS], /no GROUPS row/);
   });
 
   it('rejects a group without a GROUPS row', () => {

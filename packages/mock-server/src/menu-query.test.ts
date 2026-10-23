@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { defineEndpoint, type Capability, type ContextKey, type EndpointSpec, type MenuMeta, type MenuQuery } from '@ap/contracts';
+import { defineEndpoint, type Capability, type ContextKey, type EndpointSpec, type MenuMeta, type MenuQuery, groupId, menuPermission } from '@ap/contracts';
 import { createMockAdapter } from './adapter';
 import { defineMockEndpoint, MockRegistrationError, MockRequestError, serveEndpoint, type AnyMockEndpoint, type MockEndpoint } from './endpoints';
 import { EQUIPMENT, type RoleId } from './world';
@@ -15,7 +15,7 @@ const allUnsupported: Record<ContextKey, Capability> = {
 function menuMeta(o: Partial<Pick<MenuMeta, 'id' | 'permission' | 'requiresScope' | 'context'>> = {}): MenuMeta {
   return {
     id: o.id ?? 'owner',
-    group: 'analytics',
+    group: groupId('analytics'),
     label: { ko: '메뉴', en: 'Menu' },
     description: { ko: '', en: '' },
     path: '/owner',
@@ -103,7 +103,7 @@ describe('serveEndpoint request validation', () => {
   });
 
   it('rejects a non-applied roomNames key on a scope-required reference-only endpoint before permission', async () => {
-    const spec = makeSpec('analytics.execution-detail', { permission: 'analytics:view', context: {} });
+    const spec = makeSpec('analytics.execution-detail', { permission: menuPermission('analytics:view'), context: {} });
     const handle = vi.fn(() => ({ ok: true }));
     const endpoint = mockEndpoint(spec, handle);
     const result = await serveEndpoint(
@@ -316,7 +316,7 @@ describe('serveEndpoint declaration pipeline', () => {
   });
 
   it.each(['error', 'too_large'] as const)('checks endpoint permission before the %s scenario', async scenario => {
-    const spec = makeSpec('analytics.permission-first', { permission: 'analytics:view' });
+    const spec = makeSpec('analytics.permission-first', { permission: menuPermission('analytics:view') });
     const endpoint = mockEndpoint(spec);
     setScenario(scenario);
     const result = await serveEndpoint(new Map([[spec.id, endpoint]]), request(spec.id), undefined, { role: 'viewer', latency: 0 });
@@ -467,7 +467,7 @@ describe('serveEndpoint declaration pipeline', () => {
   });
 
   it('returns forbidden before evaluating metricVersion for a caller without permission', async () => {
-    const spec = makeSpec('analytics.bad-metric-version-forbidden', { permission: 'analytics:view' });
+    const spec = makeSpec('analytics.bad-metric-version-forbidden', { permission: menuPermission('analytics:view') });
     const endpoint = defineMockEndpoint(spec, {
       handle: () => ({ ok: true }),
       metricVersion: () => { throw new Error('bad pair'); },
@@ -484,7 +484,7 @@ describe('serveEndpoint declaration pipeline', () => {
   });
 
   it('evaluates a throwing metricVersion after the authorized endpoint handler', async () => {
-    const spec = makeSpec('analytics.bad-metric-version-authorized', { permission: 'analytics:view' });
+    const spec = makeSpec('analytics.bad-metric-version-authorized', { permission: menuPermission('analytics:view') });
     const handle = vi.fn(() => ({ ok: true }));
     const endpoint = defineMockEndpoint(spec, {
       handle,
@@ -648,7 +648,7 @@ describe('createMockAdapter registration', () => {
   });
 
   it('rejects a permission name that no menu declares', () => {
-    const spec = makeSpec('analytics.unknown-permission', { permission: 'analytics:view' });
+    const spec = makeSpec('analytics.unknown-permission', { permission: menuPermission('analytics:view') });
     expect(() => createMockAdapter({ endpoints: [mockEndpoint(spec)], registry })).toThrow(MockRegistrationError);
     expect(() => createMockAdapter({ endpoints: [mockEndpoint(spec)], registry })).toThrow('analytics.unknown-permission');
   });

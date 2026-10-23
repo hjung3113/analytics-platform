@@ -2,18 +2,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { Boxes } from 'lucide-react';
-import type { ApiResponse, MenuQuery } from '@ap/contracts';
 import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
 import { stubCompactTableGeometry } from '@ap/components/testing';
 import { testAdapter, testSession } from '@ap/kernel/testing';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { manifests } from '../index';
 import EquipmentMaster from './EquipmentMaster';
+import { groupId, menuPermission, spaceId, type ApiResponse, type MenuQuery } from '@ap/contracts';
 
 // ADR-0037 compact action column: with the scrollport between 192px and 248px the 보기 action is an icon with the same name.
 const registry = createRegistry({
-  spaces: [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, permission: 'equipment:view', homeMenuId: 'equipment-master' }],
-  groups: [{ id: 'equipment', label: { ko: '설비', en: 'Equipment' }, icon: Boxes, space: 'analytics' }],
+  permissions: [menuPermission('equipment:view')],
+  spaces: [{ id: spaceId('analytics'), label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, permission: menuPermission('equipment:view'), homeMenuId: 'equipment-master' }],
+  groups: [{ id: groupId('equipment'), label: { ko: '설비', en: 'Equipment' }, icon: Boxes, space: spaceId('analytics') }],
   menus: manifests,
 });
 const session = testSession(['equipment:view', 'platform:view'], { user: { id: 'analyst-a', name: 'analyst-a', title: { ko: '분석가', en: 'Analyst' } }, scopes: [{ id: 'MEM', label: 'MEM', grantedRooms: 1, totalRooms: 1 }] });

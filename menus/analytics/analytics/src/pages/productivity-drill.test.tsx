@@ -3,19 +3,20 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Timer } from 'lucide-react';
 import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
-import { testAdapter, testSession } from '@ap/kernel/testing';
 import type { QueryState } from '@ap/kernel';
-import type { ApiResponse } from '@ap/contracts';
+import { testAdapter, testSession } from '@ap/kernel/testing';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { manifests } from '../index';
 import { ProductivityDrillBody } from './productivity-drill';
 import type { DrillData } from '../endpoints';
+import { groupId, menuPermission, spaceId, type ApiResponse } from '@ap/contracts';
 
 afterEach(cleanup);
 
 const registry = createRegistry({
-  spaces: [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, permission: 'analytics:view', homeMenuId: 'productivity-overview' }],
-  groups: [{ id: 'analytics', label: { ko: '생산성 분석', en: 'Productivity' }, icon: Timer, space: 'analytics' }],
+  permissions: [menuPermission('analytics:view')],
+  spaces: [{ id: spaceId('analytics'), label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, permission: menuPermission('analytics:view'), homeMenuId: 'productivity-overview' }],
+  groups: [{ id: groupId('analytics'), label: { ko: '생산성 분석', en: 'Productivity' }, icon: Timer, space: spaceId('analytics') }],
   menus: manifests,
 });
 const session = testSession(['analytics:view', 'platform:view'], { user: { id: 'analyst-a', name: 'analyst-a', title: { ko: '분석가', en: 'Analyst' } } });

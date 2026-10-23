@@ -1,7 +1,7 @@
 import { admitPaneScreen, canMountPaneScreen } from './boardMenus';
 import { House } from 'lucide-react';
 import { describe, expect, it } from 'vitest';
-import { parseQuery } from '@ap/contracts';
+import { parseQuery, groupId, spaceId } from '@ap/contracts';
 import { createRegistry, type PaneScreen } from '@ap/kernel';
 import { noContext, testSpace } from '@ap/kernel/testing';
 import { applyContextToSheet, defaultQuery, copyContextToSheet, paneSignals, replacementScreen } from './paneActions';
@@ -9,13 +9,13 @@ import { v2Sheet } from './__fixtures__/legacyBoard';
 
 const features = { export: false, savedView: false, annotate: false, compare: false, board: true };
 const entry = (id: string, path: string, over: Record<string, unknown> = {}) => ({
-  id, group: 'equipment' as const, label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House, permission: 'platform:view' as const,
+  id, group: groupId('equipment'), label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House, permission: 'platform:view' as const,
   requiresScope: false, context: { ...noContext, time: 'apply' as const, condition: 'apply' as const, lot: 'apply' as const }, pageType: 'analysis' as const,
   features, pageKeys: ['tab'], ...over,
 });
 const registry = createRegistry({
   spaces: [testSpace({ homeMenuId: 'home' })],
-  groups: [{ id: 'equipment', label: { ko: '그룹', en: 'Group' }, icon: House, space: 'analytics' }],
+  groups: [{ id: groupId('equipment'), label: { ko: '그룹', en: 'Group' }, icon: House, space: spaceId('analytics') }],
   menus: [
     { ...entry('home', '/', { features: { ...features, board: false } }), primary: true },
     entry('alpha', '/alpha'),

@@ -3,25 +3,25 @@ import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
-import type { Session } from '@ap/contracts';
 import { PlatformPage } from '@ap/components';
 import { RouteOutlet } from '../RouteOutlet';
 import { MAX_SHEETS } from './boardModel';
 import { legacyBoard as boardOf, legacySheet as sheet, seedLegacy as seed, storedLegacy as stored, V1_KEY as KEY, V2_KEY } from './__fixtures__/legacyBoard';
 import type { BoardV1 as Board } from './boardMigrate';
 import { OpenInBoardAction } from './OpenInBoardAction';
+import { groupId, spaceId, type Session } from '@ap/contracts';
 
 const features = { export: false, savedView: false, annotate: false, compare: false, board: true };
 const apply = { ...noContext, time: 'apply' as const };
 const Page = () => <PlatformPage><p>page body</p></PlatformPage>;
 const entry = (id: string, path: string, over: Record<string, unknown> = {}) => ({
-  id, group: 'equipment' as const, label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House, permission: 'platform:view' as const,
+  id, group: groupId('equipment'), label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House, permission: 'platform:view' as const,
   requiresScope: false, context: apply, pageType: 'analysis' as const, features, pageKeys: ['tab'], ...over,
 });
 const withPage = (id: string, path: string, over: Record<string, unknown> = {}) => entry(id, path, { component: Page, ...over });
 const registry = createRegistry({
   spaces: [testSpace({ homeMenuId: 'home' })],
-  groups: [{ id: 'equipment', label: { ko: '그룹', en: 'Group' }, icon: House, space: 'analytics' }],
+  groups: [{ id: groupId('equipment'), label: { ko: '그룹', en: 'Group' }, icon: House, space: spaceId('analytics') }],
   menus: [
     { ...withPage('home', '/', { features: { ...features, board: false } }), primary: true },
     withPage('alpha', '/alpha', { label: { ko: '알파', en: 'Alpha' } }),

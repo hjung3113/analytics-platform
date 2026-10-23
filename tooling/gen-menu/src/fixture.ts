@@ -55,32 +55,25 @@ export function menusTree(root: string): string[] {
 export const FIXTURE_GROUP = 'genProbe';
 export const FIXTURE_FOLDER = 'gen-probe';
 
-const SEVEN_GROUPS = ['overview', 'equipment', 'masterData', 'analytics', 'metrics', 'noticeVoc', 'admin'];
-
-function fixtureGroupIdLine(extra: string[]): string {
-  const members = [...SEVEN_GROUPS, FIXTURE_GROUP, ...extra];
-  return `export type GroupId = ${members.map(g => `'${g}'`).join(' | ')};`;
-}
-
 function fixtureMenusTsText(extra: string[]): string {
-  const extraRows = extra.map(g => `  { id: '${g}', label: { ko: 'g', en: 'g' }, icon: I, space: 'analytics' },`).join('\n');
+  const extraRows = extra.map(g => `  { id: groupId('${g}'), label: { ko: 'g', en: 'g' }, icon: I, space: spaceId('analytics') },`).join('\n');
   return `import { Gauge, LayoutDashboard } from 'lucide-react';
-import type { SpaceDef } from '${PACKAGE_PREFIX}contracts';
+import { groupId, spaceId, type SpaceDef } from '${PACKAGE_PREFIX}contracts';
 import { createRegistry, type GroupDef, type MenuEntry } from '${PACKAGE_PREFIX}kernel';
 // <gen:menu-imports>
 import { manifests as home } from '${PACKAGE_PREFIX}menu-home';
 // </gen:menu-imports>
 
 export const GROUPS: GroupDef[] = [
-  { id: 'metrics', label: { ko: '지표관리', en: 'Metrics' }, icon: Gauge, space: 'analytics' },
-  { id: '${FIXTURE_GROUP}', label: { ko: '생성 확인', en: 'Gen probe' }, icon: LayoutDashboard, space: 'analytics' },
+  { id: groupId('metrics'), label: { ko: '지표관리', en: 'Metrics' }, icon: Gauge, space: spaceId('analytics') },
+  { id: groupId('${FIXTURE_GROUP}'), label: { ko: '생성 확인', en: 'Gen probe' }, icon: LayoutDashboard, space: spaceId('analytics') },
 ${extraRows}
   // </gen:menu-groups>
 ];
 
 /** The folder-space invariant reads GROUPS and SPACES independently. */
 export const SPACES: SpaceDef[] = [
-  { id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'home' },
+  { id: spaceId('analytics'), label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'home' },
 ];
 
 export const MENUS: MenuEntry[] = [
@@ -132,12 +125,10 @@ const existingMenuIndex = `export const manifests = [
 ];
 `;
 
-/** Temp workspace with genProbe already in GroupId and GROUPS, markers, and one existing menu. */
+/** Temp workspace with genProbe already in GROUPS, markers, and one existing menu. */
 export function makeFixture(variants: { menusTs?: string; appPkg?: string; extraGroups?: string[]; existingMenuIndex?: string; mockAssemblyTsx?: string } = {}): string {
   const root = mkdtempSync(join(tmpdir(), 'gen-menu-test-'));
   writeFileSync(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - apps/*\n  - packages/*\n  - menus/*/*\n  - tooling/*\n');
-  mkdirSync(join(root, 'packages/contracts/src'), { recursive: true });
-  writeFileSync(join(root, 'packages/contracts/src/menu.ts'), `${fixtureGroupIdLine(variants.extraGroups ?? [])}\n`);
   mkdirSync(join(root, 'apps/platform-web/src/dev'), { recursive: true });
   writeFileSync(join(root, 'apps/platform-web/src/menus.ts'), variants.menusTs ?? fixtureMenusTsText(variants.extraGroups ?? []));
   writeFileSync(join(root, 'apps/platform-web/src/dev/mock-assembly.tsx'), variants.mockAssemblyTsx ?? mockAssemblyTsx);

@@ -2,18 +2,20 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { Gauge } from 'lucide-react';
-import type { ApiResponse, MenuQuery, PlatformAdapter } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { testAdapter, testSession } from '@ap/kernel/testing';
 import { manifests } from '../index';
 import MetricCatalogPage from './MetricCatalog';
+import { groupId, spaceId, type ApiResponse, type MenuQuery, type PlatformAdapter } from '@ap/contracts';
+import { PERMISSION } from '../permission';
 
 afterEach(cleanup);
 
 // Real manifests so /metrics keeps its declared pageKeys; only the group/space wiring is added.
 const registry = createRegistry({
-  spaces: [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'metric-catalog' }],
-  groups: [{ id: 'metrics', label: { ko: '지표관리', en: 'Metrics' }, icon: Gauge, space: 'analytics' }],
+  permissions: [PERMISSION],
+  spaces: [{ id: spaceId('analytics'), label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'metric-catalog' }],
+  groups: [{ id: groupId('metrics'), label: { ko: '지표관리', en: 'Metrics' }, icon: Gauge, space: spaceId('analytics') }],
   menus: manifests,
 });
 

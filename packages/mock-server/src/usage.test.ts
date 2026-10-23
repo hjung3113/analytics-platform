@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { SpaceId, UsageEvent } from '@ap/contracts';
 import {
   aggregateUsage, getRole, recordUsage, resetUsage, setRole, setScenario,
   storedUsage, usageSummary,
 } from './server';
 import type { RoleId } from './world';
+import { spaceId, type SpaceId, type UsageEvent } from '@ap/contracts';
 
 const entry = (over: Partial<UsageEvent> = {}): UsageEvent => ({
-  name: 'entry', menuId: 'equipment-master', spaceId: 'operations', path: '/equipment', at: 1_000, sessionId: 'tab-1', ...over,
+  name: 'entry', menuId: 'equipment-master', spaceId: spaceId('operations'), path: '/equipment', at: 1_000, sessionId: 'tab-1', ...over,
 });
 
 let previousRole: RoleId;
@@ -119,17 +119,19 @@ describe('menu usage (docs/05 메뉴 활용률 계측)', () => {
   });
 
   it('accepts the metrics space id', async () => {
-    expect((await recordUsage([entry({ spaceId: 'metrics' })])).accepted).toBe(1);
+    expect((await recordUsage([entry({ spaceId: spaceId('metrics') })])).accepted).toBe(1);
     expect(storedUsage()[0].spaceId).toBe('metrics');
   });
 
   it('accepts the clas space id (#590)', async () => {
-    expect((await recordUsage([entry({ spaceId: 'clas' })])).accepted).toBe(1);
+    expect((await recordUsage([entry({ spaceId: spaceId('clas') })])).accepted).toBe(1);
     expect(storedUsage()[0].spaceId).toBe('clas');
   });
 
-  it('rejects the removed feedback space id', async () => {
-    expect((await recordUsage([entry({ spaceId: 'feedback' as SpaceId })])).accepted).toBe(0);
+  it('rejects a malformed space id; the server does not know the app’s spaces, so a well-formed one passes (ADR-0072)', async () => {
+    expect((await recordUsage([entry({ spaceId: '' as SpaceId })])).accepted).toBe(0);
+    expect((await recordUsage([entry({ spaceId: 'a?b' as SpaceId })])).accepted).toBe(0);
+    expect((await recordUsage([entry({ spaceId: 'a b' as SpaceId })])).accepted).toBe(0);
     expect(storedUsage()).toHaveLength(0);
   });
 
@@ -138,7 +140,7 @@ describe('menu usage (docs/05 메뉴 활용률 계측)', () => {
     expect((await recordUsage([good, entry({ menuId: 'bad id' })])).accepted).toBe(0);
     expect((await recordUsage([good, entry({ menuId: 'x'.repeat(81) })])).accepted).toBe(0);
     expect((await recordUsage([good, entry({ name: 'dwell', dwellMs: 1 })])).accepted).toBe(0); // dwell without enteredAt
-    expect((await recordUsage([good, entry({ spaceId: 'nope' as SpaceId })])).accepted).toBe(0);
+    expect((await recordUsage([good, entry({ spaceId: 'a b' as SpaceId })])).accepted).toBe(0);
     expect((await recordUsage(Array.from({ length: 21 }, () => good))).accepted).toBe(0);
     expect(storedUsage()).toHaveLength(0);
   });

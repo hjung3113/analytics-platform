@@ -6,14 +6,15 @@ import { I18nProvider, PaneScreenProvider, PlatformProvider, createRegistry, use
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { DrillLayout, ReturnLink } from './DrillLayout';
 import { PlatformPage } from './PlatformPage';
+import { groupId, spaceId } from '@ap/contracts';
 
 const features = { export: false, savedView: false, annotate: false, compare: false, board: true };
 const keys = ['drillRoom', 'drillStgroup'] as const;
 const registry = createRegistry({
   spaces: [testSpace({ homeMenuId: 'source' })],
-  groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }],
+  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
   menus: [{
-    id: 'source', group: 'overview', primary: true, label: { ko: '생산성 개요', en: 'Productivity overview' }, description: { ko: '', en: '' }, path: '/source',
+    id: 'source', group: groupId('overview'), primary: true, label: { ko: '생산성 개요', en: 'Productivity overview' }, description: { ko: '', en: '' }, path: '/source',
     icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'overview', features, pageKeys: [...keys], contextResetKeys: [...keys],
     drill: { levels: [{ key: 'drillRoom', label: { ko: '공정', en: 'Process' } }, { key: 'drillStgroup', label: { ko: 'StGroup', en: 'StGroup' } }] },
   }],
@@ -83,9 +84,9 @@ describe('explicit drill focus inside board panes (ADR-0049)', () => {
 const deepKeys = ['drillA', 'drillB', 'drillC', 'drillD'] as const;
 const deepRegistry = createRegistry({
   spaces: [testSpace({ homeMenuId: 'deep' })],
-  groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }],
+  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
   menus: [{
-    id: 'deep', group: 'overview', primary: true, label: { ko: '깊은 드릴', en: 'Deep drill' }, description: { ko: '', en: '' }, path: '/deep',
+    id: 'deep', group: groupId('overview'), primary: true, label: { ko: '깊은 드릴', en: 'Deep drill' }, description: { ko: '', en: '' }, path: '/deep',
     icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'overview', features, pageKeys: [...deepKeys], contextResetKeys: [...deepKeys],
     drill: { levels: deepKeys.map((key, index) => ({ key, label: { ko: `단계${index + 1}`, en: `Step ${index + 1}` } })) },
   }],
@@ -123,11 +124,11 @@ describe('collapsed middle dropdown inside a board pane (#497 D1)', () => {
 describe('ReturnLink inside a board pane (#497)', () => {
   const returnRegistry = createRegistry({
     spaces: [testSpace({ homeMenuId: 'source' })],
-    groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }],
+    groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
     menus: [
-      { id: 'source', group: 'overview', primary: true, label: { ko: '출발 화면', en: 'Source' }, description: { ko: '', en: '' }, path: '/source',
+      { id: 'source', group: groupId('overview'), primary: true, label: { ko: '출발 화면', en: 'Source' }, description: { ko: '', en: '' }, path: '/source',
         icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'overview', features, pageKeys: [] },
-      { id: 'target', group: 'overview', label: { ko: '도착 화면', en: 'Target' }, description: { ko: '', en: '' }, path: '/target',
+      { id: 'target', group: groupId('overview'), label: { ko: '도착 화면', en: 'Target' }, description: { ko: '', en: '' }, path: '/target',
         icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'overview', features, pageKeys: ['returnTo'] },
     ],
   });

@@ -48,7 +48,7 @@
    - 투영은 `AuditEvent` 필드(시각, 행위자 표시, `AuditAction`, 대상 ref, 요약)만 낸다. 사유 원문, 개인 설문 응답, sensitive 상세는 내지 않는다.
    - 전역 `auditTrail`은 `console:access`가 있어야 하고, 단건 `entityAudit`은 `getEntity`와 같은 게이트(결정 9: 소유 모듈의 상세 읽기 판정)를 통과해야 한다. provider `canRead`는 FeedbackOps 상세 엔드포인트보다 느슨해서(Finding·Task가 상위 역할을 요구하지 않고 Task는 `finding.read`만 본다) 포트가 상세 엔드포인트가 거절하는 것을 내주게 되기 때문이다.
    - `console:access`로 FeedbackOps 감사 상세가 열리지 않는다(ADR-0068 결정 3).
-7. **권한 이름 대응(O9).** FeedbackOps 판정 결과에서 플랫폼 `PERMISSIONS`를 계산한다. 표 하나로 두고, 계약 테스트로 `PERMISSIONS` 전체가 표에 있는지 확인한다(ADR-0068 결정 2의 "어휘 원천 하나").
+7. **권한 이름 대응(O9).** FeedbackOps 판정 결과에서 플랫폼 `PERMISSIONS`를 계산한다. 표 하나로 두고, 계약 테스트로 `PERMISSIONS` 전체가 표에 있는지 확인한다(ADR-0068 결정 2의 "어휘 원천 하나"). (ADR-0072 이후: 표와 묶는 대상은 `KERNEL_PERMISSIONS`이고 앱이 선언한 메뉴 권한 네 개는 표에서 뺀다.)
 
    | 플랫폼 권한 | 부여 조건(FeedbackOps) |
    | --- | --- |

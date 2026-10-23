@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { ACCESS_PAGE_KEYS, parseAccessKeys } from './access-query';
+import { KERNEL_PERMISSIONS } from '@ap/contracts';
+import { ACCESS_PAGE_KEYS, parseAccessKeys as parseWith } from './access-query';
+
+const parseAccessKeys = (raw: Parameters<typeof parseWith>[0]) => parseWith(raw, KERNEL_PERMISSIONS);
 
 const keys = (over: Partial<Record<string, string | null>> = {}) => ({
   role: null, permission: null, sort: null, page: null, focus: null,
   ...over,
-}) as Parameters<typeof parseAccessKeys>[0];
+}) as Parameters<typeof parseWith>[0];
 
 describe('parseAccessKeys (#49 page keys)', () => {
   it('declares exactly the six page keys of admin-roles (W-350: the drawer tab is URL-owned)', () => {

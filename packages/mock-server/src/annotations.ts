@@ -5,16 +5,16 @@
  * data: trust is null and assessments are empty on every branch, so this does not go through finish().
  * The server stamps the author and `at`; the wire input has no field for either and an unknown key rejects the call.
  */
-import type { AnnotationInput, AnnotationRef, ApiResponse, Assessment, AuditEvent, ChartAnnotation } from '@ap/contracts';
 import { checkScope, getRole, getScenario, nextCorrelation, sleep } from './server';
-import { USERS, type RoleId } from './world';
+import { activeWorld, type RoleId } from './world';
+import { menuPermission, type AnnotationInput, type AnnotationRef, type ApiResponse, type Assessment, type AuditEvent, type ChartAnnotation } from '@ap/contracts';
 
 export type AnnotationOptions = { role?: RoleId; latency?: number };
 /** `mine` is computed per response from the requesting role and never stored. */
 type StoredAnnotation = Omit<ChartAnnotation, 'mine'> & { authorId: string };
 
 /** The chart menus' permission. A server-side constant like getEntity's type map, never a client argument. */
-const ANNOTATION_PERMISSION = 'analytics:view' as const;
+const ANNOTATION_PERMISSION = menuPermission('analytics:view');
 const REF_KEYS = ['chartId', 'scopeId'] as const;
 const INPUT_KEYS = [...REF_KEYS, 'from', 'to', 'text'] as const;
 const DELETE_KEYS = [...REF_KEYS, 'id'] as const;
@@ -47,7 +47,7 @@ function invalidInput(input: AnnotationInput): boolean {
 function invalidDelete(ref: AnnotationRef & { id: string }): boolean {
   return invalidRef(ref, DELETE_KEYS) || !validToken(ref.id, 40);
 }
-const toWire = ({ authorId, ...row }: StoredAnnotation, requestRole: RoleId): ChartAnnotation => ({ ...row, mine: authorId === USERS[requestRole].role });
+const toWire = ({ authorId, ...row }: StoredAnnotation, requestRole: RoleId): ChartAnnotation => ({ ...row, mine: authorId === activeWorld().users[requestRole].role });
 
 type Base = { correlationId: string; data: null; trust: null; assessments: Assessment[] };
 type Gated = { fail: ApiResponse<never> } | { fail?: undefined; requestRole: RoleId; scenario: ReturnType<typeof getScenario>; base: Base };
@@ -58,7 +58,7 @@ async function gate(ref: AnnotationRef, signal: AbortSignal | undefined, opts: A
   await sleep((opts?.latency ?? 80) + (scenario === 'slow' ? 2200 : 0), signal);
   const base: Base = { correlationId: nextCorrelation(), data: null, trust: null, assessments: [] };
   const fail = (outcome: ApiResponse<never>['outcome'], message: string): Gated => ({ fail: { ...base, outcome, message } });
-  if (!USERS[requestRole].permissions.includes(ANNOTATION_PERMISSION)) return fail('forbidden', `No permission ${ANNOTATION_PERMISSION}`);
+  if (!activeWorld().users[requestRole].permissions.includes(ANNOTATION_PERMISSION)) return fail('forbidden', `No permission ${ANNOTATION_PERMISSION}`);
   if (scenario === 'timeout') return fail('timeout', 'Query exceeded 30s budget');
   if (scenario === 'error') return fail('error', 'Upstream mart query failed');
   if (scenario === 'forbidden') return fail('forbidden', 'Permission revoked (scenario)');
@@ -82,7 +82,7 @@ export async function saveAnnotation(input: AnnotationInput, signal?: AbortSigna
   if (g.fail) return g.fail;
   const stored: StoredAnnotation = {
     id: `ann-${nextId++}`, chartId: input.chartId, scopeId: input.scopeId as string, from: input.from, to: input.to, text: input.text.trim(),
-    at: new Date().toISOString().slice(0, 16), authorId: USERS[g.requestRole].role,
+    at: new Date().toISOString().slice(0, 16), authorId: activeWorld().users[g.requestRole].role,
   };
   rows.push(stored);
   return { ...g.base, outcome: 'ok', data: toWire(stored, g.requestRole) };
@@ -99,7 +99,7 @@ export async function deleteAnnotation(ref: AnnotationRef & { id: string }, sign
   const index = rows.findIndex(r => r.id === ref.id && r.scopeId === ref.scopeId && r.chartId === ref.chartId);
   if (index < 0) return { ...g.base, outcome: 'empty' };
   const row = rows[index];
-  const actor = USERS[g.requestRole].role;
+  const actor = activeWorld().users[g.requestRole].role;
   if (row.authorId !== actor) return { ...g.base, outcome: 'forbidden', message: 'Only the author can delete a note' };
   rows.splice(index, 1);
   deletions.push({

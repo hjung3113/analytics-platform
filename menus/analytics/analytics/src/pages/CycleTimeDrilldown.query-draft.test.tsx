@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterAll, afterEach, expect, it, vi } from 'vitest';
 import { useQueryBarExtension } from '@ap/components';
-import { emptyGlobal, type MenuQuery } from '@ap/contracts';
+import { emptyGlobal, type MenuQuery, groupId, menuPermission, spaceId } from '@ap/contracts';
 import { Timer } from 'lucide-react';
 import { createRegistry, I18nProvider, PlatformProvider, useQueryDraft } from '@ap/kernel';
 import { memoryStorage, testAdapter, testSession } from '@ap/kernel/testing';
@@ -10,7 +10,7 @@ import { manifests } from '../index';
 import CycleTimeDrilldown from './CycleTimeDrilldown';
 import { installWorkspaceGeometry } from './workspaceTestSupport';
 
-const registry = createRegistry({ spaces: [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, permission: 'analytics:view', homeMenuId: 'productivity-overview' }], groups: [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, icon: Timer, space: 'analytics' }], menus: manifests });
+const registry = createRegistry({ permissions: [menuPermission('analytics:view')], spaces: [{ id: spaceId('analytics'), label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, permission: menuPermission('analytics:view'), homeMenuId: 'productivity-overview' }], groups: [{ id: groupId('analytics'), label: { ko: '분석', en: 'Analytics' }, icon: Timer, space: spaceId('analytics') }], menus: manifests });
 function Apply() { const query = useQueryDraft(); return <button onClick={query.apply} disabled={!query.canApply}>Apply query</button>; }
 const restoreGeometry = installWorkspaceGeometry();
 afterAll(restoreGeometry);

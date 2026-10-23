@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { Capability, ContextKey, MenuMeta } from '@ap/contracts';
 import { createMockAdapter, getRole, setRole, setScenario, USERS, type RoleId } from '@ap/mock-server';
 import { noticeVocMock } from './index';
 import { myVocHistoryEndpoint, mySurveyHistoryEndpoint, type MySurveyPage, type MyVocPage } from '../endpoints';
+import { groupId, type Capability, type ContextKey, type MenuMeta } from '@ap/contracts';
 
 const none: Record<ContextKey, Capability> = {
   time: 'unsupported', roomNames: 'unsupported', line: 'unsupported', prcGroup: 'unsupported', condition: 'unsupported', selection: 'unsupported',
@@ -10,7 +10,7 @@ const none: Record<ContextKey, Capability> = {
 };
 /** Inline mirror of the voc manifest in '../index.ts' (permission, requiresScope, context). 바꾸면 같이 바꾼다. */
 const vocMenu: MenuMeta = {
-  id: 'voc', group: 'noticeVoc', label: { ko: 'VOC', en: 'VOC' }, description: { ko: '', en: '' }, path: '/voc',
+  id: 'voc', group: groupId('noticeVoc'), label: { ko: 'VOC', en: 'VOC' }, description: { ko: '', en: '' }, path: '/voc',
   permission: 'voc:view', requiresScope: false, pageType: 'management', context: none,
   features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: ['cursor'],
 };

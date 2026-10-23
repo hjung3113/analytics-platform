@@ -2,33 +2,33 @@ import { lazy } from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { UsageEvent } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { PlatformPage } from '@ap/components';
 import { AppShell } from './AppShell';
 import { RouteOutlet } from './RouteOutlet';
 import type { BoardV1 } from './board/boardMigrate';
+import { groupId, spaceId, type UsageEvent } from '@ap/contracts';
 
 // Navigation path (#605): each shell entry point marks the usage entry it leads to with its `via`.
 const features = { export: false, savedView: false, annotate: false, compare: false, board: true };
 const Body = lazy(async () => ({ default: () => <PlatformPage><p>body</p></PlatformPage> }));
 const entry = (id: string, path: string, label: string, over: Record<string, unknown> = {}) => ({
-  id, group: 'equipment' as const, label: { ko: label, en: label }, description: { ko: '', en: '' }, path, icon: House, permission: 'platform:view' as const,
+  id, group: groupId('equipment'), label: { ko: label, en: label }, description: { ko: '', en: '' }, path, icon: House, permission: 'platform:view' as const,
   requiresScope: false, context: noContext, pageType: 'analysis' as const, features, pageKeys: [], component: Body, ...over,
 });
 const registry = createRegistry({
-  spaces: [testSpace({ homeMenuId: 'alpha' }), testSpace({ id: 'operations', label: { ko: '운영 콘솔', en: 'Ops' }, homeMenuId: 'ops' })],
+  spaces: [testSpace({ homeMenuId: 'alpha' }), testSpace({ id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Ops' }, homeMenuId: 'ops' })],
   groups: [
-    { id: 'myActivity', label: { ko: '내 활동', en: 'My activity' }, icon: House, space: null },
-    { id: 'equipment', label: { ko: '그룹', en: 'Group' }, icon: House, space: 'analytics' },
-    { id: 'admin', label: { ko: '관리', en: 'Admin' }, icon: House, space: 'operations' },
+    { id: groupId('myActivity'), label: { ko: '내 활동', en: 'My activity' }, icon: House, space: null },
+    { id: groupId('equipment'), label: { ko: '그룹', en: 'Group' }, icon: House, space: spaceId('analytics') },
+    { id: groupId('admin'), label: { ko: '관리', en: 'Admin' }, icon: House, space: spaceId('operations') },
   ],
   menus: [
-    { ...entry('alerts', '/alerts', '알림', { primary: true }), group: 'myActivity' as const },
+    { ...entry('alerts', '/alerts', '알림', { primary: true }), group: groupId('myActivity') },
     entry('alpha', '/alpha', '알파', { primary: true }),
     entry('beta', '/beta', '베타'),
-    { ...entry('ops', '/ops', '운영 홈', { features: { ...features, board: false } }), group: 'admin' as const, primary: true },
+    { ...entry('ops', '/ops', '운영 홈', { features: { ...features, board: false } }), group: groupId('admin'), primary: true },
   ],
 });
 

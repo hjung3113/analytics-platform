@@ -34,7 +34,7 @@
 | 화면 선언·Registry 검증 | `MenuMeta`·`createRegistry`(중복·route 충돌·공간 규칙) | 없음(파일 기반 라우트 트리) | 없음 | ✅ AP. 모듈 단위 manifest로 넓힘 🆕 |
 | 호스트 포트(React 밖) | `usePlatform()` 훅만 | 없음 | props 직접 전달(`TopViewerProps`, 제어형 컴포넌트) | 🆕 `ModuleHost`(탑재 설계 §2.5, Proposed) |
 | 계약 버전·필수 기능 검사 | 없음(URL `v`와 딥링크 `contract: 1`만) | 없음 | 없음 | 🆕 |
-| 열린 권한·그룹 어휘 | 닫힌 union(`Permission` 8개, `GroupId`) | capability 문자열 | 후보 `equipment:topview:*`(미승인) | 🆕 모듈 접두사 문자열 |
+| 열린 권한·그룹 어휘 | 브랜드 id(`GroupId`·`SpaceId`·`MenuPermission`)와 Kernel 고유 `KERNEL_PERMISSIONS` — 목록은 앱이 선언(ADR-0072) | capability 문자열 | 후보 `equipment:topview:*`(미승인) | 🆕 모듈 접두사 문자열 |
 | 모듈 경로 접두사 | 앱 절대 경로 | 루트 절대 경로 | Studio 라우트 | 🆕 |
 | 조립 설정 주입 | `#platform-assembly`(`createAssembly`) | 환경 변수·`apiBase` 없음 | 호스트가 패키지별 `styles.css`를 import | ✅ + 🆕 `config` 키 선언 |
 

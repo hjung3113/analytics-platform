@@ -130,21 +130,23 @@ function writeConsumerFiles(consumerRoot) {
     type: 'module',
   }, null, 2) + '\n');
   writeFileSync(join(consumerRoot, 'consumer.ts'), [
-    "import { buildQuery, defineEndpoint, parseQuery, PERMISSIONS } from '@ap/contracts';",
+    "import { buildQuery, defineEndpoint, groupId, KERNEL_PERMISSIONS, parseQuery } from '@ap/contracts';",
     'void buildQuery;',
     'void defineEndpoint;',
+    'void groupId;',
     'void parseQuery;',
-    'void PERMISSIONS;',
+    'void KERNEL_PERMISSIONS;',
     '',
   ].join('\n'));
   writeFileSync(join(consumerRoot, 'runtime-consumer.mjs'), [
-    "import { buildQuery, defineEndpoint, parseQuery, PERMISSIONS } from '@ap/contracts';",
-    'for (const [name, value] of Object.entries({ buildQuery, defineEndpoint, parseQuery })) {',
+    "import { buildQuery, defineEndpoint, groupId, KERNEL_PERMISSIONS, parseQuery } from '@ap/contracts';",
+    'for (const [name, value] of Object.entries({ buildQuery, defineEndpoint, groupId, parseQuery })) {',
     "  if (typeof value !== 'function') throw new Error(`${name} is not a function`);",
     '}',
-    "if (!Array.isArray(PERMISSIONS) || PERMISSIONS.length === 0) throw new Error('PERMISSIONS is not a non-empty value');",
+    "if (groupId('overview') !== 'overview') throw new Error('groupId is not an identity cast');",
+    "if (!Array.isArray(KERNEL_PERMISSIONS) || KERNEL_PERMISSIONS.length === 0) throw new Error('KERNEL_PERMISSIONS is not a non-empty value');",
     "const { default: vocab } = await import('@ap/contracts/vocab.json', { with: { type: 'json' } });",
-    "if (JSON.stringify(vocab.permissions) !== JSON.stringify(PERMISSIONS)) throw new Error('vocab.json permissions differ from PERMISSIONS');",
+    "if (JSON.stringify(vocab.kernelPermissions) !== JSON.stringify(KERNEL_PERMISSIONS)) throw new Error('vocab.json kernelPermissions differ from KERNEL_PERMISSIONS');",
     '',
   ].join('\n'));
   for (const [name, module, moduleResolution] of [

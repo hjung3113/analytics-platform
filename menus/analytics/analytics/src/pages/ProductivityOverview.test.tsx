@@ -4,16 +4,17 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Timer } from 'lucide-react';
 import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
 import { memoryStorage, testAdapter, testSession } from '@ap/kernel/testing';
-import type { ApiResponse, Assessment } from '@ap/contracts';
 import { manifests } from '../index';
 import type { KpiSet, KpisData } from '../endpoints';
 import ProductivityOverview from './ProductivityOverview';
+import { groupId, menuPermission, spaceId, type ApiResponse, type Assessment } from '@ap/contracts';
 
 afterEach(cleanup);
 
 const registry = createRegistry({
-  spaces: [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, permission: 'analytics:view', homeMenuId: 'productivity-overview' }],
-  groups: [{ id: 'analytics', label: { ko: '생산성 분석', en: 'Productivity' }, icon: Timer, space: 'analytics' }],
+  permissions: [menuPermission('analytics:view')],
+  spaces: [{ id: spaceId('analytics'), label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, permission: menuPermission('analytics:view'), homeMenuId: 'productivity-overview' }],
+  groups: [{ id: groupId('analytics'), label: { ko: '생산성 분석', en: 'Productivity' }, icon: Timer, space: spaceId('analytics') }],
   menus: manifests,
 });
 

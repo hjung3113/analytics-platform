@@ -1,14 +1,14 @@
 // Test-only public entry `@ap/kernel/testing` (ADR-0040, #381): adapter, session and space fixtures.
 // Import only from test files (*.test.ts(x), test-support.ts, test-setup.ts); the boundary lint rejects production imports.
 // Deliberately not exported from src/index.ts.
-import { contextCapabilities, type ActionResponse, type ApiResponse, type Capability, type ContextKey, type ModuleScopedId, type Permission, type PlatformAdapter, type ScopeOption, type Session, type SessionUser, type SpaceDef } from '@ap/contracts';
+import { contextCapabilities, type ActionResponse, type ApiResponse, type Capability, type ContextKey, type ModuleScopedId, type Permission, type PlatformAdapter, type ScopeOption, type Session, type SessionUser, type SpaceDef, spaceId } from '@ap/contracts';
 
 /** Every Context key 'unsupported': the no-op Global Context capability record (06 §6). */
 export const noContext: Record<ContextKey, Capability> = contextCapabilities();
 
 /** analytics space fixture. Pass the fields the test means (id · homeMenuId · permission · label); the rest are filler. */
 export function testSpace(over: Partial<SpaceDef> = {}): SpaceDef {
-  return { id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'home', ...over };
+  return { id: spaceId('analytics'), label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'home', ...over };
 }
 
 /** Session fixture with the given permissions; override the user fields or scopes the test means. */

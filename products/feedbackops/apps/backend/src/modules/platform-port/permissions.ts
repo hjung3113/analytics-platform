@@ -1,10 +1,10 @@
 // Platform permission vocabulary → FeedbackOps authorization (ADR-0069 decision 7).
 //
-// The platform's `Session.user.permissions` is a closed list (`PERMISSIONS` in the
-// root `packages/contracts/src/menu.ts`). This table maps every entry to the rule
-// that grants it here; `permissions-vocabulary.test.ts` reads the generated
-// `@ap/contracts/vocab.json` and fails when an entry is missing or listed twice
-// (ADR-0068 "one vocabulary").
+// The platform's own permissions are a closed list (`KERNEL_PERMISSIONS` in the root
+// `packages/contracts/src/menu.ts`). This table maps every entry to the rule that grants it here;
+// `permissions-vocabulary.test.ts` reads the generated `@ap/contracts/vocab.json` (`kernelPermissions`)
+// and fails when an entry is missing or listed twice (ADR-0068 "one vocabulary"). The menu permissions
+// an app declares (ADR-0072) are not listed: FeedbackOps grants none of them.
 
 import type { CheckService } from '../permissions/check-service.js';
 
@@ -14,16 +14,10 @@ export type PlatformPermissionRule =
   /** Role Level developer/admin, or an active grant of a FeedbackOps working capability. */
   | 'feedbackops-access'
   /** `workspace.admin` allowed. */
-  | 'workspace-admin'
-  /** No FeedbackOps source yet; reserved for the platform's own menus. */
-  | 'never';
+  | 'workspace-admin';
 
 export const PLATFORM_PERMISSION_TABLE = [
   { permission: 'platform:view', rule: 'every-session' },
-  { permission: 'equipment:view', rule: 'never' },
-  { permission: 'master:view', rule: 'never' },
-  { permission: 'analytics:view', rule: 'never' },
-  { permission: 'metrics:view', rule: 'never' },
   { permission: 'notice:view', rule: 'every-session' },
   { permission: 'voc:view', rule: 'every-session' },
   { permission: 'console:access', rule: 'workspace-admin' },
@@ -55,11 +49,11 @@ export async function resolvePlatformPermissions(
   return held.sort();
 }
 
-/** Whether this actor holds one platform permission, by the table's rule (single source). */
+/** Whether this actor holds one permission, by the table's rule (single source). A permission the table does not list — a menu permission of the app — is never held here. */
 export async function holdsPlatformPermission(
   checkService: CheckService,
   actor: PlatformActor,
-  permission: (typeof PLATFORM_PERMISSION_TABLE)[number]['permission'],
+  permission: string,
 ): Promise<boolean> {
   const entry = PLATFORM_PERMISSION_TABLE.find((e) => e.permission === permission);
   return entry ? holds(checkService, actor, entry.rule) : false;
@@ -73,8 +67,6 @@ async function holds(
   switch (rule) {
     case 'every-session':
       return true;
-    case 'never':
-      return false;
     case 'workspace-admin': {
       const decision = await checkService.checkCapability(actor, 'workspace.admin', {
         workspace_id: actor.workspace_id,

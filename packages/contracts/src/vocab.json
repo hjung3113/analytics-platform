@@ -1,22 +1,10 @@
 {
-  "permissions": [
+  "kernelPermissions": [
     "platform:view",
-    "equipment:view",
-    "master:view",
-    "analytics:view",
-    "metrics:view",
     "notice:view",
     "voc:view",
     "console:access",
     "feedbackops:access"
-  ],
-  "spaceIds": [
-    "analytics",
-    "metrics",
-    "clas",
-    "operations",
-    "log-dev",
-    "improvement"
   ],
   "usageVias": [
     "sidebar",

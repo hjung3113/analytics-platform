@@ -1,6 +1,5 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ApiResponse, MenuQuery } from '@ap/contracts';
 import { Megaphone } from 'lucide-react';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { stubCompactTableGeometry } from '@ap/components/testing';
@@ -9,11 +8,12 @@ import { manifests } from '../index';
 import MyVocHistory from './MyVocHistory';
 import { setFeedbackOpsOrigin } from '../feedbackops-origin';
 import { myVocHistoryEndpoint, type MyVocItem, type MyVocPage, type MySurveyPage } from '../endpoints';
+import { groupId, spaceId, type ApiResponse, type MenuQuery } from '@ap/contracts';
 
 // ADR-0037 compact action column: a scrollport between 192px and 248px keeps the FeedbackOps action pinned as an icon with today's name.
 const registry = createRegistry({
-  spaces: [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'notices' }],
-  groups: [{ id: 'noticeVoc', label: { ko: '공지·VOC', en: 'Notice·VOC' }, icon: Megaphone, space: 'analytics' }],
+  spaces: [{ id: spaceId('analytics'), label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'notices' }],
+  groups: [{ id: groupId('noticeVoc'), label: { ko: '공지·VOC', en: 'Notice·VOC' }, icon: Megaphone, space: spaceId('analytics') }],
   menus: manifests,
 });
 const ROW: MyVocItem = {

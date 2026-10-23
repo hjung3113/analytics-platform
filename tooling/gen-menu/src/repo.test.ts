@@ -25,7 +25,7 @@ describe('committed wiring locks (real repo, read-only)', () => {
     for (const folder of shape.folders) expect(folder.split('/')).toHaveLength(2);
   });
 
-  it('gives every GroupId member exactly one GROUPS row and one package owner', () => {
+  it('gives every GROUPS row exactly one package owner', () => {
     expect(() => checkGroups(shape)).not.toThrow();
   });
 

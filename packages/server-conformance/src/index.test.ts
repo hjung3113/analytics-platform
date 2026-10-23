@@ -1,10 +1,6 @@
 import { optionSamples, referenceSelectionPorts } from './selection-ports.test-support';
 import { describe, expect, it } from 'vitest';
-import {
-  defineAction, defineEndpoint, emptyGlobal, projectContext,
-  type ActionResponse, type ApiResponse, type Assessment, type AuditEvent, type ChartAnnotation, type ClientErrorReport, type GlobalContext,
-  type MenuAction, type MenuQuery, type Permission, type PlatformAdapter, type Session, type Trust, type UsageEvent, type UsageRange, type UsageSummary,
-} from '@ap/contracts';
+import { defineAction, defineEndpoint, emptyGlobal, projectContext, type ActionResponse, type ApiResponse, type Assessment, type AuditEvent, type ChartAnnotation, type ClientErrorReport, type GlobalContext, type MenuAction, type MenuQuery, type Permission, type PlatformAdapter, type Session, type Trust, type UsageEvent, type UsageRange, type UsageSummary, menuPermission, spaceId } from '@ap/contracts';
 import { planServerConformance, runServerConformance, type ActionCase, type ConformanceCase, type PortSamples, type ServerConformanceHarness } from './index';
 
 const SELECTION_PORT_SKIP_IDS = [
@@ -39,7 +35,7 @@ const spec = defineEndpoint<{ page: number }, { rows: number }>({
   id: 'fixture.list',
   menuId: 'fixture',
   paramKeys: { page: true },
-  permission: 'analytics:view',
+  permission: menuPermission('analytics:view'),
   requiresScope: true,
   context: { time: 'apply', roomNames: 'apply', selection: 'apply', metric: 'apply' },
   kinds: ['collection', 'coverage'],
@@ -47,7 +43,7 @@ const spec = defineEndpoint<{ page: number }, { rows: number }>({
 });
 
 const actionSpec = defineAction<{ text: string }, { id: number }>({
-  id: 'fixture.save', menuId: 'fixture', inputKeys: { text: true }, permission: 'analytics:view',
+  id: 'fixture.save', menuId: 'fixture', inputKeys: { text: true }, permission: menuPermission('analytics:view'),
   requiresScope: true, concurrency: 'version', invalidates: [spec],
 });
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -143,7 +139,7 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
       if (ref.type !== 'equipment') {
         return breaks.has('entity-unknown-type') ? { ...envelope, outcome: 'forbidden', message: 'Unknown entity type' } : err('Unknown entity type');
       }
-      if (!state.permissions.has('equipment:view')) {
+      if (!state.permissions.has(menuPermission('equipment:view'))) {
         // 'entity-permission' smuggles the row into the rejection — the no-data-on-rejection rule must catch it.
         return breaks.has('entity-permission')
           ? { ...envelope, outcome: 'forbidden', message: 'No permission equipment:view', data: { equipmentId: ref.id } }
@@ -248,7 +244,7 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
           ? { ...envelope, outcome: 'forbidden', message: 'Unknown entity type' }
           : err('Unknown entity type');
       }
-      if (!state.permissions.has('equipment:view')) {
+      if (!state.permissions.has(menuPermission('equipment:view'))) {
         return breaks.has('entity-audit-permission')
           ? { ...envelope, outcome: 'ok', data: { events: [REF_EVENT] } }
           : { ...envelope, outcome: 'forbidden', message: 'No permission equipment:view' };
@@ -360,7 +356,7 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
           || !token(e.menuId, 80) || !token(e.path, 200)
           || typeof e.sessionId !== 'string'
           || (breaks.has('usage-rejects-null') && e.spaceId === null)
-          || !(e.spaceId === null || (typeof e.spaceId === 'string' && (['analytics', 'metrics', 'operations'].includes(e.spaceId) || (breaks.has('usage-accepts-feedback') && (e.spaceId as string) === 'feedback'))))
+          || !(e.spaceId === null || (typeof e.spaceId === 'string' && (token(e.spaceId, 80) || breaks.has('usage-accepts-malformed-space'))))
           || (e.name !== 'entry' && e.name !== 'dwell')
           || (!breaks.has('usage-allows-any-at') && (typeof e.at !== 'number' || !Number.isFinite(e.at)))
           || (e.name === 'dwell' && (!breaks.has('usage-allows-any-entered-at') && (typeof e.enteredAt !== 'number' || !Number.isFinite(e.enteredAt))
@@ -405,12 +401,12 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
         || !token(report.menuId, 80)
         || typeof report.path !== 'string' || !token(report.path, 200) || !appRelative(report.path)
         || (breaks.has('client-error-rejects-null') && report.spaceId === null)
-        || !(report.spaceId === null || (typeof report.spaceId === 'string' && (['analytics', 'metrics', 'operations'].includes(report.spaceId) || (breaks.has('client-error-accepts-feedback') && (report.spaceId as string) === 'feedback'))))
+        || !(report.spaceId === null || (typeof report.spaceId === 'string' && (token(report.spaceId, 80) || breaks.has('client-error-accepts-malformed-space'))))
         || typeof name !== 'string' || (!breaks.has('client-error-allows-any-name') && !/^[A-Za-z_$][\w$]{0,79}$/.test(name));
       return invalidReport ? { accepted: false } : { accepted: true };
     },
     listAnnotations: async (ref) => {
-      if (!state.permissions.has('analytics:view')) {
+      if (!state.permissions.has(menuPermission('analytics:view'))) {
         return breaks.has('annotation-list-permission')
           ? { ...envelope, outcome: 'ok', data: { items: [] } }
           : { ...envelope, outcome: 'forbidden', message: 'No permission analytics:view' };
@@ -436,7 +432,7 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
         : { ...envelope, outcome: 'ok', data: { items } };
     },
     saveAnnotation: async (input) => {
-      if (!state.permissions.has('analytics:view')) {
+      if (!state.permissions.has(menuPermission('analytics:view'))) {
         return breaks.has('annotation-save-permission')
           ? { ...envelope, outcome: 'ok', data: { id: 'ann-0', chartId: input.chartId, scopeId: input.scopeId ?? 'MEM', from: input.from, to: input.to, text: input.text, at: '2026-09-26T09:00:00', mine: true } }
           : { ...envelope, outcome: 'forbidden', message: 'No permission analytics:view' };
@@ -480,7 +476,7 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
       return okRow;
     },
     deleteAnnotation: async ref => {
-      if (!state.permissions.has('analytics:view')) {
+      if (!state.permissions.has(menuPermission('analytics:view'))) {
         return breaks.has('annotation-delete-permission')
           ? { ...envelope, outcome: 'ok', data: { id: ref.id } }
           : { ...envelope, outcome: 'forbidden', message: 'No permission analytics:view' };
@@ -569,13 +565,13 @@ const CONTEXT = { scopeId: 'MEM', from: '2026-09-25T09:00:00', to: '2026-09-26T0
 const PORTS: PortSamples = {
   entity: {
     ref: { type: 'equipment', id: 'MEM-PHOTO-0103', scopeId: 'MEM' },
-    permission: 'equipment:view',
+    permission: menuPermission('equipment:view'),
     // DIFF is a real MEM room the granted actor does not hold — the room re-check sample (06 §22).
     ungrantedRoomRef: { type: 'equipment', id: 'MEM-DIFF-0176', scopeId: 'MEM' },
   },
-  annotation: { chartId: 'fixture-chart', from: '2026-09-25T10:00:00', to: '2026-09-25T11:00:00', permission: 'analytics:view' },
-  usage: { name: 'entry', menuId: 'fixture', spaceId: 'analytics', path: '/fixture', at: 0, sessionId: 'tab' },
-  clientError: { correlationId: 'client-ref', menuId: 'fixture', spaceId: 'analytics', path: '/fixture', name: 'Error' },
+  annotation: { chartId: 'fixture-chart', from: '2026-09-25T10:00:00', to: '2026-09-25T11:00:00', permission: menuPermission('analytics:view') },
+  usage: { name: 'entry', menuId: 'fixture', spaceId: spaceId('analytics'), path: '/fixture', at: 0, sessionId: 'tab' },
+  clientError: { correlationId: 'client-ref', menuId: 'fixture', spaceId: spaceId('analytics'), path: '/fixture', name: 'Error' },
   otherGrantedScopeId: 'FDRY',
 };
 
@@ -599,12 +595,12 @@ function actors(state: RefState) {
 }
 
 function harness(breaks: ReadonlySet<string> = new Set(), cases: readonly ConformanceCase[] = [{ spec, params: { page: 0 } }]): ServerConformanceHarness {
-  const state: RefState = { permissions: new Set<Permission>(['analytics:view', 'equipment:view']), console: false };
+  const state: RefState = { permissions: new Set<Permission>([menuPermission('analytics:view'), menuPermission('equipment:view')]), console: false };
   return { adapter: referenceAdapter(state, breaks), cases, context: CONTEXT, foreignScopeId: 'XIA', ports: PORTS, ...actors(state) };
 }
 
 function actionHarness(breaks: ReadonlySet<string> = new Set(), over: Partial<ServerConformanceHarness> = {}): ServerConformanceHarness {
-  const state: RefState = { permissions: new Set<Permission>(['analytics:view', 'equipment:view']), console: false };
+  const state: RefState = { permissions: new Set<Permission>([menuPermission('analytics:view'), menuPermission('equipment:view')]), console: false };
   const actions: ActionCase[] = [{ spec: actionSpec, input: { text: 'hello' }, currentVersion: async () => String(state.targetVersion ??= 1) }];
   return { adapter: referenceAdapter(state, breaks), cases: [], context: CONTEXT, foreignScopeId: 'XIA', ports: PORTS, actions, ...actors(state), ...over };
 }
@@ -700,8 +696,7 @@ describe('server conformance kit (#145)', () => {
       'port · recordUsage: a stayId without board source is rejected',
       'port · recordUsage: an unknown key next to source is rejected',
       'port · recordUsage accepts a global menu (spaceId null)',
-      'port · recordUsage: spaceId feedback is rejected',
-      'port · recordUsage: an unknown spaceId is rejected',
+      'port · recordUsage: a malformed spaceId is rejected',
       'port · recordUsage: one bad event rejects the whole call',
       'port · recordUsage: a client userId is rejected',
       'port · recordUsage: a concrete path with a query is rejected',
@@ -711,8 +706,7 @@ describe('server conformance kit (#145)', () => {
       'port · usageSummary counts by receive time, not the client at',
       'port · reportClientError accepts the sample',
       'port · reportClientError accepts a global menu (spaceId null)',
-      'port · reportClientError: spaceId feedback is rejected',
-      'port · reportClientError: an unknown spaceId is rejected',
+      'port · reportClientError: a malformed spaceId is rejected',
       'port · reportClientError: an unknown key (free-text message) is rejected',
       'port · reportClientError: an absolute URL path is rejected',
       'port · reportClientError: a path with a query is rejected',
@@ -871,11 +865,11 @@ describe('server conformance kit (#145)', () => {
   // A console-only second actor (no chart permission) is refused at the permission gate whatever the server does with authors.
   const AUTHOR_CHECK = 'port · deleteAnnotation by another user → forbidden and the note stays';
   async function failingWithConsoleOnlyOther(breaks: string[]): Promise<{ id: string; failure: string | null }[]> {
-    const state: RefState = { permissions: new Set<Permission>(['analytics:view', 'equipment:view']), console: false };
+    const state: RefState = { permissions: new Set<Permission>([menuPermission('analytics:view'), menuPermission('equipment:view')]), console: false };
     const consoleOnly = async <T>(fn: () => Promise<T>): Promise<T> => {
       state.console = true;
-      state.permissions.delete('analytics:view');
-      try { return await fn(); } finally { state.console = false; state.permissions.add('analytics:view'); }
+      state.permissions.delete(menuPermission('analytics:view'));
+      try { return await fn(); } finally { state.console = false; state.permissions.add(menuPermission('analytics:view')); }
     };
     const h: ServerConformanceHarness = { adapter: referenceAdapter(state, new Set(breaks)), cases: [{ spec, params: { page: 0 } }], context: CONTEXT, foreignScopeId: 'XIA', ports: PORTS, ...actors(state), asConsole: consoleOnly, asOtherAnnotator: consoleOnly };
     return (await runServerConformance(h)).filter(r => r.id === AUTHOR_CHECK);
@@ -1018,7 +1012,7 @@ describe('server conformance kit (#145)', () => {
   it('passes every check when ports.usage is a dwell-shaped sample', async () => {
     const h = harness();
     const usage = {
-      name: 'dwell' as const, menuId: 'fixture', spaceId: 'analytics' as const, path: '/fixture',
+      name: 'dwell' as const, menuId: 'fixture', spaceId: spaceId('analytics'), path: '/fixture',
       at: 1_000, sessionId: 'tab', dwellMs: 1200, enteredAt: 500,
     };
     const results = await runServerConformance({ ...h, ports: { ...h.ports, usage } });
@@ -1065,7 +1059,7 @@ describe('declared maxRows oversize check (#175)', () => {
     id: 'fixture.export',
     menuId: 'fixture',
     paramKeys: { tail: true },
-    permission: 'analytics:view',
+    permission: menuPermission('analytics:view'),
     requiresScope: true,
     context: { time: 'apply', roomNames: 'apply', selection: 'apply', metric: 'apply' },
     kinds: ['collection', 'coverage'],
@@ -1088,7 +1082,7 @@ describe('declared maxRows oversize check (#175)', () => {
   };
 
   function oversizeHarness(answers: 'too_large' | 'ok' | 'too_large with data'): ServerConformanceHarness {
-    const state: RefState = { permissions: new Set<Permission>(['analytics:view', 'equipment:view']), console: false };
+    const state: RefState = { permissions: new Set<Permission>([menuPermission('analytics:view'), menuPermission('equipment:view')]), console: false };
     return {
       adapter: { ...referenceAdapter(state), menuQuery: async () => ENVELOPE[answers] },
       cases: [{ spec: exportSpec, params: { tail: 'p95' }, oversizeParams: { tail: 'all' } }],
@@ -1155,8 +1149,8 @@ describe('global utility spaceId (06 §9.1)', () => {
   it.each([
     ['null', null, 1],
     ['metrics', 'metrics', 1],
-    ['feedback', 'feedback', 0],
-    ['nope', 'nope', 0],
+    ['an app space the server was not told about', 'nowhere', 1],
+    ['a space id with whitespace', 'a b', 0],
   ] as const)('recordUsage accepts %s as %s', async (_label, spaceId, accepted) => {
     const h = harness();
     expect((await h.adapter.recordUsage([{ ...entry, spaceId } as UsageEvent])).accepted).toBe(accepted);
@@ -1165,8 +1159,8 @@ describe('global utility spaceId (06 §9.1)', () => {
   it.each([
     ['null', null, true],
     ['metrics', 'metrics', true],
-    ['feedback', 'feedback', false],
-    ['nope', 'nope', false],
+    ['an app space the server was not told about', 'nowhere', true],
+    ['a space id with whitespace', 'a b', false],
   ] as const)('reportClientError accepts %s as %s', async (_label, spaceId, accepted) => {
     const h = harness();
     expect((await h.adapter.reportClientError({ ...report, spaceId } as ClientErrorReport)).accepted).toBe(accepted);
@@ -1180,9 +1174,9 @@ describe('global utility spaceId (06 §9.1)', () => {
   });
 
   it.each([
-    ['usage-accepts-feedback', 'port · recordUsage: spaceId feedback is rejected'],
-    ['client-error-accepts-feedback', 'port · reportClientError: spaceId feedback is rejected'],
-  ])('the public plan fails %s when the adapter accepts feedback', async (broken, id) => {
+    ['usage-accepts-malformed-space', 'port · recordUsage: a malformed spaceId is rejected'],
+    ['client-error-accepts-malformed-space', 'port · reportClientError: a malformed spaceId is rejected'],
+  ])('the public plan fails %s when the adapter accepts a malformed space id', async (broken, id) => {
     expect(await failing([broken])).toEqual([id]);
   });
 });
@@ -1229,18 +1223,18 @@ describe('menuAction conformance (#501)', () => {
 
   // The ambient actor lacks the action permission: every granted request and currentVersion read must run inside asGranted.
   it('wraps every granted request in asGranted', async () => {
-    const state: RefState = { permissions: new Set<Permission>(['equipment:view']), console: false };
+    const state: RefState = { permissions: new Set<Permission>([menuPermission('equipment:view')]), console: false };
     const base = actionHarness();
     const h: ServerConformanceHarness = {
       ...base,
       adapter: referenceAdapter(state),
       actions: [{ spec: actionSpec, input: { text: 'hello' }, currentVersion: async () => {
-        if (!state.permissions.has('analytics:view')) throw new Error('currentVersion read outside asGranted');
+        if (!state.permissions.has(menuPermission('analytics:view'))) throw new Error('currentVersion read outside asGranted');
         return String(state.targetVersion ??= 1);
       } }],
       asGranted: async fn => {
-        state.permissions.add('analytics:view');
-        try { return await fn(); } finally { state.permissions.delete('analytics:view'); }
+        state.permissions.add(menuPermission('analytics:view'));
+        try { return await fn(); } finally { state.permissions.delete(menuPermission('analytics:view')); }
       },
       withoutPermission: async (_permission, fn) => fn(),
     };
@@ -1543,7 +1537,7 @@ describe('declared gaps: implemented ports, site grants, siteless destinations (
 
   it('skips the site and null-Scope entity checks for a siteless destination sample', () => {
     const h = fresh();
-    const ports = { ...PORTS, entity: { ref: { type: 'metric', id: 'cycle_time', scopeId: null }, permission: 'metrics:view' as Permission } };
+    const ports = { ...PORTS, entity: { ref: { type: 'metric', id: 'cycle_time', scopeId: null }, permission: menuPermission('metrics:view') } };
     const skipped = planServerConformance({ ...h, ports }).filter(c => c.mode === 'skipped').map(c => c.id);
     for (const method of ['getEntity', 'entityAudit']) {
       expect(skipped).toContain(`port · ${method} at a site without a grant → forbidden — siteless destination type`);

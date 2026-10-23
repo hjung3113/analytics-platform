@@ -269,7 +269,7 @@ export const platformPortRoutes: FastifyPluginAsync<PlatformPortOptions> = async
     if (!(await holdsPlatformPermission(opts.checkService, actorOf(loaded), 'analytics:view'))) {
       return envelope(req, 'forbidden', null, 'No permission analytics:view');
     }
-    // Unreachable while the table says `never`; failing closed beats an unfinished write path.
+    // Unreachable while FeedbackOps holds no menu permission of the app; failing closed beats an unfinished write path.
     return envelope(req, 'error', null, 'Annotations are not implemented');
   }
   app.get('/annotations', annotationGate);

@@ -2,7 +2,6 @@ import { StrictMode } from 'react';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ActionResponse, ApiResponse, MenuAction, MenuQuery, ModuleHost, ModuleScreenProps, Session } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, mountModule, usePlatform } from '@ap/kernel';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
@@ -10,6 +9,7 @@ import { AppSidebar } from './AppSidebar';
 import { CommandPalette } from './CommandPalette';
 import { FIXTURE_VERSION, ItemScreen, ListScreen, listEndpoint, manifest } from './__fixtures__/module-fixture';
 import { RouteOutlet } from './RouteOutlet';
+import { groupId, spaceId, type ActionResponse, type ApiResponse, type MenuAction, type MenuQuery, type ModuleHost, type ModuleScreenProps, type Session } from '@ap/contracts';
 
 type Rows = { id: string }[];
 type ActionCall = { request: MenuAction; args: unknown[]; resolve: (response: ActionResponse<unknown>) => void };
@@ -27,14 +27,14 @@ function SlotHost() {
 function mount(url = '/fixture', options: { item?: (props: ModuleScreenProps) => React.ReactNode; extra?: React.ReactNode; strict?: boolean } = {}) {
   window.history.replaceState(null, '', url);
   const { menus, groups } = mountModule(manifest, { list: SpyList, item: options.item ?? ItemScreen }, {
-    prefix: '/fixture', groupSpace: { 'fixture:main': 'analytics' }, config: { apiBase: 'https://api.example' },
+    prefix: '/fixture', groupSpace: { 'fixture:main': spaceId('analytics') }, config: { apiBase: 'https://api.example' },
     icons: { groups: { 'fixture:main': House }, screens: { list: House, item: House } },
   });
   const registry = createRegistry({
     spaces: [testSpace({ homeMenuId: 'home' })],
-    groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }, ...groups],
+    groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }, ...groups],
     menus: [{
-      id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House,
+      id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House,
       permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'overview', pageKeys: [],
       features: { export: false, savedView: false, annotate: false, compare: false },
       component: (({ params }: { params: Record<string, string> }) => <p>platform page {JSON.stringify(params)}</p>) as never,

@@ -1,6 +1,6 @@
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { useLayoutEffect, useState } from 'react';
-import { defineEndpoint, type ApiResponse, type AssessmentKind, type EndpointSpec, type MenuQuery, type PlatformAdapter, type ScopeCheck, type Session } from '@ap/contracts';
+import { defineEndpoint, type ApiResponse, type AssessmentKind, type EndpointSpec, type MenuQuery, type PlatformAdapter, type ScopeCheck, type Session, groupId, spaceId } from '@ap/contracts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { House } from 'lucide-react';
 import { I18nProvider } from './i18n';
@@ -27,9 +27,9 @@ const endpoint: EndpointSpec<Params, QueryData> = defineEndpoint<Params, QueryDa
 function makeRegistry(time: 'apply' | 'unsupported') {
   return createRegistry({
     spaces: [testSpace()],
-    groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }],
+    groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
     menus: [{
-      id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' },
+      id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' },
       path: '/', icon: House, permission: 'platform:view', requiresScope: false,
       context: {
         time, roomNames: 'unsupported', line: 'unsupported', prcGroup: 'unsupported', condition: 'unsupported', selection: 'unsupported',

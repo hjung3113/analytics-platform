@@ -1,17 +1,17 @@
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ClientErrorReport, Session, SpaceDef, UsageEvent } from '@ap/contracts';
 import { I18nProvider } from './i18n';
 import { PlatformProvider, usePlatform } from './platform';
 import { createRegistry, type MenuEntry, type PlatformMenuEntry } from './registry';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from './testing';
+import { groupId, spaceId, type ClientErrorReport, type Session, type SpaceDef, type UsageEvent } from '@ap/contracts';
 
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
 
 const spaces: SpaceDef[] = [
-  testSpace({ id: 'analytics', homeMenuId: 'equipment' }),
-  testSpace({ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, permission: 'console:access', homeMenuId: 'admin-roles' }),
+  testSpace({ id: spaceId('analytics'), homeMenuId: 'equipment' }),
+  testSpace({ id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations console' }, permission: 'console:access', homeMenuId: 'admin-roles' }),
 ];
 
 function menu(over: Partial<PlatformMenuEntry> & Pick<PlatformMenuEntry, 'id' | 'group' | 'path' | 'permission'>): MenuEntry {
@@ -24,17 +24,17 @@ function menu(over: Partial<PlatformMenuEntry> & Pick<PlatformMenuEntry, 'id' | 
 const registry = createRegistry({
   spaces,
   groups: [
-    { id: 'equipment', label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: 'analytics' },
-    { id: 'admin', label: { ko: '관리·감사', en: 'Administration' }, icon: House, space: 'operations' },
-    { id: 'noticeVoc', label: { ko: '공지·VOC', en: 'Notice & VOC' }, icon: House, space: null },
+    { id: groupId('equipment'), label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: spaceId('analytics') },
+    { id: groupId('admin'), label: { ko: '관리·감사', en: 'Administration' }, icon: House, space: spaceId('operations') },
+    { id: groupId('noticeVoc'), label: { ko: '공지·VOC', en: 'Notice & VOC' }, icon: House, space: null },
   ],
   menus: [
-    menu({ id: 'equipment', group: 'equipment', path: '/equipment', permission: 'platform:view', primary: true, label: { ko: '설비', en: 'Equipment' } }),
-    menu({ id: 'admin-roles', group: 'admin', path: '/admin/roles', permission: 'console:access', primary: true }),
-    menu({ id: 'admin-child', group: 'admin', path: '/admin/child', permission: 'platform:view' }),
-    menu({ id: 'notices', group: 'noticeVoc', path: '/notices', permission: 'notice:view', primary: true, label: { ko: '공지', en: 'Notices' } }),
-    menu({ id: 'notices-detail', group: 'noticeVoc', path: '/notices/:id', permission: 'notice:view', navHidden: true, parent: 'notices' }),
-    menu({ id: 'voc', group: 'noticeVoc', path: '/voc', permission: 'voc:view', label: { ko: 'VOC', en: 'VOC' } }),
+    menu({ id: 'equipment', group: groupId('equipment'), path: '/equipment', permission: 'platform:view', primary: true, label: { ko: '설비', en: 'Equipment' } }),
+    menu({ id: 'admin-roles', group: groupId('admin'), path: '/admin/roles', permission: 'console:access', primary: true }),
+    menu({ id: 'admin-child', group: groupId('admin'), path: '/admin/child', permission: 'platform:view' }),
+    menu({ id: 'notices', group: groupId('noticeVoc'), path: '/notices', permission: 'notice:view', primary: true, label: { ko: '공지', en: 'Notices' } }),
+    menu({ id: 'notices-detail', group: groupId('noticeVoc'), path: '/notices/:id', permission: 'notice:view', navHidden: true, parent: 'notices' }),
+    menu({ id: 'voc', group: groupId('noticeVoc'), path: '/voc', permission: 'voc:view', label: { ko: 'VOC', en: 'VOC' } }),
   ],
 });
 
@@ -124,8 +124,8 @@ describe('global utility menus (06 §9.1)', () => {
   it('throws only when the registry itself declares no spaces', () => {
     const empty = createRegistry({
       spaces: [],
-      groups: [{ id: 'noticeVoc', label: { ko: '공지', en: 'Notice' }, icon: House, space: null }],
-      menus: [menu({ id: 'notices', group: 'noticeVoc', path: '/notices', permission: 'notice:view', primary: true })],
+      groups: [{ id: groupId('noticeVoc'), label: { ko: '공지', en: 'Notice' }, icon: House, space: null }],
+      menus: [menu({ id: 'notices', group: groupId('noticeVoc'), path: '/notices', permission: 'notice:view', primary: true })],
     });
     window.history.replaceState(null, '', '/notices');
     expect(() => render(<I18nProvider><PlatformProvider adapter={fixture(GLOBAL_ONLY).adapter} registry={empty}><p>ok</p></PlatformProvider></I18nProvider>))

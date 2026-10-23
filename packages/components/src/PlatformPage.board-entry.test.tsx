@@ -6,15 +6,16 @@ import { I18nProvider, PaneScreenProvider, PlatformProvider, createRegistry } fr
 import { Button, Dialog, DialogContent, DialogDescription, DialogTitle } from '@ap/ui';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { PlatformPage, useHeaderOverflowDialog } from './PlatformPage';
+import { groupId, spaceId } from '@ap/contracts';
 
 const features = { export: false, savedView: false, annotate: false, compare: false };
 const menu = (id: string, path: string, over: Record<string, unknown> = {}) => ({
-  id, group: 'overview' as const, label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House, permission: 'platform:view' as const,
+  id, group: groupId('overview'), label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House, permission: 'platform:view' as const,
   requiresScope: false, context: noContext, pageType: 'overview' as const, features, pageKeys: [], ...over,
 });
 const registry = createRegistry({
   spaces: [testSpace({ homeMenuId: 'home' })],
-  groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }],
+  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
   menus: [
     { ...menu('home', '/', { features: { ...features, board: true } }), primary: true },
     menu('plain', '/plain'),

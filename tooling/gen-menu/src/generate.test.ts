@@ -214,7 +214,7 @@ describe('generate in a temp workspace', () => {
     const root = makeFixture();
     keep.push(root);
     const path = join(root, MENUS_TS);
-    writeFileSync(path, readFileSync(path, 'utf8').replace("icon: LayoutDashboard, space: 'analytics'", `icon: LayoutDashboard, space: ${space === null ? 'null' : "'analytics'"}`));
+    writeFileSync(path, readFileSync(path, 'utf8').replace("icon: LayoutDashboard, space: spaceId('analytics')", `icon: LayoutDashboard, space: ${space === null ? 'null' : "spaceId('analytics')"}`));
     const result = runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
     expect(result.status, result.stderr).toBe(0);
     const location = `menus/${space ?? '_global'}/${FIXTURE_FOLDER}`;

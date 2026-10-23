@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { getRole, serve, setRole, setScenario } from './server';
-import { emptyGlobal } from '@ap/contracts';
+import { emptyGlobal, menuPermission } from '@ap/contracts';
 
 const period = { from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00' };
 
@@ -9,7 +9,7 @@ describe('explicit empty sets', () => {
   it('returns empty for every explicit empty set key without calling compute or isEmpty', async () => {
     for (const patch of [{ selection: [] as string[] }, { roomNames: [] as string[] }, { lotIds: [] as string[] }, { recipeIds: [] as string[] }]) {
       const res = await serve({
-        role: 'engineer', permission: 'analytics:view',
+        role: 'engineer', permission: menuPermission('analytics:view'),
         global: { ...emptyGlobal, scopeId: 'MEM', ...period, ...patch },
         latency: 0,
         isEmpty: () => false,
@@ -25,7 +25,7 @@ describe('explicit empty sets', () => {
 
   it('does not treat an absent set as empty, and forbidden still wins', async () => {
     const ok = await serve({
-      role: 'engineer', permission: 'analytics:view',
+      role: 'engineer', permission: menuPermission('analytics:view'),
       global: { ...emptyGlobal, scopeId: 'MEM', ...period },
       latency: 0,
       mergeTimeDomain: false,
@@ -34,7 +34,7 @@ describe('explicit empty sets', () => {
     expect(ok.outcome).toBe('ok');
     expect(ok.data).toBe(1);
     const denied = await serve({
-      role: 'engineer', permission: 'analytics:view',
+      role: 'engineer', permission: menuPermission('analytics:view'),
       global: { ...emptyGlobal, scopeId: 'XIA', ...period, selection: [] },
       latency: 0,
       compute: () => { throw new Error('must not run'); },
@@ -48,7 +48,7 @@ describe('malformed responses', () => {
     setScenario('malformed');
     try {
       const result = await serve<{ rows: number[] }>({
-        role: 'engineer', permission: 'analytics:view',
+        role: 'engineer', permission: menuPermission('analytics:view'),
         global: { ...emptyGlobal, scopeId: 'MEM', ...period },
         latency: 0,
         mergeTimeDomain: false,
@@ -70,7 +70,7 @@ describe('request identity', () => {
     setRole('engineer');
     try {
       // CVD is granted to engineer, not to viewer.
-      const pending = serve({ permission: 'analytics:view', global: { ...emptyGlobal, scopeId: 'MEM', ...period, roomNames: ['CVD'] }, latency: 30, mergeTimeDomain: false, compute: () => 1 });
+      const pending = serve({ permission: menuPermission('analytics:view'), global: { ...emptyGlobal, scopeId: 'MEM', ...period, roomNames: ['CVD'] }, latency: 30, mergeTimeDomain: false, compute: () => 1 });
       setRole('viewer');
       const res = await pending;
       expect(res.outcome).toBe('ok');

@@ -7,12 +7,13 @@ import { testAdapter, testSession } from '@ap/kernel/testing';
 import { manifests } from '../index';
 import RegistryCatalog from './RegistryCatalog';
 import UsageOverview from './UsageOverview';
+import { groupId, spaceId } from '@ap/contracts';
 
 afterEach(cleanup);
 
 const registry = createRegistry({
-  spaces: [{ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, description: { ko: '목적', en: 'Purpose' }, permission: 'console:access', homeMenuId: 'admin-roles' }],
-  groups: [{ id: 'admin', label: { ko: '관리·감사', en: 'Administration' }, icon: House, space: 'operations' }],
+  spaces: [{ id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations console' }, description: { ko: '목적', en: 'Purpose' }, permission: 'console:access', homeMenuId: 'admin-roles' }],
+  groups: [{ id: groupId('admin'), label: { ko: '관리·감사', en: 'Administration' }, icon: House, space: spaceId('operations') }],
   menus: manifests,
 });
 const session = testSession(['console:access', 'platform:view'], { user: { id: 'admin-a', name: 'admin-a', title: { ko: '관리자', en: 'Administrator' } } });

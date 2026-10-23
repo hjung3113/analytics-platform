@@ -1,10 +1,10 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { GroupId, Permission, PlatformAdapter, Session } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { HomeLink } from './HomeLink';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { groupId, spaceId, menuPermission, type GroupId, type Permission, type PlatformAdapter, type Session } from '@ap/contracts';
 
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
 
@@ -15,48 +15,52 @@ function menu(id: string, group: GroupId, path: string, permission: Permission, 
 /** `/` is a global utility; the analytics home is a different menu, so the two destinations are distinguishable. */
 function withPlatformHome(homePermission: Permission) {
   return createRegistry({
+    permissions: [menuPermission('equipment:view')],
     spaces: [testSpace({ homeMenuId: 'overview' })],
     groups: [
-      { id: 'overview', label: { ko: '플랫폼', en: 'Platform' }, icon: House, space: null },
-      { id: 'equipment', label: { ko: '업무', en: 'Work' }, icon: House, space: 'analytics' },
+      { id: groupId('overview'), label: { ko: '플랫폼', en: 'Platform' }, icon: House, space: null },
+      { id: groupId('equipment'), label: { ko: '업무', en: 'Work' }, icon: House, space: spaceId('analytics') },
     ],
     menus: [
-      menu('launcher', 'overview', '/', homePermission, true),
-      menu('overview', 'equipment', '/overview', 'platform:view', true),
+      menu('launcher', groupId('overview'), '/', homePermission, true),
+      menu('overview', groupId('equipment'), '/overview', 'platform:view', true),
     ],
   });
 }
 
 const spaceOnly = createRegistry({
+  permissions: [menuPermission('equipment:view')],
   spaces: [testSpace({ homeMenuId: 'overview' })],
-  groups: [{ id: 'equipment', label: { ko: '업무', en: 'Work' }, icon: House, space: 'analytics' }],
-  menus: [menu('overview', 'equipment', '/overview', 'platform:view', true)],
+  groups: [{ id: groupId('equipment'), label: { ko: '업무', en: 'Work' }, icon: House, space: spaceId('analytics') }],
+  menus: [menu('overview', groupId('equipment'), '/overview', 'platform:view', true)],
 });
 
 /** The space stays reachable through another menu, but neither `/` nor the space home can be opened. */
 const spaceWithoutHome = createRegistry({
+  permissions: [menuPermission('equipment:view')],
   spaces: [testSpace({ homeMenuId: 'equipment' })],
   groups: [
-    { id: 'overview', label: { ko: '플랫폼', en: 'Platform' }, icon: House, space: null },
-    { id: 'equipment', label: { ko: '업무', en: 'Work' }, icon: House, space: 'analytics' },
+    { id: groupId('overview'), label: { ko: '플랫폼', en: 'Platform' }, icon: House, space: null },
+    { id: groupId('equipment'), label: { ko: '업무', en: 'Work' }, icon: House, space: spaceId('analytics') },
   ],
   menus: [
-    menu('launcher', 'overview', '/', 'notice:view', true),
-    menu('equipment', 'equipment', '/equipment', 'equipment:view', true),
-    menu('detail', 'equipment', '/detail', 'platform:view'),
+    menu('launcher', groupId('overview'), '/', 'notice:view', true),
+    menu('equipment', groupId('equipment'), '/equipment', menuPermission('equipment:view'), true),
+    menu('detail', groupId('equipment'), '/detail', 'platform:view'),
   ],
 });
 
 /** Neither `/` nor the space can be opened, so there is no sidebar home to fall back to. */
 const neither = createRegistry({
+  permissions: [menuPermission('equipment:view')],
   spaces: [testSpace({ permission: 'console:access', homeMenuId: 'overview' })],
   groups: [
-    { id: 'overview', label: { ko: '플랫폼', en: 'Platform' }, icon: House, space: null },
-    { id: 'equipment', label: { ko: '업무', en: 'Work' }, icon: House, space: 'analytics' },
+    { id: groupId('overview'), label: { ko: '플랫폼', en: 'Platform' }, icon: House, space: null },
+    { id: groupId('equipment'), label: { ko: '업무', en: 'Work' }, icon: House, space: spaceId('analytics') },
   ],
   menus: [
-    menu('launcher', 'overview', '/', 'notice:view', true),
-    menu('overview', 'equipment', '/overview', 'console:access', true),
+    menu('launcher', groupId('overview'), '/', 'notice:view', true),
+    menu('overview', groupId('equipment'), '/overview', 'console:access', true),
   ],
 });
 

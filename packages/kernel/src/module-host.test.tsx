@@ -2,7 +2,7 @@ import { StrictMode, useEffect, useLayoutEffect } from 'react';
 import { act, cleanup, render } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { defineAction, defineEndpoint, type ActionResponse, type ActionResult, type ApiResponse, type ContextKey, type EndpointSpec, type GlobalContext, type MenuAction, type MenuQuery, type ModuleHost, type ModuleManifest, type ModuleScreenMeta, type Session } from '@ap/contracts';
+import { defineAction, defineEndpoint, type ActionResponse, type ActionResult, type ApiResponse, type ContextKey, type EndpointSpec, type GlobalContext, type MenuAction, type MenuQuery, type ModuleHost, type ModuleManifest, type ModuleScreenMeta, type Session, groupId, spaceId } from '@ap/contracts';
 import { I18nProvider } from './i18n';
 import { mountModule } from './module';
 import { useModuleHost, type ModuleShellPorts } from './module-host';
@@ -32,7 +32,7 @@ const manifest = (over: Partial<ModuleManifest> = {}): ModuleManifest => ({
 const Noop = () => null;
 function makeRegistry(m = manifest(), features?: Parameters<typeof mountModule>[2]['features'], lookalikes = false) {
   const { menus, groups } = mountModule(m, Object.fromEntries(m.screens.map(screen => [screen.id, Noop])), {
-    prefix: '/fx', groupSpace: { 'fx:main': 'analytics' }, config: { apiBase: 'https://api.example' }, features,
+    prefix: '/fx', groupSpace: { 'fx:main': spaceId('analytics') }, config: { apiBase: 'https://api.example' }, features,
     icons: { groups: { 'fx:main': House }, screens: Object.fromEntries(m.screens.map(screen => [screen.id, House])) },
   });
   if (!lookalikes) return createRegistry({ spaces: [testSpace({ homeMenuId: 'fx:list' })], groups, menus });
@@ -42,14 +42,14 @@ function makeRegistry(m = manifest(), features?: Parameters<typeof mountModule>[
     groups: [{ id: 'fx:nested:main', label: { ko: '메인', en: 'Main' } }],
     screens: [meta('list', '', { group: 'fx:nested:main', permission: 'fx:nested:view', primary: true })],
   });
-  const mounted = mountModule(nested, { list: Noop }, { prefix: '/fxn', groupSpace: { 'fx:nested:main': 'analytics' }, config: {}, icons: { groups: { 'fx:nested:main': House }, screens: { list: House } } });
+  const mounted = mountModule(nested, { list: Noop }, { prefix: '/fxn', groupSpace: { 'fx:nested:main': spaceId('analytics') }, config: {}, icons: { groups: { 'fx:nested:main': House }, screens: { list: House } } });
   const outside = {
     id: 'fx:outside', group: 'overview', primary: true, label: { ko: '밖', en: 'Outside' }, description: { ko: '', en: '' }, path: '/outside', icon: House,
     permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'overview', pageKeys: [], features: { export: false, savedView: false, annotate: false, compare: false },
   } as never;
   return createRegistry({
     spaces: [testSpace({ homeMenuId: 'fx:list' })],
-    groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }, ...groups, ...mounted.groups],
+    groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }, ...groups, ...mounted.groups],
     menus: [...menus, ...mounted.menus, outside],
   });
 }

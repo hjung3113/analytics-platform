@@ -2,10 +2,10 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TooltipProvider } from '@ap/ui';
-import type { GroupId, SpaceId } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { SystemSwitcher } from './SystemSwitcher';
+import { groupId, spaceId, type GroupId, type SpaceId } from '@ap/contracts';
 
 // The Kernel only returns a null or non-home entry in states a real registry cannot reach with permissions alone
 // (a space's permission equals its home menu's). The switcher must still read `entry.menuId` and survive `null`,
@@ -24,9 +24,9 @@ function menu(id: string, group: GroupId, path: string, label: string) {
   return { id, group, path, permission: 'platform:view' as const, primary: id.endsWith('-home'), label: { ko: label, en: label }, description: { ko: '', en: '' }, icon: House, requiresScope: false, context: noContext, pageType: 'overview' as const, features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] };
 }
 const registry = createRegistry({
-  spaces: [testSpace({ id: 'analytics', label: { ko: '분석', en: 'A' }, homeMenuId: 'a-home' }), testSpace({ id: 'metrics', label: { ko: '지표', en: 'M' }, homeMenuId: 'm-home' }), testSpace({ id: 'operations', label: { ko: '운영', en: 'O' }, homeMenuId: 'o-home' })],
-  groups: [{ id: 'analytics', label: { ko: 'ga', en: 'ga' }, icon: House, space: 'analytics' }, { id: 'metrics', label: { ko: 'gm', en: 'gm' }, icon: House, space: 'metrics' }, { id: 'admin', label: { ko: 'go', en: 'go' }, icon: House, space: 'operations' }],
-  menus: [menu('a-home', 'analytics', '/a', '분석 홈'), menu('m-home', 'metrics', '/m', '지표 홈'), menu('m-second', 'metrics', '/m/second', '지표 둘째'), menu('o-home', 'admin', '/o', '운영 홈')],
+  spaces: [testSpace({ id: spaceId('analytics'), label: { ko: '분석', en: 'A' }, homeMenuId: 'a-home' }), testSpace({ id: spaceId('metrics'), label: { ko: '지표', en: 'M' }, homeMenuId: 'm-home' }), testSpace({ id: spaceId('operations'), label: { ko: '운영', en: 'O' }, homeMenuId: 'o-home' })],
+  groups: [{ id: groupId('analytics'), label: { ko: 'ga', en: 'ga' }, icon: House, space: spaceId('analytics') }, { id: groupId('metrics'), label: { ko: 'gm', en: 'gm' }, icon: House, space: spaceId('metrics') }, { id: groupId('admin'), label: { ko: 'go', en: 'go' }, icon: House, space: spaceId('operations') }],
+  menus: [menu('a-home', groupId('analytics'), '/a', '분석 홈'), menu('m-home', groupId('metrics'), '/m', '지표 홈'), menu('m-second', groupId('metrics'), '/m/second', '지표 둘째'), menu('o-home', groupId('admin'), '/o', '운영 홈')],
 });
 
 beforeEach(() => {

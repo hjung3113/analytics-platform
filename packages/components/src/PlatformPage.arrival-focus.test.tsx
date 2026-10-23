@@ -8,11 +8,12 @@ import { DetailDrawer } from './DetailDrawer';
 import { PlatformPage } from './PlatformPage';
 import { ReturnLink } from './DrillLayout';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { groupId, spaceId } from '@ap/contracts';
 
 const features = { export: false, savedView: false, annotate: false, compare: false };
 function entry(partial: Pick<PlatformMenuEntry, 'id' | 'path'> & Partial<PlatformMenuEntry>): PlatformMenuEntry {
   return {
-    group: 'overview', label: { ko: partial.id, en: partial.id }, description: { ko: '', en: '' }, icon: House,
+    group: groupId('overview'), label: { ko: partial.id, en: partial.id }, description: { ko: '', en: '' }, icon: House,
     permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'overview', features, pageKeys: [],
     ...partial,
   };
@@ -20,7 +21,7 @@ function entry(partial: Pick<PlatformMenuEntry, 'id' | 'path'> & Partial<Platfor
 
 const registry = createRegistry({
   spaces: [testSpace()],
-  groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }],
+  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
   menus: [
     entry({ id: 'home', path: '/', primary: true, label: { ko: '홈', en: 'Home' } }),
     entry({ id: 'equipment', path: '/equipment', label: { ko: '설비 마스터', en: 'Equipment master' }, pageKeys: ['focus'] }),

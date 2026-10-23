@@ -2,7 +2,7 @@
  * Synthetic server world. Values are fabricated for the prototype; they are not parser data,
  * real Site names, grants or equipment. Master values (IDs, team names) are never translated.
  */
-import { PERMISSIONS, type Permission, type PublishedMetric } from '@ap/contracts';
+import { KERNEL_PERMISSIONS, menuPermission, type Permission, type PublishedMetric } from '@ap/contracts';
 
 export type Site = { id: string; label: string; rooms: string[] };
 export const SITES: Site[] = [
@@ -13,23 +13,51 @@ export const SITES: Site[] = [
 
 export type RoleId = 'engineer' | 'admin' | 'viewer';
 export type User = { role: RoleId; name: string; title: { ko: string; en: string }; permissions: Permission[]; grants: Record<string, string[]> };
-const ALL: Permission[] = [...PERMISSIONS];
-export const USERS: Record<RoleId, User> = {
-  engineer: {
-    role: 'engineer', name: 'Process Engineer', title: { ko: '공정 엔지니어', en: 'Process engineer' },
-    permissions: ALL.filter(p => p !== 'console:access' && p !== 'feedbackops:access'),
-    grants: { MEM: ['PHOTO', 'ETCH', 'CVD'], FDRY: ['PHOTO'] },
-  },
-  admin: {
-    role: 'admin', name: 'Platform Admin', title: { ko: '플랫폼 관리자', en: 'Platform admin' },
-    permissions: ALL, grants: Object.fromEntries(SITES.map(s => [s.id, s.rooms])),
-  },
-  viewer: {
-    role: 'viewer', name: 'Field Requester', title: { ko: '현업 문의자', en: 'Field requester' },
-    permissions: ['platform:view', 'metrics:view', 'notice:view', 'voc:view'],
-    grants: { MEM: ['PHOTO'] },
-  },
-};
+/** The sample menus' permissions: the default vocabulary when the assembly passes none (the app declares the same four, ADR-0072). */
+const SAMPLE_MENU_PERMISSIONS = [menuPermission('equipment:view'), menuPermission('master:view'), menuPermission('analytics:view'), menuPermission('metrics:view')];
+/** Default vocabulary, kernel first: used when `createMockAdapter` gets no permission list. */
+export const WORLD_PERMISSIONS: readonly Permission[] = [...KERNEL_PERMISSIONS, ...SAMPLE_MENU_PERMISSIONS];
+
+const ENGINEER_EXCLUDED: readonly string[] = ['console:access', 'feedbackops:access'];
+const VIEWER_GRANTS: readonly string[] = ['platform:view', 'metrics:view', 'notice:view', 'voc:view'];
+
+/**
+ * The three roles for one permission vocabulary: admin holds all of it, engineer all but the console and FeedbackOps
+ * gates, viewer only its explicit grants that the vocabulary contains. Injecting a vocabulary never widens viewer.
+ */
+export function createUsers(vocabulary: readonly Permission[]): Record<RoleId, User> {
+  const all = [...vocabulary];
+  return {
+    engineer: {
+      role: 'engineer', name: 'Process Engineer', title: { ko: '공정 엔지니어', en: 'Process engineer' },
+      permissions: all.filter(p => !ENGINEER_EXCLUDED.includes(p)),
+      grants: { MEM: ['PHOTO', 'ETCH', 'CVD'], FDRY: ['PHOTO'] },
+    },
+    admin: {
+      role: 'admin', name: 'Platform Admin', title: { ko: '플랫폼 관리자', en: 'Platform admin' },
+      permissions: all, grants: Object.fromEntries(SITES.map(s => [s.id, s.rooms])),
+    },
+    viewer: {
+      role: 'viewer', name: 'Field Requester', title: { ko: '현업 문의자', en: 'Field requester' },
+      permissions: all.filter(p => VIEWER_GRANTS.includes(p)),
+      grants: { MEM: ['PHOTO'] },
+    },
+  };
+}
+
+/** Users of the default vocabulary; fixtures and unit tests read these. The adapter's own world is `activeWorld()`. */
+export const USERS: Record<RoleId, User> = createUsers(WORLD_PERMISSIONS);
+
+export type World = { permissions: readonly Permission[]; users: Record<RoleId, User> };
+const DEFAULT_WORLD: World = { permissions: WORLD_PERMISSIONS, users: USERS };
+let active: World = DEFAULT_WORLD;
+/** The world of the latest `createMockAdapter` (the server state — role, usage — is one module singleton as well). */
+export const activeWorld = (): World => active;
+/** Builds the world of one vocabulary (default when omitted) and makes it the one the server gates read. */
+export function installWorld(vocabulary?: readonly Permission[]): World {
+  active = vocabulary ? { permissions: vocabulary, users: createUsers(vocabulary) } : DEFAULT_WORLD;
+  return active;
+}
 
 export type Equipment = {
   equipmentId: string; site: string; room: string; line: string; prcGroup: string;

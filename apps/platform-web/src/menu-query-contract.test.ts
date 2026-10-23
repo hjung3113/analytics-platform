@@ -1,13 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  type AnyEndpointSpec,
-  defineEndpoint,
-  emptyGlobal,
-  projectContext,
-  type ContextKey,
-  type EndpointSpec,
-  type GlobalContext,
-} from '@ap/contracts';
+import { type AnyEndpointSpec, defineEndpoint, emptyGlobal, projectContext, type ContextKey, type EndpointSpec, type GlobalContext, menuPermission } from '@ap/contracts';
 
 const endpoint = (
   context: Partial<Record<ContextKey, 'apply' | 'reference'>>,
@@ -16,7 +8,7 @@ const endpoint = (
   id: 'analytics.test',
   menuId: 'productivity-overview',
   paramKeys: { granularity: true },
-  permission: 'analytics:view',
+  permission: menuPermission('analytics:view'),
   requiresScope,
   context,
   kinds: [],
@@ -182,7 +174,7 @@ describe('menu query contracts', () => {
       id: 'analytics.granularity',
       menuId: 'productivity-overview',
       paramKeys: { granularity: true } as const,
-      permission: 'analytics:view' as const,
+      permission: menuPermission('analytics:view'),
       requiresScope: false,
       context: { time: 'apply' as const },
       kinds: [],
@@ -193,7 +185,7 @@ describe('menu query contracts', () => {
       id: 'analytics.cursor',
       menuId: 'productivity-overview',
       paramKeys: { cursor: true },
-      permission: 'analytics:view',
+      permission: menuPermission('analytics:view'),
       requiresScope: false,
       context: {},
       kinds: [],
@@ -224,7 +216,7 @@ describe('menu query contracts', () => {
         menuId: 'productivity-overview',
         // @ts-expect-error optional params keys must also be listed
         paramKeys: { granularity: true },
-        permission: 'analytics:view',
+        permission: menuPermission('analytics:view'),
         requiresScope: false,
         context: {},
         kinds: [],
@@ -236,7 +228,7 @@ describe('menu query contracts', () => {
         menuId: 'productivity-overview',
         // @ts-expect-error legacy arrays could omit cursor; the exhaustive object form rejects them
         paramKeys: ['granularity'],
-        permission: 'analytics:view',
+        permission: menuPermission('analytics:view'),
         requiresScope: false,
         context: {},
         kinds: [],
@@ -248,7 +240,7 @@ describe('menu query contracts', () => {
         menuId: 'productivity-overview',
         // @ts-expect-error params keys not declared in P are rejected
         paramKeys: { granularity: true, sort: true },
-        permission: 'analytics:view',
+        permission: menuPermission('analytics:view'),
         requiresScope: false,
         context: {},
         kinds: [],

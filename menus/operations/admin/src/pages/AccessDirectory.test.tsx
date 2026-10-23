@@ -1,12 +1,12 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import type { AccessDirectoryPage, AccessDirectoryQuery, AccessPrincipal, ApiResponse, Permission } from '@ap/contracts';
 import { House, Wrench } from 'lucide-react';
 import { createRegistry, I18nProvider, PlatformProvider, type MenuEntry } from '@ap/kernel';
 import { testAdapter, testSession } from '@ap/kernel/testing';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { manifests } from '../index';
 import AccessDirectory from './AccessDirectory';
+import { groupId, KERNEL_PERMISSIONS, menuPermission, spaceId, type AccessDirectoryPage, type AccessDirectoryQuery, type AccessPrincipal, type ApiResponse, type Permission } from '@ap/contracts';
 
 const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
 beforeAll(() => { HTMLElement.prototype.scrollIntoView = vi.fn(); });
@@ -32,13 +32,14 @@ const none = { time: 'unsupported', roomNames: 'unsupported', line: 'unsupported
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false } as const;
 // A menu declared for equipment:view so a non-console principal has a joined (and space-gated) menu to show.
 const fixtureMaster: MenuEntry = {
-  id: 'fixture-master', group: 'admin', label: { ko: '설비 마스터', en: 'Equipment master' }, description: { ko: '', en: '' },
-  path: '/admin/fixture-master', icon: Wrench, permission: 'equipment:view', requiresScope: true, pageType: 'management',
+  id: 'fixture-master', group: groupId('admin'), label: { ko: '설비 마스터', en: 'Equipment master' }, description: { ko: '', en: '' },
+  path: '/admin/fixture-master', icon: Wrench, permission: menuPermission('equipment:view'), requiresScope: true, pageType: 'management',
   context: none, features: noFeatures, pageKeys: [],
 };
 const registry = createRegistry({
-  spaces: [{ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, description: { ko: '목적', en: 'Purpose' }, permission: 'console:access', homeMenuId: 'admin-roles' }],
-  groups: [{ id: 'admin', label: { ko: '관리·감사', en: 'Administration' }, icon: House, space: 'operations' }],
+  permissions: [menuPermission('analytics:view'), menuPermission('equipment:view'), menuPermission('master:view'), menuPermission('metrics:view')],
+  spaces: [{ id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations console' }, description: { ko: '목적', en: 'Purpose' }, permission: 'console:access', homeMenuId: 'admin-roles' }],
+  groups: [{ id: groupId('admin'), label: { ko: '관리·감사', en: 'Administration' }, icon: House, space: spaceId('operations') }],
   menus: [...manifests, fixtureMaster],
 });
 
@@ -53,12 +54,12 @@ const principal = (id: string, name: string, title: { ko: string; en: string }, 
   ({ id, name, title, role: id, permissions, sites: sites(rooms) });
 
 const VIEWER = principal('viewer', 'Field Requester', { ko: '현업 문의자', en: 'Field requester' },
-  ['platform:view', 'metrics:view', 'notice:view', 'voc:view'], { MEM: ['PHOTO'] });
+  ['platform:view', menuPermission('metrics:view'), 'notice:view', 'voc:view'], { MEM: ['PHOTO'] });
 const ENGINEER = principal('engineer', 'Process Engineer', { ko: '공정 엔지니어', en: 'Process engineer' },
-  ['platform:view', 'equipment:view', 'master:view', 'analytics:view', 'metrics:view', 'notice:view', 'voc:view'],
+  ['platform:view', menuPermission('equipment:view'), menuPermission('master:view'), menuPermission('analytics:view'), menuPermission('metrics:view'), 'notice:view', 'voc:view'],
   { MEM: ['PHOTO', 'ETCH', 'CVD'], FDRY: ['PHOTO'] });
 const ADMIN = principal('admin', 'Platform Admin', { ko: '플랫폼 관리자', en: 'Platform admin' },
-  ['platform:view', 'equipment:view', 'master:view', 'analytics:view', 'metrics:view', 'notice:view', 'voc:view', 'console:access'],
+  ['platform:view', menuPermission('equipment:view'), menuPermission('master:view'), menuPermission('analytics:view'), menuPermission('metrics:view'), 'notice:view', 'voc:view', 'console:access'],
   { MEM: ['PHOTO', 'ETCH', 'CVD', 'DIFF'], FDRY: ['PHOTO', 'ETCH', 'CMP'], XIA: ['PHOTO', 'ETCH'] });
 // Payload order is deliberately NOT the server default (role asc): the table must not re-sort a page.
 const ITEMS = [VIEWER, ADMIN, ENGINEER];
@@ -121,6 +122,20 @@ describe('AccessDirectory (issue #49: /admin/roles)', () => {
     expect(rows[0]).toContain('Field Requester');
     expect(rows[1]).toContain('Platform Admin');
     expect(rows[2]).toContain('Process Engineer');
+  });
+
+  it('offers the registry\'s permission list as the filter options: kernel first, then the app\'s declared ones (ADR-0072)', async () => {
+    renderRoles('/admin/roles');
+    fireEvent.keyDown(permissionSelect(), { key: 'ArrowDown' });
+    const options = (await screen.findAllByRole('option')).map(option => option.textContent);
+
+    expect(options).toEqual(['전체', ...registry.permissions]);
+    expect(registry.permissions.slice(0, 5)).toEqual([...KERNEL_PERMISSIONS]);
+  });
+
+  it('treats a permission the registry does not list as a malformed URL value', () => {
+    renderRoles(`/admin/roles?${new URLSearchParams({ permission: 'ghost:view' })}`);
+    expect(within(screen.getByRole('alert')).getByRole('button', { name: '필터 초기화' })).toBeTruthy();
   });
 
   it('maps role, permission and page onto the query and never sends focus', async () => {

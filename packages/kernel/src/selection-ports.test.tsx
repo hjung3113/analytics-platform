@@ -1,15 +1,15 @@
 import { act, cleanup, render, waitFor } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import type { PlatformAdapter } from '@ap/contracts';
 import { I18nProvider } from './i18n';
 import { PlatformProvider, usePlatform } from './platform';
 import { createRegistry } from './registry';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from './testing';
 import { useAxisOptions, useEquipmentSearch, useResolvedSelection } from './selection-ports';
+import { groupId, spaceId, type PlatformAdapter } from '@ap/contracts';
 
 const axes = [{ id: 'a', label: { ko: 'A', en: 'A' }, membershipHistory: true }];
-const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: 'overview', label: { ko: 'G', en: 'G' }, icon: House, space: 'analytics' }], menus: [{ id: 'home', group: 'overview', primary: true, label: { ko: 'H', en: 'H' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: true, context: noContext, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] }] });
+const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: { ko: 'G', en: 'G' }, icon: House, space: spaceId('analytics') }], menus: [{ id: 'home', group: groupId('overview'), primary: true, label: { ko: 'H', en: 'H' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: true, context: noContext, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] }] });
 beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); window.history.replaceState(null, '', '/?scopeId=S'); });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 function fixture(over: Partial<PlatformAdapter>) {

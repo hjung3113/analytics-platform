@@ -18,7 +18,7 @@ ADR-0066은 권한 관리를 플랫폼 업무 시스템 단위까지 넓히기�
    - **불변식: 연결은 기본값과 이동에만 쓰이고 권한을 주지 않는다.** 공간에 들어갈 권한과 Managed System 범위 권한은 서로를 내포하지 않는다.
 2. **역할·부여는 FeedbackOps 부여 체계 하나로 합친다(2-B).**
    - FeedbackOps Role Level은 유지한다.
-   - 플랫폼 권한은 FeedbackOps Capability 어휘로 합친다. 어휘 원천은 하나다: FeedbackOps capability 목록과 `@ap/contracts` `PERMISSIONS`를 계약 테스트로 묶는다.
+   - 플랫폼 권한은 FeedbackOps Capability 어휘로 합친다. 어휘 원천은 하나다: FeedbackOps capability 목록과 `@ap/contracts` `PERMISSIONS`를 계약 테스트로 묶는다. (ADR-0072 이후: 묶는 대상은 `KERNEL_PERMISSIONS`다.)
    - 부여 범위에 업무 시스템을 더한다. **출시 조건:**
      - 범위는 구분자 `scope_kind`와 kind별 열 CHECK로 표현한다.
      - 범위 종류는 지금 `managed_system | space | site | site_room`으로 정하고, 구현은 `managed_system`·`space`만 한다. site·room 부여는 별도 저장소를 만들지 않고 이 체계에 들어온다(#98).

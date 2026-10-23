@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { Capability, ContextKey, MenuMeta, PageResult } from '@ap/contracts';
 import { createMockAdapter, EQUIPMENT, getRole, setRole, type RoleId } from '@ap/mock-server';
 import { equipmentMock } from './index';
 import { equipmentMakersEndpoint, equipmentPageEndpoint, equipmentExportEndpoint, type Equipment } from '../endpoints';
+import { groupId, menuPermission, type Capability, type ContextKey, type MenuMeta, type PageResult } from '@ap/contracts';
 
 const none: Record<ContextKey, Capability> = {
   time: 'unsupported', roomNames: 'unsupported', line: 'unsupported', prcGroup: 'unsupported', condition: 'unsupported', selection: 'unsupported',
@@ -15,11 +15,11 @@ const none: Record<ContextKey, Capability> = {
  */
 const masterMenu: MenuMeta = {
   id: 'equipment-master',
-  group: 'equipment',
+  group: groupId('equipment'),
   label: { ko: '설비 마스터', en: 'Equipment master' },
   description: { ko: '', en: '' },
   path: '/equipment',
-  permission: 'equipment:view',
+  permission: menuPermission('equipment:view'),
   requiresScope: true,
   context: { ...none, time: 'reference', roomNames: 'apply', condition: 'apply', selection: 'apply' },
   pageType: 'management',

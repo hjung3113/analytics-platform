@@ -1,21 +1,24 @@
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { gitPorcelain, insertGroupIdMember, preflightReservedPaths, runRevert, type RevertSteps } from './probe-support.ts';
-import { repoRoot } from './fixture.ts';
+import { gitPorcelain, insertGroupsRow, preflightReservedPaths, runRevert, type RevertSteps } from './probe-support.ts';
+import { fixtureMenusTs, FIXTURE_GROUP } from './fixture.ts';
+import { groupSpaces } from './menu-layout.ts';
 
 describe('probe support helpers (F8)', () => {
-  it('insertGroupIdMember adds genProbe to the GroupId union and its runtime set (#548)', () => {
-    const root = mkdtempSync(join(tmpdir(), 'gen-menu-groupid-'));
-    mkdirSync(join(root, 'packages/contracts/src'), { recursive: true });
-    const path = join(root, 'packages/contracts/src/menu.ts');
-    copyFileSync(join(repoRoot(), 'packages/contracts/src/menu.ts'), path);
-    insertGroupIdMember(root);
+  it('insertGroupsRow declares genProbe in the app GROUPS only, and the generator reads it back (ADR-0072)', () => {
+    const root = mkdtempSync(join(tmpdir(), 'gen-menu-groups-row-'));
+    mkdirSync(join(root, 'apps/platform-web/src'), { recursive: true });
+    const path = join(root, 'apps/platform-web/src/menus.ts');
+    const full = fixtureMenusTs();
+    writeFileSync(path, full.split('\n').filter(line => !line.includes(`groupId('${FIXTURE_GROUP}')`)).join('\n'));
+    insertGroupsRow(root);
     const text = readFileSync(path, 'utf8');
-    expect(text).toMatch(/^export type GroupId = .* \| 'genProbe';$/m);
-    expect(text).toMatch(/^const GROUP_ID_SET: Record<GroupId, true> = \{.*, genProbe: true \};$/m);
+    expect(text).toContain(`id: groupId('${FIXTURE_GROUP}')`);
+    expect(groupSpaces(text).get(FIXTURE_GROUP)).toBe('analytics');
+    expect(existsSync(join(root, 'packages/contracts'))).toBe(false);
   });
 
   it('gitPorcelain throws when git cannot run (bad cwd)', () => {

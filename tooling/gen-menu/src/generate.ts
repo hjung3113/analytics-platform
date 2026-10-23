@@ -1,4 +1,4 @@
-import { groupSpaces, menuFolders, spaceFolder } from './menu-layout.ts';
+import { groupSpaces, idLiteral, menuFolders, spaceFolder } from './menu-layout.ts';
 import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -33,7 +33,6 @@ export const MENUS_TS = 'apps/platform-web/src/menus.ts';
 export const MOCK_ASSEMBLY_TSX = 'apps/platform-web/src/dev/mock-assembly.tsx';
 export const STYLE_CSS = 'apps/platform-web/src/style.css';
 export const APP_PKG = 'apps/platform-web/package.json';
-const CONTRACTS_MENU = 'packages/contracts/src/menu.ts';
 
 export const IMPORT_START = '// <gen:menu-imports>';
 export const IMPORT_END = '// </gen:menu-imports>';
@@ -110,6 +109,15 @@ export function manifestEntries(sourceText: string, rel: string): ManifestEntry[
       if (init === undefined || !ts.isArrayLiteralExpression(init)) {
         throw new GenMenuError(`unsupported manifest form in ${rel} — manifests must be an array literal`);
       }
+      // `const GROUP = groupId('x')` at the top of the file stands for that group (one const per package, ADR-0072 decision 4).
+      const groupConsts = new Map<string, string>();
+      for (const other of sf.statements) {
+        if (!ts.isVariableStatement(other)) continue;
+        for (const c of other.declarationList.declarations) {
+          const literal = c.initializer === undefined ? undefined : idLiteral(c.initializer, 'groupId');
+          if (ts.isIdentifier(c.name) && literal !== undefined && c.initializer !== undefined && !ts.isStringLiteral(c.initializer)) groupConsts.set(c.name.text, literal);
+        }
+      }
       for (const element of init.elements) {
         if (!ts.isObjectLiteralExpression(element)) unsupportedEntry(rel);
         const values: { id?: string; group?: string; path?: string } = {};
@@ -120,8 +128,11 @@ export function manifestEntries(sourceText: string, rel: string): ManifestEntry[
           if (!ts.isPropertyAssignment(prop)) continue;
           const name = ts.isIdentifier(prop.name) || ts.isStringLiteral(prop.name) ? prop.name.text : undefined;
           if (name === undefined || (name !== 'id' && name !== 'group' && name !== 'path')) continue;
-          if (!ts.isStringLiteral(prop.initializer)) unsupportedEntry(rel);
-          values[name] = prop.initializer.text;
+          const value = name === 'group'
+            ? (ts.isIdentifier(prop.initializer) ? groupConsts.get(prop.initializer.text) : idLiteral(prop.initializer, 'groupId'))
+            : (ts.isStringLiteral(prop.initializer) ? prop.initializer.text : undefined);
+          if (value === undefined) unsupportedEntry(rel);
+          values[name] = value;
         }
         if (values.id === undefined || values.group === undefined || values.path === undefined) unsupportedEntry(rel);
         entries.push({ id: values.id, group: values.group, path: values.path });
@@ -588,18 +599,9 @@ export function planGenerate(args: GenerateArgs): GeneratePlan {
   // F7: markers must be unique, ordered, and in the right context before planning.
   checkAppMarkers(menusText, stylesText, mainText);
 
-  const groupIdLine = readText(root, CONTRACTS_MENU)
-    .split('\n')
-    .find(l => l.startsWith('export type GroupId ='));
-  if (groupIdLine === undefined) {
-    throw new GenMenuError(`GroupId union not found in ${CONTRACTS_MENU}`);
-  }
-  if (!groupIdLine.includes(`'${group}'`)) {
-    throw new GenMenuError(`unknown group '${group}' — it is not in the GroupId union (${CONTRACTS_MENU}); edit GroupId and GROUPS by hand first, the generator does not add sidebar groups`);
-  }
   const groups = groupSpaces(menusText);
   if (!groups.has(group)) {
-    throw new GenMenuError(`unknown group '${group}' — no GROUPS row in ${MENUS_TS}; add it by hand first`);
+    throw new GenMenuError(`unknown group '${group}' — no GROUPS row in ${MENUS_TS}; add it by hand first (the generator does not add sidebar groups)`);
   }
   const space = groups.get(group) as string | null;
   const location = `${spaceFolder(space)}/${folder}`;

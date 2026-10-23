@@ -3,7 +3,7 @@
  * The app's mock assembly (apps/platform-web/src/dev/mock-assembly.tsx, ADR-0009) hands the object returned by
  * createMockAdapter to main.tsx through `#platform-assembly`; production builds never contain it. A real server adapter replaces this file, not the kernel.
  */
-import type { AuditEvent, EquipmentAxisDescriptor, ContextKey, MenuMeta, PlatformAdapter, Session } from '@ap/contracts';
+import type { AuditEvent, EquipmentAxisDescriptor, ContextKey, MenuMeta, Permission, PlatformAdapter, Session } from '@ap/contracts';
 import { instantEpochMs, requiredContextError } from '@ap/contracts';
 import { createSelectionPorts } from './selection-ports';
 import { contextShapeError } from './context-validation';
@@ -12,7 +12,7 @@ import { AUDIT_TYPES, auditTrail, entityAudit } from './audit';
 import { AUDIT_EVENTS } from './audit-fixtures';
 import { accessDirectory } from './access';
 import { deleteAnnotation, listAnnotations, saveAnnotation } from './annotations';
-import { DEFAULT_RANGE_TO, EQUIPMENT, PUBLISHED_METRICS, SITES, USERS, type RoleId } from './world';
+import { DEFAULT_RANGE_TO, EQUIPMENT, PUBLISHED_METRICS, SITES, installWorld, type RoleId, type World } from './world';
 import { MockRegistrationError, serveEndpoint, type AnyMockEndpoint } from './endpoints';
 import { serveAction, type AnyMockAction } from './actions';
 
@@ -26,19 +26,21 @@ function pause(signal?: AbortSignal, ms = 80) {
   });
 }
 
-// One Session object per role, so the kernel's store snapshot only changes when the role does.
-const sessions = new Map<RoleId, Session>();
-function sessionFor(role: RoleId): Session {
-  let session = sessions.get(role);
-  if (!session) {
-    const u = USERS[role];
-    session = {
-      user: { id: u.role, name: u.name, title: u.title, permissions: u.permissions },
-      scopes: SITES.filter(s => u.grants[s.id]?.length).map(s => ({ id: s.id, label: s.label, grantedRooms: u.grants[s.id].length, totalRooms: s.rooms.length })),
-    };
-    sessions.set(role, session);
-  }
-  return session;
+// One Session object per role per world, so the kernel's store snapshot only changes when the role does.
+function sessionsOf(world: World) {
+  const sessions = new Map<RoleId, Session>();
+  return (role: RoleId): Session => {
+    let session = sessions.get(role);
+    if (!session) {
+      const u = world.users[role];
+      session = {
+        user: { id: u.role, name: u.name, title: u.title, permissions: u.permissions },
+        scopes: SITES.filter(s => u.grants[s.id]?.length).map(s => ({ id: s.id, label: s.label, grantedRooms: u.grants[s.id].length, totalRooms: s.rooms.length })),
+      };
+      sessions.set(role, session);
+    }
+    return session;
+  };
 }
 
 /**
@@ -66,7 +68,14 @@ export function createMockAdapter(o: {
   registry: { menus: readonly (Omit<MenuMeta, 'group' | 'permission'> & { permission: string })[] };
   /** Audit events of menu-owned destinations, from the app's mock assembly (ADR-0048). */
   auditEvents?: readonly AuditEvent[];
+  /**
+   * The app's permission vocabulary (`registry.permissions`: kernel + declared). The mock roles are built from it:
+   * admin holds all, engineer all but console/FeedbackOps, viewer only its explicit grants. Omit for the sample four.
+   */
+  permissions?: readonly Permission[];
 }): PlatformAdapter {
+  const world = installWorld(o.permissions);
+  const sessionFor = sessionsOf(world);
   const seeds = o.auditEvents ?? [];
   checkAuditSeeds(seeds);
   const endpoints = new Map<string, AnyMockEndpoint>();

@@ -20,13 +20,20 @@ export function contextCapabilities(declared: Partial<Record<ContextKey, Capabil
 /** A manifest's `features` with every flag off (`board` absent = false). Spread it to turn one on: `{ ...NO_FEATURES, export: true }`. */
 export const NO_FEATURES: Readonly<MenuMeta['features']> = Object.freeze({ export: false, savedView: false, annotate: false, compare: false });
 export type PageType = 'overview' | 'analysis' | 'management' | 'catalog' | 'workflow';
-export type GroupId = 'overview' | 'myActivity' | 'equipment' | 'masterData' | 'analytics' | 'metrics' | 'noticeVoc' | 'admin' | 'clas' | 'logMyWork' | 'logModels' | 'logCross' | 'logRules' | 'impMyWork' | 'impTasks' | 'impReports';
-/** The platform's closed group list at runtime (a module group is `<moduleId>:<name>`, ADR-0053). The Record keeps it complete: a new GroupId member fails typecheck until it is listed here. */
-const GROUP_ID_SET: Record<GroupId, true> = { overview: true, myActivity: true, equipment: true, masterData: true, analytics: true, metrics: true, noticeVoc: true, admin: true, clas: true, logMyWork: true, logModels: true, logCross: true, logRules: true, impMyWork: true, impTasks: true, impReports: true };
-export const GROUP_IDS: readonly GroupId[] = Object.keys(GROUP_ID_SET) as GroupId[];
-/** The space vocabulary at runtime — emitted to `vocab.json` for servers outside this workspace (#674). */
-export const SPACE_IDS = ['analytics', 'metrics', 'clas', 'operations', 'log-dev', 'improvement'] as const;
-export type SpaceId = typeof SPACE_IDS[number];
+declare const brand: unique symbol;
+type Brand<Name extends string> = string & { readonly [brand]: Name };
+/**
+ * Menu vocabulary is open (ADR-0072): the app declares its groups, spaces and menu permissions and `createRegistry` checks them at startup.
+ * The brand keeps a plain string, or an id of another kind, out of these slots at compile time. A module group is `<moduleId>:<name>` (ADR-0053).
+ */
+export type GroupId = Brand<'GroupId'>;
+export type SpaceId = Brand<'SpaceId'>;
+/** A permission a menu app declares; the platform's own are `KernelPermission`. */
+export type MenuPermission = Brand<'MenuPermission'>;
+/** Identity casts that keep the literal, so an app derives narrow types from its own declarations. Shape checks belong to `createRegistry`. */
+export const groupId = <const S extends string>(id: S) => id as S & GroupId;
+export const spaceId = <const S extends string>(id: S) => id as S & SpaceId;
+export const menuPermission = <const S extends string>(id: S) => id as S & MenuPermission;
 /** Sidebar-visible group set + entry permission (06 §9.1). Groups declare membership via GroupDef.space, menus never do. */
 export type SpaceDef = {
   id: SpaceId;
@@ -40,9 +47,10 @@ export type SpaceDef = {
   /** Landing menu inside this space whose path has no `:param`. */
   homeMenuId: string;
 };
-/** The permission vocabulary in canonical order — one runtime list for validators and selects (mock server, console filters). */
-export const PERMISSIONS = ['platform:view', 'equipment:view', 'master:view', 'analytics:view', 'metrics:view', 'notice:view', 'voc:view', 'console:access', 'feedbackops:access'] as const;
-export type Permission = typeof PERMISSIONS[number];
+/** Permissions the platform's own features judge, whatever app is assembled — emitted to `vocab.json` for servers outside this workspace (#674). Canonical order. */
+export const KERNEL_PERMISSIONS = ['platform:view', 'notice:view', 'voc:view', 'console:access', 'feedbackops:access'] as const;
+export type KernelPermission = typeof KERNEL_PERMISSIONS[number];
+export type Permission = KernelPermission | MenuPermission;
 
 /** One drill step: a page key plus the name the path bar shows (06 §6.4, ADR-0025). */
 export type DrillLevel = { key: string; label: Text };

@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import userEvent from '@testing-library/user-event';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { parseQuery } from '@ap/contracts';
+import { parseQuery, groupId, spaceId } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { BOARD_LAYOUT_ENGINE_KEY } from './layoutEngine';
@@ -15,7 +15,7 @@ import { legacyBoard as boardOf, legacySheet as sheet, seedLegacy as seed, store
 const features = { export: false, savedView: false, annotate: false, compare: false, board: true };
 const apply = { ...noContext, time: 'apply' as const, roomNames: 'apply' as const, lot: 'apply' as const };
 const entry = (id: string, path: string, over: Record<string, unknown> = {}) => ({
-  id, group: 'equipment' as const, label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House, permission: 'platform:view' as const,
+  id, group: groupId('equipment'), label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House, permission: 'platform:view' as const,
   requiresScope: false, context: apply, pageType: 'analysis' as const, features, pageKeys: ['tab', 'page'], contextResetKeys: ['page'], ...over,
 });
 function Body() {
@@ -35,7 +35,7 @@ function DrawerBody() {
 }
 const registry = createRegistry({
   spaces: [testSpace({ homeMenuId: 'home' })],
-  groups: [{ id: 'equipment', label: { ko: '그룹', en: 'Group' }, icon: House, space: 'analytics' }],
+  groups: [{ id: groupId('equipment'), label: { ko: '그룹', en: 'Group' }, icon: House, space: spaceId('analytics') }],
   menus: [
     { ...entry('home', '/', { component: Body, features: { ...features, board: false } }), primary: true },
     entry('alpha', '/alpha', { component: Body, label: { ko: '알파', en: 'Alpha' } }),

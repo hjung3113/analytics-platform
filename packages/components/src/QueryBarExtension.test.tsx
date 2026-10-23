@@ -4,8 +4,9 @@ import { House } from 'lucide-react';
 import { createRegistry, I18nProvider, PaneScreenProvider, PlatformProvider } from '@ap/kernel';
 import { noContext, testAdapter, testSpace } from '@ap/kernel/testing';
 import { QueryBarExtensionsProvider, usePublishQueryBarExtension, useQueryBarExtension } from './QueryBarExtension';
+import { groupId, spaceId } from '@ap/contracts';
 
-const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }], menus: [{ id: 'home', primary: true, group: 'overview', path: '/', label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, icon: House, permission: 'platform:view', requiresScope: false, context: noContext, features: { export: false, annotate: false, compare: false, savedView: false }, pageType: 'analysis', pageKeys: [] }] });
+const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }], menus: [{ id: 'home', primary: true, group: groupId('overview'), path: '/', label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, icon: House, permission: 'platform:view', requiresScope: false, context: noContext, features: { export: false, annotate: false, compare: false, savedView: false }, pageType: 'analysis', pageKeys: [] }] });
 function Publish({ value }: { value: string }) { usePublishQueryBarExtension({ pageSummary: [{ key: 'grain', label: '집계', value }], issues: [{ key: 'grain', label: '집계', reason: value }] }); return null; }
 function Read() { return <p>{useQueryBarExtension()?.issues[0]?.reason ?? 'no extension'}</p>; }
 function Pane({ id, children }: { id: string; children: React.ReactNode }) { return <PaneScreenProvider paneId={id} screen={{ menuId: 'home', params: {}, query: '' }} onChange={() => {}} onLeave={() => {}}>{children}</PaneScreenProvider>; }

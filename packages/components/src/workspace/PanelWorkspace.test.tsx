@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import userEvent from '@testing-library/user-event';
 import { House } from 'lucide-react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { defineEndpoint, type PlatformAdapter } from '@ap/contracts';
+import { defineEndpoint, type PlatformAdapter, groupId, spaceId } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, useMenuQuery } from '@ap/kernel';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { WorkspaceCommandsHost, useWorkspaceCommands, type WorkspaceCommand } from '../dock';
@@ -18,8 +18,8 @@ const apply = { ...noContext, time: 'apply' as const };
 const features = { export: false, savedView: false, annotate: false, compare: false };
 const registry = createRegistry({
   spaces: [testSpace()],
-  groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }],
-  menus: [{ id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: apply, pageType: 'analysis', features, pageKeys: [] }],
+  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
+  menus: [{ id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: apply, pageType: 'analysis', features, pageKeys: [] }],
 });
 const endpoint = defineEndpoint<{ page: number }, { text: string }>({
   id: 'workspace.rows', menuId: 'home', paramKeys: { page: true }, permission: 'platform:view', requiresScope: false, context: { time: 'apply' }, kinds: ['collection'], mergeTimeDomain: false,

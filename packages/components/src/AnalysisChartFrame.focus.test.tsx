@@ -6,11 +6,12 @@ import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testi
 import { AnalysisChartFrame } from './AnalysisChartFrame';
 import { DrillLayout } from './DrillLayout';
 import { PlatformPage } from './PlatformPage';
+import { groupId, spaceId } from '@ap/contracts';
 
 vi.mock('./EChartImpl', () => ({ default: () => <div role="img" aria-label="Plot" /> }));
 const registry = createRegistry({
-  spaces: [testSpace()], groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }],
-  menus: [{ id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: ['step'], contextResetKeys: ['step'], drill: { levels: [{ key: 'step', label: { ko: '단계', en: 'Step' } }] } }],
+  spaces: [testSpace()], groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
+  menus: [{ id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: ['step'], contextResetKeys: ['step'], drill: { levels: [{ key: 'step', label: { ko: '단계', en: 'Step' } }] } }],
 });
 const session = testSession(['platform:view']);
 const adapter = testAdapter({ session: () => session });

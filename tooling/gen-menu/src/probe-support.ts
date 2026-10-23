@@ -1,15 +1,14 @@
 import { spawnSync } from 'node:child_process';
 import { lstatSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { PACKAGE_PREFIX } from './prefix.ts';
 import { GROUPS_END, MOCK_ASSEMBLY_TSX, MENUS_TS, GenMenuError, checkInsideRoot, splitLines } from './generate.ts';
 
 export const PROBE_FOLDER = 'gen-probe';
 export const PROBE_SPACE = 'analytics';
 export const PROBE_PACKAGE_REL = `menus/${PROBE_SPACE}/${PROBE_FOLDER}`;
 export const PROBE_TEST_REL = 'apps/platform-web/src/gen-probe.test.ts';
-export const PROBE_GROUP_ID_MEMBER = " | 'genProbe';";
-export const PROBE_GROUP_ID_SET_ENTRY = ', genProbe: true';
-export const PROBE_GROUPS_ROW = `  { id: 'genProbe', label: { ko: '생성 확인', en: 'Gen probe' }, icon: LayoutDashboard, space: 'analytics' },`;
+export const PROBE_GROUPS_ROW = `  { id: groupId('genProbe'), label: { ko: '생성 확인', en: 'Gen probe' }, icon: LayoutDashboard, space: spaceId('analytics') },`;
 
 /** Fail-closed `git status --porcelain --untracked-files=all` (F8): any git failure throws. */
 export function gitPorcelain(root: string): string {
@@ -34,7 +33,7 @@ export function assertCleanTree(root: string): void {
  * dangling symlinks count as present — and verify real-path containment for every probe write. */
 export function preflightReservedPaths(root: string): void {
   const realRoot = realpathSync(root);
-  const writeTargets = ['packages/contracts/src/menu.ts', MENUS_TS, MOCK_ASSEMBLY_TSX, PROBE_TEST_REL];
+  const writeTargets = [MENUS_TS, MOCK_ASSEMBLY_TSX, PROBE_TEST_REL];
   for (const rel of writeTargets) checkInsideRoot(realRoot, join(root, rel), rel);
   for (const rel of [PROBE_TEST_REL, PROBE_PACKAGE_REL]) {
     try {
@@ -44,22 +43,6 @@ export function preflightReservedPaths(root: string): void {
     }
     throw new GenMenuError(`reserved probe path already exists: ${rel} — refusing to overwrite`);
   }
-}
-
-export function insertGroupIdMember(root: string): void {
-  const path = join(root, 'packages/contracts/src/menu.ts');
-  const lines = readFileSync(path, 'utf8').split('\n');
-  const at = lines.findIndex(l => l.startsWith('export type GroupId ='));
-  if (at === -1) throw new GenMenuError('GroupId union line not found in packages/contracts/src/menu.ts');
-  const line = lines[at];
-  if (line === undefined || !line.endsWith(';')) throw new GenMenuError('GroupId line does not end with ;');
-  lines[at] = `${line.slice(0, -1)}${PROBE_GROUP_ID_MEMBER}`;
-  // GROUP_ID_SET is a Record<GroupId, true>, so a new GroupId member fails typecheck until it is listed there too (#548).
-  const setAt = lines.findIndex(l => l.startsWith('const GROUP_ID_SET: Record<GroupId, true> = {'));
-  const setLine = lines[setAt];
-  if (setLine === undefined || !setLine.endsWith(' };')) throw new GenMenuError('GROUP_ID_SET line not found in packages/contracts/src/menu.ts');
-  lines[setAt] = `${setLine.slice(0, -' };'.length)}${PROBE_GROUP_ID_SET_ENTRY} };`;
-  writeFileSync(path, lines.join('\n'));
 }
 
 export function insertGroupsRow(root: string): void {
@@ -73,6 +56,7 @@ export function insertGroupsRow(root: string): void {
 
 export function writeRegistryTest(root: string): void {
   writeFileSync(join(root, PROBE_TEST_REL), `import { expect, it } from 'vitest';
+import { groupId } from '${PACKAGE_PREFIX}contracts';
 import { registry } from './menus';
 
 it('registers the generated probe menu in the app registry', () => {
@@ -81,7 +65,7 @@ it('registers the generated probe menu in the app registry', () => {
   expect(menu.path).toBe('/gen-probe');
   expect(menu.primary).toBe(true);
   expect(menu.pageKeys).toEqual([]);
-  expect(registry.groupById('genProbe')).toBeDefined();
+  expect(registry.groupById(groupId('genProbe'))).toBeDefined();
 });
 `);
 }
@@ -109,7 +93,7 @@ export type RevertSteps = Record<RevertStepName, () => void>;
 
 /**
  * F8 revert order: (1) delete the probe test, (2) run `--remove` while the hand-edited genProbe
- * GroupId member and GROUPS row are still in place, (3) only then restore the hand-edited files,
+ * GROUPS row are still in place, (3) only then restore the hand-edited files,
  * (4) on a --remove refusal fall back to restoring every touched app file and deleting the
  * package dir, then (5) install, (6) clean-tree check, (7) the post-revert lock test. Every step
  * is attempted independently — one failure never suppresses the rest.
