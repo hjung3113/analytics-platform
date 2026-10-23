@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import { lstatSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { PACKAGE_PREFIX } from './prefix.ts';
 import { GROUPS_END, MOCK_ASSEMBLY_TSX, MENUS_TS, GenMenuError, checkInsideRoot, splitLines } from './generate.ts';
 
 export const PROBE_FOLDER = 'gen-probe';
@@ -55,7 +56,7 @@ export function insertGroupsRow(root: string): void {
 
 export function writeRegistryTest(root: string): void {
   writeFileSync(join(root, PROBE_TEST_REL), `import { expect, it } from 'vitest';
-import { groupId } from '@ap/contracts';
+import { groupId } from '${PACKAGE_PREFIX}contracts';
 import { registry } from './menus';
 
 it('registers the generated probe menu in the app registry', () => {
