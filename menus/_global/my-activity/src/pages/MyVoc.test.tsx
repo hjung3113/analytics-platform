@@ -174,6 +174,25 @@ describe('내 VOC through the FeedbackOps bridge', () => {
     expect(document.activeElement).not.toBe(document.body);
   });
 
+  it('UX-2: the focus request is one-shot; a later remount of the list (back to the warning, then forward) does not move focus again', async () => {
+    vocFetch();
+    const user = userEvent.setup();
+    mountAt(session().adapter, '/voc?v=1&status=bogus&q=ab');
+    await user.click(await screen.findByRole('button', { name: '값 지우기' }));
+    await screen.findByText('차트가 안 열립니다');
+    const filter = screen.getByRole('button', { name: /필터/ });
+    await waitFor(() => expect(document.activeElement).toBe(filter));
+
+    const box = screen.getByRole('searchbox');
+    box.focus();
+    expect(document.activeElement).toBe(box);
+    window.history.back();
+    await screen.findByText('주소의 status 값이 올바르지 않습니다');
+    window.history.forward();
+    await screen.findByText('차트가 안 열립니다');
+    expect(document.activeElement).not.toBe(screen.getByRole('button', { name: /필터/ }));
+  });
+
   it('V5: a row click opens the reporter detail in the slot without leaving /voc or remounting the list', async () => {
     const calls = vocFetch();
     const user = userEvent.setup();

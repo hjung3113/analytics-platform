@@ -67,6 +67,8 @@ export interface MyVocListScreenProps {
   query: MyVocQuery;
   /** Set by a host that just removed a rejected URL value, so keyboard focus lands on the matching control and not on `<body>`. */
   initialFocus?: MyVocInitialFocus | undefined;
+  /** Called once the mount claimed `initialFocus`, so the host can drop the request and a later remount does not move focus again. */
+  onInitialFocusClaimed?: (() => void) | undefined;
   onQueryChange: (patch: Partial<MyVocQuery>) => void;
   selectedId: string | null;
   onSelect: (id: string) => void;
@@ -76,6 +78,7 @@ export function MyVocListScreen({
   query,
   onQueryChange,
   initialFocus,
+  onInitialFocusClaimed,
   selectedId,
   onSelect,
 }: MyVocListScreenProps): React.ReactElement {
@@ -130,8 +133,10 @@ export function MyVocListScreen({
         : section.querySelector<HTMLElement>(
             `[data-my-voc-control="${claimed}"] input, [data-my-voc-control="${claimed}"] button`,
           );
+    claimedFocus.current = undefined;
     target?.focus();
-  }, []);
+    onInitialFocusClaimed?.();
+  }, [onInitialFocusClaimed]);
 
   const loading = list.isLoading || list.isPlaceholderData;
 
