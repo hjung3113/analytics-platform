@@ -1,12 +1,14 @@
 ---
 paths:
-  - "apps/backend/migrations/**"
-  - "apps/backend/src/db/**"
-  - "apps/backend/drizzle.config.ts"
-  - "scripts/db/**"
+  - "products/feedbackops/apps/backend/migrations/**"
+  - "products/feedbackops/apps/backend/src/db/**"
+  - "products/feedbackops/apps/backend/drizzle.config.ts"
+  - "products/feedbackops/scripts/db/**"
 ---
 
 # Database and migration traps
+
+Paths below are relative to `products/feedbackops/` (moved from the frozen FeedbackOps repo, ADR-0072).
 
 Registering every migration in `migrations/meta/_journal.json` is a rule in `apps/backend/AGENTS.md`. These are the other measured traps.
 

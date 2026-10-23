@@ -1,10 +1,12 @@
 ---
 paths:
-  - "packages/ui/src/**"
-  - "apps/frontend/src/features/**/*.tsx"
+  - "products/feedbackops/packages/ui/src/**"
+  - "products/feedbackops/apps/frontend/src/features/**/*.tsx"
 ---
 
 # @fops/ui traps
+
+Paths below are relative to `products/feedbackops/` (moved from the frozen FeedbackOps repo, ADR-0072).
 
 - `DialogContent` always renders a built-in close button whose sr-only name is the Korean `closeLabel` default (`packages/ui/src/components/shadcn/dialog.tsx`; `SheetContent` does the same; override per call with the `closeLabel` prop). A second button with that same name makes `getByRole('button', { name })` match two elements; target dialog buttons by `data-testid` and keep the visible label.
 - `Button variant="subtle"` is an alias for `ghost`: no border and no background, so it reads as plain text. For an action that must look like a control, use `secondary`; `destructive` is for deletes only.

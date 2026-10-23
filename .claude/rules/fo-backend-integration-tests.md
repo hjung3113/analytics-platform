@@ -1,11 +1,13 @@
 ---
 paths:
-  - "apps/backend/src/**/*.test.ts"
-  - "apps/backend/src/**/__tests__/**"
-  - "apps/backend/src/test-support/**"
+  - "products/feedbackops/apps/backend/src/**/*.test.ts"
+  - "products/feedbackops/apps/backend/src/**/__tests__/**"
+  - "products/feedbackops/apps/backend/src/test-support/**"
 ---
 
 # Backend integration test traps
+
+Paths below are relative to `products/feedbackops/` (moved from the frozen FeedbackOps repo, ADR-0072).
 
 The gate, env, reset contract, and teardown rules are in `apps/backend/AGENTS.md` → Verification. These are the additional measured traps.
 
