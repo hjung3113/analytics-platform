@@ -57,6 +57,10 @@ describe('FeedbackOps bridge entry graph (ADR-0071)', () => {
     expect(reached).toContain('features/home/InboxPanel.tsx');
   });
 
+  it('reaches the survey screens and their hooks', () => {
+    expect(reached).toEqual(expect.arrayContaining(['features/surveys/components/participation/SurveyParticipationScreens.tsx', 'features/surveys/hooks/useSurveys.ts']));
+  });
+
   it('resolves every local import edge and walks past the package barrels', () => {
     expect(unresolved).toEqual([]);
     expect(files.size).toBeGreaterThan(60);

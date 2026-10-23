@@ -1,11 +1,11 @@
-import { useMemo, type ReactNode } from 'react';
+import { useMemo, type ComponentType, type ReactNode } from 'react';
 import { ServerOff } from 'lucide-react';
 import { useI18n, usePlatform } from '@ap/kernel';
 import { StateMessage } from '@ap/components';
 import { FoScreenRoot, type HostLinkProps, type HostSeam } from '@fops/frontend/global-screens';
 import { foQueryClient, useFoSession } from './session';
 
-/** No FeedbackOps target has a platform destination yet (backlog: 알림 목적지 연결), so the seam never links; `Link` is the unreachable fallback. */
+/** The default seam links nothing (backlog: 알림 목적지 연결); `Link` is the unreachable fallback, and a screen passes `canLink`/`Link` for the targets it can reach. */
 export function UnlinkedLink({ to: _to, children, ...rest }: HostLinkProps) {
   return <span {...rest}>{children}</span>;
 }
@@ -15,17 +15,17 @@ export function UnlinkedLink({ to: _to, children, ...rest }: HostLinkProps) {
  * requested. With one, the subtree renders only for the current (adapter, revision, user) generation and until a FeedbackOps 401 retires it: a change
  * unmounts the old subtree in that commit, clears the cache before the new one mounts, and remounts it (ADR-0071 decision 5).
  */
-export function FoBridge({ children }: { children: ReactNode }) {
+export function FoBridge({ children, canLink = () => false, Link = UnlinkedLink }: { children: ReactNode; canLink?: HostSeam['canLink']; Link?: ComponentType<HostLinkProps> }) {
   const { lang } = useI18n();
   const ko = lang === 'ko';
   const { toast } = usePlatform();
   const session = useFoSession();
 
   const seam = useMemo<HostSeam>(() => ({
-    canLink: () => false,
-    Link: UnlinkedLink,
+    canLink,
+    Link,
     notifyError: message => toast(message, 'danger'),
-  }), [toast]);
+  }), [canLink, Link, toast]);
 
   if (session.status === 'no-api') {
     return <StateMessage icon={<ServerOff className="size-4" aria-hidden />}

@@ -1,5 +1,5 @@
 /** Fixtures shared by the FeedbackOps bridge tests (page and notifications slot). */
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { vi } from 'vitest';
 import { render } from '@testing-library/react';
 import { UserRound } from 'lucide-react';
@@ -73,4 +73,18 @@ export function Harness() {
 
 export function mount(adapter: ReturnType<typeof testAdapter>) {
   return render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><Harness /></PlatformProvider></I18nProvider>);
+}
+
+/** Renders the matched route's page component like the shell does (params included). */
+export function TestRoutes() {
+  const { route } = usePlatform();
+  if (route === null) return null;
+  const Page = route.menu.component;
+  return Page ? <Suspense fallback={null}><Page key={route.menu.id} params={route.params} /></Suspense> : null;
+}
+
+/** Mounts the platform at `url` (the real manifests, so path params and `returnTo` resolve as in the app). */
+export function mountAt(adapter: ReturnType<typeof testAdapter>, url: string) {
+  window.history.replaceState(null, '', url);
+  return render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><ToastProbe /><TestRoutes /></PlatformProvider></I18nProvider>);
 }

@@ -8,3 +8,7 @@ export { useUnreadNotificationCount } from '@/lib/cross-system/useUnreadNotifica
 export type { HostLinkProps, HostSeam } from '@/lib/host/host-seam';
 export { createFoQueryClient } from '@/lib/query/query-client';
 export { FoScreenRoot } from './FoScreenRoot';
+export {
+  RespondSurveyScreen,
+  SurveyParticipationScreen,
+} from '@/features/surveys/components/participation/SurveyParticipationScreens';

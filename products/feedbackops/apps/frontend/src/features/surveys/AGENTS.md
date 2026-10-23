@@ -38,7 +38,8 @@ It does not own VOC creation, Finding persistence, Task mutation, or permission 
 - `apps/frontend/src/routes/_authed/surveys/$surveyId.follow-up.tsx` — Survey follow-up route.
 - `apps/frontend/src/routes/_authed/surveys/participate.tsx` — answerable Surveys and response history.
 - `apps/frontend/src/routes/_authed/surveys/$surveyId_.respond.tsx` — respondent form deep link.
-- `apps/frontend/src/features/surveys/routes/SurveyParticipationPage.tsx` — participation list and respondent form states.
+- `apps/frontend/src/features/surveys/components/participation/SurveyParticipationScreens.tsx` — bridge-safe participation list and respondent form screens, used by the standalone routes (through `SurveyParticipationPage.tsx`) and the platform bridge (platform ADR-0071). Use `variant="embedded"` only in the platform.
+- `apps/frontend/src/features/surveys/routes/SurveyParticipationPage.tsx` — standalone wrappers: TanStack host seam and document title around the screens.
 - `apps/frontend/src/features/surveys/components/respond/` — shared preview and respondent question rendering/branching.
 - `apps/frontend/src/features/surveys/components/list/SurveyList.tsx` — Survey list rows and list states.
 - `apps/frontend/src/features/surveys/components/detail/SurveyDetail.tsx` — Survey detail fields and actions.

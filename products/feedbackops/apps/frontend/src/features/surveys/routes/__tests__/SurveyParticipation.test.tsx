@@ -52,9 +52,14 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
 
 import { AnswerableSurveysPanel } from '@/features/home/AnswerableSurveysPanel';
 import {
+  RespondSurveyScreen,
+  SurveyParticipationScreen,
+} from '@/features/surveys/components/participation/SurveyParticipationScreens';
+import {
   RespondSurveyPage,
   SurveyParticipationPage,
 } from '@/features/surveys/routes/SurveyParticipationPage';
+import { type HostLinkProps, HostSeamProvider } from '@/lib/host/host-seam';
 
 const answerableSurveysFixture = answerableSurveysResponseSchema.parse({
   items: [
@@ -674,7 +679,10 @@ describe('respondent form', () => {
     await userEvent.setup().click(screen.getByRole('radio', { name: '아니오' }));
     await userEvent.setup().click(screen.getByRole('button', { name: '제출' }));
 
-    expect(await screen.findByText('응답이 제출되었습니다')).toBeInTheDocument();
+    const submittedText = await screen.findByText('응답이 제출되었습니다');
+    expect(submittedText).toBeInTheDocument();
+    expect(document.activeElement).toBe(submittedText);
+    expect(submittedText.closest('output')).not.toBeNull();
     expect(screen.getByRole('link', { name: 'Survey 참여로 돌아가기' })).toHaveAttribute(
       'href',
       '/surveys/participate',
@@ -899,5 +907,61 @@ describe('Home answerable Survey panel', () => {
     await userEvent.setup().click(await screen.findByRole('button', { name: '다시 시도' }));
 
     expect(await screen.findByRole('link', { name: /Q3 사용성 진단/ })).toBeInTheDocument();
+  });
+});
+
+describe('platform bridge screens (embedded)', () => {
+  function HostLinkProbe({ to, children }: HostLinkProps) {
+    return (
+      <a href="#host" data-host-to={to}>
+        {children}
+      </a>
+    );
+  }
+  function inHost(node: ReactNode) {
+    return (
+      <HostSeamProvider
+        value={{ canLink: () => true, Link: HostLinkProbe, notifyError: () => undefined }}
+      >
+        {node}
+      </HostSeamProvider>
+    );
+  }
+
+  it('lists Surveys without a main landmark or page heading and links through the host', async () => {
+    installFetch({ history: completedHistory });
+    renderWithQuery(inHost(<SurveyParticipationScreen variant="embedded" />));
+
+    const respond = await screen.findByText('응답하기');
+    expect(respond.closest('a')).toHaveAttribute('data-host-to', `/surveys/${surveyId}/respond`);
+    expect(screen.queryByRole('main')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Survey 참여' })).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '응답할 Survey' })).toBeInTheDocument();
+  });
+
+  it('shows the Survey title as a level-2 heading and the success state after a valid submit', async () => {
+    installFetch({ form: textForm(true) });
+    renderWithQuery(inHost(<RespondSurveyScreen surveyId={surveyId} variant="embedded" />));
+
+    expect(
+      await screen.findByRole('heading', { level: 2, name: formDto.survey.title }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('main')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole('textbox', { name: '사용 경험을 적어주세요.' }), {
+      target: { value: '좋았습니다' },
+    });
+    await userEvent.setup().click(screen.getByRole('button', { name: '제출' }));
+
+    const success = await screen.findByTestId('survey-response-success');
+    const successHeading = within(success).getByRole('heading', { level: 2 });
+    expect(successHeading).toHaveTextContent('응답이 제출되었습니다');
+    expect(document.activeElement).toBe(successHeading);
+    expect(successHeading.closest('output')).not.toBeNull();
+    expect(within(success).getByText('Survey 참여로 돌아가기').closest('a')).toHaveAttribute(
+      'data-host-to',
+      '/surveys/participate',
+    );
   });
 });

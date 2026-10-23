@@ -1946,6 +1946,28 @@ test.describe('전역 기능 자리 (ADR-0070, 06 §9.1·§10)', () => {
     await expect(popover.getByRole('navigation', { name: '플랫폼 메뉴' }).getByRole('link', { name: '알림' })).toHaveAccessibleName('알림');
   });
 
+  test('설문 전체 페이지는 mock에서 실서버 필요 상태를 보이고 응답 주소는 설문 아래에 놓이며 잘못된 설문 ID는 찾을 수 없음이다 (#653)', async ({ page }) => {
+    await signInAs(page, 'viewer');
+    await page.goto('/metrics');
+    const popover = await openSwitcher(page);
+    await popover.getByRole('navigation', { name: '플랫폼 메뉴' }).getByRole('link', { name: '설문' }).click();
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/surveys');
+    await expect(page.getByRole('main').getByRole('heading', { name: '설문' })).toBeFocused();
+    await expect(page.getByRole('status')).toContainText('실서버 필요');
+    const sidebarSurveys = page.getByRole('navigation', { name: '플랫폼 메뉴' }).getByRole('link', { name: '설문', exact: true });
+    await expect(sidebarSurveys).toHaveAttribute('aria-current', 'page');
+
+    await page.goto('/surveys/11111111-1111-4111-8111-111111111111/respond');
+    await expect(page.getByRole('main').getByRole('heading', { name: '설문 응답' })).toBeVisible();
+    await expect(page.getByRole('status')).toContainText('실서버 필요');
+    await expect(sidebarSurveys).toHaveAttribute('aria-current', 'page');
+    const switcher = await openSwitcher(page);
+    await expect(switcher.getByRole('navigation', { name: '플랫폼 메뉴' }).getByRole('link')).toHaveText(['홈', '알림', '설문', '권한 요청', '내 VOC', '공지']);
+
+    await page.goto('/surveys/not-a-uuid/respond');
+    await expect(page.getByText('설문을 찾을 수 없습니다')).toBeVisible();
+  });
+
   test('플랫폼 사이드바는 업무 사이드바와 접힘 상태를 함께 쓴다', async ({ page }) => {
     await signInAs(page, 'admin');
     await page.goto('/');
