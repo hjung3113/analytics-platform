@@ -5,7 +5,7 @@ import { Button, Skeleton } from '@ap/ui';
 import { StateMessage } from '../StateView';
 import { panelOrder } from './commands';
 import { stackedTree, visiblePanelIds } from './displayModel';
-import { DEFAULT_MIN_PANEL_SIZE, type DockLayoutProps } from './dockTypes';
+import { DEFAULT_MIN_PANEL_SIZE, type DockLayoutProps, type DockRows } from './dockTypes';
 import { programmaticFocus } from './programmaticFocus';
 import { dockGroups, dockGroupsInReadingOrder } from './schema';
 
@@ -128,7 +128,12 @@ function leave(root: HTMLElement, backward: boolean): boolean {
  *   that tab and opens it with its first item focused.
  */
 export function DockLayout(props: DockLayoutProps) {
-  const { panels, layout, onLayoutChange, onActivate, maximizedPanelId = null, onMaximizedChange, onPanelDelete, renderTab, renderGroupActions, separatorLabel, stackBelow, label, currentPanelId, tabA11y } = props;
+  return <DockLayoutBase {...props} />;
+}
+
+/** Internal (the workspace imports it from this file; `index.ts` does not): `DockLayout` plus the row capability of `DockRows`. */
+export function DockLayoutBase(props: DockLayoutProps & { rows?: DockRows }) {
+  const { rows, panels, layout, onLayoutChange, onActivate, maximizedPanelId = null, onMaximizedChange, onPanelDelete, renderTab, renderGroupActions, separatorLabel, stackBelow, label, currentPanelId, tabA11y } = props;
   const { t } = useI18n();
   const instanceId = useId();
   const container = useRef<HTMLDivElement>(null);
@@ -322,7 +327,7 @@ export function DockLayout(props: DockLayoutProps) {
         action={<Button size="sm" variant="secondary" onClick={retry}><RotateCw className="size-3.5" aria-hidden />{t('retry')}</Button>} />
     </div>;
   }
-  return <div ref={container} role="region" aria-label={label} data-dock-layout data-dock-narrow={narrow} className="relative h-full min-h-0 w-full min-w-0 overflow-hidden"
+  return <div ref={container} role="region" aria-label={label} data-dock-layout data-dock-narrow={narrow} className={rows && !narrow ? 'relative min-h-0 w-full min-w-0 overflow-hidden' : 'relative h-full min-h-0 w-full min-w-0 overflow-hidden'}
     onKeyDownCapture={onKeyDownCapture} onKeyDown={onKeyDown}
     onContextMenu={event => {
       const tab = tabOf(event.target, container.current);
@@ -336,7 +341,7 @@ export function DockLayout(props: DockLayoutProps) {
       <Suspense fallback={<div role="status" aria-busy className="h-full w-full"><Skeleton className="h-full w-full" /></div>}>
         <DockEngine panels={panels} layout={layout} display={display} interactive={!narrow} maximizedPanelId={maximized} visible={visible} minPanelSize={minPanelSize}
           onLayoutChange={onLayoutChange} onActivate={activate} renderTab={renderTab} renderGroupActions={renderGroupActions} tabA11y={tabA11y} separatorLabel={separatorLabel}
-          containerRef={container} instanceId={instanceId} />
+          containerRef={container} instanceId={instanceId} rows={narrow ? undefined : rows} />
       </Suspense>
     </ChunkLoadBoundary>
   </div>;

@@ -17,5 +17,12 @@ export const workspaceText = {
   hide: { ko: '숨기기', en: 'Hide' },
   separatorColumns: (before: string, after: string): Text => ({ ko: `${before} · ${after} 사이 너비`, en: `Width between ${before} and ${after}` }),
   separatorRows: (before: string, after: string): Text => ({ ko: `${before} · ${after} 사이 높이`, en: `Height between ${before} and ${after}` }),
+  separatorRowBottom: (before: string): Text => ({ ko: `${before} 아래 높이`, en: `Height of ${before}` }),
+  heightMode: { ko: '높이 방식', en: 'Height mode' },
+  modeFit: { ko: '화면 맞춤', en: 'Fit to screen' },
+  modeStack: { ko: '아래로 쌓기', en: 'Stack downward' },
+  modeOff: { ko: '좁은 폭에서는 화면 맞춤으로 보입니다', en: 'Shown fitted to the screen at this width' },
+  moveBelow: { ko: '아래 새 줄로 옮기기', en: 'Move to a new row below' },
+  dropBelow: { ko: '여기에 놓으면 아래에 새 줄', en: 'Drop here for a new row below' },
   compactPresetOff: { ko: '좁은 폭에서는 한 묶음으로 보입니다', en: 'Shown as one group at this width' },
 } satisfies Record<string, Text | ((...args: never[]) => Text)>;

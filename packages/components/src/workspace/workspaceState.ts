@@ -4,13 +4,18 @@
  */
 import { activatePanel, addPanel, groupOf, panelOrder, removePanel } from '../dock/commands';
 import { dockGroupsInReadingOrder, normalizeDockTree, type DockNode } from '../dock/schema';
+import { enterRows, reconcileRows, ROW_MIN_HEIGHT, topLevelRows, withRowShares, type RowMinimum } from './workspaceRows';
 
 /** The arrangement a preset describes. Structurally the dock tree; `sizes` are ratios (any positive numbers, only their proportions count). */
 export type PanelWorkspaceLayout =
   | { type: 'group'; panels: string[]; active?: string }
   | { type: 'branch'; dir: 'row' | 'column'; sizes: number[]; children: PanelWorkspaceLayout[] };
 
-export type WorkspaceState = { v: 1; preset: string; layout: DockNode; hidden: string[] };
+/**
+ * `mode` absent = fit (the workspace fills its container); `'stack'` = the top-level rows keep their own px in `rows` (the single source; the
+ * layout's top-level shares are their projection). Both are optional so a state written before them still loads and an older reader ignores them.
+ */
+export type WorkspaceState = { v: 1; preset: string; layout: DockNode; hidden: string[]; mode?: 'stack'; rows?: number[] };
 export type WorkspacePreset = { id: string; layout: PanelWorkspaceLayout };
 
 /** Static identifiers only: nothing from data can reach a storage key. */
@@ -41,7 +46,47 @@ function namedIds(raw: unknown, found = new Set<string>(), depth = 0): Set<strin
   return found;
 }
 
-export type WorkspaceSpec = { panelIds: readonly string[]; primaryId: string; presets: readonly WorkspacePreset[]; initialPreset: string };
+export type WorkspaceSpec = {
+  panelIds: readonly string[]; primaryId: string; presets: readonly WorkspacePreset[]; initialPreset: string;
+  /** Least px of a row in stack mode; default 200. */
+  rowMinimum?: RowMinimum;
+};
+
+/** Sanity bound on a stored row height: anything above is a corrupt value, not a layout. */
+const MAX_STORED_ROW_PX = 20000;
+
+/** The height mode of `state`: fit (no `mode`, no `rows`), or stack with `rows` (absent while they are still to be measured). */
+export function withRows(state: WorkspaceState, mode: 'fit' | 'stack', rows?: readonly number[]): WorkspaceState {
+  const base = { v: 1 as const, preset: state.preset, layout: state.layout, hidden: state.hidden };
+  if (mode === 'fit') return base;
+  return rows ? { ...base, layout: withRowShares(base.layout, rows), mode: 'stack', rows: [...rows] } : { ...base, mode: 'stack' };
+}
+
+/** What stack mode needs from the page to size rows: the least height per row, the most a row may be given, and the height fit mode gives the layout. */
+export type RowEnv = { minimum: RowMinimum; maximum: number; baseline: number };
+
+/**
+ * `next` is `previous` after an edit; the rows follow it. Fit: no rows. Stack, `keep`: rows that keep their panels keep their px, a new row
+ * gets 360, a gone row is dropped (rows still to be measured stay so). Stack, `enter` (preset, `기본 배치`): rows are derived again from the new
+ * shares and the baseline, never from the current stack height.
+ */
+export function settleRows(previous: WorkspaceState, next: WorkspaceState, how: 'keep' | 'enter', env: RowEnv): WorkspaceState {
+  if (next === previous) return previous;
+  if (next.mode !== 'stack') return next.mode !== undefined || next.rows !== undefined ? withRows(next, 'fit') : next;
+  if (how === 'enter') return withRows(next, 'stack', enterRows(next.layout, env.baseline, env.minimum, env.maximum));
+  if (previous.rows === undefined || previous.rows.length !== topLevelRows(previous.layout).length) return withRows(next, 'stack');
+  return withRows(next, 'stack', reconcileRows(previous.layout, previous.rows, next.layout, env.minimum, env.maximum));
+}
+
+/** Brings the stored mode and rows of `raw` onto the repaired `state`: anything but a valid stack mode is fit; rows that do not fit the layout are left to be measured. */
+function restoreRows(raw: Record<string, unknown>, state: WorkspaceState, spec: WorkspaceSpec): WorkspaceState {
+  if (raw.mode !== 'stack') return state;
+  const rows = topLevelRows(state.layout);
+  const given = raw.rows;
+  if (!Array.isArray(given) || given.length !== rows.length || !given.every(px => typeof px === 'number' && Number.isFinite(px) && px > 0 && px <= MAX_STORED_ROW_PX)) return withRows(state, 'stack');
+  const minimum = spec.rowMinimum ?? (() => ROW_MIN_HEIGHT);
+  return withRows(state, 'stack', rows.map((row, index) => Math.max(minimum(row), Math.round(given[index] as number))));
+}
 
 const presetOf = (spec: WorkspaceSpec, id: string) => spec.presets.find(preset => preset.id === id) ?? spec.presets[0]!;
 
@@ -54,7 +99,9 @@ export function initialWorkspaceState(spec: WorkspaceSpec): WorkspaceState {
 /**
  * Repairs any value into a valid state for `spec`. Never throws. A wrong `v` or a value that is not an object gives the initial state;
  * an unknown preset keeps the layout and falls back to the initial preset's name; `hidden` keeps known, non-primary, distinct ids; a
- * panel that is neither in the tree nor hidden joins the primary's group (behind its active tab); the primary is never hidden.
+ * panel that is neither in the tree nor hidden joins the primary's group (behind its active tab); the primary is never hidden. `mode` other
+ * than `'stack'` is fit; stack `rows` that are not finite positive numbers, or not one per top-level row, are dropped (the workspace measures
+ * them again), and each is raised to its row's minimum.
  */
 export function normalizeWorkspaceState(raw: unknown, spec: WorkspaceSpec): WorkspaceState {
   try {
@@ -67,14 +114,14 @@ export function normalizeWorkspaceState(raw: unknown, spec: WorkspaceSpec): Work
     const shown = spec.panelIds.filter(id => !hidden.includes(id));
     const named = namedIds(raw.layout);
     const placed = shown.filter(id => named.has(id) || id === spec.primaryId);
-    if (!shown.some(id => named.has(id))) return { v: 1, preset, layout: presetTree(presetOf(spec, preset).layout, shown), hidden };
+    if (!shown.some(id => named.has(id))) return restoreRows(raw, { v: 1, preset, layout: presetTree(presetOf(spec, preset).layout, shown), hidden }, spec);
     let layout = normalizeDockTree(raw.layout, placed);
     for (const id of shown.filter(candidate => !placed.includes(candidate))) {
       const before = groupActive(layout, spec.primaryId);
       layout = addPanel(layout, id, { panelId: spec.primaryId, position: 'center' });
       if (before) layout = activatePanel(layout, before);
     }
-    return { v: 1, preset, layout, hidden };
+    return restoreRows(raw, { v: 1, preset, layout, hidden }, spec);
   } catch {
     return initialWorkspaceState(spec);
   }

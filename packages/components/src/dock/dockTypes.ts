@@ -61,3 +61,21 @@ export type DockLayoutProps = {
 };
 
 export const DEFAULT_MIN_PANEL_SIZE = { width: 240, height: 160 } as const;
+
+/**
+ * Internal (`DockLayoutBase`, never on the public `DockLayoutProps`): the layout's top-level rows keep their own px height. The layout is
+ * `sum(heights)` tall (the caller scrolls), the platform separators own the boundaries between rows and below the last one, and a strip
+ * under the last row takes a dropped tab. Absent = the layout fills its container and shares it by percent, as everywhere else.
+ */
+export type DockRows = {
+  /** px of each top-level row, in layout order; the length is the number of rows of `layout`. */
+  heights: readonly number[];
+  /** px least height of each row. */
+  minimums: readonly number[];
+  /** px most a user resize may give a row (the visible area). */
+  maximum: number;
+  onHeightsChange: (heights: number[]) => void;
+  /** A single tab dropped on the strip under the last row. Without it there is no strip. */
+  onDropBelow?: (panelId: string) => void;
+  dropBelowLabel?: string;
+};

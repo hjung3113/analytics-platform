@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { groupOf, panelOrder } from '../dock/commands';
 import { dockGroups, isValidDockTree, type DockNode } from '../dock/schema';
-import { applyPreset, hidePanel, initialWorkspaceState, normalizeWorkspaceState, presetTree, resetLayout, showPanel, tabAfterHide, type PanelWorkspaceLayout, type WorkspacePreset, type WorkspaceSpec } from './workspaceState';
+import { applyPreset, hidePanel, initialWorkspaceState, normalizeWorkspaceState, presetTree, resetLayout, settleRows, showPanel, tabAfterHide, withRows, type PanelWorkspaceLayout, type WorkspacePreset, type WorkspaceSpec } from './workspaceState';
 
 const IDS = ['trend', 'selector', 'detail', 'kpi'];
 const group = (panels: string[], active?: string): PanelWorkspaceLayout => ({ type: 'group', panels, active });
@@ -209,3 +209,90 @@ describe('commands', () => {
     expect(tabAfterHide(initial, lone, 'detail', 'trend')).toBe('trend');
   });
 });
+
+describe('height mode and rows (#686)', () => {
+  const columns: PanelWorkspacePresetLayout = { type: 'branch', dir: 'column', sizes: [1, 1, 1], children: [group(['trend']), group(['selector', 'detail']), group(['kpi'])] };
+  const rowSpec: WorkspaceSpec = { ...spec, presets: [{ id: 'column', layout: columns }, balanced, focus], initialPreset: 'column' };
+  const base = initialWorkspaceState(rowSpec);
+  const stored = (extra: Record<string, unknown>) => ({ v: 1, preset: base.preset, layout: base.layout, hidden: [], ...extra });
+  const env = { minimum: () => 200, maximum: 700, baseline: 900 };
+
+  it('a state written before the mode existed loads as fit, keeping preset, layout and hidden', () => {
+    const state = normalizeWorkspaceState(stored({}), rowSpec);
+    expect(state).toEqual(base);
+    expect(state.mode).toBeUndefined();
+    expect(state.rows).toBeUndefined();
+  });
+
+  it.each<[string, Record<string, unknown>, number[] | undefined, boolean]>([
+    ['valid rows are kept', { mode: 'stack', rows: [300, 420, 380] }, [300, 420, 380], true],
+    ['rows are rounded', { mode: 'stack', rows: [300.4, 420.6, 380] }, [300, 421, 380], true],
+    ['a row under its minimum is raised to it', { mode: 'stack', rows: [120, 420, 380] }, [200, 420, 380], true],
+    ['a wrong row count drops the rows (they are measured again)', { mode: 'stack', rows: [300, 420] }, undefined, true],
+    ['a non-number row drops the rows', { mode: 'stack', rows: [300, '420', 380] }, undefined, true],
+    ['a zero or negative row drops the rows', { mode: 'stack', rows: [300, 0, 380] }, undefined, true],
+    ['a NaN or infinite row drops the rows', { mode: 'stack', rows: [300, Number.POSITIVE_INFINITY, 380] }, undefined, true],
+    ['an absurd row drops the rows', { mode: 'stack', rows: [300, 1e9, 380] }, undefined, true],
+    ['rows that are not an array drop the rows', { mode: 'stack', rows: 'tall' }, undefined, true],
+    ['no rows at all is stack still to be measured', { mode: 'stack' }, undefined, true],
+    ['any other mode is fit, and rows are not read', { mode: 'wide', rows: [300, 420, 380] }, undefined, false],
+    ['rows without a mode are dropped', { rows: [300, 420, 380] }, undefined, false],
+  ])('%s', (_name, extra, rows, isStack) => {
+    const state = normalizeWorkspaceState(stored(extra), rowSpec);
+    expect(state.mode).toBe(isStack ? 'stack' : undefined);
+    expect(state.rows).toEqual(rows);
+    if (rows) expect(state.layout).toMatchObject({ sizes: [expect.any(Number), expect.any(Number), expect.any(Number)] });
+  });
+
+  it('uses the spec\'s row minimum when it has one', () => {
+    const state = normalizeWorkspaceState(stored({ mode: 'stack', rows: [250, 420, 380] }), { ...rowSpec, rowMinimum: () => 260 });
+    expect(state.rows).toEqual([260, 420, 380]);
+  });
+
+  it('never throws on garbage and gives a usable fit state', () => {
+    for (const raw of [null, 1, 'x', [], { v: 1, mode: 'stack', rows: null, layout: 5 }, { v: 2, mode: 'stack', rows: [1] }]) {
+      expect(() => normalizeWorkspaceState(raw, rowSpec)).not.toThrow();
+      expect(isValidDockTree(normalizeWorkspaceState(raw, rowSpec).layout, IDS)).toBe(true);
+    }
+  });
+
+  it('projects the rows onto the top-level shares and serialises mode and rows after the old fields', () => {
+    const state = withRows(base, 'stack', [300, 300, 600]);
+    expect(state.layout).toMatchObject({ sizes: [25, 25, 50] });
+    expect(Object.keys(state)).toEqual(['v', 'preset', 'layout', 'hidden', 'mode', 'rows']);
+    expect(Object.keys(withRows(state, 'fit'))).toEqual(['v', 'preset', 'layout', 'hidden']);
+  });
+
+  describe('settleRows', () => {
+    const stacked = withRows(base, 'stack', [300, 500, 400]);
+    it('fit stays free of rows, whatever an edit leaves on it', () => {
+      expect(settleRows(base, { ...base, rows: [1, 2, 3] }, 'keep', env).rows).toBeUndefined();
+      expect(settleRows(base, base, 'keep', env)).toBe(base);
+    });
+    it('hiding the only panel of a row drops that row and keeps the others\' px', () => {
+      const next = settleRows(stacked, hidePanel(stacked, 'kpi', 'trend'), 'keep', env);
+      expect(next.rows).toEqual([300, 500]);
+    });
+    it('showing it again adds a 360 row only when it makes a row', () => {
+      const hidden = settleRows(stacked, hidePanel(stacked, 'kpi', 'trend'), 'keep', env);
+      const shown = settleRows(hidden, showPanel(hidden, 'kpi', 'trend', { id: 'column', layout: columns }), 'keep', env);
+      expect(shown.rows!.slice(0, 2)).toEqual([300, 500]);
+      expect(shown.rows!.length).toBe(topLevelRowCount(shown));
+    });
+    it('a preset or 기본 배치 derives the rows again from the shares and the baseline, and repeating it adds no height', () => {
+      const fit = { ...env, baseline: 1500 };
+      const once = settleRows(stacked, resetLayout(stacked, { id: 'column', layout: columns }), 'enter', fit);
+      expect(once.rows).toEqual([500, 500, 500]);
+      const again = settleRows(once, resetLayout(once, { id: 'column', layout: columns }), 'enter', fit);
+      expect(again.rows).toEqual(once.rows);
+    });
+    it('rows still to be measured stay so through an edit', () => {
+      const pending = withRows(base, 'stack');
+      expect(settleRows(pending, { ...pending, hidden: ['x'] }, 'keep', env)).toMatchObject({ mode: 'stack' });
+      expect(settleRows(pending, { ...pending, hidden: ['x'] }, 'keep', env).rows).toBeUndefined();
+    });
+  });
+});
+
+type PanelWorkspacePresetLayout = PanelWorkspaceLayout;
+const topLevelRowCount = (state: { layout: DockNode }) => (state.layout.type === 'branch' && state.layout.dir === 'column' ? state.layout.children.length : 1);

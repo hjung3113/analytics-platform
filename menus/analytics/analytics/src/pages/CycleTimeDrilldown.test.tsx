@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { CycleKpi } from '../endpoints';
 import { Timer } from 'lucide-react';
 import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
@@ -165,6 +165,17 @@ describe('CycleTimeDrilldown workspace (ADR-0067 3b)', () => {
     expect(groups[2]).toBe(groups[3]);
     expect(screen.getByRole('tab', { name: '사이클타임 분포' }).getAttribute('aria-selected')).toBe('true');
     expect(screen.getByRole('tab', { name: '느린 실행' }).getAttribute('aria-selected')).toBe('false');
+  });
+
+  it('offers the 세로 preset (one row per question) and the height mode, starting in 화면 맞춤', async () => {
+    renderPage(period);
+    await screen.findByRole('region', { name: '사이클타임 분석 영역' });
+    const modes = screen.getByRole('radiogroup', { name: '높이 방식' });
+    expect(modes.querySelector('[aria-checked="true"]')!.textContent).toBe('화면 맞춤');
+    fireEvent.click(await screen.findByRole('radio', { name: '세로' }));
+    // column: trend / summary | distribution / slow — three top-level rows, so four groups in three rows.
+    await waitFor(() => { expect(new Set(['사이클타임 추세', '사이클타임 요약', '사이클타임 분포', '느린 실행'].map(name => screen.getByRole('tab', { name }).closest('.dv-groupview'))).size).toBe(4); });
+    expect(document.querySelector('[data-panel-workspace]')!.getAttribute('data-workspace-mode')).toBe('fit');
   });
 
   it('keeps showing the invalid-page message instead of the workspace', async () => {

@@ -11,6 +11,7 @@ import { Button, cn, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipCo
 import { DataTrustIndicator } from './DataTrustIndicator';
 import { type HeaderYield, nextHeaderYield, openHeaderYield } from './headerYield';
 import { consumePageFocus, drillDestinationOf, focusPageFallback } from './pageFocus';
+import { PageFlowContext } from './pageFlow';
 import { StateMessage } from './StateView';
 import { useInWorkspacePanel } from './workspace/panelContext';
 
@@ -126,6 +127,9 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
   const programmaticHeadingFocus = useRef(false);
   const [headingTooltipOpen, setHeadingTooltipOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
+  // A workspace that shows its rows at their own heights (`PanelWorkspace` stack mode) registers here; the fill page then sizes to it and the main area scrolls.
+  const [flowing, setFlowing] = useState(0);
+  const registerFlow = useCallback(() => { setFlowing(count => count + 1); return () => { setFlowing(count => count - 1); }; }, []);
   const stickyHeader = useRef<HTMLDivElement>(null);
   const pageHeader = useRef<HTMLElement>(null);
   const descriptionText = useRef<HTMLDivElement>(null);
@@ -237,7 +241,8 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
   const leftGroupControls = (favoriteTarget ? 1 : 0) + (hasDescription && headerYield.description ? 1 : 0);
   const leftGroupMinWidth = `calc(7rem + ${leftGroupControls * 1.5}rem + ${(leftGroupItems - 1) * 0.5}rem)`;
 
-  return <QueryBarExtensionContext.Provider value={queryBarExtension}><div ref={root} data-platform-page data-page-layout={layout === 'fill' ? 'fill' : undefined} className={layout === 'fill' ? 'flex h-full min-h-0 flex-col' : 'flex min-h-full flex-col'}>
+  const fixedFill = layout === 'fill' && flowing === 0;
+  return <QueryBarExtensionContext.Provider value={queryBarExtension}><PageFlowContext.Provider value={layout === 'fill' ? registerFlow : null}><div ref={root} data-platform-page data-page-layout={layout === 'fill' ? 'fill' : undefined} className={fixedFill ? 'flex h-full min-h-0 flex-col' : 'flex min-h-full flex-col'}>
     {!inPane && <div ref={stickyHeader} data-page-sticky-header className="sticky top-0 z-20 shrink-0 bg-surface-canvas">
       <header ref={pageHeader} onFocus={event => {
         const header = event.currentTarget;
@@ -300,8 +305,8 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
           summary={queryBarExtension?.appliedPageSummary ?? queryBarExtension?.pageSummary ?? []}
           pendingChanges={queryDraft.dirty.some(key => menu.pageKeys.includes(key))} issueCount={queryBarExtension?.issues.length ?? 0} />
       : <div className="px-8 pt-3"><PageHeadBody notes={notes} extension={contextExtension} /></div>)}
-    <div data-platform-page-content tabIndex={-1} className={layout === 'fill' ? 'flex flex-1 flex-col px-8 pb-9 pt-7' : 'flex-1 px-8 pb-9 pt-7'}>{gate ?? <OutcomeScope><OutcomeBanners compact={layout === 'fill'} />{layout === 'fill' ? <div data-platform-page-fill className="min-h-[520px] flex-1">{children}</div> : children}</OutcomeScope>}</div>
-  </div></QueryBarExtensionContext.Provider>;
+    <div data-platform-page-content tabIndex={-1} className={layout === 'fill' ? 'flex flex-1 flex-col px-8 pb-9 pt-7' : 'flex-1 px-8 pb-9 pt-7'}>{gate ?? <OutcomeScope><OutcomeBanners compact={layout === 'fill'} />{layout === 'fill' ? <div data-platform-page-fill className={fixedFill ? 'min-h-[520px] flex-1' : 'flex-1'}>{children}</div> : children}</OutcomeScope>}</div>
+  </div></PageFlowContext.Provider></QueryBarExtensionContext.Provider>;
 }
 
 /** panel-card: hairline border, 8px radius, no shadow. */

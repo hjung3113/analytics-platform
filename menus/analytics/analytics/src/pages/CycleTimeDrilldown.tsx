@@ -206,6 +206,12 @@ export default function CycleTimeDrilldown(_: PageProps) {
               { type: 'group', panels: ['trend'] },
               { type: 'group', panels: ['summary', 'distribution', 'slow'] },
             ] } },
+            // A natural start for the stacked height mode (#686): one row per question, the summary and the distribution side by side.
+            { id: 'column', label: { ko: '세로', en: 'Stacked' }, layout: { type: 'branch', dir: 'column', sizes: [34, 33, 33], children: [
+              { type: 'group', panels: ['trend'] },
+              { type: 'branch', dir: 'row', sizes: [40, 60], children: [{ type: 'group', panels: ['summary'] }, { type: 'group', panels: ['distribution'] }] },
+              { type: 'group', panels: ['slow'] },
+            ] } },
           ]}
           panels={[
           { id: 'summary', title: { ko: '사이클타임 요약', en: 'Cycle time summary' }, render: () => <div className="space-y-3 p-3">

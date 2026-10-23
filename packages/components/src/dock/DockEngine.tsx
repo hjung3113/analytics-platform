@@ -3,15 +3,15 @@
  * its signature or output exposes an engine type or the engine's JSON.
  */
 import {
-  createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject,
+  createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type RefObject,
 } from 'react';
 import {
-  DockviewReact, type DockviewApi, type DockviewReadyEvent, type DockviewWillDropEvent, type IDockviewHeaderActionsProps, type IDockviewPanelHeaderProps, type IDockviewPanelProps,
+  DockviewReact, getPanelData, type DockviewApi, type DockviewReadyEvent, type DockviewWillDropEvent, type IDockviewHeaderActionsProps, type IDockviewPanelHeaderProps, type IDockviewPanelProps,
 } from 'dockview-react';
 import { TransientOverlayScope } from '@ap/ui';
 import { groupOf } from './commands';
 import { DockSeparators, type DockRect } from './DockSeparators';
-import type { DockLayoutProps, DockPanel } from './dockTypes';
+import type { DockLayoutProps, DockPanel, DockRows } from './dockTypes';
 import { fromEngineLayout, keepStoredSizes, sameDockTree, toEngineLayout, type EngineLayout } from './engineModel';
 import { isProgrammaticFocus, programmaticFocus } from './programmaticFocus';
 import { canonicalDockTree, type DockNode } from './schema';
@@ -30,6 +30,8 @@ export type DockEngineProps = Pick<DockLayoutProps, 'panels' | 'layout' | 'onLay
   onActivate: (panelId: string) => void;
   containerRef: RefObject<HTMLElement | null>;
   instanceId: string;
+  /** Row mode (see `DockRows`); absent = the layout fills its container. */
+  rows?: DockRows;
 };
 
 type Context = {
@@ -151,7 +153,7 @@ function readEngine(api: DockviewApi, stored: DockNode): { tree: DockNode; measu
 
 export default function DockEngine({
   panels, layout, display, interactive, maximizedPanelId, visible, minPanelSize, onLayoutChange, onActivate, renderTab, renderGroupActions, tabA11y, separatorLabel,
-  containerRef, instanceId,
+  containerRef, instanceId, rows,
 }: DockEngineProps) {
   const [api, setApi] = useState<DockviewApi | null>(null);
   const [epoch, setEpoch] = useState(0);
@@ -170,8 +172,9 @@ export default function DockEngine({
   const panelMinimums = useMemo(() => new Map(panels.map(panel => [panel.id, { minWidth: panel.minWidth, minHeight: panel.minHeight }])), [panels]);
   const meta = useMemo(() => JSON.stringify([panels.map(panel => [panel.id, panel.title, panel.minWidth, panel.minHeight]), minPanelSize]), [panels, minPanelSize]);
   // The effects below run on what changed (key, meta, epoch), not on every new object identity; they read the rest from here.
-  const live = useRef({ layout, interactive, onLayoutChange, canonicalDisplay, panels, minPanelSize });
-  useLayoutEffect(() => { live.current = { layout, interactive, onLayoutChange, canonicalDisplay, panels, minPanelSize }; });
+  const rowsTotal = rows ? rows.heights.reduce((sum, height) => sum + height, 0) : undefined;
+  const live = useRef({ layout, interactive, onLayoutChange, canonicalDisplay, panels, minPanelSize, rowsTotal });
+  useLayoutEffect(() => { live.current = { layout, interactive, onLayoutChange, canonicalDisplay, panels, minPanelSize, rowsTotal }; });
   const panelMap = useMemo(() => new Map(panels.map(panel => [panel.id, panel])), [panels]);
 
   const measure = useCallback(() => {
@@ -236,12 +239,12 @@ export default function DockEngine({
 
   /** Puts the live engine on `live.current.canonicalDisplay` (shares at the engine's current size) and brings focus back to the tab it had. */
   const applyLayout = useCallback((target: DockviewApi, appliedKey: string, appliedMeta: string) => {
-    const { canonicalDisplay: wanted, panels: wantedPanels, minPanelSize: minimum } = live.current;
+    const { canonicalDisplay: wanted, panels: wantedPanels, minPanelSize: minimum, rowsTotal: total } = live.current;
     const focusedBefore = containerRef.current?.contains(document.activeElement) ? document.activeElement : null;
     const focusedTabId = focusedBefore instanceof HTMLElement ? focusedBefore.closest<HTMLElement>('[role="tab"]')?.dataset.tabPanelId : undefined;
     applying.current = true;
     try {
-      target.fromJSON(toEngineLayout(wanted, wantedPanels, minimum, { width: target.width, height: target.height }) as unknown as SerializedLayout, { reuseExistingPanels: true });
+      target.fromJSON(toEngineLayout(wanted, wantedPanels, minimum, { width: target.width, height: total ?? target.height }) as unknown as SerializedLayout, { reuseExistingPanels: true });
     } finally {
       applying.current = false;
     }
@@ -276,6 +279,15 @@ export default function DockEngine({
     if (!rebuild) { applied.current = { key, meta }; return; }
     applyLayout(api, key, meta);
   }, [api, key, meta, epoch, applyLayout]);
+
+  // Row mode: the container height and the top-level shares change together. The engine would otherwise relayout the new height with the old
+  // shares (every row scaled) and correct it a frame later, which moves rows the user did not touch. Here, before paint, the live engine is
+  // put on the new shares at the new height; the reconcile effect above then finds nothing left to do.
+  useLayoutEffect(() => {
+    if (!api || rowsTotal === undefined || !applied.current || applied.current.meta !== meta) return;
+    if (applied.current.key === key || key === emitted.current) return;
+    applyLayout(api, key, meta);
+  }, [api, rowsTotal, key, meta, applyLayout]);
 
   // Maximize is the engine's group maximize and is never stored, so it is re-asserted after every reconcile. The engine hides the other groups
   // with the px size they had, and gives that size back on restore whatever the container became meanwhile: a resize in between leaves the
@@ -344,6 +356,13 @@ export default function DockEngine({
     if (!data || data.viewId !== event.api.id) event.preventDefault();
   }, []);
 
+  // The strip under the last row accepts one tab of this layout: not a whole group, not another layout's tab, not outside data.
+  const [dropOver, setDropOver] = useState(false);
+  const droppable = () => {
+    const data = getPanelData();
+    return data && data.panelId && data.viewId === api?.id ? data.panelId : null;
+  };
+
   const context = useMemo<Context>(() => {
     const focusGroup = focusedPanel ? groupOf(canonicalDisplay, focusedPanel)?.panels ?? [] : [];
     const active = new Set<string>();
@@ -361,12 +380,23 @@ export default function DockEngine({
   };
 
   return <EngineContext.Provider value={context}>
-    <div className="h-full w-full">
+    <div data-dock-rows={rows ? '' : undefined} className={rows ? 'h-(--dock-rows-height) w-full' : 'h-full w-full'} style={rowsTotal === undefined ? undefined : { '--dock-rows-height': `${rowsTotal}px` } as CSSProperties}>
       <DockviewReact components={COMPONENTS} tabComponents={TAB_COMPONENTS} defaultTabComponent={DockTab} rightHeaderActionsComponent={GroupActions}
         onReady={onReady} onWillDrop={onWillDrop} theme={THEME} defaultRenderer="always" singleTabMode="fullwidth"
         disableFloatingGroups disableDnd={!interactive} announcements={false} />
     </div>
-    {interactive && !maximizedPanelId && <DockSeparators layout={layout} rects={rects} minPanelSize={minPanelSize} panelMinimums={panelMinimums} instanceId={instanceId} label={separatorLabel} onChange={separate} />}
+    {rows?.onDropBelow && interactive && <div data-dock-drop-below
+      className={`mt-2 flex h-[72px] items-center justify-center rounded-lg border-2 border-dashed text-sm ${dropOver ? 'border-accent-primary bg-surface-row-hover text-text-primary' : 'border-border-strong text-text-muted'}`}
+      onDragOver={event => { if (droppable()) { event.preventDefault(); setDropOver(true); } }}
+      onDragLeave={() => { setDropOver(false); }}
+      onDrop={event => {
+        setDropOver(false);
+        const panelId = droppable();
+        if (!panelId) return;
+        event.preventDefault();
+        rows.onDropBelow?.(panelId);
+      }}>{rows.dropBelowLabel}</div>}
+    {interactive && !maximizedPanelId && <DockSeparators layout={layout} rects={rects} minPanelSize={minPanelSize} panelMinimums={panelMinimums} instanceId={instanceId} label={separatorLabel} onChange={separate} rows={rows} />}
   </EngineContext.Provider>;
 }
 

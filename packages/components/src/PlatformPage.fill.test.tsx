@@ -1,9 +1,11 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { useState } from 'react';
+import { act, cleanup, render, screen } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { PlatformPage, type PlatformPageProps } from './PlatformPage';
+import { useRegisterPageFlow } from './pageFlow';
 import { groupId, spaceId } from '@ap/contracts';
 
 const features = { export: false, savedView: false, annotate: false, compare: false };
@@ -52,5 +54,55 @@ describe('PlatformPage layout', () => {
     expect(root.className).toBe('flex min-h-full flex-col');
     expect(document.querySelector('[data-platform-page-content]')!.className).toBe('flex-1 px-8 pb-9 pt-7');
     expect(document.querySelector('[data-platform-page-fill]')).toBeNull();
+  });
+});
+
+describe('PlatformPage layout: a workspace in stack mode turns the fill page into flow (#686)', () => {
+  let setActive: (active: boolean) => void = () => {};
+  function Registrant() {
+    const [active, set] = useState(false);
+    setActive = set;
+    useRegisterPageFlow(active);
+    return <p>작업 영역</p>;
+  }
+  const mountWith = (props: Partial<PlatformPageProps> = {}) => render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><PlatformPage {...props}><Registrant /></PlatformPage></PlatformProvider></I18nProvider>);
+
+  it('while a workspace registers the page grows with it and the slot loses the 520 px floor; the head semantics stay fill', () => {
+    mountWith({ layout: 'fill' });
+    const root = document.querySelector<HTMLElement>('[data-platform-page]')!;
+    const slot = document.querySelector<HTMLElement>('[data-platform-page-fill]')!;
+    act(() => { setActive(true); });
+    expect(root).toHaveClass('min-h-full');
+    expect(root).not.toHaveClass('h-full');
+    expect(slot).toHaveClass('flex-1');
+    expect(slot).not.toHaveClass('min-h-[520px]');
+    expect(root).toHaveAttribute('data-page-layout', 'fill');
+    // The same elements, not a remount: the workspace's state and queries are untouched.
+    expect(document.querySelector('[data-platform-page]')).toBe(root);
+    expect(document.querySelector('[data-platform-page-fill]')).toBe(slot);
+  });
+
+  it('back to fixed fill when it stops registering, and when it unmounts', () => {
+    const view = mountWith({ layout: 'fill' });
+    const root = document.querySelector<HTMLElement>('[data-platform-page]')!;
+    act(() => { setActive(true); });
+    act(() => { setActive(false); });
+    expect(root).toHaveClass('h-full', 'min-h-0');
+    expect(document.querySelector('[data-platform-page-fill]')).toHaveClass('min-h-[520px]');
+    act(() => { setActive(true); });
+    view.rerender(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><PlatformPage layout="fill"><p>본문</p></PlatformPage></PlatformProvider></I18nProvider>);
+    expect(document.querySelector('[data-platform-page]')).toHaveClass('h-full', 'min-h-0');
+  });
+
+  it('a flow page ignores a registrant: its sizing is unchanged', () => {
+    mountWith({ layout: 'flow' });
+    act(() => { setActive(true); });
+    expect(document.querySelector<HTMLElement>('[data-platform-page]')!.className).toBe('flex min-h-full flex-col');
+  });
+
+  it('a nested flow page isolates its workspace from the outer fill page', () => {
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><PlatformPage layout="fill"><PlatformPage layout="flow"><Registrant /></PlatformPage></PlatformPage></PlatformProvider></I18nProvider>);
+    act(() => { setActive(true); });
+    expect(document.querySelectorAll<HTMLElement>('[data-platform-page]')[0]).toHaveClass('h-full', 'min-h-0');
   });
 });

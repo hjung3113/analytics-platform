@@ -1,15 +1,24 @@
 import { createContext, useContext, useId, useLayoutEffect, useMemo, useState, type ReactNode } from 'react';
 
-/** One command a menu workspace offers its host (the board pane menu): presets as radios, reopening a hidden panel, the default layout. */
+/** One command a menu workspace offers its host (the board pane menu): presets and the height mode as radios, reopening a hidden panel, the default layout. */
 export type WorkspaceCommand = {
   id: string;
   label: string;
-  /** `radio`: one of a group of exclusive choices (the presets); `action`: runs once. */
+  /** `radio`: one of a group of exclusive choices; `action`: runs once. */
   kind: 'radio' | 'action';
+  /** The radio group a `radio` belongs to, each with its own checked item. Absent = `'preset'` (the presets); the height mode is `'mode'`. */
+  group?: 'preset' | 'mode';
   checked?: boolean;
   disabled?: boolean;
   run: () => void;
 };
+
+/** The radio commands in their groups, first-seen order (the presets, then the height mode): one exclusive set each, with its own checked item. */
+export function radioGroupsOf(commands: readonly WorkspaceCommand[]): WorkspaceCommand[][] {
+  const groups = new Map<string, WorkspaceCommand[]>();
+  for (const command of commands) if (command.kind === 'radio') groups.set(command.group ?? 'preset', [...(groups.get(command.group ?? 'preset') ?? []), command]);
+  return [...groups.values()];
+}
 
 type Entry = { key: string; depth: number; commands: readonly WorkspaceCommand[] };
 type Registrar = { set: (entry: Entry) => void; remove: (key: string) => void };

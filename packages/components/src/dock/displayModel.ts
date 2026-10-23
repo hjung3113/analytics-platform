@@ -46,10 +46,19 @@ export type DockBoundary = {
 /** A panel's own minimum in px along the axes; what it leaves out falls back to the layout's `min`. */
 export type PanelMinimums = ReadonlyMap<string, { minWidth?: number; minHeight?: number }>;
 
-function minAlong(node: DockNode, axis: Dir, min: { width: number; height: number }, own?: PanelMinimums): number {
+/** Height of a group's tab strip (`--dv-tabs-and-actions-container-height` in `dock.css`). */
+export const DOCK_STRIP_HEIGHT = 40;
+
+/** The top-level rows of a layout: the children of a root column, else the whole root as the one row. */
+export function topLevelRows(layout: DockNode): DockNode[] {
+  return layout.type === 'branch' && layout.dir === 'column' ? layout.children : [layout];
+}
+
+/** The least extent `node` keeps along `axis` (same axis: the parts add up; the other axis: the largest). `groupExtra` is added once per group. */
+export function minAlong(node: DockNode, axis: Dir, min: { width: number; height: number }, own?: PanelMinimums, groupExtra = 0): number {
   // A group keeps the largest minimum of its tabs, so a boundary never asks the engine for less than it will keep.
-  if (node.type === 'group') return Math.max(...node.panels.map(id => (axis === 'row' ? own?.get(id)?.minWidth ?? min.width : own?.get(id)?.minHeight ?? min.height)));
-  const parts = node.children.map(child => minAlong(child, axis, min, own));
+  if (node.type === 'group') return groupExtra + Math.max(...node.panels.map(id => (axis === 'row' ? own?.get(id)?.minWidth ?? min.width : own?.get(id)?.minHeight ?? min.height)));
+  const parts = node.children.map(child => minAlong(child, axis, min, own, groupExtra));
   return node.dir === axis ? parts.reduce((total, part) => total + part, 0) : Math.max(...parts);
 }
 
