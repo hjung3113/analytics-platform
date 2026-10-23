@@ -14,3 +14,7 @@ If any of these files don't exist, proceed silently.
 ## Precedence
 
 Root `AGENTS.md` → `docs/06_platform_ui_contract.md` → per-folder `AGENTS.md`. A Decided item in `docs/05_roadmap_and_open_questions.md` or an ADR beats older prose; fix stale docs in the same change. `products/feedbackops/` follows its own `AGENTS.md` and is not reinterpreted by these rules.
+
+## Changing the glossary
+
+A change that picks a canonical term, renames one, or demotes a term to `_Avoid_` is a decision, not an edit. Before merging it, get one independent review (verify each cited `file:line`, flag collisions and missed synonyms), then send the owner a list of "term · what is mixed now → what we will do", and merge only the confirmed items (owner, 2026-10-23: PR #715 was merged before this and re-confirmed afterwards in #718). Definitions that only record an existing decision (an ADR, `docs/05`) need no extra confirmation. Code copy that must follow the glossary goes to an issue when other open PRs touch those files.
