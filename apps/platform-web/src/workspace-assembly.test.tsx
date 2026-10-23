@@ -29,14 +29,22 @@ describe('workspace assembly (#260)', () => {
     vi.unstubAllGlobals();
   });
 
-  it('registers the 내 활동 menus as global menus behind platform:view; only 알림 has a screen so far (ADR-0070, ADR-0071)', () => {
+  it('registers the 내 활동 menus as global menus behind platform:view; 알림 and 설문 have screens; 권한 요청 is planned (ADR-0070, ADR-0071)', () => {
     for (const [id, path] of [['notifications', '/notifications'], ['surveys', '/surveys'], ['permission-requests', '/permission-requests']] as const) {
       const entry = registry.menuById(id);
       expect(entry).toMatchObject({ group: 'myActivity', path, permission: 'platform:view' });
       expect(registry.spaceOf(entry)).toBeNull();
-      if (id === 'notifications') expect(entry.component).toBeDefined(); else expect(entry.component).toBeUndefined();
+      if (id === 'permission-requests') expect(entry.component).toBeUndefined(); else expect(entry.component).toBeDefined();
       expect(entry.moduleScreen).toBeUndefined();
     }
+  });
+
+  it('registers the survey response page as a navHidden child of 설문 with the survey ID as a path parameter (#653)', () => {
+    const entry = registry.menuById('survey-respond');
+    expect(entry).toMatchObject({ group: 'myActivity', parent: 'surveys', navHidden: true, path: '/surveys/:surveyId/respond', permission: 'platform:view', pageKeys: ['returnTo'] });
+    expect(entry.component).toBeDefined();
+    expect(registry.spaceOf(entry)).toBeNull();
+    expect(registry.matchRoute('/surveys/11111111-1111-4111-8111-111111111111/respond')?.menu.id).toBe('survey-respond');
   });
 
   it.skipIf(probeRun)('registers six spaces and the decided group order', () => {

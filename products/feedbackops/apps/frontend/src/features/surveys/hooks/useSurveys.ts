@@ -1,5 +1,6 @@
-import { type ApiError, ApiParseError, apiClient, apiRequest } from '@/lib/api';
+import { apiClient, apiRequest } from '@/lib/api/client';
 import { mintIdempotencyKey } from '@/lib/api/idempotency';
+import { type ApiError, ApiParseError } from '@/lib/api/types';
 import { invalidateNavCounts } from '@/lib/query/navCounts';
 import type { ListSurveysQuery } from '@fops/shared';
 import {

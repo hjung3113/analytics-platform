@@ -57,6 +57,12 @@ vi.mock('@/lib/api', async (importOriginal) => ({
   fetchCapabilityScope,
   fetchManagedSystems,
 }));
+// useSurveys imports the client module directly (bridge-safe graph, #653), not the barrel mocked above.
+vi.mock('@/lib/api/client', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/client')>()),
+  apiClient,
+  apiRequest,
+}));
 vi.mock('@/features/surveys/hooks/useSurveys', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/features/surveys/hooks/useSurveys')>();
   return {
