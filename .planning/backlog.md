@@ -4,6 +4,8 @@
 
 ## 작은 후속 (확인된 것)
 
+- **구현 안 함 — FeedbackOps 앱 import를 `@ap/ui`로 옮기고 `@fops/ui` 재수출 층 정리(SDK 전환 마지막 단계):** 코디네이터 판단 2026-10-19, 되돌릴 수 있다. 이유: 앱 import가 약 290개 파일에 걸치는데 `@fops/ui`가 SDK 부품을 `@ap/ui`에서 그대로 재수출하고 공개 이름도 같아서, 옮겨도 동작·SDK 소비 증거가 늘지 않고 FeedbackOps diff만 크다([ADR-0050](../docs/adr/0050-domain-coupled-ui-returns-to-feedbackops.md)). 다시 여는 조건: FeedbackOps가 재수출 층을 없애고 싶다고 하거나, `@fops/ui`가 `@ap/ui`와 이름이 어긋날 때(공개 이름 일치 검사가 깨질 때). 보드에서 옮김(#671 B3b).
+- **구현 안 함 — 공간이 정말 0개인 세션의 FeedbackOps 진입 링크 회귀 E2E(#451):** mock에 그런 역할이 없어 #451은 "블록을 그릴 공간이 없는 화면"으로 검사했다. 다시 볼 조건: mock에 공간 0개 역할이 생기거나 실제 SSO 역할 매핑이 들어올 때. 보드에서 옮김(#671 B3b).
 - **구현 안 함 — Context 값 표시 문장을 키별 함수 하나로(`sdk-v0.12.0` 품질 리뷰 Q6):** 같은 Context 값을 읽는 문장으로 바꾸는 곳이 넷이고 규칙이 조금씩 다르다(`components` `tableMessages.ts`, 셸 `board/paneActions.ts`·`vocContext.ts`·`GlobalContextBar.tsx`; 지표 버전만 `v3`·`@ 3`·`formatMetricVersion` 셋). 이유: 셸 안 VOC 칩은 릴리스 전에 보드 머리와 맞췄고, 나머지는 화면마다 문구가 달라 통일하려면 문구 결정이 필요하다. 다시 볼 조건: 새 ContextKey가 추가되거나, 다섯 번째 표시 곳이 생기거나, 사용자가 같은 값이 다르게 읽힌다고 지적할 때(위 ContextKey 필드 대응표 항목과 같이 본다).
 
 - **구현 안 함 — E2E 순차 Tab 루프를 tabbable 도우미로(#671 B6):** `contracts.spec.ts`의 Tab 루프(상한 100–400) 네 곳은 테스트당 1.5–4.2초, 합 약 10초로 전체 약 700초 중 작은 몫이다(2026-10-23 측정). 루프 자체가 "Tab으로 도달한다"는 단언이라 직접 포커스로 바꾸면 계약이 약해진다. 다시 볼 조건: Tab 루프 테스트가 흔들리거나 한 건이 10초를 넘을 때.
