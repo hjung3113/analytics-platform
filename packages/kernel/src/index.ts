@@ -9,7 +9,6 @@ export {
   CONTEXT_LABELS, createRegistry, isBoardPath, PAGE_TYPE_LABELS, pathFor, routeParamNames, RegistryError,
   type AnyGroupId, type GroupDef, type MenuEntry, type ModuleGroupDef, type ModuleMenuEntry, type PageProps, type PlatformGroupDef, type PlatformMenuEntry, type Registry, type RouteMatch,
 } from './registry';
-export { type PageFocus, type PageNavigation } from './pageNavigation';
 export { mountModule, type MountOptions } from './module';
 
 export { useEquipmentAxes } from './platform';

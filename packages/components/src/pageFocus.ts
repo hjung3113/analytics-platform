@@ -1,4 +1,4 @@
-import type { PageFocus, PageNavigation } from '@ap/kernel';
+import type { PageFocus, PageNavigation } from '@ap/kernel/host';
 
 export const PANE_ROOT_SELECTOR = '[data-pane-id]';
 
