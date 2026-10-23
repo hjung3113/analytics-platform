@@ -24,7 +24,7 @@ export const manifests: MenuEntry[] = [
   },
   {
     id: 'survey-respond', group: 'myActivity', parent: 'surveys', navHidden: true, label: { ko: '설문 응답', en: 'Survey response' },
-    description: { ko: '설문 하나에 응답합니다. 제출하면 출발한 화면으로 돌아갑니다.', en: 'Answer one survey; submitting returns to where you started.' },
+    description: { ko: '설문 하나에 응답합니다.', en: 'Answer one survey.' },
     path: '/surveys/:surveyId/respond', icon: ClipboardList, permission: 'platform:view', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES, pageKeys: ['returnTo'],
     component: lazy(() => import('./pages/SurveyRespond')),

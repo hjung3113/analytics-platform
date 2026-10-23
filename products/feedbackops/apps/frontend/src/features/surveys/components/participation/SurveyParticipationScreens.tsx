@@ -315,6 +315,33 @@ function ParticipationListLoading({ testId }: { testId: string }) {
   );
 }
 
+/** Mounts once on submit success: moves focus to the heading so the completion is announced and focus is not left on the removed submit button. */
+function SubmitSuccess({ Heading }: { Heading: 'h1' | 'h2' }) {
+  const headingRef = React.useRef<HTMLHeadingElement>(null);
+  React.useEffect(() => {
+    headingRef.current?.focus();
+  }, []);
+  return (
+    <section className="w-full max-w-xl pt-16 text-center" data-testid="survey-response-success">
+      <div role="status">
+        <Heading
+          ref={headingRef}
+          tabIndex={-1}
+          className="text-lg font-semibold text-text-primary outline-none"
+        >
+          {SURVEY_PARTICIPATION_COPY.submitted}
+        </Heading>
+      </div>
+      <HostLink
+        to="/surveys/participate"
+        className="mt-5 inline-flex text-sm font-medium text-accent-primary underline"
+      >
+        {SURVEY_PARTICIPATION_COPY.backToParticipation}
+      </HostLink>
+    </section>
+  );
+}
+
 export function RespondSurveyScreen({
   surveyId,
   variant = 'page',
@@ -405,20 +432,7 @@ export function RespondSurveyScreen({
   if (submit.isSuccess) {
     return (
       <Frame variant={variant} layout="centered">
-        <section
-          className="w-full max-w-xl pt-16 text-center"
-          data-testid="survey-response-success"
-        >
-          <Heading className="text-lg font-semibold text-text-primary">
-            {SURVEY_PARTICIPATION_COPY.submitted}
-          </Heading>
-          <HostLink
-            to="/surveys/participate"
-            className="mt-5 inline-flex text-sm font-medium text-accent-primary underline"
-          >
-            {SURVEY_PARTICIPATION_COPY.backToParticipation}
-          </HostLink>
-        </section>
+        <SubmitSuccess Heading={Heading} />
       </Frame>
     );
   }

@@ -679,7 +679,10 @@ describe('respondent form', () => {
     await userEvent.setup().click(screen.getByRole('radio', { name: '아니오' }));
     await userEvent.setup().click(screen.getByRole('button', { name: '제출' }));
 
-    expect(await screen.findByText('응답이 제출되었습니다')).toBeInTheDocument();
+    const submittedText = await screen.findByText('응답이 제출되었습니다');
+    expect(submittedText).toBeInTheDocument();
+    expect(document.activeElement).toBe(submittedText);
+    expect(submittedText.closest('[role="status"]')).not.toBeNull();
     expect(screen.getByRole('link', { name: 'Survey 참여로 돌아가기' })).toHaveAttribute(
       'href',
       '/surveys/participate',
@@ -952,9 +955,10 @@ describe('platform bridge screens (embedded)', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: '제출' }));
 
     const success = await screen.findByTestId('survey-response-success');
-    expect(within(success).getByRole('heading', { level: 2 })).toHaveTextContent(
-      '응답이 제출되었습니다',
-    );
+    const successHeading = within(success).getByRole('heading', { level: 2 });
+    expect(successHeading).toHaveTextContent('응답이 제출되었습니다');
+    expect(document.activeElement).toBe(successHeading);
+    expect(successHeading.closest('[role="status"]')).not.toBeNull();
     expect(within(success).getByText('Survey 참여로 돌아가기').closest('a')).toHaveAttribute(
       'data-host-to',
       '/surveys/participate',

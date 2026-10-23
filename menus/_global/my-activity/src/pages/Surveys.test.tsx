@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
@@ -107,7 +107,10 @@ describe('Surveys through the FeedbackOps bridge', () => {
     fireEvent.change(await screen.findByRole('textbox', { name: '사용 경험을 적어주세요.' }), { target: { value: '좋았습니다' } });
     await userEvent.setup().click(screen.getByRole('button', { name: '제출' }));
 
-    await screen.findByTestId('survey-response-success');
+    const success = await screen.findByTestId('survey-response-success');
+    const successHeading = within(success).getByRole('heading');
+    expect(document.activeElement).toBe(successHeading);
+    expect(successHeading.closest('[role="status"]')).not.toBeNull();
     expect(posts(calls).map(call => `${call.method} ${call.path}`)).toEqual([`POST /api/fo/surveys/${ID_A}/responses`]);
     expect(window.location.pathname).toBe(RESPOND);
     expect(screen.getByRole('list', { name: 'toasts' }).children).toHaveLength(0);
