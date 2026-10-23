@@ -14,6 +14,7 @@ import { useQuery } from '@tanstack/react-query';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { useVocCreateMutation } from '../../hooks/useVocCreateMutation';
+import { mergeAttachmentIds, normalizeAttachmentRefs } from './attachment-refs';
 import { type VocComposeContextBlock, appendContextBlock } from './context-block';
 
 export interface VocComposeSubmitted {
@@ -63,6 +64,8 @@ export function useVocComposeController({
       onSubmitted({ vocId: data.id, displayId: data.display_id });
     },
     onError: (err: ApiError) => {
+      // A 401 already retired the bridge session (`onSessionLost`); the host shows the expiry state, not a toast.
+      if (err.status === 401) return;
       if (err.code === 'validation.failed') {
         // Same mapping as the standalone create screen: server field errors land on their fields.
         const fields = (err.detail as { fields?: unknown } | undefined)?.fields;
@@ -169,14 +172,16 @@ export function useVocComposeController({
 
   // `contextBlock` is read when the form is submitted, so a chip removed after typing leaves the typed values alone.
   function handleSubmit(body: CreateVocRequest): void {
+    const { doc, ids: editorIds } = normalizeAttachmentRefs(body.description_rich_content);
     mutation.mutate({
       ...body,
-      description_rich_content: appendContextBlock(body.description_rich_content, contextBlock),
-      attachment_ids: attachmentIds,
+      description_rich_content: appendContextBlock(doc, contextBlock),
+      attachment_ids: mergeAttachmentIds(editorIds, attachmentIds),
     });
   }
 
   function handleAttachmentError(err: unknown): void {
+    if ((err as ApiError | null)?.status === 401) return;
     notifyError(mapUnknownError(err).message);
   }
 

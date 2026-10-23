@@ -1,13 +1,20 @@
 import { lazy, Suspense } from 'react';
 import { useI18n, type VocComposeProps, type VocComposeSlot } from '@ap/kernel';
-import { LoadingBlock } from '@ap/components';
+import { Skeleton } from '@ap/ui';
 
 // The page (and with it the FeedbackOps compose screen) loads on the first open, so none of it is in the main chunk.
 const VocCompose = lazy(() => import('./pages/VocCompose'));
 
 function Loading() {
   const { lang } = useI18n();
-  return <div role="status" aria-label={lang === 'ko' ? 'VOC 등록 불러오는 중' : 'Loading VOC form'} className="p-4"><LoadingBlock rows={5} height={240} /></div>;
+  // One live region: `LoadingBlock` has its own `role="status"`, so the fallback draws the skeleton rows itself.
+  return <div role="status" aria-busy aria-label={lang === 'ko' ? 'VOC 등록 불러오는 중' : 'Loading VOC form'} className="min-h-60 space-y-2 p-4">
+    <Skeleton className="h-5 w-11/12" />
+    <Skeleton className="h-5 w-5/6" />
+    <Skeleton className="h-5 w-3/4" />
+    <Skeleton className="h-5 w-2/3" />
+    <Skeleton className="h-5 w-7/12" />
+  </div>;
 }
 
 /**

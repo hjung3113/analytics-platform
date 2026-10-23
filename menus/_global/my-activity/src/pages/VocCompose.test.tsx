@@ -25,11 +25,11 @@ const CONTEXT: VocComposeContext = {
 };
 const managedSystemFor = (spaceId: string | null) => (spaceId === 'analytics' ? MS : null);
 
-function handle(over: { managedSystems?: () => Response } = {}) {
+function handle(over: { managedSystems?: () => Response; post?: () => Response } = {}) {
   return (path: string, method: string) => {
     if (path.startsWith('/api/fo/managed-systems')) return over.managedSystems?.() ?? json({ items: [MS_ROW], total: 1 });
     if (path.startsWith('/api/fo/analytics-areas')) return json({ items: [], total: 0 });
-    if (path === '/api/fo/vocs' && method === 'POST') return json({ id: VOC, display_id: 'VOC-7' }, 201);
+    if (path === '/api/fo/vocs' && method === 'POST') return over.post?.() ?? json({ id: VOC, display_id: 'VOC-7' }, 201);
     return json({ code: 'internal.unexpected', message: 'not mocked' }, 500);
   };
 }
@@ -96,6 +96,19 @@ describe('VOC 등록 drawer content', () => {
       stubFetch(handle({ managedSystems: () => json({ code: 'auth.unauthenticated', message: 'x' }, 401) }));
       render(tree(CONTEXT));
       await waitFor(() => expect(onSessionLost).toHaveBeenCalledTimes(1));
+      expect(toasts()).toEqual([]);
+      expect(onSubmitted).not.toHaveBeenCalled();
+    });
+
+    it('V2: a 401 on the submit follows the same session-lost path: once, the expiry state, no toast and no onSubmitted', async () => {
+      stubFetch(handle({ post: () => json({ code: 'auth.unauthenticated', message: 'x' }, 401) }));
+      render(tree(CONTEXT));
+      await screen.findByRole('radio', { name: 'Analytics MS' });
+      await fill();
+      await submit();
+
+      await waitFor(() => expect(onSessionLost).toHaveBeenCalledTimes(1));
+      expect(await screen.findByText('세션이 만료되었습니다')).toBeTruthy();
       expect(toasts()).toEqual([]);
       expect(onSubmitted).not.toHaveBeenCalled();
     });

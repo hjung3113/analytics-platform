@@ -1982,7 +1982,7 @@ test.describe('전역 기능 자리 (ADR-0070, 06 §9.1·§10)', () => {
     await page.getByRole('button', { name: 'VOC 등록', exact: true }).click();
     const drawer = page.getByRole('complementary', { name: 'VOC 등록' });
     await expect(drawer).toBeVisible();
-    await expect(drawer.getByRole('status')).toContainText('실서버 필요');
+    await expect(drawer.getByRole('status').filter({ hasText: '실서버 필요' })).toBeVisible();
   });
 
   test('플랫폼 사이드바는 업무 사이드바와 접힘 상태를 함께 쓴다', async ({ page }) => {

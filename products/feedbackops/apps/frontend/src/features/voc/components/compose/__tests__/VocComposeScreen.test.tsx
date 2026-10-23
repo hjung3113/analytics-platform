@@ -186,6 +186,17 @@ function disallowed(node: RichNode, rules = SHARED_ALLOWLISTS['voc-description']
   return [...found, ...(node.content ?? []).flatMap((child) => disallowed(child, rules))];
 }
 
+// Each of these in the request body is a regression on its own (the brief keeps severity, reporter and owner out).
+const FORBIDDEN_BODY_KEYS = [
+  'severity',
+  'reporter_id',
+  'owner_user_id',
+  'owner_team_id',
+  'reporter_facing_status',
+  'triage_state',
+  'display_id',
+] as const;
+
 const originalFetch = globalThis.fetch;
 beforeEach(() => configureApiClient({ basePath: '/api/fo' }));
 afterEach(() => {
@@ -214,9 +225,7 @@ describe('<VocComposeScreen> submit (F1)', () => {
       title: '차트가 비어 있습니다',
       source_context: 'direct_use',
     });
-    expect(Object.keys(body)).not.toEqual(
-      expect.arrayContaining(['severity', 'reporter_id', 'owner_user_id', 'owner_team_id']),
-    );
+    for (const key of FORBIDDEN_BODY_KEYS) expect(body).not.toHaveProperty(key);
     expect(body.description_rich_content.content).toEqual([
       typed,
       heading,
