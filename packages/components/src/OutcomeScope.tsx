@@ -88,13 +88,17 @@ function OutcomeBanner({ group, onRetry, compact = false }: { group: Group; onRe
   const { t } = useI18n();
   const banner = useRef<HTMLElement>(null);
   const unmounting = useRef(false);
+  const detailsId = useId();
+  const titleId = `${detailsId}-title`;
   useLayoutEffect(() => {
     const element = banner.current;
     unmounting.current = false; // StrictMode re-runs the effect after a simulated cleanup
     return () => {
       unmounting.current = true;
-      // The details popover is portaled out of the strip; focus inside it returns to the same target.
-      if (element && (element.contains(document.activeElement) || document.activeElement?.closest('[data-outcome-details]'))) {
+      // Only this strip's own details popover (portaled out of it) counts as owned focus, never another group's.
+      // Matched by id, not ref: the portaled node's ref may already be detached when this cleanup runs.
+      const active = document.activeElement;
+      if (element && (element.contains(active) || active?.closest<HTMLElement>('[data-outcome-details]')?.dataset.outcomeDetails === detailsId)) {
         // Detail panel (dialog) first, then the main landmark; the page content element is the fallback outside a shell.
         // No extra landmark is added around page content (06 §19, §26).
         const target = element.closest<HTMLElement>('[data-outcome-focus-target], [role="dialog"]')
@@ -102,7 +106,7 @@ function OutcomeBanner({ group, onRetry, compact = false }: { group: Group; onRe
         if (target?.isConnected) target.focus({ preventScroll: true });
       }
     };
-  }, []);
+  }, [detailsId]);
   const outcome = group.widgets[0].response!.outcome;
   const danger = outcome === 'error' || outcome === 'timeout';
   const title = outcome === 'error' ? t('stateError') : outcome === 'timeout' ? t('stateTimeout') : t('stateEmpty');
@@ -120,10 +124,10 @@ function OutcomeBanner({ group, onRetry, compact = false }: { group: Group; onRe
       <p className="min-w-0 flex-1 truncate" title={summary}>{summary}</p>
       <Popover>
         <PopoverTrigger asChild><Button type="button" size="toolbar" variant="ghost" className="shrink-0">{t('outcomeDetails')}</Button></PopoverTrigger>
-        <PopoverContent data-outcome-details align="end" padding="compact" className="max-w-sm"
+        <PopoverContent data-outcome-details={detailsId} aria-labelledby={titleId} align="end" padding="compact" className="max-w-sm"
           onCloseAutoFocus={event => { if (unmounting.current) event.preventDefault(); }}>
           <div className="text-xs text-text-secondary">
-            <p className={cn('mb-1 text-sm font-semibold', danger ? 'text-text-danger-label' : 'text-text-secondary')}>{title}</p>
+            <p id={titleId} className={cn('mb-1 text-sm font-semibold', danger ? 'text-text-danger-label' : 'text-text-secondary')}>{title}</p>
             <p>{summary}</p>
           </div>
         </PopoverContent>

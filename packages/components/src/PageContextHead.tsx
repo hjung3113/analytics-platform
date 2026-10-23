@@ -1,4 +1,4 @@
-import { Children, useId, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { useI18n } from '@ap/kernel';
 import { Button } from '@ap/ui';
@@ -7,8 +7,9 @@ import { useCollapsePreference } from './useCollapsePreference';
 
 /** Notes above the page-owned extension; the same stack on a flow page and in an expanded fill head. */
 export function PageHeadBody({ notes, extension }: { notes: readonly ReactNode[]; extension: ReactNode }) {
+  const shown = notes.filter(note => note != null && note !== false);
   return <>
-    {notes.length > 0 && <div data-page-notes className="mb-2 space-y-2">{Children.toArray(notes)}</div>}
+    {shown.length > 0 && <div data-page-notes className="mb-2 space-y-2">{shown.map((note, index) => <div key={index}>{note}</div>)}</div>}
     {extension}
   </>;
 }
@@ -41,15 +42,31 @@ export function PageContextHead({ menuId, notes, extension, summary, pendingChan
     pendingChanges ? t('pageFilterPendingChanges') : '',
     issueCount > 0 ? t('pageIssuesCount', { count: issueCount }) : '',
   ].filter(Boolean).join(' · ');
+  const chips = useRef<HTMLDivElement>(null);
+  const [overflowing, setOverflowing] = useState(false);
   const { collapsed, toggle, expandRef, collapseRef, liveText } = useCollapsePreference(`platform:page-head-collapsed:${menuId}`, summaryText, true, issueCount > 0);
+  // The fade shows only while the chip list is cut off at the right edge.
+  useEffect(() => {
+    const element = chips.current;
+    if (!element) return;
+    const measure = () => setOverflowing(element.scrollWidth > element.clientWidth);
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [collapsed, summaryText]);
 
   return <div data-page-head data-collapsed={collapsed ? 'true' : 'false'} className="px-8 pt-3">
-    {collapsed && <div data-page-head-line className="mb-3 flex items-center gap-2 rounded-md border border-border-subtle bg-surface-card px-3 py-1.5 text-xs text-text-secondary">
-      <div id={summaryId} title={summaryText} className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto whitespace-nowrap">
+    {collapsed && <div data-page-head-line className="mb-1 flex items-center gap-2 rounded-md border border-border-subtle bg-surface-card px-3 py-1.5 text-xs text-text-secondary">
+      <div className="relative flex min-w-0 flex-1">
+      <div ref={chips} id={summaryId} title={summaryText} className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {summary.map((item, index) => <span key={item.key} className="shrink-0">
           <span className="font-normal text-text-secondary">{item.label}</span> <span className="font-medium text-text-primary">{item.value}</span>
           {index < summary.length - 1 && <span aria-hidden className="ml-1.5 text-text-muted">·</span>}
         </span>)}
+      </div>
+      {overflowing && <span data-page-head-fade aria-hidden className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-surface-card to-transparent" />}
       </div>
       {pendingChanges && <span data-page-head-pending className="shrink-0 whitespace-nowrap font-medium text-text-primary">{t('pageFilterPendingChanges')}</span>}
       {issueCount > 0 && <span data-page-head-issues className="shrink-0 whitespace-nowrap font-medium text-text-danger-label">{t('pageIssuesCount', { count: issueCount })}</span>}

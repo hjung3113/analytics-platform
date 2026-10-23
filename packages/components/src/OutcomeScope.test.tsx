@@ -421,6 +421,32 @@ describe('compact outcome strip on fill pages (#680)', () => {
     expect(screen.getByRole('region', { name: 'Page content' })).toHaveFocus();
   });
 
+  it('names the details popover by its title', () => {
+    render(<CompactPage><Widget q={query()} /><Widget q={query()} name="Widget B" /></CompactPage>);
+    fireEvent.click(screen.getByRole('button', { name: '자세히' }));
+    expect(screen.getByRole('dialog', { name: '데이터를 불러오지 못했습니다' })).toBeVisible();
+  });
+
+  it('leaves focus in group A\'s open details when only group B disappears', () => {
+    const missing = (message: string) => query(response('error', message));
+    const idle: QueryState<unknown> = { status: 'idle', response: null, completedAt: null, missing: [], refetch: vi.fn() };
+    const a1 = missing('A'); const a2 = missing('A'); const b1 = missing('B'); const b2 = missing('B');
+    const tree = (bGone: boolean) => <CompactPage>
+      <Widget q={a1} name="A1" /><Widget q={a2} name="A2" />
+      <Widget q={bGone ? idle : b1} name="B1" /><Widget q={bGone ? idle : b2} name="B2" />
+    </CompactPage>;
+    const view = render(tree(false));
+    const strips = screen.getAllByRole('group', { name: '위젯 상태 요약' });
+    expect(strips).toHaveLength(2);
+    fireEvent.click(within(strips[0]).getByRole('button', { name: '자세히' }));
+    const popover = screen.getByRole('dialog');
+    act(() => { popover.focus(); });
+    view.rerender(tree(true));
+    expect(screen.getAllByRole('group', { name: '위젯 상태 요약' })).toHaveLength(1);
+    expect(screen.getByRole('dialog')).toBe(popover);
+    expect(popover.contains(document.activeElement)).toBe(true);
+  });
+
   it('keeps the full banner without the compact flag (flow pages, DetailDrawer)', () => {
     render(<Page><Widget q={query()} /><Widget q={query()} name="Widget B" /></Page>);
     const banner = screen.getByRole('group', { name: '위젯 상태 요약' });

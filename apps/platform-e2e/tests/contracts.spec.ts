@@ -4155,8 +4155,8 @@ test.describe('차트 카탈로그 — 종류별 상호작용 (06 §16, #530)', 
 test.describe('페이지 머리 접기 (#680)', () => {
   const CYCLE = `/analytics/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}`;
   const HEAD_KEY = 'platform:page-head-collapsed:cycle-time';
-  /** Upper bound of the workspace top (px) at 1440×900 with the query bar and the page head collapsed: measured 238.8 (315 before #680), plus 9px for font metrics on CI. */
-  const COLLAPSED_WORKSPACE_TOP_MAX = 248;
+  /** Upper bound of the workspace top (px) at 1440×900 with the query bar and the page head collapsed: measured 230.8 (315 before #680), plus 9px for font metrics on CI. */
+  const COLLAPSED_WORKSPACE_TOP_MAX = 240;
   const line = (page: Page) => page.locator('[data-page-head-line]');
   const workspaceTop = async (page: Page) => (await page.locator('[data-panel-workspace]').boundingBox())!.y;
 

@@ -100,6 +100,31 @@ describe('PlatformPage fill head disclosure (#680)', () => {
     expect(line.querySelector('[data-page-head-notes]')).toHaveTextContent('안내 1');
   });
 
+  it('wraps each note in its own block container and drops null/false', () => {
+    mount({ layout: 'flow', contextNotes: ['First note', null, 'Second note', false] });
+    const containers = document.querySelectorAll('[data-page-notes] > div');
+    expect(containers).toHaveLength(2);
+    expect(containers[0]).toHaveTextContent('First note');
+    expect(containers[1]).toHaveTextContent('Second note');
+  });
+
+  it('hides the chip scrollbar and shows the right fade only while the list overflows', () => {
+    const size = (scroll: number, client: number) => {
+      vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockReturnValue(scroll);
+      vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(client);
+    };
+    size(100, 300);
+    const view = mount({ queryBarExtension: { pageSummary: applied, appliedPageSummary: applied, issues: [] } });
+    const list = document.getElementById(screen.getByRole('button', { name: '페이지 머리 펼치기' }).getAttribute('aria-describedby')!)!;
+    expect(list).toHaveClass('[scrollbar-width:none]', '[&::-webkit-scrollbar]:hidden');
+    expect(document.querySelector('[data-page-head-fade]')).toBeNull();
+    view.unmount();
+    size(500, 300);
+    mount({ queryBarExtension: { pageSummary: applied, appliedPageSummary: applied, issues: [] } });
+    expect(document.querySelector('[data-page-head-fade]')).not.toBeNull();
+    vi.restoreAllMocks();
+  });
+
   it('counts notes without the null/false elements', () => {
     mount({ contextNotes: [<p key="a">하나</p>, null, false, <p key="b">둘</p>] });
     expect(head().querySelector('[data-page-head-notes]')).toHaveTextContent('안내 2');
