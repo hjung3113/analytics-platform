@@ -17,6 +17,7 @@ _Avoid_: 공장, Factory — 구어로는 Line과 같은 뜻으로 쓰이지만,
 
 **Scope** (`scopeId`):
 사용자가 조회 한 번에 고르는 단일 접근·조회 범위. Site 안의 room_name 기준으로 부여되며, 서버가 요청마다 권한을 다시 검증한다. v1은 단일 Scope 선택이다([06 §6.2](docs/06_platform_ui_contract.md#62-scope와-권한-decided--open)).
+_Avoid_: 범위, 조회 범위(단독) — 화면 문구도 `Scope`로 쓴다. 결과 크기를 말할 때는 범위 대신 조건·결과를 쓴다.
 
 ### 설비 식별 계층
 
@@ -29,7 +30,7 @@ _Avoid_: 벤더, Vendor
 
 **ChamberType**:
 Model보다 더 세부적으로 설비를 분류하는 값. 외부 시스템에서 공급되며, 이 플랫폼이 직접 산출하지 않는다.
-_Avoid_: 챔버, Chamber — ChamberType으로 통일.
+_Avoid_: 챔버(단독), Chamber — 분류값은 ChamberType으로 쓴다. 화면의 `챔버 유형`은 ChamberType의 한국어 이름이다.
 
 **EquipmentID**:
 실제 설비 한 대를 가리키는 식별자이자 사람이 부르는 이름이다. 모든 Site에 걸쳐 전역적으로 유일하며, 설비를 가리키는 키는 이것 하나다. Maker → Model → ChamberType → EquipmentID 설비 분류 계층의 최하위이며, 설비 내부 이벤트에는 이보다 세부적인 Module/Slot 단위가 있다.
@@ -48,7 +49,7 @@ _Avoid_: 설비명, EquipmentName — EquipmentID와 별개인 설비 이름은 
 _Avoid_: Process, 공정 구역 — "Process"는 이 프로젝트에서 여러 의미로 겹쳐 쓰여 혼동되므로 room_name으로 통일한다.
 
 **StGroup** (`stgroup`):
-하나의 Operation(제품 라우팅 작업 단위, 아래 참고)을 상호 대체 수행할 수 있는 **설비 단위**(챔버·모듈 단위 아님) 묶음. 담당자·조직이 아닌 **공정 능력(capability) 단위**다. Site와 room_name 경계를 넘지 않으며, 여러 Line에 걸칠 수 있다. Maker/Model 분류와는 별개다. 소속은 가변적이고 외부 시스템에서 공급받는다. 사용자가 그 시점 소속 / 지금 소속을 골라 조회하며, 소속 이력이 없는 축은 지금 소속만 허용한다([ADR-0059](docs/adr/0059-app-injected-equipment-axes-and-condition.md)).
+하나의 Operation(제품 라우팅 작업 단위, 아래 참고)을 상호 대체 수행할 수 있는 **설비 단위**(Module/Slot 단위 아님) 묶음. 담당자·조직이 아닌 **공정 능력(capability) 단위**다. Site와 room_name 경계를 넘지 않으며, 여러 Line에 걸칠 수 있다. Maker/Model 분류와는 별개다. 소속은 가변적이고 외부 시스템에서 공급받는다. 사용자가 그 시점 소속 / 지금 소속을 골라 조회하며, 소속 이력이 없는 축은 지금 소속만 허용한다([ADR-0059](docs/adr/0059-app-injected-equipment-axes-and-condition.md)).
 _Avoid_: 분임조 — 분임조는 StGroup과 별개의 값이다(아래 참고).
 
 **PRC 그룹** (`prcGroups`):
@@ -87,7 +88,7 @@ _Avoid_: Job — Lot과 Job은 다른 개념이다(아래 Job 참고). Carrier�
 파서가 완료한 실행 한 건을 가리키는 식별 키이며 세 값의 조합이다. Lot ID로 대체하지 않는다. anchor는 원천 시각의 전체 정밀도를 보존하는 불투명 키다. 분석 Context와 별개인 목적지 객체 ID로 전달한다([06 §6.1](docs/06_platform_ui_contract.md#61-식별자와-url-소유-상태-decided)).
 
 **Recipe** (`prc_name`):
-PRC 로그의 `RecipeId`에 대응하는 값 — Lot이 특정 챔버에서 진행하는 PRC 단계의 레시피다. 설비 자체의 고정 속성이 아니라 Lot(그리고 그 안의 PRC 단계)마다 달라질 수 있다. 지표 산출과 분석 모두에서 가장 많이 쓰이는 1급 분류 축이다.
+PRC 로그의 `RecipeId`에 대응하는 값 — Lot이 특정 Module/Slot에서 진행하는 PRC 단계의 레시피다. 설비 자체의 고정 속성이 아니라 Lot(그리고 그 안의 PRC 단계)마다 달라질 수 있다. 지표 산출과 분석 모두에서 가장 많이 쓰이는 1급 분류 축이다.
 
 ### 제품 라우팅
 
@@ -131,6 +132,7 @@ Registry에 등록된 진입점 하나. 경로·권한·Context 지원 방식·�
 
 **Context 지원 방식** (`Capability`):
 메뉴가 분석 Context 키마다 선언하는 쓰임 — 적용(`apply`, 조회 조건으로 씀), 참조만(`reference`, 보이고 이어지지만 조회에 안 씀), 미사용(`unsupported`, 보존만 함).
+_Avoid_: Capability(단독), Context Capability — 공정 능력(StGroup)·FeedbackOps 권한 어휘와 섞인다.
 
 **페이지 유형** (Page Archetype, `pageType`):
 메뉴 화면이 따르는 배치 틀 다섯 — Overview, Analysis Workspace, Management, Catalog, Workflow([06 §12](docs/06_platform_ui_contract.md)).
@@ -140,7 +142,7 @@ _Avoid_: 템플릿.
 어느 업무 시스템에도 속하지 않고 자기 권한으로만 열리는 메뉴 — 홈, 알림, 내 VOC, 설문, 권한 요청, 공지. 전역 화면에서는 사이드바로, 업무 시스템 안에서는 전환기 팝오버로 닿는다([ADR-0070](docs/adr/0070-global-features-platform-menu-and-voc-drawer.md)). 접근 가능한 업무 시스템 수에 들지 않는다.
 _Avoid_: 전역 유틸리티 메뉴 — ADR-0028 때의 이름이다.
 
-**레일**:
+**레일** (접근 이름 `시스템 레일`):
 셸 맨 왼쪽의 세로 띠. 위에서부터 전환기, 현재 업무 시스템의 메뉴 그룹(섹션), 시스템을 바꿔도 그대로인 공통 도구(메뉴 검색·분석 보드·VOC 등록·알림), 도움말·사용자 순이다([15 §3.2](docs/15_multi_workspace_ui.md)).
 _Avoid_: 앱 레일.
 
@@ -151,16 +153,20 @@ _Avoid_: 앱 레일.
 메뉴 화면 오른쪽에 목적지 객체 하나의 상세를 여는 셸 자리. 분석 보드에서는 새 칸의 상세가 이전 칸의 상세를 닫는다.
 _Avoid_: 패널(단독) — 작업 영역 패널과 섞인다.
 
+**VOC 등록 드로어**:
+레일의 `VOC 등록`으로 여는 오른쪽 도킹 드로어. 지금 화면을 떠나지 않고 VOC를 쓴다([ADR-0070](docs/adr/0070-global-features-platform-menu-and-voc-drawer.md)).
+_Avoid_: VOC 등록 패널 — 상세 패널과 섞인다.
+
 **목적지 객체 ID**:
-메뉴 간 이동이나 상세 패널에서 열 객체 하나를 가리키는 ID(예: Occurrence, EquipmentID). 분석 Context와 따로 전달하고, 그 값으로 분석 Context를 추정하지 않는다([06 §22](docs/06_platform_ui_contract.md)).
+메뉴 간 이동이나 상세 패널에서 열 객체 하나를 가리키는 ID(예: Occurrence, EquipmentID). 단독 `목적지`는 이동할 화면을 뜻하고, 객체는 늘 `목적지 객체 ID`로 쓴다. 분석 Context와 따로 전달하고, 그 값으로 분석 Context를 추정하지 않는다([06 §22](docs/06_platform_ui_contract.md)).
 
 **호스트 모듈** (`ModuleManifest`):
 플랫폼 밖 제품이 자기 메뉴 그룹·메뉴 화면을 가지고 플랫폼에 올라오는 단위. 플랫폼(호스트)이 주는 기능만 쓴다([ADR-0053](docs/adr/0053-host-module-contract-v1.md)).
 _Avoid_: 모듈(단독) — 설비 Module/Slot과 섞인다. 업무 시스템을 모듈이라 부르지 않는다.
 
-**서버 포트** (`PlatformAdapter`):
+**서버 어댑터** (`PlatformAdapter`):
 플랫폼이 서버와 주고받는 계약 함수 묶음. 앱이 mock이나 실서버 구현을 주입하고, Kernel·셸·메뉴는 구현을 모른다.
-_Avoid_: API(단독) — 서버의 HTTP 엔드포인트와 섞인다.
+_Avoid_: 서버 포트, API(단독) — 포트는 네트워크 포트와, API는 서버의 HTTP 엔드포인트와 섞인다.
 
 **응답 봉투** (envelope):
 조회 응답이 데이터와 함께 싣는 공통 겉 — 결과 상태(`outcome`: 정상·빈 결과·오류·권한 없음·너무 큼·시간 초과), 판정(`assessments`), Data Trust([06 §18–19](docs/06_platform_ui_contract.md#18-data-trust-contract)).
@@ -177,7 +183,7 @@ FeedbackOps가 피드백과 개선 작업을 추적하는 사내 시스템 하�
 
 **FeedbackOps Task**:
 Managed System 하나를 위한 내부 실행 작업. 요청 단계는 Task Request다. 로그 결함·검증 Round(표준 로그 개발), 개선 과제·실적(개선 실행), 지표 정의·버전(지표관리)과 이름이 비슷해도 다른 객체이며 관계만 링크한다.
-_Avoid_: 이슈 — 시스템마다 뜻이 달라 단독으로 쓰지 않는다. 개선 실행의 `과제`를 영어로 Task라 쓰지 않는다.
+_Avoid_: 이슈 — 시스템마다 뜻이 달라 단독으로 쓰지 않는다. 개선 실행의 `과제`를 영어로 Task라 쓰지 않는다(지금 화면의 `Tasks`는 [#714](https://github.com/hjung3113/analytics-platform/issues/714)에서 고친다).
 
 **피드백 운영** (업무 시스템, 계획):
 FeedbackOps의 관리자·개발자 화면(수신함·Triage·Finding·Task·설문 관리·피드백 운영 설정 등)을 올릴 업무 시스템. 아직 등록되지 않았다. 모든 사용자가 쓰는 VOC 등록·내 VOC·설문 응답은 여기가 아니라 플랫폼 메뉴와 레일이다. 이름은 Candidate다([ADR-0066](docs/adr/0066-feedbackops-merges-into-platform.md), 배치는 [합류 설계](docs/integration/feedbackops-merge-design.md) §3.2).
@@ -189,16 +195,22 @@ FeedbackOps의 관리자·개발자 화면(수신함·Triage·Finding·Task·설
 본 화면의 분석 Context 중 메뉴를 옮겨도 이어지는 공통 키 집합을 **전역 Context**라 한다(URL 전역 키). 보드에서는 칸마다 따로 있으므로 "칸의 분석 Context"라 쓴다.
 _Avoid_: 분석 조건(단독) — 메뉴 화면의 페이지 필터와 섞인다.
 
+**Context 바** (`GlobalContextBar`):
+메뉴 화면 위에서 전역 Context(분석 보드에서는 선택된 칸의 분석 Context)를 보이고 바꾸는 셸 자리.
+
+**조회 바** (`QueryBar`):
+초안/적용 방식 메뉴에서 Context 바가 바뀌는 모양. 조건을 모아 `적용`으로 한 번에 조회한다. 바꾸는 즉시 적용되는 메뉴에는 없다.
+
 **본 화면**:
 메뉴를 눌러 여는 보통의 메뉴 화면. URL 하나가 화면 하나이고, 분석 Context가 하나뿐인 칸으로 본다.
 
 **분석 보드**:
-사용자가 여러 분석 화면을 나란히 놓고 비교하는 셸 제공 화면. Page Archetype이 아니고 업무 시스템에 속하지 않으며, 시트 여러 장을 가진다.
-_Avoid_: 워크스페이스, 대시보드, 작업대 — 업무 시스템·Analysis Workspace 아키타입과 섞인다.
+사용자가 여러 분석 화면을 나란히 놓고 비교하는 셸 제공 화면. 페이지 유형이 아니고 업무 시스템에 속하지 않으며, 시트 여러 장을 가진다.
+_Avoid_: 워크스페이스, 대시보드, 작업대 — 업무 시스템·Analysis Workspace 페이지 유형과 섞인다.
 
 **시트**:
-분석 보드 화면 아래에 놓인 탭 하나. 칸을 4개까지 가지며, 칸은 탭으로 겹치거나 나누어 놓인다(기본은 도킹 배치, 1×1 · 1×2 · 2×1 · 2×2 격자는 대체 렌더러, [ADR-0067](docs/adr/0067-dockview-layout-engine-board-v2.md)).
-_Avoid_: 탭 — 브라우저 탭·화면 안 탭과 섞인다.
+분석 보드 화면 아래 **시트 띠**에 놓인 한 장. 칸을 4개까지 가지며, 칸은 탭으로 겹치거나 나누어 놓인다(기본은 도킹 배치, 1×1 · 1×2 · 2×1 · 2×2 격자는 대체 렌더러, [ADR-0067](docs/adr/0067-dockview-layout-engine-board-v2.md)).
+_Avoid_: 탭 — 브라우저 탭·작업 영역 탭과 섞인다. 시트 줄은 `시트 띠`라 쓴다.
 
 **칸**:
 시트의 자리 하나(코드 이름 `pane`). 메뉴 화면 하나와 그 화면의 분석 Context·page 상태를 가진다. 만들 때 기본 조건을 복사해 시작하고, 그 뒤로는 다른 칸과 연결이 없다.
@@ -211,11 +223,11 @@ _Avoid_: 패널, 패인 — 상세 패널·작업 영역 패널과 섞인다. `p
 
 **작업 영역** (`PanelWorkspace`):
 메뉴 화면 한 장 안에서 내용을 여러 패널로 나누어 놓는 영역. 패널을 탭으로 겹치고, 끌어 옮기고, 나누고, 최대화하고, 숨길 수 있다. 메뉴는 패널·프리셋·기본 패널만 선언하고 조작은 플랫폼이 소유한다(06 §12.8, [ADR-0067](docs/adr/0067-dockview-layout-engine-board-v2.md)). 분석 보드는 화면 여러 개를 나란히 놓고, 작업 영역은 화면 하나의 내용을 나눈다.
-_Avoid_: 워크스페이스, 대시보드 — 분석 보드·Analysis Workspace 아키타입과 섞인다.
+_Avoid_: 워크스페이스, 대시보드 — 분석 보드·Analysis Workspace 페이지 유형과 섞인다.
 
 **페이지 머리**:
 메뉴 화면 제목 줄 아래, 본문 위의 영역. 메뉴가 넘긴 안내(`contextNotes`)와 페이지 필터·칩(`contextExtension`)이 놓인다. 높이 채움(fill) 화면에서는 한 줄로 접힐 수 있다(06 §12.8, [ADR-0075](docs/adr/0075-page-head-one-line-fold-thin-outcome-strip.md)).
-_Avoid_: 헤더 — 제목·동작 줄(06 §8)과 섞인다. 조회 바(전역 Context)와도 다르다.
+_Avoid_: 헤더 — 제목·동작 줄(06 §8)과 섞인다. Context 바와도 다르다.
 
 **패널**:
 작업 영역을 이루는 조각 하나. 제목(탭 이름)을 가지며 차트·표·요약 같은 내용 하나를 담는다. 예: 사이클타임 상세의 추세·요약·분포·느린 실행.
@@ -226,7 +238,7 @@ _Avoid_: 칸, 패인 — 칸은 분석 보드 시트의 자리다. 상세 패널
 
 **묶음**:
 작업 영역에서 패널 여러 개가 한 자리를 탭으로 나누어 쓰는 단위. 한 번에 패널 하나만 보이고 묶음 위 띠의 탭으로 바꾼다. 화면 문구는 `<제목> 묶음으로 옮기기`다(예: `요약 묶음으로 옮기기`, 보드는 `칸 3 묶음으로 옮기기`).
-_Avoid_: 그룹 — 메뉴 그룹(Registry `GroupId`)·설비 그룹과 섞인다. 코드(dockview)의 group은 이 묶음이다.
+_Avoid_: 그룹 — 메뉴 그룹(Registry `GroupId`)·설비 그룹과 섞인다. 코드(dockview)의 group은 이 묶음이다. 사이드바의 한 묶음은 묶음이 아니라 메뉴 그룹이다.
 
 **탭** (작업 영역):
 묶음 위 띠에 붙은 패널 이름표. 누르면 그 패널이 보이고, 끌면 패널을 다른 자리로 옮긴다. 띠 오른쪽에 최대화와 `⋯` 동작 메뉴가 있다.
@@ -235,7 +247,7 @@ _Avoid_: 그룹 — 메뉴 그룹(Registry `GroupId`)·설비 그룹과 섞인�
 작업 영역에서 이웃한 묶음 사이의 선. 끌거나 키보드로 옮겨 양쪽 크기를 바꾼다. 패널마다 선언한 최소 크기 밑으로는 줄지 않는다.
 
 **프리셋**:
-메뉴가 미리 선언한 작업 영역 배치. 도구줄에서 고르고, `기본 배치`는 지금 프리셋의 처음 모양으로 되돌린다. 사이클타임 상세는 `기본`(balanced)과 `집중`(focus) 두 가지다.
+메뉴가 미리 선언한 작업 영역 배치. 도구줄에서 고르고, `기본 배치`는 지금 프리셋의 처음 모양으로 되돌린다. 배치를 되돌리는 말은 `기본 배치`, 조건을 비우는 말은 `초기화`다. 사이클타임 상세는 `기본`(balanced)과 `집중`(focus) 두 가지다.
 
 ### 조회·드릴·데이터 신뢰
 
@@ -250,4 +262,4 @@ _Avoid_: 드릴다운 메뉴 — 별도 메뉴가 아니라 한 메뉴 안의 �
 여러 조회 조건을 모아 한 번에 실행하는 메뉴의 조회 방식. 편집 중인 조건은 칸의 초안에만 있고, `적용`을 눌러야 URL(적용 주소)에 쓰이고 조회가 실행된다. 선언이 없는 메뉴는 바꾸는 즉시 적용되는 live 모드다. 필수 조건이 비면 조회하지 않는 idle 상태다([ADR-0061](docs/adr/0061-query-draft-applied-address-and-required-gate.md)).
 
 **Data Trust** (`trust`):
-조회 결과 숫자의 상태 — 갱신 시각(`updatedAt`), 데이터 기준 시각(`dataThrough`), Coverage, 지표 버전, 잠정(provisional) 여부, 원천. 응답 봉투의 `trust`로 오고 `DataTrustIndicator`가 같은 어휘로 보인다. 그 조회의 신뢰이며 화면이 말하는 대상의 상태가 아니다([06 §18](docs/06_platform_ui_contract.md#18-data-trust-contract)).
+조회 결과 숫자의 상태 — 갱신 시각(`updatedAt`), 데이터 기준 시각(`dataThrough`), Coverage, 지표 버전, 잠정(provisional) 여부, 원천. 응답 봉투의 `trust`로 오고 `DataTrustIndicator`가 같은 어휘로 보인다. 그 조회의 신뢰이며 화면이 말하는 대상의 상태가 아니다([06 §18](docs/06_platform_ui_contract.md#18-data-trust-contract)). Coverage는 늘 이 Data Trust 필드를 뜻하며, 견본 표시나 FeedbackOps 연동 화면에 쓰지 않는다.
