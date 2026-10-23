@@ -16,7 +16,7 @@ FeedbackOps를 플랫폼 앱 하나·서버 하나·저장소 하나로 합친�
 2. **화면은 옮기고 다시 쓰지 않는다.** FeedbackOps 화면 코드를 Kernel 라우팅·Registry에 맞춰 옮긴다. 화면 단위 동작·문구·권한 표시는 FeedbackOps 기준을 유지한다.
 3. **FeedbackOps 도메인 불변식은 그대로 간다**(원본: `products/feedbackops/GLOSSARY.md`, 합류 뒤에는 옮긴 위치):
    - VOC는 인증된 사내 사용자가 남긴 목소리다. 설문 응답에서 VOC를 만들지 않는다.
-   - Triage·신고자 표시·Task 상태 기계 셋은 서로 자동 매핑하지 않는다(FeedbackOps ADR-0005).
+   - Triage·신고자 표시·Task 상태 기계 셋은 서로 자동 매핑하지 않는다(FO ADR-0005).
    - 시스템 간 이력의 원본은 `entity_links`다.
    - Task Request가 검토 전 실행 후보로부터 Task 백로그를 지킨다.
    - 대시보드는 차트 보고가 아니라 액션 큐다.
@@ -77,7 +77,7 @@ FeedbackOps를 플랫폼 앱 하나·서버 하나·저장소 하나로 합친�
   - 메서드: 감사 읽기(`auditTrail`·`entityAudit`), 활용률(`recordUsage`·`usageSummary`), `reportClientError`, 차트 주석
 - 전송 계약 문서는 서버를 FastAPI로 가정한다. 실제 FeedbackOps 백엔드는 Fastify 5 + zod다(`apps/backend/package.json:29`). 고치는 일은 O12.
 
-운영 안전 규칙(Postgres 기반 rate limit, CSP, `Idempotency-Key`, SQL 마이그레이션 — FeedbackOps ADR-0015)과 배경 작업(pg-boss, FeedbackOps ADR-0009)은 그대로 쓴다. 배포 모양(사내 k8s의 Docker, FeedbackOps ADR-0013)은 #151 답으로 확인한다.
+운영 안전 규칙(Postgres 기반 rate limit, CSP, `Idempotency-Key`, SQL 마이그레이션 — FO ADR-0015)과 배경 작업(pg-boss, FO ADR-0009)은 그대로 쓴다. 배포 모양(사내 k8s의 Docker, FO ADR-0013)은 #151 답으로 확인한다.
 
 ### 4.1 공통 처리
 
@@ -174,7 +174,7 @@ FeedbackOps를 플랫폼 앱 하나·서버 하나·저장소 하나로 합친�
 
 | 단계 | 내용 | 이슈 | 선행 |
 | --- | --- | --- | --- |
-| 0 | 결정·설계 기록(이 문서, ADR-0066, FeedbackOps ADR-0072) | — | — |
+| 0 | 결정·설계 기록(이 문서, ADR-0066, FO ADR-0072) | — | — |
 | 1 | 저장소 합류. 1a는 서브모듈을 디렉터리로 바꾸고 CI를 옮겼다(완료, #612). 1b는 도구 통일(Node 26.7, pnpm 11, lockfile 하나, `@ap/ui` `workspace:*`)로 완료했다([#642](https://github.com/hjung3113/analytics-platform/issues/642)) | [#592](https://github.com/hjung3113/analytics-platform/issues/592) | 0 |
 | 2 | 실서버 출발점: §4 공통 부분, 실어댑터 조립 | [#593](https://github.com/hjung3113/analytics-platform/issues/593) | 1 |
 | 3 | 전역 기능 화면(§3.1) — 시안 컨펌 먼저 | [#594](https://github.com/hjung3113/analytics-platform/issues/594) | 1, 2 |
@@ -213,6 +213,6 @@ FeedbackOps를 플랫폼 앱 하나·서버 하나·저장소 하나로 합친�
 
 - 독립 FeedbackOps(v1.3.0)에는 실제 사내 사용자가 없다(사용자 2026-10-21). 사내 사용은 플랫폼으로 시작하므로 병행 운영 기간을 두지 않고, 단계 5는 플랫폼 첫 배포와 함께 한다.
 
-- 독립 FeedbackOps는 유지 보수만 한다: 버그 수정과 합류 준비. 새 기능은 플랫폼 쪽에서 만든다(FeedbackOps ADR-0072).
+- 독립 FeedbackOps는 유지 보수만 한다: 버그 수정과 합류 준비. 새 기능은 플랫폼 쪽에서 만든다(FO ADR-0072).
 - 독립 앱 안에서만 의미가 있는 개선(신고자에게 운영 메뉴 숨기기, 신고자 홈)은 하지 않는다. 신고자는 플랫폼 전역 기능만 쓰게 되므로 문제가 구조상 사라진다. 독립 앱에 실제 신고자가 생기면 다시 연다.
-- 단계 4가 끝날 때까지 진입 링크(ADR-0045)와 복귀 키(`platformReturn`, FeedbackOps ADR-0071)를 그대로 쓴다.
+- 단계 4가 끝날 때까지 진입 링크(ADR-0045)와 복귀 키(`platformReturn`, FO ADR-0071)를 그대로 쓴다.

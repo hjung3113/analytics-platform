@@ -5,7 +5,7 @@
 개정 2026-10-15 (#340): 탭 선택 표식.
 - 결정자: 사용자 — 실제 앱 위 `?variant=` 시안(#228, 브랜치 `hjung3113/proto-228-fops-shapes`)에서 A(현재 · 플랫폼 덮어쓰기)/B(FeedbackOps 모양 · 지금 크기)/C(FeedbackOps 모양 · FeedbackOps 크기)를 보고 "니추천대로 하고 feedbackops스타일은 최대한 유지하는방향으로"라고 했다. 권장안은 C였다.
 
-플랫폼은 FeedbackOps `@fops/ui`를 `@ap/ui`로 다시 내보내 디자인 시스템을 공유한다([ADR-0010](0010-feedbackops-design-system-shared-on-tailwind-v4.md), [ADR-0011](0011-design-direction-feedbackops-shell.md)). 그런데 공통 컴포넌트·셸·메뉴 83곳이 `className`으로 버튼·팝오버·라벨·입력의 모양을 바꿔 쓰고 있었다(작은 버튼 28px·12px 글자·4px 반경, 흰 카드 팝오버 등). [DESIGN.md](../../DESIGN.md)는 이미 "primitive 모양은 FeedbackOps 원본을 따르며 버튼·input을 독자적으로 재설계하지 않는다"고 정해 두었고, 디자인 lint(`@shadcn/lint`, FeedbackOps ADR-0062를 따름)가 이 덮어쓰기를 `no-restyle`로 잡는다. 규칙의 원본은 `tooling/AGENTS.md`와 DESIGN.md다.
+플랫폼은 FeedbackOps `@fops/ui`를 `@ap/ui`로 다시 내보내 디자인 시스템을 공유한다([ADR-0010](0010-feedbackops-design-system-shared-on-tailwind-v4.md), [ADR-0011](0011-design-direction-feedbackops-shell.md)). 그런데 공통 컴포넌트·셸·메뉴 83곳이 `className`으로 버튼·팝오버·라벨·입력의 모양을 바꿔 쓰고 있었다(작은 버튼 28px·12px 글자·4px 반경, 흰 카드 팝오버 등). [DESIGN.md](../../DESIGN.md)는 이미 "primitive 모양은 FeedbackOps 원본을 따르며 버튼·input을 독자적으로 재설계하지 않는다"고 정해 두었고, 디자인 lint(`@shadcn/lint`, FO ADR-0062를 따름)가 이 덮어쓰기를 `no-restyle`로 잡는다. 규칙의 원본은 `tooling/AGENTS.md`와 DESIGN.md다.
 
 ## 결정
 

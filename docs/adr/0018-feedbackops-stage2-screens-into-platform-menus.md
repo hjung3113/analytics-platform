@@ -5,7 +5,7 @@
 
 단계 계획(1단계 연결 → 2단계 셸 편입)과 피드백 공간의 범위는 [저장소 연결 — 통합 방식](../integration/repository-layout.md#feedbackops-통합-방식-decided-2026-09-26)과 [06 §9.1](../06_platform_ui_contract.md#91-워크스페이스-decided-2026-09-26)이 소유한다. 진행 계획과 남은 결정은 [#213](https://github.com/hjung3113/analytics-platform/issues/213)에 있다. 이 ADR은 결정과 이유만 둔다.
 
-1단계(딥링크, 내 VOC·설문 읽기, 디자인 공유)는 대부분 끝났다. M2에서 플랫폼이 FeedbackOps 토큰·컴포넌트·셸 구조를 직접 쓰게 되어(ADR-0010·0011·0013) 화면을 옮기는 비용이 크게 줄었다. 남은 질문은 FeedbackOps를 어느 깊이로 합치느냐였다. FeedbackOps는 Fastify + Drizzle + Postgres 백엔드에 VOC·Finding·Task Request/Task·Milestone·설문·알림 모듈과 모듈별 권한 확인, 보고자 상태와 내부 상태를 자동 연결하지 않는 규칙(FeedbackOps ADR-0005)을 이미 갖고 있다.
+1단계(딥링크, 내 VOC·설문 읽기, 디자인 공유)는 대부분 끝났다. M2에서 플랫폼이 FeedbackOps 토큰·컴포넌트·셸 구조를 직접 쓰게 되어(ADR-0010·0011·0013) 화면을 옮기는 비용이 크게 줄었다. 남은 질문은 FeedbackOps를 어느 깊이로 합치느냐였다. FeedbackOps는 Fastify + Drizzle + Postgres 백엔드에 VOC·Finding·Task Request/Task·Milestone·설문·알림 모듈과 모듈별 권한 확인, 보고자 상태와 내부 상태를 자동 연결하지 않는 규칙(FO ADR-0005)을 이미 갖고 있다.
 
 ## 결정
 
