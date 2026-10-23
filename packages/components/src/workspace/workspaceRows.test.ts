@@ -83,6 +83,27 @@ describe('reconcileRows', () => {
       expect(reconcileRows(stack, [300, 500], next, min200, 800, 'c')).toEqual([300, 500, NEW_ROW_HEIGHT]);
     });
 
+    it('an engine drag of a tab out of a shared row to the top: the new first row is 360 and the row it left keeps its px', () => {
+      const stack = column([40, 60], group(['a']), group(['b', 'c']));
+      const next = movePanel(stack, 'b', { panelId: 'a', position: 'top' });
+      expect(rowsOf(next)).toEqual([['b'], ['a'], ['c']]);
+      expect(reconcileRows(stack, [300, 500], next, min200, 800, 'b')).toEqual([NEW_ROW_HEIGHT, 300, 500]);
+    });
+
+    it('an engine drag of a row of its own to the top: it counts as a new row (360) and the others keep their px', () => {
+      const stack = column([30, 40, 30], group(['a']), group(['b']), group(['c']));
+      const next = movePanel(stack, 'c', { panelId: 'a', position: 'top' });
+      expect(rowsOf(next)).toEqual([['c'], ['a'], ['b']]);
+      expect(reconcileRows(stack, [300, 500, 400], next, min200, 800, 'c')).toEqual([NEW_ROW_HEIGHT, 300, 500]);
+    });
+
+    it('a drag into the tabs of an existing row creates no row: the emptied source row goes, the others keep their px', () => {
+      const stack = column([30, 40, 30], group(['a']), group(['b']), group(['c']));
+      const next = movePanel(stack, 'b', { panelId: 'a', position: 'center' });
+      expect(rowsOf(next)).toEqual([['a', 'b'], ['c']]);
+      expect(reconcileRows(stack, [300, 500, 400], next, min200, 800, 'b')).toEqual([300, 400]);
+    });
+
     it('a split above or below a panel in the same row keeps nested shares and the other rows untouched', () => {
       const nested = column([30, 70], group(['a']), row([40, 60], group(['b']), group(['c'])));
       const next = movePanel(nested, 'c', { panelId: 'a', position: 'bottom' });

@@ -8,8 +8,16 @@ import { I18nProvider, PlatformProvider, createRegistry, useMenuQuery } from '@a
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { WorkspaceCommandsHost, useWorkspaceCommands, type WorkspaceCommand } from '../dock';
 import { groupsOnScreen, installResizeObserver } from '../dock/__tests__/harness';
+import { movePanel } from '../dock/commands';
 import { PageFlowContext } from '../pageFlow';
 import { PanelWorkspace, type PanelWorkspaceLayout, type PanelWorkspaceProps } from './PanelWorkspace';
+
+// The props the workspace hands the layout, to play the engine's drop report (a real drop needs engine geometry jsdom has not).
+const dockProps = vi.hoisted(() => ({ current: null as null | { layout: unknown; onLayoutChange: (layout: unknown) => void; rows?: { onPanelDrop?: (panelId: string | null) => void } } }));
+vi.mock('../dock/DockLayout', async importOriginal => {
+  const actual = await importOriginal<typeof import('../dock/DockLayout')>();
+  return { ...actual, DockLayoutBase: (props: Parameters<typeof actual.DockLayoutBase>[0]) => { dockProps.current = props as typeof dockProps.current; return <actual.DockLayoutBase {...props} />; } };
+});
 
 const observer = installResizeObserver();
 beforeAll(() => { observer.resize(1200, 600); });
@@ -667,6 +675,52 @@ describe('PanelWorkspace: height mode (#686)', () => {
     // A panel in an earlier row still can move below.
     await userEvent.click(screen.getAllByRole('button', { name: '추세 동작' })[0]!);
     expect(await screen.findByRole('menuitem', { name: '아래 새 줄로 옮기기' })).toBeInTheDocument();
+  });
+
+  describe('the engine\'s own drag carries the moved panel (the layout alone cannot say which panel moved)', () => {
+    const engineDrop = (panelId: string, position: 'top' | 'center', onto: string) => {
+      const props = dockProps.current!;
+      act(() => {
+        props.rows!.onPanelDrop!(panelId);
+        props.onLayoutChange(movePanel(props.layout as Parameters<typeof movePanel>[0], panelId, { panelId: onto, position }));
+      });
+    };
+
+    it('a tab dragged above the first row is a new first row of 360; the other rows keep their px', async () => {
+      storage.setItem(KEY(), stackStored([300, 400, 500]));
+      mountWorkspace(ROWS_PROPS);
+      await ready();
+      engineDrop('kpi', 'top', 'trend');
+      await waitFor(() => { expect(rowHeights()).toEqual([360, 300, 400]); });
+    });
+
+    it('a tab dragged out of a shared row to the top: 360 above, the row it left keeps its px', async () => {
+      storage.setItem(KEY(), stackStored([300, 400, 500]));
+      mountWorkspace(ROWS_PROPS);
+      await ready();
+      engineDrop('selector', 'top', 'trend');
+      await waitFor(() => { expect(rowHeights()).toEqual([360, 300, 400, 500]); });
+    });
+
+    it('a drop into the tabs of another row makes no row: the emptied row goes and the others keep their px', async () => {
+      storage.setItem(KEY(), stackStored([300, 400, 500]));
+      mountWorkspace(ROWS_PROPS);
+      await ready();
+      engineDrop('kpi', 'center', 'trend');
+      await waitFor(() => { expect(rowHeights()).toEqual([300, 400]); });
+    });
+
+    it('is used once: a later layout report without a drop of its own carries no moved panel', async () => {
+      storage.setItem(KEY(), stackStored([300, 400, 500]));
+      mountWorkspace(ROWS_PROPS);
+      await ready();
+      engineDrop('kpi', 'center', 'trend');
+      await waitFor(() => { expect(rowHeights()).toEqual([300, 400]); });
+      // No drop was reported for this one: with a stale `kpi` it would be the new 360 row at the top; without, the earlier row keeps the shared 300.
+      const props = dockProps.current!;
+      act(() => { props.onLayoutChange(movePanel(props.layout as Parameters<typeof movePanel>[0], 'kpi', { panelId: 'trend', position: 'top' })); });
+      await waitFor(() => { expect(rowHeights()).toEqual([300, 360, 400]); });
+    });
   });
 
   it('is not offered in fit mode', async () => {

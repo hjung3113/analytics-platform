@@ -10,7 +10,16 @@ import type { DockRows } from './dockTypes';
 import type { DockNode } from './schema';
 
 const panelData = vi.hoisted(() => ({ current: null as { viewId: string; groupId: string; panelId: string | null } | null }));
-vi.mock('dockview-react', async importOriginal => ({ ...(await importOriginal<typeof import('dockview-react')>()), getPanelData: () => panelData.current }));
+// The engine's own drop events need real geometry; the will-drop handler the layout hands the engine is captured and called directly.
+const willDrop = vi.hoisted(() => ({ current: null as ((event: unknown) => void) | null }));
+vi.mock('dockview-react', async importOriginal => {
+  const actual = await importOriginal<typeof import('dockview-react')>();
+  return {
+    ...actual,
+    getPanelData: () => panelData.current,
+    DockviewReact: (props: React.ComponentProps<typeof actual.DockviewReact>) => { willDrop.current = props.onWillDrop as typeof willDrop.current; return <actual.DockviewReact {...props} />; },
+  };
+});
 
 const observer = installResizeObserver();
 beforeAll(() => {
@@ -183,5 +192,25 @@ describe('DockLayout rows (workspace stack mode)', () => {
     }
     expect(seen).not.toHaveBeenCalled();
     expect(onDropBelow).not.toHaveBeenCalled();
+  });
+
+  it('reports the dropped tab before the layout, null for a whole group, and nothing for a refused drag', async () => {
+    const onPanelDrop = vi.fn();
+    mountRows(column([40, 60], group(['a']), group(['c'])), { onPanelDrop });
+    await ready();
+    const drop = (data: typeof panelData.current) => {
+      const event = { getData: () => data, api: { id: 'own' }, defaultPrevented: false, preventDefault: vi.fn(() => { event.defaultPrevented = true; }) };
+      willDrop.current!(event);
+      return event;
+    };
+    expect(willDrop.current).not.toBeNull();
+    drop({ viewId: 'own', groupId: 'g', panelId: 'a' });
+    expect(onPanelDrop).toHaveBeenLastCalledWith('a');
+    drop({ viewId: 'own', groupId: 'g', panelId: null });
+    expect(onPanelDrop).toHaveBeenLastCalledWith(null);
+    onPanelDrop.mockClear();
+    expect(drop({ viewId: 'another-layout', groupId: 'g', panelId: 'a' }).preventDefault).toHaveBeenCalled();
+    drop(null);
+    expect(onPanelDrop).not.toHaveBeenCalled();
   });
 });

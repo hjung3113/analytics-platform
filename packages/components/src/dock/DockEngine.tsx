@@ -367,10 +367,13 @@ export default function DockEngine({
 
   // A drag from another instance, or one that is not a panel, is refused (the engine already ignores foreign payloads, `viewId` mismatch at
   // main.esm.mjs:11510/11538; this makes the refusal explicit). `onUnhandledDragOver` is never accepted.
+  const onPanelDrop = rows?.onPanelDrop;
   const onWillDrop = useCallback((event: DockviewWillDropEvent) => {
     const data = event.getData();
-    if (!data || data.viewId !== event.api.id) event.preventDefault();
-  }, []);
+    if (!data || data.viewId !== event.api.id) { event.preventDefault(); return; }
+    // The drop is reported as a layout right after this (before any other drop); the row model needs to know which panel moved.
+    onPanelDrop?.(event.defaultPrevented ? null : data.panelId);
+  }, [onPanelDrop]);
 
   // The strip under the last row accepts one tab of this layout: not a whole group, not another layout's tab, not outside data. Every drag over the strip
   // ends here, taken or refused: an ancestor dock (the board around a pane) must never act on a drop released over it. These are native listeners on the

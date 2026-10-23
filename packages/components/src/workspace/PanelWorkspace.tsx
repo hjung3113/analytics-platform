@@ -266,6 +266,9 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, l
 
   // Stack rows: stored px raised to each row's current minimum (a panel's minimum can change); the maximum only limits what the user asks for.
   const stackRows = stackActive ? storedRows : undefined;
+  // The panel the engine's last drop moved, until the engine reports the resulting layout (`DockRows.onPanelDrop`); used once.
+  const dropped = useRef<string | null>(null);
+  const onPanelDrop = useCallback((panelId: string | null) => { dropped.current = panelId; }, []);
   const rowMinimums = stackRows ? topLevelRows(state.layout).map(rowMinimum) : [];
   const rows: DockRows | undefined = stackRows ? {
     heights: stackRows.map((px, index) => Math.max(px, rowMinimums[index]!)), minimums: rowMinimums, maximum: maxRow,
@@ -276,7 +279,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, l
         return withRows(previous, 'stack', next.map((px, index) => clampRow(px, minimums[index]!, Math.max(live.current.maxRow, px))));
       });
     },
-    onDropBelow: moveBelow, dropBelowLabel: tx(workspaceText.dropBelow),
+    onDropBelow: moveBelow, onPanelDrop, dropBelowLabel: tx(workspaceText.dropBelow),
   } : undefined;
 
   const groupActions = (group: { panels: string[]; active: string }) => {
@@ -300,7 +303,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, l
       {!hosted && <WorkspaceToolbar commands={commands} onShown={focusTab} />}
       <div ref={fitSlot} className={rows ? undefined : 'min-h-0 flex-1'}>
         <DockLayoutBase panels={dockPanels} layout={state.layout} label={tx(label)} rows={rows}
-          onLayoutChange={next => { layoutChange(current => ({ ...current, layout: next })); }}
+          onLayoutChange={next => { const moved = dropped.current ?? undefined; dropped.current = null; layoutChange(current => ({ ...current, layout: next }), moved); }}
           onActivate={id => { layoutChange(current => (panelOrder(current.layout).includes(id) ? { ...current, layout: activatePanel(current.layout, id) } : current)); }}
           maximizedPanelId={maximizedId} onMaximizedChange={setMaximized}
           renderGroupActions={groupActions}

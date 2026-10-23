@@ -4595,6 +4595,25 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
     await evidence(page, testInfo, 'workspace-stack-drop-below');
   });
 
+  test('엔진 끌기로 탭을 첫 줄 위쪽 가장자리에 놓으면 새 첫 줄이 360이고 나머지 줄은 px를 지킨다', async ({ page }) => {
+    await openStack(page);
+    await page.locator('#platform-main').evaluate(element => { element.scrollTo(0, 0); });
+    const before = await rowPx(page);
+    await expect.poll(() => stored(page)).toMatchObject([{ mode: 'stack', rows: before }]);
+    // `세로`: rows [추세], [요약 | 분포], [느린 실행]. 요약 leaves a shared row, so that row stays (분포 alone) and keeps its px.
+    const source = groupOf(page, TITLES.summary);
+    await expect(source.getByRole('tab')).toHaveCount(1);
+    const expected = [NEW_ROW, ...before];
+    const first = groupOf(page, TITLES.trend);
+    // The top edge of the first group's content area, just under its 40px tab strip.
+    await dragLike(page, source.getByRole('tab'), first, { x: (await first.boundingBox())!.width / 2, y: 52 });
+    await expect(rowSeparators(page)).toHaveCount(expected.length);
+    const after = await rowPx(page);
+    expect(after.length).toBe(expected.length);
+    after.forEach((px, index) => { expect(near(px, expected[index]!, 1)).toBe(true); });
+    await expect.poll(async () => (await stored(page))[0]?.rows).toEqual(after);
+  });
+
   test('묶음 전체를 끌어 띠에 놓아도 거절된다(여러 탭 묶음의 빈 머리 영역)', async ({ page }) => {
     await openStack(page, '기본');
     const group = groupOf(page, TITLES.distribution);
@@ -4681,7 +4700,9 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
     ] }] } });
     await page.goto('/board?sheet=ws');
     await ready(page, { inPane: true });
-    const boardKey = () => page.evaluate(() => localStorage.getItem('platform:board:engineer'));
+    // The V1 key is only the seeded fixture; the board the running app writes is the V2 key (boardStore.ts).
+    // The board the app reads: V2 once anything was saved, else the V1 seed (`boardStore.ts`). A changed board is written to V2.
+    const boardKey = () => page.evaluate(() => localStorage.getItem('platform:board:v2:engineer') ?? localStorage.getItem('platform:board:engineer'));
     const boardTabLabels = () => page.locator('[role="tab"][data-tab-panel-id][aria-label^="칸 "]').evaluateAll(tabs => tabs.map(tab => tab.getAttribute('aria-label')));
     // The board's own separators: those outside the workspace (the workspace's are row separators and its nested percent ones).
     const outerSeparators = () => page.locator('[data-dock-separator]').evaluateAll(items => items.filter(item => !item.closest('[data-panel-workspace]'))
@@ -4699,6 +4720,7 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
     expect(await paneBody.evaluate(element => element.scrollHeight > element.clientHeight + 1)).toBe(true);
     expect(await mainScrolls(page)).toBe(false);
     const labels = await boardTabLabels();
+    await expect.poll(boardKey).not.toBeNull();
     const board = await boardKey();
     // A pane body is shorter than a row minimum, so a row may be pinned (06 §12.8: the minimum wins); press a key on the first separator
     // that still has a range, or on the first one when none does.
@@ -4716,10 +4738,16 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
 
     // A board tab dropped on the workspace's strip is refused, and the strip consumes the drag: the board's own dock never sees the drop, so
     // neither layout changes.
+    // Pressing a board tab selects its pane, and the board saves the selection (V2). Select it first, so the snapshot already holds what the
+    // drag's own press writes and only a layout change can differ.
+    const boardTab = page.locator('[role="tab"][data-tab-panel-id][aria-label^="칸 2 · "]');
+    await boardTab.click();
+    await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('platform:board:v2:engineer') ?? 'null')?.sheets?.[0]?.selectedPaneId ?? null))
+      .toBe(await page.evaluate(() => JSON.parse(localStorage.getItem('platform:board:v2:engineer') ?? 'null')?.sheets?.[0]?.panes?.[1]?.id ?? 'unsaved'));
     const rowsOnStrip = await rowPx(page);
     const storedOnStrip = JSON.stringify(await stored(page));
     const boardOnStrip = await boardKey();
-    const boardTab = page.locator('[role="tab"][data-tab-panel-id][aria-label^="칸 2 · "]');
+    const outerOnStrip = await outerSeparators();
     await dragLike(page, boardTab, dropStrip(page), { x: 40, y: 30 });
     // Pacing, not a save: a refused drop changes nothing, so there is no state to poll for; give a wrongly accepted one time to show.
     await page.waitForTimeout(600);
@@ -4728,6 +4756,7 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
     expect(JSON.stringify(await stored(page))).toBe(storedOnStrip);
     expect(await boardTabLabels()).toEqual(labels);
     expect(await boardKey()).toBe(boardOnStrip);
+    expect(await outerSeparators()).toEqual(outerOnStrip);
   });
 });
 
