@@ -1,9 +1,9 @@
-import { buildQuery, conditionLabel, emptyGlobal, formatDateTime, formatMetricVersion, parseDateTime, type ContextKey, type GlobalContext, type Pair } from '@ap/contracts';
-import { CONTEXT_LABELS, pathFor, RETURN_CONTEXT_LABELS, type Lang, type VocComposeContext, type VocComposeContextItem } from '@ap/kernel';
+import { buildQuery, emptyGlobal, formatDateTime, formatMetricVersion, parseDateTime, type ContextKey, type EquipmentAxisDescriptor, type GlobalContext, type Pair } from '@ap/contracts';
+import { CONTEXT_LABELS, labelledCondition, pathFor, RETURN_CONTEXT_LABELS, type Lang, type VocComposeContext, type VocComposeContextItem } from '@ap/kernel';
 import type { HostPlatform } from '@ap/kernel/host';
 
-/** What the freeze reads from the host: the main screen's route, Context and page pairs at the moment the drawer opens. */
-export type VocFreezeInput = Pick<HostPlatform, 'route' | 'platformScreen' | 'global' | 'page' | 'absoluteUrl' | 'registry'> & { lang: Lang };
+/** What the freeze reads from the host: the main screen's route, Context and page pairs at the moment the drawer opens; `axes` and `asOf` (the localized membership-as-of text) read the Condition like the board header. */
+export type VocFreezeInput = Pick<HostPlatform, 'route' | 'platformScreen' | 'global' | 'page' | 'absoluteUrl' | 'registry'> & { lang: Lang; axes: readonly EquipmentAxisDescriptor[]; asOf: string };
 
 const TEXT = {
   ko: { screen: '화면', board: '분석 보드', granularity: '집계 단위', focus: '상세', none: '없음', more: (n: number) => `외 ${n}개` },
@@ -29,6 +29,7 @@ type SetField = 'roomNames' | 'lineNames' | 'prcGroups' | 'selection' | 'lotIds'
 export function freezeVocContext(input: VocFreezeInput, removed: ReadonlySet<string> = new Set()): VocComposeContext {
   const text = TEXT[input.lang];
   const { route, global, page, registry } = input;
+  const basis = global.membershipBasis === 'asOf' ? ` · ${input.asOf}` : '';
   if (input.platformScreen === 'board' || route === null) {
     return { items: removed.has('menu') ? [] : [{ id: 'menu', label: text.screen, value: text.board }], href: null, spaceId: null, menuId: null };
   }
@@ -56,7 +57,7 @@ export function freezeVocContext(input: VocFreezeInput, removed: ReadonlySet<str
   };
   const idSet = (field: SetField, label: ContextKey, extra: readonly 'membershipBasis'[] = []) => keep(`global:${field}`, [field, ...extra], () => {
     const ids = global[field];
-    return ids === null ? null : { id: `global:${field}`, label: CONTEXT_LABELS[label][input.lang], value: values(ids, text) };
+    return ids === null ? null : { id: `global:${field}`, label: CONTEXT_LABELS[label][input.lang], value: values(ids, text) + (field === 'prcGroups' ? basis : '') };
   });
 
   keep('period', ['from', 'to'], () => global.from === null || global.to === null ? null : { id: 'period', label: CONTEXT_LABELS.time[input.lang], value: `${clock(global.from)} – ${clock(global.to)}` });
@@ -64,7 +65,7 @@ export function freezeVocContext(input: VocFreezeInput, removed: ReadonlySet<str
   idSet('lineNames', 'line');
   // The membership basis belongs to the Condition, or to the PRC groups when there is no Condition.
   idSet('prcGroups', 'prcGroup', global.condition === null ? ['membershipBasis'] : []);
-  keep('global:condition', ['condition', 'membershipBasis'], () => global.condition === null ? null : { id: 'global:condition', label: CONTEXT_LABELS.condition[input.lang], value: conditionLabel(global.condition) });
+  keep('global:condition', ['condition', 'membershipBasis'], () => global.condition === null ? null : { id: 'global:condition', label: CONTEXT_LABELS.condition[input.lang], value: labelledCondition(global.condition, input.axes, input.lang) + basis });
   idSet('selection', 'selection');
   idSet('lotIds', 'lot');
   keep('global:ppid', ['ppid'], () => global.ppid === null ? null : { id: 'global:ppid', label: CONTEXT_LABELS.ppid[input.lang], value: global.ppid });

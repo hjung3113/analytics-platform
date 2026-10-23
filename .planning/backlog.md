@@ -4,6 +4,8 @@
 
 ## 작은 후속 (확인된 것)
 
+- **구현 안 함 — Context 값 표시 문장을 키별 함수 하나로(`sdk-v0.12.0` 품질 리뷰 Q6):** 같은 Context 값을 읽는 문장으로 바꾸는 곳이 넷이고 규칙이 조금씩 다르다(`components` `tableMessages.ts`, 셸 `board/paneActions.ts`·`vocContext.ts`·`GlobalContextBar.tsx`; 지표 버전만 `v3`·`@ 3`·`formatMetricVersion` 셋). 이유: 셸 안 VOC 칩은 릴리스 전에 보드 머리와 맞췄고, 나머지는 화면마다 문구가 달라 통일하려면 문구 결정이 필요하다. 다시 볼 조건: 새 ContextKey가 추가되거나, 다섯 번째 표시 곳이 생기거나, 사용자가 같은 값이 다르게 읽힌다고 지적할 때(위 ContextKey 필드 대응표 항목과 같이 본다).
+
 - **구현 안 함 — E2E 순차 Tab 루프를 tabbable 도우미로(#671 B6):** `contracts.spec.ts`의 Tab 루프(상한 100–400) 네 곳은 테스트당 1.5–4.2초, 합 약 10초로 전체 약 700초 중 작은 몫이다(2026-10-23 측정). 루프 자체가 "Tab으로 도달한다"는 단언이라 직접 포커스로 바꾸면 계약이 약해진다. 다시 볼 조건: Tab 루프 테스트가 흔들리거나 한 건이 10초를 넘을 때.
 - **구현 안 함 — `defineEntity`(엔티티 타입 → 권한·site 범위 선언, #671 B8):** 이유: 선언을 읽을 곳이 mock 하나뿐이고(실서버는 TS를 못 읽고, ADR-0072 방향상 엔티티 어휘는 앱 것), `server-conformance`는 이미 매핑을 하네스 입력(`entity: { ref, permission }`)으로 받는다. 다시 볼 조건: 메뉴 선언에서 엔티티 게이트를 읽는 곳이 둘 이상 생길 때(사내 실서버가 선언 사본으로 판정, 또는 Kernel이 `getEntity` 전에 권한을 거를 때).
 - **구현 안 함 — deprecated 포트 `contextOptions`·`evaluateSelection` 제거(#671 B8):** 이유: 셸 live 바(`GlobalContextBar.tsx` 조건 편집기·"조건 밖 n대")가 아직 쓰고, 새 포트에는 "선택했지만 조건 밖" 판정이 없어 화면·UX 결정(프로토타입 컨펌)이 필요하다. 다시 볼 조건: 사내 실서버가 selection 경로 구현을 시작하기 전, 그리고 live 바 편집기를 QueryBar 편집기로 바꾸는 시안이 컨펌된 뒤.

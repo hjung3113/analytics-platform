@@ -307,8 +307,8 @@ export function PaneHeader(props: PaneHeaderProps) {
               {hasContentMenu && <DropdownMenuSeparator />}
               <DropdownMenuLabel>{text.screenLayout}</DropdownMenuLabel>
               {radioGroups.map((commands, at) => {
-                // A group the workspace names (its `group`) gets a visible label of its own; the first, unnamed one sits under `화면 배치`.
-                const named = text.workspaceGroupName(commands[0]!.group ?? '');
+                // A group the workspace names (its `groupLabel`) gets a visible label of its own; the first, unnamed one sits under `화면 배치`.
+                const named = commands[0]!.groupLabel;
                 return <Fragment key={commands[0]!.group ?? 'preset'}>
                 {at > 0 && <DropdownMenuSeparator />}
                 {named && <DropdownMenuLabel id={`${id}-group-${at}`}>{named}</DropdownMenuLabel>}

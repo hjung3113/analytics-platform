@@ -215,7 +215,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, l
         run: () => { const next = preset(id); if (next && !live.current.narrow) update(current => applyPreset(current, next), 'enter'); },
       })),
       ...(['fit', 'stack'] as const).map((mode): WorkspaceCommand => ({
-        id: `${MODE_PREFIX}${mode}`, label: tx(mode === 'fit' ? workspaceText.modeFit : workspaceText.modeStack), kind: 'radio', group: 'mode',
+        id: `${MODE_PREFIX}${mode}`, label: tx(mode === 'fit' ? workspaceText.modeFit : workspaceText.modeStack), kind: 'radio', group: 'mode', groupLabel: tx(workspaceText.heightMode),
         checked: (mode === 'stack') === parsed.stack, disabled: parsed.narrow, run: () => { setMode(mode); },
       })),
       ...parsed.hidden.map(([id, text]): WorkspaceCommand => ({

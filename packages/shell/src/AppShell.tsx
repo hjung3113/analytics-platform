@@ -1,6 +1,6 @@
 import { AlertTriangle, Info, X, XCircle } from 'lucide-react';
 import { Suspense, useEffect, useState, type ReactNode } from 'react';
-import { useI18n } from '@ap/kernel';
+import { useEquipmentAxes, useI18n } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import { LoadingBlock } from '@ap/components';
 import { cn, DetailPanelSlotProvider, readLocalStorage, useDetailPanelSlotHost, writeLocalStorage } from '@ap/ui';
@@ -30,7 +30,8 @@ function ShellLayout({ children }: { children: ReactNode }) {
     return readLocalStorage(COLLAPSE_KEY, v => v === null ? window.innerWidth < 1440 : v === '1', false);
   });
   // The VOC drawer and the detail aside share one right position; a newly visible detail (activation) takes it from the drawer (06 §13).
-  const voc = useVocDrawer(slots.vocCompose, () => ({ route, platformScreen, global, page, absoluteUrl, registry, lang }), detail.activation, session);
+  const axes = useEquipmentAxes();
+  const voc = useVocDrawer(slots.vocCompose, () => ({ route, platformScreen, global, page, absoluteUrl, registry, lang, axes, asOf: t('membershipAsOf') }), detail.activation, session);
   const detailShown = detail.open && !voc?.visible;
   const toggle = () => setCollapsed(c => { writeLocalStorage(COLLAPSE_KEY, c ? '0' : '1'); return !c; });
   useEffect(() => {

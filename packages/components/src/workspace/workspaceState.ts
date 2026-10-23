@@ -2,6 +2,7 @@
  * Pure state of a menu workspace (ADR-0067 decisions 3-5, 18-20): which preset is current, the dock tree, which panels are hidden.
  * Maximize is never part of it. No React, no storage.
  */
+import { isRecord } from '@ap/contracts';
 import { activatePanel, addPanel, groupOf, panelOrder, removePanel } from '../dock/commands';
 import { dockGroupsInReadingOrder, normalizeDockTree, type DockNode } from '../dock/schema';
 import { enterRows, reconcileRows, ROW_MIN_HEIGHT, topLevelRows, withRowShares, type RowMinimum } from './workspaceRows';
@@ -20,8 +21,6 @@ export type WorkspacePreset = { id: string; layout: PanelWorkspaceLayout };
 
 /** Static identifiers only: nothing from data can reach a storage key. */
 export const WORKSPACE_ID = /^[a-z][a-z0-9._-]{0,63}$/;
-
-const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
 
 /** Ratios -> shares of 100; anything unusable is left for `normalizeDockTree` (equal shares). */
 function toShares(layout: unknown): unknown {
