@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalS
 import { projectContext, type ActionResult, type ActionSpec, type ApiResponse, type ContextKey, type EndpointSpec, type GlobalContext, type ModuleHost, type ModuleScopedId, type ModuleStatus, type ModuleTarget } from '@ap/contracts';
 import { abortError, actionRequest, launchWrite, type PendingWrite, type WriteFlight } from './action';
 import { useI18n } from './i18n';
-import { usePlatform } from './platform';
+import { useHostPlatform } from './platform';
 import { menuRequest } from './query';
 import type { ModuleMenuEntry } from './registry';
 
@@ -35,7 +35,7 @@ type Lifetime = 'active' | 'suspended' | 'released';
  * and the detail slot come from the shell through `ports`.
  */
 export function useModuleHost(entry: ModuleMenuEntry, params: Readonly<Record<string, string>>, ports: ModuleShellPorts): ModuleHost {
-  const platform = usePlatform();
+  const platform = useHostPlatform();
   const { lang } = useI18n();
   const [instance] = useState(() => ({
     controller: new AbortController(), state: 'active' as Lifetime, listeners: new Set<() => void>(), pending: new Set<Pending>(), deferred: new Set<Deferred>(),
@@ -203,6 +203,6 @@ export function useModuleHost(entry: ModuleMenuEntry, params: Readonly<Record<st
     }
     return host;
     // The host is rebuilt when what its synchronous reads depend on changes; `ports` are read through portsRef.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `usePlatform()` returns a fresh object every render: depending on it would rebuild the host each render, so the memo lists the platform values the snapshot reads
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `useHostPlatform()` returns a fresh object every render: depending on it would rebuild the host each render, so the memo lists the platform values the snapshot reads
   }, [entry, params, lang, revision, url, session, scope, ports.detail, instance]);
 }

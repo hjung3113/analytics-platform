@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
-import { PaneScreenProvider, useI18n, usePlatform, type PaneScreen } from '@ap/kernel';
+import { useI18n } from '@ap/kernel';
+import { PaneScreenProvider, useHostPlatform, type PaneScreen } from '@ap/kernel/host';
 import { GlobalContextBar } from '../GlobalContextBar';
 import { ScopeSelector } from '../ScopeSelector';
 import { canMountPaneScreen } from './boardMenus';
@@ -14,7 +15,7 @@ import { boardText } from './text';
 export function BoardContextBar({ paneId, number, screen, onChange, onLeave }: {
   paneId: string; number: number; screen: PaneScreen | null; onChange: (next: PaneScreen, how: 'push' | 'replace') => void; onLeave: (href: string) => void;
 }) {
-  const { registry, canOpen } = usePlatform();
+  const { registry, canOpen } = useHostPlatform();
   const { lang } = useI18n();
   const text = boardText(lang);
   const badge = <PaneBadge label={text.pane(number)} selected />;
@@ -35,5 +36,5 @@ export function BoardContextBar({ paneId, number, screen, onChange, onLeave }: {
 
 /** A pane whose address is a contract error shows no editor either: its body shows the error and Reset. Reads the pane's own state. */
 function ContractGate({ open, closed }: { open: ReactNode; closed: ReactNode }) {
-  return <>{usePlatform().contractError ? closed : open}</>;
+  return <>{useHostPlatform().contractError ? closed : open}</>;
 }

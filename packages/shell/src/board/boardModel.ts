@@ -1,6 +1,6 @@
 import { addPanel, isValidDockTree, removePanel } from '@ap/components/dock';
 import { isRecord } from '@ap/contracts';
-import type { PaneScreen } from '@ap/kernel';
+import type { PaneScreen } from '@ap/kernel/host';
 import { activateInTree, defaultTree, effectiveTree, fromDockTree, largestGroup, reconcileSelection, reinsertPane, toDockTree, treeShape } from './boardDockTree';
 import { defaultLayoutFor, gridOf, memoryOf, withGrid, withGridMemory } from './boardGrid';
 import {

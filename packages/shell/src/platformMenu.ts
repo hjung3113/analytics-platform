@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import { type GroupDef, type MenuEntry, useI18n, usePlatform } from '@ap/kernel';
+import { type GroupDef, type MenuEntry, useI18n } from '@ap/kernel';
+import { useHostPlatform } from '@ap/kernel/host';
 
 export type PlatformMenuSection = { group: GroupDef; items: MenuEntry[] };
 
@@ -8,7 +9,7 @@ export type PlatformMenuSection = { group: GroupDef; items: MenuEntry[] };
  * Judged only by each menu's own permission; they are never spaces. The `/` menu is shown as `홈`.
  */
 export function usePlatformMenu(): { sections: PlatformMenuSection[]; labelOf: (menu: MenuEntry) => string } {
-  const { registry, globalMenus, resolveLink } = usePlatform();
+  const { registry, globalMenus, resolveLink } = useHostPlatform();
   const { t, tx } = useI18n();
   const homeId = registry.matchRoute('/')?.menu.id;
   const sections = useMemo(() => registry.groups.filter(group => group.space === null)

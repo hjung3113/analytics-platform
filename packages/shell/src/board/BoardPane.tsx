@@ -1,7 +1,8 @@
 import { Ban } from 'lucide-react';
 import { useLayoutEffect, useRef, useState, type CSSProperties, type ComponentType, type ReactNode, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
-import { PaneScreenProvider, useI18n, usePlatform, type MenuEntry, type PaneScreen } from '@ap/kernel';
+import { useI18n, type MenuEntry } from '@ap/kernel';
+import { PaneScreenProvider, useHostPlatform, type PaneScreen } from '@ap/kernel/host';
 import { StateMessage } from '@ap/components';
 import { WorkspaceCommandsHost } from '@ap/components/dock';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, cn, TransientOverlayScope } from '@ap/ui';
@@ -71,7 +72,7 @@ export type BoardPaneProps = {
  * dialog off the `⋯` menu; focus ends on the `⋯` trigger (or the pane root when the trigger is gone).
  */
 export function BoardPane({ dock = false, dockHead, onClosePane, placement, hidden = false, collapsed = false, maximized = false, sizing = false, canMaximize = false, collapseOff = null, onCollapse, onMaximize, paneId, number, screen, selected, Outlet, signal, hasPrevious, applyAllOff, duplicateOff, onSelect, onChange, onLeave, onInsert, onClear, onBack, onApplyAll, onOpenFull, onReplace, onDuplicate, onEditContext }: BoardPaneProps) {
-  const { registry } = usePlatform();
+  const { registry } = useHostPlatform();
   const { tx, lang } = useI18n();
   const text = boardText(lang);
   const root = useRef<HTMLDivElement>(null);

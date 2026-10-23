@@ -1,7 +1,8 @@
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, expect, it } from 'vitest';
 import { House } from 'lucide-react';
-import { createRegistry, I18nProvider, PaneScreenProvider, PlatformProvider } from '@ap/kernel';
+import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
+import { PaneScreenProvider } from '@ap/kernel/host';
 import { noContext, testAdapter, testSpace } from '@ap/kernel/testing';
 import { QueryBarExtensionsProvider, usePublishQueryBarExtension, useQueryBarExtension } from './QueryBarExtension';
 import { groupId, spaceId } from '@ap/contracts';

@@ -1,13 +1,14 @@
 import { ChevronLeft, ChevronRight, Clock3, ExternalLink, Star } from 'lucide-react';
 import { platformReturnFor } from '@ap/contracts';
-import { type MenuEntry, PlatformLink, useI18n, usePlatform } from '@ap/kernel';
+import { type MenuEntry, PlatformLink, useI18n } from '@ap/kernel';
+import { useHostPlatform } from '@ap/kernel/host';
 import { cn, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { ScopeSelector } from './ScopeSelector';
 import { useSystemSections } from './systemSections';
 import { formatUnread } from './unread';
 
 export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
-  const { visibleMenus, route, favorites, recent, registry, sidebarSpace } = usePlatform();
+  const { visibleMenus, route, favorites, recent, registry, sidebarSpace } = useHostPlatform();
   const { t, tx, lang } = useI18n();
   const activeId = route?.menu.navHidden && route.menu.parent ? route.menu.parent : route?.menu.id;
   const systems = useSystemSections();
@@ -66,7 +67,7 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
 }
 
 function FeedbackOpsBlock({ collapsed }: { collapsed: boolean }) {
-  const { slots, route, currentSpace, sidebarSpace, accessibleSpaces, url, pathname, absoluteUrl } = usePlatform();
+  const { slots, route, currentSpace, sidebarSpace, accessibleSpaces, url, pathname, absoluteUrl } = useHostPlatform();
   const { tx, lang } = useI18n();
   const slot = slots.feedbackOps;
   // Only the space this sidebar is drawing, and only when the route is that space's menu.
@@ -106,7 +107,7 @@ function FeedbackOpsBlock({ collapsed }: { collapsed: boolean }) {
 }
 
 export function NavItem({ menu, active, collapsed, href, labelPrefix, label: labelOverride, unread }: { menu: MenuEntry; active: boolean; collapsed: boolean; href?: string; labelPrefix?: string; label?: string; unread?: number | null }) {
-  const { linkTo } = usePlatform();
+  const { linkTo } = useHostPlatform();
   const { tx, t } = useI18n();
   const Icon = menu.icon;
   const label = labelOverride ?? tx(menu.label);

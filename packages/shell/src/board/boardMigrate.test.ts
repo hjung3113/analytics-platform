@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { PaneScreen } from '@ap/kernel';
+import type { PaneScreen } from '@ap/kernel/host';
 import { MAX_SHEETS, gridOf, layoutShape, paneCount, parseBoardV2, screens, selectedIndex, type Arrangement, type BoardLayout } from './boardModel';
 import { migrateV1, parseBoardV1 } from './boardMigrate';
 import { legacyBoard, legacySheet, toLegacy } from './__fixtures__/legacyBoard';

@@ -1,6 +1,7 @@
 import { AlertTriangle, Info, X, XCircle } from 'lucide-react';
 import { Suspense, useEffect, useState, type ReactNode } from 'react';
-import { useI18n, usePlatform } from '@ap/kernel';
+import { useI18n } from '@ap/kernel';
+import { useHostPlatform } from '@ap/kernel/host';
 import { LoadingBlock } from '@ap/components';
 import { cn, DetailPanelSlotProvider, readLocalStorage, useDetailPanelSlotHost, writeLocalStorage } from '@ap/ui';
 import { CommandPalette } from './CommandPalette';
@@ -18,7 +19,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 function ShellLayout({ children }: { children: ReactNode }) {
   const detail = useDetailPanelSlotHost();
   const { lang, t } = useI18n();
-  const { route, registry, sidebarSpace, platformScreen } = usePlatform();
+  const { route, registry, sidebarSpace, platformScreen } = useHostPlatform();
   // The board is a platform screen like the home and global utilities: no business-system sidebar (docs/16 §4).
   const globalScreen = platformScreen === 'board' || (route !== null && registry.spaceOf(route.menu) === null);
   const showSidebar = sidebarSpace !== null && !globalScreen;
@@ -56,7 +57,7 @@ function ShellLayout({ children }: { children: ReactNode }) {
 }
 
 function Toasts() {
-  const { toasts, dismissToast } = usePlatform();
+  const { toasts, dismissToast } = useHostPlatform();
   const { lang, t } = useI18n();
   // Toasts sit above the command palette scrim (z-60) so their dismiss stays clickable (#310).
   return <div aria-live="polite" className="pointer-events-none fixed bottom-4 right-4 z-70 flex w-[min(420px,90vw)] flex-col gap-2">

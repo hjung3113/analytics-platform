@@ -1,4 +1,4 @@
-import { usePlatform } from './platform';
+import { useHostPlatform } from './platform';
 import type { GlobalContext, Pair, Text } from '@ap/contracts';
 
 export type QueryMissing = { key: string; label: Text };
@@ -18,4 +18,4 @@ export type QueryDraft = {
 };
 
 /** One draft per logical screen; existing applied writers remain immediate. */
-export function useQueryDraft(): QueryDraft { return usePlatform().queryDraft; }
+export function useQueryDraft(): QueryDraft { return useHostPlatform().queryDraft; }

@@ -1,7 +1,8 @@
 import { act, cleanup, render } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from './index';
+import { I18nProvider, PlatformProvider, createRegistry } from './index';
+import { useHostPlatform } from './host';
 import { noContext, testAdapter, testSession, testSpace } from './testing';
 import { groupId, spaceId } from '@ap/contracts';
 
@@ -24,9 +25,9 @@ const registry = createRegistry({
 const session = testSession(['platform:view']);
 const adapter = testAdapter({ session: () => session });
 
-let platform: ReturnType<typeof usePlatform>;
+let platform: ReturnType<typeof useHostPlatform>;
 function Probe() {
-  platform = usePlatform();
+  platform = useHostPlatform();
   return null;
 }
 function mount(url: string) {

@@ -107,6 +107,7 @@ export default defineConfig({
   'src/App.tsx': `import { House } from 'lucide-react';
 import { groupId, KERNEL_PERMISSIONS, spaceId, type Permission } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
+import { useHostPlatform } from '@ap/kernel/host';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { Button } from '@ap/ui';
 import { readColorToken, THEME_COLOR_TOKENS } from '@ap/ui/theme';
@@ -130,10 +131,11 @@ export const adapter = testAdapter({ session: () => session });
 /** Kernel hook used under a Provider from the same kernel copy; components and shell render around it. */
 function Probe() {
   const { session: current } = usePlatform();
+  const { paletteOpen } = useHostPlatform();
   const known: readonly Permission[] = KERNEL_PERMISSIONS;
   const token = THEME_COLOR_TOKENS[0];
   return (
-    <section data-testid="probe" data-user={current.user.id} data-permissions={known.length} data-token={token} data-resolved={typeof readColorToken} data-dock={typeof DockLayout + ':' + normalizeDockTree(null, ['a']).type}>
+    <section data-testid="probe" data-user={current.user.id} data-permissions={known.length} data-token={token} data-resolved={typeof readColorToken} data-host={String(paletteOpen)} data-dock={typeof DockLayout + ':' + normalizeDockTree(null, ['a']).type}>
       <Button>consumer button</Button>
       <AuditTimeline events={[]} />
     </section>

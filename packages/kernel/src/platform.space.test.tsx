@@ -3,7 +3,7 @@ import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from './i18n';
-import { PlatformProvider, usePlatform } from './platform';
+import { PlatformProvider, useHostPlatform } from './platform';
 import { createRegistry } from './registry';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from './testing';
 import { groupId, spaceId, type Session, type SpaceDef } from '@ap/contracts';
@@ -42,7 +42,7 @@ function fixture(permissions: Session['user']['permissions']) {
 }
 
 function SpaceProbe() {
-  const { pathname, currentSpace, sidebarSpace, accessibleSpaces, visibleMenus, menusInSpace, recent, switchSpace } = usePlatform();
+  const { pathname, currentSpace, sidebarSpace, accessibleSpaces, visibleMenus, menusInSpace, recent, switchSpace } = useHostPlatform();
   return <div>
     <button type="button" data-testid="to-operations" onClick={() => switchSpace(spaceId('operations'))}>ops</button>
     <button type="button" data-testid="to-analytics" onClick={() => switchSpace(spaceId('analytics'))}>ana</button>
@@ -149,7 +149,7 @@ describe('spaces on Platform (06 §9.1)', () => {
 
 describe('toast auto-dismiss timers', () => {
   function ToastProbe({ onMount }: { onMount?: string }) {
-    const { toast, toasts } = usePlatform();
+    const { toast, toasts } = useHostPlatform();
     useEffect(() => { if (onMount) toast(onMount); }, [onMount, toast]);
     return <div>
       <button type="button" data-testid="toast" onClick={() => toast('clicked')}>toast</button>
@@ -188,7 +188,7 @@ describe('toast auto-dismiss timers', () => {
 describe('module grants are not platform grants (ADR-0053)', () => {
   it('a session holding only a module permission opens and sees no platform menu', () => {
     function Probe() {
-      const { canOpen, can, visibleMenus, accessibleSpaces } = usePlatform();
+      const { canOpen, can, visibleMenus, accessibleSpaces } = useHostPlatform();
       return <p data-testid="grant">{[can('platform:view'), can('console:access'), canOpen('equipment'), canOpen('admin-roles'), visibleMenus.length, accessibleSpaces.length].join(',')}</p>;
     }
     window.history.replaceState(null, '', '/equipment');

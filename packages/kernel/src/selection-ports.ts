@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useSyncExternalStore } from 'react';
 import { parseDateTime, type AxisOption, type AxisOptionsInput, type Condition, type EquipmentSummary, type IdSet, type MembershipPeriod, type SelectionResolution } from '@ap/contracts';
-import { usePlatform, useSelectionPortCache } from './platform';
+import { useHostPlatform, useSelectionPortCache } from './platform';
 import { idlePage, type PortFailure, type PortPageState, type PortStatus } from './selection-port-cache';
 
 export type { PortFailure, PortStatus } from './selection-port-cache';
@@ -20,7 +20,7 @@ const noop = () => {};
 const denied: PortFailure = { code: 'scope_forbidden', message: 'Override Scope must match the validated screen Scope', retryable: false };
 const invalid: PortFailure = { code: 'invalid_input', message: 'Invalid metadata request context', retryable: false };
 const validIds = (value: unknown) => value === null || (Array.isArray(value) && value.every(v => typeof v === 'string' && v.trim()));
-function contextError(context: PortContext, axes: ReturnType<typeof usePlatform>['equipmentAxes'], options = false): PortFailure | null {
+function contextError(context: PortContext, axes: ReturnType<typeof useHostPlatform>['equipmentAxes'], options = false): PortFailure | null {
   if (![context.roomNames, context.lineNames, context.prcGroups].every(validIds) || ![null, 'asOf'].includes(context.membershipBasis)) return invalid;
   if (context.condition !== null) {
     if (typeof context.condition !== 'object' || Array.isArray(context.condition) || !Object.keys(context.condition).length) return invalid;
@@ -37,18 +37,18 @@ function contextError(context: PortContext, axes: ReturnType<typeof usePlatform>
   if (!options && context.membershipBasis === 'asOf' && context.condition === null && context.prcGroups === null) return invalid;
   return null;
 }
-function effective(platform: ReturnType<typeof usePlatform>, override?: PortContext): PortContext {
+function effective(platform: ReturnType<typeof useHostPlatform>, override?: PortContext): PortContext {
   const g = platform.global;
   return override ?? { scopeId: g.scopeId ?? '', roomNames: g.roomNames, lineNames: g.lineNames, prcGroups: g.prcGroups, condition: g.condition, membershipBasis: g.membershipBasis, period: g.from && g.to ? { from: g.from, to: g.to } : null };
 }
-function gate(platform: ReturnType<typeof usePlatform>, scopeId: string, enabled = true): 'idle' | PortFailure | null {
+function gate(platform: ReturnType<typeof useHostPlatform>, scopeId: string, enabled = true): 'idle' | PortFailure | null {
   if (!enabled) return 'idle';
   if (scopeId && scopeId !== platform.global.scopeId) return denied;
   if (!scopeId || platform.contractError || platform.scope.status !== 'valid' || platform.scope.scopeId !== scopeId || platform.scope.validatedFor !== platform.session) return 'idle';
   return null;
 }
 function usePortPage<T>(port: string, input: unknown, enabled: boolean, error: PortFailure | null, send: (cursor: string | null, signal: AbortSignal) => Promise<{ items: T[]; nextCursor: string | null; total?: number }>, itemId: (item: T) => string): PortPageResult<T> {
-  const { paneId } = usePlatform();
+  const { paneId } = useHostPlatform();
   const cache = useSelectionPortCache();
   const owner = paneId === null ? 'main' : `pane:${paneId}`;
   const key = JSON.stringify([port, canonical(input)]);
@@ -73,7 +73,7 @@ function usePortPage<T>(port: string, input: unknown, enabled: boolean, error: P
 
 /** Reads preserved global values from the nearest screen; a complete override never merges with that screen. */
 export function useAxisOptions(params: AxisOptionsParams): PortPageResult<AxisOption> {
-  const platform = usePlatform();
+  const platform = useHostPlatform();
   const context = effective(platform, params.context);
   const readiness = gate(platform, context.scopeId, params.enabled);
   let error = readiness !== 'idle' ? readiness ?? contextError(context, platform.equipmentAxes, true) : null;
@@ -87,7 +87,7 @@ export function useAxisOptions(params: AxisOptionsParams): PortPageResult<AxisOp
   return usePortPage('options', input, ready, ready ? error : null, (cursor, signal) => platform.adapter.listAxisOptions({ ...input, cursor }, signal), item => item.id);
 }
 export function useEquipmentSearch(params: EquipmentSearchParams = {}): PortPageResult<EquipmentSummary> {
-  const platform = usePlatform();
+  const platform = useHostPlatform();
   const context = effective(platform, params.context);
   const readiness = gate(platform, context.scopeId, params.enabled);
   const error = readiness !== 'idle' ? readiness ?? contextError(context, platform.equipmentAxes) : null;
@@ -96,7 +96,7 @@ export function useEquipmentSearch(params: EquipmentSearchParams = {}): PortPage
   return usePortPage('search', input, ready, ready ? error : null, (cursor, signal) => platform.adapter.searchEquipment({ ...input, cursor }, signal), item => item.equipmentId);
 }
 export function useResolvedSelection(ids: readonly string[], params: ResolvedSelectionParams = {}): ResolvedSelectionResult {
-  const platform = usePlatform();
+  const platform = useHostPlatform();
   const input = { scopeId: params.scopeId ?? platform.global.scopeId ?? '', ids: [...new Set(ids)] };
   const readiness = gate(platform, input.scopeId, params.enabled);
   const error = readiness !== 'idle' ? readiness ?? (ids.some(id => typeof id !== 'string' || !id.trim()) ? invalid : null) : null;

@@ -3,7 +3,7 @@ import { House } from 'lucide-react';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { LinkOptions, LinkResolution } from './platform';
 import { I18nProvider } from './i18n';
-import { PlatformProvider, usePlatform } from './platform';
+import { PlatformProvider, useHostPlatform } from './platform';
 import { createRegistry } from './registry';
 import { noContext, testAdapter, testSession, testSpace } from './testing';
 import { groupId, spaceId, type Permission, menuPermission, type Session, type SpaceDef } from '@ap/contracts';
@@ -49,7 +49,7 @@ function fixture(permissions: Session['user']['permissions']) {
 
 let captured: ((id: string, options?: LinkOptions) => LinkResolution) | null = null;
 function Probe() {
-  const { resolveLink } = usePlatform();
+  const { resolveLink } = useHostPlatform();
   captured = resolveLink;
   return <p data-testid="ready">ready</p>;
 }
@@ -111,7 +111,7 @@ describe('resolveLink (06 §22, issue #102)', () => {
 
 describe('return fallback without a fixed home ID (#298)', () => {
   function ReturnProbe() {
-    const platform = usePlatform();
+    const platform = useHostPlatform();
     return <output>{JSON.stringify({ target: platform.returnTarget(), origin: platform.returnOrigin() })}</output>;
   }
 
@@ -139,7 +139,7 @@ describe('return fallback without a fixed home ID (#298)', () => {
 
 describe('return permission and reverted Context (#298 FIX1)', () => {
   function ReturnProbe() {
-    const platform = usePlatform();
+    const platform = useHostPlatform();
     return <output>{JSON.stringify({ target: platform.returnTarget(), origin: platform.returnOrigin() })}</output>;
   }
   function mountReturn(current: string, origin: string, permissions = VIEWER, parent = 'source') {

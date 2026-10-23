@@ -4,7 +4,7 @@ import { House } from 'lucide-react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { defineEndpoint, type ApiResponse, groupId, spaceId } from '@ap/contracts';
 import { I18nProvider } from './i18n';
-import { PaneQueryDraftProvider, PaneScreenProvider, PlatformProvider, usePlatform, type PaneScreen } from './platform';
+import { PaneQueryDraftProvider, PaneScreenProvider, PlatformProvider, useHostPlatform, type PaneScreen } from './platform';
 import { useQueryDraft } from './query-draft';
 import { useDrill } from './drill';
 import { useMenuQuery, useMenuFetch, usePlatformQuery, useEntityQuery } from './query';
@@ -19,9 +19,9 @@ const menu = { id: 'home', group: groupId('overview'), primary: true, path: '/',
 const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: menu.label, icon: House, space: spaceId('analytics') }], menus: [menu] });
 const endpoint = defineEndpoint<{}, number>({ id: 'fixture.query', menuId: 'home', permission: 'platform:view', requiresScope: false, context: { time: 'apply' }, paramKeys: {}, kinds: [], mergeTimeDomain: false });
 let draft: ReturnType<typeof useQueryDraft>;
-let platform: ReturnType<typeof usePlatform>;
+let platform: ReturnType<typeof useHostPlatform>;
 let query: ReturnType<typeof useMenuQuery<{}, number>>;
-function Probe() { draft = useQueryDraft(); platform = usePlatform(); query = useMenuQuery(endpoint, {}); return null; }
+function Probe() { draft = useQueryDraft(); platform = useHostPlatform(); query = useMenuQuery(endpoint, {}); return null; }
 afterEach(cleanup);
 
 it('keeps the default period in draft, commits once, and preserves applied results while editing', async () => {
@@ -121,13 +121,13 @@ it('clears site-bound pending values when Scope changes, then rebases', async ()
 
 it('shares sibling readers of one logical pane, isolates others, and preserves edits across delayed own echoes', async () => {
   const seen = new Map<string, ReturnType<typeof useQueryDraft>>();
-  const contexts = new Map<string, ReturnType<typeof usePlatform>>();
+  const contexts = new Map<string, ReturnType<typeof useHostPlatform>>();
   const updates = vi.fn();
   let echo: (screen: PaneScreen) => void;
   let select: (id: string) => void;
   let remove: () => void;
   let recreate: () => void;
-  function Reader({ id }: { id: string }) { seen.set(id, useQueryDraft()); contexts.set(id, usePlatform()); return null; }
+  function Reader({ id }: { id: string }) { seen.set(id, useQueryDraft()); contexts.set(id, useHostPlatform()); return null; }
   const a = { menuId: 'home', params: {}, query: period };
   function Panes() {
     const [screen, setScreen] = useState(a);

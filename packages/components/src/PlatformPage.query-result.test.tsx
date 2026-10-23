@@ -1,7 +1,8 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { House } from 'lucide-react';
-import { createRegistry, I18nProvider, PlatformProvider, PaneScreenProvider } from '@ap/kernel';
+import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
+import { PaneScreenProvider } from '@ap/kernel/host';
 import { memoryStorage, noContext, testAdapter, testSpace } from '@ap/kernel/testing';
 import { PlatformPage, type PlatformPageProps } from './PlatformPage';
 import { groupId, spaceId } from '@ap/contracts';

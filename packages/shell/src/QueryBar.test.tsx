@@ -4,7 +4,8 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { defineEndpoint, type PlatformAdapter, groupId, spaceId } from '@ap/contracts';
 import { QueryBarExtensionContext, type QueryBarExtension } from '@ap/components';
 import { House } from 'lucide-react';
-import { createRegistry, I18nProvider, PlatformProvider, usePlatform, useQueryDraft, useMenuQuery, PaneQueryDraftProvider, PaneScreenProvider } from '@ap/kernel';
+import { createRegistry, I18nProvider, PlatformProvider, useQueryDraft, useMenuQuery } from '@ap/kernel';
+import { useHostPlatform, PaneQueryDraftProvider, PaneScreenProvider } from '@ap/kernel/host';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { GlobalContextBar, contextBarVisible } from './GlobalContextBar';
 
@@ -12,8 +13,8 @@ const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId(
 const endpoint = defineEndpoint<null, unknown>({ id: 'fixture.query', menuId: 'home', paramKeys: {}, permission: 'platform:view', requiresScope: true, context: { time: 'apply', roomNames: 'apply' }, requiredContext: ['time', 'roomNames'], kinds: ['collection'], mergeTimeDomain: false });
 const send = vi.fn(async () => ({ outcome: 'empty' as const, data: null, assessments: [], trust: null, correlationId: 'test' }));
 let draft: ReturnType<typeof useQueryDraft>;
-let platform: ReturnType<typeof usePlatform>;
-function Probe() { draft = useQueryDraft(); platform = usePlatform(); useMenuQuery(endpoint, null); return null; }
+let platform: ReturnType<typeof useHostPlatform>;
+function Probe() { draft = useQueryDraft(); platform = useHostPlatform(); useMenuQuery(endpoint, null); return null; }
 const evaluate = vi.fn();
 function mount(query = '', overrides: Partial<PlatformAdapter> = {}, history = true, extension?: QueryBarExtension) {
   window.history.replaceState(null, '', `/?scopeId=MEM${query}`);

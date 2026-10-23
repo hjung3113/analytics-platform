@@ -1,5 +1,6 @@
 import { buildQuery, type EquipmentAxisDescriptor, ContractError, emptyGlobal, formatMetricVersion, parseQuery, sameGlobal, serializeGlobal, type GlobalContext } from '@ap/contracts';
-import { labelledCondition, withPaneContext, type MenuEntry, type PaneScreen, type Registry, type ReturnContextKey } from '@ap/kernel';
+import { labelledCondition, type MenuEntry, type Registry, type ReturnContextKey } from '@ap/kernel';
+import { withPaneContext, type PaneScreen } from '@ap/kernel/host';
 import { canMountPaneScreen } from './boardMenus';
 import { screens, type PaneEdit, type Sheet } from './boardModel';
 

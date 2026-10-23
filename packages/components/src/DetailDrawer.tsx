@@ -4,7 +4,8 @@ import { X } from 'lucide-react';
 import { Fragment, useEffect, useId, useInsertionEffect, useLayoutEffect, useRef, type MutableRefObject, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { buildQuery } from '@ap/contracts';
-import { useI18n, usePlatformOptional } from '@ap/kernel';
+import { useI18n } from '@ap/kernel';
+import { useHostPlatformOptional } from '@ap/kernel/host';
 import { Tabs, TabsContent, TabsList, TabsTrigger, TransientOverlayScope, useDetailPanelSlot } from '@ap/ui';
 
 /** §13: URL-controlled detail content rendered into the shell-owned docked slot. */
@@ -13,7 +14,7 @@ export function DetailDrawer({ title, subtitle, headerActions, context, tabs, on
   tabs: { id: string; label: ReactNode; content: ReactNode }[];
   onClose: () => void; tab?: string; onTabChange?: (tab: string) => void;
 }) {
-  const paneId = usePlatformOptional()?.paneId;
+  const paneId = useHostPlatformOptional()?.paneId;
   const closeLatest = useRef(onClose);
   useInsertionEffect(() => { closeLatest.current = onClose; });
   // A terminal reason for this drawer lifetime, including every outgoing content cleanup/replay.
@@ -31,7 +32,7 @@ export function DetailDrawer({ title, subtitle, headerActions, context, tabs, on
  * Runs in the drawer itself, not its portaled content, so changes are noticed even before a host is attached.
  */
 function useCloseOnPaneChange(onClose: () => void) {
-  const platform = usePlatformOptional();
+  const platform = useHostPlatformOptional();
   const identity = platform?.paneId == null ? null : `${platform.pathname}\0${buildQuery(platform.global)}`;
   const openedAs = useRef(identity);
   const closeLatest = useRef(onClose);
@@ -53,7 +54,7 @@ function DetailContent({ superseded, title, subtitle, headerActions, context, ta
   // clear this; only a real move to an outside element or an outside pointerdown does (06 §13, §26).
   const focusInside = useRef(false);
   const id = useId();
-  const platform = usePlatformOptional();
+  const platform = useHostPlatformOptional();
   const pageNavigation = platform?.pageNavigation;
   const paneId = platform?.paneId ?? null;
   const paneLabel = platform?.paneLabel ?? null;

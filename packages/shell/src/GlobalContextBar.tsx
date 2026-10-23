@@ -4,7 +4,8 @@ import { CalendarDays, ChevronDown, Link2, RotateCcw, X } from 'lucide-react';
 import { useContext, type ReactNode } from 'react';
 import { ContextBarLayout, MeasuringContext, useContextEditorState, useContextEditorFocusRecovery } from './ContextBarLayout';
 import { CONTEXT_CHIP, CONTEXT_CHIP_TONE } from './contextChip';
-import { CONTEXT_LABELS, labelledCondition, useEquipmentAxes, useAdapterRequest, useI18n, usePlatform, type RequestState } from '@ap/kernel';
+import { CONTEXT_LABELS, labelledCondition, useEquipmentAxes, useI18n, type RequestState } from '@ap/kernel';
+import { useAdapterRequest, useHostPlatform } from '@ap/kernel/host';
 import { type Capability, type Condition, type ContextKey, formatDateTime, type GlobalContext, type SelectionEvaluation, parseDateTime, shift } from '@ap/contracts';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger, RadioGroup, RadioGroupItem } from '@ap/ui';
 import { SegmentedRadio, useCopyLink } from '@ap/components';
@@ -32,12 +33,12 @@ export function GlobalContextBar({ label, whenEmpty = null }: {
   /** Board only: drawn where the bar would collapse to nothing, so the row keeps its height. */
   whenEmpty?: ReactNode;
 } = {}) {
-  const { route } = usePlatform();
+  const { route } = useHostPlatform();
   return route?.menu.query?.mode === 'apply' ? <QueryBar label={label} historySlot={<QueryHistoryControl />} /> : <LiveContextBar label={label} whenEmpty={whenEmpty} />;
 }
 
 function LiveContextBar({ label, whenEmpty }: { label?: { visible: string; region: string }; whenEmpty: ReactNode }) {
-  const { route, global, setGlobal, resetContext, url, scope, adapter } = usePlatform();
+  const { route, global, setGlobal, resetContext, url, scope, adapter } = useHostPlatform();
   const { t, lang } = useI18n();
   const axes = useEquipmentAxes();
   const basisText = global.membershipBasis === 'asOf' ? ` · ${t('membershipAsOf')}` : '';
@@ -110,7 +111,7 @@ function ChipShell({ label, value, cap, empty, children, ...rest }: { label: Rea
 /** Preserved context the current page does not edit: never silently dropped (§6); removable explicitly. */
 function CarriedChip({ k, cap, value, onRemove }: { k: ContextKey; cap: Capability; value: string; onRemove: () => void }) {
   const { tx, t, lang } = useI18n();
-  const { global } = usePlatform();
+  const { global } = useHostPlatform();
   const fullValue = k === 'time' ? (global.from ? `${global.from} – ${global.to}` : t('selectPeriod')) : value;
   return <span role={k === 'time' ? 'group' : undefined} aria-label={k === 'time' ? `${tx(CONTEXT_LABELS[k])}: ${fullValue}${capStatus(cap, t)}` : undefined} className={cn('inline-flex h-8 max-w-full min-w-0 items-center gap-1.5 rounded-sm border pl-2.5 pr-1 whitespace-nowrap text-xs',
     cap === 'unsupported' ? 'border-dashed border-border-strong text-text-muted' : 'border-border-strong bg-surface-card')}
@@ -123,7 +124,7 @@ function CarriedChip({ k, cap, value, onRemove }: { k: ContextKey; cap: Capabili
 }
 
 function PeriodControl({ cap, compact = false }: { cap: Capability; compact?: boolean }) {
-  const { global, setGlobal, defaultRangeTo } = usePlatform();
+  const { global, setGlobal, defaultRangeTo } = useHostPlatform();
   const { t, lang } = useI18n();
   const [open, setOpen] = useContextEditorState('open', false);
   const preserveRelocationFocus = useContextEditorFocusRecovery();
@@ -167,7 +168,7 @@ function PeriodControl({ cap, compact = false }: { cap: Capability; compact?: bo
 
 /** Calendar dates are inclusive in the UI and become [D1T00:00:00, (D2+1)T00:00:00) in the URL (§6.3). */
 function CustomRange({ onDone }: { onDone: () => void }) {
-  const { global, setGlobal, defaultRangeTo } = usePlatform();
+  const { global, setGlobal, defaultRangeTo } = useHostPlatform();
   const { t, lang } = useI18n();
   const [mode, setMode] = useContextEditorState<'date' | 'time'>('mode', 'date');
   const [start, setStart] = useContextEditorState('start', (global.from ?? shift(defaultRangeTo, -24)).slice(0, 10));
@@ -270,7 +271,7 @@ function SetEditor({ label, cap, value, options, absentLabel, onApply, note, sea
 }
 
 function RoomEditor({ cap }: { cap: Capability }) {
-  const { global, setGlobal, scope } = usePlatform();
+  const { global, setGlobal, scope } = useHostPlatform();
   const { t, lang } = useI18n();
   return <SetEditor label={t('roomNames')} cap={cap} value={global.roomNames} absentLabel={t('all')} onApply={v => setGlobal({ roomNames: v })}
     options={scope.grantedRooms.map(id => ({ id }))}
@@ -278,7 +279,7 @@ function RoomEditor({ cap }: { cap: Capability }) {
 }
 
 function ConditionEditor({ cap }: { cap: Capability }) {
-  const { global, setGlobal, adapter } = usePlatform();
+  const { global, setGlobal, adapter } = useHostPlatform();
   const { t, lang } = useI18n();
   const site = global.scopeId ?? '';
   const [open, setOpen] = useContextEditorState('open', false);
@@ -348,7 +349,7 @@ function ConditionEditor({ cap }: { cap: Capability }) {
 }
 
 function SelectionEditor({ cap, evaluation }: { cap: Capability; evaluation: RequestState<SelectionEvaluation> }) {
-  const { global, setGlobal } = usePlatform();
+  const { global, setGlobal } = useHostPlatform();
   const { t, lang } = useI18n();
   // Condition matching and grants are the server's job; the same result also feeds inert measurement.
   const inCondition = evaluation.data?.inCondition ?? [];

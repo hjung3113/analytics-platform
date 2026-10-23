@@ -344,12 +344,13 @@ describe('platform inbound Condition builder parity (#552)', () => {
 it('history restores only draft and leaves FeedbackOps platformReturn on the applied address', async () => {
   const { createElement } = await import('react');
   const { act, cleanup, render, waitFor } = await import('@testing-library/react');
-  const { I18nProvider, PlatformProvider, usePlatform } = await import('@ap/kernel');
+  const { I18nProvider, PlatformProvider } = await import('@ap/kernel');
+  const { useHostPlatform } = await import('@ap/kernel/host');
   const { testAdapter, testSession } = await import('@ap/kernel/testing');
   const { registry } = await import('./menus');
   const session = testSession(['platform:view', 'analytics:view']);
-  let platform!: ReturnType<typeof usePlatform>;
-  function Probe() { platform = usePlatform(); return null; }
+  let platform!: ReturnType<typeof useHostPlatform>;
+  function Probe() { platform = useHostPlatform(); return null; }
   const store = { list: async () => [{ id: 'old', query: '?v=1&scopeId=MEM&from=2026-09-01T00:00:00&to=2026-09-02T00:00:00&roomNames=PHOTO&granularity=day', schemaVersion: 1 as const, count: 1, lastAppliedAt: 1 }], record: async () => {}, remove: async () => {}, clear: async () => {} };
   window.history.replaceState(null, '', '/analytics/cycle-time?scopeId=MEM');
   try {

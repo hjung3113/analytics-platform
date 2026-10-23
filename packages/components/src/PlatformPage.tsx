@@ -5,7 +5,8 @@ import { OutcomeBanners, OutcomeScope } from './OutcomeScope';
 import { PageContextHead, PageHeadBody } from './PageContextHead';
 import { ChevronRight, Info, Loader2, MapPinOff, MoreHorizontal, RotateCw, ServerCrash, Star } from 'lucide-react';
 import { cloneElement, createContext, isValidElement, useCallback, useContext, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactElement, type ReactNode } from 'react';
-import { type MenuEntry, PlatformLink, useI18n, usePlatform } from '@ap/kernel';
+import { type MenuEntry, PlatformLink, useI18n } from '@ap/kernel';
+import { useHostPlatform } from '@ap/kernel/host';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { DataTrustIndicator } from './DataTrustIndicator';
 import { type HeaderYield, nextHeaderYield, openHeaderYield } from './headerYield';
@@ -41,7 +42,7 @@ function HeaderOverflow({ actions }: { actions: ReactNode }) {
   const group = ko ? '기타 페이지 동작' : 'Other page actions';
   const [open, setOpen] = useState(false);
   const [dialog, setDialog] = useState<((control: HeaderOverflowDialogControl) => ReactNode) | null>(null);
-  const { location } = usePlatform();
+  const { location } = useHostPlatform();
   const openingPath = useRef<string | null>(null);
   const content = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -116,7 +117,7 @@ export type PlatformPageProps = {
 
 /** §8 Shell Slots. Pages never insert global UI outside these slots. */
 export function PlatformPage({ title, description, primaryAction, secondaryActions, contextExtension, contextNotes, dataTrustSummary, queryBarExtension, queryResult, crumbs = [], layout = 'flow', children }: PlatformPageProps) {
-  const { global, page, equipmentAxes, route, favorites, toggleFavorite, scope, retryScope, setGlobal, lastScope, linkTo, registry, slots, url, pathname, pageNavigation, currentSpace, screenMode, canOpen, queryDraft } = usePlatform();
+  const { global, page, equipmentAxes, route, favorites, toggleFavorite, scope, retryScope, setGlobal, lastScope, linkTo, registry, slots, url, pathname, pageNavigation, currentSpace, screenMode, canOpen, queryDraft } = useHostPlatform();
   // A board pane draws content only: the board owns the pane head and the Context bar, and no arrival focus moves here (ADR-0049).
   const inPane = screenMode === 'pane';
   usePublishQueryBarExtension(queryBarExtension);

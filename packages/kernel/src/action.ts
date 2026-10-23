@@ -1,9 +1,9 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { clientCorrelationId, type ActionResponse, type ActionResult, type ActionSpec, type AnyActionSpec, type MenuAction } from '@ap/contracts';
-import { usePlatform } from './platform';
+import { useHostPlatform } from './platform';
 
 /** What the write gates read from the platform; a host port reads it at call time instead of from a hook. */
-export type ActionRequestInputs = Pick<ReturnType<typeof usePlatform>, 'adapter' | 'global' | 'scope' | 'session' | 'refreshEpochs'>;
+export type ActionRequestInputs = Pick<ReturnType<typeof useHostPlatform>, 'adapter' | 'global' | 'scope' | 'session' | 'refreshEpochs'>;
 
 /** Scope validated for this session when the action requires one (the same gate as `menuRequest`). */
 export function actionReady(spec: Pick<AnyActionSpec, 'requiresScope'>, { global, scope, session }: Pick<ActionRequestInputs, 'global' | 'scope' | 'session'>): boolean {
@@ -104,7 +104,7 @@ export type MenuActionState<I, T> = {
 
 /** Declared server write for a menu screen (ADR-0054): `{ ready, pending, run }`. */
 export function useMenuAction<I, T>(spec: ActionSpec<I, T>): MenuActionState<I, T> {
-  const platform = usePlatform();
+  const platform = useHostPlatform();
   const latest = useRef(platform);
   const mounted = useRef(false);
   const [owner] = useState(() => ({ slot: { promise: null as Promise<ActionResult<T>> | null }, pending: new Set<PendingWrite>() }));

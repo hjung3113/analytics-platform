@@ -4,7 +4,7 @@ import { defineEndpoint, type ApiResponse, type AssessmentKind, type EndpointSpe
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { House } from 'lucide-react';
 import { I18nProvider } from './i18n';
-import { PlatformProvider, usePlatform } from './platform';
+import { PlatformProvider, useHostPlatform } from './platform';
 import { type MenuFetch, type QueryState, useEntityQuery, useMenuFetch, useMenuQuery } from './query';
 import { createRegistry } from './registry';
 import { memoryStorage, testAdapter, testSession, testSpace } from './testing';
@@ -86,7 +86,7 @@ type ProbeProps = {
 };
 
 function QueryProbe({ spec = endpoint, enabled = true, onQuery }: ProbeProps) {
-  const { global, setGlobal } = usePlatform();
+  const { global, setGlobal } = useHostPlatform();
   const query = useMenuQuery(spec, params, enabled);
   onQuery?.(query);
   return (
@@ -422,7 +422,7 @@ describe('useMenuQuery assessment contract', () => {
 });
 
 function FetchProbe({ spec = endpoint, onFetch }: { spec?: EndpointSpec<Params, QueryData>; onFetch: (fetcher: MenuFetch<Params, QueryData>) => void }) {
-  const { setGlobal } = usePlatform();
+  const { setGlobal } = useHostPlatform();
   const fetcher = useMenuFetch(spec);
   onFetch(fetcher);
   return (
@@ -489,7 +489,7 @@ describe('useMenuFetch (caller-driven: table loadPage, export)', () => {
 
 describe('Scope validation failure (#167)', () => {
   function ScopeProbe() {
-    const { scope, retryScope, setGlobal } = usePlatform();
+    const { scope, retryScope, setGlobal } = useHostPlatform();
     const query = useMenuQuery({ ...endpoint, requiresScope: true }, params);
     return (
       <>
@@ -568,7 +568,7 @@ describe('Scope validation failure (#167)', () => {
 
 describe('Adapter-internal AbortError in queries (#183: only the Kernel signal cancels)', () => {
   function AbortProbe() {
-    const { setGlobal } = usePlatform();
+    const { setGlobal } = useHostPlatform();
     const query = useMenuQuery(endpoint, params);
     return (
       <>
@@ -667,7 +667,7 @@ describe('Scope switch mask equals the next effect state (#183)', () => {
     const f = fixture({ validateScope: async () => { if (fail) throw new Error('down'); return { status: 'valid', grantedRooms: ['R1'] }; } });
     const frames: string[] = [];
     function MaskProbe() {
-      const { scope, retryScope, setGlobal } = usePlatform();
+      const { scope, retryScope, setGlobal } = useHostPlatform();
       // useLayoutEffect runs on every commit before the passive validation effect, so the frame right after
       // setGlobal samples the mask. Consecutive duplicates collapse: the mask and the effect's value being
       // identical is exactly the property under test.
@@ -712,7 +712,7 @@ describe('Session-only change mask equals the next effect state (#186)', () => {
     f.adapter.getEntity = entities;
     const frames: string[] = [];
     function SessionProbe() {
-      const { scope } = usePlatform();
+      const { scope } = useHostPlatform();
       // EquipmentDetail's gate (#186): only `scope.status === 'valid'` enables the destination read.
       useEntityQuery({ type: 'device', id: 'd1', scopeId: null }, 'header', scope.status === 'valid');
       // Same recorder as the #183 test: useLayoutEffect samples every commit, including the frame right
@@ -743,7 +743,7 @@ describe('Session-only change mask equals the next effect state (#186)', () => {
     const f = fixture();
     const frames: string[] = [];
     function NoScopeProbe() {
-      const { scope } = usePlatform();
+      const { scope } = useHostPlatform();
       useLayoutEffect(() => {
         const frame = `${scope.status}|${String(scope.scopeId)}|${scope.grantedRooms.join(',')}`;
         if (frames[frames.length - 1] !== frame) frames.push(frame);
@@ -766,7 +766,7 @@ describe('Session-only change mask equals the next effect state (#186)', () => {
     f.adapter.getEntity = entities;
     const frames: string[] = [];
     function ReLoginProbe() {
-      const { scope } = usePlatform();
+      const { scope } = useHostPlatform();
       // Same gate as the switchTo case: only `scope.status === 'valid'` enables the destination read.
       useEntityQuery({ type: 'device', id: 'd1', scopeId: null }, 'header', scope.status === 'valid');
       useLayoutEffect(() => {

@@ -61,14 +61,18 @@ export type LinkResolution = {
 };
 
 
-type Platform = {
+/**
+ * The full platform value the shell, the platform components and the app read through `useHostPlatform()` (`@ap/kernel/host`, ADR-0075).
+ * Menus see the narrow `MenuPlatform` of the same runtime value, so a change to a shell-only field never breaks a menu.
+ */
+export type HostPlatform = {
   queryDraft: QueryDraft;
   queryHistory: QueryHistory;
   queryHistoryStore?: QueryHistoryStore;
   queryPolicy: { ready: boolean; idle: boolean; missing: readonly QueryMissing[] };
   equipmentAxes: readonly EquipmentAxisDescriptor[];
   registry: Registry;
-  /** For platform layers (shell) that query the server directly; pages go through their own api seam. */
+  /** The server port. Menus read it for the console and audit ports and the session-bound generation of the my-activity bridge; the query hooks are the usual route. */
   adapter: PlatformAdapter;
   location: PlatformLocation;
   absoluteUrl: (url: string) => string;
@@ -156,6 +160,12 @@ type Platform = {
   /** The pane's caption (`칸 N · 메뉴`) the board passes to its `PaneScreenProvider`; null on the main screen. Read-only. */
   paneLabel: string | null;
 };
+
+/**
+ * What a menu page sees through `usePlatform()` (ADR-0075): the same runtime value as `HostPlatform`, narrowed to the menu contract.
+ * A field a menu needs that is missing here moves up from `HostPlatform`; a menu never imports `@ap/kernel/host`.
+ */
+export type MenuPlatform = Pick<HostPlatform, 'route' | 'url' | 'pathname' | 'absoluteUrl' | 'location' | 'global' | 'page' | 'pageParam' | 'setGlobal' | 'setPage' | 'resetContext' | 'navigate' | 'linkTo' | 'resolveLink' | 'session' | 'user' | 'revision' | 'can' | 'canOpen' | 'scope' | 'toast' | 'toasts' | 'registry' | 'adapter' | 'favorites' | 'toggleFavorite' | 'recent' | 'accessibleSpaces' | 'spaceEntry'>;
 
 /** Context items named by return notifications, separate from menu capabilities. */
 export type ReturnContextKey = ContextKey | 'scope';
@@ -267,9 +277,9 @@ let fallbackUsageSession: string | null = null;
 type ScreenFields = 'queryHistory' | 'queryDraft' | 'queryPolicy' | 'url' | 'pathname' | 'route' | 'platformScreen' | 'contractError' | 'metricInit' | 'global' | 'page' | 'extras' | 'pageParam' | 'pageNavigation' | 'navigate' | 'setGlobal' | 'setPage' | 'resetContext' | 'linkTo' | 'resolveLink' | 'reportError' | 'returnTarget' | 'returnOrigin' | 'scope' | 'retryScope' | 'currentSpace';
 /** Shell navigation state that always follows the main screen, even when read from inside a pane (ADR-0049). */
 type MainBoundFields = 'visibleMenus' | 'sidebarSpace' | 'spaceResume' | 'spaceEntry' | 'switchSpace';
-type ScreenState = Pick<Platform, ScreenFields | 'screenMode' | 'paneId' | 'paneLabel'>;
-type MainBound = Pick<Platform, MainBoundFields>;
-type AppState = Omit<Platform, ScreenFields | MainBoundFields | 'screenMode' | 'paneId' | 'paneLabel'>;
+type ScreenState = Pick<HostPlatform, ScreenFields | 'screenMode' | 'paneId' | 'paneLabel'>;
+type MainBound = Pick<HostPlatform, MainBoundFields>;
+type AppState = Omit<HostPlatform, ScreenFields | MainBoundFields | 'screenMode' | 'paneId' | 'paneLabel'>;
 /** App-internal handles the screen layers need; never part of the public `usePlatform()` value. */
 type AppInternal = {
   selectionPortCache: PortCache;
@@ -959,7 +969,7 @@ export function PaneScreenProvider({ paneId, paneLabel, screen, onChange, onLeav
   return <PaneScreenContext.Provider value={state.screen}>{children}</PaneScreenContext.Provider>;
 }
 
-function useMerged(): Platform | null {
+function useMerged(): HostPlatform | null {
   const app = useContext(AppContext);
   const main = useContext(MainBoundContext);
   const paneScreen = useContext(PaneScreenContext);
@@ -968,14 +978,25 @@ function useMerged(): Platform | null {
   return useMemo(() => (app && main && screen ? { ...app.pub, ...main, ...screen } : null), [app, main, screen]);
 }
 
-export function usePlatform(): Platform {
+/** The menu contract (ADR-0075). The same runtime value as `useHostPlatform()`, typed down to `MenuPlatform`. */
+export function usePlatform(): MenuPlatform {
+  return useHostPlatform();
+}
+
+/** Provider value, or null where there is no provider. Always a hook call — never try/catch. */
+export function usePlatformOptional(): MenuPlatform | null {
+  return useMerged();
+}
+
+/** The full platform value for the shell, the platform components and the app (`@ap/kernel/host`, ADR-0075). Menus use `usePlatform()`. */
+export function useHostPlatform(): HostPlatform {
   const value = useMerged();
   if (!value) throw new Error('usePlatform outside PlatformProvider');
   return value;
 }
 
-/** Provider value, or null where there is no provider. Always a hook call — never try/catch. */
-export function usePlatformOptional(): Platform | null {
+/** `useHostPlatform()`, or null where there is no provider. Always a hook call — never try/catch. */
+export function useHostPlatformOptional(): HostPlatform | null {
   return useMerged();
 }
 

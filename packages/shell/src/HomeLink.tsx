@@ -1,9 +1,10 @@
-import { PlatformLink, useI18n, usePlatform } from '@ap/kernel';
+import { PlatformLink, useI18n } from '@ap/kernel';
+import { useHostPlatform } from '@ap/kernel/host';
 import { Button } from '@ap/ui';
 
 /** Home control for kernel and error views. The platform home (`/`) when that menu can be opened, else the sidebar space home when that menu can be opened, else nothing. */
 export function HomeLink() {
-  const { resolveLink, sidebarSpace, registry } = usePlatform();
+  const { resolveLink, sidebarSpace, registry } = useHostPlatform();
   const { t } = useI18n();
   const platformHome = registry.matchRoute('/')?.menu;
   const opened = platformHome !== undefined ? resolveLink(platformHome.id) : null;

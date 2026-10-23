@@ -12,10 +12,10 @@ import { groupId, spaceId, type GroupId, type SpaceId } from '@ap/contracts';
 // so these tests wrap `spaceEntry` and keep everything else real.
 type Entry = { menuId: string; href: string; resumed: boolean } | null;
 let override: ((spaceId: SpaceId, real: Entry) => Entry) | null = null;
-vi.mock('@ap/kernel', async importOriginal => {
-  const actual = await importOriginal<typeof import('@ap/kernel')>();
-  return { ...actual, usePlatform: () => {
-    const platform = actual.usePlatform();
+vi.mock('@ap/kernel/host', async importOriginal => {
+  const actual = await importOriginal<typeof import('@ap/kernel/host')>();
+  return { ...actual, useHostPlatform: () => {
+    const platform = actual.useHostPlatform();
     return { ...platform, spaceEntry: (spaceId: SpaceId) => { const real = platform.spaceEntry(spaceId); return override ? override(spaceId, real) : real; } };
   } };
 });

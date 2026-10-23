@@ -1,10 +1,11 @@
 import { useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { useI18n, usePlatform, useQueryHistory, type QueryHistoryRow } from '@ap/kernel';
+import { useI18n } from '@ap/kernel';
+import { useHostPlatform, useQueryHistory, type QueryHistoryRow } from '@ap/kernel/host';
 import { formatQuerySummary, useQueryBarExtension } from '@ap/components';
 import { Button, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
 
 export function QueryHistoryControl() {
-  const { session, revision, paneId, pathname, global, queryHistoryStore } = usePlatform();
+  const { session, revision, paneId, pathname, global, queryHistoryStore } = useHostPlatform();
   const [identity, setIdentity] = useState({ session, revision, queryHistoryStore, generation: 0 });
   if (identity.session !== session || identity.revision !== revision || identity.queryHistoryStore !== queryHistoryStore) setIdentity({ session, revision, queryHistoryStore, generation: identity.generation + 1 });
   return <HistorySession key={JSON.stringify([identity.generation, paneId, pathname, global.scopeId])} />;
@@ -12,7 +13,7 @@ export function QueryHistoryControl() {
 function HistorySession() {
   const history = useQueryHistory();
   const { lang } = useI18n();
-  const { route, equipmentAxes } = usePlatform();
+  const { route, equipmentAxes } = useHostPlatform();
   const extension = useQueryBarExtension();
   const ko = lang === 'ko';
   const [open, setOpen] = useState(false);

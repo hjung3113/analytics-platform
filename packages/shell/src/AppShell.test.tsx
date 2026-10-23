@@ -3,7 +3,8 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { DetailDrawer } from '@ap/components';
 import { House, ListTodo, MessageSquarePlus, Rocket, Star } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { I18nProvider, PlatformProvider, usePlatform, createRegistry } from '@ap/kernel';
+import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
+import { useHostPlatform } from '@ap/kernel/host';
 import type { FeedbackOpsSlot, PlatformSlots } from '@ap/kernel';
 import { AppShell } from './AppShell';
 import { AppRail } from './AppRail';
@@ -63,7 +64,7 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 function FavoriteControl() {
-  const { toggleFavorite } = usePlatform();
+  const { toggleFavorite } = useHostPlatform();
   return <button onClick={() => toggleFavorite('home')}>save favorite</button>;
 }
 
@@ -303,7 +304,7 @@ describe('CommandPalette text pairings (DESIGN.md)', () => {
 });
 
 function DetailPage() {
-  const { pageParam, setPage } = usePlatform();
+  const { pageParam, setPage } = useHostPlatform();
   return <><button onClick={() => setPage({ focus: 'entity' })}>open detail</button>
     {pageParam('focus') && <DetailDrawer title="Detail" onClose={() => setPage({ focus: null })}
       tab={pageParam('tab') ?? undefined} onTabChange={tab => setPage({ tab })}
@@ -645,7 +646,7 @@ describe('workspace shell layout (15 §3.1)', () => {
 describe('toast detail', () => {
   it('renders the toast detail as a note named 서버 세부, beneath the body text', () => {
     function DetailToastProbe() {
-      const { toast } = usePlatform();
+      const { toast } = useHostPlatform();
       return <button type="button" onClick={() => toast('내보내기를 수행하지 못했습니다. 다시 시도하고, 반복되면 관리자에게 문의하세요.', 'warning', '시간 도메인이 다른 실행을 함께 내보낼 수 없습니다 (correlationId: corr-7)')}>fire toast</button>;
     }
     render(<I18nProvider><PlatformProvider adapter={adapterWith()} registry={registry}>
@@ -663,7 +664,7 @@ describe('toast detail', () => {
 describe('toast layer above palette scrim (#310)', () => {
   it('keeps the toast container above the open palette overlay', () => {
     function PaletteToastProbe() {
-      const { toast, setPaletteOpen } = usePlatform();
+      const { toast, setPaletteOpen } = useHostPlatform();
       return <>
         <button type="button" onClick={() => setPaletteOpen(true)}>open palette</button>
         <button type="button" onClick={() => toast('내보내기를 시작합니다.')}>fire toast</button>

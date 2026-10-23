@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useSyncExternalStore, type ReactNode } from 'react';
-import { usePlatform } from '@ap/kernel';
+import { useHostPlatform } from '@ap/kernel/host';
 import type { GlobalContext, Pair } from '@ap/contracts';
 import type { PageFilterSummaryItem } from './PageFilterBar';
 
@@ -27,14 +27,14 @@ function createExtensions() {
 const PaneExtensions = createContext<ReturnType<typeof createExtensions> | null>(null);
 /** One board sheet/session owns metadata shared by its separate body and bar providers. */
 export function QueryBarExtensionsProvider({ children }: { children: ReactNode }) {
-  const { session } = usePlatform();
+  const { session } = useHostPlatform();
   const store = useMemo(createExtensions, [session]);
   return <PaneExtensions.Provider value={store}>{children}</PaneExtensions.Provider>;
 }
-function extensionKey(paneId: string | null, route: ReturnType<typeof usePlatform>['route']) { return JSON.stringify([paneId, route?.menu.id, route?.params]); }
+function extensionKey(paneId: string | null, route: ReturnType<typeof useHostPlatform>['route']) { return JSON.stringify([paneId, route?.menu.id, route?.params]); }
 export function usePublishQueryBarExtension(value: QueryBarExtension | undefined): void {
   const store = useContext(PaneExtensions);
-  const { paneId, route } = usePlatform();
+  const { paneId, route } = useHostPlatform();
   const key = extensionKey(paneId, route);
   const serialized = JSON.stringify(value);
   const formatter = value?.historyPageSummary;
@@ -50,7 +50,7 @@ const noop = () => () => {};
 export function useQueryBarExtension(): QueryBarExtension | undefined {
   const local = useContext(QueryBarExtensionContext);
   const store = useContext(PaneExtensions);
-  const { paneId, route } = usePlatform();
+  const { paneId, route } = useHostPlatform();
   const key = extensionKey(paneId, route);
   const shared = useSyncExternalStore(store?.subscribe ?? noop, () => store?.read(key), () => undefined);
   return local ?? shared;

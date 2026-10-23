@@ -1,6 +1,7 @@
 import { Check, ChevronDown, LayoutGrid } from 'lucide-react';
 import { useEffect, useId, useRef, type MouseEvent } from 'react';
-import { PlatformLink, useI18n, usePlatform } from '@ap/kernel';
+import { PlatformLink, useI18n } from '@ap/kernel';
+import { useHostPlatform } from '@ap/kernel/host';
 import { usePlatformMenu } from './platformMenu';
 import { formatUnread, MenuUnread } from './unread';
 import { cn, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipTrigger } from '@ap/ui';
@@ -13,14 +14,14 @@ const CARD = 'flex w-full items-start gap-2 rounded-md border px-3 py-2.5 text-l
  * from `onCloseAutoFocus`, after the focus trap is gone, so the Kernel arrival focus (ADR-0032) lands on the new title.
  */
 export function SystemSwitcher() {
-  const { currentSpace, accessibleSpaces, spaceEntry, switchSpace, registry, resolveLink, navigate, pathname, route, slots, switcherOpen: open, setSwitcherOpen, switcherSession } = usePlatform();
+  const { currentSpace, accessibleSpaces, spaceEntry, switchSpace, registry, resolveLink, navigate, pathname, route, slots, switcherOpen: open, setSwitcherOpen, switcherSession } = useHostPlatform();
   const { t, tx } = useI18n();
   const titleId = useId();
   const contentRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   // Set per selection and cleared on every open, so one open never inherits another's choice. It belongs to the
   // Kernel focus session it was chosen in and dies with the component, so a late close-autofocus timer cannot run it.
-  const pendingMove = useRef<{ move: () => void; session: NonNullable<ReturnType<typeof usePlatform>['switcherSession']> } | null>(null);
+  const pendingMove = useRef<{ move: () => void; session: NonNullable<ReturnType<typeof useHostPlatform>['switcherSession']> } | null>(null);
   const owner = useRef(Symbol('SystemSwitcher'));
   const disposalTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => {

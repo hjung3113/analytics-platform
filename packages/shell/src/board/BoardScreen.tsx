@@ -1,8 +1,10 @@
 import { QueryBarExtensionsProvider } from '@ap/components';
-import { PaneQueryDraftProvider, useEquipmentAxes } from '@ap/kernel';
+import { useEquipmentAxes } from '@ap/kernel';
+import { PaneQueryDraftProvider } from '@ap/kernel/host';
 import { useEffect, useLayoutEffect, useRef, useState, type ComponentType, type CSSProperties } from 'react';
 import { HardDrive } from 'lucide-react';
-import { BOARD_PATH, paneHref, useI18n, usePlatform, type MenuEntry, type PaneScreen } from '@ap/kernel';
+import { useI18n, type MenuEntry } from '@ap/kernel';
+import { BOARD_PATH, paneHref, useHostPlatform, type PaneScreen } from '@ap/kernel/host';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, cn, Popover, PopoverContent, PopoverTrigger, Toaster, ToggleGroup, ToggleGroupItem, UndoToast, toast } from '@ap/ui';
 import { BoardContextBar } from './BoardContextBar';
 import { BoardDock, type DockPaneProps } from './BoardDock';
@@ -37,7 +39,7 @@ function raiseUndo(text: BoardText, message: string, onUndo: () => void) {
  * `Outlet` renders a pane's menu (the shell's `ScreenOutlet`); it is passed in so this folder does not import the outlet that mounts it.
  */
 export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
-  const { user, url, pathname, navigate, registry, recent, pageNavigation, canOpen } = usePlatform();
+  const { user, url, pathname, navigate, registry, recent, pageNavigation, canOpen } = useHostPlatform();
   const { lang, t } = useI18n();
   const text = boardText(lang);
   const { board, update, storageNotice } = useBoardStore(user.id, text.sheetPrefix);

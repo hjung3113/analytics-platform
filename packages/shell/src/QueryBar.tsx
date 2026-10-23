@@ -1,6 +1,7 @@
 import { useId, useLayoutEffect, useRef, useState, type ReactNode, type ComponentProps } from 'react';
 import { parseDateTime, shift, type GlobalContext, type IdSet } from '@ap/contracts';
-import { CONTEXT_LABELS, useAxisOptions, useEquipmentSearch, useI18n, usePlatform, useQueryDraft, useResolvedSelection, type PortContext } from '@ap/kernel';
+import { CONTEXT_LABELS, useAxisOptions, useEquipmentSearch, useI18n, useQueryDraft, useResolvedSelection, type PortContext } from '@ap/kernel';
+import { useHostPlatform } from '@ap/kernel/host';
 import { formatQuerySummary, querySummaryItems, useCopyLink, useQueryBarExtension } from '@ap/components';
 import { Alert, AlertDescription, Button, Input, MultiCombobox, Popover, PopoverContent, PopoverTrigger, readLocalStorage, writeLocalStorage } from '@ap/ui';
 
@@ -12,13 +13,13 @@ export type QueryBarProps = {
 
 /** Remount transient editor state on logical screen/session switches; Kernel owns retained drafts. */
 export function QueryBar(props: QueryBarProps) {
-  const { route, paneId, session } = usePlatform();
+  const { route, paneId, session } = useHostPlatform();
   const [identity, setIdentity] = useState({ session, generation: 0 });
   if (identity.session !== session) setIdentity({ session, generation: identity.generation + 1 });
   return <QueryBarSession key={`${identity.generation}:${paneId ?? 'main'}:${route?.menu.id}:${JSON.stringify(route?.params)}`} {...props} />;
 }
 function QueryBarSession({ label, historySlot }: QueryBarProps) {
-  const platform = usePlatform();
+  const platform = useHostPlatform();
   const { route, global, page, scope, screenMode, equipmentAxes, url, session } = platform;
   const query = useQueryDraft();
   const { draft, dirty, missing, canApply, applying, setDraftGlobal, apply, revert, reset } = query;
@@ -190,7 +191,7 @@ function EquipmentField({ context, ...props }: Omit<SetFieldProps, 'name' | 'opt
   </div>;
 }
 function PeriodFields({ global: g, range, setRange, write, invalid, reasonId, reportInvalid, periodEditor, setPeriodEditor }: { periodEditor: { mode: 'reference' | 'range'; reference: string; invalidReference: boolean }; setPeriodEditor: (value: { mode: 'reference' | 'range'; reference: string; invalidReference: boolean }) => void; range: { from: string; to: string }; setRange: (value: { from: string; to: string }) => void; global: GlobalContext; write: (patch: Partial<GlobalContext>) => void; invalid: boolean; reasonId: string; reportInvalid: () => void }) {
-  const { defaultRangeTo } = usePlatform();
+  const { defaultRangeTo } = useHostPlatform();
   const { lang } = useI18n();
   const ko = lang === 'ko';
   const { mode, reference } = periodEditor;

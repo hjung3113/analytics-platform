@@ -1,6 +1,6 @@
 import { useLayoutEffect, useMemo, useSyncExternalStore } from 'react';
 import { buildQuery, compareHistoryText, compareQueryHistory, emptyGlobal, parseQuery, type GlobalContext, type Pair, type QueryHistoryEntry, type QueryHistoryKey, type QueryHistoryStore, type Session } from '@ap/contracts';
-import { usePlatform } from './platform';
+import { useHostPlatform } from './platform';
 import type { DraftStore, DraftInputs, DraftValues } from './draft-state';
 
 export type QueryHistoryRow = { id: string; lastAppliedAt: number; count: number } & (
@@ -16,7 +16,7 @@ export type QueryHistory = {
   /** Opening the control validates the displayed selection union, once per logical screen. */
   open: () => void;
 };
-export function useQueryHistory(): QueryHistory { return usePlatform().queryHistory; }
+export function useQueryHistory(): QueryHistory { return useHostPlatform().queryHistory; }
 
 // Store ports remain swappable; an app-local bus refreshes screens after accepted mutations.
 const changes = new WeakMap<QueryHistoryStore, Set<(key: QueryHistoryKey) => void>>();
