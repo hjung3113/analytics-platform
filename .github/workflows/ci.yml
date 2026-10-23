@@ -174,15 +174,20 @@ jobs:
   platform-contracts-e2e-shard:
     name: Platform contracts (E2E shard ${{ matrix.shard }}/3)
     runs-on: ubuntu-latest
+    # #669: the shard time was never the test slices (≈220–250 s each, balanced) but `playwright install --with-deps`,
+    # whose apt download of fonts/libnss3 from the runner mirror sometimes took 700+ s on one shard. The official image
+    # ships Chromium and its system packages. Its tag must match `@playwright/test` in apps/platform-e2e/package.json;
+    # the guard step below fails the job when they drift.
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-noble
+      # Playwright's Docker guidance: Chromium can crash on Docker's 64 MB default /dev/shm.
+      options: --ipc=host
     timeout-minutes: 30
     strategy:
       # Every shard runs to the end so the merged report lists every failing contract, not only the first shard's.
       fail-fast: false
       matrix:
         shard: [1, 2, 3]
-    env:
-      # 설치와 실행이 같은 경로를 보도록 Job 전체에 명시한다(config는 기본 캐시를 쓰고 이 변수를 따른다).
-      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/apps/platform-e2e/.browsers
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v6
@@ -191,7 +196,11 @@ jobs:
           node-version: '26.7.0'
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @ap/platform-e2e exec playwright install --with-deps chromium
+      # The image tag above and @playwright/test must move together; fail loudly instead of drifting.
+      - name: Playwright image matches @playwright/test
+        run: |
+          want="$(node -p "require('./apps/platform-e2e/node_modules/@playwright/test/package.json').version")"
+          test "$want" = "1.63.0" || { echo "::error::@playwright/test is $want but the E2E container is mcr.microsoft.com/playwright:v1.63.0-noble — bump both"; exit 1; }
       # pnpm forwards the flags to `playwright test` as they are (no `--`, which Playwright would read as file filters).
       # The blob reporter replaces the configured reporters; the final job merges the blobs into one contract report.
       - run: pnpm e2e --shard=${{ matrix.shard }}/3 --reporter=list,blob
