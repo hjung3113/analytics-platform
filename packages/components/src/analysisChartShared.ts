@@ -1,3 +1,4 @@
+import { parseDateTime } from '@ap/contracts';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import type { ChartSpec } from './AnalysisChart';
 
@@ -12,3 +13,4 @@ export function brushOptions() {
     brush: { toolbox: [], brushType: 'rect', xAxisIndex: 0, yAxisIndex: 0, inBrush: {}, outOfBrush: {} },
   };
 }
+export const toMs = (v: string) => parseDateTime(v, 'x').getTime();
