@@ -50,6 +50,7 @@
 - 브랜치를 한 커밋으로 합칠 때는 `git reset --soft $(git merge-base HEAD origin/main)`을 쓴다. worktree들은 `origin/*`를 함께 쓰므로, 다른 worktree의 fetch로 `origin/main`이 앞서 있으면 `reset --soft origin/main`이 그 사이 병합된 PR을 되돌리는 커밋을 만든다(2026-10-23 #676이 #664를 되돌릴 뻔함, CSS selector 비교가 잡음). 커밋 뒤 `git diff origin/main --stat`이 이 PR의 파일만 보이는지 확인한다.
 - Tailwind는 테스트 파일의 문자열도 클래스로 읽는다(`'row-1'` → `.row-1`). 테스트 id·URL 값에 Tailwind 유틸리티 모양 문자열을 쓰지 않는다(CSS selector 비교가 "추가"로 실패).
 - 주석 줄이 `// eslint-disable…`로 시작하면 설명문이어도 지시어로 읽힌다(규칙 이름 없음 오류). 그 단어로 줄을 시작하지 않는다.
+- `gh pr checks <n> --watch --required`를 PR을 만든 직후에 돌리면 필수 검사가 아직 등록되지 않아 "no required checks reported"로 바로 끝난다(exit 1, 2026-10-23 #718). 1분쯤 뒤에 돌리거나, 끝난 뒤 `gh pr checks <n> --required` 출력에 필수 검사 두 개가 `pass`로 보이는지 확인하고 병합한다.
 - PR 대기는 CI 완료(+시간 상한)로만 한다. 리뷰 봇은 새 커밋을 다시 리뷰하지 않을 수 있다. `Closes #n` 자동 닫힘이 늦으면 병합 뒤 한 번 확인하고 직접 닫는다.
 
 ## 브라우저 확인과 캡처
