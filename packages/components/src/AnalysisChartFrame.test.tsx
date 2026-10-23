@@ -174,6 +174,29 @@ describe('AnalysisChartFrame follows the menu manifest features (06 §16, issue 
   });
 });
 
+describe('wheel over the plot (#700, 06 §16)', () => {
+  // The inner listener stands in for zrender's own wheel handler on the instance div.
+  const wheel = async (init: WheelEventInit) => {
+    const { adapter } = fixture();
+    mount(adapter, off);
+    const plot = await screen.findByRole('img', { name: /Chart/ });
+    const reached = vi.fn((event: Event) => event.preventDefault());
+    plot.addEventListener('wheel', reached);
+    const event = new WheelEvent('wheel', { bubbles: true, cancelable: true, deltaY: 100, ...init });
+    plot.dispatchEvent(event);
+    return { reached, event };
+  };
+  it('lets a plain wheel scroll the page: the plot never sees it and nothing is prevented', async () => {
+    const { reached, event } = await wheel({});
+    expect(reached).not.toHaveBeenCalled();
+    expect(event.defaultPrevented).toBe(false);
+  });
+  it('passes Shift+wheel through to the plot (ECharts zoom)', async () => {
+    const { reached } = await wheel({ shiftKey: true });
+    expect(reached).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('chart stroke aliases (#203)', () => {
   it('uses a stroke alias for line series and keeps the chart fill on bars', async () => {
     const root = document.documentElement;

@@ -3,6 +3,7 @@ import { flexRender, getCoreRowModel, useReactTable, type Column, type ColumnDef
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, Columns3, Copy, Download, FileSpreadsheet, FileText, Loader2, Pin, PinOff } from 'lucide-react';
 import { useI18n, usePlatform } from '@ap/kernel';
+import { useHostPlatform } from '@ap/kernel/host';
 import type { ApiResponse, Capability, ContextKey, PageQuery, PageResult, PageSort } from '@ap/contracts';
 import { Button, Checkbox, cn, DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, Label, Popover, PopoverContent, PopoverTrigger, shortcutLabel, Skeleton, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { AnalysisSectionContext } from './AnalysisSectionContext';
@@ -111,6 +112,9 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const analysisSection = useContext(AnalysisSectionContext);
   const inPanel = useInWorkspacePanel();
   const { route } = usePlatform();
+  const { screenMode } = useHostPlatform();
+  // §15: a workspace panel or board pane body scrolls too, so the row area chains the wheel outward at its edge; flow pages and drawers contain it.
+  const chainWheel = inPanel || screenMode === 'pane';
   // Registry declares export capability (§5); the table never offers Export on a menu that did not declare it.
   const canExport = !!p.exportRows && !!route?.menu.features.export;
   // Selection exists only for features that read it (export/copy, bulk actions); ADR-0037.
@@ -365,7 +369,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
 
     {shown && shown.outcome !== 'ok' ? <div ref={outcome} onFocus={() => { focusedRetry.current = true; }} onBlur={() => { focusedRetry.current = false; }} className="border-t border-border-subtle p-3"><OutcomeView response={shown} onRetry={retry} emptyAction={p.emptyAction}>{() => null}</OutcomeView></div> :
       // eslint-disable-next-line shadcn/no-inline-styles -- viewport max height comes from the height prop or the measured page fit at runtime
-      <div ref={viewportRef} data-table-auto-fit={p.height === undefined ? '' : undefined} tabIndex={0} aria-label={SCROLLPORT_LABEL[lang]} className="overflow-auto overscroll-contain border-t border-border-subtle [overflow-anchor:none]" style={{ maxHeight: p.height ?? fit.cap ?? ROW_AREA_FALLBACK }}>
+      <div ref={viewportRef} data-table-auto-fit={p.height === undefined ? '' : undefined} tabIndex={0} aria-label={SCROLLPORT_LABEL[lang]} className={cn('overflow-auto border-t border-border-subtle [overflow-anchor:none]', chainWheel ? 'overscroll-auto' : 'overscroll-contain')} style={{ maxHeight: p.height ?? fit.cap ?? ROW_AREA_FALLBACK }}>
         {/* eslint-disable-next-line shadcn/no-inline-styles -- table width is the total column size computed at runtime */}
         <div role="table" aria-label={p.ariaLabel} aria-rowcount={data.total + 1} aria-busy={loading} className="min-w-full" style={{ width: table.getTotalSize() }}>
           <div role="rowgroup" className="sticky top-0 z-[5]">

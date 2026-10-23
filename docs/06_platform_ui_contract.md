@@ -671,7 +671,7 @@ Domain 메뉴는 가능하면 이 Archetype을 조합하고, 새로운 Page Type
 
 ### 12.8 PanelWorkspace (Candidate, [ADR-0067](adr/0067-dockview-layout-engine-board-v2.md) 결정 3–9·18–22)
 
-패널이 4개 이상인 밀집 분석 메뉴가 쓰는 선택 레이아웃이다. 메뉴가 패널·프리셋·기본 패널을 선언하고, 탭·끌기·나누기·최대화·숨긴 패널 목록·기본 배치·브라우저 로컬 선호는 플랫폼이 소유한다. 그 밖의 메뉴는 `AnalysisLayout`(§12.6)을 그대로 쓴다. `@ap/components` 루트의 `PanelWorkspace`이고(메뉴는 `@ap/components/dock`을 import할 수 없다), 소비자가 둘 이상 확인될 때까지 Candidate다(§24).
+패널이 4개 이상인 밀집 분석 메뉴가 쓰는 선택 레이아웃이다. 메뉴가 패널·프리셋·기본 패널을 선언하고, 탭·끌기·나누기·최대화·숨긴 패널 목록·기본 배치·브라우저 로컬 선호는 플랫폼이 소유한다. 그 밖의 메뉴는 `AnalysisLayout`(§12.6)을 그대로 쓴다. `@ap/components` 루트의 `PanelWorkspace`이고(메뉴는 `@ap/components/dock`을 import할 수 없다), 소비자가 둘 이상 확인될 때까지 Candidate다(§24). 휠: 탭 줄은 넘치지 않으면 세로 휠을 바깥으로 넘기고([16 §4.1](16_analysis_board.md)), 그림은 수정키 없는 휠을 막지 않으며(§16), 패널 안 표 행 영역은 끝에서 휠을 넘긴다(§15)(#700).
 
 - **props:** `panels`(`id`·`title`·`render`·`primary?`·`minWidth?`·`minHeight?` — 기본 패널은 정확히 하나, 숨길 수 없고 비는 자리를 먼저 얻는다), `presets`(`id`·`label`·`layout`: 그룹 `{type:'group', panels, active?}` 또는 `{type:'branch', dir, sizes(비율), children}`)·`initialPreset`·`compactPreset?`·`persistKey`·`label`·`compactBelow?`(기본 900px, 컨테이너 폭). 패널 id와 `persistKey`는 `^[a-z][a-z0-9._-]{0,63}$` 정적 식별자다(저장 키에 데이터 값이 들어가지 않게).
 - **리마운트 0:** 프리셋 전환·`기본 배치`·이동·나누기·탭 선택·최대화는 이미 마운트된 패널을 재배치하므로 상태와 조회가 유지된다. 숨긴 패널의 하위 트리는 내려가므로 숨겨도 살아야 하는 상태는 workspace 위에 둔다.
@@ -847,7 +847,7 @@ Cell padding     4px 12px
 
 행 높이는 줄바꿈·포커스·24px 최소 타겟에 따라 32px보다 늘어날 수 있으며, coarse-pointer(터치) 행은 44px 타겟까지 커진다. 동작 열 버튼은 `toolbar`(32px) 크기라 동작 열 셀은 위아래 여백이 없고 행은 32px에 머문다.
 
-표 높이·열 규칙([ADR-0037](adr/0037-table-filter-consistency.md)): 행 영역은 내용 높이만큼이고 최대 `max(240px, R)`까지만 커진다(R = 스크롤 컨테이너 가시 높이 − 고정 머리 − 표 위쪽 내용 − 표 아래 쪽 넘김·형제 내용·본문 아래 여백, 맨 위로 스크롤한 상태 기준). 명시한 `height`는 분석 표의 상한이다. 선택 열은 선택을 읽는 기능(내보내기·복사, `bulkActions`)이 있는 표에만 있다. `rowAction`이 있으면 동작 열은 오른쪽에 고정하고(불투명 배경·왼쪽 경계선), 스크롤 영역이 사용자 왼쪽 고정 열 + 동작 열(128px) + 120px보다 좁아도 사용자 왼쪽 고정 열 + 72px + 120px 이상이면 동작 열은 72px 아이콘 전용 compact 형태로 계속 고정한다(`rowAction(row, { compact })`; 모든 동작은 같은 접근 가능한 이름의 아이콘 버튼·링크이고 툴팁이 가린 글자를 hover와 키보드 포커스에서 보인다, 공통 부품 `RowAction` — 같은 요소를 두 형태로 그려 compact ↔ 일반 전환에도 DOM 노드와 포커스가 유지된다). 그보다 좁으면 고정하지 않고 일반(글자) 형태로 스크롤에 섞인다. 동작 열은 사용자가 고정할 수 없고 저장되지 않는다.
+표 높이·열 규칙([ADR-0037](adr/0037-table-filter-consistency.md)): 행 영역은 내용 높이만큼이고 최대 `max(240px, R)`까지만 커진다(R = 스크롤 컨테이너 가시 높이 − 고정 머리 − 표 위쪽 내용 − 표 아래 쪽 넘김·형제 내용·본문 아래 여백, 맨 위로 스크롤한 상태 기준). 명시한 `height`는 분석 표의 상한이다. 선택 열은 선택을 읽는 기능(내보내기·복사, `bulkActions`)이 있는 표에만 있다. `rowAction`이 있으면 동작 열은 오른쪽에 고정하고(불투명 배경·왼쪽 경계선), 스크롤 영역이 사용자 왼쪽 고정 열 + 동작 열(128px) + 120px보다 좁아도 사용자 왼쪽 고정 열 + 72px + 120px 이상이면 동작 열은 72px 아이콘 전용 compact 형태로 계속 고정한다(`rowAction(row, { compact })`; 모든 동작은 같은 접근 가능한 이름의 아이콘 버튼·링크이고 툴팁이 가린 글자를 hover와 키보드 포커스에서 보인다, 공통 부품 `RowAction` — 같은 요소를 두 형태로 그려 compact ↔ 일반 전환에도 DOM 노드와 포커스가 유지된다). 그보다 좁으면 고정하지 않고 일반(글자) 형태로 스크롤에 섞인다. 동작 열은 사용자가 고정할 수 없고 저장되지 않는다. 행 영역은 기본으로 휠을 가둔다(`overscroll-contain`, 흐름 페이지·서랍). 작업 영역 패널이나 보드 칸 안에서는 본문도 스크롤하므로 행 영역 끝에서 휠이 바깥 컨테이너로 이어진다(`overscroll-auto`, #700).
 
 숫자는 오른쪽 정렬하고 `tabular-nums`를 사용한다.
 
@@ -891,6 +891,8 @@ Domain이 소유:
 Primary candidate는 `04_frontend_ui_ux.md`에 따라 Apache ECharts다.
 
 플랫폼은 Chart의 비즈니스 정의가 아니라 **Chart Frame과 Interaction Contract**를 소유한다.
+
+`AnalysisChartFrame`의 그림 위에서 수정키 없는 휠은 가장 가까운 스크롤 컨테이너를 그대로 스크롤하고(프레임이 막지 않는다), Shift+휠이 확대이며 키보드·포인터 대안은 툴바 `확대` 버튼이다(#700).
 
 공통 Toolbar vocabulary:
 
