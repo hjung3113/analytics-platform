@@ -2,7 +2,7 @@
 // `voc-description` allowlist (server and client) takes `id` only, and the server links only the ids listed in
 // `attachment_ids`. The compose path reduces each node to its `id` and lists those ids with the dropzone's.
 
-import { MAX_ATTACHMENT_IDS_PER_PARENT, type TipTapDoc } from '@fops/shared';
+import type { TipTapDoc } from '@fops/shared';
 
 interface RichNode {
   type?: unknown;
@@ -27,10 +27,11 @@ export function normalizeAttachmentRefs(doc: TipTapDoc): { doc: TipTapDoc; ids: 
   return { doc: walk(doc as RichNode) as unknown as TipTapDoc, ids };
 }
 
-/** Editor ids first (the body points at them), then the dropzone's; duplicates dropped, capped at the server limit. */
+/** Editor ids first (the body points at them), then the dropzone's; duplicates dropped, none silently cut.
+ * Enforcing `MAX_ATTACHMENT_IDS_PER_PARENT` is the submit path's job, where an over-cap set can surface to the user. */
 export function mergeAttachmentIds(
   editorIds: readonly string[],
   dropzoneIds: readonly string[],
 ): string[] {
-  return [...new Set([...editorIds, ...dropzoneIds])].slice(0, MAX_ATTACHMENT_IDS_PER_PARENT);
+  return [...new Set([...editorIds, ...dropzoneIds])];
 }

@@ -53,6 +53,7 @@ export function VocComposeScreen({
     isSubmitting,
     attachmentsUploading,
     hasAttachmentErrors,
+    attachmentLimitExceeded,
     setAttachmentIds,
     setAttachmentsUploading,
     setAttachmentErrorCount,
@@ -246,6 +247,16 @@ export function VocComposeScreen({
         >
           첨부 파일에 오류가 있어 제출할 수 없습니다. 빨간색으로 표시된 파일을 제거하거나 다른
           파일로 교체해 주세요.
+        </div>
+      )}
+
+      {attachmentLimitExceeded && (
+        <div
+          role="alert"
+          data-testid="attachment-limit-alert"
+          className="mx-4 mb-2 rounded-md border border-border-subtle bg-surface-card px-3 py-2 text-sm text-text-danger shadow-sm"
+        >
+          {VOC_CREATE_COPY.attachmentLimit}
         </div>
       )}
 

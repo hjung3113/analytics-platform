@@ -20,6 +20,8 @@ export const VOC_CREATE_COPY = {
   descriptionField: '상세 설명',
   managedSystemField: 'Managed System',
   requiredFieldsPrefix: '필수 항목: ',
+  // #656: merged editor + dropzone attachments over the per-parent cap block the submit.
+  attachmentLimit: '첨부는 최대 10개까지 연결할 수 있습니다.',
 } as const;
 
 export const VOC_REPLY_COPY = {

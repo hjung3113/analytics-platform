@@ -7,7 +7,12 @@ import {
 import type { ApiError, ApiErrorEnvelope } from '@/lib/api/types';
 import { useIdempotencyKey } from '@/lib/api/useIdempotencyKey';
 import { useHostSeam } from '@/lib/host/host-seam';
-import { createVocRequestSchema, emptyTipTapDoc, isTipTapDocBlank } from '@fops/shared';
+import {
+  MAX_ATTACHMENT_IDS_PER_PARENT,
+  createVocRequestSchema,
+  emptyTipTapDoc,
+  isTipTapDocBlank,
+} from '@fops/shared';
 import type { CreateVocRequest } from '@fops/shared';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
@@ -54,6 +59,8 @@ export function useVocComposeController({
   const [attachmentsUploading, setAttachmentsUploading] = React.useState(false);
   const [attachmentErrorCount, setAttachmentErrorCount] = React.useState(0);
   const hasAttachmentErrors = attachmentErrorCount > 0;
+  // Set when a submit attempt finds the merged attachment set over the per-parent cap; reflects the latest attempt.
+  const [attachmentLimitExceeded, setAttachmentLimitExceeded] = React.useState(false);
 
   const mutation = useVocCreateMutation({
     idempotencyKey,
@@ -173,10 +180,18 @@ export function useVocComposeController({
   // `contextBlock` is read when the form is submitted, so a chip removed after typing leaves the typed values alone.
   function handleSubmit(body: CreateVocRequest): void {
     const { doc, ids: editorIds } = normalizeAttachmentRefs(body.description_rich_content);
+    const mergedIds = mergeAttachmentIds(editorIds, attachmentIds);
+    if (mergedIds.length > MAX_ATTACHMENT_IDS_PER_PARENT) {
+      // Over the server's per-parent cap: no request, no silent drop of ids — the draft stays as it is
+      // and the screen shows the form-level error until the next submit attempt.
+      setAttachmentLimitExceeded(true);
+      return;
+    }
+    setAttachmentLimitExceeded(false);
     mutation.mutate({
       ...body,
       description_rich_content: appendContextBlock(doc, contextBlock),
-      attachment_ids: mergeAttachmentIds(editorIds, attachmentIds),
+      attachment_ids: mergedIds,
     });
   }
 
@@ -195,6 +210,7 @@ export function useVocComposeController({
     isSubmitting: mutation.isPending,
     attachmentsUploading,
     hasAttachmentErrors,
+    attachmentLimitExceeded,
     setAttachmentIds,
     setAttachmentsUploading,
     setAttachmentErrorCount,

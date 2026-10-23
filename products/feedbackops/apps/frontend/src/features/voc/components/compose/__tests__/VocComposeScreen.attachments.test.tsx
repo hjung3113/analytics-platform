@@ -15,6 +15,15 @@ import { mergeAttachmentIds, normalizeAttachmentRefs } from '../attachment-refs'
 const ATT_A = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
 const ATT_B = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
 const MS_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+// 6 distinct editor ids + 5 dropzone ids = 11 merged ids, one over `MAX_ATTACHMENT_IDS_PER_PARENT`.
+const EDITOR_SIX = Array.from(
+  { length: 6 },
+  (_, i) => `f1000000-0000-4000-8000-${String(i + 1).padStart(12, '0')}`,
+);
+const DROP_IDS = Array.from(
+  { length: 5 },
+  (_, i) => `f2000000-0000-4000-8000-${String(i + 1).padStart(12, '0')}`,
+);
 
 const toolbarOpts = vi.hoisted(() => ({
   current: undefined as { onAttachError?: (e: unknown) => void } | undefined,
@@ -41,9 +50,29 @@ const docWithUpload = (...ids: string[]) => ({
 vi.mock('@fops/ui', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@fops/ui')>()),
   RichEditor: ({ onChange }: { onChange: (doc: unknown) => void }) => (
-    <button type="button" onClick={() => onChange(docWithUpload(ATT_A, ATT_B, ATT_A))}>
-      에디터 첨부 올리기
-    </button>
+    <>
+      <button type="button" onClick={() => onChange(docWithUpload(ATT_A, ATT_B, ATT_A))}>
+        에디터 첨부 올리기
+      </button>
+      <button type="button" onClick={() => onChange(docWithUpload(...EDITOR_SIX))}>
+        에디터 첨부 6개 올리기
+      </button>
+    </>
+  ),
+}));
+
+// The dropzone's upload pipeline has its own suite (`AttachmentDropzone.test.tsx`); the cap behavior
+// under test here only needs its `onChange(uploaded ids)` contract.
+vi.mock('../../create/AttachmentDropzone', () => ({
+  AttachmentDropzone: ({ onChange }: { onChange: (ids: string[]) => void }) => (
+    <div>
+      <button type="button" onClick={() => onChange(DROP_IDS)}>
+        드롭존 첨부 5개 추가
+      </button>
+      <button type="button" onClick={() => onChange(DROP_IDS.slice(0, 4))}>
+        드롭존 첨부 4개 추가
+      </button>
+    </div>
   ),
 }));
 
@@ -158,7 +187,7 @@ describe('<VocComposeScreen> editor attachments (C3)', () => {
     expect(body.attachment_ids).toEqual([ATT_A, ATT_B]);
   });
 
-  it('normalizeAttachmentRefs leaves other nodes untouched and mergeAttachmentIds dedupes and caps at 10', () => {
+  it('normalizeAttachmentRefs leaves other nodes untouched and mergeAttachmentIds dedupes without capping', () => {
     const doc = {
       type: 'doc',
       content: [
@@ -170,7 +199,49 @@ describe('<VocComposeScreen> editor attachments (C3)', () => {
       { length: 12 },
       (_, i) => `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`,
     );
-    expect(mergeAttachmentIds([many[0] as string], many)).toEqual(many.slice(0, 10));
+    expect(mergeAttachmentIds([many[0] as string], many)).toEqual(many);
+  });
+});
+
+describe('<VocComposeScreen> attachment cap at submit (C3)', () => {
+  it('11 merged ids block the submit with the limit error: no POST, no onSubmitted, draft kept', async () => {
+    installFetch(json({ id: 'v', display_id: 'VOC-7' }, 201));
+    const { props } = mount();
+    fireEvent.change(screen.getByRole('textbox', { name: /제목/ }), {
+      target: { value: '차트가 비어 있습니다' },
+    });
+    fireEvent.blur(screen.getByRole('textbox', { name: /제목/ }));
+    fireEvent.click(screen.getByRole('button', { name: '에디터 첨부 6개 올리기' }));
+    fireEvent.click(screen.getByRole('button', { name: '드롭존 첨부 5개 추가' }));
+    fireEvent.click(await screen.findByRole('radio', { name: 'Analytics MS' }));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'VOC 제출' })).not.toBeDisabled(),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'VOC 제출' }));
+
+    expect(await screen.findByText('첨부는 최대 10개까지 연결할 수 있습니다.')).toBeInTheDocument();
+    expect(posted).toBeUndefined();
+    expect(props.onSubmitted).not.toHaveBeenCalled();
+    expect(screen.getByRole('textbox', { name: /제목/ })).toHaveValue('차트가 비어 있습니다');
+  });
+
+  it('exactly 10 merged ids submit with all 10 ids', async () => {
+    installFetch(json({ id: 'v', display_id: 'VOC-7' }, 201));
+    const { props } = mount();
+    fireEvent.change(screen.getByRole('textbox', { name: /제목/ }), {
+      target: { value: '차트가 비어 있습니다' },
+    });
+    fireEvent.blur(screen.getByRole('textbox', { name: /제목/ }));
+    fireEvent.click(screen.getByRole('button', { name: '에디터 첨부 6개 올리기' }));
+    fireEvent.click(screen.getByRole('button', { name: '드롭존 첨부 4개 추가' }));
+    fireEvent.click(await screen.findByRole('radio', { name: 'Analytics MS' }));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'VOC 제출' })).not.toBeDisabled(),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'VOC 제출' }));
+
+    await waitFor(() => expect(props.onSubmitted).toHaveBeenCalledTimes(1));
+    expect(posted?.body.attachment_ids).toEqual([...EDITOR_SIX, ...DROP_IDS.slice(0, 4)]);
   });
 });
 
