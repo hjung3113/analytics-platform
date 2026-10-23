@@ -1,6 +1,17 @@
 import { z } from 'zod';
 import { permissionScopeCandidateSchema } from './submit-more-info.js';
 
+export const permissionRequestStatusSchema = z.enum([
+  'pending',
+  'needs_more_info',
+  'approved',
+  'rejected',
+  'cancelled',
+  'expired',
+  'revoked',
+]);
+export type PermissionRequestStatus = z.infer<typeof permissionRequestStatusSchema>;
+
 const scopeSchema = z.object({ managed_system_id: z.string().uuid().nullable() }).strict();
 export const permissionMatchingDenySchema = scopeSchema.extend({ id: z.string().uuid() });
 export const permissionRiskIndicatorSchema = z.discriminatedUnion('code', [
@@ -57,15 +68,7 @@ const permissionSelectedRequestSchema = z
     source_action_id: z.string().nullable(),
     return_route_intent: z.string().nullable(),
     source_summary: permissionSourceSummarySchema.nullable(),
-    status: z.enum([
-      'pending',
-      'needs_more_info',
-      'approved',
-      'rejected',
-      'cancelled',
-      'expired',
-      'revoked',
-    ]),
+    status: permissionRequestStatusSchema,
     revision: z.number().int().positive(),
     created_at: z.string().datetime(),
     updated_at: z.string().datetime(),

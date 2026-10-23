@@ -5,30 +5,38 @@
 
 import {
   type ApprovePermissionRequest,
-  type CancelPermissionRequest,
   type DirectPermissionGrant,
-  type EditPermissionRequest,
   type PermissionDecisionResult,
   type PermissionGrantOptions,
-  cancelPermissionRequestResultSchema,
-  cancelPermissionRequestSchema,
+  type PermissionRequestStatus,
   directPermissionGrantSchema,
-  editPermissionRequestSchema,
   listPermissionDeniesResponseSchema,
   listPermissionGrantsResponseSchema,
   permissionDecisionResultSchema,
   permissionGrantAdminItemSchema,
   permissionGrantOptionsSchema,
   permissionRequestAdminDetailSchema,
-  permissionRequestOwnerDetailSchema,
   revokePermissionBodySchema,
   revokePermissionResultSchema,
-  submitMoreInfoPermissionRequestResultSchema,
 } from '@fops/shared';
 
 import { UnauthenticatedError } from './auth';
 import { apiRequest } from './client';
 import { ApiError, type ApiErrorEnvelope } from './types';
+
+// The requester calls live in their own bridge-safe module (#657); every caller still imports them from here.
+export {
+  type CreatePermissionRequestBody,
+  type CreatePermissionRequestSuccess,
+  type MinePermissionRequestRow,
+  createPermissionRequest,
+  fetchPermissionRequestOwnerDetail,
+  fetchPermissionRequestsMine,
+  permissionRequestOwnerDetailKey,
+  permissionRequestsMineKey,
+  updateOwnPermissionRequest,
+  withdrawPermissionRequest,
+} from './permission-requests';
 
 export type FrontendPermissionState =
   | 'approved'
@@ -71,43 +79,6 @@ export async function fetchCapabilityScope(
   return (await res.json()) as { scope: CapabilityScope };
 }
 
-export interface CreatePermissionRequestBody {
-  requested_capability: string;
-  requested_managed_system_id?: string;
-  requested_object_type?: string;
-  requested_object_id?: string;
-  reason: string;
-  requested_expiration?: string;
-  source_object_type?: string;
-  source_object_id?: string;
-  source_action_id?: string;
-  return_route_intent?: string;
-}
-
-export interface CreatePermissionRequestSuccess {
-  id: string;
-  status: 'pending';
-  created_at: string;
-}
-
-export interface MinePermissionRequestRow {
-  id: string;
-  requested_capability: string;
-  requested_managed_system_id: string | null;
-  reason: string;
-  requested_object_type: string | null;
-  requested_object_id: string | null;
-  source_object_type: string | null;
-  source_object_id: string | null;
-  source_action_id: string | null;
-  revision: number;
-  requested_expiration: string | null;
-  updated_at: string;
-  return_route_intent: string | null;
-  status: 'pending' | 'needs_more_info';
-  created_at: string;
-}
-
 export async function fetchPermissionCheck(
   capability: string,
   options?: { managedSystemId?: string; signal?: AbortSignal },
@@ -122,45 +93,6 @@ export async function fetchPermissionCheck(
   return (await res.json()) as PermissionCheckResponse;
 }
 
-export async function createPermissionRequest(
-  body: CreatePermissionRequestBody,
-  options: { idempotencyKey: string; signal?: AbortSignal },
-): Promise<CreatePermissionRequestSuccess> {
-  const init: RequestInit = {
-    method: 'POST',
-    credentials: 'same-origin',
-    headers: {
-      'content-type': 'application/json',
-      'Idempotency-Key': options.idempotencyKey,
-    },
-    body: JSON.stringify(body),
-  };
-  if (options.signal) init.signal = options.signal;
-  const res = await fetch('/permission-requests', init);
-  if (res.status === 401) throw new UnauthenticatedError();
-  if (res.status >= 200 && res.status < 300) {
-    return (await res.json()) as CreatePermissionRequestSuccess;
-  }
-  let envelope: ApiErrorEnvelope = { code: 'internal.unexpected', message: 'request failed' };
-  try {
-    envelope = (await res.json()) as ApiErrorEnvelope;
-  } catch {
-    // body wasn't JSON; keep default envelope
-  }
-  throw new ApiError(res.status, envelope);
-}
-
-export async function fetchPermissionRequestsMine(
-  signal?: AbortSignal,
-): Promise<{ requests: MinePermissionRequestRow[] }> {
-  const init: RequestInit = { credentials: 'same-origin' };
-  if (signal) init.signal = signal;
-  const res = await fetch('/permission-requests/mine', init);
-  if (res.status === 401) throw new UnauthenticatedError();
-  if (!res.ok) throw new Error(`/permission-requests/mine failed: ${res.status}`);
-  return (await res.json()) as { requests: MinePermissionRequestRow[] };
-}
-
 // Admin workspace-wide list. 403 for non-admins → ApiError.
 export interface AdminPermissionRequestRow {
   id: string;
@@ -170,14 +102,7 @@ export interface AdminPermissionRequestRow {
   requested_managed_system_id: string | null;
   requested_expiration: string | null;
   reason: string;
-  status:
-    | 'pending'
-    | 'needs_more_info'
-    | 'approved'
-    | 'rejected'
-    | 'cancelled'
-    | 'expired'
-    | 'revoked';
+  status: PermissionRequestStatus;
   created_at: string;
 }
 
@@ -306,21 +231,9 @@ export async function decidePermissionRequest(
   return response.data;
 }
 
-export const permissionRequestOwnerDetailKey = (id: string) =>
-  ['permission-requests', 'owner-detail', id] as const;
 export const permissionRequestAdminDetailKey = (id: string) =>
   ['permission-requests', 'admin-detail', id] as const;
 
-export async function fetchPermissionRequestOwnerDetail(id: string, signal?: AbortSignal) {
-  return (
-    await apiRequest(
-      'GET',
-      `/permission-requests/${id}`,
-      permissionRequestOwnerDetailSchema,
-      signal ? { signal } : {},
-    )
-  ).data;
-}
 export async function fetchPermissionRequestAdminDetail(id: string, signal?: AbortSignal) {
   return (
     await apiRequest(
@@ -328,35 +241,6 @@ export async function fetchPermissionRequestAdminDetail(id: string, signal?: Abo
       `/permissions/requests/${id}`,
       permissionRequestAdminDetailSchema,
       signal ? { signal } : {},
-    )
-  ).data;
-}
-export async function updateOwnPermissionRequest(
-  id: string,
-  action: 'edit' | 'supplement',
-  body: EditPermissionRequest,
-  idempotencyKey: string,
-) {
-  return (
-    await apiRequest(
-      action === 'edit' ? 'PATCH' : 'POST',
-      `/permission-requests/${id}${action === 'supplement' ? '/submit-more-info' : ''}`,
-      submitMoreInfoPermissionRequestResultSchema,
-      { body: editPermissionRequestSchema.parse(body), idempotencyKey },
-    )
-  ).data;
-}
-export async function withdrawPermissionRequest(
-  id: string,
-  body: CancelPermissionRequest,
-  idempotencyKey: string,
-) {
-  return (
-    await apiRequest(
-      'POST',
-      `/permission-requests/${id}/cancel`,
-      cancelPermissionRequestResultSchema,
-      { body: cancelPermissionRequestSchema.parse(body), idempotencyKey },
     )
   ).data;
 }

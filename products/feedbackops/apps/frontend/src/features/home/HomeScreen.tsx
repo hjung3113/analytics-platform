@@ -31,7 +31,11 @@ import { isPermissionDenied } from '@/lib/api/types';
 import { useMe } from '@/lib/auth/useMe';
 import { getCapabilityDisplayLabel } from '@/lib/copy/capabilities';
 import { COVERAGE_METRIC_LABELS, COVERAGE_NO_DATA_LABEL } from '@/lib/copy/coverage';
-import { TASK_REQUEST_STATUS_LABELS, TASK_STATUS_LABELS } from '@/lib/copy/enum-labels';
+import {
+  TASK_REQUEST_STATUS_LABELS,
+  TASK_STATUS_LABELS,
+  permissionRequestStatusLabel,
+} from '@/lib/copy/enum-labels';
 import {
   HOME_COPY,
   HOME_INBOX_COPY,
@@ -53,11 +57,6 @@ import { AnswerableSurveysPanel } from './AnswerableSurveysPanel';
 import { InboxPanel } from './InboxPanel';
 
 export const HOME_COVERAGE_HREF = '/integration/coverage';
-
-const MY_PERMISSION_REQUEST_STATUS_LABELS: Record<MinePermissionRequestRow['status'], string> = {
-  pending: '대기 중',
-  needs_more_info: '추가 정보 필요',
-};
 
 export type HomeTab = 'dashboard' | 'inbox';
 
@@ -111,7 +110,7 @@ export function HomeScreen({
   });
   const openPermissionRequests = useQuery({
     queryKey: permissionRequestsMineKey,
-    queryFn: ({ signal }) => fetchPermissionRequestsMine(signal),
+    queryFn: ({ signal }) => fetchPermissionRequestsMine({ signal }),
     retry: false,
   });
   const actorName = me.data?.actor.display_name ?? '지원';
@@ -373,10 +372,10 @@ function OpenRequestsPanel({
                   <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-text-muted">
                     {request.status === 'needs_more_info' ? (
                       <span className="shrink-0 rounded bg-accent-warn/10 px-1.5 py-0.5 text-caption font-medium text-accent-warn">
-                        {MY_PERMISSION_REQUEST_STATUS_LABELS[request.status]}
+                        {permissionRequestStatusLabel[request.status]}
                       </span>
                     ) : (
-                      <span>{MY_PERMISSION_REQUEST_STATUS_LABELS[request.status]}</span>
+                      <span>{permissionRequestStatusLabel[request.status]}</span>
                     )}
                     <span>·</span>
                     <span className="truncate">{formatRelativeTime(request.created_at)}</span>

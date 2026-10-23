@@ -24,6 +24,7 @@ Home is not a chart-only dashboard and must not duplicate source-system workflow
 - `apps/frontend/src/routes/_authed/home.tsx` — Home route and URL state.
 - `apps/frontend/src/features/home/HomeScreen.tsx` — Home queues, assigned-work panel, and coverage surface.
 - `apps/frontend/src/features/home/InboxPanel.tsx` — notification inbox list, filters, and empty/error states. Also mounted by the platform bridge (`src/global-screens`, platform ADR-0071) through the `lib/host` seam. `variant="recent"` is the platform bell popover body (platform ADR-0071): latest 10, no filter, no load-more.
+- `apps/frontend/src/features/home/permission-requests/PermissionRequestsScreen.tsx` — requester page (request form, own requests with status, withdraw), mounted only by the platform bridge (`src/global-screens`, platform ADR-0071), no FO route; admin review stays `features/admin/permissions`. Its calls live in `lib/api/permission-requests.ts` (bridge-safe, `permissions.ts` re-exports them).
 - `apps/frontend/src/features/home/homeNavigation.tsx` — Home sidebar queue destinations.
 - `apps/frontend/src/lib/copy/home.ts` — Home, queue, coverage, and notification inbox copy.
 

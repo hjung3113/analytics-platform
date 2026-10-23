@@ -234,7 +234,7 @@ may request `?status=pending|needs_more_info|approved|rejected|cancelled|all` to
 decided rows. The endpoint is gated by `workspace.admin`; a non-admin caller
 receives `permission.denied` (`403`). The caller-scoped variant
 `GET /permission-requests/mine` requires only a session (an Actor may always
-read their own open requests).
+read their own open requests; `?status=all` adds the caller's own decided requests, owner-only, newest 50).
 
 Rejected Permission Requests must not be immediately resubmitted for the same
 source object, source action, and requested scope unless the rejection response

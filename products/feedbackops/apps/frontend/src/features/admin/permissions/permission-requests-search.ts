@@ -1,4 +1,3 @@
-import type { AdminPermissionRequestRow } from '@/lib/api';
 import { recoverySearchFields } from '@/lib/router/recovery-search';
 import { parseRouteSearch } from '@/lib/router/search';
 import { z } from 'zod';
@@ -30,12 +29,4 @@ export const permissionRequestTabs: Array<{ value: ReviewTab; label: string }> =
   { value: 'all', label: '전체' },
 ];
 
-export const permissionRequestStatusLabel: Record<AdminPermissionRequestRow['status'], string> = {
-  pending: '대기 중',
-  needs_more_info: '추가 정보 필요',
-  approved: '승인됨',
-  rejected: '거절됨',
-  cancelled: '철회',
-  expired: '만료됨',
-  revoked: '취소됨',
-};
+export { permissionRequestStatusLabel } from '@/lib/copy/enum-labels';

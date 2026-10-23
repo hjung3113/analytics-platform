@@ -40,6 +40,8 @@ const registry = createRegistry({
     menu('notices', 'noticeVoc', '/notices', 'notice:view', { ko: '공지', en: 'Notices' }, true),
     menu('voc', 'noticeVoc', '/voc', 'voc:view', { ko: 'VOC', en: 'VOC' }),
     menu('admin-roles', 'admin', '/admin/roles', 'console:access', { ko: '권한/역할', en: 'Roles' }, true),
+    // The real menu needs `platform:view`; `voc:view` stands in so a session can lack it and still open the home.
+    menu('permission-requests', 'noticeVoc', '/permission-requests', 'voc:view', { ko: '권한 요청', en: 'Permission requests' }),
   ],
 });
 
@@ -133,14 +135,24 @@ describe('platform home launcher', () => {
     expect(cards[0].textContent).toContain('BRAVO');
   });
 
-  it('explains an empty space list without a link and still shows notices', async () => {
+  it('H1 offers a 권한 요청 link in an empty space list and still shows notices', async () => {
     mount(['platform:view', 'notice:view', 'voc:view']);
     await settled();
     const section = screen.getByRole('region', { name: '업무 시스템' });
     expect(within(section).getByRole('heading', { name: '접근 가능한 업무 시스템이 없습니다' })).toBeTruthy();
+    expect(within(section).getByText('필요한 업무 시스템과 기능 권한을 요청하세요.')).toBeTruthy();
+    const links = within(section).getAllByRole('link');
+    expect(links.map(link => link.textContent)).toEqual(['권한 요청']);
+    expect(new URL(links[0].getAttribute('href') ?? '', window.location.origin).pathname).toBe('/permission-requests');
+    expect(screen.getByRole('link', { name: '공지 목록' })).toBeTruthy();
+  });
+
+  it('H1 without access to 권한 요청 keeps the old text and shows no link', async () => {
+    mount(['platform:view', 'notice:view']);
+    await settled();
+    const section = screen.getByRole('region', { name: '업무 시스템' });
     expect(within(section).getByText('필요한 업무 시스템의 접근 권한을 플랫폼 관리자에게 요청하세요.')).toBeTruthy();
     expect(within(section).queryByRole('link')).toBeNull();
-    expect(screen.getByRole('link', { name: '공지 목록' })).toBeTruthy();
   });
 
   it('keeps only openable recent rows, drops home, and caps at five', async () => {

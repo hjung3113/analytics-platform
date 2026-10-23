@@ -4,7 +4,7 @@ import { type MenuEntry, PlatformLink, useI18n, useMenuQuery, usePlatform } from
 import { noticesEndpoint } from '../endpoints';
 import { dismissNotice, useDismissedNotices } from './dismissed-notices';
 import { Panel, PlatformPage, QueryView } from '@ap/components';
-import { StatusBadge } from '@ap/ui';
+import { Button, StatusBadge } from '@ap/ui';
 
 /** Platform home (ADR-0028, 15 §3.1): space cards, then recent and favorites, then notices. */
 export default function OperationsHome() {
@@ -16,6 +16,7 @@ export default function OperationsHome() {
   const notices = useMenuQuery(noticesEndpoint, { targetScopeId: global.scopeId });
   const voc = resolveLink('voc');
   const noticesLink = resolveLink('notices');
+  const permissionRequests = resolveLink('permission-requests');
   const homeId = registry.matchRoute('/')?.menu.id;
 
   const favoriteMenus = favorites.map(id => registry.menus.find(menu => menu.id === id)).filter((menu): menu is MenuEntry => !!menu && canOpen(menu.id));
@@ -58,7 +59,12 @@ export default function OperationsHome() {
         {accessibleSpaces.length === 0
           ? <div className="rounded-lg border border-border-subtle bg-surface-card p-4">
               <h2 className="t-section-title">{lang === 'ko' ? '접근 가능한 업무 시스템이 없습니다' : 'No work systems are available'}</h2>
-              <p className="mt-1 text-sm text-text-secondary">{lang === 'ko' ? '필요한 업무 시스템의 접근 권한을 플랫폼 관리자에게 요청하세요.' : 'Ask a platform administrator for access to the work system you need.'}</p>
+              {canOpen('permission-requests')
+                ? <>
+                    <p className="mt-1 text-sm text-text-secondary">{lang === 'ko' ? '필요한 업무 시스템과 기능 권한을 요청하세요.' : 'Request the work systems and feature access you need.'}</p>
+                    <Button asChild size="sm" className="mt-3"><PlatformLink href={permissionRequests.href}>{lang === 'ko' ? '권한 요청' : 'Request access'}</PlatformLink></Button>
+                  </>
+                : <p className="mt-1 text-sm text-text-secondary">{lang === 'ko' ? '필요한 업무 시스템의 접근 권한을 플랫폼 관리자에게 요청하세요.' : 'Ask a platform administrator for access to the work system you need.'}</p>}
             </div>
           : <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
               {accessibleSpaces.map(space => {

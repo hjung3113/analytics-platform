@@ -1,6 +1,6 @@
 /**
  * @ap/menu-my-activity — myActivity group manifests (내 활동, ADR-0070, #594).
- * 알림, 내 VOC and 설문 are FeedbackOps screens through the bridge (ADR-0071, #651, #654, #653); permission requests are planned (#657).
+ * 알림, 내 VOC and 설문 are FeedbackOps screens through the bridge (ADR-0071, #651, #654, #653); 권한 요청 is the requester page through the bridge too (#657); approval stays a FeedbackOps admin screen.
  */
 import { lazy } from 'react';
 import { Bell, ClipboardList, KeyRound, MessageSquareWarning } from 'lucide-react';
@@ -51,5 +51,6 @@ export const manifests: MenuEntry[] = [
     description: { ko: '권한 요청·철회와 내 요청 상태', en: 'Request or withdraw access and see your requests' },
     path: '/permission-requests', icon: KeyRound, permission: 'platform:view', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES, pageKeys: [],
+    component: lazy(() => import('./pages/PermissionRequests')),
   },
 ];

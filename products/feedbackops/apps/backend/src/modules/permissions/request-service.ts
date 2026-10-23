@@ -35,6 +35,7 @@ import {
   type CancelPermissionRequest,
   type CancelPermissionRequestResult,
   type Capability,
+  PERMISSION_REQUESTS_MINE_ALL_LIMIT,
   type SubmitMoreInfoPermissionRequest,
   type SubmitMoreInfoPermissionRequestResult,
   isCapability,
@@ -710,8 +711,10 @@ export function createRequestService(deps: RequestServiceDeps) {
     };
   }
 
-  async function listMine(actor: ActorContext) {
-    const rows = await db
+  // Default: the caller's open requests. `all`: every status, newest PERMISSION_REQUESTS_MINE_ALL_LIMIT rows
+  // (the caller's own rows only; the actor filter is the same for both).
+  async function listMine(actor: ActorContext, status?: 'all') {
+    const query = db
       .select({
         id: permissionRequests.id,
         requestedCapability: permissionRequests.requestedCapability,
@@ -734,10 +737,15 @@ export function createRequestService(deps: RequestServiceDeps) {
         and(
           eq(permissionRequests.workspaceId, actor.workspace_id),
           eq(permissionRequests.requesterActorId, actor.actor_id),
-          inArray(permissionRequests.status, [...ACTIVE_STATUSES]),
+          status === 'all' ? undefined : inArray(permissionRequests.status, [...ACTIVE_STATUSES]),
         ),
       )
-      .orderBy(desc(permissionRequests.createdAt));
+      .$dynamic();
+    const rows = await (status === 'all'
+      ? query
+          .orderBy(desc(permissionRequests.createdAt), desc(permissionRequests.id))
+          .limit(PERMISSION_REQUESTS_MINE_ALL_LIMIT)
+      : query.orderBy(desc(permissionRequests.createdAt)));
 
     return rows.map((r) => ({
       id: r.id,

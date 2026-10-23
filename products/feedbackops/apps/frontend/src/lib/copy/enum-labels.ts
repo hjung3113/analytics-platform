@@ -7,6 +7,7 @@ import type {
   FindingDto,
   FindingSeverity,
   FindingStatus,
+  PermissionRequestStatus,
   RatingBand,
   RoleLevel,
   SurveyQuestionKind,
@@ -143,3 +144,13 @@ export const SURVEY_RESULT_KIND_LABELS: Record<SurveyResultKind, string> = {
   rating: '평점',
   text: '서술형',
 } as const;
+
+export const permissionRequestStatusLabel: Record<PermissionRequestStatus, string> = {
+  pending: '대기 중',
+  needs_more_info: '추가 정보 필요',
+  approved: '승인됨',
+  rejected: '거절됨',
+  cancelled: '철회',
+  expired: '만료됨',
+  revoked: '취소됨',
+};

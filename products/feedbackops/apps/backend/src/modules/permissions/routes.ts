@@ -22,6 +22,7 @@ import {
   editPermissionRequestSchema,
   isCapability,
   needMoreInfoPermissionRequestSchema,
+  permissionRequestsMineQuerySchema,
   rejectPermissionRequestSchema,
   revokePermissionBodySchema,
   submitMoreInfoPermissionRequestSchema,
@@ -357,12 +358,13 @@ export const permissionsRoutes: FastifyPluginAsync<PermissionsRoutesOptions> = a
   }
 
   // ── GET /permission-requests/mine ───────────────────────────────────────
-  // Returns the caller's open (pending|needs_more_info) permission requests.
+  // Returns the caller's open (pending|needs_more_info) permission requests; `?status=all` returns
+  // every status of the caller's own requests (newest 50).
   app.route({
     method: 'GET',
     url: '/permission-requests/mine',
     preHandler: [requireSession(sessionService), requireWorkspace(workspaceId)],
-    handler: async (req) => {
+    handler: async (req, reply) => {
       const sess = req.session;
       if (!sess) throw new HttpError('internal.unexpected', 'session missing after middleware');
 
@@ -372,7 +374,13 @@ export const permissionsRoutes: FastifyPluginAsync<PermissionsRoutesOptions> = a
         role_level: sess.role_level,
       };
 
-      const requests = await requestService.listMine(actor);
+      const parsed = permissionRequestsMineQuerySchema.safeParse(req.query);
+      if (!parsed.success) {
+        return sendError(reply, 'validation.failed', 'invalid query parameters', {
+          fields: fieldsFromZodIssues(parsed.error.issues),
+        });
+      }
+      const requests = await requestService.listMine(actor, parsed.data.status);
       return { requests };
     },
   });

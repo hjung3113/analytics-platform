@@ -138,4 +138,108 @@ describe.skipIf(!runIntegration)('GET /permission-requests/mine', () => {
     const statuses = body.requests.map((r: { status: string }) => r.status).sort();
     expect(statuses).toEqual(['needs_more_info', 'pending']);
   });
+
+  describe('status=all (own requests in every status, newest 50)', () => {
+    async function actorId(externalId: string): Promise<string> {
+      const r = await dbHandle.pool.query<{ id: string }>(
+        'select id from core.actors where external_id = $1 and workspace_id = $2',
+        [externalId, WORKSPACE_ID],
+      );
+      const id = r.rows[0]?.id;
+      if (!id) throw new Error(`${externalId} missing`);
+      return id;
+    }
+
+    async function getMine(query: string, cookie?: string) {
+      return app.inject({
+        method: 'GET',
+        url: `/permission-requests/mine${query}`,
+        ...(cookie ? { headers: { cookie: `${SESSION_COOKIE_NAME}=${cookie}` } } : {}),
+      });
+    }
+
+    it('B1 default keeps only pending and needs_more_info', async () => {
+      const uid = await actorId('mock-user-1');
+      await dbHandle.pool.query(
+        `insert into permission.permission_requests
+          (workspace_id, requester_actor_id, requested_capability, reason, status, source_action_id)
+         values
+          ($1, $2, 'workspace.admin', 'p', 'pending', 'a1'),
+          ($1, $2, 'workspace.admin', 'a', 'approved', null),
+          ($1, $2, 'workspace.admin', 'c', 'cancelled', null)`,
+        [WORKSPACE_ID, uid],
+      );
+      const res = await getMine('', await loginAs(app, 'mock-user-1'));
+      expect(res.statusCode).toBe(200);
+      expect(res.json().requests.map((r: { status: string }) => r.status)).toEqual(['pending']);
+    });
+
+    it("B2 includes the caller's approved, rejected and cancelled rows", async () => {
+      const uid = await actorId('mock-user-1');
+      await dbHandle.pool.query(
+        `insert into permission.permission_requests
+          (workspace_id, requester_actor_id, requested_capability, reason, status, source_action_id)
+         values
+          ($1, $2, 'workspace.admin', 'p', 'pending', 'a1'),
+          ($1, $2, 'workspace.admin', 'a', 'approved', null),
+          ($1, $2, 'workspace.admin', 'r', 'rejected', null),
+          ($1, $2, 'workspace.admin', 'c', 'cancelled', null)`,
+        [WORKSPACE_ID, uid],
+      );
+      const res = await getMine('?status=all', await loginAs(app, 'mock-user-1'));
+      expect(res.statusCode).toBe(200);
+      const statuses = res.json().requests.map((r: { status: string }) => r.status);
+      expect([...statuses].sort()).toEqual(['approved', 'cancelled', 'pending', 'rejected']);
+    });
+
+    it("B3 never returns another actor's request, in any status", async () => {
+      const uid = await actorId('mock-user-1');
+      const adminId = await actorId('mock-admin-1');
+      await dbHandle.pool.query(
+        `insert into permission.permission_requests
+          (workspace_id, requester_actor_id, requested_capability, reason, status, source_action_id)
+         values
+          ($1, $2, 'workspace.admin', 'mine', 'approved', null),
+          ($1, $3, 'workspace.admin', 'theirs pending', 'pending', 'a1'),
+          ($1, $3, 'workspace.admin', 'theirs approved', 'approved', null),
+          ($1, $3, 'workspace.admin', 'theirs rejected', 'rejected', null)`,
+        [WORKSPACE_ID, uid, adminId],
+      );
+      const res = await getMine('?status=all', await loginAs(app, 'mock-user-1'));
+      expect(res.statusCode).toBe(200);
+      expect(res.json().requests.map((r: { reason: string }) => r.reason)).toEqual(['mine']);
+    });
+
+    it('B4 caps at 50 rows, newest first', async () => {
+      const uid = await actorId('mock-user-1');
+      await dbHandle.pool.query(
+        `insert into permission.permission_requests
+          (workspace_id, requester_actor_id, requested_capability, reason, status, created_at)
+         select $1, $2, 'workspace.admin', 'row ' || n, 'approved',
+                now() - make_interval(mins => 100 - n)
+           from generate_series(1, 55) as n`,
+        [WORKSPACE_ID, uid],
+      );
+      const res = await getMine('?status=all', await loginAs(app, 'mock-user-1'));
+      expect(res.statusCode).toBe(200);
+      const reasons = res.json().requests.map((r: { reason: string }) => r.reason);
+      expect(reasons).toHaveLength(50);
+      expect(reasons[0]).toBe('row 55');
+      expect(reasons[49]).toBe('row 6');
+    });
+
+    it.each(['?status=bogus', '?status=pending', '?status=all&extra=1'])(
+      'B5 %s is rejected with 422 validation.failed',
+      async (query) => {
+        const res = await getMine(query, await loginAs(app, 'mock-user-1'));
+        expect(res.statusCode).toBe(422);
+        expect(res.json().code).toBe('validation.failed');
+      },
+    );
+
+    it('B6 without a session is 401', async () => {
+      const res = await getMine('?status=all');
+      expect(res.statusCode).toBe(401);
+    });
+  });
 });
