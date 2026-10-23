@@ -152,7 +152,7 @@ _Avoid_: 패널, 패인 — 상세 패널과 섞인다.
 _Avoid_: 워크스페이스, 대시보드 — 분석 보드·Analysis Workspace 아키타입과 섞인다.
 
 **페이지 머리**:
-메뉴 화면 제목 줄 아래, 본문 위의 영역. 메뉴가 넘긴 안내(`contextNotes`)와 페이지 필터·칩(`contextExtension`)이 놓인다. 높이 채움(fill) 화면에서는 기본으로 한 줄(요약 칩 + 미적용·확인 필요·안내 표식 + 펼치기)로 접힌다(06 §12.8, [ADR-0075](docs/adr/0075-page-head-one-line-fold-thin-outcome-strip.md)).
+메뉴 화면 제목 줄 아래, 본문 위의 영역. 메뉴가 넘긴 안내(`contextNotes`)와 페이지 필터·칩(`contextExtension`)이 놓인다. 높이 채움(fill) 화면에서는 한 줄로 접힐 수 있다(06 §12.8, [ADR-0075](docs/adr/0075-page-head-one-line-fold-thin-outcome-strip.md)).
 _Avoid_: 헤더 — 제목·동작 줄(06 §8)과 섞인다. 조회 바(전역 Context)와도 다르다.
 
 **패널**:
