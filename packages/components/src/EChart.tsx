@@ -92,6 +92,7 @@ export function EChart({ option, height = 280, onEvents, onReady, onResize, aria
   const [attempt, setAttempt] = useState(0);
   const [failed, setFailed] = useState(false);
   // A new lazy component per attempt re-runs the rejected chunk import on retry.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `attempt` is the deliberate re-run trigger: it is not read, a retry only needs a new lazy component
   const EChartImpl = useMemo(() => lazy(() => import('./EChartImpl')), [attempt]);
   const retry = useCallback(() => { setFailed(false); setAttempt(a => a + 1); }, []);
   if (failed) {

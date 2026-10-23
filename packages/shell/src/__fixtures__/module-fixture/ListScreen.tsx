@@ -16,6 +16,7 @@ export function ListScreen({ params, host }: ModuleScreenProps) {
   const { generation } = host.session();
   // A write elsewhere (or any host change) notifies: read again; the rows stay until the new answer arrives.
   const [stale, setStale] = useState(0);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- the host is a snapshot (see above): re-subscribe on the session generation, not on the host identity
   useEffect(() => host.subscribe(() => setStale(n => n + 1)), [generation]);
   useEffect(() => {
     let live = true;
@@ -24,6 +25,7 @@ export function ListScreen({ params, host }: ModuleScreenProps) {
       () => { /* released or superseded */ },
     );
     return () => { live = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- the host is a snapshot (see above): re-query on generation, page or a notification, not on the host identity
   }, [generation, page, stale]);
   const item = host.href({ screen: 'item', params: { id: 'a1' }, page: { tab: 'info' } });
   return (

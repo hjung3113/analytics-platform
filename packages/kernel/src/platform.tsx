@@ -373,8 +373,8 @@ function useScreenState(app: AppValue, source: ScreenSource): { screen: ScreenSt
   const pairError = contractError ? null : incompleteMetricPair(route?.menu ?? null, global.metricId, global.metricVersion);
   const routeContractError = contractError ?? pairError;
   const metricInit = classifyMetricInit(adapter.publishedMetrics(), route?.menu.initializesMetric === true, global.metricId, global.metricVersion);
-  const page = parsed?.page ?? [];
-  const extras = parsed?.extras ?? [];
+  const page = useMemo(() => parsed?.page ?? [], [parsed]);
+  const extras = useMemo(() => parsed?.extras ?? [], [parsed]);
 
   // Only the main screen's navigation marks how the next entry was reached; a pane that leaves hands over to the main one (onLeave).
   const navigate = useCallback((next: string, options?: { replace?: boolean; focus?: PageFocus; via?: UsageVia }) => {
@@ -643,6 +643,7 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
   const revisions = useMemo(() => counterStore(adapter), [adapter]);
   const revision = useSyncExternalStore(revisions.subscribe, revisions.get);
   const [refreshEpochs] = useState(createRefreshEpochs);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `adapter`, `session` and `revision` are deliberate triggers: the cache is dropped and rebuilt when the server side changes
   const selectionPortCache = useMemo(() => createPortCache(), [adapter, session, revision]);
   const user = session.user;
   const userId = user.id;

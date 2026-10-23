@@ -70,6 +70,7 @@ export function useScreenHistory(input: DraftInputs, store: DraftStore, normaliz
   useLayoutEffect(() => history.retain(), [history]);
   const scopeKey = JSON.stringify(input.global.scopeId);
   const tag = useMemo<Tag>(() => ({ port: input.history, session: input.session, revision: input.revision, identity: input.identity, scope: scopeKey, axes: input.axes, allowed: input.allowed }), [input.history, input.session, input.revision, input.identity, scopeKey, input.axes, input.allowed]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `tag` is the deliberate trigger: a new set (and an abort of the old checks) whenever the history identity changes
   const checks = useMemo(() => new Set<AbortController>(), [tag]);
   useLayoutEffect(() => () => { checks.forEach(controller => controller.abort()); checks.clear(); }, [checks]);
   const enabled = input.menu?.query?.mode === 'apply' && input.history !== undefined;

@@ -83,20 +83,21 @@ function tabFloors(strip: HTMLElement | null, compact: boolean): number[] {
  */
 function useVisibleChips(head: RefObject<HTMLDivElement | null>, count: number, signature: string, sameCount: number, nameMin: number, nameMinSqueezed: number, strip: DockStrip | null) {
   const [layout, setLayout] = useState({ visible: count, overflow: false, compact: false, wrap: false });
+  const inDock = strip !== null;
   const stripWidth = strip?.width ?? 0;
   const tabs = strip?.tabs ?? 0;
   useLayoutEffect(() => {
     const element = head.current;
     if (!element) return;
     const measure = () => {
-      const width = strip ? stripWidth : element.getBoundingClientRect().width;
-      if (width <= 0 || (count === 0 && !strip)) { setLayout({ visible: count, overflow: false, compact: false, wrap: false }); return; }
+      const width = inDock ? stripWidth : element.getBoundingClientRect().width;
+      if (width <= 0 || (count === 0 && !inDock)) { setLayout({ visible: count, overflow: false, compact: false, wrap: false }); return; }
       const widthOf = (selector: string) => Array.from(element.querySelectorAll<HTMLElement>(selector)).map(item => item.getBoundingClientRect().width);
       const fixed = widthOf('[data-head-fixed]').reduce((sum, w) => sum + w, 0);
       const [more = 0] = widthOf('[data-chip-measure="more"]');
       const [same = 0] = widthOf('[data-chip-measure="same"]');
-      const input = { padding: strip ? DOCK_PADDING : HEAD_PADDING, fixed, chips: widthOf('[data-chip-measure="chip"]'), more, same, sameCount, nameMin, nameMinSqueezed };
-      if (!strip) {
+      const input = { padding: inDock ? DOCK_PADDING : HEAD_PADDING, fixed, chips: widthOf('[data-chip-measure="chip"]'), more, same, sameCount, nameMin, nameMinSqueezed };
+      if (!inDock) {
         const fit = fitChips({ ...input, width });
         setLayout({ visible: fit.visible, overflow: fit.overflow, compact: false, wrap: false });
         return;
@@ -123,9 +124,9 @@ function useVisibleChips(head: RefObject<HTMLDivElement | null>, count: number, 
     if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(measure);
     // The head alone is not enough: a fixed group or a measuring chip can change size (`이전 화면` appears, the language changes) with the head's width unchanged.
-    for (const target of [element, ...element.querySelectorAll('[data-head-fixed], [data-chip-measure]'), ...(strip ? element.closest('.dv-tabs-and-actions-container')?.querySelectorAll('.dv-tab') ?? [] : [])]) observer.observe(target);
+    for (const target of [element, ...element.querySelectorAll('[data-head-fixed], [data-chip-measure]'), ...(inDock ? element.closest('.dv-tabs-and-actions-container')?.querySelectorAll('.dv-tab') ?? [] : [])]) observer.observe(target);
     return () => observer.disconnect();
-  }, [head, count, signature, sameCount, nameMin, nameMinSqueezed, strip !== null, stripWidth, tabs]);
+  }, [head, count, signature, sameCount, nameMin, nameMinSqueezed, inDock, stripWidth, tabs]);
   return { visible: Math.min(layout.visible, count), overflow: count > 0 && layout.overflow, compact: layout.compact, wrap: layout.wrap };
 }
 

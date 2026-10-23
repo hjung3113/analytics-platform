@@ -62,13 +62,15 @@ export default function EChartImpl({ option, height = 280, onEvents, onReady, on
     }
   }, [option]);
 
+  // Handlers are read through `events` at call time; only a changed set of event names rebinds.
+  const eventNames = onEvents ? Object.keys(onEvents).join(',') : '';
   useEffect(() => {
     const instance = chart.current;
-    if (!instance || !onEvents) return;
-    const names = Object.keys(onEvents);
+    if (!instance || !eventNames) return;
+    const names = eventNames.split(',');
     for (const name of names) instance.on(name, (p: unknown) => events.current?.[name]?.(p, instance));
     return () => { for (const name of names) instance.off(name); };
-  }, [onEvents ? Object.keys(onEvents).join(',') : '']);
+  }, [eventNames]);
 
   // eslint-disable-next-line shadcn/no-inline-styles -- chart height comes from the height prop at runtime
   return <div ref={el} role="img" aria-label={ariaLabel} className={cn(className, 'w-full')} style={{ height }} />;

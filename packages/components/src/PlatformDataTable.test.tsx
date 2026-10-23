@@ -685,6 +685,7 @@ const dirtyMenuRegistry = createRegistry({
 /** Sets the global Context once on mount (initial) and on click (context-change abort tests). */
 function GlobalControls({ initial }: { initial?: Partial<GlobalContext> }) {
   const { setGlobal } = usePlatform();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- sets the Context once on mount, as documented above
   useEffect(() => { if (initial) setGlobal(initial); }, []);
   return <button type="button" onClick={() => setGlobal({ ppid: 'PP-CHANGED' })}>bump-ppid</button>;
 }
@@ -692,6 +693,7 @@ function GlobalControls({ initial }: { initial?: Partial<GlobalContext> }) {
 /** Switches the I18nProvider to English on mount (storage is not writable in this environment). */
 function SetLangEn() {
   const { setLang } = useI18n();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- switches the language once on mount, as documented above
   useEffect(() => { setLang('en'); }, []);
   return null;
 }

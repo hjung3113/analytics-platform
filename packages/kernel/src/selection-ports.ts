@@ -53,6 +53,7 @@ function usePortPage<T>(port: string, input: unknown, enabled: boolean, error: P
   const owner = paneId === null ? 'main' : `pane:${paneId}`;
   const key = JSON.stringify([port, canonical(input)]);
   // Parsing the canonical key gives effects stable closures without render-time ref writes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `send` and `itemId` are fresh closures each render; the canonical `key` is what identifies the work, so depending on them would rebuild it every render
   const work = useMemo(() => ({ send, itemId, active: false }), [cache, owner, key]);
   const subscribe = useCallback((listener: () => void) => {
     if (!enabled || error) return noop;

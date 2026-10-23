@@ -363,6 +363,7 @@ describe('useModuleHost: lifetime ordering', () => {
       useEffect(() => {
         queries.push(settle(host.query!(spec, { page: 1 }, host.signal)));
         return host.subscribe(changes);
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- like a screen: depends on the generation it reads, not on the host snapshot
       }, [generation]);
       return null;
     }
@@ -389,6 +390,7 @@ describe('useModuleHost: lifetime ordering', () => {
       useLayoutEffect(() => {
         queries.push(settle(host.query!(spec, { page: 1 }, host.signal)));
         return host.subscribe(changes);
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- like a screen: depends on the generation it reads, not on the host snapshot
       }, [generation]);
       return null;
     }
@@ -535,6 +537,7 @@ describe('useModuleHost: write', () => {
       useLayoutEffect(() => () => {
         raw.push(host.act!(save, { text: 'late' }), retained!());
         results.push(...raw.map(settle));
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- the cleanup runs once, when the screen is really gone
       }, []);
       return null;
     }
@@ -568,6 +571,7 @@ describe('useModuleHost: write', () => {
     const results: Promise<unknown>[] = [];
     let runs = 0;
     function Consumer({ host }: { host: ModuleHost }) {
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only: the StrictMode replay is the second run under test
       useLayoutEffect(() => { if (runs++ >= 1) results.push(settle(host.act!(save, { text: 'replay' }))); }, []);
       return null;
     }
@@ -582,6 +586,7 @@ describe('useModuleHost: write', () => {
   it('rejects a deferred call with AbortError when the screen is really gone', async () => {
     const results: Promise<unknown>[] = [];
     function Consumer({ host }: { host: ModuleHost }) {
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- the cleanup runs once, when the screen is really gone
       useLayoutEffect(() => () => { results.push(settle(host.act!(save, { text: 'late' }))); }, []);
       return null;
     }

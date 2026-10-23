@@ -242,15 +242,16 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   // Context identity: global Context + user + page filters + adapter revision. Selection never survives a Context change (DESIGN Tables).
   const contextIdentity = JSON.stringify([serializeGlobal(global), user.id, p.filterKey, revision]);
   const lastContext = useRef(contextIdentity);
+  const hasUrlState = !!p.urlState;
   const effectivePage = p.urlState ? (p.urlState.page ?? 1) - 1 : lastContext.current === contextIdentity ? page : 0;
   useEffect(() => {
     if (lastContext.current !== contextIdentity) {
-      lastContext.current = contextIdentity; if (!p.urlState) setPage(0); setSelection({});
+      lastContext.current = contextIdentity; if (!hasUrlState) setPage(0); setSelection({});
       exportAbort.current?.abort(); // an in-flight export belongs to the old result set
       copyAbort.current?.abort();
       if (viewport.current) viewport.current.scrollTop = 0;
     }
-  }, [contextIdentity]);
+  }, [contextIdentity, hasUrlState]);
   useEffect(() => () => { exportAbort.current?.abort(); copyAbort.current?.abort(); }, []);
   const requestIdentity = JSON.stringify([contextIdentity, effectivePage, activeSorting, retry]);
   const loadRef = useRef(p.loadPage);
@@ -391,7 +392,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
       ? outcome.current?.querySelector('button') : null;
     const target = opposite && !opposite.disabled ? opposite : retryButton ?? section.current;
     target?.focus();
-  }, [loading, previousDisabled, nextDisabled, shown]);
+  }, [loading, previousDisabled, nextDisabled, shown, success]);
 
   function cellStyle(column: Column<T>): CSSProperties {
     const pinned = column.getIsPinned();
