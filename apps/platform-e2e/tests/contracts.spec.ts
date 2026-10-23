@@ -508,6 +508,17 @@ test.describe('분석 보드 계약 (16 §4–§7, ADR-0049·0051)', () => {
 });
 
 test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
+  test.beforeEach(async ({ page }) => { // [DEBUG-dk1]
+    page.on('console', m => { if (m.text().startsWith('[DEBUG-dk1]')) console.log(m.text()); });
+    await page.addInitScript(() => {
+      let src: Element | null = null;
+      const log = (...a: unknown[]) => console.log('[DEBUG-dk1]', performance.now().toFixed(0), ...a);
+      const name = (t: EventTarget | null) => t instanceof Element ? `${t.tagName}.${String(t.className).slice(0, 50)}` : String(t);
+      ['dragstart', 'dragend', 'drop', 'dragenter', 'dragleave', 'pointerdown', 'pointerup', 'pointercancel'].forEach(type =>
+        document.addEventListener(type, e => { if (type === 'dragstart') src = e.target as Element; log(type, name(e.target), (e as DragEvent).dataTransfer?.dropEffect ?? ''); }, true));
+      new MutationObserver(records => { for (const r of records) for (const n of r.removedNodes) if (src && (n === src || n.contains(src))) log('SOURCE REMOVED', name(n), name(r.target)); }).observe(document, { childList: true, subtree: true });
+    });
+  });
   type DockPaneSeed = { menuId: string; params: Record<string, string>; query: string };
   type DockSheetSeed = { id: string; name: string; layout: '1x1' | '1x2' | '2x1' | '2x2'; selected: number; panes: (DockPaneSeed | null)[] };
 
@@ -556,6 +567,7 @@ test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
    */
   async function dragTab(page: Page, from: number, onto: Locator, position: { x: number; y: number }) {
     const source = (await paneTab(page, from).boundingBox())!;
+    console.log('[DEBUG-dk1] drag', JSON.stringify(source));
     const target = (await onto.boundingBox())!;
     const x = target.x + position.x;
     const y = target.y + position.y;
