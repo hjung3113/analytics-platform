@@ -13,7 +13,7 @@ import {
 } from '@/lib/api/permission-requests';
 import { getCapabilityDisplayLabel } from '@/lib/copy/capabilities';
 import { permissionRequestStatusLabel } from '@/lib/copy/enum-labels';
-import { HOME_TODO_COPY as COPY } from '@/lib/copy/home';
+import { HOME_TODO_COPY as COPY } from '@/lib/copy/home-todo';
 import { formatRelativeTime } from '@/lib/format/datetime';
 import { HostLink } from '@/lib/host/host-seam';
 import {

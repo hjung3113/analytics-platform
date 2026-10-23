@@ -27,7 +27,7 @@ Home is not a chart-only dashboard and must not duplicate source-system workflow
 - `apps/frontend/src/features/home/permission-requests/PermissionRequestsScreen.tsx` — requester page (request form, own requests with status, withdraw), mounted only by the platform bridge (`src/global-screens`, platform ADR-0071), no FO route; admin review stays `features/admin/permissions`. Its calls live in `lib/api/permission-requests.ts` (bridge-safe, `permissions.ts` re-exports them).
 - `apps/frontend/src/features/home/todo/HomeTodoPanel.tsx` — the platform home `내 할 일` (surveys to answer, my VOCs with an unread public update, permission requests); bridge-only (`src/global-screens`), no FeedbackOps route, platform ADR-0070 decision 8.
 - `apps/frontend/src/features/home/homeNavigation.tsx` — Home sidebar queue destinations.
-- `apps/frontend/src/lib/copy/home.ts` — Home, queue, coverage, and notification inbox copy.
+- `apps/frontend/src/lib/copy/home.ts` — Home, queue, coverage, and notification inbox copy. The platform bridge loads it eagerly (`InboxPanel` is in `global-screens/core`), so every string here lands in the platform main chunk: copy for a lazily loaded bridge screen goes in its own module (`lib/copy/permission-requests.ts`, `lib/copy/home-todo.ts`; #657 hit this twice).
 
 ## Verification
 
