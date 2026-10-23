@@ -4357,3 +4357,406 @@ test.describe('휠 스크롤 (#700, 06 §16·§15, 16 §4.1)', () => {
 });
 
 
+
+// #686 (ADR-0077, 06 §12.8): the workspace's second height mode. Written by the worker, who cannot run E2E: the host runs it first and derives the
+// numeric tolerances from browser measurements (`ROUNDING` is a placeholder for the engine's pixel rounding, not a measurement).
+test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
+  const CYCLE = `/analytics/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}`;
+  const STORE = /^platform:workspace:v1:.+:cycle-time:drilldown$/;
+  const TITLES = { summary: '사이클타임 요약', trend: '사이클타임 추세', distribution: '사이클타임 분포', slow: '느린 실행' } as const;
+  const ROUNDING = 2;
+  const NEW_ROW = 360;
+  const STEP = 24;
+  /** The engine's gap between two top-level rows; the workspace box is the rows' px plus one gap per boundary, so a row added or removed moves the height by its px and one gap. */
+  const GAP = 6;
+
+  const workspace = (page: Page) => page.getByRole('region', { name: '사이클타임 분석 영역', exact: true });
+  const groupOf = (page: Page, title: string) => workspace(page).locator('.dv-groupview').filter({ has: page.getByRole('tab', { name: title }) });
+  const rowSeparators = (page: Page) => workspace(page).locator('[data-dock-row-separator]');
+  const dropStrip = (page: Page) => workspace(page).locator('[data-dock-drop-below]');
+  const root = (page: Page) => page.locator('[data-panel-workspace]');
+  const modeRadio = (page: Page, name: '화면 맞춤' | '아래로 쌓기') => page.getByRole('radiogroup', { name: '높이 방식' }).getByRole('radio', { name });
+  const mainScrolls = (page: Page) => page.locator('#platform-main').evaluate(element => element.scrollHeight > element.clientHeight + 1);
+  const heightOf = async (locator: Locator) => (await locator.boundingBox())!.height;
+  const rowPx = (page: Page) => rowSeparators(page).evaluateAll(items => items.map(item => Number(item.getAttribute('aria-valuenow'))));
+  const bound = (page: Page, index: number, name: 'aria-valuemin' | 'aria-valuemax') => rowSeparators(page).nth(index).getAttribute(name).then(Number);
+  const stored = (page: Page) => page.evaluate(pattern => Object.entries(localStorage).filter(([key]) => new RegExp(pattern).test(key)).map(([, value]) => JSON.parse(value) as { preset: string; mode?: string; rows?: number[]; hidden: string[] }), STORE.source);
+  const cycleRequests = (page: Page) => page.evaluate(() => performance.getEntriesByName('platform:mock-menu-query')
+    .filter(entry => /^analytics\.cycle\.(kpi|trend|dist|slow)$/.test(String((entry as PerformanceMark).detail?.endpoint))).length);
+  const near = (actual: number, expected: number, tolerance = ROUNDING) => Math.abs(actual - expected) <= tolerance;
+
+  /** `inPane`: a board pane is too narrow for the KPI strip to show, so readiness rests on the workspace and the trend chart. */
+  async function ready(page: Page, { inPane = false } = {}) {
+    await expect(workspace(page)).toBeVisible();
+    if (!inPane) await expect(page.getByTestId('cycle-kpi')).toBeVisible();
+    await expect(page.getByRole('img', { name: /^사이클타임 추세/ })).toBeVisible();
+  }
+  /** The `세로` preset first (one question per row), then the mode: multi-row assertions never depend on a default preset. */
+  async function openStack(page: Page, preset: '세로' | '기본' | '집중' = '세로') {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(CYCLE);
+    await ready(page);
+    await page.getByRole('radio', { name: preset, exact: true }).click();
+    await modeRadio(page, '아래로 쌓기').click();
+    await expect(root(page)).toHaveAttribute('data-workspace-mode', 'stack');
+    await expect(rowSeparators(page).first()).toBeVisible();
+  }
+  /** Drags like a person (press, stepped move, small moves over the target, release). */
+  async function dragLike(page: Page, source: Locator, target: Locator, position: { x: number; y: number }) {
+    await source.scrollIntoViewIfNeeded();
+    const from = (await source.boundingBox())!;
+    await target.scrollIntoViewIfNeeded();
+    const box = (await target.boundingBox())!;
+    const x = box.x + position.x;
+    const y = box.y + position.y;
+    await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(x, y, { steps: 8 });
+    for (let i = 0; i < 6; i++) {
+      await page.waitForTimeout(80);
+      await page.mouse.move(x + (i % 2 === 0 ? -2 : 2), y);
+    }
+    await page.mouse.up();
+  }
+
+  test('아래로 쌓기로 바꾸면 줄이 px 높이를 갖고 페이지가 스크롤되며, 화면 맞춤으로 돌아오면 고정 높이로 돌아온다', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(CYCLE);
+    await ready(page);
+    await page.getByRole('radio', { name: '세로', exact: true }).click();
+    await expect(root(page)).toHaveAttribute('data-workspace-mode', 'fit');
+    await expect(page.locator('[data-platform-page]')).toHaveClass(/(^|\s)h-full(\s|$)/);
+    const requests = await cycleRequests(page);
+    const fitHeight = await heightOf(root(page));
+
+    await modeRadio(page, '아래로 쌓기').click();
+    await expect(root(page)).toHaveAttribute('data-workspace-mode', 'stack');
+    await expect(page.locator('[data-platform-page]')).not.toHaveClass(/(^|\s)h-full(\s|$)/);
+    await expect(rowSeparators(page)).toHaveCount(3);
+    const rows = await rowPx(page);
+    expect(rows.every(px => px >= 200)).toBe(true);
+    // Natural flow: the main area scrolls by itself, with nothing injected to make room.
+    expect(await mainScrolls(page)).toBe(true);
+    expect(await heightOf(root(page))).toBeGreaterThan(fitHeight);
+    await dropStrip(page).scrollIntoViewIfNeeded();
+    await expect(dropStrip(page)).toBeVisible();
+    await expect(dropStrip(page)).toHaveText('여기에 놓으면 아래에 새 줄');
+    await evidence(page, testInfo, 'workspace-stack-scrolls');
+
+    await modeRadio(page, '화면 맞춤').click();
+    await expect(root(page)).toHaveAttribute('data-workspace-mode', 'fit');
+    await expect(page.locator('[data-platform-page]')).toHaveClass(/(^|\s)h-full(\s|$)/);
+    await expect(rowSeparators(page)).toHaveCount(0);
+    await expect(dropStrip(page)).toHaveCount(0);
+    await page.waitForTimeout(500);
+    expect(await cycleRequests(page)).toBe(requests);
+  });
+
+  test('쌓기에서도 페이지 머리 접기와 얇은 응답 띠는 그대로다(#680)', async ({ page }) => {
+    await openStack(page);
+    await expect(page.locator('[data-page-head-line]')).toHaveCount(1);
+    await expandPageHead(page);
+    await expect(page.getByRole('button', { name: '페이지 머리 접기' })).toBeVisible();
+    await setScenario(page, '서버 오류 (error)');
+    await expect(page.getByRole('alert').first()).toBeVisible();
+    await expect(root(page)).toHaveAttribute('data-workspace-mode', 'stack');
+  });
+
+  test('경계를 끌면 위 줄만 바뀐다: 아래 줄은 px를 지키고(끄는 도중에도) 작업 영역이 같은 만큼 늘어난다', async ({ page }, testInfo) => {
+    await openStack(page);
+    const before = await rowPx(page);
+    const total = await heightOf(root(page));
+    const lower = [groupOf(page, TITLES.summary), groupOf(page, TITLES.slow)];
+    const lowerBefore = await Promise.all(lower.map(heightOf));
+    // Centre the boundary in the viewport first: the query bar starts expanded, so the workspace begins below the fold.
+    await rowSeparators(page).first().evaluate(element => element.scrollIntoView({ block: 'center' }));
+    const sample = (await rowSeparators(page).first().boundingBox())!;
+    const x = sample.x + sample.width / 2;
+    const y = sample.y + sample.height / 2;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    // Every pointer step, not only the release: the rows the user did not touch never dip while the engine catches up (no 6–9 px wobble). The
+    // rendered `.dv-groupview` heights are sampled, not only the separators' px: the engine's own gap between rows once moved them by 2–5 px (UX-2).
+    for (let step = 1; step <= 12; step++) {
+      await page.mouse.move(x, y + step * 10);
+      const heights = await Promise.all(lower.map(heightOf));
+      heights.forEach((height, index) => { expect(near(height, lowerBefore[index]!, 1)).toBe(true); });
+    }
+    await page.mouse.up();
+    await expect.poll(async () => (await rowPx(page))[0]).toBeGreaterThan(before[0]! + 100);
+    const after = await rowPx(page);
+    expect(near(after[0]!, before[0]! + 120, 3)).toBe(true);
+    expect(after.slice(1)).toEqual(before.slice(1));
+    expect(near(await heightOf(root(page)), total + (after[0]! - before[0]!), 3)).toBe(true);
+    // And after the release, once the engine has settled on the final shares.
+    await expect.poll(async () => (await Promise.all(lower.map(heightOf))).every((height, index) => near(height, lowerBefore[index]!, 1))).toBe(true);
+    await evidence(page, testInfo, 'workspace-stack-resized');
+
+    // The minimum stops the drag upward.
+    const min = await bound(page, 0, 'aria-valuemin');
+    await rowSeparators(page).first().evaluate(element => element.scrollIntoView({ block: 'center' }));
+    const box = (await rowSeparators(page).first().boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2, box.y - 900, { steps: 12 });
+    await page.mouse.up();
+    await expect.poll(async () => (await rowPx(page))[0]).toBe(min);
+  });
+
+  test('키보드: 방향키 ±24px, Home은 최소, End는 최대이고 aria-valuenow는 px이다. 마지막 줄 아래 경계도 같다', async ({ page }) => {
+    await openStack(page);
+    const separators = rowSeparators(page);
+    await expect(separators).toHaveCount(3);
+    for (const index of [0, 2]) {
+      const separator = separators.nth(index);
+      await expect(separator).toHaveAttribute('aria-orientation', 'horizontal');
+      const start = (await rowPx(page))[index]!;
+      await separator.focus();
+      await page.keyboard.press('ArrowDown');
+      await expect.poll(async () => (await rowPx(page))[index]).toBe(start + STEP);
+      await page.keyboard.press('ArrowUp');
+      await expect.poll(async () => (await rowPx(page))[index]).toBe(start);
+      await page.keyboard.press('Home');
+      await expect.poll(async () => (await rowPx(page))[index]).toBe(await bound(page, index, 'aria-valuemin'));
+      await page.keyboard.press('End');
+      const max = await bound(page, index, 'aria-valuemax');
+      await expect.poll(async () => (await rowPx(page))[index]).toBe(max);
+      // The maximum is one screen of the main area less the sticky page head, never the percent range.
+      expect(max).toBeLessThanOrEqual(900);
+      expect(max).toBeGreaterThan(300);
+    }
+  });
+
+  test('줄이 하나뿐이어도 그 줄 아래 경계가 있고 같은 방식으로 움직인다(집중 프리셋)', async ({ page }) => {
+    await openStack(page, '집중');
+    await expect(rowSeparators(page)).toHaveCount(1);
+    const start = (await rowPx(page))[0]!;
+    await rowSeparators(page).first().focus();
+    await page.keyboard.press('ArrowDown');
+    await expect.poll(async () => (await rowPx(page))[0]).toBe(start + STEP);
+  });
+
+  test('아래 새 줄로 옮기기: 줄이 하나 늘고 작업 영역이 360px 자라며 다른 줄은 그대로다. 마지막 줄에 혼자 있으면 항목이 없다', async ({ page }) => {
+    await openStack(page);
+    const before = await rowPx(page);
+    const total = await heightOf(root(page));
+    await groupOf(page, TITLES.summary).getByRole('button', { name: `${TITLES.summary} 동작` }).click();
+    await page.getByRole('menuitem', { name: '아래 새 줄로 옮기기' }).click();
+    await expect(rowSeparators(page)).toHaveCount(4);
+    const after = await rowPx(page);
+    expect(after.slice(0, 3)).toEqual(before);
+    expect(near(after[3]!, NEW_ROW, 1)).toBe(true);
+    expect(near(await heightOf(root(page)), total + after[3]! + GAP, 3)).toBe(true);
+    await groupOf(page, TITLES.summary).getByRole('button', { name: `${TITLES.summary} 동작` }).click();
+    await expect(page.getByRole('menuitem', { name: '숨기기' })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: '아래 새 줄로 옮기기' })).toHaveCount(0);
+  });
+
+  test('숨기면 그 줄이 사라지고 작업 영역이 그 px만큼 줄며 다른 줄은 그대로다', async ({ page }) => {
+    await openStack(page);
+    const before = await rowPx(page);
+    const total = await heightOf(root(page));
+    await groupOf(page, TITLES.slow).getByRole('button', { name: `${TITLES.slow} 동작` }).click();
+    await page.getByRole('menuitem', { name: '숨기기' }).click();
+    await expect(rowSeparators(page)).toHaveCount(2);
+    const after = await rowPx(page);
+    expect(after).toEqual(before.slice(0, 2));
+    expect(near(await heightOf(root(page)), total - before[2]! - GAP, 3)).toBe(true);
+  });
+
+  test('탭을 아래 띠에 끌어 놓으면 새 마지막 줄이 되고, 다른 곳의 탭·묶음 전체·바깥 데이터는 거절된다', async ({ page }, testInfo) => {
+    await openStack(page);
+    const before = await rowPx(page);
+    // The 300 ms layout save has flushed: the snapshot holds the stack state, not the value before it.
+    await expect.poll(() => stored(page)).toMatchObject([{ mode: 'stack', rows: before }]);
+    const storedBefore = JSON.stringify(await stored(page));
+    const total = await heightOf(root(page));
+    await dropStrip(page).scrollIntoViewIfNeeded();
+    // Outside data and a payload that is not a panel are refused without changing anything.
+    await dropStrip(page).evaluate(strip => {
+      const data = new DataTransfer();
+      data.setData('text/plain', 'not a panel');
+      strip.dispatchEvent(new DragEvent('dragover', { dataTransfer: data, bubbles: true, cancelable: true }));
+      strip.dispatchEvent(new DragEvent('drop', { dataTransfer: data, bubbles: true, cancelable: true }));
+    });
+    await page.waitForTimeout(400);
+    expect(await rowPx(page)).toEqual(before);
+
+    // A single tab of this workspace: a real drag.
+    await dragLike(page, workspace(page).getByRole('tab', { name: TITLES.distribution }), dropStrip(page), { x: 40, y: 30 });
+    await expect(rowSeparators(page)).toHaveCount(4);
+    const after = await rowPx(page);
+    expect(after.slice(0, 3)).toEqual(before);
+    expect(near(after[3]!, NEW_ROW, 1)).toBe(true);
+    expect(near(await heightOf(root(page)), total + after[3]! + GAP, 3)).toBe(true);
+    await expect(workspace(page).getByRole('separator', { name: `${TITLES.distribution} 아래 높이` })).toBeVisible();
+    await expect.poll(async () => JSON.stringify(await stored(page))).not.toBe(storedBefore);
+    await expect.poll(() => stored(page)).toMatchObject([{ mode: 'stack', rows: after }]);
+    await evidence(page, testInfo, 'workspace-stack-drop-below');
+  });
+
+  test('엔진 끌기로 탭을 첫 줄 위쪽 가장자리에 놓으면 새 첫 줄이 360이고 나머지 줄은 px를 지킨다', async ({ page }) => {
+    await openStack(page);
+    await page.locator('#platform-main').evaluate(element => { element.scrollTo(0, 0); });
+    const before = await rowPx(page);
+    await expect.poll(() => stored(page)).toMatchObject([{ mode: 'stack', rows: before }]);
+    // `세로`: rows [추세], [요약 | 분포], [느린 실행]. 요약 leaves a shared row, so that row stays (분포 alone) and keeps its px.
+    const source = groupOf(page, TITLES.summary);
+    await expect(source.getByRole('tab')).toHaveCount(1);
+    const expected = [NEW_ROW, ...before];
+    const first = groupOf(page, TITLES.trend);
+    // The top edge of the first group's content area, just under its 40px tab strip.
+    await dragLike(page, source.getByRole('tab'), first, { x: (await first.boundingBox())!.width / 2, y: 52 });
+    await expect(rowSeparators(page)).toHaveCount(expected.length);
+    const after = await rowPx(page);
+    expect(after.length).toBe(expected.length);
+    after.forEach((px, index) => { expect(near(px, expected[index]!, 1)).toBe(true); });
+    await expect.poll(async () => (await stored(page))[0]?.rows).toEqual(after);
+  });
+
+  test('묶음 전체를 끌어 띠에 놓아도 거절된다(여러 탭 묶음의 빈 머리 영역)', async ({ page }) => {
+    await openStack(page, '기본');
+    const group = groupOf(page, TITLES.distribution);
+    await expect(group.getByRole('tab')).toHaveCount(2);
+    const rows = await rowPx(page);
+    // Let the 300 ms layout save flush first, so the snapshot holds the stack state rather than the value before it.
+    await expect.poll(() => stored(page)).toMatchObject([{ mode: 'stack', rows }]);
+    const snapshot = JSON.stringify(await stored(page));
+    await dragLike(page, group.locator('.dv-void-container'), dropStrip(page), { x: 40, y: 30 });
+    // Pacing, not a save: a refused drop changes nothing, so there is no state to poll for; give a wrongly accepted one time to show.
+    await page.waitForTimeout(600);
+    expect(await rowPx(page)).toEqual(rows);
+    await expect(group.getByRole('tab')).toHaveCount(2);
+    expect(JSON.stringify(await stored(page))).toBe(snapshot);
+  });
+
+  test('저장: 새로고침 뒤에도 모드와 줄 높이가 같고, 기본 배치는 몇 번을 눌러도 높이가 쌓이지 않으며, 모드를 오가도 조회·마운트가 늘지 않는다', async ({ page }) => {
+    await openStack(page);
+    await rowSeparators(page).first().focus();
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowDown');
+    const resized = await rowPx(page);
+    await expect.poll(() => stored(page)).toMatchObject([{ mode: 'stack', preset: 'column', rows: resized }]);
+    await page.reload();
+    await ready(page);
+    await expect(root(page)).toHaveAttribute('data-workspace-mode', 'stack');
+    await expect(modeRadio(page, '아래로 쌓기')).toBeChecked();
+    expect(await rowPx(page)).toEqual(resized);
+
+    const requests = await cycleRequests(page);
+    await page.getByRole('button', { name: '기본 배치', exact: true }).click();
+    await expect.poll(async () => (await rowPx(page)).join()).not.toBe(resized.join());
+    const reset = await rowPx(page);
+    await page.getByRole('button', { name: '기본 배치', exact: true }).click();
+    await page.getByRole('button', { name: '기본 배치', exact: true }).click();
+    await page.waitForTimeout(300);
+    expect(await rowPx(page)).toEqual(reset);
+
+    await modeRadio(page, '화면 맞춤').click();
+    await modeRadio(page, '아래로 쌓기').click();
+    await modeRadio(page, '화면 맞춤').click();
+    await modeRadio(page, '아래로 쌓기').click();
+    await page.waitForTimeout(300);
+    const roundTrip = await rowPx(page);
+    roundTrip.forEach((px, index) => { expect(near(px, reset[index]!, 3)).toBe(true); });
+    await page.waitForTimeout(500);
+    expect(await cycleRequests(page)).toBe(requests);
+    await page.getByRole('radio', { name: '집중', exact: true }).click();
+    await expect(rowSeparators(page)).toHaveCount(1);
+    await expect.poll(() => stored(page)).toMatchObject([{ mode: 'stack', preset: 'focus' }]);
+  });
+
+  test('좁은 폭에서는 쌓기가 꺼지고(모드 라디오는 이유와 함께 비활성) 저장값은 그대로이며, 넓히면 돌아온다', async ({ page }) => {
+    await openStack(page);
+    const rows = await rowPx(page);
+    await expect.poll(() => stored(page)).toMatchObject([{ mode: 'stack', rows }]);
+    const snapshot = JSON.stringify(await stored(page));
+    await page.setViewportSize({ width: 800, height: 900 });
+    await expect(root(page)).toHaveAttribute('data-workspace-mode', 'fit');
+    await expect(rowSeparators(page)).toHaveCount(0);
+    await expect(modeRadio(page, '아래로 쌓기')).toBeDisabled();
+    await expect(page.getByRole('radiogroup', { name: '높이 방식' })).toHaveAccessibleDescription('좁은 폭에서는 화면 맞춤으로 보입니다');
+    // Pacing, not a save: the narrow display must write nothing, so there is no state to poll for.
+    await page.waitForTimeout(600);
+    expect(JSON.stringify(await stored(page))).toBe(snapshot);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expect(root(page)).toHaveAttribute('data-workspace-mode', 'stack');
+    expect(await rowPx(page)).toEqual(rows);
+  });
+
+  test('보드 칸 안: 칸 본문이 스크롤되고 보드 바깥 배치와 경계(퍼센트)는 그대로이며, 안쪽 끌기는 보드를 바꾸지 않는다', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1600, height: 900 });
+    await signInAs(page, 'engineer');
+    await page.addInitScript(({ value }) => {
+      localStorage.setItem('platform:board-layout-engine', 'dock');
+      localStorage.setItem('platform:page-filter-collapsed:cycle-time', 'true');
+      const seeded = 'platform:board-fixture-seeded:engineer';
+      if (sessionStorage.getItem(seeded)) return;
+      localStorage.setItem('platform:board:engineer', JSON.stringify(value));
+      sessionStorage.setItem(seeded, '1');
+    }, { value: { v: 1, activeSheetId: 'ws', sheets: [{ id: 'ws', name: '작업 영역', layout: '2x1', selected: 0, panes: [
+      { menuId: 'cycle-time', params: {}, query: `?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}` },
+      { menuId: 'productivity-overview', params: {}, query: `?v=1&scopeId=MEM&roomNames=ETCH&${PERIOD}` },
+    ] }] } });
+    await page.goto('/board?sheet=ws');
+    await ready(page, { inPane: true });
+    // The V1 key is only the seeded fixture; the board the running app writes is the V2 key (boardStore.ts).
+    // The board the app reads: V2 once anything was saved, else the V1 seed (`boardStore.ts`). A changed board is written to V2.
+    const boardKey = () => page.evaluate(() => localStorage.getItem('platform:board:v2:engineer') ?? localStorage.getItem('platform:board:engineer'));
+    const boardTabLabels = () => page.locator('[role="tab"][data-tab-panel-id][aria-label^="칸 "]').evaluateAll(tabs => tabs.map(tab => tab.getAttribute('aria-label')));
+    // The board's own separators: those outside the workspace (the workspace's are row separators and its nested percent ones).
+    const outerSeparators = () => page.locator('[data-dock-separator]').evaluateAll(items => items.filter(item => !item.closest('[data-panel-workspace]'))
+      .map(item => [item.getAttribute('aria-orientation'), item.getAttribute('aria-valuenow'), item.getAttribute('aria-valuemax')]));
+    const outerBefore = await outerSeparators();
+    expect(outerBefore.length).toBeGreaterThan(0);
+
+    await page.getByRole('button', { name: '칸 1 동작' }).click();
+    await page.getByRole('menuitemradio', { name: '세로' }).click();
+    await page.getByRole('button', { name: '칸 1 동작' }).click();
+    await page.getByRole('menuitemradio', { name: '아래로 쌓기' }).click();
+    await expect(root(page)).toHaveAttribute('data-workspace-mode', 'stack');
+    await expect(rowSeparators(page)).toHaveCount(3);
+    const paneBody = page.locator('[data-pane-body]').first();
+    expect(await paneBody.evaluate(element => element.scrollHeight > element.clientHeight + 1)).toBe(true);
+    expect(await mainScrolls(page)).toBe(false);
+    const labels = await boardTabLabels();
+    await expect.poll(boardKey).not.toBeNull();
+    const board = await boardKey();
+    // A pane body is shorter than a row minimum, so a row may be pinned (06 §12.8: the minimum wins); press a key on the first separator
+    // that still has a range, or on the first one when none does.
+    const ranges = await rowSeparators(page).evaluateAll(items => items.map(item => Number(item.getAttribute('aria-valuemax')) - Number(item.getAttribute('aria-valuemin'))));
+    const movable = Math.max(0, ranges.findIndex(range => range > 0));
+    await rowSeparators(page).nth(movable).focus();
+    await page.keyboard.press(ranges[movable]! > 0 ? 'ArrowUp' : 'ArrowDown');
+    await expect.poll(async () => (await stored(page))[0]?.rows).toEqual(await rowPx(page));
+    expect(await boardTabLabels()).toEqual(labels);
+    expect(await boardKey()).toBe(board);
+    // The board's own boundaries keep their percent contract: same values, never a px range.
+    expect(await outerSeparators()).toEqual(outerBefore);
+    outerBefore.forEach(([, , max]) => { expect(Number(max)).toBeLessThanOrEqual(100); });
+    await evidence(page, testInfo, 'board-pane-stack');
+
+    // A board tab dropped on the workspace's strip is refused, and the strip consumes the drag: the board's own dock never sees the drop, so
+    // neither layout changes.
+    // Pressing a board tab selects its pane, and the board saves the selection (V2). Select it first, so the snapshot already holds what the
+    // drag's own press writes and only a layout change can differ.
+    const boardTab = page.locator('[role="tab"][data-tab-panel-id][aria-label^="칸 2 · "]');
+    await boardTab.click();
+    await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('platform:board:v2:engineer') ?? 'null')?.sheets?.[0]?.selectedPaneId ?? null))
+      .toBe(await page.evaluate(() => JSON.parse(localStorage.getItem('platform:board:v2:engineer') ?? 'null')?.sheets?.[0]?.panes?.[1]?.id ?? 'unsaved'));
+    const rowsOnStrip = await rowPx(page);
+    const storedOnStrip = JSON.stringify(await stored(page));
+    const boardOnStrip = await boardKey();
+    const outerOnStrip = await outerSeparators();
+    await dragLike(page, boardTab, dropStrip(page), { x: 40, y: 30 });
+    // Pacing, not a save: a refused drop changes nothing, so there is no state to poll for; give a wrongly accepted one time to show.
+    await page.waitForTimeout(600);
+    await expect(workspace(page).locator('[role="tab"][data-tab-panel-id][aria-label^="칸 "]')).toHaveCount(0);
+    expect(await rowPx(page)).toEqual(rowsOnStrip);
+    expect(JSON.stringify(await stored(page))).toBe(storedOnStrip);
+    expect(await boardTabLabels()).toEqual(labels);
+    expect(await boardKey()).toBe(boardOnStrip);
+    expect(await outerSeparators()).toEqual(outerOnStrip);
+  });
+});
+

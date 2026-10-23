@@ -1,4 +1,5 @@
 import { useCallback, useLayoutEffect, useState } from 'react';
+import { scrollContainerOf } from './visibleArea';
 
 /** ADR-0037: the least scroll budget a table keeps when the page leaves less room. */
 export const ROW_AREA_FLOOR = 240;
@@ -25,18 +26,6 @@ export function availableRowHeight({ containerHeight, stickyTop, viewportTopInCo
 }): number {
   const aboveSticky = Math.max(0, viewportTopInContent - stickyTop);
   return Math.max(ROW_AREA_FLOOR, Math.floor(containerHeight - stickyTop - aboveSticky - below));
-}
-
-function isScrollable(element: Element): boolean {
-  return /(auto|scroll|overlay)/.test(getComputedStyle(element).overflowY);
-}
-
-/** Nearest scrollable ancestor; null = the window (document scrolls). */
-function scrollContainerOf(element: HTMLElement): HTMLElement | null {
-  for (let node = element.parentElement; node && node !== document.body && node !== document.documentElement; node = node.parentElement) {
-    if (isScrollable(node)) return node;
-  }
-  return null;
 }
 
 type Fit = { cap: number; width: number };

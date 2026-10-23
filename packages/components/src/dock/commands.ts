@@ -102,6 +102,22 @@ export function movePanel(tree: DockNode, panelId: string, target: { panelId: st
   return insert(detached, panelId, target);
 }
 
+/**
+ * Internal (the workspace's row mode; not exported from `index.ts`). The panel leaves its group and becomes a new last top-level row; a
+ * panel that already is alone in the last row changes nothing. Sizes are left to the caller (the workspace derives them from row px).
+ */
+export function moveToNewRow(tree: DockNode, panelId: string): DockNode {
+  const next = clone(tree);
+  const source = require(next, panelId);
+  const lastRow = source.parent === null || (source.parent === next && source.parent.dir === 'column' && source.index === source.parent.children.length - 1);
+  if (source.group.panels.length === 1 && lastRow) return next;
+  const detached = detach(next, panelId);
+  if (!detached) return next;
+  const created: Group = { type: 'group', panels: [panelId], active: panelId };
+  if (detached.type === 'branch' && detached.dir === 'column') return canonicalDockTree({ ...detached, sizes: [...detached.sizes.map(size => size * 0.5), 50], children: [...detached.children, created] });
+  return canonicalDockTree({ type: 'branch', dir: 'column', sizes: [50, 50], children: [detached, created] });
+}
+
 export function addPanel(tree: DockNode, panelId: string, near: { panelId: string; position: 'center' | 'right' | 'bottom' }): DockNode {
   const next = clone(tree);
   if (locate(next, panelId)) throw new RangeError(`dock: panel "${panelId}" already exists`);

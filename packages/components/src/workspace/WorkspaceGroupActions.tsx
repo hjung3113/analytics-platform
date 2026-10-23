@@ -11,7 +11,7 @@ const ICON = 'size-7';
  * Header-right content of a panel group (chrome C of the board's strip, ADR-0067 decision 16): the maximize toggle and one `⋯` menu for the
  * group's active panel. `hide` is absent for the primary panel.
  */
-export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaximize, onSplit, onMove, onHide }: {
+export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaximize, onSplit, onMove, onMoveBelow, onHide }: {
   title: string;
   /** A panel's title, naming each move target by its active panel. */
   titleOf: (panelId: string) => string;
@@ -21,6 +21,8 @@ export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaxi
   onMaximize: (maximize: boolean) => void;
   onSplit: (position: 'right' | 'bottom') => void;
   onMove: (target: string) => void;
+  /** Stack mode only, and absent when the panel already is alone in the last row. */
+  onMoveBelow?: () => void;
   onHide?: () => void;
 }) {
   const { tx } = useI18n();
@@ -50,6 +52,10 @@ export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaxi
               <DropdownMenuSeparator />
               <DropdownMenuItem onSelect={() => { onSplit('right'); }}>{tx(workspaceText.splitRight)}</DropdownMenuItem>
               <DropdownMenuItem onSelect={() => { onSplit('bottom'); }}>{tx(workspaceText.splitDown)}</DropdownMenuItem>
+            </>}
+            {onMoveBelow && <>
+              {menu.split === null && <DropdownMenuSeparator />}
+              <DropdownMenuItem onSelect={onMoveBelow}>{tx(workspaceText.moveBelow)}</DropdownMenuItem>
             </>}
             {menu.moves.length > 0 && <DropdownMenuSeparator />}
             {menu.moves.map(move => <DropdownMenuItem key={move.target} onSelect={() => { onMove(move.target); }}>{tx(workspaceText.moveToGroup(titleOf(move.target)))}</DropdownMenuItem>)}

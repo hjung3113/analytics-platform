@@ -3,17 +3,20 @@ import { useI18n, usePlatform, type Text } from '@ap/kernel';
 import { isProductionEnv } from '@ap/ui';
 import { activatePanel, movePanel, panelOrder } from '../dock/commands';
 import { focusTabSoon } from '../dock/focusTab';
-import { DockLayout } from '../dock/DockLayout';
-import type { DockPanel } from '../dock/dockTypes';
+import { DockLayoutBase } from '../dock/DockLayout';
+import type { DockPanel, DockRows } from '../dock/dockTypes';
 import { dockLayoutMenu } from '../dock/layoutMenu';
 import { dockGroupsInReadingOrder } from '../dock/schema';
 import { useRegisterWorkspaceCommands, useWorkspaceDepth, WorkspaceDepthProvider, type WorkspaceCommand } from '../dock/WorkspaceCommandsHost';
 import { InWorkspacePanelProvider } from './panelContext';
 import { workspaceText } from './text';
-import { PRESET_PREFIX, RESET_ID, SHOW_PREFIX, WorkspaceToolbar } from './WorkspaceToolbar';
+import { MODE_PREFIX, PRESET_PREFIX, RESET_ID, SHOW_PREFIX, WorkspaceToolbar } from './WorkspaceToolbar';
 import { WorkspaceGroupActions } from './WorkspaceGroupActions';
 import { readWorkspaceState, sameWorkspaceState, workspaceStorageKey, writeWorkspaceState, WORKSPACE_WRITE_DELAY_MS } from './workspaceStorage';
-import { applyPreset, hidePanel, initialWorkspaceState, presetTree, resetLayout, showPanel, tabAfterHide, WORKSPACE_ID, type PanelWorkspaceLayout, type WorkspaceSpec, type WorkspaceState } from './workspaceState';
+import { applyPreset, hidePanel, initialWorkspaceState, presetTree, resetLayout, settleRows, showPanel, tabAfterHide, withRows, WORKSPACE_ID, type PanelWorkspaceLayout, type RowEnv, type WorkspaceSpec, type WorkspaceState } from './workspaceState';
+import { canMoveBelow, clampRow, enterRows, moveToNewRow, NEW_ROW_HEIGHT, rowMinimumOf, topLevelRows } from './workspaceRows';
+import { useRegisterPageFlow } from '../pageFlow';
+import { useVisibleAreaHeight } from '../visibleArea';
 
 export type { PanelWorkspaceLayout } from './workspaceState';
 
@@ -46,6 +49,10 @@ export type PanelWorkspaceProps = {
 };
 
 const DEFAULT_COMPACT_BELOW = 900;
+/** px: the visible height assumed until the first measure (and where nothing can be measured). */
+const DEFAULT_VISIBLE = 900;
+/** px: the toolbar row and its gap, for the baseline of a workspace that has not been shown fitted yet. */
+const TOOLBAR_CHROME = 48;
 
 /** Development-only diagnostics; production renders on with the repair rules of the state. */
 function useDevChecks(props: PanelWorkspaceProps) {
@@ -81,6 +88,10 @@ function useDevChecks(props: PanelWorkspaceProps) {
  *   unmount and `pagehide`); read once on mount, never by a query. Without a user or a routed menu it stays in memory. Two panes showing
  *   the same menu and `persistKey` share it; the last writer wins. Maximize is never stored.
  * - **Fill.** Give the page `layout="fill"` so the workspace takes the height under the header.
+ * - **Height mode.** `화면 맞춤` (default): the workspace fills the remaining height and the panels share it. `아래로 쌓기`: the top-level rows keep
+ *   their own px heights, the workspace is as tall as they are (plus a strip that takes a tab for a new row) and the page scrolls. The user
+ *   chooses per workspace in the toolbar or the host menu; it is stored with the layout. Below `compactBelow` it is off (fit shows) and comes
+ *   back on widening.
  */
 export function PanelWorkspace(props: PanelWorkspaceProps) {
   const { session, route } = usePlatform();
@@ -98,7 +109,8 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, l
   const depth = useWorkspaceDepth() + 1;
   const primaryId = (panels.find(panel => panel.primary) ?? panels[0]!).id;
   const presets: readonly PanelWorkspacePreset[] = given.length > 0 ? given : [{ id: initialPreset, label: workspaceText.layout, layout: { type: 'group', panels: panels.map(panel => panel.id) } }];
-  const spec: WorkspaceSpec = { panelIds: panels.map(panel => panel.id), primaryId, presets, initialPreset };
+  const rowMinimum = rowMinimumOf(new Map(panels.map(panel => [panel.id, { minWidth: panel.minWidth, minHeight: panel.minHeight }])));
+  const spec: WorkspaceSpec = { panelIds: panels.map(panel => panel.id), primaryId, presets, initialPreset, rowMinimum };
   const titleOf = (id: string) => { const panel = panels.find(candidate => candidate.id === id); return panel ? tx(panel.title) : id; };
 
   const [stored, setStored] = useState<WorkspaceState>(() => (storageKey ? readWorkspaceState(storageKey, spec) : null) ?? initialWorkspaceState(spec));
@@ -114,8 +126,8 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, l
     return () => { observer.disconnect(); };
   }, []);
   const compactSpec = compactPreset === undefined ? undefined : presets.find(preset => preset.id === compactPreset);
-  const stacked = width !== null && width < compactBelow;
-  const compact = compactSpec !== undefined && stacked;
+  const narrow = width !== null && width < compactBelow;
+  const compact = compactSpec !== undefined && narrow;
   const [compactState, setCompactState] = useState<WorkspaceState | null>(null);
   if (!compact && compactState !== null) setCompactState(null);
   const derived: WorkspaceState = compact ? { ...stored, preset: compactSpec.id, layout: presetTree(compactSpec.layout, panelOrder(stored.layout)) } : stored;
@@ -125,27 +137,86 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, l
   const shown = panelOrder(state.layout);
   const maximizedId = maximized !== null && shown.includes(maximized) ? maximized : null;
 
+  // Height mode (#686). Stack shows only at a width where the workspace is not narrow; the stored mode and rows survive a narrow spell untouched.
+  const stackActive = stored.mode === 'stack' && !narrow;
+  const count = topLevelRows(stored.layout).length;
+  const storedRows = stored.rows !== undefined && stored.rows.length === count ? stored.rows : undefined;
+  const fitSlot = useRef<HTMLDivElement>(null);
+  const lastFit = useRef<number | null>(null);
+  const visible = useVisibleAreaHeight(root, true);
+  const maxRow = visible ?? DEFAULT_VISIBLE;
+  // The height fit mode gives the layout, the same input whichever mode shows: measured while fit shows, kept while stack does.
+  useLayoutEffect(() => {
+    const element = fitSlot.current;
+    if (!element || stackActive) return;
+    const read = (height: number) => { if (height > 0) lastFit.current = height; };
+    read(element.getBoundingClientRect().height);
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(entries => { const entry = entries[entries.length - 1]; if (entry) read(entry.contentRect.height); });
+    observer.observe(element);
+    return () => { observer.disconnect(); };
+  }, [stackActive]);
+  useRegisterPageFlow(stackActive);
+
   // Commands read the latest render at call time, so their identity depends on what they display only.
-  const live = useRef({ compact, stacked, derived, presets, primaryId });
-  useLayoutEffect(() => { live.current = { compact, stacked, derived, presets, primaryId }; });
-  const update = useCallback((change: (current: WorkspaceState) => WorkspaceState) => {
+  const live = useRef({ compact, narrow, derived, presets, primaryId, rowMinimum, maxRow, stackActive });
+  useLayoutEffect(() => { live.current = { compact, narrow, derived, presets, primaryId, rowMinimum, maxRow, stackActive }; });
+  const rowEnv = (): RowEnv => ({ minimum: live.current.rowMinimum, maximum: live.current.maxRow, baseline: lastFit.current ?? Math.max(NEW_ROW_HEIGHT, live.current.maxRow - TOOLBAR_CHROME) });
+  /** `keep`: an edit; rows follow the panels (`created`: the panel the edit moved into a row of its own, which is then a new row). `enter`: preset or reset; rows come from the new shares and the fit baseline, so repeating it cannot add height. `raw`: the edit decided the rows itself. */
+  const update = useCallback((change: (current: WorkspaceState) => WorkspaceState, settle: 'keep' | 'enter' | 'raw' = 'keep', created?: string) => {
     if (live.current.compact) setCompactState(previous => change(previous ?? live.current.derived));
-    else setStored(previous => change(previous));
+    else setStored(previous => { const next = change(previous); return settle === 'raw' ? next : settleRows(previous, next, settle, rowEnv(), created); });
   }, []);
+  const setMode = useCallback((mode: 'fit' | 'stack') => {
+    if (live.current.narrow) return;
+    if (mode === 'stack' && fitSlot.current && !live.current.stackActive) { const height = fitSlot.current.getBoundingClientRect().height; if (height > 0) lastFit.current = height; }
+    update(current => {
+      if (mode === 'fit') return current.mode === 'stack' ? withRows(current, 'fit') : current;
+      const env = rowEnv();
+      return current.mode === 'stack' ? current : withRows(current, 'stack', enterRows(current.layout, env.baseline, env.minimum, env.maximum));
+    }, 'raw');
+  }, [update]);
+  // Stack mode whose rows are not known (a stored mode without usable rows): measured once, before paint.
+  useLayoutEffect(() => {
+    if (!stackActive || storedRows !== undefined || visible === null) return;
+    setStored(previous => {
+      if (previous.mode !== 'stack' || previous.rows?.length === topLevelRows(previous.layout).length) return previous;
+      const env = rowEnv();
+      return withRows(previous, 'stack', enterRows(previous.layout, env.baseline, env.minimum, env.maximum));
+    });
+  }, [stackActive, storedRows, visible]);
+
+  // Restored rows obey the visible-height cap once, when a scrollport measurement first exists. Not again: a later window resize never rewrites the preference.
+  const restoreClamped = useRef(false);
+  useLayoutEffect(() => {
+    if (restoreClamped.current || !stackActive || storedRows === undefined || visible === null) return;
+    restoreClamped.current = true;
+    setStored(previous => {
+      if (previous.mode !== 'stack' || previous.rows === undefined || previous.rows.length !== topLevelRows(previous.layout).length) return previous;
+      const minimums = topLevelRows(previous.layout).map(live.current.rowMinimum);
+      const clamped = previous.rows.map((px, index) => clampRow(px, minimums[index]!, live.current.maxRow));
+      return clamped.every((px, index) => px === previous.rows![index]) ? previous : withRows(previous, 'stack', clamped);
+    });
+  }, [stackActive, storedRows, visible]);
 
   const shape = JSON.stringify({
-    stacked,
+    narrow,
+    stack: stored.mode === 'stack',
     presets: presets.map(preset => [preset.id, tx(preset.label)]),
     current: state.preset,
     hidden: state.hidden.map(id => [id, titleOf(id)]),
   });
   const commands = useMemo<readonly WorkspaceCommand[]>(() => {
-    const parsed = JSON.parse(shape) as { stacked: boolean; presets: [string, string][]; current: string; hidden: [string, string][] };
+    const parsed = JSON.parse(shape) as { narrow: boolean; stack: boolean; presets: [string, string][]; current: string; hidden: [string, string][] };
     const preset = (id: string) => live.current.presets.find(candidate => candidate.id === id);
     return [
       ...parsed.presets.map(([id, text]): WorkspaceCommand => ({
-        id: `${PRESET_PREFIX}${id}`, label: text, kind: 'radio', checked: id === parsed.current, disabled: parsed.stacked,
-        run: () => { const next = preset(id); if (next && !live.current.stacked) update(current => applyPreset(current, next)); },
+        id: `${PRESET_PREFIX}${id}`, label: text, kind: 'radio', checked: id === parsed.current, disabled: parsed.narrow,
+        run: () => { const next = preset(id); if (next && !live.current.narrow) update(current => applyPreset(current, next), 'enter'); },
+      })),
+      ...(['fit', 'stack'] as const).map((mode): WorkspaceCommand => ({
+        id: `${MODE_PREFIX}${mode}`, label: tx(mode === 'fit' ? workspaceText.modeFit : workspaceText.modeStack), kind: 'radio', group: 'mode',
+        checked: (mode === 'stack') === parsed.stack, disabled: parsed.narrow, run: () => { setMode(mode); },
       })),
       ...parsed.hidden.map(([id, text]): WorkspaceCommand => ({
         id: `${SHOW_PREFIX}${id}`, label: tx(workspaceText.showPanel(text)), kind: 'action',
@@ -153,10 +224,10 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, l
       })),
       {
         id: RESET_ID, label: tx(workspaceText.resetLayout), kind: 'action',
-        run: () => { const next = preset(parsed.current) ?? live.current.presets[0]!; update(current => resetLayout(current, next)); },
+        run: () => { const next = preset(parsed.current) ?? live.current.presets[0]!; update(current => resetLayout(current, next), 'enter'); },
       },
     ];
-  }, [shape, update, tx]);
+  }, [shape, update, setMode, tx]);
   const hosted = useRegisterWorkspaceCommands(commands, depth);
 
   // Local preference: only the stored state, never the compact overlay.
@@ -190,14 +261,35 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, l
   const reading = dockGroupsInReadingOrder(state.layout);
   const focusTab = (panelId: string) => { focusTabSoon(() => root.current, panelId); };
   const closeFocus = useRef<(() => void) | null>(null);
-  const layoutChange = (change: (current: WorkspaceState) => WorkspaceState) => { update(change); };
+  const layoutChange = (change: (current: WorkspaceState) => WorkspaceState, created?: string) => { update(change, 'keep', created); };
+  const moveBelow = (id: string) => { layoutChange(current => (panelOrder(current.layout).includes(id) ? { ...current, layout: moveToNewRow(current.layout, id) } : current), id); };
+
+  // Stack rows: stored px raised to each row's current minimum (a panel's minimum can change); the maximum only limits what the user asks for.
+  const stackRows = stackActive ? storedRows : undefined;
+  // The panel the engine's last drop moved, until the engine reports the resulting layout (`DockRows.onPanelDrop`); used once.
+  const dropped = useRef<string | null>(null);
+  const onPanelDrop = useCallback((panelId: string | null) => { dropped.current = panelId; }, []);
+  const rowMinimums = stackRows ? topLevelRows(state.layout).map(rowMinimum) : [];
+  const rows: DockRows | undefined = stackRows ? {
+    heights: stackRows.map((px, index) => Math.max(px, rowMinimums[index]!)), minimums: rowMinimums, maximum: maxRow,
+    onHeightsChange: next => {
+      setStored(previous => {
+        const minimums = topLevelRows(previous.layout).map(live.current.rowMinimum);
+        if (previous.mode !== 'stack' || next.length !== minimums.length) return previous;
+        return withRows(previous, 'stack', next.map((px, index) => clampRow(px, minimums[index]!, Math.max(live.current.maxRow, px))));
+      });
+    },
+    onDropBelow: moveBelow, onPanelDrop, dropBelowLabel: tx(workspaceText.dropBelow),
+  } : undefined;
+
   const groupActions = (group: { panels: string[]; active: string }) => {
     const id = group.active;
     const menu = dockLayoutMenu(state.layout, id, { maximized: maximizedId !== null && group.panels.includes(maximizedId), orderOf: other => reading.indexOf(other as (typeof reading)[number]) });
     return <WorkspaceGroupActions key={id} title={titleOf(id)} titleOf={titleOf} menu={menu} closeFocus={closeFocus}
       onMaximize={maximize => { setMaximized(maximize ? id : null); }}
-      onSplit={position => { if (!menu.maximized && menu.split) { closeFocus.current = () => { focusTab(id); }; const target = menu.split; layoutChange(current => ({ ...current, layout: movePanel(current.layout, id, { panelId: target, position }) })); } }}
+      onSplit={position => { if (!menu.maximized && menu.split) { closeFocus.current = () => { focusTab(id); }; const target = menu.split; layoutChange(current => ({ ...current, layout: movePanel(current.layout, id, { panelId: target, position }) }), id); } }}
       onMove={target => { closeFocus.current = () => { focusTab(id); }; layoutChange(current => ({ ...current, layout: movePanel(current.layout, id, { panelId: target, position: 'center' }) })); }}
+      onMoveBelow={rows && canMoveBelow(state.layout, id) ? () => { closeFocus.current = () => { focusTab(id); }; moveBelow(id); } : undefined}
       onHide={id === primaryId ? undefined : () => {
         setMaximized(null);
         const next = hidePanel(state, id, primaryId);
@@ -207,15 +299,15 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, l
   };
 
   return <WorkspaceDepthProvider value={depth}>
-    <div ref={root} data-panel-workspace data-workspace-compact={compact ? '' : undefined} className="flex h-full min-h-0 w-full min-w-0 flex-col gap-2">
+    <div ref={root} data-panel-workspace data-workspace-mode={rows ? 'stack' : 'fit'} data-workspace-compact={compact ? '' : undefined} className={rows ? 'flex w-full min-w-0 flex-col gap-2' : 'flex h-full min-h-0 w-full min-w-0 flex-col gap-2'}>
       {!hosted && <WorkspaceToolbar commands={commands} onShown={focusTab} />}
-      <div className="min-h-0 flex-1">
-        <DockLayout panels={dockPanels} layout={state.layout} label={tx(label)}
-          onLayoutChange={next => { layoutChange(current => ({ ...current, layout: next })); }}
+      <div ref={fitSlot} className={rows ? undefined : 'min-h-0 flex-1'}>
+        <DockLayoutBase panels={dockPanels} layout={state.layout} label={tx(label)} rows={rows}
+          onLayoutChange={next => { const moved = dropped.current ?? undefined; dropped.current = null; layoutChange(current => ({ ...current, layout: next }), moved); }}
           onActivate={id => { layoutChange(current => (panelOrder(current.layout).includes(id) ? { ...current, layout: activatePanel(current.layout, id) } : current)); }}
           maximizedPanelId={maximizedId} onMaximizedChange={setMaximized}
           renderGroupActions={groupActions}
-          separatorLabel={info => tx((info.dir === 'row' ? workspaceText.separatorColumns : workspaceText.separatorRows)(titleOf(info.before[0]!), titleOf(info.after[0]!)))}
+          separatorLabel={info => tx(info.after.length === 0 ? workspaceText.separatorRowBottom(titleOf(info.before[0]!)) : (info.dir === 'row' ? workspaceText.separatorColumns : workspaceText.separatorRows)(titleOf(info.before[0]!), titleOf(info.after[0]!)))}
           stackBelow={compactSpec ? undefined : compactBelow} />
       </div>
     </div>

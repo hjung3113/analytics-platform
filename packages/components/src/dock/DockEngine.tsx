@@ -3,16 +3,17 @@
  * its signature or output exposes an engine type or the engine's JSON.
  */
 import {
-  createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject,
+  createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type RefObject,
 } from 'react';
 import {
-  DockviewReact, type DockviewApi, type DockviewReadyEvent, type DockviewWillDropEvent, type IDockviewHeaderActionsProps, type IDockviewPanelHeaderProps, type IDockviewPanelProps,
+  DockviewReact, getPanelData, type DockviewApi, type DockviewReadyEvent, type DockviewWillDropEvent, type IDockviewHeaderActionsProps, type IDockviewPanelHeaderProps, type IDockviewPanelProps,
 } from 'dockview-react';
 import { TransientOverlayScope } from '@ap/ui';
 import { groupOf } from './commands';
 import { DockSeparators, type DockRect } from './DockSeparators';
-import type { DockLayoutProps, DockPanel } from './dockTypes';
+import type { DockLayoutProps, DockPanel, DockRows } from './dockTypes';
 import { fromEngineLayout, keepStoredSizes, sameDockTree, toEngineLayout, type EngineLayout } from './engineModel';
+import { PageFlowContext } from '../pageFlow';
 import { isProgrammaticFocus, programmaticFocus } from './programmaticFocus';
 import { canonicalDockTree, type DockNode } from './schema';
 import './dock.css';
@@ -30,6 +31,8 @@ export type DockEngineProps = Pick<DockLayoutProps, 'panels' | 'layout' | 'onLay
   onActivate: (panelId: string) => void;
   containerRef: RefObject<HTMLElement | null>;
   instanceId: string;
+  /** Row mode (see `DockRows`); absent = the layout fills its container. */
+  rows?: DockRows;
 };
 
 type Context = {
@@ -69,7 +72,8 @@ function PanelHost({ api }: IDockviewPanelProps) {
       if (event.target instanceof Element && event.target.closest('[data-dock-layout]') !== root) return;
       if (!(event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget))) engine.onActivate(id);
     }}>
-    <TransientOverlayScope active={visible}>{panel?.render() ?? null}</TransientOverlayScope>
+    {/* A panel is a page-flow boundary: a workspace stacked inside it scrolls inside the panel and never changes the page around the dock. */}
+    <PageFlowContext.Provider value={null}><TransientOverlayScope active={visible}>{panel?.render() ?? null}</TransientOverlayScope></PageFlowContext.Provider>
   </div>;
 }
 
@@ -151,7 +155,7 @@ function readEngine(api: DockviewApi, stored: DockNode): { tree: DockNode; measu
 
 export default function DockEngine({
   panels, layout, display, interactive, maximizedPanelId, visible, minPanelSize, onLayoutChange, onActivate, renderTab, renderGroupActions, tabA11y, separatorLabel,
-  containerRef, instanceId,
+  containerRef, instanceId, rows,
 }: DockEngineProps) {
   const [api, setApi] = useState<DockviewApi | null>(null);
   const [epoch, setEpoch] = useState(0);
@@ -170,8 +174,12 @@ export default function DockEngine({
   const panelMinimums = useMemo(() => new Map(panels.map(panel => [panel.id, { minWidth: panel.minWidth, minHeight: panel.minHeight }])), [panels]);
   const meta = useMemo(() => JSON.stringify([panels.map(panel => [panel.id, panel.title, panel.minWidth, panel.minHeight]), minPanelSize]), [panels, minPanelSize]);
   // The effects below run on what changed (key, meta, epoch), not on every new object identity; they read the rest from here.
-  const live = useRef({ layout, interactive, onLayoutChange, canonicalDisplay, panels, minPanelSize });
-  useLayoutEffect(() => { live.current = { layout, interactive, onLayoutChange, canonicalDisplay, panels, minPanelSize }; });
+  const rowsTotal = rows ? rows.heights.reduce((sum, height) => sum + height, 0) : undefined;
+  // The engine spaces top-level rows by the theme gap and shares only the rest among them. The box adds the gaps, so each row is drawn at its own px
+  // and a resize of one row moves no other (the gap was shared out by proportion before: untouched rows changed by a few px while dragging).
+  const rowsBox = rows && rowsTotal !== undefined ? rowsTotal + Math.max(0, rows.heights.length - 1) * THEME.gap : undefined;
+  const live = useRef({ layout, interactive, onLayoutChange, canonicalDisplay, panels, minPanelSize, rowsBox });
+  useLayoutEffect(() => { live.current = { layout, interactive, onLayoutChange, canonicalDisplay, panels, minPanelSize, rowsBox }; });
   const panelMap = useMemo(() => new Map(panels.map(panel => [panel.id, panel])), [panels]);
 
   const measure = useCallback(() => {
@@ -236,12 +244,12 @@ export default function DockEngine({
 
   /** Puts the live engine on `live.current.canonicalDisplay` (shares at the engine's current size) and brings focus back to the tab it had. */
   const applyLayout = useCallback((target: DockviewApi, appliedKey: string, appliedMeta: string) => {
-    const { canonicalDisplay: wanted, panels: wantedPanels, minPanelSize: minimum } = live.current;
+    const { canonicalDisplay: wanted, panels: wantedPanels, minPanelSize: minimum, rowsBox: total } = live.current;
     const focusedBefore = containerRef.current?.contains(document.activeElement) ? document.activeElement : null;
     const focusedTabId = focusedBefore instanceof HTMLElement ? focusedBefore.closest<HTMLElement>('[role="tab"]')?.dataset.tabPanelId : undefined;
     applying.current = true;
     try {
-      target.fromJSON(toEngineLayout(wanted, wantedPanels, minimum, { width: target.width, height: target.height }) as unknown as SerializedLayout, { reuseExistingPanels: true });
+      target.fromJSON(toEngineLayout(wanted, wantedPanels, minimum, { width: target.width, height: total ?? target.height }) as unknown as SerializedLayout, { reuseExistingPanels: true });
     } finally {
       applying.current = false;
     }
@@ -276,6 +284,15 @@ export default function DockEngine({
     if (!rebuild) { applied.current = { key, meta }; return; }
     applyLayout(api, key, meta);
   }, [api, key, meta, epoch, applyLayout]);
+
+  // Row mode: the container height and the top-level shares change together. The engine would otherwise relayout the new height with the old
+  // shares (every row scaled) and correct it a frame later, which moves rows the user did not touch. Here, before paint, the live engine is
+  // put on the new shares at the new height; the reconcile effect above then finds nothing left to do.
+  useLayoutEffect(() => {
+    if (!api || rowsBox === undefined || !applied.current || applied.current.meta !== meta) return;
+    if (applied.current.key === key || key === emitted.current) return;
+    applyLayout(api, key, meta);
+  }, [api, rowsBox, key, meta, applyLayout]);
 
   // Maximize is the engine's group maximize and is never stored, so it is re-asserted after every reconcile. The engine hides the other groups
   // with the px size they had, and gives that size back on restore whatever the container became meanwhile: a resize in between leaves the
@@ -322,6 +339,17 @@ export default function DockEngine({
     return () => { observer.disconnect(); };
   }, [containerRef, api]);
 
+  // Row mode: the engine's own grid (the first `.dv-grid-view` inside the wrapper; a layout nested in a panel comes after it) is marked, so `dock.css`
+  // switches off the sashes of this grid only and a nested layout keeps its pointer sashes.
+  const rowsWrapper = useRef<HTMLDivElement>(null);
+  const rowMode = rows !== undefined;
+  useEffect(() => {
+    const grid = rowMode && api ? rowsWrapper.current?.querySelector('.dv-grid-view') : null;
+    if (!grid) return;
+    grid.setAttribute('data-dock-rows-grid', '');
+    return () => { grid.removeAttribute('data-dock-rows-grid'); };
+  }, [api, rowMode]);
+
   // Which group holds focus drives the tab's `groupFocused`.
   useEffect(() => {
     const container = containerRef.current;
@@ -339,10 +367,49 @@ export default function DockEngine({
 
   // A drag from another instance, or one that is not a panel, is refused (the engine already ignores foreign payloads, `viewId` mismatch at
   // main.esm.mjs:11510/11538; this makes the refusal explicit). `onUnhandledDragOver` is never accepted.
+  const onPanelDrop = rows?.onPanelDrop;
   const onWillDrop = useCallback((event: DockviewWillDropEvent) => {
     const data = event.getData();
-    if (!data || data.viewId !== event.api.id) event.preventDefault();
-  }, []);
+    if (!data || data.viewId !== event.api.id) { event.preventDefault(); return; }
+    // The drop is reported as a layout right after this (before any other drop); the row model needs to know which panel moved.
+    onPanelDrop?.(event.defaultPrevented ? null : data.panelId);
+  }, [onPanelDrop]);
+
+  // The strip under the last row accepts one tab of this layout: not a whole group, not another layout's tab, not outside data. Every drag over the strip
+  // ends here, taken or refused: an ancestor dock (the board around a pane) must never act on a drop released over it. These are native listeners on the
+  // strip itself, which see the event before any ancestor's: React's own handlers run at the root, after the ancestors' native ones.
+  const [dropOver, setDropOver] = useState(false);
+  const strip = useRef<HTMLDivElement>(null);
+  const onDropBelow = rows?.onDropBelow;
+  const stripShown = onDropBelow !== undefined && interactive;
+  useEffect(() => {
+    const element = strip.current;
+    if (!element || !stripShown) return;
+    const accepted = () => {
+      const data = getPanelData();
+      return data && data.panelId && data.viewId === api?.id ? data.panelId : null;
+    };
+    const effect = (event: DragEvent, value: 'move' | 'none') => { const transfer = event.dataTransfer as DataTransfer | null | undefined; if (transfer) transfer.dropEffect = value; };
+    const enter = (event: DragEvent) => { event.stopPropagation(); };
+    const over = (event: DragEvent) => {
+      event.stopPropagation();
+      if (accepted()) { event.preventDefault(); effect(event, 'move'); setDropOver(true); } else { effect(event, 'none'); setDropOver(false); }
+    };
+    const leave = () => { setDropOver(false); };
+    const drop = (event: DragEvent) => {
+      event.stopPropagation();
+      setDropOver(false);
+      const panelId = accepted();
+      if (!panelId) return;
+      event.preventDefault();
+      onDropBelow(panelId);
+    };
+    element.addEventListener('dragenter', enter);
+    element.addEventListener('dragover', over);
+    element.addEventListener('dragleave', leave);
+    element.addEventListener('drop', drop);
+    return () => { element.removeEventListener('dragenter', enter); element.removeEventListener('dragover', over); element.removeEventListener('dragleave', leave); element.removeEventListener('drop', drop); };
+  }, [stripShown, api, onDropBelow]);
 
   const context = useMemo<Context>(() => {
     const focusGroup = focusedPanel ? groupOf(canonicalDisplay, focusedPanel)?.panels ?? [] : [];
@@ -361,12 +428,14 @@ export default function DockEngine({
   };
 
   return <EngineContext.Provider value={context}>
-    <div className="h-full w-full">
+    <div ref={rowsWrapper} data-dock-rows={rows ? '' : undefined} className={rows ? 'h-(--dock-rows-box) w-full' : 'h-full w-full'} style={rowsTotal === undefined ? undefined : { '--dock-rows-height': `${rowsTotal}px`, '--dock-rows-box': `${rowsBox}px` } as CSSProperties}>
       <DockviewReact components={COMPONENTS} tabComponents={TAB_COMPONENTS} defaultTabComponent={DockTab} rightHeaderActionsComponent={GroupActions}
         onReady={onReady} onWillDrop={onWillDrop} theme={THEME} defaultRenderer="always" singleTabMode="fullwidth"
         disableFloatingGroups disableDnd={!interactive} announcements={false} />
     </div>
-    {interactive && !maximizedPanelId && <DockSeparators layout={layout} rects={rects} minPanelSize={minPanelSize} panelMinimums={panelMinimums} instanceId={instanceId} label={separatorLabel} onChange={separate} />}
+    {stripShown && <div ref={strip} data-dock-drop-below
+      className={`mt-2 flex h-[72px] items-center justify-center rounded-lg border-2 border-dashed text-sm ${dropOver ? 'border-accent-primary bg-surface-row-hover text-text-primary' : 'border-border-strong text-text-muted'}`}>{rows?.dropBelowLabel}</div>}
+    {interactive && !maximizedPanelId && <DockSeparators layout={layout} rects={rects} minPanelSize={minPanelSize} panelMinimums={panelMinimums} instanceId={instanceId} label={separatorLabel} onChange={separate} rows={rows} />}
   </EngineContext.Provider>;
 }
 

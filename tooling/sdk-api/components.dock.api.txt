@@ -7,7 +7,7 @@ DockLayoutProps | type | type DockLayoutProps = { currentPanelId?: string; label
 DockNode | type | type DockNode = { active: string; panels: string[]; type: 'group'; } | { children: @ap/components/dock#DockNode[]; dir: 'column' | 'row'; sizes: number[]; type: 'branch'; }
 DockPanel | type | type DockPanel = { id: string; minHeight?: number; minWidth?: number; render: () => ReactNode; title: string; }
 DockSeparatorInfo | type | type DockSeparatorInfo = { after: string[]; before: string[]; dir: 'column' | 'row'; }
-WorkspaceCommand | type | type WorkspaceCommand = { checked?: boolean; disabled?: boolean; id: string; kind: 'action' | 'radio'; label: string; run: () => void; }
+WorkspaceCommand | type | type WorkspaceCommand = { checked?: boolean; disabled?: boolean; group?: 'mode' | 'preset'; id: string; kind: 'action' | 'radio'; label: string; run: () => void; }
 WorkspaceCommandsHost | function | function WorkspaceCommandsHost({ children }: { children: ReactNode; }): import("react").JSX.Element
 activatePanel | function | function activatePanel(tree: @ap/components/dock#DockNode, panelId: string): @ap/components/dock#DockNode
 addPanel | function | function addPanel(tree: @ap/components/dock#DockNode, panelId: string, near: { panelId: string; position: 'bottom' | 'center' | 'right'; }): @ap/components/dock#DockNode
@@ -17,6 +17,7 @@ isValidDockTree | function | function isValidDockTree(tree: unknown, panelIds: r
 movePanel | function | function movePanel(tree: @ap/components/dock#DockNode, panelId: string, target: { panelId: string; position: @ap/components/dock#DockDropPosition; }): @ap/components/dock#DockNode
 normalizeDockTree | function | function normalizeDockTree(raw: unknown, panelIds: readonly string[]): @ap/components/dock#DockNode
 panelOrder | function | function panelOrder(tree: @ap/components/dock#DockNode): string[]
+radioGroupsOf | function | function radioGroupsOf(commands: readonly @ap/components/dock#WorkspaceCommand[]): @ap/components/dock#WorkspaceCommand[][]
 removePanel | function | function removePanel(tree: @ap/components/dock#DockNode, panelId: string): @ap/components/dock#DockNode
 resizeBoundary | function | function resizeBoundary(tree: @ap/components/dock#DockNode, branchPath: readonly number[], index: number, deltaPercent: number, minPercent: [ number, number ]): @ap/components/dock#DockNode
 useWorkspaceCommands | function | function useWorkspaceCommands(): readonly @ap/components/dock#WorkspaceCommand[]
