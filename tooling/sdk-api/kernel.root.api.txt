@@ -32,7 +32,7 @@ PlatformLink | function | function PlatformLink({ href, children, className, onN
 PlatformLocation | type | type PlatformLocation = { absoluteUrl: (url: string) => string; href: (url: string) => string; push: (url: string) => void; read: () => null | string; replace: (url: string) => void; }
 PlatformMenuEntry | type | type PlatformMenuEntry = @ap/contracts#MenuMeta & { component?: LazyExoticComponent<ComponentType<@ap/kernel#PageProps>>; icon: LucideIcon; module?: undefined; moduleScreen?: undefined; }
 PlatformProvider | function | function PlatformProvider({ adapter, registry, location, slots, equipmentAxes, queryHistory, children }: { adapter: @ap/contracts#PlatformAdapter; children: ReactNode; equipmentAxes?: readonly @ap/contracts#EquipmentAxisDescriptor[]; location?: @ap/kernel#PlatformLocation; queryHistory?: @ap/contracts#QueryHistoryStore; registry: @ap/kernel#Registry; slots?: @ap/kernel#PlatformSlots; }): import("react").JSX.Element
-PlatformSlots | type | type PlatformSlots = { boardEntry?: ReactNode; contextBar?: ReactNode; feedbackOps?: @ap/kernel#FeedbackOpsSlot; notifications?: @ap/kernel#NotificationsSlot; plannedSpaces?: readonly @ap/kernel#PlannedSpace[]; topBarTools?: ReactNode; }
+PlatformSlots | type | type PlatformSlots = { boardEntry?: ReactNode; contextBar?: ReactNode; feedbackOps?: @ap/kernel#FeedbackOpsSlot; notifications?: @ap/kernel#NotificationsSlot; plannedSpaces?: readonly @ap/kernel#PlannedSpace[]; topBarTools?: ReactNode; vocCompose?: @ap/kernel#VocComposeSlot; }
 PortContext | type | type PortContext = { condition: @ap/contracts#Condition | null; lineNames: @ap/contracts#IdSet; membershipBasis: 'asOf' | null; period: @ap/contracts#MembershipPeriod | null; prcGroups: @ap/contracts#IdSet; roomNames: @ap/contracts#IdSet; scopeId: string; }
 PortFailure | type | type PortFailure = { code: @ap/contracts#PortErrorCode | null; message: string; retryable: boolean; }
 PortPageResult | type | type PortPageResult<T> = PortPageState<T> & { loadMore: () => void; retry: () => void; }
@@ -53,6 +53,10 @@ RouteMatch | type | type RouteMatch = { menu: @ap/kernel#MenuEntry; params: Reco
 ScopeState | type | type ScopeState = { grantedRooms: string[]; scopeId: null | string; status: 'error' | 'forbidden' | 'none' | 'unknown_scope' | 'valid' | 'validating'; validatedFor: @ap/contracts#Session | null; }
 Text | type | type Text = { en: string; ko: string; }
 Toast | type | type Toast = { detail?: string; id: number; text: string; tone: 'danger' | 'info' | 'warning'; }
+VocComposeContext | type | type VocComposeContext = { href: null | string; items: readonly @ap/kernel#VocComposeContextItem[]; menuId: null | string; spaceId: @ap/contracts#SpaceId | null; }
+VocComposeContextItem | type | type VocComposeContextItem = { id: string; label: string; value: string; }
+VocComposeProps | type | type VocComposeProps = { context: @ap/kernel#VocComposeContext; onCancel: () => void; onDirtyChange: (dirty: boolean) => void; onSubmitted: (result: { displayId: string; vocId: string; }) => void; }
+VocComposeSlot | type | type VocComposeSlot = { Compose: ComponentType<@ap/kernel#VocComposeProps>; }
 classifyMetricInit | function | function classifyMetricInit(published: readonly @ap/contracts#PublishedMetric[], initializesMetric: boolean, metricId: null | string, metricVersion: null | string): @ap/kernel#MetricInit
 contractErrorSentence | function | function contractErrorSentence(lang: @ap/kernel#Lang, error: { code: string; field?: string; raw?: string; }): string
 createBasePathLocation | function | function createBasePathLocation(basePath: string): @ap/kernel#PlatformLocation

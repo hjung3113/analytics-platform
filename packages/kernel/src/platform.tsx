@@ -42,6 +42,23 @@ export type PlannedSpace = { id: string; label: Text; /** Optional second line i
  * server, session ended). `Recent` is the popover body. Absent slot → no bell and no badge.
  */
 export type NotificationsSlot = { menuId: string; UnreadCount: ComponentType<{ children: (count: number | null) => ReactNode }>; Recent: ComponentType };
+/** One frozen Context item shown as a removable chip in the VOC drawer (ADR-0070 decision 5). `id` is stable per kind: `menu`, `page:<key>`, `period`, `global:<key>`. */
+export type VocComposeContextItem = { id: string; label: string; value: string };
+/**
+ * The Context frozen when the VOC drawer opened, minus the chips the user removed. `href` is the absolute URL of that screen rebuilt
+ * from the kept items only (06 §8: a removed chip leaves the attached address too); null when there was no main screen (board) or the user removed the `menu` chip. `spaceId`/`menuId` describe the frozen screen for defaults only (e.g. the Managed System); they ignore chip removal and are never attached.
+ */
+export type VocComposeContext = { items: readonly VocComposeContextItem[]; href: string | null; spaceId: SpaceId | null; menuId: string | null };
+export type VocComposeProps = {
+  context: VocComposeContext;
+  /** Called once after the VOC was created; the shell closes the drawer and drops the draft. */
+  onSubmitted: (result: { vocId: string; displayId: string }) => void;
+  /** The content's own cancel action; the shell runs the same close path as its close button (confirm when dirty). */
+  onCancel: () => void;
+  onDirtyChange: (dirty: boolean) => void;
+};
+/** The rail `VOC 등록` drawer body (ADR-0070 decisions 4–5, 06 §8). Absent slot → no rail button. */
+export type VocComposeSlot = { Compose: ComponentType<VocComposeProps> };
 /**
  * Shell slots (docs/06 §8) the app fills at composition time, so platform components never import the shell.
  * contextBar: rendered by PlatformPage above page content. topBarTools: extra controls at the bottom of the app rail (today the mock dev tools).
@@ -49,8 +66,9 @@ export type NotificationsSlot = { menuId: string; UnreadCount: ComponentType<{ c
  * plannedSpaces: the system switcher's not-yet-available rows (ADR-0042, 15 §3.2).
  * boardEntry: the `분석 보드에 열기…` item `PlatformPage` appends to a board menu's `⋯` menu (docs/16 §6); components never import the shell.
  * notifications: the rail bell and the platform-menu unread badge (ADR-0070 decision 4, #652).
+ * vocCompose: the body of the rail `VOC 등록` docked drawer; the shell owns position, frozen Context chips, draft and close rules (ADR-0070 decision 5, #655).
  */
-export type PlatformSlots = { contextBar?: ReactNode; topBarTools?: ReactNode; feedbackOps?: FeedbackOpsSlot; plannedSpaces?: readonly PlannedSpace[]; boardEntry?: ReactNode; notifications?: NotificationsSlot };
+export type PlatformSlots = { contextBar?: ReactNode; topBarTools?: ReactNode; feedbackOps?: FeedbackOpsSlot; plannedSpaces?: readonly PlannedSpace[]; boardEntry?: ReactNode; notifications?: NotificationsSlot; vocCompose?: VocComposeSlot };
 export type LinkOptions = { params?: Record<string, string>; page?: Record<string, string>; global?: Partial<GlobalContext>; returnTo?: boolean };
 export type LinkResolution = {
   href: string;

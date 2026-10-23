@@ -8,6 +8,7 @@ import { CommandPalette } from './CommandPalette';
 import { AppSidebar } from './AppSidebar';
 import { PlatformSidebar } from './PlatformSidebar';
 import { AppRail } from './AppRail';
+import { useVocDrawer, VocDrawer, VocDrawerContext } from './VocDrawer';
 
 const COLLAPSE_KEY = 'platform:sidebar-collapsed';
 
@@ -19,7 +20,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 function ShellLayout({ children }: { children: ReactNode }) {
   const detail = useDetailPanelSlotHost();
   const { lang, t } = useI18n();
-  const { route, registry, sidebarSpace, platformScreen } = useHostPlatform();
+  const { route, registry, sidebarSpace, platformScreen, slots, global, page, absoluteUrl, session } = useHostPlatform();
   // The board is a platform screen like the home and global utilities: no business-system sidebar (docs/16 §4).
   const globalScreen = platformScreen === 'board' || (route !== null && registry.spaceOf(route.menu) === null);
   const showSidebar = sidebarSpace !== null && !globalScreen;
@@ -28,6 +29,9 @@ function ShellLayout({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(() => {
     return readLocalStorage(COLLAPSE_KEY, v => v === null ? window.innerWidth < 1440 : v === '1', false);
   });
+  // The VOC drawer and the detail aside share one right position; a newly visible detail (activation) takes it from the drawer (06 §13).
+  const voc = useVocDrawer(slots.vocCompose, () => ({ route, platformScreen, global, page, absoluteUrl, registry, lang }), detail.activation, session);
+  const detailShown = detail.open && !voc?.visible;
   const toggle = () => setCollapsed(c => { writeLocalStorage(COLLAPSE_KEY, c ? '0' : '1'); return !c; });
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -40,7 +44,7 @@ function ShellLayout({ children }: { children: ReactNode }) {
 
   return <div className="flex h-full overflow-hidden">
     <a href="#platform-main" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-sm focus:bg-surface-card focus:px-3 focus:py-2">{t('skipToContent')}</a>
-    <AppRail />
+    <VocDrawerContext.Provider value={voc}><AppRail /></VocDrawerContext.Provider>
     {showSidebar && <AppSidebar collapsed={collapsed} onToggle={toggle} />}
     {showPlatformSidebar && <PlatformSidebar collapsed={collapsed} onToggle={toggle} />}
     <div className="flex min-w-0 flex-1 flex-col">
@@ -48,9 +52,10 @@ function ShellLayout({ children }: { children: ReactNode }) {
         <Suspense fallback={<div className="p-5"><LoadingBlock rows={6} height={320} /></div>}>{children}</Suspense>
       </main>
     </div>
-    <aside ref={detail.ref} hidden={!detail.open} aria-label={lang === 'ko' ? '상세 패널' : 'Detail panel'} data-open={detail.open}
+    <aside ref={detail.ref} hidden={!detailShown} aria-label={lang === 'ko' ? '상세 패널' : 'Detail panel'} data-open={detailShown}
       className={cn('h-full max-w-[520px] shrink-0 overflow-hidden border-border-subtle bg-surface-detail',
-        detail.open ? 'w-[clamp(360px,var(--detail-panel-width,440px),520px)] min-w-[360px] border-l' : 'w-0 min-w-0 border-l-0')} />
+        detailShown ? 'w-[clamp(360px,var(--detail-panel-width,440px),520px)] min-w-[360px] border-l' : 'w-0 min-w-0 border-l-0')} />
+    {voc && <VocDrawer voc={voc} lang={lang} />}
     <CommandPalette />
     <Toasts />
   </div>;
