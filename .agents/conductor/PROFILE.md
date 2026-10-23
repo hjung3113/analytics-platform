@@ -157,13 +157,13 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
 
 - 작업자 함정은 [`docs/agents/operations.md`](../../docs/agents/operations.md)에 있다: 새 worktree 설치, pnpm 11, CSS selector CI, 캡처, mock 등록.
 - 일반 `git worktree add`로 만든 기준 worktree에는 Orca 터미널 리뷰어를 띄울 수 없다. 거기서는 미리보기만 돌린다.
-- 여러 세션이 이 저장소에 ADR을 쓴다(M6, #598). 번호는 #598에 "ADR-NNNN 예약" 코멘트를 남긴 뒤에 쓴다. 예약하기 전에 `origin/main`과 열린 PR을 모두 확인한다. 같은 시각에 다른 세션이 0067을 먼저 머지해서, 충돌 난 PR을 0068로 다시 올렸다(#613 → #616).
+- 여러 세션이 이 저장소에 ADR을 쓴다(M6, #598). 번호는 #598에 "ADR-NNNN 예약" 코멘트를 남긴 뒤에 쓴다. 예약하기 전에 `origin/main`과 열린 PR을 모두 확인한다. 같은 시각에 다른 세션이 0067을 먼저 머지해서, 충돌 난 PR을 0068로 다시 올렸다(#613 → #616). 예약을 남겨도 다른 세션이 예약을 보지 않고 같은 번호를 쓸 수 있다(#698이 #671 예약 0075를 먼저 머지, #699가 0076으로 옮김, 2026-10-23) — ship 직전 `origin/main`의 `docs/adr`를 다시 본다.
 - 머지가 거절되면(`gh pr merge`가 `--auto`를 권하는 메시지) 원격 브랜치를 지우기 전에 `gh pr view <n> --json state`로 상태를 확인한다. 지우면 PR이 닫힌다(#613).
 - 메인 체크아웃의 `node_modules`는 병합이 쌓이면 낡는다. 마감 검사 전에 `pnpm install --frozen-lockfile`.
 - 이 프로필의 상대 경로(`addenda/`)는 `$CONDUCTOR` 기준이다. 레포 루트에서 그대로 실행하면 "No such file"이다.
 - 이슈 번호가 없는 작업(마감 정리 등)은 `launch-worker.py`가 worktree를 만들지 못한다(`--issue`가 숫자를 요구). 손으로 한다: `orca worktree create --setup skip`(`--issue` 없이) → 설치 → 설정 셸 닫기 → TASK 작성 → 공유 실행기.
 - E2E는 vite dev 서버 위에서 돈다. 호스트 검사(루트 test·E2E)가 도는 worktree의 소스를 고치지 않는다 — HMR이 화면을 다시 그려 우연한 E2E 실패가 난다(#403: 검사 중 `module.ts` 수정 → Scope 메뉴 항목 detached). 고칠 것이 생기면 검사가 끝난 뒤 고치고 다시 돌린다.
-- E2E 포트는 4190 고정(`apps/platform-e2e/playwright.config.ts`, `--strictPort`)이라 다른 세션이 E2E를 돌리면 `is already used`로 바로 실패한다. 그 프로세스는 건드리지 말고(`lsof -nP -iTCP:4190 -sTCP:LISTEN`으로 cwd 확인) 포트가 빌 때까지 기다린 뒤 돌린다(#489).
+- E2E 포트는 4190 고정(`apps/platform-e2e/playwright.config.ts`, `--strictPort`)이라 다른 세션이 E2E를 돌리면 `is already used`로 바로 실패한다. 그 프로세스는 건드리지 말고(`lsof -nP -iTCP:4190 -sTCP:LISTEN`으로 cwd 확인) 포트가 빌 때까지 기다린 뒤 돌린다(#489). 시작 때 비어 있어도 다른 세션이 도중에 같은 포트를 잡아 상대 실행이 `ERR_CONNECTION_REFUSED`로 중간에 깨진다 — 같은 저장소에서 다른 세션이 작업 중이면 전체 E2E 시작·끝을 그 세션에 한 줄로 알린다(2026-10-23, #654·#671).
 - `ship-pr.sh --issue`가 PR 본문의 `Closes #n`으로 이미 닫힌 이슈를 다시 닫으려다 `Could not close the issue`로 끝나면 머지는 됐어도 `--worktree` 정리와 `--archive-review`가 돌지 않고 JSON에 `merged`가 빠진다([conductor-engine#58](https://github.com/hjung3113/conductor-engine/issues/58)). 그때는 `gh pr list --head <branch> --state all`로 병합을 확인하고, worktree의 `.review/`를 손으로 보관한 뒤 worktree를 지운다(#546).
 - PR에 `css-removal-ok` 라벨을 붙인 직후 `ship-pr.sh`를 다시 돌리면 css-selectors 재실행이 시작되기 전이라 이전 실패 실행으로 판정한다. 라벨을 붙인 뒤 `gh pr checks <n> --watch`로 재실행이 끝나기를 기다린 다음 ship한다(슬라이스 17).
 - 리뷰어가 쓰는 미리보기의 worktree에서 메뉴 생성기 probe(`node tooling/gen-menu/scripts/probe.ts`)처럼 파일을 쓰는 명령을 돌리지 않는다 — 파일이 생겼다 지워지는 사이 vite가 import 오류 화면을 띄워 UX 리뷰가 멈췄다(#552, 2026-10-21). probe는 미리보기를 멈춘 뒤 돌린다.
