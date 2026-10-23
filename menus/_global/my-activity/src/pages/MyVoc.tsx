@@ -35,7 +35,13 @@ export default function MyVoc() {
   const { query, focus } = parsed;
   return <PlatformPage layout="fill">
     <FoBridge>
-      <MyVocListScreen query={query} initialFocus={clearedFocus} onInitialFocusClaimed={() => setClearedFocus(undefined)} onQueryChange={onQueryChange} selectedId={focus} onSelect={onSelect} />
+      {/* The absolute layer keeps the list's height out of the fill box's intrinsic size, so the list scrolls inside it
+          and a `focus` push (which resets #platform-main) never moves the selected row (UX-1). */}
+      <div className="relative h-full">
+        <div className="absolute inset-0">
+          <MyVocListScreen query={query} initialFocus={clearedFocus} onInitialFocusClaimed={() => setClearedFocus(undefined)} onQueryChange={onQueryChange} selectedId={focus} onSelect={onSelect} />
+        </div>
+      </div>
       {focus !== null && <DetailDrawer key={focus} title={ko ? 'VOC 상세' : 'VOC details'} onClose={() => setPage({ focus: null })}
         headerActions={<Button asChild size="sm" variant="secondary"><PlatformLink href={linkTo('voc-detail', { params: { vocId: focus }, returnTo: true })}>{ko ? '전체 화면' : 'Full page'}</PlatformLink></Button>}
         tabs={[{ id: 'detail', label: ko ? '상세' : 'Details', content: <ReporterVocDetail vocId={focus} variant="embedded" /> }]} />}
