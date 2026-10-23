@@ -1,7 +1,8 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
 import { ChevronDown, ChevronUp, Search } from 'lucide-react';
 import { useI18n } from '@ap/kernel';
-import { Button, cn, Input, readLocalStorage, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, writeLocalStorage } from '@ap/ui';
+import { useCollapsePreference } from './useCollapsePreference';
+import { Button, cn, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ap/ui';
 
 export type PageFilterOption = { value: string; label: string };
 
@@ -208,10 +209,6 @@ function StaticPageFilterBar({ label, fields, actions, onApply, mode, orientatio
   </fieldset>);
 }
 
-function readCollapsedPreference(key: string): boolean {
-  return readLocalStorage(key, raw => JSON.parse(raw ?? 'false') === true, false);
-}
-
 function CollapsiblePageFilterBar({ label, fields, actions, onApply, mode, summaryItems, collapsedActions, hasPendingChanges, storageKey }: PageFilterBarShared & {
   summaryItems: readonly PageFilterSummaryItem[];
   collapsedActions?: ReactNode;
@@ -222,45 +219,8 @@ function CollapsiblePageFilterBar({ label, fields, actions, onApply, mode, summa
   const id = useId();
   const panelId = `${id}-panel`;
   const summaryId = `${id}-summary`;
-  const [collapsed, setCollapsed] = useState(() => readCollapsedPreference(storageKey));
-  const pendingFocus = useRef<'expand' | 'collapse' | null>(null);
-  const expandRef = useRef<HTMLButtonElement>(null);
-  const collapseRef = useRef<HTMLButtonElement>(null);
-
-  useLayoutEffect(() => {
-    if (pendingFocus.current === 'expand') expandRef.current?.focus();
-    else if (pendingFocus.current === 'collapse') collapseRef.current?.focus();
-    pendingFocus.current = null;
-  });
-
-  function toggle(nextCollapsed: boolean) {
-    pendingFocus.current = nextCollapsed ? 'expand' : 'collapse';
-    setCollapsed(nextCollapsed);
-    writeLocalStorage(storageKey, JSON.stringify(nextCollapsed)); // preference stays in memory when storage refuses
-  }
-
   const summaryText = `${summaryItems.map(item => `${item.label} ${item.value}`).join(' · ')}${hasPendingChanges ? ` · ${t('pageFilterPendingChanges')}` : ''}`;
-  const [liveText, setLiveText] = useState('');
-  // Last summary string the live region was based on. The collapse/expand toggle itself never becomes an announcement;
-  // only a summary/pending change that happens while already collapsed is announced.
-  const announcedSummary = useRef<string | null>(null);
-
-  useLayoutEffect(() => {
-    if (!collapsed) {
-      announcedSummary.current = null;
-      setLiveText('');
-      return;
-    }
-    if (announcedSummary.current === null) {
-      // First collapsed render (initial mount or a fresh collapse): record the baseline, announce nothing.
-      announcedSummary.current = summaryText;
-      return;
-    }
-    if (announcedSummary.current !== summaryText) {
-      announcedSummary.current = summaryText;
-      setLiveText(summaryText);
-    }
-  }, [collapsed, summaryText]);
+  const { collapsed, toggle, expandRef, collapseRef, liveText } = useCollapsePreference(storageKey, summaryText);
 
   return withApplyForm(mode === 'draft' ? undefined : onApply, <fieldset data-testid="page-filter-bar" className="mb-3 rounded-md border border-border-subtle bg-surface-card p-3">
     <legend className={collapsed ? 'sr-only' : 'px-1 text-xs text-text-secondary'}>{label}</legend>

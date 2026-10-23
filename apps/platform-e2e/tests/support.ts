@@ -32,6 +32,15 @@ export const liveContextBar = (page: Page) => page.getByRole('region', { name: '
 export const queryBar = (page: Page) => page.getByRole('region', { name: '조회 조건', exact: true });
 export const contextBar = (page: Page) => liveContextBar(page).or(queryBar(page));
 
+/** Opens the page head of a `fill` page (collapsed by default, #680); a no-op when it is already open. */
+export async function expandPageHead(page: Page) {
+  const expand = page.getByRole('button', { name: '페이지 머리 펼치기' });
+  const collapse = page.getByRole('button', { name: '페이지 머리 접기' });
+  await expect(expand.or(collapse)).toBeVisible();
+  if (await expand.isVisible()) await expand.click();
+  await expect(collapse).toBeVisible();
+}
+
 export async function expectScopeValid(page: Page, label: string) {
   await expect(page.getByRole('button', { name: `Scope: ${label}` })).toContainText('서버 검증됨');
 }

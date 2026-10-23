@@ -415,11 +415,14 @@ Page
 ├─ description
 ├─ primaryAction
 ├─ secondaryActions
+├─ contextNotes
 ├─ contextExtension
 ├─ content
 ├─ dataTrustSummary
 └─ detail (셸 소유 오른쪽 고정 슬롯, §13)
 ```
+
+`contextNotes`(`ReactNode[]`, 요소 하나가 안내 하나; `null`·`false` 요소는 세지도 그리지도 않는다)는 `contextExtension` 위에 그리는 설명 안내 슬롯이다. 페이지가 필터 컨트롤(`contextExtension`)과 설명 문장을 한 덩어리로 섞어 넘기면 접힌 줄이 안내 개수를 알 수 없고 안내만 따로 위·아래로 둘 수도 없다 — 그래서 별도 슬롯으로 둔다(#680, [ADR-0075](adr/0075-page-head-one-line-fold-thin-outcome-strip.md)). 머리 영역은 `(contextNotes가 비어 있지 않음 || contextExtension) && 게이트 없음`일 때 그린다. flow 페이지는 안내를 확장 위에 항상 그리고(접기 없음), fill 페이지는 §12.8의 머리 접기를 쓴다.
 
 이 Slot 외의 위치에 페이지가 직접 전역 UI를 삽입하지 않는다. 상세 내용은 등록 경계로 넘기고, 셸이 main 옆의 전체 높이 오른쪽 aside 배치를 소유한다(§13).
 
@@ -675,7 +678,15 @@ Domain 메뉴는 가능하면 이 Archetype을 조합하고, 새로운 Page Type
 - **도구줄 또는 호스트 명령:** 단독이면 프리셋 선택(`SegmentedRadio`)·`숨긴 패널 n`(0이면 꺼짐, 누르면 다시 보기 목록)·`기본 배치` 한 줄이 위에 붙는다. `WorkspaceCommandsHost`(`@ap/components/dock`, 호스트 전용) 안이면 도구줄이 없고 같은 명령이 `useWorkspaceCommands()`로 호스트의 메뉴(보드 칸 메뉴)에 간다. 패널 그룹 띠는 보드의 확정 띠(칩 C)와 같다: 최대화 토글과 `<제목> 동작` `⋯`(최대화·복원, 그룹에 패널 둘 이상이면 나누기, `<제목> 묶음으로 옮기기`, `숨기기` — 기본 패널은 없음). 메뉴 항목 계산은 보드와 공유하는 `dockLayoutMenu`다. 이동·나누기·숨기기·다시 보기를 메뉴로 실행하면 메뉴가 닫힌 뒤 포커스는 옮긴 패널의 탭으로(숨기기는 그 그룹에서 활성이 된 탭, 그룹이 없어졌으면 기본 패널의 탭) 간다. `다시 보기`는 기본 패널을 가리지 않는다: 현재 프리셋에서 같은 그룹이던 패널 중 보이는 것의 그룹(그 그룹이 기본 패널의 그룹이면 기본 패널이 활성으로 남는다) → 없으면 읽기 순서 첫 비기본 그룹 → 그것도 없으면 기본 패널 오른쪽 분할. 보드 칸 메뉴에서는 작업 영역 묶음 위에 `화면 배치` 이름표(항목 아님)가 붙는다.
 - **좁은 폭:** `compactBelow`보다 좁으면 `compactPreset` 배치를 메모리에서만 그린다(그 사이 한 변경은 저장하지 않고 넓어지면 저장된 배치로 돌아온다). `compactPreset`이 없으면 한 탭 그룹으로 쌓아 보이기만 한다. 쌓여 보이는 동안 프리셋 선택은 꺼지고(`title`·`aria-describedby`·명령의 `disabled`) 이유 `좁은 폭에서는 한 묶음으로 보입니다`를 보인다. `숨긴 패널`·`기본 배치`는 그대로 쓴다. 패널의 `minWidth`·`minHeight`는 separator의 방향키·Home/End 한계에도 쓰인다(묶음의 한계는 탭 중 가장 큰 값).
 - **로컬 선호:** `platform:workspace:v1:<사용자>:<메뉴>:<persistKey>`(`{v, preset, layout, hidden}`; 최대화는 저장하지 않음). 마운트 때 한 번 읽고(조회 없음) 변경 300ms 뒤 쓰며 언마운트·`pagehide`에 즉시 쓴다. 저장소 접근은 모두 try/catch이고 사용자·메뉴가 없으면 메모리에만 둔다. 같은 메뉴·키를 보이는 두 칸은 하나를 공유하고 마지막 쓴 쪽이 이긴다. 깨진 값은 고쳐서 쓴다(`normalizeWorkspaceState`).
-- **높이 채움:** `PlatformPage layout="fill"`이면 페이지가 컨테이너(본 화면 main, 보드 칸 본문) 높이를 채우고 본문이 머리 아래 남은 높이를 차지하되 최소 520px(그림 300px + 카드 머리)을 지킨다(조회 조건·페이지 필터가 펼쳐져 머리가 뷰포트를 채우면 작업 영역이 찌그러지는 대신 페이지가 스크롤된다; `data-page-layout="fill"`, 기본 `flow`는 그대로). 차트의 `size="fill"`은 그림 상자가 컨테이너가 남기는 높이(최소 320px — 남는 높이가 모자라면 그림 상자 안이 아니라 카드가 커지고 패널 본문이 스크롤된다, 측정 전 320px — 단 TopN 막대는 측정 전 `max(120, 행 수·28+24)`px를 쓰고 측정되면 같은 규칙으로 채운다)를 쓴다. 패널 안에서는 카드·차트 제목 `<h2>`가 탭과 겹치므로 시각적으로만 숨긴다(`sr-only`, 접근 이름 유지).
+- **높이 채움:** `PlatformPage layout="fill"`이면 페이지가 컨테이너(본 화면 main, 보드 칸 본문) 높이를 채우고 본문이 머리 아래 남은 높이를 차지하되 최소 520px(그림 300px + 카드 머리)을 지킨다(머리가 펼쳐져 뷰포트를 채우면 작업 영역이 찌그러지는 대신 페이지가 스크롤된다 — 머리는 아래 접기로 한 줄이 기본이며, 사용자가 펼치거나 펼침 선호를 복원하거나 잘못된 페이지 키 때문에 처음부터 펼쳐질 때 생긴다; `data-page-layout="fill"`, 기본 `flow`는 그대로). 차트의 `size="fill"`은 그림 상자가 컨테이너가 남기는 높이(최소 320px — 남는 높이가 모자라면 그림 상자 안이 아니라 카드가 커지고 패널 본문이 스크롤된다, 측정 전 320px — 단 TopN 막대는 측정 전 `max(120, 행 수·28+24)`px를 쓰고 측정되면 같은 규칙으로 채운다)를 쓴다. 패널 안에서는 카드·차트 제목 `<h2>`가 탭과 겹치므로 시각적으로만 숨긴다(`sr-only`, 접근 이름 유지).
+
+- **머리 한 줄 접기 (Decided, 사용자 2026-10-23, #680 B안, [ADR-0075](adr/0075-page-head-one-line-fold-thin-outcome-strip.md)):** `layout="fill"` 페이지에 `contextExtension`이나 비지 않은 `contextNotes`가 있으면(게이트 없음) 머리 영역(안내 + 확장)이 접기를 갖는다. 둘 다 없으면 접기도 빈 줄도 그리지 않고, flow 페이지는 접기 없이 그대로다.
+  - **접힌 줄(기본):** 왼쪽부터 `queryBarExtension.appliedPageSummary`의 요약 칩(없을 때만 `pageSummary` — 접힌 줄은 결과 위에 있어 초안 라벨이 결과를 설명하면 안 된다), 그리고 줄어들지 않고 잘리지 않는 `미적용 변경 있음`·`확인 필요 N`·`안내 N`·`펼치기`. 넘치면 칩 목록만 줄어든다. 칩은 항목 단위이고, 줄이 칩보다 좁으면 목록이 가로로 스크롤되되 스크롤바는 숨기고 넘칠 때만 오른쪽 가장자리에 페이드를 보인다 — 가장자리가 마지막 항목을 자를 수 있다. 전체 요약은 `title`이고 펼치기 버튼의 `aria-describedby`가 가리킨다(§13, ADR-0029).
+  - **버튼:** 펼치기(보이는 글 `펼치기`, 접근 이름 `페이지 머리 펼치기`, `aria-expanded=false`, `aria-controls` → 머리 내용)와 접기(펼친 상태, 내용 아래 오른쪽 정렬, 보이는 글 `접기`, 접근 이름 `페이지 머리 접기`, `aria-expanded=true`). 누르면 포커스가 반대 토글로 간다.
+  - **마운트 유지:** 접어도 머리 내용은 `hidden`으로 마운트돼 같은 id와 소비자 상태가 남는다. 토글은 안내하지 않고, 접힌 동안 요약·미적용·확인 필요 표식이 바뀌면 항상 마운트된 polite 영역이 한 번 안내한다(PageFilterBar와 같은 규칙).
+  - **기본·기억:** fill 페이지의 기본은 접힘이고 메뉴별로 localStorage `platform:page-head-collapsed:<menuId>`(boolean JSON)에 기억한다. 보드 칸도 같은 접기를 그리고 같은 키를 공유한다.
+  - **상태를 숨기지 않는다:** (1) 적용된 버킷·분포 칩은 `appliedPageSummary`로 접힌 줄에 칩으로 보인다. 그 해제(×)는 펼친 뒤에 닿는다. 칩 줄을 두 번 그리지 않는다. (2) 이 메뉴의 `pageKeys` 중 하나라도 초안과 적용이 다르면(`queryDraft.dirty`) `미적용 변경 있음`을 보인다 — 전역 Context 변경은 조회 바가 이미 보인다(`적용 안 된 변경 N개`). 즉시 반영 메뉴는 `dirty`가 비어 표식이 없다. (3) `queryBarExtension.issues`가 비지 않으면(잘못된 페이지 키) 접힌 줄에 `확인 필요 N`을 보이고 저장값과 무관하게 펼친 채 마운트한다(저장값은 덮어쓰지 않는다) — 본문 메시지가 가리키는 `페이지 조건 기본값`이 머리 안에 있기 때문이다. (4) Data Trust(머리)·조회 바·권한/Scope 게이트는 머리 영역 밖이라 그대로다. 응답 오류는 머리 영역 밖(§19)이다.
+  - PageFilterBar의 `collapsible`(자기 접기)은 머리 안에서 그대로 쓴다(두 단계).
 
 - **첫 소비자:** 사이클타임 드릴다운(`CycleTimeDrilldown`)이 `PanelWorkspace`(`persistKey="drilldown"`, 프리셋 `balanced`·`focus`)를 쓴다(ADR-0067 3b). `balanced`는 행 `[추세 68, 열[요약 38, 묶음[분포·느린 실행(분포가 앞) ] 62] 32]`로 추세가 작업 영역 전체 높이와 가장 넓은 폭을 갖고, `focus`는 추세 70 | 나머지 한 묶음 30이다. 엔진이 그룹 컨테이너에 다는 `region`·`aria-label`은 지워 패널 안 카드와 이름이 겹치지 않게 하고 그룹의 탭 패널은 탭 이름으로 읽힌다. 보드 칸 안에서는 도구줄 없이 프리셋·숨긴 패널 다시 보기·`기본 배치`가 칸 `⋯` 메뉴의 내용 그룹과 배치 그룹 사이에 붙는다.
 
@@ -1076,6 +1087,7 @@ Unknown
 - 페이지에서 `outcome ∈ {error, timeout, empty}`·`message`·확정된 empty 설명(`explainsEmpty && state === confirmed`)의 근거 전체가 같은 위젯이 두 개 이상이면 한 그룹으로 묶는다. 평가 순서는 무관하며 원천·관측시각·설명이 다르면 묶지 않는다. `forbidden`, `too_large`, `ok`, 알 수 없는 상태는 묶지 않는다. 같은 응답에서 수집·상위 시스템 원인을 추론하지 않는다.
 - 각 그룹은 본문 상단에 Callout 배너 하나를 표시한다: 의미 아이콘·§19 상태 제목·“위젯 N개에서 같은 응답(서버 오류)이 확인되었습니다” 형태의 한/영 요약·그룹의 모든 조회를 다시 실행하는 재시도 하나. 배너에는 Correlation ID를 표시하지 않는다. 여러 그룹이 있으면 모두 표시하며 큰 그룹이 먼저다.
 - 그룹 위젯은 이름을 유지하는 중립 간결 상태로 표시한다. 제목·아이콘에만 의미 톤을 적용하고 본문(시간 초과 조언 포함)을 직접 노출한다. 개별 재시도와 Correlation ID는 위젯에 남긴다. 좁은 카드에서는 본문을 독립 행에 놓고 동작·ID는 다음 행에서 줄바꿈한다. Consumer가 같은 제목을 바로 위에 보여주면 중복 visible 제목은 생략하고 등록·접근 이름은 유지한다.
+- **얇은 띠 (fill 페이지, Decided, 사용자 2026-10-23, #680, [ADR-0075](adr/0075-page-head-one-line-fold-thin-outcome-strip.md)):** `layout="fill"` 페이지의 배너는 한 줄 띠다 — 아이콘, 짧은 상태 접두(`서버 오류 ·`), 요약 문장(줄이면 `title`로 전체), `자세히`(Popover만: 클릭·Enter·Space — 상태 제목과 전체 요약을 보이고, Popover의 접근 이름은 그 상태 제목이다), `다시 시도`. 같은 `data-outcome-banner`·`role=group`·이름·live 안내·danger/neutral 톤·그룹당 하나(큰 그룹 먼저)·재시도 busy·중복 활성화 방지·포커스 복귀 규칙이다. 띠가 사라질 때 `자세히`가 열려 있으면 먼저 닫고 포커스가 그 띠 자신의 Popover 안에 있을 때만(다른 그룹의 Popover는 아니다) 아래 복귀 대상으로 간다. 요약 문장을 줄이고 `title`로 전체를 주는 것은 띠에서만 허용하고 전체 배너는 문장을 그대로 둔다. flow 페이지와 `DetailDrawer`는 전체 배너를 쓴다.
 - error/timeout 배너는 danger, empty 배너는 neutral이며 보이는 배너는 non-live `role=group`이다. scope는 처음부터 빈 assertive/polite live region을 유지하고, danger 요약은 assertive 채널, neutral 요약은 polite 채널의 문구를 갱신해 한 번 안내한다. 보이는 배너와 위젯은 별도 live 채널을 만들지 않는다. 그룹 위젯은 live region 없는 이름 있는 group으로 두어 같은 응답을 반복 announce하지 않는다(§26). 한 위젯만 실패하면 배너 없이 기존 전체 StateMessage를 유지한다.
 - 그룹 재시도 중에는 배너 버튼이 busy 상태를 표시하며 중복 활성화를 막고 폭·포커스를 유지한다. 그룹별 갱신 문구는 기존 알림 채널 한 곳에서 안내한다. 각 위젯의 `aria-busy`는 유지하되 반복 `role=status` 갱신 label은 표시하지 않는다. 배너가 사라질 때 포커스가 그 안에 있으면 이름 있는 상세 패널(dialog) 또는 `main` 랜드마크(셸 밖에서는 페이지 본문 요소)로 이동하며 다른 곳으로 이동한 포커스는 빼앗지 않는다. 페이지 본문 주위에 랜드마크를 더하지 않는다.
 - 그룹에 속한 empty 위젯에는 개별 retry와 Correlation ID를 추가한다(확정된 사용자 결정). 한 개뿐인 empty 위젯은 기존 표시·emptyAction을 그대로 유지하며 retry·ID를 추가하지 않는다.
@@ -1298,6 +1310,7 @@ Full experience.
 - Chart와 동일 데이터의 Table 접근 경로 제공
 - icon-only action에는 accessible label
 - 오류 메시지는 원인/행동을 텍스트로 제공
+- fill 페이지 머리 접기의 토글 이름·포커스 이동·안내 규칙은 §12.8이 소유한다(#680)
 - §19 공유 응답은 배너 하나가 announce하며 그룹 위젯에는 중복 alert/status live region을 두지 않는다
 - 선택 상태는 색 + shape/text 병행
 - 입력 기준(Decided, 2026-10-12): 사용자는 Windows에서 키보드와 마우스를 함께 쓴다. 키보드 동작·단축키 표기·스크린리더 주장은 Windows 기준으로 설계·검증하고, macOS 확인은 Windows 스크린리더 동작의 증거가 아니다. 위 키보드 하한(Tab·Enter·Space·Escape로 모든 컨트롤 도달·조작, 끌기 같은 포인터 제스처는 끌지 않는 경로 유지)은 그대로다. 예외: 표 열 너비 조절은 마우스 끌기만 둔다([ADR-0024](adr/0024-table-column-controls-drag-width-pin-in-list.md)). `LegendTree`의 행 이동은 APG 트리 방향키를 쓰고, 나머지 조작은 Tab·Enter·Space로 제공한다([ADR-0057](adr/0057-legend-tree-arrow-key-row-navigation.md)). 단축키는 그 사용자의 잦은 일을 빠르게 할 때만 더하고, 기본 경로로 일을 끝낼 수 있으면 키보드 전용 모드·화면 단축키 안내를 따로 만들지 않는다

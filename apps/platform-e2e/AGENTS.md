@@ -14,6 +14,7 @@
 
 - 블랙박스다. `@ap/*` 패키지를 import하지 않는다(lint 프리셋 `tooling`이 막는다). 화면과 dev 도구로만 조작한다.
 - 역할은 `signInAs`(localStorage `platform:role`, 로드 전에 설정), 응답 시나리오는 dev 도구 팝오버로 바꾼다(`tests/support.ts`).
+- `layout="fill"` 페이지(사이클타임)는 머리가 접힌 채 시작한다(#680). 머리 안 컨트롤(페이지 필터·칩 줄)을 만지는 테스트는 먼저 `tests/support.ts`의 `expandPageHead(page)`로 펼치고, 접힘 기억 키 `platform:page-head-collapsed:<menuId>`가 남지 않게 필요하면 로드 전에 지운다.
 - 선택자는 역할·접근 가능한 이름(한국어 UI)을 쓴다. 문구가 바뀌면 여기도 고친다.
 - 증거 스크린샷은 `evidence(page, testInfo, 이름)`으로 붙인다. 계약이 보이는 순간(전환 직후 등)을 찍는다.
 - 기본은 데스크톱 1440×900(05 Decided)이다. 폭에 따라 달라지는 계약(ADR-0013 상세 슬롯, ADR-0015 Context 바)만 해당 `test`가 `setViewportSize`로 1280·1920 등을 검사한다.

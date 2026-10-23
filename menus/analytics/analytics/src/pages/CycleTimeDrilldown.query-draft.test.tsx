@@ -16,7 +16,10 @@ const restoreGeometry = installWorkspaceGeometry();
 afterAll(restoreGeometry);
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 it('keeps page edits in draft until the single apply, preserving applied requests and URL', async () => {
-  vi.stubGlobal('localStorage', memoryStorage());
+  // The page head starts collapsed on a fill page (#680); the grain buttons live inside it.
+  const storage = memoryStorage();
+  storage.setItem('platform:page-head-collapsed:cycle-time', 'false');
+  vi.stubGlobal('localStorage', storage);
   const session = testSession(['analytics:view', 'platform:view']);
   const send = vi.fn(async (_request: MenuQuery) => ({ outcome: 'empty' as const, data: null, assessments: [], trust: null, correlationId: 'test' }));
   window.history.replaceState(null, '', '/analytics/cycle-time?scopeId=MEM&roomNames=PHOTO&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');

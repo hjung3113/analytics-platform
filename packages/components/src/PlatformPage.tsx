@@ -2,6 +2,7 @@ import { formatInstant } from '@ap/contracts';
 import { formatQuerySummary } from './querySummary';
 import { QueryBarExtensionContext, usePublishQueryBarExtension, type QueryBarExtension } from './QueryBarExtension';
 import { OutcomeBanners, OutcomeScope } from './OutcomeScope';
+import { PageContextHead, PageHeadBody } from './PageContextHead';
 import { ChevronRight, Info, Loader2, MapPinOff, MoreHorizontal, RotateCw, ServerCrash, Star } from 'lucide-react';
 import { cloneElement, createContext, isValidElement, useCallback, useContext, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactElement, type ReactNode } from 'react';
 import { type MenuEntry, PlatformLink, useI18n, usePlatform } from '@ap/kernel';
@@ -94,6 +95,11 @@ export type PlatformPageProps = {
   secondaryActions?: ReactNode;
   /** Page-owned controls rendered directly under the global Context bar (never a second global filter). */
   contextExtension?: ReactNode;
+  /**
+   * Explanatory notes shown above `contextExtension`, one array element per note (`null`/`false` elements are dropped). On a `fill`
+   * page they sit at the top of the collapsible head and the collapsed line shows only their count.
+   */
+  contextNotes?: readonly ReactNode[];
   dataTrustSummary?: ReactNode;
   queryBarExtension?: QueryBarExtension;
   /** Completion of the consumer's authoritative summary query, including terminal error responses. */
@@ -109,8 +115,8 @@ export type PlatformPageProps = {
 };
 
 /** §8 Shell Slots. Pages never insert global UI outside these slots. */
-export function PlatformPage({ title, description, primaryAction, secondaryActions, contextExtension, dataTrustSummary, queryBarExtension, queryResult, crumbs = [], layout = 'flow', children }: PlatformPageProps) {
-  const { global, page, equipmentAxes, route, favorites, toggleFavorite, scope, retryScope, setGlobal, lastScope, linkTo, registry, slots, url, pathname, pageNavigation, currentSpace, screenMode, canOpen } = usePlatform();
+export function PlatformPage({ title, description, primaryAction, secondaryActions, contextExtension, contextNotes, dataTrustSummary, queryBarExtension, queryResult, crumbs = [], layout = 'flow', children }: PlatformPageProps) {
+  const { global, page, equipmentAxes, route, favorites, toggleFavorite, scope, retryScope, setGlobal, lastScope, linkTo, registry, slots, url, pathname, pageNavigation, currentSpace, screenMode, canOpen, queryDraft } = usePlatform();
   // A board pane draws content only: the board owns the pane head and the Context bar, and no arrival focus moves here (ADR-0049).
   const inPane = screenMode === 'pane';
   usePublishQueryBarExtension(queryBarExtension);
@@ -216,6 +222,8 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
             body={t('stateForbiddenBody')} />;
   }
 
+  const notes = (contextNotes ?? []).filter(note => note != null && note !== false);
+  const headVisible = (notes.length > 0 || Boolean(contextExtension)) && !gate;
   const titleResolved = title ?? tx(menu.label);
   const descriptionResolved = description ?? tx(menu.description);
   const hasDescription = typeof descriptionResolved === 'string' ? descriptionResolved.trim().length > 0 : descriptionResolved != null && descriptionResolved !== false;
@@ -286,8 +294,12 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
       <span className="min-w-0 [overflow-wrap:anywhere]">{formatQuerySummary(global, page, { lang, axes: equipmentAxes, context: menu.context, pageSummary: queryBarExtension?.appliedPageSummary })}</span>
       {queryResult.completedAt !== null && (queryResult.status === 'done' || queryResult.status === 'refreshing') && <span>{lang === 'ko' ? '요약 조회 완료' : 'Summary response completed'} {formatInstant(queryResult.completedAt, lang)}</span>}
     </section>}
-    {contextExtension && !gate && <div className="px-8 pt-3">{contextExtension}</div>}
-    <div data-platform-page-content tabIndex={-1} className={layout === 'fill' ? 'flex flex-1 flex-col px-8 pb-9 pt-7' : 'flex-1 px-8 pb-9 pt-7'}>{gate ?? <OutcomeScope><OutcomeBanners />{layout === 'fill' ? <div data-platform-page-fill className="min-h-[520px] flex-1">{children}</div> : children}</OutcomeScope>}</div>
+    {headVisible && (layout === 'fill'
+      ? <PageContextHead key={menu.id} menuId={menu.id} notes={notes} extension={contextExtension}
+          summary={queryBarExtension?.appliedPageSummary ?? queryBarExtension?.pageSummary ?? []}
+          pendingChanges={queryDraft.dirty.some(key => menu.pageKeys.includes(key))} issueCount={queryBarExtension?.issues.length ?? 0} />
+      : <div className="px-8 pt-3"><PageHeadBody notes={notes} extension={contextExtension} /></div>)}
+    <div data-platform-page-content tabIndex={-1} className={layout === 'fill' ? 'flex flex-1 flex-col px-8 pb-9 pt-7' : 'flex-1 px-8 pb-9 pt-7'}>{gate ?? <OutcomeScope><OutcomeBanners compact={layout === 'fill'} />{layout === 'fill' ? <div data-platform-page-fill className="min-h-[520px] flex-1">{children}</div> : children}</OutcomeScope>}</div>
   </div></QueryBarExtensionContext.Provider>;
 }
 

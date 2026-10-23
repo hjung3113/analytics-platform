@@ -82,6 +82,7 @@
 | [0072](0072-open-menu-vocabulary-app-declared-branded-ids.md) | `@ap/contracts`는 견본 메뉴 어휘를 닫힌 목록으로 갖지 않는다 — 그룹·공간·메뉴 권한은 브랜드 문자열, 목록은 앱이 선언하고 Registry가 런타임에 검증한다. contracts에는 Kernel 고유 권한만, `FeedbackOpsEntryId`는 슬롯 데이터로 | Decided(2026-10-23, 사용자) — #670 D1, 구현됨(#671 B9), 0053 G1 개정 |
 | [0073](0073-feedbackops-backend-tests-may-import-conformance-and-http-adapter.md) | FeedbackOps 백엔드 테스트는 `@ap/server-conformance`·`@ap/http-adapter`를 devDependencies로 import할 수 있고(테스트 코드만), 런타임 코드는 `@ap/ui` 밖의 `@ap/*`를 import하지 않는다(금지 검사) | Decided(2026-10-23, 사용자) — #670 D4, 0066 경계의 예외, 구현 전(#671 B7) |
 | [0074](0074-port-failures-three-surfaces-structural-port-error.md) | 포트 실패는 세 갈래(envelope·쓰기는 값, 비 envelope 조회는 throw)를 유지하고, 규칙 원본은 실서버 체크리스트 §2, 판정 코드 원본은 `PORT_ERROR_CODES`, `PortError` 판별은 구조적 `isPortError`(name + code), `ContractError`도 `name`을 갖는다 | Decided(2026-10-23, 코디네이터, 사용자 위임) — #670 D5, 구현 #671 B8 |
+| [0075](0075-page-head-one-line-fold-thin-outcome-strip.md) | fill 페이지 머리 영역(`contextNotes` + `contextExtension`)을 한 줄로 접고(기본 접힘, 메뉴별 기억, 적용 칩·미적용·확인 필요·안내 표식) fill 페이지의 공유 응답 배너를 얇은 띠(`자세히` Popover)로 바꾼다 — A 촘촘하게·B 한 줄 접기+띠·C 옆 패널 중 B | Decided(2026-10-23, 사용자) — #680 |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 
