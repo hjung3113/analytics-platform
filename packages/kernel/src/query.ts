@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { QueryMissing } from './query-draft';
-import { usePlatform } from './platform';
+import { useHostPlatform } from './platform';
 import { clientCorrelationId, projectContext, type ApiResponse, type AssessmentKind, type EndpointSpec, type EntityRef, type MenuQueryContext, serializeGlobal } from '@ap/contracts';
 
 export type QueryState<T> = {
@@ -25,7 +25,7 @@ export function usePlatformQuery<T>(run: (signal: AbortSignal) => Promise<ApiRes
 }
 
 function useQueryLifecycle<T>(run: (signal: AbortSignal) => Promise<ApiResponse<T>>, pageInputs: unknown, enabled: boolean, identity: 'context' | 'session', refreshEpoch: number, idle: readonly QueryMissing[] | null): QueryState<T> {
-  const { global, user, revision } = usePlatform();
+  const { global, user, revision } = useHostPlatform();
   const key = JSON.stringify(identity === 'session'
     ? [revision, user.id, idle !== null, pageInputs]
     : [revision, user.id, idle !== null, serializeGlobal(global), pageInputs]);
@@ -68,7 +68,7 @@ function useQueryLifecycle<T>(run: (signal: AbortSignal) => Promise<ApiResponse<
  * server-side change (revision) or a ref change does. The menu casts the result; the kernel stays type-agnostic.
  */
 export function useEntityQuery<T>(ref: EntityRef, pageInputs: unknown = null, enabled = true): QueryState<T> {
-  const { adapter } = usePlatform();
+  const { adapter } = useHostPlatform();
   return usePlatformQuery<T>(
     signal => adapter.getEntity(ref, signal) as Promise<ApiResponse<T>>,
     [ref, pageInputs],
@@ -115,7 +115,7 @@ function checkMenuResponse<P, T>(spec: EndpointSpec<P, T>, projected: MenuQueryC
 }
 
 /** What the request gates read from the platform; a host port reads it at call time instead of from a hook. */
-export type MenuRequestInputs = Pick<ReturnType<typeof usePlatform>, 'adapter' | 'global' | 'scope' | 'session' | 'queryPolicy'>;
+export type MenuRequestInputs = Pick<ReturnType<typeof useHostPlatform>, 'adapter' | 'global' | 'scope' | 'session' | 'queryPolicy'>;
 
 /**
  * The request gates shared by useMenuQuery, useMenuFetch and the module host port: Scope validated for this session,
@@ -145,7 +145,7 @@ export function menuRequest<P, T>(spec: EndpointSpec<P, T>, { adapter, global, s
  * A write that declares this endpoint in `invalidates` (ADR-0054) refetches it with the prior result kept (`refreshing`).
  */
 export function useMenuQuery<P, T>(spec: EndpointSpec<P, T>, params: NoInfer<P>, enabled = true): QueryState<T> {
-  const platform = usePlatform();
+  const platform = useHostPlatform();
   const { projected, ready, send } = menuRequest(spec, platform);
   const { refreshEpochs } = platform;
   const epoch = useSyncExternalStore(refreshEpochs.subscribe, () => refreshEpochs.get(spec.id));
@@ -166,7 +166,7 @@ export type MenuFetch<P, T> = {
  * never sends an unvalidated Scope.
  */
 export function useMenuFetch<P, T>(spec: EndpointSpec<P, T>): MenuFetch<P, T> {
-  const { ready, send, notReady } = menuRequest(spec, usePlatform());
+  const { ready, send, notReady } = menuRequest(spec, useHostPlatform());
   const fetch = (params: P, signal?: AbortSignal): Promise<ApiResponse<T>> => ready
     ? send(params, signal)
     : Promise.resolve(notReady());
@@ -180,7 +180,7 @@ export type RequestState<T> = { status: 'loading' | 'done' | 'error'; data: T | 
  * (adapter revision, user, key); when that changes the previous data is hidden at once and late replies are dropped.
  */
 export function useAdapterRequest<T>(run: (signal: AbortSignal) => Promise<T>, key: unknown, enabled = true): RequestState<T> {
-  const { user, revision } = usePlatform();
+  const { user, revision } = useHostPlatform();
   const identity = JSON.stringify([revision, user.id, key]);
   const [result, setResult] = useState<{ identity: string; state: Omit<RequestState<T>, 'retry'> } | null>(null);
   const [tick, setTick] = useState(0);

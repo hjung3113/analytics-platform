@@ -2,7 +2,8 @@ import { Suspense, lazy, useLayoutEffect, useRef, useState, type ReactNode } fro
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { I18nProvider, PlatformProvider, createRegistry, PlatformLink, usePlatform } from '@ap/kernel';
+import { I18nProvider, PlatformProvider, createRegistry, PlatformLink } from '@ap/kernel';
+import { useHostPlatform } from '@ap/kernel/host';
 import { PlatformPage } from '@ap/components';
 import { CommandPalette } from './CommandPalette';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
@@ -49,7 +50,7 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 function Open() {
-  const { setPaletteOpen } = usePlatform();
+  const { setPaletteOpen } = useHostPlatform();
   return <button type="button" onClick={() => setPaletteOpen(true)}>open palette</button>;
 }
 
@@ -234,7 +235,7 @@ it.each(['Escape', 'X', 'shortcut', 'outside'])('returns to the pre-shortcut ele
 });
 
 function Destination() {
-  const { route } = usePlatform();
+  const { route } = useHostPlatform();
   const heading = useRef<HTMLHeadingElement>(null);
   useLayoutEffect(() => {
     if (route?.menu.path !== '/home') return;
@@ -343,7 +344,7 @@ function mountNavigation({ delayed = false, denied = false, url = '/home?v=1', c
     publishedMetrics: () => [{ metricId: 'CT', publishedVersion: '7' }],
   });
   function Routes() {
-    const { route, can, setPage, navigate, switchSpace, setPaletteOpen } = usePlatform();
+    const { route, can, setPage, navigate, switchSpace, setPaletteOpen } = useHostPlatform();
     const [showPalette, setShowPalette] = useState(true);
     const Page = delayed && route?.menu.path === equipmentPath ? DelayedPage : NavigationPage;
     return <>

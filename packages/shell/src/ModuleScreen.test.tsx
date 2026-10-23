@@ -2,7 +2,8 @@ import { StrictMode } from 'react';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { I18nProvider, PlatformProvider, createRegistry, mountModule, usePlatform } from '@ap/kernel';
+import { I18nProvider, PlatformProvider, createRegistry, mountModule } from '@ap/kernel';
+import { useHostPlatform } from '@ap/kernel/host';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { AppSidebar } from './AppSidebar';
@@ -56,8 +57,8 @@ function mount(url = '/fixture', options: { item?: (props: ModuleScreenProps) =>
     })),
     menuAction: vi.fn((request: MenuAction, ...args: unknown[]) => new Promise<ActionResponse<unknown>>(resolve => { actions.push({ request, args, resolve }); })),
   });
-  const seen: { platform: ReturnType<typeof usePlatform> } = { platform: undefined as never };
-  function Probe() { seen.platform = usePlatform(); return null; }
+  const seen: { platform: ReturnType<typeof useHostPlatform> } = { platform: undefined as never };
+  function Probe() { seen.platform = useHostPlatform(); return null; }
   const app = <I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider>
     <main id="platform-main" tabIndex={-1}><Probe /><RouteOutlet />{options.extra}</main><SlotHost />
   </DetailPanelSlotProvider></PlatformProvider></I18nProvider>;
@@ -283,7 +284,7 @@ describe('ModuleScreen arrival focus (06 §26, ADR-0032)', () => {
 
 describe('implemented badge', () => {
   it('shows no planned badge for a module entry in the sidebar and the palette', () => {
-    function Open() { const { setPaletteOpen } = usePlatform(); return <button type="button" onClick={() => setPaletteOpen(true)}>open palette</button>; }
+    function Open() { const { setPaletteOpen } = useHostPlatform(); return <button type="button" onClick={() => setPaletteOpen(true)}>open palette</button>; }
     mount('/fixture?v=1', { extra: <><AppSidebar collapsed={false} onToggle={() => {}} /><Open /><CommandPalette /></> });
     const nav = screen.getByRole('navigation', { name: '주 메뉴' });
     expect(within(nav).getByRole('link', { name: /list/ })).toBeTruthy();

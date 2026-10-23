@@ -1,6 +1,7 @@
 import { useId } from 'react';
 import { ChevronDown, Loader2, MapPin, RotateCw, ShieldAlert } from 'lucide-react';
-import { useI18n, usePlatform } from '@ap/kernel';
+import { useI18n } from '@ap/kernel';
+import { useHostPlatform } from '@ap/kernel/host';
 import { cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 
 /**
@@ -9,7 +10,7 @@ import { cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLa
  */
 export function ScopeSelector({ collapsed = false, layout = 'sidebar' }: { collapsed?: boolean; layout?: 'sidebar' | 'bar' }) {
   const bar = layout === 'bar';
-  const { global, setGlobal, scope, retryScope, session } = usePlatform();
+  const { global, setGlobal, scope, retryScope, session } = useHostPlatform();
   const { t, lang } = useI18n();
   const current = session.scopes.find(s => s.id === global.scopeId);
   const name = current?.label ?? global.scopeId ?? t('scopeNone');

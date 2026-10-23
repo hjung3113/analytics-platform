@@ -2,7 +2,7 @@ import { act, cleanup, render } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from './i18n';
-import { PaneScreenProvider, PlatformProvider, usePlatform } from './platform';
+import { PaneScreenProvider, PlatformProvider, useHostPlatform } from './platform';
 import { createRegistry } from './registry';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from './testing';
 import { groupId, spaceId, type UsageEvent } from '@ap/contracts';
@@ -24,11 +24,11 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
-type Platform = ReturnType<typeof usePlatform>;
+type Platform = ReturnType<typeof useHostPlatform>;
 let seen: Platform | null = null;
 let paneSeen: Platform | null = null;
-function Probe() { seen = usePlatform(); return null; }
-function PaneProbe() { paneSeen = usePlatform(); return null; }
+function Probe() { seen = useHostPlatform(); return null; }
+function PaneProbe() { paneSeen = useHostPlatform(); return null; }
 
 function mountAt(url: string) {
   window.history.replaceState(null, '', url);

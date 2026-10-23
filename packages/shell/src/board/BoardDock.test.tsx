@@ -3,7 +3,8 @@ import userEvent from '@testing-library/user-event';
 import { House } from 'lucide-react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { defineEndpoint, type PlatformAdapter, type Session, groupId, spaceId } from '@ap/contracts';
-import { I18nProvider, PlatformProvider, createRegistry, useMenuQuery, usePlatform } from '@ap/kernel';
+import { I18nProvider, PlatformProvider, createRegistry, useMenuQuery } from '@ap/kernel';
+import { useHostPlatform } from '@ap/kernel/host';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { PlatformPage } from '@ap/components';
 import { RouteOutlet } from '../RouteOutlet';
@@ -51,7 +52,7 @@ function Rows() {
   return <PlatformPage><p data-testid="rows">{query.response?.data?.text ?? query.status}</p></PlatformPage>;
 }
 function Plain() {
-  const { paneId } = usePlatform();
+  const { paneId } = useHostPlatform();
   return <PlatformPage><p data-testid="pane">{paneId ?? 'main'}</p></PlatformPage>;
 }
 const entry = (id: string, path: string, over: Record<string, unknown> = {}) => ({

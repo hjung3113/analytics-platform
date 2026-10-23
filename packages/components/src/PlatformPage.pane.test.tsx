@@ -2,7 +2,8 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { useState, type ReactNode } from 'react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { I18nProvider, PaneScreenProvider, PlatformProvider, createRegistry, usePlatform, type PaneScreen } from '@ap/kernel';
+import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
+import { PaneScreenProvider, useHostPlatform, type PaneScreen } from '@ap/kernel/host';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { DetailDrawer } from './DetailDrawer';
@@ -33,8 +34,8 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
-const seen: { main: ReturnType<typeof usePlatform>; pane: ReturnType<typeof usePlatform> } = { main: undefined as never, pane: undefined as never };
-function Probe({ at }: { at: 'main' | 'pane' }) { seen[at] = usePlatform(); return null; }
+const seen: { main: ReturnType<typeof useHostPlatform>; pane: ReturnType<typeof useHostPlatform> } = { main: undefined as never, pane: undefined as never };
+function Probe({ at }: { at: 'main' | 'pane' }) { seen[at] = useHostPlatform(); return null; }
 let mounts = 0;
 function Protected() { mounts += 1; return <p>protected body</p>; }
 

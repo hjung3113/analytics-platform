@@ -1,6 +1,7 @@
 import { AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
 import { useRef, type ReactNode } from 'react';
-import { RETURN_CONTEXT_LABELS, PlatformLink, invalidValueSentence, useDrill, useI18n, usePlatform } from '@ap/kernel';
+import { RETURN_CONTEXT_LABELS, PlatformLink, invalidValueSentence, useDrill, useI18n } from '@ap/kernel';
+import { useHostPlatform } from '@ap/kernel/host';
 import {
   Button, cn,
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger,
@@ -138,7 +139,7 @@ export function DrillLayout({ siblings, notFound, children }: DrillLayoutProps) 
 
 /** Return control (06 §22). The accessible name is the visible label, trail values included. */
 export function ReturnLink() {
-  const { returnOrigin, pageNavigation, toast } = usePlatform();
+  const { returnOrigin, pageNavigation, toast } = useHostPlatform();
   const { tx, t } = useI18n();
   const origin = returnOrigin();
   const trail = origin.trail.map(step => step.value).join(' › ');

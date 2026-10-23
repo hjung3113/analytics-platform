@@ -5,7 +5,7 @@ import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { defineEndpoint, type ApiResponse, type EndpointSpec, type MenuQuery, type PlatformAdapter, type Session, type UsageEvent, groupId, spaceId } from '@ap/contracts';
 import { I18nProvider } from './i18n';
-import { PaneQueryDraftProvider, PaneScreenProvider, PlatformProvider, usePlatform, type PaneScreen } from './platform';
+import { PaneQueryDraftProvider, PaneScreenProvider, PlatformProvider, useHostPlatform, type PaneScreen } from './platform';
 import { useMenuFetch, useMenuQuery } from './query';
 import { createRegistry } from './registry';
 import { noContext, testAdapter, testSession, testSpace } from './testing';
@@ -50,10 +50,10 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
-type Platform = ReturnType<typeof usePlatform>;
+type Platform = ReturnType<typeof useHostPlatform>;
 const seen = new Map<string, Platform>();
 function Probe({ id }: { id: string }) {
-  seen.set(id, usePlatform());
+  seen.set(id, useHostPlatform());
   return null;
 }
 const at = (id: string) => seen.get(id)!;
@@ -361,7 +361,7 @@ describe('PaneScreenProvider — Scope and spaces', () => {
 describe('PaneScreenProvider — render isolation and commit routing', () => {
   it('a main-only Scope retry does not re-render a pane consumer', async () => {
     let renders = 0;
-    function Counter() { usePlatform(); renders += 1; return null; }
+    function Counter() { useHostPlatform(); renders += 1; return null; }
     const children = <Counter />;
     mount(<><Probe id="main" /><Pane id="a" initial={screenA()} spies={spies()}>{children}</Pane></>, fixture().adapter);
     await flush();
@@ -375,7 +375,7 @@ describe('PaneScreenProvider — render isolation and commit routing', () => {
     const p = spies();
     let set!: (next: PaneScreen) => void;
     function Writer() {
-      const { route, setPage, pageParam } = usePlatform();
+      const { route, setPage, pageParam } = useHostPlatform();
       const menu = route?.menu.id;
       useLayoutEffect(() => { if (menu === 'item' && pageParam('tab') === null) setPage({ tab: 'info' }, { replace: true }); }, [menu, pageParam, setPage]);
       return null;

@@ -1,4 +1,5 @@
-import { hasDotSegment, pathFor, routeParamNames, type MenuEntry, type PaneScreen, type Registry } from '@ap/kernel';
+import { pathFor, routeParamNames, type MenuEntry, type Registry } from '@ap/kernel';
+import { hasDotSegment, type PaneScreen } from '@ap/kernel/host';
 
 /** Menus a pane may hold from an empty pane: board-declared, listed in navigation, and with no route parameter to ask for. */
 export function isBoardPlaceable(menu: MenuEntry): boolean {

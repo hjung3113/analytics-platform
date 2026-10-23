@@ -2,7 +2,8 @@ import { StrictMode, useEffect, useState, type ReactNode } from 'react';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { House, ListTodo } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { I18nProvider, PaneScreenProvider, PlatformProvider, createRegistry, mountModule, usePlatform, type FeedbackOpsSlot, type PaneScreen } from '@ap/kernel';
+import { I18nProvider, PlatformProvider, createRegistry, mountModule, type FeedbackOpsSlot } from '@ap/kernel';
+import { PaneScreenProvider, useHostPlatform, type PaneScreen } from '@ap/kernel/host';
 import { DetailPanelSlotProvider } from '@ap/ui';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { AppSidebar } from './AppSidebar';
@@ -44,7 +45,7 @@ const registry = createRegistry({
   ],
 });
 
-const state: { hosts: ModuleHost[]; platforms: Map<string, ReturnType<typeof usePlatform>>; pageSeen: string[]; subscribed: number; changes: number } = { hosts: [], platforms: new Map(), pageSeen: [], subscribed: 0, changes: 0 };
+const state: { hosts: ModuleHost[]; platforms: Map<string, ReturnType<typeof useHostPlatform>>; pageSeen: string[]; subscribed: number; changes: number } = { hosts: [], platforms: new Map(), pageSeen: [], subscribed: 0, changes: 0 };
 function ProbeList(props: ModuleScreenProps) {
   state.hosts.push(props.host);
   state.pageSeen.push(props.host.page('page') ?? '-');
@@ -62,7 +63,7 @@ function useStateEffect(host: ModuleHost, onChange: () => void) {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- the test counts one subscription per host; the callback is read at call time
   useEffect(() => { state.subscribed += 1; return host.subscribe(onChange); }, [host]);
 }
-function Probe({ id }: { id: string }) { state.platforms.set(id, usePlatform()); return null; }
+function Probe({ id }: { id: string }) { state.platforms.set(id, useHostPlatform()); return null; }
 const at = (id: string) => state.platforms.get(id)!;
 
 type Pending = { request: MenuQuery; signal: AbortSignal | undefined; resolve: (rows: { id: string }[]) => void };

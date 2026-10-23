@@ -2,7 +2,7 @@ import { act, cleanup, render, screen } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from './i18n';
-import { PlatformProvider, usePlatform } from './platform';
+import { PlatformProvider, useHostPlatform } from './platform';
 import { createRegistry, type PlatformMenuEntry } from './registry';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from './testing';
 import { groupId, spaceId, menuPermission, type Session, type SpaceDef } from '@ap/contracts';
@@ -41,7 +41,7 @@ function fixture(permissions: Session['user']['permissions']) {
 }
 
 function Probe() {
-  const { pathname, spaceResume, switchSpace, navigate } = usePlatform();
+  const { pathname, spaceResume, switchSpace, navigate } = useHostPlatform();
   const show = (id: 'analytics' | 'operations') => {
     const resume = spaceResume(spaceId(id));
     return resume ? `${resume.menuId}|${resume.href}` : 'null';
@@ -192,9 +192,9 @@ const entryRegistry = createRegistry({
     registry.menuById('notices'),
   ],
 });
-let entryPlatform!: ReturnType<typeof usePlatform>;
+let entryPlatform!: ReturnType<typeof useHostPlatform>;
 function EntryProbe() {
-  entryPlatform = usePlatform();
+  entryPlatform = useHostPlatform();
   return null;
 }
 function mountEntry(permissions: Session['user']['permissions']) {

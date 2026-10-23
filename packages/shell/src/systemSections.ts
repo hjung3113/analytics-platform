@@ -1,4 +1,5 @@
-import { type GroupDef, type MenuEntry, usePlatform, routeParamNames } from '@ap/kernel';
+import { type GroupDef, type MenuEntry, routeParamNames } from '@ap/kernel';
+import { useHostPlatform } from '@ap/kernel/host';
 
 export type SystemSection = { group: GroupDef; items: MenuEntry[] };
 
@@ -8,7 +9,7 @@ export type SystemSection = { group: GroupDef; items: MenuEntry[] };
  * space-entry denials keep their fallback sidebar but have no current system, so no section is active (B5).
  */
 export function useSystemSections(): { sections: SystemSection[]; currentGroupId: string | null } | null {
-  const { currentSpace, sidebarSpace, route, visibleMenus, registry } = usePlatform();
+  const { currentSpace, sidebarSpace, route, visibleMenus, registry } = useHostPlatform();
   if (currentSpace === null || sidebarSpace?.id !== currentSpace.id || route === null) return null;
   const sections = registry.groups.filter(group => group.space === currentSpace.id)
     .map(group => ({ group, items: visibleMenus.filter(menu => !menu.navHidden && menu.group === group.id) }))

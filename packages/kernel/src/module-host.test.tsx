@@ -6,7 +6,7 @@ import { defineAction, defineEndpoint, type ActionResponse, type ActionResult, t
 import { I18nProvider } from './i18n';
 import { mountModule } from './module';
 import { useModuleHost, type ModuleShellPorts } from './module-host';
-import { PlatformProvider, usePlatform } from './platform';
+import { PlatformProvider, useHostPlatform } from './platform';
 import { createRegistry } from './registry';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from './testing';
 
@@ -74,17 +74,17 @@ function setup(url = '/fx?v=1&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00', 
     })),
   });
   const ports = { status: vi.fn(), focusTarget: vi.fn(), detail: { show: vi.fn(), clear: vi.fn() } } satisfies ModuleShellPorts;
-  const seen: { host: ModuleHost; hosts: ModuleHost[]; platform: ReturnType<typeof usePlatform> } = { host: undefined as never, hosts: [], platform: undefined as never };
+  const seen: { host: ModuleHost; hosts: ModuleHost[]; platform: ReturnType<typeof useHostPlatform> } = { host: undefined as never, hosts: [], platform: undefined as never };
   function Probe({ id }: { id: string }) {
     const host = useModuleHost(registry.menuById(id) as never, {}, ports);
-    seen.platform = usePlatform();
+    seen.platform = useHostPlatform();
     seen.host = host;
     if (seen.hosts.at(-1) !== host) seen.hosts.push(host);
     return null;
   }
   // `keyed` mirrors the shell: screen and revision are part of the instance identity.
   function Outlet({ id, show, keyed }: { id: string; show: boolean; keyed: boolean }) {
-    const { revision } = usePlatform();
+    const { revision } = useHostPlatform();
     return show ? <Probe key={keyed ? `${id}|${revision}` : id} id={id} /> : null;
   }
   const tree = (props: { id?: string; show?: boolean; keyed?: boolean }) => (
@@ -368,7 +368,7 @@ describe('useModuleHost: lifetime ordering', () => {
       return null;
     }
     function Owner({ id }: { id: string }) {
-      const platform = usePlatform();
+      const platform = useHostPlatform();
       setGlobal = platform.setGlobal;
       return <Consumer host={useModuleHost(platform.registry.menuById(id) as never, {}, ports)} />;
     }
@@ -395,7 +395,7 @@ describe('useModuleHost: lifetime ordering', () => {
       return null;
     }
     function Owner({ id }: { id: string }) {
-      const platform = usePlatform();
+      const platform = useHostPlatform();
       setGlobal = platform.setGlobal;
       return <Consumer host={useModuleHost(platform.registry.menuById(id) as never, {}, ports)} />;
     }
@@ -413,7 +413,7 @@ describe('useModuleHost: lifetime ordering', () => {
     let retained: ModuleHost | undefined;
     const late: Promise<unknown>[] = [];
     function Owner() {
-      const platform = usePlatform();
+      const platform = useHostPlatform();
       retained = useModuleHost(platform.registry.menuById('fx:list') as never, {}, ports);
       return null;
     }
@@ -449,7 +449,7 @@ describe('useModuleHost: write', () => {
     });
     const seen: { host: ModuleHost } = { host: undefined as never };
     function Owner() {
-      const platform = usePlatform();
+      const platform = useHostPlatform();
       const host = useModuleHost(platform.registry.menuById('fx:list') as never, {}, ports);
       seen.host = host;
       return <>{options.consumer?.(host)}</>;
@@ -623,8 +623,8 @@ it('history initialization leaves module snapshots, links and query gate applied
   const send = vi.fn(async () => ({ outcome: 'empty' as const, data: null, assessments: [], trust: null, correlationId: 'test' }));
   const store = { list: async () => [{ id: 'old', query: '?v=1&from=2026-09-01T00:00:00&to=2026-09-02T00:00:00&q=historical', schemaVersion: 1 as const, count: 1, lastAppliedAt: 1 }], record: async () => {}, remove: async () => {}, clear: async () => {} };
   const ports = { status: vi.fn(), focusTarget: vi.fn(), detail: { show: vi.fn(), clear: vi.fn() } } satisfies ModuleShellPorts;
-  let host!: ModuleHost; let platform!: ReturnType<typeof usePlatform>;
-  function HistoryProbe() { platform = usePlatform(); host = useModuleHost(registry.menuById('fx:list') as never, {}, ports); return null; }
+  let host!: ModuleHost; let platform!: ReturnType<typeof useHostPlatform>;
+  function HistoryProbe() { platform = useHostPlatform(); host = useModuleHost(registry.menuById('fx:list') as never, {}, ports); return null; }
   window.history.replaceState(null, '', '/fx');
   render(<I18nProvider><PlatformProvider registry={registry} adapter={testAdapter({ session: () => session, menuQuery: send })} queryHistory={store}><HistoryProbe /></PlatformProvider></I18nProvider>);
   await act(async () => {});

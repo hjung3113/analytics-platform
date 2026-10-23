@@ -2,7 +2,8 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { StrictMode, useState } from 'react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { I18nProvider, PaneScreenProvider, PlatformProvider, createRegistry, type PaneScreen } from '@ap/kernel';
+import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
+import { PaneScreenProvider, type PaneScreen } from '@ap/kernel/host';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { DetailDrawer } from './DetailDrawer';

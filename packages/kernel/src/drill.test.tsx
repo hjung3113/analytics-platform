@@ -3,7 +3,7 @@ import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useDrill, type DrillState } from './drill';
 import { I18nProvider } from './i18n';
-import { PlatformProvider, usePlatform, type ReturnOrigin } from './platform';
+import { PlatformProvider, useHostPlatform, type ReturnOrigin } from './platform';
 import { createRegistry, type MenuEntry, type PlatformMenuEntry } from './registry';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from './testing';
 import { groupId, spaceId } from '@ap/contracts';
@@ -48,7 +48,7 @@ let target = '';
 
 function Probe() {
   drill = useDrill();
-  const platform = usePlatform();
+  const platform = useHostPlatform();
   origin = platform.returnOrigin();
   target = platform.returnTarget();
   return <button type="button" onClick={() => platform.setGlobal({ scopeId: 'FDRY' })}>scope</button>;

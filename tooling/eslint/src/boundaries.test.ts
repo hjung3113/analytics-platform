@@ -230,6 +230,20 @@ const rows: Row[] = [
   { file: 'packages/components/src/dock/DockEngine.tsx', code: `import 'dockview-react/dist/styles/dockview.css';`, rule: '' },
   { file: 'packages/components/src/dock/DockEngine.tsx', code: `const m = await import('dockview-react');`, rule: '' },
   { file: 'packages/components/src/dock/DockLayout.test.tsx', code: `import { x } from 'dockview-core';`, rule: '' },
+  // --- ADR-0076: `@ap/kernel/host` is the shell, components and app surface; menus use usePlatform() from `@ap/kernel` ---
+  { file: 'packages/shell/src/x.ts', code: `import { useHostPlatform } from '@ap/kernel/host';`, rule: '' },
+  { file: 'packages/shell/src/x.ts', code: `const m = await import('@ap/kernel/host');`, rule: '' },
+  { file: 'packages/shell/src/x.test.tsx', code: `import { useHostPlatform } from '@ap/kernel/host';`, rule: '' },
+  { file: 'packages/components/src/x.ts', code: `import { useHostPlatform } from '@ap/kernel/host';`, rule: '' },
+  { file: 'packages/components/src/x.test.tsx', code: `import { useHostPlatform } from '@ap/kernel/host';`, rule: '' },
+  { file: 'apps/platform-web/src/menus.ts', code: `import { useHostPlatform } from '@ap/kernel/host';`, rule: '' },
+  { file: 'apps/platform-web/src/main.tsx', code: `import { useHostPlatform } from '@ap/kernel/host';`, rule: '' },
+  { file: MENU, code: `import { useHostPlatform } from '@ap/kernel/host';`, rule: 'no-restricted-imports', token: 'ADR-0076' },
+  { file: MENU, code: `const m = await import('@ap/kernel/host');`, rule: 'ap/restricted-import-source', token: 'ADR-0076' },
+  { file: 'menus/_global/home/src/pages/x.test.tsx', code: `import { useHostPlatform } from '@ap/kernel/host';`, rule: 'no-restricted-imports', token: 'ADR-0076' },
+  { file: 'menus/_global/home/src/mock/handlers.ts', code: `import { useHostPlatform } from '@ap/kernel/host';`, rule: 'no-restricted-imports', token: 'ADR-0076' },
+  { file: 'modules/fixture/src/x.ts', code: `import { useHostPlatform } from '@ap/kernel/host';`, rule: 'no-restricted-imports', token: 'ADR-0076' },
+  { file: 'modules/fixture/src/x.ts', code: `const m = await import('@ap/kernel/host');`, rule: 'ap/restricted-import-source', token: 'ADR-0076' },
 
   // --- app mock-server carve-out / D2 (29-36) ---
   { file: 'apps/platform-web/src/menus.ts', code: `import { x } from '@ap/mock-server';`, rule: 'no-restricted-imports' },

@@ -1,13 +1,14 @@
 import { CornerDownLeft, Search } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { type MenuEntry, useI18n, usePlatform } from '@ap/kernel';
+import { type MenuEntry, useI18n } from '@ap/kernel';
+import { useHostPlatform } from '@ap/kernel/host';
 import type { Text } from '@ap/contracts';
 import { usePlatformMenu } from './platformMenu';
 import { cn, Dialog, DialogContent, DialogTitle } from '@ap/ui';
 
 /** §10: menu navigation is the palette's base responsibility; entity search/action commands are Deferred. */
 export function CommandPalette() {
-  const { paletteOpen, setPaletteOpen, paletteSession, menusInSpace, accessibleSpaces, recent, navigate, linkTo, registry, pathname } = usePlatform();
+  const { paletteOpen, setPaletteOpen, paletteSession, menusInSpace, accessibleSpaces, recent, navigate, linkTo, registry, pathname } = useHostPlatform();
   const { t, tx, text, lang } = useI18n();
   const [q, setQ] = useState('');
   const [active, setActive] = useState(0);

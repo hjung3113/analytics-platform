@@ -2,7 +2,7 @@ import { act, cleanup, render, screen } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from './i18n';
-import { PlatformProvider, usePlatform } from './platform';
+import { PlatformProvider, useHostPlatform } from './platform';
 import { createRegistry, type MenuEntry, type PlatformMenuEntry } from './registry';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from './testing';
 import { groupId, spaceId, type ClientErrorReport, type Session, type SpaceDef, type UsageEvent } from '@ap/contracts';
@@ -54,7 +54,7 @@ function fixture(permissions: Session['user']['permissions']) {
 }
 
 function Probe() {
-  const { currentSpace, sidebarSpace, accessibleSpaces, visibleMenus, globalMenus, recent, resolveLink, reportError } = usePlatform();
+  const { currentSpace, sidebarSpace, accessibleSpaces, visibleMenus, globalMenus, recent, resolveLink, reportError } = useHostPlatform();
   return <div>
     <p data-testid="current">{currentSpace?.id ?? 'null'}</p>
     <p data-testid="sidebar">{sidebarSpace?.id ?? 'null'}</p>

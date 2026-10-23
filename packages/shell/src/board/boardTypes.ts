@@ -1,5 +1,5 @@
 import { isRecord } from '@ap/contracts';
-import type { PaneScreen } from '@ap/kernel';
+import type { PaneScreen } from '@ap/kernel/host';
 
 /** `rows x columns`; panes are numbered row by row, so `1x2` is two side by side and `2x1` two stacked. */
 export type BoardLayout = '1x1' | '1x2' | '2x1' | '2x2';

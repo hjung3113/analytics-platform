@@ -2,7 +2,7 @@ import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from './i18n';
-import { PlatformProvider, usePlatform } from './platform';
+import { PlatformProvider, useHostPlatform } from './platform';
 import { useAdapterRequest, useEntityQuery, usePlatformQuery } from './query';
 import { createRegistry } from './registry';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from './testing';
@@ -35,7 +35,7 @@ function fixture(getEntity?: PlatformAdapter['getEntity']) {
 
 let calls = 0;
 function Probe() {
-  const { user } = usePlatform();
+  const { user } = useHostPlatform();
   const query = usePlatformQuery<string>(async () => {
     calls++;
     const response: ApiResponse<string> = { outcome: 'ok', data: `${user.id}#${calls}`, assessments: [], trust: null, correlationId: 'c' };
@@ -79,7 +79,7 @@ describe('per-user kernel state', () => {
     localStorage.setItem('platform:favorites:user-a', JSON.stringify(['m-a']));
     localStorage.setItem('platform:favorites:user-b', JSON.stringify(['m-b']));
     const f = fixture();
-    function Favs() { return <p data-testid="favs">{usePlatform().favorites.join(',')}</p>; }
+    function Favs() { return <p data-testid="favs">{useHostPlatform().favorites.join(',')}</p>; }
     render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={f.adapter} registry={registry}><Favs /></PlatformProvider></I18nProvider>);
     expect(screen.getByTestId('favs').textContent).toBe('m-a');
     act(() => f.switchTo('b'));
@@ -95,9 +95,9 @@ describe('per-user kernel state', () => {
       { menuId: 'm-b', url: '/b', at: 1 }, { menuId: 5, url: '/x', at: 2 }, { menuId: 'm-c', url: 'https://evil.example/', at: 3 }, 'junk',
     ]));
     const f = fixture();
-    let platform: ReturnType<typeof usePlatform> | null = null;
+    let platform: ReturnType<typeof useHostPlatform> | null = null;
     // The probe only captures state, so a throw can come from the kernel alone.
-    function State() { platform = usePlatform(); return null; }
+    function State() { platform = useHostPlatform(); return null; }
     const state = () => ({ favorites: platform!.favorites, recent: platform!.recent.map(r => `${r.menuId}@${r.url}`), lastScope: platform!.lastScope });
     render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={f.adapter} registry={registry}><State /></PlatformProvider></I18nProvider>);
     // The home route records a visit on mount: it must start from an empty list, not the stored number.
@@ -182,7 +182,7 @@ describe('useAdapterRequest error', () => {
 describe('useEntityQuery (session identity)', () => {
   /** Row probe: a global period change (button) must not refetch; ref/revision changes must. */
   function RowProbe(props: { id: string }) {
-    const { setGlobal } = usePlatform();
+    const { setGlobal } = useHostPlatform();
     const query = useEntityQuery<string>({ type: 'device', id: props.id, scopeId: null }, 'header');
     return (
       <button type="button" data-testid="ent" onClick={() => setGlobal({ from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00' })}>
@@ -250,7 +250,7 @@ describe('setGlobal drops contextResetKeys in the same navigation (06 §6.4)', (
   });
 
   function UrlProbe() {
-    const { global, pageParam, setGlobal, navigate } = usePlatform();
+    const { global, pageParam, setGlobal, navigate } = useHostPlatform();
     return <div>
       <button type="button" data-testid="switch" onClick={() => setGlobal({ scopeId: 'FDRY' })}>switch</button>
       <button type="button" data-testid="noop" onClick={() => setGlobal({ scopeId: 'MEM' })}>noop</button>
@@ -384,7 +384,7 @@ describe('useAdapterRequest with an adapter-internal AbortError (#183: only the 
 });
 
 describe('injected equipment axes (#552)', () => {
-  function ErrorProbe() { const p = usePlatform(); return <p data-testid="axis-error">{p.contractError?.code ?? 'ok'}</p>; }
+  function ErrorProbe() { const p = useHostPlatform(); return <p data-testid="axis-error">{p.contractError?.code ?? 'ok'}</p>; }
   it.each([
     [[], { alpha: ['A'] }, '', 'invalid_condition'],
     [[{ id: 'alpha', label: { ko: '분류', en: 'Axis' }, membershipHistory: false }], { alpha: ['A'] }, '&membershipBasis=asOf', 'membership_basis_unsupported'],
@@ -405,7 +405,7 @@ const equipmentAxes = [
 
 describe('site-bound map fields (#552)', () => {
   function Probe() {
-    const p = usePlatform();
+    const p = useHostPlatform();
     return <><p data-testid="site-global">{JSON.stringify(p.global)}</p><p data-testid="site-error">{p.contractError?.code ?? 'ok'}</p><button onClick={() => p.setGlobal({ scopeId: 'FDRY' })}>change-site</button></>;
   }
   it('default descriptors reject every supplied Condition', () => {
@@ -429,7 +429,7 @@ describe('site-bound map fields (#552)', () => {
     localStorage.setItem('platform:lang', lang);
     window.history.replaceState(null, '', '/?scopeId=MEM&lineNames=L&prcGroups=P');
     function ToastProbe() {
-      const p = usePlatform();
+      const p = useHostPlatform();
       return <><button onClick={() => p.setGlobal({ scopeId: 'FDRY' })}>change-site</button><p data-testid="reset-toast">{p.toasts.map(t => t.text).join('')}</p></>;
     }
     render(<I18nProvider><PlatformProvider adapter={fixture().adapter} registry={registry}><ToastProbe /></PlatformProvider></I18nProvider>);

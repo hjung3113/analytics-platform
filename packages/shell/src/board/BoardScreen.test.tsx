@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
+import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
+import { useHostPlatform } from '@ap/kernel/host';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { BOARD_LAYOUT_ENGINE_KEY } from './layoutEngine';
 import { DetailDrawer, PlatformPage } from '@ap/components';
@@ -23,7 +24,7 @@ const entry = (id: string, path: string, over: Record<string, unknown> = {}) => 
   requiresScope: false, context: apply, pageType: 'analysis' as const, features, pageKeys: ['tab'], ...over,
 });
 function Body() {
-  const { global, pageParam, paneId } = usePlatform();
+  const { global, pageParam, paneId } = useHostPlatform();
   return <PlatformPage><p data-testid="from">{global.from ?? 'none'}</p><p data-testid="tab">{pageParam('tab') ?? 'no-tab'}</p><p data-testid="pane">{paneId ?? 'main'}</p></PlatformPage>;
 }
 function makeRegistry(over: { board?: boolean } = {}) {
@@ -694,7 +695,7 @@ describe('shell entry (docs/16 §4, §8)', () => {
     window.history.replaceState(null, '', '/beta?from=2026-09-01T00:00:00&to=2026-09-02T00:00:00');
     const s = testSession(['platform:view']);
     let seenRecent: string[] = [];
-    function Spy() { seenRecent = usePlatform().recent.map(r => r.menuId); return null; }
+    function Spy() { seenRecent = useHostPlatform().recent.map(r => r.menuId); return null; }
     render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => s })} registry={makeRegistry()}><Spy /><AppShell><RouteOutlet /></AppShell></PlatformProvider></I18nProvider>);
     await settle();
     expect(seenRecent).toEqual(['beta']);
@@ -760,7 +761,7 @@ describe('stateful Outlet presentation lifetime', () => {
   it('retains input, DOM, scroll and mounts in collapse/maximize/stacking both directions, but unmounts on sheet/user changes', async () => {
     const mounted = vi.fn(); const unmounted = vi.fn();
     function Stateful() {
-      const { paneId } = usePlatform();
+      const { paneId } = useHostPlatform();
       const [value, setValue] = useState('initial');
       useEffect(() => { mounted(paneId); return () => { unmounted(paneId); }; }, [paneId]);
       return <input aria-label={`local ${paneId}`} value={value} onChange={e => setValue(e.target.value)} />;
@@ -816,7 +817,7 @@ describe('stateful Outlet presentation lifetime', () => {
 describe('docked detail overlay lifetime', () => {
   it.each(['collapse owner', 'maximize sibling'])('keeps detail popovers usable after %s', async transition => {
     function DetailOwner() {
-      const { paneId } = usePlatform();
+      const { paneId } = useHostPlatform();
       const [open, setOpen] = useState(false);
       return <><button onClick={() => setOpen(true)}>detail {paneId}</button>{open && <DetailDrawer title="owned detail" onClose={() => setOpen(false)} tabs={[{
         id: 'a', label: 'Attributes', content: <Popover><PopoverTrigger>detail options</PopoverTrigger><PopoverContent>detail popup</PopoverContent></Popover>,

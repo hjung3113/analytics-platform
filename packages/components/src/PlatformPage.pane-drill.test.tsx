@@ -2,7 +2,8 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { useState, type ReactNode } from 'react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { I18nProvider, PaneScreenProvider, PlatformProvider, createRegistry, useDrill, type PaneScreen } from '@ap/kernel';
+import { I18nProvider, PlatformProvider, createRegistry, useDrill } from '@ap/kernel';
+import { PaneScreenProvider, type PaneScreen } from '@ap/kernel/host';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { DrillLayout, ReturnLink } from './DrillLayout';
 import { PlatformPage } from './PlatformPage';

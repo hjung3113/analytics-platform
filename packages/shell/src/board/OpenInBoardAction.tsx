@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { BOARD_PATH, useI18n, usePlatform, type PaneScreen } from '@ap/kernel';
+import { useI18n } from '@ap/kernel';
+import { BOARD_PATH, useHostPlatform, type PaneScreen } from '@ap/kernel/host';
 import { useHeaderOverflowDialog, type HeaderOverflowDialogControl } from '@ap/components';
 import {
   Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Label, RadioGroup, RadioGroupItem,
@@ -12,7 +13,7 @@ type Destination = 'new' | 'empty' | 'replace';
 
 /** The current screen as a pane screen: this menu, its route params and the address's Context and page keys. */
 function useCurrentScreen(): PaneScreen | null {
-  const { route, url } = usePlatform();
+  const { route, url } = useHostPlatform();
   if (!route) return null;
   const at = url.indexOf('?');
   return { menuId: route.menu.id, params: { ...route.params }, query: at === -1 ? '' : url.slice(at) };
@@ -32,14 +33,14 @@ export function OpenInBoardAction() {
 
 /** The dialog belongs to the signed-in user: another user gets a fresh one, so the previous user's sheets are never shown. */
 function OpenInBoardDialog({ control }: { control: HeaderOverflowDialogControl }) {
-  const { user } = usePlatform();
+  const { user } = useHostPlatform();
   return <OpenInBoardDialogBody key={user.id} control={control} />;
 }
 
 const initialDestination = (board: Board): Destination => (board.sheets.length >= MAX_SHEETS ? (board.sheets.some(s => s.panes.some(p => p.screen === null)) ? 'empty' : 'replace') : 'new');
 
 function OpenInBoardDialogBody({ control }: { control: HeaderOverflowDialogControl }) {
-  const { user, navigate, registry } = usePlatform();
+  const { user, navigate, registry } = useHostPlatform();
   const { lang, tx } = useI18n();
   const text = boardText(lang);
   const screen = useCurrentScreen();

@@ -1,5 +1,6 @@
 import { CircleHelp, ExternalLink, LayoutGrid, Languages, LogOut, Search } from 'lucide-react';
-import { BOARD_PATH, useI18n, usePlatform } from '@ap/kernel';
+import { useI18n } from '@ap/kernel';
+import { BOARD_PATH, useHostPlatform } from '@ap/kernel/host';
 import { cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger, shortcutLabel, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { SystemSwitcher } from './SystemSwitcher';
 import { placeableMenus } from './board/boardMenus';
@@ -8,7 +9,7 @@ import { firstOpenableMenu, useSystemSections } from './systemSections';
 
 /** System switcher, the current system's section buttons and global tools; the app keeps ownership of topBarTools. */
 export function AppRail() {
-  const { slots, user, setPaletteOpen, navigate, linkTo, can, canOpen, registry, platformScreen } = usePlatform();
+  const { slots, user, setPaletteOpen, navigate, linkTo, can, canOpen, registry, platformScreen } = useHostPlatform();
   const { t, tx, lang, setLang } = useI18n();
   const overallLabel = lang === 'ko' ? 'FeedbackOps 전체 — 새 탭' : 'FeedbackOps overall — new tab';
   const systems = useSystemSections();

@@ -1,5 +1,6 @@
 import { Ban, FileQuestion, Link2Off } from 'lucide-react';
-import { CONTEXT_LABELS, PAGE_TYPE_LABELS, contractErrorSentence, useI18n, usePlatform } from '@ap/kernel';
+import { CONTEXT_LABELS, PAGE_TYPE_LABELS, contractErrorSentence, useI18n } from '@ap/kernel';
+import { useHostPlatform } from '@ap/kernel/host';
 import { Panel, PlatformPage, StateMessage, focusPageFallback } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
 import type { Capability, ContextKey } from '@ap/contracts';
@@ -11,7 +12,7 @@ import { BoardScreen } from './board/BoardScreen';
 
 /** The main screen's outlet: `ScreenOutlet` for the URL-bound screen, or the analysis board where the kernel says `/board` (a platform screen, docs/16). */
 export function RouteOutlet() {
-  const { platformScreen } = usePlatform();
+  const { platformScreen } = useHostPlatform();
   return platformScreen === 'board' ? <BoardScreen Outlet={ScreenOutlet} /> : <ScreenOutlet />;
 }
 
@@ -21,7 +22,7 @@ export function RouteOutlet() {
  * chain for that pane's menu, so a denied pane shows its own permission state.
  */
 export function ScreenOutlet() {
-  const { route, contractError, can, url, global, metricInit, setGlobal, currentSpace, reportError, revision } = usePlatform();
+  const { route, contractError, can, url, global, metricInit, setGlobal, currentSpace, reportError, revision } = useHostPlatform();
   const { t, tx, lang } = useI18n();
   if (!route) return <KernelMessage icon={<FileQuestion className="size-4" aria-hidden />} title={t('notFound')} body={<span className="t-mono">{url}</span>} />;
   if (contractError) return <ContractErrorView />;
@@ -68,7 +69,7 @@ function KernelMessage({ icon, title, body, tone }: { icon: React.ReactNode; tit
 }
 
 function ContractErrorView() {
-  const { contractError, resetContext, url } = usePlatform();
+  const { contractError, resetContext, url } = useHostPlatform();
   const { t, lang } = useI18n();
   return <div className="p-6"><StateMessage tone="danger" icon={<Link2Off className="size-4" aria-hidden />} title={t('contractError')}
     body={<><p>{contractErrorSentence(lang, contractError!)}</p><p className="t-mono mt-2 break-all">{url}</p></>}
@@ -84,7 +85,7 @@ function capabilityLabel(cap: Capability, t: (key: 'applied' | 'referenceOnly' |
 }
 
 function PlannedPage() {
-  const { route, registry, global } = usePlatform();
+  const { route, registry, global } = useHostPlatform();
   const { t, tx, lang } = useI18n();
   const menu = route!.menu;
   const keys = Object.keys(menu.context) as ContextKey[];

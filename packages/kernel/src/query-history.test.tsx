@@ -4,7 +4,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { defineEndpoint, buildQuery, emptyGlobal, type QueryHistoryEntry, type QueryHistoryStore, groupId, spaceId } from '@ap/contracts';
 import { useState } from 'react';
 import { useMenuQuery } from './query';
-import { PaneQueryDraftProvider, PaneScreenProvider, type PaneScreen, PlatformProvider, usePlatform } from './platform';
+import { PaneQueryDraftProvider, PaneScreenProvider, type PaneScreen, PlatformProvider, useHostPlatform } from './platform';
 import { useQueryHistory } from './query-history';
 import { createRegistry } from './registry';
 import { noContext, testAdapter, testSession, testSpace } from './testing';
@@ -15,8 +15,8 @@ const global = { ...emptyGlobal, from: '2026-09-01T00:00:00', to: '2026-09-02T00
 const entry = (query = buildQuery(global, [['filter', 'old']])): QueryHistoryEntry => ({ id: 'one', query, schemaVersion: 1, count: 1, lastAppliedAt: 1 });
 const endpoint = defineEndpoint<{}, null>({ id: 'fixture.history', menuId: 'home', permission: 'platform:view', requiresScope: false, context: { time: 'apply' }, paramKeys: {}, kinds: [], mergeTimeDomain: false });
 let history: ReturnType<typeof useQueryHistory>;
-let screen: ReturnType<typeof usePlatform>;
-function Probe() { history = useQueryHistory(); screen = usePlatform(); useMenuQuery(endpoint, {}); return <p>{history.entries.map(e => e.status === 'ready' ? e.candidate.page.map(p => p[1]).join() : e.status).join()}</p>; }
+let screen: ReturnType<typeof useHostPlatform>;
+function Probe() { history = useQueryHistory(); screen = useHostPlatform(); useMenuQuery(endpoint, {}); return <p>{history.entries.map(e => e.status === 'ready' ? e.candidate.page.map(p => p[1]).join() : e.status).join()}</p>; }
 function mount(entries: QueryHistoryEntry[], url = '/') {
   window.history.replaceState(null, '', url);
   const session = testSession(['platform:view']);
@@ -199,7 +199,7 @@ it('rechecks history room grants on revision without revalidating or masking the
   let rooms = ['PHOTO'];
   const validateScope = vi.fn(async () => ({ status: 'valid' as const, grantedRooms: rooms }));
   const statuses: string[] = [];
-  function ScopeProbe() { const value = usePlatform(); statuses.push(value.scope.status); return <Probe />; }
+  function ScopeProbe() { const value = useHostPlatform(); statuses.push(value.scope.status); return <Probe />; }
   const store: QueryHistoryStore = { list: async () => [entry(buildQuery({ ...global, scopeId: 'MEM', roomNames: ['PHOTO'] }))], record: async () => {}, remove: async () => {}, clear: async () => {} };
   const adapter = testAdapter({ session: () => session, subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener); }, validateScope });
   window.history.replaceState(null, '', '/?scopeId=MEM');

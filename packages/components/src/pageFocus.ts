@@ -1,4 +1,4 @@
-import type { PageNavigation } from '@ap/kernel';
+import type { PageFocus, PageNavigation } from '@ap/kernel/host';
 
 export const PANE_ROOT_SELECTOR = '[data-pane-id]';
 
@@ -38,6 +38,6 @@ export function requestReturnFocus(navigation: PageNavigation, href: string) {
   navigation.requestReturn(href);
 }
 
-export function consumePageFocus(navigation: PageNavigation, path: string) {
+export function consumePageFocus(navigation: PageNavigation, path: string): PageFocus | null {
   return navigation.consume(path);
 }

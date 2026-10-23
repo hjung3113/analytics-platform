@@ -1,6 +1,7 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { KeyRound, ServerCrash, UserX } from 'lucide-react';
-import { useI18n, useModuleHost, usePlatform, type ModuleMenuEntry, type ModuleShellPorts } from '@ap/kernel';
+import { useI18n, type ModuleMenuEntry } from '@ap/kernel';
+import { useModuleHost, useHostPlatform, type ModuleShellPorts } from '@ap/kernel/host';
 import { StateMessage, focusPageFallback } from '@ap/components';
 import { Button, useDetailPanelContent } from '@ap/ui';
 import type { ModuleStatus } from '@ap/contracts';
@@ -21,7 +22,7 @@ export function ModuleScreen({ entry, params }: Props) {
 }
 
 function ReadyInstance({ entry, params, setStatus }: Props & { setStatus: (next: ModuleStatus) => void }) {
-  const { pageNavigation, pathname, url, screenMode } = usePlatform();
+  const { pageNavigation, pathname, url, screenMode } = useHostPlatform();
   // A setter from an instance that was released (status change, Retry, key change, unmount) must change nothing.
   const [token] = useState(() => ({ alive: true }));
   useLayoutEffect(() => {

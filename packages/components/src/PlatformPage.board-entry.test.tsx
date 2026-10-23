@@ -2,7 +2,8 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { type ReactNode } from 'react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { I18nProvider, PaneScreenProvider, PlatformProvider, createRegistry } from '@ap/kernel';
+import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
+import { PaneScreenProvider } from '@ap/kernel/host';
 import { Button, Dialog, DialogContent, DialogDescription, DialogTitle } from '@ap/ui';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { PlatformPage, useHeaderOverflowDialog } from './PlatformPage';

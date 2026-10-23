@@ -1,7 +1,8 @@
 import { X } from 'lucide-react';
 import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { DockLayout, dockLayoutMenu, movePanel, type DockPanel } from '@ap/components/dock';
-import { useI18n, usePlatform, type PaneScreen } from '@ap/kernel';
+import { useI18n } from '@ap/kernel';
+import { useHostPlatform, type PaneScreen } from '@ap/kernel/host';
 import { DropdownMenuItem, DropdownMenuSeparator } from '@ap/ui';
 import { effectiveTree, fromDockTree, groupHolding, toDockTree } from './boardDockTree';
 import { indexOfPane, selectedIndex, setTree, type Board, type Sheet } from './boardModel';
@@ -51,7 +52,7 @@ function HeadSlot({ paneId, stripWidth, tabs, setHead }: { paneId: string; strip
  */
 export function BoardDock({ sheet, update, paneProps, onSelect, onClear, onClosePane, maximizedPaneId, onMaximizedChange, newPane, onNewPaneHandled, heading }: BoardDockProps) {
   const { lang, tx } = useI18n();
-  const { registry } = usePlatform();
+  const { registry } = useHostPlatform();
   const text = boardText(lang);
   const wrap = useRef<HTMLDivElement>(null);
   const sheetId = sheet.id;

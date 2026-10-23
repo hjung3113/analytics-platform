@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { PaneScreen } from '@ap/kernel';
+import type { PaneScreen } from '@ap/kernel/host';
 import {
   setArrangement, MAX_SHEETS, addSheet, applyPaneEdits, editPane, freshBoard, goBackPane, layoutOf, normalizeBoard, openScreenInNewSheet, parseBoardV2, previousAt, restoreLayout,
   revertPaneEdits, screens, setLayout, setPane, type Board, type PaneEdit,
