@@ -5,7 +5,7 @@
 // Bridge-safe: no router, no `@/lib/api` barrel, no `lib/auth`, no `sonner`; links go through the host seam.
 
 import { notificationTarget } from '@/features/home/InboxPanel';
-import { useAnswerableSurveys } from '@/features/surveys/hooks/useSurveys';
+import { useAnswerableSurveysFirstPage } from '@/features/surveys/hooks/useSurveys';
 import { fetchNotifications, notificationsQueryKey } from '@/lib/api/notifications';
 import {
   fetchPermissionRequestsMine,
@@ -47,8 +47,8 @@ type Group = {
 };
 
 function useSurveyGroup(): Group {
-  const query = useAnswerableSurveys();
-  const page = query.data?.pages[0];
+  const query = useAnswerableSurveysFirstPage();
+  const page = query.data;
   const items = page?.items ?? [];
   return {
     id: 'surveys',
@@ -60,7 +60,8 @@ function useSurveyGroup(): Group {
       title: survey.title,
       meta: survey.display_id,
     })),
-    moreTo: items.length > MAX_ROWS || page?.page.has_more === true ? SURVEYS_ALL : null,
+    moreTo:
+      query.isError || items.length > MAX_ROWS || page?.page.has_more === true ? SURVEYS_ALL : null,
   };
 }
 

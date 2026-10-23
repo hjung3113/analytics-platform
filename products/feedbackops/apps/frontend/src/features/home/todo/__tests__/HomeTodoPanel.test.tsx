@@ -1,5 +1,6 @@
 // T1–T5 — the platform home `내 할 일` panel. fetch is mocked directly (house style), with the bridge's `/api/fo` base path.
 
+import { surveyKeys } from '@/features/surveys/hooks/useSurveys';
 import { configureApiClient } from '@/lib/api/client';
 import { permissionRequestsMineAllKey } from '@/lib/api/permission-requests';
 import { type HostLinkProps, type HostSeam, HostSeamProvider } from '@/lib/host/host-seam';
@@ -89,14 +90,13 @@ function installFetch() {
   }) as typeof fetch;
 }
 
-function mount() {
+function mount(client = new QueryClient({ defaultOptions: { queries: { retry: false } } })) {
   const seam = {
     canLink: () => true,
     Link: ({ to, children }: HostLinkProps) => <a href={to}>{children}</a>,
     notifyError: vi.fn(),
     notifySuccess: vi.fn(),
   } satisfies HostSeam;
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const view = render(
     <QueryClientProvider client={client}>
       <HostSeamProvider value={seam}>
@@ -169,12 +169,12 @@ describe('HomeTodoPanel', () => {
   });
 
   it.each([
-    ['surveys', '응답할 설문', '내 VOC'],
-    ['notifications', '내 VOC', '응답할 설문'],
-    ['requests', '권한 요청', '응답할 설문'],
+    ['surveys', '응답할 설문', '내 VOC', '/surveys/participate'],
+    ['notifications', '내 VOC', '응답할 설문', null],
+    ['requests', '권한 요청', '응답할 설문', '/permission-requests'],
   ] as const)(
-    'T2 a failing %s group shows its error line; the others still render',
-    async (key, failed, other) => {
+    'T2 a failing %s group shows its error line (and its 모두 보기 link, if it has one); the others still render',
+    async (key, failed, other, moreHref) => {
       answers = {
         surveys: surveysOf(1),
         notifications: { items: [notification(1)], page: { has_more: false }, unread_count: 1 },
@@ -184,6 +184,11 @@ describe('HomeTodoPanel', () => {
       mount();
       expect(await screen.findByText('불러오지 못했습니다')).toBeTruthy();
       expect(group(failed).getByText('불러오지 못했습니다')).toBeTruthy();
+      if (moreHref === null) expect(group(failed).queryByRole('link')).toBeNull();
+      else
+        expect(group(failed).getByRole('link', { name: '모두 보기' }).getAttribute('href')).toBe(
+          moreHref,
+        );
       expect(group(other).queryByText('불러오지 못했습니다')).toBeNull();
       expect(group(other).getAllByRole('link').length).toBeGreaterThan(0);
     },
@@ -245,5 +250,40 @@ describe('HomeTodoPanel', () => {
     expect(links).toHaveLength(6);
     expect(links.map((a) => a.getAttribute('href')).at(-1)).toBe('/surveys/participate');
     expect(links.at(-1)?.textContent).toBe('모두 보기');
+  });
+
+  describe('with the surveys page having cached two pages', () => {
+    const seed = () => {
+      const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      client.setQueryData(surveyKeys.answerable, {
+        pages: [
+          { items: [survey(1)], page: { has_more: true, cursor: 'c1' } },
+          { items: [survey(2)], page: { has_more: true, cursor: 'c2' } },
+        ],
+        pageParams: [undefined, 'c1'],
+      });
+      return client;
+    };
+    const surveyGets = () => urls.filter((u) => u.url.startsWith('/api/fo/me/answerable-surveys'));
+
+    it('Y1 reads one cursor-less survey page, three requests in total', async () => {
+      answers.surveys = surveysOf(1);
+      mount(seed());
+      await screen.findByRole('region', { name: '내 할 일' });
+      await waitFor(() => expect(urls).toHaveLength(3));
+      expect(surveyGets().map((u) => u.url)).toEqual(['/api/fo/me/answerable-surveys']);
+      expect(urls.some((u) => u.url.includes('cursor='))).toBe(false);
+    });
+
+    it('Y2 invalidating the answerable key refetches the first page', async () => {
+      answers.surveys = surveysOf(1);
+      const client = seed();
+      mount(client);
+      await screen.findByRole('region', { name: '내 할 일' });
+      await waitFor(() => expect(urls).toHaveLength(3));
+      await client.invalidateQueries({ queryKey: surveyKeys.answerable });
+      await waitFor(() => expect(surveyGets()).toHaveLength(2));
+      expect(surveyGets().every((u) => !u.url.includes('cursor='))).toBe(true);
+    });
   });
 });
