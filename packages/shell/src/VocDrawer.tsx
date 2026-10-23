@@ -1,5 +1,5 @@
 import { X } from 'lucide-react';
-import { createContext, useCallback, useEffect, useId, useMemo, useReducer, useRef, type KeyboardEvent, type RefObject } from 'react';
+import { createContext, useCallback, useEffect, useId, useLayoutEffect, useMemo, useReducer, useRef, type KeyboardEvent, type RefObject } from 'react';
 import type { Lang, VocComposeContext, VocComposeSlot } from '@ap/kernel';
 import { Button, cn, TransientOverlayScope } from '@ap/ui';
 import { freezeVocContext, type VocFreezeInput } from './vocContext';
@@ -11,8 +11,8 @@ const TEXT = {
 
 type Session = { frozen: VocFreezeInput; removed: ReadonlySet<string>; dirty: boolean };
 type FocusTarget = { to: 'rail' | 'heading' | 'continue'; n: number };
-/** `owner` is the Kernel session the draft belongs to; `activation` is the detail slot counter at the time the drawer was shown. */
-type State = { owner: unknown; activation: number; session: Session | null; visible: boolean; confirming: boolean; focus: FocusTarget | null };
+/** `owner` is the Kernel session the draft belongs to; `activation` is the detail slot counter at the time the drawer was shown; `gen` counts the ended drafts, so callbacks of a gone Compose can be told apart. */
+type State = { owner: unknown; gen: number; activation: number; session: Session | null; visible: boolean; confirming: boolean; focus: FocusTarget | null };
 type Action =
   | { type: 'open'; frozen: VocFreezeInput; activation: number }
   | { type: 'reset'; owner: unknown }
@@ -30,12 +30,12 @@ function reducer(state: State, action: Action): State {
     // The Context freezes only when there is no kept session; reopening a kept one shows it unchanged (ADR-0070 decision 5).
     case 'open': return { ...state, activation: action.activation, session: state.session ?? { frozen: action.frozen, removed: new Set(), dirty: false }, visible: true, confirming: false, focus: focusOn(state, 'heading') };
     // A new session owner or a removed slot discards the frozen Context, the draft and the confirmation; focus is left where it is.
-    case 'reset': return { owner: action.owner, activation: state.activation, session: null, visible: false, confirming: false, focus: state.focus };
+    case 'reset': return { owner: action.owner, gen: state.gen + 1, activation: state.activation, session: null, visible: false, confirming: false, focus: state.focus };
     case 'requestClose':
       if (!state.visible) return state;
       if (state.confirming || state.session?.dirty) return { ...state, confirming: true, focus: focusOn(state, 'continue') };
-      return { ...state, session: null, visible: false, confirming: false, focus: focusOn(state, 'rail') };
-    case 'drop': return { ...state, session: null, visible: false, confirming: false, focus: focusOn(state, 'rail') };
+      return { ...state, gen: state.gen + 1, session: null, visible: false, confirming: false, focus: focusOn(state, 'rail') };
+    case 'drop': return { ...state, gen: state.gen + 1, session: null, visible: false, confirming: false, focus: focusOn(state, 'rail') };
     case 'keepWriting': return { ...state, confirming: false, focus: focusOn(state, 'heading') };
     // Another right panel took the position: the draft and its Context stay mounted behind `hidden`.
     case 'hide': return state.visible ? { ...state, visible: false, confirming: false } : state;
@@ -59,7 +59,9 @@ export type VocDrawerController = {
   keepWriting: () => void;
   removeChip: (id: string) => void;
   onDirtyChange: (dirty: boolean) => void;
+  /** The three below are for the mounted Compose: calls from an instance whose draft has ended are ignored. */
   onSubmitted: () => void;
+  onCancel: () => void;
   /** Whether a dirty draft is kept while the drawer is hidden (the rail dot). */
   draftHidden: boolean;
 };
@@ -73,7 +75,7 @@ export const VocDrawerContext = createContext<VocDrawerController | null>(null);
  * `owner` is the Kernel session: when it changes, or the slot disappears, the Context and the draft are dropped in that same render.
  */
 export function useVocDrawer(slot: VocComposeSlot | undefined, snapshot: () => VocFreezeInput, activation: number, owner: unknown): VocDrawerController | null {
-  const [state, dispatch] = useReducer(reducer, owner, (initial): State => ({ owner: initial, activation, session: null, visible: false, confirming: false, focus: null }));
+  const [state, dispatch] = useReducer(reducer, owner, (initial): State => ({ owner: initial, gen: 0, activation, session: null, visible: false, confirming: false, focus: null }));
   if (state.owner !== owner || (slot === undefined && (state.session !== null || state.visible))) dispatch({ type: 'reset', owner });
   const panelId = useId();
   const railButton = useRef<HTMLButtonElement>(null);
@@ -93,16 +95,22 @@ export function useVocDrawer(slot: VocComposeSlot | undefined, snapshot: () => V
   const frozen = session?.frozen ?? null;
   const removed = session?.removed ?? null;
   const context = useMemo(() => frozen === null || removed === null ? null : freezeVocContext(frozen, removed), [frozen, removed]);
+  // The generation of the committed state; a Compose handler captured at an older generation belongs to a draft that has ended.
+  const gen = state.gen;
+  const currentGen = useRef(gen);
+  useLayoutEffect(() => { currentGen.current = gen; }, [gen]);
   const requestClose = useCallback(() => dispatch({ type: 'requestClose' }), []);
   const drop = useCallback(() => dispatch({ type: 'drop' }), []);
   const keepWriting = useCallback(() => dispatch({ type: 'keepWriting' }), []);
   const removeChip = useCallback((id: string) => dispatch({ type: 'removeChip', id }), []);
-  const onDirtyChange = useCallback((dirty: boolean) => dispatch({ type: 'dirty', dirty }), []);
+  const onDirtyChange = useCallback((dirty: boolean) => { if (currentGen.current === gen) dispatch({ type: 'dirty', dirty }); }, [gen]);
+  const onSubmitted = useCallback(() => { if (currentGen.current === gen) dispatch({ type: 'drop' }); }, [gen]);
+  const onCancel = useCallback(() => { if (currentGen.current === gen) dispatch({ type: 'requestClose' }); }, [gen]);
   if (slot === undefined) return null;
   return {
     slot, panelId, visible, confirming: state.confirming && visible, context, railButton, heading, keepButton,
     toggle: () => dispatch(visible ? { type: 'requestClose' } : { type: 'open', frozen: snapshot(), activation }),
-    requestClose, drop, keepWriting, removeChip, onDirtyChange, onSubmitted: drop,
+    requestClose, drop, keepWriting, removeChip, onDirtyChange, onSubmitted, onCancel,
     draftHidden: !visible && session !== null && session.dirty,
   };
 }
@@ -145,7 +153,7 @@ export function VocDrawer({ voc, lang }: { voc: VocDrawerController; lang: Lang 
       </div>}
       <div className="min-h-0 flex-1">
         <TransientOverlayScope active={voc.visible}>
-          <slot.Compose context={context} onSubmitted={voc.onSubmitted} onCancel={voc.requestClose} onDirtyChange={voc.onDirtyChange} />
+          <slot.Compose context={context} onSubmitted={voc.onSubmitted} onCancel={voc.onCancel} onDirtyChange={voc.onDirtyChange} />
         </TransientOverlayScope>
       </div>
     </div>}

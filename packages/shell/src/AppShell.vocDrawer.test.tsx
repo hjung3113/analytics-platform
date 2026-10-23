@@ -335,13 +335,14 @@ describe('session and slot lifecycle (C1, C3)', () => {
     return { view, tree, switchTo: (next: Session) => { current = next; act(() => listeners.forEach(listener => listener())); } };
   }
 
-  it.each([['open', false], ['hidden with a draft', true]])('a session change while %s drops the Context and the draft, and the next open freezes fresh', async (_name, hide) => {
+  const userA2 = testSession(['platform:view'], { user: { id: 'a', name: 'A' } });
+  it.each([['open', false, userB], ['hidden with a draft', true, userB], ['open, same user, new session object', false, userA2], ['hidden with a draft, same user, new session object', true, userA2]])('a session change while %s drops the Context and the draft, and the next open freezes fresh', async (_name, hide, next) => {
     const { switchTo } = mountSwitchable();
     openDrawer();
     await makeDirty();
     expect(last().context.items.map(item => item.id)).toContain('page:q');
     if (hide) fireEvent.click(screen.getByRole('button', { name: '상세 열기' }));
-    switchTo(userB);
+    switchTo(next);
     expect(drawer().hidden).toBe(true);
     expect(within(drawer()).queryByLabelText('내용')).toBeNull();
     expect(document.body).not.toHaveTextContent('secret');
@@ -351,6 +352,20 @@ describe('session and slot lifecycle (C1, C3)', () => {
     expect(seen.mounts).toBe(2);
     expect(within(drawer()).getByLabelText('내용')).toHaveValue('');
     expect(last().context.items[0].value).toBe('분석 · 다른 화면');
+  });
+
+  it('a Compose handler of the dropped draft is ignored after a session change', async () => {
+    const { switchTo } = mountSwitchable();
+    openDrawer();
+    const staleSubmitted = last().onSubmitted;
+    switchTo(userB);
+    openDrawer();
+    await makeDirty();
+    (document.activeElement as HTMLElement | null)?.blur();
+    act(() => { staleSubmitted({ vocId: 'v1', displayId: 'VOC-1' }); });
+    expect(drawer().hidden).toBe(false);
+    expect(within(drawer()).getByLabelText('내용')).toHaveValue('a');
+    expect(railButton()).not.toHaveFocus();
   });
 
   it.each([['open', false], ['hidden with a draft', true]])('removing the slot while %s resets the drawer, and returning the slot reopens nothing', async (_name, hide) => {
@@ -374,9 +389,15 @@ describe('session and slot lifecycle (C1, C3)', () => {
 
 describe('a detail takes the position (C2, C4)', () => {
   /** Focuses its close button when it mounts, like DetailDrawer's arrival focus. */
+  const atFocus: { detailHidden: boolean | null; drawerHidden: boolean | null } = { detailHidden: null, drawerHidden: null };
   function FocusingDetail() {
     const button = useRef<HTMLButtonElement>(null);
-    useLayoutEffect(() => { button.current?.focus(); }, []);
+    useLayoutEffect(() => {
+      // jsdom focuses inside a hidden aside too, so record the visibility the focus would meet in a browser.
+      atFocus.detailHidden = button.current?.closest('aside')?.hidden ?? null;
+      atFocus.drawerHidden = drawer().hidden;
+      button.current?.focus();
+    }, []);
     return <button ref={button} type="button">상세 닫기</button>;
   }
   function FocusScreen() {
@@ -392,7 +413,9 @@ describe('a detail takes the position (C2, C4)', () => {
       <AppShell><FocusScreen /></AppShell>
     </PlatformProvider></I18nProvider>);
     openDrawer();
+    atFocus.detailHidden = null; atFocus.drawerHidden = null;
     fireEvent.click(screen.getByRole('button', { name: '포커스 상세 열기' }));
+    expect(atFocus).toEqual({ detailHidden: false, drawerHidden: true });
     expect(detailAside().hidden).toBe(false);
     expect(drawer().hidden).toBe(true);
     expect(within(detailAside()).getByRole('button', { name: '상세 닫기' })).toHaveFocus();
