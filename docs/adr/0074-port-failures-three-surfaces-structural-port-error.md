@@ -12,7 +12,7 @@ envelope 읽기와 쓰기는 실패를 값으로, 비 envelope 조회(`listAxisO
 
 ## 결정
 
-- 세 갈래를 유지한다. 규칙 원본은 [실서버 체크리스트 §2](../integration/real-server-checklist.md#2-platformadapter-메서드별로-지킬-것) 하나이고 06 §6.4·HTTP 계약 §2는 한 문장과 링크만 둔다.
+- 세 갈래를 유지한다. 규칙 원본은 [실서버 체크리스트 §2](../integration/real-server-checklist.md#2-platformadapter-메서드별로-지킬-것) 하나이고 06 §6.4·HTTP 계약 §2는 각자의 몫(선택 포트 반환 모양·HTTP 상태 매핑)과 링크만 둔다.
 - 판정 코드 원본은 `@ap/contracts`의 `PORT_ERROR_CODES` 하나다. 판별은 `isPortError`(`name === 'PortError'` + 알려진 `code`)이며 Kernel·적합성 하네스는 `instanceof`를 쓰지 않는다.
 - 전송 실패 코드는 `@ap/http-adapter` 내부(`TransportError`)에 둔다.
 - `ContractError`도 `name`을 갖는다(검사 방식은 바꾸지 않는다).
