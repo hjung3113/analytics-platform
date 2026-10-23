@@ -78,7 +78,12 @@ function vocRows(items: readonly NotificationDto[]): Row[] {
     seen.add(vocId);
     const title =
       item.subject_ref?.visibility_state === 'allowed' ? item.subject_ref.title : item.summary;
-    rows.push({ key: vocId, to, title, meta: formatRelativeTime(item.created_at) });
+    const time = formatRelativeTime(item.created_at);
+    const meta =
+      item.subject_ref?.visibility_state === 'allowed'
+        ? `${item.subject_ref.display_id} · ${time}`
+        : time;
+    rows.push({ key: vocId, to, title, meta });
     if (rows.length === MAX_ROWS) break;
   }
   return rows;
@@ -145,9 +150,11 @@ function TodoGroup({ group }: { group: Group }): React.ReactElement {
             <li key={row.key}>
               <HostLink
                 to={row.to}
-                className="flex items-baseline justify-between gap-3 py-1.5 text-sm text-text-primary hover:text-text-secondary"
+                className="flex items-baseline justify-between gap-3 py-2 text-sm font-medium text-text-primary hover:text-accent-primary hover:underline"
               >
-                <span className="min-w-0 truncate">{row.title}</span>
+                <span className="min-w-0 truncate" title={row.title}>
+                  {row.title}
+                </span>
                 <span className="shrink-0 text-xs text-text-muted">{row.meta}</span>
               </HostLink>
             </li>
@@ -179,10 +186,10 @@ export function HomeTodoPanel(): React.ReactElement | null {
       className="rounded-lg border border-border-subtle bg-surface-card p-4"
       data-testid="home-todo"
     >
-      <h2 id={headingId} className="mb-3 text-sm font-semibold text-text-primary">
+      <h2 id={headingId} className="mb-3 text-base font-semibold text-text-primary">
         {COPY.title}
       </h2>
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(16rem,1fr))] gap-4">
         {shown.map((group) => (
           <TodoGroup key={group.id} group={group} />
         ))}

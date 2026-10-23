@@ -252,6 +252,39 @@ describe('HomeTodoPanel', () => {
     expect(links.at(-1)?.textContent).toBe('모두 보기');
   });
 
+  it('Z1 sizes the groups grid by its own width (auto-fit), and a lone group is the only grid child', async () => {
+    answers.surveys = surveysOf(1);
+    mount();
+    const region = await screen.findByRole('region', { name: '내 할 일' });
+    const grid = within(region).getByTestId('home-todo-surveys').parentElement as HTMLElement;
+    expect(grid.className).toContain('grid-cols-[repeat(auto-fit,minmax(16rem,1fr))]');
+    expect(grid.className).not.toMatch(/(^|\s)(sm|md|lg|xl):grid-cols/);
+    expect(grid.children).toHaveLength(1);
+  });
+
+  it('Z2 a row title carries its full text as title', async () => {
+    answers.surveys = surveysOf(1);
+    mount();
+    const surveys = await screen.findByTestId('home-todo-surveys');
+    expect(within(surveys).getByText('설문 1').getAttribute('title')).toBe('설문 1');
+  });
+
+  it('Z3 a 내 VOC row shows its display id and time; an unavailable subject shows time only', async () => {
+    answers.notifications = {
+      items: [
+        notification(1),
+        notification(2, { subject_ref: { visibility_state: 'unavailable' } }),
+      ],
+      page: { has_more: false },
+      unread_count: 2,
+    };
+    mount();
+    const vocs = await screen.findByTestId('home-todo-vocs');
+    const rows = within(vocs).getAllByRole('listitem');
+    expect(rows[0]?.textContent).toContain('VOC-1 · ');
+    expect(rows[1]?.textContent).not.toContain('·');
+  });
+
   describe('with the surveys page having cached two pages', () => {
     const seed = () => {
       const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
