@@ -38,26 +38,34 @@ export function enterRows(layout: DockNode, baseline: number, minimum: RowMinimu
 }
 
 /**
- * A structural change (drop, move, hide, show, move below) from `prevLayout` to `nextLayout`: a row that keeps (some of) the panels of an earlier
- * row keeps that row's px (raised to its minimum, never lowered); a row without a predecessor is new and gets 360 within its bounds; a row that no
- * longer exists is dropped. Rows are matched by shared panels, the largest overlap first.
+ * A structural change (drop, move, hide, show, move below) from `prevLayout` to `nextLayout`. Rows are matched by provenance, not by position:
+ * the rows that survive (same panels first, then the largest overlap, the earlier row on a tie) keep their px (raised to their minimum, never
+ * lowered) before anything is allocated; a row without a predecessor is new and gets 360 within its bounds; a row that no longer exists is
+ * dropped. `created` is the panel an edit moved into a row of its own (`아래 새 줄로 옮기기`, a drop on the strip, a split above or below): that row
+ * is always new, even when its panels equal an old row's, so the net change is the new row less the row the panel left. A drag the layout alone
+ * cannot explain (rows swapped by a drop at the top or bottom) has no `created`: a row that keeps its panels keeps its px wherever it went.
  */
-export function reconcileRows(prevLayout: DockNode, prevRows: readonly number[], nextLayout: DockNode, minimum: RowMinimum, maximum: number): number[] {
+export function reconcileRows(prevLayout: DockNode, prevRows: readonly number[], nextLayout: DockNode, minimum: RowMinimum, maximum: number, created?: string): number[] {
   const before = topLevelRows(prevLayout).map(panelOrder);
-  const used = new Set<number>();
-  return topLevelRows(nextLayout).map(row => {
-    const ids = panelOrder(row);
-    let best = -1;
-    let overlap = 0;
-    before.forEach((old, index) => {
-      if (used.has(index) || prevRows[index] === undefined) return;
-      const shared = old.filter(id => ids.includes(id)).length;
-      if (shared > overlap) { best = index; overlap = shared; }
-    });
-    if (best < 0) return clampRow(NEW_ROW_HEIGHT, minimum(row), maximum);
-    used.add(best);
-    return Math.max(minimum(row), prevRows[best]!);
+  const next = topLevelRows(nextLayout);
+  const after = next.map(panelOrder);
+  const heights: (number | undefined)[] = next.map(() => undefined);
+  const taken = new Set<number>();
+  const isCreated = (ids: readonly string[]) => created !== undefined && ids.length === 1 && ids[0] === created;
+  const give = (at: number, index: number) => { heights[at] = Math.max(minimum(next[at]!), prevRows[index]!); taken.add(index); };
+  const shared = (old: readonly string[], ids: readonly string[]) => old.filter(id => ids.includes(id)).length;
+  // Same panels first: an unchanged row never loses its px to a row that only overlaps it.
+  after.forEach((ids, at) => {
+    if (isCreated(ids)) return;
+    const index = before.findIndex((old, candidate) => !taken.has(candidate) && prevRows[candidate] !== undefined && old.length === ids.length && shared(old, ids) === ids.length);
+    if (index >= 0) give(at, index);
   });
+  // Then the remaining survivors, the largest overlap first.
+  const candidates = after.flatMap((ids, at) => (heights[at] !== undefined || isCreated(ids) ? [] : before.map((old, index) => ({ at, index, overlap: shared(old, ids) }))))
+    .filter(candidate => candidate.overlap > 0 && !taken.has(candidate.index) && prevRows[candidate.index] !== undefined)
+    .sort((x, y) => y.overlap - x.overlap || x.at - y.at || x.index - y.index);
+  for (const { at, index } of candidates) if (heights[at] === undefined && !taken.has(index)) give(at, index);
+  return heights.map((height, at) => height ?? clampRow(NEW_ROW_HEIGHT, minimum(next[at]!), maximum));
 }
 
 /** The same layout with its top-level shares set to the rows' px proportions (a layout that is not a column of `rows.length` rows is returned as it is). */

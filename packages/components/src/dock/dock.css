@@ -102,5 +102,6 @@
 .ap-dock .dv-tabs-and-actions-container:has([data-dock-wrap]) .dv-right-actions-container > [data-dock-group-actions] { margin-left: auto; }
 
 /* Row mode (the workspace's stacked rows): the platform separators own the boundaries between top-level rows and below the last one, so the engine's own
-   sash between them is inert. Scoped to the row-mode wrapper and to the root split only: nested sashes and every other layout (the board) keep theirs. */
-[data-dock-rows] .dv-grid-view > .dv-branch-node > .dv-split-view-container.dv-vertical > .dv-sash-container > .dv-sash { pointer-events: none; }
+   sash between them is inert. Scoped to the grid the row-mode wrapper owns (`DockEngine` marks it `data-dock-rows-grid`; a layout nested in a panel has
+   its own, unmarked grid) and to its root split only: nested sashes and every other layout (the board) keep theirs. */
+[data-dock-rows-grid] > .dv-branch-node > .dv-split-view-container.dv-vertical > .dv-sash-container > .dv-sash { pointer-events: none; }

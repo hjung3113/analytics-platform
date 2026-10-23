@@ -99,6 +99,22 @@ describe('board pane hosts menu workspace commands (ADR-0067 decision 3)', () =>
     expect(label.compareDocumentPosition(radios[0]!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  it('names the height-mode group with a visible label of its own; the preset group keeps 화면 배치', async () => {
+    seed(boardOf([sheet('a', { layout: '1x2', panes: [pane('ws'), pane('beta')] })]));
+    mount();
+    await ready();
+    await openActions(1);
+    const radios = await screen.findAllByRole('menuitemradio');
+    const mode = radios[2]!.closest('[role="group"]')!;
+    const label = screen.getByText('높이 방식');
+    expect(label.closest('[role="menuitem"], [role="menuitemradio"]')).toBeNull();
+    expect(mode).toHaveAttribute('aria-labelledby', label.id);
+    expect(mode).toHaveAccessibleName('높이 방식');
+    expect(label.compareDocumentPosition(radios[2]!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(label.compareDocumentPosition(radios[1]!) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+    expect(screen.getByText('화면 배치')).toBeInTheDocument();
+  });
+
   it('choosing a preset item runs the workspace command', async () => {
     seed(boardOf([sheet('a', { layout: '1x2', panes: [pane('ws'), pane('beta')] })]));
     mount();

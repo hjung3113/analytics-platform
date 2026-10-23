@@ -12,6 +12,7 @@ import { DataTrustIndicator } from './DataTrustIndicator';
 import { type HeaderYield, nextHeaderYield, openHeaderYield } from './headerYield';
 import { consumePageFocus, drillDestinationOf, focusPageFallback } from './pageFocus';
 import { PageFlowContext } from './pageFlow';
+import { stickyChromeHeight } from './visibleArea';
 import { StateMessage } from './StateView';
 import { useInWorkspacePanel } from './workspace/panelContext';
 
@@ -144,8 +145,7 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
     const header = stickyHeader.current;
     if (!header) return;
     const measure = () => {
-      const compactBar = root.current?.querySelector<HTMLElement>('[data-query-bar-collapsed]');
-      root.current?.style.setProperty('--page-sticky-offset', `${header.getBoundingClientRect().height + (compactBar?.getBoundingClientRect().height ?? 0)}px`);
+      root.current?.style.setProperty('--page-sticky-offset', `${stickyChromeHeight(root.current)}px`);
       const band = pageHeader.current;
       const width = band?.getBoundingClientRect().width ?? 0;
       if (!band || width <= 0) return;

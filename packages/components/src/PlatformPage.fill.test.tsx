@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, describe, expect, it } from 'vitest';
+import { installResizeObserver } from './dock/__tests__/harness';
+import { PanelWorkspace } from './workspace/PanelWorkspace';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { PlatformPage, type PlatformPageProps } from './PlatformPage';
@@ -98,6 +100,22 @@ describe('PlatformPage layout: a workspace in stack mode turns the fill page int
     mountWith({ layout: 'flow' });
     act(() => { setActive(true); });
     expect(document.querySelector<HTMLElement>('[data-platform-page]')!.className).toBe('flex min-h-full flex-col');
+  });
+
+  it('a dock panel is a page-flow boundary: a stacked workspace inside a panel leaves the outer fill page\'s sizing and slot floor alone', async () => {
+    const observer = installResizeObserver();
+    try {
+      render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><PlatformPage layout="fill">
+        <PanelWorkspace panels={[{ id: 'outer', title: { ko: '바깥', en: 'Outer' }, primary: true, render: () => <Registrant /> }]} presets={[{ id: 'p', label: { ko: '하나', en: 'One' }, layout: { type: 'group', panels: ['outer'] } }]} initialPreset="p" persistKey="outer" label={{ ko: '바깥 작업 영역', en: 'Outer workspace' }} />
+      </PlatformPage></PlatformProvider></I18nProvider>);
+      await screen.findByText('작업 영역');
+      act(() => { setActive(true); });
+      const root = document.querySelector<HTMLElement>('[data-platform-page]')!;
+      expect(root).toHaveClass('h-full', 'min-h-0');
+      expect(document.querySelector('[data-platform-page-fill]')).toHaveClass('min-h-[520px]');
+    } finally {
+      observer.restore();
+    }
   });
 
   it('a nested flow page isolates its workspace from the outer fill page', () => {

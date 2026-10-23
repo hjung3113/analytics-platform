@@ -21,6 +21,8 @@ export const workspaceText = {
   heightMode: { ko: '높이 방식', en: 'Height mode' },
   modeFit: { ko: '화면 맞춤', en: 'Fit to screen' },
   modeStack: { ko: '아래로 쌓기', en: 'Stack downward' },
+  modeFitHint: { ko: '화면 맞춤: 패널이 화면 높이를 나눠 씁니다', en: 'Fit to screen: the panels share the screen height' },
+  modeStackHint: { ko: '아래로 쌓기: 줄마다 높이를 갖고 페이지가 스크롤됩니다', en: 'Stack downward: each row keeps its own height and the page scrolls' },
   modeOff: { ko: '좁은 폭에서는 화면 맞춤으로 보입니다', en: 'Shown fitted to the screen at this width' },
   moveBelow: { ko: '아래 새 줄로 옮기기', en: 'Move to a new row below' },
   dropBelow: { ko: '여기에 놓으면 아래에 새 줄', en: 'Drop here for a new row below' },

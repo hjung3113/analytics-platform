@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -133,6 +135,53 @@ describe('DockLayout rows (workspace stack mode)', () => {
       panelData.current = data;
       act(() => { fireEvent.dragOver(strip); fireEvent.drop(strip); });
     }
+    expect(onDropBelow).not.toHaveBeenCalled();
+  });
+
+  it('is drawn gap-inclusive: the box adds the engine gap between top-level rows, so each row keeps its own px (--dock-rows-height stays the px sum)', async () => {
+    mountRows(column([40, 60], group(['a']), group(['c'])));
+    await ready();
+    const wrapper = document.querySelector<HTMLElement>('[data-dock-rows]')!;
+    expect(wrapper.style.getPropertyValue('--dock-rows-height')).toBe('700px');
+    expect(wrapper.style.getPropertyValue('--dock-rows-box')).toBe('706px');
+  });
+
+  it('switches off the sashes of its own grid only: a layout nested in a panel keeps its pointer sashes', async () => {
+    const selector = /^(\[data-dock-rows-grid\][^{]*)\{[^}]*pointer-events: none/m.exec(readFileSync(resolve(process.cwd(), 'src/dock/dock.css'), 'utf8'))![1]!.trim();
+    const nested = [{ id: 'x', title: '안쪽 x', render: () => <div>x</div> }, { id: 'y', title: '안쪽 y', render: () => <div>y</div> }];
+    const outer = [{ id: 'a', title: '패널 a', render: () => <DockLayout panels={nested} layout={column([50, 50], group(['x']), group(['y']))} onLayoutChange={vi.fn()} separatorLabel={label} label="안쪽" minPanelSize={{ width: 20, height: 20 }} /> }, panels[1]!];
+    render(<I18nProvider><DockLayoutBase panels={outer} layout={column([50, 50], group(['a']), group(['b']))} onLayoutChange={vi.fn()} separatorLabel={label} label="행 배치" minPanelSize={{ width: 20, height: 20 }} rows={{ heights: [300, 400], minimums: [200, 200], maximum: 700, onHeightsChange: vi.fn() }} /></I18nProvider>);
+    await waitFor(() => { expect(document.querySelectorAll('[data-dock-rows] [data-dock-panel="a"] .dv-groupview').length).toBeGreaterThan(0); });
+    await waitFor(() => { expect(document.querySelector('[data-dock-rows-grid]')).not.toBeNull(); });
+    const sashes = Array.from(document.querySelectorAll<HTMLElement>('.dv-sash'));
+    const inner = sashes.filter(sash => sash.closest('[data-dock-panel="a"]'));
+    const own = sashes.filter(sash => !sash.closest('[data-dock-panel]'));
+    expect(own.length).toBeGreaterThan(0);
+    expect(inner.length).toBeGreaterThan(0);
+    expect(own.some(sash => sash.matches(selector))).toBe(true);
+    expect(inner.some(sash => sash.matches(selector))).toBe(false);
+  });
+
+  it('consumes every drag over the strip, refused ones too: an ancestor never sees it, and a refused drag shows no accept indicator', async () => {
+    const onDropBelow = vi.fn();
+    mountRows(column([40, 60], group(['a']), group(['c'])), { onDropBelow, dropBelowLabel: '여기에 놓으면 아래에 새 줄' });
+    await ready();
+    const strip = document.querySelector<HTMLElement>('[data-dock-drop-below]')!;
+    // Native listeners on an ancestor, like the board's own dock: they see an event only if the strip let it bubble.
+    const seen = vi.fn();
+    for (const type of ['dragenter', 'dragover', 'drop']) document.body.addEventListener(type, seen);
+    try {
+      for (const data of [null, { viewId: 'another-layout', groupId: 'g', panelId: 'a' }]) {
+        panelData.current = data;
+        const events = [new Event('dragenter', { bubbles: true, cancelable: true }), new Event('dragover', { bubbles: true, cancelable: true }), new Event('drop', { bubbles: true, cancelable: true })];
+        act(() => { events.forEach(event => strip.dispatchEvent(event)); });
+        expect(events.map(event => event.defaultPrevented)).toEqual([false, false, false]);
+        expect(strip.className).not.toContain('border-accent-primary');
+      }
+    } finally {
+      for (const type of ['dragenter', 'dragover', 'drop']) document.body.removeEventListener(type, seen);
+    }
+    expect(seen).not.toHaveBeenCalled();
     expect(onDropBelow).not.toHaveBeenCalled();
   });
 });

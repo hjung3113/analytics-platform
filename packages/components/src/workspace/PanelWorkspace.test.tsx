@@ -547,6 +547,16 @@ describe('PanelWorkspace: height mode (#686)', () => {
     expect(rowSeparators()).toEqual([]);
   });
 
+  it('each mode says what it does in a tooltip', async () => {
+    mountWorkspace(ROWS_PROPS);
+    await ready();
+    await userEvent.hover(within(modeGroup()).getByText('아래로 쌓기'));
+    expect((await screen.findAllByText('아래로 쌓기: 줄마다 높이를 갖고 페이지가 스크롤됩니다')).length).toBeGreaterThan(0);
+    await userEvent.unhover(within(modeGroup()).getByText('아래로 쌓기'));
+    await userEvent.hover(within(modeGroup()).getByText('화면 맞춤'));
+    expect((await screen.findAllByText('화면 맞춤: 패널이 화면 높이를 나눠 씁니다')).length).toBeGreaterThan(0);
+  });
+
   it('switching to 아래로 쌓기 gives each row its px, stores mode and rows, keeps the preset, and remounts and queries nothing; switching back is fit again', async () => {
     mountWorkspace(ROWS_PROPS);
     await ready();
@@ -578,6 +588,27 @@ describe('PanelWorkspace: height mode (#686)', () => {
     expect(rowHeights()).toEqual([300, 400, 500]);
     expect(within(modeGroup()).getByRole('radio', { name: '아래로 쌓기' })).toBeChecked();
     expect(document.querySelector<HTMLElement>('[data-dock-rows]')!.style.getPropertyValue('--dock-rows-height')).toBe('1200px');
+  });
+
+  it('restored rows obey the visible-height cap once; a later window resize never rewrites them', async () => {
+    vi.stubGlobal('innerHeight', 600);
+    try {
+      seed(stackStored([800, 360, 360]));
+      mountWorkspace(ROWS_PROPS);
+      await ready();
+      await waitFor(() => { expect(rowHeights()).toEqual([600, 360, 360]); });
+      await sleep(400);
+      expect(lastStored().rows).toEqual([600, 360, 360]);
+      const writes = written().length;
+      vi.stubGlobal('innerHeight', 300);
+      fireEvent(window, new Event('resize'));
+      await settle();
+      expect(rowHeights()).toEqual([600, 360, 360]);
+      await sleep(400);
+      expect(written().length).toBe(writes);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('a stored stack mode with unusable rows measures them before showing (no fit was shown: the visible height less the toolbar is the baseline)', async () => {

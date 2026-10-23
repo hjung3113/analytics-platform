@@ -306,12 +306,16 @@ export function PaneHeader(props: PaneHeaderProps) {
             {workspaceCommands.length > 0 && <>
               {hasContentMenu && <DropdownMenuSeparator />}
               <DropdownMenuLabel>{text.screenLayout}</DropdownMenuLabel>
-              {radioGroups.map((commands, at) => <Fragment key={commands[0]!.group ?? 'preset'}>
+              {radioGroups.map((commands, at) => {
+                // A group the workspace names (its `group`) gets a visible label of its own; the first, unnamed one sits under `화면 배치`.
+                const named = text.workspaceGroupName(commands[0]!.group ?? '');
+                return <Fragment key={commands[0]!.group ?? 'preset'}>
                 {at > 0 && <DropdownMenuSeparator />}
-                <DropdownMenuRadioGroup value={commands.find(command => command.checked)?.id ?? ''} onValueChange={id => { commands.find(command => command.id === id)?.run(); }}>
+                {named && <DropdownMenuLabel id={`${id}-group-${at}`}>{named}</DropdownMenuLabel>}
+                <DropdownMenuRadioGroup aria-labelledby={named ? `${id}-group-${at}` : undefined} value={commands.find(command => command.checked)?.id ?? ''} onValueChange={id => { commands.find(command => command.id === id)?.run(); }}>
                   {commands.map(command => <DropdownMenuRadioItem key={command.id} value={command.id} disabled={command.disabled}>{command.label}</DropdownMenuRadioItem>)}
                 </DropdownMenuRadioGroup>
-              </Fragment>)}
+              </Fragment>; })}
               {otherCommands.map(command => <DropdownMenuItem key={command.id} disabled={command.disabled} onSelect={() => command.run()}>{command.label}</DropdownMenuItem>)}
             </>}
             {dock && props.dockMenu && <>

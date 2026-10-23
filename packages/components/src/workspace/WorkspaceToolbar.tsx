@@ -1,5 +1,5 @@
 import { useId, useRef } from 'react';
-import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@ap/ui';
+import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { useI18n } from '@ap/kernel';
 import type { WorkspaceCommand } from '../dock/WorkspaceCommandsHost';
 import { SegmentedRadio } from '../RadioGroup';
@@ -9,6 +9,14 @@ export const SHOW_PREFIX = 'show:';
 export const PRESET_PREFIX = 'preset:';
 export const MODE_PREFIX = 'mode:';
 export const RESET_ID = 'reset';
+
+/** A height mode's label with what the mode does, so `세로` (a preset) and `아래로 쌓기` (a mode) are not mistaken for each other. */
+function ModeLabel({ command }: { command: WorkspaceCommand }) {
+  const { tx } = useI18n();
+  const hint = command.id === `${MODE_PREFIX}stack` ? workspaceText.modeStackHint : command.id === `${MODE_PREFIX}fit` ? workspaceText.modeFitHint : undefined;
+  if (!hint) return command.label;
+  return <TooltipProvider><Tooltip><TooltipTrigger asChild><span>{command.label}</span></TooltipTrigger><TooltipContent>{tx(hint)}</TooltipContent></Tooltip></TooltipProvider>;
+}
 
 /**
  * The workspace's one toolbar row: the presets, the height mode, the hidden panels to reopen, `기본 배치`. It draws the same commands a host would
@@ -38,7 +46,7 @@ export function WorkspaceToolbar({ commands, onShown }: { commands: readonly Wor
     </span>}
     {modes.length > 1 && <span className="inline-flex" title={modeOff ? modeReason : undefined}>
       <SegmentedRadio label={tx(workspaceText.heightMode)} value={modes.find(command => command.checked)?.id ?? null} disabled={modeOff} describedBy={modeOff ? modeReasonId : undefined} onChange={next => { modes.find(command => command.id === next)?.run(); }}
-        options={modes.map(command => ({ value: command.id, label: command.label }))} />
+        options={modes.map(command => ({ value: command.id, label: <ModeLabel command={command} /> }))} />
       {modeOff && <span id={modeReasonId} className="sr-only">{modeReason}</span>}
     </span>}
     <DropdownMenu>

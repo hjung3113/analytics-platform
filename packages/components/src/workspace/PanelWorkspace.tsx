@@ -162,10 +162,10 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, l
   const live = useRef({ compact, narrow, derived, presets, primaryId, rowMinimum, maxRow, stackActive });
   useLayoutEffect(() => { live.current = { compact, narrow, derived, presets, primaryId, rowMinimum, maxRow, stackActive }; });
   const rowEnv = (): RowEnv => ({ minimum: live.current.rowMinimum, maximum: live.current.maxRow, baseline: lastFit.current ?? Math.max(NEW_ROW_HEIGHT, live.current.maxRow - TOOLBAR_CHROME) });
-  /** `keep`: an edit; rows follow the panels. `enter`: preset or reset; rows come from the new shares and the fit baseline, so repeating it cannot add height. `raw`: the edit decided the rows itself. */
-  const update = useCallback((change: (current: WorkspaceState) => WorkspaceState, settle: 'keep' | 'enter' | 'raw' = 'keep') => {
+  /** `keep`: an edit; rows follow the panels (`created`: the panel the edit moved into a row of its own, which is then a new row). `enter`: preset or reset; rows come from the new shares and the fit baseline, so repeating it cannot add height. `raw`: the edit decided the rows itself. */
+  const update = useCallback((change: (current: WorkspaceState) => WorkspaceState, settle: 'keep' | 'enter' | 'raw' = 'keep', created?: string) => {
     if (live.current.compact) setCompactState(previous => change(previous ?? live.current.derived));
-    else setStored(previous => { const next = change(previous); return settle === 'raw' ? next : settleRows(previous, next, settle, rowEnv()); });
+    else setStored(previous => { const next = change(previous); return settle === 'raw' ? next : settleRows(previous, next, settle, rowEnv(), created); });
   }, []);
   const setMode = useCallback((mode: 'fit' | 'stack') => {
     if (live.current.narrow) return;
@@ -183,6 +183,19 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, l
       if (previous.mode !== 'stack' || previous.rows?.length === topLevelRows(previous.layout).length) return previous;
       const env = rowEnv();
       return withRows(previous, 'stack', enterRows(previous.layout, env.baseline, env.minimum, env.maximum));
+    });
+  }, [stackActive, storedRows, visible]);
+
+  // Restored rows obey the visible-height cap once, when a scrollport measurement first exists. Not again: a later window resize never rewrites the preference.
+  const restoreClamped = useRef(false);
+  useLayoutEffect(() => {
+    if (restoreClamped.current || !stackActive || storedRows === undefined || visible === null) return;
+    restoreClamped.current = true;
+    setStored(previous => {
+      if (previous.mode !== 'stack' || previous.rows === undefined || previous.rows.length !== topLevelRows(previous.layout).length) return previous;
+      const minimums = topLevelRows(previous.layout).map(live.current.rowMinimum);
+      const clamped = previous.rows.map((px, index) => clampRow(px, minimums[index]!, live.current.maxRow));
+      return clamped.every((px, index) => px === previous.rows![index]) ? previous : withRows(previous, 'stack', clamped);
     });
   }, [stackActive, storedRows, visible]);
 
@@ -248,8 +261,8 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, l
   const reading = dockGroupsInReadingOrder(state.layout);
   const focusTab = (panelId: string) => { focusTabSoon(() => root.current, panelId); };
   const closeFocus = useRef<(() => void) | null>(null);
-  const layoutChange = (change: (current: WorkspaceState) => WorkspaceState) => { update(change); };
-  const moveBelow = (id: string) => { layoutChange(current => (panelOrder(current.layout).includes(id) ? { ...current, layout: moveToNewRow(current.layout, id) } : current)); };
+  const layoutChange = (change: (current: WorkspaceState) => WorkspaceState, created?: string) => { update(change, 'keep', created); };
+  const moveBelow = (id: string) => { layoutChange(current => (panelOrder(current.layout).includes(id) ? { ...current, layout: moveToNewRow(current.layout, id) } : current), id); };
 
   // Stack rows: stored px raised to each row's current minimum (a panel's minimum can change); the maximum only limits what the user asks for.
   const stackRows = stackActive ? storedRows : undefined;
@@ -271,7 +284,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, l
     const menu = dockLayoutMenu(state.layout, id, { maximized: maximizedId !== null && group.panels.includes(maximizedId), orderOf: other => reading.indexOf(other as (typeof reading)[number]) });
     return <WorkspaceGroupActions key={id} title={titleOf(id)} titleOf={titleOf} menu={menu} closeFocus={closeFocus}
       onMaximize={maximize => { setMaximized(maximize ? id : null); }}
-      onSplit={position => { if (!menu.maximized && menu.split) { closeFocus.current = () => { focusTab(id); }; const target = menu.split; layoutChange(current => ({ ...current, layout: movePanel(current.layout, id, { panelId: target, position }) })); } }}
+      onSplit={position => { if (!menu.maximized && menu.split) { closeFocus.current = () => { focusTab(id); }; const target = menu.split; layoutChange(current => ({ ...current, layout: movePanel(current.layout, id, { panelId: target, position }) }), id); } }}
       onMove={target => { closeFocus.current = () => { focusTab(id); }; layoutChange(current => ({ ...current, layout: movePanel(current.layout, id, { panelId: target, position: 'center' }) })); }}
       onMoveBelow={rows && canMoveBelow(state.layout, id) ? () => { closeFocus.current = () => { focusTab(id); }; moveBelow(id); } : undefined}
       onHide={id === primaryId ? undefined : () => {

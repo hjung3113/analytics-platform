@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { movePanel } from '../dock/commands';
 import { column, group, row } from '../dock/__tests__/harness';
 import type { DockNode } from '../dock/schema';
 import { canMoveBelow, clampRow, enterRows, moveToNewRow, NEW_ROW_HEIGHT, reconcileRows, rowMinimumOf, ROW_MIN_HEIGHT, topLevelRows, withRowShares } from './workspaceRows';
@@ -53,6 +54,41 @@ describe('reconcileRows', () => {
     ['two rows merged into one keep the larger overlap first', two, group(['a', 'b']), [300, 500], [300]],
     ['a kept row is raised to its minimum, never lowered', column([50, 50], group(['a']), group(['b'])), column([50, 50], group(['a']), group(['b'])), [120, 500], [200, 500]],
   ])('%s', (_name, from, to, rows, expected) => { expect(reconcileRows(from, rows, to, min200, 700)).toEqual(expected); });
+
+  describe('by provenance', () => {
+    const three = column([30, 40, 30], group(['a']), group(['b', 'c', 'd']), group(['e']));
+
+    it('a panel dropped above the first row is a new row; the row it left keeps its px and no survivor loses any', () => {
+      const next = movePanel(three, 'b', { panelId: 'a', position: 'top' });
+      expect(rowsOf(next)).toEqual([['b'], ['a'], ['c', 'd'], ['e']]);
+      expect(reconcileRows(three, [300, 600, 400], next, min200, 800)).toEqual([NEW_ROW_HEIGHT, 300, 600, 400]);
+    });
+
+    it('a panel moved below from a row of its own: the new last row replaces the old one (net = new less removed)', () => {
+      const stack = column([30, 40, 30], group(['a']), group(['b']), group(['c']));
+      const next = moveToNewRow(stack, 'b');
+      expect(rowsOf(next)).toEqual([['a'], ['c'], ['b']]);
+      expect(reconcileRows(stack, [300, 500, 400], next, min200, 800, 'b')).toEqual([300, 400, NEW_ROW_HEIGHT]);
+    });
+
+    it('without the hint a row that keeps its panels keeps its px wherever it went', () => {
+      const stack = column([30, 40, 30], group(['a']), group(['b']), group(['c']));
+      expect(reconcileRows(stack, [300, 500, 400], moveToNewRow(stack, 'b'), min200, 800)).toEqual([300, 400, 500]);
+    });
+
+    it('a panel taken out of a shared row into a row of its own leaves the row it left at its px', () => {
+      const stack = column([30, 70], group(['a']), group(['b', 'c']));
+      const next = moveToNewRow(stack, 'c');
+      expect(rowsOf(next)).toEqual([['a'], ['b'], ['c']]);
+      expect(reconcileRows(stack, [300, 500], next, min200, 800, 'c')).toEqual([300, 500, NEW_ROW_HEIGHT]);
+    });
+
+    it('a split above or below a panel in the same row keeps nested shares and the other rows untouched', () => {
+      const nested = column([30, 70], group(['a']), row([40, 60], group(['b']), group(['c'])));
+      const next = movePanel(nested, 'c', { panelId: 'a', position: 'bottom' });
+      expect(reconcileRows(nested, [300, 500], next, min200, 800, 'c')).toEqual([300, NEW_ROW_HEIGHT, 500]);
+    });
+  });
 
   it('a new row follows its bounds', () => {
     expect(reconcileRows(two, [300, 500], column([40, 30, 30], group(['a']), group(['b']), group(['c'])), () => 500, 700)).toEqual([500, 500, 500]);
