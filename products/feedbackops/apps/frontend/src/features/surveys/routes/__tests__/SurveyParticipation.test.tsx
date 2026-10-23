@@ -682,7 +682,7 @@ describe('respondent form', () => {
     const submittedText = await screen.findByText('응답이 제출되었습니다');
     expect(submittedText).toBeInTheDocument();
     expect(document.activeElement).toBe(submittedText);
-    expect(submittedText.closest('[role="status"]')).not.toBeNull();
+    expect(submittedText.closest('output')).not.toBeNull();
     expect(screen.getByRole('link', { name: 'Survey 참여로 돌아가기' })).toHaveAttribute(
       'href',
       '/surveys/participate',
@@ -958,7 +958,7 @@ describe('platform bridge screens (embedded)', () => {
     const successHeading = within(success).getByRole('heading', { level: 2 });
     expect(successHeading).toHaveTextContent('응답이 제출되었습니다');
     expect(document.activeElement).toBe(successHeading);
-    expect(successHeading.closest('[role="status"]')).not.toBeNull();
+    expect(successHeading.closest('output')).not.toBeNull();
     expect(within(success).getByText('Survey 참여로 돌아가기').closest('a')).toHaveAttribute(
       'data-host-to',
       '/surveys/participate',

@@ -323,7 +323,7 @@ function SubmitSuccess({ Heading }: { Heading: 'h1' | 'h2' }) {
   }, []);
   return (
     <section className="w-full max-w-xl pt-16 text-center" data-testid="survey-response-success">
-      <div role="status">
+      <output className="block">
         <Heading
           ref={headingRef}
           tabIndex={-1}
@@ -331,7 +331,7 @@ function SubmitSuccess({ Heading }: { Heading: 'h1' | 'h2' }) {
         >
           {SURVEY_PARTICIPATION_COPY.submitted}
         </Heading>
-      </div>
+      </output>
       <HostLink
         to="/surveys/participate"
         className="mt-5 inline-flex text-sm font-medium text-accent-primary underline"

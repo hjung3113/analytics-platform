@@ -110,7 +110,7 @@ describe('Surveys through the FeedbackOps bridge', () => {
     const success = await screen.findByTestId('survey-response-success');
     const successHeading = within(success).getByRole('heading');
     expect(document.activeElement).toBe(successHeading);
-    expect(successHeading.closest('[role="status"]')).not.toBeNull();
+    expect(successHeading.closest('output')).not.toBeNull();
     expect(posts(calls).map(call => `${call.method} ${call.path}`)).toEqual([`POST /api/fo/surveys/${ID_A}/responses`]);
     expect(window.location.pathname).toBe(RESPOND);
     expect(screen.getByRole('list', { name: 'toasts' }).children).toHaveLength(0);
