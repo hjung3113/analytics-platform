@@ -1985,7 +1985,8 @@ test.describe('전역 기능 자리 (ADR-0070, 06 §9.1·§10)', () => {
     await expect(page.getByRole('status')).toContainText('실서버 필요');
     const sidebar = page.getByRole('navigation', { name: '플랫폼 메뉴' });
     await expect(sidebar.getByRole('link', { name: '권한 요청', exact: true })).toHaveAttribute('aria-current', 'page');
-    await expect(sidebar).not.toContainText('예정');
+    // 공지 has no screen yet and keeps its own 예정 label; only 권한 요청 lost it.
+    await expect(sidebar.getByRole('link', { name: '권한 요청', exact: true })).not.toContainText('예정');
   });
 
   test('VOC 등록은 사이드바 링크가 아니라 레일 버튼의 서랍이고 mock에서는 실서버 필요 상태를 보인다 (#656)', async ({ page }) => {

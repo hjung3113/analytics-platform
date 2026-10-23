@@ -63,7 +63,8 @@ function useManagedSystemsQuery() {
   // Archived ones stay in the list so an old request still shows its system's name; only active ones are offered.
   return useQuery({
     queryKey: ['permission-requests-page', 'managed-systems'] as const,
-    queryFn: ({ signal }) => fetchManagedSystems({ includeArchived: true, signal }),
+    // One page at the server's cap (500); the default (100) would hide systems past it. More than 500 is backlogged.
+    queryFn: ({ signal }) => fetchManagedSystems({ includeArchived: true, limit: 500, signal }),
     staleTime: 60_000,
   });
 }

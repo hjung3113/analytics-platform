@@ -177,6 +177,7 @@ describe('새 권한 요청', () => {
       screen.queryByRole('option', { name: '워크스페이스 관리자 권한' }),
     ).not.toBeInTheDocument();
     await user.click(screen.getByRole('option', { name: 'VOC 조회' }));
+    expect(calls.find((call) => call.url.includes('/managed-systems'))?.url).toContain('limit=500');
 
     screen.getByRole('combobox', { name: 'Managed System' }).focus();
     await user.keyboard('{Enter}');
