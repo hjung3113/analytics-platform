@@ -24,7 +24,7 @@ const GLOBAL: GlobalContext = {
 };
 const input = (over: Partial<VocFreezeInput> = {}): VocFreezeInput => ({
   route: { menu: registry.menus.find(entry => entry.path === '/p/:id')!, params: { id: '7' } }, platformScreen: null, global: GLOBAL,
-  page: [['granularity', 'day'], ['focus', 'E-9'], ['q', 'x']], absoluteUrl, registry, lang: 'ko', ...over,
+  page: [['granularity', 'day'], ['focus', 'E-9'], ['q', 'x']], absoluteUrl, registry, lang: 'ko', axes: [], asOf: '그 시점 소속', ...over,
 });
 
 describe('freezeVocContext (ADR-0070 decision 5)', () => {
@@ -38,7 +38,7 @@ describe('freezeVocContext (ADR-0070 decision 5)', () => {
       'page:q': ['q', 'x'],
       period: ['기간', '2026-10-20 09:00 – 2026-10-23 18:00'],
       'global:lineNames': ['Line', 'L1'],
-      'global:condition': ['그룹 조건', 'A, B'],
+      'global:condition': ['그룹 조건', 'area: A, B · 그 시점 소속'],
       'global:selection': ['설비 선택', 'e1, e2, e3, e4, e5 외 2개'],
       'global:metricId': ['지표·버전', 'oee v3'],
       'global:scopeId': ['Scope', 'MEM'],
@@ -84,5 +84,14 @@ describe('freezeVocContext (ADR-0070 decision 5)', () => {
     const global = { ...GLOBAL, condition: null, prcGroups: ['G1'] };
     expect(new URL(freezeVocContext(input({ global })).href!).searchParams.get('membershipBasis')).toBe('asOf');
     expect(new URL(freezeVocContext(input({ global }), new Set(['global:prcGroups'])).href!).searchParams.has('membershipBasis')).toBe(false);
+  });
+
+  it('reads the Condition with axis names and marks the as-of basis like the board header', () => {
+    const axes = [{ id: 'area', label: { ko: '구역', en: 'Area' }, membershipHistory: true }];
+    const chips = (over: Partial<VocFreezeInput>) => Object.fromEntries(freezeVocContext(input({ axes, ...over })).items.map(item => [item.id, item.value]));
+    const chip = (over: Partial<VocFreezeInput>) => chips(over)['global:condition'];
+    expect(chip({})).toBe('구역: A, B · 그 시점 소속');
+    expect(chip({ global: { ...GLOBAL, membershipBasis: null } })).toBe('구역: A, B');
+    expect(chips({ global: { ...GLOBAL, condition: null, prcGroups: ['G1'] } })['global:prcGroups']).toBe('G1 · 그 시점 소속');
   });
 });

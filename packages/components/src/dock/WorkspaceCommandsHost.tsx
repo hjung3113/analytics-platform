@@ -8,6 +8,8 @@ export type WorkspaceCommand = {
   kind: 'radio' | 'action';
   /** The radio group a `radio` belongs to, each with its own checked item. Absent = `'preset'` (the presets); the height mode is `'mode'`. */
   group?: 'preset' | 'mode';
+  /** The localized name of the radio group, set by the producer on a group's commands; absent = the group is unnamed. */
+  groupLabel?: string;
   checked?: boolean;
   disabled?: boolean;
   run: () => void;
