@@ -164,8 +164,15 @@ export default function CycleTimeDrilldown(_: PageProps) {
       : 'Cycle time for the applied period and equipment. Point and histogram choices filter only the list.'}
     secondaryActions={<Button variant="secondary" size="sm" onClick={() => { kpi.refetch(); trend.refetch(); dist.refetch(); setReload(n => n + 1); if (pageRaw !== null) setPage({ page: null }, { replace: true }); }}><RotateCw className="size-3.5" aria-hidden />{ko ? '새로고침' : 'Refresh'}</Button>}
     dataTrustSummary={kpi.response?.trust ? <DataTrustIndicator trust={kpi.response.trust} assessments={kpi.response.assessments} /> : undefined}
+    contextNotes={[
+      <MetricBanner key="metric" metric={metric} />,
+      <p key="grain" className="text-xs text-text-muted">
+        {ko
+          ? `집계 기본값은 기간이 48시간 이하면 시간, 그보다 길면 일입니다${!draftGrain.ok || draftGrain.explicit ? '' : ` (지금 ${draftGrain.value === 'hour' ? '시간' : draftGrain.value === 'day' ? '일' : '주'})`}. 느린 실행은 표시된 P95 이상(같은 값 포함)이며 요약 모집단은 줄이지 않습니다.`
+          : `The default grain is hours when the period is 48 hours or less, otherwise days${!draftGrain.ok || draftGrain.explicit ? '' : ` (now ${draftGrain.value})`}. Slow means at or above the displayed P95, including ties, and does not shrink the summary population.`}
+      </p>,
+    ]}
     contextExtension={<div className="space-y-2">
-      <MetricBanner metric={metric} />
       <PageFilterBar mode="draft" hasPendingChanges={queryDraft.dirty.length > 0} label={t('pageFilter')} collapsible preferenceKey={route?.menu.id ?? ''} summaryItems={pageSummary} collapsedActions={resetFilters} fields={[
         { kind: 'custom', key: 'granularity', label: grainFieldLabel, content: <div className="flex flex-wrap items-center gap-1">
           {(['hour', 'day', 'week'] as const).map(value => {
@@ -177,11 +184,6 @@ export default function CycleTimeDrilldown(_: PageProps) {
         { kind: 'select', key: 'percentile', label: tailFieldLabel, value: draftTail.ok ? draftTail.value : draftParam('percentile') ?? '', options: tailOptions, onValueChange: value => queryDraft.setDraftPage({ percentile: value, page: null }) },
         { kind: 'select', key: 'sort', label: sortFieldLabel, value: draftSort.ok ? encodeSort(draftSort.id, draftSort.desc) : draftParam('sort') ?? '', options: sortOptions, onValueChange: value => queryDraft.setDraftPage({ sort: value === DEFAULT_SORT ? null : value, page: null }) },
       ]} actions={resetFilters} />
-      <p className="text-xs text-text-muted">
-        {ko
-          ? `집계 기본값은 기간이 48시간 이하면 시간, 그보다 길면 일입니다${!draftGrain.ok || draftGrain.explicit ? '' : ` (지금 ${draftGrain.value === 'hour' ? '시간' : draftGrain.value === 'day' ? '일' : '주'})`}. 느린 실행은 표시된 P95 이상(같은 값 포함)이며 요약 모집단은 줄이지 않습니다.`
-          : `The default grain is hours when the period is 48 hours or less, otherwise days${!draftGrain.ok || draftGrain.explicit ? '' : ` (now ${draftGrain.value})`}. Slow means at or above the displayed P95, including ties, and does not shrink the summary population.`}
-      </p>
       {(bucketRange || bin) && <div className="flex flex-wrap items-center gap-2">
         {bucketRange && <FilterChip label={ko ? '버킷' : 'Bucket'} value={`${bucketRange.from.replace('T', ' ')} → ${bucketRange.to.replace('T', ' ')}`} onClear={() => setPage({ bucket: null })} clearLabel={ko ? '버킷 필터 해제' : 'Clear bucket filter'} />}
         {bin && <FilterChip label={ko ? '분포 구간' : 'Histogram'} value={bin.from === bin.to ? bin.from : `${bin.from} – ${bin.to}`} onClear={() => setPage({ bin: null })} clearLabel={ko ? '분포 필터 해제' : 'Clear histogram filter'} />}

@@ -2,7 +2,7 @@ import { createContext, useContext, useId, useLayoutEffect, useRef, useState, us
 import { Clock, Inbox, Loader2, RotateCw, ServerCrash } from 'lucide-react';
 import type { ApiResponse } from '@ap/contracts';
 import { useI18n, type QueryState } from '@ap/kernel';
-import { Button, cn } from '@ap/ui';
+import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
 
 type Widget = { id: string; response: ApiResponse<unknown> | null; retry: () => void; name?: string; status: QueryState<unknown>['status'] };
 type Group = { key: string; widgets: Widget[]; busy: boolean };
@@ -83,13 +83,18 @@ export function useSharedOutcome(response: Widget['response'], retry: () => void
   return useSyncExternalStore(store?.subscribe ?? subscribeNone, getSnapshot, () => false);
 }
 
-function OutcomeBanner({ group, onRetry }: { group: Group; onRetry: () => void }) {
+/** `compact` (fill pages): a one-line strip with the same group, tone, retry and live rules; the sentence truncates and `자세히` shows it in full. */
+function OutcomeBanner({ group, onRetry, compact = false }: { group: Group; onRetry: () => void; compact?: boolean }) {
   const { t } = useI18n();
   const banner = useRef<HTMLElement>(null);
+  const unmounting = useRef(false);
   useLayoutEffect(() => {
     const element = banner.current;
+    unmounting.current = false; // StrictMode re-runs the effect after a simulated cleanup
     return () => {
-      if (element?.contains(document.activeElement)) {
+      unmounting.current = true;
+      // The details popover is portaled out of the strip; focus inside it returns to the same target.
+      if (element && (element.contains(document.activeElement) || document.activeElement?.closest('[data-outcome-details]'))) {
         // Detail panel (dialog) first, then the main landmark; the page content element is the fallback outside a shell.
         // No extra landmark is added around page content (06 §19, §26).
         const target = element.closest<HTMLElement>('[data-outcome-focus-target], [role="dialog"]')
@@ -103,19 +108,40 @@ function OutcomeBanner({ group, onRetry }: { group: Group; onRetry: () => void }
   const title = outcome === 'error' ? t('stateError') : outcome === 'timeout' ? t('stateTimeout') : t('stateEmpty');
   const label = outcome === 'error' ? t('sharedOutcomeError') : outcome === 'timeout' ? t('sharedOutcomeTimeout') : t('sharedOutcomeEmpty');
   const Icon = outcome === 'error' ? ServerCrash : outcome === 'timeout' ? Clock : Inbox;
+  const summary = t('sharedOutcomeSummary', { count: group.widgets.length, outcome: label });
+  const retry = <Button type="button" size="sm" variant="secondary" aria-busy={group.busy} aria-disabled={group.busy} onClick={onRetry}>
+    {group.busy ? <Loader2 aria-hidden className="size-3.5 animate-spin" /> : <RotateCw aria-hidden className="size-3.5" />}{t('retry')}
+  </Button>;
+  if (compact) {
+    return <section ref={banner} data-outcome-banner data-outcome-compact role="group" aria-label={t('sharedOutcomeRegion')}
+      className={cn('mb-3 flex items-center gap-2 rounded-md border px-3 py-1.5 text-xs text-text-secondary', danger ? 'border-text-danger-label bg-accent-danger-soft' : 'border-border-control bg-surface-sunken')}>
+      <Icon aria-hidden className={cn('size-4 shrink-0', danger ? 'text-text-danger-label' : 'text-text-secondary')} />
+      <span className={cn('shrink-0 whitespace-nowrap font-semibold', danger ? 'text-text-danger-label' : 'text-text-secondary')}>{label} ·</span>
+      <p className="min-w-0 flex-1 truncate" title={summary}>{summary}</p>
+      <Popover>
+        <PopoverTrigger asChild><Button type="button" size="toolbar" variant="ghost" className="shrink-0">{t('outcomeDetails')}</Button></PopoverTrigger>
+        <PopoverContent data-outcome-details align="end" padding="compact" className="max-w-sm"
+          onCloseAutoFocus={event => { if (unmounting.current) event.preventDefault(); }}>
+          <div className="text-xs text-text-secondary">
+            <p className={cn('mb-1 text-sm font-semibold', danger ? 'text-text-danger-label' : 'text-text-secondary')}>{title}</p>
+            <p>{summary}</p>
+          </div>
+        </PopoverContent>
+      </Popover>
+      {retry}
+    </section>;
+  }
   return <section ref={banner} data-outcome-banner role="group" aria-label={t('sharedOutcomeRegion')}
     className={cn('mb-3 rounded-md border p-3 text-xs text-text-secondary', danger ? 'border-text-danger-label bg-accent-danger-soft' : 'border-border-control bg-surface-sunken')}>
     <div className={cn('mb-1.5 flex items-center gap-2 text-sm font-semibold', danger ? 'text-text-danger-label' : 'text-text-secondary')}><Icon aria-hidden className="size-4 shrink-0" />{title}</div>
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <p className="min-w-0 flex-[1_1_18rem]">{t('sharedOutcomeSummary', { count: group.widgets.length, outcome: label })}</p>
-      <Button type="button" size="sm" variant="secondary" aria-busy={group.busy} aria-disabled={group.busy} onClick={onRetry}>
-        {group.busy ? <Loader2 aria-hidden className="size-3.5 animate-spin" /> : <RotateCw aria-hidden className="size-3.5" />}{t('retry')}
-      </Button>
+      <p className="min-w-0 flex-[1_1_18rem]">{summary}</p>
+      {retry}
     </div>
   </section>;
 }
 
-export function OutcomeBanners() {
+export function OutcomeBanners({ compact = false }: { compact?: boolean } = {}) {
   const store = useContext(OutcomeContext);
   const groups = useSyncExternalStore(store?.subscribe ?? subscribeNone, store?.getSnapshot ?? emptySnapshot, emptySnapshot);
   const { t } = useI18n();
@@ -128,6 +154,6 @@ export function OutcomeBanners() {
   return <>
     <div data-outcome-announcer="assertive" aria-live="assertive" aria-atomic="true" className="sr-only">{announcement(true)}</div>
     <div data-outcome-announcer="polite" aria-live="polite" aria-atomic="true" className="sr-only">{announcement(false)}</div>
-    {groups.map(group => <OutcomeBanner key={group.key} group={group} onRetry={() => store?.retry(group.key)} />)}
+    {groups.map(group => <OutcomeBanner key={group.key} group={group} compact={compact} onRetry={() => store?.retry(group.key)} />)}
   </>;
 }

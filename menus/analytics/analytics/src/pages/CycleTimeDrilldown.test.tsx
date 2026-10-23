@@ -62,6 +62,10 @@ describe('CycleTimeDrilldown page filter summary', () => {
   });
 
   it('summarizes applied values and keeps the reset working without leaving the collapsed state', async () => {
+    // The page head starts collapsed on a fill page (#680); this test works inside it.
+    const storage = memoryStorage();
+    storage.setItem('platform:page-head-collapsed:cycle-time', 'false');
+    vi.stubGlobal('localStorage', storage);
     renderPage('/analytics/cycle-time?v=1&scopeId=MEM&percentile=p50&sort=delta:desc');
 
     fireEvent.click(await screen.findByRole('button', { name: '페이지 필터 접기' }));

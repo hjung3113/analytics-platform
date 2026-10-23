@@ -374,3 +374,58 @@ describe('required text keeps the allowed foreground without opacity fade (#301)
     }
   });
 });
+
+describe('compact outcome strip on fill pages (#680)', () => {
+  const CompactPage = ({ children }: { children: ReactNode }) => <I18nProvider><div data-outcome-focus-target role="region" aria-label="Page content" tabIndex={-1}><OutcomeScope><OutcomeBanners compact />{children}</OutcomeScope></div></I18nProvider>;
+
+  it('draws one thin strip per group with the status prefix, the truncated sentence (title) and 자세히 / 다시 시도', () => {
+    const a = query(); const b = query();
+    const empty = query(response('empty', 'No rows'));
+    render(<CompactPage><Widget q={a} /><Widget q={b} name="Widget B" /><Widget q={empty} name="C" /><Widget q={query(response('empty', 'No rows'))} name="D" /></CompactPage>);
+    const strips = screen.getAllByRole('group', { name: '위젯 상태 요약' });
+    expect(strips).toHaveLength(2);
+    expect(strips[0]).toHaveAttribute('data-outcome-banner');
+    expect(strips[0]).toHaveAttribute('data-outcome-compact');
+    expect(strips[0]).toHaveTextContent('서버 오류 ·');
+    expect(strips[0]).not.toHaveTextContent('데이터를 불러오지 못했습니다');
+    const sentence = within(strips[0]).getByText('위젯 2개에서 같은 응답(서버 오류)이 확인되었습니다.');
+    expect(sentence).toHaveAttribute('title', '위젯 2개에서 같은 응답(서버 오류)이 확인되었습니다.');
+    expect(sentence).toHaveClass('truncate');
+    expect(strips[0]).toHaveClass('border-text-danger-label');
+    expect(strips[1]).toHaveClass('border-border-control');
+    expect(strips[1]).toHaveTextContent('0건 ·');
+    fireEvent.click(within(strips[0]).getByRole('button', { name: '다시 시도' }));
+    expect(a.refetch).toHaveBeenCalledTimes(1); expect(b.refetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens the full title and sentence from 자세히 (Popover), and keeps the live announcers', () => {
+    render(<CompactPage><Widget q={query()} /><Widget q={query()} name="Widget B" /></CompactPage>);
+    const strip = screen.getByRole('group', { name: '위젯 상태 요약' });
+    expect(screen.queryByRole('dialog')).toBeNull();
+    fireEvent.click(within(strip).getByRole('button', { name: '자세히' }));
+    expect(within(screen.getByRole('dialog')).getByText('데이터를 불러오지 못했습니다')).toBeVisible();
+    expect(screen.getByRole('dialog')).toHaveTextContent('위젯 2개에서 같은 응답(서버 오류)이 확인되었습니다.');
+    expect(document.querySelector('[data-outcome-announcer="assertive"]')).toHaveTextContent('위젯 2개에서 같은 응답(서버 오류)이 확인되었습니다.');
+  });
+
+  it('returns focus to the page target when the strip disappears while focus is inside its open details', () => {
+    const view = render(<CompactPage><Widget q={query()} /><Widget q={query()} name="Widget B" /></CompactPage>);
+    const trigger = screen.getByRole('button', { name: '자세히' });
+    fireEvent.click(trigger);
+    const popover = screen.getByRole('dialog');
+    act(() => { popover.focus(); });
+    expect(popover.contains(document.activeElement)).toBe(true);
+    const idle: QueryState<unknown> = { status: 'idle', response: null, completedAt: null, missing: [], refetch: vi.fn() };
+    view.rerender(<CompactPage><Widget q={idle} /><Widget q={idle} name="Widget B" /></CompactPage>);
+    expect(screen.queryByRole('group', { name: '위젯 상태 요약' })).toBeNull();
+    expect(screen.getByRole('region', { name: 'Page content' })).toHaveFocus();
+  });
+
+  it('keeps the full banner without the compact flag (flow pages, DetailDrawer)', () => {
+    render(<Page><Widget q={query()} /><Widget q={query()} name="Widget B" /></Page>);
+    const banner = screen.getByRole('group', { name: '위젯 상태 요약' });
+    expect(banner).not.toHaveAttribute('data-outcome-compact');
+    expect(banner).toHaveTextContent('데이터를 불러오지 못했습니다');
+    expect(within(banner).queryByRole('button', { name: '자세히' })).toBeNull();
+  });
+});

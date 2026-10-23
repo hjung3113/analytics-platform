@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { contextBar, evidence, expectScopeValid, firstRowByColumn, lotColumn, mainHeading, query, rowMapsByColumn, setScenario, showSlowExecutions, signInAs, storedUsageEvents, switchScope, tableStatusLine, usageVisits } from './support';
+import { contextBar, evidence, expandPageHead, expectScopeValid, firstRowByColumn, lotColumn, mainHeading, query, rowMapsByColumn, setScenario, showSlowExecutions, signInAs, storedUsageEvents, switchScope, tableStatusLine, usageVisits } from './support';
 
 /**
  * Platform contract checks (#44). Each `describe` is one contract area of docs/06; each test is one reported check.
@@ -1020,6 +1020,7 @@ test.describe('PageFilterBar 접힘 요약 (ADR-0029)', () => {
     const longRaw = 'x'.repeat(60);
     await page.setViewportSize({ width: 1024, height: 900 });
     await page.goto(`/analytics/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}&percentile=${longRaw}&sort=equipmentId:asc`);
+    await expandPageHead(page);
     const bar = page.getByTestId('page-filter-bar');
     await expect(bar).toBeVisible();
     // 등록되지 않은 percentile은 페이지 키 오류이지만 필터 바는 원문을 요약에 그대로 남긴다.
@@ -1157,6 +1158,7 @@ test.describe('PageFilterBar 접힘 요약 (ADR-0029)', () => {
     // 접힘 기억과 사이드바 상태는 storage state 없이 context마다 격리되지만, 테스트가 남긴 키를 지워 기본값으로 끝낸다.
     await page.evaluate(() => {
       localStorage.removeItem('platform:page-filter-collapsed:cycle-time');
+      localStorage.removeItem('platform:page-head-collapsed:cycle-time');
       localStorage.removeItem('platform:sidebar-collapsed');
     });
   });
@@ -2354,6 +2356,7 @@ test.describe('returnTo 복귀 (06 §22)', () => {
     const base = '/analytics/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00';
     // Read a bucket and bin that really contain the first slow execution, so the filter keeps a row (deterministic fixture).
     await page.goto(`${base}&sort=anchor:asc`);
+    await expandPageHead(page);
     await expect(page.getByTestId('page-filter-bar')).toBeVisible();
     await expect(page.getByRole('combobox', { name: '느린 실행 기준' })).toBeVisible();
     await showSlowExecutions(page);
@@ -2393,6 +2396,7 @@ test.describe('returnTo 복귀 (06 §22)', () => {
     };
 
     await page.goto(origin);
+    await expandPageHead(page);
     await expect(page.getByRole('button', { name: '버킷 필터 해제' })).toBeVisible();
     await expect(page.getByRole('button', { name: '분포 필터 해제' })).toBeVisible();
     expect(query(page).get('sort')).toBe('anchor:asc');
@@ -2410,6 +2414,7 @@ test.describe('returnTo 복귀 (06 §22)', () => {
     // execution-detail's back button follows returnOrigin() (same href as returnTarget()).
     await (await headerMore(page)).getByRole('link', { name: '← 사이클타임 상세' }).click();
     await expect.poll(() => page.url().replace(/^https?:\/\/[^/]+/, '')).toBe(origin);
+    await expandPageHead(page);
     await expect(page.getByRole('button', { name: '버킷 필터 해제' })).toBeVisible();
     await expect(page.getByRole('button', { name: '분포 필터 해제' })).toBeVisible();
     expect(query(page).get('sort')).toBe('anchor:asc');
@@ -3005,11 +3010,15 @@ test.describe('메뉴 작업 영역 (ADR-0067 3b)', () => {
     await page.addInitScript(() => {
       localStorage.removeItem('platform:query-bar-collapsed:cycle-time');
       localStorage.removeItem('platform:page-filter-collapsed:cycle-time');
+      localStorage.removeItem('platform:page-head-collapsed:cycle-time');
     });
   }
+  /** Collapses the query bar, the page filter and the page head (the head starts collapsed; the filter sits inside it). */
   async function collapseBars(page: Page) {
     await page.getByRole('button', { name: '조회 조건 접기' }).click();
+    await expandPageHead(page);
     await page.getByRole('button', { name: '페이지 필터 접기' }).click();
+    await page.getByRole('button', { name: '페이지 머리 접기' }).click();
   }
   async function workspaceReady(page: Page) {
     await expect(workspace(page)).toBeVisible();
@@ -3056,6 +3065,7 @@ test.describe('메뉴 작업 영역 (ADR-0067 3b)', () => {
     await expect.poll(async () => (await groupOf(page, TITLES.trend).boundingBox())!.width).toBeGreaterThanOrEqual(479);
 
     await page.getByRole('button', { name: '조회 조건 펼치기' }).click();
+    await expandPageHead(page);
     await page.getByRole('button', { name: '페이지 필터 펼치기' }).click();
     // The fill body keeps 520 px (toolbar included): the page scrolls instead of crushing the workspace.
     await expect.poll(async () => (await page.locator('[data-panel-workspace]').boundingBox())!.height).toBeGreaterThanOrEqual(519.5);
@@ -3130,7 +3140,7 @@ test.describe('메뉴 작업 영역 (ADR-0067 3b)', () => {
     await setScenario(page, '서버 오류 (error)');
     await expect(page.getByRole('main').locator('[data-outcome-banner]')).toHaveCount(1);
     await expect.poll(() => insideBody()).toBe(true);
-    // The banner takes height from a body that is already at the 520 px minimum, so the page may scroll here; the workspace must not shrink.
+    // The banner is the thin strip on a fill page (#680), so the page does not scroll here either; the workspace must not shrink.
     // Measured on the fill root (toolbar + dock), the element the minimum applies to; the named dock region excludes the toolbar.
     expect((await page.locator('[data-panel-workspace]').boundingBox())!.height).toBeGreaterThanOrEqual(519.5);
     await evidence(page, testInfo, 'workspace-with-banner');
@@ -3954,6 +3964,7 @@ test.describe('일괄 적용 조회 바 (06 §11·§19, ADR-0061)', () => {
     await page.goto('/analytics/cycle-time?scopeId=MEM');
     await expectScopeValid(page, 'MEM · 메모리');
     const bar = await expandQuery(page);
+    await expandPageHead(page);
     await expect(page.getByText('요약 조회 완료', { exact: false })).toHaveCount(0);
     await expect(bar.getByRole('button', { name: '적용', exact: true })).toBeDisabled();
     const original = page.url();
@@ -3977,6 +3988,7 @@ test.describe('일괄 적용 조회 바 (06 §11·§19, ADR-0061)', () => {
     const strip = page.getByRole('region', { name: '적용된 조회 조건' });
     await expect(strip).toContainText('요약 조회 완료');
     const bar = await expandQuery(page);
+    await expandPageHead(page);
     const original = page.url();
     await page.getByRole('button', { name: '주', exact: true }).click();
     expect(page.url()).toBe(original);
@@ -4026,6 +4038,7 @@ test.describe('일괄 적용 조회 바 (06 §11·§19, ADR-0061)', () => {
     await page.goto('/analytics/cycle-time?scopeId=MEM');
     await expectScopeValid(page, 'MEM · 메모리');
     let bar = await expandQuery(page);
+    await expandPageHead(page);
     await bar.getByRole('button', { name: '공정', exact: true }).click();
     await page.getByRole('option', { name: 'PHOTO', exact: true }).click();
     await page.keyboard.press('Escape');
@@ -4042,6 +4055,7 @@ test.describe('일괄 적용 조회 바 (06 §11·§19, ADR-0061)', () => {
     await page.goto('/analytics/cycle-time?scopeId=MEM');
     await expectScopeValid(page, 'MEM · 메모리');
     bar = await expandQuery(page);
+    await expandPageHead(page);
     await expect(page.getByRole('button', { name: '주', exact: true })).toHaveAttribute('aria-pressed', 'true');
     const before = await requestCount();
     expect(before).toBe(0);
@@ -4134,5 +4148,85 @@ test.describe('차트 카탈로그 — 종류별 상호작용 (06 §16, #530)', 
     await page.goBack(); await expect(scatter).toHaveAttribute('aria-selected', 'true');
     await page.goForward(); await expect(page.getByRole('tab', { name: /^도넛 / })).toHaveAttribute('aria-selected', 'true');
     await evidence(page, testInfo, 'chart-catalog-kind-history');
+  });
+});
+
+// #680 (ADR-0075): a fill page's head (notes + page filter + chips) folds to one line; shared responses become a thin strip.
+test.describe('페이지 머리 접기 (#680)', () => {
+  const CYCLE = `/analytics/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}`;
+  const HEAD_KEY = 'platform:page-head-collapsed:cycle-time';
+  /** Upper bound of the workspace top (px) at 1440×900 with the query bar and the page head collapsed: measured 238.8 (315 before #680), plus 9px for font metrics on CI. */
+  const COLLAPSED_WORKSPACE_TOP_MAX = 248;
+  const line = (page: Page) => page.locator('[data-page-head-line]');
+  const workspaceTop = async (page: Page) => (await page.locator('[data-panel-workspace]').boundingBox())!.y;
+
+  test.beforeEach(async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.addInitScript(() => {
+      if (sessionStorage.getItem('platform:e2e-head-reset')) return;
+      localStorage.removeItem('platform:page-head-collapsed:cycle-time');
+      localStorage.removeItem('platform:page-filter-collapsed:cycle-time');
+      localStorage.removeItem('platform:query-bar-collapsed:cycle-time');
+      sessionStorage.setItem('platform:e2e-head-reset', '1');
+    });
+  });
+
+  test('fill 페이지는 접힌 채 시작하고, 조회 조건까지 접으면 작업 영역이 위쪽 한계 안에서 시작한다', async ({ page }, testInfo) => {
+    await page.goto(CYCLE);
+    await expect(line(page)).toBeVisible();
+    await expect(page.getByRole('button', { name: '페이지 머리 펼치기' })).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.getByTestId('page-filter-bar')).toBeHidden();
+    await page.getByRole('button', { name: '조회 조건 접기' }).click();
+    await expect(page.locator('[data-panel-workspace]')).toBeVisible();
+    await expect.poll(() => workspaceTop(page)).toBeLessThanOrEqual(COLLAPSED_WORKSPACE_TOP_MAX);
+    await evidence(page, testInfo, 'page-head-collapsed-1440x900');
+  });
+
+  test('펼침·접힘은 새로고침 뒤에도 유지된다', async ({ page }) => {
+    await page.goto(CYCLE);
+    await page.getByRole('button', { name: '페이지 머리 펼치기' }).click();
+    await expect(page.getByRole('button', { name: '페이지 머리 접기' })).toBeFocused();
+    await expect(page.getByTestId('page-filter-bar')).toBeVisible();
+    await page.reload();
+    await expect(page.getByTestId('page-filter-bar')).toBeVisible();
+    await page.getByRole('button', { name: '페이지 머리 접기' }).click();
+    await expect(page.getByRole('button', { name: '페이지 머리 펼치기' })).toBeFocused();
+    await page.reload();
+    await expect(page.getByRole('button', { name: '페이지 머리 펼치기' })).toBeVisible();
+    await expect(page.getByTestId('page-filter-bar')).toBeHidden();
+  });
+
+  test('서버 오류 응답은 얇은 띠로 뜨고 #platform-main이 스크롤되지 않는다', async ({ page }, testInfo) => {
+    await page.goto(CYCLE);
+    await expect(page.locator('[data-panel-workspace]')).toBeVisible();
+    await page.getByRole('button', { name: '조회 조건 접기' }).click();
+    await setScenario(page, '서버 오류 (error)');
+    const strip = page.getByRole('main').locator('[data-outcome-banner]');
+    await expect(strip).toHaveCount(1);
+    await expect(strip).toHaveAttribute('data-outcome-compact', 'true');
+    await expect(strip).toContainText('서버 오류 ·');
+    await expect(strip.getByRole('button', { name: '자세히' })).toBeVisible();
+    await expect(strip.getByRole('button', { name: '다시 시도' })).toBeVisible();
+    expect(await page.locator('#platform-main').evaluate(element => element.scrollHeight > element.clientHeight + 1)).toBe(false);
+    await evidence(page, testInfo, 'page-head-thin-strip-1440x900');
+  });
+
+  test('접힌 줄에 적용된 버킷 칩이 보이고, 초안 페이지 조건은 미적용 표식으로 남는다', async ({ page }) => {
+    await page.goto(`${CYCLE}&bucket=2026-09-25T09:00:00`);
+    await expect(line(page)).toContainText('버킷');
+    await expect(line(page)).not.toContainText('미적용 변경 있음');
+    await page.getByRole('button', { name: '페이지 머리 펼치기' }).click();
+    await page.getByRole('button', { name: '주', exact: true }).click();
+    await page.getByRole('button', { name: '페이지 머리 접기' }).click();
+    await expect(line(page)).toContainText('미적용 변경 있음');
+    await expect(line(page)).toContainText('버킷');
+  });
+
+  test('틀린 페이지 키(granularity)면 저장값과 무관하게 펼친 채 시작하고 페이지 조건 기본값이 보인다', async ({ page }) => {
+    await page.addInitScript(key => { if (!sessionStorage.getItem('platform:e2e-head-seeded')) { localStorage.setItem(key, 'true'); sessionStorage.setItem('platform:e2e-head-seeded', '1'); } }, HEAD_KEY);
+    await page.goto(`${CYCLE}&granularity=zzz`);
+    await expect(page.getByRole('button', { name: '페이지 머리 접기' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '페이지 조건 기본값' })).toBeVisible();
+    await expect(page.getByRole('alert')).toBeVisible();
   });
 });
