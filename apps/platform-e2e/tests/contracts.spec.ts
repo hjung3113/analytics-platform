@@ -4230,3 +4230,143 @@ test.describe('페이지 머리 접기 (#680)', () => {
     await expect(page.getByRole('alert')).toBeVisible();
   });
 });
+
+test.describe('휠 스크롤 (#700, 06 §16·§15, 16 §4.1)', () => {
+  // 워커가 쓰고 실행하지 못한 검사: 호스트가 처음 돌린다. #platform-main 에 높이를 주입해 스크롤 여유를 만든 뒤 휠을 돌린다.
+  const CYCLE = `/analytics/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}`;
+  const main = (page: Page) => page.locator('#platform-main');
+  const trendPlot = (page: Page) => page.getByRole('img', { name: /^사이클타임 추세/ });
+  const workspace = (page: Page) => page.getByRole('region', { name: '사이클타임 분석 영역', exact: true });
+
+  /** Gives the page scroll container real room and returns after asserting it. */
+  async function giveRoom(page: Page, scroller: Locator) {
+    await scroller.evaluate(element => {
+      const spacer = document.createElement('div');
+      spacer.dataset.e2eSpacer = '';
+      spacer.style.cssText = 'height:2000px;flex:none';
+      element.appendChild(spacer);
+    });
+    expect(await scroller.evaluate(element => element.scrollHeight - element.clientHeight)).toBeGreaterThan(300);
+  }
+  /** Sum of scrollTop over the element's scrollable ancestors: "the nearest scroll container moved", whichever it is (Chrome latches a wheel gesture to the first container that can scroll). */
+  const ancestorScroll = (locator: Locator) => locator.evaluate(element => {
+    let total = 0;
+    for (let node = element.parentElement; node; node = node.parentElement) {
+      const overflowY = getComputedStyle(node).overflowY;
+      if ((overflowY === 'auto' || overflowY === 'scroll') && node.scrollHeight > node.clientHeight + 1) total += node.scrollTop;
+    }
+    return total;
+  });
+  async function centerOf(locator: Locator) {
+    await locator.scrollIntoViewIfNeeded();
+    const box = (await locator.boundingBox())!;
+    return { x: box.x + box.width / 2, y: box.y + box.height / 2, box };
+  }
+
+  test.beforeEach(async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 700 });
+    await page.goto(CYCLE);
+    await expect(trendPlot(page)).toBeVisible();
+    await expect(page.locator('canvas').first()).toBeVisible();
+  });
+
+  test('차트 위 일반 휠은 가장 가까운 스크롤 컨테이너를 스크롤한다', async ({ page }) => {
+    await giveRoom(page, main(page));
+    await main(page).evaluate(element => { element.scrollTop = 0; });
+    const at = await centerOf(trendPlot(page));
+    const before = await ancestorScroll(trendPlot(page));
+    await page.mouse.move(at.x, at.y);
+    await page.mouse.wheel(0, 200);
+    await expect.poll(() => ancestorScroll(trendPlot(page))).toBeGreaterThan(before);
+  });
+
+  test('차트 위 Shift+휠은 확대하고 페이지는 움직이지 않으며, 확대한 차트는 끌어서 이동한다', async ({ page }) => {
+    await giveRoom(page, main(page));
+    const plot = trendPlot(page);
+    const at = await centerOf(plot);
+    const url = page.url();
+    const top = await main(page).evaluate(element => element.scrollTop);
+    const flat = await plot.screenshot();
+    await page.mouse.move(at.x, at.y);
+    await page.keyboard.down('Shift');
+    await page.mouse.wheel(0, -300);
+    await page.keyboard.up('Shift');
+    await expect.poll(async () => !(await plot.screenshot()).equals(flat)).toBe(true);
+    expect(await main(page).evaluate(element => element.scrollTop)).toBe(top);
+    expect(page.url()).toBe(url);
+    const zoomed = await plot.screenshot();
+    await page.mouse.move(at.x, at.y);
+    await page.mouse.down();
+    await page.mouse.move(at.x - at.box.width * 0.25, at.y, { steps: 8 });
+    await page.mouse.up();
+    await expect.poll(async () => !(await plot.screenshot()).equals(zoomed)).toBe(true);
+  });
+
+  test('확대 버튼은 그대로 동작한다', async ({ page }) => {
+    const frame = page.getByRole('region', { name: '사이클타임 추세' });
+    const flat = await trendPlot(page).screenshot();
+    await frame.getByRole('button', { name: '확대' }).click();
+    await expect.poll(async () => !(await trendPlot(page).screenshot()).equals(flat)).toBe(true);
+  });
+
+  test('탭 머리 위 휠: 넘치지 않는 줄은 바깥 스크롤로 넘기고, 넘치는 줄은 가로 스크롤을 유지한다', async ({ page }) => {
+    await giveRoom(page, main(page));
+    const strip = workspace(page).locator('.dv-tabs-container').first();
+    await expect(strip).toBeVisible();
+    const at = await centerOf(strip);
+    await page.mouse.move(at.x, at.y);
+    await page.mouse.wheel(0, 200);
+    await expect.poll(() => main(page).evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+
+    // Force an overflowing strip: tabs that cannot shrink inside a narrow group.
+    await main(page).evaluate(element => { element.scrollTop = 0; });
+    await page.addStyleTag({ content: '.ap-dock .dv-tab { flex-shrink: 0; min-width: 900px; }' });
+    // Dockview 8.6.1 scrolls the tab list element `.dv-tabs-container` itself (its `_tabsList` wheel handler).
+    const scrollable = workspace(page).locator('.dv-tabs-container').first();
+    const list = scrollable;
+    const overflow = await scrollable.evaluate(element => [element, ...element.querySelectorAll('*')].some(node => node.scrollWidth > node.clientWidth + 1));
+    expect(overflow, 'the forced strip overflows').toBe(true);
+    await list.scrollIntoViewIfNeeded();
+    const mainTop = await main(page).evaluate(element => element.scrollTop);
+    const listBox = (await list.boundingBox())!;
+    await page.mouse.move(listBox.x + Math.min(listBox.width / 2, 200), listBox.y + listBox.height / 2);
+    await page.mouse.wheel(0, 150);
+    await expect.poll(() => scrollable.evaluate(element => [element, ...element.querySelectorAll('*')].some(node => node.scrollLeft > 0))).toBe(true);
+    expect(await main(page).evaluate(element => element.scrollTop)).toBe(mainTop);
+  });
+
+  test('느린 실행 표를 끝까지 내리면 이어지는 휠은 바깥 컨테이너를 스크롤한다', async ({ page }) => {
+    await giveRoom(page, main(page));
+    await showSlowExecutions(page);
+    const area = workspace(page).getByLabel('스크롤 가능한 행 영역');
+    await expect(area).toBeVisible();
+    const at = await centerOf(area);
+    // Row heights settle after the first layout, so pin the bottom until two reads 300 ms apart agree.
+    const pinBottom = () => area.evaluate(element => { element.scrollTop = element.scrollHeight; return element.scrollHeight; });
+    await expect.poll(async () => { const first = await pinBottom(); await page.waitForTimeout(300); return (await pinBottom()) === first && await area.evaluate(element => element.scrollHeight - element.clientHeight - element.scrollTop <= 1); }).toBe(true);
+    const before = await ancestorScroll(area);
+    await page.mouse.move(at.x, at.y);
+    await page.mouse.wheel(0, 300);
+    await page.waitForTimeout(400);
+    await expect.poll(() => ancestorScroll(area)).toBeGreaterThan(before);
+  });
+
+  test('분석 보드 dock의 비넘침 탭 줄 위 휠도 바깥으로 넘어간다', async ({ page }) => {
+    await signInAs(page, 'engineer');
+    await page.addInitScript(({ value }) => {
+      localStorage.setItem('platform:board-layout-engine', 'dock');
+      localStorage.setItem('platform:board:engineer', JSON.stringify(value));
+    }, { value: { v: 1, activeSheetId: 'w', sheets: [{ id: 'w', name: '도킹', layout: '1x2', selected: 0, panes: [0, 1].map(i => ({ menuId: 'productivity-overview', params: {}, query: `?v=1&scopeId=MEM&${PERIOD}&roomNames=${['PHOTO', 'ETCH'][i]}` })) }] } });
+    await page.goto('/board?sheet=dock');
+    const strip = page.locator('[data-dock-layout] .dv-tabs-container').first();
+    await expect(strip).toBeVisible();
+    const scroller = main(page);
+    await giveRoom(page, scroller);
+    const at = await centerOf(strip);
+    await page.mouse.move(at.x, at.y);
+    await page.mouse.wheel(0, 200);
+    await expect.poll(() => scroller.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+  });
+});
+
+

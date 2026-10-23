@@ -29,6 +29,8 @@ export type ChartSeries = {
   dashed?: boolean;
 };
 
+/** Capture-phase on the plot wrapper: without Shift the wheel never reaches zrender, so the browser scrolls the nearest container. No preventDefault. */
+const stopPlainWheel = (event: WheelEvent) => { if (!event.shiftKey) event.stopPropagation(); };
 /** The width assumed before the chart instance exists. */
 const NOTE_FALLBACK_WIDTH = 640;
 const fmt = (v: string) => v.replace('T', ' ').slice(0, 16);
@@ -163,6 +165,14 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const menu = usePointMenu(url);
   const pointChart = menu.chartRef;
   const { selectedKey: selectedPointKey, setSelectedKey: setSelectedPointKey, openMenu: openPointMenu } = menu;
+  // Plain wheel over the plot scrolls the page: zrender's local listener never sees it. Shift+wheel passes through to ECharts zoom (§16).
+  const wheelNode = useRef<HTMLDivElement | null>(null);
+  const wheelPassThrough = useCallback((node: HTMLDivElement | null) => {
+    if (wheelNode.current === node) return;
+    wheelNode.current?.removeEventListener('wheel', stopPlainWheel, { capture: true });
+    wheelNode.current = node;
+    node?.addEventListener('wheel', stopPlainWheel, { capture: true, passive: true });
+  }, []);
   const [compare, setCompare] = useState(false);
   // Bumped from onReady: imperative instance effects below must replay once the lazy EChartImpl
   // creates the instance (a Brush click during chunk load would otherwise never reach it, #48 P1).
@@ -469,7 +479,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
     </AnalysisChartPart>
     <AnalysisChartPart enabled={analysisSection !== null} body>
     {allSeries.length > 0 && visible.length === 0 && <p role="status" className="px-4 py-3 text-text-secondary">{lang === 'ko' ? '표시할 시리즈를 모두 껐습니다' : 'All series are turned off'}</p>}
-    <div ref={node => { pointChart.current = node; fill.ref(node); }} className={cn('px-2', size === 'fill' && FILL_PLOT_CLASS)} role={pointControls ? 'group' : undefined} aria-label={pointControls ? (lang === 'ko' ? '차트 지점' : 'Chart points') : undefined} tabIndex={pointControls ? 0 : undefined}
+    <div ref={node => { pointChart.current = node; fill.ref(node); wheelPassThrough(node); }} className={cn('px-2', size === 'fill' && FILL_PLOT_CLASS)} role={pointControls ? 'group' : undefined} aria-label={pointControls ? (lang === 'ko' ? '차트 지점' : 'Chart points') : undefined} tabIndex={pointControls ? 0 : undefined}
       onContextMenu={event => { if (p.pointActions?.length) event.preventDefault(); }}
       onKeyDown={event => {
         if ((event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) && p.pointActions?.length) {

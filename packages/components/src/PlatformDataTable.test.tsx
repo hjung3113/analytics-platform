@@ -1,8 +1,10 @@
+import type { ReactElement } from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { useEffect, useState, type ReactNode } from 'react';
 import { House } from 'lucide-react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry, useI18n, usePlatform } from '@ap/kernel';
+import { PaneScreenProvider } from '@ap/kernel/host';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { DetailDrawer } from './DetailDrawer';
 import { ManagementLayout } from './ManagementLayout';
@@ -68,6 +70,23 @@ describe('PlatformDataTable inside a workspace panel', () => {
     view.unmount();
     render(<UncontrolledHarness loadPage={makeLoadPage(3)} />);
     expect(await screen.findByRole('heading', { name: 'T' })).not.toHaveClass('sr-only');
+  });
+});
+
+describe('PlatformDataTable wheel chaining at the row area edge (#700, 06 §15)', () => {
+  const table = <PlatformDataTable title="T" ariaLabel="table" columns={columns} getRowId={r => r.id} loadPage={makeLoadPage(3)} filterKey="f" preferenceKey="test-table" pageSize={25} height={200} />;
+  const pane = () => <I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter} registry={registry}>
+    <PaneScreenProvider paneId="a" screen={{ menuId: 'home', params: {}, query: '' }} onChange={() => {}} onLeave={() => {}}>{table}</PaneScreenProvider>
+  </PlatformProvider></I18nProvider>;
+  it.each([
+    ['flow page', (n: ReactElement) => n, 'overscroll-contain'],
+    ['workspace panel', (n: ReactElement) => <InWorkspacePanelProvider value>{n}</InWorkspacePanelProvider>, 'overscroll-auto'],
+    ['board pane', () => pane(), 'overscroll-auto'],
+  ])('%s: the row area is %s', async (_name, wrap, expected) => {
+    render(wrap(<UncontrolledHarness loadPage={makeLoadPage(3)} />));
+    const area = (await screen.findByRole('table', { name: 'table' })).parentElement;
+    expect(area).toHaveClass(expected);
+    expect(area).not.toHaveClass(expected === 'overscroll-auto' ? 'overscroll-contain' : 'overscroll-auto');
   });
 });
 
