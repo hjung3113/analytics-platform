@@ -1,17 +1,20 @@
-import { unknownLabel } from './analysisChartShared';
+import { toMs, unknownLabel } from './analysisChartShared';
 import { BrushIcon, Download, GitCompare, MessageSquarePlus, MoreHorizontal, RotateCcw, Table2, ZoomIn } from 'lucide-react';
 import { useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { ECharts, EChartsCoreOption } from 'echarts/core';
-import { useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
-import { formatDateTime, parseDateTime } from '@ap/contracts';
+import { useI18n, usePlatform } from '@ap/kernel';
+import { formatDateTime } from '@ap/contracts';
 import { Button, cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, prefersReducedMotion } from '@ap/ui';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import { AnalysisSectionContext, resolveAnalysisChartSize, analysisChartHeight, fillChartHeight, FILL_CARD_CLASS, FILL_PLOT_CLASS, type ChartSize } from './AnalysisSectionContext';
 import { useElementHeight } from './useElementHeight';
-import { chartTheme, EChart, strokeToken, token } from './EChart';
+import { EChart, strokeToken, token } from './EChart';
 import { downloadChartCsv } from './analysisChartCsv';
-import { drillDestinationOf, paneRootOf } from './pageFocus';
-import { assignNoteLevels, noteLabelWidths } from './annotationLayout';
+import { assignNoteLevels } from './annotationLayout';
+import { buildChartOption, linePattern, resolveChartPalette } from './buildChartOption';
+import { useAnnotationDeleteFocus, useAnnotationEditor } from './useAnnotationEditor';
+import { useChartRange, type ClipResult, type Selection } from './useChartRange';
+import { usePointMenu } from './usePointMenu';
 
 import { AnalysisChartPart, ChartHeading, ChartTrustFooter } from './analysisChartFrameParts';
 
@@ -26,15 +29,8 @@ export type ChartSeries = {
   dashed?: boolean;
 };
 
-type Selection = { from: string; to: string };
-type ClipNotice = 'partial' | 'outside';
-type LinePattern = 'solid' | number[];
-const toMs = (v: string) => parseDateTime(v, 'x').getTime();
-/** The plot's horizontal margin (grid left 52 + right 20) and the width assumed before the chart instance exists. */
-const PLOT_MARGIN = 72;
+/** The width assumed before the chart instance exists. */
 const NOTE_FALLBACK_WIDTH = 640;
-/** One note-label row at fontSize 10. */
-const NOTE_LABEL_ROW = 12;
 const fmt = (v: string) => v.replace('T', ' ').slice(0, 16);
 const HOUR_MS = 3_600_000;
 
@@ -65,7 +61,7 @@ function snapOutward(fromMs: number, toMsValue: number, bounds: readonly string[
 }
 
 /** Clip only while Compare is on and both query ends exist. Snap has already run. */
-function clipToPeriod(range: Selection, periodFrom: string | null, periodTo: string | null, clip: boolean): { range: Selection | null; notice: ClipNotice | null } {
+function clipToPeriod(range: Selection, periodFrom: string | null, periodTo: string | null, clip: boolean): ClipResult {
   if (!clip || periodFrom === null || periodTo === null) return { range, notice: null };
   if (range.to <= periodFrom || range.from >= periodTo) return { range: null, notice: 'outside' };
   const from = range.from < periodFrom ? periodFrom : range.from;
@@ -90,12 +86,7 @@ function withBound(options: readonly string[], value: string): string[] {
   return options.includes(value) ? [...options] : [...options, value].sort();
 }
 
-function linePattern(series: ChartSeries, previous: boolean): LinePattern {
-  if (previous) return series.dashed ? [8, 3, 2, 3] : [2, 2];
-  return series.dashed ? [8, 4] : 'solid';
-}
-
-function svgDasharray(pattern: LinePattern): string | undefined {
+function svgDasharray(pattern: ReturnType<typeof linePattern>): string | undefined {
   return Array.isArray(pattern) ? pattern.join(' ') : undefined;
 }
 
@@ -169,54 +160,21 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const applyRangeButton = useRef<HTMLButtonElement | null>(null);
   const annotateButton = useRef<HTMLButtonElement | null>(null);
   const [hidden, setHidden] = useState<Set<string>>(new Set());
-  const [selectedPointKey, setSelectedPointKey] = useState<string | null>(null);
-  const [pointMenuOpen, setPointMenuOpen] = useState(false);
-  const pointChart = useRef<HTMLDivElement>(null);
-  const pointMenuTrigger = useRef<HTMLButtonElement>(null);
-  const pointMenuContent = useRef<HTMLDivElement>(null);
-  const pointMenuSession = useRef<{ opener: HTMLElement | null; url: string } | null>(null);
-  const currentUrl = useRef(url);
-  useEffect(() => { currentUrl.current = url; }, [url]);
-  const openPointMenu = useCallback((opener: HTMLElement | null) => {
-    pointMenuSession.current = { opener, url };
-    setPointMenuOpen(true);
-  }, [url]);
+  const menu = usePointMenu(url);
+  const pointChart = menu.chartRef;
+  const { selectedKey: selectedPointKey, setSelectedKey: setSelectedPointKey, openMenu: openPointMenu } = menu;
   const [compare, setCompare] = useState(false);
-  const [brushMode, setBrushMode] = useState(false);
   // Bumped from onReady: imperative instance effects below must replay once the lazy EChartImpl
   // creates the instance (a Brush click during chunk load would otherwise never reach it, #48 P1).
   const [instanceReady, setInstanceReady] = useState(0);
   // The chart instance's width in px: label budgets are cut from it, so a container resize must reach the option (#399 F3).
   const [chartWidth, setChartWidth] = useState(NOTE_FALLBACK_WIDTH);
-  const [zoom, setZoom] = useState<[number, number]>([0, 100]);
-  const [selection, setSelection] = useState<Selection | null>(null);
-  const [preview, setPreview] = useState<Selection | null>(null);
-  const [clipNotice, setClipNotice] = useState<ClipNotice | null>(null);
-  const [rangeDraft, setRangeDraft] = useState<Selection | null>(null);
-  const [note, setNote] = useState<string | null>(null);
+  const { state: range, actions: rangeActions } = useChartRange();
+  const { selection, preview, zoom, clipNotice, rangeDraft, brushMode } = range;
   const [showTable, setShowTable] = useState(false);
-  // A row belongs to one site: the Scope is part of the query identity, so a site switch hides the previous site's notes.
   const scopeId = global.scopeId;
-  const annotationQuery = usePlatformQuery(signal => adapter.listAnnotations({ chartId: p.chartId, scopeId }, signal), [p.chartId, scopeId], canAnnotate && scopeId !== null, 'session');
-  const annotations = useMemo(() => annotationQuery.response?.data?.items ?? [], [annotationQuery.response]);
-  const refetchAnnotations = annotationQuery.refetch;
-  const [saving, setSaving] = useState(false);
-  // Each editor session gets a generation; a save that finishes after cancel/reopen/Scope change must not touch the newer draft.
-  const draftGen = useRef(0);
-  // Delete (#399): one inline confirm per note. `pendingDelete` is the note being confirmed, `deleting` the in-flight call,
-  // `settled` a delete the server accepted whose refetch has not removed the row yet.
-  const [pendingDelete, setPendingDelete] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState(false);
-  const [settled, setSettled] = useState<{ id: string; nextId: string | null } | null>(null);
-  const [restoreFocus, setRestoreFocus] = useState<string | null>(null);
-  // Bumped when a Context change cancels the delete operation: a call that was in flight then completes into nothing.
-  const deleteGen = useRef(0);
-  const deleteButtons = useRef(new Map<string, HTMLButtonElement>());
-  // Whether keyboard focus is still on the confirm row: set by focus in, cleared when focus leaves the group — to another element or to the
-  // page (blur to body). A window blur keeps the element active and leaves it set; removing the focused row fires no event the group sees.
-  const focusOnConfirm = useRef(false);
-  const openNote = () => { draftGen.current++; setNote(''); };
-  const closeNote = useCallback(() => { draftGen.current++; setNote(null); }, []);
+  const editor = useAnnotationEditor({ chartId: p.chartId, scopeId, canAnnotate });
+  const { annotations, note, closeEditor } = editor;
 
   const allSeries = useMemo(() => [...p.series, ...(compare && canCompare ? p.compareSeries ?? [] : [])], [p.series, p.compareSeries, compare, canCompare]);
   const previousIds = useMemo(() => new Set(compare && canCompare ? p.compareSeries?.map(s => s.id) ?? [] : []), [compare, canCompare, p.compareSeries]);
@@ -248,36 +206,19 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   }, [displayed, xType, categories]);
 
   const onVisibleSeriesChange = p.onVisibleSeriesChange;
+  const { reset: resetPoint } = menu;
+  const { cancelDelete } = editor;
   const resetLocal = useCallback(() => {
-    setHidden(new Set()); onVisibleSeriesChange?.(allSeries.map(s => s.id)); setSelectedPointKey(null); setPointMenuOpen(false); setCompare(false); setBrushMode(false); setZoom([0, 100]); setSelection(null); setPreview(null); closeNote(); setClipNotice(null); setRangeDraft(null);
-  }, [closeNote, onVisibleSeriesChange, allSeries]);
+    setHidden(new Set()); onVisibleSeriesChange?.(allSeries.map(s => s.id)); resetPoint(); setCompare(false); rangeActions.buttonReset(); closeEditor();
+  }, [closeEditor, onVisibleSeriesChange, allSeries, resetPoint, rangeActions]);
   // Global Context changes invalidate local selection (it described the previous result).
   const contextKey = JSON.stringify(global);
-  useEffect(() => { setSelection(null); setPreview(null); closeNote(); setZoom([0, 100]); setClipNotice(null); setRangeDraft(null);
-    deleteGen.current++; focusOnConfirm.current = false; setPendingDelete(null); setSettled(null); setDeleting(false);
-    setSelectedPointKey(null); setPointMenuOpen(false);
-  }, [contextKey, closeNote]);
-  // 06 §26: the confirm row unmounts, so focus moves only if it is still on that row — the next note's delete button, else Annotate.
-  useEffect(() => {
-    if (!settled || annotations.some(a => a.id === settled.id)) return;
-    const onConfirm = focusOnConfirm.current;
-    focusOnConfirm.current = false;
-    setSettled(null); setPendingDelete(null); setDeleting(false);
-    if (!onConfirm) return;
-    const next = settled.nextId ? deleteButtons.current.get(settled.nextId) : undefined;
-    const fallback = annotateButton.current && !annotateButton.current.disabled ? annotateButton.current : brushToggle.current;
-    (next ?? fallback)?.focus({ preventScroll: true });
-  }, [annotations, settled]);
-  // Cancel and failure keep the note: focus goes back to the button that opened the confirm.
-  useEffect(() => {
-    if (restoreFocus === null) return;
-    deleteButtons.current.get(restoreFocus)?.focus({ preventScroll: true });
-    setRestoreFocus(null);
-  }, [restoreFocus]);
+  useEffect(() => { rangeActions.contextReset(); closeEditor(); cancelDelete(); resetPoint();
+  }, [contextKey, closeEditor, cancelDelete, resetPoint, rangeActions]);
+  useAnnotationDeleteFocus(editor, { annotateButton, brushToggle });
 
   const timeBounds = useMemo(() => (xType === 'time' ? timeBoundaries(p.series, global.from, global.to) : []), [xType, p.series, global.from, global.to]);
   const showKeyboard = xType === 'time' && global.to !== null && timeBounds.length >= 2;
-  const xValue = (x: string) => (xType === 'time' ? toMs(x) : x);
   // Label geometry, cached by what it depends on: the spans and rows change with the notes only, the data extent with the series,
   // so zoom, resize, editor typing and busy state redo none of it. Nothing runs while there are no notes.
   const noteSpans = useMemo(() => annotations.map(a => (xType === 'time'
@@ -290,64 +231,25 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
     for (const s of allSeries) for (const [x] of s.points) { const ms = toMs(x); if (ms < min) min = ms; if (ms > max) max = ms; }
     return max > min ? max - min : 0;
   }, [xType, allSeries, annotations.length]);
+  // Stable and live: the tooltip reads the formatter through the ref when it opens.
+  const valueFormat = useCallback((v: number) => formatRef.current(v), []);
+  const markLines = p.markLines; const unit = p.unit; const stacked = p.stacked;
   const option = useMemo<EChartsCoreOption>(() => {
-    const theme = chartTheme();
-    // Pixels per axis unit from the plot width and the zoom window, so a label can be cut to its own area (#399 AC-2).
-    const plotWidth = Math.max(0, chartWidth - PLOT_MARGIN);
-    const zoomed = Math.max((zoom[1] - zoom[0]) / 100, 0.01);
-    const units = xType === 'time' ? timeExtent : categories.length;
-    const pxPerUnit = units > 0 ? plotWidth / (units * zoomed) : 0;
-    const noteWidths = noteLabelWidths(noteSpans, pxPerUnit, plotWidth);
-    const areas = [
-      // Notes keep the default top label; the selection labels its bottom so a note saved over it never collides (#320).
-      ...(selection ? [[{ name: lang === 'ko' ? '선택' : 'Selection', [horizontal ? 'yAxis' : 'xAxis']: xValue(selection.from), itemStyle: { color: token('chart-blue'), opacity: 0.12 }, label: { position: 'insideBottom' } }, { [horizontal ? 'yAxis' : 'xAxis']: xValue(selection.to) }]] : []),
-      ...annotations.map((a, i) => [{ name: a.text, [horizontal ? 'yAxis' : 'xAxis']: xValue(a.from), itemStyle: { color: token('chart-purple'), opacity: 0.14 }, label: { color: token('cat-purple'), fontSize: 10, offset: [0, noteLevels[i] * NOTE_LABEL_ROW], width: noteWidths[i], overflow: 'truncate', ellipsis: '…' } }, { [horizontal ? 'yAxis' : 'xAxis']: xValue(a.to) }]),
-    ];
-    return {
-      grid: { left: 52, right: 20, top: 16, bottom: 44, ...(horizontal ? { containLabel: true } : {}) },
-      tooltip: {
-        trigger: 'axis', confine: true, textStyle: { fontSize: 12 },
-        valueFormatter: (v: number | null) => (v === null || v === undefined ? unknownLabel(lang === 'ko') : `${formatRef.current(v)} ${p.unit}`),
-      },
-      xAxis: horizontal ? { type: 'value', min: 0, name: p.unit, splitLine: theme.splitLine } : xType === 'time'
-        ? { type: 'time', axisLine: theme.axisLine, axisLabel: { hideOverlap: true }, splitLine: { show: false } }
-        : { type: 'category', data: categories, axisLine: theme.axisLine, axisTick: { alignWithLabel: true } },
-      yAxis: horizontal ? { type: 'category', data: categories, inverse: true, axisLine: theme.axisLine, axisLabel: { interval: 0 }, axisTick: { alignWithLabel: true } } : { type: 'value', min: 0, name: p.unit, nameTextStyle: { align: 'right' }, splitLine: theme.splitLine },
-      dataZoom: [{ type: 'inside', ...(horizontal ? { yAxisIndex: 0 } : { xAxisIndex: 0 }), start: zoom[0], end: zoom[1], zoomOnMouseWheel: 'shift', moveOnMouseMove: !brushMode }],
-      // Fill derives rgba from the resolved chart-blue token (#297): copying stroke channels would shift the hue,
-      // and a literal rgba copies the token's values. Selection and annotation fills keep echarts-native opacity.
-      brush: { ...(horizontal ? { yAxisIndex: 0 } : { xAxisIndex: 0 }), brushType: horizontal ? 'lineY' : 'lineX', brushMode: 'single', throttleType: 'debounce', throttleDelay: 120,
-        brushStyle: { color: token('chart-blue').replace(/^rgb\((.+)\)$/, (_, rgb: string) => `rgba(${rgb},0.12)`), borderColor: token(strokeToken('chart-blue')) } },
-      toolbox: { show: false, feature: { brush: { type: [horizontal ? 'lineY' : 'lineX', 'clear'] } } },
-      series: [
-        ...displayed.map(s => {
-          const kind = horizontal ? 'bar' : s.kind ?? 'line';
-          const color = token(kind === 'line' ? strokeToken(s.color) : s.color);
-          const pattern = linePattern(s, previousIds.has(s.id));
-          return {
-            id: s.id, name: s.name, type: kind, stack: p.stacked && kind === 'bar' ? 'total' : undefined,
-            showSymbol: false, symbolSize: 5, connectNulls: false, barMaxWidth: 18,
-            lineStyle: { ...(kind === 'line' ? { color } : {}), width: 2, type: pattern }, itemStyle: { color: token(s.color) },
-            emphasis: { focus: 'series' },
-            data: xType === 'time' ? s.points.map(([x, y]) => [toMs(x), y]) : s.points.map(([, y]) => y),
-          };
-        }),
-        {
-          id: '__overlay', type: 'line', data: [], silent: true, symbol: 'none',
-          markArea: { silent: true, data: areas },
-          markLine: p.markLines?.length ? { ...theme.referenceLine, data: p.markLines.map(m => ({ name: m.label, [horizontal ? 'xAxis' : 'yAxis']: m.y })) } : undefined,
-        },
-      ],
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `xValue` is rebuilt every render but only follows `xType`, which is listed; the tooltip reads `format` through `formatRef`, so an inline `valueFormat` never rebuilds the option.
-  }, [displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations, noteSpans, noteLevels, timeExtent, chartWidth, p.markLines, p.unit, lang, p.stacked, instanceReady]);
+    // A new chart instance replays the option: the lazy chunk and theme CSS may have settled since the tokens were last resolved.
+    void instanceReady;
+    return buildChartOption({
+      displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations, noteSpans, noteLevels, timeExtent, chartWidth, markLines, unit, lang, stacked, valueFormat,
+      palette: resolveChartPalette(displayed),
+    });
+  }, [displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations, noteSpans, noteLevels, timeExtent, chartWidth, markLines, unit, lang, stacked, valueFormat, instanceReady]);
 
   // Re-arm the brush cursor after each option replacement, and once the instance becomes ready.
   useEffect(() => {
     chart.current?.dispatchAction({ type: 'takeGlobalCursor', key: 'brush', brushOption: brushMode ? { brushType: horizontal ? 'lineY' : 'lineX', brushMode: 'single' } : { brushType: false } });
   }, [option, brushMode, horizontal, instanceReady]);
 
-  useEffect(() => { if (brushMode || !selectedPoint) setPointMenuOpen(false); }, [brushMode, selectedPoint]);
+  const closePointMenu = menu.close;
+  useEffect(() => { if (brushMode || !selectedPoint) closePointMenu(); }, [brushMode, selectedPoint, closePointMenu]);
 
   const eventPoint = useCallback((params: PointEvent): ChartPoint | null => {
     if (!params.seriesId || params.seriesId === '__overlay') return null;
@@ -363,29 +265,24 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
 
   const onEvents = useMemo(() => ({
     brushEnd: (params: { areas?: { coordRange?: [number, number] }[] }, instance: ECharts) => {
-      const range = params.areas?.[0]?.coordRange;
+      const brushed = params.areas?.[0]?.coordRange;
       instance.dispatchAction({ type: 'brush', areas: [] });
-      if (!range) return;
+      if (!brushed) return;
       if (xType === 'time') {
         // Same snap as the keyboard path, then clip. A zero-width drag only drops an open confirm.
-        const snapped = snapOutward(range[0], range[1], timeBounds);
-        if (!snapped) { setPreview(null); return; }
+        const snapped = snapOutward(brushed[0], brushed[1], timeBounds);
+        if (!snapped) { rangeActions.snapSelect(null); return; }
         const result = clipToPeriod(snapped, global.from, global.to, compare && canCompare);
-        setSelection(result.range);
-        setClipNotice(result.notice);
-        if (!result.range) closeNote();
-        setRangeDraft(null);
+        rangeActions.snapSelect(result);
+        if (!result.range) closeEditor();
       } else {
-        const a = categories[Math.max(0, Math.round(range[0]))]; const b = categories[Math.min(categories.length - 1, Math.round(range[1]))];
-        if (a && b) setSelection({ from: a, to: b });
-        setClipNotice(null);
-        setRangeDraft(null);
+        const a = categories[Math.max(0, Math.round(brushed[0]))]; const b = categories[Math.min(categories.length - 1, Math.round(brushed[1]))];
+        rangeActions.categorySelect(a && b ? { from: a, to: b } : null);
       }
-      setPreview(null);
     },
     datazoom: (_: unknown, instance: ECharts) => {
       const dz = (instance.getOption() as { dataZoom?: { start: number; end: number }[] }).dataZoom?.[0];
-      if (dz) setZoom([dz.start, dz.end]);
+      if (dz) rangeActions.setZoom([dz.start, dz.end]);
     },
     click: (params: PointEvent) => {
       if (brushMode) return;
@@ -411,7 +308,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
       const point = eventPoint(params);
       if (point) { params.event?.event?.preventDefault?.(); setSelectedPointKey(pointKey(point)); openPointMenu(pointChart.current); }
     },
-  }), [xType, categories, brushMode, p.onPointClick, p.pointActivation, p.pointActions, pointControls, eventPoint, openPointMenu, timeBounds, global.from, global.to, compare, canCompare, closeNote]);
+  }), [xType, categories, brushMode, p.onPointClick, p.pointActivation, p.pointActions, pointControls, eventPoint, openPointMenu, pointChart, timeBounds, global.from, global.to, compare, canCompare, closeEditor, rangeActions, setSelectedPointKey]);
 
   const selectionCounts = selection ? displayed.map(s => {
     const inRange = s.points.filter(([x, y]) => y !== null && (xType === 'time' ? x >= selection.from && x < selection.to : categories.indexOf(x) >= categories.indexOf(selection.from) && categories.indexOf(x) <= categories.indexOf(selection.to)));
@@ -459,50 +356,6 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
     toast(lang === 'ko' ? `${p.chartId}.csv 내보냄 (보이는 시리즈, 현재 적용 Context 기준)` : `Exported ${p.chartId}.csv (visible series, applied context)`);
   }
 
-  async function saveNote(range: Selection) {
-    const text = (note ?? '').trim();
-    if (!text || scopeId === null || saving) return;
-    const gen = draftGen.current;
-    const failed = () => { if (gen === draftGen.current) toast(lang === 'ko' ? '주석을 저장하지 못했습니다. 입력은 유지됩니다.' : 'Could not save the annotation. Your text is kept.'); };
-    setSaving(true);
-    try {
-      const res = await adapter.saveAnnotation({ chartId: p.chartId, scopeId, from: range.from, to: range.to, text });
-      if (res.outcome !== 'ok') failed();
-      else {
-        refetchAnnotations();
-        if (gen === draftGen.current) { closeNote(); toast(lang === 'ko' ? '주석을 저장했습니다.' : 'Annotation saved.'); }
-      }
-    } catch { failed(); } finally { setSaving(false); }
-  }
-
-  async function deleteNote(id: string) {
-    if (scopeId === null || deleting) return;
-    const mineIds = annotations.filter(a => a.mine).map(a => a.id);
-    const nextId = mineIds[mineIds.indexOf(id) + 1] ?? null;
-    const gen = deleteGen.current;
-    const stale = () => gen !== deleteGen.current;
-    const failed = () => {
-      if (stale()) return;
-      toast(lang === 'ko' ? '주석을 삭제하지 못했습니다.' : 'Could not delete the annotation.');
-      setPendingDelete(null); setDeleting(false);
-      if (focusOnConfirm.current) setRestoreFocus(id);
-      focusOnConfirm.current = false;
-    };
-    setDeleting(true);
-    try {
-      const res = await adapter.deleteAnnotation({ chartId: p.chartId, scopeId, id });
-      if (stale()) {
-        // The server removed the note; the session list is keyed by chart and Scope only, so it must still reload.
-        if (res.outcome === 'ok') refetchAnnotations();
-        return;
-      }
-      if (res.outcome !== 'ok') { failed(); return; }
-      toast(lang === 'ko' ? '주석을 삭제했습니다.' : 'Annotation deleted.');
-      setSettled({ id, nextId });
-      refetchAnnotations();
-    } catch { failed(); }
-  }
-
   const oneHour = global.to ? presetWindow(1, timeBounds, global.to) : null;
   const fourHour = global.to ? presetWindow(4, timeBounds, global.to) : null;
   const fallbackRange: Selection | null = timeBounds.length >= 2 ? { from: timeBounds[0], to: timeBounds[timeBounds.length - 1] } : null;
@@ -510,33 +363,41 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   // A fill card gives the plot the space: the start/end form and the empty-selection hint appear while brushing or once a range exists
   // (ADR-0067 decision 21); notes, errors and the confirm row keep their place. Other sizes always show them.
   const rangeUi = size !== 'fill' || brushMode || !!selection;
-  const annotationAlert = canAnnotate && scopeId !== null && !!annotationQuery.response && !['ok', 'empty'].includes(annotationQuery.response.outcome);
+  const annotationAlert = canAnnotate && scopeId !== null && !!editor.query.response && !['ok', 'empty'].includes(editor.query.response.outcome);
   const showSummary = rangeUi || !!clipNotice || !!preview || note !== null || annotations.length > 0 || annotationAlert;
   useEffect(() => {
     if (!focusRangeForm.current || !brushMode) return;
     focusRangeForm.current = false;
     rangeStart.current?.focus({ preventScroll: true });
   }, [brushMode, showSummary]);
-  function commitRange(range: Selection) {
-    const snapped = snapOutward(toMs(range.from), toMs(range.to), timeBounds);
-    if (!snapped) { setPreview(null); return; }
+  function commitRange(next: Selection) {
+    const snapped = snapOutward(toMs(next.from), toMs(next.to), timeBounds);
+    if (!snapped) { rangeActions.snapSelect(null); return; }
     const result = clipToPeriod(snapped, global.from, global.to, compare && canCompare && xType === 'time');
-    setSelection(result.range);
-    setClipNotice(result.notice);
-    if (!result.range) closeNote();
-    setPreview(null);
-    setRangeDraft(null);
+    rangeActions.snapSelect(result);
+    if (!result.range) closeEditor();
+  }
+  function toggleCompare() {
+    const next = !compare;
+    if (next && canCompare && xType === 'time' && (selection || preview)) {
+      const source = selection ?? preview!;
+      const snapped = snapOutward(toMs(source.from), toMs(source.to), timeBounds);
+      const result: ClipResult = snapped ? clipToPeriod(snapped, global.from, global.to, true) : { range: null, notice: 'outside' };
+      rangeActions.compareClip(result);
+      if (selection && !result.range) closeEditor();
+    }
+    setCompare(next);
   }
   function chooseStart(next: string) {
     const base = rangeDraft ?? selection ?? fallbackRange;
     if (!base) return;
     const to = base.to > next ? base.to : timeBounds.find(bound => bound > next) ?? base.to;
-    setRangeDraft({ from: next, to });
+    rangeActions.setDraft({ from: next, to });
   }
   function chooseEnd(next: string) {
     const base = rangeDraft ?? selection ?? fallbackRange;
     if (!base) return;
-    setRangeDraft({ from: base.from, to: next });
+    rangeActions.setDraft({ from: base.from, to: next });
   }
 
   // min-w-0: the plot canvas owns a fixed px width; without it that width becomes the card's min-content and a
@@ -556,29 +417,9 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
             {points.map(point => <option key={pointKey(point)} value={pointKey(point)}>{point.x} · {allSeries.find(s => s.id === point.seriesId)?.name} · {point.value === null ? unknownLabel(lang === 'ko') : format(point.value)}</option>)}
           </select>
           {p.pointActivation && <Button variant="ghost" size="toolbar" disabled={brushMode || !selectedPoint} onClick={() => { if (selectedPoint && !brushMode) p.pointActivation?.onActivate(selectedPoint); }}>{lang === 'ko' ? '선택 지점 실행' : 'Activate selected point'}</Button>}
-          {!!p.pointActions?.length && <DropdownMenu open={pointMenuOpen && !brushMode && !!selectedPoint} onOpenChange={open => { if (open) openPointMenu(pointMenuTrigger.current); else setPointMenuOpen(false); }}>
-            <DropdownMenuTrigger asChild><Button ref={pointMenuTrigger} variant="ghost" size="toolbar" disabled={brushMode || !selectedPoint}>{lang === 'ko' ? '지점 동작' : 'Point actions'}</Button></DropdownMenuTrigger>
-            <DropdownMenuContent ref={pointMenuContent} align="end" onCloseAutoFocus={event => {
-              event.preventDefault();
-              const session = pointMenuSession.current;
-              pointMenuSession.current = null;
-              if (!session) return;
-              const active = document.activeElement;
-              if (session.url !== currentUrl.current) {
-                // Modal focus trapping can intercept PlatformPage's layout-effect focus before close.
-                // Complete that handoff after the scope is released; never restore the old opener.
-                if (!active || active === document.body || pointMenuContent.current?.contains(active)) {
-                  const scope = paneRootOf(session.opener) ?? document;
-                  const destination = drillDestinationOf(scope);
-                  destination?.focus({ preventScroll: true });
-                }
-                return;
-              }
-              if (!session.opener?.isConnected) return;
-              // A consumer action may have already focused its destination or opened another surface.
-              if (active && active !== document.body && active !== session.opener && !pointMenuContent.current?.contains(active)) return;
-              session.opener.focus({ preventScroll: true });
-            }}>
+          {!!p.pointActions?.length && <DropdownMenu open={menu.open && !brushMode && !!selectedPoint} onOpenChange={open => { if (open) openPointMenu(menu.triggerRef.current); else menu.close(); }}>
+            <DropdownMenuTrigger asChild><Button ref={menu.triggerRef} variant="ghost" size="toolbar" disabled={brushMode || !selectedPoint}>{lang === 'ko' ? '지점 동작' : 'Point actions'}</Button></DropdownMenuTrigger>
+            <DropdownMenuContent ref={menu.contentRef} align="end" onCloseAutoFocus={menu.onCloseAutoFocus}>
               {p.pointActions.map(action => <DropdownMenuItem key={action.id} disabled={action.disabled} className="focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring" onSelect={() => { if (selectedPoint && !brushMode) action.onSelect(selectedPoint); }}>{action.label}</DropdownMenuItem>)}
             </DropdownMenuContent>
           </DropdownMenu>}
@@ -586,31 +427,16 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
         </div>}
         {p.extraActions != null && <div className="flex items-center gap-1">{p.extraActions}</div>}
         <div className="flex flex-wrap items-center gap-1">
-          <Button variant="ghost" size="toolbar" onClick={() => setZoom(([a, b]) => { const q = (b - a) / 4; return [a + q, b - q]; })} title={lang === 'ko' ? '확대 (Shift+휠도 가능)' : 'Zoom in (Shift+wheel)'}><ZoomIn className="size-3.5" aria-hidden />{lang === 'ko' ? '확대' : 'Zoom'}</Button>
-          <Button ref={brushToggle} variant={brushMode ? 'secondary' : 'ghost'} size="toolbar" aria-pressed={brushMode} onClick={event => { if (size === 'fill' && !brushMode && event.detail === 0) focusRangeForm.current = true; setBrushMode(b => !b); }}><BrushIcon className="size-3.5" aria-hidden />{lang === 'ko' ? '구간 선택' : 'Brush'}</Button>
+          <Button variant="ghost" size="toolbar" onClick={rangeActions.zoomIn} title={lang === 'ko' ? '확대 (Shift+휠도 가능)' : 'Zoom in (Shift+wheel)'}><ZoomIn className="size-3.5" aria-hidden />{lang === 'ko' ? '확대' : 'Zoom'}</Button>
+          <Button ref={brushToggle} variant={brushMode ? 'secondary' : 'ghost'} size="toolbar" aria-pressed={brushMode} onClick={event => { if (size === 'fill' && !brushMode && event.detail === 0) focusRangeForm.current = true; rangeActions.toggleBrush(); }}><BrushIcon className="size-3.5" aria-hidden />{lang === 'ko' ? '구간 선택' : 'Brush'}</Button>
           {showKeyboard && <div role="group" aria-label={lang === 'ko' ? '빠른 구간 선택' : 'Quick range'} className="flex items-center gap-1">
             {oneHour && <Button variant="ghost" size="toolbar" onClick={() => commitRange(oneHour)}>{lang === 'ko' ? '1시간' : '1h'}</Button>}
             {fourHour && <Button variant="ghost" size="toolbar" onClick={() => commitRange(fourHour)}>{lang === 'ko' ? '4시간' : '4h'}</Button>}
             <Button variant="ghost" size="toolbar" onClick={() => commitRange({ from: timeBounds[0], to: timeBounds[timeBounds.length - 1] })}>{lang === 'ko' ? '전체' : 'All'}</Button>
           </div>}
           <Button variant="ghost" size="toolbar" onClick={resetLocal}><RotateCcw className="size-3.5" aria-hidden />{lang === 'ko' ? '초기화' : 'Reset'}</Button>
-          {canCompare && <Button variant={compare ? 'secondary' : 'ghost'} size="toolbar" aria-pressed={compare} onClick={() => {
-            const next = !compare;
-            if (next && canCompare && xType === 'time' && (selection || preview)) {
-              const source = selection ?? preview!;
-              const snapped = snapOutward(toMs(source.from), toMs(source.to), timeBounds);
-              const result = snapped ? clipToPeriod(snapped, global.from, global.to, true) : { range: null, notice: 'outside' as const };
-              if (selection) {
-                setSelection(result.range);
-                if (!result.range) closeNote();
-              }
-              if (preview) setPreview(result.range);
-              setClipNotice(result.notice);
-              setRangeDraft(null);
-            }
-            setCompare(next);
-          }}><GitCompare className="size-3.5" aria-hidden />{lang === 'ko' ? '비교' : 'Compare'}</Button>}
-          {canAnnotate && <Button ref={annotateButton} variant="ghost" size="toolbar" disabled={!selection || scopeId === null} title={scopeId === null ? (lang === 'ko' ? '주석은 사이트(Scope)를 선택한 뒤 남길 수 있습니다' : 'Pick a site (Scope) to annotate') : selection ? undefined : (lang === 'ko' ? '구간 선택으로 구간을 먼저 선택하세요' : 'Brush a range first')} onClick={openNote}><MessageSquarePlus className="size-3.5" aria-hidden />{lang === 'ko' ? '주석' : 'Annotate'}</Button>}
+          {canCompare && <Button variant={compare ? 'secondary' : 'ghost'} size="toolbar" aria-pressed={compare} onClick={toggleCompare}><GitCompare className="size-3.5" aria-hidden />{lang === 'ko' ? '비교' : 'Compare'}</Button>}
+          {canAnnotate && <Button ref={annotateButton} variant="ghost" size="toolbar" disabled={!selection || scopeId === null} title={scopeId === null ? (lang === 'ko' ? '주석은 사이트(Scope)를 선택한 뒤 남길 수 있습니다' : 'Pick a site (Scope) to annotate') : selection ? undefined : (lang === 'ko' ? '구간 선택으로 구간을 먼저 선택하세요' : 'Brush a range first')} onClick={editor.openEditor}><MessageSquarePlus className="size-3.5" aria-hidden />{lang === 'ko' ? '주석' : 'Annotate'}</Button>}
         </div>
         <div className="flex items-center gap-1" data-chart-toolbar-tail>
           {canExport && <Button variant="ghost" size="toolbar" onClick={exportCsv}><Download className="size-3.5" aria-hidden />{lang === 'ko' ? '내보내기' : 'Export'}</Button>}
@@ -693,8 +519,8 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
           {selectionCounts.map(c => <span key={c.s.id} className="tabular text-text-secondary">{c.s.name}: n={c.n}{c.avg !== null && ` · avg ${format(c.avg)} · max ${format(c.max!)}`} {p.unit}</span>)}
           <span className="ml-auto flex flex-wrap gap-2">
             {p.selectionActions?.(selection)}
-            {xType === 'time' && p.canApplyRange !== false && <Button ref={applyRangeButton} size="toolbar" onClick={() => setPreview(selection)}>{lang === 'ko' ? '분석 구간 적용…' : 'Apply analysis range…'}</Button>}
-            <Button size="toolbar" variant="ghost" onClick={() => { setSelection(null); setClipNotice(null); setRangeDraft(null); }}>{t('clear')}</Button>
+            {xType === 'time' && p.canApplyRange !== false && <Button ref={applyRangeButton} size="toolbar" onClick={() => rangeActions.setPreview(selection)}>{lang === 'ko' ? '분석 구간 적용…' : 'Apply analysis range…'}</Button>}
+            <Button size="toolbar" variant="ghost" onClick={rangeActions.clear}>{t('clear')}</Button>
           </span>
         </div>}
       {selection && selectionCounts.length > 0 && selectionCounts.every(c => c.n === 0) && <p className="mt-1 text-text-secondary">
@@ -707,31 +533,31 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
         <span className="tabular">{lang === 'ko' ? '전역 기간을 다음으로 바꿉니다:' : 'Change the global period to:'} <b>{preview.from.replace('T', ' ')} → {preview.to.replace('T', ' ')}</b></span>
         {/* The row unmounts on either button; hand keyboard focus back instead of dropping it to body (#297 UX). */}
         <Button size="toolbar" onClick={() => { setGlobal({ from: preview.from, to: preview.to }); toast(lang === 'ko' ? '선택 구간을 전역 기간으로 적용했습니다. 다른 메뉴로 이동해도 유지됩니다.' : 'Applied the selection as the global period; it carries across menus.'); brushToggle.current?.focus({ preventScroll: true }); }}>{t('apply')}</Button>
-        <Button size="toolbar" variant="secondary" onClick={() => { setPreview(null); applyRangeButton.current?.focus({ preventScroll: true }); }}>{t('cancel')}</Button>
+        <Button size="toolbar" variant="secondary" onClick={() => { rangeActions.setPreview(null); applyRangeButton.current?.focus({ preventScroll: true }); }}>{t('cancel')}</Button>
       </div>}
-      {canAnnotate && note !== null && selection && <form className="mt-2 flex flex-wrap items-center gap-2" onSubmit={e => { e.preventDefault(); void saveNote(selection); }}>
-        <input autoFocus aria-label={lang === 'ko' ? '주석 내용' : 'Annotation text'} value={note} onChange={e => setNote(e.target.value)} placeholder={lang === 'ko' ? '예: PM 작업으로 인한 대기 증가' : 'e.g. queue spike due to PM'} className="h-7 min-w-64 flex-1 rounded-md border border-border-control bg-surface-card px-2" />
-        <Button size="toolbar" type="submit" disabled={saving}>{lang === 'ko' ? '저장' : 'Save'}</Button>
-        <Button size="toolbar" type="button" variant="ghost" onClick={closeNote}>{t('cancel')}</Button>
+      {canAnnotate && note !== null && selection && <form className="mt-2 flex flex-wrap items-center gap-2" onSubmit={e => { e.preventDefault(); void editor.saveNote(selection); }}>
+        <input autoFocus aria-label={lang === 'ko' ? '주석 내용' : 'Annotation text'} value={note} onChange={e => editor.setNote(e.target.value)} placeholder={lang === 'ko' ? '예: PM 작업으로 인한 대기 증가' : 'e.g. queue spike due to PM'} className="h-7 min-w-64 flex-1 rounded-md border border-border-control bg-surface-card px-2" />
+        <Button size="toolbar" type="submit" disabled={editor.saving}>{lang === 'ko' ? '저장' : 'Save'}</Button>
+        <Button size="toolbar" type="button" variant="ghost" onClick={closeEditor}>{t('cancel')}</Button>
       </form>}
       {annotationAlert && <p role="alert" className="mt-2 flex items-center gap-2 border-t border-border-subtle pt-1.5 text-tiny text-text-secondary">
         {lang === 'ko' ? '주석을 불러오지 못했습니다. 차트는 그대로 사용할 수 있습니다.' : 'Could not load annotations. The chart is unaffected.'}
-        <Button size="toolbar" variant="ghost" onClick={refetchAnnotations}>{lang === 'ko' ? '다시 시도' : 'Retry'}</Button>
+        <Button size="toolbar" variant="ghost" onClick={editor.refetch}>{lang === 'ko' ? '다시 시도' : 'Retry'}</Button>
       </p>}
       {annotations.length > 0 && <ul className="mt-2 space-y-0.5 border-t border-border-subtle pt-1.5 text-tiny text-text-secondary">
         {annotations.map(a => <li key={a.id} className="tabular flex flex-wrap items-center gap-x-1"><span className="mr-1 inline-block size-2 rounded-xs bg-chart-purple/60 align-middle" aria-hidden />{xType === 'time' ? `${fmt(a.from)}–${fmt(a.to)}` : `${a.from}–${a.to}`}: {a.text}
-          {a.mine && (pendingDelete === a.id
-            ? <div role="group" aria-label={lang === 'ko' ? `삭제 확인: ${a.text}` : `Confirm delete: ${a.text}`} className="ml-2 inline-flex items-center gap-1" onFocus={() => { focusOnConfirm.current = true; }} onBlur={e => {
+          {a.mine && (editor.pendingDelete === a.id
+            ? <div role="group" aria-label={lang === 'ko' ? `삭제 확인: ${a.text}` : `Confirm delete: ${a.text}`} className="ml-2 inline-flex items-center gap-1" onFocus={() => { editor.focusOnConfirm.current = true; }} onBlur={e => {
               if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
               // Removing the focused button also fires focusout (relatedTarget null, activeElement body) while the row is still attached; judge after the commit: a row that is gone keeps ownership.
               const group = e.currentTarget;
-              queueMicrotask(() => { if (group.isConnected && !group.contains(document.activeElement)) focusOnConfirm.current = false; });
+              queueMicrotask(() => { if (group.isConnected && !group.contains(document.activeElement)) editor.focusOnConfirm.current = false; });
             }}>
               <span>{lang === 'ko' ? '이 주석을 삭제할까요?' : 'Delete this note?'}</span>
-              <Button size="toolbar" variant="destructive" autoFocus aria-disabled={deleting} onClick={() => void deleteNote(a.id)}>{lang === 'ko' ? '삭제 확정' : 'Confirm delete'}</Button>
-              <Button size="toolbar" variant="ghost" aria-disabled={deleting} onClick={() => { if (deleting) return; setPendingDelete(null); setRestoreFocus(a.id); }}>{t('cancel')}</Button>
+              <Button size="toolbar" variant="destructive" autoFocus aria-disabled={editor.deleting} onClick={() => void editor.deleteNote(a.id)}>{lang === 'ko' ? '삭제 확정' : 'Confirm delete'}</Button>
+              <Button size="toolbar" variant="ghost" aria-disabled={editor.deleting} onClick={() => editor.cancelConfirm(a.id)}>{t('cancel')}</Button>
             </div>
-            : <Button ref={el => { if (el) deleteButtons.current.set(a.id, el); else deleteButtons.current.delete(a.id); }} size="toolbar" variant="ghost" className="ml-2" aria-label={lang === 'ko' ? `삭제: ${a.text}` : `Delete note: ${a.text}`} onClick={() => setPendingDelete(a.id)}>{lang === 'ko' ? '삭제' : 'Delete'}</Button>)}
+            : <Button ref={el => { if (el) editor.deleteButtons.current.set(a.id, el); else editor.deleteButtons.current.delete(a.id); }} size="toolbar" variant="ghost" className="ml-2" aria-label={lang === 'ko' ? `삭제: ${a.text}` : `Delete note: ${a.text}`} onClick={() => editor.startDelete(a.id)}>{lang === 'ko' ? '삭제' : 'Delete'}</Button>)}
         </li>)}
       </ul>}
     </section>}
