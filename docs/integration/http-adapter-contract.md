@@ -109,7 +109,7 @@ envelope 메서드는 **reject하지 않는다**(체크리스트 §2). 실패는
 ### 2.2 그 밖의 묶음
 
 - **비 envelope 비동기**(`validateScope`·`contextOptions`·`evaluateSelection`): 위 실패 상황에서 **reject**한다. 응답 모양 검사는 위 표의 실패 상황(JSON 아님·필수 필드 없음)만 보고, 모르는 키는 무시한다. **어댑터 내부 타임아웃은 `AbortError`로 reject하지 않는 것을 권한다** — `AbortSignal.timeout`(`TimeoutError`)을 쓰거나 `AbortError`가 아닌 오류로 감싼다. Kernel은 `AbortError`라는 이름으로 취소를 판정하지 않는다(#183 — 취소 판정은 `kernelSignal.aborted`뿐이다), 그래서 이 표기는 이제 로그·디버깅 가독성을 위한 취향일 뿐 필수가 아니다. `validateScope`는 어댑터가 내부에서 짧게 재시도해도 된다(체크리스트 §2) [제안: 네트워크 실패·502/503에 한해 1회].
-- **새 비 envelope 조회**(listAxisOptions·searchEquipment·resolveSelection): 성공 페이지/해석 데이터만 resolve한다. 성공한 빈 페이지는 `{items:[],nextCursor:null}`이고 total 부재는 0이 아니다. §1의 4xx는 PortError(code,message,field?), 네트워크/타임아웃/잘못된 응답은 다른 오류로 reject한다. 실패를 ApiResponse나 빈 성공으로 변환하지 않는다. 내부 AbortError도 오류·재시도 대상이며 Kernel의 signal.aborted만 취소다.
+- **새 비 envelope 조회**(listAxisOptions·searchEquipment·resolveSelection): §1의 4xx(`{code,message,field?}` 본문)는 `PortError`로 reject하고, 그 밖의 실패 상황(네트워크·타임아웃·잘못된 응답)은 `PortError`가 아닌 오류로 reject한다. 성공·실패 세 갈래의 원본은 [실서버 체크리스트 §2](real-server-checklist.md#2-platformadapter-메서드별로-지킬-것)다.
 - **fire-and-forget**(`recordUsage`·`reportClientError`): 200이면 본문(`{ accepted }`), 422면 `{ accepted: 0 }`/`{ accepted: false }`로 **푼다**(필수 — §2, 적합성 묶음이 거부 호출의 resolve를 기대한다). 그 밖의 전송 실패(네트워크·5xx 등)는 reject해도 된다(Kernel이 무시). 재시도하지 않는다.
 - **동기 스냅샷**은 네트워크를 타지 않는다(§3).
 

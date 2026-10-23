@@ -1,12 +1,18 @@
 import type { Condition, IdSet } from './url.js';
 
-export type PortErrorCode = 'invalid_input' | 'unknown_axis' | 'invalid_cursor' | 'invalid_period' | 'membership_basis_unsupported' | 'unknown_scope' | 'scope_forbidden' | 'room_forbidden';
-/** Judged non-envelope port failure; transport/timeout failures may reject with any other error. */
+export const PORT_ERROR_CODES = ['invalid_input', 'unknown_axis', 'invalid_cursor', 'invalid_period', 'membership_basis_unsupported', 'unknown_scope', 'scope_forbidden', 'room_forbidden'] as const;
+export type PortErrorCode = typeof PORT_ERROR_CODES[number];
+/** Judged failures of the non-envelope metadata ports; transport/timeout failures may reject with any other error. Test with `isPortError`, not `instanceof` (an adapter may bundle its own contracts copy). */
 export class PortError extends Error {
   constructor(readonly code: PortErrorCode, message: string, readonly field?: string) {
     super(message);
     this.name = 'PortError';
   }
+}
+/** Structural check: `name === 'PortError'` and a known `code`; holds across contracts copies. */
+export function isPortError(e: unknown): e is PortError {
+  return typeof e === 'object' && e !== null && (e as { name?: unknown }).name === 'PortError'
+    && (PORT_ERROR_CODES as readonly unknown[]).includes((e as { code?: unknown }).code);
 }
 export type MembershipPeriod = { from: string; to: string };
 export type AxisOptionsInput = {

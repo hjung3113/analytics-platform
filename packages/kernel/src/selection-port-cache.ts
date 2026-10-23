@@ -1,4 +1,4 @@
-import { PortError, type PortErrorCode } from '@ap/contracts';
+import { isPortError, PortError, type PortErrorCode } from '@ap/contracts';
 
 export type PortFailure = { code: PortErrorCode | null; message: string; retryable: boolean };
 export type PortStatus = 'idle' | 'loading' | 'ready' | 'error';
@@ -7,7 +7,7 @@ export type PortPageState<T> = {
   loadingMore: boolean; loadMoreError: PortFailure | null; total?: number;
 };
 export const idlePage: PortPageState<never> = { status: 'idle', items: [], error: null, hasMore: false, loadingMore: false, loadMoreError: null };
-const failure = (e: unknown): PortFailure => e instanceof PortError
+const failure = (e: unknown): PortFailure => isPortError(e)
   ? { code: e.code, message: e.message, retryable: e.code === 'invalid_cursor' }
   : { code: null, message: String(e), retryable: true };
 

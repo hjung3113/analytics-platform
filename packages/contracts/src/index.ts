@@ -15,7 +15,7 @@ export * from './response.js';
 export * from './url.js';
 export { CONTEXT_FIELDS, missingRequiredContext, requiredContextError } from './required-context.js';
 
-export { PortError } from './selection-ports.js';
+export { PortError, PORT_ERROR_CODES, isPortError } from './selection-ports.js';
 export type { PortErrorCode, MembershipPeriod, AxisOptionsInput, AxisOption, AxisOptionsPage, EquipmentSummary, EquipmentSearchInput, EquipmentSearchPage, SelectionResolveInput, SelectionResolution, SelectionResolveResult } from './selection-ports.js';
 export { compareHistoryText, compareQueryHistory, queryHistoryId } from './query-history.js';
 export type { QueryHistoryKey, QueryHistoryEntry, QueryHistoryStore } from './query-history.js';
