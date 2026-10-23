@@ -1,4 +1,4 @@
-// F1–F4 — the platform 권한 요청 page. fetch is mocked directly (house style), with the bridge's `/api/fo` base path.
+// F1–F5, X1–X6 — the platform 권한 요청 page. fetch is mocked directly (house style), with the bridge's `/api/fo` base path.
 
 import { configureApiClient } from '@/lib/api/client';
 import { type HostSeam, HostSeamProvider } from '@/lib/host/host-seam';
@@ -87,6 +87,19 @@ function installFetch() {
     if (path === '/api/fo/permission-requests/mine') return json({ requests: listRows });
     if (path === '/api/fo/permission-requests' && method === 'POST') return postResponse();
     if (path.endsWith('/cancel') && method === 'POST') return cancelResponse();
+    const detailId = /^\/api\/fo\/permission-requests\/([^/]+)$/.exec(path)?.[1];
+    if (detailId !== undefined && method === 'GET')
+      return json({
+        ...row(detailId, 'needs_more_info'),
+        requester_actor_id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+        source_summary: null,
+        latest_admin_question: {
+          note: '어떤 Survey인지 알려 주세요',
+          created_at: '2026-10-21T00:00:00.000Z',
+        },
+        editable_scope_candidates: [],
+        allowed_actions: ['withdraw'],
+      });
     return new Response('not mocked', { status: 500 });
   }) as typeof fetch;
 }
@@ -148,7 +161,7 @@ describe('새 권한 요청', () => {
     const { seam, user } = mount();
     await waitFor(() => expect(mineCalls()).toHaveLength(1));
     expect(mineCalls()[0]?.url).toBe('/api/fo/permission-requests/mine?status=all');
-    expect(submitButton()).toBeDisabled();
+    expect(submitButton()).toBeEnabled();
 
     await choose(user, '기능', 'VOC 조회');
     await choose(user, 'Managed System', 'Alpha');
@@ -227,11 +240,11 @@ describe('새 권한 요청', () => {
     const { user } = mount();
     await choose(user, '기능', 'VOC Triage');
     await user.type(reasonBox(), '사유');
-    expect(submitButton()).toBeDisabled();
     await user.click(submitButton());
     expect(posts()).toHaveLength(0);
     await choose(user, 'Managed System', 'Alpha');
-    expect(submitButton()).toBeEnabled();
+    await user.click(submitButton());
+    await waitFor(() => expect(posts()).toHaveLength(1));
   });
 
   it.each([
@@ -303,20 +316,18 @@ describe('내 권한 요청', () => {
     expect(within(cancelled).getByText(/Gamma/)).toBeInTheDocument();
     expect(within(moreInfo).getByText(/알 수 없는 Managed System/)).toBeInTheDocument();
     expect(
-      within(moreInfo).getByText(
-        '관리자가 추가 정보를 요청했습니다. 철회한 뒤 다시 요청할 수 있습니다.',
-      ),
+      within(moreInfo).getByText('철회한 뒤 답을 사유에 적어 다시 요청할 수 있습니다.'),
     ).toBeInTheDocument();
-    expect(within(pending).getByRole('button', { name: '요청 철회' })).toBeInTheDocument();
-    expect(within(moreInfo).getByRole('button', { name: '요청 철회' })).toBeInTheDocument();
-    expect(within(approved).queryByRole('button', { name: '요청 철회' })).not.toBeInTheDocument();
-    expect(within(cancelled).queryByRole('button', { name: '요청 철회' })).not.toBeInTheDocument();
+    expect(within(pending).getByRole('button', { name: /^요청 철회/ })).toBeInTheDocument();
+    expect(within(moreInfo).getByRole('button', { name: /^요청 철회/ })).toBeInTheDocument();
+    expect(within(approved).queryByRole('button', { name: /^요청 철회/ })).not.toBeInTheDocument();
+    expect(within(cancelled).queryByRole('button', { name: /^요청 철회/ })).not.toBeInTheDocument();
   });
 
   it('F4 withdraws after an inline confirm with the row revision, then refetches', async () => {
     listRows = [row(ID_PENDING, 'pending')];
     const { seam, user } = mount();
-    await user.click(await screen.findByRole('button', { name: '요청 철회' }));
+    await user.click(await screen.findByRole('button', { name: /^요청 철회/ }));
     expect(screen.getByText('요청을 철회할까요?')).toBeInTheDocument();
     expect(calls.filter((c) => c.url.endsWith('/cancel'))).toHaveLength(0);
     const before = mineCalls().length;
@@ -333,9 +344,9 @@ describe('내 권한 요청', () => {
   it('F4 keeps the row when the confirm is dismissed', async () => {
     listRows = [row(ID_PENDING, 'pending')];
     const { user } = mount();
-    await user.click(await screen.findByRole('button', { name: '요청 철회' }));
+    await user.click(await screen.findByRole('button', { name: /^요청 철회/ }));
     await user.click(screen.getByRole('button', { name: '취소' }));
-    expect(screen.getByRole('button', { name: '요청 철회' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^요청 철회/ })).toBeInTheDocument();
     expect(calls.filter((c) => c.url.endsWith('/cancel'))).toHaveLength(0);
   });
 
@@ -343,7 +354,7 @@ describe('내 권한 요청', () => {
     listRows = [row(ID_PENDING, 'pending')];
     cancelResponse = () => json({ code: 'conflict.stale_write', message: 'x' }, 409);
     const { seam, user } = mount();
-    await user.click(await screen.findByRole('button', { name: '요청 철회' }));
+    await user.click(await screen.findByRole('button', { name: /^요청 철회/ }));
     const before = mineCalls().length;
     await user.click(screen.getByRole('button', { name: '철회' }));
     await waitFor(() =>
@@ -378,4 +389,145 @@ it('tells the user that business-system access is the platform admin’s', () =>
       '업무 시스템 접근 권한은 플랫폼 관리자가 줍니다. 여기서는 FeedbackOps 기능 권한을 요청합니다.',
     ),
   ).toBeInTheDocument();
+});
+
+const focused = () => document.activeElement;
+const withdrawButton = () => screen.getByRole('button', { name: /^요청 철회/ });
+
+describe('포커스·필수 입력·관리자 질문 (UX 검토)', () => {
+  it.each([
+    {
+      how: '취소',
+      act: (user: ReturnType<typeof userEvent.setup>) =>
+        user.click(screen.getByRole('button', { name: '취소' })),
+    },
+    { how: 'Esc', act: (user: ReturnType<typeof userEvent.setup>) => user.keyboard('{Escape}') },
+  ])(
+    'X1 opening the confirm focuses 취소; $how closes it and focuses 요청 철회',
+    async ({ act }) => {
+      listRows = [row(ID_PENDING, 'pending')];
+      const { user } = mount();
+      await user.click(await screen.findByRole('button', { name: /^요청 철회/ }));
+      expect(focused()).toBe(screen.getByRole('button', { name: '취소' }));
+      await act(user);
+      expect(screen.queryByText('요청을 철회할까요?')).not.toBeInTheDocument();
+      expect(focused()).toBe(withdrawButton());
+    },
+  );
+
+  it('X2 a successful withdraw focuses the row', async () => {
+    listRows = [row(ID_PENDING, 'pending')];
+    const { seam, user } = mount();
+    const item = await screen.findByRole('listitem');
+    await user.click(withdrawButton());
+    listRows = [row(ID_PENDING, 'cancelled')];
+    await user.click(screen.getByRole('button', { name: '철회' }));
+    await waitFor(() => expect(seam.notifySuccess).toHaveBeenCalled());
+    await waitFor(() => expect(focused()).toBe(item));
+  });
+
+  it('X2 a successful withdraw focuses the heading when the refetched list lacks the row', async () => {
+    listRows = [row(ID_PENDING, 'pending')];
+    const { user } = mount();
+    await user.click(await screen.findByRole('button', { name: /^요청 철회/ }));
+    listRows = [];
+    await user.click(screen.getByRole('button', { name: '철회' }));
+    const heading = await screen.findByRole('heading', { name: '내 권한 요청' });
+    await waitFor(() => expect(focused()).toBe(heading));
+  });
+
+  it('X2 a 409 focuses 요청 철회 again', async () => {
+    listRows = [row(ID_PENDING, 'pending')];
+    cancelResponse = () => json({ code: 'conflict.stale_write', message: 'x' }, 409);
+    const { seam, user } = mount();
+    await user.click(await screen.findByRole('button', { name: /^요청 철회/ }));
+    await user.click(screen.getByRole('button', { name: '철회' }));
+    await waitFor(() => expect(seam.notifyError).toHaveBeenCalled());
+    await waitFor(() => expect(focused()).toBe(withdrawButton()));
+  });
+
+  it('X3 a successful submit focuses the 기능 trigger', async () => {
+    const { seam, user } = mount();
+    await choose(user, '기능', 'VOC 조회');
+    await choose(user, 'Managed System', 'Alpha');
+    await user.type(reasonBox(), '사유');
+    await user.click(submitButton());
+    await waitFor(() => expect(seam.notifySuccess).toHaveBeenCalled());
+    await waitFor(() => expect(focused()).toBe(screen.getByRole('combobox', { name: '기능' })));
+  });
+
+  it.each([
+    {
+      label: 'no capability',
+      fill: async () => {},
+      alert: '기능을 선택하세요.',
+      control: () => screen.getByRole('combobox', { name: '기능' }),
+    },
+    {
+      label: 'Managed System required and empty',
+      fill: async (user: ReturnType<typeof userEvent.setup>) => {
+        await choose(user, '기능', 'VOC Triage');
+        await user.type(reasonBox(), '사유');
+      },
+      alert: 'Managed System을 선택하세요.',
+      control: () => screen.getByRole('combobox', { name: 'Managed System' }),
+    },
+    {
+      label: 'empty reason',
+      fill: async (user: ReturnType<typeof userEvent.setup>) => {
+        await choose(user, '기능', 'VOC Triage');
+        await choose(user, 'Managed System', 'Alpha');
+      },
+      alert: '사유는 필수입니다.',
+      control: () => reasonBox(),
+    },
+  ])(
+    'X4 submit with $label shows the alert, marks the control, focuses it and posts nothing',
+    async ({ fill, alert, control }) => {
+      const { user } = mount();
+      await fill(user);
+      await user.click(submitButton());
+      expect(await screen.findByText(alert)).toHaveAttribute('role', 'alert');
+      expect(control()).toHaveAttribute('aria-invalid', 'true');
+      expect(control()).toHaveAccessibleDescription(alert);
+      expect(focused()).toBe(control());
+      expect(posts()).toHaveLength(0);
+    },
+  );
+
+  it('X4 marks Managed System required and clears an error when its field changes', async () => {
+    const { user } = mount();
+    await choose(user, '기능', 'VOC Triage');
+    expect(screen.getByText('Managed System · 필수')).toBeInTheDocument();
+    await user.click(submitButton());
+    expect(await screen.findByText('Managed System을 선택하세요.')).toBeInTheDocument();
+    await choose(user, 'Managed System', 'Alpha');
+    expect(screen.queryByText('Managed System을 선택하세요.')).not.toBeInTheDocument();
+  });
+
+  it('X5 a needs_more_info row shows the admin question; a pending row requests no detail', async () => {
+    listRows = [row(ID_PENDING, 'pending'), row(ID_MORE_INFO, 'needs_more_info')];
+    mount();
+    expect(await screen.findByText('관리자 질문: 어떤 Survey인지 알려 주세요')).toBeInTheDocument();
+    const detailUrls = calls
+      .filter((c) => /\/permission-requests\/[^/?]+$/.test(c.url) && c.method === 'GET')
+      .map((c) => c.url);
+    expect(detailUrls).toEqual([`/api/fo/permission-requests/${ID_MORE_INFO}`]);
+  });
+
+  it('X6 two open rows have distinct 요청 철회 names', async () => {
+    listRows = [
+      row(ID_PENDING, 'pending'),
+      row(ID_MORE_INFO, 'needs_more_info', {
+        requested_capability: 'finding.read',
+        requested_managed_system_id: null,
+      }),
+    ];
+    mount();
+    const buttons = await screen.findAllByRole('button', { name: /^요청 철회/ });
+    expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual([
+      '요청 철회: VOC 조회 · Alpha',
+      expect.stringMatching(/^요청 철회: .+ · 전체$/),
+    ]);
+  });
 });

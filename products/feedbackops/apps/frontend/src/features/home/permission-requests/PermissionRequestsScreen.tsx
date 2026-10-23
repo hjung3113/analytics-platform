@@ -9,7 +9,9 @@ import { mapUnknownError } from '@/lib/api/errorMapper';
 import { mintIdempotencyKey } from '@/lib/api/idempotency';
 import {
   createPermissionRequest,
+  fetchPermissionRequestOwnerDetail,
   fetchPermissionRequestsMine,
+  permissionRequestOwnerDetailKey,
   permissionRequestsMineKey,
   withdrawPermissionRequest,
 } from '@/lib/api/permission-requests';
@@ -51,7 +53,7 @@ const SKELETON_KEYS = ['skeleton-0', 'skeleton-1', 'skeleton-2'];
 
 export function PermissionRequestsScreen(): React.ReactElement {
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6" data-testid="permission-requests">
+    <div className="flex w-full flex-col gap-6" data-testid="permission-requests">
       <p className="text-sm text-text-muted">{COPY.notice}</p>
       <NewRequestForm />
       <MyRequests />
@@ -77,6 +79,11 @@ function NewRequestForm(): React.ReactElement {
   const [managedSystemId, setManagedSystemId] = React.useState('');
   const [reason, setReason] = React.useState('');
   const [reasonError, setReasonError] = React.useState<string | null>(null);
+  const [capabilityError, setCapabilityError] = React.useState<string | null>(null);
+  const [systemError, setSystemError] = React.useState<string | null>(null);
+  const capabilityRef = React.useRef<HTMLButtonElement>(null);
+  const systemRef = React.useRef<HTMLButtonElement>(null);
+  const reasonRef = React.useRef<HTMLTextAreaElement>(null);
 
   const showManagedSystem = capability !== '' && !NO_MANAGED_SYSTEM.has(capability);
   const managedSystemOptional = OPTIONAL_MANAGED_SYSTEM.has(capability);
@@ -114,6 +121,8 @@ function NewRequestForm(): React.ReactElement {
       setManagedSystemId('');
       setReason('');
       setReasonError(null);
+      setCapabilityError(null);
+      setSystemError(null);
       await queryClient.invalidateQueries({ queryKey: permissionRequestsMineKey });
     },
     onError: (error) => {
@@ -128,21 +137,39 @@ function NewRequestForm(): React.ReactElement {
     },
   });
 
-  const canSubmit =
-    capability !== '' &&
-    trimmedReason !== '' &&
-    reason.length <= REASON_MAX &&
-    !systemMissing &&
-    !noSystemsAvailable &&
-    !mutation.isPending;
+  // A sent request resets the form; focus returns to its first control (the disabled one could not take it earlier).
+  const sent = mutation.isSuccess;
+  React.useEffect(() => {
+    if (sent) capabilityRef.current?.focus();
+  }, [sent]);
+
+  const submit = () => {
+    const missing = {
+      capability: capability === '',
+      system: systemMissing || noSystemsAvailable,
+      reason: trimmedReason === '',
+    };
+    setCapabilityError(missing.capability ? COPY.capabilityMissing : null);
+    setSystemError(missing.system ? COPY.managedSystemMissing : null);
+    setReasonError(missing.reason ? COPY.reasonMissing : null);
+    if (missing.capability) capabilityRef.current?.focus();
+    else if (missing.system) systemRef.current?.focus();
+    else if (missing.reason) reasonRef.current?.focus();
+    else mutation.mutate();
+  };
 
   const onCapabilityChange = (next: string) => {
     setCapability(next);
+    setCapabilityError(null);
+    setSystemError(null);
     setManagedSystemId(OPTIONAL_MANAGED_SYSTEM.has(next) ? WORKSPACE_WIDE : '');
   };
 
   return (
-    <section aria-labelledby="permission-request-new-title" className="flex flex-col gap-4">
+    <section
+      aria-labelledby="permission-request-new-title"
+      className="flex max-w-2xl flex-col gap-4"
+    >
       <h2 id="permission-request-new-title" className="text-base font-semibold text-text-primary">
         {COPY.newRequest}
       </h2>
@@ -151,9 +178,8 @@ function NewRequestForm(): React.ReactElement {
         noValidate
         onSubmit={(event) => {
           event.preventDefault();
-          if (!canSubmit) return;
-          setReasonError(null);
-          mutation.mutate();
+          if (mutation.isPending) return;
+          submit();
         }}
       >
         <div className="flex flex-col gap-2">
@@ -163,7 +189,15 @@ function NewRequestForm(): React.ReactElement {
             onValueChange={onCapabilityChange}
             disabled={mutation.isPending}
           >
-            <SelectTrigger id="permission-request-capability" aria-label={COPY.capability}>
+            <SelectTrigger
+              ref={capabilityRef}
+              id="permission-request-capability"
+              aria-label={COPY.capability}
+              aria-invalid={capabilityError !== null}
+              aria-describedby={
+                capabilityError !== null ? 'permission-request-capability-error' : undefined
+              }
+            >
               <SelectValue placeholder={COPY.capabilityPlaceholder} />
             </SelectTrigger>
             <SelectContent>
@@ -176,11 +210,22 @@ function NewRequestForm(): React.ReactElement {
               </SelectGroup>
             </SelectContent>
           </Select>
+          {capabilityError !== null && (
+            <p
+              id="permission-request-capability-error"
+              role="alert"
+              className="text-xs text-text-danger"
+            >
+              {capabilityError}
+            </p>
+          )}
         </div>
 
         {showManagedSystem && (
           <div className="flex flex-col gap-2">
-            <Label htmlFor="permission-request-managed-system">{COPY.managedSystem}</Label>
+            <Label htmlFor="permission-request-managed-system">
+              {managedSystemOptional ? COPY.managedSystem : COPY.managedSystemRequired}
+            </Label>
             {managedSystems.isLoading ? (
               <Skeleton className="h-10 w-full" />
             ) : managedSystems.isError ? (
@@ -194,12 +239,20 @@ function NewRequestForm(): React.ReactElement {
                 )}
                 <Select
                   value={managedSystemId}
-                  onValueChange={setManagedSystemId}
+                  onValueChange={(next) => {
+                    setManagedSystemId(next);
+                    setSystemError(null);
+                  }}
                   disabled={mutation.isPending}
                 >
                   <SelectTrigger
+                    ref={systemRef}
                     id="permission-request-managed-system"
                     aria-label={COPY.managedSystem}
+                    aria-invalid={systemError !== null}
+                    aria-describedby={
+                      systemError !== null ? 'permission-request-managed-system-error' : undefined
+                    }
                   >
                     <SelectValue placeholder={COPY.managedSystemPlaceholder} />
                   </SelectTrigger>
@@ -216,6 +269,15 @@ function NewRequestForm(): React.ReactElement {
                     </SelectGroup>
                   </SelectContent>
                 </Select>
+                {systemError !== null && (
+                  <p
+                    id="permission-request-managed-system-error"
+                    role="alert"
+                    className="text-xs text-text-danger"
+                  >
+                    {systemError}
+                  </p>
+                )}
               </>
             )}
           </div>
@@ -224,6 +286,7 @@ function NewRequestForm(): React.ReactElement {
         <div className="flex flex-col gap-2">
           <Label htmlFor="permission-request-reason">{COPY.reasonRequired}</Label>
           <Textarea
+            ref={reasonRef}
             id="permission-request-reason"
             maxLength={REASON_MAX}
             value={reason}
@@ -236,14 +299,18 @@ function NewRequestForm(): React.ReactElement {
             }}
           />
           {reasonError !== null && (
-            <p id="permission-request-reason-error" className="text-xs text-text-danger">
+            <p
+              id="permission-request-reason-error"
+              role="alert"
+              className="text-xs text-text-danger"
+            >
               {reasonError}
             </p>
           )}
         </div>
 
         <div>
-          <Button type="submit" variant="primary" size="sm" disabled={!canSubmit}>
+          <Button type="submit" variant="primary" size="sm" disabled={mutation.isPending}>
             {COPY.submit}
           </Button>
         </div>
@@ -262,27 +329,54 @@ function MyRequests(): React.ReactElement {
     retry: false,
   });
   const [confirmingId, setConfirmingId] = React.useState<string | null>(null);
+  // Where focus goes after the next commit: the confirm's 취소, a row's 요청 철회 (else the heading), or the row.
+  const [focusTarget, setFocusTarget] = React.useState<
+    { kind: 'cancel' } | { kind: 'withdraw' | 'row'; id: string } | null
+  >(null);
+  const headingRef = React.useRef<HTMLHeadingElement>(null);
+  const rowRefs = React.useRef(new Map<string, HTMLLIElement>());
+  const withdrawRefs = React.useRef(new Map<string, HTMLButtonElement>());
+  const cancelRef = React.useRef<HTMLButtonElement>(null);
+
+  React.useEffect(() => {
+    if (focusTarget === null) return;
+    setFocusTarget(null);
+    if (focusTarget.kind === 'cancel') cancelRef.current?.focus();
+    else {
+      const map = focusTarget.kind === 'row' ? rowRefs.current : withdrawRefs.current;
+      (map.get(focusTarget.id) ?? headingRef.current)?.focus();
+    }
+  }, [focusTarget]);
+
+  const closeConfirm = (id: string) => {
+    setConfirmingId(null);
+    setFocusTarget({ kind: 'withdraw', id });
+  };
 
   const refetch = () => queryClient.invalidateQueries({ queryKey: permissionRequestsMineKey });
   const withdraw = useMutation({
     retry: false,
     mutationFn: (row: MinePermissionRequestRow) =>
       withdrawPermissionRequest(row.id, { expected_revision: row.revision }, mintIdempotencyKey()),
-    onSuccess: async () => {
-      setConfirmingId(null);
+    onSuccess: async (_data, row) => {
       notifySuccess(HOME_PERMISSION_COPY.withdrawn);
       await refetch();
-    },
-    onError: async (error) => {
       setConfirmingId(null);
+      setFocusTarget({ kind: 'row', id: row.id });
+    },
+    onError: async (error, row) => {
       // A 401 already retired the bridge session; the host shows the expiry state, not a toast.
-      if (error instanceof ApiError && error.status === 401) return;
+      if (error instanceof ApiError && error.status === 401) {
+        setConfirmingId(null);
+        return;
+      }
       notifyError(
         error instanceof ApiError && error.code === 'conflict.stale_write'
           ? COPY.staleWrite
           : mapUnknownError(error).message,
       );
       await refetch();
+      closeConfirm(row.id);
     },
   });
 
@@ -293,7 +387,12 @@ function MyRequests(): React.ReactElement {
 
   return (
     <section aria-labelledby="permission-request-mine-title" className="flex flex-col gap-3">
-      <h2 id="permission-request-mine-title" className="text-base font-semibold text-text-primary">
+      <h2
+        ref={headingRef}
+        tabIndex={-1}
+        id="permission-request-mine-title"
+        className="text-base font-semibold text-text-primary"
+      >
         {HOME_PERMISSION_COPY.title}
       </h2>
       {list.isPending ? (
@@ -313,7 +412,15 @@ function MyRequests(): React.ReactElement {
       ) : (
         <ul className="flex flex-col divide-y divide-border-subtle rounded-md border border-border-subtle">
           {list.data.requests.map((row) => (
-            <li key={row.id} className="flex flex-col gap-1 px-3 py-3">
+            <li
+              key={row.id}
+              ref={(el) => {
+                if (el) rowRefs.current.set(row.id, el);
+                else rowRefs.current.delete(row.id);
+              }}
+              tabIndex={-1}
+              className="flex flex-col gap-1 px-3 py-3 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
+            >
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <span className="text-sm font-medium text-text-primary">
                   {getCapabilityDisplayLabel(row.requested_capability)}
@@ -326,12 +433,17 @@ function MyRequests(): React.ReactElement {
                 {systemName(row.requested_managed_system_id)} · {formatDate(row.created_at)}
               </p>
               <p className="line-clamp-2 text-sm text-text-primary">{row.reason}</p>
-              {row.status === 'needs_more_info' && (
-                <p className="text-xs text-text-muted">{COPY.moreInfoHint}</p>
-              )}
+              {row.status === 'needs_more_info' && <MoreInfoNote id={row.id} />}
               {OPEN_STATUSES.has(row.status) &&
                 (confirmingId === row.id ? (
-                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <div
+                    className="flex flex-wrap items-center gap-2 pt-1"
+                    onKeyDown={(event) => {
+                      if (event.key !== 'Escape' || withdraw.isPending) return;
+                      event.stopPropagation();
+                      closeConfirm(row.id);
+                    }}
+                  >
                     <span className="text-sm text-text-primary">
                       {HOME_PERMISSION_COPY.withdrawConfirm}
                     </span>
@@ -345,11 +457,12 @@ function MyRequests(): React.ReactElement {
                       {COPY.confirmWithdraw}
                     </Button>
                     <Button
+                      ref={cancelRef}
                       type="button"
                       variant="ghost"
                       size="sm"
                       disabled={withdraw.isPending}
-                      onClick={() => setConfirmingId(null)}
+                      onClick={() => closeConfirm(row.id)}
                     >
                       {HOME_PERMISSION_COPY.cancel}
                     </Button>
@@ -357,10 +470,18 @@ function MyRequests(): React.ReactElement {
                 ) : (
                   <div className="pt-1">
                     <Button
+                      ref={(el) => {
+                        if (el) withdrawRefs.current.set(row.id, el);
+                        else withdrawRefs.current.delete(row.id);
+                      }}
                       type="button"
                       variant="secondary"
                       size="sm"
-                      onClick={() => setConfirmingId(row.id)}
+                      aria-label={`${HOME_PERMISSION_COPY.withdraw}: ${getCapabilityDisplayLabel(row.requested_capability)} · ${systemName(row.requested_managed_system_id)}`}
+                      onClick={() => {
+                        setConfirmingId(row.id);
+                        setFocusTarget({ kind: 'cancel' });
+                      }}
                     >
                       {HOME_PERMISSION_COPY.withdraw}
                     </Button>
@@ -371,5 +492,26 @@ function MyRequests(): React.ReactElement {
         </ul>
       )}
     </section>
+  );
+}
+
+// The latest admin question comes from the owner detail, fetched only for a row that asks for more information.
+// While it loads or if it fails, the row shows the hint alone.
+function MoreInfoNote({ id }: { id: string }): React.ReactElement {
+  const detail = useQuery({
+    queryKey: permissionRequestOwnerDetailKey(id),
+    queryFn: ({ signal }) => fetchPermissionRequestOwnerDetail(id, signal),
+    retry: false,
+  });
+  const question = detail.data?.latest_admin_question?.note;
+  return (
+    <>
+      {question !== undefined && (
+        <p className="text-sm text-text-primary">
+          {COPY.adminQuestion}: {question}
+        </p>
+      )}
+      <p className="text-xs text-text-muted">{COPY.moreInfoHint}</p>
+    </>
   );
 }
