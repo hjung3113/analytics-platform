@@ -561,6 +561,13 @@ rows.push(
   { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '@ap/menu-my-activity/src/voc-compose-slot';`, rule: 'no-restricted-imports' },
 );
 
+// The home 내 할 일 slot is main.tsx-only too (#657); `src/slots.ts` receives the value as a parameter.
+rows.push(
+  { file: 'apps/platform-web/src/main.tsx', code: `import { homeTodoSlot } from '@ap/menu-my-activity/home-todo-slot';`, rule: '' },
+  { file: 'apps/platform-web/src/slots.ts', code: `import { homeTodoSlot } from '@ap/menu-my-activity/home-todo-slot';`, rule: 'no-restricted-imports' },
+  { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '@ap/menu-my-activity/src/home-todo-slot';`, rule: 'no-restricted-imports' },
+);
+
 rows.push(
   { file: 'packages/ui/src/x.ts', code: `import { x } from '@fops/shared';`, rule: 'no-restricted-imports', token: '@ap/ui' },
   { file: 'packages/ui/src/x.ts', code: `void import('@fops/shared');`, rule: 'ap/restricted-import-source', token: '@ap/ui' },

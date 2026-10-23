@@ -6,9 +6,9 @@ import { dismissNotice, useDismissedNotices } from './dismissed-notices';
 import { Panel, PlatformPage, QueryView } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
 
-/** Platform home (ADR-0028, 15 §3.1): space cards, then recent and favorites, then notices. */
+/** Platform home (ADR-0028, 15 §3.1): space cards, then `내 할 일` (a Kernel slot, ADR-0070 decision 8), then favorites and recent, then notices. */
 export default function OperationsHome() {
-  const { favorites, toggleFavorite, recent, linkTo, global, registry, accessibleSpaces, canOpen, resolveLink, spaceEntry } = usePlatform();
+  const { favorites, toggleFavorite, recent, linkTo, global, registry, accessibleSpaces, canOpen, resolveLink, spaceEntry, homeTodo } = usePlatform();
   const { t, tx, lang } = useI18n();
 
   const dismissed = useDismissedNotices();
@@ -84,6 +84,8 @@ export default function OperationsHome() {
               })}
             </div>}
       </section>
+
+      {homeTodo && <homeTodo.Todo />}
 
       <div className="grid gap-3 lg:grid-cols-2">
         <Panel title={<span className="inline-flex items-center gap-2"><Star className="size-4 text-accent-warn" aria-hidden />{t('favorites')}</span>} subtitle={lang === 'ko' ? '지금 조회 조건을 유지하고 그 화면의 기본 보기로 이동합니다.' : "Opens the screen's default view with your current filters."}>

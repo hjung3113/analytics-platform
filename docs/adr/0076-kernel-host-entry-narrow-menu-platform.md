@@ -22,4 +22,4 @@
 
 ## 결과
 
-`@ap/kernel` 깨지는 변경이다. 저장소 밖 소비자가 없어 `@deprecated` 재export 없이 root에서 뺐고, [변경 기록](../integration/sdk-git-tag-consumption.md#변경-기록)에 남겼다. ADR-0053의 "견본 메뉴는 `usePlatform()`을 계속 쓴다"는 유효하다. 다시 볼 조건: 메뉴가 host 필드를 필요로 하는 사례가 생기면 그 필드를 `MenuPlatform`으로 올리는 것으로 푼다(host 허용이 아니라).
+`@ap/kernel` 깨지는 변경이다. 저장소 밖 소비자가 없어 `@deprecated` 재export 없이 root에서 뺐고, [변경 기록](../integration/sdk-git-tag-consumption.md#변경-기록)에 남겼다. ADR-0053의 "견본 메뉴는 `usePlatform()`을 계속 쓴다"는 유효하다. 다시 볼 조건: 메뉴가 host 필드를 필요로 하는 사례가 생기면 그 필드를 `MenuPlatform`으로 올리는 것으로 푼다(host 허용이 아니라). 첫 적용: `homeTodo`(#657) — 홈 ↔ FeedbackOps 경계. 기각: 홈을 my-activity로 옮기기, 메뉴에 host 허용.

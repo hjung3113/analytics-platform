@@ -12,6 +12,7 @@ import {
   fetchPermissionRequestOwnerDetail,
   fetchPermissionRequestsMine,
   permissionRequestOwnerDetailKey,
+  permissionRequestsMineAllKey,
   permissionRequestsMineKey,
   withdrawPermissionRequest,
 } from '@/lib/api/permission-requests';
@@ -24,7 +25,12 @@ import { HOME_PERMISSION_COPY } from '@/lib/copy/home';
 import { PERMISSION_REQUESTS_PAGE_COPY as COPY } from '@/lib/copy/permission-requests';
 import { formatDate } from '@/lib/format/datetime';
 import { useHostSeam } from '@/lib/host/host-seam';
-import { CAPABILITIES, type Capability, type MinePermissionRequestRow } from '@fops/shared';
+import {
+  CAPABILITIES,
+  type Capability,
+  type MinePermissionRequestRow,
+  OPEN_PERMISSION_REQUEST_STATUSES,
+} from '@fops/shared';
 import {
   Button,
   Label,
@@ -47,8 +53,6 @@ const NO_MANAGED_SYSTEM: ReadonlySet<string> = new Set<Capability>(['workspace.r
 const OPTIONAL_MANAGED_SYSTEM: ReadonlySet<string> = new Set<Capability>(['survey.export']);
 const WORKSPACE_WIDE = '__workspace__';
 const REASON_MAX = 2000;
-const OPEN_STATUSES: ReadonlySet<string> = new Set(['pending', 'needs_more_info']);
-const LIST_KEY = [...permissionRequestsMineKey, { status: 'all' }] as const;
 const SKELETON_KEYS = ['skeleton-0', 'skeleton-1', 'skeleton-2'];
 
 export function PermissionRequestsScreen(): React.ReactElement {
@@ -324,7 +328,7 @@ function MyRequests(): React.ReactElement {
   const queryClient = useQueryClient();
   const managedSystems = useManagedSystemsQuery();
   const list = useQuery({
-    queryKey: LIST_KEY,
+    queryKey: permissionRequestsMineAllKey,
     queryFn: ({ signal }) => fetchPermissionRequestsMine({ status: 'all', signal }),
     retry: false,
   });
@@ -434,7 +438,7 @@ function MyRequests(): React.ReactElement {
               </p>
               <p className="line-clamp-2 text-sm text-text-primary">{row.reason}</p>
               {row.status === 'needs_more_info' && <MoreInfoNote id={row.id} />}
-              {OPEN_STATUSES.has(row.status) &&
+              {OPEN_PERMISSION_REQUEST_STATUSES.has(row.status) &&
                 (confirmingId === row.id ? (
                   <div
                     className="flex flex-wrap items-center gap-2 pt-1"
