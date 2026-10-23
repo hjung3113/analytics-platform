@@ -558,9 +558,15 @@ test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
     // The tabs exist a frame before the engine shows its panels.
     await expect(page.locator('[data-dock-layout] [data-pane-body]')).toHaveCount(panes);
     await expect(page.locator('[data-dock-layout] [data-pane-body]').first()).toBeVisible();
-    // Drag only over settled panes: a skeleton the query replaces under the pointer just before the release gets no further
-    // dragover from the emulated mouse, so the browser ends the drag without a drop (CI 39898726190: 3 of 12 on one runner).
-    await expect(page.locator('[data-dock-layout] [data-pane-body] .animate-pulse')).toHaveCount(0);
+  }
+  /**
+   * Drag only over loaded panes (KPI shown, no skeleton left). A skeleton the query replaces under the pointer shortly before the
+   * release leaves the emulated mouse with no dragover on the new node, and the browser ends the drag without a drop (CI 39898726190,
+   * 39899780320: dragenter on the new node, then dragleave + dragend within 20–260 ms). A real pointer keeps firing dragover.
+   */
+  async function panesLoaded(page: Page, panes: number) {
+    await expect(page.locator('[data-dock-layout] [data-pane-body]').filter({ hasText: '물리 점유율' })).toHaveCount(panes);
+    await expect(page.locator('[data-dock-layout] [data-pane-body] [role="status"][aria-busy]')).toHaveCount(0);
   }
   /**
    * Drags like a person: press, stepped move, a few small moves over the target, release. `dragTo` sends one move, and when a
@@ -599,6 +605,7 @@ test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await signInWithDockBoard(page, [populated('dock', '1x2', 2)]);
     await dockReady(page, 2);
+    await panesLoaded(page, 2);
     await expect(groups(page)).toHaveCount(2);
     await markPanes(page);
     const body = groupBody(page, 1);
@@ -614,6 +621,7 @@ test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await signInWithDockBoard(page, [populated('dock', '1x2', 2)]);
     await dockReady(page, 2);
+    await panesLoaded(page, 2);
     const body = groupBody(page, 1);
     const box = (await body.boundingBox())!;
     await dragTab(page, 2, body, { x: box.width / 2, y: box.height / 2 });
