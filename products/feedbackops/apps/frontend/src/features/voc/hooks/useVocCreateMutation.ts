@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient, type UseMutationResult } from '@tanstack/react-query';
-import { apiClient, ApiError } from '@/lib/api';
+import { apiClient } from '@/lib/api/client';
+import type { ApiError } from '@/lib/api/types';
 import type { CreateVocRequest } from '@fops/shared';
 import { invalidateNavCounts } from '@/lib/query/navCounts';
 

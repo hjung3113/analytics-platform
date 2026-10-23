@@ -14,7 +14,7 @@ Base는 인자 `origin`이다. 정규형은 정규식이 아니라 URL 표준 �
 
 | target | phase-1이 내는 URL | FeedbackOps가 이미 읽는 것 (`13a3c5a`) |
 | --- | --- | --- |
-| `voc-create` | `{origin}/vocs?action=create` 또는 `&managedSystem={uuid}` | `action=create` → `CreateRoute` → `initialManagedSystemId`. 사이드바 href와 동일 |
+| `voc-create` | `{origin}/vocs?action=create` 또는 `&managedSystem={uuid}` | `action=create` → `CreateRoute` → `initialManagedSystemId`. 링크 종류는 계약으로 남지만 사이드바는 더 그리지 않는다(`VOC 등록`은 레일 서랍, ADR-0070, #656) |
 | `voc-detail` | `{origin}/vocs?view=inbox&selected={uuid}` (+ uuid면 `managedSystem`) | `selected`는 uuid. inbox ListShell |
 | `survey-detail` | `{origin}/surveys/{uuid}` | path `surveyId`. search의 다른 키(`builder` 등)는 화면 상태라 **`platformReturn` 밖의 query를 붙이지 않는다** |
 | `voc-list` | `{origin}/vocs?view=inbox&managedSystem={uuid}` | `/vocs`의 `view`(inbox\|my\|triage)·`managedSystem`(`apps/frontend/src/features/voc/routes/voc-search.ts`, `dc7638f`). `selected` 없음 |

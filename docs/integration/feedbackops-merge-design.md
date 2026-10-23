@@ -30,7 +30,7 @@ FeedbackOps를 플랫폼 앱 하나·서버 하나·저장소 하나로 합친�
 
 | 기능 | 지금 FeedbackOps | 플랫폼에서 |
 | --- | --- | --- |
-| VOC 등록 | `/vocs` 생성 폼 | 레일 `VOC 등록` → 오른쪽 도킹 드로어(본문을 밀어냄). 열 때 지금 메뉴·Context를 지울 수 있는 칩으로 고정해 붙이고, Analytics Area·Managed System은 ADR-0068 연결에서 채운다(없으면 직접 선택). 오른쪽 패널은 하나(ADR-0070) |
+| VOC 등록 | `/vocs` 생성 폼 | 레일 `VOC 등록` → 오른쪽 도킹 드로어(본문을 밀어냄). 열 때 지금 메뉴·Context를 지울 수 있는 칩으로 고정하고, 제출하면 남은 칩이 설명 끝 `화면 정보` 블록(항목 목록 + `화면 열기` 링크)이 된다([ADR-0045](../adr/0045-feedbackops-entry-link-mapping-and-scope.md) 개정). Managed System은 앱 표(`managedSystemFor`)의 값이 FeedbackOps 목록에 있을 때만 미리 고르고, Analytics Area는 연결이 없어 비워 직접 고른다. 본문은 신고자 관점 작성 화면 `VocComposeScreen`(유사 VOC·신고자 카드 없음, #656). 오른쪽 패널은 하나(ADR-0070) |
 | 내 VOC·신고자 VOC 상세 | `/vocs` 내 VOC 탭·상세 | 전역 `내 VOC`(1단계 읽기 화면 대체, M3 #84–#86). 플랫폼 경로 `/voc`(목록 + 셸 상세 패널)·`/voc/:vocId`(전체 화면), 읽기 전용(#654) |
 | 설문 참여·응답 | `/surveys/participate`, `/surveys/$id/respond` | 전역 `설문` 전체 페이지(플랫폼 경로 `/surveys`·`/surveys/:surveyId/respond`, #653). 알림·홈·플랫폼 메뉴에서 진입, 제출 뒤 출발 화면으로 복귀, VOC를 만들지 않음(ADR-0070) |
 | 알림함 | 알림 모듈(신고자 알림, Slice 65) | 레일 알림 종(읽지 않은 수 배지) → 팝오버 → `모두 보기` 알림 페이지. VOC 상태 변경·권한 결정(설문 요청 알림은 FeedbackOps에 아직 없다 — 백로그). 읽음은 설문 완료와 별개(ADR-0070) |

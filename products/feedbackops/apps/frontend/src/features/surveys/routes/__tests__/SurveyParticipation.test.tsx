@@ -921,7 +921,12 @@ describe('platform bridge screens (embedded)', () => {
   function inHost(node: ReactNode) {
     return (
       <HostSeamProvider
-        value={{ canLink: () => true, Link: HostLinkProbe, notifyError: () => undefined }}
+        value={{
+          canLink: () => true,
+          Link: HostLinkProbe,
+          notifyError: () => undefined,
+          notifySuccess: () => undefined,
+        }}
       >
         {node}
       </HostSeamProvider>

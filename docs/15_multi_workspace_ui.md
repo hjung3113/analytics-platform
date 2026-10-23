@@ -99,7 +99,7 @@ Equipment Platform
 
 **레일 (위 → 아래)**: 플랫폼 홈 링크(로고 자리, 툴팁 `플랫폼 홈`) → 공간 버튼(MARS · BRAVO · 표준 로그 개발 · 개선 실행 · 개발·운영 콘솔 순, 접근 가능 공간이 2개 이상일 때만, 최근 사용 순으로 바꾸지 않음) → 구분선 → 메뉴 검색(⌘/Ctrl K) → 여백 → `FeedbackOps 전체`(노출 권한자만, 새 탭, 공간 표식 없음) → 앱 주입 도구 → 도움말 → 언어 → 사용자 메뉴.
 
-**사이드바 (위 → 아래)**: 50px 머리(현재 공간 이름 + 접기, 이름은 전환 버튼이 아님) → Scope 선택기 → 독립 스크롤 구역(현재 공간 그룹·메뉴 → 즐겨찾기 → 최근 방문 5개) → 매핑된 공간에만 FeedbackOps 바닥 고정 블록(스크롤 밖). 접힘 56px에서는 즐겨찾기·최근을 숨기고, 메뉴 아이콘과 FeedbackOps 아이콘 넷을 같은 순서로 남긴다. 키보드로 마지막 메뉴까지 가도 바닥 블록에 가리지 않는다.
+**사이드바 (위 → 아래)**: 50px 머리(현재 공간 이름 + 접기, 이름은 전환 버튼이 아님) → Scope 선택기 → 독립 스크롤 구역(현재 공간 그룹·메뉴 → 즐겨찾기 → 최근 방문 5개) → 매핑된 공간에만 FeedbackOps 바닥 고정 블록(스크롤 밖). 접힘 56px에서는 즐겨찾기·최근을 숨기고, 메뉴 아이콘과 FeedbackOps 아이콘 셋(`VOC`·`Task`·`설문`)을 같은 순서로 남긴다. 키보드로 마지막 메뉴까지 가도 바닥 블록에 가리지 않는다.
 
 **FeedbackOps 블록**: 머리 `FeedbackOps · <공간 이름>` → `VOC 등록` → `VOC` → `Task` → `설문` → `새 탭에서 열립니다`. 각 행 끝 외부 링크 표시. 접근 이름과 접힘 툴팁 모두 `<항목> — <공간 이름>, FeedbackOps, 새 탭`. `aria-current`를 붙이지 않는다. 링크 모양은 ADR-0027·#251. `VOC 등록`은 레일로 옮긴다(ADR-0070).
 
@@ -190,7 +190,7 @@ Equipment Platform
 
 FeedbackOps 화면은 플랫폼으로 옮기지 않는다([ADR-0027](adr/0027-feedbackops-stays-standalone-entry-links.md)). VOC → Evidence → Finding → Task Request/Task로 이어지는 흐름과 그 권한·상태 규칙은 FeedbackOps가 전담한다.
 
-- 현재 시스템 Sidebar의 진입(VOC 등록, VOC, Task, 설문)은 FeedbackOps를 **새 탭**으로 연다. 링크에는 그 시스템의 Managed System(`managedSystem`)을 실어 FeedbackOps가 그 시스템의 요청만 기본으로 보이게 한다.
+- 현재 시스템 Sidebar의 진입(VOC, Task, 설문)은 FeedbackOps를 **새 탭**으로 연다(`VOC 등록`은 레일 서랍으로 옮겼다 — ADR-0070, #656). 링크에는 그 시스템의 Managed System(`managedSystem`)을 실어 FeedbackOps가 그 시스템의 요청만 기본으로 보이게 한다.
 - 공간에 대응하는 Managed System 매핑이 없으면 진입을 그리지 않는다. 시스템 범위 없이 열면 다른 시스템의 요청이 보이기 때문이다.
 - 사용자용·담당자용 메뉴 구분, triage·Finding·Task Request·설문 빌더 같은 역할별 기능은 FeedbackOps 안에서 FeedbackOps 권한으로 갈린다. 플랫폼은 진입 링크만 고른다.
 - VOC 보고자 상태와 내부 Task 상태는 자동 매핑하지 않는다(FeedbackOps ADR-0005).

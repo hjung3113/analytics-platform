@@ -10,12 +10,12 @@ const PRODUCTIVITY = `/analytics/productivity?v=1&scopeId=MEM&${PERIOD}&roomName
 const ORIGIN = 'https://feedbackops.example';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** The four space links, each scoped to exactly one Managed System uuid, opening in a new tab without opener access. */
+/** The three space links, each scoped to exactly one Managed System uuid, opening in a new tab without opener access. */
 async function managedSystemOf(page: Page, space: string) {
   const block = page.getByRole('navigation', { name: `FeedbackOps · ${space}` });
   await expect(block).toBeVisible();
   const links = block.getByRole('link');
-  await expect(links).toHaveCount(4);
+  await expect(links).toHaveCount(3);
   const found = new Set<string>();
   for (const link of await links.all()) {
     await expect(link).toHaveAttribute('target', '_blank');
@@ -1975,6 +1975,16 @@ test.describe('전역 기능 자리 (ADR-0070, 06 §9.1·§10)', () => {
     await expect(page.getByText('VOC를 찾을 수 없습니다')).toBeVisible();
   });
 
+  test('VOC 등록은 사이드바 링크가 아니라 레일 버튼의 서랍이고 mock에서는 실서버 필요 상태를 보인다 (#656)', async ({ page }) => {
+    await signInAs(page, 'viewer');
+    await page.goto('/metrics');
+    await expect(page.getByRole('navigation', { name: 'FeedbackOps · BRAVO' }).getByRole('link', { name: 'VOC 등록' })).toHaveCount(0);
+    await page.getByRole('button', { name: 'VOC 등록', exact: true }).click();
+    const drawer = page.getByRole('complementary', { name: 'VOC 등록' });
+    await expect(drawer).toBeVisible();
+    await expect(drawer.getByRole('status')).toContainText('실서버 필요');
+  });
+
   test('플랫폼 사이드바는 업무 사이드바와 접힘 상태를 함께 쓴다', async ({ page }) => {
     await signInAs(page, 'admin');
     await page.goto('/');
@@ -3744,7 +3754,7 @@ test.describe('표 높이·고정 동작 열 (06 §15, ADR-0037)', () => {
 });
 
 test.describe('FeedbackOps 공간별 진입(#251)', () => {
-  test('admin의 MARS·BRAVO 사이드바 블록은 그 공간의 managedSystem만 담은 새 탭 링크 넷이고, 운영 콘솔에는 블록이 없다', async ({ page }, testInfo) => {
+  test('admin의 MARS·BRAVO 사이드바 블록은 그 공간의 managedSystem만 담은 새 탭 링크 셋이고, 운영 콘솔에는 블록이 없다', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
     await page.goto(PRODUCTIVITY);
     const analytics = await managedSystemOf(page, 'MARS');
@@ -3841,10 +3851,7 @@ test.describe('FeedbackOps 진입 링크 회귀(#451, 06 §22)', () => {
       const destinations: string[] = [];
       for (const link of links) {
         const href = await linkUrl(link);
-        if (href.pathname === '/vocs' && href.searchParams.get('action') === 'create') {
-          expectExactQueryKeys(href, ['action', 'managedSystem', 'platformReturn']);
-          destinations.push('vocs:create');
-        } else if (href.pathname === '/vocs' && href.searchParams.get('view') === 'inbox') {
+        if (href.pathname === '/vocs' && href.searchParams.get('view') === 'inbox') {
           expectExactQueryKeys(href, ['view', 'managedSystem', 'platformReturn']);
           destinations.push('vocs:inbox');
         } else if (href.pathname === '/tasks') {
@@ -3857,7 +3864,7 @@ test.describe('FeedbackOps 진입 링크 회귀(#451, 06 §22)', () => {
           throw new Error(`Unexpected FeedbackOps destination: ${href.pathname}`);
         }
       }
-      expect(destinations.sort()).toEqual(['surveys', 'tasks', 'vocs:create', 'vocs:inbox']);
+      expect(destinations.sort()).toEqual(['surveys', 'tasks', 'vocs:inbox']);
     }
 
     await evidence(page, testInfo, 'feedbackops-query-keys');

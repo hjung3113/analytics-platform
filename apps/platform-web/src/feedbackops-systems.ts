@@ -1,4 +1,4 @@
-import { ClipboardList, ListTodo, MessageSquarePlus, MessagesSquare } from 'lucide-react';
+import { ClipboardList, ListTodo, MessagesSquare } from 'lucide-react';
 import { buildFeedbackOpsLink, ContractError, type FeedbackOpsTarget, type SpaceId } from '@ap/contracts';
 import type { FeedbackOpsEntry, FeedbackOpsSlot } from '@ap/kernel';
 import type { SPACES } from './menus';
@@ -18,9 +18,15 @@ export const FEEDBACKOPS_MANAGED_SYSTEMS: Readonly<Partial<Record<AppSpaceId, st
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/** The Managed System id of a space (ADR-0045), or null when it has no row or the id is not a UUID. The one lookup for the sidebar entries and the VOC 등록 form's default. */
+export function managedSystemFor(spaceId: string | null): string | null {
+  if (spaceId === null) return null;
+  const managedSystemId = (FEEDBACKOPS_MANAGED_SYSTEMS as Readonly<Record<string, string | undefined>>)[spaceId];
+  return managedSystemId !== undefined && UUID.test(managedSystemId) ? managedSystemId : null;
+}
+
 type Back = { platformReturn?: string };
 const ENTRIES: readonly { key: FeedbackOpsEntry['key']; label: FeedbackOpsEntry['label']; icon: FeedbackOpsEntry['icon']; target: (managedSystemId: string, back: Back) => FeedbackOpsTarget }[] = [
-  { key: 'voc-create', icon: MessageSquarePlus, label: { ko: 'VOC 등록', en: 'Submit VOC' }, target: (managedSystemId, back) => ({ kind: 'voc-create', managedSystemId, ...back }) },
   { key: 'voc', icon: MessagesSquare, label: { ko: 'VOC', en: 'VOC' }, target: (managedSystemId, back) => ({ kind: 'voc-list', managedSystemId, ...back }) },
   { key: 'task', icon: ListTodo, label: { ko: 'Task', en: 'Tasks' }, target: (managedSystemId, back) => ({ kind: 'task-list', managedSystemId, ...back }) },
   { key: 'survey', icon: ClipboardList, label: { ko: '설문', en: 'Surveys' }, target: (managedSystemId, back) => ({ kind: 'survey-list', managedSystemId, ...back }) },
@@ -40,8 +46,8 @@ export function feedbackOpsSlot(origin: string | null): FeedbackOpsSlot {
   const overallHref = hrefOrNull(origin, { kind: 'overall' });
   return {
     entriesFor: (spaceId, platformReturn) => {
-      const managedSystemId = (FEEDBACKOPS_MANAGED_SYSTEMS as Readonly<Record<string, string | undefined>>)[spaceId];
-      if (managedSystemId === undefined || !UUID.test(managedSystemId)) return null;
+      const managedSystemId = managedSystemFor(spaceId);
+      if (managedSystemId === null) return null;
       const back: Back = platformReturn === undefined ? {} : { platformReturn };
       return ENTRIES.map(({ key, label, icon, target }) => ({ key, label, icon, href: hrefOrNull(origin, target(managedSystemId, back)) }));
     },

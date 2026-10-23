@@ -5,7 +5,7 @@ import { FoBridge, UnlinkedLink } from './fo/FoBridge';
 import { foQueryClient, useFoSession } from './fo/session';
 
 // The count renders no FeedbackOps screen; `FoScreenRoot` is only its QueryClient provider.
-const COUNT_SEAM: HostSeam = { canLink: () => false, Link: UnlinkedLink, notifyError: () => undefined };
+const COUNT_SEAM: HostSeam = { canLink: () => false, Link: UnlinkedLink, notifyError: () => undefined, notifySuccess: () => undefined };
 
 function Count({ enabled, children }: { enabled: boolean; children: (count: number | null) => ReactNode }) {
   const { data } = useUnreadNotificationCount({ enabled });

@@ -7,6 +7,7 @@
     ".": "./src/index.ts",
     "./fo-api": "./src/fo-api.ts",
     "./notifications-slot": "./src/notifications-slot.tsx",
+    "./voc-compose-slot": "./src/voc-compose-slot.tsx",
     "./styles.css": "./src/styles.css"
   },
   "scripts": {

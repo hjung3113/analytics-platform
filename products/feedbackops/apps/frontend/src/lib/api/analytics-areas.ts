@@ -1,20 +1,11 @@
 // Analytics Areas registry (Slice 2 #11).
+// The list read lives in ./registry-reads (bridge-safe, platform ADR-0071) and is re-exported here.
 
 import { UnauthenticatedError } from './auth';
+import type { AnalyticsAreaDto } from './registry-reads';
 import { ApiError, type ApiErrorEnvelope } from './types';
 
-export interface AnalyticsAreaDto {
-  id: string;
-  workspace_id: string;
-  managed_system_id: string;
-  slug: string;
-  name: string;
-  owner_team_id: string | null;
-  archived_at: string | null;
-  archived_by_actor_id: string | null;
-  created_at: string;
-  updated_at: string;
-}
+export { type AnalyticsAreaDto, fetchAnalyticsAreas } from './registry-reads';
 
 export interface RegisterAnalyticsAreaBody {
   managed_system_id: string;
@@ -36,28 +27,6 @@ async function readEnvelope(res: Response): Promise<never> {
     // body wasn't JSON
   }
   throw new ApiError(res.status, envelope);
-}
-
-export async function fetchAnalyticsAreas(options?: {
-  managedSystemId?: string;
-  includeArchived?: boolean;
-  /** Page size; the endpoint caps this at 500. */
-  limit?: number;
-  offset?: number;
-  signal?: AbortSignal;
-}): Promise<{ items: AnalyticsAreaDto[]; total: number }> {
-  const params = new URLSearchParams();
-  if (options?.managedSystemId) params.set('managed_system_id', options.managedSystemId);
-  if (options?.includeArchived) params.set('include_archived', 'true');
-  if (options?.limit !== undefined) params.set('limit', String(options.limit));
-  if (options?.offset !== undefined) params.set('offset', String(options.offset));
-  const url = `/analytics-areas${params.size ? `?${params.toString()}` : ''}`;
-  const init: RequestInit = { credentials: 'same-origin' };
-  if (options?.signal) init.signal = options.signal;
-  const res = await fetch(url, init);
-  if (res.status === 401) throw new UnauthenticatedError();
-  if (!res.ok) return readEnvelope(res);
-  return (await res.json()) as { items: AnalyticsAreaDto[]; total: number };
 }
 
 export async function registerAnalyticsArea(

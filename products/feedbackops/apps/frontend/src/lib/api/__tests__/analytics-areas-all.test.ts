@@ -26,7 +26,12 @@ function mockPages(pageFor: (offset: number) => { items: AnalyticsAreaDto[]; tot
   const fetchMock = vi.fn(async (input: string) => {
     const url = new URL(input, 'http://localhost');
     const body = pageFor(Number(url.searchParams.get('offset')));
-    return { ok: true, status: 200, json: async () => body };
+    return {
+      ok: true,
+      status: 200,
+      headers: new Headers(),
+      text: async () => JSON.stringify(body),
+    };
   });
   global.fetch = fetchMock as unknown as typeof fetch;
   return fetchMock;

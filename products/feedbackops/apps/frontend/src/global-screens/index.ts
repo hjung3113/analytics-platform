@@ -20,3 +20,7 @@ export {
   type MyVocSort,
 } from '@/features/voc/components/reporter/my-voc-query';
 export { ReporterVocDetail } from '@/features/voc/components/reporter/ReporterVocDetail';
+export {
+  VocComposeScreen,
+  type VocComposeScreenProps,
+} from '@/features/voc/components/compose/VocComposeScreen';

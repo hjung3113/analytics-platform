@@ -25,6 +25,7 @@ function mockFetchJson(body: unknown): Mock {
   const fetchMock = vi.fn(async () => ({
     ok: true,
     status: 200,
+    headers: new Headers(),
     text: async () => JSON.stringify(body),
     json: async () => body,
   }));

@@ -23,6 +23,7 @@ export type HostSeam = {
   canLink(to: string): boolean;
   Link: ComponentType<HostLinkProps>;
   notifyError(message: string): void;
+  notifySuccess(message: string): void;
 };
 
 const HostSeamContext = createContext<HostSeam | null>(null);
