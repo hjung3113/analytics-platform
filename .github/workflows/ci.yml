@@ -194,7 +194,7 @@ jobs:
       - run: pnpm --filter @ap/platform-e2e exec playwright install --with-deps chromium
       # pnpm forwards the flags to `playwright test` as they are (no `--`, which Playwright would read as file filters).
       # The blob reporter replaces the configured reporters; the final job merges the blobs into one contract report.
-      - run: pnpm --filter @ap/platform-e2e exec playwright test -g "탭을 다른 그룹 가운데에 끌면|탭을 가장자리에 끌면" --repeat-each 6 --reporter=list,blob
+      - run: pnpm --filter @ap/platform-e2e exec playwright test -g "탭을 다른 그룹 가운데에 끌면|탭을 가장자리에 끌면" --repeat-each 10 --reporter=list,blob
       # 하위 경로 배포(#318, ADR-0030): 별도 mock 빌드·preview(4191)에서 base 유지 계약을 확인한다.
       # Runs once, on the lightest shard (the last slice), and regardless of the shard's own result.
       - if: ${{ matrix.shard == 3 && !cancelled() }}

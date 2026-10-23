@@ -558,6 +558,9 @@ test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
     // The tabs exist a frame before the engine shows its panels.
     await expect(page.locator('[data-dock-layout] [data-pane-body]')).toHaveCount(panes);
     await expect(page.locator('[data-dock-layout] [data-pane-body]').first()).toBeVisible();
+    // Drag only over settled panes: a skeleton the query replaces under the pointer just before the release gets no further
+    // dragover from the emulated mouse, so the browser ends the drag without a drop (CI 39898726190: 3 of 12 on one runner).
+    await expect(page.locator('[data-dock-layout] [data-pane-body] .animate-pulse')).toHaveCount(0);
   }
   /**
    * Drags like a person: press, stepped move, a few small moves over the target, release. `dragTo` sends one move, and when a
