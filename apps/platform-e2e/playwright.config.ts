@@ -6,7 +6,7 @@ const PORT = 4190;
  * Desktop only (docs/05 Decided), 1440×900. One worker: the mock server's scenario is per tab, but the
  * dev server is shared and serial runs keep evidence screenshots in contract order.
  * Browsers come from Playwright's default cache unless PLAYWRIGHT_BROWSERS_PATH is set — the same variable for
- * `playwright install` and the run, so the two never disagree (CI sets it for the whole job).
+ * `playwright install` and the run, so the two never disagree (CI's E2E shards run in the Playwright image, which sets it to `/ms-playwright`, #669).
  */
 export default defineConfig({
   testDir: './tests',

@@ -177,9 +177,11 @@ jobs:
     # #669: the shard time was never the test slices (≈220–250 s each, balanced) but `playwright install --with-deps`,
     # whose apt download of fonts/libnss3 from the runner mirror sometimes took 700+ s on one shard. The official image
     # ships Chromium and its system packages. Its tag must match `@playwright/test` in apps/platform-e2e/package.json;
-    # the install step below is then a no-op, and on a mismatch it downloads only the browser (no apt).
+    # the guard step below fails the job when they drift.
     container:
       image: mcr.microsoft.com/playwright:v1.63.0-noble
+      # Playwright's Docker guidance: Chromium can crash on Docker's 64 MB default /dev/shm.
+      options: --ipc=host
     timeout-minutes: 30
     strategy:
       # Every shard runs to the end so the merged report lists every failing contract, not only the first shard's.
@@ -199,7 +201,6 @@ jobs:
         run: |
           want="$(node -p "require('./apps/platform-e2e/node_modules/@playwright/test/package.json').version")"
           test "$want" = "1.63.0" || { echo "::error::@playwright/test is $want but the E2E container is mcr.microsoft.com/playwright:v1.63.0-noble — bump both"; exit 1; }
-      - run: pnpm --filter @ap/platform-e2e exec playwright install chromium
       # pnpm forwards the flags to `playwright test` as they are (no `--`, which Playwright would read as file filters).
       # The blob reporter replaces the configured reporters; the final job merges the blobs into one contract report.
       - run: pnpm e2e --shard=${{ matrix.shard }}/3 --reporter=list,blob
