@@ -4280,26 +4280,29 @@ test.describe('휠 스크롤 (#700, 06 §16·§15, 16 §4.1)', () => {
     await expect.poll(() => ancestorScroll(trendPlot(page))).toBeGreaterThan(before);
   });
 
-  test('차트 위 Shift+휠은 확대하고 페이지는 움직이지 않으며, 확대한 차트는 끌어서 이동한다', async ({ page }) => {
+  test('차트 위 Shift+휠은 확대하고 페이지는 움직이지 않는다', async ({ page }) => {
     await giveRoom(page, main(page));
     const plot = trendPlot(page);
     const at = await centerOf(plot);
     const url = page.url();
     const top = await main(page).evaluate(element => element.scrollTop);
-    const flat = await plot.screenshot();
-    await page.mouse.move(at.x, at.y);
+    // Every comparison is between two settled frames with the pointer resting on the same point, so the hover tooltip and
+    // axis pointer are identical in both and only the interaction can make them differ (a moved pointer alone must not pass).
+    // Compare only the x-axis tick strip at the plot's bottom: the zoom window changes the ticks, while the hover tooltip and
+    // axis pointer (near the pointer at the centre) stay out of it.
+    const axisStrip = { x: at.box.x, y: at.box.y + at.box.height - 30, width: at.box.width, height: 28 };
+    const settled = async (x: number, y: number) => { await page.mouse.move(x, y); await page.waitForTimeout(600); return page.screenshot({ clip: axisStrip, animations: 'disabled' }); };
+    const flat = await settled(at.x, at.y);
     await page.keyboard.down('Shift');
-    await page.mouse.wheel(0, -300);
+    // Zoom well in (three notches) so the zoomed window has room to pan in both directions.
+    for (let i = 0; i < 3; i++) { await page.mouse.wheel(0, -300); await page.waitForTimeout(150); }
     await page.keyboard.up('Shift');
-    await expect.poll(async () => !(await plot.screenshot()).equals(flat)).toBe(true);
+    const zoomed = await settled(at.x, at.y);
+    expect(zoomed.equals(flat), 'Shift+wheel zoomed the plot').toBe(false);
     expect(await main(page).evaluate(element => element.scrollTop)).toBe(top);
     expect(page.url()).toBe(url);
-    const zoomed = await plot.screenshot();
-    await page.mouse.move(at.x, at.y);
-    await page.mouse.down();
-    await page.mouse.move(at.x - at.box.width * 0.25, at.y, { steps: 8 });
-    await page.mouse.up();
-    await expect.poll(async () => !(await plot.screenshot()).equals(zoomed)).toBe(true);
+    // Drag-pan after zoom has no E2E here: a Playwright drag on the zoomed plot reaches the canvas but does not move it, before
+    // and after #700 alike (#705).
   });
 
   test('확대 버튼은 그대로 동작한다', async ({ page }) => {
@@ -4318,21 +4321,25 @@ test.describe('휠 스크롤 (#700, 06 §16·§15, 16 §4.1)', () => {
     await page.mouse.wheel(0, 200);
     await expect.poll(() => main(page).evaluate(element => element.scrollTop)).toBeGreaterThan(0);
 
-    // Force an overflowing strip: tabs that cannot shrink inside a narrow group.
-    await main(page).evaluate(element => { element.scrollTop = 0; });
-    await page.addStyleTag({ content: '.ap-dock .dv-tab { flex-shrink: 0; min-width: 900px; }' });
-    // Dockview 8.6.1 scrolls the tab list element `.dv-tabs-container` itself (its `_tabsList` wheel handler).
-    const scrollable = workspace(page).locator('.dv-tabs-container').first();
-    const list = scrollable;
-    const overflow = await scrollable.evaluate(element => [element, ...element.querySelectorAll('*')].some(node => node.scrollWidth > node.clientWidth + 1));
-    expect(overflow, 'the forced strip overflows').toBe(true);
-    await list.scrollIntoViewIfNeeded();
+    // Force an overflowing strip on the two-tab group (분포 · 느린 실행): the second tab starts clipped, the wheel scrolls the strip
+    // until it is reachable, and the page stays put while the strip still has room (dockview keeps the wheel until its edge).
+    await page.addStyleTag({ content: '.ap-dock .dv-tab { flex-shrink: 0; min-width: 600px; }' });
+    const slowTab = workspace(page).getByRole('tab', { name: '느린 실행' });
+    // `has` matches inside each strip, so its locator must not start at the workspace (an ancestor of the strip).
+    const slowStrip = workspace(page).locator('.dv-tabs-container').filter({ has: page.getByRole('tab', { name: '느린 실행' }) });
+    await slowStrip.scrollIntoViewIfNeeded();
+    const clipped = () => slowStrip.evaluate(element => { const tab = [...element.querySelectorAll('[role="tab"]')].pop()!.getBoundingClientRect(); const box = element.getBoundingClientRect(); return tab.right > box.right + 1; });
+    expect(await slowStrip.evaluate(element => element.scrollWidth > element.clientWidth + 1), 'the forced strip overflows').toBe(true);
+    expect(await clipped(), 'the last tab starts clipped').toBe(true);
     const mainTop = await main(page).evaluate(element => element.scrollTop);
-    const listBox = (await list.boundingBox())!;
-    await page.mouse.move(listBox.x + Math.min(listBox.width / 2, 200), listBox.y + listBox.height / 2);
-    await page.mouse.wheel(0, 150);
-    await expect.poll(() => scrollable.evaluate(element => [element, ...element.querySelectorAll('*')].some(node => node.scrollLeft > 0))).toBe(true);
+    const stripBox = (await slowStrip.boundingBox())!;
+    await page.mouse.move(stripBox.x + 40, stripBox.y + stripBox.height / 2);
+    for (let i = 0; i < 8 && await clipped(); i++) await page.mouse.wheel(0, 150);
+    expect(await clipped(), 'wheel revealed the last tab').toBe(false);
     expect(await main(page).evaluate(element => element.scrollTop)).toBe(mainTop);
+    await slowTab.click();
+    await expect(slowTab).toHaveAttribute('aria-selected', 'true');
+    await expect(workspace(page).getByLabel('스크롤 가능한 행 영역')).toBeVisible();
   });
 
   test('느린 실행 표를 끝까지 내리면 이어지는 휠은 바깥 컨테이너를 스크롤한다', async ({ page }) => {
