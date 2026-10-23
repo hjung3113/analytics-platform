@@ -55,6 +55,7 @@ export function insertGroupsRow(root: string): void {
 
 export function writeRegistryTest(root: string): void {
   writeFileSync(join(root, PROBE_TEST_REL), `import { expect, it } from 'vitest';
+import { groupId } from '@ap/contracts';
 import { registry } from './menus';
 
 it('registers the generated probe menu in the app registry', () => {
@@ -63,7 +64,7 @@ it('registers the generated probe menu in the app registry', () => {
   expect(menu.path).toBe('/gen-probe');
   expect(menu.primary).toBe(true);
   expect(menu.pageKeys).toEqual([]);
-  expect(registry.groupById('genProbe')).toBeDefined();
+  expect(registry.groupById(groupId('genProbe'))).toBeDefined();
 });
 `);
 }
