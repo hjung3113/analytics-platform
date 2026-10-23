@@ -47,6 +47,19 @@ describe('workspace assembly (#260)', () => {
     expect(registry.matchRoute('/surveys/11111111-1111-4111-8111-111111111111/respond')?.menu.id).toBe('survey-respond');
   });
 
+  it('registers 내 VOC in 내 활동 behind voc:view with the reporter page keys, and its detail as a navHidden child with the VOC ID as a path parameter (#654)', () => {
+    const entry = registry.menuById('voc');
+    expect(entry).toMatchObject({ group: 'myActivity', path: '/voc', permission: 'voc:view', pageKeys: ['q', 'status', 'sort', 'focus'] });
+    expect(entry.component).toBeDefined();
+    expect(registry.spaceOf(entry)).toBeNull();
+    const detail = registry.menuById('voc-detail');
+    expect(detail).toMatchObject({ group: 'myActivity', parent: 'voc', navHidden: true, path: '/voc/:vocId', permission: 'voc:view', pageKeys: ['returnTo'] });
+    expect(detail.component).toBeDefined();
+    expect(registry.matchRoute('/voc/11111111-1111-4111-8111-111111111111')?.menu.id).toBe('voc-detail');
+    expect(registry.matchRoute('/voc')?.menu.id).toBe('voc');
+    expect(registry.menus.filter(menu => menu.group === 'myActivity' && !menu.navHidden).map(menu => menu.id)).toEqual(['notifications', 'voc', 'surveys', 'permission-requests']);
+  });
+
   it.skipIf(probeRun)('registers six spaces and the decided group order', () => {
     expect(GROUPS.map(group => [group.id, group.space])).toEqual([
       ['overview', null],

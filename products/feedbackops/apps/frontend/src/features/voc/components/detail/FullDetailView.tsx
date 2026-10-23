@@ -204,6 +204,7 @@ export function FullDetailView({
               voc={voc}
               canTriage={canTriage}
               actorNamesById={actorNamesById}
+              meActor={me?.actor ?? null}
               postSignal={postSignal}
             />
           </div>

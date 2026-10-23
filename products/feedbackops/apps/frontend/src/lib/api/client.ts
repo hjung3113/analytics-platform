@@ -48,6 +48,11 @@ export function configureApiClient(config: {
   onUnauthorized = config.onUnauthorized;
 }
 
+/** An API path prefixed with the configured base path, for links the browser follows itself (e.g. downloads). */
+export function apiHref(path: string): string {
+  return basePath + path;
+}
+
 const MUTATION_METHODS = new Set(['POST', 'PATCH', 'DELETE']);
 
 /**

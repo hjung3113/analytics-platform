@@ -36,7 +36,6 @@ const PARAMS: Record<string, Record<string, unknown>> = {
   'metrics.catalog.page': { q: null, status: null, domain: null, lang: 'ko', ...page },
   'metrics.definition': { metricId: 'cycle_time', version: '4' },
   'metrics.usage': { metricId: 'cycle_time', version: '4' },
-  'noticeVoc.myVocHistory': { cursor: null },
 };
 
 // No oversizeParams samples (#175): mock data sits far below the declared maxRows, so no case can exceed a cap.

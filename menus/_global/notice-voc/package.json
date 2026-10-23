@@ -5,20 +5,16 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./feedbackops-origin": "./src/feedbackops-origin.ts",
-    "./mock": "./src/mock/index.ts",
     "./styles.css": "./src/styles.css"
   },
   "scripts": {
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@ap/components": "workspace:*",
     "@ap/contracts": "workspace:*",
     "@ap/kernel": "workspace:*",
-    "@ap/mock-server": "workspace:*",
     "@ap/ui": "workspace:*",
     "lucide-react": "^1.48.0"
   },

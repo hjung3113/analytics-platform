@@ -3,6 +3,7 @@
 - Status: Decided (2026-10-22) — 코디네이터 결정, 사용자 위임, 되돌릴 수 있음
 - Amended (2026-10-23, #652): 결정 1(진입점에 `useUnreadNotificationCount`), 결정 6(알림 종·배지는 Kernel 선택 슬롯), 결정 7(종은 mock에서도 보인다).
 - Amended (2026-10-23, #653): 결정 1(설문 화면 내보내기, 호스트 이음매 훅은 아직 불필요), 결정 10(설문 경로 둘만 링크).
+- Amended (2026-10-23, #654): 결정 1(내 VOC 화면 내보내기, 운영 화면을 옮기지 않는다), 결정 10(알림 페이지는 `voc.public_update_posted`만 링크).
 - Scope: [#594](https://github.com/hjung3113/analytics-platform/issues/594), 단위 이슈 [#651](https://github.com/hjung3113/analytics-platform/issues/651). [합류 설계](../integration/feedbackops-merge-design.md) §7의 O5(라우팅 이전)·O13(FeedbackOps API 경로)을 #594 범위에서 닫는다.
 - 갱신: [ADR-0069](0069-platform-port-in-feedbackops-backend.md) 결정 3(O13)·결정 4(CSRF)의 FeedbackOps 경로 부분.
 - 바탕: [ADR-0066](0066-feedbackops-merges-into-platform.md)(화면은 옮기고 다시 쓰지 않는다), [ADR-0070](0070-global-features-platform-menu-and-voc-drawer.md)("여기서 정하지 않는 것"으로 O5·O13을 #594 구현에 넘겼다), [ADR-0046](0046-design-system-source-moves-to-platform-whole-package.md)(플랫폼 패키지는 `@fops/*`를 import하지 않는다).
@@ -20,7 +21,7 @@ ADR-0070은 알림·설문·내 VOC·권한 요청 같은 전역 기능을 플�
 ## 결정
 
 1. **다리는 FeedbackOps의 `src/global-screens` 진입점 하나와 이를 import하는 플랫폼 패키지 `@ap/menu-my-activity` 하나다.**
-   - `@fops/frontend`는 `exports["./global-screens"]`만 연다. 진입점은 `FoScreenRoot`·`createFoQueryClient`·`configureApiClient`·`InboxPanel`·`useUnreadNotificationCount`·`SurveyParticipationScreen`·`RespondSurveyScreen`과 타입 `HostSeam`·`HostLinkProps`만 내보낸다.
+   - `@fops/frontend`는 `exports["./global-screens"]`만 연다. 진입점은 `FoScreenRoot`·`createFoQueryClient`·`configureApiClient`·`InboxPanel`·`useUnreadNotificationCount`·`SurveyParticipationScreen`·`RespondSurveyScreen`·`MyVocListScreen`·`ReporterVocDetail`(과 내 VOC 목록 질의 타입·상수)과 타입 `HostSeam`·`HostLinkProps`만 내보낸다. 내 VOC는 운영 화면(InboxRoute·VocDetailPanel)을 옮기지 않고 FeedbackOps 부품으로 신고자 관점 화면을 조립했다 — 운영 패널은 역할에 따라 Triage·Finding·작성기를 그리고 그래프가 다리 규칙을 30파일 넘게 어긴다.
    - 패키지 경계 규칙 8의 예외는 한 줄이다: `@ap/menu-my-activity`는 정확히 `@fops/frontend/global-screens`만 import할 수 있다. lint 프리셋 `foBridgeMenu`가 강제하고(다른 `@fops/*`·다른 메뉴·다른 층은 그대로 막힌다), 진입점의 import 그래프에 라우터·`routes/**`·`lib/router/**`·`lib/layout/**`·`lib/auth/**`·`lib/api/auth.ts`·`@/lib/api` 배럴이 없고 `client.ts` 밖에 네트워크 호출이 없다는 것을 그래프 테스트가 고정한다.
    - 옮기는 화면은 FeedbackOps의 **호스트 이음매**(`lib/host`)만 쓴다. 지금은 `HostLink`·`canLink`·`notifyError` 셋이다. #653은 이음매 훅이 필요 없었다(설문 ID는 플랫폼 경로 인자를 화면 prop으로 넘기고, 제출 뒤 복귀는 플랫폼 머리의 Kernel `ReturnLink`로 한다). `useHostNavigate`·`useHostSearch`·`useHostParams`는 첫 소비자가 생길 때 그 테스트와 함께 넣는다(쓰는 곳 없는 이음매를 먼저 만들지 않는다). 독립 앱은 이음매를 자기 마운트 지점(HomeScreen)에서 TanStack Router·sonner로 구현한다.
 2. **데이터 경로는 FeedbackOps 자체 클라이언트다.** 다리 화면의 FeedbackOps 클라이언트가 기준 경로 `/api/fo`로 FeedbackOps API를 직접 부른다. `@ap/contracts`·`PlatformAdapter`·`menuQuery`는 바꾸지 않는다. 진입점 그래프의 모든 요청은 `lib/api/client.ts`의 `sendRequest` 하나를 지난다. 기준 경로와 401 처리는 `configureApiClient`로 정하고, 설정하지 않은 독립 앱의 동작은 그대로다.
@@ -35,7 +36,7 @@ ADR-0070은 알림·설문·내 VOC·권한 요청 같은 전역 기능을 플�
 7. **mock 정책.** mock 미리보기에는 FeedbackOps 서버가 없다. FeedbackOps 데이터를 쓰는 화면은 `실서버 필요` 상태를 보이고 FeedbackOps 화면을 마운트하지 않으며 요청도 하지 않는다. 배지(#652)는 숨긴다. 종은 mock에서도 보이고 배지만 숨긴다. 팝오버 본문은 `실서버 필요`다. 이 화면들의 UX 검토는 `dev:real`과 이슈 DB에서 한다.
 8. **CSS와 별칭.** FeedbackOps의 전역 `styles.css`(리셋·`html, body, #root` 높이·본문 글꼴)는 가져오지 않는다. FeedbackOps 컴포넌트의 클래스는 메뉴 `styles.css`의 `@source`로만 Tailwind에 닿는다. FeedbackOps 소스의 `@/` 별칭은 앱 `vite.config.ts`·메뉴 `vitest.config.ts`·두 `tsconfig.json`에 같은 경로로 둔다.
 9. **O5 규칙(구현은 첫 URL 상태 화면에서).** 옮기는 화면의 URL 상태는 manifest `pageKeys`가 되고, 잘못된 값은 FeedbackOps의 "버림"이 아니라 플랫폼 규칙("거부하고 보존", 06 §6.4)을 따른다. 알림의 필터는 FeedbackOps처럼 컴포넌트 상태이므로 해당 없다. #595도 같은 규칙을 쓴다.
-10. **플랫폼 목적지가 없는 알림 대상은 링크 없이 그린다.** 이 PR에서 이음매 `canLink`는 모든 FeedbackOps 대상에 대해 `false`다. 행의 읽음·보관 동작은 그대로 두되, 링크할 수 없는 행의 본문은 눌러지는 것처럼 보이지 않게 비대화형으로 그리고(hover·버튼 역할·본문 클릭 읽음 처리 없음) 읽음·보관은 명시 버튼으로만 한다. 목적지 연결은 구현하지 않음(백로그 "알림 목적지 연결"). 설문 화면의 이음매는 FeedbackOps 경로 두 개만 링크한다: `/surveys/participate` → `설문`, `/surveys/<uuid>/respond` → `설문 응답`(`returnTo` 포함). 알림 대상은 그대로 링크하지 않는다.
+10. **플랫폼 목적지가 없는 알림 대상은 링크 없이 그린다.** 이 PR에서 이음매 `canLink`는 모든 FeedbackOps 대상에 대해 `false`다. 행의 읽음·보관 동작은 그대로 두되, 링크할 수 없는 행의 본문은 눌러지는 것처럼 보이지 않게 비대화형으로 그리고(hover·버튼 역할·본문 클릭 읽음 처리 없음) 읽음·보관은 명시 버튼으로만 한다. 목적지 연결은 구현하지 않음(백로그 "알림 목적지 연결"). 설문 화면의 이음매는 FeedbackOps 경로 두 개만 링크한다: `/surveys/participate` → `설문`, `/surveys/<uuid>/respond` → `설문 응답`(`returnTo` 포함). 알림 대상은 그대로 링크하지 않는다. 알림 페이지는 `voc.public_update_posted`(`/vocs?view=my&selected=<uuid>`)만 `내 VOC 상세`로 링크한다. 팝오버와 운영 대상은 그대로다.
 
 ## Considered Options
 

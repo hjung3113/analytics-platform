@@ -2,6 +2,7 @@
 @source "../../../../products/feedbackops/apps/frontend/src/global-screens";
 @source "../../../../products/feedbackops/apps/frontend/src/features/home";
 @source "../../../../products/feedbackops/apps/frontend/src/features/surveys";
+@source "../../../../products/feedbackops/apps/frontend/src/features/voc";
 @source "../../../../products/feedbackops/apps/frontend/src/components";
 @source "../../../../products/feedbackops/apps/frontend/src/lib";
 @source "../../../../products/feedbackops/packages/ui/src";

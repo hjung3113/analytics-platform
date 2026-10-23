@@ -61,6 +61,11 @@ describe('FeedbackOps bridge entry graph (ADR-0071)', () => {
     expect(reached).toEqual(expect.arrayContaining(['features/surveys/components/participation/SurveyParticipationScreens.tsx', 'features/surveys/hooks/useSurveys.ts']));
   });
 
+  it('reaches the reporter VOC screens and not the operator inbox or detail panel', () => {
+    expect(reached).toEqual(expect.arrayContaining(['features/voc/components/reporter/MyVocListScreen.tsx', 'features/voc/components/reporter/ReporterVocDetail.tsx']));
+    expect(reached.filter(file => /^features\/voc\/(routes\/|components\/(list\/VocList\.tsx|detail\/(VocDetailPanel|FullDetailView)\.tsx))/.test(file))).toEqual([]);
+  });
+
   it('resolves every local import edge and walks past the package barrels', () => {
     expect(unresolved).toEqual([]);
     expect(files.size).toBeGreaterThan(60);

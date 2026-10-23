@@ -16,6 +16,7 @@ export interface TimelineProps {
   inline: ConversationEntry[];
   hasMore: boolean;
   actorNamesById?: ReadonlyMap<string, string> | undefined;
+  meActor?: { id: string; display_name: string } | null | undefined;
 }
 
 export function InternalTimeline({
@@ -23,6 +24,7 @@ export function InternalTimeline({
   inline,
   hasMore,
   actorNamesById,
+  meActor,
 }: TimelineProps): React.ReactElement {
   const query = useVocConversation({ vocId, kind: 'internal_comment' });
   const paginatedEntries: ConversationEntry[] = query.data?.pages.flatMap((p) => p.items) ?? [];
@@ -59,6 +61,7 @@ export function InternalTimeline({
             key={entry.id}
             entry={entry}
             actorDisplayName={actorNamesById?.get(entry.actor_id)}
+            meActor={meActor}
           />
         ))
       )}

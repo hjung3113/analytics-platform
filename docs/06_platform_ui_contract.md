@@ -202,7 +202,7 @@ Domain logic이 Kernel로 역류하지 않도록 한다.
 
 코드 어휘(이름 Candidate): Context 키 10종 `time`·`roomNames`·`line`·`prcGroup`·`condition`·`selection`·`lot`·`ppid`·`recipe`·`metric`(`scopeId`는 별도 키), 지원 값 `apply`(O)·`reference`(△)·`unsupported`(X).
 
-VOC 행: FeedbackOps 1단계의 `/voc`(내 VOC)는 세션 사용자 기준 읽기라 전역 Context를 모두 `unsupported`로 선언한다(#60). VOC 처리 워크플로는 FeedbackOps가 전담한다([ADR-0027](adr/0027-feedbackops-stays-standalone-entry-links.md)).
+VOC 행: `/voc`(내 VOC)는 `myActivity` 그룹의 FeedbackOps 신고자 화면(다리, [ADR-0071](adr/0071-feedbackops-screen-bridge-and-api-fo-edge-prefix.md), #654)이고 `/voc/:vocId`(내 VOC 상세)는 그 아래 navHidden 상세다. 세션 사용자 기준 읽기라 전역 Context를 모두 `unsupported`로 선언한다. 페이지 키는 `/voc`가 `q`·`status`·`sort`·`focus`(`focus`는 셸 상세 패널, 잘못된 값은 거부하고 보존, §6.4), 상세가 `returnTo`다. VOC 처리 워크플로는 FeedbackOps가 전담한다([ADR-0027](adr/0027-feedbackops-stays-standalone-entry-links.md)).
 
 ### 규칙
 

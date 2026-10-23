@@ -280,19 +280,12 @@ const rows: Row[] = [
   { file: 'apps/platform-web/src/menus.ts', code: `import { x } from '@ap/menu-home/src/index';`, rule: 'no-restricted-imports' },
 
   // --- composition-root menu subpath allowance (issue #60): main.tsx ONLY ---
-  { file: 'apps/platform-web/src/main.tsx', code: `import { setFeedbackOpsOrigin } from '@ap/menu-notice-voc/feedbackops-origin';`, rule: '' },
-  { file: 'apps/platform-web/src/main.tsx', code: `import('@ap/menu-notice-voc/feedbackops-origin');`, rule: '' },
-  { file: 'apps/platform-web/src/menus.ts', code: `import { x } from '@ap/menu-notice-voc/feedbackops-origin';`, rule: 'no-restricted-imports' },
   { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '@ap/menu-notice-voc/styles.css';`, rule: 'no-restricted-imports' },
-  { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '@ap/menu-notice-voc/src/feedbackops-origin';`, rule: 'no-restricted-imports' },
   // #145/#153: the server conformance test takes its endpoints from the mock assembly's MOCK_ENDPOINTS, so it no
   // longer reaches a menu `/mock` subpath itself; only src/dev/** does.
   { file: 'apps/platform-web/src/server-conformance.test.ts', code: `import { equipmentMock } from '@ap/menu-equipment/mock';`, rule: 'no-restricted-imports' },
   { file: 'apps/platform-web/src/server-conformance.test.ts', code: `import { createMockAdapter } from '@ap/mock-server';`, rule: '' },
   { file: 'apps/platform-web/src/url-contract.test.ts', code: `import { equipmentMock } from '@ap/menu-equipment/mock';`, rule: 'no-restricted-imports' },
-  // #146 review: the FeedbackOps origin slot stays main.tsx-only — the conformance test never gets it.
-  { file: 'apps/platform-web/src/server-conformance.test.ts', code: `import { setFeedbackOpsOrigin } from '@ap/menu-notice-voc/feedbackops-origin';`, rule: 'no-restricted-imports' },
-  { file: 'apps/platform-web/src/server-conformance.test.ts', code: `await import('@ap/menu-notice-voc/feedbackops-origin');`, rule: 'ap/restricted-import-source' },
   { file: 'apps/platform-web/src/server-conformance.test.ts', code: `await import('@ap/menu-equipment/mock');`, rule: 'ap/restricted-import-source' },
   { file: 'apps/platform-web/src/published-metrics.test.ts', code: `import { equipmentMock } from '@ap/menu-equipment/mock';`, rule: 'no-restricted-imports' },
   // #145: the conformance kit is adapter-agnostic — contracts only, never the mock it judges, never React.
@@ -300,12 +293,6 @@ const rows: Row[] = [
   { file: 'packages/server-conformance/src/x.ts', code: `import { x } from '@ap/mock-server';`, rule: 'no-restricted-imports' },
   { file: 'packages/server-conformance/src/x.ts', code: `import { x } from '@ap/kernel';`, rule: 'no-restricted-imports' },
   { file: 'packages/server-conformance/src/x.ts', code: `import React from 'react';`, rule: 'no-restricted-imports' },
-  // The origin subpath allowance is scoped to src/main.tsx: the other carve-out files keep the
-  // deep-subpath ban, static and dynamic.
-  { file: 'apps/platform-web/src/dev/DevTools.tsx', code: `import { setFeedbackOpsOrigin } from '@ap/menu-notice-voc/feedbackops-origin';`, rule: 'no-restricted-imports' },
-  { file: 'apps/platform-web/src/dev/DevTools.tsx', code: `await import('@ap/menu-notice-voc/feedbackops-origin');`, rule: 'ap/restricted-import-source' },
-  { file: 'apps/platform-web/src/published-metrics.test.ts', code: `import { setFeedbackOpsOrigin } from '@ap/menu-notice-voc/feedbackops-origin';`, rule: 'no-restricted-imports' },
-  { file: 'apps/platform-web/src/published-metrics.test.ts', code: `import('@ap/menu-notice-voc/feedbackops-origin');`, rule: 'ap/restricted-import-source' },
 
   // --- relative package escape (37-41) ---
   { file: MENU, code: `import { x } from '../../../../../packages/contracts/src/url';`, rule: 'ap/no-relative-package-escape' },
@@ -545,7 +532,7 @@ for (const source of ['@fops/frontend', '@fops/frontend/src/main', '@fops/fronte
   );
 }
 
-// The FO API slot (fo-api) is main.tsx-only, like feedbackops-origin.
+// The FO API slot (fo-api) is main.tsx-only.
 rows.push(
   { file: 'apps/platform-web/src/main.tsx', code: `import { setFoApi } from '@ap/menu-my-activity/fo-api';`, rule: '' },
   { file: 'apps/platform-web/src/main.tsx', code: `void import('@ap/menu-my-activity/fo-api');`, rule: '' },

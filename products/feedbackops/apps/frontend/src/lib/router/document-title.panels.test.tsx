@@ -158,6 +158,15 @@ vi.mock('@/lib/api', async (importOriginal) => {
   };
 });
 
+// useVocDetail imports the client module directly (bridge-safe graph, #654), not the barrel mocked above.
+vi.mock('@/lib/api/client', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/client')>()),
+  apiClient: vi.fn(async (_method: string, path: string) => {
+    const id = path.split('/').at(-1) ?? '';
+    return { data: await readResults.resolveRead(readResults.vocs, id) };
+  }),
+}));
+
 vi.mock('@/lib/api/milestones', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/api/milestones')>();
   return {

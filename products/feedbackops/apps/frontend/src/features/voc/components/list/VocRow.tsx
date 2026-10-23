@@ -65,6 +65,11 @@ export interface VocRowProps {
   permissionLimited?: boolean;
   /** Hides the internal unassigned-ownership cue in a reporter-only My VOCs row. */
   showOwnerMissing?: boolean;
+  /**
+   * Reporter perspective (platform 내 VOC): the row shows no operator cue whatever the item
+   * carries — no severity bar or badge, no Analytics Area cue, no owner or reporter identity.
+   */
+  reporterView?: boolean;
   /** Neutralizes the unassigned cue in the Inbox unassigned tab only. */
   unassignedBadgeTone?: 'danger' | 'neutral';
   /**
@@ -91,6 +96,7 @@ export function VocRow({
   onSelect,
   permissionLimited,
   showOwnerMissing = true,
+  reporterView = false,
   unassignedBadgeTone,
   managedSystem,
   owner,
@@ -111,7 +117,7 @@ export function VocRow({
   // Determine left-bar color: accent when selected, severity color otherwise.
   const severityBarClass = selected
     ? 'bg-accent-primary'
-    : voc.severity != null
+    : voc.severity != null && !reporterView
       ? SEVERITY_BAR_CLASS[voc.severity]
       : 'bg-border-strong';
 
@@ -172,7 +178,7 @@ export function VocRow({
             </div>
             <div className="flex items-center gap-2 text-xs text-text-muted overflow-hidden">
               <ReporterStatusBadge status={voc.reporter_facing_status} />
-              {voc.severity != null && <SeverityBadge severity={voc.severity} />}
+              {voc.severity != null && !reporterView && <SeverityBadge severity={voc.severity} />}
               {managedSystem !== null && managedSystem !== undefined && (
                 <ManagedSystemPill
                   name={managedSystem.name}
@@ -185,7 +191,7 @@ export function VocRow({
                   <RowDot />
                   <span>{areaName}</span>
                 </>
-              ) : voc.analytics_area_id === null ? (
+              ) : voc.analytics_area_id === null && !reporterView ? (
                 <>
                   <RowDot />
                   <span className="text-text-warning-label">Analytics Area 없음</span>
@@ -199,7 +205,7 @@ export function VocRow({
       </div>
 
       {/* TRAILING: owner avatar / unassigned badge + reporter avatar */}
-      {permissionLimited !== true && (
+      {permissionLimited !== true && !reporterView && (
         <div className="flex items-center gap-2 shrink-0">
           {showOwnerMissing && ownerMissing ? (
             <UnassignedBadge tone={unassignedBadgeTone ?? 'danger'} />

@@ -66,6 +66,12 @@ describe('<TimelineEntry>', () => {
     expect(screen.getByText('알 수 없는 사용자')).toBeInTheDocument();
   });
 
+  it('uses the signed-in actor passed as meActor when the entry is theirs and no name was resolved', () => {
+    const entry: ConversationEntry = { ...BASE, kind: 'reporter_reply', visibility: 'reporter' };
+    render(<TimelineEntry entry={entry} meActor={{ id: BASE.actor_id, display_name: '김제출' }} />);
+    expect(screen.getByText('김제출')).toBeInTheDocument();
+  });
+
   it('renders status transition pair when both status fields present', () => {
     const entry: ConversationEntry = {
       ...BASE,

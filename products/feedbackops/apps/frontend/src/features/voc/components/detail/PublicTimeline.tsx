@@ -22,6 +22,7 @@ export interface TimelineProps {
   inline: ConversationEntry[];
   hasMore: boolean;
   actorNamesById?: ReadonlyMap<string, string> | undefined;
+  meActor?: { id: string; display_name: string } | null | undefined;
 }
 
 export function PublicTimeline({
@@ -29,6 +30,7 @@ export function PublicTimeline({
   inline,
   hasMore,
   actorNamesById,
+  meActor,
 }: TimelineProps): React.ReactElement {
   const query = useVocConversation({ vocId });
   // The initial page loads on mount and can overlap the inline detail envelope.
@@ -69,6 +71,7 @@ export function PublicTimeline({
             key={entry.id}
             entry={entry}
             actorDisplayName={actorNamesById?.get(entry.actor_id)}
+            meActor={meActor}
           />
         ))
       )}

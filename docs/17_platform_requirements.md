@@ -136,7 +136,7 @@
 | --- | --- | --- | --- | --- | --- |
 | R5.1 | 본 자리에서 바로 알린다 | 화면을 캡처해 메일·메신저로 따로 신고한다 | 업무 시스템마다 그 시스템으로 좁힌 VOC 등록·목록 진입 링크. 지금 화면 주소가 같이 간다 | 동작(링크). 합류 뒤에는 레일 `VOC 등록` 패널로 바뀐다(#594) | [ADR-0027](adr/0027-feedbackops-stays-standalone-entry-links.md), [ADR-0045](adr/0045-feedbackops-entry-link-mapping-and-scope.md), [ADR-0066](adr/0066-feedbackops-merges-into-platform.md), [ADR-0070](adr/0070-global-features-platform-menu-and-voc-drawer.md) |
 | R5.2 | 개선에서 원래 화면으로 돌아온다 | Task를 받은 담당자가 문제 화면을 다시 찾는다 | FeedbackOps에서 원래 화면·조건으로 돌아오는 링크 계약 | 동작(계약·링크, 양쪽). 실제 연결은 SSO 공유 뒤. 복귀 링크 표시는 FeedbackOps 배포의 허용 origin 설정(`PLATFORM_RETURN_ORIGINS`) | [FeedbackOps 딥링크](integration/feedbackops-deeplink.md), #448, #150 |
-| R5.3 | 내 VOC가 어떻게 됐는지 안다 | 처리 상태를 담당자에게 물어본다 | 내 VOC 목록과 상태(FeedbackOps 상태 이름 그대로) | 동작(mock). 실제 화면은 FeedbackOps 원본 화면을 전역 기능으로 옮겨 쓴다(#594, ADR-0066) | #594, #234 |
+| R5.3 | 내 VOC가 어떻게 됐는지 안다 | 처리 상태를 담당자에게 물어본다 | 내 VOC 목록과 상태(FeedbackOps 상태 이름 그대로) | 동작(mock). 구현(#654): FeedbackOps 부품으로 신고자 관점 목록·상세를 전역 기능으로 올렸다(읽기 전용, mock에서는 `실서버 필요`; ADR-0066, ADR-0071) | #594, #654, #234 |
 | R5.4 | 공지는 한 곳에서 | 공지가 시스템마다 다르다 | 공지·내 VOC는 업무 시스템 밖의 공통 화면 | 동작 | [ADR-0028](adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md) |
 | R5.5 | 개선 효과를 숫자로 본다 | 개선이 효과가 있었는지 감으로 말한다 | 같은 지표를 개선 전·후 기간으로 비교(R3.2), 보드에 나란히(R4.1). 도입 효과 자체를 잴 기준선은 따로 정한다 | 비교는 동작. 기준선은 결정 대기 | #233 |
 

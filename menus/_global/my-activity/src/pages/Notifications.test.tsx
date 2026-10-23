@@ -41,6 +41,20 @@ describe('Notifications through the FeedbackOps bridge', () => {
     expect(calls.filter(c => /^\/api\/fo\/(me|auth)/.test(c.path) || /^\/(me|auth)/.test(c.path))).toEqual([]);
   });
 
+  it('V9: voc.public_update_posted links to the reporter VOC page with a returnTo to 알림; an operator event stays unlinked', async () => {
+    stubFetch(() => listOf(
+      notification(ID_A, { event_type: 'voc.public_update_posted', detail: { voc_id: ID_B } }),
+      notification(ID_B, { event_type: 'voc.assigned_to_me', detail: { voc_id: ID_B } }),
+    ));
+    mount(switchableAdapter().adapter);
+    const linked = await screen.findByTestId(`home-inbox-row-${ID_A}`);
+    const link = within(linked).getByRole('link');
+    const href = new URL(link.getAttribute('href')!, window.location.origin);
+    expect(href.pathname).toBe(`/voc/${ID_B}`);
+    expect(new URL(href.searchParams.get('returnTo')!, window.location.origin).pathname).toBe('/notifications');
+    expect(within(screen.getByTestId(`home-inbox-row-${ID_B}`)).queryByRole('link')).toBeNull();
+  });
+
   it('a 401 calls onSessionLost and shows the session-expired state without any login UI or /me request', async () => {
     const calls = stubFetch(() => json({ code: 'auth.session_invalid', message: 'no session' }, 401));
     mount(switchableAdapter().adapter);

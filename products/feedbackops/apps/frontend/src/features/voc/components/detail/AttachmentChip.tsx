@@ -12,6 +12,8 @@ import * as React from 'react';
 
 import type { LinkedAttachment } from '@fops/shared';
 
+import { apiHref } from '@/lib/api/client';
+
 import { formatFileSize } from '../../lib/format-file-size';
 
 export interface AttachmentChipProps {
@@ -22,7 +24,7 @@ export function AttachmentChip({ attachment }: AttachmentChipProps): React.React
   // Anchor with href triggers a same-origin GET that carries the session
   // cookie; Content-Disposition: attachment makes the browser download
   // instead of navigate. download attr is a hint; the server header wins.
-  const href = `/attachments/${attachment.id}/download`;
+  const href = apiHref(`/attachments/${attachment.id}/download`);
   return (
     <a
       data-testid="attachment-chip"
