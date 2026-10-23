@@ -1,6 +1,6 @@
 # 남은 일 한눈에 보기
 
-> 마지막 갱신 2026-10-22. 원본은 GitHub 이슈·마일스톤이고 이 보드는 그 요약이다. 이슈가 닫히거나 상태가 바뀌면 같은 PR에서 해당 줄을 고친다. 물어 와야 할 질문과 미결 범위는 [inputs.md](inputs.md), 이슈로 올리지 않은 아이디어는 [backlog.md](backlog.md).
+> 마지막 갱신 2026-10-23. 원본은 GitHub 이슈·마일스톤이고 이 보드는 그 요약이다. 이슈가 닫히거나 상태가 바뀌면 같은 PR에서 해당 줄을 고친다. 물어 와야 할 질문과 미결 범위는 [inputs.md](inputs.md), 이슈로 올리지 않은 아이디어는 [backlog.md](backlog.md).
 
 ## 지금 어디까지
 
@@ -19,6 +19,8 @@
 ## 다음 할 일
 
 다음 세션은 여기서 시작한다. 보드 첫 사용 다듬기(슬라이스 17)를 v0.15.0으로 릴리스했다(아래 "끝난 것").
+
+0d. **최종 릴리스 전 구조·용어 정리(보류, 2026-10-23).** 지금 진행 중인 세션·이슈가 정리되고 제품 출시 결정권자가 허가한 뒤 한다(사용자 2026-10-23). 결정 5건(FeedbackOps 펼치기·`menus` 두 단계·업무 시스템 id·시스템·그룹별 소유자·메뉴 패키지 버전) [#712](https://github.com/hjung3113/analytics-platform/issues/712), 기계적 폴더 정리 [#713](https://github.com/hjung3113/analytics-platform/issues/713), 코드 문구·문서를 용어집에 맞추기 + 도메인 용어 질문 [#714](https://github.com/hjung3113/analytics-platform/issues/714). 용어집의 플랫폼 위계(플랫폼 → 업무 시스템 → 메뉴 그룹 → 메뉴 → 메뉴 화면)는 먼저 고쳤다.
 
 0c. **2026-10-22 전체 리뷰 후속(M8).** 병합: #659·#661·#663·#665·#667. 결정 #670은 사용자가 2026-10-23에 추천대로 답했다 — 계약 어휘 개방 [ADR-0072](../docs/adr/0072-open-menu-vocabulary-app-declared-branded-ids.md), FO 적합성 테스트 경계 [ADR-0073](../docs/adr/0073-feedbackops-backend-tests-may-import-conformance-and-http-adapter.md), `main` 필수 검사 ruleset 적용, Tailwind 기본 팔레트는 [백로그](backlog.md), 오류 모델 통일(D5)은 코디네이터 위임(구현 때 ADR). #674(FeedbackOps 실서버 적합성)는 FO 백엔드를 실어댑터로 적합성 묶음에 돌린다 — 통과 44·건너뜀 60·실패 0이고, 건너뛴 검사에 적힌 미구현 포트 목록이 실서버 준비 현황이다. B9(계약 어휘 개방, ADR-0072)는 구현됐다. 남은 묶음과 착수 조건은 [#671](https://github.com/hjung3113/analytics-platform/issues/671). B8 구조 정리는 끝났다 — 포트 실패 판별 [ADR-0074](../docs/adr/0074-port-failures-three-surfaces-structural-port-error.md)(#692), `@ap/kernel/host` 진입점 [ADR-0076](../docs/adr/0076-kernel-host-entry-narrow-menu-platform.md)(#699), `PlatformDataTable`(#697)·`AnalysisChartFrame`(#702) 분해, hooks 경고 0·규칙 error(#691). `defineEntity`·deprecated 포트 제거는 [백로그](backlog.md)에 있다.
 
