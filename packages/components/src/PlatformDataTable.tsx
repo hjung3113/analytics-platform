@@ -1,18 +1,21 @@
-import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useId, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
-import { flexRender, getCoreRowModel, useReactTable, type Column, type ColumnDef, type ColumnPinningState, type ColumnSizingState, type RowSelectionState, type VisibilityState } from '@tanstack/react-table';
+import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useId, type CSSProperties, type ReactNode } from 'react';
+import { flexRender, getCoreRowModel, useReactTable, type Column, type ColumnDef, type ColumnPinningState, type RowSelectionState } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, Columns3, Copy, Download, FileSpreadsheet, FileText, Loader2, Pin, PinOff } from 'lucide-react';
-import { CONTEXT_LABELS, labelledCondition, useEquipmentAxes, useI18n, usePlatform } from '@ap/kernel';
-import { clientCorrelationId, type EquipmentAxisDescriptor, type ApiResponse, type Capability, type ContextKey, type GlobalContext, type PageQuery, type PageResult, type PageSort, serializeGlobal, type Trust } from '@ap/contracts';
-import { Button, Checkbox, cn, DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, isProductionEnv, Label, Popover, PopoverContent, PopoverTrigger, readLocalStorage, shortcutLabel, Skeleton, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, writeLocalStorage } from '@ap/ui';
+import { useI18n, usePlatform } from '@ap/kernel';
+import type { ApiResponse, Capability, ContextKey, PageQuery, PageResult, PageSort } from '@ap/contracts';
+import { Button, Checkbox, cn, DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, Label, Popover, PopoverContent, PopoverTrigger, shortcutLabel, Skeleton, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { AnalysisSectionContext } from './AnalysisSectionContext';
 import { toColumnDef } from './columnDef';
 import { DataTrustIndicator } from './DataTrustIndicator';
 import { OutcomeView } from './StateView';
-import { exportCell, exportColumns, toClipboardHtml, toCsv, toTsv, toXlsx } from './tableExport';
 import { SCROLLPORT_LABEL } from './scrollportLabel';
 import { useInWorkspacePanel } from './workspace/panelContext';
 import { ACTION_PIN_MIN_SCROLL, ROW_AREA_FALLBACK, useTableFit } from './tableFit';
+import { exportItemName, exportTarget, FORMAT_LABEL, type ExportScopeKind } from './tableMessages';
+import { useColumnPreferences } from './useColumnPreferences';
+import { usePagedRows } from './usePagedRows';
+import { useTableTransfer } from './useTableTransfer';
 
 export type { PageQuery, PageResult } from '@ap/contracts';
 export { sortAndPage } from '@ap/contracts';
@@ -44,100 +47,12 @@ export type PlatformColumn<T> = {
    */
   exportValue?: (row: T) => string | number | boolean | null;
 };
-
-/** Export refusal copy per outcome (#173, 06 §26 원인/행동): every refusal names a next action; no specific cause is claimed the server did not state. */
-const EXPORT_REFUSAL: Record<'forbidden' | 'too_large' | 'error' | 'timeout', { ko: string; en: string }> = {
-  forbidden: { ko: '서버가 이 조건의 내보내기를 거부했습니다. 현재 Scope와 접근 권한을 확인하세요.', en: 'The server rejected the export for this context. Check the current scope and your access rights.' },
-  too_large: { ko: '내보내기 결과가 내보내기 상한을 넘었습니다. 필터를 좁혀 주세요.', en: 'The export result is over the export limit. Narrow the filter.' },
-  timeout: { ko: '내보내기 요청이 시간 초과되었습니다. 다시 시도해 주세요.', en: 'The export request timed out. Please try again.' },
-  error: { ko: '내보내기를 수행하지 못했습니다. 다시 시도하고, 반복되면 관리자에게 문의하세요.', en: 'The export could not be completed. Try again, and contact the administrator if it keeps failing.' },
-};
-/** Defensive client cap only: the server's declared `limits.maxRows` (#175) is the real guard — this one fires after the rows already arrived. */
 const ACTION_COLUMN_WIDTH = 128;
 /** Icon-only action column: two 32px icon buttons and a 4px gap fit with `px-0`. */
 const COMPACT_ACTION_WIDTH = 72;
 const DEFAULT_COLUMN_WIDTH = 150;
-const EXPORT_ROW_CAP = 100_000;
-type ExportFormat = 'xlsx' | 'csv';
-type ExportScopeKind = 'selected' | 'filtered';
-/** Export target wording (toolbar D, #172): one source for the menu group labels, item names and toasts. `count === null` = no usable total (no `ok` result yet). */
-function exportTarget(kind: ExportScopeKind, count: number | null, lang: 'ko' | 'en'): string {
-  if (lang === 'ko') return kind === 'selected' ? `선택 ${count}행` : count === null ? '필터 결과 전체' : `필터 결과 전체 ${count}행`;
-  const rows = count !== null && count === 1 ? 'row' : 'rows';
-  return kind === 'selected' ? `${count} selected ${rows}` : count === null ? 'all filtered rows' : `all ${count} filtered ${rows}`;
-}
-const FORMAT_LABEL: Record<ExportFormat, string> = { xlsx: 'Excel (.xlsx)', csv: 'CSV' };
-/** Korean object particle for the export target (three wording sites keep it in lockstep): “선택 3행**을**”, “필터 결과 전체**를**”. */
-const objectParticle = (target: string) => (target.endsWith('행') ? '을' : '를');
-/** Menu item accessible name carries its target: "선택 3행을 Excel(.xlsx)로 내보내기" / "Export 3 selected rows as Excel (.xlsx)". */
-function exportItemName(kind: ExportScopeKind, count: number | null, format: ExportFormat, lang: 'ko' | 'en'): string {
-  const target = exportTarget(kind, count, lang);
-  return lang === 'ko'
-    ? `${target}${objectParticle(target)} ${format === 'xlsx' ? 'Excel(.xlsx)' : 'CSV'}로 내보내기`
-    : `Export ${target} as ${FORMAT_LABEL[format]}`;
-}
-/**
- * Row copy (#174) clipboard path, by feature detection — never by `.catch`: in an insecure context (in-house HTTP)
- * `navigator.clipboard` is undefined and touching it throws synchronously.
- */
-function asyncClipboard(): boolean {
-  return typeof window !== 'undefined' && window.isSecureContext && typeof navigator.clipboard?.write === 'function' && typeof ClipboardItem !== 'undefined';
-}
-/** A copy that stops with a message for the user (refusal, reconciliation to zero rows, cap, serializer bug). */
-class CopyStop extends Error { constructor(message: string, readonly detail?: string) { super(message); } }
-type CopyPayload = { tsv: string; html: string; count: number };
-/** The clipboard write itself was rejected (not the row read): carries the browser's error. */
-class ClipboardRejected extends Error { constructor(readonly cause: unknown) { super('clipboard rejected'); } }
 /** Keyboard focus ring only (ADR-0023): the FeedbackOps item focus tint is not distinguishable on the popover surface, so the menu keeps an inset ring — never clipped by the content's `overflow-hidden`, and it stays on top of the shared focus background. */
 const exportItemClass = 'focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring';
-
-/** 조회 정보 (#173 review P2-3): id sets render as count + leading ids; the explicit empty set is shown, never folded into “all”. */
-const CONTEXT_ID_LIMIT = 10;
-const INFO_LABELS = {
-  ko: { menu: '메뉴', target: '대상', exportedAt: '내보낸 시각', period: '기간', updatedAt: '갱신 시각', dataThrough: '데이터 기준 시각', coverage: '커버리지', metricVersion: '지표 버전', provisional: '잠정 여부', provisionalYes: '잠정', provisionalNo: '확정', source: '원천' },
-  en: { menu: 'Menu', target: 'Target', exportedAt: 'Exported at', period: 'Period', updatedAt: 'Updated at', dataThrough: 'Data through', coverage: 'Coverage', metricVersion: 'Metric version', provisional: 'Provisional', provisionalYes: 'Provisional', provisionalNo: 'Final', source: 'Source' },
-} as const;
-// Global id sets count ids (“N개” / “N ids”), not exported rows — “행” stays for table rows (#173 review N-P3-6).
-const EXPLICIT_EMPTY = { ko: '(빈 선택)', en: '(empty selection)' } as const;
-function idSetValue(ids: string[], lang: 'ko' | 'en'): string {
-  const count = lang === 'ko' ? `${ids.length}개` : `${ids.length} ${ids.length === 1 ? 'id' : 'ids'}`;
-  if (ids.length === 0) return `${count} ${EXPLICIT_EMPTY[lang]}`;
-  const head = ids.slice(0, CONTEXT_ID_LIMIT).join(', ');
-  return ids.length > CONTEXT_ID_LIMIT ? `${count}: ${head} …` : `${count}: ${head}`;
-}
-/**
- * Applied global Context keys of this menu, rendered readably (the GlobalContextBar vocabulary). Limited to keys the
- * menu's manifest applies; absent keys are omitted as whole rows — never invented.
- */
-function globalContextRows(global: GlobalContext, context: Readonly<Partial<Record<ContextKey, Capability>>>, lang: 'ko' | 'en', axes: readonly EquipmentAxisDescriptor[], asOf: string): [string, string][] {
-  const applied = (key: ContextKey) => context[key] === 'apply';
-  const rows: [string, string][] = [];
-  if (applied('roomNames') && global.roomNames !== null) rows.push([CONTEXT_LABELS.roomNames[lang], global.roomNames.length > 0 ? global.roomNames.join(', ') : EXPLICIT_EMPTY[lang]]);
-  if (applied('line') && global.lineNames !== null) rows.push([CONTEXT_LABELS.line[lang], idSetValue(global.lineNames, lang)]);
-  if (applied('prcGroup') && global.prcGroups !== null) rows.push([CONTEXT_LABELS.prcGroup[lang], idSetValue(global.prcGroups, lang) + (global.membershipBasis === 'asOf' ? ` · ${asOf}` : '')]);
-  if (applied('condition') && global.condition !== null) rows.push([CONTEXT_LABELS.condition[lang], labelledCondition(global.condition, axes, lang) + (global.membershipBasis === 'asOf' ? ` · ${asOf}` : '')]);
-  if (applied('selection') && global.selection !== null) rows.push([CONTEXT_LABELS.selection[lang], idSetValue(global.selection, lang)]);
-  if (applied('lot') && global.lotIds !== null) rows.push([CONTEXT_LABELS.lot[lang], idSetValue(global.lotIds, lang)]);
-  if (applied('ppid') && global.ppid !== null) rows.push([CONTEXT_LABELS.ppid[lang], global.ppid]);
-  if (applied('recipe') && global.recipeIds !== null) rows.push([CONTEXT_LABELS.recipe[lang], idSetValue(global.recipeIds, lang)]);
-  if (applied('metric') && global.metricId !== null) rows.push([CONTEXT_LABELS.metric[lang], global.metricVersion !== null ? `${global.metricId} v${global.metricVersion}` : global.metricId]);
-  return rows;
-}
-
-type Preferences = { sizing: ColumnSizingState; visibility: VisibilityState; pinning: ColumnPinningState };
-const defaults: Preferences = { sizing: {}, visibility: {}, pinning: { left: [], right: [] } };
-function readPreferences(key: string): Preferences {
-  return readLocalStorage(key, raw => {
-    const p = JSON.parse(raw || 'null');
-    if (!p || typeof p !== 'object') return defaults;
-    return {
-      sizing: Object.fromEntries(Object.entries(p.sizing || {}).filter(([, v]) => typeof v === 'number' && v >= 60 && v <= 600)) as ColumnSizingState,
-      visibility: Object.fromEntries(Object.entries(p.visibility || {}).filter(([, v]) => typeof v === 'boolean')) as VisibilityState,
-      pinning: { left: Array.isArray(p.pinning?.left) ? p.pinning.left.filter((v: unknown) => typeof v === 'string') : [], right: [] },
-    };
-  }, defaults);
-}
-
 export type TableUrlState = {
   /** 1-based; null = default page 1 (key omitted). */
   page: number | null;
@@ -195,32 +110,19 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const { t, lang } = useI18n();
   const analysisSection = useContext(AnalysisSectionContext);
   const inPanel = useInWorkspacePanel();
-  const { global, user, revision, route, toast } = usePlatform();
-  const axes = useEquipmentAxes();
+  const { route } = usePlatform();
   // Registry declares export capability (§5); the table never offers Export on a menu that did not declare it.
   const canExport = !!p.exportRows && !!route?.menu.features.export;
   // Selection exists only for features that read it (export/copy, bulk actions); ADR-0037.
   const selectable = canExport || !!p.bulkActions;
   const pageSize = p.pageSize ?? 100;
-  const [preferences, setPreferences] = useState(() => readPreferences(p.preferenceKey));
+  const { preferences, onColumnSizingChange, onColumnVisibilityChange, onColumnPinningChange, resetPreferences } = useColumnPreferences(p.preferenceKey);
   const [sorting, setSorting] = useState<PageSort[]>([]);
   const [selection, setSelection] = useState<RowSelectionState>({});
   const effectiveSelection = selectable ? selection : {};
   useEffect(() => {
     if (!selectable) setSelection(previous => Object.keys(previous).length ? {} : previous);
   }, [selectable]);
-  const [page, setPage] = useState(0);
-  const [retry, setRetry] = useState(0);
-  const [result, setResult] = useState<{ identity: string; response: ApiResponse<PageResult<T>> } | null>(null);
-  const [exporting, setExporting] = useState(false);
-  /** Polite “준비 중” announcement next to the trigger (#173 UX P2-3); visually hidden so the toolbar width stays stable. */
-  const [exportNote, setExportNote] = useState<string | null>(null);
-  /** Copy keeps its own line (#174 review P3-1): one operation finishing never clears the other's announcement. */
-  const [copyNote, setCopyNote] = useState<string | null>(null);
-  const exportAbort = useRef<AbortController | null>(null);
-  /** Row copy (#174): busy flag + its own abort (a Context change abandons the read). */
-  const [copying, setCopying] = useState(false);
-  const copyAbort = useRef<AbortController | null>(null);
   const [copyTip, setCopyTip] = useState(false);
   /** Column popover / export menu open: the Ctrl/⌘+C shortcut stays native while either is open. */
   const [overlayOpen, setOverlayOpen] = useState({ columns: false, export: false });
@@ -238,53 +140,16 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const focusedRetry = useRef(false);
   // urlState (§6.1): controlled sort/page. The page writes the URL via onChange; the table never touches keys.
   const activeSorting = p.urlState ? p.urlState.sorting : sorting;
-
-  // Context identity: global Context + user + page filters + adapter revision. Selection never survives a Context change (DESIGN Tables).
-  const contextIdentity = JSON.stringify([serializeGlobal(global), user.id, p.filterKey, revision]);
-  const lastContext = useRef(contextIdentity);
-  const hasUrlState = !!p.urlState;
-  const effectivePage = p.urlState ? (p.urlState.page ?? 1) - 1 : lastContext.current === contextIdentity ? page : 0;
-  useEffect(() => {
-    if (lastContext.current !== contextIdentity) {
-      lastContext.current = contextIdentity; if (!hasUrlState) setPage(0); setSelection({});
-      exportAbort.current?.abort(); // an in-flight export belongs to the old result set
-      copyAbort.current?.abort();
-      if (viewport.current) viewport.current.scrollTop = 0;
-    }
-  }, [contextIdentity, hasUrlState]);
-  useEffect(() => () => { exportAbort.current?.abort(); copyAbort.current?.abort(); }, []);
-  const requestIdentity = JSON.stringify([contextIdentity, effectivePage, activeSorting, retry]);
-  const loadRef = useRef(p.loadPage);
-  loadRef.current = p.loadPage;
-  useEffect(() => {
-    const controller = new AbortController();
-    loadRef.current({ page: effectivePage, pageSize, sorting: activeSorting }, controller.signal)
-      .then(response => { if (!controller.signal.aborted) setResult({ identity: requestIdentity, response }); })
-      .catch(error => {
-        // Only the table's own abort cancels (#186, like the Kernel #183): a menu loadPage that rejects with
-        // its own DOMException('…','AbortError') (internal timeout) is an error result, never swallowed.
-        if (controller.signal.aborted) return;
-        setResult({
-          identity: requestIdentity,
-          response: {
-            outcome: 'error', data: null, assessments: [], trust: null,
-            correlationId: clientCorrelationId(), message: String(error),
-          },
-        });
-      });
-    return () => controller.abort();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- requestIdentity already encodes page, sort and page size; the effect re-runs only when it changes
-  }, [requestIdentity]);
-  useEffect(() => { writeLocalStorage(p.preferenceKey, JSON.stringify(preferences)); /* memory-only when storage refuses */ }, [preferences, p.preferenceKey]);
-
-  // Same Context (page/sort/retry) keeps the last rows visible while loading; a new Context hides them.
-  const sameContext = result !== null && JSON.parse(result.identity)[0] === contextIdentity;
-  const shown = sameContext ? result!.response : null;
-  const shownPage = shown
-    ? (JSON.parse(result!.identity) as [string, number])[1]
-    : effectivePage;
-  const loading = result?.identity !== requestIdentity;
-  const data = shown?.outcome === 'ok' ? shown.data! : { rows: [] as T[], total: shown?.data?.total ?? 0 };
+  const { setPage, retry, effectivePage, shown, shownPage, loading, data, pageCount, success, outOfRange } = usePagedRows<T>({
+    loadPage: p.loadPage, filterKey: p.filterKey, urlState: p.urlState, pageSize, activeSorting, viewport,
+    // Selection never survives a Context change; an in-flight export/copy belongs to the old result set.
+    onContextChange: () => { setSelection({}); abortTransfers(); },
+  });
+  const selectedIds = Object.keys(effectiveSelection).filter(k => effectiveSelection[k]);
+  const { exporting, copying, exportNote, copyNote, runExport, runCopy, onShortcut, abortTransfers } = useTableTransfer<T>({
+    columns: p.columns, getRowId: p.getRowId, exportRows: p.exportRows, menuNote: p.exportNote, exportFilterSummary: p.exportFilterSummary, exportContext: p.exportContext,
+    canExport, selectedIds, selection, loadedRows: data.rows, total: data.total, resultOk: shown?.outcome === 'ok', activeSorting, preferences, overlayOpen,
+  });
 
   const columnPrefsId = useId();
   // ADR-0037: the action column is pinned right whenever the scrollport keeps room beside the user's left pins; narrower
@@ -330,36 +195,10 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
       setSorting(next); setPage(0); if (viewport.current) viewport.current.scrollTop = 0;
     },
     onRowSelectionChange: setSelection,
-    onColumnSizingChange: u => setPreferences(pr => ({ ...pr, sizing: typeof u === 'function' ? u(pr.sizing) : u })),
-    onColumnVisibilityChange: u => setPreferences(pr => ({ ...pr, visibility: typeof u === 'function' ? u(pr.visibility) : u })),
-    // Only the user's left pins are stored: the merged state carries the derived right pin of `_action`.
-    onColumnPinningChange: u => setPreferences(pr => {
-      const next = typeof u === 'function' ? u({ left: pr.pinning.left ?? [], right: actionPinned ? ['_action'] : [] }) : u;
-      return { ...pr, pinning: { left: (next.left ?? []).filter(id => id !== '_action'), right: [] } };
-    }),
+    onColumnSizingChange, onColumnVisibilityChange, onColumnPinningChange: onColumnPinningChange(actionPinned),
   });
   const rows = table.getRowModel().rows;
   const virtual = useVirtualizer({ count: rows.length, getScrollElement: () => viewport.current, estimateSize: () => 32, overscan: 8, getItemKey: i => rows[i].id });
-  const selectedIds = Object.keys(effectiveSelection).filter(k => effectiveSelection[k]);
-  const pageCount = Math.max(1, Math.ceil(data.total / pageSize));
-  // 06 §19: a failed lookup (error·timeout·forbidden·too_large) is not a zero — only a successful
-  // response (ok, or empty which IS a successful zero) may state a count or offer pages.
-  const success = shown !== null && (shown.outcome === 'ok' || shown.outcome === 'empty');
-  // #314: a successful page past the end. While the clamped refetch is in flight the status line keeps the
-  // loading text; once that response has settled and the clamp was already notified (a consumer may ignore it),
-  // it falls back to count + total pages only — never "9/3", never a page number that was not received.
-  const outOfRange = success && shownPage >= pageCount;
-  // `result.identity` repeats for the same page (9 → 3 → 9). Remember the result object so this effect
-  // re-running on that same object does not clamp twice; a later response is a new object and clamps again.
-  const clampedFor = useRef<typeof result>(null);
-  useEffect(() => {
-    if (loading || !outOfRange || result === null) return;
-    if (clampedFor.current === result) return;
-    clampedFor.current = result;
-    if (p.urlState) p.urlState.onChange({ sorting: activeSorting, page: pageCount === 1 ? null : pageCount }, 'clamp');
-    else setPage(pageCount - 1);
-  }, [loading, outOfRange, result, pageCount, activeSorting, p.urlState]);
-
   // #338 UX fold: while loading the failure is not decided yet — a Context/identity change empties `shown`
   // before the response settles, and a native disable would then drop a focused button (its blur clears the
   // ownership refs, so the settle move could not recover). `aria-disabled` already marks the group busy.
@@ -423,269 +262,10 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   }
   const pinnedPrefs = hideableColumns.filter(c => c.getIsPinned() === 'left');
   const otherPrefs = hideableColumns.filter(c => c.getIsPinned() !== 'left');
-
-  function refusal(outcome: keyof typeof EXPORT_REFUSAL, response: ApiResponse<unknown>): { text: string; detail?: string } {
-    // 06 §26 원인/행동 + #304 F2: the toast body names the cause and next action only; the server message and
-    // correlationId stay as named detail (the shell draws it like StateMessage's 서버 세부) — never deleted.
-    const correlation = outcome === 'error' && response.correlationId ? `correlationId: ${response.correlationId}` : null;
-    const message = outcome === 'error' && response.message ? response.message : null;
-    const detail = message !== null && correlation !== null ? `${message} (${correlation})` : message ?? correlation ?? undefined;
-    return { text: EXPORT_REFUSAL[outcome][lang], detail };
-  }
-  /** Export serializer for rows already read: header + cells of the visible exportable columns. Throws on a column bug. */
-  function serialize(rows: T[]): { headers: string[]; cells: (string | number)[][] } {
-    const columns = exportColumns(p.columns, preferences);
-    return { headers: columns.map(c => c.header), cells: rows.map(row => columns.map(c => exportCell(c, row))) };
-  }
-
-  // Table-owned export (#173): the target (selection / all filtered rows) and format come from the chosen menu item —
-  // a selection never hides "all filtered". The menu only supplies the row read; outcome handling, reconciliation,
-  // size guard, file and toasts live here.
-  async function runExport(format: ExportFormat, kind: ExportScopeKind) {
-    if (exportAbort.current) return; // busy guard (#173 review P3-3): the trigger uses aria-disabled, so re-entry is possible
-    const scope = kind === 'selected' ? { kind: 'selected' as const, ids: selectedIds } : { kind: 'filtered' as const };
-    const controller = new AbortController();
-    exportAbort.current = controller;
-    setExporting(true);
-    const startTarget = exportTarget(kind, kind === 'selected' ? selectedIds.length : shown?.outcome === 'ok' ? data.total : null, lang);
-    const file = format === 'xlsx' ? 'Excel' : 'CSV';
-    setExportNote(lang === 'ko' ? `${startTarget}${objectParticle(startTarget)} ${file} 파일로 준비 중입니다` : `Preparing ${startTarget} as ${format === 'xlsx' ? 'an Excel' : 'a CSV'} file`);
-    // Only this export's controller cancels (#186, like the Kernel #183): an exportRows that rejects with its
-    // own DOMException('…','AbortError') (internal timeout) is a failure, so the failure toast must appear.
-    const cancelled = () => controller.signal.aborted;
-    try {
-      const response = await p.exportRows!({ scope, sorting: activeSorting }, controller.signal);
-      if (controller.signal.aborted) return;
-      if (response.outcome !== 'ok' && response.outcome !== 'empty') {
-        const refusalOf = refusal(response.outcome, response);
-        toast(refusalOf.text, 'warning', refusalOf.detail);
-        return;
-      }
-      let rows: T[] = response.outcome === 'empty' ? [] : response.data ?? [];
-      if (scope.kind === 'selected') {
-        // The server already filtered by ids; reconcile again by getRowId — a row can have left the current result.
-        const wanted = new Set(scope.ids);
-        rows = rows.filter(row => wanted.has(p.getRowId(row)));
-        const missing = scope.ids.length - rows.length;
-        if (missing > 0) {
-          toast(lang === 'ko' ? `선택 ${scope.ids.length}행 중 ${rows.length}행 — ${missing}행은 현재 결과에 없음` : `${rows.length} of ${scope.ids.length} selected rows — ${missing} ${missing === 1 ? 'row is' : 'rows are'} not in the current results`, 'warning');
-        }
-      }
-      if (rows.length > EXPORT_ROW_CAP) {
-        toast(lang === 'ko' ? `받은 행이 ${EXPORT_ROW_CAP.toLocaleString('ko-KR')}행을 넘어 파일을 만들지 않습니다. 필터를 좁혀 주세요.` : `More than ${EXPORT_ROW_CAP.toLocaleString('en-US')} rows arrived; no file was built. Narrow the filter.`, 'warning');
-        return;
-      }
-      // Serializer (#173 review P2-1): outside the server-request try, so a column bug is not reported as a server
-      // failure. Dev logs the error — it names the column that needs exportValue; production stays silent + toast.
-      let headers: string[];
-      let cells: (string | number)[][];
-      try {
-        ({ headers, cells } = serialize(rows));
-      } catch (error) {
-        if (!isProductionEnv(import.meta as { env?: { PROD?: boolean } }, globalThis as { process?: { env?: { NODE_ENV?: string } } })) console.error(error);
-        toast(EXPORT_REFUSAL.error[lang], 'warning');
-        return;
-      }
-      const now = new Date();
-      const pad = (n: number) => String(n).padStart(2, '0');
-      const stamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`;
-      const target = exportTarget(scope.kind, rows.length, lang);
-      let blob: Blob;
-      if (format === 'csv') {
-        blob = new Blob([toCsv(headers, cells)], { type: 'text/csv;charset=utf-8' });
-      } else {
-        // "조회 정보" sheet: what was exported, from which Context, with which filters and trust. Missing values stay
-        // empty — never invented. Values render like the screen: times space-separated, coverage as a percent string.
-        const trust = response.trust;
-        // Labels follow the UI language, like the menus' exportFilterSummary (#173 review N-P3-4). 기간/Scope are written
-        // only when they apply (export endpoint's — else the manifest's — time 'apply' / requiresScope) — never a condition that did not filter (N-P2-1).
-        const L = INFO_LABELS[lang];
-        const menu = route?.menu;
-        const appliedContext = p.exportContext ?? menu?.context;
-        const info: [string, string | number][] = [
-          [L.menu, menu?.id ?? ''],
-          [L.target, exportTarget(scope.kind, rows.length, lang)],
-          [L.exportedAt, `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`],
-          ...(menu?.requiresScope ? [['Scope', global.scopeId ?? ''] as [string, string]] : []),
-          ...(appliedContext?.time === 'apply' ? [[L.period, global.from && global.to ? `${global.from} – ${global.to}` : ''] as [string, string]] : []),
-          ...(p.exportFilterSummary ?? []).map(([label, value]) => [label, value] as [string, string]),
-          ...(appliedContext ? globalContextRows(global, appliedContext, lang, axes, t('membershipAsOf')) : []),
-          [L.updatedAt, trust?.updatedAt?.replace('T', ' ') ?? ''],
-          [L.dataThrough, trust?.dataThrough?.replace('T', ' ') ?? ''],
-          [L.coverage, trust != null && trust.coverage !== null ? `${(trust.coverage * 100).toFixed(1)}%` : ''],
-          [L.metricVersion, trust?.metricVersion ?? ''],
-          [L.provisional, trust ? (trust.provisional ? L.provisionalYes : L.provisionalNo) : ''],
-          [L.source, trust?.source ?? ''],
-          ['Correlation ID', response.correlationId ?? ''],
-        ];
-        blob = await toXlsx(headers, cells, info, lang);
-        if (controller.signal.aborted) return;
-      }
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${(route?.menu.id ?? 'table').replace(/[^A-Za-z0-9._-]/g, '-')}-${stamp}${response.trust?.provisional ? '-provisional' : ''}.${format}`;
-      link.click();
-      // Safari/older Firefox cancel downloads whose blob URL is revoked synchronously — release after the click settles.
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-      const done = lang === 'ko' ? `${target}${objectParticle(target)} ${file} 파일로 내보냈습니다` : `Exported ${target} to ${format === 'xlsx' ? 'an' : 'a'} ${file} file`;
-      // Provisional responses (#173 review P2-2): CSV has no trust sheet, so the toast carries the data-through time —
-      // never `updatedAt`; an unknown data-through is said to be unknown.
-      const provisional = response.trust?.provisional
-        ? (lang === 'ko'
-            ? ` — 잠정 데이터(${response.trust.dataThrough ? `데이터 기준 시각 ${response.trust.dataThrough.replace('T', ' ').slice(0, 16)}` : '기준 시각 미확인'})`
-            : ` — provisional data (${response.trust.dataThrough ? `data through ${response.trust.dataThrough.replace('T', ' ').slice(0, 16)}` : 'data-through unknown'})`)
-        : '';
-      toast(p.exportNote ? `${done}${provisional} — ${p.exportNote}` : done + provisional);
-    } catch (error) {
-      if (cancelled()) return;
-      toast(EXPORT_REFUSAL.error[lang], 'warning');
-    } finally {
-      if (exportAbort.current === controller) { exportAbort.current = null; setExporting(false); setExportNote(null); }
-    }
-  }
   const exportItems = (kind: ExportScopeKind, count: number | null) => (['xlsx', 'csv'] as const).map(format =>
     <DropdownMenuItem key={format} className={exportItemClass} disabled={exporting} aria-label={exportItemName(kind, count, format, lang)} onSelect={() => { void runExport(format, kind); }}>
       {format === 'xlsx' ? <FileSpreadsheet className="mr-2 size-3.5" aria-hidden /> : <FileText className="mr-2 size-3.5" aria-hidden />}{FORMAT_LABEL[format]}
     </DropdownMenuItem>);
-
-  // Row copy (#174, ADR-0008 toolbar D): copy is an export — same gate, same `exportRows` read, columns and values; TSV
-  // for spreadsheets plus `text/html` so leading zeros stay text. Secure context: ClipboardItem with promised blobs,
-  // written inside the user gesture and filled after the server read (multi-page selections copy in full). Insecure
-  // context (and browsers refusing promised ClipboardItem values): `execCommand('copy')` inside the gesture with a
-  // document-level one-shot `copy` listener — the event goes to the selection's node or <body>, not the table
-  // (review P1-1) — loaded rows only, with a toast when that is less than the selection.
-  const copyTarget = (count: number) => exportTarget('selected', count, lang);
-  const copiedText = (count: number) => lang === 'ko'
-    ? `${copyTarget(count)}${objectParticle(copyTarget(count))} 복사했습니다 — 엑셀에 붙여넣을 수 있습니다`
-    : `Copied ${copyTarget(count)} — you can paste them into Excel`;
-  function payload(rows: T[]): CopyPayload {
-    let serialized: ReturnType<typeof serialize>;
-    try { serialized = serialize(rows); } catch (error) {
-      if (!isProductionEnv(import.meta as { env?: { PROD?: boolean } }, globalThis as { process?: { env?: { NODE_ENV?: string } } })) console.error(error);
-      throw new CopyStop(EXPORT_REFUSAL.error[lang]);
-    }
-    return { tsv: toTsv(serialized.headers, serialized.cells), html: toClipboardHtml(serialized.headers, serialized.cells), count: rows.length };
-  }
-  /** Server read of the selection in the table's sort, reconciled by getRowId like export. Rejects with CopyStop for the user. */
-  async function readSelection(ids: string[], signal: AbortSignal): Promise<CopyPayload> {
-    const response = await p.exportRows!({ scope: { kind: 'selected', ids }, sorting: activeSorting }, signal);
-    // Same controller whose catch checks `signal.aborted` (#186): this throw is the table's own cancel there.
-    if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
-    if (response.outcome !== 'ok' && response.outcome !== 'empty') {
-      const refusalOf = refusal(response.outcome, response);
-      throw new CopyStop(refusalOf.text, refusalOf.detail);
-    }
-    const wanted = new Set(ids);
-    const rows = (response.outcome === 'empty' ? [] : response.data ?? []).filter(row => wanted.has(p.getRowId(row)));
-    const missing = ids.length - rows.length;
-    if (missing > 0) {
-      const note = lang === 'ko' ? `선택 ${ids.length}행 중 ${rows.length}행 — ${missing}행은 현재 결과에 없음` : `${rows.length} of ${ids.length} selected rows — ${missing} ${missing === 1 ? 'row is' : 'rows are'} not in the current results`;
-      if (rows.length === 0) throw new CopyStop(note);
-      toast(note, 'warning');
-    }
-    if (rows.length > EXPORT_ROW_CAP) throw new CopyStop(lang === 'ko' ? `받은 행이 ${EXPORT_ROW_CAP.toLocaleString('ko-KR')}행을 넘어 복사하지 않습니다. 선택을 줄여 주세요.` : `More than ${EXPORT_ROW_CAP.toLocaleString('en-US')} rows arrived; nothing was copied. Select fewer rows.`);
-    return payload(rows);
-  }
-  // 06 §26 cause/action per failure (review P3-3): a row read that throws is the export failure, a real clipboard
-  // rejection names the permission, and a copy the environment cannot do points to export.
-  const clipboardFailure = (error: unknown) => {
-    // DOMException (NotAllowedError…) is not an Error subclass everywhere: read its message structurally.
-    const message = (error as { message?: unknown } | null)?.message;
-    const reason = typeof message === 'string' && message ? message : String(error);
-    return lang === 'ko' ? `클립보드에 복사하지 못했습니다(${reason}). 브라우저의 클립보드 권한을 확인하고 다시 시도하세요.` : `Could not copy to the clipboard (${reason}). Check the browser's clipboard permission and try again.`;
-  };
-  const copyUnavailable = () => lang === 'ko' ? '이 환경에서는 복사할 수 없습니다 — 내보내기(CSV·Excel)를 쓰세요' : 'Copying is not available in this environment — use Export (CSV · Excel) instead';
-  /** Must run synchronously inside the click/keydown: `clipboard.write` / `execCommand` are called before any await. */
-  function runCopy() {
-    if (!canExport || selectedIds.length === 0 || copyAbort.current) return; // gate + busy guard
-    if (!asyncClipboard()) { copyLoaded(); return; }
-    const ids = selectedIds;
-    const controller = new AbortController();
-    const content = readSelection(ids, controller.signal);
-    content.catch(() => {}); // observed below; avoids an unhandled rejection while the clipboard write is pending
-    // A refusal rejects `content` and both derived blobs with it: mark the blobs handled so the failure surfaces
-    // only as the CopyStop toast, never as an unhandled rejection (ClipboardItem still sees the real rejection).
-    const blob = (pick: (c: CopyPayload) => string, type: string) => {
-      const item = content.then(c => new Blob([pick(c)], { type }));
-      item.catch(() => {});
-      return item;
-    };
-    const blobs = { 'text/plain': blob(c => c.tsv, 'text/plain'), 'text/html': blob(c => c.html, 'text/html') };
-    let write: Promise<void>;
-    try {
-      write = navigator.clipboard.write([new ClipboardItem(blobs)]);
-    } catch (error) {
-      controller.abort(); // the read is not needed
-      Object.values(blobs).forEach(b => b.catch(() => {})); // nobody consumes them now
-      // A browser that refuses promised values still has the gesture: copy the loaded rows synchronously (review P3-2).
-      if (error instanceof TypeError) copyLoaded();
-      else toast(clipboardFailure(error), 'warning');
-      return;
-    }
-    copyAbort.current = controller;
-    setCopying(true);
-    setCopyNote(lang === 'ko' ? `${copyTarget(ids.length)}${objectParticle(copyTarget(ids.length))} 복사하는 중입니다` : `Copying ${copyTarget(ids.length)}`);
-    void (async () => {
-      try {
-        try { await write; } catch (error) {
-          await content; // a refusal or a failed read surfaces as itself, not as a clipboard error
-          throw new ClipboardRejected(error);
-        }
-        const c = await content;
-        if (!controller.signal.aborted) toast(copiedText(c.count));
-      } catch (error) {
-        // Only the copy's own controller cancels (#186, like the Kernel #183). The internal throw in
-        // `readSelection` uses this same controller's signal, so it still lands here as a cancellation.
-        if (controller.signal.aborted) return;
-        if (error instanceof CopyStop) toast(error.message, 'warning', error.detail);
-        // A late TypeError (promised values refused after the gesture): this browser cannot copy here.
-        else if (error instanceof ClipboardRejected) toast(error.cause instanceof TypeError ? copyUnavailable() : clipboardFailure(error.cause), 'warning');
-        else toast(EXPORT_REFUSAL.error[lang], 'warning'); // the row read threw (network…)
-      } finally {
-        if (copyAbort.current === controller) { copyAbort.current = null; setCopying(false); setCopyNote(null); }
-      }
-    })();
-  }
-  /** Loaded rows only, synchronously inside the gesture. Never a silent subset, never a silent no-op. */
-  function copyLoaded() {
-    const loaded = data.rows.filter(row => selection[p.getRowId(row)]);
-    if (loaded.length === 0) {
-      toast(lang === 'ko' ? '현재 페이지에 선택한 행이 없어 복사하지 못했습니다. 선택한 행이 있는 페이지로 이동해 다시 시도하세요.' : 'No selected row is on this page, so nothing was copied. Go to a page with selected rows and try again.', 'warning');
-      return;
-    }
-    let content: CopyPayload;
-    try { content = payload(loaded); } catch (error) { toast((error as Error).message, 'warning'); return; }
-    let handled = false;
-    const onDocumentCopy = (e: globalThis.ClipboardEvent) => {
-      if (!e.clipboardData) return;
-      e.clipboardData.setData('text/plain', content.tsv);
-      e.clipboardData.setData('text/html', content.html);
-      e.preventDefault();
-      handled = true;
-    };
-    document.addEventListener('copy', onDocumentCopy, true);
-    let copied = false;
-    try { copied = document.execCommand('copy'); } catch { copied = false; } finally { document.removeEventListener('copy', onDocumentCopy, true); }
-    if (!copied || !handled) { toast(copyUnavailable(), 'warning'); return; }
-    if (loaded.length < selectedIds.length) {
-      toast(lang === 'ko' ? `이 환경에서는 현재 페이지에 보이는 선택 ${loaded.length}행만 복사됩니다` : `In this environment only the ${loaded.length} selected ${loaded.length === 1 ? 'row' : 'rows'} visible on this page ${loaded.length === 1 ? 'is' : 'are'} copied`, 'warning');
-    }
-    toast(copiedText(content.count));
-  }
-  /** Ctrl/⌘+C belongs to the table only with a selection, focus in the table section, and nothing native to copy. */
-  function shortcutApplies(target: EventTarget | null): boolean {
-    if (!canExport || selectedIds.length === 0 || overlayOpen.columns || overlayOpen.export) return false;
-    if (target instanceof Element && target.closest('input, textarea, select, [contenteditable=""], [contenteditable="true"], [role="menu"], [role="dialog"], [data-radix-popper-content-wrapper]')) return false;
-    if (target instanceof HTMLElement && target.isContentEditable) return false;
-    return !(window.getSelection()?.toString());
-  }
-  /** Both paths run from the keydown itself (the gesture), so the table never depends on where a copy event lands. */
-  function onShortcut(e: KeyboardEvent) {
-    if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey || e.key.toLowerCase() !== 'c' || !shortcutApplies(e.target)) return;
-    e.preventDefault();
-    runCopy();
-  }
   // No `ok` result yet (new Context loading, refused page): the count is unknown, so the group label says “필터 결과 전체” with no number.
   const filteredCount = shown?.outcome === 'ok' ? data.total : null;
   return <section ref={section} tabIndex={-1} aria-label={p.ariaLabel} onKeyDown={onShortcut} className="flex flex-col rounded-lg border border-border-subtle bg-surface-card">
@@ -711,7 +291,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
               </div>}
             </div>
             {/* Visibility, width and pin back to the column defaults; sort, page and selection stay. */}
-            <div className="mt-3"><Button type="button" variant="secondary" size="toolbar" onClick={() => setPreferences({ sizing: {}, visibility: {}, pinning: { left: [], right: [] } })}>{lang === 'ko' ? '기본값으로' : 'Reset to default'}</Button></div>
+            <div className="mt-3"><Button type="button" variant="secondary" size="toolbar" onClick={resetPreferences}>{lang === 'ko' ? '기본값으로' : 'Reset to default'}</Button></div>
           </PopoverContent>
         </Popover>
         {/* Toolbar D (#172): fixed order [컬럼] [복사] [내보내기 ▾]. */}
@@ -783,7 +363,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
       </span>
     </div>
 
-    {shown && shown.outcome !== 'ok' ? <div ref={outcome} onFocus={() => { focusedRetry.current = true; }} onBlur={() => { focusedRetry.current = false; }} className="border-t border-border-subtle p-3"><OutcomeView response={shown} onRetry={() => setRetry(r => r + 1)} emptyAction={p.emptyAction}>{() => null}</OutcomeView></div> :
+    {shown && shown.outcome !== 'ok' ? <div ref={outcome} onFocus={() => { focusedRetry.current = true; }} onBlur={() => { focusedRetry.current = false; }} className="border-t border-border-subtle p-3"><OutcomeView response={shown} onRetry={retry} emptyAction={p.emptyAction}>{() => null}</OutcomeView></div> :
       // eslint-disable-next-line shadcn/no-inline-styles -- viewport max height comes from the height prop or the measured page fit at runtime
       <div ref={viewportRef} data-table-auto-fit={p.height === undefined ? '' : undefined} tabIndex={0} aria-label={SCROLLPORT_LABEL[lang]} className="overflow-auto overscroll-contain border-t border-border-subtle [overflow-anchor:none]" style={{ maxHeight: p.height ?? fit.cap ?? ROW_AREA_FALLBACK }}>
         {/* eslint-disable-next-line shadcn/no-inline-styles -- table width is the total column size computed at runtime */}
