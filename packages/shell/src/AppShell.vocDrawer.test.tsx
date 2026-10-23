@@ -142,6 +142,21 @@ describe('chips and the frozen Context (S2, S4)', () => {
     expect([params.get('granularity'), params.get('scopeId')]).toEqual(['day', 'MEM']);
   });
 
+  it.each([['a middle chip', 'middle'], ['the last chip', 'last'], ['the only chip', 'only']] as const)('removing %s keeps focus in the drawer: the next chip, else the previous one, else the heading', (_name, which) => {
+    mount();
+    openDrawer();
+    const chips = () => within(drawer()).queryAllByRole('button').filter(button => button.hasAttribute('data-chip-id'));
+    if (which === 'only') while (chips().length > 1) fireEvent.click(chips()[0]!);
+    const before = chips();
+    expect(which === 'only' ? before.length : before.length > 2).toBe(which === 'only' ? 1 : true);
+    const index = which === 'middle' ? 1 : before.length - 1;
+    const expected = which === 'only' ? heading() : before[index + 1] ?? before[index - 1]!;
+    before[index]!.focus();
+    fireEvent.click(before[index]!);
+    expect(chips()).not.toContain(before[index]);
+    expect(document.activeElement).toBe(expected);
+  });
+
   it('keeps the frozen Context across navigation while open, and refreezes after a clean close', () => {
     mount();
     openDrawer();

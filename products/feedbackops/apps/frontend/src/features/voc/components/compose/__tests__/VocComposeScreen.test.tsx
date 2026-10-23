@@ -380,3 +380,27 @@ describe('<VocComposeScreen> network (F6)', () => {
     expect(new Set(paths)).toEqual(new Set(['/api/fo/managed-systems', '/api/fo/analytics-areas']));
   });
 });
+
+describe('<VocComposeScreen> narrow drawer layout and helper texts (UX-3, UX-4)', () => {
+  it('lets the four 출처 options wrap instead of scrolling sideways (jsdom cannot measure: asserts the classes)', async () => {
+    installFetch();
+    mount();
+    const segmented = screen.getByTestId('source-context-segmented');
+    expect(screen.getAllByRole('radio').filter((r) => segmented.contains(r))).toHaveLength(4);
+    expect(screen.getByTestId('source-context-list').className).toMatch(/\bflex-wrap\b/);
+    for (let el: HTMLElement | null = segmented; el; el = el.parentElement)
+      expect(el.className).not.toMatch(/overflow-x-/);
+  });
+
+  it.each([
+    ['출처', '타인 대신 보고는 다른 팀원이나 고객의 경험을 대신 등록하는 경우입니다.'],
+    [
+      'Analytics Area, before a Managed System is chosen',
+      'Analytics Area는 VOC를 분석할 때 함께 볼 주제에 맞춰 선택하세요.',
+    ],
+  ])('shows the %s helper text', async (_field, text) => {
+    installFetch();
+    mount();
+    expect(await screen.findByText(text)).toBeTruthy();
+  });
+});

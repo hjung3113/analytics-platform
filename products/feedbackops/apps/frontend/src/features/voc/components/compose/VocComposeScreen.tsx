@@ -137,21 +137,21 @@ export function VocComposeScreen({
           >
             <span id="compose-source-context-label">출처</span>
           </FieldLabel>
-          {/* The segmented control does not wrap: it scrolls inside the drawer instead of widening it. */}
-          <div className="overflow-x-auto">
-            <Controller
-              control={form.control}
-              name="source_context"
-              render={({ field }) => (
-                <SourceContextSegmented
-                  value={field.value}
-                  onChange={field.onChange}
-                  labelId="compose-source-context-label"
-                  testId="source-context-segmented"
-                />
-              )}
-            />
-          </div>
+          {/* The options wrap onto a second row in a narrow drawer instead of scrolling or clipping. */}
+          <Controller
+            control={form.control}
+            name="source_context"
+            render={({ field }) => (
+              <SourceContextSegmented
+                value={field.value}
+                onChange={field.onChange}
+                labelId="compose-source-context-label"
+                testId="source-context-segmented"
+                className="flex-wrap"
+              />
+            )}
+          />
+          <p className="text-xs text-text-muted">{VOC_CREATE_COPY.proxyReportHint}</p>
         </div>
 
         <div className="flex flex-col gap-2">
@@ -228,6 +228,7 @@ export function VocComposeScreen({
               {form.formState.errors.analytics_area_id.message}
             </p>
           )}
+          <p className="text-xs text-text-muted">{VOC_CREATE_COPY.analyticsAreaHint}</p>
         </div>
 
         <AttachmentDropzone
