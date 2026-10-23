@@ -61,8 +61,9 @@ const devRegex = (devAllow = []) =>
 const MENU_MOCK_SUBPATH = 'menu-*/mock';
 const FO_API_SUBPATH = 'menu-my-activity/fo-api';
 const NOTIFICATIONS_SLOT_SUBPATH = 'menu-my-activity/notifications-slot';
-// Rule 8 exception (platform ADR-0071): the FeedbackOps bridge menu imports exactly this entry; nothing else under @fops/*.
-const FO_BRIDGE_ENTRY = '@fops/frontend/global-screens';
+// Rule 8 exception (platform ADR-0071): the FeedbackOps bridge menu imports exactly these entries (the screen barrel and
+// its eager-code subset `/core`); nothing else under @fops/*.
+const FO_BRIDGE_ENTRIES = ['@fops/frontend/global-screens', '@fops/frontend/global-screens/core'];
 const UI_THEME_SUBPATHS = ['ui/theme', 'ui/theme-tokens.json'];
 
 // Restriction data is the single decision source: each layer declares
@@ -77,8 +78,8 @@ const UI_THEME_SUBPATHS = ['ui/theme', 'ui/theme-tokens.json'];
 // Deep subpaths are banned for everyone, except subpaths matched by allowSubpaths.
 const TABLE_ENGINE_PACKAGES = ['@tanstack/react-table', '@tanstack/react-virtual', '@tanstack/table-core', '@tanstack/virtual-core'];
 const MENU_RESTRICTION = { allow: MENU_ALLOW, denyReact: false, denyTableEngine: true, mockAllowed: false, allowSubpaths: UI_THEME_SUBPATHS };
-// allowFeedbackOps: exact @fops/* sources exempted from the FeedbackOps ban (only the bridge menu, FO_BRIDGE_ENTRY).
-const FO_BRIDGE_RESTRICTION = { ...MENU_RESTRICTION, allowFeedbackOps: [FO_BRIDGE_ENTRY] };
+// allowFeedbackOps: exact @fops/* sources exempted from the FeedbackOps ban (only the bridge menu, FO_BRIDGE_ENTRIES).
+const FO_BRIDGE_RESTRICTION = { ...MENU_RESTRICTION, allowFeedbackOps: FO_BRIDGE_ENTRIES };
 const MENU_MOCK_RESTRICTION = { allow: ['contracts'], denyReact: true, denyTableEngine: true, mockAllowed: true };
 // #154: the real-server adapter reaches the app through src/real/** only (APP_REAL_FILES below).
 const APP_RESTRICTION = { allow: null, denyReact: false, mockAllowed: false, denyDev: true, denyHttpAdapter: true, allowSubpaths: [...UI_THEME_SUBPATHS, DOCK_ENTRY_SUBPATH, HOST_ENTRY_SUBPATH] };

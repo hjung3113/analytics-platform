@@ -516,12 +516,16 @@ for (const file of FEEDBACKOPS_BOUNDARY_FILES) {
   );
 }
 
-// Rule 8 exception (ADR-0071): the bridge menu imports exactly @fops/frontend/global-screens; every other menu still cannot.
+// Rule 8 exception (ADR-0071): the bridge menu imports exactly @fops/frontend/global-screens and its /core subpath; every other menu still cannot.
 const BRIDGE = 'menus/_global/my-activity/src/pages/x.tsx';
 const GLOBAL_SCREENS = '@fops/frontend/global-screens';
+const GLOBAL_SCREENS_CORE = '@fops/frontend/global-screens/core';
 rows.push(
   { file: BRIDGE, code: `import { InboxPanel } from '${GLOBAL_SCREENS}';`, rule: '' },
   { file: BRIDGE, code: `void import('${GLOBAL_SCREENS}');`, rule: '' },
+  { file: BRIDGE, code: `import { InboxPanel } from '${GLOBAL_SCREENS_CORE}';`, rule: '' },
+  { file: BRIDGE, code: `void import('${GLOBAL_SCREENS_CORE}');`, rule: '' },
+  { file: MENU, code: `import { InboxPanel } from '${GLOBAL_SCREENS_CORE}';`, rule: 'no-restricted-imports', token: '@ap/ui' },
   { file: MENU, code: `import { InboxPanel } from '${GLOBAL_SCREENS}';`, rule: 'no-restricted-imports', token: '@ap/ui' },
   { file: MENU, code: `void import('${GLOBAL_SCREENS}');`, rule: 'ap/restricted-import-source', token: '@ap/ui' },
 );

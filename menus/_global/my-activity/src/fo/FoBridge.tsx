@@ -2,7 +2,7 @@ import { useMemo, type ComponentType, type ReactNode } from 'react';
 import { ServerOff } from 'lucide-react';
 import { useI18n, usePlatform } from '@ap/kernel';
 import { StateMessage } from '@ap/components';
-import { FoScreenRoot, type HostLinkProps, type HostSeam } from '@fops/frontend/global-screens';
+import { FoScreenRoot, type HostLinkProps, type HostSeam } from '@fops/frontend/global-screens/core';
 import { foQueryClient, useFoSession } from './session';
 
 /** The default seam links nothing (backlog: 알림 목적지 연결); `Link` is the unreachable fallback, and a screen passes `canLink`/`Link` for the targets it can reach. */
