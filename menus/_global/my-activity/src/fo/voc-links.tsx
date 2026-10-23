@@ -1,6 +1,4 @@
-import { PlatformLink, usePlatform } from '@ap/kernel';
-import type { HostLinkProps } from '@fops/frontend/global-screens';
-import { UnlinkedLink } from './FoBridge';
+import { hostLinks } from './links';
 import { VOC_ID } from './voc-query';
 
 /**
@@ -18,12 +16,5 @@ export function vocTarget(to: string): { menuId: string; params: Record<string, 
   return { menuId: 'voc-detail', params: { vocId } };
 }
 
-export const canVocLink = (to: string) => vocTarget(to) !== null;
-
 /** `returnTo` lands only where the destination declares it (`voc-detail` does). */
-export function VocLink({ to, children, ...rest }: HostLinkProps) {
-  const { linkTo } = usePlatform();
-  const target = vocTarget(to);
-  if (target === null) return <UnlinkedLink to={to} {...rest}>{children}</UnlinkedLink>;
-  return <PlatformLink href={linkTo(target.menuId, { params: target.params, returnTo: true })} {...rest}>{children}</PlatformLink>;
-}
+export const { canLink: canVocLink, Link: VocLink } = hostLinks(vocTarget);

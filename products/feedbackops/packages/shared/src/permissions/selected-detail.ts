@@ -11,6 +11,11 @@ export const permissionRequestStatusSchema = z.enum([
   'revoked',
 ]);
 export type PermissionRequestStatus = z.infer<typeof permissionRequestStatusSchema>;
+/** Statuses a requester can still act on (withdraw, supplement): the request is not decided yet. */
+export const OPEN_PERMISSION_REQUEST_STATUSES: ReadonlySet<PermissionRequestStatus> = new Set([
+  'pending',
+  'needs_more_info',
+]);
 
 const scopeSchema = z.object({ managed_system_id: z.string().uuid().nullable() }).strict();
 export const permissionMatchingDenySchema = scopeSchema.extend({ id: z.string().uuid() });

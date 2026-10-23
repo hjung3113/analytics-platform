@@ -6,6 +6,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createBasePathLocation, I18nProvider, PlatformProvider } from '@ap/kernel';
 import { setFoApi } from '@ap/menu-my-activity/fo-api';
+import { homeTodoSlot } from '@ap/menu-my-activity/home-todo-slot';
 import { notificationsSlot } from '@ap/menu-my-activity/notifications-slot';
 import { vocComposeSlot } from '@ap/menu-my-activity/voc-compose-slot';
 import { createAssembly } from '#platform-assembly';
@@ -46,7 +47,7 @@ void startOrFail(root, async () => {
   root.render(
     <StrictMode>
       <I18nProvider>
-        <PlatformProvider queryHistory={queryHistory} equipmentAxes={EQUIPMENT_AXES} adapter={assembly.adapter} registry={registry} location={location} slots={appSlots(assembly, feedbackOpsOrigin, notificationsSlot, vocCompose)}>
+        <PlatformProvider queryHistory={queryHistory} equipmentAxes={EQUIPMENT_AXES} adapter={assembly.adapter} registry={registry} location={location} slots={appSlots(assembly, feedbackOpsOrigin, notificationsSlot, vocCompose, homeTodoSlot)}>
           <AppShell><RouteOutlet /></AppShell>
         </PlatformProvider>
       </I18nProvider>

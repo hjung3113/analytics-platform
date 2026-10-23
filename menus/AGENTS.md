@@ -4,13 +4,13 @@ Registry 그룹마다 하나의 패키지(`@ap/menu-<group>`)다. 메뉴가 `man
 
 | 패키지 | 폴더 | 그룹 | 화면 |
 | --- | --- | --- | --- |
-| `@ap/menu-home` | `menus/_global/home` | `overview` | OperationsHome |
+| `@ap/menu-home` | `menus/_global/home` | `overview` | OperationsHome(홈 `내 할 일`은 Kernel 슬롯 `homeTodo`로만 온다 — 홈은 `@fops/*`도 다른 메뉴도 import하지 않는다, #657) |
 | `@ap/menu-equipment` | `menus/analytics/equipment` | `equipment` | EquipmentMaster, EquipmentDetail |
 | `@ap/menu-master-data` | `menus/analytics/master-data` | `masterData` | 없음(계획 메뉴 manifest만) |
 | `@ap/menu-analytics` | `menus/analytics/analytics` | `analytics` | ProductivityOverview, CycleTimeDrilldown, ExecutionDetail, ChartCatalog + Wafer Journey(계획) |
 | `@ap/menu-metrics` | `menus/metrics/metrics` | `metrics` | MetricCatalog, MetricDetail |
 | `@ap/menu-notice-voc` | `menus/_global/notice-voc` | `noticeVoc` | 없음(공지 manifest만; 내 VOC는 `@ap/menu-my-activity`로 옮겼다, #654) |
-| `@ap/menu-my-activity` | `menus/_global/my-activity` | `myActivity` | Notifications(알림 — FeedbackOps `InboxPanel`을 다리 `@fops/frontend/global-screens`로 올림, mock에서는 `실서버 필요`, ADR-0071, #651; 레일 알림 종·플랫폼 메뉴 배지의 슬롯 `notifications-slot`, #652) + MyVoc·VocDetail(내 VOC — FeedbackOps `MyVocListScreen`/`ReporterVocDetail`을 다리로 올림, `/voc`는 목록 + 셸 상세 패널 `focus`, `/voc/:vocId`는 `내 VOC` 아래 navHidden, 읽기 전용, 권한은 Kernel `voc:view`, #654) + Surveys(설문 — FeedbackOps `SurveyParticipationScreen`/`RespondSurveyScreen`을 다리로 올림, `/surveys/:surveyId/respond`는 `설문` 아래 navHidden, #653) + 권한 요청(FeedbackOps `PermissionRequestsScreen`을 다리로 올림 — 요청·내 요청 상태·철회, mock에서는 `실서버 필요`, 권한은 `platform:view`, ADR-0070, #657). 이 패키지만 `@fops/frontend/global-screens`와 `/core`(영구 로드 코드용 부분집합)를 import할 수 있다(패키지 경계 규칙 8의 예외) |
+| `@ap/menu-my-activity` | `menus/_global/my-activity` | `myActivity` | Notifications(알림 — FeedbackOps `InboxPanel`을 다리 `@fops/frontend/global-screens`로 올림, mock에서는 `실서버 필요`, ADR-0071, #651; 레일 알림 종·플랫폼 메뉴 배지의 슬롯 `notifications-slot`, #652) + MyVoc·VocDetail(내 VOC — FeedbackOps `MyVocListScreen`/`ReporterVocDetail`을 다리로 올림, `/voc`는 목록 + 셸 상세 패널 `focus`, `/voc/:vocId`는 `내 VOC` 아래 navHidden, 읽기 전용, 권한은 Kernel `voc:view`, #654) + Surveys(설문 — FeedbackOps `SurveyParticipationScreen`/`RespondSurveyScreen`을 다리로 올림, `/surveys/:surveyId/respond`는 `설문` 아래 navHidden, #653) + 권한 요청(FeedbackOps `PermissionRequestsScreen`을 다리로 올림 — 요청·내 요청 상태·철회, mock에서는 `실서버 필요`, 권한은 `platform:view`, ADR-0070, #657) + 홈 `내 할 일`(슬롯 `home-todo-slot` — FeedbackOps `HomeTodoPanel`을 다리로 올림, 세션이 `ready`일 때만 그린다: mock·세션 전·401 뒤에는 아무것도 없다, #657 2부). 이 패키지만 `@fops/frontend/global-screens`와 `/core`(영구 로드 코드용 부분집합)를 import할 수 있다(패키지 경계 규칙 8의 예외) |
 | `@ap/menu-clas` | `menus/clas/clas` | `clas` | OperationTime |
 | `@ap/menu-admin` | `menus/operations/admin` | `admin` | AccessDirectory(권한/역할 조회 전용, #49), AuditTrail(변경 감사, #50), UsageOverview, RegistryCatalog |
 | `@ap/menu-log-my-work`·`-log-models`·`-log-cross`·`-log-rules` | `menus/log-dev/*` | `logMyWork`·`logModels`·`logCross`·`logRules` | 없음(계획 메뉴 manifest만, ADR-0065) |
@@ -18,7 +18,7 @@ Registry 그룹마다 하나의 패키지(`@ap/menu-<group>`)다. 메뉴가 `man
 
 ## 규칙
 
-- `src/index.ts`는 `manifests: MenuEntry[]`만 export한다. 페이지·집계(`METRICS`, `resolveMetric` 등)를 재export하지 않는다 — 앱이 `manifests`만 import해도 라우트 lazy가 깨지지 않아야 한다. 앱이 메뉴에 설정값을 넣어야 하면 index가 아니라 별도 서브패스로 내보낸다(예: `@ap/menu-my-activity/fo-api`, `@ap/menu-my-activity/notifications-slot`, `@ap/menu-<g>/mock`; origin·`fo-api`·`notifications-slot`(다리를 import하는 Kernel 슬롯 값, #652) 서브패스는 앱 `main.tsx`만, `/mock`은 앱 mock 조립 `src/dev/mock-assembly.tsx`(`pnpm gen:menu`가 `MOCK_ENDPOINTS` 마커 영역에 등록)만 import 가능 — 서버 적합성 테스트는 그 `MOCK_ENDPOINTS`를 읽는다. lint가 강제, 운영 빌드에는 실리지 않는다.
+- `src/index.ts`는 `manifests: MenuEntry[]`만 export한다. 페이지·집계(`METRICS`, `resolveMetric` 등)를 재export하지 않는다 — 앱이 `manifests`만 import해도 라우트 lazy가 깨지지 않아야 한다. 앱이 메뉴에 설정값을 넣어야 하면 index가 아니라 별도 서브패스로 내보낸다(예: `@ap/menu-my-activity/fo-api`, `@ap/menu-my-activity/notifications-slot`, `@ap/menu-<g>/mock`; origin·`fo-api`·`notifications-slot`·`voc-compose-slot`·`home-todo-slot`(다리를 import하는 Kernel 슬롯 값, #652·#655·#657) 서브패스는 앱 `main.tsx`만, `/mock`은 앱 mock 조립 `src/dev/mock-assembly.tsx`(`pnpm gen:menu`가 `MOCK_ENDPOINTS` 마커 영역에 등록)만 import 가능 — 서버 적합성 테스트는 그 `MOCK_ENDPOINTS`를 읽는다. lint가 강제, 운영 빌드에는 실리지 않는다.
 - `@ap/menu-*`끼리 서로 import하지 않는다. 교차 메뉴 이동은 `linkTo(menuId)`뿐이다(06 §22).
 - 표 엔진(`@tanstack/*` 4종)은 `@ap/components` 내부다. 메뉴는 `PlatformColumn<T>`·`PageSort[]`만 쓴다(lint `TABLE_ENGINE_PACKAGES`가 강제, `src/mock/**` 포함).
 - 메뉴 `src/mock/**`에는 mock handler를 두고 `@ap/mock-server`·`@ap/contracts`·자기 `src/endpoints.ts`만 import한다(react 금지, 상대 import는 자기 `src/mock/**`·`src/endpoints`로 한정 — lint `ap/no-menu-mock-import`가 강제). 화면과 서버가 함께 쓰는 순수 계약(코덱·지표 버전 해석)은 `src/endpoints.ts`에 둔다. handler는 앱 `src/dev/mock-assembly.tsx`의 `MOCK_ENDPOINTS`(생성기 마커)가 `@ap/menu-<g>/mock`으로 등록한다(운영 빌드 제외, ADR-0009).

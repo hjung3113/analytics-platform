@@ -38,20 +38,36 @@ export const surveyKeys = {
   outcomeFollowUp: (id: string) => ['surveys', id, 'outcome-follow-up'] as const,
 };
 
+async function fetchAnswerableSurveys(
+  cursor: string | undefined,
+  signal: AbortSignal,
+): Promise<AnswerableSurveysResponse> {
+  return (
+    await apiRequest(
+      'GET',
+      `/me/answerable-surveys${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`,
+      answerableSurveysResponseSchema,
+      { signal },
+    )
+  ).data;
+}
+
 export function useAnswerableSurveys() {
   return useInfiniteQuery({
     queryKey: surveyKeys.answerable,
     initialPageParam: undefined as string | undefined,
-    queryFn: async ({ pageParam, signal }): Promise<AnswerableSurveysResponse> =>
-      (
-        await apiRequest(
-          'GET',
-          `/me/answerable-surveys${pageParam ? `?cursor=${encodeURIComponent(pageParam)}` : ''}`,
-          answerableSurveysResponseSchema,
-          { signal },
-        )
-      ).data,
+    queryFn: ({ pageParam, signal }) => fetchAnswerableSurveys(pageParam, signal),
     getNextPageParam: (lastPage) => (lastPage.page.has_more ? lastPage.page.cursor : undefined),
+    retry: false,
+  });
+}
+
+// The home reads the first page only. A separate key under `surveyKeys.answerable` keeps it off the surveys page's
+// infinite cache (a refetch there walks every cached page) while the existing prefix invalidations still reach it.
+export function useAnswerableSurveysFirstPage() {
+  return useQuery({
+    queryKey: [...surveyKeys.answerable, 'first-page'] as const,
+    queryFn: ({ signal }) => fetchAnswerableSurveys(undefined, signal),
     retry: false,
   });
 }

@@ -59,16 +59,19 @@ export type VocComposeProps = {
 };
 /** The rail `VOC 등록` drawer body (ADR-0070 decisions 4–5, 06 §8). Absent slot → no rail button. */
 export type VocComposeSlot = { Compose: ComponentType<VocComposeProps> };
+/** The home `내 할 일` section (ADR-0070 decision 8, 15 §3.2): a component the app fills from another menu package, so one menu never imports another. It renders nothing when it has nothing to show. Absent slot → no section. The only slot a menu reads (`MenuPlatform.homeTodo`); the shell never reads it. */
+export type HomeTodoSlot = { Todo: ComponentType };
 /**
- * Shell slots (docs/06 §8) the app fills at composition time, so platform components never import the shell.
+ * Slots the app fills at composition time (shell slots, plus `homeTodo`, which the home menu reads through `MenuPlatform`), so platform components never import the shell.
  * contextBar: rendered by PlatformPage above page content. topBarTools: extra controls at the bottom of the app rail (today the mock dev tools).
  * feedbackOps: space-scoped entries and the overall link (ADR-0027, ADR-0028).
  * plannedSpaces: the system switcher's not-yet-available rows (ADR-0042, 15 §3.2).
  * boardEntry: the `분석 보드에 열기…` item `PlatformPage` appends to a board menu's `⋯` menu (docs/16 §6); components never import the shell.
  * notifications: the rail bell and the platform-menu unread badge (ADR-0070 decision 4, #652).
  * vocCompose: the body of the rail `VOC 등록` docked drawer; the shell owns position, frozen Context chips, draft and close rules (ADR-0070 decision 5, #655).
+ * homeTodo: the home `내 할 일` section; the home menu reads it through `MenuPlatform.homeTodo`, the shell never does (ADR-0070 decision 8, ADR-0076, #657).
  */
-export type PlatformSlots = { contextBar?: ReactNode; topBarTools?: ReactNode; feedbackOps?: FeedbackOpsSlot; plannedSpaces?: readonly PlannedSpace[]; boardEntry?: ReactNode; notifications?: NotificationsSlot; vocCompose?: VocComposeSlot };
+export type PlatformSlots = { contextBar?: ReactNode; topBarTools?: ReactNode; feedbackOps?: FeedbackOpsSlot; plannedSpaces?: readonly PlannedSpace[]; boardEntry?: ReactNode; notifications?: NotificationsSlot; vocCompose?: VocComposeSlot; homeTodo?: HomeTodoSlot };
 export type LinkOptions = { params?: Record<string, string>; page?: Record<string, string>; global?: Partial<GlobalContext>; returnTo?: boolean };
 export type LinkResolution = {
   href: string;
@@ -164,6 +167,8 @@ export type HostPlatform = {
   dismissToast: (id: number) => void;
   defaultRangeTo: string;
   slots: PlatformSlots;
+  /** = `slots.homeTodo ?? null`, raised for menus (ADR-0076). */
+  homeTodo: HomeTodoSlot | null;
   paletteSession: PaletteSession | null;
   paletteOpen: boolean;
   setPaletteOpen: (open: boolean) => void;
@@ -183,7 +188,7 @@ export type HostPlatform = {
  * What a menu page sees through `usePlatform()` (ADR-0076): the same runtime value as `HostPlatform`, narrowed to the menu contract.
  * A field a menu needs that is missing here moves up from `HostPlatform`; a menu never imports `@ap/kernel/host`.
  */
-export type MenuPlatform = Pick<HostPlatform, 'route' | 'url' | 'pathname' | 'absoluteUrl' | 'location' | 'global' | 'page' | 'pageParam' | 'setGlobal' | 'setPage' | 'resetContext' | 'navigate' | 'linkTo' | 'resolveLink' | 'session' | 'user' | 'revision' | 'can' | 'canOpen' | 'scope' | 'toast' | 'toasts' | 'registry' | 'adapter' | 'favorites' | 'toggleFavorite' | 'recent' | 'accessibleSpaces' | 'spaceEntry'>;
+export type MenuPlatform = Pick<HostPlatform, 'route' | 'url' | 'pathname' | 'absoluteUrl' | 'location' | 'global' | 'page' | 'pageParam' | 'setGlobal' | 'setPage' | 'resetContext' | 'navigate' | 'linkTo' | 'resolveLink' | 'session' | 'user' | 'revision' | 'can' | 'canOpen' | 'scope' | 'toast' | 'toasts' | 'registry' | 'adapter' | 'favorites' | 'toggleFavorite' | 'recent' | 'accessibleSpaces' | 'spaceEntry' | 'homeTodo'>;
 
 /** Context items named by return notifications, separate from menu capabilities. */
 export type ReturnContextKey = ContextKey | 'scope';
@@ -799,7 +804,7 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
   const pub: AppState = {
     registry, adapter, location, absoluteUrl, equipmentAxes, queryHistoryStore: queryHistory,
     session, user, revision, refreshEpochs, can, canOpen, globalMenus, menusInSpace, accessibleSpaces, lastScope, favorites, toggleFavorite, recent,
-    toasts, toast, dismissToast, defaultRangeTo, slots, paletteOpen, setPaletteOpen, paletteSession, switcherOpen, setSwitcherOpen, switcherSession,
+    toasts, toast, dismissToast, defaultRangeTo, slots, homeTodo: slots.homeTodo ?? null, paletteOpen, setPaletteOpen, paletteSession, switcherOpen, setSwitcherOpen, switcherSession,
   };
   const value: AppValue = { pub, internal: { currentRevision: revisions.get, selectionPortCache, enters, usageSessionId, userIdRef, usageNav, mainNavigation: pageNavigation, initialUrl, recordVisit, rememberScope } };
   return <AppContext.Provider value={value}><MainScreenProvider app={value}>{children}</MainScreenProvider></AppContext.Provider>;

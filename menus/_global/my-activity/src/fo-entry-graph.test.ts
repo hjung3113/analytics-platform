@@ -52,7 +52,7 @@ function walk() {
 const { files, specifiers, unresolved } = walk();
 const reached = [...files.keys()].map(file => relative(FRONTEND_SRC, file));
 
-const EAGER_MODULES = ['notifications-slot.tsx', 'voc-compose-slot.tsx', 'fo/FoBridge.tsx', 'fo/session.ts'];
+const EAGER_MODULES = ['notifications-slot.tsx', 'voc-compose-slot.tsx', 'home-todo-slot.tsx', 'fo/FoBridge.tsx', 'fo/session.ts'];
 const FOPS_FRONTEND_IMPORT = /\bimport\s+(?!type\b)[^;]*?from\s*['"]@fops\/frontend/;
 const FULL_ENTRY_IMPORT = /\bimport\s+(?!type\b)[^;]*?from\s*['"]@fops\/frontend\/global-screens['"]/;
 
@@ -66,6 +66,10 @@ describe('FeedbackOps bridge entry graph (ADR-0071)', () => {
 
   it('reaches the InboxPanel', () => {
     expect(reached).toContain('features/home/InboxPanel.tsx');
+  });
+
+  it('reaches the home 내 할 일 panel', () => {
+    expect(reached).toContain('features/home/todo/HomeTodoPanel.tsx');
   });
 
   it('reaches the survey screens and their hooks', () => {

@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
+import { I18nProvider, PlatformProvider, createRegistry, type PlatformSlots } from '@ap/kernel';
 import { memoryStorage, testAdapter, testSession } from '@ap/kernel/testing';
 import OperationsHome from './OperationsHome';
 import { groupId, menuPermission, spaceId, type Permission, type PlatformAdapter, type Session } from '@ap/contracts';
@@ -54,9 +54,9 @@ function adapter(permissions: Session['user']['permissions']): PlatformAdapter {
   });
 }
 
-function mount(permissions: Session['user']['permissions'], url = '/?v=1&scopeId=MEM') {
+function mount(permissions: Session['user']['permissions'], url = '/?v=1&scopeId=MEM', slots?: PlatformSlots) {
   window.history.replaceState(null, '', url);
-  render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter(permissions)} registry={registry}><OperationsHome /></PlatformProvider></I18nProvider>);
+  render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter(permissions)} registry={registry} slots={slots}><OperationsHome /></PlatformProvider></I18nProvider>);
 }
 
 async function settled() {
@@ -80,6 +80,20 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 const BOTH = ['platform:view', 'equipment:view', 'metrics:view', 'notice:view', 'voc:view'] as Session['user']['permissions'];
 
 describe('platform home launcher', () => {
+  it('E1 draws the 내 할 일 slot between the work systems and the favorites grid, and nothing without a slot', async () => {
+    mount(BOTH, '/?v=1&scopeId=MEM', { homeTodo: { Todo: () => <section aria-label="내 할 일">stub</section> } });
+    await settled();
+    const systems = screen.getByRole('region', { name: '업무 시스템' });
+    const todo = screen.getByRole('region', { name: '내 할 일' });
+    const favorites = screen.getByRole('heading', { name: '즐겨찾기' });
+    expect(systems.compareDocumentPosition(todo) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(todo.compareDocumentPosition(favorites) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    cleanup();
+    mount(BOTH);
+    await settled();
+    expect(screen.queryByRole('region', { name: '내 할 일' })).toBeNull();
+  });
+
   it('links a partial-permission space card to its first openable menu without a continue line', async () => {
     const partialRegistry = createRegistry({
       permissions: [menuPermission('analytics:view'), menuPermission('equipment:view'), menuPermission('metrics:view')],

@@ -39,6 +39,12 @@ export type CreatePermissionRequestSuccess = CreatePermissionRequestResult;
 // Issue #5: shared query key for the caller's requests. The bridge page keys its `status=all` list under it, so
 // the standalone `invalidateQueries({ queryKey: permissionRequestsMineKey })` calls match both by prefix.
 export const permissionRequestsMineKey = ['permission-requests-mine'] as const;
+// The `status=all` list the caller's requests page and the platform home `내 할 일` share, so a withdraw or an admin decision
+// that invalidates `permissionRequestsMineKey` refreshes both.
+export const permissionRequestsMineAllKey = [
+  ...permissionRequestsMineKey,
+  { status: 'all' },
+] as const;
 export const permissionRequestOwnerDetailKey = (id: string) =>
   ['permission-requests', 'owner-detail', id] as const;
 
