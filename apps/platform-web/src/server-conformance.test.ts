@@ -5,11 +5,11 @@ import { EQUIPMENT_AXES } from './equipmentAxes';
  * (docs/integration/real-server-checklist.md). The endpoint list is the mock assembly's own MOCK_ENDPOINTS (#153) — lint lets exactly this test import it.
  */
 import { describe, expect, it } from 'vitest';
-import { createMockAdapter, EQUIPMENT, getRole, setRole, USERS, type RoleId } from '@ap/mock-server';
+import { createMockAdapter, defineMockAction, EQUIPMENT, getRole, setRole, USERS, type RoleId } from '@ap/mock-server';
 import { describeServerConformance, type ConformanceCase } from '@ap/server-conformance';
 import { MOCK_AUDIT_EVENTS, MOCK_ENDPOINTS } from './dev/mock-assembly';
 import { registry } from './menus';
-import { menuPermission, spaceId, type Permission } from '@ap/contracts';
+import { defineAction, menuPermission, spaceId, type Permission } from '@ap/contracts';
 
 /** Exactly what the app registers: the mock assembly's list, not a copy. */
 const endpoints = MOCK_ENDPOINTS;
@@ -40,6 +40,18 @@ const PARAMS: Record<string, Record<string, unknown>> = {
 
 // No oversizeParams samples (#175): mock data sits far below the declared maxRows, so no case can exceed a cap.
 const cases: ConformanceCase[] = endpoints.map(({ spec }) => ({ spec, params: PARAMS[spec.id] ?? {} }));
+// No menu declares a write yet, so the write checks (ADR-0054) judge the mock engine over one fixture action on an
+// existing analytics menu; the version counter is the stored row the handler bumps and `currentVersion` reads.
+const trendSpec = endpoints.find(({ spec }) => spec.id === 'analytics.productivity.trend')!.spec;
+const fixtureSave = defineAction<{ text: string }, { id: number }>({
+  id: 'analytics.fixtureSave', menuId: trendSpec.menuId, inputKeys: { text: true }, permission: menuPermission('analytics:view'),
+  requiresScope: true, concurrency: 'version', invalidates: [trendSpec],
+});
+let fixtureVersion = 1;
+const fixtureMockAction = defineMockAction(fixtureSave, {
+  version: () => String(fixtureVersion),
+  handle: () => { fixtureVersion += 1; return { data: { id: fixtureVersion }, version: String(fixtureVersion) }; },
+});
 const GRANTED: RoleId = 'engineer';
 const CONSOLE: RoleId = 'admin';
 // Choose a granted group with different teams so the sample proves strict AND narrowing.
@@ -56,8 +68,9 @@ describe('conformance harness covers what the app registers', () => {
 });
 
 describeServerConformance('server boundary conformance — mock adapter', {
-  adapter: createMockAdapter({ equipmentAxes: EQUIPMENT_AXES, endpoints, registry, auditEvents: MOCK_AUDIT_EVENTS }),
+  adapter: createMockAdapter({ equipmentAxes: EQUIPMENT_AXES, endpoints, registry, auditEvents: MOCK_AUDIT_EVENTS, actions: [fixtureMockAction] }),
   cases,
+  actions: [{ spec: fixtureSave, input: { text: 'sample' }, currentVersion: async () => String(fixtureVersion) }],
   context: { scopeId: 'MEM', from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00' },
   foreignScopeId: 'XIA',
   // Real mock data: the equipment sample sits in MEM/PHOTO (an engineer room), the engineer holds MEM + FDRY and
