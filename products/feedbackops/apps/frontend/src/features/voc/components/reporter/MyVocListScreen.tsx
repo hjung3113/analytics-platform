@@ -36,17 +36,9 @@ import {
   REPORTER_FACING_STATUS_ALL,
 } from './my-voc-query';
 
+// The top level holds literals only: a module-level call would keep this module (and its import tree)
+// in the platform's eager chunk, which imports the bridge barrel.
 const STATUS_FILTER_KEY = 'filter.reporterStatus';
-const STATUS_CATEGORIES: FilterCategory[] = [
-  {
-    key: STATUS_FILTER_KEY,
-    label: '상태',
-    options: REPORTER_FACING_STATUS_ALL.map((value) => ({
-      value,
-      label: REPORTER_STATUS_LABELS[value],
-    })),
-  },
-];
 
 // Labels as the Inbox sort menu shows them (InboxRoute SORT_OPTIONS, minus severity).
 const SORT_OPTIONS: SortOption[] = [
@@ -55,10 +47,26 @@ const SORT_OPTIONS: SortOption[] = [
   { value: 'reporter_facing_status:asc', label: '상태순' },
 ];
 
-const SKELETON_KEYS = Array.from({ length: 10 }, (_, i) => `skeleton-${i}`);
+const SKELETON_KEYS = [
+  'skeleton-0',
+  'skeleton-1',
+  'skeleton-2',
+  'skeleton-3',
+  'skeleton-4',
+  'skeleton-5',
+  'skeleton-6',
+  'skeleton-7',
+  'skeleton-8',
+  'skeleton-9',
+];
+
+/** Where focus goes when the screen mounts: a toolbar control, or the list region itself. */
+export type MyVocInitialFocus = 'q' | 'status' | 'sort' | 'list';
 
 export interface MyVocListScreenProps {
   query: MyVocQuery;
+  /** Set by a host that just removed a rejected URL value, so keyboard focus lands on the matching control and not on `<body>`. */
+  initialFocus?: MyVocInitialFocus | undefined;
   onQueryChange: (patch: Partial<MyVocQuery>) => void;
   selectedId: string | null;
   onSelect: (id: string) => void;
@@ -67,10 +75,24 @@ export interface MyVocListScreenProps {
 export function MyVocListScreen({
   query,
   onQueryChange,
+  initialFocus,
   selectedId,
   onSelect,
 }: MyVocListScreenProps): React.ReactElement {
   const { q, statuses, sort } = query;
+  const statusCategories = React.useMemo<FilterCategory[]>(
+    () => [
+      {
+        key: STATUS_FILTER_KEY,
+        label: '상태',
+        options: REPORTER_FACING_STATUS_ALL.map((value) => ({
+          value,
+          label: REPORTER_STATUS_LABELS[value],
+        })),
+      },
+    ],
+    [],
+  );
   const list = useVocListPages({
     view: 'my',
     ...(q !== '' ? { q } : {}),
@@ -94,6 +116,22 @@ export function MyVocListScreen({
     [onQueryChange],
   );
   const { draft, setDraft, commit } = useCommittedSearchDraft({ committed: q, write: writeSearch });
+
+  const sectionRef = React.useRef<HTMLElement>(null);
+  // Focus is claimed once, when the screen mounts.
+  const claimedFocus = React.useRef(initialFocus);
+  React.useEffect(() => {
+    const section = sectionRef.current;
+    const claimed = claimedFocus.current;
+    if (section === null || claimed === undefined) return;
+    const target =
+      claimed === 'list'
+        ? section
+        : section.querySelector<HTMLElement>(
+            `[data-my-voc-control="${claimed}"] input, [data-my-voc-control="${claimed}"] button`,
+          );
+    target?.focus();
+  }, []);
 
   const loading = list.isLoading || list.isPlaceholderData;
 
@@ -154,47 +192,61 @@ export function MyVocListScreen({
   }
 
   return (
-    <section aria-label="VOC 목록" tabIndex={-1}>
+    <section
+      ref={sectionRef}
+      aria-label="VOC 목록"
+      tabIndex={-1}
+      className="flex h-full min-h-0 flex-col"
+    >
       <ListToolbar
         action={
           <div className="flex items-center gap-2">
-            <SearchInput
-              placeholder={LIST_SEARCH_PLACEHOLDER}
-              value={draft}
-              onValueChange={setDraft}
-              onCommit={commit}
-            />
-            <ListFilterButton
-              categories={STATUS_CATEGORIES}
-              values={{ [STATUS_FILTER_KEY]: statuses }}
-              onChange={(next) => {
-                onQueryChange({
-                  statuses: REPORTER_FACING_STATUS_ALL.filter((status) =>
-                    (next[STATUS_FILTER_KEY] ?? []).includes(status),
-                  ),
-                });
-              }}
-            />
-            <ListSortButton
-              options={SORT_OPTIONS}
-              value={sort}
-              defaultValue={MY_VOC_DEFAULT_SORT}
-              onChange={(next) => {
-                onQueryChange({ sort: next as MyVocSort });
-              }}
-            />
+            <div className="contents" data-my-voc-control="q">
+              <SearchInput
+                placeholder={LIST_SEARCH_PLACEHOLDER}
+                value={draft}
+                onValueChange={setDraft}
+                onCommit={commit}
+              />
+            </div>
+            <div className="contents" data-my-voc-control="status">
+              <ListFilterButton
+                categories={statusCategories}
+                values={{ [STATUS_FILTER_KEY]: statuses }}
+                onChange={(next) => {
+                  onQueryChange({
+                    statuses: REPORTER_FACING_STATUS_ALL.filter((status) =>
+                      (next[STATUS_FILTER_KEY] ?? []).includes(status),
+                    ),
+                  });
+                }}
+              />
+            </div>
+            <div className="contents" data-my-voc-control="sort">
+              <ListSortButton
+                options={SORT_OPTIONS}
+                value={sort}
+                defaultValue={MY_VOC_DEFAULT_SORT}
+                onChange={(next) => {
+                  onQueryChange({ sort: next as MyVocSort });
+                }}
+              />
+            </div>
           </div>
         }
       />
-      {body}
-      <ListLoadMore
-        hasMore={list.hasNextPage}
-        loadingMore={list.isFetchingNextPage}
-        failed={list.isFetchNextPageError}
-        onLoadMore={() => {
-          void list.fetchNextPage();
-        }}
-      />
+      {/* The list scrolls here, not in the platform main area: opening a row writes `focus` (a history push), and the Kernel scrolls the main area to the top on a push. */}
+      <div data-testid="my-voc-list-scroll" className="min-h-0 flex-1 overflow-y-auto">
+        {body}
+        <ListLoadMore
+          hasMore={list.hasNextPage}
+          loadingMore={list.isFetchingNextPage}
+          failed={list.isFetchNextPageError}
+          onLoadMore={() => {
+            void list.fetchNextPage();
+          }}
+        />
+      </div>
     </section>
   );
 }

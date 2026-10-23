@@ -12,7 +12,10 @@ export {
   RespondSurveyScreen,
   SurveyParticipationScreen,
 } from '@/features/surveys/components/participation/SurveyParticipationScreens';
-export { MyVocListScreen } from '@/features/voc/components/reporter/MyVocListScreen';
+export {
+  MyVocListScreen,
+  type MyVocInitialFocus,
+} from '@/features/voc/components/reporter/MyVocListScreen';
 export {
   MY_VOC_DEFAULT_SORT,
   MY_VOC_QUERY_MAX,

@@ -1,6 +1,6 @@
 import type { ConversationEntry, VocDetailEnvelope } from '@fops/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ReporterVocDetail } from '../ReporterVocDetail';
 
@@ -114,13 +114,24 @@ const FORBIDDEN = [
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
-function stubFetch(detail: () => Response) {
+function stubFetch(detail: () => Response, meId = ME) {
   const paths: string[] = [];
   vi.stubGlobal(
     'fetch',
     vi.fn(async (input: RequestInfo | URL) => {
       const path = String(input);
       paths.push(path);
+      if (path === '/me')
+        return json({
+          actor: {
+            id: meId,
+            external_id: 'x',
+            email: 'me@x.test',
+            display_name: '김제출',
+            role_level: 'admin',
+          },
+          workspace_id: MS,
+        });
       if (path === `/vocs/${VOC_ID}`) return detail();
       if (path.startsWith(`/vocs/${VOC_ID}/conversation`))
         return json({ items: [PUBLIC, REPLY, INTERNAL], has_more: false });
@@ -157,12 +168,12 @@ function stubFetch(detail: () => Response) {
   return paths;
 }
 
-function mount() {
+function mount(variant?: 'page' | 'embedded') {
   render(
     <QueryClientProvider
       client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
     >
-      <ReporterVocDetail vocId={VOC_ID} />
+      <ReporterVocDetail vocId={VOC_ID} {...(variant ? { variant } : {})} />
     </QueryClientProvider>,
   );
 }
@@ -198,8 +209,30 @@ describe('<ReporterVocDetail> fed an operator envelope', () => {
     await waitFor(() => expect(paths).toContain('/actors?workspace=current'));
     for (const path of paths)
       expect(path).toMatch(
-        new RegExp(`^(/vocs/${VOC_ID}(/conversation.*)?|/actors\\?workspace=current)$`),
+        new RegExp(`^(/vocs/${VOC_ID}(/conversation.*)?|/actors\\?workspace=current|/me)$`),
       );
+  });
+
+  it("shows not-found, with nothing of the VOC in the DOM, when the signed-in actor is not its reporter (an operator reading another actor's VOC)", async () => {
+    stubFetch(() => json(OPERATOR_ENVELOPE), OPERATOR);
+    mount();
+    expect(await screen.findByText('VOC를 찾을 수 없습니다')).toBeTruthy();
+    const text = document.body.textContent ?? '';
+    expect(text).not.toMatch(
+      /로그인이 안 됩니다|VOC-0042|아침마다 로그인이 실패합니다|log\.txt|재현했습니다/,
+    );
+    expect(screen.queryByTestId('reporter-voc-detail')).toBeNull();
+    expect(screen.queryByRole('button')).toBeNull();
+  });
+
+  it('draws no outer padding when embedded in the host detail slot, and the page frame otherwise', async () => {
+    stubFetch(() => json(OPERATOR_ENVELOPE));
+    mount('embedded');
+    const embedded = await screen.findByTestId('reporter-voc-detail');
+    expect(embedded.className).not.toMatch(/\bp[xtb]-/);
+    cleanup();
+    mount();
+    expect((await screen.findByTestId('reporter-voc-detail')).className).toMatch(/px-6/);
   });
 
   it('shows the not-found state for a 404', async () => {

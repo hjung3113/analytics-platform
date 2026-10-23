@@ -1,11 +1,13 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { TriangleAlert } from 'lucide-react';
 import { PlatformLink, useI18n, usePlatform } from '@ap/kernel';
 import { DetailDrawer, PlatformPage, StateMessage } from '@ap/components';
 import { Button } from '@ap/ui';
-import { MyVocListScreen, ReporterVocDetail, type MyVocQuery } from '@fops/frontend/global-screens';
+import { MyVocListScreen, ReporterVocDetail, type MyVocInitialFocus, type MyVocQuery } from '@fops/frontend/global-screens';
 import { FoBridge } from '../fo/FoBridge';
 import { pagePatch, parseMyVocPage } from '../fo/voc-query';
+
+const CLEARED_FOCUS: Record<string, MyVocInitialFocus> = { q: 'q', status: 'status', sort: 'sort', focus: 'list' };
 
 /**
  * 내 VOC (ADR-0070 decision 1, ADR-0071): the reporter's own list from FeedbackOps through the bridge, and the reporter detail in the shell
@@ -18,6 +20,8 @@ export default function MyVoc() {
   const ko = lang === 'ko';
   const parsed = parseMyVocPage(pageParam);
   const onQueryChange = useCallback((patch: Partial<MyVocQuery>) => setPage(pagePatch(patch)), [setPage]);
+  // Where focus goes once a rejected value is cleared and the list takes the warning's place (never `<body>`).
+  const [clearedFocus, setClearedFocus] = useState<MyVocInitialFocus | undefined>(undefined);
   const onSelect = useCallback((id: string) => setPage({ focus: id }), [setPage]);
 
   if (!parsed.ok) {
@@ -25,16 +29,16 @@ export default function MyVoc() {
       <StateMessage tone="warning" icon={<TriangleAlert className="size-4" aria-hidden />}
         title={ko ? `주소의 ${parsed.key} 값이 올바르지 않습니다` : `The ${parsed.key} value in the address is not valid`}
         body={ko ? '다른 값으로 바꾸지 않았습니다.' : 'Nothing was substituted.'}
-        action={<Button size="sm" variant="secondary" onClick={() => setPage({ [parsed.key]: null })}>{ko ? '값 지우기' : 'Clear value'}</Button>} />
+        action={<Button size="sm" variant="secondary" onClick={() => { setClearedFocus(CLEARED_FOCUS[parsed.key]); setPage({ [parsed.key]: null }); }}>{ko ? '값 지우기' : 'Clear value'}</Button>} />
     </PlatformPage>;
   }
   const { query, focus } = parsed;
-  return <PlatformPage>
+  return <PlatformPage layout="fill">
     <FoBridge>
-      <MyVocListScreen query={query} onQueryChange={onQueryChange} selectedId={focus} onSelect={onSelect} />
+      <MyVocListScreen query={query} initialFocus={clearedFocus} onQueryChange={onQueryChange} selectedId={focus} onSelect={onSelect} />
       {focus !== null && <DetailDrawer key={focus} title={ko ? 'VOC 상세' : 'VOC details'} onClose={() => setPage({ focus: null })}
         headerActions={<Button asChild size="sm" variant="secondary"><PlatformLink href={linkTo('voc-detail', { params: { vocId: focus }, returnTo: true })}>{ko ? '전체 화면' : 'Full page'}</PlatformLink></Button>}
-        tabs={[{ id: 'detail', label: ko ? '상세' : 'Details', content: <ReporterVocDetail vocId={focus} /> }]} />}
+        tabs={[{ id: 'detail', label: ko ? '상세' : 'Details', content: <ReporterVocDetail vocId={focus} variant="embedded" /> }]} />}
     </FoBridge>
   </PlatformPage>;
 }

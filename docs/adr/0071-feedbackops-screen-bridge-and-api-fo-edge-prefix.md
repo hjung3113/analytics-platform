@@ -36,7 +36,7 @@ ADR-0070은 알림·설문·내 VOC·권한 요청 같은 전역 기능을 플�
 7. **mock 정책.** mock 미리보기에는 FeedbackOps 서버가 없다. FeedbackOps 데이터를 쓰는 화면은 `실서버 필요` 상태를 보이고 FeedbackOps 화면을 마운트하지 않으며 요청도 하지 않는다. 배지(#652)는 숨긴다. 종은 mock에서도 보이고 배지만 숨긴다. 팝오버 본문은 `실서버 필요`다. 이 화면들의 UX 검토는 `dev:real`과 이슈 DB에서 한다.
 8. **CSS와 별칭.** FeedbackOps의 전역 `styles.css`(리셋·`html, body, #root` 높이·본문 글꼴)는 가져오지 않는다. FeedbackOps 컴포넌트의 클래스는 메뉴 `styles.css`의 `@source`로만 Tailwind에 닿는다. FeedbackOps 소스의 `@/` 별칭은 앱 `vite.config.ts`·메뉴 `vitest.config.ts`·두 `tsconfig.json`에 같은 경로로 둔다.
 9. **O5 규칙(구현은 첫 URL 상태 화면에서).** 옮기는 화면의 URL 상태는 manifest `pageKeys`가 되고, 잘못된 값은 FeedbackOps의 "버림"이 아니라 플랫폼 규칙("거부하고 보존", 06 §6.4)을 따른다. 알림의 필터는 FeedbackOps처럼 컴포넌트 상태이므로 해당 없다. #595도 같은 규칙을 쓴다.
-10. **플랫폼 목적지가 없는 알림 대상은 링크 없이 그린다.** 이 PR에서 이음매 `canLink`는 모든 FeedbackOps 대상에 대해 `false`다. 행의 읽음·보관 동작은 그대로 두되, 링크할 수 없는 행의 본문은 눌러지는 것처럼 보이지 않게 비대화형으로 그리고(hover·버튼 역할·본문 클릭 읽음 처리 없음) 읽음·보관은 명시 버튼으로만 한다. 목적지 연결은 구현하지 않음(백로그 "알림 목적지 연결"). 설문 화면의 이음매는 FeedbackOps 경로 두 개만 링크한다: `/surveys/participate` → `설문`, `/surveys/<uuid>/respond` → `설문 응답`(`returnTo` 포함). 알림 대상은 그대로 링크하지 않는다. 알림 페이지는 `voc.public_update_posted`(`/vocs?view=my&selected=<uuid>`)만 `내 VOC 상세`로 링크한다. 팝오버와 운영 대상은 그대로다.
+10. **링크는 플랫폼 목적지가 있는 알림 대상에만 건다.** 이음매 `canLink`는 대상별로 정한다. 알림 페이지는 `voc.public_update_posted`(`/vocs?view=my&selected=<uuid>`)만 `내 VOC 상세`(`/voc/<uuid>`, `returnTo` 포함)로 링크한다(#654). 설문 화면의 이음매는 FeedbackOps 경로 두 개만 링크한다: `/surveys/participate` → `설문`, `/surveys/<uuid>/respond` → `설문 응답`(`returnTo` 포함). 그 밖의 모든 FeedbackOps 대상(운영 대상 포함)과 알림 팝오버는 `canLink`가 `false`이고 목적지 연결은 구현하지 않았다(백로그 "알림 목적지 연결"). 링크하지 않는 행의 읽음·보관 동작은 그대로 두되, 본문은 눌러지는 것처럼 보이지 않게 비대화형으로 그리고(hover·버튼 역할·본문 클릭 읽음 처리 없음) 읽음·보관은 명시 버튼으로만 한다.
 
 ## Considered Options
 

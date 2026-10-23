@@ -4,6 +4,7 @@
 // owner, triage state, internal comments), and VocDetailPanel draws Triage, Finding and composers by
 // role. This screen draws a fixed allowlist whatever the envelope holds, and nothing that writes.
 
+import { useSignedInActor } from '@/lib/cross-system/useSignedInActor';
 import { useVocDetail } from '@/lib/cross-system/useVocDetail';
 import { useWorkspaceActors } from '@/lib/cross-system/useWorkspaceActors';
 import { formatDateTime } from '@/lib/format/datetime';
@@ -25,6 +26,8 @@ import { LinkedExecutionSection } from '../detail/LinkedExecutionSection';
 
 export interface ReporterVocDetailProps {
   vocId: string;
+  /** `embedded` leaves the outer padding to the host's detail slot; `page` is the full-page frame. */
+  variant?: 'page' | 'embedded';
 }
 
 function NotFound(): React.ReactElement {
@@ -36,15 +39,19 @@ function NotFound(): React.ReactElement {
   );
 }
 
-export function ReporterVocDetail({ vocId }: ReporterVocDetailProps): React.ReactElement {
+export function ReporterVocDetail({
+  vocId,
+  variant = 'page',
+}: ReporterVocDetailProps): React.ReactElement {
   const { data, isLoading, isError, error } = useVocDetail(vocId);
+  const me = useSignedInActor();
   const { actors } = useWorkspaceActors();
   const actorNamesById = React.useMemo(
     () => new Map((actors ?? []).map((actor) => [actor.id, actor.display_name])),
     [actors],
   );
 
-  if (isLoading) {
+  if (isLoading || (me.isLoading && !isError)) {
     return (
       <div className="flex flex-col gap-4 p-4" aria-label="VOC 상세 불러오는 중">
         <SkeletonBlocks
@@ -58,8 +65,9 @@ export function ReporterVocDetail({ vocId }: ReporterVocDetailProps): React.Reac
       </div>
     );
   }
-  if (isError) {
-    if ((error as { code?: string } | null)?.code === 'not_found.record') return <NotFound />;
+  if (isError || me.isError) {
+    if (isError && (error as { code?: string } | null)?.code === 'not_found.record')
+      return <NotFound />;
     return (
       <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
         <p className="text-sm text-text-danger">데이터를 불러오지 못했습니다.</p>
@@ -68,11 +76,18 @@ export function ReporterVocDetail({ vocId }: ReporterVocDetailProps): React.Reac
   }
   // A summary envelope (no title) is a VOC the actor may not read: say nothing more than "not found".
   if (data === undefined || !('title' in data)) return <NotFound />;
+  // 내 VOC shows the signed-in user's own VOCs only. An operator may read any VOC (the server allows it), but not here:
+  // a foreign VOC is "not found", with nothing of it drawn.
+  if (me.data === undefined || data.reporter_id !== me.data.id) return <NotFound />;
 
   const voc = data;
+  const embedded = variant === 'embedded';
   return (
-    <div className="flex flex-col px-6 pt-7 pb-16" data-testid="reporter-voc-detail">
-      <div className="mb-4 pt-2">
+    <div
+      className={embedded ? 'flex flex-col' : 'flex flex-col px-6 pt-7 pb-16'}
+      data-testid="reporter-voc-detail"
+    >
+      <div className={embedded ? 'mb-4' : 'mb-4 pt-2'}>
         <PanelTitleBlock title={voc.title} inset="none" className="mb-1" />
         <div className="flex flex-wrap items-center gap-2 text-xs text-text-muted">
           <span className="font-mono">{voc.display_id}</span>
@@ -104,7 +119,12 @@ export function ReporterVocDetail({ vocId }: ReporterVocDetailProps): React.Reac
         <AttachmentChipList attachments={voc.attachments} />
       </div>
       <div className="mt-8">
-        <ConversationTimeline voc={voc} canTriage={false} actorNamesById={actorNamesById} />
+        <ConversationTimeline
+          voc={voc}
+          canTriage={false}
+          actorNamesById={actorNamesById}
+          meActor={me.data}
+        />
       </div>
       <LinkedExecutionSection voc={voc} isReporterContext />
       <LinkedEntityTrailSection

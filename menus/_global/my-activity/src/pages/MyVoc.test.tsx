@@ -47,8 +47,9 @@ const operatorEnvelope = (id: string) => ({
 const FORBIDDEN = [/Critical|critical|심각/, /Triage|triage/, /박운영/, /비슷한 다른 VOC/, /같은 Managed System/, /내부 메모/, /Finding 요청/, /Analytics Area/];
 
 /** Answers the reporter routes; `list` and `detail` override the answers. */
-function vocFetch(over: { list?: (path: string) => Response; detail?: () => Response } = {}) {
+function vocFetch(over: { list?: (path: string) => Response; detail?: () => Response; meId?: string } = {}) {
   return stubFetch(path => {
+    if (path === '/api/fo/me') return json({ actor: { id: over.meId ?? ME, external_id: 'x', email: 'me@x.test', display_name: '김제출', role_level: 'user' }, workspace_id: MS });
     if (path.startsWith('/api/fo/vocs?')) return over.list?.(path) ?? json({ items: [row(ID_A, '로그인이 안 됩니다'), row(ID_B, '차트가 안 열립니다')], page: { has_more: false } });
     if (path === `/api/fo/vocs/${ID_A}`) return over.detail?.() ?? json(operatorEnvelope(ID_A));
     if (path.startsWith(`/api/fo/vocs/${ID_A}/conversation`)) return json({ items: [PUBLIC, INTERNAL], has_more: false });
@@ -159,6 +160,20 @@ describe('내 VOC through the FeedbackOps bridge', () => {
     expect(screen.queryByText(`주소의 ${key} 값이 올바르지 않습니다`)).toBeNull();
   });
 
+  it.each([
+    ['status', 'bogus', 'q=ab', /필터/],
+    ['q', '가'.repeat(101), 'sort=created_at:asc', null],
+    ['sort', 'severity:desc', 'q=ab', /정렬|최신순/],
+  ])('UX-2: after 값 지우기 removes the bad %s, focus is on its control and not on <body>', async (key, value, other, name) => {
+    vocFetch();
+    mountAt(session().adapter, `/voc?v=1&${key}=${encodeURIComponent(value)}&${other}`);
+    await userEvent.setup().click(await screen.findByRole('button', { name: '값 지우기' }));
+    await screen.findByText('차트가 안 열립니다');
+    const control = name === null ? screen.getByRole('searchbox') : screen.getByRole('button', { name });
+    await waitFor(() => expect(document.activeElement).toBe(control));
+    expect(document.activeElement).not.toBe(document.body);
+  });
+
   it('V5: a row click opens the reporter detail in the slot without leaving /voc or remounting the list', async () => {
     const calls = vocFetch();
     const user = userEvent.setup();
@@ -185,6 +200,44 @@ describe('내 VOC through the FeedbackOps bridge', () => {
     await waitFor(() => expect(search().has('focus')).toBe(false));
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(window.location.pathname).toBe('/voc');
+  });
+
+  it('V5: scrolling the list and opening or switching a row keeps the scroll, the search draft and the list (no second list request)', async () => {
+    const calls = vocFetch();
+    const user = userEvent.setup();
+    mountAt(session().adapter, '/voc?v=1');
+    await screen.findByText('차트가 안 열립니다');
+    const scroller = screen.getByTestId('my-voc-list-scroll');
+    const box = screen.getByRole('searchbox');
+    fireEvent.change(box, { target: { value: '초안' } });
+    scroller.scrollTop = 321;
+
+    await user.click(screen.getByText('로그인이 안 됩니다'));
+    await within(await screen.findByRole('dialog')).findByRole('heading', { name: '로그인이 안 됩니다', level: 2 }, { timeout: 3000 });
+    await user.click(screen.getByText('차트가 안 열립니다'));
+    await waitFor(() => expect(search().get('focus')).toBe(ID_B));
+
+    expect(screen.getByTestId('my-voc-list-scroll')).toBe(scroller);
+    expect(scroller.scrollTop).toBe(321);
+    expect(screen.getByRole('searchbox')).toBe(box);
+    expect((box as HTMLInputElement).value).toBe('초안');
+    expect(listCalls(calls)).toHaveLength(1);
+  });
+
+  it('C1: an operator opening a VOC another actor submitted gets not-found in the slot and on the full page, with none of it drawn', async () => {
+    const calls = vocFetch({ meId: OPERATOR });
+    mountAt(session().adapter, `/voc?v=1&focus=${ID_A}`);
+    const panel = await screen.findByRole('dialog');
+    expect(await within(panel).findByText('VOC를 찾을 수 없습니다', {}, { timeout: 3000 })).toBeTruthy();
+    expect(document.body.textContent).not.toMatch(/아침마다 로그인이 실패합니다|재현했습니다|log\.txt/);
+    expect(within(panel).queryByRole('heading', { name: '로그인이 안 됩니다' })).toBeNull();
+    cleanup();
+
+    mountAt(session().adapter, `/voc/${ID_A}?v=1`);
+    expect(await screen.findByText('VOC를 찾을 수 없습니다', {}, { timeout: 3000 })).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: '로그인이 안 됩니다' })).toBeNull();
+    expect(document.body.textContent).not.toMatch(/아침마다 로그인이 실패합니다|재현했습니다/);
+    expect(calls.filter(call => DENIED.test(call.path))).toEqual([]);
   });
 
   it('V6: for an operator envelope neither the drawer nor the full page shows an operator field', async () => {
