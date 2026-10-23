@@ -16,7 +16,7 @@ Site 내부의 실제 생산 라인. room_name과 교차하는 독립 조회축�
 _Avoid_: 공장, Factory — 구어로는 Line과 같은 뜻으로 쓰이지만, 공식 계층에는 Factory 레벨이 없으므로 Line만 쓴다. 근거: [ADR-0005](docs/adr/0005-scope-room-name-line-independent.md).
 
 **Scope** (`scopeId`):
-사용자가 조회 한 번에 고르는 단일 접근·조회 범위. Site 안의 room_name 기준으로 부여되며, 서버가 요청마다 권한을 다시 검증한다. v1은 단일 Scope 선택이다([06 §6.2](docs/06_platform_ui_contract.md#62-scope와-권한-decided--open)).
+사용자가 조회 한 번에 고르는 단일 접근·조회 범위로, 단위는 Site다 — 데이터가 Site별로 나뉘어 있고 사용 권한도 보통 Site 단위로 나뉜다. 그 Site 안에서는 부여된 room_name만 보이며, 서버가 요청마다 권한을 다시 검증한다. v1은 단일 Scope 선택이다([06 §6.2](docs/06_platform_ui_contract.md#62-scope와-권한-decided--open)).
 _Avoid_: 범위, 조회 범위(단독) — 화면 문구도 `Scope`로 쓴다. 결과 크기를 말할 때는 범위 대신 조건·결과를 쓴다.
 
 ### 설비 식별 계층
@@ -46,7 +46,8 @@ _Avoid_: 설비명, EquipmentName — EquipmentID와 별개인 설비 이름은 
 
 **room_name** (`room`, URL 키 `roomNames`):
 설비가 속한 공정의 이름(예: PHOTO, ETCH)이자 Site 내 권한·조회 범위의 기준 축. 같은 room_name이 여러 Site에 있을 수 있으며 Site 안에서 구분된다. 하나의 room_name이 여러 Line에 걸칠 수 있으며 Maker/Model 계층과도 독립적이다. 보통 등록 시 정해진 값이 유지되지만 드물게 바뀔 수 있고, 이때도 같은 EquipmentID를 유지한다.
-_Avoid_: Process, 공정 구역 — "Process"는 이 프로젝트에서 여러 의미로 겹쳐 쓰여 혼동되므로 room_name으로 통일한다.
+화면 이름은 `공정`이다(사용자 2026-10-23).
+_Avoid_: Process, 공정 구역 — 코드·문서에서는 room_name으로 쓴다. "Process"는 이 프로젝트에서 여러 의미로 겹쳐 쓰인다. Job 안의 PRC 실행 시간대는 `공정 구간`이 아니라 `PRC 구간`이라 쓴다.
 
 **StGroup** (`stgroup`):
 하나의 Operation(제품 라우팅 작업 단위, 아래 참고)을 상호 대체 수행할 수 있는 **설비 단위**(Module/Slot 단위 아님) 묶음. 담당자·조직이 아닌 **공정 능력(capability) 단위**다. Site와 room_name 경계를 넘지 않으며, 여러 Line에 걸칠 수 있다. Maker/Model 분류와는 별개다. 소속은 가변적이고 외부 시스템에서 공급받는다. 사용자가 그 시점 소속 / 지금 소속을 골라 조회하며, 소속 이력이 없는 축은 지금 소속만 허용한다([ADR-0059](docs/adr/0059-app-injected-equipment-axes-and-condition.md)).
@@ -120,7 +121,7 @@ _Avoid_: 플랫폼 — 플랫폼 전체와 섞인다.
 
 **업무 시스템** (코드 이름 `Space`):
 플랫폼 위에 올라가는 독립된 업무 단위. 자기 메뉴 그룹·메뉴·업무 객체와 진입 권한을 소유하고, 다른 시스템의 객체를 흡수하지 않는다. 지금 등록된 것은 MARS·CLAS(생산성 분석), BRAVO(지표관리), 표준 로그 개발, 개선 실행, 운영 콘솔이고, 피드백 운영은 계획이다.
-MARS와 CLAS는 메뉴가 달라 별도 시스템으로 둔다(이 플랫폼의 CLAS에는 견본 메뉴 하나가 있고, 기존 CLAS 화면 이전은 계획).
+CLAS는 Cycle Loss Analysis System의 줄임이다. MARS와 CLAS는 메뉴가 달라 별도 시스템으로 둔다(이 플랫폼의 CLAS에는 견본 메뉴 하나가 있고, 기존 CLAS 화면 이전은 계획).
 _Avoid_: 워크스페이스, 공간, 앱, 모듈 — 워크스페이스는 FeedbackOps의 workspace(테넌트)·작업 영역과, 모듈은 호스트 모듈·설비 Module과 섞인다. 화면 문구는 `업무 시스템`(짧게 `시스템`)이고, `Space`는 코드 이름으로만 쓴다.
 
 **메뉴 그룹** (`GroupDef`):
@@ -187,6 +188,14 @@ _Avoid_: 이슈 — 시스템마다 뜻이 달라 단독으로 쓰지 않는다.
 
 **피드백 운영** (업무 시스템, 계획):
 FeedbackOps의 관리자·개발자 화면(수신함·Triage·Finding·Task·설문 관리·피드백 운영 설정 등)을 올릴 업무 시스템. 아직 등록되지 않았다. 모든 사용자가 쓰는 VOC 등록·내 VOC·설문 응답은 여기가 아니라 플랫폼 메뉴와 레일이다. 이름은 Candidate다([ADR-0066](docs/adr/0066-feedbackops-merges-into-platform.md), 배치는 [합류 설계](docs/integration/feedbackops-merge-design.md) §3.2).
+
+**발행** (지표 버전):
+지표 버전 하나를 분석이 기본으로 쓰는 버전으로 공개하는 것. BRAVO가 소유한다.
+_Avoid_: 게시 — 같은 동작을 두 이름으로 부르지 않는다(사용자 2026-10-23).
+
+**VOC 등록** / **신고자**:
+VOC를 처음 쓰는 동작은 `등록`이고, 등록한 사람은 `신고자`(FeedbackOps Reporter)다. 신고자에게 보이는 담당자의 글은 `담당자 답변`이라 하며 FeedbackOps의 Public Update다. 신고자가 다시 쓰는 글은 `신고자 답글`(Reporter Reply)이다.
+_Avoid_: 접수 — 등록과 같은 동작을 다른 말로 부르지 않는다.
 
 ### 분석 조건과 분석 보드
 
