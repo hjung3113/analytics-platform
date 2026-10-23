@@ -32,7 +32,7 @@ Frontend and migration gates. The full gate list is in root `AGENTS.md` → Veri
 
 - `db-migration-drift-gate.mjs` needs no database: it forces `DATABASE_URL_MIGRATE` to an unreachable URL, even when your shell exports a real one.
 - It fails on any of three conditions: a `.sql` file in `apps/backend/migrations/` missing from `meta/_journal.json` (or a journal entry with no `.sql`, or a duplicate tag); a nonzero `drizzle-kit check` (`pnpm --filter backend db:check`); or `db:generate` run against a throwaway copy of the migrations emitting any new or rewritten file (the TS schema has drifted from the committed history).
-- Treat a failure as a real history problem. Migration traps: `.claude/rules/db-migrations.md`; the journal-registration rule: `apps/backend/AGENTS.md`.
+- Treat a failure as a real history problem. Migration traps: `.claude/rules/fo-db-migrations.md` at the platform root; the journal-registration rule: `apps/backend/AGENTS.md`.
 
 ## Other per-path allowlists
 

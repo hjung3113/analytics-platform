@@ -9,6 +9,12 @@ This repo's settings and rules live in `conductor.json` + `addenda/`; shared tem
 This repo is a consumer of the private provider repo **conductor-engine** (#1280): it keeps only this folder
 (`conductor.json`, `addenda/`, this profile, repo-specific `scripts/`) and no copies of skills, personas or engines.
 
+**Since the move into analytics-platform (#592, ADR-0072)** FeedbackOps issues run under the platform profile
+(`.agents/conductor/PROFILE.md` at the platform root, launch mode `fo`): base `origin/main`, squash merge, no
+`develop` and no FeedbackOps release PR. Read every `develop` below as `main`; the Flow, release and slice-close
+steps here are superseded by the platform profile. The tools in `scripts/` (verify-db, app-preview `--backend`,
+visual, nav-perf) still apply.
+
 ## Flow
 
 - `<base>` is `develop`; a slice ships as a `develop` → `main` release PR. Feature PRs squash-merge into `develop`

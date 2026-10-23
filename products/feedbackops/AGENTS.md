@@ -128,7 +128,7 @@ When reviewing a PR, prioritize product invariant violations, ownership boundary
 
 ## Agent Skills
 
-- **Issue tracker.** GitHub issues on `hjung3113/FeedbackOps` via the `gh` CLI; external PRs are not a request surface. See `docs/agents/issue-tracker.md`.
+- **Issue tracker.** GitHub issues on `hjung3113/analytics-platform` with the label `area:feedbackops`, via the `gh` CLI (the old `hjung3113/FeedbackOps` tracker is frozen, #592); external PRs are not a request surface. See `docs/agents/issue-tracker.md`.
 - **Triage labels.** Canonical defaults: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
 - **Domain docs.** Root `GLOSSARY.md` owns the domain glossary and stable invariants; `docs/adr/` owns architectural decisions; per-directory `AGENTS.md` owns technical-layer rules. See `docs/agents/domain.md`.
 - **Skills.** Workflow and general-purpose skills (the `mattpocock/skills` set, `session-handoff`, `issue-wave-conductor`, `orca-dispatch-recipes`, …) are user-level in `~/.agents/skills/`, one copy for every repo; this repo keeps only its stack skills. `/code-review` resolves to the Claude Code built-in. `shadcn` is vendored from `shadcn-ui/ui` (`skills/shadcn`, MIT). `impeccable` (external, `pbakaus/impeccable`) is installed once at user level, shared with other repos: `~/.agents/skills/impeccable` plus the agents `~/.agents/agents/impeccable-*` (#1280); its engine binary downloads on first run. Its edit/stop hooks stay disabled: after an update, check that it added no hook to `~/.claude/settings.json` or `.claude/settings.local.json`.

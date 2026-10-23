@@ -1,12 +1,14 @@
 ---
 paths:
-  - "apps/frontend/src/**/*.test.{ts,tsx}"
-  - "apps/frontend/src/**/__tests__/**"
-  - "apps/frontend/src/test/**"
-  - "packages/ui/src/**/*.test.{ts,tsx}"
+  - "products/feedbackops/apps/frontend/src/**/*.test.{ts,tsx}"
+  - "products/feedbackops/apps/frontend/src/**/__tests__/**"
+  - "products/feedbackops/apps/frontend/src/test/**"
+  - "products/feedbackops/packages/ui/src/**/*.test.{ts,tsx}"
 ---
 
 # Frontend test traps (vitest + jsdom)
+
+Paths below are relative to `products/feedbackops/` (moved from the frozen FeedbackOps repo, ADR-0072).
 
 Each item is an independent, measured trap. Check this list before blaming a selector for "element not found".
 
