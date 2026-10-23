@@ -11,7 +11,7 @@
  */
 import { type AccessDirectoryPage, type AccessDirectoryQuery, type AccessPrincipal, type AccessSortField, type ApiResponse, type Assessment } from '@ap/contracts';
 import { getRole, getScenario, nextCorrelation, sleep } from './server';
-import { SITES, USERS, WORLD_PERMISSIONS, type RoleId } from './world';
+import { SITES, activeWorld, type RoleId } from './world';
 
 export type AccessOptions = { role?: RoleId; latency?: number };
 
@@ -28,7 +28,7 @@ function invalidAccessQuery(query: AccessDirectoryQuery): boolean {
   if (Object.keys(query).some(key => !(ACCESS_QUERY_KEYS as readonly string[]).includes(key))) return true;
   // Same token rule as the audit actor filter: not a string, empty, over 80 chars, or URL/whitespace-bearing.
   if (query.role !== undefined && (typeof query.role !== 'string' || !query.role || query.role.length > 80 || /[?#&\s]/.test(query.role))) return true;
-  if (query.permission !== undefined && !(WORLD_PERMISSIONS as readonly string[]).includes(query.permission)) return true;
+  if (query.permission !== undefined && !(activeWorld().permissions as readonly string[]).includes(query.permission)) return true;
   if (query.sort !== undefined) {
     if (typeof query.sort !== 'object' || query.sort === null) return true;
     if (Object.keys(query.sort).some(key => key !== 'field' && key !== 'desc')) return true;
@@ -57,8 +57,8 @@ function compareBySort(sort: { field: AccessSortField; desc: boolean }): (a: Acc
  * fabricated principal. Every site appears, zeros included (ScopeOption drops them; this is the index).
  */
 function principals(): AccessPrincipal[] {
-  return (Object.keys(USERS) as RoleId[]).map(key => {
-    const u = USERS[key];
+  return (Object.keys(activeWorld().users) as RoleId[]).map(key => {
+    const u = activeWorld().users[key];
     return {
       id: key,
       name: u.name,
@@ -91,7 +91,7 @@ export async function accessDirectory(query: AccessDirectoryQuery, signal?: Abor
   await sleep(opts?.latency ?? 80, signal);
   const base = { correlationId, data: null, trust: null, assessments: [] as Assessment[] };
   // The console permission beats every scenario and every filter.
-  if (!USERS[requestRole].permissions.includes('console:access')) return { ...base, outcome: 'forbidden', message: 'No permission console:access' };
+  if (!activeWorld().users[requestRole].permissions.includes('console:access')) return { ...base, outcome: 'forbidden', message: 'No permission console:access' };
   if (s === 'timeout') return { ...base, outcome: 'timeout', message: 'Query exceeded 30s budget' };
   if (s === 'error') return { ...base, outcome: 'error', message: 'Upstream mart query failed' };
   if (s === 'forbidden') return { ...base, outcome: 'forbidden', message: 'Permission revoked (scenario)' };

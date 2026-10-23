@@ -359,6 +359,8 @@ describe('app-declared vocabulary (ADR-0072)', () => {
     ['a declared permission that repeats a kernel one', { ...base, permissions: [...declared, menuPermission('console:access')] }, /duplicates a kernel permission/],
     ['a declared permission listed twice', { ...base, permissions: [...declared, menuPermission('metrics:view')] }, /Duplicate declared permission/],
     ['a declared permission without an action', { ...base, permissions: [menuPermission('metrics')] }, /must be "<namespace>:<action>"/],
+    ['a null declared permission', { ...base, permissions: [null] }, /Declared permission "null" must be/],
+    ['a numeric declared permission', { ...base, permissions: [42] }, /Declared permission "42" must be/],
     ['a declared permission with whitespace', { ...base, permissions: [menuPermission('metrics:view all')] }, /must be "<namespace>:<action>"/],
     ['an empty group id', { ...base, groups: [{ ...groups[0], id: groupId('') }], permissions: declared }, /Group id "" must be non-empty/],
     ['a group id with whitespace', { ...base, groups: [{ ...groups[0], id: groupId('my group') }], permissions: declared }, /Group id "my group"/],

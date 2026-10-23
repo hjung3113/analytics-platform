@@ -40,7 +40,7 @@ export const MOCK_AUDIT_EVENTS: readonly AuditEvent[] = [...metricsAuditEvents];
  * Menu mocks are registered in MOCK_ENDPOINTS by `pnpm gen:menu`; a production build never reaches this file.
  */
 export const createAssembly: CreateAssembly = ({ registry }) => {
-  const adapter = createMockAdapter({ equipmentAxes: EQUIPMENT_AXES, endpoints: MOCK_ENDPOINTS, registry, auditEvents: MOCK_AUDIT_EVENTS });
+  const adapter = createMockAdapter({ equipmentAxes: EQUIPMENT_AXES, endpoints: MOCK_ENDPOINTS, registry, permissions: registry.permissions, auditEvents: MOCK_AUDIT_EVENTS });
   // Dev server only: the black-box E2E reads the raw usage rows (not exposed by any adapter port) to check the entry's
   // `via`/`fromMenuId` (#605). `NODE_ENV` is `development` only on the dev server (vitest and `--mode mock` builds differ), so never in a `--mode mock` build and never in a production graph.
   if (process.env.NODE_ENV === 'development') (window as unknown as { __apUsageEvents?: () => unknown }).__apUsageEvents = () => storedUsage().map(row => ({ ...row }));

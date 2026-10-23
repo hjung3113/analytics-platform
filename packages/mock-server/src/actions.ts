@@ -1,6 +1,6 @@
 import type { ActionResponse, ActionSpec, FieldError } from '@ap/contracts';
 import { checkScope, getRole, nextCorrelation, sleep } from './server';
-import { USERS, type RoleId } from './world';
+import { activeWorld, type RoleId } from './world';
 
 type ActionInput<I> = { input: I; actor: RoleId; scopeId: string | null };
 
@@ -96,7 +96,7 @@ export async function serveAction(
   if (typeof key !== 'string' || !UUID.test(key)) return answer('invalid', { fieldErrors: [{ path: ['idempotencyKey'], code: 'malformed' }] });
 
   await sleep(opts?.latency ?? 80, signal);
-  if (!USERS[actor].permissions.includes(spec.permission)) return answer('forbidden', { message: `No permission ${spec.permission}` });
+  if (!activeWorld().users[actor].permissions.includes(spec.permission)) return answer('forbidden', { message: `No permission ${spec.permission}` });
   if (spec.requiresScope) {
     const check = checkScope(actor, scopeId);
     if (check.status !== 'valid') return answer('forbidden', { message: check.status === 'forbidden' ? `No grant for scope ${scopeId}` : `Unknown scope ${scopeId}` });

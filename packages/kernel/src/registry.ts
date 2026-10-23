@@ -93,12 +93,13 @@ export const isBoardPath = (pathname: string) => pathname.replace(/\/+$/, '') ==
  */
 export function createRegistry({ spaces, groups, menus, permissions: declared = [] }: { spaces: readonly SpaceDef[]; groups: readonly GroupDef[]; menus: readonly MenuEntry[]; /** The app's menu permissions. Omit when the menus use only kernel permissions. */ permissions?: readonly MenuPermission[] }): Registry {
   const fail = (message: string): never => { throw new RegistryError(message); };
+  // Runtime config can hold non-strings the brand does not stop: check the shape before the namespace is taken.
+  for (const p of declared) if (!isPermissionShape(p)) fail(`Declared permission "${String(p)}" must be "<namespace>:<action>" without whitespace or ? # & /`);
   const permissions: readonly Permission[] = [...KERNEL_PERMISSIONS, ...declared];
   const reserved = new Set<string>(permissions.map(namespaceOf));
   const isPlatformPermission = (value: string) => (permissions as readonly string[]).includes(value);
   const seenPermissions = new Set<string>();
   for (const p of declared) {
-    if (!isPermissionShape(p)) fail(`Declared permission "${String(p)}" must be "<namespace>:<action>" without whitespace or ? # & /`);
     if ((KERNEL_PERMISSIONS as readonly string[]).includes(p)) fail(`Declared permission "${p}" duplicates a kernel permission`);
     if (seenPermissions.has(p)) fail(`Duplicate declared permission "${p}"`);
     seenPermissions.add(p);
