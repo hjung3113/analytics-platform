@@ -7,8 +7,10 @@ import { createRoot } from 'react-dom/client';
 import { createBasePathLocation, I18nProvider, PlatformProvider } from '@ap/kernel';
 import { setFoApi } from '@ap/menu-my-activity/fo-api';
 import { notificationsSlot } from '@ap/menu-my-activity/notifications-slot';
+import { vocComposeSlot } from '@ap/menu-my-activity/voc-compose-slot';
 import { createAssembly } from '#platform-assembly';
 import { readFeedbackOpsOrigin } from './feedbackops-origin';
+import { managedSystemFor } from './feedbackops-systems';
 import { createLocalQueryHistoryStore } from './query-history-store';
 import { EQUIPMENT_AXES } from './equipmentAxes';
 import { registry } from './menus';
@@ -24,6 +26,8 @@ const feedbackOpsOrigin = readFeedbackOpsOrigin(import.meta.env.VITE_FEEDBACKOPS
 // It may be asynchronous (the real assembly awaits the bootstrap, #154), so the tree mounts after it answers; it can
 // also ask for a redirect (login) or a replacement screen (server unavailable) instead of the app.
 const queryHistory = createLocalQueryHistoryStore();
+// One slot object for the page's lifetime: its `Compose` component must keep its identity so a held draft does not remount.
+const vocCompose = vocComposeSlot(managedSystemFor);
 const location = import.meta.env.BASE_URL === '/' ? undefined : createBasePathLocation(import.meta.env.BASE_URL);
 const root = createRoot(document.getElementById('root')!);
 
@@ -42,7 +46,7 @@ void startOrFail(root, async () => {
   root.render(
     <StrictMode>
       <I18nProvider>
-        <PlatformProvider queryHistory={queryHistory} equipmentAxes={EQUIPMENT_AXES} adapter={assembly.adapter} registry={registry} location={location} slots={appSlots(assembly, feedbackOpsOrigin, notificationsSlot)}>
+        <PlatformProvider queryHistory={queryHistory} equipmentAxes={EQUIPMENT_AXES} adapter={assembly.adapter} registry={registry} location={location} slots={appSlots(assembly, feedbackOpsOrigin, notificationsSlot, vocCompose)}>
           <AppShell><RouteOutlet /></AppShell>
         </PlatformProvider>
       </I18nProvider>

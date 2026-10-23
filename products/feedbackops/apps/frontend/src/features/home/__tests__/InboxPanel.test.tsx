@@ -592,6 +592,7 @@ describe('host seam', () => {
       canLink: () => false,
       Link: () => null,
       notifyError,
+      notifySuccess: vi.fn(),
     };
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
@@ -780,7 +781,12 @@ describe('focus while a row action is pending', () => {
         }
         return innerFetch(input, init);
       }) as typeof globalThis.fetch;
-      const seam: HostSeam = { canLink: () => false, Link: () => null, notifyError: vi.fn() };
+      const seam: HostSeam = {
+        canLink: () => false,
+        Link: () => null,
+        notifyError: vi.fn(),
+        notifySuccess: vi.fn(),
+      };
       const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
       render(
         <QueryClientProvider client={queryClient}>

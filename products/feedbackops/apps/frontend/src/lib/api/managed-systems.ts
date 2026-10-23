@@ -3,26 +3,14 @@ import {
   managedSystemDefaultDiagnosticsSchema,
 } from '@fops/shared';
 import { apiRequest } from './client';
+import type { ManagedSystemDto } from './registry-reads';
 // Managed Systems registry (Slice 2 #10).
+// The list read lives in ./registry-reads (bridge-safe, platform ADR-0071) and is re-exported here.
 
 import { UnauthenticatedError } from './auth';
 import { ApiError, type ApiErrorEnvelope } from './types';
 
-export interface ManagedSystemDto {
-  id: string;
-  workspace_id: string;
-  slug: string;
-  name: string;
-  external_key: string | null;
-  default_owner_actor_id: string | null;
-  default_owner_team_id: string | null;
-  default_reviewer_actor_id: string | null;
-  default_reviewer_team_id: string | null;
-  archived_at: string | null;
-  archived_by_actor_id: string | null;
-  created_at: string;
-  updated_at: string;
-}
+export { fetchManagedSystems, type ManagedSystemDto } from './registry-reads';
 
 export interface RegisterManagedSystemBody {
   slug: string;
@@ -51,23 +39,6 @@ async function readEnvelope(res: Response): Promise<never> {
     // body wasn't JSON
   }
   throw new ApiError(res.status, envelope);
-}
-
-export async function fetchManagedSystems(options?: {
-  includeArchived?: boolean;
-  limit?: number;
-  signal?: AbortSignal;
-}): Promise<{ items: ManagedSystemDto[]; total: number }> {
-  const params = new URLSearchParams();
-  if (options?.includeArchived) params.set('include_archived', 'true');
-  if (options?.limit !== undefined) params.set('limit', String(options.limit));
-  const url = `/managed-systems${params.size ? `?${params.toString()}` : ''}`;
-  const init: RequestInit = { credentials: 'same-origin' };
-  if (options?.signal) init.signal = options.signal;
-  const res = await fetch(url, init);
-  if (res.status === 401) throw new UnauthenticatedError();
-  if (!res.ok) return readEnvelope(res);
-  return (await res.json()) as { items: ManagedSystemDto[]; total: number };
 }
 
 export async function registerManagedSystem(

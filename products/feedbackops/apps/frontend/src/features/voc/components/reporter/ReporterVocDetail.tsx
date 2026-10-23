@@ -113,6 +113,7 @@ export function ReporterVocDetail({
             <RichContentRenderer
               doc={voc.description_rich_content as TipTapDoc}
               mode="reporter_visible"
+              surface="voc-description"
             />
           )}
         </div>

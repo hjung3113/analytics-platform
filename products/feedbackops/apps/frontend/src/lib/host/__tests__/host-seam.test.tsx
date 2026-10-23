@@ -15,6 +15,7 @@ describe('host seam', () => {
     const seam: HostSeam = {
       canLink: () => true,
       notifyError: () => undefined,
+      notifySuccess: () => undefined,
       Link: ({ to, children, ref, ...rest }) => (
         <a href={to} ref={ref as React.Ref<HTMLAnchorElement>} {...rest}>
           {children}

@@ -13,6 +13,8 @@ export interface SourceContextSegmentedProps {
   labelId: string;
   disabled?: boolean;
   testId?: string;
+  /** Extra classes for the group, e.g. `flex-wrap` in a narrow container. */
+  className?: string;
 }
 
 const LABELS: Record<SourceContext, string> = {
@@ -35,6 +37,7 @@ export function SourceContextSegmented({
   labelId,
   disabled,
   testId,
+  className,
 }: SourceContextSegmentedProps): React.ReactElement {
   return (
     <div data-testid={testId}>
@@ -47,6 +50,7 @@ export function SourceContextSegmented({
           }
         }}
         appearance="segmented"
+        {...(className ? { className } : {})}
         aria-labelledby={labelId}
         data-testid="source-context-list"
       >

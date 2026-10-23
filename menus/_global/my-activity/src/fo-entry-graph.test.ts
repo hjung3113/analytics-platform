@@ -52,13 +52,15 @@ function walk() {
 const { files, specifiers, unresolved } = walk();
 const reached = [...files.keys()].map(file => relative(FRONTEND_SRC, file));
 
-const EAGER_MODULES = ['notifications-slot.tsx', 'fo/FoBridge.tsx', 'fo/session.ts'];
+const EAGER_MODULES = ['notifications-slot.tsx', 'voc-compose-slot.tsx', 'fo/FoBridge.tsx', 'fo/session.ts'];
+const FOPS_FRONTEND_IMPORT = /\bimport\s+(?!type\b)[^;]*?from\s*['"]@fops\/frontend/;
 const FULL_ENTRY_IMPORT = /\bimport\s+(?!type\b)[^;]*?from\s*['"]@fops\/frontend\/global-screens['"]/;
 
 describe('FeedbackOps bridge entry graph (ADR-0071)', () => {
   it.each(EAGER_MODULES)('keeps the eagerly loaded %s off the screen barrel (main chunk)', file => {
     const text = readFileSync(fileURLToPath(new URL(file, import.meta.url)), 'utf8');
-    expect(text).toMatch(/from\s*['"]@fops\/frontend\/global-screens\/core['"]/);
+    // An entry that imports FeedbackOps at all imports only the `core` subset; `voc-compose-slot.tsx` imports none (it lazy-loads its page).
+    if (FOPS_FRONTEND_IMPORT.test(text)) expect(text).toMatch(/from\s*['"]@fops\/frontend\/global-screens\/core['"]/);
     expect(FULL_ENTRY_IMPORT.test(text)).toBe(false);
   });
 
@@ -73,6 +75,12 @@ describe('FeedbackOps bridge entry graph (ADR-0071)', () => {
   it('reaches the reporter VOC screens and not the operator inbox or detail panel', () => {
     expect(reached).toEqual(expect.arrayContaining(['features/voc/components/reporter/MyVocListScreen.tsx', 'features/voc/components/reporter/ReporterVocDetail.tsx']));
     expect(reached.filter(file => /^features\/voc\/(routes\/|components\/(list\/VocList\.tsx|detail\/(VocDetailPanel|FullDetailView)\.tsx))/.test(file))).toEqual([]);
+  });
+
+  it('reaches the VOC compose screen and none of the standalone create screen, the router, the reporter card or the similar-VOC panels', () => {
+    expect(reached).toContain('features/voc/components/compose/VocComposeScreen.tsx');
+    expect(reached.filter(file => /^features\/voc\/components\/create\/(VocCreateScreen|ReporterCard|SemanticVocPanel|SimilarVocPanel|useVocCreateController)\.tsx?$/.test(file))).toEqual([]);
+    expect(reached.filter(file => /^lib\/(auth\/|api\/(managed-systems|analytics-areas)\.ts$)/.test(file))).toEqual([]);
   });
 
   it('resolves every local import edge and walks past the package barrels', () => {

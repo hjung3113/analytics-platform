@@ -213,6 +213,35 @@ describe('<ReporterVocDetail> fed an operator envelope', () => {
       );
   });
 
+  it('keeps a link in the description, opening in a new tab, while a public update with a link mark stays link-free', async () => {
+    const linked = (text: string, href: string) => ({
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [{ type: 'text', text, marks: [{ type: 'link', attrs: { href } }] }],
+        },
+      ],
+    });
+    const update = {
+      ...PUBLIC,
+      body_rich_content: linked('업데이트 링크', 'https://example.com/update'),
+    };
+    stubFetch(() =>
+      json({
+        ...OPERATOR_ENVELOPE,
+        description_rich_content: linked('화면 열기', 'https://example.com/admin/audit?v=1'),
+        conversation_timeline: [update],
+      }),
+    );
+    mount();
+    const anchor = await screen.findByRole('link', { name: '화면 열기' });
+    expect(anchor.getAttribute('href')).toBe('https://example.com/admin/audit?v=1');
+    expect(anchor.getAttribute('target')).toBe('_blank');
+    expect(await screen.findByText('업데이트 링크')).toBeTruthy();
+    expect(screen.queryByRole('link', { name: '업데이트 링크' })).toBeNull();
+  });
+
   it("shows not-found, with nothing of the VOC in the DOM, when the signed-in actor is not its reporter (an operator reading another actor's VOC)", async () => {
     stubFetch(() => json(OPERATOR_ENVELOPE), OPERATOR);
     mount();

@@ -2,32 +2,18 @@
 // the walk goes through the exported `fetchAnalyticsAreas` (and a test can replace it).
 
 import { type AnalyticsAreaDto, fetchAnalyticsAreas } from './analytics-areas';
-
-// GET /analytics-areas caps limit at 500; paginate rather than raise it (F4).
-const ANALYTICS_AREAS_PAGE_LIMIT = 500;
+import { walkAnalyticsAreaPages } from './registry-reads';
 
 /**
- * Walk every page of GET /analytics-areas. Stops once the items in hand reach
- * `total`, or when a page comes back empty while `total` is still ahead.
+ * Walk every page of GET /analytics-areas (see `walkAnalyticsAreaPages`) through the exported
+ * `fetchAnalyticsAreas`, so a test that replaces it sees every page request.
  */
-export async function fetchEveryAnalyticsAreaPage(options: {
+export function fetchEveryAnalyticsAreaPage(options: {
   managedSystemId?: string;
   includeArchived?: boolean;
   signal?: AbortSignal;
 }): Promise<{ items: AnalyticsAreaDto[]; total: number }> {
-  const items: AnalyticsAreaDto[] = [];
-  let total = 0;
-  do {
-    const page = await fetchAnalyticsAreas({
-      ...options,
-      limit: ANALYTICS_AREAS_PAGE_LIMIT,
-      offset: items.length,
-    });
-    total = page.total;
-    if (page.items.length === 0) break;
-    items.push(...page.items);
-  } while (items.length < total);
-  return { items, total };
+  return walkAnalyticsAreaPages(fetchAnalyticsAreas, options);
 }
 
 /** Every Area (archived included) of one Managed System, or of all of them. */

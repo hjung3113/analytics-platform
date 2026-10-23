@@ -25,6 +25,7 @@ export function FoBridge({ children, canLink = () => false, Link = UnlinkedLink 
     canLink,
     Link,
     notifyError: message => toast(message, 'danger'),
+    notifySuccess: message => toast(message),
   }), [canLink, Link, toast]);
 
   if (session.status === 'no-api') {

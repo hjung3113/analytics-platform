@@ -44,6 +44,8 @@ export interface AttachmentDropzoneProps {
    * itself does NOT render the alert (the parent owns the action bar).
    */
   onErrorCountChange?: (errorCount: number) => void;
+  /** Announces a failed upload; absent in the standalone app, which toasts through `sonner`. */
+  notifyError?: (message: string) => void;
 }
 
 // formatFileSize moved to lib/format-file-size.ts (PLAN-22 §Bug-1, 2026-05-22)
@@ -54,11 +56,13 @@ export function AttachmentDropzone({
   onChange,
   onUploadingChange,
   onErrorCountChange,
+  notifyError,
 }: AttachmentDropzoneProps): React.ReactElement {
   const queue = useAttachmentUploadQueue({
     ...(onChange ? { onChange } : {}),
     ...(onUploadingChange ? { onUploadingChange } : {}),
     ...(onErrorCountChange ? { onErrorCountChange } : {}),
+    ...(notifyError ? { notifyError } : {}),
   });
   const {
     rows,

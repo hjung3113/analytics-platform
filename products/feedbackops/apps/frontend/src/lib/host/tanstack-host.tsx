@@ -21,4 +21,7 @@ export const tanstackHost: HostSeam = {
   notifyError: (message) => {
     toast.error(message);
   },
+  notifySuccess: (message) => {
+    toast.success(message);
+  },
 };

@@ -30,6 +30,8 @@ export interface UseAttachmentUploadQueueOptions {
   onChange?: (serverAttachmentIds: string[]) => void;
   onUploadingChange?: (uploading: boolean) => void;
   onErrorCountChange?: (errorCount: number) => void;
+  /** Where a failed upload is announced; the standalone app's default is a `sonner` error toast. */
+  notifyError?: (message: string) => void;
   /**
    * #354: bump this after a successful post to drop the rows whose attachments
    * the server has now linked to the published item. Only `uploaded` rows are
@@ -55,11 +57,17 @@ export function useAttachmentUploadQueue({
   onChange,
   onUploadingChange,
   onErrorCountChange,
+  notifyError,
   resetToken,
 }: UseAttachmentUploadQueueOptions = {}) {
   const [rows, setRows] = React.useState<AttachmentUploadQueueRow[]>([]);
   const [dragOver, setDragOver] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
+  // `addFiles` is a stable callback, so it reads the notifier through a ref.
+  const notifyErrorRef = React.useRef(notifyError);
+  React.useEffect(() => {
+    notifyErrorRef.current = notifyError;
+  }, [notifyError]);
 
   const uploadedIds = React.useMemo(
     () =>
@@ -161,7 +169,8 @@ export function useAttachmentUploadQueue({
           const apiErr = err as ApiError;
           if (apiErr.code === 'storage.unavailable') {
             const mapped = errorMapper(apiErr.envelope);
-            toast.error(mapped.message);
+            if (notifyErrorRef.current) notifyErrorRef.current(mapped.message);
+            else toast.error(mapped.message);
           }
           let inlineMessage: string;
           if (apiErr.code === 'attachment.too_large') inlineMessage = COPY.oversize;

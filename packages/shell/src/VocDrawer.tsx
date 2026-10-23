@@ -10,7 +10,8 @@ const TEXT = {
 } as const;
 
 type Session = { frozen: VocFreezeInput; removed: ReadonlySet<string>; dirty: boolean };
-type FocusTarget = { to: 'rail' | 'heading' | 'continue'; n: number };
+/** `chip` carries the id of the chip whose remove button takes focus. */
+type FocusTarget = { to: 'rail' | 'heading' | 'continue'; n: number } | { to: 'chip'; id: string; n: number };
 /** `owner` is the Kernel session the draft belongs to; `activation` is the detail slot counter at the time the drawer was shown; `gen` counts the ended drafts, so callbacks of a gone Compose can be told apart. */
 type State = { owner: unknown; gen: number; activation: number; session: Session | null; visible: boolean; confirming: boolean; focus: FocusTarget | null };
 type Action =
@@ -23,7 +24,7 @@ type Action =
   | { type: 'removeChip'; id: string }
   | { type: 'dirty'; dirty: boolean };
 
-const focusOn = (state: State, to: FocusTarget['to']): FocusTarget => ({ to, n: (state.focus?.n ?? 0) + 1 });
+const focusOn = (state: State, to: 'rail' | 'heading' | 'continue'): FocusTarget => ({ to, n: (state.focus?.n ?? 0) + 1 });
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
@@ -39,7 +40,15 @@ function reducer(state: State, action: Action): State {
     case 'keepWriting': return { ...state, confirming: false, focus: focusOn(state, 'heading') };
     // Another right panel took the position: the draft and its Context stay mounted behind `hidden`.
     case 'hide': return state.visible ? { ...state, visible: false, confirming: false } : state;
-    case 'removeChip': return state.session === null ? state : { ...state, session: { ...state.session, removed: new Set(state.session.removed).add(action.id) } };
+    // The removed button leaves the DOM: focus goes to the next chip, else the previous one, else the heading (06 §26).
+    case 'removeChip': {
+      if (state.session === null) return state;
+      const ids = freezeVocContext(state.session.frozen, state.session.removed).items.map(item => item.id);
+      const at = ids.indexOf(action.id);
+      const neighbour = at === -1 ? undefined : ids[at + 1] ?? ids[at - 1];
+      const focus = at === -1 ? state.focus : neighbour === undefined ? focusOn(state, 'heading') : { to: 'chip' as const, id: neighbour, n: (state.focus?.n ?? 0) + 1 };
+      return { ...state, focus, session: { ...state.session, removed: new Set(state.session.removed).add(action.id) } };
+    }
     case 'dirty': return state.session === null || state.session.dirty === action.dirty ? state : { ...state, session: { ...state.session, dirty: action.dirty } };
   }
 }
@@ -87,9 +96,14 @@ export function useVocDrawer(slot: VocComposeSlot | undefined, snapshot: () => V
   useEffect(() => { if (stale) dispatch({ type: 'hide' }); }, [stale]);
   useEffect(() => {
     if (state.focus === null) return;
+    if (state.focus.to === 'chip') {
+      const id = state.focus.id;
+      Array.from(document.getElementById(panelId)?.querySelectorAll<HTMLElement>('[data-chip-id]') ?? []).find(button => button.dataset.chipId === id)?.focus();
+      return;
+    }
     const target = state.focus.to === 'rail' ? railButton : state.focus.to === 'heading' ? heading : keepButton;
     target.current?.focus();
-  }, [state.focus]);
+  }, [state.focus, panelId]);
   const session = state.session;
   // `session` is rebuilt on every dirty flip; only these two fields shape the Context, so Compose gets a stable `context` otherwise.
   const frozen = session?.frozen ?? null;
@@ -137,7 +151,7 @@ export function VocDrawer({ voc, lang }: { voc: VocDrawerController; lang: Lang 
         <p className="mb-1 text-caption text-text-muted">{text.chips}</p>
         <ul className="flex flex-wrap gap-1.5">
           {context.items.map(item => <li key={item.id} className="min-w-0 max-w-full">
-            <button type="button" aria-label={`${item.label}: ${item.value} ${text.remove}`} onClick={() => voc.removeChip(item.id)}
+            <button type="button" data-chip-id={item.id} aria-label={`${item.label}: ${item.value} ${text.remove}`} onClick={() => voc.removeChip(item.id)}
               className="inline-flex max-w-full items-center gap-1 rounded-pill border border-border-default bg-surface-card px-2 py-0.5 text-caption hover:bg-surface-row-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring">
               <span className="text-text-muted">{item.label}</span><span className="min-w-0 truncate">{item.value}</span><X className="size-3 shrink-0" aria-hidden />
             </button>
