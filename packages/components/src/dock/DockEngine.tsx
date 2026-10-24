@@ -168,7 +168,10 @@ export default function DockEngine({
   // `emitted`: the key of the tree last reported to the parent (it already shows in the engine); `pending`: a report awaits the parent's answer.
   const emitted = useRef<string | null>(null);
   const pending = useRef(false);
+  // `dragging`: a sash drag is live or its final notification is still due; `released`: the pointer is up and `dragTimer` is the fallback that lowers it.
   const dragging = useRef(false);
+  const released = useRef(false);
+  const dragTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const canonicalDisplay = useMemo(() => canonicalDockTree(display), [display]);
   const key = useMemo(() => JSON.stringify(canonicalDisplay), [canonicalDisplay]);
   const panelMinimums = useMemo(() => new Map(panels.map(panel => [panel.id, { minWidth: panel.minWidth, minHeight: panel.minHeight }])), [panels]);
@@ -204,6 +207,11 @@ export default function DockEngine({
 
   // Report what the user did to the engine (drag, sash, tab drop, tab activation) as a new tree. Sizes are only news while a sash is being
   // dragged: the engine's own px rounding, gaps and minimum sizes would otherwise differ from `layout` by a fraction on every load.
+  const endDrag = useCallback(() => {
+    clearTimeout(dragTimer.current);
+    dragging.current = false;
+    released.current = false;
+  }, []);
   const check = useCallback((target: DockviewApi) => {
     if (applying.current) return;
     scheduleMeasure();
@@ -213,6 +221,9 @@ export default function DockEngine({
     const read = readEngine(target, shown);
     const structural = !sameDockTree(read.tree, shown, { sizes: false });
     const resized = !structural && dragging.current && read.measured && !sameDockTree(read.tree, shown, { sizes: true, tolerance: 0.05 });
+    // The first measured notification after the pointer is up is the drag's own final one: it consumes the permission before the parent is told,
+    // so nothing later (a reconcile, a window resize) can be reported as this drag's sizes.
+    if (released.current && read.measured) endDrag();
     if (!structural && !resized) return;
     // Only a sash drag brings the engine's sizes along; any other change keeps the stored shares (the engine's px are rounded and clamped).
     const next = resized ? read.tree : keepStoredSizes(read.tree, shown);
@@ -224,42 +235,43 @@ export default function DockEngine({
     current.onLayoutChange(next);
     // A parent that ignores the change leaves the engine ahead of `layout`; the epoch makes the reconcile below run and win.
     setEpoch(value => value + 1);
-  }, [scheduleMeasure]);
+  }, [scheduleMeasure, endDrag]);
   useEffect(() => {
     if (!api) return;
     const subscriptions = [api.onDidLayoutChange(() => { check(api); }), api.onDidActivePanelChange(() => { check(api); }), api.onDidMovePanel(() => { check(api); })];
     const container = containerRef.current;
-    // The engine ends a sash drag on a document `pointerup` (dockview-core main.esm.mjs:1510-1530), after this window-capture handler, and
-    // announces the final sizes from a microtask it queues there (`onDidLayoutChange`, :19311, AsapEvent :278). The flag therefore stays up until
-    // the event dispatch and its microtasks are done (a macrotask later), so that one layout event still counts as the drag's; a later,
-    // engine-only change (window resize) is a separate task and sees the flag down. A repeat of the same tree is dropped by `emitted`.
-    let release: ReturnType<typeof setTimeout> | undefined;
+    // The engine ends a sash drag on a document `pointerup` (dockview-core main.esm.mjs:1519-1532), after this window-capture handler. Its sash-end
+    // event becomes a layout change (:2159-2161), propagates up the grid (:2225-2231, :2576-2578) and is buffered by `BaseGrid` (:2974-2977) into
+    // `onDidLayoutChange`, an `AsapEvent` fired from `queueMicrotask` (:2952-2953, :300-307). That notification is the drag's final one and `check`
+    // consumes the permission there. A drag that changed nothing sends none, so the timer lowers the flag once the dispatch and its microtasks are
+    // done; `applyLayout` lowers it too when a caller-owned layout lands first.
     const up = () => {
-      if (!dragging.current) return;
-      clearTimeout(release);
-      release = setTimeout(() => { dragging.current = false; }, 0);
+      if (!dragging.current || released.current) return;
+      released.current = true;
+      clearTimeout(dragTimer.current);
+      dragTimer.current = setTimeout(endDrag, 0);
     };
     const down = (event: Event) => {
-      if (event.target instanceof Element && event.target.closest('.dv-sash')) { clearTimeout(release); dragging.current = true; }
+      if (event.target instanceof Element && event.target.closest('.dv-sash')) { endDrag(); dragging.current = true; }
     };
     container?.addEventListener('pointerdown', down, true);
     window.addEventListener('pointerup', up, true);
     window.addEventListener('pointercancel', up, true);
     return () => {
-      clearTimeout(release);
-      dragging.current = false;
+      endDrag();
       subscriptions.forEach(subscription => { subscription.dispose(); });
       container?.removeEventListener('pointerdown', down, true);
       window.removeEventListener('pointerup', up, true);
       window.removeEventListener('pointercancel', up, true);
     };
-  }, [api, check, containerRef]);
+  }, [api, check, containerRef, endDrag]);
 
   /** Puts the live engine on `live.current.canonicalDisplay` (shares at the engine's current size) and brings focus back to the tab it had. */
   const applyLayout = useCallback((target: DockviewApi, appliedKey: string, appliedMeta: string) => {
     const { canonicalDisplay: wanted, panels: wantedPanels, minPanelSize: minimum, rowsBox: total } = live.current;
     const focusedBefore = containerRef.current?.contains(document.activeElement) ? document.activeElement : null;
     const focusedTabId = focusedBefore instanceof HTMLElement ? focusedBefore.closest<HTMLElement>('[role="tab"]')?.dataset.tabPanelId : undefined;
+    if (released.current) endDrag();
     applying.current = true;
     try {
       target.fromJSON(toEngineLayout(wanted, wantedPanels, minimum, { width: target.width, height: total ?? target.height }) as unknown as SerializedLayout, { reuseExistingPanels: true });
@@ -276,7 +288,7 @@ export default function DockEngine({
     }
     setReconciles(value => value + 1);
     scheduleMeasure();
-  }, [containerRef, scheduleMeasure]);
+  }, [containerRef, scheduleMeasure, endDrag]);
 
   // Bring the engine to `display` without remounting any panel: `fromJSON(…, { reuseExistingPanels: true })` re-parents the live panels
   // (dockview-core main.esm.mjs:17640). Never `clear()` and never `close()` (those dispose panels, D9).
