@@ -1,8 +1,28 @@
 import { type NavResolveResponse, navResolveResponseSchema } from '@fops/shared';
 
-import type { NavCounts } from '../layout/AppSidebar';
-import { UnauthenticatedError } from './auth';
 import { apiRequest } from './client';
+import { ApiError, ApiParseError } from './types';
+import { UnauthenticatedError } from './unauthenticated';
+
+export type NavCounts = Partial<Record<NavCountKey, number>>;
+export type NavCountKey =
+  | 'voc.inbox'
+  | 'voc.triage'
+  | 'voc.my'
+  | 'voc.tab.high'
+  | 'voc.tab.unassigned'
+  | 'voc.tab.untriaged'
+  | 'voc.tab.waiting'
+  | 'voc.inbox.no-link'
+  | 'voc.clusters'
+  | 'findings.all'
+  | 'surveys.all'
+  | 'home.unassigned-voc'
+  | 'home.high-severity-unlinked'
+  | 'home.actionable-finding-no-execution'
+  | 'home.released-task-unresolved-voc'
+  | 'home.bad-outcome-no-followup'
+  | 'home.permission-requests-pending';
 
 export interface NavCountsResponse {
   counts: NavCounts;
@@ -18,12 +38,23 @@ export async function fetchNavCounts(options?: {
 }): Promise<NavCountsResponse> {
   const params = new URLSearchParams();
   if (options?.managedSystemId) params.set('managed_system_id', options.managedSystemId);
-  const init: RequestInit = { credentials: 'same-origin' };
-  if (options?.signal) init.signal = options.signal;
-  const res = await fetch(`/nav/counts${params.size ? `?${params.toString()}` : ''}`, init);
-  if (res.status === 401) throw new UnauthenticatedError();
-  if (!res.ok) throw new Error(`/nav/counts failed: ${res.status}`);
-  return (await res.json()) as NavCountsResponse;
+  const path = `/nav/counts${params.size ? `?${params.toString()}` : ''}`;
+  try {
+    const response = await apiRequest(
+      'GET',
+      path,
+      (data) => data as NavCountsResponse,
+      options?.signal ? { signal: options.signal } : {},
+    );
+    return response.data;
+  } catch (error) {
+    // 401 keeps the standalone redirect class (client.ts already ran onUnauthorized).
+    if (error instanceof ApiError && !(error instanceof ApiParseError)) {
+      if (error.status === 401) throw new UnauthenticatedError();
+      throw new Error(`/nav/counts failed: ${error.status}`);
+    }
+    throw error;
+  }
 }
 
 /**

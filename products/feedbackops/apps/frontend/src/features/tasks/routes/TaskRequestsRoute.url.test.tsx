@@ -34,7 +34,8 @@ vi.mock('@/lib/api', async (original) => ({
 vi.mock('@/lib/auth/useMe', () => ({
   useMe: () => ({ data: { actor: { id: 'actor', role_level: 'admin' } } }),
 }));
-vi.mock('@/lib/api/managed-systems', () => ({
+vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/registry-reads')>()),
   fetchManagedSystems: vi.fn(async () => ({ items: [] })),
 }));
 vi.mock('@/lib/cross-system/useWorkspaceActors', () => ({

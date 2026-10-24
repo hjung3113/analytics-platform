@@ -1,4 +1,4 @@
-import { fetchManagedSystems } from '@/lib/api/managed-systems';
+import { fetchManagedSystems } from '@/lib/api/registry-reads';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 

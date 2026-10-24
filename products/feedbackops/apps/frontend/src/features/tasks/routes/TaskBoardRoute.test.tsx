@@ -11,19 +11,37 @@ import { TaskBoardRoute } from './TaskBoardRoute';
 import { boardList } from './taskBoardTestServer';
 
 const task = {
-  id: '10000000-0000-0000-0000-000000000001', workspace_id: '90000000-0000-0000-0000-000000000009', display_id: 'TASK-1000',
-  primary_managed_system_id: '30000000-0000-0000-0000-000000000003', title: '매출 리포트 쿼리 플랜 개선', status: 'backlog' as const,
-  priority: 'high' as const, assignee_actor_id: null, due_date: null, milestone_id: null, analytics_area_id: null, source_task_request_id: null,
-  created_by: '20000000-0000-0000-0000-000000000002', created_at: '2026-07-10T00:00:00.000Z', updated_at: '2026-07-10T00:00:00.000Z',
+  id: '10000000-0000-0000-0000-000000000001',
+  workspace_id: '90000000-0000-0000-0000-000000000009',
+  display_id: 'TASK-1000',
+  primary_managed_system_id: '30000000-0000-0000-0000-000000000003',
+  title: '매출 리포트 쿼리 플랜 개선',
+  status: 'backlog' as const,
+  priority: 'high' as const,
+  assignee_actor_id: null,
+  due_date: null,
+  milestone_id: null,
+  analytics_area_id: null,
+  source_task_request_id: null,
+  created_by: '20000000-0000-0000-0000-000000000002',
+  created_at: '2026-07-10T00:00:00.000Z',
+  updated_at: '2026-07-10T00:00:00.000Z',
 };
 
 const api = vi.hoisted(() => ({ getTask: vi.fn(), listTasks: vi.fn(), updateTaskStatus: vi.fn() }));
 const draggableOptions = vi.hoisted(() => [] as Array<{ id?: string; disabled?: boolean }>);
 const sensorOptions = vi.hoisted(() => [] as Array<{ Sensor: unknown; options?: unknown }>);
 const navigate = vi.hoisted(() => vi.fn());
-const overlayProps = vi.hoisted(() => ({ dropAnimation: undefined as unknown, transition: undefined as unknown }));
+const overlayProps = vi.hoisted(() => ({
+  dropAnimation: undefined as unknown,
+  transition: undefined as unknown,
+}));
 vi.mock('@tanstack/react-router', () => ({
-  Link: ({ to, search, children }: {
+  Link: ({
+    to,
+    search,
+    children,
+  }: {
     to: string;
     search: { view: string; managedSystem?: string };
     children: React.ReactNode;
@@ -109,17 +127,43 @@ vi.mock('@fops/ui', async () => {
   const actual = await vi.importActual<typeof import('@fops/ui')>('@fops/ui');
   return {
     ...actual,
-    WorkbenchShell: ({ toolbar, children, detailPanel }: { toolbar: { title: React.ReactNode; actions: React.ReactNode }; children: React.ReactNode; detailPanel?: React.ReactNode }) => <div><header>{toolbar.title}{toolbar.actions}</header>{children}<aside>{detailPanel}</aside></div>,
+    WorkbenchShell: ({
+      toolbar,
+      children,
+      detailPanel,
+    }: {
+      toolbar: { title: React.ReactNode; actions: React.ReactNode };
+      children: React.ReactNode;
+      detailPanel?: React.ReactNode;
+    }) => (
+      <div>
+        <header>
+          {toolbar.title}
+          {toolbar.actions}
+        </header>
+        {children}
+        <aside>{detailPanel}</aside>
+      </div>
+    ),
   };
 });
-vi.mock('@/lib/cross-system/useWorkspaceActors', () => ({ useWorkspaceActors: () => ({ actors: [] }) }));
-vi.mock('@/lib/api/managed-systems', () => ({ fetchManagedSystems: vi.fn(async () => ({ items: [{ id: task.primary_managed_system_id, name: 'Billing Ops', archived_at: null }] })) }));
+vi.mock('@/lib/cross-system/useWorkspaceActors', () => ({
+  useWorkspaceActors: () => ({ actors: [] }),
+}));
+vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/registry-reads')>()),
+  fetchManagedSystems: vi.fn(async () => ({
+    items: [{ id: task.primary_managed_system_id, name: 'Billing Ops', archived_at: null }],
+  })),
+}));
 vi.mock('@/lib/api/tasks', () => api);
 vi.mock('./TaskListRoute', async () => {
   const actual = await vi.importActual<typeof import('./TaskListRoute')>('./TaskListRoute');
   return { ...actual, TaskListRoute: () => <div>task list unchanged</div> };
 });
-vi.mock('./TaskRequestsRoute', () => ({ TaskRequestsRoute: () => <div>task requests unchanged</div> }));
+vi.mock('./TaskRequestsRoute', () => ({
+  TaskRequestsRoute: () => <div>task requests unchanged</div>,
+}));
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), warning: vi.fn() } }));
 
 function renderBoard(selectedParam?: string, managedSystem?: string) {
@@ -136,7 +180,10 @@ function renderBoard(selectedParam?: string, managedSystem?: string) {
 function deferred<T>() {
   let resolve!: (value: T) => void;
   let reject!: (error: unknown) => void;
-  const promise = new Promise<T>((resolvePromise, rejectPromise) => { resolve = resolvePromise; reject = rejectPromise; });
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
   return { promise, resolve, reject };
 }
 
@@ -267,7 +314,9 @@ describe('TaskBoardRoute', () => {
     renderBoard();
     await screen.findByText('TASK-1000');
     for (const status of ['backlog', 'todo', 'doing', 'review', 'done', 'released', 'reopened']) {
-      expect(screen.getByLabelText(`${status[0]!.toUpperCase()}${status.slice(1)} 열`)).toBeInTheDocument();
+      expect(
+        screen.getByLabelText(`${status[0]!.toUpperCase()}${status.slice(1)} 열`),
+      ).toBeInTheDocument();
     }
     expect(screen.getAllByText('비어있음').length).toBe(6);
     expect(screen.getByText('Task는 Task Request에서 전환됩니다.')).toBeInTheDocument();
@@ -340,7 +389,12 @@ describe('TaskBoardRoute', () => {
   );
 
   it('renders permission denied instead of the board unavailable copy for a 403', async () => {
-    api.listTasks.mockRejectedValue(new ApiError(403, { code: 'permission.denied', message: 'finding.manage capability required' }));
+    api.listTasks.mockRejectedValue(
+      new ApiError(403, {
+        code: 'permission.denied',
+        message: 'finding.manage capability required',
+      }),
+    );
     renderBoard();
 
     const panel = await screen.findByText('Task board');
@@ -361,7 +415,9 @@ describe('TaskBoardRoute', () => {
   });
 
   it('keeps a non-permission board failure unavailable', async () => {
-    api.listTasks.mockRejectedValue(new ApiError(500, { code: 'internal.unexpected', message: 'server failed' }));
+    api.listTasks.mockRejectedValue(
+      new ApiError(500, { code: 'internal.unexpected', message: 'server failed' }),
+    );
     renderBoard();
 
     expect(
@@ -375,7 +431,8 @@ describe('TaskBoardRoute', () => {
     let failing = true;
     api.listTasks.mockImplementation(async (options: Record<string, unknown>) => {
       await firstRead.promise;
-      if (failing) throw new ApiError(500, { code: 'internal.unexpected', message: 'server failed' });
+      if (failing)
+        throw new ApiError(500, { code: 'internal.unexpected', message: 'server failed' });
       return boardList([task])(options);
     });
     renderBoard();
@@ -444,7 +501,10 @@ describe('TaskBoardRoute', () => {
       options: { activationConstraint: { distance: 5 } },
     });
     await screen.findByText('단독 Task');
-    expect(navigate).toHaveBeenCalledWith({ to: '/tasks', search: { view: 'board', param: task.id } });
+    expect(navigate).toHaveBeenCalledWith({
+      to: '/tasks',
+      search: { view: 'board', param: task.id },
+    });
   });
 
   it('moves a card optimistically and sends concurrency and idempotency arguments', async () => {
@@ -454,7 +514,13 @@ describe('TaskBoardRoute', () => {
     renderBoard();
     await screen.findByText('TASK-1000');
     fireEvent.click(screen.getByRole('button', { name: 'simulate drag to doing' }));
-    await waitFor(() => expect(api.updateTaskStatus).toHaveBeenCalledWith(task.id, 'doing', expect.objectContaining({ ifMatch: task.updated_at, idempotencyKey: expect.any(String) })));
+    await waitFor(() =>
+      expect(api.updateTaskStatus).toHaveBeenCalledWith(
+        task.id,
+        'doing',
+        expect.objectContaining({ ifMatch: task.updated_at, idempotencyKey: expect.any(String) }),
+      ),
+    );
     expect(screen.getByLabelText('Doing 열')).toHaveTextContent('TASK-1000');
   });
 
@@ -501,20 +567,55 @@ describe('TaskBoardRoute', () => {
   });
 
   it('filters rendered board items for public_update=missing and still drags only when grouped by status', async () => {
-    const gap = { ...task, id: '10000000-0000-0000-0000-000000000002', display_id: 'TASK-1001', title: 'Missing public update', status: 'released' as const };
-    const updated = { ...task, id: '10000000-0000-0000-0000-000000000003', display_id: 'TASK-1002', title: 'Has public update', status: 'released' as const };
-    expect(tasksSearchSchema.parse({ view: 'board', public_update: 'missing', managedSystem: 'all', param: task.id })).toEqual({
-      view: 'board', public_update: 'missing', managedSystem: 'all', param: task.id,
+    const gap = {
+      ...task,
+      id: '10000000-0000-0000-0000-000000000002',
+      display_id: 'TASK-1001',
+      title: 'Missing public update',
+      status: 'released' as const,
+    };
+    const updated = {
+      ...task,
+      id: '10000000-0000-0000-0000-000000000003',
+      display_id: 'TASK-1002',
+      title: 'Has public update',
+      status: 'released' as const,
+    };
+    expect(
+      tasksSearchSchema.parse({
+        view: 'board',
+        public_update: 'missing',
+        managedSystem: 'all',
+        param: task.id,
+      }),
+    ).toEqual({
+      view: 'board',
+      public_update: 'missing',
+      managedSystem: 'all',
+      param: task.id,
     });
-    api.listTasks.mockImplementation(boardList([task, gap, updated], (candidate, query) => query.public_update !== 'missing' || candidate.id === gap.id));
+    api.listTasks.mockImplementation(
+      boardList(
+        [task, gap, updated],
+        (candidate, query) => query.public_update !== 'missing' || candidate.id === gap.id,
+      ),
+    );
 
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(<QueryClientProvider client={client}><TasksRouteView search={{ view: 'board', public_update: 'missing' }} /></QueryClientProvider>);
+    render(
+      <QueryClientProvider client={client}>
+        <TasksRouteView search={{ view: 'board', public_update: 'missing' }} />
+      </QueryClientProvider>,
+    );
     await screen.findByText('TASK-1001');
     expect(screen.queryByText('TASK-1000')).not.toBeInTheDocument();
     expect(screen.queryByText('TASK-1002')).not.toBeInTheDocument();
-    expect(api.listTasks).toHaveBeenCalledWith(expect.objectContaining({ public_update: 'missing' }));
-    expect(draggableOptions).toContainEqual(expect.objectContaining({ id: gap.id, disabled: false }));
+    expect(api.listTasks).toHaveBeenCalledWith(
+      expect.objectContaining({ public_update: 'missing' }),
+    );
+    expect(draggableOptions).toContainEqual(
+      expect.objectContaining({ id: gap.id, disabled: false }),
+    );
     draggableOptions.length = 0;
     fireEvent.click(screen.getByRole('button', { name: '그룹화' }));
     fireEvent.click(screen.getByRole('radio', { name: '우선순위' }));
@@ -526,7 +627,9 @@ describe('TaskBoardRoute', () => {
         expect.objectContaining({ status_group: 'open', public_update: 'missing' }),
       ),
     );
-    expect(await screen.findByText('완료·배포된 Task는 제외됩니다. 상태별 보기에서 확인하세요.')).toBeInTheDocument();
+    expect(
+      await screen.findByText('완료·배포된 Task는 제외됩니다. 상태별 보기에서 확인하세요.'),
+    ).toBeInTheDocument();
 
     cleanup();
     draggableOptions.length = 0;
@@ -536,19 +639,27 @@ describe('TaskBoardRoute', () => {
     expect(screen.getByText('TASK-1001')).toBeInTheDocument();
     expect(screen.getByText('TASK-1002')).toBeInTheDocument();
     expect(api.listTasks).toHaveBeenCalled();
-    expect(api.listTasks.mock.calls.some((call) => call[0]?.public_update === 'missing')).toBe(false);
+    expect(api.listTasks.mock.calls.some((call) => call[0]?.public_update === 'missing')).toBe(
+      false,
+    );
   });
 
   it('disables status drag outside status grouping without a PATCH or toast', async () => {
     api.listTasks.mockImplementation(boardList([task]));
     renderBoard();
     await screen.findByText('TASK-1000');
-    expect(draggableOptions).toContainEqual(expect.objectContaining({ id: task.id, disabled: false }));
+    expect(draggableOptions).toContainEqual(
+      expect.objectContaining({ id: task.id, disabled: false }),
+    );
     draggableOptions.length = 0;
     fireEvent.click(screen.getByRole('button', { name: '그룹화' }));
     fireEvent.click(screen.getByRole('radio', { name: '우선순위' }));
     await waitFor(() => expect(screen.getByLabelText('높음 열')).toBeInTheDocument());
-    await waitFor(() => expect(draggableOptions).toContainEqual(expect.objectContaining({ id: task.id, disabled: true })));
+    await waitFor(() =>
+      expect(draggableOptions).toContainEqual(
+        expect.objectContaining({ id: task.id, disabled: true }),
+      ),
+    );
     fireEvent.click(screen.getByRole('button', { name: 'simulate drag to doing' }));
     expect(api.updateTaskStatus).not.toHaveBeenCalled();
     await act(async () => {
@@ -575,9 +686,7 @@ describe('TaskBoardRoute', () => {
     const skeleton = await screen.findByLabelText('Task 상세 불러오는 중');
     expect(skeleton).toHaveAttribute('aria-busy', 'true');
     expect(screen.getByRole('button', { name: '패널 닫기' })).toBeInTheDocument();
-    const placeholders = skeleton.querySelectorAll(
-      '[aria-live="polite"] > [aria-hidden="true"]',
-    );
+    const placeholders = skeleton.querySelectorAll('[aria-live="polite"] > [aria-hidden="true"]');
     expect(placeholders).toHaveLength(2);
     expect(placeholders[0]?.children).toHaveLength(5);
   });
@@ -589,9 +698,7 @@ describe('TaskBoardRoute', () => {
     renderBoard(task.id);
 
     const skeleton = await screen.findByLabelText('Task 상세 불러오는 중');
-    const placeholders = skeleton.querySelectorAll(
-      '[aria-live="polite"] > [aria-hidden="true"]',
-    );
+    const placeholders = skeleton.querySelectorAll('[aria-live="polite"] > [aria-hidden="true"]');
     expect(placeholders).toHaveLength(1);
     expect(placeholders[0]?.children).toHaveLength(5);
   });
@@ -616,7 +723,9 @@ describe('TaskBoardRoute', () => {
     const doneTask = { ...task, status: 'done' as const };
     const releasedTask = { ...doneTask, status: 'released' as const };
     api.listTasks.mockImplementation(boardList([doneTask]));
-    api.getTask.mockResolvedValueOnce({ ...doneTask, source: null }).mockResolvedValueOnce({ ...releasedTask, source: null });
+    api.getTask
+      .mockResolvedValueOnce({ ...doneTask, source: null })
+      .mockResolvedValueOnce({ ...releasedTask, source: null });
     api.updateTaskStatus.mockResolvedValue(releasedTask);
 
     renderBoard(doneTask.id);
@@ -626,7 +735,9 @@ describe('TaskBoardRoute', () => {
     fireEvent.click(footerAction);
 
     await waitFor(() => expect(api.getTask).toHaveBeenCalledTimes(2));
-    await waitFor(() => expect(screen.queryByRole('button', { name: '다음 상태로 이동' })).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: '다음 상태로 이동' })).not.toBeInTheDocument(),
+    );
     expect(screen.getAllByText('Released').length).toBeGreaterThan(0);
   });
 
@@ -639,7 +750,9 @@ describe('TaskBoardRoute', () => {
     const backlogTask = { ...task, status: 'backlog' as const };
     const todoTask = { ...backlogTask, status: 'todo' as const };
     api.listTasks.mockImplementation(boardList([backlogTask]));
-    api.getTask.mockResolvedValueOnce({ ...backlogTask, source: null }).mockResolvedValueOnce({ ...todoTask, source: null });
+    api.getTask
+      .mockResolvedValueOnce({ ...backlogTask, source: null })
+      .mockResolvedValueOnce({ ...todoTask, source: null });
     api.updateTaskStatus.mockResolvedValue(todoTask);
 
     renderBoard(backlogTask.id);

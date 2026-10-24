@@ -75,8 +75,8 @@ vi.mock('@/lib/api/client', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api/client')>()),
   apiRequest: apiRequestMock,
 }));
-vi.mock('@/lib/api/managed-systems', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/lib/api/managed-systems')>()),
+vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/registry-reads')>()),
   fetchManagedSystems: fetchManagedSystemsMock,
 }));
 vi.mock('@/lib/cross-system/useWorkspaceActors', () => ({

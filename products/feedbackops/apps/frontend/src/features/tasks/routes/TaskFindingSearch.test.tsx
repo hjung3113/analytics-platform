@@ -20,7 +20,10 @@ vi.mock('@/lib/auth/useMe', () => ({ useMe: () => ({ data: { actor: { id: 'me' }
 vi.mock('@/lib/cross-system/useWorkspaceActors', () => ({
   useWorkspaceActors: () => ({ actors: [] }),
 }));
-vi.mock('@/lib/api/managed-systems', () => ({ fetchManagedSystems: async () => ({ items: [] }) }));
+vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/registry-reads')>()),
+  fetchManagedSystems: async () => ({ items: [] }),
+}));
 vi.mock('../components/TaskDetailPanel', () => ({ TaskDetailPanel: () => null }));
 vi.mock('@/features/findings/components/FindingDetail', () => ({ FindingDetailPanel: () => null }));
 

@@ -5,7 +5,7 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
-import { apiRequest } from '../client';
+import { apiRequest, configureApiClient } from '../client';
 import { ApiError, ApiParseError } from '../types';
 
 const originalFetch = global.fetch;
@@ -139,6 +139,28 @@ describe('apiRequest', () => {
     expect(err.code).toBe('not_found.record');
     expect(parser.parse).not.toHaveBeenCalled();
   });
+
+  it.each([
+    ['401 plain text', 401, 'Unauthorized', 1],
+    ['502 HTML page', 502, '<html>Bad gateway</html>', 0],
+  ])(
+    'a non-JSON error body (%s) throws ApiError with the real status and the generic envelope',
+    async (_label, status, rawBody, unauthorizedCalls) => {
+      const onUnauthorized = vi.fn();
+      configureApiClient({ basePath: '', onUnauthorized });
+      try {
+        global.fetch = mockFetch({ ok: false, status, rawBody });
+        const err = (await catchError(apiRequest('GET', '/things', thingSchema))) as ApiError;
+
+        expect(err).toBeInstanceOf(ApiError);
+        expect(err.status).toBe(status);
+        expect(err.code).toBe('internal.unexpected');
+        expect(onUnauthorized).toHaveBeenCalledTimes(unauthorizedCalls);
+      } finally {
+        configureApiClient({ basePath: '' });
+      }
+    },
+  );
 
   it('304 resolves without parsing and keeps the etag', async () => {
     const parser = { parse: vi.fn() };

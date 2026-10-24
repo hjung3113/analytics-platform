@@ -43,7 +43,7 @@ vi.mock('@/lib/api', () => ({
   useIdempotencyKey: () => ({ key: 'idem-key', markConsumed: vi.fn() }),
 }));
 
-vi.mock('@/lib/api/managed-systems', () => ({
+vi.mock('@/lib/api/registry-reads', () => ({
   fetchManagedSystems: vi.fn(async () => ({
     items: [{ id: IDS.managedSystem, name: 'Billing Ops', archived_at: null }],
   })),

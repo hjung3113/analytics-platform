@@ -20,7 +20,10 @@ vi.mock('@/lib/auth/useMe', () => ({
     data: { actor: { id: '60000000-0000-0000-0000-000000000006', role_level: 'admin' } },
   }),
 }));
-vi.mock('@/lib/api/managed-systems', () => ({ fetchManagedSystems: async () => ({ items: [] }) }));
+vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/registry-reads')>()),
+  fetchManagedSystems: async () => ({ items: [] }),
+}));
 vi.mock('./task-requests/TaskRequestPanel', () => ({
   TaskRequestPanel: ({
     item,

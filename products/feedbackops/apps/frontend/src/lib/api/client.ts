@@ -138,9 +138,15 @@ async function sendRequest(
 
   if (!res.ok) {
     if (res.status === 401) onUnauthorized?.();
-    // Error envelopes are decoded here, exactly as before (a non-JSON error
-    // body still throws the raw SyntaxError — unchanged legacy behavior).
-    const errorData = text ? (JSON.parse(text) as unknown) : undefined;
+    // Error envelopes are decoded here. A non-JSON error body (a proxy's HTML
+    // or plain-text page) falls back to the generic envelope below, so the
+    // ApiError keeps the real status instead of a status-less SyntaxError.
+    let errorData: unknown;
+    try {
+      errorData = text ? (JSON.parse(text) as unknown) : undefined;
+    } catch {
+      errorData = undefined;
+    }
     const envelope: ApiErrorEnvelope =
       errorData && typeof errorData === 'object' && 'code' in errorData
         ? (errorData as ApiErrorEnvelope)
