@@ -23,10 +23,10 @@ import { useAddClusterMember } from '@/features/voc-cluster/hooks/useAddClusterM
 import { useCandidatePeers } from '@/features/voc-cluster/hooks/useCandidatePeers';
 import { errorMapper } from '@/lib/api/errorMapper';
 import type { ApiError } from '@/lib/api/types';
-import { useHostSeam } from '@/lib/host/host-seam';
 import { LIST_SEARCH_EMPTY_LABEL, LIST_SEARCH_PLACEHOLDER } from '@/lib/copy/list-search';
 import { REPORTER_STATUS_LABELS } from '@/lib/copy/reporter-status-labels';
 import { searchDebounceMs } from '@/lib/forms/search-debounce';
+import { useHostSeam } from '@/lib/host/host-seam';
 import { shortId } from '@/lib/identity';
 
 type Candidate = Omit<SameManagedSystemCandidatePeerDto, 'display_id'> & {

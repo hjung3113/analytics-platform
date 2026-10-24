@@ -1,3 +1,4 @@
+import { type HostNotice, type HostSeam, HostSeamProvider } from '@/lib/host/host-seam';
 import {
   confirmVocClusterSuggestionRequestSchema,
   discardVocClusterSuggestionRequestSchema,
@@ -15,7 +16,6 @@ import {
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { type HostNotice, type HostSeam, HostSeamProvider } from '@/lib/host/host-seam';
 import { clusterSuggestionsKey, useClusterSuggestions } from '../../hooks/useClusterSuggestions';
 import { ClusterSuggestionSession } from './ClusterSuggestionSession';
 
@@ -840,7 +840,14 @@ describe('confirm notice through the host seam (761c)', () => {
     render(
       <QueryClientProvider client={client}>
         <HostSeamProvider value={host}>
-          <ClusterSuggestionSession>{({ list, panel }) => <>{list}{panel}</>}</ClusterSuggestionSession>
+          <ClusterSuggestionSession>
+            {({ list, panel }) => (
+              <>
+                {list}
+                {panel}
+              </>
+            )}
+          </ClusterSuggestionSession>
         </HostSeamProvider>
       </QueryClientProvider>,
     );

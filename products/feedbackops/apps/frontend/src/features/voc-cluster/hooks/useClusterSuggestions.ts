@@ -1,5 +1,5 @@
-import type { MeResponse } from '@/lib/api/me';
 import { apiRequest } from '@/lib/api/client';
+import type { MeResponse } from '@/lib/api/me';
 import { ApiError } from '@/lib/api/types';
 import { vocClusterSuggestionsResponseSchema } from '@fops/shared';
 import { useQuery } from '@tanstack/react-query';

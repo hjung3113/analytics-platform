@@ -19,14 +19,10 @@ export function useCreateFindingFromCluster(args?: {
   const queryClient = useQueryClient();
   return useMutation<FindingDto, ApiError, CreateFindingFromClusterVariables>({
     mutationFn: async ({ clusterId, body }) => {
-      const res = await apiClient<FindingDto>(
-        'POST',
-        `/voc-clusters/${clusterId}/create-finding`,
-        {
-          body,
-          ...(args?.idempotencyKey ? { idempotencyKey: args.idempotencyKey } : {}),
-        },
-      );
+      const res = await apiClient<FindingDto>('POST', `/voc-clusters/${clusterId}/create-finding`, {
+        body,
+        ...(args?.idempotencyKey ? { idempotencyKey: args.idempotencyKey } : {}),
+      });
       return res.data;
     },
     onSuccess: () => {

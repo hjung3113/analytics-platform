@@ -36,10 +36,10 @@ import { VOC_CLUSTER_GROUPING_REASON_LABEL } from '@/lib/copy/voc-cluster';
 import { useManagedSystem } from '@/lib/cross-system/useManagedSystem';
 import { useWorkspaceActors } from '@/lib/cross-system/useWorkspaceActors';
 import { formatShortDate } from '@/lib/format/datetime';
-import { shortId } from '@/lib/identity';
-import { formatRecordDocumentTitle } from '@/lib/host/document-title-format';
 import type { DetailParts } from '@/lib/host/detail-parts';
+import { formatRecordDocumentTitle } from '@/lib/host/document-title-format';
 import { HostLink, useHostNavigate, useHostSeam, useHostTitle } from '@/lib/host/host-seam';
+import { shortId } from '@/lib/identity';
 
 import { ClusterStatusBadge } from '../../lib/presentation';
 import { AddVocModal } from '../modals/AddVocModal';

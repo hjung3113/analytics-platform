@@ -1,6 +1,6 @@
 import { ApiError } from '@/lib/api';
-import { type HostSeam, registerDefaultHost } from '@/lib/host/host-seam';
 import { FINDING_STATUS_LABELS } from '@/lib/copy/enum-labels';
+import { type HostSeam, registerDefaultHost } from '@/lib/host/host-seam';
 import { findingStatusSchema } from '@fops/shared';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type * as React from 'react';
@@ -96,121 +96,121 @@ vi.mock('@tanstack/react-query', () => ({
 vi.mock('@fops/ui', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@fops/ui')>();
   return {
-  ...actual,
-  cn: (...classes: Array<string | false | null | undefined>) => classes.filter(Boolean).join(' '),
-  Button: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
-    <button {...props}>{children}</button>
-  ),
-  DetailPanelHeader: ({
-    kind,
-    id,
-    onClose,
-  }: {
-    kind: string;
-    id: string;
-    onClose: () => void;
-  }) => (
-    <header data-testid="detail-panel-header" data-kind={kind}>
-      <span>{id}</span>
-      <button type="button" onClick={onClose}>
-        닫기
+    ...actual,
+    cn: (...classes: Array<string | false | null | undefined>) => classes.filter(Boolean).join(' '),
+    Button: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+      <button {...props}>{children}</button>
+    ),
+    DetailPanelHeader: ({
+      kind,
+      id,
+      onClose,
+    }: {
+      kind: string;
+      id: string;
+      onClose: () => void;
+    }) => (
+      <header data-testid="detail-panel-header" data-kind={kind}>
+        <span>{id}</span>
+        <button type="button" onClick={onClose}>
+          닫기
+        </button>
+      </header>
+    ),
+    DetailPanelSectionNav: ({
+      sections,
+    }: {
+      sections: Array<{ id: string; label: string }>;
+    }) => (
+      <nav>
+        {sections.map((section) => (
+          <span key={section.id}>{section.label}</span>
+        ))}
+      </nav>
+    ),
+    Dialog: ({
+      children,
+      open,
+    }: {
+      children: React.ReactNode;
+      open?: boolean;
+    }) => (open ? <>{children}</> : null),
+    DialogContent: ({ children, ...props }: { children: React.ReactNode }) => (
+      <div {...props}>{children}</div>
+    ),
+    DialogFooter: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+    DialogHeader: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+    DialogTitle: ({ children }: { children: React.ReactNode }) => <h2>{children}</h2>,
+    FieldLabel: ({ children }: { children: React.ReactNode }) => <label>{children}</label>,
+    FieldRow: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+    Input: (props: React.InputHTMLAttributes<HTMLInputElement>) => <input {...props} />,
+    Label: ({ children, ...props }: React.LabelHTMLAttributes<HTMLLabelElement>) => (
+      <label {...props}>{children}</label>
+    ),
+    ListShell: ({
+      toolbar,
+      list,
+      detailPanel,
+    }: {
+      toolbar?: { title: string; subtitle?: string; actions?: React.ReactNode };
+      list: React.ReactNode;
+      detailPanel?: React.ReactNode;
+    }) => (
+      <div data-shell="list">
+        {toolbar && (
+          <header data-testid="list-shell-toolbar">
+            <h1>{toolbar.title}</h1>
+            {toolbar.subtitle && <p>{toolbar.subtitle}</p>}
+            <div>{toolbar.actions}</div>
+          </header>
+        )}
+        <main>{list}</main>
+        <aside data-testid="list-shell-detail-slot">{detailPanel}</aside>
+      </div>
+    ),
+    ManagedSystemPill: ({ name }: { name: string }) => (
+      <span data-testid="managed-system-pill">{name}</span>
+    ),
+    ObjectRow: ({
+      id,
+      title,
+      badges,
+      meta,
+      selected,
+      onClick,
+    }: {
+      id?: string;
+      title: React.ReactNode;
+      badges?: React.ReactNode;
+      meta?: React.ReactNode;
+      selected?: boolean;
+      onClick?: React.MouseEventHandler<HTMLButtonElement>;
+    }) => (
+      <button
+        type="button"
+        data-testid={`cluster-row-${id}`}
+        data-selected={selected ? 'true' : 'false'}
+        onClick={onClick}
+      >
+        <span>{id}</span>
+        <span>{title}</span>
+        <span>{badges}</span>
+        <span>{meta}</span>
       </button>
-    </header>
-  ),
-  DetailPanelSectionNav: ({
-    sections,
-  }: {
-    sections: Array<{ id: string; label: string }>;
-  }) => (
-    <nav>
-      {sections.map((section) => (
-        <span key={section.id}>{section.label}</span>
-      ))}
-    </nav>
-  ),
-  Dialog: ({
-    children,
-    open,
-  }: {
-    children: React.ReactNode;
-    open?: boolean;
-  }) => (open ? <>{children}</> : null),
-  DialogContent: ({ children, ...props }: { children: React.ReactNode }) => (
-    <div {...props}>{children}</div>
-  ),
-  DialogFooter: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  DialogHeader: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  DialogTitle: ({ children }: { children: React.ReactNode }) => <h2>{children}</h2>,
-  FieldLabel: ({ children }: { children: React.ReactNode }) => <label>{children}</label>,
-  FieldRow: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  Input: (props: React.InputHTMLAttributes<HTMLInputElement>) => <input {...props} />,
-  Label: ({ children, ...props }: React.LabelHTMLAttributes<HTMLLabelElement>) => (
-    <label {...props}>{children}</label>
-  ),
-  ListShell: ({
-    toolbar,
-    list,
-    detailPanel,
-  }: {
-    toolbar?: { title: string; subtitle?: string; actions?: React.ReactNode };
-    list: React.ReactNode;
-    detailPanel?: React.ReactNode;
-  }) => (
-    <div data-shell="list">
-      {toolbar && (
-        <header data-testid="list-shell-toolbar">
-          <h1>{toolbar.title}</h1>
-          {toolbar.subtitle && <p>{toolbar.subtitle}</p>}
-          <div>{toolbar.actions}</div>
-        </header>
-      )}
-      <main>{list}</main>
-      <aside data-testid="list-shell-detail-slot">{detailPanel}</aside>
-    </div>
-  ),
-  ManagedSystemPill: ({ name }: { name: string }) => (
-    <span data-testid="managed-system-pill">{name}</span>
-  ),
-  ObjectRow: ({
-    id,
-    title,
-    badges,
-    meta,
-    selected,
-    onClick,
-  }: {
-    id?: string;
-    title: React.ReactNode;
-    badges?: React.ReactNode;
-    meta?: React.ReactNode;
-    selected?: boolean;
-    onClick?: React.MouseEventHandler<HTMLButtonElement>;
-  }) => (
-    <button
-      type="button"
-      data-testid={`cluster-row-${id}`}
-      data-selected={selected ? 'true' : 'false'}
-      onClick={onClick}
-    >
-      <span>{id}</span>
-      <span>{title}</span>
-      <span>{badges}</span>
-      <span>{meta}</span>
-    </button>
-  ),
-  OutlineBadge: ({ children, ...props }: { children: React.ReactNode }) => (
-    <span {...props}>{children}</span>
-  ),
-  PanelSectionTitle: ({ children }: { children: React.ReactNode }) => <h3>{children}</h3>,
-  ReporterStatusBadge: ({ status }: { status: string }) => (
-    <span data-testid={`reporter-status-${status}`}>{status}</span>
-  ),
-  SeverityBadge: ({ severity }: { severity: string }) => <span>{severity}</span>,
-  PageShell: ({ children }: { children: React.ReactNode }) => (
-    <div data-shell="page">{children}</div>
-  ),
-  Skeleton: (props: React.HTMLAttributes<HTMLDivElement>) => <div {...props} />,
-  Textarea: (props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) => <textarea {...props} />,
+    ),
+    OutlineBadge: ({ children, ...props }: { children: React.ReactNode }) => (
+      <span {...props}>{children}</span>
+    ),
+    PanelSectionTitle: ({ children }: { children: React.ReactNode }) => <h3>{children}</h3>,
+    ReporterStatusBadge: ({ status }: { status: string }) => (
+      <span data-testid={`reporter-status-${status}`}>{status}</span>
+    ),
+    SeverityBadge: ({ severity }: { severity: string }) => <span>{severity}</span>,
+    PageShell: ({ children }: { children: React.ReactNode }) => (
+      <div data-shell="page">{children}</div>
+    ),
+    Skeleton: (props: React.HTMLAttributes<HTMLDivElement>) => <div {...props} />,
+    Textarea: (props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) => <textarea {...props} />,
   };
 });
 

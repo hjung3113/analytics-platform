@@ -3,7 +3,7 @@ import { mapUnknownError } from '@/lib/api/errorMapper';
 import { mintIdempotencyKey } from '@/lib/api/idempotency';
 import { ApiError } from '@/lib/api/types';
 import { CLUSTER_SUGGESTION_COPY as COPY } from '@/lib/copy/voc-cluster';
-import { useHostNavigate, useHostNotice, useHostSearch, useHostSeam } from '@/lib/host/host-seam';
+import { useHostNavigate, useHostNotice, useHostSeam, useHostSearch } from '@/lib/host/host-seam';
 import { searchHref } from '@/lib/host/search';
 import type {
   DiscardVocClusterSuggestionResponse,

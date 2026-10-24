@@ -168,18 +168,23 @@ vi.mock('@/lib/api', async (importOriginal) => {
 vi.mock('@/lib/api/client', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/api/client')>();
   return {
-  ...actual,
-  // The cluster hooks import the client module directly (761c), like useVocDetail.
-  apiRequest: (async (method: string, path: string, ...rest: unknown[]) => {
-    const [collection, id] = path.split('/').slice(1);
-    if (collection !== 'voc-clusters') return (actual.apiRequest as (...args: unknown[]) => Promise<unknown>)(method, path, ...rest);
-    return { data: await readResults.resolveRead(readResults.clusters, id ?? '') };
-  }) as typeof actual.apiRequest,
-  apiClient: vi.fn(async (_method: string, path: string) => {
-    const id = path.split('/').at(-1) ?? '';
-    return { data: await readResults.resolveRead(readResults.vocs, id) };
-  }),
-};
+    ...actual,
+    // The cluster hooks import the client module directly (761c), like useVocDetail.
+    apiRequest: (async (method: string, path: string, ...rest: unknown[]) => {
+      const [collection, id] = path.split('/').slice(1);
+      if (collection !== 'voc-clusters')
+        return (actual.apiRequest as (...args: unknown[]) => Promise<unknown>)(
+          method,
+          path,
+          ...rest,
+        );
+      return { data: await readResults.resolveRead(readResults.clusters, id ?? '') };
+    }) as typeof actual.apiRequest,
+    apiClient: vi.fn(async (_method: string, path: string) => {
+      const id = path.split('/').at(-1) ?? '';
+      return { data: await readResults.resolveRead(readResults.vocs, id) };
+    }),
+  };
 });
 
 vi.mock('@/lib/api/milestones', async (importOriginal) => {
