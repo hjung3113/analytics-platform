@@ -38,7 +38,9 @@ export const fillChartHeight = (available: number | null) => Math.max(FILL_CHART
  * `basis-0` (a definite zero, not `flex-1`'s percentage) keeps the plot box from sizing the card, so a smaller container still shrinks it.
  */
 export const FILL_CARD_CLASS = 'min-h-full';
-export const FILL_PLOT_CLASS = 'min-h-80 grow basis-0 overflow-hidden'; // min-h-80 = FILL_CHART_MIN_HEIGHT (320px)
+/** FILL_PLOT_CLASS without its floor: the Frame sets `minHeight` itself when `fillMin` lowers it. */
+export const FILL_PLOT_BASE_CLASS = 'grow basis-0 overflow-hidden';
+export const FILL_PLOT_CLASS = `min-h-80 ${FILL_PLOT_BASE_CLASS}`; // min-h-80 = FILL_CHART_MIN_HEIGHT (320px)
 
 /** Keep each frame’s established regular default while sharing compact/hero heights. */
 export function analysisChartHeight(size: ChartSize, regularHeight: number) {

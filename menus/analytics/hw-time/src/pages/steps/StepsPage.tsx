@@ -73,8 +73,10 @@ export default function StepsPage(_props: PageProps) {
     setNotice(null);
     setPage({ trend: formatTrendKey(trendRows.filter(id => id !== rowId)) });
   };
-  // Frame point actions are fixed per chart (SDK gap), so one toggle acts on the selected row's current state.
-  const toggleTrend = (rowId: string) => (trendRows.includes(rowId) ? removeTrend(rowId) : addTrend(rowId));
+  // The Frame evaluates the list for the selected row: one applicable action, L1 (equipment rows) none.
+  const rowActionsOf = (rowId: string) => (!isHwTimeRowId(rowId) ? []
+    : trendRows.includes(rowId) ? [{ id: 'trend-remove', label: ko ? '추세에서 제거' : 'Remove from trend', keepsFocus: true, onSelect: removeTrend }]
+      : [{ id: 'trend-add', label: ko ? '추세에 추가' : 'Add to trend', keepsFocus: true, onSelect: addTrend }]);
 
   const legendTotal = block?.series.length ?? 0;
   const legendShown = block ? block.series.filter(item => !hidden.includes(item.id)).length : 0;
@@ -140,9 +142,7 @@ export default function StepsPage(_props: PageProps) {
       sort={sort}
       onActivate={data.level === 0 ? ({ seriesId }) => drill.enter('drillModule', seriesId)
         : data.level === 1 ? ({ seriesId }) => drill.enter('drillMotion', seriesId) : undefined}
-      rowActions={data.level === 0 ? undefined : [
-        { id: 'trend-toggle', label: ko ? '추세에 추가·제거' : 'Add to / remove from trend', keepsFocus: true, onSelect: toggleTrend },
-      ]} />;
+      rowActions={data.level === 0 ? undefined : rowActionsOf} />;
   };
 
   return <PlatformPage layout="fill">
@@ -151,7 +151,7 @@ export default function StepsPage(_props: PageProps) {
         <Inspector form="stack" persistKey="hw-time-steps" label={{ ko: '분석 보조', en: 'Analysis aids' }} sections={sections} />
       </aside>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
-        {/* Clip: until the Frame fill floor is configurable (#690 690n) the 320 px plot can exceed this share; it must never draw over the trend toggle. */}
+        {/* Clip as a guard: the detail's fill floor (fillMin) is low enough to fit, but the plot must never draw over the trend toggle. */}
         <div className="flex min-h-0 flex-[3] flex-col overflow-hidden">
           <DrillLayout fill summary={summary}>
             <QueryView fill query={levelQ} widgetName={ko ? 'HW Time 단계별' : 'HW Time by level'} hideWidgetName skeletonRows={6}>
