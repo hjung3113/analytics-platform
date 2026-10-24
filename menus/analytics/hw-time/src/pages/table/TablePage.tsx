@@ -7,9 +7,9 @@ import { ChevronRight, Inbox, PanelRight } from 'lucide-react';
 import { useMemo } from 'react';
 import { useDrill, useI18n, useMenuFetch, usePlatform, type PageProps } from '@ap/kernel';
 import {
-  DetailDrawer, DrillLayout, PlatformDataTable, PlatformPage, RowAction, StateMessage, TableUrlWarning, useTableUrlState, type PlatformColumn,
+  DetailDrawer, DrillLayout, OutcomeView, PlatformDataTable, PlatformPage, QueryView, RowAction, StateMessage, TableUrlWarning, useTableUrlState, type PlatformColumn,
 } from '@ap/components';
-import { hwTime, isHwTimeRowId, type HwTimeBlock, type HwTimeLevelData, type HwTimeRow, type HwTimeTableRow } from '../../endpoints';
+import { hwTime, isHwTimeTrendId, type HwTimeBlock, type HwTimeLevelData, type HwTimeRow, type HwTimeTableRow } from '../../endpoints';
 import { useHwTimeLevel, useHwTimeTrend } from '../../shared/data';
 import { rowIdLabel } from '../../shared/format';
 import { StackPanel } from '../../shared/panels/StackPanel';
@@ -49,8 +49,11 @@ export default function TablePage(_props: PageProps) {
   const partial = dataRows.filter(row => Object.values(row.values).some(value => value === null)).length;
   const emptyDetail = level === 2 && response !== null && dataRows.length === 0;
   const focusRow = focus === null ? undefined : dataRows.find(row => row.id === focus);
+  // A failed level read is not an absent row: the summary and the drawer say so and retry, while the paged table keeps working.
+  const levelFailure = levelQ.response && levelQ.response.outcome !== 'ok' && levelQ.response.outcome !== 'empty' ? levelQ.response : null;
+  const detailPending = focus !== null && focusRow === undefined && response === null;
 
-  const trendable = focusRow !== undefined && isHwTimeRowId(focusRow.id);
+  const trendable = focusRow !== undefined && isHwTimeTrendId(focusRow.id);
   const trendQ = useHwTimeTrend(trendable ? [focusRow.id] : [], trendable);
 
   const columns = useMemo<PlatformColumn<HwTimeTableRow>[]>(() => {
@@ -109,7 +112,13 @@ export default function TablePage(_props: PageProps) {
       />;
 
   return <PlatformPage layout="fill">
-    <DrillLayout fill summary={summary}>{table}</DrillLayout>
+    <DrillLayout fill summary={summary}>
+      {levelFailure && <OutcomeView response={levelFailure} onRetry={levelQ.refetch} compact>{() => null}</OutcomeView>}
+      {table}
+    </DrillLayout>
+    {detailPending && <DetailDrawer key={focus} title={<span className="t-mono">{rowIdLabel(focus)}</span>} subtitle={ko ? '행 상세 · 합성 데이터' : 'Row details · synthetic data'}
+      onClose={closeDrawer}
+      tabs={[{ id: 'summary', label: ko ? '구성' : 'Breakdown', content: <QueryView query={levelQ} widgetName={ko ? '행 상세' : 'Row details'} compact>{() => null}</QueryView> }]} />}
     {drawerBlock && focusRow && <DetailDrawer key={focusRow.id}
       title={<span className="t-mono">{rowIdLabel(focusRow.id)}</span>} subtitle={ko ? '행 상세 · 합성 데이터' : 'Row details · synthetic data'}
       onClose={closeDrawer}
@@ -120,9 +129,7 @@ export default function TablePage(_props: PageProps) {
             <StackPanel chartId="hw-time-table-drawer-stack" title={ko ? '동작시간 구성' : 'Operation time breakdown'} block={drawerBlock}
               visibleSeriesIds={drawerBlock.series.map(item => item.id)} />
           </div>
-          {trendable
-            ? <div className="flex flex-col"><TrendPanel chartId="hw-time-table-drawer-trend" title={ko ? '행별 일 추세' : 'Daily trend by row'} rowIds={[focusRow.id]} query={trendQ} level={drill.depth} /></div>
-            : <p className="t-caption text-text-muted">{ko ? '일 추세는 하위 항목 행에서 볼 수 있습니다.' : 'The daily trend is available on sub-item rows.'}</p>}
+          <div className="flex flex-col"><TrendPanel chartId="hw-time-table-drawer-trend" title={ko ? '행별 일 추세' : 'Daily trend by row'} rowIds={[focusRow.id]} query={trendQ} level={drill.depth} /></div>
         </div>,
       }]} />}
   </PlatformPage>;

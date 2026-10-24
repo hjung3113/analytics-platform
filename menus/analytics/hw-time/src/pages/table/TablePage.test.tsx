@@ -173,6 +173,86 @@ describe('HW Time table page', () => {
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'EQ-001 · H1 보기' }));
   });
 
+  it('shows the equipment trend in the L1 drawer', async () => {
+    await renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: 'EQ-001 보기' }));
+    expect(await screen.findByRole('heading', { name: 'EQ-001' })).toBeTruthy();
+    await waitFor(() => expect(screen.getByTestId('hw-time-table-drawer-trend-series').textContent).toContain('EQ-001:2026-09-25=4'));
+    expect(calls.some(c => c.endpoint === hwTime.trend.id && JSON.stringify((c.params as { rowIds: string[] }).rowIds) === '["EQ-001"]')).toBe(true);
+  });
+
+  it('says so and retries inside the drawer and above the table when the level read fails but the table loads', async () => {
+    const original = adapter.menuQuery.bind(adapter);
+    let failLevel = true;
+    vi.spyOn(adapter, 'menuQuery').mockImplementation(async req => failLevel && req.endpoint === hwTime.levelRows.id
+      ? ({ outcome: 'error', message: 'level read failed', assessments, trust: null, correlationId: 'level-fail' }) as ApiResponse<never>
+      : original(req));
+    await renderPage('&drillModule=PM1&drillMotion=Pump');
+    fireEvent.click(await screen.findByRole('button', { name: 'EQ-001 · H1 보기' }));
+    const drawer = await screen.findByRole('heading', { name: 'EQ-001 · H1' });
+    expect(searchParams().get('focus')).toBe('EQ-001.H1');
+    const retries = await screen.findAllByRole('button', { name: '다시 시도' });
+    expect(retries).toHaveLength(2);
+    expect(screen.getAllByRole('alert').length).toBe(2);
+    expect(drawer).toBeTruthy();
+    failLevel = false;
+    fireEvent.click(retries[retries.length - 1]);
+    await waitFor(() => expect(screen.getByTestId('hw-time-table-drawer-stack-series').textContent).toBe('Pump:EQ-001 · H1=1.5'), { timeout: 8000 });
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('requests the second page with its page and pageSize and keeps it in the URL', async () => {
+    const original = adapter.menuQuery.bind(adapter);
+    vi.spyOn(adapter, 'menuQuery').mockImplementation(async req => {
+      const response = await original(req);
+      return req.endpoint === hwTime.tableRows.id && response.outcome === 'ok'
+        ? ok({ rows: (response.data as { rows: unknown[] }).rows, total: 60 }) : response;
+    });
+    await renderPage('&drillModule=PM1&drillMotion=Pump');
+    await waitFor(() => expect(screen.getByRole('button', { name: '다음' }).hasAttribute('aria-disabled')).toBe(false));
+    fireEvent.click(screen.getByRole('button', { name: '다음' }));
+    await waitFor(() => expect(tableCalls().some(p => p.page === 1)).toBe(true));
+    expect(tableCalls().find(p => p.page === 1)).toMatchObject({ drillModule: 'PM1', drillMotion: 'Pump', page: 1, pageSize: 25 });
+    expect(searchParams().get('page')).toBe('2');
+  });
+
+  describe('export wiring', () => {
+    const exportCalls = () => calls.filter(c => c.endpoint === hwTime.exportRows.id).map(c => c.params as Record<string, unknown>);
+    const originalCreate = URL.createObjectURL;
+    const originalRevoke = URL.revokeObjectURL;
+    beforeEach(() => {
+      URL.createObjectURL = () => 'blob:test';
+      URL.revokeObjectURL = () => {};
+      vi.spyOn(HTMLElement.prototype, 'click').mockImplementation(() => {});
+    });
+    afterEach(() => { URL.createObjectURL = originalCreate; URL.revokeObjectURL = originalRevoke; });
+    async function exportVia(name: string | RegExp) {
+      fireEvent.keyDown(screen.getByRole('button', { name: /^내보내기/ }), { key: 'Enter' });
+      fireEvent.click(await screen.findByRole('menuitem', { name }));
+    }
+
+    it('sends the selected ids with the drill keys and the active sorting', async () => {
+      await renderPage('&drillModule=PM1');
+      fireEvent.click(within(screen.getAllByRole('columnheader').find(h => h.textContent?.includes('합계'))!).getByRole('button'));
+      await waitFor(() => expect(tableCalls().some(p => (p.sorting as unknown[]).length === 1)).toBe(true));
+      fireEvent.click(await screen.findByRole('checkbox', { name: '선택 EQ-001.H1' }));
+      fireEvent.click(screen.getByRole('checkbox', { name: '선택 EQ-002.H2' }));
+      await exportVia(/^선택 2행을 CSV로 내보내기$/);
+      await waitFor(() => expect(exportCalls()).toHaveLength(1));
+      expect(exportCalls()[0]).toEqual({ drillModule: 'PM1', ids: ['EQ-001.H1', 'EQ-002.H2'], sorting: [{ id: 'total', desc: true }] });
+    });
+
+    it.each([
+      ['', {}],
+      ['&drillModule=PM1&drillMotion=Pump', { drillModule: 'PM1', drillMotion: 'Pump' }],
+    ])('sends no ids for the filtered scope and the level\'s drill keys (%s)', async (search, drill) => {
+      await renderPage(search);
+      await exportVia(/^필터 결과 전체 \d+행을 CSV로 내보내기$/);
+      await waitFor(() => expect(exportCalls()).toHaveLength(1));
+      expect(exportCalls()[0]).toEqual({ ...drill, ids: null, sorting: [] });
+    });
+  });
+
   it('draws a plain message for PM4 Vent and marks partial rows for PM3', async () => {
     window.history.replaceState(null, '', '/hw-time/table?v=1&scopeId=MEM&from=2026-09-19T09:00:00&to=2026-09-26T09:00:00&drillModule=PM4&drillMotion=Vent');
     render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider><TablePage params={{}} /><DetailSlotHost /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);

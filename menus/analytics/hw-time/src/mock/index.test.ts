@@ -117,11 +117,26 @@ describe('HW Time trends and table endpoints', () => {
     expect(result.rows[0]?.points.every((point, i) => point.value !== result.rows[1]?.points[i]?.value)).toBe(true);
   });
 
+  it('gives an equipment total that equals the sum of its four sub-item trends on each day, deterministically', async () => {
+    const subs = ['H1', 'H2', 'H3', 'H4'].map(item => `EQ-002.${item}`);
+    const result = await data<HwTimeTrendData>(hwTime.trend.id, { rowIds: ['EQ-002', ...subs] });
+    const again = await data<HwTimeTrendData>(hwTime.trend.id, { rowIds: ['EQ-002'] });
+    const [total, ...items] = result.rows;
+    expect(total?.id).toBe('EQ-002');
+    expect(total?.points).toHaveLength(8);
+    total?.points.forEach((point, day) => {
+      expect(point.value).toBeCloseTo(items.reduce((sum, item) => sum + (item.points[day]?.value ?? 0), 0), 9);
+    });
+    expect(again.rows[0]).toEqual(total);
+  });
+
   it('rejects more than eight trend rows and ids outside the static row format', async () => {
     const tooMany = await query(hwTime.trend.id, { rowIds: Array.from({ length: 9 }, (_, i) => `EQ-${String(i + 1).padStart(3, '0')}.H1`) });
     const malformed = await query(hwTime.trend.id, { rowIds: ['EQ-1.H1'] });
+    const shortEquipment = await query(hwTime.trend.id, { rowIds: ['EQ-1'] });
     expect(tooMany.outcome).toBe('error');
     expect(malformed.outcome).toBe('error');
+    expect(shortEquipment.outcome).toBe('error');
   });
 
   it('pages L3-style table rows on the server and exports the selected rows', async () => {

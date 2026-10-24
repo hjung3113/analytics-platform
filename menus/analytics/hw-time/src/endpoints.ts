@@ -44,8 +44,15 @@ export const HW_TIME_MAX_ROWS = { level: 120, export: 120 } as const;
 export const HW_TIME_MAX_TREND_ROWS = 8;
 export const HW_TIME_ROW_ID_PATTERN = /^EQ-\d{3}\.H[1-4]$/;
 
+/** `hwTime.trend` ids: a sub-item row (`EQ-001.H1`) or an equipment total (`EQ-001`, the sum over its four sub-items). */
+export const HW_TIME_TREND_ID_PATTERN = /^EQ-\d{3}(?:\.H[1-4])?$/;
+
 export function isHwTimeRowId(value: unknown): value is string {
   return typeof value === 'string' && HW_TIME_ROW_ID_PATTERN.test(value);
+}
+
+export function isHwTimeTrendId(value: unknown): value is string {
+  return typeof value === 'string' && HW_TIME_TREND_ID_PATTERN.test(value);
 }
 
 const PERMISSION = menuPermission('analytics:view');

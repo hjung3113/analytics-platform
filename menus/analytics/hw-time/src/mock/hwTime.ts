@@ -2,7 +2,7 @@
 import { shift, type PageSort } from '@ap/contracts';
 import { defineMockEndpoint, type AnyMockEndpoint, type Equipment } from '@ap/mock-server';
 import {
-  HW_TIME_MAX_ROWS, HW_TIME_MAX_TREND_ROWS, MODULE_IDS, MOTION_IDS, SUB_ITEM_IDS, hwTime, isHwTimeRowId,
+  HW_TIME_MAX_ROWS, HW_TIME_MAX_TREND_ROWS, MODULE_IDS, MOTION_IDS, SUB_ITEM_IDS, hwTime, isHwTimeTrendId,
   type HwTimeBlock, type HwTimeDrill, type HwTimeRow, type HwTimeSeries, type HwTimeTableRow, type ModuleId, type MotionId,
 } from '../endpoints';
 
@@ -153,22 +153,32 @@ function levelRows(equipmentIds: readonly string[], drill: HwTimeDrill) {
 function validateTrend(rowIds: string[]): string | null {
   if (!Array.isArray(rowIds)) return 'rowIds must be an array';
   if (rowIds.length > HW_TIME_MAX_TREND_ROWS) return `rowIds may contain at most ${HW_TIME_MAX_TREND_ROWS} rows`;
-  if (rowIds.some(rowId => !isHwTimeRowId(rowId))) return 'rowIds must match ^EQ-\\d{3}\\.H[1-4]$';
+  if (rowIds.some(rowId => !isHwTimeTrendId(rowId))) return 'rowIds must match ^EQ-\\d{3}(\\.H[1-4])?$';
   return null;
+}
+
+function subItemTrend(equipmentNumber: number, subItem: number): number[] {
+  const seed = equipmentNumber * 4 + subItem - 1;
+  const phase = seed % 8;
+  return Array.from({ length: 8 }, (_, dayIndex) => 5 + ((seed * 127 + ((dayIndex + phase) % 8) * 991) % 100_003) / 1_000);
+}
+
+/** A sub-item id gives its own daily values; an equipment id gives their per-day sum over H1–H4. */
+function trendValues(id: string): number[] {
+  const match = /^EQ-(\d{3})(?:\.H([1-4]))?$/.exec(id)!;
+  const equipmentNumber = Number(match[1]);
+  if (match[2] !== undefined) return subItemTrend(equipmentNumber, Number(match[2]));
+  const items = [1, 2, 3, 4].map(item => subItemTrend(equipmentNumber, item));
+  return Array.from({ length: 8 }, (_, dayIndex) => items.reduce((sum, item) => sum + item[dayIndex]!, 0));
 }
 
 function trendRows(equipmentIds: readonly string[], rowIds: string[], to: string) {
   return {
     rows: rowIds.filter(id => equipmentIds.includes(id.slice(0, 6))).map(id => {
-      const match = /^EQ-(\d{3})\.H([1-4])$/.exec(id)!;
-      const seed = Number(match[1]) * 4 + Number(match[2]) - 1;
-      const phase = seed % 8;
+      const values = trendValues(id);
       return {
         id,
-        points: Array.from({ length: 8 }, (_, dayIndex) => ({
-          at: shift(to, -24 * (8 - dayIndex)).slice(0, 10),
-          value: 5 + ((seed * 127 + ((dayIndex + phase) % 8) * 991) % 100_003) / 1_000,
-        })),
+        points: values.map((value, dayIndex) => ({ at: shift(to, -24 * (8 - dayIndex)).slice(0, 10), value })),
       };
     }),
     limits: { maxRows: HW_TIME_MAX_TREND_ROWS },
