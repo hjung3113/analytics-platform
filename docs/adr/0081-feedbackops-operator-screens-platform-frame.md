@@ -1,8 +1,8 @@
 # ADR-0081 — FeedbackOps 운영 화면은 플랫폼 틀(사이드바 `목록 범위`, 한 줄 머리)로 업무 시스템 `FeedbackOps` 하나에 옮긴다
 
 - Status: Decided (2026-10-24) — 사용자. 화면 사양은 소유 문서에 있다.
-- Decider: 사용자 — 실제 앱 위 시안 A(플랫폼 틀)·B(FeedbackOps 틀)를 본 뒤 "플랫폼 틀에 맞추되 개선사항을 뽑는 쪽으로"(2026-10-24, [#595](https://github.com/hjung3113/analytics-platform/issues/595)). 개선사항은 Opus xhigh UX 리뷰(UX-1–UX-15)에서 뽑았고, 구현 전 필수 항목은 시안에 반영했다. 최종 화면은 owner 확인 시안(owner 비공개 링크 https://claude.ai/artifact/HKPUoygVuZEpUWoVn5oRvU)이다. 시안 코드(브랜치 `hjung3113/proto-595-fo-system`)는 버린다.
-- Scope: #595, 지도 [#598](https://github.com/hjung3113/analytics-platform/issues/598), [ADR-0066](0066-feedbackops-merges-into-platform.md) 결정 2, [합류 설계](../integration/feedbackops-merge-design.md) §3.2–3.3.
+- Decider: 사용자 — 실제 앱 위 시안 A(플랫폼 틀)·B(FeedbackOps 틀)를 본 뒤 "플랫폼 틀에 맞추되 개선사항을 뽑는 쪽으로"(2026-10-24, [#595](https://github.com/hjung3113/analytics-platform/issues/595)). 개선사항은 Opus xhigh UX 리뷰(UX-1–UX-15, 보고서는 저장소 밖 `.review/595-ux-review.md`)에서 뽑았고, 구현 전 필수 항목(선택기 의미 UX-1, URL 범위 UX-2, 관리자 화면에서 끔 UX-3, 이름 충돌 UX-4, VOC 사이드바 중복 UX-5, 원본에 없는 버튼 UX-6)은 시안에 반영했다. 아래 UX 번호는 그 보고서의 항목이다. 최종 화면은 owner 확인 시안(owner 비공개 링크 https://claude.ai/artifact/HKPUoygVuZEpUWoVn5oRvU)이다. 시안 코드(브랜치 `hjung3113/proto-595-fo-system`)는 버린다.
+- Scope: #595, 지도 [#598](https://github.com/hjung3113/analytics-platform/issues/598), [ADR-0066](0066-feedbackops-merges-into-platform.md) 결정 3, [합류 설계](../integration/feedbackops-merge-design.md) §3.2–3.3.
 - 부분 대체: [ADR-0042](0042-system-switcher-and-system-owned-rail.md)(FeedbackOps 섹션 목록), [ADR-0045](0045-feedbackops-entry-link-mapping-and-scope.md)(바닥 블록의 새 탭·전체 진입 링크), [ADR-0070](0070-global-features-platform-menu-and-voc-drawer.md) 결정 4(사용자 메뉴 `FeedbackOps 전체`). 나머지는 그대로다.
 
 ## 맥락
@@ -22,12 +22,12 @@
    - `관리자`는 원본 다섯 메뉴를 그대로 둔다. 승인을 콘솔로 옮기는 일은 ADR-0068 결정 2의 스키마 뒤에 따로 한다(합류 설계 §3.3).
 4. **범위 선택기는 플랫폼 사이드바 Scope 자리에 하나, 라벨 `목록 범위`다.**
    - 의미는 FeedbackOps 원본 그대로다: 모든 사용자에게 `전체`(= 내 담당 시스템의 합집합), 범위 밖 시스템은 흐리게 `범위 밖` 표시, 관리자는 워크스페이스 전체.
-   - 값의 원천은 URL `managedSystem` 키 하나다. 저장소에 남기지 않는다(06 §6.2·§6.4).
-   - 범위가 없는 화면(관리자 섹션 대부분)에서는 끄고 원본 안내를 단다.
+   - 값의 원천은 URL `managedSystem` 키 하나다. 저장소에 남기지 않는다(06 §6.4). 키가 없으면 `전체`다. 06 §6.2의 분석 `scopeId`와는 별개 키다.
+   - `관리자` 섹션 화면에서는 끄고 원본 안내를 단다.
    - 레일 섹션·사이드바 메뉴로 옮겨도 고른 범위가 유지된다(시안은 섹션 이동에서 범위를 잃었다 — 구현에서 고친다).
 5. **화면 머리는 플랫폼 페이지 머리 한 줄이다.** `FeedbackOps › <메뉴>`, 즐겨찾기 ☆, 원본 화면에 있는 동작 버튼만 오른쪽에 둔다. 원본 화면의 제목 줄은 그리지 않는다. 원본에 없는 버튼을 새로 만들지 않는다.
 6. **진입은 전환기 카드다.** 사용자 메뉴의 `FeedbackOps 전체` 링크는 없앤다(ADR-0070 결정 4의 "#595까지").
-7. **다른 시스템의 바닥 블록은 셸 안 이동이다.** 항목 `VOC` · `Task` · `설문`, 설명 줄은 셸 안 이동을 말한다. 링크는 `managedSystem`과 복귀 정보만 싣는다(출발 화면의 기간을 싣지 않는다, ADR-0045). 도착 화면 본문 맨 위에 복귀 줄(15 §3.2)이 있다. 전환기로 바로 들어오면 복귀 줄이 없다.
+7. **다른 시스템의 바닥 블록은 셸 안 이동이다.** 항목 `VOC` · `Task` · `설문`, 설명 줄 `FeedbackOps로 이동합니다`(외부 링크 표시 없음). 링크는 `managedSystem`과 복귀 정보만 싣는다(출발 화면의 기간을 싣지 않는다, ADR-0045). 도착 화면 본문 맨 위에 복귀 줄(15 §3.2)이 있다. 전환기로 바로 들어오면 복귀 줄이 없다.
 8. **신고자(`feedbackops:access` 없음)에게는 전환기 카드도 바닥 블록도 없다.** 신고자의 일은 레일 `VOC 등록`과 플랫폼 메뉴(`내 VOC`·`설문`)가 맡는다.
 
 여기서 정하지 않는 것(구현 이슈에서 정하고 기록): 저장된 보기의 아이콘과 저장 경로(UX-7), 건수 배지의 범위 연동(UX-8), 복귀 줄이 사라지는 규칙(UX-10), 접힌 사이드바의 하위 항목 표시(UX-12), FeedbackOps 안에서 연 VOC 등록의 기본 등록 대상(UX-14).
@@ -40,5 +40,5 @@
 
 ## 결과
 
-- ADR-0042·0045·0070 해당 항목에 `부분 대체: ADR-0081`을 적는다. 합류 설계 §3.2 표와 §7 O7, 15 §3.2(바닥 블록·`FeedbackOps 홈`·사용자 메뉴 문장)를 이 결정에 맞춘다.
+- ADR-0042·0045·0070 해당 항목에 `부분 대체: ADR-0081`을 적는다. 합류 설계 §3.2 표와 §7 O7, 15 §3.2(바닥 블록·`FeedbackOps 홈`·사용자 메뉴 문장)·§6.1, 06 §8·§9.1(사용자 메뉴 `FeedbackOps 전체`, `feedbackOps` 슬롯, 새 탭 진입)을 이 결정에 맞춘다. 지금 동작을 적은 문장은 구현 PR에서 바꾸고, 그때까지는 "구현 안 함" 안내만 단다.
 - 구현은 #595의 하위 이슈다. dev:real에서 확인할 것: 다리로 올린 원본 머리와 플랫폼 머리가 겹치지 않는지, URL 범위 동기화와 범위 밖 처리, 배지, 상세 선택 키, 전환기 Enter 뒤 제목 포커스, Tasks 열과 상세 패널을 함께 열 때.
