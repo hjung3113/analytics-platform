@@ -12,11 +12,8 @@ export interface SummaryPermissionViewProps {
   onClose: () => void;
 }
 
-export function SummaryPermissionView({
-  data,
-  vocId,
-  onClose,
-}: SummaryPermissionViewProps): React.ReactElement {
+/** The permission-blocked panel without a header: the part a host places in its own frame. */
+export function SummaryPermissionBody({ data }: { data: VocSummaryEnvelope }): React.ReactElement {
   const selfDecision = getSummarySelfDecision(data);
   const reason =
     selfDecision.reason !== undefined &&
@@ -25,25 +22,35 @@ export function SummaryPermissionView({
       : undefined;
 
   return (
+    <div className="flex-1 flex items-center justify-center p-4">
+      {selfDecision !== null ? (
+        <PermissionBlockedPanel
+          state={selfDecision.state}
+          category="VOC 상세"
+          {...(reason !== undefined ? { reason } : {})}
+          {...(selfDecision.required_scope !== undefined
+            ? { requiredScope: selfDecision.required_scope }
+            : {})}
+          {...(selfDecision.decision_id !== undefined
+            ? { decisionId: selfDecision.decision_id }
+            : {})}
+        />
+      ) : (
+        <PermissionBlockedPanel state="denied" category="VOC 상세" />
+      )}
+    </div>
+  );
+}
+
+export function SummaryPermissionView({
+  data,
+  vocId,
+  onClose,
+}: SummaryPermissionViewProps): React.ReactElement {
+  return (
     <div className="flex flex-col h-full">
       <DetailHeader vocId={vocId} displayId={data.display_id} onClose={onClose} />
-      <div className="flex-1 flex items-center justify-center p-4">
-        {selfDecision !== null ? (
-          <PermissionBlockedPanel
-            state={selfDecision.state}
-            category="VOC 상세"
-            {...(reason !== undefined ? { reason } : {})}
-            {...(selfDecision.required_scope !== undefined
-              ? { requiredScope: selfDecision.required_scope }
-              : {})}
-            {...(selfDecision.decision_id !== undefined
-              ? { decisionId: selfDecision.decision_id }
-              : {})}
-          />
-        ) : (
-          <PermissionBlockedPanel state="denied" category="VOC 상세" />
-        )}
-      </div>
+      <SummaryPermissionBody data={data} />
     </div>
   );
 }

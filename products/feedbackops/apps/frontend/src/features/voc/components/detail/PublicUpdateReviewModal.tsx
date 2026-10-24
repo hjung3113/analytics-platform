@@ -25,7 +25,7 @@ import {
   Textarea,
 } from '@fops/ui';
 import { useEffect, useState } from 'react';
-import { toast } from 'sonner';
+import { useHostSeam } from '@/lib/host/host-seam';
 
 const STATUSES: ReporterFacingStatusEnum[] = [
   'received',
@@ -51,6 +51,7 @@ export function PublicUpdateReviewModal({
 }) {
   const candidates = usePublicUpdateReviewCandidates(voc.id, open);
   const resolve = useResolvePublicUpdateReviewCandidate(voc.id);
+  const { notifyError, notifySuccess } = useHostSeam();
   const [candidateId, setCandidateId] = useState('');
   const [status, setStatus] = useState<ReporterFacingStatusEnum | ''>('');
   const [message, setMessage] = useState('');
@@ -97,11 +98,11 @@ export function PublicUpdateReviewModal({
       },
       {
         onSuccess: () => {
-          toast.success('공개 업데이트 검토를 적용했습니다.');
+          notifySuccess('공개 업데이트 검토를 적용했습니다.');
           resetForm();
           onOpenChange(false);
         },
-        onError: (error) => toast.error(mapUnknownError(error).message),
+        onError: (error) => notifyError(mapUnknownError(error).message),
       },
     );
   };
@@ -111,11 +112,11 @@ export function PublicUpdateReviewModal({
       { action: 'dismiss', candidate_id: candidateId, dismissal_reason: dismissalReason.trim() },
       {
         onSuccess: () => {
-          toast.success('검토 후보를 해제했습니다.');
+          notifySuccess('검토 후보를 해제했습니다.');
           resetForm();
           onOpenChange(false);
         },
-        onError: (error) => toast.error(mapUnknownError(error).message),
+        onError: (error) => notifyError(mapUnknownError(error).message),
       },
     );
   };

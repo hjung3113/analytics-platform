@@ -18,7 +18,8 @@ export interface TriageBlockProps {
   ownerDisplayName?: string | null | undefined;
   analyticsAreaName?: string | null | undefined;
   canTriage: boolean;
-  onOpenTriage: () => void;
+  /** Absent when the host has nowhere to open the triage console: the button is left out. */
+  onOpenTriage?: (() => void) | undefined;
 }
 
 export function TriageBlock({
@@ -32,7 +33,7 @@ export function TriageBlock({
     <div className="mt-8">
       <div className="flex items-center justify-between">
         <PanelSectionTitle>Triage (읽기 전용)</PanelSectionTitle>
-        {canTriage && (
+        {canTriage && onOpenTriage !== undefined && (
           <Button
             variant="ghost"
             size="sm"

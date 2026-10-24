@@ -14,7 +14,10 @@ import * as React from 'react';
 vi.mock('@/features/voc/hooks/useComposerVisibility', () => ({
   useComposerVisibility: vi.fn(),
 }));
-vi.mock('@/lib/auth/useMe', () => ({ useMe: vi.fn() }));
+vi.mock('@/lib/api/me', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/me')>()),
+  useMeBridge: vi.fn(),
+}));
 
 // Mock RichEditor to avoid TipTap JSDOM issues. Emits onChange with a
 // non-empty doc on click so the dirty derivation (REV-2 #6) lights up.
@@ -35,7 +38,7 @@ vi.mock('@fops/ui', async (importActual) => {
 });
 
 import { useComposerVisibility } from '@/features/voc/hooks/useComposerVisibility';
-import { useMe } from '@/lib/auth/useMe';
+import { useMeBridge } from '@/lib/api/me';
 import { ComposerSection } from '../ComposerSection';
 import type { VocDetailEnvelope } from '@fops/shared';
 
@@ -78,7 +81,7 @@ const ME = {
 };
 
 beforeEach(() => {
-  vi.mocked(useMe).mockReturnValue({
+  vi.mocked(useMeBridge).mockReturnValue({
     data: ME,
     isLoading: false,
     isError: false,
@@ -99,7 +102,7 @@ beforeEach(() => {
     failureReason: null,
     errorUpdateCount: 0,
     refetch: vi.fn(),
-  } as unknown as ReturnType<typeof useMe>);
+  } as unknown as ReturnType<typeof useMeBridge>);
 });
 
 function makeWrapper() {
@@ -133,10 +136,9 @@ describe('<ComposerSection>', () => {
       showReply: true,
       showInternal: canTriage,
     }));
-    const { rerender } = render(
-      <ComposerSection voc={VOC} me={ME} canTriage={true} />,
-      { wrapper: makeWrapper() },
-    );
+    const { rerender } = render(<ComposerSection voc={VOC} me={ME} canTriage={true} />, {
+      wrapper: makeWrapper(),
+    });
 
     const internalTab = screen.getByRole('tab', { name: '내부 코멘트' });
     fireEvent.click(internalTab);
@@ -179,7 +181,9 @@ describe('<ComposerSection>', () => {
       showInternal: false,
     });
     const onDirtyChange = vi.fn();
-    render(<ComposerSection voc={VOC} me={ME} onDirtyChange={onDirtyChange} />, { wrapper: makeWrapper() });
+    render(<ComposerSection voc={VOC} me={ME} onDirtyChange={onDirtyChange} />, {
+      wrapper: makeWrapper(),
+    });
 
     // Click the rich editor (inside the composer body) to trigger dirty tracking.
     // The RichEditor stub renders a <div data-testid="rich-editor"> — clicking it

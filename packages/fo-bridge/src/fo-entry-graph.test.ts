@@ -12,6 +12,7 @@ const FO = fileURLToPath(new URL('../../../products/feedbackops', import.meta.ur
 const FRONTEND_SRC = join(FO, 'apps/frontend/src');
 const ENTRIES = [join(FRONTEND_SRC, 'global-screens/index.ts'), join(FRONTEND_SRC, 'global-screens/core.ts'), join(FRONTEND_SRC, 'operator-screens/scope-picker/index.ts')];
 const DASHBOARD_ENTRY = join(FRONTEND_SRC, 'operator-screens/dashboard/index.ts');
+const VOC_DETAIL_ENTRY = join(FRONTEND_SRC, 'operator-screens/voc-detail/index.ts');
 const PACKAGE_ENTRIES: Record<string, string> = {
   '@fops/ui': join(FO, 'packages/ui/src/index.ts'),
   '@fops/shared': join(FO, 'packages/shared/src/index.ts'),
@@ -142,6 +143,36 @@ describe('FeedbackOps operator dashboard entry graph (ADR-0071)', () => {
 
   it('calls fetch only in lib/api/client.ts', () => {
     const callers = [...dashboard.files].filter(([, text]) => /(?<![\w.])fetch\(/.test(text)).map(([file]) => relative(FRONTEND_SRC, file));
+    expect(callers).toEqual(['lib/api/client.ts']);
+  });
+});
+
+// The operator VOC detail entry (#761 v) is walked on its own: the detail tree renders inside the bridge, so it has no router,
+// no sonner and no `lib/auth`; its moves and notices go through the host seam.
+describe('FeedbackOps operator VOC detail entry graph (ADR-0071)', () => {
+  const detail = walk([VOC_DETAIL_ENTRY]);
+  const detailReached = [...detail.files.keys()].map(file => relative(FRONTEND_SRC, file));
+
+  it('reaches the detail parts hook and body, not the standalone panel, its frame or the inbox route', () => {
+    expect(detailReached).toEqual(
+      expect.arrayContaining(['features/voc/components/detail/useVocDetailParts.tsx', 'features/voc/components/detail/VocDetailBody.tsx', 'lib/host/host-seam.tsx']),
+    );
+    expect(detailReached).not.toContain('features/voc/components/detail/VocDetailPanel.tsx');
+    expect(detailReached.filter(file => /^features\/voc\/(routes\/|components\/list\/)/.test(file))).toEqual([]);
+    expect(detail.unresolved).toEqual([]);
+  });
+
+  it('imports no router and no toast library', () => {
+    expect([...detail.specifiers].filter(specifier => /^@tanstack\/(react-)?router|^sonner$/.test(specifier))).toEqual([]);
+  });
+
+  it('reaches no route, router, layout or auth source, the auth module, the api barrel, the permissions or managed-systems api', () => {
+    const banned = /^(?:routes|lib\/router|lib\/layout|lib\/auth)\/|^lib\/api\/(?:auth|index|permissions|managed-systems)\.ts$|^lib\/cross-system\/usePermissionCheck\.ts$/;
+    expect(detailReached.filter(file => banned.test(file))).toEqual([]);
+  });
+
+  it('calls fetch only in lib/api/client.ts', () => {
+    const callers = [...detail.files].filter(([, text]) => /(?<![\w.])fetch\(/.test(text)).map(([file]) => relative(FRONTEND_SRC, file));
     expect(callers).toEqual(['lib/api/client.ts']);
   });
 });

@@ -1,7 +1,10 @@
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@/lib/auth/useMe', () => ({ useMe: vi.fn() }));
+vi.mock('@/lib/api/me', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/me')>()),
+  useMeBridge: vi.fn(),
+}));
 vi.mock('@fops/ui', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@fops/ui')>();
   return {
@@ -14,13 +17,13 @@ vi.mock('@/lib/format/datetime', async (importOriginal) => ({
   formatRelativeTime: () => '방금 전',
 }));
 
-import { useMe } from '@/lib/auth/useMe';
+import { useMeBridge } from '@/lib/api/me';
 import type { ConversationEntry } from '@fops/shared';
 import { TimelineEntry } from '../TimelineEntry';
 import { ME_RESPONSE } from './_fixtures';
 
 beforeEach(() => {
-  vi.mocked(useMe).mockReturnValue({ data: ME_RESPONSE } as ReturnType<typeof useMe>);
+  vi.mocked(useMeBridge).mockReturnValue({ data: ME_RESPONSE } as ReturnType<typeof useMeBridge>);
 });
 
 const BASE: Omit<ConversationEntry, 'kind' | 'visibility'> = {

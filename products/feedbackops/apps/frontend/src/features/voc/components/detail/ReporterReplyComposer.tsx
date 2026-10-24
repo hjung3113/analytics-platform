@@ -39,10 +39,11 @@
 
 import { useComposerEditorFocus } from '@/features/cross-system/composer-editor/useComposerEditorFocus';
 import { useVocReporterReplyMutation } from '@/features/voc/hooks/useVocReporterReplyMutation';
-import type { ApiError } from '@/lib/api';
+import type { ApiError } from '@/lib/api/types';
 import { mapUnknownError } from '@/lib/api/errorMapper';
 import { uploadRichEditorAttachment } from '@/lib/attachments/rich-editor-upload';
-import type { MeResponse } from '@/lib/auth/useMe';
+import type { MeResponse } from '@/lib/api/me';
+import { useHostSeam } from '@/lib/host/host-seam';
 import { VOC_REPLY_COPY } from '@/lib/copy/voc';
 import { type VocDetailEnvelope, isTipTapDocBlank } from '@fops/shared';
 import { Callout, PreviewModal, RichEditor } from '@fops/ui';
@@ -50,7 +51,6 @@ import type { TipTapDoc } from '@fops/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { AlertCircle } from 'lucide-react';
 import { type ReactElement, useRef, useState } from 'react';
-import { toast } from 'sonner';
 import { mergeAttachmentIds, normalizeAttachmentRefs } from '../compose/attachment-refs';
 import { ComposerAttachmentDropzone } from './ComposerAttachmentDropzone';
 import { ComposerFooter } from './ComposerFooter';
@@ -91,6 +91,7 @@ export function ReporterReplyComposer({
   onPosted,
 }: ReporterReplyComposerProps): ReactElement {
   const queryClient = useQueryClient();
+  const { notifyError, notifySuccess } = useHostSeam();
   const { editorHandle, focusEditor } = useComposerEditorFocus();
 
   // REV-1 #7: controlled draft support.
@@ -134,13 +135,13 @@ export function ReporterReplyComposer({
       // #354: linked to the sent reply now — re-sending would be already_linked.
       // attachmentIds clears through the dropzone's onChange, not from here.
       setAttachmentResetToken((n) => n + 1);
-      toast.success('답장이 등록되었습니다.');
+      notifySuccess('답장이 등록되었습니다.');
       onPosted?.('public');
       focusEditor();
     },
     onError: (error) => {
       if (getComposerErrorTone(error.code) == null) {
-        toast.error(mapUnknownError(error).message);
+        notifyError(mapUnknownError(error).message);
       }
     },
   });
@@ -206,7 +207,7 @@ export function ReporterReplyComposer({
             <ReporterReplyToolbar
               editor={editor}
               onAttach={(file) => api.attach(file)}
-              onAttachError={(e) => toast.error(mapUnknownError(e).message)}
+              onAttachError={(e) => notifyError(mapUnknownError(e).message)}
             />
           </>
         )}

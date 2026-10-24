@@ -8,7 +8,8 @@ import { SAME_MANAGED_SYSTEM_VOC_LABEL, formatSameManagedSystemVocCount } from '
 export interface SimilarVocSectionProps {
   similar: VocDetailEnvelope['similar'] | undefined;
   similarCount: number | undefined;
-  onSelect: (vocId: string) => void;
+  /** Absent when the host cannot open another VOC here: the rows are drawn as plain text. */
+  onSelect?: ((vocId: string) => void) | undefined;
 }
 
 /** Keep the section, its anchor, and its navigation entry in lockstep. */
@@ -21,6 +22,45 @@ export function hasSimilarVocSection(
     similarCount !== undefined &&
     similarCount > 0 &&
     similar.items.length > 0
+  );
+}
+
+type SimilarItem = NonNullable<VocDetailEnvelope['similar']>['items'][number];
+
+function SimilarRow({
+  item,
+  index,
+  onSelect,
+}: {
+  item: SimilarItem;
+  index: number;
+  onSelect: SimilarVocSectionProps['onSelect'];
+}): React.ReactElement {
+  const rowClass = `flex w-full items-center gap-2 px-3 py-2.5 text-left ${
+    index > 0 ? 'border-t border-border-subtle' : ''
+  }`;
+  const content = (
+    <>
+      <span className="shrink-0 font-mono text-xs text-text-muted">{item.display_id}</span>
+      <span className="min-w-0 flex-1 truncate text-sm font-medium text-text-primary">
+        {item.title}
+      </span>
+      <span className="flex shrink-0 items-center gap-1.5">
+        {item.severity !== null && <SeverityBadge severity={item.severity} />}
+        <ReporterStatusBadge status={item.reporter_facing_status} />
+      </span>
+    </>
+  );
+  return onSelect === undefined ? (
+    <div className={rowClass}>{content}</div>
+  ) : (
+    <button
+      type="button"
+      className={`${rowClass} transition-colors hover:bg-surface-row-hover focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-border-selected`}
+      onClick={() => onSelect(item.id)}
+    >
+      {content}
+    </button>
   );
 }
 
@@ -50,23 +90,7 @@ export function SimilarVocSection({
       </div>
       <div className="overflow-hidden rounded-md bg-surface-canvas">
         {similar.items.slice(0, 3).map((item, index) => (
-          <button
-            key={item.id}
-            type="button"
-            className={`flex w-full items-center gap-2 px-3 py-2.5 text-left transition-colors hover:bg-surface-row-hover focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-border-selected ${
-              index > 0 ? 'border-t border-border-subtle' : ''
-            }`}
-            onClick={() => onSelect(item.id)}
-          >
-            <span className="shrink-0 font-mono text-xs text-text-muted">{item.display_id}</span>
-            <span className="min-w-0 flex-1 truncate text-sm font-medium text-text-primary">
-              {item.title}
-            </span>
-            <span className="flex shrink-0 items-center gap-1.5">
-              {item.severity !== null && <SeverityBadge severity={item.severity} />}
-              <ReporterStatusBadge status={item.reporter_facing_status} />
-            </span>
-          </button>
+          <SimilarRow key={item.id} item={item} index={index} onSelect={onSelect} />
         ))}
       </div>
     </section>

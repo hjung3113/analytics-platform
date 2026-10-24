@@ -1,13 +1,8 @@
-import { useMe } from '@/lib/auth/useMe';
-import { useVocDetail } from '@/lib/cross-system/useVocDetail';
-import { formatRecordDocumentTitle, useDocumentTitle } from '@/lib/router/document-title';
-import type { VocDetailEnvelope, VocSummaryEnvelope } from '@fops/shared';
-import { SkeletonBlocks } from '@fops/ui';
-import * as React from 'react';
+import type * as React from 'react';
 
-import { DetailPanelNotFound } from './DetailPanelNotFound';
 import { FullDetailView } from './FullDetailView';
 import { SummaryPermissionView } from './SummaryPermissionView';
+import { useVocDetailParts } from './useVocDetailParts';
 
 // ── Props ────────────────────────────────────────────────────────────────────
 
@@ -19,37 +14,9 @@ export interface VocDetailPanelProps {
   onClose: () => void;
 }
 
-// ── Type guards ──────────────────────────────────────────────────────────────
-
-/** A summary envelope has permission_decisions but no title field. */
-function isSummaryEnvelope(
-  data: VocDetailEnvelope | VocSummaryEnvelope,
-): data is VocSummaryEnvelope {
-  return !('title' in data);
-}
-
-// ── Loading skeleton ─────────────────────────────────────────────────────────
-
-function DetailPanelSkeleton(): React.ReactElement {
-  return (
-    <div className="flex flex-col gap-4 p-4" aria-label="VOC 상세 불러오는 중">
-      <SkeletonBlocks
-        blocks={[
-          { kind: 'title', size: 'small', width: 'third' },
-          { kind: 'line', width: 'full' },
-          { kind: 'line', width: 'two-thirds' },
-          { kind: 'body', size: 'compact', width: 'full' },
-          { kind: 'line', width: 'full' },
-          { kind: 'line', width: 'three-quarters' },
-          { kind: 'body', size: 'large', width: 'full' },
-        ]}
-      />
-    </div>
-  );
-}
-
 // ── Orchestrator ─────────────────────────────────────────────────────────────
 
+/** The standalone frame around the VOC detail parts (`useVocDetailParts`); the platform bridge frames the same parts itself. */
 export function VocDetailPanel({
   vocId,
   managedSystemId,
@@ -57,80 +24,35 @@ export function VocDetailPanel({
   // `null` while the scope-exit effect clears `selected`: rendering the old
   // record for that tick is the bug this panel is closing over.
 }: VocDetailPanelProps): React.ReactElement | null {
-  const { data, isLoading, isError, isSuccess, isFetching, error } = useVocDetail(vocId);
-  const documentTitleRecord =
-    isSuccess && !isFetching && data?.id === vocId && 'title' in data
-      ? formatRecordDocumentTitle({ displayId: data.display_id, title: data.title })
-      : null;
-  useDocumentTitle(documentTitleRecord);
-  const { data: me } = useMe();
-  const selectedScopeExcludesVoc =
-    managedSystemId !== undefined &&
-    !isLoading &&
-    !isError &&
-    data !== undefined &&
-    data.primary_managed_system_id !== managedSystemId;
+  const parts = useVocDetailParts({
+    vocId,
+    onClose,
+    ...(managedSystemId !== undefined ? { managedSystemId } : {}),
+  });
+  const { view } = parts;
 
-  React.useEffect(() => {
-    if (selectedScopeExcludesVoc) onClose();
-  }, [onClose, selectedScopeExcludesVoc]);
-
-  // 1. Loading
-  if (isLoading) {
-    return (
-      <div className="flex flex-col h-full overflow-y-auto">
-        <div className="h-toolbar shrink-0 border-b border-border-subtle flex items-center px-4">
-          <SkeletonBlocks blocks={[{ kind: 'line', width: 'w24' }]} />
+  switch (view.kind) {
+    case 'loading':
+      return (
+        <div className="flex flex-col h-full overflow-y-auto">
+          <div className="h-toolbar shrink-0 border-b border-border-subtle flex items-center px-4">
+            {parts.title}
+          </div>
+          {parts.body}
         </div>
-        <DetailPanelSkeleton />
-      </div>
-    );
+      );
+    case 'hidden':
+      return null;
+    case 'error':
+    case 'not-found':
+      return <>{parts.body}</>;
+    case 'summary':
+      return <SummaryPermissionView data={view.data} vocId={vocId} onClose={onClose} />;
+    case 'full':
+      return (
+        <FullDetailView key={view.voc.id} voc={view.voc} vocId={vocId} onClose={parts.requestClose}>
+          {parts.body}
+        </FullDetailView>
+      );
   }
-
-  // 2. Error — check 404 first
-  if (isError) {
-    const code = (error as { code?: string } | null)?.code;
-    if (code === 'not_found.record') {
-      return <DetailPanelNotFound onClearSelection={onClose} />;
-    }
-    return (
-      <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
-        <p className="text-sm text-text-danger">데이터를 불러오지 못했습니다.</p>
-      </div>
-    );
-  }
-
-  if (!data) {
-    return <DetailPanelNotFound onClearSelection={onClose} />;
-  }
-
-  if (selectedScopeExcludesVoc) {
-    return null;
-  }
-
-  // 3. Summary envelope — permission blocked
-  if (isSummaryEnvelope(data)) {
-    return <SummaryPermissionView data={data} vocId={vocId} onClose={onClose} />;
-  }
-
-  // 4. Full detail envelope
-  const voc: VocDetailEnvelope = data;
-  const isReporterOnOwnVoc = me?.actor.id === voc.reporter_id && voc.triage_state === 'untriaged';
-  // Raw Task DTOs are an operator-only surface. Identity uncertainty and every
-  // User role fail closed, including the reporter who owns this VOC.
-  const canRenderAllowedTask =
-    me?.actor.role_level === 'admin' || me?.actor.role_level === 'developer';
-
-  return (
-    <FullDetailView
-      key={voc.id}
-      voc={voc}
-      vocId={vocId}
-      onClose={onClose}
-      {...(managedSystemId !== undefined ? { managedSystemId } : {})}
-      isReporterOnOwnVoc={isReporterOnOwnVoc}
-      canRenderAllowedTask={canRenderAllowedTask}
-      me={me ?? null}
-    />
-  );
 }

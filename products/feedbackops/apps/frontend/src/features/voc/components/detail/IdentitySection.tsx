@@ -2,7 +2,7 @@
 // Managed System and source context live in the compact strip below the body.
 // Reference: docs/design-prototype/screen-voc.jsx overview panel title.
 
-import { useMe } from '@/lib/auth/useMe';
+import { useMeBridge } from '@/lib/api/me';
 import { GLOSSARY } from '@/lib/copy/glossary';
 import { useManagedSystem } from '@/lib/cross-system/useManagedSystem';
 import { formatRelativeTime } from '@/lib/format/datetime';
@@ -32,7 +32,7 @@ export function IdentitySection({
   voc,
   reporterDisplayName,
 }: IdentitySectionProps): React.ReactElement {
-  const { data: me } = useMe();
+  const { data: me } = useMeBridge();
   const resolvedReporterDisplayName =
     reporterDisplayName ??
     (me?.actor.id === voc.reporter_id ? me.actor.display_name : GLOSSARY.unknownUser);

@@ -51,6 +51,8 @@ export type HostSeam = {
   dismiss?: (id: string) => void;
   /** The current screen as an FeedbackOps path+query (+ hash), parseable against any origin. */
   useHere?: () => string;
+  /** An absolute URL for the FeedbackOps path `to` (copy-link actions), or `null` when this host has no address to give. */
+  absoluteHref?: (to: string) => string | null;
 };
 
 export type HostNavigate = (to: string, options?: { replace?: boolean }) => void;
