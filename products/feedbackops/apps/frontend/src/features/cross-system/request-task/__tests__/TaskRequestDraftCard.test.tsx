@@ -1,13 +1,16 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type * as React from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const useQueryMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@tanstack/react-query', () => ({ useQuery: useQueryMock }));
 
+import { registerAnchorLinkHost } from '@/test/anchor-link-host';
 import { TaskRequestDraftCard } from '../TaskRequestDraftCard';
+
+beforeAll(registerAnchorLinkHost);
 
 const sourceId = '22222222-2222-4222-8222-222222222222';
 

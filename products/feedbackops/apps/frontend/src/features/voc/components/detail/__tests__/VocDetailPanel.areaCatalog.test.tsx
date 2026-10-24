@@ -18,6 +18,9 @@ vi.mock('@tanstack/react-router', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@tanstack/react-router')>()),
   useNavigate: () => vi.fn(),
   useLocation: () => ({ pathname: '/vocs', href: '/vocs?view=inbox' }),
+  // CreateFindingModal reads its location through the host seam (tanstack-host `useRouterState`).
+  useRouterState: ({ select }: { select: (state: unknown) => unknown }) =>
+    select({ location: { pathname: '/vocs', searchStr: '?view=inbox', hash: '' } }),
 }));
 vi.mock('@/lib/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api')>()),
@@ -33,7 +36,11 @@ vi.mock('@/lib/api/task-requests', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api/task-requests')>()),
   fetchTaskRequests: fetchTaskRequestsMock,
 }));
-vi.mock('@/lib/api/analytics-areas', () => ({ fetchAnalyticsAreas }));
+vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/registry-reads')>()),
+  fetchAnalyticsAreas,
+}));
+
 vi.mock('@/lib/api/milestones', () => ({ listMilestones: vi.fn(async () => ({ items: [] })) }));
 vi.mock('@/lib/auth/useMe', () => ({ useMe: vi.fn() }));
 vi.mock('@/lib/cross-system/usePermissionCheck', () => ({ usePermissionCheck: vi.fn() }));

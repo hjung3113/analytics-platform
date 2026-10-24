@@ -13,6 +13,8 @@ export type OperatorRouteSpec = {
 };
 
 export type OperatorRoute = {
+  /** The FeedbackOps path this table stands for. */
+  foPath: string;
   /** The platform page keys the table maps. */
   pageKeys: readonly string[];
   /** The destination of an FO path+query, or `null` when any key is neither fixed nor mapped (the link stays unlinked rather than dropping state). */
@@ -46,6 +48,7 @@ export function operatorRoute({ foPath, foFixed, menuId, keys }: OperatorRouteSp
     return { menuId, page };
   };
   return {
+    foPath,
     pageKeys: Object.values(keys),
     target,
     toFoSearch(page) {
@@ -78,5 +81,17 @@ export function routeSearch(route: OperatorRoute) {
       }
       return route.toFoSearch(page);
     }, [pageParam]);
+  };
+}
+
+/** A module-level `useHere` hook for `FoBridge`: the current page as the FeedbackOps path+query of this route table. */
+export function routeHere(route: OperatorRoute) {
+  const useRouteSearch = routeSearch(route);
+  return function useRouteHere(): string {
+    const search = useRouteSearch();
+    const query = new URLSearchParams();
+    for (const [key, value] of Object.entries(search)) if (value !== '') query.set(key, value);
+    const text = query.toString();
+    return text === '' ? route.foPath : `${route.foPath}?${text}`;
   };
 }

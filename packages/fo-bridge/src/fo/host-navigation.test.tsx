@@ -11,7 +11,7 @@ import type { HostSeam } from '@fops/frontend/global-screens/core';
 import { setFoApi } from '../fo-api';
 import { FoBridge } from './FoBridge';
 import { hostLinks } from './links';
-import { operatorRoute, routeSearch } from './operator-route';
+import { operatorRoute, routeHere, routeSearch } from './operator-route';
 
 const space = testSpace({ homeMenuId: 'fo-inbox', carriedPageKeys: ['managedSystem'] });
 const menu = (id: string, path: string, pageKeys: string[], primary = false) => ({
@@ -29,6 +29,7 @@ const inbox = operatorRoute({ foPath: '/vocs', foFixed: { view: 'inbox' }, menuI
 const triage = operatorRoute({ foPath: '/vocs', foFixed: { view: 'triage' }, menuId: 'fo-triage', keys: { selected: 'focus' } });
 const { useNavigate } = hostLinks(inbox.target, triage.target);
 const useSearch = routeSearch(inbox);
+const useHere = routeHere(inbox);
 
 const session = testSession(['platform:view']);
 const adapter = testAdapter({ session: () => session });
@@ -116,7 +117,7 @@ describe('FoBridge seam', () => {
       go = usePlatform().navigate as unknown as (url: string) => void;
       return null;
     }
-    render(<FoBridge useNavigate={useNavigate} useSearch={useSearch}><Probe /></FoBridge>, { wrapper });
+    render(<FoBridge useNavigate={useNavigate} useSearch={useSearch} useHere={useHere}><Probe /></FoBridge>, { wrapper });
     await waitFor(() => expect(seams.length).toBeGreaterThan(0));
     act(() => go('/inbox?v=1&q=b'));
     act(() => go('/triage?v=1'));
@@ -125,6 +126,7 @@ describe('FoBridge seam', () => {
     expect(seams.every(seam => seam === first)).toBe(true);
     expect(first.useNavigate).toBe(useNavigate);
     expect(first.useSearch).toBe(useSearch);
+    expect(first.useHere).toBe(useHere);
   });
 
   it('defaults to a no-op navigate and an empty search', async () => {
@@ -136,12 +138,79 @@ describe('FoBridge seam', () => {
     await waitFor(() => expect(seam).toBeDefined());
     expect(seam.useSearch!()).toEqual({});
     expect(() => seam.useTitle!('x')).not.toThrow();
+    expect(seam.useHere!()).toBe('');
   });
 
   it('never registers a default host: a screen outside FoBridge still throws', () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     expect(() => renderHook(() => useHostSeam(), { wrapper })).toThrow('HostSeamProvider is missing');
     error.mockRestore();
+  });
+});
+
+describe('FoBridge seam notices', () => {
+  afterEach(() => setFoApi(null));
+
+  function mountSeam() {
+    setFoApi({ basePath: '/fo', onSessionLost: () => undefined });
+    at('/inbox?v=1');
+    const live = { seam: undefined as HostSeam | undefined, toasts: [] as ReturnType<typeof usePlatform>['toasts'] };
+    function Probe() {
+      live.seam = useHostSeam();
+      live.toasts = usePlatform().toasts;
+      return null;
+    }
+    render(<FoBridge><Probe /></FoBridge>, { wrapper });
+    return live;
+  }
+
+  // The kernel toast list is what the shell draws: its `action` is the one button, so calling it is the click.
+  it('notify with an action adds a kernel toast whose action runs onAction, and returns its id', async () => {
+    const live = mountSeam();
+    await waitFor(() => expect(live.seam).toBeDefined());
+    const onAction = vi.fn();
+    let id = '';
+    act(() => { id = live.seam!.notify!({ tone: 'warning', message: '충돌', description: '다시 불러오세요', action: { label: '다시 불러오기', onAction }, durationMs: 9000, variant: 'undo' }); });
+    expect(live.toasts).toHaveLength(1);
+    expect(live.toasts[0]).toMatchObject({ id: Number(id), text: '충돌', tone: 'warning', detail: '다시 불러오세요', action: { label: '다시 불러오기' } });
+    act(() => live.toasts[0]!.action!.onAction());
+    expect(onAction).toHaveBeenCalledOnce();
+  });
+
+  it.each([['success', 'info'], ['info', 'info'], ['warning', 'warning'], ['error', 'danger']] as const)('maps the %s tone to the kernel %s tone', async (tone, kernelTone) => {
+    const live = mountSeam();
+    await waitFor(() => expect(live.seam).toBeDefined());
+    act(() => { live.seam!.notify!({ tone, message: 'm' }); });
+    expect(live.toasts[0]).toMatchObject({ text: 'm', tone: kernelTone });
+    expect(live.toasts[0]!.action).toBeUndefined();
+  });
+
+  it('dismiss(id) removes that toast only', async () => {
+    const live = mountSeam();
+    await waitFor(() => expect(live.seam).toBeDefined());
+    let first = '';
+    act(() => { first = live.seam!.notify!({ tone: 'info', message: 'one' }); live.seam!.notify!({ tone: 'info', message: 'two' }); });
+    expect(live.toasts.map(toast => toast.text)).toEqual(['one', 'two']);
+    act(() => live.seam!.dismiss!(first));
+    expect(live.toasts.map(toast => toast.text)).toEqual(['two']);
+  });
+});
+
+describe('routeHere', () => {
+  it('is the FO path with the non-empty search of the current page, fixed keys first', () => {
+    at('/inbox?v=1&focus=abc&q=pump&unmapped=1');
+    const { result } = renderHook(() => routeHere(inbox)(), { wrapper });
+    expect(result.current).toBe('/vocs?view=inbox&selected=abc&q=pump');
+  });
+
+  it('follows the page when the URL changes', () => {
+    at('/inbox?v=1');
+    const { result } = renderHook(() => ({ here: useHere(), platform: usePlatform() }), { wrapper });
+    expect(result.current.here).toBe('/vocs?view=inbox');
+    // Same cast as the seam-identity test: a literal URL in a test is not menu code building a link.
+    const go = result.current.platform.navigate as unknown as (url: string) => void;
+    act(() => go('/inbox?v=1&q=b'));
+    expect(result.current.here).toBe('/vocs?view=inbox&q=b');
   });
 });
 

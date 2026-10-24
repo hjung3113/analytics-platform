@@ -15,15 +15,7 @@ export function formatDocumentTitle(label: string): string {
   return `${label} · ${DOCUMENT_TITLE_COPY.app}`;
 }
 
-export function formatRecordDocumentTitle(
-  record: { displayId: string; title: string } | null,
-): string | null {
-  if (record === null || record.displayId.trim() === '' || record.title.trim() === '') {
-    return null;
-  }
-
-  return `${record.displayId} · ${record.title}`;
-}
+export { formatRecordDocumentTitle } from '@/lib/host/document-title-format';
 
 function activeRegisteredTitle(): RegisteredTitle | null {
   let active: RegisteredTitle | null = null;

@@ -1,7 +1,9 @@
 import { useRouter } from '@tanstack/react-router';
+import { useCallback, useSyncExternalStore } from 'react';
 import { toast } from 'sonner';
 
 import type { HostLinkProps, HostSeam } from '@/lib/host/host-seam';
+import { sonnerDismiss, sonnerNotify } from '@/lib/host/sonner-notify';
 import { InternalLink } from '@/lib/router/InternalLink';
 import { useDocumentTitle } from '@/lib/router/document-title';
 
@@ -15,6 +17,21 @@ function useDashboardNavigate() {
 function useDashboardSearch() {
   // No router to read; the dashboard has no search of its own.
   return {};
+}
+
+function useDashboardHere() {
+  const router = useRouter({ warn: false });
+  // `useRouterState` needs a router; without one the dashboard has no location to report.
+  const subscribe = useCallback(
+    (onChange: () => void) => router?.subscribe('onResolved', onChange) ?? (() => undefined),
+    [router],
+  );
+  const getHere = useCallback(() => {
+    if (!router) return '';
+    const { pathname, searchStr, hash } = router.state.location;
+    return `${pathname}${searchStr}${hash === '' ? '' : `#${hash}`}`;
+  }, [router]);
+  return useSyncExternalStore(subscribe, getHere, getHere);
 }
 
 /**
@@ -33,4 +50,7 @@ export const standaloneDashboardHost: HostSeam = {
   useNavigate: useDashboardNavigate,
   useSearch: useDashboardSearch,
   useTitle: useDocumentTitle,
+  notify: sonnerNotify,
+  dismiss: sonnerDismiss,
+  useHere: useDashboardHere,
 };

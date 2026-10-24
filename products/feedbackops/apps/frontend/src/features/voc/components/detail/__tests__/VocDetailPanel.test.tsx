@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type * as React from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const apiClientMock = vi.hoisted(() => vi.fn());
 const fetchTaskRequestsMock = vi.hoisted(() => vi.fn(async () => ({ items: [] })));
@@ -25,6 +25,9 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
     ...actual,
     useNavigate: () => navigate,
     useLocation: () => ({ pathname: '/vocs', href: '/vocs?view=inbox' }),
+    // CreateFindingModal reads its location through the host seam (tanstack-host `useRouterState`).
+    useRouterState: ({ select }: { select: (state: unknown) => unknown }) =>
+      select({ location: { pathname: '/vocs', searchStr: '?view=inbox', hash: '' } }),
   };
 });
 vi.mock('@/lib/api', async (importOriginal) => {
@@ -44,7 +47,11 @@ vi.mock('@/lib/api/task-requests', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api/task-requests')>()),
   fetchTaskRequests: fetchTaskRequestsMock,
 }));
-vi.mock('@/lib/api/analytics-areas', () => ({ fetchAnalyticsAreas: vi.fn() }));
+vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/registry-reads')>()),
+  fetchAnalyticsAreas: vi.fn(),
+}));
+
 vi.mock('@/lib/auth/useMe', () => ({ useMe: vi.fn() }));
 vi.mock('@/lib/cross-system/usePermissionCheck', () => ({ usePermissionCheck: vi.fn() }));
 vi.mock('@fops/ui', async (importOriginal) => {
@@ -99,7 +106,10 @@ import { useManagedSystem } from '@/lib/cross-system/useManagedSystem';
 import { usePermissionCheck } from '@/lib/cross-system/usePermissionCheck';
 import { useVocDetail } from '@/lib/cross-system/useVocDetail';
 import { useWorkspaceActors } from '@/lib/cross-system/useWorkspaceActors';
+import { registerAnchorLinkHost } from '@/test/anchor-link-host';
 import { VocDetailPanel } from '../VocDetailPanel';
+
+beforeAll(registerAnchorLinkHost);
 import {
   DETAIL_ENVELOPE,
   ME_RESPONSE,

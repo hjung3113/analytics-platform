@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 
 import { useDocumentTitle } from '@/lib/router/document-title';
 import type { HostLinkProps, HostSeam } from './host-seam';
+import { sonnerDismiss, sonnerNotify } from './sonner-notify';
 
 function TanstackHostLink({ to, ...rest }: HostLinkProps) {
   const location = new URL(to, 'http://feedbackops.local');
@@ -27,6 +28,12 @@ function useTanstackSearch() {
   return Object.fromEntries(new URLSearchParams(searchStr));
 }
 
+function useTanstackHere() {
+  const location = useRouterState({ select: (state) => state.location });
+  // TanStack keeps the hash without its `#`.
+  return `${location.pathname}${location.searchStr}${location.hash === '' ? '' : `#${location.hash}`}`;
+}
+
 /** The standalone app's host: TanStack Router links and sonner toasts. */
 export const tanstackHost: HostSeam = {
   canLink: () => true,
@@ -40,4 +47,7 @@ export const tanstackHost: HostSeam = {
   useNavigate: useTanstackNavigate,
   useSearch: useTanstackSearch,
   useTitle: useDocumentTitle,
+  notify: sonnerNotify,
+  dismiss: sonnerDismiss,
+  useHere: useTanstackHere,
 };

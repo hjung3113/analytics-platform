@@ -32,7 +32,10 @@ vi.mock('@/features/admin/permissions/request-access-button', () => ({
 }));
 
 import { ApiParseError } from '@/lib/api';
+import { registerAnchorLinkHost } from '@/test/anchor-link-host';
 import { SurveyResultsSummary } from '../SurveyResultsSummary';
+
+beforeAll(registerAnchorLinkHost);
 
 beforeAll(() => {
   Element.prototype.scrollIntoView = vi.fn();

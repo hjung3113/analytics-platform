@@ -13,9 +13,9 @@ vi.mock('@tanstack/react-router', () => ({
     <a href={to}>{children}</a>
   ),
 }));
-vi.mock('@/lib/api/analytics-areas', () => ({ fetchAnalyticsAreas }));
 vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api/registry-reads')>()),
+  fetchAnalyticsAreas,
   fetchManagedSystems: vi.fn().mockResolvedValue({ items: [], total: 0 }),
 }));
 vi.mock('@/lib/cross-system/usePermissionCheck', () => ({

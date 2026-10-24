@@ -16,9 +16,11 @@ vi.mock('@/features/voc/hooks/usePublicUpdateReviewCandidates', () => ({
 vi.mock('@/features/voc/hooks/useRequestTaskFromVoc', () => ({
   useRequestTaskFromVoc: () => ({ isPending: false, mutate: vi.fn(), reset: vi.fn() }),
 }));
-vi.mock('@/lib/api/analytics-areas', () => ({
+vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/registry-reads')>()),
   fetchAnalyticsAreas: vi.fn(async () => ({ items: [], total: 0 })),
 }));
+
 vi.mock('@/lib/auth/useMe', () => ({ useMe: vi.fn() }));
 vi.mock('@tanstack/react-router', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@tanstack/react-router')>();

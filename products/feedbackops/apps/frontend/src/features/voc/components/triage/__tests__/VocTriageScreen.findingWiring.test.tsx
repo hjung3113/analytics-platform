@@ -11,7 +11,8 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type * as React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('@/lib/api/analytics-areas', () => ({
+vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/registry-reads')>()),
   fetchAnalyticsAreas: vi.fn(async () => ({ items: [], total: 0 })),
 }));
 

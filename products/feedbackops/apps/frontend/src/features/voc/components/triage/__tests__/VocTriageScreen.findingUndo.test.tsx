@@ -12,10 +12,15 @@ vi.mock('@tanstack/react-router', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@tanstack/react-router')>()),
   useNavigate: () => navigate,
   useLocation: () => ({ pathname: '/vocs', href: '/vocs?view=triage' }),
+  // CreateFindingModal reads its location through the host seam (tanstack-host `useRouterState`).
+  useRouterState: ({ select }: { select: (state: unknown) => unknown }) =>
+    select({ location: { pathname: '/vocs', searchStr: '?view=triage', hash: '' } }),
 }));
-vi.mock('@/lib/api/analytics-areas', () => ({
+vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/registry-reads')>()),
   fetchAnalyticsAreas: vi.fn(async () => ({ items: [], total: 0 })),
 }));
+
 vi.mock('sonner', () => ({
   toast: {
     custom: vi.fn((renderer: (id: string | number) => ReactNode) => {

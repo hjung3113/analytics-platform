@@ -145,3 +145,34 @@ describe('FeedbackOps operator dashboard entry graph (ADR-0071)', () => {
     expect(callers).toEqual(['lib/api/client.ts']);
   });
 });
+
+// The shared pieces no screen node owns (#761 h2) are walked one by one as their own roots: each must stay bridge-safe
+// whichever screen reaches it. `lib/router/document-title.tsx` keeps `useRouterState`; its pure formatter lives in lib/host.
+describe('FeedbackOps shared bridge pieces (ADR-0071)', () => {
+  const PIECES = [
+    'lib/attachments/useAttachmentUploadQueue.ts',
+    'lib/cross-system/analyticsAreasCatalog.ts',
+    'features/findings/hooks/useFindingsList.ts',
+    'features/admin/permissions/request-access-button.tsx',
+    'features/admin/permissions/permission-requests-search.ts',
+    'components/MyVocsRecoveryLink.tsx',
+    'features/voc/components/create/AttachmentDropzone.tsx',
+    'features/cross-system/create-finding/CreateFindingModal.tsx',
+    'features/cross-system/request-task/TaskRequestDraftCard.tsx',
+    'features/cross-system/progress-notes/ProgressNotesComposer.tsx',
+    'lib/host/document-title-format.ts',
+  ];
+  const banned = /^(?:routes|lib\/router|lib\/layout|lib\/auth)\/|^lib\/api\/(?:auth|index)\.ts$/;
+
+  it.each(PIECES)('%s reaches no router, route, layout, auth, api barrel, second fetch or sonner', piece => {
+    const piecePath = join(FRONTEND_SRC, piece);
+    expect(existsSync(piecePath)).toBe(true);
+    const walked = walk([piecePath]);
+    const paths = [...walked.files.keys()].map(file => relative(FRONTEND_SRC, file));
+    expect(walked.unresolved).toEqual([]);
+    expect(paths.filter(file => banned.test(file))).toEqual([]);
+    expect([...walked.specifiers].filter(specifier => /^@tanstack\/(react-)?router|^sonner$/.test(specifier))).toEqual([]);
+    const callers = [...walked.files].filter(([, text]) => /(?<![\w.])fetch\(/.test(text)).map(([file]) => relative(FRONTEND_SRC, file));
+    expect(callers.filter(file => file !== 'lib/api/client.ts')).toEqual([]);
+  });
+});

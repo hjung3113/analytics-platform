@@ -2,7 +2,7 @@ import { useMemo, type ComponentType, type ReactNode } from 'react';
 import { ServerOff } from 'lucide-react';
 import { useI18n, usePlatform } from '@ap/kernel';
 import { StateMessage } from '@ap/components';
-import { FoScreenRoot, type HostLinkProps, type HostNavigate, type HostSearch, type HostSeam } from '@fops/frontend/global-screens/core';
+import { FoScreenRoot, type HostLinkProps, type HostNavigate, type HostNotice, type HostSearch, type HostSeam } from '@fops/frontend/global-screens/core';
 import { foQueryClient, useFoSession } from './session';
 
 /** The default seam links nothing (backlog: 알림 목적지 연결); `Link` is the unreachable fallback, and a screen passes `canLink`/`Link` for the targets it can reach. */
@@ -21,12 +21,15 @@ const useNoNavigate = () => noNavigate;
 const noSearch: HostSearch = {};
 const useNoSearch = () => noSearch;
 const useNoTitle = (_title: string | null) => undefined;
+const useNoHere = () => '';
 
-/** `useNavigate`/`useSearch`/`useTitle` must be module-level hooks (stable identities): the seam is memoized on them, so a URL change never rebuilds it. */
-export function FoBridge({ children, canLink = noLink, Link = UnlinkedLink, useNavigate = useNoNavigate, useSearch = useNoSearch, useTitle = useNoTitle }: { children: ReactNode; canLink?: HostSeam['canLink']; Link?: ComponentType<HostLinkProps>; useNavigate?: () => HostNavigate; useSearch?: () => HostSearch; useTitle?: (title: string | null) => void }) {
+const TONE = { success: 'info', info: 'info', warning: 'warning', error: 'danger' } as const satisfies Record<HostNotice['tone'], 'info' | 'warning' | 'danger'>;
+
+/** `useNavigate`/`useSearch`/`useTitle`/`useHere` must be module-level hooks (stable identities): the seam is memoized on them, so a URL change never rebuilds it. */
+export function FoBridge({ children, canLink = noLink, Link = UnlinkedLink, useNavigate = useNoNavigate, useSearch = useNoSearch, useTitle = useNoTitle, useHere = useNoHere }: { children: ReactNode; canLink?: HostSeam['canLink']; Link?: ComponentType<HostLinkProps>; useNavigate?: () => HostNavigate; useSearch?: () => HostSearch; useTitle?: (title: string | null) => void; useHere?: () => string }) {
   const { lang } = useI18n();
   const ko = lang === 'ko';
-  const { toast } = usePlatform();
+  const { toast, dismissToast } = usePlatform();
   const session = useFoSession();
 
   const seam = useMemo<HostSeam>(() => ({
@@ -37,7 +40,12 @@ export function FoBridge({ children, canLink = noLink, Link = UnlinkedLink, useN
     useNavigate,
     useSearch,
     useTitle,
-  }), [canLink, Link, toast, useNavigate, useSearch, useTitle]);
+    // One look on the platform: `variant` is ignored, the action is the kernel toast's single button.
+    notify: ({ tone, message, description, action, durationMs }) =>
+      String(toast(message, TONE[tone], description, { ...(action ? { action } : {}), ...(durationMs !== undefined ? { durationMs } : {}) })),
+    dismiss: id => dismissToast(Number(id)),
+    useHere,
+  }), [canLink, Link, toast, dismissToast, useNavigate, useSearch, useTitle, useHere]);
 
   if (session.status === 'no-api') {
     return <StateMessage icon={<ServerOff className="size-4" aria-hidden />}

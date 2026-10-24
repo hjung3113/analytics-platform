@@ -16,9 +16,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 vi.mock('@/lib/cross-system/useWorkspaceActors', () => ({
   useWorkspaceActors: () => ({ actors: [] }),
 }));
-vi.mock('@/lib/api/analytics-areas', () => ({
+vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/registry-reads')>()),
   fetchAnalyticsAreas: vi.fn(async () => ({ items: [], total: 0 })),
 }));
+
 vi.mock('sonner', () => ({
   toast: {
     custom: vi.fn(() => 'toast-id'),

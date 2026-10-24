@@ -12,11 +12,11 @@
 
 import { errorMapper } from '@/lib/api/errorMapper';
 import type { ApiError } from '@/lib/api/types';
+import { useHostSeam } from '@/lib/host/host-seam';
 import { isTipTapDocBlank } from '@fops/shared';
 import { Button, RichEditor, type TipTapDoc, type TipTapEditor } from '@fops/ui';
 import { Bold, Code, Italic, Link, List } from 'lucide-react';
 import * as React from 'react';
-import { toast } from 'sonner';
 import { ComposerToolbarButton } from '../composer-editor/ComposerToolbarButton';
 import { promptForLink } from '../composer-editor/promptForLink';
 import { useComposerEditorFocus } from '../composer-editor/useComposerEditorFocus';
@@ -103,6 +103,7 @@ export function ProgressNotesComposer({
   // Copy follows the surface language: Finding panel is Korean, Task panel is
   // English (DESIGN-BRIEF-FE.md copy table).
   const copy = COMPOSER_COPY[resource.kind];
+  const { notifyError } = useHostSeam();
   const [draftDoc, setDraftDoc] = React.useState<TipTapDoc | null>(null);
   const editorRef = React.useRef<TipTapEditor | null>(null);
   const { editorHandle, focusEditor } = useComposerEditorFocus();
@@ -112,7 +113,7 @@ export function ProgressNotesComposer({
       setDraftDoc(null); // controlled value null clears the editor (REV-3)
       focusEditor();
     },
-    onError: (error: ApiError) => toast.error(errorMapper(error.envelope).message),
+    onError: (error: ApiError) => notifyError(errorMapper(error.envelope).message),
   });
 
   const isEmpty = draftDoc === null || isTipTapDocBlank(draftDoc);

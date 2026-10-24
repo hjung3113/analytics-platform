@@ -1,8 +1,11 @@
 // Whole-catalog reads over GET /analytics-areas. A separate module from the single-page client so
 // the walk goes through the exported `fetchAnalyticsAreas` (and a test can replace it).
 
-import { type AnalyticsAreaDto, fetchAnalyticsAreas } from './analytics-areas';
-import { walkAnalyticsAreaPages } from './registry-reads';
+import {
+  type AnalyticsAreaDto,
+  fetchAnalyticsAreas,
+  walkAnalyticsAreaPages,
+} from './registry-reads';
 
 /**
  * Walk every page of GET /analytics-areas (see `walkAnalyticsAreaPages`) through the exported
