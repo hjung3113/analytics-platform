@@ -3,7 +3,8 @@ import { mapUnknownError } from '@/lib/api/errorMapper';
 import { mintIdempotencyKey } from '@/lib/api/idempotency';
 import { ApiError } from '@/lib/api/types';
 import { CLUSTER_SUGGESTION_COPY as COPY } from '@/lib/copy/voc-cluster';
-import { InternalLink } from '@/lib/router/InternalLink';
+import { useHostNavigate, useHostNotice, useHostSeam, useHostSearch } from '@/lib/host/host-seam';
+import { searchHref } from '@/lib/host/search';
 import type {
   DiscardVocClusterSuggestionResponse,
   VocClusterSuggestionItem,
@@ -12,7 +13,6 @@ import type {
 import { Button, ObjectRow, PermissionBlockedPanel, SkeletonRows } from '@fops/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { toast } from 'sonner';
 import { clusterSuggestionsKey, useClusterSuggestions } from '../../hooks/useClusterSuggestions';
 import { useConfirmClusterSuggestion } from '../../hooks/useConfirmClusterSuggestion';
 import { useDiscardClusterSuggestion } from '../../hooks/useDiscardClusterSuggestion';
@@ -60,6 +60,15 @@ export function ClusterSuggestionSession({
 }) {
   const query = useClusterSuggestions(managedSystemId, actorContext);
   const client = useQueryClient();
+  const { notify } = useHostNotice();
+  const { canLink } = useHostSeam();
+  const navigate = useHostNavigate();
+  const search = useHostSearch();
+  // The host's hooks may return a new function or object each render; actOn feeds an effect, so it reads them here.
+  const host = useRef({ notify, canLink, navigate, search });
+  useEffect(() => {
+    host.current = { notify, canLink, navigate, search };
+  });
   const { mutateAsync: confirmSuggestion } = useConfirmClusterSuggestion();
   const { mutateAsync: discardSuggestion } = useDiscardClusterSuggestion();
   const { mutateAsync: restoreSuggestion } = useRestoreClusterSuggestion();
@@ -216,17 +225,20 @@ export function ClusterSuggestionSession({
           setNotice(null);
           const nextId = items.find((entry) => entry.id !== captured.id)?.id;
           setFocus(nextId ? { kind: 'row', id: nextId } : null);
-          toast.success(COPY.created, {
-            description: (
-              <InternalLink
-                href={`/voc-clusters/${result.voc_cluster_id}`}
-                ref={(node) => {
-                  if (node && alive.current) node.focus();
-                }}
-              >
-                {COPY.clusterLink}
-              </InternalLink>
-            ),
+          const clusterPath = `/voc-clusters/${result.voc_cluster_id}`;
+          const { notify, canLink, navigate, search } = host.current;
+          notify({
+            tone: 'success',
+            message: COPY.created,
+            action: {
+              label: COPY.clusterLink,
+              onAction: () =>
+                navigate(
+                  canLink(clusterPath)
+                    ? clusterPath
+                    : searchHref('/voc-clusters', { ...search, selected: result.voc_cluster_id }),
+                ),
+            },
           });
         } else if (action === 'discard') {
           const result = await discardSuggestion({

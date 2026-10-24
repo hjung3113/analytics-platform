@@ -3,7 +3,7 @@
 // by `q` and paged by an opaque cursor. gcTime 0: closing the picker drops the cache so a reopen
 // always starts from a fresh first page.
 
-import { apiRequest } from '@/lib/api';
+import { apiRequest } from '@/lib/api/client';
 import { ApiError, ApiParseError } from '@/lib/api/types';
 import { listSameManagedSystemCandidatePeersResponseSchema } from '@fops/shared';
 import type { ListSameManagedSystemCandidatePeersResponse } from '@fops/shared';

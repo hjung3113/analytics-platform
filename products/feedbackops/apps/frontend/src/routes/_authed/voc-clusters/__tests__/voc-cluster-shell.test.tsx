@@ -1,11 +1,15 @@
 import { ApiError } from '@/lib/api';
 import { FINDING_STATUS_LABELS } from '@/lib/copy/enum-labels';
+import { type HostSeam, registerDefaultHost } from '@/lib/host/host-seam';
 import { findingStatusSchema } from '@fops/shared';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type * as React from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const navigateMock = vi.fn();
+const hostNavigateMock = vi.fn();
+const hostNotifyError = vi.fn();
+const hostNotifySuccess = vi.fn();
 const addClusterMemberMutate = vi.hoisted(() => vi.fn());
 const candidateData = vi.hoisted(() => ({
   pages: [
@@ -92,121 +96,121 @@ vi.mock('@tanstack/react-query', () => ({
 vi.mock('@fops/ui', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@fops/ui')>();
   return {
-  ...actual,
-  cn: (...classes: Array<string | false | null | undefined>) => classes.filter(Boolean).join(' '),
-  Button: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
-    <button {...props}>{children}</button>
-  ),
-  DetailPanelHeader: ({
-    kind,
-    id,
-    onClose,
-  }: {
-    kind: string;
-    id: string;
-    onClose: () => void;
-  }) => (
-    <header data-testid="detail-panel-header" data-kind={kind}>
-      <span>{id}</span>
-      <button type="button" onClick={onClose}>
-        닫기
+    ...actual,
+    cn: (...classes: Array<string | false | null | undefined>) => classes.filter(Boolean).join(' '),
+    Button: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+      <button {...props}>{children}</button>
+    ),
+    DetailPanelHeader: ({
+      kind,
+      id,
+      onClose,
+    }: {
+      kind: string;
+      id: string;
+      onClose: () => void;
+    }) => (
+      <header data-testid="detail-panel-header" data-kind={kind}>
+        <span>{id}</span>
+        <button type="button" onClick={onClose}>
+          닫기
+        </button>
+      </header>
+    ),
+    DetailPanelSectionNav: ({
+      sections,
+    }: {
+      sections: Array<{ id: string; label: string }>;
+    }) => (
+      <nav>
+        {sections.map((section) => (
+          <span key={section.id}>{section.label}</span>
+        ))}
+      </nav>
+    ),
+    Dialog: ({
+      children,
+      open,
+    }: {
+      children: React.ReactNode;
+      open?: boolean;
+    }) => (open ? <>{children}</> : null),
+    DialogContent: ({ children, ...props }: { children: React.ReactNode }) => (
+      <div {...props}>{children}</div>
+    ),
+    DialogFooter: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+    DialogHeader: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+    DialogTitle: ({ children }: { children: React.ReactNode }) => <h2>{children}</h2>,
+    FieldLabel: ({ children }: { children: React.ReactNode }) => <label>{children}</label>,
+    FieldRow: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+    Input: (props: React.InputHTMLAttributes<HTMLInputElement>) => <input {...props} />,
+    Label: ({ children, ...props }: React.LabelHTMLAttributes<HTMLLabelElement>) => (
+      <label {...props}>{children}</label>
+    ),
+    ListShell: ({
+      toolbar,
+      list,
+      detailPanel,
+    }: {
+      toolbar?: { title: string; subtitle?: string; actions?: React.ReactNode };
+      list: React.ReactNode;
+      detailPanel?: React.ReactNode;
+    }) => (
+      <div data-shell="list">
+        {toolbar && (
+          <header data-testid="list-shell-toolbar">
+            <h1>{toolbar.title}</h1>
+            {toolbar.subtitle && <p>{toolbar.subtitle}</p>}
+            <div>{toolbar.actions}</div>
+          </header>
+        )}
+        <main>{list}</main>
+        <aside data-testid="list-shell-detail-slot">{detailPanel}</aside>
+      </div>
+    ),
+    ManagedSystemPill: ({ name }: { name: string }) => (
+      <span data-testid="managed-system-pill">{name}</span>
+    ),
+    ObjectRow: ({
+      id,
+      title,
+      badges,
+      meta,
+      selected,
+      onClick,
+    }: {
+      id?: string;
+      title: React.ReactNode;
+      badges?: React.ReactNode;
+      meta?: React.ReactNode;
+      selected?: boolean;
+      onClick?: React.MouseEventHandler<HTMLButtonElement>;
+    }) => (
+      <button
+        type="button"
+        data-testid={`cluster-row-${id}`}
+        data-selected={selected ? 'true' : 'false'}
+        onClick={onClick}
+      >
+        <span>{id}</span>
+        <span>{title}</span>
+        <span>{badges}</span>
+        <span>{meta}</span>
       </button>
-    </header>
-  ),
-  DetailPanelSectionNav: ({
-    sections,
-  }: {
-    sections: Array<{ id: string; label: string }>;
-  }) => (
-    <nav>
-      {sections.map((section) => (
-        <span key={section.id}>{section.label}</span>
-      ))}
-    </nav>
-  ),
-  Dialog: ({
-    children,
-    open,
-  }: {
-    children: React.ReactNode;
-    open?: boolean;
-  }) => (open ? <>{children}</> : null),
-  DialogContent: ({ children, ...props }: { children: React.ReactNode }) => (
-    <div {...props}>{children}</div>
-  ),
-  DialogFooter: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  DialogHeader: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  DialogTitle: ({ children }: { children: React.ReactNode }) => <h2>{children}</h2>,
-  FieldLabel: ({ children }: { children: React.ReactNode }) => <label>{children}</label>,
-  FieldRow: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  Input: (props: React.InputHTMLAttributes<HTMLInputElement>) => <input {...props} />,
-  Label: ({ children, ...props }: React.LabelHTMLAttributes<HTMLLabelElement>) => (
-    <label {...props}>{children}</label>
-  ),
-  ListShell: ({
-    toolbar,
-    list,
-    detailPanel,
-  }: {
-    toolbar?: { title: string; subtitle?: string; actions?: React.ReactNode };
-    list: React.ReactNode;
-    detailPanel?: React.ReactNode;
-  }) => (
-    <div data-shell="list">
-      {toolbar && (
-        <header data-testid="list-shell-toolbar">
-          <h1>{toolbar.title}</h1>
-          {toolbar.subtitle && <p>{toolbar.subtitle}</p>}
-          <div>{toolbar.actions}</div>
-        </header>
-      )}
-      <main>{list}</main>
-      <aside data-testid="list-shell-detail-slot">{detailPanel}</aside>
-    </div>
-  ),
-  ManagedSystemPill: ({ name }: { name: string }) => (
-    <span data-testid="managed-system-pill">{name}</span>
-  ),
-  ObjectRow: ({
-    id,
-    title,
-    badges,
-    meta,
-    selected,
-    onClick,
-  }: {
-    id?: string;
-    title: React.ReactNode;
-    badges?: React.ReactNode;
-    meta?: React.ReactNode;
-    selected?: boolean;
-    onClick?: React.MouseEventHandler<HTMLButtonElement>;
-  }) => (
-    <button
-      type="button"
-      data-testid={`cluster-row-${id}`}
-      data-selected={selected ? 'true' : 'false'}
-      onClick={onClick}
-    >
-      <span>{id}</span>
-      <span>{title}</span>
-      <span>{badges}</span>
-      <span>{meta}</span>
-    </button>
-  ),
-  OutlineBadge: ({ children, ...props }: { children: React.ReactNode }) => (
-    <span {...props}>{children}</span>
-  ),
-  PanelSectionTitle: ({ children }: { children: React.ReactNode }) => <h3>{children}</h3>,
-  ReporterStatusBadge: ({ status }: { status: string }) => (
-    <span data-testid={`reporter-status-${status}`}>{status}</span>
-  ),
-  SeverityBadge: ({ severity }: { severity: string }) => <span>{severity}</span>,
-  PageShell: ({ children }: { children: React.ReactNode }) => (
-    <div data-shell="page">{children}</div>
-  ),
-  Skeleton: (props: React.HTMLAttributes<HTMLDivElement>) => <div {...props} />,
-  Textarea: (props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) => <textarea {...props} />,
+    ),
+    OutlineBadge: ({ children, ...props }: { children: React.ReactNode }) => (
+      <span {...props}>{children}</span>
+    ),
+    PanelSectionTitle: ({ children }: { children: React.ReactNode }) => <h3>{children}</h3>,
+    ReporterStatusBadge: ({ status }: { status: string }) => (
+      <span data-testid={`reporter-status-${status}`}>{status}</span>
+    ),
+    SeverityBadge: ({ severity }: { severity: string }) => <span>{severity}</span>,
+    PageShell: ({ children }: { children: React.ReactNode }) => (
+      <div data-shell="page">{children}</div>
+    ),
+    Skeleton: (props: React.HTMLAttributes<HTMLDivElement>) => <div {...props} />,
+    Textarea: (props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) => <textarea {...props} />,
   };
 });
 
@@ -410,20 +414,38 @@ vi.mock('@/features/cross-system/request-task/TaskRequestDraftCard', () => ({
   },
 }));
 
-vi.mock('@/lib/auth/useMe', () => ({
-  useMe: () => ({ data: { actor: currentRole } }),
+vi.mock('@/lib/api/me', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/me')>()),
+  useMeBridge: () => ({ data: { actor: currentRole } }),
 }));
 
-vi.mock('@/lib/api', async () => {
-  const actual = await vi.importActual<typeof import('@/lib/api')>('@/lib/api');
-  return {
-    ...actual,
-    fetchManagedSystems: vi.fn(),
-    useIdempotencyKey: () => ({ key: 'idem-key', markConsumed: vi.fn() }),
-  };
-});
+vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/registry-reads')>()),
+  fetchManagedSystems: vi.fn(),
+}));
 
-vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock('@/lib/api/useIdempotencyKey', () => ({
+  useIdempotencyKey: () => ({ key: 'idem-key', markConsumed: vi.fn() }),
+}));
+
+// The screens reach navigation, links and notices through the host seam; this seam records them (the router mock
+// above has no useRouter/useRouterState for tanstackHost).
+const testHost: HostSeam = {
+  canLink: () => true,
+  Link: ({ to, children, ...rest }) => (
+    <a href={to} {...(rest as object)}>
+      {children}
+    </a>
+  ),
+  notifyError: hostNotifyError,
+  notifySuccess: hostNotifySuccess,
+  useNavigate: () => hostNavigateMock,
+  useSearch: () => urlSearch as Record<string, string>,
+  useTitle: () => {},
+  notify: () => 'notice',
+  dismiss: () => {},
+  useHere: () => '/voc-clusters',
+};
 
 vi.mock('react-hook-form', () => ({
   useForm: () => ({
@@ -438,8 +460,11 @@ vi.mock('react-hook-form', () => ({
 vi.mock('@hookform/resolvers/zod', () => ({ zodResolver: vi.fn() }));
 
 describe('VOC cluster route shells', () => {
+  beforeAll(() => registerDefaultHost(testHost));
+
   beforeEach(() => {
     navigateMock.mockClear();
+    hostNavigateMock.mockClear();
     addClusterMemberMutate.mockClear();
     linkFindingMutate.mockClear();
     listQueryState.status = 'success';
@@ -496,19 +521,14 @@ describe('VOC cluster route shells', () => {
     expect(screen.getByTestId('cluster-row-CLU-31')).toBeInTheDocument();
     // The first-load default selection (replace navigate) already fired on
     // mount; only the row click's push is asserted below.
-    navigateMock.mockClear();
+    hostNavigateMock.mockClear();
 
     fireEvent.click(screen.getByTestId('cluster-row-CLU-31'));
 
-    expect(navigateMock).toHaveBeenCalledTimes(1);
-    const navOptions = navigateMock.mock.calls[0]?.[0] as {
-      to: string;
-      search: (prev: Record<string, unknown>) => Record<string, unknown>;
-    };
-    expect(navOptions.to).toBe('/voc-clusters');
-    expect(navOptions.search({})).toEqual({
-      selected: '11111111-1111-1111-1111-111111111111',
-    });
+    expect(hostNavigateMock).toHaveBeenCalledTimes(1);
+    expect(hostNavigateMock).toHaveBeenCalledWith(
+      '/voc-clusters?selected=11111111-1111-1111-1111-111111111111',
+    );
   });
 
   it('renders the detail route inside the same ListShell toolbar and detail framing', async () => {

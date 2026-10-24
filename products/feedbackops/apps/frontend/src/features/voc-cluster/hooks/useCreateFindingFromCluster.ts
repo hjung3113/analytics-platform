@@ -1,7 +1,8 @@
 // useCreateFindingFromCluster — POST /voc-clusters/:id/create-finding.
 // Mirrors useCreateFindingFromVocMutation shape; apiClient auto-mints Idempotency-Key.
 
-import { type ApiError, apiClient } from '@/lib/api';
+import { apiClient } from '@/lib/api/client';
+import type { ApiError } from '@/lib/api/types';
 import { invalidateNavCounts } from '@/lib/query/navCounts';
 import { invalidateRecovery } from '@/lib/query/recovery';
 import type { CreateFindingRequest, FindingDto } from '@fops/shared';
@@ -18,14 +19,10 @@ export function useCreateFindingFromCluster(args?: {
   const queryClient = useQueryClient();
   return useMutation<FindingDto, ApiError, CreateFindingFromClusterVariables>({
     mutationFn: async ({ clusterId, body }) => {
-      const res = await apiClient<FindingDto>(
-        'POST',
-        `/voc-clusters/${clusterId}/create-finding`,
-        {
-          body,
-          ...(args?.idempotencyKey ? { idempotencyKey: args.idempotencyKey } : {}),
-        },
-      );
+      const res = await apiClient<FindingDto>('POST', `/voc-clusters/${clusterId}/create-finding`, {
+        body,
+        ...(args?.idempotencyKey ? { idempotencyKey: args.idempotencyKey } : {}),
+      });
       return res.data;
     },
     onSuccess: () => {

@@ -75,6 +75,12 @@ vi.mock('@/lib/auth/useMe', () => ({
   useMe: () => ({ data: { actor: { id: 'actor-1', role_level: 'admin' } } }),
 }));
 
+// The cluster panel reads the session through lib/api/me (761c).
+vi.mock('@/lib/api/me', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/me')>()),
+  useMeBridge: () => ({ data: { actor: { id: 'actor-1', role_level: 'admin' } } }),
+}));
+
 vi.mock('@/lib/cross-system/usePermissionCheck', () => ({
   usePermissionCheck: () => ({ data: { state: 'approved' } }),
 }));
@@ -159,13 +165,27 @@ vi.mock('@/lib/api', async (importOriginal) => {
 });
 
 // useVocDetail imports the client module directly (bridge-safe graph, #654), not the barrel mocked above.
-vi.mock('@/lib/api/client', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/lib/api/client')>()),
-  apiClient: vi.fn(async (_method: string, path: string) => {
-    const id = path.split('/').at(-1) ?? '';
-    return { data: await readResults.resolveRead(readResults.vocs, id) };
-  }),
-}));
+vi.mock('@/lib/api/client', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/api/client')>();
+  return {
+    ...actual,
+    // The cluster hooks import the client module directly (761c), like useVocDetail.
+    apiRequest: (async (method: string, path: string, ...rest: unknown[]) => {
+      const [collection, id] = path.split('/').slice(1);
+      if (collection !== 'voc-clusters')
+        return (actual.apiRequest as (...args: unknown[]) => Promise<unknown>)(
+          method,
+          path,
+          ...rest,
+        );
+      return { data: await readResults.resolveRead(readResults.clusters, id ?? '') };
+    }) as typeof actual.apiRequest,
+    apiClient: vi.fn(async (_method: string, path: string) => {
+      const id = path.split('/').at(-1) ?? '';
+      return { data: await readResults.resolveRead(readResults.vocs, id) };
+    }),
+  };
+});
 
 vi.mock('@/lib/api/milestones', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/api/milestones')>();

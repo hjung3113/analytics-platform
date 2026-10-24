@@ -1,7 +1,8 @@
 // useVocClusterList — react-query wrapper for GET /voc-clusters.
 // Optional managed_system_id filter mirrors the backend query param.
 
-import { ApiParseError, apiRequest } from '@/lib/api';
+import { apiRequest } from '@/lib/api/client';
+import { ApiParseError } from '@/lib/api/types';
 import { listVocClustersResponseSchema } from '@fops/shared';
 import type { ListVocClustersResponse } from '@fops/shared';
 import { type UseQueryResult, useQuery } from '@tanstack/react-query';

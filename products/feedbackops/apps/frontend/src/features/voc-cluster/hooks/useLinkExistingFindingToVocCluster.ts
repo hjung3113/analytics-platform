@@ -1,15 +1,12 @@
 // useLinkExistingFindingToVocCluster — command-only association that refreshes
 // the cluster detail so its backend-authorized linked_findings are rendered.
 
-import {
-  useMutation,
-  useQueryClient,
-  type UseMutationResult,
-} from "@tanstack/react-query";
-import type { LinkedFindingDto } from "@fops/shared";
+import type { LinkedFindingDto } from '@fops/shared';
+import { type UseMutationResult, useMutation, useQueryClient } from '@tanstack/react-query';
 
-import { apiClient, type ApiError } from "@/lib/api";
-import { invalidateNavCounts } from "@/lib/query/navCounts";
+import { apiClient } from '@/lib/api/client';
+import type { ApiError } from '@/lib/api/types';
+import { invalidateNavCounts } from '@/lib/query/navCounts';
 import { invalidateRecovery } from '@/lib/query/recovery';
 
 export interface LinkExistingFindingToVocClusterVariables {
@@ -19,22 +16,16 @@ export interface LinkExistingFindingToVocClusterVariables {
 
 export function useLinkExistingFindingToVocCluster(args?: {
   idempotencyKey?: string;
-}): UseMutationResult<
-  LinkedFindingDto,
-  ApiError,
-  LinkExistingFindingToVocClusterVariables
-> {
+}): UseMutationResult<LinkedFindingDto, ApiError, LinkExistingFindingToVocClusterVariables> {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ clusterId, findingId }) => {
       const response = await apiClient<LinkedFindingDto>(
-        "POST",
+        'POST',
         `/voc-clusters/${clusterId}/link-finding`,
         {
           body: { finding_id: findingId },
-          ...(args?.idempotencyKey
-            ? { idempotencyKey: args.idempotencyKey }
-            : {}),
+          ...(args?.idempotencyKey ? { idempotencyKey: args.idempotencyKey } : {}),
         },
       );
       return response.data;
@@ -43,7 +34,7 @@ export function useLinkExistingFindingToVocCluster(args?: {
       invalidateRecovery(queryClient);
       invalidateNavCounts(queryClient);
       await queryClient.invalidateQueries({
-        queryKey: ["voc-cluster", clusterId],
+        queryKey: ['voc-cluster', clusterId],
       });
     },
   });

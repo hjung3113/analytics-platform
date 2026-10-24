@@ -1,10 +1,11 @@
 // useConfirmCluster — PATCH /voc-clusters/:id { status: 'confirmed' }.
 // Invalidates the cluster detail and list queries on success.
 
-import { useMutation, useQueryClient, type UseMutationResult } from '@tanstack/react-query';
-import { apiClient, type ApiError } from '@/lib/api';
-import type { VocClusterDto } from '@fops/shared';
+import { apiClient } from '@/lib/api/client';
+import type { ApiError } from '@/lib/api/types';
 import { invalidateNavCounts } from '@/lib/query/navCounts';
+import type { VocClusterDto } from '@fops/shared';
+import { type UseMutationResult, useMutation, useQueryClient } from '@tanstack/react-query';
 
 export function useConfirmCluster(): UseMutationResult<VocClusterDto, ApiError, string> {
   const qc = useQueryClient();

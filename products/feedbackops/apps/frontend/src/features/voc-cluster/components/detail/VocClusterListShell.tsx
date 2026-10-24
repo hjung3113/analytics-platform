@@ -6,8 +6,8 @@
 import { ListStateMessage } from '@/components/ListStateMessage';
 import { useVocClusterDetail } from '@/features/voc-cluster/hooks/useVocClusterDetail';
 import { useVocClusterList } from '@/features/voc-cluster/hooks/useVocClusterList';
-import { isPermissionDenied } from '@/lib/api';
-import { useMe } from '@/lib/auth/useMe';
+import { useMeBridge } from '@/lib/api/me';
+import { isPermissionDenied } from '@/lib/api/types';
 import { PERMISSION_BLOCKED_REASONS } from '@/lib/copy/permission-reasons';
 import { CLUSTER_SUGGESTION_COPY } from '@/lib/copy/voc-cluster';
 import { formatShortDate } from '@/lib/format/datetime';
@@ -52,7 +52,7 @@ export function VocClusterListShell({
 }): React.ReactElement {
   const listQuery = useVocClusterList(managedSystemId);
   const clusters = listQuery.data?.items ?? [];
-  const { data: me } = useMe();
+  const { data: me } = useMeBridge();
   const eligible = me?.actor.role_level === 'admin' || me?.actor.role_level === 'developer';
   const actorContext = clusterSuggestionActorContext(me);
   const suggestionsQuery = useClusterSuggestions(managedSystemId, actorContext, eligible);

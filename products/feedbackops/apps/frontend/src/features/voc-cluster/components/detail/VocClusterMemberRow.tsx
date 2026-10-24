@@ -1,7 +1,7 @@
 import { FINDING_SEVERITY_LABELS } from '@/lib/copy/enum-labels';
+import { HostLink } from '@/lib/host/host-seam';
 import { shortId } from '@/lib/identity';
 import { Button, ReporterStatusBadge, cn } from '@fops/ui';
-import { Link } from '@tanstack/react-router';
 import { Trash2 } from 'lucide-react';
 import type * as React from 'react';
 import type { VocClusterMemberPresentation } from '../types';
@@ -50,14 +50,13 @@ export function VocClusterMemberRow({
     >
       <div className="min-w-0">
         <div className="truncate text-sm text-text-primary">
-          <Link
-            to="/vocs"
-            search={{ view: 'inbox', selected: member.voc_id }}
+          <HostLink
+            to={`/vocs?view=inbox&selected=${member.voc_id}`}
             className="text-accent-primary underline underline-offset-2 hover:text-accent-primary/80"
             data-testid={`cluster-member-link-${member.voc_id}`}
           >
             {display.primary}
-          </Link>
+          </HostLink>
         </div>
         <p className="text-xs text-text-muted">
           {display.secondary ?? shortId(member.voc_id)}

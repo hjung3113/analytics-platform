@@ -1,5 +1,6 @@
 import { ATTACHMENT_FALLBACK_LABEL } from '@/lib/copy/attachments';
 import { CLUSTER_SUGGESTION_COPY as COPY } from '@/lib/copy/voc-cluster';
+import { HostLink } from '@/lib/host/host-seam';
 import { type VocClusterSuggestionItem, isTipTapDocStructurallyEmpty } from '@fops/shared';
 import {
   Button,
@@ -8,7 +9,6 @@ import {
   RichContentRenderer,
   type TipTapDoc,
 } from '@fops/ui';
-import { Link } from '@tanstack/react-router';
 import { type RefObject, useEffect, useRef } from 'react';
 
 export function ClusterSuggestionPanel({
@@ -57,13 +57,12 @@ export function ClusterSuggestionPanel({
             {item.vocs.map((voc) => (
               <section key={voc.id} className="flex flex-col gap-3">
                 <PanelSectionTitle>
-                  <Link
-                    to="/vocs"
-                    search={{ view: 'inbox', selected: voc.id }}
+                  <HostLink
+                    to={`/vocs?view=inbox&selected=${voc.id}`}
                     className="text-accent-primary underline underline-offset-2 hover:text-accent-primary/80"
                   >
                     {voc.display_id}
-                  </Link>
+                  </HostLink>
                 </PanelSectionTitle>
                 <h3 className="text-sm font-medium text-text-primary">{voc.title}</h3>
                 {!isTipTapDocStructurallyEmpty(voc.description_rich_content) ? (

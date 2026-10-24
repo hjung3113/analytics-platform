@@ -14,6 +14,10 @@ vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => (config: unknown) => config,
   useNavigate: () => vi.fn(),
   useSearch: () => ({}),
+  // tanstackHost (the default host) reads these for the screen's search.
+  useRouter: () => ({ navigate: vi.fn() }),
+  useRouterState: ({ select }: { select: (state: unknown) => unknown }) =>
+    select({ location: { pathname: '/voc-clusters', searchStr: '', hash: '' } }),
 }));
 
 vi.mock('@tanstack/react-query', () => ({
@@ -63,8 +67,8 @@ vi.mock('@/features/voc-cluster/hooks/useCreateVocCluster', () => ({
   useCreateVocCluster: () => ({ mutate: mocks.createCluster, reset: vi.fn(), isPending: false }),
 }));
 
-vi.mock('@/lib/auth/useMe', () => ({
-  useMe: () => ({ data: { actor: { role_level: 'developer' } } }),
+vi.mock('@/lib/api/me', () => ({
+  useMeBridge: () => ({ data: { actor: { role_level: 'developer' } } }),
 }));
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn() } }));
