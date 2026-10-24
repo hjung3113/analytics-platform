@@ -1,7 +1,7 @@
 // DetailHeader — panel header wired with the canonical VOC URL.
 
-import { searchHref } from '@/lib/host/search';
 import { useHostSeam } from '@/lib/host/host-seam';
+import { searchHref } from '@/lib/host/search';
 import { DetailPanelHeader, DetailPanelHeaderActions } from '@fops/ui';
 import type * as React from 'react';
 

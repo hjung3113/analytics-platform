@@ -32,8 +32,8 @@ import { extractMentions } from '@/features/cross-system/mentions/extractMention
 import { insertMention } from '@/features/cross-system/mentions/insertMention';
 import { useVocInternalCommentMutation } from '@/features/voc/hooks/useVocInternalCommentMutation';
 import { mapUnknownError } from '@/lib/api/errorMapper';
-import { uploadRichEditorAttachment } from '@/lib/attachments/rich-editor-upload';
 import type { MeResponse } from '@/lib/api/me';
+import { uploadRichEditorAttachment } from '@/lib/attachments/rich-editor-upload';
 import { useHostSeam } from '@/lib/host/host-seam';
 import { type VocDetailEnvelope, isTipTapDocBlank } from '@fops/shared';
 import type { TipTapDoc, TipTapEditor } from '@fops/ui';

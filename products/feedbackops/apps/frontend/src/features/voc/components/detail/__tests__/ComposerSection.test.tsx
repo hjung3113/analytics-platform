@@ -6,10 +6,10 @@
 //   3. [REV-1 #7] switching tabs preserves draft state (drafts survive tab switches)
 //   4. [REV-1 #6] onDirtyChange callback is called when a composer becomes dirty
 
-import { render, screen, fireEvent, act } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { fireEvent, render, screen } from '@testing-library/react';
 import * as React from 'react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/features/voc/hooks/useComposerVisibility', () => ({
   useComposerVisibility: vi.fn(),
@@ -39,8 +39,8 @@ vi.mock('@fops/ui', async (importActual) => {
 
 import { useComposerVisibility } from '@/features/voc/hooks/useComposerVisibility';
 import { useMeBridge } from '@/lib/api/me';
-import { ComposerSection } from '../ComposerSection';
 import type { VocDetailEnvelope } from '@fops/shared';
+import { ComposerSection } from '../ComposerSection';
 
 const REPORTER_ID = '00000000-0000-0000-0000-000000000001';
 

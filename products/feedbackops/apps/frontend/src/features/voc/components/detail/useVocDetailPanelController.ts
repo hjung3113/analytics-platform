@@ -8,6 +8,8 @@ import { useIdempotencyKey } from '@/lib/api/useIdempotencyKey';
 import { analyticsAreasCatalogQuery } from '@/lib/cross-system/analyticsAreasCatalog';
 import { usePermissionCheckBridge } from '@/lib/cross-system/usePermissionCheckBridge';
 import { useWorkspaceActors } from '@/lib/cross-system/useWorkspaceActors';
+import { useHostNavigate, useHostSeam, useHostSearch } from '@/lib/host/host-seam';
+import { searchHref } from '@/lib/host/search';
 import type {
   CreateTaskRequestRequest,
   EntityLinkDto,
@@ -16,8 +18,6 @@ import type {
 } from '@fops/shared';
 import { useQuery } from '@tanstack/react-query';
 import * as React from 'react';
-import { useHostNavigate, useHostSearch, useHostSeam } from '@/lib/host/host-seam';
-import { searchHref } from '@/lib/host/search';
 import { hasSimilarVocSection } from './SimilarVocSection';
 
 type AllowedEntityLink = Extract<EntityLinkDto, { visibility_state: 'allowed' }>;

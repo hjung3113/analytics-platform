@@ -39,12 +39,12 @@
 
 import { useComposerEditorFocus } from '@/features/cross-system/composer-editor/useComposerEditorFocus';
 import { useVocReporterReplyMutation } from '@/features/voc/hooks/useVocReporterReplyMutation';
-import type { ApiError } from '@/lib/api/types';
 import { mapUnknownError } from '@/lib/api/errorMapper';
-import { uploadRichEditorAttachment } from '@/lib/attachments/rich-editor-upload';
 import type { MeResponse } from '@/lib/api/me';
-import { useHostSeam } from '@/lib/host/host-seam';
+import type { ApiError } from '@/lib/api/types';
+import { uploadRichEditorAttachment } from '@/lib/attachments/rich-editor-upload';
 import { VOC_REPLY_COPY } from '@/lib/copy/voc';
+import { useHostSeam } from '@/lib/host/host-seam';
 import { type VocDetailEnvelope, isTipTapDocBlank } from '@fops/shared';
 import { Callout, PreviewModal, RichEditor } from '@fops/ui';
 import type { TipTapDoc } from '@fops/ui';

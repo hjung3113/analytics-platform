@@ -67,11 +67,11 @@ import {
   useReporterStatusTransitions,
 } from '@/features/voc/hooks/useReporterStatusTransitions';
 import { useVocPublicUpdateMutation } from '@/features/voc/hooks/useVocPublicUpdateMutation';
-import type { ApiError } from '@/lib/api/types';
 import { mapUnknownError } from '@/lib/api/errorMapper';
 import type { MeResponse } from '@/lib/api/me';
-import { useHostSeam } from '@/lib/host/host-seam';
+import type { ApiError } from '@/lib/api/types';
 import { REPORTER_STATUS_LABELS } from '@/lib/copy/reporter-status-labels';
+import { useHostSeam } from '@/lib/host/host-seam';
 import {
   type ReporterFacingStatusEnum,
   type VocDetailEnvelope,

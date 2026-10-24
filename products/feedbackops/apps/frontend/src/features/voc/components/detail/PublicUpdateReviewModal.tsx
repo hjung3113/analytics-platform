@@ -6,6 +6,7 @@ import { mapUnknownError } from '@/lib/api/errorMapper';
 import { GLOSSARY } from '@/lib/copy/glossary';
 import { REPORTER_STATUS_LABELS } from '@/lib/copy/reporter-status-labels';
 import { formatDate } from '@/lib/format/datetime';
+import { useHostSeam } from '@/lib/host/host-seam';
 import type { ReporterFacingStatusEnum, VocDetailEnvelope } from '@fops/shared';
 import {
   Button,
@@ -25,7 +26,6 @@ import {
   Textarea,
 } from '@fops/ui';
 import { useEffect, useState } from 'react';
-import { useHostSeam } from '@/lib/host/host-seam';
 
 const STATUSES: ReporterFacingStatusEnum[] = [
   'received',

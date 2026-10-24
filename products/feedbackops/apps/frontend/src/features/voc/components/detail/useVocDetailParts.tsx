@@ -1,17 +1,17 @@
 import { useMeBridge } from '@/lib/api/me';
 import { useVocDetail } from '@/lib/cross-system/useVocDetail';
 import type { DetailParts } from '@/lib/host/detail-parts';
-import { useHostTitle } from '@/lib/host/host-seam';
 import { formatRecordDocumentTitle } from '@/lib/host/document-title-format';
+import { useHostTitle } from '@/lib/host/host-seam';
 import type { VocDetailEnvelope, VocSummaryEnvelope } from '@fops/shared';
 import { SkeletonBlocks } from '@fops/ui';
 import * as React from 'react';
 
-import { DetailPanelNotFound } from './DetailPanelNotFound';
 import { VocHeaderActions } from './DetailHeader';
+import { DetailPanelNotFound } from './DetailPanelNotFound';
 import { SummaryPermissionBody } from './SummaryPermissionView';
-import { useDetailCloseGuard } from './useDetailCloseGuard';
 import { VocDetailBody } from './VocDetailBody';
+import { useDetailCloseGuard } from './useDetailCloseGuard';
 
 export interface UseVocDetailPartsArgs {
   vocId: string;
