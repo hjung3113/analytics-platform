@@ -6,7 +6,7 @@ import { HW_TIME_CONTEXT, hwTime } from './endpoints';
 
 describe('manifest', () => {
   it('declares the steps menu first in its group and passes createRegistry', () => {
-    expect(manifests).toHaveLength(2);
+    expect(manifests).toHaveLength(3);
     const menu = manifests[0];
     expect(menu.id).toBe('hw-time-steps');
     expect(menu.primary).toBe(true);

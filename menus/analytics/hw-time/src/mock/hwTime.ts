@@ -167,8 +167,8 @@ function validateTrend(rowIds: string[]): string | null {
 function subItemTrend(equipmentNumber: number, subItem: number): number[] {
   const seed = equipmentNumber * 4 + subItem - 1;
   const subItemIndex = subItem - 1;
-  const total = MODULE_IDS.reduce((sum, module) => sum + MOTION_IDS.reduce((inner, _motion, motionIndex) =>
-    inner + (motionValue(equipmentNumber, subItemIndex, module, motionIndex) ?? 0), 0), 0);
+  const total = MODULE_IDS.reduce((sum, module) => sum + MOTION_IDS.reduce((inner, motion, motionIndex) =>
+    inner + (hasRecords(module, motion) ? motionValue(equipmentNumber, subItemIndex, module, motionIndex) ?? 0 : 0), 0), 0);
   return Array.from({ length: 8 }, (_, dayIndex) => dayIndex === 7 ? total : total * (1 + (((seed * 37 + dayIndex * 53) % 301) - 150) / 1_000));
 }
 
