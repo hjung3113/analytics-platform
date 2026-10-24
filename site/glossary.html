@@ -30,25 +30,45 @@
     </header>
     <main>
       <section class="content-section" aria-labelledby="glossary-heading">
-        <div class="section-head"><p class="section-label">용어</p><h1 id="glossary-heading">분석 플랫폼 용어</h1><p class="section-lead">소개 페이지에서 사용하는 용어를 정의합니다.</p></div>
+        <div class="section-head"><p class="section-label">용어</p><h1 id="glossary-heading">분석 플랫폼 용어</h1><p class="section-lead">소개 페이지에서 사용하는 용어를 설명합니다. 용어 이름과 뜻은 저장소의 <a href="https://github.com/hjung3113/analytics-platform/blob/main/GLOSSARY.md">GLOSSARY.md</a>를 따릅니다.</p></div>
         <dl class="glossary-list">
-          <dt id="work-system">업무 시스템</dt><dd>플랫폼 위의 독립 업무 단위로, 고유 메뉴와 업무 객체를 소유합니다. <a class="source-ref" href="index.html#source-L114">근거 L114</a></dd>
-          <dt id="menu">메뉴</dt><dd>Menu Registry에 선언하는 업무 화면으로, 이름·경로·권한·기능을 가집니다. <a class="source-ref" href="index.html#source-L114">근거 L114</a></dd>
-          <dt id="main-screen">본 화면</dt><dd>메뉴를 눌러 여는 보통의 화면이며, URL 하나와 분석 Context 하나를 가집니다. <a class="source-ref" href="index.html#source-L114">근거 L114</a></dd>
-          <dt id="analysis-board">분석 보드</dt><dd>여러 분석 화면을 나란히 두고 비교하는 셸 제공 화면으로, 업무 시스템과 Page Archetype에 속하지 않습니다. <a class="source-ref" href="index.html#source-L114">근거 L114</a></dd>
-          <dt id="sheet">시트</dt><dd>분석 보드 아래의 탭 하나로, 칸의 배치와 화면들을 가집니다. <a class="source-ref" href="index.html#source-L114">근거 L114</a></dd>
-          <dt id="pane">칸</dt><dd>시트의 그리드 한 자리로, 메뉴 화면 하나와 그 화면의 분석 Context·page 상태를 가집니다. <a class="source-ref" href="index.html#source-L114">근거 L114</a></dd>
-          <dt id="analysis-context">분석 Context</dt><dd>화면 하나가 따르는 분석 조건 전체로, 목적지 객체 ID와 구분합니다. <a class="source-ref" href="index.html#source-L114">근거 L114</a></dd>
-          <dt id="default-condition">기본 조건</dt><dd>새 칸이 처음 받는 분석 Context이며, 복사로 시작하고 이후에는 상속하지 않습니다. <a class="source-ref" href="index.html#source-L114">근거 L114</a></dd>
+          <dt id="platform">플랫폼</dt><dd>업무 시스템들이 얹히는 공통 기반입니다. 셸·Kernel·공통 컴포넌트·차트 계약·페이지 유형·메뉴 간 연결을 제공하고, 업무 화면 자체는 소유하지 않습니다. <a class="source-ref" href="index.html#source-L137">근거 L137</a></dd>
+          <dt id="work-system">업무 시스템</dt><dd>플랫폼 위에 올라가는 독립된 업무 단위로, 자기 메뉴 그룹·메뉴·업무 객체와 진입 권한을 소유하고 다른 시스템의 객체를 흡수하지 않습니다. 지금 등록된 것은 MARS·CLAS(생산성 분석), BRAVO(지표관리), 표준 로그 개발, 개선 실행, 운영 콘솔입니다. 피드백 운영은 계획입니다. CLAS는 Cycle Loss Analysis System의 줄임이고, 메뉴가 달라 MARS와 별도 시스템입니다. <a class="source-ref" href="index.html#source-L137">근거 L137</a></dd>
+          <dt id="platform-menu">플랫폼 메뉴</dt><dd>어느 업무 시스템에도 속하지 않고 자기 권한으로만 열리는 메뉴로, 홈·알림·내 VOC·설문·권한 요청·공지가 있습니다. 전역 화면에서는 사이드바로, 업무 시스템 안에서는 전환기 팝오버로 열며, 접근 가능한 업무 시스템 수에는 들지 않습니다. <a class="source-ref" href="index.html#source-L137">근거 L137</a></dd>
+          <dt id="system-rail">시스템 레일</dt><dd>셸 맨 왼쪽의 세로 띠입니다. 위에서부터 전환기, 현재 업무 시스템의 메뉴 그룹(섹션), 시스템을 바꿔도 그대로인 공통 도구(메뉴 검색·분석 보드·VOC 등록·알림), 도움말·사용자 순으로 놓입니다. <a class="source-ref" href="index.html#source-L137">근거 L137</a></dd>
+          <dt id="switcher">전환기</dt><dd>시스템 레일 맨 위 버튼과 그 팝오버입니다. 위쪽은 플랫폼 메뉴, 아래쪽은 권한 있는 업무 시스템 카드입니다. <a class="source-ref" href="index.html#source-L137">근거 L137</a></dd>
+          <dt id="menu">메뉴</dt><dd>Registry에 등록된 진입점 하나로, 경로·권한·Context 지원 방식·페이지 유형을 선언하고 메뉴 화면 하나를 엽니다. 화면이 아직 없는 메뉴는 예정 메뉴이며 사이드바에 <code>예정</code>으로 보이고 열리지 않습니다. <a class="source-ref" href="index.html#source-L137">근거 L137</a></dd>
+          <dt id="server-adapter">서버 어댑터</dt><dd>플랫폼이 서버와 주고받는 계약 함수 묶음입니다. 앱이 mock이나 실서버 구현을 주입하고, Kernel·셸·메뉴는 구현을 모릅니다. <a class="source-ref" href="index.html#source-L137">근거 L137</a></dd>
+          <dt id="sdk">SDK</dt><dd>업무 시스템과 제품이 받아 쓰는 플랫폼 공개 패키지 묶음입니다(<code>@ap/contracts</code>·<code>@ap/ui</code>·<code>@ap/kernel</code>·<code>@ap/components</code>·<code>@ap/shell</code>). 하나의 묶음 버전으로 릴리스합니다. <a class="source-ref" href="index.html#source-L137">근거 L137</a></dd>
+          <dt id="detail-panel">상세 패널</dt><dd>메뉴 화면 오른쪽에 목적지 객체 하나의 상세를 여는 셸 자리입니다. 분석 보드에서는 새 칸의 상세가 이전 칸의 상세를 닫습니다. <a class="source-ref" href="index.html#source-L137">근거 L137</a></dd>
+          <dt id="site">Site</dt><dd>공장이 위치한 최상위 물리 조직 단위로, 여러 room_name과 Line을 포함합니다. Site별로 물리 DB가 분리돼 있어 Site는 DB 연결 경계이고, 사이트는 MEM(메모리)·FDRY(파운드리)입니다(예시 데이터). <a class="source-ref" href="index.html#source-L137">근거 L137</a></dd>
+          <dt id="line">Line</dt><dd>Site 내부의 실제 생산 라인입니다. room_name과 교차하는 독립 조회축이며 권한 레벨이나 상위 접근 범위가 아니고, 하나의 room_name이나 StGroup이 여러 Line에 걸칠 수 있습니다. <a class="source-ref" href="index.html#source-L137">근거 L137</a></dd>
+          <dt id="scope">Scope</dt><dd>사용자가 조회 한 번에 고르는 단일 접근 범위로, 단위는 Site입니다. 그 Site 안에서는 부여된 room_name만 보이고, 서버가 요청마다 권한을 다시 검증합니다. <a class="source-ref" href="index.html#source-L137">근거 L137</a></dd>
+          <dt id="room-name">공정 (room_name)</dt><dd>설비가 속한 공정의 이름(예: PHOTO, ETCH)이자 Site 안 권한과 조회의 기준 축입니다. 같은 room_name이 여러 Site에 있을 수 있고, 화면 이름은 <code>공정</code>입니다. <a class="source-ref" href="index.html#source-L137">근거 L137</a></dd>
+          <dt id="analysis-context">분석 Context</dt><dd>화면 하나가 따르는 분석 조건 전체로, 기간·Scope·설비 그룹·지표 같은 공통 키의 값입니다. 본 화면에는 하나, 분석 보드에는 칸마다 하나 있고, 목적지 객체 ID와 구분하며, 메뉴를 옮겨도 이어지는 공통 키 집합은 <b>전역 Context</b>라 합니다. <a class="source-ref" href="index.html#source-L137">근거 L137</a></dd>
+          <dt id="context-bar">Context 바</dt><dd>메뉴 화면 위에서 전역 Context(분석 보드에서는 선택된 칸의 분석 Context)를 보이고 바꾸는 셸 자리입니다. <a class="source-ref" href="index.html#source-L137">근거 L137</a></dd>
+          <dt id="main-screen">본 화면</dt><dd>메뉴를 눌러 여는 보통의 메뉴 화면입니다. URL 하나가 화면 하나이고, 분석 Context가 하나뿐인 칸으로 봅니다. <a class="source-ref" href="index.html#source-L137">근거 L137</a></dd>
+          <dt id="analysis-board">분석 보드</dt><dd>사용자가 여러 분석 화면을 나란히 놓고 비교하는 셸 제공 화면입니다. 페이지 유형이 아니고 업무 시스템에 속하지 않으며, 시트 여러 장을 가집니다. <a class="source-ref" href="index.html#source-L137">근거 L137</a></dd>
+          <dt id="sheet">시트</dt><dd>분석 보드 화면 아래 시트 띠에 놓인 한 장입니다. 칸을 4개까지 가지며, 칸은 탭으로 겹치거나 나누어 놓입니다. <a class="source-ref" href="index.html#source-L137">근거 L137</a></dd>
+          <dt id="pane">칸</dt><dd>시트의 자리 하나로, 메뉴 화면 하나와 그 화면의 분석 Context·page 상태를 가집니다. 만들 때 기본 조건을 복사해 시작하고, 그 뒤로는 다른 칸과 연결이 없습니다. <a class="source-ref" href="index.html#source-L137">근거 L137</a></dd>
+          <dt id="default-condition">기본 조건</dt><dd>새 칸이 처음 받는 분석 Context입니다. <code>분석 보드에 열기</code>로 넣으면 누른 화면의 조건, 보드에서 직접 넣으면 마지막으로 본 본 화면의 조건이며, 복사일 뿐 상속이 아닙니다. <a class="source-ref" href="index.html#source-L137">근거 L137</a></dd>
+          <dt id="work-area">작업 영역</dt><dd>메뉴 화면 한 장 안에서 내용을 여러 패널로 나누어 놓는 영역입니다. 패널을 탭으로 겹치고, 끌어 옮기고, 나누고, 최대화하고, 숨길 수 있으며, 메뉴는 패널·프리셋·기본 패널만 선언하고 조작은 플랫폼이 맡습니다. <a class="source-ref" href="index.html#source-L137">근거 L137</a></dd>
+          <dt id="page-head">페이지 머리</dt><dd>메뉴 화면 제목 줄 아래, 본문 위의 영역입니다. 메뉴가 넘긴 안내와 페이지 필터·칩이 놓이고, 화면 높이를 가득 쓰는 화면에서는 한 줄로 접힐 수 있습니다. <a class="source-ref" href="index.html#source-L137">근거 L137</a></dd>
+          <dt id="panel">패널</dt><dd>작업 영역을 이루는 조각 하나입니다. 제목(탭 이름)을 가지며 차트·표·요약 같은 내용 하나를 담고, 예로 사이클타임 상세의 추세·요약·분포·느린 실행이 있습니다. <a class="source-ref" href="index.html#source-L137">근거 L137</a></dd>
+          <dt id="panel-group">묶음</dt><dd>작업 영역에서 패널 여러 개가 한 자리를 탭으로 나누어 쓰는 단위입니다. 한 번에 패널 하나만 보이고 묶음 위 띠의 탭으로 바꿉니다. <a class="source-ref" href="index.html#source-L137">근거 L137</a></dd>
+          <dt id="tab">탭 (작업 영역)</dt><dd>묶음 위 띠에 붙은 패널 이름표입니다. 누르면 그 패널이 보이고, 끌면 패널을 다른 자리로 옮기며, 띠 오른쪽에 최대화와 <code>⋯</code> 동작 메뉴가 있습니다. <a class="source-ref" href="index.html#source-L137">근거 L137</a></dd>
+          <dt id="height-mode">높이 방식</dt><dd>작업 영역이 세로 방향을 쓰는 방법을 고르는 선택입니다. 도구줄과 칸 <code>⋯</code> 메뉴의 라디오 묶음이고 작업 영역마다 저장하며, <code>화면 맞춤</code>(기본)과 <code>아래로 쌓기</code> 두 가지입니다. <a class="source-ref" href="index.html#source-L137">근거 L137</a></dd>
+          <dt id="fit-screen">화면 맞춤</dt><dd>높이 방식의 하나입니다. 패널이 보이는 화면 높이를 나눠 쓰고, 한 경계를 옮기면 이웃이 함께 변합니다. <a class="source-ref" href="index.html#source-L137">근거 L137</a></dd>
+          <dt id="stack-down">아래로 쌓기</dt><dd>높이 방식의 하나입니다. 줄마다 자기 높이(px)를 갖고 작업 영역이 줄의 합만큼 커져 페이지가 스크롤되며, 경계는 그 위 줄만 바꿉니다. <a class="source-ref" href="index.html#source-L137">근거 L137</a></dd>
+          <dt id="row">줄</dt><dd><code>아래로 쌓기</code>에서 작업 영역 맨 위 단계의 가로 한 층입니다. 한 줄에 패널이 나란히 여럿 있을 수 있고 줄이 높이의 단위이며, <code>아래 새 줄로 옮기기</code>가 새 줄을 만듭니다. <a class="source-ref" href="index.html#source-L137">근거 L137</a></dd>
+          <dt id="preset">프리셋</dt><dd>메뉴가 미리 선언한 작업 영역 배치입니다. 도구줄에서 고르고, <code>기본 배치</code>는 지금 프리셋의 처음 모양으로 되돌립니다. 사이클타임 상세는 <code>기본</code>·<code>집중</code>·<code>세로</code> 세 가지입니다. <a class="source-ref" href="index.html#source-L137">근거 L137</a></dd>
+          <dt id="voc-drawer">VOC 등록 드로어</dt><dd>시스템 레일의 <code>VOC 등록</code>으로 여는 오른쪽 도킹 드로어입니다. 지금 화면을 떠나지 않고 VOC를 쓸 수 있습니다. <a class="source-ref" href="index.html#source-L137">근거 L137</a></dd>
+          <dt id="voc-register">VOC 등록 · 신고자</dt><dd>VOC를 처음 쓰는 동작은 <code>등록</code>이고, 등록한 사람은 <code>신고자</code>(FeedbackOps Reporter)입니다. 신고자에게 보이는 담당자의 글은 <code>담당자 답변</code>(Public Update), 신고자가 다시 쓰는 글은 <code>신고자 답글</code>(Reporter Reply)입니다. <a class="source-ref" href="index.html#source-L137">근거 L137</a></dd>
+          <dt id="feedbackops-task">FeedbackOps Task</dt><dd>Managed System 하나를 위한 내부 실행 작업이며, 요청 단계는 Task Request입니다. 로그 결함·검증 Round, 개선 과제·실적, 지표 정의·버전과 이름이 비슷해도 다른 객체이고 관계만 링크합니다. <a class="source-ref" href="index.html#source-L137">근거 L137</a></dd>
           <dt id="deep-link">딥링크</dt><dd>조건과 화면 위치를 URL에 담아 해당 화면을 다시 여는 링크입니다. <a class="source-ref" href="index.html#source-L114">근거 L114</a></dd>
-          <dt id="site">Site</dt><dd>공장이 위치한 최상위 물리 조직 단위이며, 여러 room_name과 Line을 포함합니다. <a class="source-ref" href="index.html#source-L114">근거 L114</a></dd>
-          <dt id="room-name">공정 (room_name)</dt><dd>설비가 속한 공정의 이름(예: PHOTO, ETCH)이자 Site 안의 권한·조회 범위 기준입니다. <a class="source-ref" href="index.html#source-L114">근거 L114</a></dd>
-          <dt id="line">Line</dt><dd>Site 안의 생산 라인으로, room_name과 교차하는 독립 조회축입니다. <a class="source-ref" href="index.html#source-L114">근거 L114</a></dd>
-          <dt id="scope">Scope</dt><dd>한 번의 조회에 선택하는 접근·조회 범위로, Site 안의 room_name 기준으로 부여되고 서버가 재검증합니다. <a class="source-ref" href="index.html#source-L114">근거 L114</a></dd>
           <dt id="audit">Audit</dt><dd>행위·대상·시각과 변경 내용을 공통 형식으로 기록하고 조회하는 감사 이력입니다. <a class="source-ref" href="index.html#source-L114">근거 L114</a></dd>
           <dt id="correlation-id">추적 번호</dt><dd>화면 오류와 오류 보고를 연결해 확인하는 Correlation ID입니다. <a class="source-ref" href="index.html#source-L114">근거 L114</a></dd>
           <dt id="voc">VOC</dt><dd>FeedbackOps가 다루는 사용자 의견·개선 요청으로, 관련 업무 시스템과 화면 링크를 함께 전달할 수 있습니다. <a class="source-ref" href="index.html#source-L114">근거 L114</a></dd>
-          <dt id="feedbackops-task">FeedbackOps Task</dt><dd>제품 개선·개발 요청을 처리하는 공통 협업 객체입니다. 업무 객체와는 이름이 비슷해도 다른 객체이며 관계만 링크합니다. <a class="source-ref" href="index.html#source-L114">근거 L114</a></dd>
         </dl>
       </section>
     </main>
