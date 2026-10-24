@@ -20,14 +20,23 @@ import { formatTrendKey, parseTrendKey } from '../../shared/trendKey';
 const SORTS: readonly StackSort[] = ['total-desc', 'total-asc'];
 const EMPTY_BLOCK: HwTimeBlock = { series: [], rows: [], totals: { values: {}, total: null } };
 
-/** One preset per level (a level's panels differ, so each level has its own `persistKey`). The trend row is about 28% at every level (its empty state sits inside it); `revealRequest` only activates the tab. */
+/**
+ * Trend row height (#690i UX-3). The confirmed compare captures give the trend row about 40% of the workspace, so every level uses [60, 40].
+ * The trend Frame needs toolbar + legend + canvas = about 239px at its 160px floor (`COMPARE_TREND_FILL_MIN`, the least the Frame accepts).
+ * A 40% row gives a content box of about 202px in the 505px fit body at 1440×900 and about 164px in the 410px body at 1280×800. The rest
+ * scrolls inside the panel (06 §12.8: the card grows and the panel body scrolls), and maximizing the panel shows the chart whole. Going above
+ * 40% makes the stacks above unreadable. Fitting it fully needs a compact Frame chrome for short panels (`.planning/backlog.md`).
+ */
+const COMPARE_TREND_FILL_MIN = 160;
+
+/** One preset per level (a level's panels differ, so each level has its own `persistKey`). The trend row is about 40% at every level (its empty state sits inside it); `revealRequest` only activates the tab. */
 const PRESETS: Record<'l1' | 'l2' | 'l3', PanelWorkspaceLayout> = {
-  l1: { type: 'branch', dir: 'column', sizes: [72, 28], children: [{ type: 'group', panels: ['stack'] }, { type: 'group', panels: ['trend'] }] },
-  l2: { type: 'branch', dir: 'column', sizes: [72, 28], children: [
+  l1: { type: 'branch', dir: 'column', sizes: [60, 40], children: [{ type: 'group', panels: ['stack'] }, { type: 'group', panels: ['trend'] }] },
+  l2: { type: 'branch', dir: 'column', sizes: [60, 40], children: [
     { type: 'branch', dir: 'row', sizes: [28, 72], children: [{ type: 'group', panels: ['ranking'] }, { type: 'group', panels: ['stack'] }] },
     { type: 'group', panels: ['trend'] },
   ] },
-  l3: { type: 'branch', dir: 'column', sizes: [72, 28], children: [
+  l3: { type: 'branch', dir: 'column', sizes: [60, 40], children: [
     { type: 'branch', dir: 'row', sizes: [50, 50], children: [{ type: 'group', panels: ['context'] }, { type: 'group', panels: ['detail'] }] },
     { type: 'group', panels: ['trend'] },
   ] },
@@ -170,7 +179,7 @@ export default function ComparePage(_props: PageProps) {
     badge: trendRows.length > 0 ? { count: trendRows.length, description: { ko: `추세에 ${trendRows.length}행`, en: `${trendRows.length} rows in the trend` } } : undefined,
     render: () => <div className="flex h-full min-h-0 flex-col gap-1 p-2">
       {notice && <p role="status" className="t-caption text-text-warning-label">{notice}</p>}
-      <TrendPanel chartId="hw-compare-trend" title={ko ? '행별 일 추세' : 'Daily trend by row'} rowIds={trendRows} query={trendQ} level={drill.depth} />
+      <TrendPanel chartId="hw-compare-trend" title={ko ? '행별 일 추세' : 'Daily trend by row'} rowIds={trendRows} query={trendQ} level={drill.depth} fillMin={COMPARE_TREND_FILL_MIN} />
     </div>,
   };
 

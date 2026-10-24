@@ -282,18 +282,6 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const equalIds = useMemo(() => (horizontal && p.minMax ? equalSeriesIds(displayed, isPointSelectable) : undefined), [horizontal, p.minMax, displayed, isPointSelectable]);
   const points = useMemo(() => pointControls ? displayed.flatMap(s => s.points.map(([x, value]) => ({ x, seriesId: s.id, value })).filter(point => isPointSelectable?.(point) ?? true)) : [], [pointControls, displayed, isPointSelectable]);
   const selectedPoint = points.find(point => pointKey(point) === selectedPointKey) ?? points[0];
-  // An outside change of the active row moves the selected point (selector and `지점 동작` target) to that row: the selected series if its point there is selectable, else the row's first selectable point. A change this frame reported already selected that row, so it does not move again. `null` leaves the selection; focus never moves.
-  const appliedActive = useRef<string | null>(null);
-  useEffect(() => {
-    if (activeCategory == null) { appliedActive.current = null; return; }
-    if (appliedActive.current === activeCategory) return;
-    const inRow = points.filter(point => point.x === activeCategory);
-    if (inRow.length === 0) return;
-    appliedActive.current = activeCategory;
-    if (selectedPoint?.x === activeCategory) return;
-    const target = inRow.find(point => point.seriesId === selectedPoint?.seriesId) ?? inRow[0]!;
-    setSelectedPointKey(pointKey(target));
-  }, [activeCategory, points, selectedPoint, setSelectedPointKey]);
   const actionsFor = useCallback((point: ChartPoint): readonly ChartPointAction[] => (typeof pointActions === 'function' ? pointActions(point) : pointActions ?? []), [pointActions]);
   const selectedActions = useMemo(() => (selectedPoint ? actionsFor(selectedPoint) : []), [selectedPoint, actionsFor]);
   const noActions = hasPointActions && selectedActions.length === 0;
@@ -321,9 +309,21 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   }, [closeEditor, onVisibleSeriesChange, allSeries, resetPoint, rangeActions]);
   // Global Context changes invalidate local selection (it described the previous result).
   const contextKey = JSON.stringify(global);
-  useEffect(() => { rangeActions.contextReset(); closeEditor(); cancelDelete(); resetPoint();
+  const appliedActive = useRef<string | null>(null);
+  useEffect(() => { rangeActions.contextReset(); closeEditor(); cancelDelete(); resetPoint(); appliedActive.current = null;
   }, [contextKey, closeEditor, cancelDelete, resetPoint, rangeActions]);
   useAnnotationDeleteFocus(editor, { annotateButton, brushToggle });
+  // An outside change of the active row moves the selected point (selector and `지점 동작` target) to that row: the selected series if its point there is selectable, else the row's first selectable point. A change this frame reported already selected that row, so it does not move again. It runs after the Context reset below, so a row set at mount (a URL) or kept across a reset is not cleared by it. `null` leaves the selection; focus never moves.
+  useEffect(() => {
+    if (activeCategory == null) { appliedActive.current = null; return; }
+    if (appliedActive.current === activeCategory) return;
+    const inRow = points.filter(point => point.x === activeCategory);
+    if (inRow.length === 0) return;
+    appliedActive.current = activeCategory;
+    if (selectedPoint?.x === activeCategory) return;
+    const target = inRow.find(point => point.seriesId === selectedPoint?.seriesId) ?? inRow[0]!;
+    setSelectedPointKey(pointKey(target));
+  }, [activeCategory, points, selectedPoint, setSelectedPointKey]);
 
   const timeBounds = useMemo(() => (xType === 'time' ? timeBoundaries(p.series, global.from, global.to) : []), [xType, p.series, global.from, global.to]);
   const showKeyboard = xType === 'time' && global.to !== null && timeBounds.length >= 2;

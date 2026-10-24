@@ -224,6 +224,24 @@ describe('outside active row moves the selected point (#690i UX-2)', () => {
   });
 });
 
+describe('active row that is already set moves the selected point (#690i UX-5)', () => {
+  const picked = () => (screen.getByRole('combobox', { name: '차트 지점 선택' }) as HTMLSelectElement).selectedOptions[0]!.textContent ?? '';
+  const activation = { on: 'click' as const, onActivate: () => {} };
+
+  it('selects the active row when it is set at mount', async () => {
+    mount({ pointActivation: activation, activeCategory: 'R3' });
+    await screen.findByRole('img');
+    expect(picked()).toContain('R3');
+  });
+
+  it('selects the active row when the points arrive after the first render', async () => {
+    const view = mount({ pointActivation: activation, activeCategory: 'R3', series: [] });
+    view.update({ series: rows });
+    await screen.findByRole('img');
+    expect(picked()).toContain('R3');
+  });
+});
+
 describe('category labels without rowPitch (#690i UX-4)', () => {
   const axisLabel = () => (plotOption().yAxis as unknown as { axisLabel: { interval: unknown } }).axisLabel;
   it('thins labels out automatically; a row pitch keeps every label', async () => {

@@ -192,6 +192,15 @@ describe('Inspector rail (icon column + peek)', () => {
     expect(mounts).toEqual({ legend: 1 });
   });
 
+  it('shows the section title as a visible heading that names the peek dialog', async () => {
+    render(railShell());
+    fireEvent.click(header('범례'));
+    const dialog = await screen.findByRole('dialog', { name: '범례' });
+    const heading = within(dialog).getByRole('heading', { name: '범례' });
+    expect(dialog).toHaveAttribute('aria-labelledby', heading.id);
+    expect(dialog.firstElementChild).toBe(heading);
+  });
+
   it('closes the peek with Escape and returns focus to the same button', async () => {
     render(railShell());
     const button = header('범례');

@@ -138,8 +138,8 @@ describe('HW Time compare page', () => {
     expect(panelIds()).toEqual(panels);
     const presets = JSON.parse(workspace().getAttribute('data-layout')!);
     expect(presets).toHaveLength(1);
-    // The trend row is the last child of the column root, about 28% at every level.
-    expect(presets[0].sizes).toEqual([72, 28]);
+    // The trend row is the last child of the column root, about 40% at every level.
+    expect(presets[0].sizes).toEqual([60, 40]);
     expect(presets[0].children.at(-1)).toEqual({ type: 'group', panels: ['trend'] });
   });
 

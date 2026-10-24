@@ -134,11 +134,13 @@ function InspectorRail({ sections, label }: Shared) {
   const { tx } = useI18n();
   const [peek, setPeek] = useState<string | null>(null);
   const [tip, setTip] = useState<string | null>(null); // the tooltip stays shut while its section's peek is open
+  const base = useId();
   return <div role="group" aria-label={label} className="flex h-full w-10 shrink-0 flex-col items-center gap-1 py-1">
     {sections.map(section => {
       const Icon = section.icon;
       const title = tx(section.title);
       const isOpen = peek === section.id;
+      const headingId = `${base}-${section.id}-peek-title`;
       return <Popover key={section.id} open={isOpen} onOpenChange={next => setPeek(next ? section.id : null)}>
         <Tooltip open={tip === section.id && !isOpen} onOpenChange={next => setTip(current => next ? section.id : current === section.id ? null : current)}>
           <TooltipTrigger asChild>
@@ -151,7 +153,10 @@ function InspectorRail({ sections, label }: Shared) {
           </TooltipTrigger>
           <TooltipContent side="right">{title}</TooltipContent>
         </Tooltip>
-        <PopoverContent side="right" align="start" aria-label={title} className="max-h-[70vh] w-80 overflow-y-auto"><SectionContent render={section.render} /></PopoverContent>
+        <PopoverContent side="right" align="start" aria-labelledby={headingId} className="max-h-[70vh] w-80 overflow-y-auto">
+          <h3 id={headingId} className="m-0 mb-2 text-sm font-semibold">{title}</h3>
+          <SectionContent render={section.render} />
+        </PopoverContent>
       </Popover>;
     })}
   </div>;
