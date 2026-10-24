@@ -47,6 +47,8 @@ type Context = {
   tabA11y: DockEngineProps['tabA11y'];
   /** Counts the reconciles: the engine rebuilds tab elements in one, so what is set on them from outside is set again. */
   reconciles: number;
+  /** Counts the engine's own panel moves: it puts a retained header into a new tab element there, with no reconcile (an accepted move skips `applyLayout`). */
+  moves: number;
   onActivate: (panelId: string) => void;
 };
 
@@ -92,7 +94,7 @@ function DockTab({ api }: IDockviewPanelHeaderProps) {
     const set = (name: string, value: string | undefined) => { if (value === undefined) tab.removeAttribute(name); else tab.setAttribute(name, value); };
     set('aria-description', description);
     set('aria-keyshortcuts', keyShortcuts);
-  }, [description, keyShortcuts, engine.reconciles]);
+  }, [description, keyShortcuts, engine.reconciles, engine.moves]);
   return <span ref={mark} data-dock-tab={id} className="flex min-w-0 items-center truncate">
     {engine.renderTab?.(id, { active: engine.active.has(id), groupFocused: engine.focused.has(id) }) ?? engine.panels.get(id)?.title ?? id}
   </span>;
@@ -161,6 +163,7 @@ export default function DockEngine({
   const [epoch, setEpoch] = useState(0);
   // Counts real reconciles (`fromJSON` drops the engine's maximize, even when only titles or minimum sizes changed).
   const [reconciles, setReconciles] = useState(0);
+  const [moves, setMoves] = useState(0);
   const [rects, setRects] = useState<Record<string, DockRect>>({});
   const [focusedPanel, setFocusedPanel] = useState<string | null>(null);
   const applying = useRef(false);
@@ -238,7 +241,7 @@ export default function DockEngine({
   }, [scheduleMeasure, endDrag]);
   useEffect(() => {
     if (!api) return;
-    const subscriptions = [api.onDidLayoutChange(() => { check(api); }), api.onDidActivePanelChange(() => { check(api); }), api.onDidMovePanel(() => { check(api); })];
+    const subscriptions = [api.onDidLayoutChange(() => { check(api); }), api.onDidActivePanelChange(() => { check(api); }), api.onDidMovePanel(() => { setMoves(value => value + 1); check(api); })];
     const container = containerRef.current;
     // The engine ends a sash drag on a document `pointerup` (dockview-core main.esm.mjs:1519-1532), after this window-capture handler. Its sash-end
     // event becomes a layout change (:2159-2161), propagates up the grid (:2225-2231, :2576-2578) and is buffered by `BaseGrid` (:2974-2977) into
@@ -441,8 +444,8 @@ export default function DockEngine({
     const active = new Set<string>();
     const collect = (node: DockNode) => { if (node.type === 'group') active.add(node.active); else node.children.forEach(collect); };
     collect(canonicalDisplay);
-    return { instanceId, panels: panelMap, visible, active, focused: new Set(focusGroup), display: canonicalDisplay, renderTab, renderGroupActions, tabA11y, reconciles, onActivate };
-  }, [instanceId, panelMap, visible, focusedPanel, canonicalDisplay, renderTab, renderGroupActions, tabA11y, reconciles, onActivate]);
+    return { instanceId, panels: panelMap, visible, active, focused: new Set(focusGroup), display: canonicalDisplay, renderTab, renderGroupActions, tabA11y, reconciles, moves, onActivate };
+  }, [instanceId, panelMap, visible, focusedPanel, canonicalDisplay, renderTab, renderGroupActions, tabA11y, reconciles, moves, onActivate]);
 
   // Separator keys change the layout without the engine having moved: the parent's answer is applied to the engine (or reverted if it ignores it).
   const separate = (next: DockNode) => {
