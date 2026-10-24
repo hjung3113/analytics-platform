@@ -82,6 +82,22 @@ describe('DrillLayout (06 §12.7, ADR-0025)', () => {
     expect(summary.closest('[aria-live]')).toBeNull();
   });
 
+  it('keeps a width share for the summary when the path bar wraps', () => {
+    mount('/source?v=1&drillRoom=PHOTO', <DrillLayout summary="요약"><p>본문</p></DrillLayout>);
+    const summary = screen.getByText('요약');
+    const nav = screen.getByRole('navigation', { name: '드릴 경로' });
+    expect(summary.className).toEqual(expect.stringContaining('basis-48'));
+    expect(summary.className).toEqual(expect.stringContaining('min-w-0'));
+    expect(summary.className).toEqual(expect.stringContaining('flex-1'));
+    expect(nav.className).toContain('min-w-0');
+    expect(summary.parentElement?.className).toContain('flex-wrap');
+  });
+
+  it('keeps the bare path bar classes when there is no summary', () => {
+    mount('/source?v=1&drillRoom=PHOTO', <DrillLayout><p>본문</p></DrillLayout>);
+    expect(screen.getByRole('navigation', { name: '드릴 경로' }).className).toBe('flex flex-wrap items-center gap-1 text-xs');
+  });
+
   it('hides the summary at depth 0 like the path bar', () => {
     mount('/source?v=1', <DrillLayout summary="요약"><p>본문</p></DrillLayout>);
     expect(screen.queryByText('요약')).toBeNull();

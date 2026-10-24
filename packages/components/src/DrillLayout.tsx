@@ -94,7 +94,8 @@ export function DrillPath({ siblings, summary }: DrillPathProps) {
     </span>;
   };
 
-  const navigation = <nav ref={nav} aria-label={ko ? '드릴 경로' : 'Drill path'} className="flex flex-wrap items-center gap-1 text-xs">
+  const hasSummary = !(summary === undefined || summary === null || summary === false);
+  const navigation = <nav ref={nav} aria-label={ko ? '드릴 경로' : 'Drill path'} className={hasSummary ? 'flex min-w-0 flex-wrap items-center gap-1 text-xs' : 'flex flex-wrap items-center gap-1 text-xs'}>
     <button type="button" onClick={() => drill.goTo(0)} className="rounded-md px-2 py-1 text-text-secondary hover:bg-surface-sunken">{ko ? '전체' : 'All'}</button>
     {hidden.length > 0 && <>
       <ChevronRight className="size-3 text-text-muted" aria-hidden />
@@ -117,10 +118,10 @@ export function DrillPath({ siblings, summary }: DrillPathProps) {
       </span>;
     })}
   </nav>;
-  if (summary === undefined || summary === null || summary === false) return navigation;
-  return <div className="flex min-w-0 items-center gap-3">
+  if (!hasSummary) return navigation;
+  return <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
     {navigation}
-    <div title={typeof summary === 'string' ? summary : undefined} className="min-w-0 flex-1 truncate text-xs text-text-secondary">{summary}</div>
+    <div title={typeof summary === 'string' ? summary : undefined} className="min-w-0 flex-1 basis-48 truncate text-xs text-text-secondary">{summary}</div>
   </div>;
 }
 
