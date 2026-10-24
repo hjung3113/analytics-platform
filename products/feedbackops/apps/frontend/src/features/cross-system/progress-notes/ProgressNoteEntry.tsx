@@ -10,6 +10,7 @@
 // passes InternalTaskBadge (which owns its own labels). Status vocabulary stays
 // on the owning surface instead of being duplicated here.
 
+import { ATTACHMENT_FALLBACK_LABEL } from '@/lib/copy/attachments';
 import { formatShortDateTime } from '@/lib/format/datetime';
 import { isTipTapDocBlank } from '@fops/shared';
 import type { FindingStatus, TaskStatus } from '@fops/shared';
@@ -76,7 +77,11 @@ export function ProgressNoteEntry({
       {/* Rich body — internal mode keeps mention nodes renderable */}
       {hasBody(entry.body_rich_content) && (
         <div className="pl-8">
-          <RichContentRenderer doc={entry.body_rich_content as TipTapDoc} mode="internal" />
+          <RichContentRenderer
+            doc={entry.body_rich_content as TipTapDoc}
+            mode="internal"
+            attachmentFallbackLabel={ATTACHMENT_FALLBACK_LABEL}
+          />
         </div>
       )}
     </div>

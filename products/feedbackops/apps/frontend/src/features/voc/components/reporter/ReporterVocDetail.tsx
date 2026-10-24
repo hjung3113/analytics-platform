@@ -4,6 +4,7 @@
 // owner, triage state, internal comments), and VocDetailPanel draws Triage, Finding and composers by
 // role. This screen draws a fixed allowlist whatever the envelope holds, and nothing that writes.
 
+import { ATTACHMENT_FALLBACK_LABEL } from '@/lib/copy/attachments';
 import { useSignedInActor } from '@/lib/cross-system/useSignedInActor';
 import { useVocDetail } from '@/lib/cross-system/useVocDetail';
 import { useWorkspaceActors } from '@/lib/cross-system/useWorkspaceActors';
@@ -114,6 +115,8 @@ export function ReporterVocDetail({
               doc={voc.description_rich_content as TipTapDoc}
               mode="reporter_visible"
               surface="voc-description"
+              attachments={voc.attachments}
+              attachmentFallbackLabel={ATTACHMENT_FALLBACK_LABEL}
             />
           )}
         </div>

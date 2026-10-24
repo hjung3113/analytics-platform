@@ -61,12 +61,15 @@
 //     </div>
 //   </div>
 
-import type * as React from 'react';
 import {
   isForbiddenTransition,
   useReporterStatusTransitions,
 } from '@/features/voc/hooks/useReporterStatusTransitions';
-import { REPORTER_FACING_STATUS_ALL, REPORTER_STATUS_LABELS } from '@/lib/copy/reporter-status-labels';
+import { ATTACHMENT_FALLBACK_LABEL } from '@/lib/copy/attachments';
+import {
+  REPORTER_FACING_STATUS_ALL,
+  REPORTER_STATUS_LABELS,
+} from '@/lib/copy/reporter-status-labels';
 import {
   type ReporterFacingStatusEnum,
   type VocDetailEnvelope,
@@ -85,6 +88,7 @@ import {
   UserAvatar,
 } from '@fops/ui';
 import { Check, Megaphone, ShieldCheck, User } from 'lucide-react';
+import type * as React from 'react';
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -126,17 +130,14 @@ export function ReporterStatusChangeBlock({
   const pickerOrder: ReporterFacingStatusEnum[] = [
     currentStatus,
     ...allowed.filter((s) => s !== currentStatus),
-    ...REPORTER_FACING_STATUS_ALL.filter(
-      (s) => s !== currentStatus && !allowed.includes(s),
-    ),
+    ...REPORTER_FACING_STATUS_ALL.filter((s) => s !== currentStatus && !allowed.includes(s)),
   ];
 
   const isStaged = nextStatus !== currentStatus;
   const isForbiddenSelected = isForbiddenTransition({ allowed }, currentStatus, nextStatus);
 
   // Gate blocks the currently-staged next status
-  const isGateBlocked =
-    gate !== null && gate.blocking_for.includes(nextStatus);
+  const isGateBlocked = gate !== null && gate.blocking_for.includes(nextStatus);
 
   const showBody = !isTipTapDocStructurallyEmpty(draftDoc);
 
@@ -147,14 +148,8 @@ export function ReporterStatusChangeBlock({
     >
       {/* ── Header ─────────────────────────────────────────────── */}
       <div className="flex items-center gap-2 mb-2.5">
-        <Megaphone
-          size={11}
-          aria-hidden="true"
-          className="shrink-0 text-accent-primary"
-        />
-        <span
-          className="text-xs font-semibold uppercase tracking-kicker text-accent-primary"
-        >
+        <Megaphone size={11} aria-hidden="true" className="shrink-0 text-accent-primary" />
+        <span className="text-xs font-semibold uppercase tracking-kicker text-accent-primary">
           공개 상태 변경
         </span>
       </div>
@@ -188,7 +183,11 @@ export function ReporterStatusChangeBlock({
               const isCurrent = key === currentStatus;
               const isAllowed = isCurrent || allowed.includes(key);
               const label = REPORTER_STATUS_LABELS[key];
-              const suffix = isCurrent ? ' (현재)' : !isAllowed ? ` · ${forbidden[key] ?? '차단됨'}` : '';
+              const suffix = isCurrent
+                ? ' (현재)'
+                : !isAllowed
+                  ? ` · ${forbidden[key] ?? '차단됨'}`
+                  : '';
               return (
                 <SelectItem key={key} value={key} disabled={!isAllowed}>
                   {label}
@@ -201,9 +200,7 @@ export function ReporterStatusChangeBlock({
 
         {/* 변경 예정 chip — shown when staged and no gate blocking */}
         {isStaged && !isGateBlocked && !isForbiddenSelected && (
-          <span
-            className="inline-flex items-center gap-1 h-5 px-1.5 rounded-sm text-tiny font-medium text-accent-primary bg-accent-primary/16"
-          >
+          <span className="inline-flex items-center gap-1 h-5 px-1.5 rounded-sm text-tiny font-medium text-accent-primary bg-accent-primary/16">
             <Check size={9} aria-hidden="true" />
             변경 예정
           </span>
@@ -219,11 +216,7 @@ export function ReporterStatusChangeBlock({
           what changed and what to do. The seeded forbidden reason, when the pair
           is listed at all, is appended as the concrete rule. */}
       {isForbiddenSelected && (
-        <Callout
-          tone="red"
-          title="선택한 상태로는 더 이상 전환할 수 없습니다"
-          className="mb-2.5"
-        >
+        <Callout tone="red" title="선택한 상태로는 더 이상 전환할 수 없습니다" className="mb-2.5">
           <span data-testid="reporter-status-forbidden-reason">
             이 VOC의 현재 상태가 그 사이 &lsquo;{REPORTER_STATUS_LABELS[currentStatus]}
             &rsquo;(으)로 바뀌어, 먼저 고른 &lsquo;{REPORTER_STATUS_LABELS[nextStatus]}
@@ -235,11 +228,7 @@ export function ReporterStatusChangeBlock({
 
       {/* ── Linked-Task gate amber Callout ──────────────────────── */}
       {isGateBlocked && gate !== null && (
-        <Callout
-          tone="amber"
-          title="연결된 Task 상태 확인 필요"
-          className="mb-2.5"
-        >
+        <Callout tone="amber" title="연결된 Task 상태 확인 필요" className="mb-2.5">
           {gate.reason}
         </Callout>
       )}
@@ -251,41 +240,27 @@ export function ReporterStatusChangeBlock({
           제출자가 보게 될 화면 미리보기
         </span>
 
-        <div
-          className="rounded-md p-3 bg-surface-canvas"
-        >
+        <div className="rounded-md p-3 bg-surface-canvas">
           {/* VOC id + next status badge + 업데이트 chip */}
           <div className="flex items-center gap-2 flex-wrap mb-2">
-            <span className="text-xs font-mono text-text-muted">
-              {voc.display_id}
-            </span>
+            <span className="text-xs font-mono text-text-muted">{voc.display_id}</span>
             <ReporterStatusBadge status={nextStatus} />
             {isStaged && (
-              <span
-                className="inline-flex items-center h-5 px-1.5 rounded-sm text-caption font-medium text-accent-primary bg-accent-primary/18"
-              >
+              <span className="inline-flex items-center h-5 px-1.5 rounded-sm text-caption font-medium text-accent-primary bg-accent-primary/18">
                 업데이트
               </span>
             )}
           </div>
 
           {/* VOC title */}
-          <div className="text-sm font-medium text-text-primary mb-2">
-            {voc.title}
-          </div>
+          <div className="text-sm font-medium text-text-primary mb-2">{voc.title}</div>
 
           {/* Owner attribution + body excerpt */}
           <div className="flex items-start gap-2 mb-1.5">
-            <UserAvatar
-              user={{ display_name: owner.display_name }}
-              size="sm"
-            />
+            <UserAvatar user={{ display_name: owner.display_name }} size="sm" />
             <div className="flex flex-col gap-0.5 flex-1 min-w-0">
               <span className="text-xs text-text-muted">
-                <strong className="text-text-secondary">
-                  {owner.display_name}
-                </strong>{' '}
-                · 방금
+                <strong className="text-text-secondary">{owner.display_name}</strong> · 방금
               </span>
 
               {showBody ? (
@@ -294,6 +269,7 @@ export function ReporterStatusChangeBlock({
                   <RichContentRenderer
                     doc={draftDoc as TipTapDoc}
                     mode="reporter_visible"
+                    attachmentFallbackLabel={ATTACHMENT_FALLBACK_LABEL}
                   />
                 </div>
               ) : (
@@ -307,7 +283,8 @@ export function ReporterStatusChangeBlock({
           {/* Public-safe footer reminder */}
           <div className="text-xs text-text-muted flex items-center gap-1.5 mt-2 pt-2">
             <ShieldCheck size={10} aria-hidden="true" />
-            첨부·외부 링크·@멘션은 공개 본문에 포함되지 않습니다. 내부 식별자(VOC id, Task id 등)는 자동으로 가려집니다.
+            첨부·외부 링크·@멘션은 공개 본문에 포함되지 않습니다. 내부 식별자(VOC id, Task id 등)는
+            자동으로 가려집니다.
           </div>
         </div>
       </div>

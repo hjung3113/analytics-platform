@@ -142,8 +142,8 @@ ProgressMeterProps | interface | interface ProgressMeterProps { 'data-testid'?: 
 RadioGroup | const | const RadioGroup: React.ForwardRefExoticComponent<RadioGroupProps & React.RefAttributes<HTMLDivElement>>
 RadioGroupItem | const | const RadioGroupItem: React.ForwardRefExoticComponent<RadioGroupItemProps & React.RefAttributes<HTMLButtonElement>>
 RichContentMode | type | type RichContentMode = 'internal' | 'reporter_visible'
-RichContentRenderer | function | function RichContentRenderer({ doc, mode, surface, size, className, }: @ap/ui#RichContentRendererProps): React.JSX.Element
-RichContentRendererProps | interface | interface RichContentRendererProps { className?: string; doc: @ap/ui#TipTapDoc; mode: @ap/ui#RichContentMode; size?: 'default' | 'sm'; surface?: ClientSanitizeSurface; }
+RichContentRenderer | function | function RichContentRenderer({ doc, mode, surface, attachments, attachmentFallbackLabel, size, className, }: @ap/ui#RichContentRendererProps): React.JSX.Element
+RichContentRendererProps | interface | interface RichContentRendererProps { attachmentFallbackLabel?: string; attachments?: ReadonlyArray<{ readonly id: string; readonly name: string; }>; className?: string; doc: @ap/ui#TipTapDoc; mode: @ap/ui#RichContentMode; size?: 'default' | 'sm'; surface?: ClientSanitizeSurface; }
 RichEditor | function | function RichEditor({ surface, value, defaultValue, onChange, placeholder, disabled, minHeight, className, toolbar, onAttach, }: @ap/ui#RichEditorProps): React.JSX.Element
 RichEditorAttachmentResult | interface | interface RichEditorAttachmentResult { attachment_id: string; mime_type: string; name: string; size_bytes: number; }
 RichEditorProps | interface | interface RichEditorProps { className?: string; defaultValue?: @ap/ui#TipTapDoc; disabled?: boolean; minHeight?: number | string; onAttach?: (file: File) => Promise<@ap/ui#RichEditorAttachmentResult>; onChange?: (doc: @ap/ui#TipTapDoc) => void; placeholder?: string; surface: @ap/ui#RichEditorSurface; toolbar?: (editor: Editor | null, toolbarApi: @ap/ui#RichEditorToolbarApi) => React.ReactNode; value?: @ap/ui#TipTapDoc | null; }

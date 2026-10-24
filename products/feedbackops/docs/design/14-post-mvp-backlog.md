@@ -174,3 +174,11 @@ Not implemented.
 | --- | --- | --- |
 | reporter-arm `triage_state` — Reporters still receive the internal triage state (`dismissed_not_actionable`, `needs_more_information`) on list, detail and envelopes | The description-edit gate reads it (`useReporterCanEditDescription`, `VocDetailPanel`) and the edit 409 returns `detail.current_triage_state`; replacing it needs a Reporter capability field (e.g. `can_edit_description`) across detail, envelope and the 409 detail | Before #597, or when a Reporter screen shows triage wording, or when the edit gate moves server-side into a capability field |
 | Idempotent write replay returns the stored response verbatim, so a cached VOC create/edit/reply response made before #696, or before a grant was revoked, still carries the operator fields on replay | Same actor, same key and body: the data was already received by that actor, so a replay discloses nothing new; verbatim replay is the ADR-0015 contract | A replay can be served to a different actor, a cached response could include data the actor never received, or a security review requires re-projection at send time |
+
+### Attachment names in the rich editor (#745, 2026-10-24)
+
+Not implemented.
+
+| Deferred item | Reason | Reopen when |
+| --- | --- | --- |
+| `EditDescriptionModal` loads a stored `{ id }` doc into `RichEditor`, which still shows the attachment UUID instead of the file name | #745 scope is the read surfaces (`RichContentRenderer` takes `attachments`/`attachmentFallbackLabel`); the editor does not get the option yet | The description edit modal is next touched, or `RichEditor` gets the same `attachments` option |

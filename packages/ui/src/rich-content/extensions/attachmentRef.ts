@@ -14,6 +14,12 @@ export const AttachmentRef = Node.create({
   name: 'attachmentRef',
   group: 'block',
   atom: true,
+  addOptions() {
+    return {
+      /** Text-only label override (renderer name lookup); node attrs stay untouched. */
+      label: undefined as ((attrs: AttachmentRefAttrs) => string | undefined) | undefined,
+    };
+  },
   draggable: true,
   selectable: true,
   addAttributes() {
@@ -28,6 +34,7 @@ export const AttachmentRef = Node.create({
     return [{ tag: 'div[data-type="attachment-ref"]' }];
   },
   renderHTML({ HTMLAttributes }) {
+    const label = this.options.label?.(HTMLAttributes as AttachmentRefAttrs);
     const id = HTMLAttributes.id ?? '';
     const name = HTMLAttributes.name ?? '';
     return [
@@ -43,7 +50,7 @@ export const AttachmentRef = Node.create({
         HTMLAttributes,
       ),
       ['span', { class: 'attachment-icon' }, '📎'],
-      ['span', { class: 'attachment-id' }, name || id || 'attachment'],
+      ['span', { class: 'attachment-id' }, label ?? (name || id || 'attachment')],
     ];
   },
 });

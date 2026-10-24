@@ -69,7 +69,6 @@ import {
 import { useVocPublicUpdateMutation } from '@/features/voc/hooks/useVocPublicUpdateMutation';
 import type { ApiError } from '@/lib/api';
 import { mapUnknownError } from '@/lib/api/errorMapper';
-import { uploadRichEditorAttachment } from '@/lib/attachments/rich-editor-upload';
 import type { MeResponse } from '@/lib/auth/useMe';
 import { REPORTER_STATUS_LABELS } from '@/lib/copy/reporter-status-labels';
 import {
@@ -292,15 +291,12 @@ export function PublicUpdateComposer({
         onChange={(doc) => setDraftDoc(doc)}
         placeholder="공개 업데이트 내용을 입력하세요..."
         minHeight={84}
-        onAttach={uploadRichEditorAttachment}
-        toolbar={(editor, api) => (
+        // #745: the public-update allowlist has no attachmentRef, so the editor cannot hold an attachment here; files go
+        // through the dropzone below (linked as chips).
+        toolbar={(editor) => (
           <>
             {editorHandle(editor)}
-            <PublicUpdateToolbar
-              editor={editor}
-              onAttach={(file) => api.attach(file)}
-              onAttachError={(e) => toast.error(mapUnknownError(e).message)}
-            />
+            <PublicUpdateToolbar editor={editor} />
           </>
         )}
       />

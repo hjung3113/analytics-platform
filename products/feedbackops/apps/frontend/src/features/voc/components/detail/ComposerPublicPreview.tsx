@@ -51,6 +51,7 @@
 //   - border-border-subtle for the inset shadow equivalent
 //   - "업데이트" chip: bg-accent-primary/15 text-accent-primary (replaces rgba(20,40,160,0.18))
 
+import { ATTACHMENT_FALLBACK_LABEL } from '@/lib/copy/attachments';
 import { REPORTER_STATUS_LABELS } from '@/lib/copy/reporter-status-labels';
 import type { ReporterFacingStatusEnum, VocDetailEnvelope } from '@fops/shared';
 import { ReporterStatusBadge, RichContentRenderer } from '@fops/ui';
@@ -135,7 +136,12 @@ export function ComposerPublicPreview({
               <span className="text-sm text-text-muted italic">(본문이 비어있습니다)</span>
             ) : (
               // RichContentRenderer in reporter_visible mode strips mentions per ADR-0011
-              <RichContentRenderer doc={draftDoc} mode="reporter_visible" size="sm" />
+              <RichContentRenderer
+                doc={draftDoc}
+                mode="reporter_visible"
+                size="sm"
+                attachmentFallbackLabel={ATTACHMENT_FALLBACK_LABEL}
+              />
             )}
           </div>
         </div>
