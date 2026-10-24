@@ -105,6 +105,19 @@ describe('createRegistry validation (platform-packages.md §5)', () => {
   });
 });
 
+describe('space carriedPageKeys (ADR-0081 decision 4)', () => {
+  const carrying: SpaceDef[] = [{ ...analyticsSpace, homeMenuId: 'a', carriedPageKeys: ['k'] }];
+  it('accepts menus that all declare the carried key', () => {
+    expect(() => createRegistry({ spaces: carrying, groups, menus: [menu('a', '/a', { primary: true, pageKeys: ['k'] }), menu('b', '/b', { pageKeys: ['k', 'x'] })] })).not.toThrow();
+  });
+  it.each([
+    { name: 'a carried key equal to a global key', spaces: [{ ...analyticsSpace, homeMenuId: 'a', carriedPageKeys: ['scopeId'] }], menus: [menu('a', '/a', { primary: true })], error: /carried page key "scopeId" collides with a global/ },
+    { name: 'a member menu missing the carried key', spaces: carrying, menus: [menu('a', '/a', { primary: true, pageKeys: ['k'] }), menu('c', '/c')], error: /Menu "c" does not declare space "analytics" carried page key "k"/ },
+  ])('rejects $name', ({ spaces: s, menus, error }) => {
+    expect(() => createRegistry({ spaces: s, groups, menus })).toThrow(error);
+  });
+});
+
 describe('spaces (06 §9.1)', () => {
   const adminGroups: GroupDef[] = [{ id: groupId('admin'), label: { ko: '관리·감사', en: 'Administration' }, icon: House, space: spaceId('operations') }];
   const operations: SpaceDef = { id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations console' }, description: { ko: '목적', en: 'Purpose' }, permission: 'console:access', homeMenuId: 'admin-roles' };

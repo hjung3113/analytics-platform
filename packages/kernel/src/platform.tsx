@@ -67,12 +67,14 @@ export type HomeTodoSlot = { Todo: ComponentType };
  * feedbackOps: space-scoped entries and the overall link (ADR-0027, ADR-0028).
  * plannedSpaces: the system switcher's not-yet-available rows (ADR-0042, 15 §3.2).
  * boardEntry: the `분석 보드에 열기…` item `PlatformPage` appends to a board menu's `⋯` menu (docs/16 §6); components never import the shell.
+ * scopeControl: a space's own sidebar list-scope control in place of the analytics `ScopeSelector` (ADR-0081 decision 4, 06 §8); `For` returns null for spaces that keep the default.
  * notifications: the rail bell and the platform-menu unread badge (ADR-0070 decision 4, #652).
  * vocCompose: the body of the rail `VOC 등록` docked drawer; the shell owns position, frozen Context chips, draft and close rules (ADR-0070 decision 5, #655).
  * homeTodo: the home `내 할 일` section; the home menu reads it through `MenuPlatform.homeTodo`, the shell never does (ADR-0070 decision 8, ADR-0076, #657).
  */
-export type PlatformSlots = { contextBar?: ReactNode; topBarTools?: ReactNode; feedbackOps?: FeedbackOpsSlot; plannedSpaces?: readonly PlannedSpace[]; boardEntry?: ReactNode; notifications?: NotificationsSlot; vocCompose?: VocComposeSlot; homeTodo?: HomeTodoSlot };
-export type LinkOptions = { params?: Record<string, string>; page?: Record<string, string>; global?: Partial<GlobalContext>; returnTo?: boolean };
+export type ScopeControlSlot = { For: (spaceId: SpaceId) => ComponentType<{ collapsed: boolean }> | null };
+export type PlatformSlots = { scopeControl?: ScopeControlSlot; contextBar?: ReactNode; topBarTools?: ReactNode; feedbackOps?: FeedbackOpsSlot; plannedSpaces?: readonly PlannedSpace[]; boardEntry?: ReactNode; notifications?: NotificationsSlot; vocCompose?: VocComposeSlot; homeTodo?: HomeTodoSlot };
+export type LinkOptions = { params?: Record<string, string>; page?: Record<string, string | null>; global?: Partial<GlobalContext>; returnTo?: boolean };
 export type LinkResolution = {
   href: string;
   /** False when the signed-in user lacks the target's permission or, for a space menu, space entry. A global utility menu is permission only. Display only — never a permission proof. */
@@ -455,7 +457,8 @@ function useScreenState(app: AppValue, source: ScreenSource): { screen: ScreenSt
   }, [pathname, write, global, page, extras, dropContextResetKeys]);
 
   // Context Link helper (§22/§6.4): every registered global is preserved regardless of target support;
-  // page-owned state and unregistered extras are never copied implicitly. Changing the site applies the same
+  // page-owned state and unregistered extras are never copied implicitly — the one exception is a space's
+  // `carriedPageKeys` between menus of that same space (ADR-0081 decision 4). Changing the site applies the same
   // site boundary as setGlobal (ADR-0004) to the values carried over from the current URL — values the caller
   // passes explicitly are meant for the destination and stay. `allowed` is a display hint (permission, plus
   // space entry for a space menu — a global utility menu is permission only, 06 §9.1); the server re-checks on arrival.
@@ -466,14 +469,24 @@ function useScreenState(app: AppValue, source: ScreenSource): { screen: ScreenSt
       : global;
     const g = { ...carried, ...options.global };
     const requested = Object.entries(options.page ?? {});
-    const pagePairs: Pair[] = requested.filter(([k]) => target.pageKeys.includes(k));
+    const pagePairs: Pair[] = [];
+    for (const [k, v] of requested) if (v !== null && target.pageKeys.includes(k)) pagePairs.push([k, v]);
+    // Carried keys: same space, space declares them, target declares them; explicit value wins, explicit null omits.
+    const targetSpace = registry.spaceOf(target);
+    if (route && targetSpace && registry.spaceOf(route.menu)?.id === targetSpace.id) {
+      for (const k of targetSpace.carriedPageKeys ?? []) {
+        if (!target.pageKeys.includes(k) || options.page?.[k] !== undefined) continue;
+        const current = page.find(([pk]) => pk === k);
+        if (current) pagePairs.push(current);
+      }
+    }
     if (options.returnTo && target.pageKeys.includes('returnTo')) pagePairs.push(['returnTo', url]);
     return {
       href: pathFor(target, options.params) + buildQuery(g, pagePairs),
       allowed: canOpen(menuId),
       droppedPageKeys: requested.map(([k]) => k).filter(k => !target.pageKeys.includes(k)),
     };
-  }, [global, url, menuById, canOpen]);
+  }, [global, url, menuById, canOpen, page, route, registry]);
   const linkTo = useCallback((menuId: string, options: LinkOptions = {}) => resolveLink(menuId, options).href, [resolveLink]);
 
   const currentSpace = useMemo(() => (route ? registry.spaceOf(route.menu) : null), [registry, route]);

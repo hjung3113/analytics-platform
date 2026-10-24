@@ -110,6 +110,9 @@ export function createRegistry({ spaces, groups, menus, permissions: declared = 
     if (s.permission !== undefined && !isPlatformPermission(s.permission)) fail(`Space "${s.id}" permission "${s.permission}" is not a platform permission (kernel or declared)`);
     if (spaceByIdMap.has(s.id)) fail(`Duplicate space id "${s.id}"`);
     spaceByIdMap.set(s.id, s);
+    for (const key of s.carriedPageKeys ?? []) {
+      if (GLOBAL_KEYS.has(key)) fail(`Space "${s.id}" carried page key "${key}" collides with a global Context key`);
+    }
   }
   const byId = new Map<string, MenuEntry>();
   for (const m of menus) {
@@ -167,6 +170,9 @@ export function createRegistry({ spaces, groups, menus, permissions: declared = 
       }
     }
     if (clash) fail(`Menu "${m.id}" page key "${clash}" collides with a global Context key`);
+    const menuSpace = groupSpace.get(m.group);
+    const missingCarried = menuSpace ? (spaceByIdMap.get(menuSpace)?.carriedPageKeys ?? []).find(k => !m.pageKeys.includes(k)) : undefined;
+    if (missingCarried) fail(`Menu "${m.id}" does not declare space "${menuSpace}" carried page key "${missingCarried}" in pageKeys`);
     const foreignReset = (m.contextResetKeys ?? []).find(k => !m.pageKeys.includes(k));
     if (foreignReset) fail(`Menu "${m.id}" contextResetKey "${foreignReset}" is not a declared pageKeys entry`);
     // Drill levels are page keys and contextResetKeys, at least one, never returnTo (06 §6.4, ADR-0063).

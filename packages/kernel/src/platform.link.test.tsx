@@ -109,6 +109,45 @@ describe('resolveLink (06 §22, issue #102)', () => {
 });
 
 
+describe('space-carried page keys (ADR-0081 decision 4, 06 §6.4 exception)', () => {
+  const carryRegistry = createRegistry({
+    permissions: [menuPermission('analytics:view')],
+    spaces: [...spaces, testSpace({ id: spaceId('tracked'), label: { ko: '추적', en: 'Tracked' }, homeMenuId: 'a', carriedPageKeys: ['k'] })],
+    groups: [...registry.groups, { id: groupId('tracked'), label: { ko: '추적', en: 'Tracked' }, icon: House, space: spaceId('tracked') }],
+    menus: [...registry.menus, { ...entry('a', 'tracked' as 'admin', '/t/a', 'platform:view', ['k']), primary: true }, entry('b', 'tracked' as 'admin', '/t/b', 'platform:view', ['k', 'other'])],
+  });
+  function resolveIn(url: string, menuId: string, options?: LinkOptions) {
+    window.history.replaceState(null, '', url);
+    render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={fixture(ANALYST)} registry={carryRegistry}><Probe /></PlatformProvider></I18nProvider>);
+    return captured!(menuId, options);
+  }
+
+  it.each([
+    { name: 'copies the current value', options: undefined, k: 'x' },
+    { name: 'an explicit value wins', options: { page: { k: 'y' } }, k: 'y' },
+    { name: 'an explicit null omits the key', options: { page: { k: null } }, k: null },
+  ])('K1 $name between menus of the space', ({ options, k }) => {
+    expect(query(resolveIn('/t/a?v=1&k=x', 'b', options).href).get('k')).toBe(k);
+  });
+
+  it('K2 never carries into another space, and an explicit null on an uncarried key is omitted', () => {
+    expect(query(resolveIn('/t/a?v=1&k=x', 'analysis').href).has('k')).toBe(false);
+    cleanup();
+    const link = resolveIn('/t/a?v=1&k=x', 'analysis', { page: { tab: null } });
+    expect(query(link.href).has('tab')).toBe(false);
+    expect(link.droppedPageKeys).toEqual([]);
+  });
+
+  it('K3 links from a space without carried keys copy no page state', () => {
+    window.history.replaceState(null, '', '/analysis?v=1&tab=a');
+    const href = resolveIn('/analysis?v=1&tab=a', 'analysis').href;
+    expect(query(href).has('tab')).toBe(false);
+    cleanup();
+    expect(query(resolveIn('/source?v=1', 'b').href).has('k')).toBe(false);
+  });
+});
+
+
 describe('return fallback without a fixed home ID (#298)', () => {
   function ReturnProbe() {
     const platform = useHostPlatform();

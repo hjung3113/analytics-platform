@@ -37,7 +37,7 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
           </button>
         </TooltipTrigger><TooltipContent side="right">{collapsed ? t('expand') : t('collapse')} ([)</TooltipContent></Tooltip>
       </div>
-      <ScopeSelector collapsed={collapsed} />
+      <SidebarScope collapsed={collapsed} />
       <div className="shell-scroll min-h-0 flex-1 overflow-y-auto px-2 py-2">
         <nav aria-label={lang === 'ko' ? '주 메뉴' : 'Primary'}>
           {grouped.map(({ group, items }, index) => <div key={group.id} role="group" aria-label={tx(group.label)}>
@@ -64,6 +64,13 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
       {!collapsed && <div className="shrink-0 border-t border-border-subtle px-4 py-2.5 text-caption text-text-muted">{lang === 'ko' ? '통합 프로토타입 · 합성 데이터' : 'Integrated prototype · synthetic data'}</div>}
     </aside>
   </TooltipProvider>;
+}
+
+// A space may supply its own list-scope control (06 §8 `scopeControl`); every other space and space-less page keeps the analytics Scope selector.
+function SidebarScope({ collapsed }: { collapsed: boolean }) {
+  const { slots, sidebarSpace } = useHostPlatform();
+  const Control = sidebarSpace === null ? null : slots.scopeControl?.For(sidebarSpace.id) ?? null;
+  return Control === null ? <ScopeSelector collapsed={collapsed} /> : <Control collapsed={collapsed} />;
 }
 
 function FeedbackOpsBlock({ collapsed }: { collapsed: boolean }) {
