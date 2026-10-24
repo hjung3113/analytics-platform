@@ -24,8 +24,8 @@ import { isPermissionDenied } from '@/lib/api/types';
 import { createLabel } from '@/lib/copy/glossary';
 import { PERMISSION_BLOCKED_REASONS } from '@/lib/copy/permission-reasons';
 import { usePermissionCheckBridge } from '@/lib/cross-system/usePermissionCheckBridge';
-import { HostLink, useHostNavigate, useHostSeam, useHostSearch } from '@/lib/host/host-seam';
-import { searchHref } from '@/lib/host/search';
+import { HostLink, useHostSeam } from '@/lib/host/host-seam';
+import { useHostSearchWriter } from '@/lib/host/useHostSearchWriter';
 import { NAV_COUNTS_QUERY_KEY } from '@/lib/query/navCounts';
 import { Button, PermissionBlockedPanel } from '@fops/ui';
 import { useQuery } from '@tanstack/react-query';
@@ -60,8 +60,7 @@ function triageTabCounts(
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function TriageScreen(): React.ReactElement {
-  const search = validateVocSearch(useHostSearch());
-  const navigate = useHostNavigate();
+  const { search, write } = useHostSearchWriter('/vocs', validateVocSearch);
   const { canLink } = useHostSeam();
   const [processedCount, setProcessedCount] = useState(0);
   const handleProcessed = useCallback((delta: 1 | -1): void => {
@@ -140,28 +139,32 @@ export function TriageScreen(): React.ReactElement {
 
   // ── Handlers ────────────────────────────────────────────────────────────────
 
-  // Every write carries the whole current search (managedSystem, returnTo, platformReturn, …) and changes only its own keys.
-  function triageHref(changes: Readonly<Record<string, string | undefined>>): string {
-    return searchHref('/vocs', { ...search, view: 'triage', ...changes });
+  // Every write folds on the latest pending search (several before the host acknowledges the first) and
+  // changes only its own keys; the rest (managedSystem, returnTo, platformReturn, …) rides along.
+  function triageWrite(
+    changes: Readonly<Record<string, string | undefined>>,
+    options?: { replace?: boolean },
+  ): void {
+    write((previous) => ({ ...previous, view: 'triage', ...changes }), options);
   }
 
   function handleAreaChange(next: string | undefined): void {
     // Selection and the #383 pin stay: only the queue's Area scope changes.
-    navigate(triageHref({ 'filter.analytics_area': next }));
+    triageWrite({ 'filter.analytics_area': next });
   }
 
   function handleTabChange(tab: TriageTab): void {
     // #922: changing tabs drops the #383 deep-link pin (selected) — a pinned
     // VOC must not union into every tab's list. Deep-link entry keeps pinning.
-    navigate(triageHref({ tab, selected: undefined }));
+    triageWrite({ tab, selected: undefined });
   }
 
   function handleSelectVoc(id: string): void {
-    navigate(triageHref({ selected: id }));
+    triageWrite({ selected: id });
   }
 
   function handleAdvanceVoc(id: string | null): void {
-    navigate(triageHref({ selected: id ?? undefined }), { replace: true });
+    triageWrite({ selected: id ?? undefined }, { replace: true });
   }
 
   // #935: retry a failed queue read in place.

@@ -134,4 +134,60 @@ describe('TriageScreen URL writes', () => {
     expect(search.get('view')).toBe('triage');
     expect(options).toEqual({ replace: true });
   });
+
+  describe('consecutive writes before the host acknowledges the first', () => {
+    function hrefs(): URLSearchParams[] {
+      return navigateMock.mock.calls.map(
+        ([href]) => new URLSearchParams(String(href).split('?')[1]),
+      );
+    }
+
+    it('a tab change then a select keeps the tab', () => {
+      const props = mountScreen();
+      props.onTabChange('high');
+      props.onSelectVoc(NEXT);
+      expect(hrefs().at(-1)?.get('tab')).toBe('high');
+      expect(hrefs().at(-1)?.get('selected')).toBe(NEXT);
+    });
+
+    it('an advance after an area change keeps the area', () => {
+      const props = mountScreen();
+      props.onAreaChange?.(AREA);
+      props.onAdvanceVoc?.(NEXT);
+      expect(hrefs().at(-1)?.get('filter.analytics_area')).toBe(AREA);
+      expect(hrefs().at(-1)?.get('selected')).toBe(NEXT);
+    });
+
+    it('an area change after an advance keeps the advanced selection', () => {
+      const props = mountScreen();
+      props.onAdvanceVoc?.(NEXT);
+      props.onAreaChange?.(AREA);
+      expect(hrefs().at(-1)?.get('selected')).toBe(NEXT);
+      expect(hrefs().at(-1)?.get('filter.analytics_area')).toBe(AREA);
+    });
+
+    it('a select then a tab change clears the selection', () => {
+      const props = mountScreen();
+      props.onSelectVoc(NEXT);
+      props.onTabChange('waiting');
+      expect(hrefs().at(-1)?.has('selected')).toBe(false);
+      expect(hrefs().at(-1)?.get('tab')).toBe('waiting');
+    });
+
+    it('a host navigation drops a pending select', () => {
+      const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      const ui = () => (
+        <QueryClientProvider client={qc}>
+          <TriageScreen />
+        </QueryClientProvider>
+      );
+      const { rerender } = render(ui());
+      screenProps?.onSelectVoc(NEXT);
+      // The host resets to a location without the select (a new search object).
+      searchState = { ...searchState, selected: SELECTED };
+      rerender(ui());
+      screenProps?.onAreaChange?.(AREA);
+      expect(hrefs().at(-1)?.get('selected')).toBe(SELECTED);
+    });
+  });
 });
