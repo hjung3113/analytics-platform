@@ -26,6 +26,7 @@ import { manifests as impMyWork } from '@ap/menu-imp-my-work';
 import { manifests as impTasks } from '@ap/menu-imp-tasks';
 import { manifests as impReports } from '@ap/menu-imp-reports';
 import { manifests as hwTime } from '@ap/menu-hw-time';
+import { protoGroups, protoMenus, protoSpaces } from './proto/manifests'; // THROWAWAY #595 — never merge.
 // </gen:menu-imports>
 
 /** The menu permissions this app's menus use, on top of the kernel's (ADR-0072). Each menu package spells its own with `menuPermission`; `createRegistry` fails on one missing here. */
@@ -84,4 +85,5 @@ export const MENUS: MenuEntry[] = [
   // </gen:menu-spreads>
 ];
 
-export const registry = createRegistry({ spaces: SPACES, groups: GROUPS, menus: MENUS, permissions: PERMISSIONS });
+// THROWAWAY #595 — never merge: the proto FeedbackOps space joins the Registry only while a variant is on (all three lists are empty otherwise).
+export const registry = createRegistry({ spaces: [...SPACES, ...protoSpaces], groups: [...GROUPS, ...protoGroups], menus: [...MENUS, ...protoMenus], permissions: PERMISSIONS });

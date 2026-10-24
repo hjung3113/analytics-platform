@@ -6,6 +6,7 @@ import { cn, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@a
 import { ScopeSelector } from './ScopeSelector';
 import { useSystemSections } from './systemSections';
 import { formatUnread } from './unread';
+import { getProto595 } from './proto595'; // THROWAWAY #595 — never merge.
 
 export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
   const { visibleMenus, route, favorites, recent, registry, sidebarSpace } = useHostPlatform();
@@ -60,7 +61,8 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
             : <p className="px-3 py-1 text-xs leading-4 text-text-muted">{t('noRecent')}</p>}
         </section>}
       </div>
-      <FeedbackOpsBlock collapsed={collapsed} />
+      {/* THROWAWAY #595 — never merge. */}
+      {(() => { const proto = getProto595(); return proto ? (proto.reporter ? null : <proto.Block collapsed={collapsed} />) : <FeedbackOpsBlock collapsed={collapsed} />; })()}
       {!collapsed && <div className="shrink-0 border-t border-border-subtle px-4 py-2.5 text-caption text-text-muted">{lang === 'ko' ? '통합 프로토타입 · 합성 데이터' : 'Integrated prototype · synthetic data'}</div>}
     </aside>
   </TooltipProvider>;

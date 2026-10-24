@@ -8,6 +8,7 @@ import { placeableMenus } from './board/boardMenus';
 import { NotificationsBell } from './NotificationsBell';
 import { firstOpenableMenu, useSystemSections } from './systemSections';
 import { VocDrawerContext } from './VocDrawer';
+import { getProto595 } from './proto595'; // THROWAWAY #595 — never merge.
 
 /** System switcher, the current system's section buttons and global tools; the app keeps ownership of topBarTools. */
 export function AppRail() {
@@ -16,7 +17,7 @@ export function AppRail() {
   const { t, tx, lang, setLang } = useI18n();
   const overallLabel = lang === 'ko' ? 'FeedbackOps 전체 — 새 탭' : 'FeedbackOps overall — new tab';
   const systems = useSystemSections();
-  const overall = slots.feedbackOps?.overall ?? null;
+  const overall = getProto595() ? null : slots.feedbackOps?.overall ?? null; // THROWAWAY #595 — the switcher card replaces the user-menu link.
   // The board is offered only where something can be placed on it: the same menus the empty pane lists (docs/16 §4).
   const showBoard = placeableMenus(registry, canOpen).length > 0;
   const boardLabel = lang === 'ko' ? '분석 보드' : 'Analysis board';

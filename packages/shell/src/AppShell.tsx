@@ -9,6 +9,7 @@ import { AppSidebar } from './AppSidebar';
 import { PlatformSidebar } from './PlatformSidebar';
 import { AppRail } from './AppRail';
 import { useVocDrawer, VocDrawer, VocDrawerContext } from './VocDrawer';
+import { getProto595 } from './proto595'; // THROWAWAY #595 — never merge.
 
 const COLLAPSE_KEY = 'platform:sidebar-collapsed';
 
@@ -24,6 +25,7 @@ function ShellLayout({ children }: { children: ReactNode }) {
   // The board is a platform screen like the home and global utilities: no business-system sidebar (docs/16 §4).
   const globalScreen = platformScreen === 'board' || (route !== null && registry.spaceOf(route.menu) === null);
   const showSidebar = sidebarSpace !== null && !globalScreen;
+  const proto595 = getProto595(); // THROWAWAY #595 — never merge.
   // Registry screens outside every space (home, 내 활동, 공지) draw the platform sidebar; the board and unmatched paths do not (ADR-0070).
   const showPlatformSidebar = route !== null && registry.spaceOf(route.menu) === null;
   const [collapsed, setCollapsed] = useState(() => {
@@ -46,7 +48,8 @@ function ShellLayout({ children }: { children: ReactNode }) {
   return <div className="flex h-full overflow-hidden">
     <a href="#platform-main" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-sm focus:bg-surface-card focus:px-3 focus:py-2">{t('skipToContent')}</a>
     <VocDrawerContext.Provider value={voc}><AppRail /></VocDrawerContext.Provider>
-    {showSidebar && <AppSidebar collapsed={collapsed} onToggle={toggle} />}
+    {/* THROWAWAY #595 — never merge. */}
+    {showSidebar && (proto595 && sidebarSpace?.id === proto595.spaceId ? <proto595.Sidebar collapsed={collapsed} onToggle={toggle} /> : <AppSidebar collapsed={collapsed} onToggle={toggle} />)}
     {showPlatformSidebar && <PlatformSidebar collapsed={collapsed} onToggle={toggle} />}
     <div className="flex min-w-0 flex-1 flex-col">
       <main id="platform-main" tabIndex={-1} className="min-h-0 min-w-0 flex-1 overflow-y-auto outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring">

@@ -17,7 +17,10 @@ import { EQUIPMENT_AXES } from './equipmentAxes';
 import { registry } from './menus';
 import { appSlots } from './slots';
 import { startOrFail } from './startup-failure';
-import { AppShell, RouteOutlet } from '@ap/shell';
+import { AppShell, RouteOutlet, setProto595 } from '@ap/shell';
+import { ProtoBar } from './proto/Bar'; // THROWAWAY #595 — never merge.
+import { ProtoBlock, ProtoSidebar } from './proto/Sidebar';
+import { PROTO, setEntry } from './proto/state';
 
 // Composition root owns the FeedbackOps origin (issue #60 §4): menus never read the env, the adapter
 // never carries it. Missing env → null → the space entries render disabled and the data still loads.
@@ -27,6 +30,8 @@ const feedbackOpsOrigin = readFeedbackOpsOrigin(import.meta.env.VITE_FEEDBACKOPS
 // It may be asynchronous (the real assembly awaits the bootstrap, #154), so the tree mounts after it answers; it can
 // also ask for a redirect (login) or a replacement screen (server unavailable) instead of the app.
 const queryHistory = createLocalQueryHistoryStore();
+// THROWAWAY #595 — never merge.
+if (PROTO.variant !== null) setProto595({ spaceId: 'feedbackops', reporter: PROTO.persona === 'reporter', Sidebar: ProtoSidebar, Block: ProtoBlock, onSwitcherPick: () => setEntry({ back: null }) });
 // One slot object for the page's lifetime: its `Compose` component must keep its identity so a held draft does not remount.
 const vocCompose = vocComposeSlot(managedSystemFor);
 const location = import.meta.env.BASE_URL === '/' ? undefined : createBasePathLocation(import.meta.env.BASE_URL);
@@ -49,6 +54,7 @@ void startOrFail(root, async () => {
       <I18nProvider>
         <PlatformProvider queryHistory={queryHistory} equipmentAxes={EQUIPMENT_AXES} adapter={assembly.adapter} registry={registry} location={location} slots={appSlots(assembly, feedbackOpsOrigin, notificationsSlot, vocCompose, homeTodoSlot)}>
           <AppShell><RouteOutlet /></AppShell>
+          {PROTO.variant !== null && <ProtoBar />}
         </PlatformProvider>
       </I18nProvider>
     </StrictMode>,

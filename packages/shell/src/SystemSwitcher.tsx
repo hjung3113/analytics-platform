@@ -3,6 +3,7 @@ import { useEffect, useId, useRef, type MouseEvent } from 'react';
 import { PlatformLink, useI18n } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import { usePlatformMenu } from './platformMenu';
+import { getProto595 } from './proto595'; // THROWAWAY #595 — never merge.
 import { formatUnread, MenuUnread } from './unread';
 import { cn, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipTrigger } from '@ap/ui';
 
@@ -43,10 +44,13 @@ export function SystemSwitcher() {
     }
   }, [open, pathname, switcherSession, setSwitcherOpen]);
 
+  const proto595 = getProto595(); // THROWAWAY #595 — never merge.
   const spaceIcon = (homeMenuId: string) => registry.groupById(registry.menuById(homeMenuId).group).icon;
   const cards = accessibleSpaces.flatMap(space => {
     const entry = spaceEntry(space.id);
-    return entry === null ? [] : [{ space, entry }];
+    // THROWAWAY #595 — never merge: a reporter has no FeedbackOps work-system card.
+    if (entry === null || (proto595?.reporter && space.id === proto595.spaceId)) return [];
+    return [{ space, entry }];
   });
   const platform = usePlatformMenu();
   const platformItems = platform.sections.flatMap(section => section.items);
@@ -140,7 +144,7 @@ export function SystemSwitcher() {
             const menuName = tx(registry.menuById(entry.menuId).label);
             return <li key={space.id}>
               <button type="button" {...(current ? { 'data-switcher-current': true, 'aria-current': 'true' as const } : {})} data-switcher-card
-                onClick={() => close(current ? null : () => switchSpace(space.id))}
+                onClick={() => { proto595?.onSwitcherPick(); close(current ? null : () => switchSpace(space.id)); }}
                 className={cn(CARD, current ? 'border-accent-primary bg-accent-primary-soft' : 'border-border-subtle')}>
                 <Icon className="mt-0.5 size-4 shrink-0" aria-hidden />
                 <span className="min-w-0 flex-1">
