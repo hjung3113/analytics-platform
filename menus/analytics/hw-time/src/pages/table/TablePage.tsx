@@ -9,13 +9,14 @@ import { useDrill, useI18n, useMenuFetch, usePlatform, type PageProps } from '@a
 import {
   DetailDrawer, DrillLayout, OutcomeView, PlatformDataTable, PlatformPage, QueryView, RowAction, StateMessage, TableUrlWarning, useTableUrlState, type PlatformColumn,
 } from '@ap/components';
-import { hwTime, isHwTimeTrendId, type HwTimeBlock, type HwTimeLevelData, type HwTimeRow, type HwTimeTableRow } from '../../endpoints';
+import { isThemeColorToken, readColorToken } from '@ap/ui/theme';
+import { hwTime, isHwTimeTrendId, type HwTimeBlock, type HwTimeLevelData, type HwTimeRow, type HwTimeSeries, type HwTimeTableRow } from '../../endpoints';
 import { useHwTimeLevel, useHwTimeTrend } from '../../shared/data';
-import { rowIdLabel } from '../../shared/format';
+import { formatSeconds, missingText, rowIdLabel } from '../../shared/format';
 import { StackPanel } from '../../shared/panels/StackPanel';
 import { TrendPanel } from '../../shared/panels/TrendPanel';
 import {
-  SORT_FIELDS, auxiliaryText, drillParams, exportFilterSummary, exportParams, levelOf, levelRowsOf, seriesIds, unitOf, valueText,
+  COLUMN_SIZE, SORT_FIELDS, auxiliaryText, drillParams, exportFilterSummary, exportNumber, exportParams, levelOf, levelRowsOf, seriesIds, unitOf, valueText,
 } from './tableData';
 
 const NO_ROWS: HwTimeRow[] = [];
@@ -25,6 +26,25 @@ function EnterButton({ ko, value, onClick }: { ko: boolean; value: string; onCli
     className="inline-flex size-6 items-center justify-center rounded-sm text-text-secondary hover:bg-surface-sunken hover:text-text-primary">
     <ChevronRight className="size-3.5" aria-hidden />
   </button>;
+}
+
+/** What the drawer's trend is: `hwTime.trend` is the sub-item's daily total over all Modules (an equipment id: the equipment's), whatever the level. */
+const trendCaption = (depth: number, ko: boolean) => depth === 0 ? (ko ? '설비 전체 일 합계' : 'Equipment daily total')
+  : ko ? '하위 항목 전체 일 합계 · Module·Motion과 무관' : 'Sub-item daily total over all Modules · independent of Module·Motion';
+
+/** One line per series of the row: colour swatch (the series' theme token), name and value with unit; a missing value reads 미측정. */
+function SeriesLegend({ series, values, lang }: { series: readonly HwTimeSeries[]; values: Record<string, number | null>; lang: 'ko' | 'en' }) {
+  return <ul aria-label={lang === 'ko' ? '구성 범례' : 'Breakdown legend'} className="flex flex-col gap-1 text-xs text-text-secondary">
+    {series.map(item => {
+      const value = values[item.id] ?? null;
+      return <li key={item.id} className="flex items-center gap-2">
+        {/* eslint-disable-next-line shadcn/no-inline-styles -- swatch color is the series' theme token resolved at runtime (as in LegendTree) */}
+        <span data-legend-swatch aria-hidden className="inline-block size-3 shrink-0 rounded-sm" style={{ backgroundColor: isThemeColorToken(item.color) ? readColorToken(item.color) : undefined }} />
+        <span className="min-w-0 flex-1 truncate">{item.name}</span>
+        <span className="tabular text-text-primary">{value === null ? missingText(lang) : `${formatSeconds(value)} ${unitOf(lang)}`}</span>
+      </li>;
+    })}
+  </ul>;
 }
 
 export default function TablePage(_props: PageProps) {
@@ -60,33 +80,36 @@ export default function TablePage(_props: PageProps) {
     const unit = unitOf(lang);
     const enter = (value: string) => drill.enter(level === 0 ? 'drillModule' : 'drillMotion', value);
     const series: PlatformColumn<HwTimeTableRow>[] = seriesIds(level, motion).map(id => ({
-      id, header: `${id} (${unit})`, align: 'right',
+      id, header: `${id} (${unit})`, align: 'right', size: COLUMN_SIZE.value,
       value: row => (row[id] as number | null | undefined) ?? null,
       cell: row => row.auxiliary ? null : <span className="inline-flex items-center justify-end gap-1">
         <span className="tabular">{valueText(row.values[id], lang)}</span>
         {level < 2 && <EnterButton ko={ko} value={id} onClick={() => enter(id)} />}
       </span>,
-      exportValue: row => row.auxiliary ? null : row.values[id] ?? valueText(null, lang),
+      exportValue: row => row.auxiliary ? null : exportNumber(row.values[id], lang),
     }));
     return [
-      { id: 'equipmentId', header: 'EquipmentID', cell: row => <span className="t-mono">{row.equipmentId}</span> },
+      { id: 'equipmentId', header: 'EquipmentID', size: COLUMN_SIZE.equipmentId, cell: row => <span className="t-mono">{row.equipmentId}</span> },
       ...(level === 0 ? [] : [{
-        id: 'subItem', header: ko ? '하위 항목' : 'Sub-item',
+        id: 'subItem', header: ko ? '하위 항목' : 'Sub-item', size: COLUMN_SIZE.subItem,
         value: (row: HwTimeTableRow) => row.auxiliary ? auxiliaryText(row, lang) : row.subItem ?? '',
         cell: (row: HwTimeTableRow) => <span className="t-mono">{row.auxiliary ? auxiliaryText(row, lang) : row.subItem}</span>,
       }]),
       ...series,
       {
-        id: 'total', header: `${ko ? '합계' : 'Total'} (${unit})`, align: 'right',
+        id: 'total', header: `${ko ? '합계' : 'Total'} (${unit})`, align: 'right', size: COLUMN_SIZE.total,
         value: row => row.total,
         cell: row => row.auxiliary ? null : <span className="tabular">{valueText(row.total, lang)}</span>,
-        exportValue: row => row.auxiliary ? null : row.total ?? valueText(null, lang),
+        exportValue: row => row.auxiliary ? null : exportNumber(row.total, lang),
       },
     ];
   }, [lang, ko, level, motion, drill]);
 
+  const megRows = listed.length - dataRows.length;
+  const rowCount = megRows > 0 ? (ko ? `설비 하위 항목 ${dataRows.length}행 · MEG ${megRows}행` : `${dataRows.length} sub-item rows · MEG ${megRows} rows`)
+    : (ko ? `${dataRows.length}행` : `${dataRows.length} rows`);
   const summary = module === null ? undefined
-    : `Module ${module}${motion ? ` · Motion ${motion}` : ''}${response ? ` · ${ko ? `${dataRows.length}행` : `${dataRows.length} rows`}${partial > 0 ? ` · ${ko ? `일부 미측정 ${partial}행` : `${partial} partly not measured`}` : ''}` : ''}`;
+    : `Module ${module}${motion ? ` · Motion ${motion}` : ''}${response ? ` · ${rowCount}${partial > 0 ? ` · ${ko ? `일부 미측정 ${partial}행` : `${partial} partly not measured`}` : ''}` : ''}`;
 
   const drawerBlock: HwTimeBlock | null = focusRow && response ? {
     series: (response.level === 2 ? response.detail?.series : response.series) ?? [],
@@ -125,11 +148,13 @@ export default function TablePage(_props: PageProps) {
       tabs={[{
         id: 'summary', label: ko ? '구성' : 'Breakdown',
         content: <div className="flex flex-col gap-3">
-          <div className="flex h-56 flex-col">
+          <div className="flex h-40 flex-col">
             <StackPanel chartId="hw-time-table-drawer-stack" title={ko ? '동작시간 구성' : 'Operation time breakdown'} block={drawerBlock}
               visibleSeriesIds={drawerBlock.series.map(item => item.id)} />
           </div>
-          <div className="flex flex-col"><TrendPanel chartId="hw-time-table-drawer-trend" title={ko ? '행별 일 추세' : 'Daily trend by row'} rowIds={[focusRow.id]} query={trendQ} level={drill.depth} /></div>
+          <SeriesLegend series={drawerBlock.series} values={focusRow.values} lang={lang} />
+          <div className="flex flex-col"><TrendPanel chartId="hw-time-table-drawer-trend" title={ko ? '일 추세' : 'Daily trend'} rowIds={[focusRow.id]} query={trendQ} level={drill.depth}
+            description={trendCaption(drill.depth, ko)} /></div>
         </div>,
       }]} />}
   </PlatformPage>;

@@ -117,6 +117,20 @@ describe('HW Time trends and table endpoints', () => {
     expect(result.rows[0]?.points.every((point, i) => point.value !== result.rows[1]?.points[i]?.value)).toBe(true);
   });
 
+  it('scales a sub-item trend to the table: the latest day is its measured L1 total and earlier days stay within ±15%', async () => {
+    const trend = await data<HwTimeTrendData>(hwTime.trend.id, { rowIds: ['EQ-002.H3', 'EQ-002'] });
+    let known = 0;
+    for (const drillModule of ['PM1', 'PM2', 'PM3', 'PM4']) {
+      const level = await data<HwTimeLevelData>(hwTime.levelRows.id, { drillModule });
+      const row = level.rows.find(item => item.id === 'EQ-002.H3')!;
+      known += Object.values(row.values).reduce<number>((sum, value) => sum + (value ?? 0), 0);
+    }
+    const values = trend.rows[0]!.points.map(point => point.value as number);
+    expect(values[7]).toBeCloseTo(known, 9);
+    values.slice(0, 7).forEach(value => expect(Math.abs(value / known - 1)).toBeLessThanOrEqual(0.15));
+    expect(new Set(values).size).toBeGreaterThan(1);
+  });
+
   it('gives an equipment total that equals the sum of its four sub-item trends on each day, deterministically', async () => {
     const subs = ['H1', 'H2', 'H3', 'H4'].map(item => `EQ-002.${item}`);
     const result = await data<HwTimeTrendData>(hwTime.trend.id, { rowIds: ['EQ-002', ...subs] });

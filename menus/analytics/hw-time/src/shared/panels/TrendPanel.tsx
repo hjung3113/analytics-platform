@@ -15,31 +15,33 @@ export type TrendPanelProps = {
   query: QueryState<HwTimeTrendData>;
   /** Drill level of the page (0 = Module list): the empty-state hint depends on where the rows can be picked. */
   level: number;
+  /** Caption in the Frame's header line: what quantity the line is, when the title alone does not say. */
+  description?: string;
 };
 
 /** The least trend plot height (the Frame's own floor): a short trend section fits with two rows open at 1280×800. */
 const TREND_FILL_MIN = 160;
 
 /** Daily line per row. No rows → an instruction, not a query. Free of layout. */
-export function TrendPanel({ chartId, title, rowIds, query, level }: TrendPanelProps) {
+export function TrendPanel({ chartId, title, rowIds, query, level, description }: TrendPanelProps) {
   const { lang } = useI18n();
   if (rowIds.length === 0) return <StateMessage compact icon={<LineChart className="size-4" aria-hidden />} title={lang === 'ko' ? '행을 추가하세요' : 'Add a row'}
     body={level === 0
       ? (lang === 'ko' ? 'Module을 골라 들어간 뒤 행을 추세에 추가하세요.' : 'Pick a Module to drill in, then add a row to the trend.')
       : (lang === 'ko' ? '상세 행을 골라 추세에 추가하세요.' : 'Pick a detail row and add it to the trend.')} />;
   return <QueryView query={query} widgetName={title} hideWidgetName skeletonRows={3} fill>
-    {data => <TrendChart chartId={chartId} title={title} data={data} />}
+    {data => <TrendChart chartId={chartId} title={title} description={description} data={data} />}
   </QueryView>;
 }
 
-function TrendChart({ chartId, title, data }: { chartId: string; title: string; data: HwTimeTrendData }) {
+function TrendChart({ chartId, title, description, data }: { chartId: string; title: string; description?: string; data: HwTimeTrendData }) {
   const { lang } = useI18n();
   const series = useMemo(() => data.rows.map((row, index) => ({
     id: row.id, name: rowIdLabel(row.id), color: TREND_COLORS[index % TREND_COLORS.length]!, kind: 'line' as const,
     points: row.points.map(point => [point.at, point.value] as [string, number | null]),
   })), [data.rows]);
   return <div className="flex flex-1 flex-col">
-    <AnalysisChartFrame chartId={chartId} title={title} xType="category" size="fill" fillMin={TREND_FILL_MIN} series={series}
+    <AnalysisChartFrame chartId={chartId} title={title} description={description} xType="category" size="fill" fillMin={TREND_FILL_MIN} series={series}
       unit={HW_TIME_UNIT[lang]} valueFormat={formatSeconds} canApplyRange={false} />
   </div>;
 }

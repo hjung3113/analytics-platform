@@ -157,10 +157,16 @@ function validateTrend(rowIds: string[]): string | null {
   return null;
 }
 
+/**
+ * A sub-item's daily total over all Modules and Motions: the latest day equals its L1 total (the measured values summed, as the
+ * table shows them per Module), earlier days vary deterministically within ±15% so a trend reads next to the table value.
+ */
 function subItemTrend(equipmentNumber: number, subItem: number): number[] {
   const seed = equipmentNumber * 4 + subItem - 1;
-  const phase = seed % 8;
-  return Array.from({ length: 8 }, (_, dayIndex) => 5 + ((seed * 127 + ((dayIndex + phase) % 8) * 991) % 100_003) / 1_000);
+  const subItemIndex = subItem - 1;
+  const total = MODULE_IDS.reduce((sum, module) => sum + MOTION_IDS.reduce((inner, _motion, motionIndex) =>
+    inner + (motionValue(equipmentNumber, subItemIndex, module, motionIndex) ?? 0), 0), 0);
+  return Array.from({ length: 8 }, (_, dayIndex) => dayIndex === 7 ? total : total * (1 + (((seed * 37 + dayIndex * 53) % 301) - 150) / 1_000));
 }
 
 /** A sub-item id gives its own daily values; an equipment id gives their per-day sum over H1–H4. */

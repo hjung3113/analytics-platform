@@ -27,6 +27,12 @@ export function levelRowsOf(data: HwTimeLevelData): HwTimeRow[] {
 /** The unit the export file carries; the cell shows the value, the column header names the unit. */
 export const unitOf = (lang: 'ko' | 'en') => HW_TIME_UNIT[lang];
 
+/** Column widths (px): every column is sized so L1/L2 show 합계 at 1440 wide without a horizontal scroll while the drawer is closed. */
+export const COLUMN_SIZE = { equipmentId: 112, subItem: 88, value: 100, total: 112 } as const;
+
+/** What an export file carries for a value: two decimals like the screen (no float noise), `미측정` for a missing one. */
+export const exportNumber = (value: number | null | undefined, lang: 'ko' | 'en'): number | string => value === null || value === undefined ? missingText(lang) : Number(value.toFixed(2));
+
 export function valueText(value: number | null | undefined, lang: 'ko' | 'en'): string {
   return value === null || value === undefined ? missingText(lang) : formatSeconds(value);
 }

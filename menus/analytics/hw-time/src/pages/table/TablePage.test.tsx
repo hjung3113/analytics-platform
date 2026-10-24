@@ -10,12 +10,14 @@ import { LayoutDashboard } from 'lucide-react';
 import { HW_TIME_CONTEXT, hwTime, type HwTimeLevelData, type HwTimeRow } from '../../endpoints';
 import { manifests } from '../../index';
 import TablePage from './TablePage';
+import { exportNumber } from './tableData';
 
 // jsdom has no canvas: the Frame is replaced by a stub that exposes the series and the rows the drawer hands it.
 vi.mock('@ap/components', async importOriginal => {
   const actual = await importOriginal<typeof import('@ap/components')>();
   function AnalysisChartFrame(props: import('@ap/components').AnalysisChartFrameProps) {
     return <section aria-label={String(props.title)} data-chart={props.chartId}>
+      {props.description && <p>{props.description}</p>}
       <p data-testid={`${props.chartId}-series`}>{props.series.map(s => `${s.id}:${s.points.map(([x, v]) => `${x}=${v}`).join(',')}`).join('|')}</p>
     </section>;
   }
@@ -150,6 +152,52 @@ describe('HW Time table page', () => {
     await renderPage(search);
     expect(screen.getAllByRole('button', { name: /내보내기/ })).toHaveLength(1);
     expect(hwTime.exportRows.limits?.maxRows).toBe(120);
+  });
+
+  it('sizes every column explicitly so 합계 fits at 1440 wide', async () => {
+    await renderPage('&drillModule=PM1');
+    const width = (name: string) => parseFloat(screen.getAllByRole('columnheader').find(h => h.textContent?.includes(name))!.style.width);
+    expect(width('EquipmentID')).toBe(112);
+    expect(width('하위 항목')).toBe(88);
+    expect(width('Chuck')).toBe(100);
+    expect(width('합계')).toBe(112);
+    // 선택 40 + 7 value columns' worth of room: the row fits the 1440 main area (~1130) with the action column.
+    expect(112 + 88 + 5 * 100 + 112).toBeLessThanOrEqual(900);
+  });
+
+  it('writes the value and total columns to the export with two decimals and 미측정 for a missing value', () => {
+    // exportNumber is the exportValue of both column kinds.
+    expect(exportNumber(4.5958000000000006, 'ko')).toBe(4.6);
+    expect(exportNumber(314.26869999999997, 'ko')).toBe(314.27);
+    expect(exportNumber(null, 'ko')).toBe('미측정');
+    expect(exportNumber(undefined, 'en')).toBe('Not measured');
+  });
+
+  it('counts the summary rows the way the table does: sub-item rows and MEG rows apart', async () => {
+    await renderPage('&drillModule=PM1');
+    expect(await screen.findByText(/설비 하위 항목 4행 · MEG 2행/)).toBeTruthy();
+    cleanup();
+    await renderPage('&drillModule=PM1&drillMotion=Pump');
+    expect(await screen.findByText(/Motion Pump · 4행/)).toBeTruthy();
+  });
+
+  it('lists each series of the row under the drawer bar with its value and unit, and 미측정 for a missing one', async () => {
+    await renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: 'EQ-001 보기' }));
+    const legend = await screen.findByRole('list', { name: '구성 범례' });
+    const items = within(legend).getAllByRole('listitem').map(item => item.textContent);
+    expect(items).toEqual(['PM110.00 초', 'PM210.00 초', 'PM3미측정', 'PM410.00 초']);
+    expect(legend.querySelectorAll('[data-legend-swatch]')).toHaveLength(4);
+  });
+
+  it.each([
+    ['', '설비 전체 일 합계'],
+    ['&drillModule=PM1', '하위 항목 전체 일 합계 · Module·Motion과 무관'],
+  ])('names the drawer trend as the daily total, not the row value (%s)', async (search, caption) => {
+    await renderPage(search);
+    fireEvent.click(await screen.findByRole('button', { name: search ? 'EQ-001 · H1 보기' : 'EQ-001 보기' }));
+    expect(await screen.findByRole('region', { name: '일 추세' })).toBeTruthy();
+    expect(screen.getByRole('region', { name: '일 추세' }).textContent).toContain(caption);
   });
 
   it('shows MEG rows by label without a drill or a row action', async () => {
