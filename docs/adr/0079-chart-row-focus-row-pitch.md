@@ -2,7 +2,7 @@
 
 - Status: Decided (2026-10-24)
 - Decider: 코디네이터(사용자 위임, #690 계획), 되돌릴 수 있음.
-- Scope: [#690](https://github.com/hjung3113/analytics-platform/issues/690) 노드 690b, [#541](https://github.com/hjung3113/analytics-platform/issues/541) 항목 F(viewport)를 결정한다. 관련: [ADR-0063](0063-consumer-owned-chart-pieces-and-unbounded-drill.md)(`visibleSeriesIds` 제어형 패턴, `pointActivation`).
+- Scope: [#690](https://github.com/hjung3113/analytics-platform/issues/690) 1단계 SDK 조각 S1([ADR-0078](0078-hw-time-layout-recipes.md)). [#541](https://github.com/hjung3113/analytics-platform/issues/541) 항목 F 가운데 viewport 선택(`dataZoom` 창 대 안쪽 스크롤)을 결정한다. 관련: [ADR-0063](0063-consumer-owned-chart-pieces-and-unbounded-drill.md)(`visibleSeriesIds` 제어형 패턴, `pointActivation`).
 
 ## 맥락
 
@@ -25,6 +25,8 @@ HW Time 같은 메뉴는 가로 누적 막대 Frame 둘이 같은 행을 보여 
 - **(채택) 안쪽 스크롤:** 막대 높이가 고정이고 휠은 가장 가까운 스크롤 컨테이너 규칙(§16, #700)을 그대로 따른다.
 
 ## 결과
+
+- `rowPitch`에서는 모든 행이 그려지고 확대가 꺼지므로 값 축은 보이는 시리즈 전체 범위를 그대로 쓴다(보이는 창 기준 autoscale 없음). 안쪽 스크롤 위치는 소비자 쪽 DOM 상태이고 기간 변경 때 따로 초기화하지 않는다. #541 F의 나머지 정책(autoscale·숨김 시리즈·reset)은 이 결정 범위 밖이다.
 
 - 계약은 06 §16 "가로 막대의 행 포커스와 `rowPitch`"다. 기존 가로 소비자는 `rowPitch`를 주지 않으면 줌을 유지한다.
 - 격자 위·아래 여백(16·44px)은 옵션과 높이 계산이 `analysisChartGeometry.ts`의 상수 하나를 쓴다. x축 눈금 라벨이 아래 여백 안에서 격자를 줄이므로 행 간격은 pitch에 근접한 값이다(실측은 E2E, 690m).
