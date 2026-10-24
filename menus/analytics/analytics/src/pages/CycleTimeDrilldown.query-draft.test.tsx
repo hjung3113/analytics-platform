@@ -25,7 +25,7 @@ it('keeps page edits in draft until the single apply, preserving applied request
   window.history.replaceState(null, '', '/analytics/cycle-time?scopeId=MEM&roomNames=PHOTO&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
   const push = vi.spyOn(window.history, 'pushState');
   render(<I18nProvider><PlatformProvider registry={registry} adapter={testAdapter({ session: () => session, menuQuery: send })} slots={{ contextBar: <Apply /> }}><CycleTimeDrilldown params={{}} /></PlatformProvider></I18nProvider>);
-  await waitFor(() => expect(new Set(send.mock.calls.map(([request]) => request.endpoint))).toEqual(new Set(['analytics.cycle.kpi', 'analytics.cycle.trend', 'analytics.cycle.dist', 'analytics.cycle.slow'])));
+  await waitFor(() => expect(new Set(send.mock.calls.map(([request]) => request.endpoint))).toEqual(new Set(['analytics.cycle.kpi', 'analytics.cycle.trend', 'analytics.cycle.dist', 'analytics.cycle.slow'])), { timeout: 8000 }); // first render loads the lazy chart chunks; under CI load the four initial requests exceeded the 1 s default (PR #738)
   const before = send.mock.calls.length;
   fireEvent.click(screen.getByRole('button', { name: '일' }));
   expect(window.location.search).not.toContain('granularity');
