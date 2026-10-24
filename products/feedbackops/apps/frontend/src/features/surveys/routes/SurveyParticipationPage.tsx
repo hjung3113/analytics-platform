@@ -24,7 +24,7 @@ export function RespondSurveyPage({ surveyId }: { surveyId: string }) {
   );
   return (
     <HostSeamProvider value={tanstackHost}>
-      <RespondSurveyScreen surveyId={surveyId} />
+      <RespondSurveyScreen key={surveyId} surveyId={surveyId} />
     </HostSeamProvider>
   );
 }

@@ -359,6 +359,14 @@ export function RespondSurveyScreen({
   const payloadToken = JSON.stringify(builtSubmission.body);
   const { key: idempotencyKey } = useIdempotencyKey(payloadToken);
 
+  // A submitted response outlives the form query: a later refetch answers 409 already-submitted.
+  if (submit.isSuccess) {
+    return (
+      <Frame variant={variant} layout="centered">
+        <SubmitSuccess Heading={Heading} />
+      </Frame>
+    );
+  }
   if (form.isPending) {
     return (
       <Frame variant={variant} layout="centered">
@@ -429,14 +437,6 @@ export function RespondSurveyScreen({
       />
     );
   }
-  if (submit.isSuccess) {
-    return (
-      <Frame variant={variant} layout="centered">
-        <SubmitSuccess Heading={Heading} />
-      </Frame>
-    );
-  }
-
   const submitError = submit.isError
     ? submit.error instanceof ApiError && submit.error.status === 422
       ? errorMapper(submit.error.envelope).message

@@ -1,6 +1,7 @@
 import { fetchManagedSystems, useIdempotencyKey } from '@/lib/api';
 import type { ApiError, ApiErrorEnvelope } from '@/lib/api';
 import { errorMapper, mapUnknownError } from '@/lib/api/errorMapper';
+import { VOC_CREATE_COPY } from '@/lib/copy/voc';
 import {
   activeAnalyticsAreas,
   analyticsAreasCatalogQuery,
@@ -14,6 +15,7 @@ import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { useVocCreateMutation } from '../../hooks/useVocCreateMutation';
+import { mergeAttachmentIds, normalizeAttachmentRefs } from '../compose/attachment-refs';
 
 export function useVocCreateController({
   initialManagedSystemId,
@@ -78,6 +80,13 @@ export function useVocCreateController({
         const fields = err.detail?.['fields'];
         if (Array.isArray(fields)) {
           let mapped = false;
+          // Fields this screen renders an error for; others surface as a toast.
+          const renderedFields = new Set([
+            'title',
+            'description_rich_content',
+            'primary_managed_system_id',
+            'analytics_area_id',
+          ]);
           for (const f of fields) {
             if (
               f &&
@@ -89,7 +98,15 @@ export function useVocCreateController({
               const msg =
                 field.message ??
                 errorMapper({ code: 'validation.failed', message: '' } as ApiErrorEnvelope).message;
-              form.setError(fieldPath as keyof CreateVocRequest, { message: msg });
+              if (renderedFields.has(fieldPath)) {
+                form.setError(fieldPath as keyof CreateVocRequest, { message: msg });
+              } else {
+                toast.error(
+                  fieldPath === 'attachment_ids' && field.code === 'too_big'
+                    ? VOC_CREATE_COPY.attachmentLimit
+                    : msg,
+                );
+              }
               mapped = true;
             }
           }
@@ -144,13 +161,14 @@ export function useVocCreateController({
   const isSubmitting = mutation.isPending;
 
   function handleSubmit(body: CreateVocRequest): void {
-    // C6: include attachment_ids[] for successfully-uploaded rows. The
-    // shared CreateVocRequest schema still carries the legacy `attachments`
-    // shape (AttachmentRef[]) which C7 will reconcile to id-only; until then
-    // we attach the id-list as an extra field passed through to the wire.
-    const withAttachments = { ...body, attachment_ids: attachmentIds } as CreateVocRequest & {
-      attachment_ids: string[];
-    };
+    // The editor toolbar's attachmentRef nodes are reduced to `{ id }` (the server allowlist) and their ids
+    // go ahead of the dropzone's in `attachment_ids`, as in the drawer form.
+    const { doc, ids: editorIds } = normalizeAttachmentRefs(body.description_rich_content);
+    const withAttachments = {
+      ...body,
+      description_rich_content: doc,
+      attachment_ids: mergeAttachmentIds(editorIds, attachmentIds),
+    } as CreateVocRequest & { attachment_ids: string[] };
     mutation.mutate(withAttachments);
   }
 

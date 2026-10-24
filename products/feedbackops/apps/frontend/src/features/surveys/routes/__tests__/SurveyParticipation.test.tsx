@@ -9,7 +9,7 @@ import {
   surveyRespondentFormDtoSchema,
   surveyResponseSubmissionSchema,
 } from '@fops/shared';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, focusManager } from '@tanstack/react-query';
 import {
   Outlet,
   RouterProvider,
@@ -18,7 +18,7 @@ import {
   createRoute,
   createRouter,
 } from '@tanstack/react-router';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -202,6 +202,7 @@ function installFetch(
     form?: SurveyRespondentFormDto;
     formStatus?: number;
     formCode?: string;
+    formConflictAfterSubmit?: boolean;
     postNetworkErrorOnce?: boolean;
     postStatuses?: Array<{ status: number; code?: string }>;
   } = {},
@@ -266,6 +267,15 @@ function installFetch(
       );
     }
     if (url.pathname === `/surveys/${surveyId}/form`) {
+      if (options.formConflictAfterSubmit && successfulSubmission) {
+        return jsonResponse(
+          {
+            code: 'conflict.survey_response_already_submitted',
+            message: 'survey response already submitted',
+          },
+          409,
+        );
+      }
       if (options.formStatus !== undefined) {
         const error =
           options.formCode !== undefined
@@ -609,6 +619,40 @@ describe('respondent form', () => {
     expect(await screen.findByRole('textbox', { name: '어떤 점이 좋았나요?' })).toBeInTheDocument();
   });
 
+  it('drops the completion notice when the route switches to another Survey', async () => {
+    const otherId = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
+    const otherForm = surveyRespondentFormDtoSchema.parse({
+      survey: { ...formDto.survey, id: otherId, title: '다른 설문' },
+      questions: [{ ...firstQuestion, kind: 'text', prompt: '다른 설문 질문', options: null }],
+    });
+    const { fetchMock } = installFetch({ form: textForm(true) });
+    const delegate = fetchMock.getMockImplementation();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) =>
+        new URL(String(input), 'http://localhost').pathname === `/surveys/${otherId}/form`
+          ? jsonResponse(otherForm)
+          : delegate?.(input, init),
+      ),
+    );
+    const view = renderWithQuery(<RespondSurveyPage surveyId={surveyId} />);
+
+    fireEvent.change(await screen.findByRole('textbox', { name: /사용 경험을 적어주세요/ }), {
+      target: { value: '좋아요' },
+    });
+    await userEvent.setup().click(screen.getByRole('button', { name: '제출' }));
+    expect(await screen.findByText('응답이 제출되었습니다')).toBeInTheDocument();
+
+    view.rerender(
+      <QueryClientProvider client={view.client}>
+        <RespondSurveyPage surveyId={otherId} />
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByRole('textbox', { name: '다른 설문 질문' })).toBeInTheDocument();
+    expect(screen.queryByText('응답이 제출되었습니다')).not.toBeInTheDocument();
+  });
+
   it('counts visible questions and non-empty visible answers in respondent progress', async () => {
     const optionalBranchForm = surveyRespondentFormDtoSchema.parse({
       ...formDto,
@@ -804,6 +848,28 @@ describe('respondent form', () => {
     renderWithQuery(<RespondSurveyPage surveyId={surveyId} />);
 
     expect(await screen.findByText('Survey를 찾을 수 없습니다.')).toBeInTheDocument();
+  });
+
+  it('keeps the completion notice when a focus refetch of the form answers already-submitted', async () => {
+    const { requests } = installFetch({ formConflictAfterSubmit: true });
+    renderWithQuery(<RespondSurveyPage surveyId={surveyId} />);
+    await screen.findByText('사용하기 쉬웠나요?');
+    await userEvent.setup().click(screen.getByRole('radio', { name: '아니오' }));
+    await userEvent.setup().click(screen.getByRole('button', { name: '제출' }));
+    expect(await screen.findByText('응답이 제출되었습니다')).toBeInTheDocument();
+    const formGets = () =>
+      requests.filter((r) => r.pathname === `/surveys/${surveyId}/form`).length;
+    const before = formGets();
+
+    await act(async () => {
+      focusManager.setFocused(false);
+      focusManager.setFocused(true);
+    });
+
+    await waitFor(() => expect(formGets()).toBeGreaterThan(before));
+    await act(async () => {});
+    expect(screen.queryByText('이 Survey에는 이미 응답을 제출했습니다.')).not.toBeInTheDocument();
+    expect(screen.getByText('응답이 제출되었습니다')).toBeInTheDocument();
   });
 
   it('invalidates answerable Surveys and response history after submission', async () => {
