@@ -19,13 +19,23 @@ export type StackPanelProps = {
   startAlign?: boolean;
   /** Frame `minMax`: outline each series' smallest and largest row. */
   minMax?: boolean;
+  /** Row pitch in px (the chart scrolls inside); `null` omits it so every row fits the panel height. Default 26. */
+  rowPitch?: number | null;
+  /** Shared row focus (a row id, page state): fed to the Frame as `activeCategory`. Rows this panel does not draw highlight nothing. */
+  activeRowId?: string | null;
+  /** A click or keyboard move on a data row. Auxiliary rows never reach it. */
+  onActiveRowChange?: (rowId: string | null, how: 'pointer' | 'keyboard') => void;
+  /** Scroll the active row into view when it changed from outside (only with a row pitch). */
+  revealActive?: boolean;
+  /** Frame `fillMin`; default 200. */
+  fillMin?: number;
   /** Segment activation (drill). Receives the series id and the row id the bar belongs to. */
   onActivate?: (segment: { seriesId: string; rowId: string }) => void;
   /** Row actions in the point menu, evaluated per row (a row already in the trend offers a different one). Auxiliary rows are skipped by the point selector and never reach them or `onActivate`, by mouse or keyboard. */
   rowActions?: (rowId: string) => readonly { id: string; label: string; keepsFocus?: boolean; onSelect: (rowId: string) => void }[];
 };
 
-const rowPitch = 26;
+const DEFAULT_ROW_PITCH = 26;
 /** Detail height floor: a short section (two trend rows under it at 1280×800) still shows a few 26 px rows; above 160 px the axes stay readable. */
 const DETAIL_FILL_MIN = 200;
 
@@ -55,7 +65,7 @@ export function sortRows(rows: readonly HwTimeRow[], sort: StackSort): HwTimeRow
 }
 
 /** Stacked horizontal bars over one block. Free of layout: the caller sizes the container and owns the query. */
-export function StackPanel({ chartId, title, block, visibleSeriesIds, onVisibleSeriesChange, sort = null, startAlign, minMax, onActivate, rowActions }: StackPanelProps) {
+export function StackPanel({ chartId, title, block, visibleSeriesIds, onVisibleSeriesChange, sort = null, startAlign, minMax, rowPitch = DEFAULT_ROW_PITCH, activeRowId, onActiveRowChange, revealActive, fillMin = DETAIL_FILL_MIN, onActivate, rowActions }: StackPanelProps) {
   const { lang } = useI18n();
   const rows = useMemo(() => sortRows(block.rows, sort), [block.rows, sort]);
   // Auxiliary rows are left out: a label that is not here never reaches a callback.
@@ -72,7 +82,13 @@ export function StackPanel({ chartId, title, block, visibleSeriesIds, onVisibleS
   const isPointSelectable = useCallback((point: ChartPoint) => byLabel.has(point.x), [byLabel]);
   return <div className="flex min-h-0 flex-1 flex-col gap-1">
     <AnalysisChartFrame
-      chartId={chartId} title={title} description={unmeasuredNote} xType="category" orientation="horizontal" stacked size="fill" fillMin={DETAIL_FILL_MIN} rowPitch={rowPitch}
+      chartId={chartId} title={title} description={unmeasuredNote} xType="category" orientation="horizontal" stacked size="fill" fillMin={fillMin} rowPitch={rowPitch ?? undefined}
+      activeCategory={activeRowId === undefined ? undefined : activeRowId === null ? null : rowIdLabel(activeRowId)} revealActive={revealActive}
+      onActiveCategoryChange={onActiveRowChange && ((category, how) => {
+        if (category === null) { onActiveRowChange(null, how); return; }
+        const rowId = byLabel.get(category);
+        if (rowId) onActiveRowChange(rowId, how);
+      })}
       legend={false} isPointSelectable={isPointSelectable} startAlign={startAlign} minMax={minMax}
       series={series} unit={HW_TIME_UNIT[lang]} valueFormat={formatSeconds} canApplyRange={false}
       visibleSeriesIds={visibleSeriesIds} onVisibleSeriesChange={onVisibleSeriesChange}

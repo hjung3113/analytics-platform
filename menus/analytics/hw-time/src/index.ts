@@ -1,6 +1,6 @@
 /** @ap/menu-hw-time — hwTime group manifests. All four HW Time menus share the endpoints; the steps menu owns them. */
 import { lazy } from 'react';
-import { LayoutDashboard, Table2 } from 'lucide-react';
+import { Columns2, LayoutDashboard, Table2 } from 'lucide-react';
 import { contextCapabilities, groupId, menuPermission, NO_FEATURES } from '@ap/contracts';
 import type { MenuEntry } from '@ap/kernel';
 import { HW_TIME_CONTEXT } from './endpoints';
@@ -20,6 +20,18 @@ export const manifests: MenuEntry[] = [
     contextResetKeys: ['drillModule', 'drillMotion', 'trend'],
     drill: { levels: [{ key: 'drillModule', label: { ko: 'Module', en: 'Module' } }, { key: 'drillMotion', label: { ko: 'Motion', en: 'Motion' } }] },
     component: lazy(() => import('./pages/steps/StepsPage')),
+  },
+  {
+    id: 'hw-time-compare', group: GROUP,
+    label: { ko: 'HW Time 비교', en: 'HW Time compare' },
+    description: { ko: 'Module 전체 문맥과 고른 Motion 상세를 나란히 비교합니다.', en: 'Compare the whole Module context with the selected Motion side by side.' },
+    path: '/hw-time/compare', icon: Columns2, permission: PERMISSION,
+    requiresScope: true, context: contextCapabilities(HW_TIME_CONTEXT), pageType: 'analysis',
+    features: { ...NO_FEATURES, board: true },
+    pageKeys: ['drillModule', 'drillMotion', 'trend', 'sort', 'row', 'scroll', 'minmax', 'align'],
+    contextResetKeys: ['drillModule', 'drillMotion', 'trend', 'row'],
+    drill: { levels: [{ key: 'drillModule', label: { ko: 'Module', en: 'Module' } }, { key: 'drillMotion', label: { ko: 'Motion', en: 'Motion' } }] },
+    component: lazy(() => import('./pages/compare/ComparePage')),
   },
   {
     id: 'hw-time-table', group: GROUP,
