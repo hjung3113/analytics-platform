@@ -624,7 +624,7 @@ Rules:
 
 ## VOC Same-Managed-System Peer Projection
 
-`similar_count` (the retained DTO field name) on every VOC list/detail item is
+`similar_count` (the retained DTO field name) on every operator VOC list/detail item (absent in the reporter arm, #696) is
 the authorized total of active same-workspace, same-primary-Managed-System
 peers, excluding the source VOC.
 Detail additionally includes `similar.items`, capped at three and ordered by

@@ -47,9 +47,9 @@ function panelReducer(
 function vocToBaseline(voc: VocListItem): TriagePanelLocalState {
   return {
     severity: voc.severity ?? null,
-    ownerUserId: voc.owner_user_id,
-    ownerTeamId: voc.owner_team_id,
-    analyticsAreaId: voc.analytics_area_id,
+    ownerUserId: voc.owner_user_id ?? null,
+    ownerTeamId: voc.owner_team_id ?? null,
+    analyticsAreaId: voc.analytics_area_id ?? null,
   };
 }
 

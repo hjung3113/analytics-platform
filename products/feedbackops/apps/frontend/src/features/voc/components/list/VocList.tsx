@@ -237,10 +237,9 @@ function VocListContent({
             onSelect(voc.id);
           },
           managedSystem: msMap[voc.primary_managed_system_id] ?? null,
-          owner: voc.owner_user_id !== null ? (actorMap[voc.owner_user_id] ?? null) : null,
+          owner: voc.owner_user_id != null ? (actorMap[voc.owner_user_id] ?? null) : null,
           reporter: actorMap[voc.reporter_id] ?? null,
-          areaName:
-            voc.analytics_area_id !== null ? (areaMap[voc.analytics_area_id] ?? null) : null,
+          areaName: voc.analytics_area_id != null ? (areaMap[voc.analytics_area_id] ?? null) : null,
           ...(unassignedBadgeTone !== undefined ? { unassignedBadgeTone } : {}),
         };
 
