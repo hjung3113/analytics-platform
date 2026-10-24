@@ -1,8 +1,14 @@
+import {
+  noticeHost,
+  noticeMessages,
+  registerNoticeHost,
+  undoNoticeRenderer,
+} from '@/test/notice-host';
 import type { VocListItem } from '@fops/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { navigate, renderers } = vi.hoisted(() => ({
   navigate: vi.fn(),
@@ -23,21 +29,12 @@ vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
   fetchAnalyticsAreas: vi.fn(async () => ({ items: [], total: 0 })),
 }));
 
-vi.mock('sonner', () => ({
-  toast: {
-    custom: vi.fn((renderer: (id: string | number) => ReactNode) => {
-      renderers.push(renderer);
-      return `undo-${renderers.length}`;
-    }),
-    dismiss: vi.fn(),
-    error: vi.fn(),
-    warning: vi.fn(),
-    info: vi.fn(),
-    success: vi.fn(),
-  },
-}));
+noticeHost.notify.mockImplementation((notice) => {
+  renderers.push(undoNoticeRenderer(notice));
+  return `undo-${renderers.length}`;
+});
+beforeAll(registerNoticeHost);
 
-import { toast } from 'sonner';
 import { VocTriageScreen } from '../VocTriageScreen';
 
 const VOC: VocListItem = {
@@ -138,7 +135,7 @@ async function openFinding() {
 beforeEach(() => {
   renderers.length = 0;
   navigate.mockReset();
-  vi.mocked(toast.error).mockClear();
+  noticeHost.notify.mockClear();
 });
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -166,7 +163,7 @@ describe('Finding dialog lifetime through token-bound undo (#1030)', () => {
       );
       await settle(compensation, response('untriaged', path === 'compensated' ? 200 : 409));
       if (path === 'rejected') {
-        await waitFor(() => expect(toast.error).toHaveBeenCalled());
+        await waitFor(() => expect(noticeMessages('error').length).toBeGreaterThan(0));
         expect(screen.getByRole('dialog')).toBeInTheDocument();
       } else {
         await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());

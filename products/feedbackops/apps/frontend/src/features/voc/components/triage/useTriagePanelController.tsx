@@ -1,11 +1,11 @@
 import { fetchVocOwnerCandidates } from '@/lib/api/voc-owner-candidates';
 import { analyticsAreasCatalogQuery } from '@/lib/cross-system/analyticsAreasCatalog';
 import { useVocDetail } from '@/lib/cross-system/useVocDetail';
+import { useHostNotice } from '@/lib/host/host-seam';
 import type { FindingSeverity, VocListItem } from '@fops/shared';
-import { type PickerOption, UndoToast } from '@fops/ui';
+import type { PickerOption } from '@fops/ui';
 import { useQuery } from '@tanstack/react-query';
 import * as React from 'react';
-import { toast } from 'sonner';
 import { useTriageCommand } from '../../hooks/useTriageCommand';
 import { useTriagePanelState } from '../../hooks/useTriagePanelState';
 import type { TriageQueueOutcome } from '../../hooks/useTriageQueue';
@@ -45,6 +45,7 @@ export function useTriagePanelController({
   onOptimisticRollback?: (vocId: string, input?: TriageInput) => void;
   onOptimisticRestore?: (vocId: string, input?: TriageInput) => void;
 }) {
+  const { notify, dismiss } = useHostNotice();
   const { panelState, baseline, dispatch, dirty } = useTriagePanelState(voc);
   const ownerCandidatesQuery = useQuery({
     queryKey: ['voc', voc.id, 'owner-candidates'] as const,
@@ -146,34 +147,29 @@ export function useTriagePanelController({
       // below binds its undo to THIS call only. Once a follow-up mutate
       // replaces the current call, this toast becomes inert.
       const callToken: CallToken = commit(input, () => {
-        toast.dismiss(successToastId);
+        dismiss(successToastId);
       });
 
-      // Show UndoToast via sonner's toast.custom
+      // The undo notice (the standalone app's UndoToast; the platform draws the action).
       // Prototype ref: screen-voc-create.jsx:699-730 → UndoToast positioning
       const message =
         kind === 'finding' ? `${voc.display_id} Finding 만들기` : `${voc.display_id} Triage 확정됨`;
 
-      const successToastId = toast.custom(
-        (toastId) => (
-          <UndoToast
-            message={message}
-            onAction={() => {
-              // REV-3 Cluster X: pass the token so undoLast no-ops if this is
-              // a stale toast (a newer mutation has since started).
-              undoLastRef.current(callToken);
-              toast.dismiss(toastId);
-            }}
-            onDismiss={() => {
-              toast.dismiss(toastId);
-            }}
-            duration={4000}
-          />
-        ),
-        // #960: UndoToast owns the focus/pointer-pausable timer; Infinity
-        // disables sonner's own timer so it never dismisses the toast first.
-        { duration: Number.POSITIVE_INFINITY },
-      );
+      const successToastId = notify({
+        tone: 'success',
+        message,
+        action: {
+          label: '실행 취소',
+          // REV-3 Cluster X: pass the token so undoLast no-ops if this is
+          // a stale toast (a newer mutation has since started).
+          onAction: () => {
+            undoLastRef.current(callToken);
+            dismiss(successToastId);
+          },
+        },
+        durationMs: 4000,
+        variant: 'undo',
+      });
 
       onAct?.(kind, {
         vocId: voc.id,
@@ -196,6 +192,8 @@ export function useTriagePanelController({
       onQueueOutcome,
       onAct,
       commit,
+      notify,
+      dismiss,
     ],
   );
 
@@ -212,28 +210,23 @@ export function useTriagePanelController({
 
     // REV-3 Cluster X: capture per-call token and bind the toast's undo to it.
     const callToken: CallToken = commit(input, () => {
-      toast.dismiss(successToastId);
+      dismiss(successToastId);
     });
 
     const message = `${voc.display_id} 보류 처리됨`;
-    const successToastId = toast.custom(
-      (toastId) => (
-        <UndoToast
-          message={message}
-          onAction={() => {
-            undoLastRef.current(callToken);
-            toast.dismiss(toastId);
-          }}
-          onDismiss={() => {
-            toast.dismiss(toastId);
-          }}
-          duration={4000}
-        />
-      ),
-      // #960: UndoToast owns the focus/pointer-pausable timer; Infinity
-      // disables sonner's own timer so it never dismisses the toast first.
-      { duration: Number.POSITIVE_INFINITY },
-    );
+    const successToastId = notify({
+      tone: 'success',
+      message,
+      action: {
+        label: '실행 취소',
+        onAction: () => {
+          undoLastRef.current(callToken);
+          dismiss(successToastId);
+        },
+      },
+      durationMs: 4000,
+      variant: 'undo',
+    });
 
     onAct?.('skip');
   }, [
@@ -248,6 +241,8 @@ export function useTriagePanelController({
     voc.review_postponed_at,
     onAct,
     commit,
+    notify,
+    dismiss,
   ]);
 
   return {

@@ -1,18 +1,10 @@
+import { registerTriageTestHost } from '@/test/triage-host';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import type * as React from 'react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const navigateMock = vi.fn();
 let searchState: Record<string, unknown> = {};
-
-vi.mock('@tanstack/react-router', () => ({
-  useSearch: () => searchState,
-  useNavigate: () => navigateMock,
-  Link: ({ children, to }: { children: React.ReactNode; to: string }) => (
-    <a href={to}>{children}</a>
-  ),
-}));
 
 vi.mock('@/lib/api/nav', () => ({
   fetchNavCounts: vi.fn(),
@@ -29,15 +21,15 @@ vi.mock('@/lib/api/me', async (importOriginal) => ({
   useMeBridge: useMeMock,
 }));
 
-vi.mock('@/lib/cross-system/usePermissionCheck', () => ({
-  usePermissionCheck: vi.fn(),
+vi.mock('@/lib/cross-system/usePermissionCheckBridge', () => ({
+  usePermissionCheckBridge: vi.fn(),
   permissionCheckQueryKey: () => ['permission-check', 'voc.triage', null],
   permissionRequestsMineKey: ['permission-requests-mine'],
 }));
 
 import { fetchNavCounts } from '@/lib/api/nav';
 import { useMe } from '@/lib/auth/useMe';
-import { usePermissionCheck } from '@/lib/cross-system/usePermissionCheck';
+import { usePermissionCheckBridge as usePermissionCheck } from '@/lib/cross-system/usePermissionCheckBridge';
 import { TriageRoute } from '../TriageRoute';
 
 const ADMIN_ME = {
@@ -77,6 +69,8 @@ const QUEUED_VOC = {
   updated_at: '2026-01-01T00:00:00.000Z',
   similar_count: 0,
 };
+
+beforeAll(() => registerTriageTestHost(() => searchState, navigateMock));
 
 describe('TriageRoute — optimistic exclusion lifetime (#937)', () => {
   beforeEach(() => {

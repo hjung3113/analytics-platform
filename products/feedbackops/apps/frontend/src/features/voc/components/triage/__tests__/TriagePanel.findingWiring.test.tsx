@@ -7,11 +7,12 @@
 // the committed vocId/managedSystemId/analyticsAreaId back through onAct so
 // the parent (VocTriageScreen) can open CreateFindingModal instead.
 
+import { noticeHost, noticeMessages, registerNoticeHost } from '@/test/notice-host';
 import type { VocListItem } from '@fops/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type * as React from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/cross-system/useWorkspaceActors', () => ({
   useWorkspaceActors: () => ({ actors: [] }),
@@ -21,18 +22,9 @@ vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
   fetchAnalyticsAreas: vi.fn(async () => ({ items: [], total: 0 })),
 }));
 
-vi.mock('sonner', () => ({
-  toast: {
-    custom: vi.fn(() => 'toast-id'),
-    dismiss: vi.fn(),
-    error: vi.fn(),
-    warning: vi.fn(),
-    info: vi.fn(),
-    success: vi.fn(),
-  },
-}));
+noticeHost.notify.mockImplementation(() => 'toast-id');
+beforeAll(registerNoticeHost);
 
-import { toast } from 'sonner';
 import { TriagePanel } from '../TriagePanel';
 
 const VOC: VocListItem = {
@@ -107,7 +99,7 @@ describe('TriagePanel — Finding wiring (#527)', () => {
       severity: 'medium',
     });
     // No deferral toast — this is the defect #527 fixes.
-    expect(toast.info).not.toHaveBeenCalled();
+    expect(noticeMessages('info')).toEqual([]);
 
     await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled());
   });

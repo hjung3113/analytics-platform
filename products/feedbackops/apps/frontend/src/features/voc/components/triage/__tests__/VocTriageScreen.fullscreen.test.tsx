@@ -4,27 +4,20 @@
 // panel and its toggle node are not remounted. Class tokens are pinned on
 // DetailPanelReadingColumn.
 
+import { noticeHost, registerNoticeHost } from '@/test/notice-host';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import type * as React from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api/registry-reads')>()),
   fetchAnalyticsAreas: vi.fn(async () => ({ items: [], total: 0 })),
 }));
 
-vi.mock('sonner', () => ({
-  toast: {
-    custom: vi.fn(() => 'toast-fullscreen-test'),
-    dismiss: vi.fn(),
-    error: vi.fn(),
-    warning: vi.fn(),
-    info: vi.fn(),
-    success: vi.fn(),
-  },
-}));
+noticeHost.notify.mockImplementation(() => 'toast-fullscreen-test');
+beforeAll(registerNoticeHost);
 
 import type { VocListItem } from '@fops/shared';
 import { type TriageTab, VocTriageScreen } from '../VocTriageScreen';

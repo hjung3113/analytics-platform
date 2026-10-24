@@ -13,10 +13,16 @@
 //   2. Refetch succeeds but compensating PATCH 409s → toast surfaced, no unhandled rejection.
 //   3. Refetch succeeds, compensating PATCH succeeds → happy path (onOptimisticRestore called).
 
+import {
+  noticeHost,
+  noticeMessages,
+  registerNoticeHost,
+  undoNoticeRenderer,
+} from '@/test/notice-host';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type * as React from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api/registry-reads')>()),
@@ -31,22 +37,13 @@ let capturedToastRenderer: ((id: string | number) => React.ReactNode) | null = n
 // RTL cleanup() removes RTL's container but not manually appended elements.
 let toastHostEl: HTMLElement | null = null;
 
-vi.mock('sonner', () => ({
-  toast: {
-    custom: vi.fn((renderer: (id: string | number) => React.ReactNode) => {
-      capturedToastRenderer = renderer;
-      return 'toast-id-rev4';
-    }),
-    dismiss: vi.fn(),
-    error: vi.fn(),
-    warning: vi.fn(),
-    info: vi.fn(),
-    success: vi.fn(),
-  },
-}));
+noticeHost.notify.mockImplementation((notice) => {
+  capturedToastRenderer = undoNoticeRenderer(notice);
+  return 'toast-id-rev4';
+});
+beforeAll(registerNoticeHost);
 
 import type { VocListItem } from '@fops/shared';
-import { toast } from 'sonner';
 import { TriagePanel } from '../TriagePanel';
 
 // ── shared fixtures ──────────────────────────────────────────────────────────
@@ -229,7 +226,7 @@ describe('TriagePanel — refetch-failure path (REV-4 Cluster Y)', () => {
     await waitFor(
       () => {
         // An error toast must have been shown to the user
-        expect(toast.error as ReturnType<typeof vi.fn>).toHaveBeenCalled();
+        expect(noticeMessages('error').length).toBeGreaterThan(0);
       },
       { timeout: 3000 },
     );
@@ -304,7 +301,7 @@ describe('TriagePanel — refetch-failure path (REV-4 Cluster Y)', () => {
     // An error toast must have been surfaced after the 409
     await waitFor(
       () => {
-        expect(toast.error as ReturnType<typeof vi.fn>).toHaveBeenCalled();
+        expect(noticeMessages('error').length).toBeGreaterThan(0);
       },
       { timeout: 3000 },
     );
@@ -374,6 +371,6 @@ describe('TriagePanel — refetch-failure path (REV-4 Cluster Y)', () => {
     );
 
     // No error toast on the success path
-    expect(toast.error as ReturnType<typeof vi.fn>).not.toHaveBeenCalled();
+    expect(noticeMessages('error')).toEqual([]);
   });
 });

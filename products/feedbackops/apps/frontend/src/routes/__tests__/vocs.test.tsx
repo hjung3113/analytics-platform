@@ -37,13 +37,15 @@ const vocSearchSchema = z
     selected: z.string().uuid().optional(),
     managedSystem: z.string().optional(),
     tab: z.enum(['untriaged', 'high', 'unassigned', 'similar', 'no-link']).optional(),
-    sort: z.enum([
-      'created_at:desc',
-      'created_at:asc',
-      'severity:desc',
-      'severity:asc',
-      'reporter_facing_status:asc',
-    ]).optional(),
+    sort: z
+      .enum([
+        'created_at:desc',
+        'created_at:asc',
+        'severity:desc',
+        'severity:asc',
+        'reporter_facing_status:asc',
+      ])
+      .optional(),
     'filter.severity': z.string().optional(),
     'filter.reporterStatus': z.string().optional(),
     'filter.owner': z.string().optional(),
@@ -148,17 +150,17 @@ function stubFetchMeTriage() {
       );
     }
     if (url.includes('/me/permissions/check')) {
-      return new Response(
-        JSON.stringify({ state: 'approved' }),
-        { status: 200, headers: { 'content-type': 'application/json' } },
-      );
+      return new Response(JSON.stringify({ state: 'approved', decision: { allow: true } }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
     }
     // VOC list (triage queue)
     if (url.includes('/vocs')) {
-      return new Response(
-        JSON.stringify({ items: [], total: 0 }),
-        { status: 200, headers: { 'content-type': 'application/json' } },
-      );
+      return new Response(JSON.stringify({ items: [], total: 0 }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
     }
     return new Response('not mocked', { status: 500 });
   }) as typeof globalThis.fetch;

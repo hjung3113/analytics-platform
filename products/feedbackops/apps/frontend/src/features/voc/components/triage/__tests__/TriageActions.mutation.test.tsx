@@ -4,45 +4,41 @@
 // TriageActions. Each test mounts the minimal provider tree needed.
 //
 // C3.2 of slice3 #21.
-// Test count: 5
+// Test count: 7
 //   1. optimistic remove fires synchronously on confirm click
 //   2. compensating PATCH (settled undo) carries a FRESH Idempotency-Key
 //   3. 409 conflict.stale_write → onOptimisticRestore called
 //   4. 409 conflict.idempotency_key_reuse → confirm button becomes disabled
-//   5. #960 both sonner toast.custom calls (confirm, 보류) get duration Infinity
+//   5. both undo notices (confirm, 보류) are raised through the host seam with the 4 s undo window
+//   6. a failed command dismisses its undo notice by the id notify returned
+//   7. the notice action runs the undo and dismisses by that id
 //
-// Pattern: mock sonner so toast.custom is captured without needing a live Toaster.
+// Pattern: the host seam's notify is a spy, so the undo notice is captured without needing a live Toaster.
 // The compensating PATCH test triggers undo via the captured onAction callback.
 
+import { noticeHost, registerNoticeHost, undoNoticeRenderer } from '@/test/notice-host';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type * as React from 'react';
-import { toast } from 'sonner';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api/registry-reads')>()),
   fetchAnalyticsAreas: vi.fn(async () => ({ items: [], total: 0 })),
 }));
 
-// ── sonner mock — capture toast.custom so we can trigger undo programmatically ──
+// ── host notice spy — capture the undo notice so we can trigger undo programmatically ──
 
-// Capture the most recent toast.custom renderer so tests can invoke onAction.
+// Capture the most recent undo notice's renderer so tests can invoke onAction.
 let capturedToastRenderer: ((id: string | number) => React.ReactNode) | null = null;
 
-vi.mock('sonner', () => ({
-  toast: {
-    custom: vi.fn((renderer: (id: string | number) => React.ReactNode) => {
-      capturedToastRenderer = renderer;
-      return 'toast-id-001';
-    }),
-    dismiss: vi.fn(),
-    error: vi.fn(),
-    warning: vi.fn(),
-    info: vi.fn(),
-    success: vi.fn(),
-  },
-}));
+beforeEach(() =>
+  noticeHost.notify.mockImplementation((notice) => {
+    capturedToastRenderer = undoNoticeRenderer(notice);
+    return 'toast-id-001';
+  }),
+);
+beforeAll(registerNoticeHost);
 
 import type { VocListItem } from '@fops/shared';
 import { TriagePanel } from '../TriagePanel';
@@ -309,7 +305,7 @@ describe('TriageActions mutation wire-up', () => {
     );
   });
 
-  // 5. #960 — sonner's own timer is disabled; UndoToast owns dismissal ──────
+  // 5. #960 — the notice carries the undo window; UndoToast owns dismissal ──────
 
   it.each([
     {
@@ -328,7 +324,7 @@ describe('TriageActions mutation wire-up', () => {
         fireEvent.click(screen.getByRole('button', { name: '보류' }));
       },
     },
-  ] as const)('passes duration Infinity to sonner toast.custom ($kind)', async ({ trigger }) => {
+  ] as const)('raises the undo notice with the 4 s window ($kind)', async ({ trigger }) => {
     globalThis.fetch = vi.fn(async () =>
       jsonResponse({
         id: MOCK_VOC.id,
@@ -346,7 +342,85 @@ describe('TriageActions mutation wire-up', () => {
 
     await trigger();
 
-    const lastCall = vi.mocked(toast.custom).mock.calls.at(-1);
-    expect(lastCall?.[1]).toEqual({ duration: Number.POSITIVE_INFINITY });
+    // Sonner's own timer stays off (Infinity) inside the standalone host's `sonnerNotify`; the notice carries the window.
+    const lastNotice = noticeHost.notify.mock.calls.at(-1)?.[0];
+    expect(lastNotice).toMatchObject({
+      tone: 'success',
+      variant: 'undo',
+      durationMs: 4000,
+      action: { label: '실행 취소' },
+    });
+  });
+
+  // 6. a failed command dismisses its undo notice by id ──────────────────────
+
+  it('dismisses the undo notice by the id notify returned when the command fails', async () => {
+    noticeHost.dismiss.mockClear();
+    globalThis.fetch = vi.fn(async () =>
+      jsonResponse(
+        { code: 'conflict.stale_write', message: '다른 사용자가 먼저 수정했습니다.' },
+        409,
+      ),
+    ) as typeof globalThis.fetch;
+    const Wrapper = makeWrapper();
+    render(
+      <Wrapper>
+        <TriagePanel voc={MOCK_VOC} onAct={vi.fn()} onOptimisticRemove={vi.fn()} />
+      </Wrapper>,
+    );
+
+    clickSeverity();
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /triage 확정/i })).not.toBeDisabled();
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /triage 확정/i }));
+    });
+
+    expect(noticeHost.notify).toHaveBeenCalledWith(
+      expect.objectContaining({ message: `${MOCK_VOC.display_id} Triage 확정됨` }),
+    );
+    await waitFor(() => expect(noticeHost.dismiss).toHaveBeenCalledWith('toast-id-001'), {
+      timeout: 3000,
+    });
+  });
+
+  // 7. the notice action undoes and dismisses ────────────────────────────────
+
+  it('runs the undo and dismisses by id when the notice action fires', async () => {
+    noticeHost.dismiss.mockClear();
+    globalThis.fetch = vi.fn(
+      () =>
+        new Promise<Response>(() => {
+          /* never resolves */
+        }),
+    ) as typeof globalThis.fetch;
+    const onOptimisticRestore = vi.fn();
+    const Wrapper = makeWrapper();
+    render(
+      <Wrapper>
+        <TriagePanel
+          voc={MOCK_VOC}
+          onAct={vi.fn()}
+          onOptimisticRemove={vi.fn()}
+          onOptimisticRestore={onOptimisticRestore}
+        />
+      </Wrapper>,
+    );
+
+    clickSeverity();
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /triage 확정/i })).not.toBeDisabled();
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /triage 확정/i }));
+    });
+
+    const notice = noticeHost.notify.mock.calls.at(-1)?.[0];
+    expect(notice?.action?.label).toBe('실행 취소');
+    act(() => notice?.action?.onAction());
+
+    expect(onOptimisticRestore).toHaveBeenCalledWith(MOCK_VOC.id);
+    expect(noticeHost.dismiss).toHaveBeenCalledWith('toast-id-001');
   });
 });

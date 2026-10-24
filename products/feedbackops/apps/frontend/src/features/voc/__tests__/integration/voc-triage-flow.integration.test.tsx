@@ -14,30 +14,31 @@
 // Test framework: Vitest + @testing-library/react (O-6 in PLAN-21).
 // Playwright is used only for pixel-diff baselines, not here.
 
+import {
+  noticeHost,
+  noticeMessages,
+  registerNoticeHost,
+  undoNoticeRenderer,
+} from '@/test/notice-host';
 import { type VocListItem, patchVocRequestSchema } from '@fops/shared';
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import * as React from 'react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ── sonner mock ──────────────────────────────────────────────────────────────
 // Capture toast.custom renderer so tests can trigger 실행 취소 programmatically.
 
 let capturedToastRenderer: ((id: string | number) => React.ReactNode) | null = null;
 
-vi.mock('sonner', () => ({
-  toast: {
-    custom: vi.fn((renderer: (id: string | number) => React.ReactNode) => {
-      capturedToastRenderer = renderer;
-      return 'toast-id-triage';
-    }),
-    dismiss: vi.fn(),
-    error: vi.fn(),
-    warning: vi.fn(),
-    info: vi.fn(),
-    success: vi.fn(),
-  },
-}));
+beforeEach(() => {
+  noticeHost.notify.mockClear();
+  noticeHost.notify.mockImplementation((notice) => {
+    capturedToastRenderer = undoNoticeRenderer(notice);
+    return 'toast-id-triage';
+  });
+});
+beforeAll(registerNoticeHost);
 
 import { VocTriageScreen } from '../../components/triage/VocTriageScreen';
 
@@ -562,7 +563,6 @@ describe('Triage flow — integration (C6.3)', () => {
   it.each(['patch rejection', 'refetch failure'] as const)(
     '946: pending mark undo + %s lets the settled server marker win',
     async (failure) => {
-      const { toast } = await import('sonner');
       const { COMPENSATE_FAILURE_TOAST, REFETCH_FAILURE_TOAST } = await import(
         '../../lib/triage-error-policy'
       );
@@ -634,12 +634,10 @@ describe('Triage flow — integration (C6.3)', () => {
         });
         const message =
           failure === 'patch rejection' ? COMPENSATE_FAILURE_TOAST : REFETCH_FAILURE_TOAST;
-        await waitFor(() => expect(toast.error).toHaveBeenCalledWith(message), {
+        await waitFor(() => expect(noticeMessages('error')).toContain(message), {
           timeout: 5000,
         });
-        expect(vi.mocked(toast.error).mock.calls.filter(([copy]) => copy === message)).toHaveLength(
-          1,
-        );
+        expect(noticeMessages('error').filter((copy) => copy === message)).toHaveLength(1);
         await waitFor(() => {
           const row = screen.getByRole('button', { name: /VOC-I-001/ });
           expect(within(row).getByText('보류')).toBeInTheDocument();
@@ -652,7 +650,6 @@ describe('Triage flow — integration (C6.3)', () => {
   );
 
   it('946: late mark failure after undo discards its override without changing selection', async () => {
-    const { toast } = await import('sonner');
     let rejectForward: (error: Error) => void = () => {};
     let patches = 0;
     globalThis.fetch = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
@@ -712,15 +709,14 @@ describe('Triage flow — integration (C6.3)', () => {
         'aria-selected',
         'true',
       );
-      expect(toast.error).not.toHaveBeenCalled();
-      expect(toast.warning).not.toHaveBeenCalled();
+      expect(noticeMessages('error')).toEqual([]);
+      expect(noticeMessages('warning')).toEqual([]);
     } finally {
       unmountCapturedToast(host);
     }
   });
 
   it('946 FIX1 F1: an older late failure preserves the newer mark and archived exclusion', async () => {
-    const { toast } = await import('sonner');
     const requests: Array<(response: Response) => void> = [];
     globalThis.fetch = vi.fn((_input: RequestInfo | URL, init?: RequestInit) =>
       init?.method === 'PATCH'
@@ -760,15 +756,14 @@ describe('Triage flow — integration (C6.3)', () => {
       await waitFor(() =>
         expect(screen.queryByRole('button', { name: /VOC-I-001/ })).not.toBeInTheDocument(),
       );
-      expect(toast.error).toHaveBeenCalledTimes(1);
-      expect(toast.error).toHaveBeenCalledWith('이 항목은 보관되어 변경할 수 없습니다.');
+      expect(noticeMessages('error')).toHaveLength(1);
+      expect(noticeMessages('error')).toEqual(['이 항목은 보관되어 변경할 수 없습니다.']);
     } finally {
       unmountCapturedToast(host);
     }
   });
 
   it('946 FIX1 F2: archived mark excludes the current row after its panel unmounts', async () => {
-    const { toast } = await import('sonner');
     let resolveForward: (response: Response) => void = () => {};
     globalThis.fetch = vi.fn((_input: RequestInfo | URL, init?: RequestInit) =>
       init?.method === 'PATCH'
@@ -802,8 +797,8 @@ describe('Triage flow — integration (C6.3)', () => {
     await waitFor(() =>
       expect(screen.queryByRole('button', { name: /VOC-I-001/ })).not.toBeInTheDocument(),
     );
-    expect(toast.error).toHaveBeenCalledTimes(1);
-    expect(toast.error).toHaveBeenCalledWith('이 항목은 보관되어 변경할 수 없습니다.');
+    expect(noticeMessages('error')).toHaveLength(1);
+    expect(noticeMessages('error')).toEqual(['이 항목은 보관되어 변경할 수 없습니다.']);
   });
 
   it('946 FIX1 F3: archived mark keeps selection on the advanced VOC', async () => {
@@ -850,7 +845,6 @@ describe('Triage flow — integration (C6.3)', () => {
   it.each(['conflict.record_archived', 'conflict.parent_archived'])(
     '946: failed mark with %s excludes the archived row',
     async (code) => {
-      const { toast } = await import('sonner');
       let resolveForward: (response: Response) => void = () => {};
       globalThis.fetch = vi.fn((_input: RequestInfo | URL, init?: RequestInit) =>
         init?.method === 'PATCH'
@@ -881,15 +875,12 @@ describe('Triage flow — integration (C6.3)', () => {
         expect(screen.queryByRole('button', { name: /VOC-I-001/ })).not.toBeInTheDocument(),
       );
       expect(
-        vi
-          .mocked(toast.error)
-          .mock.calls.filter(([copy]) => copy === '이 항목은 보관되어 변경할 수 없습니다.'),
+        noticeMessages('error').filter((copy) => copy === '이 항목은 보관되어 변경할 수 없습니다.'),
       ).toHaveLength(1);
     },
   );
 
   it('946: settled remove undo + compensation failure preserves the same-context exclusion', async () => {
-    const { toast } = await import('sonner');
     const { COMPENSATE_FAILURE_TOAST } = await import('../../lib/triage-error-policy');
     let patches = 0;
     globalThis.fetch = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
@@ -918,7 +909,7 @@ describe('Triage flow — integration (C6.3)', () => {
       const undo = host?.querySelector('button');
       if (!undo) throw new Error('Undo missing');
       await act(async () => fireEvent.click(undo));
-      await waitFor(() => expect(toast.error).toHaveBeenCalledWith(COMPENSATE_FAILURE_TOAST));
+      await waitFor(() => expect(noticeMessages('error')).toContain(COMPENSATE_FAILURE_TOAST));
       view.rerender(
         <RouteCounterScreen
           items={[...MOCK_VOCS]}
@@ -1167,7 +1158,7 @@ describe('Triage flow — integration (C6.3)', () => {
     // Wait for PATCH to settle (callCount ≥ 1)
     await waitFor(() => expect(callCount).toBeGreaterThanOrEqual(1));
 
-    // UndoToast was rendered via toast.custom — render it and click 실행 취소
+    // UndoToast was raised through the seam's notify — render it and click 실행 취소
     expect(capturedToastRenderer).not.toBeNull();
     const toastContainer = renderCapturedToast(baseElement);
     expect(toastContainer).not.toBeNull();

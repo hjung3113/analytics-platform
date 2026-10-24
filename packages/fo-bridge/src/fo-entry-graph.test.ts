@@ -269,3 +269,31 @@ describe('FeedbackOps operator VOC inbox entry graph (ADR-0071)', () => {
     expect(callers).toEqual(['lib/api/client.ts']);
   });
 });
+
+// The VOC triage entry (#761 t) is walked on its own: it has no sonner or router, which the screen barrel's graph does.
+describe('FeedbackOps VOC triage entry graph (ADR-0071)', () => {
+  const triage = walk([join(FRONTEND_SRC, 'operator-screens/voc-triage/index.ts')]);
+  const triageReached = [...triage.files.keys()].map(file => relative(FRONTEND_SRC, file));
+
+  it('reaches the triage screen and its bridge-safe reads, not the route shell', () => {
+    expect(triageReached).toEqual(
+      expect.arrayContaining(['features/voc/components/triage/TriageScreen.tsx', 'features/voc/components/triage/TriagePanel.tsx', 'lib/api/me.ts', 'lib/api/nav.ts', 'lib/api/permission-reads.ts']),
+    );
+    expect(triageReached.filter(file => /^features\/voc\/routes\/(TriageRoute|VocRouteShell)\.tsx$/.test(file))).toEqual([]);
+    expect(triage.unresolved).toEqual([]);
+  });
+
+  it('imports no router and no toast library', () => {
+    expect([...triage.specifiers].filter(specifier => /^@tanstack\/(react-)?router|^sonner$/.test(specifier))).toEqual([]);
+  });
+
+  it('reaches no route, router, layout or auth source, the auth module, the api barrel or the raw-fetch permissions api', () => {
+    const banned = /^(?:routes|lib\/router|lib\/layout|lib\/auth)\/|^lib\/api\/(?:auth|index|permissions)\.ts$/;
+    expect(triageReached.filter(file => banned.test(file))).toEqual([]);
+  });
+
+  it('calls fetch only in lib/api/client.ts', () => {
+    const callers = [...triage.files].filter(([, text]) => /(?<![\w.])fetch\(/.test(text)).map(([file]) => relative(FRONTEND_SRC, file));
+    expect(callers).toEqual(['lib/api/client.ts']);
+  });
+});

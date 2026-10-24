@@ -3,8 +3,7 @@
 // runs under the standalone router and inside the platform bridge alike (platform ADR-0071).
 
 import { isPermissionDenied } from '@/lib/api/types';
-import { useHostNavigate, useHostSearch } from '@/lib/host/host-seam';
-import { searchHref } from '@/lib/host/search';
+import { useHostSearchWriter } from '@/lib/host/useHostSearchWriter';
 import { useAnalyticsAreaFilterLabel } from '@/lib/useAnalyticsAreaFilterLabel';
 import { useCommittedSearchDraft } from '@/lib/useCommittedSearchDraft';
 import * as React from 'react';
@@ -21,29 +20,12 @@ import { type VocSearch, validateVocSearch } from './voc-search';
 type SearchUpdate = (previous: VocSearch) => VocSearch;
 
 export function useInboxState(view: 'inbox' | 'my') {
-  const hostSearch = useHostSearch();
-  const hostNavigate = useHostNavigate();
-  // The seam hands a new object per navigation (even Back to the same URL), so this identity is the
-  // navigation the fold below must not outlive.
-  const search = React.useMemo(() => validateVocSearch(hostSearch), [hostSearch]);
-
-  // A write builds on the host search, or on the search the previous write left while that write is
-  // pending. Several writes before the router has applied the first (Enter, a tab pick and a blur)
-  // therefore fold like the router's functional `search` did; any host navigation drops the fold.
-  const latest = React.useRef({ search, navigate: hostNavigate });
-  React.useEffect(() => {
-    latest.current.search = search;
-  }, [search]);
-  React.useEffect(() => {
-    latest.current.navigate = hostNavigate;
-  }, [hostNavigate]);
-  const write = React.useCallback((update: SearchUpdate, replace = false): void => {
-    const next = update(latest.current.search);
-    latest.current.search = next;
-    const href = searchHref('/vocs', next);
-    if (replace) latest.current.navigate(href, { replace: true });
-    else latest.current.navigate(href);
-  }, []);
+  // Writes fold on the latest pending search and any host navigation drops the fold (useHostSearchWriter).
+  const { search, write: writeSearch } = useHostSearchWriter('/vocs', validateVocSearch);
+  const write = React.useCallback(
+    (update: SearchUpdate, replace = false): void => writeSearch(update, { replace }),
+    [writeSearch],
+  );
 
   // ── Derived URL state ─────────────────────────────────────────────────────
 

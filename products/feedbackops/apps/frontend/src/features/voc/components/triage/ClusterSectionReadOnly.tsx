@@ -21,7 +21,7 @@ import { Button, PanelSectionTitle, ReporterStatusBadge, useListMotion } from '@
 import { Check, Layers } from 'lucide-react';
 import * as React from 'react';
 
-import type { ApiError } from '@/lib/api';
+import type { ApiError } from '@/lib/api/types';
 import {
   SEMANTIC_VOC_RECOMMENDATIONS_LABEL,
   SEMANTIC_VOC_RECOMMENDATIONS_NOTICE,

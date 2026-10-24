@@ -1,20 +1,12 @@
+import { registerTriageTestHost } from '@/test/triage-host';
 import { listVocsQuerySchema } from '@fops/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, render, screen, waitFor } from '@testing-library/react';
-import type * as React from 'react';
 import { Toaster, toast } from 'sonner';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const navigateMock = vi.fn();
 let searchState: Record<string, unknown> = {};
-
-vi.mock('@tanstack/react-router', () => ({
-  useSearch: () => searchState,
-  useNavigate: () => navigateMock,
-  Link: ({ children, to }: { children: React.ReactNode; to: string }) => (
-    <a href={to}>{children}</a>
-  ),
-}));
 
 vi.mock('@/lib/api/nav', () => ({
   fetchNavCounts: vi.fn(),
@@ -31,15 +23,15 @@ vi.mock('@/lib/api/me', async (importOriginal) => ({
   useMeBridge: useMeMock,
 }));
 
-vi.mock('@/lib/cross-system/usePermissionCheck', () => ({
-  usePermissionCheck: vi.fn(),
+vi.mock('@/lib/cross-system/usePermissionCheckBridge', () => ({
+  usePermissionCheckBridge: vi.fn(),
   permissionCheckQueryKey: () => ['permission-check', 'voc.triage', null],
   permissionRequestsMineKey: ['permission-requests-mine'],
 }));
 
 import { fetchNavCounts } from '@/lib/api/nav';
 import { useMe } from '@/lib/auth/useMe';
-import { usePermissionCheck } from '@/lib/cross-system/usePermissionCheck';
+import { usePermissionCheckBridge as usePermissionCheck } from '@/lib/cross-system/usePermissionCheckBridge';
 import { TriageRoute } from '../TriageRoute';
 
 const ADMIN_ME = {
@@ -162,6 +154,8 @@ afterEach(() => {
   toast.dismiss();
   vi.unstubAllGlobals();
 });
+
+beforeAll(() => registerTriageTestHost(() => searchState, navigateMock));
 
 describe('TriageRoute effective scoped eligibility (#1170a)', () => {
   it('opens default-scope Developer queue without an MS filter and enables counts', async () => {

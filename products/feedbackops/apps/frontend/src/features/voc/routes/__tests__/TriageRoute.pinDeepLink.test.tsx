@@ -5,21 +5,13 @@
 // queue predicate, so the route must forward that target as `pinVocId` or the
 // console cannot show what the link points at.
 
+import { registerTriageTestHost } from '@/test/triage-host';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render } from '@testing-library/react';
-import type * as React from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const navigateMock = vi.fn();
 let searchState: Record<string, unknown> = {};
-
-vi.mock('@tanstack/react-router', () => ({
-  useSearch: () => searchState,
-  useNavigate: () => navigateMock,
-  Link: ({ children, to }: { children: React.ReactNode; to: string }) => (
-    <a href={to}>{children}</a>
-  ),
-}));
 
 // Capture the exact params TriageRoute hands the list hook.
 const useVocListSpy = vi.fn((_params: Record<string, unknown>) => ({
@@ -43,14 +35,14 @@ vi.mock('@/lib/api/me', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api/me')>()),
   useMeBridge: useMeMock,
 }));
-vi.mock('@/lib/cross-system/usePermissionCheck', () => ({
-  usePermissionCheck: vi.fn(),
+vi.mock('@/lib/cross-system/usePermissionCheckBridge', () => ({
+  usePermissionCheckBridge: vi.fn(),
   permissionCheckQueryKey: () => ['permission-check', 'voc.triage', null],
   permissionRequestsMineKey: ['permission-requests-mine'],
 }));
 
 import { useMe } from '@/lib/auth/useMe';
-import { usePermissionCheck } from '@/lib/cross-system/usePermissionCheck';
+import { usePermissionCheckBridge as usePermissionCheck } from '@/lib/cross-system/usePermissionCheckBridge';
 import { TriageRoute } from '../TriageRoute';
 
 const ADMIN_ME = {
@@ -82,6 +74,8 @@ function renderRoute() {
   );
 }
 
+beforeAll(() => registerTriageTestHost(() => searchState, navigateMock));
+
 describe('TriageRoute — re-triage deep link (#383)', () => {
   beforeEach(() => {
     vi.mocked(useMe).mockReturnValue(ADMIN_ME as unknown as ReturnType<typeof useMe>);
@@ -95,13 +89,13 @@ describe('TriageRoute — re-triage deep link (#383)', () => {
   });
 
   it('forwards ?selected as pinVocId so the queue can carry the target', () => {
-    searchState = { selected: 'voc-deep-link-target' };
+    searchState = { selected: '00000000-0000-4000-8000-0000000000aa' };
 
     renderRoute();
 
     const params = useVocListSpy.mock.calls[0]?.[0] as Record<string, unknown>;
     expect(params.view).toBe('triage');
-    expect(params.pinVocId).toBe('voc-deep-link-target');
+    expect(params.pinVocId).toBe('00000000-0000-4000-8000-0000000000aa');
   });
 
   it('omits pinVocId when the URL carries no selection', () => {
