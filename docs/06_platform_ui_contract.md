@@ -671,6 +671,8 @@ Domain 메뉴는 가능하면 이 Archetype을 조합하고, 새로운 Page Type
 - 메뉴가 **현재 단계 본문의 일부로 선언한** 부모 맥락 패널은 허용한다(예: 3단계에서 선택한 Motion 옆에 그 Module의 Motion 전체를 보인다). SDK는 앞 단계 본문을 자동으로 남기지 않으며, 단계가 바뀌면 `DrillLayout`은 여전히 본문을 통째로 바꾼다. 맥락 패널은 메뉴가 그 단계의 본문 안에서 그릴 뿐이다([ADR-0078](adr/0078-hw-time-layout-recipes.md)).
 - `DrillPath`·`DrillLayout`의 선택 `summary`([ADR-0078](adr/0078-hw-time-layout-recipes.md))는 경로 바와 같은 줄에 한 줄 요약을 둔다(경로 바가 길어 폭이 모자라면 요약이 경로 바 아래 자기 줄로 내려가며 사라지지 않는다). `<nav>` 목록 밖의 형제이고, 문자열이면 말줄임표로 줄이고 전체 문장을 `title`에 담으며, ReactNode이면 그 노드가 자기 `title`을 가진다. 0단계에서는 경로 바처럼 숨기고, 정적 텍스트이므로 라이브 리전이 아니다(단계 이동 안내는 §26 포커스 규칙이 맡는다).
 
+- `DrillLayout`의 선택 `fill`(`QueryView`의 선택 `fill`과 함께)은 부모 높이를 채우는 열을 만든다. 래퍼는 `flex min-h-0 flex-1 flex-col`, 본문 영역은 `min-h-0 flex-1`이고 경로 바·요약은 스크롤 밖에 남는다. 없으면 출력은 이전과 같다(`space-y-4`). `PlatformPage layout="fill"` 안에서 `size="fill"` 차트가 정해진 높이를 받게 하는 용도다.
+
 ### 12.8 PanelWorkspace (Candidate, [ADR-0067](adr/0067-dockview-layout-engine-board-v2.md) 결정 3–9·18–22)
 
 패널이 4개 이상인 밀집 분석 메뉴가 쓰는 선택 레이아웃이다. 메뉴가 패널·프리셋·기본 패널을 선언하고, 탭·끌기·나누기·최대화·숨긴 패널 목록·기본 배치·브라우저 로컬 선호는 플랫폼이 소유한다. 그 밖의 메뉴는 `AnalysisLayout`(§12.6)을 그대로 쓴다. `@ap/components` 루트의 `PanelWorkspace`이고(메뉴는 `@ap/components/dock`을 import할 수 없다), 소비자가 둘 이상 확인될 때까지 Candidate다(§24). 휠: 탭 줄은 넘치지 않으면 세로 휠을 바깥으로 넘기고([16 §4.1](16_analysis_board.md)), 그림은 수정키 없는 휠을 막지 않으며(§16), 패널 안 표 행 영역은 끝에서 휠을 넘긴다(§15)(#700).

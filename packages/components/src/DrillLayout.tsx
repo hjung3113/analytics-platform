@@ -23,6 +23,8 @@ export type DrillLayoutProps = DrillPathProps & {
   /** A step value the query recognized as absent. Ignored while `useDrill().invalid` is set. */
   notFound?: { key: string; value: string };
   children?: ReactNode;
+  /** Fill the parent's height: the wrapper becomes a `flex min-h-0 flex-1 flex-col` column and the body region takes the rest (`min-h-0 flex-1`). Off = unchanged output. */
+  fill?: boolean;
 };
 
 // Looked up inside the pane that owns `source` (a board pane, ADR-0049), else the document: a sibling pane or main must not take the focus.
@@ -126,7 +128,7 @@ export function DrillPath({ siblings, summary }: DrillPathProps) {
 }
 
 /** Path bar, then the current step's body. A format error or a missing value replaces the body and substitutes nothing. */
-export function DrillLayout({ siblings, summary, notFound, children }: DrillLayoutProps) {
+export function DrillLayout({ siblings, summary, notFound, children, fill }: DrillLayoutProps) {
   const drill = useDrill();
   const { invalid } = drill;
   const { lang } = useI18n();
@@ -141,6 +143,10 @@ export function DrillLayout({ siblings, summary, notFound, children }: DrillLayo
         title={ko ? `이 조건에서 없는 값: ${notFound.value}` : `No value in this context: ${notFound.value}`}
         body={ko ? '다른 값으로 바꾸지 않습니다.' : 'Nothing was substituted.'} />
       : children;
+  if (fill) return <div className="flex min-h-0 flex-1 flex-col gap-2">
+    <DrillPath siblings={siblings} summary={summary} />
+    <div className="flex min-h-0 flex-1 flex-col">{body}</div>
+  </div>;
   return <div className="space-y-4">
     <DrillPath siblings={siblings} summary={summary} />
     {body}

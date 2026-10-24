@@ -9,7 +9,7 @@ AuditTimeline | function | function AuditTimeline({ events }: { events: @ap/cont
 BoxPlotSpec | type | type BoxPlotSpec = { groups: { id: string; label: string; stats: @ap/components#BoxStats | null; }[]; kind: 'boxPlot'; onGroupClick?: (id: string) => void; referenceLines?: { label: string; value: number; }[]; whisker: 'minMax' | 'tukey'; }
 BoxStats | type | type BoxStats = { max: number; median: number; min: number; n?: number; outliers?: number[]; q1: number; q3: number; }
 ChartPoint | type | type ChartPoint = { seriesId: string; value: null | number; x: string; }
-ChartPointAction | type | type ChartPointAction = { disabled?: boolean; id: string; label: string; onSelect: (point: @ap/components#ChartPoint) => void; }
+ChartPointAction | type | type ChartPointAction = { disabled?: boolean; id: string; keepsFocus?: boolean; label: string; onSelect: (point: @ap/components#ChartPoint) => void; }
 ChartSeries | type | type ChartSeries = { color: @ap/ui/theme#ThemeColorToken; dashed?: boolean; id: string; kind?: 'bar' | 'line'; name: string; points: [ string, null | number ][]; }
 ChartSpec | type | type ChartSpec = @ap/components#BoxPlotSpec | @ap/components#DonutSpec | @ap/components#HeatmapSpec | @ap/components#ParetoSpec | @ap/components#ScatterSpec | @ap/components#TopNBarSpec
 DataTrustIndicator | function | function DataTrustIndicator({ trust, assessments, className, compact, hideProvisional, wrap }: { assessments: @ap/contracts#Assessment[]; className?: string; compact?: boolean; hideProvisional?: boolean; trust: @ap/contracts#Trust | null; wrap?: boolean; }): import("react").JSX.Element | null
@@ -17,8 +17,8 @@ Delta | type | type Delta = { direction: 'down' | 'up'; good: boolean; value: st
 DetailDrawer | function | function DetailDrawer({ title, subtitle, headerActions, context, tabs, onClose, tab, onTabChange }: { context?: ReactNode; headerActions?: ReactNode; onClose: () => void; onTabChange?: (tab: string) => void; subtitle?: ReactNode; tab?: string; tabs: { content: ReactNode; id: string; label: ReactNode; }[]; title: ReactNode; }): import("react").ReactPortal | null
 DonutSlice | type | type DonutSlice = { color?: @ap/ui/theme#ThemeColorToken; id: string; label: string; value: number; }
 DonutSpec | type | type DonutSpec = { centerLabel?: string; kind: 'donut'; maxSlices?: number; onSliceClick?: (id: string) => void; slices: @ap/components#DonutSlice[]; total?: number; valueFormat?: (v: number) => string; }
-DrillLayout | function | function DrillLayout({ siblings, summary, notFound, children }: @ap/components#DrillLayoutProps): import("react").JSX.Element
-DrillLayoutProps | type | type DrillLayoutProps = @ap/components#DrillPathProps & { children?: ReactNode; notFound?: { key: string; value: string; }; }
+DrillLayout | function | function DrillLayout({ siblings, summary, notFound, children, fill }: @ap/components#DrillLayoutProps): import("react").JSX.Element
+DrillLayoutProps | type | type DrillLayoutProps = @ap/components#DrillPathProps & { children?: ReactNode; fill?: boolean; notFound?: { key: string; value: string; }; }
 DrillPath | function | function DrillPath({ siblings, summary }: @ap/components#DrillPathProps): import("react").JSX.Element | null
 DrillPathProps | type | type DrillPathProps = { siblings?: @ap/components#DrillSiblings; summary?: ReactNode; }
 DrillSibling | type | type DrillSibling = { hint?: string; value: string; }
@@ -70,7 +70,7 @@ QueryBarExtensionContext | const | const QueryBarExtensionContext: import("react
 QueryBarExtensionsProvider | function | function QueryBarExtensionsProvider({ children }: { children: ReactNode; }): import("react").JSX.Element
 QuerySummaryItem | type | type QuerySummaryItem = @ap/components#PageFilterSummaryItem & { capability?: @ap/contracts#Capability; contextKey: @ap/contracts#ContextKey; }
 QuerySummaryOptions | type | type QuerySummaryOptions = { axes?: readonly @ap/contracts#EquipmentAxisDescriptor[]; context?: Record<@ap/contracts#ContextKey, @ap/contracts#Capability>; lang: 'en' | 'ko'; pageSummary?: readonly @ap/components#PageFilterSummaryItem[]; }
-QueryView | function | function QueryView<T>({ query, children, skeletonRows, skeletonHeight, emptyAction, compact, widgetName, hideWidgetName }: { children: (data: T, response: @ap/contracts#ApiResponse<T>) => ReactNode; compact?: boolean; emptyAction?: ReactNode; hideWidgetName?: boolean; query: @ap/kernel#QueryState<T>; skeletonHeight?: number; skeletonRows?: number; widgetName?: string; }): import("react").JSX.Element
+QueryView | function | function QueryView<T>({ query, children, skeletonRows, skeletonHeight, emptyAction, compact, widgetName, hideWidgetName, fill }: { children: (data: T, response: @ap/contracts#ApiResponse<T>) => ReactNode; compact?: boolean; emptyAction?: ReactNode; fill?: boolean; hideWidgetName?: boolean; query: @ap/kernel#QueryState<T>; skeletonHeight?: number; skeletonRows?: number; widgetName?: string; }): import("react").JSX.Element
 ReturnLink | function | function ReturnLink(): import("react").JSX.Element
 RowAction | function | function RowAction({ compact, icon: Icon, label, text, variant, onClick, link, textLink, disabled, 'aria-describedby': describedBy }: @ap/components#RowActionProps): import("react").JSX.Element
 RowActionProps | type | type RowActionProps = { 'aria-describedby'?: string; compact: boolean; disabled?: boolean; icon: LucideIcon; label: string; link?: ReactElement<{ 'aria-label'?: string; className?: string; }>; onClick?: () => void; text: string; textLink?: 'primary' | 'secondary'; variant?: 'ghost' | 'secondary'; }

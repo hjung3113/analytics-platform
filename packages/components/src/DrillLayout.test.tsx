@@ -72,6 +72,20 @@ describe('DrillLayout (06 §12.7, ADR-0025)', () => {
     expect(screen.getByText('본문')).toBeTruthy();
   });
 
+  it('without fill the output is the plain space-y-4 column; fill makes a bounded flex column with a growing body', () => {
+    const view = mount('/source?v=1&drillRoom=PHOTO', <DrillLayout><p>본문</p></DrillLayout>);
+    const plain = view.container.innerHTML;
+    expect(view.container.firstElementChild?.className).toBe('space-y-4');
+    expect(view.container.firstElementChild?.lastElementChild?.tagName).toBe('P');
+    view.unmount();
+    const filled = mount('/source?v=1&drillRoom=PHOTO', <DrillLayout fill><p>본문</p></DrillLayout>);
+    const root = filled.container.firstElementChild!;
+    expect(root.className).toBe('flex min-h-0 flex-1 flex-col gap-2');
+    expect(root.lastElementChild?.className).toBe('flex min-h-0 flex-1 flex-col');
+    expect(root.lastElementChild?.textContent).toBe('본문');
+    expect(filled.container.innerHTML).not.toBe(plain);
+  });
+
   it('renders the summary beside the path bar, outside the nav, with the full text as title', () => {
     const text = '공정 PHOTO · StGroup A · 매우 긴 요약 문장이 한 줄 안에서 말줄임표로 잘린다';
     mount('/source?v=1&drillRoom=PHOTO&drillStgroup=A', <DrillLayout summary={text}><p>본문</p></DrillLayout>);

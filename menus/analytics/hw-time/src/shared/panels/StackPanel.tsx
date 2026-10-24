@@ -17,12 +17,19 @@ export type StackPanelProps = {
   sort?: StackSort;
   /** Segment activation (drill). Receives the series id and the row id the bar belongs to. */
   onActivate?: (segment: { seriesId: string; rowId: string }) => void;
-  /** Row actions in the point menu. Auxiliary rows never reach them (they have no bars). */
-  rowActions?: readonly { id: string; label: string; onSelect: (rowId: string) => void }[];
+  /** Row actions in the point menu. Auxiliary rows never reach them or `onActivate`, by mouse or keyboard. */
+  rowActions?: readonly { id: string; label: string; keepsFocus?: boolean; onSelect: (rowId: string) => void }[];
 };
 
-/** One category label per row; an auxiliary row carries its own label so it stays a distinct, unique category. */
-export const rowLabel = (row: HwTimeRow) => (row.auxiliary ? `${row.id} ${row.auxiliary.label}` : row.id);
+const rowPitch = 26;
+
+/** `EQ-001.H1` → `EQ-001 · H1`; an auxiliary row reads `EQ-001 · MEG 4.03 s` (two decimals, the endpoint's unit). Labels stay unique per row. */
+export function rowLabel(row: HwTimeRow, lang: 'ko' | 'en' = 'ko') {
+  if (!row.auxiliary) return row.id.replace('.', ' · ');
+  const seconds = Number(/-?\d+(?:\.\d+)?\s*$/.exec(row.auxiliary.label)?.[0]);
+  const value = Number.isFinite(seconds) ? ` ${formatSeconds(seconds)} ${HW_TIME_UNIT[lang]}` : '';
+  return `${row.equipmentId} · ${row.auxiliary.kind}${value}`;
+}
 
 /** Equipment groups keep their auxiliary rows beside them; sorting moves whole groups, nulls last. */
 export function sortRows(rows: readonly HwTimeRow[], sort: StackSort): HwTimeRow[] {
@@ -45,20 +52,21 @@ export function sortRows(rows: readonly HwTimeRow[], sort: StackSort): HwTimeRow
 export function StackPanel({ chartId, title, block, visibleSeriesIds, onVisibleSeriesChange, sort = null, onActivate, rowActions }: StackPanelProps) {
   const { lang } = useI18n();
   const rows = useMemo(() => sortRows(block.rows, sort), [block.rows, sort]);
-  const byLabel = useMemo(() => new Map(rows.map(row => [rowLabel(row), row.id])), [rows]);
+  // Auxiliary rows are left out: a label that is not here never reaches a callback.
+  const byLabel = useMemo(() => new Map(rows.filter(row => !row.auxiliary).map(row => [rowLabel(row, lang), row.id])), [rows, lang]);
   const series = useMemo(() => block.series.map(item => ({
     id: item.id, name: item.name, color: item.color as ThemeColorToken, kind: 'bar' as const,
-    points: rows.map(row => [rowLabel(row), row.auxiliary ? null : row.values[item.id] ?? null] as [string, number | null]),
-  })), [block.series, rows]);
+    points: rows.map(row => [rowLabel(row, lang), row.auxiliary ? null : row.values[item.id] ?? null] as [string, number | null]),
+  })), [block.series, rows, lang]);
   const unmeasured = block.rows.filter(row => !row.auxiliary && Object.values(row.values).some(value => value === null)).length;
   const rowOf = (point: ChartPoint) => byLabel.get(point.x);
   return <div className="flex min-h-0 flex-1 flex-col gap-1">
     <AnalysisChartFrame
-      chartId={chartId} title={title} xType="category" orientation="horizontal" stacked size="fill"
+      chartId={chartId} title={title} xType="category" orientation="horizontal" stacked size="fill" rowPitch={rowPitch}
       series={series} unit={HW_TIME_UNIT[lang]} valueFormat={formatSeconds} canApplyRange={false}
       visibleSeriesIds={visibleSeriesIds} onVisibleSeriesChange={onVisibleSeriesChange}
       pointActivation={onActivate ? { on: 'click', onActivate: point => { const rowId = rowOf(point); if (rowId) onActivate({ seriesId: point.seriesId, rowId }); } } : undefined}
-      pointActions={rowActions?.map(action => ({ id: action.id, label: action.label, onSelect: (point: ChartPoint) => { const rowId = rowOf(point); if (rowId) action.onSelect(rowId); } }))}
+      pointActions={rowActions?.map(action => ({ id: action.id, label: action.label, keepsFocus: action.keepsFocus, onSelect: (point: ChartPoint) => { const rowId = rowOf(point); if (rowId) action.onSelect(rowId); } }))}
     />
     {unmeasured > 0 && <p className="t-caption text-text-muted">
       {lang === 'ko' ? `${missingText(lang)} 값이 있는 행 ${unmeasured}개 — 막대에서는 빈 칸으로 보입니다.` : `${unmeasured} rows have ${missingText(lang).toLowerCase()} values — shown as gaps in the bars.`}

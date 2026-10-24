@@ -7,9 +7,9 @@ import { ChevronDown, Inbox, ListTree, SlidersHorizontal, Target } from 'lucide-
 import { useId, useMemo, useState } from 'react';
 import { useDrill, useI18n, usePlatform, type PageProps } from '@ap/kernel';
 import { DrillLayout, Inspector, LegendTree, PlatformPage, QueryView, SegmentedRadio, StateMessage, type InspectorSection } from '@ap/components';
-import { Button, Checkbox, cn } from '@ap/ui';
+import { Button, cn } from '@ap/ui';
 import type { ThemeColorToken } from '@ap/ui/theme';
-import { HW_TIME_MAX_TREND_ROWS, HW_TIME_UNIT, type HwTimeBlock, type HwTimeDrill, type HwTimeLevelData } from '../../endpoints';
+import { HW_TIME_MAX_TREND_ROWS, HW_TIME_UNIT, isHwTimeRowId, type HwTimeBlock, type HwTimeDrill, type HwTimeLevelData } from '../../endpoints';
 import { useHwTimeLevel, useHwTimeTrend } from '../../shared/data';
 import { formatSeconds, missingText } from '../../shared/format';
 import { StackPanel, type StackSort } from '../../shared/panels/StackPanel';
@@ -38,8 +38,6 @@ export default function StepsPage(_props: PageProps) {
 
   const rawSort = pageParam('sort');
   const sort: StackSort = SORTS.includes(rawSort as StackSort) ? rawSort as StackSort : null;
-  const benchmark = pageParam('benchmark') === '1';
-  const grouped = pageParam('grouped') === '1';
 
   const levelKey = `${module ?? ''}/${motion ?? ''}`;
   const [hiddenState, setHiddenState] = useState<{ key: string; ids: string[] }>({ key: levelKey, ids: [] });
@@ -62,7 +60,7 @@ export default function StepsPage(_props: PageProps) {
   const evaluated = new Set(dataRows.filter(row => Object.values(row.values).some(value => value !== null)).map(row => row.equipmentId)).size;
 
   const addTrend = (rowId: string) => {
-    if (trendRows.includes(rowId)) return;
+    if (!isHwTimeRowId(rowId) || trendRows.includes(rowId)) return;
     if (trendRows.length >= HW_TIME_MAX_TREND_ROWS) {
       setNotice(ko ? `추세는 최대 ${HW_TIME_MAX_TREND_ROWS}행까지 볼 수 있습니다.` : `The trend shows at most ${HW_TIME_MAX_TREND_ROWS} rows.`);
       return;
@@ -75,6 +73,12 @@ export default function StepsPage(_props: PageProps) {
     setNotice(null);
     setPage({ trend: formatTrendKey(trendRows.filter(id => id !== rowId)) });
   };
+  // Frame point actions are fixed per chart (SDK gap), so one toggle acts on the selected row's current state.
+  const toggleTrend = (rowId: string) => (trendRows.includes(rowId) ? removeTrend(rowId) : addTrend(rowId));
+
+  const legendTotal = block?.series.length ?? 0;
+  const legendShown = block ? block.series.filter(item => !hidden.includes(item.id)).length : 0;
+  const sortText = sort === 'total-desc' ? { ko: '정렬: 큰 순', en: 'Sort: high' } : sort === 'total-asc' ? { ko: '정렬: 작은 순', en: 'Sort: low' } : { ko: '정렬: 기본', en: 'Sort: default' };
 
   const sections: InspectorSection[] = [
     {
@@ -86,6 +90,7 @@ export default function StepsPage(_props: PageProps) {
     },
     {
       id: 'legend', title: { ko: '계층 범례', en: 'Legend' }, icon: ListTree,
+      summary: block ? { ko: `${legendTotal}개 중 ${legendShown}개 표시`, en: `${legendShown} of ${legendTotal} shown` } : undefined,
       render: () => {
         const series = block?.series ?? [];
         const visible = new Set(series.map(item => item.id).filter(id => !hidden.includes(id)));
@@ -97,10 +102,8 @@ export default function StepsPage(_props: PageProps) {
       },
     },
     {
-      id: 'options', title: { ko: '옵션', en: 'Options' }, icon: SlidersHorizontal,
+      id: 'options', title: { ko: '옵션', en: 'Options' }, icon: SlidersHorizontal, summary: sortText,
       render: () => <div className="flex flex-col gap-3 text-xs">
-        <label className="flex items-center gap-2"><Checkbox checked={benchmark} onCheckedChange={next => setPage({ benchmark: next === true ? '1' : null })} />{ko ? '벤치마크' : 'Benchmark'}</label>
-        <label className="flex items-center gap-2"><Checkbox checked={grouped} onCheckedChange={next => setPage({ grouped: next === true ? '1' : null })} />{ko ? '그룹별 보기' : 'Grouped'}</label>
         <div className="flex flex-col gap-1">
           <span id="hw-sort-label" className="font-medium text-text-secondary">{ko ? '정렬' : 'Sort'}</span>
           <SegmentedRadio labelledBy="hw-sort-label" label={ko ? '정렬' : 'Sort'} value={sort ?? 'none'}
@@ -112,10 +115,17 @@ export default function StepsPage(_props: PageProps) {
   ];
 
   const unit = HW_TIME_UNIT[lang];
-  const totalText = (total: number | null) => total === null ? missingText(lang) : `${formatSeconds(total)} ${unit}`;
+  const totalText = (shown: HwTimeBlock) => {
+    const values = shown.rows.filter(row => !row.auxiliary).flatMap(row => Object.values(row.values));
+    if (shown.rows.length === 0) return ko ? '기록 없음' : 'No records';
+    const measured = values.filter((value): value is number => value !== null);
+    if (measured.length === 0) return missingText(lang);
+    const sum = `${formatSeconds(measured.reduce((a, b) => a + b, 0))} ${unit}`;
+    return measured.length < values.length ? `${sum} · ${ko ? '일부 미측정' : 'partly not measured'}` : sum;
+  };
   const summary = !response || !module ? undefined
-    : motion ? `Module ${module} · Motion ${motion} · ${totalText(response.detail?.totals.total ?? null)}`
-      : `Module ${module} · ${totalText(response.totals.total)}`;
+    : motion ? `Module ${module} · Motion ${motion} · ${totalText(bodyBlock(response))}`
+      : `Module ${module} · ${totalText(response)}`;
 
   const renderBody = (data: HwTimeLevelData) => {
     const shown = bodyBlock(data);
@@ -131,8 +141,7 @@ export default function StepsPage(_props: PageProps) {
       onActivate={data.level === 0 ? ({ seriesId }) => drill.enter('drillModule', seriesId)
         : data.level === 1 ? ({ seriesId }) => drill.enter('drillMotion', seriesId) : undefined}
       rowActions={data.level === 0 ? undefined : [
-        { id: 'trend-add', label: ko ? '추세에 추가' : 'Add to trend', onSelect: addTrend },
-        { id: 'trend-remove', label: ko ? '추세에서 제거' : 'Remove from trend', onSelect: removeTrend },
+        { id: 'trend-toggle', label: ko ? '추세에 추가·제거' : 'Add to / remove from trend', keepsFocus: true, onSelect: toggleTrend },
       ]} />;
   };
 
@@ -142,9 +151,9 @@ export default function StepsPage(_props: PageProps) {
         <Inspector form="stack" persistKey="hw-time-steps" label={{ ko: '분석 보조', en: 'Analysis aids' }} sections={sections} />
       </aside>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
-        <div className="min-h-0 flex-[3] overflow-y-auto [&>div]:flex [&>div]:h-full [&>div]:flex-col [&>div]:gap-2 [&>div]:space-y-0">
-          <DrillLayout summary={summary}>
-            <QueryView query={levelQ} widgetName={ko ? 'HW Time 단계별' : 'HW Time by level'} hideWidgetName skeletonRows={6}>
+        <div className="flex min-h-0 flex-[3] flex-col">
+          <DrillLayout fill summary={summary}>
+            <QueryView fill query={levelQ} widgetName={ko ? 'HW Time 단계별' : 'HW Time by level'} hideWidgetName skeletonRows={6}>
               {data => renderBody(data)}
             </QueryView>
           </DrillLayout>

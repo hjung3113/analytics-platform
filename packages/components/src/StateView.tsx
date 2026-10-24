@@ -106,8 +106,10 @@ export function OutcomeView<T>({ response, onRetry, emptyAction, compact, childr
 }
 
 /** Query boundary: first load → skeleton; same-Context refresh → keep data + label; otherwise outcome taxonomy. */
-export function QueryView<T>({ query, children, skeletonRows, skeletonHeight, emptyAction, compact, widgetName, hideWidgetName }: {
+export function QueryView<T>({ query, children, skeletonRows, skeletonHeight, emptyAction, compact, widgetName, hideWidgetName, fill }: {
   query: QueryState<T>; children: (data: T, response: ApiResponse<T>) => ReactNode; skeletonRows?: number; skeletonHeight?: number; emptyAction?: ReactNode; compact?: boolean; widgetName?: string; hideWidgetName?: boolean;
+  /** The wrapper takes the parent's height (`flex min-h-0 flex-1 flex-col`) so a `size="fill"` chart inside has a bounded parent, as it does in a workspace panel. */
+  fill?: boolean;
 }) {
   const { t, tx } = useI18n();
   const analysisSection = useContext(AnalysisSectionContext);
@@ -119,7 +121,7 @@ export function QueryView<T>({ query, children, skeletonRows, skeletonHeight, em
     body={query.missing.length ? <ul>{query.missing.map(item => <li key={item.key}>{t('queryMissing', { label: tx(item.label) })}</li>)}</ul> : undefined} compact={compact} />;
   if (!query.response) return <LoadingBlock rows={skeletonRows} height={skeletonHeight} className={chart ? 'row-span-2 pr-12' : undefined} />;
   const response = query.response;
-  return <div aria-busy={query.status === 'refreshing'} className={cn('relative', inPanel && 'h-full min-h-0', chart && 'row-span-2', chart && response.outcome === 'ok' && 'grid grid-rows-subgrid gap-y-0', analysisSection && response.outcome !== 'ok' && 'pr-12')}>
+  return <div aria-busy={query.status === 'refreshing'} className={cn('relative', inPanel && 'h-full min-h-0', fill && 'flex min-h-0 flex-1 flex-col', chart && 'row-span-2', chart && response.outcome === 'ok' && 'grid grid-rows-subgrid gap-y-0', analysisSection && response.outcome !== 'ok' && 'pr-12')}>
     {query.status === 'refreshing' && !grouped && (analysisSection && analysisSection.kind !== 'kpi'
       // Icon only, in the header's reserved right column under the corner collapse button: never over the toolbar.
       ? <span role="status" title={t('refreshing')} className="absolute right-5 top-11 z-[1] inline-flex text-text-muted">

@@ -2,4 +2,5 @@
 export const MISSING_TEXT = '미측정';
 export const missingText = (lang: 'ko' | 'en') => (lang === 'ko' ? MISSING_TEXT : 'Not measured');
 
-export const formatSeconds = (value: number) => value.toFixed(2);
+/** Two decimals with thousand separators, the same grouping the chart axis uses. */
+export const formatSeconds = (value: number) => value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
