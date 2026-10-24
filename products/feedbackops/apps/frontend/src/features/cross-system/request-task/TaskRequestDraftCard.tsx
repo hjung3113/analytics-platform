@@ -10,7 +10,7 @@ import { ArrowRight, Check, ClipboardList, X } from 'lucide-react';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 
-import { fetchTaskRequests } from '@/lib/api';
+import { fetchTaskRequests } from '@/lib/api/task-requests';
 import { koreanZodErrorMap } from '@/lib/forms/zodIssueMessage';
 import { InternalLink } from '@/lib/router/InternalLink';
 

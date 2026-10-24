@@ -16,7 +16,7 @@ import { invalidateRecovery } from '@/lib/query/recovery';
 //   - compensation restores the row only after the compensating PATCH
 //     resolves.
 
-import { ApiError } from '@/lib/api';
+import { ApiError } from '@/lib/api/types';
 import { invalidateNavCounts } from '@/lib/query/navCounts';
 import type { VocListItem } from '@fops/shared';
 import { useQueryClient } from '@tanstack/react-query';

@@ -1,4 +1,4 @@
-import { apiRequest } from '@/lib/api';
+import { apiRequest } from '@/lib/api/client';
 import { invalidateNavCounts } from '@/lib/query/navCounts';
 import { invalidateRecovery } from '@/lib/query/recovery';
 import { recordVocNoFollowUpRequestSchema, vocNoFollowUpResponseSchema } from '@fops/shared';

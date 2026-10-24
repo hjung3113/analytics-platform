@@ -10,7 +10,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { type UseFormReturn, useWatch } from 'react-hook-form';
 
-import { apiRequest, mapUnknownError } from '@/lib/api';
+import { apiRequest } from '@/lib/api/client';
+import { mapUnknownError } from '@/lib/api/errorMapper';
 import { mintIdempotencyKey } from '@/lib/api/idempotency';
 
 const DRAFT_FIELDS = ['title', 'description_rich_content', 'primary_managed_system_id'] as const;

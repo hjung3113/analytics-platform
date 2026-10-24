@@ -1,5 +1,6 @@
-import { fetchCapabilityScope, fetchManagedSystems } from '@/lib/api';
-import { useMe } from '@/lib/auth/useMe';
+import { fetchCapabilityScopeViaClient } from '@/lib/api/permission-reads';
+import { useMeBridge } from '@/lib/api/me';
+import { fetchManagedSystems } from '@/lib/api/registry-reads';
 import { AREA_REPORT_COPY as AREA_COPY } from '@/lib/copy/area-report';
 import { analyticsAreasCatalogQuery } from '@/lib/cross-system/analyticsAreasCatalog';
 import {
@@ -29,7 +30,7 @@ export function VocAreaFilterSelect({
   /** `undefined` clears the filter. */
   onChange: (next: string | undefined) => void;
 }) {
-  const me = useMe();
+  const me = useMeBridge();
   const actorId = typeof me.data?.actor?.id === 'string' ? me.data.actor.id : undefined;
   // `all` and an absent Managed System both query without a System scope.
   const scope =
@@ -37,7 +38,7 @@ export function VocAreaFilterSelect({
   const capabilityScope = useQuery({
     queryKey: ['managed-system-scope', actorId, 'voc.read'] as const,
     enabled: actorId !== undefined,
-    queryFn: ({ signal }) => fetchCapabilityScope('voc.read', { signal }),
+    queryFn: ({ signal }) => fetchCapabilityScopeViaClient('voc.read', { signal }),
     staleTime: 60_000,
     retry: false,
   });

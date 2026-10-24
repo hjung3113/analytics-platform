@@ -6,6 +6,7 @@ import type * as React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const apiClientMock = vi.hoisted(() => vi.fn());
+const fetchTaskRequestsMock = vi.hoisted(() => vi.fn(async () => ({ items: [] })));
 const permissionStates = new Map<string, string>();
 
 vi.mock('@/lib/cross-system/useVocDetail', () => ({ useVocDetail: vi.fn() }));
@@ -31,10 +32,18 @@ vi.mock('@/lib/api', async (importOriginal) => {
   return {
     ...actual,
     apiClient: apiClientMock,
-    fetchTaskRequests: vi.fn(async () => ({ items: [] })),
+    fetchTaskRequests: fetchTaskRequestsMock,
     getTask: vi.fn(),
   };
 });
+vi.mock('@/lib/api/client', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/client')>()),
+  apiClient: apiClientMock,
+}));
+vi.mock('@/lib/api/task-requests', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/task-requests')>()),
+  fetchTaskRequests: fetchTaskRequestsMock,
+}));
 vi.mock('@/lib/api/analytics-areas', () => ({ fetchAnalyticsAreas: vi.fn() }));
 vi.mock('@/lib/auth/useMe', () => ({ useMe: vi.fn() }));
 vi.mock('@/lib/cross-system/usePermissionCheck', () => ({ usePermissionCheck: vi.fn() }));

@@ -10,7 +10,8 @@
 import { type UseMutationResult, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ConfirmVocRecommendationResponse } from '@fops/shared';
 
-import { type ApiError, apiClient } from '@/lib/api';
+import { apiClient } from '@/lib/api/client';
+import type { ApiError } from '@/lib/api/types';
 import { invalidateNavCounts } from '@/lib/query/navCounts';
 
 import { vocRecommendationsQueryKey } from './useVocRecommendations';

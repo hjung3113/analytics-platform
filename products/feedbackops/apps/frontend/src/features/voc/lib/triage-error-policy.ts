@@ -4,7 +4,7 @@
 // TriagePanel error matrix; triage errors are intentionally NOT routed
 // through lib/api/errorMapper (its conflict.stale_write copy differs).
 
-import { ApiError } from '@/lib/api';
+import { ApiError } from '@/lib/api/types';
 import { MANAGED_SYSTEM_COPY } from '@/lib/copy/managed-systems';
 import { formatRetryAfter, rateLimitedMessage } from '@/lib/copy/rate-limit';
 import { VOC_OWNER_FAILURE_PREFIX, VOC_POSTPONE_INVALID_STATE_LABEL } from '@/lib/copy/voc-views';

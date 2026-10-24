@@ -13,7 +13,8 @@
 // C6.1 of slice3 #21. No UI — pure hook layer.
 
 import { useMutation, type UseMutationResult } from '@tanstack/react-query';
-import { apiClient, ApiError } from '@/lib/api';
+import { apiClient } from '@/lib/api/client';
+import { ApiError } from '@/lib/api/types';
 import type { EditDescriptionRequest } from '@fops/shared';
 
 // ── Mutation variables ─────────────────────────────────────────────────────

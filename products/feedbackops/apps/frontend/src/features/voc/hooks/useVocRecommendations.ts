@@ -9,7 +9,7 @@
 import { type UseQueryResult, useQuery } from '@tanstack/react-query';
 import type { VocRecommendationsResponse } from '@fops/shared';
 
-import { apiClient } from '@/lib/api';
+import { apiClient } from '@/lib/api/client';
 
 export function vocRecommendationsQueryKey(vocId: string | null | undefined) {
   return ['voc-recommendations', vocId] as const;

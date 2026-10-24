@@ -3,7 +3,10 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
 vi.mock('@/features/voc/hooks/useVocPreSubmitPeers', () => ({ useVocPreSubmitPeers: vi.fn() }));
-vi.mock('@/lib/api', () => ({ apiClient: vi.fn() }));
+vi.mock('@/lib/api/client', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/client')>()),
+  apiClient: vi.fn(),
+}));
 
 import { apiClient } from '@/lib/api';
 import { useVocPreSubmitPeers } from '@/features/voc/hooks/useVocPreSubmitPeers';
