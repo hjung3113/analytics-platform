@@ -162,7 +162,6 @@ describe('HW Time table page', () => {
     expect(width('Chuck')).toBe(100);
     expect(width('합계')).toBe(112);
     // 선택 40 + 7 value columns' worth of room: the row fits the 1440 main area (~1130) with the action column.
-    expect(112 + 88 + 5 * 100 + 112).toBeLessThanOrEqual(900);
   });
 
   it('sizes L1 wider so a four-digit value stays on one line, and never breaks inside a number', async () => {
@@ -172,7 +171,6 @@ describe('HW Time table page', () => {
     expect(width('PM1')).toBe(124);
     expect(width('합계')).toBe(124);
     // 선택 40 + 128 + 5 * 124 + action 128 stays inside the ~1067px row area at 1440.
-    expect(128 + 5 * 124).toBeLessThanOrEqual(900);
     const cells = await screen.findAllByText(/^\d{1,3}(,\d{3})*\.\d{2}$/);
     expect(cells.length).toBeGreaterThan(0);
     for (const cell of cells) expect([...cell.classList]).toEqual(expect.arrayContaining(['tabular', 'whitespace-nowrap']));
