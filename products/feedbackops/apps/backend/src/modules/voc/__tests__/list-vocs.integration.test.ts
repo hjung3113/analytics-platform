@@ -1081,7 +1081,8 @@ describe.skipIf(!runIntegration)('GET /vocs (#15 C4 — list)', () => {
     expect(body.items.find((item) => item.id === source.id)?.similar_count).toBe(2);
   });
 
-  it("AC17: reporter view=my excludes same-MS peers outside the reporter's read scope", async () => {
+  // #696: in the reporter arm the peer-derived count is not on the wire at all (ADR-0031: similar is operator-only).
+  it('AC17: reporter-arm view=my rows omit similar_count', async () => {
     const msId = await insertMsDirectly(
       dbHandle,
       WORKSPACE_ID,
@@ -1105,8 +1106,10 @@ describe.skipIf(!runIntegration)('GET /vocs (#15 C4 — list)', () => {
     });
     expect(res.statusCode).toBe(200);
 
-    const body = res.json<{ items: { id: string; similar_count: number }[] }>();
-    expect(body.items.find((item) => item.id === source.id)?.similar_count).toBe(1);
+    const body = res.json<{ items: { id: string; similar_count?: number }[] }>();
+    const row = body.items.find((item) => item.id === source.id);
+    expect(row).toBeDefined();
+    expect(Object.hasOwn(row as object, 'similar_count')).toBe(false);
   });
 
   // ── AC18: Cursor pagination 75 VOCs ──────────────────────────────────────
