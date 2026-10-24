@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { emptyGlobal, parseDateTime, type Capability, type ContextKey, type MenuMeta, groupId, menuPermission } from '@ap/contracts';
+import { NO_FEATURES, contextCapabilities, emptyGlobal, parseDateTime, type MenuMeta, groupId, menuPermission } from '@ap/contracts';
 import { createMockAdapter, EQUIPMENT, getRole, setRole } from '@ap/mock-server';
 import { clasMock, operationTimeMock } from './index';
 import { operationTimeEndpoint, type OperationTimeData } from '../endpoints';
@@ -10,16 +10,13 @@ import { operationTimeEndpoint, type OperationTimeData } from '../endpoints';
  * so this test restates the registration-relevant fields the adapter validates against.
  * manifest('../index.ts')를 바꾸면 여기도 같이 바꾼다.
  */
-const none: Record<ContextKey, Capability> = {
-  time: 'unsupported', roomNames: 'unsupported', line: 'unsupported', prcGroup: 'unsupported', condition: 'unsupported', selection: 'unsupported',
-  lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported',
-};
+const none = contextCapabilities();
 const menu: MenuMeta = {
   id: 'operation-time', group: groupId('clas'),
   label: { ko: '설비 동작시간', en: 'Equipment operation time' }, description: { ko: '', en: '' },
   path: '/clas/operation-time', permission: menuPermission('analytics:view'), requiresScope: true,
   context: { ...none, time: 'apply', roomNames: 'apply' }, pageType: 'analysis',
-  features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: ['eqp'],
+  features: NO_FEATURES, pageKeys: ['eqp'],
 };
 const adapter = createMockAdapter({ endpoints: [...clasMock], registry: { menus: [menu] } });
 const context = { scopeId: 'MEM', from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00', roomNames: ['PHOTO', 'ETCH'] };

@@ -6,12 +6,9 @@ import {
   catalogExportEndpoint, catalogListEndpoint, catalogPageEndpoint, definitionEndpoint, metricPairEndpoint,
   type CatalogList, type CatalogRow, type DefinitionPayload, type PairVerdict,
 } from '../endpoints';
-import { groupId, menuPermission, type Capability, type ContextKey, type MenuMeta, type PageResult } from '@ap/contracts';
+import { contextCapabilities, groupId, menuPermission, type MenuMeta, type PageResult } from '@ap/contracts';
 
-const none: Record<ContextKey, Capability> = {
-  time: 'unsupported', roomNames: 'unsupported', line: 'unsupported', prcGroup: 'unsupported', condition: 'unsupported', selection: 'unsupported',
-  lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported',
-};
+const none = contextCapabilities();
 /** Inline mirrors of the metric-catalog and metric-detail manifests in '../index.ts'. 바꾸면 같이 바꾼다. */
 const base = {
   group: groupId('metrics'), description: { ko: '', en: '' }, permission: menuPermission('metrics:view'), requiresScope: false, pageType: 'catalog' as const,

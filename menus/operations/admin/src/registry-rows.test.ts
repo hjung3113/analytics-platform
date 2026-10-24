@@ -3,14 +3,13 @@ import { lazy } from 'react';
 import { House } from 'lucide-react';
 import { createRegistry, type MenuEntry, type ModuleMenuEntry, type PlatformMenuEntry } from '@ap/kernel';
 import { formatCapabilities, toRegistryRow } from './registry-rows';
-import { groupId, spaceId, type Capability, type ContextKey } from '@ap/contracts';
+import { NO_FEATURES, contextCapabilities, groupId, spaceId, type Capability, type ContextKey } from '@ap/contracts';
 
-const unsupported: Record<ContextKey, Capability> = { time: 'unsupported', roomNames: 'unsupported', line: 'unsupported', prcGroup: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' };
-const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
+const unsupported = contextCapabilities();
 const spaceSubtitle = 'Registry projection fixture subtitle';
 const menu = (over: Partial<PlatformMenuEntry>): MenuEntry => ({
   id: 'x', group: groupId('admin'), label: { ko: '기본', en: 'Default' }, description: { ko: '', en: '' }, path: '/x', icon: House,
-  permission: 'platform:view', requiresScope: false, context: unsupported, pageType: 'management', features: noFeatures, pageKeys: [], ...over,
+  permission: 'platform:view', requiresScope: false, context: unsupported, pageType: 'management', features: NO_FEATURES, pageKeys: [], ...over,
 });
 
 // One menu with a component, one without (planned) — covers both status branches.
@@ -98,7 +97,7 @@ describe('toRegistryRow', () => {
 
 const moduleMenu = (): ModuleMenuEntry => ({
   id: 'fx-home', module: 'fx', group: 'fx:main', permission: 'fx:view', label: { ko: '모듈', en: 'Module' }, description: { ko: '', en: '' }, path: '/fx', icon: House,
-  requiresScope: false, context: unsupported, pageType: 'management', features: noFeatures, pageKeys: [], primary: true, moduleScreen: () => null,
+  requiresScope: false, context: unsupported, pageType: 'management', features: NO_FEATURES, pageKeys: [], primary: true, moduleScreen: () => null,
 });
 const moduleRegistry = () => createRegistry({
   spaces: [{ id: spaceId('operations'), label: { ko: '운영', en: 'Ops' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'fx-home' }],

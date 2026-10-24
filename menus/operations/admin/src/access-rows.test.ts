@@ -2,14 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { House, Wrench } from 'lucide-react';
 import { createRegistry, type MenuEntry, type ModuleMenuEntry, type PlatformMenuEntry } from '@ap/kernel';
 import { grantTotals, menusForPermissions } from './access-rows';
-import { groupId, menuPermission, spaceId, type AccessPrincipal, type Permission } from '@ap/contracts';
+import { NO_FEATURES, contextCapabilities, groupId, menuPermission, spaceId, type AccessPrincipal, type Permission } from '@ap/contracts';
 
-const none = { time: 'unsupported', roomNames: 'unsupported', line: 'unsupported', prcGroup: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
-const noFeatures = { export: false, savedView: false, annotate: false, compare: false } as const;
+const none = contextCapabilities();
 const spaceSubtitle = 'Access projection fixture subtitle';
 const menu = (over: Partial<PlatformMenuEntry> & Pick<PlatformMenuEntry, 'id' | 'permission'>): MenuEntry => ({
   group: groupId('admin'), label: { ko: over.id!, en: over.id! }, description: { ko: '', en: '' }, path: `/${over.id}`,
-  icon: House, requiresScope: false, pageType: 'management', context: none, features: noFeatures, pageKeys: [],
+  icon: House, requiresScope: false, pageType: 'management', context: none, features: NO_FEATURES, pageKeys: [],
   ...over,
 });
 
@@ -92,7 +91,7 @@ describe('menusForPermissions (#49 drawer join)', () => {
 
 const moduleMenu = (): ModuleMenuEntry => ({
   id: 'fx-home', module: 'fx', group: 'fx:main', permission: 'fx:view', label: { ko: '모듈', en: 'Module' }, description: { ko: '', en: '' }, path: '/fx', icon: House,
-  requiresScope: false, context: none, pageType: 'management', features: noFeatures, pageKeys: [], primary: true, moduleScreen: () => null,
+  requiresScope: false, context: none, pageType: 'management', features: NO_FEATURES, pageKeys: [], primary: true, moduleScreen: () => null,
 });
 const moduleRegistry = () => createRegistry({
   permissions: [menuPermission('analytics:view'), menuPermission('equipment:view')],

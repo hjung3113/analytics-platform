@@ -1,14 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { defineEndpoint, emptyGlobal, projectContext, shift, type Capability, type ContextKey, type GlobalContext, type MenuMeta, groupId, menuPermission } from '@ap/contracts';
+import { NO_FEATURES, contextCapabilities, defineEndpoint, emptyGlobal, projectContext, shift, type GlobalContext, type MenuMeta, groupId, menuPermission } from '@ap/contracts';
 import { createMockAdapter, cycleMinutes, DATA_THROUGH, defineMockEndpoint, EQUIPMENT, getRole, jobsForEquipmentDay, setRole, type AnyMockEndpoint, type RoleId } from '@ap/mock-server';
 import { executionOccurrence } from './execution';
 import { occurrenceEndpoint, type Execution, type OccurrenceParams, type OccurrenceResult } from '../endpoints';
 import { allExecutions } from './cycle';
 
-const none: Record<ContextKey, Capability> = {
-  time: 'unsupported', roomNames: 'unsupported', line: 'unsupported', prcGroup: 'unsupported', condition: 'unsupported', selection: 'unsupported',
-  lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported',
-};
+const none = contextCapabilities();
 
 /** Inline mirror of execution-detail's registration fields: every Context key is reference-only. */
 const executionMenu: MenuMeta = {
@@ -25,7 +22,7 @@ const executionMenu: MenuMeta = {
     lot: 'reference', ppid: 'reference', recipe: 'reference', metric: 'reference',
   },
   pageType: 'analysis',
-  features: { export: false, savedView: false, annotate: false, compare: false },
+  features: NO_FEATURES,
   pageKeys: ['entityType', 'anchor', 'returnTo'],
 };
 

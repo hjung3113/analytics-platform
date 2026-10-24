@@ -13,7 +13,7 @@
     "sdk:pack": "node tooling/scripts/sdk-pack.mjs",
     "sdk:consumer-check": "node tooling/scripts/sdk-consumer-check.mjs",
     "sdk:api": "node tooling/scripts/sdk-api-snapshot.mjs",
-    "check:dock-chunk": "node tooling/scripts/check-dock-chunk.mjs",
+    "check:lazy-chunks": "node tooling/scripts/check-lazy-chunks.mjs",
     "gen:menu": "node tooling/gen-menu/src/cli.ts",
     "lint": "turbo run lint --filter='!@fops/*' --filter='!feedbackops'",
     "typecheck": "turbo run typecheck --filter='!@fops/*' --filter='!feedbackops'",

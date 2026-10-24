@@ -2,12 +2,9 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createMockAdapter, EQUIPMENT, getRole, setRole, type RoleId } from '@ap/mock-server';
 import { equipmentMock } from './index';
 import { equipmentMakersEndpoint, equipmentPageEndpoint, equipmentExportEndpoint, type Equipment } from '../endpoints';
-import { groupId, menuPermission, type Capability, type ContextKey, type MenuMeta, type PageResult } from '@ap/contracts';
+import { contextCapabilities, groupId, menuPermission, type MenuMeta, type PageResult } from '@ap/contracts';
 
-const none: Record<ContextKey, Capability> = {
-  time: 'unsupported', roomNames: 'unsupported', line: 'unsupported', prcGroup: 'unsupported', condition: 'unsupported', selection: 'unsupported',
-  lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported',
-};
+const none = contextCapabilities();
 
 /**
  * Inline mirror of the equipment-master manifest in '../index.ts' (permission, requiresScope, context).

@@ -1,17 +1,21 @@
-// The Dockview engine is a lazy chunk (ADR-0067 decision 2, review D11): nothing the app loads at start may contain it.
+// Heavy engines that only lazy screens use must stay out of what the app loads at start:
+//   - Dockview (ADR-0067 decision 2, review D11);
+//   - the rich-text editor (@tiptap / ProseMirror) that `@ap/ui` rich-content brings: `@ap/ui` declares `sideEffects` so a barrel
+//     import from a start-up module does not pull it in (#706).
 // Reads a built app (`vite build --mode mock` emits index.html + assets/*.js and no manifest): the entry scripts named in
 // index.html, then every chunk they import statically (`import … from "./x.js"`, `import "./x.js"`, `export … from "./x.js"`).
 // Dynamic `import("./x.js")` is the lazy edge and is not followed. Fails if a chunk in that closure mentions `dockview`, and also if no chunk
-// at all does (then the engine is not where this check looks and it would pass for nothing).
+// at all does (then the engine is not where this check looks and it would pass for nothing). Each engine is checked by its marker string.
 //
-//   node tooling/scripts/check-dock-chunk.mjs [distDir]     (default apps/platform-web/dist)
-//   node tooling/scripts/check-dock-chunk.mjs --self-test
+//   node tooling/scripts/check-lazy-chunks.mjs [distDir]     (default apps/platform-web/dist)
+//   node tooling/scripts/check-lazy-chunks.mjs --self-test
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, normalize, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const ENGINE = 'dockview';
+/** Marker strings that survive minification: Dockview's package name, ProseMirror's editor class name. */
+export const LAZY_ENGINES = ['dockview', 'ProseMirror'];
 
 /** `src` of every `<script … src>` in the page (the entry; modulepreload links are the same files the entry imports). */
 function entryScripts(html) {
@@ -48,7 +52,7 @@ function locate(root, from, specifier) {
 }
 
 /** @returns {{ ok: boolean, message: string }} */
-export function checkDockChunk(dist) {
+export function checkLazyChunks(dist, engines = LAZY_ENGINES) {
   const root = resolve(dist);
   const indexPath = join(root, 'index.html');
   if (!existsSync(indexPath)) return { ok: false, message: `no build at ${dist} (index.html missing) — run pnpm build first` };
@@ -66,11 +70,15 @@ export function checkDockChunk(dist) {
     }
   }
   if (closure.size === 0) return { ok: false, message: `index.html in ${dist} names no script that exists in the build` };
-  const leaked = [...closure].filter(([, code]) => code.includes(ENGINE)).map(([file]) => relative(root, file));
-  if (leaked.length > 0) return { ok: false, message: `the layout engine is in the start-up chunks (it must stay a lazy chunk): ${leaked.join(', ')}` };
-  const anywhere = walk(root).some((file) => /\.m?js$/.test(file) && readFileSync(file, 'utf8').includes(ENGINE));
-  if (!anywhere) return { ok: false, message: `no chunk in ${dist} contains "${ENGINE}" — the engine is missing from the build, so this check proves nothing` };
-  return { ok: true, message: `ok: ${closure.size} start-up file(s) checked, none contains "${ENGINE}"` };
+  const files = walk(root).filter((file) => /\.m?js$/.test(file));
+  for (const engine of engines) {
+    const leaked = [...closure].filter(([, code]) => code.includes(engine)).map(([file]) => relative(root, file));
+    if (leaked.length > 0) return { ok: false, message: `"${engine}" is in the start-up chunks (it must stay a lazy chunk): ${leaked.join(', ')}` };
+    if (!files.some((file) => readFileSync(file, 'utf8').includes(engine))) {
+      return { ok: false, message: `no chunk in ${dist} contains "${engine}" — the engine is missing from the build, so this check proves nothing` };
+    }
+  }
+  return { ok: true, message: `ok: ${closure.size} start-up file(s) checked, none contains ${engines.map((engine) => `"${engine}"`).join(' or ')}` };
 }
 
 function walk(directory) {
@@ -81,13 +89,15 @@ function selfTest() {
   const failures = [];
   const expect = (name, actual, wanted) => { if (actual.ok !== wanted) failures.push(`${name}: expected ok=${wanted}, got ${JSON.stringify(actual)}`); };
   const build = (files) => {
-    const dir = mkdtempSync(join(tmpdir(), 'dock-chunk-'));
+    const dir = mkdtempSync(join(tmpdir(), 'lazy-chunks-'));
     for (const [name, content] of Object.entries(files)) {
       mkdirSync(dirname(join(dir, name)), { recursive: true });
       writeFileSync(join(dir, name), content);
     }
     return dir;
   };
+  const kept = [];
+  const buildKept = (files) => { const dir = build(files); kept.push(dir); return dir; };
   const page = (...scripts) => `<!doctype html><html><head>${scripts.map((src) => `<script type="module" crossorigin src="${src}"></script>`).join('')}</head><body></body></html>`;
   const engine = 'const dv="dockview-react";export{dv as e};';
   const cases = [
@@ -125,10 +135,15 @@ function selfTest() {
   ];
   for (const [name, wanted, files] of cases) {
     const dir = build(files);
-    try { expect(name, checkDockChunk(dir), wanted); } finally { rmSync(dir, { recursive: true, force: true }); }
+    try { expect(name, checkLazyChunks(dir, ['dockview']), wanted); } finally { rmSync(dir, { recursive: true, force: true }); }
   }
+  const editor = { 'index.html': page('/assets/index-a.js'), 'assets/DockEngine-c.js': engine, 'assets/Editor-d.js': 'const c="ProseMirror";' };
+  expect('both engines lazy', checkLazyChunks(buildKept({ ...editor, 'assets/index-a.js': 'const L=()=>import("./DockEngine-c.js"),M=()=>import("./Editor-d.js");' })), true);
+  expect('editor in the entry', checkLazyChunks(buildKept({ ...editor, 'assets/index-a.js': 'import"./Editor-d.js";const L=()=>import("./DockEngine-c.js");' })), false);
+  expect('editor missing from the build', checkLazyChunks(buildKept({ 'index.html': page('/assets/index-a.js'), 'assets/index-a.js': 'const L=()=>import("./DockEngine-c.js");', 'assets/DockEngine-c.js': engine })), false);
+  for (const dir of kept) rmSync(dir, { recursive: true, force: true });
   if (failures.length > 0) { console.error(failures.join('\n')); return 1; }
-  console.log(`check-dock-chunk self-test: ${cases.length} cases ok`);
+  console.log(`check-lazy-chunks self-test: ${cases.length + 3} cases ok`);
   return 0;
 }
 
@@ -136,7 +151,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1
   const args = process.argv.slice(2);
   if (args.includes('--self-test')) process.exit(selfTest());
   const dist = args[0] ?? join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'apps', 'platform-web', 'dist');
-  const result = checkDockChunk(dist);
-  (result.ok ? console.log : console.error)(`check:dock-chunk ${result.message}`);
+  const result = checkLazyChunks(dist);
+  (result.ok ? console.log : console.error)(`check:lazy-chunks ${result.message}`);
   process.exit(result.ok ? 0 : 1);
 }
