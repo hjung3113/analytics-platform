@@ -2,11 +2,11 @@
   "group": "hwTime",
   "folder": "hw-time",
   "space": "analytics",
-  "menuId": "hw-time",
+  "menuId": "hw-time-steps",
   "page": "HwTime",
-  "path": "/hw-time",
-  "pageType": "overview",
-  "labelKo": "동작시간분석",
-  "labelEn": "Operation time analysis",
+  "path": "/hw-time/steps",
+  "pageType": "analysis",
+  "labelKo": "HW Time 단계별",
+  "labelEn": "HW Time by level",
   "binding": "hwTime"
 }

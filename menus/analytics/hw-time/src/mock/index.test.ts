@@ -11,15 +11,15 @@ const context = {
 };
 
 const menu: MenuMeta = {
-  id: 'hw-time',
+  id: 'hw-time-steps',
   group: groupId('hwTime'),
   label: { ko: 'HW Time', en: 'HW Time' },
   description: { ko: '', en: '' },
-  path: '/hw-time',
+  path: '/hw-time/steps',
   permission: menuPermission('analytics:view'),
   requiresScope: true,
   context: contextCapabilities({ time: 'apply', roomNames: 'apply', condition: 'apply', selection: 'apply', ppid: 'apply', recipe: 'apply' }),
-  pageType: 'overview',
+  pageType: 'analysis',
   features: { export: false, savedView: false, annotate: false, compare: false },
   pageKeys: [],
 };
