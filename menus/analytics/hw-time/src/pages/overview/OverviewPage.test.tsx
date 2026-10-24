@@ -40,7 +40,7 @@ vi.mock('@ap/components', async importOriginal => {
     </section>;
   }
   function PanelWorkspace(props: import('@ap/components').PanelWorkspaceProps) {
-    return <div data-testid="workspace" data-persist={props.persistKey} data-reveal={JSON.stringify(props.revealRequest ?? null)} data-mode={String(props.initialMode ?? 'fit')} data-layout={JSON.stringify(props.presets.map(p => p.layout))}>
+    return <div data-testid="workspace" data-persist={props.persistKey} data-reveal={JSON.stringify(props.revealRequest ?? null)} data-mode={String(props.initialMode ?? 'fit')} data-compact={props.compactPreset ?? ''} data-layout={JSON.stringify(props.presets.map(p => p.layout))}>
       {props.panels.map(panel => <section key={panel.id} aria-label={`panel ${panel.id}`} data-badge={panel.badge ? panel.badge.count ?? '' : ''} data-tone={panel.badge?.tone ?? ''} data-primary={String(panel.primary === true)} data-badge-text={panel.badge ? (typeof panel.badge.description === 'string' ? panel.badge.description : panel.badge.description.ko) : ''}>{panel.render()}</section>)}
     </div>;
   }
@@ -146,10 +146,24 @@ describe('HW Time overview page', () => {
     expect(panelIds()).toEqual(panels);
     expect(panels.filter(name => panel(name.slice(6)).getAttribute('data-primary') === 'true')).toEqual([`panel ${primary}`]);
     const presets = JSON.parse(workspace().getAttribute('data-layout')!);
-    expect(presets).toHaveLength(1);
+    // The default arrangement is the first preset; the second is the compact one (see the next test).
+    expect(presets).toHaveLength(2);
     // The analysis row comes first and is the larger one; trend | legend is the second row.
     expect(presets[0].sizes[0]).toBeGreaterThan(presets[0].sizes[1]);
     expect(presets[0].children.at(-1).children.map((child: { panels: string[] }) => child.panels[0])).toEqual(['trend', 'legend']);
+  });
+
+  it.each([
+    ['', ['level', 'ranking', 'trend', 'legend']],
+    ['&drillModule=PM1', ['level', 'ranking', 'trend', 'legend']],
+    ['&drillModule=PM1&drillMotion=Pump', ['detail', 'context', 'ranking', 'trend', 'legend']],
+  ])('%s: at narrow widths one tab group opens on the primary panel (compact preset)', async (query, order) => {
+    await renderPage(query);
+    expect(workspace().getAttribute('data-compact')).toBe('compact');
+    const compact = JSON.parse(workspace().getAttribute('data-layout')!)[1];
+    expect(compact).toEqual({ type: 'group', panels: order });
+    const primary = panelIds().map(name => name!.slice(6)).find(id => panel(id).getAttribute('data-primary') === 'true');
+    expect(compact.panels[0]).toBe(primary);
   });
 
   it('L3 first row is ranking | context | detail at 20/40/40; L1 and L2 are ranking | level at 25/75', async () => {
@@ -219,33 +233,32 @@ describe('HW Time overview page', () => {
   });
 
   it.each([
-    ['&drillModule=PM3&drillMotion=Pump', ['detail'], ['ranking', 'context', 'trend', 'legend']],
-    ['&drillModule=PM3', ['level'], ['ranking', 'trend', 'legend']],
-    ['', ['level'], ['ranking', 'trend', 'legend']],
-    ['&drillModule=PM1&drillMotion=Pump', [], ['ranking', 'context', 'detail', 'trend', 'legend']],
-  ])('%s: the unmeasured warning badge is on %j only', async (query, warned, quiet) => {
+    ['&drillModule=PM3&drillMotion=Pump', { detail: 9 }, ['ranking', 'context', 'trend', 'legend']],
+    ['&drillModule=PM3', { level: 14 }, ['ranking', 'trend', 'legend']],
+    ['', { level: 5 }, ['ranking', 'trend', 'legend']],
+    ['&drillModule=PM1&drillMotion=Pump', {}, ['ranking', 'context', 'detail', 'trend', 'legend']],
+  ])('%s: the unmeasured warning badge is on %j only, with the fixture\'s exact row count', async (query, warned, quiet) => {
     await renderPage(query);
     // Fixture: the L1 and L2 blocks carry unmeasured rows (PM3 at L1, PM3 at L2); at L3 only the PM3 detail does. PM1 has none.
-    for (const id of warned) {
+    // Counts: L1 rows i % 5 === 0 of 24 = 5; PM3 L2 rows n % 7 === 0 of 96 data rows = 14; PM3 L3 detail rows n % 11 === 0 of 96 = 9 (auxiliary MEG rows excluded).
+    for (const [id, count] of Object.entries(warned)) {
       expect(panel(id).getAttribute('data-tone')).toBe('warning');
-      expect(panel(id).getAttribute('data-badge-text')).toMatch(/^일부 미측정 \d+행$/);
+      expect(panel(id).getAttribute('data-badge-text')).toBe(`일부 미측정 ${count}행`);
     }
     for (const id of quiet) expect(panel(id).getAttribute('data-tone')).toBe('');
   });
 
-  it('the Inspector keeps 분석 대상 and 옵션 as stack sections with summaries; the legend is not in it', async () => {
+  it('the Inspector is a rail: 분석 대상 and 옵션 are icon buttons whose peek shows the content; the legend is not in it', async () => {
     await renderPage('&drillModule=PM1&drillMotion=Pump');
-    const inspector = screen.getByRole('group', { name: '분석 보조' });
-    expect(within(inspector).getByRole('button', { name: /분석 대상/ })).toBeTruthy();
-    expect(within(inspector).getByRole('button', { name: /옵션/ })).toBeTruthy();
-    expect(within(inspector).queryByRole('button', { name: /계층 범례/ })).toBeNull();
-    expect(within(inspector).getByText('선택 24 · 평가 24')).toBeTruthy();
-    // Collapsed, a section shows its summary in the header.
-    fireEvent.click(within(inspector).getByRole('button', { name: /분석 대상/ }));
-    fireEvent.click(within(inspector).getByRole('button', { name: /옵션/ }));
-    expect(within(inspector).getAllByText('선택 24 · 평가 24').length).toBeGreaterThan(0);
-    expect(within(inspector).getAllByText('정렬: 기본').length).toBeGreaterThan(0);
-    expect(within(inspector).queryByRole('checkbox', { name: '행 스크롤 보기' })).toBeNull();
+    for (const name of ['분석 대상', '옵션']) expect(screen.getByRole('button', { name })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /계층 범례/ })).toBeNull();
+    expect(screen.queryByRole('checkbox', { name: '시작 위치 맞춤' })).toBeNull();
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: '옵션' })); });
+    expect(await screen.findByRole('checkbox', { name: '시작 위치 맞춤' })).toBeTruthy();
+    expect(screen.queryByRole('checkbox', { name: '행 스크롤 보기' })).toBeNull();
+    fireEvent.pointerDown(screen.getByRole('button', { name: '분석 대상' }));
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: '분석 대상' })); });
+    expect(await screen.findByText('선택 24 · 평가 24')).toBeTruthy();
   });
 
   it('the minmax and align keys reach every stack panel', async () => {

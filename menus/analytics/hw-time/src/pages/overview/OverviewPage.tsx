@@ -7,7 +7,7 @@
 import { Inbox, SlidersHorizontal, Target } from 'lucide-react';
 import { useMemo, useState, type ReactNode } from 'react';
 import { useDrill, useI18n, usePlatform, type PageProps } from '@ap/kernel';
-import { DrillLayout, Inspector, LegendTree, PanelWorkspace, PlatformPage, QueryView, SegmentedRadio, StateMessage, type InspectorSection, type PanelWorkspaceLayout, type PanelWorkspacePanel } from '@ap/components';
+import { DrillLayout, Inspector, LegendTree, PanelWorkspace, PlatformPage, QueryView, SegmentedRadio, StateMessage, type InspectorSection, type PanelWorkspaceLayout, type PanelWorkspacePanel, type PanelWorkspacePreset } from '@ap/components';
 import { Checkbox } from '@ap/ui';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import { HW_TIME_MAX_TREND_ROWS, HW_TIME_UNIT, isHwTimeRowId, type HwTimeBlock, type HwTimeDrill, type HwTimeLevelData } from '../../endpoints';
@@ -27,7 +27,19 @@ const group = (...panels: string[]): PanelWorkspaceLayout => ({ type: 'group', p
 /**
  * One preset per level (the panels differ, so each level has its own `persistKey`). The first row is the analysis row (about 62%), so a
  * fresh stacked session shows a chart above the fold; trend and legend sit under it. L3 puts the detail (primary, UX-17) beside the context.
+ * First-row arithmetic (06 §12.8 row model, `enterRows`): row px = round(share × max(fit height, rows × 360)), so with two rows the total is
+ * at least 720 and the first row at least round(0.62 × 720) = 446px (row minimum 200). The Inspector is a 40px `rail`, so at 1280 with the
+ * sidebar expanded (256px) the workspace is about 1280 − 256 − 40 − gaps ≈ 960px, above `compactBelow` 900 and stacked; a 256px `stack`
+ * Inspector left ≈ 700px and the fit tab group showed. The first row starts at the top of the workspace, so its chart's plot area begins
+ * within the first 446px of it (the reviewer saw 467px at 1440×900, chart visible).
  */
+const GROUPS = {
+  l1: ['level', 'ranking', 'trend', 'legend'],
+  l2: ['level', 'ranking', 'trend', 'legend'],
+  l3: ['detail', 'context', 'ranking', 'trend', 'legend'],
+} as const;
+/** Below `compactBelow` one tab group shows its first tab: the primary panel (level at L1/L2, detail at L3) leads. */
+const COMPACT = (level: keyof typeof GROUPS): PanelWorkspacePreset => ({ id: 'compact', label: { ko: '한 묶음', en: 'One group' }, layout: group(...GROUPS[level]) });
 const PRESETS: Record<'l1' | 'l2' | 'l3', PanelWorkspaceLayout> = {
   l1: { type: 'branch', dir: 'column', sizes: [62, 38], children: [
     { type: 'branch', dir: 'row', sizes: [25, 75], children: [group('ranking'), group('level')] },
@@ -196,8 +208,9 @@ export default function OverviewPage(_props: PageProps) {
     let panels: PanelWorkspacePanel[];
     let persistKey: 'hw-overview-l1' | 'hw-overview-l2' | 'hw-overview-l3';
     let layout: PanelWorkspaceLayout;
+    let compact: PanelWorkspacePreset;
     if (data.level === 2) {
-      persistKey = 'hw-overview-l3'; layout = PRESETS.l3;
+      persistKey = 'hw-overview-l3'; layout = PRESETS.l3; compact = COMPACT('l3');
       const ctx = context ?? data;
       const det = detail ?? EMPTY_BLOCK;
       const shared = { ...stackProps, activeRowId: row, revealActive: true, onActiveRowChange: (rowId: string | null) => { setRowPath(levelKey); setPage({ row: rowId }); }, rowActions: rowActionsOf };
@@ -216,7 +229,7 @@ export default function OverviewPage(_props: PageProps) {
       ];
     } else {
       const first = data.level === 0;
-      persistKey = first ? 'hw-overview-l1' : 'hw-overview-l2'; layout = first ? PRESETS.l1 : PRESETS.l2;
+      persistKey = first ? 'hw-overview-l1' : 'hw-overview-l2'; layout = first ? PRESETS.l1 : PRESETS.l2; compact = COMPACT(first ? 'l1' : 'l2');
       const stackTitle = first ? (ko ? 'Module별 동작시간' : 'Operation time by Module') : (ko ? `Motion별 동작시간 — Module ${module}` : `Operation time by Motion — Module ${module}`);
       panels = [
         rankingPanel(data),
@@ -230,13 +243,13 @@ export default function OverviewPage(_props: PageProps) {
       ];
     }
     return <PanelWorkspace persistKey={persistKey} initialMode="stack" label={{ ko: 'HW Time 개요 영역', en: 'HW Time overview workspace' }} panels={panels}
-      presets={[{ id: 'default', label: { ko: '기본', en: 'Default' }, layout }]} initialPreset="default" revealRequest={reveal} />;
+      presets={[{ id: 'default', label: { ko: '기본', en: 'Default' }, layout }, compact]} initialPreset="default" compactPreset="compact" revealRequest={reveal} />;
   };
 
   return <PlatformPage layout="fill">
     <div className="flex h-full min-h-0 gap-3">
-      <aside className="w-64 shrink-0 overflow-hidden rounded-lg border border-border-subtle bg-surface-card">
-        <Inspector form="stack" persistKey="hw-time-overview" label={{ ko: '분석 보조', en: 'Analysis aids' }} sections={sections} />
+      <aside className="shrink-0 overflow-hidden rounded-lg border border-border-subtle bg-surface-card">
+        <Inspector form="rail" persistKey="hw-time-overview" label={{ ko: '분석 보조', en: 'Analysis aids' }} sections={sections} />
       </aside>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <DrillLayout fill summary={summary}>

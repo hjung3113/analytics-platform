@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { groupId, menuPermission, spaceId, type ApiResponse, type MenuQuery } from '@ap/contracts';
 import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
@@ -70,6 +70,7 @@ async function renderPage(search: string) {
   await waitFor(() => expect(levelRequests().length).toBeGreaterThan(0));
   await act(async () => { await new Promise(resolve => setTimeout(resolve, 50)); });
 }
+const openRail = async (name: string) => { fireEvent.pointerDown(screen.getByRole('button', { name })); await act(async () => { fireEvent.click(screen.getByRole('button', { name })); }); };
 const settle = () => act(async () => { await new Promise(resolve => setTimeout(resolve, 50)); });
 
 describe('HW Time overview: UI state never re-queries (real data hooks, counted adapter requests)', () => {
@@ -92,9 +93,13 @@ describe('HW Time overview: UI state never re-queries (real data hooks, counted 
     fireEvent.click(legend); await settle(); unchanged();
     fireEvent.click(legend); await settle(); unchanged();
 
-    // Option toggles: sort, align, min·max, in both directions (the stack Inspector keeps its sections mounted).
+    // Inspector rail peeks: open each section, then the next (the first closes); 옵션 stays open for the toggles.
+    for (const name of ['분석 대상', '옵션']) { await openRail(name); await settle(); unchanged(); }
+
+    // Option toggles: sort, align, min·max, in both directions.
     fireEvent.click(await screen.findByRole('radio', { name: '큰 순' })); await settle(); unchanged();
-    fireEvent.click(screen.getByRole('radio', { name: '기본' })); await settle(); unchanged();
+    // The workspace toolbar's preset radio is also named 기본 now (a second, compact preset), so the sort radio is found by its group.
+    fireEvent.click(within(screen.getByRole('radiogroup', { name: '정렬' })).getByRole('radio', { name: '기본' })); await settle(); unchanged();
     for (const name of ['시작 위치 맞춤', '최소·최대 표시']) {
       fireEvent.click(screen.getByRole('checkbox', { name })); await settle(); unchanged();
       fireEvent.click(screen.getByRole('checkbox', { name })); await settle(); unchanged();
