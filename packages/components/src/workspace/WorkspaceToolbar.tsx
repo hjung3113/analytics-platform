@@ -1,4 +1,5 @@
 import { useId, useRef } from 'react';
+import { TriangleAlert } from 'lucide-react';
 import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { useI18n } from '@ap/kernel';
 import type { WorkspaceCommand } from '../dock/WorkspaceCommandsHost';
@@ -16,6 +17,12 @@ function ModeLabel({ command }: { command: WorkspaceCommand }) {
   const hint = command.id === `${MODE_PREFIX}stack` ? workspaceText.modeStackHint : command.id === `${MODE_PREFIX}fit` ? workspaceText.modeFitHint : undefined;
   if (!hint) return command.label;
   return <TooltipProvider><Tooltip><TooltipTrigger asChild><span>{command.label}</span></TooltipTrigger><TooltipContent>{tx(hint)}</TooltipContent></Tooltip></TooltipProvider>;
+}
+
+/** A `다시 보기` item: the label, and under it the badge description of the hidden panel when it has one. */
+function HiddenItemLabel({ command }: { command: WorkspaceCommand }) {
+  if (!command.description) return command.label;
+  return <span className="grid">{command.label}<span className="text-tiny text-text-muted">{command.description}</span></span>;
 }
 
 /**
@@ -38,6 +45,9 @@ export function WorkspaceToolbar({ commands, onShown }: { commands: readonly Wor
   const modeOff = modes.length > 0 && modes.every(command => command.disabled);
   const modeReason = tx(workspaceText.modeOff);
   const modeReasonId = useId();
+  // A hidden panel with a warning badge: the button shows the mark and says so in its description (its name stays `숨긴 패널 n`).
+  const warned = hidden.filter(command => command.warning);
+  const warnedId = useId();
   return <div role="toolbar" aria-label={tx(workspaceText.layout)} data-workspace-toolbar className="flex flex-wrap items-center gap-2">
     {presets.length > 1 && <span className="inline-flex" title={compactOff ? reason : undefined}>
       <SegmentedRadio label={tx(workspaceText.layout)} value={current} disabled={compactOff} describedBy={compactOff ? reasonId : undefined} onChange={next => { presets.find(command => command.id === next)?.run(); }}
@@ -50,8 +60,12 @@ export function WorkspaceToolbar({ commands, onShown }: { commands: readonly Wor
       {modeOff && <span id={modeReasonId} className="sr-only">{modeReason}</span>}
     </span>}
     <DropdownMenu>
+      {warned.length > 0 && <span id={warnedId} className="sr-only">{warned.map(command => command.description ?? command.label).join(' · ')}</span>}
       <DropdownMenuTrigger asChild>
-        <Button type="button" variant="secondary" size="toolbar" disabled={hidden.length === 0}>{tx(workspaceText.hiddenPanels(hidden.length))}</Button>
+        <Button type="button" variant="secondary" size="toolbar" disabled={hidden.length === 0} aria-describedby={warned.length > 0 ? warnedId : undefined}>
+          {tx(workspaceText.hiddenPanels(hidden.length))}
+          {warned.length > 0 && <TriangleAlert className="size-3.5 text-text-warning-label" aria-hidden data-hidden-warning />}
+        </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" aria-label={tx(workspaceText.hiddenPanelsList)} onCloseAutoFocus={event => {
         const next = afterClose.current;
@@ -60,7 +74,7 @@ export function WorkspaceToolbar({ commands, onShown }: { commands: readonly Wor
         event.preventDefault();
         next();
       }}>
-        {hidden.map(command => <DropdownMenuItem key={command.id} onSelect={() => { afterClose.current = () => { onShown(command.id.slice(SHOW_PREFIX.length)); }; command.run(); }}>{command.label}</DropdownMenuItem>)}
+        {hidden.map(command => <DropdownMenuItem key={command.id} onSelect={() => { afterClose.current = () => { onShown(command.id.slice(SHOW_PREFIX.length)); }; command.run(); }}><HiddenItemLabel command={command} /></DropdownMenuItem>)}
       </DropdownMenuContent>
     </DropdownMenu>
     {reset && <Button type="button" variant="ghost" size="toolbar" disabled={reset.disabled} onClick={reset.run}>{reset.label}</Button>}

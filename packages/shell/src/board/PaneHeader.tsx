@@ -316,7 +316,7 @@ export function PaneHeader(props: PaneHeaderProps) {
                   {commands.map(command => <DropdownMenuRadioItem key={command.id} value={command.id} disabled={command.disabled}>{command.label}</DropdownMenuRadioItem>)}
                 </DropdownMenuRadioGroup>
               </Fragment>; })}
-              {otherCommands.map(command => <DropdownMenuItem key={command.id} disabled={command.disabled} onSelect={() => command.run()}>{command.label}</DropdownMenuItem>)}
+              {otherCommands.map(command => <DropdownMenuItem key={command.id} disabled={command.disabled} onSelect={() => command.run()}>{command.description ? <span className="grid">{command.label}<span className="text-tiny text-text-muted">{command.description}</span></span> : command.label}</DropdownMenuItem>)}
             </>}
             {dock && props.dockMenu && <>
               {(hasContentMenu || workspaceCommands.length > 0) && <DropdownMenuSeparator />}
