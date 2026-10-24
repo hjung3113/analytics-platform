@@ -1,6 +1,7 @@
 import { fetchManagedSystems, useIdempotencyKey } from '@/lib/api';
 import type { ApiError, ApiErrorEnvelope } from '@/lib/api';
 import { errorMapper, mapUnknownError } from '@/lib/api/errorMapper';
+import { VOC_CREATE_COPY } from '@/lib/copy/voc';
 import {
   activeAnalyticsAreas,
   analyticsAreasCatalogQuery,
@@ -79,6 +80,13 @@ export function useVocCreateController({
         const fields = err.detail?.['fields'];
         if (Array.isArray(fields)) {
           let mapped = false;
+          // Fields this screen renders an error for; others surface as a toast.
+          const renderedFields = new Set([
+            'title',
+            'description_rich_content',
+            'primary_managed_system_id',
+            'analytics_area_id',
+          ]);
           for (const f of fields) {
             if (
               f &&
@@ -90,7 +98,15 @@ export function useVocCreateController({
               const msg =
                 field.message ??
                 errorMapper({ code: 'validation.failed', message: '' } as ApiErrorEnvelope).message;
-              form.setError(fieldPath as keyof CreateVocRequest, { message: msg });
+              if (renderedFields.has(fieldPath)) {
+                form.setError(fieldPath as keyof CreateVocRequest, { message: msg });
+              } else {
+                toast.error(
+                  fieldPath === 'attachment_ids' && field.code === 'too_big'
+                    ? VOC_CREATE_COPY.attachmentLimit
+                    : msg,
+                );
+              }
               mapped = true;
             }
           }

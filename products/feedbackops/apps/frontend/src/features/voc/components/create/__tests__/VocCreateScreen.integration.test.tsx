@@ -522,6 +522,42 @@ describe('VocCreateScreen integration', () => {
     expect(toast.error).not.toHaveBeenCalled();
   });
 
+  test('422 over-cap attachment_ids: unrendered field error is toasted, draft stays', async () => {
+    installFetch({
+      postVocsResponse: {
+        status: 422,
+        body: {
+          code: 'validation.failed',
+          message: 'Validation failed',
+          detail: { fields: [{ path: ['attachment_ids'], code: 'too_big' }] },
+        },
+      },
+    });
+
+    renderHarness({ onCancel: vi.fn() });
+    await waitFor(() => {
+      expect(screen.getByTestId('ms-picker')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole('radio', { name: MS_ITEM.name }));
+    const titleInput = screen.getByRole('textbox', { name: /제목/i });
+    fireEvent.change(titleInput, { target: { value: '제목' } });
+    fireEvent.blur(titleInput);
+    fireEvent.change(screen.getByTestId('mock-rich-editor'), {
+      target: { value: '재현 절차와 기대 동작' },
+    });
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'VOC 제출' })).not.toBeDisabled();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'VOC 제출' }));
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith('첨부는 최대 10개까지 연결할 수 있습니다.');
+    });
+    expect(titleInput).toHaveValue('제목');
+    expect(screen.getByTestId('mock-rich-editor')).toHaveValue('재현 절차와 기대 동작');
+  });
+
   // ── 3. 429 rate_limited.actor with retry_after_seconds ────────────────────
   test('429 rate_limited.actor: toast.warning with "30초"', async () => {
     const futureReset = Math.floor(Date.now() / 1000) + 30;

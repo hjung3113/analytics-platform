@@ -619,6 +619,40 @@ describe('respondent form', () => {
     expect(await screen.findByRole('textbox', { name: '어떤 점이 좋았나요?' })).toBeInTheDocument();
   });
 
+  it('drops the completion notice when the route switches to another Survey', async () => {
+    const otherId = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
+    const otherForm = surveyRespondentFormDtoSchema.parse({
+      survey: { ...formDto.survey, id: otherId, title: '다른 설문' },
+      questions: [{ ...firstQuestion, kind: 'text', prompt: '다른 설문 질문', options: null }],
+    });
+    const { fetchMock } = installFetch({ form: textForm(true) });
+    const delegate = fetchMock.getMockImplementation();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) =>
+        new URL(String(input), 'http://localhost').pathname === `/surveys/${otherId}/form`
+          ? jsonResponse(otherForm)
+          : delegate?.(input, init),
+      ),
+    );
+    const view = renderWithQuery(<RespondSurveyPage surveyId={surveyId} />);
+
+    fireEvent.change(await screen.findByRole('textbox', { name: /사용 경험을 적어주세요/ }), {
+      target: { value: '좋아요' },
+    });
+    await userEvent.setup().click(screen.getByRole('button', { name: '제출' }));
+    expect(await screen.findByText('응답이 제출되었습니다')).toBeInTheDocument();
+
+    view.rerender(
+      <QueryClientProvider client={view.client}>
+        <RespondSurveyPage surveyId={otherId} />
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByRole('textbox', { name: '다른 설문 질문' })).toBeInTheDocument();
+    expect(screen.queryByText('응답이 제출되었습니다')).not.toBeInTheDocument();
+  });
+
   it('counts visible questions and non-empty visible answers in respondent progress', async () => {
     const optionalBranchForm = surveyRespondentFormDtoSchema.parse({
       ...formDto,
