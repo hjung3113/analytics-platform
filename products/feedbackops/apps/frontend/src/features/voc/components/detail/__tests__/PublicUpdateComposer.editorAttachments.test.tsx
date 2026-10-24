@@ -1,54 +1,10 @@
-// PublicUpdateComposer — attachment dropzone wiring tests (PLAN-22 C7a).
-//
-// Covers:
-//   - drop file → upload → submit body includes attachment_ids[]
-//   - failed upload not included
-//   - Send disabled while uploading
+// PublicUpdateComposer — no editor attach on the public-update surface (#745): its allowlist has no attachmentRef,
+// so the editor cannot hold the node; files go through the dropzone.
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { render, screen, waitFor } from '@testing-library/react';
 import * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-
-// RichEditor stub so the composer mounts headlessly.
-const { EDITOR_ATT_ID } = vi.hoisted(() => ({
-  EDITOR_ATT_ID: 'eeee0000-0000-4000-8000-000000000001',
-}));
-
-vi.mock('@fops/ui', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@fops/ui')>();
-  return {
-    ...actual,
-    RichEditor: ({
-      onChange,
-      surface,
-    }: {
-      onChange?: (doc: import('@fops/ui').TipTapDoc) => void;
-      surface?: string;
-    }) =>
-      React.createElement('button', {
-        type: 'button',
-        'data-testid': `rich-editor-${surface ?? 'default'}`,
-        onClick: () =>
-          onChange?.({
-            type: 'doc',
-            content: [
-              { type: 'paragraph', content: [{ type: 'text', text: 'hello' }] },
-              {
-                type: 'attachmentRef',
-                attrs: {
-                  id: EDITOR_ATT_ID,
-                  name: 'log.txt',
-                  size_bytes: 12,
-                  mime_type: 'text/plain',
-                },
-              },
-            ],
-          }),
-      }),
-  };
-});
 
 vi.mock('sonner', () => ({
   toast: { error: vi.fn(), warning: vi.fn(), info: vi.fn(), success: vi.fn() },
@@ -59,7 +15,6 @@ vi.mock('@/features/voc/hooks/useVocPublicUpdateMutation', () => ({
 }));
 
 import { useVocPublicUpdateMutation } from '@/features/voc/hooks/useVocPublicUpdateMutation';
-import * as attachmentsApi from '@/lib/api/attachments';
 import type { MeResponse } from '@/lib/auth/useMe';
 import type { VocDetailEnvelope } from '@fops/shared';
 import { PublicUpdateComposer } from '../PublicUpdateComposer';
@@ -103,15 +58,6 @@ const ME_ADMIN: MeResponse = {
   workspace_id: 'ws-1111',
 };
 
-const ATTACHMENT = {
-  id: 'aaaa1111-0000-4000-8000-000000000001',
-  name: 'shot.png',
-  size_bytes: 1024,
-  mime_type: 'image/png',
-  uploaded_by_actor_id: '00000000-0000-4000-8000-000000000099',
-  created_at: '2026-05-22T10:00:00.000Z',
-};
-
 const DEFAULT_MUTATION = {
   mutate: vi.fn(),
   isPending: false,
@@ -131,20 +77,6 @@ const DEFAULT_MUTATION = {
   mutateAsync: vi.fn(),
 };
 
-function makeFile(name = 'shot.png', type = 'image/png', size = 1024): File {
-  const f = new File(['x'], name, { type });
-  Object.defineProperty(f, 'size', { value: size, configurable: true });
-  return f;
-}
-
-function pickFile(file: File): void {
-  const input = document.querySelector(
-    '[data-testid="public-update-attachment-dropzone-input"]',
-  ) as HTMLInputElement | null;
-  if (!input) throw new Error('public-update-attachment-dropzone-input not found');
-  fireEvent.change(input, { target: { files: [file] } });
-}
-
 function wrap() {
   const qc = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -153,7 +85,7 @@ function wrap() {
     React.createElement(QueryClientProvider, { client: qc }, children);
 }
 
-describe('<PublicUpdateComposer> editor attachments (#745 FIX2)', () => {
+describe('<PublicUpdateComposer> editor attach (#745)', () => {
   beforeEach(() => {
     vi.mocked(useVocPublicUpdateMutation).mockReturnValue(
       DEFAULT_MUTATION as unknown as ReturnType<typeof useVocPublicUpdateMutation>,
@@ -163,35 +95,12 @@ describe('<PublicUpdateComposer> editor attachments (#745 FIX2)', () => {
     vi.restoreAllMocks();
   });
 
-  it('sends the editor attachment through attachment_ids ahead of the dropzone file', async () => {
-    vi.spyOn(attachmentsApi, 'uploadAttachment').mockResolvedValue(ATTACHMENT);
-    const mutateMock = vi.fn();
-    vi.mocked(useVocPublicUpdateMutation).mockReturnValue({
-      ...DEFAULT_MUTATION,
-      mutate: mutateMock,
-    } as unknown as ReturnType<typeof useVocPublicUpdateMutation>);
-
+  it('offers no editor attach button; the dropzone stays', async () => {
     render(<PublicUpdateComposer voc={BASE_VOC} me={ME_ADMIN} />, { wrapper: wrap() });
-    const user = userEvent.setup();
-    await user.click(screen.getByTestId('rich-editor-public-update'));
-    await act(async () => {
-      pickFile(makeFile());
-    });
-    await waitFor(() => {
-      expect(screen.getByTestId('attachment-row').getAttribute('data-state')).toBe('uploaded');
-    });
-    await user.click(screen.getByRole('button', { name: '공개 업데이트 게시' }));
-
-    await waitFor(() => expect(mutateMock).toHaveBeenCalledTimes(1));
-    const firstCall = mutateMock.mock.calls[0];
-    if (!firstCall) throw new Error('expected the mutation to have been called');
-    const calledVars = firstCall[0] as {
-      body: { body_rich_content: unknown; attachment_ids: string[] };
-    };
-    expect(calledVars.body.attachment_ids).toEqual([EDITOR_ATT_ID, ATTACHMENT.id]);
-    expect(calledVars.body.body_rich_content).toEqual({
-      type: 'doc',
-      content: [{ type: 'paragraph', content: [{ type: 'text', text: 'hello' }] }],
-    });
+    await waitFor(() => expect(screen.getByTestId('public-update-composer')).toBeInTheDocument());
+    expect(screen.queryByTestId('public-update-attach')).not.toBeInTheDocument();
+    expect(
+      document.querySelector('[data-testid="public-update-attachment-dropzone-input"]'),
+    ).not.toBeNull();
   });
 });

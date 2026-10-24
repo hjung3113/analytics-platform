@@ -69,7 +69,6 @@ import {
 import { useVocPublicUpdateMutation } from '@/features/voc/hooks/useVocPublicUpdateMutation';
 import type { ApiError } from '@/lib/api';
 import { mapUnknownError } from '@/lib/api/errorMapper';
-import { uploadRichEditorAttachment } from '@/lib/attachments/rich-editor-upload';
 import type { MeResponse } from '@/lib/auth/useMe';
 import { REPORTER_STATUS_LABELS } from '@/lib/copy/reporter-status-labels';
 import {
@@ -83,7 +82,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, Megaphone } from 'lucide-react';
 import { type ReactElement, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { mergeAttachmentIds, removeAttachmentRefs } from '../compose/attachment-refs';
 import { ComposerAttachmentDropzone } from './ComposerAttachmentDropzone';
 import { ComposerFooter } from './ComposerFooter';
 import { ComposerPublicPreview } from './ComposerPublicPreview';
@@ -229,16 +227,14 @@ export function PublicUpdateComposer({
   function handleSubmit() {
     if (!draftDoc || isSubmitBlocked || submitInFlightRef.current) return;
     submitInFlightRef.current = true;
-    // The public-update allowlist has no attachmentRef: the nodes leave the body, their files stay linked as chips.
-    const { doc, ids: editorIds } = removeAttachmentRefs(draftDoc);
     mutation.mutate({
       vocId: voc.id,
       ifMatch: voc.updated_at,
       body: {
         skip_public_update: false,
-        body_rich_content: doc,
+        body_rich_content: draftDoc,
         next_reporter_facing_status: nextStatus,
-        attachment_ids: mergeAttachmentIds(editorIds, attachmentIds),
+        attachment_ids: attachmentIds,
       },
     });
   }
@@ -295,15 +291,12 @@ export function PublicUpdateComposer({
         onChange={(doc) => setDraftDoc(doc)}
         placeholder="공개 업데이트 내용을 입력하세요..."
         minHeight={84}
-        onAttach={uploadRichEditorAttachment}
-        toolbar={(editor, api) => (
+        // #745: the public-update allowlist has no attachmentRef, so the editor cannot hold an attachment here; files go
+        // through the dropzone below (linked as chips).
+        toolbar={(editor) => (
           <>
             {editorHandle(editor)}
-            <PublicUpdateToolbar
-              editor={editor}
-              onAttach={(file) => api.attach(file)}
-              onAttachError={(e) => toast.error(mapUnknownError(e).message)}
-            />
+            <PublicUpdateToolbar editor={editor} />
           </>
         )}
       />
