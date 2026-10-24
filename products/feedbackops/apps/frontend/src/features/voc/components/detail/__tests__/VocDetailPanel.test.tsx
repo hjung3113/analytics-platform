@@ -1280,6 +1280,112 @@ describe('<VocDetailPanel>', () => {
       expect(screen.queryByTestId('triage-open-console')).not.toBeInTheDocument();
     });
 
+    it.each([
+      { linkable: 'task', taskButton: true, requestButton: false },
+      { linkable: 'request', taskButton: false, requestButton: true },
+    ])(
+      'decides each trail node on its own destination: only $linkable is linkable',
+      ({ linkable, taskButton, requestButton }) => {
+        const requestId = '88888888-8888-4888-8888-888888888888';
+        const base = allowedFindingTrailLink('evidence_of');
+        const requestLink = {
+          ...base,
+          id: 'request-link-1',
+          target_type: 'task_request' as const,
+          target_id: requestId,
+          relation_type: 'requested_task' as const,
+          target_summary: {
+            type: 'task_request' as const,
+            id: requestId,
+            display_id: 'REQ-1225',
+            source_type: 'voc',
+            source_id: DETAIL_ENVELOPE.id,
+            evidence_summary: '증거',
+            requested_outcome: 'Request만 있는 후속 조치',
+            status: 'pending_review',
+            primary_managed_system_id: DETAIL_ENVELOPE.primary_managed_system_id,
+            requester_actor_id: OTHER_ACTOR_ID,
+          },
+        } as EntityLinkDto;
+        const taskLink: EntityLinkDto = {
+          ...allowedTaskLink,
+          id: 'task-link-1',
+          source_type: 'task_request',
+          source_id: requestId,
+          relation_type: 'converted_to',
+          target_summary: { ...allowedTaskLink.target_summary, status: 'doing' },
+        };
+        hostCanLink = (to) =>
+          linkable === 'task' ? to.startsWith('/tasks?param=') : to.includes('view=requests');
+        vi.mocked(useVocDetail).mockReturnValue(
+          makeDetailQuery({
+            data: {
+              ...DETAIL_ENVELOPE,
+              links: [],
+              linked_execution: {
+                findingRef: null,
+                taskRef: null,
+                trails: [
+                  { origin: 'direct', links: [requestLink] },
+                  { origin: 'cluster', links: [taskLink] },
+                ],
+              },
+            },
+          }),
+        );
+        vi.mocked(useMeBridge).mockReturnValue(
+          makeMeQuery({
+            data: {
+              ...ME_RESPONSE,
+              actor: { ...ME_RESPONSE.actor, id: OTHER_ACTOR_ID, role_level: 'developer' },
+            },
+          }),
+        );
+        renderWithClient(<VocDetailPanel vocId={DETAIL_ENVELOPE.id} onClose={vi.fn()} />);
+
+        expect(screen.getByText('Request만 있는 후속 조치')).toBeInTheDocument();
+        const trails = screen.getAllByTestId('voc-follow-up-trail').map((el) => within(el));
+        const buttons = (name: RegExp) =>
+          trails.flatMap((trail) => trail.queryAllByRole('button', { name }));
+        expect(buttons(/내부 Task 제목/).length > 0).toBe(taskButton);
+        expect(buttons(/Request만 있는 후속 조치/).length > 0).toBe(requestButton);
+        expect(trails.some((trail) => trail.queryAllByText('내부 Task 제목').length > 0)).toBe(
+          true,
+        );
+      },
+    );
+
+    it('draws only the similar VOC rows the host can open as controls', () => {
+      const other = '00000000-0000-0000-0000-000000000002';
+      hostCanLink = (to) => to.includes(`selected=${other}`);
+      const item = (id: string, displayId: string, title: string) => ({
+        id,
+        display_id: displayId,
+        title,
+        reporter_facing_status: 'reviewing' as const,
+        severity: 'medium' as const,
+      });
+      vi.mocked(useVocDetail).mockReturnValue(
+        makeDetailQuery({
+          data: {
+            ...DETAIL_ENVELOPE,
+            similar_count: 2,
+            similar: {
+              items: [
+                item(other, 'VOC-0002', '열리는 유사 VOC'),
+                item('00000000-0000-0000-0000-000000000003', 'VOC-0003', '막힌 유사 VOC'),
+              ],
+            },
+          },
+        }),
+      );
+      renderWithClient(<VocDetailPanel vocId="voc-uuid-1111" onClose={vi.fn()} />);
+
+      expect(screen.getByRole('button', { name: /VOC-0002 열리는 유사 VOC/ })).toBeInTheDocument();
+      expect(screen.getByText('막힌 유사 VOC')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /막힌 유사 VOC/ })).not.toBeInTheDocument();
+    });
+
     it('draws similar VOC rows as plain text when the host cannot open another VOC', () => {
       hostCanLink = () => false;
       vi.mocked(useVocDetail).mockReturnValue(

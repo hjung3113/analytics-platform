@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, renderHook, screen } from '@testing-library/react';
+import { act, render, renderHook, screen } from '@testing-library/react';
 import type * as React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -19,6 +19,7 @@ import { useMeBridge } from '@/lib/api/me';
 import { useVocDetail } from '@/lib/cross-system/useVocDetail';
 import { type HostSeam, HostSeamProvider } from '@/lib/host/host-seam';
 import { tanstackHost } from '@/lib/host/tanstack-host';
+import type { DetailCloseGuard } from '../useDetailCloseGuard';
 import { useVocDetailParts } from '../useVocDetailParts';
 import { DETAIL_ENVELOPE, makeDetailQuery, makeMeQuery } from './_fixtures';
 
@@ -92,6 +93,35 @@ describe('useVocDetailParts', () => {
 
     expect(result.current.view.kind).toBe('hidden');
     expect(result.current.body).toBeNull();
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('starts a recovered full body with a clean close guard after the body was discarded', () => {
+    vi.mocked(useVocDetail).mockReturnValue(makeDetailQuery());
+    const onClose = vi.fn();
+    const { result, rerender } = renderHook(
+      () => useVocDetailParts({ vocId: DETAIL_ENVELOPE.id, onClose }),
+      { wrapper },
+    );
+    const bodyProps = () =>
+      (result.current.body as React.ReactElement<{ closeGuard: DetailCloseGuard }>).props
+        .closeGuard;
+
+    act(() => bodyProps().setComposerDirty(true));
+    act(() => result.current.requestClose());
+    expect(bodyProps().dirtyConfirmOpen).toBe(true);
+
+    vi.mocked(useVocDetail).mockReturnValue(
+      makeDetailQuery({ data: undefined, isError: true, isSuccess: false, error: new Error('x') }),
+    );
+    rerender();
+    expect(result.current.view.kind).toBe('error');
+
+    vi.mocked(useVocDetail).mockReturnValue(makeDetailQuery());
+    rerender();
+    expect(result.current.view.kind).toBe('full');
+    expect(bodyProps().dirtyConfirmOpen).toBe(false);
+    act(() => result.current.requestClose());
     expect(onClose).toHaveBeenCalledOnce();
   });
 });

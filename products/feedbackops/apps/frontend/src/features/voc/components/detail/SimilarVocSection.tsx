@@ -10,6 +10,8 @@ export interface SimilarVocSectionProps {
   similarCount: number | undefined;
   /** Absent when the host cannot open another VOC here: the rows are drawn as plain text. */
   onSelect?: ((vocId: string) => void) | undefined;
+  /** Whether the host can open this one VOC here; a row it cannot is plain text. Absent means every row can. */
+  canSelect?: ((vocId: string) => boolean) | undefined;
 }
 
 /** Keep the section, its anchor, and its navigation entry in lockstep. */
@@ -31,10 +33,12 @@ function SimilarRow({
   item,
   index,
   onSelect,
+  canSelect,
 }: {
   item: SimilarItem;
   index: number;
   onSelect: SimilarVocSectionProps['onSelect'];
+  canSelect: SimilarVocSectionProps['canSelect'];
 }): React.ReactElement {
   const rowClass = `flex w-full items-center gap-2 px-3 py-2.5 text-left ${
     index > 0 ? 'border-t border-border-subtle' : ''
@@ -51,7 +55,7 @@ function SimilarRow({
       </span>
     </>
   );
-  return onSelect === undefined ? (
+  return onSelect === undefined || canSelect?.(item.id) === false ? (
     <div className={rowClass}>{content}</div>
   ) : (
     <button
@@ -72,6 +76,7 @@ export function SimilarVocSection({
   similar,
   similarCount,
   onSelect,
+  canSelect,
 }: SimilarVocSectionProps): React.ReactElement | null {
   // The count is checked here as well as inside the guard: a type predicate can
   // narrow only one parameter, and the badge below prints the count itself.
@@ -90,7 +95,13 @@ export function SimilarVocSection({
       </div>
       <div className="overflow-hidden rounded-md bg-surface-canvas">
         {similar.items.slice(0, 3).map((item, index) => (
-          <SimilarRow key={item.id} item={item} index={index} onSelect={onSelect} />
+          <SimilarRow
+            key={item.id}
+            item={item}
+            index={index}
+            onSelect={onSelect}
+            canSelect={canSelect}
+          />
         ))}
       </div>
     </section>

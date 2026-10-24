@@ -64,6 +64,8 @@ export function VocDetailBody({
     closeRequestTaskDraft,
     handleRequestTaskSubmit,
     handleSimilarVocSelect,
+    canSelectSimilarVoc,
+    canOpenTrailNode,
     handleOpenTriage,
     handleOpenTask,
     handleOpenFinding,
@@ -150,6 +152,7 @@ export function VocDetailBody({
             isReporterContext={!canRenderAllowedTask}
             onOpenTask={handleOpenTask}
             onOpenFinding={handleOpenFinding}
+            canOpen={canOpenTrailNode}
           />
           {requestTaskOpen && (
             <TaskRequestDraftCard
@@ -169,6 +172,7 @@ export function VocDetailBody({
               similar={voc.similar}
               similarCount={voc.similar_count}
               onSelect={handleSimilarVocSelect}
+              canSelect={canSelectSimilarVoc}
             />
           </div>
         )}

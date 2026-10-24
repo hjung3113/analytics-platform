@@ -18,6 +18,7 @@ import type {
 } from '@fops/shared';
 import { useQuery } from '@tanstack/react-query';
 import * as React from 'react';
+import type { TrailOpenKind } from './LinkedEntityTrailSection';
 import { hasSimilarVocSection } from './SimilarVocSection';
 
 type AllowedEntityLink = Extract<EntityLinkDto, { visibility_state: 'allowed' }>;
@@ -132,8 +133,8 @@ export function useVocDetailPanelController({
   }
 
   // A move is offered only where the host can take the actor there (ADR-0071 d10): the bridge maps these
-  // destinations menu by menu, so an unmapped one leaves its control out. `canLink` answers per destination
-  // shape, not per record, hence a probe id (this VOC).
+  // destinations menu by menu, so an unmapped one leaves its control out. Each control asks `canLink` about its
+  // own destination href (the record's id), never a probe built from this VOC.
   const taskPath = (id: string) => searchHref('/tasks', { param: id });
   const findingPath = (id: string) => searchHref('/findings', { selected: id });
   const clusterPath = (id: string) => `/voc-clusters/${encodeURIComponent(id)}`;
@@ -142,25 +143,25 @@ export function useVocDetailPanelController({
   const similarPath = (id: string) => searchHref('/vocs', { ...search, selected: id });
   const triagePath = (id: string) =>
     searchHref('/vocs', { ...search, view: 'triage', selected: id });
+  const trailPath: Record<TrailOpenKind, (id: string) => string> = {
+    task: taskPath,
+    finding: findingPath,
+    cluster: clusterPath,
+    task_request: requestPath,
+  };
 
-  const handleSimilarVocSelect = canLink(similarPath(vocId))
-    ? (id: string): void => navigate(similarPath(id))
-    : undefined;
+  const canSelectSimilarVoc = (id: string): boolean => canLink(similarPath(id));
+  const canOpenTrailNode = (kind: TrailOpenKind, id: string): boolean =>
+    canLink(trailPath[kind](id));
+  const handleSimilarVocSelect = (id: string): void => navigate(similarPath(id));
+  // The target is this VOC itself, so its own href is the destination.
   const handleOpenTriage = canLink(triagePath(vocId))
     ? (): void => navigate(triagePath(vocId))
     : undefined;
-  const handleOpenTask = canLink(taskPath(vocId))
-    ? (taskId: string): void => navigate(taskPath(taskId))
-    : undefined;
-  const handleOpenFinding = canLink(findingPath(vocId))
-    ? (findingId: string): void => navigate(findingPath(findingId))
-    : undefined;
-  const handleOpenCluster = canLink(clusterPath(vocId))
-    ? (clusterId: string): void => navigate(clusterPath(clusterId))
-    : undefined;
-  const handleOpenRequest = canLink(requestPath(vocId))
-    ? (requestId: string): void => navigate(requestPath(requestId))
-    : undefined;
+  const handleOpenTask = (taskId: string): void => navigate(taskPath(taskId));
+  const handleOpenFinding = (findingId: string): void => navigate(findingPath(findingId));
+  const handleOpenCluster = (clusterId: string): void => navigate(clusterPath(clusterId));
+  const handleOpenRequest = (requestId: string): void => navigate(requestPath(requestId));
 
   return {
     createFindingOpen,
@@ -184,6 +185,8 @@ export function useVocDetailPanelController({
     closeRequestTaskDraft,
     handleRequestTaskSubmit,
     handleSimilarVocSelect,
+    canSelectSimilarVoc,
+    canOpenTrailNode,
     handleOpenTriage,
     handleOpenTask,
     handleOpenFinding,

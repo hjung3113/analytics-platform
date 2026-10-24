@@ -78,13 +78,22 @@ export function useVocDetailParts({
   // `null` while the scope-exit effect clears `selected`: rendering the old record for that tick is the bug this closes.
   useHostTitle(documentTitleRecord);
   const { data: me } = useMeBridge();
-  const closeGuard = useDetailCloseGuard(onClose, vocId);
   const selectedScopeExcludesVoc =
     managedSystemId !== undefined &&
     !isLoading &&
     !isError &&
     data !== undefined &&
     data.primary_managed_system_id !== managedSystemId;
+
+  // The guard follows the full body's lifetime: any state that discards the body (error, summary, hidden, loading)
+  // gives the next full body a clean guard, as the keyed full view did.
+  const fullBodyShown =
+    !isLoading &&
+    !isError &&
+    data !== undefined &&
+    !selectedScopeExcludesVoc &&
+    !isSummaryEnvelope(data);
+  const closeGuard = useDetailCloseGuard(onClose, fullBodyShown ? vocId : `${vocId}:no-body`);
 
   React.useEffect(() => {
     if (selectedScopeExcludesVoc) onClose();

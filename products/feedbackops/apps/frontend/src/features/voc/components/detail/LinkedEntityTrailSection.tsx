@@ -36,7 +36,14 @@ export interface LinkedEntityTrailSectionProps {
   onOpenTask?: ((taskId: string) => void) | undefined;
   /** Opens the linked Finding; same plain-text fallback rule as `onOpenTask` (#1174b). */
   onOpenFinding?: ((findingId: string) => void) | undefined;
+  /**
+   * Whether the host can take the actor to this one destination (ADR-0071 d10). Asked per node with its own id, so a
+   * node the host cannot link renders as text while its siblings stay controls. Absent means every node is linkable.
+   */
+  canOpen?: ((kind: TrailOpenKind, id: string) => boolean) | undefined;
 }
+
+export type TrailOpenKind = 'task' | 'finding' | 'cluster' | 'task_request';
 
 function isTaskLink(link: EntityLinkDto): boolean {
   return link.source_type === 'task' || link.target_type === 'task';
@@ -104,17 +111,19 @@ function AllowedTaskLink({
   link,
   isReporterContext,
   onOpenTask,
+  canOpen,
 }: {
   link: Extract<EntityLinkDto, { visibility_state: 'allowed' }>;
   isReporterContext: boolean;
   onOpenTask?: ((taskId: string) => void) | undefined;
+  canOpen?: LinkedEntityTrailSectionProps['canOpen'];
 }): React.ReactElement | null {
   if (isReporterContext) return null;
 
   const task = link.target_summary?.type === 'task' ? link.target_summary : null;
   if (task === null) return null;
 
-  const openTask = onOpenTask;
+  const openTask = onOpenTask && (canOpen?.('task', task.id) ?? true) ? onOpenTask : undefined;
   return (
     <div data-testid="linked-task-allowed">
       <LinkedEntityTrail
@@ -145,10 +154,12 @@ function TaskLink({
   link,
   isReporterContext,
   onOpenTask,
+  canOpen,
 }: {
   link: EntityLinkDto;
   isReporterContext: boolean;
   onOpenTask?: ((taskId: string) => void) | undefined;
+  canOpen?: LinkedEntityTrailSectionProps['canOpen'];
 }): React.ReactElement | null {
   switch (link.visibility_state) {
     case 'summary_visible':
@@ -166,6 +177,7 @@ function TaskLink({
           link={link}
           isReporterContext={isReporterContext}
           onOpenTask={onOpenTask}
+          canOpen={canOpen}
         />
       );
     case 'hidden':
@@ -189,17 +201,20 @@ function AllowedFindingLink({
   link,
   isReporterContext,
   onOpenFinding,
+  canOpen,
 }: {
   link: Extract<EntityLinkDto, { visibility_state: 'allowed' }>;
   isReporterContext: boolean;
   onOpenFinding?: ((findingId: string) => void) | undefined;
+  canOpen?: LinkedEntityTrailSectionProps['canOpen'];
 }): React.ReactElement | null {
   if (isReporterContext) return null;
 
   const finding = link.target_summary?.type === 'finding' ? link.target_summary : null;
   if (finding === null) return null;
 
-  const openFinding = onOpenFinding;
+  const openFinding =
+    onOpenFinding && (canOpen?.('finding', finding.id) ?? true) ? onOpenFinding : undefined;
   return (
     <div data-testid="linked-finding-allowed">
       <LinkedEntityTrail
@@ -228,10 +243,12 @@ function FindingLink({
   link,
   isReporterContext,
   onOpenFinding,
+  canOpen,
 }: {
   link: EntityLinkDto;
   isReporterContext: boolean;
   onOpenFinding?: ((findingId: string) => void) | undefined;
+  canOpen?: LinkedEntityTrailSectionProps['canOpen'];
 }): React.ReactElement | null {
   switch (link.visibility_state) {
     case 'summary_visible':
@@ -244,6 +261,7 @@ function FindingLink({
           link={link}
           isReporterContext={isReporterContext}
           onOpenFinding={onOpenFinding}
+          canOpen={canOpen}
         />
       );
     case 'hidden':
@@ -274,14 +292,16 @@ function FollowUpTrail({
   onOpenFinding,
   onOpenCluster,
   onOpenRequest,
+  canOpen,
 }: {
   trail: NonNullable<VocDetailEnvelope['linked_execution']['trails']>[number];
 } & Pick<
   LinkedEntityTrailSectionProps,
-  'onOpenTask' | 'onOpenFinding' | 'onOpenCluster' | 'onOpenRequest'
+  'onOpenTask' | 'onOpenFinding' | 'onOpenCluster' | 'onOpenRequest' | 'canOpen'
 >): React.ReactElement {
   function node(summary: EntityLinkTargetSummary): EntityNodeRef {
-    const open =
+    const kind: TrailOpenKind = summary.type === 'voc_cluster' ? 'cluster' : summary.type;
+    const handler =
       summary.type === 'finding'
         ? onOpenFinding
         : summary.type === 'task'
@@ -289,6 +309,7 @@ function FollowUpTrail({
           : summary.type === 'voc_cluster'
             ? onOpenCluster
             : onOpenRequest;
+    const open = (canOpen?.(kind, summary.id) ?? true) ? handler : undefined;
     const title = summary.type === 'task_request' ? summary.requested_outcome : summary.title;
     return {
       type: summary.type === 'voc_cluster' ? 'cluster' : summary.type,
@@ -315,7 +336,7 @@ function FollowUpTrail({
         if (link.visibility_state === 'hidden') return null;
         if (link.visibility_state === 'summary_visible')
           return isTaskLink(link) && !isFindingLink(link) ? (
-            <TaskLink key={link.id} link={link} isReporterContext={false} />
+            <TaskLink key={link.id} link={link} isReporterContext={false} canOpen={canOpen} />
           ) : null;
         if (link.visibility_state === 'denied')
           return (
@@ -355,6 +376,7 @@ export function LinkedEntityTrailSection({
   isReporterContext,
   onOpenTask,
   onOpenFinding,
+  canOpen,
 }: LinkedEntityTrailSectionProps): React.ReactElement {
   const visibleTrails = trails
     .map((trail) => ({
@@ -396,6 +418,7 @@ export function LinkedEntityTrailSection({
           onOpenFinding={onOpenFinding}
           onOpenCluster={onOpenCluster}
           onOpenRequest={onOpenRequest}
+          canOpen={canOpen}
         />
       ))}
       {trailLinks.map((link) =>
@@ -405,6 +428,7 @@ export function LinkedEntityTrailSection({
             link={link}
             isReporterContext={isReporterContext}
             onOpenFinding={onOpenFinding}
+            canOpen={canOpen}
           />
         ) : (
           <TaskLink
@@ -412,6 +436,7 @@ export function LinkedEntityTrailSection({
             link={link}
             isReporterContext={isReporterContext}
             onOpenTask={onOpenTask}
+            canOpen={canOpen}
           />
         ),
       )}
