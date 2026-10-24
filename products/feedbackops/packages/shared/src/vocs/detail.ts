@@ -29,10 +29,6 @@ export const vocDetailEnvelopeSchema = vocDetailBaseSchema.extend({
     .optional(),
   // Reporter-arm envelopes omit peer-derived and internal-triage fields rather
   // than claiming zero peers or an unassigned owner.
-  analytics_area_id: z.string().uuid().nullable().optional(),
-  owner_user_id: z.string().uuid().nullable().optional(),
-  owner_team_id: z.string().uuid().nullable().optional(),
-  similar_count: z.number().int().min(0).optional(),
   // TipTap doc — opaque jsonb; backend validates structure.
   description_rich_content: z.unknown(),
   // No action items in Slice 3; kept as opaque array for future shape.

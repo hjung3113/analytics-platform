@@ -14,6 +14,7 @@ import {
 } from '../../attachments/index.js';
 import { lockManagedSystem } from '../../managed-systems/index.js';
 import { insertVoc } from '../repo.js';
+import { operatorOnlyVocFields } from '../reporter-projection.js';
 import { resolveOwner } from '../responsibility.js';
 import type { CreateVocActor, VocEnvelope, VocServiceDeps } from '../service.js';
 import { type ReporterFacingStatus, nextReporterStates } from '../transitions.js';
@@ -195,21 +196,20 @@ export function createVocCreateCommands(deps: VocServiceDeps) {
       managedSystemId: row.primaryManagedSystemId,
     });
 
+    // The persisted pair is operator-only on the wire; routing metadata stays.
+    const { owner_user_id: _ownerUser, owner_team_id: _ownerTeam, ...routing } = owner;
     return {
       id: row.id,
       display_id: row.displayId,
       workspace_id: row.workspaceId,
       primary_managed_system_id: row.primaryManagedSystemId,
-      analytics_area_id: row.analyticsAreaId,
       reporter_id: row.reporterId,
       title: row.title,
       description_rich_content: row.descriptionRichContent,
-      ...(!isReporterArm ? { severity: null } : {}),
+      ...operatorOnlyVocFields({ ...row, severity: null }, isReporterArm),
       reporter_facing_status: row.reporterFacingStatus as ReporterFacingStatus,
       triage_state: 'untriaged',
-      ...owner,
-      owner_user_id: row.ownerUserId,
-      owner_team_id: row.ownerTeamId,
+      ...routing,
       source_context: row.sourceContext,
       created_at: row.createdAt.toISOString(),
       updated_at: row.updatedAt.toISOString(),

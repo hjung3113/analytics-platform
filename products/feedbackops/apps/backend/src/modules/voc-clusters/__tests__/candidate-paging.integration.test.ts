@@ -178,6 +178,8 @@ describe.skipIf(!runIntegration)('VOC cluster candidate-peers paging (#1176)', (
     const [first, second] = [d, e].sort().reverse() as [string, string];
     expectedOrder = [a, b, c, ownerVocId, first, second];
 
+    await ops.pool.query("update voc.vocs set severity='high' where id=any($1::uuid[])", [vocIds]);
+
     scopedCookie = await loginAs(app, scoped.externalId);
     ownerCookie = await loginAs(app, owner.externalId);
     outsiderCookie = await loginAs(app, outsider.externalId);
@@ -250,6 +252,22 @@ describe.skipIf(!runIntegration)('VOC cluster candidate-peers paging (#1176)', (
     expect(scoped.map((page) => page.candidates[0]?.voc_id)).toEqual(expectedOrder);
     expect((await get(noReadCookie)).json()).toMatchObject({ candidates: [] });
   });
+
+  it.each([
+    ['Finding-only reporter', 'owner', false],
+    ['voc.read operator', 'scoped', true],
+  ] as const)(
+    'candidate severity for a %s follows the reporter arm',
+    async (_label, persona, hasSeverity) => {
+      const response = await get(persona === 'owner' ? ownerCookie : scopedCookie);
+      expect(response.statusCode).toBe(200);
+      const { candidates } = response.json() as Body;
+      expect(candidates.length).toBeGreaterThan(0);
+      for (const candidate of candidates) {
+        expect(Object.hasOwn(candidate, 'severity')).toBe(hasSeverity);
+      }
+    },
+  );
 
   it.each([
     ['workspace', null],

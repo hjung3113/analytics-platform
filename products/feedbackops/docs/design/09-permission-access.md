@@ -144,9 +144,10 @@ Persist actual fields, not a suggestion: VOC owner pair, Finding owner pair,
 Task Request assigned-reviewer pair, and Task assignee Actor/`assignee_team_id` pair.
 `reviewer_actor_id` remains the actual decision Actor. Untriaged/pending-review/Backlog
 states and optional VOC owner (ADR-0045) remain valid. Assignment grants neither exclusive
-review nor self-approval. Creation responses/audits include safe `default_resolved`,
-`source_rule`, `managed_system_id`, persisted responsibility and skipped-rule categories;
-never disclose private candidate IDs to a Reporter. Successful automatic assignment sets
+review nor self-approval. Creation audits carry the persisted pair; a reporter-arm creation
+response omits it (#696). Creation responses/audits include safe `default_resolved`,
+`source_rule`, `managed_system_id`, and skipped-rule categories; the persisted pair stays
+in the audit; never disclose private candidate IDs to a Reporter. Successful automatic assignment sets
 `default_resolved=true`; explicit/null/fallback sets false. Admin warnings and source filters
 must leave fallback work discoverable. Defaults do not retroactively reassign records.
 

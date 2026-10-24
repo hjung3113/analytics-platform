@@ -6,7 +6,7 @@ const modalState = vi.hoisted(() => ({
     voc_id: string;
     display_id: string | null;
     title: string;
-    severity: string | null;
+    severity?: string | null;
     reporter_facing_status: string;
   }>,
   mutateAsync: vi.fn(),
@@ -54,5 +54,17 @@ describe('AddVocModal candidate identity', () => {
     expect(screen.getByText('VOC · 결제 실패 · 높음 · 접수됨')).toBeInTheDocument();
     expect(screen.getByText('60000000')).toHaveClass('font-mono', 'text-xs', 'text-text-muted');
     expect(screen.getByRole('button', { name: 'VOC 추가' })).toBeInTheDocument();
+  });
+
+  it('renders no severity segment when the candidate omits severity (reporter arm)', () => {
+    const [candidate] = modalState.candidates;
+    if (!candidate) throw new Error('fixture missing');
+    const { severity: _omitted, ...withoutSeverity } = candidate;
+    modalState.candidates.splice(0, 1, withoutSeverity);
+
+    render(<AddVocModal open clusterId="cluster-1" onClose={() => undefined} />);
+
+    expect(screen.getByText('VOC · 결제 실패 · 접수됨')).toBeInTheDocument();
+    expect(screen.queryByText(/미지정/)).not.toBeInTheDocument();
   });
 });

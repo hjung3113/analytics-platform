@@ -1,3 +1,4 @@
+import { operatorOnlyVocFields } from '../reporter-projection.js';
 import type { VocEnvelope } from '../service.js';
 // Shared VOC mutation envelope projection.
 import type { ReporterFacingStatus } from '../transitions.js';
@@ -32,15 +33,12 @@ export function composeEnvelope(
     display_id: row.displayId,
     workspace_id: row.workspaceId,
     primary_managed_system_id: row.primaryManagedSystemId,
-    analytics_area_id: row.analyticsAreaId,
     reporter_id: row.reporterId,
     title: row.title,
     description_rich_content: row.descriptionRichContent,
-    ...(!isReporterArm ? { severity: row.severity } : {}),
+    ...operatorOnlyVocFields(row, isReporterArm),
     reporter_facing_status: row.reporterFacingStatus as ReporterFacingStatus,
     triage_state: row.triageState,
-    owner_user_id: row.ownerUserId,
-    owner_team_id: row.ownerTeamId,
     source_context: row.sourceContext,
     created_at: row.createdAt.toISOString(),
     updated_at: row.updatedAt.toISOString(),

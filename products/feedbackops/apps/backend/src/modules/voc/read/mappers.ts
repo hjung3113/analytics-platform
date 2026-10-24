@@ -11,6 +11,7 @@ import type {
   SimilarVocReadItem,
   VocReadRow,
 } from '../repo-read.js';
+import { operatorOnlyVocFields } from '../reporter-projection.js';
 
 // ── Row mappers ──────────────────────────────────────────────────────────────
 
@@ -26,11 +27,8 @@ export function mapRowToListItem(
     display_id: row.displayId,
     title: row.title,
     primary_managed_system_id: row.primaryManagedSystemId,
-    analytics_area_id: row.analyticsAreaId,
     reporter_id: row.reporterId,
-    owner_user_id: row.ownerUserId,
-    owner_team_id: row.ownerTeamId,
-    ...(!isReporterArm ? { severity: row.severity } : {}),
+    ...operatorOnlyVocFields(row, isReporterArm),
     reporter_facing_status: row.reporterFacingStatus as VocListItem['reporter_facing_status'],
     triage_state: row.triageState as VocListItem['triage_state'],
     review_postponed_at:
@@ -38,7 +36,7 @@ export function mapRowToListItem(
     source_context: row.sourceContext as VocListItem['source_context'],
     created_at: row.createdAt.toISOString(),
     updated_at: row.updatedAt.toISOString(),
-    similar_count: similarCount,
+    ...(!isReporterArm ? { similar_count: similarCount } : {}),
     // PLAN-22 §Bug-1: populated by listVocs via bulk subquery.
     attachment_count: attachmentCount,
   };

@@ -12,6 +12,7 @@ import {
 import { readVocFollowUpState } from '../no-follow-up-repository.js';
 import type { ReadActorContext, VocReadServiceDeps } from '../read-service.js';
 import * as repoRead from '../repo-read.js';
+import { operatorOnlyVocFields } from '../reporter-projection.js';
 import { type ReporterFacingStatus, nextReporterStates } from '../transitions.js';
 import { encodeConversationCursor } from './cursor.js';
 import {
@@ -250,7 +251,7 @@ export function createVocDetailReaders(deps: VocReadServiceDeps) {
       title: row.title,
       primary_managed_system_id: primaryMs,
       reporter_id: row.reporterId,
-      ...(!isReporterArm ? { severity: row.severity } : {}),
+      ...operatorOnlyVocFields(row, isReporterArm),
       ...(followUp ? { follow_up: followUp } : {}),
       reporter_facing_status:
         row.reporterFacingStatus as VocDetailEnvelope['reporter_facing_status'],
@@ -260,9 +261,6 @@ export function createVocDetailReaders(deps: VocReadServiceDeps) {
       updated_at: row.updatedAt.toISOString(),
       ...(!isReporterArm
         ? {
-            analytics_area_id: row.analyticsAreaId,
-            owner_user_id: row.ownerUserId,
-            owner_team_id: row.ownerTeamId,
             similar_count: similarCount,
             similar: mapSimilarItems(similarItems),
           }
@@ -419,7 +417,7 @@ export function createVocDetailReaders(deps: VocReadServiceDeps) {
       title: row.title,
       primary_managed_system_id: primaryMs,
       reporter_id: row.reporterId,
-      ...(!isReporterArm ? { severity: row.severity } : {}),
+      ...operatorOnlyVocFields(row, isReporterArm),
       ...(followUp ? { follow_up: followUp } : {}),
       reporter_facing_status:
         row.reporterFacingStatus as VocDetailEnvelope['reporter_facing_status'],
@@ -429,9 +427,6 @@ export function createVocDetailReaders(deps: VocReadServiceDeps) {
       updated_at: row.updatedAt.toISOString(),
       ...(!isReporterArm
         ? {
-            analytics_area_id: row.analyticsAreaId,
-            owner_user_id: row.ownerUserId,
-            owner_team_id: row.ownerTeamId,
             similar_count: similarCount,
             similar: mapSimilarItems(similarItems),
           }

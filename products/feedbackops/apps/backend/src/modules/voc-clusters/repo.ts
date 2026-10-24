@@ -366,6 +366,7 @@ export interface CandidatePeerPageRow {
   title: string;
   severity: 'low' | 'medium' | 'high' | 'critical' | null;
   reporter_facing_status: string;
+  reporter_id: string;
   cursor_timestamp: string;
 }
 
@@ -409,7 +410,8 @@ export async function listSameManagedSystemCandidatePeers(
   }
   const result = await (db as Db).execute<Record<string, unknown>>(sql`
     SELECT v.created_at::text AS cursor_timestamp,
-           v.id AS voc_id, v.display_id, v.title, v.severity, v.reporter_facing_status
+           v.id AS voc_id, v.display_id, v.title, v.severity, v.reporter_facing_status,
+           v.reporter_id
     FROM voc.vocs v
     WHERE ${sql.join(predicates, sql` AND `)}
     ORDER BY v.created_at DESC, v.id DESC
@@ -421,6 +423,7 @@ export async function listSameManagedSystemCandidatePeers(
     title: row.title as string,
     severity: (row.severity as CandidatePeerPageRow['severity']) ?? null,
     reporter_facing_status: row.reporter_facing_status as string,
+    reporter_id: row.reporter_id as string,
     cursor_timestamp: row.cursor_timestamp as string,
   }));
 }

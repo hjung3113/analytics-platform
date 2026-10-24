@@ -40,10 +40,11 @@ export const vocListItemSchema = z.object({
   display_id: z.string(),
   title: z.string(),
   primary_managed_system_id: z.string().uuid(),
-  analytics_area_id: z.string().uuid().nullable(),
+  // Absent = reporter-hidden; null = operator-visible, unset (#696).
+  analytics_area_id: z.string().uuid().nullable().optional(),
   reporter_id: z.string().uuid(),
-  owner_user_id: z.string().uuid().nullable(),
-  owner_team_id: z.string().uuid().nullable(),
+  owner_user_id: z.string().uuid().nullable().optional(),
+  owner_team_id: z.string().uuid().nullable().optional(),
   // Absent = reporter-hidden; null = operator-visible, untriaged.
   severity: severityEnumSchema.nullable().optional(),
   reporter_facing_status: reporterFacingStatusEnumSchema,
@@ -53,7 +54,8 @@ export const vocListItemSchema = z.object({
   created_at: z.string().datetime(),
   updated_at: z.string().datetime(),
   // Authorized, active same-Managed-System peers; see ADR-0031.
-  similar_count: z.number().int().min(0),
+  // Absent = reporter-hidden (peer-derived).
+  similar_count: z.number().int().min(0).optional(),
   // PLAN-22 §Bug-1 (2026-05-22): count of active (non-archived) attachments
   // linked to this VOC. Computed via subquery in listVocs to keep the row
   // shape flat — FE renders a paperclip + count chip in the inbox without

@@ -121,6 +121,8 @@ sets `default_resolved=true`; explicit/null/fallback sets false. Record a config
 skipped candidate regardless of the final outcome; record an empty (`missing`) skipped
 candidate only when creation ends at `workspace_fallback_queue`. Record the fallback
 outcome without leaking private candidate IDs to a Reporter.
+
+> **Amended 2026-10-24 (#696).** Reporter-arm creation responses omit the persisted owner pair; creation audits keep it. See `docs/implementation/api/voc.md` §Reporter-safe VOC wire projection.
 Admin diagnostics must make failed defaults discoverable alongside registry configuration;
 null-and-forgotten is not an acceptable fallback. Source fields remain current truth.
 Wire VOC create, VOC/Cluster/Survey-response Finding creation, Finding/VOC/Cluster Task

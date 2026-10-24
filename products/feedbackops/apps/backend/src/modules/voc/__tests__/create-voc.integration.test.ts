@@ -286,8 +286,6 @@ describe.skipIf(!runIntegration)('POST /vocs (#13)', () => {
       primary_managed_system_id: msId,
       reporter_facing_status: 'received',
       triage_state: 'untriaged',
-      owner_user_id: null,
-      owner_team_id: null,
       source_context: 'direct_use',
       next_actions: [],
       permission_decisions: {},
@@ -296,6 +294,8 @@ describe.skipIf(!runIntegration)('POST /vocs (#13)', () => {
       /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/,
     );
     expect(body).not.toHaveProperty('severity');
+    expect(body).not.toHaveProperty('owner_user_id');
+    expect(body).not.toHaveProperty('owner_team_id');
     expect(body.display_id).toMatch(/^VOC-\d+$/);
     expect(body.next_reporter_states?.allowed).toContain('reviewing');
   });
@@ -322,8 +322,6 @@ describe.skipIf(!runIntegration)('POST /vocs (#13)', () => {
     const created = await postVoc(app, reporter, input, key);
     expect(created.statusCode).toBe(201);
     expect(created.json()).toMatchObject({
-      owner_user_id: ownerId,
-      owner_team_id: null,
       triage_state: 'untriaged',
       reporter_facing_status: 'received',
       default_resolved: true,
@@ -331,6 +329,8 @@ describe.skipIf(!runIntegration)('POST /vocs (#13)', () => {
       managed_system_id: msId,
     });
     expect(created.json()).not.toHaveProperty('severity');
+    expect(created.json()).not.toHaveProperty('owner_user_id');
+    expect(created.json()).not.toHaveProperty('owner_team_id');
     const replay = await postVoc(app, reporter, input, key);
     expect(replay.json()).toEqual(created.json());
     if (MIGRATE_URL) {
@@ -456,8 +456,9 @@ describe.skipIf(!runIntegration)('POST /vocs (#13)', () => {
           );
           expect(replay.json()).toEqual(created.json());
           expect(created.json()).toMatchObject({
-            owner_user_id: variant === 'actor' ? ownerId : null,
-            owner_team_id: variant === 'aa_team' ? teamId : null,
+            ...(variant === 'actor' || variant === 'null'
+              ? { owner_user_id: variant === 'actor' ? ownerId : null, owner_team_id: null }
+              : {}),
             triage_state: 'untriaged',
             ...(variant === 'actor' || variant === 'null' ? { severity: null } : {}),
             default_resolved: variant === 'aa_team',
@@ -470,6 +471,8 @@ describe.skipIf(!runIntegration)('POST /vocs (#13)', () => {
           });
           if (variant !== 'actor' && variant !== 'null') {
             expect(created.json()).not.toHaveProperty('severity');
+            expect(created.json()).not.toHaveProperty('owner_user_id');
+            expect(created.json()).not.toHaveProperty('owner_team_id');
           }
           const failures = await ops.pool.query<{ rule: string; category: string }>(
             'select rule,category from core.responsibility_default_failures where managed_system_id=$1',

@@ -37,15 +37,15 @@ export interface VocEnvelope {
   display_id: string;
   workspace_id: string;
   primary_managed_system_id: string;
-  analytics_area_id: string | null;
+  analytics_area_id?: string | null;
   reporter_id: string;
   title: string;
   description_rich_content: unknown;
   severity?: 'low' | 'medium' | 'high' | 'critical' | null;
   reporter_facing_status: ReporterFacingStatus;
   triage_state: 'untriaged' | 'triaged' | 'needs_more_information' | 'dismissed_not_actionable';
-  owner_user_id: string | null;
-  owner_team_id: string | null;
+  owner_user_id?: string | null;
+  owner_team_id?: string | null;
   source_context: string;
   created_at: string;
   updated_at: string;

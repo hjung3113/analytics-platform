@@ -32,13 +32,15 @@ const personas = [
 type Persona = (typeof personas)[number];
 
 describe.skipIf(!APP_URL || !MIGRATE_URL || !WORKSPACE_ID)(
-  'Reporter severity wire projection (#1173)',
+  'Reporter-arm wire projection (#1173, #696)',
   () => {
     let handle: DbHandle;
     let app: FastifyInstance;
     let ms: string;
     let otherMs: string;
     let otherVoc: string;
+    let areaId: string;
+    let migrate: DbHandle;
     const actors = {} as Record<Persona, string>;
     const cookies = {} as Record<Persona, string>;
     const vocs = {} as Record<Persona, string>;
@@ -49,19 +51,39 @@ describe.skipIf(!APP_URL || !MIGRATE_URL || !WORKSPACE_ID)(
     });
     const get = (persona: Persona, url: string) =>
       app.inject({ method: 'GET', url, headers: headers(persona) });
-    const checkSeverity = (
+    // Reporter-arm hidden set per wire surface (#1173, #696). `triage_state` stays on all (R2).
+    const OPERATOR_ONLY = ['severity', 'analytics_area_id', 'owner_user_id', 'owner_team_id'];
+    const hiddenKeys = {
+      list: [...OPERATOR_ONLY, 'similar_count'],
+      detail: [...OPERATOR_ONLY, 'similar_count', 'similar', 'follow_up'],
+      envelope: OPERATOR_ONLY,
+    } as const;
+    const checkProjection = (
       body: Record<string, unknown>,
+      surface: keyof typeof hiddenKeys,
       hidden: boolean,
-      expected: unknown = 'high',
+      opts: { severity?: unknown; seeded?: boolean } = {},
     ) => {
-      expect(Object.hasOwn(body, 'severity')).toBe(!hidden);
-      if (!hidden) {
-        expect(body.severity).toBe(expected);
+      expect(Object.hasOwn(body, 'triage_state')).toBe(true);
+      for (const key of hiddenKeys[surface]) {
+        if (hidden) {
+          expect(Object.hasOwn(body, key), `${surface}.${key} must be absent`).toBe(false);
+        } else if (OPERATOR_ONLY.includes(key) || key === 'similar_count') {
+          expect(Object.hasOwn(body, key), `${surface}.${key} must be present`).toBe(true);
+        }
+      }
+      if (hidden) return;
+      expect(body.severity).toBe('severity' in opts ? opts.severity : 'high');
+      if (surface !== 'envelope') expect(typeof body.similar_count).toBe('number');
+      if (opts.seeded) {
+        expect(body.owner_user_id).toBe(actors.operator);
+        expect(body.analytics_area_id).toBe(areaId);
       }
     };
     beforeAll(async () => {
       process.env.NODE_ENV = 'test';
       handle = createDb(APP_URL);
+      migrate = createDb(MIGRATE_URL);
       app = await buildServer({ config: loadConfig(), dbHandle: handle });
       await app.ready();
       for (const persona of personas) {
@@ -126,6 +148,17 @@ describe.skipIf(!APP_URL || !MIGRATE_URL || !WORKSPACE_ID)(
           )
         ).id;
       }
+      // Seed a real owner and Analytics Area so "present" asserts a value, not only null (#696).
+      areaId = (
+        await migrate.pool.query<{ id: string }>(
+          'insert into core.analytics_areas(workspace_id,managed_system_id,slug,name) values($1,$2,$3,$4) returning id',
+          [WORKSPACE_ID, ms, `${PREFIX}-area`, '696 area'],
+        )
+      ).rows[0]?.id as string;
+      await migrate.pool.query(
+        'update voc.vocs set analytics_area_id=$1, owner_user_id=$2 where id = any($3::uuid[])',
+        [areaId, actors.operator, Object.values(vocs)],
+      );
     });
     beforeEach(async () => {
       await handle.pool.query('delete from core.rate_limits where key = any($1::text[])', [
@@ -147,6 +180,7 @@ describe.skipIf(!APP_URL || !MIGRATE_URL || !WORKSPACE_ID)(
         Object.values(actors).map((id) => `${WORKSPACE_ID}:${id}`),
       ]);
       await cleanupTestActorsByExternalIdPrefix(handle, WORKSPACE_ID, PREFIX);
+      await migrate.pool.query('delete from core.analytics_areas where id = $1', [areaId]);
       await deleteRecoveryFixtureParents(
         handle,
         'delete from core.managed_systems where id = any($1::uuid[])',
@@ -154,6 +188,7 @@ describe.skipIf(!APP_URL || !MIGRATE_URL || !WORKSPACE_ID)(
       );
       await app.close();
       await handle.close();
+      await migrate.close();
     });
 
     it('no-follow-up decision and eligibility stay internal on GET and reporter reply envelopes', async () => {
@@ -208,17 +243,19 @@ describe.skipIf(!APP_URL || !MIGRATE_URL || !WORKSPACE_ID)(
         expect(list.statusCode).toBe(200);
         const row = list.json().items.find((item: { id: string }) => item.id === id);
         expect(row).toBeDefined();
-        checkSeverity(row, hidden);
-        checkSeverity(vocListItemSchema.parse(row), hidden);
+        checkProjection(row, 'list', hidden, { seeded: true });
+        checkProjection(vocListItemSchema.parse(row), 'list', hidden, { seeded: true });
         if (persona === 'denied-admin') {
           const allowedRow = list.json().items.find((item: { id: string }) => item.id === otherVoc);
           expect(allowedRow).toBeDefined();
-          checkSeverity(allowedRow, false, 'medium');
+          checkProjection(allowedRow, 'list', false, { severity: 'medium' });
         }
         const detail = await get(persona, `/vocs/${id}`);
         expect(detail.statusCode).toBe(200);
-        checkSeverity(detail.json(), hidden);
-        checkSeverity(vocDetailEnvelopeSchema.parse(detail.json()), hidden);
+        checkProjection(detail.json(), 'detail', hidden, { seeded: true });
+        checkProjection(vocDetailEnvelopeSchema.parse(detail.json()), 'detail', hidden, {
+          seeded: true,
+        });
         if (persona !== 'operator') {
           for (const title of [detail.json().title, `${PREFIX}-${persona}-edited`]) {
             const current = await get(persona, `/vocs/${id}`);
@@ -230,7 +267,7 @@ describe.skipIf(!APP_URL || !MIGRATE_URL || !WORKSPACE_ID)(
               payload: { title },
             });
             expect(edit.statusCode).toBe(200);
-            checkSeverity(edit.json(), hidden);
+            checkProjection(edit.json(), 'envelope', hidden, { seeded: true });
           }
           const reply = await app.inject({
             method: 'POST',
@@ -239,7 +276,7 @@ describe.skipIf(!APP_URL || !MIGRATE_URL || !WORKSPACE_ID)(
             payload: { body_rich_content: paragraphDoc('Reporter reply') },
           });
           expect(reply.statusCode).toBe(201);
-          checkSeverity(reply.json().voc, hidden);
+          checkProjection(reply.json().voc, 'detail', hidden, { seeded: true });
         }
         const create = await app.inject({
           method: 'POST',
@@ -254,7 +291,7 @@ describe.skipIf(!APP_URL || !MIGRATE_URL || !WORKSPACE_ID)(
         });
         expect(create.statusCode).toBe(201);
         created.push(create.json().id);
-        checkSeverity(create.json(), hidden, null);
+        checkProjection(create.json(), 'envelope', hidden, { severity: null });
       },
     );
 

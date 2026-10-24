@@ -267,7 +267,7 @@ export function TriagePanel({
         </div>
 
         {/* Semantic recommendations remain separate from the same-MS peer count. */}
-        <ClusterSectionReadOnly vocId={voc.id} similarCount={voc.similar_count} />
+        <ClusterSectionReadOnly vocId={voc.id} similarCount={voc.similar_count ?? 0} />
 
         {/* Compact changed-fields summary */}
         <div className="mb-0" data-anchor="summary">
