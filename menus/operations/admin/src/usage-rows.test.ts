@@ -2,14 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { House } from 'lucide-react';
 import { createRegistry, type MenuEntry, type PlatformMenuEntry } from '@ap/kernel';
 import { joinUsageRows, formatLastUsed } from './usage-rows';
-import { groupId, spaceId, type UsageMenuSummary } from '@ap/contracts';
+import { NO_FEATURES, contextCapabilities, groupId, spaceId, type UsageMenuSummary } from '@ap/contracts';
 
-const none = { time: 'unsupported', roomNames: 'unsupported', line: 'unsupported', prcGroup: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
-const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
+const none = contextCapabilities();
 const spaceSubtitle = 'Usage projection fixture subtitle';
 const menu = (over: Partial<PlatformMenuEntry>): MenuEntry => ({
   id: 'x', group: groupId('admin'), label: { ko: '기본', en: 'Default' }, description: { ko: '', en: '' }, path: '/x', icon: House,
-  permission: 'platform:view', requiresScope: false, context: none, pageType: 'management', features: noFeatures, pageKeys: [], ...over,
+  permission: 'platform:view', requiresScope: false, context: none, pageType: 'management', features: NO_FEATURES, pageKeys: [], ...over,
 });
 
 const registry = createRegistry({

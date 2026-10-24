@@ -75,6 +75,8 @@ function releaseManifest(name, source, version) {
     exports,
     files: ['dist'],
   };
+  // Keeps tree-shaking for consumers: without it a bundler keeps every module a barrel re-exports (@ap/ui, #706).
+  if (source.sideEffects !== undefined) manifest.sideEffects = source.sideEffects;
   const dependencies = pin(source.dependencies);
   if (dependencies && Object.keys(dependencies).length > 0) manifest.dependencies = dependencies;
   const optional = name === 'components' ? { vitest: source.devDependencies?.vitest } : undefined;
