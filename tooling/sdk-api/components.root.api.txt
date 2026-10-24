@@ -17,9 +17,9 @@ Delta | type | type Delta = { direction: 'down' | 'up'; good: boolean; value: st
 DetailDrawer | function | function DetailDrawer({ title, subtitle, headerActions, context, tabs, onClose, tab, onTabChange }: { context?: ReactNode; headerActions?: ReactNode; onClose: () => void; onTabChange?: (tab: string) => void; subtitle?: ReactNode; tab?: string; tabs: { content: ReactNode; id: string; label: ReactNode; }[]; title: ReactNode; }): import("react").ReactPortal | null
 DonutSlice | type | type DonutSlice = { color?: @ap/ui/theme#ThemeColorToken; id: string; label: string; value: number; }
 DonutSpec | type | type DonutSpec = { centerLabel?: string; kind: 'donut'; maxSlices?: number; onSliceClick?: (id: string) => void; slices: @ap/components#DonutSlice[]; total?: number; valueFormat?: (v: number) => string; }
-DrillLayout | function | function DrillLayout({ siblings, summary, notFound, children, fill }: @ap/components#DrillLayoutProps): import("react").JSX.Element
+DrillLayout | function | function DrillLayout(props: @ap/components#DrillLayoutProps): import("react").JSX.Element
 DrillLayoutProps | type | type DrillLayoutProps = @ap/components#DrillPathProps & { children?: ReactNode; fill?: boolean; notFound?: { key: string; value: string; }; }
-DrillPath | function | function DrillPath({ siblings, summary }: @ap/components#DrillPathProps): import("react").JSX.Element | null
+DrillPath | function | function DrillPath(props: @ap/components#DrillPathProps): import("react").JSX.Element | null
 DrillPathProps | type | type DrillPathProps = { siblings?: @ap/components#DrillSiblings; summary?: ReactNode; }
 DrillSibling | type | type DrillSibling = { hint?: string; value: string; }
 DrillSiblings | type | type DrillSiblings = Readonly<Record<string, readonly @ap/components#DrillSibling[]>>
