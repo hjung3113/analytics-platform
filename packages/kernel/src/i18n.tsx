@@ -162,6 +162,7 @@ const dict = {
   platformMenu: { ko: '플랫폼 메뉴', en: 'Platform menu' },
   platformMenuShared: { ko: '모든 시스템에서 공통', en: 'Shared by every system' },
   unreadNamed: { ko: '{label}, 읽지 않음 {count}건', en: '{label}, {count} unread' },
+  countNamed: { ko: '{label}, {count}건', en: '{label}, {count}' },
   unreadCount: { ko: '읽지 않음 {count}', en: '{count} unread' },
   viewAll: { ko: '모두 보기', en: 'View all' },
   switcherSystemsHeading: { ko: '업무 시스템', en: 'Business systems' },

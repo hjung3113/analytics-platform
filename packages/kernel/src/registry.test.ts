@@ -136,6 +136,30 @@ describe('space carriedPageKeys (ADR-0081 decision 4)', () => {
   });
 });
 
+describe('menu navViews (sidebar sub-items, 06 §8)', () => {
+  const view = { id: 'mine', label: { ko: '내 것', en: 'Mine' }, page: { tab: 'mine' } };
+  const withViews = (views: unknown, extra: Partial<PlatformMenuEntry> = {}) => menu('a', '/a', { primary: true, pageKeys: ['tab', 'k'], navViews: views as never, ...extra });
+  const carrying: SpaceDef[] = [{ ...analyticsSpace, homeMenuId: 'a', carriedPageKeys: ['k'] }];
+  it('accepts views whose preset keys are declared page keys', () => {
+    expect(() => createRegistry({ spaces: homeA, groups, menus: [withViews([view, { ...view, id: 'all', page: { tab: 'all' } }])] })).not.toThrow();
+  });
+  it.each([
+    { name: 'a preset key that is not a page key', menus: [withViews([{ ...view, page: { nope: 'x' } }])], error: /Menu "a" navView "mine" preset key "nope" is not a declared pageKeys entry/ },
+    { name: 'the focus key', menus: [withViews([{ ...view, page: { focus: 'x' } }], { pageKeys: ['tab', 'focus'] })], error: /navView "mine" preset key "focus" cannot be a view key/ },
+    { name: 'a duplicate view id', menus: [withViews([view, view])], error: /Menu "a" navView id "mine" is duplicated/ },
+    { name: 'views on a navHidden menu', menus: [menu('a', '/a', { primary: true }), menu('d', '/a/d', { navHidden: true, parent: 'a', pageKeys: ['tab'], navViews: [view] })], error: /Menu "d" is navHidden and cannot declare navViews/ },
+    { name: 'a blank ko label', menus: [withViews([{ ...view, label: { ko: ' ', en: 'Mine' } }])], error: /navView "mine" needs nonempty ko and en labels/ },
+    { name: 'a blank en label', menus: [withViews([{ ...view, label: { ko: '내 것', en: '' } }])], error: /navView "mine" needs nonempty ko and en labels/ },
+    { name: 'an empty preset', menus: [withViews([{ ...view, page: {} }])], error: /Menu "a" navView "mine" needs at least one preset key/ },
+    { name: 'a blank id', menus: [withViews([{ ...view, id: ' ' }])], error: /navView id must not be blank/ },
+  ])('rejects $name', ({ menus, error }) => {
+    expect(() => createRegistry({ spaces: homeA, groups, menus })).toThrow(error);
+  });
+  it('rejects a preset key the space carries', () => {
+    expect(() => createRegistry({ spaces: carrying, groups, menus: [withViews([{ ...view, page: { k: 'x' } }])] })).toThrow(/navView "mine" preset key "k" is a space carried page key/);
+  });
+});
+
 describe('spaces (06 §9.1)', () => {
   const adminGroups: GroupDef[] = [{ id: groupId('admin'), label: { ko: '관리·감사', en: 'Administration' }, icon: House, space: spaceId('operations') }];
   const operations: SpaceDef = { id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations console' }, description: { ko: '목적', en: 'Purpose' }, permission: 'console:access', homeMenuId: 'admin-roles' };

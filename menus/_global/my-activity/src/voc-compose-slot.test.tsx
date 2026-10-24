@@ -6,7 +6,7 @@ import { setFoApi } from '@ap/fo-bridge/fo-api';
 import { json, registry, stubFetch, switchableAdapter } from './fo/test-support';
 import { vocComposeSlot } from '@ap/fo-bridge/voc-compose-slot';
 
-const CONTEXT: VocComposeContext = { items: [], href: null, spaceId: null, menuId: null };
+const CONTEXT: VocComposeContext = { items: [], href: null, spaceId: null, menuId: null, carried: {} };
 
 beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); });
 afterEach(() => { cleanup(); setFoApi(null); vi.unstubAllGlobals(); });
