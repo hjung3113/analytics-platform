@@ -48,7 +48,9 @@ function measure(viewport: HTMLElement): Fit {
       for (let sibling = child.nextElementSibling; sibling; sibling = sibling.nextElementSibling) {
         end = Math.max(end, sibling.getBoundingClientRect().bottom);
       }
-      end += parseFloat(getComputedStyle(parent).paddingBottom) || 0;
+      // Each ancestor's bottom padding and border sit below its last child (a bordered table section otherwise overshoots by its border).
+      const style = getComputedStyle(parent);
+      end += (parseFloat(style.paddingBottom) || 0) + (parseFloat(style.borderBottomWidth) || 0);
     }
     return end;
   };

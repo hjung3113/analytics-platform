@@ -4808,6 +4808,8 @@ test.describe('fill 페이지의 표 높이 (06 §12.8, #690k)', () => {
       const slotBox = (await slot.boundingBox())!;
       return slotBox.y + slotBox.height - (rowsBox.y + rowsBox.height);
     }).toBeLessThanOrEqual(120);
+    // Filling must not overshoot: the main scroll area does not overflow (a 1px cap error shows a scrollbar).
+    await expect.poll(() => page.locator('main').evaluate(main => main.scrollHeight - main.clientHeight)).toBeLessThanOrEqual(0);
     await evidence(page, testInfo, 'hw-time-table-fill');
   });
 });
