@@ -40,6 +40,7 @@ import { RichEditor } from '@fops/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
 import { toast } from 'sonner';
+import { mergeAttachmentIds, normalizeAttachmentRefs } from '../compose/attachment-refs';
 import { ComposerAttachmentDropzone } from './ComposerAttachmentDropzone';
 import { ComposerFooter } from './ComposerFooter';
 import { InternalCommentToolbar } from './rich-toolbars/InternalCommentToolbar';
@@ -125,14 +126,16 @@ export function InternalCommentComposer({
   function handleSubmit() {
     if (!draftDoc) return;
     const mentions = extractMentions(draftDoc);
+    // The comment allowlist takes `{ id }` on attachmentRef; the editor's ids join the dropzone's.
+    const { doc, ids: editorIds } = normalizeAttachmentRefs(draftDoc);
     mutation.mutate({
       vocId: voc.id,
       ifMatch: voc.updated_at,
       body: {
-        body_rich_content: draftDoc,
+        body_rich_content: doc,
         mentions,
         // PLAN-22 C7a (D1): widened body field — schema reconciled in C7b.
-        attachment_ids: attachmentIds,
+        attachment_ids: mergeAttachmentIds(editorIds, attachmentIds),
       },
     });
   }

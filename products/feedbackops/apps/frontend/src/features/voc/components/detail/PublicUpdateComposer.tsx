@@ -83,6 +83,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, Megaphone } from 'lucide-react';
 import { type ReactElement, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { mergeAttachmentIds, removeAttachmentRefs } from '../compose/attachment-refs';
 import { ComposerAttachmentDropzone } from './ComposerAttachmentDropzone';
 import { ComposerFooter } from './ComposerFooter';
 import { ComposerPublicPreview } from './ComposerPublicPreview';
@@ -228,14 +229,16 @@ export function PublicUpdateComposer({
   function handleSubmit() {
     if (!draftDoc || isSubmitBlocked || submitInFlightRef.current) return;
     submitInFlightRef.current = true;
+    // The public-update allowlist has no attachmentRef: the nodes leave the body, their files stay linked as chips.
+    const { doc, ids: editorIds } = removeAttachmentRefs(draftDoc);
     mutation.mutate({
       vocId: voc.id,
       ifMatch: voc.updated_at,
       body: {
         skip_public_update: false,
-        body_rich_content: draftDoc,
+        body_rich_content: doc,
         next_reporter_facing_status: nextStatus,
-        attachment_ids: attachmentIds,
+        attachment_ids: mergeAttachmentIds(editorIds, attachmentIds),
       },
     });
   }

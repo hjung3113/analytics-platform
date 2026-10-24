@@ -51,6 +51,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { AlertCircle } from 'lucide-react';
 import { type ReactElement, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { mergeAttachmentIds, normalizeAttachmentRefs } from '../compose/attachment-refs';
 import { ComposerAttachmentDropzone } from './ComposerAttachmentDropzone';
 import { ComposerFooter } from './ComposerFooter';
 import { ComposerReplyPreview } from './ComposerReplyPreview';
@@ -146,12 +147,14 @@ export function ReporterReplyComposer({
 
   function handleSubmit() {
     if (!draftDoc) return;
+    // The reply allowlist takes `{ id }` on attachmentRef; the editor's ids join the dropzone's.
+    const { doc, ids: editorIds } = normalizeAttachmentRefs(draftDoc);
     mutation.mutate({
       vocId: voc.id,
       ifMatch: voc.updated_at,
       body: {
-        body_rich_content: draftDoc,
-        attachment_ids: attachmentIds,
+        body_rich_content: doc,
+        attachment_ids: mergeAttachmentIds(editorIds, attachmentIds),
       },
     });
   }
