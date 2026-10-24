@@ -88,6 +88,7 @@
 | [0078](0078-hw-time-layout-recipes.md) | HW Time을 새 그룹 `동작시간분석`의 메뉴 4개(단계별·비교·개요·표)로 한 데이터 위에 레이아웃 선언만 달리 만들고, 06 §12.7에 메뉴가 선언한 부모 맥락 패널을 허용하며 `DrillPath` `summary` 슬롯을 더한다 — 기본 레시피 하나·단계만 드릴·오버레이 드릴 대신 | Decided(2026-10-24, 사용자) — #690 |
 | [0079](0079-chart-row-focus-row-pitch.md) | `AnalysisChartFrame` 가로 막대에 제어형 `activeCategory`/`onActiveCategoryChange`/`revealActive`와 행 높이 viewport `rowPitch`를 더한다 — 동기화 그룹 컨텍스트 대신 제어형 prop(ADR-0063 패턴), `dataZoom` 창 대신 안쪽 스크롤(`rowPitch`에서는 범주 줌 끔). #541 F를 결정한다 | Decided(2026-10-24, 코디네이터, 되돌릴 수 있음) — #690 |
 | [0080](0080-inspector-forms.md) | `Inspector`는 보조 섹션을 한 번 선언하고 두 형태(`stack` APG 아코디언, `rail` 40 px 아이콘 열 + Popover peek)로 보인다 — A 아코디언 스택·B 레일+peek·C 탭 중 A+B를 한 부품으로, 동시 다중 열림이 기본. 섹션 내용은 질의를 소유하지 않는다 | Decided(2026-10-24, 코디네이터, 되돌릴 수 있음) — #690 |
+| [0081](0081-feedbackops-operator-screens-platform-frame.md) | FeedbackOps 운영 화면은 플랫폼 틀(사이드바 `목록 범위`, 한 줄 머리)로 업무 시스템 `FeedbackOps`(부제 `피드백 운영`) 하나에 옮긴다: 레일 7섹션, 신고자 항목 제외, 바닥 블록은 셸 안 이동 + 복귀 줄, 사용자 메뉴 `FeedbackOps 전체` 제거 | Decided(2026-10-24, 사용자 — 시안 A + UX 리뷰 개선) — #595, 0042·0045·0070 부분 대체, 구현 안 함 |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 
