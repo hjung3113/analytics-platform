@@ -9,6 +9,7 @@ import {
   type ReporterFacingStatusEnum,
   ReporterStatusBadge,
   RichContentRenderer,
+  type RichContentRendererProps,
   type TipTapDoc,
   UserChip,
 } from '@fops/ui';
@@ -21,6 +22,17 @@ const KIND_LABELS: Record<ConversationEntry['kind'], string> = {
   public_update: '공개 업데이트',
   reporter_reply: '제출자 답변',
   internal_comment: '내부 코멘트',
+};
+
+// Surface per entry kind: the SDK default (`public-update` for reporter_visible) would strip
+// a Reporter Reply's attachmentRef before the name lookup.
+const RENDERER_SURFACE: Record<
+  ConversationEntry['kind'],
+  NonNullable<RichContentRendererProps['surface']>
+> = {
+  public_update: 'public-update',
+  reporter_reply: 'reporter-reply',
+  internal_comment: 'internal-comment',
 };
 
 // ── Props ────────────────────────────────────────────────────────────────────
@@ -47,6 +59,7 @@ export function TimelineEntry({
         : { display_name: GLOSSARY.unknownUser };
 
   const rendererMode = entry.kind === 'internal_comment' ? 'internal' : 'reporter_visible';
+  const rendererSurface = RENDERER_SURFACE[entry.kind];
 
   const hasStatusTransition =
     entry.kind === 'public_update' &&
@@ -66,6 +79,7 @@ export function TimelineEntry({
         <RichContentRenderer
           doc={entry.body_rich_content as TipTapDoc}
           mode={rendererMode}
+          surface={rendererSurface}
           attachments={entry.attachments}
           attachmentFallbackLabel={ATTACHMENT_FALLBACK_LABEL}
         />

@@ -122,6 +122,7 @@ export function ComposerReplyPreview({
               <RichContentRenderer
                 doc={draftDoc}
                 mode="reporter_visible"
+                surface="reporter-reply"
                 size="sm"
                 attachmentFallbackLabel={ATTACHMENT_FALLBACK_LABEL}
               />
