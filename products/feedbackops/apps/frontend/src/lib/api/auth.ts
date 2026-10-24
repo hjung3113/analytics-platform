@@ -2,34 +2,11 @@
 // Per AGENTS.md the frontend never enforces backend permissions; these helpers
 // only surface what the server says.
 
+import { MeRequestError, type MeResponse } from './me';
 import { UnauthenticatedError } from './unauthenticated';
 
-export interface MeResponse {
-  actor: {
-    id: string;
-    external_id: string;
-    email: string;
-    display_name: string;
-    role_level: string;
-  };
-  workspace_id: string;
-  /** GET /me only (ADR-0071); absent from POST /auth/mock-login. Treat undefined as []. */
-  platform_return_origins?: string[];
-}
-
-export { UnauthenticatedError };
-
-export class MeRequestError extends Error {
-  readonly status: number;
-  readonly retryAfter?: string;
-
-  constructor(status: number, retryAfter?: string) {
-    super('Unable to load the current session.');
-    this.name = 'MeRequestError';
-    this.status = status;
-    if (retryAfter !== undefined) this.retryAfter = retryAfter;
-  }
-}
+// MeResponse and MeRequestError live in the bridge-safe `me.ts`; re-exported so every caller keeps this import path.
+export { MeRequestError, type MeResponse, UnauthenticatedError };
 
 export async function fetchMe(signal?: AbortSignal): Promise<MeResponse> {
   const init: RequestInit = { credentials: 'same-origin' };

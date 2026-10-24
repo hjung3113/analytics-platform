@@ -38,31 +38,14 @@ export {
   withdrawPermissionRequest,
 } from './permission-requests';
 
-export type FrontendPermissionState =
-  | 'approved'
-  | 'blocked_non_requestable'
-  | 'request_access'
-  | 'pending_request'
-  | 'hidden_existence'
-  | 'rejected'
-  | 'expired'
-  | 'revoked'
-  | 'summary_visible';
-
-export interface PermissionDecision {
-  allow: boolean;
-  via?: 'direct_grant' | 'role' | 'managed_system_scope';
-  reason?: string;
-  grant_id?: string;
-  requestable?: Array<{ workspace_id: string; managed_system_id?: string }> | null;
-}
-
-export interface PermissionCheckResponse {
-  state: FrontendPermissionState;
-  decision: PermissionDecision;
-}
-
-export type CapabilityScope = { kind: 'all' } | { kind: 'scoped'; managed_system_ids: string[] };
+// Types live with the bridge-safe reads (`permission-reads.ts`); re-exported so every caller keeps this import path.
+export type {
+  CapabilityScope,
+  FrontendPermissionState,
+  PermissionCheckResponse,
+  PermissionDecision,
+} from './permission-reads';
+import type { CapabilityScope, PermissionCheckResponse } from './permission-reads';
 
 export async function fetchCapabilityScope(
   capability: string,

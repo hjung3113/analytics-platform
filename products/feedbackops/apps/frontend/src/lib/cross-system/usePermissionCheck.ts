@@ -9,14 +9,10 @@ import { useQuery } from '@tanstack/react-query';
 
 import { type PermissionCheckResponse, fetchPermissionCheck } from '@/lib/api';
 
-export interface UsePermissionCheckArgs {
-  capability: string;
-  managedSystemId?: string;
-}
+import { type UsePermissionCheckArgs, permissionCheckQueryKey } from './usePermissionCheckBridge';
 
-export function permissionCheckQueryKey(args: UsePermissionCheckArgs) {
-  return ['permission-check', args.capability, args.managedSystemId ?? null] as const;
-}
+// The key and args live in the bridge-safe variant (one key shape for both hooks); re-exported for existing callers.
+export { type UsePermissionCheckArgs, permissionCheckQueryKey };
 
 // Issue #5: shared query key for the open-requests list, defined next to its fetch (#657) and re-exported here
 // so the request-access button can invalidate both keys on a successful POST.
