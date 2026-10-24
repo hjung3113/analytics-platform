@@ -1,4 +1,11 @@
-import { Outlet, RouterProvider, createMemoryHistory, createRootRoute, createRoute, createRouter } from '@tanstack/react-router';
+import {
+  Outlet,
+  RouterProvider,
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+} from '@tanstack/react-router';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
@@ -8,16 +15,31 @@ vi.mock('@/lib/api/client', async (importOriginal) => ({
   apiClient: vi.fn(),
 }));
 
-import { apiClient } from '@/lib/api';
 import { useVocPreSubmitPeers } from '@/features/voc/hooks/useVocPreSubmitPeers';
+import { apiClient } from '@/lib/api';
 import { SimilarVocPanel } from '../SimilarVocPanel';
 
 const mockPeers = vi.mocked(useVocPreSubmitPeers);
 const mockApiClient = vi.mocked(apiClient);
 const peers = [
-  { id: '11111111-1111-4111-8111-111111111111', display_id: 'VOC-293-ONE', title: '첫 번째 제목', created_at: '2026-08-01T00:00:00.000Z' },
-  { id: '22222222-2222-4222-8222-222222222222', display_id: 'VOC-293-TWO', title: '두 번째 제목', created_at: '2026-08-02T00:00:00.000Z' },
-  { id: '33333333-3333-4333-8333-333333333333', display_id: 'VOC-293-THREE', title: '세 번째 제목', created_at: '2026-08-03T00:00:00.000Z' },
+  {
+    id: '11111111-1111-4111-8111-111111111111',
+    display_id: 'VOC-293-ONE',
+    title: '첫 번째 제목',
+    created_at: '2026-08-01T00:00:00.000Z',
+  },
+  {
+    id: '22222222-2222-4222-8222-222222222222',
+    display_id: 'VOC-293-TWO',
+    title: '두 번째 제목',
+    created_at: '2026-08-02T00:00:00.000Z',
+  },
+  {
+    id: '33333333-3333-4333-8333-333333333333',
+    display_id: 'VOC-293-THREE',
+    title: '세 번째 제목',
+    created_at: '2026-08-03T00:00:00.000Z',
+  },
 ];
 
 // The component reads only `data` and `isError`, so the double is a partial
@@ -75,7 +97,9 @@ describe('<SimilarVocPanel>', () => {
     expect(secondLink.getAttribute('href')).not.toContain(peers[1]!.display_id);
     expect(secondLink.getAttribute('href')).not.toContain(peers[0]!.id);
     fireEvent.click(secondLink);
-    expect(mockApiClient.mock.calls.filter(([method]) => method === 'POST' || method === 'PATCH')).toHaveLength(0);
+    expect(
+      mockApiClient.mock.calls.filter(([method]) => method === 'POST' || method === 'PATCH'),
+    ).toHaveLength(0);
   });
 
   test('0건은 정상 카드이며 unavailable/provider 경로를 렌더하지 않는다', async () => {

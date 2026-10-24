@@ -1,5 +1,5 @@
-import { fetchCapabilityScopeViaClient } from '@/lib/api/permission-reads';
 import { useMeBridge } from '@/lib/api/me';
+import { fetchCapabilityScopeViaClient } from '@/lib/api/permission-reads';
 import { fetchManagedSystems } from '@/lib/api/registry-reads';
 import { AREA_REPORT_COPY as AREA_COPY } from '@/lib/copy/area-report';
 import { analyticsAreasCatalogQuery } from '@/lib/cross-system/analyticsAreasCatalog';

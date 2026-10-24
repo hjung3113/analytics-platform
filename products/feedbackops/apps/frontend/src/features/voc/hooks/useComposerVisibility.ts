@@ -13,8 +13,8 @@
 // The outer panel guards full-envelope access. Internal remains gated separately by
 // the backend triage capability supplied by the detail controller.
 
-import type { VocDetailEnvelope } from '@fops/shared';
 import type { MeResponse } from '@/lib/api/me';
+import type { VocDetailEnvelope } from '@fops/shared';
 
 export interface ComposerVisibility {
   showPublic: boolean;

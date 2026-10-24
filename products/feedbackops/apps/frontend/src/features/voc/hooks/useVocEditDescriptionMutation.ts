@@ -12,10 +12,10 @@
 //
 // C6.1 of slice3 #21. No UI — pure hook layer.
 
-import { useMutation, type UseMutationResult } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/client';
-import { ApiError } from '@/lib/api/types';
+import type { ApiError } from '@/lib/api/types';
 import type { EditDescriptionRequest } from '@fops/shared';
+import { type UseMutationResult, useMutation } from '@tanstack/react-query';
 
 // ── Mutation variables ─────────────────────────────────────────────────────
 
@@ -64,15 +64,11 @@ export type UseVocEditDescriptionMutationResult = UseMutationResult<
 export function useVocEditDescriptionMutation(): UseVocEditDescriptionMutationResult {
   return useMutation<EditDescriptionSuccess, ApiError, EditDescriptionVars>({
     mutationFn: async ({ vocId, ifMatch, body }) => {
-      const res = await apiClient<EditDescriptionSuccess>(
-        'PATCH',
-        `/vocs/${vocId}/description`,
-        {
-          body,
-          // Idempotency-Key is auto-minted by apiClient when absent (ADR-0015).
-          ifMatch,
-        },
-      );
+      const res = await apiClient<EditDescriptionSuccess>('PATCH', `/vocs/${vocId}/description`, {
+        body,
+        // Idempotency-Key is auto-minted by apiClient when absent (ADR-0015).
+        ifMatch,
+      });
       return res.data;
     },
   });
