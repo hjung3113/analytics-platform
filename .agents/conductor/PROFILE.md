@@ -193,3 +193,5 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
 - FeedbackOps visual harness는 `products/feedbackops/`에서 `VISUAL_ROOT=$PWD bash .claude/conductor/scripts/visual.sh run`으로 돌린다. `VISUAL_ROOT`가 없으면 git 최상위(플랫폼 루트)를 FeedbackOps 루트로 잡아 `apps/frontend/playwright.config.ts does not exist`로 끝난다(#642).
 - 테스트가 관찰한 동작과 단언이 어긋나면, 단언을 동작에 맞춰 풀기 전에 브리프·계약(06, ADR)과 대조한다. 거절돼야 할 드롭(보드 탭)이 보드를 바꾸는 것을 보고 단언을 느슨하게 맞췄다가 코드 리뷰가 계약 위반으로 잡았다(#686, 2026-10-23). 계약과 다르면 단언이 아니라 코드를 고친다.
 - 릴리스·태그 상태는 원격에서 확인한다(`gh release list`, `git fetch --tags` 뒤 `git tag`). 로컬 태그만 보고 "마지막 SDK 태그는 `sdk-v0.11.0`"이라 보고했는데, 다른 세션이 이미 `sdk-v0.12.0`을 발행한 뒤였다(2026-10-24).
+- 사실을 적는 PR(소개 사이트·docs 17·상태 표)은 병합 직전에 `origin/main`으로 rebase하고, 본문이 인용한 이슈 번호마다 `gh issue view <n> --json state`를 다시 본다. #725는 리뷰 4라운드 사이에 #657이 병합되고 #708이 백로그로 닫혀 "예정 #657"·"예정 #708"이 틀린 문장이 됐고, rebase에서야 알았다(2026-10-24).
+- 사이트 캡처(`site/scripts/shots.mjs`)가 비동기 조회로 채워지는 칸을 보여 준다고 적으면, 그 칸의 내용이 뜰 때까지 기다리는 줄을 capture 준비 단계에 둔다. `go()`의 `aria-busy` 대기는 그런 칸을 기다리지 않아, 홈 공지 띠가 뜨기 전에 찍혔다(#725, 2026-10-24).
