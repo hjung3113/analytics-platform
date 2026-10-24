@@ -27,7 +27,9 @@ export type OperatorRoute = {
 export function operatorRoute({ foPath, foFixed, menuId, keys }: OperatorRouteSpec): OperatorRoute {
   const target = (to: string): PlatformTarget | null => {
     if (to.includes('#')) return null;
-    const [path, query = ''] = to.split('?') as [string, string?];
+    const at = to.indexOf('?');
+    const path = at === -1 ? to : to.slice(0, at);
+    const query = at === -1 ? '' : to.slice(at + 1);
     if (path !== foPath) return null;
     const search = new URLSearchParams(query);
     const seen = [...search.keys()];

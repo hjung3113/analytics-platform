@@ -16,6 +16,10 @@ describe('operatorRoute', () => {
     expect(inbox.toFoSearch(target!.page!)).toEqual({ view: 'inbox', selected: 'abc', 'filter.severity': 'high', q: 'pump' });
   });
 
+  it('keeps a "?" inside a value', () => {
+    expect(inbox.target('/vocs?view=inbox&q=a?b')).toEqual({ menuId: 'fo-inbox', page: { q: 'a?b' } });
+  });
+
   it('maps the bare fixed path with no page keys', () => {
     expect(inbox.target('/vocs?view=inbox')).toEqual({ menuId: 'fo-inbox', page: {} });
   });
@@ -27,6 +31,7 @@ describe('operatorRoute', () => {
     ['another path', '/tasks?view=inbox'],
     ['a fragment', '/vocs?view=inbox#x'],
     ['a repeated key', '/vocs?view=inbox&q=a&q=b'],
+    ['an unknown key after a "?" inside a value', '/vocs?view=inbox&q=a?b&sort=x'],
   ])('is null for %s', (_name, to) => {
     expect(inbox.target(to)).toBeNull();
   });
