@@ -81,6 +81,10 @@ function ToastItem({ toast: tst }: { toast: Toast }) {
     inside.current[key] = on;
     holdToast(id, inside.current.focus || inside.current.pointer);
   };
+  // Unmounting while held (cap eviction, shell remount) releases the hold; a retired id has no duration, so it is a no-op.
+  useEffect(() => () => {
+    if (inside.current.focus || inside.current.pointer) holdToast(id, false);
+  }, [id, holdToast]);
   const Icon = tst.tone === 'danger' ? XCircle : tst.tone === 'warning' ? AlertTriangle : Info;
   return <div role={tst.tone === 'danger' ? 'alert' : 'status'}
     onFocus={() => hold('focus', true)} onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget)) hold('focus', false); }}

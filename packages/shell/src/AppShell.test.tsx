@@ -705,10 +705,55 @@ describe('toast action and caller-driven dismiss (#761 k2)', () => {
     act(() => { vi.advanceTimersByTime(20000); });
     expect(screen.getByText('분류했습니다.')).toBeInTheDocument();
     act(() => { action.blur(); });
-    act(() => { vi.advanceTimersByTime(4900); });
+    act(() => { vi.advanceTimersByTime(7900); });
     expect(screen.getByText('분류했습니다.')).toBeInTheDocument();
     act(() => { vi.advanceTimersByTime(200); });
     expect(screen.queryByText('분류했습니다.')).toBeNull();
+  });
+  it('an action toast defaults to 8 s', () => {
+    mount(<ActionProbe onAction={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'fire' }));
+    act(() => { vi.advanceTimersByTime(7900); });
+    expect(screen.getByText('분류했습니다.')).toBeInTheDocument();
+    act(() => { vi.advanceTimersByTime(200); });
+    expect(screen.queryByText('분류했습니다.')).toBeNull();
+  });
+  it('evicting a held toast by the 4-item cap leaves nothing that resurrects or lingers', () => {
+    mount(<ActionProbe onAction={vi.fn()} />);
+    const fire = screen.getByRole('button', { name: 'fire' });
+    fireEvent.click(fire);
+    act(() => { screen.getByRole('button', { name: '되돌리기' }).focus(); });
+    for (let i = 0; i < 4; i += 1) fireEvent.click(fire);
+    expect(screen.getAllByRole('button', { name: '되돌리기' })).toHaveLength(4);
+    act(() => { vi.advanceTimersByTime(8100); });
+    expect(screen.queryAllByRole('button', { name: '되돌리기' })).toHaveLength(0);
+    act(() => { vi.advanceTimersByTime(60000); });
+    expect(screen.queryAllByRole('button', { name: '되돌리기' })).toHaveLength(0);
+  });
+  it('evicting an unheld long-duration toast retires its timer', () => {
+    mount(<ActionProbe onAction={vi.fn()} durationMs={600000} />);
+    const fire = screen.getByRole('button', { name: 'fire' });
+    const base = vi.getTimerCount();
+    for (let i = 0; i < 5; i += 1) fireEvent.click(fire);
+    expect(vi.getTimerCount()).toBe(base + 4);
+  });
+  it('a held toast whose shell unmounts releases the hold and still expires', () => {
+    function Host() {
+      const [shown, setShown] = useState(true);
+      return <I18nProvider><PlatformProvider adapter={adapterWith()} registry={registry}>
+        <ActionProbe onAction={vi.fn()} />
+        <button type="button" onClick={() => setShown(false)}>drop shell</button>
+        {shown && <AppShell>{null}</AppShell>}
+      </PlatformProvider></I18nProvider>;
+    }
+    render(<Host />);
+    const base = vi.getTimerCount();
+    fireEvent.click(screen.getByRole('button', { name: 'fire' }));
+    act(() => { screen.getByRole('button', { name: '되돌리기' }).focus(); });
+    act(() => { vi.advanceTimersByTime(20000); });
+    expect(screen.getByRole('button', { name: '되돌리기' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'drop shell' }));
+    expect(vi.getTimerCount()).toBe(base + 1);
   });
   it('a toast without action still auto-dismisses after 5 s and has no action button', () => {
     function Plain() { const { toast } = useHostPlatform(); return <button type="button" onClick={() => toast('안내')}>plain</button>; }

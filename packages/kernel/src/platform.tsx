@@ -773,8 +773,15 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
   }, []);
   const toast = useCallback((text: string, tone: Toast['tone'] = 'info', detail?: string, options?: ToastOptions) => {
     const id = toastId.current++;
+    // Live ids are the duration keys (set here, deleted on expiry/dismiss); the cap drops all but the newest three.
+    for (const old of [...durations.current.keys()].slice(0, -3)) {
+      clearTimeout(timers.current.get(old));
+      timers.current.delete(old);
+      durations.current.delete(old);
+    }
     setToasts(list => [...list.slice(-3), { id, text, tone, ...(detail === undefined ? {} : { detail }), ...(options?.action ? { action: options.action } : {}) }]);
-    durations.current.set(id, options?.durationMs ?? 5000);
+    // An action toast gets longer by default: the user has to reach and read it first (06 Toast paragraph).
+    durations.current.set(id, options?.durationMs ?? (options?.action ? 8000 : 5000));
     armToast(id);
     return id;
   }, [armToast]);
