@@ -4793,3 +4793,23 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
   });
 });
 
+
+test.describe('fill 페이지의 표 높이 (06 §12.8, #690k)', () => {
+  test('1440×900 HW Time 표의 행 영역이 fill 슬롯 아래 끝에서 120px 안까지 닿는다', async ({ page }, testInfo) => {
+    await signInAs(page, 'admin');
+    await page.goto('/hw-time/table?v=1&scopeId=MEM&drillModule=PM1');
+    const rows = page.getByLabel('스크롤 가능한 행 영역');
+    await expect(rows).toBeVisible();
+    await expect(rows.getByRole('row').nth(2)).toBeVisible();
+    const slot = page.locator('[data-platform-page-fill]');
+    // The cap follows layout (observers), so poll until it has grown past the unmeasured fallback.
+    await expect.poll(async () => {
+      const rowsBox = (await rows.boundingBox())!;
+      const slotBox = (await slot.boundingBox())!;
+      return slotBox.y + slotBox.height - (rowsBox.y + rowsBox.height);
+    }).toBeLessThanOrEqual(120);
+    // Filling must not overshoot: the main scroll area does not overflow (a 1px cap error shows a scrollbar).
+    await expect.poll(() => page.locator('main').evaluate(main => main.scrollHeight - main.clientHeight)).toBeLessThanOrEqual(0);
+    await evidence(page, testInfo, 'hw-time-table-fill');
+  });
+});

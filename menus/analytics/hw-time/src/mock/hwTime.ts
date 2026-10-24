@@ -1,9 +1,9 @@
 /** Deterministic synthetic HW Time data. The package mock never reads real equipment names or records. */
-import { shift, sortAndPage, sortRows, type PageSort } from '@ap/contracts';
+import { shift, type PageSort } from '@ap/contracts';
 import { defineMockEndpoint, type AnyMockEndpoint, type Equipment } from '@ap/mock-server';
 import {
-  HW_TIME_MAX_ROWS, HW_TIME_MAX_TREND_ROWS, MODULE_IDS, MOTION_IDS, SUB_ITEM_IDS, hwTime, isHwTimeRowId,
-  type HwTimeBlock, type HwTimeDrill, type HwTimeRow, type HwTimeSeries, type ModuleId, type MotionId,
+  HW_TIME_MAX_ROWS, HW_TIME_MAX_TREND_ROWS, MODULE_IDS, MOTION_IDS, SUB_ITEM_IDS, hwTime, isHwTimeTrendId,
+  type HwTimeBlock, type HwTimeDrill, type HwTimeRow, type HwTimeSeries, type HwTimeTableRow, type ModuleId, type MotionId,
 } from '../endpoints';
 
 const MAX_SYNTHETIC_EQUIPMENT = 24;
@@ -124,12 +124,6 @@ function validateDrill(drill: HwTimeDrill): string | null {
   return null;
 }
 
-function validateTableFilter(filter: { drillModule: string; drillMotion: string }): string | null {
-  if (!isModuleId(filter.drillModule)) return 'drillModule must be PM1, PM2, PM3, or PM4';
-  if (!isMotionId(filter.drillMotion)) return 'drillMotion is not a supported Motion';
-  return null;
-}
-
 function levelRows(equipmentIds: readonly string[], drill: HwTimeDrill) {
   const invalid = validateDrill(drill);
   if (invalid) throw new Error(invalid);
@@ -159,37 +153,73 @@ function levelRows(equipmentIds: readonly string[], drill: HwTimeDrill) {
 function validateTrend(rowIds: string[]): string | null {
   if (!Array.isArray(rowIds)) return 'rowIds must be an array';
   if (rowIds.length > HW_TIME_MAX_TREND_ROWS) return `rowIds may contain at most ${HW_TIME_MAX_TREND_ROWS} rows`;
-  if (rowIds.some(rowId => !isHwTimeRowId(rowId))) return 'rowIds must match ^EQ-\\d{3}\\.H[1-4]$';
+  if (rowIds.some(rowId => !isHwTimeTrendId(rowId))) return 'rowIds must match ^EQ-\\d{3}(\\.H[1-4])?$';
   return null;
+}
+
+/**
+ * A sub-item's daily total over all Modules and Motions: the latest day equals its L1 total (the measured values summed, as the
+ * table shows them per Module), earlier days vary deterministically within ±15% so a trend reads next to the table value.
+ */
+function subItemTrend(equipmentNumber: number, subItem: number): number[] {
+  const seed = equipmentNumber * 4 + subItem - 1;
+  const subItemIndex = subItem - 1;
+  const total = MODULE_IDS.reduce((sum, module) => sum + MOTION_IDS.reduce((inner, _motion, motionIndex) =>
+    inner + (motionValue(equipmentNumber, subItemIndex, module, motionIndex) ?? 0), 0), 0);
+  return Array.from({ length: 8 }, (_, dayIndex) => dayIndex === 7 ? total : total * (1 + (((seed * 37 + dayIndex * 53) % 301) - 150) / 1_000));
+}
+
+/** A sub-item id gives its own daily values; an equipment id gives their per-day sum over H1–H4. */
+function trendValues(id: string): number[] {
+  const match = /^EQ-(\d{3})(?:\.H([1-4]))?$/.exec(id)!;
+  const equipmentNumber = Number(match[1]);
+  if (match[2] !== undefined) return subItemTrend(equipmentNumber, Number(match[2]));
+  const items = [1, 2, 3, 4].map(item => subItemTrend(equipmentNumber, item));
+  return Array.from({ length: 8 }, (_, dayIndex) => items.reduce((sum, item) => sum + item[dayIndex]!, 0));
 }
 
 function trendRows(equipmentIds: readonly string[], rowIds: string[], to: string) {
   return {
     rows: rowIds.filter(id => equipmentIds.includes(id.slice(0, 6))).map(id => {
-      const match = /^EQ-(\d{3})\.H([1-4])$/.exec(id)!;
-      const seed = Number(match[1]) * 4 + Number(match[2]) - 1;
-      const phase = seed % 8;
+      const values = trendValues(id);
       return {
         id,
-        points: Array.from({ length: 8 }, (_, dayIndex) => ({
-          at: shift(to, -24 * (8 - dayIndex)).slice(0, 10),
-          value: 5 + ((seed * 127 + ((dayIndex + phase) % 8) * 991) % 100_003) / 1_000,
-        })),
+        points: values.map((value, dayIndex) => ({ at: shift(to, -24 * (8 - dayIndex)).slice(0, 10), value })),
       };
     }),
     limits: { maxRows: HW_TIME_MAX_TREND_ROWS },
   };
 }
 
-function tableRows(equipmentIds: readonly string[], drillModule: string, drillMotion: string, page: number, pageSize: number, sorting: PageSort[]) {
-  const module = drillModule as ModuleId;
-  const motion = drillMotion as MotionId;
-  return sortAndPage(detailRows(equipmentIds, module, motion), { page, pageSize, sorting });
+/** The rows of the level the drill keys name, each with its series values as flat fields. */
+function tableLevelRows(equipmentIds: readonly string[], drill: HwTimeDrill): HwTimeTableRow[] {
+  const rows = drill.drillModule === undefined ? equipmentRows(equipmentIds)
+    : drill.drillMotion === undefined ? moduleRows(equipmentIds, drill.drillModule as ModuleId, true)
+      : detailRows(equipmentIds, drill.drillModule as ModuleId, drill.drillMotion as MotionId);
+  return rows.map(row => ({ ...row, ...row.values }));
 }
 
-function exportRows(equipmentIds: readonly string[], drillModule: string, drillMotion: string, ids: string[] | null, sorting: PageSort[]) {
-  const rows = detailRows(equipmentIds, drillModule as ModuleId, drillMotion as MotionId);
-  return sortRows(ids === null ? rows : rows.filter(row => ids.includes(row.id)), sorting);
+/** First sort key only; unmeasured and missing values come last in either direction and ties keep the stable id order. */
+function sortTableRows(rows: HwTimeTableRow[], sorting: PageSort[]): HwTimeTableRow[] {
+  const s = sorting[0];
+  return [...rows].sort((a, b) => {
+    if (s) {
+      const av = a[s.id] ?? null; const bv = b[s.id] ?? null;
+      if (av === null || bv === null) { if (av !== bv) return av === null ? 1 : -1; }
+      else if (av !== bv) return ((av as number | string) < (bv as number | string) ? -1 : 1) * (s.desc ? -1 : 1);
+    }
+    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+  });
+}
+
+function tableRows(equipmentIds: readonly string[], drill: HwTimeDrill, page: number, pageSize: number, sorting: PageSort[]) {
+  const sorted = sortTableRows(tableLevelRows(equipmentIds, drill), sorting);
+  return { rows: sorted.slice(page * pageSize, (page + 1) * pageSize), total: sorted.length };
+}
+
+function exportRows(equipmentIds: readonly string[], drill: HwTimeDrill, ids: string[] | null, sorting: PageSort[]) {
+  const rows = tableLevelRows(equipmentIds, drill);
+  return sortTableRows(ids === null ? rows : rows.filter(row => ids.includes(row.id)), sorting);
 }
 
 export const hwTimeMock: readonly AnyMockEndpoint[] = [
@@ -204,14 +234,14 @@ export const hwTimeMock: readonly AnyMockEndpoint[] = [
     isEmpty: data => data.rows.length === 0,
   }),
   defineMockEndpoint(hwTime.tableRows, {
-    handle: ({ params, equipment }) => tableRows(syntheticEquipmentIds(equipment), params.drillModule, params.drillMotion, params.page, params.pageSize, params.sorting),
-    validate: ({ params }) => validateTableFilter(params),
+    handle: ({ params, equipment }) => tableRows(syntheticEquipmentIds(equipment), params, params.page, params.pageSize, params.sorting),
+    validate: ({ params }) => validateDrill(params),
     isEmpty: data => data.rows.length === 0,
   }),
   defineMockEndpoint(hwTime.exportRows, {
-    handle: ({ params, equipment }) => exportRows(syntheticEquipmentIds(equipment), params.drillModule, params.drillMotion, params.ids, params.sorting),
+    handle: ({ params, equipment }) => exportRows(syntheticEquipmentIds(equipment), params, params.ids, params.sorting),
     validate: ({ params }) => {
-      const invalidFilter = validateTableFilter(params);
+      const invalidFilter = validateDrill(params);
       if (invalidFilter) return invalidFilter;
       if (params.ids !== null && (!Array.isArray(params.ids) || params.ids.some(id => typeof id !== 'string'))) return 'ids must be a string array or null';
       return null;

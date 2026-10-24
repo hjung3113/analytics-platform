@@ -44,6 +44,11 @@ describe('PlatformPage layout', () => {
     expect(slot).toContainElement(screen.getByText('본문'));
   });
 
+  it('fill: the slot is a flex column, so a flex-1 child (DrillLayout fill + a table) takes the remaining height instead of leaving slack the table fit counts as content below', () => {
+    mount({ layout: 'fill' });
+    expect(document.querySelector<HTMLElement>('[data-platform-page-fill]')).toHaveClass('flex', 'flex-col', 'flex-1');
+  });
+
   it('fill: the body keeps a 520 px minimum so a tall chrome scrolls the page instead of crushing the workspace', () => {
     mount({ layout: 'fill' });
     expect(document.querySelector<HTMLElement>('[data-platform-page-fill]')).toHaveClass('min-h-[520px]');

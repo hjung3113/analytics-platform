@@ -117,11 +117,40 @@ describe('HW Time trends and table endpoints', () => {
     expect(result.rows[0]?.points.every((point, i) => point.value !== result.rows[1]?.points[i]?.value)).toBe(true);
   });
 
+  it('scales a sub-item trend to the table: the latest day is its measured L1 total and earlier days stay within ±15%', async () => {
+    const trend = await data<HwTimeTrendData>(hwTime.trend.id, { rowIds: ['EQ-002.H3', 'EQ-002'] });
+    let known = 0;
+    for (const drillModule of ['PM1', 'PM2', 'PM3', 'PM4']) {
+      const level = await data<HwTimeLevelData>(hwTime.levelRows.id, { drillModule });
+      const row = level.rows.find(item => item.id === 'EQ-002.H3')!;
+      known += Object.values(row.values).reduce<number>((sum, value) => sum + (value ?? 0), 0);
+    }
+    const values = trend.rows[0]!.points.map(point => point.value as number);
+    expect(values[7]).toBeCloseTo(known, 9);
+    values.slice(0, 7).forEach(value => expect(Math.abs(value / known - 1)).toBeLessThanOrEqual(0.15));
+    expect(new Set(values).size).toBeGreaterThan(1);
+  });
+
+  it('gives an equipment total that equals the sum of its four sub-item trends on each day, deterministically', async () => {
+    const subs = ['H1', 'H2', 'H3', 'H4'].map(item => `EQ-002.${item}`);
+    const result = await data<HwTimeTrendData>(hwTime.trend.id, { rowIds: ['EQ-002', ...subs] });
+    const again = await data<HwTimeTrendData>(hwTime.trend.id, { rowIds: ['EQ-002'] });
+    const [total, ...items] = result.rows;
+    expect(total?.id).toBe('EQ-002');
+    expect(total?.points).toHaveLength(8);
+    total?.points.forEach((point, day) => {
+      expect(point.value).toBeCloseTo(items.reduce((sum, item) => sum + (item.points[day]?.value ?? 0), 0), 9);
+    });
+    expect(again.rows[0]).toEqual(total);
+  });
+
   it('rejects more than eight trend rows and ids outside the static row format', async () => {
     const tooMany = await query(hwTime.trend.id, { rowIds: Array.from({ length: 9 }, (_, i) => `EQ-${String(i + 1).padStart(3, '0')}.H1`) });
     const malformed = await query(hwTime.trend.id, { rowIds: ['EQ-1.H1'] });
+    const shortEquipment = await query(hwTime.trend.id, { rowIds: ['EQ-1'] });
     expect(tooMany.outcome).toBe('error');
     expect(malformed.outcome).toBe('error');
+    expect(shortEquipment.outcome).toBe('error');
   });
 
   it('pages L3-style table rows on the server and exports the selected rows', async () => {
@@ -140,12 +169,48 @@ describe('HW Time trends and table endpoints', () => {
     expect(exported.map(({ id }) => id)).toEqual(ids);
   });
 
+  it.each([
+    [{}, 24, 24],
+    [{ drillModule: 'PM1' }, 120, 96],
+    [{ drillModule: 'PM1', drillMotion: 'Pump' }, 96, 96],
+  ])('pages, sorts and exports table rows at every level (%j)', async (drill, total, dataRows) => {
+    const page = await data<HwTimeTableData>(hwTime.tableRows.id, { ...drill, page: 0, pageSize: 200, sorting: [] });
+    expect(page.total).toBe(total);
+    expect(page.rows.filter(row => !row.auxiliary)).toHaveLength(dataRows);
+    const exported = await data<HwTimeRow[]>(hwTime.exportRows.id, { ...drill, ids: null, sorting: [] });
+    expect(exported).toHaveLength(total);
+    if ('drillModule' in drill && !('drillMotion' in drill)) {
+      const meg = page.rows.filter(row => row.auxiliary);
+      expect(meg).toHaveLength(24);
+      expect(meg.every(row => row.auxiliary?.kind === 'MEG' && row.auxiliary.label !== '')).toBe(true);
+      expect(exported.filter(row => row.auxiliary)).toHaveLength(24);
+    }
+  });
+
+  it('sorts by a series id on its flat field, nulls last, ties by id', async () => {
+    for (const desc of [false, true]) {
+      const page = await data<HwTimeTableData>(hwTime.tableRows.id, { drillModule: 'PM3', page: 0, pageSize: 200, sorting: [{ id: 'Chuck', desc }] });
+      const values = page.rows.map(row => row['Chuck'] as number | null | undefined ?? null);
+      const known = values.filter((v): v is number => v !== null);
+      expect(known).toEqual([...known].sort((a, b) => desc ? b - a : a - b));
+      expect(values.indexOf(null)).toBeGreaterThan(known.length - 1);
+      expect(values.slice(known.length).every(v => v === null)).toBe(true);
+    }
+    const l1 = await data<HwTimeTableData>(hwTime.tableRows.id, { page: 0, pageSize: 10, sorting: [{ id: 'PM1', desc: false }] });
+    expect(l1.rows[0]?.['PM1']).toBe(l1.rows[0]?.values['PM1']);
+  });
+
+  it('rejects a Motion without a Module on the table endpoints', async () => {
+    expect((await query(hwTime.tableRows.id, { drillMotion: 'Pump', page: 0, pageSize: 10, sorting: [] })).outcome).toBe('error');
+    expect((await query(hwTime.exportRows.id, { drillModule: 'PM9', ids: null, sorting: [] })).outcome).toBe('error');
+  });
+
   it('declares response row caps', () => {
     expect(HW_TIME_UNIT).toEqual({ ko: '초', en: 's' });
     expect(hwTime.levelRows.limits?.maxRows).toBeUndefined();
     expect(hwTime.trend.limits?.maxRows).toBeUndefined();
     expect(hwTime.tableRows.limits?.maxRows).toBeUndefined();
-    expect(hwTime.exportRows.limits?.maxRows).toBe(96);
+    expect(hwTime.exportRows.limits?.maxRows).toBe(120);
   });
 });
 

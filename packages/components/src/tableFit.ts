@@ -40,22 +40,32 @@ function measure(viewport: HTMLElement): Fit {
   const sticky = viewport.closest('[data-platform-page]')?.querySelector<HTMLElement>('[data-page-sticky-header]');
   const pageContent = viewport.closest<HTMLElement>('[data-platform-page-content]');
   const boundary = pageContent ?? container ?? document.body;
+  // Walk the natural flow end instead of scrollHeight, which includes empty scrollport/flex slack.
+  const flowEnd = (within: Element) => {
+    let end = view.bottom;
+    for (let child: Element = viewport; child !== within && child.parentElement; child = child.parentElement) {
+      const parent = child.parentElement;
+      for (let sibling = child.nextElementSibling; sibling; sibling = sibling.nextElementSibling) {
+        end = Math.max(end, sibling.getBoundingClientRect().bottom);
+      }
+      // Each ancestor's bottom padding and border sit below its last child (a bordered table section otherwise overshoots by its border).
+      const style = getComputedStyle(parent);
+      end += (parseFloat(style.paddingBottom) || 0) + (parseFloat(style.borderBottomWidth) || 0);
+    }
+    return end;
+  };
   let contentBottom: number;
   if (pageContent) {
     contentBottom = pageContent.getBoundingClientRect().bottom;
     // The page content stretches (`flex-1`) to fill a short page; the natural end is its last child plus the bottom padding.
     const last = pageContent.lastElementChild;
-    if (last) contentBottom = Math.min(contentBottom, last.getBoundingClientRect().bottom + (parseFloat(getComputedStyle(pageContent).paddingBottom) || 0));
+    const padding = parseFloat(getComputedStyle(pageContent).paddingBottom) || 0;
+    if (last instanceof HTMLElement && last.hasAttribute('data-platform-page-fill') && last.contains(viewport)) {
+      // A fill slot is stretched too, so its bottom is slack: measure what flows below the table inside the slot.
+      contentBottom = Math.min(contentBottom, flowEnd(last) + padding);
+    } else if (last) contentBottom = Math.min(contentBottom, last.getBoundingClientRect().bottom + padding);
   } else {
-    // Walk the natural flow end instead of scrollHeight, which includes empty scrollport/flex slack.
-    contentBottom = view.bottom;
-    for (let child: Element = viewport; child !== boundary && child.parentElement; child = child.parentElement) {
-      const parent = child.parentElement;
-      for (let sibling = child.nextElementSibling; sibling; sibling = sibling.nextElementSibling) {
-        contentBottom = Math.max(contentBottom, sibling.getBoundingClientRect().bottom);
-      }
-      contentBottom += parseFloat(getComputedStyle(parent).paddingBottom) || 0;
-    }
+    contentBottom = flowEnd(boundary);
   }
   // Other auto-fit viewports contribute a stable floor, on either side of this table. Keeping their
   // current heights here would couple the caps (A = C - B, B = C - A) and allow batched resizes to oscillate.

@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { useTableFit } from './tableFit';
+import { ROW_AREA_FLOOR, useTableFit } from './tableFit';
 
 const deliveries = new Set<{ callback: ResizeObserverCallback; targets: Set<Element> }>();
 class Observer {
@@ -38,7 +38,7 @@ function setup() {
     if (this.id === 'tail') return box(top, 24);
     if (this.id === 'flow') return box(origin, top - origin + 24);
     // Page content remains flex-filled while the banner changes.
-    if (this.id === 'content') return box(origin, 1800);
+    if (this.id === 'content' || this.id === 'slot') return box(origin, 1800);
     return box(0, 0);
   });
 }
@@ -47,12 +47,13 @@ function Table({ id }: { id: string }) {
   const fit = useTableFit(section);
   return <section ref={section}><div ref={fit.viewportRef} aria-label="rows" data-testid={id} data-table-auto-fit="" style={{ maxHeight: fit.cap ?? 420 }} /></section>;
 }
-function Page({ count = 1, hook = true }: { count?: number; hook?: boolean }) {
+function Page({ count = 1, hook = true, fill }: { count?: number; hook?: boolean; fill?: 'around' | 'after' }) {
+  const flow = <div id="flow"><div id="banner"><div id="banner-inner" /></div>
+    {Array.from({ length: count }, (_, i) => <Table key={i} id={`table-${i}`} />)}<div id="tail" />
+  </div>;
   return <main id="frame" style={{ overflowY: frame === 'element' ? 'auto' : 'visible' }}>
     <div id="content" data-platform-page-content={hook ? '' : undefined}>
-      <div id="flow"><div id="banner"><div id="banner-inner" /></div>
-        {Array.from({ length: count }, (_, i) => <Table key={i} id={`table-${i}`} />)}<div id="tail" />
-      </div>
+      {fill === 'around' ? <div id="slot" data-platform-page-fill="">{flow}</div> : fill === 'after' ? <>{flow}<div id="slot" data-platform-page-fill="" /></> : flow}
     </div>
   </main>;
 }
@@ -110,5 +111,24 @@ describe('table fit flow invalidation and convergence', () => {
     many = true;
     deliver(); deliver();
     expect(caps()).toEqual([1100]);
+  });
+
+  it('measures the natural end inside a stretched fill slot, so the cap equals the same page without the slot', () => {
+    setup(); many = false; banner = 0;
+    render(<Page />);
+    const flow = caps()[0];
+    cleanup();
+    render(<Page fill="around" />);
+    expect(caps()).toEqual([flow]);
+    expect(flow).toBeGreaterThan(ROW_AREA_FLOOR);
+  });
+
+  it('keeps the stretched bottom as the content end for a fill slot that does not hold the table', () => {
+    setup(); many = false; banner = 0;
+    render(<Page />);
+    const flow = caps()[0];
+    cleanup();
+    render(<Page fill="after" />);
+    expect(caps()[0]).toBeLessThan(flow);
   });
 });
