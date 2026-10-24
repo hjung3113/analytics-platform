@@ -27,3 +27,4 @@ export { LegendTree, type LegendTreeNode, type LegendTreeSort, type LegendTreePr
 export { formatQuerySummary, querySummaryItems, type QuerySummaryOptions, type QuerySummaryItem } from './querySummary';
 export { QueryBarExtensionContext, QueryBarExtensionsProvider, useQueryBarExtension, type QueryBarExtension } from './QueryBarExtension';
 export { LaneTimeline, type LaneTimelineProps, type LaneTimelineHandle, type TimelineLane, type TimelineSegment } from './LaneTimeline';
+export { Inspector, type InspectorProps, type InspectorSection } from './inspector/Inspector';

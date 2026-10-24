@@ -1,9 +1,11 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { SlidersHorizontal, Target } from 'lucide-react';
 import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { I18nProvider } from '@ap/kernel';
 import { DetailDrawer, Field } from './DetailDrawer';
+import { Inspector } from './inspector/Inspector';
 import { SegmentedRadio } from './RadioGroup';
 
 afterEach(cleanup);
@@ -313,5 +315,36 @@ describe('DetailDrawer docked slot', () => {
     // guard would be observable here instead of the test passing before it runs.
     await act(() => new Promise(resolve => { setTimeout(resolve, 0); }));
     expect(document.activeElement).toBe(document.body);
+  });
+});
+
+describe('Inspector (APG accordion stack, rail with peek)', () => {
+  const sections = [
+    { id: 'target', title: { ko: '분석 대상', en: 'Target' }, icon: Target, summary: { ko: '선택 3', en: 'Selected 3' }, render: () => <p>target body</p> },
+    { id: 'options', title: { ko: '옵션', en: 'Options' }, icon: SlidersHorizontal, render: () => <p>options body</p> },
+  ];
+  const label = { ko: '분석 보조', en: 'Analysis inspector' };
+
+  it('stack: heading > button with aria-expanded/aria-controls, the content panel is not a landmark, clicks toggle', () => {
+    render(<I18nProvider><Inspector sections={sections} form="stack" label={label} /></I18nProvider>);
+    const button = screen.getByRole('button', { name: '분석 대상' });
+    expect(screen.getByRole('heading', { level: 3, name: '분석 대상' })).toContainElement(button);
+    expect(button).toHaveAttribute('aria-expanded', 'true');
+    const panel = document.getElementById(button.getAttribute('aria-controls')!)!;
+    expect(panel).not.toHaveAttribute('role');
+    fireEvent.click(button);
+    expect(button).toHaveAttribute('aria-expanded', 'false');
+    expect(panel).not.toBeVisible();
+    expect(button).toHaveAccessibleDescription('선택 3');
+  });
+
+  it('rail: Escape closes the peek and focus returns to the button that opened it', async () => {
+    render(<I18nProvider><Inspector sections={sections} form="rail" label={label} /></I18nProvider>);
+    const button = screen.getByRole('button', { name: '옵션' });
+    button.focus();
+    fireEvent.click(button);
+    fireEvent.keyDown(await screen.findByText('options body'), { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByText('options body')).toBeNull());
+    expect(document.activeElement).toBe(button);
   });
 });

@@ -86,6 +86,7 @@
 | [0076](0076-kernel-host-entry-narrow-menu-platform.md) | `Platform` 값은 하나로 두고 타입을 `MenuPlatform`(root `usePlatform()`)과 `HostPlatform`(`@ap/kernel/host`의 `useHostPlatform()`)으로 나누며, 셸 전용 Provider·hook은 `@ap/kernel/host`로 옮기고 lint가 메뉴·모듈의 import를 막는다. `adapter`·`PlatformProvider`는 root에 남는다 | Decided(2026-10-23, 코디네이터, 사용자 위임) — 구현 #671 B8 |
 | [0077](0077-workspace-stack-mode-rows-keep-own-height.md) | `PanelWorkspace`에 두 번째 높이 방식 `아래로 쌓기`(줄이 px 높이를 갖고 페이지가 스크롤)를 선택 모드로 더하고(기본은 화면 맞춤), 경계는 그 위 줄만 바꾸며 마지막 줄 아래 띠가 새 줄을 받는다 — A 늘리기 손잡이·B 높이 프리셋·C 줄 px 쌓기 중 C. ADR-0067 결정 4·8·21을 고친다 | Decided(2026-10-23, 사용자) — #686 |
 | [0078](0078-hw-time-layout-recipes.md) | HW Time을 새 그룹 `동작시간분석`의 메뉴 4개(단계별·비교·개요·표)로 한 데이터 위에 레이아웃 선언만 달리 만들고, 06 §12.7에 메뉴가 선언한 부모 맥락 패널을 허용하며 `DrillPath` `summary` 슬롯을 더한다 — 기본 레시피 하나·단계만 드릴·오버레이 드릴 대신 | Decided(2026-10-24, 사용자) — #690 |
+| [0080](0080-inspector-forms.md) | `Inspector`는 보조 섹션을 한 번 선언하고 두 형태(`stack` APG 아코디언, `rail` 40 px 아이콘 열 + Popover peek)로 보인다 — A 아코디언 스택·B 레일+peek·C 탭 중 A+B를 한 부품으로, 동시 다중 열림이 기본. 섹션 내용은 질의를 소유하지 않는다 | Decided(2026-10-24, 코디네이터, 되돌릴 수 있음) — #690 |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 
