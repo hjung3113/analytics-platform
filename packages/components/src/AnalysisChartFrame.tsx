@@ -6,7 +6,7 @@ import { useI18n, usePlatform } from '@ap/kernel';
 import { formatDateTime } from '@ap/contracts';
 import { Button, cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, prefersReducedMotion } from '@ap/ui';
 import type { ThemeColorToken } from '@ap/ui/theme';
-import { AnalysisSectionContext, resolveAnalysisChartSize, analysisChartHeight, fillChartHeight, FILL_CARD_CLASS, FILL_PLOT_CLASS, type ChartSize } from './AnalysisSectionContext';
+import { AnalysisSectionContext, resolveAnalysisChartSize, analysisChartHeight, FILL_CARD_CLASS, FILL_CHART_MIN_HEIGHT, FILL_PLOT_BASE_CLASS, FILL_PLOT_CLASS, type ChartSize } from './AnalysisSectionContext';
 import { useElementHeight } from './useElementHeight';
 import { EChart, strokeToken, token } from './EChart';
 import { downloadChartCsv } from './analysisChartCsv';
@@ -31,7 +31,10 @@ export type ChartSeries = {
 };
 
 /** FILL_PLOT_CLASS with its overflow-hidden split, so the row-pitch window scrolls vertically only. */
-const FILL_PLOT_SCROLL_CLASS = 'min-h-80 grow basis-0 overflow-x-hidden overflow-y-auto';
+const FILL_PLOT_SCROLL_BASE_CLASS = 'grow basis-0 overflow-x-hidden overflow-y-auto';
+const FILL_PLOT_SCROLL_CLASS = `min-h-80 ${FILL_PLOT_SCROLL_BASE_CLASS}`;
+/** Below this the axes and labels stop being readable, so `fillMin` never goes lower. */
+const FILL_MIN_FLOOR = 160;
 /** Capture-phase on the plot wrapper: without Shift the wheel never reaches zrender, so the browser scrolls the nearest container. No preventDefault. */
 const stopPlainWheel = (event: WheelEvent) => { if (!event.shiftKey) event.stopPropagation(); };
 /** The width assumed before the chart instance exists. */
@@ -118,7 +121,14 @@ export type AnalysisChartFrameProps = {
   visibleSeriesIds?: readonly string[];
   onVisibleSeriesChange?: (ids: string[]) => void;
   pointActivation?: { on: 'click' | 'dblclick'; onActivate: (point: ChartPoint) => void };
-  pointActions?: readonly ChartPointAction[];
+  /** A list, or a function of the selected point evaluated when the menu opens. `지점 동작` is disabled while the list for the selected point is empty. */
+  pointActions?: readonly ChartPointAction[] | ((point: ChartPoint) => readonly ChartPointAction[]);
+  /** Points for which this returns false are not offered by the point selector, never reached by the keyboard picker, and ignored on click, double-click and context menu. Keep the function stable (memoize it), like `series`. */
+  isPointSelectable?: (point: ChartPoint) => boolean;
+  /** Default true. False omits the Frame's own series legend and checkboxes, for a page that owns visibility through `visibleSeriesIds`. */
+  legend?: boolean;
+  /** `size="fill"` only: the least plot height, px. Default 320; values below 160 are raised to 160 (axes and labels stop being readable) with a dev warning. */
+  fillMin?: number;
   unit: string;
   valueFormat?: (v: number) => string;
   height?: number; size?: ChartSize;
@@ -157,7 +167,9 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const size = resolveAnalysisChartSize(p.size, analysisSection);
   const compact = size === 'compact';
   const fill = useElementHeight(size === 'fill');
-  const viewportHeight = p.height ?? (size === 'fill' ? fillChartHeight(fill.height) : analysisChartHeight(size, 260));
+  const fillMin = p.fillMin === undefined ? FILL_CHART_MIN_HEIGHT : Math.max(FILL_MIN_FLOOR, p.fillMin);
+  const loweredFill = fillMin !== FILL_CHART_MIN_HEIGHT;
+  const viewportHeight = p.height ?? (size === 'fill' ? Math.max(fillMin, fill.height ?? 0) : analysisChartHeight(size, 260));
   const { setGlobal, toast, global, adapter, route, url } = usePlatform();
   const features = route?.menu.features;
   const canCompare = !!features?.compare && !!p.compareSeries?.length;
@@ -202,6 +214,11 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   }, [horizontal, rawRowPitch, rawActive, onActiveCategoryChange, revealActive]);
   // Bumped from onReady: imperative instance effects below must replay once the lazy EChartImpl
   // creates the instance (a Brush click during chunk load would otherwise never reach it, #48 P1).
+  const rawFillMin = p.fillMin; const legendProp = p.legend; const controlledVisibility = p.visibleSeriesIds !== undefined;
+  useEffect(() => {
+    if (rawFillMin !== undefined && !(rawFillMin >= FILL_MIN_FLOOR)) rowFocusDiagnostic(`fillMin ${rawFillMin} is below ${FILL_MIN_FLOOR}px, where axes and labels stop being readable; using ${FILL_MIN_FLOOR}.`);
+    if (legendProp === false && !controlledVisibility) rowFocusDiagnostic('legend={false} without visibleSeriesIds leaves the user no way to toggle series; pass visibleSeriesIds or keep the legend.');
+  }, [rawFillMin, legendProp, controlledVisibility]);
   const [instanceReady, setInstanceReady] = useState(0);
   // The chart instance's width in px: label budgets are cut from it, so a container resize must reach the option (#399 F3).
   const [chartWidth, setChartWidth] = useState(NOTE_FALLBACK_WIDTH);
@@ -219,7 +236,10 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const usePeriodLegendGrid = periodLegendColumnCount <= 4;
   const visibleIds = useMemo(() => p.visibleSeriesIds === undefined ? null : new Set(p.visibleSeriesIds), [p.visibleSeriesIds]);
   const visible = useMemo(() => allSeries.filter(s => visibleIds ? visibleIds.has(s.id) : !hidden.has(s.id)), [allSeries, hidden, visibleIds]);
-  const pointControls = !!p.pointActivation || !!p.pointActions?.length;
+  const pointActions = p.pointActions;
+  const hasPointActions = typeof pointActions === 'function' || !!pointActions?.length;
+  const pointControls = !!p.pointActivation || hasPointActions;
+  const isPointSelectable = p.isPointSelectable;
   const categories = useMemo(() => (xType === 'category' ? (horizontal ? [...new Set(p.series[0]?.points.map(([x]) => x) ?? [])] : p.series[0]?.points.map(([x]) => x) ?? []) : []), [xType, horizontal, p.series]);
   // With a row pitch the chart is as tall as its rows and `viewportHeight` is only the window the plot box scrolls in.
   const height = rowPitch !== undefined ? rowPitchChartHeight(categories.length, rowPitch) : viewportHeight;
@@ -239,8 +259,11 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   }, [rowPitch, revealActive, activeCategory, categories, pointChart, pointerRequest]);
   // Declared after the reveal effect: the request lives for the render of its own click only, so an ignored one cannot swallow a later outside reveal of the same row.
   useEffect(() => { if (pointerRequest !== null) setPointerRequest(null); }, [pointerRequest]);
-  const points = useMemo(() => pointControls ? displayed.flatMap(s => s.points.map(([x, value]) => ({ x, seriesId: s.id, value }))) : [], [pointControls, displayed]);
+  const points = useMemo(() => pointControls ? displayed.flatMap(s => s.points.map(([x, value]) => ({ x, seriesId: s.id, value })).filter(point => isPointSelectable?.(point) ?? true)) : [], [pointControls, displayed, isPointSelectable]);
   const selectedPoint = points.find(point => pointKey(point) === selectedPointKey) ?? points[0];
+  const actionsFor = useCallback((point: ChartPoint): readonly ChartPointAction[] => (typeof pointActions === 'function' ? pointActions(point) : pointActions ?? []), [pointActions]);
+  const selectedActions = useMemo(() => (selectedPoint ? actionsFor(selectedPoint) : []), [selectedPoint, actionsFor]);
+  const noActions = hasPointActions && selectedActions.length === 0;
   const format = p.valueFormat ?? ((v: number) => v.toLocaleString(lang === 'ko' ? 'ko-KR' : 'en-US', { maximumFractionDigits: 1 }));
   // The tooltip reads the formatter when it opens, so a consumer's new `valueFormat` takes effect without rebuilding the option.
   const formatRef = useRef(format);
@@ -301,7 +324,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   }, [option, brushMode, horizontal, instanceReady]);
 
   const closePointMenu = menu.close;
-  useEffect(() => { if (brushMode || !selectedPoint) closePointMenu(); }, [brushMode, selectedPoint, closePointMenu]);
+  useEffect(() => { if (brushMode || !selectedPoint || noActions) closePointMenu(); }, [brushMode, selectedPoint, noActions, closePointMenu]);
 
   const eventPoint = useCallback((params: PointEvent): ChartPoint | null => {
     if (!params.seriesId || params.seriesId === '__overlay') return null;
@@ -312,8 +335,10 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
       : undefined;
     const x = datum?.[0] ?? (xType === 'time' && Array.isArray(params.value) ? formatDateTime(new Date(params.value[0] as number)) : params.name ?? '');
     const value = datum ? datum[1] : series.points.find(([label]) => label === x)?.[1];
-    return value === undefined ? null : { x, seriesId: series.id, value };
-  }, [displayed, xType]);
+    if (value === undefined) return null;
+    const point = { x, seriesId: series.id, value };
+    return isPointSelectable && !isPointSelectable(point) ? null : point;
+  }, [displayed, xType, isPointSelectable]);
 
   const onEvents = useMemo(() => ({
     brushEnd: (params: { areas?: { coordRange?: [number, number] }[] }, instance: ECharts) => {
@@ -361,11 +386,11 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
       if (point) { setSelectedPointKey(pointKey(point)); activation.onActivate(point); }
     },
     contextmenu: (params: PointEvent) => {
-      if (brushMode || !p.pointActions?.length) return;
+      if (brushMode || !hasPointActions) return;
       const point = eventPoint(params);
-      if (point) { params.event?.event?.preventDefault?.(); setSelectedPointKey(pointKey(point)); openPointMenu(pointChart.current); }
+      if (point) { params.event?.event?.preventDefault?.(); setSelectedPointKey(pointKey(point)); if (actionsFor(point).length > 0) openPointMenu(pointChart.current); }
     },
-  }), [xType, horizontal, onActiveCategoryChange, categories, brushMode, p.onPointClick, p.pointActivation, p.pointActions, pointControls, eventPoint, openPointMenu, pointChart, timeBounds, global.from, global.to, compare, canCompare, closeEditor, rangeActions, setSelectedPointKey]);
+  }), [xType, horizontal, onActiveCategoryChange, categories, brushMode, p.onPointClick, p.pointActivation, hasPointActions, actionsFor, pointControls, eventPoint, openPointMenu, pointChart, timeBounds, global.from, global.to, compare, canCompare, closeEditor, rangeActions, setSelectedPointKey]);
 
   const selectionCounts = selection ? displayed.map(s => {
     const inRange = s.points.filter(([x, y]) => y !== null && (xType === 'time' ? x >= selection.from && x < selection.to : categories.indexOf(x) >= categories.indexOf(selection.from) && categories.indexOf(x) <= categories.indexOf(selection.to)));
@@ -474,10 +499,10 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
             {points.map(point => <option key={pointKey(point)} value={pointKey(point)}>{point.x} · {allSeries.find(s => s.id === point.seriesId)?.name} · {point.value === null ? unknownLabel(lang === 'ko') : format(point.value)}</option>)}
           </select>
           {p.pointActivation && <Button variant="ghost" size="toolbar" disabled={brushMode || !selectedPoint} onClick={() => { if (selectedPoint && !brushMode) p.pointActivation?.onActivate(selectedPoint); }}>{lang === 'ko' ? '선택 지점 실행' : 'Activate selected point'}</Button>}
-          {!!p.pointActions?.length && <DropdownMenu open={menu.open && !brushMode && !!selectedPoint} onOpenChange={open => { if (open) openPointMenu(menu.triggerRef.current); else menu.close(); }}>
-            <DropdownMenuTrigger asChild><Button ref={menu.triggerRef} variant="ghost" size="toolbar" disabled={brushMode || !selectedPoint}>{lang === 'ko' ? '지점 동작' : 'Point actions'}</Button></DropdownMenuTrigger>
+          {hasPointActions && <DropdownMenu open={menu.open && !brushMode && !!selectedPoint && !noActions} onOpenChange={open => { if (open) openPointMenu(menu.triggerRef.current); else menu.close(); }}>
+            <DropdownMenuTrigger asChild><Button ref={menu.triggerRef} variant="ghost" size="toolbar" disabled={brushMode || !selectedPoint || noActions}>{lang === 'ko' ? '지점 동작' : 'Point actions'}</Button></DropdownMenuTrigger>
             <DropdownMenuContent ref={menu.contentRef} align="end" onCloseAutoFocus={menu.onCloseAutoFocus}>
-              {p.pointActions.map(action => <DropdownMenuItem key={action.id} disabled={action.disabled} className="focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring" onSelect={() => { if (selectedPoint && !brushMode) { if (action.keepsFocus) menu.stayOnChart(); action.onSelect(selectedPoint); } }}>{action.label}</DropdownMenuItem>)}
+              {selectedActions.map(action => <DropdownMenuItem key={action.id} disabled={action.disabled} className="focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring" onSelect={() => { if (selectedPoint && !brushMode) { if (action.keepsFocus) menu.stayOnChart(); action.onSelect(selectedPoint); } }}>{action.label}</DropdownMenuItem>)}
             </DropdownMenuContent>
           </DropdownMenu>}
           {brushMode && <span className="text-tiny text-text-secondary">{lang === 'ko' ? '구간 선택 중에는 지점 실행과 동작을 사용할 수 없습니다.' : 'Point activation and actions are unavailable while brushing.'}</span>}
@@ -510,9 +535,9 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
       </div>
     </header>
 
-    <div role="group" aria-label={lang === 'ko' ? '범례' : 'Legend'} className={cn('px-4 pt-2', showPeriodGroups ? 'flex flex-col gap-2' : 'flex flex-wrap items-center gap-x-4 gap-y-1')}>
+    {(p.legend !== false || brushMode || (p.onPointClick && p.pointClickHint)) && <div role={p.legend === false ? undefined : 'group'} aria-label={p.legend === false ? undefined : lang === 'ko' ? '범례' : 'Legend'} className={cn('px-4 pt-2', showPeriodGroups ? 'flex flex-col gap-2' : 'flex flex-wrap items-center gap-x-4 gap-y-1')}>
       {/* eslint-disable-next-line shadcn/no-inline-styles -- legend column count depends on the visible period groups at runtime */}
-      {showPeriodGroups ? usePeriodLegendGrid ? <div data-period-legend-grid className="grid items-center gap-x-4 gap-y-2" style={{ gridTemplateColumns: `repeat(${periodLegendColumnCount + 1}, max-content)` }}>
+      {p.legend === false ? null : showPeriodGroups ? usePeriodLegendGrid ? <div data-period-legend-grid className="grid items-center gap-x-4 gap-y-2" style={{ gridTemplateColumns: `repeat(${periodLegendColumnCount + 1}, max-content)` }}>
         {renderPeriodLegendGroup(currentPeriodId, t('currentPeriod'), p.series, false)}
         {renderPeriodLegendGroup(previousPeriodId, t('previousPeriod'), p.compareSeries ?? [], true)}
       </div> : <>
@@ -521,19 +546,19 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
       </> : allSeries.map(s => renderLegendSeries(s, false))}
       {brushMode && <span className="text-tiny text-accent-primary">{lang === 'ko' ? '차트를 드래그해 구간을 선택하세요' : 'Drag across the chart to select a range'}</span>}
       {p.onPointClick && !brushMode && p.pointClickHint && <span className="text-tiny text-text-muted">{p.pointClickHint}</span>}
-    </div>
+    </div>}
 
     </AnalysisChartPart>
     <AnalysisChartPart enabled={analysisSection !== null} body>
     {allSeries.length > 0 && visible.length === 0 && <p role="status" className="px-4 py-3 text-text-secondary">{lang === 'ko' ? '표시할 시리즈를 모두 껐습니다' : 'All series are turned off'}</p>}
-    <div ref={node => { pointChart.current = node; fill.ref(node); wheelPassThrough(node); }} className={cn('px-2', size === 'fill' && (rowPitch !== undefined ? FILL_PLOT_SCROLL_CLASS : FILL_PLOT_CLASS), rowPitch !== undefined && 'overflow-y-auto')}
+    <div ref={node => { pointChart.current = node; fill.ref(node); wheelPassThrough(node); }} className={cn('px-2', size === 'fill' && (rowPitch !== undefined ? (loweredFill ? FILL_PLOT_SCROLL_BASE_CLASS : FILL_PLOT_SCROLL_CLASS) : (loweredFill ? FILL_PLOT_BASE_CLASS : FILL_PLOT_CLASS)), rowPitch !== undefined && 'overflow-y-auto')}
       // eslint-disable-next-line shadcn/no-inline-styles -- the scroll window is the given height at runtime
-      style={rowPitch !== undefined && size !== 'fill' ? { maxHeight: viewportHeight } : undefined} role={pointControls ? 'group' : undefined} aria-label={pointControls ? (lang === 'ko' ? '차트 지점' : 'Chart points') : undefined} tabIndex={pointControls ? 0 : undefined}
-      onContextMenu={event => { if (p.pointActions?.length) event.preventDefault(); }}
+      style={rowPitch !== undefined && size !== 'fill' ? { maxHeight: viewportHeight } : size === 'fill' && loweredFill ? { minHeight: fillMin } : undefined} role={pointControls ? 'group' : undefined} aria-label={pointControls ? (lang === 'ko' ? '차트 지점' : 'Chart points') : undefined} tabIndex={pointControls ? 0 : undefined}
+      onContextMenu={event => { if (hasPointActions) event.preventDefault(); }}
       onKeyDown={event => {
-        if ((event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) && p.pointActions?.length) {
+        if ((event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) && hasPointActions) {
           event.preventDefault();
-          if (!brushMode && selectedPoint) openPointMenu(pointChart.current);
+          if (!brushMode && selectedPoint && !noActions) openPointMenu(pointChart.current);
         }
       }}><EChart option={option} height={height} onEvents={onEvents} onReady={c => { chart.current = c; setChartWidth(c.getWidth()); setInstanceReady(v => v + 1); }} onResize={setChartWidth}
       ariaLabel={`${typeof p.title === 'string' ? p.title : p.chartId}: ${visible.map(s => s.name).join(', ')}`} /></div>

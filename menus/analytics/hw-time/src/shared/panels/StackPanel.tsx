@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useI18n } from '@ap/kernel';
 import { AnalysisChartFrame, type ChartPoint } from '@ap/components';
 import type { ThemeColorToken } from '@ap/ui/theme';
@@ -17,11 +17,13 @@ export type StackPanelProps = {
   sort?: StackSort;
   /** Segment activation (drill). Receives the series id and the row id the bar belongs to. */
   onActivate?: (segment: { seriesId: string; rowId: string }) => void;
-  /** Row actions in the point menu. Auxiliary rows never reach them or `onActivate`, by mouse or keyboard. */
-  rowActions?: readonly { id: string; label: string; keepsFocus?: boolean; onSelect: (rowId: string) => void }[];
+  /** Row actions in the point menu, evaluated per row (a row already in the trend offers a different one). Auxiliary rows are skipped by the point selector and never reach them or `onActivate`, by mouse or keyboard. */
+  rowActions?: (rowId: string) => readonly { id: string; label: string; keepsFocus?: boolean; onSelect: (rowId: string) => void }[];
 };
 
 const rowPitch = 26;
+/** Detail height floor: a short section (two trend rows under it at 1280×800) still shows a few 26 px rows; above 160 px the axes stay readable. */
+const DETAIL_FILL_MIN = 200;
 
 /** `EQ-001.H1` → `EQ-001 · H1`; an auxiliary row reads `EQ-001 MEG 4.03s` (two decimals, the endpoint's unit; no separators, so the value fits the Frame's label gutter instead of being ellipsized). Labels stay unique per row. */
 export function rowLabel(row: HwTimeRow, lang: 'ko' | 'en' = 'ko') {
@@ -63,13 +65,18 @@ export function StackPanel({ chartId, title, block, visibleSeriesIds, onVisibleS
   const unmeasuredNote = unmeasured === 0 ? undefined
     : lang === 'ko' ? `${missingText(lang)} 값이 있는 행 ${unmeasured}개 — 막대에서는 빈 칸으로 보입니다.` : `${unmeasured} rows have ${missingText(lang).toLowerCase()} values — shown as gaps in the bars.`;
   const rowOf = (point: ChartPoint) => byLabel.get(point.x);
+  const isPointSelectable = useCallback((point: ChartPoint) => byLabel.has(point.x), [byLabel]);
   return <div className="flex min-h-0 flex-1 flex-col gap-1">
     <AnalysisChartFrame
-      chartId={chartId} title={title} description={unmeasuredNote} xType="category" orientation="horizontal" stacked size="fill" rowPitch={rowPitch}
+      chartId={chartId} title={title} description={unmeasuredNote} xType="category" orientation="horizontal" stacked size="fill" fillMin={DETAIL_FILL_MIN} rowPitch={rowPitch}
+      legend={false} isPointSelectable={isPointSelectable}
       series={series} unit={HW_TIME_UNIT[lang]} valueFormat={formatSeconds} canApplyRange={false}
       visibleSeriesIds={visibleSeriesIds} onVisibleSeriesChange={onVisibleSeriesChange}
       pointActivation={onActivate ? { on: 'click', onActivate: point => { const rowId = rowOf(point); if (rowId) onActivate({ seriesId: point.seriesId, rowId }); } } : undefined}
-      pointActions={rowActions?.map(action => ({ id: action.id, label: action.label, keepsFocus: action.keepsFocus, onSelect: (point: ChartPoint) => { const rowId = rowOf(point); if (rowId) action.onSelect(rowId); } }))}
+      pointActions={rowActions && ((point: ChartPoint) => {
+        const rowId = rowOf(point);
+        return rowId ? rowActions(rowId).map(action => ({ id: action.id, label: action.label, keepsFocus: action.keepsFocus, onSelect: () => action.onSelect(rowId) })) : [];
+      })}
     />
   </div>;
 }

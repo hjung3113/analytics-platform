@@ -1,5 +1,5 @@
 import { LineChart } from 'lucide-react';
-import { useLayoutEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useI18n, type QueryState } from '@ap/kernel';
 import { AnalysisChartFrame, QueryView, StateMessage } from '@ap/components';
 import type { ThemeColorToken } from '@ap/ui/theme';
@@ -17,9 +17,8 @@ export type TrendPanelProps = {
   level: number;
 };
 
-/** Header, legend and summary lines the Frame draws around its plot, px (the SDK `fill` size cannot go under 320 px, which a short trend section cannot give). */
-const FRAME_CHROME = 104;
-const MIN_PLOT = 120;
+/** The least trend plot height (the Frame's own floor): a short trend section fits with two rows open at 1280×800. */
+const TREND_FILL_MIN = 160;
 
 /** Daily line per row. No rows → an instruction, not a query. Free of layout. */
 export function TrendPanel({ chartId, title, rowIds, query, level }: TrendPanelProps) {
@@ -34,24 +33,13 @@ export function TrendPanel({ chartId, title, rowIds, query, level }: TrendPanelP
 }
 
 function TrendChart({ chartId, title, data }: { chartId: string; title: string; data: HwTimeTrendData }) {
-  const [box, setBox] = useState<HTMLDivElement | null>(null);
-  const [available, setAvailable] = useState<number | null>(null);
-  useLayoutEffect(() => {
-    if (!box) return;
-    const measure = () => setAvailable(box.getBoundingClientRect().height);
-    measure();
-    if (typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(measure);
-    observer.observe(box);
-    return () => observer.disconnect();
-  }, [box]);
   const { lang } = useI18n();
   const series = useMemo(() => data.rows.map((row, index) => ({
     id: row.id, name: rowIdLabel(row.id), color: TREND_COLORS[index % TREND_COLORS.length]!, kind: 'line' as const,
     points: row.points.map(point => [point.at, point.value] as [string, number | null]),
   })), [data.rows]);
-  return <div ref={setBox} className="min-h-0 flex-1 overflow-hidden">
-    <AnalysisChartFrame chartId={chartId} title={title} xType="category" size="compact" height={Math.max(MIN_PLOT, (available ?? 0) - FRAME_CHROME)} series={series}
+  return <div className="flex flex-1 flex-col">
+    <AnalysisChartFrame chartId={chartId} title={title} xType="category" size="fill" fillMin={TREND_FILL_MIN} series={series}
       unit={HW_TIME_UNIT[lang]} valueFormat={formatSeconds} canApplyRange={false} />
   </div>;
 }

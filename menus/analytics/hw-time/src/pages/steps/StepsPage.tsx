@@ -73,8 +73,10 @@ export default function StepsPage(_props: PageProps) {
     setNotice(null);
     setPage({ trend: formatTrendKey(trendRows.filter(id => id !== rowId)) });
   };
-  // Frame point actions are fixed per chart (SDK gap), so one toggle acts on the selected row's current state.
-  const toggleTrend = (rowId: string) => (trendRows.includes(rowId) ? removeTrend(rowId) : addTrend(rowId));
+  // The Frame evaluates the list for the selected row: one applicable action, L1 (equipment rows) none.
+  const rowActionsOf = (rowId: string) => (!isHwTimeRowId(rowId) ? []
+    : trendRows.includes(rowId) ? [{ id: 'trend-remove', label: ko ? '추세에서 제거' : 'Remove from trend', keepsFocus: true, onSelect: removeTrend }]
+      : [{ id: 'trend-add', label: ko ? '추세에 추가' : 'Add to trend', keepsFocus: true, onSelect: addTrend }]);
 
   const legendTotal = block?.series.length ?? 0;
   const legendShown = block ? block.series.filter(item => !hidden.includes(item.id)).length : 0;
@@ -140,9 +142,7 @@ export default function StepsPage(_props: PageProps) {
       sort={sort}
       onActivate={data.level === 0 ? ({ seriesId }) => drill.enter('drillModule', seriesId)
         : data.level === 1 ? ({ seriesId }) => drill.enter('drillMotion', seriesId) : undefined}
-      rowActions={data.level === 0 ? undefined : [
-        { id: 'trend-toggle', label: ko ? '추세에 추가·제거' : 'Add to / remove from trend', keepsFocus: true, onSelect: toggleTrend },
-      ]} />;
+      rowActions={data.level === 0 ? undefined : rowActionsOf} />;
   };
 
   return <PlatformPage layout="fill">
@@ -151,7 +151,7 @@ export default function StepsPage(_props: PageProps) {
         <Inspector form="stack" persistKey="hw-time-steps" label={{ ko: '분석 보조', en: 'Analysis aids' }} sections={sections} />
       </aside>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
-        {/* Clip: until the Frame fill floor is configurable (#690 690n) the 320 px plot can exceed this share; it must never draw over the trend toggle. */}
+        {/* Clip as a guard: the detail's fill floor (fillMin) is low enough to fit, but the plot must never draw over the trend toggle. */}
         <div className="flex min-h-0 flex-[3] flex-col overflow-hidden">
           <DrillLayout fill summary={summary}>
             <QueryView fill query={levelQ} widgetName={ko ? 'HW Time 단계별' : 'HW Time by level'} hideWidgetName skeletonRows={6}>
@@ -159,14 +159,18 @@ export default function StepsPage(_props: PageProps) {
             </QueryView>
           </DrillLayout>
         </div>
-        <section aria-label={ko ? '추세' : 'Trend'} className={cn('flex min-h-0 flex-col rounded-lg border border-border-subtle bg-surface-card', trendOpen ? 'flex-[2]' : 'shrink-0')}>
-          <Button type="button" variant="ghost" size="sm" aria-expanded={trendOpen} aria-controls={trendId} className="justify-start"
-            onClick={() => setTrendOpen(open => !open)}>
-            <ChevronDown aria-hidden className={cn('size-4 transition-transform', !trendOpen && '-rotate-90')} />
-            {ko ? `추세 (${trendRows.length}행)` : `Trend (${trendRows.length} rows)`}
-          </Button>
-          <div id={trendId} hidden={!trendOpen} className="flex min-h-0 flex-1 flex-col gap-1 px-2 pb-2">
+        {/* No min-h-0 on the trend: its least height is the Frame's chrome (legend, toolbar) plus the plot floor, so a legend that wraps
+          pushes the detail's clipped box up instead of the trend plot out of its card. */}
+        <section aria-label={ko ? '추세' : 'Trend'} className={cn('flex flex-col rounded-lg border border-border-subtle bg-surface-card', trendOpen ? 'flex-[2]' : 'shrink-0')}>
+          <div className="flex items-center gap-2">
+            <Button type="button" variant="ghost" size="sm" aria-expanded={trendOpen} aria-controls={trendId} className="justify-start"
+              onClick={() => setTrendOpen(open => !open)}>
+              <ChevronDown aria-hidden className={cn('size-4 transition-transform', !trendOpen && '-rotate-90')} />
+              {ko ? `추세 (${trendRows.length}행)` : `Trend (${trendRows.length} rows)`}
+            </Button>
             {notice && <p role="status" className="t-caption text-text-warning-label">{notice}</p>}
+          </div>
+          <div id={trendId} hidden={!trendOpen} className="flex flex-1 flex-col gap-1 px-2 pb-2">
             <TrendPanel chartId="hw-time-steps-trend" title={ko ? '행별 일 추세' : 'Daily trend by row'} rowIds={trendRows} query={trendQ} level={drill.depth} />
           </div>
         </section>

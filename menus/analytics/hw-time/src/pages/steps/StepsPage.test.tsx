@@ -16,6 +16,8 @@ vi.mock('@ap/components', async importOriginal => {
   const actual = await importOriginal<typeof import('@ap/components')>();
   function AnalysisChartFrame(props: import('@ap/components').AnalysisChartFrameProps) {
     const categories = [...new Set(props.series.flatMap(s => s.points.map(([x]) => x)))];
+    const selectable = props.series.flatMap(s => s.points.map(([x, value]) => ({ x, seriesId: s.id, value }))).filter(point => props.isPointSelectable?.(point) ?? true);
+    const actionsFor = (point: import('@ap/components').ChartPoint) => (typeof props.pointActions === 'function' ? props.pointActions(point) : props.pointActions ?? []);
     return <section aria-label={String(props.title)} data-chart={props.chartId}>
       {props.description && <p>{props.description}</p>}
       <p data-testid={`${props.chartId}-categories`}>{categories.length}</p>
@@ -24,13 +26,13 @@ vi.mock('@ap/components', async importOriginal => {
       <p data-testid={`${props.chartId}-visible`}>{(props.visibleSeriesIds ?? []).join(',')}</p>
       {props.series.flatMap(s => s.points.filter(([, v]) => v !== null).slice(0, 3).map(([x, v]) =>
         <button key={`${s.id}-${x}`} type="button" onClick={() => props.pointActivation?.onActivate({ x, seriesId: s.id, value: v })}>{`segment ${s.id} ${x}`}</button>))}
-      {/* The point picker lists null points too: every MEG point is reachable from the keyboard. */}
-      {props.series.flatMap(s => s.points.filter(([x]) => x.includes('MEG')).slice(0, 2).map(([x, v]) =>
-        <button key={`pick-${s.id}-${x}`} type="button" onClick={() => props.pointActivation?.onActivate({ x, seriesId: s.id, value: v })}>{`pick ${s.id} ${x}`}</button>))}
-      {categories.filter(x => x.includes('MEG')).slice(0, 1).flatMap(x => (props.pointActions ?? []).map(action =>
-        <button key={`meg-${action.id}-${x}`} type="button" onClick={() => action.onSelect({ x, seriesId: props.series[0]?.id ?? '', value: null })}>{`${action.label} ${x}`}</button>))}
-      {categories.slice(0, 3).flatMap(x => (props.pointActions ?? []).map(action =>
-        <button key={`${action.id}-${x}`} type="button" onClick={() => action.onSelect({ x, seriesId: props.series[0]?.id ?? '', value: null })}>{`${action.label} ${x}`}</button>))}
+      <p data-testid={`${props.chartId}-legend`}>{String(props.legend !== false)}</p>
+      {/* The Frame's selector: points the page marks non-selectable are skipped, so they are neither listed nor reachable. */}
+      <p data-testid={`${props.chartId}-selector`}>{selectable.map(p => p.x).join('|')}</p>
+      {/* The menu list is evaluated for the selected point, as the Frame does. */}
+      {selectable.filter(p => !p.x.includes('MEG')).map(p => p.x).filter((x, i, all) => all.indexOf(x) === i).slice(0, 3).flatMap(x =>
+        actionsFor({ x, seriesId: props.series[0]?.id ?? '', value: null }).map(action =>
+          <button key={`${action.id}-${x}`} type="button" onClick={() => action.onSelect({ x, seriesId: props.series[0]?.id ?? '', value: null })}>{`${action.label} ${x}`}</button>))}
     </section>;
   }
   return { ...actual, AnalysisChartFrame };
@@ -133,10 +135,20 @@ describe('HW Time steps page', () => {
       expect(item.meg[0]).toEqual(['EQ-001 MEG 4.03초', null]);
       expect(item.meg.every(([, value]) => value === null)).toBe(true);
     }
-    fireEvent.click(screen.getByRole('button', { name: 'pick Chuck EQ-001 MEG 4.03초' }));
-    fireEvent.click(screen.getByRole('button', { name: '추세에 추가·제거 EQ-001 MEG 4.03초' }));
+    // The Frame skips them in its selector (isPointSelectable), so no pick or action can name one.
+    expect(screen.getByTestId('hw-time-steps-L2-selector').textContent).not.toContain('MEG');
+    expect(screen.queryByRole('button', { name: /MEG/ })).toBeNull();
     expect(searchParams().get('drillMotion')).toBeNull();
     expect(searchParams().get('trend')).toBeNull();
+  });
+
+  it('hands the Frame no legend of its own (the Inspector owns it) and one applicable action per row', async () => {
+    await renderPage('&drillModule=PM1&trend=EQ-001.H1');
+    expect(screen.getByTestId('hw-time-steps-L2-legend').textContent).toBe('false');
+    expect(screen.getByRole('button', { name: '추세에서 제거 EQ-001 · H1' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: '추세에 추가 EQ-001 · H1' })).toBeNull();
+    expect(screen.getByRole('button', { name: '추세에 추가 EQ-001 · H2' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: '추세에서 제거 EQ-001 · H2' })).toBeNull();
   });
 
   it('rows read EQ-001 · H1 and every stack panel uses a 26 px row pitch', async () => {
@@ -210,11 +222,13 @@ describe('HW Time steps page', () => {
     await renderPage('&drillModule=PM1');
     const toggle = screen.getByRole('button', { name: /^추세 \(0행\)/ });
     expect(toggle.getAttribute('aria-expanded')).toBe('false');
-    fireEvent.click(screen.getByRole('button', { name: '추세에 추가·제거 EQ-001 · H1' }));
+    expect(screen.queryByRole('button', { name: '추세에서 제거 EQ-001 · H1' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: '추세에 추가 EQ-001 · H1' }));
     expect(searchParams().get('trend')).toBe('EQ-001.H1');
     expect((await screen.findByRole('button', { name: /^추세 \(1행\)/ })).getAttribute('aria-expanded')).toBe('true');
     expect(data.trend).toHaveBeenLastCalledWith(['EQ-001.H1'], true);
-    fireEvent.click(screen.getByRole('button', { name: '추세에 추가·제거 EQ-001 · H1' }));
+    expect(screen.queryByRole('button', { name: '추세에 추가 EQ-001 · H1' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: '추세에서 제거 EQ-001 · H1' }));
     expect(searchParams().get('trend')).toBeNull();
     expect((await screen.findByRole('button', { name: /^추세 \(0행\)/ })).getAttribute('aria-expanded')).toBe('false');
   });
@@ -222,6 +236,7 @@ describe('HW Time steps page', () => {
   it('offers no trend action at L1 (equipment ids never match the trend row format) and shows the empty trend copy', async () => {
     await renderPage();
     expect(screen.queryByRole('button', { name: /추세에 추가/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /추세에서 제거/ })).toBeNull();
     expect(screen.queryByRole('checkbox', { name: /벤치마크|그룹별/ })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: /^추세 \(0행\)/ }));
     expect(screen.getByText('행을 추가하세요')).toBeTruthy();
