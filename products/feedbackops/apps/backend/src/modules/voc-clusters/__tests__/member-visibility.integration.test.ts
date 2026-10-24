@@ -134,6 +134,7 @@ describe.skipIf(!runIntegration)('VOC cluster member visibility', () => {
         primaryManagedSystemId: msId,
         reporterId: developer.id,
         title: 'Reporter-owned member',
+        severity: 'high',
       })
     ).id;
     hiddenVocId = (
@@ -150,6 +151,7 @@ describe.skipIf(!runIntegration)('VOC cluster member visibility', () => {
         primaryManagedSystemId: msId,
         reporterId: triageOnly.id,
         title: 'Triage actor owned member',
+        severity: 'critical',
       })
     ).id;
     nonMemberVocId = (
@@ -169,6 +171,7 @@ describe.skipIf(!runIntegration)('VOC cluster member visibility', () => {
               primaryManagedSystemId: scopedMsId,
               reporterId: adminId,
               title,
+              severity: 'medium',
             })
           ).id,
       ),
@@ -271,6 +274,33 @@ describe.skipIf(!runIntegration)('VOC cluster member visibility', () => {
       expect.objectContaining({ voc_id: ownerVocId, title: 'Reporter-owned member' }),
     ]);
   });
+
+  it.each([
+    ['Finding-only reporter', 'developer', 'clusterId', 'ownerVocId', false],
+    ['triage operator reporting their own row', 'triage', 'clusterId', 'triageOwnedVocId', true],
+    ['voc.read operator', 'developer', 'scopedClusterId', 'scopedVocIds', true],
+  ] as const)(
+    'member severity for a %s follows the reporter arm',
+    async (_label, persona, cluster, vocKey, hasSeverity) => {
+      const detail = await app.inject({
+        method: 'GET',
+        url: `/voc-clusters/${cluster === 'clusterId' ? clusterId : scopedClusterId}`,
+        headers: headers(persona === 'developer' ? developerCookie : triageOnlyCookie),
+      });
+      expect(detail.statusCode).toBe(200);
+      const vocIds =
+        vocKey === 'scopedVocIds'
+          ? scopedVocIds
+          : [vocKey === 'ownerVocId' ? ownerVocId : triageOwnedVocId];
+      const members = (detail.json().members as { voc_id: string }[]).filter((m) =>
+        vocIds.includes(m.voc_id),
+      );
+      expect(members).toHaveLength(vocIds.length);
+      for (const member of members) {
+        expect(Object.hasOwn(member, 'severity')).toBe(hasSeverity);
+      }
+    },
+  );
 
   it('reports the authorized member count instead of the total membership count', async () => {
     const detail = await app.inject({

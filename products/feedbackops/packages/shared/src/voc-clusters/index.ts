@@ -67,7 +67,7 @@ export const sameManagedSystemCandidatePeerDtoSchema = z
     voc_id: z.string().uuid(),
     display_id: z.string(),
     title: z.string(),
-    severity: findingSeveritySchema.nullable(),
+    severity: findingSeveritySchema.nullable().optional(),
     reporter_facing_status: z.string(),
   })
   .strict();

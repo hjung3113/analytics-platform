@@ -32,7 +32,9 @@ type Candidate = Omit<SameManagedSystemCandidatePeerDto, 'display_id'> & {
   display_id: string | null;
 };
 
+// Absent severity (reporter-hidden, #696) renders nothing; null is "unset".
 function severityLabel(severity: Candidate['severity']): string {
+  if (severity === undefined) return '';
   return severity === null ? '미지정' : SEVERITY_LABELS[severity];
 }
 
@@ -199,7 +201,9 @@ function AddVocPicker({
                   <div className="flex items-center justify-between gap-2">
                     <span className="flex min-w-0 flex-col items-start text-sm">
                       <span>
-                        {label} · {candidate.title} · {severityLabel(candidate.severity)} ·{' '}
+                        {label} · {candidate.title} ·{' '}
+                        {candidate.severity !== undefined &&
+                          `${severityLabel(candidate.severity)} · `}
                         {statusLabel(candidate.reporter_facing_status)}
                       </span>
                       {!candidate.display_id && (

@@ -17,8 +17,10 @@ internal-triage keys for this arm. Omitted set per surface:
   `owner_user_id`, `owner_team_id`. Create keeps `default_resolved`, `source_rule`
   and `managed_system_id`.
 
-Operators, including a Reporter with operational access, retain every field
-unchanged. Absent means hidden; `null` means visible but unset. `triage_state`
+Cluster members and candidate peers (`GET /voc-clusters/:id`,
+`GET /voc-clusters/:id/candidate-peers`) omit `severity` for rows in the caller's
+reporter arm. Operators, including a Reporter with operational access, retain
+every field unchanged. Absent means hidden; `null` means visible but unset. `triage_state`
 stays on every surface for the arm: the Reporter's own description-edit gate
 reads it and the edit endpoint's 409 returns `detail.current_triage_state`.
 Replacing it needs a Reporter capability field (deferred, see
@@ -168,7 +170,8 @@ Invalid automatic defaults fall through and record the existing diagnostic.
 Explicit Actor/team/null skips defaults. Omission resolves eligible Managed System owner,
 then active same-system Analytics Area owner team, then null fallback. Creation stays
 `untriaged`, with null severity and `received` reporter status. The response and
-`voc_created` audit carry the persisted pair (a reporter-arm response omits the pair and the audit keeps it), `default_resolved`, `source_rule`
+`voc_created` audit carry the persisted pair (a reporter-arm response omits the
+pair and the audit keeps it), `default_resolved`, `source_rule`
 (`explicit`, `managed_system_owner`, `analytics_area_owner`, `workspace_fallback_queue`),
 and `managed_system_id`. Configured-but-invalid skipped candidates append safe diagnostics
 regardless of the final outcome; empty (`missing`) skipped candidates append only when
@@ -346,7 +349,9 @@ validation.failed`); a nonexistent or unreadable Managed System and no peers
 are normal `200 { items: [] }` results. It uses the per-actor read rate-limit
 tier and must not expose embedding availability, scores, totals, or counts.
 
-`GET /vocs` returns a real `similar_count` for each list item. `GET /vocs/:id`
+`GET /vocs` returns a real `similar_count` for each operator list item
+(reporter-arm rows omit it, #696 — §Reporter-safe VOC wire projection).
+`GET /vocs/:id`
 returns that same sole total plus `similar: { items }`; items are capped at
 three, ordered `created_at DESC, id DESC`, and contain only `id`, `display_id`,
 `title`, `reporter_facing_status`, and `severity`.

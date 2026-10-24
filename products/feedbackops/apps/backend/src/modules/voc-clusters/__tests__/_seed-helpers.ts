@@ -43,20 +43,27 @@ export async function insertVocRow(
     primaryManagedSystemId: string;
     reporterId: string;
     title?: string;
+    severity?: 'low' | 'medium' | 'high' | 'critical';
   },
 ): Promise<{ id: string }> {
   const res = await dbHandle.pool.query<{ id: string }>(
     `insert into voc.vocs (
         workspace_id, primary_managed_system_id, reporter_id, display_id, title,
-        description_rich_content, source_context, reporter_facing_status, triage_state
+        description_rich_content, source_context, reporter_facing_status, triage_state, severity
       )
      values (
         $1, $2, $3, voc.next_voc_display_id($1::uuid), $4,
         '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"body"}]}]}'::jsonb,
-        'direct_use', 'received', 'untriaged'
+        'direct_use', 'received', 'untriaged', $5
       )
      returning id`,
-    [input.workspaceId, input.primaryManagedSystemId, input.reporterId, input.title ?? 'Seed VOC'],
+    [
+      input.workspaceId,
+      input.primaryManagedSystemId,
+      input.reporterId,
+      input.title ?? 'Seed VOC',
+      input.severity ?? null,
+    ],
   );
   const id = res.rows[0]?.id;
   if (!id) throw new Error(`insertVocRow failed for title=${input.title ?? 'Seed VOC'}`);

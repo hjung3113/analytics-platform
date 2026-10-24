@@ -25,7 +25,7 @@ import {
 } from '../findings/authorization.js';
 import { lockManagedSystem } from '../managed-systems/index.js';
 import type { CheckService } from '../permissions/check-service.js';
-import { actorReadScope } from '../voc/authorization.js';
+import { actorEffectiveScope, actorReadScope, inReporterArm } from '../voc/authorization.js';
 import type { ConversationService } from '../voc/conversation-service.js';
 import { type Scope, isVocVisibleToActor, selectVocForUpdate } from '../voc/index.js';
 import { createVocClusterConversion } from './conversion.js';
@@ -141,6 +141,23 @@ async function canManageCluster(
     options,
   );
   return decision.allow;
+}
+
+// #696: a row the caller reported without voc.read/voc.triage on its Managed System is in the
+// reporter arm; its operator-only `severity` is dropped (the key, not nulled).
+function isReporterArmRow(
+  effectiveScope: Scope,
+  actorId: string,
+  row: { reporter_id?: string; primary_managed_system_id?: string },
+): boolean {
+  return (
+    row.primary_managed_system_id !== undefined &&
+    inReporterArm({
+      isReporter: row.reporter_id === actorId,
+      effectiveScope,
+      managedSystemId: row.primary_managed_system_id,
+    })
+  );
 }
 
 function isAuthorizedMember(
@@ -331,6 +348,12 @@ export function createVocClustersService(deps: VocClustersServiceDeps) {
       await listVocClusterMembers(deps.db, { clusterId: row.id }),
       row.primary_managed_system_id,
     );
+    const effectiveScope = await actorEffectiveScope(deps.db, args.actor);
+    const projectedMembers = members.map((member) => {
+      if (!isReporterArmRow(effectiveScope, args.actor.actor_id, member)) return member;
+      const { severity: _hidden, ...rest } = member;
+      return rest;
+    });
     const findingReadScope = await actorFindingReadScope(deps.db, args.actor, {
       requireElevatedRole: true,
     });
@@ -339,7 +362,7 @@ export function createVocClustersService(deps: VocClustersServiceDeps) {
       clusterIds: [row.id],
       findingReadScope,
     });
-    return clusterToDto({ ...row, member_count: members.length }, members, linkedFindings);
+    return clusterToDto({ ...row, member_count: members.length }, projectedMembers, linkedFindings);
   }
 
   async function listCandidatePeers(args: {
@@ -370,6 +393,7 @@ export function createVocClustersService(deps: VocClustersServiceDeps) {
       ...(args.q === undefined ? {} : { q: args.q }),
       ...(cursor === undefined ? {} : { cursor }),
     });
+    const effectiveScope = await actorEffectiveScope(deps.db, args.actor);
     const hasMore = rows.length > args.limit;
     const pageRows = rows.slice(0, args.limit);
     const last = pageRows.at(-1);
@@ -380,7 +404,12 @@ export function createVocClustersService(deps: VocClustersServiceDeps) {
         voc_id: candidate.voc_id,
         display_id: candidate.display_id,
         title: candidate.title,
-        severity: candidate.severity,
+        ...(isReporterArmRow(effectiveScope, args.actor.actor_id, {
+          reporter_id: candidate.reporter_id,
+          primary_managed_system_id: cluster.primary_managed_system_id,
+        })
+          ? {}
+          : { severity: candidate.severity }),
         reporter_facing_status: candidate.reporter_facing_status,
       })),
       page: {
