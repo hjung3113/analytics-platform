@@ -15,6 +15,7 @@ import { buildChartOption, linePattern, resolveChartPalette } from './buildChart
 import { useAnnotationDeleteFocus, useAnnotationEditor } from './useAnnotationEditor';
 import { useChartRange, type ClipResult, type Selection } from './useChartRange';
 import { usePointMenu } from './usePointMenu';
+import { clampRowPitch, revealScrollTop, rowFocusDiagnostic, rowPitchChartHeight, ROW_PITCH_MIN } from './analysisChartGeometry';
 
 import { AnalysisChartPart, ChartHeading, ChartTrustFooter } from './analysisChartFrameParts';
 
@@ -29,6 +30,8 @@ export type ChartSeries = {
   dashed?: boolean;
 };
 
+/** FILL_PLOT_CLASS with its overflow-hidden split, so the row-pitch window scrolls vertically only. */
+const FILL_PLOT_SCROLL_CLASS = 'min-h-80 grow basis-0 overflow-x-hidden overflow-y-auto';
 /** Capture-phase on the plot wrapper: without Shift the wheel never reaches zrender, so the browser scrolls the nearest container. No preventDefault. */
 const stopPlainWheel = (event: WheelEvent) => { if (!event.shiftKey) event.stopPropagation(); };
 /** The width assumed before the chart instance exists. */
@@ -128,6 +131,17 @@ export type AnalysisChartFrameProps = {
   markLines?: { y: number; label: string }[];
   extraActions?: ReactNode;
   stacked?: boolean;
+  /**
+   * Horizontal category charts only (ignored elsewhere, with a dev warning). Controlled row highlight: while the prop is present (null = no row)
+   * the frame never changes its own highlight; it draws a border on that row's bars and a bold category label, and names the row in the selection summary.
+   */
+  activeCategory?: string | null;
+  /** A bar click ('pointer') or the point picker moving to a row ('keyboard'). On a click this runs before `pointActivation.onActivate`; the two are separate (06 §16, ADR-0079). */
+  onActiveCategoryChange?: (category: string | null, how: 'pointer' | 'keyboard') => void;
+  /** With `rowPitch`: when `activeCategory` changes from outside, scroll that row into view inside the frame. Never moves focus; a change that came from this frame's own click does not scroll. */
+  revealActive?: boolean;
+  /** Horizontal only: px per row, minimum 24 (WCAG 2.2 2.5.8). The plot becomes `rows × pitch + axes` tall and scrolls inside the frame; category zoom is off, Brush stays. Menus cap the rows through the endpoint's `limits.maxRows` (06 §15). */
+  rowPitch?: number;
 };
 
 /**
@@ -141,7 +155,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const size = resolveAnalysisChartSize(p.size, analysisSection);
   const compact = size === 'compact';
   const fill = useElementHeight(size === 'fill');
-  const height = p.height ?? (size === 'fill' ? fillChartHeight(fill.height) : analysisChartHeight(size, 260));
+  const viewportHeight = p.height ?? (size === 'fill' ? fillChartHeight(fill.height) : analysisChartHeight(size, 260));
   const { setGlobal, toast, global, adapter, route, url } = usePlatform();
   const features = route?.menu.features;
   const canCompare = !!features?.compare && !!p.compareSeries?.length;
@@ -174,6 +188,16 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
     node?.addEventListener('wheel', stopPlainWheel, { capture: true, passive: true });
   }, []);
   const [compare, setCompare] = useState(false);
+  const activeCategory = horizontal ? p.activeCategory : undefined;
+  const rowPitch = horizontal && p.rowPitch !== undefined ? clampRowPitch(p.rowPitch) : undefined;
+  // The category the last pointer click reported: the row is already visible, so that echo must not scroll.
+  const ownPointerCategory = useRef<string | null>(null);
+  const revealedCategory = useRef<string | null | undefined>(undefined);
+  const { rowPitch: rawRowPitch, activeCategory: rawActive, onActiveCategoryChange, revealActive } = p;
+  useEffect(() => {
+    if (!horizontal && (rawRowPitch !== undefined || rawActive !== undefined || onActiveCategoryChange || revealActive)) rowFocusDiagnostic('activeCategory, onActiveCategoryChange, revealActive and rowPitch apply only to orientation="horizontal" with a category x axis; ignored.');
+    if (horizontal && rawRowPitch !== undefined && !(rawRowPitch >= ROW_PITCH_MIN)) rowFocusDiagnostic(`rowPitch ${rawRowPitch} is below the ${ROW_PITCH_MIN}px target size; using ${ROW_PITCH_MIN}.`);
+  }, [horizontal, rawRowPitch, rawActive, onActiveCategoryChange, revealActive]);
   // Bumped from onReady: imperative instance effects below must replay once the lazy EChartImpl
   // creates the instance (a Brush click during chunk load would otherwise never reach it, #48 P1).
   const [instanceReady, setInstanceReady] = useState(0);
@@ -195,8 +219,23 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const visible = useMemo(() => allSeries.filter(s => visibleIds ? visibleIds.has(s.id) : !hidden.has(s.id)), [allSeries, hidden, visibleIds]);
   const pointControls = !!p.pointActivation || !!p.pointActions?.length;
   const categories = useMemo(() => (xType === 'category' ? (horizontal ? [...new Set(p.series[0]?.points.map(([x]) => x) ?? [])] : p.series[0]?.points.map(([x]) => x) ?? []) : []), [xType, horizontal, p.series]);
+  // With a row pitch the chart is as tall as its rows and `viewportHeight` is only the window the plot box scrolls in.
+  const height = rowPitch !== undefined ? rowPitchChartHeight(categories.length, rowPitch) : viewportHeight;
   // Horizontal consumers share the plotted axis and first-occurrence value policy.
   const displayed = useMemo(() => horizontal ? visible.map(s => ({ ...s, points: categories.map(x => [x, s.points.find(([label]) => label === x)?.[1] ?? null] as [string, number | null]) })) : visible, [horizontal, visible, categories]);
+  // revealActive: an outside change of the active row scrolls it into the plot window (grid top + index × pitch). Focus never moves.
+  useEffect(() => {
+    if (rowPitch === undefined || !revealActive || activeCategory == null) { revealedCategory.current = activeCategory; return; }
+    if (revealedCategory.current === activeCategory) return;
+    revealedCategory.current = activeCategory;
+    const own = ownPointerCategory.current === activeCategory;
+    ownPointerCategory.current = null;
+    const node = pointChart.current;
+    const index = categories.indexOf(activeCategory);
+    if (own || !node || index < 0) return;
+    const target = revealScrollTop(index, rowPitch, node.scrollTop, node.clientHeight);
+    if (target !== null) node.scrollTop = target;
+  }, [rowPitch, revealActive, activeCategory, categories, pointChart]);
   const points = useMemo(() => pointControls ? displayed.flatMap(s => s.points.map(([x, value]) => ({ x, seriesId: s.id, value }))) : [], [pointControls, displayed]);
   const selectedPoint = points.find(point => pointKey(point) === selectedPointKey) ?? points[0];
   const format = p.valueFormat ?? ((v: number) => v.toLocaleString(lang === 'ko' ? 'ko-KR' : 'en-US', { maximumFractionDigits: 1 }));
@@ -248,10 +287,10 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
     // A new chart instance replays the option: the lazy chunk and theme CSS may have settled since the tokens were last resolved.
     void instanceReady;
     return buildChartOption({
-      displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations, noteSpans, noteLevels, timeExtent, chartWidth, markLines, unit, lang, stacked, valueFormat,
+      displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations, noteSpans, noteLevels, timeExtent, chartWidth, markLines, unit, lang, stacked, valueFormat, rowPitch, activeCategory,
       palette: resolveChartPalette(displayed),
     });
-  }, [displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations, noteSpans, noteLevels, timeExtent, chartWidth, markLines, unit, lang, stacked, valueFormat, instanceReady]);
+  }, [displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations, noteSpans, noteLevels, timeExtent, chartWidth, markLines, unit, lang, stacked, valueFormat, rowPitch, activeCategory, instanceReady]);
 
   // Re-arm the brush cursor after each option replacement, and once the instance becomes ready.
   useEffect(() => {
@@ -299,6 +338,8 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
       const point = eventPoint(params);
       if (!point) return;
       if (pointControls) setSelectedPointKey(pointKey(point));
+      // Row focus first, then activation: a click focuses the row and (on: 'click') also activates the point.
+      if (horizontal && onActiveCategoryChange) { ownPointerCategory.current = point.x; onActiveCategoryChange(point.x, 'pointer'); }
       // Native double-click recognition is OS-defined; no timer can safely commit a click first.
       const onPointClick = p.onPointClick;
       const pointActivation = p.pointActivation;
@@ -318,7 +359,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
       const point = eventPoint(params);
       if (point) { params.event?.event?.preventDefault?.(); setSelectedPointKey(pointKey(point)); openPointMenu(pointChart.current); }
     },
-  }), [xType, categories, brushMode, p.onPointClick, p.pointActivation, p.pointActions, pointControls, eventPoint, openPointMenu, pointChart, timeBounds, global.from, global.to, compare, canCompare, closeEditor, rangeActions, setSelectedPointKey]);
+  }), [xType, horizontal, onActiveCategoryChange, categories, brushMode, p.onPointClick, p.pointActivation, p.pointActions, pointControls, eventPoint, openPointMenu, pointChart, timeBounds, global.from, global.to, compare, canCompare, closeEditor, rangeActions, setSelectedPointKey]);
 
   const selectionCounts = selection ? displayed.map(s => {
     const inRange = s.points.filter(([x, y]) => y !== null && (xType === 'time' ? x >= selection.from && x < selection.to : categories.indexOf(x) >= categories.indexOf(selection.from) && categories.indexOf(x) <= categories.indexOf(selection.to)));
@@ -374,7 +415,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   // (ADR-0067 decision 21); notes, errors and the confirm row keep their place. Other sizes always show them.
   const rangeUi = size !== 'fill' || brushMode || !!selection;
   const annotationAlert = canAnnotate && scopeId !== null && !!editor.query.response && !['ok', 'empty'].includes(editor.query.response.outcome);
-  const showSummary = rangeUi || !!clipNotice || !!preview || note !== null || annotations.length > 0 || annotationAlert;
+  const showSummary = rangeUi || !!clipNotice || !!preview || note !== null || annotations.length > 0 || annotationAlert || (activeCategory !== undefined && activeCategory !== null);
   useEffect(() => {
     if (!focusRangeForm.current || !brushMode) return;
     focusRangeForm.current = false;
@@ -422,7 +463,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
       <div role="toolbar" aria-label={lang === 'ko' ? '차트 동작' : 'Chart actions'} className="ml-auto flex flex-wrap items-center justify-end gap-1">
         {pointControls && <div className="flex flex-wrap items-center gap-1">
           <select aria-label={lang === 'ko' ? '차트 지점 선택' : 'Select chart point'} value={selectedPoint ? pointKey(selectedPoint) : ''} disabled={brushMode || !points.length}
-            className="max-w-56 rounded-md border border-border-control bg-surface-card px-2 py-1 text-xs" onChange={event => setSelectedPointKey(event.target.value)}>
+            className="max-w-56 rounded-md border border-border-control bg-surface-card px-2 py-1 text-xs" onChange={event => { setSelectedPointKey(event.target.value); const picked = points.find(point => pointKey(point) === event.target.value); if (horizontal && picked) p.onActiveCategoryChange?.(picked.x, 'keyboard'); }}>
             {!points.length && <option value="">{lang === 'ko' ? '선택할 지점 없음' : 'No points available'}</option>}
             {points.map(point => <option key={pointKey(point)} value={pointKey(point)}>{point.x} · {allSeries.find(s => s.id === point.seriesId)?.name} · {point.value === null ? unknownLabel(lang === 'ko') : format(point.value)}</option>)}
           </select>
@@ -437,7 +478,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
         </div>}
         {p.extraActions != null && <div className="flex items-center gap-1">{p.extraActions}</div>}
         <div className="flex flex-wrap items-center gap-1">
-          <Button variant="ghost" size="toolbar" onClick={rangeActions.zoomIn} title={lang === 'ko' ? '확대 (Shift+휠도 가능)' : 'Zoom in (Shift+wheel)'}><ZoomIn className="size-3.5" aria-hidden />{lang === 'ko' ? '확대' : 'Zoom'}</Button>
+          {rowPitch === undefined && <Button variant="ghost" size="toolbar" onClick={rangeActions.zoomIn} title={lang === 'ko' ? '확대 (Shift+휠도 가능)' : 'Zoom in (Shift+wheel)'}><ZoomIn className="size-3.5" aria-hidden />{lang === 'ko' ? '확대' : 'Zoom'}</Button>}
           <Button ref={brushToggle} variant={brushMode ? 'secondary' : 'ghost'} size="toolbar" aria-pressed={brushMode} onClick={event => { if (size === 'fill' && !brushMode && event.detail === 0) focusRangeForm.current = true; rangeActions.toggleBrush(); }}><BrushIcon className="size-3.5" aria-hidden />{lang === 'ko' ? '구간 선택' : 'Brush'}</Button>
           {showKeyboard && <div role="group" aria-label={lang === 'ko' ? '빠른 구간 선택' : 'Quick range'} className="flex items-center gap-1">
             {oneHour && <Button variant="ghost" size="toolbar" onClick={() => commitRange(oneHour)}>{lang === 'ko' ? '1시간' : '1h'}</Button>}
@@ -479,7 +520,9 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
     </AnalysisChartPart>
     <AnalysisChartPart enabled={analysisSection !== null} body>
     {allSeries.length > 0 && visible.length === 0 && <p role="status" className="px-4 py-3 text-text-secondary">{lang === 'ko' ? '표시할 시리즈를 모두 껐습니다' : 'All series are turned off'}</p>}
-    <div ref={node => { pointChart.current = node; fill.ref(node); wheelPassThrough(node); }} className={cn('px-2', size === 'fill' && FILL_PLOT_CLASS)} role={pointControls ? 'group' : undefined} aria-label={pointControls ? (lang === 'ko' ? '차트 지점' : 'Chart points') : undefined} tabIndex={pointControls ? 0 : undefined}
+    <div ref={node => { pointChart.current = node; fill.ref(node); wheelPassThrough(node); }} className={cn('px-2', size === 'fill' && (rowPitch !== undefined ? FILL_PLOT_SCROLL_CLASS : FILL_PLOT_CLASS), rowPitch !== undefined && 'overflow-y-auto')}
+      // eslint-disable-next-line shadcn/no-inline-styles -- the scroll window is the given height at runtime
+      style={rowPitch !== undefined && size !== 'fill' ? { maxHeight: viewportHeight } : undefined} role={pointControls ? 'group' : undefined} aria-label={pointControls ? (lang === 'ko' ? '차트 지점' : 'Chart points') : undefined} tabIndex={pointControls ? 0 : undefined}
       onContextMenu={event => { if (p.pointActions?.length) event.preventDefault(); }}
       onKeyDown={event => {
         if ((event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) && p.pointActions?.length) {
@@ -521,6 +564,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
         </Select>
         <Button size="toolbar" onClick={() => commitRange(draft)}>{lang === 'ko' ? '선택' : 'Select'}</Button>
       </div>}
+      {activeCategory != null && <p className="mb-1 font-semibold">{lang === 'ko' ? '활성 행' : 'Active row'}: {activeCategory}</p>}
       {!selection ? rangeUi && <span className="text-text-secondary">{showKeyboard
         ? (lang === 'ko' ? '선택 구간 없음 — 시작·끝이나 빠른 구간, 또는 구간 선택으로 구간을 선택하면 요약·주석·구간 적용을 할 수 있습니다.' : 'No selection — choose a start and end, a quick range, or brush a range to summarize, annotate or apply it.')
         : (lang === 'ko' ? '선택 구간 없음 — 구간 선택으로 구간을 선택하면 요약·주석·구간 적용을 할 수 있습니다.' : 'No selection — brush a range to summarize, annotate or apply it.')}</span>

@@ -909,6 +909,8 @@ Primary candidate는 `04_frontend_ui_ux.md`에 따라 Apache ECharts다.
 
 `AnalysisChartFrame`의 그림 위에서 수정키 없는 휠은 가장 가까운 스크롤 컨테이너를 그대로 스크롤하고(프레임이 막지 않는다), Shift+휠이 확대이며 키보드·포인터 대안은 툴바 `확대` 버튼이다(#700).
 
+**가로 막대의 행 포커스와 `rowPitch`([ADR-0079](adr/0079-chart-row-focus-row-pitch.md), #690).** `orientation="horizontal"` 범주 차트만 받는다(그 밖에서는 무시하고 개발 중 경고). `activeCategory`가 있으면(`null` = 행 없음) 프레임은 그 행만 강조하고 스스로 강조 상태를 바꾸지 않는다 — 막대 클릭은 `onActiveCategoryChange(category, 'pointer')`, 지점 선택기의 이동은 `(category, 'keyboard')`만 부르며 소유자는 메뉴 하나다. 강조는 색만이 아니라 그 행 막대의 테두리와 굵은 범주 라벨이고, 선택 요약이 `활성 행`을 적는다. prop이 없으면 강조는 없고 기존 동작 그대로다. 행 포커스와 `pointActivation`은 별개다: 한 번의 클릭은 먼저 행 콜백을 부르고, `on: 'click'`이면 이어서 `onActivate`를 부르며, 키보드 실행은 `선택 지점 실행`이다. `rowPitch`(px, 최소 24 — WCAG 2.2 2.5.8 대상 크기, 미만은 24로 올리고 개발 중 경고)는 차트 높이를 `행 수 × pitch + 축 여백`으로 만들고 플롯 상자가 주어진 `height`/`size`(`fill` 포함)만큼의 창으로 안에서 세로 스크롤한다. 수정키 없는 휠은 가장 가까운 스크롤 컨테이너, 곧 이 안쪽 상자를 스크롤하고 끝에서 바깥으로 넘어간다(위 #700 규칙 그대로). **`rowPitch`에서는 범주 `dataZoom`(Shift+휠, `확대` 버튼)이 꺼지고 Brush는 유지한다** — viewport 모델이 둘이면 선택 요약·Brush 범위·내보내기가 어느 창 기준인지 모호해진다. `revealActive`는 `activeCategory`가 밖에서 바뀔 때 그 행이 창 밖이면 `격자 위 여백 + 인덱스 × pitch`로 스크롤하며(순수 `revealScrollTop`) 포커스는 옮기지 않고, 프레임 자신의 클릭에서 온 변경은 스크롤하지 않는다. 프레임은 행 수 상한을 두지 않는다: 메뉴가 엔드포인트의 `limits.maxRows`로 자르고(§15 행 상한, §19 `too_large`) 전체 데이터를 프런트로 보내지 않는다(§27).
+
 공통 Toolbar vocabulary:
 
 ```text
