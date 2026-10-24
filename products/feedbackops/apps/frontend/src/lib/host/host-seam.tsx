@@ -16,6 +16,17 @@ export type HostLinkProps = {
   children: ReactNode;
 } & Record<string, unknown>;
 
+/** One notice a screen raises through its host: a plain toast, one with a single action, or the undo look. */
+export type HostNotice = {
+  tone: 'success' | 'error' | 'warning' | 'info';
+  message: string;
+  description?: string;
+  action?: { label: string; onAction: () => void };
+  durationMs?: number;
+  /** `undo` is the standalone app's undo toast (`action` is its button); a host without that look may draw it as any action notice. */
+  variant?: 'undo';
+};
+
 /**
  * What a screen that is mounted in more than one host (standalone app, platform
  * bridge) needs from its host. Screens exported through `src/global-screens`
@@ -35,6 +46,11 @@ export type HostSeam = {
   useSearch?: () => HostSearch;
   /** Sets the document title while the caller is mounted; `null` releases it. */
   useTitle?: (title: string | null) => void;
+  /** Shows a notice and returns its id; `dismiss(id)` removes it early. */
+  notify?: (notice: HostNotice) => string;
+  dismiss?: (id: string) => void;
+  /** The current screen as an FeedbackOps path+query (+ hash), parseable against any origin. */
+  useHere?: () => string;
 };
 
 export type HostNavigate = (to: string, options?: { replace?: boolean }) => void;
@@ -76,6 +92,21 @@ export function useHostTitle(title: string | null): void {
   const { useTitle } = useHostSeam();
   if (useTitle === undefined) throw new Error('HostSeamProvider is missing');
   useTitle(title);
+}
+
+export function useHostNotice(): {
+  notify: (notice: HostNotice) => string;
+  dismiss: (id: string) => void;
+} {
+  const { notify, dismiss } = useHostSeam();
+  if (notify === undefined || dismiss === undefined) throw new Error('HostSeamProvider is missing');
+  return { notify, dismiss };
+}
+
+export function useHostHere(): string {
+  const { useHere } = useHostSeam();
+  if (useHere === undefined) throw new Error('HostSeamProvider is missing');
+  return useHere();
 }
 
 /** Passes every prop (and the ref React 19 forwards as a prop) through: Radix `asChild` injects them. */

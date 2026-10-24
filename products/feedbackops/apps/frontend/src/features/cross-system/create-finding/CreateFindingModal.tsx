@@ -7,6 +7,8 @@ import type { ApiError } from '@/lib/api/types';
 import { useIdempotencyKey } from '@/lib/api/useIdempotencyKey';
 import { FINDING_SEVERITY_LABELS } from '@/lib/copy/enum-labels';
 import { analyticsAreasCatalogQuery } from '@/lib/cross-system/analyticsAreasCatalog';
+import { useHostHere, useHostNavigate, useHostSeam } from '@/lib/host/host-seam';
+import { searchHref } from '@/lib/host/search';
 import {
   type CreateFindingRequest,
   type FindingSeverity,
@@ -32,10 +34,8 @@ import {
 } from '@fops/ui';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
-import { useLocation, useNavigate } from '@tanstack/react-router';
 import * as React from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { toast } from 'sonner';
 import { useCreateFindingFromVocMutation } from './useCreateFindingFromVocMutation';
 
 // ── Props ─────────────────────────────────────────────────────────────────────
@@ -78,8 +78,9 @@ export function CreateFindingModal({
   onClose,
   onCreated,
 }: CreateFindingModalProps): React.ReactElement {
-  const navigate = useNavigate();
-  const location = useLocation();
+  const navigate = useHostNavigate();
+  const here = useHostHere();
+  const { notifyError } = useHostSeam();
   const [editedFields, setEditedFields] = React.useState(INITIAL_TEXT_FIELD_INTERACTION);
   const { key: idempotencyKey, markConsumed } = useIdempotencyKey();
 
@@ -92,7 +93,7 @@ export function CreateFindingModal({
   React.useEffect(() => {
     if (!open) return;
     try {
-      const url = new URL(location.href, 'http://feedbackops.local');
+      const url = new URL(here, 'http://feedbackops.local');
       if (url.pathname !== '/vocs' || url.hash) {
         returnToRef.current = undefined;
         return;
@@ -102,7 +103,7 @@ export function CreateFindingModal({
     } catch {
       returnToRef.current = undefined;
     }
-  }, [open, location.href, vocId]);
+  }, [open, here, vocId]);
 
   const mutation = useCreateFindingFromVocMutation({ idempotencyKey });
 
@@ -185,16 +186,15 @@ export function CreateFindingModal({
           onCreated?.();
           onClose();
           const returnTo = returnToRef.current;
-          void navigate({
-            to: '/findings',
-            search: {
+          navigate(
+            searchHref('/findings', {
               selected: finding.id,
               ...(returnTo !== undefined ? { returnTo } : {}),
-            },
-          });
+            }),
+          );
         },
         onError: (err: ApiError) => {
-          toast.error(errorMapper(err.envelope).message);
+          notifyError(errorMapper(err.envelope).message);
         },
       },
     );

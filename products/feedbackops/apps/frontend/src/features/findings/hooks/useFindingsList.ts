@@ -2,7 +2,7 @@
 // Optional managed_system_id and execution=none mirror the backend query params.
 // Absent execution leaves the list unfiltered.
 
-import { apiRequest } from '@/lib/api';
+import { apiRequest } from '@/lib/api/client';
 import { ApiError, ApiParseError } from '@/lib/api/types';
 import { placeholderDataForSearchOnly } from '@/lib/query/placeholder-data-for-search';
 import { listFindingsResponseSchema } from '@fops/shared';

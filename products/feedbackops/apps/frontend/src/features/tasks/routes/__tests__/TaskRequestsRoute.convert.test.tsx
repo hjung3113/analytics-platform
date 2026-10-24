@@ -131,14 +131,12 @@ vi.mock('sonner', () => ({ toast }));
 vi.mock('@/features/findings/public', () => ({
   useFindingDetail: api.useFindingDetail,
 }));
-vi.mock('@/lib/api/analytics-areas', () => ({
-  fetchAnalyticsAreas: api.fetchAnalyticsAreas,
-}));
 vi.mock('@/lib/api/milestones', () => ({
   listMilestones: vi.fn(),
 }));
 vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api/registry-reads')>()),
+  fetchAnalyticsAreas: api.fetchAnalyticsAreas,
   fetchManagedSystems: vi.fn(async () => ({
     items: [{ id: taskRequest.primary_managed_system_id, name: 'Billing Ops' }],
   })),

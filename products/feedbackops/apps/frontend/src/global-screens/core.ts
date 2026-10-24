@@ -7,7 +7,7 @@ export { configureApiClient } from '@/lib/api/client';
 export { InboxPanel } from '@/features/home/InboxPanel';
 export { useUnreadNotificationCount } from '@/lib/cross-system/useUnreadNotificationCount';
 export type { DetailParts } from '@/lib/host/detail-parts';
-export type { HostLinkProps, HostNavigate, HostSeam } from '@/lib/host/host-seam';
+export type { HostLinkProps, HostNavigate, HostNotice, HostSeam } from '@/lib/host/host-seam';
 export type { HostSearch } from '@/lib/host/search';
 export { createFoQueryClient } from '@/lib/query/query-client';
 export { FoScreenRoot } from './FoScreenRoot';

@@ -44,13 +44,10 @@ vi.mock('@/lib/api', () => ({
 }));
 
 vi.mock('@/lib/api/registry-reads', () => ({
+  fetchAnalyticsAreas: vi.fn(async () => ({ items: [], total: 0 })),
   fetchManagedSystems: vi.fn(async () => ({
     items: [{ id: IDS.managedSystem, name: 'Billing Ops', archived_at: null }],
   })),
-}));
-
-vi.mock('@/lib/api/analytics-areas', () => ({
-  fetchAnalyticsAreas: vi.fn(async () => ({ items: [], total: 0 })),
 }));
 
 vi.mock('@/lib/auth/useMe', () => ({ useMe: vi.fn() }));

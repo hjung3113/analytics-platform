@@ -28,15 +28,12 @@ vi.mock('@/lib/cross-system/useWorkspaceActors', () => ({
 
 vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api/registry-reads')>()),
-  fetchManagedSystems: vi.fn(async () => ({
-    items: [{ id: IDS.msPowerBi, name: 'Power BI', archived_at: null }],
-    total: 1,
-  })),
-}));
-
-vi.mock('@/lib/api/analytics-areas', () => ({
   fetchAnalyticsAreas: vi.fn(async () => ({
     items: [{ id: IDS.areaProduct, name: 'Product Usage' }],
+    total: 1,
+  })),
+  fetchManagedSystems: vi.fn(async () => ({
+    items: [{ id: IDS.msPowerBi, name: 'Power BI', archived_at: null }],
     total: 1,
   })),
 }));

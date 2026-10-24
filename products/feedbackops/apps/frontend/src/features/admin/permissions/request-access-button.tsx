@@ -28,18 +28,16 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { type ReactNode, useMemo, useState } from 'react';
 
 import { mapUnknownError } from '@/lib/api/errorMapper';
+import {
+  type CreatePermissionRequestSuccess,
+  createPermissionRequest,
+  permissionRequestsMineKey,
+} from '@/lib/api/permission-requests';
+import { ApiError } from '@/lib/api/types';
 import { getCapabilityDisplayLabel } from '@/lib/copy/capabilities';
 import { GLOSSARY } from '@/lib/copy/glossary';
 import { useManagedSystemNames } from '@/lib/cross-system/useManagedSystemNames';
-import {
-  permissionCheckQueryKey,
-  permissionRequestsMineKey,
-} from '@/lib/cross-system/usePermissionCheck';
-import {
-  ApiError,
-  type CreatePermissionRequestSuccess,
-  createPermissionRequest,
-} from '../../../lib/api';
+import { permissionCheckQueryKey } from '@/lib/cross-system/usePermissionCheckBridge';
 import { permissionRequestStatusLabel } from './permission-requests-search.js';
 
 export interface RequestAccessButtonProps {

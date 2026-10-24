@@ -1,6 +1,6 @@
 import { GLOSSARY } from '@/lib/copy/glossary';
+import { HostLink } from '@/lib/host/host-seam';
 import { Button } from '@fops/ui';
-import { Link } from '@tanstack/react-router';
 import { ArrowRight } from 'lucide-react';
 
 /**
@@ -10,10 +10,10 @@ import { ArrowRight } from 'lucide-react';
 export function MyVocsRecoveryLink() {
   return (
     <Button asChild variant="secondary" size="sm" spacing="compact">
-      <Link to="/vocs" search={{ view: 'my' }}>
+      <HostLink to="/vocs?view=my">
         {GLOSSARY.myVocs}
         <ArrowRight className="h-4 w-4" aria-hidden="true" />
-      </Link>
+      </HostLink>
     </Button>
   );
 }

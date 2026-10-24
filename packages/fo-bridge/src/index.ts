@@ -4,7 +4,7 @@
  */
 export { foApi, setFoApi, type FoApi } from './fo-api';
 export { FoBridge, UnlinkedLink } from './fo/FoBridge';
-export { operatorRoute, routeSearch, type OperatorRoute, type OperatorRouteSpec } from './fo/operator-route';
+export { operatorRoute, routeHere, routeSearch, type OperatorRoute, type OperatorRouteSpec } from './fo/operator-route';
 export { hostLinks, permissionRequestsTarget, type PlatformTarget, type TargetOf } from './fo/links';
 export { foQueryClient, useFoSession } from './fo/session';
 export { canSurveyLink, SURVEY_ID, SurveyLink, surveyTarget } from './fo/survey-links';

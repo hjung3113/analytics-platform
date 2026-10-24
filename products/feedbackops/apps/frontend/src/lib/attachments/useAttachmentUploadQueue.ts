@@ -1,10 +1,10 @@
 import * as React from 'react';
-import { toast } from 'sonner';
 
 import { uploadAttachment } from '@/lib/api/attachments';
 import { errorMapper } from '@/lib/api/errorMapper';
 import { mintIdempotencyKey } from '@/lib/api/idempotency';
 import type { ApiError } from '@/lib/api/types';
+import { useHostSeam } from '@/lib/host/host-seam';
 
 const MAX_SIZE_BYTES = 25 * 1024 * 1024;
 
@@ -30,7 +30,7 @@ export interface UseAttachmentUploadQueueOptions {
   onChange?: (serverAttachmentIds: string[]) => void;
   onUploadingChange?: (uploading: boolean) => void;
   onErrorCountChange?: (errorCount: number) => void;
-  /** Where a failed upload is announced; the standalone app's default is a `sonner` error toast. */
+  /** Where a failed upload is announced; the default is the host seam's `notifyError`. */
   notifyError?: (message: string) => void;
   /**
    * #354: bump this after a successful post to drop the rows whose attachments
@@ -64,10 +64,12 @@ export function useAttachmentUploadQueue({
   const [dragOver, setDragOver] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
   // `addFiles` is a stable callback, so it reads the notifier through a ref.
-  const notifyErrorRef = React.useRef(notifyError);
+  const host = useHostSeam();
+  const effectiveNotifyError = notifyError ?? host.notifyError;
+  const notifyErrorRef = React.useRef(effectiveNotifyError);
   React.useEffect(() => {
-    notifyErrorRef.current = notifyError;
-  }, [notifyError]);
+    notifyErrorRef.current = effectiveNotifyError;
+  }, [effectiveNotifyError]);
 
   const uploadedIds = React.useMemo(
     () =>
@@ -169,8 +171,7 @@ export function useAttachmentUploadQueue({
           const apiErr = err as ApiError;
           if (apiErr.code === 'storage.unavailable') {
             const mapped = errorMapper(apiErr.envelope);
-            if (notifyErrorRef.current) notifyErrorRef.current(mapped.message);
-            else toast.error(mapped.message);
+            notifyErrorRef.current(mapped.message);
           }
           let inlineMessage: string;
           if (apiErr.code === 'attachment.too_large') inlineMessage = COPY.oversize;

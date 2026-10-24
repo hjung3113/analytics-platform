@@ -12,7 +12,7 @@ import { useForm } from 'react-hook-form';
 
 import { fetchTaskRequests } from '@/lib/api/task-requests';
 import { koreanZodErrorMap } from '@/lib/forms/zodIssueMessage';
-import { InternalLink } from '@/lib/router/InternalLink';
+import { HostLink } from '@/lib/host/host-seam';
 
 export interface TaskRequestDraftCardProps {
   sourceKind: 'VOC' | 'VOC Cluster' | 'Finding';
@@ -125,12 +125,12 @@ export function TaskRequestDraftCard({
           data-testid="request-task-pending-notice"
         >
           이 소스에 검토 대기 중인 Task Request가 있습니다.{' '}
-          <InternalLink
+          <HostLink
             className="text-accent-primary underline underline-offset-2"
-            href={`/tasks?view=requests&param=${pendingRequest.id}`}
+            to={`/tasks?view=requests&param=${pendingRequest.id}`}
           >
             {pendingRequest.display_id}
-          </InternalLink>
+          </HostLink>
         </p>
       )}
 
@@ -202,10 +202,10 @@ export function TaskRequestDraftCard({
             요청 등록
           </Button>
           <Button asChild size="sm" variant="secondary">
-            <InternalLink href="/tasks?view=requests">
+            <HostLink to="/tasks?view=requests">
               <ArrowRight aria-hidden className="h-3.5 w-3.5" />
               Task Requests에서 검토
-            </InternalLink>
+            </HostLink>
           </Button>
           <Button
             disabled={isSubmitting}

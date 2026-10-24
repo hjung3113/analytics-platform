@@ -6,15 +6,15 @@ const { navigate, useLocation } = vi.hoisted(() => ({
   navigate: vi.fn(),
   useLocation: vi.fn(),
 }));
-vi.mock('@tanstack/react-router', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@tanstack/react-router')>();
-  return { ...actual, useNavigate: () => navigate, useLocation };
-});
-vi.mock('@/lib/api/analytics-areas', () => ({ fetchAnalyticsAreas: vi.fn() }));
-vi.mock('sonner', () => ({ toast: { error: vi.fn() } }));
+vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/registry-reads')>()),
+  fetchAnalyticsAreas: vi.fn(),
+}));
 
 import { type AnalyticsAreaDto, fetchAnalyticsAreas } from '@/lib/api/analytics-areas';
 import { FINDING_SEVERITY_LABELS } from '@/lib/copy/enum-labels';
+import { type HostSeam, HostSeamProvider } from '@/lib/host/host-seam';
+import { searchHref } from '@/lib/host/search';
 import { type FindingSeverity, findingSeveritySchema } from '@fops/shared';
 import { CreateFindingModal } from '../CreateFindingModal';
 
@@ -45,6 +45,16 @@ const AREAS = [
   area(IDS.replacementArea, '서비스 안정성 분석', 'service-reliability'),
 ];
 
+// The modal reads where it is and navigates through the host seam: `useLocation` is the test's current href.
+const seam: HostSeam = {
+  canLink: () => true,
+  Link: ({ to, children }) => <a href={to}>{children}</a>,
+  notifyError: vi.fn(),
+  notifySuccess: vi.fn(),
+  useNavigate: () => navigate,
+  useHere: () => useLocation().href as string,
+};
+
 function renderModal(
   sourceAnalyticsAreaId: string | null,
   client = new QueryClient({
@@ -53,16 +63,18 @@ function renderModal(
   defaults: { defaultTitle?: string; defaultSeverity?: FindingSeverity } = {},
 ) {
   return render(
-    <QueryClientProvider client={client}>
-      <CreateFindingModal
-        vocId={IDS.voc}
-        managedSystemId={IDS.managedSystem}
-        sourceAnalyticsAreaId={sourceAnalyticsAreaId}
-        {...defaults}
-        open
-        onClose={vi.fn()}
-      />
-    </QueryClientProvider>,
+    <HostSeamProvider value={seam}>
+      <QueryClientProvider client={client}>
+        <CreateFindingModal
+          vocId={IDS.voc}
+          managedSystemId={IDS.managedSystem}
+          sourceAnalyticsAreaId={sourceAnalyticsAreaId}
+          {...defaults}
+          open
+          onClose={vi.fn()}
+        />
+      </QueryClientProvider>
+    </HostSeamProvider>,
   );
 }
 
@@ -205,13 +217,12 @@ describe('CreateFindingModal Analytics Area inheritance', () => {
 
     await submittedBody();
     await waitFor(() =>
-      expect(navigate).toHaveBeenCalledWith({
-        to: '/findings',
-        search: {
+      expect(navigate).toHaveBeenCalledWith(
+        searchHref('/findings', {
           selected: '10000000-0000-4000-8000-000000000050',
           returnTo: origin,
-        },
-      }),
+        }),
+      ),
     );
     expect(client.getQueryState(findingsListKey)?.isInvalidated).toBe(true);
   });
@@ -229,13 +240,12 @@ describe('CreateFindingModal Analytics Area inheritance', () => {
 
     await submittedBody();
     await waitFor(() =>
-      expect(navigate).toHaveBeenCalledWith({
-        to: '/findings',
-        search: {
+      expect(navigate).toHaveBeenCalledWith(
+        searchHref('/findings', {
           selected: '10000000-0000-4000-8000-000000000050',
           returnTo: `/vocs?view=triage&selected=${IDS.voc}&tab=untriaged`,
-        },
-      }),
+        }),
+      ),
     );
   });
 
@@ -246,10 +256,9 @@ describe('CreateFindingModal Analytics Area inheritance', () => {
 
     await submittedBody();
     await waitFor(() =>
-      expect(navigate).toHaveBeenCalledWith({
-        to: '/findings',
-        search: { selected: '10000000-0000-4000-8000-000000000050' },
-      }),
+      expect(navigate).toHaveBeenCalledWith(
+        searchHref('/findings', { selected: '10000000-0000-4000-8000-000000000050' }),
+      ),
     );
   });
 
