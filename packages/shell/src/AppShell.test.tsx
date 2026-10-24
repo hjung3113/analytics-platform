@@ -11,6 +11,7 @@ import { AppRail } from './AppRail';
 import { AppSidebar } from './AppSidebar';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { groupId, menuPermission, spaceId, type GroupId, type Permission, type PlatformAdapter, type Session } from '@ap/contracts';
+import type { ReactNode } from 'react';
 
 function menu(id: string, group: GroupId, path: string, permission: Permission) {
   return { id, group, path, permission, primary: true, label: { ko: '운영 홈', en: 'Operations home' }, description: { ko: '', en: '' }, icon: House, requiresScope: false, context: noContext, pageType: 'overview' as const, features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] };
@@ -760,5 +761,96 @@ describe('platform sidebar (ADR-0070)', () => {
     window.history.replaceState(null, '', '/equipment?v=1');
     const space = mount(PLATFORM_PERMISSIONS, true, platformSidebarRegistry());
     expect(space.container.querySelector('aside[data-collapsed]')).toHaveAttribute('data-collapsed', 'true');
+  });
+});
+
+// Sidebar sub-items, count badges and the space section (06 §8, #761). The fixture slots are module-level so their identity is stable.
+function navViewsRegistry(second?: boolean) {
+  const base = (id: string, path: string, over: object = {}) => ({ ...menu(id, groupId('overview'), path, 'platform:view'), label: { ko: id === 'inbox' ? '수신함' : '다른 메뉴', en: id === 'inbox' ? 'Inbox' : 'Other' }, primary: id === 'inbox', ...over });
+  return createRegistry({
+    spaces: [testSpace({ id: spaceId('analytics'), homeMenuId: 'inbox' }), ...(second ? [testSpace({ id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations' }, homeMenuId: 'ops', permission: 'console:access' })] : [])],
+    groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }, ...(second ? [{ id: groupId('admin'), label: { ko: '관리', en: 'Admin' }, icon: House, space: spaceId('operations') }] : [])],
+    menus: [
+      base('inbox', '/inbox', { pageKeys: ['tab'], navViews: [{ id: 'mine', label: { ko: '내 것', en: 'Mine' }, page: { tab: 'mine' } }, { id: 'all', label: { ko: '전체', en: 'All' }, page: { tab: 'all' } }] }),
+      base('other', '/other'),
+      ...(second ? [{ ...menu('ops', groupId('admin'), '/ops', 'console:access') }] : []),
+    ],
+  });
+}
+const CountsA = ({ children }: { children: (counts: Readonly<Record<string, number>> | null) => ReactNode }) => <>{children({ inbox: 48, 'inbox/mine': 7, other: 0 })}</>;
+const CountsNull = ({ children }: { children: (counts: Readonly<Record<string, number>> | null) => ReactNode }) => <>{children(null)}</>;
+const SectionBody = () => <p>saved views body</p>;
+
+describe('sidebar navViews, navCounts and spaceNavSection (#761)', () => {
+  beforeEach(() => { localStorage.setItem('platform:sidebar-collapsed', '0'); });
+  const primary = () => screen.getByRole('navigation', { name: '주 메뉴' });
+
+  it('draws views under their menu and marks only the matching view current', () => {
+    window.history.replaceState(null, '', '/inbox?v=1&tab=mine');
+    mount(['platform:view'], true, navViewsRegistry());
+    expect(within(primary()).getAllByRole('link').map(link => link.getAttribute('aria-label'))).toEqual(['수신함', '내 것', '전체', '다른 메뉴']);
+    expect(document.querySelectorAll('a[aria-current=page]')).toHaveLength(1);
+    expect(within(primary()).getByRole('link', { name: '내 것' })).toHaveAttribute('aria-current', 'page');
+    expect(within(primary()).getByRole('link', { name: '수신함' })).not.toHaveAttribute('aria-current');
+    expect(within(primary()).getByRole('link', { name: '전체' })).toHaveAttribute('href', expect.stringContaining('tab=all'));
+  });
+
+  it('keeps the parent row current when no view matches', () => {
+    window.history.replaceState(null, '', '/inbox?v=1&tab=other');
+    mount(['platform:view'], true, navViewsRegistry());
+    expect(document.querySelectorAll('a[aria-current=page]')).toHaveLength(1);
+    expect(within(primary()).getByRole('link', { name: '수신함' })).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('draws no sub-items in the collapsed sidebar', () => {
+    localStorage.setItem('platform:sidebar-collapsed', '1');
+    window.history.replaceState(null, '', '/inbox?v=1&tab=mine');
+    mount(['platform:view'], true, navViewsRegistry(), { navCounts: { For: () => CountsA }, spaceNavSection: { For: () => ({ label: { ko: '저장된 보기', en: 'Saved' }, Body: SectionBody }) } });
+    expect(within(primary()).getAllByRole('link')).toHaveLength(2);
+    expect(screen.queryByRole('link', { name: /내 것/ })).toBeNull();
+    expect(screen.queryByRole('region', { name: '저장된 보기' })).toBeNull();
+    expect(document.querySelectorAll('a[aria-current=page]')).toHaveLength(1);
+  });
+
+  it('shows count badges inside the accessible name, with no collapsed dot, and nothing for a null or absent count', () => {
+    window.history.replaceState(null, '', '/other?v=1');
+    mount(['platform:view'], true, navViewsRegistry(), { navCounts: { For: () => CountsA } });
+    const nav = within(primary());
+    expect(nav.getByRole('link', { name: '수신함, 48건' })).toHaveTextContent('48');
+    expect(nav.getByRole('link', { name: '내 것, 7건' })).toHaveTextContent('7');
+    expect(nav.getByRole('link', { name: '전체' })).not.toHaveTextContent(/\d/);
+    expect(nav.getByRole('link', { name: '다른 메뉴, 0건' })).toHaveTextContent('0');
+    cleanup();
+    mount(['platform:view'], true, navViewsRegistry(), { navCounts: { For: () => CountsNull } });
+    expect(within(primary()).getByRole('link', { name: '수신함' })).not.toHaveTextContent(/\d/);
+    cleanup();
+    localStorage.setItem('platform:sidebar-collapsed', '1');
+    const collapsed = mount(['platform:view'], true, navViewsRegistry(), { navCounts: { For: () => CountsA } });
+    expect(collapsed.container.querySelector('a[aria-label="수신함, 48건"] [class*="bg-accent-danger"]')).toBeNull();
+  });
+
+  it('draws the space section only when expanded, after the primary menu and before favorites', () => {
+    window.history.replaceState(null, '', '/other?v=1');
+    mount(['platform:view'], true, navViewsRegistry(), { spaceNavSection: { For: () => ({ label: { ko: '저장된 보기', en: 'Saved' }, Body: SectionBody }) } });
+    const section = screen.getByRole('region', { name: '저장된 보기' });
+    expect(within(section).getByText('saved views body')).toBeTruthy();
+    expect(primary().compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(section.compareDocumentPosition(screen.getByRole('region', { name: '즐겨찾기' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('switches space without a hook-order error when the next space has no counts or section', async () => {
+    window.history.replaceState(null, '', '/other?v=1');
+    const slots: PlatformSlots = {
+      navCounts: { For: id => (id === 'analytics' ? CountsA : null) },
+      spaceNavSection: { For: id => (id === 'analytics' ? { label: { ko: '저장된 보기', en: 'Saved' }, Body: SectionBody } : null) },
+    };
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mount(['platform:view', 'console:access'], true, navViewsRegistry(true), slots);
+    expect(within(primary()).getByRole('link', { name: '수신함, 48건' })).toBeTruthy();
+    expect(screen.getByRole('region', { name: '저장된 보기' })).toBeTruthy();
+    fireEvent.click(within(openSwitcher()).getByRole('button', { name: /운영 콘솔/ }));
+    await waitFor(() => expect(screen.queryByRole('region', { name: '저장된 보기' })).toBeNull());
+    expect(within(primary()).queryByRole('link', { name: /48건/ })).toBeNull();
+    expect(error.mock.calls.flat().join(' ')).not.toMatch(/hook|Rendered (more|fewer)/i);
   });
 });

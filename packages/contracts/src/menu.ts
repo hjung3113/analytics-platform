@@ -57,6 +57,9 @@ export type Permission = KernelPermission | MenuPermission;
 /** One drill step: a page key plus the name the path bar shows (06 §6.4, ADR-0025). */
 export type DrillLevel = { key: string; label: Text };
 
+/** One sidebar sub-item of a menu (`MenuMeta.navViews`). */
+export type NavView = { id: string; label: Text; page: Readonly<Record<string, string>> };
+
 export type MenuMeta = {
   id: string;
   group: GroupId;
@@ -84,6 +87,13 @@ export type MenuMeta = {
   initializesMetric?: boolean;
   /** Detail/destination routes are reachable through Context Links, not the sidebar. */
   navHidden?: boolean;
+  /**
+   * Sub-items drawn under this menu's sidebar row (expanded sidebar only; 06 §8, ADR-0081). Each view links to this menu with its `page` preset.
+   * Preset keys must be declared `pageKeys`, not a space `carriedPageKeys` entry (those follow the current screen) and not `focus`; ids are unique
+   * within the menu; labels are non-blank ko/en; a `navHidden` menu has none. A view is current when every preset key equals the URL's page value.
+   * Views are not palette entries and not favorite/recent targets.
+   */
+  navViews?: readonly NavView[];
   /** Parent menu for breadcrumb/active-nav on detail routes. */
   parent?: string;
   /** Group's representative destination for the home group cards (08; field name Candidate, 06 §5). Exactly one per group. */

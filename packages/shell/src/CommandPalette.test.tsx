@@ -99,6 +99,16 @@ describe('CommandPalette space bundles (06 §9.1)', () => {
     expect(overlay).not.toHaveClass('bg-black/80');
   });
 
+  it('does not list a menu navViews item as an option', () => {
+    const withViews = createRegistry({
+      spaces: registry.spaces, groups: registry.groups,
+      menus: registry.menus.map(m => m.path === '/equipment' ? { ...m, pageKeys: ['tab'], navViews: [{ id: 'mine', label: { ko: '내 설비', en: 'Mine' }, page: { tab: 'mine' } }] } : m),
+    });
+    mount(undefined, withViews);
+    expect(screen.getAllByRole('option').map(option => option.id)).toEqual(['palette-equipment', 'palette-home', 'palette-roles', 'palette-notices']);
+    expect(screen.queryByRole('option', { name: /내 설비/ })).toBeNull();
+  });
+
   it('groups accessible spaces in registry order, then 플랫폼, and drops page type from the subtitle', () => {
     mount();
     expect(screen.getByRole('combobox', { name: '메뉴 검색' })).toHaveAttribute('placeholder', '이동할 메뉴를 입력하세요…');

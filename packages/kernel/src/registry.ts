@@ -176,6 +176,23 @@ export function createRegistry({ spaces, groups, menus, permissions: declared = 
     const menuSpace = groupSpace.get(m.group);
     const missingCarried = menuSpace ? (spaceByIdMap.get(menuSpace)?.carriedPageKeys ?? []).find(k => !m.pageKeys.includes(k)) : undefined;
     if (missingCarried) fail(`Menu "${m.id}" does not declare space "${menuSpace}" carried page key "${missingCarried}" in pageKeys`);
+    // Sidebar sub-items: preset keys are the menu's own page keys, never carried or `focus`; ids unique (06 §8).
+    if (m.navViews !== undefined) {
+      if (m.navHidden && m.navViews.length > 0) fail(`Menu "${m.id}" is navHidden and cannot declare navViews`);
+      const carriedKeys = (menuSpace ? spaceByIdMap.get(menuSpace)?.carriedPageKeys : undefined) ?? [];
+      const viewIds = new Set<string>();
+      for (const view of m.navViews) {
+        if (typeof view.id !== 'string' || view.id.trim() === '') fail(`Menu "${m.id}" navView id must not be blank`);
+        if (viewIds.has(view.id)) fail(`Menu "${m.id}" navView id "${view.id}" is duplicated`);
+        viewIds.add(view.id);
+        if (typeof view.label?.ko !== 'string' || view.label.ko.trim() === '' || typeof view.label?.en !== 'string' || view.label.en.trim() === '') fail(`Menu "${m.id}" navView "${view.id}" needs nonempty ko and en labels`);
+        for (const key of Object.keys(view.page)) {
+          if (key === 'focus') fail(`Menu "${m.id}" navView "${view.id}" preset key "focus" cannot be a view key`);
+          if (!m.pageKeys.includes(key)) fail(`Menu "${m.id}" navView "${view.id}" preset key "${key}" is not a declared pageKeys entry`);
+          if (carriedKeys.includes(key)) fail(`Menu "${m.id}" navView "${view.id}" preset key "${key}" is a space carried page key`);
+        }
+      }
+    }
     const foreignReset = (m.contextResetKeys ?? []).find(k => !m.pageKeys.includes(k));
     if (foreignReset) fail(`Menu "${m.id}" contextResetKey "${foreignReset}" is not a declared pageKeys entry`);
     // Drill levels are page keys and contextResetKeys, at least one, never returnTo (06 §6.4, ADR-0063).

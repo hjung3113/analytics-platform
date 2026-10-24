@@ -32,6 +32,7 @@
 8. **신고자(`feedbackops:access` 없음)에게는 전환기 카드도 바닥 블록도 없다.** 신고자의 일은 레일 `VOC 등록`과 플랫폼 메뉴(`내 VOC`·`설문`)가 맡는다.
 
 여기서 정하지 않는 것(구현 이슈에서 정하고 기록): 저장된 보기의 아이콘과 저장 경로(UX-7), 건수 배지의 범위 연동(UX-8), 복귀 줄이 사라지는 규칙(UX-10), 접힌 사이드바의 하위 항목 표시(UX-12), FeedbackOps 안에서 연 VOC 등록의 기본 등록 대상(UX-14).
+- Amended (2026-10-25, #761 node k): 하위 항목(저장된 보기)은 `MenuMeta.navViews`, 건수 배지(UX-8)는 `PlatformSlots.navCounts`, 접힌 사이드바의 하위 항목 없음(UX-12)은 셸 규칙, 저장된 보기 구역은 `PlatformSlots.spaceNavSection`, VOC 등록 기본 대상(UX-14)이 읽을 고정 값은 `VocComposeContext.carried` — 이 한 줄만 이 노드가 소유한다. 06 §5·§8.
 
 ## Considered Options
 

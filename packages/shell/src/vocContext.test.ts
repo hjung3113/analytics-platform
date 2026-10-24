@@ -60,7 +60,19 @@ describe('freezeVocContext (ADR-0070 decision 5)', () => {
     [{ route: null }],
     [{ platformScreen: 'board' as const }],
   ])('freezes only the analysis board on the board screen (%j)', over => {
-    expect(freezeVocContext(input(over))).toEqual({ items: [{ id: 'menu', label: '화면', value: '분석 보드' }], href: null, spaceId: null, menuId: null });
+    expect(freezeVocContext(input(over))).toEqual({ items: [{ id: 'menu', label: '화면', value: '분석 보드' }], href: null, spaceId: null, menuId: null, carried: {} });
+  });
+
+  it('carries the frozen values of the space carriedPageKeys, including a removed chip, and none when the space has none', () => {
+    const carrying = createRegistry({
+      spaces: [testSpace({ id: spaceId('analytics'), label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'home', carriedPageKeys: ['q'] })],
+      groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
+      menus: [{ ...menu('home', '홈', '/'), pageKeys: ['q'] }, menu('prod', '생산성', '/p/:id')],
+    });
+    const carried = (removed?: string[]) => freezeVocContext(input({ registry: carrying, route: { menu: carrying.menus.find(entry => entry.path === '/p/:id')!, params: { id: '7' } } }), new Set(removed)).carried;
+    expect(carried()).toEqual({ q: 'x' });
+    expect(carried(['page:q'])).toEqual({ q: 'x' });
+    expect(freezeVocContext(input()).carried).toEqual({});
   });
 
   it.each([

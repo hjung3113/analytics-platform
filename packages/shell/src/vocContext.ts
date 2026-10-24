@@ -31,7 +31,7 @@ export function freezeVocContext(input: VocFreezeInput, removed: ReadonlySet<str
   const { route, global, page, registry } = input;
   const basis = global.membershipBasis === 'asOf' ? ` · ${input.asOf}` : '';
   if (input.platformScreen === 'board' || route === null) {
-    return { items: removed.has('menu') ? [] : [{ id: 'menu', label: text.screen, value: text.board }], href: null, spaceId: null, menuId: null };
+    return { items: removed.has('menu') ? [] : [{ id: 'menu', label: text.screen, value: text.board }], href: null, spaceId: null, menuId: null, carried: {} };
   }
   const space = registry.spaceOf(route.menu);
   const menuLabel = route.menu.label[input.lang];
@@ -74,5 +74,11 @@ export function freezeVocContext(input: VocFreezeInput, removed: ReadonlySet<str
   keep('global:scopeId', ['scopeId'], () => global.scopeId === null ? null : { id: 'global:scopeId', label: RETURN_CONTEXT_LABELS.scope[input.lang], value: global.scopeId });
 
   const href = removed.has('menu') ? null : input.absoluteUrl(pathFor(route.menu, route.params) + buildQuery(kept, keptPage));
-  return { items, href, spaceId: space?.id ?? null, menuId: route.menu.id };
+  // The raw page pairs, not the kept list: a removed chip does not change which values the frozen screen carried.
+  const carried: Record<string, string> = {};
+  for (const key of space?.carriedPageKeys ?? []) {
+    const pair = page.find(([pairKey]) => pairKey === key);
+    if (pair) carried[key] = pair[1];
+  }
+  return { items, href, spaceId: space?.id ?? null, menuId: route.menu.id, carried };
 }

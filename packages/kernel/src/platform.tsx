@@ -48,8 +48,9 @@ export type VocComposeContextItem = { id: string; label: string; value: string }
 /**
  * The Context frozen when the VOC drawer opened, minus the chips the user removed. `href` is the absolute URL of that screen rebuilt
  * from the kept items only (06 §8: a removed chip leaves the attached address too); null when there was no main screen (board) or the user removed the `menu` chip. `spaceId`/`menuId` describe the frozen screen for defaults only (e.g. the Managed System); they ignore chip removal and are never attached.
+ * `carried` is the frozen screen's values of its space's `carriedPageKeys` (empty when none), including keys whose chips were removed; defaults only, never attached.
  */
-export type VocComposeContext = { items: readonly VocComposeContextItem[]; href: string | null; spaceId: SpaceId | null; menuId: string | null };
+export type VocComposeContext = { items: readonly VocComposeContextItem[]; href: string | null; spaceId: SpaceId | null; menuId: string | null; carried: Readonly<Record<string, string>> };
 export type VocComposeProps = {
   context: VocComposeContext;
   /** Called once after the VOC was created; the shell closes the drawer and drops the draft. */
@@ -71,10 +72,25 @@ export type HomeTodoSlot = { Todo: ComponentType };
  * scopeControl: a space's own sidebar list-scope control in place of the analytics `ScopeSelector` (ADR-0081 decision 4, 06 §8); `For` returns null for spaces that keep the default.
  * notifications: the rail bell and the platform-menu unread badge (ADR-0070 decision 4, #652).
  * vocCompose: the body of the rail `VOC 등록` docked drawer; the shell owns position, frozen Context chips, draft and close rules (ADR-0070 decision 5, #655).
+ * navCounts: per-menu and per-`navViews` count badges in a space's sidebar (06 §8, #761).
+ * spaceNavSection: a space's own sidebar section between the primary menu and favorites (06 §8, #761).
  * homeTodo: the home `내 할 일` section; the home menu reads it through `MenuPlatform.homeTodo`, the shell never does (ADR-0070 decision 8, ADR-0076, #657).
  */
 export type ScopeControlSlot = { For: (spaceId: SpaceId) => ComponentType<{ collapsed: boolean }> | null };
-export type PlatformSlots = { scopeControl?: ScopeControlSlot; contextBar?: ReactNode; topBarTools?: ReactNode; feedbackOps?: FeedbackOpsSlot; plannedSpaces?: readonly PlannedSpace[]; boardEntry?: ReactNode; notifications?: NotificationsSlot; vocCompose?: VocComposeSlot; homeTodo?: HomeTodoSlot };
+/**
+ * Per-menu sidebar counts for one space (06 §8 `navCounts`, #761). `For` returns a module-level component (same stability rule as `scopeControl`:
+ * the shell renders it once around the menu list, so its identity must not change between renders) or null for a space without counts.
+ * It calls `children(counts)` at one stable position; keys are `menuId` for a row and `` `${menuId}/${viewId}` `` for a `navViews` item;
+ * `null` (unknown, failed) or an absent key draws no badge.
+ */
+export type NavCountsSlot = { For: (spaceId: SpaceId) => ComponentType<{ children: (counts: Readonly<Record<string, number>> | null) => ReactNode }> | null };
+/**
+ * A space's own sidebar section after the primary menu and before favorites (06 §8 `spaceNavSection`, #761). The shell owns the expanded-only
+ * rendering, the `<section aria-label>` landmark and the heading; `Body` takes no props and reads `usePlatform().route` to pick its surface.
+ * `Body` must be module-level (stable identity), like `scopeControl`'s component.
+ */
+export type SpaceNavSectionSlot = { For: (spaceId: SpaceId) => { label: Text; Body: ComponentType } | null };
+export type PlatformSlots = { scopeControl?: ScopeControlSlot; contextBar?: ReactNode; topBarTools?: ReactNode; feedbackOps?: FeedbackOpsSlot; plannedSpaces?: readonly PlannedSpace[]; boardEntry?: ReactNode; notifications?: NotificationsSlot; vocCompose?: VocComposeSlot; homeTodo?: HomeTodoSlot; navCounts?: NavCountsSlot; spaceNavSection?: SpaceNavSectionSlot };
 export type LinkOptions = { params?: Record<string, string>; page?: Record<string, string | null>; global?: Partial<GlobalContext>; returnTo?: boolean };
 export type LinkResolution = {
   href: string;
