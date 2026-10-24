@@ -70,6 +70,14 @@ Condition은 앱이 제공한 설비 묶음 축의 조건으로 선언한 소속
 EquipmentID로 식별되는 설비 내부의 세부 단위. XFR/FNC/PRC 이벤트 로그는 Module/Slot 단위로 기록된다. 설비 분류값인 ChamberType과는 다른 개념이다.
 _Avoid_: 모듈·슬롯(단독) — 호스트 모듈·셸 슬롯과 섞인다.
 
+**Motion** (`drillMotion`):
+Module이 수행하는 동작 한 종류(예: Chuck·Dechuck·Pump·Vent·Transfer)로, 동작시간분석 드릴의 두 번째 단계다. Module → Motion 순으로 좁히고, 어떤 Module이 기록하지 않는 Motion은 그 Module에서 값이 없다.
+_Avoid_: 동작(단독) — CLAS의 `설비 동작시간` 메뉴와 섞인다.
+
+**동작시간분석** (`hwTime` 메뉴 그룹, en `Operation time analysis`):
+MARS의 메뉴 그룹. 설비 동작시간을 Module·Motion 단계로 드릴해 보는 HW Time 메뉴 네 개(단계별·비교·개요·표)를 묶는다. 네 메뉴는 같은 데이터를 쓰고 화면 배치만 다르다([ADR-0078](docs/adr/0078-hw-time-layout-recipes.md)).
+_Avoid_: 설비 동작시간 — CLAS의 다른 메뉴다.
+
 **CFG** (설비 설정):
 설비 단위의 설정 기록. 원천은 이벤트 로그·별도 파일·외부 시스템에 걸쳐 있다. 개별 값 안에 특정 Module을 대상으로 하는 속성이 들어갈 수 있지만, 설정 기록의 귀속 단위는 설비다. Job 분석에서 유효 설정은 **Job 시작 시점의 값**이며, Job 중간이나 개별 구간마다 바뀌는 값을 구분할 필요는 없다.
 
