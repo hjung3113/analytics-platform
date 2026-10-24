@@ -19,7 +19,7 @@ LinkResolution | type | type LinkResolution = { allowed: boolean; droppedPageKey
 MenuActionState | type | type MenuActionState<I, T> = { pending: boolean; ready: boolean; run: (input: I, options?: { expectedVersion?: string; }) => Promise<@ap/contracts#ActionResult<T>>; }
 MenuEntry | type | type MenuEntry = @ap/kernel#ModuleMenuEntry | @ap/kernel#PlatformMenuEntry
 MenuFetch | type | type MenuFetch<P, T> = { fetch: (params: P, signal?: AbortSignal) => Promise<@ap/contracts#ApiResponse<T>>; ready: boolean; }
-MenuPlatform | type | type MenuPlatform = Pick<@ap/kernel/host#HostPlatform, 'absoluteUrl' | 'accessibleSpaces' | 'adapter' | 'can' | 'canOpen' | 'favorites' | 'global' | 'homeTodo' | 'linkTo' | 'location' | 'navigate' | 'page' | 'pageParam' | 'pathname' | 'recent' | 'registry' | 'resetContext' | 'resolveLink' | 'revision' | 'route' | 'scope' | 'session' | 'setGlobal' | 'setPage' | 'spaceEntry' | 'toast' | 'toasts' | 'toggleFavorite' | 'url' | 'user'>
+MenuPlatform | type | type MenuPlatform = Pick<@ap/kernel/host#HostPlatform, 'absoluteUrl' | 'accessibleSpaces' | 'adapter' | 'can' | 'canOpen' | 'dismissToast' | 'favorites' | 'global' | 'homeTodo' | 'linkTo' | 'location' | 'navigate' | 'page' | 'pageParam' | 'pathname' | 'recent' | 'registry' | 'resetContext' | 'resolveLink' | 'revision' | 'route' | 'scope' | 'session' | 'setGlobal' | 'setPage' | 'spaceEntry' | 'toast' | 'toasts' | 'toggleFavorite' | 'url' | 'user'>
 MetricInit | type | type MetricInit = { metricVersion: string; phase: 'confirm'; } | { phase: 'blocked'; reason: 'unknown_metric' | 'unpublished'; } | { phase: 'skip'; }
 ModuleGroupDef | type | type ModuleGroupDef = GroupBase & { id: @ap/contracts#ModuleScopedId; module: string; }
 ModuleMenuEntry | type | type ModuleMenuEntry = Omit<@ap/contracts#MenuMeta, 'group' | 'permission'> & { component?: undefined; group: @ap/contracts#ModuleScopedId; icon: LucideIcon; module: string; moduleConfig?: Readonly<Record<string, string>>; moduleFeatures?: readonly @ap/contracts#HostFeature[]; moduleScreen: ComponentType<@ap/contracts#ModuleScreenProps>; permission: @ap/contracts#ModuleScopedId; }
@@ -56,7 +56,9 @@ ScopeControlSlot | type | type ScopeControlSlot = { For: (spaceId: @ap/contracts
 ScopeState | type | type ScopeState = { grantedRooms: string[]; scopeId: null | string; status: 'error' | 'forbidden' | 'none' | 'unknown_scope' | 'valid' | 'validating'; validatedFor: @ap/contracts#Session | null; }
 SpaceNavSectionSlot | type | type SpaceNavSectionSlot = { For: (spaceId: @ap/contracts#SpaceId) => null | { Body: ComponentType; label: @ap/contracts#Text; }; }
 Text | type | type Text = { en: string; ko: string; }
-Toast | type | type Toast = { detail?: string; id: number; text: string; tone: 'danger' | 'info' | 'warning'; }
+Toast | type | type Toast = { action?: @ap/kernel#ToastAction; detail?: string; id: number; text: string; tone: 'danger' | 'info' | 'warning'; }
+ToastAction | type | type ToastAction = { label: string; onAction: () => void; }
+ToastOptions | type | type ToastOptions = { action?: @ap/kernel#ToastAction; durationMs?: number; }
 VocComposeContext | type | type VocComposeContext = { carried: Readonly<Record<string, string>>; href: null | string; items: readonly @ap/kernel#VocComposeContextItem[]; menuId: null | string; spaceId: @ap/contracts#SpaceId | null; }
 VocComposeContextItem | type | type VocComposeContextItem = { id: string; label: string; value: string; }
 VocComposeProps | type | type VocComposeProps = { context: @ap/kernel#VocComposeContext; onCancel: () => void; onDirtyChange: (dirty: boolean) => void; onSubmitted: (result: { displayId: string; vocId: string; }) => void; }
