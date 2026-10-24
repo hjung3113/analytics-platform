@@ -23,13 +23,14 @@ import {
   Textarea,
 } from '@fops/ui';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useNavigate } from '@tanstack/react-router';
 import type * as React from 'react';
 import { useForm } from 'react-hook-form';
-import { toast } from 'sonner';
 
 import { useCreateFindingFromCluster } from '@/features/voc-cluster/hooks/useCreateFindingFromCluster';
-import { type ApiError, errorMapper, useIdempotencyKey } from '@/lib/api';
+import { errorMapper } from '@/lib/api/errorMapper';
+import type { ApiError } from '@/lib/api/types';
+import { useIdempotencyKey } from '@/lib/api/useIdempotencyKey';
+import { useHostNavigate, useHostSeam } from '@/lib/host/host-seam';
 
 // ── Severity options (mirrors CreateFindingModal) ─────────────────────────────
 // Built inside the component: FINDING_SEVERITY_LABELS re-exports @fops/ui, and
@@ -45,7 +46,8 @@ export function CreateFindingFromClusterModal({
   clusterId: string;
   onClose: () => void;
 }): React.ReactElement {
-  const navigate = useNavigate();
+  const navigate = useHostNavigate();
+  const { notifyError } = useHostSeam();
   const { key: idempotencyKey, markConsumed } = useIdempotencyKey();
   const mutation = useCreateFindingFromCluster({ idempotencyKey });
 
@@ -78,13 +80,10 @@ export function CreateFindingFromClusterModal({
           form.reset();
           mutation.reset();
           onClose();
-          void navigate({
-            to: '/findings/$findingId',
-            params: { findingId: finding.id },
-          });
+          navigate(`/findings/${finding.id}`);
         },
         onError: (err: ApiError) => {
-          toast.error(errorMapper(err.envelope).message);
+          notifyError(errorMapper(err.envelope).message);
         },
       },
     );

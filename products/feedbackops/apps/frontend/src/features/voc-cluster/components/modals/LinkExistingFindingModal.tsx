@@ -20,11 +20,13 @@ import {
 } from '@fops/ui';
 import type * as React from 'react';
 import { useState } from 'react';
-import { toast } from 'sonner';
 
 import { useFindingsList } from '@/features/findings/hooks/useFindingsList';
 import { useLinkExistingFindingToVocCluster } from '@/features/voc-cluster/hooks/useLinkExistingFindingToVocCluster';
-import { type ApiError, errorMapper, useIdempotencyKey } from '@/lib/api';
+import { errorMapper } from '@/lib/api/errorMapper';
+import type { ApiError } from '@/lib/api/types';
+import { useIdempotencyKey } from '@/lib/api/useIdempotencyKey';
+import { useHostSeam } from '@/lib/host/host-seam';
 
 const NO_FINDING = '__none__';
 
@@ -37,6 +39,7 @@ export function LinkExistingFindingModal({
   clusterId: string;
   onClose: () => void;
 }): React.ReactElement {
+  const { notifyError, notifySuccess } = useHostSeam();
   const [findingId, setFindingId] = useState('');
   const [error, setError] = useState<string | null>(null);
   const findings = useFindingsList();
@@ -56,13 +59,13 @@ export function LinkExistingFindingModal({
       {
         onSuccess: () => {
           markConsumed();
-          toast.success('Finding이 Cluster에 연결되었습니다.');
+          notifySuccess('Finding이 Cluster에 연결되었습니다.');
           closeAndReset();
         },
         onError: (err: ApiError) => {
           const message = errorMapper(err.envelope).message;
           setError(message);
-          toast.error(message);
+          notifyError(message);
         },
       },
     );

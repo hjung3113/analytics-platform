@@ -1,11 +1,15 @@
 import { ApiError } from '@/lib/api';
+import { type HostSeam, registerDefaultHost } from '@/lib/host/host-seam';
 import { FINDING_STATUS_LABELS } from '@/lib/copy/enum-labels';
 import { findingStatusSchema } from '@fops/shared';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type * as React from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const navigateMock = vi.fn();
+const hostNavigateMock = vi.fn();
+const hostNotifyError = vi.fn();
+const hostNotifySuccess = vi.fn();
 const addClusterMemberMutate = vi.hoisted(() => vi.fn());
 const candidateData = vi.hoisted(() => ({
   pages: [
@@ -410,20 +414,38 @@ vi.mock('@/features/cross-system/request-task/TaskRequestDraftCard', () => ({
   },
 }));
 
-vi.mock('@/lib/auth/useMe', () => ({
-  useMe: () => ({ data: { actor: currentRole } }),
+vi.mock('@/lib/api/me', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/me')>()),
+  useMeBridge: () => ({ data: { actor: currentRole } }),
 }));
 
-vi.mock('@/lib/api', async () => {
-  const actual = await vi.importActual<typeof import('@/lib/api')>('@/lib/api');
-  return {
-    ...actual,
-    fetchManagedSystems: vi.fn(),
-    useIdempotencyKey: () => ({ key: 'idem-key', markConsumed: vi.fn() }),
-  };
-});
+vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/registry-reads')>()),
+  fetchManagedSystems: vi.fn(),
+}));
 
-vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock('@/lib/api/useIdempotencyKey', () => ({
+  useIdempotencyKey: () => ({ key: 'idem-key', markConsumed: vi.fn() }),
+}));
+
+// The screens reach navigation, links and notices through the host seam; this seam records them (the router mock
+// above has no useRouter/useRouterState for tanstackHost).
+const testHost: HostSeam = {
+  canLink: () => true,
+  Link: ({ to, children, ...rest }) => (
+    <a href={to} {...(rest as object)}>
+      {children}
+    </a>
+  ),
+  notifyError: hostNotifyError,
+  notifySuccess: hostNotifySuccess,
+  useNavigate: () => hostNavigateMock,
+  useSearch: () => urlSearch as Record<string, string>,
+  useTitle: () => {},
+  notify: () => 'notice',
+  dismiss: () => {},
+  useHere: () => '/voc-clusters',
+};
 
 vi.mock('react-hook-form', () => ({
   useForm: () => ({
@@ -438,8 +460,11 @@ vi.mock('react-hook-form', () => ({
 vi.mock('@hookform/resolvers/zod', () => ({ zodResolver: vi.fn() }));
 
 describe('VOC cluster route shells', () => {
+  beforeAll(() => registerDefaultHost(testHost));
+
   beforeEach(() => {
     navigateMock.mockClear();
+    hostNavigateMock.mockClear();
     addClusterMemberMutate.mockClear();
     linkFindingMutate.mockClear();
     listQueryState.status = 'success';
@@ -496,19 +521,14 @@ describe('VOC cluster route shells', () => {
     expect(screen.getByTestId('cluster-row-CLU-31')).toBeInTheDocument();
     // The first-load default selection (replace navigate) already fired on
     // mount; only the row click's push is asserted below.
-    navigateMock.mockClear();
+    hostNavigateMock.mockClear();
 
     fireEvent.click(screen.getByTestId('cluster-row-CLU-31'));
 
-    expect(navigateMock).toHaveBeenCalledTimes(1);
-    const navOptions = navigateMock.mock.calls[0]?.[0] as {
-      to: string;
-      search: (prev: Record<string, unknown>) => Record<string, unknown>;
-    };
-    expect(navOptions.to).toBe('/voc-clusters');
-    expect(navOptions.search({})).toEqual({
-      selected: '11111111-1111-1111-1111-111111111111',
-    });
+    expect(hostNavigateMock).toHaveBeenCalledTimes(1);
+    expect(hostNavigateMock).toHaveBeenCalledWith(
+      '/voc-clusters?selected=11111111-1111-1111-1111-111111111111',
+    );
   });
 
   it('renders the detail route inside the same ListShell toolbar and detail framing', async () => {

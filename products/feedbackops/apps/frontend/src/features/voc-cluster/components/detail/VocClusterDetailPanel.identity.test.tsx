@@ -66,8 +66,8 @@ vi.mock('@/lib/cross-system/useManagedSystem', () => ({ useManagedSystem: () => 
 vi.mock('@/lib/cross-system/useWorkspaceActors', () => ({
   useWorkspaceActors: () => ({ actors: clusterState.actors }),
 }));
-vi.mock('@/lib/auth/useMe', () => ({
-  useMe: () => ({ data: { actor: { role_level: clusterState.roleLevel } } }),
+vi.mock('@/lib/api/me', () => ({
+  useMeBridge: () => ({ data: { actor: { role_level: clusterState.roleLevel } } }),
 }));
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ children, className }: { children: ReactNode; className?: string }) => (
@@ -76,6 +76,10 @@ vi.mock('@tanstack/react-router', () => ({
     </a>
   ),
   useNavigate: () => vi.fn(),
+  // tanstackHost (the default host) reads these.
+  useRouter: () => ({ navigate: vi.fn() }),
+  useRouterState: ({ select }: { select: (state: unknown) => unknown }) =>
+    select({ location: { pathname: '/', searchStr: '', hash: '' } }),
 }));
 
 import { VocClusterDetailPanel } from './VocClusterDetailPanel';

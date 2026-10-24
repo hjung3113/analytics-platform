@@ -17,12 +17,13 @@ import {
 } from '@fops/ui';
 import type * as React from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { toast } from 'sonner';
 
 import { ListLoadMore } from '@/components/ListLoadMore';
 import { useAddClusterMember } from '@/features/voc-cluster/hooks/useAddClusterMember';
 import { useCandidatePeers } from '@/features/voc-cluster/hooks/useCandidatePeers';
-import { type ApiError, errorMapper } from '@/lib/api';
+import { errorMapper } from '@/lib/api/errorMapper';
+import type { ApiError } from '@/lib/api/types';
+import { useHostSeam } from '@/lib/host/host-seam';
 import { LIST_SEARCH_EMPTY_LABEL, LIST_SEARCH_PLACEHOLDER } from '@/lib/copy/list-search';
 import { REPORTER_STATUS_LABELS } from '@/lib/copy/reporter-status-labels';
 import { searchDebounceMs } from '@/lib/forms/search-debounce';
@@ -104,6 +105,7 @@ function AddVocPicker({
   const mounted = useRef(true);
   // Click-time guard: two clicks in one tick both see the same `pending` state snapshot.
   const inFlight = useRef(new Set<string>());
+  const { notifyError, notifySuccess } = useHostSeam();
   const { mutateAsync } = useAddClusterMember();
   const candidatePeers = useCandidatePeers(clusterId, q);
 
@@ -156,12 +158,12 @@ function AddVocPicker({
       await mutateAsync({ clusterId, vocId });
       if (!mounted.current) return;
       setAdded((current) => addToSet(current, vocId));
-      toast.success('VOC가 Cluster에 추가되었습니다.');
+      notifySuccess('VOC가 Cluster에 추가되었습니다.');
     } catch (err) {
       if (!mounted.current) return;
       const message = errorMapper((err as ApiError).envelope).message;
       setErrors((current) => new Map(current).set(vocId, message));
-      toast.error(message);
+      notifyError(message);
     } finally {
       inFlight.current.delete(vocId);
       if (mounted.current) setPending((current) => removeFromSet(current, vocId));

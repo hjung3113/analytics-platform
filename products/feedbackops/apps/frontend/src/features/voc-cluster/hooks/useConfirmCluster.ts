@@ -2,7 +2,8 @@
 // Invalidates the cluster detail and list queries on success.
 
 import { useMutation, useQueryClient, type UseMutationResult } from '@tanstack/react-query';
-import { apiClient, type ApiError } from '@/lib/api';
+import { apiClient } from '@/lib/api/client';
+import type { ApiError } from '@/lib/api/types';
 import type { VocClusterDto } from '@fops/shared';
 import { invalidateNavCounts } from '@/lib/query/navCounts';
 

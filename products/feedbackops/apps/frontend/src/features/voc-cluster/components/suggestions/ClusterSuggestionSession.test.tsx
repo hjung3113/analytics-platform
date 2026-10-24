@@ -15,6 +15,7 @@ import {
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { type HostNotice, type HostSeam, HostSeamProvider } from '@/lib/host/host-seam';
 import { clusterSuggestionsKey, useClusterSuggestions } from '../../hooks/useClusterSuggestions';
 import { ClusterSuggestionSession } from './ClusterSuggestionSession';
 
@@ -134,12 +135,8 @@ describe('Cluster suggestion review', () => {
       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
     );
     await waitFor(() => expect(toastSuccess).toHaveBeenCalled());
-    const options = toastSuccess.mock.calls[0]?.[1];
-    render(options.description);
-    expect(screen.getByRole('link', { name: 'Cluster 보기' })).toHaveAttribute(
-      'href',
-      `/voc-clusters/${clusterId}`,
-    );
+    // The Cluster link is the notice's action now (761c); where it goes is pinned in the host-seam tests below.
+    expect(toastSuccess.mock.calls[0]?.[1].action.label).toBe('Cluster 보기');
     for (const key of [['voc-clusters'], ['nav-counts'], ['recovery'], ['dashboard-summary']])
       expect(client.getQueryState(key)?.isInvalidated).toBe(true);
   });
@@ -819,23 +816,56 @@ it('does not replay a dismissed notice when another pair is keyboard-opened', as
   expect(row).toHaveFocus();
 });
 
-it('keeps focus on the toast Cluster link after confirming the last pair', async () => {
-  const { client } = mountWithRouter();
-  fireEvent.click(await screen.findByRole('button', { name: /VOC-12/ }));
-  vi.useFakeTimers();
-  await act(async () => {
+describe('confirm notice through the host seam (761c)', () => {
+  const navigate = vi.fn();
+  const notify = vi.fn(() => 'notice');
+  function seam(canLink: boolean, search: Record<string, string>): HostSeam {
+    return {
+      canLink: () => canLink,
+      Link: ({ to, children }) => <a href={to}>{children}</a>,
+      notifyError: vi.fn(),
+      notifySuccess: vi.fn(),
+      useNavigate: () => navigate,
+      useSearch: () => search,
+      useTitle: () => {},
+      notify,
+      dismiss: vi.fn(),
+      useHere: () => '/voc-clusters',
+    };
+  }
+  async function confirmWith(host: HostSeam) {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={client}>
+        <HostSeamProvider value={host}>
+          <ClusterSuggestionSession>{({ list, panel }) => <>{list}{panel}</>}</ClusterSuggestionSession>
+        </HostSeamProvider>
+      </QueryClientProvider>,
+    );
+    fireEvent.click(await screen.findByRole('button', { name: /VOC-12/ }));
     fireEvent.click(screen.getByRole('button', { name: '확인 후 Cluster 생성' }));
-    await vi.advanceTimersByTimeAsync(50);
+    await waitFor(() => expect(notify).toHaveBeenCalled());
+    return (notify.mock.calls[0] as unknown as [HostNotice])[0];
+  }
+  beforeEach(() => {
+    navigate.mockClear();
+    notify.mockClear();
   });
-  expect(toastSuccess).toHaveBeenCalled();
-  render(toastSuccess.mock.calls[0]?.[1].description);
-  const link = screen.getByRole('link', { name: 'Cluster 보기' });
-  expect(link).toHaveFocus();
-  await act(async () => {
-    await vi.advanceTimersByTimeAsync(1001);
+
+  it('raises a success notice whose action opens the new cluster path when the host maps it', async () => {
+    const notice = await confirmWith(seam(true, { managedSystem: 'all' }));
+    expect(notice).toMatchObject({ tone: 'success', action: { label: 'Cluster 보기' } });
+    notice.action?.onAction();
+    expect(navigate).toHaveBeenCalledWith(`/voc-clusters/${clusterId}`);
   });
-  expect(link).toHaveFocus();
-  client.clear();
+
+  it('selects the new cluster in the list when the host maps no cluster path', async () => {
+    const notice = await confirmWith(seam(false, { managedSystem: 'all' }));
+    notice.action?.onAction();
+    expect(navigate).toHaveBeenCalledWith(`/voc-clusters?managedSystem=all&selected=${clusterId}`);
+  });
 });
 
 it('shows an explicit description fallback for an empty TipTap doc', async () => {

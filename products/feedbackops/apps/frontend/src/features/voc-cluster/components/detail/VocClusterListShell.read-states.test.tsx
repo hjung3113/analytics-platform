@@ -14,9 +14,15 @@ import {
 import { VocClusterListShell } from './VocClusterListShell';
 
 const apiRequestMock = vi.hoisted(() => vi.fn());
-vi.mock('@/lib/api', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/lib/api')>()),
+vi.mock('@/lib/api/client', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/client')>()),
   apiRequest: apiRequestMock,
+}));
+
+// The shell's /me read goes through the same mocked client; no session keeps the suggestion tab and create CTA out.
+vi.mock('@/lib/api/me', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/me')>()),
+  useMeBridge: () => ({ data: undefined }),
 }));
 
 function renderClusterList() {

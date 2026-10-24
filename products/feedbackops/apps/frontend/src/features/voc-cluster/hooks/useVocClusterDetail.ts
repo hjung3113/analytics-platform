@@ -1,7 +1,8 @@
 // useVocClusterDetail — react-query wrapper for GET /voc-clusters/:id.
 // Returns the full VocClusterDto including the members array.
 
-import { ApiParseError, apiRequest } from '@/lib/api';
+import { apiRequest } from '@/lib/api/client';
+import { ApiParseError } from '@/lib/api/types';
 import { vocClusterDtoSchema } from '@fops/shared';
 import type { VocClusterDto } from '@fops/shared';
 import { type UseQueryResult, useQuery } from '@tanstack/react-query';

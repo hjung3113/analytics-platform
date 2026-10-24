@@ -176,3 +176,38 @@ describe('FeedbackOps shared bridge pieces (ADR-0071)', () => {
     expect(callers.filter(file => file !== 'lib/api/client.ts')).toEqual([]);
   });
 });
+
+// The operator VOC clusters entry (#761 c) is walked on its own: list screen, create dialog and detail parts, no router
+// and no toast library (notices go through the host seam).
+describe('FeedbackOps operator VOC clusters entry graph (ADR-0071)', () => {
+  const clusters = walk([join(FRONTEND_SRC, 'operator-screens/voc-clusters/index.ts')]);
+  const clustersReached = [...clusters.files.keys()].map(file => relative(FRONTEND_SRC, file));
+
+  it('reaches the list screen, the create dialog and the detail parts, not the routes', () => {
+    expect(clustersReached).toEqual(
+      expect.arrayContaining([
+        'features/voc-cluster/components/ClusterListScreen.tsx',
+        'features/voc-cluster/components/modals/CreateClusterModal.tsx',
+        'features/voc-cluster/components/detail/VocClusterDetailPanel.tsx',
+        'lib/api/permission-reads.ts',
+        'lib/api/registry-reads.ts',
+      ]),
+    );
+    expect(clustersReached.filter(file => file.startsWith('routes/'))).toEqual([]);
+    expect(clusters.unresolved).toEqual([]);
+  });
+
+  it('imports no router and no toast library', () => {
+    expect([...clusters.specifiers].filter(specifier => /^@tanstack\/(react-)?router|^sonner$/.test(specifier))).toEqual([]);
+  });
+
+  it('reaches no route, router, layout or auth source, the auth module, the api barrel, the permissions or managed-systems api', () => {
+    const banned = /^(?:routes|lib\/router|lib\/layout|lib\/auth)\/|^lib\/api\/(?:auth|index|permissions|managed-systems)\.ts$/;
+    expect(clustersReached.filter(file => banned.test(file))).toEqual([]);
+  });
+
+  it('calls fetch only in lib/api/client.ts', () => {
+    const callers = [...clusters.files].filter(([, text]) => /(?<![\w.])fetch\(/.test(text)).map(([file]) => relative(FRONTEND_SRC, file));
+    expect(callers).toEqual(['lib/api/client.ts']);
+  });
+});

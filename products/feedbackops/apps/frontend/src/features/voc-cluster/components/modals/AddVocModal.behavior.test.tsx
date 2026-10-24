@@ -28,10 +28,14 @@ const net = vi.hoisted(() => ({
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ children }: { children: React.ReactNode }) => <a href="/x">{children}</a>,
   useNavigate: () => vi.fn(),
+  // tanstackHost (the default host) reads these.
+  useRouter: () => ({ navigate: vi.fn() }),
+  useRouterState: ({ select }: { select: (state: unknown) => unknown }) =>
+    select({ location: { pathname: '/', searchStr: '', hash: '' } }),
 }));
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
-vi.mock('@/lib/auth/useMe', () => ({
-  useMe: () => ({ data: { actor: { role_level: 'admin' } } }),
+vi.mock('@/lib/api/me', () => ({
+  useMeBridge: () => ({ data: { actor: { role_level: 'admin' } } }),
 }));
 vi.mock('@/lib/cross-system/useManagedSystem', () => ({ useManagedSystem: () => null }));
 vi.mock('@/lib/cross-system/useWorkspaceActors', () => ({
@@ -82,14 +86,16 @@ vi.mock('@/features/voc-cluster/hooks/useLinkExistingFindingToVocCluster', () =>
 vi.mock('@/features/findings/hooks/useFindingsList', () => ({
   useFindingsList: () => ({ data: { items: [] }, isLoading: false, isError: false }),
 }));
-vi.mock('@/lib/api', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/lib/api')>();
+vi.mock('@/lib/api/useIdempotencyKey', () => ({
+  useIdempotencyKey: () => ({ key: 'idem-key', markConsumed: vi.fn() }),
+}));
+vi.mock('@/lib/api/client', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/api/client')>();
   const { listSameManagedSystemCandidatePeersQuerySchema: querySchema, ...shared } = await import(
     '@fops/shared'
   );
   return {
     ...actual,
-    useIdempotencyKey: () => ({ key: 'idem-key', markConsumed: vi.fn() }),
     apiRequest: vi.fn(async (_method: string, path: string) => {
       net.gets.push(path);
       const url = new URL(path, 'http://x');
