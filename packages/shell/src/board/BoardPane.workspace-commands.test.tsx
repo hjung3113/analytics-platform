@@ -65,7 +65,8 @@ function mount() {
   return render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}><RouteOutlet /></PlatformProvider></I18nProvider>);
 }
 const ready = async () => {
-  await waitFor(() => { expect(screen.getAllByRole('button', { name: /^칸 \d 동작$/ }).length).toBeGreaterThan(0); });
+  // The board's lazy dock engine and the pane menu load on first render; ~0.85 s locally, over the 1 s default under CI load (PR #738).
+  await waitFor(() => { expect(screen.getAllByRole('button', { name: /^칸 \d 동작$/ }).length).toBeGreaterThan(0); }, { timeout: 8000 });
   await settle();
 };
 const openActions = async (n: number) => { openMenu(screen.getAllByRole('button', { name: `칸 ${n} 동작` })[0]); await settle(); };
