@@ -341,7 +341,7 @@ Global Context와 Page-local Filter를 같은 Chip 스타일로 혼용하지 않
 
 **뒤로가기 복원 범위와 셸 내비게이션 (Decided):** 플랫폼이 보장하는 복원 범위는 **URL이 소유한 상태**(전역 Context + 그 페이지가 URL에 쓰기로 한 탭/뷰 id + 선언됐지만 미적용인 등록 Context + §6.1 공집합 표식)로 한정한다. 줌/브러시/시리즈 가시성은 보장 밖이다(로컬 저장 자체가 금지되는 것은 아니나 제품 복원 계약에는 넣지 않는다). **셸의 사이드바/메뉴 레지스트리를 통한 메뉴 전환도 Context Link helper와 같은 규칙을 따른다**: 전달 집합은 등록된 전역 Context뿐이며 대상의 지원 여부와 무관하게 보존한다. 적용은 대상이 지원하고 검증한 값에만 한다. page-owned 상태와 미등록 키는 자동 복사하지 않는다. 예외 하나: 공간이 `SpaceDef.carriedPageKeys`를 선언하면 **같은 공간의 메뉴 사이**에서만 그 키들을 현재 URL 값 그대로 대상에 싣는다(대상이 `pageKeys`로 선언한 키만, `linkTo`의 `page`에 명시한 값이 우선하고 `null`은 뺀다. 전역 키와 겹치는 키·키를 선언하지 않은 소속 메뉴는 `createRegistry`가 거부, [ADR-0081](adr/0081-feedbackops-operator-screens-platform-frame.md) 결정 4). helper는 **보존할 Context**와 **적용할 Context**를 구분해야 하며, "지원 키만 골라 쓴다"는 동작이 URL에서 나머지를 지운다는 뜻이면 안 된다(보존 약속과 충돌). **Context 변경 시 초기화할 page 키 (Candidate 필드명 `contextResetKeys`, #45):** 결과 집합에 묶인 page 키(표 페이지 번호, 선택 구간 등)는 메뉴 manifest가 `pageKeys`의 부분집합으로 선언하고, Kernel이 사용자의 전역 Context 변경(`setGlobal`·초기화)과 **같은 내비게이션 안에서** 지운다. 뒤로/앞으로 가기와 URL 진입은 아무 키도 지우지 않는다(복원은 정확해야 한다). 페이지가 Context 변경을 감지해 뒤따르는 replace로 지우는 방식은 뒤로가기에서도 발동해 복원을 깨므로 쓰지 않는다.
 
-**드릴다운 단계 (Decided, [ADR-0025](adr/0025-drilldown-level-page-keys-path-bar-layout.md); 필드명 Candidate):** 화면 안에서 단계별로 좁혀 들어가는 메뉴는 manifest `drill.levels`에 단계 순서(page key와 표시 이름)를 선언한다. 단계 키는 `pageKeys`와 `contextResetKeys`에 함께 등록해야 하고(Registry가 검사) 단계는 1개 이상이며 상한 없이 메뉴가 선언한다([ADR-0063](adr/0063-consumer-owned-chart-pieces-and-unbounded-drill.md)). 단계 값은 page 소유 ID·마스터 값이며 전역 Context로 승격하지 않는다(공정으로 들어가도 Context 바의 room_name은 그대로다). 앞 단계 키 없이 뒤 단계 키만 있는 URL은 형식 오류로 거부하고 조회하지 않는다. 형식이 맞지만 지금 범위의 결과에 없는 값은 그 단계에서 거부를 보이고 다른 값으로 바꾸지 않는다. 새 단계 진입·앞 단계로 올라가기·같은 단계의 다른 값으로 바꾸기는 history push이며, 바꾼 단계 뒤의 키를 같은 내비게이션에서 지운다. 사용자의 전역 Context 변경은 위 `contextResetKeys` 규칙으로 단계 키를 모두 지우고, 뒤로/앞으로 가기와 URL 진입은 지우지 않는다. 단계 안의 다른 page key(정렬·축 등)의 기록 방식은 이 계약이 바꾸지 않는다. 화면 모양은 §12.7, 다른 메뉴로 넘어갔다 돌아오는 복귀는 §22.
+**드릴다운 단계 (Decided, [ADR-0025](adr/0025-drilldown-level-page-keys-path-bar-layout.md); 필드명 Candidate):** 화면 안에서 단계별로 좁혀 들어가는 메뉴는 manifest `drill.levels`에 단계 순서(page key와 표시 이름)를 선언한다. 단계 키는 `pageKeys`와 `contextResetKeys`에 함께 등록해야 하고(Registry가 검사) 단계는 1개 이상이며 상한 없이 메뉴가 선언한다([ADR-0063](adr/0063-consumer-owned-chart-pieces-and-unbounded-drill.md)). 단계 값은 page 소유 ID·마스터 값이며 전역 Context로 승격하지 않는다(공정으로 들어가도 Context 바의 room_name은 그대로다). 앞 단계 키 없이 뒤 단계 키만 있는 URL은 형식 오류로 거부하고 조회하지 않는다. 형식이 맞지만 지금 범위의 결과에 없는 값은 그 단계에서 거부를 보이고 다른 값으로 바꾸지 않는다. 새 단계 진입·앞 단계로 올라가기·같은 단계의 다른 값으로 바꾸기는 history push이며, 바꾼 단계 뒤의 키를 같은 내비게이션에서 지운다. 사용자의 전역 Context 변경은 위 `contextResetKeys` 규칙으로 단계 키를 모두 지우고, 뒤로/앞으로 가기와 URL 진입은 지우지 않는다. manifest `drill.resetKeys`(필드명 Candidate)는 단계에 묶인 다른 page key(예: 고른 행)를 적는다. Kernel `setPage`가 단계 키의 값을 바꾸는 쓰기(`useDrill`의 `enter`·`goTo`, 경로 바의 올라가기, 단계 키를 직접 쓰는 메뉴)를 받으면 `resetKeys`를 같은 쓰기에서 함께 지운다(history 항목 하나, `contextResetKeys`가 Context 변경에서 하는 일을 단계 이동에서 한다). 같은 쓰기가 reset 키 값을 직접 주면 그 값이 이기고, 단계 값이 그대로인 쓰기(같은 단계 다시 진입, 현재 깊이로 `goTo`)는 아무것도 지우지 않는다. Registry는 각 항목이 선언된 `pageKeys`이고 단계 키·`returnTo`가 아니며 중복이 없는지 검사한다(`contextResetKeys`일 필요는 없다). 뒤로/앞으로·URL 진입·`setGlobal`은 이 규칙을 적용하지 않아 복원된 항목은 정확하다. 초안 쓰기(`setDraftPage`)는 적용하지 않는다 — 드릴은 초안이 아니라 주소를 `setPage`로 쓴다. 단계 안의 다른 page key(정렬·축 등)의 기록 방식은 이 계약이 바꾸지 않는다. 화면 모양은 §12.7, 다른 메뉴로 넘어갔다 돌아오는 복귀는 §22.
 
 **복수 Scope와 시간 계약이 해결되기 전 허용할 조회 범위 (Decided):** §6.2의 `scopeId` 단일 원칙과 §6.3의 시간역 병합 가드로 닫힌다. TZ 매핑이 끝날 때까지 분석을 전면 금지하지는 않는다(단일 설비 naive 조회는 계속 허용). 프로토타입에서 무제한 조회를 허용하는 것은 거부한다.
 
@@ -353,7 +353,7 @@ Global Context와 Page-local Filter를 같은 Chip 스타일로 혼용하지 않
 
 - **값의 위치:** 본 화면의 칸은 §6.1–6.4대로 URL이 소유한다. 보드의 칸은 보드 상태가 소유하고 URL에 쓰지 않는다. 메뉴는 어느 쪽인지 모르고 Kernel 훅으로만 읽고 쓴다. 메뉴·모듈 코드는 URL을 직접 읽거나 쓰지 않는다.
 - **시작과 독립:** 새 칸은 기본 조건을 복사해 시작한다. `분석 보드에 열기`로 넣으면 누른 화면의 분석 Context, 보드에서 바로 넣으면 마지막으로 본 본 화면의 분석 Context다. 그 뒤로 칸끼리, 그리고 본 화면과 연결이 없다. 일괄로 맞추는 것은 명시적 동작(시트의 모든 칸에 적용, 다른 시트에 복사)뿐이고 한 번 복사한다.
-- **같은 규칙을 칸 단위로:** 지원하지 않는 Context의 보존·미적용 표시(§6.4), `contextResetKeys` 초기화, 드릴다운 단계 키는 칸마다 같은 규칙을 따른다. page 키는 칸 상태에 산다.
+- **같은 규칙을 칸 단위로:** 지원하지 않는 Context의 보존·미적용 표시(§6.4), `contextResetKeys` 초기화, 드릴다운 단계 키와 `drill.resetKeys` 초기화는 칸마다 같은 규칙을 따른다. page 키는 칸 상태에 산다.
 - **Scope:** 칸 하나는 언제나 단일 `scopeId`다(§6.2). 칸마다 서버가 권한을 다시 판정하고, 거부된 칸만 권한 상태가 된다. 여러 칸의 Scope를 한 조회로 합치지 않는다.
 - **Context 바:** 바는 늘 지금 선택된 칸 하나의 분석 Context를 편집한다. 본 화면에서는 지금과 같다.
 - **구현 위치:** Kernel `PaneScreenProvider`(`@ap/kernel`)가 칸 하나의 화면 상태를 준다. `usePlatform()`은 가장 가까운 화면의 상태를 읽고 `screenMode`(`'main'`·`'pane'`)·`paneId`를 더한다. 쓰기와 메뉴 이동은 URL 대신 칸의 `onChange`·`onLeave`로 간다(#496).
@@ -662,6 +662,8 @@ Domain 메뉴는 가능하면 이 Archetype을 조합하고, 새로운 Page Type
 승격 판단은 §24(실제 소비자 2–3곳 반복)를 따르고, 패턴별 소비자 현황은 이슈 #104·#156에서 추적한다.
 
 ### 12.7 드릴다운 레이아웃 (Decided, [ADR-0025](adr/0025-drilldown-level-page-keys-path-bar-layout.md))
+
+단계 이동이 함께 지우는 page key(`drill.resetKeys`)의 규칙은 [§6.4](#64-url-계약-decided-필드명enum-문자열은-candidate)가 소유한다.
 
 `DrillLayout`은 페이지 본문 맨 위에 경로 바(`DrillPath`)를 두고 그 아래에 현재 단계의 본문을 그린다. 단계가 바뀌면 본문을 통째로 바꾸며, 앞 단계 본문을 아래로 쌓거나 옆 열로 남기지 않는다. 0단계(단계 키 없음)에서는 경로 바를 숨기고 메뉴의 요약 본문을 그대로 둔다. 형식 오류(§6.4)와 결과에 없는 값은 `DrillLayout`이 본문 자리에 명시적 상태로 그린다.
 

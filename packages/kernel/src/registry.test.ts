@@ -95,6 +95,23 @@ describe('createRegistry validation (platform-packages.md §5)', () => {
     expect(() => createRegistry({ spaces: homeA, groups, menus: [declared(['a', 'b', 'c', 'd'])] })).not.toThrow();
   });
 
+  describe('drill resetKeys', () => {
+    const withReset = (resetKeys: string[], extra: { pageKeys?: string[] } = {}) => menu('a', '/a', { primary: true, pageKeys: extra.pageKeys ?? ['room', 'row'], contextResetKeys: ['room'], drill: { levels: [level('room')], resetKeys } });
+    it('accepts a declared page key that is not a contextResetKey', () => {
+      expect(() => createRegistry({ spaces: homeA, groups, menus: [withReset(['row'])] })).not.toThrow();
+    });
+    it.each([
+      ['an undeclared page key', ['ghost'], /Menu "a" drill resetKey "ghost" is not a declared pageKeys entry/],
+      ['a drill level key', ['room'], /Menu "a" drill resetKey "room" is a drill level key/],
+      ['a duplicate', ['row', 'row'], /Menu "a" drill resetKey "row" is duplicated/],
+    ])('rejects %s', (_name, keys, message) => {
+      expect(() => createRegistry({ spaces: homeA, groups, menus: [withReset(keys)] })).toThrow(message);
+    });
+    it('rejects returnTo', () => {
+      expect(() => createRegistry({ spaces: homeA, groups, menus: [withReset(['returnTo'], { pageKeys: ['room', 'returnTo'] })] })).toThrow(/Menu "a" drill resetKey "returnTo" cannot be reset by a drill step/);
+    });
+  });
+
   it('allows §6.1 screen-state page keys (sort, page, tab, bucket, bin)', () => {
     expect(() => createRegistry({ spaces: homeA, groups, menus: [menu('a', '/a', { primary: true, pageKeys: ['sort', 'page', 'tab', 'bucket', 'bin'] })] })).not.toThrow();
     expect(() => createRegistry({ spaces: homeA, groups, menus: [menu('a', '/a', { primary: true, pageKeys: ['q', 'status', 'maker', 'focus', 'sort', 'page', 'tab'] })] })).not.toThrow();

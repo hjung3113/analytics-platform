@@ -27,6 +27,8 @@ vi.mock('@ap/components', async importOriginal => {
       {props.series.flatMap(s => s.points.filter(([, v]) => v !== null).slice(0, 3).map(([x, v]) =>
         <button key={`${s.id}-${x}`} type="button" onClick={() => props.pointActivation?.onActivate({ x, seriesId: s.id, value: v })}>{`segment ${s.id} ${x}`}</button>))}
       <p data-testid={`${props.chartId}-active`}>{String(props.activeCategory)}</p>
+      {/* Mirrors the Frame rule (pinned in AnalysisChartFrame.rowFocus.test.tsx): only a drawn category is named as the active row. */}
+      <p data-testid={`${props.chartId}-active-shown`}>{props.activeCategory != null && categories.includes(props.activeCategory) ? props.activeCategory : ''}</p>
       <p data-testid={`${props.chartId}-reveal`}>{String(props.revealActive)}</p>
       {categories.filter(x => !x.includes('MEG')).slice(0, 4).map(x => <button key={`pick-${x}`} type="button" onClick={() => props.onActiveCategoryChange?.(x, 'pointer')}>{`pick ${props.chartId} ${x}`}</button>)}
       <p data-testid={`${props.chartId}-legend`}>{String(props.legend !== false)}</p>
@@ -123,9 +125,10 @@ describe('HW Time compare page', () => {
     expect(menu.label).toEqual({ ko: 'HW Time 비교', en: 'HW Time compare' });
     expect(menu.pageKeys).toEqual(['drillModule', 'drillMotion', 'trend', 'sort', 'row', 'scroll', 'minmax', 'align']);
     expect(menu.contextResetKeys).toEqual(['drillModule', 'drillMotion', 'trend', 'row']);
+    expect(menu.drill?.resetKeys).toEqual(['row']);
     expect(menu.group).toBe(manifests[0].group);
     expect(menu.features).toEqual(manifests[0].features);
-    expect(menu.drill).toEqual(manifests[0].drill);
+    expect(menu.drill?.levels).toEqual(manifests[0].drill?.levels);
   });
 
   it.each([
@@ -271,21 +274,39 @@ describe('HW Time compare page', () => {
     expect(searchParams().has('row')).toBe(false);
   });
 
-  it('a row picked on one path is not carried to another path by the breadcrumb, and Back restores it', async () => {
+  it('going up through the breadcrumb clears the row in that one navigation', async () => {
     await renderPage('&drillModule=PM1&drillMotion=Pump');
     fireEvent.click(screen.getByRole('button', { name: 'pick hw-compare-L3-detail EQ-001 · H3' }));
     expect(searchParams().get('row')).toBe('EQ-001.H3');
+    const before = window.history.length;
+    fireEvent.click(screen.getByRole('button', { name: /Module: PM1/ }));
+    expect(searchParams().has('row')).toBe(false);
+    expect(searchParams().get('drillModule')).toBe('PM1');
+    expect(window.history.length).toBe(before + 1);
+  });
+
+  it('the URL is the truth: Back to the path a row was picked on restores that row', async () => {
+    await renderPage('&drillModule=PM1&drillMotion=Pump');
+    fireEvent.click(screen.getByRole('button', { name: 'pick hw-compare-L3-detail EQ-001 · H3' }));
+    const pickedOn = window.location.search;
     fireEvent.click(screen.getByRole('button', { name: '전체' }));
     fireEvent.click(screen.getByRole('button', { name: 'segment PM2 EQ-001' }));
     fireEvent.click(screen.getAllByRole('button', { name: /^segment Pump EQ-001/ })[0]!);
-    expect(searchParams().has('row')).toBe(false);
     expect(screen.getByTestId('hw-compare-L3-detail-active').textContent).toBe('null');
-    // The breadcrumb cannot clear a page key: the stale URL row is ignored on the new path.
     fireEvent.click(screen.getByRole('button', { name: 'pick hw-compare-L3-detail EQ-001 · H1' }));
-    fireEvent.click(screen.getByRole('button', { name: /Module: PM2/ }));
-    fireEvent.click(screen.getAllByRole('button', { name: /^segment Chuck EQ-001/ })[0]!);
-    expect(searchParams().has('row')).toBe(false);
-    expect(screen.getByTestId('hw-compare-L3-detail-active').textContent).toBe('null');
+    expect(searchParams().get('row')).toBe('EQ-001.H1');
+    // pick, Pump, PM2, 전체 are four entries after the entry the first row was picked on.
+    act(() => { window.history.go(-4); });
+    await waitFor(() => expect(window.location.search).toBe(pickedOn));
+    expect(screen.getByTestId('hw-compare-L3-detail-active').textContent).toBe('EQ-001 · H3');
+  });
+
+  it('a URL row that does not belong to the current level shows no active row', async () => {
+    await renderPage('&drillModule=PM1&row=EQ-001.H3');
+    expect(screen.getByTestId('hw-compare-L2-active-shown').textContent).toBe('');
+    cleanup();
+    await renderPage('&drillModule=PM1&drillMotion=Pump&row=EQ-001.H3');
+    expect(screen.getByTestId('hw-compare-L3-detail-active-shown').textContent).toBe('EQ-001 · H3');
   });
 
   it('a row that arrives with the URL stays active, and history Back restores the row as it was', async () => {
