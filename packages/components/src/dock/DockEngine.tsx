@@ -229,12 +229,25 @@ export default function DockEngine({
     if (!api) return;
     const subscriptions = [api.onDidLayoutChange(() => { check(api); }), api.onDidActivePanelChange(() => { check(api); }), api.onDidMovePanel(() => { check(api); })];
     const container = containerRef.current;
-    const down = (event: Event) => { if (event.target instanceof Element && event.target.closest('.dv-sash')) dragging.current = true; };
-    const up = () => { if (dragging.current) { dragging.current = false; check(api); } };
+    // The engine ends a sash drag on a document `pointerup` (dockview-core main.esm.mjs:1510-1530), after this window-capture handler, and
+    // announces the final sizes from a microtask it queues there (`onDidLayoutChange`, :19311, AsapEvent :278). The flag therefore stays up until
+    // the event dispatch and its microtasks are done (a macrotask later), so that one layout event still counts as the drag's; a later,
+    // engine-only change (window resize) is a separate task and sees the flag down. A repeat of the same tree is dropped by `emitted`.
+    let release: ReturnType<typeof setTimeout> | undefined;
+    const up = () => {
+      if (!dragging.current) return;
+      clearTimeout(release);
+      release = setTimeout(() => { dragging.current = false; }, 0);
+    };
+    const down = (event: Event) => {
+      if (event.target instanceof Element && event.target.closest('.dv-sash')) { clearTimeout(release); dragging.current = true; }
+    };
     container?.addEventListener('pointerdown', down, true);
     window.addEventListener('pointerup', up, true);
     window.addEventListener('pointercancel', up, true);
     return () => {
+      clearTimeout(release);
+      dragging.current = false;
       subscriptions.forEach(subscription => { subscription.dispose(); });
       container?.removeEventListener('pointerdown', down, true);
       window.removeEventListener('pointerup', up, true);
