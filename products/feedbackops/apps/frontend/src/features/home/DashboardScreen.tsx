@@ -30,7 +30,7 @@ import {
 import { GLOSSARY } from '@/lib/copy/glossary';
 import { HOME_COPY, HOME_KPI_COPY, HOME_QUEUE_COPY, homeSeverityLabel } from '@/lib/copy/home';
 import { formatRelativeTime } from '@/lib/format/datetime';
-import { HostLink } from '@/lib/host/host-seam';
+import { HostLink, useHostSeam } from '@/lib/host/host-seam';
 import { AnswerableSurveysSection } from './AnswerableSurveysSection';
 import { OwnerPermissionRequestDialog } from './OwnerPermissionRequestDialog';
 import { hrefWithManagedSystem } from './href';
@@ -52,28 +52,17 @@ export function DashboardScreen({
   managedSystemId,
 }: { managedSystemId?: string }): React.ReactElement {
   const me = useMeBridge();
+  const data = useDashboardData(me.data?.actor.id, managedSystemId);
   return (
-    <DashboardBody
-      actorId={me.data?.actor.id}
-      {...(managedSystemId !== undefined ? { managedSystemId } : {})}
-    />
+    <DashboardBody data={data} {...(managedSystemId !== undefined ? { managedSystemId } : {})} />
   );
 }
 
 /**
- * `DashboardScreen` plus the one thing only the standalone `HomeScreen` supplies: the Integration recovery queue,
- * which sits inside the layout (deferred on the platform, #763). It is not exported through the entry.
+ * The dashboard's reads and the reporter-layout decision. The standalone `HomeScreen` calls it above its tabs so the
+ * observers outlive a tab round trip; `DashboardScreen` calls it itself on the platform.
  */
-export function DashboardBody({
-  actorId,
-  managedSystemId,
-  recoveryQueue,
-}: {
-  /** The caller's actor id from the host's session read (`useMeBridge` on the platform, `useMe` standalone). */
-  actorId: string | undefined;
-  managedSystemId?: string;
-  recoveryQueue?: React.ReactNode;
-}): React.ReactElement {
+export function useDashboardData(actorId: string | undefined, managedSystemId?: string) {
   const summary = useQuery({
     queryKey: ['dashboard-summary', managedSystemId] as const,
     queryFn: ({ signal }) =>
@@ -110,15 +99,7 @@ export function DashboardBody({
     queryFn: ({ signal }) => fetchPermissionRequestsMine({ signal }),
     retry: false,
   });
-  const assignedTasks = myTasks.data?.items ?? [];
-  const assignedRequests = pendingRequests.data?.items ?? [];
   const permissionRequests = openPermissionRequests.data?.requests ?? [];
-  const hasPersonalAssignments = assignedTasks.length > 0 || assignedRequests.length > 0;
-  const hasSummaryActivity =
-    summary.data !== undefined &&
-    (summary.data.action_queues.some((queue) => queue.count > 0) ||
-      summary.data.coverage.length > 0 ||
-      Object.values(summary.data.kpis ?? {}).some((count) => count !== undefined && count > 0));
   // A User actor gets 403 from both personal-work queries: that actor holds no Tasks, so Home leads
   // with Survey and 내 VOC. Loading and other errors keep the operator layout.
   const personalWorkDenied = [myTasks, pendingRequests].every((query) =>
@@ -127,6 +108,45 @@ export function DashboardBody({
   // Once a Permission Request has shown, its panel stays mounted so the withdraw focus fallback survives.
   const [sawPermissionRequests, setSawPermissionRequests] = React.useState(false);
   if (permissionRequests.length > 0 && !sawPermissionRequests) setSawPermissionRequests(true);
+  return {
+    summary,
+    assignedTasks: myTasks.data?.items ?? [],
+    assignedRequests: pendingRequests.data?.items ?? [],
+    permissionRequests,
+    personalWorkDenied,
+    sawPermissionRequests,
+  };
+}
+
+export type DashboardData = ReturnType<typeof useDashboardData>;
+
+/**
+ * `DashboardScreen` without its own reads, plus the one thing only the standalone `HomeScreen` supplies: the
+ * Integration recovery queue, which sits inside the layout (deferred on the platform, #763). Not exported through the entry.
+ */
+export function DashboardBody({
+  data,
+  managedSystemId,
+  recoveryQueue,
+}: {
+  data: DashboardData;
+  managedSystemId?: string;
+  recoveryQueue?: React.ReactNode;
+}): React.ReactElement {
+  const {
+    summary,
+    assignedTasks,
+    assignedRequests,
+    permissionRequests,
+    personalWorkDenied,
+    sawPermissionRequests,
+  } = data;
+  const hasPersonalAssignments = assignedTasks.length > 0 || assignedRequests.length > 0;
+  const hasSummaryActivity =
+    summary.data !== undefined &&
+    (summary.data.action_queues.some((queue) => queue.count > 0) ||
+      summary.data.coverage.length > 0 ||
+      Object.values(summary.data.kpis ?? {}).some((count) => count !== undefined && count > 0));
 
   return (
     <>
@@ -207,7 +227,9 @@ export function DashboardBody({
 }
 
 /** The blocked-state detour to 내 VOC (#1264), through the host seam instead of the router. */
-function MyVocsHostLink(): React.ReactElement {
+function MyVocsHostLink(): React.ReactElement | null {
+  const { canLink } = useHostSeam();
+  if (!canLink('/vocs?view=my')) return null;
   return (
     <Button asChild variant="secondary" size="sm" spacing="compact">
       <HostLink to="/vocs?view=my">
@@ -345,6 +367,7 @@ function HomeSummary({
   const queues = summary?.action_queues ?? [];
   const activeQueues = queues.filter((queue) => queue.count > 0);
   const zeroQueues = queues.filter((queue) => queue.count === 0);
+  const { canLink } = useHostSeam();
   const kpiKeys = Object.keys(HOME_KPI_COPY) as Array<keyof typeof HOME_KPI_COPY>;
   const visibleKpiKeys = kpiKeys.filter((key) => kpis?.[key] !== undefined);
   return (
@@ -398,7 +421,11 @@ function HomeSummary({
           <span className="text-xs text-text-muted">{HOME_COPY.noZeroQueueItems}</span>
           {zeroQueues.map((queue) => (
             <HostLink
-              className="inline-flex items-center rounded-full border border-border-subtle bg-surface-card px-2 py-1 text-xs text-text-secondary hover:text-text-primary"
+              className={`inline-flex items-center rounded-full border border-border-subtle bg-surface-card px-2 py-1 text-xs text-text-secondary ${
+                canLink(hrefWithManagedSystem(queue.next_action.route, managedSystemId))
+                  ? 'hover:text-text-primary'
+                  : ''
+              }`}
               data-testid={`home-zero-queue-${queue.id}`}
               to={hrefWithManagedSystem(queue.next_action.route, managedSystemId)}
               key={queue.id}
@@ -420,6 +447,10 @@ function ActionQueueRow({
   managedSystemId?: string;
 }): React.ReactElement {
   const copy = HOME_QUEUE_COPY[queue.id];
+  const { canLink } = useHostSeam();
+  const primaryHref = hrefWithManagedSystem(queue.next_action.route, managedSystemId);
+  const secondaryHref =
+    queue.secondary_action && hrefWithManagedSystem(queue.secondary_action.route, managedSystemId);
   const countClass =
     queue.severity === 'urgent'
       ? 'text-accent-danger'
@@ -464,20 +495,26 @@ function ActionQueueRow({
       >
         {queue.secondary_action && copy.secondaryAction ? (
           <HostLink
-            className="text-xs text-text-secondary hover:text-text-primary"
-            to={hrefWithManagedSystem(queue.secondary_action.route, managedSystemId)}
+            className={`text-xs text-text-secondary ${
+              secondaryHref && canLink(secondaryHref) ? 'hover:text-text-primary' : ''
+            }`}
+            to={secondaryHref ?? ''}
           >
             {copy.secondaryAction}
           </HostLink>
         ) : (
           <span />
         )}
-        <Button asChild variant="primary" size="sm" wrapText className="max-w-full">
-          <HostLink to={hrefWithManagedSystem(queue.next_action.route, managedSystemId)}>
-            <span className="min-w-0 wrap-break-word">{copy.primaryAction}</span>
-            <ArrowRight className="h-3.5 w-3.5 shrink-0" />
-          </HostLink>
-        </Button>
+        {canLink(primaryHref) ? (
+          <Button asChild variant="primary" size="sm" wrapText className="max-w-full">
+            <HostLink to={primaryHref}>
+              <span className="min-w-0 wrap-break-word">{copy.primaryAction}</span>
+              <ArrowRight className="h-3.5 w-3.5 shrink-0" />
+            </HostLink>
+          </Button>
+        ) : (
+          <span className="max-w-full text-xs text-text-muted">{copy.primaryAction}</span>
+        )}
       </footer>
     </article>
   );
@@ -501,6 +538,7 @@ function MyWorkPanel({
       href: `/tasks?view=requests&param=${request.id}`,
     })),
   ].slice(0, 4);
+  const { canLink } = useHostSeam();
   return (
     <section>
       <PanelHeading title={HOME_COPY.assignedToYou} />
@@ -512,7 +550,9 @@ function MyWorkPanel({
           <HostLink
             key={row.id}
             to={row.href}
-            className="flex min-h-row-default items-center gap-3 border-b border-border-subtle px-4 last:border-b-0 hover:bg-surface-row-hover"
+            className={`flex min-h-row-default items-center gap-3 border-b border-border-subtle px-4 last:border-b-0 ${
+              canLink(row.href) ? 'hover:bg-surface-row-hover' : ''
+            }`}
           >
             <span className="h-4 w-row-accent rounded-pill bg-accent-warn" />
             <span className="min-w-0 flex-1">
@@ -622,11 +662,12 @@ function PanelHeading({
 }:
   | { title: string; action?: undefined; href?: string; disabled?: boolean }
   | { title: string; action: string; href: string; disabled?: boolean }): React.ReactElement {
+  const { canLink } = useHostSeam();
   return (
     <div className="mb-3 flex items-center justify-between">
       <h2 className="text-xs font-semibold uppercase tracking-wide text-text-muted">{title}</h2>
       {action !== undefined &&
-        (disabled ? (
+        (disabled || !canLink(href) ? (
           <span className="text-xs text-text-secondary">
             {action} <ArrowRight className="inline h-3 w-3" />
           </span>

@@ -1,9 +1,8 @@
 import { Button, PageShell, Tabs, TabsContent, TabsList, TabsTrigger } from '@fops/ui';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { Plus, RefreshCw } from 'lucide-react';
 import type * as React from 'react';
 
-import { fetchDashboardSummary } from '@/lib/api/dashboard';
 import { useMe } from '@/lib/auth/useMe';
 import { HOME_COPY, HOME_INBOX_COPY } from '@/lib/copy/home';
 import {
@@ -13,7 +12,12 @@ import {
 import { HostSeamProvider } from '@/lib/host/host-seam';
 import { tanstackHost } from '@/lib/host/tanstack-host';
 import { InternalLink } from '@/lib/router/InternalLink';
-import { DashboardBody, HOME_COVERAGE_HREF, refreshDashboard } from './DashboardScreen';
+import {
+  DashboardBody,
+  HOME_COVERAGE_HREF,
+  refreshDashboard,
+  useDashboardData,
+} from './DashboardScreen';
 import { InboxPanel } from './InboxPanel';
 import { standaloneDashboardHost } from './standaloneHost';
 
@@ -38,15 +42,8 @@ export function HomeScreen({
   const unreadCount = unreadNotifications.data;
   const unreadBadge =
     unreadCount !== undefined && unreadCount > 0 ? formatUnreadBadge(unreadCount) : undefined;
-  const summary = useQuery({
-    queryKey: ['dashboard-summary', managedSystemId] as const,
-    queryFn: ({ signal }) =>
-      fetchDashboardSummary({
-        signal,
-        ...(managedSystemId !== undefined ? { managedSystemId } : {}),
-      }),
-    retry: false,
-  });
+  const data = useDashboardData(me.data?.actor.id, managedSystemId);
+  const summary = data.summary;
   const actorName = me.data?.actor.display_name ?? '지원';
   const refresh = (): void => refreshDashboard(queryClient, managedSystemId);
 
@@ -106,7 +103,7 @@ export function HomeScreen({
           <TabsContent value="dashboard" className="mt-0">
             <HostSeamProvider value={standaloneDashboardHost}>
               <DashboardBody
-                actorId={me.data?.actor.id}
+                data={data}
                 {...(managedSystemId !== undefined ? { managedSystemId } : {})}
                 recoveryQueue={recovery?.queue}
               />

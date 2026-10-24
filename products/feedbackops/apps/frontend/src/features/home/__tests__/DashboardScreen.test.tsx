@@ -2,6 +2,7 @@
 
 import { configureApiClient } from '@/lib/api/client';
 import { COVERAGE_METRIC_IDS } from '@/lib/copy/coverage';
+import { HOME_COPY, HOME_QUEUE_COPY } from '@/lib/copy/home';
 import { type HostLinkProps, type HostSeam, HostSeamProvider } from '@/lib/host/host-seam';
 import { dashboardSummarySchema } from '@fops/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -103,8 +104,8 @@ describe('DashboardScreen', () => {
     expect(screen.getByTestId('home-queue-actionable-finding-no-execution')).toBeTruthy();
     expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
     expect(screen.queryByRole('tablist')).toBeNull();
-    expect(screen.queryByRole('button', { name: '새로고침' })).toBeNull();
-    expect(screen.queryByRole('link', { name: /VOC 등록/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: HOME_COPY.refresh })).toBeNull();
+    expect(screen.queryByRole('link', { name: HOME_COPY.newVoc })).toBeNull();
     expect(screen.queryByTestId('recovery-queue')).toBeNull();
   });
 
@@ -112,6 +113,11 @@ describe('DashboardScreen', () => {
     const view = mount((to) => !to.startsWith('/findings'));
     const queue = await screen.findByTestId('home-queue-actionable-finding-no-execution');
     expect(within(queue).queryByRole('link')).toBeNull();
+    // F3: an unavailable destination is inert text, not a primary-button-shaped span with hover.
+    expect(queue.querySelector('[class*="bg-accent-primary"], [class*="hover:"]')).toBeNull();
+    expect(
+      within(queue).getByText(HOME_QUEUE_COPY['actionable-finding-no-execution'].primaryAction),
+    ).toBeTruthy();
     expect(
       within(await screen.findByTestId('home-zero-queues'))
         .getByRole('link')
