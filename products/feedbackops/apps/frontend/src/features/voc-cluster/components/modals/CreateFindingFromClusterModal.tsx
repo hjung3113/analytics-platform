@@ -1,7 +1,8 @@
 // Create a Finding from a VOC Cluster. Local form (not the cross-system
 // CreateFindingModal): this flow is VOC-cluster origin and has its own
 // analytics-free severity picker. Its mutation invalidates the Findings list
-// before the success path navigates to the new Finding.
+// before the success path navigates to the new Finding — or, where the host
+// cannot open Findings (the platform until #763), closes with a success notice.
 
 import { FINDING_SEVERITY_LABELS } from '@/lib/copy/enum-labels';
 import type { CreateFindingRequest } from '@fops/shared';
@@ -47,7 +48,7 @@ export function CreateFindingFromClusterModal({
   onClose: () => void;
 }): React.ReactElement {
   const navigate = useHostNavigate();
-  const { notifyError } = useHostSeam();
+  const { canLink, notifyError, notifySuccess } = useHostSeam();
   const { key: idempotencyKey, markConsumed } = useIdempotencyKey();
   const mutation = useCreateFindingFromCluster({ idempotencyKey });
 
@@ -80,7 +81,9 @@ export function CreateFindingFromClusterModal({
           form.reset();
           mutation.reset();
           onClose();
-          navigate(`/findings/${finding.id}`);
+          const findingPath = `/findings/${finding.id}`;
+          if (canLink(findingPath)) navigate(findingPath);
+          else notifySuccess('Finding이 생성되었습니다.');
         },
         onError: (err: ApiError) => {
           notifyError(errorMapper(err.envelope).message);
