@@ -20,7 +20,7 @@ import {
 import { analyticsAreasCatalogQuery } from '@/lib/cross-system/analyticsAreasCatalog';
 import type { ResolvedManagedSystem } from '@/lib/cross-system/useManagedSystem';
 import { managedSystemsCatalogQuery } from '@/lib/cross-system/useManagedSystemNames';
-import { usePermissionCheck } from '@/lib/cross-system/usePermissionCheck';
+import { usePermissionCheckBridge } from '@/lib/cross-system/usePermissionCheckBridge';
 import { useWorkspaceActors } from '@/lib/cross-system/useWorkspaceActors';
 import type { VocListItem } from '@fops/shared';
 import { type AvatarUser, Button, EmptyState, managedSystemMarkColor } from '@fops/ui';
@@ -258,11 +258,11 @@ VocList.displayName = 'VocList';
 type ReporterMyVocRowProps = React.ComponentProps<typeof VocRow>;
 
 function ReporterMyVocRow(props: ReporterMyVocRowProps): React.ReactElement {
-  const readCheck = usePermissionCheck({
+  const readCheck = usePermissionCheckBridge({
     capability: 'voc.read',
     managedSystemId: props.voc.primary_managed_system_id,
   });
-  const triageCheck = usePermissionCheck({
+  const triageCheck = usePermissionCheckBridge({
     capability: 'voc.triage',
     managedSystemId: props.voc.primary_managed_system_id,
   });

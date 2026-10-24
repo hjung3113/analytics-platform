@@ -29,13 +29,11 @@ vi.mock('@tanstack/react-router', () => ({
 
 vi.mock('@/features/voc/hooks/useVocList', () => ({ useVocList: useVocListMock }));
 vi.mock('@/features/voc/hooks/useVocListPages', () => ({ useVocListPages: useVocListMock }));
-vi.mock('@/features/voc/components/detail/VocDetailPanel', () => ({
-  VocDetailPanel: () => null,
-}));
 vi.mock('@/features/voc/components/list/VocList', () => ({ VocList: () => null }));
 
 import { SurveyResultsSummary } from '@/features/surveys/components/results/SurveyResultsSummary';
-import { useInboxRoute } from '@/features/voc/routes/InboxRoute';
+import { InboxScreen } from '@/features/voc/routes/InboxScreen';
+import { type HostSeam, HostSeamProvider } from '@/lib/host/host-seam';
 import { PermissionGate } from '../permission-gate.js';
 
 const SURVEY_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
@@ -50,8 +48,21 @@ function withClient(node: ReactNode) {
   );
 }
 
+const INBOX_SEAM: HostSeam = {
+  canLink: () => true,
+  Link: ({ to, children }) => <a href={to}>{children}</a>,
+  notifyError: () => {},
+  notifySuccess: () => {},
+  useNavigate: () => vi.fn(),
+  useSearch: () => ({}),
+};
+
 function InboxHarness() {
-  return useInboxRoute('inbox').list;
+  return (
+    <HostSeamProvider value={INBOX_SEAM}>
+      <InboxScreen view="inbox" renderDetail={() => null} />
+    </HostSeamProvider>
+  );
 }
 
 describe('permission request return routes', () => {

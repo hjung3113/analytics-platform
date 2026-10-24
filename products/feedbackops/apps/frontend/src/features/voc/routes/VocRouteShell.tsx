@@ -4,15 +4,16 @@
 // route file imports it. Shell selection follows ADR-0020 §taxonomy lock:
 // inbox/my → ListShell, triage → WorkbenchShell, action=create → PageShell.
 
+import { VocDetailPanel } from '@/features/voc/components/detail/VocDetailPanel';
 import { CreateRoute } from '@/features/voc/routes/CreateRoute';
-import { useInboxRoute } from '@/features/voc/routes/InboxRoute';
+import { InboxScreen } from '@/features/voc/routes/InboxScreen';
 import { TriageRoute } from '@/features/voc/routes/TriageRoute';
 import { VOC_DEFAULT_VIEW } from '@/features/voc/routes/voc-search';
 import type { VocSearch } from '@/features/voc/routes/voc-search';
 import { fetchNavCounts } from '@/lib/api/nav';
 import { GLOSSARY, createLabel } from '@/lib/copy/glossary';
 import { NAV_COUNTS_QUERY_KEY } from '@/lib/query/navCounts';
-import { ListShell, PageShell, WorkbenchShell } from '@fops/ui';
+import { PageShell, WorkbenchShell } from '@fops/ui';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useSearch } from '@tanstack/react-router';
 import { ChevronLeft } from 'lucide-react';
@@ -86,14 +87,20 @@ export function VocRouteShell() {
 
 // ── InboxShell ────────────────────────────────────────────────────────────────
 //
-// Composition decision: useInboxRoute() returns three render slots
-// (toolbar, list, detailPanel) that are composed here inside ListShell.
-// This keeps ListShell as the ADR-0020-locked wrapper in the route composition
-// while giving InboxRoute full ownership of URL state + data logic.
-// Returning an object from a hook avoids the anti-pattern of rendering
-// an object from a component function.
+// InboxScreen owns the ListShell composition (ADR-0020) and the list state;
+// the standalone app supplies the detail it renders for the selected VOC.
 
 function InboxShell({ view }: { view: 'inbox' | 'my' }) {
-  const { list, detailPanel } = useInboxRoute(view);
-  return <ListShell list={list} {...(detailPanel !== undefined ? { detailPanel } : {})} />;
+  return (
+    <InboxScreen
+      view={view}
+      renderDetail={(vocId, { managedSystemId, onClose }) => (
+        <VocDetailPanel
+          vocId={vocId}
+          {...(managedSystemId !== undefined ? { managedSystemId } : {})}
+          onClose={onClose}
+        />
+      )}
+    />
+  );
 }

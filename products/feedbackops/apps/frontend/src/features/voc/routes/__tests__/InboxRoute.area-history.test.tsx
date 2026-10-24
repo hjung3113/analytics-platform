@@ -1,3 +1,4 @@
+import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@fops/ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   Outlet,
@@ -9,7 +10,7 @@ import {
 } from '@tanstack/react-router';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { useInboxRoute } from '../InboxRoute';
+import { InboxScreen } from '../InboxScreen';
 import { validateVocSearch } from '../voc-search';
 
 const AREA = '11111111-1111-4111-8111-111111111111';
@@ -34,20 +35,24 @@ vi.mock('../../components/list/VocList', () => ({
     </button>
   ),
 }));
-vi.mock('../../components/detail/VocDetailPanel', () => ({
-  VocDetailPanel: ({ onClose }: { onClose: () => void }) => (
-    <button type="button" onClick={onClose}>
-      상세 닫기
-    </button>
-  ),
-}));
+// ListShell forwards the detail to AppFrame's slot; this harness hosts it like the app does.
+function DetailPanelSlotHost() {
+  const { ref } = useDetailPanelSlotHost();
+  return <div ref={ref} />;
+}
 function Inbox() {
-  const { list, detailPanel } = useInboxRoute('inbox');
   return (
-    <>
-      {list}
-      {detailPanel}
-    </>
+    <DetailPanelSlotProvider>
+      <InboxScreen
+        view="inbox"
+        renderDetail={(_vocId, { onClose }) => (
+          <button type="button" onClick={onClose}>
+            상세 닫기
+          </button>
+        )}
+      />
+      <DetailPanelSlotHost />
+    </DetailPanelSlotProvider>
   );
 }
 afterEach(() => vi.unstubAllGlobals());
