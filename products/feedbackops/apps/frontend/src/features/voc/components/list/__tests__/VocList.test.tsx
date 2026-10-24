@@ -1,4 +1,4 @@
-import { usePermissionCheck } from '@/lib/cross-system/usePermissionCheck';
+import { usePermissionCheckBridge } from '@/lib/cross-system/usePermissionCheckBridge';
 import type { VocListItem } from '@fops/shared';
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -57,7 +57,9 @@ vi.mock('@/lib/api', async (importOriginal) => {
     }),
   };
 });
-vi.mock('@/lib/cross-system/usePermissionCheck', () => ({ usePermissionCheck: vi.fn() }));
+vi.mock('@/lib/cross-system/usePermissionCheckBridge', () => ({
+  usePermissionCheckBridge: vi.fn(),
+}));
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -103,11 +105,11 @@ describe('<VocList>', () => {
   beforeEach(() => {
     onSelect = vi.fn();
     permissionStates.clear();
-    vi.mocked(usePermissionCheck).mockImplementation(
+    vi.mocked(usePermissionCheckBridge).mockImplementation(
       ({ capability }) =>
         ({
           data: { state: permissionStates.get(capability) ?? 'blocked_non_requestable' },
-        }) as unknown as ReturnType<typeof usePermissionCheck>,
+        }) as unknown as ReturnType<typeof usePermissionCheckBridge>,
     );
   });
 

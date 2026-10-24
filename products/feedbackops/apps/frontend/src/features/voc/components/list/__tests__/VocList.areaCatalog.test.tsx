@@ -18,8 +18,8 @@ vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
   fetchAnalyticsAreas,
   fetchManagedSystems: vi.fn().mockResolvedValue({ items: [], total: 0 }),
 }));
-vi.mock('@/lib/cross-system/usePermissionCheck', () => ({
-  usePermissionCheck: () => ({ data: { state: 'blocked_non_requestable' } }),
+vi.mock('@/lib/cross-system/usePermissionCheckBridge', () => ({
+  usePermissionCheckBridge: () => ({ data: { state: 'blocked_non_requestable' } }),
 }));
 
 function area(n: number, name: string): AnalyticsAreaDto {

@@ -1,15 +1,18 @@
-// InboxRoute.test.tsx — unit tests for useInboxRoute hook (C9 of Slice 3 #20).
+// InboxRoute.test.tsx — unit tests for InboxScreen (C9 of Slice 3 #20, bridge-safe in #761 i).
 //
-// Strategy: mount a thin wrapper that calls useInboxRoute() and renders its
-// `list` slot. VocDetailPanel and VocList are stubbed to avoid full API setup.
+// Strategy: mount InboxScreen under a HostSeamProvider whose search is `searchState` and whose
+// navigate is a spy taking the complete FeedbackOps href and the replace flag. The detail the
+// host renders for the selected VOC is a stub.
 // Asserting:
 //   - 3 mocked VocList rows render
-//   - clicking a row calls navigate with `selected` URL param
-//   - VocDetailPanel is mounted when `selected` is set
+//   - clicking a row navigates to an href carrying `selected`
+//   - the host's detail is rendered when `selected` is set
 
 import { ApiError } from '@/lib/api/types';
 import { LIST_SEARCH_PLACEHOLDER } from '@/lib/copy/list-search';
+import { type HostSeam, HostSeamProvider } from '@/lib/host/host-seam';
 import { listVocsQuerySchema } from '@fops/shared';
+import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@fops/ui';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useEffect } from 'react';
 import type * as React from 'react';
@@ -25,23 +28,6 @@ const openRequestAccessMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => (options: unknown) => ({ options }),
-  useSearch: () => searchState,
-  useNavigate: () => navigateMock,
-  Link: ({
-    children,
-    to,
-    search,
-    className,
-  }: {
-    children: React.ReactNode;
-    to: string;
-    search?: unknown;
-    className?: string;
-  }) => (
-    <a href={to} data-search={JSON.stringify(search)} className={className}>
-      {children}
-    </a>
-  ),
 }));
 
 vi.mock('@/features/admin/permissions/request-access-button', () => ({
@@ -171,35 +157,33 @@ function pagesResult(
 // this file's react-query stub returns an items-shaped object for every useQuery.
 vi.mock('../../components/VocAreaFilterSelect', () => ({ VocAreaFilterSelect: () => null }));
 
-// ── Stub VocDetailPanel ───────────────────────────────────────────────────────
+// ── The host's detail stub ───────────────────────────────────────────────────
 
-vi.mock('../../components/detail/VocDetailPanel', () => ({
-  VocDetailPanel: ({
-    vocId,
-    managedSystemId,
-    onClose,
-  }: {
-    vocId: string;
-    managedSystemId?: string;
-    onClose: () => void;
-  }) => {
-    useEffect(() => {
-      if (managedSystemId !== undefined && managedSystemId !== 'ms-1') onClose();
-    }, [managedSystemId, onClose]);
+function DetailStub({
+  vocId,
+  managedSystemId,
+  onClose,
+}: {
+  vocId: string;
+  managedSystemId?: string | undefined;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    if (managedSystemId !== undefined && managedSystemId !== 'ms-1') onClose();
+  }, [managedSystemId, onClose]);
 
-    return (
-      <div
-        data-testid="voc-detail-panel-stub"
-        data-managed-system-id={managedSystemId}
-        data-voc-id={vocId}
-      >
-        <button type="button" onClick={onClose}>
-          닫기
-        </button>
-      </div>
-    );
-  },
-}));
+  return (
+    <div
+      data-testid="voc-detail-panel-stub"
+      data-managed-system-id={managedSystemId}
+      data-voc-id={vocId}
+    >
+      <button type="button" onClick={onClose}>
+        닫기
+      </button>
+    </div>
+  );
+}
 
 // ── Stub VocList to use real component but mock managed-systems query ─────────
 
@@ -237,21 +221,71 @@ vi.mock('@tanstack/react-query', () => ({
 
 import { SEARCH_DEBOUNCE_MS, SEARCH_HANGUL_DEBOUNCE_MS } from '@/lib/forms/search-debounce';
 import { Route as vocsRoute } from '@/routes/_authed/vocs';
-import { useInboxRoute } from '../InboxRoute';
+import { InboxScreen } from '../InboxScreen';
+
+const TEST_SEAM: HostSeam = {
+  canLink: () => true,
+  Link: ({ to, children, className }) => (
+    <a href={to} className={className}>
+      {children}
+    </a>
+  ),
+  notifyError: () => {},
+  notifySuccess: () => {},
+  useNavigate: () => navigateMock,
+  useSearch: () =>
+    Object.fromEntries(
+      Object.entries(searchState).filter(
+        (entry): entry is [string, string] => typeof entry[1] === 'string',
+      ),
+    ),
+};
+
+// ListShell forwards the detail to AppFrame's slot; the harness hosts it like the app does.
+function DetailPanelSlotHost() {
+  const { ref } = useDetailPanelSlotHost();
+  return <div ref={ref} />;
+}
 
 function InboxTestHarness({ view }: { view: 'inbox' | 'my' }) {
-  const { list, detailPanel } = useInboxRoute(view);
   return (
-    <div>
-      {list}
-      {detailPanel}
-    </div>
+    <HostSeamProvider value={TEST_SEAM}>
+      <DetailPanelSlotProvider>
+        <InboxScreen
+          view={view}
+          renderDetail={(vocId, { managedSystemId, onClose }) => (
+            <DetailStub vocId={vocId} managedSystemId={managedSystemId} onClose={onClose} />
+          )}
+        />
+        <DetailPanelSlotHost />
+      </DetailPanelSlotProvider>
+    </HostSeamProvider>
   );
+}
+
+/** One seam navigation: the FeedbackOps href split into its path and (raw string) search, and the replace flag. */
+function navigationOf([href, options]: [string, { replace?: boolean } | undefined]) {
+  const url = new URL(href, 'http://feedbackops.local');
+  return {
+    to: url.pathname,
+    search: Object.fromEntries(url.searchParams) as Record<string, string>,
+    replace: options?.replace === true,
+  };
+}
+function navigations() {
+  return navigateMock.mock.calls.map((call) =>
+    navigationOf(call as [string, { replace?: boolean } | undefined]),
+  );
+}
+function lastNav() {
+  const calls = navigations();
+  expect(calls.length).toBeGreaterThan(0);
+  return calls[calls.length - 1] as ReturnType<typeof navigationOf>;
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
-describe('useInboxRoute', () => {
+describe('InboxScreen', () => {
   beforeEach(() => {
     searchState = {};
     navigateMock.mockClear();
@@ -306,9 +340,8 @@ describe('useInboxRoute', () => {
         expect(params.has('filter.severity')).toBe(false);
         expect(listVocsQuerySchema.safeParse(Object.fromEntries(params)).success).toBe(true);
       }
-      const navigation = navigateMock.mock.calls.find(([value]) => value.replace)?.[0];
-      expect(navigation).toBeDefined();
-      expect(navigation.search(searchState)).toEqual({ view: 'my' });
+      const navigation = navigations().find((navigation) => navigation.replace);
+      expect(navigation?.search).toEqual({ view: 'my' });
     },
   );
 
@@ -369,14 +402,14 @@ describe('useInboxRoute', () => {
       });
       const label = area === 'unset' ? 'Analytics Area: 미지정' : 'Analytics Area: 선택한 Area';
       fireEvent.click(screen.getByRole('button', { name: `${label} 필터 제거` }));
-      const navigation = navigateMock.mock.calls.at(-1)?.[0];
-      expect(navigation.search(searchState)).toEqual({
+      const navigation = lastNav();
+      expect(navigation.search).toEqual({
         view: 'inbox',
         managedSystem: 'all',
         tab: 'no-task',
       });
       fireEvent.click(screen.getByRole('button', { name: '필터 초기화' }));
-      expect(navigateMock.mock.calls.at(-1)?.[0].search(searchState)).toEqual({
+      expect(lastNav().search).toEqual({
         view: 'inbox',
         managedSystem: 'all',
         tab: 'no-task',
@@ -419,7 +452,7 @@ describe('useInboxRoute', () => {
       expect(screen.queryByText('큐가 비었습니다')).not.toBeInTheDocument();
       expect(screen.getAllByRole('button', { name: '필터 초기화' })).toHaveLength(1);
       fireEvent.click(screen.getByRole('button', { name: '필터 초기화' }));
-      expect(navigateMock.mock.calls.at(-1)?.[0].search(searchState)).toEqual({ view: 'inbox' });
+      expect(lastNav().search).toEqual({ view: 'inbox' });
     },
   );
 
@@ -464,12 +497,9 @@ describe('useInboxRoute', () => {
 
     fireEvent.mouseDown(screen.getByRole('tab', { name: '높음' }));
 
-    const navigation = navigateMock.mock.calls.at(-1)?.[0] as {
-      to: string;
-      search: (previous: Record<string, unknown>) => Record<string, unknown>;
-    };
+    const navigation = lastNav();
     expect(navigation.to).toBe('/vocs');
-    expect(navigation.search(searchState)).toEqual({ view: 'inbox', tab: 'high' });
+    expect(navigation.search).toEqual({ view: 'inbox', tab: 'high' });
   });
 
   it('renders 3 VocList rows for my view', async () => {
@@ -490,12 +520,9 @@ describe('useInboxRoute', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '+ 새 VOC 작성' }));
 
-    const navigation = navigateMock.mock.calls.at(-1)?.[0] as {
-      to: string;
-      search: (previous: Record<string, unknown>) => Record<string, unknown>;
-    };
+    const navigation = lastNav();
     expect(navigation.to).toBe('/vocs');
-    expect(navigation.search(searchState)).toEqual({ view: 'my', action: 'create' });
+    expect(navigation.search).toEqual({ view: 'my', action: 'create' });
   });
 
   it('clicking a row calls navigate with selected param', async () => {
@@ -516,14 +543,9 @@ describe('useInboxRoute', () => {
     }
 
     expect(navigateMock).toHaveBeenCalled();
-    const callArg = navigateMock.mock.calls[0]?.[0] as {
-      to: string;
-      search: (prev: Record<string, unknown>) => Record<string, unknown>;
-    };
-    expect(callArg.to).toBe('/vocs');
-    // The search reducer should return an object containing `selected`
-    const result = callArg.search({});
-    expect(result).toHaveProperty('selected');
+    const [callArg] = navigations();
+    expect(callArg?.to).toBe('/vocs');
+    expect(callArg?.search).toHaveProperty('selected');
   });
 
   it('mounts VocDetailPanel when selected is set in URL', async () => {
@@ -552,12 +574,10 @@ describe('useInboxRoute', () => {
     rerender(<InboxTestHarness view="inbox" />);
 
     await waitFor(() => expect(navigateMock).toHaveBeenCalled());
-    const navigation = navigateMock.mock.calls.at(-1)?.[0] as {
-      search: (previous: Record<string, unknown>) => Record<string, unknown>;
-    };
-    expect(navigation.search(searchState)).toEqual({ view: 'inbox', managedSystem: 'ms-2' });
+    const navigation = lastNav();
+    expect(navigation.search).toEqual({ view: 'inbox', managedSystem: 'ms-2' });
 
-    searchState = navigation.search(searchState);
+    searchState = navigation.search;
     rerender(<InboxTestHarness view="inbox" />);
     expect(screen.queryByTestId('voc-detail-panel-stub')).not.toBeInTheDocument();
   });
@@ -627,14 +647,13 @@ describe('useInboxRoute', () => {
     // navigateMock at 0, so the assertion below had nothing to beat.
     for (const tab of tabs.slice(1)) fireEvent.mouseDown(tab);
     expect(navigateMock).toHaveBeenCalledTimes(5);
-    expect(
-      navigateMock.mock.calls.map(([call]) => {
-        const reducer = (
-          call as { search: (previous: Record<string, unknown>) => Record<string, unknown> }
-        ).search;
-        return reducer({}).tab;
-      }),
-    ).toEqual(['high', 'unassigned', 'no-link', 'high-no-link', 'no-task']);
+    expect(navigations().map((navigation) => navigation.search.tab)).toEqual([
+      'high',
+      'unassigned',
+      'no-link',
+      'high-no-link',
+      'no-task',
+    ]);
   });
 
   it('my view renders 내 VOC title instead of tabs', async () => {
@@ -693,8 +712,7 @@ describe('useInboxRoute', () => {
     expect(screen.queryByText('no voc.read scope for actor')).not.toBeInTheDocument();
 
     const myVocsLink = screen.getByRole('link', { name: '내 VOC' });
-    expect(myVocsLink).toHaveAttribute('href', '/vocs');
-    expect(myVocsLink).toHaveAttribute('data-search', JSON.stringify({ view: 'my' }));
+    expect(myVocsLink).toHaveAttribute('href', '/vocs?view=my');
   });
 
   it('uses a neutral unassigned badge in the Inbox unassigned tab', async () => {
@@ -785,11 +803,8 @@ describe('useInboxRoute', () => {
       fireEvent.click(await screen.findByRole('checkbox', { name: '접수됨' }));
 
       expect(navigateMock).toHaveBeenCalled();
-      const call = navigateMock.mock.calls.at(-1)?.[0] as {
-        to: string;
-        search: (prev: Record<string, unknown>) => Record<string, unknown>;
-      };
-      const result = call.search({});
+      const call = lastNav();
+      const result = call.search;
       // The unified key is present and carries the toggled value.
       expect(result['filter.reporterStatus']).toBe('received');
       // The legacy/long-form key must NOT leak into the URL.
@@ -807,10 +822,8 @@ describe('useInboxRoute', () => {
     expect(mediumOption).toBeInTheDocument();
     fireEvent.click(mediumOption);
 
-    const call = navigateMock.mock.calls.at(-1)?.[0] as {
-      search: (prev: Record<string, unknown>) => Record<string, unknown>;
-    };
-    expect(call.search({})['filter.severity']).toBe('medium');
+    const call = lastNav();
+    expect(call.search['filter.severity']).toBe('medium');
   });
 
   // ── Server-side text search (#821) ──────────────────────────────────────────
@@ -822,19 +835,7 @@ describe('useInboxRoute', () => {
     return screen.getByRole(SEARCH_BOX_ROLE, { name: SEARCH_BOX_NAME });
   }
 
-  function lastNavigateSearch(): {
-    to: string;
-    search: (prev: Record<string, unknown>) => Record<string, unknown>;
-    replace?: boolean;
-  } {
-    const call = navigateMock.mock.calls.at(-1)?.[0] as {
-      to: string;
-      search: (prev: Record<string, unknown>) => Record<string, unknown>;
-      replace?: boolean;
-    };
-    expect(call).toBeDefined();
-    return call;
-  }
+  const lastNavigateSearch = lastNav;
 
   async function lastListRequestUrl(): Promise<string> {
     await waitFor(() => {
@@ -870,7 +871,7 @@ describe('useInboxRoute', () => {
     const navigation = lastNavigateSearch();
     expect(navigation.to).toBe('/vocs');
     expect(navigation.replace).toBe(true);
-    const nextSearch = navigation.search(searchState);
+    const nextSearch = navigation.search;
     expect(nextSearch.q).toBe('login');
 
     // The URL q is valid route state and drives the request.
@@ -899,7 +900,7 @@ describe('useInboxRoute', () => {
 
     fireEvent.change(searchBox(), { target: { value: 'login' } });
     await waitFor(() => expect(navigateMock).toHaveBeenCalled());
-    const searching = lastNavigateSearch().search(searchState);
+    const searching = lastNavigateSearch().search;
     expect(searching).toEqual({ view: 'inbox', q: 'login' });
 
     searchState = searching;
@@ -914,7 +915,7 @@ describe('useInboxRoute', () => {
     navigateMock.mockClear();
     fireEvent.change(searchBox(), { target: { value: '' } });
     await waitFor(() => expect(navigateMock).toHaveBeenCalled());
-    expect(lastNavigateSearch().search(searchState)).toEqual({ view: 'inbox', tab: 'high' });
+    expect(lastNavigateSearch().search).toEqual({ view: 'inbox', tab: 'high' });
   });
 
   it('removes q from the URL and the request when the box is emptied', async () => {
@@ -928,7 +929,7 @@ describe('useInboxRoute', () => {
     fireEvent.change(searchBox(), { target: { value: '' } });
 
     await waitFor(() => expect(navigateMock).toHaveBeenCalled());
-    const nextSearch = lastNavigateSearch().search(searchState);
+    const nextSearch = lastNavigateSearch().search;
     expect(nextSearch).not.toHaveProperty('q');
 
     searchState = nextSearch;
@@ -944,7 +945,7 @@ describe('useInboxRoute', () => {
 
     fireEvent.mouseDown(await screen.findByRole('tab', { name: '높음' }));
 
-    const nextSearch = lastNavigateSearch().search(searchState);
+    const nextSearch = lastNavigateSearch().search;
     expect(nextSearch.tab).toBe('high');
     expect(nextSearch.q).toBe('로그인');
   });
@@ -998,7 +999,7 @@ describe('useInboxRoute', () => {
         expect(navigation.replace).toBe(true);
         // Exact #821 tab rules: a starting search drops the active tab, exactly
         // like the debounced write does.
-        expect(navigation.search(searchState)).toEqual({ view: 'inbox', q: '로그인' });
+        expect(navigation.search).toEqual({ view: 'inbox', q: '로그인' });
       } finally {
         vi.useRealTimers();
       }
@@ -1020,7 +1021,7 @@ describe('useInboxRoute', () => {
       fireEvent.blur(box);
 
       expect(navigateMock).toHaveBeenCalledTimes(2);
-      expect(foldNavigations({ view: 'inbox', tab: 'untriaged' })).toEqual({
+      expect(lastNav().search).toEqual({
         view: 'inbox',
         q: '로그인',
         tab: 'high',
@@ -1046,7 +1047,7 @@ describe('useInboxRoute', () => {
       fireEvent.blur(box);
 
       expect(navigateMock).toHaveBeenCalledTimes(3);
-      expect(foldNavigations({ view: 'inbox', tab: 'untriaged' })).toEqual({
+      expect(lastNav().search).toEqual({
         view: 'inbox',
         q: '로그인 오류',
         tab: 'high',
@@ -1070,7 +1071,7 @@ describe('useInboxRoute', () => {
 
       fireEvent.change(searchBox(), { target: { value: 'login' } });
       vi.advanceTimersByTime(SEARCH_DEBOUNCE_MS);
-      expect(lastNavigateSearch().search(searchState)).toEqual({ view: 'inbox', q: 'login' });
+      expect(lastNavigateSearch().search).toEqual({ view: 'inbox', q: 'login' });
 
       fireEvent.keyDown(searchBox(), { key: 'Escape' });
       expect(searchBox()).toHaveValue('');
@@ -1081,7 +1082,7 @@ describe('useInboxRoute', () => {
 
       vi.advanceTimersByTime(SEARCH_DEBOUNCE_MS);
       expect(searchBox()).toHaveValue('');
-      expect(lastNavigateSearch().search(searchState)).toEqual({ view: 'inbox', tab: 'high' });
+      expect(lastNavigateSearch().search).toEqual({ view: 'inbox', tab: 'high' });
     } finally {
       vi.useRealTimers();
     }
@@ -1114,7 +1115,7 @@ describe('useInboxRoute', () => {
       const navigation = lastNavigateSearch();
       expect(navigation.to).toBe('/vocs');
       expect(navigation.replace).toBe(true);
-      expect(navigation.search(searchState)).toEqual({ view: 'inbox', q: '로그이' });
+      expect(navigation.search).toEqual({ view: 'inbox', q: '로그이' });
     } finally {
       vi.useRealTimers();
     }
@@ -1139,14 +1140,3 @@ describe('useInboxRoute', () => {
     expect(screen.queryByRole('rowgroup', { name: 'VOC 목록 로딩 중' })).not.toBeInTheDocument();
   });
 });
-
-function foldNavigations(initial: Record<string, unknown>): Record<string, unknown> {
-  let state = initial;
-  for (const [call] of navigateMock.mock.calls) {
-    const navigation = call as {
-      search: (prev: Record<string, unknown>) => Record<string, unknown>;
-    };
-    state = navigation.search(state);
-  }
-  return state;
-}

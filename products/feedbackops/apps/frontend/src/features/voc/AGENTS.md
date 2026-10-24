@@ -38,7 +38,7 @@ It does not own Task status, Survey Response conversion, Finding persistence, or
 ## Key files
 
 - `apps/frontend/src/routes/_authed/vocs.tsx` — VOC view branch for inbox, triage, and create.
-- `apps/frontend/src/features/voc/routes/InboxRoute.tsx` — inbox/My VOC list state, filters, and detail selection.
+- `apps/frontend/src/features/voc/routes/InboxScreen.tsx` (+ `useInboxState.ts`, `inbox-config.tsx`) — bridge-safe inbox/My VOC list (platform ADR-0071, entry `operator-screens/voc-inbox`): URL read/written through the host seam, detail via the host's `renderDetail`; `VocRouteShell` composes it with `VocDetailPanel`.
 - `apps/frontend/src/features/voc/routes/TriageRoute.tsx` — triage permission gate, session processed count, and queue state.
 - `apps/frontend/src/features/voc/routes/CreateRoute.tsx` — VOC creation route composition.
 - `apps/frontend/src/features/voc/components/reporter/` — bridge-safe reporter perspective (`MyVocListScreen`, `ReporterVocDetail`) for the platform `내 VOC` (platform ADR-0071); the standalone `/vocs?view=my` is unchanged.

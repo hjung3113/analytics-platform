@@ -242,3 +242,30 @@ describe('FeedbackOps operator VOC clusters entry graph (ADR-0071)', () => {
     expect(callers).toEqual(['lib/api/client.ts']);
   });
 });
+
+// The operator VOC inbox entry (#761 i) is walked on its own: the host renders the detail, so the VOC detail tree stays out.
+describe('FeedbackOps operator VOC inbox entry graph (ADR-0071)', () => {
+  const inbox = walk([join(FRONTEND_SRC, 'operator-screens/voc-inbox/index.ts')]);
+  const inboxReached = [...inbox.files.keys()].map(file => relative(FRONTEND_SRC, file));
+
+  it('reaches the inbox screen, its list and not the detail tree, the standalone shell or the triage and create routes', () => {
+    expect(inboxReached).toEqual(expect.arrayContaining(['features/voc/routes/InboxScreen.tsx', 'features/voc/components/list/VocList.tsx', 'lib/cross-system/usePermissionCheckBridge.ts']));
+    expect(inboxReached.filter(file => /^features\/voc\/components\/detail\//.test(file))).toEqual([]);
+    expect(inboxReached.filter(file => /^features\/voc\/routes\/(VocRouteShell|CreateRoute|TriageRoute)\.tsx$/.test(file))).toEqual([]);
+    expect(inbox.unresolved).toEqual([]);
+  });
+
+  it('imports no router and no toast library', () => {
+    expect([...inbox.specifiers].filter(specifier => /^@tanstack\/(react-)?router|^sonner$/.test(specifier))).toEqual([]);
+  });
+
+  it('reaches no route, router, layout or auth source, the auth module, the api barrel or the standalone permission check', () => {
+    const banned = /^(?:routes|lib\/router|lib\/layout|lib\/auth)\/|^lib\/api\/(?:auth|index)\.ts$|^lib\/cross-system\/usePermissionCheck\.ts$/;
+    expect(inboxReached.filter(file => banned.test(file))).toEqual([]);
+  });
+
+  it('calls fetch only in lib/api/client.ts', () => {
+    const callers = [...inbox.files].filter(([, text]) => /(?<![\w.])fetch\(/.test(text)).map(([file]) => relative(FRONTEND_SRC, file));
+    expect(callers).toEqual(['lib/api/client.ts']);
+  });
+});
