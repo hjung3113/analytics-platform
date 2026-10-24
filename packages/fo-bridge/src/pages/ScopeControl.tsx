@@ -1,0 +1,18 @@
+import { usePlatform } from '@ap/kernel';
+import { FoScreenRoot, type HostSeam } from '@fops/frontend/global-screens/core';
+import { ManagedSystemScopeControl } from '@fops/frontend/operator-screens/scope-picker';
+import { UnlinkedLink } from '../fo/FoBridge';
+import { foQueryClient, useFoSession } from '../fo/session';
+
+// The picker renders no linked or toasting screen; `FoScreenRoot` is its QueryClient provider (same shape as the notification count).
+const SEAM: HostSeam = { canLink: () => false, Link: UnlinkedLink, notifyError: () => undefined, notifySuccess: () => undefined };
+
+/** The sidebar `목록 범위` for a ready session: the `managedSystem` page key in, the picker's choice out (replace, so a scope change is not a history step). */
+export default function ScopeControl({ collapsed }: { collapsed: boolean }) {
+  const { pageParam, setPage } = usePlatform();
+  const session = useFoSession();
+  const value = pageParam('managedSystem') ?? undefined;
+  return <FoScreenRoot client={foQueryClient} host={SEAM} key={session.status === 'ready' ? session.epoch : 0}>
+    <ManagedSystemScopeControl {...(value !== undefined ? { value } : {})} collapsed={collapsed} onChange={id => setPage({ managedSystem: id ?? null }, { replace: true })} />
+  </FoScreenRoot>;
+}

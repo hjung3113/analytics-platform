@@ -40,7 +40,7 @@ FeedbackOps를 플랫폼 앱 하나·서버 하나·저장소 하나로 합친�
 
 ### 3.2 `피드백 운영` 업무 시스템 — 관리자·개발자
 
-시스템 전환기의 업무 시스템 하나([ADR-0042](../adr/0042-system-switcher-and-system-owned-rail.md)). 틀은 **Decided: [ADR-0081](../adr/0081-feedbackops-operator-screens-platform-frame.md)**(이름 `FeedbackOps`·부제 `피드백 운영`, 레일 순서 `대시보드` · `VOC` · `Findings` · `Tasks` · `연동` · `Surveys` · `관리자`, 사이드바 `목록 범위`, 한 줄 머리). 아래 표의 메뉴 열은 원본 기준이고, 신고자 항목과 `연동 › Findings` 중복은 뺀다. 레일 섹션과 메뉴는 지금 FeedbackOps 레일·사이드바(`NAV_TREE`)를 출발점으로 한다. 이슈 [#595](https://github.com/hjung3113/analytics-platform/issues/595).
+시스템 전환기의 업무 시스템 하나([ADR-0042](../adr/0042-system-switcher-and-system-owned-rail.md)). 틀은 **Decided: [ADR-0081](../adr/0081-feedbackops-operator-screens-platform-frame.md)**(이름 `FeedbackOps`·부제 `피드백 운영`, 레일 순서 `대시보드` · `VOC` · `Findings` · `Tasks` · `연동` · `Surveys` · `관리자`, 사이드바 `목록 범위`, 한 줄 머리). **구현됨(#759):** 공간·`대시보드` 섹션·`목록 범위`; 나머지 섹션은 #760–#764. 아래 표의 메뉴 열은 원본 기준이고, 신고자 항목과 `연동 › Findings` 중복은 뺀다. 레일 섹션과 메뉴는 지금 FeedbackOps 레일·사이드바(`NAV_TREE`)를 출발점으로 한다. 이슈 [#595](https://github.com/hjung3113/analytics-platform/issues/595).
 
 | 레일 섹션(Decided, ADR-0081) | 메뉴 | 지금 FeedbackOps 경로 |
 | --- | --- | --- |

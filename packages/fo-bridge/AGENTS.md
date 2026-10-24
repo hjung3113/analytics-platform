@@ -8,7 +8,8 @@ FeedbackOps 다리의 런타임(ADR-0071·0081, #759). 소비자 쪽 패키지�
 - `src/fo/session.ts` — `foQueryClient`(QueryClient는 이 하나, ADR-0071 결정 5)와 `useFoSession`(세션 세대).
 - `src/fo/FoBridge.tsx`·`links.tsx`·`survey-links.tsx`·`voc-links.tsx` — 호스트 이음매(`FoBridge`)와 FeedbackOps 경로 → 플랫폼 메뉴 링크 맵.
 - `src/notifications-slot.tsx`·`voc-compose-slot.tsx`·`home-todo-slot.tsx` — Kernel 슬롯 값. 앱 `main.tsx`만 import한다. 페이지(`src/pages/`)는 첫 사용 때 lazy로 불러온다.
-- `src/pages/HomeTodo.tsx`·`VocCompose.tsx` — 슬롯이 lazy로 여는 FeedbackOps 화면. 전체 진입 `@fops/frontend/global-screens`는 여기서만 import한다.
+- `src/scope-control.tsx` — Kernel 슬롯 `scopeControl`(사이드바 `목록 범위`, ADR-0081, #759). 앱 `main.tsx`만 import한다. `For('feedbackops')`는 모듈 수준의 한 컴포넌트를 돌려주고(호출마다 새로 만들면 사이드바가 다시 마운트된다), mock에서는 비활성 `전체` 자리표시를 직접 그리고, 준비된 세션에서만 `src/pages/ScopeControl.tsx`(lazy)를 연다.
+- `src/pages/HomeTodo.tsx`·`VocCompose.tsx`·`ScopeControl.tsx` — 슬롯이 lazy로 여는 FeedbackOps 화면. 전체 진입 `@fops/frontend/global-screens`는 여기서만 import한다.
 - `src/fo-entry-graph.test.ts` — 다리가 닿는 FeedbackOps 진입의 import 그래프와 영구 로드 모듈의 `/core` 한정을 고정한다.
 
 ## 규칙
