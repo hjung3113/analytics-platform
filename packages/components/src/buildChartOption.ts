@@ -2,7 +2,7 @@ import type { EChartsCoreOption } from 'echarts/core';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import { chartTheme, strokeToken, token } from './EChart';
 import { noteLabelWidths } from './annotationLayout';
-import { GRID_BOTTOM, GRID_TOP } from './analysisChartGeometry';
+import { GRID_BOTTOM, GRID_TOP, ROW_LABEL_GUTTER } from './analysisChartGeometry';
 import { toMs, unknownLabel } from './analysisChartShared';
 import type { ChartSeries } from './AnalysisChartFrame';
 import type { Selection } from './useChartRange';
@@ -88,7 +88,9 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
     ...i.annotations.map((a, n) => [{ name: a.text, [horizontal ? 'yAxis' : 'xAxis']: xValue(a.from), itemStyle: { color: palette.annotation, opacity: 0.14 }, label: { color: palette.annotationLabel, fontSize: 10, offset: [0, i.noteLevels[n] * NOTE_LABEL_ROW], width: noteWidths[n], overflow: 'truncate', ellipsis: '…' } }, { [horizontal ? 'yAxis' : 'xAxis']: xValue(a.to) }]),
   ];
   return {
-    grid: { left: 52, right: 20, top: GRID_TOP, bottom: GRID_BOTTOM, ...(horizontal ? { containLabel: true } : {}) },
+    // Row-pitch mode: no containLabel, so the category band is exactly height - top - bottom = rows × pitch and row i starts at top + i × pitch (the reveal maths relies on it).
+    grid: horizontal && i.rowPitch !== undefined ? { left: ROW_LABEL_GUTTER, right: 20, top: GRID_TOP, bottom: GRID_BOTTOM, containLabel: false }
+      : { left: 52, right: 20, top: GRID_TOP, bottom: GRID_BOTTOM, ...(horizontal ? { containLabel: true } : {}) },
     tooltip: {
       trigger: 'axis', confine: true, textStyle: { fontSize: 12 },
       valueFormatter: (v: number | null) => (v === null || v === undefined ? unknownLabel(lang === 'ko') : `${i.valueFormat(v)} ${i.unit}`),
@@ -96,7 +98,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
     xAxis: horizontal ? { type: 'value', min: 0, name: i.unit, splitLine: theme.splitLine } : xType === 'time'
       ? { type: 'time', axisLine: theme.axisLine, axisLabel: { hideOverlap: true }, splitLine: { show: false } }
       : { type: 'category', data: categories, axisLine: theme.axisLine, axisTick: { alignWithLabel: true } },
-    yAxis: horizontal ? { type: 'category', data: categories, inverse: true, axisLine: theme.axisLine, axisLabel: { interval: 0, ...(active ? { formatter: (v: string) => (v === active ? `{active|${v}}` : v), rich: { active: { fontWeight: 'bold', color: theme.axisLabel.color } } } : {}) }, axisTick: { alignWithLabel: true } } : { type: 'value', min: 0, name: i.unit, nameTextStyle: { align: 'right' }, splitLine: theme.splitLine },
+    yAxis: horizontal ? { type: 'category', data: categories, inverse: true, axisLine: theme.axisLine, axisLabel: { interval: 0, ...(i.rowPitch !== undefined ? { width: ROW_LABEL_GUTTER - 12, overflow: 'truncate', ellipsis: '…' } : {}), ...(active ? { formatter: (v: string) => (v === active ? `{active|${v}}` : v), rich: { active: { fontWeight: 'bold', color: theme.axisLabel.color } } } : {}) }, axisTick: { alignWithLabel: true } } : { type: 'value', min: 0, name: i.unit, nameTextStyle: { align: 'right' }, splitLine: theme.splitLine },
     // Row-pitch mode: the inner scroller is the only viewport. A dataZoom window on top would make the selection summary, Brush and export ambiguous (ADR-0079).
     dataZoom: horizontal && i.rowPitch !== undefined ? [] : [{ type: 'inside', ...(horizontal ? { yAxisIndex: 0 } : { xAxisIndex: 0 }), start: i.zoom[0], end: i.zoom[1], zoomOnMouseWheel: 'shift', moveOnMouseMove: !i.brushMode }],
     // Selection and annotation fills keep echarts-native opacity.

@@ -5,14 +5,14 @@ import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { groupId, spaceId } from '@ap/contracts';
 import { AnalysisChartFrame, type AnalysisChartFrameProps, type ChartSeries } from './AnalysisChartFrame';
-import { GRID_BOTTOM, GRID_TOP } from './analysisChartGeometry';
+import { GRID_BOTTOM, GRID_TOP, ROW_LABEL_GUTTER } from './analysisChartGeometry';
 import type { EChartProps } from './EChart';
 
 vi.mock('./EChartImpl', () => ({ default: FakePlot }));
 
 type PlottedSeries = { id?: string; data?: unknown[] };
 let plotProps: EChartProps | null = null;
-const plotOption = () => plotProps!.option as unknown as { dataZoom?: unknown[]; series: PlottedSeries[]; yAxis: { axisLabel: { formatter?: (v: string) => string } } };
+const plotOption = () => plotProps!.option as unknown as { dataZoom?: unknown[]; grid: { containLabel?: boolean; top: number; bottom: number; left: number }; series: PlottedSeries[]; yAxis: { axisLabel: { formatter?: (v: string) => string } } };
 
 /** Stand-in plot: one button per bar plays a click on that row; one plays a Brush over the first two rows. */
 function FakePlot(props: EChartProps) {
@@ -111,6 +111,16 @@ describe('rowPitch viewport (#690b)', () => {
     expect(plot.style.maxHeight).toBe('100px');
   });
 
+  it('draws a fixed grid so row i starts at gridTop + i × pitch and the band is rows × pitch', async () => {
+    mount({ rowPitch: 30 });
+    await screen.findByRole('img');
+    const grid = plotOption().grid;
+    expect(grid.containLabel).toBe(false);
+    expect(grid.top).toBe(GRID_TOP);
+    expect(grid.left).toBe(ROW_LABEL_GUTTER);
+    expect(plotProps!.height! - grid.top - grid.bottom).toBe(3 * 30);
+  });
+
   it('turns category zoom off, hides the zoom button and keeps Brush', async () => {
     mount({ rowPitch: 26 });
     await screen.findByRole('img');
@@ -137,6 +147,18 @@ describe('rowPitch viewport (#690b)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'bar-R2' }));
     act(() => view.update({ activeCategory: 'R2' }));
     expect(plot.scrollTop).toBe(0);
+  });
+});
+
+describe('reveal after an ignored pointer request (#690b FIX1)', () => {
+  it('still reveals when the parent later sets the category the ignored click asked for', async () => {
+    const view = mount({ rowPitch: 30, revealActive: true, activeCategory: 'R1', onActiveCategoryChange: () => {} });
+    const plot = (await screen.findByRole('img')).parentElement!;
+    Object.defineProperty(plot, 'clientHeight', { configurable: true, value: 40 });
+    fireEvent.click(screen.getByRole('button', { name: 'bar-R3' }));
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); });
+    act(() => view.update({ activeCategory: 'R3' }));
+    expect(plot.scrollTop).toBe(GRID_TOP + 2 * 30);
   });
 });
 

@@ -6,6 +6,8 @@ export function heatmapSymbolSize(plotWidth: number, plotHeight: number, xCount:
 /** Plot grid margins (px) above and below the category rows; shared by the option and the row-pitch height/reveal maths. */
 export const GRID_TOP = 16;
 export const GRID_BOTTOM = 44;
+/** Row-pitch mode reserves this left gutter (px) for the category labels instead of containLabel, so the row band stays exactly rows × pitch. */
+export const ROW_LABEL_GUTTER = 140;
 /** WCAG 2.2 2.5.8 target size: the smallest row pitch (px) a horizontal chart may ask for. */
 export const ROW_PITCH_MIN = 24;
 

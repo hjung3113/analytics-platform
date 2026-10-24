@@ -339,7 +339,12 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
       if (!point) return;
       if (pointControls) setSelectedPointKey(pointKey(point));
       // Row focus first, then activation: a click focuses the row and (on: 'click') also activates the point.
-      if (horizontal && onActiveCategoryChange) { ownPointerCategory.current = point.x; onActiveCategoryChange(point.x, 'pointer'); }
+      if (horizontal && onActiveCategoryChange) {
+        // The marker lives for this event's own controlled update only (it commits before the timeout); a request the owner ignored must not swallow a later outside reveal of the same row.
+        ownPointerCategory.current = point.x;
+        setTimeout(() => { ownPointerCategory.current = null; }, 0);
+        onActiveCategoryChange(point.x, 'pointer');
+      }
       // Native double-click recognition is OS-defined; no timer can safely commit a click first.
       const onPointClick = p.onPointClick;
       const pointActivation = p.pointActivation;
