@@ -214,7 +214,11 @@ describe('HW Time table page', () => {
 
   it('shows MEG rows by label without a drill or a row action', async () => {
     await renderPage('&drillModule=PM1');
-    const megRow = (await screen.findAllByRole('row')).find(row => row.textContent?.includes('MEG'))!;
+    const megRow = await waitFor(() => {
+      const row = screen.getAllByRole('row').find(r => r.textContent?.includes('MEG'));
+      expect(row).toBeDefined();
+      return row!;
+    });
     expect(megRow.textContent).toContain('MEG 4.03 초');
     expect(within(megRow).queryByRole('button', { name: /들어가기|보기/ })).toBeNull();
   });

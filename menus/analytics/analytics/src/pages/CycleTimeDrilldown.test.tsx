@@ -123,7 +123,7 @@ describe('CycleTimeDrilldown slow-execution KPI name (#307)', () => {
     window.history.replaceState(null, '', '/analytics/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&from=2026-09-26T00:00:00&to=2026-09-26T09:00:00');
     render(<I18nProvider><PlatformProvider adapter={querying} registry={registry}><CycleTimeDrilldown params={{}} /></PlatformProvider></I18nProvider>);
     expect(await screen.findByText('느린 실행 (P95 기준)')).toBeTruthy();
-    expect(screen.getByTestId('cycle-kpi').textContent).toContain('표시된 P95 이상');
+    await waitFor(() => expect(screen.getByTestId('cycle-kpi').textContent).toContain('표시된 P95 이상'));
   });
 });
 
