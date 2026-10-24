@@ -492,6 +492,41 @@ test.describe('분석 보드 계약 (16 §4–§7, ADR-0049·0051)', () => {
   });
 });
 
+/**
+ * A vertical engine sash (`.dv-sash` between two side-by-side panels) inside `scope`: the tallest one that is taller than wide.
+ * Returns its locator index and box so a test can drag it and find the same boundary again after a reload (#754).
+ */
+async function verticalSash(scope: Locator) {
+  const sashes = scope.locator('.dv-sash');
+  const count = await sashes.count();
+  let best: { sash: Locator; box: { x: number; y: number; width: number; height: number } } | undefined;
+  for (let i = 0; i < count; i++) {
+    const box = await sashes.nth(i).boundingBox();
+    if (box && box.height > box.width && (!best || box.height > best.box.height)) best = { sash: sashes.nth(i), box };
+  }
+  if (!best) throw new Error('no vertical sash');
+  return best;
+}
+/** Drags a sash like a person with a real mouse (press, stepped move, small moves, release) by `dx` px, and returns where it ended. */
+async function dragSashBy(page: Page, sash: Locator, dx: number) {
+  // A workspace below the fold has its sash centre off screen, where the mouse reaches nothing: bring it in and grab a visible point.
+  await sash.scrollIntoViewIfNeeded();
+  const box = (await sash.boundingBox())!;
+  const viewport = page.viewportSize()!;
+  const x = box.x + box.width / 2;
+  const y = Math.min(box.y + box.height / 2, Math.max(box.y + 1, viewport.height - 20));
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x + dx, y, { steps: 10 });
+  for (let i = 0; i < 4; i++) {
+    await page.waitForTimeout(50);
+    await page.mouse.move(x + dx + (i % 2 === 0 ? -1 : 1), y);
+  }
+  await page.mouse.move(x + dx, y);
+  await page.mouse.up();
+  return x + dx;
+}
+
 test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
   type DockPaneSeed = { menuId: string; params: Record<string, string>; query: string };
   type DockSheetSeed = { id: string; name: string; layout: '1x1' | '1x2' | '2x1' | '2x2'; selected: number; panes: (DockPaneSeed | null)[] };
@@ -562,6 +597,27 @@ test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
     }
     await page.mouse.up();
   }
+
+  test('마우스로 끈 칸 경계 크기는 보드에 저장되고 새로고침 뒤에도 남는다 (#754)', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await signInWithDockBoard(page, [populated('dock', '1x2', 2)]);
+    await dockReady(page, 2);
+    await panesLoaded(page, 2);
+    const layout = page.locator('[data-dock-layout]').first();
+    const before = await verticalSash(layout);
+    const boardKey = () => page.evaluate(() => Object.entries(localStorage).filter(([key]) => key.startsWith('platform:board:v2:')).map(([, value]) => value).join('|'));
+    const initial = await boardKey();
+    await dragSashBy(page, before.sash, 120);
+    // Compare with where the engine put the sash (minimum sizes, px rounding), not with the pointer.
+    const dragged = (await before.sash.boundingBox())!;
+    expect(dragged.x - before.box.x).toBeGreaterThan(60);
+    await expect.poll(boardKey).not.toBe(initial);
+    await page.reload();
+    await dockReady(page, 2);
+    await panesLoaded(page, 2);
+    const after = await verticalSash(page.locator('[data-dock-layout]').first());
+    expect(Math.abs(after.box.x - dragged.x)).toBeLessThanOrEqual(8);
+  });
 
   test('탭을 고르면 그 칸이 선택되고 Context 바가 그 칸을 편집한다', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -3217,6 +3273,28 @@ test.describe('메뉴 작업 영역 (ADR-0067 3b)', () => {
     await expect(page.getByRole('main').locator('[data-outcome-banner]')).toHaveCount(0);
     await expect.poll(() => insideBody()).toBe(true);
     expect(await mainScrolls(page)).toBe(false);
+  });
+
+  test('마우스로 끈 패널 경계 크기는 저장되고 새로고침 뒤에도 남는다 (#754)', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(CYCLE);
+    await workspaceReady(page);
+    await page.evaluate(() => { Object.keys(localStorage).filter(key => key.startsWith('platform:workspace:v1:')).forEach(key => { localStorage.removeItem(key); }); });
+    const stored = () => page.evaluate(() => Object.entries(localStorage)
+      .filter(([key]) => /^platform:workspace:v1:.+:cycle-time:drilldown$/.test(key)).map(([, value]) => JSON.parse(value) as { layout: unknown }));
+    expect(await stored()).toEqual([]);
+    const before = await verticalSash(workspace(page));
+    await dragSashBy(page, before.sash, 120);
+    // The engine places the sash by its minimum sizes and px rounding, not exactly under the pointer: compare with where it landed.
+    const dragged = (await before.sash.boundingBox())!;
+    expect(dragged.x - before.box.x).toBeGreaterThan(60);
+    // The preference is written 300 ms after the change.
+    await expect.poll(async () => (await stored()).length).toBe(1);
+    expect(JSON.stringify((await stored())[0]!.layout)).toContain('sizes');
+    await page.reload();
+    await workspaceReady(page);
+    const after = await verticalSash(workspace(page));
+    expect(Math.abs(after.box.x - dragged.x)).toBeLessThanOrEqual(8);
   });
 
   test('프리셋과 숨긴 패널은 브라우저에 기억되어 새로고침 뒤에도 같다', async ({ page }, testInfo) => {

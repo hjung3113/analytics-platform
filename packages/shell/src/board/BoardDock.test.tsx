@@ -12,6 +12,12 @@ import { addPane, freshBoard, parseBoardV2, setPane, setTree, type Board, type L
 import { BOARD_LAYOUT_ENGINE_KEY } from './layoutEngine';
 import { legacyBoard as boardOf, legacySheet as sheet, seedLegacy as seed, v2Board, V2_KEY } from './__fixtures__/legacyBoard';
 
+const dockProbe = vi.hoisted(() => ({ latest: undefined as undefined | import('@ap/components/dock').DockLayoutProps }));
+vi.mock('@ap/components/dock', async importActual => {
+  const actual = await importActual<typeof import('@ap/components/dock')>();
+  return { ...actual, DockLayout: (props: import('@ap/components/dock').DockLayoutProps) => { dockProbe.latest = props; return <actual.DockLayout {...props} />; } };
+});
+
 // jsdom has no ResizeObserver and no geometry: every observed element reports the shared size, and `resize` re-reports it.
 function installResizeObserver() {
   const size = { width: 900, height: 600 };
@@ -324,6 +330,21 @@ describe('dock renderer: group commands', () => {
     expect(tree()).toEqual(group([p2, p1], p1));
     await chooseGroupItem(1, '오른쪽으로 나누기');
     expect(tree()).toEqual({ type: 'branch', dir: 'row', sizes: [50, 50], children: [group([p2]), group([p1])] });
+  });
+
+  it('stores the layout a sash drag reports once, with its sizes (#754)', async () => {
+    seed(boardOf([sheet('a', { layout: '1x2', panes: [alpha(w1), beta(w2)] })]));
+    mount('/board?sheet=a');
+    await ready();
+    // jsdom's board is already at its minimum width, so the sash cannot move: the engine's drag report is the layout it hands the board.
+    const props = dockProbe.latest!;
+    const shown = props.layout;
+    expect(shown).toMatchObject({ type: 'branch', dir: 'row', sizes: [50, 50] });
+    const written = vi.spyOn(localStorage, 'setItem');
+    act(() => { props.onLayoutChange({ ...shown, sizes: [62, 38] } as typeof shown); });
+    await settle();
+    expect(tree()).toMatchObject({ type: 'branch', dir: 'row', sizes: [62, 38] });
+    expect(written.mock.calls.filter(([key]) => key === V2_KEY)).toHaveLength(1);
   });
 
   it('offers split only for a group with two or more panes', async () => {
