@@ -5,4 +5,5 @@ export const SCOPE_SELECTOR_COPY = {
   assignedCountPrefix: '내 담당',
   unionAccessibleQualifier: '내 담당 범위',
   outOfScope: '범위 밖',
+  listScopeLabel: '목록 범위',
 } as const;
