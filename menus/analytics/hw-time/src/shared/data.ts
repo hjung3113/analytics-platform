@@ -1,25 +1,11 @@
-import { projectContext, type ApiResponse, type EndpointSpec } from '@ap/contracts';
-import { usePlatform, usePlatformQuery } from '@ap/kernel';
-import { hwTime, type HwTimeDrill, type HwTimeLevelData, type HwTimeTrendData } from '../endpoints';
+import { useMenuQuery } from '@ap/kernel';
+import { hwTime, type HwTimeDrill } from '../endpoints';
 
-function useHwTimeQuery<P, T>(endpoint: EndpointSpec<P, T>, params: P) {
-  const { adapter, global, scope, session } = usePlatform();
-  const context = projectContext(endpoint, global);
-  const scopeReady = !endpoint.requiresScope || (
-    scope.status === 'valid' && scope.scopeId === global.scopeId && scope.validatedFor === session
-  );
-  const periodReady = endpoint.context.time !== 'apply' || (global.from !== null && global.to !== null);
-  return usePlatformQuery<T>(
-    signal => adapter.menuQuery({ endpoint: endpoint.id, context, params }, signal) as Promise<ApiResponse<T>>,
-    [endpoint.id, context, params],
-    scopeReady && periodReady,
-  );
+/** Both hooks go through the Kernel's menu query: applied-Context identity, Scope/period gates, kind check, refresh epochs (ADR-0019). */
+export function useHwTimeLevel(drill: HwTimeDrill, enabled = true) {
+  return useMenuQuery(hwTime.levelRows, drill, enabled);
 }
 
-export function useHwTimeLevel(drill: HwTimeDrill) {
-  return useHwTimeQuery(hwTime.levelRows, drill);
-}
-
-export function useHwTimeTrend(rowIds: string[]) {
-  return useHwTimeQuery(hwTime.trend, { rowIds });
+export function useHwTimeTrend(rowIds: string[], enabled = true) {
+  return useMenuQuery(hwTime.trend, { rowIds }, enabled);
 }

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { contextCapabilities, groupId, menuPermission, type ApiResponse, type MenuMeta } from '@ap/contracts';
-import { createMockAdapter, getRole, setRole } from '@ap/mock-server';
+import { EQUIPMENT, createMockAdapter, getRole, setRole } from '@ap/mock-server';
 import { HW_TIME_UNIT, hwTime } from '../endpoints';
 import type { HwTimeLevelData, HwTimeTableData, HwTimeTrendData, HwTimeRow } from '../endpoints';
 import { hwTimeMock } from './index';
@@ -29,12 +29,12 @@ const previousRole = getRole();
 beforeEach(() => { setRole('engineer'); });
 afterEach(() => { setRole(previousRole); });
 
-async function query<T>(endpoint: string, params: Record<string, unknown>): Promise<ApiResponse<T>> {
-  return adapter.menuQuery({ endpoint, context, params }) as Promise<ApiResponse<T>>;
+async function query<T>(endpoint: string, params: Record<string, unknown>, applied: Record<string, unknown> = {}): Promise<ApiResponse<T>> {
+  return adapter.menuQuery({ endpoint, context: { ...context, ...applied }, params }) as Promise<ApiResponse<T>>;
 }
 
-async function data<T>(endpoint: string, params: Record<string, unknown>): Promise<T> {
-  const response = await query<T>(endpoint, params);
+async function data<T>(endpoint: string, params: Record<string, unknown>, applied: Record<string, unknown> = {}): Promise<T> {
+  const response = await query<T>(endpoint, params, applied);
   expect(response.outcome).toBe('ok');
   return response.data as T;
 }
@@ -146,5 +146,45 @@ describe('HW Time trends and table endpoints', () => {
     expect(hwTime.trend.limits?.maxRows).toBeUndefined();
     expect(hwTime.tableRows.limits?.maxRows).toBeUndefined();
     expect(hwTime.exportRows.limits?.maxRows).toBe(96);
+  });
+});
+
+describe('HW Time population follows the applied Scope and Condition', () => {
+  const photo = EQUIPMENT.filter(e => e.site === 'MEM' && e.room === 'PHOTO').map(e => e.equipmentId);
+  const narrowed = { selection: photo.slice(0, 2) };
+  const noMatch = { condition: { maker: ['ASM'] } };
+  const tableParams = { drillModule: 'PM1', drillMotion: 'Pump', page: 0, pageSize: 200, sorting: [] };
+  const exportParams = { drillModule: 'PM1', drillMotion: 'Pump', ids: null, sorting: [] };
+
+  it('gives fewer rows when a Selection narrows the resolved equipment, keeping the values of the rows that remain', async () => {
+    const full = await data<HwTimeLevelData>(hwTime.levelRows.id, {});
+    const l1 = await data<HwTimeLevelData>(hwTime.levelRows.id, {}, narrowed);
+    expect(l1.rows.map(({ id }) => id)).toEqual(full.rows.slice(0, 6).map(({ id }) => id));
+    expect(l1.rows).toEqual(full.rows.slice(0, 6));
+    const l2 = await data<HwTimeLevelData>(hwTime.levelRows.id, { drillModule: 'PM1' }, narrowed);
+    expect(l2.rows).toHaveLength(30);
+    const l3 = await data<HwTimeLevelData>(hwTime.levelRows.id, { drillModule: 'PM1', drillMotion: 'Pump' }, narrowed);
+    expect(l3.context?.rows).toHaveLength(24);
+    expect(l3.detail?.rows).toHaveLength(24);
+    const table = await data<HwTimeTableData>(hwTime.tableRows.id, tableParams, narrowed);
+    expect(table.total).toBe(24);
+    const exported = await data<HwTimeRow[]>(hwTime.exportRows.id, exportParams, narrowed);
+    expect(exported).toHaveLength(24);
+  });
+
+  it('drops trend rows outside the narrowed population', async () => {
+    const result = await data<HwTimeTrendData>(hwTime.trend.id, { rowIds: ['EQ-001.H1', 'EQ-020.H1'] }, narrowed);
+    expect(result.rows.map(({ id }) => id)).toEqual(['EQ-001.H1']);
+  });
+
+  it('answers empty for every endpoint when the Condition matches no equipment', async () => {
+    const responses = await Promise.all([
+      query<HwTimeLevelData>(hwTime.levelRows.id, {}, noMatch),
+      query<HwTimeLevelData>(hwTime.levelRows.id, { drillModule: 'PM1', drillMotion: 'Pump' }, noMatch),
+      query<HwTimeTrendData>(hwTime.trend.id, { rowIds: ['EQ-001.H1'] }, noMatch),
+      query<HwTimeTableData>(hwTime.tableRows.id, tableParams, noMatch),
+      query<HwTimeRow[]>(hwTime.exportRows.id, exportParams, noMatch),
+    ]);
+    expect(responses.map(response => response.outcome)).toEqual(['empty', 'empty', 'empty', 'empty', 'empty']);
   });
 });
