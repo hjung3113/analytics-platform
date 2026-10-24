@@ -98,7 +98,7 @@ describe('PanelWorkspace panel badge: tab', () => {
   it('puts the description in the tab aria-description and leaves badge-less tabs without one', async () => {
     render(ui({ panels: withBadges({ selector: SELECTOR_BADGE }) }));
     await ready();
-    expect(tab('selector')).toHaveAttribute('aria-description', '행 2개 추가됨');
+    await waitFor(() => { expect(tab('selector')).toHaveAttribute('aria-description', '행 2개 추가됨'); });
     expect(tab('trend')).not.toHaveAttribute('aria-description');
     expect(tab('selector').querySelector('[aria-live], [role="status"]')).toBeNull();
   });
