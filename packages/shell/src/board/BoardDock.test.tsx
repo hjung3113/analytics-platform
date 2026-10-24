@@ -788,9 +788,9 @@ describe('dock renderer: the pane head is one strip per group (ADR-0067 2c)', ()
     tabOf('칸 2 · 베타').focus();
     await userEvent.keyboard('{Shift>}{F10}{/Shift}');
     expect(await screen.findByRole('menuitem', { name: '칸 2 최대화' })).toBeInTheDocument();
-    expect(tabOf('칸 2 · 베타')).toHaveAttribute('aria-selected', 'true');
+    await waitFor(() => { expect(tabOf('칸 2 · 베타')).toHaveAttribute('aria-selected', 'true'); });
     // The open menu hides the rest of the page from role queries; the store says which pane the Context bar reads.
-    expect(v2().sheets[0].selectedPaneId).toBe(v2().sheets[0].panes[1].id);
+    await waitFor(() => { expect(v2().sheets[0].selectedPaneId).toBe(v2().sheets[0].panes[1].id); });
     await waitFor(() => { expect(document.activeElement?.getAttribute('role')).toBe('menuitem'); });
   });
 
