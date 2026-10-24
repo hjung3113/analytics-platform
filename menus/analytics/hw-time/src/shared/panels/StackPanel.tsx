@@ -3,7 +3,7 @@ import { useI18n } from '@ap/kernel';
 import { AnalysisChartFrame, type ChartPoint } from '@ap/components';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import { HW_TIME_UNIT, type HwTimeBlock, type HwTimeRow } from '../../endpoints';
-import { formatSeconds, missingText } from '../format';
+import { formatSeconds, missingText, rowIdLabel } from '../format';
 
 export type StackSort = 'total-desc' | 'total-asc' | null;
 
@@ -23,12 +23,12 @@ export type StackPanelProps = {
 
 const rowPitch = 26;
 
-/** `EQ-001.H1` → `EQ-001 · H1`; an auxiliary row reads `EQ-001 · MEG 4.03 s` (two decimals, the endpoint's unit). Labels stay unique per row. */
+/** `EQ-001.H1` → `EQ-001 · H1`; an auxiliary row reads `EQ-001 MEG 4.03s` (two decimals, the endpoint's unit; no separators, so the value fits the Frame's label gutter instead of being ellipsized). Labels stay unique per row. */
 export function rowLabel(row: HwTimeRow, lang: 'ko' | 'en' = 'ko') {
-  if (!row.auxiliary) return row.id.replace('.', ' · ');
+  if (!row.auxiliary) return rowIdLabel(row.id);
   const seconds = Number(/-?\d+(?:\.\d+)?\s*$/.exec(row.auxiliary.label)?.[0]);
-  const value = Number.isFinite(seconds) ? ` ${formatSeconds(seconds)} ${HW_TIME_UNIT[lang]}` : '';
-  return `${row.equipmentId} · ${row.auxiliary.kind}${value}`;
+  const value = Number.isFinite(seconds) ? ` ${formatSeconds(seconds)}${HW_TIME_UNIT[lang]}` : '';
+  return `${row.equipmentId} ${row.auxiliary.kind}${value}`;
 }
 
 /** Equipment groups keep their auxiliary rows beside them; sorting moves whole groups, nulls last. */
@@ -59,17 +59,17 @@ export function StackPanel({ chartId, title, block, visibleSeriesIds, onVisibleS
     points: rows.map(row => [rowLabel(row, lang), row.auxiliary ? null : row.values[item.id] ?? null] as [string, number | null]),
   })), [block.series, rows, lang]);
   const unmeasured = block.rows.filter(row => !row.auxiliary && Object.values(row.values).some(value => value === null)).length;
+  // In the Frame's header line, not under it: the Frame fills its parent, so a caption below would overflow onto the trend toggle.
+  const unmeasuredNote = unmeasured === 0 ? undefined
+    : lang === 'ko' ? `${missingText(lang)} 값이 있는 행 ${unmeasured}개 — 막대에서는 빈 칸으로 보입니다.` : `${unmeasured} rows have ${missingText(lang).toLowerCase()} values — shown as gaps in the bars.`;
   const rowOf = (point: ChartPoint) => byLabel.get(point.x);
   return <div className="flex min-h-0 flex-1 flex-col gap-1">
     <AnalysisChartFrame
-      chartId={chartId} title={title} xType="category" orientation="horizontal" stacked size="fill" rowPitch={rowPitch}
+      chartId={chartId} title={title} description={unmeasuredNote} xType="category" orientation="horizontal" stacked size="fill" rowPitch={rowPitch}
       series={series} unit={HW_TIME_UNIT[lang]} valueFormat={formatSeconds} canApplyRange={false}
       visibleSeriesIds={visibleSeriesIds} onVisibleSeriesChange={onVisibleSeriesChange}
       pointActivation={onActivate ? { on: 'click', onActivate: point => { const rowId = rowOf(point); if (rowId) onActivate({ seriesId: point.seriesId, rowId }); } } : undefined}
       pointActions={rowActions?.map(action => ({ id: action.id, label: action.label, keepsFocus: action.keepsFocus, onSelect: (point: ChartPoint) => { const rowId = rowOf(point); if (rowId) action.onSelect(rowId); } }))}
     />
-    {unmeasured > 0 && <p className="t-caption text-text-muted">
-      {lang === 'ko' ? `${missingText(lang)} 값이 있는 행 ${unmeasured}개 — 막대에서는 빈 칸으로 보입니다.` : `${unmeasured} rows have ${missingText(lang).toLowerCase()} values — shown as gaps in the bars.`}
-    </p>}
   </div>;
 }

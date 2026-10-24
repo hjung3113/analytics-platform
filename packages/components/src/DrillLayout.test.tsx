@@ -112,6 +112,21 @@ describe('DrillLayout (06 §12.7, ADR-0025)', () => {
     expect(screen.getByRole('navigation', { name: '드릴 경로' }).className).toBe('flex flex-wrap items-center gap-1 text-xs');
   });
 
+  it('keeps the same nav and focused chip when a summary arrives after the first render', () => {
+    const tree = (summary: string | null) => <I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DrillLayout summary={summary}><p>본문</p></DrillLayout></PlatformProvider></I18nProvider>;
+    window.history.replaceState(null, '', '/source?v=1&drillRoom=PHOTO');
+    const view = render(tree(null));
+    const chip = screen.getByRole('button', { name: '공정: PHOTO' });
+    const nav = screen.getByRole('navigation', { name: '드릴 경로' });
+    chip.focus();
+    expect(document.activeElement).toBe(chip);
+    view.rerender(tree('Module PHOTO · 1.00 초'));
+    expect(screen.getByText('Module PHOTO · 1.00 초')).toBeTruthy();
+    expect(screen.getByRole('button', { name: '공정: PHOTO' })).toBe(chip);
+    expect(screen.getByRole('navigation', { name: '드릴 경로' })).toBe(nav);
+    expect(document.activeElement).toBe(chip);
+  });
+
   it('hides the summary at depth 0 like the path bar', () => {
     mount('/source?v=1', <DrillLayout summary="요약"><p>본문</p></DrillLayout>);
     expect(screen.queryByText('요약')).toBeNull();

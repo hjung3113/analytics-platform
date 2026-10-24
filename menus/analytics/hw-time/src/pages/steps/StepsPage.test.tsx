@@ -17,6 +17,7 @@ vi.mock('@ap/components', async importOriginal => {
   function AnalysisChartFrame(props: import('@ap/components').AnalysisChartFrameProps) {
     const categories = [...new Set(props.series.flatMap(s => s.points.map(([x]) => x)))];
     return <section aria-label={String(props.title)} data-chart={props.chartId}>
+      {props.description && <p>{props.description}</p>}
       <p data-testid={`${props.chartId}-categories`}>{categories.length}</p>
       <p data-testid={`${props.chartId}-pitch`}>{props.rowPitch}</p>
       <p data-testid={`${props.chartId}-series`}>{JSON.stringify(props.series.map(s => ({ id: s.id, meg: s.points.filter(([x]) => x.includes('MEG')) })))}</p>
@@ -123,17 +124,17 @@ describe('HW Time steps page', () => {
 
   it('L2 auxiliary MEG rows keep a 2-decimal label with the unit, carry no values, and never reach the callbacks', async () => {
     await renderPage('&drillModule=PM1');
-    expect(screen.queryByRole('button', { name: /segment \w+ EQ-001 · MEG/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /segment \w+ EQ-001 MEG/ })).toBeNull();
     expect(screen.getByTestId('hw-time-steps-L2-categories').textContent).toBe('120');
     const series = JSON.parse(screen.getByTestId('hw-time-steps-L2-series').textContent!) as { id: string; meg: [string, number | null][] }[];
     expect(series.map(s => s.id)).toEqual(MOTIONS);
     for (const item of series) {
       expect(item.meg).toHaveLength(24);
-      expect(item.meg[0]).toEqual(['EQ-001 · MEG 4.03 초', null]);
+      expect(item.meg[0]).toEqual(['EQ-001 MEG 4.03초', null]);
       expect(item.meg.every(([, value]) => value === null)).toBe(true);
     }
-    fireEvent.click(screen.getByRole('button', { name: 'pick Chuck EQ-001 · MEG 4.03 초' }));
-    fireEvent.click(screen.getByRole('button', { name: '추세에 추가·제거 EQ-001 · MEG 4.03 초' }));
+    fireEvent.click(screen.getByRole('button', { name: 'pick Chuck EQ-001 MEG 4.03초' }));
+    fireEvent.click(screen.getByRole('button', { name: '추세에 추가·제거 EQ-001 MEG 4.03초' }));
     expect(searchParams().get('drillMotion')).toBeNull();
     expect(searchParams().get('trend')).toBeNull();
   });
@@ -225,6 +226,13 @@ describe('HW Time steps page', () => {
     fireEvent.click(screen.getByRole('button', { name: /^추세 \(0행\)/ }));
     expect(screen.getByText('행을 추가하세요')).toBeTruthy();
     expect(screen.getByText('Module을 골라 들어간 뒤 행을 추세에 추가하세요.')).toBeTruthy();
+  });
+
+  it.each(['&drillModule=PM1', '&drillModule=PM1&drillMotion=Dechuck'])('inside a Module (%s) the empty trend copy points at the detail rows', async query => {
+    await renderPage(query);
+    fireEvent.click(screen.getByRole('button', { name: /^추세 \(0행\)/ }));
+    expect(screen.getByText('상세 행을 골라 추세에 추가하세요.')).toBeTruthy();
+    expect(screen.queryByText(/Module을 골라/)).toBeNull();
   });
 
   it('restores the level and the trend rows from the URL', async () => {

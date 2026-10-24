@@ -4,3 +4,6 @@ export const missingText = (lang: 'ko' | 'en') => (lang === 'ko' ? MISSING_TEXT 
 
 /** Two decimals with thousand separators, the same grouping the chart axis uses. */
 export const formatSeconds = (value: number) => value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/** `EQ-001.H1` → `EQ-001 · H1`: the row name in the detail labels and the trend legend. */
+export const rowIdLabel = (id: string) => id.replace('.', ' · ');

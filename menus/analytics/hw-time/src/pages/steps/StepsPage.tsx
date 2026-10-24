@@ -166,7 +166,7 @@ export default function StepsPage(_props: PageProps) {
           </Button>
           <div id={trendId} hidden={!trendOpen} className="flex min-h-0 flex-1 flex-col gap-1 px-2 pb-2">
             {notice && <p role="status" className="t-caption text-text-warning-label">{notice}</p>}
-            <TrendPanel chartId="hw-time-steps-trend" title={ko ? '행별 일 추세' : 'Daily trend by row'} rowIds={trendRows} query={trendQ} />
+            <TrendPanel chartId="hw-time-steps-trend" title={ko ? '행별 일 추세' : 'Daily trend by row'} rowIds={trendRows} query={trendQ} level={drill.depth} />
           </div>
         </section>
       </div>
