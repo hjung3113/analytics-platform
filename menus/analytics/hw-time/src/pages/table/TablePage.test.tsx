@@ -165,6 +165,19 @@ describe('HW Time table page', () => {
     expect(112 + 88 + 5 * 100 + 112).toBeLessThanOrEqual(900);
   });
 
+  it('sizes L1 wider so a four-digit value stays on one line, and never breaks inside a number', async () => {
+    await renderPage('');
+    const width = (name: string) => parseFloat(screen.getAllByRole('columnheader').find(h => h.textContent?.includes(name))!.style.width);
+    expect(width('EquipmentID')).toBe(128);
+    expect(width('PM1')).toBe(124);
+    expect(width('합계')).toBe(124);
+    // 선택 40 + 128 + 5 * 124 + action 128 stays inside the ~1067px row area at 1440.
+    expect(128 + 5 * 124).toBeLessThanOrEqual(900);
+    const cells = await screen.findAllByText(/^\d{1,3}(,\d{3})*\.\d{2}$/);
+    expect(cells.length).toBeGreaterThan(0);
+    for (const cell of cells) expect([...cell.classList]).toEqual(expect.arrayContaining(['tabular', 'whitespace-nowrap']));
+  });
+
   it('writes the value and total columns to the export with two decimals and 미측정 for a missing value', () => {
     // exportNumber is the exportValue of both column kinds.
     expect(exportNumber(4.5958000000000006, 'ko')).toBe(4.6);

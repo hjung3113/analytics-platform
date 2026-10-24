@@ -16,7 +16,7 @@ import { formatSeconds, missingText, rowIdLabel } from '../../shared/format';
 import { StackPanel } from '../../shared/panels/StackPanel';
 import { TrendPanel } from '../../shared/panels/TrendPanel';
 import {
-  COLUMN_SIZE, SORT_FIELDS, auxiliaryText, drillParams, exportFilterSummary, exportNumber, exportParams, levelOf, levelRowsOf, seriesIds, unitOf, valueText,
+  SORT_FIELDS, auxiliaryText, columnSizeOf, drillParams, exportFilterSummary, exportNumber, exportParams, levelOf, levelRowsOf, seriesIds, unitOf, valueText,
 } from './tableData';
 
 const NO_ROWS: HwTimeRow[] = [];
@@ -78,28 +78,29 @@ export default function TablePage(_props: PageProps) {
 
   const columns = useMemo<PlatformColumn<HwTimeTableRow>[]>(() => {
     const unit = unitOf(lang);
+    const size = columnSizeOf(level);
     const enter = (value: string) => drill.enter(level === 0 ? 'drillModule' : 'drillMotion', value);
     const series: PlatformColumn<HwTimeTableRow>[] = seriesIds(level, motion).map(id => ({
-      id, header: `${id} (${unit})`, align: 'right', size: COLUMN_SIZE.value,
+      id, header: `${id} (${unit})`, align: 'right', size: size.value,
       value: row => (row[id] as number | null | undefined) ?? null,
       cell: row => row.auxiliary ? null : <span className="inline-flex items-center justify-end gap-1">
-        <span className="tabular">{valueText(row.values[id], lang)}</span>
+        <span className="tabular whitespace-nowrap">{valueText(row.values[id], lang)}</span>
         {level < 2 && <EnterButton ko={ko} value={id} onClick={() => enter(id)} />}
       </span>,
       exportValue: row => row.auxiliary ? null : exportNumber(row.values[id], lang),
     }));
     return [
-      { id: 'equipmentId', header: 'EquipmentID', size: COLUMN_SIZE.equipmentId, cell: row => <span className="t-mono">{row.equipmentId}</span> },
+      { id: 'equipmentId', header: 'EquipmentID', size: size.equipmentId, cell: row => <span className="t-mono">{row.equipmentId}</span> },
       ...(level === 0 ? [] : [{
-        id: 'subItem', header: ko ? '하위 항목' : 'Sub-item', size: COLUMN_SIZE.subItem,
+        id: 'subItem', header: ko ? '하위 항목' : 'Sub-item', size: size.subItem,
         value: (row: HwTimeTableRow) => row.auxiliary ? auxiliaryText(row, lang) : row.subItem ?? '',
         cell: (row: HwTimeTableRow) => <span className="t-mono">{row.auxiliary ? auxiliaryText(row, lang) : row.subItem}</span>,
       }]),
       ...series,
       {
-        id: 'total', header: `${ko ? '합계' : 'Total'} (${unit})`, align: 'right', size: COLUMN_SIZE.total,
+        id: 'total', header: `${ko ? '합계' : 'Total'} (${unit})`, align: 'right', size: size.total,
         value: row => row.total,
-        cell: row => row.auxiliary ? null : <span className="tabular">{valueText(row.total, lang)}</span>,
+        cell: row => row.auxiliary ? null : <span className="tabular whitespace-nowrap">{valueText(row.total, lang)}</span>,
         exportValue: row => row.auxiliary ? null : exportNumber(row.total, lang),
       },
     ];
