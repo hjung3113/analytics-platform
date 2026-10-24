@@ -27,6 +27,7 @@
 
 | 버전 | 패키지 | 바뀐 공개 API | 이전 방법 |
 | --- | --- | --- | --- |
+| 다음 릴리스 | components | `DrillPathProps`·`DrillLayoutProps`에 선택 `summary?: ReactNode` 추가(#690, ADR-0078). 경로 바와 같은 줄, `<nav>` 밖, 0단계 숨김 | 없음 — 추가만 |
 | `sdk-v0.12.0` | contracts·ui·components | 공통 도우미 추가(#676): contracts `isRecord`·`NO_FEATURES`(기능 없음 기본값)·`contextCapabilities(declared?)`(선언하지 않은 Context 키를 기본값으로 채운다)·`Brand<Name>`, ui `copyText`·`readLocalStorage`·`writeLocalStorage`(저장소 접근이 막혀도 throw하지 않는다), components `useTableUrlState`·`TableUrlChangeReason`(표 URL 상태 연결) | 없음 — 추가만 |
 | `sdk-v0.12.0` | components | `PlatformPageProps.contextNotes?: readonly ReactNode[]` 추가(#680, ADR-0075). `layout="fill"` 페이지는 머리 영역이 한 줄로 접힌 채 시작하고 응답 배너가 얇은 띠가 된다. kernel `dict`에 i18n 키 6개(`expandShort`·`pageHeadExpand`·`pageHeadCollapse`·`pageNotesCount`·`pageIssuesCount`·`outcomeDetails`) 추가 | 없음 — 추가만(fill 페이지를 쓰는 소비자는 머리 안 컨트롤이 접혀 시작함을 안다) |
 | `sdk-v0.12.0` | components | `WorkspaceCommand`(`@ap/components/dock`)에 선택 `group?: 'preset' \| 'mode'`(없으면 프리셋)·`groupLabel?: string`(생산자가 정한 라디오 묶음의 현지화된 이름, 없으면 이름 없는 묶음)과 `radioGroupsOf(commands)` 추가 — 작업 영역의 두 번째 라디오 묶음(`높이 방식`: `화면 맞춤`/`아래로 쌓기`, #686, ADR-0077). `PanelWorkspace`는 props가 그대로이고 저장 값에 선택 필드 `mode`·`rows`가 생긴다 | 호스트(보드 칸 메뉴 등)가 `kind === 'radio'` 명령을 한 그룹으로 그리고 있으면 `radioGroupsOf`로 묶음마다 하나의 라디오 그룹으로 그린다. 묶음 이름은 `commands[0].groupLabel`로 붙인다(호스트가 이름을 하드코딩하지 않는다). 그 밖에는 없음 — 추가만 |

@@ -14,7 +14,11 @@ export type DrillSibling = { value: string; hint?: string };
 /** Sibling lists keyed by drill level. Omit a key, or pass an empty list, to hide its menu. */
 export type DrillSiblings = Readonly<Record<string, readonly DrillSibling[]>>;
 
-export type DrillPathProps = { siblings?: DrillSiblings };
+export type DrillPathProps = {
+  siblings?: DrillSiblings;
+  /** One line beside the path bar, hidden at level 0. A string is ellipsized and its full text goes into `title`; a ReactNode keeps its own title. */
+  summary?: ReactNode;
+};
 export type DrillLayoutProps = DrillPathProps & {
   /** A step value the query recognized as absent. Ignored while `useDrill().invalid` is set. */
   notFound?: { key: string; value: string };
@@ -63,7 +67,7 @@ function SiblingMenu({ label, value, items, onSwitch, scopeRef }: {
  * Path bar for the current menu's drill (06 §12.7, ADR-0025). Nothing at depth 0.
  * Five or more chips (depth 4+) collapse to All, a middle-step menu, and the last two chips.
  */
-export function DrillPath({ siblings }: DrillPathProps) {
+export function DrillPath({ siblings, summary }: DrillPathProps) {
   const drill = useDrill();
   const { lang, tx } = useI18n();
   const ko = lang === 'ko';
@@ -90,7 +94,8 @@ export function DrillPath({ siblings }: DrillPathProps) {
     </span>;
   };
 
-  return <nav ref={nav} aria-label={ko ? '드릴 경로' : 'Drill path'} className="flex flex-wrap items-center gap-1 text-xs">
+  const hasSummary = !(summary === undefined || summary === null || summary === false);
+  const navigation = <nav ref={nav} aria-label={ko ? '드릴 경로' : 'Drill path'} className={hasSummary ? 'flex min-w-0 flex-wrap items-center gap-1 text-xs' : 'flex flex-wrap items-center gap-1 text-xs'}>
     <button type="button" onClick={() => drill.goTo(0)} className="rounded-md px-2 py-1 text-text-secondary hover:bg-surface-sunken">{ko ? '전체' : 'All'}</button>
     {hidden.length > 0 && <>
       <ChevronRight className="size-3 text-text-muted" aria-hidden />
@@ -113,10 +118,15 @@ export function DrillPath({ siblings }: DrillPathProps) {
       </span>;
     })}
   </nav>;
+  if (!hasSummary) return navigation;
+  return <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+    {navigation}
+    <div title={typeof summary === 'string' ? summary : undefined} className="min-w-0 flex-1 basis-48 truncate text-xs text-text-secondary">{summary}</div>
+  </div>;
 }
 
 /** Path bar, then the current step's body. A format error or a missing value replaces the body and substitutes nothing. */
-export function DrillLayout({ siblings, notFound, children }: DrillLayoutProps) {
+export function DrillLayout({ siblings, summary, notFound, children }: DrillLayoutProps) {
   const drill = useDrill();
   const { invalid } = drill;
   const { lang } = useI18n();
@@ -132,7 +142,7 @@ export function DrillLayout({ siblings, notFound, children }: DrillLayoutProps) 
         body={ko ? '다른 값으로 바꾸지 않습니다.' : 'Nothing was substituted.'} />
       : children;
   return <div className="space-y-4">
-    <DrillPath siblings={siblings} />
+    <DrillPath siblings={siblings} summary={summary} />
     {body}
   </div>;
 }

@@ -72,6 +72,44 @@ describe('DrillLayout (06 §12.7, ADR-0025)', () => {
     expect(screen.getByText('본문')).toBeTruthy();
   });
 
+  it('renders the summary beside the path bar, outside the nav, with the full text as title', () => {
+    const text = '공정 PHOTO · StGroup A · 매우 긴 요약 문장이 한 줄 안에서 말줄임표로 잘린다';
+    mount('/source?v=1&drillRoom=PHOTO&drillStgroup=A', <DrillLayout summary={text}><p>본문</p></DrillLayout>);
+    const summary = screen.getByText(text);
+    expect(summary.getAttribute('title')).toBe(text);
+    expect(summary.className).toContain('truncate');
+    expect(screen.getByRole('navigation', { name: '드릴 경로' }).contains(summary)).toBe(false);
+    expect(summary.closest('[aria-live]')).toBeNull();
+  });
+
+  it('keeps a width share for the summary when the path bar wraps', () => {
+    mount('/source?v=1&drillRoom=PHOTO', <DrillLayout summary="요약"><p>본문</p></DrillLayout>);
+    const summary = screen.getByText('요약');
+    const nav = screen.getByRole('navigation', { name: '드릴 경로' });
+    expect(summary.className).toEqual(expect.stringContaining('basis-48'));
+    expect(summary.className).toEqual(expect.stringContaining('min-w-0'));
+    expect(summary.className).toEqual(expect.stringContaining('flex-1'));
+    expect(nav.className).toContain('min-w-0');
+    expect(summary.parentElement?.className).toContain('flex-wrap');
+  });
+
+  it('keeps the bare path bar classes when there is no summary', () => {
+    mount('/source?v=1&drillRoom=PHOTO', <DrillLayout><p>본문</p></DrillLayout>);
+    expect(screen.getByRole('navigation', { name: '드릴 경로' }).className).toBe('flex flex-wrap items-center gap-1 text-xs');
+  });
+
+  it('hides the summary at depth 0 like the path bar', () => {
+    mount('/source?v=1', <DrillLayout summary="요약"><p>본문</p></DrillLayout>);
+    expect(screen.queryByText('요약')).toBeNull();
+  });
+
+  it('leaves a ReactNode summary to carry its own title', () => {
+    mount('/source?v=1&drillRoom=PHOTO', <DrillLayout summary={<span data-testid="node">노드</span>}><p>본문</p></DrillLayout>);
+    const node = screen.getByTestId('node');
+    expect(node.getAttribute('title')).toBeNull();
+    expect(node.parentElement?.getAttribute('title')).toBeNull();
+  });
+
   it('moves up from a chip and marks the last chip as the current step', () => {
     mount('/source?v=1&drillRoom=PHOTO&drillStgroup=A', <DrillLayout siblings={siblings}><p>본문</p></DrillLayout>);
     expect(screen.getByRole('navigation', { name: '드릴 경로' })).toBeTruthy();
