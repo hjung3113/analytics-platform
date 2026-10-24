@@ -89,7 +89,7 @@ export type MenuMeta = {
   navHidden?: boolean;
   /**
    * Sub-items drawn under this menu's sidebar row (expanded sidebar only; 06 §8, ADR-0081). Each view links to this menu with its `page` preset.
-   * Preset keys must be declared `pageKeys`, not a space `carriedPageKeys` entry (those follow the current screen) and not `focus`; ids are unique
+   * Each preset has at least one key; keys must be declared `pageKeys`, not a space `carriedPageKeys` entry (those follow the current screen) and not `focus`; ids are unique
    * within the menu; labels are non-blank ko/en; a `navHidden` menu has none. A view is current when every preset key equals the URL's page value.
    * Views are not palette entries and not favorite/recent targets.
    */

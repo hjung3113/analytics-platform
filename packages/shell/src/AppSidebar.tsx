@@ -83,7 +83,7 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
 
 const NoCounts = ({ children }: { children: (counts: null) => ReactNode }) => <>{children(null)}</>;
 
-/** The view whose preset keys all equal the URL's page values; with several matches the one with the most keys wins, then declaration order. Empty presets never match. */
+/** The view whose preset keys all equal the URL's page values; with several matches the one with the most keys wins, then declaration order. The registry guarantees a non-empty preset. */
 function currentNavView(views: readonly NavView[], page: readonly (readonly [string, string])[]): NavView | null {
   let best: NavView | null = null;
   for (const view of views) {

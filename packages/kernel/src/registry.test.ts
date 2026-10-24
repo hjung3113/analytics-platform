@@ -150,6 +150,7 @@ describe('menu navViews (sidebar sub-items, 06 §8)', () => {
     { name: 'views on a navHidden menu', menus: [menu('a', '/a', { primary: true }), menu('d', '/a/d', { navHidden: true, parent: 'a', pageKeys: ['tab'], navViews: [view] })], error: /Menu "d" is navHidden and cannot declare navViews/ },
     { name: 'a blank ko label', menus: [withViews([{ ...view, label: { ko: ' ', en: 'Mine' } }])], error: /navView "mine" needs nonempty ko and en labels/ },
     { name: 'a blank en label', menus: [withViews([{ ...view, label: { ko: '내 것', en: '' } }])], error: /navView "mine" needs nonempty ko and en labels/ },
+    { name: 'an empty preset', menus: [withViews([{ ...view, page: {} }])], error: /Menu "a" navView "mine" needs at least one preset key/ },
     { name: 'a blank id', menus: [withViews([{ ...view, id: ' ' }])], error: /navView id must not be blank/ },
   ])('rejects $name', ({ menus, error }) => {
     expect(() => createRegistry({ spaces: homeA, groups, menus })).toThrow(error);

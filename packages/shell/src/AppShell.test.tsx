@@ -11,7 +11,7 @@ import { AppRail } from './AppRail';
 import { AppSidebar } from './AppSidebar';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { groupId, menuPermission, spaceId, type GroupId, type Permission, type PlatformAdapter, type Session } from '@ap/contracts';
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 
 function menu(id: string, group: GroupId, path: string, permission: Permission) {
   return { id, group, path, permission, primary: true, label: { ko: '운영 홈', en: 'Operations home' }, description: { ko: '', en: '' }, icon: House, requiresScope: false, context: noContext, pageType: 'overview' as const, features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] };
@@ -777,7 +777,12 @@ function navViewsRegistry(second?: boolean) {
     ],
   });
 }
-const CountsA = ({ children }: { children: (counts: Readonly<Record<string, number>> | null) => ReactNode }) => <>{children({ inbox: 48, 'inbox/mine': 7, other: 0 })}</>;
+// Holds a real hook so a slot component called inline in the sidebar (instead of rendered as an element) would change the sidebar's hook order.
+const CountsA = ({ children }: { children: (counts: Readonly<Record<string, number>> | null) => ReactNode }) => {
+  const [counts] = useState<Readonly<Record<string, number>>>({ inbox: 48, 'inbox/mine': 7, other: 0 });
+  useEffect(() => {}, []);
+  return <>{children(counts)}</>;
+};
 const CountsNull = ({ children }: { children: (counts: Readonly<Record<string, number>> | null) => ReactNode }) => <>{children(null)}</>;
 const SectionBody = () => <p>saved views body</p>;
 
@@ -852,5 +857,53 @@ describe('sidebar navViews, navCounts and spaceNavSection (#761)', () => {
     await waitFor(() => expect(screen.queryByRole('region', { name: '저장된 보기' })).toBeNull());
     expect(within(primary()).queryByRole('link', { name: /48건/ })).toBeNull();
     expect(error.mock.calls.flat().join(' ')).not.toMatch(/hook|Rendered (more|fewer)/i);
+    fireEvent.click(within(openSwitcher()).getByRole('button', { name: /분석/ }));
+    await waitFor(() => expect(screen.getByRole('region', { name: '저장된 보기' })).toBeTruthy());
+    expect(within(primary()).getByRole('link', { name: '수신함, 48건' })).toBeTruthy();
+    expect(error.mock.calls.flat().join(' ')).not.toMatch(/hook|Rendered (more|fewer)/i);
+  });
+
+  it('removes and restores the slots on a mounted provider without a hook-order error', () => {
+    window.history.replaceState(null, '', '/other?v=1');
+    const registryForRender = navViewsRegistry();
+    const withSlots: PlatformSlots = { navCounts: { For: () => CountsA }, spaceNavSection: { For: () => ({ label: { ko: '저장된 보기', en: 'Saved' }, Body: SectionBody }) } };
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const tree = (slots: PlatformSlots) => <I18nProvider><PlatformProvider adapter={adapterWith(['platform:view'])} registry={registryForRender} slots={slots}><AppShell><input aria-label="editor" /></AppShell></PlatformProvider></I18nProvider>;
+    const view = render(tree(withSlots));
+    expect(within(primary()).getByRole('link', { name: '수신함, 48건' })).toBeTruthy();
+    view.rerender(tree({}));
+    expect(within(primary()).getByRole('link', { name: '수신함' })).not.toHaveTextContent(/\d/);
+    expect(screen.queryByRole('region', { name: '저장된 보기' })).toBeNull();
+    view.rerender(tree(withSlots));
+    expect(within(primary()).getByRole('link', { name: '수신함, 48건' })).toBeTruthy();
+    expect(screen.getByRole('region', { name: '저장된 보기' })).toBeTruthy();
+    expect(error.mock.calls.flat().join(' ')).not.toMatch(/hook|Rendered (more|fewer)/i);
+  });
+
+  describe('which row is current', () => {
+    const nested = () => {
+      const m = (id: string, path: string, over: object = {}) => ({ ...menu(id, groupId('overview'), path, 'platform:view'), label: { ko: id, en: id }, primary: id === 'a', ...over });
+      const v = (id: string, page: Record<string, string>) => ({ id, label: { ko: `v-${id}`, en: id }, page });
+      return createRegistry({
+        spaces: [testSpace({ id: spaceId('analytics'), homeMenuId: 'a' })],
+        groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
+        menus: [
+          m('a', '/a', { pageKeys: ['tab', 'sub'], navViews: [v('broad', { tab: 'mine' }), v('narrow', { tab: 'mine', sub: 'x' })] }),
+          m('b', '/b', { pageKeys: ['tab'], navViews: [v('b-mine', { tab: 'mine' })] }),
+        ],
+      });
+    };
+    it.each([
+      ['/a?v=1&tab=mine&sub=x', 'v-narrow'],
+      ['/a?v=1&tab=mine', 'v-broad'],
+      ['/a?v=1&tab=other', 'a'],
+      ['/b?v=1&tab=mine', 'v-b-mine'],
+    ])('%s marks exactly %s', (url, name) => {
+      window.history.replaceState(null, '', url);
+      mount(['platform:view'], true, nested());
+      const current = document.querySelectorAll('a[aria-current=page]');
+      expect(current).toHaveLength(1);
+      expect(current[0]).toHaveAttribute('aria-label', name);
+    });
   });
 });

@@ -186,6 +186,7 @@ export function createRegistry({ spaces, groups, menus, permissions: declared = 
         if (viewIds.has(view.id)) fail(`Menu "${m.id}" navView id "${view.id}" is duplicated`);
         viewIds.add(view.id);
         if (typeof view.label?.ko !== 'string' || view.label.ko.trim() === '' || typeof view.label?.en !== 'string' || view.label.en.trim() === '') fail(`Menu "${m.id}" navView "${view.id}" needs nonempty ko and en labels`);
+        if (Object.keys(view.page).length === 0) fail(`Menu "${m.id}" navView "${view.id}" needs at least one preset key`);
         for (const key of Object.keys(view.page)) {
           if (key === 'focus') fail(`Menu "${m.id}" navView "${view.id}" preset key "focus" cannot be a view key`);
           if (!m.pageKeys.includes(key)) fail(`Menu "${m.id}" navView "${view.id}" preset key "${key}" is not a declared pageKeys entry`);

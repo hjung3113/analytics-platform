@@ -163,7 +163,7 @@ Domain logic이 Kernel로 역류하지 않도록 한다.
 
 페이지 키(`pageKeys`·`contextResetKeys`), 상세 경로(`parent`·`navHidden`), Scope 필요 여부(`requiresScope`), 지표 초기화(`initializesMetric`), 그룹 대표(`primary`, 그룹당 정확히 하나)도 메뉴가 선언한다. `createRegistry`가 시작 시 중복·충돌·공간 규칙을 검증한다([패키지 경계](integration/platform-packages.md) §5). 필드명은 Candidate다.
 
-사이드바 하위 항목(`navViews`, Candidate, [ADR-0081](adr/0081-feedbackops-operator-screens-platform-frame.md), #761): 메뉴가 `{ id, label, page }[]`를 선언하면 펼친 사이드바가 그 메뉴 행 아래에 들여 쓴 행을 하나씩 그리고, 각 행은 그 메뉴로 `page` 프리셋을 붙여 이동한다(공간 `carriedPageKeys`는 현재 화면 값을 따른다). Registry는 프리셋 키가 그 메뉴의 `pageKeys`일 것, 공간 `carriedPageKeys`·`focus`가 아닐 것, 메뉴 안에서 `id`가 겹치지 않을 것, ko/en 라벨이 비어 있지 않을 것, `navHidden` 메뉴에 두지 않을 것을 검증한다. 보기가 현재인 때는 프리셋 키가 모두 URL의 page 값과 같을 때이고(여럿이면 키가 가장 많은 것) 그때는 **그 보기만** `aria-current="page"`를 갖고 부모 행은 갖지 않는다. 일치하는 보기가 없으면 부모 행이 기존 규칙을 유지한다. 접힌 사이드바(56px)는 하위 항목을 그리지 않는다. 보기는 팔레트 항목도 즐겨찾기·최근 방문 대상도 아니다.
+사이드바 하위 항목(`navViews`, Candidate, [ADR-0081](adr/0081-feedbackops-operator-screens-platform-frame.md), #761): 메뉴가 `{ id, label, page }[]`를 선언하면 펼친 사이드바가 그 메뉴 행 아래에 들여 쓴 행을 하나씩 그리고, 각 행은 그 메뉴로 `page` 프리셋을 붙여 이동한다(공간 `carriedPageKeys`는 현재 화면 값을 따른다). Registry는 프리셋이 비어 있지 않을 것(빈 `page`는 부모 행과 같은 곳을 가리키는 중복 행), 프리셋 키가 그 메뉴의 `pageKeys`일 것, 공간 `carriedPageKeys`·`focus`가 아닐 것, 메뉴 안에서 `id`가 겹치지 않을 것, ko/en 라벨이 비어 있지 않을 것, `navHidden` 메뉴에 두지 않을 것을 검증한다. 보기가 현재인 때는 프리셋 키가 모두 URL의 page 값과 같을 때이고(여럿이면 키가 가장 많은 것) 그때는 **그 보기만** `aria-current="page"`를 갖고 부모 행은 갖지 않는다. 일치하는 보기가 없으면 부모 행이 기존 규칙을 유지한다. 접힌 사이드바(56px)는 하위 항목을 그리지 않는다. 보기는 팔레트 항목도 즐겨찾기·최근 방문 대상도 아니다.
 
 화면(`component`) 없이 manifest만 등록한 메뉴도 허용한다. 사이드바·팔레트에 '예정'으로 표시되고 선언(권한·pageType·Context capability)만 보여 준다.
 
