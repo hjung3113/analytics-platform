@@ -68,6 +68,7 @@ describe('workspace assembly (#260)', () => {
       ['analytics', 'analytics'],
       ['equipment', 'analytics'],
       ['masterData', 'analytics'],
+      ['hwTime', 'analytics'],
       ['metrics', 'metrics'],
       ['clas', 'clas'],
       ['admin', 'operations'],

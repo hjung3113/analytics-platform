@@ -4,7 +4,7 @@
  * live in their own menu package (docs/integration/platform-packages.md §5); the app concatenates them.
  */
 import {
-  BarChart3, ClipboardList, Cpu, Database, FileSearch, Gauge, Inbox, LayoutDashboard, LineChart, Megaphone, Ruler, ShieldCheck, UserRound,
+  BarChart3, ClipboardList, Cpu, Database, FileSearch, Gauge, Inbox, LayoutDashboard, LineChart, Megaphone, Ruler, ShieldCheck, Timer, UserRound,
 } from 'lucide-react';
 import { groupId, menuPermission, spaceId, type SpaceDef } from '@ap/contracts';
 import { createRegistry, type GroupDef, type MenuEntry } from '@ap/kernel';
@@ -25,6 +25,7 @@ import { manifests as logRules } from '@ap/menu-log-rules';
 import { manifests as impMyWork } from '@ap/menu-imp-my-work';
 import { manifests as impTasks } from '@ap/menu-imp-tasks';
 import { manifests as impReports } from '@ap/menu-imp-reports';
+import { manifests as hwTime } from '@ap/menu-hw-time';
 // </gen:menu-imports>
 
 /** The menu permissions this app's menus use, on top of the kernel's (ADR-0072). Each menu package spells its own with `menuPermission`; `createRegistry` fails on one missing here. */
@@ -37,6 +38,7 @@ export const GROUPS: GroupDef[] = [
   { id: groupId('analytics'), label: { ko: '생산성 분석', en: 'Analytics' }, icon: BarChart3, space: spaceId('analytics') },
   { id: groupId('equipment'), label: { ko: '설비관리', en: 'Equipment' }, icon: Cpu, space: spaceId('analytics') },
   { id: groupId('masterData'), label: { ko: '기준정보관리', en: 'Master Data' }, icon: Database, space: spaceId('analytics') },
+  { id: groupId('hwTime'), label: { ko: '동작시간분석', en: 'Operation time analysis' }, icon: Timer, space: spaceId('analytics') },
   { id: groupId('metrics'), label: { ko: '지표관리', en: 'Metrics' }, icon: Gauge, space: spaceId('metrics') },
   { id: groupId('clas'), label: { ko: '설비 동작 분석', en: 'Equipment operation' }, icon: LineChart, space: spaceId('clas') },
   { id: groupId('admin'), label: { ko: '관리·감사', en: 'Administration' }, icon: ShieldCheck, space: spaceId('operations') },
@@ -78,6 +80,7 @@ export const MENUS: MenuEntry[] = [
   ...impTasks,
   ...impReports,
   ...clas,
+  ...hwTime,
   // </gen:menu-spreads>
 ];
 
