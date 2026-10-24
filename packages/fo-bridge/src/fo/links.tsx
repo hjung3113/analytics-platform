@@ -2,7 +2,7 @@ import { PlatformLink, usePlatform } from '@ap/kernel';
 import type { HostLinkProps } from '@fops/frontend/global-screens/core';
 import { UnlinkedLink } from './FoBridge';
 
-export type PlatformTarget = { menuId: string; params?: Record<string, string> };
+export type PlatformTarget = { menuId: string; params?: Record<string, string>; page?: Record<string, string> };
 export type TargetOf = (to: string) => PlatformTarget | null;
 
 /**
@@ -19,13 +19,22 @@ export function hostLinks(...targets: TargetOf[]) {
     return null;
   };
   const canLink = (to: string) => targetOf(to) !== null;
+  /** `to` is the complete FeedbackOps path+query, rebuilt through `linkTo` from the mapped record only, so a key absent from `to` is cleared; an unmapped `to` moves nowhere (ADR-0071 decision 10). */
+  function useNavigate() {
+    const { linkTo, navigate } = usePlatform();
+    return (to: string, options?: { replace?: boolean }) => {
+      const target = targetOf(to);
+      if (target === null) return;
+      navigate(linkTo(target.menuId, { params: target.params, page: target.page, returnTo: true }), { replace: options?.replace === true });
+    };
+  }
   function Link({ to, children, ...rest }: HostLinkProps) {
     const { linkTo } = usePlatform();
     const target = targetOf(to);
     if (target === null) return <UnlinkedLink to={to} {...rest}>{children}</UnlinkedLink>;
-    return <PlatformLink href={linkTo(target.menuId, { params: target.params, returnTo: true })} {...rest}>{children}</PlatformLink>;
+    return <PlatformLink href={linkTo(target.menuId, { params: target.params, page: target.page, returnTo: true })} {...rest}>{children}</PlatformLink>;
   }
-  return { canLink, Link };
+  return { canLink, Link, useNavigate };
 }
 
 /** `/permission-requests` is the requester page (ADR-0070 decision 8). */

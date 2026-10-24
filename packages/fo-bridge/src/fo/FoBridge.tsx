@@ -2,7 +2,7 @@ import { useMemo, type ComponentType, type ReactNode } from 'react';
 import { ServerOff } from 'lucide-react';
 import { useI18n, usePlatform } from '@ap/kernel';
 import { StateMessage } from '@ap/components';
-import { FoScreenRoot, type HostLinkProps, type HostSeam } from '@fops/frontend/global-screens/core';
+import { FoScreenRoot, type HostLinkProps, type HostNavigate, type HostSearch, type HostSeam } from '@fops/frontend/global-screens/core';
 import { foQueryClient, useFoSession } from './session';
 
 /** The default seam links nothing (backlog: 알림 목적지 연결); `Link` is the unreachable fallback, and a screen passes `canLink`/`Link` for the targets it can reach. */
@@ -15,7 +15,15 @@ export function UnlinkedLink({ to: _to, children, ...rest }: HostLinkProps) {
  * requested. With one, the subtree renders only for the current (adapter, revision, user) generation and until a FeedbackOps 401 retires it: a change
  * unmounts the old subtree in that commit, clears the cache before the new one mounts, and remounts it (ADR-0071 decision 5).
  */
-export function FoBridge({ children, canLink = () => false, Link = UnlinkedLink }: { children: ReactNode; canLink?: HostSeam['canLink']; Link?: ComponentType<HostLinkProps> }) {
+const noLink = () => false;
+const noNavigate: HostNavigate = () => undefined;
+const useNoNavigate = () => noNavigate;
+const noSearch: HostSearch = {};
+const useNoSearch = () => noSearch;
+const useNoTitle = (_title: string | null) => undefined;
+
+/** `useNavigate`/`useSearch`/`useTitle` must be module-level hooks (stable identities): the seam is memoized on them, so a URL change never rebuilds it. */
+export function FoBridge({ children, canLink = noLink, Link = UnlinkedLink, useNavigate = useNoNavigate, useSearch = useNoSearch, useTitle = useNoTitle }: { children: ReactNode; canLink?: HostSeam['canLink']; Link?: ComponentType<HostLinkProps>; useNavigate?: () => HostNavigate; useSearch?: () => HostSearch; useTitle?: (title: string | null) => void }) {
   const { lang } = useI18n();
   const ko = lang === 'ko';
   const { toast } = usePlatform();
@@ -26,7 +34,10 @@ export function FoBridge({ children, canLink = () => false, Link = UnlinkedLink 
     Link,
     notifyError: message => toast(message, 'danger'),
     notifySuccess: message => toast(message),
-  }), [canLink, Link, toast]);
+    useNavigate,
+    useSearch,
+    useTitle,
+  }), [canLink, Link, toast, useNavigate, useSearch, useTitle]);
 
   if (session.status === 'no-api') {
     return <StateMessage icon={<ServerOff className="size-4" aria-hidden />}

@@ -1,6 +1,7 @@
-import { Link } from '@tanstack/react-router';
+import { Link, useRouter, useRouterState } from '@tanstack/react-router';
 import { toast } from 'sonner';
 
+import { useDocumentTitle } from '@/lib/router/document-title';
 import type { HostLinkProps, HostSeam } from './host-seam';
 
 function TanstackHostLink({ to, ...rest }: HostLinkProps) {
@@ -14,6 +15,18 @@ function TanstackHostLink({ to, ...rest }: HostLinkProps) {
   );
 }
 
+function useTanstackNavigate() {
+  const router = useRouter();
+  return (to: string, options?: { replace?: boolean }) => {
+    void router.navigate({ href: to, replace: options?.replace === true });
+  };
+}
+
+function useTanstackSearch() {
+  const searchStr = useRouterState({ select: (state) => state.location.searchStr });
+  return Object.fromEntries(new URLSearchParams(searchStr));
+}
+
 /** The standalone app's host: TanStack Router links and sonner toasts. */
 export const tanstackHost: HostSeam = {
   canLink: () => true,
@@ -24,4 +37,7 @@ export const tanstackHost: HostSeam = {
   notifySuccess: (message) => {
     toast.success(message);
   },
+  useNavigate: useTanstackNavigate,
+  useSearch: useTanstackSearch,
+  useTitle: useDocumentTitle,
 };
