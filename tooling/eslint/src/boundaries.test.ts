@@ -573,6 +573,22 @@ rows.push(
   { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '@ap/fo-bridge/home-todo-page';`, rule: 'no-restricted-imports' },
 );
 
+// A bridge menu's src/mock/** tests keep the mock policy (contracts + mock-server only): the bridge test-entry override must not replace it.
+const BRIDGE_MOCK_TEST = 'menus/_global/my-activity/src/mock/x.test.ts';
+rows.push(
+  { file: BRIDGE_MOCK_TEST, code: `import { x } from '@ap/mock-server';`, rule: '' },
+  { file: BRIDGE_MOCK_TEST, code: `await import('@ap/mock-server');`, rule: '' },
+  { file: BRIDGE_MOCK_TEST, code: `import type { X } from '@ap/contracts';`, rule: '' },
+  { file: BRIDGE_MOCK_TEST, code: `import React from 'react';`, rule: 'no-restricted-imports' },
+  { file: BRIDGE_MOCK_TEST, code: `void import('react');`, rule: 'ap/restricted-import-source' },
+  { file: BRIDGE_MOCK_TEST, code: `import { x } from '@ap/kernel';`, rule: 'no-restricted-imports' },
+  { file: BRIDGE_MOCK_TEST, code: `void import('@ap/kernel');`, rule: 'ap/restricted-import-source' },
+  { file: BRIDGE_MOCK_TEST, code: `import { x } from '@ap/fo-bridge';`, rule: 'no-restricted-imports' },
+  { file: BRIDGE_MOCK_TEST, code: `void import('@ap/fo-bridge');`, rule: 'ap/restricted-import-source' },
+  { file: BRIDGE_MOCK_TEST, code: `import { x } from '@fops/frontend/global-screens';`, rule: 'no-restricted-imports' },
+  { file: BRIDGE_MOCK_TEST, code: `void import('@fops/frontend/global-screens');`, rule: 'ap/restricted-import-source' },
+);
+
 // The FO API slot (fo-api) is main.tsx-only.
 rows.push(
   { file: 'apps/platform-web/src/main.tsx', code: `import { setFoApi } from '@ap/fo-bridge/fo-api';`, rule: '' },

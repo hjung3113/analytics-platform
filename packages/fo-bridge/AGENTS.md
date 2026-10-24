@@ -1,6 +1,6 @@
 # @ap/fo-bridge
 
-FeedbackOps 다리의 런타임(ADR-0071·0081, #759). 소비자 쪽 패키지이며 SDK가 아니다(`SDK_PACKAGES`에 없다). 다리 메뉴(`@ap/menu-my-activity`, 이후 `menus/feedbackops/*`)와 앱 `main.tsx`만 import한다.
+FeedbackOps 다리의 런타임(ADR-0071·0081, #759). 소비자 쪽 패키지이며 SDK가 아니다(`SDK_PACKAGES`에 없다). 다리 메뉴(`@ap/menu-my-activity`, 이후 `menus/feedbackops/*`)와 앱 파일이 패키지 root를 import하고, 슬롯·API 서브패스(`./fo-api`, `./*-slot`)는 앱 `main.tsx`만 import한다.
 
 ## 파일
 

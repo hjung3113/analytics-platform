@@ -474,6 +474,14 @@ export const hostModuleDir = (dir) => hostModule.map(({ plugins: _ap, ...config 
   rules: { ...config.rules, 'ap/no-relative-package-escape': ['error', { root: dir }] },
 }));
 
+const menuMockOverride = {
+  files: ['src/mock/**/*.{ts,tsx}'],
+  rules: {
+    'no-restricted-imports': importRestrictions(MENU_MOCK_RESTRICTION),
+    'ap/restricted-import-source': ['error', importSourceOptions(MENU_MOCK_RESTRICTION)],
+  },
+};
+
 const menuPreset = (restriction) => [
   REACT_HOOKS,
   layerConfig({
@@ -484,13 +492,7 @@ const menuPreset = (restriction) => [
     },
   }),
   testEntryOverride(restriction, ABOVE_COMPONENTS_TEST_ENTRIES),
-  {
-    files: ['src/mock/**/*.{ts,tsx}'],
-    rules: {
-      'no-restricted-imports': importRestrictions(MENU_MOCK_RESTRICTION),
-      'ap/restricted-import-source': ['error', importSourceOptions(MENU_MOCK_RESTRICTION)],
-    },
-  },
+  menuMockOverride,
   designSystem(),
 ];
 
@@ -505,6 +507,8 @@ export const foBridgeMenu = [
   ...menuPreset(FO_BRIDGE_RESTRICTION),
   // The bridge menu's integration tests drive the bridge slots and lazy pages directly; production files see the bridge root only.
   testEntryOverride(FO_BRIDGE_RESTRICTION, [...ABOVE_COMPONENTS_TEST_ENTRIES, ...FO_BRIDGE_TEST_SUBPATHS]),
+  // Last, so the mock policy (contracts + mock-server only) also wins for tests under src/mock/**.
+  menuMockOverride,
 ];
 
 /**
