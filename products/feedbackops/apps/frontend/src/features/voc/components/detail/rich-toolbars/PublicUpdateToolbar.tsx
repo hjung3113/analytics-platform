@@ -5,9 +5,9 @@
 // Prototype ref: docs/design-prototype/screen-voc.jsx:415-468
 //
 // Allowed marks: Bold, Italic, BulletList. Link is intentionally excluded.
-// PLAN-22 C8: Attach is now available on all four RichEditor surfaces per
-// OQ-3 default. Earlier "clean public copy policy" deferred attach here;
-// OQ-3 explicitly overrides that for #22.
+// Attach: the public-update editor registers no `attachmentRef` node (its allowlist has none), so
+// `PublicUpdateComposer` passes no `onAttach` and files go through the composer dropzone (#745).
+// The optional `onAttach` branch below stays generic and is not wired on this surface.
 
 import { ComposerToolbarButton } from '@/features/cross-system/composer-editor/ComposerToolbarButton';
 import { AttachButton, type TipTapEditor } from '@fops/ui';
@@ -66,7 +66,7 @@ export function PublicUpdateToolbar({
         <List size={14} />
       </ComposerToolbarButton>
 
-      {/* Attach — PLAN-22 C8 (OQ-3 default). Wired through RichEditor toolbar API. */}
+      {/* Attach — only when a caller wires `onAttach`; PublicUpdateComposer does not (#745). */}
       {onAttach ? (
         <AttachButton
           data-testid="public-update-attach"
