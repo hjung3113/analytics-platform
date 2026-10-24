@@ -11,6 +11,8 @@ const { navigate, renderers } = vi.hoisted(() => ({
 vi.mock('@tanstack/react-router', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@tanstack/react-router')>()),
   useNavigate: () => navigate,
+  // CreateFindingModal navigates through the host seam: tanstack-host calls `useRouter().navigate`, the same spy.
+  useRouter: () => ({ navigate }),
   useLocation: () => ({ pathname: '/vocs', href: '/vocs?view=triage' }),
   // CreateFindingModal reads its location through the host seam (tanstack-host `useRouterState`).
   useRouterState: ({ select }: { select: (state: unknown) => unknown }) =>

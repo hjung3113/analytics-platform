@@ -65,9 +65,7 @@ describe('/login dev (mock auth)', () => {
   test('renders mock-login picker with seed actors', async () => {
     // Default vitest env: PROD=false. No env stub needed.
     const replace = spyOnLocationReplace();
-    globalThis.fetch = vi.fn(
-      async () => new Response('not mocked', { status: 500 }),
-    ) as typeof globalThis.fetch;
+    globalThis.fetch = vi.fn(async () => new Response('not mocked', { status: 500 })) as typeof globalThis.fetch;
 
     const { router, qc } = buildHarness({ initialPath: '/login' });
     render(
@@ -78,103 +76,36 @@ describe('/login dev (mock auth)', () => {
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Mock login' })).toBeInTheDocument();
     });
-    const expectedNames = new Set([
-      'Mock Admin',
-      'Mock Admin Two',
-      'Mock Developer One',
-      'Mock Developer Two',
-      'Mock User',
-      'Mock User Two',
-    ]);
-    const renderedNames = new Set(
-      screen
-        .getAllByRole('button')
-        .map((button) => button.textContent?.replace(/ \((Admin|Developer|User)\)$/, '') ?? ''),
-    );
-    expect(
-      renderedNames,
-      `missing actor names: ${[...expectedNames].filter((name) => !renderedNames.has(name)).join(', ')}`,
-    ).toEqual(expectedNames);
+    const expectedNames = new Set(['Mock Admin', 'Mock Admin Two', 'Mock Developer One', 'Mock Developer Two', 'Mock User', 'Mock User Two']);
+    const renderedNames = new Set(screen.getAllByRole('button').map((button) => button.textContent?.replace(/ \((Admin|Developer|User)\)$/, '') ?? ''));
+    expect(renderedNames, `missing actor names: ${[...expectedNames].filter((name) => !renderedNames.has(name)).join(', ')}`).toEqual(expectedNames);
     expect(replace).not.toHaveBeenCalled();
   });
 
   test('sends distinct external ids for developer and admin cards', async () => {
-    const fetchMock = vi.fn(
-      async (_input: RequestInfo | URL, init?: RequestInit) =>
-        new Response(
-          JSON.stringify({
-            actor: {
-              id: 'actor',
-              external_id: JSON.parse(String(init?.body)).external_id,
-              email: 'actor@example.test',
-              display_name: 'Actor',
-              role_level: 'developer',
-            },
-            workspace_id: 'workspace',
-          }),
-          { status: 200, headers: { 'content-type': 'application/json' } },
-        ),
-    );
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => new Response(JSON.stringify({ actor: { id: 'actor', external_id: JSON.parse(String(init?.body)).external_id, email: 'actor@example.test', display_name: 'Actor', role_level: 'developer' }, workspace_id: 'workspace' }), { status: 200, headers: { 'content-type': 'application/json' } }));
     globalThis.fetch = fetchMock as typeof globalThis.fetch;
 
     const first = buildHarness({ initialPath: '/login' });
-    const { unmount } = render(
-      <QueryClientProvider client={first.qc}>
-        <RouterProvider router={first.router} />
-      </QueryClientProvider>,
-    );
+    const { unmount } = render(<QueryClientProvider client={first.qc}><RouterProvider router={first.router} /></QueryClientProvider>);
     await screen.findByRole('button', { name: 'Mock Developer One (Developer)' });
     fireEvent.click(screen.getByRole('button', { name: 'Mock Developer One (Developer)' }));
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        '/auth/mock-login',
-        expect.objectContaining({ body: JSON.stringify({ external_id: 'mock-developer-1' }) }),
-      ),
-    );
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/auth/mock-login', expect.objectContaining({ body: JSON.stringify({ external_id: 'mock-developer-1' }) })));
     unmount();
 
     const second = buildHarness({ initialPath: '/login' });
-    render(
-      <QueryClientProvider client={second.qc}>
-        <RouterProvider router={second.router} />
-      </QueryClientProvider>,
-    );
+    render(<QueryClientProvider client={second.qc}><RouterProvider router={second.router} /></QueryClientProvider>);
     await screen.findByRole('button', { name: 'Mock Admin (Admin)' });
     fireEvent.click(screen.getByRole('button', { name: 'Mock Admin (Admin)' }));
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        '/auth/mock-login',
-        expect.objectContaining({ body: JSON.stringify({ external_id: 'mock-admin-1' }) }),
-      ),
-    );
-    expect(fetchMock).toHaveBeenCalledWith(
-      '/auth/mock-login',
-      expect.objectContaining({ body: JSON.stringify({ external_id: 'mock-developer-1' }) }),
-    );
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/auth/mock-login', expect.objectContaining({ body: JSON.stringify({ external_id: 'mock-admin-1' }) })));
+    expect(fetchMock).toHaveBeenCalledWith('/auth/mock-login', expect.objectContaining({ body: JSON.stringify({ external_id: 'mock-developer-1' }) }));
   });
 
   test('clears cached data before routing after mock login succeeds', async () => {
     const calls: string[] = [];
-    globalThis.fetch = vi.fn(
-      async () =>
-        new Response(
-          JSON.stringify({
-            actor: {
-              id: 'actor',
-              external_id: 'mock-user-1',
-              email: 'user@example.test',
-              display_name: 'Mock User',
-              role_level: 'user',
-            },
-            workspace_id: 'workspace',
-          }),
-          { status: 200, headers: { 'content-type': 'application/json' } },
-        ),
-    ) as typeof globalThis.fetch;
+    globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({ actor: { id: 'actor', external_id: 'mock-user-1', email: 'user@example.test', display_name: 'Mock User', role_level: 'user' }, workspace_id: 'workspace' }), { status: 200, headers: { 'content-type': 'application/json' } })) as typeof globalThis.fetch;
     const { router, qc } = buildHarness({ initialPath: '/login' });
-    vi.spyOn(qc, 'clear').mockImplementation(() => {
-      calls.push('clear');
-    });
+    vi.spyOn(qc, 'clear').mockImplementation(() => { calls.push('clear'); });
     const originalNavigate = router.navigate.bind(router);
     vi.spyOn(router, 'navigate').mockImplementation((options) => {
       calls.push('navigate');
@@ -182,11 +113,7 @@ describe('/login dev (mock auth)', () => {
     });
     const invalidateQueries = vi.spyOn(qc, 'invalidateQueries');
 
-    render(
-      <QueryClientProvider client={qc}>
-        <RouterProvider router={router} />
-      </QueryClientProvider>,
-    );
+    render(<QueryClientProvider client={qc}><RouterProvider router={router} /></QueryClientProvider>);
     await screen.findByRole('button', { name: 'Mock User (User)' });
     fireEvent.click(screen.getByRole('button', { name: 'Mock User (User)' }));
 
@@ -279,15 +206,9 @@ describe('/login prod guard (F-015)', () => {
     vi.stubEnv('PROD', true);
     const replace = spyOnLocationReplace();
     const { rerender } = render(
-      <StrictMode>
-        <LoginPage />
-      </StrictMode>,
+      <StrictMode><LoginPage /></StrictMode>,
     );
-    rerender(
-      <StrictMode>
-        <LoginPage />
-      </StrictMode>,
-    );
+    rerender(<StrictMode><LoginPage /></StrictMode>);
 
     expect(screen.getByText('로그인 페이지로 이동 중…')).toBeInTheDocument();
     expect(replace).toHaveBeenCalledOnce();
@@ -300,19 +221,16 @@ describe('/login prod guard (F-015)', () => {
     expect(screen.queryByText(/mock-user-1/)).not.toBeInTheDocument();
   });
 
-  test.each(['redirectTo', 'return_to', 'redirect'])(
-    'forwards a safe %s unchanged and encoded',
-    (key) => {
-      vi.stubEnv('PROD', true);
-      const target = '/tasks?view=board&selected=task-1#details';
-      const replace = spyOnLocationReplace(`?${key}=${encodeURIComponent(target)}`);
-      render(<LoginPage />);
+  test.each(['redirectTo', 'return_to', 'redirect'])('forwards a safe %s unchanged and encoded', (key) => {
+    vi.stubEnv('PROD', true);
+    const target = '/tasks?view=board&selected=task-1#details';
+    const replace = spyOnLocationReplace(`?${key}=${encodeURIComponent(target)}`);
+    render(<LoginPage />);
 
-      expect(screen.getByText('로그인 페이지로 이동 중…')).toBeInTheDocument();
-      expect(replace).toHaveBeenCalledOnce();
-      expect(replace).toHaveBeenCalledWith(`/auth/login?return_to=${encodeURIComponent(target)}`);
-    },
-  );
+    expect(screen.getByText('로그인 페이지로 이동 중…')).toBeInTheDocument();
+    expect(replace).toHaveBeenCalledOnce();
+    expect(replace).toHaveBeenCalledWith(`/auth/login?return_to=${encodeURIComponent(target)}`);
+  });
 
   test.each(unsafeReturnTargets)('uses /home for an unsafe return_to: %s', (target) => {
     vi.stubEnv('PROD', true);
