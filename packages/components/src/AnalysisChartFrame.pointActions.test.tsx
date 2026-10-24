@@ -1,11 +1,12 @@
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { House } from 'lucide-react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { groupId, spaceId } from '@ap/contracts';
 import { AnalysisChartFrame, type AnalysisChartFrameProps, type ChartPoint, type ChartSeries } from './AnalysisChartFrame';
 import type { EChartProps } from './EChart';
+import { installResizeObserver } from './dock/__tests__/harness';
 
 vi.mock('./EChartImpl', () => ({ default: FakePlot }));
 
@@ -132,6 +133,26 @@ describe('fillMin (#690n)', () => {
     expect(plotProps!.height).toBe(160);
     expect(plotBox(container).style.minHeight).toBe('160px');
     expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('fillMin 100 is below 160px'));
+  });
+
+  // The measured box is the plot's own (it grows into what the legend, toolbar and selection summary leave), so the plot height is
+  // container − chrome by construction; a taller legend only shows up as a smaller measurement, and the floor clamps it.
+  describe('measured plot box', () => {
+    let observer: ReturnType<typeof installResizeObserver>;
+    beforeAll(() => { observer = installResizeObserver(); });
+    afterAll(() => { observer.restore(); });
+    it.each<[string, number, number, number]>([
+      ['one-line legend leaves 240 px', 240, 200, 240],
+      ['two-line legend leaves 190 px', 190, 200, 200],
+      ['a short card leaves 110 px', 110, 160, 160],
+      ['room above the floor is used', 412, 200, 412],
+    ])('%s', async (_name, measured, fillMin, expected) => {
+      observer.resize(900, measured);
+      const { container } = mount({ size: 'fill', fillMin });
+      await screen.findByRole('img');
+      await waitFor(() => { expect(plotProps!.height).toBe(expected); });
+      expect(plotBox(container).style.minHeight).toBe(`${fillMin}px`);
+    });
   });
 
   it('works with rowPitch', async () => {

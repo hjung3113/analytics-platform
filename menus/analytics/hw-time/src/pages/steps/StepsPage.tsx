@@ -159,14 +159,18 @@ export default function StepsPage(_props: PageProps) {
             </QueryView>
           </DrillLayout>
         </div>
-        <section aria-label={ko ? '추세' : 'Trend'} className={cn('flex min-h-0 flex-col rounded-lg border border-border-subtle bg-surface-card', trendOpen ? 'flex-[2]' : 'shrink-0')}>
-          <Button type="button" variant="ghost" size="sm" aria-expanded={trendOpen} aria-controls={trendId} className="justify-start"
-            onClick={() => setTrendOpen(open => !open)}>
-            <ChevronDown aria-hidden className={cn('size-4 transition-transform', !trendOpen && '-rotate-90')} />
-            {ko ? `추세 (${trendRows.length}행)` : `Trend (${trendRows.length} rows)`}
-          </Button>
-          <div id={trendId} hidden={!trendOpen} className="flex min-h-0 flex-1 flex-col gap-1 px-2 pb-2">
+        {/* No min-h-0 on the trend: its least height is the Frame's chrome (legend, toolbar) plus the plot floor, so a legend that wraps
+          pushes the detail's clipped box up instead of the trend plot out of its card. */}
+        <section aria-label={ko ? '추세' : 'Trend'} className={cn('flex flex-col rounded-lg border border-border-subtle bg-surface-card', trendOpen ? 'flex-[2]' : 'shrink-0')}>
+          <div className="flex items-center gap-2">
+            <Button type="button" variant="ghost" size="sm" aria-expanded={trendOpen} aria-controls={trendId} className="justify-start"
+              onClick={() => setTrendOpen(open => !open)}>
+              <ChevronDown aria-hidden className={cn('size-4 transition-transform', !trendOpen && '-rotate-90')} />
+              {ko ? `추세 (${trendRows.length}행)` : `Trend (${trendRows.length} rows)`}
+            </Button>
             {notice && <p role="status" className="t-caption text-text-warning-label">{notice}</p>}
+          </div>
+          <div id={trendId} hidden={!trendOpen} className="flex flex-1 flex-col gap-1 px-2 pb-2">
             <TrendPanel chartId="hw-time-steps-trend" title={ko ? '행별 일 추세' : 'Daily trend by row'} rowIds={trendRows} query={trendQ} level={drill.depth} />
           </div>
         </section>

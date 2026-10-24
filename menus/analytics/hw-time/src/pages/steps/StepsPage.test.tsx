@@ -235,7 +235,8 @@ describe('HW Time steps page', () => {
 
   it('offers no trend action at L1 (equipment ids never match the trend row format) and shows the empty trend copy', async () => {
     await renderPage();
-    expect(screen.queryByRole('button', { name: /추세에 (추가|서 제거)/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /추세에 추가/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /추세에서 제거/ })).toBeNull();
     expect(screen.queryByRole('checkbox', { name: /벤치마크|그룹별/ })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: /^추세 \(0행\)/ }));
     expect(screen.getByText('행을 추가하세요')).toBeTruthy();

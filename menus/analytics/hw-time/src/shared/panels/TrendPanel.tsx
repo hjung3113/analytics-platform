@@ -38,7 +38,7 @@ function TrendChart({ chartId, title, data }: { chartId: string; title: string; 
     id: row.id, name: rowIdLabel(row.id), color: TREND_COLORS[index % TREND_COLORS.length]!, kind: 'line' as const,
     points: row.points.map(point => [point.at, point.value] as [string, number | null]),
   })), [data.rows]);
-  return <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+  return <div className="flex flex-1 flex-col">
     <AnalysisChartFrame chartId={chartId} title={title} xType="category" size="fill" fillMin={TREND_FILL_MIN} series={series}
       unit={HW_TIME_UNIT[lang]} valueFormat={formatSeconds} canApplyRange={false} />
   </div>;
