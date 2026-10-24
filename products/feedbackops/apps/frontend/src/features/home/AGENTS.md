@@ -8,7 +8,7 @@ Home is not a chart-only dashboard and must not duplicate source-system workflow
 
 ## Route Boundary
 
-- Owns `/home`.
+- Owns `/home`. `HomeScreen` is standalone-only (router, `sonner`, tabs, recovery queue); its dashboard body is `DashboardScreen`, which the platform bridge mounts through `src/operator-screens/dashboard` (platform ADR-0071, ADR-0081).
 - `/` is an entry-only route that redirects authenticated actors to `/home` and unauthenticated actors to `/login`.
 - May deep-link into VOC, Tasks, Surveys, Integration, or Admin routes with action intent.
 - Must preserve AppShell and permission-aware summaries for direct route access.
@@ -22,7 +22,9 @@ Home is not a chart-only dashboard and must not duplicate source-system workflow
 ## Key files
 
 - `apps/frontend/src/routes/_authed/home.tsx` — Home route and URL state.
-- `apps/frontend/src/features/home/HomeScreen.tsx` — Home queues, assigned-work panel, and coverage surface.
+- `apps/frontend/src/features/home/HomeScreen.tsx` — standalone `/home`: head (title, `새로고침`, `VOC 등록`), Dashboard/알림 tabs, the Integration recovery queue slot; composes `DashboardBody` inside `standaloneHost.tsx` (the `InternalLink` + sonner seam).
+- `apps/frontend/src/features/home/DashboardScreen.tsx` — bridge-safe dashboard body (queues, assigned work, coverage, open permission requests, answerable surveys, reporter layout) and `refreshDashboard(client, managedSystemId)`; props `managedSystemId` only, no title/tabs/head buttons/recovery queue (recovery queue targets belong to 연동, #763). Needs a `HostSeamProvider`; links via `HostLink`, toasts via the seam; reads through `useMeBridge` and the direct `lib/api/*` modules, never the `@/lib/api` barrel. Its import graph is pinned by `packages/fo-bridge/src/fo-entry-graph.test.ts`. `DashboardBody` (also takes the standalone `recoveryQueue`) is not exported through the entry. `href.ts` is the bridge-safe copy of `lib/router/managed-system-href.ts`.
+- `apps/frontend/src/features/home/AnswerableSurveysSection.tsx` — the survey panel body over a link prop (default `HostLink`); `AnswerableSurveysPanel.tsx` is its router-bound wrapper.
 - `apps/frontend/src/features/home/InboxPanel.tsx` — notification inbox list, filters, and empty/error states. Also mounted by the platform bridge (`src/global-screens`, platform ADR-0071) through the `lib/host` seam. `variant="recent"` is the platform bell popover body (platform ADR-0071): latest 10, no filter, no load-more.
 - `apps/frontend/src/features/home/permission-requests/PermissionRequestsScreen.tsx` — requester page (request form, own requests with status, withdraw), mounted only by the platform bridge (`src/global-screens`, platform ADR-0071), no FO route; admin review stays `features/admin/permissions`. Its calls live in `lib/api/permission-requests.ts` (bridge-safe, `permissions.ts` re-exports them).
 - `apps/frontend/src/features/home/todo/HomeTodoPanel.tsx` — the platform home `내 할 일` (surveys to answer, my VOCs with an unread public update, permission requests); bridge-only (`src/global-screens`), no FeedbackOps route, platform ADR-0070 decision 8.

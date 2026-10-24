@@ -6,7 +6,8 @@
   "exports": {
     "./global-screens": "./src/global-screens/index.ts",
     "./global-screens/core": "./src/global-screens/core.ts",
-    "./operator-screens/scope-picker": "./src/operator-screens/scope-picker/index.ts"
+    "./operator-screens/scope-picker": "./src/operator-screens/scope-picker/index.ts",
+    "./operator-screens/dashboard": "./src/operator-screens/dashboard/index.ts"
   },
   "scripts": {
     "dev": "vite",

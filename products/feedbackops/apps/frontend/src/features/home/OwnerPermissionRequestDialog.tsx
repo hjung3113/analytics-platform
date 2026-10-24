@@ -1,18 +1,19 @@
+import { mapUnknownError } from '@/lib/api/errorMapper';
+import { mintIdempotencyKey } from '@/lib/api/idempotency';
 import {
-  ApiError,
   fetchPermissionRequestOwnerDetail,
   permissionRequestAdminDetailKey,
   permissionRequestOwnerDetailKey,
+  permissionRequestsMineKey,
   updateOwnPermissionRequest,
   withdrawPermissionRequest,
-} from '@/lib/api';
-import { mapUnknownError } from '@/lib/api/errorMapper';
-import { mintIdempotencyKey } from '@/lib/api/idempotency';
+} from '@/lib/api/permission-requests';
+import { ApiError } from '@/lib/api/types';
 import { getCapabilityDisplayLabel } from '@/lib/copy/capabilities';
 import { HOME_PERMISSION_COPY as COPY } from '@/lib/copy/home';
-import { managedSystemsCatalogQuery } from '@/lib/cross-system/useManagedSystemNames';
-import { permissionRequestsMineKey } from '@/lib/cross-system/usePermissionCheck';
+import { managedSystemsCatalogBridgeQuery } from '@/lib/cross-system/managedSystemCatalog';
 import { formatDateOnly } from '@/lib/format/datetime';
+import { useHostSeam } from '@/lib/host/host-seam';
 import { shortId } from '@/lib/identity';
 import type { PermissionRequestOwnerDetail } from '@fops/shared';
 import {
@@ -37,7 +38,6 @@ import {
 } from '@fops/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
-import { toast } from 'sonner';
 
 export function OwnerPermissionRequestDialog({
   id,
@@ -54,7 +54,7 @@ export function OwnerPermissionRequestDialog({
   });
   // UX: requesters read scope as system names elsewhere (sidebar, Admin detail);
   // the shipped ['managed-systems', 'all'] lookup resolves them, short ID only as fallback.
-  const managedSystems = useQuery({ ...managedSystemsCatalogQuery(), retry: false });
+  const managedSystems = useQuery({ ...managedSystemsCatalogBridgeQuery(), retry: false });
   const managedSystemNames = Object.fromEntries(
     (managedSystems.data?.items ?? []).map((system) => [system.id, system.name]),
   );
@@ -117,6 +117,7 @@ function OwnerForm({
   onPending: (pending: boolean) => void;
 }) {
   const qc = useQueryClient();
+  const { notifySuccess } = useHostSeam();
   const [baseline, setBaseline] = React.useState(detail);
   const [reason, setReason] = React.useState(detail.reason);
   const [scope, setScope] = React.useState(detail.requested_managed_system_id ?? 'workspace');
@@ -165,7 +166,7 @@ function OwnerForm({
         ? withdrawPermissionRequest(detail.id, args.body, args.key)
         : updateOwnPermissionRequest(detail.id, args.action, args.body, args.key),
     onSuccess: async (result, variables) => {
-      toast.success(
+      notifySuccess(
         variables.action === 'edit'
           ? COPY.editSaved
           : variables.action === 'supplement'

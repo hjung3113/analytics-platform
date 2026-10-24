@@ -214,8 +214,7 @@ export async function decidePermissionRequest(
   return response.data;
 }
 
-export const permissionRequestAdminDetailKey = (id: string) =>
-  ['permission-requests', 'admin-detail', id] as const;
+export { permissionRequestAdminDetailKey } from './permission-requests';
 
 export async function fetchPermissionRequestAdminDetail(id: string, signal?: AbortSignal) {
   return (
