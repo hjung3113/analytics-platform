@@ -6,3 +6,5 @@
 @source "../../../products/feedbackops/apps/frontend/src/components";
 @source "../../../products/feedbackops/apps/frontend/src/lib";
 @source "../../../products/feedbackops/packages/ui/src";
+@source "../../../products/feedbackops/apps/frontend/src/operator-screens";
+@source "../../../products/feedbackops/apps/frontend/src/features/integration/recovery";

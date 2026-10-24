@@ -1,6 +1,6 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { I18nProvider, PlatformProvider, usePlatform, type HomeTodoSlot, type NotificationsSlot, type VocComposeSlot } from '@ap/kernel';
+import { I18nProvider, PlatformProvider, usePlatform, type HomeTodoSlot, type NotificationsSlot, type ScopeControlSlot, type VocComposeSlot } from '@ap/kernel';
 import { testAdapter, testSession } from '@ap/kernel/testing';
 import { createAssembly, type Assembly } from '#platform-assembly';
 import { GROUPS, SPACES, registry } from './menus';
@@ -60,7 +60,7 @@ describe('workspace assembly (#260)', () => {
     expect(registry.menus.filter(menu => menu.group === 'myActivity' && !menu.navHidden).map(menu => menu.id)).toEqual(['notifications', 'voc', 'surveys', 'permission-requests']);
   });
 
-  it.skipIf(probeRun)('registers six spaces and the decided group order', () => {
+  it.skipIf(probeRun)('registers seven spaces and the decided group order', () => {
     expect(GROUPS.map(group => [group.id, group.space])).toEqual([
       ['overview', null],
       ['myActivity', null],
@@ -79,8 +79,9 @@ describe('workspace assembly (#260)', () => {
       ['impMyWork', 'improvement'],
       ['impTasks', 'improvement'],
       ['impReports', 'improvement'],
+      ['foDashboard', 'feedbackops'],
     ]);
-    expect(SPACES.map(space => space.id)).toEqual(['analytics', 'metrics', 'clas', 'log-dev', 'improvement', 'operations']);
+    expect(SPACES.map(space => space.id)).toEqual(['analytics', 'metrics', 'clas', 'log-dev', 'improvement', 'operations', 'feedbackops']);
     expect(SPACES[0]).toMatchObject({
       label: { ko: 'MARS', en: 'MARS' },
       subtitle: { ko: '생산성 분석', en: 'Productivity analysis' },
@@ -108,6 +109,14 @@ describe('workspace assembly (#260)', () => {
       homeMenuId: 'admin-roles',
     });
     expect(SPACES[5].subtitle).toBeUndefined();
+    expect(SPACES[6]).toMatchObject({
+      label: { ko: 'FeedbackOps', en: 'FeedbackOps' },
+      subtitle: { ko: '피드백 운영', en: 'Feedback operations' },
+      permission: 'feedbackops:access',
+      carriedPageKeys: ['managedSystem'],
+      homeMenuId: 'fo-dashboard',
+    });
+    expect(registry.menuById('fo-dashboard')).toMatchObject({ group: 'foDashboard', path: '/feedbackops', permission: 'feedbackops:access', requiresScope: false, pageKeys: ['managedSystem'] });
     // #252 (ADR-0065): work-queue first; every menu is planned and open to every signed-in user for now.
     expect(SPACES[3]).toMatchObject({ label: { ko: '표준 로그 개발', en: 'Standard log development' }, homeMenuId: 'log-my-queue' });
     expect(SPACES[4]).toMatchObject({ label: { ko: '개선 실행', en: 'Improvement execution' }, homeMenuId: 'imp-my-tasks' });
@@ -129,17 +138,19 @@ describe('workspace assembly (#260)', () => {
     const fakeSlot: NotificationsSlot = { menuId: 'notifications', UnreadCount: ({ children }) => children(null), Recent: () => null };
     const fakeVocCompose: VocComposeSlot = { Compose: () => null };
     const fakeHomeTodo: HomeTodoSlot = { Todo: () => null };
-    const slots = appSlots(assembly, null, fakeSlot, fakeVocCompose, fakeHomeTodo);
+    const fakeScopeControl: ScopeControlSlot = { For: () => null };
+    const slots = appSlots(assembly, null, fakeSlot, fakeVocCompose, fakeHomeTodo, fakeScopeControl);
     expect(slots.topBarTools).toBe(assembly.topBarTools);
     // The real composition (#251): mapped spaces get three entries, disabled while the origin is absent; operations has no row.
     expect(slots.feedbackOps?.entriesFor(spaceId('metrics'))?.map(entry => [entry.key, entry.href])).toEqual([['voc', null], ['task', null], ['survey', null]]);
     expect(slots.feedbackOps?.entriesFor(spaceId('operations'))).toBeNull();
     expect(slots.feedbackOps?.overall).toBeNull();
-    expect(appSlots(assembly, 'https://feedbackops.example', fakeSlot, fakeVocCompose, fakeHomeTodo).feedbackOps?.entriesFor(spaceId('metrics'))?.every(entry => entry.href?.startsWith('https://feedbackops.example/'))).toBe(true);
-    expect(Object.keys(slots)).toEqual(['contextBar', 'topBarTools', 'feedbackOps', 'plannedSpaces', 'boardEntry', 'notifications', 'vocCompose', 'homeTodo']);
+    expect(appSlots(assembly, 'https://feedbackops.example', fakeSlot, fakeVocCompose, fakeHomeTodo, fakeScopeControl).feedbackOps?.entriesFor(spaceId('metrics'))?.every(entry => entry.href?.startsWith('https://feedbackops.example/'))).toBe(true);
+    expect(Object.keys(slots)).toEqual(['contextBar', 'topBarTools', 'feedbackOps', 'plannedSpaces', 'boardEntry', 'notifications', 'vocCompose', 'homeTodo', 'scopeControl']);
     expect(slots.notifications).toBe(fakeSlot);
     expect(slots.vocCompose).toBe(fakeVocCompose);
     expect(slots.homeTodo).toBe(fakeHomeTodo);
+    expect(slots.scopeControl).toBe(fakeScopeControl);
     // Planned systems are display-only rows for the switcher: no Registry space or menu carries their id.
     // CLAS left the planned list for a real space (#590); log-dev and improvement left it in #252.
     expect(slots.plannedSpaces).toEqual([]);

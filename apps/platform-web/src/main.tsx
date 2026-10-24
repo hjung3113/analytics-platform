@@ -8,6 +8,7 @@ import { createBasePathLocation, I18nProvider, PlatformProvider } from '@ap/kern
 import { setFoApi } from '@ap/fo-bridge/fo-api';
 import { homeTodoSlot } from '@ap/fo-bridge/home-todo-slot';
 import { notificationsSlot } from '@ap/fo-bridge/notifications-slot';
+import { scopeControlSlot } from '@ap/fo-bridge/scope-control';
 import { vocComposeSlot } from '@ap/fo-bridge/voc-compose-slot';
 import { createAssembly } from '#platform-assembly';
 import { readFeedbackOpsOrigin } from './feedbackops-origin';
@@ -47,7 +48,7 @@ void startOrFail(root, async () => {
   root.render(
     <StrictMode>
       <I18nProvider>
-        <PlatformProvider queryHistory={queryHistory} equipmentAxes={EQUIPMENT_AXES} adapter={assembly.adapter} registry={registry} location={location} slots={appSlots(assembly, feedbackOpsOrigin, notificationsSlot, vocCompose, homeTodoSlot)}>
+        <PlatformProvider queryHistory={queryHistory} equipmentAxes={EQUIPMENT_AXES} adapter={assembly.adapter} registry={registry} location={location} slots={appSlots(assembly, feedbackOpsOrigin, notificationsSlot, vocCompose, homeTodoSlot, scopeControlSlot)}>
           <AppShell><RouteOutlet /></AppShell>
         </PlatformProvider>
       </I18nProvider>

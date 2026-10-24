@@ -1761,6 +1761,33 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     await evidence(page, testInfo, 'engineer-two-spaces');
   });
 
+  // #759 (ADR-0081): the FeedbackOps space is gated by feedbackops:access, which only admin holds in the mock; the mock has no FeedbackOps API.
+  test('FeedbackOps 공간은 admin만 보고 대시보드·목록 범위가 실서버 필요 상태로 열린다', async ({ page }, testInfo) => {
+    for (const role of ['engineer', 'viewer'] as const) {
+      await signInAs(page, role);
+      await page.goto('/equipment?v=1&scopeId=MEM');
+      const popover = await openSwitcher(page);
+      await expect(popover.getByRole('button', { name: /^FeedbackOps/ })).toHaveCount(0);
+      await page.keyboard.press('Escape');
+    }
+    await signInAs(page, 'admin');
+    await page.goto('/equipment?v=1&scopeId=MEM');
+    const popover = await openSwitcher(page);
+    await expect(popover.getByRole('button', { name: /^FeedbackOps/ })).toContainText('피드백 운영');
+    await page.keyboard.press('Escape');
+    await chooseSystem(page, 'FeedbackOps');
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/feedbackops');
+    const nav = page.getByRole('navigation', { name: '주 메뉴' });
+    await expect(nav.getByRole('link', { name: '대시보드' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '대시보드' })).toBeVisible();
+    await expect(page.getByRole('main')).toContainText('FeedbackOps');
+    await expect(page.getByRole('button', { name: '새로고침' })).toBeDisabled();
+    await expect(page.getByRole('main').getByRole('status').filter({ hasText: '실서버 필요' })).toBeVisible();
+    await expect(page.getByText('목록 범위', { exact: true })).toBeVisible();
+    await expect(page.getByTitle('실서버 필요').filter({ hasText: '전체' })).toBeDisabled();
+    await evidence(page, testInfo, 'feedbackops-dashboard-mock');
+  });
+
   test('진입 권한이 없는 공간의 직접 URL은 메뉴 권한 검사 전에 공간 거부를 보인다', async ({ page }, testInfo) => {
     for (const role of ['engineer', 'viewer'] as const) {
       await signInAs(page, role);

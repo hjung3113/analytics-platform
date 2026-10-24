@@ -4,7 +4,7 @@
  * live in their own menu package (docs/integration/platform-packages.md §5); the app concatenates them.
  */
 import {
-  BarChart3, ClipboardList, Cpu, Database, FileSearch, Gauge, Inbox, LayoutDashboard, LineChart, Megaphone, Ruler, ShieldCheck, Timer, UserRound,
+  BarChart3, ClipboardList, Cpu, Database, FileSearch, Gauge, Inbox, LayoutDashboard, LineChart, ListTodo, Megaphone, Ruler, ShieldCheck, Timer, UserRound,
 } from 'lucide-react';
 import { groupId, menuPermission, spaceId, type SpaceDef } from '@ap/contracts';
 import { createRegistry, type GroupDef, type MenuEntry } from '@ap/kernel';
@@ -26,6 +26,7 @@ import { manifests as impMyWork } from '@ap/menu-imp-my-work';
 import { manifests as impTasks } from '@ap/menu-imp-tasks';
 import { manifests as impReports } from '@ap/menu-imp-reports';
 import { manifests as hwTime } from '@ap/menu-hw-time';
+import { manifests as foDashboard } from '@ap/menu-fo-dashboard';
 // </gen:menu-imports>
 
 /** The menu permissions this app's menus use, on top of the kernel's (ADR-0072). Each menu package spells its own with `menuPermission`; `createRegistry` fails on one missing here. */
@@ -49,6 +50,7 @@ export const GROUPS: GroupDef[] = [
   { id: groupId('impMyWork'), label: { ko: '내 작업', en: 'My work' }, icon: Inbox, space: spaceId('improvement') },
   { id: groupId('impTasks'), label: { ko: '과제', en: 'Tasks' }, icon: ClipboardList, space: spaceId('improvement') },
   { id: groupId('impReports'), label: { ko: '보고', en: 'Reports' }, icon: BarChart3, space: spaceId('improvement') },
+  { id: groupId('foDashboard'), label: { ko: '대시보드', en: 'Dashboard' }, icon: ListTodo, space: spaceId('feedbackops') },
   // </gen:menu-groups>
 ];
 
@@ -60,6 +62,7 @@ export const SPACES = [
   { id: spaceId('log-dev'), label: { ko: '표준 로그 개발', en: 'Standard log development' }, description: { ko: '설비 모델별 로그 개발 단계와 검증을 관리합니다.', en: 'Manage log development stages and validation per equipment model.' }, homeMenuId: 'log-my-queue' },
   { id: spaceId('improvement'), label: { ko: '개선 실행', en: 'Improvement execution' }, description: { ko: '개선 과제의 현장 적용과 효과를 관리합니다.', en: 'Manage field application and effect of improvement tasks.' }, homeMenuId: 'imp-my-tasks' },
   { id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations console' }, description: { ko: '권한·감사·메뉴 활용률을 운영합니다.', en: 'Operate permissions, audit, and menu usage.' }, permission: 'console:access', homeMenuId: 'admin-roles' },
+  { id: spaceId('feedbackops'), label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, subtitle: { ko: '피드백 운영', en: 'Feedback operations' }, description: { ko: 'VOC 접수부터 Finding·Task 실행까지 운영합니다.', en: 'Operate from VOC intake to Finding and Task execution.' }, permission: 'feedbackops:access', carriedPageKeys: ['managedSystem'], homeMenuId: 'fo-dashboard' },
 ] satisfies readonly SpaceDef[];
 
 export const MENUS: MenuEntry[] = [
@@ -81,6 +84,7 @@ export const MENUS: MenuEntry[] = [
   ...impReports,
   ...clas,
   ...hwTime,
+  ...foDashboard,
   // </gen:menu-spreads>
 ];
 

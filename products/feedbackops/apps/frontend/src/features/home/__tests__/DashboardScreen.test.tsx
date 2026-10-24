@@ -8,7 +8,7 @@ import { dashboardSummarySchema } from '@fops/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { DashboardScreen, refreshDashboard } from '../DashboardScreen';
+import { DashboardScreen, HOME_COVERAGE_HREF, refreshDashboard } from '../DashboardScreen';
 
 const summary = dashboardSummarySchema.parse({
   computed_at: '2026-10-24T00:00:00.000Z',
@@ -45,7 +45,7 @@ const me = {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
-function installFetch() {
+function installFetch(overrides: Record<string, unknown> = {}) {
   globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
     const path = new URL(String(input), 'http://x').pathname;
     const body: Record<string, unknown> = {
@@ -55,6 +55,7 @@ function installFetch() {
       '/api/fo/task-requests': { items: [], page: { has_more: false } },
       '/api/fo/permission-requests/mine': { requests: [] },
       '/api/fo/me/answerable-surveys': { items: [], page: { has_more: false } },
+      ...overrides,
     };
     return path in body ? json(body[path]) : new Response('not mocked', { status: 500 });
   }) as typeof fetch;
@@ -110,9 +111,21 @@ describe('DashboardScreen', () => {
   });
 
   it('D3 renders operator links through the seam: linked where canLink, plain text where not', async () => {
-    const view = mount((to) => !to.startsWith('/findings'));
+    installFetch({
+      '/api/fo/tasks': {
+        items: [{ id: 't1', display_id: 'T-1', title: '복구', status: 'in_progress' }],
+        page: { has_more: false },
+      },
+    });
+    const view = mount(
+      (to) => !to.startsWith('/findings') && !to.startsWith('/tasks') && to !== HOME_COVERAGE_HREF,
+    );
     const queue = await screen.findByTestId('home-queue-actionable-finding-no-execution');
     expect(within(queue).queryByRole('link')).toBeNull();
+    // UX-3: an inert row or heading action carries no arrow.
+    const row = await screen.findByText(/T-1/);
+    expect(row.closest('[class*="min-h-row-default"]')?.querySelector('svg')).toBeNull();
+    expect(screen.getByText(HOME_COPY.viewCoverage).querySelector('svg')).toBeNull();
     // F3: an unavailable destination is inert text, not a primary-button-shaped span with hover.
     expect(queue.querySelector('[class*="bg-accent-primary"], [class*="hover:"]')).toBeNull();
     expect(
@@ -131,6 +144,27 @@ describe('DashboardScreen', () => {
         .getAllByRole('link')
         .map((a) => a.getAttribute('href')),
     ).toContain('/findings');
+  });
+});
+
+describe('DashboardScreen scope status', () => {
+  const empty = { ...summary, action_queues: [], coverage: [] };
+
+  it('D4 says why the queue and coverage are hidden when only personal work shows', async () => {
+    installFetch({ '/api/fo/dashboard/summary': empty });
+    mount();
+    expect((await screen.findByTestId('home-scope-status')).textContent).toBe(
+      HOME_COPY.subtitle([], []),
+    );
+    expect(screen.getByTestId('home-scope-status').textContent).toContain(
+      'Managed System 담당 범위',
+    );
+  });
+
+  it('D4 stays silent when there is a queue or coverage', async () => {
+    mount();
+    await screen.findByTestId('home-action-queues');
+    expect(screen.queryByTestId('home-scope-status')).toBeNull();
   });
 });
 
