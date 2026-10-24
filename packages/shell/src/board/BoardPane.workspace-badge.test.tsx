@@ -85,8 +85,9 @@ describe('board pane menu carries a hidden panel badge', () => {
     seed(boardOf([sheet('a', { layout: '1x2', panes: [pane('ws'), pane('beta')] })]));
     mount();
     await ready();
-    const sideTab = await screen.findByRole('tab', { name: '곁' });
-    expect(sideTab).toHaveAttribute('aria-description', '행 2개 추가됨');
+    await screen.findByRole('tab', { name: '곁' });
+    // The engine rebuilds tabs in a reconcile; the description is set again a render after the tab can be found (DockTab.a11y.test.tsx, #777); the tab is looked up again because a reconcile replaces it.
+    await waitFor(() => { expect(screen.getByRole('tab', { name: '곁' })).toHaveAttribute('aria-description', '행 2개 추가됨'); });
     openMenu(await screen.findByRole('button', { name: '곁 동작' }));
     fireEvent.click(await screen.findByRole('menuitem', { name: '숨기기' }));
     await settle();

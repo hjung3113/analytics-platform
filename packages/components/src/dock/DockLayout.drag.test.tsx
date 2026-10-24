@@ -38,6 +38,8 @@ const withLayoutParent = async (run: () => Promise<void>) => {
   Object.defineProperty(HTMLElement.prototype, 'offsetParent', { configurable: true, get() { return this.parentNode; } });
   try { await run(); } finally { delete (HTMLElement.prototype as { offsetParent?: unknown }).offsetParent; }
 };
+/** The engine lays out from its ResizeObserver through `requestAnimationFrame` (dockview-core 8.6.1 `watchElementResize`); a drag before that frame moves nothing (#777). 850: the observed 900 px less the engine's gaps. */
+const engineSized = () => waitFor(() => { expect(groupWidths().reduce((sum, width) => sum + width, 0)).toBeGreaterThan(850); });
 const sizesOf = (node: DockNode | undefined) => (node?.type === 'branch' ? node.sizes : []);
 
 describe('DockLayout sash drag reports the final sizes (#754)', () => {
@@ -116,7 +118,7 @@ describe('DockLayout sash drag reports the final sizes (#754)', () => {
     await withLayoutParent(async () => {
       const { calls } = mountDock({ layout: row([50, 50], group(['a']), group(['b'])), ids: ['a', 'b'] });
       await ready();
-      await flush();
+      await engineSized();
       const release = holdZeroTimers();
       pointer('pointerdown', document.querySelector<HTMLElement>('.dv-sash')!, 450);
       pointer('pointermove', document, 550);
@@ -139,7 +141,7 @@ describe('DockLayout sash drag reports the final sizes (#754)', () => {
     await withLayoutParent(async () => {
       const { calls, controls } = mountDock({ layout: row([50, 50], group(['a']), group(['b'])), ids: ['a', 'b'], props: { minPanelSize: { width: 300, height: 20 } } });
       await ready();
-      await flush();
+      await engineSized();
       const release = holdZeroTimers();
       pointer('pointerdown', document.querySelector<HTMLElement>('.dv-sash')!, 450);
       pointer('pointermove', document, 550);
