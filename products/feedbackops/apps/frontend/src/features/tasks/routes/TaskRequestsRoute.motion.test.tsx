@@ -16,7 +16,8 @@ vi.mock('@/lib/api', async (importOriginal) => ({
 vi.mock('@/lib/auth/useMe', () => ({
   useMe: () => ({ data: { actor: { id: 'admin', role_level: 'admin' } } }),
 }));
-vi.mock('@/lib/api/managed-systems', () => ({
+vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/registry-reads')>()),
   fetchManagedSystems: async () => ({ items: [] }),
 }));
 // Motion tests await isFetching() === 0; the picker's candidate read must not

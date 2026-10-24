@@ -75,7 +75,8 @@ vi.mock('@/lib/api/entity-links', () => ({
 vi.mock('@/lib/api/analytics-areas', () => ({
   fetchAnalyticsAreas: vi.fn(async () => ({ items: [] })),
 }));
-vi.mock('@/lib/api/managed-systems', () => ({
+vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/registry-reads')>()),
   fetchManagedSystems: vi.fn(async () => ({ items: [] })),
 }));
 vi.mock('@/lib/api', async (importOriginal) => ({

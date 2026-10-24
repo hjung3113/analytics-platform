@@ -41,7 +41,8 @@ vi.mock('@/lib/api/tasks', () => ({
   updateTaskStatus: vi.fn(),
   getTask: vi.fn(),
 }));
-vi.mock('@/lib/api/managed-systems', () => ({
+vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/registry-reads')>()),
   fetchManagedSystems: vi.fn(async () => ({ items: [] })),
 }));
 vi.mock('@/lib/cross-system/useWorkspaceActors', () => ({

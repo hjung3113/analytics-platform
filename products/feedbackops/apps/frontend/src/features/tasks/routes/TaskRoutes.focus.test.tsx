@@ -145,7 +145,8 @@ vi.mock('@/lib/auth/useMe', () => ({
 vi.mock('@/lib/cross-system/useWorkspaceActors', () => ({
   useWorkspaceActors: () => ({ actors: [] }),
 }));
-vi.mock('@/lib/api/managed-systems', () => ({
+vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/registry-reads')>()),
   fetchManagedSystems: async () => ({ items: [{ id: scope, name: 'Billing Ops' }] }),
 }));
 vi.mock('@/features/findings/public', () => ({ useFindingDetail: () => ({ data: null }) }));

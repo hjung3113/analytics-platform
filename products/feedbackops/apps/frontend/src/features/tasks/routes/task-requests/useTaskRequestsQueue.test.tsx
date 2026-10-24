@@ -23,7 +23,8 @@ vi.mock('@/lib/api', async (importOriginal) => ({
   resolveActors: resolveActorsMock,
 }));
 
-vi.mock('@/lib/api/managed-systems', () => ({
+vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/registry-reads')>()),
   fetchManagedSystems: vi.fn(async () => ({ items: [] })),
 }));
 

@@ -39,7 +39,8 @@ vi.mock('@/lib/cross-system/useWorkspaceActors', () => ({
   }),
 }));
 
-vi.mock('@/lib/api/managed-systems', () => ({
+vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/registry-reads')>()),
   fetchManagedSystems: vi.fn(async () => ({ items: [POWER_BI], total: 1 })),
 }));
 

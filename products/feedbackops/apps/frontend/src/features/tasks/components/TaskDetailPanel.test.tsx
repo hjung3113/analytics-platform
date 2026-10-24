@@ -15,7 +15,10 @@ vi.mock('@/lib/api', async (importOriginal) => ({
   fetchMe: vi.fn(async () => ({ actor: { id: 'admin', role_level: 'admin' } })),
   fetchPermissionCheck: vi.fn(async () => ({ state: 'denied' })),
 }));
-vi.mock('@/lib/api/managed-systems', () => ({ fetchManagedSystems: vi.fn() }));
+vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/registry-reads')>()),
+  fetchManagedSystems: vi.fn(),
+}));
 vi.mock('@/lib/api/tasks', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api/tasks')>()),
   assignTaskResponsibility: vi.fn(),

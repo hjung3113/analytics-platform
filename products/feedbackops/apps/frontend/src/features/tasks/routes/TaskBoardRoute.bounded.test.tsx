@@ -83,7 +83,8 @@ vi.mock('@fops/ui', async () => {
 vi.mock('@/lib/cross-system/useWorkspaceActors', () => ({
   useWorkspaceActors: () => ({ actors: [{ id: ACTOR, display_name: '김담당' }] }),
 }));
-vi.mock('@/lib/api/managed-systems', () => ({
+vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/registry-reads')>()),
   fetchManagedSystems: vi.fn(async () => ({
     items: [
       { id: MS, name: 'Billing Ops', archived_at: null },

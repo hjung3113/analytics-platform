@@ -21,7 +21,8 @@ vi.mock('@/lib/auth/useMe', () => ({ useMe: () => ({ data: meImpl.value }) }));
 vi.mock('@/lib/cross-system/usePermissionCheck', () => ({
   usePermissionCheck: () => ({ data: permissionImpl.value }),
 }));
-vi.mock('@/lib/api/managed-systems', () => ({
+vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/registry-reads')>()),
   fetchManagedSystems: vi.fn(async () => ({
     items: [
       {

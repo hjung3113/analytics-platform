@@ -115,8 +115,8 @@ vi.mock('@fops/ui', async (importOriginal) => {
   };
 });
 
-vi.mock('@/lib/api/managed-systems', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/lib/api/managed-systems')>();
+vi.mock('@/lib/api/registry-reads', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/api/registry-reads')>();
   return {
     ...actual,
     fetchManagedSystems: vi.fn(async () => ({ items: [] })),
