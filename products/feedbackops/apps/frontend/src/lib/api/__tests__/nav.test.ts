@@ -40,6 +40,20 @@ describe('fetchNavCounts with a base path', () => {
     expect(onUnauthorized).toHaveBeenCalledTimes(1);
   });
 
+  it('maps a non-JSON 401 body to UnauthenticatedError and calls onUnauthorized once', async () => {
+    stub(new Response('Unauthorized', { status: 401 }));
+    await expect(fetchNavCounts()).rejects.toBeInstanceOf(UnauthenticatedError);
+    expect(onUnauthorized).toHaveBeenCalledTimes(1);
+  });
+
+  it('maps a non-JSON 500 body to the legacy Error message', async () => {
+    stub(new Response('<html>Bad gateway</html>', { status: 500 }));
+    const error = await fetchNavCounts().catch((e: unknown) => e);
+    expect(error).not.toBeInstanceOf(UnauthenticatedError);
+    expect(error).not.toBeInstanceOf(SyntaxError);
+    expect((error as Error).message).toBe('/nav/counts failed: 500');
+  });
+
   it('rejects other failures with the legacy Error message', async () => {
     stub(new Response(JSON.stringify({ code: 'internal', message: 'x' }), { status: 500 }));
     const error = await fetchNavCounts().catch((e: unknown) => e);
