@@ -22,7 +22,7 @@ const SECTIONS = [
   { id: 'foFindings', ko: 'Findings', icon: FileBarChart },
   { id: 'foTasks', ko: 'Tasks', icon: ClipboardList },
   { id: 'foIntegration', ko: '연동', icon: Boxes },
-  { id: 'foSurveys', ko: '설문', icon: FileBarChart },
+  { id: 'foSurveys', ko: 'Surveys', icon: FileBarChart },
   { id: 'foAdmin', ko: '관리자', icon: Shield },
 ] as const;
 
@@ -40,17 +40,16 @@ const DEFS: Def[] = [
   ['fo-task-requests', 'foTasks', 'Task Requests', 'tasks/requests', Inbox],
   ['fo-my-tasks', 'foTasks', '내 Task', 'tasks/my', User],
   ['fo-milestones', 'foTasks', 'Milestones', 'tasks/milestones', Flag],
-  ['fo-int-dashboard', 'foIntegration', '액션 대시보드', 'integration', Activity, true],
-  ['fo-int-findings', 'foIntegration', 'Findings', 'integration/findings', ListChecks],
+  ['fo-int-dashboard', 'foIntegration', '연동 액션 대시보드', 'integration', Activity, true],
   ['fo-int-evidence', 'foIntegration', 'Evidence', 'integration/evidence', FileBarChart],
   ['fo-int-links', 'foIntegration', '엔티티 링크', 'integration/links', Link2],
   ['fo-int-coverage', 'foIntegration', '커버리지', 'integration/coverage', Layers],
   ['fo-survey-manage', 'foSurveys', 'Survey 관리', 'surveys', PenLine, true],
   ['fo-admin-ms', 'foAdmin', 'Managed System', 'admin/managed-systems', Database, true],
   ['fo-admin-aa', 'foAdmin', 'Analytics Area', 'admin/analytics-areas', Layers],
-  ['fo-admin-permissions', 'foAdmin', '권한 요청', 'admin/permissions/requests', Shield],
+  ['fo-admin-permissions', 'foAdmin', '권한 요청 검토', 'admin/permissions/requests', Shield],
   ['fo-admin-grants', 'foAdmin', '활성 권한', 'admin/permissions/grants', ShieldCheck],
-  ['fo-admin-settings', 'foAdmin', '워크스페이스 설정', 'admin/settings', Settings],
+  ['fo-admin-settings', 'foAdmin', 'FeedbackOps 설정', 'admin/settings', Settings],
 ];
 
 const screen = (id: string) => lazy(async () => { const m = await import('./screens'); return { default: () => <m.FoScreen menuId={id} /> }; });
@@ -58,5 +57,5 @@ const screen = (id: string) => lazy(async () => { const m = await import('./scre
 export const protoMenus: MenuEntry[] = on ? DEFS.map(([id, group, ko, path, icon, primary, tab]) => ({
   id, group: groupId(group), label: { ko, en: ko }, description: { ko: `FeedbackOps ${ko}`, en: `FeedbackOps ${ko}` },
   path: `/feedbackops/${path}`, icon, permission: 'feedbackops:access', requiresScope: false, pageType: 'workflow',
-  context: contextCapabilities(), features: NO_FEATURES, pageKeys: tab ? ['tab'] : [], primary: primary ?? false, component: screen(id),
+  context: contextCapabilities(), features: NO_FEATURES, pageKeys: tab ? ['tab', 'managedSystem'] : ['managedSystem'], primary: primary ?? false, component: screen(id),
 } satisfies MenuEntry)) : [];

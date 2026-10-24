@@ -15,6 +15,6 @@ export function ProtoBar() {
   return <div className="fixed bottom-3 left-1/2 z-70 flex -translate-x-1/2 items-center gap-3 rounded-md border border-border-strong bg-surface-card px-3 py-2 shadow-lg">
     <span className="text-xs font-semibold text-text-muted">시안</span>
     <Seg value={PROTO.variant ?? 'none'} options={[['none', '지금 UI'], ['A', 'A 플랫폼 틀'], ['B', 'B FeedbackOps 틀']]} onPick={v => applyProto({ variant: v })} />
-    <Seg value={PROTO.persona} options={[['staff', '담당자'], ['reporter', '신고자']]} onPick={v => applyProto({ persona: v, variant: PROTO.variant ?? 'A' })} />
+    <Seg value={PROTO.persona} options={[['staff', '담당자(관리자)'], ['developer', '개발자'], ['reporter', '신고자']]} onPick={v => applyProto({ persona: v, variant: PROTO.variant ?? 'A' })} />
   </div>;
 }

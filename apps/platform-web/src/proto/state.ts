@@ -5,7 +5,7 @@
 import { useSyncExternalStore } from 'react';
 
 export type Variant = 'A' | 'B';
-export type Persona = 'staff' | 'reporter';
+export type Persona = 'staff' | 'developer' | 'reporter';
 const K = { variant: 'platform:proto-595:variant', persona: 'platform:proto-595:persona', bar: 'platform:proto-595:bar', entry: 'platform:proto-595:entry' };
 
 function read(key: string): string | null { try { return sessionStorage.getItem(key); } catch { return null; } }
@@ -17,12 +17,12 @@ function boot() {
   if (v === 'none') write(K.variant, null);
   else if (v === 'A' || v === 'B') write(K.variant, v);
   const p = q.get('persona');
-  if (p === 'staff' || p === 'reporter') write(K.persona, p);
+  if (p === 'staff' || p === 'developer' || p === 'reporter') write(K.persona, p);
   if (q.has('protoBar')) write(K.bar, q.get('protoBar') === '0' ? '0' : '1');
   const variant = read(K.variant);
   return {
     variant: (variant === 'A' || variant === 'B' ? variant : null) as Variant | null,
-    persona: (read(K.persona) === 'reporter' ? 'reporter' : 'staff') as Persona,
+    persona: (['developer', 'reporter'].includes(read(K.persona) ?? '') ? read(K.persona) : 'staff') as Persona,
     hideBar: read(K.bar) === '0',
   };
 }
@@ -42,6 +42,11 @@ export function applyProto(next: { variant?: Variant | 'none'; persona?: Persona
 
 export const MANAGED_SYSTEMS = ['MARS', 'BRAVO', 'CLAS', '표준 로그 개발'] as const;
 export const ALL_SYSTEMS = '전체 시스템';
+/** Variant A scope: `전체` is the union of the user's systems (admin: workspace-wide); the value lives in the URL key `managedSystem`. */
+export const SCOPE_ALL = '전체';
+/** Systems a 개발자 (not admin) is assigned to; the admin is granted all. */
+export const DEVELOPER_GRANTED: readonly string[] = ['MARS', 'CLAS'];
+export const isGranted = (system: string) => PROTO.persona !== 'developer' || DEVELOPER_GRANTED.includes(system);
 export type Back = { url: string; label: string; system: string };
 type Entry = { ms: string; back: Back | null };
 

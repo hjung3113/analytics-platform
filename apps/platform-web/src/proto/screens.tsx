@@ -9,8 +9,8 @@ import {
   Button, cn, DetailPanelHeader, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, FieldRow, ListShell, ObjectRow, PageShell,
   PanelSectionTitle, PanelTitleBlock, SeverityIndicator, StatusBadge, UserAvatar, type SeverityEnum, type Tone,
 } from '@ap/ui';
-import { ScopeDropdown } from './Scope';
-import { ALL_SYSTEMS, PROTO, setEntry, useEntry } from './state';
+import { ScopeDropdown, scopedSystems, useScopeValue } from './Scope';
+import { PROTO, setEntry, useEntry } from './state';
 
 // ---------- frame ----------
 
@@ -102,10 +102,11 @@ const VOCS: Voc[] = [
 // ---------- screens ----------
 
 function Inbox({ menuId }: { menuId: string }) {
-  const { ms } = useEntry();
+  const ms = useScopeValue();
   const { pageParam } = usePlatform();
   const [selected, setSelected] = useState<string | null>(null);
-  const rows = VOCS.filter(v => ms === ALL_SYSTEMS || v.system === ms);
+  const systems = scopedSystems(ms);
+  const rows = VOCS.filter(v => systems.includes(v.system));
   const tab = pageParam('tab');
   const triage = menuId === 'fo-voc-triage';
   const tabs = triage
@@ -114,7 +115,7 @@ function Inbox({ menuId }: { menuId: string }) {
   const voc = rows.find(v => v.id === selected);
   const filters = <div className="ml-auto flex items-center gap-2"><Button variant="outline" size="toolbar">필터</Button><Button variant="outline" size="toolbar">정렬</Button></div>;
   return <Frame menuId={menuId} title={triage ? 'Triage' : 'VOC 수신함'} count={`${rows.length * 4}건`}
-    actions={<><HeaderButton icon={<Download className="size-3.5" aria-hidden />}>내보내기</HeaderButton><HeaderButton icon={<Save className="size-3.5" aria-hidden />}>보기 저장</HeaderButton></>}
+    actions={PROTO.variant === 'A' ? undefined : <><HeaderButton icon={<Download className="size-3.5" aria-hidden />}>내보내기</HeaderButton><HeaderButton icon={<Save className="size-3.5" aria-hidden />}>보기 저장</HeaderButton></>}
     views={!triage} tabs={<>{tabs}{filters}</>}
     detail={voc ? <VocDetail voc={voc} onClose={() => setSelected(null)} /> : null}
     list={<div role="rowgroup" aria-label="VOC 목록">{rows.map(v => <ObjectRow key={v.id} severity={v.severity} selected={v.id === selected} onClick={() => setSelected(v.id)}
@@ -180,7 +181,7 @@ const FINDINGS: [string, string, string, Tone, string, string, string][] = [
 ];
 
 function Findings() {
-  return <Frame menuId="fo-findings" title="Findings" count="23건" actions={<><HeaderButton icon={<Download className="size-3.5" aria-hidden />}>내보내기</HeaderButton><HeaderButton icon={<Plus className="size-3.5" aria-hidden />} primary>Finding 생성</HeaderButton></>}
+  return <Frame menuId="fo-findings" title="Findings" count="23건" actions={<>{PROTO.variant !== 'A' && <HeaderButton icon={<Download className="size-3.5" aria-hidden />}>내보내기</HeaderButton>}<HeaderButton icon={<Plus className="size-3.5" aria-hidden />} primary>Finding 생성</HeaderButton></>}
     tabs={<><Chips items={['전체', '진행 중', '초안', 'Task 전환됨']} active="전체" /><div className="ml-auto flex gap-2"><Button variant="outline" size="toolbar">필터</Button><Button variant="outline" size="toolbar">정렬</Button></div></>}
     list={<Table head={['ID', '제목', '상태', '출처', '담당자', '연결된 Task']} rows={FINDINGS.map(f => [<span key="i" className="font-mono text-xs">{f[0]}</span>, f[1], <StatusBadge key="s" tone={f[3]}>{f[2]}</StatusBadge>, f[4], f[5], f[6]])} />} />;
 }
@@ -225,7 +226,7 @@ const REQUESTS: [string, string, string, string, string][] = [
 ];
 
 function Permissions() {
-  return <Frame menuId="fo-admin-permissions" title="권한 요청" count="5건 대기" tabs={<Chips items={['대기 중', '처리됨', '전체']} active="대기 중" />}
+  return <Frame menuId="fo-admin-permissions" title="권한 요청 검토" count="5건 대기" tabs={<Chips items={['대기 중', '처리됨', '전체']} active="대기 중" />}
     list={<Table head={['요청자', '기능', 'Managed System', '사유', '상태', '']} rows={REQUESTS.map(r => [r[0], r[1], r[2], r[3], <StatusBadge key="s" tone={r[4] === '대기 중' ? 'warning' : 'info'}>{r[4]}</StatusBadge>,
       <span key="a" className="flex justify-end gap-1.5"><Button variant="outline" size="toolbar">승인</Button><Button variant="outline" size="toolbar">거부</Button></span>])} />} />;
 }
