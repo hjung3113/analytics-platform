@@ -112,6 +112,7 @@ describe('space carriedPageKeys (ADR-0081 decision 4)', () => {
   });
   it.each([
     { name: 'a carried key equal to a global key', spaces: [{ ...analyticsSpace, homeMenuId: 'a', carriedPageKeys: ['scopeId'] }], menus: [menu('a', '/a', { primary: true })], error: /carried page key "scopeId" collides with a global/ },
+    { name: 'a carried key declared twice', spaces: [{ ...analyticsSpace, homeMenuId: 'a', carriedPageKeys: ['k', 'k'] }], menus: [menu('a', '/a', { primary: true, pageKeys: ['k'] })], error: /Space "analytics" carried page key "k" is declared twice/ },
     { name: 'a member menu missing the carried key', spaces: carrying, menus: [menu('a', '/a', { primary: true, pageKeys: ['k'] }), menu('c', '/c')], error: /Menu "c" does not declare space "analytics" carried page key "k"/ },
   ])('rejects $name', ({ spaces: s, menus, error }) => {
     expect(() => createRegistry({ spaces: s, groups, menus })).toThrow(error);

@@ -110,8 +110,11 @@ export function createRegistry({ spaces, groups, menus, permissions: declared = 
     if (s.permission !== undefined && !isPlatformPermission(s.permission)) fail(`Space "${s.id}" permission "${s.permission}" is not a platform permission (kernel or declared)`);
     if (spaceByIdMap.has(s.id)) fail(`Duplicate space id "${s.id}"`);
     spaceByIdMap.set(s.id, s);
+    const seenCarried = new Set<string>();
     for (const key of s.carriedPageKeys ?? []) {
       if (GLOBAL_KEYS.has(key)) fail(`Space "${s.id}" carried page key "${key}" collides with a global Context key`);
+      if (seenCarried.has(key)) fail(`Space "${s.id}" carried page key "${key}" is declared twice`);
+      seenCarried.add(key);
     }
   }
   const byId = new Map<string, MenuEntry>();
