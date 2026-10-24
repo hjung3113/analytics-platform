@@ -1860,6 +1860,27 @@ describe('HomeScreen route content', () => {
     ).toHaveLength(2);
   });
 
+  it('keeps the reporter layout and the personal-work reads across a Dashboard → 수신함 → Dashboard round trip', async () => {
+    const fetchMock = installFetch(response, {
+      roleLevel: 'user',
+      personalWorkStatus: 403,
+      unreadCount: 4,
+    });
+    renderHome();
+    await screen.findByTestId('home-reporter-layout');
+    const personalReads = () =>
+      fetchMock.mock.calls.filter(([input]) => /^\/(tasks|task-requests)/.test(String(input)))
+        .length;
+    const before = personalReads();
+
+    fireEvent.mouseDown(await screen.findByRole('tab', { name: /^수신함/ }));
+    await screen.findByTestId('home-inbox-list');
+    fireEvent.mouseDown(await screen.findByRole('tab', { name: /^대시보드/ }));
+
+    expect(await screen.findByTestId('home-reporter-layout')).toBeInTheDocument();
+    expect(personalReads()).toBe(before);
+  });
+
   it('switches Home tabs while retaining managedSystem and removes tab for Dashboard', async () => {
     const managedSystemId = '33333333-3333-4333-8333-333333333333';
     installFetch(response, { unreadCount: 4 });

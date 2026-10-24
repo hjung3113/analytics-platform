@@ -11,6 +11,7 @@ import { describe, expect, it } from 'vitest';
 const FO = fileURLToPath(new URL('../../../products/feedbackops', import.meta.url));
 const FRONTEND_SRC = join(FO, 'apps/frontend/src');
 const ENTRIES = [join(FRONTEND_SRC, 'global-screens/index.ts'), join(FRONTEND_SRC, 'global-screens/core.ts'), join(FRONTEND_SRC, 'operator-screens/scope-picker/index.ts')];
+const DASHBOARD_ENTRY = join(FRONTEND_SRC, 'operator-screens/dashboard/index.ts');
 const PACKAGE_ENTRIES: Record<string, string> = {
   '@fops/ui': join(FO, 'packages/ui/src/index.ts'),
   '@fops/shared': join(FO, 'packages/shared/src/index.ts'),
@@ -26,11 +27,11 @@ function resolveFile(base: string): string | null {
   return null;
 }
 
-function walk() {
+function walk(entries: string[]) {
   const files = new Map<string, string>();
   const specifiers = new Set<string>();
   const unresolved: string[] = [];
-  const queue = [...ENTRIES];
+  const queue = [...entries];
   while (queue.length > 0) {
     const file = queue.pop()!;
     if (files.has(file)) continue;
@@ -49,7 +50,7 @@ function walk() {
   return { files, specifiers, unresolved };
 }
 
-const { files, specifiers, unresolved } = walk();
+const { files, specifiers, unresolved } = walk(ENTRIES);
 const reached = [...files.keys()].map(file => relative(FRONTEND_SRC, file));
 
 const EAGER_MODULES = ['notifications-slot.tsx', 'voc-compose-slot.tsx', 'home-todo-slot.tsx', 'fo/FoBridge.tsx', 'fo/session.ts'];
@@ -113,6 +114,34 @@ describe('FeedbackOps bridge entry graph (ADR-0071)', () => {
 
   it('calls fetch only in lib/api/client.ts', () => {
     const callers = [...files].filter(([, text]) => /(?<![\w.])fetch\(/.test(text)).map(([file]) => relative(FRONTEND_SRC, file));
+    expect(callers).toEqual(['lib/api/client.ts']);
+  });
+});
+
+// The operator dashboard entry (#759) is walked on its own: it has no sonner either, which the screen barrel's graph does.
+describe('FeedbackOps operator dashboard entry graph (ADR-0071)', () => {
+  const dashboard = walk([DASHBOARD_ENTRY]);
+  const dashboardReached = [...dashboard.files.keys()].map(file => relative(FRONTEND_SRC, file));
+
+  it('reaches the dashboard, its bridge-safe reads and not the standalone HomeScreen', () => {
+    expect(dashboardReached).toEqual(
+      expect.arrayContaining(['features/home/DashboardScreen.tsx', 'lib/api/me.ts', 'lib/api/dashboard.ts', 'lib/api/tasks.ts', 'lib/api/task-requests.ts']),
+    );
+    expect(dashboardReached).not.toContain('features/home/HomeScreen.tsx');
+    expect(dashboard.unresolved).toEqual([]);
+  });
+
+  it('imports no router and no toast library', () => {
+    expect([...dashboard.specifiers].filter(specifier => /^@tanstack\/(react-)?router|^sonner$/.test(specifier))).toEqual([]);
+  });
+
+  it('reaches no route, router, layout or auth source, the auth module, the api barrel, the permissions or managed-systems api', () => {
+    const banned = /^(?:routes|lib\/router|lib\/layout|lib\/auth)\/|^lib\/api\/(?:auth|index|permissions|managed-systems)\.ts$/;
+    expect(dashboardReached.filter(file => banned.test(file))).toEqual([]);
+  });
+
+  it('calls fetch only in lib/api/client.ts', () => {
+    const callers = [...dashboard.files].filter(([, text]) => /(?<![\w.])fetch\(/.test(text)).map(([file]) => relative(FRONTEND_SRC, file));
     expect(callers).toEqual(['lib/api/client.ts']);
   });
 });

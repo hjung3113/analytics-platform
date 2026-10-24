@@ -47,6 +47,9 @@ export const permissionRequestsMineAllKey = [
 ] as const;
 export const permissionRequestOwnerDetailKey = (id: string) =>
   ['permission-requests', 'owner-detail', id] as const;
+// The admin review detail key lives here so the owner dialog can invalidate it without importing `permissions.ts`.
+export const permissionRequestAdminDetailKey = (id: string) =>
+  ['permission-requests', 'admin-detail', id] as const;
 
 export async function createPermissionRequest(
   body: CreatePermissionRequestBody,

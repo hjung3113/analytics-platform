@@ -523,6 +523,7 @@ const BRIDGE = 'menus/_global/my-activity/src/pages/x.tsx';
 const GLOBAL_SCREENS = '@fops/frontend/global-screens';
 const GLOBAL_SCREENS_CORE = '@fops/frontend/global-screens/core';
 const SCOPE_PICKER = '@fops/frontend/operator-screens/scope-picker';
+const OPERATOR_DASHBOARD = '@fops/frontend/operator-screens/dashboard';
 rows.push(
   { file: BRIDGE, code: `import { InboxPanel } from '${GLOBAL_SCREENS}';`, rule: '' },
   { file: BRIDGE, code: `void import('${GLOBAL_SCREENS}');`, rule: '' },
@@ -535,6 +536,12 @@ rows.push(
   { file: MENU, code: `import { InboxPanel } from '${GLOBAL_SCREENS_CORE}';`, rule: 'no-restricted-imports', token: '@ap/ui' },
   { file: MENU, code: `import { InboxPanel } from '${GLOBAL_SCREENS}';`, rule: 'no-restricted-imports', token: '@ap/ui' },
   { file: MENU, code: `void import('${GLOBAL_SCREENS}');`, rule: 'ap/restricted-import-source', token: '@ap/ui' },
+  // The operator dashboard entry (#759): a bridge menu may import it, a non-bridge menu and the fo-bridge runtime's eager code may not.
+  { file: BRIDGE, code: `import { DashboardScreen } from '${OPERATOR_DASHBOARD}';`, rule: '' },
+  { file: BRIDGE, code: `void import('${OPERATOR_DASHBOARD}');`, rule: '' },
+  { file: MENU, code: `import { DashboardScreen } from '${OPERATOR_DASHBOARD}';`, rule: 'no-restricted-imports', token: '@ap/ui' },
+  { file: MENU, code: `void import('${OPERATOR_DASHBOARD}');`, rule: 'ap/restricted-import-source', token: '@ap/ui' },
+  { file: `${'packages/fo-bridge/src'}/fo/session.ts`, code: `import { x } from '${OPERATOR_DASHBOARD}';`, rule: 'no-restricted-imports', token: '@ap/ui' },
 );
 for (const source of ['@fops/frontend', '@fops/frontend/src/main', '@fops/frontend/global-screens/FoScreenRoot', '@fops/ui', '@fops/shared']) {
   rows.push(
