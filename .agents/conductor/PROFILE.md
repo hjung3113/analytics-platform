@@ -156,6 +156,7 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
 
 ## Traps
 
+- 화면 동작(상태, 요청 모양, 응답 필드)이 바뀌는 PR은 UX 리뷰를 생략해도 병합 전에 콘덕터가 실서버(이슈 DB + `app-preview.py`/`dev:real`)에서 ego-browser로 바뀐 흐름을 한 번 직접 보고 VERIFY에 적는다. `review-plan.py`가 ux `required`를 냈으면 생략 이유와 대신한 브라우저 확인을 PR 본문에 함께 적는다. 단위 테스트의 mock 서버와 `focusManager` 토글은 실서버 경로를 증명하지 않는다(#733·#737은 브라우저 확인 없이 병합됐다, 2026-10-24).
 - 작업자 함정은 [`docs/agents/operations.md`](../../docs/agents/operations.md)에 있다: 새 worktree 설치, pnpm 11, CSS selector CI, 캡처, mock 등록.
 - 일반 `git worktree add`로 만든 기준 worktree에는 Orca 터미널 리뷰어를 띄울 수 없다. 거기서는 미리보기만 돌린다.
 - 여러 세션이 이 저장소에 ADR을 쓴다(M6, #598). 번호는 #598에 "ADR-NNNN 예약" 코멘트를 남긴 뒤에 쓴다. 예약하기 전에 `origin/main`과 열린 PR을 모두 확인한다. 같은 시각에 다른 세션이 0067을 먼저 머지해서, 충돌 난 PR을 0068로 다시 올렸다(#613 → #616). 예약을 남겨도 다른 세션이 예약을 보지 않고 같은 번호를 쓸 수 있다(#698이 #671 예약 0075를 먼저 머지, #699가 0076으로 옮김, 2026-10-23) — ship 직전 `origin/main`의 `docs/adr`를 다시 본다.
