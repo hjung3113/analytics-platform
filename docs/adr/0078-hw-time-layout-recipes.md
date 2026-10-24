@@ -23,15 +23,15 @@ HW Time은 "기존 레거시 기능을 플랫폼과 SDK 위에서 다시 만든"
 
 - **기본 레시피 하나만(시안 아티팩트의 추천 A):** 메뉴를 하나로 줄이는 안. HW Time은 기존 기능을 이 플랫폼과 SDK로 옮길 수 있음을 보이는 견본이라 여러 배치를 다양하게 보여 주어야 한다는 이유로 사용자가 채택하지 않았다.
 - **단계만 드릴(§12.7 그대로):** 부모 맥락을 옆에 둘 수 없어 Motion을 Module 전체와 비교하기 어렵다.
-- **오버레이 드릴(조사 질문 2의 C):** 앞 단계를 덮어 띄우는 안. 경로·포커스 계약(§26)과 충돌하고 선택하지 않았다.
+- **오버레이 드릴:** 앞 단계를 덮어 띄우는 안. 경로·포커스 계약(§26)과 충돌하고 선택하지 않았다.
 
 ## 결과
 
-SDK 조각(노드 id는 #690 계획):
+SDK 조각:
 
-- S1 `AnalysisChartFrame` 가로 행 포커스(제어형 `activeCategory`, `rowPitch`) — 690b.
-- S2 `PanelWorkspace` `initialMode`·패널 reveal 요청(2a, 690c)과 패널 `badge`(2b, 690d).
-- S3 `Inspector`의 `stack | rail` 형태 — 690e.
-- S4 `DrillPath`/`DrillLayout` `summary` 슬롯 — 690a(이 ADR과 같은 변경).
+- S1 `AnalysisChartFrame` 가로 행 포커스(제어형 `activeCategory`, `rowPitch`).
+- S2 `PanelWorkspace` `initialMode`·패널 reveal 요청(2a)과 패널 `badge`(2b).
+- S3 `Inspector`의 `stack | rail` 형태.
+- S4 `DrillPath`/`DrillLayout` `summary` 슬롯 — 이 ADR과 같은 변경.
 
 만들지 않는 것: 동기화 그룹 Context, 선언형 레시피 층(메뉴 도우미로 남김), 단계 인식 저장(단계별 `persistKey`로 대신), 엔진 행 접기(S2c), `@ap/ui` Accordion, 깊이 3 초과, #575 P2 항목(전환기·실행 취소·보호 패널).
