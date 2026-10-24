@@ -85,6 +85,7 @@
 | [0075](0075-page-head-one-line-fold-thin-outcome-strip.md) | fill 페이지 머리 영역(`contextNotes` + `contextExtension`)을 한 줄로 접고(기본 접힘, 메뉴별 기억, 적용 칩·미적용·확인 필요·안내 표식) fill 페이지의 공유 응답 배너를 얇은 띠(`자세히` Popover)로 바꾼다 — A 촘촘하게·B 한 줄 접기+띠·C 옆 패널 중 B | Decided(2026-10-23, 사용자) — #680 |
 | [0076](0076-kernel-host-entry-narrow-menu-platform.md) | `Platform` 값은 하나로 두고 타입을 `MenuPlatform`(root `usePlatform()`)과 `HostPlatform`(`@ap/kernel/host`의 `useHostPlatform()`)으로 나누며, 셸 전용 Provider·hook은 `@ap/kernel/host`로 옮기고 lint가 메뉴·모듈의 import를 막는다. `adapter`·`PlatformProvider`는 root에 남는다 | Decided(2026-10-23, 코디네이터, 사용자 위임) — 구현 #671 B8 |
 | [0077](0077-workspace-stack-mode-rows-keep-own-height.md) | `PanelWorkspace`에 두 번째 높이 방식 `아래로 쌓기`(줄이 px 높이를 갖고 페이지가 스크롤)를 선택 모드로 더하고(기본은 화면 맞춤), 경계는 그 위 줄만 바꾸며 마지막 줄 아래 띠가 새 줄을 받는다 — A 늘리기 손잡이·B 높이 프리셋·C 줄 px 쌓기 중 C. ADR-0067 결정 4·8·21을 고친다 | Decided(2026-10-23, 사용자) — #686 |
+| [0078](0078-hw-time-layout-recipes.md) | HW Time을 새 그룹 `동작시간분석`의 메뉴 4개(단계별·비교·개요·표)로 한 데이터 위에 레이아웃 선언만 달리 만들고, 06 §12.7에 메뉴가 선언한 부모 맥락 패널을 허용하며 `DrillPath` `summary` 슬롯을 더한다 — 기본 레시피 하나·단계만 드릴·오버레이 드릴 대신 | Decided(2026-10-24, 사용자) — #690 |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 
