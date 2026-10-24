@@ -74,13 +74,7 @@ export function buildVocClusterDetailSections(): PanelSection[] {
 export type ClusterDetailParts = DetailParts & { state: 'loading' | 'error' | 'ready' };
 
 /** The cluster detail as the parts a host places in its own frame (standalone side panel, platform drawer). */
-export function useClusterDetailParts({
-  clusterId,
-  onClose,
-}: {
-  clusterId: string;
-  onClose?: () => void;
-}): ClusterDetailParts {
+export function useClusterDetailParts({ clusterId }: { clusterId: string }): ClusterDetailParts {
   const { data, isLoading, isError, isSuccess, isFetching, error } = useVocClusterDetail(clusterId);
   useHostTitle(
     isSuccess && !isFetching && data?.id === clusterId
@@ -550,7 +544,7 @@ export function VocClusterDetailPanel({
   clusterId: string;
   onClose?: () => void;
 }): React.ReactElement {
-  const parts = useClusterDetailParts({ clusterId, ...(onClose ? { onClose } : {}) });
+  const parts = useClusterDetailParts({ clusterId });
   const navigate = useHostNavigate();
   if (parts.state !== 'ready') return <>{parts.body}</>;
   return (
