@@ -786,3 +786,219 @@ describe('PanelWorkspace: height mode (#686)', () => {
     expect(unregister).toHaveBeenCalledTimes(2);
   });
 });
+
+describe('PanelWorkspace: initialMode (#690)', () => {
+  const COLUMN: PanelWorkspaceProps['presets'][number] = {
+    id: 'column', label: { ko: '세로', en: 'Column' },
+    layout: { type: 'branch', dir: 'column', sizes: [1, 1, 1], children: [group(['trend']), { type: 'branch', dir: 'row', sizes: [1, 1], children: [group(['selector']), group(['detail'])] }, group(['kpi'])] },
+  };
+  const PROPS: Partial<PanelWorkspaceProps> = { presets: [COLUMN, ...PRESETS], initialPreset: 'column' };
+  const workspace = () => document.querySelector<HTMLElement>('[data-panel-workspace]')!;
+  const modeGroup = () => screen.getByRole('radiogroup', { name: '높이 방식' });
+  const saved = (extra: Record<string, unknown> = {}) => JSON.stringify({
+    v: 1, preset: 'column', hidden: [], layout: { type: 'branch', dir: 'column', sizes: [34, 33, 33], children: [group(['trend']), { type: 'branch', dir: 'row', sizes: [50, 50], children: [group(['selector']), group(['detail'])] }, group(['kpi'])] }, ...extra,
+  });
+
+  it('an untouched workspace starts in 아래로 쌓기 with its rows measured', async () => {
+    mountWorkspace({ ...PROPS, initialMode: 'stack' });
+    await ready();
+    expect(workspace()).toHaveAttribute('data-workspace-mode', 'stack');
+    expect(within(modeGroup()).getByRole('radio', { name: '아래로 쌓기' })).toBeChecked();
+    expect(document.querySelectorAll('[data-dock-row-separator]')).toHaveLength(3);
+  });
+
+  it('without initialMode, or with initialMode fit, it starts fitted as before', async () => {
+    mountWorkspace(PROPS);
+    await ready();
+    expect(workspace()).toHaveAttribute('data-workspace-mode', 'fit');
+    cleanup();
+    mountWorkspace({ ...PROPS, initialMode: 'fit' });
+    await ready();
+    expect(workspace()).toHaveAttribute('data-workspace-mode', 'fit');
+  });
+
+  it('a saved fit wins over initialMode, and so does a saved value written before modes existed', async () => {
+    storage.setItem(KEY(), saved());
+    mountWorkspace({ ...PROPS, initialMode: 'stack' });
+    await ready();
+    expect(workspace()).toHaveAttribute('data-workspace-mode', 'fit');
+    expect(within(modeGroup()).getByRole('radio', { name: '화면 맞춤' })).toBeChecked();
+  });
+
+  it('narrow: fit shows, the stored mode is untouched, and stack returns on widening; 기본 배치 keeps the mode', async () => {
+    mountWorkspace({ ...PROPS, initialMode: 'stack' });
+    await ready();
+    observer.resize(600);
+    await waitFor(() => { expect(workspace()).toHaveAttribute('data-workspace-mode', 'fit'); });
+    expect(document.querySelector('[data-dock-rows]')).toBeNull();
+    await sleep(400);
+    expect(written().every(([, value]) => (JSON.parse(value) as { mode?: string }).mode === 'stack')).toBe(true);
+    observer.resize(1200);
+    await waitFor(() => { expect(workspace()).toHaveAttribute('data-workspace-mode', 'stack'); });
+    fireEvent.click(screen.getByRole('button', { name: '기본 배치' }));
+    await settle();
+    expect(workspace()).toHaveAttribute('data-workspace-mode', 'stack');
+    await choose('화면 맞춤');
+    fireEvent.click(screen.getByRole('button', { name: '기본 배치' }));
+    await settle();
+    expect(workspace()).toHaveAttribute('data-workspace-mode', 'fit');
+  });
+});
+
+describe('PanelWorkspace: revealRequest (#690)', () => {
+  const tab = (id: string) => document.querySelector<HTMLElement>(`[role="tab"][data-tab-panel-id="${id}"]`)!;
+  const FOCUS_PROPS: Partial<PanelWorkspaceProps> = { initialPreset: 'focus' };
+  /** Re-renders the same tree with a new request: the workspace stays mounted. */
+  const withRequest = (request: PanelWorkspaceProps['revealRequest'], extra: Partial<PanelWorkspaceProps> = {}) => shell(<PanelWorkspace {...BASE} {...FOCUS_PROPS} {...extra} revealRequest={request} />);
+
+  it('makes the panel the active tab of its group without remounting any panel or reading again', async () => {
+    const view = render(withRequest(null));
+    await ready();
+    const queries = menuQuery.mock.calls.length;
+    expect(tab('selector')).toHaveAttribute('aria-selected', 'true');
+    view.rerender(withRequest({ panelId: 'kpi', seq: 1 }));
+    await waitFor(() => { expect(tab('kpi')).toHaveAttribute('aria-selected', 'true'); });
+    expect(tab('selector')).toHaveAttribute('aria-selected', 'false');
+    expect(mounts).toEqual({ trend: 1, selector: 1, detail: 1, kpi: 1 });
+    expect(menuQuery.mock.calls.length).toBe(queries);
+    await sleep(400);
+    expect(JSON.stringify(JSON.parse(written().at(-1)![1]).layout)).toContain('"active":"kpi"');
+  });
+
+  it('does nothing for the same seq, null, an unknown panel (development diagnostic) and a request present on mount', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const view = render(withRequest({ panelId: 'kpi', seq: 1 }));
+    await ready();
+    expect(tab('selector')).toHaveAttribute('aria-selected', 'true');
+    view.rerender(withRequest({ panelId: 'kpi', seq: 2 }));
+    await waitFor(() => { expect(tab('kpi')).toHaveAttribute('aria-selected', 'true'); });
+    await userEvent.click(tab('detail'));
+    await settle();
+    view.rerender(withRequest({ panelId: 'kpi', seq: 2 }));
+    view.rerender(withRequest(null));
+    await settle();
+    expect(tab('detail')).toHaveAttribute('aria-selected', 'true');
+    view.rerender(withRequest({ panelId: 'nope', seq: 3 }));
+    await settle();
+    expect(tab('detail')).toHaveAttribute('aria-selected', 'true');
+    expect(error.mock.calls.some(([message]) => String(message).includes('"nope"'))).toBe(true);
+    error.mockRestore();
+  });
+
+  it('a hidden panel stays hidden', async () => {
+    const view = render(withRequest(null));
+    await ready();
+    await chooseFromMenu('선택기 동작', '숨기기');
+    await waitFor(() => { expect(document.querySelector('[role="tab"][data-tab-panel-id="selector"]')).toBeNull(); });
+    view.rerender(withRequest({ panelId: 'selector', seq: 1 }));
+    await settle();
+    expect(document.querySelector('[role="tab"][data-tab-panel-id="selector"]')).toBeNull();
+    expect(screen.getByRole('button', { name: '숨긴 패널 1' })).toBeEnabled();
+  });
+
+  it('while another panel is maximized it is a no-op: the maximize is kept and the request is not queued', async () => {
+    const view = render(withRequest(null));
+    await ready();
+    await userEvent.click(screen.getAllByRole('button', { name: '추세 최대화' })[0]!);
+    await waitFor(() => { expect(document.querySelector('[data-dock-panel="selector"]')).toHaveAttribute('data-dock-visible', 'false'); });
+    view.rerender(withRequest({ panelId: 'kpi', seq: 1 }));
+    await settle();
+    expect(screen.getByRole('button', { name: '원래 크기로' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: '원래 크기로' }));
+    await settle();
+    expect(tab('selector')).toHaveAttribute('aria-selected', 'true');
+    expect(tab('kpi')).toHaveAttribute('aria-selected', 'false');
+  });
+
+  it('never moves focus', async () => {
+    const view = render(withRequest(null));
+    await ready();
+    const outside = document.createElement('button');
+    document.body.append(outside);
+    outside.focus();
+    view.rerender(withRequest({ panelId: 'kpi', seq: 1 }));
+    await waitFor(() => { expect(tab('kpi')).toHaveAttribute('aria-selected', 'true'); });
+    await settle();
+    expect(document.activeElement).toBe(outside);
+    outside.remove();
+  });
+
+  it('works the same inside the board host', async () => {
+    const hosted = (request: PanelWorkspaceProps['revealRequest']) => shell(<WorkspaceCommandsHost><PanelWorkspace {...BASE} {...FOCUS_PROPS} revealRequest={request} /></WorkspaceCommandsHost>);
+    const view = render(hosted(null));
+    await ready();
+    view.rerender(hosted({ panelId: 'detail', seq: 1 }));
+    await waitFor(() => { expect(tab('detail')).toHaveAttribute('aria-selected', 'true'); });
+    expect(mounts).toEqual({ trend: 1, selector: 1, detail: 1, kpi: 1 });
+  });
+
+  describe('narrow without a compact preset (one tab group)', () => {
+    const panel = (id: string) => document.querySelector<HTMLElement>(`[data-dock-panel="${id}"]`)!;
+    const shownNarrow = async (id: string) => {
+      await waitFor(() => { expect(tab(id)).toHaveAttribute('aria-selected', 'true'); });
+      expect(panel(id)).toHaveAttribute('data-dock-visible', 'true');
+    };
+    const hosted = (request: PanelWorkspaceProps['revealRequest']) => shell(<WorkspaceCommandsHost><PanelWorkspace {...BASE} {...FOCUS_PROPS} revealRequest={request} /></WorkspaceCommandsHost>);
+
+    it('standalone: the target becomes the shown panel, also when it is already active in its own group', async () => {
+      const view = render(withRequest(null));
+      await ready();
+      observer.resize(600);
+      await shownNarrow('trend');
+      view.rerender(withRequest({ panelId: 'kpi', seq: 1 }));
+      await shownNarrow('kpi');
+      expect(panel('trend')).toHaveAttribute('data-dock-visible', 'false');
+      // `selector` is the active tab of its original group, yet background in the narrow group.
+      view.rerender(withRequest({ panelId: 'selector', seq: 2 }));
+      await shownNarrow('selector');
+      expect(mounts).toEqual({ trend: 1, selector: 1, detail: 1, kpi: 1 });
+    });
+
+    it('inside the board host', async () => {
+      const view = render(hosted(null));
+      await ready();
+      observer.resize(600);
+      await shownNarrow('trend');
+      view.rerender(hosted({ panelId: 'detail', seq: 1 }));
+      await shownNarrow('detail');
+    });
+
+    it('after the user picked another panel, a new reveal switches to the target and a later pick still works', async () => {
+      const view = render(withRequest(null));
+      await ready();
+      observer.resize(600);
+      await shownNarrow('trend');
+      await userEvent.click(tab('detail'));
+      await shownNarrow('detail');
+      view.rerender(withRequest({ panelId: 'kpi', seq: 1 }));
+      await shownNarrow('kpi');
+      await userEvent.click(tab('selector'));
+      await shownNarrow('selector');
+    });
+
+    it('a hidden panel stays hidden and focus stays outside', async () => {
+      const view = render(withRequest(null));
+      await ready();
+      await chooseFromMenu('선택기 동작', '숨기기');
+      await waitFor(() => { expect(tab('selector')).toBeNull(); });
+      observer.resize(600);
+      const outside = document.createElement('button');
+      document.body.append(outside);
+      outside.focus();
+      view.rerender(withRequest({ panelId: 'selector', seq: 1 }));
+      await settle();
+      expect(tab('selector')).toBeNull();
+      expect(document.activeElement).toBe(outside);
+      outside.remove();
+    });
+
+    it('wide stays unchanged: the target is active in its own group only', async () => {
+      const view = render(withRequest(null));
+      await ready();
+      view.rerender(withRequest({ panelId: 'kpi', seq: 1 }));
+      await waitFor(() => { expect(tab('kpi')).toHaveAttribute('aria-selected', 'true'); });
+      expect(tab('trend')).toHaveAttribute('aria-selected', 'true');
+      expect(document.querySelector('[data-dock-narrow="true"]')).toBeNull();
+    });
+  });
+});

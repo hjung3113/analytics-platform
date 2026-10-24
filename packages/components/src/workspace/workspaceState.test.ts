@@ -45,6 +45,40 @@ describe('initialWorkspaceState', () => {
   });
 });
 
+describe('initialMode (#690)', () => {
+  const stackSpec: WorkspaceSpec = { ...spec, initialMode: 'stack' };
+  const saved = { v: 1, preset: 'focus', layout: presetTree(focus.layout, IDS), hidden: [] };
+
+  it('an untouched workspace starts in stack mode, rows still to be measured; without initialMode it is fit', () => {
+    expect(initialWorkspaceState(stackSpec)).toMatchObject({ v: 1, preset: 'balanced', hidden: [], mode: 'stack' });
+    expect(initialWorkspaceState(stackSpec).rows).toBeUndefined();
+    expect(initialWorkspaceState({ ...spec, initialMode: 'fit' }).mode).toBeUndefined();
+    expect(initialWorkspaceState(spec).mode).toBeUndefined();
+  });
+
+  it('a saved fit wins over initialMode, and so does a saved stack over initialMode fit', () => {
+    expect(normalizeWorkspaceState(saved, stackSpec).mode).toBeUndefined();
+    expect(normalizeWorkspaceState({ ...saved, mode: 'fit' }, stackSpec).mode).toBeUndefined();
+    expect(normalizeWorkspaceState({ ...saved, mode: 'stack' }, { ...spec, initialMode: 'fit' }).mode).toBe('stack');
+  });
+
+  it('an old saved value without mode reads as fit, not as initialMode', () => {
+    const old = JSON.parse(JSON.stringify(saved)) as Record<string, unknown>;
+    expect('mode' in old).toBe(false);
+    const state = normalizeWorkspaceState(old, stackSpec);
+    expect(state.mode).toBeUndefined();
+    expect(state.rows).toBeUndefined();
+  });
+
+  it('기본 배치 keeps the height mode the user has, and never rewrites it to initialMode', () => {
+    const fitNow = normalizeWorkspaceState(saved, stackSpec);
+    expect(resetLayout(fitNow, balanced).mode).toBeUndefined();
+    const stackNow = withRows(fitNow, 'stack');
+    expect(resetLayout(stackNow, balanced).mode).toBe('stack');
+    expect(resetLayout(stackNow, balanced)).toMatchObject({ preset: 'balanced', hidden: [] });
+  });
+});
+
 describe('normalizeWorkspaceState', () => {
   const good = { v: 1, preset: 'focus', layout: presetTree(focus.layout, IDS), hidden: [] };
   const withLayout = (layout: unknown) => ({ ...good, layout });
