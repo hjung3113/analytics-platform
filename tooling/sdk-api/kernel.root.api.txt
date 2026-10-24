@@ -14,7 +14,7 @@ HomeTodoSlot | type | type HomeTodoSlot = { Todo: ComponentType; }
 I18nProvider | function | function I18nProvider({ children }: { children: ReactNode; }): import("react").JSX.Element
 Key | type | type Key = keyof typeof dict
 Lang | type | type Lang = 'en' | 'ko'
-LinkOptions | type | type LinkOptions = { global?: Partial<@ap/contracts#GlobalContext>; page?: Record<string, string>; params?: Record<string, string>; returnTo?: boolean; }
+LinkOptions | type | type LinkOptions = { global?: Partial<@ap/contracts#GlobalContext>; page?: Record<string, null | string>; params?: Record<string, string>; returnTo?: boolean; }
 LinkResolution | type | type LinkResolution = { allowed: boolean; droppedPageKeys: string[]; href: string; }
 MenuActionState | type | type MenuActionState<I, T> = { pending: boolean; ready: boolean; run: (input: I, options?: { expectedVersion?: string; }) => Promise<@ap/contracts#ActionResult<T>>; }
 MenuEntry | type | type MenuEntry = @ap/kernel#ModuleMenuEntry | @ap/kernel#PlatformMenuEntry
@@ -33,7 +33,7 @@ PlatformLink | function | function PlatformLink({ href, children, className, onN
 PlatformLocation | type | type PlatformLocation = { absoluteUrl: (url: string) => string; href: (url: string) => string; push: (url: string) => void; read: () => null | string; replace: (url: string) => void; }
 PlatformMenuEntry | type | type PlatformMenuEntry = @ap/contracts#MenuMeta & { component?: LazyExoticComponent<ComponentType<@ap/kernel#PageProps>>; icon: LucideIcon; module?: undefined; moduleScreen?: undefined; }
 PlatformProvider | function | function PlatformProvider({ adapter, registry, location, slots, equipmentAxes, queryHistory, children }: { adapter: @ap/contracts#PlatformAdapter; children: ReactNode; equipmentAxes?: readonly @ap/contracts#EquipmentAxisDescriptor[]; location?: @ap/kernel#PlatformLocation; queryHistory?: @ap/contracts#QueryHistoryStore; registry: @ap/kernel#Registry; slots?: @ap/kernel#PlatformSlots; }): import("react").JSX.Element
-PlatformSlots | type | type PlatformSlots = { boardEntry?: ReactNode; contextBar?: ReactNode; feedbackOps?: @ap/kernel#FeedbackOpsSlot; homeTodo?: @ap/kernel#HomeTodoSlot; notifications?: @ap/kernel#NotificationsSlot; plannedSpaces?: readonly @ap/kernel#PlannedSpace[]; topBarTools?: ReactNode; vocCompose?: @ap/kernel#VocComposeSlot; }
+PlatformSlots | type | type PlatformSlots = { boardEntry?: ReactNode; contextBar?: ReactNode; feedbackOps?: @ap/kernel#FeedbackOpsSlot; homeTodo?: @ap/kernel#HomeTodoSlot; notifications?: @ap/kernel#NotificationsSlot; plannedSpaces?: readonly @ap/kernel#PlannedSpace[]; scopeControl?: @ap/kernel#ScopeControlSlot; topBarTools?: ReactNode; vocCompose?: @ap/kernel#VocComposeSlot; }
 PortContext | type | type PortContext = { condition: @ap/contracts#Condition | null; lineNames: @ap/contracts#IdSet; membershipBasis: 'asOf' | null; period: @ap/contracts#MembershipPeriod | null; prcGroups: @ap/contracts#IdSet; roomNames: @ap/contracts#IdSet; scopeId: string; }
 PortFailure | type | type PortFailure = { code: @ap/contracts#PortErrorCode | null; message: string; retryable: boolean; }
 PortPageResult | type | type PortPageResult<T> = PortPageState<T> & { loadMore: () => void; retry: () => void; }
@@ -51,6 +51,7 @@ ResolvedSelectionResult | type | type ResolvedSelectionResult = { byId: Readonly
 ReturnContextKey | type | type ReturnContextKey = 'scope' | @ap/contracts#ContextKey
 ReturnOrigin | type | type ReturnOrigin = { href: string; menuLabel: @ap/contracts#Text; revertedContext: @ap/kernel#ReturnContextKey[]; trail: { label: @ap/contracts#Text; value: string; }[]; }
 RouteMatch | type | type RouteMatch = { menu: @ap/kernel#MenuEntry; params: Record<string, string>; }
+ScopeControlSlot | type | type ScopeControlSlot = { For: (spaceId: @ap/contracts#SpaceId) => ComponentType<{ collapsed: boolean; }> | null; }
 ScopeState | type | type ScopeState = { grantedRooms: string[]; scopeId: null | string; status: 'error' | 'forbidden' | 'none' | 'unknown_scope' | 'valid' | 'validating'; validatedFor: @ap/contracts#Session | null; }
 Text | type | type Text = { en: string; ko: string; }
 Toast | type | type Toast = { detail?: string; id: number; text: string; tone: 'danger' | 'info' | 'warning'; }

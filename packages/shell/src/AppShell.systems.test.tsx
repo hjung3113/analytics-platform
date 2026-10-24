@@ -184,3 +184,29 @@ describe('fallback sidebar on an unmatched or denied route (B5)', () => {
     expect(within(after).getByRole('link', { name: '사이클 목록' })).toHaveAttribute('aria-current', 'page');
   });
 });
+
+describe('space scope control slot (ADR-0081 decision 4)', () => {
+  function mountWith(slots: { scopeControl?: { For: (id: never) => ((props: { collapsed: boolean }) => React.ReactNode) | null } }, url: string) {
+    window.history.replaceState(null, '', url);
+    const session = testSession(['platform:view', 'console:access']);
+    return render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry} slots={slots as never}>
+      <AppShell><p>body</p></AppShell>
+    </PlatformProvider></I18nProvider>);
+  }
+  const Own = ({ collapsed }: { collapsed: boolean }) => <div data-testid="own-scope" data-collapsed={String(collapsed)} />;
+
+  it('S1 renders the space control instead of ScopeSelector, and ScopeSelector elsewhere or without the slot', () => {
+    const For = (id: string) => (id === 'metrics' ? Own : null);
+    mountWith({ scopeControl: { For } }, '/metrics?v=1');
+    expect(screen.getByTestId('own-scope')).toHaveAttribute('data-collapsed', 'false');
+    expect(screen.queryByRole('button', { name: /^Scope:/ })).toBeNull();
+    cleanup();
+    mountWith({ scopeControl: { For } }, '/cycle?v=1');
+    expect(screen.queryByTestId('own-scope')).toBeNull();
+    expect(screen.getByRole('button', { name: /^Scope:/ })).toBeTruthy();
+    cleanup();
+    mountWith({}, '/metrics?v=1');
+    expect(screen.queryByTestId('own-scope')).toBeNull();
+    expect(screen.getByRole('button', { name: /^Scope:/ })).toBeTruthy();
+  });
+});
