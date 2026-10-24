@@ -9,6 +9,7 @@ import { dockLayoutMenu } from '../dock/layoutMenu';
 import { dockGroupsInReadingOrder } from '../dock/schema';
 import { useRegisterWorkspaceCommands, useWorkspaceDepth, WorkspaceDepthProvider, type WorkspaceCommand } from '../dock/WorkspaceCommandsHost';
 import { InWorkspacePanelProvider } from './panelContext';
+import { PanelBadge } from './PanelBadge';
 import { workspaceText } from './text';
 import { MODE_PREFIX, PRESET_PREFIX, RESET_ID, SHOW_PREFIX, WorkspaceToolbar } from './WorkspaceToolbar';
 import { WorkspaceGroupActions } from './WorkspaceGroupActions';
@@ -30,6 +31,13 @@ export type PanelWorkspacePanel = {
   /** px; default 240 × 160. */
   minWidth?: number;
   minHeight?: number;
+  /**
+   * Signals that the panel holds something while it is a background tab or hidden (`추세 · 2 rows added`, partial data). Drawn in the tab (count above 99
+   * as `99+`; `warning` adds a triangle, never colour alone) and spoken as the tab's `aria-description`; the title and the tab's name never change.
+   * A hidden panel's `warning` marks the `숨긴 패널 n` button, and its `다시 보기` item carries the `description`. Changing it does not remount panels
+   * and is not announced through a live region.
+   */
+  badge?: { count?: number; tone?: 'neutral' | 'warning'; description: Text };
 };
 
 export type PanelWorkspacePreset = { id: string; label: Text; layout: PanelWorkspaceLayout };
@@ -120,6 +128,8 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, l
   const rowMinimum = rowMinimumOf(new Map(panels.map(panel => [panel.id, { minWidth: panel.minWidth, minHeight: panel.minHeight }])));
   const spec: WorkspaceSpec = { panelIds: panels.map(panel => panel.id), primaryId, presets, initialPreset, rowMinimum, initialMode };
   const titleOf = (id: string) => { const panel = panels.find(candidate => candidate.id === id); return panel ? tx(panel.title) : id; };
+  /** The panel's badge with its description localised. */
+  const badgeOf = (id: string) => { const badge = panels.find(candidate => candidate.id === id)?.badge; return badge ? { count: badge.count, tone: badge.tone ?? 'neutral', description: tx(badge.description) } : undefined; };
 
   const [stored, setStored] = useState<WorkspaceState>(() => (storageKey ? readWorkspaceState(storageKey, spec) : null) ?? initialWorkspaceState(spec));
 
@@ -232,10 +242,10 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, l
     stack: stored.mode === 'stack',
     presets: presets.map(preset => [preset.id, tx(preset.label)]),
     current: state.preset,
-    hidden: state.hidden.map(id => [id, titleOf(id)]),
+    hidden: state.hidden.map(id => [id, titleOf(id), badgeOf(id)?.description ?? null, badgeOf(id)?.tone === 'warning']),
   });
   const commands = useMemo<readonly WorkspaceCommand[]>(() => {
-    const parsed = JSON.parse(shape) as { narrow: boolean; stack: boolean; presets: [string, string][]; current: string; hidden: [string, string][] };
+    const parsed = JSON.parse(shape) as { narrow: boolean; stack: boolean; presets: [string, string][]; current: string; hidden: [string, string, string | null, boolean][] };
     const preset = (id: string) => live.current.presets.find(candidate => candidate.id === id);
     return [
       ...parsed.presets.map(([id, text]): WorkspaceCommand => ({
@@ -246,8 +256,8 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, l
         id: `${MODE_PREFIX}${mode}`, label: tx(mode === 'fit' ? workspaceText.modeFit : workspaceText.modeStack), kind: 'radio', group: 'mode', groupLabel: tx(workspaceText.heightMode),
         checked: (mode === 'stack') === parsed.stack, disabled: parsed.narrow, run: () => { setMode(mode); },
       })),
-      ...parsed.hidden.map(([id, text]): WorkspaceCommand => ({
-        id: `${SHOW_PREFIX}${id}`, label: tx(workspaceText.showPanel(text)), kind: 'action',
+      ...parsed.hidden.map(([id, text, description, warning]): WorkspaceCommand => ({
+        id: `${SHOW_PREFIX}${id}`, label: tx(workspaceText.showPanel(text)), kind: 'action', description: description ?? undefined, warning: warning || undefined,
         run: () => { update(current => showPanel(current, id, live.current.primaryId, preset(current.preset) ?? live.current.presets[0]!)); },
       })),
       {
@@ -286,6 +296,20 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, l
     id: panel.id, title: tx(panel.title), minWidth: panel.minWidth, minHeight: panel.minHeight,
     render: () => <InWorkspacePanelProvider value>{panel.render()}</InWorkspacePanelProvider>,
   }));
+  // Badges reach the tab through these two callbacks; their identity follows the badges alone, so other changes do not rebuild the tabs.
+  const badgeSignature = JSON.stringify(panels.map(panel => [panel.id, panel.badge ? [panel.badge.count ?? null, panel.badge.tone ?? 'neutral', tx(panel.badge.description), tx(panel.title)] : null]));
+  const badges = useMemo(() => new Map((JSON.parse(badgeSignature) as [string, [number | null, 'neutral' | 'warning', string, string] | null][]).flatMap(([id, badge]) => (badge ? [[id, badge] as const] : []))), [badgeSignature]);
+  const renderTab = useMemo(() => {
+    if (badges.size === 0) return undefined;
+    return (panelId: string) => {
+      const badge = badges.get(panelId);
+      return badge ? <><span className="truncate">{badge[3]}</span><PanelBadge count={badge[0] ?? undefined} tone={badge[1]} description={badge[2]} /></> : undefined;
+    };
+  }, [badges]);
+  const tabA11y = useMemo(() => {
+    if (badges.size === 0) return undefined;
+    return (panelId: string) => { const badge = badges.get(panelId); return badge ? { description: badge[2] } : undefined; };
+  }, [badges]);
   const reading = dockGroupsInReadingOrder(state.layout);
   const focusTab = (panelId: string) => { focusTabSoon(() => root.current, panelId); };
   const closeFocus = useRef<(() => void) | null>(null);
@@ -330,7 +354,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, l
     <div ref={root} data-panel-workspace data-workspace-mode={rows ? 'stack' : 'fit'} data-workspace-compact={compact ? '' : undefined} className={rows ? 'flex w-full min-w-0 flex-col gap-2' : 'flex h-full min-h-0 w-full min-w-0 flex-col gap-2'}>
       {!hosted && <WorkspaceToolbar commands={commands} onShown={focusTab} />}
       <div ref={fitSlot} className={rows ? undefined : 'min-h-0 flex-1'}>
-        <DockLayoutBase panels={dockPanels} layout={state.layout} label={tx(label)} rows={rows} reveal={dockReveal}
+        <DockLayoutBase panels={dockPanels} layout={state.layout} label={tx(label)} rows={rows} reveal={dockReveal} renderTab={renderTab} tabA11y={tabA11y}
           onLayoutChange={next => { const moved = dropped.current ?? undefined; dropped.current = null; layoutChange(current => ({ ...current, layout: next }), moved); }}
           onActivate={id => { layoutChange(current => (panelOrder(current.layout).includes(id) ? { ...current, layout: activatePanel(current.layout, id) } : current)); }}
           maximizedPanelId={maximizedId} onMaximizedChange={setMaximized}

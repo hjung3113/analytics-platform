@@ -12,6 +12,10 @@ export type WorkspaceCommand = {
   groupLabel?: string;
   checked?: boolean;
   disabled?: boolean;
+  /** A hidden panel's badge description, shown with its `다시 보기` item. */
+  description?: string;
+  /** A hidden panel's badge is a warning: the surface marks the hidden-panel list. */
+  warning?: boolean;
   run: () => void;
 };
 
