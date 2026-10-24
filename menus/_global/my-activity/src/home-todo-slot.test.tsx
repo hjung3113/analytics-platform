@@ -2,9 +2,9 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider } from '@ap/kernel';
 import { memoryStorage } from '@ap/kernel/testing';
-import { setFoApi } from './fo-api';
+import { setFoApi } from '@ap/fo-bridge/fo-api';
 import { json, listOf, registry, stubFetch, switchableAdapter } from './fo/test-support';
-import { homeTodoSlot } from './home-todo-slot';
+import { homeTodoSlot } from '@ap/fo-bridge/home-todo-slot';
 
 const SURVEY_ID = '33333333-3333-4333-8333-333333333333';
 const surveys = { items: [{ survey_id: SURVEY_ID, display_id: 'SRV-1', title: '만족도 설문', type: 'discovery', question_count: 2, opened_at: '2026-10-20T00:00:00.000Z' }], page: { has_more: false } };

@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
  * What the bridge may reach inside FeedbackOps (platform ADR-0071): the entry's whole import graph (static, type,
  * re-export and dynamic specifiers) has no router, no login/session shell, no second network path. Source scan, no bundler.
  */
-const FO = fileURLToPath(new URL('../../../../products/feedbackops', import.meta.url));
+const FO = fileURLToPath(new URL('../../../products/feedbackops', import.meta.url));
 const FRONTEND_SRC = join(FO, 'apps/frontend/src');
 const ENTRIES = [join(FRONTEND_SRC, 'global-screens/index.ts'), join(FRONTEND_SRC, 'global-screens/core.ts')];
 const PACKAGE_ENTRIES: Record<string, string> = {

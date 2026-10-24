@@ -1,5 +1,5 @@
 import { PlatformLink, usePlatform } from '@ap/kernel';
-import type { HostLinkProps } from '@fops/frontend/global-screens';
+import type { HostLinkProps } from '@fops/frontend/global-screens/core';
 import { UnlinkedLink } from './FoBridge';
 
 export type PlatformTarget = { menuId: string; params?: Record<string, string> };

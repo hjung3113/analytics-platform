@@ -6,8 +6,9 @@ import {
   type MyVocQuery,
   type MyVocSort,
 } from '@fops/frontend/global-screens';
+import { VOC_ID } from '@ap/fo-bridge';
 
-export const VOC_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export { VOC_ID };
 
 export type MyVocPage = { ok: true; query: MyVocQuery; focus: string | null } | { ok: false; key: string; value: string };
 

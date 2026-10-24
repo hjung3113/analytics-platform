@@ -2,8 +2,8 @@ import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/re
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
-import { setFoApi } from '../fo-api';
-import { foQueryClient } from '../fo/session';
+import { setFoApi } from '@ap/fo-bridge/fo-api';
+import { foQueryClient } from '@ap/fo-bridge';
 import { ID_A, ID_B, json, mountAt, stubFetch, switchableAdapter, type Call } from '../fo/test-support';
 
 const origin = () => window.location.origin;

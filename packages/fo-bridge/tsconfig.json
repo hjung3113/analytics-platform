@@ -1,0 +1,5 @@
+{
+  "extends": "@ap/tsconfig/base.json",
+  "compilerOptions": { "paths": { "@/*": ["../../products/feedbackops/apps/frontend/src/*"] } },
+  "include": ["src"]
+}

@@ -53,19 +53,22 @@ const escapeRegex = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const devRegex = (devAllow = []) =>
   devAllow.length === 0 ? DEV_REGEX : `^(?!(?:${devAllow.map(escapeRegex).join('|')})$)${DEV_REGEX.slice(1)}`;
 
-// Menu subpaths: the FeedbackOps origin slot, the bridge's FO API slot (fo-api) and its notifications and VOC compose slots are src/main.tsx ONLY; each menu's exact `/mock` export is
+// Menu subpaths: the FeedbackOps origin slot is src/main.tsx ONLY, and so are the the fo-bridge package slot subpaths (the FO API slot fo-api and the notifications, VOC compose and home todo slots); each menu's exact `/mock` export is
 // src/dev/** only. Every other menu subpath and any `*/src` import stays banned.
 // NOTE: the gitignore-style `*` in `menu-*/mock` also matches an empty name (no way to say
 // "one or more" here), so a `menu-/mock` source is not rejected on this side; the dynamic-import
 // side (import-source.js) uses `[^/]+` for the same pattern.
 const MENU_MOCK_SUBPATH = 'menu-*/mock';
-const FO_API_SUBPATH = 'menu-my-activity/fo-api';
-const NOTIFICATIONS_SLOT_SUBPATH = 'menu-my-activity/notifications-slot';
-const VOC_COMPOSE_SLOT_SUBPATH = 'menu-my-activity/voc-compose-slot';
-const HOME_TODO_SLOT_SUBPATH = 'menu-my-activity/home-todo-slot';
-// Rule 8 exception (platform ADR-0071): the FeedbackOps bridge menu imports exactly these entries (the screen barrel and
-// its eager-code subset `/core`); nothing else under @fops/*.
+const FO_API_SUBPATH = 'fo-bridge/fo-api';
+const NOTIFICATIONS_SLOT_SUBPATH = 'fo-bridge/notifications-slot';
+const VOC_COMPOSE_SLOT_SUBPATH = 'fo-bridge/voc-compose-slot';
+const HOME_TODO_SLOT_SUBPATH = 'fo-bridge/home-todo-slot';
+// Rule 8 exception (platform ADR-0071, ADR-0081): a bridge menu imports exactly these entries (the screen barrel and
+// its eager-code subset `/core`); nothing else under @fops/*. the fo-bridge package imports `/core` only (FO_BRIDGE_PACKAGE_ENTRIES)
+// except its lazy `src/pages/**`, which are screens too.
 const FO_BRIDGE_ENTRIES = ['@fops/frontend/global-screens', '@fops/frontend/global-screens/core'];
+const FO_BRIDGE_TEST_SUBPATHS = [FO_API_SUBPATH, NOTIFICATIONS_SLOT_SUBPATH, VOC_COMPOSE_SLOT_SUBPATH, HOME_TODO_SLOT_SUBPATH, 'fo-bridge/home-todo-page', 'fo-bridge/voc-compose-page'];
+const FO_BRIDGE_PACKAGE_ENTRIES = ['@fops/frontend/global-screens/core'];
 const UI_THEME_SUBPATHS = ['ui/theme', 'ui/theme-tokens.json'];
 
 // Restriction data is the single decision source: each layer declares
@@ -81,7 +84,10 @@ const UI_THEME_SUBPATHS = ['ui/theme', 'ui/theme-tokens.json'];
 const TABLE_ENGINE_PACKAGES = ['@tanstack/react-table', '@tanstack/react-virtual', '@tanstack/table-core', '@tanstack/virtual-core'];
 const MENU_RESTRICTION = { allow: MENU_ALLOW, denyReact: false, denyTableEngine: true, mockAllowed: false, allowSubpaths: UI_THEME_SUBPATHS };
 // allowFeedbackOps: exact @fops/* sources exempted from the FeedbackOps ban (only the bridge menu, FO_BRIDGE_ENTRIES).
-const FO_BRIDGE_RESTRICTION = { ...MENU_RESTRICTION, allowFeedbackOps: FO_BRIDGE_ENTRIES };
+const FO_BRIDGE_RESTRICTION = { ...MENU_RESTRICTION, allow: [...MENU_ALLOW, 'fo-bridge'], allowFeedbackOps: FO_BRIDGE_ENTRIES };
+// The the fo-bridge package package (consumer-side runtime, not SDK): the menu layer's workspace allowlist, `/core` only; its lazy pages see the screen barrel.
+const FO_BRIDGE_PACKAGE_RESTRICTION = { ...MENU_RESTRICTION, allowFeedbackOps: FO_BRIDGE_PACKAGE_ENTRIES };
+const FO_BRIDGE_PAGES_RESTRICTION = { ...FO_BRIDGE_PACKAGE_RESTRICTION, allowFeedbackOps: FO_BRIDGE_ENTRIES };
 const MENU_MOCK_RESTRICTION = { allow: ['contracts'], denyReact: true, denyTableEngine: true, mockAllowed: true };
 // #154: the real-server adapter reaches the app through src/real/** only (APP_REAL_FILES below).
 const APP_RESTRICTION = { allow: null, denyReact: false, mockAllowed: false, denyDev: true, denyHttpAdapter: true, allowSubpaths: [...UI_THEME_SUBPATHS, DOCK_ENTRY_SUBPATH, HOST_ENTRY_SUBPATH] };
@@ -495,7 +501,29 @@ export const menu = menuPreset(MENU_RESTRICTION);
  * `menu` plus the one FeedbackOps entry the bridge menu (menu-my-activity) may import (platform ADR-0071).
  * @type {import('eslint').Linter.Config[]}
  */
-export const foBridgeMenu = menuPreset(FO_BRIDGE_RESTRICTION);
+export const foBridgeMenu = [
+  ...menuPreset(FO_BRIDGE_RESTRICTION),
+  // The bridge menu's integration tests drive the bridge slots and lazy pages directly; production files see the bridge root only.
+  testEntryOverride(FO_BRIDGE_RESTRICTION, [...ABOVE_COMPONENTS_TEST_ENTRIES, ...FO_BRIDGE_TEST_SUBPATHS]),
+];
+
+/**
+ * The FeedbackOps bridge runtime package (the fo-bridge package, ADR-0071, ADR-0081): menu-layer imports, `/core` only,
+ * and `src/pages/**` (lazy chunks) may also import the screen barrel. Menu contract rules do not apply (no manifests here).
+ * @type {import('eslint').Linter.Config[]}
+ */
+export const foBridge = [
+  REACT_HOOKS,
+  layerConfig({ restriction: FO_BRIDGE_PACKAGE_RESTRICTION, extraRules: menuContractRules }),
+  {
+    files: ['src/pages/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': importRestrictions(FO_BRIDGE_PAGES_RESTRICTION),
+      'ap/restricted-import-source': ['error', importSourceOptions(FO_BRIDGE_PAGES_RESTRICTION)],
+    },
+  },
+  designSystem(),
+];
 
 // App: all package entries allowed, deep subpaths, mock-server and ./dev banned (#153). src/main.tsx keeps only
 // the FeedbackOps origin subpath; src/dev/** sees mock-server and the menu `/mock`
