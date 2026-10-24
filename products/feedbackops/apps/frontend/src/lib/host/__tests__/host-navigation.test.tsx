@@ -9,6 +9,7 @@ import { act, render, renderHook } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { parseAppSearch, stringifyAppSearch } from '@/lib/router/search-serialization';
 import {
   HostSeamProvider,
   clearDefaultHost,
@@ -20,7 +21,7 @@ import {
 } from '../host-seam';
 import { tanstackHost } from '../tanstack-host';
 
-/** TanStack's default `parseSearch` (JSON-parses values), not the app's: only `location.searchStr` keeps `q=123` a string. */
+/** A router with the app's search codec, as `createAppRouter` builds it. */
 function routerAt(entry: string, probe: () => void) {
   const root = createRootRoute({
     component: function Probe() {
@@ -32,6 +33,8 @@ function routerAt(entry: string, probe: () => void) {
   return createRouter({
     routeTree: root.addChildren([route]),
     history: createMemoryHistory({ initialEntries: [entry] }),
+    parseSearch: parseAppSearch,
+    stringifySearch: stringifyAppSearch,
   });
 }
 
@@ -61,6 +64,52 @@ describe('host navigation over a TanStack router', () => {
 
     await act(async () => navigate('/vocs?view=inbox'));
     expect(search).toEqual({ view: 'inbox' });
+  });
+});
+
+describe('host search semantics over the app codec', () => {
+  it.each(['true', 'null', '"quoted"', '123'])(
+    'a written %s reads back as that text and is written the way the router wrote it before',
+    async (term) => {
+      let navigate!: ReturnType<typeof useHostNavigate>;
+      let search!: ReturnType<typeof useHostSearch>;
+      const router = routerAt('/vocs', () => {
+        navigate = useHostNavigate();
+        search = useHostSearch();
+      });
+      render(<RouterProvider router={router} />);
+      await vi.waitFor(() => expect(navigate).toBeDefined());
+      await act(async () =>
+        navigate(`/vocs?${new URLSearchParams({ view: 'inbox', q: term })}#h`, { replace: true }),
+      );
+      expect(search).toEqual({ view: 'inbox', q: term });
+      expect(router.history.location.search).toBe(stringifyAppSearch({ view: 'inbox', q: term }));
+      expect(router.history.location.hash).toBe('#h');
+    },
+  );
+
+  it('reads a legacy bare true/number leaf as its text', async () => {
+    let search!: ReturnType<typeof useHostSearch>;
+    const router = routerAt('/vocs?q=true&n=null', () => {
+      search = useHostSearch();
+    });
+    render(<RouterProvider router={router} />);
+    await vi.waitFor(() => expect(search).toBeDefined());
+    expect(search).toEqual({ q: 'true', n: 'null' });
+  });
+
+  it('hands a new search object per navigation, also back to the same URL', async () => {
+    const seen: ReturnType<typeof useHostSearch>[] = [];
+    const router = routerAt('/vocs?q=a', () => {
+      seen.push(useHostSearch());
+    });
+    render(<RouterProvider router={router} />);
+    await vi.waitFor(() => expect(seen.length).toBeGreaterThan(0));
+    const first = seen.at(-1);
+    await act(async () => router.navigate({ to: '/vocs', search: { q: 'b' } as never }));
+    await act(async () => router.history.back());
+    await vi.waitFor(() => expect(seen.at(-1)).toEqual({ q: 'a' }));
+    expect(seen.at(-1)).not.toBe(first);
   });
 });
 

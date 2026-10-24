@@ -220,4 +220,16 @@ describe('routeSearch', () => {
     const { result } = renderHook(() => routeSearch(inbox)(), { wrapper });
     expect(result.current).toEqual({ view: 'inbox', selected: 'abc', q: 'pump' });
   });
+
+  it('is stable while the page stays and new on each navigation, also back to an earlier URL', () => {
+    at('/inbox?v=1&q=a');
+    const { result } = renderHook(() => ({ search: routeSearch(inbox)(), platform: usePlatform() }), { wrapper });
+    const first = result.current.search;
+    const go = result.current.platform.navigate as unknown as (url: string) => void;
+    act(() => go('/inbox?v=1&q=b'));
+    expect(result.current.search).not.toBe(first);
+    act(() => go('/inbox?v=1&q=a'));
+    expect(result.current.search).toEqual(first);
+    expect(result.current.search).not.toBe(first);
+  });
 });

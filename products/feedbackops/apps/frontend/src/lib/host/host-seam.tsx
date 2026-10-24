@@ -42,7 +42,7 @@ export type HostSeam = {
    * order never changes). `to` is the complete FeedbackOps path+query: a key absent from it is cleared.
    */
   useNavigate?: () => HostNavigate;
-  /** The current screen's search as raw URL strings. */
+  /** The current screen's search as semantic strings, a new object per navigation (even back to the same URL). */
   useSearch?: () => HostSearch;
   /** Sets the document title while the caller is mounted; `null` releases it. */
   useTitle?: (title: string | null) => void;

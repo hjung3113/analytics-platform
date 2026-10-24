@@ -1,4 +1,5 @@
 import { Link, useRouter, useRouterState } from '@tanstack/react-router';
+import { useMemo } from 'react';
 import { toast } from 'sonner';
 
 import { useDocumentTitle } from '@/lib/router/document-title';
@@ -19,13 +20,35 @@ function TanstackHostLink({ to, ...rest }: HostLinkProps) {
 function useTanstackNavigate() {
   const router = useRouter();
   return (to: string, options?: { replace?: boolean }) => {
-    void router.navigate({ href: to, replace: options?.replace === true });
+    // Not `href`: that is parsed back with `parseAppSearch`, which turns a literal `q=true` into a boolean.
+    // Search values go in as strings so `stringifyAppSearch` quotes the JSON-like ones as before.
+    const location = new URL(to, 'http://feedbackops.local');
+    void router.navigate({
+      to: location.pathname as never,
+      search: Object.fromEntries(location.searchParams) as never,
+      ...(location.hash === '' ? {} : { hash: location.hash.slice(1) }),
+      replace: options?.replace === true,
+    });
   };
 }
 
+/**
+ * The router's parsed search (`parseAppSearch`) as the semantic strings a screen wrote: a legacy bare
+ * `true`/`null`/number leaf becomes its text. A new object per router location, so a navigation back to
+ * the same URL is still a new value for the screen.
+ */
 function useTanstackSearch() {
-  const searchStr = useRouterState({ select: (state) => state.location.searchStr });
-  return Object.fromEntries(new URLSearchParams(searchStr));
+  const location = useRouterState({ select: (state) => state.location });
+  return useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(location.search as Record<string, unknown>).map(([key, value]) => [
+          key,
+          typeof value === 'string' ? value : String(value),
+        ]),
+      ),
+    [location],
+  );
 }
 
 function useTanstackHere() {

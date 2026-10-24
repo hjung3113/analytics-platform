@@ -72,7 +72,9 @@ export function operatorRoute({ foPath, foFixed, menuId, keys }: OperatorRouteSp
 /** A module-level `useSearch` hook for `FoBridge`: the current page read through one route table, as FO search strings. */
 export function routeSearch(route: OperatorRoute) {
   return function useRouteSearch(): Readonly<Record<string, string>> {
-    const { pageParam } = usePlatform();
+    // `url` and `page` are the kernel values that change with each navigation; the memo is keyed on them so
+    // a screen that folds pending writes sees a new object whenever the platform reports a new location.
+    const { pageParam, url, page } = usePlatform();
     return useMemo(() => {
       const page: Record<string, string> = {};
       for (const key of route.pageKeys) {
@@ -80,7 +82,7 @@ export function routeSearch(route: OperatorRoute) {
         if (value !== null) page[key] = value;
       }
       return route.toFoSearch(page);
-    }, [pageParam]);
+    }, [pageParam, url, page]);
   };
 }
 

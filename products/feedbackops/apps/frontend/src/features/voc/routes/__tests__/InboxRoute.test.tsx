@@ -223,6 +223,23 @@ import { SEARCH_DEBOUNCE_MS, SEARCH_HANGUL_DEBOUNCE_MS } from '@/lib/forms/searc
 import { Route as vocsRoute } from '@/routes/_authed/vocs';
 import { InboxScreen } from '../InboxScreen';
 
+// One object per `searchState` value, like a real host's one per navigation: the screen drops its
+// pending-write fold whenever the object changes.
+let hostSearchCache: { from: Record<string, unknown>; search: Record<string, string> } | undefined;
+function hostSearchFor(state: Record<string, unknown>): Record<string, string> {
+  if (hostSearchCache?.from !== state) {
+    hostSearchCache = {
+      from: state,
+      search: Object.fromEntries(
+        Object.entries(state).filter(
+          (entry): entry is [string, string] => typeof entry[1] === 'string',
+        ),
+      ),
+    };
+  }
+  return hostSearchCache.search;
+}
+
 const TEST_SEAM: HostSeam = {
   canLink: () => true,
   Link: ({ to, children, className }) => (
@@ -233,12 +250,7 @@ const TEST_SEAM: HostSeam = {
   notifyError: () => {},
   notifySuccess: () => {},
   useNavigate: () => navigateMock,
-  useSearch: () =>
-    Object.fromEntries(
-      Object.entries(searchState).filter(
-        (entry): entry is [string, string] => typeof entry[1] === 'string',
-      ),
-    ),
+  useSearch: () => hostSearchFor(searchState),
 };
 
 // ListShell forwards the detail to AppFrame's slot; the harness hosts it like the app does.

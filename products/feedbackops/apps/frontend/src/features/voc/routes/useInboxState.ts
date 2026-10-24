@@ -23,12 +23,13 @@ type SearchUpdate = (previous: VocSearch) => VocSearch;
 export function useInboxState(view: 'inbox' | 'my') {
   const hostSearch = useHostSearch();
   const hostNavigate = useHostNavigate();
-  const searchKey = JSON.stringify(hostSearch);
-  const search = React.useMemo(() => validateVocSearch(JSON.parse(searchKey)), [searchKey]);
+  // The seam hands a new object per navigation (even Back to the same URL), so this identity is the
+  // navigation the fold below must not outlive.
+  const search = React.useMemo(() => validateVocSearch(hostSearch), [hostSearch]);
 
-  // A write builds on the search the previous write left, until the host reports a new URL. Several
-  // writes before the router has applied the first (Enter, a tab pick and a blur) therefore fold like
-  // the router's functional `search` did, instead of each overwriting the last from a stale render.
+  // A write builds on the host search, or on the search the previous write left while that write is
+  // pending. Several writes before the router has applied the first (Enter, a tab pick and a blur)
+  // therefore fold like the router's functional `search` did; any host navigation drops the fold.
   const latest = React.useRef({ search, navigate: hostNavigate });
   React.useEffect(() => {
     latest.current.search = search;
