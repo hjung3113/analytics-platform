@@ -138,14 +138,16 @@ describe('rowPitch viewport (#690b)', () => {
   });
 
   it('scrolls a hidden active row to gridTop + index × pitch on an outside change, but not for its own click', async () => {
-    const view = mount({ rowPitch: 30, revealActive: true, activeCategory: 'R1', onActiveCategoryChange: () => {} });
+    // The owner accepts the request inside the click event, as a controlled parent does.
+    const owner: { accept?: (c: string | null) => void } = {};
+    const view = mount({ rowPitch: 30, revealActive: true, activeCategory: 'R1', onActiveCategoryChange: c => owner.accept?.(c) });
+    owner.accept = c => view.update({ activeCategory: c });
     const plot = (await screen.findByRole('img')).parentElement!;
     Object.defineProperty(plot, 'clientHeight', { configurable: true, value: 40 });
     act(() => view.update({ activeCategory: 'R3' }));
     expect(plot.scrollTop).toBe(GRID_TOP + 2 * 30);
     plot.scrollTop = 0;
     fireEvent.click(screen.getByRole('button', { name: 'bar-R2' }));
-    act(() => view.update({ activeCategory: 'R2' }));
     expect(plot.scrollTop).toBe(0);
   });
 });
@@ -159,6 +161,18 @@ describe('reveal after an ignored pointer request (#690b FIX1)', () => {
     await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); });
     act(() => view.update({ activeCategory: 'R3' }));
     expect(plot.scrollTop).toBe(GRID_TOP + 2 * 30);
+  });
+
+  it('reveals without any timer advancing', async () => {
+    const view = mount({ rowPitch: 30, revealActive: true, activeCategory: 'R1', onActiveCategoryChange: () => {} });
+    const plot = (await screen.findByRole('img')).parentElement!;
+    Object.defineProperty(plot, 'clientHeight', { configurable: true, value: 40 });
+    vi.useFakeTimers();
+    try {
+      fireEvent.click(screen.getByRole('button', { name: 'bar-R3' }));
+      act(() => view.update({ activeCategory: 'R3' }));
+      expect(plot.scrollTop).toBe(GRID_TOP + 2 * 30);
+    } finally { vi.useRealTimers(); }
   });
 });
 

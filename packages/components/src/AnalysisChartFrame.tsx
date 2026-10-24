@@ -191,7 +191,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const activeCategory = horizontal ? p.activeCategory : undefined;
   const rowPitch = horizontal && p.rowPitch !== undefined ? clampRowPitch(p.rowPitch) : undefined;
   // The category the last pointer click reported: the row is already visible, so that echo must not scroll.
-  const ownPointerCategory = useRef<string | null>(null);
+  const [pointerRequest, setPointerRequest] = useState<string | null>(null);
   const revealedCategory = useRef<string | null | undefined>(undefined);
   const { rowPitch: rawRowPitch, activeCategory: rawActive, onActiveCategoryChange, revealActive } = p;
   useEffect(() => {
@@ -228,14 +228,15 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
     if (rowPitch === undefined || !revealActive || activeCategory == null) { revealedCategory.current = activeCategory; return; }
     if (revealedCategory.current === activeCategory) return;
     revealedCategory.current = activeCategory;
-    const own = ownPointerCategory.current === activeCategory;
-    ownPointerCategory.current = null;
+    const own = pointerRequest === activeCategory;
     const node = pointChart.current;
     const index = categories.indexOf(activeCategory);
     if (own || !node || index < 0) return;
     const target = revealScrollTop(index, rowPitch, node.scrollTop, node.clientHeight);
     if (target !== null) node.scrollTop = target;
-  }, [rowPitch, revealActive, activeCategory, categories, pointChart]);
+  }, [rowPitch, revealActive, activeCategory, categories, pointChart, pointerRequest]);
+  // Declared after the reveal effect: the request lives for the render of its own click only, so an ignored one cannot swallow a later outside reveal of the same row.
+  useEffect(() => { if (pointerRequest !== null) setPointerRequest(null); }, [pointerRequest]);
   const points = useMemo(() => pointControls ? displayed.flatMap(s => s.points.map(([x, value]) => ({ x, seriesId: s.id, value }))) : [], [pointControls, displayed]);
   const selectedPoint = points.find(point => pointKey(point) === selectedPointKey) ?? points[0];
   const format = p.valueFormat ?? ((v: number) => v.toLocaleString(lang === 'ko' ? 'ko-KR' : 'en-US', { maximumFractionDigits: 1 }));
@@ -340,9 +341,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
       if (pointControls) setSelectedPointKey(pointKey(point));
       // Row focus first, then activation: a click focuses the row and (on: 'click') also activates the point.
       if (horizontal && onActiveCategoryChange) {
-        // The marker lives for this event's own controlled update only (it commits before the timeout); a request the owner ignored must not swallow a later outside reveal of the same row.
-        ownPointerCategory.current = point.x;
-        setTimeout(() => { ownPointerCategory.current = null; }, 0);
+        setPointerRequest(point.x);
         onActiveCategoryChange(point.x, 'pointer');
       }
       // Native double-click recognition is OS-defined; no timer can safely commit a click first.
