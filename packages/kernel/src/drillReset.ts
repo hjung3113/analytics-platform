@@ -15,7 +15,7 @@ const normalized = (value: string | null | undefined): string | null => (value =
 export function drillLevelChanged(menu: DrillRule | null | undefined, current: readonly Current[], patch: Record<string, string | null>): boolean {
   const levels = menu?.drill?.levels;
   if (!levels) return false;
-  return levels.some(({ key }) => key in patch && normalized(current.find(([k]) => k === key)?.[1]) !== normalized(patch[key]));
+  return levels.some(({ key }) => Object.hasOwn(patch, key) && normalized(current.find(([k]) => k === key)?.[1]) !== normalized(patch[key]));
 }
 
 /**
@@ -26,7 +26,8 @@ export function drillLevelChanged(menu: DrillRule | null | undefined, current: r
 export function dropDrillResetKeys(menu: DrillRule | null | undefined, current: readonly Current[], patch: Record<string, string | null>): Record<string, string | null> {
   const resetKeys = menu?.drill?.resetKeys;
   if (!resetKeys || resetKeys.length === 0 || !drillLevelChanged(menu, current, patch)) return patch;
-  const next = { ...patch };
-  for (const key of resetKeys) if (!(key in next)) next[key] = null;
+  // Null prototype: a page key named `__proto__` must be an own data entry, not a prototype write.
+  const next: Record<string, string | null> = Object.assign(Object.create(null) as Record<string, string | null>, patch);
+  for (const key of resetKeys) if (!Object.hasOwn(next, key)) next[key] = null;
   return next;
 }
