@@ -245,7 +245,7 @@
         tab.setAttribute("aria-selected", String(selected));
         tab.tabIndex = selected ? 0 : -1;
       });
-      document.getElementById("board-title").textContent = sheet.name === "견본 비교" ? "견본 분석 작업대" : "견본 전·후 작업대";
+      document.getElementById("board-title").textContent = sheet.name === "견본 비교" ? "견본 분석 보드" : "견본 전·후 보드";
       var activeContext = sheet.panes[selectedPane].context;
       selectedContext.textContent = "선택한 칸 " + (selectedPane + 1) + " · " + contextString(activeContext);
       sheet.panes.slice(0, paneCount()).forEach(function (pane, index) {
@@ -373,7 +373,14 @@
   var shotDialog = document.getElementById("shot-dialog");
   if (shotDialog) {
     var shotButtons = all("[data-shot-open]");
-    var shownShots = shotButtons.slice();
+    // 본문 그림과 부록 갤러리 타일이 같은 캡처(data-shot-open 값이 같음)를 가리키면 한 장으로 센다.
+    // 앞쪽(본문) 단추를 대표로 남기고 뒤에 오는 같은 캡처는 쪽수에서 뺀다.
+    var uniqueShotButtons = shotButtons.filter(function (button, index) {
+      return !shotButtons.some(function (other, otherIndex) {
+        return otherIndex < index && other.dataset.shotOpen === button.dataset.shotOpen;
+      });
+    });
+    var shownShots = uniqueShotButtons.slice();
     var shotIndex = 0;
     var shotReturn = null;
     function showShot(index) {
@@ -413,7 +420,7 @@
       all("[data-shot-group]").forEach(function (tile) {
         tile.hidden = group !== "all" && tile.dataset.shotGroup !== group;
       });
-      shownShots = shotButtons.filter(function (button) {
+      shownShots = uniqueShotButtons.filter(function (button) {
         var tile = button.closest(".shot-tile");
         return !tile || !tile.hidden;
       });
@@ -438,8 +445,12 @@
     });
     shotButtons.forEach(function (button) {
       button.addEventListener("click", function () {
+        // 대표 단추가 아니어도(갤러리의 같은 캡처) 대표의 자리를 열어 준다.
+        var target = uniqueShotButtons.filter(function (seen) {
+          return seen.dataset.shotOpen === button.dataset.shotOpen;
+        })[0];
         shotReturn = button;
-        showShot(shownShots.indexOf(button));
+        showShot(shownShots.indexOf(target));
         shotDialog.showModal();
         shotDialog.querySelector("[data-shot-close]").focus();
       });
@@ -676,6 +687,15 @@
       current(a.hash.slice(1));
     });
   });
+  // 열린 모바일 목차는 Esc로 닫고, 포커스를 토글(summary)로 돌린다.
+  var mobileToc = document.querySelector(".mobile-toc");
+  if (mobileToc)
+    document.addEventListener("keydown", function (event) {
+      if (event.key !== "Escape" || !mobileToc.open) return;
+      mobileToc.open = false;
+      var toggle = mobileToc.querySelector("summary");
+      if (toggle) toggle.focus();
+    });
   // 앵커 대상이 닫힌 <details>(원장·부록 접기) 안에 있으면 조상을 모두 연다 — 열지 않으면 대상이 숨어 스크롤이 일어나지 않는다.
   function revealTarget(hash) {
     if (!hash || hash.length < 2) return;

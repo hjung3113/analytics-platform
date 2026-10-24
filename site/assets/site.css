@@ -1105,14 +1105,34 @@ footer summary {
     position: relative;
   }
   .mobile-toc summary {
+    display: flex;
+    align-items: center;
     cursor: pointer;
-    min-height: 32px;
+    min-height: 44px;
     padding: 4px 8px;
     white-space: nowrap;
+    list-style: none;
+  }
+  .mobile-toc summary::-webkit-details-marker {
+    display: none;
+  }
+  /* 글자 대신 테두리로 그린 화살표: 크기가 글꼴에 달려 있지 않아 모바일에서도 또렷하다. */
+  .mobile-toc summary::after {
+    content: "";
+    width: 9px;
+    height: 9px;
+    margin: -4px 2px 0 10px;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: rotate(45deg);
+  }
+  .mobile-toc[open] summary::after {
+    margin-top: 4px;
+    transform: rotate(-135deg);
   }
   .mobile-toc nav {
     position: absolute;
-    top: 40px;
+    top: 48px;
     left: auto;
     right: 0;
     width: min(260px, calc(100vw - 24px));
@@ -1611,6 +1631,8 @@ footer summary {
   object-fit: contain;
 }
 .shot-dialog {
+  display: flex;
+  flex-direction: column;
   width: min(1280px, calc(100% - 32px));
   max-height: calc(100dvh - 32px);
   padding: 20px;
@@ -1624,11 +1646,13 @@ footer summary {
 }
 .shot-dialog img {
   display: block;
-  /* 원본 크기 속성을 기준으로 하되 dialog와 화면 높이 안에 담는다. */
+  /* 원본 크기 속성을 기준으로 하되 대화상자와 화면 높이 안에서만 줄어든다.
+     그래야 이전·다음 단추가 대화상자 안에 그대로 보인다(내부 스크롤 없음). */
+  flex: 0 1 auto;
+  min-height: 0;
   width: auto;
   height: auto;
   max-width: 100%;
-  max-height: calc(100dvh - 200px);
   margin: 0 auto;
   object-fit: contain;
   background: rgb(var(--surface-sunken));
@@ -2790,7 +2814,6 @@ a.demo-link[data-demo]:not([hidden]) {
 .state-row .shot-figure img,
 .tools-grid .shot-figure img,
 .shots-row .shot-figure img {
-  aspect-ratio: auto;
   object-fit: contain;
 }
 .trust-list {
@@ -4860,6 +4883,18 @@ a.demo-link[data-demo]:not([hidden]) {
 }
 .diagram-medium svg .diagram-overline {
   font-size: 14px;
+}
+.shots-row > .shot-wide {
+  grid-column: 1 / -1;
+}
+.shot-narrow {
+  max-width: 440px;
+}
+.shot-medium {
+  max-width: 560px;
+}
+.shot-popover {
+  max-width: 512px;
 }
 .shot-zoom {
   display: block;

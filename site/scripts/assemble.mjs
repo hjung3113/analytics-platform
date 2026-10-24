@@ -2,6 +2,7 @@
 import { cp, mkdir, readFile, writeFile, access, readdir, realpath, lstat, unlink, rmdir } from "node:fs/promises";
 import { resolve, dirname, join, relative, isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
+import { readFileSync } from "node:fs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const site = join(root, "site");
@@ -33,6 +34,19 @@ if (
   (demo && (within(demo, out) || within(out, demo)))
 ) {
   throw new Error("출력 경로가 소스 또는 데모 경로와 겹칩니다. 저장소 안에서는 _site/만 사용하세요.");
+}
+// PNG·JPEG 파일의 픽셀 크기(본문 <img>의 width·height 속성에 쓴다).
+function imageSize(path) {
+  const buffer = readFileSync(path);
+  if (buffer.toString("ascii", 1, 4) === "PNG") return { width: buffer.readUInt32BE(16), height: buffer.readUInt32BE(20) };
+  for (let at = 2; at + 9 < buffer.length; ) {
+    if (buffer[at] !== 0xff) throw new Error(`JPEG 구조를 읽지 못했습니다: ${path}`);
+    const marker = buffer[at + 1];
+    if (marker >= 0xc0 && marker <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(marker))
+      return { height: buffer.readUInt16BE(at + 5), width: buffer.readUInt16BE(at + 7) };
+    at += 2 + buffer.readUInt16BE(at + 2);
+  }
+  throw new Error(`이미지 크기를 읽지 못했습니다: ${path}`);
 }
 async function exists(path) {
   try {
@@ -216,12 +230,14 @@ const escapeHtml = (value) =>
     /[&<>"']/g,
     (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c],
   );
+// 확대 대화상자는 캡처 갤러리와 별개로, 확대 단추가 있는 고정 JPG(assets/real)만 있어도 있어야 단추가 동작한다.
+const shotDialog = `<dialog class="shot-dialog" id="shot-dialog" aria-modal="true" aria-labelledby="shot-dialog-title" aria-describedby="shot-dialog-description"><div class="shot-dialog-controls"><h3 id="shot-dialog-title"></h3><button type="button" data-shot-close autofocus>닫기</button></div><img id="shot-dialog-image" alt=""><p id="shot-dialog-description"></p><div class="shot-dialog-controls"><button type="button" data-shot-prev>이전</button><span id="shot-dialog-position" role="status"></span><button type="button" data-shot-next>다음</button><a class="button secondary" data-demo hidden id="shot-dialog-demo" target="_blank" rel="noopener">데모에서 열기</a></div></dialog>`;
 if (shots.length) {
   await mkdir(join(out, "assets/shots"), { recursive: true });
   for (const shot of shots) await cp(join(shotsDir, `${shot.id}.png`), join(out, "assets/shots", `${shot.id}.png`));
   await cp(join(shotsDir, "shots.json"), join(out, "assets/shots/shots.json"));
   const image = (shot) =>
-    `<img src="assets/shots/${shot.id}.png" loading="lazy" width="${shot.width}" height="${shot.height}"${shot.fit === "cover-top" ? ' data-fit="cover-top"' : ""} alt="${escapeHtml(shot.title + ". " + shot.description)}">`;
+    `<img src="assets/shots/${shot.id}.png" loading="lazy" width="${shot.width * (shot.scale || 1)}" height="${shot.height * (shot.scale || 1)}"${shot.fit === "cover-top" ? ' data-fit="cover-top"' : ""} alt="${escapeHtml(shot.title + ". " + shot.description)}">`;
   const groups = [
     ["all", "전체"],
     ["charts", "차트"],
@@ -248,8 +264,7 @@ if (shots.length) {
       return `<article class="shot-tile" data-shot-group="${shot.group}"><button type="button" class="shot-open" data-shot-open="${shot.id}" aria-haspopup="dialog" aria-label="${escapeHtml(shot.title)} 크게 보기">${image(shot)}</button><div class="shot-copy"><h4>${escapeHtml(shot.title)}</h4><p>${escapeHtml(shot.description)}</p>${demoLink}</div></article>`;
     })
     .join("");
-  const gallery = `<details class="appendix-content gallery-details" id="actual-shots-details"><summary>실제 화면 ${galleryShots.length}장 펼치기</summary><div class="shot-gallery" id="actual-shots" aria-labelledby="actual-shots-heading"><h3 id="actual-shots-heading">실제 화면</h3><p class="lead">아래는 데모 앱을 배포 때마다 자동으로 찍은 실제 화면입니다(mock 합성 데이터).</p><p class="caption">등록 유형: 선·막대(메뉴 사용 중)·파이·산점도(등록됨, 메뉴 미사용). <a class="source-ref" href="#source-L62">L62</a> · <a class="source-ref" href="#source-L63">L63</a></p><div class="shot-filters" role="group" aria-label="실제 화면 분류">${filters}</div><p id="shot-count" class="caption" role="status" aria-live="polite">${galleryShots.length}개 화면</p><div class="shot-grid">${tiles}</div></div></details>
-  <dialog class="shot-dialog" id="shot-dialog" aria-modal="true" aria-labelledby="shot-dialog-title" aria-describedby="shot-dialog-description"><div class="shot-dialog-controls"><h3 id="shot-dialog-title"></h3><button type="button" data-shot-close autofocus>닫기</button></div><img id="shot-dialog-image" alt=""><p id="shot-dialog-description"></p><div class="shot-dialog-controls"><button type="button" data-shot-prev>이전</button><span id="shot-dialog-position" role="status"></span><button type="button" data-shot-next>다음</button><a class="button secondary" data-demo hidden id="shot-dialog-demo" target="_blank" rel="noopener">데모에서 열기</a></div></dialog>`;
+  const gallery = `<details class="appendix-content gallery-details" id="actual-shots-details"><summary>실제 화면 ${galleryShots.length}장 펼치기</summary><div class="shot-gallery" id="actual-shots" aria-labelledby="actual-shots-heading"><h3 id="actual-shots-heading">실제 화면</h3><p class="lead">아래는 데모 앱을 배포 때마다 자동으로 찍은 실제 화면입니다(mock 합성 데이터).</p><p class="caption">등록 유형: 선·막대(메뉴 사용 중)·파이·산점도(등록됨, 메뉴 미사용). <a class="source-ref" href="#source-L62">L62</a> · <a class="source-ref" href="#source-L63">L63</a></p><div class="shot-filters" role="group" aria-label="실제 화면 분류">${filters}</div><p id="shot-count" class="caption" role="status" aria-live="polite">${galleryShots.length}개 화면</p><div class="shot-grid">${tiles}</div></div></details>`;
   html = html
     .replace(
       "<!-- ACTUAL_SHOTS -->",
@@ -281,11 +296,17 @@ if (shots.length) {
 // 캡처 없는 조립에서도 도식과 글만으로 페이지가 읽힌다.
 const figureSlot = /<figure class="([^"]*)" data-shot-fig="([a-z][a-z0-9-]*)">([\s\S]*?)<\/figure>/g;
 const shotById = new Map(shots.map((shot) => [shot.id, shot]));
+// 캡처 폴더를 받았다면 본문이 요구하는 캡처가 모두 있어야 한다. 빠진 캡처는 조용히 지우지 않고 조립을 멈춘다.
+if (shots.length) {
+  const wanted = [...new Set([...html.matchAll(/data-shot-fig="([a-z][a-z0-9-]*)"/g)].map((m) => m[1]))];
+  const missing = wanted.filter((id) => !shotById.has(id));
+  if (missing.length) throw new Error(`본문이 요구하는 캡처가 캡처 폴더에 없습니다: ${missing.join(", ")}`);
+}
 html = html.replace(figureSlot, (whole, cls, id, inner) => {
   const shot = shotById.get(id);
   if (!shot) return "";
   // CSS의 width:auto는 width 속성을 무시하고 PNG 픽셀(DPR2)로 되돌아가므로 CSS px 폭을 인라인으로 고정한다(2배 확대 방지).
-  const img = `<img src="assets/shots/${shot.id}.png" loading="lazy" width="${shot.width}" height="${shot.height}" style="width:${shot.width}px" alt="${escapeHtml(shot.title + ". " + shot.description)}">`;
+  const img = `<img src="assets/shots/${shot.id}.png" loading="lazy" width="${shot.width * (shot.scale || 1)}" height="${shot.height * (shot.scale || 1)}" style="width:${shot.width}px;aspect-ratio:${shot.width}/${shot.height}" alt="${escapeHtml(shot.title + ". " + shot.description)}">`;
   const marks = (shot.marks || []).length
     ? `<ol class="callouts" aria-hidden="true">${shot.marks.map((m) => `<li style="--x:${m.x}%;--y:${m.y}%"><span class="callout-no">${m.n}</span></li>`).join("")}</ol>`
     : "";
@@ -296,12 +317,17 @@ html = html.replace(figureSlot, (whole, cls, id, inner) => {
     : img;
   return `<figure class="${cls}" data-shot-fig="${id}"><span class="shot-frame">${picture}${marks}</span>${inner.replace("<!--shot:" + id + "-->", "")}</figure>`;
 });
-// 시안 JPG도 같은 확대 대화상자로 연다(캡처 유무와 무관).
+// 고정 JPG(assets/proto, 실서버 모드 assets/real)도 같은 확대 대화상자로 연다(캡처 유무와 무관).
 html = html.replace(
-  /<figure class="shot-figure"><img src="(assets\/proto\/[a-z0-9-]+\.jpg)" loading="lazy" alt="([^"]*)">/g,
-  (whole, src, alt) =>
-    `<figure class="shot-figure"><button type="button" class="shot-zoom" data-shot-open="${src}" aria-haspopup="dialog" aria-label="${alt} 크게 보기"><img src="${src}" loading="lazy" alt="${alt}"></button>`,
+  /<figure class="(shot-figure(?: shot-[a-z]+)?)"><img src="(assets\/(?:proto|real)\/[a-z0-9-]+\.jpg)" loading="lazy" alt="([^"]*)">/g,
+  (whole, cls, src, alt) => {
+    // 로드 전에도 자리를 잡도록 파일의 픽셀 크기를 width·height로 쓴다.
+    const { width, height } = imageSize(join(site, src));
+    return `<figure class="${cls}"><button type="button" class="shot-zoom" data-shot-open="${src}" aria-haspopup="dialog" aria-label="${alt} 크게 보기"><img src="${src}" loading="lazy" width="${width}" height="${height}" alt="${alt}"></button>`;
+  },
 );
+// 확대 대화상자는 닫힌 <details> 안에 두면 0×0 모달이 되어 페이지가 멈추므로 <body>의 직계 자식으로 한 번만 둔다.
+html = html.replace(/<\/body>/, `${shotDialog}</body>`);
 // 캡처 자리가 모두 지워진 묶음과, 그래서 내용이 빈 캡처 전용 접기는 함께 지운다(빈 토글을 남기지 않는다).
 html = html
   .replace(/<div class="(?:state-row|tools-grid|shots-row)"[^>]*>\s*<\/div>/g, "")

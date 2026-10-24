@@ -156,6 +156,8 @@ try {
         ],
       };
       localStorage.setItem("platform:role", JSON.stringify("engineer"));
+      // 도킹 보드가 저장한 v2·백업이 남아 있으면 v1 시드 대신 그것을 읽는다.
+      for (const key of ["platform:board:v2:engineer", "platform:board:v1-backup:engineer"]) localStorage.removeItem(key);
       localStorage.setItem("platform:board:engineer", JSON.stringify(board));
     });
   }
@@ -175,23 +177,34 @@ try {
               { menuId: "productivity-overview", params: {}, query },
               { menuId: "cycle-time", params: {}, query },
               { menuId: "operation-time", params: {}, query },
-              { menuId: "metric-catalog", params: {}, query },
+              { menuId: "metric-catalog", params: {}, query: query + "&metricId=cycle_time&metricVersion=4" },
             ],
           },
         ],
       };
       localStorage.setItem("platform:role", JSON.stringify("engineer"));
+      // 도킹 보드가 저장한 v2·백업이 남아 있으면 v1 시드 대신 그것을 읽는다.
+      for (const key of ["platform:board:v2:engineer", "platform:board:v1-backup:engineer"]) localStorage.removeItem(key);
       localStorage.setItem("platform:board:engineer", JSON.stringify(board));
     });
   }
   const boardPaneChart = (index) =>
     page.locator(`[data-pane-index="${index}"]`).getByRole("region", { name: "사이클타임 추세", exact: true });
+  // 기본 보드는 도킹 배치다. 도킹 엔진은 늦게 올라오므로 칸 머리(시스템 칩)가 그려지고 안의 내용이 찰 때까지 기다린다(#725).
+  // 칸 안의 작업 영역도 .dv-groupview를 가지므로 묶음 수가 아니라 칸 머리 수를 센다.
+  async function readyDock(panes) {
+    await expect(page.locator("[data-pane-system]")).toHaveCount(panes, { timeout: 20000 });
+    await page.evaluate(() => document.fonts.ready);
+    await expect(page.getByRole("main").locator('[aria-busy="true"]')).toHaveCount(0, { timeout: 20000 });
+  }
   async function readyBoard() {
     await expect(page.getByRole("tab", { name: "조건 비교", exact: true })).toBeVisible();
+    await readyDock(4);
     for (let index = 0; index < 4; index += 1) {
-      await expect(boardPaneChart(index)).toBeVisible();
+      await expect(boardPaneChart(index)).toBeVisible({ timeout: 20000 });
       await boardPaneChart(index).locator("canvas").waitFor();
     }
+    await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
   }
   async function failBoardPane(index) {
     return page.evaluate((paneIndex) => {
@@ -243,6 +256,17 @@ try {
       for (const el of document.querySelectorAll("main > div > .sticky, main > div > .fixed"))
         if (el.style.visibility === "hidden") el.style.removeProperty("visibility");
     });
+  // 앞 캡처가 저장한 작업 영역·접힘·보드 상태가 다음 캡처로 새지 않게, 역할만 남기고 저장소를 비운 뒤 빈 페이지로 나간다(#725).
+  async function resetStorage() {
+    if (new URL(page.url()).origin === origin)
+      await page.evaluate(() => {
+        const role = localStorage.getItem("platform:role");
+        localStorage.clear();
+        if (role !== null) localStorage.setItem("platform:role", role);
+        sessionStorage.clear();
+      });
+    await page.goto("about:blank");
+  }
   // Keep the clip inside the viewport; Playwright rejects clips that leave it.
   const frame = (clip) => {
     const viewport = page.viewportSize();
@@ -264,6 +288,22 @@ try {
       box = await locator.boundingBox();
     }
     return { x: box.x - pad, y: box.y - pad, width: box.width + pad * 2, height: box.height + pad * 2 };
+  }
+  // 차트 틀 전체를 찍는다. 작업 영역 패널이 틀보다 낮으면 틀 아래가 패널 안에서 잘리므로(UX2 V2) 그때는 실패시킨다.
+  // 틀과 그 위 스크롤 가능한 조상 모두 내용이 넘치지 않아야 한다.
+  async function frameClip(locator) {
+    const clip = await elementClip(locator);
+    const overflow = await locator.evaluate((el) => {
+      const found = [];
+      for (let node = el; node && node !== document.body; node = node.parentElement) {
+        const scrolls = node === el || ["auto", "scroll", "hidden"].includes(getComputedStyle(node).overflowY);
+        if (scrolls && node.scrollHeight > node.clientHeight + 1) found.push(`${node.tagName}#${node.id || "-"} ${node.scrollHeight}>${node.clientHeight}`);
+        if (node.id.includes("-panel-")) break; // 패널까지만 본다. 그 위는 페이지 스크롤이다.
+      }
+      return found;
+    });
+    if (overflow.length) throw new Error(`차트 틀이 패널에서 잘립니다: ${overflow.join(", ")}`);
+    return clip;
   }
   // 글자 하나에서 시작해, 폭 640px 미만이고 글이 짧은 가장 바깥 부모까지 올라가 메시지 상자 하나를 찍는다.
   async function messageClip(locator, pad = 12) {
@@ -396,7 +436,7 @@ try {
     if (hideSticky) await hideChrome(area.y);
     const png = await page.screenshot({ clip: area, animations: "disabled", caret: "hide", scale: "device" });
     if (hideSticky) await restoreChrome();
-    if (png.length < (group === "states" ? 4 : 10) * 1024) throw new Error(`캡처가 비어 있을 수 있습니다(${(png.length / 1024).toFixed(1)} KB)`);
+    if (png.length < (group === "states" || id === "lane-timeline" ? 4 : 10) * 1024) throw new Error(`캡처가 비어 있을 수 있습니다(${(png.length / 1024).toFixed(1)} KB)`);
     await writeFile(join(options.out, `${id}.png`), png);
     manifest.push({
       id,
@@ -414,13 +454,15 @@ try {
     });
     console.log(`${id}: ${area.width}×${area.height}, ${(png.length / 1024).toFixed(1)} KB`);
   }
+  // 차트 틀이 작업 영역 패널 안에서 잘리지 않을 높이(패널 높이는 화면 높이를 따른다, UX2 V2).
+  viewportHeight = 1560;
   await capture(
     "chart-trend",
     "AnalysisChartFrame · 기본 추이",
     "P50·P95 선, 툴바와 범례를 함께 봅니다.",
     "charts",
     cycle,
-    () => elementClip(trend()),
+    () => frameClip(trend()),
     ["C1"],
   );
   await capture(
@@ -433,7 +475,7 @@ try {
       await button("비교", trend()).click();
       await expect(trend().getByRole("group", { name: "범례", exact: true })).toContainText("P50 이전 기간");
     },
-    () => elementClip(trend()),
+    () => frameClip(trend()),
   );
   const annotateButton = () => button("주석", trend());
   // 브러시 저장이 잠시 뒤 정리되는 타이밍이 있어, 주석이 필요하면 드래그 직후 바로
@@ -467,7 +509,8 @@ try {
     trend,
     async () => {
       await brush();
-      return elementClip(trend());
+      await expect(trend()).toContainText(/n=\d+/);
+      return frameClip(trend());
     },
   );
   await capture(
@@ -479,7 +522,7 @@ try {
       await cycle();
       await button("확대", trend()).click();
     },
-    () => elementClip(trend()),
+    () => frameClip(trend()),
   );
   await capture(
     "chart-annotate",
@@ -496,7 +539,7 @@ try {
       await expect(button("분석 구간 적용…", trend())).toHaveCount(0);
       await hideSavedAnnotationToast();
     },
-    () => elementClip(trend()),
+    () => frameClip(trend()),
   );
   await capture(
     "chart-compare-annotate",
@@ -514,7 +557,7 @@ try {
       await expect(trend().getByRole("group", { name: "범례", exact: true })).toContainText("P50 이전 기간");
       await hideSavedAnnotationToast();
     },
-    () => elementClip(trend()),
+    () => frameClip(trend()),
   );
   await capture(
     "chart-bar",
@@ -548,7 +591,23 @@ try {
       await go(`/clas/operation-time?${period}`);
       await expect(page.getByRole("img", { name: /모듈별 동작 흐름$/ }).first()).toBeVisible();
     },
-    () => elementClip(page.getByRole("img", { name: /모듈별 동작 흐름$/ }).first(), 8),
+    async () => {
+      // 칸 줄 아래의 빈 면은 자른다: 줄을 이루는 막대와 이름의 아래 끝까지만 찍는다.
+      const lane = page.getByRole("img", { name: /모듈별 동작 흐름$/ }).first();
+      const clip = await elementClip(lane, 8);
+      // 캔버스라 안쪽 요소가 없다. 그려진 마지막 픽셀 줄(CSS px)까지만 남기고 아래 빈 면을 자른다.
+      const drawn = await lane.evaluate((el) => {
+        const ctx = el.getContext("2d");
+        const scale = el.height / el.getBoundingClientRect().height;
+        const { data, width, height } = ctx.getImageData(0, 0, el.width, el.height);
+        for (let y = height - 1; y >= 0; y -= 1)
+          for (let x = 0; x < width; x += 1) if (data[(y * width + x) * 4 + 3] > 0) return (y + 1) / scale;
+        return null;
+      });
+      if (drawn === null) throw new Error("모듈별 동작 흐름 캔버스에 그려진 것이 없습니다");
+      const bottom = clip.y + 8 + drawn;
+      return { ...clip, height: Math.min(clip.height, bottom - clip.y + 8) };
+    },
   );
   await capture(
     "chart-table",
@@ -561,6 +620,7 @@ try {
       await button("같은 데이터를 표로 보기").click();
       await page.keyboard.press("Escape");
       await expect(trend().getByRole("table")).toBeVisible();
+      await expect(trend().getByRole("table").getByRole("row")).not.toHaveCount(1);
       // 메뉴가 닫힌 뒤 트리거로 포커스가 돌아온 것을 확인하고 지운다. 닫힘 애니메이션
       // 뒤 복귀가 늦어 바로 지우면 링이 남는다.
       await page
@@ -573,8 +633,9 @@ try {
       await page.waitForFunction(() => document.activeElement === document.body);
       await page.mouse.move(0, 0);
     },
-    () => elementClip(trend()),
+    () => frameClip(trend()),
   );
+  viewportHeight = 900;
   await capture(
     "kpi",
     "StatCard · 네 지표 요약",
@@ -590,7 +651,6 @@ try {
     async () => {
       const region = page.getByRole("region", { name: "네 지표 요약" });
       await region.evaluate((el) => el.scrollIntoView({ block: "center", inline: "nearest" }));
-      await region.evaluate((el) => { el.style.paddingTop = "12px"; });
       return elementClip(region);
     },
     ["C10"],
@@ -750,9 +810,12 @@ try {
   await capture(
     "launcher",
     "AppShell · 홈 런처",
-    "업무 시스템 카드와 최근 방문을 봅니다.",
+    "업무 시스템 카드, 최근 방문, 지금 Site의 공지를 봅니다.",
     "shell",
-    () => go("/"),
+    async () => {
+      await go("/?v=1&scopeId=MEM");
+      await page.getByRole("region", { name: "공지" }).getByRole("status").first().waitFor();
+    },
     mainContentClip,
     ["K1"],
   );
@@ -780,11 +843,17 @@ try {
       await seedMixedBoard();
       await go("/board?sheet=sheet-mixed");
       await expect(page.getByRole("tab", { name: "업무 시스템 섞기", exact: true })).toBeVisible();
-      for (const [index, system] of ["MARS", "MARS", "CLAS", "BRAVO"].entries())
-        await expect(page.locator(`[data-pane-index="${index}"] [data-pane-system]`)).toHaveText(system);
-      await expect(page.locator('[data-pane-index="1"]').getByRole("region", { name: "사이클타임 추세", exact: true })).toBeVisible();
-      await expect(page.locator('[data-pane-index="2"]').getByText("동작시간 요약", { exact: true })).toBeVisible();
-      await expect(page.locator('[data-pane-index="3"]').getByRole("table")).toBeVisible();
+      await readyDock(4);
+      // 도킹 칸 머리는 묶음의 탭 띠에 들어가므로 시스템 칩은 칸 본문 밖에 있다.
+      // DOM 순서는 화면 순서와 달라 이름을 정렬해 비교한다.
+      await expect
+        .poll(() => page.locator("[data-pane-system]").allTextContents().then((names) => names.sort().join()), { timeout: 20000 })
+        .toBe("BRAVO,CLAS,MARS,MARS");
+      await expect(page.locator('[data-pane-index="1"]').getByRole("region", { name: "사이클타임 추세", exact: true })).toBeVisible({ timeout: 20000 });
+      await expect(page.locator('[data-pane-index="2"]').getByText("동작시간 요약", { exact: true })).toBeVisible({ timeout: 20000 });
+      await expect(page.locator('[data-pane-index="3"]').getByRole("table")).toBeVisible({ timeout: 20000 });
+      await expect(page.locator('[data-pane-index="3"]')).not.toContainText("전역 지표 쌍 없음");
+      await expect(page.locator('[data-pane-index="3"]')).not.toContainText("이 지표의 버전이 아닙니다");
       await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
     },
     () => {
@@ -798,7 +867,7 @@ try {
     "사이클타임 화면 네 개를 서로 다른 room 또는 기간 조건으로 나란히 봅니다.",
     "shell",
     async () => {
-      viewportHeight = 1100;
+      viewportHeight = 1600;
       await seedBoard();
       await go("/board?sheet=sheet-compare");
       await readyBoard();
@@ -814,7 +883,7 @@ try {
     "두 비교 구성을 아래 시트 탭으로 전환합니다.",
     "shell",
     async () => {
-      viewportHeight = 560;
+      viewportHeight = 1000;
       await seedBoard();
       await go("/board?sheet=sheet-compare");
       await readyBoard();
@@ -831,6 +900,188 @@ try {
       return { clip: { x: 0, y: 0, width: viewport.width, height: viewport.height }, hideSticky: false };
     },
   );
+  // 도킹 보드(#725): 한 묶음에 탭 둘이 겹친 시트. v2 저장 모양을 직접 심어 첫 묶음에 사이클타임 상세와 생산성 개요를 탭으로 둔다.
+  async function seedDockBoard() {
+    await page.evaluate(() => {
+      const query = "?v=1&scopeId=MEM&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00&roomNames=PHOTO";
+      const pane = (id, menuId) => ({ id, screen: { menuId, params: {}, query }, previous: null });
+      const board = {
+        v: 2,
+        activeSheetId: "sheet-dock",
+        sheets: [
+          {
+            id: "sheet-dock",
+            name: "탭으로 묶은 시트",
+            panes: [pane("p1", "cycle-time"), pane("p2", "productivity-overview"), pane("p3", "operation-time"), pane("p4", "equipment-master")],
+            selectedPaneId: "p1",
+            tree: {
+              type: "branch",
+              dir: "row",
+              sizes: [56, 44],
+              children: [
+                { type: "group", panes: ["p1", "p2"], active: "p1" },
+                {
+                  type: "branch",
+                  dir: "column",
+                  sizes: [50, 50],
+                  children: [
+                    { type: "group", panes: ["p3"], active: "p3" },
+                    { type: "group", panes: ["p4"], active: "p4" },
+                  ],
+                },
+              ],
+            },
+          },
+        ],
+      };
+      localStorage.setItem("platform:role", JSON.stringify("engineer"));
+      localStorage.removeItem("platform:board:engineer");
+      localStorage.setItem("platform:board:v2:engineer", JSON.stringify(board));
+    });
+  }
+  async function openDockBoard() {
+    viewportHeight = 900;
+    await seedDockBoard();
+    await go("/board?sheet=sheet-dock");
+    await expect(page.getByRole("tab", { name: "탭으로 묶은 시트", exact: true })).toBeVisible();
+    // 묶음 하나에 칸 머리(시스템 칩)가 하나라, 탭으로 겹친 두 칸은 칩 하나다.
+    await readyDock(3);
+    await expect(page.locator('[data-pane-index="0"]').getByRole("region", { name: "사이클타임 추세", exact: true })).toBeVisible({ timeout: 20000 });
+    await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
+  }
+  const viewportClip = () => {
+    const viewport = page.viewportSize();
+    return { clip: { x: 0, y: 0, width: viewport.width, height: viewport.height }, hideSticky: false };
+  };
+  await capture(
+    "board-dock-tabs",
+    "분석 보드 · 탭으로 겹친 칸",
+    "한 묶음에 사이클타임 상세와 생산성 개요가 탭으로 겹쳐 있고, 오른쪽에는 CLAS 동작시간과 MARS 설비 마스터 칸이 나뉘어 있습니다.",
+    "shell",
+    openDockBoard,
+    viewportClip,
+  );
+  // 최대화한 칸의 내용이 칸 폭을 채울 때까지 기다린다. 한 번 크기를 흔들어 다시 배치시킨 뒤 차트 폭을 잰다(#725 UX U4).
+  async function maximizePane() {
+    await button("칸 1 최대화").click();
+    await expect(button("원래 크기로").first()).toBeVisible();
+    const vp = page.viewportSize();
+    await page.setViewportSize({ width: vp.width - 2, height: vp.height });
+    await page.setViewportSize(vp);
+    const chart = page.locator('[data-pane-index="0"]').getByRole("region", { name: "사이클타임 추세", exact: true });
+    await expect(chart).toBeVisible();
+    await expect.poll(async () => (await chart.boundingBox())?.width ?? 0, { timeout: 15000 }).toBeGreaterThan(vp.width * 0.6);
+    await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
+  }
+  await capture(
+    "board-dock-maximized",
+    "분석 보드 · 칸 최대화",
+    "칸 머리의 최대화 버튼으로 한 칸을 시트 전체 크기로 키웁니다. 같은 자리의 ‘원래 크기로’를 누르면 돌아갑니다.",
+    "shell",
+    async () => {
+      await openDockBoard();
+      await maximizePane();
+    },
+    viewportClip,
+  );
+  await capture(
+    "board-pane-menu",
+    "분석 보드 · 칸 동작 메뉴",
+    "칸 머리의 ⋯ 메뉴에 칸 동작과 ‘화면 배치’ 명령이 모여 있습니다.",
+    "shell",
+    async () => {
+      await openDockBoard();
+      // 칸이 좁으면 `화면 배치`·`높이 방식`이 꺼지므로, 넓은 칸(최대화한 칸 1)에서 연다.
+      await maximizePane();
+      await button("칸 1 동작").click();
+      await expect(page.getByRole("menu")).toBeVisible();
+      const layout = page.getByRole("menuitem", { name: /화면 배치|기본 배치|집중|세로/ }).first();
+      await expect(layout).toBeVisible();
+      await expect(layout).not.toHaveAttribute("aria-disabled", "true");
+      await expect(layout).not.toHaveAttribute("data-disabled", "");
+    },
+    async () => {
+      const menu = page.getByRole("menu").first();
+      const box = await stableBox(menu);
+      const viewport = page.viewportSize();
+      // 메뉴와 그 위의 칸 머리 띠(탭 줄)를 함께 담는다.
+      const x = Math.max(0, box.x - 6);
+      const y = Math.max(0, box.y - 52);
+      return { clip: { x, y, width: Math.min(viewport.width - x, box.width + 24), height: box.height + 64 }, cover: true, hideSticky: false };
+    },
+  );
+  // 메뉴 작업 영역(PanelWorkspace, #664): 첫 소비자인 사이클타임 상세. 조회 조건 막대를 접어 작업 영역이 화면을 쓰게 한다.
+  async function cycleWorkspace(height = 1500) {
+    // `화면 맞춤`은 패널 높이가 화면 높이에 비례해서, 패널 안 내용이 잘리지 않으려면 1500 높이가 필요하다(1400 이하에서는 요약 안내 문장이 잘린다). 더 높으면 패널 아래가 비어 보인다.
+    // 앞 캡처의 저장 상태는 비운다.
+    viewportHeight = height;
+    await resetStorage();
+    await go(`/analytics/cycle-time?${period}`);
+    await expect(page.getByRole("region", { name: "사이클타임 분석 영역", exact: true })).toBeVisible();
+    // 접힘 상태는 이 브라우저에 저장되므로, 접혀 있으면 펼치고 시작한다. 접기 버튼이 있을 때만 누른다.
+    const collapse = page.getByRole("button", { name: "조회 조건 접기" });
+    if (await collapse.count()) await collapse.click();
+    await expect(page.getByRole("button", { name: "조회 조건 펼치기" })).toBeVisible();
+    await readyChart(trend());
+  }
+  const mainClip = async (height) => {
+    const box = await page.getByRole("main").boundingBox();
+    return { clip: { x: box.x, y: box.y, width: box.width, height: height ?? box.height }, cover: true, hideSticky: false };
+  };
+  await capture(
+    "cycle-workspace",
+    "메뉴 작업 영역 · 사이클타임 상세",
+    "추세·요약·분포·느린 실행이 패널로 나뉘어 있고, 위 도구줄에서 프리셋·높이 방식·기본 배치를 고릅니다.",
+    "shell",
+    () => cycleWorkspace(),
+    () => mainClip(),
+  );
+  // 같은 폭에서 조회 조건 막대를 접은 모습과 펼친 모습을 비교한다. 페이지 머리는 두 경우 모두 한 줄이다.
+  await capture(
+    "cycle-head-fold",
+    "페이지 머리 한 줄 · 조회 조건 접힘",
+    "페이지 머리는 한 줄(경로·제목·설명·상태)이고, 조회 조건 막대는 한 줄로 접혀 있으며 조회 결과는 그 아래 얇은 띠로 보입니다.",
+    "shell",
+    () => cycleWorkspace(900),
+    () => mainClip(220),
+  );
+  await capture(
+    "cycle-head-open",
+    "페이지 머리 한 줄 · 조회 조건 펼침",
+    "같은 화면에서 ‘조회 조건’을 누르면 기간·공정 조건 입력이 머리 아래에 펼쳐지고, 설비 조건은 그 아래로 이어집니다.",
+    "shell",
+    async () => {
+      await cycleWorkspace(900);
+      await page.getByRole("button", { name: "조회 조건 펼치기" }).click();
+      await expect(page.getByRole("button", { name: "조회 조건 접기" })).toBeVisible();
+      await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
+    },
+    async () => {
+      // 아래 경계는 `기간과 조회 범위` 묶음의 끝이다. 설비 조건 줄이 가운데서 잘리지 않게 그 줄은 통째로 뺀다.
+      const group = page.locator("fieldset").filter({ hasText: "기간과 조회 범위" }).first();
+      await expect(group).toBeVisible();
+      const clip = await mainClip();
+      const box = await group.boundingBox();
+      return { ...clip, clip: { ...clip.clip, height: box.y + box.height - clip.clip.y + 4 } };
+    },
+  );
+  await capture(
+    "cycle-workspace-stack",
+    "작업 영역 · 아래로 쌓기",
+    "높이 방식을 ‘아래로 쌓기’로 두면 줄마다 자기 높이를 갖고 위에서 아래로 이어지며, 넘치는 만큼 페이지가 스크롤됩니다.",
+    "shell",
+    async () => {
+      await cycleWorkspace(1400);
+      await page.getByRole("radio", { name: "세로", exact: true }).click();
+      await page.getByRole("radiogroup", { name: "높이 방식" }).getByRole("radio", { name: "아래로 쌓기" }).click();
+      await expect(page.locator("[data-panel-workspace]")).toHaveAttribute("data-workspace-mode", "stack");
+      await expect(page.locator("[data-dock-row-separator]").first()).toBeVisible();
+      // 줄마다 자기 px 높이를 가져 세 줄이 위에서 아래로 이어진다. 맨 위에서 찍어 고정 머리가 패널을 가리지 않게 한다.
+      await page.locator("#platform-main").evaluate((el) => el.scrollTo(0, 0));
+      await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
+    },
+    () => mainClip(),
+  );
   await capture(
     "error-trace",
     "오류 처리 · 추적 번호와 화면 격리",
@@ -846,19 +1097,20 @@ try {
       await expect(page.locator('[data-pane-index="0"]')).toContainText(/client-/);
       for (let index = 1; index < 4; index += 1) await expect(boardPaneChart(index).locator("canvas")).toBeVisible();
     },
-    () =>
-      unionClip([page.locator('[data-pane-index="0"]'), page.locator('[data-pane-index="1"]')], 8).then((clip) => ({
-        clip,
-        cover: true,
-        hideSticky: false,
-      })),
+    async () => {
+      // 칸 머리 띠는 칸 본문 밖(탭 줄)에 있으므로, 두 칸의 시스템 칩이 있는 띠까지 위로 넓힌다.
+      const bodies = await unionClip([page.locator('[data-pane-index="0"]'), page.locator('[data-pane-index="1"]')], 8);
+      const chips = await unionClip([page.locator("[data-pane-system]").nth(0), page.locator("[data-pane-system]").nth(1)], 0);
+      const top = Math.min(bodies.y, chips.y - 14);
+      return { clip: { ...bodies, y: top, height: bodies.y + bodies.height - top }, cover: true, hideSticky: false };
+    },
   );
   viewportHeight = 900;
   await page.setViewportSize({ width: 1440, height: 900 });
   await capture(
     "management",
     "ManagementLayout · 설비 관리",
-    "필터 레일과 목록을 나란히 봅니다.",
+    "필터 열과 목록을 나란히 봅니다.",
     "tables",
     tableReady,
     mainContentClip,
@@ -905,10 +1157,12 @@ try {
   await capture(
     "cycle-time-full",
     "견본 화면 전체",
-    "조건 바·차트·표·상세 진입·VOC 진입이 한 화면에 있는 견본 화면입니다.",
+    "조건 패널·추세 차트·요약·분포와 사이드바의 FeedbackOps(VOC·Task·설문) 링크가 한 화면에 있는 견본 화면입니다.",
     "tables",
     async () => {
+      // 앞 캡처(아래로 쌓기 등)의 저장 상태 없이 기본 배치로 찍는다.
       viewportHeight = 1640;
+      await resetStorage();
       await cycle();
     },
     () => {
@@ -952,44 +1206,34 @@ try {
       return { clip: { ...clip, y: row.top, height: row.bottom - row.top, width: cutX - clip.x }, hideSticky: false };
     },
   );
-  await capture(
-    "inset-trust",
-    "데이터 신뢰 표시 확대",
-    "갱신 시각·커버리지·지표 버전·원천과 ‘미확인’ 상태를 펼친 패널을 원본 크기로 봅니다(견본 지표·견본 원천).",
-    "tables",
-    async () => {
-      // 앞 캡처가 숨겨 둔 조건 바의 신뢰 배지를 되돌린 뒤 연다.
-      await page.evaluate(() => document.querySelectorAll('button[style*="visibility"]').forEach((b) => b.style.removeProperty("visibility")));
-      await button("데이터 신뢰").first().click();
-    },
-    () => unionClip([page.getByRole("dialog").filter({ hasText: "문제 없음은" })], 0).then((clip) => ({ clip, cover: true })),
-  );
   await page.keyboard.press("Escape");
   viewportHeight = 900;
   await page.setViewportSize({ width: 1440, height: 900 });
   await capture(
-    "feedbackops-entry",
-    "FeedbackOps · VOC 진입",
-    "MARS 사이드바 아래의 VOC 등록·VOC·Task·설문 진입 링크입니다. 데모에는 FeedbackOps 주소가 없어 흐리게 보입니다.",
+    "voc-drawer",
+    "VOC 등록 드로어 · 화면 정보 칩",
+    "‘VOC 등록’을 누르면 본문 오른쪽에 드로어가 열리고, 지금 화면의 업무 시스템·메뉴·기간·room_name·Scope가 칩으로 붙습니다. 데모에는 FeedbackOps 서버가 없어 작성 화면 자리에 ‘실서버 필요’가 보입니다.",
     "shell",
     async () => {
+      await resetStorage();
       await go(productivity);
-      const block = page.getByRole("navigation", { name: "FeedbackOps · MARS", exact: true });
-      await expect(block).toBeVisible();
-      await expect(block.getByRole("link", { name: /^VOC 등록/ })).toBeVisible();
+      await page.getByRole("button", { name: "VOC 등록", exact: true }).click();
+      const drawer = page.locator('aside[aria-label="VOC 등록"]');
+      await expect(drawer.getByText("첨부할 화면 정보")).toBeVisible();
+      await expect(drawer.getByText("MARS · 생산성 개요")).toBeVisible();
+      await expect(drawer.getByText("실서버 필요")).toBeVisible();
+      await page.mouse.move(0, 0);
+      await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
     },
-    // VOC 진입 링크 묶음(제목 + VOC 등록 · VOC · Task · 설문)만 원본 크기로 찍는다.
-    async () => {
-      const nav = page.getByRole("navigation", { name: "FeedbackOps · MARS", exact: true });
-      await expect(nav).toBeVisible();
-      const box = await nav.boundingBox();
-      return { clip: { x: box.x, y: box.y - 6, width: box.width, height: box.height + 12 }, cover: true, hideSticky: false };
+    () => {
+      const viewport = page.viewportSize();
+      return { clip: { x: 0, y: 0, width: viewport.width, height: 420 }, hideSticky: false };
     },
   );
   await capture(
     "system-switcher",
     "업무 시스템 전환기",
-    "MARS·BRAVO·CLAS 업무 시스템을 바꾸는 전환기입니다.",
+    "위쪽 플랫폼 메뉴 줄(홈·알림·내 VOC·설문·권한 요청·공지)과 아래 업무 시스템 MARS(현재)·BRAVO·CLAS·표준 로그 개발·개선 실행 카드를 바꾸는 전환기입니다. 공지는 메뉴 자리만 있고 화면은 아직 없습니다.",
     "shell",
     async () => {
       await go(productivity);
@@ -1033,9 +1277,20 @@ try {
     "메뉴별 방문·사용자·마지막 사용 시각을 활용률 화면에서 봅니다.",
     "tables",
     async () => {
-      for (const path of [productivity, equipment, "/metrics?v=1&scopeId=MEM", "/analytics/cycle-time?" + period, productivity]) await go(path);
+      // 방문 기록은 이 탭의 mock 어댑터 메모리에 쌓이므로, 새로고침 없이 앱 안에서 여러 메뉴를 거친 뒤 활용률 화면으로 간다(#725).
       viewportHeight = 1400;
-      await go("/admin/usage?v=1");
+      await page.setViewportSize({ width: viewportWidth, height: viewportHeight });
+      await page.goto(origin + base.slice(0, -1) + productivity);
+      await page.getByRole("main").getByRole("heading", { level: 1 }).waitFor();
+      for (const path of [equipment, "/metrics?v=1&scopeId=MEM", "/analytics/cycle-time?" + period, productivity, equipment, productivity, "/admin/usage?v=1"]) {
+        await page.evaluate((url) => {
+          history.pushState({}, "", url);
+          window.dispatchEvent(new PopStateEvent("popstate", { state: {} }));
+        }, base.slice(0, -1) + path);
+        await page.waitForTimeout(700);
+      }
+      await page.evaluate(() => document.fonts.ready);
+      await page.evaluate(() => document.activeElement && document.activeElement.blur && document.activeElement.blur());
       await expect(page.getByRole("main").getByRole("heading", { level: 1, name: "메뉴 활용률", exact: true })).toBeVisible();
       await expect(page.getByRole("table", { name: "메뉴 활용률 목록", exact: true })).toBeVisible();
     },
@@ -1056,7 +1311,7 @@ try {
   await capture(
     "menu-registry",
     "운영 콘솔 · 메뉴 레지스트리",
-    "등록된 업무 화면과 정의를 목록으로 확인합니다.",
+    "플랫폼 메뉴와 업무 시스템 메뉴를 포함해 등록된 화면과 정의를 목록으로 확인합니다.",
     "tables",
     async () => {
       await go("/admin/registry?v=1");
