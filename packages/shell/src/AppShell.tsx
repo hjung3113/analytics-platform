@@ -1,6 +1,6 @@
 import { AlertTriangle, Info, X, XCircle } from 'lucide-react';
-import { Suspense, useEffect, useState, type ReactNode } from 'react';
-import { useEquipmentAxes, useI18n } from '@ap/kernel';
+import { Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEquipmentAxes, useI18n, type Toast } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import { LoadingBlock } from '@ap/components';
 import { cn, DetailPanelSlotProvider, readLocalStorage, useDetailPanelSlotHost, writeLocalStorage } from '@ap/ui';
@@ -63,21 +63,36 @@ function ShellLayout({ children }: { children: ReactNode }) {
 }
 
 function Toasts() {
-  const { toasts, dismissToast } = useHostPlatform();
-  const { lang, t } = useI18n();
+  const { toasts } = useHostPlatform();
   // Toasts sit above the command palette scrim (z-60) so their dismiss stays clickable (#310).
   return <div aria-live="polite" className="pointer-events-none fixed bottom-4 right-4 z-70 flex w-[min(420px,90vw)] flex-col gap-2">
-    {toasts.map(tst => {
-      const Icon = tst.tone === 'danger' ? XCircle : tst.tone === 'warning' ? AlertTriangle : Info;
-      return <div key={tst.id} role={tst.tone === 'danger' ? 'alert' : 'status'} className={cn('pointer-events-auto flex items-start gap-2 rounded-md border bg-surface-card px-3 py-2.5 text-xs shadow-lg',
-        tst.tone === 'danger' ? 'border-accent-danger' : tst.tone === 'warning' ? 'border-accent-warn' : 'border-border-strong')}>
-        <Icon className={cn('mt-0.5 size-4 shrink-0', tst.tone === 'danger' ? 'text-accent-danger' : tst.tone === 'warning' ? 'text-accent-warn' : 'text-accent-primary')} aria-hidden />
-        <span className="flex-1">{tst.text}
-          {/* Same named detail as StateMessage's server detail (#304 F2): the original stays visible, outside the body. */}
-          {tst.detail && <span role="note" aria-label={t('serverDetail')} className="mt-0.5 block max-w-full break-all text-tiny">{tst.detail}</span>}
-        </span>
-        <button type="button" aria-label={lang === 'ko' ? '닫기' : 'Dismiss'} onClick={() => dismissToast(tst.id)} className="text-text-muted hover:text-text-primary"><X className="size-3.5" aria-hidden /></button>
-      </div>;
-    })}
+    {toasts.map(tst => <ToastItem key={tst.id} toast={tst} />)}
+  </div>;
+}
+
+function ToastItem({ toast: tst }: { toast: Toast }) {
+  const { dismissToast, holdToast } = useHostPlatform();
+  const { lang, t } = useI18n();
+  const { id, action } = tst;
+  // An action toast waits while focus or the pointer is inside it (WCAG 2.2.1) and restarts its timer once both have left.
+  const inside = useRef({ focus: false, pointer: false });
+  const hold = (key: 'focus' | 'pointer', on: boolean) => {
+    if (!action) return;
+    inside.current[key] = on;
+    holdToast(id, inside.current.focus || inside.current.pointer);
+  };
+  const Icon = tst.tone === 'danger' ? XCircle : tst.tone === 'warning' ? AlertTriangle : Info;
+  return <div role={tst.tone === 'danger' ? 'alert' : 'status'}
+    onFocus={() => hold('focus', true)} onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget)) hold('focus', false); }}
+    onPointerEnter={() => hold('pointer', true)} onPointerLeave={() => hold('pointer', false)}
+    className={cn('pointer-events-auto flex items-start gap-2 rounded-md border bg-surface-card px-3 py-2.5 text-xs shadow-lg',
+      tst.tone === 'danger' ? 'border-accent-danger' : tst.tone === 'warning' ? 'border-accent-warn' : 'border-border-strong')}>
+    <Icon className={cn('mt-0.5 size-4 shrink-0', tst.tone === 'danger' ? 'text-accent-danger' : tst.tone === 'warning' ? 'text-accent-warn' : 'text-accent-primary')} aria-hidden />
+    <span className="flex-1">{tst.text}
+      {/* Same named detail as StateMessage's server detail (#304 F2): the original stays visible, outside the body. */}
+      {tst.detail && <span role="note" aria-label={t('serverDetail')} className="mt-0.5 block max-w-full break-all text-tiny">{tst.detail}</span>}
+    </span>
+    {action && <button type="button" onClick={() => { action.onAction(); dismissToast(id); }} className="font-medium text-accent-primary hover:underline">{action.label}</button>}
+    <button type="button" aria-label={lang === 'ko' ? '닫기' : 'Dismiss'} onClick={() => dismissToast(id)} className="text-text-muted hover:text-text-primary"><X className="size-3.5" aria-hidden /></button>
   </div>;
 }

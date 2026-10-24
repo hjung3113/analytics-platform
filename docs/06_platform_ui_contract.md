@@ -122,6 +122,7 @@ Platform Kernel이 소유해야 하는 UI 책임:
 - Data Trust 표시 표준
 - 라우트 단위 Error Boundary(메뉴 화면 렌더 실패를 콘텐츠 슬롯에 가두고 Correlation ID를 표시한다. 보고는 어댑터 `reportClientError`에 식별 필드만 보낸다)
 - Toast / Modal infrastructure (확인 대화상자 헬퍼는 후보)
+  - Toast: 톤은 `info`·`warning`·`danger`, 한 번에 4개까지 남고 기본 5초 뒤 사라진다(`durationMs`로 바꿈). `toast(text, tone?, detail?, { action?, durationMs? })`는 id를 돌려주고 `dismissToast(id)`로 호출자가 닫는다. 선택 `action`은 `{ label, onAction }` 버튼 하나이며 누르면 한 번 실행하고 토스트를 닫는다. 액션 토스트는 포커스나 포인터가 안에 있는 동안 자동 닫힘을 멈추고 벗어나면 처음부터 다시 센다(WCAG 2.2.1). 다리로 붙은 화면의 되돌리기·다시 불러오기·링크 토스트를 위한 것이다(#761 k2, #595).
 - Theme / Design Token
 - 공통 Keyboard Shortcut: ⌘/Ctrl+K 명령 팔레트, `[` 사이드바 접기/펼치기(입력 중 제외), Esc로 상세 패널(패널 안)·팝오버 닫기. 셸은 본문 바로가기 링크를 제공한다
 - 메뉴 활용률 계측(진입·체류 이벤트는 어댑터로 전송하고, 콘솔은 집계만 읽는다)

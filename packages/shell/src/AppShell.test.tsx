@@ -661,6 +661,65 @@ describe('toast detail', () => {
   });
 });
 
+describe('toast action and caller-driven dismiss (#761 k2)', () => {
+  beforeEach(() => { vi.useFakeTimers(); });
+  afterEach(() => { vi.useRealTimers(); });
+  function ActionProbe({ onAction, durationMs, onId }: { onAction: () => void; durationMs?: number; onId?: (id: number) => void }) {
+    const { toast, dismissToast } = useHostPlatform();
+    const [id, setId] = useState(0);
+    return <>
+      <button type="button" onClick={() => { const n = toast('분류했습니다.', 'info', undefined, { action: { label: '되돌리기', onAction }, ...(durationMs === undefined ? {} : { durationMs }) }); setId(n); onId?.(n); }}>fire</button>
+      <button type="button" onClick={() => dismissToast(id)}>dismiss by id</button>
+    </>;
+  }
+  const mount = (probe: ReactNode) => render(<I18nProvider><PlatformProvider adapter={adapterWith()} registry={registry}><AppShell>{probe}</AppShell></PlatformProvider></I18nProvider>);
+
+  it('runs onAction once and removes the toast', () => {
+    const onAction = vi.fn();
+    mount(<ActionProbe onAction={onAction} />);
+    fireEvent.click(screen.getByRole('button', { name: 'fire' }));
+    fireEvent.click(screen.getByRole('button', { name: '되돌리기' }));
+    expect(onAction).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('분류했습니다.')).toBeNull();
+  });
+  it('dismissToast(id) with the returned id removes the toast', () => {
+    mount(<ActionProbe onAction={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'fire' }));
+    expect(screen.getByText('분류했습니다.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'dismiss by id' }));
+    expect(screen.queryByText('분류했습니다.')).toBeNull();
+  });
+  it('honours durationMs', () => {
+    mount(<ActionProbe onAction={vi.fn()} durationMs={9000} />);
+    fireEvent.click(screen.getByRole('button', { name: 'fire' }));
+    act(() => { vi.advanceTimersByTime(8000); });
+    expect(screen.getByText('분류했습니다.')).toBeInTheDocument();
+    act(() => { vi.advanceTimersByTime(1100); });
+    expect(screen.queryByText('분류했습니다.')).toBeNull();
+  });
+  it('waits while the action button has focus and restarts after blur', () => {
+    mount(<ActionProbe onAction={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'fire' }));
+    const action = screen.getByRole('button', { name: '되돌리기' });
+    act(() => { action.focus(); });
+    act(() => { vi.advanceTimersByTime(20000); });
+    expect(screen.getByText('분류했습니다.')).toBeInTheDocument();
+    act(() => { action.blur(); });
+    act(() => { vi.advanceTimersByTime(4900); });
+    expect(screen.getByText('분류했습니다.')).toBeInTheDocument();
+    act(() => { vi.advanceTimersByTime(200); });
+    expect(screen.queryByText('분류했습니다.')).toBeNull();
+  });
+  it('a toast without action still auto-dismisses after 5 s and has no action button', () => {
+    function Plain() { const { toast } = useHostPlatform(); return <button type="button" onClick={() => toast('안내')}>plain</button>; }
+    mount(<Plain />);
+    fireEvent.click(screen.getByRole('button', { name: 'plain' }));
+    expect(screen.queryByRole('button', { name: '되돌리기' })).toBeNull();
+    act(() => { vi.advanceTimersByTime(5100); });
+    expect(screen.queryByText('안내')).toBeNull();
+  });
+});
+
 // #310: the palette scrim rose to z-60; the toast layer must stay above it or the scrim swallows Dismiss clicks.
 describe('toast layer above palette scrim (#310)', () => {
   it('keeps the toast container above the open palette overlay', () => {

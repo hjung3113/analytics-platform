@@ -19,7 +19,9 @@ const NO_EQUIPMENT_AXES: readonly EquipmentAxisDescriptor[] = [];
 
 export type ScopeState = { scopeId: string | null; status: 'none' | 'validating' | 'valid' | 'forbidden' | 'unknown_scope' | 'error'; validatedFor: Session | null; grantedRooms: string[] };
 export type Recent = { menuId: string; url: string; at: number };
-export type Toast = { id: number; text: string; tone: 'info' | 'warning' | 'danger'; detail?: string };
+export type ToastAction = { label: string; onAction: () => void };
+export type Toast = { id: number; text: string; tone: 'info' | 'warning' | 'danger'; detail?: string; action?: ToastAction };
+export type ToastOptions = { action?: ToastAction; durationMs?: number };
 /**
  * FeedbackOps entry the shell draws for one space (ADR-0028, ADR-0072 decision 5). The app supplies the icon; `key` is only a React key,
  * the shell never branches on it. `href: null` draws the entry as a disabled link (15 §8: the FeedbackOps address is missing or invalid).
@@ -182,8 +184,10 @@ export type HostPlatform = {
   toggleFavorite: (menuId: string) => void;
   recent: Recent[];
   toasts: Toast[];
-  toast: (text: string, tone?: Toast['tone'], detail?: string) => void;
+  toast: (text: string, tone?: Toast['tone'], detail?: string, options?: ToastOptions) => number;
   dismissToast: (id: number) => void;
+  /** Pauses (`true`) or restarts (`false`) a toast's auto-dismiss while focus or the pointer is inside it. */
+  holdToast: (id: number, held: boolean) => void;
   defaultRangeTo: string;
   slots: PlatformSlots;
   /** = `slots.homeTodo ?? null`, raised for menus (ADR-0076). */
@@ -207,7 +211,7 @@ export type HostPlatform = {
  * What a menu page sees through `usePlatform()` (ADR-0076): the same runtime value as `HostPlatform`, narrowed to the menu contract.
  * A field a menu needs that is missing here moves up from `HostPlatform`; a menu never imports `@ap/kernel/host`.
  */
-export type MenuPlatform = Pick<HostPlatform, 'route' | 'url' | 'pathname' | 'absoluteUrl' | 'location' | 'global' | 'page' | 'pageParam' | 'setGlobal' | 'setPage' | 'resetContext' | 'navigate' | 'linkTo' | 'resolveLink' | 'session' | 'user' | 'revision' | 'can' | 'canOpen' | 'scope' | 'toast' | 'toasts' | 'registry' | 'adapter' | 'favorites' | 'toggleFavorite' | 'recent' | 'accessibleSpaces' | 'spaceEntry' | 'homeTodo'>;
+export type MenuPlatform = Pick<HostPlatform, 'route' | 'url' | 'pathname' | 'absoluteUrl' | 'location' | 'global' | 'page' | 'pageParam' | 'setGlobal' | 'setPage' | 'resetContext' | 'navigate' | 'linkTo' | 'resolveLink' | 'session' | 'user' | 'revision' | 'can' | 'canOpen' | 'scope' | 'toast' | 'dismissToast' | 'toasts' | 'registry' | 'adapter' | 'favorites' | 'toggleFavorite' | 'recent' | 'accessibleSpaces' | 'spaceEntry' | 'homeTodo'>;
 
 /** Context items named by return notifications, separate from menu capabilities. */
 export type ReturnContextKey = ContextKey | 'scope';
@@ -757,12 +761,33 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
     mounted.current = true;
     return () => { mounted.current = false; };
   }, []);
-  const toast = useCallback((text: string, tone: Toast['tone'] = 'info', detail?: string) => {
-    const id = toastId.current++;
-    setToasts(list => [...list.slice(-3), { id, text, tone, ...(detail === undefined ? {} : { detail }) }]);
-    setTimeout(() => { if (mounted.current) setToasts(list => list.filter(t => t.id !== id)); }, 5000);
+  const timers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
+  const durations = useRef(new Map<number, number>());
+  const armToast = useCallback((id: number) => {
+    clearTimeout(timers.current.get(id));
+    timers.current.set(id, setTimeout(() => {
+      timers.current.delete(id);
+      durations.current.delete(id);
+      if (mounted.current) setToasts(list => list.filter(t => t.id !== id));
+    }, durations.current.get(id)));
   }, []);
-  const dismissToast = useCallback((id: number) => setToasts(list => list.filter(t => t.id !== id)), []);
+  const toast = useCallback((text: string, tone: Toast['tone'] = 'info', detail?: string, options?: ToastOptions) => {
+    const id = toastId.current++;
+    setToasts(list => [...list.slice(-3), { id, text, tone, ...(detail === undefined ? {} : { detail }), ...(options?.action ? { action: options.action } : {}) }]);
+    durations.current.set(id, options?.durationMs ?? 5000);
+    armToast(id);
+    return id;
+  }, [armToast]);
+  const dismissToast = useCallback((id: number) => {
+    clearTimeout(timers.current.get(id));
+    timers.current.delete(id);
+    durations.current.delete(id);
+    setToasts(list => list.filter(t => t.id !== id));
+  }, []);
+  const holdToast = useCallback((id: number, held: boolean) => {
+    if (held) { clearTimeout(timers.current.get(id)); timers.current.delete(id); }
+    else if (durations.current.has(id)) armToast(id);
+  }, [armToast]);
 
   const can = useCallback((p: Permission | ModuleScopedId) => user.permissions.includes(p), [user]);
   // Space entry gate (06 §9.1): a space without permission is open to every signed-in user.
@@ -836,7 +861,7 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
   const pub: AppState = {
     registry, adapter, location, absoluteUrl, equipmentAxes, queryHistoryStore: queryHistory,
     session, user, revision, refreshEpochs, can, canOpen, globalMenus, menusInSpace, accessibleSpaces, lastScope, favorites, toggleFavorite, recent,
-    toasts, toast, dismissToast, defaultRangeTo, slots, homeTodo: slots.homeTodo ?? null, paletteOpen, setPaletteOpen, paletteSession, switcherOpen, setSwitcherOpen, switcherSession,
+    toasts, toast, dismissToast, holdToast, defaultRangeTo, slots, homeTodo: slots.homeTodo ?? null, paletteOpen, setPaletteOpen, paletteSession, switcherOpen, setSwitcherOpen, switcherSession,
   };
   const value: AppValue = { pub, internal: { currentRevision: revisions.get, selectionPortCache, enters, usageSessionId, userIdRef, usageNav, mainNavigation: pageNavigation, initialUrl, recordVisit, rememberScope } };
   return <AppContext.Provider value={value}><MainScreenProvider app={value}>{children}</MainScreenProvider></AppContext.Provider>;
