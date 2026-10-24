@@ -4,8 +4,9 @@
 //     import from a start-up module does not pull it in (#706).
 // Reads a built app (`vite build --mode mock` emits index.html + assets/*.js and no manifest): the entry scripts named in
 // index.html, then every chunk they import statically (`import … from "./x.js"`, `import "./x.js"`, `export … from "./x.js"`).
-// Dynamic `import("./x.js")` is the lazy edge and is not followed. Fails if a chunk in that closure mentions `dockview`, and also if no chunk
-// at all does (then the engine is not where this check looks and it would pass for nothing). Each engine is checked by its marker string.
+// Dynamic `import("./x.js")` is the lazy edge and is not followed. For each marker in `LAZY_ENGINES`, fails if a chunk in that
+// closure contains it, and also if no chunk at all does (then the engine is not where this check looks and it would pass for nothing).
+// A marker sits in one part of its engine (`ProseMirror` in prosemirror-view), so a split that leaks only another part goes unseen.
 //
 //   node tooling/scripts/check-lazy-chunks.mjs [distDir]     (default apps/platform-web/dist)
 //   node tooling/scripts/check-lazy-chunks.mjs --self-test
