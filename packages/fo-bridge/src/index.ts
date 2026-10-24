@@ -7,4 +7,4 @@ export { FoBridge, UnlinkedLink } from './fo/FoBridge';
 export { hostLinks, permissionRequestsTarget, type PlatformTarget, type TargetOf } from './fo/links';
 export { foQueryClient, useFoSession } from './fo/session';
 export { canSurveyLink, SURVEY_ID, SurveyLink, surveyTarget } from './fo/survey-links';
-export { canVocLink, VOC_ID, VocLink, vocTarget } from './fo/voc-links';
+export { canVocLink, VOC_ID, VocLink, vocListTarget, vocTarget } from './fo/voc-links';

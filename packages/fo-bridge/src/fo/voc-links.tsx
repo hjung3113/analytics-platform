@@ -17,5 +17,13 @@ export function vocTarget(to: string): { menuId: string; params: Record<string, 
   return { menuId: 'voc-detail', params: { vocId } };
 }
 
+/** The reporter's own VOC list, `/vocs?view=my` exactly (no `selected`, no other key): the platform `내 VOC` menu. */
+export function vocListTarget(to: string): { menuId: string } | null {
+  if (to.includes('#')) return null;
+  const [path, query = ''] = to.split('?') as [string, string?];
+  const search = new URLSearchParams(query);
+  return path === '/vocs' && [...search.keys()].join() === 'view' && search.get('view') === 'my' ? { menuId: 'voc' } : null;
+}
+
 /** `returnTo` lands only where the destination declares it (`voc-detail` does). */
 export const { canLink: canVocLink, Link: VocLink } = hostLinks(vocTarget);

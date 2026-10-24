@@ -53,8 +53,19 @@ export function DashboardScreen({
 }: { managedSystemId?: string }): React.ReactElement {
   const me = useMeBridge();
   const data = useDashboardData(me.data?.actor.id, managedSystemId);
+  const queues = data.summary.data?.action_queues;
+  const coverage = data.summary.data?.coverage;
+  // The standalone head carries this sentence as its subtitle; the platform head has no subtitle, so the body says it.
+  const personalOnly = queues?.length === 0 && coverage?.length === 0;
   return (
-    <DashboardBody data={data} {...(managedSystemId !== undefined ? { managedSystemId } : {})} />
+    <>
+      {personalOnly && (
+        <p className="mb-4 text-sm text-text-muted" data-testid="home-scope-status">
+          {HOME_COPY.subtitle(queues, coverage)}
+        </p>
+      )}
+      <DashboardBody data={data} {...(managedSystemId !== undefined ? { managedSystemId } : {})} />
+    </>
   );
 }
 
@@ -561,7 +572,7 @@ function MyWorkPanel({
               </span>
               <span className="block truncate text-xs text-text-muted">{row.meta}</span>
             </span>
-            <ChevronRight className="h-4 w-4 text-text-muted" />
+            {canLink(row.href) && <ChevronRight className="h-4 w-4 text-text-muted" />}
           </HostLink>
         ))}
         {rows.length === 0 && (
@@ -668,9 +679,7 @@ function PanelHeading({
       <h2 className="text-xs font-semibold uppercase tracking-wide text-text-muted">{title}</h2>
       {action !== undefined &&
         (disabled || !canLink(href) ? (
-          <span className="text-xs text-text-secondary">
-            {action} <ArrowRight className="inline h-3 w-3" />
-          </span>
+          <span className="text-xs text-text-secondary">{action}</span>
         ) : (
           <HostLink to={href} className="text-xs text-text-secondary hover:text-text-primary">
             {action} <ArrowRight className="inline h-3 w-3" />
