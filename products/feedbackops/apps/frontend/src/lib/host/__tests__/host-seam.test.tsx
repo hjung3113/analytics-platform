@@ -2,10 +2,11 @@ import { render, screen } from '@testing-library/react';
 import { createRef } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { HostLink, type HostSeam, HostSeamProvider } from '../host-seam';
+import { HostLink, type HostSeam, HostSeamProvider, clearDefaultHost } from '../host-seam';
 
 describe('host seam', () => {
   it('useHostSeam-backed components throw without a provider', () => {
+    clearDefaultHost();
     const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     expect(() => render(<HostLink to="/vocs">x</HostLink>)).toThrow('HostSeamProvider is missing');
     error.mockRestore();

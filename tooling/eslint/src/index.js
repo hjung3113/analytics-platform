@@ -520,6 +520,8 @@ export const foBridgeMenu = [
 export const foBridge = [
   REACT_HOOKS,
   layerConfig({ restriction: FO_BRIDGE_PACKAGE_RESTRICTION, extraRules: menuContractRules }),
+  // Its tests mount a platform with the kernel fixtures (ADR-0040); production files stay restricted.
+  testEntryOverride(FO_BRIDGE_PACKAGE_RESTRICTION),
   {
     files: ['src/pages/**/*.{ts,tsx}'],
     rules: {

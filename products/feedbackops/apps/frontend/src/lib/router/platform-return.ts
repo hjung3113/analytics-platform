@@ -1,27 +1,6 @@
-import { z } from 'zod';
+import { parsePlatformReturn, platformReturnField } from '@/lib/host/search-fields';
 
-const MAX_PLATFORM_RETURN_LENGTH = 2048;
-
-/** Syntactic check only: the allowlist is deployment config, see allowedPlatformReturnHref. */
-function parsePlatformReturn(value: string): URL | undefined {
-  if (value.length > MAX_PLATFORM_RETURN_LENGTH) return undefined;
-  let url: URL;
-  try {
-    url = new URL(value);
-  } catch {
-    return undefined;
-  }
-  if (url.username !== '' || url.password !== '') return undefined;
-  const isLocalHttp =
-    url.protocol === 'http:' && (url.hostname === 'localhost' || url.hostname === '127.0.0.1');
-  return url.protocol === 'https:' || isLocalHttp ? url : undefined;
-}
-
-/** `platformReturn` search field (ADR-0071); never reuse the internal `returnTo` key. */
-export const platformReturnField = z
-  .string()
-  .refine((value) => parsePlatformReturn(value) !== undefined)
-  .optional();
+export { platformReturnField };
 
 /** Leaf routes that render the link; the Survey detail's /results and /follow-up children inherit the key but do not. */
 export const PLATFORM_RETURN_ROUTE_IDS: readonly string[] = [

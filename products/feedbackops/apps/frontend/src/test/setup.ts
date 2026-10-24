@@ -1,6 +1,15 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
-import { afterEach } from 'vitest';
+import { afterEach, beforeAll } from 'vitest';
+import { registerDefaultHost } from '../lib/host/host-seam';
+
+// Screens that read the host seam keep working in tests without wrapping (a test that needs none calls clearDefaultHost()).
+// Imported in beforeAll, after the test file's vi.mock calls are registered: a static import here would bind the real
+// `@tanstack/react-router` Link and `sonner` before a file mocks them.
+beforeAll(async () => {
+  const { tanstackHost } = await import('../lib/host/tanstack-host');
+  registerDefaultHost(tanstackHost);
+});
 
 // Vitest's `globals: false` config means @testing-library/react does NOT
 // auto-register cleanup. Wire it explicitly so DOM nodes from prior tests
