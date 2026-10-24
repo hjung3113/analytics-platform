@@ -23,6 +23,8 @@ export type DrillLayoutProps = DrillPathProps & {
   /** A step value the query recognized as absent. Ignored while `useDrill().invalid` is set. */
   notFound?: { key: string; value: string };
   children?: ReactNode;
+  /** Fill the parent's height: the wrapper becomes a `flex min-h-0 flex-1 flex-col` column and the body region takes the rest (`min-h-0 flex-1`). Off = unchanged output. */
+  fill?: boolean;
 };
 
 // Looked up inside the pane that owns `source` (a board pane, ADR-0049), else the document: a sibling pane or main must not take the focus.
@@ -67,7 +69,8 @@ function SiblingMenu({ label, value, items, onSwitch, scopeRef }: {
  * Path bar for the current menu's drill (06 §12.7, ADR-0025). Nothing at depth 0.
  * Five or more chips (depth 4+) collapse to All, a middle-step menu, and the last two chips.
  */
-export function DrillPath({ siblings, summary }: DrillPathProps) {
+export function DrillPath(props: DrillPathProps) {
+  const { siblings, summary } = props;
   const drill = useDrill();
   const { lang, tx } = useI18n();
   const ko = lang === 'ko';
@@ -118,15 +121,19 @@ export function DrillPath({ siblings, summary }: DrillPathProps) {
       </span>;
     })}
   </nav>;
-  if (!hasSummary) return navigation;
+  // The wrapper follows the presence of the prop, not its value: a summary that arrives after the query must not remount the nav (focus would drop to body).
+  if (!('summary' in props)) return navigation;
   return <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
     {navigation}
-    <div title={typeof summary === 'string' ? summary : undefined} className="min-w-0 flex-1 basis-48 truncate text-xs text-text-secondary">{summary}</div>
+    {hasSummary && <div title={typeof summary === 'string' ? summary : undefined} className="min-w-0 flex-1 basis-48 truncate text-xs text-text-secondary">{summary}</div>}
   </div>;
 }
 
 /** Path bar, then the current step's body. A format error or a missing value replaces the body and substitutes nothing. */
-export function DrillLayout({ siblings, summary, notFound, children }: DrillLayoutProps) {
+export function DrillLayout(props: DrillLayoutProps) {
+  const { siblings, notFound, children, fill } = props;
+  // Forward `summary` only when the caller passed it, so DrillPath can tell "no summary prop" from "summary not ready yet".
+  const pathProps: DrillPathProps = 'summary' in props ? { siblings, summary: props.summary } : { siblings };
   const drill = useDrill();
   const { invalid } = drill;
   const { lang } = useI18n();
@@ -141,8 +148,12 @@ export function DrillLayout({ siblings, summary, notFound, children }: DrillLayo
         title={ko ? `이 조건에서 없는 값: ${notFound.value}` : `No value in this context: ${notFound.value}`}
         body={ko ? '다른 값으로 바꾸지 않습니다.' : 'Nothing was substituted.'} />
       : children;
+  if (fill) return <div className="flex min-h-0 flex-1 flex-col gap-2">
+    <DrillPath {...pathProps} />
+    <div className="flex min-h-0 flex-1 flex-col">{body}</div>
+  </div>;
   return <div className="space-y-4">
-    <DrillPath siblings={siblings} summary={summary} />
+    <DrillPath {...pathProps} />
     {body}
   </div>;
 }

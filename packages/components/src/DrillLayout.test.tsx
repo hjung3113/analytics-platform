@@ -72,6 +72,20 @@ describe('DrillLayout (06 §12.7, ADR-0025)', () => {
     expect(screen.getByText('본문')).toBeTruthy();
   });
 
+  it('without fill the output is the plain space-y-4 column; fill makes a bounded flex column with a growing body', () => {
+    const view = mount('/source?v=1&drillRoom=PHOTO', <DrillLayout><p>본문</p></DrillLayout>);
+    const plain = view.container.innerHTML;
+    expect(view.container.firstElementChild?.className).toBe('space-y-4');
+    expect(view.container.firstElementChild?.lastElementChild?.tagName).toBe('P');
+    view.unmount();
+    const filled = mount('/source?v=1&drillRoom=PHOTO', <DrillLayout fill><p>본문</p></DrillLayout>);
+    const root = filled.container.firstElementChild!;
+    expect(root.className).toBe('flex min-h-0 flex-1 flex-col gap-2');
+    expect(root.lastElementChild?.className).toBe('flex min-h-0 flex-1 flex-col');
+    expect(root.lastElementChild?.textContent).toBe('본문');
+    expect(filled.container.innerHTML).not.toBe(plain);
+  });
+
   it('renders the summary beside the path bar, outside the nav, with the full text as title', () => {
     const text = '공정 PHOTO · StGroup A · 매우 긴 요약 문장이 한 줄 안에서 말줄임표로 잘린다';
     mount('/source?v=1&drillRoom=PHOTO&drillStgroup=A', <DrillLayout summary={text}><p>본문</p></DrillLayout>);
@@ -96,6 +110,21 @@ describe('DrillLayout (06 §12.7, ADR-0025)', () => {
   it('keeps the bare path bar classes when there is no summary', () => {
     mount('/source?v=1&drillRoom=PHOTO', <DrillLayout><p>본문</p></DrillLayout>);
     expect(screen.getByRole('navigation', { name: '드릴 경로' }).className).toBe('flex flex-wrap items-center gap-1 text-xs');
+  });
+
+  it('keeps the same nav and focused chip when a summary arrives after the first render', () => {
+    const tree = (summary: string | null) => <I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DrillLayout summary={summary}><p>본문</p></DrillLayout></PlatformProvider></I18nProvider>;
+    window.history.replaceState(null, '', '/source?v=1&drillRoom=PHOTO');
+    const view = render(tree(null));
+    const chip = screen.getByRole('button', { name: '공정: PHOTO' });
+    const nav = screen.getByRole('navigation', { name: '드릴 경로' });
+    chip.focus();
+    expect(document.activeElement).toBe(chip);
+    view.rerender(tree('Module PHOTO · 1.00 초'));
+    expect(screen.getByText('Module PHOTO · 1.00 초')).toBeTruthy();
+    expect(screen.getByRole('button', { name: '공정: PHOTO' })).toBe(chip);
+    expect(screen.getByRole('navigation', { name: '드릴 경로' })).toBe(nav);
+    expect(document.activeElement).toBe(chip);
   });
 
   it('hides the summary at depth 0 like the path bar', () => {

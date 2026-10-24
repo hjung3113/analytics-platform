@@ -50,7 +50,7 @@ export const HW_TIME_CONTEXT = {
   time: 'apply', roomNames: 'apply', condition: 'apply', selection: 'apply', ppid: 'apply', recipe: 'apply',
 } as const;
 const common = {
-  menuId: 'hw-time', permission: PERMISSION, requiresScope: true,
+  menuId: 'hw-time-steps', permission: PERMISSION, requiresScope: true,
   context: HW_TIME_CONTEXT,
   kinds: ['collection', 'processing_delay', 'coverage'],
   mergeTimeDomain: true,

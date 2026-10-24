@@ -11,13 +11,15 @@ export function usePointMenu(url: string) {
   const chartRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
-  const session = useRef<{ opener: HTMLElement | null; url: string } | null>(null);
+  const session = useRef<{ opener: HTMLElement | null; url: string; stay: boolean } | null>(null);
   const currentUrl = useRef(url);
   useEffect(() => { currentUrl.current = url; }, [url]);
   const openMenu = useCallback((opener: HTMLElement | null) => {
-    session.current = { opener, url };
+    session.current = { opener, url, stay: false };
     setOpen(true);
   }, [url]);
+  /** The chosen action changes the URL but stays on this chart (06 §16): close focus returns to the opener, not to the drill destination. */
+  const stayOnChart = useCallback(() => { if (session.current) session.current.stay = true; }, []);
   const close = useCallback(() => setOpen(false), []);
   const reset = useCallback(() => { setSelectedKey(null); setOpen(false); }, []);
 
@@ -27,7 +29,7 @@ export function usePointMenu(url: string) {
     session.current = null;
     if (!closed) return;
     const active = document.activeElement;
-    if (closed.url !== currentUrl.current) {
+    if (closed.url !== currentUrl.current && !closed.stay) {
       // Modal focus trapping can intercept PlatformPage's layout-effect focus before close.
       // Complete that handoff after the scope is released; never restore the old opener.
       if (!active || active === document.body || contentRef.current?.contains(active)) {
@@ -43,5 +45,5 @@ export function usePointMenu(url: string) {
     closed.opener.focus({ preventScroll: true });
   };
 
-  return { selectedKey, setSelectedKey, open, openMenu, close, reset, chartRef, triggerRef, contentRef, onCloseAutoFocus };
+  return { selectedKey, setSelectedKey, open, openMenu, stayOnChart, close, reset, chartRef, triggerRef, contentRef, onCloseAutoFocus };
 }

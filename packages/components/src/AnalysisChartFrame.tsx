@@ -97,7 +97,9 @@ function svgDasharray(pattern: ReturnType<typeof linePattern>): string | undefin
 
 /** A consumer-owned point identity; activation never navigates by itself. */
 export type ChartPoint = { x: string; seriesId: string; value: number | null };
-export type ChartPointAction = { id: string; label: string; onSelect: (point: ChartPoint) => void; disabled?: boolean };
+export type ChartPointAction = { id: string; label: string; onSelect: (point: ChartPoint) => void; disabled?: boolean;
+  /** The action may change page keys but does not move the user: when the menu closes, focus returns to `지점 동작` even though the URL changed (06 §16). */
+  keepsFocus?: boolean };
 type PointEvent = { seriesId?: string; value?: unknown; name?: string; dataIndex?: number; event?: { event?: { preventDefault?: () => void } } };
 const pointKey = (point: ChartPoint) => JSON.stringify([point.seriesId, point.x]);
 
@@ -475,7 +477,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
           {!!p.pointActions?.length && <DropdownMenu open={menu.open && !brushMode && !!selectedPoint} onOpenChange={open => { if (open) openPointMenu(menu.triggerRef.current); else menu.close(); }}>
             <DropdownMenuTrigger asChild><Button ref={menu.triggerRef} variant="ghost" size="toolbar" disabled={brushMode || !selectedPoint}>{lang === 'ko' ? '지점 동작' : 'Point actions'}</Button></DropdownMenuTrigger>
             <DropdownMenuContent ref={menu.contentRef} align="end" onCloseAutoFocus={menu.onCloseAutoFocus}>
-              {p.pointActions.map(action => <DropdownMenuItem key={action.id} disabled={action.disabled} className="focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring" onSelect={() => { if (selectedPoint && !brushMode) action.onSelect(selectedPoint); }}>{action.label}</DropdownMenuItem>)}
+              {p.pointActions.map(action => <DropdownMenuItem key={action.id} disabled={action.disabled} className="focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring" onSelect={() => { if (selectedPoint && !brushMode) { if (action.keepsFocus) menu.stayOnChart(); action.onSelect(selectedPoint); } }}>{action.label}</DropdownMenuItem>)}
             </DropdownMenuContent>
           </DropdownMenu>}
           {brushMode && <span className="text-tiny text-text-secondary">{lang === 'ko' ? '구간 선택 중에는 지점 실행과 동작을 사용할 수 없습니다.' : 'Point activation and actions are unavailable while brushing.'}</span>}
