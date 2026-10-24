@@ -74,15 +74,14 @@ export function routeSearch(route: OperatorRoute) {
   return function useRouteSearch(): Readonly<Record<string, string>> {
     // `url` and `page` are the kernel values that change with each navigation; the memo is keyed on them so
     // a screen that folds pending writes sees a new object whenever the platform reports a new location.
-    const { pageParam, url, page } = usePlatform();
+    const { url, page } = usePlatform();
     return useMemo(() => {
-      const page: Record<string, string> = {};
-      for (const key of route.pageKeys) {
-        const value = pageParam(key);
-        if (value !== null) page[key] = value;
-      }
-      return route.toFoSearch(page);
-    }, [pageParam, url, page]);
+      void url; // read so the navigation identity is a real input of this memo
+      const mapped: Record<string, string> = {};
+      // First pair wins, as `pageParam` reads it.
+      for (const [key, value] of page) if (route.pageKeys.includes(key) && !(key in mapped)) mapped[key] = value;
+      return route.toFoSearch(mapped);
+    }, [page, url]);
   };
 }
 
