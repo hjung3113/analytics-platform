@@ -258,6 +258,12 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   // StartAlign turns Brush off: x is no longer one value scale, so a dragged range would not mean seconds.
   const brushMode = range.brushMode && !startAlign;
   // revealActive: an outside change of the active row scrolls it into the plot window (grid top + index × pitch). Focus never moves.
+  // A row pitch that appears while a row is active (the rows stop fitting the panel) reveals that row again: the new scroll box starts at the top.
+  const hadRowPitch = useRef(rowPitch !== undefined);
+  useEffect(() => {
+    if (rowPitch !== undefined && !hadRowPitch.current) revealedCategory.current = undefined;
+    hadRowPitch.current = rowPitch !== undefined;
+  }, [rowPitch]);
   useEffect(() => {
     if (rowPitch === undefined || !revealActive || activeCategory == null) { revealedCategory.current = activeCategory; return; }
     if (revealedCategory.current === activeCategory) return;
@@ -303,9 +309,21 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   }, [closeEditor, onVisibleSeriesChange, allSeries, resetPoint, rangeActions]);
   // Global Context changes invalidate local selection (it described the previous result).
   const contextKey = JSON.stringify(global);
-  useEffect(() => { rangeActions.contextReset(); closeEditor(); cancelDelete(); resetPoint();
+  const appliedActive = useRef<string | null>(null);
+  useEffect(() => { rangeActions.contextReset(); closeEditor(); cancelDelete(); resetPoint(); appliedActive.current = null;
   }, [contextKey, closeEditor, cancelDelete, resetPoint, rangeActions]);
   useAnnotationDeleteFocus(editor, { annotateButton, brushToggle });
+  // An outside change of the active row moves the selected point (selector and `지점 동작` target) to that row: the selected series if its point there is selectable, else the row's first selectable point. A change this frame reported already selected that row, so it does not move again. It runs after the Context reset below, so a row set at mount (a URL) or kept across a reset is not cleared by it. `null` leaves the selection; focus never moves.
+  useEffect(() => {
+    if (activeCategory == null) { appliedActive.current = null; return; }
+    if (appliedActive.current === activeCategory) return;
+    const inRow = points.filter(point => point.x === activeCategory);
+    if (inRow.length === 0) return;
+    appliedActive.current = activeCategory;
+    if (selectedPoint?.x === activeCategory) return;
+    const target = inRow.find(point => point.seriesId === selectedPoint?.seriesId) ?? inRow[0]!;
+    setSelectedPointKey(pointKey(target));
+  }, [activeCategory, points, selectedPoint, setSelectedPointKey]);
 
   const timeBounds = useMemo(() => (xType === 'time' ? timeBoundaries(p.series, global.from, global.to) : []), [xType, p.series, global.from, global.to]);
   const showKeyboard = xType === 'time' && global.to !== null && timeBounds.length >= 2;

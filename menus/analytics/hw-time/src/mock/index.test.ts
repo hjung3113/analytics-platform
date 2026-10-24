@@ -100,6 +100,21 @@ describe('HW Time level rows', () => {
     expect(result.context?.rows).toHaveLength(96);
     expect(result.detail?.rows).toEqual([]);
   });
+
+  it('carries no Vent value on any PM4 row at L2 and L3, and none in a PM4 row or Module total (#690i UX-8)', async () => {
+    const l1 = await data<HwTimeLevelData>(hwTime.levelRows.id, {});
+    const l2 = await data<HwTimeLevelData>(hwTime.levelRows.id, { drillModule: 'PM4' });
+    const l3 = await data<HwTimeLevelData>(hwTime.levelRows.id, { drillModule: 'PM4', drillMotion: 'Transfer' });
+    const pm1 = await data<HwTimeLevelData>(hwTime.levelRows.id, { drillModule: 'PM1' });
+    const withVent = (rows: HwTimeLevelData['rows']) => rows.filter(row => row.values.Vent !== undefined && row.values.Vent !== null);
+    expect(withVent(l2.rows)).toEqual([]);
+    expect(withVent(l3.context?.rows ?? [])).toEqual([]);
+    expect(withVent(pm1.rows).length).toBeGreaterThan(0);
+    const dataRows = l2.rows.filter(row => !row.auxiliary);
+    expect(dataRows.every(row => row.total === Object.values(row.values).reduce((sum: number, value) => sum + (value ?? 0), 0))).toBe(true);
+    const pm4Total = l1.totals.values.PM4;
+    expect(pm4Total).toBeCloseTo(dataRows.reduce((sum, row) => sum + (row.total ?? 0), 0), 6);
+  });
 });
 
 describe('HW Time trends and table endpoints', () => {

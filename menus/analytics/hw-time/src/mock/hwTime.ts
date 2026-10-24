@@ -42,6 +42,11 @@ function totalOf(values: Record<string, number | null>): number | null {
   return completeSum(Object.values(values));
 }
 
+/** PM4 records no Vent at all (its L3 detail is empty), so no PM4 row at any level carries a Vent value or counts one in a total. */
+function hasRecords(module: ModuleId, motion: MotionId): boolean {
+  return !(module === 'PM4' && motion === 'Vent');
+}
+
 function motionValue(equipmentNumber: number, subItemIndex: number, module: ModuleId, motionIndex: number): number | null {
   const seed = equipmentNumber * 4 + subItemIndex;
   if (module === 'PM3' && (seed + motionIndex) % 19 === 0) return null;
@@ -51,7 +56,7 @@ function motionValue(equipmentNumber: number, subItemIndex: number, module: Modu
 
 function moduleValue(equipmentNumber: number, module: ModuleId): number | null {
   return completeSum(SUB_ITEM_IDS.flatMap((_, subItemIndex) =>
-    MOTION_IDS.map((_, motionIndex) => motionValue(equipmentNumber, subItemIndex, module, motionIndex))));
+    MOTION_IDS.flatMap((motion, motionIndex) => hasRecords(module, motion) ? [motionValue(equipmentNumber, subItemIndex, module, motionIndex)] : [])));
 }
 
 function aggregate(rows: HwTimeRow[], series: HwTimeSeries[]): HwTimeBlock {
@@ -79,9 +84,8 @@ function moduleRows(equipmentIds: readonly string[], module: ModuleId, includeMe
   return equipmentIds.flatMap((equipmentId, equipmentIndex) => {
     const equipmentNumber = equipmentIndex + 1;
     const rows: HwTimeRow[] = SUB_ITEM_IDS.map((subItem, subItemIndex) => {
-      const values = Object.fromEntries(MOTION_IDS.map((_, motionIndex) => [
-        MOTION_IDS[motionIndex], motionValue(equipmentNumber, subItemIndex, module, motionIndex),
-      ]));
+      const values = Object.fromEntries(MOTION_IDS.flatMap((motion, motionIndex) => hasRecords(module, motion)
+        ? [[motion, motionValue(equipmentNumber, subItemIndex, module, motionIndex)]] : []));
       return {
         id: `${equipmentId}.${subItem}`,
         equipmentId,
@@ -100,8 +104,7 @@ function moduleRows(equipmentIds: readonly string[], module: ModuleId, includeMe
 }
 
 function detailRows(equipmentIds: readonly string[], module: ModuleId, motion: MotionId): HwTimeRow[] {
-  if (module === 'PM4' && motion === 'Vent') return [];
-  const motionIndex = MOTION_IDS.indexOf(motion);
+  if (!hasRecords(module, motion)) return [];
   return moduleRows(equipmentIds, module, false).map(row => {
     const value = row.values[motion] ?? null;
     const values = { [motion]: value };
@@ -164,8 +167,8 @@ function validateTrend(rowIds: string[]): string | null {
 function subItemTrend(equipmentNumber: number, subItem: number): number[] {
   const seed = equipmentNumber * 4 + subItem - 1;
   const subItemIndex = subItem - 1;
-  const total = MODULE_IDS.reduce((sum, module) => sum + MOTION_IDS.reduce((inner, _motion, motionIndex) =>
-    inner + (motionValue(equipmentNumber, subItemIndex, module, motionIndex) ?? 0), 0), 0);
+  const total = MODULE_IDS.reduce((sum, module) => sum + MOTION_IDS.reduce((inner, motion, motionIndex) =>
+    inner + (hasRecords(module, motion) ? motionValue(equipmentNumber, subItemIndex, module, motionIndex) ?? 0 : 0), 0), 0);
   return Array.from({ length: 8 }, (_, dayIndex) => dayIndex === 7 ? total : total * (1 + (((seed * 37 + dayIndex * 53) % 301) - 150) / 1_000));
 }
 

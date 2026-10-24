@@ -176,6 +176,91 @@ describe('reveal after an ignored pointer request (#690b FIX1)', () => {
   });
 });
 
+describe('outside active row moves the selected point (#690i UX-2)', () => {
+  const picked = () => (screen.getByRole('combobox', { name: '차트 지점 선택' }) as HTMLSelectElement).selectedOptions[0]!.textContent ?? '';
+  const activation = { on: 'click' as const, onActivate: () => {} };
+
+  it('moves the selection to the row, keeping the selected series, and leaves `null` alone', async () => {
+    const view = mount({ pointActivation: activation, activeCategory: null });
+    await screen.findByRole('img');
+    const select = screen.getByRole('combobox', { name: '차트 지점 선택' }) as HTMLSelectElement;
+    fireEvent.change(select, { target: { value: [...select.options].find(o => o.textContent!.includes('R2') && o.textContent!.includes('B'))!.value } });
+    expect(picked()).toContain('B');
+    act(() => view.update({ activeCategory: 'R3' }));
+    expect(picked()).toContain('R3');
+    expect(picked()).toContain('B');
+    const moved = picked();
+    act(() => view.update({ activeCategory: null }));
+    expect(picked()).toBe(moved);
+  });
+
+  it('does not move focus', async () => {
+    const view = mount({ pointActivation: activation });
+    await screen.findByRole('img');
+    const outside = document.createElement('button'); document.body.append(outside); outside.focus();
+    act(() => view.update({ activeCategory: 'R2' }));
+    expect(document.activeElement).toBe(outside);
+    outside.remove();
+  });
+
+  it('does not loop on its own change: a click selects the row, the echoed activeCategory keeps it', async () => {
+    const owner: { accept?: (c: string | null) => void } = {};
+    const view = mount({ pointActivation: activation, activeCategory: null, onActiveCategoryChange: c => owner.accept?.(c) });
+    owner.accept = c => view.update({ activeCategory: c });
+    fireEvent.click(await screen.findByRole('button', { name: 'bar-R2' }));
+    expect(picked()).toContain('R2');
+    const settled = picked();
+    act(() => view.update({ activeCategory: 'R2' }));
+    expect(picked()).toBe(settled);
+  });
+
+  it('respects isPointSelectable: the row\'s first selectable point is used when the selected series is not selectable there', async () => {
+    const view = mount({ pointActivation: activation, isPointSelectable: point => !(point.seriesId === 'a' && point.x === 'R3') });
+    await screen.findByRole('img');
+    expect(picked()).toContain('A');
+    act(() => view.update({ activeCategory: 'R3' }));
+    expect(picked()).toContain('R3');
+    expect(picked()).toContain('B');
+  });
+});
+
+describe('active row that is already set moves the selected point (#690i UX-5)', () => {
+  const picked = () => (screen.getByRole('combobox', { name: '차트 지점 선택' }) as HTMLSelectElement).selectedOptions[0]!.textContent ?? '';
+  const activation = { on: 'click' as const, onActivate: () => {} };
+
+  it('selects the active row when it is set at mount', async () => {
+    mount({ pointActivation: activation, activeCategory: 'R3' });
+    await screen.findByRole('img');
+    expect(picked()).toContain('R3');
+  });
+
+  it('selects the active row when the points arrive after the first render', async () => {
+    const view = mount({ pointActivation: activation, activeCategory: 'R3', series: [] });
+    view.update({ series: rows });
+    await screen.findByRole('img');
+    expect(picked()).toContain('R3');
+  });
+});
+
+describe('category labels without rowPitch (#690i UX-4)', () => {
+  const axisLabel = () => (plotOption().yAxis as unknown as { axisLabel: { interval: unknown } }).axisLabel;
+  it('thins labels out automatically; a row pitch keeps every label', async () => {
+    const view = mount();
+    await screen.findByRole('img');
+    expect(axisLabel().interval).toBe('auto');
+    view.update({ rowPitch: 30 });
+    expect(axisLabel().interval).toBe(0);
+  });
+
+  it('reveals the active row again when rowPitch appears while a row is active', async () => {
+    const view = mount({ revealActive: true, activeCategory: 'R3', onActiveCategoryChange: () => {} });
+    const plot = (await screen.findByRole('img')).parentElement!;
+    Object.defineProperty(plot, 'clientHeight', { configurable: true, value: 40 });
+    act(() => view.update({ rowPitch: 30 }));
+    expect(plot.scrollTop).toBe(GRID_TOP + 2 * 30);
+  });
+});
+
 describe('props outside horizontal mode (#690b)', () => {
   it('ignores them and warns once in development', async () => {
     window.history.replaceState(null, '', '/?v=1');

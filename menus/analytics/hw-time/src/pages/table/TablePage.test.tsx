@@ -122,7 +122,8 @@ describe('HW Time table page', () => {
 
   it('enters the next level only through a visible 들어가기 button and shows two decimals', async () => {
     await renderPage();
-    expect(screen.getByRole('table').textContent).toContain('11.00');
+    // The rows arrive after the headers; a slow runner reads the table before them.
+    await waitFor(() => expect(screen.getByRole('table').textContent).toContain('11.00'), { timeout: 8000 });
     fireEvent.click(screen.getAllByRole('button', { name: 'PM2 들어가기' })[0]);
     expect(searchParams().get('drillModule')).toBe('PM2');
     fireEvent.click((await screen.findAllByRole('button', { name: 'Chuck 들어가기' }, { timeout: 8000 }))[0]);
@@ -284,7 +285,8 @@ describe('HW Time table page', () => {
       URL.revokeObjectURL = () => {};
       vi.spyOn(HTMLElement.prototype, 'click').mockImplementation(() => {});
     });
-    afterEach(() => { URL.createObjectURL = originalCreate; URL.revokeObjectURL = originalRevoke; });
+    // jsdom has neither function, and the table revokes its blob URL on a 1 s timer that can fire after this test: keep the no-op stubs where there is no original.
+    afterEach(() => { if (originalCreate) URL.createObjectURL = originalCreate; if (originalRevoke) URL.revokeObjectURL = originalRevoke; });
     async function exportVia(name: string | RegExp) {
       fireEvent.keyDown(screen.getByRole('button', { name: /^내보내기/ }), { key: 'Enter' });
       fireEvent.click(await screen.findByRole('menuitem', { name }));
