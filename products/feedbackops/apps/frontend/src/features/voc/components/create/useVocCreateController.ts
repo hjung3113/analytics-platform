@@ -14,6 +14,7 @@ import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { useVocCreateMutation } from '../../hooks/useVocCreateMutation';
+import { mergeAttachmentIds, normalizeAttachmentRefs } from '../compose/attachment-refs';
 
 export function useVocCreateController({
   initialManagedSystemId,
@@ -144,13 +145,14 @@ export function useVocCreateController({
   const isSubmitting = mutation.isPending;
 
   function handleSubmit(body: CreateVocRequest): void {
-    // C6: include attachment_ids[] for successfully-uploaded rows. The
-    // shared CreateVocRequest schema still carries the legacy `attachments`
-    // shape (AttachmentRef[]) which C7 will reconcile to id-only; until then
-    // we attach the id-list as an extra field passed through to the wire.
-    const withAttachments = { ...body, attachment_ids: attachmentIds } as CreateVocRequest & {
-      attachment_ids: string[];
-    };
+    // The editor toolbar's attachmentRef nodes are reduced to `{ id }` (the server allowlist) and their ids
+    // go ahead of the dropzone's in `attachment_ids`, as in the drawer form.
+    const { doc, ids: editorIds } = normalizeAttachmentRefs(body.description_rich_content);
+    const withAttachments = {
+      ...body,
+      description_rich_content: doc,
+      attachment_ids: mergeAttachmentIds(editorIds, attachmentIds),
+    } as CreateVocRequest & { attachment_ids: string[] };
     mutation.mutate(withAttachments);
   }
 

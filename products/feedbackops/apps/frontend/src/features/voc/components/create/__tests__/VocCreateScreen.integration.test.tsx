@@ -3,7 +3,6 @@
 // Tests cover: happy-path 201, 422 field errors, 429 rate-limit, 409 idempotency
 // reuse, 404 not-found, and empty MS list.
 
-import * as React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   Outlet,
@@ -14,6 +13,7 @@ import {
   createRouter,
 } from '@tanstack/react-router';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import type * as React from 'react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 // ── Mock modules ──────────────────────────────────────────────────────────────
@@ -38,30 +38,60 @@ vi.mock('@/lib/auth/useMe', () => ({
 // Since #327 made a non-blank description a submit precondition, these tests
 // need some way to supply one, and their subject is submit/routing/error
 // handling, not the editor. The editor's own behaviour is covered by its tests.
+const EDITOR_ATT_ID = 'e1000000-0000-4000-8000-000000000001';
+
 vi.mock('@fops/ui', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@fops/ui')>()),
   RichEditor: ({ onChange }: { onChange: (doc: unknown) => void }) => (
-    <textarea
-      data-testid="mock-rich-editor"
-      aria-label="상세 설명"
-      onChange={(e) =>
-        onChange(
-          e.target.value
-            ? {
-                type: 'doc',
-                content: [{ type: 'paragraph', content: [{ type: 'text', text: e.target.value }] }],
-              }
-            : { type: 'doc', content: [] },
-        )
-      }
-    />
+    <>
+      <textarea
+        data-testid="mock-rich-editor"
+        aria-label="상세 설명"
+        onChange={(e) =>
+          onChange(
+            e.target.value
+              ? {
+                  type: 'doc',
+                  content: [
+                    { type: 'paragraph', content: [{ type: 'text', text: e.target.value }] },
+                  ],
+                }
+              : { type: 'doc', content: [] },
+          )
+        }
+      />
+      {/* What the real editor emits after a toolbar upload: the full attachmentRef attrs. */}
+      <button
+        type="button"
+        onClick={() =>
+          onChange({
+            type: 'doc',
+            content: [
+              { type: 'paragraph', content: [{ type: 'text', text: '재현 절차' }] },
+              {
+                type: 'attachmentRef',
+                attrs: {
+                  id: EDITOR_ATT_ID,
+                  name: 'log.txt',
+                  size_bytes: 12,
+                  mime_type: 'text/plain',
+                },
+              },
+            ],
+          })
+        }
+      >
+        에디터 첨부 올리기
+      </button>
+    </>
   ),
 }));
 
-import { toast } from 'sonner';
+import * as attachmentsApi from '@/lib/api/attachments';
 import { useMe } from '@/lib/auth/useMe';
-import type { UseQueryResult } from '@tanstack/react-query';
 import type { MeResponse } from '@/lib/auth/useMe';
+import type { UseQueryResult } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { VocCreateScreen } from '../VocCreateScreen';
 
 // ── Shared fixture data ───────────────────────────────────────────────────────
@@ -144,12 +174,7 @@ function buildHarness(screenProps?: Partial<React.ComponentProps<typeof VocCreat
   const vocCreateRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: '/vocs',
-    component: () => (
-      <VocCreateScreen
-        onCancel={vi.fn()}
-        {...screenProps}
-      />
-    ),
+    component: () => <VocCreateScreen onCancel={vi.fn()} {...screenProps} />,
   });
   const router = createRouter({
     routeTree: rootRoute.addChildren([vocCreateRoute]),
@@ -180,18 +205,16 @@ function jsonResponse(body: unknown, status = 200, headers: Record<string, strin
 }
 
 // Helper: install a fetch mock with per-URL routing
-function installFetch(
-  options: {
-    msItems?: unknown[];
-    aaItems?: unknown[];
-    managedSystemsResponses?: ReadonlyArray<{
-      status: number;
-      body: unknown;
-      headers?: Record<string, string>;
-    }>;
-    postVocsResponse?: { status: number; body: unknown; headers?: Record<string, string> };
-  },
-) {
+function installFetch(options: {
+  msItems?: unknown[];
+  aaItems?: unknown[];
+  managedSystemsResponses?: ReadonlyArray<{
+    status: number;
+    body: unknown;
+    headers?: Record<string, string>;
+  }>;
+  postVocsResponse?: { status: number; body: unknown; headers?: Record<string, string> };
+}) {
   const {
     msItems = [MS_ITEM],
     aaItems = [AA_ITEM],
@@ -223,7 +246,11 @@ function installFetch(
     if (url.includes('/vocs') && init?.method === 'POST') {
       postBodies.push(JSON.parse(String(init.body)));
       if (!postVocsResponse) return jsonResponse({}, 500);
-      return jsonResponse(postVocsResponse.body, postVocsResponse.status, postVocsResponse.headers ?? {});
+      return jsonResponse(
+        postVocsResponse.body,
+        postVocsResponse.status,
+        postVocsResponse.headers ?? {},
+      );
     }
     return new Response('not mocked', { status: 500 });
   }) as typeof globalThis.fetch;
@@ -320,7 +347,9 @@ describe('VocCreateScreen integration', () => {
       target: { value: '재현 절차와 기대 동작' },
     });
 
-    await waitFor(() => expect(screen.getByRole('button', { name: 'VOC 제출' })).not.toBeDisabled());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'VOC 제출' })).not.toBeDisabled(),
+    );
     fireEvent.click(screen.getByRole('button', { name: 'VOC 제출' }));
 
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith('접수 완료: V-1'));
@@ -361,8 +390,12 @@ describe('VocCreateScreen integration', () => {
     renderHarness({ onCancel: vi.fn() });
 
     await waitFor(() => expect(screen.getByTestId('ms-picker')).toBeInTheDocument());
-    expect(screen.getByText('타인 대신 보고는 다른 팀원이나 고객의 경험을 대신 등록하는 경우입니다.')).toBeInTheDocument();
-    expect(screen.getByText('Analytics Area는 VOC를 분석할 때 함께 볼 주제에 맞춰 선택하세요.')).toBeInTheDocument();
+    expect(
+      screen.getByText('타인 대신 보고는 다른 팀원이나 고객의 경험을 대신 등록하는 경우입니다.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Analytics Area는 VOC를 분석할 때 함께 볼 주제에 맞춰 선택하세요.'),
+    ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('radio', { name: MS_ITEM.name }));
     fireEvent.click(
@@ -372,7 +405,9 @@ describe('VocCreateScreen integration', () => {
     );
     await waitFor(() => expect(screen.getByTestId('aa-picker')).toBeInTheDocument());
     fireEvent.click(screen.getByRole('radio', { name: AA_ITEM.name }));
-    fireEvent.change(screen.getByRole('textbox', { name: /제목/i }), { target: { value: '분류와 출처가 독립적인 VOC' } });
+    fireEvent.change(screen.getByRole('textbox', { name: /제목/i }), {
+      target: { value: '분류와 출처가 독립적인 VOC' },
+    });
     fireEvent.blur(screen.getByRole('textbox', { name: /제목/i }));
     // #327: a blank description is now rejected at the schema, which is what
     // gates `formState.isValid` and therefore the submit button.
@@ -380,17 +415,21 @@ describe('VocCreateScreen integration', () => {
       target: { value: '재현 절차와 기대 동작' },
     });
 
-    await waitFor(() => expect(screen.getByRole('button', { name: 'VOC 제출' })).not.toBeDisabled());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'VOC 제출' })).not.toBeDisabled(),
+    );
     fireEvent.click(screen.getByRole('button', { name: 'VOC 제출' }));
 
     await waitFor(() => expect(postBodies).toHaveLength(1));
-    expect(postBodies[0]).toEqual(expect.objectContaining({
-      primary_managed_system_id: MS_ID,
-      analytics_area_id: AA_ID,
-      source_context: 'proxy_report',
-      title: '분류와 출처가 독립적인 VOC',
-      attachment_ids: [],
-    }));
+    expect(postBodies[0]).toEqual(
+      expect.objectContaining({
+        primary_managed_system_id: MS_ID,
+        analytics_area_id: AA_ID,
+        source_context: 'proxy_report',
+        title: '분류와 출처가 독립적인 VOC',
+        attachment_ids: [],
+      }),
+    );
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
@@ -433,7 +472,11 @@ describe('VocCreateScreen integration', () => {
           detail: {
             fields: [
               { path: ['title'], code: 'too_small', message: '제목은 1자 이상이어야 합니다.' },
-              { path: ['primary_managed_system_id'], code: 'invalid_uuid', message: '올바른 UUID가 아닙니다.' },
+              {
+                path: ['primary_managed_system_id'],
+                code: 'invalid_uuid',
+                message: '올바른 UUID가 아닙니다.',
+              },
             ],
           },
         },
@@ -674,6 +717,56 @@ describe('VocCreateScreen integration', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'VOC 제출' })).not.toBeDisabled();
     });
+  });
+
+  // ── C1 (#724): editor-toolbar attachments + dropzone attachments ──────────
+  test('editor attachmentRef nodes are sent as { id } and listed before the dropzone ids', async () => {
+    const DROP_ID = 'd1000000-0000-4000-8000-000000000002';
+    const { postBodies } = installFetch({
+      postVocsResponse: {
+        status: 201,
+        body: { id: VOC_ID, display_id: 'V-1', created_at: '2026-05-20T00:00:00Z' },
+      },
+    });
+    vi.spyOn(attachmentsApi, 'uploadAttachment').mockResolvedValue({
+      id: DROP_ID,
+      name: 'shot.png',
+      size_bytes: 1024,
+      mime_type: 'image/png',
+      uploaded_by_actor_id: '00000000-0000-4000-8000-000000000099',
+      created_at: '2026-05-22T10:00:00.000Z',
+    });
+
+    renderHarness({ onCancel: vi.fn() });
+    await waitFor(() => expect(screen.getByTestId('ms-picker')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('radio', { name: MS_ITEM.name }));
+    const titleInput = screen.getByRole('textbox', { name: /제목/i });
+    fireEvent.change(titleInput, { target: { value: '첨부가 있는 VOC' } });
+    fireEvent.blur(titleInput);
+    fireEvent.click(screen.getByRole('button', { name: '에디터 첨부 올리기' }));
+
+    const input = screen
+      .getByTestId('attachment-dropzone')
+      .querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(['x'], 'shot.png', { type: 'image/png' });
+    await act(async () => {
+      fireEvent.change(input, { target: { files: [file] } });
+    });
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'VOC 제출' })).not.toBeDisabled(),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'VOC 제출' }));
+
+    await waitFor(() => expect(postBodies).toHaveLength(1));
+    const body = postBodies[0] as {
+      description_rich_content: { content: { type: string; attrs?: unknown }[] };
+      attachment_ids: string[];
+    };
+    expect(body.description_rich_content.content.filter((n) => n.type === 'attachmentRef')).toEqual(
+      [{ type: 'attachmentRef', attrs: { id: EDITOR_ATT_ID } }],
+    );
+    expect(body.attachment_ids).toEqual([EDITOR_ATT_ID, DROP_ID]);
   });
 
   // ── 6. Empty MS list ──────────────────────────────────────────────────────
