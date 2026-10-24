@@ -26,12 +26,13 @@ export function RankingPanel({ block, visibleSeriesIds, limit = 50 }: RankingPan
   const partialText = lang === 'ko' ? '일부 미측정' : 'Partly not measured';
   const truncated = count > ranked.length;
   const list = <ol aria-label={lang === 'ko' ? '합계 순위' : 'Ranking by total'} className={`flex min-h-0 ${truncated ? 'flex-1' : 'h-full'} flex-col gap-0.5 overflow-auto p-2 text-xs`}>
-    {ranked.map((item, index) => <li key={item.id} className="flex items-baseline justify-between gap-2">
-      <span className="truncate text-text-secondary"><span className="text-text-muted">{index + 1}.</span> {rowIdLabel(item.id)}</span>
-      <span className="shrink-0 tabular-nums">
-        {item.total === null ? missingText(lang) : `${formatSeconds(item.total)} ${HW_TIME_UNIT[lang]}`}
-        {item.partial && <span className="ml-1 text-text-warning-label">{partialText}</span>}
-      </span>
+    {ranked.map((item, index) => <li key={item.id}>
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="truncate text-text-secondary" title={rowIdLabel(item.id)}><span className="text-text-muted">{index + 1}.</span> {rowIdLabel(item.id)}</span>
+        <span className="shrink-0 tabular-nums">{item.total === null ? missingText(lang) : `${formatSeconds(item.total)} ${HW_TIME_UNIT[lang]}`}</span>
+      </div>
+      {/* Its own line, so a narrow panel never truncates the row id to make room for it. */}
+      {item.partial && <p className="text-right text-text-warning-label">{partialText}</p>}
     </li>)}
   </ol>;
   if (!truncated) return list;

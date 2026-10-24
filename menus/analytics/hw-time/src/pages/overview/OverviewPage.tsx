@@ -28,10 +28,10 @@ const group = (...panels: string[]): PanelWorkspaceLayout => ({ type: 'group', p
  * One preset per level (the panels differ, so each level has its own `persistKey`). The first row is the analysis row (about 62%), so a
  * fresh stacked session shows a chart above the fold; trend and legend sit under it. L3 puts the detail (primary, UX-17) beside the context.
  * First-row arithmetic (06 §12.8 row model, `enterRows`): row px = round(share × max(fit height, rows × 360)), so with two rows the total is
- * at least 720 and the first row at least round(0.62 × 720) = 446px (row minimum 200). The Inspector is a 40px `rail`, so at 1280 with the
- * sidebar expanded (256px) the workspace is about 1280 − 256 − 40 − gaps ≈ 960px, above `compactBelow` 900 and stacked; a 256px `stack`
- * Inspector left ≈ 700px and the fit tab group showed. The first row starts at the top of the workspace, so its chart's plot area begins
- * within the first 446px of it (the reviewer saw 467px at 1440×900, chart visible).
+ * at least 720 and the first row at least round(0.62 × 720) = 446px (row minimum 200). The Inspector is a 40px `rail` (a 256px `stack`
+ * Inspector pushed every default width below `compactBelow` 900). Measured (690j UX2): 1440×900 workspace 1015px, stacked, chart at y 278–633;
+ * 1280×800 with the shell's default collapsed sidebar 1039px, stacked, chart at y 278–612; 1280×800 with the sidebar expanded 870px, so the
+ * fit tab group shows with the primary chart first (y 253–762). Either way an analysis chart is above the fold.
  */
 const GROUPS = {
   l1: ['level', 'ranking', 'trend', 'legend'],
@@ -39,7 +39,7 @@ const GROUPS = {
   l3: ['detail', 'context', 'ranking', 'trend', 'legend'],
 } as const;
 /** Below `compactBelow` one tab group shows its first tab: the primary panel (level at L1/L2, detail at L3) leads. */
-const COMPACT = (level: keyof typeof GROUPS): PanelWorkspacePreset => ({ id: 'compact', label: { ko: '한 묶음', en: 'One group' }, layout: group(...GROUPS[level]) });
+const COMPACT = (level: keyof typeof GROUPS): PanelWorkspacePreset => ({ id: 'compact', label: { ko: '탭 하나', en: 'One tab group' }, layout: group(...GROUPS[level]) });
 const PRESETS: Record<'l1' | 'l2' | 'l3', PanelWorkspaceLayout> = {
   l1: { type: 'branch', dir: 'column', sizes: [62, 38], children: [
     { type: 'branch', dir: 'row', sizes: [25, 75], children: [group('ranking'), group('level')] },
@@ -243,7 +243,7 @@ export default function OverviewPage(_props: PageProps) {
       ];
     }
     return <PanelWorkspace persistKey={persistKey} initialMode="stack" label={{ ko: 'HW Time 개요 영역', en: 'HW Time overview workspace' }} panels={panels}
-      presets={[{ id: 'default', label: { ko: '기본', en: 'Default' }, layout }, compact]} initialPreset="default" compactPreset="compact" revealRequest={reveal} />;
+      presets={[{ id: 'default', label: { ko: '패널 나눔', en: 'Split panels' }, layout }, compact]} initialPreset="default" compactPreset="compact" revealRequest={reveal} />;
   };
 
   return <PlatformPage layout="fill">
