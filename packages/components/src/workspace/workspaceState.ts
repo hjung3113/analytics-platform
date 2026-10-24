@@ -49,6 +49,8 @@ export type WorkspaceSpec = {
   panelIds: readonly string[]; primaryId: string; presets: readonly WorkspacePreset[]; initialPreset: string;
   /** Least px of a row in stack mode; default 200. */
   rowMinimum?: RowMinimum;
+  /** Height mode of a workspace nobody has touched; a saved preference (fit included) always wins. Default fit. */
+  initialMode?: 'fit' | 'stack';
 };
 
 /** Sanity bound on a stored row height: anything above is a corrupt value, not a layout. */
@@ -89,10 +91,11 @@ function restoreRows(raw: Record<string, unknown>, state: WorkspaceState, spec: 
 
 const presetOf = (spec: WorkspaceSpec, id: string) => spec.presets.find(preset => preset.id === id) ?? spec.presets[0]!;
 
-/** The state of a workspace nobody has touched: the initial preset, nothing hidden. */
+/** The state of a workspace nobody has touched: the initial preset, nothing hidden, the menu's `initialMode` (stack without rows: they are measured once). */
 export function initialWorkspaceState(spec: WorkspaceSpec): WorkspaceState {
   const preset = presetOf(spec, spec.initialPreset);
-  return { v: 1, preset: preset.id, layout: presetTree(preset.layout, spec.panelIds), hidden: [] };
+  const state: WorkspaceState = { v: 1, preset: preset.id, layout: presetTree(preset.layout, spec.panelIds), hidden: [] };
+  return spec.initialMode === 'stack' ? { ...state, mode: 'stack' } : state;
 }
 
 /**
@@ -136,7 +139,7 @@ export function applyPreset(state: WorkspaceState, preset: WorkspacePreset): Wor
   return { ...state, preset: preset.id, layout: presetTree(preset.layout, panelOrder(state.layout)) };
 }
 
-/** `기본 배치`: the current preset's arrangement of every panel; nothing hidden. */
+/** `기본 배치`: the current preset's arrangement of every panel; nothing hidden. The height mode is the user's and stays as it is (never reset to `initialMode`). */
 export function resetLayout(state: WorkspaceState, preset: WorkspacePreset): WorkspaceState {
   return { ...state, preset: preset.id, layout: presetTree(preset.layout, [...panelOrder(state.layout), ...state.hidden]), hidden: [] };
 }

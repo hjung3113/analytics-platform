@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useI18n, usePlatform, type Text } from '@ap/kernel';
 import { isProductionEnv } from '@ap/ui';
-import { activatePanel, movePanel, panelOrder } from '../dock/commands';
+import { activatePanel, groupOf, movePanel, panelOrder } from '../dock/commands';
 import { focusTabSoon } from '../dock/focusTab';
 import { DockLayoutBase } from '../dock/DockLayout';
 import type { DockPanel, DockRows } from '../dock/dockTypes';
@@ -46,6 +46,14 @@ export type PanelWorkspaceProps = {
   label: Text;
   /** Container width in px under which the compact arrangement is shown. Default 900. */
   compactBelow?: number;
+  /** Height mode of a workspace nobody has touched. A saved preference, a saved `화면 맞춤` included, always wins; `기본 배치` keeps the user's mode. Below `compactBelow` fit shows and the stored mode is untouched. Default `fit`. */
+  initialMode?: 'fit' | 'stack';
+  /**
+   * Brings `panelId` to the front of its tab group when `seq` changes (a menu counts up: `{ panelId: 'trend', seq: n + 1 }`). Only the active tab
+   * changes: a hidden panel stays hidden (hiding is the user's decision), another panel's maximize is kept (it is a no-op, not queued) and focus
+   * never moves. An unknown `panelId`, a repeated `seq` and `null` do nothing. A request present on mount is not applied.
+   */
+  revealRequest?: { panelId: string; seq: number } | null;
 };
 
 const DEFAULT_COMPACT_BELOW = 900;
@@ -104,13 +112,13 @@ export function PanelWorkspace(props: PanelWorkspaceProps) {
   return <WorkspaceBody key={storageKey ?? `memory:${props.persistKey}`} {...props} storageKey={storageKey} />;
 }
 
-function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, label, compactBelow = DEFAULT_COMPACT_BELOW, storageKey }: PanelWorkspaceProps & { storageKey: string | null }) {
+function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, label, compactBelow = DEFAULT_COMPACT_BELOW, initialMode, revealRequest, storageKey }: PanelWorkspaceProps & { storageKey: string | null }) {
   const { tx } = useI18n();
   const depth = useWorkspaceDepth() + 1;
   const primaryId = (panels.find(panel => panel.primary) ?? panels[0]!).id;
   const presets: readonly PanelWorkspacePreset[] = given.length > 0 ? given : [{ id: initialPreset, label: workspaceText.layout, layout: { type: 'group', panels: panels.map(panel => panel.id) } }];
   const rowMinimum = rowMinimumOf(new Map(panels.map(panel => [panel.id, { minWidth: panel.minWidth, minHeight: panel.minHeight }])));
-  const spec: WorkspaceSpec = { panelIds: panels.map(panel => panel.id), primaryId, presets, initialPreset, rowMinimum };
+  const spec: WorkspaceSpec = { panelIds: panels.map(panel => panel.id), primaryId, presets, initialPreset, rowMinimum, initialMode };
   const titleOf = (id: string) => { const panel = panels.find(candidate => candidate.id === id); return panel ? tx(panel.title) : id; };
 
   const [stored, setStored] = useState<WorkspaceState>(() => (storageKey ? readWorkspaceState(storageKey, spec) : null) ?? initialWorkspaceState(spec));
@@ -159,14 +167,31 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, l
   useRegisterPageFlow(stackActive);
 
   // Commands read the latest render at call time, so their identity depends on what they display only.
-  const live = useRef({ compact, narrow, derived, presets, primaryId, rowMinimum, maxRow, stackActive });
-  useLayoutEffect(() => { live.current = { compact, narrow, derived, presets, primaryId, rowMinimum, maxRow, stackActive }; });
+  const live = useRef({ compact, narrow, derived, presets, primaryId, rowMinimum, maxRow, stackActive, maximizedId });
+  useLayoutEffect(() => { live.current = { compact, narrow, derived, presets, primaryId, rowMinimum, maxRow, stackActive, maximizedId }; });
   const rowEnv = (): RowEnv => ({ minimum: live.current.rowMinimum, maximum: live.current.maxRow, baseline: lastFit.current ?? Math.max(NEW_ROW_HEIGHT, live.current.maxRow - TOOLBAR_CHROME) });
   /** `keep`: an edit; rows follow the panels (`created`: the panel the edit moved into a row of its own, which is then a new row). `enter`: preset or reset; rows come from the new shares and the fit baseline, so repeating it cannot add height. `raw`: the edit decided the rows itself. */
   const update = useCallback((change: (current: WorkspaceState) => WorkspaceState, settle: 'keep' | 'enter' | 'raw' = 'keep', created?: string) => {
     if (live.current.compact) setCompactState(previous => change(previous ?? live.current.derived));
     else setStored(previous => { const next = change(previous); return settle === 'raw' ? next : settleRows(previous, next, settle, rowEnv(), created); });
   }, []);
+  // Reveal request (#690): the active tab only, persisted like a user activation. The seq present at mount counts as handled.
+  const knownIds = panels.map(panel => panel.id).join('|');
+  const handledSeq = useRef(revealRequest?.seq);
+  const revealSeq = revealRequest?.seq;
+  const revealId = revealRequest?.panelId;
+  useEffect(() => {
+    if (revealSeq === undefined || revealId === undefined || revealSeq === handledSeq.current) return;
+    handledSeq.current = revealSeq;
+    if (!knownIds.split('|').includes(revealId)) {
+      if (!isProductionEnv(import.meta as { env?: { PROD?: boolean } }, globalThis as { process?: { env?: { NODE_ENV?: string } } })) console.error(`[PanelWorkspace] revealRequest names "${revealId}", which is not a panel`);
+      return;
+    }
+    // The user chose another panel's focus: not ended, not queued. A hidden panel is not in the layout, so the change below leaves it hidden.
+    const other = live.current.maximizedId;
+    if (other !== null && other !== revealId) return;
+    update(current => { const home = groupOf(current.layout, revealId); return home && home.active !== revealId ? { ...current, layout: activatePanel(current.layout, revealId) } : current; });
+  }, [revealSeq, revealId, knownIds, update]);
   const setMode = useCallback((mode: 'fit' | 'stack') => {
     if (live.current.narrow) return;
     if (mode === 'stack' && fitSlot.current && !live.current.stackActive) { const height = fitSlot.current.getBoundingClientRect().height; if (height > 0) lastFit.current = height; }
