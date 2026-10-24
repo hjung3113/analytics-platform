@@ -140,12 +140,48 @@ describe('HW Time trends and table endpoints', () => {
     expect(exported.map(({ id }) => id)).toEqual(ids);
   });
 
+  it.each([
+    [{}, 24, 24],
+    [{ drillModule: 'PM1' }, 120, 96],
+    [{ drillModule: 'PM1', drillMotion: 'Pump' }, 96, 96],
+  ])('pages, sorts and exports table rows at every level (%j)', async (drill, total, dataRows) => {
+    const page = await data<HwTimeTableData>(hwTime.tableRows.id, { ...drill, page: 0, pageSize: 200, sorting: [] });
+    expect(page.total).toBe(total);
+    expect(page.rows.filter(row => !row.auxiliary)).toHaveLength(dataRows);
+    const exported = await data<HwTimeRow[]>(hwTime.exportRows.id, { ...drill, ids: null, sorting: [] });
+    expect(exported).toHaveLength(total);
+    if ('drillModule' in drill && !('drillMotion' in drill)) {
+      const meg = page.rows.filter(row => row.auxiliary);
+      expect(meg).toHaveLength(24);
+      expect(meg.every(row => row.auxiliary?.kind === 'MEG' && row.auxiliary.label !== '')).toBe(true);
+      expect(exported.filter(row => row.auxiliary)).toHaveLength(24);
+    }
+  });
+
+  it('sorts by a series id on its flat field, nulls last, ties by id', async () => {
+    for (const desc of [false, true]) {
+      const page = await data<HwTimeTableData>(hwTime.tableRows.id, { drillModule: 'PM3', page: 0, pageSize: 200, sorting: [{ id: 'Chuck', desc }] });
+      const values = page.rows.map(row => row['Chuck'] as number | null | undefined ?? null);
+      const known = values.filter((v): v is number => v !== null);
+      expect(known).toEqual([...known].sort((a, b) => desc ? b - a : a - b));
+      expect(values.indexOf(null)).toBeGreaterThan(known.length - 1);
+      expect(values.slice(known.length).every(v => v === null)).toBe(true);
+    }
+    const l1 = await data<HwTimeTableData>(hwTime.tableRows.id, { page: 0, pageSize: 10, sorting: [{ id: 'PM1', desc: false }] });
+    expect(l1.rows[0]?.['PM1']).toBe(l1.rows[0]?.values['PM1']);
+  });
+
+  it('rejects a Motion without a Module on the table endpoints', async () => {
+    expect((await query(hwTime.tableRows.id, { drillMotion: 'Pump', page: 0, pageSize: 10, sorting: [] })).outcome).toBe('error');
+    expect((await query(hwTime.exportRows.id, { drillModule: 'PM9', ids: null, sorting: [] })).outcome).toBe('error');
+  });
+
   it('declares response row caps', () => {
     expect(HW_TIME_UNIT).toEqual({ ko: '초', en: 's' });
     expect(hwTime.levelRows.limits?.maxRows).toBeUndefined();
     expect(hwTime.trend.limits?.maxRows).toBeUndefined();
     expect(hwTime.tableRows.limits?.maxRows).toBeUndefined();
-    expect(hwTime.exportRows.limits?.maxRows).toBe(96);
+    expect(hwTime.exportRows.limits?.maxRows).toBe(120);
   });
 });
 

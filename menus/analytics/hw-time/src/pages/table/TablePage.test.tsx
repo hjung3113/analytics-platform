@@ -54,7 +54,11 @@ const adapter = testAdapter({
     calls.push(req);
     const p = req.params as Record<string, unknown>;
     if (req.endpoint === hwTime.levelRows.id) return ok(levelData(p.drillModule as string | undefined, p.drillMotion as string | undefined));
-    if (req.endpoint === hwTime.tableRows.id) { const rows = levelData(p.drillModule as string, p.drillMotion as string).detail!.rows; return ok({ rows, total: rows.length }); }
+    if (req.endpoint === hwTime.tableRows.id) {
+      const data = levelData(p.drillModule as string | undefined, p.drillMotion as string | undefined);
+      const rows = (data.level === 2 ? data.detail!.rows : data.rows).map(row => ({ ...row, ...row.values }));
+      return ok({ rows, total: rows.length });
+    }
     if (req.endpoint === hwTime.trend.id) return ok({ limits: { maxRows: 8 }, rows: (p.rowIds as string[]).map(id => ({ id, points: [{ at: '2026-09-25', value: 4 }, { at: '2026-09-26', value: null }] })) });
     return ok([]);
   },
@@ -133,13 +137,19 @@ describe('HW Time table page', () => {
     expect(searchParams().get('sort')).not.toBeNull();
   });
 
-  it('offers export only through the table, at the level whose endpoint can serve it', async () => {
-    await renderPage('&drillModule=PM1&drillMotion=Pump');
-    expect(screen.getAllByRole('button', { name: /내보내기/ })).toHaveLength(1);
-    expect(hwTime.exportRows.limits?.maxRows).toBe(96);
-    cleanup();
+  it('sorts a series column on the server by its flat field at every level', async () => {
     await renderPage('&drillModule=PM1');
-    expect(screen.queryByRole('button', { name: /내보내기/ })).toBeNull();
+    await waitFor(() => expect(tableCalls().length).toBeGreaterThan(0));
+    expect(tableCalls()[0]).toMatchObject({ drillModule: 'PM1', page: 0, pageSize: 25, sorting: [] });
+    expect(tableCalls()[0]).not.toHaveProperty('drillMotion');
+    fireEvent.click(within(screen.getAllByRole('columnheader').find(h => h.textContent?.includes('Pump'))!).getByRole('button'));
+    await waitFor(() => expect(tableCalls().some(p => (p.sorting as { id: string }[])[0]?.id === 'Pump')).toBe(true));
+  });
+
+  it.each(['', '&drillModule=PM1', '&drillModule=PM1&drillMotion=Pump'])('offers export through the table at every level (%s)', async search => {
+    await renderPage(search);
+    expect(screen.getAllByRole('button', { name: /내보내기/ })).toHaveLength(1);
+    expect(hwTime.exportRows.limits?.maxRows).toBe(120);
   });
 
   it('shows MEG rows by label without a drill or a row action', async () => {

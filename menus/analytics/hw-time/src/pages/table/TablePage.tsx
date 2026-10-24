@@ -9,13 +9,13 @@ import { useDrill, useI18n, useMenuFetch, usePlatform, type PageProps } from '@a
 import {
   DetailDrawer, DrillLayout, PlatformDataTable, PlatformPage, RowAction, StateMessage, TableUrlWarning, useTableUrlState, type PlatformColumn,
 } from '@ap/components';
-import { hwTime, isHwTimeRowId, type HwTimeBlock, type HwTimeLevelData, type HwTimeRow } from '../../endpoints';
+import { hwTime, isHwTimeRowId, type HwTimeBlock, type HwTimeLevelData, type HwTimeRow, type HwTimeTableRow } from '../../endpoints';
 import { useHwTimeLevel, useHwTimeTrend } from '../../shared/data';
 import { rowIdLabel } from '../../shared/format';
 import { StackPanel } from '../../shared/panels/StackPanel';
 import { TrendPanel } from '../../shared/panels/TrendPanel';
 import {
-  SORT_FIELDS, auxiliaryText, drillParams, exportFilterSummary, exportParams, levelOf, levelRowsOf, pageOfLevel, seriesIds, unitOf, valueText,
+  SORT_FIELDS, auxiliaryText, drillParams, exportFilterSummary, exportParams, levelOf, levelRowsOf, seriesIds, unitOf, valueText,
 } from './tableData';
 
 const NO_ROWS: HwTimeRow[] = [];
@@ -38,7 +38,6 @@ export default function TablePage(_props: PageProps) {
   const focus = pageParam('focus');
   const { urlState, invalid: tableInvalid, sentences } = useTableUrlState(SORT_FIELDS);
 
-  const levels = useMenuFetch(hwTime.levelRows);
   const pages = useMenuFetch(hwTime.tableRows);
   const exports = useMenuFetch(hwTime.exportRows);
 
@@ -54,12 +53,12 @@ export default function TablePage(_props: PageProps) {
   const trendable = focusRow !== undefined && isHwTimeRowId(focusRow.id);
   const trendQ = useHwTimeTrend(trendable ? [focusRow.id] : [], trendable);
 
-  const columns = useMemo<PlatformColumn<HwTimeRow>[]>(() => {
+  const columns = useMemo<PlatformColumn<HwTimeTableRow>[]>(() => {
     const unit = unitOf(lang);
     const enter = (value: string) => drill.enter(level === 0 ? 'drillModule' : 'drillMotion', value);
-    const series: PlatformColumn<HwTimeRow>[] = seriesIds(level, motion).map(id => ({
-      id: `values.${id}`, header: `${id} (${unit})`, align: 'right', sortable: false,
-      value: row => row.values[id] ?? null,
+    const series: PlatformColumn<HwTimeTableRow>[] = seriesIds(level, motion).map(id => ({
+      id, header: `${id} (${unit})`, align: 'right',
+      value: row => (row[id] as number | null | undefined) ?? null,
       cell: row => row.auxiliary ? null : <span className="inline-flex items-center justify-end gap-1">
         <span className="tabular">{valueText(row.values[id], lang)}</span>
         {level < 2 && <EnterButton ko={ko} value={id} onClick={() => enter(id)} />}
@@ -70,8 +69,8 @@ export default function TablePage(_props: PageProps) {
       { id: 'equipmentId', header: 'EquipmentID', cell: row => <span className="t-mono">{row.equipmentId}</span> },
       ...(level === 0 ? [] : [{
         id: 'subItem', header: ko ? '하위 항목' : 'Sub-item',
-        value: (row: HwTimeRow) => row.auxiliary ? auxiliaryText(row, lang) : row.subItem ?? '',
-        cell: (row: HwTimeRow) => <span className="t-mono">{row.auxiliary ? auxiliaryText(row, lang) : row.subItem}</span>,
+        value: (row: HwTimeTableRow) => row.auxiliary ? auxiliaryText(row, lang) : row.subItem ?? '',
+        cell: (row: HwTimeTableRow) => <span className="t-mono">{row.auxiliary ? auxiliaryText(row, lang) : row.subItem}</span>,
       }]),
       ...series,
       {
@@ -95,19 +94,17 @@ export default function TablePage(_props: PageProps) {
   const table = tableInvalid ? <TableUrlWarning sentences={sentences} />
     : emptyDetail ? <StateMessage icon={<Inbox className="size-4" aria-hidden />} title={ko ? `${module} Module에는 ${motion} 동작 기록이 없습니다` : `No ${motion} records for Module ${module}`}
       body={ko ? 'Module의 다른 Motion은 한 단계 위에서 볼 수 있습니다.' : 'Other Motions of this Module are one level up.'} />
-      : <PlatformDataTable<HwTimeRow>
+      : <PlatformDataTable<HwTimeTableRow>
         title={ko ? 'HW Time 표' : 'HW Time table'} ariaLabel={ko ? 'HW Time 동작시간 표' : 'HW Time operation time table'}
-        subtitle={level === 2 ? undefined : (ko ? '값 옆 화살표로 한 단계 들어갑니다. 내보내기는 Module·Motion을 고른 뒤 사용할 수 있습니다.' : 'Use the arrow beside a value to drill in. Export is available once a Module and Motion are chosen.')}
+        subtitle={level === 2 ? undefined : (ko ? '값 옆 화살표로 한 단계 들어갑니다.' : 'Use the arrow beside a value to drill in.')}
         columns={columns} getRowId={row => row.id} filterKey={`${module ?? ''}/${motion ?? ''}`} preferenceKey={`hw-time-table:columns:v1:L${level + 1}`}
         activeRowId={focus} pageSize={25} urlState={urlState}
-        loadPage={(query, signal) => level === 2
-          ? pages.fetch({ drillModule: module!, drillMotion: motion!, ...query }, signal)
-          : levels.fetch(drillParams(module, motion), signal).then(result => pageOfLevel(result, query))}
+        loadPage={(query, signal) => pages.fetch({ ...drillParams(module, motion), ...query }, signal)}
         rowAction={(row, { compact }) => row.auxiliary ? null
           : <RowAction compact={compact} icon={PanelRight} label={ko ? `${rowIdLabel(row.id)} 보기` : `View ${rowIdLabel(row.id)}`} text={ko ? '보기' : 'View'} onClick={() => setPage({ focus: row.id })} />}
-        exportRows={level === 2 ? (request, signal) => exports.fetch(exportParams({ drillModule: module!, drillMotion: motion! }, request), signal) : undefined}
-        exportNote={ko ? '선택한 Module·Motion의 행이며 미측정 값은 ‘미측정’으로 적힙니다' : 'Rows of the chosen Module and Motion; values not measured are written as “Not measured”'}
-        exportFilterSummary={level === 2 ? exportFilterSummary(module!, motion!, ko) : undefined}
+        exportRows={(request, signal) => exports.fetch(exportParams(drillParams(module, motion), request), signal)}
+        exportNote={ko ? '현재 단계의 행이며 미측정 값은 ‘미측정’으로 적힙니다' : 'Rows of the current level; values not measured are written as “Not measured”'}
+        exportFilterSummary={exportFilterSummary(module, motion, ko)}
         exportContext={hwTime.exportRows.context}
       />;
 

@@ -29,13 +29,17 @@ export type HwTimeLevelData = HwTimeBlock & {
 export type HwTimeTrendPoint = { at: string; value: number | null };
 export type HwTimeTrendRow = { id: string; points: HwTimeTrendPoint[] };
 export type HwTimeTrendData = { rows: HwTimeTrendRow[]; limits: { maxRows: number } };
-export type HwTimeTableFilter = { drillModule: string; drillMotion: string };
+/** No key lists L1 rows (EquipmentID × Module), `drillModule` L2 rows (EquipmentID × sub-item, with MEG), both keys L3 rows. */
+export type HwTimeTableFilter = HwTimeDrill;
+/** A table row also carries each series value as a flat field (`row['PM1']`, `row['Dechuck']`) so the server and the table sort it. */
+export type HwTimeTableRow = HwTimeRow & { [seriesId: string]: unknown };
 export type HwTimeTableParams = HwTimeTableFilter & PageQuery;
-export type HwTimeTableData = PageResult<HwTimeRow>;
+export type HwTimeTableData = PageResult<HwTimeTableRow>;
 export type HwTimeExportParams = HwTimeTableFilter & { ids: string[] | null; sorting: PageSort[] };
+export type HwTimeExportRow = HwTimeTableRow;
 
 export const HW_TIME_UNIT = { ko: '초', en: 's' } as const;
-export const HW_TIME_MAX_ROWS = { level: 120, export: 96 } as const;
+export const HW_TIME_MAX_ROWS = { level: 120, export: 120 } as const;
 /** The eight-row cap keeps request URLs short and multi-row trends legible. */
 export const HW_TIME_MAX_TREND_ROWS = 8;
 export const HW_TIME_ROW_ID_PATTERN = /^EQ-\d{3}\.H[1-4]$/;
@@ -72,7 +76,7 @@ export const hwTime = {
     id: 'hwTime.tableRows',
     paramKeys: { drillModule: true, drillMotion: true, page: true, pageSize: true, sorting: true },
   }),
-  exportRows: defineEndpoint<HwTimeExportParams, HwTimeRow[]>({
+  exportRows: defineEndpoint<HwTimeExportParams, HwTimeTableRow[]>({
     ...common,
     id: 'hwTime.exportRows',
     paramKeys: { drillModule: true, drillMotion: true, ids: true, sorting: true },
