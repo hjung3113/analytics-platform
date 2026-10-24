@@ -7,7 +7,7 @@ import { ChevronDown, Inbox, ListTree, SlidersHorizontal, Target } from 'lucide-
 import { useId, useMemo, useState } from 'react';
 import { useDrill, useI18n, usePlatform, type PageProps } from '@ap/kernel';
 import { DrillLayout, Inspector, LegendTree, PlatformPage, QueryView, SegmentedRadio, StateMessage, type InspectorSection } from '@ap/components';
-import { Button, cn } from '@ap/ui';
+import { Button, Checkbox, cn } from '@ap/ui';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import { HW_TIME_MAX_TREND_ROWS, HW_TIME_UNIT, isHwTimeRowId, type HwTimeBlock, type HwTimeDrill, type HwTimeLevelData } from '../../endpoints';
 import { useHwTimeLevel, useHwTimeTrend } from '../../shared/data';
@@ -38,6 +38,10 @@ export default function StepsPage(_props: PageProps) {
 
   const rawSort = pageParam('sort');
   const sort: StackSort = SORTS.includes(rawSort as StackSort) ? rawSort as StackSort : null;
+
+  // Page keys, not reset keys: `align=1` is on, absent is off.
+  const align = pageParam('align') === '1';
+  const minmax = pageParam('minmax') === '1';
 
   const levelKey = `${module ?? ''}/${motion ?? ''}`;
   const [hiddenState, setHiddenState] = useState<{ key: string; ids: string[] }>({ key: levelKey, ids: [] });
@@ -82,6 +86,11 @@ export default function StepsPage(_props: PageProps) {
   const legendShown = block ? block.series.filter(item => !hidden.includes(item.id)).length : 0;
   const sortText = sort === 'total-desc' ? { ko: '정렬: 큰 순', en: 'Sort: high' } : sort === 'total-asc' ? { ko: '정렬: 작은 순', en: 'Sort: low' } : { ko: '정렬: 기본', en: 'Sort: default' };
 
+  const optionText = [
+    sortText[lang],
+    ...(align ? [ko ? '시작 위치 맞춤' : 'Start aligned'] : []),
+    ...(minmax ? [ko ? '최소·최대' : 'Min·Max'] : []),
+  ].join(' · ');
   const sections: InspectorSection[] = [
     {
       id: 'target', title: { ko: '분석 대상', en: 'Target' }, icon: Target,
@@ -104,7 +113,7 @@ export default function StepsPage(_props: PageProps) {
       },
     },
     {
-      id: 'options', title: { ko: '옵션', en: 'Options' }, icon: SlidersHorizontal, summary: sortText,
+      id: 'options', title: { ko: '옵션', en: 'Options' }, icon: SlidersHorizontal, summary: { ko: optionText, en: optionText },
       render: () => <div className="flex flex-col gap-3 text-xs">
         <div className="flex flex-col gap-1">
           <span id="hw-sort-label" className="font-medium text-text-secondary">{ko ? '정렬' : 'Sort'}</span>
@@ -112,6 +121,14 @@ export default function StepsPage(_props: PageProps) {
             onChange={next => setPage({ sort: next === 'none' ? null : next })}
             options={[{ value: 'none', label: ko ? '기본' : 'Default' }, { value: 'total-desc', label: ko ? '큰 순' : 'High' }, { value: 'total-asc', label: ko ? '작은 순' : 'Low' }]} />
         </div>
+        <label className="flex cursor-pointer items-center gap-2">
+          <Checkbox checked={align} onCheckedChange={checked => setPage({ align: checked === true ? '1' : null })} />
+          {ko ? '시작 위치 맞춤' : 'Align start positions'}
+        </label>
+        <label className="flex cursor-pointer items-center gap-2">
+          <Checkbox checked={minmax} onCheckedChange={checked => setPage({ minmax: checked === true ? '1' : null })} />
+          {ko ? '최소·최대 표시' : 'Show min·max'}
+        </label>
       </div>,
     },
   ];
@@ -139,7 +156,7 @@ export default function StepsPage(_props: PageProps) {
     return <StackPanel chartId={`hw-time-steps-L${data.level + 1}`} title={chartTitle} block={shown}
       visibleSeriesIds={shown.series.map(item => item.id).filter(id => !hidden.includes(id))}
       onVisibleSeriesChange={ids => setHiddenState({ key: levelKey, ids: shown.series.map(item => item.id).filter(id => !ids.includes(id)) })}
-      sort={sort}
+      sort={sort} startAlign={align} minMax={minmax}
       onActivate={data.level === 0 ? ({ seriesId }) => drill.enter('drillModule', seriesId)
         : data.level === 1 ? ({ seriesId }) => drill.enter('drillMotion', seriesId) : undefined}
       rowActions={data.level === 0 ? undefined : rowActionsOf} />;

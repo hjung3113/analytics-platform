@@ -15,6 +15,7 @@ import { buildChartOption, linePattern, resolveChartPalette } from './buildChart
 import { useAnnotationDeleteFocus, useAnnotationEditor } from './useAnnotationEditor';
 import { useChartRange, type ClipResult, type Selection } from './useChartRange';
 import { usePointMenu } from './usePointMenu';
+import { seriesExtremes } from './chartLanes';
 import { clampRowPitch, revealScrollTop, rowFocusDiagnostic, rowPitchChartHeight, ROW_PITCH_MIN } from './analysisChartGeometry';
 
 import { AnalysisChartPart, ChartHeading, ChartTrustFooter } from './analysisChartFrameParts';
@@ -154,6 +155,10 @@ export type AnalysisChartFrameProps = {
   revealActive?: boolean;
   /** Horizontal only: px per row, minimum 24 (WCAG 2.2 2.5.8). The plot becomes `rows × pitch + axes` tall and scrolls inside the frame; category zoom is off, Brush stays. Menus cap the rows through the endpoint's `limits.maxRows` (06 §15). */
   rowPitch?: number;
+  /** Horizontal + stacked only (ignored elsewhere, with a dev warning). Visual only: each series gets a lane as wide as its largest value and every row's piece starts at its lane's left edge; values, totals, table and export are unchanged. The value axis shows lane names instead of numbers, and Brush is off (x is no longer one value scale). */
+  startAlign?: boolean;
+  /** Horizontal only. Per series (category), outlines the segment with its smallest and the one with its largest value and labels them 최소/최대. `null`, points `isPointSelectable` rejects, hidden series and series with fewer than 2 measured rows are left out. */
+  minMax?: boolean;
 };
 
 /**
@@ -207,11 +212,14 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   // The category the last pointer click reported: the row is already visible, so that echo must not scroll.
   const [pointerRequest, setPointerRequest] = useState<string | null>(null);
   const revealedCategory = useRef<string | null | undefined>(undefined);
+  const { startAlign: rawStartAlign, stacked: rawStacked, minMax: rawMinMax } = p;
   const { rowPitch: rawRowPitch, activeCategory: rawActive, onActiveCategoryChange, revealActive } = p;
   useEffect(() => {
     if (!horizontal && (rawRowPitch !== undefined || rawActive !== undefined || onActiveCategoryChange || revealActive)) rowFocusDiagnostic('activeCategory, onActiveCategoryChange, revealActive and rowPitch apply only to orientation="horizontal" with a category x axis; ignored.');
+    if (rawStartAlign && !(horizontal && rawStacked)) rowFocusDiagnostic('startAlign applies only to a stacked chart with orientation="horizontal"; ignored.');
+    if (rawMinMax && !horizontal) rowFocusDiagnostic('minMax applies only to orientation="horizontal" with a category x axis; ignored.');
     if (horizontal && rawRowPitch !== undefined && !(rawRowPitch >= ROW_PITCH_MIN)) rowFocusDiagnostic(`rowPitch ${rawRowPitch} is below the ${ROW_PITCH_MIN}px target size; using ${ROW_PITCH_MIN}.`);
-  }, [horizontal, rawRowPitch, rawActive, onActiveCategoryChange, revealActive]);
+  }, [horizontal, rawRowPitch, rawActive, onActiveCategoryChange, revealActive, rawStartAlign, rawStacked, rawMinMax]);
   // Bumped from onReady: imperative instance effects below must replay once the lazy EChartImpl
   // creates the instance (a Brush click during chunk load would otherwise never reach it, #48 P1).
   const rawFillMin = p.fillMin; const legendProp = p.legend; const controlledVisibility = p.visibleSeriesIds !== undefined;
@@ -223,7 +231,10 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   // The chart instance's width in px: label budgets are cut from it, so a container resize must reach the option (#399 F3).
   const [chartWidth, setChartWidth] = useState(NOTE_FALLBACK_WIDTH);
   const { state: range, actions: rangeActions } = useChartRange();
-  const { selection, preview, zoom, clipNotice, rangeDraft, brushMode } = range;
+  const { selection, preview, zoom, clipNotice, rangeDraft } = range;
+  const startAlign = horizontal && !!p.stacked && !!p.startAlign;
+  // StartAlign turns Brush off: x is no longer one value scale, so a dragged range would not mean seconds.
+  const brushMode = range.brushMode && !startAlign;
   const [showTable, setShowTable] = useState(false);
   const scopeId = global.scopeId;
   const editor = useAnnotationEditor({ chartId: p.chartId, scopeId, canAnnotate });
@@ -259,6 +270,8 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   }, [rowPitch, revealActive, activeCategory, categories, pointChart, pointerRequest]);
   // Declared after the reveal effect: the request lives for the render of its own click only, so an ignored one cannot swallow a later outside reveal of the same row.
   useEffect(() => { if (pointerRequest !== null) setPointerRequest(null); }, [pointerRequest]);
+  // Computed from the displayed (visible) series, so a hidden series has none; the point selector's own rule decides which rows count.
+  const extremes = useMemo(() => (horizontal && p.minMax ? seriesExtremes(displayed, isPointSelectable) : undefined), [horizontal, p.minMax, displayed, isPointSelectable]);
   const points = useMemo(() => pointControls ? displayed.flatMap(s => s.points.map(([x, value]) => ({ x, seriesId: s.id, value })).filter(point => isPointSelectable?.(point) ?? true)) : [], [pointControls, displayed, isPointSelectable]);
   const selectedPoint = points.find(point => pointKey(point) === selectedPointKey) ?? points[0];
   const actionsFor = useCallback((point: ChartPoint): readonly ChartPointAction[] => (typeof pointActions === 'function' ? pointActions(point) : pointActions ?? []), [pointActions]);
@@ -313,10 +326,10 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
     // A new chart instance replays the option: the lazy chunk and theme CSS may have settled since the tokens were last resolved.
     void instanceReady;
     return buildChartOption({
-      displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations, noteSpans, noteLevels, timeExtent, chartWidth, markLines, unit, lang, stacked, valueFormat, rowPitch, activeCategory,
+      displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations, noteSpans, noteLevels, timeExtent, chartWidth, markLines, unit, lang, stacked, valueFormat, rowPitch, activeCategory, startAlign, extremes,
       palette: resolveChartPalette(displayed),
     });
-  }, [displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations, noteSpans, noteLevels, timeExtent, chartWidth, markLines, unit, lang, stacked, valueFormat, rowPitch, activeCategory, instanceReady]);
+  }, [displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations, noteSpans, noteLevels, timeExtent, chartWidth, markLines, unit, lang, stacked, valueFormat, rowPitch, activeCategory, startAlign, extremes, instanceReady]);
 
   // Re-arm the brush cursor after each option replacement, and once the instance becomes ready.
   useEffect(() => {
@@ -398,6 +411,12 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
     return { s, n: values.length, avg: values.length ? values.reduce((a, b) => a + b, 0) / values.length : null, max: values.length ? Math.max(...values) : null };
   }) : [];
 
+  /** ` · 최소` / ` · 최대` after a point that is its series' minimum or maximum, for the keyboard picker (colour is never the only cue). */
+  function extremeText(point: ChartPoint) {
+    const e = extremes?.get(point.seriesId);
+    return e?.min.x === point.x ? ` · ${lang === 'ko' ? '최소' : 'Min'}` : e?.max.x === point.x ? ` · ${lang === 'ko' ? '최대' : 'Max'}` : '';
+  }
+
   function renderLegendSeries(s: ChartSeries, previous: boolean) {
     const kind = horizontal ? 'bar' : s.kind ?? 'line';
     // eslint-disable-next-line shadcn/no-raw-colors -- CSS variable name for token(), not a class
@@ -446,7 +465,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   // (ADR-0067 decision 21); notes, errors and the confirm row keep their place. Other sizes always show them.
   const rangeUi = size !== 'fill' || brushMode || !!selection;
   const annotationAlert = canAnnotate && scopeId !== null && !!editor.query.response && !['ok', 'empty'].includes(editor.query.response.outcome);
-  const showSummary = rangeUi || !!clipNotice || !!preview || note !== null || annotations.length > 0 || annotationAlert || (activeCategory !== undefined && activeCategory !== null);
+  const showSummary = rangeUi || !!clipNotice || !!preview || note !== null || annotations.length > 0 || annotationAlert || (activeCategory !== undefined && activeCategory !== null) || (!!extremes && !!selectedPoint && extremes.has(selectedPoint.seriesId));
   useEffect(() => {
     if (!focusRangeForm.current || !brushMode) return;
     focusRangeForm.current = false;
@@ -496,7 +515,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
           <select aria-label={lang === 'ko' ? '차트 지점 선택' : 'Select chart point'} value={selectedPoint ? pointKey(selectedPoint) : ''} disabled={brushMode || !points.length}
             className="max-w-56 rounded-md border border-border-control bg-surface-card px-2 py-1 text-xs" onChange={event => { setSelectedPointKey(event.target.value); const picked = points.find(point => pointKey(point) === event.target.value); if (horizontal && picked) p.onActiveCategoryChange?.(picked.x, 'keyboard'); }}>
             {!points.length && <option value="">{lang === 'ko' ? '선택할 지점 없음' : 'No points available'}</option>}
-            {points.map(point => <option key={pointKey(point)} value={pointKey(point)}>{point.x} · {allSeries.find(s => s.id === point.seriesId)?.name} · {point.value === null ? unknownLabel(lang === 'ko') : format(point.value)}</option>)}
+            {points.map(point => <option key={pointKey(point)} value={pointKey(point)}>{point.x} · {allSeries.find(s => s.id === point.seriesId)?.name} · {point.value === null ? unknownLabel(lang === 'ko') : format(point.value)}{extremeText(point)}</option>)}
           </select>
           {p.pointActivation && <Button variant="ghost" size="toolbar" disabled={brushMode || !selectedPoint} onClick={() => { if (selectedPoint && !brushMode) p.pointActivation?.onActivate(selectedPoint); }}>{lang === 'ko' ? '선택 지점 실행' : 'Activate selected point'}</Button>}
           {hasPointActions && <DropdownMenu open={menu.open && !brushMode && !!selectedPoint && !noActions} onOpenChange={open => { if (open) openPointMenu(menu.triggerRef.current); else menu.close(); }}>
@@ -510,7 +529,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
         {p.extraActions != null && <div className="flex items-center gap-1">{p.extraActions}</div>}
         <div className="flex flex-wrap items-center gap-1">
           {rowPitch === undefined && <Button variant="ghost" size="toolbar" onClick={rangeActions.zoomIn} title={lang === 'ko' ? '확대 (Shift+휠도 가능)' : 'Zoom in (Shift+wheel)'}><ZoomIn className="size-3.5" aria-hidden />{lang === 'ko' ? '확대' : 'Zoom'}</Button>}
-          <Button ref={brushToggle} variant={brushMode ? 'secondary' : 'ghost'} size="toolbar" aria-pressed={brushMode} onClick={event => { if (size === 'fill' && !brushMode && event.detail === 0) focusRangeForm.current = true; rangeActions.toggleBrush(); }}><BrushIcon className="size-3.5" aria-hidden />{lang === 'ko' ? '구간 선택' : 'Brush'}</Button>
+          <Button ref={brushToggle} variant={brushMode ? 'secondary' : 'ghost'} size="toolbar" aria-pressed={brushMode} disabled={startAlign} title={startAlign ? (lang === 'ko' ? '시작 위치 맞춤에서는 가로축이 하나의 값 척도가 아니라 구간 선택을 쓸 수 없습니다' : 'Brush is unavailable with StartAlign: the x axis is no longer one value scale') : undefined} onClick={event => { if (size === 'fill' && !brushMode && event.detail === 0) focusRangeForm.current = true; rangeActions.toggleBrush(); }}><BrushIcon className="size-3.5" aria-hidden />{lang === 'ko' ? '구간 선택' : 'Brush'}</Button>
           {showKeyboard && <div role="group" aria-label={lang === 'ko' ? '빠른 구간 선택' : 'Quick range'} className="flex items-center gap-1">
             {oneHour && <Button variant="ghost" size="toolbar" onClick={() => commitRange(oneHour)}>{lang === 'ko' ? '1시간' : '1h'}</Button>}
             {fourHour && <Button variant="ghost" size="toolbar" onClick={() => commitRange(fourHour)}>{lang === 'ko' ? '4시간' : '4h'}</Button>}
@@ -596,7 +615,8 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
         <Button size="toolbar" onClick={() => commitRange(draft)}>{lang === 'ko' ? '선택' : 'Select'}</Button>
       </div>}
       {activeCategory != null && <p className="mb-1 font-semibold">{lang === 'ko' ? '활성 행' : 'Active row'}: {activeCategory}</p>}
-      {!selection ? rangeUi && <span className="text-text-secondary">{showKeyboard
+      {selectedPoint && extremes?.get(selectedPoint.seriesId) && (() => { const e = extremes.get(selectedPoint.seriesId)!; const name = allSeries.find(s => s.id === selectedPoint.seriesId)?.name; return <p className="mb-1 tabular">{name}: {lang === 'ko' ? '최소' : 'Min'} {e.min.x} {format(e.min.value)} · {lang === 'ko' ? '최대' : 'Max'} {e.max.x} {format(e.max.value)} {p.unit}</p>; })()}
+      {!selection ? rangeUi && <span className="text-text-secondary">{startAlign ? (lang === 'ko' ? '선택 구간 없음' : 'No selection') : showKeyboard
         ? (lang === 'ko' ? '선택 구간 없음 — 시작·끝이나 빠른 구간, 또는 구간 선택으로 구간을 선택하면 요약·주석·구간 적용을 할 수 있습니다.' : 'No selection — choose a start and end, a quick range, or brush a range to summarize, annotate or apply it.')
         : (lang === 'ko' ? '선택 구간 없음 — 구간 선택으로 구간을 선택하면 요약·주석·구간 적용을 할 수 있습니다.' : 'No selection — brush a range to summarize, annotate or apply it.')}</span>
         : <div className="flex flex-wrap items-center gap-x-4 gap-y-2">

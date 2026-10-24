@@ -16,7 +16,7 @@ describe('manifest', () => {
     expect(menu.permission).toBe(menuPermission('analytics:view'));
     expect(menu.requiresScope).toBe(true);
     expect(menu.component).toBeDefined();
-    expect(menu.pageKeys).toEqual(['drillModule', 'drillMotion', 'trend', 'sort']);
+    expect(menu.pageKeys).toEqual(['drillModule', 'drillMotion', 'trend', 'sort', 'align', 'minmax']);
     expect(menu.contextResetKeys).toEqual(['drillModule', 'drillMotion', 'trend']);
     expect(menu.drill?.levels.map(level => level.key)).toEqual(['drillModule', 'drillMotion']);
     const spaces: SpaceDef[] = [{ id: spaceId('analytics'), label: { ko: '공간', en: 'Space' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: menu.id }];

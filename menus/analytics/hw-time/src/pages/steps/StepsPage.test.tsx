@@ -27,6 +27,7 @@ vi.mock('@ap/components', async importOriginal => {
       {props.series.flatMap(s => s.points.filter(([, v]) => v !== null).slice(0, 3).map(([x, v]) =>
         <button key={`${s.id}-${x}`} type="button" onClick={() => props.pointActivation?.onActivate({ x, seriesId: s.id, value: v })}>{`segment ${s.id} ${x}`}</button>))}
       <p data-testid={`${props.chartId}-legend`}>{String(props.legend !== false)}</p>
+      <p data-testid={`${props.chartId}-options`}>{`align=${String(props.startAlign)} minmax=${String(props.minMax)}`}</p>
       {/* The Frame's selector: points the page marks non-selectable are skipped, so they are neither listed nor reachable. */}
       <p data-testid={`${props.chartId}-selector`}>{selectable.map(p => p.x).join('|')}</p>
       {/* The menu list is evaluated for the selected point, as the Frame does. */}
@@ -201,6 +202,25 @@ describe('HW Time steps page', () => {
     await act(async () => { fireEvent.click(screen.getByRole('radio', { name: '큰 순' })); });
     fireEvent.click(options);
     expect(within(options).getByText('정렬: 큰 순')).toBeTruthy();
+  });
+
+  it('the align and minmax page keys toggle the Frame options at every level and the Options summary says so', async () => {
+    await renderPage('&drillModule=PM1');
+    const options = screen.getByRole('button', { name: '옵션' });
+    expect(screen.getByTestId('hw-time-steps-L2-options').textContent).toBe('align=false minmax=false');
+    await act(async () => { fireEvent.click(screen.getByRole('checkbox', { name: '시작 위치 맞춤' })); });
+    expect(searchParams().get('align')).toBe('1');
+    await act(async () => { fireEvent.click(screen.getByRole('checkbox', { name: '최소·최대 표시' })); });
+    expect(searchParams().get('minmax')).toBe('1');
+    expect(screen.getByTestId('hw-time-steps-L2-options').textContent).toBe('align=true minmax=true');
+    fireEvent.click(options);
+    expect(within(options).getByText('정렬: 기본 · 시작 위치 맞춤 · 최소·최대')).toBeTruthy();
+    // Drilling to L3 keeps both on: they are page keys, not reset keys.
+    fireEvent.click(screen.getByRole('button', { name: /^segment Dechuck EQ-001 · H1$/ }));
+    expect((await screen.findByTestId('hw-time-steps-L3-options')).textContent).toBe('align=true minmax=true');
+    fireEvent.click(options);
+    await act(async () => { fireEvent.click(screen.getByRole('checkbox', { name: '시작 위치 맞춤' })); });
+    expect(searchParams().get('align')).toBeNull();
   });
 
   it('drilling by segment moves focus to the current step chip (Kernel drill request)', async () => {

@@ -6,6 +6,7 @@ import { GRID_BOTTOM, GRID_TOP, ROW_LABEL_GUTTER } from './analysisChartGeometry
 import { toMs, unknownLabel } from './analysisChartShared';
 import type { ChartSeries } from './AnalysisChartFrame';
 import type { Selection } from './useChartRange';
+import { laneLayout, type LaneLayout, type SeriesExtremes } from './chartLanes';
 
 /** The plot's horizontal margin (grid left 52 + right 20). */
 export const PLOT_MARGIN = 72;
@@ -26,6 +27,8 @@ export type ChartPalette = {
   annotationLabel: string;
   brushFill: string;
   brushBorder: string;
+  /** Outline colours of the per-series minimum and maximum segments (Show Min/Max). */
+  minMax: { min: string; max: string };
   /** Index-aligned with the displayed series: the line stroke and the fill. */
   series: { stroke: string; fill: string }[];
 };
@@ -40,6 +43,8 @@ export function resolveChartPalette(displayed: readonly { color: ThemeColorToken
     // and a literal rgba copies the token's values.
     brushFill: token('chart-blue').replace(/^rgb\((.+)\)$/, (_, rgb: string) => `rgba(${rgb},0.12)`),
     brushBorder: token(strokeToken('chart-blue')),
+    // Two status hues no series fill uses (series are slate, violet and teal tones); the 최소/최대 label carries the meaning, so colour is never the only cue.
+    minMax: { min: token('chart-status-good'), max: token('chart-status-critical') },
     series: displayed.map(s => ({ stroke: token(strokeToken(s.color)), fill: token(s.color) })),
   };
 }
@@ -69,12 +74,17 @@ export type ChartOptionInput = {
   rowPitch?: number;
   /** Horizontal only. The controlled row highlight: a border on that row's bars and a bold category label. */
   activeCategory?: string | null;
+  /** Horizontal stacked only. Each series' piece starts at its own lane's left edge; the value axis shows lane names instead of numbers. */
+  startAlign?: boolean;
+  /** Horizontal only. Per series id, the rows to outline as minimum and maximum (see `seriesExtremes`). */
+  extremes?: ReadonlyMap<string, SeriesExtremes>;
 };
 
 export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
   const { horizontal, xType, categories, palette, lang } = i;
   const theme = palette.theme;
   const active = horizontal ? i.activeCategory ?? null : null;
+  const lanes = horizontal && i.startAlign && i.stacked ? laneLayout(i.displayed, categories) : null;
   const xValue = (x: string) => (xType === 'time' ? toMs(x) : x);
   // Pixels per axis unit from the plot width and the zoom window, so a label can be cut to its own area (#399 AC-2).
   const plotWidth = Math.max(0, i.chartWidth - PLOT_MARGIN);
@@ -95,7 +105,9 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
       trigger: 'axis', confine: true, textStyle: { fontSize: 12 },
       valueFormatter: (v: number | null) => (v === null || v === undefined ? unknownLabel(lang === 'ko') : `${i.valueFormat(v)} ${i.unit}`),
     },
-    xAxis: horizontal ? { type: 'value', min: 0, name: i.unit, splitLine: theme.splitLine } : xType === 'time'
+    // Lane mode: ticks sit at scale intervals and cannot mark lane starts, so the numbers and the unit go; lane names are drawn by the overlay's markLine.
+    xAxis: lanes ? { type: 'value', min: 0, max: lanes.span || undefined, axisLabel: { show: false }, axisTick: { show: false }, splitLine: { show: false } }
+      : horizontal ? { type: 'value', min: 0, name: i.unit, splitLine: theme.splitLine } : xType === 'time'
       ? { type: 'time', axisLine: theme.axisLine, axisLabel: { hideOverlap: true }, splitLine: { show: false } }
       : { type: 'category', data: categories, axisLine: theme.axisLine, axisTick: { alignWithLabel: true } },
     yAxis: horizontal ? { type: 'category', data: categories, inverse: true, axisLine: theme.axisLine, axisLabel: { interval: 0, ...(i.rowPitch !== undefined ? { width: ROW_LABEL_GUTTER - 12, overflow: 'truncate', ellipsis: '…' } : {}), ...(active ? { formatter: (v: string) => (v === active ? `{active|${v}}` : v), rich: { active: { fontWeight: 'bold', color: theme.axisLabel.color } } } : {}) }, axisTick: { alignWithLabel: true } } : { type: 'value', min: 0, name: i.unit, nameTextStyle: { align: 'right' }, splitLine: theme.splitLine },
@@ -106,23 +118,56 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
       brushStyle: { color: palette.brushFill, borderColor: palette.brushBorder } },
     toolbox: { show: false, feature: { brush: { type: [horizontal ? 'lineY' : 'lineX', 'clear'] } } },
     series: [
-      ...i.displayed.map((s, n) => {
+      ...i.displayed.flatMap((s, n) => {
         const kind = horizontal ? 'bar' : s.kind ?? 'line';
         const color = kind === 'line' ? palette.series[n].stroke : palette.series[n].fill;
         const pattern = linePattern(s, i.previousIds.has(s.id));
-        return {
+        const extreme = horizontal ? i.extremes?.get(s.id) : undefined;
+        const datum = (x: string, y: number | null) => {
+          const isActive = active !== null && x === active;
+          const mark = extreme?.min.x === x ? 'min' : extreme?.max.x === x ? 'max' : null;
+          if (!isActive && !mark) return y;
+          // Row focus keeps its series-coloured border; a min/max segment's thicker outline replaces it, so the active one adds a glow instead and both cues show.
+          return { value: y, itemStyle: {
+            color: palette.series[n].fill,
+            borderColor: mark ? palette.minMax[mark] : palette.series[n].stroke, borderWidth: mark ? 3 : 2,
+            ...(mark && isActive ? { shadowBlur: 6, shadowColor: palette.series[n].stroke } : {}),
+          }, ...(mark ? { label: { show: true, position: 'right', formatter: mark === 'min' ? (lang === 'ko' ? '최소' : 'Min') : (lang === 'ko' ? '최대' : 'Max'), fontSize: 10, fontWeight: 'bold', color: palette.minMax[mark] } } : {}) };
+        };
+        const real = {
           id: s.id, name: s.name, type: kind, stack: i.stacked && kind === 'bar' ? 'total' : undefined,
           showSymbol: false, symbolSize: 5, connectNulls: false, barMaxWidth: 18,
           lineStyle: { ...(kind === 'line' ? { color } : {}), width: 2, type: pattern }, itemStyle: { color: palette.series[n].fill },
           emphasis: { focus: 'series' },
-          data: xType === 'time' ? s.points.map(([x, y]) => [toMs(x), y]) : s.points.map(([x, y]) => (active !== null && x === active ? { value: y, itemStyle: { color: palette.series[n].fill, borderColor: palette.series[n].stroke, borderWidth: 2 } } : y)),
+          data: xType === 'time' ? s.points.map(([x, y]) => [toMs(x), y]) : s.points.map(([x, y]) => datum(x, y)),
         };
+        // Transparent, silent, no emphasis and out of the axis tooltip (`tooltip.show === false`, ECharts 6): it only pushes the next piece to its lane start.
+        const spacer = lanes && n > 0 ? [{
+          id: `__spacer-${n}`, type: 'bar', stack: 'total', silent: true, tooltip: { show: false }, emphasis: { disabled: true }, barMaxWidth: 18,
+          itemStyle: { color: 'transparent' }, data: lanes.spacers[n - 1],
+        }] : [];
+        return [...spacer, real];
       }),
       {
         id: '__overlay', type: 'line', data: [], silent: true, symbol: 'none',
         markArea: { silent: true, data: areas },
-        markLine: i.markLines?.length ? { ...theme.referenceLine, data: i.markLines.map(m => ({ name: m.label, [horizontal ? 'xAxis' : 'yAxis']: m.y })) } : undefined,
+        markLine: lanes ? laneMarkLine(lanes, theme, i.chartWidth - (i.rowPitch !== undefined ? ROW_LABEL_GUTTER + 20 : 72))
+          : i.markLines?.length ? { ...theme.referenceLine, data: i.markLines.map(m => ({ name: m.label, [horizontal ? 'xAxis' : 'yAxis']: m.y })) } : undefined,
       },
     ],
+  };
+}
+
+/** A separator at every lane start with the series name under the plot, cut to its lane's pixel width. Reference markLines are ignored in lane mode: x is no longer one value scale. */
+function laneMarkLine(lanes: LaneLayout, theme: ReturnType<typeof chartTheme>, plotWidth: number) {
+  if (lanes.span <= 0) return undefined;
+  const pxPerUnit = Math.max(0, plotWidth) / lanes.span;
+  return {
+    silent: true, symbol: 'none', animation: false,
+    lineStyle: { color: theme.axisLine.lineStyle.color, type: 'dotted', width: 1 },
+    data: lanes.lanes.map(lane => ({
+      name: lane.name, xAxis: lane.start,
+      label: { show: true, formatter: lane.name, position: 'start', align: 'left', fontSize: 10, color: theme.axisLabel.color, width: Math.max(0, lane.width * pxPerUnit), overflow: 'truncate', ellipsis: '…' },
+    })),
   };
 }

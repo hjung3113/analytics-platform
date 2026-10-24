@@ -15,6 +15,10 @@ export type StackPanelProps = {
   visibleSeriesIds: readonly string[];
   onVisibleSeriesChange?: (ids: string[]) => void;
   sort?: StackSort;
+  /** Frame `startAlign`: each Motion/Module starts at its own lane in every row. Visual only. */
+  startAlign?: boolean;
+  /** Frame `minMax`: outline each series' smallest and largest row. */
+  minMax?: boolean;
   /** Segment activation (drill). Receives the series id and the row id the bar belongs to. */
   onActivate?: (segment: { seriesId: string; rowId: string }) => void;
   /** Row actions in the point menu, evaluated per row (a row already in the trend offers a different one). Auxiliary rows are skipped by the point selector and never reach them or `onActivate`, by mouse or keyboard. */
@@ -51,7 +55,7 @@ export function sortRows(rows: readonly HwTimeRow[], sort: StackSort): HwTimeRow
 }
 
 /** Stacked horizontal bars over one block. Free of layout: the caller sizes the container and owns the query. */
-export function StackPanel({ chartId, title, block, visibleSeriesIds, onVisibleSeriesChange, sort = null, onActivate, rowActions }: StackPanelProps) {
+export function StackPanel({ chartId, title, block, visibleSeriesIds, onVisibleSeriesChange, sort = null, startAlign, minMax, onActivate, rowActions }: StackPanelProps) {
   const { lang } = useI18n();
   const rows = useMemo(() => sortRows(block.rows, sort), [block.rows, sort]);
   // Auxiliary rows are left out: a label that is not here never reaches a callback.
@@ -69,7 +73,7 @@ export function StackPanel({ chartId, title, block, visibleSeriesIds, onVisibleS
   return <div className="flex min-h-0 flex-1 flex-col gap-1">
     <AnalysisChartFrame
       chartId={chartId} title={title} description={unmeasuredNote} xType="category" orientation="horizontal" stacked size="fill" fillMin={DETAIL_FILL_MIN} rowPitch={rowPitch}
-      legend={false} isPointSelectable={isPointSelectable}
+      legend={false} isPointSelectable={isPointSelectable} startAlign={startAlign} minMax={minMax}
       series={series} unit={HW_TIME_UNIT[lang]} valueFormat={formatSeconds} canApplyRange={false}
       visibleSeriesIds={visibleSeriesIds} onVisibleSeriesChange={onVisibleSeriesChange}
       pointActivation={onActivate ? { on: 'click', onActivate: point => { const rowId = rowOf(point); if (rowId) onActivate({ seriesId: point.seriesId, rowId }); } } : undefined}
