@@ -20,6 +20,10 @@ const slowFilter = { tail: 'p95', granularity: 'hour', bucket: null, bin: null }
 const PARAMS: Record<string, Record<string, unknown>> = {
   'analytics.chartCatalog': { kind: 'line' },
   'clas.operationTime': { eqp: '' },
+  'hwTime.levelRows': { drillModule: 'PM1' },
+  'hwTime.trend': { rowIds: ['EQ-001.H1'] },
+  'hwTime.tableRows': { drillModule: 'PM1', drillMotion: 'Chuck', ...page },
+  'hwTime.exportRows': { drillModule: 'PM1', drillMotion: 'Chuck', ids: null, sorting: [] },
   'analytics.productivity.trend': { kpi: 'occupancy', granularity: 'hour' },
   'analytics.productivity.breakdown': { axis: 'room' },
   'analytics.productivity.drill': { level: 'stgroup', room: 'PHOTO', stgroup: '' },

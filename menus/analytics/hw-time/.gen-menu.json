@@ -1,0 +1,12 @@
+{
+  "group": "hwTime",
+  "folder": "hw-time",
+  "space": "analytics",
+  "menuId": "hw-time",
+  "page": "HwTime",
+  "path": "/hw-time",
+  "pageType": "overview",
+  "labelKo": "동작시간분석",
+  "labelEn": "Operation time analysis",
+  "binding": "hwTime"
+}

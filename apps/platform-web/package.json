@@ -24,6 +24,7 @@
     "@ap/menu-clas": "workspace:*",
     "@ap/menu-equipment": "workspace:*",
     "@ap/menu-home": "workspace:*",
+    "@ap/menu-hw-time": "workspace:*",
     "@ap/menu-imp-my-work": "workspace:*",
     "@ap/menu-imp-reports": "workspace:*",
     "@ap/menu-imp-tasks": "workspace:*",
