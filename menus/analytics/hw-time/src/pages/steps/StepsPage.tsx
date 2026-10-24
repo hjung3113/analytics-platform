@@ -151,7 +151,8 @@ export default function StepsPage(_props: PageProps) {
         <Inspector form="stack" persistKey="hw-time-steps" label={{ ko: '분석 보조', en: 'Analysis aids' }} sections={sections} />
       </aside>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
-        <div className="flex min-h-0 flex-[3] flex-col">
+        {/* Clip: until the Frame fill floor is configurable (#690 690n) the 320 px plot can exceed this share; it must never draw over the trend toggle. */}
+        <div className="flex min-h-0 flex-[3] flex-col overflow-hidden">
           <DrillLayout fill summary={summary}>
             <QueryView fill query={levelQ} widgetName={ko ? 'HW Time 단계별' : 'HW Time by level'} hideWidgetName skeletonRows={6}>
               {data => renderBody(data)}
