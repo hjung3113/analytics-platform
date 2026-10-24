@@ -89,7 +89,7 @@ function useDevChecks(props: PanelWorkspaceProps) {
 }
 
 /**
- * **Candidate** (ADR-0067 decision 22): a menu's panels in a dock layout the user can rearrange. The menu declares the panels, a few
+ * **Decided** (ADR-0067 decision 22, met by #690: #755, #756): a menu's panels in a dock layout the user can rearrange. The menu declares the panels, a few
  * named arrangements (presets) and which panel is primary; the platform owns the tabs, drag, split, maximize, the hidden-panel list, the
  * default layout and the local preference. Use it for dense analysis menus with four or more panels (06 §12); everything else keeps
  * `AnalysisLayout`.
