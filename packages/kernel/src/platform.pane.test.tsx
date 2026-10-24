@@ -27,6 +27,7 @@ const registry = createRegistry({
     entry('board-a', '/a', { context: apply, contextResetKeys: ['page'], requiresScope: true }),
     entry('board-b', '/b', { context: apply, requiresScope: true }),
     entry('item', '/item/:id', { navHidden: true, parent: 'board-a' }),
+    entry('board-drill', '/drill', { navHidden: true, contextResetKeys: ['tab'], drill: { levels: [{ key: 'tab', label: { ko: '탭', en: 'Tab' } }], resetKeys: ['page'] } }),
     entry('plain', '/plain', { features }),
     entry('locked', '/locked', { permission: 'console:access' }),
     entry('metric', '/metric', { context: { ...apply, metric: 'apply' }, initializesMetric: true }),
@@ -115,6 +116,22 @@ describe('PaneScreenProvider — independent screen state (ADR-0049)', () => {
     act(() => { at('a').resetContext(); });
     expect(new URLSearchParams(a.onChange.mock.calls.at(-1)![0].query).get('page')).toBeNull();
     expect(new URLSearchParams(a.onChange.mock.calls.at(-1)![0].query).get('scopeId')).toBe('S1');
+  });
+
+  it('a drill step in one pane drops only that pane drill.resetKeys, not its sibling or main; a pane Context write leaves them', async () => {
+    const a = spies(); const b = spies();
+    const drillScreen: PaneScreen = { menuId: 'board-drill', params: {}, query: '?tab=x&page=3' };
+    mount(<><Probe id="main" />
+      <Pane id="a" initial={drillScreen} spies={a} /><Pane id="b" initial={drillScreen} spies={b} /></>, fixture().adapter, '/main?scopeId=MEM&page=7&' + window1);
+    await flush();
+    const queryOf = (s: Spies) => new URLSearchParams(s.onChange.mock.calls.at(-1)![0].query);
+    act(() => { at('a').setGlobal({ roomNames: ['R1'] }); });
+    expect(queryOf(a).get('page')).toBe('3');
+    act(() => { at('a').setPage({ tab: 'y' }); });
+    expect(queryOf(a).get('tab')).toBe('y');
+    expect(queryOf(a).get('page')).toBeNull();
+    expect(b.onChange).not.toHaveBeenCalled();
+    expect(at('main').pageParam('page')).toBe('7');
   });
 
   it('writes commit to the pane even when its menu has no board support, and keep push/replace; a no-op write is dropped', async () => {

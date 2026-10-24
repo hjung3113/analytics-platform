@@ -90,7 +90,12 @@ export type MenuMeta = {
   primary?: boolean;
   /**
    * Ordered in-page drill (06 §6.4, ADR-0025). Each level key must also be a `pageKey` and a `contextResetKey`.
-   * One to four levels. `returnTo` is not a level key. Values stay page-owned and are not promoted to global Context.
+   * One or more levels, no upper bound (ADR-0063). `returnTo` is not a level key. Values stay page-owned and are not promoted to global Context.
+   * `resetKeys` (field name Candidate): other `pageKeys` entries bound to the drill path (e.g. a picked row). A `setPage` write that changes
+   * the value of any level key drops them in the SAME navigation (one history entry), so enter, breadcrumb and `goTo` all clear them.
+   * A reset key the same patch sets explicitly keeps that value. Writes that leave every level value unchanged drop nothing.
+   * History traversal (popstate, `navigate`, Back/Forward) never clears them — restored entries are exact (§6.4). Each entry must be a
+   * declared `pageKeys` entry, not a level key and not `returnTo`; it need not be a `contextResetKeys` entry.
    */
-  drill?: { levels: readonly DrillLevel[] };
+  drill?: { levels: readonly DrillLevel[]; resetKeys?: readonly string[] };
 };

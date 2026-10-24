@@ -85,11 +85,9 @@ export default function OverviewPage(_props: PageProps) {
   const minmax = pageParam('minmax') === '1';
   const rawRow = pageParam('row');
   const levelKey = `${module ?? ''}/${motion ?? ''}`;
-  // A row belongs to the path it was picked on. Deliberate drill steps below clear it in the same navigation; the breadcrumb and sibling menus
-  // (DrillLayout → useDrill) cannot clear a non-drill key, so a row picked on another path is ignored here instead (#751 tracks the SDK fix).
-  // A row that arrives with the URL (no pick in this session) is accepted on any path.
-  const [rowPath, setRowPath] = useState<string | null>(null);
-  const row = isHwTimeRowId(rawRow) && (rowPath === null || rowPath === levelKey) ? rawRow : null;
+  // The URL `row` is the truth at every level: any drill step clears it in the same navigation (manifest `drill.resetKeys`, 06 §6.4), and the
+  // Frame names only a row it draws (a URL row of another level shows no active row).
+  const row = isHwTimeRowId(rawRow) ? rawRow : null;
   // The shared visible-series set lives here, above the workspace: a hidden panel unmounts, and the legend panel is one of them.
   const [hiddenState, setHiddenState] = useState<{ key: string; ids: string[] }>({ key: levelKey, ids: [] });
   const hidden = hiddenState.key === levelKey ? hiddenState.ids : [];
@@ -213,7 +211,7 @@ export default function OverviewPage(_props: PageProps) {
       persistKey = 'hw-overview-l3'; layout = PRESETS.l3; compact = COMPACT('l3');
       const ctx = context ?? data;
       const det = detail ?? EMPTY_BLOCK;
-      const shared = { ...stackProps, activeRowId: row, revealActive: true, onActiveRowChange: (rowId: string | null) => { setRowPath(levelKey); setPage({ row: rowId }); }, rowActions: rowActionsOf };
+      const shared = { ...stackProps, activeRowId: row, revealActive: true, onActiveRowChange: (rowId: string | null) => setPage({ row: rowId }), rowActions: rowActionsOf };
       panels = [
         rankingPanel(ctx),
         { id: 'context', title: { ko: `Module ${module} 전체 Motion`, en: `All Motions of Module ${module}` }, badge: partialBadge(ctx), render: () =>
@@ -235,8 +233,8 @@ export default function OverviewPage(_props: PageProps) {
         rankingPanel(data),
         { id: 'level', primary: true, title: first ? { ko: 'Module별', en: 'By Module' } : { ko: 'Motion별', en: 'By Motion' }, badge: partialBadge(data), render: () =>
           <PanelFill><StackPanel chartId={first ? 'hw-overview-L1' : 'hw-overview-L2'} title={stackTitle} block={data} visibleSeriesIds={visibleOf(data)} onVisibleSeriesChange={setVisible(data)} {...stackProps}
-            onActivate={first ? ({ seriesId }) => setPage({ drillModule: seriesId, drillMotion: null, row: null }, { focus: 'drill' })
-              : ({ seriesId }) => setPage({ drillMotion: seriesId, row: null }, { focus: 'drill' })}
+            onActivate={first ? ({ seriesId }) => drill.enter('drillModule', seriesId)
+              : ({ seriesId }) => drill.enter('drillMotion', seriesId)}
             rowActions={first ? undefined : rowActionsOf} /></PanelFill> },
         trendPanel,
         legendPanel,

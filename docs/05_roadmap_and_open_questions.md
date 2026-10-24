@@ -37,6 +37,7 @@ Decided는 계약의 상태이며 구현 완료를 뜻하지 않는다. 각 행�
 | 메뉴 사이 이동(사이드바·레일 링크, 명령 팔레트 선택, 공간 전환, 메뉴 사이 뒤로/앞으로) 뒤 포커스는 새 화면 제목(h1)으로 간다. 같은 화면 안 상태 변경(필터·정렬·쪽·드릴·상세)과 그 사이의 뒤로/앞으로는 포커스를 옮기지 않는다(#339, 메뉴 사이 뒤로/앞으로는 #356). 결정자: 사용자 — 에이전트 추천을 따름 | 2026-10-14 | [06 §26](06_platform_ui_contract.md#26-accessibility-baseline) |
 | 범위 밖 표 페이지는 성공 응답에서 마지막 페이지로 맞추고 URL page는 replace한다. 0건이면 첫 페이지, 실패 응답은 맞추지 않는다(#314). 결정자: 사용자 | 2026-10-15 | [06 §15](06_platform_ui_contract.md#15-platform-data-table-contract) |
 | Scope의 단위는 Site다(데이터가 Site별로 나뉘고 사용 권한도 보통 Site 단위). Site 안에서는 부여된 room_name만 보인다. room_name의 화면 이름은 `공정`. 결정자: 사용자 | 2026-10-23 | [GLOSSARY](../GLOSSARY.md), 06 §6.2 정리는 [#714](https://github.com/hjung3113/analytics-platform/issues/714) |
+| 드릴 단계 변경 시 page 키 초기화 — `drill.resetKeys`(필드명 Candidate): 단계 키 값을 바꾸는 `setPage`가 선언된 키를 같은 쓰기에서 지운다(#751). 결정자: 에이전트(콘덕터) — 이슈 제안을 따름, 사용자는 진행만 승인 | 2026-10-24 | [06 §6.4](06_platform_ui_contract.md#64-url-계약-decided-필드명enum-문자열은-candidate) |
 | 그 밖의 결정(메뉴 조회 포트, 그리드·표·디자인, 활용률 이벤트, 차트 렌더러 등) | 2026-10-01~05 | [ADR 목록](adr/README.md) |
 
 ## MVP 지원 환경 — 데스크톱 웹만 (Decided, 2026-09-27)

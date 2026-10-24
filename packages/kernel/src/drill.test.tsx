@@ -34,6 +34,12 @@ const registry = createRegistry({
         level('drillEquipment', '설비', 'Equipment'),
       ] },
     }),
+    entry({
+      // `row` is a reset key only — NOT a contextResetKey, so a Context change must leave it alone.
+      id: 'rows', path: '/rows', label: { ko: '행 드릴', en: 'Row drill' },
+      pageKeys: ['drillRoom', 'drillStgroup', 'row', 'sort'], contextResetKeys: ['drillRoom', 'drillStgroup'],
+      drill: { levels: [level('drillRoom', '공정', 'Process'), level('drillStgroup', 'StGroup', 'StGroup')], resetKeys: ['row'] },
+    }),
     entry({ id: 'plain', path: '/plain', label: { ko: '사이클타임 상세', en: 'Cycle time detail' } }),
     entry({ id: 'detail', path: '/detail', parent: 'source', navHidden: true, pageKeys: ['returnTo'], label: { ko: '실행 상세', en: 'Execution detail' } }),
   ],
@@ -45,10 +51,12 @@ const adapter = testAdapter({ session: () => session });
 let drill: DrillState | null = null;
 let origin: ReturnOrigin | null = null;
 let target = '';
+let host: ReturnType<typeof useHostPlatform> | null = null;
 
 function Probe() {
   drill = useDrill();
   const platform = useHostPlatform();
+  host = platform;
   origin = platform.returnOrigin();
   target = platform.returnTarget();
   return <button type="button" onClick={() => platform.setGlobal({ scopeId: 'FDRY' })}>scope</button>;
@@ -145,6 +153,42 @@ describe('useDrill (06 §6.4, ADR-0025)', () => {
       await waitFor(() => expect(url()).toBe(originUrl));
     });
     expect(drill!.trail.map(step => step.value)).toEqual(['PHOTO', 'A']);
+  });
+});
+
+describe('drill.resetKeys (06 §6.4)', () => {
+  it('a drill step through useDrill clears the reset key in one history entry and Back restores the URL', async () => {
+    const originUrl = '/rows?v=1&drillRoom=PHOTO&row=r1&sort=name';
+    mount(originUrl);
+    act(() => { drill!.goTo(0); });
+    expect(url()).toBe('/rows?v=1&sort=name');
+
+    // One Back returns to the origin URL exactly, so the step and the reset were a single history entry.
+    await act(async () => {
+      window.history.back();
+      await waitFor(() => expect(url()).toBe(originUrl));
+    });
+    expect(drill!.trail.map(step => step.value)).toEqual(['PHOTO']);
+  });
+
+  it('a direct setPage that changes a level value drops the reset key; an unchanged level keeps it', () => {
+    mount('/rows?v=1&drillRoom=PHOTO&row=r1');
+    act(() => { host!.setPage({ drillRoom: 'PHOTO', sort: 'name' }); });
+    expect(url()).toBe('/rows?v=1&row=r1&drillRoom=PHOTO&sort=name');
+    act(() => { host!.setPage({ drillRoom: 'ETCH' }); });
+    expect(url()).toBe('/rows?v=1&sort=name&drillRoom=ETCH');
+  });
+
+  it('a menu without resetKeys keeps unrelated keys on a drill step', () => {
+    mount('/source?v=1&drillRoom=PHOTO&sort=name');
+    act(() => { drill!.goTo(0); });
+    expect(url()).toBe('/source?v=1&sort=name');
+  });
+
+  it('a Context change does not apply the drill rule (row is not a contextResetKey)', () => {
+    mount('/rows?v=1&scopeId=MEM&drillRoom=PHOTO&row=r1');
+    act(() => { screen.getByRole('button', { name: 'scope' }).click(); });
+    expect(url()).toBe('/rows?v=1&scopeId=FDRY&row=r1');
   });
 });
 

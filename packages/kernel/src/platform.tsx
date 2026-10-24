@@ -8,6 +8,7 @@ import { classifyMetricInit, type MetricInit } from './metric-init';
 import { CONTEXT_LABELS, isBoardPath, pathFor, routeParamNames, type MenuEntry, type Registry } from './registry';
 import { useI18n } from './i18n';
 import { dropResetKeys, paneHref } from './paneContext';
+import { dropDrillResetKeys } from './drillReset';
 import { appliedQueryPolicy, createDraftStore, useScreenDraft, type DraftStore } from './draft-state';
 import type { QueryHistory } from './query-history';
 import type { QueryDraft, QueryMissing } from './query-draft';
@@ -443,12 +444,14 @@ function useScreenState(app: AppValue, source: ScreenSource): { screen: ScreenSt
     write(pathname + buildQuery(next, dropContextResetKeys(page, next), extras), options);
   }, [global, page, extras, pathname, write, toast, lang, dropContextResetKeys]);
 
-  const setPage = useCallback((patch: Record<string, string | null>, options?: { replace?: boolean; focus?: PageFocus }) => {
+  // A patch that changes a drill level value also drops the menu's `drill.resetKeys` in the same write (one history entry, 06 §6.4).
+  const setPage = useCallback((requested: Record<string, string | null>, options?: { replace?: boolean; focus?: PageFocus }) => {
+    const patch = dropDrillResetKeys(route?.menu, page, requested);
     const keys = Object.keys(patch);
     const kept = page.filter(([k]) => !keys.includes(k));
     const added = Object.entries(patch).filter((e): e is [string, string] => e[1] !== null && e[1] !== '');
     write(pathname + buildQuery(global, [...kept, ...added], extras), options);
-  }, [global, page, extras, pathname, write]);
+  }, [global, page, extras, pathname, write, route]);
 
   // Reset clears analysis Context but keeps the requested Scope (a separate header control).
   const resetContext = useCallback(() => {

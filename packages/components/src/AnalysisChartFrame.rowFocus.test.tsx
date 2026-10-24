@@ -76,6 +76,15 @@ describe('controlled activeCategory (#690b)', () => {
     expect(screen.getByRole('region', { name: '선택 요약' }).textContent).toContain('활성 행: R2');
   });
 
+  it('does not name an active row the plot does not draw, and keeps the prop for when it arrives', async () => {
+    const view = mount({ activeCategory: 'R9' });
+    await screen.findByRole('img');
+    expect(highlighted()).toEqual([]);
+    expect(screen.queryByText(/활성 행/)).toBeNull();
+    view.update({ activeCategory: 'R2' });
+    expect(screen.getByRole('region', { name: '선택 요약' }).textContent).toContain('활성 행: R2');
+  });
+
   it('calls the callback with keyboard from the point picker', async () => {
     const onChange = vi.fn();
     mount({ activeCategory: null, onActiveCategoryChange: onChange, pointActivation: { on: 'click', onActivate: () => {} } });

@@ -485,9 +485,11 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const draft = rangeDraft ?? selection ?? fallbackRange;
   // A fill card gives the plot the space: the start/end form and the empty-selection hint appear while brushing or once a range exists
   // (ADR-0067 decision 21); notes, errors and the confirm row keep their place. Other sizes always show them.
+  // The controlled value stays as given (the reveal and selection effects read it); only the summary names a row the plot draws.
+  const drawnActive = activeCategory != null && categories.includes(activeCategory) ? activeCategory : null;
   const rangeUi = size !== 'fill' || brushMode || !!selection;
   const annotationAlert = canAnnotate && scopeId !== null && !!editor.query.response && !['ok', 'empty'].includes(editor.query.response.outcome);
-  const showSummary = rangeUi || !!clipNotice || !!preview || note !== null || annotations.length > 0 || annotationAlert || (activeCategory !== undefined && activeCategory !== null) || (!!selectedPoint && (!!extremes?.has(selectedPoint.seriesId) || !!equalIds?.has(selectedPoint.seriesId)));
+  const showSummary = rangeUi || !!clipNotice || !!preview || note !== null || annotations.length > 0 || annotationAlert || drawnActive !== null || (!!selectedPoint && (!!extremes?.has(selectedPoint.seriesId) || !!equalIds?.has(selectedPoint.seriesId)));
   useEffect(() => {
     if (!focusRangeForm.current || !brushMode) return;
     focusRangeForm.current = false;
@@ -636,7 +638,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
         </Select>
         <Button size="toolbar" onClick={() => commitRange(draft)}>{lang === 'ko' ? '선택' : 'Select'}</Button>
       </div>}
-      {activeCategory != null && <p className="mb-1 font-semibold">{lang === 'ko' ? '활성 행' : 'Active row'}: {activeCategory}</p>}
+      {drawnActive !== null && <p className="mb-1 font-semibold">{lang === 'ko' ? '활성 행' : 'Active row'}: {drawnActive}</p>}
       {selectedPoint && equalIds?.has(selectedPoint.seriesId) && <p className="mb-1 tabular">{allSeries.find(s => s.id === selectedPoint.seriesId)?.name}: {allEqualText}</p>}
       {selectedPoint && extremes?.get(selectedPoint.seriesId) && (() => { const e = extremes.get(selectedPoint.seriesId)!; const name = allSeries.find(s => s.id === selectedPoint.seriesId)?.name; return <p className="mb-1 tabular">{name}: {lang === 'ko' ? '최소' : 'Min'} {e.min.x} {format(e.min.value)} · {lang === 'ko' ? '최대' : 'Max'} {e.max.x} {format(e.max.value)} {p.unit}</p>; })()}
       {!selection ? rangeUi && <span className="text-text-secondary">{startAlign ? (lang === 'ko' ? '선택 구간 없음' : 'No selection') : showKeyboard

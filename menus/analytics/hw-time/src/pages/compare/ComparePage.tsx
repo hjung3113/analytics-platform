@@ -68,11 +68,9 @@ export default function ComparePage(_props: PageProps) {
   const minmax = pageParam('minmax') === '1';
   const rawRow = pageParam('row');
   const levelKey = `${module ?? ''}/${motion ?? ''}`;
-  // A row belongs to the path it was picked on. Deliberate drill steps below clear it in the same navigation; the breadcrumb and sibling menus
-  // (DrillLayout → useDrill) cannot clear a non-drill key, so a row picked on another path is ignored here instead (SDK gap, see the report).
-  // A row that arrives with the URL (no pick in this session) is accepted on any path.
-  const [rowPath, setRowPath] = useState<string | null>(null);
-  const row = isHwTimeRowId(rawRow) && (rowPath === null || rowPath === levelKey) ? rawRow : null;
+  // The URL `row` is the truth at every level: any drill step clears it in the same navigation (manifest `drill.resetKeys`, 06 §6.4), and the
+  // Frame names only a row it draws (a URL row of another level shows no active row).
+  const row = isHwTimeRowId(rawRow) ? rawRow : null;
   const [hiddenState, setHiddenState] = useState<{ key: string; ids: string[] }>({ key: levelKey, ids: [] });
   const hidden = hiddenState.key === levelKey ? hiddenState.ids : [];
   const [reveal, setReveal] = useState<{ panelId: string; seq: number } | null>(null);
@@ -192,7 +190,7 @@ export default function ComparePage(_props: PageProps) {
       persistKey = 'hw-compare-l3'; layout = PRESETS.l3;
       const ctx = context ?? data;
       const det = detail ?? EMPTY_BLOCK;
-      const shared = { ...stackProps, activeRowId: row, revealActive: scroll, onActiveRowChange: (rowId: string | null) => { setRowPath(levelKey); setPage({ row: rowId }); }, rowActions: rowActionsOf };
+      const shared = { ...stackProps, activeRowId: row, revealActive: scroll, onActiveRowChange: (rowId: string | null) => setPage({ row: rowId }), rowActions: rowActionsOf };
       panels = [
         { id: 'context', title: { ko: `Module ${module} 전체 Motion`, en: `All Motions of Module ${module}` }, render: () =>
           <PanelFill><StackPanel chartId="hw-compare-L3-context" title={ko ? `Module ${module} 전체 Motion` : `All Motions of Module ${module}`} block={ctx}
@@ -210,7 +208,7 @@ export default function ComparePage(_props: PageProps) {
         { id: 'ranking', title: { ko: '합계 순위', en: 'Ranking' }, minWidth: 180, render: () => <RankingPanel block={data} visibleSeriesIds={visibleOf(data)} /> },
         { id: 'stack', primary: true, title: { ko: 'Motion별', en: 'By Motion' }, render: () =>
           <PanelFill><StackPanel chartId="hw-compare-L2" title={stackTitle} block={data} visibleSeriesIds={visibleOf(data)} onVisibleSeriesChange={setVisible(data)} {...stackProps}
-            onActivate={({ seriesId }) => setPage({ drillMotion: seriesId, row: null }, { focus: 'drill' })} rowActions={rowActionsOf} /></PanelFill> },
+            onActivate={({ seriesId }) => drill.enter('drillMotion', seriesId)} rowActions={rowActionsOf} /></PanelFill> },
         trendPanel,
       ];
     } else {
@@ -218,7 +216,7 @@ export default function ComparePage(_props: PageProps) {
       panels = [
         { id: 'stack', primary: true, title: { ko: 'Module별', en: 'By Module' }, render: () =>
           <PanelFill><StackPanel chartId="hw-compare-L1" title={stackTitle} block={data} visibleSeriesIds={visibleOf(data)} onVisibleSeriesChange={setVisible(data)} {...stackProps}
-            onActivate={({ seriesId }) => setPage({ drillModule: seriesId, drillMotion: null, row: null }, { focus: 'drill' })} /></PanelFill> },
+            onActivate={({ seriesId }) => drill.enter('drillModule', seriesId)} /></PanelFill> },
         trendPanel,
       ];
     }

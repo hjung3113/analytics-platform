@@ -30,7 +30,7 @@ export const manifests: MenuEntry[] = [
     features: { ...NO_FEATURES, board: true },
     pageKeys: ['drillModule', 'drillMotion', 'trend', 'sort', 'row', 'scroll', 'minmax', 'align'],
     contextResetKeys: ['drillModule', 'drillMotion', 'trend', 'row'],
-    drill: { levels: [{ key: 'drillModule', label: { ko: 'Module', en: 'Module' } }, { key: 'drillMotion', label: { ko: 'Motion', en: 'Motion' } }] },
+    drill: { levels: [{ key: 'drillModule', label: { ko: 'Module', en: 'Module' } }, { key: 'drillMotion', label: { ko: 'Motion', en: 'Motion' } }], resetKeys: ['row'] },
     component: lazy(() => import('./pages/compare/ComparePage')),
   },
   {
@@ -42,7 +42,7 @@ export const manifests: MenuEntry[] = [
     features: { ...NO_FEATURES, board: true },
     pageKeys: ['drillModule', 'drillMotion', 'trend', 'sort', 'row', 'minmax', 'align'],
     contextResetKeys: ['drillModule', 'drillMotion', 'trend', 'row'],
-    drill: { levels: [{ key: 'drillModule', label: { ko: 'Module', en: 'Module' } }, { key: 'drillMotion', label: { ko: 'Motion', en: 'Motion' } }] },
+    drill: { levels: [{ key: 'drillModule', label: { ko: 'Module', en: 'Module' } }, { key: 'drillMotion', label: { ko: 'Motion', en: 'Motion' } }], resetKeys: ['row'] },
     component: lazy(() => import('./pages/overview/OverviewPage')),
   },
   {

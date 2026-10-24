@@ -190,6 +190,14 @@ export function createRegistry({ spaces, groups, menus, permissions: declared = 
         if (!(m.contextResetKeys ?? []).includes(level.key)) fail(`Menu "${m.id}" drill level key "${level.key}" is not a declared contextResetKeys entry`);
         if (level.key === 'returnTo') fail(`Menu "${m.id}" drill level key "returnTo" cannot be a drill level`);
       }
+      const seenReset = new Set<string>();
+      for (const key of m.drill.resetKeys ?? []) {
+        if (seenReset.has(key)) fail(`Menu "${m.id}" drill resetKey "${key}" is duplicated`);
+        seenReset.add(key);
+        if (!m.pageKeys.includes(key)) fail(`Menu "${m.id}" drill resetKey "${key}" is not a declared pageKeys entry`);
+        if (seen.has(key)) fail(`Menu "${m.id}" drill resetKey "${key}" is a drill level key`);
+        if (key === 'returnTo') fail(`Menu "${m.id}" drill resetKey "returnTo" cannot be reset by a drill step`);
+      }
     }
     // Same shape once parameter names are erased (/a/:x vs /a/:y) is ambiguous; static-vs-param overlaps are resolved below.
     const shape = '/' + segments(m.path).map(s => (isParam(s) ? ':' : s)).join('/');

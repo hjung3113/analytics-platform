@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import type { Text } from '@ap/contracts';
 import { usePlatform } from './platform';
+import { drillLevelChanged } from './drillReset';
 
 /** One declared step plus the current page value. Empty string is absent (`null`). */
 export type DrillLevelState = { key: string; label: Text; value: string | null };
@@ -16,11 +17,11 @@ export type DrillState = {
   trail: DrillTrailStep[];
   invalid: DrillInvalid | null;
   /**
-   * Write `key` and clear every later step in one `setPage` (history push).
+   * Write `key` and clear every later step in one `setPage` (history push); the menu's `drill.resetKeys` go in the same write.
    * Only the next step (`index === depth`) or an already filled step is allowed.
    */
   enter: (key: string, value: string) => void;
-  /** Keep the first `n` steps and clear the rest (push). `n === 0` is the summary. */
+  /** Keep the first `n` steps and clear the rest (push, `drill.resetKeys` cleared too when a step changes). `n === 0` is the summary. */
   goTo: (n: number) => void;
 };
 
@@ -58,24 +59,26 @@ export function useDrill(): DrillState {
     return null;
   }, [levels, depth]);
 
+  const current = useMemo(() => levels.map((level): [string, string | null] => [level.key, level.value]), [levels]);
+
   const enter = useCallback((key: string, value: string) => {
     const list = declared ?? [];
     const index = list.findIndex(level => level.key === key);
     if (index < 0) throw new Error(`drill enter "${key}" is not a declared level`);
     if (index > depth) throw new Error(`drill enter "${key}" is past the next level`);
-    const patch: Record<string, string | null> = { [key]: value };
+    const patch = Object.create(null) as Record<string, string | null>;
+    patch[key] = value;
     for (let i = index + 1; i < list.length; i += 1) patch[list[i]!.key] = null;
-    const changed = levels.some(level => level.key in patch && level.value !== (patch[level.key] || null));
-    setPage(patch, changed ? { focus: 'drill' } : undefined);
-  }, [declared, depth, levels, setPage]);
+    setPage(patch, drillLevelChanged(route?.menu, current, patch) ? { focus: 'drill' } : undefined);
+  }, [declared, depth, current, route, setPage]);
 
   const goTo = useCallback((n: number) => {
     const list = declared ?? [];
     if (!Number.isInteger(n) || n < 0 || n > list.length) throw new Error(`drill goTo ${n} is outside 0..${list.length}`);
-    const patch: Record<string, string | null> = {};
+    const patch = Object.create(null) as Record<string, string | null>;
     for (let i = n; i < list.length; i += 1) patch[list[i]!.key] = null;
-    setPage(patch, levels.slice(n).some(level => level.value !== null) ? { focus: 'drill' } : undefined);
-  }, [declared, levels, setPage]);
+    setPage(patch, drillLevelChanged(route?.menu, current, patch) ? { focus: 'drill' } : undefined);
+  }, [declared, current, route, setPage]);
 
   return { levels, depth, trail, invalid, enter, goTo };
 }
