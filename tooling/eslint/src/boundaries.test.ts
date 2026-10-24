@@ -41,6 +41,7 @@ const PRESETS: Record<string, Linter.Config[]> = {
   'menus/metrics/metrics': menu,
   'packages/fo-bridge': foBridge,
   'menus/_global/my-activity': foBridgeMenu,
+  'menus/feedbackops/fo-voc': foBridgeMenu,
   'apps/platform-web': app,
 };
 
@@ -543,6 +544,18 @@ rows.push(
   { file: MENU, code: `void import('${OPERATOR_DASHBOARD}');`, rule: 'ap/restricted-import-source', token: '@ap/ui' },
   { file: `${'packages/fo-bridge/src'}/fo/session.ts`, code: `import { x } from '${OPERATOR_DASHBOARD}';`, rule: 'no-restricted-imports', token: '@ap/ui' },
 );
+// The operator VOC entries (#761): the FeedbackOps VOC bridge menu may import them (static and dynamic); a non-bridge menu and the fo-bridge runtime's eager code may not.
+const FO_VOC = 'menus/feedbackops/fo-voc/src/pages/x.tsx';
+for (const entry of ['voc-clusters', 'voc-detail', 'voc-inbox', 'voc-triage']) {
+  const source = `@fops/frontend/operator-screens/${entry}`;
+  rows.push(
+    { file: FO_VOC, code: `import { x } from '${source}';`, rule: '' },
+    { file: FO_VOC, code: `void import('${source}');`, rule: '' },
+    { file: MENU, code: `import { x } from '${source}';`, rule: 'no-restricted-imports', token: '@ap/ui' },
+    { file: MENU, code: `void import('${source}');`, rule: 'ap/restricted-import-source', token: '@ap/ui' },
+    { file: `${'packages/fo-bridge/src'}/fo/session.ts`, code: `import { x } from '${source}';`, rule: 'no-restricted-imports', token: '@ap/ui' },
+  );
+}
 for (const source of ['@fops/frontend', '@fops/frontend/src/main', '@fops/frontend/global-screens/FoScreenRoot', '@fops/ui', '@fops/shared']) {
   rows.push(
     { file: BRIDGE, code: `import { x } from '${source}';`, rule: 'no-restricted-imports', token: '@ap/ui' },

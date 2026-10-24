@@ -27,6 +27,7 @@ import { manifests as impTasks } from '@ap/menu-imp-tasks';
 import { manifests as impReports } from '@ap/menu-imp-reports';
 import { manifests as hwTime } from '@ap/menu-hw-time';
 import { manifests as foDashboard } from '@ap/menu-fo-dashboard';
+import { manifests as foVoc } from '@ap/menu-fo-voc';
 // </gen:menu-imports>
 
 /** The menu permissions this app's menus use, on top of the kernel's (ADR-0072). Each menu package spells its own with `menuPermission`; `createRegistry` fails on one missing here. */
@@ -51,6 +52,7 @@ export const GROUPS: GroupDef[] = [
   { id: groupId('impTasks'), label: { ko: '과제', en: 'Tasks' }, icon: ClipboardList, space: spaceId('improvement') },
   { id: groupId('impReports'), label: { ko: '보고', en: 'Reports' }, icon: BarChart3, space: spaceId('improvement') },
   { id: groupId('foDashboard'), label: { ko: '대시보드', en: 'Dashboard' }, icon: ListTodo, space: spaceId('feedbackops') },
+  { id: groupId('foVoc'), label: { ko: 'VOC', en: 'VOC' }, icon: Inbox, space: spaceId('feedbackops') },
   // </gen:menu-groups>
 ];
 
@@ -85,6 +87,7 @@ export const MENUS: MenuEntry[] = [
   ...clas,
   ...hwTime,
   ...foDashboard,
+  ...foVoc,
   // </gen:menu-spreads>
 ];
 
