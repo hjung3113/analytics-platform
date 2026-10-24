@@ -3,21 +3,24 @@ import { vocDetailEnvelopeSchema } from '@fops/shared';
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@/lib/auth/useMe', () => ({ useMe: vi.fn() }));
+vi.mock('@/lib/api/me', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/me')>()),
+  useMeBridge: vi.fn(),
+}));
 vi.mock('@/lib/cross-system/useManagedSystem', () => ({ useManagedSystem: vi.fn() }));
 vi.mock('@/lib/format/datetime', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/format/datetime')>()),
   formatRelativeTime: (_iso: string) => '방금 전',
 }));
 
-import { useMe } from '@/lib/auth/useMe';
+import { useMeBridge } from '@/lib/api/me';
 import { useManagedSystem } from '@/lib/cross-system/useManagedSystem';
 import { IdentityMetadataStrip, IdentitySection } from '../IdentitySection';
 import { DETAIL_ENVELOPE, ME_RESPONSE, OTHER_ACTOR_ID } from './_fixtures';
 
 beforeEach(() => {
   vi.mocked(useManagedSystem).mockReturnValue(null);
-  vi.mocked(useMe).mockReturnValue({ data: ME_RESPONSE } as ReturnType<typeof useMe>);
+  vi.mocked(useMeBridge).mockReturnValue({ data: ME_RESPONSE } as ReturnType<typeof useMeBridge>);
 });
 
 describe('<IdentitySection>', () => {

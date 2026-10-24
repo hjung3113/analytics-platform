@@ -67,10 +67,11 @@ import {
   useReporterStatusTransitions,
 } from '@/features/voc/hooks/useReporterStatusTransitions';
 import { useVocPublicUpdateMutation } from '@/features/voc/hooks/useVocPublicUpdateMutation';
-import type { ApiError } from '@/lib/api';
 import { mapUnknownError } from '@/lib/api/errorMapper';
-import type { MeResponse } from '@/lib/auth/useMe';
+import type { MeResponse } from '@/lib/api/me';
+import type { ApiError } from '@/lib/api/types';
 import { REPORTER_STATUS_LABELS } from '@/lib/copy/reporter-status-labels';
+import { useHostSeam } from '@/lib/host/host-seam';
 import {
   type ReporterFacingStatusEnum,
   type VocDetailEnvelope,
@@ -81,7 +82,6 @@ import type { TipTapDoc } from '@fops/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, Megaphone } from 'lucide-react';
 import { type ReactElement, useRef, useState } from 'react';
-import { toast } from 'sonner';
 import { ComposerAttachmentDropzone } from './ComposerAttachmentDropzone';
 import { ComposerFooter } from './ComposerFooter';
 import { ComposerPublicPreview } from './ComposerPublicPreview';
@@ -127,6 +127,7 @@ export function PublicUpdateComposer({
   onPosted,
 }: PublicUpdateComposerProps): ReactElement {
   const queryClient = useQueryClient();
+  const { notifyError, notifySuccess } = useHostSeam();
   const { editorHandle, focusEditor } = useComposerEditorFocus();
 
   // REV-1 #7: if parent provides controlled draft, use it; otherwise keep local state
@@ -201,14 +202,14 @@ export function PublicUpdateComposer({
       // through onChange, so attachmentIds clears along the one path it always
       // travels — clearing it here as well would be a second, silent writer.
       setAttachmentResetToken((n) => n + 1);
-      toast.success('공개 업데이트가 게시되었습니다.');
+      notifySuccess('공개 업데이트가 게시되었습니다.');
       onPosted?.('public');
       focusEditor();
     },
     onError: (error) => {
       submitInFlightRef.current = false;
       if (getComposerErrorTone(error.code) == null) {
-        toast.error(mapUnknownError(error).message);
+        notifyError(mapUnknownError(error).message);
       }
     },
   });

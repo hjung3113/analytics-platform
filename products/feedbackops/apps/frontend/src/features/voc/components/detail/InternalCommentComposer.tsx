@@ -32,14 +32,14 @@ import { extractMentions } from '@/features/cross-system/mentions/extractMention
 import { insertMention } from '@/features/cross-system/mentions/insertMention';
 import { useVocInternalCommentMutation } from '@/features/voc/hooks/useVocInternalCommentMutation';
 import { mapUnknownError } from '@/lib/api/errorMapper';
+import type { MeResponse } from '@/lib/api/me';
 import { uploadRichEditorAttachment } from '@/lib/attachments/rich-editor-upload';
-import type { MeResponse } from '@/lib/auth/useMe';
+import { useHostSeam } from '@/lib/host/host-seam';
 import { type VocDetailEnvelope, isTipTapDocBlank } from '@fops/shared';
 import type { TipTapDoc, TipTapEditor } from '@fops/ui';
 import { RichEditor } from '@fops/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
-import { toast } from 'sonner';
 import { mergeAttachmentIds, normalizeAttachmentRefs } from '../compose/attachment-refs';
 import { ComposerAttachmentDropzone } from './ComposerAttachmentDropzone';
 import { ComposerFooter } from './ComposerFooter';
@@ -71,6 +71,7 @@ export function InternalCommentComposer({
   onCommentAdded,
 }: InternalCommentComposerProps): React.ReactElement {
   const queryClient = useQueryClient();
+  const { notifyError, notifySuccess } = useHostSeam();
   const { editorHandle, focusEditor } = useComposerEditorFocus();
 
   // Hold a ref to the editor instance to allow MentionPickerButton insertions.
@@ -114,12 +115,12 @@ export function InternalCommentComposer({
       // #354: linked to the added comment now — re-sending would be already_linked.
       // attachmentIds clears through the dropzone's onChange, not from here.
       setAttachmentResetToken((n) => n + 1);
-      toast.success('내부 코멘트가 추가되었습니다.');
+      notifySuccess('내부 코멘트가 추가되었습니다.');
       onCommentAdded?.();
       focusEditor();
     },
     onError: (error) => {
-      toast.error(mapUnknownError(error).message);
+      notifyError(mapUnknownError(error).message);
     },
   });
 
@@ -174,7 +175,7 @@ export function InternalCommentComposer({
                   // below.
                 }}
                 onAttach={(file) => api.attach(file)}
-                onAttachError={(e) => toast.error(mapUnknownError(e).message)}
+                onAttachError={(e) => notifyError(mapUnknownError(e).message)}
               />
             </>
           );

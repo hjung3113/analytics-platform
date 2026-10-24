@@ -1,10 +1,15 @@
 import { usePublicUpdateReviewCandidates } from '@/features/voc/hooks/usePublicUpdateReviewCandidates';
 import { useRequestTaskFromVoc } from '@/features/voc/hooks/useRequestTaskFromVoc';
-import { type ApiError, errorMapper, getTask, useIdempotencyKey } from '@/lib/api';
-import type { MeResponse } from '@/lib/auth/useMe';
+import { errorMapper } from '@/lib/api/errorMapper';
+import type { MeResponse } from '@/lib/api/me';
+import { getTask } from '@/lib/api/tasks';
+import type { ApiError } from '@/lib/api/types';
+import { useIdempotencyKey } from '@/lib/api/useIdempotencyKey';
 import { analyticsAreasCatalogQuery } from '@/lib/cross-system/analyticsAreasCatalog';
-import { usePermissionCheck } from '@/lib/cross-system/usePermissionCheck';
+import { usePermissionCheckBridge } from '@/lib/cross-system/usePermissionCheckBridge';
 import { useWorkspaceActors } from '@/lib/cross-system/useWorkspaceActors';
+import { useHostNavigate, useHostSeam, useHostSearch } from '@/lib/host/host-seam';
+import { searchHref } from '@/lib/host/search';
 import type {
   CreateTaskRequestRequest,
   EntityLinkDto,
@@ -12,9 +17,8 @@ import type {
   VocDetailEnvelope,
 } from '@fops/shared';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
 import * as React from 'react';
-import { toast } from 'sonner';
+import type { TrailOpenKind } from './LinkedEntityTrailSection';
 import { hasSimilarVocSection } from './SimilarVocSection';
 
 type AllowedEntityLink = Extract<EntityLinkDto, { visibility_state: 'allowed' }>;
@@ -31,26 +35,23 @@ export function useVocDetailPanelController({
   voc,
   vocId,
   managedSystemId,
-  onClose,
   canRenderAllowedTask,
   me,
 }: {
   voc: VocDetailEnvelope;
   vocId: string;
   managedSystemId?: string;
-  onClose: () => void;
   canRenderAllowedTask: boolean;
   me: MeResponse | null;
 }) {
-  // REV-1 #6: track composer dirty state; intercept panel close to show DirtyConfirmation.
-  const [composerDirty, setComposerDirty] = React.useState(false);
-  const [dirtyConfirmOpen, setDirtyConfirmOpen] = React.useState(false);
   const [createFindingOpen, setCreateFindingOpen] = React.useState(false);
   const [requestTaskOpen, setRequestTaskOpen] = React.useState(false);
   const [reviewOpen, setReviewOpen] = React.useState(false);
-  const navigate = useNavigate();
+  const navigate = useHostNavigate();
+  const search = useHostSearch();
+  const { canLink, notifyError, notifySuccess } = useHostSeam();
   const permissionManagedSystemId = managedSystemId ?? voc.primary_managed_system_id;
-  const capCheck = usePermissionCheck({
+  const capCheck = usePermissionCheckBridge({
     capability: 'voc.triage',
     managedSystemId: permissionManagedSystemId,
   });
@@ -111,27 +112,9 @@ export function useVocDetailPanelController({
     vocId,
     idempotencyKey: requestTaskIdempotencyKey,
     onError: (err: ApiError) => {
-      toast.error(errorMapper(err.envelope).message);
+      notifyError(errorMapper(err.envelope).message);
     },
   });
-
-  function handleClose() {
-    if (composerDirty) {
-      setDirtyConfirmOpen(true);
-    } else {
-      onClose();
-    }
-  }
-
-  function handleDirtyConfirm() {
-    setDirtyConfirmOpen(false);
-    setComposerDirty(false);
-    onClose();
-  }
-
-  function handleDirtyCancel() {
-    setDirtyConfirmOpen(false);
-  }
 
   function closeRequestTaskDraft(): void {
     requestTaskMutation.reset();
@@ -144,47 +127,43 @@ export function useVocDetailPanelController({
         markRequestTaskConsumed();
         setRequestTaskOpen(false);
         requestTaskMutation.reset();
-        toast.success('Task Request가 생성되었습니다.');
+        notifySuccess('Task Request가 생성되었습니다.');
       },
     });
   }
 
-  function handleSimilarVocSelect(id: string): void {
-    // Match VOC list-row selection: retain the current view and filters.
-    void navigate({
-      to: '/vocs',
-      search: (prev: Record<string, unknown>) => ({ ...prev, selected: id }),
-    });
-  }
+  // A move is offered only where the host can take the actor there (ADR-0071 d10): the bridge maps these
+  // destinations menu by menu, so an unmapped one leaves its control out. Each control asks `canLink` about its
+  // own destination href (the record's id), never a probe built from this VOC.
+  const taskPath = (id: string) => searchHref('/tasks', { param: id });
+  const findingPath = (id: string) => searchHref('/findings', { selected: id });
+  const clusterPath = (id: string) => `/voc-clusters/${encodeURIComponent(id)}`;
+  const requestPath = (id: string) => searchHref('/tasks', { view: 'requests', param: id });
+  // Match VOC list-row selection: retain the current view and filters.
+  const similarPath = (id: string) => searchHref('/vocs', { ...search, selected: id });
+  const triagePath = (id: string) =>
+    searchHref('/vocs', { ...search, view: 'triage', selected: id });
+  const trailPath: Record<TrailOpenKind, (id: string) => string> = {
+    task: taskPath,
+    finding: findingPath,
+    cluster: clusterPath,
+    task_request: requestPath,
+  };
 
-  function handleOpenTriage(): void {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    void navigate({
-      to: '/vocs',
-      // biome-ignore lint/suspicious/noExplicitAny: TanStack search updater is untyped at this call site (same idiom as TriageRoute.tsx:73)
-      search: (prev: any) => ({ ...prev, view: 'triage', selected: vocId }) as any,
-    });
-  }
-
-  function handleOpenTask(taskId: string): void {
-    void navigate({ to: '/tasks', search: { param: taskId } });
-  }
-
-  function handleOpenFinding(findingId: string): void {
-    void navigate({ to: '/findings', search: { selected: findingId } });
-  }
-
-  function handleOpenCluster(clusterId: string): void {
-    void navigate({ to: '/voc-clusters/$clusterId', params: { clusterId } });
-  }
-
-  function handleOpenRequest(requestId: string): void {
-    void navigate({ to: '/tasks', search: { view: 'requests', param: requestId } });
-  }
+  const canSelectSimilarVoc = (id: string): boolean => canLink(similarPath(id));
+  const canOpenTrailNode = (kind: TrailOpenKind, id: string): boolean =>
+    canLink(trailPath[kind](id));
+  const handleSimilarVocSelect = (id: string): void => navigate(similarPath(id));
+  // The target is this VOC itself, so its own href is the destination.
+  const handleOpenTriage = canLink(triagePath(vocId))
+    ? (): void => navigate(triagePath(vocId))
+    : undefined;
+  const handleOpenTask = (taskId: string): void => navigate(taskPath(taskId));
+  const handleOpenFinding = (findingId: string): void => navigate(findingPath(findingId));
+  const handleOpenCluster = (clusterId: string): void => navigate(clusterPath(clusterId));
+  const handleOpenRequest = (requestId: string): void => navigate(requestPath(requestId));
 
   return {
-    setComposerDirty,
-    dirtyConfirmOpen,
     createFindingOpen,
     setCreateFindingOpen,
     requestTaskOpen,
@@ -203,12 +182,11 @@ export function useVocDetailPanelController({
     canRequestTask,
     showsSimilarVocSection,
     isReporterArm,
-    handleClose,
-    handleDirtyConfirm,
-    handleDirtyCancel,
     closeRequestTaskDraft,
     handleRequestTaskSubmit,
     handleSimilarVocSelect,
+    canSelectSimilarVoc,
+    canOpenTrailNode,
     handleOpenTriage,
     handleOpenTask,
     handleOpenFinding,

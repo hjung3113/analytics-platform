@@ -50,4 +50,5 @@ export const tanstackHost: HostSeam = {
   notify: sonnerNotify,
   dismiss: sonnerDismiss,
   useHere: useTanstackHere,
+  absoluteHref: (to) => `${window.location.origin}${to}`,
 };

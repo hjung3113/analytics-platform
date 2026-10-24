@@ -80,7 +80,7 @@ export function CreateFindingModal({
 }: CreateFindingModalProps): React.ReactElement {
   const navigate = useHostNavigate();
   const here = useHostHere();
-  const { notifyError } = useHostSeam();
+  const { canLink, notifyError, notifySuccess } = useHostSeam();
   const [editedFields, setEditedFields] = React.useState(INITIAL_TEXT_FIELD_INTERACTION);
   const { key: idempotencyKey, markConsumed } = useIdempotencyKey();
 
@@ -186,12 +186,13 @@ export function CreateFindingModal({
           onCreated?.();
           onClose();
           const returnTo = returnToRef.current;
-          navigate(
-            searchHref('/findings', {
-              selected: finding.id,
-              ...(returnTo !== undefined ? { returnTo } : {}),
-            }),
-          );
+          const findingHref = searchHref('/findings', {
+            selected: finding.id,
+            ...(returnTo !== undefined ? { returnTo } : {}),
+          });
+          // Where the host cannot take the actor to the Finding, the creation is still confirmed (ADR-0071 d10).
+          if (canLink(findingHref)) navigate(findingHref);
+          else notifySuccess('Finding이 생성되었습니다.');
         },
         onError: (err: ApiError) => {
           notifyError(errorMapper(err.envelope).message);

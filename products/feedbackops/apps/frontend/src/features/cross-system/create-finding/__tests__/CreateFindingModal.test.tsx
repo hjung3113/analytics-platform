@@ -46,8 +46,9 @@ const AREAS = [
 ];
 
 // The modal reads where it is and navigates through the host seam: `useLocation` is the test's current href.
+let hostCanLink: (to: string) => boolean = () => true;
 const seam: HostSeam = {
-  canLink: () => true,
+  canLink: (to) => hostCanLink(to),
   Link: ({ to, children }) => <a href={to}>{children}</a>,
   notifyError: vi.fn(),
   notifySuccess: vi.fn(),
@@ -99,6 +100,8 @@ describe('CreateFindingModal Analytics Area inheritance', () => {
 
   beforeEach(() => {
     navigate.mockReset();
+    hostCanLink = () => true;
+    vi.mocked(seam.notifySuccess).mockClear();
     useLocation.mockReset();
     useLocation.mockReturnValue({ pathname: '/', href: '/' });
     vi.mocked(fetchAnalyticsAreas).mockReset();
@@ -225,6 +228,18 @@ describe('CreateFindingModal Analytics Area inheritance', () => {
       ),
     );
     expect(client.getQueryState(findingsListKey)?.isInvalidated).toBe(true);
+  });
+
+  it('confirms the creation without navigating when the host cannot link the Finding', async () => {
+    hostCanLink = () => false;
+    renderModal(null);
+    submitValidForm();
+
+    await submittedBody();
+    await waitFor(() =>
+      expect(seam.notifySuccess).toHaveBeenCalledWith('Finding이 생성되었습니다.'),
+    );
+    expect(navigate).not.toHaveBeenCalled();
   });
 
   it('pins returnTo to the source VOC after the Triage queue advanced its selection', async () => {

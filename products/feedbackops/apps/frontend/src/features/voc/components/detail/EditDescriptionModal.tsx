@@ -14,7 +14,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { toast } from 'sonner';
 
 import {
   type EditDescriptionRequest,
@@ -36,8 +35,9 @@ import {
   type TipTapDoc,
 } from '@fops/ui';
 
-import type { ApiError } from '@/lib/api';
-import { errorMapper } from '@/lib/api';
+import { errorMapper } from '@/lib/api/errorMapper';
+import type { ApiError } from '@/lib/api/types';
+import { useHostNotice, useHostSeam } from '@/lib/host/host-seam';
 import { useVocEditDescriptionMutation } from '../../hooks/useVocEditDescriptionMutation';
 import { AttachmentDropzone } from '../create/AttachmentDropzone';
 import { vocDescriptionToolbar } from '../create/VocDescriptionToolbar';
@@ -93,6 +93,8 @@ export function EditDescriptionModal({
   onClose,
 }: EditDescriptionModalProps): React.ReactElement {
   const queryClient = useQueryClient();
+  const { notifyError, notifySuccess } = useHostSeam();
+  const { notify } = useHostNotice();
   const mutation = useVocEditDescriptionMutation();
 
   // Track if the user attempted to close while dirty
@@ -225,7 +227,7 @@ export function EditDescriptionModal({
           form.reset();
           mutation.reset();
           void queryClient.invalidateQueries({ queryKey: ['voc', voc.id] });
-          toast.success('설명이 수정되었습니다.');
+          notifySuccess('설명이 수정되었습니다.');
           onClose();
         },
         onError: (err: ApiError) => {
@@ -237,8 +239,8 @@ export function EditDescriptionModal({
             code === 'conflict.record_archived'
           ) {
             const mapped = errorMapper(err.envelope);
-            if (mapped.tone === 'warning') toast.warning(mapped.message);
-            else toast.error(mapped.message);
+            if (mapped.tone === 'warning') notify({ tone: 'warning', message: mapped.message });
+            else notifyError(mapped.message);
             closeAndReset();
             return;
           }
@@ -250,23 +252,23 @@ export function EditDescriptionModal({
           // restart from the refreshed defaults.
           if (code === 'conflict.stale_write') {
             void queryClient.invalidateQueries({ queryKey: ['voc', voc.id] });
-            toast.warning('VOC가 변경되었습니다. 편집 중인 내용을 잃지 않으려면 [다시 불러오기]를 눌러 새로 시작하세요.', {
-              duration: 10000,
-              action: {
-                label: '다시 불러오기',
-                onClick: handleReloadFromVoc,
-              },
+            notify({
+              tone: 'warning',
+              message:
+                'VOC가 변경되었습니다. 편집 중인 내용을 잃지 않으려면 [다시 불러오기]를 눌러 새로 시작하세요.',
+              durationMs: 10000,
+              action: { label: '다시 불러오기', onAction: handleReloadFromVoc },
             });
             return;
           }
           // validation.failed: handled via useEffect → form.setError
           // rich_content.*: surface top-level error message
           if (code?.startsWith('rich_content.')) {
-            toast.error(errorMapper(err.envelope).message);
+            notifyError(errorMapper(err.envelope).message);
             return;
           }
           // fallback
-          toast.error(errorMapper(err.envelope).message);
+          notifyError(errorMapper(err.envelope).message);
         },
       },
     );
@@ -364,7 +366,12 @@ export function EditDescriptionModal({
 
           {/* Footer ───────────────────────────────────────────────────────── */}
           <DialogFooter spacing="compact">
-            <Button type="button" variant="secondary" onClick={handleCancel} disabled={isSubmitting}>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={handleCancel}
+              disabled={isSubmitting}
+            >
               취소
             </Button>
             <Button

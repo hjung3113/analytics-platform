@@ -21,11 +21,10 @@ vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
   fetchAnalyticsAreas: vi.fn(async () => ({ items: [], total: 0 })),
 }));
 
-vi.mock('@/lib/auth/useMe', () => ({ useMe: vi.fn() }));
-vi.mock('@tanstack/react-router', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@tanstack/react-router')>();
-  return { ...actual, useNavigate: () => vi.fn() };
-});
+vi.mock('@/lib/api/me', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/me')>()),
+  useMeBridge: vi.fn(),
+}));
 vi.mock('@/features/cross-system/create-finding/CreateFindingModal', () => ({
   CreateFindingModal: (props: {
     managedSystemId: string;
@@ -78,8 +77,13 @@ import {
   makeDetailQuery,
   makeMeQuery,
 } from '@/features/voc/components/detail/__tests__/_fixtures';
-import { useMe } from '@/lib/auth/useMe';
+import { useMeBridge } from '@/lib/api/me';
 import { useVocDetail } from '@/lib/cross-system/useVocDetail';
+import { type HostSeam, HostSeamProvider } from '@/lib/host/host-seam';
+import { tanstackHost } from '@/lib/host/tanstack-host';
+
+// The detail moves through its host; this test never navigates.
+const HOST: HostSeam = { ...tanstackHost, useNavigate: () => vi.fn(), useSearch: () => ({}) };
 
 const AREA_ID = '20000000-0000-4000-8000-000000000001';
 
@@ -87,7 +91,7 @@ beforeEach(() => {
   vi.mocked(useVocDetail).mockReturnValue(
     makeDetailQuery({ data: { ...DETAIL_ENVELOPE, analytics_area_id: AREA_ID } }),
   );
-  vi.mocked(useMe).mockReturnValue(
+  vi.mocked(useMeBridge).mockReturnValue(
     makeMeQuery({ data: { ...ME_RESPONSE, actor: { ...ME_RESPONSE.actor, role_level: 'admin' } } }),
   );
 });
@@ -99,7 +103,9 @@ describe('VocDetailPanel Finding creation area handoff', () => {
     });
     render(
       <QueryClientProvider client={client}>
-        <VocDetailPanel vocId={DETAIL_ENVELOPE.id} onClose={vi.fn()} />
+        <HostSeamProvider value={HOST}>
+          <VocDetailPanel vocId={DETAIL_ENVELOPE.id} onClose={vi.fn()} />
+        </HostSeamProvider>
       </QueryClientProvider>,
     );
 

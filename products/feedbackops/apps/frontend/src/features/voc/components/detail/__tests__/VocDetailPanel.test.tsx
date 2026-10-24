@@ -23,8 +23,6 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
   // #587: CreateFindingModal reads the router location to build its return link.
   return {
     ...actual,
-    useNavigate: () => navigate,
-    useLocation: () => ({ pathname: '/vocs', href: '/vocs?view=inbox' }),
     // CreateFindingModal reads its location through the host seam (tanstack-host `useRouterState`).
     useRouterState: ({ select }: { select: (state: unknown) => unknown }) =>
       select({ location: { pathname: '/vocs', searchStr: '?view=inbox', hash: '' } }),
@@ -36,9 +34,12 @@ vi.mock('@/lib/api', async (importOriginal) => {
     ...actual,
     apiClient: apiClientMock,
     fetchTaskRequests: fetchTaskRequestsMock,
-    getTask: vi.fn(),
   };
 });
+vi.mock('@/lib/api/tasks', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/tasks')>()),
+  getTask: vi.fn(),
+}));
 vi.mock('@/lib/api/client', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api/client')>()),
   apiClient: apiClientMock,
@@ -52,8 +53,13 @@ vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
   fetchAnalyticsAreas: vi.fn(),
 }));
 
-vi.mock('@/lib/auth/useMe', () => ({ useMe: vi.fn() }));
-vi.mock('@/lib/cross-system/usePermissionCheck', () => ({ usePermissionCheck: vi.fn() }));
+vi.mock('@/lib/api/me', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/me')>()),
+  useMeBridge: vi.fn(),
+}));
+vi.mock('@/lib/cross-system/usePermissionCheckBridge', () => ({
+  usePermissionCheckBridge: vi.fn(),
+}));
 vi.mock('@fops/ui', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@fops/ui')>();
   return {
@@ -98,14 +104,16 @@ vi.mock('@/features/voc/components/detail/ComposerSection', () => ({
 }));
 
 import { useVocConversation } from '@/features/voc/hooks/useVocConversation';
-import { getTask } from '@/lib/api';
 import { fetchAnalyticsAreas } from '@/lib/api/analytics-areas';
-import { useMe } from '@/lib/auth/useMe';
+import { useMeBridge } from '@/lib/api/me';
+import { getTask } from '@/lib/api/tasks';
 import { getPermissionDecision } from '@/lib/cross-system/getPermissionDecision';
 import { useManagedSystem } from '@/lib/cross-system/useManagedSystem';
-import { usePermissionCheck } from '@/lib/cross-system/usePermissionCheck';
+import { usePermissionCheckBridge } from '@/lib/cross-system/usePermissionCheckBridge';
 import { useVocDetail } from '@/lib/cross-system/useVocDetail';
 import { useWorkspaceActors } from '@/lib/cross-system/useWorkspaceActors';
+import { type HostSeam, HostSeamProvider } from '@/lib/host/host-seam';
+import { tanstackHost } from '@/lib/host/tanstack-host';
 import { registerAnchorLinkHost } from '@/test/anchor-link-host';
 import { VocDetailPanel } from '../VocDetailPanel';
 
@@ -125,13 +133,41 @@ function createQueryClient() {
   });
 }
 
+// The detail moves through its host: the spy stands in for the host's navigate and takes FeedbackOps hrefs.
+let hostSearch: Record<string, string> = {};
+let hostCanLink: (to: string) => boolean = () => true;
+let hostAbsoluteHref: (to: string) => string | null = (to) => `https://fo.example${to}`;
+const testHost: HostSeam = {
+  ...tanstackHost,
+  Link: ({ to, children, ref, ...rest }) => (
+    <a href={to} ref={ref as React.Ref<HTMLAnchorElement>} {...rest}>
+      {children}
+    </a>
+  ),
+  canLink: (to) => hostCanLink(to),
+  useNavigate: () => navigate,
+  useSearch: () => hostSearch,
+  absoluteHref: (to) => hostAbsoluteHref(to),
+};
+
+function withHost(ui: React.ReactElement, queryClient: QueryClient) {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <HostSeamProvider value={testHost}>{ui}</HostSeamProvider>
+    </QueryClientProvider>
+  );
+}
+
 function renderWithClient(ui: React.ReactElement, queryClient = createQueryClient()) {
-  return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>);
+  return render(withHost(ui, queryClient));
 }
 
 beforeEach(() => {
   permissionStates.clear();
   navigate.mockReset();
+  hostSearch = {};
+  hostCanLink = () => true;
+  hostAbsoluteHref = (to) => `https://fo.example${to}`;
   apiClientMock.mockReset();
   apiClientMock.mockImplementation(async (_method: string, path: string) =>
     path.endsWith('/request-task') ? { data: { id: 'task-request-1' } } : { data: { items: [] } },
@@ -157,12 +193,12 @@ beforeEach(() => {
     ],
   } as ReturnType<typeof useWorkspaceActors>);
   vi.mocked(fetchAnalyticsAreas).mockResolvedValue({ items: [], total: 0 });
-  vi.mocked(useMe).mockReturnValue(makeMeQuery());
-  vi.mocked(usePermissionCheck).mockImplementation(
+  vi.mocked(useMeBridge).mockReturnValue(makeMeQuery());
+  vi.mocked(usePermissionCheckBridge).mockImplementation(
     ({ capability }) =>
       ({
         data: { state: permissionStates.get(capability) ?? 'blocked_non_requestable' },
-      }) as unknown as ReturnType<typeof usePermissionCheck>,
+      }) as unknown as ReturnType<typeof usePermissionCheckBridge>,
   );
 });
 
@@ -269,7 +305,7 @@ describe('<VocDetailPanel>', () => {
     vi.mocked(useVocDetail).mockReturnValue(
       makeDetailQuery({ data: { ...DETAIL_ENVELOPE, links } }),
     );
-    vi.mocked(useMe).mockReturnValue(
+    vi.mocked(useMeBridge).mockReturnValue(
       makeMeQuery({
         data: {
           ...ME_RESPONSE,
@@ -304,7 +340,7 @@ describe('<VocDetailPanel>', () => {
           },
         }),
       );
-      vi.mocked(useMe).mockReturnValue(
+      vi.mocked(useMeBridge).mockReturnValue(
         makeMeQuery({
           data: {
             ...ME_RESPONSE,
@@ -351,7 +387,7 @@ describe('<VocDetailPanel>', () => {
         },
       }),
     );
-    vi.mocked(useMe).mockReturnValue(
+    vi.mocked(useMeBridge).mockReturnValue(
       makeMeQuery({
         data: {
           ...ME_RESPONSE,
@@ -365,10 +401,7 @@ describe('<VocDetailPanel>', () => {
     expect(screen.queryByRole('button', { name: 'Finding 생성' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '연결된 실행 확인' })).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: /로그 유실 Finding/ }));
-    expect(navigate).toHaveBeenCalledWith({
-      to: '/findings',
-      search: { selected: FINDING_TRAIL_ID },
-    });
+    expect(navigate).toHaveBeenCalledWith(`/findings?selected=${FINDING_TRAIL_ID}`);
   });
 
   it.each(['allowed', 'hidden', 'denied'] as const)(
@@ -421,7 +454,7 @@ describe('<VocDetailPanel>', () => {
           },
         }),
       );
-      vi.mocked(useMe).mockReturnValue(
+      vi.mocked(useMeBridge).mockReturnValue(
         makeMeQuery({
           data: {
             ...ME_RESPONSE,
@@ -439,10 +472,7 @@ describe('<VocDetailPanel>', () => {
       }
       if (state === 'allowed') {
         await userEvent.click(screen.getByRole('button', { name: /Request만 있는 후속 조치/ }));
-        expect(navigate).toHaveBeenCalledWith({
-          to: '/tasks',
-          search: { view: 'requests', param: requestId },
-        });
+        expect(navigate).toHaveBeenCalledWith(`/tasks?view=requests&param=${requestId}`);
       } else {
         expect(screen.queryByText('Request만 있는 후속 조치')).not.toBeInTheDocument();
         expect(navigate).not.toHaveBeenCalled();
@@ -471,7 +501,7 @@ describe('<VocDetailPanel>', () => {
         },
       }),
     );
-    vi.mocked(useMe).mockReturnValue(
+    vi.mocked(useMeBridge).mockReturnValue(
       makeMeQuery({
         data: {
           ...ME_RESPONSE,
@@ -483,10 +513,7 @@ describe('<VocDetailPanel>', () => {
     expect(screen.queryByText('연결된 실행 없음')).not.toBeInTheDocument();
     const trail = within(screen.getByTestId('voc-follow-up-trail'));
     await userEvent.click(trail.getByRole('button', { name: /내부 Task 제목/ }));
-    expect(navigate).toHaveBeenCalledWith({
-      to: '/tasks',
-      search: { param: allowedTaskLink.target_id },
-    });
+    expect(navigate).toHaveBeenCalledWith(`/tasks?param=${allowedTaskLink.target_id}`);
     expect(getTask).not.toHaveBeenCalled();
   });
 
@@ -502,10 +529,7 @@ describe('<VocDetailPanel>', () => {
       expect(screen.getByText('FIN-1200')).toBeInTheDocument();
 
       await userEvent.click(screen.getByRole('button', { name: /로그 유실 Finding/ }));
-      expect(navigate).toHaveBeenCalledWith({
-        to: '/findings',
-        search: { selected: FINDING_TRAIL_ID },
-      });
+      expect(navigate).toHaveBeenCalledWith(`/findings?selected=${FINDING_TRAIL_ID}`);
     },
   );
 
@@ -562,7 +586,7 @@ describe('<VocDetailPanel>', () => {
     vi.mocked(useVocDetail).mockReturnValue(
       makeDetailQuery({ data: { ...DETAIL_ENVELOPE, links: [allowedTaskLink] } }),
     );
-    vi.mocked(useMe).mockReturnValue(
+    vi.mocked(useMeBridge).mockReturnValue(
       makeMeQuery({
         data: undefined,
         isLoading: true,
@@ -583,7 +607,7 @@ describe('<VocDetailPanel>', () => {
     vi.mocked(useVocDetail).mockReturnValue(
       makeDetailQuery({ data: { ...DETAIL_ENVELOPE, links: [allowedTaskLink] } }),
     );
-    vi.mocked(useMe).mockReturnValue(
+    vi.mocked(useMeBridge).mockReturnValue(
       makeMeQuery({
         data: {
           ...ME_RESPONSE,
@@ -603,7 +627,7 @@ describe('<VocDetailPanel>', () => {
     vi.mocked(useVocDetail).mockReturnValue(
       makeDetailQuery({ data: { ...DETAIL_ENVELOPE, links: [allowedTaskLink] } }),
     );
-    vi.mocked(useMe).mockReturnValue(
+    vi.mocked(useMeBridge).mockReturnValue(
       makeMeQuery({
         data: undefined,
         isLoading: true,
@@ -626,7 +650,7 @@ describe('<VocDetailPanel>', () => {
     vi.mocked(useVocDetail).mockReturnValue(
       makeDetailQuery({ data: { ...DETAIL_ENVELOPE, links: [allowedTaskLink] } }),
     );
-    vi.mocked(useMe).mockReturnValue(
+    vi.mocked(useMeBridge).mockReturnValue(
       makeMeQuery({
         data: {
           ...ME_RESPONSE,
@@ -648,7 +672,7 @@ describe('<VocDetailPanel>', () => {
     vi.mocked(useVocDetail).mockReturnValue(
       makeDetailQuery({ data: { ...DETAIL_ENVELOPE, links: [allowedTaskLink] } }),
     );
-    vi.mocked(useMe).mockReturnValue(
+    vi.mocked(useMeBridge).mockReturnValue(
       makeMeQuery({
         data: { ...ME_RESPONSE, actor: { ...ME_RESPONSE.actor, role_level: 'admin' } },
       }),
@@ -671,7 +695,7 @@ describe('<VocDetailPanel>', () => {
 
   it('hides the internal conversation tab when the reporter has no operator capability', () => {
     vi.mocked(useVocDetail).mockReturnValue(makeDetailQuery());
-    vi.mocked(useMe).mockReturnValue(
+    vi.mocked(useMeBridge).mockReturnValue(
       makeMeQuery({
         data: {
           ...ME_RESPONSE,
@@ -686,7 +710,7 @@ describe('<VocDetailPanel>', () => {
   it('does not show the internal conversation tab for a viewer with voc.read only', () => {
     vi.mocked(useVocDetail).mockReturnValue(makeDetailQuery());
     permissionStates.set('voc.read', 'approved');
-    vi.mocked(useMe).mockReturnValue(
+    vi.mocked(useMeBridge).mockReturnValue(
       makeMeQuery({
         data: {
           ...ME_RESPONSE,
@@ -703,7 +727,7 @@ describe('<VocDetailPanel>', () => {
   it('keeps the internal conversation tab for a viewer with approved voc.triage', () => {
     vi.mocked(useVocDetail).mockReturnValue(makeDetailQuery());
     permissionStates.set('voc.triage', 'approved');
-    vi.mocked(useMe).mockReturnValue(
+    vi.mocked(useMeBridge).mockReturnValue(
       makeMeQuery({
         data: {
           ...ME_RESPONSE,
@@ -715,7 +739,7 @@ describe('<VocDetailPanel>', () => {
     renderWithClient(<VocDetailPanel vocId={DETAIL_ENVELOPE.id} onClose={vi.fn()} />);
 
     expect(screen.getByRole('tab', { name: '내부' })).toBeInTheDocument();
-    expect(usePermissionCheck).toHaveBeenCalledWith({
+    expect(usePermissionCheckBridge).toHaveBeenCalledWith({
       capability: 'voc.triage',
       managedSystemId: DETAIL_ENVELOPE.primary_managed_system_id,
     });
@@ -734,13 +758,14 @@ describe('<VocDetailPanel>', () => {
 
     await screen.findByText('테스트 VOC 제목');
     rerender(
-      <QueryClientProvider client={createQueryClient()}>
+      withHost(
         <VocDetailPanel
           vocId={DETAIL_ENVELOPE.id}
           managedSystemId="another-managed-system"
           onClose={onClose}
-        />
-      </QueryClientProvider>,
+        />,
+        createQueryClient(),
+      ),
     );
 
     await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
@@ -852,7 +877,7 @@ describe('<VocDetailPanel>', () => {
     vi.mocked(useVocDetail).mockReturnValue(
       makeDetailQuery({ data: summaryData as unknown as typeof DETAIL_ENVELOPE }),
     );
-    vi.mocked(useMe).mockReturnValue(makeMeQuery());
+    vi.mocked(useMeBridge).mockReturnValue(makeMeQuery());
 
     renderWithClient(<VocDetailPanel vocId="voc-uuid-1111" onClose={vi.fn()} />);
     // PermissionBlockedPanel renders; title should NOT be present
@@ -987,7 +1012,7 @@ describe('<VocDetailPanel>', () => {
   });
 
   it('submits an inline Task Request draft from the footer button for an admin actor', async () => {
-    vi.mocked(useMe).mockReturnValue(
+    vi.mocked(useMeBridge).mockReturnValue(
       makeMeQuery({
         data: { ...ME_RESPONSE, actor: { ...ME_RESPONSE.actor, role_level: 'admin' } },
       }),
@@ -1025,7 +1050,7 @@ describe('<VocDetailPanel>', () => {
   });
 
   it('opens the Create Finding flow from the primary footer button for an admin actor', () => {
-    vi.mocked(useMe).mockReturnValue(
+    vi.mocked(useMeBridge).mockReturnValue(
       makeMeQuery({
         data: { ...ME_RESPONSE, actor: { ...ME_RESPONSE.actor, role_level: 'admin' } },
       }),
@@ -1036,7 +1061,7 @@ describe('<VocDetailPanel>', () => {
   });
 
   it('omits footer actions for a plain user actor', () => {
-    vi.mocked(useMe).mockReturnValue(
+    vi.mocked(useMeBridge).mockReturnValue(
       makeMeQuery({
         data: { ...ME_RESPONSE, actor: { ...ME_RESPONSE.actor, role_level: 'user' } },
       }),
@@ -1168,20 +1193,239 @@ describe('<VocDetailPanel>', () => {
         },
       }),
     );
+    hostSearch = { view: 'inbox', tab: 'similar' };
     renderWithClient(<VocDetailPanel vocId="voc-uuid-1111" onClose={vi.fn()} />);
 
     fireEvent.click(screen.getByRole('button', { name: /VOC-0002 유사 VOC 제목/i }));
 
     expect(navigate).toHaveBeenCalledOnce();
-    const navigation = navigate.mock.calls[0]?.[0] as {
-      to: string;
-      search: (previous: Record<string, unknown>) => Record<string, unknown>;
-    };
-    expect(navigation.to).toBe('/vocs');
-    expect(navigation.search({ view: 'inbox', tab: 'similar' })).toEqual({
-      view: 'inbox',
-      tab: 'similar',
-      selected: peerId,
+    expect(navigate).toHaveBeenCalledWith(`/vocs?view=inbox&tab=similar&selected=${peerId}`);
+  });
+
+  describe('moves through the host seam', () => {
+    const clusterId = '77777777-7777-4777-8777-777777777777';
+
+    function renderClusterTrail() {
+      const cluster = {
+        type: 'voc_cluster' as const,
+        id: clusterId,
+        display_id: 'CLU-1225',
+        title: '공통 장애 Cluster',
+        summary: null,
+        status: 'draft',
+        primary_managed_system_id: DETAIL_ENVELOPE.primary_managed_system_id,
+      };
+      const direct = allowedFindingTrailLink('evidence_of');
+      if (direct.visibility_state !== 'allowed') throw new Error('expected allowed fixture');
+      const inherited: EntityLinkDto = {
+        ...direct,
+        source_type: 'voc_cluster',
+        source_id: clusterId,
+        source_summary: cluster,
+      };
+      vi.mocked(useVocDetail).mockReturnValue(
+        makeDetailQuery({
+          data: {
+            ...DETAIL_ENVELOPE,
+            links: [],
+            linked_execution: {
+              findingRef: { type: 'finding', id: FINDING_TRAIL_ID },
+              taskRef: null,
+              trails: [{ origin: 'cluster', cluster, links: [inherited] }],
+            },
+          },
+        }),
+      );
+      vi.mocked(useMeBridge).mockReturnValue(
+        makeMeQuery({
+          data: {
+            ...ME_RESPONSE,
+            actor: { ...ME_RESPONSE.actor, id: OTHER_ACTOR_ID, role_level: 'developer' },
+          },
+        }),
+      );
+      renderWithClient(<VocDetailPanel vocId={DETAIL_ENVELOPE.id} onClose={vi.fn()} />);
+    }
+
+    it('opens the linked Cluster as a path, not a search key', async () => {
+      renderClusterTrail();
+
+      await userEvent.click(screen.getByRole('button', { name: /공통 장애 Cluster/ }));
+
+      expect(navigate).toHaveBeenCalledWith(`/voc-clusters/${clusterId}`);
+    });
+
+    it('opens the triage console keeping the current search and setting view and selected', async () => {
+      permissionStates.set('voc.triage', 'approved');
+      hostSearch = { view: 'inbox', tab: 'similar' };
+      vi.mocked(useVocDetail).mockReturnValue(makeDetailQuery());
+      renderWithClient(<VocDetailPanel vocId={DETAIL_ENVELOPE.id} onClose={vi.fn()} />);
+
+      await userEvent.click(screen.getByTestId('triage-open-console'));
+
+      expect(navigate).toHaveBeenCalledWith(
+        `/vocs?view=triage&tab=similar&selected=${DETAIL_ENVELOPE.id}`,
+      );
+    });
+
+    it('offers no control for a destination the host cannot link to', () => {
+      permissionStates.set('voc.triage', 'approved');
+      hostCanLink = (to) => to.startsWith('/vocs') && !to.includes('view=triage');
+      renderClusterTrail();
+
+      expect(screen.getByText('공통 장애 Cluster')).toBeInTheDocument();
+      expect(screen.getByText('로그 유실 Finding')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /공통 장애 Cluster/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /로그 유실 Finding/ })).not.toBeInTheDocument();
+      expect(screen.queryByTestId('triage-open-console')).not.toBeInTheDocument();
+    });
+
+    it.each([
+      { linkable: 'task', taskButton: true, requestButton: false },
+      { linkable: 'request', taskButton: false, requestButton: true },
+    ])(
+      'decides each trail node on its own destination: only $linkable is linkable',
+      ({ linkable, taskButton, requestButton }) => {
+        const requestId = '88888888-8888-4888-8888-888888888888';
+        const base = allowedFindingTrailLink('evidence_of');
+        const requestLink = {
+          ...base,
+          id: 'request-link-1',
+          target_type: 'task_request' as const,
+          target_id: requestId,
+          relation_type: 'requested_task' as const,
+          target_summary: {
+            type: 'task_request' as const,
+            id: requestId,
+            display_id: 'REQ-1225',
+            source_type: 'voc',
+            source_id: DETAIL_ENVELOPE.id,
+            evidence_summary: '증거',
+            requested_outcome: 'Request만 있는 후속 조치',
+            status: 'pending_review',
+            primary_managed_system_id: DETAIL_ENVELOPE.primary_managed_system_id,
+            requester_actor_id: OTHER_ACTOR_ID,
+          },
+        } as EntityLinkDto;
+        const taskLink: EntityLinkDto = {
+          ...allowedTaskLink,
+          id: 'task-link-1',
+          source_type: 'task_request',
+          source_id: requestId,
+          relation_type: 'converted_to',
+          target_summary: { ...allowedTaskLink.target_summary, status: 'doing' },
+        };
+        hostCanLink = (to) =>
+          linkable === 'task' ? to.startsWith('/tasks?param=') : to.includes('view=requests');
+        vi.mocked(useVocDetail).mockReturnValue(
+          makeDetailQuery({
+            data: {
+              ...DETAIL_ENVELOPE,
+              links: [],
+              linked_execution: {
+                findingRef: null,
+                taskRef: null,
+                trails: [
+                  { origin: 'direct', links: [requestLink] },
+                  { origin: 'cluster', links: [taskLink] },
+                ],
+              },
+            },
+          }),
+        );
+        vi.mocked(useMeBridge).mockReturnValue(
+          makeMeQuery({
+            data: {
+              ...ME_RESPONSE,
+              actor: { ...ME_RESPONSE.actor, id: OTHER_ACTOR_ID, role_level: 'developer' },
+            },
+          }),
+        );
+        renderWithClient(<VocDetailPanel vocId={DETAIL_ENVELOPE.id} onClose={vi.fn()} />);
+
+        expect(screen.getByText('Request만 있는 후속 조치')).toBeInTheDocument();
+        const trails = screen.getAllByTestId('voc-follow-up-trail').map((el) => within(el));
+        const buttons = (name: RegExp) =>
+          trails.flatMap((trail) => trail.queryAllByRole('button', { name }));
+        expect(buttons(/내부 Task 제목/).length > 0).toBe(taskButton);
+        expect(buttons(/Request만 있는 후속 조치/).length > 0).toBe(requestButton);
+        expect(trails.some((trail) => trail.queryAllByText('내부 Task 제목').length > 0)).toBe(
+          true,
+        );
+      },
+    );
+
+    it('draws only the similar VOC rows the host can open as controls', () => {
+      const other = '00000000-0000-0000-0000-000000000002';
+      hostCanLink = (to) => to.includes(`selected=${other}`);
+      const item = (id: string, displayId: string, title: string) => ({
+        id,
+        display_id: displayId,
+        title,
+        reporter_facing_status: 'reviewing' as const,
+        severity: 'medium' as const,
+      });
+      vi.mocked(useVocDetail).mockReturnValue(
+        makeDetailQuery({
+          data: {
+            ...DETAIL_ENVELOPE,
+            similar_count: 2,
+            similar: {
+              items: [
+                item(other, 'VOC-0002', '열리는 유사 VOC'),
+                item('00000000-0000-0000-0000-000000000003', 'VOC-0003', '막힌 유사 VOC'),
+              ],
+            },
+          },
+        }),
+      );
+      renderWithClient(<VocDetailPanel vocId="voc-uuid-1111" onClose={vi.fn()} />);
+
+      expect(screen.getByRole('button', { name: /VOC-0002 열리는 유사 VOC/ })).toBeInTheDocument();
+      expect(screen.getByText('막힌 유사 VOC')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /막힌 유사 VOC/ })).not.toBeInTheDocument();
+    });
+
+    it('draws similar VOC rows as plain text when the host cannot open another VOC', () => {
+      hostCanLink = () => false;
+      vi.mocked(useVocDetail).mockReturnValue(
+        makeDetailQuery({
+          data: {
+            ...DETAIL_ENVELOPE,
+            similar_count: 1,
+            similar: {
+              items: [
+                {
+                  id: '00000000-0000-0000-0000-000000000002',
+                  display_id: 'VOC-0002',
+                  title: '유사 VOC 제목',
+                  reporter_facing_status: 'reviewing',
+                  severity: 'medium',
+                },
+              ],
+            },
+          },
+        }),
+      );
+      renderWithClient(<VocDetailPanel vocId="voc-uuid-1111" onClose={vi.fn()} />);
+
+      expect(screen.getByText('유사 VOC 제목')).toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: /VOC-0002 유사 VOC 제목/i }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('shows the copy-link action only when the host has an address for the VOC', () => {
+      vi.mocked(useVocDetail).mockReturnValue(makeDetailQuery());
+      const { unmount } = renderWithClient(
+        <VocDetailPanel vocId={DETAIL_ENVELOPE.id} onClose={vi.fn()} />,
+      );
+      expect(screen.getByRole('button', { name: '링크 복사' })).toBeInTheDocument();
+      unmount();
+
+      hostAbsoluteHref = () => null;
+      renderWithClient(<VocDetailPanel vocId={DETAIL_ENVELOPE.id} onClose={vi.fn()} />);
+      expect(screen.queryByRole('button', { name: '링크 복사' })).not.toBeInTheDocument();
     });
   });
 

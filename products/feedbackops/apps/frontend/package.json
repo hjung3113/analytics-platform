@@ -8,7 +8,8 @@
     "./global-screens/core": "./src/global-screens/core.ts",
     "./operator-screens/scope-picker": "./src/operator-screens/scope-picker/index.ts",
     "./operator-screens/dashboard": "./src/operator-screens/dashboard/index.ts",
-    "./operator-screens/voc-clusters": "./src/operator-screens/voc-clusters/index.ts"
+    "./operator-screens/voc-clusters": "./src/operator-screens/voc-clusters/index.ts",
+    "./operator-screens/voc-detail": "./src/operator-screens/voc-detail/index.ts"
   },
   "scripts": {
     "dev": "vite",

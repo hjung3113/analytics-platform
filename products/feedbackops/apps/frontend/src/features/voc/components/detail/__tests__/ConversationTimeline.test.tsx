@@ -6,7 +6,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('@/features/voc/hooks/useVocConversation', () => ({
   useVocConversation: vi.fn(),
 }));
-vi.mock('@/lib/auth/useMe', () => ({ useMe: vi.fn() }));
+vi.mock('@/lib/api/me', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/me')>()),
+  useMeBridge: vi.fn(),
+}));
 vi.mock('@fops/ui', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@fops/ui')>();
   return {
@@ -27,7 +30,7 @@ vi.mock('../TimelineEntry', () => ({
 }));
 
 import { useVocConversation } from '@/features/voc/hooks/useVocConversation';
-import { useMe } from '@/lib/auth/useMe';
+import { useMeBridge } from '@/lib/api/me';
 import type { ConversationEntry } from '@fops/shared';
 import { ConversationTimeline } from '../ConversationTimeline';
 import { InternalTimeline } from '../InternalTimeline';
@@ -128,7 +131,7 @@ function renderedIds(container: HTMLElement): string[] {
 
 beforeEach(() => {
   vi.mocked(useVocConversation).mockReturnValue(makeConversationQuery());
-  vi.mocked(useMe).mockReturnValue({ data: ME_RESPONSE } as ReturnType<typeof useMe>);
+  vi.mocked(useMeBridge).mockReturnValue({ data: ME_RESPONSE } as ReturnType<typeof useMeBridge>);
 });
 
 describe('<ConversationTimeline>', () => {
