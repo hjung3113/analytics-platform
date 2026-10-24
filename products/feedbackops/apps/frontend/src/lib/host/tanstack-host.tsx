@@ -42,10 +42,11 @@ function useTanstackSearch() {
   return useMemo(
     () =>
       Object.fromEntries(
-        Object.entries(location.search as Record<string, unknown>).map(([key, value]) => [
-          key,
-          typeof value === 'string' ? value : String(value),
-        ]),
+        // A hand-rolled test router may hand over only `searchStr`; the app router always has `search`.
+        Object.entries(
+          (location.search as Record<string, unknown> | undefined) ??
+            Object.fromEntries(new URLSearchParams(location.searchStr ?? '')),
+        ).map(([key, value]) => [key, typeof value === 'string' ? value : String(value)]),
       ),
     [location],
   );
