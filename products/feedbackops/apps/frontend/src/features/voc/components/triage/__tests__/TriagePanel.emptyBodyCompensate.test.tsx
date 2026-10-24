@@ -11,10 +11,11 @@
 // `updated_at` from that envelope as the If-Match for the compensating PATCH.
 // Throwing on `undefined` (the old breakage) is not acceptable either.
 
+import { noticeHost, registerNoticeHost, undoNoticeRenderer } from '@/test/notice-host';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type * as React from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api/registry-reads')>()),
@@ -23,19 +24,11 @@ vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
 
 let capturedToastRenderer: ((id: string | number) => React.ReactNode) | null = null;
 
-vi.mock('sonner', () => ({
-  toast: {
-    custom: vi.fn((renderer: (id: string | number) => React.ReactNode) => {
-      capturedToastRenderer = renderer;
-      return 'toast-id-clusterY';
-    }),
-    dismiss: vi.fn(),
-    error: vi.fn(),
-    warning: vi.fn(),
-    info: vi.fn(),
-    success: vi.fn(),
-  },
-}));
+noticeHost.notify.mockImplementation((notice) => {
+  capturedToastRenderer = undoNoticeRenderer(notice);
+  return 'toast-id-clusterY';
+});
+beforeAll(registerNoticeHost);
 
 import type { VocListItem } from '@fops/shared';
 import { TriagePanel } from '../TriagePanel';

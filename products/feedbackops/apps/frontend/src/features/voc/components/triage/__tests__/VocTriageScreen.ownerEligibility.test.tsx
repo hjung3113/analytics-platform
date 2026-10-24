@@ -1,21 +1,13 @@
+import { noticeHost, noticeMessages, registerNoticeHost } from '@/test/notice-host';
 import { type VocListItem, vocOwnerCandidatesSchema } from '@fops/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useState } from 'react';
-import { toast } from 'sonner';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { VocTriageScreen } from '../VocTriageScreen';
 
-vi.mock('sonner', () => ({
-  toast: {
-    custom: vi.fn(() => 'owner-success'),
-    dismiss: vi.fn(),
-    error: vi.fn(),
-    warning: vi.fn(),
-    info: vi.fn(),
-    success: vi.fn(),
-  },
-}));
+noticeHost.notify.mockImplementation(() => 'owner-success');
+beforeAll(registerNoticeHost);
 
 const ownerId = '00000000-0000-4000-8000-000000000001';
 const msId = '00000000-0000-4000-8000-000000000002';
@@ -143,7 +135,7 @@ describe('owner validation race after optimistic confirm (#1172)', () => {
           'aria-pressed',
           'true',
         );
-        expect(toast.error).not.toHaveBeenCalled();
+        expect(noticeMessages('error')).toEqual([]);
       } else {
         expect(screen.queryByRole('button', { name: /Triage 확정/ })).not.toBeInTheDocument();
       }
@@ -158,7 +150,7 @@ describe('owner validation race after optimistic confirm (#1172)', () => {
         ),
       );
       expect(screen.getAllByText(a.title).length).toBeGreaterThan(0);
-      expect(toast.error).toHaveBeenCalledWith(
+      expect(noticeMessages('error')).toContain(
         '담당자를 배정할 수 없습니다. 배정에 필요한 권한이 없습니다.',
       );
       expect(screen.getByRole('button', { name: '(미지정)' })).toHaveAttribute(

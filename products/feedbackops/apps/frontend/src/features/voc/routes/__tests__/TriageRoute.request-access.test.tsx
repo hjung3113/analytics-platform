@@ -1,32 +1,21 @@
 import { PERMISSION_BLOCKED_REASONS } from '@/lib/copy/permission-reasons';
-import { usePermissionCheck } from '@/lib/cross-system/usePermissionCheck';
+import { usePermissionCheckBridge as usePermissionCheck } from '@/lib/cross-system/usePermissionCheckBridge';
+import { registerTriageTestHost } from '@/test/triage-host';
 import { createPermissionRequestSchema } from '@fops/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import type * as ReactRouter from '@tanstack/react-router';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import type * as React from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { TriageRoute } from '../TriageRoute';
 
 let search: Record<string, string> = {};
-vi.mock('@tanstack/react-router', async (importOriginal) => ({
-  ...(await importOriginal<typeof ReactRouter>()),
-  // The blocked states render TanStack Links (VOC 생성 / 내 VOC) like every
-  // sibling route; stub Link because this harness mounts TriageRoute bare.
-  Link: ({ children, to }: { children: React.ReactNode; to: string }) => (
-    <a href={to}>{children}</a>
-  ),
-  useSearch: () => search,
-  useNavigate: () => vi.fn(),
-}));
 const useMeMock = vi.hoisted(() => vi.fn(() => ({ isLoading: false })));
 vi.mock('@/lib/auth/useMe', () => ({ useMe: useMeMock }));
 vi.mock('@/lib/api/me', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api/me')>()),
   useMeBridge: useMeMock,
 }));
-vi.mock('@/lib/cross-system/usePermissionCheck', () => ({
-  usePermissionCheck: vi.fn(),
+vi.mock('@/lib/cross-system/usePermissionCheckBridge', () => ({
+  usePermissionCheckBridge: vi.fn(),
   permissionCheckQueryKey: () => ['permission-check'],
   permissionRequestsMineKey: ['permission-requests-mine'],
 }));
@@ -85,6 +74,8 @@ afterEach(() => {
   vi.unstubAllGlobals();
   search = {};
 });
+
+beforeAll(() => registerTriageTestHost(() => search, vi.fn()));
 
 describe('Triage request access', () => {
   it.each([

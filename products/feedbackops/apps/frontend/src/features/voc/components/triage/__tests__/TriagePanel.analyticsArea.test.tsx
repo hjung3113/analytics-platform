@@ -1,7 +1,8 @@
+import { registerNoticeHost } from '@/test/notice-host';
 import type { VocListItem } from '@fops/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/cross-system/useWorkspaceActors', () => ({
   useWorkspaceActors: () => ({ actors: [] }),
@@ -11,16 +12,7 @@ vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
   fetchAnalyticsAreas: vi.fn(),
 }));
 
-vi.mock('sonner', () => ({
-  toast: {
-    custom: vi.fn(),
-    dismiss: vi.fn(),
-    error: vi.fn(),
-    warning: vi.fn(),
-    info: vi.fn(),
-    success: vi.fn(),
-  },
-}));
+beforeAll(registerNoticeHost);
 
 import { type AnalyticsAreaDto, fetchAnalyticsAreas } from '@/lib/api/analytics-areas';
 import { TriagePanel } from '../TriagePanel';

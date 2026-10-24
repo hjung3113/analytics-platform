@@ -14,7 +14,8 @@
  *   .panel-footer handled by TriageActions component
  */
 
-import { formatRecordDocumentTitle, useDocumentTitle } from '@/lib/router/document-title';
+import { formatRecordDocumentTitle } from '@/lib/host/document-title-format';
+import { useHostTitle } from '@/lib/host/host-seam';
 import { type FindingSeverity, type VocListItem, isTipTapDocStructurallyEmpty } from '@fops/shared';
 import {
   AnalyticsAreaPicker,
@@ -152,7 +153,7 @@ export function TriagePanel({
           title: vocDetailQuery.data.title,
         })
       : null;
-  useDocumentTitle(documentTitleRecord);
+  useHostTitle(documentTitleRecord);
 
   // ── render ─────────────────────────────────────────────────────────────────
 

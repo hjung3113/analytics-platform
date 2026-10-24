@@ -12,7 +12,6 @@ const ownedDirectories = [
 ];
 
 const keptImports = new Map<string, Set<string>>([
-  ['features/voc/hooks/useTriageCommand.ts', new Set(['sonner'])],
   [
     'features/cross-system/create-finding/CreateFindingModal.tsx',
     new Set(['@tanstack/react-router', 'sonner']),

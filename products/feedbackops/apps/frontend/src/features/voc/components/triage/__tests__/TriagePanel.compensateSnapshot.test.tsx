@@ -9,10 +9,11 @@
 // Fix: snapshot from voc.severity, voc.owner_user_id, voc.owner_team_id,
 // voc.analytics_area_id at the moment confirm fires.
 
+import { noticeHost, registerNoticeHost, undoNoticeRenderer } from '@/test/notice-host';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type * as React from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api/registry-reads')>()),
@@ -21,19 +22,13 @@ vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
 
 let capturedToastRenderer: ((id: string | number) => React.ReactNode) | null = null;
 
-vi.mock('sonner', () => ({
-  toast: {
-    custom: vi.fn((renderer: (id: string | number) => React.ReactNode) => {
-      capturedToastRenderer = renderer;
-      return 'toast-id-compensate-snap';
-    }),
-    dismiss: vi.fn(),
-    error: vi.fn(),
-    warning: vi.fn(),
-    info: vi.fn(),
-    success: vi.fn(),
-  },
-}));
+beforeEach(() =>
+  noticeHost.notify.mockImplementation((notice) => {
+    capturedToastRenderer = undoNoticeRenderer(notice);
+    return 'toast-id-compensate-snap';
+  }),
+);
+beforeAll(registerNoticeHost);
 
 import type { VocListItem } from '@fops/shared';
 import { TriagePanel } from '../TriagePanel';

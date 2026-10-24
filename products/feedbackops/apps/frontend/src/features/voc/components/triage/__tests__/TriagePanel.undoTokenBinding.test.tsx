@@ -9,10 +9,11 @@
 // an old toast after a newer mutation has started must NOT affect the newer
 // call.
 
+import { noticeHost, registerNoticeHost, undoNoticeRenderer } from '@/test/notice-host';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type * as React from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api/registry-reads')>()),
@@ -24,21 +25,14 @@ vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
 const capturedRenderers: Array<(id: string | number) => React.ReactNode> = [];
 const dismissedIds: Array<string | number> = [];
 
-vi.mock('sonner', () => ({
-  toast: {
-    custom: vi.fn((renderer: (id: string | number) => React.ReactNode) => {
-      capturedRenderers.push(renderer);
-      return `toast-id-${capturedRenderers.length}`;
-    }),
-    dismiss: vi.fn((id: string | number) => {
-      dismissedIds.push(id);
-    }),
-    error: vi.fn(),
-    warning: vi.fn(),
-    info: vi.fn(),
-    success: vi.fn(),
-  },
-}));
+noticeHost.dismiss.mockImplementation((id) => {
+  dismissedIds.push(id);
+});
+noticeHost.notify.mockImplementation((notice) => {
+  capturedRenderers.push(undoNoticeRenderer(notice));
+  return `toast-id-${capturedRenderers.length}`;
+});
+beforeAll(registerNoticeHost);
 
 import type { VocListItem } from '@fops/shared';
 import { TriagePanel } from '../TriagePanel';

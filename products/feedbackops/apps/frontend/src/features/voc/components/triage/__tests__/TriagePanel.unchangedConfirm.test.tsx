@@ -1,9 +1,10 @@
+import { registerNoticeHost } from '@/test/notice-host';
 // #1175: confirm is available on a VOC that is not yet triaged even when no field changed
 // (confirming marks it triaged); an already triaged VOC with nothing changed stays disabled.
 import type { VocListItem } from '@fops/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/cross-system/useWorkspaceActors', () => ({
   useWorkspaceActors: () => ({ actors: [] }),
@@ -13,16 +14,7 @@ vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
   fetchAnalyticsAreas: vi.fn(async () => ({ items: [], total: 0 })),
 }));
 
-vi.mock('sonner', () => ({
-  toast: {
-    custom: vi.fn(),
-    dismiss: vi.fn(),
-    error: vi.fn(),
-    warning: vi.fn(),
-    info: vi.fn(),
-    success: vi.fn(),
-  },
-}));
+beforeAll(registerNoticeHost);
 
 import { TriagePanel } from '../TriagePanel';
 

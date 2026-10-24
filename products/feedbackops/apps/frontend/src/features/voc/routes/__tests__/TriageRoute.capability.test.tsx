@@ -9,10 +9,11 @@
 // PermissionBlockedPanel for any non-approved state. The gate also runs
 // BEFORE the triage queue fetch so a blocked actor never triggers a query.
 
+import { registerTriageTestHost } from '@/test/triage-host';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
 import type * as React from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // REV-3 Cluster Y: TriagePanel now uses useQueryClient (for the empty-body
 // compensate refetch path). Tests must wrap renders in QueryClientProvider.
@@ -27,14 +28,6 @@ function renderWithQc(node: React.ReactElement) {
 
 const navigateMock = vi.fn();
 let searchState: Record<string, unknown> = {};
-
-vi.mock('@tanstack/react-router', () => ({
-  useSearch: () => searchState,
-  useNavigate: () => navigateMock,
-  Link: ({ children, to }: { children: React.ReactNode; to: string }) => (
-    <a href={to}>{children}</a>
-  ),
-}));
 
 const useVocListMock = vi.fn();
 vi.mock('../../hooks/useVocList', () => ({
@@ -53,8 +46,8 @@ vi.mock('@/lib/api/me', async (importOriginal) => ({
 }));
 
 // Mock the permission check hook (Group 5 wires this in).
-vi.mock('@/lib/cross-system/usePermissionCheck', () => ({
-  usePermissionCheck: vi.fn(),
+vi.mock('@/lib/cross-system/usePermissionCheckBridge', () => ({
+  usePermissionCheckBridge: vi.fn(),
   permissionCheckQueryKey: () => ['permission-check', 'voc.triage', null],
   permissionRequestsMineKey: ['permission-requests-mine'],
 }));
@@ -88,7 +81,7 @@ vi.mock('../../components/detail/VocDetailPanel', () => ({
 }));
 
 import { useMe } from '@/lib/auth/useMe';
-import { usePermissionCheck } from '@/lib/cross-system/usePermissionCheck';
+import { usePermissionCheckBridge as usePermissionCheck } from '@/lib/cross-system/usePermissionCheckBridge';
 import { TriageRoute } from '../TriageRoute';
 
 // ── Fixtures ───────────────────────────────────────────────────────────────────
@@ -109,6 +102,8 @@ const DEVELOPER_ME = {
   isSuccess: true,
   status: 'success' as const,
 };
+
+beforeAll(() => registerTriageTestHost(() => searchState, navigateMock));
 
 describe('TriageRoute capability gate (REV-2 #9 + NEW-3)', () => {
   beforeEach(() => {

@@ -1,8 +1,9 @@
 import { useVocDetail } from '@/lib/cross-system/useVocDetail';
+import { noticeMessages, registerNoticeHost } from '@/test/notice-host';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type * as React from 'react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   type VocSummaryEnvelope,
@@ -14,9 +15,7 @@ import { COMPENSATE_FAILURE_TOAST } from '../../lib/triage-error-policy';
 import type { TriageInput } from '../../lib/triage-types';
 import { useTriageCommand } from '../useTriageCommand';
 
-const toastMock = vi.hoisted(() => ({ error: vi.fn(), warning: vi.fn() }));
-
-vi.mock('sonner', () => ({ toast: toastMock }));
+beforeAll(registerNoticeHost);
 
 const VOC_ID = '00000000-0000-4000-8000-000000000111';
 const MANAGED_SYSTEM_ID = '00000000-0000-4000-8000-000000000222';
@@ -154,7 +153,7 @@ describe('useTriageCommand with a summary response (#1187)', () => {
       resolveForwardResponse(jsonResponse(SUMMARY_VOC));
     });
     await waitFor(() => expect(result.current.isSubmitting).toBe(false));
-    expect(toastMock.error).not.toHaveBeenCalled();
+    expect(noticeMessages('error')).toEqual([]);
 
     await waitFor(() => expect(queryClient.getQueryData(['voc', VOC_ID])).toEqual(SUMMARY_VOC));
     const forwardCacheValue = queryClient.getQueryData(['voc', VOC_ID]);
@@ -168,7 +167,7 @@ describe('useTriageCommand with a summary response (#1187)', () => {
     });
 
     await waitFor(() => {
-      expect(toastMock.error).toHaveBeenCalledWith(COMPENSATE_FAILURE_TOAST);
+      expect(noticeMessages('error')).toContain(COMPENSATE_FAILURE_TOAST);
     });
 
     const refetchedCacheValue = queryClient.getQueryData(['voc', VOC_ID]);

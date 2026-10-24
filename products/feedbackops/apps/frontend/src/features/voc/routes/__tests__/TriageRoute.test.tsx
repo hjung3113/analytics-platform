@@ -4,10 +4,11 @@
 // TDD RED: written before TriageRoute.tsx implementation exists.
 
 import { LIST_SEARCH_PLACEHOLDER } from '@/lib/copy/list-search';
+import { registerTriageTestHost } from '@/test/triage-host';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type * as React from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // REV-3 Cluster Y: TriagePanel now uses useQueryClient (for the empty-body
 // compensate refetch path). Tests must wrap renders in QueryClientProvider.
@@ -25,26 +26,6 @@ let searchState: Record<string, unknown> = {};
 
 vi.mock('@/lib/api/nav', () => ({
   fetchNavCounts: vi.fn(),
-}));
-
-vi.mock('@tanstack/react-router', () => ({
-  useSearch: () => searchState,
-  useNavigate: () => navigateMock,
-  Link: ({
-    children,
-    to,
-    className,
-    search,
-  }: {
-    children: React.ReactNode;
-    to: string;
-    className?: string;
-    search?: unknown;
-  }) => (
-    <a href={to} data-search={JSON.stringify(search)} className={className}>
-      {children}
-    </a>
-  ),
 }));
 
 // ── Stub useVocList ────────────────────────────────────────────────────────────
@@ -116,8 +97,8 @@ vi.mock('@/lib/api/me', async (importOriginal) => ({
 
 // ── Stub usePermissionCheck (REV-2 #9 capability gate) ────────────────────────
 
-vi.mock('@/lib/cross-system/usePermissionCheck', () => ({
-  usePermissionCheck: vi.fn(),
+vi.mock('@/lib/cross-system/usePermissionCheckBridge', () => ({
+  usePermissionCheckBridge: vi.fn(),
   permissionCheckQueryKey: () => ['permission-check', 'voc.triage', null],
   permissionRequestsMineKey: ['permission-requests-mine'],
 }));
@@ -166,7 +147,7 @@ vi.mock('../../components/detail/VocDetailPanel', () => ({
 
 import { fetchNavCounts } from '@/lib/api/nav';
 import { useMe } from '@/lib/auth/useMe';
-import { usePermissionCheck } from '@/lib/cross-system/usePermissionCheck';
+import { usePermissionCheckBridge as usePermissionCheck } from '@/lib/cross-system/usePermissionCheckBridge';
 import { TriageRoute } from '../TriageRoute';
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -203,6 +184,8 @@ const ADMIN_ME = {
   errorUpdateCount: 0,
   refetch: vi.fn(),
 };
+
+beforeAll(() => registerTriageTestHost(() => searchState, navigateMock));
 
 describe('TriageRoute', () => {
   beforeEach(() => {
@@ -368,17 +351,16 @@ describe('TriageRoute', () => {
     const highTab = screen.getByRole('tab', { name: /높음/i });
     fireEvent.mouseDown(highTab);
 
-    expect(navigateMock).toHaveBeenCalled();
-    const callArg = navigateMock.mock.calls[0]?.[0] as {
-      to: string;
-      search: (prev: Record<string, unknown>) => Record<string, unknown>;
-    };
-    expect(callArg.to).toBe('/vocs');
-    const result = callArg.search({});
-    expect(result).toHaveProperty('tab', 'high');
+    expect(navigateMock).toHaveBeenCalledWith('/vocs?view=triage&tab=high');
   });
 
   it('drops selected from the next search when the tab changes (#922)', async () => {
+    searchState = {
+      view: 'triage',
+      managedSystem: 'ms-1',
+      selected: '00000000-0000-4000-8000-000000000009',
+      returnTo: '/home',
+    };
     renderWithQc(<TriageRoute />);
     await waitFor(() => {
       expect(screen.getAllByText('Triage VOC 1').length).toBeGreaterThanOrEqual(1);
@@ -387,16 +369,15 @@ describe('TriageRoute', () => {
     const highTab = screen.getByRole('tab', { name: /높음/i });
     fireEvent.mouseDown(highTab);
 
-    const callArg = navigateMock.mock.calls[0]?.[0] as {
-      to: string;
-      search: (prev: Record<string, unknown>) => Record<string, unknown>;
-    };
-    expect(callArg.to).toBe('/vocs');
     // #383 deep links enter with ?selected=…; switching tabs must drop the pin
-    // or the pinned VOC unions into every tab's list.
-    const result = callArg.search({ view: 'triage', selected: 'voc-9' });
-    expect(result).toHaveProperty('tab', 'high');
-    expect(result.selected).toBeUndefined();
+    // or the pinned VOC unions into every tab's list. The rest of the search survives.
+    const href = navigateMock.mock.calls[0]?.[0] as string;
+    const next = new URLSearchParams(href.split('?')[1]);
+    expect(href.startsWith('/vocs?')).toBe(true);
+    expect(next.get('tab')).toBe('high');
+    expect(next.has('selected')).toBe(false);
+    expect(next.get('managedSystem')).toBe('ms-1');
+    expect(next.get('returnTo')).toBe('/home');
   });
 
   it('clicking a row calls navigate with selected param', async () => {
@@ -408,14 +389,9 @@ describe('TriageRoute', () => {
     const rows = screen.getAllByRole('button', { name: /VOC-00[12]/ });
     if (rows[0]) fireEvent.click(rows[0]);
 
-    expect(navigateMock).toHaveBeenCalled();
-    const callArg = navigateMock.mock.calls[0]?.[0] as {
-      to: string;
-      search: (prev: Record<string, unknown>) => Record<string, unknown>;
-    };
-    expect(callArg.to).toBe('/vocs');
-    const result = callArg.search({});
-    expect(result).toHaveProperty('selected');
+    expect(navigateMock).toHaveBeenCalledTimes(1);
+    const href = navigateMock.mock.calls[0]?.[0] as string;
+    expect(new URLSearchParams(href.split('?')[1]).get('selected')).toBe(MOCK_TRIAGE_VOCS[0]?.id);
   });
 
   // REV-1 #9 / REV-2 #9: actor without voc.triage capability sees
@@ -446,14 +422,36 @@ describe('TriageRoute', () => {
     expect(screen.queryByPlaceholderText(LIST_SEARCH_PLACEHOLDER)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '필터' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '정렬' })).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'VOC 생성' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '내 VOC' })).toHaveAttribute(
-      'data-search',
-      JSON.stringify({ view: 'my' }),
+    expect(screen.getByRole('link', { name: 'VOC 생성' })).toHaveAttribute(
+      'href',
+      '/vocs?action=create',
     );
+    expect(screen.getByRole('link', { name: '내 VOC' })).toHaveAttribute('href', '/vocs?view=my');
 
     // The queue items must NOT be rendered for user-role actor
     expect(screen.queryByText('Triage VOC 1')).not.toBeInTheDocument();
     expect(screen.queryByText('Triage VOC 2')).not.toBeInTheDocument();
+  });
+
+  // D5: a host that cannot link to the create form (the platform bridge) gets no create link.
+  it('[D5] draws no create link when the host cannot link to it', async () => {
+    await registerTriageTestHost(() => searchState, navigateMock, {
+      canLink: (to) => to !== '/vocs?action=create',
+    });
+    try {
+      searchState = { view: 'triage', managedSystem: 'ms-1' };
+      vi.mocked(usePermissionCheck).mockReturnValue({
+        isPending: false,
+        isError: false,
+        data: { state: 'blocked_non_requestable', decision: { allow: false, reason: 'no scope' } },
+      } as unknown as ReturnType<typeof usePermissionCheck>);
+
+      renderWithQc(<TriageRoute />);
+
+      expect(await screen.findByRole('link', { name: '내 VOC' })).toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: 'VOC 생성' })).not.toBeInTheDocument();
+    } finally {
+      await registerTriageTestHost(() => searchState, navigateMock);
+    }
   });
 });

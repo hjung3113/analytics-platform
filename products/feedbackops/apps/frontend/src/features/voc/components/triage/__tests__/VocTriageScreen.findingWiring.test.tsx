@@ -6,26 +6,19 @@
 // VocDetailPanel). VocTriageScreen now owns the modal's open state — it must
 // survive the optimistic removal that unmounts TriagePanel for that VOC.
 
+import { noticeHost, registerNoticeHost } from '@/test/notice-host';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type * as React from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api/registry-reads')>()),
   fetchAnalyticsAreas: vi.fn(async () => ({ items: [], total: 0 })),
 }));
 
-vi.mock('sonner', () => ({
-  toast: {
-    custom: vi.fn(() => 'toast-finding-wiring'),
-    dismiss: vi.fn(),
-    error: vi.fn(),
-    warning: vi.fn(),
-    info: vi.fn(),
-    success: vi.fn(),
-  },
-}));
+noticeHost.notify.mockImplementation(() => 'toast-finding-wiring');
+beforeAll(registerNoticeHost);
 
 const createFindingModalSpy = vi.fn();
 vi.mock('@/features/cross-system/create-finding/CreateFindingModal', () => ({

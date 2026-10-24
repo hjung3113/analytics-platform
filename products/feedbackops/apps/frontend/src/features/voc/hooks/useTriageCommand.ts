@@ -17,11 +17,11 @@ import { invalidateRecovery } from '@/lib/query/recovery';
 //     resolves.
 
 import { ApiError } from '@/lib/api/types';
+import { useHostNotice } from '@/lib/host/host-seam';
 import { invalidateNavCounts } from '@/lib/query/navCounts';
 import type { VocListItem } from '@fops/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
-import { toast } from 'sonner';
 import { runTriageCompensation } from '../lib/triage-compensation';
 import {
   COMPENSATE_FAILURE_TOAST,
@@ -67,6 +67,7 @@ export function useTriageCommand({
   onProcessed,
 }: UseTriageCommandArgs): UseTriageCommandResult {
   const queryClient = useQueryClient();
+  const { notify } = useHostNotice();
   const countedRef = React.useRef(new WeakSet<TriageInput>());
   const undoneRef = React.useRef(new WeakSet<TriageInput>());
   const failuresRef = React.useRef(new WeakMap<TriageInput, () => void>());
@@ -178,7 +179,7 @@ export function useTriageCommand({
         // BEFORE the rethrow; onCompensateError sees the __refetchFailure tag
         // and skips so the user never sees the toast twice.
         if (isRefetchFailure(err)) {
-          toast.error(REFETCH_FAILURE_TOAST);
+          notify({ tone: 'error', message: REFETCH_FAILURE_TOAST });
         }
         throw err;
       }
@@ -202,7 +203,7 @@ export function useTriageCommand({
         // Already toasted by the compensateFn catch block.
         return;
       }
-      toast.error(COMPENSATE_FAILURE_TOAST);
+      notify({ tone: 'error', message: COMPENSATE_FAILURE_TOAST });
     },
     // Error matrix (PLAN-21 §302-307): handle via onError so we get the actual error object.
     // REV-1 #5: use the original input.vocId (closure on the failing mutate call),
@@ -226,11 +227,10 @@ export function useTriageCommand({
       if (decision.lockPanel) {
         setPanelLocked(true);
       }
-      if (decision.toast.level === 'warning') {
-        toast.warning(decision.toast.message);
-      } else {
-        toast.error(decision.toast.message);
-      }
+      notify({
+        tone: decision.toast.level === 'warning' ? 'warning' : 'error',
+        message: decision.toast.message,
+      });
     },
   });
 

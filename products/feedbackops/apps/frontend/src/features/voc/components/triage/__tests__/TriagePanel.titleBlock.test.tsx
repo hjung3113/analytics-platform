@@ -1,7 +1,8 @@
+import { registerNoticeHost } from '@/test/notice-host';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import type * as React from 'react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api/registry-reads')>()),
@@ -10,16 +11,7 @@ vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
 
 vi.mock('@/lib/cross-system/useVocDetail', () => ({ useVocDetail: vi.fn() }));
 
-vi.mock('sonner', () => ({
-  toast: {
-    custom: vi.fn(),
-    dismiss: vi.fn(),
-    error: vi.fn(),
-    warning: vi.fn(),
-    info: vi.fn(),
-    success: vi.fn(),
-  },
-}));
+beforeAll(registerNoticeHost);
 
 import { useVocDetail } from '@/lib/cross-system/useVocDetail';
 import type { VocDetailEnvelope, VocListItem, VocSummaryEnvelope } from '@fops/shared';

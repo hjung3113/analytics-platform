@@ -6,27 +6,20 @@
 //
 // Spec: .review/TRIAGE-LAYOUT-VARIANTS.html §V1 kicker styling.
 
+import { noticeHost, registerNoticeHost } from '@/test/notice-host';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import type * as React from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api/registry-reads')>()),
   fetchAnalyticsAreas: vi.fn(async () => ({ items: [], total: 0 })),
 }));
 
-vi.mock('sonner', () => ({
-  toast: {
-    custom: vi.fn(() => 'toast-kicker-test'),
-    dismiss: vi.fn(),
-    error: vi.fn(),
-    warning: vi.fn(),
-    info: vi.fn(),
-    success: vi.fn(),
-  },
-}));
+noticeHost.notify.mockImplementation(() => 'toast-kicker-test');
+beforeAll(registerNoticeHost);
 
 import { TRIAGE_STATE_LABELS } from '@/lib/copy/enum-labels';
 import { VOC_TRIAGE_TAB_LABELS } from '@/lib/copy/voc-views';

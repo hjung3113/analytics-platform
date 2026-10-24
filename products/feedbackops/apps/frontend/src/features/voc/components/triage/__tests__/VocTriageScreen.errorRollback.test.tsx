@@ -12,26 +12,19 @@
 // happens before the error rollback runs — that is the exact path the bug
 // lives on.
 
+import { noticeHost, registerNoticeHost } from '@/test/notice-host';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type * as React from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api/registry-reads')>()),
   fetchAnalyticsAreas: vi.fn(async () => ({ items: [], total: 0 })),
 }));
 
-vi.mock('sonner', () => ({
-  toast: {
-    custom: vi.fn(() => 'toast-id-rev1-5'),
-    dismiss: vi.fn(),
-    error: vi.fn(),
-    warning: vi.fn(),
-    info: vi.fn(),
-    success: vi.fn(),
-  },
-}));
+noticeHost.notify.mockImplementation(() => 'toast-id-rev1-5');
+beforeAll(registerNoticeHost);
 
 import type { VocListItem } from '@fops/shared';
 import { VocTriageScreen } from '../VocTriageScreen';
