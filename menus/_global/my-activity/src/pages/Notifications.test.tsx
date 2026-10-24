@@ -1,8 +1,8 @@
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
-import { setFoApi } from '../fo-api';
-import { foQueryClient } from '../fo/session';
+import { setFoApi } from '@ap/fo-bridge/fo-api';
+import { foQueryClient } from '@ap/fo-bridge';
 import { ID_A, ID_B, listOf, mount, notification, stubFetch, switchableAdapter, json } from '../fo/test-support';
 
 beforeEach(() => {

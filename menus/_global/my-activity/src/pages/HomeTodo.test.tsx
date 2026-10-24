@@ -2,9 +2,9 @@ import { cleanup, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider } from '@ap/kernel';
 import { memoryStorage } from '@ap/kernel/testing';
-import { setFoApi } from '../fo-api';
+import { setFoApi } from '@ap/fo-bridge/fo-api';
 import { ID_A, ID_B, json, listOf, notification, registry, stubFetch, switchableAdapter } from '../fo/test-support';
-import HomeTodo from './HomeTodo';
+import HomeTodo from '@ap/fo-bridge/home-todo-page';
 
 const SURVEY_ID = '33333333-3333-4333-8333-333333333333';
 const request = { id: ID_A, requested_capability: 'voc.read', requested_managed_system_id: null, reason: '사유', requested_object_type: null, requested_object_id: null, source_object_type: null, source_object_id: null, source_action_id: null, revision: 1, requested_expiration: null, updated_at: new Date().toISOString(), return_route_intent: null, status: 'pending', created_at: new Date().toISOString() };

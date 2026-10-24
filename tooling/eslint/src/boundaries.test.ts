@@ -9,6 +9,7 @@ import {
   app,
   components,
   contracts,
+  foBridge,
   foBridgeMenu,
   hostModule,
   hostModuleDir,
@@ -38,6 +39,7 @@ const PRESETS: Record<string, Linter.Config[]> = {
   'menus/_global/home': menu,
   'menus/analytics/analytics': menu,
   'menus/metrics/metrics': menu,
+  'packages/fo-bridge': foBridge,
   'menus/_global/my-activity': foBridgeMenu,
   'apps/platform-web': app,
 };
@@ -536,36 +538,87 @@ for (const source of ['@fops/frontend', '@fops/frontend/src/main', '@fops/fronte
   );
 }
 
+// `@ap/fo-bridge` (ADR-0071, ADR-0081): bridge runtime, importable by bridge menus (root) and the app; `/core` only, lazy pages may see the screen barrel.
+const FO_PKG = 'packages/fo-bridge/src';
+for (const source of ['@ap/kernel', '@ap/components', '@ap/ui', '@ap/contracts']) {
+  rows.push({ file: `${FO_PKG}/fo/session.ts`, code: `import { x } from '${source}';`, rule: '' });
+}
+rows.push(
+  { file: `${FO_PKG}/fo/session.ts`, code: `import { x } from '${GLOBAL_SCREENS_CORE}';`, rule: '' },
+  { file: `${FO_PKG}/fo/session.ts`, code: `void import('${GLOBAL_SCREENS_CORE}');`, rule: '' },
+  { file: `${FO_PKG}/fo/session.ts`, code: `import { x } from '${GLOBAL_SCREENS}';`, rule: 'no-restricted-imports', token: '@ap/ui' },
+  { file: `${FO_PKG}/home-todo-slot.tsx`, code: `import { x } from '${GLOBAL_SCREENS}';`, rule: 'no-restricted-imports', token: '@ap/ui' },
+  { file: `${FO_PKG}/home-todo-slot.tsx`, code: `void import('${GLOBAL_SCREENS}');`, rule: 'ap/restricted-import-source', token: '@ap/ui' },
+  { file: `${FO_PKG}/pages/HomeTodo.tsx`, code: `import { HomeTodoPanel } from '${GLOBAL_SCREENS}';`, rule: '' },
+  { file: `${FO_PKG}/pages/HomeTodo.tsx`, code: `import { x } from '@fops/ui';`, rule: 'no-restricted-imports', token: '@ap/ui' },
+  { file: `${FO_PKG}/fo/session.ts`, code: `import { x } from '@fops/frontend/global-screens/FoScreenRoot';`, rule: 'no-restricted-imports', token: '@ap/ui' },
+  { file: `${FO_PKG}/fo/session.ts`, code: `import { x } from '@ap/shell';`, rule: 'no-restricted-imports' },
+  { file: `${FO_PKG}/fo/session.ts`, code: `import { x } from '@ap/menu-home';`, rule: 'no-restricted-imports' },
+  { file: `${FO_PKG}/fo/session.ts`, code: `import { x } from '@ap/mock-server';`, rule: 'no-restricted-imports' },
+  // A bridge menu imports the bridge root; a non-bridge menu, and every layer below the menus, may not.
+  { file: BRIDGE, code: `import { foQueryClient } from '@ap/fo-bridge';`, rule: '' },
+  { file: MENU, code: `import { foQueryClient } from '@ap/fo-bridge';`, rule: 'no-restricted-imports' },
+  { file: MENU, code: `void import('@ap/fo-bridge');`, rule: 'ap/restricted-import-source' },
+  { file: 'packages/shell/src/x.ts', code: `import { foQueryClient } from '@ap/fo-bridge';`, rule: 'no-restricted-imports' },
+  { file: 'packages/components/src/x.ts', code: `import { foQueryClient } from '@ap/fo-bridge';`, rule: 'no-restricted-imports' },
+  { file: 'packages/kernel/src/x.ts', code: `import { foQueryClient } from '@ap/fo-bridge';`, rule: 'no-restricted-imports' },
+  { file: 'packages/ui/src/x.ts', code: `import { foQueryClient } from '@ap/fo-bridge';`, rule: 'no-restricted-imports' },
+  { file: 'packages/contracts/src/x.ts', code: `import { foQueryClient } from '@ap/fo-bridge';`, rule: 'no-restricted-imports' },
+  // Bridge subpaths: only the app's main.tsx (slots), and bridge-menu tests (slots and lazy pages); production menu files see the root only.
+  { file: BRIDGE, code: `import { setFoApi } from '@ap/fo-bridge/fo-api';`, rule: 'no-restricted-imports' },
+  { file: 'menus/_global/my-activity/src/pages/x.test.tsx', code: `import { setFoApi } from '@ap/fo-bridge/fo-api';`, rule: '' },
+  { file: 'menus/_global/my-activity/src/pages/x.test.tsx', code: `import HomeTodo from '@ap/fo-bridge/home-todo-page';`, rule: '' },
+  { file: 'menus/_global/my-activity/src/pages/x.test.tsx', code: `import { x } from '@ap/fo-bridge/src/fo-api';`, rule: 'no-restricted-imports' },
+  { file: 'apps/platform-web/src/menus.ts', code: `import { foQueryClient } from '@ap/fo-bridge';`, rule: '' },
+  { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '@ap/fo-bridge/home-todo-page';`, rule: 'no-restricted-imports' },
+);
+
+// A bridge menu's src/mock/** tests keep the mock policy (contracts + mock-server only): the bridge test-entry override must not replace it.
+const BRIDGE_MOCK_TEST = 'menus/_global/my-activity/src/mock/x.test.ts';
+rows.push(
+  { file: BRIDGE_MOCK_TEST, code: `import { x } from '@ap/mock-server';`, rule: '' },
+  { file: BRIDGE_MOCK_TEST, code: `await import('@ap/mock-server');`, rule: '' },
+  { file: BRIDGE_MOCK_TEST, code: `import type { X } from '@ap/contracts';`, rule: '' },
+  { file: BRIDGE_MOCK_TEST, code: `import React from 'react';`, rule: 'no-restricted-imports' },
+  { file: BRIDGE_MOCK_TEST, code: `void import('react');`, rule: 'ap/restricted-import-source' },
+  { file: BRIDGE_MOCK_TEST, code: `import { x } from '@ap/kernel';`, rule: 'no-restricted-imports' },
+  { file: BRIDGE_MOCK_TEST, code: `void import('@ap/kernel');`, rule: 'ap/restricted-import-source' },
+  { file: BRIDGE_MOCK_TEST, code: `import { x } from '@ap/fo-bridge';`, rule: 'no-restricted-imports' },
+  { file: BRIDGE_MOCK_TEST, code: `void import('@ap/fo-bridge');`, rule: 'ap/restricted-import-source' },
+  { file: BRIDGE_MOCK_TEST, code: `import { x } from '@fops/frontend/global-screens';`, rule: 'no-restricted-imports' },
+  { file: BRIDGE_MOCK_TEST, code: `void import('@fops/frontend/global-screens');`, rule: 'ap/restricted-import-source' },
+);
+
 // The FO API slot (fo-api) is main.tsx-only.
 rows.push(
-  { file: 'apps/platform-web/src/main.tsx', code: `import { setFoApi } from '@ap/menu-my-activity/fo-api';`, rule: '' },
-  { file: 'apps/platform-web/src/main.tsx', code: `void import('@ap/menu-my-activity/fo-api');`, rule: '' },
-  { file: 'apps/platform-web/src/menus.ts', code: `import { setFoApi } from '@ap/menu-my-activity/fo-api';`, rule: 'no-restricted-imports' },
-  { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '@ap/menu-my-activity/src/fo-api';`, rule: 'no-restricted-imports' },
+  { file: 'apps/platform-web/src/main.tsx', code: `import { setFoApi } from '@ap/fo-bridge/fo-api';`, rule: '' },
+  { file: 'apps/platform-web/src/main.tsx', code: `void import('@ap/fo-bridge/fo-api');`, rule: '' },
+  { file: 'apps/platform-web/src/menus.ts', code: `import { setFoApi } from '@ap/fo-bridge/fo-api';`, rule: 'no-restricted-imports' },
+  { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '@ap/fo-bridge/src/fo-api';`, rule: 'no-restricted-imports' },
 );
 
 // The notifications slot is main.tsx-only as well (#652); `src/slots.ts` receives the value as a parameter.
 rows.push(
-  { file: 'apps/platform-web/src/main.tsx', code: `import { notificationsSlot } from '@ap/menu-my-activity/notifications-slot';`, rule: '' },
-  { file: 'apps/platform-web/src/main.tsx', code: `void import('@ap/menu-my-activity/notifications-slot');`, rule: '' },
-  { file: 'apps/platform-web/src/slots.ts', code: `import { notificationsSlot } from '@ap/menu-my-activity/notifications-slot';`, rule: 'no-restricted-imports' },
-  { file: 'apps/platform-web/src/menus.ts', code: `import { notificationsSlot } from '@ap/menu-my-activity/notifications-slot';`, rule: 'no-restricted-imports' },
-  { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '@ap/menu-my-activity/src/notifications-slot';`, rule: 'no-restricted-imports' },
+  { file: 'apps/platform-web/src/main.tsx', code: `import { notificationsSlot } from '@ap/fo-bridge/notifications-slot';`, rule: '' },
+  { file: 'apps/platform-web/src/main.tsx', code: `void import('@ap/fo-bridge/notifications-slot');`, rule: '' },
+  { file: 'apps/platform-web/src/slots.ts', code: `import { notificationsSlot } from '@ap/fo-bridge/notifications-slot';`, rule: 'no-restricted-imports' },
+  { file: 'apps/platform-web/src/menus.ts', code: `import { notificationsSlot } from '@ap/fo-bridge/notifications-slot';`, rule: 'no-restricted-imports' },
+  { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '@ap/fo-bridge/src/notifications-slot';`, rule: 'no-restricted-imports' },
   { file: 'menus/_global/my-activity/src/fo/test-support.tsx', code: `import { testAdapter } from '@ap/kernel/testing';`, rule: '' },
 );
 
 // The VOC compose slot is main.tsx-only too (#656); `src/slots.ts` receives the value as a parameter.
 rows.push(
-  { file: 'apps/platform-web/src/main.tsx', code: `import { vocComposeSlot } from '@ap/menu-my-activity/voc-compose-slot';`, rule: '' },
-  { file: 'apps/platform-web/src/slots.ts', code: `import { vocComposeSlot } from '@ap/menu-my-activity/voc-compose-slot';`, rule: 'no-restricted-imports' },
-  { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '@ap/menu-my-activity/src/voc-compose-slot';`, rule: 'no-restricted-imports' },
+  { file: 'apps/platform-web/src/main.tsx', code: `import { vocComposeSlot } from '@ap/fo-bridge/voc-compose-slot';`, rule: '' },
+  { file: 'apps/platform-web/src/slots.ts', code: `import { vocComposeSlot } from '@ap/fo-bridge/voc-compose-slot';`, rule: 'no-restricted-imports' },
+  { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '@ap/fo-bridge/src/voc-compose-slot';`, rule: 'no-restricted-imports' },
 );
 
 // The home 내 할 일 slot is main.tsx-only too (#657); `src/slots.ts` receives the value as a parameter.
 rows.push(
-  { file: 'apps/platform-web/src/main.tsx', code: `import { homeTodoSlot } from '@ap/menu-my-activity/home-todo-slot';`, rule: '' },
-  { file: 'apps/platform-web/src/slots.ts', code: `import { homeTodoSlot } from '@ap/menu-my-activity/home-todo-slot';`, rule: 'no-restricted-imports' },
-  { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '@ap/menu-my-activity/src/home-todo-slot';`, rule: 'no-restricted-imports' },
+  { file: 'apps/platform-web/src/main.tsx', code: `import { homeTodoSlot } from '@ap/fo-bridge/home-todo-slot';`, rule: '' },
+  { file: 'apps/platform-web/src/slots.ts', code: `import { homeTodoSlot } from '@ap/fo-bridge/home-todo-slot';`, rule: 'no-restricted-imports' },
+  { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '@ap/fo-bridge/src/home-todo-slot';`, rule: 'no-restricted-imports' },
 );
 
 rows.push(

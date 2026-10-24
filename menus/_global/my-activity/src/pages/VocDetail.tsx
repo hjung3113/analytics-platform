@@ -2,7 +2,7 @@ import { SearchX } from 'lucide-react';
 import { useI18n, usePlatform, type PageProps } from '@ap/kernel';
 import { PlatformPage, ReturnLink, StateMessage } from '@ap/components';
 import { ReporterVocDetail } from '@fops/frontend/global-screens';
-import { FoBridge } from '../fo/FoBridge';
+import { FoBridge } from '@ap/fo-bridge';
 import { VOC_ID } from '../fo/voc-query';
 
 /**

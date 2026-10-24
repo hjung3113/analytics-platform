@@ -1,5 +1,6 @@
 import { hostLinks } from './links';
-import { VOC_ID } from './voc-query';
+
+export const VOC_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * The platform destination of the one FeedbackOps VOC path that is a reporter's own VOC: `/vocs?view=my&selected=<uuid>` and nothing else
