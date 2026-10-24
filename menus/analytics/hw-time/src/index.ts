@@ -1,6 +1,6 @@
 /** @ap/menu-hw-time — hwTime group manifests. All four HW Time menus share the endpoints; the steps menu owns them. */
 import { lazy } from 'react';
-import { Columns2, LayoutDashboard, Table2 } from 'lucide-react';
+import { Columns2, LayoutDashboard, LayoutGrid, Table2 } from 'lucide-react';
 import { contextCapabilities, groupId, menuPermission, NO_FEATURES } from '@ap/contracts';
 import type { MenuEntry } from '@ap/kernel';
 import { HW_TIME_CONTEXT } from './endpoints';
@@ -32,6 +32,18 @@ export const manifests: MenuEntry[] = [
     contextResetKeys: ['drillModule', 'drillMotion', 'trend', 'row'],
     drill: { levels: [{ key: 'drillModule', label: { ko: 'Module', en: 'Module' } }, { key: 'drillMotion', label: { ko: 'Motion', en: 'Motion' } }] },
     component: lazy(() => import('./pages/compare/ComparePage')),
+  },
+  {
+    id: 'hw-time-overview', group: GROUP,
+    label: { ko: 'HW Time 개요', en: 'HW Time overview' },
+    description: { ko: '순위·현재 단계·문맥·상세·추세·범례를 한 화면에 쌓아 봅니다.', en: 'See ranking, current level, context, detail, trend and legend stacked on one screen.' },
+    path: '/hw-time/overview', icon: LayoutGrid, permission: PERMISSION,
+    requiresScope: true, context: contextCapabilities(HW_TIME_CONTEXT), pageType: 'analysis',
+    features: { ...NO_FEATURES, board: true },
+    pageKeys: ['drillModule', 'drillMotion', 'trend', 'sort', 'row', 'minmax', 'align'],
+    contextResetKeys: ['drillModule', 'drillMotion', 'trend', 'row'],
+    drill: { levels: [{ key: 'drillModule', label: { ko: 'Module', en: 'Module' } }, { key: 'drillMotion', label: { ko: 'Motion', en: 'Motion' } }] },
+    component: lazy(() => import('./pages/overview/OverviewPage')),
   },
   {
     id: 'hw-time-table', group: GROUP,
