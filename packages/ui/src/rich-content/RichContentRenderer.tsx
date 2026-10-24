@@ -6,7 +6,7 @@ import StarterKit from '@tiptap/starter-kit';
 import * as React from 'react';
 import { cn } from '../utils/cn';
 import type { TipTapDoc } from './RichEditor';
-import { AttachmentRef } from './extensions/attachmentRef';
+import { AttachmentRef, type AttachmentRefAttrs } from './extensions/attachmentRef';
 import { Mention } from './extensions/mention';
 import { sanitizeClient, type ClientSanitizeSurface } from './sanitizeClient';
 
@@ -59,6 +59,14 @@ export interface RichContentRendererProps {
    * `reporter-reply`; internal-comment threads use `internal-comment`).
    */
   surface?: ClientSanitizeSurface;
+  /**
+   * Linked attachment list (id → display name). The stored `attachmentRef`
+   * carries only `{ id }`, so the label text is resolved from this list. The
+   * renderer never prints the UUID as text.
+   */
+  attachments?: ReadonlyArray<{ readonly id: string; readonly name: string }>;
+  /** Label for a reference whose id is not in `attachments`. Defaults to 'attachment'. */
+  attachmentFallbackLabel?: string;
   size?: 'default' | 'sm';
   className?: string;
 }
@@ -79,6 +87,8 @@ export function RichContentRenderer({
   doc,
   mode,
   surface,
+  attachments,
+  attachmentFallbackLabel,
   size = 'default',
   className,
 }: RichContentRendererProps) {
@@ -93,6 +103,7 @@ export function RichContentRenderer({
     // stripMentions is moved inside useMemo so generateHTML is only re-invoked
     // when doc or mode actually change — not on every parent render.
     const safe = mode === 'reporter_visible' ? stripMentions(sanitized) : sanitized;
+    const names = new Map((attachments ?? []).map((a) => [a.id, a.name]));
     return generateHTML(safe as JSONContent, [
       StarterKit.configure({
         // Disable built-ins that we configure separately below to avoid duplicate extension warnings.
@@ -101,10 +112,12 @@ export function RichContentRenderer({
       }),
       ExternalAwareLink,
       Underline,
-      AttachmentRef,
+      AttachmentRef.configure({
+        label: ({ id }: AttachmentRefAttrs) => names.get(id) ?? attachmentFallbackLabel ?? 'attachment',
+      }),
       Mention,
     ]);
-  }, [doc, mode, surface]);
+  }, [doc, mode, surface, attachments, attachmentFallbackLabel]);
 
   return (
     <div

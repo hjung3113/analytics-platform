@@ -4,6 +4,7 @@
 // C6.2 of slice3 #21 retains the EditDescriptionModal hook on the reporter
 // affordance below the card.
 
+import { ATTACHMENT_FALLBACK_LABEL } from '@/lib/copy/attachments';
 import { VOC_DETAIL_BODY_LABEL } from '@/lib/copy/voc';
 import { type VocDetailEnvelope, isTipTapDocStructurallyEmpty } from '@fops/shared';
 import { RichContentRenderer, type TipTapDoc } from '@fops/ui';
@@ -36,7 +37,12 @@ export function DescriptionSection({
         {empty ? (
           <p className="text-text-muted">설명 없음</p>
         ) : (
-          <RichContentRenderer doc={voc.description_rich_content as TipTapDoc} mode="internal" />
+          <RichContentRenderer
+            doc={voc.description_rich_content as TipTapDoc}
+            mode="internal"
+            attachments={voc.attachments}
+            attachmentFallbackLabel={ATTACHMENT_FALLBACK_LABEL}
+          />
         )}
       </div>
       {/* PLAN-22 §Bug-1 (2026-05-22): linked attachments on the VOC body.

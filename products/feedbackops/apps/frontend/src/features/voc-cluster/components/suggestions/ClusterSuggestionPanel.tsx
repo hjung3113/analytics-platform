@@ -1,3 +1,4 @@
+import { ATTACHMENT_FALLBACK_LABEL } from '@/lib/copy/attachments';
 import { CLUSTER_SUGGESTION_COPY as COPY } from '@/lib/copy/voc-cluster';
 import { type VocClusterSuggestionItem, isTipTapDocStructurallyEmpty } from '@fops/shared';
 import {
@@ -69,6 +70,7 @@ export function ClusterSuggestionPanel({
                   <RichContentRenderer
                     doc={voc.description_rich_content as TipTapDoc}
                     mode="internal"
+                    attachmentFallbackLabel={ATTACHMENT_FALLBACK_LABEL}
                   />
                 ) : (
                   <p className="text-sm text-text-muted">{COPY.noDescription}</p>

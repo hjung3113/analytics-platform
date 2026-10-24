@@ -1,5 +1,6 @@
 // TimelineEntry — single conversation entry with kind chip + rich body.
 
+import { ATTACHMENT_FALLBACK_LABEL } from '@/lib/copy/attachments';
 import { GLOSSARY } from '@/lib/copy/glossary';
 import { formatRelativeTime } from '@/lib/format/datetime';
 import type { ConversationEntry } from '@fops/shared';
@@ -17,9 +18,9 @@ import { AttachmentChipList } from './AttachmentChip';
 // ── Korean labels ────────────────────────────────────────────────────────────
 
 const KIND_LABELS: Record<ConversationEntry['kind'], string> = {
-  public_update:     '공개 업데이트',
-  reporter_reply:    '제출자 답변',
-  internal_comment:  '내부 코멘트',
+  public_update: '공개 업데이트',
+  reporter_reply: '제출자 답변',
+  internal_comment: '내부 코멘트',
 };
 
 // ── Props ────────────────────────────────────────────────────────────────────
@@ -42,11 +43,10 @@ export function TimelineEntry({
     actorDisplayName !== undefined
       ? { display_name: actorDisplayName }
       : meActor?.id === entry.actor_id
-      ? { display_name: meActor.display_name }
-      : { display_name: GLOSSARY.unknownUser };
+        ? { display_name: meActor.display_name }
+        : { display_name: GLOSSARY.unknownUser };
 
-  const rendererMode =
-    entry.kind === 'internal_comment' ? 'internal' : 'reporter_visible';
+  const rendererMode = entry.kind === 'internal_comment' ? 'internal' : 'reporter_visible';
 
   const hasStatusTransition =
     entry.kind === 'public_update' &&
@@ -63,7 +63,12 @@ export function TimelineEntry({
 
       {/* Rich body */}
       <div className="pl-8">
-        <RichContentRenderer doc={entry.body_rich_content as TipTapDoc} mode={rendererMode} />
+        <RichContentRenderer
+          doc={entry.body_rich_content as TipTapDoc}
+          mode={rendererMode}
+          attachments={entry.attachments}
+          attachmentFallbackLabel={ATTACHMENT_FALLBACK_LABEL}
+        />
         {/* PLAN-22 §Bug-2 (2026-05-22): per-entry linked attachments. */}
         <AttachmentChipList attachments={entry.attachments} />
       </div>

@@ -48,6 +48,7 @@
 //   - bg-accent-primary/10 replaces rgba(94,106,210,0.12) (deep-violet @ 12% was the dark-pack
 //     aether-blue; in Pack 17 use bg-accent-primary/10 per PROTOTYPE-TO-PACK17 §1 notes)
 
+import { ATTACHMENT_FALLBACK_LABEL } from '@/lib/copy/attachments';
 import { formatDate } from '@/lib/format/datetime';
 import { type VocDetailEnvelope, isTipTapDocStructurallyEmpty } from '@fops/shared';
 import { RichContentRenderer } from '@fops/ui';
@@ -118,7 +119,12 @@ export function ComposerReplyPreview({
             {empty || draftDoc == null ? (
               <span className="text-text-muted italic">(메시지 본문이 비어있습니다)</span>
             ) : (
-              <RichContentRenderer doc={draftDoc} mode="reporter_visible" size="sm" />
+              <RichContentRenderer
+                doc={draftDoc}
+                mode="reporter_visible"
+                size="sm"
+                attachmentFallbackLabel={ATTACHMENT_FALLBACK_LABEL}
+              />
             )}
           </div>
         </div>

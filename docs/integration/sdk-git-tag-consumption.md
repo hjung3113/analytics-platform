@@ -27,6 +27,7 @@
 
 | 버전 | 패키지 | 바뀐 공개 API | 이전 방법 |
 | --- | --- | --- | --- |
+| 다음 릴리스 | ui | `RichContentRendererProps`에 선택 `attachments?: ReadonlyArray<{ id; name }>`·`attachmentFallbackLabel?: string` 추가(#745). 저장된 `attachmentRef`는 `{ id }`만 갖기 때문에 첨부 줄의 글자를 목록에서 찾아 그린다. **동작 변경**: 이름이 없을 때 글자가 UUID에서 `attachment`(목록에 없고 fallback도 없을 때)로 바뀐다. 노드 속성·`data-attachment-id`는 그대로 | 첨부 목록이 있는 화면은 `attachments`와 현지화된 `attachmentFallbackLabel`을 넘긴다. 안 넘기면 UUID 대신 `attachment`가 보인다 |
 | 다음 릴리스 | components | `DrillPathProps`·`DrillLayoutProps`에 선택 `summary?: ReactNode` 추가(#690, ADR-0078). 경로 바와 같은 줄, `<nav>` 밖, 0단계 숨김 | 없음 — 추가만 |
 | 다음 릴리스 | components | `Inspector`·`InspectorProps`·`InspectorSection` 추가(루트, **Candidate**, #690 노드 690e, ADR-0080) — 보조 섹션을 한 번 선언해 `form: 'stack' \| 'rail'`로 보인다 — 추가형 | 없음 — 추가만 |
 | 다음 릴리스 | components | `AnalysisChartFrameProps`에 선택 `activeCategory`·`onActiveCategoryChange(category, how)`·`revealActive`·`rowPitch` 추가(#690, ADR-0079) — 가로 범주 막대 전용 행 포커스(제어형 강조)와 행 높이 viewport. `rowPitch`가 있으면 범주 `dataZoom`과 `확대` 버튼이 꺼진다. 가로가 아니면 무시하고 개발 중 경고한다 | 없음 — 추가만, 기존 소비자 동작은 그대로 |

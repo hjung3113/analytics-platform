@@ -29,6 +29,7 @@ import {
 } from '@fops/ui';
 import type * as React from 'react';
 
+import { ATTACHMENT_FALLBACK_LABEL } from '@/lib/copy/attachments';
 import { GLOSSARY } from '@/lib/copy/glossary';
 import {
   SEMANTIC_VOC_RECOMMENDATIONS_LABEL,
@@ -196,6 +197,8 @@ export function TriagePanel({
                   <RichContentRenderer
                     doc={vocDetailQuery.data.description_rich_content as TipTapDoc}
                     mode="internal"
+                    attachments={vocDetailQuery.data.attachments}
+                    attachmentFallbackLabel={ATTACHMENT_FALLBACK_LABEL}
                   />
                 </div>
               )
