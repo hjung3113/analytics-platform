@@ -12,6 +12,10 @@ import { laneLayout, type LaneLayout, type SeriesExtremes } from './chartLanes';
 export const PLOT_MARGIN = 72;
 /** One note-label row at fontSize 10. */
 const NOTE_LABEL_ROW = 12;
+/** Smallest pixel budget of a lane name: a zero-width lane would otherwise be truncated to nothing. */
+const MIN_LANE_LABEL_PX = 40;
+/** Right grid room reserved for a 최소/최대 label chip beyond the last segment (row-pitch mode keeps its own 20). */
+const MIN_MAX_LABEL_ROOM = 44;
 
 export type LinePattern = 'solid' | number[];
 export function linePattern(series: ChartSeries, previous: boolean): LinePattern {
@@ -29,6 +33,8 @@ export type ChartPalette = {
   brushBorder: string;
   /** Outline colours of the per-series minimum and maximum segments (Show Min/Max). */
   minMax: { min: string; max: string };
+  /** Background of the 최소/최대 label chip, so the text reads on any series fill. */
+  labelSurface: string;
   /** Index-aligned with the displayed series: the line stroke and the fill. */
   series: { stroke: string; fill: string }[];
 };
@@ -45,6 +51,7 @@ export function resolveChartPalette(displayed: readonly { color: ThemeColorToken
     brushBorder: token(strokeToken('chart-blue')),
     // Two status hues no series fill uses (series are slate, violet and teal tones); the 최소/최대 label carries the meaning, so colour is never the only cue.
     minMax: { min: token('chart-status-good'), max: token('chart-status-critical') },
+    labelSurface: token('surface-card'),
     series: displayed.map(s => ({ stroke: token(strokeToken(s.color)), fill: token(s.color) })),
   };
 }
@@ -85,6 +92,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
   const theme = palette.theme;
   const active = horizontal ? i.activeCategory ?? null : null;
   const lanes = horizontal && i.startAlign && i.stacked ? laneLayout(i.displayed, categories) : null;
+  const gridRight = i.extremes?.size && horizontal ? MIN_MAX_LABEL_ROOM : 20;
   const xValue = (x: string) => (xType === 'time' ? toMs(x) : x);
   // Pixels per axis unit from the plot width and the zoom window, so a label can be cut to its own area (#399 AC-2).
   const plotWidth = Math.max(0, i.chartWidth - PLOT_MARGIN);
@@ -99,8 +107,8 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
   ];
   return {
     // Row-pitch mode: no containLabel, so the category band is exactly height - top - bottom = rows × pitch and row i starts at top + i × pitch (the reveal maths relies on it).
-    grid: horizontal && i.rowPitch !== undefined ? { left: ROW_LABEL_GUTTER, right: 20, top: GRID_TOP, bottom: GRID_BOTTOM, containLabel: false }
-      : { left: 52, right: 20, top: GRID_TOP, bottom: GRID_BOTTOM, ...(horizontal ? { containLabel: true } : {}) },
+    grid: horizontal && i.rowPitch !== undefined ? { left: ROW_LABEL_GUTTER, right: gridRight, top: GRID_TOP, bottom: GRID_BOTTOM, containLabel: false }
+      : { left: 52, right: gridRight, top: GRID_TOP, bottom: GRID_BOTTOM, ...(horizontal ? { containLabel: true } : {}) },
     tooltip: {
       trigger: 'axis', confine: true, textStyle: { fontSize: 12 },
       valueFormatter: (v: number | null) => (v === null || v === undefined ? unknownLabel(lang === 'ko') : `${i.valueFormat(v)} ${i.unit}`),
@@ -132,7 +140,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
             color: palette.series[n].fill,
             borderColor: mark ? palette.minMax[mark] : palette.series[n].stroke, borderWidth: mark ? 3 : 2,
             ...(mark && isActive ? { shadowBlur: 6, shadowColor: palette.series[n].stroke } : {}),
-          }, ...(mark ? { label: { show: true, position: 'right', formatter: mark === 'min' ? (lang === 'ko' ? '최소' : 'Min') : (lang === 'ko' ? '최대' : 'Max'), fontSize: 10, fontWeight: 'bold', color: palette.minMax[mark] } } : {}) };
+          }, ...(mark ? { label: extremeLabel(mark, lanes !== null, palette, lang) } : {}) };
         };
         const real = {
           id: s.id, name: s.name, type: kind, stack: i.stacked && kind === 'bar' ? 'total' : undefined,
@@ -151,10 +159,22 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
       {
         id: '__overlay', type: 'line', data: [], silent: true, symbol: 'none',
         markArea: { silent: true, data: areas },
-        markLine: lanes ? laneMarkLine(lanes, theme, i.chartWidth - (i.rowPitch !== undefined ? ROW_LABEL_GUTTER + 20 : 72))
+        markLine: lanes ? laneMarkLine(lanes, theme, i.chartWidth - (i.rowPitch !== undefined ? ROW_LABEL_GUTTER + gridRight : 52 + gridRight))
           : i.markLines?.length ? { ...theme.referenceLine, data: i.markLines.map(m => ({ name: m.label, [horizontal ? 'xAxis' : 'yAxis']: m.y })) } : undefined,
       },
     ],
+  };
+}
+
+/**
+ * The 최소/최대 label chip: the surface colour behind the text and a border in the emphasis colour, so it reads on any fill.
+ * In lane mode a max segment fills its whole lane, so its label sits inside the right end; every other label stays outside to the right.
+ */
+function extremeLabel(mark: 'min' | 'max', lanes: boolean, palette: ChartPalette, lang: string) {
+  const name = mark === 'min' ? (lang === 'ko' ? '최소' : 'Min') : (lang === 'ko' ? '최대' : 'Max');
+  return {
+    show: true, position: lanes && mark === 'max' ? 'insideRight' : 'right', formatter: name, fontSize: 10, fontWeight: 'bold', color: palette.minMax[mark],
+    backgroundColor: palette.labelSurface, borderColor: palette.minMax[mark], borderWidth: 1, borderRadius: 2, padding: [1, 3],
   };
 }
 
@@ -167,7 +187,7 @@ function laneMarkLine(lanes: LaneLayout, theme: ReturnType<typeof chartTheme>, p
     lineStyle: { color: theme.axisLine.lineStyle.color, type: 'dotted', width: 1 },
     data: lanes.lanes.map(lane => ({
       name: lane.name, xAxis: lane.start,
-      label: { show: true, formatter: lane.name, position: 'start', align: 'left', fontSize: 10, color: theme.axisLabel.color, width: Math.max(0, lane.width * pxPerUnit), overflow: 'truncate', ellipsis: '…' },
+      label: { show: true, formatter: lane.name, position: 'start', align: 'left', fontSize: 10, color: theme.axisLabel.color, width: Math.max(MIN_LANE_LABEL_PX, lane.width * pxPerUnit), overflow: 'truncate', ellipsis: '…' },
     })),
   };
 }

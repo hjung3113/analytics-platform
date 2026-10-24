@@ -15,7 +15,7 @@ import { buildChartOption, linePattern, resolveChartPalette } from './buildChart
 import { useAnnotationDeleteFocus, useAnnotationEditor } from './useAnnotationEditor';
 import { useChartRange, type ClipResult, type Selection } from './useChartRange';
 import { usePointMenu } from './usePointMenu';
-import { seriesExtremes } from './chartLanes';
+import { equalSeriesIds, seriesExtremes } from './chartLanes';
 import { clampRowPitch, revealScrollTop, rowFocusDiagnostic, rowPitchChartHeight, ROW_PITCH_MIN } from './analysisChartGeometry';
 
 import { AnalysisChartPart, ChartHeading, ChartTrustFooter } from './analysisChartFrameParts';
@@ -232,9 +232,6 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const [chartWidth, setChartWidth] = useState(NOTE_FALLBACK_WIDTH);
   const { state: range, actions: rangeActions } = useChartRange();
   const { selection, preview, zoom, clipNotice, rangeDraft } = range;
-  const startAlign = horizontal && !!p.stacked && !!p.startAlign;
-  // StartAlign turns Brush off: x is no longer one value scale, so a dragged range would not mean seconds.
-  const brushMode = range.brushMode && !startAlign;
   const [showTable, setShowTable] = useState(false);
   const scopeId = global.scopeId;
   const editor = useAnnotationEditor({ chartId: p.chartId, scopeId, canAnnotate });
@@ -256,6 +253,10 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const height = rowPitch !== undefined ? rowPitchChartHeight(categories.length, rowPitch) : viewportHeight;
   // Horizontal consumers share the plotted axis and first-occurrence value policy.
   const displayed = useMemo(() => horizontal ? visible.map(s => ({ ...s, points: categories.map(x => [x, s.points.find(([label]) => label === x)?.[1] ?? null] as [string, number | null]) })) : visible, [horizontal, visible, categories]);
+  // One visible series has nothing to align to: StartAlign then does nothing (normal value axis, Brush stays); hiding series is a normal user action, so no diagnostic.
+  const startAlign = horizontal && !!p.stacked && !!p.startAlign && displayed.length >= 2;
+  // StartAlign turns Brush off: x is no longer one value scale, so a dragged range would not mean seconds.
+  const brushMode = range.brushMode && !startAlign;
   // revealActive: an outside change of the active row scrolls it into the plot window (grid top + index × pitch). Focus never moves.
   useEffect(() => {
     if (rowPitch === undefined || !revealActive || activeCategory == null) { revealedCategory.current = activeCategory; return; }
@@ -272,6 +273,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   useEffect(() => { if (pointerRequest !== null) setPointerRequest(null); }, [pointerRequest]);
   // Computed from the displayed (visible) series, so a hidden series has none; the point selector's own rule decides which rows count.
   const extremes = useMemo(() => (horizontal && p.minMax ? seriesExtremes(displayed, isPointSelectable) : undefined), [horizontal, p.minMax, displayed, isPointSelectable]);
+  const equalIds = useMemo(() => (horizontal && p.minMax ? equalSeriesIds(displayed, isPointSelectable) : undefined), [horizontal, p.minMax, displayed, isPointSelectable]);
   const points = useMemo(() => pointControls ? displayed.flatMap(s => s.points.map(([x, value]) => ({ x, seriesId: s.id, value })).filter(point => isPointSelectable?.(point) ?? true)) : [], [pointControls, displayed, isPointSelectable]);
   const selectedPoint = points.find(point => pointKey(point) === selectedPointKey) ?? points[0];
   const actionsFor = useCallback((point: ChartPoint): readonly ChartPointAction[] => (typeof pointActions === 'function' ? pointActions(point) : pointActions ?? []), [pointActions]);
@@ -411,9 +413,11 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
     return { s, n: values.length, avg: values.length ? values.reduce((a, b) => a + b, 0) / values.length : null, max: values.length ? Math.max(...values) : null };
   }) : [];
 
+  const allEqualText = lang === 'ko' ? '모든 값이 같음' : 'all values equal';
   /** ` · 최소` / ` · 최대` after a point that is its series' minimum or maximum, for the keyboard picker (colour is never the only cue). */
   function extremeText(point: ChartPoint) {
     const e = extremes?.get(point.seriesId);
+    if (equalIds?.has(point.seriesId) && selectedPoint && pointKey(point) === pointKey(selectedPoint)) return ` · ${allEqualText}`;
     return e?.min.x === point.x ? ` · ${lang === 'ko' ? '최소' : 'Min'}` : e?.max.x === point.x ? ` · ${lang === 'ko' ? '최대' : 'Max'}` : '';
   }
 
@@ -465,7 +469,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   // (ADR-0067 decision 21); notes, errors and the confirm row keep their place. Other sizes always show them.
   const rangeUi = size !== 'fill' || brushMode || !!selection;
   const annotationAlert = canAnnotate && scopeId !== null && !!editor.query.response && !['ok', 'empty'].includes(editor.query.response.outcome);
-  const showSummary = rangeUi || !!clipNotice || !!preview || note !== null || annotations.length > 0 || annotationAlert || (activeCategory !== undefined && activeCategory !== null) || (!!extremes && !!selectedPoint && extremes.has(selectedPoint.seriesId));
+  const showSummary = rangeUi || !!clipNotice || !!preview || note !== null || annotations.length > 0 || annotationAlert || (activeCategory !== undefined && activeCategory !== null) || (!!selectedPoint && (!!extremes?.has(selectedPoint.seriesId) || !!equalIds?.has(selectedPoint.seriesId)));
   useEffect(() => {
     if (!focusRangeForm.current || !brushMode) return;
     focusRangeForm.current = false;
@@ -615,6 +619,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
         <Button size="toolbar" onClick={() => commitRange(draft)}>{lang === 'ko' ? '선택' : 'Select'}</Button>
       </div>}
       {activeCategory != null && <p className="mb-1 font-semibold">{lang === 'ko' ? '활성 행' : 'Active row'}: {activeCategory}</p>}
+      {selectedPoint && equalIds?.has(selectedPoint.seriesId) && <p className="mb-1 tabular">{allSeries.find(s => s.id === selectedPoint.seriesId)?.name}: {allEqualText}</p>}
       {selectedPoint && extremes?.get(selectedPoint.seriesId) && (() => { const e = extremes.get(selectedPoint.seriesId)!; const name = allSeries.find(s => s.id === selectedPoint.seriesId)?.name; return <p className="mb-1 tabular">{name}: {lang === 'ko' ? '최소' : 'Min'} {e.min.x} {format(e.min.value)} · {lang === 'ko' ? '최대' : 'Max'} {e.max.x} {format(e.max.value)} {p.unit}</p>; })()}
       {!selection ? rangeUi && <span className="text-text-secondary">{startAlign ? (lang === 'ko' ? '선택 구간 없음' : 'No selection') : showKeyboard
         ? (lang === 'ko' ? '선택 구간 없음 — 시작·끝이나 빠른 구간, 또는 구간 선택으로 구간을 선택하면 요약·주석·구간 적용을 할 수 있습니다.' : 'No selection — choose a start and end, a quick range, or brush a range to summarize, annotate or apply it.')

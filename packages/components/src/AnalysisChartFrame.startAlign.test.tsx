@@ -5,16 +5,16 @@ import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { groupId, spaceId } from '@ap/contracts';
 import { AnalysisChartFrame, type AnalysisChartFrameProps, type ChartPoint, type ChartSeries } from './AnalysisChartFrame';
-import { laneLayout, seriesExtremes, LANE_GAP_RATIO } from './chartLanes';
+import { equalSeriesIds, laneLayout, seriesExtremes, LANE_GAP_RATIO, NOMINAL_LANE_WIDTH } from './chartLanes';
 import type { EChartProps } from './EChart';
 
 vi.mock('./EChartImpl', () => ({ default: FakePlot }));
 
 type Plotted = { id?: string; type?: string; stack?: string; silent?: boolean; tooltip?: { show?: boolean }; emphasis?: { disabled?: boolean }; itemStyle?: { color?: string }; data?: unknown[] };
-type Option = { series: Plotted[]; xAxis: { axisLabel?: { show?: boolean }; name?: string; max?: number }; yAxis: { data: string[] } };
+type Option = { series: Plotted[]; grid: { right: number }; xAxis: { axisLabel?: { show?: boolean }; name?: string; max?: number }; yAxis: { data: string[] } };
 let plotProps: EChartProps | null = null;
 const option = () => plotProps!.option as unknown as Option;
-const overlay = () => option().series.find(s => s.id === '__overlay') as unknown as { markLine?: { data: { name: string; xAxis: number }[] } };
+const overlay = () => option().series.find(s => s.id === '__overlay') as unknown as { markLine?: { data: { name: string; xAxis: number; label: { width: number } }[] } };
 function FakePlot(props: EChartProps) { plotProps = props; return <div role="img" aria-label={props.ariaLabel} />; }
 
 const registry = createRegistry({
@@ -59,6 +59,15 @@ describe('laneLayout (#690o)', () => {
   });
 });
 
+describe('laneLayout zero-width lanes (#690o, D16)', () => {
+  it('gives every lane a nominal width when all are 0, so the starts stay distinct', async () => {
+    const layout = laneLayout([line('a', [0, null, 0, 0]), line('b', [null, null, null, null])], ROWS);
+    expect(layout.lanes.map(l => l.width)).toEqual([NOMINAL_LANE_WIDTH, NOMINAL_LANE_WIDTH]);
+    expect(layout.lanes[1].start).toBeGreaterThan(layout.lanes[0].start);
+    expect(layout.span).toBeGreaterThan(0);
+  });
+});
+
 describe('seriesExtremes (#690o)', () => {
   it('finds min and max rows per series, skipping null, rejected points, and series with < 2 measured rows or no spread', async () => {
     const reject = (point: ChartPoint) => point.x !== 'R4';
@@ -67,8 +76,31 @@ describe('seriesExtremes (#690o)', () => {
     expect(result.get('a')).toEqual({ min: { x: 'R2', value: 2 }, max: { x: 'R1', value: 4 } });
     expect(result.get('b')).toEqual({ min: { x: 'R1', value: 1 }, max: { x: 'R2', value: 3 } });
   });
+  it('skips a series with fewer than 2 measured rows and one whose measured values are all equal, and lists only the equal one', async () => {
+    const series = [line('lonely', [5, null, null, null]), line('same', [2, 2, null, 2]), line('spread', [1, 2, 3, 4])];
+    expect([...seriesExtremes(series).keys()]).toEqual(['spread']);
+    expect([...equalSeriesIds(series)]).toEqual(['same']);
+    // Rejected points do not count: only R1 is left measured.
+    expect([...equalSeriesIds([line('x', [2, 2, 2, 2])], point => point.x === 'R1')]).toEqual([]);
+  });
   it('handles a single-series detail', async () => {
     expect(seriesExtremes([line('only', [3, 9, 5, null])]).get('only')).toEqual({ min: { x: 'R1', value: 3 }, max: { x: 'R2', value: 9 } });
+  });
+});
+
+describe('startAlign zero-width lanes in the option (#690o, D16)', () => {
+  it('keeps a zero lane\'s name with a readable label budget', async () => {
+    await mount({ series: [SERIES[0], line('z', [0, null, 0, 0]), SERIES[1]], visibleSeriesIds: ['a', 'z', 'b'], startAlign: true });
+    const marks = overlay().markLine!.data;
+    expect(marks.map(d => d.name)).toEqual(['A', 'Z', 'B']);
+    expect(marks[1].label.width).toBeGreaterThanOrEqual(40);
+  });
+  it('keeps lane names and distinct starts on the axis when every visible lane is zero', async () => {
+    await mount({ series: [line('p', [0, 0, 0, 0]), line('q', [null, null, null, null])], visibleSeriesIds: ['p', 'q'], startAlign: true });
+    const marks = overlay().markLine!.data;
+    expect(marks.map(d => d.name)).toEqual(['P', 'Q']);
+    expect(marks[1].xAxis).toBeGreaterThan(marks[0].xAxis);
+    expect(option().xAxis.max).toBeGreaterThan(marks[1].xAxis);
   });
 });
 
@@ -145,6 +177,16 @@ describe('startAlign (#690o)', () => {
     expect(screen.getByRole('region', { name: '선택 요약' }).textContent).not.toContain('구간 선택으로');
   });
 
+  it('does nothing with fewer than 2 visible series: normal value axis and unit, Brush stays, no warning', async () => {
+    await mount({ startAlign: true, visibleSeriesIds: ['a'] });
+    expect(spacers()).toEqual([]);
+    expect(option().xAxis.name).toBe('s');
+    expect(option().xAxis.axisLabel).toBeUndefined();
+    expect(overlay().markLine).toBeUndefined();
+    expect((screen.getByRole('button', { name: '구간 선택' }) as HTMLButtonElement).disabled).toBe(false);
+    expect(console.warn).not.toHaveBeenCalled();
+  });
+
   it('warns and does nothing outside horizontal stacked', async () => {
     await mount({ startAlign: true, stacked: false });
     expect(spacers()).toEqual([]);
@@ -168,6 +210,31 @@ describe.each([[false], [true]])('minMax with startAlign=%s (#690o)', align => {
     expect(item('a', 'R3')).toBeNull();
     expect(item('a', 'R4')).toBe(6); // rejected point: neither min nor max
     expect(realSeries().find(s => s.id === 'c')!.data).toEqual([2, 2, 2, 2]);
+  });
+
+  it('puts each label on a chip (surface background, emphasis border) and places it by mode, reserving right room', async () => {
+    await mount({ startAlign: align, minMax: true });
+    const label = (row: string) => (item('a', row) as { label: Record<string, unknown> }).label;
+    for (const row of ['R2', 'R4']) {
+      expect(label(row)).toMatchObject({ backgroundColor: expect.any(String), borderWidth: 1, padding: expect.any(Array) });
+    }
+    expect(label('R2').borderColor).not.toBe(label('R4').borderColor);
+    expect(label('R2').position).toBe('right');
+    expect(label('R4').position).toBe(align ? 'insideRight' : 'right');
+    expect(option().grid.right).toBeGreaterThan(20);
+  });
+
+  it('keeps the normal right margin when min/max is off', async () => {
+    await mount({ startAlign: align });
+    expect(option().grid.right).toBe(20);
+  });
+
+  it('states all values equal for the selected constant series, in the summary and the picker', async () => {
+    await mount({ startAlign: align, minMax: true, visibleSeriesIds: ['c'], pointActivation: { on: 'click', onActivate: () => {} } });
+    expect(screen.getByRole('region', { name: '선택 요약' }).textContent).toContain('C: 모든 값이 같음');
+    const options = within(screen.getByRole('combobox', { name: '차트 지점 선택' })).getAllByRole('option').map(o => o.textContent);
+    expect(options[0]).toContain('모든 값이 같음');
+    expect(item('c', 'R1')).toBe(2);
   });
 
   it('keeps the row focus cue next to the min/max outline', async () => {
