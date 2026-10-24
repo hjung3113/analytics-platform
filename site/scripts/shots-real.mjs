@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// 손으로 돌리는 실서버 모드 캡처(#725). 플랫폼 메뉴(알림·설문·내 VOC·VOC 등록 드로어)는 FeedbackOps 서버가 있어야 내용이 보이는데
+// 손으로 돌리는 실서버 모드 캡처(#725). 플랫폼 메뉴(알림·설문·내 VOC·권한 요청·홈 내 할 일·VOC 등록 드로어)는 FeedbackOps 서버가 있어야 내용이 보이는데
 // Pages CI에는 서버가 없어 shots.mjs로는 만들 수 없다. 그래서 `dev:real`로 띄운 앱을 찍어 site/assets/real/에 커밋한다.
 //
 //   AP_BACKEND_ORIGIN=<FeedbackOps 백엔드> pnpm --filter @ap/platform-web exec vite --mode real --host 127.0.0.1 --port <포트> --strictPort
@@ -34,6 +34,7 @@ const EXAMPLE = {
   notification: "VOC 진행 상태가 변경되었습니다.",
   survey: "분석 화면 사용 경험 설문",
   answered: "사이클타임 화면 개선 의견",
+  permissionReason: "분석 화면 사용 경험 설문의 응답 현황을 팀 회의에서 확인하려고 합니다.",
 };
 // 드로어는 분석 화면에서 열어야 기간·room_name·Scope 칩이 붙는다.
 const ANALYSIS_PATH = "/analytics/cycle-time?v=1&scopeId=MEM&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00&roomNames=PHOTO";
@@ -105,12 +106,13 @@ try {
     if (visible.length) throw new Error(`시험용 글이 화면에 보입니다: ${visible.join(" | ")}`);
   }
   // 실서버 필요·오류·빈 화면이 찍히지 않게 이 글이 없는지 확인한 뒤, 상자 하나만 잘라 찍는다.
-  async function shoot(id, ready, clipOf) {
+  // scope: 홈 공지 칸은 실서버 모드에서 오류를 보이므로(사내 서버 연결 전), 그 오류가 찍을 상자 밖에 있을 때만 scope로 검사 범위를 좁힌다.
+  async function shoot(id, ready, clipOf, scope = null) {
     current = id;
     await ready();
     await hideMarkedRows();
     await expect(page.getByText("실서버 필요")).toHaveCount(0);
-    await expect(page.getByText("데이터를 불러오지 못했습니다")).toHaveCount(0);
+    await expect((scope ? scope() : page).getByText("데이터를 불러오지 못했습니다")).toHaveCount(0);
     await noTestStrings();
     await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
     const clip = await clipOf();
@@ -178,6 +180,33 @@ try {
       const last = await box(page.getByText(EXAMPLE.answered).first().locator("xpath=ancestor::*[1]"));
       return { x: main.x, y: 56, width: main.width, height: last.y + last.height - 56 + 40 };
     },
+  );
+  await shoot(
+    "real-permission-requests",
+    async () => {
+      await open("/permission-requests?v=1", "권한 요청");
+      await expect(page.getByText(EXAMPLE.permissionReason).first()).toBeVisible();
+    },
+    async () => {
+      const main = await mainBox();
+      const list = await box(page.getByText(EXAMPLE.permissionReason).first().locator("xpath=ancestor::ul[1]"));
+      return { x: main.x, y: 56, width: main.width, height: list.y + list.height - 56 + 24 };
+    },
+  );
+  await shoot(
+    "real-home-todo",
+    async () => {
+      await open("/?v=1", "플랫폼 홈");
+      const todo = page.getByRole("region", { name: "내 할 일" });
+      await expect(todo).toBeVisible();
+      await expect(todo.getByText(EXAMPLE.survey).first()).toBeVisible();
+    },
+    async () => {
+      const todo = await box(page.getByRole("region", { name: "내 할 일" }));
+      const main = await mainBox();
+      return { x: main.x, y: todo.y - 16, width: main.width, height: todo.height + 32 };
+    },
+    () => page.getByRole("region", { name: "내 할 일" }),
   );
   await shoot(
     "real-voc-detail",
