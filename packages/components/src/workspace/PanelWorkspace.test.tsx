@@ -931,4 +931,74 @@ describe('PanelWorkspace: revealRequest (#690)', () => {
     await waitFor(() => { expect(tab('detail')).toHaveAttribute('aria-selected', 'true'); });
     expect(mounts).toEqual({ trend: 1, selector: 1, detail: 1, kpi: 1 });
   });
+
+  describe('narrow without a compact preset (one tab group)', () => {
+    const panel = (id: string) => document.querySelector<HTMLElement>(`[data-dock-panel="${id}"]`)!;
+    const shownNarrow = async (id: string) => {
+      await waitFor(() => { expect(tab(id)).toHaveAttribute('aria-selected', 'true'); });
+      expect(panel(id)).toHaveAttribute('data-dock-visible', 'true');
+    };
+    const hosted = (request: PanelWorkspaceProps['revealRequest']) => shell(<WorkspaceCommandsHost><PanelWorkspace {...BASE} {...FOCUS_PROPS} revealRequest={request} /></WorkspaceCommandsHost>);
+
+    it('standalone: the target becomes the shown panel, also when it is already active in its own group', async () => {
+      const view = render(withRequest(null));
+      await ready();
+      observer.resize(600);
+      await shownNarrow('trend');
+      view.rerender(withRequest({ panelId: 'kpi', seq: 1 }));
+      await shownNarrow('kpi');
+      expect(panel('trend')).toHaveAttribute('data-dock-visible', 'false');
+      // `selector` is the active tab of its original group, yet background in the narrow group.
+      view.rerender(withRequest({ panelId: 'selector', seq: 2 }));
+      await shownNarrow('selector');
+      expect(mounts).toEqual({ trend: 1, selector: 1, detail: 1, kpi: 1 });
+    });
+
+    it('inside the board host', async () => {
+      const view = render(hosted(null));
+      await ready();
+      observer.resize(600);
+      await shownNarrow('trend');
+      view.rerender(hosted({ panelId: 'detail', seq: 1 }));
+      await shownNarrow('detail');
+    });
+
+    it('after the user picked another panel, a new reveal switches to the target and a later pick still works', async () => {
+      const view = render(withRequest(null));
+      await ready();
+      observer.resize(600);
+      await shownNarrow('trend');
+      await userEvent.click(tab('detail'));
+      await shownNarrow('detail');
+      view.rerender(withRequest({ panelId: 'kpi', seq: 1 }));
+      await shownNarrow('kpi');
+      await userEvent.click(tab('selector'));
+      await shownNarrow('selector');
+    });
+
+    it('a hidden panel stays hidden and focus stays outside', async () => {
+      const view = render(withRequest(null));
+      await ready();
+      await chooseFromMenu('선택기 동작', '숨기기');
+      await waitFor(() => { expect(tab('selector')).toBeNull(); });
+      observer.resize(600);
+      const outside = document.createElement('button');
+      document.body.append(outside);
+      outside.focus();
+      view.rerender(withRequest({ panelId: 'selector', seq: 1 }));
+      await settle();
+      expect(tab('selector')).toBeNull();
+      expect(document.activeElement).toBe(outside);
+      outside.remove();
+    });
+
+    it('wide stays unchanged: the target is active in its own group only', async () => {
+      const view = render(withRequest(null));
+      await ready();
+      view.rerender(withRequest({ panelId: 'kpi', seq: 1 }));
+      await waitFor(() => { expect(tab('kpi')).toHaveAttribute('aria-selected', 'true'); });
+      expect(tab('trend')).toHaveAttribute('aria-selected', 'true');
+      expect(document.querySelector('[data-dock-narrow="true"]')).toBeNull();
+    });
+  });
 });

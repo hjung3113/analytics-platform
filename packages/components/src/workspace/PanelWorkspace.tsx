@@ -180,6 +180,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, l
   const handledSeq = useRef(revealRequest?.seq);
   const revealSeq = revealRequest?.seq;
   const revealId = revealRequest?.panelId;
+  const [dockReveal, setDockReveal] = useState<{ panelId: string; seq: number } | null>(null);
   useEffect(() => {
     if (revealSeq === undefined || revealId === undefined || revealSeq === handledSeq.current) return;
     handledSeq.current = revealSeq;
@@ -191,6 +192,8 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, l
     const other = live.current.maximizedId;
     if (other !== null && other !== revealId) return;
     update(current => { const home = groupOf(current.layout, revealId); return home && home.active !== revealId ? { ...current, layout: activatePanel(current.layout, revealId) } : current; });
+    // The one-group narrow display has its own selection; a hidden panel is not in the layout, so it is not forwarded.
+    if (panelOrder(live.current.derived.layout).includes(revealId)) setDockReveal({ panelId: revealId, seq: revealSeq });
   }, [revealSeq, revealId, knownIds, update]);
   const setMode = useCallback((mode: 'fit' | 'stack') => {
     if (live.current.narrow) return;
@@ -327,7 +330,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, l
     <div ref={root} data-panel-workspace data-workspace-mode={rows ? 'stack' : 'fit'} data-workspace-compact={compact ? '' : undefined} className={rows ? 'flex w-full min-w-0 flex-col gap-2' : 'flex h-full min-h-0 w-full min-w-0 flex-col gap-2'}>
       {!hosted && <WorkspaceToolbar commands={commands} onShown={focusTab} />}
       <div ref={fitSlot} className={rows ? undefined : 'min-h-0 flex-1'}>
-        <DockLayoutBase panels={dockPanels} layout={state.layout} label={tx(label)} rows={rows}
+        <DockLayoutBase panels={dockPanels} layout={state.layout} label={tx(label)} rows={rows} reveal={dockReveal}
           onLayoutChange={next => { const moved = dropped.current ?? undefined; dropped.current = null; layoutChange(current => ({ ...current, layout: next }), moved); }}
           onActivate={id => { layoutChange(current => (panelOrder(current.layout).includes(id) ? { ...current, layout: activatePanel(current.layout, id) } : current)); }}
           maximizedPanelId={maximizedId} onMaximizedChange={setMaximized}

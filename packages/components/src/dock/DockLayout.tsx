@@ -132,8 +132,8 @@ export function DockLayout(props: DockLayoutProps) {
 }
 
 /** Internal (the workspace imports it from this file; `index.ts` does not): `DockLayout` plus the row capability of `DockRows`. */
-export function DockLayoutBase(props: DockLayoutProps & { rows?: DockRows }) {
-  const { rows, panels, layout, onLayoutChange, onActivate, maximizedPanelId = null, onMaximizedChange, onPanelDelete, renderTab, renderGroupActions, separatorLabel, stackBelow, label, currentPanelId, tabA11y } = props;
+export function DockLayoutBase(props: DockLayoutProps & { rows?: DockRows; reveal?: { panelId: string; seq: number } | null }) {
+  const { rows, reveal, panels, layout, onLayoutChange, onActivate, maximizedPanelId = null, onMaximizedChange, onPanelDelete, renderTab, renderGroupActions, separatorLabel, stackBelow, label, currentPanelId, tabA11y } = props;
   const { t } = useI18n();
   const instanceId = useId();
   const container = useRef<HTMLDivElement>(null);
@@ -163,6 +163,12 @@ export function DockLayoutBase(props: DockLayoutProps & { rows?: DockRows }) {
   const [choice, setChoice] = useState<{ base: string; id: string } | null>(null);
   const stackedChoice = choice && choice.base === firstActive ? choice.id : undefined;
   const known = useMemo(() => new Set(panelOrder(layout)), [layout]);
+  // A host's reveal request (internal): the narrow display shows that panel, as a user's tab choice would, so a later choice still replaces it.
+  const [seenReveal, setSeenReveal] = useState(reveal);
+  if (reveal !== seenReveal) {
+    setSeenReveal(reveal);
+    if (reveal && known.has(reveal.panelId)) setChoice({ base: firstActive, id: reveal.panelId });
+  }
   // The host's current panel wins over the display-only choice: it is the panel the host works on, so it is the one shown.
   const shown = currentPanelId !== undefined && known.has(currentPanelId) ? currentPanelId : stackedChoice;
   const display = useMemo(() => (narrow ? stackedTree(layout, shown, panels.map(panel => panel.id)) : layout), [narrow, layout, shown, panels]);
