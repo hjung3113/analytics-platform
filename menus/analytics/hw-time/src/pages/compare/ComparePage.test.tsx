@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { groupId, menuPermission, spaceId, type ApiResponse } from '@ap/contracts';
 import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
@@ -103,7 +103,6 @@ async function renderPage(search = '') {
   await screen.findByRole('group', { name: '분석 보조' });
 }
 const searchParams = () => new URLSearchParams(window.location.search);
-const distinctParams = () => new Set(data.level.mock.calls.map(call => JSON.stringify(call[0])));
 
 beforeEach(() => {
   vi.stubGlobal('localStorage', memoryStorage());
@@ -137,7 +136,11 @@ describe('HW Time compare page', () => {
     await renderPage(query);
     expect(workspace().getAttribute('data-persist')).toBe(key);
     expect(panelIds()).toEqual(panels);
-    expect(JSON.parse(workspace().getAttribute('data-layout')!)).toHaveLength(1);
+    const presets = JSON.parse(workspace().getAttribute('data-layout')!);
+    expect(presets).toHaveLength(1);
+    // The trend row is the last child of the column root, about 28% at every level.
+    expect(presets[0].sizes).toEqual([72, 28]);
+    expect(presets[0].children.at(-1)).toEqual({ type: 'group', panels: ['trend'] });
   });
 
   it('L3 draws every Motion in the context and only the selected Motion in the detail', async () => {
@@ -254,16 +257,44 @@ describe('HW Time compare page', () => {
     expect(screen.getByTitle(/^Module PM3 · [\d,]+\.\d{2} 초 · 일부 미측정$/)).toBeTruthy();
   });
 
-  it('peeks, option toggles and row picks never re-query the level', async () => {
+  it('a drill step through the page clears the row in the same navigation (one history entry)', async () => {
+    await renderPage('&drillModule=PM1&row=EQ-001.H3');
+    const before = window.history.length;
+    fireEvent.click(screen.getByRole('button', { name: 'segment Dechuck EQ-001 · H3' }));
+    expect(searchParams().get('drillMotion')).toBe('Dechuck');
+    expect(searchParams().has('row')).toBe(false);
+    expect(window.history.length).toBe(before + 1);
+    cleanup();
+    await renderPage('&row=EQ-001.H3');
+    fireEvent.click(screen.getByRole('button', { name: 'segment PM2 EQ-001' }));
+    expect(searchParams().get('drillModule')).toBe('PM2');
+    expect(searchParams().has('row')).toBe(false);
+  });
+
+  it('a row picked on one path is not carried to another path by the breadcrumb, and Back restores it', async () => {
     await renderPage('&drillModule=PM1&drillMotion=Pump');
-    const before = distinctParams();
-    const calls = data.level.mock.calls.length;
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: '옵션' })); });
-    await act(async () => { fireEvent.click(await screen.findByRole('radio', { name: '큰 순' })); });
+    fireEvent.click(screen.getByRole('button', { name: 'pick hw-compare-L3-detail EQ-001 · H3' }));
+    expect(searchParams().get('row')).toBe('EQ-001.H3');
+    fireEvent.click(screen.getByRole('button', { name: '전체' }));
+    fireEvent.click(screen.getByRole('button', { name: 'segment PM2 EQ-001' }));
+    fireEvent.click(screen.getAllByRole('button', { name: /^segment Pump EQ-001/ })[0]!);
+    expect(searchParams().has('row')).toBe(false);
+    expect(screen.getByTestId('hw-compare-L3-detail-active').textContent).toBe('null');
+    // The breadcrumb cannot clear a page key: the stale URL row is ignored on the new path.
     fireEvent.click(screen.getByRole('button', { name: 'pick hw-compare-L3-detail EQ-001 · H1' }));
-    expect(searchParams().get('sort')).toBe('total-desc');
-    expect(distinctParams()).toEqual(before);
-    expect(data.level.mock.calls.every(call => JSON.stringify(call[0]) === JSON.stringify({ drillModule: 'PM1', drillMotion: 'Pump' }))).toBe(true);
-    expect(calls).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole('button', { name: /Module: PM2/ }));
+    fireEvent.click(screen.getAllByRole('button', { name: /^segment Chuck EQ-001/ })[0]!);
+    expect(searchParams().has('row')).toBe(false);
+    expect(screen.getByTestId('hw-compare-L3-detail-active').textContent).toBe('null');
+  });
+
+  it('a row that arrives with the URL stays active, and history Back restores the row as it was', async () => {
+    await renderPage('&drillModule=PM1&drillMotion=Pump&row=EQ-001.H2');
+    expect(screen.getByTestId('hw-compare-L3-detail-active').textContent).toBe('EQ-001 · H2');
+    fireEvent.click(screen.getByRole('button', { name: /Module: PM1/ }));
+    expect(screen.queryByTestId('hw-compare-L3-detail-active')).toBeNull();
+    act(() => { window.history.back(); });
+    await waitFor(() => expect(screen.getByTestId('hw-compare-L3-detail-active').textContent).toBe('EQ-001 · H2'));
+    expect(searchParams().get('row')).toBe('EQ-001.H2');
   });
 });

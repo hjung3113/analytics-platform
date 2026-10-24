@@ -4,7 +4,7 @@
  * one focused row (`row` page key, ADR-0079). The page owns the single level query; panels only draw what it hands them.
  */
 import { Inbox, ListTree, SlidersHorizontal, Target } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { useDrill, useI18n, usePlatform, type PageProps } from '@ap/kernel';
 import { DrillLayout, Inspector, LegendTree, PanelWorkspace, PlatformPage, QueryView, SegmentedRadio, StateMessage, type InspectorSection, type PanelWorkspaceLayout, type PanelWorkspacePanel } from '@ap/components';
 import { Checkbox } from '@ap/ui';
@@ -20,18 +20,23 @@ import { formatTrendKey, parseTrendKey } from '../../shared/trendKey';
 const SORTS: readonly StackSort[] = ['total-desc', 'total-asc'];
 const EMPTY_BLOCK: HwTimeBlock = { series: [], rows: [], totals: { values: {}, total: null } };
 
-/** One preset per level (a level's panels differ, so each level has its own `persistKey`). The trend row is short until a row is added. */
+/** One preset per level (a level's panels differ, so each level has its own `persistKey`). The trend row is about 28% at every level (its empty state sits inside it); `revealRequest` only activates the tab. */
 const PRESETS: Record<'l1' | 'l2' | 'l3', PanelWorkspaceLayout> = {
-  l1: { type: 'branch', dir: 'column', sizes: [86, 14], children: [{ type: 'group', panels: ['stack'] }, { type: 'group', panels: ['trend'] }] },
-  l2: { type: 'branch', dir: 'column', sizes: [86, 14], children: [
+  l1: { type: 'branch', dir: 'column', sizes: [72, 28], children: [{ type: 'group', panels: ['stack'] }, { type: 'group', panels: ['trend'] }] },
+  l2: { type: 'branch', dir: 'column', sizes: [72, 28], children: [
     { type: 'branch', dir: 'row', sizes: [28, 72], children: [{ type: 'group', panels: ['ranking'] }, { type: 'group', panels: ['stack'] }] },
     { type: 'group', panels: ['trend'] },
   ] },
-  l3: { type: 'branch', dir: 'column', sizes: [86, 14], children: [
+  l3: { type: 'branch', dir: 'column', sizes: [72, 28], children: [
     { type: 'branch', dir: 'row', sizes: [50, 50], children: [{ type: 'group', panels: ['context'] }, { type: 'group', panels: ['detail'] }] },
     { type: 'group', panels: ['trend'] },
   ] },
 };
+
+/** A `PanelWorkspace` panel box is not a flex container, so the chart's `flex-1` would collapse to its floor; this gives it the panel height. */
+function PanelFill({ children }: { children: ReactNode }) {
+  return <div className="flex h-full min-h-0 flex-col">{children}</div>;
+}
 
 export default function ComparePage(_props: PageProps) {
   const { lang } = useI18n();
@@ -53,9 +58,12 @@ export default function ComparePage(_props: PageProps) {
   const align = pageParam('align') === '1';
   const minmax = pageParam('minmax') === '1';
   const rawRow = pageParam('row');
-  const row = isHwTimeRowId(rawRow) ? rawRow : null;
-
   const levelKey = `${module ?? ''}/${motion ?? ''}`;
+  // A row belongs to the path it was picked on. Deliberate drill steps below clear it in the same navigation; the breadcrumb and sibling menus
+  // (DrillLayout → useDrill) cannot clear a non-drill key, so a row picked on another path is ignored here instead (SDK gap, see the report).
+  // A row that arrives with the URL (no pick in this session) is accepted on any path.
+  const [rowPath, setRowPath] = useState<string | null>(null);
+  const row = isHwTimeRowId(rawRow) && (rowPath === null || rowPath === levelKey) ? rawRow : null;
   const [hiddenState, setHiddenState] = useState<{ key: string; ids: string[] }>({ key: levelKey, ids: [] });
   const hidden = hiddenState.key === levelKey ? hiddenState.ids : [];
   const [reveal, setReveal] = useState<{ panelId: string; seq: number } | null>(null);
@@ -175,16 +183,16 @@ export default function ComparePage(_props: PageProps) {
       persistKey = 'hw-compare-l3'; layout = PRESETS.l3;
       const ctx = context ?? data;
       const det = detail ?? EMPTY_BLOCK;
-      const shared = { ...stackProps, activeRowId: row, revealActive: scroll, onActiveRowChange: (rowId: string | null) => setPage({ row: rowId }), rowActions: rowActionsOf };
+      const shared = { ...stackProps, activeRowId: row, revealActive: scroll, onActiveRowChange: (rowId: string | null) => { setRowPath(levelKey); setPage({ row: rowId }); }, rowActions: rowActionsOf };
       panels = [
         { id: 'context', title: { ko: `Module ${module} 전체 Motion`, en: `All Motions of Module ${module}` }, render: () =>
-          <StackPanel chartId="hw-compare-L3-context" title={ko ? `Module ${module} 전체 Motion` : `All Motions of Module ${module}`} block={ctx}
-            visibleSeriesIds={visibleOf(ctx)} onVisibleSeriesChange={setVisible(ctx)} {...shared} /> },
+          <PanelFill><StackPanel chartId="hw-compare-L3-context" title={ko ? `Module ${module} 전체 Motion` : `All Motions of Module ${module}`} block={ctx}
+            visibleSeriesIds={visibleOf(ctx)} onVisibleSeriesChange={setVisible(ctx)} {...shared} /></PanelFill> },
         { id: 'detail', primary: true, title: { ko: `Motion ${motion} 상세`, en: `Motion ${motion} detail` }, render: () => det.rows.length === 0
           ? <StateMessage icon={<Inbox className="size-4" aria-hidden />} title={ko ? `${module} Module에는 ${motion} 동작 기록이 없습니다` : `No ${motion} records for Module ${module}`}
             body={ko ? 'Module의 다른 Motion은 한 단계 위에서 볼 수 있습니다.' : 'Other Motions of this Module are one level up.'} />
-          : <StackPanel chartId="hw-compare-L3-detail" title={ko ? `Motion ${motion} 상세 — Module ${module}` : `Motion ${motion} detail — Module ${module}`} block={det}
-            visibleSeriesIds={visibleOf(det).filter(id => visibleIds.includes(id))} onVisibleSeriesChange={setVisible(ctx)} {...shared} /> },
+          : <PanelFill><StackPanel chartId="hw-compare-L3-detail" title={ko ? `Motion ${motion} 상세 — Module ${module}` : `Motion ${motion} detail — Module ${module}`} block={det}
+            visibleSeriesIds={visibleOf(det).filter(id => visibleIds.includes(id))} onVisibleSeriesChange={setVisible(ctx)} {...shared} /></PanelFill> },
         trendPanel,
       ];
     } else if (data.level === 1) {
@@ -192,16 +200,16 @@ export default function ComparePage(_props: PageProps) {
       panels = [
         { id: 'ranking', title: { ko: '합계 순위', en: 'Ranking' }, minWidth: 180, render: () => <RankingPanel block={data} visibleSeriesIds={visibleOf(data)} /> },
         { id: 'stack', primary: true, title: { ko: 'Motion별', en: 'By Motion' }, render: () =>
-          <StackPanel chartId="hw-compare-L2" title={stackTitle} block={data} visibleSeriesIds={visibleOf(data)} onVisibleSeriesChange={setVisible(data)} {...stackProps}
-            onActivate={({ seriesId }) => drill.enter('drillMotion', seriesId)} rowActions={rowActionsOf} /> },
+          <PanelFill><StackPanel chartId="hw-compare-L2" title={stackTitle} block={data} visibleSeriesIds={visibleOf(data)} onVisibleSeriesChange={setVisible(data)} {...stackProps}
+            onActivate={({ seriesId }) => setPage({ drillMotion: seriesId, row: null }, { focus: 'drill' })} rowActions={rowActionsOf} /></PanelFill> },
         trendPanel,
       ];
     } else {
       persistKey = 'hw-compare-l1'; layout = PRESETS.l1;
       panels = [
         { id: 'stack', primary: true, title: { ko: 'Module별', en: 'By Module' }, render: () =>
-          <StackPanel chartId="hw-compare-L1" title={stackTitle} block={data} visibleSeriesIds={visibleOf(data)} onVisibleSeriesChange={setVisible(data)} {...stackProps}
-            onActivate={({ seriesId }) => drill.enter('drillModule', seriesId)} /> },
+          <PanelFill><StackPanel chartId="hw-compare-L1" title={stackTitle} block={data} visibleSeriesIds={visibleOf(data)} onVisibleSeriesChange={setVisible(data)} {...stackProps}
+            onActivate={({ seriesId }) => setPage({ drillModule: seriesId, drillMotion: null, row: null }, { focus: 'drill' })} /></PanelFill> },
         trendPanel,
       ];
     }
