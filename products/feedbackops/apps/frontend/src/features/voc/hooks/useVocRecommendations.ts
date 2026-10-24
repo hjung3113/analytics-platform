@@ -6,10 +6,10 @@
 //
 // Query key: ['voc-recommendations', vocId] — dismiss/confirm invalidate it.
 
-import { type UseQueryResult, useQuery } from '@tanstack/react-query';
 import type { VocRecommendationsResponse } from '@fops/shared';
+import { type UseQueryResult, useQuery } from '@tanstack/react-query';
 
-import { apiClient } from '@/lib/api';
+import { apiClient } from '@/lib/api/client';
 
 export function vocRecommendationsQueryKey(vocId: string | null | undefined) {
   return ['voc-recommendations', vocId] as const;

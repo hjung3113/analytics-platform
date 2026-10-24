@@ -2,7 +2,9 @@
 // Fields: title, summary, severity. Mirrors EditDescriptionModal pattern.
 // On success: selects the new Finding in /findings and keeps the VOC origin.
 
-import { type ApiError, errorMapper, useIdempotencyKey } from '@/lib/api';
+import { errorMapper } from '@/lib/api/errorMapper';
+import type { ApiError } from '@/lib/api/types';
+import { useIdempotencyKey } from '@/lib/api/useIdempotencyKey';
 import { FINDING_SEVERITY_LABELS } from '@/lib/copy/enum-labels';
 import { analyticsAreasCatalogQuery } from '@/lib/cross-system/analyticsAreasCatalog';
 import {

@@ -107,7 +107,12 @@ vi.mock('@/lib/cross-system/useWorkspaceActors', () => ({
 
 // ── Stub useMe ────────────────────────────────────────────────────────────────
 
-vi.mock('@/lib/auth/useMe', () => ({ useMe: vi.fn() }));
+const useMeMock = vi.hoisted(() => vi.fn());
+vi.mock('@/lib/auth/useMe', () => ({ useMe: useMeMock }));
+vi.mock('@/lib/api/me', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/me')>()),
+  useMeBridge: useMeMock,
+}));
 
 // ── Stub usePermissionCheck (REV-2 #9 capability gate) ────────────────────────
 

@@ -5,8 +5,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NoFollowUpSection } from '../NoFollowUpSection';
 
 const request = vi.hoisted(() => vi.fn());
-vi.mock('@/lib/api', async (original) => ({
-  ...(await original<typeof import('@/lib/api')>()),
+vi.mock('@/lib/api/client', async (original) => ({
+  ...(await original<typeof import('@/lib/api/client')>()),
   apiRequest: request,
 }));
 const open: VocFollowUpState = { decision: null, can_record: true, can_withdraw: false };

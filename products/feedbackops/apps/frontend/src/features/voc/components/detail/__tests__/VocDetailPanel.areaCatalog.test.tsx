@@ -7,6 +7,8 @@ import type * as React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { fetchAnalyticsAreas } = vi.hoisted(() => ({ fetchAnalyticsAreas: vi.fn() }));
+const apiClientMock = vi.hoisted(() => vi.fn(async () => ({ data: { items: [] } })));
+const fetchTaskRequestsMock = vi.hoisted(() => vi.fn(async () => ({ items: [] })));
 
 vi.mock('@/lib/cross-system/useVocDetail', () => ({ useVocDetail: vi.fn() }));
 vi.mock('@/lib/cross-system/useWorkspaceActors', () => ({ useWorkspaceActors: vi.fn() }));
@@ -19,9 +21,17 @@ vi.mock('@tanstack/react-router', async (importOriginal) => ({
 }));
 vi.mock('@/lib/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api')>()),
-  apiClient: vi.fn(async () => ({ data: { items: [] } })),
-  fetchTaskRequests: vi.fn(async () => ({ items: [] })),
+  apiClient: apiClientMock,
+  fetchTaskRequests: fetchTaskRequestsMock,
   getTask: vi.fn(),
+}));
+vi.mock('@/lib/api/client', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/client')>()),
+  apiClient: apiClientMock,
+}));
+vi.mock('@/lib/api/task-requests', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/task-requests')>()),
+  fetchTaskRequests: fetchTaskRequestsMock,
 }));
 vi.mock('@/lib/api/analytics-areas', () => ({ fetchAnalyticsAreas }));
 vi.mock('@/lib/api/milestones', () => ({ listMilestones: vi.fn(async () => ({ items: [] })) }));

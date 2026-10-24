@@ -1,4 +1,5 @@
-import { type ApiError, apiClient } from '@/lib/api';
+import { apiClient } from '@/lib/api/client';
+import type { ApiError } from '@/lib/api/types';
 import { invalidateNavCounts } from '@/lib/query/navCounts';
 import { invalidateRecovery } from '@/lib/query/recovery';
 import type { CreateTaskRequestFromVocRequest, TaskRequestDto } from '@fops/shared';

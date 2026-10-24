@@ -9,6 +9,7 @@ import { FindingDetailPanel } from './FindingDetailPanel';
 import { FullFindingDetail } from './FullFindingDetail';
 
 const apiClientMock = vi.hoisted(() => vi.fn());
+const fetchTaskRequestsMock = vi.hoisted(() => vi.fn(async () => ({ items: [] })));
 const workspaceActors = vi.hoisted(() => ({
   actors: [] as Array<{ id: string; display_name: string }>,
 }));
@@ -123,7 +124,7 @@ vi.mock('@/lib/auth/useMe', () => ({
 vi.mock('@/lib/api', () => ({
   apiClient: apiClientMock,
   errorMapper: () => ({ message: 'mapped error' }),
-  fetchTaskRequests: vi.fn(async () => ({ items: [] })),
+  fetchTaskRequests: fetchTaskRequestsMock,
   getTask: vi.fn(async () => ({
     id: '20000000-0000-0000-0000-000000000002',
     display_id: 'TASK-901',
@@ -132,6 +133,10 @@ vi.mock('@/lib/api', () => ({
   linkTaskToFinding: vi.fn(),
   listTasks: vi.fn(async () => ({ items: [] })),
   useIdempotencyKey: () => ({ key: 'idem-key', markConsumed: vi.fn() }),
+}));
+vi.mock('@/lib/api/task-requests', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/task-requests')>()),
+  fetchTaskRequests: fetchTaskRequestsMock,
 }));
 
 function renderWithClient(ui: React.ReactElement) {
