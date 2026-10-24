@@ -1,9 +1,10 @@
 import type { SavedViewSurface } from '@/lib/api/saved-views';
-import { SCOPE_SELECTOR_COPY } from '@/lib/copy/managed-system-scope';
 import { ROUTER_FALLBACK_COPY } from '@/lib/copy/router';
 import { InternalLink } from '@/lib/router/InternalLink';
+import { ManagedSystemScopePicker } from '@/operator-screens/scope-picker/ManagedSystemScopePicker';
+import type { ManagedSystemScopeOption } from '@/operator-screens/scope-picker/ManagedSystemScopePicker';
 import { cn } from '@fops/ui';
-import { ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, Shield } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
 import * as React from 'react';
 
 export type NavCounts = Partial<Record<NavCountKey, number>>;
@@ -58,11 +59,7 @@ export interface SidebarNavActionEntry {
 
 export type SidebarNavItem = SidebarNavEntry | SidebarNavActionEntry;
 
-export interface ManagedSystemScopeOption {
-  id: string;
-  name: string;
-  granted: boolean;
-}
+export type { ManagedSystemScopeOption };
 
 export interface AppSidebarProps {
   entries: SidebarNavItem[];
@@ -128,22 +125,6 @@ export function AppSidebar({
   platformReturnUrl,
 }: AppSidebarProps) {
   const [collapsed, setCollapsed] = React.useState(() => readInitialCollapsed(defaultCollapsed));
-  const [scopeOpen, setScopeOpen] = React.useState(false);
-  const selectedSystem = managedSystems.find((system) => system.id === selectedManagedSystemId);
-  const grantedSystems = managedSystems.filter((system) => system.granted);
-  const isUnion = !workspaceWideScope && selectedManagedSystemId === undefined;
-  const scopeName = scopeControlEnabled
-    ? (selectedSystem?.name ?? SCOPE_SELECTOR_COPY.allLabel)
-    : SCOPE_SELECTOR_COPY.workspaceAll;
-  const scopeQualifier = scopeControlEnabled
-    ? selectedSystem && !selectedSystem.granted
-      ? SCOPE_SELECTOR_COPY.outOfScope
-      : isUnion
-        ? SCOPE_SELECTOR_COPY.unionAccessibleQualifier
-        : null
-    : null;
-  const scopeAccessibleName = scopeQualifier ? `${scopeName}, ${scopeQualifier}` : scopeName;
-
   const toggle = React.useCallback(() => {
     setCollapsed((prev) => {
       const next = !prev;
@@ -151,11 +132,6 @@ export function AppSidebar({
       return next;
     });
   }, []);
-
-  const selectScope = (managedSystemId: string | undefined) => {
-    onManagedSystemChange?.(managedSystemId);
-    setScopeOpen(false);
-  };
 
   return (
     <aside
@@ -179,70 +155,15 @@ export function AppSidebar({
           {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
         </button>
       </div>
-      {!collapsed && (
-        <div className="relative border-b border-border-subtle p-2">
-          <button
-            type="button"
-            className={cn(
-              'flex w-full items-center gap-2 rounded-md border border-border-subtle px-2 py-2 text-left text-sm hover:bg-surface-row-hover',
-              !scopeControlEnabled && 'cursor-not-allowed opacity-60 hover:bg-transparent',
-            )}
-            onClick={() => scopeControlEnabled && setScopeOpen((open) => !open)}
-            disabled={!scopeControlEnabled}
-            aria-expanded={scopeOpen}
-            aria-haspopup="listbox"
-            aria-label={scopeAccessibleName}
-            title={scopeControlEnabled ? scopeName : '이 화면은 Managed System 범위를 지원하지 않습니다'}
-            data-testid="scope-selector"
-          >
-            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-accent-primary/15 text-xs font-semibold text-accent-primary">{selectedSystem ? selectedSystem.name.slice(0, 1) : '∗'}</span>
-            <span className="flex min-w-0 flex-1 flex-col">
-              <span className="flex min-w-0 items-center gap-1 font-medium">
-                <span className="min-w-0 flex-1 truncate" data-testid="scope-name" title={scopeName}>{scopeName}</span>
-                {scopeControlEnabled && selectedSystem && !selectedSystem.granted && (
-                  <ScopeBadge
-                    testId="scope-out-of-scope-badge"
-                    label={SCOPE_SELECTOR_COPY.outOfScope}
-                    urgent
-                  />
-                )}
-              </span>
-              {scopeControlEnabled && isUnion && grantedSystems.length > 0 && (
-                <span className="block truncate text-caption text-text-muted">
-                  {SCOPE_SELECTOR_COPY.assignedPrefix}{' '}
-                  {grantedSystems.map((system) => system.name).join(' · ')}
-                </span>
-              )}
-            </span>
-            {scopeControlEnabled && <ChevronDown className="h-3 w-3 shrink-0 text-text-muted" />}
-          </button>
-          {scopeControlEnabled && scopeOpen && (
-            <div className="absolute left-2 right-2 top-full z-50 mt-1 rounded-md border border-border-subtle bg-surface-popover p-1 shadow-lg" role="listbox" aria-label="Managed System 범위">
-              <button type="button" className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-surface-row-hover" onClick={() => selectScope(undefined)} data-testid="scope-option-all">
-                <span className="flex h-5 w-5 items-center justify-center rounded bg-accent-primary/15 text-xs text-accent-primary">∗</span>
-                <span className="min-w-0 flex-1">
-                  <span className="block font-medium">{SCOPE_SELECTOR_COPY.allLabel}</span>
-                  <span className="block text-caption text-text-muted">
-                    {workspaceWideScope
-                      ? SCOPE_SELECTOR_COPY.workspaceAll
-                      : `${SCOPE_SELECTOR_COPY.assignedCountPrefix} ${grantedSystems.length} / ${managedSystems.length}`}
-                  </span>
-                </span>
-              </button>
-              {managedSystems.map((system) => (
-                <button key={system.id} type="button" className={cn('flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-surface-row-hover', !system.granted && 'opacity-55')} onClick={() => selectScope(system.id)} data-testid={`scope-option-${system.id}`}>
-                  <span className="flex h-5 w-5 items-center justify-center rounded bg-surface-row-selected text-xs font-semibold">{system.name.slice(0, 1)}</span>
-                  <span className="min-w-0 flex-1 truncate">{system.name}</span>
-                  {!system.granted && <Shield className="h-3 w-3 text-text-muted" aria-label="범위 밖" />}
-                </button>
-              ))}
-              {/* #282: sits outside the option buttons on purpose — inside one,
-                  the sentence would become part of that option's accessible name. */}
-              {!isAdmin && <p className="px-2 py-1.5 text-caption text-text-muted" data-testid="scope-name-visibility-note">이름은 워크스페이스 전체에 공개되며, 접근하려면 권한을 요청하세요.</p>}
-            </div>
-          )}
-        </div>
-      )}
+      <ManagedSystemScopePicker
+        managedSystems={managedSystems}
+        {...(selectedManagedSystemId !== undefined ? { value: selectedManagedSystemId } : {})}
+        onChange={(managedSystemId) => onManagedSystemChange?.(managedSystemId)}
+        disabled={!scopeControlEnabled}
+        isAdmin={isAdmin}
+        workspaceWideScope={workspaceWideScope}
+        collapsed={collapsed}
+      />
       {platformReturnUrl !== undefined && (
         <div className="border-b border-border-subtle p-2">
           <a
@@ -442,10 +363,6 @@ function SavedViewsSection({
 
 function NavCountBadge({ entryId, count }: { entryId: string; count: number }) {
   return <span className="rounded-full bg-surface-row-selected px-1.5 py-0.5 text-caption font-semibold tabular-nums text-text-secondary" data-testid={`sidebar-count-${entryId}`}>{count}</span>;
-}
-
-function ScopeBadge({ testId, label, urgent = false }: { testId: string; label: string; urgent?: boolean }) {
-  return <span className={cn('inline-flex shrink-0 items-center gap-0.5 rounded-full bg-accent-primary/10 px-1 py-0.5 text-micro font-medium text-accent-primary', urgent && 'bg-accent-danger/15 text-accent-danger')} data-testid={testId}>{label}</span>;
 }
 
 function navItemClass(collapsed: boolean, active = false, contextActive = false) { return cn('flex items-center gap-2 rounded-md px-3 py-1.5 text-sm text-text-secondary hover:bg-surface-row-hover hover:text-text-primary', collapsed && 'justify-center px-0', active && 'bg-surface-row-selected text-text-primary', contextActive && !active && 'font-medium text-text-primary'); }

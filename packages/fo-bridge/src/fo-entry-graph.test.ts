@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest';
  */
 const FO = fileURLToPath(new URL('../../../products/feedbackops', import.meta.url));
 const FRONTEND_SRC = join(FO, 'apps/frontend/src');
-const ENTRIES = [join(FRONTEND_SRC, 'global-screens/index.ts'), join(FRONTEND_SRC, 'global-screens/core.ts')];
+const ENTRIES = [join(FRONTEND_SRC, 'global-screens/index.ts'), join(FRONTEND_SRC, 'global-screens/core.ts'), join(FRONTEND_SRC, 'operator-screens/scope-picker/index.ts')];
 const PACKAGE_ENTRIES: Record<string, string> = {
   '@fops/ui': join(FO, 'packages/ui/src/index.ts'),
   '@fops/shared': join(FO, 'packages/shared/src/index.ts'),
@@ -62,6 +62,10 @@ describe('FeedbackOps bridge entry graph (ADR-0071)', () => {
     // An entry that imports FeedbackOps at all imports only the `core` subset; `voc-compose-slot.tsx` imports none (it lazy-loads its page).
     if (FOPS_FRONTEND_IMPORT.test(text)) expect(text).toMatch(/from\s*['"]@fops\/frontend\/global-screens\/core['"]/);
     expect(FULL_ENTRY_IMPORT.test(text)).toBe(false);
+  });
+
+  it('reaches the 목록 범위 picker and its bridge-safe reads', () => {
+    expect(reached).toEqual(expect.arrayContaining(['operator-screens/scope-picker/ManagedSystemScopeControl.tsx', 'lib/api/me.ts', 'lib/api/permission-reads.ts', 'lib/api/registry-reads.ts']));
   });
 
   it('reaches the InboxPanel', () => {

@@ -66,7 +66,7 @@ const HOME_TODO_SLOT_SUBPATH = 'fo-bridge/home-todo-slot';
 // Rule 8 exception (platform ADR-0071, ADR-0081): a bridge menu imports exactly these entries (the screen barrel and
 // its eager-code subset `/core`); nothing else under @fops/*. the fo-bridge package imports `/core` only (FO_BRIDGE_PACKAGE_ENTRIES)
 // except its lazy `src/pages/**`, which are screens too.
-const FO_BRIDGE_ENTRIES = ['@fops/frontend/global-screens', '@fops/frontend/global-screens/core'];
+const FO_BRIDGE_ENTRIES = ['@fops/frontend/global-screens', '@fops/frontend/global-screens/core', '@fops/frontend/operator-screens/scope-picker'];
 const FO_BRIDGE_TEST_SUBPATHS = [FO_API_SUBPATH, NOTIFICATIONS_SLOT_SUBPATH, VOC_COMPOSE_SLOT_SUBPATH, HOME_TODO_SLOT_SUBPATH, 'fo-bridge/home-todo-page', 'fo-bridge/voc-compose-page'];
 const FO_BRIDGE_PACKAGE_ENTRIES = ['@fops/frontend/global-screens/core'];
 const UI_THEME_SUBPATHS = ['ui/theme', 'ui/theme-tokens.json'];

@@ -522,11 +522,16 @@ for (const file of FEEDBACKOPS_BOUNDARY_FILES) {
 const BRIDGE = 'menus/_global/my-activity/src/pages/x.tsx';
 const GLOBAL_SCREENS = '@fops/frontend/global-screens';
 const GLOBAL_SCREENS_CORE = '@fops/frontend/global-screens/core';
+const SCOPE_PICKER = '@fops/frontend/operator-screens/scope-picker';
 rows.push(
   { file: BRIDGE, code: `import { InboxPanel } from '${GLOBAL_SCREENS}';`, rule: '' },
   { file: BRIDGE, code: `void import('${GLOBAL_SCREENS}');`, rule: '' },
   { file: BRIDGE, code: `import { InboxPanel } from '${GLOBAL_SCREENS_CORE}';`, rule: '' },
   { file: BRIDGE, code: `void import('${GLOBAL_SCREENS_CORE}');`, rule: '' },
+  { file: BRIDGE, code: `import { ManagedSystemScopeControl } from '${SCOPE_PICKER}';`, rule: '' },
+  { file: BRIDGE, code: `void import('${SCOPE_PICKER}');`, rule: '' },
+  { file: MENU, code: `import { ManagedSystemScopeControl } from '${SCOPE_PICKER}';`, rule: 'no-restricted-imports', token: '@ap/ui' },
+  { file: MENU, code: `void import('${SCOPE_PICKER}');`, rule: 'ap/restricted-import-source', token: '@ap/ui' },
   { file: MENU, code: `import { InboxPanel } from '${GLOBAL_SCREENS_CORE}';`, rule: 'no-restricted-imports', token: '@ap/ui' },
   { file: MENU, code: `import { InboxPanel } from '${GLOBAL_SCREENS}';`, rule: 'no-restricted-imports', token: '@ap/ui' },
   { file: MENU, code: `void import('${GLOBAL_SCREENS}');`, rule: 'ap/restricted-import-source', token: '@ap/ui' },
