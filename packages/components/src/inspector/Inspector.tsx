@@ -1,13 +1,13 @@
 import { ChevronDown } from 'lucide-react';
 import { useCallback, useEffect, useId, useState, type ReactNode } from 'react';
-import { useI18n, type Text } from '@ap/kernel';
+import { useI18n, usePlatformOptional, type Text } from '@ap/kernel';
 import {
   Button, cn, isProductionEnv,
   Popover, PopoverContent, PopoverTrigger,
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from '@ap/ui';
 import type { LucideIcon } from 'lucide-react';
-import { INSPECTOR_ID, normalizeExpanded, readExpanded, writeExpanded } from './inspectorState';
+import { INSPECTOR_ID, inspectorStorageKey, normalizeExpanded, readExpanded, writeExpanded } from './inspectorState';
 
 /** One auxiliary section. `render` is the caller's content; the Inspector never reads data for it (see {@link Inspector}). */
 export type InspectorSection = {
@@ -26,7 +26,7 @@ export type InspectorProps = {
   form: 'stack' | 'rail';
   /** Accessible name of the inspector. */
   label: Text;
-  /** Remembers the expanded set of an uncontrolled `stack` (`platform:inspector-expanded:<persistKey>`). A static id; an invalid one is not stored. */
+  /** Remembers the expanded set of an uncontrolled `stack` (`platform:inspector-expanded:v1:<user>:<menu>:<persistKey>`). A static id; an invalid one is not stored. Without a user or a routed menu the set stays in memory. */
   persistKey?: string;
   /** Optional controlled expanded set. While given, the Inspector neither keeps nor stores its own. */
   expanded?: readonly string[];
@@ -60,14 +60,18 @@ function useDevChecks({ sections, persistKey }: InspectorProps) {
  *   menu and pass results into `render`. Toggling a section or a peek, and switching `form`, never re-run anything outside the
  *   rendered sections. In `stack` every section stays mounted (a collapsed one is `hidden`), so toggling remounts nothing. In `rail`
  *   only the peeked section is mounted, and switching `form` remounts the section contents (their state resets; caller queries do not).
- * - **Persist.** An uncontrolled Inspector with a valid `persistKey` stores its expanded set. The `rail` form has no expanded set.
+ * - **Persist.** An uncontrolled Inspector with a valid `persistKey` stores its expanded set per user and menu (a user or menu change
+ *   restores that identity's set). The `rail` form has no expanded set.
  */
 export function Inspector(props: InspectorProps) {
   useDevChecks(props);
   const { tx } = useI18n();
   const known = props.sections.map(section => section.id);
-  // A persistKey change is a different preference: the body remounts and restores that key's set.
-  const storeKey = props.persistKey !== undefined && INSPECTOR_ID.test(props.persistKey) ? props.persistKey : null;
+  const platform = usePlatformOptional();
+  const userId = platform?.session.user.id;
+  const menuId = platform?.route?.menu.id;
+  // A persistKey (or menu, or user) change is a different preference: the body remounts and restores that identity's set.
+  const storeKey = props.persistKey !== undefined && INSPECTOR_ID.test(props.persistKey) && userId && menuId ? inspectorStorageKey(userId, menuId, props.persistKey) : null;
   return <TooltipProvider delayDuration={200}>
     {props.form === 'stack'
       ? <InspectorStack key={`stack:${storeKey ?? ''}`} {...props} label={tx(props.label)} known={known} storeKey={storeKey} />
@@ -121,6 +125,11 @@ function InspectorStack({ sections, label, known, storeKey, expanded: controlled
   </div>;
 }
 
+/** Stable type, so Popover mounts the caller's `render` only while its peek is open (a closed section's callback is never called). */
+function SectionContent({ render }: { render: () => ReactNode }) {
+  return <>{render()}</>;
+}
+
 function InspectorRail({ sections, label }: Shared) {
   const { tx } = useI18n();
   const [peek, setPeek] = useState<string | null>(null);
@@ -142,7 +151,7 @@ function InspectorRail({ sections, label }: Shared) {
           </TooltipTrigger>
           <TooltipContent side="right">{title}</TooltipContent>
         </Tooltip>
-        <PopoverContent side="right" align="start" aria-label={title} className="max-h-[70vh] w-80 overflow-y-auto">{section.render()}</PopoverContent>
+        <PopoverContent side="right" align="start" aria-label={title} className="max-h-[70vh] w-80 overflow-y-auto"><SectionContent render={section.render} /></PopoverContent>
       </Popover>;
     })}
   </div>;

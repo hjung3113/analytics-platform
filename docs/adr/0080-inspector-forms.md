@@ -20,8 +20,8 @@
 
 - 부품을 둘로 나누면 메뉴가 같은 섹션을 두 번 선언하고 접근성 계약(APG, 포커스 복귀)을 두 곳에서 지켜야 한다. 한 부품이면 선언이 하나이고 형태 전환은 `form` 값 하나다.
 - **여러 섹션을 동시에 여는 것이 기본이다**(`defaultExpanded` 생략 = 모두 열림). 이유: 이 화면의 섹션은 서로 대조하며 쓰는 설정이다(범례를 보며 대상을 확인). 하나만 열면 섹션을 오갈 때마다 다른 섹션이 닫혀 값을 잃는 것처럼 보인다. 하나만 열기는 소비자가 `expanded`/`onExpandedChange`로 직접 정할 수 있다(controlled).
-- **섹션 내용은 질의를 소유하지 않는다.** 질의는 Inspector 위에 두고 결과만 `render`에 넘긴다. `stack`은 접힌 섹션도 마운트를 유지하고(`hidden`), `rail`은 peek 중인 섹션만 마운트한다. `form`을 바꾸면 섹션 내용은 다시 마운트되지만(상태 초기화) 호출자의 질의는 그대로다.
-- 펼침 집합의 기억은 `useCollapsePreference` 계열의 키 규칙(`platform:<선호>:<key>`)과 `readLocalStorage`/`writeLocalStorage`를 쓴다. 단일 불리언인 그 훅은 확장하지 않는다(집합이고, 반대쪽 버튼 포커스 이동이 필요 없다).
+- **섹션 내용은 질의를 소유하지 않는다.** 질의는 Inspector 위에 두고 결과만 `render`에 넘긴다. `stack`은 접힌 섹션도 마운트를 유지하고(`hidden`), `rail`은 peek 중인 섹션만 마운트하고 닫힌 섹션의 `render` 콜백은 호출하지 않는다. `form`을 바꾸면 섹션 내용은 다시 마운트되지만(상태 초기화) 호출자의 질의는 그대로다.
+- 펼침 집합의 기억은 `readLocalStorage`/`writeLocalStorage`를 쓰고, 키는 PanelWorkspace와 같은 사용자·메뉴 범위 `platform:inspector-expanded:v1:<user>:<menu>:<persistKey>`다(같은 `persistKey`가 메뉴·사용자 사이에서 섞이지 않는다. 사용자나 라우팅된 메뉴가 없으면 메모리에만 둔다). 단일 불리언인 그 훅은 확장하지 않는다(집합이고, 반대쪽 버튼 포커스 이동이 필요 없다).
 
 ## 하지 않는 것
 

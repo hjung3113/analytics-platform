@@ -2,8 +2,10 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { Network, SlidersHorizontal, Target } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { I18nProvider } from '@ap/kernel';
-import { memoryStorage } from '@ap/kernel/testing';
+import { House } from 'lucide-react';
+import { groupId, spaceId } from '@ap/contracts';
+import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
+import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { Inspector, type InspectorProps, type InspectorSection } from './Inspector';
 
 const mounts: Record<string, number> = {};
@@ -19,8 +21,22 @@ const SECTIONS: InspectorSection[] = [
 const BASE: InspectorProps = { sections: SECTIONS, form: 'stack', label: { ko: '분석 보조', en: 'Analysis inspector' } };
 const shell = (props: Partial<InspectorProps> = {}) => <I18nProvider><Inspector {...BASE} {...props} /></I18nProvider>;
 
+const features = { export: false, savedView: false, annotate: false, compare: false };
+const menu = (id: string, path: string) => ({ id, group: groupId('overview'), primary: id === 'home', label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House, permission: 'platform:view' as const, requiresScope: false, context: { ...noContext, time: 'apply' as const }, pageType: 'analysis' as const, features, pageKeys: [] });
+const registry = createRegistry({
+  spaces: [testSpace()],
+  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
+  menus: [menu('home', '/'), menu('other', '/other')],
+});
+/** The Inspector inside a platform: `user` and the URL path (`/` = menu home, `/other` = menu other) decide the storage scope. */
+const platformShell = (props: Partial<InspectorProps> = {}, user = 'u1') => {
+  const session = testSession(['platform:view'], { user: { id: user, name: user, title: { ko: user, en: user } } });
+  return <I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}><Inspector {...BASE} {...props} /></PlatformProvider></I18nProvider>;
+};
+const SCOPED = (persistKey: string, user = 'u1', menuId = 'home') => `platform:inspector-expanded:v1:${user}:${menuId}:${persistKey}`;
+
 beforeEach(() => { for (const key of Object.keys(mounts)) delete mounts[key]; vi.stubGlobal('localStorage', memoryStorage()); });
-afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
 const header = (name: string) => screen.getByRole('button', { name });
 
@@ -96,29 +112,56 @@ describe('Inspector stack (APG accordion)', () => {
     expect(header('분석 대상')).toHaveAttribute('aria-expanded', 'true');
   });
 
-  it('persistKey restores the expanded set after a remount', () => {
-    const first = render(shell({ persistKey: 'hw.l3' }));
+  it('persistKey restores the expanded set after a remount (same user and menu)', () => {
+    const first = render(platformShell({ persistKey: 'hw.l3' }));
     fireEvent.click(header('범례'));
-    expect(localStorage.getItem('platform:inspector-expanded:hw.l3')).toBe('["target","options"]');
+    expect(localStorage.getItem(SCOPED('hw.l3'))).toBe('["target","options"]');
     first.unmount();
-    render(shell({ persistKey: 'hw.l3' }));
+    render(platformShell({ persistKey: 'hw.l3' }));
     expect(header('범례')).toHaveAttribute('aria-expanded', 'false');
     expect(header('분석 대상')).toHaveAttribute('aria-expanded', 'true');
   });
 
   it('persistKey: another key keeps its own set; unknown stored ids are dropped', () => {
-    localStorage.setItem('platform:inspector-expanded:other', '["legend","gone"]');
-    render(shell({ persistKey: 'other' }));
+    localStorage.setItem(SCOPED('other'), '["legend","gone"]');
+    render(platformShell({ persistKey: 'other' }));
     expect(header('범례')).toHaveAttribute('aria-expanded', 'true');
     expect(header('분석 대상')).toHaveAttribute('aria-expanded', 'false');
   });
 
+  it('isolates the same persistKey across two menus', () => {
+    const first = render(platformShell({ persistKey: 'l3' }));
+    fireEvent.click(header('범례'));
+    first.unmount();
+    window.history.replaceState(null, '', '/other');
+    render(platformShell({ persistKey: 'l3' }));
+    for (const name of ['분석 대상', '범례', '옵션']) expect(header(name)).toHaveAttribute('aria-expanded', 'true');
+    expect(localStorage.getItem(SCOPED('l3', 'u1', 'other'))).toBeNull();
+    expect(localStorage.getItem(SCOPED('l3'))).toBe('["target","options"]');
+  });
+
+  it('isolates the same persistKey and menu across two users', () => {
+    const first = render(platformShell({ persistKey: 'l3' }, 'u1'));
+    fireEvent.click(header('범례'));
+    first.unmount();
+    render(platformShell({ persistKey: 'l3' }, 'u2'));
+    for (const name of ['분석 대상', '범례', '옵션']) expect(header(name)).toHaveAttribute('aria-expanded', 'true');
+    expect(localStorage.getItem(SCOPED('l3', 'u2'))).toBeNull();
+  });
+
+  it('stores nothing without a platform (no user, no menu): the set stays in memory', () => {
+    render(shell({ persistKey: 'l3' }));
+    fireEvent.click(header('범례'));
+    expect(header('범례')).toHaveAttribute('aria-expanded', 'false');
+    expect(localStorage.length).toBe(0);
+  });
+
   it('rejects an invalid persistKey like the other persist keys: console.error, nothing stored', () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    render(shell({ persistKey: 'Bad Key' }));
+    render(platformShell({ persistKey: 'Bad Key' }));
     expect(error).toHaveBeenCalledWith(expect.stringContaining('[Inspector] persistKey "Bad Key" must match'));
     fireEvent.click(header('범례'));
-    expect(localStorage.length).toBe(0);
+    expect(Object.keys(localStorage).filter(key => key.startsWith('platform:inspector'))).toEqual([]);
   });
 });
 
@@ -197,5 +240,59 @@ describe('Inspector mounts (no query ownership)', () => {
     fireEvent.click(header('범례'));
     await screen.findByText('content legend');
     expect(mounts).toEqual({ target: 1, legend: 2, options: 1 });
+  });
+});
+
+describe('Inspector render callbacks (closed sections are never called)', () => {
+  const spies = () => {
+    const calls = { target: vi.fn(() => <Probe id="target" />), legend: vi.fn(() => <Probe id="legend" />), options: vi.fn(() => <Probe id="options" />) };
+    const sections = SECTIONS.map(section => ({ ...section, render: calls[section.id as keyof typeof calls] }));
+    return { calls, sections };
+  };
+  const counts = (calls: Record<string, ReturnType<typeof vi.fn>>) => Object.fromEntries(Object.entries(calls).map(([id, spy]) => [id, spy.mock.calls.length]));
+
+  it('rail: no callback on the initial render', () => {
+    const { calls, sections } = spies();
+    render(shell({ form: 'rail', sections }));
+    expect(counts(calls)).toEqual({ target: 0, legend: 0, options: 0 });
+  });
+
+  it('rail: a tooltip opening and closing calls no callback', async () => {
+    const { calls, sections } = spies();
+    render(shell({ form: 'rail', sections }));
+    header('범례').focus();
+    await screen.findByRole('tooltip');
+    header('범례').blur();
+    await waitFor(() => expect(screen.queryByRole('tooltip')).toBeNull());
+    expect(counts(calls)).toEqual({ target: 0, legend: 0, options: 0 });
+  });
+
+  it('rail: opening and closing a peek calls only that section\'s callback', async () => {
+    const { calls, sections } = spies();
+    render(shell({ form: 'rail', sections }));
+    const button = header('범례');
+    fireEvent.click(button);
+    const content = await screen.findByText('content legend');
+    expect(calls.legend).toHaveBeenCalled();
+    expect(calls.target).not.toHaveBeenCalled();
+    expect(calls.options).not.toHaveBeenCalled();
+    fireEvent.keyDown(content, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByText('content legend')).toBeNull());
+    expect(calls.target).not.toHaveBeenCalled();
+    expect(calls.options).not.toHaveBeenCalled();
+  });
+
+  it('rail: a sibling peek and a sibling tooltip never call the closed sections', async () => {
+    const { calls, sections } = spies();
+    render(shell({ form: 'rail', sections }));
+    fireEvent.click(header('범례'));
+    await screen.findByText('content legend');
+    header('옵션').focus();
+    await screen.findByRole('tooltip');
+    fireEvent.pointerDown(header('옵션'));
+    fireEvent.click(header('옵션'));
+    await screen.findByText('content options');
+    await waitFor(() => expect(screen.queryByText('content legend')).toBeNull());
+    expect(calls.target).not.toHaveBeenCalled();
   });
 });
