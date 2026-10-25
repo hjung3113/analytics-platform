@@ -13,7 +13,7 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
 - `ship-pr.sh`를 쓰려면 이 클론에서 한 번 `git config workerops.protectedBases none`이 필요하다(PR 기준이 main이다).
 - PR마다 `.planning/README.md`의 해당 줄을 같은 PR에서 고친다.
 - 여러 세션이 동시에 일할 때의 흐름(`lane:*`) 분담·함께 쓰는 경로·E2E 포트·릴리스 담당은 [`LANES.md`](LANES.md)다.
-- 병합 권한은 슬라이스 시작 때 한 번 묻는다. 권장 선택지는 "CI·리뷰 통과 시 머지, 사후보고"다. 태그·GitHub Release를 언제 묻는지는 [`LANES.md`](LANES.md)를 따른다(SDK는 팀장이 낸 뒤 보고, 앱 `v0.x`는 태그 전에 묻는다). PR마다 다시 묻지 않는다(#436).
+- 병합 권한은 슬라이스 시작 때 한 번 묻는다(흐름 세션은 묻지 않고 지시서의 권한을 쓴다, [`LANES.md`](LANES.md) §흐름 세션). 권장 선택지는 "CI·리뷰 통과 시 머지, 사후보고"다. 태그·GitHub Release를 언제 묻는지는 [`LANES.md`](LANES.md)를 따른다(SDK는 팀장이 낸 뒤 보고, 앱 `v0.x`는 태그 전에 묻는다). PR마다 다시 묻지 않는다(#436).
 
 ## Launch
 
