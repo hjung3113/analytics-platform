@@ -10,6 +10,7 @@
     "./notifications-slot": "./src/notifications-slot.tsx",
     "./voc-compose-slot": "./src/voc-compose-slot.tsx",
     "./scope-control": "./src/scope-control.tsx",
+    "./nav-counts": "./src/nav-counts.tsx",
     "./home-todo-page": "./src/pages/HomeTodo.tsx",
     "./voc-compose-page": "./src/pages/VocCompose.tsx",
     "./styles.css": "./src/styles.css"

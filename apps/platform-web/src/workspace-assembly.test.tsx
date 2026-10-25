@@ -1,6 +1,6 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { I18nProvider, PlatformProvider, usePlatform, type HomeTodoSlot, type NotificationsSlot, type ScopeControlSlot, type VocComposeSlot } from '@ap/kernel';
+import { I18nProvider, PlatformProvider, usePlatform, type HomeTodoSlot, type NavCountsSlot, type NotificationsSlot, type ScopeControlSlot, type VocComposeSlot } from '@ap/kernel';
 import { testAdapter, testSession } from '@ap/kernel/testing';
 import { createAssembly, type Assembly } from '#platform-assembly';
 import { GROUPS, SPACES, registry } from './menus';
@@ -146,18 +146,20 @@ describe('workspace assembly (#260)', () => {
     const fakeVocCompose: VocComposeSlot = { Compose: () => null };
     const fakeHomeTodo: HomeTodoSlot = { Todo: () => null };
     const fakeScopeControl: ScopeControlSlot = { For: () => null };
-    const slots = appSlots(assembly, null, fakeSlot, fakeVocCompose, fakeHomeTodo, fakeScopeControl);
+    const fakeNavCounts: NavCountsSlot = { For: () => null };
+    const slots = appSlots(assembly, null, fakeSlot, fakeVocCompose, fakeHomeTodo, fakeScopeControl, fakeNavCounts);
     expect(slots.topBarTools).toBe(assembly.topBarTools);
     // The real composition (#251): mapped spaces get three entries, disabled while the origin is absent; operations has no row.
     expect(slots.feedbackOps?.entriesFor(spaceId('metrics'))?.map(entry => [entry.key, entry.href])).toEqual([['voc', null], ['task', null], ['survey', null]]);
     expect(slots.feedbackOps?.entriesFor(spaceId('operations'))).toBeNull();
     expect(slots.feedbackOps?.overall).toBeNull();
-    expect(appSlots(assembly, 'https://feedbackops.example', fakeSlot, fakeVocCompose, fakeHomeTodo, fakeScopeControl).feedbackOps?.entriesFor(spaceId('metrics'))?.every(entry => entry.href?.startsWith('https://feedbackops.example/'))).toBe(true);
-    expect(Object.keys(slots)).toEqual(['contextBar', 'topBarTools', 'feedbackOps', 'plannedSpaces', 'boardEntry', 'notifications', 'vocCompose', 'homeTodo', 'scopeControl']);
+    expect(appSlots(assembly, 'https://feedbackops.example', fakeSlot, fakeVocCompose, fakeHomeTodo, fakeScopeControl, fakeNavCounts).feedbackOps?.entriesFor(spaceId('metrics'))?.every(entry => entry.href?.startsWith('https://feedbackops.example/'))).toBe(true);
+    expect(Object.keys(slots)).toEqual(['contextBar', 'topBarTools', 'feedbackOps', 'plannedSpaces', 'boardEntry', 'notifications', 'vocCompose', 'homeTodo', 'scopeControl', 'navCounts']);
     expect(slots.notifications).toBe(fakeSlot);
     expect(slots.vocCompose).toBe(fakeVocCompose);
     expect(slots.homeTodo).toBe(fakeHomeTodo);
     expect(slots.scopeControl).toBe(fakeScopeControl);
+    expect(slots.navCounts).toBe(fakeNavCounts);
     // Planned systems are display-only rows for the switcher: no Registry space or menu carries their id.
     // CLAS left the planned list for a real space (#590); log-dev and improvement left it in #252.
     expect(slots.plannedSpaces).toEqual([]);

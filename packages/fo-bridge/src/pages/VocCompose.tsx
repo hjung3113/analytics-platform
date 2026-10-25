@@ -1,8 +1,22 @@
 import { useCallback } from 'react';
+import { spaceId } from '@ap/contracts';
 import type { VocComposeProps } from '@ap/kernel';
 import { VocComposeScreen } from '@fops/frontend/global-screens';
 import { FoBridge } from '../fo/FoBridge';
 import { foQueryClient } from '../fo/session';
+
+const FEEDBACKOPS = spaceId('feedbackops');
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * The form's initial Managed System (ADR-0070 decision 5): a FeedbackOps screen's carried `managedSystem` when it is one UUID, otherwise the
+ * app's `managedSystemFor`. The screen still uses it only when the user's list holds it.
+ */
+export function initialManagedSystem(context: Pick<VocComposeProps['context'], 'spaceId' | 'carried'>, managedSystemFor: (spaceId: string | null) => string | null): string | null {
+  const carried = context.carried.managedSystem;
+  if (context.spaceId === FEEDBACKOPS && carried !== undefined && UUID.test(carried)) return carried;
+  return managedSystemFor(context.spaceId);
+}
 
 /**
  * The `VOC 등록` form from FeedbackOps in the rail drawer (ADR-0070 decisions 4–5, ADR-0071). The frozen Context becomes the `화면 정보` block of the
@@ -17,7 +31,7 @@ export default function VocCompose({ context, onSubmitted, onCancel, onDirtyChan
   }, [onSubmitted]);
   return <div className="h-full min-h-0">
     <FoBridge>
-      <VocComposeScreen contextBlock={{ items: context.items.map(({ label, value }) => ({ label, value })), href: context.href }} initialManagedSystemId={managedSystemFor(context.spaceId)}
+      <VocComposeScreen contextBlock={{ items: context.items.map(({ label, value }) => ({ label, value })), href: context.href }} initialManagedSystemId={initialManagedSystem(context, managedSystemFor)}
         onSubmitted={submitted} onCancel={onCancel} onDirtyChange={onDirtyChange} />
     </FoBridge>
   </div>;

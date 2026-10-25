@@ -23,6 +23,7 @@ ADR-0066은 모든 사용자가 쓰는 FeedbackOps 기능(VOC 등록·내 VOC·�
    - 본문을 밀어낸다. 본문을 덮는 overlay가 아니다.
    - 열 때 지금 화면의 Context를 고정해 지울 수 있는 칩으로 보인다: 시스템·메뉴, URL page key, 집계 단위, 시각까지 쓴 기간, Global Context(Condition·Selection 포함), 열려 있는 상세 엔티티, 보이는 Correlation ID. 지운 칩은 첨부하지 않는다.
    - Managed System과 Analytics Area는 [ADR-0068](0068-permission-scope-and-business-system-link.md)의 연결에서 채운다. 연결이 없으면 사용자가 명시적으로 고른다. 화면 이름으로 추정하지 않는다.
+   - Amended (#761 761p1b): FeedbackOps 화면에서 열면 그 화면의 `managedSystem` 값이 UUID 하나이고 사용자 목록에 있을 때 양식의 Managed System을 미리 고른다. 아니면 위처럼 명시적으로 고른다. 화면 이름으로 추정하지 않는 점은 그대로다.
    - 오른쪽 패널은 한 번에 하나다. 상세와 드로어를 바꿔 열어도 초안과 상세 선택은 남는다.
    - 내용이 있는 초안을 닫으면 드로어 안에서 확인을 묻는다(`작성 중인 내용을 버릴까요?`).
    - Esc는 포커스가 드로어 안에 있을 때만 받는다. 닫으면 포커스가 트리거로 돌아간다. 모달이 열리면 맨 위 포커스는 모달이 갖는다.
