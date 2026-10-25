@@ -1,7 +1,7 @@
 /**
  * External host modules mounted into the app (ADR-0053): the first one is EV's `eqv` (Top View, Focus), installed from its release
  * tarballs (EV ADR-0014). `menus.ts` composes the result at the registry call; GROUPS/MENUS stay platform-only.
- * Placement is provisional and lives in these two constants only; the owner confirms the space from captures.
+ * Placement is the owner's decision (2026-10-25): the "tools" space; it lives in these two constants only.
  * `apps/platform-e2e/tests/eqv.spec.ts` holds the black-box copy of the path — update it with them.
  */
 import { lazy } from 'react';
@@ -10,8 +10,8 @@ import { menuPermission, spaceId, type Permission } from '@ap/contracts';
 import { mountModule, type ModuleGroupDef, type ModuleMenuEntry, type Registry } from '@ap/kernel';
 import { eqvManifest } from '@eqv/platform-adapter/manifest';
 
-export const EQV_SPACE = spaceId('clas');
-export const EQV_PREFIX = '/clas/topview';
+export const EQV_SPACE = spaceId('tools');
+export const EQV_PREFIX = '/tools/topview';
 
 export const EQV_MODULE: { menus: ModuleMenuEntry[]; groups: ModuleGroupDef[] } = mountModule(eqvManifest, {
   topview: lazy(() => import('@eqv/platform-adapter').then(m => ({ default: m.eqvScreens.topview }))),

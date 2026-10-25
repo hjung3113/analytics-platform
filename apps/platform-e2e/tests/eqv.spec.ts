@@ -7,7 +7,7 @@ import { evidence, signInAs } from './support';
  * (naive seconds, no `Z`). The placement below is the provisional one in `apps/platform-web/src/modules.ts` — update both together.
  * The server-side refusal of a viewer (`without eqv:view → forbidden`) is the conformance test; the client gate renders first here.
  */
-const TOPVIEW = '/clas/topview?equipment=eq-synth-01&from=2026-01-01T10:00:00&to=2026-01-01T10:30:00';
+const TOPVIEW = '/tools/topview?equipment=eq-synth-01&from=2026-01-01T10:00:00&to=2026-01-01T10:30:00';
 const MENU = '설비 Top View';
 const sidebar = (page: Page) => page.getByRole('navigation', { name: '주 메뉴' });
 
