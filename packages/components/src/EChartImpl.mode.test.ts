@@ -38,21 +38,24 @@ describe('setOptionMode (#705)', () => {
     expect(setOptionMode(null, optionOf([line('a', [1, 2])]))).toEqual({ notMerge: true });
   });
 
-  it('a re-render with the same shape keeps the dataZoom and grid models and replaces the other component types', () => {
+  it('a re-render with the same shape keeps the dataZoom, grid and brush models and replaces the other component types', () => {
     const first = optionOf([line('a', [1, 2, 3])]);
     const chart = chartWith(first);
     const zoom = modelOf(chart, 'dataZoom');
     const grid = modelOf(chart, 'grid');
+    const brush = modelOf(chart, 'brush');
     const next = optionOf([line('a', [1, 2, 3])], { zoom: [20, 80] });
     const mode = setOptionMode(first, next);
     expect(mode).toHaveProperty('replaceMerge');
     expect((mode as { replaceMerge: string[] }).replaceMerge).toEqual(expect.arrayContaining(['series', 'xAxis', 'yAxis']));
     expect((mode as { replaceMerge: string[] }).replaceMerge).not.toContain('dataZoom');
     expect((mode as { replaceMerge: string[] }).replaceMerge).not.toContain('grid');
+    expect((mode as { replaceMerge: string[] }).replaceMerge).not.toContain('brush');
     expect((mode as { replaceMerge: string[] }).replaceMerge).not.toContain('textStyle');
     chart.setOption(next, mode);
     expect(modelOf(chart, 'dataZoom')).toBe(zoom);
     expect(modelOf(chart, 'grid')).toBe(grid);
+    expect(modelOf(chart, 'brush')).toBe(brush);
     const dz = (chart.getOption().dataZoom as { start: number; end: number }[])[0];
     expect([dz.start, dz.end]).toEqual([20, 80]);
   });
@@ -79,10 +82,12 @@ describe('setOptionMode (#705)', () => {
     expect(series.find(entry => entry.id === 'a')?.label?.show).not.toBe(true);
   });
 
-  it('rebuilds when dataZoom goes away or changes shape, or the grid shape changes', () => {
+  it('rebuilds when dataZoom goes away or changes shape, or the grid or brush shape changes', () => {
     const first = optionOf([line('a', [1, 2])]);
     expect(setOptionMode(first, { ...first, grid: [{}, {}] })).toEqual({ notMerge: true });
     expect(setOptionMode(first, { ...first, grid: { ...(first.grid as object), containLabel: true } })).toEqual({ notMerge: true });
+    const { xAxisIndex: _x, ...brush } = first.brush as Record<string, unknown>;
+    expect(setOptionMode(first, { ...first, brush: { ...brush, yAxisIndex: 0 } })).toEqual({ notMerge: true });
     expect(setOptionMode(first, { ...first, dataZoom: [] })).toEqual({ notMerge: true });
     expect(setOptionMode(first, { ...first, dataZoom: [{ type: 'inside', yAxisIndex: 0 }] })).toEqual({ notMerge: true });
   });
