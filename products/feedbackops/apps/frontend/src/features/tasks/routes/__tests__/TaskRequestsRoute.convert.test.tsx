@@ -168,6 +168,11 @@ vi.mock('@/lib/api', () => ({
   requestMoreEvidenceForTaskRequest: vi.fn(),
   resolveActors: vi.fn(async () => ({ actors: [], teams: [] })),
 }));
+// The editor imports the module path; forward at call time to the barrel fake above.
+vi.mock('@/lib/api/actors', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/actors')>()),
+  resolveActors: (...args: Parameters<typeof resolveActors>) => resolveActors(...args),
+}));
 
 function renderRoute(requestedOutcome = requestedOutcome225) {
   taskRequest.requested_outcome = requestedOutcome;

@@ -56,7 +56,8 @@ It does not own reporter-facing VOC status or source evidence visibility rules.
 - `apps/frontend/src/features/tasks/routes/task-requests/useTaskRequestPanelController.ts` — source Area
   defaults and canonical outcome reconciliation; section components render the view.
 - `apps/frontend/src/features/findings/hooks/useFindingDetail.ts` — bridge-safe Finding source read used for Task Request defaults.
-- `apps/frontend/src/features/tasks/components/TaskDetailPanel.tsx` — Task detail and status actions.
+- `apps/frontend/src/features/tasks/components/TaskDetailParts.tsx` — bridge-safe Task detail parts (`useTaskDetailParts`, entry `operator-screens/task-detail`): reads, sections, links, notices and title go through the host seam.
+- `apps/frontend/src/features/tasks/components/TaskDetailPanel.tsx` — standalone frame around the Task detail parts.
 - `apps/frontend/src/features/tasks/components/MilestoneRow.tsx` — Milestone list row.
 - `apps/frontend/src/features/tasks/components/MilestoneDetailPanel.tsx` —
   compatibility exports for the Milestone panels.
