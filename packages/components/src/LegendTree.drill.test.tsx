@@ -1,5 +1,6 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from '@ap/kernel';
 import { LegendTree, type LegendTreeNode, type LegendTreeProps } from './index';
@@ -176,5 +177,56 @@ describe('LegendTree drill', () => {
     expect(screen.getByRole('button', { name: '모두 보이기' })).toBeTruthy();
     view.rerender(tree({ onDrill: undefined, visible: new Set() }));
     expect(screen.queryByRole('button', { name: '모두 보이기' })).toBeNull();
+  });
+
+  it.each(['{Enter}', ' '])('moves focus to the active row when keyboard activation of 모두 보이기 removes it (%j)', async key => {
+    const user = userEvent.setup();
+    function Host() {
+      const [visible, setVisible] = useState(new Set<string>());
+      return tree({ visible, onVisibleChange: setVisible });
+    }
+    const Stateful = () => <Host />;
+    render(<Stateful />);
+    await user.tab();
+    expect(screen.getByRole('button', { name: '모두 보이기' })).toHaveFocus();
+    await user.keyboard(key);
+    expect(screen.queryByRole('button', { name: '모두 보이기' })).toBeNull();
+    expect(document.activeElement).toBe(row('eq'));
+  });
+
+  it('does not move focus when it had already left 모두 보이기 before the button was removed', async () => {
+    const user = userEvent.setup();
+    const outside = document.createElement('button');
+    document.body.appendChild(outside);
+    const view = render(tree({ visible: new Set() }));
+    await user.tab();
+    act(() => outside.focus());
+    view.rerender(tree({ visible: new Set(['eq.solo']) }));
+    expect(outside).toHaveFocus();
+    outside.remove();
+  });
+
+  it('treats an empty-string currentId as a real id: initial and later', () => {
+    const emptyNodes: LegendTreeNode[] = [
+      { id: 'a', label: 'A', children: [{ id: '', label: 'Empty', children: [{ id: 'a.x', label: 'AX' }] }] },
+      { id: 'b', label: 'B', children: [{ id: 'b.x', label: 'BX' }] },
+    ];
+    const view = render(tree({ nodes: emptyNodes, currentId: '' }));
+    expect(row('a')).toHaveAttribute('aria-expanded', 'true');
+    expect(row('b')).toHaveAttribute('aria-expanded', 'false');
+    view.unmount();
+    const later = render(tree({ nodes: emptyNodes, currentId: 'b.x' }));
+    later.rerender(tree({ nodes: emptyNodes, currentId: '' }));
+    expect(row('a')).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('leaves controlled expansion to the caller when currentId changes', () => {
+    const onExpandedChange = vi.fn();
+    const view = render(tree({ currentId: null, expanded: new Set(), onExpandedChange }));
+    view.rerender(tree({ currentId: 'eq.m.leaf', expanded: new Set(), onExpandedChange }));
+    expect(screen.queryAllByRole('treeitem').map(el => el.getAttribute('data-id'))).toEqual(['eq', 'step', 'other']);
+    expect(onExpandedChange).not.toHaveBeenCalled();
+    view.rerender(tree({ currentId: 'eq.m', expanded: new Set() }));
+    expect(row('eq')).toHaveAttribute('aria-expanded', 'false');
   });
 });

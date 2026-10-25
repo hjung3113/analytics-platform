@@ -362,10 +362,23 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const valueLabels = horizontal && p.stacked ? p.valueLabels : undefined;
   const wantsTotal = valueLabels === 'total' || valueLabels === 'both';
   const mayClientSum = p.reaggregation !== undefined && canClientSum({ reaggregation: p.reaggregation });
+  // The all-off notice's button unmounts once a series shows again: focus moves to the plot only if the button still held it.
+  const showAllButton = useRef<HTMLButtonElement | null>(null);
+  const showAllHadFocus = useRef(false);
   const showAllSeries = () => {
+    showAllHadFocus.current = document.activeElement === showAllButton.current;
     if (p.visibleSeriesIds === undefined) setHidden(new Set());
     onVisibleSeriesChange?.(allSeries.map(s => s.id));
   };
+  useLayoutEffect(() => {
+    if (!showAllHadFocus.current) return;
+    if (showAllButton.current?.isConnected) {
+      if (document.activeElement !== showAllButton.current) showAllHadFocus.current = false;
+      return;
+    }
+    showAllHadFocus.current = false;
+    if (document.activeElement === document.body) pointChart.current?.focus({ preventScroll: true });
+  });
   const anyHidden = allSeries.some(s => !visible.includes(s));
   const { serverTotals } = p;
   const totals = useMemo(() => (wantsTotal ? resolveRowTotals({ displayed, categories, mayClientSum, allShown: !anyHidden, serverTotals }) : undefined), [wantsTotal, displayed, categories, mayClientSum, anyHidden, serverTotals]);
@@ -643,11 +656,11 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
     <AnalysisChartPart enabled={analysisSection !== null} body>
     {allSeries.length > 0 && visible.length === 0 && <>
       <p role="status" className="px-4 py-3 text-text-secondary">{lang === 'ko' ? '표시할 시리즈를 모두 껐습니다' : 'All series are turned off'}</p>
-      <Button type="button" variant="ghost" size="toolbar" className="mx-4 mb-3" onClick={showAllSeries}>{lang === 'ko' ? '모두 보이기' : 'Show all'}</Button>
+      <Button ref={showAllButton} type="button" variant="ghost" size="toolbar" className="mx-4 mb-3" onClick={showAllSeries}>{lang === 'ko' ? '모두 보이기' : 'Show all'}</Button>
     </>}
     <div ref={node => { pointChart.current = node; fill.ref(node); wheelPassThrough(node); }} className={cn('px-2', size === 'fill' && (rowPitch !== undefined ? (loweredFill ? FILL_PLOT_SCROLL_BASE_CLASS : FILL_PLOT_SCROLL_CLASS) : (loweredFill ? FILL_PLOT_BASE_CLASS : FILL_PLOT_CLASS)), rowPitch !== undefined && 'overflow-y-auto')}
       // eslint-disable-next-line shadcn/no-inline-styles -- the scroll window is the given height at runtime
-      style={rowPitch !== undefined && size !== 'fill' ? { maxHeight: viewportHeight } : size === 'fill' && loweredFill ? { minHeight: fillMin } : undefined} role={pointControls ? 'group' : undefined} aria-label={pointControls ? (lang === 'ko' ? '차트 지점' : 'Chart points') : undefined} tabIndex={pointControls ? 0 : undefined}
+      style={rowPitch !== undefined && size !== 'fill' ? { maxHeight: viewportHeight } : size === 'fill' && loweredFill ? { minHeight: fillMin } : undefined} role={pointControls ? 'group' : undefined} aria-label={pointControls ? (lang === 'ko' ? '차트 지점' : 'Chart points') : undefined} tabIndex={pointControls ? 0 : -1}
       onContextMenu={event => { if (hasPointActions) event.preventDefault(); }}
       onKeyDown={event => {
         if ((event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) && hasPointActions) {

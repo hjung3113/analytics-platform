@@ -21,7 +21,7 @@ HW Time 소비자는 `onSelect` 없이 `LegendTree`를 쓰고 이름 클릭이 �
 - `drillOnly` 노드는 보이기 잎에 기여하지 않고 `aria-checked`·체크박스가 없으며 `›` 표식과 설명 `Enter: 이 단계로 이동`(`aria-describedby`, 읽기 전용 정렬 설명 유지)을 갖는다. Space는 보이기를 바꾸지 않는다.
 - `onDrill`이 있으면 Enter는 모든 줄에서 `onDrill`을 부르고 펼치지 않으며 `onSelect`를 부르지 않는다. `aria-selected`는 쓰지 않고 현재 단계는 `aria-current="true"`와 굵은 글자·2px 시작선이다. `onDrill`이 없으면 ADR-0057의 키보드 계약이 그대로다.
 - `aria-multiselectable="true"`는 체크박스가 하나라도 있을 때 둔다.
-- `currentId`가 트리에 있고 펼침 prop이 없으면 첫 열림은 그 조상만이다. 이후 `currentId`가 바뀌면 닫힌 조상만 열고 사용자가 연 가지는 닫지 않는다.
+- `currentId`가 트리에 있고 펼침 prop이 없으면 첫 열림은 그 조상만이다. 이후 `currentId`가 바뀌면(펼침을 제어하지 않는 uncontrolled일 때만) 닫힌 조상만 열고 사용자가 연 가지는 닫지 않는다. `expanded`를 넘긴 제어형은 호출자가 `expanded`를 소유하므로 자동으로 열지 않고 `onExpandedChange`도 부르지 않는다 — 현재 항목까지의 경로는 호출자가 연다.
 - 드릴은 `visible`을 바꾸지 않는다. 모든 잎이 꺼지면 트리 머리(`onDrill`이 있을 때)와 `AnalysisChartFrame`의 상태 문장 옆에 `모두 보이기` 버튼을 둔다.
 
 ## 되돌리기

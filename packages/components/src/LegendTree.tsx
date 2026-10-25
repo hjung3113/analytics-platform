@@ -26,7 +26,7 @@ export type LegendTreeProps = {
   onSelect?: (id: string) => void;
   /** Enables drill: Enter on any row, a `drillOnly` row click and a trailing button on series rows that have children. Never changes `visible`. */
   onDrill?: (id: string) => void;
-  /** The current drill node (`aria-current`). A non-null id opens only its ancestors when no expansion prop is passed. */
+  /** The current drill node (`aria-current`). A non-null id opens only its ancestors when no expansion prop is passed; later changes reveal closed ancestors only for uncontrolled expansion (a controlled `expanded` is the caller's to open). */
   currentId?: string | null;
   /** Expansion mode is fixed per mount; controlled expansion without a callback is read-only. */
   expanded?: ReadonlySet<string>;
@@ -90,7 +90,7 @@ export function LegendTree(props: LegendTreeProps) {
   const model = useMemo(() => describeNodes(nodes), [nodes]);
   const [controlled] = useState(() => expanded !== undefined);
   const [internalExpanded, setInternalExpanded] = useState(() => {
-    const current = currentId ? model.byId.get(currentId) : undefined;
+    const current = currentId != null ? model.byId.get(currentId) : undefined;
     if (current && expanded === undefined && defaultExpanded === undefined && !onExpandedChange) return new Set(current.path.slice(0, -1));
     return new Set(defaultExpanded ?? model.branches);
   });
@@ -98,7 +98,7 @@ export function LegendTree(props: LegendTreeProps) {
   if (seenCurrent !== currentId) {
     // Render-phase adjustment: a moved current node opens its closed ancestors and never closes anything.
     setSeenCurrent(currentId);
-    const current = currentId ? model.byId.get(currentId) : undefined;
+    const current = currentId != null ? model.byId.get(currentId) : undefined;
     const missing = current && !controlled ? current.path.slice(0, -1).filter(id => !internalExpanded.has(id)) : [];
     if (missing.length) setInternalExpanded(new Set([...internalExpanded, ...missing]));
   }
@@ -122,6 +122,9 @@ export function LegendTree(props: LegendTreeProps) {
   const rows = useRef(new Map<string, HTMLDivElement>());
   const focused = useRef<HTMLElement | null>(null);
   const ownsFocus = useRef(false);
+  const showAllFocused = useRef(false);
+  // Gated on onDrill: callers without the new props (and their Tab-order tests) render exactly as before.
+  const allOff = !!onDrill && model.leaves.length > 0 && model.leaves.every(id => !visible.has(id));
   const warnedDuplicate = useRef(false);
   const warnedMode = useRef(false);
 
@@ -141,6 +144,8 @@ export function LegendTree(props: LegendTreeProps) {
   useEffect(() => {
     const onFocus = (event: FocusEvent) => {
       if (event.target instanceof Node && !root.current?.contains(event.target)) ownsFocus.current = false;
+      // Focus that moved anywhere else (a removal fires no focusin) means the head button no longer owns it.
+      if (!(event.target instanceof HTMLElement && event.target.hasAttribute('data-legend-show-all'))) showAllFocused.current = false;
     };
     document.addEventListener('focusin', onFocus);
     return () => document.removeEventListener('focusin', onFocus);
@@ -152,6 +157,11 @@ export function LegendTree(props: LegendTreeProps) {
       && (document.activeElement === document.body || root.current?.contains(document.activeElement))) {
       (active ? rows.current.get(active.key) : root.current)?.focus();
     }
+    // The head button unmounts once a leaf is visible; hand its focus to the active row, but only if it still held it.
+    if (showAllFocused.current && !allOff && document.activeElement === document.body) {
+      (active ? rows.current.get(active.key) : root.current)?.focus();
+    }
+    if (!allOff) showAllFocused.current = false;
   });
 
   function focus(entry: Entry | undefined) {
@@ -301,10 +311,9 @@ export function LegendTree(props: LegendTreeProps) {
     </div>;
   }
 
-  // Gated on onDrill: callers without the new props (and their Tab-order tests) render exactly as before.
-  const allOff = !!onDrill && model.leaves.length > 0 && model.leaves.every(id => !visible.has(id));
   return <>
-    {allOff && <Button type="button" variant="ghost" size="toolbar" onClick={showAll}>{lang === 'ko' ? '모두 보이기' : 'Show all'}</Button>}
+    {allOff && <Button type="button" variant="ghost" size="toolbar" onClick={showAll} data-legend-show-all=""
+      onFocus={() => { showAllFocused.current = true; }}>{lang === 'ko' ? '모두 보이기' : 'Show all'}</Button>}
   <div ref={root} role="tree" aria-label={label} aria-multiselectable={model.checkable ? true : undefined}
     className={cn('focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2', className)} tabIndex={shown.length ? -1 : 0}
     onFocusCapture={event => { focused.current = event.target; ownsFocus.current = true; }}>

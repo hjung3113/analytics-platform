@@ -1,5 +1,6 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { House } from 'lucide-react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
@@ -197,6 +198,28 @@ describe('AnalysisChartFrame SDK pieces (#541)', () => {
     expect(onVisibleSeriesChange).toHaveBeenCalledWith(['one', 'two']);
     expect(screen.queryByText('표시할 시리즈를 모두 껐습니다')).toBeNull();
     expect(screen.queryByRole('button', { name: '모두 보이기' })).toBeNull();
+  });
+  it.each(['{Enter}', ' '])('moves focus to the plot when keyboard activation of 모두 보이기 removes it (%j)', async key => {
+    const user = userEvent.setup();
+    await mount({ pointActivation: { on: 'click', onActivate: vi.fn() } });
+    await user.click(screen.getByRole('checkbox', { name: 'One' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Two' }));
+    screen.getByRole('button', { name: '모두 보이기' }).focus();
+    await user.keyboard(key);
+    expect(screen.queryByRole('button', { name: '모두 보이기' })).toBeNull();
+    expect(document.activeElement).toBe(screen.getByRole('group', { name: '차트 지점' }));
+  });
+  it('does not move focus when it left 모두 보이기 before the button was removed', async () => {
+    const user = userEvent.setup();
+    const view = await mount({ visibleSeriesIds: [], onVisibleSeriesChange: vi.fn() });
+    const outside = document.createElement('button');
+    document.body.appendChild(outside);
+    screen.getByRole('button', { name: '모두 보이기' }).focus();
+    await user.keyboard('{Enter}');
+    act(() => outside.focus());
+    view.rerender(frame({ visibleSeriesIds: ['one'], onVisibleSeriesChange: vi.fn() }));
+    expect(outside).toHaveFocus();
+    outside.remove();
   });
   it('includes the compare series in show-all only while compare is on', async () => {
     const onVisibleSeriesChange = vi.fn();
