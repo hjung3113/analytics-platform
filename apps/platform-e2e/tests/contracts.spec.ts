@@ -2881,7 +2881,7 @@ test.describe('차트 계약 (06 §16 — Brush → 구간 적용 확인, 주석
     await page.mouse.down();
     await page.mouse.move(box.x + box.width * 0.65, box.y + box.height * 0.5, { steps: 8 });
     await page.mouse.up();
-    await expect(frame.getByRole('region', { name: '선택 요약' })).toContainText('선택 구간');
+    await expect(frame.getByRole('region', { name: '선택 요약' })).toContainText(/선택 구간: /); // the empty state reads `선택 구간 없음`
   }
 
   test('Brush는 URL을 바꾸지 않고, 구간 적용은 확인을 거쳐야만 전역 기간을 바꾼다', async ({ page }, testInfo) => {

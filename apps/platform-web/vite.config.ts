@@ -35,6 +35,8 @@ export default defineConfig(({ mode, command, isPreview = false }) => {
   return {
     base: process.env.AP_BASE_PATH ?? '/',
     plugins: [tailwindcss(), ...(guardGraph(mode) ? [prodGraphGuard()] : [])],
+    // Bare `echarts/*` entries are imported only inside a lazy chunk: without this list a warm dep cache that predates a new entry makes the dev server re-optimize and reload the page mid-interaction (#580 DIAG1).
+    optimizeDeps: { include: ['echarts/core', 'echarts/charts', 'echarts/components', 'echarts/features', 'echarts/renderers'].map(entry => `@ap/components > ${entry}`) },
     resolve: { alias: { '@': FO_SRC, ...assemblyAlias(choice) } },
     server: choice.kind === 'real-dev' ? { proxy: realDevProxy(BACKEND_ORIGIN) } : undefined,
     // @eqv/* ships compiled ESM that imports the workspace @ap/* sources (TypeScript with `.js` specifiers): vite-node must transform it, not hand it to Node.
