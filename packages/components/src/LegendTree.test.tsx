@@ -212,7 +212,7 @@ describe('LegendTree', () => {
     expect(row('a.2')).toHaveAttribute('aria-selected', 'true');
     expect(row('b')).toHaveAttribute('aria-selected', 'false');
     expect(row('a.2').firstElementChild).toHaveClass('font-semibold', 'bg-surface-row-selected');
-    expect(screen.getByRole('tree')).not.toHaveAttribute('aria-multiselectable');
+    expect(screen.getByRole('tree')).toHaveAttribute('aria-multiselectable', 'true');
     await user.keyboard('{Enter}');
     fireEvent.click(screen.getByText('A2'));
     expect(onSelect.mock.calls).toEqual([['b'], ['a.2']]);
