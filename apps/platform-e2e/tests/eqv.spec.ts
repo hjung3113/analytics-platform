@@ -21,7 +21,7 @@ test.describe('EV host module (#801)', () => {
     await evidence(page, testInfo, 'eqv-topview');
 
     await page.getByRole('button', { name: 'Focus 열기' }).click();
-    await expect(page).toHaveURL(/\/clas\/topview\/focus\?.*anchor=/);
+    await expect(page).toHaveURL(/\/tools\/topview\/focus\?.*anchor=/);
     const occurrences = page.getByRole('grid', { name: 'Occurrence 목록' });
     await expect(occurrences).toBeVisible({ timeout: 15_000 });
     await expect(occurrences.getByRole('row').nth(1)).toBeVisible();
