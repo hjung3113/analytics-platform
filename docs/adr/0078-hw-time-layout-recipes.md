@@ -35,3 +35,5 @@ SDK 조각:
 - S4 `DrillPath`/`DrillLayout` `summary` 슬롯 — 이 ADR과 같은 변경.
 
 만들지 않는 것: 동기화 그룹 Context, 선언형 레시피 층(메뉴 도우미로 남김), 단계 인식 저장(단계별 `persistKey`로 대신), 엔진 행 접기(S2c), `@ap/ui` Accordion, 깊이 3 초과, #575 P2 항목(전환기·실행 취소·보호 패널).
+
+#580 노드 580g: 세 차트 메뉴가 `AnalysisChartFrame`의 값·합계 라벨(`valueLabels="both"`, `reaggregation="sum"`)과 범례 트리 드릴(`onDrill`·`currentId`, ADR-0084)을 채택했다. 트리는 단계마다 평평하다(L1 응답에 Motion 목록이 없다).

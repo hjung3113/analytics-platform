@@ -82,4 +82,41 @@ test.describe('HW Time 메뉴 4종 — 드릴 · 작업 영역 · 보드 (06 §1
       await evidence(page, testInfo, `${menu.id}-board-pane`);
     });
   }
+
+  for (const menu of MENUS.filter(item => item.entry === 'chart')) {
+    test(`${menu.label}: L1 합계 라벨, 범례 트리 Enter로 L2, 현재 노드 aria-current`, async ({ page }) => {
+      await page.goto(`${menu.path}?v=1&scopeId=MEM`);
+      await expectScopeValid(page, 'MEM · 메모리');
+      // The Frame's accessible table carries the 합계 column only when the chart draws totals (valueLabels, additive seconds).
+      // The first chart Frame (its toolbar has 구간 선택); the page head has its own 더보기.
+      const chart = page.getByRole('main').locator('section').filter({ has: page.getByRole('button', { name: '구간 선택' }) }).first();
+      await chart.getByRole('button', { name: '더보기', exact: true }).click();
+      await page.getByRole('button', { name: '같은 데이터를 표로 보기' }).click();
+      await expect(page.getByRole('columnheader', { name: '합계', exact: true }).first()).toBeVisible();
+      // The 더보기 popover stays open with the toggled item; close it and wait, or it takes focus back from the tree and swallows Enter.
+      const hideTable = page.getByRole('button', { name: '데이터 표 숨기기' });
+      await expect(hideTable).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(hideTable).toBeHidden();
+      const tree = page.getByRole('tree', { name: '계층 범례' });
+      // The compare and overview Inspectors are rails: the legend of compare opens from its button, overview has the legend panel.
+      if (menu.id === 'hw-time-compare') await page.getByRole('button', { name: '계층 범례' }).click();
+      const moduleItem = tree.getByRole('treeitem', { name: new RegExp(MODULE) });
+      await moduleItem.focus();
+      // Every row is a drill target at its level: the trailing button names the target and the row announces Enter.
+      await expect(moduleItem.getByRole('button', { name: `${MODULE} 단계로 이동` })).toBeVisible();
+      const describedBy = await moduleItem.getAttribute('aria-describedby');
+      await expect(page.locator(`[id="${describedBy!.split(' ')[0]}"]`)).toHaveText('Enter: 이 단계로 이동');
+      await page.keyboard.press('Enter');
+      await expect.poll(() => query(page).get('drillModule')).toBe(MODULE);
+      expect(query(page).has('drillMotion')).toBe(false);
+      if (menu.id === 'hw-time-compare') await page.getByRole('button', { name: '계층 범례' }).click();
+      await tree.getByRole('treeitem', { name: new RegExp(MOTION) }).focus();
+      await page.keyboard.press('Enter');
+      await expect.poll(() => query(page).get('drillMotion')).toBe(MOTION);
+      // Drilling navigates, which closes the compare rail's peek; reopen it to read the tree.
+      if (menu.id === 'hw-time-compare' && !(await tree.count())) await page.getByRole('button', { name: '계층 범례' }).click();
+      await expect(tree.getByRole('treeitem', { name: new RegExp(MOTION) })).toHaveAttribute('aria-current', 'true');
+    });
+  }
 });

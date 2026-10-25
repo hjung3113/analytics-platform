@@ -12,6 +12,7 @@ import type { ThemeColorToken } from '@ap/ui/theme';
 import { HW_TIME_MAX_TREND_ROWS, HW_TIME_UNIT, isHwTimeRowId, type HwTimeBlock, type HwTimeDrill, type HwTimeLevelData } from '../../endpoints';
 import { useHwTimeLevel, useHwTimeTrend } from '../../shared/data';
 import { formatSeconds, missingText } from '../../shared/format';
+import { selectionCounts } from '../../shared/selectionCounts';
 import { StackPanel, type StackSort } from '../../shared/panels/StackPanel';
 import { TrendPanel } from '../../shared/panels/TrendPanel';
 import { formatTrendKey, parseTrendKey } from '../../shared/trendKey';
@@ -30,6 +31,10 @@ export default function StepsPage(_props: PageProps) {
   const drill = useDrill();
   const module = drill.levels[0]?.value ?? null;
   const motion = drill.levels[1]?.value ?? null;
+  // Tree drill does what the chart segment click does at this level: Module at L1, Motion at L2, and at L3 a switch to another Motion.
+  const drillTo = (id: string) => drill.enter(drill.depth === 0 ? 'drillModule' : 'drillMotion', id);
+  // Only L3 has a drilled node among the series; at L2 the Module is not one of the Motion nodes.
+  const currentId = drill.depth === 2 ? motion : null;
   const params: HwTimeDrill = { ...(module ? { drillModule: module } : {}), ...(module && motion ? { drillMotion: motion } : {}) };
   const levelQ = useHwTimeLevel(params, drill.invalid === null);
 
@@ -43,6 +48,7 @@ export default function StepsPage(_props: PageProps) {
   const align = pageParam('align') === '1';
   const minmax = pageParam('minmax') === '1';
 
+  // Keyed by Module and Motion on purpose: at L3 the series are that Motion's detail, so another Motion is another series set.
   const levelKey = `${module ?? ''}/${motion ?? ''}`;
   const [hiddenState, setHiddenState] = useState<{ key: string; ids: string[] }>({ key: levelKey, ids: [] });
   const hidden = hiddenState.key === levelKey ? hiddenState.ids : [];
@@ -59,9 +65,7 @@ export default function StepsPage(_props: PageProps) {
 
   const response = levelQ.response?.outcome === 'ok' ? levelQ.response.data : null;
   const block = response ? bodyBlock(response) : null;
-  const dataRows = block?.rows.filter(row => !row.auxiliary) ?? [];
-  const selected = new Set(dataRows.map(row => row.equipmentId)).size;
-  const evaluated = new Set(dataRows.filter(row => Object.values(row.values).some(value => value !== null)).map(row => row.equipmentId)).size;
+  const counts = block ? selectionCounts(block) : null;
 
   const addTrend = (rowId: string) => {
     if (!isHwTimeRowId(rowId) || trendRows.includes(rowId)) return;
@@ -94,9 +98,9 @@ export default function StepsPage(_props: PageProps) {
   const sections: InspectorSection[] = [
     {
       id: 'target', title: { ko: '분석 대상', en: 'Target' }, icon: Target,
-      summary: block ? { ko: `선택 ${selected} · 평가 ${evaluated}`, en: `Selected ${selected} · Evaluated ${evaluated}` } : undefined,
-      render: () => block
-        ? <p className="t-caption text-text-secondary">{ko ? `선택 ${selected} · 평가 ${evaluated}` : `Selected ${selected} · Evaluated ${evaluated}`}</p>
+      summary: counts ?? undefined,
+      render: () => counts
+        ? <p className="t-caption text-text-secondary">{counts[lang]}</p>
         : <p className="t-caption text-text-muted">{ko ? '불러오는 중입니다.' : 'Loading.'}</p>,
     },
     {
@@ -109,6 +113,7 @@ export default function StepsPage(_props: PageProps) {
           nodes={series.map(item => ({ id: item.id, label: item.name, color: item.color as ThemeColorToken }))}
           visible={visible}
           onVisibleChange={next => setHiddenState({ key: levelKey, ids: series.map(item => item.id).filter(id => !next.has(id)) })}
+          onDrill={drillTo} canDrill={() => true} currentId={currentId}
           emptyText={ko ? '표시할 범례가 없습니다.' : 'No legend to show.'} />;
       },
     },

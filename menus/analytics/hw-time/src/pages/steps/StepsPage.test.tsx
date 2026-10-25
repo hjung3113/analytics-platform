@@ -27,6 +27,7 @@ vi.mock('@ap/components', async importOriginal => {
       {props.series.flatMap(s => s.points.filter(([, v]) => v !== null).slice(0, 3).map(([x, v]) =>
         <button key={`${s.id}-${x}`} type="button" onClick={() => props.pointActivation?.onActivate({ x, seriesId: s.id, value: v })}>{`segment ${s.id} ${x}`}</button>))}
       <p data-testid={`${props.chartId}-legend`}>{String(props.legend !== false)}</p>
+      <p data-testid={`${props.chartId}-labels`}>{`valueLabels=${String(props.valueLabels)} reaggregation=${String(props.reaggregation)}`}</p>
       <p data-testid={`${props.chartId}-options`}>{`align=${String(props.startAlign)} minmax=${String(props.minMax)}`}</p>
       {/* The Frame's selector: points the page marks non-selectable are skipped, so they are neither listed nor reachable. */}
       <p data-testid={`${props.chartId}-selector`}>{selectable.map(p => p.x).join('|')}</p>
@@ -296,5 +297,30 @@ describe('HW Time steps page', () => {
     expect(screen.getByTestId('hw-time-steps-L2-visible').textContent).toBe('Chuck,Dechuck,Pump,Vent,Transfer');
     fireEvent.click(screen.getByRole('checkbox', { name: /Pump/ }));
     expect(screen.getByTestId('hw-time-steps-L2-visible').textContent).toBe('Chuck,Dechuck,Vent,Transfer');
+  });
+
+  it.each([['', 'hw-time-steps-L1'], ['&drillModule=PM1', 'hw-time-steps-L2'], ['&drillModule=PM1&drillMotion=Pump', 'hw-time-steps-L3']])('%s stack asks the Frame for segment and total labels over additive seconds', async (query, chart) => {
+    await renderPage(query);
+    expect(screen.getByTestId(`${chart}-labels`).textContent).toBe('valueLabels=both reaggregation=sum');
+  });
+
+  it('legend tree Enter drills like the segment click; the name click only toggles visibility', async () => {
+    await renderPage();
+    const tree = await screen.findByRole('tree', { name: '계층 범례' });
+    expect(within(tree).queryByRole('treeitem', { current: true })).toBeNull();
+    fireEvent.click(within(tree).getByText('PM2'));
+    expect(searchParams().get('drillModule')).toBeNull();
+    fireEvent.keyDown(within(tree).getByRole('treeitem', { name: /PM2/ }), { key: 'Enter' });
+    expect(searchParams().get('drillModule')).toBe('PM2');
+    expect(searchParams().get('drillMotion')).toBeNull();
+    expect(data.level).toHaveBeenLastCalledWith({ drillModule: 'PM2' }, true);
+  });
+
+  it('legend tree Enter at L2 drills to the Motion and L3 marks it current', async () => {
+    await renderPage('&drillModule=PM1');
+    fireEvent.keyDown(within(await screen.findByRole('tree', { name: '계층 범례' })).getByRole('treeitem', { name: /Pump/ }), { key: 'Enter' });
+    expect(searchParams().get('drillMotion')).toBe('Pump');
+    const tree = await screen.findByRole('tree', { name: '계층 범례' });
+    expect(within(tree).getByRole('treeitem', { current: true }).getAttribute('data-id')).toBe('Pump');
   });
 });
