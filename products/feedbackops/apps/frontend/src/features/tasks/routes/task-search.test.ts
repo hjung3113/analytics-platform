@@ -33,6 +33,12 @@ describe('isTasksSearchValueValid', () => {
     ['reviewerTeam', ID, true],
     ['reviewerTeam', 'me', false],
     ['q', 'pump', true],
+    ['q', '  pump  ', true],
+    ['q', 'a'.repeat(100), true],
+    ['q', 'a'.repeat(101), false],
+    ['returnTo', '/integration/coverage', true],
+    ['returnTo', '/vocs?view=inbox', false],
+    ['returnTo', 'https://example.com/x', false],
     ['unknown', 'x', false],
     ['toString', 'x', false],
   ])('%s=%s → %s', (key, value, valid) => {

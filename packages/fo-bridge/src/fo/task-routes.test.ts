@@ -94,7 +94,8 @@ describe('unlinked state is never dropped', () => {
     for (const [route, view] of [[taskRequestsRoute, 'requests'], [taskBoardRoute, 'board'], [milestonesRoute, 'milestones'], [taskListRoute, 'backlog'], [myTasksRoute, 'my']] as const) {
       expect(route.target(`/tasks?view=${view}${extra}`)).toBeNull();
     }
-    expect(taskListBareAlias.target(`/tasks?x=1${extra}`)).toBeNull();
+    expect(taskListInboxAlias.target(`/tasks?view=inbox${extra}`)).toBeNull();
+    expect(taskListBareAlias.target(`/tasks?param=${TASK}${extra}`)).toBeNull();
   });
 
   it('leaves keys another view owns unlinked (reviewer on the board, public_update on requests)', () => {
