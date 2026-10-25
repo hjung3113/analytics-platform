@@ -3,7 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
 import { setFoApi } from '@ap/fo-bridge/fo-api';
 import { foQueryClient } from '@ap/fo-bridge';
-import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
+import { useEffect } from 'react';
+import { I18nProvider, useI18n, PlatformProvider, createRegistry } from '@ap/kernel';
 import { testAdapter, testSession } from '@ap/kernel/testing';
 import { NO_FEATURES, contextCapabilities, groupId, spaceId } from '@ap/contracts';
 import type { MenuEntry } from '@ap/kernel';
@@ -15,6 +16,8 @@ vi.mock('@fops/frontend/operator-screens/dashboard', () => ({
   DashboardScreen: (props: unknown) => { dashboard.props.push(props); return <div data-testid="dashboard" />; },
   refreshDashboard: dashboard.refresh,
 }));
+
+function English() { const { setLang } = useI18n(); useEffect(() => setLang('en'), [setLang]); return null; }
 
 const SYSTEM = '33333333-3333-4333-8333-333333333333';
 
@@ -43,13 +46,28 @@ describe('대시보드 through the FeedbackOps bridge', () => {
     expect(dashboard.refresh).toHaveBeenCalledWith(foQueryClient, SYSTEM);
   });
 
-  it('does not send a managedSystem value that is not a uuid, and leaves it in the URL', async () => {
-    mountAt('/feedbackops?managedSystem=not-a-uuid');
+  it.each(['not-a-uuid', ''])('rejects the managedSystem value %j: nothing is mounted or requested, the URL is kept (ADR-0071 decision 9)', async value => {
+    mountAt(`/feedbackops?managedSystem=${value}&focus=keep`);
+    expect(await screen.findByText('주소의 managedSystem 값이 올바르지 않습니다')).toBeTruthy();
+    expect(screen.queryByTestId('dashboard')).toBeNull();
+    expect(screen.queryByRole('button', { name: '새로고침' })).toBeNull();
+    expect(dashboard.props).toEqual([]);
+    expect(window.location.search).toBe(`?managedSystem=${value}&focus=keep`);
+  });
+
+  it('clears only the rejected key and then mounts the unscoped dashboard', async () => {
+    mountAt('/feedbackops?managedSystem=not-a-uuid&focus=keep');
+    fireEvent.click(await screen.findByRole('button', { name: '값 지우기' }));
     await screen.findByTestId('dashboard');
+    const search = new URLSearchParams(window.location.search);
+    expect(search.has('managedSystem')).toBe(false);
+    expect(search.get('focus')).toBe('keep');
     expect(dashboard.props.at(-1)).toEqual({});
-    fireEvent.click(screen.getByRole('button', { name: '새로고침' }));
-    expect(dashboard.refresh).toHaveBeenCalledWith(foQueryClient, undefined);
-    expect(window.location.search).toBe('?managedSystem=not-a-uuid');
+  });
+
+  it('labels the refresh button in English when the language is en', async () => {
+    mountAt(`/feedbackops?managedSystem=${SYSTEM}`, <English />);
+    expect(await screen.findByRole('button', { name: 'Refresh' })).toBeTruthy();
   });
 });
 

@@ -27,6 +27,7 @@ export const LAZY_ENGINES = [
   'getVirtualItems', // @tanstack/virtual (PlatformDataTable)
   'xl/worksheets', // write-excel-file (table export)
   'board-add-pane-off', // the analysis board screen (`packages/shell/src/board/BoardScreen.tsx`, #821)
+  '알림 필터', // the FeedbackOps notifications panel (`HOME_INBOX_COPY.filterLabel`, read only by `InboxPanel`; the rail's recent popover loads it lazily, #820)
 ];
 
 /** `src` of every `<script … src>` in the page (the entry; modulepreload links are the same files the entry imports). */
@@ -154,9 +155,12 @@ function selfTest() {
   expect('both engines lazy', checkLazyChunks(buildKept({ ...editor, 'assets/index-a.js': 'const L=()=>import("./DockEngine-c.js"),M=()=>import("./Editor-d.js");' }), pair), true);
   expect('editor in the entry', checkLazyChunks(buildKept({ ...editor, 'assets/index-a.js': 'import"./Editor-d.js";const L=()=>import("./DockEngine-c.js");' }), pair), false);
   expect('editor missing from the build', checkLazyChunks(buildKept({ 'index.html': page('/assets/index-a.js'), 'assets/index-a.js': 'const L=()=>import("./DockEngine-c.js");', 'assets/DockEngine-c.js': engine }), pair), false);
+  const panel = { 'index.html': page('/assets/index-a.js'), 'assets/Panel-e.js': 'const p="알림 필터";' };
+  expect('notifications panel lazy', checkLazyChunks(buildKept({ ...panel, 'assets/index-a.js': 'const P=()=>import("./Panel-e.js");' }), ['알림 필터']), true);
+  expect('notifications panel in the entry', checkLazyChunks(buildKept({ ...panel, 'assets/index-a.js': 'import"./Panel-e.js";' }), ['알림 필터']), false);
   for (const dir of kept) rmSync(dir, { recursive: true, force: true });
   if (failures.length > 0) { console.error(failures.join('\n')); return 1; }
-  console.log(`check-lazy-chunks self-test: ${cases.length + 3} cases ok`);
+  console.log(`check-lazy-chunks self-test: ${cases.length + 4} cases ok`);
   return 0;
 }
 

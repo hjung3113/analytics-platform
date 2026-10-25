@@ -10,7 +10,8 @@ import { describe, expect, it } from 'vitest';
  */
 const FO = fileURLToPath(new URL('../../../products/feedbackops', import.meta.url));
 const FRONTEND_SRC = join(FO, 'apps/frontend/src');
-const ENTRIES = [join(FRONTEND_SRC, 'global-screens/index.ts'), join(FRONTEND_SRC, 'global-screens/core.ts'), join(FRONTEND_SRC, 'operator-screens/scope-picker/index.ts')];
+const INBOX_PANEL_ENTRY = join(FRONTEND_SRC, 'global-screens/inbox-panel.ts');
+const ENTRIES = [join(FRONTEND_SRC, 'global-screens/index.ts'), join(FRONTEND_SRC, 'global-screens/core.ts'), INBOX_PANEL_ENTRY, join(FRONTEND_SRC, 'operator-screens/scope-picker/index.ts')];
 const DASHBOARD_ENTRY = join(FRONTEND_SRC, 'operator-screens/dashboard/index.ts');
 const VOC_DETAIL_ENTRY = join(FRONTEND_SRC, 'operator-screens/voc-detail/index.ts');
 const PACKAGE_ENTRIES: Record<string, string> = {
@@ -70,8 +71,17 @@ describe('FeedbackOps bridge entry graph (ADR-0071)', () => {
     expect(reached).toEqual(expect.arrayContaining(['operator-screens/scope-picker/ManagedSystemScopeControl.tsx', 'lib/api/me.ts', 'lib/api/permission-reads.ts', 'lib/api/registry-reads.ts']));
   });
 
-  it('reaches the InboxPanel', () => {
+  it('reaches the InboxPanel through its own entry, which the eager core subset does not reach', () => {
     expect(reached).toContain('features/home/InboxPanel.tsx');
+    expect(walk([join(FRONTEND_SRC, 'global-screens/inbox-panel.ts')]).files.has(join(FRONTEND_SRC, 'features/home/InboxPanel.tsx'))).toBe(true);
+    const core = [...walk([join(FRONTEND_SRC, 'global-screens/core.ts')]).files.keys()].map(file => relative(FRONTEND_SRC, file));
+    expect(core).not.toContain('features/home/InboxPanel.tsx');
+  });
+
+  it('keeps the notifications slot off the InboxPanel entry (its page loads it lazily)', () => {
+    const slot = readFileSync(fileURLToPath(new URL('notifications-slot.tsx', import.meta.url)), 'utf8');
+    expect(slot).not.toMatch(/inbox-panel|InboxPanel/);
+    expect(slot).toMatch(/lazy\(\(\) => import\('\.\/pages\/RecentInbox'\)\)/);
   });
 
   it('reaches the home 내 할 일 panel', () => {

@@ -3,6 +3,7 @@
 // `lib/layout/**`, `lib/auth/**`, `lib/api/auth.ts` or the `@/lib/api` barrel,
 // or reach the network outside `lib/api/client.ts` (a test in the bridge menu walks this graph).
 export * from './core';
+export * from './inbox-panel';
 export {
   RespondSurveyScreen,
   SurveyParticipationScreen,

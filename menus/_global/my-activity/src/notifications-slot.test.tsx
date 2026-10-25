@@ -34,12 +34,12 @@ describe('notifications slot', () => {
     expect(manifest?.path).toBe('/notifications');
   });
 
-  it('without a FeedbackOps API shows no count, 실서버 필요 in the popover body, and requests nothing', () => {
+  it('without a FeedbackOps API shows no count, 실서버 필요 in the popover body, and requests nothing', async () => {
     setFoApi(null);
     const calls = stubFetch(() => listOf());
     mount(switchableAdapter().adapter, <><Probe /><notificationsSlot.Recent /></>);
     expect(screen.getByRole('button').textContent).toBe('none');
-    expect(screen.getByRole('status').textContent).toContain('실서버 필요');
+    expect((await screen.findByRole('status')).textContent).toContain('실서버 필요');
     expect(calls).toEqual([]);
   });
 

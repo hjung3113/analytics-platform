@@ -1,8 +1,8 @@
 import { PlatformPage } from '@ap/components';
 import { usePlatform } from '@ap/kernel';
-import { FoBridge, inboxRoute, operatorHostLinks, useInboxHere, useInboxSearch } from '@ap/fo-bridge';
+import { FoBridge, RejectedPage, inboxRoute, operatorHostLinks, useInboxHere, useInboxSearch } from '@ap/fo-bridge';
 import { InboxScreen } from '@fops/frontend/operator-screens/voc-inbox';
-import { RejectedPage, useRejectedValue } from './RejectedPage';
+import { useRejectedValue } from './RejectedPage';
 import { VocDetailDrawer } from './VocDetailDrawer';
 
 /** Module level: `FoBridge` memoizes its seam on these identities. */
