@@ -1843,6 +1843,8 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     await expect(page.getByTitle('실서버 필요').filter({ hasText: '전체' })).toBeDisabled();
     await evidence(page, testInfo, 'feedbackops-dashboard-mock');
     // #761: the VOC group (수신함, Triage) is bridge menus too; without a FeedbackOps API each body is 실서버 필요.
+    // The sidebar draws only the current section, so the rail's VOC section brings its menus in.
+    await railSection(page, 'VOC').click();
     await expect(nav.getByRole('link', { name: '수신함' })).toBeVisible();
     await expect(nav.getByRole('link', { name: 'Triage' })).toBeVisible();
     await nav.getByRole('link', { name: '수신함' }).click();
@@ -1851,7 +1853,6 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     await nav.getByRole('link', { name: 'Triage' }).click();
     await expect.poll(() => new URL(page.url()).pathname).toBe('/feedbackops/triage');
     await expect(page.getByRole('main').getByRole('status').filter({ hasText: '실서버 필요' })).toBeVisible();
-    await expect(nav.getByRole('link', { name: '대시보드' })).toBeVisible();
     await evidence(page, testInfo, 'feedbackops-voc-mock');
   });
 

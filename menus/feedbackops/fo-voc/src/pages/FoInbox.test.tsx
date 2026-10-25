@@ -50,7 +50,8 @@ describe('수신함 manifest', () => {
 describe('수신함 without a FeedbackOps API (mock preview)', () => {
   it('shows 실서버 필요 and mounts no screen', async () => {
     mountAt('/feedbackops/vocs');
-    expect(await screen.findByRole('heading', { name: '수신함' })).toBeTruthy();
+    // The first mount lazy-loads the page module, which can pass the default 1 s under a loaded run.
+    expect(await screen.findByRole('heading', { name: '수신함' }, { timeout: 3000 })).toBeTruthy();
     expect(screen.getByRole('status').textContent).toContain('실서버 필요');
     expect(screen.queryByTestId('inbox')).toBeNull();
   });

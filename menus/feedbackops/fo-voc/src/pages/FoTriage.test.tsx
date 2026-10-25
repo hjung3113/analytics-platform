@@ -23,7 +23,8 @@ afterEach(() => { cleanup(); setFoApi(null); vi.unstubAllGlobals(); window.histo
 describe('Triage without a FeedbackOps API (mock preview)', () => {
   it('shows 실서버 필요 and mounts no screen', async () => {
     mountAt('/feedbackops/triage');
-    expect(await screen.findByRole('heading', { name: 'Triage' })).toBeTruthy();
+    // The first mount lazy-loads the page module, which can pass the default 1 s under a loaded run.
+    expect(await screen.findByRole('heading', { name: 'Triage' }, { timeout: 3000 })).toBeTruthy();
     expect(screen.getByRole('status').textContent).toContain('실서버 필요');
     expect(screen.queryByTestId('triage')).toBeNull();
   });
