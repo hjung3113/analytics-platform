@@ -52,6 +52,7 @@ HostFeature | type | type HostFeature = 'detailSlot' | 'query' | 'write'
 IdSet | type | type IdSet = null | string[]
 KERNEL_PERMISSIONS | const | const KERNEL_PERMISSIONS: readonly [ "platform:view", "notice:view", "voc:view", "console:access", "feedbackops:access" ]
 KernelPermission | type | type KernelPermission = (typeof @ap/contracts#KERNEL_PERMISSIONS)[number]
+MeasureMeta | type | type MeasureMeta = { metricVersion?: string; reaggregation: @ap/contracts#Reaggregation; unit: string; }
 MembershipPeriod | type | type MembershipPeriod = { from: string; to: string; }
 MenuAction | type | type MenuAction<I = unknown> = { action: string; context: { scopeId?: null | string; }; expectedVersion?: string; idempotencyKey: string; input: I; }
 MenuMeta | type | type MenuMeta = { context: Record<@ap/contracts#ContextKey, @ap/contracts#Capability>; contextResetKeys?: readonly string[]; description: @ap/contracts#Text; drill?: { levels: readonly @ap/contracts#DrillLevel[]; resetKeys?: readonly string[]; }; features: { annotate: boolean; board?: boolean; compare: boolean; export: boolean; savedView: boolean; }; group: @ap/contracts#GroupId; id: string; initializesMetric?: boolean; label: @ap/contracts#Text; navHidden?: boolean; navViews?: readonly @ap/contracts#NavView[]; pageKeys: readonly string[]; pageType: @ap/contracts#PageType; parent?: string; path: string; permission: @ap/contracts#Permission; primary?: boolean; query?: { mode: 'apply'; required?: { context?: readonly @ap/contracts#ContextKey[]; page?: readonly { key: string; label: @ap/contracts#Text; }[]; }; }; requiresScope: boolean; }
@@ -86,6 +87,7 @@ PublishedMetric | type | type PublishedMetric = { metricId: string; publishedVer
 QueryHistoryEntry | type | type QueryHistoryEntry = { count: number; id: string; lastAppliedAt: number; query: string; schemaVersion: 1; }
 QueryHistoryKey | type | type QueryHistoryKey = { menuId: string; scopeId: null | string; userId: string; }
 QueryHistoryStore | type | type QueryHistoryStore = { clear(key: @ap/contracts#QueryHistoryKey): Promise<void>; list(key: @ap/contracts#QueryHistoryKey): Promise<readonly @ap/contracts#QueryHistoryEntry[]>; record(key: @ap/contracts#QueryHistoryKey, entry: @ap/contracts#QueryHistoryEntry): Promise<void>; remove(key: @ap/contracts#QueryHistoryKey, id: string): Promise<void>; }
+Reaggregation | type | type Reaggregation = 'none' | 'ratioOfSums' | 'recomputeFromDistribution' | 'sum'
 ScopeCheck | type | type ScopeCheck = { grantedRooms: string[]; status: 'forbidden' | 'unknown_scope' | 'valid'; }
 ScopeOption | type | type ScopeOption = { grantedRooms: number; id: string; label: string; totalRooms: number; }
 SelectionEvaluation | type | type SelectionEvaluation = { inCondition: @ap/contracts#EquipmentOption[]; outOfCondition: string[]; }
@@ -112,6 +114,7 @@ bucketStart | function | function bucketStart(instant: string, grain: @ap/contra
 buildFeedbackOpsLink | function | function buildFeedbackOpsLink(input: { origin: string; target: @ap/contracts#FeedbackOpsTarget; }): string
 buildPlatformInboundLink | function | function buildPlatformInboundLink(input: { context: @ap/contracts#GlobalContext; hop: @ap/contracts#PlatformHop; origin: string; returnTo?: string; }): string
 buildQuery | function | function buildQuery(g: @ap/contracts#GlobalContext, page?: @ap/contracts#Pair[], extras?: @ap/contracts#Pair[]): string
+canClientSum | function | function canClientSum(measure: Pick<@ap/contracts#MeasureMeta, 'reaggregation'>): boolean
 clientCorrelationId | function | function clientCorrelationId(): string
 compareHistoryText | function | function compareHistoryText(a: string, b: string): number
 compareQueryHistory | function | function compareQueryHistory(a: @ap/contracts#QueryHistoryEntry, b: @ap/contracts#QueryHistoryEntry): number

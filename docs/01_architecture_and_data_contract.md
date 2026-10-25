@@ -59,6 +59,8 @@ API가 파서 원본 테이블을 직접 참조하지 않고 소비 계층(view/
 
 지표 정의에는 재집계 규칙이 필요하다. 설비별 P95를 평균해 전체 P95로 만들거나, 일별 점유율을 단순 평균하는 구현을 막아야 한다 — 비율 지표는 분자·분모를 각각 합산해서 계산한다. 화면 해상도용 다운샘플링과 지표 계산도 구분해야 한다.
 
+이 규칙의 코드 형태는 `@ap/contracts`의 `Reaggregation`(`sum`·`ratioOfSums`·`recomputeFromDistribution`·`none`)·`MeasureMeta`·`canClientSum`이다([ADR-0082](adr/0082-measure-reaggregation-contract.md)). 차트는 `canClientSum`이 true일 때만 조각을 직접 더하고, 아니면 서버가 준 합계를 쓴다.
+
 ### 마스터 데이터 수정 권한의 원천
 
 아키텍처에는 외부 마스터(room/maker/model)가 있고, `02_domain_menus.md`의 설비관리 메뉴에는 플랫폼 속성 수정이 있다. 같은 필드를 양쪽이 수정하면 다음 import가 운영자의 변경을 덮어쓸 수 있다. 필드별 원천 소유자(외부 동기화 전용 / 플랫폼 직접관리)를 구현 전에 명확히 구분해야 한다. 설비의 사용중지는 해당 ID 이력의 `valid_to` 종료와 같은 사건이다(2026-09-24 정정). 사용중지된 ID는 이후 다른 용도로 재사용하지 않는다. 설비를 가리키는 키는 EquipmentID 하나이며 별도 설비명은 없다. room_name(공정명)의 드문 변경은 같은 ID를 유지한다([GLOSSARY](../GLOSSARY.md), [09](09_equipment_master_wireframe.md)).
