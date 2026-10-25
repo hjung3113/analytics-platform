@@ -24,10 +24,44 @@ function animationOff<T extends AnimationOption>(option: T): T {
   return next;
 }
 
+/** Component main types registered above: `replaceMerge` accepts only registered components (a root key such as `textStyle`, or an
+ * unregistered `legend`, throws), so any other object key falls back to notMerge. */
+const COMPONENT_TYPES = new Set(['series', 'xAxis', 'yAxis', 'tooltip', 'axisPointer', 'brush', 'toolbox', 'markArea', 'markLine']);
+/** Root settings whose value is an object or array but that are not components (merged, never replaced). */
+const ROOT_OBJECTS = new Set(['textStyle', 'color']);
+/** Merged, never replaced: the inside dataZoom's roam controller lives on the grid's coordinate system, so replacing either drops a drag. */
+const KEPT = new Set(['dataZoom', 'grid']);
+/** Grid entries and their keys: a merge cannot remove a key, so only the same keys may merge (orientation adds `containLabel`). */
+const gridShape = (grid: unknown): string => JSON.stringify((Array.isArray(grid) ? grid : grid ? [grid] : []).map(entry => Object.keys(entry as object).sort()));
+type ZoomShape = { type?: unknown; xAxisIndex?: unknown; yAxisIndex?: unknown };
+const zoomShape = (zoom: unknown): string | null => {
+  if (!Array.isArray(zoom) || zoom.length === 0) return null;
+  return JSON.stringify(zoom.map((z: ZoomShape) => [z.type, z.xAxisIndex, z.yAxisIndex]));
+};
+
+/**
+ * How the next option replaces the last one. A notMerge rebuilds every component, including the inside dataZoom whose roam
+ * controller owns a drag in progress: a re-render while the user drags the zoomed plot (press, or the zoom echo through
+ * `datazoom`) dropped the pan (#705). When the root keys, the dataZoom shape and the grid shape are unchanged, every other component
+ * is replaced (`replaceMerge`; EChartImpl empties the series first, since a matching id would merge) and only dataZoom and grid
+ * merge, so the roam state survives; root settings (`textStyle`, `animation`…)
+ * merge, and the same key set means none is left behind. A key that is neither a known component nor a plain root setting
+ * (an object or array outside the list) rebuilds, so a component type added later cannot linger. Any other change rebuilds as before.
+ */
+export function setOptionMode(previous: EChartsCoreOption | null, next: EChartsCoreOption): { notMerge: true } | { replaceMerge: string[] } {
+  if (!previous) return { notMerge: true };
+  const keys = Object.keys(next);
+  const shape = zoomShape(next.dataZoom);
+  if (shape === null || shape !== zoomShape(previous.dataZoom) || gridShape(next.grid) !== gridShape(previous.grid) || keys.length !== Object.keys(previous).length || keys.some(key => !(key in previous))) return { notMerge: true };
+  if (keys.some(key => !KEPT.has(key) && !COMPONENT_TYPES.has(key) && !ROOT_OBJECTS.has(key) && typeof next[key] === 'object' && next[key] !== null)) return { notMerge: true };
+  return { replaceMerge: keys.filter(key => COMPONENT_TYPES.has(key)) };
+}
+
 /** ECharts-dependent implementation, loaded lazily from EChart (#48) so charts stay out of the main bundle. */
 export default function EChartImpl({ option, height = 280, onEvents, onReady, onResize, ariaLabel, className }: EChartProps) {
   const el = useRef<HTMLDivElement>(null);
   const chart = useRef<ECharts | null>(null);
+  const applied = useRef<EChartsCoreOption | null>(null);
   const events = useRef(onEvents);
   events.current = onEvents;
   const resized = useRef(onResize);
@@ -40,7 +74,7 @@ export default function EChartImpl({ option, height = 280, onEvents, onReady, on
     const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => { instance.resize(); resized.current?.(instance.getWidth()); }) : null;
     observer?.observe(el.current);
     onReady?.(instance);
-    return () => { observer?.disconnect(); instance.dispose(); chart.current = null; };
+    return () => { observer?.disconnect(); instance.dispose(); chart.current = null; applied.current = null; };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the effect owns mount/unmount only; onReady is read once at mount
   }, []);
 
@@ -53,14 +87,19 @@ export default function EChartImpl({ option, height = 280, onEvents, onReady, on
     // (echarts 6.1 Series.js), so both are forced off in every shape echarts accepts — the top level, baseOption
     // (OptionManager makes it the effective option) and each media[].option override (Global.js merges it last).
     // Copies only: the consumer's option object is never mutated. With motion allowed nothing is overridden.
+    let next = merged;
     if (prefersReducedMotion()) {
       const forced = animationOff(merged);
       if (forced.baseOption !== undefined) forced.baseOption = animationOff(forced.baseOption);
       if (forced.media !== undefined) forced.media = forced.media.map(entry => (entry.option ? { ...entry, option: animationOff(entry.option) } : entry));
-      instance.setOption(forced, { notMerge: true });
-    } else {
-      instance.setOption(merged, { notMerge: true });
+      next = forced;
     }
+    const mode = setOptionMode(applied.current, next);
+    // replaceMerge still merges a component whose id matches (every series has one), so a key the next option leaves out would
+    // survive (a value label turned off kept drawing). Empty the series first; axes, brush and toolbox carry no id and are rebuilt.
+    if ('replaceMerge' in mode) instance.setOption({ series: [] }, { replaceMerge: ['series'], silent: true, lazyUpdate: true });
+    instance.setOption(next, mode);
+    applied.current = next;
   }, [option]);
 
   // Handlers are read through `events` at call time; only a changed set of event names rebinds.
