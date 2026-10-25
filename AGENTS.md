@@ -31,6 +31,7 @@
 | 시각 규칙 | [`DESIGN.md`](DESIGN.md) |
 | 결정과 그 이유 | [`docs/adr/`](docs/adr/) |
 | 에이전트 운영 메모(작업자 샌드박스, worktree, 캡처 함정) | [`docs/agents/operations.md`](docs/agents/operations.md) |
+| 여러 세션의 흐름 분담·팀장·릴리스 | [`.agents/conductor/LANES.md`](.agents/conductor/LANES.md) |
 
 작업하는 폴더에 `AGENTS.md`가 있으면 함께 따른다(아래 표). 폴더 지침이 루트와 충돌하면 루트를 따른다.
 

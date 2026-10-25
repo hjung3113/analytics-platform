@@ -21,6 +21,10 @@
 | `area:feedbackops` | FeedbackOps 통합 |
 | `area:tooling` | lint, 생성기, CI, 검증 도구 |
 
+## 흐름 라벨
+
+열린 이슈마다 `lane:*` 하나를 단다: `lane:sdk`·`lane:platform`·`lane:arch`·`lane:fo`·`lane:ev`·`lane:site`. 범위와 소유 경로는 [`.agents/conductor/LANES.md`](../../.agents/conductor/LANES.md)다(2026-10-26, 열린 이슈 전체에 달았다).
+
 보류 중인 이슈에는 `on-hold` 라벨을 단다(외부 조건이 풀리면 제거). 예: #163·#164는 업무 필수로 확인될 때까지 보류.
 
 ## Pull requests as a triage surface
