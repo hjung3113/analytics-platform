@@ -376,4 +376,32 @@ describe('HW Time overview page', () => {
     const tree = await screen.findByRole('tree', { name: '계층 범례' });
     expect(within(tree).getByRole('treeitem', { current: true }).getAttribute('data-id')).toBe('Pump');
   });
+
+  it('a hidden Motion stays hidden after a sibling Motion drill in the same Module; another level or Module resets it', async () => {
+    await renderPage('&drillModule=PM1&drillMotion=Pump');
+    fireEvent.click(within(panel('legend')).getByRole('checkbox', { name: /Chuck/ }));
+    expect(screen.getByTestId('hw-overview-L3-context-visible').textContent).toBe('Dechuck,Pump,Vent,Transfer');
+    fireEvent.keyDown(within(panel('legend')).getByRole('treeitem', { name: /Vent/ }), { key: 'Enter' });
+    expect(searchParams().get('drillMotion')).toBe('Vent');
+    expect(screen.getByTestId('hw-overview-L3-context-visible').textContent).toBe('Dechuck,Pump,Vent,Transfer');
+    fireEvent.click(screen.getByRole('button', { name: /Module: PM1/ }));
+    expect(screen.getByTestId('hw-overview-L2-visible').textContent).toBe('Chuck,Dechuck,Pump,Vent,Transfer');
+  });
+
+  it('a hidden Motion does not carry over to another Module', async () => {
+    await renderPage('&drillModule=PM1');
+    fireEvent.click(within(panel('legend')).getByRole('checkbox', { name: /Chuck/ }));
+    expect(screen.getByTestId('hw-overview-L2-visible').textContent).toBe('Dechuck,Pump,Vent,Transfer');
+    fireEvent.click(screen.getByRole('button', { name: '전체' }));
+    fireEvent.click(screen.getByRole('button', { name: 'segment PM2 EQ-001' }));
+    expect(screen.getByTestId('hw-overview-L2-visible').textContent).toBe('Chuck,Dechuck,Pump,Vent,Transfer');
+  });
+
+  it('every legend row offers a drill button and the Enter description', async () => {
+    await renderPage('&drillModule=PM1');
+    const tree = within(panel('legend'));
+    const item = tree.getByRole('treeitem', { name: /Pump/ });
+    expect(tree.getByRole('button', { name: 'Pump 단계로 이동' })).toBeTruthy();
+    expect(document.getElementById(item.getAttribute('aria-describedby')!.split(' ')[0]!)?.textContent).toBe('Enter: 이 단계로 이동');
+  });
 });

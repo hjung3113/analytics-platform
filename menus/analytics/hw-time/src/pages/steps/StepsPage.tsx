@@ -48,6 +48,7 @@ export default function StepsPage(_props: PageProps) {
   const align = pageParam('align') === '1';
   const minmax = pageParam('minmax') === '1';
 
+  // Keyed by Module and Motion on purpose: at L3 the series are that Motion's detail, so another Motion is another series set.
   const levelKey = `${module ?? ''}/${motion ?? ''}`;
   const [hiddenState, setHiddenState] = useState<{ key: string; ids: string[] }>({ key: levelKey, ids: [] });
   const hidden = hiddenState.key === levelKey ? hiddenState.ids : [];
@@ -112,7 +113,7 @@ export default function StepsPage(_props: PageProps) {
           nodes={series.map(item => ({ id: item.id, label: item.name, color: item.color as ThemeColorToken }))}
           visible={visible}
           onVisibleChange={next => setHiddenState({ key: levelKey, ids: series.map(item => item.id).filter(id => !next.has(id)) })}
-          onDrill={drillTo} currentId={currentId}
+          onDrill={drillTo} canDrill={() => true} currentId={currentId}
           emptyText={ko ? '표시할 범례가 없습니다.' : 'No legend to show.'} />;
       },
     },

@@ -97,7 +97,12 @@ test.describe('HW Time 메뉴 4종 — 드릴 · 작업 영역 · 보드 (06 §1
       const tree = page.getByRole('tree', { name: '계층 범례' });
       // The compare and overview Inspectors are rails: the legend of compare opens from its button, overview has the legend panel.
       if (menu.id === 'hw-time-compare') await page.getByRole('button', { name: '계층 범례' }).click();
-      await tree.getByRole('treeitem', { name: new RegExp(MODULE) }).focus();
+      const moduleItem = tree.getByRole('treeitem', { name: new RegExp(MODULE) });
+      await moduleItem.focus();
+      // Every row is a drill target at its level: the trailing button names the target and the row announces Enter.
+      await expect(moduleItem.getByRole('button', { name: `${MODULE} 단계로 이동` })).toBeVisible();
+      const describedBy = await moduleItem.getAttribute('aria-describedby');
+      await expect(page.locator(`[id="${describedBy!.split(' ')[0]}"]`)).toHaveText('Enter: 이 단계로 이동');
       await page.keyboard.press('Enter');
       await expect.poll(() => query(page).get('drillModule')).toBe(MODULE);
       expect(query(page).has('drillMotion')).toBe(false);

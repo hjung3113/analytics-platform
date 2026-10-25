@@ -347,4 +347,35 @@ describe('HW Time compare page', () => {
     const tree = await screen.findByRole('tree', { name: '계층 범례' });
     expect(within(tree).getByRole('treeitem', { current: true }).getAttribute('data-id')).toBe('Pump');
   });
+
+  it('a hidden Motion stays hidden after a sibling Motion drill in the same Module; another level or Module resets it', async () => {
+    await renderPage('&drillModule=PM1&drillMotion=Pump');
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: '계층 범례' })); });
+    fireEvent.click(await screen.findByRole('checkbox', { name: /Chuck/ }));
+    expect(screen.getByTestId('hw-compare-L3-context-visible').textContent).toBe('Dechuck,Pump,Vent,Transfer');
+    fireEvent.keyDown(within(await screen.findByRole('tree', { name: '계층 범례' })).getByRole('treeitem', { name: /Vent/ }), { key: 'Enter' });
+    expect(searchParams().get('drillMotion')).toBe('Vent');
+    expect(screen.getByTestId('hw-compare-L3-context-visible').textContent).toBe('Dechuck,Pump,Vent,Transfer');
+    fireEvent.click(screen.getByRole('button', { name: /Module: PM1/ }));
+    expect(screen.getByTestId('hw-compare-L2-visible').textContent).toBe('Chuck,Dechuck,Pump,Vent,Transfer');
+  });
+
+  it('a hidden Motion does not carry over to another Module', async () => {
+    await renderPage('&drillModule=PM1');
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: '계층 범례' })); });
+    fireEvent.click(await screen.findByRole('checkbox', { name: /Chuck/ }));
+    expect(screen.getByTestId('hw-compare-L2-visible').textContent).toBe('Dechuck,Pump,Vent,Transfer');
+    fireEvent.click(screen.getByRole('button', { name: '전체' }));
+    fireEvent.click(screen.getByRole('button', { name: 'segment PM2 EQ-001' }));
+    expect(screen.getByTestId('hw-compare-L2-visible').textContent).toBe('Chuck,Dechuck,Pump,Vent,Transfer');
+  });
+
+  it('every legend row offers a drill button and the Enter description', async () => {
+    await renderPage('&drillModule=PM1');
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: '계층 범례' })); });
+    const tree = within(await screen.findByRole('tree', { name: '계층 범례' }));
+    const item = tree.getByRole('treeitem', { name: /Pump/ });
+    expect(tree.getByRole('button', { name: 'Pump 단계로 이동' })).toBeTruthy();
+    expect(document.getElementById(item.getAttribute('aria-describedby')!.split(' ')[0]!)?.textContent).toBe('Enter: 이 단계로 이동');
+  });
 });

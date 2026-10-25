@@ -89,7 +89,8 @@ export default function OverviewPage(_props: PageProps) {
   const align = pageParam('align') === '1';
   const minmax = pageParam('minmax') === '1';
   const rawRow = pageParam('row');
-  const levelKey = `${module ?? ''}/${motion ?? ''}`;
+  // Keyed by what changes the series set: the Module and the level. A sibling Motion switch at L3 keeps the same context series, so hidden Motions stay hidden.
+  const levelKey = `${module ?? ''}/${drill.depth}`;
   // The URL `row` is the truth at every level: any drill step clears it in the same navigation (manifest `drill.resetKeys`, 06 §6.4), and the
   // Frame names only a row it draws (a URL row of another level shows no active row).
   const row = isHwTimeRowId(rawRow) ? rawRow : null;
@@ -197,7 +198,7 @@ export default function OverviewPage(_props: PageProps) {
         nodes={legendSeries.map(item => ({ id: item.id, label: item.name, color: item.color as ThemeColorToken }))}
         visible={new Set(visibleIds)}
         onVisibleChange={next => setHiddenState({ key: levelKey, ids: legendSeries.map(item => item.id).filter(id => !next.has(id)) })}
-        onDrill={drillTo} currentId={currentId}
+        onDrill={drillTo} canDrill={() => true} currentId={currentId}
           emptyText={ko ? '표시할 범례가 없습니다.' : 'No legend to show.'} />
     </div>,
   };
