@@ -37,6 +37,7 @@ export default defineConfig(({ mode, command, isPreview = false }) => {
     plugins: [tailwindcss(), ...(guardGraph(mode) ? [prodGraphGuard()] : [])],
     resolve: { alias: { '@': FO_SRC, ...assemblyAlias(choice) } },
     server: choice.kind === 'real-dev' ? { proxy: realDevProxy(BACKEND_ORIGIN) } : undefined,
-    test: { environment: 'jsdom', setupFiles: ['./src/test-setup.ts'] },
+    // @eqv/* ships compiled ESM that imports the workspace @ap/* sources (TypeScript with `.js` specifiers): vite-node must transform it, not hand it to Node.
+    test: { environment: 'jsdom', setupFiles: ['./src/test-setup.ts'], server: { deps: { inline: [/@eqv\//] } } },
   };
 });

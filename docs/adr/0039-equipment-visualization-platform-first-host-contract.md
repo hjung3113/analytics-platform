@@ -24,4 +24,4 @@ equipment-visualization(EV) [ADR-0001](https://github.com/hjung3113/equipment-vi
 - EV ADR-0001을 개정해야 한다(EV 저장소 일, 제안 이슈 [EV#70](https://github.com/hjung3113/equipment-visualization/issues/70)). 개정안: "도메인·렌더러 패키지가 정본, 플랫폼 셸이 기본 호스트, `platform-adapter`가 플랫폼 호스트 계약을 구현, Studio는 두 번째 호스트".
 - `@ap/contracts`에 호스트 계약(모듈 manifest의 React 무의존 부분과 호스트 서비스 포트)을 더하는 일이 생긴다. 모양은 [플랫폼 탑재 설계](../integration/platform-hosting-design.md) §2, 추적은 [#402](https://github.com/hjung3113/analytics-platform/issues/402).
 - `platform-adapter`가 `@ap/contracts`를 얻는 경로가 필요하다: 플랫폼 workspace 안에서는 `workspace:*`로 풀리지만 EV 단독 CI에서는 풀리지 않는다. 1차는 EV CI가 이 패키지를 제외하고 플랫폼 CI가 검사하며, `@ap/contracts` 배포(통합 계획 단계 4) 뒤 peer 의존으로 바꾼다.
-- #332의 편입 방식(서브모듈 고정 + `@eqv/*`만 workspace)과 #333–#335는 그대로 이 결정 위에서 진행한다. 시간 정밀도(EV#44)는 #334 어댑터 전에 정한다.
+- #332의 편입 방식(서브모듈 고정 + `@eqv/*`만 workspace)과 #333–#335는 그대로 이 결정 위에서 진행한다. **개정(2026-10-25, #801):** 편입 방식은 서브모듈이 아니라 EV GitHub Release tarball URL 의존(`@eqv/*` 여섯 개, EV ADR-0014)으로 바뀌었다. EV는 2026-10-15에 공개되어 #332의 비공개 저장소 게이트는 없다. 플랫폼 앱은 `eqv`를 mock 조립에 마운트한다. 시간 정밀도(EV#44)는 #334 어댑터 전에 정한다.

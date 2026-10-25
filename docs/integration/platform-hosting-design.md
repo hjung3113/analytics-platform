@@ -10,9 +10,11 @@
 >
 > 사실은 2026-10-17에 읽은 파일·이슈에서 왔고 [§9 출처](#9-출처)에 모았다. 읽지 않은 것에서 끌어낸 판단은 **추정**으로 표시했다. 지도 역할의 앞 문서는 [프레임워크 통합 계획](framework-unification-plan.md)(단계 0–5)이고, 이 문서는 그 단계 2(EV 첫 실소비자)·단계 5(두 번째 호스트)의 호스트 인터페이스를 구체화한다.
 
+> **첫 외부 모듈 마운트(2026-10-25, [#801](https://github.com/hjung3113/analytics-platform/issues/801)):** EV의 `eqv`(Top View·Focus)를 EV 릴리스 tarball(`eqv-vX.Y.Z`의 `@eqv/*` 여섯 개, EV `docs/adr/0014`)로 설치해 `apps/platform-web/src/modules.ts`에서 `mountModule`로 마운트했다(mock 조립). 위 "서브모듈 고정 + workspace 패키지" 배치(§0, §4)는 이 경로로 대체됐다. 설치 절차는 EV ADR-0014와 `INTEGRATION.md`가 소유한다.
+
 ## 0. 한 장 요약
 
-- **오늘 정해진 전제(사용자, 2026-10-17):** EV는 플랫폼 탑재가 기본이고 독립 Studio는 부가 기능이다. 호스트 → 모듈 계약은 플랫폼이 `@ap/contracts`로 내고, EV는 `packages/platform-adapter` 안에서만 `@ap/*`에 의존한다(#332·#396 코멘트). #148은 A(TS 원본). `@fops/ui`는 FeedbackOps가 배포하고 `@ap/ui`가 peer로 의존한다. EV 편입은 서브모듈 고정 + `@eqv/*` workspace 패키지만.
+- **오늘 정해진 전제(사용자, 2026-10-17):** EV는 플랫폼 탑재가 기본이고 독립 Studio는 부가 기능이다. 호스트 → 모듈 계약은 플랫폼이 `@ap/contracts`로 내고, EV는 `packages/platform-adapter` 안에서만 `@ap/*`에 의존한다(#332·#396 코멘트). #148은 A(TS 원본). `@fops/ui`는 FeedbackOps가 배포하고 `@ap/ui`가 peer로 의존한다. EV 편입은 서브모듈 고정 + `@eqv/*` workspace 패키지만. (2026-10-25 개정: EV 릴리스 tarball 의존으로 대체, 13행 배너.)
 - **권고 모양:** 모듈은 **화면 manifest**(React 무의존 메타데이터: 화면 id·모듈 상대 경로·권한·page key·Context capability·pageType·계약 버전·필수 기능)와 **화면 컴포넌트**를 낸다. 호스트는 화면마다 **호스트 포트 하나**(`ModuleHost`, 이름 Candidate)를 준다: 세션 스냅샷과 세대, 권한 표시 판정, 모듈 상대 내비게이션·page 상태·복귀, 전역 Context 읽기, 플랫폼 서버 조회(선택), 조립 설정값, 언어, 알림, 오류 보고, 구독, 해제 신호. 지금 `MenuMeta`·`EndpointSpec`·`GlobalContext`·`ApiResponse`·`resolveLink`·`returnTarget`·`reportError`가 이 계약의 대부분이고, 빠진 것은 **열린 어휘(그룹·권한)**, **모듈 경로 접두사**, **React 밖에서 쓰는 호스트 포트**, **모듈 상태(인증 필요·신원 불일치)**, **조립 설정 주입**, **계약 버전 검사**다(§2.4).
 - **두 호스트:** 플랫폼 셸에서는 Kernel이 `usePlatform()`으로 호스트 포트를 만들고, 독립 호스트에서는 제품 앱이 같은 포트를 자기 라우터·세션으로 구현한다. **EV**는 Studio가 포트를 구현할 필요가 없다 — Studio는 `@eqv/core`·`renderer`·`editor`를 직접 조립하는 저작 도구로 남고, 플랫폼 탑재 화면은 `platform-adapter`가 만든다. **FeedbackOps**는 독립 앱이 계속 1차 호스트인 사용자(담당자·관리자·허브)가 있으므로, 독립 앱도 같은 화면 모듈을 포트로 조립해야 화면이 한 벌로 남는다(§3).
 - **FeedbackOps 권고:** **한 원본, 두 호스트(D)**. FeedbackOps가 화면을 모듈 패키지로 옮기고 독립 앱과 플랫폼 협업 공간이 같은 화면을 조립한다. 백엔드·권한·Managed System 규칙은 FeedbackOps 소유. 파일럿은 설문 참여·응답(`/surveys/participate`·`/surveys/$surveyId/respond`) — Managed System 범위·상세 패널이 없는 작은 흐름으로 인증·쓰기·복귀를 먼저 검사하고, 다음 단계(신고자 VOC 흐름)에서 플랫폼이 따로 그리는 1단계 읽기 화면(`/voc` 내 VOC)을 원본 화면으로 바꾼다. ADR-0027은 채택 시 ADR-0038이 대체한다(§5).
@@ -232,7 +234,7 @@ flowchart BT
 | 항목 | 권고 | 근거 |
 | --- | --- | --- |
 | 모듈 코드 위치 | 제품 저장소. FO는 새 화면 모듈 패키지(이름 Candidate, 예 `@fops/workspace`), EV는 `packages/platform-adapter` | 원본 하나(ADR-0027의 이유, EV ADR-0001). 플랫폼에는 화면 코드가 없다 |
-| 플랫폼의 소비 | 서브모듈 고정 + 지정 패키지만 workspace 포함(FO: `ui`·`shared` + 화면 모듈, EV: `@eqv/*`에서 Studio 제외). gitlink를 올리면 lockfile을 같은 PR에서 갱신 | [저장소 구조](repository-layout.md) 절차, #332 결정 |
+| 플랫폼의 소비 | (EV는 2026-10-25 개정: 릴리스 tarball 의존, 13행 배너) 서브모듈 고정 + 지정 패키지만 workspace 포함(FO: `ui`·`shared` + 화면 모듈, EV: `@eqv/*`에서 Studio 제외). gitlink를 올리면 lockfile을 같은 PR에서 갱신 | [저장소 구조](repository-layout.md) 절차, #332 결정 |
 | 연결 패키지 | `menus/<space>/<group>/`에 화면 없는 연결 패키지(manifest 접두사·공간·아이콘·config, mock 조립). 예 `menus/collab/feedbackops`, EV는 기존 `menus/analytics/equipment`에 합침 | ADR-0031 폴더 = 공간/그룹, `repo-invariants` 검사 유지 |
 | 의존 방향 | 모듈 패키지 → `@ap/contracts`만. `@ap/kernel`·`components`·`shell`·`ui` import 금지. 연결 패키지 → 모듈 + `@ap/kernel`. Kernel·셸은 모듈을 모른다 | 모듈 패키지가 플랫폼 workspace 밖(제품 독립 CI)에서도 풀려야 한다. `contracts`만 배포 대상으로 작게 유지 |
 | 경계 lint | 플랫폼: 새 `module-glue` 프리셋(연결 패키지는 모듈 공개 진입점만, 모듈 패키지에서 `@ap/*` 중 `contracts` 외 금지). FO: "화면 모듈 패키지만 `@ap/contracts` import, 앱·백엔드·`shared`는 금지". EV: 기존 규칙(`platform-adapter`만 `@ap/*`) + `@ap/contracts` 외 금지 | 패키지 경계 §3 규칙 4·7, EV `eslint.config.js` |

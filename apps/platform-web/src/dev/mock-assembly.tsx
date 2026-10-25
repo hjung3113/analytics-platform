@@ -13,6 +13,8 @@ import type { CreateAssembly } from '#platform-assembly';
 import type { AuditEvent } from '@ap/contracts';
 import { createMockAdapter, storedUsage, type AnyMockEndpoint } from '@ap/mock-server';
 import { DevTools } from './DevTools';
+import { eqvMock } from './eqv-mock';
+import { modulePermissions } from '../modules';
 
 /**
  * Every menu mock endpoint the app registers — the one list (#153): the mock adapter below and the server
@@ -30,6 +32,12 @@ export const MOCK_ENDPOINTS: readonly AnyMockEndpoint[] = [
 ];
 
 /**
+ * Endpoints of external host modules (#801), kept out of MOCK_ENDPOINTS so the generator owns that array's skeleton byte for byte.
+ * The mock adapter below and the conformance test read `[...MOCK_ENDPOINTS, ...MODULE_MOCK_ENDPOINTS]`.
+ */
+export const MODULE_MOCK_ENDPOINTS: readonly AnyMockEndpoint[] = [...eqvMock];
+
+/**
  * Audit events of menu-owned destinations (ADR-0048). The mock server joins them with its own equipment events,
  * so the console audit log and each destination's history tab read one store. The conformance test reads this list too.
  */
@@ -37,10 +45,10 @@ export const MOCK_AUDIT_EVENTS: readonly AuditEvent[] = [...metricsAuditEvents];
 
 /**
  * Mock assembly (#153, ADR-0009): what `#platform-assembly` resolves to in `vite` dev and `--mode mock` builds.
- * Menu mocks are registered in MOCK_ENDPOINTS by `pnpm gen:menu`; a production build never reaches this file.
+ * Menu mocks are registered in MOCK_ENDPOINTS by `pnpm gen:menu`, module mocks in MODULE_MOCK_ENDPOINTS by hand; a production build never reaches this file.
  */
 export const createAssembly: CreateAssembly = ({ registry }) => {
-  const adapter = createMockAdapter({ equipmentAxes: EQUIPMENT_AXES, endpoints: MOCK_ENDPOINTS, registry, permissions: registry.permissions, auditEvents: MOCK_AUDIT_EVENTS });
+  const adapter = createMockAdapter({ equipmentAxes: EQUIPMENT_AXES, endpoints: [...MOCK_ENDPOINTS, ...MODULE_MOCK_ENDPOINTS], registry, permissions: [...registry.permissions, ...modulePermissions(registry)], auditEvents: MOCK_AUDIT_EVENTS });
   // Dev server only: the black-box E2E reads the raw usage rows (not exposed by any adapter port) to check the entry's
   // `via`/`fromMenuId` (#605). `NODE_ENV` is `development` only on the dev server (vitest and `--mode mock` builds differ), so never in a `--mode mock` build and never in a production graph.
   if (process.env.NODE_ENV === 'development') (window as unknown as { __apUsageEvents?: () => unknown }).__apUsageEvents = () => storedUsage().map(row => ({ ...row }));

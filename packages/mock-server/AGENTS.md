@@ -4,7 +4,7 @@
 
 ## 파일
 
-- `src/world.ts` — 설비·사이트·사용자 마스터와 `PUBLISHED_METRICS`. 역할별 권한은 앱 조립이 `createMockAdapter({ permissions: registry.permissions })`로 넘긴 목록에서 만든다(`createUsers`: admin 전부, engineer는 콘솔·FeedbackOps 제외, viewer는 명시 권한만). 목록을 넘기지 않으면 Kernel 권한 + 견본 메뉴 권한 네 개(`WORLD_PERMISSIONS`)가 기본이다(ADR-0072, 앱 import 없음). 사용 계측의 공간 id는 앱의 공간 목록을 모르므로 모양만 검사한다.
+- `src/world.ts` — 설비·사이트·사용자 마스터와 `PUBLISHED_METRICS`. 역할별 권한은 앱 조립이 `createMockAdapter({ permissions: [...registry.permissions, ...modulePermissions(registry)] })`로 넘긴 목록에서 만든다(`createUsers`: admin 전부, engineer는 콘솔·FeedbackOps 제외, viewer는 명시 권한만). 앱이 마운트한 외부 모듈의 권한(`eqv:view` 등)은 앱이 `modulePermissions(registry)`로 모아 그 목록에 더해 넘긴다 — 이 패키지는 모듈을 모르고 바뀐 것이 없다(admin·engineer는 받고 viewer는 못 받아 서버가 `forbidden`을 낸다, #801). 목록을 넘기지 않으면 Kernel 권한 + 견본 메뉴 권한 네 개(`WORLD_PERMISSIONS`)가 기본이다(ADR-0072, 앱 import 없음). 사용 계측의 공간 id는 앱의 공간 목록을 모르므로 모양만 검사한다.
 - `src/server.ts` — 엔진 내부 `serve()`(공개 export 아님), 역할(localStorage `platform:role`)·시나리오, `getEntity`·`recordUsage`·`reportClientError`·`usageSummary`. 권한·Scope 재검증은 요청이 아니라 서버 쪽 선언 사본/서버 소유 map으로 판정한다([체크리스트 §2-§3](../../docs/integration/real-server-checklist.md)).
 - `src/annotations.ts` — 차트 주석 저장소(06 §16, #103). `listAnnotations`·`saveAnnotation`·`deleteAnnotation`은 권한(`analytics:view`) → 시나리오 → 검증 → Site 경계 순으로 판정하고, 행은 작성 당시 `scopeId`를 갖고 모든 조회가 `scopeId`로 거른다(`chartId`만으로 고르지 않는다). 작성자·시각은 서버가 찍고 wire 입력에 없다(알 수 없는 키는 거부). 비mart 데이터라 trust는 null. `mine`은 응답마다 요청 역할로 계산해 저장하지 않고, 삭제는 작성자만 하며 성공하면 `auditTrail`이 합쳐 읽는 런타임 감사 행(`delete`·`annotation`)을 남긴다(ADR-0041).
 - `src/access.ts`·`src/audit.ts`(+`audit-fixtures.ts`) — 권한/역할 조회(`accessDirectory`, #49)와 변경 감사(`auditTrail`·`entityAudit`, #50) 핸들러·픽스처.

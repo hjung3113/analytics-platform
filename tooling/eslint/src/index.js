@@ -18,6 +18,9 @@ const MOCK_SERVER_MESSAGE = `${PACKAGE_PREFIX}mock-server is only legal in menu 
 const REACT_MESSAGE = 'react / react-dom are not allowed in this package.';
 const FEEDBACKOPS_MESSAGE = `@fops/* is not a platform dependency; the design system lives in ${pkg('ui')} (ADR-0046).`;
 // #160: the table engine is components-internal; menus declare columns with the platform types.
+// EV's synthetic endpoint data (#801): reaches the app through src/dev/** (the mock assembly) and the conformance test only.
+const EQV_MOCK_DATA_PATTERN = '@eqv/*/mock-data';
+const EQV_MOCK_DATA_MESSAGE = '@eqv/*/mock-data is synthetic mock data; only src/dev/** and the server conformance test import it (ADR-0009, #801).';
 const HTTP_ADAPTER_MESSAGE = `${PACKAGE_PREFIX}http-adapter is imported only by the production assembly in apps/platform-web/src/real/** (#154).`;
 // Radix primitives are wrapped once in the design system (ADR-0046); every other layer composes the ui wrappers.
 const RADIX_MESSAGE = `@radix-ui/* is wrapped by ${pkg('ui')}; import the ${pkg('ui')} component instead (ADR-0046).`;
@@ -92,19 +95,19 @@ const FO_BRIDGE_PACKAGE_RESTRICTION = { ...MENU_RESTRICTION, allowFeedbackOps: F
 const FO_BRIDGE_PAGES_RESTRICTION = { ...FO_BRIDGE_PACKAGE_RESTRICTION, allowFeedbackOps: FO_BRIDGE_ENTRIES };
 const MENU_MOCK_RESTRICTION = { allow: ['contracts'], denyReact: true, denyTableEngine: true, mockAllowed: true };
 // #154: the real-server adapter reaches the app through src/real/** only (APP_REAL_FILES below).
-const APP_RESTRICTION = { allow: null, denyReact: false, mockAllowed: false, denyDev: true, denyHttpAdapter: true, allowSubpaths: [...UI_THEME_SUBPATHS, DOCK_ENTRY_SUBPATH, HOST_ENTRY_SUBPATH] };
+const APP_RESTRICTION = { allow: null, denyReact: false, mockAllowed: false, denyDev: true, denyHttpAdapter: true, denyEqvMockData: true, allowSubpaths: [...UI_THEME_SUBPATHS, DOCK_ENTRY_SUBPATH, HOST_ENTRY_SUBPATH] };
 // src/main.tsx is the composition root: only the FeedbackOps origin, FO API and notifications slot subpaths; no mock, no ./dev (#153).
 const APP_REAL_RESTRICTION = { ...APP_RESTRICTION, denyHttpAdapter: false };
 const APP_MAIN_RESTRICTION = { ...APP_RESTRICTION, allowSubpaths: [...UI_THEME_SUBPATHS, DOCK_ENTRY_SUBPATH, HOST_ENTRY_SUBPATH, FO_API_SUBPATH, NOTIFICATIONS_SLOT_SUBPATH, VOC_COMPOSE_SLOT_SUBPATH, HOME_TODO_SLOT_SUBPATH, SCOPE_CONTROL_SLOT_SUBPATH, NAV_COUNTS_SLOT_SUBPATH] };
 // The mock assembly and DevTools: mock-server and the menu `/mock` subpaths.
-const APP_DEV_RESTRICTION = { allow: null, denyReact: false, mockAllowed: true, denyHttpAdapter: true, allowSubpaths: [...UI_THEME_SUBPATHS, MENU_MOCK_SUBPATH] };
+const APP_DEV_RESTRICTION = { allow: null, denyReact: false, mockAllowed: true, denyHttpAdapter: true, denyEqvMockData: false, allowSubpaths: [...UI_THEME_SUBPATHS, MENU_MOCK_SUBPATH] };
 // The conformance test: mock-server, and from ./dev only the mock assembly's MOCK_ENDPOINTS list (#153 follow-up —
 // one source for "what the app registers"); no menu `/mock` subpath of its own.
-const APP_CONFORMANCE_RESTRICTION = { ...APP_RESTRICTION, mockAllowed: true, devAllow: ['./dev/mock-assembly'] };
+const APP_CONFORMANCE_RESTRICTION = { ...APP_RESTRICTION, mockAllowed: true, denyEqvMockData: false, devAllow: ['./dev/mock-assembly'] };
 // published-metrics.test.ts keeps the mock-server exemption but never the menu-subpath allowance.
 const APP_PUBLISHED_METRICS_RESTRICTION = { ...APP_RESTRICTION, mockAllowed: true };
 
-function importRestrictions({ allow, denyReact, denyTableEngine, mockAllowed, allowSubpaths = [], denyDev = false, devAllow = [], denyHttpAdapter = false, allowDockEngine = false, allowRadix = false, allowFeedbackOps = [] }) {
+function importRestrictions({ allow, denyReact, denyTableEngine, mockAllowed, allowSubpaths = [], denyDev = false, devAllow = [], denyHttpAdapter = false, denyEqvMockData = false, allowDockEngine = false, allowRadix = false, allowFeedbackOps = [] }) {
   const negations = [
     ...(allow === null ? [] : allow.map((name) => `!${pkg(name)}`)),
     ...(mockAllowed ? [`!${pkg('mock-server')}`] : []),
@@ -141,6 +144,7 @@ function importRestrictions({ allow, denyReact, denyTableEngine, mockAllowed, al
           : [{ group: [`${PACKAGE_PREFIX}*`, ...negations], message: LAYER_MESSAGE }]),
         ...(mockAllowed ? [] : [{ group: [pkg('mock-server'), pkg('mock-server/*')], message: MOCK_SERVER_MESSAGE }]),
         ...(denyHttpAdapter ? [{ group: [pkg('http-adapter')], message: HTTP_ADAPTER_MESSAGE }] : []),
+        ...(denyEqvMockData ? [{ group: [EQV_MOCK_DATA_PATTERN, `${EQV_MOCK_DATA_PATTERN}/**`], message: EQV_MOCK_DATA_MESSAGE }] : []),
         ...(denyReact ? [{ group: ['react/*', 'react-dom/*'], message: REACT_MESSAGE }] : []),
         ...(denyTableEngine ? [{ group: TABLE_ENGINE_PACKAGES.map((name) => `${name}/*`), message: TABLE_ENGINE_MESSAGE }] : []),
         ...(allowDockEngine ? [] : [{ group: DOCK_ENGINE_PACKAGES.map((name) => `${name}/*`), message: DOCK_ENGINE_MESSAGE }]),
@@ -176,6 +180,7 @@ function importSourceOptions(restriction) {
     layerMessage: LAYER_MESSAGE,
     mockMessage: MOCK_SERVER_MESSAGE,
     httpAdapterMessage: HTTP_ADAPTER_MESSAGE,
+    eqvMockDataMessage: EQV_MOCK_DATA_MESSAGE,
     devRegex: devRegex(restriction.devAllow),
     devMessage: DEV_MESSAGE,
     reactMessage: REACT_MESSAGE,
