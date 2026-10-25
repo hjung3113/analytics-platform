@@ -3,7 +3,7 @@ import { operatorRoute, routeHere, routeSearch } from './operator-route';
 /**
  * Task route tables (#763 s, #595 4e): FeedbackOps' `/tasks?view=…` → the five platform Task menus and back. `param` is the platform `focus` (06 §13);
  * `managedSystem=all` is FO's "no scope", so it maps to an explicit clear. `returnTo` and `platformReturn` are never mapped (the platform carries `returnTo` itself),
- * so a link carrying either stays unlinked. `operatorHostLinks` (`operator-links.ts`) wires the board, list, 내 Task and the two list aliases (#763 p1); Task Requests and Milestones join in p2.
+ * so a link carrying either stays unlinked. `operatorHostLinks` (`operator-links.ts`) wires all seven tables (#763 p1, p2).
  */
 const SCOPE_ALL = { managedSystem: 'all' } as const;
 

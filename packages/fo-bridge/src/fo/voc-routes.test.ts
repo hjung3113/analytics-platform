@@ -79,14 +79,14 @@ describe('clustersRoute', () => {
 describe('operatorHostLinks', () => {
   const { targetOf } = operatorHostLinks;
 
-  it('reaches the operator tables, the Task board/list/내 Task, 내 VOC and the survey menus, and nothing else', () => {
+  it('reaches the operator tables, the Task tables, 내 VOC and the survey menus, and nothing else', () => {
     expect(targetOf('/vocs?view=inbox&tab=unassigned')?.menuId).toBe('fo-inbox');
     expect(targetOf('/vocs?view=triage')?.menuId).toBe('fo-triage');
     expect(targetOf('/vocs?view=my')?.menuId).toBe('voc');
     expect(targetOf('/surveys/participate')?.menuId).toBe('surveys');
     expect(targetOf('/vocs?action=create')).toBeNull();
     expect(targetOf('/tasks?view=board')?.menuId).toBe('fo-tasks');
-    expect(targetOf('/tasks?view=requests')).toBeNull();
+    expect(targetOf('/tasks?view=requests')?.menuId).toBe('fo-task-requests');
     expect(targetOf('/findings')).toBeNull();
   });
 });

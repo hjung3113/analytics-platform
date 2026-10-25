@@ -14,6 +14,7 @@ export { canVocLink, VOC_ID, VocLink, vocListTarget, vocTarget } from './fo/voc-
 export { FoDetailDrawer } from './fo/FoDetailDrawer';
 export { operatorHostLinks } from './fo/operator-links';
 export {
-  myTasksRoute, taskBoardRoute, taskListRoute, useMyTasksHere, useMyTasksSearch, useTaskBoardHere, useTaskBoardSearch, useTaskListHere, useTaskListSearch,
+  milestonesRoute, myTasksRoute, taskBoardRoute, taskListRoute, taskRequestsRoute, useMilestonesHere, useMilestonesSearch, useMyTasksHere, useMyTasksSearch,
+  useTaskBoardHere, useTaskBoardSearch, useTaskListHere, useTaskListSearch, useTaskRequestsHere, useTaskRequestsSearch,
 } from './fo/task-routes';
 export { clustersRoute, inboxRoute, triageRoute, useClustersHere, useClustersSearch, useInboxHere, useInboxSearch, useTriageHere, useTriageSearch } from './fo/voc-routes';
