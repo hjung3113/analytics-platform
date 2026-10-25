@@ -656,6 +656,9 @@ rows.push(
   { file: 'apps/platform-web/src/main.tsx', code: `import { navCountsSlot } from '@ap/fo-bridge/nav-counts';`, rule: '' },
   { file: 'apps/platform-web/src/slots.ts', code: `import { navCountsSlot } from '@ap/fo-bridge/nav-counts';`, rule: 'no-restricted-imports' },
   { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '@ap/fo-bridge/src/nav-counts';`, rule: 'no-restricted-imports' },
+  { file: 'apps/platform-web/src/main.tsx', code: `import { savedViewsSlot } from '@ap/fo-bridge/saved-views';`, rule: '' },
+  { file: 'apps/platform-web/src/slots.ts', code: `import { savedViewsSlot } from '@ap/fo-bridge/saved-views';`, rule: 'no-restricted-imports' },
+  { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '@ap/fo-bridge/src/saved-views';`, rule: 'no-restricted-imports' },
 );
 
 rows.push(
