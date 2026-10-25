@@ -787,6 +787,9 @@ describe('dock renderer: the pane head is one strip per group (ADR-0067 2c)', ()
     await ready();
     await chooseGroupItem(1, '칸 2 묶음으로 옮기기');
     expect(tabOf('칸 1 · 알파')).toHaveAttribute('aria-selected', 'true');
+    // The move hands focus to the moved pane's tab once the engine has laid it out (`focusTabSoon` retries up to 300 ms). Focusing 칸 2 before
+    // that lands lets it pull focus back, and Shift+F10 then opens 칸 1's menu (#783: under CI load).
+    await waitFor(() => { expect(tabOf('칸 1 · 알파')).toHaveFocus(); });
     tabOf('칸 2 · 베타').focus();
     await userEvent.keyboard('{Shift>}{F10}{/Shift}');
     expect(await screen.findByRole('menuitem', { name: '칸 2 최대화' })).toBeInTheDocument();
