@@ -1,4 +1,5 @@
-import { useEffect, useState, type ComponentType, type ReactNode } from 'react';
+import { type ComponentType, type ReactNode } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { spaceId } from '@ap/contracts';
 import { usePlatform, type NavCountsSlot } from '@ap/kernel';
 import { fetchNavCounts } from '@/lib/api/nav';
@@ -27,43 +28,23 @@ function toSlotCounts(counts: Readonly<Record<string, number | undefined>>): Rec
   return slot;
 }
 
-type Loaded = { scope: string; epoch: number; counts: Record<string, number> };
-
 /**
- * The counts for the page's `managedSystem` (all systems without it). Reads through the shared FeedbackOps QueryClient under
- * `[...NAV_COUNTS_QUERY_KEY, managedSystem]`, so FeedbackOps actions that call `invalidateNavCounts` refresh the badges.
- * `null` while loading, in mock, with a session that is not ready and after an error.
+ * The counts for the page's `managedSystem` (all systems without it). One `useQuery` on the shared FeedbackOps QueryClient under
+ * `[...NAV_COUNTS_QUERY_KEY, managedSystem]` (an absent scope is `undefined`, as on the FeedbackOps screens), so the screens' own observers and
+ * this slot share one query: `invalidateNavCounts` refetches it once and the badges follow, and leaving the scope cancels a read nobody else watches.
+ * `null` while loading (a different scope never shows the previous scope's badges), in mock, with a session that is not ready and after an error.
+ * `retry: false` matches the FeedbackOps screens' observers of this key.
  */
 function useNavCounts(managedSystem: string | null): Record<string, number> | null {
   const session = useFoSession();
-  const epoch = session.status === 'ready' ? session.epoch : null;
-  const [loaded, setLoaded] = useState<Loaded | null>(null);
-  const scope = managedSystem ?? '';
-
-  useEffect(() => {
-    if (epoch === null) return;
-    const controller = new AbortController();
-    const queryKey = [...NAV_COUNTS_QUERY_KEY, managedSystem];
-    const load = () => {
-      foQueryClient.fetchQuery({
-        queryKey,
-        queryFn: ({ signal }) => fetchNavCounts({ ...(managedSystem !== null ? { managedSystemId: managedSystem } : {}), signal }),
-        staleTime: 0,
-        retry: false,
-      }).then(
-        response => { if (!controller.signal.aborted) setLoaded({ scope, epoch, counts: toSlotCounts(response.counts) }); },
-        () => { if (!controller.signal.aborted) setLoaded(null); },
-      );
-    };
-    load();
-    // An invalidation with no mounted observer only marks the query stale, so the refetch is ours to start.
-    const unsubscribe = foQueryClient.getQueryCache().subscribe(event => {
-      if (event.type === 'updated' && event.action.type === 'invalidate' && event.query.queryKey[0] === NAV_COUNTS_QUERY_KEY[0] && event.query.queryKey[1] === managedSystem) load();
-    });
-    return () => { controller.abort(); unsubscribe(); };
-  }, [epoch, managedSystem, scope]);
-
-  return epoch !== null && loaded !== null && loaded.epoch === epoch && loaded.scope === scope ? loaded.counts : null;
+  const scope = managedSystem ?? undefined;
+  const { data, isError } = useQuery({
+    queryKey: [...NAV_COUNTS_QUERY_KEY, scope] as const,
+    queryFn: ({ signal }) => fetchNavCounts({ ...(scope !== undefined ? { managedSystemId: scope } : {}), signal }),
+    enabled: session.status === 'ready',
+    retry: false,
+  }, foQueryClient);
+  return session.status === 'ready' && !isError && data !== undefined ? toSlotCounts(data.counts) : null;
 }
 
 /**
