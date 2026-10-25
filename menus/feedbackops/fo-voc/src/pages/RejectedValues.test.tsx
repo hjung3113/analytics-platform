@@ -1,8 +1,8 @@
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
 import { setFoApi } from '@ap/fo-bridge/fo-api';
-import { mountAt } from '../test-support';
+import { mountAt, warmPages } from '../test-support';
 
 /** Screens and the drawer are doubles that would request FeedbackOps data when mounted; the page value check (FeedbackOps' real search schema) is not mocked. */
 const mounted = vi.hoisted(() => ({ screens: 0, details: 0 }));
@@ -16,6 +16,7 @@ const SYSTEM = '33333333-3333-4333-8333-333333333333';
 const VOC = 'a1821f1b-0000-4000-8000-00000000000a';
 const request = vi.fn();
 
+beforeAll(warmPages, 60_000);
 beforeEach(() => {
   vi.stubGlobal('localStorage', memoryStorage());
   vi.stubGlobal('fetch', request);

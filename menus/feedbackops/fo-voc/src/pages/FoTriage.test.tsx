@@ -1,9 +1,9 @@
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
 import { setFoApi } from '@ap/fo-bridge/fo-api';
 import { useHostSeam } from '@/lib/host/host-seam';
-import { mountAt } from '../test-support';
+import { mountAt, warmPages } from '../test-support';
 
 vi.mock('@fops/frontend/operator-screens/voc-triage', () => ({
   TriageScreen: () => {
@@ -18,6 +18,7 @@ vi.mock('@fops/frontend/operator-screens/voc-triage', () => ({
 const SYSTEM = '33333333-3333-4333-8333-333333333333';
 const VOC = 'a1821f1b-0000-4000-8000-00000000000a';
 
+beforeAll(warmPages, 60_000);
 beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); });
 afterEach(() => { cleanup(); setFoApi(null); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 

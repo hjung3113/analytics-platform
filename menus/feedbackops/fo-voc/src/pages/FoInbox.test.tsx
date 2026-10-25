@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
 import { setFoApi } from '@ap/fo-bridge/fo-api';
 import { inboxRoute, triageRoute } from '@ap/fo-bridge';
 import { useHostSeam } from '@/lib/host/host-seam';
 import { manifests } from '../index';
-import { mountAt } from '../test-support';
+import { mountAt, warmPages } from '../test-support';
 
 const fo = vi.hoisted(() => ({
   render: undefined as undefined | ((id: string, options: { managedSystemId: string | undefined; onClose: () => void }) => unknown),
@@ -40,6 +40,7 @@ const SYSTEM = '33333333-3333-4333-8333-333333333333';
 const VOC_A = 'a1821f1b-0000-4000-8000-00000000000a';
 const VOC_Z = 'a1821f1b-0000-4000-8000-00000000000f';
 
+beforeAll(warmPages, 60_000);
 beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); fo.inboxProps.length = 0; fo.detailArgs.length = 0; fo.requestClose.mockReset(); fo.mounts = 0; });
 afterEach(() => { cleanup(); setFoApi(null); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 

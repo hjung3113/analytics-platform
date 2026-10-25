@@ -35,3 +35,9 @@ export function mountAt(url: string) {
   window.history.replaceState(null, '', url);
   return render(<I18nProvider><PlatformProvider adapter={adapter()} registry={registry}><DetailPanelSlotProvider><Routes /><SlotHost /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
 }
+
+/**
+ * Loads the lazy page modules (and the FeedbackOps screens behind them) before a file's first mount: a cold import can take
+ * seconds on CI, which would otherwise count against the first test's `findBy` wait.
+ */
+export const warmPages = () => Promise.all([import('./pages/FoInbox'), import('./pages/FoTriage')]);
