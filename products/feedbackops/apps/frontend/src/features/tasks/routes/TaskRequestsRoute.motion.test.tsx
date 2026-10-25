@@ -6,9 +6,31 @@ import type { ListTaskRequestsResponse, TaskRequestDto } from '@fops/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
+import { useLayoutEffect, useSyncExternalStore } from 'react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { installListMotionEnvironment } from '../../voc/components/triage/__tests__/list-motion-environment';
 import { TaskRequestsRoute } from './TaskRequestsRoute';
+
+const slot = vi.hoisted(() => {
+  let node: unknown;
+  const listeners = new Set<() => void>();
+  return {
+    subscribe: (listener: () => void) => {
+      listeners.add(listener);
+      return () => void listeners.delete(listener);
+    },
+    get: () => node,
+    set: (next: unknown) => {
+      node = next;
+      for (const listener of listeners) listener();
+    },
+  };
+});
+function SlotContent() {
+  return (
+    <>{useSyncExternalStore(slot.subscribe, slot.get, slot.get) as import('react').ReactNode}</>
+  );
+}
 
 vi.mock('@/lib/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api')>()),
@@ -44,31 +66,53 @@ vi.mock('@/lib/cross-system/useWorkspaceActors', () => ({
 }));
 vi.mock('@fops/ui', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@fops/ui')>()),
+  useDetailPanelSlot: (node: import('react').ReactNode) => {
+    useLayoutEffect(() => {
+      slot.set(node);
+      return () => slot.set(undefined);
+    }, [node]);
+  },
   ListShell: ({ list, detailPanel }: { list: ReactNode; detailPanel?: ReactNode }) => (
     <main>
       {list}
-      <aside>{detailPanel}</aside>
+      <aside>
+        {detailPanel}
+        <SlotContent />
+      </aside>
     </main>
   ),
 }));
-vi.mock('./task-requests/TaskRequestPanel', () => ({
-  TaskRequestPanel: ({
+vi.mock('./task-requests/TaskRequestPanelParts', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./task-requests/TaskRequestPanelParts')>();
+  const TaskRequestPanelBody = ({
     item,
     onDecisionComplete,
   }: {
     item: TaskRequestDto;
-    onDecisionComplete: (item: TaskRequestDto) => void;
+    onDecisionComplete?: (item: TaskRequestDto) => void;
   }) => (
     <section>
-      <button type="button" onClick={() => onDecisionComplete({ ...item, status: 'approved' })}>
+      <button type="button" onClick={() => onDecisionComplete?.({ ...item, status: 'approved' })}>
         Approve selected
       </button>
-      <button type="button" onClick={() => onDecisionComplete({ ...item, status: 'converted' })}>
+      <button type="button" onClick={() => onDecisionComplete?.({ ...item, status: 'converted' })}>
         Convert selected
       </button>
     </section>
-  ),
-}));
+  );
+  return {
+    ...actual,
+    TaskRequestPanelBody,
+    TaskRequestPanelFrame: ({ parts }: { parts: { body: ReactNode } }) => parts.body,
+    // The real builder names its own Body, so the stub is swapped in on the parts it returns.
+    buildTaskRequestPanelParts: (
+      props: Parameters<typeof actual.buildTaskRequestPanelParts>[0],
+    ) => ({
+      ...actual.buildTaskRequestPanelParts(props),
+      body: <TaskRequestPanelBody key={props.item.id} {...props} />,
+    }),
+  };
+});
 
 const rows: TaskRequestDto[] = [1, 2, 3].map((n) => ({
   id: `10000000-0000-0000-0000-00000000000${n}`,

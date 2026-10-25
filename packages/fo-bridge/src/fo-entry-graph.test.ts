@@ -474,3 +474,29 @@ describe('FeedbackOps Task Request hooks graph (ADR-0071)', () => {
     expect(callers).toEqual(['lib/api/client.ts']);
   });
 });
+
+describe('FeedbackOps operator Task Requests entry graph (ADR-0071)', () => {
+  const requests = walk([join(FRONTEND_SRC, 'operator-screens/task-requests/index.ts')]);
+  const requestsReached = [...requests.files.keys()].map(file => relative(FRONTEND_SRC, file));
+
+  it('reaches the screen, the panel parts and the host seam, and not the standalone route or anything under routes/', () => {
+    expect(requestsReached).toEqual(expect.arrayContaining(['features/tasks/routes/TaskRequestsScreen.tsx', 'features/tasks/routes/task-requests/TaskRequestPanelParts.tsx', 'lib/host/host-seam.tsx']));
+    expect(requestsReached).not.toContain('features/tasks/routes/TaskRequestsRoute.tsx');
+    expect(requestsReached.filter(file => /^routes\//.test(file))).toEqual([]);
+    expect(requests.unresolved).toEqual([]);
+  });
+
+  it('imports no router and no toast library', () => {
+    expect([...requests.specifiers].filter(specifier => /^@tanstack\/(react-)?router|^sonner$/.test(specifier))).toEqual([]);
+  });
+
+  it('reaches no route, router, layout or auth source, the auth module, the api barrel, the permissions or managed-systems api, the standalone permission check or the findings public surface', () => {
+    const banned = /^(?:routes|lib\/router|lib\/layout|lib\/auth)\/|^lib\/api\/(?:auth|index|permissions|managed-systems)\.ts$|^lib\/cross-system\/usePermissionCheck\.ts$|^features\/findings\/public\.ts$/;
+    expect(requestsReached.filter(file => banned.test(file))).toEqual([]);
+  });
+
+  it('calls fetch only in lib/api/client.ts', () => {
+    const callers = [...requests.files].filter(([, text]) => /(?<![\w.])fetch\(/.test(text)).map(([file]) => relative(FRONTEND_SRC, file));
+    expect(callers).toEqual(['lib/api/client.ts']);
+  });
+});

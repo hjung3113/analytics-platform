@@ -9,6 +9,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import * as React from 'react';
+import { useLayoutEffect, useSyncExternalStore } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TaskRequestsRoute } from './TaskRequestsRoute';
 import {
@@ -56,18 +57,48 @@ const otherTaskRequest: TaskRequestDto = {
   requested_outcome: 'Review the other candidate task',
 };
 
+const slot = vi.hoisted(() => {
+  let node: unknown;
+  const listeners = new Set<() => void>();
+  return {
+    subscribe: (listener: () => void) => {
+      listeners.add(listener);
+      return () => void listeners.delete(listener);
+    },
+    get: () => node,
+    set: (next: unknown) => {
+      node = next;
+      for (const listener of listeners) listener();
+    },
+  };
+});
+function SlotContent() {
+  return (
+    <>{useSyncExternalStore(slot.subscribe, slot.get, slot.get) as import('react').ReactNode}</>
+  );
+}
+
 vi.mock('sonner', () => ({ toast }));
 vi.mock('@fops/ui', async () => {
   const actual = await vi.importActual<typeof import('@fops/ui')>('@fops/ui');
   return {
     ...actual,
+    useDetailPanelSlot: (node: import('react').ReactNode) => {
+      useLayoutEffect(() => {
+        slot.set(node);
+        return () => slot.set(undefined);
+      }, [node]);
+    },
     ListShell: ({
       list,
       detailPanel,
     }: { list: React.ReactNode; detailPanel?: React.ReactNode }) => (
       <div>
         <main>{list}</main>
-        <aside>{detailPanel}</aside>
+        <aside>
+          {detailPanel}
+          <SlotContent />
+        </aside>
       </div>
     ),
   };

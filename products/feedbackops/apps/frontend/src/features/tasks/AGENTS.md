@@ -32,7 +32,7 @@ It does not own reporter-facing VOC status or source evidence visibility rules.
 
 ## Key files
 
-- `apps/frontend/src/routes/_authed/tasks.tsx` — selects the Task view from URL state.
+- `apps/frontend/src/routes/_authed/tasks.tsx` — selects the Task view from URL state; the requests view renders `TaskRequestsRoute bindUrl`.
 - `apps/frontend/src/features/tasks/routes/task-search.ts` — router-free `/tasks` search schema, `validateTasksSearch` and `isTasksSearchValueValid` (the route file re-exports the first two; the platform bridge entry `operator-screens/tasks-search` exposes the last).
 - `apps/frontend/src/features/tasks/routes/TaskListScreen.tsx` — bridge-safe backlog / 내 Task list body (entry `operator-screens/task-list`): URL through the host seam (`useHostSearchWriter`), the host passes `renderDetail`; it never imports the Task detail tree.
 - `apps/frontend/src/features/tasks/routes/TaskListRoute.tsx` — standalone composition: `TaskListScreen` under a seam whose `useSearch` is the route props and whose `useNavigate` keeps TanStack functional `search` (boolean `overdue`, carried keys), with `TaskDetailPanel` as `renderDetail`.
@@ -52,7 +52,9 @@ It does not own reporter-facing VOC status or source evidence visibility rules.
   focus recovery and generation invalidation; status cache writes stay in `useTaskStatusTransition`.
 - `apps/frontend/src/features/tasks/adapters/taskDisplayAdapters.ts` — shared Managed System name
   lookup, assignment resolution, and priority-to-severity projection.
-- `apps/frontend/src/features/tasks/routes/TaskRequestsRoute.tsx` — Task Request queue and selected detail.
+- `apps/frontend/src/features/tasks/routes/TaskRequestsScreen.tsx` — bridge-safe Task Request queue (entry `operator-screens/task-requests`): `param`, `reviewer`, `reviewerTeam` and `managedSystem` read and written through the host seam (`useHostSearchWriter`); the panel is handed to the host as `TaskRequestPanelParts` through `renderDetail`, rendered in place (beside the `ListShell`, never as its `detailPanel`, which would register the host's node as slot content); `autoSelect` false leaves the selection to the URL `param`.
+- `apps/frontend/src/features/tasks/routes/TaskRequestsRoute.tsx` — the standalone composition: a route-local seam (`useSearch` from the props or, without `onReviewerChange`/`bindUrl`, local reviewer state; `useNavigate` diffs the href into `onReviewerChange`/`onSelectionChange` or, with `bindUrl`, writes TanStack's functional `search` keeping unknown keys) and one registrant in the detail slot framing the parts. `bindUrl` is passed only by `routes/_authed/tasks.tsx`; without it TanStack `useNavigate()` is never called (router-less tests).
+- `apps/frontend/src/features/tasks/routes/task-requests/TaskRequestPanelParts.tsx` — the panel as `ClosableDetailParts` (`buildTaskRequestPanelParts`, `TaskRequestPanelBody`, `TaskRequestPanelFrame`, copy link through the seam's `absoluteHref`); `TaskRequestPanel.tsx` is the frame over it. Tests that stub the panel replace `TaskRequestPanelBody` and `buildTaskRequestPanelParts` in this module.
 - `apps/frontend/src/features/tasks/routes/MilestonesScreen.tsx` — bridge-safe Milestone list (status tabs, list-state branches, the three dirty guards; platform ADR-0071, entry `operator-screens/milestones`): `param`/`managedSystem` read and written through the host seam, the detail and create panels handed to the host as parts through `renderDetail`, rendered in place.
 - `apps/frontend/src/features/tasks/routes/MilestonesRoute.tsx` — the standalone composition: feeds `MilestonesScreen` the props-driven URL through TanStack `useNavigate` and registers the standalone frame for the parts in the detail slot.
 - `apps/frontend/src/features/tasks/routes/task-requests/TaskRequestPanel.tsx` — Task Request panel

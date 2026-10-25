@@ -7,7 +7,7 @@ import {
   tasksSearchSchema,
   validateTasksSearch,
 } from '@/features/tasks/routes/task-search';
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { createFileRoute } from '@tanstack/react-router';
 
 export { tasksSearchSchema, validateTasksSearch };
 
@@ -22,7 +22,8 @@ export function TasksRouteView({ search }: { search: TasksSearch }) {
   const selectedParamProps = search.param !== undefined ? { selectedParam: search.param } : {};
   if (search.view === 'requests') {
     return (
-      <TaskRequestsUrlRoute
+      <TaskRequestsRoute
+        bindUrl
         {...managedSystemProps}
         {...selectedParamProps}
         {...(search.reviewer === undefined ? {} : { reviewer: search.reviewer })}
@@ -51,42 +52,4 @@ export function TasksRouteView({ search }: { search: TasksSearch }) {
 
 function TasksRouteShell() {
   return <TasksRouteView search={Route.useSearch()} />;
-}
-
-function TaskRequestsUrlRoute(props: {
-  managedSystem?: string;
-  selectedParam?: string;
-  reviewer?: string;
-  reviewerTeam?: string;
-}) {
-  const navigate = useNavigate();
-  return (
-    <TaskRequestsRoute
-      {...props}
-      onReviewerChange={(reviewer, reviewerTeam) => {
-        void navigate({
-          to: '/tasks',
-          search: (previous) => {
-            const { reviewer: _reviewer, reviewerTeam: _team, param: _param, ...rest } = previous;
-            return {
-              ...rest,
-              view: 'requests',
-              ...(reviewer ? { reviewer } : {}),
-              ...(reviewerTeam ? { reviewerTeam } : {}),
-            };
-          },
-        });
-      }}
-      onSelectionChange={(id, replace) => {
-        void navigate({
-          to: '/tasks',
-          replace,
-          search: (previous) => {
-            const { param: _param, ...rest } = previous;
-            return { ...rest, view: 'requests', ...(id === null ? {} : { param: id }) };
-          },
-        });
-      }}
-    />
-  );
 }
