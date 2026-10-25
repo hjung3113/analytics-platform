@@ -1864,6 +1864,12 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     await expect.poll(() => { const url = new URL(page.url()); return `${url.pathname}?tab=${url.searchParams.get('tab')}`; }).toBe('/feedbackops/triage?tab=high');
     await expect(nav.locator('[aria-current="page"]')).toHaveCount(1);
     await expect(nav.getByRole('link', { name: '높음', exact: true })).toHaveAttribute('aria-current', 'page');
+    // #761 p3: the 저장된 보기 section is drawn by the shell; in the mock its body is 실서버 필요, and the collapsed sidebar has no section.
+    const savedViews = page.getByRole('region', { name: '저장된 보기' });
+    await expect(savedViews).toContainText('실서버 필요');
+    await page.getByRole('button', { name: '사이드바 접기' }).click();
+    await expect(page.getByRole('region', { name: '저장된 보기' })).toHaveCount(0);
+    await page.getByRole('button', { name: '사이드바 펼치기' }).click();
     await evidence(page, testInfo, 'feedbackops-voc-mock');
   });
 
