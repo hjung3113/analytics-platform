@@ -1,8 +1,9 @@
 import { Bell } from 'lucide-react';
 import { useEffect, useId, useRef, useState } from 'react';
+import { badgeCountText } from '@ap/components';
 import { PlatformLink, useI18n, usePlatform, type NotificationsSlot } from '@ap/kernel';
 import { Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipTrigger } from '@ap/ui';
-import { formatUnread, MenuUnread } from './unread';
+import { MenuUnread } from './unread';
 
 /**
  * Rail bell (ADR-0070 decision 4, 15 §3.2, #652). The shell draws the button, popover frame, pill and names; the slot gives the count
@@ -30,7 +31,7 @@ export function NotificationsBell({ slot }: { slot: NotificationsSlot }) {
         <button type="button" aria-haspopup="dialog" aria-expanded={open} aria-label={unread > 0 ? t('unreadNamed', { label, count: unread }) : label}
           className="relative grid size-8 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring">
           <Bell className="size-4" aria-hidden />
-          {unread > 0 && <span aria-hidden className="absolute -right-0.5 -top-0.5 grid min-w-4 place-items-center rounded-pill bg-accent-danger px-1 text-micro font-semibold leading-4 text-text-on-accent">{formatUnread(unread)}</span>}
+          {unread > 0 && <span aria-hidden className="absolute -right-0.5 -top-0.5 grid min-w-4 place-items-center rounded-pill bg-accent-danger px-1 text-micro font-semibold leading-4 text-text-on-accent">{badgeCountText(unread)}</span>}
         </button>
       </PopoverTrigger></TooltipTrigger><TooltipContent side="right">{label}</TooltipContent></Tooltip>;
     }}</slot.UnreadCount>

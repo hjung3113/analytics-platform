@@ -1,12 +1,12 @@
 import type { ReactNode } from 'react';
 import { ChevronLeft, ChevronRight, Clock3, ExternalLink, Star } from 'lucide-react';
 import { platformReturnFor, type NavView } from '@ap/contracts';
+import { badgeCountText } from '@ap/components';
 import { type MenuEntry, PlatformLink, useI18n } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import { cn, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { ScopeSelector } from './ScopeSelector';
 import { useSystemSections } from './systemSections';
-import { formatUnread } from './unread';
 
 export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
   const { visibleMenus, route, favorites, recent, registry, sidebarSpace, slots, page } = useHostPlatform();
@@ -154,7 +154,7 @@ export function NavItem({ menu, active, collapsed, href, labelPrefix, label: lab
     {active && <span data-current-marker aria-hidden className="absolute inset-y-2 left-0 w-0.5 rounded-pill bg-accent-primary" />}
     <Icon className="size-4 shrink-0" aria-hidden />
     {collapsed && count > 0 && <span aria-hidden className="absolute right-2 top-1.5 size-1.5 rounded-pill bg-accent-danger" />}
-    {!collapsed && <><span className="min-w-0 flex-1 truncate">{label}</span>{!menu.component && !menu.moduleScreen && <span className="rounded-pill bg-surface-row-selected px-1.5 py-0.5 text-caption font-semibold text-text-secondary">{t('planned')}</span>}{count > 0 && <span aria-hidden className="rounded-pill bg-surface-row-selected px-1.5 py-0.5 text-caption font-semibold text-text-secondary">{formatUnread(count)}</span>}{count === 0 && hasCount && <span aria-hidden className="rounded-pill bg-surface-row-selected px-1.5 py-0.5 text-caption font-semibold text-text-secondary">{formatUnread(navCount)}</span>}</>}
+    {!collapsed && <><span className="min-w-0 flex-1 truncate">{label}</span>{!menu.component && !menu.moduleScreen && <span className="rounded-pill bg-surface-row-selected px-1.5 py-0.5 text-caption font-semibold text-text-secondary">{t('planned')}</span>}{count > 0 && <span aria-hidden className="rounded-pill bg-surface-row-selected px-1.5 py-0.5 text-caption font-semibold text-text-secondary">{badgeCountText(count)}</span>}{count === 0 && hasCount && <span aria-hidden className="rounded-pill bg-surface-row-selected px-1.5 py-0.5 text-caption font-semibold text-text-secondary">{badgeCountText(navCount)}</span>}</>}
   </PlatformLink>;
   return collapsed ? <Tooltip><TooltipTrigger asChild>{link}</TooltipTrigger><TooltipContent side="right">{label}{!menu.component && !menu.moduleScreen && ` · ${t('planned')}`}{count > 0 && ` · ${t('unreadCount', { count })}`}</TooltipContent></Tooltip> : link;
 }
@@ -169,6 +169,6 @@ function NavViewItem({ menu, view, active, count }: { menu: MenuEntry; view: Nav
     className={cn('relative flex min-h-8 items-center gap-2 rounded-md py-1.5 pl-9 pr-3 text-sm text-text-secondary hover:bg-surface-row-hover hover:text-text-primary', active && 'bg-surface-row-selected font-semibold text-text-primary')}>
     {active && <span data-current-marker aria-hidden className="absolute inset-y-2 left-0 w-0.5 rounded-pill bg-accent-primary" />}
     <span className="min-w-0 flex-1 truncate">{label}</span>
-    {hasCount && <span aria-hidden className="rounded-pill bg-surface-row-selected px-1.5 py-0.5 text-caption font-semibold text-text-secondary">{formatUnread(count)}</span>}
+    {hasCount && <span aria-hidden className="rounded-pill bg-surface-row-selected px-1.5 py-0.5 text-caption font-semibold text-text-secondary">{badgeCountText(count)}</span>}
   </PlatformLink>;
 }

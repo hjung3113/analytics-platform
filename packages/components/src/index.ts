@@ -19,6 +19,7 @@ export { useManagementFilters, type FilterDraft, type ManagementFiltersOptions }
 
 export { ManagementLayout, type ManagementLayoutProps } from './ManagementLayout';
 
+export { badgeCountText } from './workspace/PanelBadge';
 export { PanelWorkspace, type PanelWorkspaceLayout, type PanelWorkspacePanel, type PanelWorkspacePreset, type PanelWorkspaceProps } from './workspace/PanelWorkspace';
 export { AnalysisLayout, type AnalysisLayoutProps, type AnalysisSection } from './AnalysisLayout';
 export { DrillLayout, DrillPath, ReturnLink, type DrillLayoutProps, type DrillPathProps, type DrillSibling, type DrillSiblings } from './DrillLayout';

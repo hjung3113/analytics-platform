@@ -19,6 +19,9 @@
 - `adapter.ts` — `PlatformAdapter` 포트와 입출력 타입. 설계는 [패키지 경계](../../docs/integration/platform-packages.md) §4.
 - `correlation.ts` — `clientCorrelationId()`: 클라이언트가 만드는 `client-…` 상관 ID(오류 화면·클라이언트 오류 보고). 형식 제약은 파일 주석.
 - `guards.ts` — `isRecord`(null·배열이 아닌 객체, 프로토타입은 보지 않음): 신뢰할 수 없는 값(저장 JSON·서버 응답)의 필드를 읽기 전 모양 검사 한 벌(#673). `@ap/ui`는 `@ap/*`를 import하지 않으므로 sanitizer 사본을 유지하고, mock-server의 `isPlainObject`(프로토타입 검사)는 다른 판정이다.
+- `measure.ts` — 측정값 재결합 방식 `Reaggregation`(`sum`·`ratioOfSums`·`recomputeFromDistribution`·`none`)·`MeasureMeta`와 `canClientSum`(클라이언트가 직접 더해도 되는지). 서버·내보내기·지표 카탈로그·차트가 같은 어휘를 쓴다. 원본은 [01 §집계 가능성 계약](../../docs/01_architecture_and_data_contract.md#집계-가능성-계약), 결정은 [ADR-0082](../../docs/adr/0082-measure-reaggregation-contract.md).
+- `required-context.ts` — 필수 Context 판정 `CONTEXT_FIELDS`(capability → Context 필드)·`missingRequiredContext`·`requiredContextError`. 클라이언트 게이트와 서버 검증이 함께 쓴다([ADR-0061](../../docs/adr/0061-query-draft-applied-address-and-required-gate.md)).
+- `selection-ports.ts` — 설비 선택 메타데이터 포트의 입출력 타입(축 선택지·설비 검색·선택 해석)과 판정 오류 `PortError`·`PORT_ERROR_CODES`·`isPortError`(구조 검사, `instanceof` 아님). 결정은 [ADR-0059](../../docs/adr/0059-app-injected-equipment-axes-and-condition.md), 오류 판정은 [ADR-0074](../../docs/adr/0074-port-failures-three-surfaces-structural-port-error.md).
 - `audit.ts`, `i18n.ts` — `AuditEvent`·`AUDIT_ACTIONS`, `Text`.
 - `vocab.json` — 생성 산출물(#674): 저장소 밖·다른 도구 체인의 서버가 따라야 하는 닫힌 어휘(`kernelPermissions`·`USAGE_VIAS`·`AUDIT_ACTIONS`·`OUTCOMES`; 앱의 공간·메뉴 권한은 서버가 모른다, ADR-0072). `@ap/contracts/vocab.json`으로 내보낸다. 원본은 각 `as const` 목록이고 `pnpm --filter @ap/contracts gen:vocab`(`scripts/vocab.mjs`)이 만든다. `test`가 최신인지 확인한다. 소비처: FeedbackOps 백엔드 어휘 drift 테스트.
 - `globals.d.ts` — DOM lib 없이 쓰는 최소 `URLSearchParams`·`URL`·`AbortSignal`·`crypto` 선언.
@@ -27,7 +30,7 @@
 
 - import 금지: React, DOM 타입, Node API, 다른 `@ap/*` 패키지, 외부 런타임 라이브러리.
 - 필드 추가·이름 변경은 계약 변경이다. 소비처(kernel, shell, 앱 mock 구현)를 같은 PR에서 맞추고, 06이나 패키지 경계 문서에 반영할 결정인지 먼저 판단한다. 필드 이름 대부분은 Candidate다.
-- 이 패키지에는 자체 동작 테스트가 없다(`test`는 `vocab.json`이 최신인지만 본다 — 어휘 목록을 바꾸면 `gen:vocab`을 돌려 함께 커밋한다). 계약 테스트는 앱 통합 테스트 `apps/platform-web/src/{url-contract,feedbackops-link,instant,menu-query-contract,contracts-helpers}.test.ts`이므로 codec·선언을 바꾸면 함께 갱신한다. 배포 산출물과 소비자 환경 규칙은 [패키지 경계 §3](../../docs/integration/platform-packages.md#3-패키지-구성)이 소유하고 `check:pack`이 확인한다. URL은 보정 없이 오류로 거부한다(06 §6).
+- 이 패키지에는 자체 동작 테스트가 없다(`test`는 `vocab.json`이 최신인지만 본다 — 어휘 목록을 바꾸면 `gen:vocab`을 돌려 함께 커밋한다). 계약 테스트는 앱 통합 테스트 `apps/platform-web/src/{url-contract,feedbackops-link,instant,menu-query-contract,contracts-helpers,measure}.test.ts`이므로 codec·선언을 바꾸면 함께 갱신한다. 배포 산출물과 소비자 환경 규칙은 [패키지 경계 §3](../../docs/integration/platform-packages.md#3-패키지-구성)이 소유하고 `check:pack`이 확인한다. URL은 보정 없이 오류로 거부한다(06 §6).
 - `PlatformAdapter`에 메서드를 추가하면 `pnpm typecheck`가 깨뜨리는 어댑터 구현(`@ap/kernel/testing`의 `testAdapter`, mock `packages/mock-server/src/adapter.ts`, `@ap/server-conformance` 테스트의 `referenceAdapter`)과 `@ap/server-conformance` 검사, [체크리스트 §2](../../docs/integration/real-server-checklist.md)·[전송 형식 초안 §1](../../docs/integration/http-adapter-contract.md) 표를 같은 PR에서 고친다.
 
 ## 검증
