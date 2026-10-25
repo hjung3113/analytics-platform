@@ -36,6 +36,11 @@ describe('EV host module mount (#801)', () => {
     expect(seenByAdapter).toBe(realpathSync(path.join(appModules, ...name.split('/'))));
   });
 
+  it('registers the EV screens lazily so the main entry stays free of the adapter root', () => {
+    const lazyType = Symbol.for('react.lazy');
+    for (const menu of EQV_MODULE.menus) expect((menu.moduleScreen as unknown as { $$typeof: symbol }).$$typeof).toBe(lazyType);
+  });
+
   it('imports the EV mock data from src/dev/ only (ADR-0009)', () => {
     const offenders = sourcesOutsideDev(SRC)
       .filter(file => !file.endsWith('server-conformance.test.ts') && !file.endsWith('modules.test.ts'))

@@ -4,15 +4,19 @@
  * Placement is provisional and lives in these two constants only; the owner confirms the space from captures.
  * `apps/platform-e2e/tests/eqv.spec.ts` holds the black-box copy of the path — update it with them.
  */
+import { lazy } from 'react';
 import { Map as MapIcon, Radar } from 'lucide-react';
 import { menuPermission, spaceId, type Permission } from '@ap/contracts';
 import { mountModule, type ModuleGroupDef, type ModuleMenuEntry, type Registry } from '@ap/kernel';
-import { eqvManifest, eqvScreens } from '@eqv/platform-adapter';
+import { eqvManifest } from '@eqv/platform-adapter/manifest';
 
 export const EQV_SPACE = spaceId('clas');
 export const EQV_PREFIX = '/clas/topview';
 
-export const EQV_MODULE: { menus: ModuleMenuEntry[]; groups: ModuleGroupDef[] } = mountModule(eqvManifest, eqvScreens, {
+export const EQV_MODULE: { menus: ModuleMenuEntry[]; groups: ModuleGroupDef[] } = mountModule(eqvManifest, {
+  topview: lazy(() => import('@eqv/platform-adapter').then(m => ({ default: m.eqvScreens.topview }))),
+  focus: lazy(() => import('@eqv/platform-adapter').then(m => ({ default: m.eqvScreens.focus }))),
+}, {
   prefix: EQV_PREFIX,
   groupSpace: { 'eqv:equipment': EQV_SPACE },
   config: {},
