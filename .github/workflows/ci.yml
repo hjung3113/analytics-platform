@@ -35,7 +35,7 @@ jobs:
         with:
           fetch-depth: 0
       # code=false only for a PR whose every changed file is Markdown. Anything else, and every push to main, runs everything.
-      # site=false only for a PR that changes no non-Markdown file the intro-site captures depend on (#608).
+      # site=false only for a PR with a non-empty diff that touches nothing the intro-site captures depend on (#608).
       - id: classify
         env:
           EVENT: ${{ github.event_name }}
@@ -47,7 +47,10 @@ jobs:
           if [ "$EVENT" = pull_request ]; then
             files="$(git diff --name-only --no-renames "$BASE...$HEAD")"
             if [ -n "$files" ] && ! printf '%s\n' "$files" | grep -qv '\.md$'; then code=false; fi
-            if ! printf '%s\n' "$files" | grep -v '\.md$' | grep -qE '^(menus|packages|apps/platform-web|site)/|^pnpm-lock\.yaml$|^apps/platform-e2e/package\.json$|^\.github/workflows/(ci|pages)\.yml$'; then site=false; fi
+            # FeedbackOps frontend sources are bundled into the demo through the `@` alias; GLOSSARY.md feeds the site's banned-term check.
+            site_dirs='^(menus|packages|apps/platform-web|site|tooling|patches|products/feedbackops)/'
+            site_files='^(package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|GLOSSARY\.md|apps/platform-e2e/package\.json|\.github/workflows/(ci|pages)\.yml)$'
+            if [ -n "$files" ] && ! { printf '%s\n' "$files" | grep -v '\.md$' | grep -E "$site_dirs" >/dev/null || printf '%s\n' "$files" | grep -E "$site_files" >/dev/null; }; then site=false; fi
             printf 'changed files:\n%s\n' "$files"
           fi
           echo "code=$code" | tee -a "$GITHUB_OUTPUT"
