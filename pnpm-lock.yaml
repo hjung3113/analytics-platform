@@ -147,6 +147,24 @@ importers:
       '@ap/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@eqv/core':
+        specifier: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-core-0.3.0.tgz
+        version: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-core-0.3.0.tgz
+      '@eqv/platform-adapter':
+        specifier: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-platform-adapter-0.3.0.tgz
+        version: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-platform-adapter-0.3.0.tgz(75f83b0afb05d68b8fd97edf79bd0610)
+      '@eqv/renderer':
+        specifier: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-renderer-0.3.0.tgz
+        version: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-renderer-0.3.0.tgz(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-core-0.3.0.tgz)(react@19.3.0)
+      '@eqv/replay':
+        specifier: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-replay-0.3.0.tgz
+        version: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-replay-0.3.0.tgz(@ap/ui@packages+ui)(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-core-0.3.0.tgz)(@eqv/ui@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-ui-0.3.0.tgz(@ap/ui@packages+ui)(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-core-0.3.0.tgz)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react@19.3.0)
+      '@eqv/ui':
+        specifier: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-ui-0.3.0.tgz
+        version: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-ui-0.3.0.tgz(@ap/ui@packages+ui)(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-core-0.3.0.tgz)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@eqv/views':
+        specifier: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-views-0.3.0.tgz
+        version: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-views-0.3.0.tgz(43a82880173b1dab382ffce081810efa)
       '@fontsource-variable/inter':
         specifier: 5.3.0
         version: 5.3.0
@@ -2335,6 +2353,60 @@ packages:
 
   '@drizzle-team/brocli@0.10.2':
     resolution: {integrity: sha512-z33Il7l5dKjUgGULTqBsQBQwckHh5AbIuxhdsIxDDiZAzBOrZO6q9ogcWC65kU382AfynTfgNumVcNIjuIua6w==}
+
+  '@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-core-0.3.0.tgz':
+    resolution: {integrity: sha512-/Vu4Sa2GfaO/WZYV8nkzw+CFA+75RsZblTKj8oywuyRpsqEjRlYoxQ4YF3Fft2Y/9FsNMvaVgJxF60TgqcZnuw==, tarball: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-core-0.3.0.tgz}
+    version: 0.3.0
+
+  '@eqv/platform-adapter@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-platform-adapter-0.3.0.tgz':
+    resolution: {integrity: sha512-eVWrrhkyEMKrKhQepFTnrLGuZ+zh318X5f2ZGl/C56boeDhP5VDVWB1ARbzgCp0umwxrSdUCNsDWG0bIgtDhPQ==, tarball: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-platform-adapter-0.3.0.tgz}
+    version: 0.3.0
+    peerDependencies:
+      '@ap/contracts': 0.12.0
+      '@ap/ui': 0.12.0
+      '@eqv/core': 0.3.0
+      '@eqv/renderer': 0.3.0
+      '@eqv/replay': 0.3.0
+      '@eqv/ui': 0.3.0
+      '@eqv/views': 0.3.0
+      react: ^19.0.0
+      react-dom: ^19.0.0
+
+  '@eqv/renderer@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-renderer-0.3.0.tgz':
+    resolution: {integrity: sha512-HSboJXXMZXxlKmwsumkMRevAKWGfjo2f2vWqR7Sl+awJ2uGG1EczjaEoTUNjKUiJF1MfemgC5YouOOTA+CiY7g==, tarball: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-renderer-0.3.0.tgz}
+    version: 0.3.0
+    peerDependencies:
+      '@eqv/core': 0.3.0
+      react: ^19.0.0
+
+  '@eqv/replay@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-replay-0.3.0.tgz':
+    resolution: {integrity: sha512-TEDc4yQb7DDwIhg4WfgvYTv38XPaFQ11eLnbqjiIiXlfmrC8KbWlen6UutmQUhIkoE/iHUV2ZLw13O+StR4sYA==, tarball: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-replay-0.3.0.tgz}
+    version: 0.3.0
+    peerDependencies:
+      '@ap/ui': 0.12.0
+      '@eqv/core': 0.3.0
+      '@eqv/ui': 0.3.0
+      react: ^19.0.0
+
+  '@eqv/ui@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-ui-0.3.0.tgz':
+    resolution: {integrity: sha512-NcKzP0drblcROzqKstbxrHgLZ+FLHYcIqtpyaH7J25uv4rgz8Gxvi3CA9uyDTYjhXj+XtWM0F2ZiHdlJpoDr9A==, tarball: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-ui-0.3.0.tgz}
+    version: 0.3.0
+    peerDependencies:
+      '@ap/ui': 0.12.0
+      '@eqv/core': 0.3.0
+      react: ^19.0.0
+
+  '@eqv/views@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-views-0.3.0.tgz':
+    resolution: {integrity: sha512-LBhoXUsBrK0XxHxpVnHpfZ0v+akyaECvs9eLj5NMHPKQHu4Avt20qcROUB5cgASMwRsy06PY9Fj0WTMx2cy7gA==, tarball: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-views-0.3.0.tgz}
+    version: 0.3.0
+    peerDependencies:
+      '@ap/ui': 0.12.0
+      '@eqv/core': 0.3.0
+      '@eqv/renderer': 0.3.0
+      '@eqv/replay': 0.3.0
+      '@eqv/ui': 0.3.0
+      react: ^19.0.0
+      react-dom: ^19.0.0
 
   '@esbuild-kit/core-utils@3.3.2':
     resolution: {integrity: sha512-sPRAnw9CdSsRmEtnsl2WXWdyquogVpB3yZ3dgwJfe8zrOzTsV7cJvmwrKVa+0ma5BoiGJ+BoqkMvawbayKUsqQ==}
@@ -6583,6 +6655,9 @@ packages:
   zod@3.25.67:
     resolution: {integrity: sha512-idA2YXwpCdqUSKRCACDE6ItZD9TZzy3OZMtpfLoh6oPR47lipysRrJfjzMqFxQ3uJuUPyUeWe1r9vLH33xO/Qw==}
 
+  zod@4.6.5:
+    resolution: {integrity: sha512-v5l/aFXZQeai4awLbOpSoHecE9UiMrnfx75tEXLjNonXVARxQ5mOeipTjROUchszUNCqnE+hqAMujRsRHsut2Q==}
+
   zrender@6.1.0:
     resolution: {integrity: sha512-oEGMDB6pOP2S6OwRR4PdVv610zrjnA3Bh+JnSG12fYJlBKjtNAoEb5fSUoCOOINlH96I2fU38/A2UpRKs67xYQ==}
 
@@ -6983,6 +7058,57 @@ snapshots:
       tslib: 2.8.1
 
   '@drizzle-team/brocli@0.10.2': {}
+
+  '@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-core-0.3.0.tgz':
+    dependencies:
+      zod: 4.6.5
+
+  '@eqv/platform-adapter@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-platform-adapter-0.3.0.tgz(75f83b0afb05d68b8fd97edf79bd0610)':
+    dependencies:
+      '@ap/contracts': link:packages/contracts
+      '@ap/ui': link:packages/ui
+      '@eqv/core': https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-core-0.3.0.tgz
+      '@eqv/renderer': https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-renderer-0.3.0.tgz(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-core-0.3.0.tgz)(react@19.3.0)
+      '@eqv/replay': https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-replay-0.3.0.tgz(@ap/ui@packages+ui)(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-core-0.3.0.tgz)(@eqv/ui@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-ui-0.3.0.tgz(@ap/ui@packages+ui)(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-core-0.3.0.tgz)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react@19.3.0)
+      '@eqv/ui': https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-ui-0.3.0.tgz(@ap/ui@packages+ui)(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-core-0.3.0.tgz)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@eqv/views': https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-views-0.3.0.tgz(43a82880173b1dab382ffce081810efa)
+      lucide-react: 0.469.0(react@19.3.0)
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+
+  '@eqv/renderer@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-renderer-0.3.0.tgz(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-core-0.3.0.tgz)(react@19.3.0)':
+    dependencies:
+      '@eqv/core': https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-core-0.3.0.tgz
+      react: 19.3.0
+
+  '@eqv/replay@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-replay-0.3.0.tgz(@ap/ui@packages+ui)(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-core-0.3.0.tgz)(@eqv/ui@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-ui-0.3.0.tgz(@ap/ui@packages+ui)(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-core-0.3.0.tgz)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react@19.3.0)':
+    dependencies:
+      '@ap/ui': link:packages/ui
+      '@eqv/core': https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-core-0.3.0.tgz
+      '@eqv/ui': https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-ui-0.3.0.tgz(@ap/ui@packages+ui)(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-core-0.3.0.tgz)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      lucide-react: 0.469.0(react@19.3.0)
+      react: 19.3.0
+
+  '@eqv/ui@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-ui-0.3.0.tgz(@ap/ui@packages+ui)(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-core-0.3.0.tgz)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
+    dependencies:
+      '@ap/ui': link:packages/ui
+      '@eqv/core': https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-core-0.3.0.tgz
+      '@tanstack/react-virtual': 3.14.13(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      lucide-react: 0.469.0(react@19.3.0)
+      react: 19.3.0
+    transitivePeerDependencies:
+      - react-dom
+
+  '@eqv/views@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-views-0.3.0.tgz(43a82880173b1dab382ffce081810efa)':
+    dependencies:
+      '@ap/ui': link:packages/ui
+      '@eqv/core': https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-core-0.3.0.tgz
+      '@eqv/renderer': https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-renderer-0.3.0.tgz(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-core-0.3.0.tgz)(react@19.3.0)
+      '@eqv/replay': https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-replay-0.3.0.tgz(@ap/ui@packages+ui)(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-core-0.3.0.tgz)(@eqv/ui@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-ui-0.3.0.tgz(@ap/ui@packages+ui)(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-core-0.3.0.tgz)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react@19.3.0)
+      '@eqv/ui': https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-ui-0.3.0.tgz(@ap/ui@packages+ui)(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.3.0/eqv-core-0.3.0.tgz)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      lucide-react: 0.469.0(react@19.3.0)
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
 
   '@esbuild-kit/core-utils@3.3.2':
     dependencies:
@@ -10973,6 +11099,8 @@ snapshots:
       zod: 3.25.67
 
   zod@3.25.67: {}
+
+  zod@4.6.5: {}
 
   zrender@6.1.0:
     dependencies:

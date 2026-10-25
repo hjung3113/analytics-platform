@@ -42,3 +42,8 @@ overrides:
   "@tiptap/extension-strike": 3.23.5
   "@tiptap/extension-text": 3.23.5
   "@tiptap/extensions": 3.23.5
+# EV host module (#801, EV ADR-0014): @eqv/* tarballs pack @ap/* as exact SDK peers (0.12.0); this workspace provides them as workspace:* (0.0.0).
+peerDependencyRules:
+  allowedVersions:
+    "@eqv/*>@ap/ui": "*"
+    "@eqv/*>@ap/contracts": "*"
