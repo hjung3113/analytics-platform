@@ -11,4 +11,9 @@ export { hostLinks, permissionRequestsTarget, type PlatformTarget, type TargetOf
 export { foQueryClient, useFoSession } from './fo/session';
 export { canSurveyLink, SURVEY_ID, SurveyLink, surveyTarget } from './fo/survey-links';
 export { canVocLink, VOC_ID, VocLink, vocListTarget, vocTarget } from './fo/voc-links';
-export { clustersRoute, inboxRoute, operatorHostLinks, triageRoute, useClustersHere, useClustersSearch, useInboxHere, useInboxSearch, useTriageHere, useTriageSearch } from './fo/voc-routes';
+export { FoDetailDrawer } from './fo/FoDetailDrawer';
+export { operatorHostLinks } from './fo/operator-links';
+export {
+  myTasksRoute, taskBoardRoute, taskListRoute, useMyTasksHere, useMyTasksSearch, useTaskBoardHere, useTaskBoardSearch, useTaskListHere, useTaskListSearch,
+} from './fo/task-routes';
+export { clustersRoute, inboxRoute, triageRoute, useClustersHere, useClustersSearch, useInboxHere, useInboxSearch, useTriageHere, useTriageSearch } from './fo/voc-routes';

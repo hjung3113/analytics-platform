@@ -1,0 +1,62 @@
+import { expect, test, type Page } from '@playwright/test';
+import { evidence, mainHeading, query, signInAs } from './support';
+
+/**
+ * FeedbackOps › Tasks (#763 p1): the board, 내 Task and the hidden Task 목록 as bridge menus. The e2e run uses the mock adapter, where `FoBridge` renders
+ * only `실서버 필요`, so no screen or drawer mounts here; the drawer round trip is covered by the page tests and the conductor's real-server check.
+ */
+const TASK = '99999999-9999-4999-8999-999999999999';
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const sidebar = (page: Page) => page.getByRole('navigation', { name: '주 메뉴' });
+/** Rail section buttons of the current system (15 §3.2). */
+function railSection(page: Page, name: string) {
+  return page.getByRole('navigation', { name: '앱 레일' }).getByRole('group', { name: '시스템 섹션' }).getByRole('button', { name, exact: true });
+}
+
+test.describe('FeedbackOps Tasks 그룹(#763)', () => {
+  test.beforeEach(async ({ page }) => { await signInAs(page, 'admin'); });
+
+  test('레일 Tasks 섹션은 Tasks와 내 Task를 보이고 Task 목록은 숨기며, 본문은 실서버 필요다', async ({ page }, testInfo) => {
+    await page.goto('/feedbackops');
+    await railSection(page, 'Tasks').click();
+    await expect(sidebar(page).getByRole('link', { name: 'Tasks', exact: true })).toBeVisible();
+    await expect(sidebar(page).getByRole('link', { name: '내 Task', exact: true })).toBeVisible();
+    await expect(sidebar(page).getByRole('link', { name: 'Task 목록' })).toHaveCount(0);
+
+    await sidebar(page).getByRole('link', { name: 'Tasks', exact: true }).click();
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/feedbackops/tasks');
+    await expect(mainHeading(page)).toHaveText('Tasks');
+    await expect(page.getByRole('main').getByRole('status')).toContainText('실서버 필요');
+
+    await sidebar(page).getByRole('link', { name: '내 Task', exact: true }).click();
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/feedbackops/my-tasks');
+    await expect(mainHeading(page)).toHaveText('내 Task');
+    await expect(page.getByRole('main').getByRole('status')).toContainText('실서버 필요');
+    await evidence(page, testInfo, 'feedbackops-tasks-sidebar');
+  });
+
+  test('Task 목록 주소는 부모 Tasks를 현재로 표시하고 새로고침해도 focus가 남는다', async ({ page }) => {
+    await page.goto(`/feedbackops/tasks/list?focus=${TASK}`);
+    await expect(page.getByRole('main').getByRole('status')).toContainText('실서버 필요');
+    await expect(sidebar(page).getByRole('link', { name: 'Tasks', exact: true })).toHaveAttribute('aria-current', 'page');
+    await page.reload();
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/feedbackops/tasks/list');
+    expect(query(page).get('focus')).toBe(TASK);
+    await expect(sidebar(page).getByRole('link', { name: 'Tasks', exact: true })).toHaveAttribute('aria-current', 'page');
+  });
+
+  test('보드의 틀린 publicUpdate 값은 화면 대신 거절 화면이고 주소는 그대로다', async ({ page }) => {
+    await page.goto('/feedbackops/tasks?publicUpdate=x');
+    await expect(page.getByText('주소의 publicUpdate 값이 올바르지 않습니다')).toBeVisible();
+    await expect(page.getByRole('button', { name: '값 지우기' })).toBeVisible();
+    expect(query(page).get('publicUpdate')).toBe('x');
+  });
+
+  test('MARS 바닥 블록의 Task는 같은 탭에서 /feedbackops/tasks/list를 managedSystem과 함께 연다', async ({ page }) => {
+    await page.goto('/analytics/productivity?v=1&scopeId=MEM&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00&roomNames=PHOTO');
+    await page.getByRole('navigation', { name: 'FeedbackOps · MARS' }).getByRole('link', { name: /^Task/ }).click();
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/feedbackops/tasks/list');
+    expect(query(page).get('managedSystem')).toMatch(UUID);
+  });
+});

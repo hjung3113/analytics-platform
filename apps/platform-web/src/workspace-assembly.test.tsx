@@ -82,6 +82,7 @@ describe('workspace assembly (#260)', () => {
       ['impReports', 'improvement'],
       ['foDashboard', 'feedbackops'],
       ['foVoc', 'feedbackops'],
+      ['foTasks', 'feedbackops'],
     ]);
     expect(SPACES.map(space => space.id)).toEqual(['analytics', 'metrics', 'clas', 'tools', 'log-dev', 'improvement', 'operations', 'feedbackops']);
     expect(SPACES[0]).toMatchObject({
@@ -129,6 +130,13 @@ describe('workspace assembly (#260)', () => {
     expect(registry.menuById('fo-clusters')).toMatchObject({ path: '/feedbackops/clusters', permission: 'feedbackops:access', requiresScope: false });
     for (const id of ['fo-inbox', 'fo-triage', 'fo-clusters']) expect(registry.menuById(id).pageKeys).toEqual(expect.arrayContaining(['managedSystem', 'focus', 'returnTo']));
     expect(registry.spaceOf(registry.menuById('fo-inbox'))?.id).toBe('feedbackops');
+    // #763 p1: the Tasks group follows VOC; the Task list is hidden under Tasks (which the shell marks current for it), and every menu declares managedSystem, returnTo and focus.
+    expect(registry.menus.filter(menu => menu.group === 'foTasks').map(menu => menu.id)).toEqual(['fo-tasks', 'fo-my-tasks', 'fo-task-list']);
+    expect(registry.menuById('fo-tasks')).toMatchObject({ path: '/feedbackops/tasks', primary: true, permission: 'feedbackops:access', requiresScope: false });
+    expect(registry.menuById('fo-my-tasks')).toMatchObject({ path: '/feedbackops/my-tasks', permission: 'feedbackops:access', requiresScope: false });
+    expect(registry.menuById('fo-task-list')).toMatchObject({ path: '/feedbackops/tasks/list', navHidden: true, parent: 'fo-tasks' });
+    for (const id of ['fo-tasks', 'fo-my-tasks', 'fo-task-list']) expect(registry.menuById(id).pageKeys).toEqual(expect.arrayContaining(['managedSystem', 'focus', 'returnTo']));
+    expect(registry.spaceOf(registry.menuById('fo-task-list'))?.id).toBe('feedbackops');
     // #252 (ADR-0065): work-queue first; every menu is planned and open to every signed-in user for now.
     expect(SPACES[4]).toMatchObject({ label: { ko: '표준 로그 개발', en: 'Standard log development' }, homeMenuId: 'log-my-queue' });
     expect(SPACES[5]).toMatchObject({ label: { ko: '개선 실행', en: 'Improvement execution' }, homeMenuId: 'imp-my-tasks' });
@@ -155,8 +163,8 @@ describe('workspace assembly (#260)', () => {
     const fakeSection: SpaceNavSectionSlot = { For: () => null };
     const slots = appSlots(assembly, null, fakeSlot, fakeVocCompose, fakeHomeTodo, fakeScopeControl, fakeNavCounts, fakeSection);
     expect(slots.topBarTools).toBe(assembly.topBarTools);
-    // The real composition (#251): mapped spaces get three entries, disabled while the origin is absent; operations has no row.
-    expect(slots.feedbackOps?.entriesFor(spaceId('metrics'))?.map(entry => [entry.key, 'href' in entry ? entry.href : undefined])).toEqual([['voc', undefined], ['task', null], ['survey', null]]);
+    // The real composition (#251): mapped spaces get three entries, only 설문 disabled while the origin is absent (VOC and Task are in-shell); operations has no row.
+    expect(slots.feedbackOps?.entriesFor(spaceId('metrics'))?.map(entry => [entry.key, 'href' in entry ? entry.href : undefined])).toEqual([['voc', undefined], ['task', undefined], ['survey', null]]);
     expect(slots.feedbackOps?.entriesFor(spaceId('operations'))).toBeNull();
     expect(slots.feedbackOps?.overall).toBeNull();
     expect(appSlots(assembly, 'https://feedbackops.example', fakeSlot, fakeVocCompose, fakeHomeTodo, fakeScopeControl, fakeNavCounts, fakeSection).feedbackOps?.entriesFor(spaceId('metrics'))?.filter(entry => 'href' in entry).every(entry => 'href' in entry && entry.href?.startsWith('https://feedbackops.example/'))).toBe(true);

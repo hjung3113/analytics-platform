@@ -10,34 +10,36 @@ const PRODUCTIVITY = `/analytics/productivity?v=1&scopeId=MEM&${PERIOD}&roomName
 const ORIGIN = 'https://feedbackops.example';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** The three space entries: VOC opens in this tab inside the shell (#760), Task and 설문 are new-tab links. All three are scoped to exactly one Managed System uuid. */
+/** The three space entries: VOC (#760) and Task (#763) open in this tab inside the shell, only 설문 is a new-tab link. All three are scoped to exactly one Managed System uuid. */
 async function managedSystemOf(page: Page, space: string) {
   const block = page.getByRole('navigation', { name: `FeedbackOps · ${space}` });
   await expect(block).toBeVisible();
   const links = block.getByRole('link');
   await expect(links).toHaveCount(3);
   const found = new Set<string>();
-  const voc = links.first();
-  await expect(voc).toHaveAccessibleName(`VOC — ${space}, FeedbackOps`);
-  await expect(voc).not.toHaveAttribute('target', /.+/);
-  const vocUrl = new URL((await voc.getAttribute('href'))!, page.url());
-  expect(vocUrl.pathname).toBe('/feedbackops/vocs');
-  expect(vocUrl.searchParams.getAll('managedSystem')).toHaveLength(1);
-  found.add(vocUrl.searchParams.get('managedSystem')!);
-  for (const link of (await links.all()).slice(1)) {
-    await expect(link).toHaveAttribute('target', '_blank');
-    await expect(link).toHaveAttribute('rel', /noopener/);
-    await expect(link).toHaveAttribute('rel', /noreferrer/);
-    const url = new URL((await link.getAttribute('href'))!);
-    expect(url.origin).toBe(ORIGIN);
-    const values = url.searchParams.getAll('managedSystem');
-    expect(values).toHaveLength(1);
-    expect(values[0]).toMatch(UUID);
-    expect(values[0]).not.toBe('all');
-    // FeedbackOps links back to the page the link was drawn on (FO ADR-0071, #448).
-    expect(url.searchParams.getAll('platformReturn')).toEqual([page.url()]);
-    found.add(values[0]);
+  const inShell = [['VOC', '/feedbackops/vocs'], ['Task', '/feedbackops/tasks/list']] as const;
+  for (const [index, [name, pathname]] of inShell.entries()) {
+    const link = links.nth(index);
+    await expect(link).toHaveAccessibleName(`${name} — ${space}, FeedbackOps`);
+    await expect(link).not.toHaveAttribute('target', /.+/);
+    const url = new URL((await link.getAttribute('href'))!, page.url());
+    expect(url.pathname).toBe(pathname);
+    expect(url.searchParams.getAll('managedSystem')).toHaveLength(1);
+    found.add(url.searchParams.get('managedSystem')!);
   }
+  const survey = links.nth(2);
+  await expect(survey).toHaveAttribute('target', '_blank');
+  await expect(survey).toHaveAttribute('rel', /noopener/);
+  await expect(survey).toHaveAttribute('rel', /noreferrer/);
+  const url = new URL((await survey.getAttribute('href'))!);
+  expect(url.origin).toBe(ORIGIN);
+  const values = url.searchParams.getAll('managedSystem');
+  expect(values).toHaveLength(1);
+  expect(values[0]).toMatch(UUID);
+  expect(values[0]).not.toBe('all');
+  // FeedbackOps links back to the page the link was drawn on (FO ADR-0071, #448).
+  expect(url.searchParams.getAll('platformReturn')).toEqual([page.url()]);
+  found.add(values[0]);
   expect(found.size).toBe(1);
   expect([...found][0]).toMatch(UUID);
   expect([...found][0]).not.toBe('all');
@@ -3950,7 +3952,7 @@ test.describe('표 높이·고정 동작 열 (06 §15, ADR-0037)', () => {
 });
 
 test.describe('FeedbackOps 공간별 진입(#251)', () => {
-  test('admin의 MARS·BRAVO 사이드바 블록은 그 공간의 managedSystem만 담은 링크 셋(VOC 셸 안, Task·설문 새 탭)이고, 운영 콘솔에는 블록이 없다', async ({ page }, testInfo) => {
+  test('admin의 MARS·BRAVO 사이드바 블록은 그 공간의 managedSystem만 담은 링크 셋(VOC·Task 셸 안, 설문 새 탭)이고, 운영 콘솔에는 블록이 없다', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
     await page.goto(PRODUCTIVITY);
     const analytics = await managedSystemOf(page, 'MARS');
@@ -4050,8 +4052,8 @@ test.describe('FeedbackOps 진입 링크 회귀(#451, 06 §22)', () => {
         if (href.pathname === '/feedbackops/vocs') {
           expectExactQueryKeys(href, ['v', 'managedSystem', 'returnTo']);
           destinations.push('vocs:inbox');
-        } else if (href.pathname === '/tasks') {
-          expectExactQueryKeys(href, ['managedSystem', 'platformReturn']);
+        } else if (href.pathname === '/feedbackops/tasks/list') {
+          expectExactQueryKeys(href, ['v', 'managedSystem', 'returnTo']);
           destinations.push('tasks');
         } else if (href.pathname === '/surveys') {
           expectExactQueryKeys(href, ['managedSystem', 'platformReturn']);

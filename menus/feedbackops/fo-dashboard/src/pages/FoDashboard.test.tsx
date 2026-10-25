@@ -97,7 +97,8 @@ describe('대시보드 host links', () => {
     expect(screen.getByRole('link', { name: '응답하기' }).getAttribute('href')).toContain(`/surveys/${SURVEY}/respond`);
     expect(screen.getByRole('link', { name: '내 VOC' }).getAttribute('href')).toContain('/voc');
     expect(screen.queryByRole('link', { name: '보드' })).toBeNull();
-    expect(canLink('/tasks?view=board')).toBe(false);
+    // `canLink` reads the route tables only (#763 p1); the link stays unrendered because this registry has no fo-tasks.
+    expect(canLink('/tasks?view=board')).toBe(true);
     expect(canLink('/vocs?view=my&extra=1')).toBe(false);
   });
 
@@ -133,5 +134,19 @@ describe('대시보드 host links', () => {
     expect(new URL(screen.getByRole('link', { name: '영역 미지정' }).getAttribute('href')!, 'http://x').searchParams.get('area')).toBe('unset');
     expect(screen.queryByRole('link', { name: '보드' })).toBeNull();
     expect(canLink('/vocs?view=inbox&tab=unassigned')).toBe(true);
+  });
+
+  it('links 보드 to the Tasks board when the registry has fo-tasks (#763 p1)', () => {
+    const live = createRegistry({
+      spaces: [{ id: spaceId('feedbackops'), label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'platform:view', carriedPageKeys: ['managedSystem'], homeMenuId: 'fo-tasks' }],
+      groups: [{ id: groupId('myActivity'), label: { ko: '내 활동', en: 'Mine' }, space: spaceId('feedbackops') }],
+      menus: [stub('fo-tasks', '/feedbackops/tasks', { primary: true, pageKeys: ['focus', 'q', 'publicUpdate', 'managedSystem'] })],
+    } as never);
+    const session = testSession(['platform:view']);
+    window.history.replaceState(null, '', '/');
+    render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={live}>
+      <Link to="/tasks?view=board">보드</Link>
+    </PlatformProvider></I18nProvider>);
+    expect(new URL(screen.getByRole('link', { name: '보드' }).getAttribute('href')!, 'http://x').pathname).toBe('/feedbackops/tasks');
   });
 });

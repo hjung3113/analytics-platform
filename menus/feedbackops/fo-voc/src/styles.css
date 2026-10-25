@@ -1,13 +1,1 @@
 @source "./";
-
-/*
- * The VOC detail body brings its own sticky section tabs, scroll area and bottom bar (it fills a flex column, as in the standalone panel).
- * The shared drawer pads its tab panel by 12px, which lets the body show above the tabs and below the bar (UX-3); this panel keeps only the side padding
- * and lets the body fill it.
- */
-[role="tabpanel"]:not([hidden]):has(> .fo-voc-detail) {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  padding-block: 0;
-}

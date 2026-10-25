@@ -9,3 +9,6 @@ export type {
   TaskDetailView,
   UseTaskDetailPartsArgs,
 } from '@/features/tasks/components/TaskDetailParts';
+// The name maps `useTaskDetailParts` needs: only the screens hold them, so a host that draws the detail itself reads them here.
+export { useWorkspaceActors } from '@/lib/cross-system/useWorkspaceActors';
+export { useTaskManagedSystemNames } from '@/features/tasks/adapters/taskDisplayAdapters';

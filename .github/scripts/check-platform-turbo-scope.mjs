@@ -52,7 +52,7 @@ function selfTest() {
 function main() {
   let failed = false;
   for (const taskName of taskNames) {
-    const output = execFileSync('pnpm', [taskName, '--dry=json'], { cwd: repoRoot, encoding: 'utf8' });
+    const output = execFileSync('pnpm', [taskName, '--dry=json'], { cwd: repoRoot, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }); // the plan JSON passed the 1 MiB default as packages grew
     const jsonStart = output.indexOf('{');
     if (jsonStart === -1) throw new Error(`${taskName}: Turbo dry run did not emit JSON`);
     const plan = JSON.parse(output.slice(jsonStart));

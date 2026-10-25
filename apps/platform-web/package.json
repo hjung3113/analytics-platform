@@ -25,6 +25,7 @@
     "@ap/menu-clas": "workspace:*",
     "@ap/menu-equipment": "workspace:*",
     "@ap/menu-fo-dashboard": "workspace:*",
+    "@ap/menu-fo-tasks": "workspace:*",
     "@ap/menu-fo-voc": "workspace:*",
     "@ap/menu-home": "workspace:*",
     "@ap/menu-hw-time": "workspace:*",

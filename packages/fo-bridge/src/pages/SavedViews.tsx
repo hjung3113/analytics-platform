@@ -8,7 +8,8 @@ import { savedViewFilterToVocSearch, vocSearchToSavedViewFilter } from '@/featur
 import { searchHref } from '@/lib/host/search';
 import { foQueryClient } from '../fo/session';
 import { isReachable } from '../fo/reachable';
-import { inboxRoute, operatorHostLinks, triageRoute } from '../fo/voc-routes';
+import { operatorHostLinks } from '../fo/operator-links';
+import { inboxRoute, triageRoute } from '../fo/voc-routes';
 
 const NO_VIEWS: SavedView[] = [];
 const QUERY_KEY = ['saved-views', 'voc'] as const;
