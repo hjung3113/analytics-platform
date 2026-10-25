@@ -148,7 +148,7 @@ describe('Clusters through the FeedbackOps bridge', () => {
     expect(await screen.findByText(`상세 본문 ${CLUSTER_Z}`)).toBeTruthy();
   });
 
-  it.each([['focus', 'abc'], ['managedSystem', 'not-a-uuid']])('rejects an invalid %s, keeps the address and requests nothing', async (key, value) => {
+  it.each([['focus', 'abc'], ['managedSystem', 'not-a-uuid'], ['focus', ''], ['managedSystem', '']])('rejects an invalid %s, keeps the address and requests nothing', async (key, value) => {
     const search = `?${key}=${encodeURIComponent(value)}`;
     mountAt(`/feedbackops/clusters${search}`);
     expect(await screen.findByText(`주소의 ${key} 값이 올바르지 않습니다`, undefined, { timeout: 3000 })).toBeTruthy();

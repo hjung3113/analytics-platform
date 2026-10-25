@@ -22,12 +22,17 @@ const menu = (id: string, path: string, pageKeys: string[], primary = false) => 
 const registry = createRegistry({
   spaces: [space],
   groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
-  menus: [menu('fo-inbox', '/inbox', ['focus', 'q', 'severity', 'managedSystem', 'returnTo'], true), menu('fo-triage', '/triage', ['focus', 'managedSystem'])],
+  menus: [menu('fo-inbox', '/inbox', ['focus', 'q', 'severity', 'managedSystem', 'returnTo'], true), menu('fo-triage', '/triage', ['focus', 'managedSystem']), menu('fo-clusters', '/clusters', ['focus', 'managedSystem'])],
 });
 
 const inbox = operatorRoute({ foPath: '/vocs', foFixed: { view: 'inbox' }, menuId: 'fo-inbox', keys: { selected: 'focus', q: 'q', 'filter.severity': 'severity' } });
 const triage = operatorRoute({ foPath: '/vocs', foFixed: { view: 'triage' }, menuId: 'fo-triage', keys: { selected: 'focus' } });
+const clusters = operatorRoute({
+  foPath: '/voc-clusters', foFixed: {}, menuId: 'fo-clusters', keys: { selected: 'focus', managedSystem: 'managedSystem' }, foAbsent: { managedSystem: 'all' },
+  detailPath: { key: 'selected', pattern: /^c\d$/ },
+});
 const { useNavigate } = hostLinks(inbox.target, triage.target);
+const clusterLinks = hostLinks(clusters.target);
 const useSearch = routeSearch(inbox);
 const useHere = routeHere(inbox);
 
@@ -101,6 +106,55 @@ describe('hostLinks().useNavigate on a mounted platform', () => {
     act(() => result.current('/vocs?view=inbox&sort=x', { replace: true }));
     expect(window.location.href).toBe(url);
     expect(window.history.length).toBe(before);
+  });
+});
+
+describe('an explicit managedSystem=all', () => {
+  it('clears the carried scope, writes no literal "all", and the screen reads no scope', () => {
+    at('/clusters?v=1&managedSystem=ms1&focus=c1');
+    const { result } = renderHook(() => ({ go: clusterLinks.useNavigate(), search: routeSearch(clusters)() }), { wrapper });
+    act(() => result.current.go('/voc-clusters?managedSystem=all&selected=c2'));
+    const params = new URLSearchParams(window.location.search);
+    expect(params.get('managedSystem')).toBeNull();
+    expect(params.get('focus')).toBe('c2');
+    expect(window.location.search).not.toContain('all');
+    expect(result.current.search).toEqual({ selected: 'c2' });
+  });
+
+  it('keeps inheriting the carried scope when the key is omitted', () => {
+    at('/clusters?v=1&managedSystem=ms1');
+    const { result } = renderHook(() => clusterLinks.useNavigate(), { wrapper });
+    act(() => result.current('/voc-clusters?selected=c2'));
+    expect(new URLSearchParams(window.location.search).get('managedSystem')).toBe('ms1');
+  });
+
+  it('keeps no scope when navigating from an inbound all (a selection write does not bring it back)', () => {
+    at('/clusters?v=1&managedSystem=all');
+    const { result } = renderHook(() => ({ go: clusterLinks.useNavigate(), search: routeSearch(clusters)() }), { wrapper });
+    expect(result.current.search).toEqual({ managedSystem: 'all' });
+    act(() => result.current.go(`/voc-clusters?managedSystem=${result.current.search.managedSystem}&selected=c1`, { replace: true }));
+    expect(window.location.search).not.toContain('managedSystem');
+    expect(new URLSearchParams(window.location.search).get('focus')).toBe('c1');
+  });
+
+  it('Link draws an href without the carried scope', () => {
+    at('/clusters?v=1&managedSystem=ms1');
+    const { Link } = clusterLinks;
+    render(<Link to="/voc-clusters?managedSystem=all&selected=c2">x</Link>, { wrapper });
+    const href = document.querySelector('a')!.getAttribute('href')!;
+    expect(href).toContain('focus=c2');
+    expect(href).not.toContain('managedSystem');
+  });
+});
+
+describe('a VOC detail cluster href', () => {
+  it('the producer href /voc-clusters/<id> navigates to the clusters menu with focus', () => {
+    at('/inbox?v=1&managedSystem=ms1');
+    const { result } = renderHook(() => clusterLinks.useNavigate(), { wrapper });
+    expect(clusterLinks.canLink('/voc-clusters/c7')).toBe(true);
+    act(() => result.current('/voc-clusters/c7'));
+    expect(window.location.pathname).toBe('/clusters');
+    expect(new URLSearchParams(window.location.search).get('focus')).toBe('c7');
   });
 });
 

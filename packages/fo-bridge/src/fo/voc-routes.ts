@@ -24,7 +24,8 @@ export const triageRoute = operatorRoute({
 
 /**
  * Clusters: `/voc-clusters`; `selected` is `focus` (06 §13). FeedbackOps' cluster schema treats `managedSystem=all` as no scope, and the platform scope writes a uuid
- * or nothing, so an `all` in an FO href maps to no `managedSystem` (the link is kept, nothing stored).
+ * or nothing, so an `all` in an FO href maps to an explicit clear of `managedSystem` (the link is kept, nothing stored, a carried scope dropped). FO's VOC detail links a cluster
+ * as `/voc-clusters/<id>`; that detail href reads as `selected=<id>`.
  */
 export const clustersRoute = operatorRoute({
   foPath: '/voc-clusters',
@@ -32,6 +33,7 @@ export const clustersRoute = operatorRoute({
   menuId: 'fo-clusters',
   keys: { selected: 'focus', managedSystem: 'managedSystem' },
   foAbsent: { managedSystem: 'all' },
+  detailPath: { key: 'selected', pattern: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i },
 });
 
 /** Module-level hooks: `FoBridge` memoizes its seam on their identities (unrelated renders never rebuild it). */

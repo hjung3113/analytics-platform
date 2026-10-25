@@ -53,9 +53,15 @@ describe('clustersRoute', () => {
     expect(clustersRoute.toFoSearch(target!.page!)).toEqual(Object.fromEntries(new URLSearchParams(to.slice(to.indexOf('?') + 1))));
   });
 
-  it('reads managedSystem=all as no scope: the link stays and nothing is stored', () => {
-    expect(clustersRoute.target(`/voc-clusters?managedSystem=all&selected=${CLUSTER}`)).toEqual({ menuId: 'fo-clusters', page: { focus: CLUSTER } });
+  it('reads managedSystem=all as an explicit clear of the scope: the link stays and nothing is stored', () => {
+    expect(clustersRoute.target(`/voc-clusters?managedSystem=all&selected=${CLUSTER}`)).toEqual({ menuId: 'fo-clusters', page: { focus: CLUSTER, managedSystem: null } });
     expect(clustersRoute.target('/voc-clusters')).toEqual({ menuId: 'fo-clusters', page: {} });
+  });
+
+  it('maps the VOC detail cluster href the FO code emits, /voc-clusters/<id>, to focus', () => {
+    expect(operatorHostLinks.targetOf(`/voc-clusters/${CLUSTER}`)).toEqual({ menuId: 'fo-clusters', page: { focus: CLUSTER } });
+    expect(operatorHostLinks.targetOf('/voc-clusters/abc')).toBeNull();
+    expect(operatorHostLinks.targetOf(`/voc-clusters/${CLUSTER}/members`)).toBeNull();
   });
 
   it('declares exactly focus and managedSystem and leaves other FO keys unmapped', () => {
