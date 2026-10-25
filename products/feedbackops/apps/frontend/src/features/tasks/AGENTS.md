@@ -32,6 +32,7 @@ It does not own reporter-facing VOC status or source evidence visibility rules.
 ## Key files
 
 - `apps/frontend/src/routes/_authed/tasks.tsx` — selects the Task view from URL state.
+- `apps/frontend/src/features/tasks/routes/task-search.ts` — router-free `/tasks` search schema, `validateTasksSearch` and `isTasksSearchValueValid` (the route file re-exports the first two; the platform bridge entry `operator-screens/tasks-search` exposes the last).
 - `apps/frontend/src/features/tasks/routes/TaskListRoute.tsx` — backlog list, filters, and selected detail.
 - `apps/frontend/src/features/tasks/routes/TaskBoardRoute.tsx` — Task board columns and grouping state.
 - `apps/frontend/src/features/tasks/components/task-board/` — Task board cards, columns, and grouping
