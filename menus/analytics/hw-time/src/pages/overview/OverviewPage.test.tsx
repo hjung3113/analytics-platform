@@ -210,12 +210,25 @@ describe('HW Time overview page', () => {
     expect(screen.getByTestId('hw-overview-L3-detail-reveal').textContent).toBe('true');
   });
 
-  it('a row restored from the URL is active; a malformed row is ignored', async () => {
+  it('a row restored from the URL is active', async () => {
     await renderPage('&drillModule=PM1&drillMotion=Pump&row=EQ-001.H2');
     expect(screen.getByTestId('hw-overview-L3-detail-active').textContent).toBe('EQ-001 · H2');
-    cleanup();
-    await renderPage('&drillModule=PM1&drillMotion=Pump&row=bogus');
-    expect(screen.getByTestId('hw-overview-L3-detail-active').textContent).toBe('null');
+  });
+
+  it.each([
+    ['row', 'bogus', '선택 행'], ['row', '', '선택 행'], ['sort', 'bogus', '정렬'], ['sort', '', '정렬'],
+    ['trend', 'EQ-001.H1,bogus', '추세 행'], ['trend', '', '추세 행'],
+  ])('a malformed %s=%j shows the warning and sends no query; Reset clears it', async (key, raw, field) => {
+    await renderPage(`&drillModule=PM1&drillMotion=Pump&${key}=${raw}`);
+    expect(screen.getByText('필터 값이 올바르지 않습니다')).toBeTruthy();
+    expect(screen.getByText(`${field} “${raw}”`, { exact: false })).toBeTruthy();
+    expect(data.level.mock.calls.every(call => call[1] === false)).toBe(true);
+    expect(data.trend.mock.calls.every(call => call[1] === false)).toBe(true);
+    expect(screen.queryByTestId('hw-overview-L3-detail-active')).toBeNull();
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: '초기화' })); });
+    expect(searchParams().has(key)).toBe(false);
+    expect(searchParams().get('drillMotion')).toBe('Pump');
+    expect(await screen.findByTestId('hw-overview-L3-detail-active')).toBeTruthy();
   });
 
   it('adding a trend row writes the key, requests the trend panel and badges it; none at L1', async () => {

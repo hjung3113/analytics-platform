@@ -90,7 +90,8 @@ test.describe('HW Time 메뉴 4종 — 드릴 · 작업 영역 · 보드 (06 §1
       // The Frame's accessible table carries the 합계 column only when the chart draws totals (valueLabels, additive seconds).
       // The first chart Frame (its toolbar has 구간 선택); the page head has its own 더보기.
       const chart = page.getByRole('main').locator('section').filter({ has: page.getByRole('button', { name: '구간 선택' }) }).first();
-      await chart.getByRole('button', { name: '더보기', exact: true }).click();
+      const more = chart.getByRole('button', { name: '더보기', exact: true });
+      await more.click();
       await page.getByRole('button', { name: '같은 데이터를 표로 보기' }).click();
       await expect(page.getByRole('columnheader', { name: '합계', exact: true }).first()).toBeVisible();
       // The 더보기 popover stays open with the toggled item; close it and wait, or it takes focus back from the tree and swallows Enter.
@@ -98,6 +99,8 @@ test.describe('HW Time 메뉴 4종 — 드릴 · 작업 영역 · 보드 (06 §1
       await expect(hideTable).toBeVisible();
       await page.keyboard.press('Escape');
       await expect(hideTable).toBeHidden();
+      // Closing returns focus to the trigger a moment later; focusing the tree before that lets it land after and Enter reopens the popover.
+      await expect(more).toBeFocused();
       const tree = page.getByRole('tree', { name: '계층 범례' });
       // The compare and overview Inspectors are rails: the legend of compare opens from its button, overview has the legend panel.
       if (menu.id === 'hw-time-compare') await page.getByRole('button', { name: '계층 범례' }).click();
@@ -119,4 +122,17 @@ test.describe('HW Time 메뉴 4종 — 드릴 · 작업 영역 · 보드 (06 §1
       await expect(tree.getByRole('treeitem', { name: new RegExp(MOTION) })).toHaveAttribute('aria-current', 'true');
     });
   }
+
+  test('HW Time 단계별: 잘못된 sort는 보정하지 않고 경고 — 초기화하면 차트가 돌아온다 (06 §6)', async ({ page }) => {
+    await page.goto('/hw-time/steps?v=1&scopeId=MEM&sort=bogus');
+    await expect(page.getByRole('main').getByRole('heading', { level: 1 })).toHaveText('HW Time 단계별');
+    const warning = page.getByText('필터 값이 올바르지 않습니다');
+    await expect(warning).toBeVisible();
+    await expect(page.getByText(/정렬 “bogus”/)).toBeVisible();
+    await expect(page.getByRole('combobox', { name: '차트 지점 선택' })).toHaveCount(0);
+    await page.getByRole('alert').getByRole('button', { name: '초기화' }).click();
+    await expect.poll(() => query(page).has('sort')).toBe(false);
+    await expect(warning).toBeHidden();
+    await expect(page.getByRole('combobox', { name: '차트 지점 선택' })).toBeEnabled();
+  });
 });

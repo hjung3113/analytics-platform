@@ -272,10 +272,45 @@ describe('HW Time steps page', () => {
   });
 
   it('restores the level and the trend rows from the URL', async () => {
-    await renderPage('&drillModule=PM2&drillMotion=Pump&trend=EQ-002.H3,bogus');
+    await renderPage('&drillModule=PM2&drillMotion=Pump&trend=EQ-002.H3');
     expect(screen.getByTitle(/^Module PM2 · Motion Pump/)).toBeTruthy();
     expect(screen.getByRole('button', { name: /^추세 \(1행\)/ }).getAttribute('aria-expanded')).toBe('true');
     expect(data.trend).toHaveBeenLastCalledWith(['EQ-002.H3'], true);
+  });
+
+  it('a malformed trend shows the warning, sends no trend query, and Reset clears trend only', async () => {
+    await renderPage('&drillModule=PM2&drillMotion=Pump&trend=EQ-002.H3,bogus&sort=total-asc');
+    expect(screen.getByText('필터 값이 올바르지 않습니다')).toBeTruthy();
+    expect(screen.getByText(/추세 행 “EQ-002\.H3,bogus”/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /^추세 \(/ })).toBeNull();
+    expect(data.trend.mock.calls.every(call => call[1] === false)).toBe(true);
+    expect(data.level.mock.calls.every(call => call[1] === false)).toBe(true);
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: '초기화' })); });
+    expect(searchParams().has('trend')).toBe(false);
+    expect(searchParams().get('sort')).toBe('total-asc');
+    expect(searchParams().get('drillModule')).toBe('PM2');
+    expect(screen.queryByText('필터 값이 올바르지 않습니다')).toBeNull();
+    expect(screen.getByRole('button', { name: /^추세 \(0행\)/ })).toBeTruthy();
+  });
+
+  it.each(['bogus', ''])('a malformed sort (%j) shows the warning and sends no level query; Reset restores the chart', async raw => {
+    await renderPage(`&drillModule=PM1&sort=${raw}`);
+    expect(screen.getByText('필터 값이 올바르지 않습니다')).toBeTruthy();
+    expect(screen.getByText(raw ? /정렬 “bogus”/ : /정렬 “”/)).toBeTruthy();
+    expect(data.level.mock.calls.every(call => call[1] === false)).toBe(true);
+    expect(screen.queryByTestId('hw-time-steps-L2-categories')).toBeNull();
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: '초기화' })); });
+    expect(searchParams().has('sort')).toBe(false);
+    expect((await screen.findByTestId('hw-time-steps-L2-categories')).textContent).toBe('120');
+    expect(data.level).toHaveBeenLastCalledWith({ drillModule: 'PM1' }, true);
+  });
+
+  it('an empty trend value is invalid; one Reset clears every bad key', async () => {
+    await renderPage('&trend=&sort=bogus');
+    expect(screen.getAllByText(/추세 행|정렬/).length).toBeGreaterThanOrEqual(2);
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: '초기화' })); });
+    expect(searchParams().has('trend')).toBe(false);
+    expect(searchParams().has('sort')).toBe(false);
   });
 
   it('section collapse and option changes never query with new parameters', async () => {
