@@ -956,6 +956,18 @@ describe('author-only annotation delete (#399, ADR-0041)', () => {
     await waitFor(() => expect(f.list).toHaveBeenCalledTimes(2));
   });
 
+  // #822: the plot width only feeds note labels and start-aligned lanes; a chart with neither keeps its option through a resize.
+  it('keeps the same option object when a plot without notes is resized', async () => {
+    const f = fixture();
+    mount(f.adapter, on);
+    await screen.findByRole('button', { name: '구간 선택' });
+    act(() => plotProps?.onReady?.(plotInstance(640)));
+    const before = plotProps?.option;
+    act(() => plotProps?.onResize?.(320));
+    act(() => plotProps?.onResize?.(480));
+    expect(plotProps?.option).toBe(before);
+  });
+
   // F3: the label budget follows the plot width, with no other chart interaction.
   it('recomputes the label widths when the plot narrows', async () => {
     const f = fixture();

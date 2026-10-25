@@ -271,7 +271,12 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   // With a row pitch the chart is as tall as its rows and `viewportHeight` is only the window the plot box scrolls in.
   const height = rowPitch !== undefined ? rowPitchChartHeight(categories.length, rowPitch) : viewportHeight;
   // Horizontal consumers share the plotted axis and first-occurrence value policy.
-  const displayed = useMemo(() => horizontal ? visible.map(s => ({ ...s, points: categories.map(x => [x, s.points.find(([label]) => label === x)?.[1] ?? null] as [string, number | null]) })) : visible, [horizontal, visible, categories]);
+  // One lookup per category (a series' first point for a label wins, as `find` did): categories × points was quadratic on long bars (#822).
+  const displayed = useMemo(() => horizontal ? visible.map(s => {
+    const byLabel = new Map<string, number | null>();
+    for (const [label, value] of s.points) if (!byLabel.has(label)) byLabel.set(label, value);
+    return { ...s, points: categories.map(x => [x, byLabel.get(x) ?? null] as [string, number | null]) };
+  }) : visible, [horizontal, visible, categories]);
   // One visible series has nothing to align to: StartAlign then does nothing (normal value axis, Brush stays); hiding series is a normal user action, so no diagnostic.
   const startAlign = horizontal && !!p.stacked && !!p.startAlign && displayed.length >= 2;
   // StartAlign turns Brush off: x is no longer one value scale, so a dragged range would not mean seconds.
@@ -400,14 +405,16 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   // A reference line in another unit or metric version would sit on the wrong scale: it is not drawn and the Frame names it. No lines are drawn with startAlign, so no note either.
   const mismatchedLines = useMemo(() => (startAlign ? [] : (p.markLines ?? []).filter(m => (m.unit !== undefined && m.unit !== p.unit) || (m.metricVersion !== undefined && m.metricVersion !== p.metricVersion))), [startAlign, p.markLines, p.unit, p.metricVersion]);
   const markLines = useMemo(() => (mismatchedLines.length ? p.markLines?.filter(m => !mismatchedLines.includes(m)) : p.markLines), [p.markLines, mismatchedLines]);
+  // The plot width only feeds note labels and start-aligned lanes; any other chart keeps its option (and skips a full setOption) on resize (#822).
+  const optionWidth = noteSpans.length > 0 || (horizontal && startAlign && !!stacked) ? chartWidth : NOTE_FALLBACK_WIDTH;
   const option = useMemo<EChartsCoreOption>(() => {
     // A new chart instance replays the option: the lazy chunk and theme CSS may have settled since the tokens were last resolved.
     void instanceReady;
     return buildChartOption({
-      displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations, noteSpans, noteLevels, timeExtent, chartWidth, markLines, unit, lang, stacked, valueFormat, rowPitch, activeCategory, startAlign, extremes, valueLabels, totals, totalText,
+      displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations, noteSpans, noteLevels, timeExtent, chartWidth: optionWidth, markLines, unit, lang, stacked, valueFormat, rowPitch, activeCategory, startAlign, extremes, valueLabels, totals, totalText,
       palette: resolveChartPalette(displayed),
     });
-  }, [displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations, noteSpans, noteLevels, timeExtent, chartWidth, markLines, unit, lang, stacked, valueFormat, rowPitch, activeCategory, startAlign, extremes, valueLabels, totals, totalText, instanceReady]);
+  }, [displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations, noteSpans, noteLevels, timeExtent, optionWidth, markLines, unit, lang, stacked, valueFormat, rowPitch, activeCategory, startAlign, extremes, valueLabels, totals, totalText, instanceReady]);
 
   // Re-arm the brush cursor after each option replacement, and once the instance becomes ready.
   useEffect(() => {
