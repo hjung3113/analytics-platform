@@ -77,8 +77,14 @@ function DetailContent({ superseded, title, subtitle, headerActions, context, ta
       const paneRoot = paneId === null ? null : paneRootById(paneId);
       const available = (element: HTMLElement | null): element is HTMLElement => !!element?.isConnected
         && element !== document.body && !element.closest('[hidden], [inert], [aria-hidden="true"]');
-      const target = detailFocusFallback(opener, paneRoot, available);
-      target?.focus({ preventScroll: true });
+      const restoreFocus = () => detailFocusFallback(opener, paneRoot, available)?.focus({ preventScroll: true });
+      // A modal dialog the panel opened (a discard confirm) hides everything else with aria-hidden until it unmounts, which is after this cleanup;
+      // the opener is unavailable only because of it (not hidden or inert), so wait one task and restore only if focus has landed nowhere.
+      if (opener?.isConnected && !opener.closest('[hidden], [inert]') && opener.closest('[aria-hidden="true"]')) {
+        setTimeout(() => { if (document.activeElement === document.body || document.activeElement === null) restoreFocus(); }, 0);
+        return;
+      }
+      restoreFocus();
     };
   }, [pageNavigation, paneId, superseded]);
   useLayoutEffect(() => {
