@@ -41,6 +41,7 @@ vi.mock('@fops/ui', async () => {
 const navigateMock = vi.hoisted(() => vi.fn());
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => navigateMock,
+  useRouter: () => ({ navigate: navigateMock }),
   // The blocked-state 내 VOC link (#1238 item 7), stubbed as in TaskBoardRoute.test.tsx.
   Link: ({
     to,
@@ -105,6 +106,12 @@ vi.mock('@/lib/api', () => {
     })),
   };
 });
+
+// The panel imports the module path; forward at call time to the barrel fake above.
+vi.mock('@/lib/api/tasks', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/tasks')>()),
+  getTask: (...args: Parameters<typeof getTask>) => getTask(...args),
+}));
 
 vi.mock('@/lib/api/milestones', () => ({
   getMilestone: vi.fn(),
@@ -297,9 +304,11 @@ describe('TaskListRoute display ids', () => {
     const findingNode = await screen.findByRole('button', { name: /리포트 속도 저하/ });
     await userEvent.click(findingNode);
 
+    // Through the host seam: the router navigates to the FO path of the Finding.
     expect(navigateMock).toHaveBeenCalledWith({
-      to: '/findings/$findingId',
-      params: { findingId: '40000000-0000-0000-0000-000000000004' },
+      to: '/findings/40000000-0000-0000-0000-000000000004',
+      search: {},
+      replace: false,
     });
   });
 
@@ -497,14 +506,16 @@ describe('Task detail Linked context source VOC (#378)', () => {
     await userEvent.click(within(trail).getByRole('button', { name: new RegExp(VOC_TITLE) }));
     expect(navigateMock).toHaveBeenCalledWith({
       to: '/vocs',
-      search: { selected: VOC_ID },
+      search: { view: 'inbox', selected: VOC_ID },
+      replace: false,
     });
 
     // Finding and Task nodes are unchanged: Finding navigable, Task not.
     await userEvent.click(within(trail).getByRole('button', { name: /리포트 속도 저하/ }));
     expect(navigateMock).toHaveBeenLastCalledWith({
-      to: '/findings/$findingId',
-      params: { findingId: FINDING_ID },
+      to: `/findings/${FINDING_ID}`,
+      search: {},
+      replace: false,
     });
     expect(
       within(trail).queryByRole('button', { name: /매출 리포트 쿼리 플랜 개선/ }),

@@ -10,6 +10,10 @@ vi.mock('@/lib/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api')>()),
   resolveActors: vi.fn(),
 }));
+vi.mock('@/lib/api/actors', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/actors')>()),
+  resolveActors: (...args: Parameters<typeof resolveActors>) => resolveActors(...args),
+}));
 vi.mock('@/lib/api/task-requests', () => ({ assignTaskRequestReviewer: vi.fn() }));
 vi.mock('@/lib/cross-system/useWorkspaceActors', () => ({
   useWorkspaceActors: () => ({ actors: [] }),

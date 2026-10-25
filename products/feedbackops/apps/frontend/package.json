@@ -11,6 +11,7 @@
     "./operator-screens/dashboard": "./src/operator-screens/dashboard/index.ts",
     "./operator-screens/voc-clusters": "./src/operator-screens/voc-clusters/index.ts",
     "./operator-screens/voc-detail": "./src/operator-screens/voc-detail/index.ts",
+    "./operator-screens/task-detail": "./src/operator-screens/task-detail/index.ts",
     "./operator-screens/voc-inbox": "./src/operator-screens/voc-inbox/index.ts",
     "./operator-screens/voc-search": "./src/operator-screens/voc-search/index.ts",
     "./operator-screens/tasks-search": "./src/operator-screens/tasks-search/index.ts",

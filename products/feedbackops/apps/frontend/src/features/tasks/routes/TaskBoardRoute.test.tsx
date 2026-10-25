@@ -4,7 +4,7 @@ import { TasksRouteView, tasksSearchSchema } from '@/routes/_authed/tasks';
 import { taskPrioritySchema } from '@fops/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import * as React from 'react';
+import type * as React from 'react';
 import { toast } from 'sonner';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TaskBoardRoute } from './TaskBoardRoute';
@@ -53,6 +53,7 @@ vi.mock('@tanstack/react-router', () => ({
     return <a href={`${to}?${params.toString()}`}>{children}</a>;
   },
   useNavigate: () => navigate,
+  useRouter: () => ({ navigate }),
   createFileRoute: () => () => ({ useSearch: () => ({}) }),
 }));
 vi.mock('@dnd-kit/core', async () => ({

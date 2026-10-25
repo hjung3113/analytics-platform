@@ -35,6 +35,7 @@ vi.mock('@tanstack/react-router', () => ({
     <a href={to}>{children}</a>
   ),
   useNavigate: () => navigate,
+  useRouter: () => ({ navigate }),
 }));
 vi.mock('@/lib/api/tasks', () => ({
   listTasks: vi.fn(),

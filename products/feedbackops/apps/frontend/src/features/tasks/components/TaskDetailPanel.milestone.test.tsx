@@ -10,16 +10,22 @@ import type { RenderResult } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TaskDetailPanel } from './TaskDetailPanel';
 
-vi.mock('@tanstack/react-router', () => ({ useNavigate: () => vi.fn() }));
+vi.mock('@tanstack/react-router', () => ({
+  useNavigate: () => vi.fn(),
+  useRouter: () => ({ navigate: vi.fn() }),
+}));
 const meImpl = vi.hoisted(() => ({
   value: {
     actor: { id: 'admin', role_level: 'admin' },
   } as { actor: { id: string; role_level: string } },
 }));
 const permissionImpl = vi.hoisted(() => ({ value: { state: 'denied' } as { state: string } }));
-vi.mock('@/lib/auth/useMe', () => ({ useMe: () => ({ data: meImpl.value }) }));
-vi.mock('@/lib/cross-system/usePermissionCheck', () => ({
-  usePermissionCheck: () => ({ data: permissionImpl.value }),
+vi.mock('@/lib/api/me', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/me')>()),
+  useMeBridge: () => ({ data: meImpl.value }),
+}));
+vi.mock('@/lib/cross-system/usePermissionCheckBridge', () => ({
+  usePermissionCheckBridge: () => ({ data: permissionImpl.value }),
 }));
 vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api/registry-reads')>()),

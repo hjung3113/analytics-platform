@@ -2,10 +2,10 @@ import { mapUnknownError } from '@/lib/api/errorMapper';
 import { listMilestones } from '@/lib/api/milestones';
 import { ApiError, isPermissionDenied } from '@/lib/api/types';
 import { TASK_MILESTONE_COPY } from '@/lib/copy/tasks';
+import { useHostSeam } from '@/lib/host/host-seam';
 import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@fops/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
-import { toast } from 'sonner';
 import { MILESTONE_STATUS_LABELS } from './MilestoneStatusBadge';
 
 const NO_MILESTONE = '__none__';
@@ -63,6 +63,7 @@ export function TaskMilestoneEditor({
   onSave: (milestoneId: string | null, idempotencyKey: string, ifMatch: string) => Promise<unknown>;
 }) {
   const client = useQueryClient();
+  const { notifySuccess } = useHostSeam();
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(NO_MILESTONE);
   const [focusReturnPending, setFocusReturnPending] = useState(false);
@@ -119,7 +120,7 @@ export function TaskMilestoneEditor({
       for (const queryKey of [['task'], ['tasks'], ['milestones'], ...milestoneKeys]) {
         void client.invalidateQueries({ queryKey });
       }
-      toast.success(TASK_MILESTONE_COPY.saved);
+      notifySuccess(TASK_MILESTONE_COPY.saved);
       setEditing(false);
       setFocusReturnPending(true);
       submission.current = null;

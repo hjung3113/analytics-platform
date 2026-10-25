@@ -1,3 +1,4 @@
+import { resolveActors } from '@/lib/api';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -14,6 +15,11 @@ vi.mock('@/lib/api', () => ({
     actors: [{ id: actorId, display_name: '레거시 운영자', email: 'legacy@example.test' }],
     teams: [{ id: teamId, name: '검토팀' }],
   })),
+}));
+// The editor imports the module path; forward at call time to the barrel fake above.
+vi.mock('@/lib/api/actors', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/actors')>()),
+  resolveActors: (...args: Parameters<typeof resolveActors>) => resolveActors(...args),
 }));
 vi.mock('@/lib/cross-system/useWorkspaceActors', () => ({
   useWorkspaceActors: () => ({

@@ -1,4 +1,4 @@
-import { getTask, resolveActors } from '@/lib/api';
+import { fetchPermissionCheck, getTask, resolveActors } from '@/lib/api';
 import { fetchManagedSystems } from '@/lib/api/managed-systems';
 import { assignTaskResponsibility } from '@/lib/api/tasks';
 import type { TaskDetailDto } from '@fops/shared';
@@ -7,7 +7,10 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest';
 import { TaskDetailPanel } from './TaskDetailPanel';
 
-vi.mock('@tanstack/react-router', () => ({ useNavigate: () => vi.fn() }));
+vi.mock('@tanstack/react-router', () => ({
+  useNavigate: () => vi.fn(),
+  useRouter: () => ({ navigate: vi.fn() }),
+}));
 vi.mock('@/lib/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api')>()),
   getTask: vi.fn(),
@@ -15,12 +18,27 @@ vi.mock('@/lib/api', async (importOriginal) => ({
   fetchMe: vi.fn(async () => ({ actor: { id: 'admin', role_level: 'admin' } })),
   fetchPermissionCheck: vi.fn(async () => ({ state: 'denied' })),
 }));
+// Screens import the module paths; forward at call time to the barrel fakes above.
+vi.mock('@/lib/api/me', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/me')>()),
+  useMeBridge: () => ({ data: { actor: { id: 'admin', role_level: 'admin' } } }),
+}));
+vi.mock('@/lib/api/permission-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/permission-reads')>()),
+  fetchPermissionCheckViaClient: (...args: Parameters<typeof fetchPermissionCheck>) =>
+    fetchPermissionCheck(...args),
+}));
+vi.mock('@/lib/api/actors', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/actors')>()),
+  resolveActors: (...args: Parameters<typeof resolveActors>) => resolveActors(...args),
+}));
 vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api/registry-reads')>()),
   fetchManagedSystems: vi.fn(),
 }));
 vi.mock('@/lib/api/tasks', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api/tasks')>()),
+  getTask: (...args: Parameters<typeof getTask>) => getTask(...args),
   assignTaskResponsibility: vi.fn(),
 }));
 
