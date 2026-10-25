@@ -1,8 +1,9 @@
 import { useId, useLayoutEffect, useRef, useState, type ReactNode, type ComponentProps } from 'react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { parseDateTime, shift, type GlobalContext, type IdSet } from '@ap/contracts';
-import { CONTEXT_LABELS, useAxisOptions, useEquipmentSearch, useI18n, useQueryDraft, useResolvedSelection, type PortContext } from '@ap/kernel';
+import { CONTEXT_LABELS, useAxisOptions, useConditionPreset, useEquipmentSearch, useI18n, useQueryDraft, useResolvedSelection, type PortContext } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
-import { formatQuerySummary, querySummaryItems, useCopyLink, useQueryBarExtension } from '@ap/components';
+import { formatQuerySummary, presetOutsideAxes, querySummaryItems, SegmentedRadio, summaryPreset, useCopyLink, useQueryBarExtension } from '@ap/components';
 import { Alert, AlertDescription, Button, Input, MultiCombobox, Popover, PopoverContent, PopoverTrigger, readLocalStorage, writeLocalStorage } from '@ap/ui';
 
 export type QueryBarProps = {
@@ -22,7 +23,7 @@ function QueryBarSession({ label, historySlot }: QueryBarProps) {
   const platform = useHostPlatform();
   const { route, global, page, scope, screenMode, equipmentAxes, url, session } = platform;
   const query = useQueryDraft();
-  const { draft, dirty, missing, canApply, applying, setDraftGlobal, apply, revert, reset } = query;
+  const { draft, dirty, missing, canApply, applying, setDraftGlobal, setDraftPage, apply, revert, reset } = query;
   const extension = useQueryBarExtension();
   const { lang, tx, t } = useI18n();
   const ko = lang === 'ko';
@@ -37,6 +38,8 @@ function QueryBarSession({ label, historySlot }: QueryBarProps) {
     return readLocalStorage(preference, v => v !== 'true', true);
   });
   const [editError, setEditError] = useState<string | null>(null);
+  const [presetNotice, setPresetNotice] = useState({ id: '', text: '' });
+  const conditionPreset = useConditionPreset();
   useLayoutEffect(() => {
     if (expanded && focusFirst.current) editor.current?.querySelector<HTMLElement>('button:not(:disabled), input:not(:disabled)')?.focus();
     focusFirst.current = false;
@@ -78,8 +81,8 @@ function QueryBarSession({ label, historySlot }: QueryBarProps) {
   if (!canApply && !reasons.length) reasons.push({ key: 'validation', reason: ko ? '기간·지표 쌍·소속 기준을 확인하세요.' : 'Check the period, metric pair and membership basis.' });
   const reasonId = `${id}-reasons`;
   const summaryOptions = { lang, axes: equipmentAxes, context: cap, pageSummary: extension?.pageSummary };
-  const summary = formatQuerySummary(g, draft.page, summaryOptions);
-  const applied = formatQuerySummary(global, page, { ...summaryOptions, pageSummary: extension?.appliedPageSummary });
+  const summary = formatQuerySummary(g, draft.page, { ...summaryOptions, preset: summaryPreset(conditionPreset, 'draft') });
+  const applied = formatQuerySummary(global, page, { ...summaryOptions, pageSummary: extension?.appliedPageSummary, preset: summaryPreset(conditionPreset, 'applied') });
   const copy = useCopyLink(ko ? '현재 적용된 조건의 링크를 복사했습니다. 받는 사람의 권한으로 서버가 다시 검증합니다.' : 'Copied the applied link. The server re-validates for the recipient.');
   const invalid = (key: string) => missing.some(m => m.key === key);
   const issues = reasons.length
@@ -101,7 +104,20 @@ function QueryBarSession({ label, historySlot }: QueryBarProps) {
   };
   const used = equipmentAxes.filter(a => g.condition?.[a.id]);
   const history = (g.condition !== null || g.prcGroups !== null) && used.every(a => a.membershipHistory);
-  const carried = querySummaryItems(g, summaryOptions).filter(item => item.key !== 'membershipBasis' && (['lot', 'ppid', 'recipe', 'metric'].includes(item.contextKey) || cap[item.contextKey] !== 'apply'));
+  const switcher = cap.condition === 'apply' ? conditionPreset : null;
+  const draftPreset = summaryPreset(switcher, 'draft');
+  const activePreset = switcher?.presets.find(item => item.id === switcher.activeId);
+  const outside = draftPreset ? presetOutsideAxes(g, draftPreset) : [];
+  const presetName = activePreset ? activePreset.label[lang] : '';
+  const carried = querySummaryItems(g, summaryOptions).filter(item => item.key !== 'membershipBasis' && (['lot', 'ppid', 'recipe', 'metric'].includes(item.contextKey) || cap[item.contextKey] !== 'apply' || (item.key.startsWith('condition:') && outside.includes(item.key.slice('condition:'.length)))));
+  const switchPreset = (next: string) => {
+    if (!switcher) return;
+    setDraftPage({ [switcher.key]: next });
+    const nextPreset = switcher.presets.find(item => item.id === next);
+    const left = nextPreset ? Object.keys(g.condition ?? {}).filter(axis => g.condition?.[axis]?.length && !nextPreset.axes.includes(axis)).length : 0;
+    const name = nextPreset?.label[lang] ?? next;
+    setPresetNotice({ id: next, text: ko ? `조건 묶음: ${name}.${left ? ` ${left}개 조건은 이 보기에서 미적용입니다.` : ''}` : `Condition set: ${name}.${left ? ` ${left} conditions are not applied in this view.` : ''}` });
+  };
   const content = <div ref={editor} id={`${id}-editor`} className="grid min-w-0 gap-2 p-2" onKeyDown={event => {
     // Child Radix popovers handle their first Escape before it reaches this inline surface.
     if (event.key === 'Escape' && !event.defaultPrevented) { event.preventDefault(); toggle(false); }
@@ -118,7 +134,12 @@ function QueryBarSession({ label, historySlot }: QueryBarProps) {
     {(cap.condition === 'apply' || cap.selection === 'apply' || cap.prcGroup === 'apply') && <fieldset className="min-w-0 rounded-md border border-border-subtle p-2">
       <legend className="px-1 text-xs font-medium text-text-secondary">{ko ? '설비 조건' : 'Equipment conditions'}</legend>
       <div className="flex flex-wrap items-start gap-3">
-        {cap.condition === 'apply' && equipmentAxes.map(axis => <AxisField key={axis.id} axisId={axis.id} name={tx(axis.label)} values={g.condition?.[axis.id] ? [...g.condition[axis.id]] : null} context={context} parents={axis.dependsOn && g.condition?.[axis.dependsOn] ? { [axis.dependsOn]: [...g.condition[axis.dependsOn]] } : {}} invalid={invalid('condition')} reasonId={reasonId} onChange={values => {
+        {switcher && <div className="grid basis-full gap-1 text-xs text-text-secondary">
+          <span id={`${id}-preset`}>{ko ? '조건 묶음' : 'Condition set'}</span>
+          <SegmentedRadio label={ko ? '조건 묶음' : 'Condition set'} labelledBy={`${id}-preset`} value={switcher.activeId} onChange={switchPreset} options={switcher.presets.map(item => ({ value: item.id, label: item.label[lang] }))} />
+          <p role="status" className="sr-only">{presetNotice.id === switcher.activeId ? presetNotice.text : ''}</p>
+        </div>}
+        {cap.condition === 'apply' && equipmentAxes.filter(axis => !activePreset || activePreset.axes.includes(axis.id)).map(axis => <AxisField key={axis.id} axisId={axis.id} name={tx(axis.label)} values={g.condition?.[axis.id] ? [...g.condition[axis.id]] : null} context={context} parents={axis.dependsOn && g.condition?.[axis.dependsOn] ? { [axis.dependsOn]: [...g.condition[axis.dependsOn]] } : {}} invalid={invalid('condition')} reasonId={reasonId} onChange={values => {
           const next = { ...g.condition };
           if (values?.length) next[axis.id] = values; else delete next[axis.id];
           write({ condition: Object.keys(next).length ? next : null });
@@ -134,18 +155,18 @@ function QueryBarSession({ label, historySlot }: QueryBarProps) {
     </fieldset>}
     {carried.length > 0 && <div role="group" aria-label={ko ? '전달된 조건' : 'Carried conditions'} className="flex flex-wrap gap-2 text-xs">
       {carried.map(item => <span key={item.key} className="inline-flex max-w-full flex-wrap items-center gap-1 rounded-md border border-border-subtle p-2 [overflow-wrap:anywhere]">
-        {item.label} {item.value} · {item.capability === 'unsupported' ? t('notUsed') : item.capability === 'reference' ? t('referenceOnly') : ko ? '적용' : 'Applied'}
+        {item.label} {item.value} · {item.key.startsWith('condition:') && outside.includes(item.key.slice('condition:'.length)) ? (ko ? `${presetName}에서 미적용` : `not applied in ${presetName}`) : item.capability === 'unsupported' ? t('notUsed') : item.capability === 'reference' ? t('referenceOnly') : ko ? '적용' : 'Applied'}
         <Button type="button" variant="ghost" size="toolbar" aria-label={`${t('clear')} ${item.label}`} onClick={() => remove(item.key)}>×</Button>
       </span>)}
     </div>}
     {board && <><p className="text-xs [overflow-wrap:anywhere]">{ko ? '편집 중 조건' : 'Editing conditions'} · {summary}</p><p className="text-xs [overflow-wrap:anywhere]">{ko ? '적용 조건' : 'Applied conditions'} · {applied}</p>{actions}{issues}<Button type="button" variant="ghost" size="toolbar" onClick={() => toggle(false)}>{ko ? '닫기' : 'Close'}</Button></>}
   </div>;
-  const trigger = <Button ref={disclosure} type="button" variant="ghost" size="toolbar" aria-label={ko ? `조회 조건 ${expanded ? '접기' : '펼치기'}` : `${expanded ? 'Collapse' : 'Expand'} query conditions`} aria-expanded={expanded} aria-controls={`${id}-editor`} onClick={board ? undefined : () => toggle(!expanded)}>{label?.visible ?? (ko ? '조회 조건' : 'Query conditions')}</Button>;
+  const trigger = <Button ref={disclosure} type="button" variant="secondary" size="toolbar" aria-label={ko ? `조회 조건 ${expanded ? '접기' : '펼치기'}` : `${expanded ? 'Collapse' : 'Expand'} query conditions`} aria-expanded={expanded} aria-controls={`${id}-editor`} onClick={board ? undefined : () => toggle(!expanded)}>{expanded ? <ChevronUp aria-hidden className="size-4" /> : <ChevronDown aria-hidden className="size-4" />}{label?.visible ?? (ko ? '조회 조건' : 'Query conditions')}</Button>;
   return <section role="region" aria-label={label?.region ?? (ko ? '조회 조건' : 'Query conditions')} data-query-bar data-query-bar-collapsed={!board && !expanded ? '' : undefined} className={!board && !expanded ? 'sticky top-[50px] z-20 min-w-0 border-b border-border-subtle bg-surface-canvas' : 'min-w-0 border-b border-border-subtle bg-surface-canvas'}>
     <div className={board ? 'flex h-12 min-w-0 items-center gap-2 overflow-x-auto px-3' : 'flex min-h-12 min-w-0 flex-wrap items-center gap-2 px-3'}>
       {board ? <Popover open={expanded} onOpenChange={toggle}><PopoverTrigger asChild>{trigger}</PopoverTrigger><PopoverContent align="start" side="bottom" className="max-h-[var(--radix-popover-content-available-height)] w-[min(64rem,var(--radix-popover-content-available-width))] overflow-y-auto" onOpenAutoFocus={event => { event.preventDefault(); editor.current?.querySelector<HTMLElement>('button:not(:disabled), input:not(:disabled)')?.focus(); }} onCloseAutoFocus={event => { event.preventDefault(); disclosure.current?.focus(); }}>{content}</PopoverContent></Popover> : trigger}
       {board && !expanded && <Button type="button" variant="ghost" size="toolbar" className="min-w-0 flex-1" aria-label={ko ? '전체 조회 조건 보기' : 'View full query conditions'} onClick={() => toggle(true)}><span className="truncate">{dirty.length ? (ko ? '편집 중' : 'Editing') : (ko ? '적용 조건' : 'Applied conditions')} · {summary}</span></Button>}
-      {!board && !expanded && <details className="min-w-0 flex-1 text-xs"><summary className="cursor-pointer truncate">{dirty.length ? (ko ? '편집 중' : 'Editing') : (ko ? '적용 조건' : 'Applied conditions')} · {summary}</summary><p className="whitespace-normal [overflow-wrap:anywhere]">{ko ? '편집 중 조건' : 'Editing conditions'} · {summary}</p><p className="whitespace-normal [overflow-wrap:anywhere]">{ko ? '적용 조건' : 'Applied conditions'} · {applied}</p></details>}
+      {!board && !expanded && <details className="min-w-0 flex-1 text-xs"><summary className="cursor-pointer truncate list-none [&::-webkit-details-marker]:hidden">{dirty.length ? (ko ? '편집 중' : 'Editing') : (ko ? '적용 조건' : 'Applied conditions')} · {summary}</summary><p className="whitespace-normal [overflow-wrap:anywhere]">{ko ? '편집 중 조건' : 'Editing conditions'} · {summary}</p><p className="whitespace-normal [overflow-wrap:anywhere]">{ko ? '적용 조건' : 'Applied conditions'} · {applied}</p></details>}
       {!expanded && actions}
       {board && !expanded && <span id={reasonId} className="max-w-56 truncate text-xs text-text-secondary">{reasons.map(r => r.reason).join(' · ')}</span>}
       <Button type="button" variant="ghost" size="toolbar" onClick={() => copy(url)}>{ko ? '링크 복사' : 'Copy link'}</Button>

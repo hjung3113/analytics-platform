@@ -104,7 +104,7 @@ export type MenuMeta = {
    * Each axis id must exist in the app's `equipmentAxes` (the Provider checks it).
    */
   conditionPresets?: readonly ConditionPreset[];
-  /** The page key that holds the active preset id and the id used when it is absent or unknown. The key must be a declared `pageKeys` entry. */
+  /** The page key that holds the active preset id and the default id. An absent value infers the first preset covering the Condition's axes (else the default); an unknown explicit id uses the default. The key must be a declared `pageKeys` entry. */
   conditionPreset?: { key: string; default: string };
   /** Parent menu for breadcrumb/active-nav on detail routes. */
   parent?: string;

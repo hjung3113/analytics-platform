@@ -69,7 +69,7 @@ QueryBarExtension | type | type QueryBarExtension = { appliedPageSummary?: reado
 QueryBarExtensionContext | const | const QueryBarExtensionContext: import("react").Context<@ap/components#QueryBarExtension | undefined>
 QueryBarExtensionsProvider | function | function QueryBarExtensionsProvider({ children }: { children: ReactNode; }): import("react").JSX.Element
 QuerySummaryItem | type | type QuerySummaryItem = @ap/components#PageFilterSummaryItem & { capability?: @ap/contracts#Capability; contextKey: @ap/contracts#ContextKey; }
-QuerySummaryOptions | type | type QuerySummaryOptions = { axes?: readonly @ap/contracts#EquipmentAxisDescriptor[]; context?: Record<@ap/contracts#ContextKey, @ap/contracts#Capability>; lang: 'en' | 'ko'; pageSummary?: readonly @ap/components#PageFilterSummaryItem[]; }
+QuerySummaryOptions | type | type QuerySummaryOptions = { axes?: readonly @ap/contracts#EquipmentAxisDescriptor[]; context?: Record<@ap/contracts#ContextKey, @ap/contracts#Capability>; lang: 'en' | 'ko'; pageSummary?: readonly @ap/components#PageFilterSummaryItem[]; preset?: @ap/components#SummaryPreset; }
 QueryView | function | function QueryView<T>({ query, children, skeletonRows, skeletonHeight, emptyAction, compact, widgetName, hideWidgetName, fill }: { children: (data: T, response: @ap/contracts#ApiResponse<T>) => ReactNode; compact?: boolean; emptyAction?: ReactNode; fill?: boolean; hideWidgetName?: boolean; query: @ap/kernel#QueryState<T>; skeletonHeight?: number; skeletonRows?: number; widgetName?: string; }): import("react").JSX.Element
 ReturnLink | function | function ReturnLink(): import("react").JSX.Element
 RowAction | function | function RowAction({ compact, icon: Icon, label, text, variant, onClick, link, textLink, disabled, 'aria-describedby': describedBy }: @ap/components#RowActionProps): import("react").JSX.Element
@@ -80,6 +80,7 @@ SegmentedRadio | function | function SegmentedRadio<T extends string>({ label, l
 SegmentedRadioOption | type | type SegmentedRadioOption<T extends string> = { label: ReactNode; value: T; }
 StatCard | function | function StatCard({ icon: Icon, label, value, unit, delta, caption, chip, onClick, active, footnote, secondary }: { active?: boolean; caption?: ReactNode; chip?: 'amber' | 'blue' | 'purple' | 'teal'; delta?: @ap/components#Delta; footnote?: ReactNode; icon: LucideIcon; label: ReactNode; onClick?: () => void; secondary?: ReactNode; unit?: ReactNode; value: ReactNode; }): import("react").JSX.Element
 StateMessage | function | function StateMessage({ icon, title, body, action, tone, correlationId, compact, detail }: StateProps): import("react").JSX.Element
+SummaryPreset | type | type SummaryPreset = { id: string; key: string; presets: readonly @ap/contracts#ConditionPreset[]; }
 TableUrlChangeReason | type | type TableUrlChangeReason = Parameters<@ap/components#TableUrlState['onChange']>[1]
 TableUrlState | type | type TableUrlState = { onChange: (next: { page: null | number; sorting: @ap/contracts#PageSort[]; }, reason: 'clamp' | 'reset' | 'user') => void; page: null | number; sorting: @ap/contracts#PageSort[]; }
 TableUrlWarning | function | function TableUrlWarning({ sentences, filters }: { filters?: ReactNode; sentences: readonly string[]; }): import("react").JSX.Element
@@ -94,8 +95,10 @@ focusPageFallback | function | function focusPageFallback(source: HTMLElement | 
 formatQuerySummary | function | function formatQuerySummary(global: @ap/contracts#GlobalContext, page: readonly @ap/contracts#Pair[], options: @ap/components#QuerySummaryOptions): string
 parsePageIndex | function | function parsePageIndex(raw: null | string): { ok: false; } | { ok: true; page: number; }
 parseTableSort | function | function parseTableSort(raw: null | string, allowed: readonly string[]): { ok: false; } | { ok: true; sorting: @ap/contracts#PageSort[]; }
+presetOutsideAxes | function | function presetOutsideAxes(global: @ap/contracts#GlobalContext, preset: @ap/components#SummaryPreset): string[]
 querySummaryItems | function | function querySummaryItems(g: @ap/contracts#GlobalContext, options: @ap/components#QuerySummaryOptions): @ap/components#QuerySummaryItem[]
 sortAndPage | function | function sortAndPage<T>(rows: T[], q: @ap/contracts#PageQuery): @ap/contracts#PageResult<T>
+summaryPreset | function | function summaryPreset(view: null | { activeId: string; appliedId: string; key: string; presets: readonly @ap/contracts#ConditionPreset[]; }, which: 'applied' | 'draft'): @ap/components#SummaryPreset | undefined
 token | function | function token(name: @ap/ui/theme#ThemeColorToken): string
 useCopyLink | function | function useCopyLink(successText: string): (url: string) => void
 useHeaderOverflowDialog | function | function useHeaderOverflowDialog(): ShowHeaderDialog | null
