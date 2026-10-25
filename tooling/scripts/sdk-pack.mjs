@@ -62,12 +62,17 @@ function readJson(path) {
   }
 }
 
-function releaseManifest(name, source, version) {
+/**
+ * The release manifest of one package. Siblings (`@ap/*`) become peers at exactly the release version, never dependencies: a
+ * consumer installs every tarball by URL, and pnpm's default `blockExoticSubdeps` rejects a URL-resolved package that a
+ * dependency pulls in (`ERR_PNPM_EXOTIC_SUBDEP`, #806). As peers they resolve to the consumer's own direct URL dependencies.
+ */
+export function releaseManifest(name, source, version) {
   const exports = {};
   for (const [subpath, target] of Object.entries(source.exports ?? {})) exports[subpath] = distTarget(target, `${name} exports["${subpath}"]`);
   if (Object.keys(exports).length === 0) fail(`${name}: source manifest has no exports`);
-  const pin = (deps) =>
-    deps && Object.fromEntries(Object.entries(deps).map(([dep, range]) => [dep, dep.startsWith(SCOPE) ? version : range]));
+  const external = Object.fromEntries(Object.entries(source.dependencies ?? {}).filter(([dep]) => !dep.startsWith(SCOPE)));
+  const siblings = Object.fromEntries(Object.keys(source.dependencies ?? {}).filter((dep) => dep.startsWith(SCOPE)).map((dep) => [dep, version]));
   const manifest = {
     name: source.name,
     version,
@@ -77,11 +82,10 @@ function releaseManifest(name, source, version) {
   };
   // Keeps tree-shaking for consumers: without it a bundler keeps every module a barrel re-exports (@ap/ui, #706).
   if (source.sideEffects !== undefined) manifest.sideEffects = source.sideEffects;
-  const dependencies = pin(source.dependencies);
-  if (dependencies && Object.keys(dependencies).length > 0) manifest.dependencies = dependencies;
+  if (Object.keys(external).length > 0) manifest.dependencies = external;
   const optional = name === 'components' ? { vitest: source.devDependencies?.vitest } : undefined;
   if (optional && !optional.vitest) fail('@ap/components must declare devDependencies.vitest for its optional testing peer');
-  const peerDependencies = { ...source.peerDependencies, ...optional };
+  const peerDependencies = { ...source.peerDependencies, ...siblings, ...optional };
   if (Object.keys(peerDependencies).length > 0) manifest.peerDependencies = peerDependencies;
   if (optional) manifest.peerDependenciesMeta = Object.fromEntries(Object.keys(optional).map((peer) => [peer, { optional: true }]));
   return manifest;
@@ -95,7 +99,7 @@ function archiveRelativePath(path) {
   return normalized.slice('package/'.length);
 }
 
-function validateArchive(name, paths, manifest, version) {
+export function validateArchive(name, paths, manifest, version) {
   const files = paths.map(archiveRelativePath).filter(Boolean);
   const bad = (reason, test) => {
     const hit = files.find(test);
@@ -104,10 +108,12 @@ function validateArchive(name, paths, manifest, version) {
   bad('includes source', (path) => path === 'src' || path.startsWith('src/'));
   bad('includes a tsconfig', (path) => path.split('/').some((part) => part.startsWith('tsconfig')));
   bad('includes a test file', (path) => /(^|\/)[^/]*\.test\.[^/]+$/.test(path) || path.split('/').includes('__tests__') || path.split('/').includes('__fixtures__'));
-  for (const field of ['dependencies', 'peerDependencies', 'optionalDependencies']) {
-    for (const [dep, range] of Object.entries(manifest[field] ?? {})) {
-      if (dep.startsWith(SCOPE) && range !== version) fail(`${name} tarball ${field}.${dep} is ${range}, expected exactly ${version}`);
-    }
+  for (const field of ['dependencies', 'optionalDependencies']) {
+    const sibling = Object.keys(manifest[field] ?? {}).find((dep) => dep.startsWith(SCOPE));
+    if (sibling) fail(`${name} tarball ${field}.${sibling}: siblings must be exact-version peerDependencies (blockExoticSubdeps, #806)`);
+  }
+  for (const [dep, range] of Object.entries(manifest.peerDependencies ?? {})) {
+    if (dep.startsWith(SCOPE) && range !== version) fail(`${name} tarball peerDependencies.${dep} is ${range}, expected exactly ${version}`);
   }
   const present = new Set(files);
   const targets = (value) => (typeof value === 'string' ? [value] : Object.values(value).flatMap(targets));
