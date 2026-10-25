@@ -9,6 +9,7 @@ export * from './i18n.js';
 export * from './instant.js';
 export * from './menu.js';
 export * from './menu-query.js';
+export * from './measure.js';
 export * from './paging.js';
 export * from './period.js';
 export * from './response.js';

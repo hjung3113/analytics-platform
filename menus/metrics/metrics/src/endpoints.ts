@@ -3,7 +3,7 @@
  * Client-safe: declarations, the catalog record types, and pure helpers the page and the server share
  * (`versionDiff`). The synthetic catalog itself and every lookup live in `src/mock/` (the server half).
  */
-import { defineEndpoint, type AuditEvent, type PageQuery, type PageResult, type PageSort } from '@ap/contracts';
+import { defineEndpoint, type AuditEvent, type PageQuery, type PageResult, type PageSort, type Reaggregation } from '@ap/contracts';
 import { PERMISSION } from './permission';
 
 export type Text = { ko: string; en: string };
@@ -29,7 +29,7 @@ export type MetricVersion = {
   denominator: string | null;
   numeratorAgg: 'sum' | null;
   denominatorAgg: 'sum' | null;
-  reaggregationRule: 'ratioOfSums' | 'recomputeFromDistribution' | 'sum';
+  reaggregationRule: Exclude<Reaggregation, 'none'>;
   averageOfRatiosAllowed: false;
   averageOfQuantilesAllowed: false | null;
   filters: Text[];
