@@ -17,7 +17,7 @@ It does not own source object lifecycles or backend authorization truth.
 
 - Finding detail is evidence-first and keeps execution links visible.
 - Finding detail composes `FindingDetailPanel` → `FullFindingDetail` with separate detail and execution section controllers. Requested-link selection, retry/focus handling, and the draft host belong to `FindingExecutionSection`.
-- Tasks and Surveys reach the Finding source-detail read and the Finding-owned Request Task draft host only through `features/findings/public.ts`; new cross-feature uses of those flows go through it too. Survey retains selected-Finding load/ready/error orchestration, and Tasks uses the public Finding read for Task Request source defaults. Known boundary debt: the Cluster "link existing Finding" picker (`voc-cluster/components/modals/LinkExistingFindingModal.tsx`) still imports `useFindingsList` directly.
+- Other features read Finding sources through `features/findings/hooks/useFindingDetail` (bridge-safe direct read; the platform bridge cannot reach `features/findings/public.ts`, which also re-exports the router-bound `FindingRequestTaskDraftHost`). `FindingRequestTaskDraftHost` stays reachable through `public.ts` for hosts that need it (Surveys). Survey retains selected-Finding load/ready/error orchestration, and Tasks reads the Finding source through `useFindingDetail` for Task Request source defaults. Known boundary debt: the Cluster "link existing Finding" picker (`voc-cluster/components/modals/LinkExistingFindingModal.tsx`) still imports `useFindingsList` directly.
 - Finding bridges evidence to execution, but backend permission checks remain authoritative; permission-limited content renders approved summaries or a request path.
 
 ## Key files
