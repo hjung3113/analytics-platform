@@ -319,7 +319,8 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
 
 /** The way back into a space that carries `returnTo` (ADR-0081 UX-10): drawn only for an origin `safeReturnTo` and `canOpen` accepted, never for a parent/home fallback. */
 function ReturnRow() {
-  const { origin, onNavigate } = useReturnNavigation();
+  // The space carries no global Context by design, so "reverted Context" would always list everything the user never changed.
+  const { origin, onNavigate } = useReturnNavigation({ announceReverted: false });
   const { t, tx } = useI18n();
   if (!origin.accepted) return null;
   return <div data-return-row className="flex h-8 shrink-0 items-center gap-3 border-b border-border-subtle px-8 text-xs">

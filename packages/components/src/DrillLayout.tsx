@@ -159,13 +159,13 @@ export function DrillLayout(props: DrillLayoutProps) {
 }
 
 /** What every return control shares (06 §22): the origin and the click handler that asks for return focus and names the reverted Context. Internal to this package. */
-export function useReturnNavigation(): { origin: ReturnOrigin; onNavigate: () => void } {
+export function useReturnNavigation({ announceReverted = true }: { announceReverted?: boolean } = {}): { origin: ReturnOrigin; onNavigate: () => void } {
   const { returnOrigin, pageNavigation, toast } = useHostPlatform();
   const { tx, t } = useI18n();
   const origin = returnOrigin();
   const onNavigate = () => {
     requestReturnFocus(pageNavigation, origin.href);
-    if (origin.revertedContext.length) toast(t('returnContextReverted', { items: origin.revertedContext.map(key => tx(RETURN_CONTEXT_LABELS[key])).join(', ') }));
+    if (announceReverted && origin.revertedContext.length) toast(t('returnContextReverted', { items: origin.revertedContext.map(key => tx(RETURN_CONTEXT_LABELS[key])).join(', ') }));
   };
   return { origin, onNavigate };
 }

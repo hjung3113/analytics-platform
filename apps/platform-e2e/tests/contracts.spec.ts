@@ -4149,13 +4149,12 @@ test.describe('FeedbackOps 바닥 블록 셸 안 이동(#760)', () => {
     await expect(mainHeading(page)).toBeVisible();
     await expect(returnRow(page)).toHaveCount(0);
     expect(query(page).has('returnTo')).toBe(false);
-    const nav = page.getByRole('navigation', { name: '주 메뉴' });
-    if (await nav.getByRole('link', { name: 'Triage' }).count()) {
-      await nav.getByRole('link', { name: 'Triage' }).click();
-      await expect.poll(() => new URL(page.url()).pathname).toBe('/feedbackops/triage');
-      await expect(returnRow(page)).toHaveCount(0);
-      expect(query(page).has('returnTo')).toBe(false);
-    }
+    // The landing is the dashboard; the VOC section brings Triage into the sidebar, then FO-internal moves must not create a row or a returnTo.
+    await railSection(page, 'VOC').click();
+    await page.getByRole('navigation', { name: '주 메뉴' }).getByRole('link', { name: 'Triage' }).click();
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/feedbackops/triage');
+    await expect(returnRow(page)).toHaveCount(0);
+    expect(query(page).has('returnTo')).toBe(false);
   });
 });
 

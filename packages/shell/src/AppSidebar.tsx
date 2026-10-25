@@ -151,7 +151,7 @@ function FeedbackOpsBlock({ collapsed }: { collapsed: boolean }) {
       return <li key={entry.key}><Tooltip><TooltipTrigger asChild>{link}</TooltipTrigger><TooltipContent side="right">{name}</TooltipContent></Tooltip></li>;
     })}</ul>
     {!collapsed && entries.some(entry => 'menuId' in entry) && <p className="px-3 pt-1 text-caption text-text-muted">{lang === 'ko' ? 'FeedbackOps로 이동합니다' : 'Opens in FeedbackOps'}</p>}
-    {!collapsed && entries.some(entry => 'href' in entry && entry.href !== null) && <p className="px-3 pt-1 text-caption text-text-muted">{lang === 'ko' ? '↗ 표시는 새 탭에서 열립니다' : '↗ opens in a new tab'}</p>}
+    {!collapsed && entries.some(entry => 'href' in entry && entry.href !== null) && <p className="px-3 pt-1 text-caption text-text-muted"><span className="sr-only">{lang === 'ko' ? '외부 링크 표시는 새 탭에서 열립니다' : 'Items marked external open in a new tab'}</span><span aria-hidden><ExternalLink className="mr-1 inline size-3 align-[-0.125em]" aria-hidden />{lang === 'ko' ? '표시는 새 탭에서 열립니다' : 'marks open in a new tab'}</span></p>}
   </nav>;
 }
 

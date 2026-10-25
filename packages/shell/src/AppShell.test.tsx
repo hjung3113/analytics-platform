@@ -471,7 +471,8 @@ describe('workspace shell layout (15 §3.1)', () => {
       expect(link.hasAttribute('aria-current')).toBe(false);
       expect(link.querySelectorAll('svg')).toHaveLength(2);
     }
-    expect(within(block).getByText('↗ 표시는 새 탭에서 열립니다')).toBeTruthy();
+    expect(within(block).getByText('외부 링크 표시는 새 탭에서 열립니다')).toBeTruthy();
+    expect(within(block).getByText('표시는 새 탭에서 열립니다').querySelector('svg')).toBeTruthy();
     expect(within(block).queryByText('FeedbackOps로 이동합니다')).toBeNull();
     const rail = screen.getByRole('navigation', { name: '앱 레일' });
     expect(within(rail).queryByRole('link', { name: /FeedbackOps 전체/ })).toBeNull();
@@ -486,7 +487,7 @@ describe('workspace shell layout (15 §3.1)', () => {
     localStorage.setItem('platform:sidebar-collapsed', '1');
     mount(['platform:view'], true, registry, { feedbackOps: feedbackSlot });
     const block = screen.getByRole('navigation', { name: 'FeedbackOps · 분석' });
-    expect(within(block).queryByText('↗ 표시는 새 탭에서 열립니다')).toBeNull();
+    expect(within(block).queryByText('외부 링크 표시는 새 탭에서 열립니다')).toBeNull();
     expect(block.textContent).not.toContain('FeedbackOps · 분석');
     const links = within(block).getAllByRole('link');
     expect(links.map(link => link.getAttribute('aria-label'))).toEqual([
@@ -524,14 +525,14 @@ describe('workspace shell layout (15 §3.1)', () => {
       expect(task.getAttribute('aria-label')).toBe('Task — 분석, FeedbackOps, 새 탭');
       expect(task).toHaveAttribute('target', '_blank');
       expect(within(block).getByText('FeedbackOps로 이동합니다')).toBeTruthy();
-      expect(within(block).getByText('↗ 표시는 새 탭에서 열립니다')).toBeTruthy();
+      expect(within(block).getByText('외부 링크 표시는 새 탭에서 열립니다')).toBeTruthy();
     });
 
     it('draws only the in-shell caption when no new-tab entry is drawn, and VOC works with the origin missing while Task is disabled', () => {
       mount(['platform:view', 'feedbackops:access'], true, foRegistry, { feedbackOps: slotOf([vocEntry]) });
       let block = screen.getByRole('navigation', { name: 'FeedbackOps · 분석' });
       expect(within(block).getByText('FeedbackOps로 이동합니다')).toBeTruthy();
-      expect(within(block).queryByText('↗ 표시는 새 탭에서 열립니다')).toBeNull();
+      expect(within(block).queryByText('외부 링크 표시는 새 탭에서 열립니다')).toBeNull();
       cleanup();
       mount(['platform:view', 'feedbackops:access'], true, foRegistry, { feedbackOps: slotOf([vocEntry, { ...taskEntry, href: null }]) });
       block = screen.getByRole('navigation', { name: 'FeedbackOps · 분석' });

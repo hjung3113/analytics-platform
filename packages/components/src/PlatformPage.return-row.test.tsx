@@ -1,7 +1,7 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
+import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
 import { PlatformPage } from './PlatformPage';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { groupId, spaceId, type GroupId } from '@ap/contracts';
@@ -28,9 +28,10 @@ const registry = createRegistry({
   ],
 });
 const adapter = () => { const session = testSession(['platform:view']); return testAdapter({ session: () => session }); };
+function Toasts() { return <ul data-toasts>{usePlatform().toasts.map(toast => <li key={toast.id}>{toast.text}</li>)}</ul>; }
 function mount(url: string) {
   window.history.replaceState(null, '', url);
-  return render(<I18nProvider><PlatformProvider adapter={adapter()} registry={registry}><PlatformPage><p>body</p></PlatformPage></PlatformProvider></I18nProvider>);
+  return render(<I18nProvider><PlatformProvider adapter={adapter()} registry={registry}><PlatformPage><p>body</p></PlatformPage><Toasts /></PlatformProvider></I18nProvider>);
 }
 const enc = encodeURIComponent;
 
@@ -50,6 +51,13 @@ describe('PlatformPage return row (#760, ADR-0081 UX-10)', () => {
     mount(`/feedbackops/vocs?v=1&returnTo=${enc('/notices?v=1')}`);
     expect(screen.getByRole('link', { name: '← 공지로 돌아가기' })).toBeTruthy();
     expect(screen.queryByText(/에서 왔습니다/)).toBeNull();
+  });
+
+  it('does not announce reverted Context when the row link is followed (the space carries none by design)', () => {
+    mount(`/feedbackops/vocs?v=1&returnTo=${enc('/?v=1&scopeId=MEM&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00')}`);
+    fireEvent.click(screen.getByRole('link', { name: '← 생산성 개요로 돌아가기' }));
+    expect(document.querySelector('[data-toasts]')!.children).toHaveLength(0);
+    expect(screen.queryByText(/되돌렸습니다/)).toBeNull();
   });
 
   it.each([
