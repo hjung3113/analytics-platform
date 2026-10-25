@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "@ap/ui/styles.css";
+@import "@eqv/platform-adapter/styles.css";
 @import "@ap/components/styles.css";
 @import "@ap/shell/styles.css";
 @import "@ap/fo-bridge/styles.css";

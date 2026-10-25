@@ -10,6 +10,8 @@
 >
 > 사실은 2026-10-17에 읽은 파일·이슈에서 왔고 [§9 출처](#9-출처)에 모았다. 읽지 않은 것에서 끌어낸 판단은 **추정**으로 표시했다. 지도 역할의 앞 문서는 [프레임워크 통합 계획](framework-unification-plan.md)(단계 0–5)이고, 이 문서는 그 단계 2(EV 첫 실소비자)·단계 5(두 번째 호스트)의 호스트 인터페이스를 구체화한다.
 
+> **첫 외부 모듈 마운트(2026-10-25, [#801](https://github.com/hjung3113/analytics-platform/issues/801)):** EV의 `eqv`(Top View·Focus)를 EV 릴리스 tarball(`eqv-vX.Y.Z`의 `@eqv/*` 여섯 개, EV `docs/adr/0014`)로 설치해 `apps/platform-web/src/modules.ts`에서 `mountModule`로 마운트했다(mock 조립). 위 "서브모듈 고정 + workspace 패키지" 배치(§0, §4)는 이 경로로 대체됐다. 설치 절차는 EV ADR-0014와 `INTEGRATION.md`가 소유한다.
+
 ## 0. 한 장 요약
 
 - **오늘 정해진 전제(사용자, 2026-10-17):** EV는 플랫폼 탑재가 기본이고 독립 Studio는 부가 기능이다. 호스트 → 모듈 계약은 플랫폼이 `@ap/contracts`로 내고, EV는 `packages/platform-adapter` 안에서만 `@ap/*`에 의존한다(#332·#396 코멘트). #148은 A(TS 원본). `@fops/ui`는 FeedbackOps가 배포하고 `@ap/ui`가 peer로 의존한다. EV 편입은 서브모듈 고정 + `@eqv/*` workspace 패키지만.

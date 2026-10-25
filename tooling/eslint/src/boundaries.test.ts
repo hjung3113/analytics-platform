@@ -279,6 +279,12 @@ const rows: Row[] = [
   { file: 'apps/platform-web/src/dev/mock-assembly.tsx', code: `import { DevTools } from './DevTools';`, rule: '' },
   { file: 'apps/platform-web/src/dev/DevTools.tsx', code: `import { x } from '@ap/mock-server';`, rule: '' },
   { file: 'apps/platform-web/src/published-metrics.test.ts', code: `import { x } from '@ap/mock-server';`, rule: '' },
+  // #801: EV's synthetic endpoint data is a dev-assembly and conformance-test import only.
+  { file: 'apps/platform-web/src/dev/eqv-mock.ts', code: `import { eqvMockContext } from '@eqv/platform-adapter/mock-data';`, rule: '' },
+  { file: 'apps/platform-web/src/server-conformance.test.ts', code: `import { EQV_MOCK_WINDOW } from '@eqv/platform-adapter/mock-data';`, rule: '' },
+  { file: 'apps/platform-web/src/modules.ts', code: `import { eqvMockContext } from '@eqv/platform-adapter/mock-data';`, rule: 'no-restricted-imports', token: 'ADR-0009' },
+  { file: 'apps/platform-web/src/main.tsx', code: `await import('@eqv/platform-adapter/mock-data');`, rule: 'ap/restricted-import-source' },
+  { file: 'apps/platform-web/src/modules.ts', code: `import { eqvManifest } from '@eqv/platform-adapter';`, rule: '' },
   { file: 'apps/platform-web/src/menus.ts', code: `import { x } from '@ap/menu-home';`, rule: '' },
   { file: 'apps/platform-web/src/menus.ts', code: `import { x } from '@ap/menu-home/src/index';`, rule: 'no-restricted-imports' },
 

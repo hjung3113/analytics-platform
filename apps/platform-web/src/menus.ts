@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { groupId, menuPermission, spaceId, type SpaceDef } from '@ap/contracts';
 import { createRegistry, type GroupDef, type MenuEntry } from '@ap/kernel';
+import { EQV_MODULE } from './modules';
 // <gen:menu-imports>
 import { manifests as home } from '@ap/menu-home';
 import { manifests as myActivity } from '@ap/menu-my-activity';
@@ -91,4 +92,5 @@ export const MENUS: MenuEntry[] = [
   // </gen:menu-spreads>
 ];
 
-export const registry = createRegistry({ spaces: SPACES, groups: GROUPS, menus: MENUS, permissions: PERMISSIONS });
+/** External host modules (src/modules.ts) join at the registry call only; GROUPS and MENUS stay the platform's own. */
+export const registry = createRegistry({ spaces: SPACES, groups: [...GROUPS, ...EQV_MODULE.groups], menus: [...MENUS, ...EQV_MODULE.menus], permissions: PERMISSIONS });

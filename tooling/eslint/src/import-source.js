@@ -37,6 +37,7 @@ function makeEvaluate(opts) {
   return (source) => {
     if (typeof source !== 'string') return null;
     if (devPattern !== null && devPattern.test(source)) return opts.devMessage;
+    if (opts.denyEqvMockData && /^@eqv\/[^/]+\/mock-data(\/|$)/.test(source)) return opts.eqvMockDataMessage;
     if ((opts.allowFeedbackOps ?? []).includes(source)) return null;
     if (source.startsWith(FEEDBACKOPS_PREFIX)) return opts.feedbackOpsMessage;
     if (source.startsWith(PACKAGE_PREFIX)) {

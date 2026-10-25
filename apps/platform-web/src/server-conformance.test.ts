@@ -9,6 +9,7 @@ import { createMockAdapter, defineMockAction, EQUIPMENT, getRole, setRole, USERS
 import { describeServerConformance, type ConformanceCase } from '@ap/server-conformance';
 import { MOCK_AUDIT_EVENTS, MOCK_ENDPOINTS } from './dev/mock-assembly';
 import { registry } from './menus';
+import { modulePermissions } from './modules';
 import { defineAction, menuPermission, spaceId, type Permission } from '@ap/contracts';
 
 /** Exactly what the app registers: the mock assembly's list, not a copy. */
@@ -40,10 +41,15 @@ const PARAMS: Record<string, Record<string, unknown>> = {
   'metrics.catalog.page': { q: null, status: null, domain: null, lang: 'ko', ...page },
   'metrics.definition': { metricId: 'cycle_time', version: '4' },
   'metrics.usage': { metricId: 'cycle_time', version: '4' },
+  // EV (#801): the synthetic fixture's equipment; `continuationToken` stays omitted (first page).
+  'eqv.topview-context': { equipmentId: 'eq-synth-01' },
+  'eqv.topview-events': { equipmentId: 'eq-synth-01' },
 };
+/** The EV specs declare `limits.maxHours: 8`, so their cases run in the fixture's 30-minute window, not the harness's 24 h (naive seconds, as the URL carries them). */
+const EQV_CONTEXT = { from: '2026-01-01T10:00:00', to: '2026-01-01T10:30:00' };
 
 // No oversizeParams samples (#175): mock data sits far below the declared maxRows, so no case can exceed a cap.
-const cases: ConformanceCase[] = endpoints.map(({ spec }) => ({ spec, params: PARAMS[spec.id] ?? {} }));
+const cases: ConformanceCase[] = endpoints.map(({ spec }) => ({ spec, params: PARAMS[spec.id] ?? {}, ...(spec.id.startsWith('eqv.') ? { context: EQV_CONTEXT } : {}) }));
 // No menu declares a write yet, so the write checks (ADR-0054) judge the mock engine over one fixture action on an
 // existing analytics menu; the version counter is the stored row the handler bumps and `currentVersion` reads.
 const trendSpec = endpoints.find(({ spec }) => spec.id === 'analytics.productivity.trend')!.spec;
@@ -71,8 +77,11 @@ describe('conformance harness covers what the app registers', () => {
   });
 });
 
+// The vocabulary carries the mounted modules' permissions (`eqv:view`), so the mock roles are built from it (#801).
+const adapter = createMockAdapter({ equipmentAxes: EQUIPMENT_AXES, endpoints, registry, permissions: [...registry.permissions, ...modulePermissions(registry)], auditEvents: MOCK_AUDIT_EVENTS, actions: [fixtureMockAction] });
+
 describeServerConformance('server boundary conformance — mock adapter', {
-  adapter: createMockAdapter({ equipmentAxes: EQUIPMENT_AXES, endpoints, registry, auditEvents: MOCK_AUDIT_EVENTS, actions: [fixtureMockAction] }),
+  adapter,
   cases,
   actions: [{ spec: fixtureSave, input: { text: 'sample' }, currentVersion: async () => String(fixtureVersion) }],
   context: { scopeId: 'MEM', from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00' },
@@ -117,11 +126,13 @@ describeServerConformance('server boundary conformance — mock adapter', {
   },
   withoutPermission: async (permission: Permission, fn) => {
     const previous = getRole();
-    const permissions = USERS[GRANTED].permissions;
     setRole(GRANTED);
-    USERS[GRANTED].permissions = permissions.filter(p => p !== permission);
+    // The adapter's world is built from the vocabulary above, not the default USERS, so the granted role's list is the session's own array.
+    const permissions = adapter.session().user.permissions as Permission[];
+    const kept = [...permissions];
+    permissions.splice(0, permissions.length, ...kept.filter(p => p !== permission));
     try { return await fn(); } finally {
-      USERS[GRANTED].permissions = permissions;
+      permissions.splice(0, permissions.length, ...kept);
       setRole(previous);
     }
   },

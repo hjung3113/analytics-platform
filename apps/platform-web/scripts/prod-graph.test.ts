@@ -24,6 +24,17 @@ describe('findForbiddenModules (#153)', () => {
     ]);
   });
 
+  it.each([
+    '@eqv/platform-adapter/mock-data',
+    '/repo/node_modules/.pnpm/@eqv+platform-adapter@0.3.0/node_modules/@eqv/platform-adapter/dist/mock-data/index.js',
+  ])('flags the EV mock data (#801): %s', id => {
+    expect(findForbiddenModules([id])).toEqual([{ id, rule: '@eqv/platform-adapter/mock-data' }]);
+  });
+
+  it('lets the EV adapter itself into a production graph', () => {
+    expect(findForbiddenModules(['/repo/node_modules/.pnpm/@eqv+platform-adapter@0.3.0/node_modules/@eqv/platform-adapter/dist/index.js'])).toEqual([]);
+  });
+
   it('ignores obsolete one-level menu paths', () => {
     expect(findForbiddenModules(['/repo/menus/home/src/mock/index.ts'])).toEqual([]);
   });
