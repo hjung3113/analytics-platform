@@ -4269,6 +4269,41 @@ test.describe('차트 카탈로그 — 종류별 상호작용 (06 §16, #530)', 
       await evidence(page, testInfo, `chart-catalog-${kind}-selection`);
     });
   }
+  test('분해 막대 — 합계 열·합계 없음·트리 드릴 (#580h)', async ({ page }, testInfo) => {
+    await signInAs(page, 'engineer');
+    await page.goto(`${catalog}&kind=breakdown`);
+    await expect(page.getByRole('tab', { name: /^분해 막대 / })).toHaveAttribute('aria-selected', 'true');
+    const workspace = page.getByRole('region', { name: '차트 작업 영역', exact: true });
+    const stacked = workspace.getByRole('region', { name: /상태별 시간/ });
+    // The Frame's accessible table opens from its 더보기 menu.
+    await stacked.getByRole('button', { name: '더보기', exact: true }).click();
+    await page.getByRole('button', { name: '같은 데이터를 표로 보기' }).click();
+    await expect(stacked.getByRole('table').getByRole('columnheader', { name: '합계', exact: true })).toBeVisible();
+    await expect(workspace.locator('[data-breakdown-server-total]')).toContainText(/서버 합계 — 그룹 A [\d.]+% · 그룹 B 없음/);
+    await workspace.getByRole('checkbox', { name: '최소·최대 표시' }).check();
+    await expect(workspace.getByRole('checkbox', { name: '최소·최대 표시' })).toBeChecked();
+    const tree = workspace.getByRole('tree', { name: '분해 트리' });
+    const group = tree.getByRole('treeitem', { name: /그룹 B/ });
+    await group.focus(); await group.press('Enter');
+    await expect(page).toHaveURL(/node=B(&|$)/);
+    await expect(tree.getByRole('treeitem', { name: /그룹 B/ })).toHaveAttribute('aria-current', 'true');
+    await evidence(page, testInfo, 'chart-catalog-breakdown-drill');
+    // A global Context change drops the drill (node); Back restores it.
+    const preset = await periodPreset(page, '7일');
+    await preset.locator.click();
+    await preset.close();
+    await expect(page).not.toHaveURL(/node=/);
+    await expect(page).toHaveURL(/kind=breakdown/);
+    await page.goBack();
+    await expect(page).toHaveURL(/node=B(&|$)/);
+    await expect(page.getByRole('tree', { name: '분해 트리' }).getByRole('treeitem', { name: /그룹 B/ })).toHaveAttribute('aria-current', 'true');
+    // A deep link shows the current item; an unknown node is rejected, not shown as the root.
+    await page.goto(`${catalog}&kind=breakdown&node=A1a`);
+    await expect(page.getByRole('tree', { name: '분해 트리' }).getByRole('treeitem', { name: /공정 A1a/ })).toHaveAttribute('aria-current', 'true');
+    await page.goto(`${catalog}&kind=breakdown&node=not-a-place`);
+    await expect(page.getByText('이 조건에서 없는 값: not-a-place')).toBeVisible();
+    await expect(page).toHaveURL(/node=not-a-place/);
+  });
   test('미지원 동작은 차트에 없고 지원 패널에 이유가 있다', async ({ page }, testInfo) => {
     await signInAs(page, 'engineer');
     await page.goto(`${catalog}&kind=heatmap`);

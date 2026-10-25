@@ -4,6 +4,7 @@ import { DataTrustIndicator, PlatformPage, QueryView } from '@ap/components';
 import { PanelRightOpen } from 'lucide-react';
 import { Button, Tabs, TabsContent, TabsList, TabsTrigger } from '@ap/ui';
 import { CHART_KINDS, chartCatalogEndpoint, isCatalogKind, type CatalogData } from '../../endpoints';
+import { BreakdownNodeRejection, invalidBreakdownNode } from './BreakdownBars';
 import { CatalogChart } from './CatalogChart';
 import { kindLabels, statusLabels, supportCounts, supportFor } from './support';
 import { useWorkspace } from './useWorkspace';
@@ -19,13 +20,15 @@ export default function ChartCatalog() {
   const { pageParam } = usePlatform();
   const rawKind = pageParam('kind');
   const kind = isCatalogKind(rawKind) ? rawKind : 'line';
-  const query = useMenuQuery(chartCatalogEndpoint, { kind });
+  // An invalid breakdown node is rejected before, and without, the catalogue query (06 §6.4).
+  const rejectedNode = kind === 'breakdown' ? invalidBreakdownNode(pageParam('node')) : null;
+  const query = useMenuQuery(chartCatalogEndpoint, { kind }, rejectedNode === null);
   return <PlatformPage dataTrustSummary={query.response ? <DataTrustIndicator trust={query.response.trust} assessments={query.response.assessments} /> : undefined}>
-    <CatalogWorkspace query={query} />
+    <CatalogWorkspace query={query} rejectedNode={rejectedNode} />
   </PlatformPage>;
 }
 
-function CatalogWorkspace({ query }: { query: QueryState<CatalogData> }) {
+function CatalogWorkspace({ query, rejectedNode }: { query: QueryState<CatalogData>; rejectedNode: string | null }) {
   const { tx } = useI18n();
   const { pageParam, setPage, route } = usePlatform();
   const rawKind = pageParam('kind');
@@ -97,9 +100,9 @@ function CatalogWorkspace({ query }: { query: QueryState<CatalogData> }) {
           <div ref={chart} role="region" aria-label={tx({ ko: '차트 작업 영역', en: 'Chart workspace' })} tabIndex={0} className="min-h-0 min-w-0 flex-1 overflow-auto">
             {/* One stable panel/QueryView path: layout never changes chart identity. */}
             <TabsContent value={kind} className="m-0">
-              <QueryView query={query} widgetName={tx({ ko: '차트 데이터', en: 'Chart data' })}>
+              {rejectedNode !== null ? <BreakdownNodeRejection node={rejectedNode} /> : <QueryView query={query} widgetName={tx({ ko: '차트 데이터', en: 'Chart data' })}>
                 {data => <CatalogChart key={kind} kind={kind} data={data} height={plotHeight} />}
-              </QueryView>
+              </QueryView>}
             </TabsContent>
           </div>
           {!focus && preference.open && !narrow && <div role="separator" aria-label={tx({ ko: '동작·지원 너비', en: 'Interaction support width' })} aria-controls={panelId} aria-orientation="vertical" aria-valuemin={240} aria-valuemax={maxWidth} aria-valuenow={effectiveWidth} tabIndex={0}

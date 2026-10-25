@@ -311,7 +311,7 @@ export function executionKey(row: { equipmentId: string; anchor: string }): stri
 }
 
 // ---- chart catalog (#530): client-safe synthetic sample contract ----
-export const CHART_KINDS = ['line', 'bar', 'heatmap', 'donut', 'scatter', 'boxPlot', 'pareto', 'topNBar', 'lane'] as const;
+export const CHART_KINDS = ['line', 'bar', 'heatmap', 'donut', 'scatter', 'boxPlot', 'pareto', 'topNBar', 'lane', 'breakdown'] as const;
 export type CatalogKind = typeof CHART_KINDS[number];
 export function isCatalogKind(value: unknown): value is CatalogKind {
   return CHART_KINDS.some(kind => kind === value);

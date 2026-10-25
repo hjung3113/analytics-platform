@@ -9,6 +9,7 @@ import { type CatalogData } from '../../endpoints';
 import ChartCatalog from './ChartCatalog';
 import { groupId, menuPermission, spaceId } from '@ap/contracts';
 import { TEST_AXES } from '../../test-axes';
+import { supportFor } from './support';
 
 // Canvas is an external rendering boundary; keep the real public chart components and controls.
 const canvas = vi.hoisted(() => ({ init: vi.fn(), dispose: vi.fn(), options: [] as unknown[] }));
@@ -245,4 +246,18 @@ it('renders the standalone Lane consumer with labels and keyboard selection', as
     expect(summary().textContent).toContain('깊이 0');
     expect(screen.queryByRole('button', { name: '내보내기' })).toBeNull();
   } finally { query.mockImplementation(previous); vi.unstubAllGlobals(); }
+});
+
+describe('breakdown support rows match the controls on the screen (#580h)', () => {
+  const controls = { zoom: '확대', selection: '구간 선택', reset: '초기화', compare: '비교', annotate: '주석', export: '내보내기', drill: /단계로 이동/ } as const;
+  it('every claimed capability has its control and every unsupported one has none', async () => {
+    mount('breakdown');
+    await screen.findByRole('checkbox', { name: '최소·최대 표시' });
+    const row = supportFor('breakdown', manifests.find(menu => menu.id === 'chart-catalog')!.features);
+    for (const [id, name] of Object.entries(controls)) {
+      const cell = row.find(item => item.id === id)!;
+      const found = screen.queryAllByRole('button', { name });
+      if (cell.status === 'unsupported') expect(found, id).toHaveLength(0); else expect(found.length, id).toBeGreaterThan(0);
+    }
+  });
 });
