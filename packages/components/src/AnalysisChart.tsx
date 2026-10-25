@@ -135,11 +135,17 @@ export function AnalysisChart(p: AnalysisChartProps) {
     }
     const validThreshold = scale?.type !== 'threshold' || scale.breaks[0] < scale.breaks[1];
     if (!validThreshold) diagnostic('threshold breaks must be increasing; using sequential scale');
+    // One computed-style read per token for this option, not two per cell; index and selection lookups by map and set (#822).
+    const read = new Map<ThemeColorToken, string>();
+    const tone = (name: ThemeColorToken) => { let value = read.get(name); if (value === undefined) { value = token(name); read.set(name, value); } return value; };
+    const xIndex = new Map(spec.kind === 'heatmap' ? spec.xLabels.map((label, index) => [label, index] as const) : []);
+    const yIndex = new Map(spec.kind === 'heatmap' ? spec.yLabels.map((label, index) => [label, index] as const) : []);
+    const activeKeys = new Set(active);
     function cellColor(value: number | null) {
-      if (value === null) return token(colors.unknown);
-      if (scale?.type === 'threshold' && validThreshold) return token(value < scale.breaks[0] ? colors.good : value < scale.breaks[1] ? colors.warn : colors.critical);
+      if (value === null) return tone(colors.unknown);
+      if (scale?.type === 'threshold' && validThreshold) return tone(value < scale.breaks[0] ? colors.good : value < scale.breaks[1] ? colors.warn : colors.critical);
       const fraction = domain[1] === domain[0] ? 0.5 : (value - domain[0]) / (domain[1] - domain[0]);
-      return token(ramp[Math.max(0, Math.min(4, Math.round(fraction * 4)))]);
+      return tone(ramp[Math.max(0, Math.min(4, Math.round(fraction * 4)))]);
     }
     const option: EChartsCoreOption = extended ? extended.option(active) : spec.kind === 'heatmap' ? {
       tooltip: { ...theme.tooltip, renderMode: 'richText', formatter: (params: { dataIndex: number }) => { const c = cells[params.dataIndex]; return c ? `${c.x} · ${c.y}: ${valueText(c.value)}` : ''; } },
@@ -148,8 +154,8 @@ export function AnalysisChart(p: AnalysisChartProps) {
       yAxis: { type: 'category', data: spec.yLabels, axisLine: theme.axisLine, axisLabel: { ...theme.axisLabel, interval: spec.yLabels.length <= 24 ? 0 : 'auto' }, splitLine: theme.splitLine },
       ...brushOptions(),
       series: [{ type: 'scatter', symbol: 'rect', symbolSize: heatmapSymbolSize(plotSize.width, plotSize.height, spec.xLabels.length, spec.yLabels.length), emphasis: { focus: 'none' }, data: cells.map(c => ({
-        value: [spec.xLabels.indexOf(c.x), spec.yLabels.indexOf(c.y), c.value],
-        itemStyle: { color: cellColor(c.value), borderColor: token(active.includes(keyOf(c.x, c.y)) ? colors.selection : colors.pattern), borderWidth: active.includes(keyOf(c.x, c.y)) ? 1.5 : c.value === null ? 1 : 0, borderType: c.value === null ? 'dashed' : 'solid' },
+        value: [xIndex.get(c.x) ?? -1, yIndex.get(c.y) ?? -1, c.value],
+        itemStyle: { color: cellColor(c.value), borderColor: tone(activeKeys.has(keyOf(c.x, c.y)) ? colors.selection : colors.pattern), borderWidth: activeKeys.has(keyOf(c.x, c.y)) ? 1.5 : c.value === null ? 1 : 0, borderType: c.value === null ? 'dashed' : 'solid' },
       })) }],
     } : {
       tooltip: { ...theme.tooltip, renderMode: 'richText', formatter: (params: { dataIndex: number }) => { const row = rows[params.dataIndex]; return row ? `${row.label}: ${valueText(row.value)} · ${percent(row.share ?? 0)}` : ''; } },
