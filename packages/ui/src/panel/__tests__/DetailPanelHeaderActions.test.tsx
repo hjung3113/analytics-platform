@@ -207,3 +207,33 @@ describe('DetailPanelHeaderActions — kebab dropdown', () => {
     expect(screen.getByTestId('extra-more-item')).toBeInTheDocument();
   });
 });
+
+describe('DetailPanelHeaderActions — notify (a host without a sonner Toaster)', () => {
+  it('reports a successful copy through the given notice, not the sonner toast', async () => {
+    const user = userEvent.setup();
+    stubClipboard({ writeText: async () => {} });
+    const { toast } = await import('sonner');
+    const notify = { success: vi.fn(), error: vi.fn() };
+    render(<DetailPanelHeaderActions {...defaultProps} notify={notify} />);
+
+    await user.click(screen.getByRole('button', { name: '링크 복사' }));
+
+    expect(notify.success).toHaveBeenCalledWith('링크가 복사되었습니다.');
+    expect(notify.error).not.toHaveBeenCalled();
+    expect(toast.success).not.toHaveBeenCalled();
+  });
+
+  it('reports a failed copy as a failure through the given notice', async () => {
+    const user = userEvent.setup();
+    stubClipboard({});
+    const { toast } = await import('sonner');
+    const notify = { success: vi.fn(), error: vi.fn() };
+    render(<DetailPanelHeaderActions {...defaultProps} notify={notify} />);
+
+    await user.click(screen.getByRole('button', { name: '링크 복사' }));
+
+    expect(notify.error).toHaveBeenCalledWith('링크를 복사하지 못했습니다. 주소창의 URL을 직접 복사해 주세요.');
+    expect(notify.success).not.toHaveBeenCalled();
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+});

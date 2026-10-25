@@ -46,8 +46,8 @@ DetailPanelFullscreenContext | const | const DetailPanelFullscreenContext: React
 DetailPanelFullscreenToggle | function | function DetailPanelFullscreenToggle(): React.ReactElement | null
 DetailPanelFullscreenValue | interface | interface DetailPanelFullscreenValue { expanded: boolean; toggle: () => void; }
 DetailPanelHeader | function | function DetailPanelHeader({ kind, id, onClose, extras, className, }: @ap/ui#DetailPanelHeaderProps): React.JSX.Element
-DetailPanelHeaderActions | function | function DetailPanelHeaderActions({ entityKind: _entityKind, entityId: _entityId, copyUrl, extraMore, }: @ap/ui#DetailPanelHeaderActionsProps): React.JSX.Element
-DetailPanelHeaderActionsProps | interface | interface DetailPanelHeaderActionsProps { copyUrl: string; entityId: string; entityKind: @ap/ui#DetailPanelKind; extraMore?: React.ReactNode; }
+DetailPanelHeaderActions | function | function DetailPanelHeaderActions({ entityKind: _entityKind, entityId: _entityId, copyUrl, extraMore, notify, }: @ap/ui#DetailPanelHeaderActionsProps): React.JSX.Element
+DetailPanelHeaderActionsProps | interface | interface DetailPanelHeaderActionsProps { copyUrl: string; entityId: string; entityKind: @ap/ui#DetailPanelKind; extraMore?: React.ReactNode; notify?: { error: (message: string) => void; success: (message: string) => void; }; }
 DetailPanelHeaderProps | interface | interface DetailPanelHeaderProps { className?: string; extras?: React.ReactNode; id?: string; kind: @ap/ui#DetailPanelKind; onClose?: () => void; }
 DetailPanelKind | type | type DetailPanelKind = 'cluster' | 'finding' | 'milestone' | 'survey' | 'task' | 'task_request' | 'voc'
 DetailPanelReadingColumn | function | function DetailPanelReadingColumn({ children, ...dataAttrs }: React.PropsWithChildren<{ 'data-testid'?: string; }>): React.ReactElement

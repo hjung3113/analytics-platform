@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { validateVocSearch } from '@/features/voc/routes/voc-search';
+import { isVocSearchValueValid, validateVocSearch } from '@/features/voc/routes/voc-search';
 
 const UUID = '3f2b8a1e-5c4d-4e6f-8a9b-0c1d2e3f4a5b';
 
@@ -56,5 +56,25 @@ describe('validateVocSearch parse table (router-free copies)', () => {
     ['non-object input yields no keys', 'x', {}],
   ])('%s', (_name, raw, expected) => {
     expect(validateVocSearch(raw)).toEqual(expected);
+  });
+});
+
+describe('isVocSearchValueValid (the strict per-field check a host uses to reject, not drop)', () => {
+  it.each([
+    ['tab', 'unassigned', true],
+    ['tab', 'bogus', false],
+    ['sort', 'severity:desc', true],
+    ['sort', 'price:desc', false],
+    ['q', 'a'.repeat(100), true],
+    ['q', 'a'.repeat(101), false],
+    ['selected', UUID, true],
+    ['selected', 'x', false],
+    ['filter.analytics_area', 'unset', true],
+    ['filter.analytics_area', 'x', false],
+    ['managedSystem', 'anything', true],
+    ['unknownKey', 'x', false],
+    ['constructor', 'x', false],
+  ])('%s=%s → %s', (key, value, expected) => {
+    expect(isVocSearchValueValid(key, value)).toBe(expected);
   });
 });

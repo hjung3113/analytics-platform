@@ -1,7 +1,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { House } from 'lucide-react';
-import type { ReactElement, ReactNode } from 'react';
+import { useState, type ReactElement, type ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
@@ -231,5 +231,105 @@ describe('routeSearch', () => {
     act(() => go('/inbox?v=1&q=a'));
     expect(result.current.search).toEqual(first);
     expect(result.current.search).not.toBe(first);
+  });
+});
+
+describe('a target whose menu is not in the registry', () => {
+  const lone = createRegistry({
+    spaces: [space],
+    groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
+    menus: [menu('fo-inbox', '/inbox', ['focus', 'q', 'severity', 'managedSystem', 'returnTo'], true)],
+  });
+  const loneWrapper = ({ children }: { children: ReactNode }) => <I18nProvider><PlatformProvider adapter={adapter} registry={lone}>{children}</PlatformProvider></I18nProvider>;
+  const { Link, targetOf } = hostLinks(inbox.target, triage.target);
+
+  it('renders an unlinked Link and a no-op navigate instead of throwing', () => {
+    at('/inbox?v=1');
+    render(<><Link to="/vocs?view=inbox&selected=a">수신함</Link><Link to="/vocs?view=triage">분류</Link></>, { wrapper: loneWrapper });
+    expect(document.querySelector('a[href*="focus=a"]')).not.toBeNull();
+    expect(Array.from(document.querySelectorAll('a')).some(anchor => anchor.textContent === '분류')).toBe(false);
+    const { result } = renderHook(() => hostLinks(triage.target).useNavigate(), { wrapper: loneWrapper });
+    const url = window.location.href;
+    act(() => result.current('/vocs?view=triage'));
+    expect(window.location.href).toBe(url);
+  });
+
+  it('is unlinked in the seam (canLink) and gives no copy-link address', async () => {
+    setFoApi({ basePath: '/fo', onSessionLost: () => undefined });
+    at('/inbox?v=1');
+    let seam!: HostSeam;
+    function Probe() { seam = useHostSeam(); return null; }
+    render(<FoBridge targetOf={targetOf}><Probe /></FoBridge>, { wrapper: loneWrapper });
+    await waitFor(() => expect(seam).toBeDefined());
+    expect(seam.canLink('/vocs?view=inbox&q=a')).toBe(true);
+    expect(seam.canLink('/vocs?view=triage')).toBe(false);
+    expect(seam.absoluteHref!('/vocs?view=triage')).toBeNull();
+    setFoApi(null);
+  });
+});
+
+describe('FoBridge absoluteHref', () => {
+  afterEach(() => setFoApi(null));
+  const { targetOf } = hostLinks(inbox.target, triage.target);
+
+  it('is the absolute linkTo URL of the mapped target (no returnTo), null for an unmapped path', async () => {
+    setFoApi({ basePath: '/fo', onSessionLost: () => undefined });
+    at('/inbox?v=1&managedSystem=ms1');
+    const seams: HostSeam[] = [];
+    let go!: (url: string) => void;
+    function Probe() { seams.push(useHostSeam()); go = usePlatform().navigate as unknown as (url: string) => void; return null; }
+    render(<FoBridge targetOf={targetOf}><Probe /></FoBridge>, { wrapper });
+    await waitFor(() => expect(seams.length).toBeGreaterThan(0));
+    const first = seams[0]!;
+    const href = first.absoluteHref!('/vocs?view=triage&selected=x')!;
+    const url = new URL(href);
+    expect(url.origin).toBe(window.location.origin);
+    expect(url.pathname).toBe('/triage');
+    expect(url.searchParams.get('focus')).toBe('x');
+    expect(url.searchParams.get('managedSystem')).toBe('ms1');
+    expect(url.searchParams.has('returnTo')).toBe(false);
+    expect(first.absoluteHref!('/tasks?view=board')).toBeNull();
+    act(() => go('/inbox?v=1&managedSystem=ms2'));
+    expect(new URL(seams.at(-1)!.absoluteHref!('/vocs?view=triage')!).searchParams.get('managedSystem')).toBe('ms2');
+  });
+
+  it('tells the screens the platform owns the page title', async () => {
+    setFoApi({ basePath: '/fo', onSessionLost: () => undefined });
+    at('/inbox?v=1');
+    let seam!: HostSeam;
+    function Probe() { seam = useHostSeam(); return null; }
+    render(<FoBridge><Probe /></FoBridge>, { wrapper });
+    await waitFor(() => expect(seam).toBeDefined());
+    expect(seam.hostOwnsTitle).toBe(true);
+  });
+
+  it('renders the address of the same navigation (a copy URL never keeps the cleared scope), and rebuilds the seam only on navigation', async () => {
+    setFoApi({ basePath: '/fo', onSessionLost: () => undefined });
+    at('/inbox?v=1&focus=a&managedSystem=ms1');
+    const seams: HostSeam[] = [];
+    let go!: (url: string) => void;
+    let rerender!: () => void;
+    function Copy() {
+      const seam = useHostSeam();
+      seams.push(seam);
+      return <a data-testid="copy" href={seam.absoluteHref!('/vocs?view=inbox&selected=a') ?? ''}>copy</a>;
+    }
+    function Probe() { go = usePlatform().navigate as unknown as (url: string) => void; return null; }
+    function Host() {
+      const [, setN] = useState(0);
+      rerender = () => setN(n => n + 1);
+      return <FoBridge targetOf={targetOf}><Probe /><Copy /></FoBridge>;
+    }
+    render(<Host />, { wrapper });
+    await waitFor(() => expect(document.querySelector('[data-testid=copy]')).not.toBeNull());
+    const copied = () => new URL((document.querySelector('[data-testid=copy]') as HTMLAnchorElement).href);
+    expect(copied().searchParams.get('managedSystem')).toBe('ms1');
+    const first = seams.at(-1)!;
+    act(() => rerender());
+    expect(seams.at(-1)).toBe(first);
+    act(() => go('/inbox?v=1&focus=a'));
+    expect(copied().searchParams.has('managedSystem')).toBe(false);
+    expect(copied().searchParams.get('focus')).toBe('a');
+    expect(seams.at(-1)).not.toBe(first);
   });
 });

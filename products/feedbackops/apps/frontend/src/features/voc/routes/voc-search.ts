@@ -44,6 +44,15 @@ export function validateVocSearch(raw: unknown) {
   return parseRouteSearch(vocSearchSchema, raw);
 }
 
+/**
+ * Strict per-field check: whether `value` is one `key` accepts under {@link vocSearchSchema}. `validateVocSearch` drops a value that fails and
+ * the screen then queries a default; a host that must reject instead (platform ADR-0071 decision 9) asks this before mounting.
+ */
+export function isVocSearchValueValid(key: string, value: string): boolean {
+  if (!Object.prototype.hasOwnProperty.call(vocSearchSchema.shape, key)) return false;
+  return vocSearchSchema.shape[key as keyof typeof vocSearchSchema.shape].safeParse(value).success;
+}
+
 // Lives here (not in VocRouteShell.tsx) so the route file's component import
 // pulls nothing but the component — #982 code-splitting severs eager imports
 // only when the module exports nothing else the shell needs eagerly.

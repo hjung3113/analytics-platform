@@ -20,7 +20,6 @@ import { type FindingSeverity, type VocListItem, isTipTapDocStructurallyEmpty } 
 import {
   AnalyticsAreaPicker,
   DetailPanelFullscreenToggle,
-  DetailPanelHeaderActions,
   DetailPanelSectionNav,
   PanelSectionTitle,
   PanelTitleBlock,
@@ -43,6 +42,7 @@ import {
 import { formatDate } from '@/lib/format/datetime';
 import type { TriageQueueOutcome } from '../../hooks/useTriageQueue';
 import type { TriageInput } from '../../lib/triage-types';
+import { VocHeaderActions } from '../detail/DetailHeader';
 import { ClusterSectionReadOnly } from './ClusterSectionReadOnly';
 import { OwnerPicker } from './OwnerPicker';
 import { type SeverityLevel, SeverityPicker } from './SeverityPicker';
@@ -165,11 +165,7 @@ export function TriagePanel({
       <div className="flex items-center justify-between h-toolbar px-5 border-b border-border-subtle shrink-0">
         <span className="font-mono text-xs text-text-muted tabular-nums">{voc.display_id}</span>
         <div className="flex items-center gap-1">
-          <DetailPanelHeaderActions
-            entityKind="voc"
-            entityId={voc.display_id}
-            copyUrl={`/vocs?view=inbox&selected=${voc.id}`}
-          />
+          <VocHeaderActions vocId={voc.id} displayId={voc.display_id} />
           <DetailPanelFullscreenToggle />
         </div>
       </div>

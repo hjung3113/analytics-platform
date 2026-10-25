@@ -1818,7 +1818,7 @@ test.describe('워크스페이스 (06 §9.1)', () => {
   });
 
   // #759 (ADR-0081): the FeedbackOps space is gated by feedbackops:access, which only admin holds in the mock; the mock has no FeedbackOps API.
-  test('FeedbackOps 공간은 admin만 보고 대시보드·목록 범위가 실서버 필요 상태로 열린다', async ({ page }, testInfo) => {
+  test('FeedbackOps 공간은 admin만 보고 대시보드·VOC(수신함·Triage)·목록 범위가 실서버 필요 상태로 열린다', async ({ page }, testInfo) => {
     for (const role of ['engineer', 'viewer'] as const) {
       await signInAs(page, role);
       await page.goto('/equipment?v=1&scopeId=MEM');
@@ -1842,6 +1842,18 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     await expect(page.getByText('목록 범위', { exact: true })).toBeVisible();
     await expect(page.getByTitle('실서버 필요').filter({ hasText: '전체' })).toBeDisabled();
     await evidence(page, testInfo, 'feedbackops-dashboard-mock');
+    // #761: the VOC group (수신함, Triage) is bridge menus too; without a FeedbackOps API each body is 실서버 필요.
+    // The sidebar draws only the current section, so the rail's VOC section brings its menus in.
+    await railSection(page, 'VOC').click();
+    await expect(nav.getByRole('link', { name: '수신함' })).toBeVisible();
+    await expect(nav.getByRole('link', { name: 'Triage' })).toBeVisible();
+    await nav.getByRole('link', { name: '수신함' }).click();
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/feedbackops/vocs');
+    await expect(page.getByRole('main').getByRole('status').filter({ hasText: '실서버 필요' })).toBeVisible();
+    await nav.getByRole('link', { name: 'Triage' }).click();
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/feedbackops/triage');
+    await expect(page.getByRole('main').getByRole('status').filter({ hasText: '실서버 필요' })).toBeVisible();
+    await evidence(page, testInfo, 'feedbackops-voc-mock');
   });
 
   test('진입 권한이 없는 공간의 직접 URL은 메뉴 권한 검사 전에 공간 거부를 보인다', async ({ page }, testInfo) => {

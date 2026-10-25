@@ -80,7 +80,40 @@ describe('대시보드 host links', () => {
     expect(screen.getByRole('link', { name: '내 VOC' }).getAttribute('href')).toContain('/voc');
     expect(screen.queryByRole('link', { name: '보드' })).toBeNull();
     expect(canLink('/tasks?view=board')).toBe(false);
-    expect(canLink('/vocs?view=inbox')).toBe(false);
     expect(canLink('/vocs?view=my&extra=1')).toBe(false);
+  });
+
+  it('leaves a queue link inert without throwing when this registry has no fo-inbox', () => {
+    const session = testSession(['platform:view']);
+    window.history.replaceState(null, '', '/');
+    render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}>
+      <Link to="/vocs?view=inbox&tab=unassigned">미배정</Link>
+    </PlatformProvider></I18nProvider>);
+    expect(screen.queryByRole('link', { name: '미배정' })).toBeNull();
+    expect(screen.getByText('미배정')).toBeTruthy();
+  });
+
+  it('links the queue and coverage hrefs to 수신함 and Triage when the registry has them (#761)', () => {
+    const live = createRegistry({
+      spaces: [{ id: spaceId('feedbackops'), label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'platform:view', carriedPageKeys: ['managedSystem'], homeMenuId: 'fo-inbox' }],
+      groups: [{ id: groupId('myActivity'), label: { ko: '내 활동', en: 'Mine' }, space: spaceId('feedbackops') }],
+      menus: [stub('fo-inbox', '/feedbackops/vocs', { primary: true, pageKeys: ['focus', 'tab', 'area', 'managedSystem'] }), stub('fo-triage', '/feedbackops/triage', { pageKeys: ['focus', 'tab', 'area', 'managedSystem'] })],
+    } as never);
+    const session = testSession(['platform:view']);
+    window.history.replaceState(null, '', '/');
+    render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={live}>
+      <Link to={`/vocs?view=inbox&tab=unassigned&managedSystem=${SYSTEM}`}>미배정</Link>
+      <Link to="/vocs?view=inbox&tab=high-no-link">연결 없음</Link>
+      <Link to="/vocs?view=inbox&filter.analytics_area=unset">영역 미지정</Link>
+      <Link to="/tasks?view=board">보드</Link>
+    </PlatformProvider></I18nProvider>);
+    const queue = new URL(screen.getByRole('link', { name: '미배정' }).getAttribute('href')!, 'http://x');
+    expect(queue.pathname).toBe('/feedbackops/vocs');
+    expect(queue.searchParams.get('tab')).toBe('unassigned');
+    expect(queue.searchParams.get('managedSystem')).toBe(SYSTEM);
+    expect(new URL(screen.getByRole('link', { name: '연결 없음' }).getAttribute('href')!, 'http://x').searchParams.get('tab')).toBe('high-no-link');
+    expect(new URL(screen.getByRole('link', { name: '영역 미지정' }).getAttribute('href')!, 'http://x').searchParams.get('area')).toBe('unset');
+    expect(screen.queryByRole('link', { name: '보드' })).toBeNull();
+    expect(canLink('/vocs?view=inbox&tab=unassigned')).toBe(true);
   });
 });

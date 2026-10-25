@@ -44,3 +44,23 @@ describe('operatorRoute', () => {
     expect(inbox.preset({ view: 'inbox', 'filter.severity': 'high', bogus: '1' })).toEqual({ severity: 'high' });
   });
 });
+
+describe('operatorRoute.rejectedKey', () => {
+  const accepts = (foKey: string, value: string) => !(foKey === 'selected' && value === 'bad') && !(foKey === 'q' && value.length > 3);
+  const page = (record: Record<string, string>) => (key: string) => record[key] ?? null;
+
+  it('names the first table-order page key whose value the check refuses, under its page key', () => {
+    expect(inbox.rejectedKey(page({ focus: 'bad', q: 'long!' }), accepts)).toEqual({ key: 'focus', value: 'bad' });
+    expect(inbox.rejectedKey(page({ q: 'long!' }), accepts)).toEqual({ key: 'q', value: 'long!' });
+  });
+
+  it('is null when every present value is accepted; absent and empty values are not checked', () => {
+    expect(inbox.rejectedKey(page({ focus: 'ok', q: 'abc' }), accepts)).toBeNull();
+    expect(inbox.rejectedKey(page({}), () => false)).toBeNull();
+    expect(inbox.rejectedKey(page({ focus: '' }), () => false)).toBeNull();
+  });
+
+  it('ignores page keys outside the table', () => {
+    expect(inbox.rejectedKey(page({ other: 'x' }), () => false)).toBeNull();
+  });
+});

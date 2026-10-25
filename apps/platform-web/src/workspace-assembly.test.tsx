@@ -80,6 +80,7 @@ describe('workspace assembly (#260)', () => {
       ['impTasks', 'improvement'],
       ['impReports', 'improvement'],
       ['foDashboard', 'feedbackops'],
+      ['foVoc', 'feedbackops'],
     ]);
     expect(SPACES.map(space => space.id)).toEqual(['analytics', 'metrics', 'clas', 'log-dev', 'improvement', 'operations', 'feedbackops']);
     expect(SPACES[0]).toMatchObject({
@@ -117,6 +118,12 @@ describe('workspace assembly (#260)', () => {
       homeMenuId: 'fo-dashboard',
     });
     expect(registry.menuById('fo-dashboard')).toMatchObject({ group: 'foDashboard', path: '/feedbackops', permission: 'feedbackops:access', requiresScope: false, pageKeys: ['managedSystem'] });
+    // #761 p1: the VOC group sits after 대시보드 in the FeedbackOps space; every feedbackops menu declares managedSystem and the VOC menus a focus.
+    expect(registry.menus.filter(menu => menu.group === 'foVoc').map(menu => menu.id)).toEqual(['fo-inbox', 'fo-triage']);
+    expect(registry.menuById('fo-inbox')).toMatchObject({ path: '/feedbackops/vocs', permission: 'feedbackops:access', requiresScope: false });
+    expect(registry.menuById('fo-triage')).toMatchObject({ path: '/feedbackops/triage', permission: 'feedbackops:access', requiresScope: false });
+    for (const id of ['fo-inbox', 'fo-triage']) expect(registry.menuById(id).pageKeys).toEqual(expect.arrayContaining(['managedSystem', 'focus']));
+    expect(registry.spaceOf(registry.menuById('fo-inbox'))?.id).toBe('feedbackops');
     // #252 (ADR-0065): work-queue first; every menu is planned and open to every signed-in user for now.
     expect(SPACES[3]).toMatchObject({ label: { ko: '표준 로그 개발', en: 'Standard log development' }, homeMenuId: 'log-my-queue' });
     expect(SPACES[4]).toMatchObject({ label: { ko: '개선 실행', en: 'Improvement execution' }, homeMenuId: 'imp-my-tasks' });

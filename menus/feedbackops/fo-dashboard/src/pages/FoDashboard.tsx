@@ -2,12 +2,12 @@ import { PlatformPage } from '@ap/components';
 import { usePlatform } from '@ap/kernel';
 import { Button } from '@ap/ui';
 import { RefreshCw } from 'lucide-react';
-import { FoBridge, foQueryClient, hostLinks, surveyTarget, useFoSession, vocListTarget } from '@ap/fo-bridge';
+import { FoBridge, foQueryClient, operatorHostLinks, useFoSession } from '@ap/fo-bridge';
 import { DashboardScreen, refreshDashboard } from '@fops/frontend/operator-screens/dashboard';
 
-/** The dashboard reaches the survey menus and 내 VOC; every operator route stays non-interactive until its menu exists. Module level: `FoBridge` memoizes on these identities. */
-export const dashboardLinks = hostLinks(surveyTarget, vocListTarget);
-const { canLink, Link } = dashboardLinks;
+/** The dashboard reaches the survey menus, 내 VOC and the VOC 수신함/Triage queues; every other operator route stays non-interactive until its menu exists, and so does one whose menu this registry lacks. Module level: `FoBridge` memoizes on these identities. */
+export const dashboardLinks = operatorHostLinks;
+const { canLink, Link, targetOf } = dashboardLinks;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -19,6 +19,6 @@ export default function FoDashboard() {
   const managedSystem = raw !== null && UUID.test(raw) ? raw : undefined;
   return <PlatformPage
     primaryAction={<Button type="button" variant="secondary" size="sm" disabled={session.status !== 'ready'} onClick={() => refreshDashboard(foQueryClient, managedSystem)}><RefreshCw className="size-3.5" aria-hidden />새로고침</Button>}>
-    <FoBridge canLink={canLink} Link={Link}><DashboardScreen {...(managedSystem !== undefined ? { managedSystemId: managedSystem } : {})} /></FoBridge>
+    <FoBridge canLink={canLink} Link={Link} targetOf={targetOf}><DashboardScreen {...(managedSystem !== undefined ? { managedSystemId: managedSystem } : {})} /></FoBridge>
   </PlatformPage>;
 }

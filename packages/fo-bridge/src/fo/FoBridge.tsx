@@ -3,6 +3,8 @@ import { ServerOff } from 'lucide-react';
 import { useI18n, usePlatform } from '@ap/kernel';
 import { StateMessage } from '@ap/components';
 import { FoScreenRoot, type HostLinkProps, type HostNavigate, type HostNotice, type HostSearch, type HostSeam } from '@fops/frontend/global-screens/core';
+import type { TargetOf } from './links';
+import { isReachable } from './reachable';
 import { foQueryClient, useFoSession } from './session';
 
 /** The default seam links nothing (backlog: 알림 목적지 연결); `Link` is the unreachable fallback, and a screen passes `canLink`/`Link` for the targets it can reach. */
@@ -25,16 +27,29 @@ const useNoHere = () => '';
 
 const TONE = { success: 'info', info: 'info', warning: 'warning', error: 'danger' } as const satisfies Record<HostNotice['tone'], 'info' | 'warning' | 'danger'>;
 
-/** `useNavigate`/`useSearch`/`useTitle`/`useHere` must be module-level hooks (stable identities): the seam is memoized on them, so a URL change never rebuilds it. */
-export function FoBridge({ children, canLink = noLink, Link = UnlinkedLink, useNavigate = useNoNavigate, useSearch = useNoSearch, useTitle = useNoTitle, useHere = useNoHere }: { children: ReactNode; canLink?: HostSeam['canLink']; Link?: ComponentType<HostLinkProps>; useNavigate?: () => HostNavigate; useSearch?: () => HostSearch; useTitle?: (title: string | null) => void; useHere?: () => string }) {
+/** `useNavigate`/`useSearch`/`useTitle`/`useHere` must be module-level hooks (stable identities): the seam is memoized on them, so an unrelated render never rebuilds it (with `targetOf`, a navigation does: see `hrefLinkTo`). */
+export function FoBridge({ children, canLink = noLink, Link = UnlinkedLink, targetOf, useNavigate = useNoNavigate, useSearch = useNoSearch, useTitle = useNoTitle, useHere = useNoHere }: { children: ReactNode; canLink?: HostSeam['canLink']; targetOf?: TargetOf; Link?: ComponentType<HostLinkProps>; useNavigate?: () => HostNavigate; useSearch?: () => HostSearch; useTitle?: (title: string | null) => void; useHere?: () => string }) {
   const { lang } = useI18n();
   const ko = lang === 'ko';
-  const { toast, dismissToast } = usePlatform();
+  const { toast, dismissToast, registry, linkTo, absoluteUrl } = usePlatform();
   const session = useFoSession();
+  // `linkTo`/`absoluteUrl` change with each navigation. A copy-link address rendered in a screen must be built from the navigation of that same render, and a ref
+  // refreshed after commit would hand it the previous one; so `absoluteHref` closes over them and the seam is rebuilt per navigation, but only when it has `absoluteHref` (`targetOf`).
+  const hrefLinkTo = targetOf ? linkTo : null;
+  const hrefAbsoluteUrl = targetOf ? absoluteUrl : null;
 
   const seam = useMemo<HostSeam>(() => ({
-    canLink,
+    // With `targetOf`, a path is linkable only when its menu is in this registry (`hostLinks` applies the same rule to `Link`).
+    canLink: targetOf ? to => isReachable(registry, targetOf(to)) : canLink,
+    ...(targetOf && hrefLinkTo && hrefAbsoluteUrl ? {
+      absoluteHref: (to: string) => {
+        const target = targetOf(to);
+        return isReachable(registry, target) ? hrefAbsoluteUrl(hrefLinkTo(target.menuId, { params: target.params, page: target.page })) : null;
+      },
+    } : {}),
     Link,
+    // The platform page head carries the menu title, so a screen drops its own route kicker (UX-5).
+    hostOwnsTitle: true,
     notifyError: message => toast(message, 'danger'),
     notifySuccess: message => toast(message),
     useNavigate,
@@ -45,7 +60,7 @@ export function FoBridge({ children, canLink = noLink, Link = UnlinkedLink, useN
       String(toast(message, TONE[tone], description, { ...(action ? { action } : {}), ...(durationMs !== undefined ? { durationMs } : {}) })),
     dismiss: id => dismissToast(Number(id)),
     useHere,
-  }), [canLink, Link, toast, dismissToast, useNavigate, useSearch, useTitle, useHere]);
+  }), [canLink, targetOf, hrefLinkTo, hrefAbsoluteUrl, registry, Link, toast, dismissToast, useNavigate, useSearch, useTitle, useHere]);
 
   if (session.status === 'no-api') {
     return <StateMessage icon={<ServerOff className="size-4" aria-hidden />}

@@ -1,0 +1,58 @@
+import { describe, expect, it } from 'vitest';
+import { inboxRoute, operatorHostLinks, triageRoute } from './voc-routes';
+
+const SYSTEM = '33333333-3333-4333-8333-333333333333';
+const AREA = '55555555-5555-4555-8555-555555555555';
+const VOC = '66666666-6666-4666-8666-666666666666';
+
+describe('inboxRoute', () => {
+  it.each([
+    ['unassigned queue', `/vocs?view=inbox&tab=unassigned&managedSystem=${SYSTEM}`, { tab: 'unassigned', managedSystem: SYSTEM }],
+    ['high without link', '/vocs?view=inbox&tab=high-no-link', { tab: 'high-no-link' }],
+    ['no task', '/vocs?view=inbox&tab=no-task', { tab: 'no-task' }],
+    ['unset analytics area', '/vocs?view=inbox&filter.analytics_area=unset', { area: 'unset' }],
+    ['every key', `/vocs?view=inbox&selected=${VOC}&q=pump&tab=untriaged&sort=created_at:asc&filter.severity=high&filter.reporterStatus=open&filter.owner=me&filter.analytics_area=${AREA}&managedSystem=${SYSTEM}`,
+      { focus: VOC, q: 'pump', tab: 'untriaged', sort: 'created_at:asc', severity: 'high', reporterStatus: 'open', owner: 'me', area: AREA, managedSystem: SYSTEM }],
+  ])('maps the %s link to fo-inbox and back to the same FO search', (_name, to, page) => {
+    const target = inboxRoute.target(to);
+    expect(target).toEqual({ menuId: 'fo-inbox', page });
+    const back = inboxRoute.toFoSearch(target!.page!);
+    expect(back).toEqual(Object.fromEntries(new URLSearchParams(to.slice(to.indexOf('?') + 1))));
+  });
+
+  it('declares exactly the page keys it maps, including focus and managedSystem', () => {
+    expect([...inboxRoute.pageKeys].sort()).toEqual(['area', 'focus', 'managedSystem', 'owner', 'q', 'reporterStatus', 'severity', 'sort', 'tab']);
+  });
+
+  it('reads a platform page as the FO search, dropping keys outside the table', () => {
+    expect(inboxRoute.toFoSearch({ focus: VOC, returnTo: '/x', tab: 'untriaged' })).toEqual({ view: 'inbox', selected: VOC, tab: 'untriaged' });
+  });
+});
+
+describe('triageRoute', () => {
+  it('maps selected to focus and the area filter to area, and back', () => {
+    const to = `/vocs?view=triage&selected=${VOC}&tab=unassigned&managedSystem=${SYSTEM}&filter.analytics_area=unset`;
+    const target = triageRoute.target(to);
+    expect(target).toEqual({ menuId: 'fo-triage', page: { focus: VOC, tab: 'unassigned', managedSystem: SYSTEM, area: 'unset' } });
+    expect(triageRoute.toFoSearch(target!.page!)).toEqual(Object.fromEntries(new URLSearchParams(to.slice(to.indexOf('?') + 1))));
+  });
+
+  it('leaves the inbox-only keys unmapped', () => {
+    expect(triageRoute.target('/vocs?view=triage&q=pump')).toBeNull();
+    expect(triageRoute.target('/vocs?view=inbox&tab=unassigned')).toBeNull();
+  });
+});
+
+describe('operatorHostLinks', () => {
+  const { targetOf } = operatorHostLinks;
+
+  it('reaches the operator tables, 내 VOC and the survey menus, and nothing else', () => {
+    expect(targetOf('/vocs?view=inbox&tab=unassigned')?.menuId).toBe('fo-inbox');
+    expect(targetOf('/vocs?view=triage')?.menuId).toBe('fo-triage');
+    expect(targetOf('/vocs?view=my')?.menuId).toBe('voc');
+    expect(targetOf('/surveys/participate')?.menuId).toBe('surveys');
+    expect(targetOf('/vocs?action=create')).toBeNull();
+    expect(targetOf('/tasks?view=board')).toBeNull();
+    expect(targetOf('/findings')).toBeNull();
+  });
+});

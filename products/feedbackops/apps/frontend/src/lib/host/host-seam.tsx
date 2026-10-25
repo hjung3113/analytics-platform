@@ -51,6 +51,8 @@ export type HostSeam = {
   dismiss?: (id: string) => void;
   /** The current screen as an FeedbackOps path+query (+ hash), parseable against any origin. */
   useHere?: () => string;
+  /** True when the host already shows the screen's identity (its own page title), so a screen drops its inline route kicker. Absent = the screen shows it. */
+  hostOwnsTitle?: boolean;
   /** An absolute URL for the FeedbackOps path `to` (copy-link actions), or `null` when this host has no address to give. */
   absoluteHref?: (to: string) => string | null;
 };

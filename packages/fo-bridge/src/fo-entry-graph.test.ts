@@ -297,3 +297,16 @@ describe('FeedbackOps VOC triage entry graph (ADR-0071)', () => {
     expect(callers).toEqual(['lib/api/client.ts']);
   });
 });
+
+// The VOC search entry (#761 p1) is the schema pieces only: a host asks it before mounting, so it must stay tiny and bridge-safe.
+describe('FeedbackOps VOC search entry graph (ADR-0071 decision 9)', () => {
+  const search = walk([join(FRONTEND_SRC, 'operator-screens/voc-search/index.ts')]);
+  const searchReached = [...search.files.keys()].map(file => relative(FRONTEND_SRC, file));
+
+  it('reaches the search schema and no screen, router, layout, auth source or api module', () => {
+    expect(searchReached).toEqual(expect.arrayContaining(['features/voc/routes/voc-search.ts', 'lib/host/search-fields.ts']));
+    expect(searchReached.filter(file => /^(?:routes|lib\/router|lib\/layout|lib\/auth|lib\/api)\/|\.tsx$/.test(file))).toEqual([]);
+    expect(search.unresolved).toEqual([]);
+    expect([...search.specifiers].filter(specifier => /^@tanstack\/(react-)?router|^sonner$/.test(specifier))).toEqual([]);
+  });
+});

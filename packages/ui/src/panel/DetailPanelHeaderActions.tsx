@@ -16,6 +16,8 @@ export interface DetailPanelHeaderActionsProps {
   entityId: string;
   copyUrl: string;
   extraMore?: React.ReactNode;
+  /** Where the copy result is reported; default is the sonner toast. A host without a sonner Toaster passes its own notice (06 §15). */
+  notify?: { success: (message: string) => void; error: (message: string) => void };
 }
 
 const DEFERRED_ITEMS: Array<{ label: string; disabledReason: string }> = [
@@ -36,6 +38,7 @@ export function DetailPanelHeaderActions({
   entityId: _entityId,
   copyUrl,
   extraMore,
+  notify = toast,
 }: DetailPanelHeaderActionsProps) {
   async function handleCopyLink() {
     // Callers pass either an absolute URL or a route path; resolving against
@@ -45,11 +48,11 @@ export function DetailPanelHeaderActions({
 
     // One success rule for every link copy (06 §15, #673): feature-detected path, success only when the text landed.
     if (await copyText(absolute)) {
-      toast.success('링크가 복사되었습니다.');
+      notify.success('링크가 복사되었습니다.');
     } else {
       // Saying "복사되었습니다" after copying nothing is worse than failing:
       // the actor pastes stale content and never learns why.
-      toast.error('링크를 복사하지 못했습니다. 주소창의 URL을 직접 복사해 주세요.');
+      notify.error('링크를 복사하지 못했습니다. 주소창의 URL을 직접 복사해 주세요.');
     }
   }
 
