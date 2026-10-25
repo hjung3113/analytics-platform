@@ -181,6 +181,14 @@ describe('AnalysisChartFrame SDK pieces (#541)', () => {
     view.rerender(frame({ series: [] }));
     expect(screen.queryByText('표시할 시리즈를 모두 껐습니다')).toBeNull();
   });
+  it('puts 모두 보이기 on the status sentence line as a secondary button with an Eye icon', async () => {
+    await mount({ visibleSeriesIds: [] });
+    const button = screen.getByRole('button', { name: '모두 보이기' });
+    const status = screen.getByText('표시할 시리즈를 모두 껐습니다');
+    expect(button.parentElement).toBe(status.parentElement);
+    expect(button.querySelector('.lucide-eye')).not.toBeNull();
+    expect(button.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true');
+  });
   it('shows every series again from the all-off state: controlled requests allSeries ids', async () => {
     const onVisibleSeriesChange = vi.fn();
     await mount({ visibleSeriesIds: [], onVisibleSeriesChange });

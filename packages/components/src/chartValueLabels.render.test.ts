@@ -69,7 +69,9 @@ describe('a segment label that does not fit is not drawn (F4)', () => {
     const narrow = draw(d, cats, { width: 420, height: 120 }, { valueLabels: 'segment', rowPitch: undefined }).segment;
     expect(roomy).toContain('120');
     expect(narrow).not.toContain('120');
-    expect(narrow).toContain('1천');
+    expect(roomy).toContain('1,000');
+    expect(roomy).not.toContain('1천');
+    expect(narrow).not.toContain('1천');
   });
   it('keeps the same rule in lanes', () => {
     const lanes = draw(displayed, R, wide, { valueLabels: 'segment', startAlign: true }).segment;
@@ -121,7 +123,8 @@ describe('a label that yields leaves nothing behind (G3)', () => {
     chart.dispose();
     return svg;
   };
-  const heat = (values: (number | null)[]) => [bar('a', 'chart-heat-div-0', R, values)];
+  // A second, unmeasured series: one shown series draws no segment label (06 §16), and this one has no segment to draw.
+  const heat = (values: (number | null)[]) => [bar('a', 'chart-heat-div-0', R, values), bar('b', 'chart-series-1', R, [null, null, null])];
   // A background or hit target is a path in the surface colour with an area; the collapsed label of a yielded number leaves at most an empty path (`M0 0Z`: no area, nothing to see or hover).
   const boxes = (svg: string) => [...svg.matchAll(/<path d="([^"]*)"[^>]*fill="#fedcba"/g)].filter(([, d]) => d !== 'M0 0Z').length;
   const texts = (svg: string) => [...svg.matchAll(/<text[^>]*font-size:10px[^>]*>([^<]+)<\/text>/g)].length;

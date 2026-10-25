@@ -1,5 +1,5 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
-import { ArrowDown, ArrowUp, ArrowUpDown, ChevronRight, CornerDownRight } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronRight, CornerDownRight, Eye } from 'lucide-react';
 import { useI18n } from '@ap/kernel';
 import { Button, Checkbox, cn } from '@ap/ui';
 import { readColorToken, type ThemeColorToken } from '@ap/ui/theme';
@@ -24,8 +24,10 @@ export type LegendTreeProps = {
   selectedId?: string | null;
   /** Enables a single current choice, independently of visibility checks. Superseded by `onDrill`, which turns selection off. */
   onSelect?: (id: string) => void;
-  /** Enables drill: Enter on any row, a `drillOnly` row click and a trailing button on series rows that have children. Never changes `visible`. */
+  /** Enables drill on the drillable rows: Enter, a trailing `단계로 이동` button, and a `drillOnly` row click. Never changes `visible`. See `canDrill`. */
   onDrill?: (id: string) => void;
+  /** Which rows drill (needs `onDrill`). A `drillOnly` row always does; any other row does when this returns true, or, without this prop, when it has children. Other rows keep Enter as expand (a branch) or nothing (a leaf). */
+  canDrill?: (id: string) => boolean;
   /** The current drill node (`aria-current`). A non-null id opens only its ancestors when no expansion prop is passed; later changes reveal closed ancestors only for uncontrolled expansion (a controlled `expanded` is the caller's to open). */
   currentId?: string | null;
   /** Expansion mode is fixed per mount; controlled expansion without a callback is read-only. */
@@ -82,7 +84,7 @@ const EMPTY = new Set<string>();
 
 /** Hierarchical visibility checks with independent optional single choice and controlled sorting. */
 export function LegendTree(props: LegendTreeProps) {
-  const { nodes, visible, onVisibleChange, label, sortOf, onSortChange, onSelect, selectedId, onDrill, currentId,
+  const { nodes, visible, onVisibleChange, label, sortOf, onSortChange, onSelect, selectedId, onDrill, canDrill, currentId,
     expanded, defaultExpanded, onExpandedChange, emptyText, className } = props;
   const { lang } = useI18n();
   const treeId = useId();
@@ -201,6 +203,9 @@ export function LegendTree(props: LegendTreeProps) {
       onSortChange(entry.node.id, current === null ? 'asc' : current === 'asc' ? 'desc' : null);
     }
   }
+  function drillable(entry: Entry): boolean {
+    return !!onDrill && (!!entry.node.drillOnly || (canDrill ? canDrill(entry.node.id) : entry.children.length > 0));
+  }
   function keyDown(event: KeyboardEvent<HTMLDivElement>, entry: Entry) {
     if (event.target !== event.currentTarget || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
     const index = shown.indexOf(entry);
@@ -219,8 +224,8 @@ export function LegendTree(props: LegendTreeProps) {
         break;
       case ' ': toggle(entry); break;
       case 'Enter':
-        if (onDrill) onDrill(entry.node.id);
-        else if (onSelect) onSelect(entry.node.id);
+        if (drillable(entry)) onDrill?.(entry.node.id);
+        else if (onSelect && !onDrill) onSelect(entry.node.id);
         else if (entry.children.length) expand(entry);
         else return;
         break;
@@ -242,7 +247,8 @@ export function LegendTree(props: LegendTreeProps) {
     const drillOnly = !!node.drillOnly;
     const name = typeof node.label === 'string' ? node.label : node.id;
     const drillLabel = lang === 'ko' ? `${name} 단계로 이동` : `${name} go to this level`;
-    const describedBy = [drillOnly ? drillId : undefined, sortOf && !onSortChange ? sortLabelId : undefined].filter(Boolean).join(' ') || undefined;
+    const canDrillRow = drillable(entry);
+    const describedBy = [canDrillRow ? drillId : undefined, sortOf && !onSortChange ? sortLabelId : undefined].filter(Boolean).join(' ') || undefined;
     const value = sortOf?.(node.id);
     const sortLabel = lang === 'ko'
       ? `정렬: ${value === 'asc' ? '오름차순' : value === 'desc' ? '내림차순' : '없음'}`
@@ -291,12 +297,18 @@ export function LegendTree(props: LegendTreeProps) {
             event.stopPropagation(); focus(entry);
             if (onSelect && !onDrill) onSelect(node.id); else toggle(entry);
           }}>{node.label}</span>
-        {drillOnly && <ChevronRight aria-hidden className="size-3 shrink-0 text-text-muted" />}
-        {onDrill && !drillOnly && entry.children.length > 0 && !isCurrent &&
+        {drillOnly && (onDrill && !isCurrent
+          ? <Button type="button" variant="ghost" size="icon-xs" tabIndex={-1} aria-label={drillLabel}
+            onMouseDown={event => { event.preventDefault(); focus(entry); }}
+            onClick={event => { event.stopPropagation(); onDrill(node.id); }}>
+            <CornerDownRight aria-hidden className="size-3 text-text-muted" />
+          </Button>
+          : <CornerDownRight aria-hidden className="size-3 shrink-0 text-text-muted" />)}
+        {canDrillRow && !drillOnly && !isCurrent &&
           <span className="inline-flex opacity-0 group-hover:opacity-100 focus-within:opacity-100 [[role=treeitem]:focus-visible>div>&]:opacity-100">
             <Button type="button" variant="ghost" size="icon-xs" tabIndex={-1} aria-label={drillLabel}
               onMouseDown={event => { event.preventDefault(); focus(entry); }}
-              onClick={event => { event.stopPropagation(); onDrill(node.id); }}>
+              onClick={event => { event.stopPropagation(); onDrill?.(node.id); }}>
               <CornerDownRight aria-hidden className="size-3" />
             </Button>
           </span>}
@@ -312,8 +324,10 @@ export function LegendTree(props: LegendTreeProps) {
   }
 
   return <>
-    {allOff && <Button type="button" variant="ghost" size="toolbar" onClick={showAll} data-legend-show-all=""
-      onFocus={() => { showAllFocused.current = true; }}>{lang === 'ko' ? '모두 보이기' : 'Show all'}</Button>}
+    {allOff && <div className="w-full">
+      <Button type="button" variant="secondary" size="toolbar" onClick={showAll} data-legend-show-all=""
+        onFocus={() => { showAllFocused.current = true; }}><Eye className="size-3.5" aria-hidden />{lang === 'ko' ? '모두 보이기' : 'Show all'}</Button>
+    </div>}
   <div ref={root} role="tree" aria-label={label} aria-multiselectable={model.checkable ? true : undefined}
     className={cn('focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2', className)} tabIndex={shown.length ? -1 : 0}
     onFocusCapture={event => { focused.current = event.target; ownsFocus.current = true; }}>

@@ -1,5 +1,5 @@
 import { toMs, unknownLabel } from './analysisChartShared';
-import { BrushIcon, Download, GitCompare, MessageSquarePlus, MoreHorizontal, RotateCcw, Table2, ZoomIn } from 'lucide-react';
+import { BrushIcon, Download, Eye, GitCompare, MessageSquarePlus, MoreHorizontal, RotateCcw, Table2, ZoomIn } from 'lucide-react';
 import { useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { ECharts, EChartsCoreOption } from 'echarts/core';
 import { useI18n, usePlatform } from '@ap/kernel';
@@ -163,6 +163,8 @@ export type AnalysisChartFrameProps = {
   minMax?: boolean;
   /** Horizontal + stacked only (ignored elsewhere, with a dev warning). `segment`: the short value inside each segment that fits; `total`: one total per row; `both`. Absent = no labels. */
   valueLabels?: ValueLabels;
+  /** Default true. Set false when the page already explains the `◇ ≥` partial total, to drop the Frame's one-line note. */
+  partialTotalNote?: boolean;
   /** How this chart's measure may be recombined. The Frame adds segments itself only when `canClientSum({ reaggregation })`; absent counts as "may not add". */
   reaggregation?: Reaggregation;
   /** Per category, the server's total. Drawn only while every series is shown and the client may not add (a server total includes hidden series). `null` = none. */
@@ -390,8 +392,9 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   // Said once per chart, not per row: what the number is, or why there is none.
   const totalNote = !wantsTotal ? null
     : totals && totals.size > 0 ? (mayClientSum && anyHidden ? (lang === 'ko' ? '표시 합계 — 보이는 시리즈만 더한 값입니다' : 'Shown total — only the visible series are added') : null)
+    : visible.length === 0 ? null
     : (lang === 'ko' ? '합계 없음 — 이 측정은 더하지 않습니다' : 'No total — this measure is not added');
-  const partialNote = anyPartial ? (lang === 'ko' ? '◇ ≥ 합계: 측정하지 못한 시리즈가 있는 행의 합계입니다' : '◇ ≥ total: a row with a series that was not measured') : null;
+  const partialNote = anyPartial && p.partialTotalNote !== false ? (lang === 'ko' ? '◇ ≥ 합계: 미측정 계열이 있는 행의 합계' : '◇ ≥ total: total for a row with an unmeasured series') : null;
   const missingText = (missing: readonly string[]) => `${missing.join(', ')} ${lang === 'ko' ? '미측정' : 'not measured'}`;
   const unit = p.unit; const stacked = p.stacked;
   // A reference line in another unit or metric version would sit on the wrong scale: it is not drawn and the Frame names it. No lines are drawn with startAlign, so no note either.
@@ -655,8 +658,10 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
     </AnalysisChartPart>
     <AnalysisChartPart enabled={analysisSection !== null} body>
     {allSeries.length > 0 && visible.length === 0 && <>
-      <p role="status" className="px-4 py-3 text-text-secondary">{lang === 'ko' ? '표시할 시리즈를 모두 껐습니다' : 'All series are turned off'}</p>
-      <Button ref={showAllButton} type="button" variant="ghost" size="toolbar" className="mx-4 mb-3" onClick={showAllSeries}>{lang === 'ko' ? '모두 보이기' : 'Show all'}</Button>
+      <div className="flex flex-wrap items-center gap-3 px-4 py-3">
+        <p role="status" className="text-text-secondary">{lang === 'ko' ? '표시할 시리즈를 모두 껐습니다' : 'All series are turned off'}</p>
+        <Button ref={showAllButton} type="button" variant="secondary" size="toolbar" onClick={showAllSeries}><Eye className="size-3.5" aria-hidden />{lang === 'ko' ? '모두 보이기' : 'Show all'}</Button>
+      </div>
     </>}
     <div ref={node => { pointChart.current = node; fill.ref(node); wheelPassThrough(node); }} className={cn('px-2', size === 'fill' && (rowPitch !== undefined ? (loweredFill ? FILL_PLOT_SCROLL_BASE_CLASS : FILL_PLOT_SCROLL_CLASS) : (loweredFill ? FILL_PLOT_BASE_CLASS : FILL_PLOT_CLASS)), rowPitch !== undefined && 'overflow-y-auto')}
       // eslint-disable-next-line shadcn/no-inline-styles -- the scroll window is the given height at runtime

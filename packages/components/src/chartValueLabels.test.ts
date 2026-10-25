@@ -50,7 +50,17 @@ describe('segment label fit and totals (#580d)', () => {
     expect(labelFitsSegment({ x: 0, y: 0, width: 30, height: 19 }, seg)).toBe(false);
     expect(labelFitsSegment({ x: 0, y: 0, width: 5, height: 10 }, { ...seg, width: 0 })).toBe(false);
   });
-  it('shortens a number', () => { expect(shortNumber(12345, 'en')).toBe('12.3K'); });
+  it('groups digits instead of compacting a number', () => {
+    expect(shortNumber(12345, 'en')).toBe('12,345');
+    expect(shortNumber(1000, 'ko')).toBe('1,000');
+    expect(shortNumber(998.14, 'en')).toBe('998');
+  });
+  it('keeps one decimal below 100 and none from 100 up', () => {
+    expect(shortNumber(12.34, 'en')).toBe('12.3');
+    expect(shortNumber(99.96, 'en')).toBe('100');
+    expect(shortNumber(100.4, 'en')).toBe('100');
+    expect(shortNumber(-150.6, 'en')).toBe('-151');
+  });
   it('adds only when the client may, marks a row with a null as partial, leaves an all-null row without a total', () => {
     const displayed = [s('a', [1, null, null]), s('b', [2, 3, null])];
     const sums = resolveRowTotals({ displayed, categories: ['R0', 'R1', 'R2'], mayClientSum: true, allShown: true });
