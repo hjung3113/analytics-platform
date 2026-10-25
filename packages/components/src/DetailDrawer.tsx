@@ -70,7 +70,8 @@ function DetailContent({ superseded, title, subtitle, headerActions, context, ta
       // eslint-disable-next-line react-hooks/exhaustive-deps -- the cleanup asks the live panel node whether focus is inside, not a mount-time copy
       const inside = panel.current?.contains(document.activeElement) ?? false;
       // A panel that never took focus must not treat the untouched body as its own.
-      const restore = claim ? inside || document.activeElement === document.body : inside || (document.activeElement === document.body && focusInside.current);
+      // `focusInside` follows React's tree, so a dialog the panel opened (portaled to body, e.g. a discard confirm) counts: closing through it still returns focus.
+      const restore = inside || focusInside.current || (claim && document.activeElement === document.body);
       if (!restore) return;
       // The panel is portaled out of its pane, so a pane's fallback is found by id (compared, not interpolated into a selector).
       const paneRoot = paneId === null ? null : paneRootById(paneId);
@@ -102,6 +103,7 @@ function DetailContent({ superseded, title, subtitle, headerActions, context, ta
   }, []);
   return <div ref={panel} role="dialog" tabIndex={-1} aria-modal="false" aria-labelledby={`${id}-t`}
     onFocus={() => { focusInside.current = true; }}
+    onPointerDownCapture={() => { focusInside.current = true; }}
     onBlur={e => { const to = e.relatedTarget as Node | null; if (to && !panel.current?.contains(to)) focusInside.current = false; }}
     onKeyDown={e => { if (e.key === 'Escape' && !e.defaultPrevented) { e.preventDefault(); e.stopPropagation(); onClose(); } }}
     className="flex h-full min-h-0 w-full flex-col bg-surface-detail">

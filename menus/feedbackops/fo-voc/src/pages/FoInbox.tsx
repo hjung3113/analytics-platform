@@ -1,7 +1,8 @@
 import { PlatformPage } from '@ap/components';
 import { usePlatform } from '@ap/kernel';
-import { FoBridge, operatorHostLinks, useInboxHere, useInboxSearch } from '@ap/fo-bridge';
+import { FoBridge, inboxRoute, operatorHostLinks, useInboxHere, useInboxSearch } from '@ap/fo-bridge';
 import { InboxScreen } from '@fops/frontend/operator-screens/voc-inbox';
+import { RejectedPage, useRejectedValue } from './RejectedPage';
 import { VocDetailDrawer } from './VocDetailDrawer';
 
 /** Module level: `FoBridge` memoizes its seam on these identities. */
@@ -14,6 +15,9 @@ export default function FoInbox() {
   const { pageParam, setPage } = usePlatform();
   const focus = pageParam('focus');
   const managedSystem = pageParam('managedSystem');
+  const rejected = useRejectedValue(inboxRoute);
+  // A value FeedbackOps would drop is rejected and preserved, not replaced by a default query (06 §6.4); nothing is requested for it.
+  if (rejected !== null) return <RejectedPage rejected={rejected} />;
   return <PlatformPage layout="fill">
     <FoBridge canLink={canLink} Link={Link} targetOf={targetOf} useNavigate={useNavigate} useSearch={useInboxSearch} useHere={useInboxHere}>
       <div className="relative h-full">

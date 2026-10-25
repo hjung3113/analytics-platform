@@ -11,5 +11,5 @@ export function VocDetailDrawer({ vocId, managedSystemId, onClose }: { vocId: st
   const parts = useVocDetailParts({ vocId, onClose, ...(managedSystemId !== undefined ? { managedSystemId } : {}) });
   return <DetailDrawer title={parts.title} {...(parts.subtitle !== undefined ? { subtitle: parts.subtitle } : {})} {...(parts.headerActions !== undefined ? { headerActions: parts.headerActions } : {})}
     onClose={parts.requestClose}
-    tabs={[{ id: 'detail', label: lang === 'ko' ? '상세' : 'Detail', content: parts.body }]} />;
+    tabs={[{ id: 'detail', label: lang === 'ko' ? '상세' : 'Detail', content: <div className="fo-voc-detail flex min-h-0 flex-1 flex-col">{parts.body}</div> }]} />;
 }

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
@@ -12,6 +13,7 @@ const fo = vi.hoisted(() => ({
   inboxProps: [] as unknown[],
   detailArgs: [] as { vocId: string; managedSystemId?: string }[],
   requestClose: vi.fn(),
+  mounts: 0,
 }));
 vi.mock('@fops/frontend/operator-screens/voc-inbox', () => ({
   InboxScreen: (props: { view: string; renderDetail: typeof fo.render }) => {
@@ -21,20 +23,24 @@ vi.mock('@fops/frontend/operator-screens/voc-inbox', () => ({
     const here = seam.useHere!();
     const go = seam.useNavigate!();
     return <div data-testid="inbox" data-here={here} data-can-triage={String(seam.canLink('/vocs?view=triage'))} data-can-tasks={String(seam.canLink('/tasks?view=board'))} data-href={seam.absoluteHref!('/vocs?view=inbox&selected=abc')}>
-      <button type="button" onClick={() => go('/vocs?view=inbox&selected=zzz')}>선택</button>
+      <button type="button" onClick={() => go(`/vocs?view=inbox&selected=${VOC_Z}`)}>선택</button>
     </div>;
   },
 }));
 vi.mock('@fops/frontend/operator-screens/voc-detail', () => ({
   useVocDetailParts: (args: { vocId: string; managedSystemId?: string; onClose: () => void }) => {
+    // Per-instance state: a new instance (remount) takes the next number.
+    const [instance] = useState(() => ++fo.mounts);
     fo.detailArgs.push({ vocId: args.vocId, ...(args.managedSystemId !== undefined ? { managedSystemId: args.managedSystemId } : {}) });
-    return { title: `VOC ${args.vocId}`, body: <p>상세 본문 {args.vocId}</p>, requestClose: () => { fo.requestClose(); args.onClose(); }, view: { kind: 'loading' } };
+    return { title: `VOC ${args.vocId}`, body: <p data-instance={instance}>상세 본문 {args.vocId}</p>, requestClose: () => { fo.requestClose(); args.onClose(); }, view: { kind: 'loading' } };
   },
 }));
 
 const SYSTEM = '33333333-3333-4333-8333-333333333333';
+const VOC_A = 'a1821f1b-0000-4000-8000-00000000000a';
+const VOC_Z = 'a1821f1b-0000-4000-8000-00000000000f';
 
-beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); fo.inboxProps.length = 0; fo.detailArgs.length = 0; fo.requestClose.mockReset(); });
+beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); fo.inboxProps.length = 0; fo.detailArgs.length = 0; fo.requestClose.mockReset(); fo.mounts = 0; });
 afterEach(() => { cleanup(); setFoApi(null); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
 describe('수신함 manifest', () => {
@@ -83,14 +89,14 @@ describe('수신함 through the FeedbackOps bridge', () => {
   it('moves a screen navigation through the platform URL (selected becomes focus)', async () => {
     mountAt('/feedbackops/vocs?q=pump');
     fireEvent.click(await screen.findByRole('button', { name: '선택' }));
-    await waitFor(() => expect(window.location.search).toContain('focus=zzz'));
+    await waitFor(() => expect(window.location.search).toContain(`focus=${VOC_Z}`));
     expect(new URLSearchParams(window.location.search).has('q')).toBe(false);
   });
 
   it('returns no detail node to FO (its ListShell would draw it outside the FeedbackOps providers)', async () => {
     mountAt('/feedbackops/vocs');
     await screen.findByTestId('inbox');
-    expect(fo.render!('abc', { managedSystemId: undefined, onClose: vi.fn() })).toBeUndefined();
+    expect(fo.render!(VOC_A, { managedSystemId: undefined, onClose: vi.fn() })).toBeUndefined();
   });
 
   it('draws no drawer without focus', async () => {
@@ -101,16 +107,16 @@ describe('수신함 through the FeedbackOps bridge', () => {
   });
 
   it('opens the VOC detail in the shell detail slot on focus, scoped to the managed system', async () => {
-    mountAt(`/feedbackops/vocs?focus=abc&managedSystem=${SYSTEM}`);
+    mountAt(`/feedbackops/vocs?focus=${VOC_A}&managedSystem=${SYSTEM}`);
     const aside = await screen.findByRole('complementary', { name: '상세 패널' });
     const dialog = await within(aside).findByRole('dialog');
-    expect(within(dialog).getByText('상세 본문 abc')).toBeTruthy();
+    expect(within(dialog).getByText(`상세 본문 ${VOC_A}`)).toBeTruthy();
     expect(within(dialog).getByRole('tab', { name: '상세' })).toBeTruthy();
-    expect(fo.detailArgs.at(-1)).toEqual({ vocId: 'abc', managedSystemId: SYSTEM });
+    expect(fo.detailArgs.at(-1)).toEqual({ vocId: VOC_A, managedSystemId: SYSTEM });
   });
 
   it('closing the drawer removes focus and keeps the rest of the page', async () => {
-    mountAt('/feedbackops/vocs?focus=abc&q=pump');
+    mountAt(`/feedbackops/vocs?focus=${VOC_A}&q=pump`);
     fireEvent.click(await screen.findByRole('button', { name: '상세 닫기' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(fo.requestClose).toHaveBeenCalledOnce();
@@ -120,10 +126,11 @@ describe('수신함 through the FeedbackOps bridge', () => {
   });
 
   it('remounts the detail for another VOC', async () => {
-    mountAt('/feedbackops/vocs?focus=abc');
-    await screen.findByText('상세 본문 abc');
+    mountAt(`/feedbackops/vocs?focus=${VOC_A}`);
+    expect((await screen.findByText(`상세 본문 ${VOC_A}`)).getAttribute('data-instance')).toBe('1');
     fireEvent.click(screen.getByRole('button', { name: '선택' }));
-    await screen.findByText('상세 본문 zzz');
-    expect(screen.queryByText('상세 본문 abc')).toBeNull();
+    // Without `key={focus}` the same instance would show the next VOC (instance 1); a remount is a new instance.
+    expect((await screen.findByText(`상세 본문 ${VOC_Z}`)).getAttribute('data-instance')).toBe('2');
+    expect(screen.queryByText(`상세 본문 ${VOC_A}`)).toBeNull();
   });
 });

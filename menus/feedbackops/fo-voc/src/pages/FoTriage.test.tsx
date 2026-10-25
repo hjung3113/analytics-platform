@@ -10,12 +10,13 @@ vi.mock('@fops/frontend/operator-screens/voc-triage', () => ({
     const seam = useHostSeam();
     const go = seam.useNavigate!();
     return <div data-testid="triage" data-here={seam.useHere!()} data-can-inbox={String(seam.canLink('/vocs?view=inbox&tab=unassigned'))}>
-      <button type="button" onClick={() => go('/vocs?view=triage&selected=abc&tab=unassigned')}>선택</button>
+      <button type="button" onClick={() => go(`/vocs?view=triage&selected=${VOC}&tab=unassigned`)}>선택</button>
     </div>;
   },
 }));
 
 const SYSTEM = '33333333-3333-4333-8333-333333333333';
+const VOC = 'a1821f1b-0000-4000-8000-00000000000a';
 
 beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); });
 afterEach(() => { cleanup(); setFoApi(null); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
@@ -45,7 +46,7 @@ describe('Triage through the FeedbackOps bridge', () => {
   it('selects through focus in the Triage menu, with no shell drawer (its panel stays inside the screen)', async () => {
     mountAt('/feedbackops/triage?tab=unassigned');
     fireEvent.click(await screen.findByRole('button', { name: '선택' }));
-    await waitFor(() => expect(window.location.search).toContain('focus=abc'));
+    await waitFor(() => expect(window.location.search).toContain(`focus=${VOC}`));
     expect(window.location.pathname).toBe('/feedbackops/triage');
     expect(screen.queryByRole('dialog')).toBeNull();
   });

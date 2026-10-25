@@ -16,11 +16,19 @@ export function VocHeaderActions({
   vocId,
   displayId,
 }: Pick<DetailHeaderProps, 'vocId' | 'displayId'>): React.ReactElement | null {
-  const { absoluteHref } = useHostSeam();
+  const { absoluteHref, notifyError, notifySuccess } = useHostSeam();
   const canonicalUrl =
     absoluteHref?.(searchHref('/vocs', { view: 'inbox', selected: vocId })) ?? null;
   if (canonicalUrl === null) return null;
-  return <DetailPanelHeaderActions entityKind="voc" entityId={displayId} copyUrl={canonicalUrl} />;
+  // The copy result is reported through the host, so a host without a sonner Toaster still shows it.
+  return (
+    <DetailPanelHeaderActions
+      entityKind="voc"
+      entityId={displayId}
+      copyUrl={canonicalUrl}
+      notify={{ success: notifySuccess, error: notifyError }}
+    />
+  );
 }
 
 export function DetailHeader({ vocId, displayId, onClose }: DetailHeaderProps): React.ReactElement {

@@ -22,7 +22,7 @@ export const triageRoute = operatorRoute({
   keys: { selected: 'focus', tab: 'tab', managedSystem: 'managedSystem', 'filter.analytics_area': 'area' },
 });
 
-/** Module-level hooks: `FoBridge` memoizes its seam on their identities (the seam stays stable across URL changes). */
+/** Module-level hooks: `FoBridge` memoizes its seam on their identities (unrelated renders never rebuild it). */
 export const useInboxSearch = routeSearch(inboxRoute);
 export const useInboxHere = routeHere(inboxRoute);
 export const useTriageSearch = routeSearch(triageRoute);

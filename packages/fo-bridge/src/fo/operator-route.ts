@@ -23,6 +23,8 @@ export type OperatorRoute = {
   toFoSearch(page: Readonly<Record<string, string>>): Record<string, string>;
   /** An FO search fragment as platform page keys (for `navViews`). */
   preset(foSearch: Readonly<Record<string, string>>): Record<string, string>;
+  /** The first page key (table order) whose present, non-empty value `accepts` refuses for its FO key; `null` when every value is accepted (06 §6.4: the caller rejects and preserves it). */
+  rejectedKey(pageParam: (key: string) => string | null, accepts: (foKey: string, value: string) => boolean): { key: string; value: string } | null;
 };
 
 /** One route table for an operator menu; both directions (FO → page, page → FO) come from it (761 plan P5). */
@@ -65,6 +67,13 @@ export function operatorRoute({ foPath, foFixed, menuId, keys }: OperatorRouteSp
         if (Object.hasOwn(keys, foKey)) page[keys[foKey]!] = value;
       }
       return page;
+    },
+    rejectedKey(pageParam, accepts) {
+      for (const [foKey, pageKey] of Object.entries(keys)) {
+        const value = pageParam(pageKey);
+        if (value !== null && value !== '' && !accepts(foKey, value)) return { key: pageKey, value };
+      }
+      return null;
     },
   };
 }

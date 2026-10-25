@@ -12,6 +12,7 @@ import { CreateFindingModal } from '@/features/cross-system/create-finding/Creat
 import { TRIAGE_STATE_LABELS } from '@/lib/copy/enum-labels';
 import { GLOSSARY } from '@/lib/copy/glossary';
 import { VOC_TRIAGE_QUEUE_TOTAL_LABELS, VOC_TRIAGE_TAB_LABELS } from '@/lib/copy/voc-views';
+import { useHostSeam } from '@/lib/host/host-seam';
 import { useFullscreenPanel } from '@/lib/panel/useFullscreenPanel';
 import type { VocListItem } from '@fops/shared';
 import {
@@ -94,6 +95,7 @@ export function VocTriageScreen({
   onSelectVoc,
   onTabChange,
 }: VocTriageScreenProps): React.ReactElement {
+  const { hostOwnsTitle } = useHostSeam();
   const rootRef = useRef<HTMLDivElement>(null);
   const [pendingFocus, setPendingFocus] = useState<{
     id: string | null;
@@ -193,13 +195,15 @@ export function VocTriageScreen({
         data-toolbar-height="50"
       >
         {/* Kicker: "Console · Triage" — absorbs route identity previously held by ShellHeader toolbar prop. */}
-        <ToolbarKicker
-          label={GLOSSARY.console}
-          name="Triage"
-          testId="triage-kicker"
-          labelTestId="triage-kicker-console"
-          nameTestId="triage-kicker-name"
-        />
+        {!hostOwnsTitle && (
+          <ToolbarKicker
+            label={GLOSSARY.console}
+            name="Triage"
+            testId="triage-kicker"
+            labelTestId="triage-kicker-console"
+            nameTestId="triage-kicker-name"
+          />
+        )}
         <Flag size={14} className="text-text-warning shrink-0" aria-hidden="true" />
         <span className="text-sm font-semibold text-text-primary">{GLOSSARY.triageQueue}</span>
         {/* #680 separates the whole-queue total from the selected tab's count. */}

@@ -1,7 +1,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { House } from 'lucide-react';
-import type { ReactElement, ReactNode } from 'react';
+import { useState, type ReactElement, type ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
@@ -272,7 +272,7 @@ describe('FoBridge absoluteHref', () => {
   afterEach(() => setFoApi(null));
   const { targetOf } = hostLinks(inbox.target, triage.target);
 
-  it('is the absolute linkTo URL of the mapped target (no returnTo), null for an unmapped path, and keeps the seam identity across navigation', async () => {
+  it('is the absolute linkTo URL of the mapped target (no returnTo), null for an unmapped path', async () => {
     setFoApi({ basePath: '/fo', onSessionLost: () => undefined });
     at('/inbox?v=1&managedSystem=ms1');
     const seams: HostSeam[] = [];
@@ -290,7 +290,46 @@ describe('FoBridge absoluteHref', () => {
     expect(url.searchParams.has('returnTo')).toBe(false);
     expect(first.absoluteHref!('/tasks?view=board')).toBeNull();
     act(() => go('/inbox?v=1&managedSystem=ms2'));
-    expect(seams.every(seam => seam === first)).toBe(true);
-    expect(new URL(first.absoluteHref!('/vocs?view=triage')!).searchParams.get('managedSystem')).toBe('ms2');
+    expect(new URL(seams.at(-1)!.absoluteHref!('/vocs?view=triage')!).searchParams.get('managedSystem')).toBe('ms2');
+  });
+
+  it('tells the screens the platform owns the page title', async () => {
+    setFoApi({ basePath: '/fo', onSessionLost: () => undefined });
+    at('/inbox?v=1');
+    let seam!: HostSeam;
+    function Probe() { seam = useHostSeam(); return null; }
+    render(<FoBridge><Probe /></FoBridge>, { wrapper });
+    await waitFor(() => expect(seam).toBeDefined());
+    expect(seam.hostOwnsTitle).toBe(true);
+  });
+
+  it('renders the address of the same navigation (a copy URL never keeps the cleared scope), and rebuilds the seam only on navigation', async () => {
+    setFoApi({ basePath: '/fo', onSessionLost: () => undefined });
+    at('/inbox?v=1&focus=a&managedSystem=ms1');
+    const seams: HostSeam[] = [];
+    let go!: (url: string) => void;
+    let rerender!: () => void;
+    function Copy() {
+      const seam = useHostSeam();
+      seams.push(seam);
+      return <a data-testid="copy" href={seam.absoluteHref!('/vocs?view=inbox&selected=a') ?? ''}>copy</a>;
+    }
+    function Probe() { go = usePlatform().navigate as unknown as (url: string) => void; return null; }
+    function Host() {
+      const [, setN] = useState(0);
+      rerender = () => setN(n => n + 1);
+      return <FoBridge targetOf={targetOf}><Probe /><Copy /></FoBridge>;
+    }
+    render(<Host />, { wrapper });
+    await waitFor(() => expect(document.querySelector('[data-testid=copy]')).not.toBeNull());
+    const copied = () => new URL((document.querySelector('[data-testid=copy]') as HTMLAnchorElement).href);
+    expect(copied().searchParams.get('managedSystem')).toBe('ms1');
+    const first = seams.at(-1)!;
+    act(() => rerender());
+    expect(seams.at(-1)).toBe(first);
+    act(() => go('/inbox?v=1&focus=a'));
+    expect(copied().searchParams.has('managedSystem')).toBe(false);
+    expect(copied().searchParams.get('focus')).toBe('a');
+    expect(seams.at(-1)).not.toBe(first);
   });
 });
