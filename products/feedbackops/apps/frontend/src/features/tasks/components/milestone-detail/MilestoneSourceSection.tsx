@@ -1,7 +1,7 @@
 import { GLOSSARY } from '@/lib/copy/glossary';
+import { useHostNavigate, useHostSeam } from '@/lib/host/host-seam';
 import type { MilestoneDetailDto } from '@fops/shared';
 import { Button, DirtyConfirmation } from '@fops/ui';
-import { useNavigate } from '@tanstack/react-router';
 import { ArrowRight } from 'lucide-react';
 import * as React from 'react';
 import { MilestoneOutlineBadge, MilestonePanelSectionTitle } from '../MilestoneIdentity';
@@ -15,7 +15,10 @@ export function MilestoneSourceSection({
   titleDirty: boolean;
   discardTitleEdit: () => void;
 }) {
-  const navigate = useNavigate();
+  const navigate = useHostNavigate();
+  const { canLink } = useHostSeam();
+  // The Finding screen is the host's to link: a host without it shows no action.
+  const findingHref = sourceFinding !== null ? `/findings/${sourceFinding.id}` : null;
   const [pendingFindingId, setPendingFindingId] = React.useState<string | null>(null);
 
   return (
@@ -26,7 +29,7 @@ export function MilestoneSourceSection({
             Finding detail route only — no Finding → Milestone writer. */}
         <div className="flex items-center justify-between">
           <MilestonePanelSectionTitle className="mb-0">출처</MilestonePanelSectionTitle>
-          {sourceFinding !== null && (
+          {sourceFinding !== null && findingHref !== null && canLink(findingHref) && (
             <Button
               variant="subtle"
               size="sm"
@@ -43,10 +46,7 @@ export function MilestoneSourceSection({
                   setPendingFindingId(sourceFinding.id);
                   return;
                 }
-                void navigate({
-                  to: '/findings/$findingId',
-                  params: { findingId: sourceFinding.id },
-                });
+                navigate(findingHref);
               }}
             >
               <ArrowRight className="h-[11px] w-[11px]" aria-hidden="true" />
@@ -86,9 +86,7 @@ export function MilestoneSourceSection({
           const findingId = pendingFindingId;
           setPendingFindingId(null);
           discardTitleEdit();
-          if (findingId !== null) {
-            void navigate({ to: '/findings/$findingId', params: { findingId } });
-          }
+          if (findingId !== null) navigate(`/findings/${findingId}`);
         }}
         onCancel={() => setPendingFindingId(null)}
       />

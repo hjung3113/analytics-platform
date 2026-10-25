@@ -1,13 +1,14 @@
 import { fetchAnalyticsAreas } from '@/lib/api/analytics-areas';
 import { listMilestones } from '@/lib/api/milestones';
 import { ApiError } from '@/lib/api/types';
+import { registerDefaultHost } from '@/lib/host/host-seam';
 import type { MilestoneDto } from '@fops/shared';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@fops/ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type * as React from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MilestonesRoute } from './MilestonesRoute';
 
 // Shared across renders so a test can assert where selection sends the actor.
@@ -15,6 +16,23 @@ const navigateMock = vi.hoisted(() => vi.fn());
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => navigateMock,
 }));
+
+// The detail content renders at the slot provider, outside the route's seam: it navigates through the default host,
+// which these router-less tests route to `navigateMock` as the call objects the route wrote.
+beforeAll(async () => {
+  const { tanstackHost } = await import('@/lib/host/tanstack-host');
+  registerDefaultHost({
+    ...tanstackHost,
+    useNavigate: () => (to, options) => {
+      const location = new URL(to, 'http://feedbackops.local');
+      navigateMock({
+        to: location.pathname,
+        search: Object.fromEntries(location.searchParams),
+        ...(options?.replace === true ? { replace: true } : {}),
+      });
+    },
+  });
+});
 
 vi.mock('@/lib/cross-system/useWorkspaceActors', () => ({
   useWorkspaceActors: () => ({
