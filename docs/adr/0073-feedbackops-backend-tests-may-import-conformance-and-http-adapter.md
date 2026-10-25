@@ -1,6 +1,6 @@
 # ADR-0073 — FeedbackOps 백엔드 테스트는 `@ap/server-conformance`·`@ap/http-adapter`를 devDependencies로 import할 수 있다(테스트 코드만). 런타임 코드는 `@ap/ui` 밖의 `@ap/*`를 계속 import하지 않는다
 
-- Status: Decided (2026-10-23), 구현 전 — 구현은 [#671](https://github.com/hjung3113/analytics-platform/issues/671) B7.
+- Status: Decided (2026-10-23), 구현됨 — [#674](https://github.com/hjung3113/analytics-platform/issues/674)(PR [#677](https://github.com/hjung3113/analytics-platform/pull/677), [#671](https://github.com/hjung3113/analytics-platform/issues/671) B7).
 - Decider: 사용자 — [#670](https://github.com/hjung3113/analytics-platform/issues/670) D4의 추천(devDependencies·테스트 코드에만 허용, 런타임 import는 금지 검사)을 그대로 채택했다(2026-10-23).
 - 보충(2026-10-23, 코디네이터 — 사용자 위임 범위, 되돌릴 수 있음): 구현(#674)에서 어휘 drift 테스트가 TS 소스 파싱 대신 `@ap/contracts/vocab.json`을 읽도록 `@ap/contracts`도 같은 조건(devDependencies, 테스트 코드만)으로 추가했다. 런타임 금지 검사는 `products/feedbackops/scripts/check-boundaries.mjs` 규칙 11.
 - Scope: 2026-10-22 전체 리뷰(아키텍처 H2·테스트 H1) 후속. [ADR-0066](0066-feedbackops-merges-into-platform.md) 합류 경계의 예외다. 바탕: [ADR-0069](0069-platform-port-in-feedbackops-backend.md)(플랫폼 포트는 FeedbackOps 백엔드의 `/api/v1/platform` 모듈).
@@ -27,6 +27,6 @@ ADR-0066 결정 6으로 플랫폼 실서버는 FeedbackOps 백엔드에서 출�
 ## 결과
 
 - ADR-0066에 이 예외를 가리키는 날짜 줄을 둔다(본문은 고치지 않는다).
-- 구현([#671](https://github.com/hjung3113/analytics-platform/issues/671) B7): FeedbackOps 통합 단계에서 `bootstrapHttpAdapter` → `describeServerConformance`를 돌린다. contracts 어휘를 JSON 산출물로 내보내 FeedbackOps drift 테스트가 읽게 한다. 결정 3의 금지 검사를 함께 넣는다.
+- 구현([#671](https://github.com/hjung3113/analytics-platform/issues/671) B7, #674·PR #677): FeedbackOps 통합 단계에서 `bootstrapHttpAdapter` → `describeServerConformance`를 돌렸다. contracts 어휘를 JSON 산출물(`@ap/contracts/vocab.json`)로 내보내 FeedbackOps drift 테스트가 읽게 했다. 결정 3의 금지 검사는 `products/feedbackops/scripts/check-boundaries.mjs` 규칙 11로 넣었다. 세 패키지는 `@fops/backend`의 `devDependencies`에 있다.
 - vitest 판을 맞춰야 한다. `@ap/server-conformance`는 `vitest ^3.2.7`을 peer로 요구하고, `@fops/backend`는 지금 `vitest 2.1.8`이다. 판 올림은 B7 구현에서 한다.
 - [저장소 구성](../integration/repository-layout.md)의 FeedbackOps 의존 서술은 구현 PR에서 이 예외를 더한다.

@@ -56,7 +56,7 @@ const escapeRegex = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const devRegex = (devAllow = []) =>
   devAllow.length === 0 ? DEV_REGEX : `^(?!(?:${devAllow.map(escapeRegex).join('|')})$)${DEV_REGEX.slice(1)}`;
 
-// Menu subpaths: the FeedbackOps origin slot is src/main.tsx ONLY, and so are the the fo-bridge package slot subpaths (the FO API slot fo-api and the notifications, VOC compose and home todo slots); each menu's exact `/mock` export is
+// Menu subpaths: the FeedbackOps origin slot is src/main.tsx ONLY, and so are the fo-bridge package slot subpaths (the FO API slot fo-api and the notifications, VOC compose and home todo slots); each menu's exact `/mock` export is
 // src/dev/** only. Every other menu subpath and any `*/src` import stays banned.
 // NOTE: the gitignore-style `*` in `menu-*/mock` also matches an empty name (no way to say
 // "one or more" here), so a `menu-/mock` source is not rejected on this side; the dynamic-import
@@ -91,7 +91,7 @@ const TABLE_ENGINE_PACKAGES = ['@tanstack/react-table', '@tanstack/react-virtual
 const MENU_RESTRICTION = { allow: MENU_ALLOW, denyReact: false, denyTableEngine: true, mockAllowed: false, allowSubpaths: UI_THEME_SUBPATHS };
 // allowFeedbackOps: exact @fops/* sources exempted from the FeedbackOps ban (only the bridge menu, FO_BRIDGE_ENTRIES).
 const FO_BRIDGE_RESTRICTION = { ...MENU_RESTRICTION, allow: [...MENU_ALLOW, 'fo-bridge'], allowFeedbackOps: FO_BRIDGE_ENTRIES };
-// The the fo-bridge package package (consumer-side runtime, not SDK): the menu layer's workspace allowlist, `/core` only; its lazy pages see the screen barrel.
+// The fo-bridge package (consumer-side runtime, not SDK): the menu layer's workspace allowlist, `/core` only; its lazy pages see the screen barrel.
 const FO_BRIDGE_PACKAGE_RESTRICTION = { ...MENU_RESTRICTION, allowFeedbackOps: FO_BRIDGE_PACKAGE_ENTRIES };
 const FO_BRIDGE_PAGES_RESTRICTION = { ...FO_BRIDGE_PACKAGE_RESTRICTION, allowFeedbackOps: FO_BRIDGE_ENTRIES };
 const MENU_MOCK_RESTRICTION = { allow: ['contracts'], denyReact: true, denyTableEngine: true, mockAllowed: true };

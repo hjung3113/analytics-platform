@@ -168,7 +168,9 @@ jobs:
         if: ${{ env.DOCS_ONLY != 'true' }}
       - name: Guard FeedbackOps out of platform task graph
         if: ${{ env.DOCS_ONLY != 'true' }}
-        run: node .github/scripts/check-platform-turbo-scope.mjs
+        run: |
+          node .github/scripts/check-platform-turbo-scope.mjs
+          node .github/scripts/check-platform-turbo-scope.mjs --self-test
       - run: pnpm lint
         if: ${{ env.DOCS_ONLY != 'true' }}
       - run: pnpm typecheck

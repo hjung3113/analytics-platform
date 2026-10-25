@@ -250,6 +250,7 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
     checks.push({
       id: name('granted request succeeds with exactly the declared assessment kinds'),
       mode: 'granted',
+      uses: ['menuQuery'],
       run: async () => {
         const r = await harness.adapter.menuQuery(base);
         if (r.outcome !== 'ok' && r.outcome !== 'empty') return `expected ok or empty, got ${describeResponse(r)}`;
@@ -270,6 +271,7 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
     checks.push({
       id: name('granted response assessments are well-formed (06 §19)'),
       mode: 'granted',
+      uses: ['menuQuery'],
       run: async () => {
         const r = await harness.adapter.menuQuery(base);
         if (r.outcome !== 'ok' && r.outcome !== 'empty') return `expected ok or empty, got ${describeResponse(r)}`;
@@ -281,6 +283,7 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
     checks.push({
       id: name('granted response trust is null or complete (06 §18)'),
       mode: 'granted',
+      uses: ['menuQuery'],
       run: async () => {
         const r = await harness.adapter.menuQuery(base);
         if (r.outcome !== 'ok' && r.outcome !== 'empty') return `expected ok or empty, got ${describeResponse(r)}`;
@@ -292,11 +295,13 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
     checks.push({
       id: name('unknown top-level request key → error'),
       mode: 'granted',
+      uses: ['menuQuery'],
       run: expectOutcome(send({ ...base, permission: spec.permission }), 'error', 'the client must not be able to send permission or any other extra key'),
     });
     checks.push({
       id: name('unknown params key → error'),
       mode: 'granted',
+      uses: ['menuQuery'],
       run: expectOutcome(send({ ...base, params: { ...c.params, [UNKNOWN_KEY]: 1 } }), 'error', 'params outside paramKeys'),
     });
 
@@ -305,6 +310,7 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
       checks.push({
         id: name(`non-applied Context key ${key} → error`),
         mode: 'granted',
+        uses: ['menuQuery'],
         run: expectOutcome(send({ ...base, context: { ...base.context, [key]: emptyGlobal[key] } }), 'error', 'a key the endpoint does not apply (Q3)'),
       });
     }
@@ -315,7 +321,7 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
           if (mutation === 'omitted') delete context[field];
           else context[field] = null;
         }
-        checks.push({ id: name(`required ${key} ${mutation} → error`), mode: 'granted',
+        checks.push({ id: name(`required ${key} ${mutation} → error`), mode: 'granted', uses: ['menuQuery'],
           run: expectOutcome(send({ ...base, context }), 'error', 'a required Context item must be present') });
       }
     }
@@ -325,6 +331,7 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
       checks.push({
         id: name(`missing applied Context key ${key} → error`),
         mode: 'granted',
+        uses: ['menuQuery'],
         run: expectOutcome(send({ ...base, context }), 'error', 'an applied key absent from the request (Q9)'),
       });
     }
@@ -332,6 +339,7 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
       checks.push({
         id: name('time applied with a null from → error'),
         mode: 'granted',
+        uses: ['menuQuery'],
         run: expectOutcome(send({ ...base, context: { ...base.context, from: null } }), 'error', 'an applied period must be absolute'),
       });
     }
@@ -339,6 +347,7 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
       checks.push({
         id: name('metricVersion without metricId → error'),
         mode: 'granted',
+        uses: ['menuQuery'],
         run: expectOutcome(send({ ...base, context: { ...base.context, metricId: null, metricVersion: '1' } }), 'error', 'the metric pair travels together (06 §6.1)'),
       });
     }
@@ -346,12 +355,14 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
       checks.push({
         id: name('a site without a grant → forbidden'),
         mode: 'granted',
+        uses: ['menuQuery'],
         needsSites: true,
         run: expectOutcome(send({ ...base, context: { ...base.context, scopeId: harness.foreignScopeId } }), 'forbidden', 'Scope is re-validated per request'),
       });
       checks.push({
         id: name('a null Scope → forbidden'),
         mode: 'granted',
+        uses: ['menuQuery'],
         needsSites: true,
         run: expectOutcome(send({ ...base, context: { ...base.context, scopeId: null } }), 'forbidden', 'a Scope-requiring endpoint has no site to read'),
       });
@@ -360,6 +371,7 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
       checks.push({
         id: name(`explicit empty ${emptySet}: [] → empty with no assessments and no trust`),
         mode: 'granted',
+        uses: ['menuQuery'],
         run: async () => {
           const r = await harness.adapter.menuQuery({ ...base, context: { ...base.context, [emptySet]: [] } });
           if (r.outcome !== 'empty') return `expected empty, got ${describeResponse(r)}`;
@@ -375,6 +387,7 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
       checks.push({
         id: name('oversizeParams given but the endpoint declares no maxRows'),
         mode: 'granted',
+        uses: ['menuQuery'],
         run: async () => 'the case carries an oversize sample, but the declaration has no limits.maxRows to judge it against',
       });
     }
@@ -383,6 +396,7 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
         checks.push({
           id: name('oversize result over the declared maxRows → too_large with no data'),
           mode: 'granted',
+          uses: ['menuQuery'],
           run: async () => {
             const r = await harness.adapter.menuQuery({ ...base, params: c.oversizeParams! });
             if (r.outcome !== 'too_large') {
@@ -398,6 +412,7 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
         checks.push({
           id: name('declares maxRows but has no oversizeParams sample — oversize check not run'),
           mode: 'skipped',
+          uses: ['menuQuery'],
           run: async () => null, // never called: skipped checks are filtered out of every run
         });
       }
@@ -405,13 +420,11 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
     checks.push({
       id: name(`without ${spec.permission} → forbidden`),
       mode: 'permission',
+      uses: ['menuQuery'],
       run: () => harness.withoutPermission(spec.permission, expectOutcome(send(base), 'forbidden', 'the endpoint permission is re-checked per request')),
     });
-    for (const check of checks.slice(caseStart)) {
-      check.uses = ['menuQuery'];
-      // A Scope-requiring endpoint sends `context.scopeId` in every request, so each of its checks needs a granted site.
-      if (spec.requiresScope) check.needsSites = true;
-    }
+    // A Scope-requiring endpoint sends `context.scopeId` in every request, so each of its checks needs a granted site.
+    if (spec.requiresScope) for (const check of checks.slice(caseStart)) check.needsSites = true;
     if (noSample) {
       for (const check of checks.slice(caseStart)) {
         check.mode = 'skipped';
@@ -465,7 +478,7 @@ function planActionChecks(harness: ServerConformanceHarness): ConformanceCheck[]
     const versioned = spec.concurrency === 'version';
     const name = (what: string) => `${spec.id} · ${what}`;
     if (versioned && !c.currentVersion) {
-      checks.push({ id: name('declares version concurrency but has no currentVersion sample — action checks not run'), mode: 'skipped', run: async () => null });
+      checks.push({ id: name('declares version concurrency but has no currentVersion sample — action checks not run'), mode: 'skipped', uses: ['menuAction'], run: async () => null });
       continue;
     }
     // `key: null` omits the key; `version` overrides the freshly read expectedVersion.
@@ -489,6 +502,7 @@ function planActionChecks(harness: ServerConformanceHarness): ConformanceCheck[]
     checks.push({
       id: name('ok, then the same key and input → the stored answer with replayed: true'),
       mode: 'sequential',
+      uses: ['menuAction'],
       run: async () => {
         const req = await prepare();
         const first = await sendGranted(req);
@@ -506,6 +520,7 @@ function planActionChecks(harness: ServerConformanceHarness): ConformanceCheck[]
     checks.push({
       id: name('the same key with a different input → error'),
       mode: 'sequential',
+      uses: ['menuAction'],
       run: async () => {
         const req = await prepare();
         const first = await sendGranted(req);
@@ -518,6 +533,7 @@ function planActionChecks(harness: ServerConformanceHarness): ConformanceCheck[]
       checks.push({
         id: name(`idempotencyKey ${what} → invalid at idempotencyKey`),
         mode: 'sequential',
+        uses: ['menuAction'],
         run: async () => {
           const r = await sendGranted(await prepare({ key }));
           const bad = want(r, 'invalid', `a ${what} key`);
@@ -530,6 +546,7 @@ function planActionChecks(harness: ServerConformanceHarness): ConformanceCheck[]
     checks.push({
       id: name('an input key outside inputKeys → invalid with unexpected_field'),
       mode: 'sequential',
+      uses: ['menuAction'],
       run: async () => {
         const r = await sendGranted(await prepare({ input: unexpectedInput }));
         const bad = want(r, 'invalid', 'an undeclared input key');
@@ -542,6 +559,7 @@ function planActionChecks(harness: ServerConformanceHarness): ConformanceCheck[]
       checks.push({
         id: name('a stale expectedVersion → conflict with the current version'),
         mode: 'sequential',
+        uses: ['menuAction'],
         run: async () => {
           const stale = `${await harness.asGranted(c.currentVersion!)}~conformance-stale`;
           const r = await sendGranted(await prepare({ version: stale }));
@@ -552,6 +570,7 @@ function planActionChecks(harness: ServerConformanceHarness): ConformanceCheck[]
     checks.push({
       id: name(`permission precedes replay: without ${spec.permission} the same key → forbidden`),
       mode: 'sequential',
+      uses: ['menuAction'],
       run: async () => {
         const req = await prepare();
         const bad = want(await sendGranted(req), 'ok', 'a granted write');
@@ -562,6 +581,7 @@ function planActionChecks(harness: ServerConformanceHarness): ConformanceCheck[]
       checks.push({
         id: name('a site without a grant → forbidden'),
         mode: 'sequential',
+        uses: ['menuAction'],
         needsSites: true,
         run: async () => want(await sendGranted(await prepare({ scopeId: harness.foreignScopeId })), 'forbidden', 'a foreign scope'),
       });
@@ -569,6 +589,7 @@ function planActionChecks(harness: ServerConformanceHarness): ConformanceCheck[]
     checks.push({
       id: name('an invalid answer is not recorded: the same key then succeeds'),
       mode: 'sequential',
+      uses: ['menuAction'],
       run: async () => {
         const key = crypto.randomUUID();
         const bad = want(await sendGranted(await prepare({ key, input: unexpectedInput })), 'invalid', 'an undeclared input key');
@@ -580,7 +601,6 @@ function planActionChecks(harness: ServerConformanceHarness): ConformanceCheck[]
     // A Scope-requiring action sends `context.scopeId` in every request (`prepare`), so each check needs a granted site.
     if (spec.requiresScope) for (const check of checks.slice(actionStart)) check.needsSites = true;
   }
-  for (const check of checks) check.uses = ['menuAction'];
   return checks;
 }
 

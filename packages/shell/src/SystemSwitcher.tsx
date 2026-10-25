@@ -1,9 +1,10 @@
 import { Check, ChevronDown, LayoutGrid } from 'lucide-react';
 import { useEffect, useId, useRef, type MouseEvent } from 'react';
+import { badgeCountText } from '@ap/components';
 import { PlatformLink, useI18n } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import { usePlatformMenu } from './platformMenu';
-import { formatUnread, MenuUnread } from './unread';
+import { MenuUnread } from './unread';
 import { cn, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipTrigger } from '@ap/ui';
 
 const CARD = 'flex w-full items-start gap-2 rounded-md border px-3 py-2.5 text-left hover:bg-surface-row-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring';
@@ -125,7 +126,7 @@ export function SystemSwitcher() {
                   {...(unread > 0 ? { 'aria-label': t('unreadNamed', { label: name, count: unread }) } : {})}
                   className="rounded-md px-1.5 py-0.5 text-text-secondary hover:bg-surface-row-hover hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring aria-[current=page]:font-semibold aria-[current=page]:text-text-primary">
                   {name}
-                  {unread > 0 && <span aria-hidden className="ml-1 rounded-pill bg-surface-row-selected px-1.5 text-caption font-semibold text-text-secondary">{formatUnread(unread)}</span>}
+                  {unread > 0 && <span aria-hidden className="ml-1 rounded-pill bg-surface-row-selected px-1.5 text-caption font-semibold text-text-secondary">{badgeCountText(unread)}</span>}
                 </PlatformLink>;
               }}</MenuUnread>
             </li>;

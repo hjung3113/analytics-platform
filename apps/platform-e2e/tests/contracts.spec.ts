@@ -3336,11 +3336,10 @@ test.describe('메뉴 작업 영역 (ADR-0067 3b)', () => {
     await page.getByRole('button', { name: `${TITLES.distribution} 동작` }).click();
     await page.getByRole('menuitem', { name: '숨기기' }).click();
     await expect(page.getByRole('button', { name: '숨긴 패널 1' })).toBeEnabled();
-    // The preference is written 300 ms after the change.
-    await page.waitForTimeout(600);
     const stored = () => page.evaluate(() => Object.entries(localStorage)
       .filter(([key]) => /^platform:workspace:v1:.+:cycle-time:drilldown$/.test(key)).map(([, value]) => JSON.parse(value) as { preset: string; hidden: string[] }));
-    expect(await stored()).toMatchObject([{ preset: 'focus', hidden: ['distribution'] }]);
+    // The preference is written 300 ms after the change.
+    await expect.poll(stored).toMatchObject([{ preset: 'focus', hidden: ['distribution'] }]);
 
     await page.reload();
     await expect(workspace(page)).toBeVisible();
