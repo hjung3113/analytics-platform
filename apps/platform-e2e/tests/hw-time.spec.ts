@@ -93,7 +93,11 @@ test.describe('HW Time 메뉴 4종 — 드릴 · 작업 영역 · 보드 (06 §1
       await chart.getByRole('button', { name: '더보기', exact: true }).click();
       await page.getByRole('button', { name: '같은 데이터를 표로 보기' }).click();
       await expect(page.getByRole('columnheader', { name: '합계', exact: true }).first()).toBeVisible();
+      // The 더보기 popover stays open with the toggled item; close it and wait, or it takes focus back from the tree and swallows Enter.
+      const hideTable = page.getByRole('button', { name: '데이터 표 숨기기' });
+      await expect(hideTable).toBeVisible();
       await page.keyboard.press('Escape');
+      await expect(hideTable).toBeHidden();
       const tree = page.getByRole('tree', { name: '계층 범례' });
       // The compare and overview Inspectors are rails: the legend of compare opens from its button, overview has the legend panel.
       if (menu.id === 'hw-time-compare') await page.getByRole('button', { name: '계층 범례' }).click();
