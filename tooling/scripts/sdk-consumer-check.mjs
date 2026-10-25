@@ -6,6 +6,7 @@
 // default blockExoticSubdeps; a `file:` install would hide #806), then runs: install → single-copy check → tsc → vite build
 // (CSS classes) → vitest. The first failing step is named in the error.
 import { spawn, spawnSync } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
@@ -39,7 +40,8 @@ function run(command, args, cwd) {
 /** Like `run`, without blocking the event loop: the tarball server in this process answers pnpm while it installs. */
 function runAsync(command, args, cwd) {
   return new Promise((resolvePromise, reject) => {
-    const child = spawn(command, args, { cwd, env: { ...process.env, CI: 'true' } });
+    // stdin closed: a prompt fails the step instead of hanging it.
+    const child = spawn(command, args, { cwd, env: { ...process.env, CI: 'true' }, stdio: ['ignore', 'pipe', 'pipe'] });
     let output = '';
     child.stdout.on('data', (chunk) => { output += chunk; });
     child.stderr.on('data', (chunk) => { output += chunk; });
@@ -51,12 +53,22 @@ function runAsync(command, args, cwd) {
   });
 }
 
-/** Serves the `.tgz` files of one directory, nothing else, on an ephemeral 127.0.0.1 port. */
+/**
+ * Serves the `.tgz` files of one directory, nothing else, on an ephemeral 127.0.0.1 port under a per-run path segment: pnpm
+ * caches a URL tarball by its URL, and the CI version (`0.0.0-ci`) never changes, so a reused port would install a stale build.
+ */
 function serveTarballs(tarballDir) {
+  const run = randomUUID();
   const server = createServer((request, response) => {
-    const name = decodeURIComponent(new URL(request.url ?? '/', 'http://127.0.0.1').pathname.slice(1));
-    const path = join(tarballDir, name);
-    if (request.method !== 'GET' || name !== basename(name) || !name.endsWith('.tgz') || !existsSync(path)) {
+    let name;
+    try {
+      const [segment, file, ...rest] = decodeURIComponent(new URL(request.url ?? '/', 'http://127.0.0.1').pathname.slice(1)).split('/');
+      name = segment === run && rest.length === 0 ? file : undefined;
+    } catch {
+      name = undefined;
+    }
+    const path = name && join(tarballDir, name);
+    if (request.method !== 'GET' || !name || name !== basename(name) || !name.endsWith('.tgz') || !existsSync(path)) {
       response.writeHead(404).end();
       return;
     }
@@ -64,7 +76,7 @@ function serveTarballs(tarballDir) {
   });
   return new Promise((resolvePromise, reject) => {
     server.once('error', reject);
-    server.listen(0, '127.0.0.1', () => resolvePromise({ server, base: `http://127.0.0.1:${server.address().port}` }));
+    server.listen(0, '127.0.0.1', () => resolvePromise({ server, base: `http://127.0.0.1:${server.address().port}/${run}` }));
   });
 }
 
@@ -249,6 +261,8 @@ function writeProject(root, tarballDir, base) {
     'packages: []',
     // Explicit, so the gate does not depend on pnpm's default: a sibling a tarball pulls in by URL is rejected (#806).
     'blockExoticSubdeps: true',
+    // A peer mismatch (one @ap/* URL from another release) is only a warning by default; the consumer guide asks for this.
+    'strictPeerDependencies: true',
     'allowBuilds:',
     '  esbuild: true',
     'patchedDependencies:',
@@ -340,8 +354,11 @@ async function main() {
   const tarballDir = resolve(tarballArg);
   if (!existsSync(tarballDir)) fail(`tarball directory ${tarballDir} does not exist`);
   const root = mkdtempSync(join(tmpdir(), 'ap-sdk-consumer-'));
-  const { server, base } = await serveTarballs(tarballDir);
+  let server;
   try {
+    const served = await serveTarballs(tarballDir);
+    server = served.server;
+    const { base } = served;
     const relativeRoot = relative(repoRoot, root);
     if (relativeRoot === '' || !relativeRoot.startsWith(`..${sep}`)) fail('consumer directory must be outside the repository');
     runStep('write consumer project', () => writeProject(root, tarballDir, base));
@@ -356,7 +373,7 @@ async function main() {
     runStep('vitest (jsdom): shell + components + kernel under one PlatformProvider', () => run('pnpm', ['exec', 'vitest', 'run'], root));
     process.stdout.write('sdk:consumer-check passed\n');
   } finally {
-    server.close();
+    server?.close();
     if (process.env.AP_SDK_KEEP === '1') process.stdout.write(`sdk:consumer-check kept ${root}\n`);
     else rmSync(root, { recursive: true, force: true });
   }

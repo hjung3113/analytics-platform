@@ -35,4 +35,4 @@
 
 보충(2026-10-26, #806, 소유자 위임 범위의 결함 수정): 처음 판은 형제를 정확 버전 `dependencies`로 두고 소비자가 `overrides`로 Release URL에 고정하게 했다. 그러면 URL로 풀린 `@ap/*`가 하위 의존이 되어 pnpm 기본값 `blockExoticSubdeps`가 설치를 막는다(`ERR_PNPM_EXOTIC_SUBDEP`, `overrides`가 없으면 npm 레지스트리에서 찾다 404). 소비자 검사가 `file:`로 설치해 이를 놓쳤고, EV가 같은 구조로 먼저 만났다(EV ADR-0014). 그래서 형제를 정확 버전 peer로 옮기고, 소비자가 필요한 tarball을 직접 의존하며, 검사가 tarball을 HTTP로 서빙해 URL로 설치한다. `blockExoticSubdeps`를 끄는 길은 공급망 기본값을 버리므로 택하지 않았다.
 
-구현 메모(2026-10-20): `sdk-pack`은 저장소 밖 staging에서 생성 manifest를 만들고, 형제 의존의 `workspace:*` 범위를 태그 버전으로 직접 바꾼다(`pnpm pack` 자체가 바꾸는 것은 아니다). CI의 `sdk:api`는 `pnpm build`가 만든 `packages/*/dist` 선언을 읽으며 tarball 안 `.d.ts`를 직접 읽지 않는다. 스냅샷과 tarball은 같은 export 대상 파생 규칙과 빌드 모양을 공유한다.
+구현 메모(2026-10-20): `sdk-pack`은 저장소 밖 staging에서 생성 manifest를 만들고, 형제 의존의 `workspace:*` 범위를 태그 버전으로 직접 바꾼다(`pnpm pack` 자체가 바꾸는 것은 아니다; #806부터는 그 버전의 peer로). CI의 `sdk:api`는 `pnpm build`가 만든 `packages/*/dist` 선언을 읽으며 tarball 안 `.d.ts`를 직접 읽지 않는다. 스냅샷과 tarball은 같은 export 대상 파생 규칙과 빌드 모양을 공유한다.
