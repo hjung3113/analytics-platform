@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { evidence, signInAs } from './support';
 
 /**
@@ -9,11 +9,12 @@ import { evidence, signInAs } from './support';
  */
 const TOPVIEW = '/clas/topview?equipment=eq-synth-01&from=2026-01-01T10:00:00&to=2026-01-01T10:30:00';
 const MENU = '설비 Top View';
+const sidebar = (page: Page) => page.getByRole('navigation', { name: '주 메뉴' });
 
 test.describe('EV host module (#801)', () => {
   test('engineer opens Top View, then Focus with Occurrence evidence labels', async ({ page }, testInfo) => {
     await page.goto(TOPVIEW);
-    await expect(page.getByRole('link', { name: MENU })).toBeVisible();
+    await expect(sidebar(page).getByRole('link', { name: MENU })).toBeVisible();
     await expect(page.locator('[data-component-id]').first()).toBeVisible({ timeout: 15_000 });
     await evidence(page, testInfo, 'eqv-topview');
 
@@ -30,7 +31,7 @@ test.describe('EV host module (#801)', () => {
     await signInAs(page, 'viewer');
     await page.goto(TOPVIEW);
     await expect(page.getByRole('main')).toBeVisible();
-    await expect(page.getByRole('link', { name: MENU })).toHaveCount(0);
+    await expect(sidebar(page).getByRole('link', { name: MENU })).toHaveCount(0);
     await expect(page.locator('[data-component-id]')).toHaveCount(0);
   });
 });

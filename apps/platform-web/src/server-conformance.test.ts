@@ -2,18 +2,18 @@ import { EQUIPMENT_AXES } from './equipmentAxes';
 /**
  * Server boundary conformance (#145): the adapter-agnostic kit judged against the mock adapter, over every menu
  * endpoint the app registers. The in-house server adapter runs the same harness shape
- * (docs/integration/real-server-checklist.md). The endpoint list is the mock assembly's own MOCK_ENDPOINTS (#153) — lint lets exactly this test import it.
+ * (docs/integration/real-server-checklist.md). The endpoint list is the mock assembly's own MOCK_ENDPOINTS (#153) plus its MODULE_MOCK_ENDPOINTS (#801) — lint lets exactly this test import it.
  */
 import { describe, expect, it } from 'vitest';
 import { createMockAdapter, defineMockAction, EQUIPMENT, getRole, setRole, USERS, type RoleId } from '@ap/mock-server';
 import { describeServerConformance, type ConformanceCase } from '@ap/server-conformance';
-import { MOCK_AUDIT_EVENTS, MOCK_ENDPOINTS } from './dev/mock-assembly';
+import { MOCK_AUDIT_EVENTS, MOCK_ENDPOINTS, MODULE_MOCK_ENDPOINTS } from './dev/mock-assembly';
 import { registry } from './menus';
 import { modulePermissions } from './modules';
 import { defineAction, menuPermission, spaceId, type Permission } from '@ap/contracts';
 
-/** Exactly what the app registers: the mock assembly's list, not a copy. */
-const endpoints = MOCK_ENDPOINTS;
+/** Exactly what the app registers: the mock assembly's lists, not a copy. */
+const endpoints = [...MOCK_ENDPOINTS, ...MODULE_MOCK_ENDPOINTS];
 
 const page = { page: 0, pageSize: 10, sorting: [] };
 const slowFilter = { tail: 'p95', granularity: 'hour', bucket: null, bin: null };
