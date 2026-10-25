@@ -60,7 +60,7 @@ describe('navCounts slot', () => {
       stubFetch(() => json({ counts: { 'voc.inbox': 12, 'voc.triage': 0, 'voc.inbox.no-link': 4, 'voc.tab.high': 2, 'voc.my': 9, 'voc.clusters': 1 } }));
       mountAt('/feedbackops/vocs');
       await waitFor(() => expect(read()).not.toBeNull());
-      expect(read()).toEqual({ 'fo-inbox': 12, 'fo-triage': 0, 'fo-inbox/no-link': 4, 'fo-triage/high': 2 });
+      expect(read()).toEqual({ 'fo-inbox': 12, 'fo-triage': 0, 'fo-inbox/no-link': 4, 'fo-triage/high': 2, 'fo-clusters': 1 });
     });
 
     it('asks for all systems without managedSystem and forwards the page value when present', async () => {

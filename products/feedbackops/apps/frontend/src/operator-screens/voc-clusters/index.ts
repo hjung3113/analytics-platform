@@ -4,3 +4,4 @@
 // Both need a `HostSeamProvider` (the bridge supplies it); the standalone routes compose them under the default host.
 export { ClusterListScreen } from '@/features/voc-cluster/components/ClusterListScreen';
 export { useClusterDetailParts } from '@/features/voc-cluster/components/detail/VocClusterDetailPanel';
+export { isVocClustersSearchValueValid } from '@/features/voc-cluster/lib/cluster-search';

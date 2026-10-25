@@ -10,6 +10,10 @@ export type OperatorRouteSpec = {
   menuId: string;
   /** FO key → platform page key, e.g. `{ selected: 'focus', q: 'q' }`. */
   keys: Readonly<Record<string, string>>;
+  /** FO key → a value that means "no value" for it (e.g. `{ managedSystem: 'all' }`): the link is kept and the page key is left absent. */
+  foAbsent?: Readonly<Record<string, string>>;
+  /** A detail href `foPath/<id>` (one path segment that `pattern` accepts) reads as `foPath` with `key` = the id; `key` is an FO key of `keys`. Any other deeper path stays unmapped. */
+  detailPath?: { key: string; pattern: RegExp };
 };
 
 export type OperatorRoute = {
@@ -17,33 +21,37 @@ export type OperatorRoute = {
   foPath: string;
   /** The platform page keys the table maps. */
   pageKeys: readonly string[];
-  /** The destination of an FO path+query, or `null` when any key is neither fixed nor mapped (the link stays unlinked rather than dropping state). */
+  /** The destination of an FO path+query, or `null` when any key is neither fixed nor mapped (the link stays unlinked rather than dropping state). A `foAbsent` value maps to `null` for its page key: an explicit clear that `linkTo` honours (an omitted key would inherit the carried value). */
   target: TargetOf;
   /** The inverse: a platform page to the FO search it stands for (fixed keys added, unknown page keys ignored). */
-  toFoSearch(page: Readonly<Record<string, string>>): Record<string, string>;
+  toFoSearch(page: Readonly<Record<string, string | null>>): Record<string, string>;
   /** An FO search fragment as platform page keys (for `navViews`). */
   preset(foSearch: Readonly<Record<string, string>>): Record<string, string>;
-  /** The first page key (table order) whose present, non-empty value `accepts` refuses for its FO key; `null` when every value is accepted (06 §6.4: the caller rejects and preserves it). */
+  /** The first page key (table order) whose present value (`''` included) `accepts` refuses for its FO key; `null` when every value is accepted (06 §6.4: the caller rejects and preserves it). */
   rejectedKey(pageParam: (key: string) => string | null, accepts: (foKey: string, value: string) => boolean): { key: string; value: string } | null;
 };
 
 /** One route table for an operator menu; both directions (FO → page, page → FO) come from it (761 plan P5). */
-export function operatorRoute({ foPath, foFixed, menuId, keys }: OperatorRouteSpec): OperatorRoute {
+export function operatorRoute({ foPath, foFixed, menuId, keys, foAbsent = {}, detailPath }: OperatorRouteSpec): OperatorRoute {
   const target = (to: string): PlatformTarget | null => {
     if (to.includes('#')) return null;
     const at = to.indexOf('?');
     const path = at === -1 ? to : to.slice(0, at);
     const query = at === -1 ? '' : to.slice(at + 1);
-    if (path !== foPath) return null;
     const search = new URLSearchParams(query);
+    if (path !== foPath) {
+      const id = detailPath !== undefined && path.startsWith(`${foPath}/`) ? path.slice(foPath.length + 1) : null;
+      if (detailPath === undefined || id === null || !detailPath.pattern.test(id) || search.has(detailPath.key)) return null;
+      search.set(detailPath.key, id);
+    }
     const seen = [...search.keys()];
     if (new Set(seen).size !== seen.length) return null;
-    const page: Record<string, string> = {};
+    const page: Record<string, string | null> = {};
     for (const [key, value] of search) {
       if (Object.hasOwn(foFixed, key)) {
         if (foFixed[key] !== value) return null;
       } else if (Object.hasOwn(keys, key)) {
-        if (value !== '') page[keys[key]!] = value;
+        if (value !== '') page[keys[key]!] = foAbsent[key] === value ? null : value;
       } else return null;
     }
     if (Object.keys(foFixed).some(key => !search.has(key))) return null;
@@ -57,7 +65,7 @@ export function operatorRoute({ foPath, foFixed, menuId, keys }: OperatorRouteSp
       const search: Record<string, string> = { ...foFixed };
       for (const [foKey, pageKey] of Object.entries(keys)) {
         const value = page[pageKey];
-        if (value !== undefined && value !== '') search[foKey] = value;
+        if (value !== undefined && value !== null && value !== '') search[foKey] = value;
       }
       return search;
     },
@@ -71,7 +79,7 @@ export function operatorRoute({ foPath, foFixed, menuId, keys }: OperatorRouteSp
     rejectedKey(pageParam, accepts) {
       for (const [foKey, pageKey] of Object.entries(keys)) {
         const value = pageParam(pageKey);
-        if (value !== null && value !== '' && !accepts(foKey, value)) return { key: pageKey, value };
+        if (value !== null && !accepts(foKey, value)) return { key: pageKey, value };
       }
       return null;
     },

@@ -21,3 +21,14 @@ export type VocClustersSearch = z.infer<typeof vocClustersSearchSchema>;
 export function validateVocClustersSearch(raw: unknown): VocClustersSearch {
   return parseRouteSearch(vocClustersSearchSchema, raw);
 }
+
+/**
+ * Strict per-field check: whether `value` is one `key` accepts under {@link vocClustersSearchSchema}. `validateVocClustersSearch` drops a value
+ * that fails; a host that must reject instead (platform ADR-0071 decision 9) asks this before mounting. `all` is valid for `managedSystem`.
+ */
+export function isVocClustersSearchValueValid(key: string, value: string): boolean {
+  if (!Object.prototype.hasOwnProperty.call(vocClustersSearchSchema.shape, key)) return false;
+  return vocClustersSearchSchema.shape[key as keyof typeof vocClustersSearchSchema.shape].safeParse(
+    value,
+  ).success;
+}

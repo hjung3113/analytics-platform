@@ -17,9 +17,15 @@ import { useState } from 'react';
 
 export function ClusterListScreen({
   onCreated,
+  renderDetail,
 }: {
   /** Called with the new cluster's id once the create dialog succeeded. */
   onCreated: (id: string) => void;
+  /** A host that draws the cluster detail itself (the platform); absent = the built-in side panel. */
+  renderDetail?: (
+    clusterId: string,
+    options: { onClose: () => void },
+  ) => React.ReactNode | undefined;
 }): React.ReactElement {
   const [createOpen, setCreateOpen] = useState(false);
   const [suggestionMode, setSuggestionMode] = useState(false);
@@ -98,6 +104,7 @@ export function ClusterListScreen({
         defaultToFirst={false}
         onSuggestionModeChange={changeSuggestionMode}
         managedSystemId={managedSystemId}
+        {...(renderDetail !== undefined ? { renderDetail } : {})}
         toolbarActions={
           canCreate ? (
             <Button

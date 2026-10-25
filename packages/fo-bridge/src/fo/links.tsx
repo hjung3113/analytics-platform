@@ -3,7 +3,7 @@ import type { HostLinkProps } from '@fops/frontend/global-screens/core';
 import { UnlinkedLink } from './FoBridge';
 import { isReachable } from './reachable';
 
-export type PlatformTarget = { menuId: string; params?: Record<string, string>; page?: Record<string, string> };
+export type PlatformTarget = { menuId: string; params?: Record<string, string>; page?: Record<string, string | null> };
 export type TargetOf = (to: string) => PlatformTarget | null;
 
 /**

@@ -1853,6 +1853,10 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     await nav.getByRole('link', { name: 'Triage' }).click();
     await expect.poll(() => new URL(page.url()).pathname).toBe('/feedbackops/triage');
     await expect(page.getByRole('main').getByRole('status').filter({ hasText: '실서버 필요' })).toBeVisible();
+    // #761 p2: Clusters is the third bridge menu of the group.
+    await nav.getByRole('link', { name: 'Clusters', exact: true }).click();
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/feedbackops/clusters');
+    await expect(page.getByRole('main').getByRole('status').filter({ hasText: '실서버 필요' })).toBeVisible();
     // #761 p1b: the sidebar views are links under their menus; in the mock no count badge is drawn (a badge would add the count to the link's accessible name, so the exact names prove it).
     await expect(nav.getByRole('link', { name: '연결 없음', exact: true })).toBeVisible();
     await expect(nav.getByRole('link', { name: '미배정', exact: true })).toBeVisible();

@@ -29,9 +29,9 @@ afterEach(() => { cleanup(); setFoApi(null); vi.unstubAllGlobals(); window.histo
 
 const OVERLONG = 'q'.repeat(101);
 const INBOX_CASES = [
-  ['tab', 'bogus'], ['sort', 'price:desc'], ['q', OVERLONG], ['area', 'not-a-uuid'], ['focus', 'abc'],
+  ['tab', 'bogus'], ['sort', 'price:desc'], ['q', OVERLONG], ['area', 'not-a-uuid'], ['focus', 'abc'], ['tab', ''],
 ] as const;
-const TRIAGE_CASES = [['tab', 'bogus'], ['area', 'not-a-uuid'], ['focus', 'abc']] as const;
+const TRIAGE_CASES = [['tab', 'bogus'], ['area', 'not-a-uuid'], ['focus', 'abc'], ['tab', '']] as const;
 
 describe.each([
   ['수신함', '/feedbackops/vocs', INBOX_CASES, 'inbox'],
