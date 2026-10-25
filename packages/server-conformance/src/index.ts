@@ -9,8 +9,8 @@ export type { OptionPortSamples } from './selection-ports';
  */
 import { beforeAll, describe, expect, it } from 'vitest';
 import {
-  CONTEXT_FIELDS, emptyGlobal, missingRequiredContext, parseDateTime, parseQuery, projectContext, type Condition,
-  type ActionResponse, type AnnotationInput, type AnyActionSpec, type AnyEndpointSpec, type ApiResponse, type Assessment, type AssessmentKind, type ClientErrorReport, type EntityRef,
+  CONTEXT_FIELDS, ENTITY_AUDIT_PAGE_MAX, emptyGlobal, instantEpochMs, missingRequiredContext, parseDateTime, parseQuery, projectContext, type Condition,
+  type ActionResponse, type AnnotationInput, type AnyActionSpec, type AnyEndpointSpec, type ApiResponse, type Assessment, type AuditEvent, type AssessmentKind, type ClientErrorReport, type EntityAuditPage, type EntityRef,
   type GlobalContext, type MenuAction, type MenuQuery, type Permission, type PlatformAdapter, type Trust, type UsageEvent, type UsageSummary,
 } from '@ap/contracts';
 
@@ -142,11 +142,14 @@ export type ConformanceCheck = {
   uses?: readonly PortMethod[];
   /** The check needs a granted site; `harness.siteGrants: false` turns it into a skipped one. */
   needsSites?: boolean;
-  run: () => Promise<string | null>;
+  /** null = conforms, a string = the reason it does not, `{ skipped }` = the run found a precondition missing (a visible skip, never a pass). */
+  run: () => Promise<string | null | ConformanceSkipped>;
 };
+/** A check that decided at run time it has nothing to judge (e.g. a server that does not page `entityAudit`). */
+export type ConformanceSkipped = { skipped: string };
 
 /** `skipped`: planned but not run (e.g. no oversize sample) — never counted as a pass. `failure` is null unless `failed`. */
-export type ConformanceResult = { id: string; status: 'passed' | 'failed' | 'skipped'; failure: string | null };
+export type ConformanceResult = { id: string; status: 'passed' | 'failed' | 'skipped'; failure: string | null; /** Why a run-time skip happened; plan-time skips say it in the id. */ reason?: string };
 
 const SET_KEYS = ['lineNames', 'prcGroups', 'roomNames', 'selection', 'lotIds', 'recipeIds'] as const;
 /** Every GlobalContext key a request may carry, in projection order. */
@@ -947,6 +950,100 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
       expectOutcome(() => adapter.getEntity(entityRef), 'forbidden', 'the destination view permission is re-checked per request'),
     ),
   });
+  /**
+   * Cursor pages of `entityAudit` (ADR-0085, checklist §2). A server whose first page carries no `nextCursor` key does
+   * not page: every page check is then a visible run-time skip (`server does not page entityAudit`) and no `cursor`
+   * is ever sent to it — not a pass. The probe is the plain first-page read the checks above already make.
+   */
+  function planEntityAuditPageChecks(): ConformanceCheck[] {
+    const NOT_PAGED = 'server does not page entityAudit';
+    const probe = async (): Promise<ConformanceSkipped | ApiResponse<EntityAuditPage>> => {
+      const first = await adapter.entityAudit(entityRef);
+      if (first.outcome !== 'ok' || !first.data) return { skipped: `the sample has no audit events to page (${describeResponse(first)})` };
+      if (!('nextCursor' in first.data)) return { skipped: NOT_PAGED };
+      return first;
+    };
+    const skipOr = (judge: (first: ApiResponse<EntityAuditPage>) => Promise<string | null>) => async (): Promise<string | null | ConformanceSkipped> => {
+      const first = await probe();
+      return 'skipped' in first ? first : judge(first);
+    };
+    const cursorProblem = (cursor: unknown): string | null =>
+      cursor === null || (typeof cursor === 'string' && cursor !== '') ? null : 'nextCursor is a non-empty string, or null on the last page';
+    return [
+      {
+        id: `port · entityAudit page holds at most ${ENTITY_AUDIT_PAGE_MAX} events`,
+        uses: ['entityAudit'],
+        mode: 'granted',
+        run: skipOr(async first => {
+          const events = first.data?.events ?? [];
+          if (!Array.isArray(events)) return 'data.events is an array';
+          if (events.length > ENTITY_AUDIT_PAGE_MAX) return `a page holds at most ${ENTITY_AUDIT_PAGE_MAX} events, got ${events.length}`;
+          return cursorProblem(first.data?.nextCursor);
+        }),
+      },
+      {
+        id: 'port · entityAudit nextCursor walks every event once, in order, to a null cursor',
+        uses: ['entityAudit'],
+        mode: 'granted',
+        run: skipOr(async first => {
+          const seen = new Set<string>();
+          const rows: AuditEvent[] = [];
+          let page: ApiResponse<EntityAuditPage> = first;
+          const cursors = new Set<string>();
+          for (let pages = 1; pages <= 500; pages += 1) {
+            const data = page.data;
+            if (page.outcome !== 'ok' || !data) return `page ${pages}: expected ok with data, got ${describeResponse(page)}`;
+            if (data.events.length > ENTITY_AUDIT_PAGE_MAX) return `page ${pages} holds ${data.events.length} events, more than ${ENTITY_AUDIT_PAGE_MAX}`;
+            const problem = cursorProblem(data.nextCursor);
+            if (problem) return `page ${pages}: ${problem}`;
+            if (data.nextCursor && data.events.length === 0) return `page ${pages}: an empty page carries no non-null nextCursor`;
+            for (const event of data.events) {
+              if (seen.has(event.id)) return `event ${event.id} appears on more than one page`;
+              seen.add(event.id);
+              rows.push(event);
+            }
+            if (data.nextCursor === null || data.nextCursor === undefined) {
+              for (let i = 1; i < rows.length; i += 1) {
+                const diff = instantEpochMs(rows[i - 1]!.at) - instantEpochMs(rows[i]!.at);
+                if (diff < 0 || (diff === 0 && rows[i - 1]!.id > rows[i]!.id)) return `events are ordered at desc (instant), then id asc; ${rows[i - 1]!.id} precedes ${rows[i]!.id}`;
+              }
+              return null;
+            }
+            if (cursors.has(data.nextCursor)) return `page ${pages}: nextCursor repeats an earlier cursor`;
+            cursors.add(data.nextCursor);
+            page = await adapter.entityAudit({ ...entityRef, cursor: data.nextCursor });
+          }
+          return 'nextCursor never reached null within 500 pages';
+        }),
+      },
+      {
+        id: 'port · entityAudit with a malformed cursor → error',
+        uses: ['entityAudit'],
+        mode: 'granted',
+        run: skipOr(() => expectOutcome(() => adapter.entityAudit({ ...entityRef, cursor: '__conformance_invalid_cursor' }), 'error', 'a cursor the server never issued')()),
+      },
+      {
+        id: 'port · entityAudit with a cursor at a site without a grant → forbidden',
+        uses: ['entityAudit'],
+        needsSites: true,
+        mode: 'granted',
+        run: skipOr(() => expectOutcome(() => adapter.entityAudit({ ...entityRef, scopeId: harness.foreignScopeId, cursor: '__conformance_invalid_cursor' }), 'forbidden', 'a cursor is read only after the scope gate, so it opens nothing')()),
+      },
+      {
+        id: `port · entityAudit with a cursor without ${ports.entity.permission} → forbidden`,
+        uses: ['entityAudit'],
+        mode: 'permission',
+        run: async () => {
+          const first = await harness.asGranted(probe);
+          if ('skipped' in first) return first;
+          return harness.withoutPermission(
+            ports.entity.permission,
+            expectOutcome(() => adapter.entityAudit({ ...entityRef, cursor: '__conformance_invalid_cursor' }), 'forbidden', 'a cursor is read only after the permission gate'),
+          );
+        },
+      },
+    ];
+  }
   checks.push({
     id: 'port · entityAudit(sample) → events',
     uses: ['entityAudit'],
@@ -992,6 +1089,7 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
       ? expectOutcome(() => adapter.entityAudit(ungrantedRoomRef), 'forbidden', 'the site is granted but this destination\'s room is not (06 §22 room re-check)')
       : async () => null, // never called: skipped checks are filtered out of every run
   }));
+  checks.push(...planEntityAuditPageChecks());
   checks.push({
     id: `port · entityAudit without ${ports.entity.permission} → forbidden`,
     uses: ['entityAudit'],
@@ -1594,6 +1692,7 @@ export async function runServerConformance(harness: ServerConformanceHarness): P
   const failureOf = async (check: ConformanceCheck): Promise<ConformanceResult> => {
     try {
       const failure = await check.run();
+      if (failure !== null && typeof failure === 'object') return { id: check.id, status: 'skipped', failure: null, reason: failure.skipped };
       return { id: check.id, status: failure === null ? 'passed' : 'failed', failure };
     } catch (error) {
       // Envelope methods must answer an envelope even on transport failure (checklist §2); non-envelope methods
@@ -1628,18 +1727,20 @@ export async function runServerConformance(harness: ServerConformanceHarness): P
  */
 export function describeServerConformance(title: string, harness: ServerConformanceHarness, timeoutMs = 120_000): void {
   describe(title, () => {
-    let results = new Map<string, string | null>();
+    let results = new Map<string, ConformanceResult>();
     beforeAll(async () => {
-      results = new Map((await runServerConformance(harness)).map(r => [r.id, r.failure]));
+      results = new Map((await runServerConformance(harness)).map(r => [r.id, r]));
     }, timeoutMs);
     for (const check of planServerConformance(harness)) {
       if (check.mode === 'skipped') {
         it.skip(check.id, () => {});
         continue;
       }
-      it(check.id, () => {
+      it(check.id, ({ skip }) => {
         expect(results.has(check.id), `${check.id} did not run`).toBe(true);
-        expect(results.get(check.id), check.id).toBeNull();
+        const result = results.get(check.id)!;
+        if (result.status === 'skipped') skip(`— ${result.reason ?? 'skipped at run time'}`);
+        expect(result.failure, check.id).toBeNull();
       });
     }
   });

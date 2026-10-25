@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { ApiResponse, AuditEvent, AuditSortField, AuditTrailPage, AuditTrailQuery } from '@ap/contracts';
-import { instantEpochMs } from '@ap/contracts';
+import { ENTITY_AUDIT_PAGE_MAX, instantEpochMs } from '@ap/contracts';
 import { auditTrail as auditTrailRead, entityAudit as entityAuditRead, type AuditOptions } from './audit';
 import { getRole, setRole, setScenario } from './server';
 import { AUDIT_EVENTS } from './audit-fixtures';
@@ -16,7 +16,7 @@ const auditTrail = (query: AuditTrailQuery, signal?: AbortSignal, opts?: AuditOp
 const entityAudit = (ref: Parameters<typeof entityAuditRead>[0], signal?: AbortSignal, opts?: AuditOptions) => entityAuditRead(ref, signal, { seeds: METRIC_SEEDS, ...opts });
 
 const page = (res: ApiResponse<AuditTrailPage>) => res.data as AuditTrailPage;
-const events = (res: ApiResponse<{ events: readonly AuditEvent[] }>) => res.data?.events ?? [];
+const events = (res: ApiResponse<{ events: readonly AuditEvent[]; nextCursor?: string | null }>) => res.data?.events ?? [];
 const ids = (items: readonly AuditEvent[]) => items.map(e => e.id);
 const body = (res: ApiResponse<unknown>) => JSON.stringify(res);
 
@@ -224,5 +224,74 @@ describe('entityAudit (issue #50: the destination audit read)', () => {
     expect(res.outcome).toBe('error');
     expect(res.message).toBe('Unknown entity type');
     expect(res.data).toBeNull();
+  });
+});
+
+describe('entityAudit cursor pages (ADR-0085)', () => {
+  const METRIC = { type: 'metric', id: 'many', scopeId: null } as const;
+  // 120 events: ties on `at` every 10th row so the id tie-break decides the order across a page boundary.
+  const MANY: readonly AuditEvent[] = Array.from({ length: 120 }, (_, i) => ({
+    id: `many:${String(i).padStart(3, '0')}`, at: new Date(Date.UTC(2026, 0, 1) + Math.floor(i / 10) * 60_000).toISOString(), actor: 'park.seo', action: 'update' as const, source: 'user' as const, target: METRIC,
+  }));
+  const read = (req: Parameters<typeof entityAuditRead>[0], role: RoleId = 'viewer') => entityAuditRead(req, undefined, { seeds: MANY, role, latency: 0 });
+
+  it('cuts the first page at the cap with a cursor, then the rest with a null cursor, without gaps or repeats', async () => {
+    const first = await read(METRIC);
+    expect(first.outcome).toBe('ok');
+    expect(events(first)).toHaveLength(ENTITY_AUDIT_PAGE_MAX);
+    expect(typeof first.data?.nextCursor).toBe('string');
+    const collected = [...events(first)];
+    let cursor = first.data?.nextCursor ?? null;
+    let guard = 0;
+    while (cursor !== null && guard++ < 5) {
+      const next = await read({ ...METRIC, cursor });
+      expect(next.outcome).toBe('ok');
+      collected.push(...events(next));
+      cursor = next.data?.nextCursor ?? null;
+    }
+    expect(guard).toBe(2);
+    expect(collected).toHaveLength(120);
+    expect(new Set(ids(collected)).size).toBe(120);
+    const expected = [...MANY].sort((a, b) => instantEpochMs(b.at) - instantEpochMs(a.at) || (a.id < b.id ? -1 : 1));
+    expect(ids(collected)).toEqual(ids(expected));
+  });
+
+  it('answers null on the last page even when the total is an exact multiple of the cap', async () => {
+    const exact = MANY.slice(-ENTITY_AUDIT_PAGE_MAX);
+    const res = await entityAuditRead(METRIC, undefined, { seeds: exact, role: 'viewer', latency: 0 });
+    expect(events(res)).toHaveLength(ENTITY_AUDIT_PAGE_MAX);
+    expect(res.data?.nextCursor).toBeNull();
+  });
+
+  it('rejects a malformed cursor and a cursor minted for another ref as Invalid cursor', async () => {
+    const bad = await read({ ...METRIC, cursor: 'not-a-cursor' });
+    expect(bad.outcome).toBe('error');
+    expect(bad.message).toBe('Invalid cursor');
+    const first = await read(METRIC);
+    const other = await entityAuditRead({ ...METRIC, id: 'cycle_time', cursor: first.data!.nextCursor! }, undefined, { seeds: [...MANY, ...METRIC_SEEDS], role: 'viewer', latency: 0 });
+    expect(other.outcome).toBe('error');
+    expect(other.message).toBe('Invalid cursor');
+  });
+
+  it('reads the cursor only after the gates: a cursor does not open a forbidden or scoped read', async () => {
+    const cursor = (await read(METRIC)).data!.nextCursor!;
+    const equipment = await entityAudit({ type: 'equipment', id: 'MEM-PHOTO-0103', scopeId: 'MEM', cursor }, undefined, { role: 'viewer', latency: 0 });
+    expect(equipment.outcome).toBe('forbidden');
+    const foreign = await entityAudit({ type: 'equipment', id: 'MEM-PHOTO-0103', scopeId: 'XIA', cursor: 'garbage' }, undefined, { role: 'engineer', latency: 0 });
+    expect(foreign.outcome).toBe('forbidden');
+    const scoped = await read({ ...METRIC, scopeId: 'MEM', cursor });
+    expect(scoped.message).toBe('Metric audit has no scope');
+    setScenario('forbidden');
+    const revoked = await read({ ...METRIC, cursor });
+    expect(revoked.outcome).toBe('forbidden');
+  });
+
+  it('answers ok with no events and a null cursor for a valid cursor that runs past the end', async () => {
+    const cursor = (await read(METRIC)).data!.nextCursor!;
+    // The rows behind the cursor were deleted meanwhile: the same keyset now has nothing after it.
+    const tail = await entityAuditRead({ ...METRIC, cursor }, undefined, { seeds: MANY.slice(-ENTITY_AUDIT_PAGE_MAX), role: 'viewer', latency: 0 });
+    expect(tail.outcome).toBe('ok');
+    expect(events(tail)).toEqual([]);
+    expect(tail.data?.nextCursor).toBeNull();
   });
 });

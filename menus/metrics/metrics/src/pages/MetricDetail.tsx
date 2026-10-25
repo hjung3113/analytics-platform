@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { type PageProps, PlatformLink, useI18n, useMenuQuery, usePlatform, usePlatformQuery } from '@ap/kernel';
+import { type PageProps, PlatformLink, useEntityAudit, useI18n, useMenuQuery, usePlatform } from '@ap/kernel';
 import { AuditTimeline, Field, Panel, PlatformPage, QueryView, ReturnLink, StateMessage, useCopyLink } from '@ap/components';
 import { Button, cn, StatusBadge } from '@ap/ui';
 import { MetricPairBanner } from './MetricCatalog';
@@ -22,7 +22,7 @@ function sectionId(id: string) { return `metric-section-${id}`; }
 
 export default function MetricDetailPage({ params }: PageProps) {
   const metricId = params.metricId;
-  const { adapter, pageParam, setPage, setGlobal, linkTo, resolveLink, global, url } = usePlatform();
+  const { pageParam, setPage, setGlobal, linkTo, resolveLink, global, url } = usePlatform();
   const { lang, tx } = useI18n();
   const copyVersionLink = useCopyLink(lang === 'ko' ? '이 버전의 링크를 복사했습니다.' : 'Copied the link to this version.');
   const versionParam = pageParam('version');
@@ -35,7 +35,7 @@ export default function MetricDetailPage({ params }: PageProps) {
   const usage = useMenuQuery(usageEndpoint, { metricId, version: versionParam ?? '' }, versionParam !== null);
   // ADR-0048: the shared audit store, same port read as the equipment Audit tab. A metric has no site, and the
   // record does not change with the global Context, so session identity: a period or scope change does not refetch.
-  const history = usePlatformQuery(signal => adapter.entityAudit({ type: 'metric', id: metricId, scopeId: null }, signal), [metricId], true, 'session');
+  const history = useEntityAudit({ type: 'metric', id: metricId, scopeId: null });
 
   // #325-2: the anchor scroll waits until every query rendering at or above the target has answered — any
   // outcome counts as landed (an error section holds its place too), and the pair banner sits above every
@@ -50,7 +50,7 @@ export default function MetricDetailPage({ params }: PageProps) {
   const usageReady = versionParam === null || usage.response !== null;
   const scrollGate = upperReady
     && ((tab !== 'usage' && tab !== 'history') || usageReady)
-    && (tab !== 'history' || history.response !== null);
+    && (tab !== 'history' || history.query.response !== null);
 
   const [arrival, setArrival] = useState<{ tab: string; token: number } | null>(null);
   const nextArrival = useRef(0); // effect-owned: tokens stay monotonic even when arrival resets through null
@@ -198,8 +198,8 @@ export default function MetricDetailPage({ params }: PageProps) {
       </Panel>
 
       <Panel id={sectionId('history')} title={lang === 'ko' ? '변경 이력' : 'Change history'} subtitle={lang === 'ko' ? '정의의 등록·게시·폐기입니다. mart 계산 세대가 아닙니다.' : 'Registration, publication and deprecation of the definition. Not a mart generation.'}>
-        <QueryView widgetName={lang === 'ko' ? '변경 이력' : 'Change history'} hideWidgetName query={history} compact skeletonRows={4}>
-          {data => <AuditTimeline events={[...data.events]} />}
+        <QueryView widgetName={lang === 'ko' ? '변경 이력' : 'Change history'} hideWidgetName query={history.query} compact skeletonRows={4}>
+          {() => <AuditTimeline {...history.timeline} />}
         </QueryView>
       </Panel>
       <p className="t-caption text-text-muted">

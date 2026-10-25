@@ -1,7 +1,7 @@
 import { optionSamples, referenceSelectionPorts } from './selection-ports.test-support';
 import { describe, expect, it } from 'vitest';
-import { defineAction, defineEndpoint, emptyGlobal, projectContext, type ActionResponse, type ApiResponse, type Assessment, type AuditEvent, type ChartAnnotation, type ClientErrorReport, type GlobalContext, type MenuAction, type MenuQuery, type Permission, type PlatformAdapter, type Session, type Trust, type UsageEvent, type UsageRange, type UsageSummary, menuPermission, spaceId } from '@ap/contracts';
-import { planServerConformance, runServerConformance, type ActionCase, type ConformanceCase, type PortSamples, type ServerConformanceHarness } from './index';
+import { defineAction, defineEndpoint, emptyGlobal, projectContext, type ActionResponse, type ApiResponse, type Assessment, type AuditEvent, type ChartAnnotation, type EntityAuditPage, type ClientErrorReport, type GlobalContext, type MenuAction, type MenuQuery, type Permission, type PlatformAdapter, type Session, type Trust, type UsageEvent, type UsageRange, type UsageSummary, menuPermission, spaceId } from '@ap/contracts';
+import { planServerConformance, runServerConformance, type ActionCase, type ConformanceResult, type ConformanceCase, type PortSamples, type ServerConformanceHarness } from './index';
 
 const SELECTION_PORT_SKIP_IDS = [
       'selection ports · global lineNames options',
@@ -238,40 +238,42 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
       if (breaks.has('envelope-missing-assessments')) delete omittable.assessments;
       return response;
     },
-    entityAudit: async (ref): Promise<ApiResponse<{ events: readonly AuditEvent[] }>> => {
+    entityAudit: async (ref): Promise<ApiResponse<EntityAuditPage>> => {
       if (ref.type !== 'equipment' && ref.type !== 'metric') {
         return breaks.has('entity-audit-unknown-type')
           ? { ...envelope, outcome: 'forbidden', message: 'Unknown entity type' }
           : err('Unknown entity type');
       }
       if (!state.permissions.has(menuPermission('equipment:view'))) {
-        return breaks.has('entity-audit-permission')
-          ? { ...envelope, outcome: 'ok', data: { events: [REF_EVENT] } }
+        return breaks.has('entity-audit-permission') && ref.cursor === undefined
+          ? { ...envelope, outcome: 'ok', data: { events: [REF_EVENT], nextCursor: null } }
           : { ...envelope, outcome: 'forbidden', message: 'No permission equipment:view' };
       }
       if (ref.scopeId !== 'MEM') {
         // 'entity-audit-null' answers ok for a null Scope — the getEntity gate must catch it (adapter.ts).
         if (ref.scopeId === null && breaks.has('entity-audit-null')) {
-          return { ...envelope, outcome: 'ok', data: { events: [REF_EVENT] } };
+          return { ...envelope, outcome: 'ok', data: { events: [REF_EVENT], nextCursor: null } };
         }
-        return ref.scopeId !== null && breaks.has('entity-audit-foreign')
-          ? { ...envelope, outcome: 'ok', data: { events: [REF_EVENT] } }
+        return ref.scopeId !== null && breaks.has('entity-audit-foreign') && ref.cursor === undefined
+          ? { ...envelope, outcome: 'ok', data: { events: [REF_EVENT], nextCursor: null } }
           : { ...envelope, outcome: 'forbidden', message: `No grant for scope ${ref.scopeId}` };
       }
       // Same room re-check on the audit read (adapter.ts: same gates as getEntity) — 'entity-audit-room' serves it anyway.
       if (!GRANTED_ROOMS.includes(ROOM_OF[ref.id] ?? 'PHOTO')) {
         return breaks.has('entity-audit-room')
-          ? { ...envelope, outcome: 'ok', data: { events: [REF_EVENT] } }
+          ? { ...envelope, outcome: 'ok', data: { events: [REF_EVENT], nextCursor: null } }
           : { ...envelope, outcome: 'forbidden', message: 'No grant for equipment' };
       }
-      if (breaks.has('entity-audit-ok')) return { ...envelope, outcome: 'ok', data: {} as unknown as { events: readonly AuditEvent[] } }; // data.events is not an array
+      // A one-page paging server: it never issues a cursor, so any cursor is malformed — read only after the gates above.
+      if (ref.cursor !== undefined) return err('Invalid cursor');
+      if (breaks.has('entity-audit-ok')) return { ...envelope, outcome: 'ok', data: {} as unknown as EntityAuditPage }; // data.events is not an array
       // adapter.ts zero rule: a zero is outcome `empty` — 'entity-audit-ok-zero' answers ok with no events.
-      if (breaks.has('entity-audit-ok-zero')) return { ...envelope, outcome: 'ok', data: { events: [] } };
+      if (breaks.has('entity-audit-ok-zero')) return { ...envelope, outcome: 'ok', data: { events: [], nextCursor: null } };
       // 'entity-audit-trust' ships a malformed trust on the ok answer — the envelope shape check must catch it.
       return {
         ...envelope,
         outcome: 'ok',
-        data: { events: [REF_EVENT] },
+        data: { events: [REF_EVENT], nextCursor: null },
         trust: breaks.has('entity-audit-trust') ? { ...REF_TRUST, coverage: '98%' as unknown as number | null } : null,
       };
     },
@@ -662,6 +664,11 @@ describe('server conformance kit (#145)', () => {
       'port · entityAudit at a site without a grant → forbidden',
       'port · entityAudit with a null Scope → forbidden',
       'port · entityAudit of a destination in an ungranted room → forbidden',
+      'port · entityAudit page holds at most 50 events',
+      'port · entityAudit nextCursor walks every event once, in order, to a null cursor',
+      'port · entityAudit with a malformed cursor → error',
+      'port · entityAudit with a cursor at a site without a grant → forbidden',
+      'port · entityAudit with a cursor without equipment:view → forbidden',
       'port · entityAudit without equipment:view → forbidden',
       'port · auditTrail as a console actor → ok',
       'port · auditTrail without console:access → forbidden',
@@ -1543,5 +1550,86 @@ describe('declared gaps: implemented ports, site grants, siteless destinations (
       expect(skipped).toContain(`port · ${method} at a site without a grant → forbidden — siteless destination type`);
       expect(skipped).toContain(`port · ${method} with a null Scope → forbidden — siteless destination type`);
     }
+  });
+});
+
+describe('entityAudit cursor page checks (ADR-0085)', () => {
+  const PAGE_IDS = [
+    'port · entityAudit page holds at most 50 events',
+    'port · entityAudit nextCursor walks every event once, in order, to a null cursor',
+    'port · entityAudit with a malformed cursor → error',
+    'port · entityAudit with a cursor at a site without a grant → forbidden',
+    'port · entityAudit with a cursor without equipment:view → forbidden',
+  ];
+  // 120 events, newest first by (at desc, id asc); every ninth shares its `at` so the id tie-break crosses page edges.
+  const ALL: AuditEvent[] = Array.from({ length: 120 }, (_, n) => ({
+    ...REF_EVENT, id: `ev-${String(n).padStart(3, '0')}`, at: new Date(Date.UTC(2026, 5, 1) - Math.floor(n / 9) * 60_000).toISOString(),
+  }));
+
+  /** A paging server: the gates come from the reference adapter, the pages from `ALL`; each break drops one page rule. */
+  function paged(breaks: ReadonlySet<string> = new Set()) {
+    const h = harness();
+    const base = h.adapter;
+    const baseAudit = base.entityAudit.bind(base);
+    const size = breaks.has('page-over-cap') ? 51 : 50;
+    // Replace one member in place: the reference adapter is not safe to spread (its other members share state).
+    base.entityAudit = async (req, signal) => {
+        const bypass = req.cursor !== undefined && ((breaks.has('cursor-skips-gate') && req.scopeId !== 'MEM') || (breaks.has('cursor-skips-permission') && req.scopeId === 'MEM'));
+        const gate = bypass ? null : await baseAudit({ type: req.type, id: req.id, scopeId: req.scopeId }, signal);
+        if (gate && gate.outcome !== 'ok') return gate;
+        let start = 0;
+        if (req.cursor !== undefined) {
+          const n = /^c(\d+)$/.exec(req.cursor);
+          if (!n && !breaks.has('bad-cursor-ok')) return { ...REF_ENVELOPE, outcome: 'error', message: 'Invalid cursor' };
+          start = n ? Number(n[1]) : 0;
+        }
+        let rows = ALL.slice(start, start + size);
+        if (breaks.has('duplicate-across-pages') && start > 0) rows = [ALL[start - 1]!, ...rows.slice(1)];
+        if (breaks.has('unordered')) rows = [...rows].reverse();
+        const end = start + size >= ALL.length;
+        const next = end && !breaks.has('cursor-never-null') ? null : `c${breaks.has('cursor-never-null') ? 0 : start + size}`;
+        const nextCursor = breaks.has('empty-string-cursor') && end ? '' : next;
+        return { ...REF_ENVELOPE, outcome: 'ok', data: { events: rows, nextCursor } };
+    };
+    return h;
+  }
+  const REF_ENVELOPE = { data: null, assessments: [] as Assessment[], trust: null, correlationId: 'ref' };
+  const failures = async (h: ServerConformanceHarness) => (await runServerConformance(h)).filter(r => PAGE_IDS.includes(r.id) && r.failure !== null).map(r => r.id);
+
+  it('passes a multi-page reference server on every page check', async () => {
+    const results = await runServerConformance(paged());
+    expect(results.filter(r => PAGE_IDS.includes(r.id)).map(r => r.status)).toEqual(['passed', 'passed', 'passed', 'passed', 'passed']);
+    expect(results.filter(r => r.id.startsWith('port · entityAudit') && r.failure !== null)).toEqual([]);
+  });
+
+  it.each([
+    ['page-over-cap', [PAGE_IDS[0], PAGE_IDS[1]]],
+    ['duplicate-across-pages', [PAGE_IDS[1]]],
+    ['unordered', [PAGE_IDS[1]]],
+    ['cursor-never-null', [PAGE_IDS[1]]],
+    ['empty-string-cursor', [PAGE_IDS[1]]],
+    ['bad-cursor-ok', [PAGE_IDS[2]]],
+    ['cursor-skips-gate', [PAGE_IDS[3]]],
+    ['cursor-skips-permission', [PAGE_IDS[4]]],
+  ])('fails exactly the page check when the server breaks %s', async (broken, expected) => {
+    expect(await failures(paged(new Set([broken])))).toEqual(expected);
+  });
+
+  it('turns every page check into a run-time skip for a server whose first page has no nextCursor, and never sends it a cursor', async () => {
+    const h = harness();
+    const baseAudit = h.adapter.entityAudit.bind(h.adapter);
+    const sent: unknown[] = [];
+    h.adapter.entityAudit = async (req, signal) => {
+      sent.push(req.cursor);
+      const res = await baseAudit(req, signal);
+      return res.data ? { ...res, data: { events: res.data.events } } : res;
+    };
+    const results = await runServerConformance(h);
+    const page = results.filter(r => PAGE_IDS.includes(r.id));
+    expect(page.map(r => r.status)).toEqual(Array(5).fill('skipped'));
+    expect(page.map((r: ConformanceResult) => r.reason)).toEqual(Array(5).fill('server does not page entityAudit'));
+    expect(sent.every(cursor => cursor === undefined)).toBe(true);
+    // The six pre-existing entityAudit checks still run.
+    expect(results.filter(r => r.id.startsWith('port · entityAudit') && !PAGE_IDS.includes(r.id)).every(r => r.status === 'passed')).toBe(true);
   });
 });

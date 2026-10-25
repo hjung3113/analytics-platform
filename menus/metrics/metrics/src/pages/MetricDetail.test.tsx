@@ -233,6 +233,29 @@ describe('MetricDetail change history reads the shared audit store (#90, ADR-004
   });
 });
 
+describe('MetricDetail change history pages (ADR-0085)', () => {
+  const recorded = (id: string, minute: number, reason: string): AuditEvent => ({
+    id, at: `2026-09-20T02:${String(minute).padStart(2, '0')}:00.000Z`, actor: 'park.seo', action: 'update', source: 'user', target: { type: 'metric', id: 'cycle_time', scopeId: null }, reason,
+  });
+
+  it('shows the older-changes button for a first page with a cursor and appends the next page on press', async () => {
+    const cursors: (string | undefined)[] = [];
+    const adapter: PlatformAdapter = {
+      ...fixtureAdapter(),
+      entityAudit: async req => {
+        cursors.push(req.cursor);
+        const data = req.cursor === undefined ? { events: [recorded('v5', 5, '새 변경')], nextCursor: 'c1' } : { events: [recorded('v4', 4, '옛 변경')], nextCursor: null };
+        return { outcome: 'ok', data, assessments: [], trust: null, correlationId: 'corr-audit' };
+      },
+    };
+    renderDetail('/metrics/cycle_time?version=4', 'cycle_time', adapter);
+    expect(await screen.findByText('새 변경')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '이전 변경 이력 더 보기' }));
+    expect(await screen.findByText('옛 변경')).toBeTruthy();
+    expect(cursors).toEqual([undefined, 'c1']);
+  });
+});
+
 describe('MetricDetail definition draws no Data Trust (#299 B-10, 06 §18)', () => {
   it.each([
     ['queue_time@1 (draft, no published pointer)', '/metrics/queue_time?v=1&version=1', 'queue_time', '초안'],

@@ -4,13 +4,14 @@ import type {
   AnnotationInput,
   AnnotationRef,
   ApiResponse,
-  AuditEvent,
   AuditTrailPage,
   AuditTrailQuery,
   AxisOptionsPage,
   ChartAnnotation,
   ClientErrorReport,
   ConditionOptions,
+  EntityAuditPage,
+  EntityAuditRequest,
   EntityRef,
   EquipmentSearchPage,
   PlatformAdapter,
@@ -89,8 +90,9 @@ export function createHttpAdapter(config: AdapterConfig): PlatformAdapter {
     },
     auditTrail: (query: AuditTrailQuery, signal): Promise<ApiResponse<AuditTrailPage>> =>
       envelope({ method: 'POST', path: `${PLATFORM}/audit-trail/search`, body: query }, signal),
-    entityAudit: (ref: EntityRef, signal): Promise<ApiResponse<{ events: readonly AuditEvent[] }>> =>
-      envelope({ method: 'POST', path: `${PLATFORM}/entity/audit`, body: ref }, signal),
+    // The cursor is on the wire only when there is one: the first page sends the bare ref.
+    entityAudit: ({ cursor, ...ref }: EntityAuditRequest, signal): Promise<ApiResponse<EntityAuditPage>> =>
+      envelope({ method: 'POST', path: `${PLATFORM}/entity/audit`, body: cursor === undefined ? ref : { ...ref, cursor } }, signal),
     accessDirectory: (query: AccessDirectoryQuery, signal): Promise<ApiResponse<AccessDirectoryPage>> =>
       envelope({ method: 'POST', path: `${PLATFORM}/access-directory/search`, body: query }, signal),
 

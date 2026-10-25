@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { QueryMissing } from './query-draft';
 import { narrowedGlobal } from './condition-preset';
 import { useHostPlatform } from './platform';
-import { clientCorrelationId, projectContext, type ApiResponse, type AssessmentKind, type EndpointSpec, type EntityRef, type MenuQueryContext, serializeGlobal } from '@ap/contracts';
+import { clientCorrelationId, instantEpochMs, projectContext, type ApiResponse, type AssessmentKind, type AuditEvent, type EndpointSpec, type EntityAuditPage, type EntityRef, type MenuQueryContext, serializeGlobal } from '@ap/contracts';
+import { useCursorPages, type CursorMore, type FirstPage } from './cursor-pages';
 
 export type QueryState<T> = {
   /** loading: no result for the current Context yet. refreshing: same Context re-query, prior result kept. */
@@ -76,6 +77,49 @@ export function useEntityQuery<T>(ref: EntityRef, pageInputs: unknown = null, en
     enabled,
     'session',
   );
+}
+
+/** Older changes of one destination, appended after the first page (ADR-0085). `status` 'end' also covers a first page that was the whole list. */
+export type AuditMore = CursorMore;
+
+/** Newest first by instant, id ascending on a tie — the order of the port and of `AuditTimeline`. */
+function compareAuditEvents(a: AuditEvent, b: AuditEvent): number {
+  const byAt = instantEpochMs(b.at) - instantEpochMs(a.at);
+  return byAt !== 0 ? byAt : a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+}
+
+/**
+ * One destination's change history (docs/06 §13, ADR-0085) via `adapter.entityAudit`: `query` is the first page for
+ * `QueryView` (session identity, like `useEntityQuery`: a global period change does not refetch), `timeline` is the
+ * props of `AuditTimeline` — the first page plus every older page `more.load()` appended. The appended pages belong
+ * to one first-page read: a ref, Scope, revision or user change, or a refetch of the same ref, drops them and the
+ * list starts again from the first page. The page count is not in the URL.
+ */
+export function useEntityAudit(ref: EntityRef, enabled = true): { query: QueryState<EntityAuditPage>; timeline: { events: readonly AuditEvent[]; more: AuditMore } } {
+  const { adapter } = useHostPlatform();
+  const query = usePlatformQuery<EntityAuditPage>(
+    signal => adapter.entityAudit({ type: ref.type, id: ref.id, scopeId: ref.scopeId }, signal),
+    [ref],
+    enabled,
+    'session',
+  );
+  const { response, status } = query;
+  const first = useMemo<FirstPage<AuditEvent> | null>(() => response && {
+    key: response,
+    settled: status === 'done',
+    items: response.outcome === 'ok' ? response.data?.events ?? [] : [],
+    nextCursor: response.outcome === 'ok' ? response.data?.nextCursor ?? null : null,
+  }, [response, status]);
+  const { items, more } = useCursorPages<AuditEvent>(
+    first,
+    async (cursor, signal) => {
+      const next = await adapter.entityAudit({ type: ref.type, id: ref.id, scopeId: ref.scopeId, cursor }, signal);
+      return { ...next, data: next.data && { items: next.data.events, nextCursor: next.data.nextCursor } };
+    },
+    { id: event => event.id, order: compareAuditEvents },
+  );
+  const timeline = useMemo(() => ({ events: items, more }), [items, more]);
+  return { query, timeline };
 }
 
 function hasExactAssessmentKinds(actual: readonly { kind: AssessmentKind }[], expected: readonly AssessmentKind[]): boolean {
