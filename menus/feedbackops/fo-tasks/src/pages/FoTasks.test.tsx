@@ -13,6 +13,9 @@ const fo = vi.hoisted(() => ({
   moved: vi.fn(),
   boardClose: vi.fn(),
   mounts: 0,
+  requests: [] as { autoSelect: boolean }[],
+  requestClose: vi.fn(),
+  milestoneRenders: [] as ((parts: Record<string, unknown>) => ReactNode)[],
 }));
 vi.mock('@fops/frontend/operator-screens/task-list', () => ({
   TaskListScreen: (props: { view: string; autoSelect: boolean; renderDetail: () => unknown }) => {
@@ -28,6 +31,31 @@ vi.mock('@fops/frontend/operator-screens/task-board', () => ({
     return <div data-testid="board" data-here={seam.useHere!()}>
       <button type="button" onClick={() => setSelected(TASK_A)}>선택</button>
       {selected !== null && props.renderDetail(selected, { actorNamesById: new Map(), managedSystemNamesById: new Map(), hasActionFooter: true, onMoveToNextStatus: fo.moved, onClose: fo.boardClose })}
+    </div>;
+  },
+}));
+vi.mock('@fops/frontend/operator-screens/task-requests', () => ({
+  TaskRequestsScreen: (props: { autoSelect: boolean; renderDetail: (parts: Record<string, unknown>) => ReactNode }) => {
+    fo.requests.push(props);
+    const seam = useHostSeam();
+    const param = seam.useSearch!().param;
+    return <div data-testid="requests" data-param={param ?? ''} data-here={seam.useHere!()}>
+      {param !== undefined && props.renderDetail({ title: `요청 ${param}`, body: <p>요청 본문 {param}</p>, requestClose: fo.requestClose, displayId: 'TR-1' })}
+    </div>;
+  },
+}));
+vi.mock('@fops/frontend/operator-screens/milestones', () => ({
+  MilestonesScreen: (props: { renderDetail: (parts: Record<string, unknown>) => ReactNode }) => {
+    const [creating, setCreating] = useState(false);
+    const seam = useHostSeam();
+    const navigate = seam.useNavigate!();
+    const param = seam.useSearch!().param;
+    return <div data-testid="milestones" data-param={param ?? ''}>
+      <button type="button" onClick={() => setCreating(true)}>Milestone 생성</button>
+      {/* eslint-disable-next-line ap/no-hand-built-url -- a FeedbackOps href as the screen's dirty-decline restore passes it to the seam, not menu code building a link */}
+      <button type="button" onClick={() => navigate('/tasks?view=milestones&param=m-1')}>복원</button>
+      {creating && props.renderDetail({ kind: 'create', title: 'Milestone 생성', body: <p>생성 본문</p>, requestClose: fo.requestClose })}
+      {!creating && param !== undefined && props.renderDetail({ kind: 'detail', title: `Milestone ${param}`, body: <p>Milestone 본문 {param}</p>, requestClose: fo.requestClose })}
     </div>;
   },
 }));
@@ -53,11 +81,13 @@ beforeAll(warmPages, 60_000);
 beforeEach(() => {
   vi.stubGlobal('localStorage', memoryStorage());
   vi.stubGlobal('fetch', request);
-  fo.list.length = 0; fo.detailArgs.length = 0; fo.mounts = 0; fo.moved.mockReset(); fo.boardClose.mockReset(); request.mockReset();
+  fo.list.length = 0; fo.requests.length = 0; fo.requestClose.mockReset(); fo.detailArgs.length = 0; fo.mounts = 0; fo.moved.mockReset(); fo.boardClose.mockReset(); request.mockReset();
 });
 afterEach(() => { cleanup(); setFoApi(null); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
 const PAGES = [
+  ['Task Requests', '/feedbackops/task-requests', 'requests'],
+  ['Milestones', '/feedbackops/milestones', 'milestones'],
   ['Tasks', '/feedbackops/tasks', 'board'],
   ['내 Task', '/feedbackops/my-tasks', 'list'],
   ['Task 목록', '/feedbackops/tasks/list', 'list'],
@@ -117,6 +147,51 @@ describe.each([['내 Task', '/feedbackops/my-tasks', 'my'], ['Task 목록', '/fe
   });
 });
 
+describe('Task Requests through the FeedbackOps bridge', () => {
+  beforeEach(() => { setFoApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
+
+  it('mounts the queue without auto-select, reading the page as the FO requests path', async () => {
+    mountAt(`/feedbackops/task-requests?reviewer=me&managedSystem=${SYSTEM}`);
+    const screenNode = await screen.findByTestId('requests');
+    expect(fo.requests.at(-1)).toMatchObject({ autoSelect: false });
+    const here = new URL(screenNode.getAttribute('data-here')!, 'http://x');
+    expect(here.pathname).toBe('/tasks');
+    expect(Object.fromEntries(here.searchParams)).toEqual({ view: 'requests', reviewer: 'me', managedSystem: SYSTEM });
+  });
+
+  it('reads focus as the screen param and renders the panel parts in the shell slot; its close is requestClose', async () => {
+    mountAt(`/feedbackops/task-requests?focus=${TASK_A}`);
+    expect((await screen.findByTestId('requests')).getAttribute('data-param')).toBe(TASK_A);
+    const dialog = await within(await screen.findByRole('complementary', { name: '상세 패널' })).findByRole('dialog');
+    expect(within(dialog).getByText(`요청 본문 ${TASK_A}`)).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole('button', { name: '상세 닫기' }));
+    expect(fo.requestClose).toHaveBeenCalledOnce();
+    // The drawer never writes focus itself: the screen clears `param` through the seam.
+    expect(new URLSearchParams(window.location.search).get('focus')).toBe(TASK_A);
+  });
+});
+
+describe('Milestones through the FeedbackOps bridge', () => {
+  beforeEach(() => { setFoApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
+
+  it('renders the detail parts on focus and the create parts of Milestone 생성 in the shell slot', async () => {
+    mountAt('/feedbackops/milestones?focus=m-1');
+    const aside = await screen.findByRole('complementary', { name: '상세 패널' });
+    expect(await within(aside).findByText('Milestone 본문 m-1')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Milestone 생성' }));
+    expect(await within(aside).findByText('생성 본문')).toBeTruthy();
+    fireEvent.click(within(aside).getByRole('button', { name: '상세 닫기' }));
+    expect(fo.requestClose).toHaveBeenCalledOnce();
+  });
+
+  it('moves focus when the screen navigates to a Milestone href (the dirty-decline restore)', async () => {
+    mountAt('/feedbackops/milestones?managedSystem=' + SYSTEM);
+    fireEvent.click(await screen.findByRole('button', { name: '복원' }));
+    await waitFor(() => expect(new URLSearchParams(window.location.search).get('focus')).toBe('m-1'));
+    expect(new URLSearchParams(window.location.search).get('managedSystem')).toBe(SYSTEM);
+  });
+});
+
 describe('Tasks board through the FeedbackOps bridge', () => {
   beforeEach(() => { setFoApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
 
@@ -146,6 +221,9 @@ describe('Tasks board through the FeedbackOps bridge', () => {
 });
 
 const REJECTED = [
+  ['Task Requests', '/feedbackops/task-requests', 'requests', 'reviewer', 'x'],
+  ['Task Requests', '/feedbackops/task-requests', 'requests', 'reviewerTeam', 'x'],
+  ['Milestones', '/feedbackops/milestones', 'milestones', 'managedSystem', 'x'],
   ['Tasks', '/feedbackops/tasks', 'board', 'publicUpdate', 'x'],
   ['Tasks', '/feedbackops/tasks', 'board', 'managedSystem', 'x'],
   ['내 Task', '/feedbackops/my-tasks', 'list', 'publicUpdate', 'x'],

@@ -256,6 +256,21 @@ describe('FoBridge seam notices', () => {
     expect(onAction).toHaveBeenCalledOnce();
   });
 
+  // Infinity would fire the kernel's setTimeout at once; the bridge drops it so the kernel default (8000 ms with an action) applies (#763 D5).
+  it('notify with a non-finite duration keeps the action toast for the kernel default', async () => {
+    const live = mountSeam();
+    await waitFor(() => expect(live.seam).toBeDefined());
+    vi.useFakeTimers();
+    try {
+      act(() => { live.seam!.notify!({ tone: 'info', message: '변환됨', action: { label: '열기', onAction: () => undefined }, durationMs: Number.POSITIVE_INFINITY }); });
+      expect(live.toasts).toHaveLength(1);
+      act(() => { vi.advanceTimersByTime(7999); });
+      expect(live.toasts).toHaveLength(1);
+      act(() => { vi.advanceTimersByTime(1); });
+      expect(live.toasts).toHaveLength(0);
+    } finally { vi.useRealTimers(); }
+  });
+
   it.each([['success', 'info'], ['info', 'info'], ['warning', 'warning'], ['error', 'danger']] as const)('maps the %s tone to the kernel %s tone', async (tone, kernelTone) => {
     const live = mountSeam();
     await waitFor(() => expect(live.seam).toBeDefined());

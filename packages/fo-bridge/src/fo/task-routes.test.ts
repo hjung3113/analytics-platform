@@ -118,7 +118,7 @@ describe('taskOperatorTargets', () => {
     expect(menuOf(`/tasks?view=inbox&param=${TASK}`)).toEqual(['fo-task-list']);
   });
 
-  it('wires board, list and 내 Task into operatorHostLinks; Task Requests and Milestones stay unlinked until #763 p2', () => {
+  it('wires all seven Task tables into operatorHostLinks; Findings stay unlinked', () => {
     const { targetOf } = operatorHostLinks;
     expect(targetOf(`/tasks?param=${TASK}`)).toEqual({ menuId: 'fo-task-list', page: { focus: TASK } });
     expect(targetOf('/tasks?view=board&param=')).toEqual({ menuId: 'fo-tasks', page: {} });
@@ -126,8 +126,10 @@ describe('taskOperatorTargets', () => {
     expect(targetOf(`/tasks?view=board&public_update=missing&managedSystem=${SYSTEM}`)).toEqual({ menuId: 'fo-tasks', page: { publicUpdate: 'missing', managedSystem: SYSTEM } });
     expect(targetOf('/tasks?view=inbox')).toEqual({ menuId: 'fo-task-list', page: {} });
     expect(targetOf('/tasks?view=my')?.menuId).toBe('fo-my-tasks');
-    expect(targetOf('/tasks?view=requests&param=x')).toBeNull();
-    expect(targetOf('/tasks?view=milestones')).toBeNull();
+    expect(targetOf('/tasks?view=requests&param=x')).toEqual({ menuId: 'fo-task-requests', page: { focus: 'x' } });
+    expect(targetOf('/tasks?view=requests&reviewer=me')?.menuId).toBe('fo-task-requests');
+    expect(targetOf('/tasks?view=milestones&param=m-1')).toEqual({ menuId: 'fo-milestones', page: { focus: 'm-1' } });
+    expect(targetOf('/findings')).toBeNull();
     expect(targetOf('/findings')).toBeNull();
   });
 });

@@ -130,12 +130,14 @@ describe('workspace assembly (#260)', () => {
     expect(registry.menuById('fo-clusters')).toMatchObject({ path: '/feedbackops/clusters', permission: 'feedbackops:access', requiresScope: false });
     for (const id of ['fo-inbox', 'fo-triage', 'fo-clusters']) expect(registry.menuById(id).pageKeys).toEqual(expect.arrayContaining(['managedSystem', 'focus', 'returnTo']));
     expect(registry.spaceOf(registry.menuById('fo-inbox'))?.id).toBe('feedbackops');
-    // #763 p1: the Tasks group follows VOC; the Task list is hidden under Tasks (which the shell marks current for it), and every menu declares managedSystem, returnTo and focus.
-    expect(registry.menus.filter(menu => menu.group === 'foTasks').map(menu => menu.id)).toEqual(['fo-tasks', 'fo-my-tasks', 'fo-task-list']);
+    // #763: the Tasks group follows VOC (p2 adds Task Requests and Milestones); the Task list is hidden under Tasks (which the shell marks current for it), and every menu declares managedSystem, returnTo and focus.
+    expect(registry.menus.filter(menu => menu.group === 'foTasks').map(menu => menu.id)).toEqual(['fo-task-requests', 'fo-tasks', 'fo-my-tasks', 'fo-milestones', 'fo-task-list']);
     expect(registry.menuById('fo-tasks')).toMatchObject({ path: '/feedbackops/tasks', primary: true, permission: 'feedbackops:access', requiresScope: false });
     expect(registry.menuById('fo-my-tasks')).toMatchObject({ path: '/feedbackops/my-tasks', permission: 'feedbackops:access', requiresScope: false });
+    expect(registry.menuById('fo-task-requests')).toMatchObject({ path: '/feedbackops/task-requests', permission: 'feedbackops:access', requiresScope: false });
+    expect(registry.menuById('fo-milestones')).toMatchObject({ path: '/feedbackops/milestones', permission: 'feedbackops:access', requiresScope: false });
     expect(registry.menuById('fo-task-list')).toMatchObject({ path: '/feedbackops/tasks/list', navHidden: true, parent: 'fo-tasks' });
-    for (const id of ['fo-tasks', 'fo-my-tasks', 'fo-task-list']) expect(registry.menuById(id).pageKeys).toEqual(expect.arrayContaining(['managedSystem', 'focus', 'returnTo']));
+    for (const id of ['fo-task-requests', 'fo-tasks', 'fo-my-tasks', 'fo-milestones', 'fo-task-list']) expect(registry.menuById(id).pageKeys).toEqual(expect.arrayContaining(['managedSystem', 'focus', 'returnTo']));
     expect(registry.spaceOf(registry.menuById('fo-task-list'))?.id).toBe('feedbackops');
     // #252 (ADR-0065): work-queue first; every menu is planned and open to every signed-in user for now.
     expect(SPACES[4]).toMatchObject({ label: { ko: '표준 로그 개발', en: 'Standard log development' }, homeMenuId: 'log-my-queue' });

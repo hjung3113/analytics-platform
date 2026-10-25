@@ -1,16 +1,24 @@
 /**
- * @ap/menu-fo-tasks — foTasks group manifests (FeedbackOps space Tasks: Tasks board, 내 Task and the hidden Task 목록; ADR-0081, #763).
- * The FeedbackOps operator Task screens through the bridge; the page keys equal the route tables in `@ap/fo-bridge` (`taskBoardRoute`, `myTasksRoute`, `taskListRoute`; pinned by the page tests),
+ * @ap/menu-fo-tasks — foTasks group manifests (FeedbackOps space Tasks: Task Requests, Tasks board, 내 Task, Milestones and the hidden Task 목록; ADR-0081, #763).
+ * The FeedbackOps operator Task screens through the bridge; the page keys equal the route tables in `@ap/fo-bridge` (`taskRequestsRoute`, `taskBoardRoute`, `myTasksRoute`, `milestonesRoute`, `taskListRoute`; pinned by the page tests),
  * and the space carries `managedSystem` (ADR-0081 decision 4). `focus` is the selected Task (06 §13).
  */
 import { lazy } from 'react';
-import { ListTodo, User } from 'lucide-react';
+import { Flag, Inbox, ListTodo, User } from 'lucide-react';
 import { NO_FEATURES, contextCapabilities, groupId } from '@ap/contracts';
 import type { MenuEntry } from '@ap/kernel';
 
 const GROUP = groupId('foTasks');
 
 export const manifests: MenuEntry[] = [
+  {
+    id: 'fo-task-requests', group: GROUP, label: { ko: 'Task Requests', en: 'Task Requests' },
+    description: { ko: '들어온 Task 요청을 검토해 승인하거나 반려합니다', en: 'Review incoming Task requests and approve or reject them' },
+    path: '/feedbackops/task-requests', icon: Inbox, permission: 'feedbackops:access', requiresScope: false, pageType: 'management',
+    context: contextCapabilities(), features: NO_FEATURES,
+    pageKeys: ['focus', 'reviewer', 'reviewerTeam', 'managedSystem', 'returnTo'],
+    component: lazy(() => import('./pages/FoTaskRequests')),
+  },
   {
     id: 'fo-tasks', primary: true, group: GROUP, label: { ko: 'Tasks', en: 'Tasks' },
     description: { ko: 'Task를 상태별 보드에서 보고 다음 상태로 옮깁니다', en: 'See Tasks on a status board and move them to the next status' },
@@ -26,6 +34,14 @@ export const manifests: MenuEntry[] = [
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['focus', 'managedSystem', 'q', 'area', 'status', 'statusGroup', 'overdue', 'publicUpdate', 'reporterUpdate', 'returnTo'],
     component: lazy(() => import('./pages/FoMyTasks')),
+  },
+  {
+    id: 'fo-milestones', group: GROUP, label: { ko: 'Milestones', en: 'Milestones' },
+    description: { ko: 'Milestone을 만들고 진행을 확인합니다', en: 'Create Milestones and follow their progress' },
+    path: '/feedbackops/milestones', icon: Flag, permission: 'feedbackops:access', requiresScope: false, pageType: 'management',
+    context: contextCapabilities(), features: NO_FEATURES,
+    pageKeys: ['focus', 'managedSystem', 'returnTo'],
+    component: lazy(() => import('./pages/FoMilestones')),
   },
   {
     id: 'fo-task-list', group: GROUP, label: { ko: 'Task 목록', en: 'Task list' }, navHidden: true, parent: 'fo-tasks',
