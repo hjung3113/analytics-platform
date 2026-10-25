@@ -25,9 +25,10 @@ function SlotHost() {
   return <aside ref={slot.ref} aria-label="상세 패널" />;
 }
 
-function mount(url = '/fixture', options: { item?: (props: ModuleScreenProps) => React.ReactNode; extra?: React.ReactNode; strict?: boolean } = {}) {
+function mount(url = '/fixture', options: { item?: (props: ModuleScreenProps) => React.ReactNode; extra?: React.ReactNode; strict?: boolean; scoped?: boolean } = {}) {
   window.history.replaceState(null, '', url);
-  const { menus, groups } = mountModule(manifest, { list: SpyList, item: options.item ?? ItemScreen }, {
+  const scopedManifest = options.scoped ? { ...manifest, screens: manifest.screens.map(screen => ({ ...screen, requiresScope: true })) } : manifest;
+  const { menus, groups } = mountModule(scopedManifest, { list: SpyList, item: options.item ?? ItemScreen }, {
     prefix: '/fixture', groupSpace: { 'fixture:main': spaceId('analytics') }, config: { apiBase: 'https://api.example' },
     icons: { groups: { 'fixture:main': House }, screens: { list: House, item: House } },
   });
@@ -59,7 +60,7 @@ function mount(url = '/fixture', options: { item?: (props: ModuleScreenProps) =>
   });
   const seen: { platform: ReturnType<typeof useHostPlatform> } = { platform: undefined as never };
   function Probe() { seen.platform = useHostPlatform(); return null; }
-  const app = <I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider>
+  const app = <I18nProvider><PlatformProvider adapter={adapter} registry={registry} slots={{ contextBar: <div data-testid="context-bar" /> }}><DetailPanelSlotProvider>
     <main id="platform-main" tabIndex={-1}><Probe /><RouteOutlet />{options.extra}</main><SlotHost />
   </DetailPanelSlotProvider></PlatformProvider></I18nProvider>;
   const view = render(options.strict ? <StrictMode>{app}</StrictMode> : app);
@@ -114,6 +115,33 @@ describe('ModuleScreen renders { params, host } (ADR-0053)', () => {
   });
 });
 
+describe('ModuleScreen page frame (#804)', () => {
+  it('draws one page head with the entry label and the Context bar under it', () => {
+    mount('/fixture?v=1');
+    const heads = screen.getAllByRole('heading', { level: 1 });
+    expect(heads.map(h => h.textContent)).toEqual(['list', 'Fixture list']);
+    expect(screen.getAllByRole('heading', { name: 'list' })).toHaveLength(1);
+    const bar = screen.getByTestId('context-bar');
+    expect(heads[0].compareDocumentPosition(bar) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('keeps the page head mounted across a status change and Retry', () => {
+    mount('/fixture?v=1');
+    const head = screen.getByRole('heading', { level: 1, name: 'list' });
+    click('server down');
+    expect(screen.getByRole('heading', { level: 1, name: 'list' })).toBe(head);
+    click('다시 시도');
+    expect(screen.getByRole('heading', { level: 1, name: 'list' })).toBe(head);
+  });
+
+  it('puts a requiresScope module screen behind the Scope gate without mounting the host', () => {
+    mount('/fixture?v=1', { scoped: true });
+    expect(screen.getByRole('heading', { level: 1, name: 'list' })).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Fixture list' })).toBeNull();
+    expect(spy.hosts).toHaveLength(0);
+  });
+});
+
 describe('ModuleScreen status', () => {
   it.each([
     ['sign-in lost', '다시 로그인이 필요합니다'],
@@ -124,6 +152,8 @@ describe('ModuleScreen status', () => {
     click(button);
     expect(screen.getByText(title)).toBeTruthy();
     expect(screen.queryByRole('heading', { name: 'Fixture list' })).toBeNull();
+    expect(screen.getByRole('heading', { level: 1, name: 'list' })).toBeTruthy();
+    expect(screen.getByTestId('context-bar')).toBeTruthy();
     click('다시 시도');
     expect(screen.queryByText(title)).toBeNull();
     expect(screen.getByRole('heading', { name: 'Fixture list' })).toBeTruthy();
@@ -216,8 +246,12 @@ describe('ModuleScreen detail slot', () => {
     const view = mount('/fixture?v=1');
     click('show detail');
     expect(within(panel()).getByText('detail of 1')).toBeTruthy();
-    expect(within(panel()).getByRole('region', { name: 'Detail' })).toBeTruthy();
+    expect(within(panel()).getByRole('dialog', { name: 'Detail' })).toBeTruthy();
     click('clear detail');
+    expect(within(panel()).queryByText('detail of 1')).toBeNull();
+
+    click('show detail');
+    fireEvent.click(within(panel()).getByRole('button', { name: '상세 닫기' }));
     expect(within(panel()).queryByText('detail of 1')).toBeNull();
 
     click('show detail');
@@ -251,10 +285,18 @@ describe('ModuleScreen arrival focus (06 §26, ADR-0032)', () => {
     expect(screen.getByRole('heading', { name: 'Fixture item a1' })).toHaveFocus();
   });
 
-  it('falls back to the page content when no target is registered', () => {
+  it('falls back to the page heading when no target is registered', () => {
     const view = mount('/?v=1', { item: BareItem });
     view.go('/fixture/items/a1?v=1', 'page');
-    expect(document.getElementById('platform-main')).toHaveFocus();
+    expect(screen.getByRole('heading', { level: 1, name: 'item' })).toHaveFocus();
+  });
+
+  it('focuses the page heading when a status screen replaces the target', () => {
+    const view = mount('/?v=1');
+    view.go('/fixture?v=1', 'page');
+    click('server down');
+    view.go('/fixture/items/a1?v=1', 'page');
+    expect(screen.getByRole('heading', { name: 'Fixture item a1' })).toHaveFocus();
   });
 
   it('waits while the palette blocks the arrival and lands on release', () => {

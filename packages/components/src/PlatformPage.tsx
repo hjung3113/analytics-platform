@@ -114,11 +114,13 @@ export type PlatformPageProps = {
    * body) and the body takes what the header leaves, so a `PanelWorkspace` child fills it; the body keeps at least 520 px (a 300 px plot plus the card chrome), so a tall chrome scrolls the page instead of crushing the workspace. Opt in only for a workspace page.
    */
   layout?: 'flow' | 'fill';
+  /** Where `page`/`return` arrival focus lands instead of the heading, while the returned element is connected (a `drill` arrival keeps the current step). */
+  arrivalTarget?: () => HTMLElement | null;
   children: ReactNode;
 };
 
 /** §8 Shell Slots. Pages never insert global UI outside these slots. */
-export function PlatformPage({ title, description, primaryAction, secondaryActions, contextExtension, contextNotes, dataTrustSummary, queryBarExtension, queryResult, crumbs = [], layout = 'flow', children }: PlatformPageProps) {
+export function PlatformPage({ title, description, primaryAction, secondaryActions, contextExtension, contextNotes, dataTrustSummary, queryBarExtension, queryResult, crumbs = [], layout = 'flow', arrivalTarget, children }: PlatformPageProps) {
   const { global, page, equipmentAxes, route, favorites, toggleFavorite, scope, retryScope, setGlobal, lastScope, linkTo, registry, slots, url, pathname, pageNavigation, currentSpace, screenMode, canOpen, queryDraft } = useHostPlatform();
   const conditionPreset = useConditionPreset();
   // A board pane draws content only: the board owns the pane head and the Context bar, and no arrival focus moves here (ADR-0049).
@@ -184,13 +186,16 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
   // A closed stage changes the content width but not the header's: measure again so the next stage can close
   // before paint. Each pass closes one of three stages, so this ends.
   useLayoutEffect(() => { measureRef.current(); }, [headerYield]);
+  const arrivalTargetRef = useRef(arrivalTarget);
+  useLayoutEffect(() => { arrivalTargetRef.current = arrivalTarget; });
   useLayoutEffect(() => {
     const focusDestination = () => {
       const request = consumePageFocus(pageNavigation, pathname);
       // A pane takes no automatic arrival focus; its explicit drill/return requests still land inside the pane.
       if (!request || (inPane && request === 'page')) return;
       const currentStep = request === 'drill' && root.current ? drillDestinationOf(root.current) : null;
-      const target = currentStep ?? heading.current;
+      const registered = request === 'drill' ? null : arrivalTargetRef.current?.();
+      const target = currentStep ?? (registered?.isConnected ? registered : null) ?? heading.current;
       if (!target) { if (inPane) focusPageFallback(root.current); return; }
       programmaticHeadingFocus.current = target === heading.current;
       if (programmaticHeadingFocus.current) setHeadingTooltipOpen(false);

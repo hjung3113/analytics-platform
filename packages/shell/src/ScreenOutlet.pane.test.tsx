@@ -247,6 +247,16 @@ describe('a module screen mounted in a pane (ADR-0053 host over a pane)', () => 
     expect([opened.menuId, opened.params, openHow]).toEqual(['fixture:item', { id: 'a1' }, 'push']);
   });
 
+  it('draws no page head, no Context bar and takes no arrival focus in the pane (#804)', async () => {
+    const { adapter } = fixtureAdapter(ANALYST);
+    const view = mount('/', [modulePane()], adapter, { slots: { contextBar: <div data-testid="context-bar" /> } });
+    await flush();
+    expect(view.pane('m').getByTestId('page').textContent).toBe('2');
+    expect(view.pane('m').queryByRole('heading', { name: 'list' })).toBeNull();
+    expect(view.pane('m').queryByTestId('context-bar')).toBeNull();
+    expect(document.body).toHaveFocus();
+  });
+
   it('keeps the host query lifecycle: StrictMode replay leaves it alive, unmount aborts the call and drops its late result', async () => {
     const { adapter, queries } = fixtureAdapter(ANALYST);
     const view = mount('/', [modulePane()], adapter, { strict: true });
