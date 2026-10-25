@@ -28,14 +28,14 @@ E2E는 `E2E_PORT=<포트>`로, base-path E2E는 `E2E_BASE_PATH_PORT=<포트 + 1>
 - `apps/platform-e2e`(spec, `contract-report`) — 어느 흐름도 소유하지 않는다
 - `docs/integration/sdk-git-tag-consumption.md`의 "다음 릴리스" 행, `docs/adr/README.md` 표, ADR 번호(#598에 예약 코멘트, PROFILE §Traps)
 - `.agents/conductor/PROFILE.md` §Traps, `docs/agents/operations.md` — 흐름마다 맨 끝에 덧붙인다
-- `tooling/eslint/src/index.js`의 `FO_BRIDGE_ENTRIES`(fo가 고치고 arch가 소유), `menus/analytics/hw-time`(M7은 sdk가 고치고 platform이 소유)
+- FeedbackOps 다리 entry 목록 네 곳(FO `apps/frontend/package.json` `exports`, `tooling/eslint/src/index.js` `FO_BRIDGE_ENTRIES`, `tooling/eslint/src/boundaries.test.ts` entry 배열, `packages/fo-bridge/src/fo-entry-graph.test.ts` describe — fo가 고치고 eslint 쪽은 arch가 소유, 합치는 법은 PROFILE §Traps), `menus/analytics/hw-time`(M7은 sdk가 고치고 platform이 소유)
 - `.planning/README.md`: 흐름 세션은 자기 이슈 줄만 고친다. 줄 순서·구성은 팀장이 바꾼다.
 
 ## 기계 자원(16GB)
 
-- [`PROFILE.md`](PROFILE.md) §Launch의 동시 작업자 1–2개는 기계 전체의 한도다. 흐름 세션 하나가 한 번에 띄우는 작업자는 하나이고, 흐름 세션은 동시에 3개까지 띄운다(2026-10-26, 세션 3개가 루트 검사를 겹쳐 돌린 부하 평균 40에서 무관한 테스트가 시간 초과).
+- [`PROFILE.md`](PROFILE.md) §Launch의 동시 작업자 1–2개는 기계 전체의 한도다. 흐름 세션은 동시에 3개까지 띄우고(2026-10-26, 세션 3개가 루트 검사를 겹쳐 돌린 부하 평균 40에서 무관한 테스트가 시간 초과), 작업자(구현·리뷰)는 자리 둘 중 하나를 잡은 세션만 띄운다: `mkdir "$AP_MAIN/.review/worker-slot-1"`(실패하면 `-2`)이 성공하면 띄우고, 그 작업자가 끝나면 `rmdir`로 푼다. 둘 다 실패하면 기다리는 동안 호스트 검증·문서 일을 한다.
 - 무거운 단계는 기계 전체에서 하나씩 돈다: 루트 `pnpm test`·`build`, 전체 `pnpm e2e`, `probe.ts`, FeedbackOps integration, 미리보기·ego-browser 단계(UX 리뷰, 캡처). `mkdir "$AP_MAIN/.review/heavy.lock"`이 성공한 세션만 시작하고, 끝나면 `rmdir`로 푼다. 실패하면 그 이슈는 기다리고 다른 일을 한다. 좁힌 E2E(`-g`)와 패키지 단위 검사는 잠그지 않는다.
-- 팀장은 정기 점검 때 잠금이 90분을 넘었으면 `pgrep -fl 'vitest|playwright|turbo'`와 `lsof -a -p <PID> -d cwd`로 주인을 찾고, 주인이 없으면 푼다. swap이 늘면(`memory_pressure`) 흐름 세션 수를 줄인다.
+- 팀장은 정기 점검 때 잠금·자리가 90분을 넘었으면 `pgrep -fl 'vitest|playwright|turbo'`와 `lsof -a -p <PID> -d cwd`로 주인을 찾고, 주인이 없으면 푼다. swap이 늘면(`memory_pressure`) 흐름 세션 수를 줄인다.
 
 ## 흐름 세션
 
@@ -45,7 +45,7 @@ E2E는 `E2E_PORT=<포트>`로, base-path E2E는 `E2E_BASE_PATH_PORT=<포트 + 1>
 - **사용자 몫:** 시안 컨펌(아티팩트 링크), 06 계약을 바꾸는 결정, 테스트 삭제, 새 메뉴 화면 3개 이상, 전역 도구 업데이트는 `<흐름>: #n 질문`으로 보낸다. 그 이슈는 멈추고 다른 배정을 진행한다. 그 밖의 판단은 스킬 Decisions대로 스스로 정하고 기록한다.
 - **배정 사이:** 하나가 끝나면 이슈 코멘트의 순서대로 다음 이슈를 바로 시작한다. 모두 끝나면 `<흐름>: 대기`를 보내고, 새 배정이 올 때까지 아무것도 띄우지 않는다.
 - **교대:** 스킬 Session hygiene 한도에 가까우면 흐름 worktree 루트의 `HANDOFF.md`를 고친 뒤 `<흐름>: 교대`를 보낸다. 팀장이 `/clear`를 넣고, 이어서 "지시서를 다시 읽고 HANDOFF.md로 잇는다"를 넣는다.
-- **main 깨짐:** 병합한 뒤 `main` CI가 실패하면 `<흐름>: main 깨짐`을 보내고 고친다. 팀장은 그동안 다른 흐름의 병합을 멈춘다. 그 밖에는 흐름마다 PR을 하나씩 병합한다.
+- **병합:** PR은 기계 전체에서 하나씩 병합한다(루트 AGENTS.md). `ship-pr.sh`를 돌리는 동안(rebase → CI → 병합) `mkdir "$AP_MAIN/.review/merge.lock"`을 잡고, 끝나면 `rmdir`. 병합한 뒤 `main` CI가 실패하면 `<흐름>: main 깨짐`을 보내고 고친다. 팀장은 그동안 다른 흐름의 병합을 멈춘다.
 - **전체 E2E:** 시작·끝을 팀장에게 한 줄로 알린다.
 
 ## 팀장
