@@ -1,8 +1,8 @@
 import type { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { buildRevertSteps } from '../scripts/probe.ts';
 import { APP_PKG, MENUS_TS, MOCK_ASSEMBLY_TSX, STYLE_CSS } from './generate.ts';
 
@@ -10,8 +10,14 @@ import { APP_PKG, MENUS_TS, MOCK_ASSEMBLY_TSX, STYLE_CSS } from './generate.ts';
 const SNAPSHOT_LOCK = 'lockfileVersion: snapshot\n';
 const snapshots = { menus: 'menus\n', main: 'main\n', style: 'style\n', appPkg: 'appPkg\n', lock: SNAPSHOT_LOCK };
 
+const roots: string[] = [];
+afterEach(() => {
+  for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
+});
+
 function tempRoot(lock: string): string {
   const root = mkdtempSync(join(tmpdir(), 'gen-menu-probe-revert-'));
+  roots.push(root);
   for (const [rel, text] of [[MENUS_TS, 'x'], [MOCK_ASSEMBLY_TSX, 'x'], [STYLE_CSS, 'x'], [APP_PKG, 'x'], ['pnpm-lock.yaml', lock]] as const) {
     mkdirSync(dirname(join(root, rel)), { recursive: true });
     writeFileSync(join(root, rel), text);
