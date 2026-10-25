@@ -1,11 +1,12 @@
 import { GENERIC_ERROR_MESSAGE } from '@/lib/api/errorMapper';
 import { createMilestone, getMilestone, updateMilestone } from '@/lib/api/milestones';
 import { listTasks } from '@/lib/api/tasks';
+import { registerDefaultHost } from '@/lib/host/host-seam';
 import type { MilestoneDetailDto } from '@fops/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MilestoneCreatePanel, MilestoneDetailPanel } from './MilestoneDetailPanel';
 
 vi.mock('@/lib/api/milestones', () => ({
@@ -16,7 +17,8 @@ vi.mock('@/lib/api/milestones', () => ({
 
 vi.mock('@/lib/api/tasks', () => ({ listTasks: vi.fn() }));
 
-vi.mock('@tanstack/react-router', () => ({ useNavigate: () => vi.fn() }));
+const navigateMock = vi.hoisted(() => vi.fn());
+vi.mock('@tanstack/react-router', () => ({ useNavigate: () => navigateMock }));
 
 const MANAGED_SYSTEM_ID = 'cccccccc-cccc-4ccc-8ccc-cccccccc00c1';
 const MILESTONE_ID = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbb1021';
@@ -89,6 +91,23 @@ beforeEach(() => {
   vi.mocked(getMilestone).mockReset().mockResolvedValue(milestone);
   vi.mocked(updateMilestone).mockReset();
   vi.mocked(listTasks).mockReset().mockResolvedValue({ items: [] });
+});
+
+// The detail content renders at the slot provider, outside the route's seam: it navigates through the default host,
+// which these router-less tests route to `navigateMock` as the call objects the route wrote.
+beforeAll(async () => {
+  const { tanstackHost } = await import('@/lib/host/tanstack-host');
+  registerDefaultHost({
+    ...tanstackHost,
+    useNavigate: () => (to, options) => {
+      const location = new URL(to, 'http://feedbackops.local');
+      navigateMock({
+        to: location.pathname,
+        search: Object.fromEntries(location.searchParams),
+        ...(options?.replace === true ? { replace: true } : {}),
+      });
+    },
+  });
 });
 
 describe('Milestone mutation error copy', () => {

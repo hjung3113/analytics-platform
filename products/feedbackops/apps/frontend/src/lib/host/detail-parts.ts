@@ -7,3 +7,6 @@ export type DetailParts = {
   headerActions?: ReactNode;
   body: ReactNode;
 };
+
+/** Detail parts of a screen that asks before it closes (a dirty draft): `requestClose` is what a host's close control calls. */
+export type ClosableDetailParts = DetailParts & { requestClose(): void };

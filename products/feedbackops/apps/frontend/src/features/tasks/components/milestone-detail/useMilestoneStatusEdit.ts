@@ -1,4 +1,4 @@
-import { mapUnknownError } from '@/lib/api';
+import { mapUnknownError } from '@/lib/api/errorMapper';
 import { updateMilestone } from '@/lib/api/milestones';
 import { ApiError } from '@/lib/api/types';
 import type { MilestoneDetailDto, MilestoneDto, MilestoneStatusFilter } from '@fops/shared';

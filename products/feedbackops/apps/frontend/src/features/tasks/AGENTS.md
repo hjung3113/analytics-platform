@@ -50,7 +50,8 @@ It does not own reporter-facing VOC status or source evidence visibility rules.
 - `apps/frontend/src/features/tasks/adapters/taskDisplayAdapters.ts` — shared Managed System name
   lookup, assignment resolution, and priority-to-severity projection.
 - `apps/frontend/src/features/tasks/routes/TaskRequestsRoute.tsx` — Task Request queue and selected detail.
-- `apps/frontend/src/features/tasks/routes/MilestonesRoute.tsx` — Milestone status tabs and list-state branches.
+- `apps/frontend/src/features/tasks/routes/MilestonesScreen.tsx` — bridge-safe Milestone list (status tabs, list-state branches, the three dirty guards; platform ADR-0071, entry `operator-screens/milestones`): `param`/`managedSystem` read and written through the host seam, the detail and create panels handed to the host as parts through `renderDetail`, rendered in place.
+- `apps/frontend/src/features/tasks/routes/MilestonesRoute.tsx` — the standalone composition: feeds `MilestonesScreen` the props-driven URL through TanStack `useNavigate` and registers the standalone frame for the parts in the detail slot.
 - `apps/frontend/src/features/tasks/routes/task-requests/TaskRequestPanel.tsx` — Task Request panel
   composition, exactly-once decision callback, and dialog lifetime.
 - `apps/frontend/src/features/tasks/routes/task-requests/useTaskRequestPanelController.ts` — source Area
@@ -61,6 +62,7 @@ It does not own reporter-facing VOC status or source evidence visibility rules.
 - `apps/frontend/src/features/tasks/components/MilestoneRow.tsx` — Milestone list row.
 - `apps/frontend/src/features/tasks/components/MilestoneDetailPanel.tsx` —
   compatibility exports for the Milestone panels.
+- `apps/frontend/src/features/tasks/components/milestone-detail/useMilestoneDetailParts.tsx` and `useMilestoneCreateParts.tsx` — the Milestone detail and create panels as `ClosableDetailParts` (`requestClose` carries the dirty guard); `MilestoneDetailPanel` / `MilestoneCreatePanel` are the standalone frames over them. The Finding source action goes through the host (`canLink`, `useHostNavigate`).
 - `apps/frontend/src/features/tasks/components/milestone-detail/` — Milestone
   panels, detail content, task row, and title/status edit hooks.
 - `apps/frontend/src/features/tasks/components/milestone-detail/useMilestoneChildTasks.ts` — one
