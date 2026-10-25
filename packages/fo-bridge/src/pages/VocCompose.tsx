@@ -4,9 +4,9 @@ import type { VocComposeProps } from '@ap/kernel';
 import { VocComposeScreen } from '@fops/frontend/global-screens';
 import { FoBridge } from '../fo/FoBridge';
 import { foQueryClient } from '../fo/session';
+import { isUuid } from '../fo/uuid';
 
 const FEEDBACKOPS = spaceId('feedbackops');
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * The form's initial Managed System (ADR-0070 decision 5): a FeedbackOps screen's carried `managedSystem` when it is one UUID, otherwise the
@@ -14,7 +14,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  */
 export function initialManagedSystem(context: Pick<VocComposeProps['context'], 'spaceId' | 'carried'>, managedSystemFor: (spaceId: string | null) => string | null): string | null {
   const carried = context.carried.managedSystem;
-  if (context.spaceId === FEEDBACKOPS && carried !== undefined && UUID.test(carried)) return carried;
+  if (context.spaceId === FEEDBACKOPS && carried !== undefined && isUuid(carried)) return carried;
   return managedSystemFor(context.spaceId);
 }
 

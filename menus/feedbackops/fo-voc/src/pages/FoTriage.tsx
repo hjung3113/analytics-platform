@@ -1,7 +1,7 @@
 import { PlatformPage } from '@ap/components';
-import { FoBridge, operatorHostLinks, triageRoute, useTriageHere, useTriageSearch } from '@ap/fo-bridge';
+import { FoBridge, RejectedPage, operatorHostLinks, triageRoute, useTriageHere, useTriageSearch } from '@ap/fo-bridge';
 import { TriageScreen } from '@fops/frontend/operator-screens/voc-triage';
-import { RejectedPage, useRejectedValue } from './RejectedPage';
+import { useRejectedValue } from './RejectedPage';
 
 /** Module level: `FoBridge` memoizes its seam on these identities. */
 const { canLink, Link, targetOf, useNavigate } = operatorHostLinks;

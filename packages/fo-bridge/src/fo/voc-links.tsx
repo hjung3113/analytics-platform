@@ -1,6 +1,7 @@
 import { hostLinks } from './links';
+import { UUID_PATTERN } from './uuid';
 
-export const VOC_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const VOC_ID = UUID_PATTERN;
 
 /**
  * The platform destination of the one FeedbackOps VOC path that is a reporter's own VOC: `/vocs?view=my&selected=<uuid>` and nothing else

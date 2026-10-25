@@ -1,5 +1,6 @@
 import { ClipboardList, ListTodo, MessagesSquare } from 'lucide-react';
 import { buildFeedbackOpsLink, ContractError, type FeedbackOpsTarget, type SpaceId } from '@ap/contracts';
+import { isUuid } from '@ap/fo-bridge';
 import type { FeedbackOpsEntry, FeedbackOpsSlot } from '@ap/kernel';
 import type { SPACES } from './menus';
 
@@ -16,13 +17,11 @@ export const FEEDBACKOPS_MANAGED_SYSTEMS: Readonly<Partial<Record<AppSpaceId, st
   metrics: '7a8b9c0d-1e2f-4a3b-9c4d-5e6f7a8b9c0d',
 };
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 /** The Managed System id of a space (ADR-0045), or null when it has no row or the id is not a UUID. The one lookup for the sidebar entries and the VOC 등록 form's default. */
 export function managedSystemFor(spaceId: string | null): string | null {
   if (spaceId === null) return null;
   const managedSystemId = (FEEDBACKOPS_MANAGED_SYSTEMS as Readonly<Record<string, string | undefined>>)[spaceId];
-  return managedSystemId !== undefined && UUID.test(managedSystemId) ? managedSystemId : null;
+  return managedSystemId !== undefined && isUuid(managedSystemId) ? managedSystemId : null;
 }
 
 type Back = { platformReturn?: string };

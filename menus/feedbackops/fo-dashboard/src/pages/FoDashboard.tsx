@@ -1,24 +1,24 @@
 import { PlatformPage } from '@ap/components';
-import { usePlatform } from '@ap/kernel';
+import { useI18n, usePlatform } from '@ap/kernel';
 import { Button } from '@ap/ui';
 import { RefreshCw } from 'lucide-react';
-import { FoBridge, foQueryClient, operatorHostLinks, useFoSession } from '@ap/fo-bridge';
+import { FoBridge, RejectedPage, foQueryClient, isUuid, operatorHostLinks, useFoSession } from '@ap/fo-bridge';
 import { DashboardScreen, refreshDashboard } from '@fops/frontend/operator-screens/dashboard';
 
 /** The dashboard reaches the survey menus, 내 VOC and the VOC 수신함/Triage queues; every other operator route stays non-interactive until its menu exists, and so does one whose menu this registry lacks. Module level: `FoBridge` memoizes on these identities. */
 export const dashboardLinks = operatorHostLinks;
 const { canLink, Link, targetOf } = dashboardLinks;
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-/** 대시보드 (ADR-0081, #759): FeedbackOps' operator dashboard through the bridge; the title is the manifest label. The `managedSystem` page key scopes it; a value that is not a uuid is not sent but stays in the URL (ADR-0071 decision 9). */
+/** 대시보드 (ADR-0081, #759): FeedbackOps' operator dashboard through the bridge; the title is the manifest label. The `managedSystem` page key scopes it; a value that is not a uuid (or is empty) is rejected and kept in the URL: `RejectedPage`, nothing mounted or requested (ADR-0071 decision 9, 06 §6.4). */
 export default function FoDashboard() {
   const { pageParam } = usePlatform();
+  const { lang } = useI18n();
   const session = useFoSession();
   const raw = pageParam('managedSystem');
-  const managedSystem = raw !== null && UUID.test(raw) ? raw : undefined;
+  if (raw !== null && !isUuid(raw)) return <RejectedPage rejected={{ key: 'managedSystem' }} />;
+  const managedSystem = raw ?? undefined;
   return <PlatformPage
-    primaryAction={<Button type="button" variant="secondary" size="sm" disabled={session.status !== 'ready'} onClick={() => refreshDashboard(foQueryClient, managedSystem)}><RefreshCw className="size-3.5" aria-hidden />새로고침</Button>}>
+    primaryAction={<Button type="button" variant="secondary" size="sm" disabled={session.status !== 'ready'} onClick={() => refreshDashboard(foQueryClient, managedSystem)}><RefreshCw className="size-3.5" aria-hidden />{lang === 'ko' ? '새로고침' : 'Refresh'}</Button>}>
     <FoBridge canLink={canLink} Link={Link} targetOf={targetOf}><DashboardScreen {...(managedSystem !== undefined ? { managedSystemId: managedSystem } : {})} /></FoBridge>
   </PlatformPage>;
 }

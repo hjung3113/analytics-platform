@@ -1,14 +1,15 @@
 import { hostLinks } from './links';
+import { UUID_PATTERN, isUuid } from './uuid';
 
-export const SURVEY_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const RESPOND = /^\/surveys\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/respond$/i;
+export const SURVEY_ID = UUID_PATTERN;
+const RESPOND = /^\/surveys\/([^/]+)\/respond$/i;
 
 /** The platform destination of a FeedbackOps survey path (query ignored), or null. */
 export function surveyTarget(to: string): { menuId: string; params?: Record<string, string> } | null {
   const path = to.split(/[?#]/)[0]!;
   if (path === '/surveys/participate') return { menuId: 'surveys' };
   const surveyId = RESPOND.exec(path)?.[1];
-  return surveyId === undefined ? null : { menuId: 'survey-respond', params: { surveyId } };
+  return surveyId === undefined || !isUuid(surveyId) ? null : { menuId: 'survey-respond', params: { surveyId } };
 }
 
 /** The only FeedbackOps targets with a platform destination (ADR-0071 decision 10, amended). */

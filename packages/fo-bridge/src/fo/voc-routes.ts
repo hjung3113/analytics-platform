@@ -1,6 +1,7 @@
 import { hostLinks } from './links';
 import { operatorRoute, routeHere, routeSearch } from './operator-route';
 import { surveyTarget } from './survey-links';
+import { UUID_PATTERN } from './uuid';
 import { vocListTarget, vocTarget } from './voc-links';
 
 /** 수신함: `/vocs?view=inbox`; FO `selected` is the platform `focus` (06 §13). */
@@ -33,7 +34,7 @@ export const clustersRoute = operatorRoute({
   menuId: 'fo-clusters',
   keys: { selected: 'focus', managedSystem: 'managedSystem' },
   foAbsent: { managedSystem: 'all' },
-  detailPath: { key: 'selected', pattern: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i },
+  detailPath: { key: 'selected', pattern: UUID_PATTERN },
 });
 
 /** Module-level hooks: `FoBridge` memoizes its seam on their identities (unrelated renders never rebuild it). */

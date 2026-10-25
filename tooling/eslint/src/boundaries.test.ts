@@ -581,6 +581,11 @@ rows.push(
   { file: `${FO_PKG}/home-todo-slot.tsx`, code: `import { x } from '${GLOBAL_SCREENS}';`, rule: 'no-restricted-imports', token: '@ap/ui' },
   { file: `${FO_PKG}/home-todo-slot.tsx`, code: `void import('${GLOBAL_SCREENS}');`, rule: 'ap/restricted-import-source', token: '@ap/ui' },
   { file: `${FO_PKG}/pages/HomeTodo.tsx`, code: `import { HomeTodoPanel } from '${GLOBAL_SCREENS}';`, rule: '' },
+  // The notifications panel entry: only a lazy page (and a bridge menu) may import it, never the eagerly loaded slot.
+  { file: `${FO_PKG}/pages/RecentInbox.tsx`, code: `import { InboxPanel } from '@fops/frontend/global-screens/inbox-panel';`, rule: '' },
+  { file: `${FO_PKG}/notifications-slot.tsx`, code: `import { InboxPanel } from '@fops/frontend/global-screens/inbox-panel';`, rule: 'no-restricted-imports', token: '@ap/ui' },
+  { file: `${FO_PKG}/notifications-slot.tsx`, code: `void import('@fops/frontend/global-screens/inbox-panel');`, rule: 'ap/restricted-import-source', token: '@ap/ui' },
+  { file: MENU, code: `import { InboxPanel } from '@fops/frontend/global-screens/inbox-panel';`, rule: 'no-restricted-imports', token: '@ap/ui' },
   { file: `${FO_PKG}/pages/HomeTodo.tsx`, code: `import { x } from '@fops/ui';`, rule: 'no-restricted-imports', token: '@ap/ui' },
   { file: `${FO_PKG}/fo/session.ts`, code: `import { x } from '@fops/frontend/global-screens/FoScreenRoot';`, rule: 'no-restricted-imports', token: '@ap/ui' },
   { file: `${FO_PKG}/fo/session.ts`, code: `import { x } from '@ap/shell';`, rule: 'no-restricted-imports' },

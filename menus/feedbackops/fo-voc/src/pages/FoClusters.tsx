@@ -1,9 +1,8 @@
 import { PlatformPage } from '@ap/components';
 import { usePlatform } from '@ap/kernel';
-import { FoBridge, clustersRoute, operatorHostLinks, useClustersHere, useClustersSearch } from '@ap/fo-bridge';
+import { FoBridge, RejectedPage, clustersRoute, operatorHostLinks, useClustersHere, useClustersSearch } from '@ap/fo-bridge';
 import { ClusterListScreen, isVocClustersSearchValueValid } from '@fops/frontend/operator-screens/voc-clusters';
 import { ClusterDetailDrawer } from './ClusterDetailDrawer';
-import { RejectedPage } from './RejectedPage';
 
 /** Module level: `FoBridge` memoizes its seam on these identities. */
 const { canLink, Link, targetOf, useNavigate } = operatorHostLinks;
