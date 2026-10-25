@@ -76,7 +76,11 @@ function useRouterNavigate(): HostNavigate {
           const next = { ...previous };
           for (const key of OWNED_KEYS) delete next[key];
           for (const [key, value] of location.searchParams) {
-            next[key] = String(previous[key]) === value ? previous[key] : value;
+            // Keep a parsed previous value only when it is the same value (763b/763l F1: never for an absent key).
+            next[key] =
+              previous[key] !== undefined && String(previous[key]) === value
+                ? previous[key]
+                : value;
           }
           return next;
         }) as never,
