@@ -29,6 +29,8 @@ export function useColumnPreferences(preferenceKey: string) {
     if (next) writeLocalStorage(next.key, JSON.stringify(next.value));
   }, []);
   useEffect(() => {
+    // A width still waiting for another key goes to that key first.
+    if (pending.current && pending.current.key !== preferenceKey) flush();
     const mode = write.current;
     write.current = null;
     if (mode === null) return;

@@ -41,3 +41,17 @@ it('a drag that loses its capture still saves where it stopped, and a press with
   fireEvent.lostPointerCapture(split);
   expect(change.mock.calls).toEqual([[[55, 45], true]]);
 });
+
+it('a splitter removed mid-drag saves where the drag stopped (#823)', () => {
+  const change = vi.fn();
+  const { unmount } = render(<PaneSplitter label="columns" controls="pane" value={50} bounds={{ min: 34, max: 66 }} extent={1000} placement={{ left: 0, top: 0, width: 12, height: 600 }} onChange={change} />);
+  const split = screen.getByRole('separator');
+  split.setPointerCapture = vi.fn(); split.hasPointerCapture = () => true; split.releasePointerCapture = vi.fn();
+  const pointer = (name: string, x: number) => {
+    const event = new MouseEvent(name, { bubbles: true, button: 0, clientX: x });
+    Object.defineProperty(event, 'pointerId', { value: 7 }); fireEvent(split, event);
+  };
+  pointer('pointerdown', 100); pointer('pointermove', 140); change.mockClear();
+  unmount();
+  expect(change.mock.calls).toEqual([[[54, 46], true]]);
+});

@@ -40,4 +40,12 @@ describe('column preference writes (#823)', () => {
     unmount();
     expect(JSON.parse(localStorage.getItem('t')!).sizing).toEqual({ a: 150 });
   });
+
+  it('a width waiting when the key changes is written to its own key (#823)', () => {
+    const { result, rerender } = renderHook(({ key }) => useColumnPreferences(key), { initialProps: { key: 'a' } });
+    act(() => { result.current.onColumnSizingChange({ c: 140 }); });
+    rerender({ key: 'b' });
+    act(() => { result.current.onColumnVisibilityChange({ c: false }); });
+    expect(JSON.parse(localStorage.getItem('a')!).sizing).toEqual({ c: 140 });
+  });
 });

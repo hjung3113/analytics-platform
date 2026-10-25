@@ -24,10 +24,16 @@ export function PaneSplitter({ horizontal, label, controls, value, bounds, exten
     drag.current = null;
     if (last !== undefined) onChange([last, 100 - last], true);
   };
+  // The latest `onChange` for the unmount cleanup below.
+  const latest = useRef(onChange);
+  useEffect(() => { latest.current = onChange; });
   useEffect(() => () => {
     const id = drag.current?.pointerId;
     if (id !== undefined && root.current?.hasPointerCapture(id)) root.current.releasePointerCapture(id);
+    // Unmounted mid-drag (the board re-keys its splitters when it turns stacked): save where the drag stopped.
+    const last = drag.current?.last;
     drag.current = null;
+    if (last !== undefined) latest.current([last, 100 - last], true);
   }, []);
   return <div ref={root} role="separator" tabIndex={0} aria-orientation={horizontal ? 'horizontal' : 'vertical'}
     aria-label={label} aria-controls={controls} aria-valuenow={value} aria-valuemin={bounds.min} aria-valuemax={bounds.max} style={{ '--split-left': `${placement.left}px`, '--split-top': `${placement.top}px`, '--split-width': `${placement.width}px`, '--split-height': `${placement.height}px` } as CSSProperties}
