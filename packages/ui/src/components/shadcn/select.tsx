@@ -5,7 +5,11 @@ import { Check, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '../../utils/cn.js';
 import { SELECT_CONTENT_MOTION } from '../../utils/motion.js';
 
-export const Select: React.FC<SelectPrimitive.SelectProps> = withScopedOverlay(SelectPrimitive.Root);
+const ScopedSelectRoot = withScopedOverlay(SelectPrimitive.Root);
+// Radix 2.3 replays onValueChange("") when a new value's item registers after the commit; "" is never a user choice (#644).
+export const Select: React.FC<SelectPrimitive.SelectProps> = ({ onValueChange, ...props }) => (
+  <ScopedSelectRoot {...props} onValueChange={onValueChange && (value => value !== '' && onValueChange(value))} />
+);
 export const SelectGroup = SelectPrimitive.Group;
 export const SelectValue = SelectPrimitive.Value;
 
