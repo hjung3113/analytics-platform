@@ -43,13 +43,6 @@ jobs:
         run: cat apps/platform-web/dist/assets/*.css > "$RUNNER_TEMP/head.css"
       - name: Check out base worktree (merge-base with target branch)
         run: git worktree add "$RUNNER_TEMP/base" "$(git merge-base HEAD "origin/${{ github.event.pull_request.base.ref }}")"
-      - name: Initialize the base FeedbackOps submodule (only while the base still has one)
-        # Bases that predate #592 have a gitlink at products/feedbackops; after it, the directory is plain files.
-        # Delete this step once no open PR's base predates #592.
-        run: |
-          if git -C "$RUNNER_TEMP/base" ls-files -s products/feedbackops | grep -q '^160000'; then
-            git -C "$RUNNER_TEMP/base" submodule update --init --depth 1 products/feedbackops
-          fi
       - name: Build base
         working-directory: ${{ runner.temp }}/base
         run: |

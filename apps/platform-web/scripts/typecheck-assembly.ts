@@ -42,8 +42,8 @@ export function checkTsconfig(appRoot = APP_ROOT): string {
 }
 
 /** Runs the check; returns tsc's output on failure, `null` on success. */
-export function typecheckAssembly(assemblyPath: string, appRoot = APP_ROOT): string | null {
-  const dir = mkdtempSync(join(tmpdir(), 'ap-assembly-check-'));
+export function typecheckAssembly(assemblyPath: string, appRoot = APP_ROOT, tmpRoot = tmpdir()): string | null {
+  const dir = mkdtempSync(join(tmpRoot, 'ap-assembly-check-'));
   try {
     // Only NODE_ENV is replaced by Vite; other Node process APIs must remain type errors.
     writeFileSync(join(dir, 'browser-process.d.ts'), 'declare const process: { env: { NODE_ENV?: string } };\n');

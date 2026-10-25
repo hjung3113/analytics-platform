@@ -1,5 +1,14 @@
 import { defineConfig } from '@playwright/test';
-const PORT = 4190;
+
+/** #809: concurrent checkouts pick their own port (`E2E_PORT=4290 pnpm e2e`). Whole-string integer 1..65535, else throw. */
+const parsePort = (name: string, fallback: number): number => {
+  const raw = process.env[name];
+  if (raw === undefined) return fallback;
+  const port = /^[0-9]+$/.test(raw) ? Number.parseInt(raw, 10) : 0;
+  if (port < 1 || port > 65535) throw new Error(`${name} must be an integer port in 1..65535, got ${JSON.stringify(raw)}`);
+  return port;
+};
+const PORT = parsePort('E2E_PORT', 4190);
 
 /**
  * Platform contract checks (#44): black-box against the assembled app on the mock adapter.

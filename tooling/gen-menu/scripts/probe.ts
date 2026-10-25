@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   GenMenuError, MOCK_ASSEMBLY_TSX, MENUS_TS, MOCK_IMPORTS_END, MOCK_IMPORTS_START, MOCK_SPREADS_END, MOCK_SPREADS_START,
   STYLE_CSS, APP_PKG, checkAppMarkers, ownedLine, pageName, resolveRoot, splitLines,
@@ -25,6 +26,7 @@ const MAIN = join(ROOT, MOCK_ASSEMBLY_TSX);
 const STYLE = join(ROOT, STYLE_CSS);
 const APP_PKG_PATH = join(ROOT, APP_PKG);
 const PACKAGE_DIR = join(ROOT, PROBE_PACKAGE_REL);
+const LOCKFILE = 'pnpm-lock.yaml';
 
 /** One source for the probe CLI call and every derived value the wiring checks restate (review nit-5). */
 const PROBE_ARGS = {
@@ -64,13 +66,22 @@ function restoreFile(path: string, snapshot: string): void {
   if (readFileSync(path, 'utf8') !== snapshot) writeFileSync(path, snapshot);
 }
 
-function buildRevertSteps(snapshots: { menus: string; main: string; style: string; appPkg: string }): RevertSteps {
+type Snapshots = { menus: string; main: string; style: string; appPkg: string; lock: string };
+
+/** `root` and `spawn` are injectable for the temp-root test (#805); the CLI uses the workspace root and spawnSync. */
+export function buildRevertSteps(snapshots: Snapshots, root = ROOT, spawn: typeof spawnSync = spawnSync): RevertSteps {
+  const menusPath = join(root, MENUS_TS);
+  const mainPath = join(root, MOCK_ASSEMBLY_TSX);
+  const stylePath = join(root, STYLE_CSS);
+  const appPkgPath = join(root, APP_PKG);
+  const lockPath = join(root, LOCKFILE);
+  const packageDir = join(root, PROBE_PACKAGE_REL);
   return {
     // (1) the probe test is owned by this run — preflight guaranteed it did not exist before.
-    deleteProbeTest: () => rmSync(join(ROOT, PROBE_TEST_REL), { force: true }),
+    deleteProbeTest: () => rmSync(join(root, PROBE_TEST_REL), { force: true }),
     // (2) --remove FIRST, while the genProbe GROUPS row still exists.
     remove: () => {
-      const res = spawnSync('pnpm', ['gen:menu', '--remove', 'genProbe'], { cwd: ROOT, encoding: 'utf8' });
+      const res = spawn('pnpm', ['gen:menu', '--remove', 'genProbe'], { cwd: root, encoding: 'utf8' });
       process.stderr.write(`${res.stdout ?? ''}${res.stderr ?? ''}`);
       if ((res.status ?? 1) !== 0) throw new GenMenuError(`--remove exited ${res.status}`);
     },
@@ -78,7 +89,7 @@ function buildRevertSteps(snapshots: { menus: string; main: string; style: strin
     // Each restore is attempted independently — one failure must not suppress the other.
     restoreHandEdits: () => {
       const failures: string[] = [];
-      for (const [path, snapshot] of [[MENUS, snapshots.menus]] as const) {
+      for (const [path, snapshot] of [[menusPath, snapshots.menus]] as const) {
         try {
           restoreFile(path, snapshot);
           if (readFileSync(path, 'utf8') !== snapshot) throw new GenMenuError(`${path} does not match its pre-run snapshot`);
@@ -93,10 +104,11 @@ function buildRevertSteps(snapshots: { menus: string; main: string; style: strin
     fallbackRestore: () => {
       const failures: string[] = [];
       const touched: [string, string][] = [
-        [MENUS, snapshots.menus],
-        [MAIN, snapshots.main],
-        [STYLE, snapshots.style],
-        [APP_PKG_PATH, snapshots.appPkg],
+        [menusPath, snapshots.menus],
+        [mainPath, snapshots.main],
+        [stylePath, snapshots.style],
+        [appPkgPath, snapshots.appPkg],
+        [lockPath, snapshots.lock],
       ];
       for (const [path, snapshot] of touched) {
         try {
@@ -106,20 +118,21 @@ function buildRevertSteps(snapshots: { menus: string; main: string; style: strin
         }
       }
       try {
-        rmSync(PACKAGE_DIR, { recursive: true, force: true });
+        rmSync(packageDir, { recursive: true, force: true });
       } catch (err) {
         failures.push(`${PROBE_PACKAGE_REL}: ${message(err)}`);
       }
       if (failures.length > 0) throw new GenMenuError(`fallback restore incomplete: ${failures.join('; ')}`);
     },
-    // (5)
+    // (5) the lockfile is restored first (both revert paths) and the install is frozen, so it cannot rewrite it (#805).
     install: () => {
-      const res = spawnSync('pnpm', ['install'], { cwd: ROOT, stdio: 'inherit' });
+      restoreFile(lockPath, snapshots.lock);
+      const res = spawn('pnpm', ['install', '--frozen-lockfile'], { cwd: root, stdio: 'inherit' });
       if (res.status !== 0) throw new GenMenuError(`pnpm install exited ${res.status}`);
     },
     // (6)
     cleanTree: () => {
-      const dirty = gitPorcelain(ROOT);
+      const dirty = gitPorcelain(root);
       if (dirty !== '') throw new GenMenuError(`tree not clean after revert:\n${dirty}`);
     },
     // (7) the wiring locks must pass on the restored tree with the probe env explicitly off.
@@ -136,6 +149,7 @@ function main(): { fallback: boolean; failures: { step: string; message: string 
     main: readFileSync(MAIN, 'utf8'),
     style: readFileSync(STYLE, 'utf8'),
     appPkg: readFileSync(APP_PKG_PATH, 'utf8'),
+    lock: readFileSync(join(ROOT, LOCKFILE), 'utf8'),
   };
   let gateError: unknown;
   let outcome: RevertOutcome | undefined;
@@ -194,10 +208,12 @@ function verifyGeneratedScaffold(): void {
   console.log('probe: generated endpoints/mock + mock-assembly.tsx mock registration (genProbe + analytics) verified');
 }
 
-try {
-  main();
-  console.log('probe: OK — tree is clean');
-} catch (err) {
-  console.error(message(err));
-  process.exit(1);
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  try {
+    main();
+    console.log('probe: OK — tree is clean');
+  } catch (err) {
+    console.error(message(err));
+    process.exit(1);
+  }
 }
