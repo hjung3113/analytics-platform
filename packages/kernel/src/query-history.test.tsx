@@ -320,16 +320,17 @@ it('masks ready rows while the same Scope re-validates without a render loop, th
   expect(errors.mock.calls.flat().join(' ')).not.toMatch(/Maximum update depth|Too many re-renders/);
   errors.mockRestore();
 });
-it('a descendant layout effect calling open() in the commit where the same Scope became valid acts on the new input (#824 F2)', async () => {
+it('a descendant layout effect calling restore() in the commit where the same Scope became valid acts on the new input (#824 F2)', async () => {
   const session = testSession(['platform:view']);
   let hold: ReturnType<typeof deferred<{ status: 'valid'; grantedRooms: string[] }>> | null = null;
   const validateScope = vi.fn(() => hold ? hold.promise : Promise.resolve({ status: 'valid' as const, grantedRooms: [] }));
   const list = vi.fn(async () => [entry(buildQuery({ ...global, scopeId: 'MEM' }))]);
   const store: QueryHistoryStore = { list, record: async () => {}, remove: async () => {}, clear: async () => {} };
   let openOnValid = false;
+  let restored: Promise<boolean> | null = null;
   function Opener() {
     const value = useQueryHistory(); const host = useHostPlatform();
-    useLayoutEffect(() => { if (openOnValid && host.scope.status === 'valid') { openOnValid = false; value.open(); } });
+    useLayoutEffect(() => { if (openOnValid && host.scope.status === 'valid') { openOnValid = false; restored = value.restore(value.entries[0]); } });
     return null;
   }
   window.history.replaceState(null, '', '/?scopeId=MEM');
@@ -340,7 +341,7 @@ it('a descendant layout effect calling open() in the commit where the same Scope
   expect(screen.scope.status).toBe('validating');
   openOnValid = true;
   await act(async () => hold!.resolve({ status: 'valid', grantedRooms: [] }));
-  // The open() issued in the layout effect of the `valid` commit validated the entry under `valid`; a call on the earlier `validating` input would leave it checking.
-  await waitFor(() => expect(history.entries[0]?.status).toBe('ready'));
+  // A restore() issued in the layout effect of the `valid` commit sees the `valid` Scope; on the earlier `validating` input it would return false.
   expect(openOnValid).toBe(false);
+  expect(await restored).toBe(true);
 });
