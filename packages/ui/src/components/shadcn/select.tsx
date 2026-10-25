@@ -29,13 +29,12 @@ export const Select: React.FC<SelectPrimitive.SelectProps> = ({ onValueChange, .
   return (
     <ScopedSelectRoot
       {...props}
-      onValueChange={
-        onValueChange &&
-        (next => {
+      {...(onValueChange && {
+        onValueChange: (next: string) => {
           if (next === '' && replayWindow.current && value) return;
           onValueChange(next);
-        })
-      }
+        },
+      })}
     />
   );
 };
