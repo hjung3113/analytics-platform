@@ -5019,6 +5019,9 @@ test.describe('조건 묶음 (06 §6.4·§11, ADR-0083)', () => {
     await first.getByRole('button', { name: '조회 조건 펼치기' }).click();
     await switcher(page).getByRole('radio', { name: '조직 기준' }).click();
     await expect(switcher(page).getByRole('radio', { name: '조직 기준' })).toBeChecked();
+    // Close pane 1's popover first: it overlays the board and would take the next click.
+    await page.keyboard.press('Escape');
+    await expect(switcher(page)).toHaveCount(0);
     await page.getByRole('button', { name: '칸 2 선택' }).click();
     await page.getByRole('region', { name: '칸 2 · 분석 Context' }).getByRole('button', { name: '조회 조건 펼치기' }).click();
     await expect(switcher(page).getByRole('radio', { name: '설비 기준' })).toBeChecked();
