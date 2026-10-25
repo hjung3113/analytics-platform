@@ -25,6 +25,8 @@ export interface UseTaskRequestDecisionArgs {
   item: TaskRequestDto;
   currentActorId: string | null;
   currentRole: string | null;
+  /** Called after the approve toast action navigates, so the queue follows the reopened request. */
+  onReopen?: ((id: string) => void) | undefined;
 }
 
 export interface UseTaskRequestDecisionResult {
@@ -52,6 +54,7 @@ export function useTaskRequestDecision({
   item,
   currentActorId,
   currentRole,
+  onReopen,
 }: UseTaskRequestDecisionArgs): UseTaskRequestDecisionResult {
   const queryClient = useQueryClient();
   const navigate = useHostNavigate();
@@ -120,6 +123,7 @@ export function useTaskRequestDecision({
                 label: TASK_REQUEST_COPY.convertToTask,
                 onAction: () => {
                   navigate(href);
+                  onReopen?.(item.id);
                 },
               },
             }

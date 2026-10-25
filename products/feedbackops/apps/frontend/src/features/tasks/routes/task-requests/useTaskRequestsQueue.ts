@@ -52,6 +52,8 @@ export interface UseTaskRequestsQueueResult {
   hasError: boolean;
   refetch: () => void;
   onDecisionComplete: (item: TaskRequestDto) => void;
+  /** The decided request is opened again from outside the queue (the approve toast action). */
+  reopenRequest: (id: string) => void;
   hasMore: boolean;
   loadingMore: boolean;
   loadMoreError: boolean;
@@ -184,6 +186,16 @@ export function useTaskRequestsQueue({
   React.useEffect(() => {
     followedParam.current = { param: selectedParam, consumed: false };
   }, [selectedParam]);
+  // The router may still be settling the decision's own selection clear when the toast action navigates back
+  // to the same id; the URL then never leaves that id, so the local close and the consumed tab follow would hold.
+  const reopenRequest = React.useCallback(
+    (id: string) => {
+      setCompletedDecision(null);
+      followedParam.current = { param: selectedParam, consumed: false };
+      setLocalSelectedId(id);
+    },
+    [selectedParam, setLocalSelectedId],
+  );
   React.useEffect(() => {
     if (
       selectedParam === undefined ||
@@ -441,6 +453,7 @@ export function useTaskRequestsQueue({
       void summaryQuery.refetch();
     },
     onDecisionComplete,
+    reopenRequest,
     hasMore: taskRequestsQuery.hasNextPage,
     loadingMore: taskRequestsQuery.isFetchingNextPage,
     loadMoreError: taskRequestsQuery.isFetchNextPageError,

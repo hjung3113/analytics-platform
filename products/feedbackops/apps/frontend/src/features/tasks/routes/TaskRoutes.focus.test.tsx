@@ -225,16 +225,24 @@ function DetailPanelHost({ children }: { children: React.ReactNode }) {
     </DetailPanelSlotProvider>
   );
 }
-function createTasksRouter(view: string, host: (children: React.ReactNode) => React.ReactNode) {
+let slowLoad = 0;
+function createTasksRouter(
+  view: string,
+  host: (children: React.ReactNode) => React.ReactNode,
+  query = `managedSystem=${scope}&`,
+) {
   const root = createRootRoute();
   const route = createRoute({
     getParentRoute: () => root,
     path: '/tasks',
     validateSearch: validateTasksSearch,
+    beforeLoad: async () => {
+      await new Promise((resolve) => setTimeout(resolve, slowLoad));
+    },
     component: () => host(<TasksRouteView search={route.useSearch()} />),
   });
   const history = createMemoryHistory({
-    initialEntries: [`/tasks?view=${view}&managedSystem=${scope}&param=${request.id}`],
+    initialEntries: [`/tasks?view=${view}&${query}param=${request.id}`],
   });
   const router = createRouter({
     routeTree: root.addChildren([route]),
@@ -822,3 +830,92 @@ it('opens the converted Task from the persistent toast action through the real r
     success.mockRestore();
   }
 });
+
+// The route load is slow, as in the real app (beforeLoad reads), so the click lands while the decision's own
+// selection clear is still settling: the URL never leaves the request id.
+it.each([10, 60])(
+  'reopens the approved request from the toast action %ims after the only pending request left the queue',
+  async (clickDelay) => {
+    slowLoad = 100;
+    let rows: TaskRequestDto[] = [request];
+    const approved: TaskRequestDto = { ...request, status: 'approved' };
+    const fetch = vi.spyOn(api, 'fetchTaskRequests').mockImplementation(async (query) => {
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      return taskRequestPage(
+        rows.filter((row) => !query?.status || row.status === query.status),
+        query,
+      );
+    });
+    const detail = vi
+      .spyOn(api, 'getTaskRequest')
+      .mockImplementation(async () => rows[0] ?? request);
+    const mutation = vi.spyOn(api, 'approveTaskRequest').mockImplementation(async () => {
+      rows = [approved];
+      return approved;
+    });
+    const areas = vi
+      .spyOn(areasApi, 'fetchAnalyticsAreas')
+      .mockResolvedValue({ items: [], total: 0 });
+    const success = vi.spyOn(toast, 'success');
+    const user = userEvent.setup();
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { router } = createTasksRouter(
+      'requests',
+      (children) => (
+        <AppFrame
+          activeDomain="tasks"
+          sidebarEntries={[
+            { id: 'requests', label: 'Task Requests', href: '/tasks?view=requests' },
+          ]}
+        >
+          {children}
+        </AppFrame>
+      ),
+      '',
+    );
+    try {
+      render(
+        <QueryClientProvider client={client}>
+          <RouterProvider router={router} />
+        </QueryClientProvider>,
+      );
+      await screen.findByRole('heading', { name: '검토 결정' });
+      await user.click(screen.getByRole('button', { name: '승인' }));
+      const dialog = await screen.findByRole('dialog');
+      await user.type(within(dialog).getByRole('textbox'), '검토 완료');
+      await user.click(within(dialog).getByRole('button', { name: '승인' }));
+      await waitFor(() => expect(success).toHaveBeenCalledTimes(1));
+      const action = success.mock.calls[0]?.[1]?.action;
+      if (!action || typeof action !== 'object' || !('onClick' in action))
+        throw new Error('Expected a toast action');
+      await new Promise((resolve) => setTimeout(resolve, clickDelay));
+      await act(async () => {
+        action.onClick({} as never);
+      });
+      await waitFor(() =>
+        expect(router.state.location.search).toMatchObject({
+          view: 'requests',
+          param: request.id,
+        }),
+      );
+      await waitFor(
+        () =>
+          expect(screen.getByRole('tab', { name: /^승인됨/, hidden: true })).toHaveAttribute(
+            'aria-selected',
+            'true',
+          ),
+        { timeout: 3000 },
+      );
+      expect(router.state.location.search.param).toBe(request.id);
+    } finally {
+      slowLoad = 0;
+      cleanup();
+      client.clear();
+      fetch.mockRestore();
+      detail.mockRestore();
+      mutation.mockRestore();
+      areas.mockRestore();
+      success.mockRestore();
+    }
+  },
+);
