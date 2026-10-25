@@ -1,6 +1,7 @@
 import { mapUnknownError } from '@/lib/api/errorMapper';
 import { updateTaskStatus } from '@/lib/api/tasks';
 import { ApiError } from '@/lib/api/types';
+import { useHostSeam } from '@/lib/host/host-seam';
 import { invalidateRecovery } from '@/lib/query/recovery';
 import type { ListTasksResponse, TaskDto, TaskStatus } from '@fops/shared';
 import {
@@ -12,7 +13,6 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import * as React from 'react';
-import { toast } from 'sonner';
 import { TASK_BOARD_STATUS_COLUMNS } from './useTaskBoardData';
 
 function uuid(): string {
@@ -120,6 +120,7 @@ function locate(
 
 export function useTaskStatusTransition(caches: TaskBoardCaches, scopeKey = '') {
   const client = useQueryClient();
+  const { notifyError } = useHostSeam();
   const mutationTokens = React.useRef(new Map<string, number>());
   const pendingDeltas = React.useRef(new Set<Delta>());
   const deferredRefetch = React.useRef(false);
@@ -333,7 +334,7 @@ export function useTaskStatusTransition(caches: TaskBoardCaches, scopeKey = '') 
       if (error instanceof ApiError && error.code === 'conflict.stale_write' && latest) {
         invalidateLists();
       }
-      toast.error(mapUnknownError(error).message);
+      notifyError(mapUnknownError(error).message);
     },
     onSuccess: (_data, _variables, context) => {
       if (context) pendingDeltas.current.delete(context);
