@@ -107,16 +107,16 @@ it('has no switcher and no carried chip on a menu without presets', async () => 
   expect(screen.queryByRole('group', { name: '전달된 조건' })).toBeNull();
 });
 
-it('the disclosure trigger keeps its name and shows a chevron that follows aria-expanded', () => {
+it('the disclosure trigger keeps its name and shows a chevron that follows aria-expanded (DESIGN.md: ∨ expands, ⌃ collapses)', () => {
   mount(period);
   const open = screen.getByRole('button', { name: '조회 조건 접기' });
   expect(open).toHaveAttribute('aria-expanded', 'true');
   expect(open).toHaveTextContent('조회 조건');
-  expect(open.querySelector('svg.lucide-chevron-down')).toHaveAttribute('aria-hidden', 'true');
+  expect(open.querySelector('svg.lucide-chevron-up')).toHaveAttribute('aria-hidden', 'true');
   fireEvent.click(open);
   const closed = screen.getByRole('button', { name: '조회 조건 펼치기' });
   expect(closed).toHaveAttribute('aria-expanded', 'false');
-  expect(closed.querySelector('svg.lucide-chevron-right')).toBeTruthy();
+  expect(closed.querySelector('svg.lucide-chevron-down')).toBeTruthy();
 });
 
 it('board pane: same switcher and notice in the popover, the draft stays per pane, chevron on the trigger', async () => {
@@ -127,11 +127,11 @@ it('board pane: same switcher and notice in the popover, the draft stays per pan
     <PaneQueryDraftProvider screens={screens}><PaneScreenProvider paneId="p1" screen={screens.p1} onChange={() => {}} onLeave={() => {}}><Probe /><GlobalContextBar /></PaneScreenProvider></PaneQueryDraftProvider>
   </PlatformProvider></I18nProvider>);
   const trigger = screen.getByRole('button', { name: '조회 조건 펼치기' });
-  expect(trigger.querySelector('svg.lucide-chevron-right')).toBeTruthy();
+  expect(trigger.querySelector('svg.lucide-chevron-down')).toBeTruthy();
   fireEvent.click(trigger);
   const switcher = await screen.findByRole('radiogroup', { name: '조건 묶음' });
   expect(within(switcher).getByRole('radio', { name: '설비 기준' })).toBeChecked();
-  expect(screen.getByRole('button', { name: '조회 조건 접기' }).querySelector('svg.lucide-chevron-down')).toBeTruthy();
+  expect(screen.getByRole('button', { name: '조회 조건 접기' }).querySelector('svg.lucide-chevron-up')).toBeTruthy();
   act(() => { fireEvent.click(within(switcher).getByRole('radio', { name: '조직 기준' })); });
   expect(draft.draft.page).toEqual([['view', 'org']]);
   expect(screen.getAllByText('조건 묶음: 조직 기준. 1개 조건은 이 보기에서 미적용입니다.')).toHaveLength(1);
