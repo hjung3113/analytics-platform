@@ -47,7 +47,7 @@ describe('managedSystemFor', () => {
 });
 
 describe('feedbackOpsSlot', () => {
-  it.each(['analytics', 'metrics'] as const)('draws three entries for %s, in order, scoped to that space only: VOC in the shell, Task and 설문 as new-tab links', space => {
+  it.each(['analytics', 'metrics'] as const)('draws three entries for %s, in order, scoped to that space only: VOC and Task in the shell, only 설문 as a new-tab link', space => {
     const entries = feedbackOpsSlot(F).entriesFor(spaceId(space))!;
     const uuid = FEEDBACKOPS_MANAGED_SYSTEMS[space]!;
     expect(entries.map(entry => entry.key)).toEqual(['voc', 'task', 'survey']);
@@ -55,21 +55,19 @@ describe('feedbackOpsSlot', () => {
       { ko: 'VOC', en: 'VOC' }, { ko: 'Task', en: 'Tasks' }, { ko: '설문', en: 'Surveys' },
     ]);
     expect(entries[0]).toMatchObject({ menuId: 'fo-inbox', page: { managedSystem: uuid } });
-    expect('href' in entries[0]!).toBe(false);
-    expect(entries.slice(1).map(hrefOf)).toEqual([
-      `${F}/tasks?managedSystem=${uuid}`,
-      `${F}/surveys?managedSystem=${uuid}`,
-    ]);
-    for (const entry of entries.slice(1)) {
+    expect(entries[1]).toMatchObject({ menuId: 'fo-task-list', page: { managedSystem: uuid } });
+    expect('href' in entries[0]! || 'href' in entries[1]!).toBe(false);
+    expect(entries.slice(2).map(hrefOf)).toEqual([`${F}/surveys?managedSystem=${uuid}`]);
+    for (const entry of entries.slice(2)) {
       expect(new URL(hrefOf(entry)!).searchParams.getAll('managedSystem')).toEqual([uuid]);
       expect(hrefOf(entry)).not.toContain('managedSystem=all');
     }
   });
 
-  it('carries the page it was drawn on as platformReturn on the new-tab entries (FO ADR-0071)', () => {
+  it('carries the page it was drawn on as platformReturn on the new-tab entry (FO ADR-0071)', () => {
     const back = 'https://platform.example/analytics/cycle-time?v=1&scopeId=MEM';
     const entries = feedbackOpsSlot(F).entriesFor(spaceId('analytics'), back)!;
-    for (const entry of entries.slice(1)) expect(new URL(hrefOf(entry)!).searchParams.getAll('platformReturn')).toEqual([back]);
+    for (const entry of entries.slice(2)) expect(new URL(hrefOf(entry)!).searchParams.getAll('platformReturn')).toEqual([back]);
     expect(feedbackOpsSlot(F).overall!.href).toBe(`${F}/home`);
   });
 
@@ -90,12 +88,13 @@ describe('feedbackOpsSlot', () => {
     ['absent', null],
     ['non-https non-loopback', 'http://example.com'],
     ['with a path', 'https://feedbackops.example/app'],
-  ])('keeps the three mapped entries, the new-tab ones disabled (href null), and hides overall when the origin is %s', (_name, origin) => {
+  ])('keeps the three mapped entries, the new-tab one disabled (href null), and hides overall when the origin is %s', (_name, origin) => {
     const slot = feedbackOpsSlot(origin);
-    // VOC is in-shell and needs no FeedbackOps address; Task and 설문 are disabled.
+    // VOC and Task are in-shell and need no FeedbackOps address; 설문 is disabled.
     const entries = slot.entriesFor(spaceId('analytics'))!;
-    expect(entries.map(hrefOf)).toEqual([undefined, null, null]);
+    expect(entries.map(hrefOf)).toEqual([undefined, undefined, null]);
     expect(entries[0]).toMatchObject({ menuId: 'fo-inbox' });
+    expect(entries[1]).toMatchObject({ menuId: 'fo-task-list', page: { managedSystem: FEEDBACKOPS_MANAGED_SYSTEMS.analytics } });
     expect(slot.entriesFor(spaceId('operations'))).toBeNull();
     expect(slot.overall).toBeNull();
   });

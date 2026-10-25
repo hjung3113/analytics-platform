@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { operatorHostLinks } from './voc-routes';
+import { operatorHostLinks } from './operator-links';
 import {
   milestonesRoute,
   myTasksRoute,
@@ -118,8 +118,16 @@ describe('taskOperatorTargets', () => {
     expect(menuOf(`/tasks?view=inbox&param=${TASK}`)).toEqual(['fo-task-list']);
   });
 
-  it('is not wired into operatorHostLinks yet', () => {
-    expect(operatorHostLinks.targetOf('/tasks?view=board')).toBeNull();
-    expect(operatorHostLinks.targetOf(`/tasks?param=${TASK}`)).toBeNull();
+  it('wires board, list and 내 Task into operatorHostLinks; Task Requests and Milestones stay unlinked until #763 p2', () => {
+    const { targetOf } = operatorHostLinks;
+    expect(targetOf(`/tasks?param=${TASK}`)).toEqual({ menuId: 'fo-task-list', page: { focus: TASK } });
+    expect(targetOf('/tasks?view=board&param=')).toEqual({ menuId: 'fo-tasks', page: {} });
+    expect(targetOf('/tasks?view=backlog&reporter_update=needed')).toEqual({ menuId: 'fo-task-list', page: { reporterUpdate: 'needed' } });
+    expect(targetOf(`/tasks?view=board&public_update=missing&managedSystem=${SYSTEM}`)).toEqual({ menuId: 'fo-tasks', page: { publicUpdate: 'missing', managedSystem: SYSTEM } });
+    expect(targetOf('/tasks?view=inbox')).toEqual({ menuId: 'fo-task-list', page: {} });
+    expect(targetOf('/tasks?view=my')?.menuId).toBe('fo-my-tasks');
+    expect(targetOf('/tasks?view=requests&param=x')).toBeNull();
+    expect(targetOf('/tasks?view=milestones')).toBeNull();
+    expect(targetOf('/findings')).toBeNull();
   });
 });

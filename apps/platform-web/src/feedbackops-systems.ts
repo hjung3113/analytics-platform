@@ -25,9 +25,11 @@ export function managedSystemFor(spaceId: string | null): string | null {
 }
 
 type Back = { platformReturn?: string };
-const ENTRIES: readonly { key: FeedbackOpsEntry['key']; label: FeedbackOpsEntry['label']; icon: FeedbackOpsEntry['icon']; target: (managedSystemId: string, back: Back) => FeedbackOpsTarget }[] = [
-  { key: 'voc', icon: MessagesSquare, label: { ko: 'VOC', en: 'VOC' }, target: (managedSystemId, back) => ({ kind: 'voc-list', managedSystemId, ...back }) },
-  { key: 'task', icon: ListTodo, label: { ko: 'Task', en: 'Tasks' }, target: (managedSystemId, back) => ({ kind: 'task-list', managedSystemId, ...back }) },
+/** One bottom-block entry: either an in-shell menu (`menuId`, opened with the space's Managed System) or a FeedbackOps new-tab `target`. */
+type Row = Pick<FeedbackOpsEntry, 'key' | 'label' | 'icon'> & ({ menuId: string } | { target: (managedSystemId: string, back: Back) => FeedbackOpsTarget });
+const ENTRIES: readonly Row[] = [
+  { key: 'voc', icon: MessagesSquare, label: { ko: 'VOC', en: 'VOC' }, menuId: 'fo-inbox' },
+  { key: 'task', icon: ListTodo, label: { ko: 'Task', en: 'Tasks' }, menuId: 'fo-task-list' },
   { key: 'survey', icon: ClipboardList, label: { ko: '설문', en: 'Surveys' }, target: (managedSystemId, back) => ({ kind: 'survey-list', managedSystemId, ...back }) },
 ];
 
@@ -40,7 +42,7 @@ function hrefOrNull(origin: string | null, target: FeedbackOpsTarget): string | 
   }
 }
 
-/** The FeedbackOps slot for the app. Entries come only from the mapping above; new-tab links come only from `buildFeedbackOpsLink`. VOC opens in the shell (#760); Task and 설문 follow with #763/#764. */
+/** The FeedbackOps slot for the app. Entries come only from the mapping above; new-tab links come only from `buildFeedbackOpsLink`. VOC (#760) and Task (#763) open in the shell; 설문 stays a new-tab link until #764. */
 export function feedbackOpsSlot(origin: string | null): FeedbackOpsSlot {
   const overallHref = hrefOrNull(origin, { kind: 'overall' });
   return {
@@ -48,9 +50,9 @@ export function feedbackOpsSlot(origin: string | null): FeedbackOpsSlot {
       const managedSystemId = managedSystemFor(spaceId);
       if (managedSystemId === null) return null;
       const back: Back = platformReturn === undefined ? {} : { platformReturn };
-      return ENTRIES.map(({ key, label, icon, target }): FeedbackOpsEntry => key === 'voc'
-        ? { key, label, icon, menuId: 'fo-inbox', page: { managedSystem: managedSystemId } }
-        : { key, label, icon, href: hrefOrNull(origin, target(managedSystemId, back)) });
+      return ENTRIES.map((row): FeedbackOpsEntry => 'menuId' in row
+        ? { key: row.key, label: row.label, icon: row.icon, menuId: row.menuId, page: { managedSystem: managedSystemId } }
+        : { key: row.key, label: row.label, icon: row.icon, href: hrefOrNull(origin, row.target(managedSystemId, back)) });
     },
     permission: 'feedbackops:access',
     overall: overallHref === null ? null : { href: overallHref, permission: 'feedbackops:access' },
