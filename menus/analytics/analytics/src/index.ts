@@ -15,7 +15,7 @@ export const manifests: MenuEntry[] = [
     id: 'chart-catalog', group: GROUP, label: { ko: '차트 카탈로그', en: 'Chart catalog' },
     description: { ko: '차트 종류별 동작과 지원 조건을 확인합니다.', en: 'Explore chart interactions and support conditions.' },
     path: '/analytics/chart-catalog', icon: Activity, permission: PERMISSION, requiresScope: true, pageType: 'analysis',
-    context: contextCapabilities({ time: 'apply' }), features: { export: true, savedView: false, annotate: true, compare: true }, pageKeys: ['kind', 'node'],
+    context: contextCapabilities({ time: 'apply' }), features: { export: true, savedView: false, annotate: true, compare: true }, pageKeys: ['kind', 'node'], contextResetKeys: ['node'],
     component: lazy(() => import('./pages/chart-catalog/ChartCatalog')),
   },
   {

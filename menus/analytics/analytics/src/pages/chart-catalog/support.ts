@@ -23,15 +23,17 @@ export function supportFor(kind: CatalogKind, features: Features | undefined): S
   const unavailable = { ko: '이 종류의 차트 계약에서 제공하지 않음', en: 'Not provided by this chart kind' };
   const featureOff = { ko: '메뉴 기능이 꺼져 있음', en: 'Disabled by the menu features' };
   return [
-    cell('zoom', { ko: 'Zoom', en: 'Zoom' }, frame || lane || breakdown ? 'supported' : 'unsupported', frame || lane ? noReason : unavailable),
-    cell('selection', { ko: 'Brush·선택', en: 'Brush / selection' }, 'supported', lane ? { ko: '클릭·방향키·Enter로 구간 선택, Escape로 해제', en: 'Click or arrows/Enter to select; Escape to clear' } : frame || breakdown
+    cell('zoom', { ko: 'Zoom', en: 'Zoom' }, frame || lane || breakdown ? 'supported' : 'unsupported', frame || lane || breakdown ? noReason : unavailable),
+    cell('selection', { ko: 'Brush·선택', en: 'Brush / selection' }, 'supported', lane ? { ko: '클릭·방향키·Enter로 구간 선택, Escape로 해제', en: 'Click or arrows/Enter to select; Escape to clear' } : breakdown
+      ? { ko: '구간 선택으로 범주 구간 끌기(시간 입력은 시간 축 전용)', en: 'Drag a category range with Brush (time inputs are for time axes only)' }
+      : frame
       ? { ko: '구간 끌기·키보드 시간 입력', en: 'Drag a range or use time inputs' }
       : kind === 'donut' || kind === 'boxPlot'
         ? { ko: '클릭·표 체크박스로 한 항목 선택', en: 'Select one item by click or table checkbox' }
         : { ko: '클릭·표 체크박스로 다중 선택', en: 'Select multiple items by click or table checkboxes' }),
     cell('reset', { ko: 'Reset', en: 'Reset' }, 'supported'),
     cell('compare', { ko: 'Compare', en: 'Compare' }, frame && features?.compare ? 'supported' : 'unsupported', frame ? features?.compare ? { ko: '이전 동일 기간 시리즈 제공', en: 'Previous equal-period series supplied' } : featureOff : unavailable),
-    cell('annotate', { ko: 'Annotate', en: 'Annotate' }, frame && features?.annotate ? 'conditional' : 'unsupported', frame ? features?.annotate ? { ko: 'Scope·구간 선택 후 주석 작성', en: 'Requires Scope and a selected range' } : featureOff : unavailable),
+    cell('annotate', { ko: 'Annotate', en: 'Annotate' }, (frame || breakdown) && features?.annotate ? 'conditional' : 'unsupported', frame || breakdown ? features?.annotate ? { ko: 'Scope·구간 선택 후 주석 작성', en: 'Requires Scope and a selected range' } : featureOff : unavailable),
     cell('export', { ko: 'Export', en: 'Export' }, !lane && features?.export ? 'supported' : 'unsupported', lane ? unavailable : features?.export ? noReason : featureOff),
     cell('drill', { ko: 'Drill', en: 'Drill' }, breakdown ? 'supported' : frame || lane ? 'unsupported' : 'conditional', breakdown
       ? { ko: '범례 트리에서 Enter로 단계 이동, 보이는 시리즈는 유지', en: 'Enter in the legend tree moves to that level; visible series are kept' }
