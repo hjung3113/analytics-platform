@@ -138,3 +138,37 @@ it('board pane: same switcher and notice in the popover, the draft stays per pan
   expect(screen.getByText(/^편집 중 조건 · .*조건 묶음 조직 기준/)).toBeTruthy();
   expect(screen.getByText(/^적용 조건 · .*조건 묶음 설비 기준/)).toBeTruthy();
 });
+
+const notice = '조건 묶음: 조직 기준. 1개 조건은 이 보기에서 미적용입니다.';
+
+it('page: Revert and Reset empty the status, so the same switch updates the live region again', async () => {
+  mount(period + groupParam(condition));
+  await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+  for (const restore of ['되돌리기', '초기화']) {
+    const status = screen.getByRole('radiogroup', { name: '조건 묶음' }).parentElement!.querySelector('[role="status"]')!;
+    fireEvent.click(screen.getByRole('radio', { name: '조직 기준' }));
+    expect(status).toHaveTextContent(notice);
+    fireEvent.click(screen.getAllByRole('button', { name: restore })[0]);
+    expect(screen.getByRole('radio', { name: '설비 기준' })).toBeChecked();
+    expect(status).toBeEmptyDOMElement();
+  }
+});
+
+it('board pane: Revert empties the status before the same switch sets it again', async () => {
+  const screens = { p1: { menuId: 'home', params: {}, query: `?${period}${groupParam(condition)}` } };
+  const session = testSession(['platform:view']);
+  window.history.replaceState(null, '', '/');
+  render(<I18nProvider><PlatformProvider registry={registryOf()} equipmentAxes={axes} adapter={testAdapter({ session: () => session, menuQuery: send as never })}>
+    <PaneQueryDraftProvider screens={screens}><PaneScreenProvider paneId="p1" screen={screens.p1} onChange={() => {}} onLeave={() => {}}><Probe /><GlobalContextBar /></PaneScreenProvider></PaneQueryDraftProvider>
+  </PlatformProvider></I18nProvider>);
+  fireEvent.click(screen.getByRole('button', { name: '조회 조건 펼치기' }));
+  const switcher = await screen.findByRole('radiogroup', { name: '조건 묶음' });
+  const status = switcher.parentElement!.querySelector('[role="status"]')!;
+  fireEvent.click(within(switcher).getByRole('radio', { name: '조직 기준' }));
+  expect(status).toHaveTextContent(notice);
+  fireEvent.click(screen.getByRole('button', { name: '되돌리기' }));
+  expect(within(switcher).getByRole('radio', { name: '설비 기준' })).toBeChecked();
+  expect(status).toBeEmptyDOMElement();
+  fireEvent.click(within(switcher).getByRole('radio', { name: '조직 기준' }));
+  expect(status).toHaveTextContent(notice);
+});

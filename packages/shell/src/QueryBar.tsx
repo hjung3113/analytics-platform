@@ -38,7 +38,7 @@ function QueryBarSession({ label, historySlot }: QueryBarProps) {
     return readLocalStorage(preference, v => v !== 'true', true);
   });
   const [editError, setEditError] = useState<string | null>(null);
-  const [presetNotice, setPresetNotice] = useState('');
+  const [presetNotice, setPresetNotice] = useState({ id: '', text: '' });
   const conditionPreset = useConditionPreset();
   useLayoutEffect(() => {
     if (expanded && focusFirst.current) editor.current?.querySelector<HTMLElement>('button:not(:disabled), input:not(:disabled)')?.focus();
@@ -116,7 +116,7 @@ function QueryBarSession({ label, historySlot }: QueryBarProps) {
     const nextPreset = switcher.presets.find(item => item.id === next);
     const left = nextPreset ? Object.keys(g.condition ?? {}).filter(axis => g.condition?.[axis]?.length && !nextPreset.axes.includes(axis)).length : 0;
     const name = nextPreset?.label[lang] ?? next;
-    setPresetNotice(ko ? `조건 묶음: ${name}.${left ? ` ${left}개 조건은 이 보기에서 미적용입니다.` : ''}` : `Condition set: ${name}.${left ? ` ${left} conditions are not applied in this view.` : ''}`);
+    setPresetNotice({ id: next, text: ko ? `조건 묶음: ${name}.${left ? ` ${left}개 조건은 이 보기에서 미적용입니다.` : ''}` : `Condition set: ${name}.${left ? ` ${left} conditions are not applied in this view.` : ''}` });
   };
   const content = <div ref={editor} id={`${id}-editor`} className="grid min-w-0 gap-2 p-2" onKeyDown={event => {
     // Child Radix popovers handle their first Escape before it reaches this inline surface.
@@ -137,7 +137,7 @@ function QueryBarSession({ label, historySlot }: QueryBarProps) {
         {switcher && <div className="grid basis-full gap-1 text-xs text-text-secondary">
           <span id={`${id}-preset`}>{ko ? '조건 묶음' : 'Condition set'}</span>
           <SegmentedRadio label={ko ? '조건 묶음' : 'Condition set'} labelledBy={`${id}-preset`} value={switcher.activeId} onChange={switchPreset} options={switcher.presets.map(item => ({ value: item.id, label: item.label[lang] }))} />
-          <p role="status" className="sr-only">{presetNotice}</p>
+          <p role="status" className="sr-only">{presetNotice.id === switcher.activeId ? presetNotice.text : ''}</p>
         </div>}
         {cap.condition === 'apply' && equipmentAxes.filter(axis => !activePreset || activePreset.axes.includes(axis.id)).map(axis => <AxisField key={axis.id} axisId={axis.id} name={tx(axis.label)} values={g.condition?.[axis.id] ? [...g.condition[axis.id]] : null} context={context} parents={axis.dependsOn && g.condition?.[axis.dependsOn] ? { [axis.dependsOn]: [...g.condition[axis.dependsOn]] } : {}} invalid={invalid('condition')} reasonId={reasonId} onChange={values => {
           const next = { ...g.condition };

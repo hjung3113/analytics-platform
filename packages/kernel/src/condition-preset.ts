@@ -5,7 +5,7 @@ import type { MenuEntry } from './registry';
 type PresetMenu = Pick<MenuEntry, 'conditionPresets' | 'conditionPreset'> | null | undefined;
 
 /**
- * The preset a page value names. Without a (known) page value the first declared preset whose axes cover every non-empty axis of `condition`,
+ * The preset a page value names. Only with an absent page value (an unknown explicit id takes the default) the first declared preset whose axes cover every non-empty axis of `condition`,
  * else the menu's default, so the URL alone decides it. Null for a menu without presets (06 §6.4, ADR-0083).
  */
 export function activeConditionPreset(menu: PresetMenu, page: readonly Pair[], condition: Condition | null = null): ConditionPreset | null {
