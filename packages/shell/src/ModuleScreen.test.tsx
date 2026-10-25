@@ -19,6 +19,10 @@ type Call = { request: MenuQuery; signal: AbortSignal | undefined; resolve: (row
 const spy: { hosts: ModuleHost[] } = { hosts: [] };
 const SpyList = (props: ModuleScreenProps) => { spy.hosts.push(props.host); return <ListScreen {...props} />; };
 const BareItem = () => <p>bare item</p>;
+const BareControls = ({ host }: ModuleScreenProps) => <>
+  <p>bare item</p>
+  <button type="button" onClick={() => host.status('unavailable')}>go down</button>
+</>;
 
 function SlotHost() {
   const slot = useDetailPanelSlotHost();
@@ -306,6 +310,43 @@ describe('ModuleScreen arrival focus (06 §26, ADR-0032)', () => {
     expect(screen.getByRole('heading', { name: 'Fixture list' })).not.toHaveFocus();
     act(() => view.seen.platform.setPaletteOpen(false));
     expect(screen.getByRole('heading', { name: 'Fixture list' })).toHaveFocus();
+  });
+
+  it('lands a pending arrival on the page heading when the screen is on a status view at release', () => {
+    const view = mount('/?v=1');
+    act(() => view.seen.platform.setPaletteOpen(true));
+    view.go('/fixture?v=1', 'page');
+    click('server down');
+    expect(screen.getByText('지금 이 화면을 열 수 없습니다')).toBeTruthy();
+    act(() => view.seen.platform.setPaletteOpen(false));
+    expect(screen.getByRole('heading', { level: 1, name: 'list' })).toHaveFocus();
+  });
+
+  it('lands a pending arrival once on the new instance\'s target after status and Retry', () => {
+    const view = mount('/?v=1');
+    act(() => view.seen.platform.setPaletteOpen(true));
+    view.go('/fixture?v=1', 'page');
+    click('server down');
+    click('다시 시도');
+    const fresh = screen.getByRole('heading', { name: 'Fixture list' });
+    const focus = vi.spyOn(fresh, 'focus');
+    expect(fresh).not.toHaveFocus();
+    act(() => view.seen.platform.setPaletteOpen(false));
+    expect(fresh).toHaveFocus();
+    expect(focus).toHaveBeenCalledTimes(1);
+  });
+
+  it('lands a pending arrival once on the page heading after status and Retry when the new instance registers no target', () => {
+    const view = mount('/?v=1', { item: BareControls });
+    act(() => view.seen.platform.setPaletteOpen(true));
+    view.go('/fixture/items/a1?v=1', 'page');
+    click('go down');
+    click('다시 시도');
+    const heading = screen.getByRole('heading', { level: 1, name: 'item' });
+    const focus = vi.spyOn(heading, 'focus');
+    act(() => view.seen.platform.setPaletteOpen(false));
+    expect(heading).toHaveFocus();
+    expect(focus).toHaveBeenCalledTimes(1);
   });
 
   it('subscribes for a delayed release and unsubscribes on unmount', () => {
