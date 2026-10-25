@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { buildQuery, emptyGlobal, incompleteMetricPair, missingRequiredContext, parseQuery, sameGlobal, shift, type EquipmentAxisDescriptor, type GlobalContext, type Pair, type PlatformAdapter, type Session } from '@ap/contracts';
 import { createHistoryState, useScreenHistory, canonicalHistoryQuery, historyChanged } from './query-history';
 import { queryHistoryId, type QueryHistoryStore, type QueryHistoryKey, type QueryHistoryEntry } from '@ap/contracts';
@@ -108,12 +108,13 @@ export function useScreenDraft(rawInput: DraftInputs) {
       });
     }
   });
-  const replace = (values: Values) => {
+  const replace = useCallback((values: Values) => {
     const previous = reconcile(store.get(), input);
     const next = normalize(input, values);
     store.put({ ...previous, draft: next, pageBasis: next.global, lastRestoreRevision: previous.editRevision + 1, editRevision: previous.editRevision + 1, historyInitialized: true });
-  };
-  const queryHistory = useScreenHistory(input, store, values => normalize(input, values), replace);
+  }, [store, input]);
+  const normalizeFor = useCallback((values: Values) => normalize(input, values), [input]);
+  const queryHistory = useScreenHistory(input, store, normalizeFor, replace);
   const queryDraft = useMemo((): QueryDraft => draftApi(input, store, reconcile(snapshot, input), active), [input, store, snapshot, active]);
   return { queryHistory, queryDraft };
 }

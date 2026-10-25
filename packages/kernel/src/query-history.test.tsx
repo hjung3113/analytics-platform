@@ -2,7 +2,7 @@ import { act, cleanup, render, waitFor } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { defineEndpoint, buildQuery, emptyGlobal, type QueryHistoryEntry, type QueryHistoryStore, groupId, spaceId } from '@ap/contracts';
-import { useState } from 'react';
+import { useLayoutEffect, useState } from 'react';
 import { useMenuQuery } from './query';
 import { PaneQueryDraftProvider, PaneScreenProvider, type PaneScreen, PlatformProvider, useHostPlatform } from './platform';
 import { useQueryHistory } from './query-history';
@@ -295,4 +295,52 @@ it('preserves restored reset-key provenance after an older pane Apply acknowledg
   act(() => screen.queryDraft.apply());
   expect(changed).toHaveBeenCalledTimes(2);
   expect(changed.mock.calls[1][0].query).toBe(buildQuery(restored, [['page', '7']]));
+});
+
+const scopedRegistry = () => createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: [{ ...menu, requiresScope: true }] });
+it('masks ready rows while the same Scope re-validates without a render loop, then shows them again (#824 F1)', async () => {
+  const session = testSession(['platform:view']);
+  let hold: ReturnType<typeof deferred<{ status: 'valid'; grantedRooms: string[] }>> | null = null;
+  const validateScope = vi.fn(() => hold ? hold.promise : Promise.resolve({ status: 'valid' as const, grantedRooms: ['PHOTO'] }));
+  const store: QueryHistoryStore = { list: async () => [entry(buildQuery({ ...global, scopeId: 'MEM' }, [['filter', 'PRIVATE']]))], record: async () => {}, remove: async () => {}, clear: async () => {} };
+  const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+  window.history.replaceState(null, '', '/?scopeId=MEM');
+  const view = render(<I18nProvider><PlatformProvider registry={scopedRegistry()} adapter={testAdapter({ session: () => session, validateScope })} queryHistory={store}><Probe /></PlatformProvider></I18nProvider>);
+  await waitFor(() => expect(history.entries[0]?.status).toBe('ready'));
+  hold = deferred();
+  act(() => screen.retryScope());
+  expect(screen.scope.status).toBe('validating');
+  expect(history.entries[0]).toMatchObject({ status: 'loading', reason: 'checking' });
+  expect(view.container.innerHTML).not.toContain('PRIVATE');
+  const masked = history.entries[0];
+  await act(async () => {});
+  expect(history.entries[0]).toBe(masked);
+  await act(async () => hold!.resolve({ status: 'valid', grantedRooms: ['PHOTO'] }));
+  await waitFor(() => expect(history.entries[0]?.status).toBe('ready'));
+  expect(errors.mock.calls.flat().join(' ')).not.toMatch(/Maximum update depth|Too many re-renders/);
+  errors.mockRestore();
+});
+it('a descendant layout effect calling open() in the commit where the same Scope became valid acts on the new input (#824 F2)', async () => {
+  const session = testSession(['platform:view']);
+  let hold: ReturnType<typeof deferred<{ status: 'valid'; grantedRooms: string[] }>> | null = null;
+  const validateScope = vi.fn(() => hold ? hold.promise : Promise.resolve({ status: 'valid' as const, grantedRooms: [] }));
+  const list = vi.fn(async () => [entry(buildQuery({ ...global, scopeId: 'MEM' }))]);
+  const store: QueryHistoryStore = { list, record: async () => {}, remove: async () => {}, clear: async () => {} };
+  let openOnValid = false;
+  function Opener() {
+    const value = useQueryHistory(); const host = useHostPlatform();
+    useLayoutEffect(() => { if (openOnValid && host.scope.status === 'valid') { openOnValid = false; value.open(); } });
+    return null;
+  }
+  window.history.replaceState(null, '', '/?scopeId=MEM');
+  render(<I18nProvider><PlatformProvider registry={scopedRegistry()} adapter={testAdapter({ session: () => session, validateScope })} queryHistory={store}><Probe /><Opener /></PlatformProvider></I18nProvider>);
+  await waitFor(() => expect(history.status).toBe('ready'));
+  hold = deferred();
+  act(() => screen.retryScope());
+  expect(screen.scope.status).toBe('validating');
+  openOnValid = true;
+  await act(async () => hold!.resolve({ status: 'valid', grantedRooms: [] }));
+  // The open() issued in the layout effect of the `valid` commit validated the entry under `valid`; a call on the earlier `validating` input would leave it checking.
+  await waitFor(() => expect(history.entries[0]?.status).toBe('ready'));
+  expect(openOnValid).toBe(false);
 });

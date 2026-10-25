@@ -74,12 +74,23 @@ describe('menu and pane consumers are not woken by shell-only state', () => {
     ['toast', () => { menu.toast('hello'); }],
     ['dismissToast', () => { menu.dismissToast(1); }],
     ['palette open', () => { hostSnapshot.setPaletteOpen(true); }],
-    ['palette close', () => { hostSnapshot.setPaletteOpen(false); }],
     ['switcher open', () => { hostSnapshot.setSwitcherOpen(true); }],
-    ['switcher close', () => { hostSnapshot.setSwitcherOpen(false); }],
   ])('%s renders no menu and no pane consumer', (_name, action) => {
     mount();
     const delta = measure(action);
+    expect(delta.menu).toBe(0);
+    expect(delta.pane).toBe(0);
+  });
+
+  it.each([
+    ['palette', () => hostSnapshot.setPaletteOpen(true), () => hostSnapshot.setPaletteOpen(false), () => overlay.paletteOpen],
+    ['switcher', () => hostSnapshot.setSwitcherOpen(true), () => hostSnapshot.setSwitcherOpen(false), () => overlay.switcherOpen],
+  ])('%s close (after a real open) renders no menu and no pane consumer', (_name, open, close, isOpen) => {
+    mount();
+    act(() => { open(); });
+    expect(isOpen()).toBe(true);
+    const delta = measure(() => { close(); });
+    expect(isOpen()).toBe(false);
     expect(delta.menu).toBe(0);
     expect(delta.pane).toBe(0);
   });
