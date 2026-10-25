@@ -164,7 +164,7 @@ export type ModuleHost = {
 };
 ```
 
-호스트가 모듈 화면에 그리는 틀(#804): 화면은 `PlatformPage`(페이지 머리·Context 바·Scope 게이트)로 감싸 그려지고 상태 화면도 같은 틀의 본문이며, `detail.show`는 `DetailDrawer`(탭 하나 `상세`)에 올라간다. 알려진 한계: ① 셸에서 상세를 닫아도 모듈은 알림을 받지 못한다(계약 1에 닫힘 콜백이 없다). ② 도착 때 상세를 다시 여는 모듈은 포커스가 닫기 버튼으로 간다. ③ 모듈 화면은 `layout="fill"`을 고를 수 없다(항상 `flow`). 모듈 상세의 URL 보존은 범위 밖이다.
+호스트가 모듈 화면에 그리는 틀(#804): 화면은 `PlatformPage`(호스트가 그리는 제목 줄·Context 바·Scope 게이트, 모듈 화면은 페이지 머리 슬롯 내용을 넘기지 않음)로 감싸 그려지고 상태 화면도 같은 틀의 본문이며, `detail.show`는 `DetailDrawer`(탭 하나 `상세`)에 올라간다. 알려진 한계: ① 셸에서 상세를 닫아도 모듈은 알림을 받지 못한다(계약 1에 닫힘 콜백이 없다). ② 도착 때 상세를 다시 여는 모듈은 포커스가 닫기 버튼으로 간다. ③ 모듈 화면은 `layout="fill"`을 고를 수 없다(항상 `flow`). 모듈 상세의 URL 보존은 범위 밖이다.
 
 Kernel 쪽(React)은 `mountModule(manifest, components, { prefix, groupSpace, config, icons })` 같은 등록 함수가 `MenuEntry[]`·`GroupDef[]`를 만들고, 화면을 `{ params, host }`로 렌더하는 래퍼를 둔다(추정 — 지금 `RouteOutlet`이 `<Page params>`를 그리는 자리). 플랫폼 자기 메뉴는 지금처럼 `usePlatform()`을 계속 쓴다 — 포트는 **다른 저장소 모듈 전용 경계**이고 견본 메뉴를 옮기지 않는다.
 
