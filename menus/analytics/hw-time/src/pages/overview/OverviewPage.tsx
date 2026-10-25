@@ -13,6 +13,7 @@ import type { ThemeColorToken } from '@ap/ui/theme';
 import { HW_TIME_MAX_TREND_ROWS, HW_TIME_UNIT, isHwTimeRowId, type HwTimeBlock, type HwTimeDrill, type HwTimeLevelData } from '../../endpoints';
 import { useHwTimeLevel, useHwTimeTrend } from '../../shared/data';
 import { formatSeconds, missingText } from '../../shared/format';
+import { selectionCounts } from '../../shared/selectionCounts';
 import { RankingPanel } from '../../shared/panels/RankingPanel';
 import { StackPanel, type StackSort } from '../../shared/panels/StackPanel';
 import { TrendPanel } from '../../shared/panels/TrendPanel';
@@ -72,6 +73,10 @@ export default function OverviewPage(_props: PageProps) {
   const drill = useDrill();
   const module = drill.levels[0]?.value ?? null;
   const motion = drill.levels[1]?.value ?? null;
+  // Tree drill does what the chart segment click does at this level: Module at L1, Motion at L2, and at L3 a switch to another Motion.
+  const drillTo = (id: string) => drill.enter(drill.depth === 0 ? 'drillModule' : 'drillMotion', id);
+  // Only L3 has a drilled node among the series; at L2 the Module is not one of the Motion nodes.
+  const currentId = drill.depth === 2 ? motion : null;
   const params: HwTimeDrill = { ...(module ? { drillModule: module } : {}), ...(module && motion ? { drillMotion: motion } : {}) };
   const levelQ = useHwTimeLevel(params, drill.invalid === null);
 
@@ -97,9 +102,7 @@ export default function OverviewPage(_props: PageProps) {
   const response = levelQ.response?.outcome === 'ok' ? levelQ.response.data : null;
   const context: HwTimeBlock | null = response ? (response.level === 2 ? response.context ?? response : response) : null;
   const detail: HwTimeBlock | null = response?.level === 2 ? response.detail ?? EMPTY_BLOCK : null;
-  const dataRows = context?.rows.filter(item => !item.auxiliary) ?? [];
-  const selected = new Set(dataRows.map(item => item.equipmentId)).size;
-  const evaluated = new Set(dataRows.filter(item => Object.values(item.values).some(value => value !== null)).map(item => item.equipmentId)).size;
+  const counts = context ? selectionCounts(context) : null;
 
   const addTrend = (rowId: string) => {
     if (!isHwTimeRowId(rowId) || trendRows.includes(rowId)) return;
@@ -131,9 +134,9 @@ export default function OverviewPage(_props: PageProps) {
   const sections: InspectorSection[] = [
     {
       id: 'target', title: { ko: '분석 대상', en: 'Target' }, icon: Target,
-      summary: context ? { ko: `선택 ${selected} · 평가 ${evaluated}`, en: `Selected ${selected} · Evaluated ${evaluated}` } : undefined,
-      render: () => context
-        ? <p className="t-caption text-text-secondary">{ko ? `선택 ${selected} · 평가 ${evaluated}` : `Selected ${selected} · Evaluated ${evaluated}`}</p>
+      summary: counts ?? undefined,
+      render: () => counts
+        ? <p className="t-caption text-text-secondary">{counts[lang]}</p>
         : <p className="t-caption text-text-muted">{ko ? '불러오는 중입니다.' : 'Loading.'}</p>,
     },
     {
@@ -194,7 +197,8 @@ export default function OverviewPage(_props: PageProps) {
         nodes={legendSeries.map(item => ({ id: item.id, label: item.name, color: item.color as ThemeColorToken }))}
         visible={new Set(visibleIds)}
         onVisibleChange={next => setHiddenState({ key: levelKey, ids: legendSeries.map(item => item.id).filter(id => !next.has(id)) })}
-        emptyText={ko ? '표시할 범례가 없습니다.' : 'No legend to show.'} />
+        onDrill={drillTo} currentId={currentId}
+          emptyText={ko ? '표시할 범례가 없습니다.' : 'No legend to show.'} />
     </div>,
   };
   const rankingPanel = (block: HwTimeBlock): PanelWorkspacePanel => ({

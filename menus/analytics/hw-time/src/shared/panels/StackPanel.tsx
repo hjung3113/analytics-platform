@@ -89,7 +89,7 @@ export function StackPanel({ chartId, title, block, visibleSeriesIds, onVisibleS
         const rowId = byLabel.get(category);
         if (rowId) onActiveRowChange(rowId, how);
       })}
-      legend={false} isPointSelectable={isPointSelectable} startAlign={startAlign} minMax={minMax}
+      legend={false} valueLabels="both" reaggregation="sum" isPointSelectable={isPointSelectable} startAlign={startAlign} minMax={minMax}
       series={series} unit={HW_TIME_UNIT[lang]} valueFormat={formatSeconds} canApplyRange={false}
       visibleSeriesIds={visibleSeriesIds} onVisibleSeriesChange={onVisibleSeriesChange}
       pointActivation={onActivate ? { on: 'click', onActivate: point => { const rowId = rowOf(point); if (rowId) onActivate({ seriesId: point.seriesId, rowId }); } } : undefined}

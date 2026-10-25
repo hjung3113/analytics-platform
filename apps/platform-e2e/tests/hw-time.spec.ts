@@ -82,4 +82,29 @@ test.describe('HW Time 메뉴 4종 — 드릴 · 작업 영역 · 보드 (06 §1
       await evidence(page, testInfo, `${menu.id}-board-pane`);
     });
   }
+
+  for (const menu of MENUS.filter(item => item.entry === 'chart')) {
+    test(`${menu.label}: L1 합계 라벨, 범례 트리 Enter로 L2, 현재 노드 aria-current`, async ({ page }) => {
+      await page.goto(`${menu.path}?v=1&scopeId=MEM`);
+      await expectScopeValid(page, 'MEM · 메모리');
+      // The Frame's accessible table carries the 합계 column only when the chart draws totals (valueLabels, additive seconds).
+      const chart = page.getByRole('main').locator('section[aria-label]').filter({ has: page.getByRole('button', { name: '더보기', exact: true }) }).first();
+      await chart.getByRole('button', { name: '더보기', exact: true }).click();
+      await page.getByRole('button', { name: '같은 데이터를 표로 보기' }).click();
+      await expect(page.getByRole('columnheader', { name: '합계', exact: true }).first()).toBeVisible();
+      await page.keyboard.press('Escape');
+      const tree = page.getByRole('tree', { name: '계층 범례' });
+      // The compare and overview Inspectors are rails: the legend of compare opens from its button, overview has the legend panel.
+      if (menu.id === 'hw-time-compare') await page.getByRole('button', { name: '계층 범례' }).click();
+      await tree.getByRole('treeitem', { name: new RegExp(MODULE) }).focus();
+      await page.keyboard.press('Enter');
+      await expect.poll(() => query(page).get('drillModule')).toBe(MODULE);
+      expect(query(page).has('drillMotion')).toBe(false);
+      if (menu.id === 'hw-time-compare') await page.getByRole('button', { name: '계층 범례' }).click();
+      await tree.getByRole('treeitem', { name: new RegExp(MOTION) }).focus();
+      await page.keyboard.press('Enter');
+      await expect.poll(() => query(page).get('drillMotion')).toBe(MOTION);
+      await expect(tree.getByRole('treeitem', { name: new RegExp(MOTION) })).toHaveAttribute('aria-current', 'true');
+    });
+  }
 });
