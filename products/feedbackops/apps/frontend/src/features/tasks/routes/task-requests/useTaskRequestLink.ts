@@ -1,11 +1,12 @@
-import { fetchPermissionCheck, linkExistingTask, listTasks } from '@/lib/api';
 import { mapUnknownError } from '@/lib/api/errorMapper';
+import { fetchPermissionCheckViaClient } from '@/lib/api/permission-reads';
+import { linkExistingTask, listTasks } from '@/lib/api/tasks';
 import type { ApiError } from '@/lib/api/types';
+import { useHostSeam } from '@/lib/host/host-seam';
 import { invalidateNavCounts } from '@/lib/query/navCounts';
 import type { TaskDto, TaskRequestDto } from '@fops/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
-import { toast } from 'sonner';
 
 import { canLinkExistingTaskRequest } from './predicates';
 
@@ -35,6 +36,7 @@ export function useTaskRequestLink({
   currentRole,
 }: UseTaskRequestLinkArgs): UseTaskRequestLinkResult {
   const queryClient = useQueryClient();
+  const { notifyError, notifySuccess } = useHostSeam();
   const [linkOpen, setLinkOpen] = React.useState(false);
   const lastItemRef = React.useRef(item);
 
@@ -47,7 +49,7 @@ export function useTaskRequestLink({
   const manageCheck = useQuery({
     queryKey: ['permission-check', 'finding.manage', item.primary_managed_system_id],
     queryFn: ({ signal }) =>
-      fetchPermissionCheck('finding.manage', {
+      fetchPermissionCheckViaClient('finding.manage', {
         managedSystemId: item.primary_managed_system_id,
         signal,
       }),
@@ -81,11 +83,11 @@ export function useTaskRequestLink({
       void queryClient.invalidateQueries({ queryKey: ['home-pending-task-requests'] });
       void queryClient.invalidateQueries({ queryKey: ['home-my-tasks'] });
       void queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      toast.success(`Task ${task.display_id}을 연결했습니다.`);
+      notifySuccess(`Task ${task.display_id}을 연결했습니다.`);
       setLinkOpen(false);
     },
     onError: (err) => {
-      toast.error(mapUnknownError(err).message);
+      notifyError(mapUnknownError(err).message);
     },
   });
 

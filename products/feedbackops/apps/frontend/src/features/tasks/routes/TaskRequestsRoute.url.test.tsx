@@ -1,6 +1,8 @@
 import { fetchTaskRequests, getTaskRequest, resolveActors } from '@/lib/api';
+import * as barrel from '@/lib/api';
 import { fetchManagedSystems } from '@/lib/api/managed-systems';
 import { ApiError } from '@/lib/api/types';
+import { useMe } from '@/lib/auth/useMe';
 import { parseAppSearch, stringifyAppSearch } from '@/lib/router/search-serialization';
 import { TasksRouteView, validateTasksSearch } from '@/routes/_authed/tasks';
 import { type TaskRequestDto, listTaskRequestsQuerySchema } from '@fops/shared';
@@ -30,6 +32,23 @@ vi.mock('@/lib/api', async (original) => ({
   fetchTaskRequests: vi.fn(),
   getTaskRequest: vi.fn(),
   resolveActors: vi.fn(),
+}));
+// The hooks import the module paths; forward at call time so the barrel fakes above still apply.
+vi.mock('@/lib/api/task-requests', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/task-requests')>()),
+  fetchTaskRequests: (...args: Parameters<typeof barrel.fetchTaskRequests>) =>
+    barrel.fetchTaskRequests(...args),
+  getTaskRequest: (...args: Parameters<typeof barrel.getTaskRequest>) =>
+    barrel.getTaskRequest(...args),
+}));
+vi.mock('@/lib/api/actors', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/actors')>()),
+  resolveActors: (...args: Parameters<typeof barrel.resolveActors>) =>
+    barrel.resolveActors(...args),
+}));
+vi.mock('@/lib/api/me', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/me')>()),
+  useMeBridge: () => useMe(),
 }));
 vi.mock('@/lib/auth/useMe', () => ({
   useMe: () => ({ data: { actor: { id: 'actor', role_level: 'admin' } } }),

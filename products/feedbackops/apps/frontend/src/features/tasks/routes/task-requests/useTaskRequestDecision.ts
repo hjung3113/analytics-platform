@@ -1,18 +1,18 @@
+import { mapUnknownError } from '@/lib/api/errorMapper';
+import { fetchPermissionCheckViaClient } from '@/lib/api/permission-reads';
 import {
   approveTaskRequest,
-  fetchPermissionCheck,
   rejectTaskRequest,
   requestMoreEvidenceForTaskRequest,
-} from '@/lib/api';
-import { mapUnknownError } from '@/lib/api/errorMapper';
+} from '@/lib/api/task-requests';
 import type { ApiError } from '@/lib/api/types';
 import { TASK_REQUEST_COPY } from '@/lib/copy/task-requests';
+import { useHostNavigate, useHostNotice, useHostSeam } from '@/lib/host/host-seam';
+import { searchHref } from '@/lib/host/search';
 import { invalidateNavCounts } from '@/lib/query/navCounts';
 import type { TaskRequestDto } from '@fops/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
 import * as React from 'react';
-import { toast } from 'sonner';
 
 import type { DecisionDialogState } from './TaskRequestDecisionDialog';
 import {
@@ -54,7 +54,9 @@ export function useTaskRequestDecision({
   currentRole,
 }: UseTaskRequestDecisionArgs): UseTaskRequestDecisionResult {
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
+  const navigate = useHostNavigate();
+  const { notify } = useHostNotice();
+  const { canLink, notifyError } = useHostSeam();
   const isSelfApproval = currentActorId === item.requester_actor_id;
   const [decisionDialog, setDecisionDialog] = React.useState<DecisionDialogState | null>(null);
   const [isDecisionSubmitting, setIsDecisionSubmitting] = React.useState(false);
@@ -72,7 +74,7 @@ export function useTaskRequestDecision({
   const selfApprovalCheck = useQuery({
     queryKey: ['permission-check', 'task_request.self_approve', item.primary_managed_system_id],
     queryFn: ({ signal }) =>
-      fetchPermissionCheck('task_request.self_approve', {
+      fetchPermissionCheckViaClient('task_request.self_approve', {
         managedSystemId: item.primary_managed_system_id,
         signal,
       }),
@@ -108,19 +110,21 @@ export function useTaskRequestDecision({
       void queryClient.invalidateQueries({ queryKey: ['task-request'] });
       void queryClient.invalidateQueries({ queryKey: ['home-pending-task-requests'] });
       void queryClient.invalidateQueries({ queryKey: ['home-my-tasks'] });
-      toast.success(
-        TASK_REQUEST_COPY.decisions[variables.action],
-        variables.action === 'approve'
+      const href = searchHref('/tasks', { view: 'requests', param: item.id });
+      notify({
+        tone: 'success',
+        message: TASK_REQUEST_COPY.decisions[variables.action],
+        ...(variables.action === 'approve' && canLink(href)
           ? {
               action: {
                 label: TASK_REQUEST_COPY.convertToTask,
-                onClick: () => {
-                  void navigate({ to: '/tasks', search: { view: 'requests', param: item.id } });
+                onAction: () => {
+                  navigate(href);
                 },
               },
             }
-          : {},
-      );
+          : {}),
+      });
     },
     onError: (err) => {
       decisionSubmittingRef.current = false;
@@ -130,7 +134,7 @@ export function useTaskRequestDecision({
       const message = mapUnknownError(err).message;
       setDecisionDialog((current) => {
         if (current) return { ...current, error: message, reasonInvalid: err.status !== 429 };
-        toast.error(message);
+        notifyError(message);
         return current;
       });
     },
@@ -138,7 +142,7 @@ export function useTaskRequestDecision({
 
   function approve(): void {
     if (isSelfApproval && !canSelfApprove) {
-      toast.error('본인 승인에는 범위가 지정된 권한이 필요합니다.');
+      notifyError('본인 승인에는 범위가 지정된 권한이 필요합니다.');
       return;
     }
     setDecisionDialog({ requestId: item.id, action: 'approve', value: '', error: null });

@@ -1,7 +1,8 @@
-import { fetchTaskRequests, getTaskRequest, resolveActors } from '@/lib/api';
+import { resolveActors } from '@/lib/api/actors';
 import { mapUnknownError } from '@/lib/api/errorMapper';
+import { useMeBridge } from '@/lib/api/me';
+import { fetchTaskRequests, getTaskRequest } from '@/lib/api/task-requests';
 import { ApiError } from '@/lib/api/types';
-import { useMe } from '@/lib/auth/useMe';
 import { TASK_REQUEST_STATUS_LABELS } from '@/lib/copy/enum-labels';
 import { GLOSSARY } from '@/lib/copy/glossary';
 import type { ListTaskRequestsResponse } from '@fops/shared';
@@ -71,7 +72,7 @@ export function useTaskRequestsQueue({
   onSelectionChange?: ((id: string | null, replace: boolean) => void) | undefined;
 }): UseTaskRequestsQueueResult {
   const queryClient = useQueryClient();
-  const meQuery = useMe();
+  const meQuery = useMeBridge();
   const [activeTab, setActiveTab] = React.useState<TaskRequestTab>('pending_review');
   const [completedDecision, setCompletedDecision] = React.useState<{
     item: TaskRequestDto;

@@ -1,11 +1,15 @@
-import { convertTaskRequest, fetchPermissionCheck, resolveActors } from '@/lib/api';
+import { resolveActors } from '@/lib/api/actors';
 import { GENERIC_ERROR_MESSAGE, mapUnknownError } from '@/lib/api/errorMapper';
 import { listMilestones } from '@/lib/api/milestones';
+import { fetchPermissionCheckViaClient } from '@/lib/api/permission-reads';
+import { convertTaskRequest } from '@/lib/api/tasks';
 import { isPermissionDenied } from '@/lib/api/types';
 import { GLOSSARY } from '@/lib/copy/glossary';
 import { TASK_REQUEST_COPY } from '@/lib/copy/task-requests';
 import { analyticsAreasCatalogQuery } from '@/lib/cross-system/analyticsAreasCatalog';
 import { zodIssueMessage } from '@/lib/forms/zodIssueMessage';
+import { useHostNavigate, useHostNotice, useHostSeam } from '@/lib/host/host-seam';
+import { searchHref } from '@/lib/host/search';
 import { invalidateNavCounts } from '@/lib/query/navCounts';
 import {
   type MilestoneDto,
@@ -16,9 +20,7 @@ import {
   taskPrioritySchema,
 } from '@fops/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
 import * as React from 'react';
-import { toast } from 'sonner';
 
 import { TASK_TITLE_MAX_LENGTH, canConvertTaskRequest, defaultConvertTitle } from './predicates';
 
@@ -88,7 +90,9 @@ export function useTaskRequestConversion({
   defaultAnalyticsAreaResolved = true,
 }: UseTaskRequestConversionArgs): UseTaskRequestConversionResult {
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
+  const navigate = useHostNavigate();
+  const { notify } = useHostNotice();
+  const { canLink, notifyError } = useHostSeam();
   const itemRef = React.useRef(item);
   React.useEffect(() => {
     itemRef.current = item;
@@ -135,7 +139,7 @@ export function useTaskRequestConversion({
   const manageCheck = useQuery({
     queryKey: ['permission-check', 'finding.manage', item.primary_managed_system_id],
     queryFn: ({ signal }) =>
-      fetchPermissionCheck('finding.manage', {
+      fetchPermissionCheckViaClient('finding.manage', {
         managedSystemId: item.primary_managed_system_id,
         signal,
       }),
@@ -299,19 +303,26 @@ export function useTaskRequestConversion({
               ?.display_name ?? GLOSSARY.unknownUser)
           : `팀 · ${identities?.teams.find((team) => team.id === task.assignee_team_id)?.name ?? TASK_REQUEST_COPY.unknownTeam}`;
       }
-      toast.success(TASK_REQUEST_COPY.converted(task.display_id, assignee), {
-        duration: Number.POSITIVE_INFINITY,
-        action: {
-          label: TASK_REQUEST_COPY.openTask,
-          onClick: () => {
-            void navigate({ to: '/tasks', search: { view: 'backlog', param: task.id } });
-          },
-        },
+      const href = searchHref('/tasks', { view: 'backlog', param: task.id });
+      notify({
+        tone: 'success',
+        message: TASK_REQUEST_COPY.converted(task.display_id, assignee),
+        durationMs: Number.POSITIVE_INFINITY,
+        ...(canLink(href)
+          ? {
+              action: {
+                label: TASK_REQUEST_COPY.openTask,
+                onAction: () => {
+                  navigate(href);
+                },
+              },
+            }
+          : {}),
       });
       setConvertOpen(false);
     },
     onError: (err) => {
-      toast.error(mapUnknownError(err).message);
+      notifyError(mapUnknownError(err).message);
     },
   });
 

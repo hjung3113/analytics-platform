@@ -4,6 +4,7 @@ import * as areasApi from '@/lib/api/analytics-areas';
 import * as milestonesApi from '@/lib/api/milestones';
 import * as taskRequestsApi from '@/lib/api/task-requests';
 import { ApiError } from '@/lib/api/types';
+import { useMe } from '@/lib/auth/useMe';
 import { AppFrame } from '@/lib/layout/AppFrame';
 import { parseAppSearch, stringifyAppSearch } from '@/lib/router/search-serialization';
 import { TasksRouteView, validateTasksSearch } from '@/routes/_authed/tasks';
@@ -93,13 +94,15 @@ const task2: TaskDetailDto = {
   priority: 'medium',
 };
 const tasks = [task, task2];
-// The barrel slots for the three decision writes take the task-requests module's own implementations, not the
+// The barrel slots for the three decision writes (and the conversion) take the task-requests module's own implementations, not the
 // forwarders below, so an unspied call never loops barrel -> module forwarder -> barrel.
 vi.mock('@/lib/api', async (original) => {
   const taskRequests =
     await vi.importActual<typeof import('@/lib/api/task-requests')>('@/lib/api/task-requests');
+  const tasksModule = await vi.importActual<typeof import('@/lib/api/tasks')>('@/lib/api/tasks');
   return {
     ...(await original<ApiModule>()),
+    convertTaskRequest: tasksModule.convertTaskRequest,
     approveTaskRequest: taskRequests.approveTaskRequest,
     rejectTaskRequest: taskRequests.rejectTaskRequest,
     requestMoreEvidenceForTaskRequest: taskRequests.requestMoreEvidenceForTaskRequest,
@@ -165,6 +168,8 @@ vi.mock('@/lib/api/task-requests', async (importOriginal) => ({
 }));
 vi.mock('@/lib/api/tasks', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api/tasks')>()),
+  convertTaskRequest: (...args: Parameters<typeof api.convertTaskRequest>) =>
+    api.convertTaskRequest(...args),
   listTasks: (...args: Parameters<typeof api.listTasks>) => api.listTasks(...args),
   getTask: (...args: Parameters<typeof api.getTask>) => api.getTask(...args),
 }));
@@ -177,8 +182,17 @@ vi.mock('@/lib/api/permissions', async (importOriginal) => ({
   fetchPermissionCheck: (...args: Parameters<typeof api.fetchPermissionCheck>) =>
     api.fetchPermissionCheck(...args),
 }));
+vi.mock('@/lib/api/permission-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/permission-reads')>()),
+  fetchPermissionCheckViaClient: (...args: Parameters<typeof api.fetchPermissionCheck>) =>
+    api.fetchPermissionCheck(...args),
+}));
 vi.mock('@/lib/auth/useMe', () => ({
   useMe: () => ({ data: { actor: { id: requester, role_level: 'admin' } } }),
+}));
+vi.mock('@/lib/api/me', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/me')>()),
+  useMeBridge: () => useMe(),
 }));
 vi.mock('@/lib/cross-system/useWorkspaceActors', () => ({
   useWorkspaceActors: () => ({ actors: [] }),

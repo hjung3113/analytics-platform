@@ -16,6 +16,15 @@ vi.mock('@/lib/api', () => ({
   linkExistingTask: api.linkExistingTask,
   listTasks: api.listTasks,
 }));
+vi.mock('@/lib/api/tasks', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/tasks')>()),
+  linkExistingTask: (...args: unknown[]) => api.linkExistingTask(...args),
+  listTasks: (...args: unknown[]) => api.listTasks(...args),
+}));
+vi.mock('@/lib/api/permission-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/permission-reads')>()),
+  fetchPermissionCheckViaClient: (...args: unknown[]) => api.fetchPermissionCheck(...args),
+}));
 vi.mock('sonner', () => ({ toast }));
 
 const request = {
