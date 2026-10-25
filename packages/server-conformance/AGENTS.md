@@ -6,6 +6,7 @@
 
 - `src/index.ts` — 하네스 타입 `ServerConformanceHarness`(어댑터 전체, 표본 요청, 포트 표본 `ports`, 부여된 site·기간, 부여 안 된 site, `asGranted`·`withoutPermission`·`asConsole`·`asOtherAnnotator`, 쓰기 표본 `actions`(`ActionCase`) — `menuAction` 검사는 표본이 없으면 `actions: no sample` 건너뜀 한 건), `planServerConformance`(선언에서 검사 목록 도출, 동기), `runServerConformance`(실행 결과), `describeServerConformance`(vitest 묶음 등록).
 - `src/index.test.ts` — 규칙을 일부러 깬 어댑터에서 해당 검사가 실패하는지(묶음 자체의 회귀 테스트).
+- 실행 중 건너뜀(#826, ADR-0085): `entityAudit` 쪽 나누기 검사 9건은 첫 쪽 응답에 `nextCursor` 키가 없으면 `server does not page entityAudit`로, 표본에 감사 행이 없거나 한 쪽에 들어가 발급 커서가 없으면 그 이유로 `skipped`가 된다(통과로 세지 않고, 쪽을 나누지 않는 서버에는 `cursor`를 보내지 않는다).
 - 선언한 빈틈(#674): 하네스 `implemented`(서버가 구현한 포트 메서드)·`siteGrants: false`(site 부여 없는 서버)와 site 없는 목적지 표본(`scopeId: null`)은 해당 검사를 이유를 단 `skipped`로 바꾼다. 검사마다 정의하는 자리에서 `uses`(부르는 메서드)·`needsSites`를 직접 단다 — id에서 추론하지 않는다. `uses`가 빈 검사는 계획 단계에서 오류이고, `index.test.ts`가 검사마다 기록 어댑터로 실제 부른 메서드가 `uses` 안에 있는지 확인한다. Scope가 필요한 엔드포인트·액션의 검사는 모든 요청이 `context.scopeId`를 보내므로 전부 `needsSites`다.
 
 ## 규칙
