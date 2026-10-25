@@ -4,7 +4,7 @@ import { vi } from 'vitest';
 import { render } from '@testing-library/react';
 import { UserRound } from 'lucide-react';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform, type MenuEntry } from '@ap/kernel';
-import { testAdapter, testSession } from '@ap/kernel/testing';
+import { testAdapter, testSession, ToastProbe } from '@ap/kernel/testing';
 import { manifests } from '../index';
 import Notifications from '../pages/Notifications';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
@@ -57,11 +57,6 @@ export function switchableAdapter(initialUser = 'user-a', permissions: Permissio
     setUser: (id: string) => { session = testSession(permissions, { user: { id, name: id, title: { ko: id, en: id } } }); },
     notify: () => { for (const listener of [...listeners]) listener(); },
   };
-}
-
-export function ToastProbe() {
-  const { toasts } = usePlatform();
-  return <ul aria-label="toasts">{toasts.map(t => <li key={t.id} data-tone={t.tone}>{t.text}</li>)}</ul>;
 }
 
 export function Harness() {

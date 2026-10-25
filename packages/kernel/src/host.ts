@@ -2,7 +2,7 @@
  * Host entry `@ap/kernel/host` (ADR-0076): the full platform value and the shell-only Providers and helpers.
  * Only the shell, the platform components and the app import it (lint gate); menus use `usePlatform()` from `@ap/kernel`; host modules read only their injected `ModuleHost` (ADR-0053).
  */
-export { PaneScreenProvider, PaneQueryDraftProvider, useHostPlatform, useHostPlatformOptional, type HostPlatform, type PaneScreen } from './platform';
+export { PaneScreenProvider, PaneQueryDraftProvider, useHostPlatform, useHostPlatformOptional, useOverlayState, useToastList, type HostPlatform, type OverlayState, type PaneScreen } from './platform';
 export { useAdapterRequest } from './query';
 export { type PageFocus, type PageNavigation } from './pageNavigation';
 export { useModuleHost, type ModuleShellPorts } from './module-host';

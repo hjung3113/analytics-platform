@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry, useDrill, usePlatform, type PlatformMenuEntry } from '@ap/kernel';
 import { PlatformPage } from './PlatformPage';
 import { DrillLayout, ReturnLink } from './DrillLayout';
-import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { memoryStorage, noContext, testAdapter, testSession, testSpace , useToastsForTest } from '@ap/kernel/testing';
 import { groupId, spaceId } from '@ap/contracts';
 
 const features = { export: false, savedView: false, annotate: false, compare: false };
@@ -403,7 +403,8 @@ it.each(['defaults', 'metric defaults', 'other navigation', 'history', 'denied']
 
 it.each([true, false])('announces reverted Context exactly once after return: %s', changed => {
   function Fixture() {
-    const { toasts, url } = usePlatform();
+    const { url } = usePlatform();
+    const toasts = useToastsForTest();
     return <><ReturnLink /><output>{JSON.stringify({ toasts, url })}</output></>;
   }
   const origin = '/source?v=1';
@@ -418,7 +419,8 @@ it.each([true, false])('announces reverted Context exactly once after return: %s
 
 it('announces reverted Scope exactly once after return', () => {
   function Fixture() {
-    const { toasts, url } = usePlatform();
+    const { url } = usePlatform();
+    const toasts = useToastsForTest();
     return <><ReturnLink /><output>{JSON.stringify({ toasts, url })}</output></>;
   }
   const origin = '/source?v=1&scopeId=MEM';

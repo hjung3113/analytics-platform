@@ -1,9 +1,9 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
+import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { PlatformPage } from './PlatformPage';
-import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { noContext, testAdapter, testSession, testSpace , useToastsForTest } from '@ap/kernel/testing';
 import { groupId, spaceId, type GroupId } from '@ap/contracts';
 
 function menu(id: string, label: string, group: GroupId, path: string, over: object = {}) {
@@ -28,7 +28,7 @@ const registry = createRegistry({
   ],
 });
 const adapter = () => { const session = testSession(['platform:view']); return testAdapter({ session: () => session }); };
-function Toasts() { return <ul data-toasts>{usePlatform().toasts.map(toast => <li key={toast.id}>{toast.text}</li>)}</ul>; }
+function Toasts() { return <ul data-toasts>{useToastsForTest().map(toast => <li key={toast.id}>{toast.text}</li>)}</ul>; }
 function mount(url: string) {
   window.history.replaceState(null, '', url);
   return render(<I18nProvider><PlatformProvider adapter={adapter()} registry={registry}><PlatformPage><p>body</p></PlatformPage><Toasts /></PlatformProvider></I18nProvider>);

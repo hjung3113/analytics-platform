@@ -2,7 +2,7 @@ import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from './i18n';
-import { PlatformProvider, useHostPlatform } from './platform';
+import { PlatformProvider, useHostPlatform, useRecentVisits, useToastList } from './platform';
 import { useAdapterRequest, useEntityQuery, usePlatformQuery } from './query';
 import { createRegistry } from './registry';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from './testing';
@@ -96,9 +96,10 @@ describe('per-user kernel state', () => {
     ]));
     const f = fixture();
     let platform: ReturnType<typeof useHostPlatform> | null = null;
+    let visits: ReturnType<typeof useRecentVisits> = [];
     // The probe only captures state, so a throw can come from the kernel alone.
-    function State() { platform = useHostPlatform(); return null; }
-    const state = () => ({ favorites: platform!.favorites, recent: platform!.recent.map(r => `${r.menuId}@${r.url}`), lastScope: platform!.lastScope });
+    function State() { platform = useHostPlatform(); visits = useRecentVisits(); return null; }
+    const state = () => ({ favorites: platform!.favorites, recent: visits.map(r => `${r.menuId}@${r.url}`), lastScope: platform!.lastScope });
     render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={f.adapter} registry={registry}><State /></PlatformProvider></I18nProvider>);
     // The home route records a visit on mount: it must start from an empty list, not the stored number.
     expect(state()).toEqual({ favorites: [], recent: ['home@/'], lastScope: null });
@@ -430,7 +431,8 @@ describe('site-bound map fields (#552)', () => {
     window.history.replaceState(null, '', '/?scopeId=MEM&lineNames=L&prcGroups=P');
     function ToastProbe() {
       const p = useHostPlatform();
-      return <><button onClick={() => p.setGlobal({ scopeId: 'FDRY' })}>change-site</button><p data-testid="reset-toast">{p.toasts.map(t => t.text).join('')}</p></>;
+      const toasts = useToastList();
+      return <><button onClick={() => p.setGlobal({ scopeId: 'FDRY' })}>change-site</button><p data-testid="reset-toast">{toasts.map(t => t.text).join('')}</p></>;
     }
     render(<I18nProvider><PlatformProvider adapter={fixture().adapter} registry={registry}><ToastProbe /></PlatformProvider></I18nProvider>);
     act(() => screen.getByRole('button', { name: 'change-site' }).click());

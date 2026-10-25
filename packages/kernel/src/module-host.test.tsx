@@ -6,7 +6,7 @@ import { defineAction, defineEndpoint, type ActionResponse, type ActionResult, t
 import { I18nProvider } from './i18n';
 import { mountModule } from './module';
 import { useModuleHost, type ModuleShellPorts } from './module-host';
-import { PlatformProvider, useHostPlatform } from './platform';
+import { PlatformProvider, useHostPlatform, useToastList } from './platform';
 import { createRegistry } from './registry';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from './testing';
 
@@ -74,10 +74,11 @@ function setup(url = '/fx?v=1&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00', 
     })),
   });
   const ports = { status: vi.fn(), focusTarget: vi.fn(), detail: { show: vi.fn(), clear: vi.fn() } } satisfies ModuleShellPorts;
-  const seen: { host: ModuleHost; hosts: ModuleHost[]; platform: ReturnType<typeof useHostPlatform> } = { host: undefined as never, hosts: [], platform: undefined as never };
+  const seen: { host: ModuleHost; hosts: ModuleHost[]; platform: ReturnType<typeof useHostPlatform>; toasts: ReturnType<typeof useToastList> } = { host: undefined as never, hosts: [], platform: undefined as never, toasts: [] };
   function Probe({ id }: { id: string }) {
     const host = useModuleHost(registry.menuById(id) as never, {}, ports);
     seen.platform = useHostPlatform();
+    seen.toasts = useToastList();
     seen.host = host;
     if (seen.hosts.at(-1) !== host) seen.hosts.push(host);
     return null;
@@ -206,7 +207,7 @@ describe('useModuleHost: reads', () => {
   it('notify() raises a toast with the default tone for info', () => {
     const { seen } = setup();
     act(() => { seen.host.notify('hello'); seen.host.notify('careful', 'warning'); });
-    expect(seen.platform.toasts.map(t => [t.text, t.tone])).toEqual([['hello', 'info'], ['careful', 'warning']]);
+    expect(seen.toasts.map(t => [t.text, t.tone])).toEqual([['hello', 'info'], ['careful', 'warning']]);
   });
 
   it('offers query and detail only for declared features the host provides', () => {

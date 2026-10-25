@@ -4,7 +4,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NO_FEATURES, contextCapabilities, groupId, spaceId } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
-import { memoryStorage, testAdapter, testSession } from '@ap/kernel/testing';
+import { memoryStorage, testAdapter, testSession, useToastsForTest } from '@ap/kernel/testing';
 import { foApi, setFoApi } from './fo-api';
 import { foQueryClient } from './fo/session';
 import { savedViewsSlot } from './saved-views';
@@ -52,7 +52,7 @@ function Nav() {
 }
 
 function Toasts() {
-  const { toasts } = usePlatform();
+  const toasts = useToastsForTest();
   return <ul data-testid="toasts">{toasts.map(toast => <li key={toast.id} data-tone={toast.tone}>{toast.text}</li>)}</ul>;
 }
 

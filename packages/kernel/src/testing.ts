@@ -1,6 +1,8 @@
 // Test-only public entry `@ap/kernel/testing` (ADR-0040, #381): adapter, session and space fixtures.
 // Import only from test files (*.test.ts(x), test-support.ts, test-setup.ts); the boundary lint rejects production imports.
 // Deliberately not exported from src/index.ts.
+import { createElement, type ReactElement } from 'react';
+import { useToastList, type Toast } from './platform';
 import { contextCapabilities, type ActionResponse, type ApiResponse, type Capability, type ContextKey, type ModuleScopedId, type Permission, type PlatformAdapter, type ScopeOption, type Session, type SessionUser, type SpaceDef, spaceId } from '@ap/contracts';
 
 /** Every Context key 'unsupported': the no-op Global Context capability record (06 §6). */
@@ -65,4 +67,15 @@ export function memoryStorage(): Storage {
     key: index => Array.from(data.keys())[index] ?? null,
     get length() { return data.size; },
   };
+}
+
+/** The shell toast list a test reads (the `toasts` field left `usePlatform()`, #824). Throws outside a PlatformProvider. */
+export function useToastsForTest(): readonly Toast[] {
+  return useToastList();
+}
+
+/** Renders the toast list as `<ul aria-label="toasts">` with one `<li data-tone>` per toast, for tests that assert on raised toasts. */
+export function ToastProbe(): ReactElement {
+  const toasts = useToastList();
+  return createElement('ul', { 'aria-label': 'toasts' }, toasts.map(t => createElement('li', { key: t.id, 'data-tone': t.tone }, t.text)));
 }

@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import { Clock3, Megaphone, Star, X } from 'lucide-react';
-import { type MenuEntry, PlatformLink, useI18n, useMenuQuery, usePlatform } from '@ap/kernel';
+import { type MenuEntry, PlatformLink, useI18n, useMenuQuery, usePlatform, useRecentVisits } from '@ap/kernel';
 import { noticesEndpoint } from '../endpoints';
 import { dismissNotice, useDismissedNotices } from './dismissed-notices';
 import { Panel, PlatformPage, QueryView } from '@ap/components';
@@ -8,7 +8,8 @@ import { Button, StatusBadge } from '@ap/ui';
 
 /** Platform home (ADR-0028, 15 §3.1): space cards, then `내 할 일` (a Kernel slot, ADR-0070 decision 8), then favorites and recent, then notices. */
 export default function OperationsHome() {
-  const { favorites, toggleFavorite, recent, linkTo, global, registry, accessibleSpaces, canOpen, resolveLink, spaceEntry, homeTodo } = usePlatform();
+  const { favorites, toggleFavorite, linkTo, global, registry, accessibleSpaces, canOpen, resolveLink, spaceEntry, homeTodo } = usePlatform();
+  const recent = useRecentVisits();
   const { t, tx, lang } = useI18n();
 
   const dismissed = useDismissedNotices();

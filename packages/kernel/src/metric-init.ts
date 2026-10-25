@@ -16,3 +16,11 @@ export function classifyMetricInit(published: readonly PublishedMetric[], initia
   if (row.publishedVersion === null) return { phase: 'blocked', reason: 'unpublished' };
   return { phase: 'confirm', metricVersion: row.publishedVersion };
 }
+
+/** Same phase and payload; lets a caller keep one object while the classification does not change. */
+export function sameMetricInit(a: MetricInit, b: MetricInit): boolean {
+  if (a.phase !== b.phase) return false;
+  if (a.phase === 'confirm' && b.phase === 'confirm') return a.metricVersion === b.metricVersion;
+  if (a.phase === 'blocked' && b.phase === 'blocked') return a.reason === b.reason;
+  return true;
+}
