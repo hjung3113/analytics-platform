@@ -1,11 +1,11 @@
 import { formatInstant } from '@ap/contracts';
-import { formatQuerySummary } from './querySummary';
+import { formatQuerySummary, summaryPreset } from './querySummary';
 import { QueryBarExtensionContext, usePublishQueryBarExtension, type QueryBarExtension } from './QueryBarExtension';
 import { OutcomeBanners, OutcomeScope } from './OutcomeScope';
 import { PageContextHead, PageHeadBody } from './PageContextHead';
 import { ChevronRight, Info, Loader2, MapPinOff, MoreHorizontal, RotateCw, ServerCrash, Star } from 'lucide-react';
 import { cloneElement, createContext, isValidElement, useCallback, useContext, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactElement, type ReactNode } from 'react';
-import { type MenuEntry, PlatformLink, useI18n } from '@ap/kernel';
+import { type MenuEntry, PlatformLink, useConditionPreset, useI18n } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { DataTrustIndicator } from './DataTrustIndicator';
@@ -120,6 +120,7 @@ export type PlatformPageProps = {
 /** §8 Shell Slots. Pages never insert global UI outside these slots. */
 export function PlatformPage({ title, description, primaryAction, secondaryActions, contextExtension, contextNotes, dataTrustSummary, queryBarExtension, queryResult, crumbs = [], layout = 'flow', children }: PlatformPageProps) {
   const { global, page, equipmentAxes, route, favorites, toggleFavorite, scope, retryScope, setGlobal, lastScope, linkTo, registry, slots, url, pathname, pageNavigation, currentSpace, screenMode, canOpen, queryDraft } = useHostPlatform();
+  const conditionPreset = useConditionPreset();
   // A board pane draws content only: the board owns the pane head and the Context bar, and no arrival focus moves here (ADR-0049).
   const inPane = screenMode === 'pane';
   usePublishQueryBarExtension(queryBarExtension);
@@ -297,7 +298,7 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
     </div>}
     {!inPane && menu.query?.mode === 'apply' && slots.contextBar}
     {!gate && menu.query?.mode === 'apply' && queryResult && <section role="region" aria-label={lang === 'ko' ? '적용된 조회 조건' : 'Applied query conditions'} className="flex flex-wrap gap-2 border-b border-border-subtle px-4 py-2 text-xs text-text-secondary">
-      <span className="min-w-0 [overflow-wrap:anywhere]">{formatQuerySummary(global, page, { lang, axes: equipmentAxes, context: menu.context, pageSummary: queryBarExtension?.appliedPageSummary })}</span>
+      <span className="min-w-0 [overflow-wrap:anywhere]">{formatQuerySummary(global, page, { lang, axes: equipmentAxes, context: menu.context, pageSummary: queryBarExtension?.appliedPageSummary, preset: summaryPreset(conditionPreset, 'applied') })}</span>
       {queryResult.completedAt !== null && (queryResult.status === 'done' || queryResult.status === 'refreshing') && <span>{lang === 'ko' ? '요약 조회 완료' : 'Summary response completed'} {formatInstant(queryResult.completedAt, lang)}</span>}
     </section>}
     {headVisible && (layout === 'fill'

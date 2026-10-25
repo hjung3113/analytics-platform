@@ -24,7 +24,7 @@ export { AnalysisLayout, type AnalysisLayoutProps, type AnalysisSection } from '
 export { DrillLayout, DrillPath, ReturnLink, type DrillLayoutProps, type DrillPathProps, type DrillSibling, type DrillSiblings } from './DrillLayout';
 export { LegendTree, type LegendTreeNode, type LegendTreeSort, type LegendTreeProps } from './LegendTree';
 
-export { formatQuerySummary, querySummaryItems, type QuerySummaryOptions, type QuerySummaryItem } from './querySummary';
+export { formatQuerySummary, presetOutsideAxes, querySummaryItems, summaryPreset, type QuerySummaryOptions, type QuerySummaryItem, type SummaryPreset } from './querySummary';
 export { QueryBarExtensionContext, QueryBarExtensionsProvider, useQueryBarExtension, type QueryBarExtension } from './QueryBarExtension';
 export { LaneTimeline, type LaneTimelineProps, type LaneTimelineHandle, type TimelineLane, type TimelineSegment } from './LaneTimeline';
 export { Inspector, type InspectorProps, type InspectorSection } from './inspector/Inspector';
