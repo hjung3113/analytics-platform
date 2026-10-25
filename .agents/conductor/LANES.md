@@ -4,7 +4,7 @@
 
 ## 흐름
 
-이슈마다 `lane:*` 라벨을 하나 단다. 배정의 원본은 라벨과 이슈 코멘트이고, 세션 간 메시지는 알림일 뿐이다(권한 모드가 다른 세션에는 메시지가 붙잡혀 만료된다, 2026-10-26).
+이슈마다 `lane:*` 라벨을 하나 단다. 배정의 원본은 라벨과 이슈 코멘트이고, 전달은 Orca 오케스트레이션이다(아래 팀장). Claude 세션 간 메시지는 권한 모드가 다른 세션에는 붙잡혀 만료된다(2026-10-26).
 
 | 라벨 | 맡는 것 | 주로 소유하는 경로 | E2E 포트 |
 | --- | --- | --- | --- |
@@ -30,6 +30,9 @@ base-path E2E는 위 포트 + 1을 `E2E_BASE_PATH_PORT`로 준다.
 
 ## 팀장
 
-- **배정:** 새 이슈에 `lane:*`를 달고, 할 일이 있는 흐름에 다음 일을 이슈 코멘트로 배정한다. 흐름 세션이 없으면 팀장이 띄운다 — `orca worktree create --name lane-<흐름> --base-branch origin/main --agent claude --prompt "<흐름 지시서>"`. 지시서에는 흐름 라벨, 소유 경로, E2E 포트, 이번에 맡을 이슈와 순서, 병합 권한을 적는다. 동시에 띄우는 흐름 세션은 3–4개까지다(16GB 머신, [operations.md](../../docs/agents/operations.md)). 일이 끝난 흐름 세션은 팀장이 닫는다.
-- **현황:** 세션 목록(`ListAgents`), `orca worktree ps`, `gh issue list --label lane:<x>`로 본다. 흐름 세션은 병합·막힘·전체 E2E 시작/끝을 팀장에게 한 줄로 알린다.
+- **배정 기록:** 새 이슈에 `lane:*`를 달고, 맡길 일은 이슈 코멘트(`배정: lane-<흐름>, 순서 …`)로 남긴다. 이것이 원본이다.
+- **배정 전달 — Orca 오케스트레이션:** 팀장은 Orca Run 하나(`orca orchestration run-create --objective "AP 팀"`, 이후 세션은 `run-use`)에 배정마다 Task를 만들고(`task-create --spec <지시> --task-title "<흐름>: #n"`) 흐름 세션의 Orca 터미널로 보낸다(`orchestration dispatch --task <id> --to <터미널 handle> --inject`). 흐름 세션은 주입된 머리말대로 일하고, 끝나면 `worker_done`(성공/실패, 요약 세 문장)을 한 번 보낸 뒤 다음 배정을 기다린다. 막히면 머리말의 `ask`로 묻는다. 팀장은 `orchestration check --wait --types worker_done,escalation,question`으로 받는다. Claude 세션 간 메시지(`SendMessage`)는 권한 모드가 같은 세션에만 닿으므로 보조로만 쓴다. 흐름 세션의 터미널 handle은 `orca terminal list`로 찾는다(세션은 모두 Orca 터미널에서 돈다).
+- **흐름 세션 띄우기·닫기:** 할 일이 있는데 세션이 없는 흐름은 팀장이 띄운다 — `orca worktree create --name lane-<흐름> --base-branch origin/main --agent claude --prompt "<흐름 지시서>"`. 지시서에는 흐름 라벨, 소유 경로, E2E 포트, 이 문서와 [`PROFILE.md`](PROFILE.md), 병합 권한, "배정은 Orca 주입으로 온다"를 적는다. 동시에 띄우는 흐름 세션은 3–4개까지다(16GB 머신, [operations.md](../../docs/agents/operations.md)). 일이 끝난 흐름 세션은 팀장이 닫는다.
+- **현황:** `orca orchestration task-list`, `orca worktree ps`, `gh issue list --label lane:<x>`로 본다. 흐름 세션은 병합·막힘·전체 E2E 시작/끝을 Task 메시지(`orchestration send`)로 한 줄씩 알린다.
+- **보고:** 사람이 정할 것은 흐름 세션이 `ask`나 이슈(`ready-for-human`)로 올리고, 팀장이 모아 한 번에 사용자에게 묻는다. 팀장은 정해진 주기(사용자 2026-10-26: 2시간)로 흐름별 진행·막힘·결정 대기를 보고하고, 모든 배정이 끝나면 다음 일을 나눈다.
 - **릴리스:** 흐름 세션은 SDK 공개 변경마다 [`sdk-git-tag-consumption.md`](../../docs/integration/sdk-git-tag-consumption.md) "다음 릴리스" 행만 남긴다. 팀장이 모아 슬라이스 마감 `review-quality`를 돌리고 `sdk-v*` 태그·GitHub Release를 낸 뒤 보고한다. 앱 `v0.x`는 팀장이 릴리스 PR까지 만들고 태그 전에 사용자에게 묻는다(사용자 2026-10-26).
