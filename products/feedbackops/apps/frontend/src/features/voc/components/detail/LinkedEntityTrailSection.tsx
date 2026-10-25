@@ -393,8 +393,26 @@ export function LinkedEntityTrailSection({
   const projectedIds = new Set(
     visibleTrails.flatMap((trail) => trail.links.map((link) => link.id)),
   );
+  // A Cluster trail carries its own link to the same Finding/Task (another link id), so de-dup by entity.
+  const projectedEntities = new Set(
+    visibleTrails.flatMap((trail) =>
+      trail.links.flatMap((link) =>
+        link.visibility_state === 'allowed'
+          ? [`${link.source_type}:${link.source_id}`, `${link.target_type}:${link.target_id}`]
+          : [],
+      ),
+    ),
+  );
   const trailLinks = links.filter((link) => {
     if (projectedIds.has(link.id)) return false;
+    if (link.visibility_state === 'allowed') {
+      const linkedType = isFindingLink(link) ? 'finding' : 'task';
+      const linkedEnd =
+        link.source_type === linkedType
+          ? `${link.source_type}:${link.source_id}`
+          : `${link.target_type}:${link.target_id}`;
+      if (projectedEntities.has(linkedEnd)) return false;
+    }
     // #1174b: a Finding `summary_visible` payload is inconsistent (ADR-0024 §E);
     // treat it exactly like `hidden`.
     if (isFindingLink(link) && link.visibility_state === 'summary_visible') return false;

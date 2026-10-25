@@ -6,7 +6,7 @@ import { HOME_COPY, HOME_QUEUE_COPY } from '@/lib/copy/home';
 import { type HostLinkProps, type HostSeam, HostSeamProvider } from '@/lib/host/host-seam';
 import { dashboardSummarySchema } from '@fops/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DashboardScreen, HOME_COVERAGE_HREF, refreshDashboard } from '../DashboardScreen';
 
@@ -42,6 +42,7 @@ const me = {
   },
   workspace_id: 'ws',
 };
+const MS_UUID = 'bbbbbbbb-bbbb-4bbb-8bbb-000000000001';
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
@@ -165,6 +166,30 @@ describe('DashboardScreen scope status', () => {
     mount();
     await screen.findByTestId('home-action-queues');
     expect(screen.queryByTestId('home-scope-status')).toBeNull();
+  });
+
+  it.each([
+    [undefined, null],
+    [MS_UUID, MS_UUID],
+  ])('carries the scope on my tasks (scope %s)', async (scope, expected) => {
+    mount(() => true, scope);
+    await waitFor(() => {
+      const calls = vi.mocked(globalThis.fetch).mock.calls;
+      expect(
+        calls.some(([input]) => new URL(String(input), 'http://x').pathname === '/api/fo/tasks'),
+      ).toBe(true);
+    });
+    const url = new URL(
+      String(
+        vi
+          .mocked(globalThis.fetch)
+          .mock.calls.map(([input]) => String(input))
+          .find((input) => new URL(input, 'http://x').pathname === '/api/fo/tasks'),
+      ),
+      'http://x',
+    );
+    expect(url.searchParams.get('managed_system_id')).toBe(expected);
+    expect(url.searchParams.get('assignee')).toBe(me.actor.id);
   });
 });
 

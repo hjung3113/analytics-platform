@@ -326,6 +326,9 @@ As built, the scope control is the `AppSidebar` scope selector (`data-testid="sc
 - It is rendered whenever the sidebar is expanded, for every Actor; it is disabled on Admin routes and on Survey respondent routes.
 - `All` ("전체 Managed System") is always offered; choosing it removes `managedSystem` from the URL.
 - Every workspace Managed System is listed. Systems outside the actor's `voc.read` scope (`GET /me/permissions/scope`), including Admin denies, are dimmed and marked `범위 밖`, with a note that names are workspace-visible and access is requested separately (#282).
+- The list is a real `listbox` of `option`s (`aria-selected` on the current value). ArrowUp/ArrowDown/Home/End move focus (no wrap), Enter/Space select, Esc closes (from the list or the trigger), Tab or a click elsewhere closes; selecting or Esc returns focus to the trigger. With a visible label (the platform `목록 범위`) the trigger's accessible name starts with it.
+- Opening focuses the current value's option. The `전체` option's name is `전체 Managed System`; its helper (`워크스페이스 전체` / `내 담당 n / m`) is its description.
+- A `managedSystem` uuid that is not in the loaded list shows `알 수 없는 Managed System` (glyph `?`, no `범위 밖` badge, no option selected). While the list is empty (loading, error, or no systems) the picker keeps `전체 Managed System`.
 ```
 
 Changing Managed System scope updates URL state and list queries. It must not
