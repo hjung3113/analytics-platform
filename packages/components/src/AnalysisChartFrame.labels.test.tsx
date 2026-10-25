@@ -185,6 +185,20 @@ describe('totals (#580d, UX-7/8)', () => {
     expect(rows[0].label.offset[0]).toBe(plain);
     expect(rows[3].label.offset[0]).toBeGreaterThan(plain);
   });
+  it('still shifts a total whose chip segment ends at the stack end when a measured-zero series follows it', async () => {
+    const zeroTail = [bar('a', 'chart-blue', [800, 300, 100, 50]), bar('b', 'chart-series-1', [0, 0, 0, 0])];
+    await mount({ series: zeroTail, valueLabels: 'total', reaggregation: 'sum' });
+    const plain = (total().data as { label: { offset: number[] } }[])[0].label.offset[0];
+    cleanup();
+    await mount({ series: zeroTail, valueLabels: 'total', reaggregation: 'sum', minMax: true });
+    const rows = total().data as { label: { offset: number[] } }[];
+    // a is max on R1 and min on R4; b (all zeros) is no extreme. The zero tail leaves a's end as the stack end.
+    expect(rows[0].label.offset[0]).toBeGreaterThan(plain);
+    expect(rows[3].label.offset[0]).toBeGreaterThan(plain);
+    // R2/R3 carry no chip.
+    expect(rows[1].label.offset[0]).toBe(plain);
+    expect(rows[2].label.offset[0]).toBe(plain);
+  });
   it('does not shift totals in startAlign even with 최소/최대 on', async () => {
     await mount({ valueLabels: 'total', reaggregation: 'sum', startAlign: true, minMax: true });
     const offsets = (total().data as { label: { offset: number[] } }[]).map(d => d.label.offset[0]);

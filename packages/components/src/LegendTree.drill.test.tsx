@@ -224,8 +224,12 @@ describe('LegendTree drill', () => {
     const tree_ = screen.getByRole('tree');
     expect(tree_.contains(button)).toBe(false);
     expect(button.compareDocumentPosition(tree_) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(button.parentElement).not.toBe(tree_.parentElement);
-    expect(button.parentElement?.className).toContain('w-full');
+    const wrap = tree_.parentElement!;
+    expect(wrap).toHaveAttribute('data-legend-tree-wrap');
+    expect(wrap.contains(button)).toBe(true);
+    expect(wrap.className).toContain('flex-col');
+    expect(wrap.firstElementChild?.contains(button)).toBe(true);
+    expect(wrap.lastElementChild).toBe(tree_);
     expect(button.querySelector('.lucide-eye')).not.toBeNull();
     expect(button.className).toContain('bg-surface-raised');
   });

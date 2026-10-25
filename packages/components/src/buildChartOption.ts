@@ -121,13 +121,16 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
   const textOf = (x: string, t: RowTotal) => i.totalText?.get(x) ?? i.valueFormat(t.value);
   const totalRoom = totalTexts ? Math.max(...[...totalTexts].map(([x, t]) => labelWidth(`≥ ${textOf(x, t)}`))) + TOTAL_GAP + PARTIAL_MARKER : 0;
   const gridRight = (chips ? MIN_MAX_LABEL_ROOM : 20) + totalRoom;
-  // The chip sits on its own segment, so it is at the bar end only when that segment is the row's last measured one.
+  // The chip sits on its own segment, so it is at the bar end when that segment ends where the row's stack ends (a zero-width tail after it does not move the end).
   const chipAtEnd = (x: string) => {
-    for (let n = i.displayed.length - 1; n >= 0; n--) {
-      const s = i.displayed[n];
-      if (typeof s.points.find(([label]) => label === x)?.[1] !== 'number') continue;
+    const end = stackEnd(i.displayed, x);
+    let run = 0;
+    for (const s of i.displayed) {
+      const y = s.points.find(([label]) => label === x)?.[1];
+      if (typeof y !== 'number') continue;
+      if (y > 0) run += y;
       const e = i.extremes?.get(s.id);
-      return e?.min.x === x || e?.max.x === x;
+      if ((e?.min.x === x || e?.max.x === x) && run === end) return true;
     }
     return false;
   };

@@ -323,18 +323,22 @@ export function LegendTree(props: LegendTreeProps) {
     </div>;
   }
 
-  return <>
-    {allOff && <div className="w-full">
-      <Button type="button" variant="secondary" size="toolbar" onClick={showAll} data-legend-show-all=""
-        onFocus={() => { showAllFocused.current = true; }}><Eye className="size-3.5" aria-hidden />{lang === 'ko' ? '모두 보이기' : 'Show all'}</Button>
-    </div>}
-  <div ref={root} role="tree" aria-label={label} aria-multiselectable={model.checkable ? true : undefined}
+  const treeEl = <div ref={root} role="tree" aria-label={label} aria-multiselectable={model.checkable ? true : undefined}
     className={cn('focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2', className)} tabIndex={shown.length ? -1 : 0}
     onFocusCapture={event => { focused.current = event.target; ownsFocus.current = true; }}>
     {shown.length ? model.roots.map(renderEntry) : <p className="text-xs text-text-muted">
       {emptyText ?? (lang === 'ko' ? '표시할 항목이 없습니다.' : 'No items to show.')}
     </p>}
-  </div>
+  </div>;
+  return <>
+    {/* The head is shown only with `onDrill`; then it and the tree share one column wrapper so the head sits above the tree in any parent layout (a `className` still lands on the tree). Without the head the tree renders bare, as before. */}
+    {allOff ? <div className="flex min-w-0 flex-col gap-1" data-legend-tree-wrap="">
+      <div>
+        <Button type="button" variant="secondary" size="toolbar" onClick={showAll} data-legend-show-all=""
+          onFocus={() => { showAllFocused.current = true; }}><Eye className="size-3.5" aria-hidden />{lang === 'ko' ? '모두 보이기' : 'Show all'}</Button>
+      </div>
+      {treeEl}
+    </div> : treeEl}
   {onDrill && <span id={drillId} className="sr-only">{lang === 'ko' ? 'Enter: 이 단계로 이동' : 'Enter: go to this level'}</span>}
   </>;
 }
