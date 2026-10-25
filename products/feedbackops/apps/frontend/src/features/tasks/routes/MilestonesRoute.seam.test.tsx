@@ -188,16 +188,40 @@ describe('MilestonesScreen under a host seam (#763 m)', () => {
   });
 
   it('copies the host address, and offers no copy action when the host has none', async () => {
-    const spy = vi.fn((to: string) => `https://fo.test${to}`);
-    absoluteHref = spy;
-    const { unmount } = render(<Harness search={withParam(IDS.sso)} />);
-    expect(await screen.findByRole('button', { name: '링크 복사' })).toBeInTheDocument();
-    expect(spy).toHaveBeenCalledWith(`/tasks?view=milestones&param=${IDS.sso}`);
-    unmount();
+    // userEvent.setup() installs its own clipboard stub, so it runs before ours.
+    const user = userEvent.setup();
+    const writeText = vi.fn(async () => {});
+    const original = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText },
+      configurable: true,
+      writable: true,
+    });
+    Object.defineProperty(window, 'isSecureContext', {
+      value: true,
+      configurable: true,
+      writable: true,
+    });
+    try {
+      const platformUrl = `https://platform.test/feedbackops/milestones?focus=${IDS.sso}`;
+      const spy = vi.fn((_to: string) => platformUrl);
+      absoluteHref = spy;
+      const { unmount } = render(<Harness search={withParam(IDS.sso)} />);
+      await user.click(await screen.findByRole('button', { name: '링크 복사' }));
+      expect(spy).toHaveBeenCalledWith(`/tasks?view=milestones&param=${IDS.sso}`);
+      await waitFor(() => expect(writeText).toHaveBeenCalledWith(platformUrl));
+      unmount();
 
-    absoluteHref = () => null;
-    render(<Harness search={withParam(IDS.sso)} />);
-    await screen.findByRole('heading', { name: 'SSO Stabilization' });
-    expect(screen.queryByRole('button', { name: '링크 복사' })).not.toBeInTheDocument();
+      absoluteHref = () => null;
+      render(<Harness search={withParam(IDS.sso)} />);
+      await screen.findByRole('heading', { name: 'SSO Stabilization' });
+      expect(screen.queryByRole('button', { name: '링크 복사' })).not.toBeInTheDocument();
+    } finally {
+      // biome-ignore lint/performance/noDelete: removing the shadow restores the real descriptor
+      delete (navigator as { clipboard?: unknown }).clipboard;
+      // biome-ignore lint/performance/noDelete: same, for the secure-context shim
+      delete (window as { isSecureContext?: unknown }).isSecureContext;
+      if (original) Object.defineProperty(navigator, 'clipboard', original);
+    }
   });
 });

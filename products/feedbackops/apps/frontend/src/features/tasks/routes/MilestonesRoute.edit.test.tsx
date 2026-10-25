@@ -309,6 +309,31 @@ describe('MilestonesRoute create (#514 B2e)', () => {
     expect(idempotencyKey).toMatch(UUID_KEY);
   });
 
+  it('keeps an expanded panel expanded when a successful create becomes the detail', async () => {
+    vi.mocked(createMilestone).mockResolvedValue(createdRow());
+    vi.mocked(getMilestone).mockResolvedValue(detailFor(createdRow(), 'Launch review hardening'));
+    renderWithClient(<MilestonesRoute />);
+    await screen.findByText('MLS-1021');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Milestone 생성' }));
+    expect(await screen.findByTestId('milestone-create-panel')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '전체 화면 전환' }));
+    expect(screen.getByRole('button', { name: '전체 화면 전환' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await fillCreateForm(IDS.msPowerBi);
+    fireEvent.click(screen.getByRole('button', { name: '생성' }));
+
+    // The slot resets expansion when its registrant changes; one registrant spans create and detail.
+    expect(await screen.findByRole('heading', { name: 'Launch review hardening' })).toBeVisible();
+    expect(screen.queryByTestId('milestone-create-panel')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '전체 화면 전환' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+  });
+
   it('selects the created id via param and preserves the Managed System scope', async () => {
     vi.mocked(createMilestone).mockResolvedValue(createdRow());
     vi.mocked(getMilestone).mockResolvedValue(detailFor(createdRow(), 'Launch review hardening'));

@@ -29,20 +29,58 @@ function useRouteNavigate(): HostNavigate {
   };
 }
 
-/** Registers the standalone frame for the parts in the detail slot; renders nothing in place. */
-function StandaloneDetail({ parts }: { parts: MilestonePanelParts }): null {
+/**
+ * The parts the screen's current slot component produced. The create and detail slot components are different
+ * component types, so a registrant under either would remount on create <-> detail and change the slot key, which
+ * collapses an expanded panel. The one registrant lives in the route instead and reads the parts from here.
+ */
+function createPartsStore() {
+  let current: { owner: symbol; parts: MilestonePanelParts } | null = null;
+  const listeners = new Set<() => void>();
+  const emit = () => {
+    for (const listener of listeners) listener();
+  };
+  return {
+    subscribe(listener: () => void) {
+      listeners.add(listener);
+      return () => void listeners.delete(listener);
+    },
+    snapshot: () => current,
+    publish(owner: symbol, parts: MilestonePanelParts) {
+      current = { owner, parts };
+      emit();
+    },
+    release(owner: symbol) {
+      if (current?.owner !== owner) return;
+      current = null;
+      emit();
+    },
+  };
+}
+type PartsStore = ReturnType<typeof createPartsStore>;
+
+/** Hands the parts to the route's registrant; renders nothing in place. */
+function PublishParts({ store, parts }: { store: PartsStore; parts: MilestonePanelParts }): null {
+  const owner = React.useRef(Symbol('milestone-parts')).current;
+  React.useLayoutEffect(() => {
+    store.publish(owner, parts);
+  });
+  React.useLayoutEffect(() => () => store.release(owner), [store, owner]);
+  return null;
+}
+
+/** The single standalone registration for the route's lifetime; no parts clears it. */
+function StandaloneSlot({ store }: { store: PartsStore }): null {
+  const published = React.useSyncExternalStore(store.subscribe, store.snapshot, store.snapshot);
+  const parts = published?.parts;
   useDetailPanelSlot(
-    parts.kind === 'create' ? (
+    parts === undefined ? undefined : parts.kind === 'create' ? (
       <MilestoneCreateFrame parts={parts} />
     ) : (
       <MilestoneDetailFrame parts={parts} />
     ),
   );
   return null;
-}
-
-function renderStandaloneDetail(parts: MilestonePanelParts): React.ReactNode {
-  return <StandaloneDetail parts={parts} />;
 }
 
 export function MilestonesRoute({ selectedParam, managedSystem }: MilestonesRouteProps) {
@@ -59,9 +97,15 @@ export function MilestonesRoute({ selectedParam, managedSystem }: MilestonesRout
     () => ({ ...host, useSearch: () => search, useNavigate: useRouteNavigate }),
     [host, search],
   );
+  const [store] = React.useState(createPartsStore);
+  const renderDetail = React.useCallback(
+    (parts: MilestonePanelParts) => <PublishParts store={store} parts={parts} />,
+    [store],
+  );
   return (
     <HostSeamProvider value={seam}>
-      <MilestonesScreen renderDetail={renderStandaloneDetail} />
+      <MilestonesScreen renderDetail={renderDetail} />
+      <StandaloneSlot store={store} />
     </HostSeamProvider>
   );
 }
