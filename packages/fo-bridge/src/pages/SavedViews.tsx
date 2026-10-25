@@ -27,7 +27,16 @@ export default function SavedViews() {
   const [name, setName] = useState('');
   const [recovery, setRecovery] = useState(() => new Map<string, Recovery>());
   const sectionRef = useRef<HTMLDivElement | null>(null);
-  const { data, isError, refetch } = useQuery({ queryKey: QUERY_KEY, queryFn: ({ signal }) => fetchSavedViews('voc', signal), retry: false }, foQueryClient);
+  // A recovery belongs to the route it was armed on: a route (menu or page) change drops the armed ones and rejects deletes still in flight.
+  const routeKey = `${route?.menu.id ?? ''}|${JSON.stringify([...page])}`;
+  const [seenRouteKey, setSeenRouteKey] = useState(routeKey);
+  if (seenRouteKey !== routeKey) {
+    setSeenRouteKey(routeKey);
+    setRecovery(new Map());
+  }
+  const generation = useRef(0);
+  useEffect(() => { generation.current += 1; }, [routeKey]);
+  const { data, isPending, isError, refetch } = useQuery({ queryKey: QUERY_KEY, queryFn: ({ signal }) => fetchSavedViews('voc', signal), retry: false }, foQueryClient);
   const views = data?.items ?? NO_VIEWS;
   const saveRoute = route !== null && route.menu.id in SAVE_ROUTES ? SAVE_ROUTES[route.menu.id as keyof typeof SAVE_ROUTES] : null;
 
@@ -72,16 +81,17 @@ export default function SavedViews() {
     const target = operatorHostLinks.targetOf(searchHref('/vocs', record));
     if (!isReachable(registry, target)) return;
     const next = { ...target.page };
-    if (next.managedSystem === undefined) next.managedSystem = null;
+    if (next.managedSystem === undefined || next.managedSystem === 'all') next.managedSystem = null;
     navigate(linkTo(target.menuId, { page: next }));
   };
 
   const remove = (view: SavedView) => {
     const order = views.map(item => item.id);
     const capture = { order, deletedIndex: order.indexOf(view.id) };
+    const armedIn = generation.current;
     deleteSavedView(view.id).then(
       () => {
-        setRecovery(prev => prev.has(view.id) ? prev : new Map(prev).set(view.id, capture));
+        if (generation.current === armedIn) setRecovery(prev => prev.has(view.id) ? prev : new Map(prev).set(view.id, capture));
         void refetch();
       },
       fail,
@@ -99,7 +109,7 @@ export default function SavedViews() {
     createSavedView({ surface: 'voc', name: trimmed, filter }).then(() => { setName(''); void refetch(); }, fail);
   };
 
-  const showHint = views.length === 0 && saveRoute === null;
+  const showHint = views.length === 0 && saveRoute === null && !isPending;
   return <div ref={sectionRef}>
     {views.map(view => <div key={view.id} className="group flex items-center gap-1">
       <button type="button" title={view.name} data-saved-view-apply={view.id} onClick={() => apply(view)}
@@ -111,6 +121,7 @@ export default function SavedViews() {
         <X className="size-3.5" aria-hidden />
       </button>
     </div>)}
+    {isPending && <p className="px-3 py-1 text-xs leading-4 text-text-muted">{ko ? '불러오는 중…' : 'Loading…'}</p>}
     {isError && views.length === 0 && <p className="px-3 py-1 text-xs leading-4 text-text-muted">{ko ? '저장된 보기를 불러오지 못했습니다.' : 'Could not load saved views.'}</p>}
     {showHint && !isError && <p className="px-3 py-1 text-xs leading-4 text-text-muted">{ko ? '수신함이나 Triage에서 현재 필터를 저장할 수 있습니다.' : 'Save the current filter from Inbox or Triage.'}</p>}
     {saveRoute !== null && <form className="mt-1 flex gap-1 px-2" onSubmit={save}>

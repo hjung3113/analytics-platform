@@ -15,14 +15,18 @@ function Muted({ text }: { text: string }) {
 
 /**
  * The body of the FeedbackOps `저장된 보기` section (the shell owns the landmark and heading and draws them on every FeedbackOps menu, so this never renders
- * empty). Without a FeedbackOps API (mock preview) or before the session is ready it is one muted line and nothing is requested.
+ * empty). Outside a ready session it is one muted line (mock: live server required; pending: loading; retired: session lost) and nothing is requested.
  */
 function Body() {
   const { lang } = useI18n();
   const session = useFoSession();
-  const placeholder = <Muted text={lang === 'ko' ? '실서버 필요' : 'Live server required'} />;
-  if (foApi() === null || session.status !== 'ready') return placeholder;
-  return <Suspense fallback={placeholder}><SavedViews /></Suspense>;
+  const ko = lang === 'ko';
+  const loading = <Muted text={ko ? '불러오는 중…' : 'Loading…'} />;
+  if (foApi() === null) return <Muted text={ko ? '실서버 필요' : 'Live server required'} />;
+  // The same wording `FoBridge` shows when the session is lost.
+  if (session.status === 'retired') return <Muted text={ko ? '세션이 만료되었습니다' : 'Your session has expired'} />;
+  if (session.status !== 'ready') return loading;
+  return <Suspense fallback={loading}><SavedViews /></Suspense>;
 }
 
 /** One component for the page's lifetime: a new one per `For` call would remount the section body on every render. */

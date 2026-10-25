@@ -40,6 +40,16 @@ let posted: unknown[] = [];
 let calls: string[] = [];
 let failPost: { status: number; code: string } | null = null;
 let failDelete = false;
+let deleteGate: Promise<void> | null = null;
+let getGate: Promise<void> | null = null;
+let unauthorized = false;
+let go: (path: string) => void = () => undefined;
+
+function Nav() {
+  const { navigate } = usePlatform();
+  go = path => navigate(path);
+  return null;
+}
 
 function Toasts() {
   const { toasts } = usePlatform();
@@ -53,10 +63,10 @@ async function mount(url: string) {
   document.body.append(host);
   root = createRoot(host);
   await act(async () => {
-    root!.render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}><Body /><Toasts /></PlatformProvider></I18nProvider>);
+    root!.render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}><Body /><Toasts /><Nav /></PlatformProvider></I18nProvider>);
   });
   // The first mount in a run loads the lazy list chunk (a cold import of the FeedbackOps modules).
-  for (let i = 0; foApi() !== null && host.textContent!.includes('실서버 필요') && i < 60; i++) await act(async () => { await new Promise(resolve => setTimeout(resolve, 100)); });
+  for (let i = 0; foApi() !== null && getGate === null && host.textContent!.includes('불러오는 중…') && i < 60; i++) await act(async () => { await new Promise(resolve => setTimeout(resolve, 100)); });
 }
 const settle = () => act(async () => { await new Promise(resolve => setTimeout(resolve, 250)); });
 const applyButton = (name: string) => host!.querySelector<HTMLButtonElement>(`button[title="${name}"]`)!;
@@ -75,13 +85,17 @@ async function type(value: string) {
 beforeEach(() => {
   vi.stubGlobal('localStorage', memoryStorage());
   foQueryClient.clear();
-  rows = []; posted = []; calls = []; failPost = null; failDelete = false;
+  rows = []; posted = []; calls = []; failPost = null; failDelete = false; deleteGate = null; getGate = null; unauthorized = false;
   setFoApi({ basePath: '/api/fo', onSessionLost: vi.fn() });
   vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     const method = init?.method ?? 'GET';
     calls.push(`${method} ${url}`);
-    if (method === 'GET') return json({ items: rows });
+    if (method === 'GET') {
+      if (unauthorized) return json({ code: 'auth.unauthenticated', message: 'x' }, 401);
+      await getGate;
+      return json({ items: rows });
+    }
     if (method === 'POST') {
       if (failPost !== null) return json({ code: failPost.code, message: 'x' }, failPost.status);
       const body = JSON.parse(String(init!.body)) as Row;
@@ -89,6 +103,7 @@ beforeEach(() => {
       rows = [...rows, row(`n${rows.length + 1}`, body.name, body.filter)];
       return json(rows[rows.length - 1], 201);
     }
+    await deleteGate;
     if (failDelete) return json({ code: 'internal.error', message: 'x' }, 500);
     rows = rows.filter(r => url.endsWith(`/${r.id}`) === false);
     return new Response(null, { status: 204 });
@@ -185,12 +200,48 @@ describe('apply', () => {
     expect(search.get('managedSystem')).toBe('ms2');
   });
 
+  it.each([
+    ['inbox', '/feedbackops/vocs?managedSystem=ms1', '/feedbackops/vocs'],
+    ['triage', '/feedbackops/triage?managedSystem=ms1', '/feedbackops/triage'],
+  ])('applies a stored managed_system_id all as a cleared scope for a %s view', async (view, start, pathname) => {
+    rows = [row('a', '전체', { view, managed_system_id: 'all' })];
+    await mount(start);
+    await settle();
+    await click('전체');
+    expect(window.location.pathname).toBe(pathname);
+    expect(new URLSearchParams(window.location.search).has('managedSystem')).toBe(false);
+    expect(window.location.search).not.toContain('all');
+  });
+
   it('leaves a stored view no table maps inert', async () => {
     rows = [row('a', '이상함', { view: 'mystery' })];
     await mount('/feedbackops');
     await settle();
     await click('이상함');
     expect(path()).toBe('/feedbackops');
+  });
+});
+
+describe('session states', () => {
+  it('shows a loading line, not 실서버 필요, while the list loads', async () => {
+    let release!: () => void;
+    getGate = new Promise<void>(resolve => { release = resolve; });
+    await mount('/feedbackops');
+    await settle();
+    expect(host!.textContent).toContain('불러오는 중…');
+    expect(host!.textContent).not.toContain('실서버 필요');
+    expect(host!.textContent).not.toContain('수신함이나 Triage');
+    await act(async () => { release(); });
+    await settle();
+    expect(host!.textContent).not.toContain('불러오는 중…');
+  });
+
+  it('shows the session-lost wording once the session is retired', async () => {
+    unauthorized = true;
+    await mount('/feedbackops');
+    await settle();
+    expect(host!.textContent).toContain('세션이 만료되었습니다');
+    expect(host!.textContent).not.toContain('실서버 필요');
   });
 });
 
@@ -236,5 +287,49 @@ describe('delete and focus recovery', () => {
     expect(document.activeElement).toBe(button);
     expect(applyButton('B')).toBeTruthy();
     expect(toasts()).toEqual([['danger', '일시적 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.']]);
+  });
+
+  it('moves no focus when a delayed delete resolves after navigating away', async () => {
+    rows = three();
+    let release!: () => void;
+    deleteGate = new Promise<void>(resolve => { release = resolve; });
+    await mount('/feedbackops/vocs');
+    await settle();
+    await act(async () => { host!.querySelector<HTMLButtonElement>('button[aria-label="저장된 보기 B 삭제"]')!.click(); });
+    await act(async () => { go('/feedbackops/triage'); });
+    await settle();
+    input()!.focus();
+    await act(async () => { release(); });
+    await settle();
+    expect(applyButton('B')).toBeNull();
+    expect(document.activeElement).toBe(input());
+  });
+
+  it('drops an armed recovery when the route changes before the list refetch lands', async () => {
+    rows = three();
+    await mount('/feedbackops/vocs');
+    await settle();
+    let release!: () => void;
+    getGate = new Promise<void>(resolve => { release = resolve; });
+    await act(async () => { host!.querySelector<HTMLButtonElement>('button[aria-label="저장된 보기 B 삭제"]')!.click(); });
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 100)); });
+    await act(async () => { go('/feedbackops/triage'); });
+    input()!.focus();
+    await act(async () => { release(); });
+    await settle();
+    expect(applyButton('B')).toBeNull();
+    expect(document.activeElement).toBe(input());
+  });
+
+  it('still recovers when the delayed delete resolves on the same route', async () => {
+    rows = three();
+    let release!: () => void;
+    deleteGate = new Promise<void>(resolve => { release = resolve; });
+    await mount('/feedbackops');
+    await settle();
+    await act(async () => { host!.querySelector<HTMLButtonElement>('button[aria-label="저장된 보기 B 삭제"]')!.click(); });
+    await act(async () => { release(); });
+    await settle();
+    expect(document.activeElement).toBe(applyButton('C'));
   });
 });
