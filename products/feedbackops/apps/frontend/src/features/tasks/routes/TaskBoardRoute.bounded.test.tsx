@@ -711,6 +711,21 @@ describe('bounded Task board (#1178)', () => {
     });
   });
 
+  it('writes a literal search text as the string it is, even when the previous search had no q (763b review F1)', async () => {
+    mount({ managedSystem: MS });
+    await screen.findByLabelText('Backlog 열');
+    const box = screen.getByRole('searchbox');
+    fireEvent.change(box, { target: { value: 'undefined' } });
+    fireEvent.keyDown(box, { key: 'Enter' });
+    const call = navigate.mock.calls.at(-1)?.[0];
+    expect(call.replace).toBe(true);
+    expect(call.search({ view: 'board', managedSystem: MS })).toEqual({
+      view: 'board',
+      managedSystem: MS,
+      q: 'undefined',
+    });
+  });
+
   it('shows the public-update chip with q, removes it by dropping the param, and clears it', async () => {
     mount({ publicUpdate: 'missing', q: 'Task' });
     await screen.findByLabelText('Backlog 열');

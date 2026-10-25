@@ -56,7 +56,7 @@ function useBoardNavigate(): HostNavigate {
             if (value === undefined) {
               // A close or link-missing replace always drops `param`; any other key only when the route had it.
               if (route[key] !== undefined || (key === 'param' && replace)) delete next[key];
-            } else if (value !== route[key] && String(previous[key]) !== value) {
+            } else if (value !== route[key] && previous[key] !== value) {
               next[key] = value;
             }
           }
