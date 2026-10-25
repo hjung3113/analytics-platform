@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import type { RowSelectionState } from '@tanstack/react-table';
 import type { ApiResponse, Capability, ContextKey, PageSort } from '@ap/contracts';
-import { useEquipmentAxes, useI18n, usePlatform } from '@ap/kernel';
+import { useEquipmentAxes, useI18n, usePlatform, useQueryContext } from '@ap/kernel';
 import { isProductionEnv } from '@ap/ui';
 import type { PlatformColumn } from './PlatformDataTable';
 import { exportCell, exportColumns, toClipboardHtml, toCsv, toTsv, toXlsx } from './tableExport';
@@ -56,6 +56,7 @@ export function useTableTransfer<T>(input: TransferInput<T>) {
   const { columns, getRowId, canExport, selectedIds, selection, activeSorting, preferences, overlayOpen } = input;
   const { lang, t } = useI18n();
   const { global, route, toast } = usePlatform();
+  const queryContext = useQueryContext();
   const axes = useEquipmentAxes();
   const [exporting, setExporting] = useState(false);
   /** Polite “준비 중” announcement next to the trigger (#173 UX P2-3); visually hidden so the toolbar width stays stable. */
@@ -149,7 +150,7 @@ export function useTableTransfer<T>(input: TransferInput<T>) {
           ...(menu?.requiresScope ? [['Scope', global.scopeId ?? ''] as [string, string]] : []),
           ...(appliedContext?.time === 'apply' ? [[L.period, global.from && global.to ? `${global.from} – ${global.to}` : ''] as [string, string]] : []),
           ...(input.exportFilterSummary ?? []).map(([label, value]) => [label, value] as [string, string]),
-          ...(appliedContext ? globalContextRows(global, appliedContext, lang, axes, t('membershipAsOf')) : []),
+          ...(appliedContext ? globalContextRows(queryContext, appliedContext, lang, axes, t('membershipAsOf')) : []),
           [L.updatedAt, trust?.updatedAt?.replace('T', ' ') ?? ''],
           [L.dataThrough, trust?.dataThrough?.replace('T', ' ') ?? ''],
           [L.coverage, trust != null && trust.coverage !== null ? `${(trust.coverage * 100).toFixed(1)}%` : ''],
