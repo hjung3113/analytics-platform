@@ -4275,7 +4275,9 @@ test.describe('차트 카탈로그 — 종류별 상호작용 (06 §16, #530)', 
     await expect(page.getByRole('tab', { name: /^분해 막대 / })).toHaveAttribute('aria-selected', 'true');
     const workspace = page.getByRole('region', { name: '차트 작업 영역', exact: true });
     const stacked = workspace.getByRole('region', { name: /상태별 시간/ });
-    await stacked.getByRole('button', { name: '표로 보기', exact: true }).click();
+    // The Frame's accessible table opens from its 더보기 menu.
+    await stacked.getByRole('button', { name: '더보기', exact: true }).click();
+    await page.getByRole('button', { name: '같은 데이터를 표로 보기' }).click();
     await expect(stacked.getByRole('table').getByRole('columnheader', { name: '합계', exact: true })).toBeVisible();
     await expect(workspace.getByLabel('서버 합계')).toContainText('합계 없음');
     const tree = workspace.getByRole('tree', { name: '분해 트리' });
