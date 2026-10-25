@@ -92,6 +92,7 @@
 | [0082](0082-measure-reaggregation-contract.md) | 재집계 규칙은 `@ap/contracts`의 `Reaggregation`·`MeasureMeta`·`canClientSum` 한 어휘다 — 새 집계 어휘(`sum/count/rate/weightedAvg/min/max/nonAdditive`) 대신 지표 카탈로그의 `reaggregationRule` 세 값에 `none`을 더해 계약으로 올린다 | Decided(2026-10-25, 코디네이터(사용자 위임), 되돌릴 수 있음) — #580 580a |
 | [0083](0083-condition-presets.md) | Condition 프리셋은 메뉴 조회의 투영·신원만 활성 프리셋의 축으로 좁히고 전역 Condition·URL·칸 복사는 그대로 둔다(대안: 값 제거 / 세션 보관 / 유지하되 투영 안 함 — 마지막 선택) | Decided(2026-10-25, 코디네이터(사용자 위임), 되돌릴 수 있다) — #580 노드 580b, 0059 결정 7 유지 |
 | [0084](0084-legend-tree-drill.md) | LegendTree 드릴은 보이기와 분리한다 — 시리즈 줄은 체크박스·이름 = 보이기 + hover 단계 버튼, `drillOnly` 줄은 줄 클릭 = 드릴, Enter는 모두 드릴(대안: b1 이름 클릭 드릴 / b2 버튼만 — 조합 선택) | Decided(2026-10-25, 코디네이터(사용자 위임, Opus xhigh 리뷰 반영), 되돌릴 수 있다) — #580 노드 580e, 0057 보충 |
+| [0085](0085-entity-audit-cursor-pages.md) | 목적지 감사 `entityAudit`은 서버 상한(50)·keyset 커서로 쪽을 나누고, `AuditTimeline`은 목록 끝 `이전 변경 이력 더 보기` 버튼으로 이어 붙인다(대안: B 총건수·`N/M건` 표시 / C 전역 감사 화면으로 넘기기 — A 선택) | Decided(2026-10-26, 코디네이터(사용자 지시: 시안은 Opus xhigh 리뷰 후 결정), 되돌릴 수 있다) — #826 |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 

@@ -1,5 +1,5 @@
 import { AlertTriangle } from 'lucide-react';
-import { type PageProps, PlatformLink, useEntityQuery, useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
+import { type PageProps, PlatformLink, useEntityAudit, useEntityQuery, useI18n, usePlatform } from '@ap/kernel';
 import { AuditTimeline, DataTrustIndicator, Field, PlatformPage, QueryView, ReturnLink, StateMessage } from '@ap/components';
 import { Button, StatusBadge, Tabs, TabsContent, TabsList, TabsTrigger } from '@ap/ui';
 import { EQUIPMENT_ENTITY_TYPE, type Equipment } from '../endpoints';
@@ -11,20 +11,17 @@ export function EquipmentStatus({ equipment }: { equipment: Equipment }) {
 }
 
 export function EquipmentPanel({ id, kind }: { id: string; kind: 'attributes' | 'validity' | 'audit' | 'analysis' }) {
-  const { adapter, global, scope, linkTo } = usePlatform();
+  const { global, scope, linkTo } = usePlatform();
   const { lang } = useI18n();
   const ko = lang === 'ko';
   const query = useEntityQuery<Equipment>({ type: EQUIPMENT_ENTITY_TYPE, id, scopeId: global.scopeId }, kind, kind !== 'audit' && scope.status === 'valid');
-  // #50: the audit tab reads the destination's events from the port, not the entity payload. Context
-  // identity (default): the ref carries the scope, so a scope change refetches like any page query.
-  const auditQuery = usePlatformQuery(
-    signal => adapter.entityAudit({ type: EQUIPMENT_ENTITY_TYPE, id, scopeId: global.scopeId }, signal),
-    [id, global.scopeId],
-    kind === 'audit' && scope.status === 'valid',
-  );
-  if (kind === 'audit') return <QueryView widgetName={ko ? '변경 이력' : 'Change history'} query={auditQuery}>{events => <div className="space-y-4">
+  // #50: the audit tab reads the destination's changes from the port, not the entity payload. Session identity
+  // (ADR-0085): the ref carries the scope, so a scope change reads again, a period change does not. Older pages are
+  // appended by the timeline's own control; the first page's data below is not used.
+  const audit = useEntityAudit({ type: EQUIPMENT_ENTITY_TYPE, id, scopeId: global.scopeId }, kind === 'audit' && scope.status === 'valid');
+  if (kind === 'audit') return <QueryView widgetName={ko ? '변경 이력' : 'Change history'} query={audit.query}>{() => <div className="space-y-4">
     <p className="t-caption text-text-muted">{ko ? '합성 감사 이벤트 · 실제 변경 기록이 아닙니다.' : 'Synthetic audit events · not real change records.'}</p>
-    <AuditTimeline events={[...events.events]} />
+    <AuditTimeline {...audit.timeline} />
   </div>}</QueryView>;
   return <QueryView widgetName={ko ? '설비 상세' : 'Equipment details'} query={query}>{(e, response) => e && <div className="space-y-4">
     <DataTrustIndicator trust={response.trust} assessments={response.assessments} />

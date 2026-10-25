@@ -150,6 +150,15 @@ describe('method table', () => {
     expect(sent()[0]!.search).toBe('?from=1000&to=2000');
   });
 
+  it('entityAudit carries the cursor in the body only when one is given', async () => {
+    const { adapter, sent } = await ready(() => json(ENVELOPE));
+    await adapter.entityAudit({ ...REF, cursor: undefined });
+    await adapter.entityAudit({ ...REF, cursor: 'c-1' });
+    expect(sent()[0]!.body).toEqual(REF);
+    expect('cursor' in (sent()[0]!.body as object)).toBe(false);
+    expect(sent()[1]!.body).toEqual({ ...REF, cursor: 'c-1' });
+  });
+
   it('listAnnotations without a scope leaves scopeId out so the server answers forbidden', async () => {
     const { adapter, sent } = await ready(() => json(ENVELOPE));
     await adapter.listAnnotations({ chartId: 'c1', scopeId: null });

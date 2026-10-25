@@ -46,6 +46,11 @@ export type EntityRef = {
   scopeId: string | null; // requested site; never inferred from id (ADR-0004)
 };
 
+/** `entityAudit` request (ADR-0085): the destination ref plus an optional keyset cursor. An `EntityRef` is a valid request (first page). */
+export type EntityAuditRequest = EntityRef & { cursor?: string };
+/** `entityAudit` answer: one page, newest first. `nextCursor` null = last page; a missing key = a server that does not page (read as the end). */
+export type EntityAuditPage = { events: readonly AuditEvent[]; nextCursor?: string | null };
+
 /** Menu usage telemetry (docs/05 메뉴 활용률 계측; 06 §4). v1 sends identity fields only (issue #75 pending). */
 export type UsageEventName = 'entry' | 'dwell';
 export type UsageEvent = {
@@ -229,12 +234,16 @@ export type PlatformAdapter = {
    * One destination's audit events (issue #50), the detail-tab read: the destination's own view permission,
    * not console:access, so an engineer sees the equipment tab they already have. A `targetId` on auditTrail
    * is only a list filter — one method with a weaker check for a target would let a list filter borrow the
-   * detail permission. Not paged, no list filters. Same gates as `getEntity`: the destination type's view
+   * detail permission. No list filters. Cursor-paged (ADR-0085): the server picks the page size, at most
+   * ENTITY_AUDIT_PAGE_MAX, ordered `at` desc (instant) then `id` asc; `cursor` is an opaque keyset token bound to the
+   * ref (a malformed or foreign cursor is outcome `error`, message `Invalid cursor`), read only after every gate
+   * below has passed. The last page answers `nextCursor: null`; a page past the first with no rows is `ok` with
+   * `events: []`. A response without a `nextCursor` key (a server that does not page) is the end. Same gates as `getEntity`: the destination type's view
    * permission, the site·room grant for a site-scoped type (`scopeId: null` for a siteless type like 지표),
    * `error` for an unregistered type. A zero is a confirmed result: outcome `empty` (no data), not `ok` with
    * an empty list.
    */
-  entityAudit(ref: EntityRef, signal?: AbortSignal): Promise<ApiResponse<{ events: readonly AuditEvent[] }>>;
+  entityAudit(req: EntityAuditRequest, signal?: AbortSignal): Promise<ApiResponse<EntityAuditPage>>;
   /**
    * The console access directory (issue #49): console:access, every site, no room gate — the scope axis is
    * room_name (ADR-0005) and the same role already reads every site's audit. Read-only: room_name and individual grants are owned by the

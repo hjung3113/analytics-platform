@@ -5,7 +5,7 @@ AnalysisChartProps | type | type AnalysisChartProps = { chartId: string; descrip
 AnalysisLayout | function | function AnalysisLayout(props: @ap/components#AnalysisLayoutProps): import("react").JSX.Element
 AnalysisLayoutProps | type | type AnalysisLayoutProps = { breakdown?: @ap/components#AnalysisSection; charts: @ap/components#AnalysisSection[]; density?: 'compact' | 'regular'; kpi?: @ap/components#AnalysisSection; }
 AnalysisSection | type | type AnalysisSection = { id: string; node: ReactNode; span?: 'full'; title: string; }
-AuditTimeline | function | function AuditTimeline({ events }: { events: @ap/contracts#AuditEvent[]; }): import("react").JSX.Element
+AuditTimeline | function | function AuditTimeline({ events, more }: { events: readonly @ap/contracts#AuditEvent[]; more?: @ap/kernel#AuditMore; }): import("react").JSX.Element
 BoxPlotSpec | type | type BoxPlotSpec = { groups: { id: string; label: string; stats: @ap/components#BoxStats | null; }[]; kind: 'boxPlot'; onGroupClick?: (id: string) => void; referenceLines?: { label: string; value: number; }[]; whisker: 'minMax' | 'tukey'; }
 BoxStats | type | type BoxStats = { max: number; median: number; min: number; n?: number; outliers?: number[]; q1: number; q3: number; }
 ChartPoint | type | type ChartPoint = { seriesId: string; value: null | number; x: string; }

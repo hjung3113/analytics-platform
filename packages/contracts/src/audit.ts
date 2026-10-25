@@ -28,3 +28,6 @@ export type AuditEvent = {
   /** Recorded user text. Not a Text. Not translated (06 §23). */
   reason?: string;
 };
+
+/** Most events one `entityAudit` page may carry (ADR-0085). The server picks the actual size; the client sends no limit. */
+export const ENTITY_AUDIT_PAGE_MAX = 50;

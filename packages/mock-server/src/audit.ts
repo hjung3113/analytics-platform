@@ -11,7 +11,7 @@
  * mart trust. `partial` and `too_large` do not apply to `auditTrail` (not a mart, no period budget);
  * `entityAudit` consults `partial` through getEntity's shared counter.
  */
-import { instantEpochMs, menuPermission, type ApiResponse, type Assessment, type AuditAction, type AuditEvent, type AuditSortField, type AuditSource, type AuditTrailPage, type AuditTrailQuery, type EntityRef } from '@ap/contracts';
+import { ENTITY_AUDIT_PAGE_MAX, instantEpochMs, menuPermission, type ApiResponse, type Assessment, type AuditAction, type AuditEvent, type AuditSortField, type AuditSource, type AuditTrailPage, type AuditTrailQuery, type EntityAuditPage, type EntityAuditRequest } from '@ap/contracts';
 import { checkScope, getRole, getScenario, nextCorrelation, partialFails, sleep } from './server';
 import { AUDIT_EVENTS } from './audit-fixtures';
 import { runtimeAuditEvents } from './annotations';
@@ -70,6 +70,38 @@ function invalidAuditQuery(query: AuditTrailQuery): boolean {
 function compareEventsDesc(a: AuditEvent, b: AuditEvent): number {
   const byAt = instantEpochMs(b.at) - instantEpochMs(a.at);
   return byAt !== 0 ? byAt : a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+}
+
+/**
+ * Keyset cursor for `entityAudit` (ADR-0085): the last row's (instant, id), bound to the ref so a cursor never opens
+ * another destination. Opaque to the client; a mock token, not a wire format a real server must copy.
+ */
+function encodeAuditCursor(ref: EntityAuditRequest, last: AuditEvent): string {
+  return encodeURIComponent(JSON.stringify([ref.type, ref.id, ref.scopeId, instantEpochMs(last.at), last.id]));
+}
+
+function decodeAuditCursor(ref: EntityAuditRequest, cursor: string): { ms: number; id: string } | null {
+  try {
+    const parsed: unknown = JSON.parse(decodeURIComponent(cursor));
+    if (!Array.isArray(parsed) || parsed.length !== 5) return null;
+    const [type, id, scopeId, ms, lastId] = parsed;
+    if (type !== ref.type || id !== ref.id || scopeId !== ref.scopeId) return null;
+    if (typeof ms !== 'number' || !Number.isFinite(ms) || typeof lastId !== 'string') return null;
+    return { ms, id: lastId };
+  } catch {
+    return null;
+  }
+}
+
+/** The shared cut for both destination branches: sort, drop up to the cursor, take a page, null cursor on the last. */
+function cutAuditPage(ref: EntityAuditRequest, events: readonly AuditEvent[], after: { ms: number; id: string } | null): EntityAuditPage {
+  const sorted = [...events].sort(compareEventsDesc);
+  const rest = after === null ? sorted : sorted.filter(event => {
+    const byAt = after.ms - instantEpochMs(event.at);
+    return byAt !== 0 ? byAt > 0 : event.id > after.id;
+  });
+  const page = rest.slice(0, ENTITY_AUDIT_PAGE_MAX);
+  return { events: page, nextCursor: rest.length > page.length ? encodeAuditCursor(ref, page[page.length - 1]) : null };
 }
 
 function sortValue(event: AuditEvent, field: AuditSortField): string {
@@ -133,7 +165,7 @@ export async function auditTrail(query: AuditTrailQuery, signal?: AbortSignal, o
  * no site, so a scopeId on a metric ref is a caller error, not a filter to drop. Unknown destination or
  * the empty scenario answer outcome 'empty' (a confirmed zero), never ok with an empty list.
  */
-export async function entityAudit(ref: EntityRef, signal?: AbortSignal, opts?: AuditOptions): Promise<ApiResponse<{ events: readonly AuditEvent[] }>> {
+export async function entityAudit(ref: EntityAuditRequest, signal?: AbortSignal, opts?: AuditOptions): Promise<ApiResponse<EntityAuditPage>> {
   const s = getScenario();
   const requestRole = opts?.role ?? getRole();
   const correlationId = nextCorrelation();
@@ -156,14 +188,19 @@ export async function entityAudit(ref: EntityRef, signal?: AbortSignal, opts?: A
     const row = EQUIPMENT.find(e => e.site === ref.scopeId && e.equipmentId === ref.id);
     if (row && !scope.grantedRooms.includes(row.room)) return { ...base, outcome: 'forbidden', message: 'No grant for equipment' };
     if (s === 'forbidden') return { ...base, outcome: 'forbidden', message: 'Permission revoked (scenario)' };
+    // 5b. The cursor is read only after every gate above has passed.
+    const after = ref.cursor === undefined ? null : decodeAuditCursor(ref, ref.cursor);
+    if (ref.cursor !== undefined && after === null) return { ...base, outcome: 'error', message: 'Invalid cursor' };
     const events = AUDIT_EVENTS.filter(event => event.target.type === 'equipment' && event.target.id === ref.id);
-    if (s === 'empty' || !row || events.length === 0) return { ...base, outcome: 'empty' };
-    return { ...base, outcome: 'ok', data: { events: [...events].sort(compareEventsDesc) } };
+    if (after === null && (s === 'empty' || !row || events.length === 0)) return { ...base, outcome: 'empty' };
+    return { ...base, outcome: 'ok', data: cutAuditPage(ref, s === 'empty' || !row ? [] : events, after) };
   }
   // 6. A metric destination has no site; do not drop the site and do not filter by it.
   if (ref.scopeId !== null) return { ...base, outcome: 'error', message: 'Metric audit has no scope' };
   if (s === 'forbidden') return { ...base, outcome: 'forbidden', message: 'Permission revoked (scenario)' };
+  const after = ref.cursor === undefined ? null : decodeAuditCursor(ref, ref.cursor);
+  if (ref.cursor !== undefined && after === null) return { ...base, outcome: 'error', message: 'Invalid cursor' };
   const events = (opts?.seeds ?? []).filter(event => event.target.type === 'metric' && event.target.id === ref.id);
-  if (s === 'empty' || events.length === 0) return { ...base, outcome: 'empty' };
-  return { ...base, outcome: 'ok', data: { events: [...events].sort(compareEventsDesc) } };
+  if (after === null && (s === 'empty' || events.length === 0)) return { ...base, outcome: 'empty' };
+  return { ...base, outcome: 'ok', data: cutAuditPage(ref, s === 'empty' ? [] : events, after) };
 }

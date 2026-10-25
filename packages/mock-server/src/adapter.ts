@@ -188,7 +188,7 @@ export function createMockAdapter(o: {
     menuAction: (req, signal) => serveAction(actions, req, signal),
     // opts (test role pin, latency) stay server-side: the adapter passes the port arguments only.
     auditTrail: (query, signal) => auditTrail(query, signal, { seeds }),
-    entityAudit: (ref, signal) => entityAudit(ref, signal, { seeds }),
+    entityAudit: (req, signal) => entityAudit(req, signal, { seeds }),
     accessDirectory: (query, signal) => accessDirectory(query, signal),
     listAnnotations: (ref, signal) => listAnnotations(ref, signal),
     saveAnnotation: (input, signal) => saveAnnotation(input, signal),
