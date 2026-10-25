@@ -369,8 +369,9 @@ jobs:
         run: pnpm --filter @ap/platform-web build
       - name: Capture, assemble and check the site
         run: |
+          # No `git rev-parse` here: inside the container job git refuses the checkout (dubious ownership) and prints nothing.
           node site/scripts/shots.mjs --demo apps/platform-web/dist --out _shots
-          node site/scripts/assemble.mjs --out "$RUNNER_TEMP/_site" --site-base /analytics-platform/ --ref "$GITHUB_SHA" --commit "$(git rev-parse --short HEAD)" --demo apps/platform-web/dist --shots _shots
+          node site/scripts/assemble.mjs --out "$RUNNER_TEMP/_site" --site-base /analytics-platform/ --ref "$GITHUB_SHA" --commit "${GITHUB_SHA::7}" --demo apps/platform-web/dist --shots _shots
           node site/scripts/check-assembled.mjs --site "$RUNNER_TEMP/_site" --captures _shots --browser
       - uses: actions/upload-artifact@v4
         if: ${{ failure() }}
