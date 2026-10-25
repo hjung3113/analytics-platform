@@ -135,16 +135,16 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, l
 
   // Width of the workspace: under `compactBelow` with a compact preset the arrangement is the preset's, in memory.
   const root = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState<number | null>(null);
+  // Only the side of `compactBelow` is state: a resize that stays on one side re-renders nothing (#823).
+  const [narrow, setNarrow] = useState(false);
   useLayoutEffect(() => {
     const element = root.current;
     if (!element) return;
-    const observer = new ResizeObserver(entries => { const entry = entries[entries.length - 1]; if (entry) setWidth(entry.contentRect.width); });
+    const observer = new ResizeObserver(entries => { const entry = entries[entries.length - 1]; if (entry) setNarrow(entry.contentRect.width < compactBelow); });
     observer.observe(element);
     return () => { observer.disconnect(); };
-  }, []);
+  }, [compactBelow]);
   const compactSpec = compactPreset === undefined ? undefined : presets.find(preset => preset.id === compactPreset);
-  const narrow = width !== null && width < compactBelow;
   const compact = compactSpec !== undefined && narrow;
   const [compactState, setCompactState] = useState<WorkspaceState | null>(null);
   if (!compact && compactState !== null) setCompactState(null);

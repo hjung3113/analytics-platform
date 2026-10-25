@@ -157,6 +157,17 @@ describe('the board hook and the open-in-board entry', () => {
     expect(localStorage.getItem(V1_BACKUP)).toBe(raw);
   });
 
+  it('an update with save: false changes the board without writing; the next saving update writes it (#823: splitter drag)', () => {
+    const { result } = renderHook(() => useBoardStore('u1', '시트'));
+    const written = vi.spyOn(localStorage, 'setItem');
+    act(() => { result.current.update(b => addSheet(b, '시트'), { save: false }); });
+    expect(result.current.board.sheets).toHaveLength(2);
+    expect(written).not.toHaveBeenCalled();
+    act(() => { result.current.update(b => b); });
+    expect(written.mock.calls.filter(([key]) => key === V2_KEY)).toHaveLength(1);
+    expect(parseBoardV2(JSON.parse(localStorage.getItem(V2_KEY)!))?.sheets).toHaveLength(2);
+  });
+
   it('keeps edits in memory, never writes V2 and reports the notice for a newer value', () => {
     const raw = JSON.stringify({ v: 3 });
     localStorage.setItem(V2_KEY, raw);

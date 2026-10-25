@@ -2,16 +2,27 @@ import { useEffect, useRef, type CSSProperties } from 'react';
 import { cn } from '@ap/ui';
 import type { SplitBounds } from './layout';
 
-/** Two-track splitter. Pixel bounds describe effective sizes; only explicit gestures save percentages. */
+/**
+ * Two-track splitter. Pixel bounds describe effective sizes; only explicit gestures save percentages. `final` is false for the moves of a
+ * pointer drag (resize only) and true once it ends or for a key press, so a drag is saved once, not per move (#823).
+ */
 export function PaneSplitter({ horizontal, label, controls, value, bounds, extent, placement, onChange }: {
   horizontal?: boolean; label: string; controls: string; value: number; bounds: SplitBounds; extent: number; placement: { left: number; top: number; width: number; height: number };
-  onChange: (values: number[]) => void;
+  onChange: (values: number[], final: boolean) => void;
 }) {
   const root = useRef<HTMLDivElement>(null);
-  const drag = useRef<{ pointerId: number; start: number; value: number; extent: number } | null>(null);
-  const change = (next: number) => {
-    const clamped = Math.max(bounds.min, Math.min(bounds.max, next));
-    onChange([clamped, 100 - clamped]);
+  const drag = useRef<{ pointerId: number; start: number; value: number; extent: number; last?: number } | null>(null);
+  const clamp = (next: number) => Math.max(bounds.min, Math.min(bounds.max, next));
+  const change = (next: number, final: boolean) => {
+    const clamped = clamp(next);
+    onChange([clamped, 100 - clamped], final);
+    return clamped;
+  };
+  /** Ends a drag: saves where it stopped when it moved at all. */
+  const finish = () => {
+    const last = drag.current?.last;
+    drag.current = null;
+    if (last !== undefined) onChange([last, 100 - last], true);
   };
   useEffect(() => () => {
     const id = drag.current?.pointerId;
@@ -25,7 +36,7 @@ export function PaneSplitter({ horizontal, label, controls, value, bounds, exten
         : (event.key === 'ArrowLeft' ? -5 : event.key === 'ArrowRight' ? 5 : 0);
       if (!delta && event.key !== 'Home' && event.key !== 'End') return;
       event.preventDefault();
-      change(event.key === 'Home' ? bounds.min : event.key === 'End' ? bounds.max : value + delta);
+      change(event.key === 'Home' ? bounds.min : event.key === 'End' ? bounds.max : value + delta, true);
     }}
     onPointerDown={event => {
       if (event.button !== 0 || extent <= 0) return;
@@ -37,14 +48,14 @@ export function PaneSplitter({ horizontal, label, controls, value, bounds, exten
     onPointerMove={event => {
       const active = drag.current;
       if (!active || active.pointerId !== event.pointerId) return;
-      change(active.value + ((horizontal ? event.clientY : event.clientX) - active.start) / active.extent * 100);
+      active.last = change(active.value + ((horizontal ? event.clientY : event.clientX) - active.start) / active.extent * 100, false);
     }}
     onPointerUp={event => {
       if (drag.current?.pointerId !== event.pointerId) return;
-      drag.current = null;
+      finish();
       if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
     }}
-    onPointerCancel={() => { drag.current = null; }} onLostPointerCapture={() => { drag.current = null; }}
+    onPointerCancel={finish} onLostPointerCapture={finish}
     className={cn('absolute left-(--split-left) top-(--split-top) h-(--split-height) w-(--split-width) z-20 flex touch-none select-none items-center justify-center rounded-xs outline-none focus-visible:ring-2 focus-visible:ring-focus-ring', horizontal ? 'cursor-row-resize' : 'cursor-col-resize')}>
     <span aria-hidden className={cn('rounded-full bg-border-default', horizontal ? 'h-0.5 w-8' : 'h-8 w-0.5')} />
   </div>;

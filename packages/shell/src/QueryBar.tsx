@@ -1,4 +1,4 @@
-import { useId, useLayoutEffect, useRef, useState, type ReactNode, type ComponentProps } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode, type ComponentProps } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { parseDateTime, shift, type GlobalContext, type IdSet } from '@ap/contracts';
 import { CONTEXT_LABELS, useAxisOptions, useConditionPreset, useEquipmentSearch, useI18n, useQueryDraft, useResolvedSelection, type PortContext } from '@ap/kernel';
@@ -176,6 +176,20 @@ function QueryBarSession({ label, historySlot }: QueryBarProps) {
   </section>;
 }
 
+/**
+ * The candidate search the ports see: typing waits 250 ms after the last key (a port request per key otherwise, #823); clearing the
+ * search applies at once. The input itself shows every key.
+ */
+function useSearchQuery(search: string): string {
+  const [query, setQuery] = useState(search);
+  useEffect(() => {
+    if (search === '') { setQuery(''); return; }
+    const timer = setTimeout(() => setQuery(search), 250);
+    return () => clearTimeout(timer);
+  }, [search]);
+  return query;
+}
+
 type SetFieldProps = { name: string; values: IdSet; options: { value: string; label: string }[]; onChange: (values: IdSet) => void; invalid?: boolean; reasonId: string };
 function SetField({ name, values, onChange, invalid, reasonId, ...props }: SetFieldProps & Partial<Pick<ComponentProps<typeof MultiCombobox>, 'getLabel' | 'search' | 'onSearchChange' | 'loading' | 'error' | 'onRetry' | 'hasMore' | 'onLoadMore'>>) {
   const { lang, t } = useI18n();
@@ -188,7 +202,7 @@ function SetField({ name, values, onChange, invalid, reasonId, ...props }: SetFi
 }
 function AxisField({ axisId, context, parents, ...props }: Omit<SetFieldProps, 'options'> & { axisId: string; context: PortContext; parents: Record<string, string[]> }) {
   const [search, setSearch] = useState('');
-  const result = useAxisOptions({ axisId, context, parents, query: search });
+  const result = useAxisOptions({ axisId, context, parents, query: useSearchQuery(search) });
   const { lang } = useI18n();
   const labels = new Map(result.items.map(item => [item.id, item.label]));
   return <div className="min-w-0">
@@ -198,7 +212,7 @@ function AxisField({ axisId, context, parents, ...props }: Omit<SetFieldProps, '
 }
 function EquipmentField({ context, ...props }: Omit<SetFieldProps, 'name' | 'options'> & { context: PortContext }) {
   const [search, setSearch] = useState('');
-  const result = useEquipmentSearch({ context, query: search });
+  const result = useEquipmentSearch({ context, query: useSearchQuery(search) });
   const resolved = useResolvedSelection(props.values ?? [], { scopeId: context.scopeId });
   const { lang } = useI18n();
   const ko = lang === 'ko';

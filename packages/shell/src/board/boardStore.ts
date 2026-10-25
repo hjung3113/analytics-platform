@@ -81,17 +81,21 @@ export const writeStoredBoard = (userId: string, board: Board): boolean => saveB
  * newer-version value yields a fresh board that is NOT written back until the user edits (never, for a newer one), so a value this build
  * cannot read survives. `storageNotice` says why a stored value was not used.
  */
-export function useBoardStore(userId: string, prefix: string): { board: Board; update: (change: (board: Board) => Board) => void; storageNotice: StorageNotice | null } {
-  const [state, setState] = useState(() => ({ userId, ...loadBoard(browserStorage, userId, prefix) }));
+export function useBoardStore(userId: string, prefix: string): { board: Board; update: (change: (board: Board) => Board, options?: { save?: boolean }) => void; storageNotice: StorageNotice | null } {
+  const [state, setState] = useState<{ userId: string; unsaved?: boolean } & LoadedBoard>(() => ({ userId, ...loadBoard(browserStorage, userId, prefix) }));
   if (state.userId !== userId) setState({ userId, ...loadBoard(browserStorage, userId, prefix) });
-  const update = useCallback((change: (board: Board) => Board) => {
+  // `save: false` changes the board in memory only (the moves of a splitter drag, #823); the next saving update writes the whole board.
+  const update = useCallback((change: (board: Board) => Board, { save = true }: { save?: boolean } = {}) => {
     setState(previous => {
       if (previous.userId !== userId) return previous;
-      const next = change(previous.board);
-      if (next === previous.board) return previous;
+      const changed = change(previous.board);
+      // A saving update that changes nothing still writes a board held in memory by `save: false`.
+      if (changed === previous.board && !(save && previous.unsaved)) return previous;
+      const next = changed;
+      if (!save) return { ...previous, board: next, unsaved: true };
       // A newer build may have written since the load: that refusal latches this session read-only, with the notice.
-      if (!previous.readOnly && !saveBoard(browserStorage, userId, next)) return { ...previous, board: next, notice: 'newer', readOnly: true };
-      return { ...previous, board: next };
+      if (!previous.readOnly && !saveBoard(browserStorage, userId, next)) return { ...previous, board: next, notice: 'newer', readOnly: true, unsaved: false };
+      return { ...previous, board: next, unsaved: false };
     });
   }, [userId]);
   return { board: state.board, update, storageNotice: state.notice };
