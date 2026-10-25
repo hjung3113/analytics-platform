@@ -6,13 +6,14 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
 
 ## Flow
 
-- `<base>`는 `main` 하나다(develop 없음). 병합은 squash로 한다. 릴리스는 보드 문서 PR → 태그 + GitHub Release.
+- `<base>`는 `main` 하나다(develop 없음). 병합은 squash로 한다. 릴리스는 보드 문서 PR → 태그 + GitHub Release이고, SDK·앱 릴리스를 누가 언제 내는지는 [`LANES.md`](LANES.md)다.
 - 브랜치는 `feat/<n>-<slug>`. `$MAIN`은 `AP_MAIN`(메인 체크아웃 경로)이고, worktree는 Orca가 정한 위치를 이름(`<n>-<slug>`)으로 찾는다.
 - 공통 도구(`launch-worker`·`review-plan`·`worker-hygiene`·`wave-status`)는 전역 엔진이다: `$ENGINE` = `~/.agents/skills/issue-wave-conductor/scripts`. 이 레포 설정은 [`conductor.json`](conductor.json)(base·브랜치·설치·리뷰 규칙·플래그·hygiene·미리보기 판정), 템플릿 덧붙임은 [`addenda/`](addenda/)다(#394). 규칙을 바꾸면 설정을 고친다 — 엔진 원본과 테스트는 provider 정식 체크아웃 `~/orca/projects/conductor-engine`(설치는 아래 Tools).
 - `WAVE_BRIEFS`는 `$AP_MAIN/.review/wave/`(`.review/`는 `.git/info/exclude`).
 - `ship-pr.sh`를 쓰려면 이 클론에서 한 번 `git config workerops.protectedBases none`이 필요하다(PR 기준이 main이다).
 - PR마다 `.planning/README.md`의 해당 줄을 같은 PR에서 고친다.
-- 병합 권한은 슬라이스 시작 때 한 번 묻는다. 권장 선택지는 "CI·리뷰 통과 시 머지, 사후보고"다. 릴리스(태그·GitHub Release)는 따로 묻는다. PR마다 다시 묻지 않는다(#436).
+- 여러 세션이 동시에 일할 때의 흐름(`lane:*`) 분담·함께 쓰는 경로·E2E 포트·릴리스 담당은 [`LANES.md`](LANES.md)다.
+- 병합 권한은 슬라이스 시작 때 한 번 묻는다(흐름 세션은 묻지 않고 지시서의 권한을 쓴다, [`LANES.md`](LANES.md) §흐름 세션). 권장 선택지는 "CI·리뷰 통과 시 머지, 사후보고"다. 태그·GitHub Release를 언제 묻는지는 [`LANES.md`](LANES.md)를 따른다(SDK는 팀장이 낸 뒤 보고, 앱 `v0.x`는 태그 전에 묻는다). PR마다 다시 묻지 않는다(#436).
 
 ## Launch
 
@@ -23,7 +24,7 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
   - 전역 `impl-rules.md`·`review-rules.md`에 [`addenda/`](addenda/)를 붙여 worktree `.review/00-IMPL-RULES.md`·`00-REVIEW-RULES.md`로 쓰고, `.review/W-<n>-TASK.md` 맨 앞 줄은 그 구현 규칙 포인터다.
   - 공유 실행기를 부른다.
 - 필요한 환경 변수: `WAVE_STATE`·`WAVE_BRIEFS`·`AP_MAIN`. 역할은 `WORKER_ROLE`, 덮어쓰기는 `WORKER_MODEL`·`WORKER_EFFORT`로 준다.
-- 16GB 머신이라 동시에 1–2개만, 파일이 겹치지 않는 이슈만 병렬로 돌린다(메모리 기록은 `docs/agents/operations.md`).
+- 16GB 머신이라 동시에 1–2개만, 파일이 겹치지 않는 이슈만 병렬로 돌린다(메모리 기록은 `docs/agents/operations.md`). 흐름 세션이 여럿이면 이 수는 기계 전체 한도이고, 무거운 단계는 [`LANES.md`](LANES.md) §기계 자원의 잠금을 따른다.
 - **FeedbackOps 이슈는 모드 `fo`로 띄운다:** `python3 $ENGINE/launch-worker.py <n> <slug> fo`.
   - FeedbackOps(`products/feedbackops/`)는 루트 workspace의 일부이고 Node 26.7·pnpm 11을 루트와 같이 쓴다. 설치는 런처의 루트 설치가 끝낸다(#642).
   - 모드 훅 `scripts/fo-prepare.sh`는 설치하지 않고, `.env`를 채운 뒤 FeedbackOps `verify-db.sh create <n>`으로 이슈 DB(5439)를 만든다.
@@ -165,7 +166,7 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
 - 이 프로필의 상대 경로(`addenda/`)는 `$CONDUCTOR` 기준이다. 레포 루트에서 그대로 실행하면 "No such file"이다.
 - 이슈 번호가 없는 작업(마감 정리 등)은 `launch-worker.py`가 worktree를 만들지 못한다(`--issue`가 숫자를 요구). 손으로 한다: `orca worktree create --setup skip`(`--issue` 없이) → 설치 → 설정 셸 닫기 → TASK 작성 → 공유 실행기.
 - E2E는 vite dev 서버 위에서 돈다. 호스트 검사(루트 test·E2E)가 도는 worktree의 소스를 고치지 않는다 — HMR이 화면을 다시 그려 우연한 E2E 실패가 난다(#403: 검사 중 `module.ts` 수정 → Scope 메뉴 항목 detached). 고칠 것이 생기면 검사가 끝난 뒤 고치고 다시 돌린다.
-- E2E 포트는 기본 4190(`E2E_PORT`, base-path는 `E2E_BASE_PATH_PORT` 기본 4191, #809)이고 `--strictPort`다. 다른 세션이 같은 포트로 E2E를 돌리면 `is already used`로 바로 실패하니, 같은 기계에서 다른 세션이 작업 중이면 `E2E_PORT=4290 pnpm e2e`처럼 다른 포트로 돌린다. 남의 프로세스는 건드리지 않는다(`lsof -nP -iTCP:<port> -sTCP:LISTEN`으로 PID를 찾고 `lsof -a -p <PID> -d cwd`로 cwd 확인). 전체 E2E 시작·끝은 그 세션에 한 줄로 알린다(기계 부하 공유, 2026-10-23, #654·#671).
+- E2E 포트는 기본 4190(`E2E_PORT`, base-path는 `E2E_BASE_PATH_PORT` 기본 4191, #809)이고 `--strictPort`다. 다른 세션이 같은 포트로 E2E를 돌리면 `is already used`로 바로 실패하니, [`LANES.md`](LANES.md)의 흐름별 포트로 돌린다. 남의 프로세스는 건드리지 않는다(`lsof -nP -iTCP:<port> -sTCP:LISTEN`으로 PID를 찾고 `lsof -a -p <PID> -d cwd`로 cwd 확인). 전체 E2E를 누구에게 알리는지는 LANES.md다.
 - `ship-pr.sh --issue`가 PR 본문의 `Closes #n`으로 이미 닫힌 이슈를 다시 닫으려다 `Could not close the issue`로 끝나면 머지는 됐어도 `--worktree` 정리와 `--archive-review`가 돌지 않고 JSON에 `merged`가 빠진다([conductor-engine#58](https://github.com/hjung3113/conductor-engine/issues/58)). 그때는 `gh pr list --head <branch> --state all`로 병합을 확인하고, worktree의 `.review/`를 손으로 보관한 뒤 worktree를 지운다(#546).
 - PR에 `css-removal-ok` 라벨을 붙인 직후 `ship-pr.sh`를 다시 돌리면 css-selectors 재실행이 시작되기 전이라 이전 실패 실행으로 판정한다. 라벨을 붙인 뒤 `gh pr checks <n> --watch`로 재실행이 끝나기를 기다린 다음 ship한다(슬라이스 17).
 - 리뷰어가 쓰는 미리보기의 worktree에서 메뉴 생성기 probe(`node tooling/gen-menu/scripts/probe.ts`)처럼 파일을 쓰는 명령을 돌리지 않는다 — 파일이 생겼다 지워지는 사이 vite가 import 오류 화면을 띄워 UX 리뷰가 멈췄다(#552, 2026-10-21). probe는 미리보기를 멈춘 뒤 돌린다.

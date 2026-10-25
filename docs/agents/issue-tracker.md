@@ -4,7 +4,7 @@
 
 ## Conventions
 
-- **Create an issue**: `gh issue create --title "..." --body-file <file>` (여러 줄 본문은 파일로). 라벨: triage 라벨 1개 + 영역 라벨(`area:*`) 1개 이상 + 해당하면 마일스톤.
+- **Create an issue**: `gh issue create --title "..." --body-file <file>` (여러 줄 본문은 파일로). 라벨: triage 라벨 1개 + 영역 라벨(`area:*`) 1개 이상 + 흐름 라벨(`lane:*`) 1개 + 해당하면 마일스톤.
 - **Read an issue**: `gh issue view <number> --comments`.
 - **List issues**: `gh issue list --state open --json number,title,labels,milestone --jq '.[] | {number, title, labels: [.labels[].name], milestone: .milestone.title}'`.
 - **Comment**: `gh issue comment <number> --body "..."`
@@ -20,6 +20,10 @@
 | `area:design` | 디자인 시스템, 공통 UI 부품, DESIGN.md |
 | `area:feedbackops` | FeedbackOps 통합 |
 | `area:tooling` | lint, 생성기, CI, 검증 도구 |
+
+## 흐름 라벨
+
+`lane:sdk`·`lane:platform`·`lane:arch`·`lane:fo`·`lane:ev`·`lane:site`. 다는 규칙과 범위는 [`.agents/conductor/LANES.md`](../../.agents/conductor/LANES.md)다.
 
 보류 중인 이슈에는 `on-hold` 라벨을 단다(외부 조건이 풀리면 제거). 예: #163·#164는 업무 필수로 확인될 때까지 보류.
 
