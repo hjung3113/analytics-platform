@@ -101,6 +101,7 @@ function Harness(props: UseTaskDetailPartsArgs) {
   return (
     <div>
       <div data-testid="view">{parts.view.kind}</div>
+      <div data-testid="title">{parts.title}</div>
       <div data-testid="actions">{parts.headerActions}</div>
       <div data-testid="body">{parts.body}</div>
       <div data-testid="footer">{parts.footer}</div>
@@ -108,8 +109,11 @@ function Harness(props: UseTaskDetailPartsArgs) {
   );
 }
 
-function renderParts(seam: HostSeam, props: Partial<UseTaskDetailPartsArgs> = {}): ReactNode {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+function renderParts(
+  seam: HostSeam,
+  props: Partial<UseTaskDetailPartsArgs> = {},
+  client = new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+): ReactNode {
   return render(
     <QueryClientProvider client={client}>
       <HostSeamProvider value={seam}>
@@ -192,6 +196,18 @@ describe('Task detail parts through the host seam', () => {
     renderParts(seam);
     await screen.findByText('FIN-1');
     expect(calls.title).toHaveBeenCalledWith(expect.stringContaining('TASK-1000'));
+  });
+
+  it('keeps the parts title while the Task refetches in the background', async () => {
+    const { seam } = makeSeam();
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    renderParts(seam, {}, client);
+    await screen.findByText('FIN-1');
+    expect(screen.getByTestId('title').textContent).toContain(task.title);
+    api.getTask.mockReturnValue(new Promise(() => {}));
+    void client.invalidateQueries({ queryKey: ['task', task.id] });
+    await waitFor(() => expect(client.isFetching({ queryKey: ['task', task.id] })).toBe(1));
+    expect(screen.getByTestId('title').textContent).toContain(task.title);
   });
 
   it.each([

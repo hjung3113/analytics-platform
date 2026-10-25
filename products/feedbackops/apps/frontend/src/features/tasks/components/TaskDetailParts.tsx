@@ -293,7 +293,10 @@ export function useTaskDetailParts({
   return {
     ...base,
     view: { kind: 'ready', task },
-    title: documentTitle ?? task.display_id,
+    // Independent of the document-title release above: a background refetch must not blank the drawer's title (763d review F1).
+    title:
+      formatRecordDocumentTitle({ displayId: task.display_id, title: task.title }) ??
+      task.display_id,
     headerActions: <TaskHeaderActions taskId={task.id} view={view} />,
     body: (
       <>
