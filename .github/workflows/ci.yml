@@ -355,6 +355,10 @@ jobs:
       image: mcr.microsoft.com/playwright:v1.63.0-noble
       options: --ipc=host
     timeout-minutes: 20
+    defaults:
+      run:
+        # A container job's default shell is `sh` (dash): no `${var::n}`, no pipefail.
+        shell: bash
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v6
