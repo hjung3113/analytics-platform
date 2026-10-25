@@ -1,8 +1,8 @@
-# ADR-0083 — Condition 프리셋: 조회의 투영과 신원만 좁히고 전역 Condition은 그대로 둔다
+# Condition 프리셋: 조회의 투영과 신원만 좁히고 전역 Condition은 그대로 둔다
 
 - Status: Decided (2026-10-25)
 - Decider: 코디네이터(사용자 위임), 되돌릴 수 있다. [ADR-0059](0059-app-injected-equipment-axes-and-condition.md) 결정 7(Condition 전체 유지·칸 복사)은 바꾸지 않는다.
-- Scope: [#580](https://github.com/hjung3113/analytics-platform/issues/580) 노드 580b(계약 + 커널). 화면(전환기, 미적용 표시)은 580c. 관련: [06 §6.4](../06_platform_ui_contract.md#64-url-계약-decided-필드명enum-문자열은-candidate), [ADR-0061](0061-draft-apply-query.md), [ADR-0049](0049-analysis-context-belongs-to-a-pane.md).
+- Scope: [#580](https://github.com/hjung3113/analytics-platform/issues/580) 노드 580b(계약 + 커널). 화면(전환기, 미적용 표시)은 580c. 관련: [06 §6.4](../06_platform_ui_contract.md#64-url-계약-decided-필드명enum-문자열은-candidate), [ADR-0061](0061-query-draft-applied-address-and-required-gate.md), [ADR-0049](0049-analysis-context-belongs-to-a-pane.md).
 
 ## 맥락
 
