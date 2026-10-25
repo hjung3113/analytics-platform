@@ -55,3 +55,69 @@ describe('Select empty-value replay', () => {
     expect(onValueChange).toHaveBeenCalledWith('banana');
   });
 });
+
+const tick = () => act(() => new Promise<void>(resolve => setTimeout(resolve, 0)));
+
+describe('Select deliberate empty clears', () => {
+  it('forwards "" from an enabled empty-value item on a controlled select', async () => {
+    const onValueChange = vi.fn();
+    render(
+      <Select value="a" onValueChange={onValueChange}>
+        <SelectTrigger aria-label="Choice">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="">None</SelectItem>
+          <SelectItem value="a">A</SelectItem>
+        </SelectContent>
+      </Select>,
+    );
+    await tick();
+    fireEvent.keyDown(screen.getByRole('combobox', { name: 'Choice' }), { key: 'n' });
+    expect(onValueChange).toHaveBeenCalledTimes(1);
+    expect(onValueChange).toHaveBeenCalledWith('');
+  });
+
+  it('forwards "" from form.reset() to the initial empty value', async () => {
+    const onValueChange = vi.fn();
+    function Field({ value }: { value: string }) {
+      return (
+        <form aria-label="f">
+          <Select value={value} onValueChange={onValueChange} name="choice">
+            <SelectTrigger aria-label="Choice">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="a">A</SelectItem>
+            </SelectContent>
+          </Select>
+        </form>
+      );
+    }
+    const { rerender } = render(<Field value="" />);
+    rerender(<Field value="a" />);
+    await tick();
+    onValueChange.mockClear();
+    act(() => {
+      (screen.getByRole('form', { name: 'f' }) as HTMLFormElement).reset();
+    });
+    expect(onValueChange).toHaveBeenCalledWith('');
+  });
+
+  it('notifies the consumer when an uncontrolled select is cleared by an empty-value item', () => {
+    const onValueChange = vi.fn();
+    render(
+      <Select defaultValue="a" onValueChange={onValueChange}>
+        <SelectTrigger aria-label="Choice">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="">None</SelectItem>
+          <SelectItem value="a">A</SelectItem>
+        </SelectContent>
+      </Select>,
+    );
+    fireEvent.keyDown(screen.getByRole('combobox', { name: 'Choice' }), { key: 'n' });
+    expect(onValueChange).toHaveBeenCalledWith('');
+  });
+});
