@@ -11,6 +11,8 @@ import { DetailDrawer, PlatformPage } from '@ap/components';
 import { AppShell } from '../AppShell';
 import { RouteOutlet } from '../RouteOutlet';
 import { legacyBoard as boardOf, legacySheet as sheet, seedLegacy as seed, storedLegacy as stored, V1_KEY as KEY, V2_KEY } from './__fixtures__/legacyBoard';
+// RouteOutlet loads the board lazily (#821); evaluate it up front so a short settle does not race a cold dynamic import.
+import './BoardScreen';
 
 const features = { export: false, savedView: false, annotate: false, compare: false, board: true };
 const apply = { ...noContext, time: 'apply' as const, roomNames: 'apply' as const, lot: 'apply' as const };

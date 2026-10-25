@@ -15,8 +15,19 @@ import { tmpdir } from 'node:os';
 import { dirname, join, normalize, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-/** Marker strings that survive minification: Dockview's package name, ProseMirror's editor class name. */
-export const LAZY_ENGINES = ['dockview', 'ProseMirror'];
+/**
+ * Marker strings that survive minification, one per engine part (a marker sits in one part only). If a marker is renamed away,
+ * the check fails with "missing from the build" rather than passing for nothing.
+ */
+export const LAZY_ENGINES = [
+  'dockview', // Dockview (ADR-0067)
+  'ProseMirror', // rich-text editor view (@tiptap / prosemirror-view, #706)
+  'linkifyjs', // rich-text editor link parsing, the editor's other large part (#821)
+  '__ec_inner_', // echarts (EChartImpl)
+  'getVirtualItems', // @tanstack/virtual (PlatformDataTable)
+  'xl/worksheets', // write-excel-file (table export)
+  'board-add-pane-off', // the analysis board screen (`packages/shell/src/board/BoardScreen.tsx`, #821)
+];
 
 /** `src` of every `<script … src>` in the page (the entry; modulepreload links are the same files the entry imports). */
 function entryScripts(html) {
@@ -138,10 +149,11 @@ function selfTest() {
     const dir = build(files);
     try { expect(name, checkLazyChunks(dir, ['dockview']), wanted); } finally { rmSync(dir, { recursive: true, force: true }); }
   }
+  const pair = ['dockview', 'ProseMirror'];
   const editor = { 'index.html': page('/assets/index-a.js'), 'assets/DockEngine-c.js': engine, 'assets/Editor-d.js': 'const c="ProseMirror";' };
-  expect('both engines lazy', checkLazyChunks(buildKept({ ...editor, 'assets/index-a.js': 'const L=()=>import("./DockEngine-c.js"),M=()=>import("./Editor-d.js");' })), true);
-  expect('editor in the entry', checkLazyChunks(buildKept({ ...editor, 'assets/index-a.js': 'import"./Editor-d.js";const L=()=>import("./DockEngine-c.js");' })), false);
-  expect('editor missing from the build', checkLazyChunks(buildKept({ 'index.html': page('/assets/index-a.js'), 'assets/index-a.js': 'const L=()=>import("./DockEngine-c.js");', 'assets/DockEngine-c.js': engine })), false);
+  expect('both engines lazy', checkLazyChunks(buildKept({ ...editor, 'assets/index-a.js': 'const L=()=>import("./DockEngine-c.js"),M=()=>import("./Editor-d.js");' }), pair), true);
+  expect('editor in the entry', checkLazyChunks(buildKept({ ...editor, 'assets/index-a.js': 'import"./Editor-d.js";const L=()=>import("./DockEngine-c.js");' }), pair), false);
+  expect('editor missing from the build', checkLazyChunks(buildKept({ 'index.html': page('/assets/index-a.js'), 'assets/index-a.js': 'const L=()=>import("./DockEngine-c.js");', 'assets/DockEngine-c.js': engine }), pair), false);
   for (const dir of kept) rmSync(dir, { recursive: true, force: true });
   if (failures.length > 0) { console.error(failures.join('\n')); return 1; }
   console.log(`check-lazy-chunks self-test: ${cases.length + 3} cases ok`);
