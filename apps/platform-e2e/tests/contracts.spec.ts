@@ -4961,12 +4961,22 @@ test.describe('조건 묶음 (06 §6.4·§11, ADR-0083)', () => {
     await expect(bar.getByRole('button', { name: 'StGroup', exact: true })).toHaveCount(0);
     await evidence(page, testInfo, 'condition-preset-default');
 
+    // Request boundaries: settle first, observe a request-free draft phase, then count exactly one applied query.
+    const busy = page.locator('[role="status"][aria-busy="true"]');
+    await expect(busy).toHaveCount(0);
     const before = await kpiRequests(page);
     await switcher(bar).getByRole('radio', { name: '조직 기준' }).click();
+    await expect(switcher(bar).getByRole('radio', { name: '조직 기준' })).toBeChecked();
+    await page.waitForTimeout(1000);
     expect(await kpiRequests(page)).toBe(before);
+    expect(query(page).get('conditionSet')).toBeNull();
     await bar.getByRole('button', { name: '적용', exact: true }).click();
     await expect.poll(() => query(page).get('conditionSet')).toBe('organization');
-    await expect.poll(() => kpiRequests(page)).toBe(before + 1);
+    await expect.poll(() => kpiRequests(page)).toBeGreaterThan(before);
+    await expect(busy).toHaveCount(0);
+    await expect(page.getByRole('region', { name: '적용된 조회 조건' })).toContainText('요약 조회 완료');
+    await page.waitForTimeout(1000);
+    expect(await kpiRequests(page)).toBe(before + 1);
     await expect(bar.getByText(/Maker .* · 조직 기준에서 미적용/)).toBeVisible();
     // The global Condition is untouched: both axes stay in the URL.
     expect(condition(page)).toEqual({ maker: ['TEL'], stgroup: ['STG-PHOTO-A'] });
@@ -4982,9 +4992,16 @@ test.describe('조건 묶음 (06 §6.4·§11, ADR-0083)', () => {
   });
   test('다른 메뉴로 가도 전역 Condition의 Maker 값은 그대로다', async ({ page }) => {
     await signInAs(page, 'engineer');
-    await page.goto(`${base}&equipmentGroup=${BOTH}&conditionSet=organization`);
+    await page.goto(`${base}&equipmentGroup=${BOTH}`);
     await expectScopeValid(page, 'MEM · 메모리');
-    await page.goto(`/analytics/productivity?scopeId=MEM&roomNames=PHOTO&${PERIOD}&equipmentGroup=${BOTH}`);
+    const source = await openBar(page);
+    await switcher(source).getByRole('radio', { name: '조직 기준' }).click();
+    await source.getByRole('button', { name: '적용', exact: true }).click();
+    await expect.poll(() => query(page).get('conditionSet')).toBe('organization');
+    await expect(page.locator('[role="status"][aria-busy="true"]')).toHaveCount(0);
+    // Reach the destination through the app's own navigation; the destination URL is never supplied by the test.
+    await page.getByRole('navigation', { name: '주 메뉴' }).getByRole('link', { name: '생산성 개요' }).click();
+    await expect(mainHeading(page)).toHaveText('생산성 개요');
     expect(condition(page)).toEqual({ maker: ['TEL'], stgroup: ['STG-PHOTO-A'] });
     const bar = await openBar(page);
     await expect(bar).toContainText('TEL');
