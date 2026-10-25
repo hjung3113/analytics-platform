@@ -9,6 +9,7 @@ import { type MenuEntry, PlatformLink, useConditionPreset, useI18n } from '@ap/k
 import { useHostPlatform } from '@ap/kernel/host';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { DataTrustIndicator } from './DataTrustIndicator';
+import { useReturnNavigation } from './DrillLayout';
 import { type HeaderYield, nextHeaderYield, openHeaderYield } from './headerYield';
 import { consumePageFocus, drillDestinationOf, focusPageFallback } from './pageFocus';
 import { PageFlowContext } from './pageFlow';
@@ -311,8 +312,20 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
           summary={queryBarExtension?.appliedPageSummary ?? queryBarExtension?.pageSummary ?? []}
           pendingChanges={queryDraft.dirty.some(key => menu.pageKeys.includes(key))} issueCount={queryBarExtension?.issues.length ?? 0} />
       : <div className="px-8 pt-3"><PageHeadBody notes={notes} extension={contextExtension} /></div>)}
+    {screenMode === 'main' && !gate && currentSpace?.carriedPageKeys?.includes('returnTo') && <ReturnRow />}
     <div data-platform-page-content tabIndex={-1} className={layout === 'fill' ? 'flex flex-1 flex-col px-8 pb-9 pt-7' : 'flex-1 px-8 pb-9 pt-7'}>{gate ?? <OutcomeScope><OutcomeBanners compact={layout === 'fill'} />{layout === 'fill' ? <div data-platform-page-fill className={fixedFill ? 'flex min-h-[520px] flex-1 flex-col' : 'flex flex-1 flex-col'}>{children}</div> : children}</OutcomeScope>}</div>
   </div></PageFlowContext.Provider></QueryBarExtensionContext.Provider>;
+}
+
+/** The way back into a space that carries `returnTo` (ADR-0081 UX-10): drawn only for an origin `safeReturnTo` and `canOpen` accepted, never for a parent/home fallback. */
+function ReturnRow() {
+  const { origin, onNavigate } = useReturnNavigation();
+  const { t, tx } = useI18n();
+  if (!origin.accepted) return null;
+  return <div data-return-row className="flex h-8 shrink-0 items-center gap-3 border-b border-border-subtle px-8 text-xs">
+    <PlatformLink via="return" href={origin.href} onNavigate={onNavigate} className="font-medium text-accent-primary hover:underline">{t('returnRowBack', { menu: tx(origin.menuLabel) })}</PlatformLink>
+    {origin.spaceLabel !== null && <span className="text-text-muted">{t('returnRowFrom', { system: tx(origin.spaceLabel) })}</span>}
+  </div>;
 }
 
 /** panel-card: hairline border, 8px radius, no shadow. */

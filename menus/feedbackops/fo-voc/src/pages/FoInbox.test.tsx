@@ -47,10 +47,11 @@ afterEach(() => { cleanup(); setFoApi(null); vi.unstubAllGlobals(); window.histo
 describe('수신함 manifest', () => {
   it('declares the route table page keys, managedSystem included, and the permission of the space', () => {
     const inbox = manifests.find(menu => menu.id === 'fo-inbox')!;
-    expect([...inbox.pageKeys!].sort()).toEqual([...inboxRoute.pageKeys].sort());
+    // `returnTo` is navigation state the FO space carries (#760), not a route-table filter key.
+    expect([...inbox.pageKeys!].sort()).toEqual([...inboxRoute.pageKeys, 'returnTo'].sort());
     expect(inbox).toMatchObject({ path: '/feedbackops/vocs', permission: 'feedbackops:access', requiresScope: false, label: { ko: '수신함', en: 'Inbox' } });
     const triage = manifests.find(menu => menu.id === 'fo-triage')!;
-    expect([...triage.pageKeys!].sort()).toEqual([...triageRoute.pageKeys].sort());
+    expect([...triage.pageKeys!].sort()).toEqual([...triageRoute.pageKeys, 'returnTo'].sort());
   });
 });
 

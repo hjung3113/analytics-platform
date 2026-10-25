@@ -10,14 +10,21 @@ const PRODUCTIVITY = `/analytics/productivity?v=1&scopeId=MEM&${PERIOD}&roomName
 const ORIGIN = 'https://feedbackops.example';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** The three space links, each scoped to exactly one Managed System uuid, opening in a new tab without opener access. */
+/** The three space entries: VOC opens in this tab inside the shell (#760), Task and 설문 are new-tab links. All three are scoped to exactly one Managed System uuid. */
 async function managedSystemOf(page: Page, space: string) {
   const block = page.getByRole('navigation', { name: `FeedbackOps · ${space}` });
   await expect(block).toBeVisible();
   const links = block.getByRole('link');
   await expect(links).toHaveCount(3);
   const found = new Set<string>();
-  for (const link of await links.all()) {
+  const voc = links.first();
+  await expect(voc).toHaveAccessibleName(`VOC — ${space}, FeedbackOps`);
+  await expect(voc).not.toHaveAttribute('target', /.+/);
+  const vocUrl = new URL((await voc.getAttribute('href'))!, page.url());
+  expect(vocUrl.pathname).toBe('/feedbackops/vocs');
+  expect(vocUrl.searchParams.getAll('managedSystem')).toHaveLength(1);
+  found.add(vocUrl.searchParams.get('managedSystem')!);
+  for (const link of (await links.all()).slice(1)) {
     await expect(link).toHaveAttribute('target', '_blank');
     await expect(link).toHaveAttribute('rel', /noopener/);
     await expect(link).toHaveAttribute('rel', /noreferrer/);
@@ -32,6 +39,8 @@ async function managedSystemOf(page: Page, space: string) {
     found.add(values[0]);
   }
   expect(found.size).toBe(1);
+  expect([...found][0]).toMatch(UUID);
+  expect([...found][0]).not.toBe('all');
   return [...found][0];
 }
 
@@ -48,7 +57,7 @@ function expectExactQueryKeys(url: URL, keys: string[]) {
 async function linkUrl(link: Locator) {
   const href = await link.getAttribute('href');
   expect(href).not.toBeNull();
-  return new URL(href!);
+  return new URL(href!, 'http://platform.invalid');
 }
 
 /** Rail section buttons of the current system (15 §3.2). `exact` keeps '생산성 분석' apart from the switcher's '… 현재: MARS'. */
@@ -3913,7 +3922,7 @@ test.describe('표 높이·고정 동작 열 (06 §15, ADR-0037)', () => {
 });
 
 test.describe('FeedbackOps 공간별 진입(#251)', () => {
-  test('admin의 MARS·BRAVO 사이드바 블록은 그 공간의 managedSystem만 담은 새 탭 링크 셋이고, 운영 콘솔에는 블록이 없다', async ({ page }, testInfo) => {
+  test('admin의 MARS·BRAVO 사이드바 블록은 그 공간의 managedSystem만 담은 링크 셋(VOC 셸 안, Task·설문 새 탭)이고, 운영 콘솔에는 블록이 없다', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
     await page.goto(PRODUCTIVITY);
     const analytics = await managedSystemOf(page, 'MARS');
@@ -4010,8 +4019,8 @@ test.describe('FeedbackOps 진입 링크 회귀(#451, 06 §22)', () => {
       const destinations: string[] = [];
       for (const link of links) {
         const href = await linkUrl(link);
-        if (href.pathname === '/vocs' && href.searchParams.get('view') === 'inbox') {
-          expectExactQueryKeys(href, ['view', 'managedSystem', 'platformReturn']);
+        if (href.pathname === '/feedbackops/vocs') {
+          expectExactQueryKeys(href, ['v', 'managedSystem', 'returnTo']);
           destinations.push('vocs:inbox');
         } else if (href.pathname === '/tasks') {
           expectExactQueryKeys(href, ['managedSystem', 'platformReturn']);
@@ -4029,7 +4038,7 @@ test.describe('FeedbackOps 진입 링크 회귀(#451, 06 §22)', () => {
     await evidence(page, testInfo, 'feedbackops-query-keys');
   });
 
-  test('거부·미등록 경로에는 공간 블록이 없고 viewer의 BRAVO에는 있다', async ({ page }, testInfo) => {
+  test('거부·미등록 경로와 feedbackops:access 없는 viewer의 BRAVO에는 공간 블록이 없다', async ({ page }, testInfo) => {
     await signInAs(page, 'viewer');
     // Menu denial inside a mapped space draws no block.
     await page.goto(PRODUCTIVITY);
@@ -4045,9 +4054,10 @@ test.describe('FeedbackOps 진입 링크 회귀(#451, 06 §22)', () => {
     await expect(page.getByRole('main')).toBeVisible();
     await expect(page.getByRole('navigation', { name: /^FeedbackOps/ })).toHaveCount(0);
 
+    // Without feedbackops:access there is no block at all, even in a space the viewer may enter (ADR-0081 decision 8).
     await page.goto('/metrics');
-    expect(await managedSystemOf(page, 'BRAVO')).toMatch(UUID);
-    await expect(page.getByRole('navigation', { name: /^FeedbackOps/ })).toHaveCount(1);
+    await expect(mainHeading(page)).toBeVisible();
+    await expect(page.getByRole('navigation', { name: /^FeedbackOps/ })).toHaveCount(0);
     await evidence(page, testInfo, 'feedbackops-block-viewer');
   });
 
@@ -4060,24 +4070,25 @@ test.describe('FeedbackOps 진입 링크 회귀(#451, 06 §22)', () => {
     }
   }
 
-  test('공간 하나(viewer)는 전역 화면에 블록이 없고 BRAVO에만 블록이 있으며 전체 링크가 없다', async ({ page }) => {
+  test('공간 하나(viewer)는 전역 화면과 BRAVO 모두에 블록이 없고 전체 링크가 없다', async ({ page }) => {
     await signInAs(page, 'viewer');
     await expectNoBlockOnGlobalScreens(page);
     await page.goto('/metrics');
-    await managedSystemOf(page, 'BRAVO');
-    await expect(page.getByRole('navigation', { name: /^FeedbackOps/ })).toHaveCount(1);
+    await expect(mainHeading(page)).toBeVisible();
+    await expect(page.getByRole('navigation', { name: /^FeedbackOps/ })).toHaveCount(0);
     await expect(await feedbackOpsOverallLink(page)).toHaveCount(0);
     await page.keyboard.press('Escape');
   });
 
-  test('공간 둘(engineer)은 전환기로 옮긴 공간마다 그 공간 블록을 그리고 전체 링크가 없다', async ({ page }) => {
+  test('공간 둘(engineer)은 전환기로 옮긴 어느 공간에도 블록이 없고 전체 링크가 없다', async ({ page }) => {
     await signInAs(page, 'engineer');
     await expectNoBlockOnGlobalScreens(page);
     await page.goto(PRODUCTIVITY);
-    const analytics = await managedSystemOf(page, 'MARS');
+    await expect(mainHeading(page)).toBeVisible();
+    await expect(page.getByRole('navigation', { name: /^FeedbackOps/ })).toHaveCount(0);
     await chooseSystem(page, 'BRAVO');
     await expect.poll(() => new URL(page.url()).pathname).toBe('/metrics');
-    expect(await managedSystemOf(page, 'BRAVO')).not.toBe(analytics);
+    await expect(page.getByRole('navigation', { name: /^FeedbackOps/ })).toHaveCount(0);
     await expect(await feedbackOpsOverallLink(page)).toHaveCount(0);
     await page.keyboard.press('Escape');
   });
@@ -4095,6 +4106,56 @@ test.describe('FeedbackOps 진입 링크 회귀(#451, 06 §22)', () => {
     await expect(page.getByRole('navigation', { name: /^FeedbackOps/ })).toHaveCount(0);
     await expect(await feedbackOpsOverallLink(page)).toBeVisible();
     await evidence(page, testInfo, 'feedbackops-space-count-admin');
+  });
+});
+
+test.describe('FeedbackOps 바닥 블록 셸 안 이동(#760)', () => {
+  const returnRow = (page: Page) => page.locator('[data-return-row]');
+
+  test('VOC는 같은 탭에서 /feedbackops/vocs로 열리고 되돌아가기 줄이 본문 맨 위에 서며, FO 안 이동에도 남고, 복귀하면 원래 기간·Scope로 돌아온다', async ({ page }, testInfo) => {
+    await signInAs(page, 'admin');
+    await page.goto(PRODUCTIVITY);
+    await expect(mainHeading(page)).toHaveText('생산성 개요');
+    const start = page.url();
+    await page.getByRole('navigation', { name: 'FeedbackOps · MARS' }).getByRole('link', { name: /^VOC/ }).click();
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/feedbackops/vocs');
+    expect([...query(page).keys()].sort()).toEqual(['managedSystem', 'returnTo', 'v']);
+    expect(query(page).get('managedSystem')).toMatch(UUID);
+    expect(query(page).get('returnTo')).toBe(new URL(start).pathname + new URL(start).search);
+    await expect(returnRow(page)).toBeVisible();
+    await expect(returnRow(page).getByRole('link', { name: '← 생산성 개요로 돌아가기' })).toBeVisible();
+    await expect(returnRow(page)).toContainText('MARS에서 왔습니다');
+    await evidence(page, testInfo, 'feedbackops-return-row');
+
+    // Moving inside FeedbackOps keeps the way back.
+    await page.getByRole('navigation', { name: '주 메뉴' }).getByRole('link', { name: 'Triage' }).click();
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/feedbackops/triage');
+    await expect(returnRow(page)).toBeVisible();
+    expect(query(page).get('returnTo')).toBe(new URL(start).pathname + new URL(start).search);
+
+    await returnRow(page).getByRole('link', { name: '← 생산성 개요로 돌아가기' }).click();
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/analytics/productivity');
+    expect(query(page).get('from')).toBe('2026-09-25T09:00:00');
+    expect(query(page).get('to')).toBe('2026-09-26T09:00:00');
+    expect(query(page).get('scopeId')).toBe('MEM');
+    expect(query(page).has('returnTo')).toBe(false);
+  });
+
+  test('전환기로 FeedbackOps에 들어오면 줄이 없고, FO 안 이동으로도 만들어지지 않는다', async ({ page }) => {
+    await signInAs(page, 'admin');
+    await page.goto(PRODUCTIVITY);
+    await chooseSystem(page, 'FeedbackOps');
+    await expect.poll(() => new URL(page.url()).pathname).toMatch(/^\/feedbackops/);
+    await expect(mainHeading(page)).toBeVisible();
+    await expect(returnRow(page)).toHaveCount(0);
+    expect(query(page).has('returnTo')).toBe(false);
+    const nav = page.getByRole('navigation', { name: '주 메뉴' });
+    if (await nav.getByRole('link', { name: 'Triage' }).count()) {
+      await nav.getByRole('link', { name: 'Triage' }).click();
+      await expect.poll(() => new URL(page.url()).pathname).toBe('/feedbackops/triage');
+      await expect(returnRow(page)).toHaveCount(0);
+      expect(query(page).has('returnTo')).toBe(false);
+    }
   });
 });
 

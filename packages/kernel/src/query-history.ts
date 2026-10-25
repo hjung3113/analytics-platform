@@ -1,6 +1,7 @@
 import { useLayoutEffect, useMemo, useSyncExternalStore } from 'react';
 import { buildQuery, compareHistoryText, compareQueryHistory, emptyGlobal, parseQuery, type GlobalContext, type Pair, type QueryHistoryEntry, type QueryHistoryKey, type QueryHistoryStore, type Session } from '@ap/contracts';
 import { useHostPlatform } from './platform';
+import { withoutReturnTo } from './return-to';
 import type { DraftStore, DraftInputs, DraftValues } from './draft-state';
 
 export type QueryHistoryRow = { id: string; lastAppliedAt: number; count: number } & (
@@ -39,7 +40,7 @@ function sameTag(a: Tag | null, b: Tag) {
   return a !== null && a.port === b.port && a.session === b.session && a.revision === b.revision && a.identity === b.identity && a.scope === b.scope && a.axes === b.axes && a.allowed === b.allowed;
 }
 export function canonicalHistoryQuery(values: DraftValues, pageKeys: readonly string[]): string {
-  const normalized = parseQuery(buildQuery(values.global, values.page.filter(([key]) => key !== 'returnTo' && pageKeys.includes(key))), pageKeys);
+  const normalized = parseQuery(buildQuery(values.global, withoutReturnTo(values.page).filter(([key]) => pageKeys.includes(key))), pageKeys);
   const page = normalized.page.sort(([ak, av], [bk, bv]) => compareHistoryText(ak, bk) || compareHistoryText(av, bv));
   return buildQuery(normalized.global, page);
 }

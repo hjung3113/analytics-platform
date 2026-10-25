@@ -82,6 +82,8 @@ export default function SavedViews() {
     if (!isReachable(registry, target)) return;
     const next = { ...target.page };
     if (next.managedSystem === undefined || next.managedSystem === 'all') next.managedSystem = null;
+    // Applying a view starts a new list, not a way back: the return line goes away (#760, ADR-0081 UX-10). An explicit null omits a carried key.
+    next.returnTo = null;
     navigate(linkTo(target.menuId, { page: next }));
   };
 

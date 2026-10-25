@@ -8,7 +8,7 @@ import { groupId, spaceId } from '@ap/contracts';
 import { manifests } from './index';
 
 export const registry = createRegistry({
-  spaces: [{ id: spaceId('feedbackops'), label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'feedbackops:access', carriedPageKeys: ['managedSystem'], homeMenuId: 'fo-dashboard' }],
+  spaces: [{ id: spaceId('feedbackops'), label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'feedbackops:access', carriedPageKeys: ['managedSystem', 'returnTo'], homeMenuId: 'fo-dashboard' }],
   groups: [{ id: groupId('foDashboard'), label: { ko: '대시보드', en: 'Dashboard' }, icon: ListTodo, space: spaceId('feedbackops') }],
   menus: manifests,
 });

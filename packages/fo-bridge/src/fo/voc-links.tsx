@@ -26,5 +26,5 @@ export function vocListTarget(to: string): { menuId: string } | null {
   return path === '/vocs' && [...search.keys()].join() === 'view' && search.get('view') === 'my' ? { menuId: 'voc' } : null;
 }
 
-/** `returnTo` lands only where the destination declares it (`voc-detail` does). */
+/** `returnTo` lands only where the destination declares it (`voc-detail`, `survey-respond`, `equipment-detail`, `execution-detail`, `metric-detail`), and never inside a space that carries it (the FO space only carries). */
 export const { canLink: canVocLink, Link: VocLink } = hostLinks(vocTarget);

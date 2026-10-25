@@ -28,7 +28,9 @@ type SetField = 'roomNames' | 'lineNames' | 'prcGroups' | 'selection' | 'lotIds'
  */
 export function freezeVocContext(input: VocFreezeInput, removed: ReadonlySet<string> = new Set()): VocComposeContext {
   const text = TEXT[input.lang];
-  const { route, global, page, registry } = input;
+  const { route, global, registry } = input;
+  // `returnTo` is navigation state (the way back), not screen Context: it is neither a chip nor part of the attached address (#760).
+  const page = input.page.filter(([key]) => key !== 'returnTo');
   const basis = global.membershipBasis === 'asOf' ? ` · ${input.asOf}` : '';
   if (input.platformScreen === 'board' || route === null) {
     return { items: removed.has('menu') ? [] : [{ id: 'menu', label: text.screen, value: text.board }], href: null, spaceId: null, menuId: null, carried: {} };

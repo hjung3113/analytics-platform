@@ -173,7 +173,7 @@ describe('return fallback without a fixed home ID (#298)', () => {
     render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={fixture(permissions)} registry={fallbackRegistry}><ReturnProbe /></PlatformProvider></I18nProvider>);
     expect(JSON.parse(screen.getByRole('status').textContent!)).toEqual({
       target: href,
-      origin: { href, menuLabel: id ? { ko: id, en: id } : { ko: '홈', en: 'Home' }, trail: [], revertedContext: [] },
+      origin: { href, menuLabel: id ? { ko: id, en: id } : { ko: '홈', en: 'Home' }, trail: [], revertedContext: [], accepted: false, spaceLabel: null },
     });
   });
 });
@@ -204,7 +204,7 @@ describe('return permission and reverted Context (#298 FIX1)', () => {
     { name: 'denied parent and platform home then space home', origin: '/ops?v=1', permissions: VIEWER, parent: 'analysis', id: 'source', href: '/source?v=1' },
   ])('$name', ({ origin, permissions, parent, id, href }) => {
     expect(mountReturn('', origin, permissions, parent)).toEqual({
-      target: href, origin: { href, menuLabel: { ko: id, en: id }, trail: [], revertedContext: [] },
+      target: href, origin: { href, menuLabel: { ko: id, en: id }, trail: [], revertedContext: [], accepted: false, spaceLabel: null },
     });
   });
 

@@ -31,7 +31,8 @@
 7. **다른 시스템의 바닥 블록은 셸 안 이동이다.** 항목 `VOC` · `Task` · `설문`, 설명 줄 `FeedbackOps로 이동합니다`(외부 링크 표시 없음). 링크는 `managedSystem`과 복귀 정보만 싣는다(출발 화면의 기간을 싣지 않는다, ADR-0045). 도착 화면 본문 맨 위에 복귀 줄(15 §3.2)이 있다. 전환기로 바로 들어오면 복귀 줄이 없다.
 8. **신고자(`feedbackops:access` 없음)에게는 전환기 카드도 바닥 블록도 없다.** 신고자의 일은 레일 `VOC 등록`과 플랫폼 메뉴(`내 VOC`·`설문`)가 맡는다.
 
-여기서 정하지 않는 것(구현 이슈에서 정하고 기록): 저장된 보기의 아이콘과 저장 경로(UX-7), 건수 배지의 범위 연동(UX-8), 복귀 줄이 사라지는 규칙(UX-10), 접힌 사이드바의 하위 항목 표시(UX-12), FeedbackOps 안에서 연 VOC 등록의 기본 등록 대상(UX-14).
+여기서 정하지 않는 것(구현 이슈에서 정하고 기록): 저장된 보기의 아이콘과 저장 경로(UX-7), 건수 배지의 범위 연동(UX-8), 복귀 줄이 사라지는 규칙(UX-10 — #760에서 정함, 위 Amended), 접힌 사이드바의 하위 항목 표시(UX-12), FeedbackOps 안에서 연 VOC 등록의 기본 등록 대상(UX-14).
+- Amended (2026-10-25, #760): 결정 7의 복귀 줄이 사라지는 규칙(UX-10)을 정했다 — `returnTo`는 FeedbackOps 공간의 `carriedPageKeys`(FO 안 이동에서 유지, 같은 공간 링크는 이어받기만 하고 만들지 않는다, 다른 시스템·전환기 선택·돌아가기·저장된 보기 적용에서 사라진다)이고, 마지막 화면·최근 방문 복원은 `returnTo`를 저장하지 않으며, 복귀 줄은 `PlatformPage`가 `ReturnOrigin.accepted`일 때 그린다. `Task`·`설문`은 #763·#764 전까지 새 탭이다. 슬롯 `feedbackOps.permission`이 블록 게이트(결정 8). 15 §3.2·§6.1, 06 §8·§22.
 - Amended (2026-10-25, #761 node k): 정적 하위 항목(예: Triage 보기 항목)은 `MenuMeta.navViews`, 저장된 보기는 `PlatformSlots.spaceNavSection` 구역, 건수 배지(UX-8)는 `PlatformSlots.navCounts`, 접힌 사이드바에 하위 항목과 구역이 없는 것(UX-12)은 셸 규칙, VOC 등록 기본 대상(UX-14)은 `VocComposeContext.carried`를 읽는다. 06 §5·§8.
 
 ## Considered Options
