@@ -4542,8 +4542,29 @@ test.describe('휠 스크롤 (#700, 06 §16·§15, 16 §4.1)', () => {
     expect(zoomed.equals(flat), 'Shift+wheel zoomed the plot').toBe(false);
     expect(await main(page).evaluate(element => element.scrollTop)).toBe(top);
     expect(page.url()).toBe(url);
-    // Drag-pan after zoom has no E2E here: a Playwright drag on the zoomed plot reaches the canvas but does not move it, before
-    // and after #700 alike (#705).
+  });
+
+  test('확대한 그림을 끌면 보이는 구간이 옮겨간다 (#705)', async ({ page }) => {
+    // Press on the empty plot area above the line, then drag a quarter of the width to the left. The first drag after a zoom
+    // is the regression: pressing re-rendered the page, a notMerge setOption rebuilt the inside dataZoom and the drag was lost.
+    const plot = trendPlot(page);
+    const at = await centerOf(plot);
+    const axisStrip = { x: at.box.x, y: at.box.y + at.box.height - 30, width: at.box.width, height: 28 };
+    const settled = async (x: number, y: number) => { await page.mouse.move(x, y); await page.waitForTimeout(600); return page.screenshot({ clip: axisStrip, animations: 'disabled' }); };
+    const start = { x: at.x, y: at.box.y + at.box.height * 0.2 };
+    const flat = await settled(start.x, start.y);
+    await page.keyboard.down('Shift');
+    for (let i = 0; i < 3; i++) { await page.mouse.wheel(0, -300); await page.waitForTimeout(150); }
+    await page.keyboard.up('Shift');
+    const zoomed = await settled(start.x, start.y);
+    expect(zoomed.equals(flat), 'Shift+wheel zoomed the plot').toBe(false);
+    const dx = -at.box.width * 0.25;
+    await page.mouse.down();
+    for (let i = 1; i <= 12; i++) { await page.mouse.move(start.x + (dx * i) / 12, start.y); await page.waitForTimeout(30); }
+    await page.mouse.up();
+    const panned = await settled(start.x, start.y);
+    expect(panned.equals(zoomed), 'the drag moved the zoomed window').toBe(false);
+    expect(panned.equals(flat), 'the window is still zoomed after the drag').toBe(false);
   });
 
   test('확대 버튼은 그대로 동작한다', async ({ page }) => {
