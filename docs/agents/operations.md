@@ -57,7 +57,7 @@
 
 - 브라우저 확인은 `ego-browser`가 기본이다. 응답이 없으면(`ego-browser nodejs -e 'console.log(1)'`) `apps/platform-e2e`의 Playwright로 대체한다고 말한다.
 - 캡처 스크립트는 `apps/platform-e2e` 아래에 두고 실행해야 `@playwright/test`를 찾는다(끝나면 지운다).
-- dev 서버는 worktree마다 다른 포트: `pnpm exec vite --host 127.0.0.1 --port 517x --strictPort`. E2E는 4190을 쓴다.
+- dev 서버는 worktree마다 다른 포트: `pnpm exec vite --host 127.0.0.1 --port 517x --strictPort`. E2E는 기본 4190이고 동시에 돌릴 때는 `E2E_PORT`로 바꾼다(#809).
 - mock은 메모리 상태라 페이지를 새로 열 때마다 DevTools(응답 시나리오)를 다시 고른다. 역할은 localStorage `platform:role`.
 - zsh에서 명령 목록을 반복 실행할 때는 `eval "$c"`(변수 단어 분리가 안 된다). Playwright `page.evaluate`에 함수 문자열을 넘길 때는 `` `(${fn})()` ``.
 
@@ -85,6 +85,6 @@
 
 ## E2E 포트와 코드 이전 PR (SDK 이전 슬라이스, 2026-10-19)
 
-- `pnpm e2e`의 서버는 4190 고정이고 `reuseExistingServer:false`다. 다른 세션의 E2E가 떠 있으면 `http://127.0.0.1:4190 is already used`로 바로 실패한다. 이 실패는 코드 문제가 아니다: `lsof -nP -iTCP:4190 -sTCP:LISTEN`으로 소유(cwd가 다른 checkout인지)를 확인하고, 남의 프로세스는 건드리지 말고 포트가 비면 다시 돌린다.
+- `pnpm e2e`의 서버는 기본 4190(`E2E_PORT`로 바꿈, base-path 설정은 `E2E_BASE_PATH_PORT` 기본 4191, #809)이고 `reuseExistingServer:false`다. 다른 세션의 E2E가 떠 있으면 `http://127.0.0.1:4190 is already used`로 바로 실패한다. 이 실패는 코드 문제가 아니다: `lsof -nP -iTCP:4190 -sTCP:LISTEN`으로 소유(cwd가 다른 checkout인지)를 확인하고, 남의 프로세스는 건드리지 말고 `E2E_PORT=4290 pnpm e2e`처럼 다른 포트로 돌린다.
 - 소스를 옮겨 `@source`가 훑는 범위가 줄면 CSS selector 검사가 "N selector(s) removed"로 실패한다. 플랫폼 코드가 쓰는 클래스가 아니라 옮겨 간 쪽 전용 클래스인지 확인한 뒤 PR에 `css-removal-ok` 라벨을 단다(#450). 라벨 뒤에 `ship-pr.sh`가 예전 실패 기록 때문에 "CI failed"로 멈추면 현재 head의 검사가 모두 통과인지 `gh pr view --json statusCheckRollup`으로 확인하고 `gh pr merge --squash --match-head-commit <sha>`로 병합한다(엔진 이슈 conductor-engine#25).
 - 옮기는 원본이 `patchedDependencies`나 floating 범위 의존을 쓰는지 먼저 본다. FeedbackOps `@formkit/auto-animate@0.10.0` 패치가 빠져 `useListMotion` 테스트가 실패했고(#450), `@tiptap/*` 하위 확장이 3.32.0으로 올라가 로드 오류가 났다(#455). 원본 락파일의 해석(`pnpm-lock.yaml`)과 맞춘다. pnpm 설정(`patchedDependencies`·`overrides`)을 바꾼 뒤 `pnpm install`이 `Already up to date`로 끝나면 `node_modules/.pnpm-workspace-state-v1.json`을 지우고 다시 설치한다.

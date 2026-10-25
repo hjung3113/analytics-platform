@@ -69,11 +69,7 @@ jobs:
       - name: Typecheck, boundaries, migration drift, FE typecheck, design lint, FE Biome
         run: |
           base=""
-          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
-            # The PR that introduces the directory (#592) has no FeedbackOps tree on main to diff against: every file
-            # would count as changed and fail on diagnostics that predate the merge, so the FE Biome gate is skipped there.
-            if git cat-file -e origin/main:products/feedbackops/package.json 2>/dev/null; then base=origin/main; fi
-          fi
+          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then base=origin/main; fi
           scripts/ci/gate.sh static ${base:+--base "$base"}
 
   unit:
