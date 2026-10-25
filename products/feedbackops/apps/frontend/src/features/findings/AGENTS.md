@@ -17,7 +17,7 @@ It does not own source object lifecycles or backend authorization truth.
 
 - Finding detail is evidence-first and keeps execution links visible.
 - Finding detail composes `FindingDetailPanel` → `FullFindingDetail` with separate detail and execution section controllers. Requested-link selection, retry/focus handling, and the draft host belong to `FindingExecutionSection`.
-- Tasks and Surveys reach the Finding source-detail read and the Finding-owned Request Task draft host only through `features/findings/public.ts`; new cross-feature uses of those flows go through it too. Survey retains selected-Finding load/ready/error orchestration, and Tasks uses the public Finding read for Task Request source defaults. Known boundary debt: the Cluster "link existing Finding" picker (`voc-cluster/components/modals/LinkExistingFindingModal.tsx`) still imports `useFindingsList` directly.
+- Surveys reach the Finding source-detail read and the Finding-owned Request Task draft host through `features/findings/public.ts`; new cross-feature uses of those flows go through it too, except code mounted in the platform bridge (Task Request review), which reads through `features/findings/hooks/useFindingDetail` directly because `public.ts` also re-exports the router-bound `FindingRequestTaskDraftHost`. Survey retains selected-Finding load/ready/error orchestration. Known boundary debt: the Cluster "link existing Finding" picker (`voc-cluster/components/modals/LinkExistingFindingModal.tsx`) still imports `useFindingsList` directly.
 - Finding bridges evidence to execution, but backend permission checks remain authoritative; permission-limited content renders approved summaries or a request path.
 
 ## Key files
@@ -30,7 +30,7 @@ It does not own source object lifecycles or backend authorization truth.
 - `apps/frontend/src/features/findings/components/FindingDetail/FullFindingDetail.tsx` — detail fields, actions, and status labels.
 - `apps/frontend/src/features/findings/components/FindingDetail/FindingExecutionSection.tsx` — requested Task Request links, retry/focus state, and section actions.
 - `apps/frontend/src/features/findings/components/FindingDetail/FindingRequestTaskDraftHost.tsx` — Finding-owned Task Request form host used by Finding and Survey.
-- `apps/frontend/src/features/findings/public.ts` — supported source-read and Request Task host edge for other features.
+- `apps/frontend/src/features/findings/public.ts` — supported source-read and Request Task host edge for other features (bridge-mounted readers use `hooks/useFindingDetail.ts`).
 - `apps/frontend/src/features/findings/components/FindingDetail/useFindingDetailController.ts` — detail action and status state, excluding execution-section state.
 - `apps/frontend/src/features/findings/hooks/useFindingStatusMutation.ts` — Finding status mutation.
 - `apps/frontend/src/features/findings/components/FindingDetail/AddEvidenceModal.tsx` — add-evidence (highlight) dialog.

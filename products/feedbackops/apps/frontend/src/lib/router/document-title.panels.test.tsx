@@ -4,6 +4,7 @@ import { TaskDetailPanel } from '@/features/tasks/components/TaskDetailPanel';
 import { TaskRequestsRoute } from '@/features/tasks/routes/TaskRequestsRoute';
 import { VocClusterDetailPanel } from '@/features/voc-cluster/components/detail/VocClusterDetailPanel';
 import { VocDetailPanel } from '@/features/voc/components/detail/VocDetailPanel';
+import * as api from '@/lib/api';
 import { fetchTaskRequests } from '@/lib/api';
 import { ApiError } from '@/lib/api/types';
 import { DOCUMENT_TITLE_COPY } from '@/lib/copy/document-titles';
@@ -164,6 +165,21 @@ vi.mock('@/lib/api', async (importOriginal) => {
   };
 });
 
+// Screens import the module paths; forward at call time to the barrel overrides above.
+vi.mock('@/lib/api/tasks', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/tasks')>()),
+  getTask: (...args: Parameters<typeof api.getTask>) => api.getTask(...args),
+}));
+vi.mock('@/lib/api/task-requests', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/task-requests')>()),
+  fetchTaskRequests: (...args: Parameters<typeof api.fetchTaskRequests>) =>
+    api.fetchTaskRequests(...args),
+}));
+vi.mock('@/lib/api/actors', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/actors')>()),
+  resolveActors: (...args: Parameters<typeof api.resolveActors>) => api.resolveActors(...args),
+}));
+
 // useVocDetail imports the client module directly (bridge-safe graph, #654), not the barrel mocked above.
 vi.mock('@/lib/api/client', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/api/client')>();
@@ -172,6 +188,8 @@ vi.mock('@/lib/api/client', async (importOriginal) => {
     // The cluster hooks import the client module directly (761c), like useVocDetail.
     apiRequest: (async (method: string, path: string, ...rest: unknown[]) => {
       const [collection, id] = path.split('/').slice(1);
+      if (collection === 'findings' && id)
+        return { data: await readResults.resolveRead(readResults.findings, id) };
       if (collection !== 'voc-clusters')
         return (actual.apiRequest as (...args: unknown[]) => Promise<unknown>)(
           method,

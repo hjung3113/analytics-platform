@@ -131,6 +131,9 @@ vi.mock('sonner', () => ({ toast }));
 vi.mock('@/features/findings/public', () => ({
   useFindingDetail: api.useFindingDetail,
 }));
+vi.mock('@/features/findings/hooks/useFindingDetail', () => ({
+  useFindingDetail: api.useFindingDetail,
+}));
 vi.mock('@/lib/api/milestones', () => ({
   listMilestones: vi.fn(),
 }));

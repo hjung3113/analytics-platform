@@ -2,6 +2,7 @@ type ApiModule = typeof import('@/lib/api');
 import * as api from '@/lib/api';
 import * as areasApi from '@/lib/api/analytics-areas';
 import * as milestonesApi from '@/lib/api/milestones';
+import * as taskRequestsApi from '@/lib/api/task-requests';
 import { ApiError } from '@/lib/api/types';
 import { AppFrame } from '@/lib/layout/AppFrame';
 import { parseAppSearch, stringifyAppSearch } from '@/lib/router/search-serialization';
@@ -92,52 +93,89 @@ const task2: TaskDetailDto = {
   priority: 'medium',
 };
 const tasks = [task, task2];
-vi.mock('@/lib/api', async (original) => ({
-  ...(await original<ApiModule>()),
-  fetchTaskRequests: vi.fn(async ({ signal: _signal, ...raw } = {}) => {
-    const query = listTaskRequestsQuerySchema.parse(raw);
-    const scoped =
-      !query.managed_system_id ||
-      query.managed_system_id === 'all' ||
-      query.managed_system_id === scope;
-    if (query.limit === 1)
-      return {
-        items: scoped ? requests : [],
-        page: { total: scoped ? requests.length : 0, has_more: false },
-      };
-    const items = scoped
-      ? requests.filter((item) => !query.status || item.status === query.status)
-      : [];
-    return { items, page: { total: items.length, has_more: false } };
-  }),
-  getTaskRequest: vi.fn(async (id: string) => {
-    const found = requests.find((item) => item.id === id);
-    if (!found) throw new Error('Unexpected request ID');
-    return found;
-  }),
-  listTasks: vi.fn(async ({ signal: _signal, ...raw } = {}) => {
-    const query = listTasksQuerySchema.parse(raw);
-    const items = tasks.filter(
-      (item) =>
-        (!query.managed_system_id ||
-          query.managed_system_id === 'all' ||
-          query.managed_system_id === scope) &&
-        (!query.status || query.status === item.status) &&
-        (!query.assignee || query.assignee === 'me' || query.assignee === item.assignee_actor_id),
-    );
-    return { items, page: { total: items.length, has_more: false } };
-  }),
-  getTask: vi.fn(async (id: string) => {
-    const found = tasks.find((item) => item.id === id);
-    if (!found) throw new Error('Unexpected Task ID');
-    return found;
-  }),
-  resolveActors: vi.fn(async () => ({ actors: [], teams: [] })),
-  fetchPermissionCheck: vi.fn(async () => ({ state: 'approved' })),
-  // Extra reads the real AppFrame host performs (fullscreen cases).
-  fetchCapabilityScope: vi.fn(async () => ({ scope: { kind: 'all' } })),
-  fetchNavCounts: vi.fn(async () => ({ counts: {} })),
-  fetchSavedViews: vi.fn(async () => ({ items: [] })),
+// The barrel slots for the three decision writes take the task-requests module's own implementations, not the
+// forwarders below, so an unspied call never loops barrel -> module forwarder -> barrel.
+vi.mock('@/lib/api', async (original) => {
+  const taskRequests =
+    await vi.importActual<typeof import('@/lib/api/task-requests')>('@/lib/api/task-requests');
+  return {
+    ...(await original<ApiModule>()),
+    approveTaskRequest: taskRequests.approveTaskRequest,
+    rejectTaskRequest: taskRequests.rejectTaskRequest,
+    requestMoreEvidenceForTaskRequest: taskRequests.requestMoreEvidenceForTaskRequest,
+    fetchTaskRequests: vi.fn(async ({ signal: _signal, ...raw } = {}) => {
+      const query = listTaskRequestsQuerySchema.parse(raw);
+      const scoped =
+        !query.managed_system_id ||
+        query.managed_system_id === 'all' ||
+        query.managed_system_id === scope;
+      if (query.limit === 1)
+        return {
+          items: scoped ? requests : [],
+          page: { total: scoped ? requests.length : 0, has_more: false },
+        };
+      const items = scoped
+        ? requests.filter((item) => !query.status || item.status === query.status)
+        : [];
+      return { items, page: { total: items.length, has_more: false } };
+    }),
+    getTaskRequest: vi.fn(async (id: string) => {
+      const found = requests.find((item) => item.id === id);
+      if (!found) throw new Error('Unexpected request ID');
+      return found;
+    }),
+    listTasks: vi.fn(async ({ signal: _signal, ...raw } = {}) => {
+      const query = listTasksQuerySchema.parse(raw);
+      const items = tasks.filter(
+        (item) =>
+          (!query.managed_system_id ||
+            query.managed_system_id === 'all' ||
+            query.managed_system_id === scope) &&
+          (!query.status || query.status === item.status) &&
+          (!query.assignee || query.assignee === 'me' || query.assignee === item.assignee_actor_id),
+      );
+      return { items, page: { total: items.length, has_more: false } };
+    }),
+    getTask: vi.fn(async (id: string) => {
+      const found = tasks.find((item) => item.id === id);
+      if (!found) throw new Error('Unexpected Task ID');
+      return found;
+    }),
+    resolveActors: vi.fn(async () => ({ actors: [], teams: [] })),
+    fetchPermissionCheck: vi.fn(async () => ({ state: 'approved' })),
+    // Extra reads the real AppFrame host performs (fullscreen cases).
+    fetchCapabilityScope: vi.fn(async () => ({ scope: { kind: 'all' } })),
+    fetchNavCounts: vi.fn(async () => ({ counts: {} })),
+    fetchSavedViews: vi.fn(async () => ({ items: [] })),
+  };
+});
+// Screens import the module paths; forward at call time so the barrel mock and spies above still apply.
+vi.mock('@/lib/api/task-requests', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/task-requests')>()),
+  fetchTaskRequests: (...args: Parameters<typeof api.fetchTaskRequests>) =>
+    api.fetchTaskRequests(...args),
+  getTaskRequest: (...args: Parameters<typeof api.getTaskRequest>) => api.getTaskRequest(...args),
+  approveTaskRequest: (...args: Parameters<typeof api.approveTaskRequest>) =>
+    api.approveTaskRequest(...args),
+  rejectTaskRequest: (...args: Parameters<typeof api.rejectTaskRequest>) =>
+    api.rejectTaskRequest(...args),
+  requestMoreEvidenceForTaskRequest: (
+    ...args: Parameters<typeof api.requestMoreEvidenceForTaskRequest>
+  ) => api.requestMoreEvidenceForTaskRequest(...args),
+}));
+vi.mock('@/lib/api/tasks', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/tasks')>()),
+  listTasks: (...args: Parameters<typeof api.listTasks>) => api.listTasks(...args),
+  getTask: (...args: Parameters<typeof api.getTask>) => api.getTask(...args),
+}));
+vi.mock('@/lib/api/actors', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/actors')>()),
+  resolveActors: (...args: Parameters<typeof api.resolveActors>) => api.resolveActors(...args),
+}));
+vi.mock('@/lib/api/permissions', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/permissions')>()),
+  fetchPermissionCheck: (...args: Parameters<typeof api.fetchPermissionCheck>) =>
+    api.fetchPermissionCheck(...args),
 }));
 vi.mock('@/lib/auth/useMe', () => ({
   useMe: () => ({ data: { actor: { id: requester, role_level: 'admin' } } }),
@@ -150,6 +188,9 @@ vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
   fetchManagedSystems: async () => ({ items: [{ id: scope, name: 'Billing Ops' }] }),
 }));
 vi.mock('@/features/findings/public', () => ({ useFindingDetail: () => ({ data: null }) }));
+vi.mock('@/features/findings/hooks/useFindingDetail', () => ({
+  useFindingDetail: () => ({ data: null }),
+}));
 vi.mock('@/lib/api/entity-links', () => ({
   fetchTaskRequestEntityLinks: async () => ({ items: [] }),
 }));
@@ -231,6 +272,16 @@ function listRow(displayId: string) {
   return row as HTMLElement;
 }
 afterEach(cleanup);
+
+it('runs the module implementation for an unspied decision write instead of recursing', async () => {
+  const failure = await taskRequestsApi
+    .requestMoreEvidenceForTaskRequest(request.id, { note: 'more' }, 'key-1')
+    .then(
+      () => null,
+      (error: unknown) => error,
+    );
+  expect(failure).not.toBeInstanceOf(RangeError);
+});
 // Keyboard rows removed (owner decision 60-2): fireEvent.keyDown + click does not
 // prove native keyboard activation in jsdom.
 it.each(['requests', 'backlog'] as const)(

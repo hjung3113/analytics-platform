@@ -16,6 +16,11 @@ vi.mock('@/lib/api', async (importOriginal) => ({
   apiRequest,
 }));
 
+vi.mock('@/lib/api/client', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/client')>()),
+  apiRequest,
+}));
+
 vi.mock('@/features/admin/permissions/request-access-button', () => ({
   RequestAccessButton: ({
     capability,
