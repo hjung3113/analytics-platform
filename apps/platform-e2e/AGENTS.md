@@ -28,7 +28,7 @@
 
 ## 실행과 보고
 
-- 루트 `pnpm e2e`. 브라우저가 없으면 `pnpm --filter @ap/platform-e2e e2e:install`(Playwright 기본 캐시에 설치, 실행도 같은 캐시를 본다). `PLAYWRIGHT_BROWSERS_PATH`를 쓰면 설치와 실행에 같은 값을 준다. 로컬에서는 `PLAYWRIGHT_BROWSERS_PATH=$PWD/prototypes/kernel-platform-table/.browsers`로 기존 브라우저를 재사용할 수 있다(Playwright 버전을 `1.63.0`에 고정한 이유).
+- 루트 `pnpm e2e`. 브라우저가 없으면 `pnpm --filter @ap/platform-e2e e2e:install`(Playwright 기본 캐시에 설치, 실행도 같은 캐시를 본다). `PLAYWRIGHT_BROWSERS_PATH`를 쓰면 설치와 실행에 같은 값을 준다. 다른 경로의 옛 브라우저 폴더를 재사용하지 않는다: 그 폴더에 지금 Playwright 버전이 찾는 리비전이 없으면 모든 테스트가 브라우저 실행에서 실패한다(#608).
 - dev 서버를 포트 4190에 직접 띄운다(`reuseExistingServer: false`). 이미 떠 있으면 `lsof -tiTCP:4190 -sTCP:LISTEN | xargs kill`.
 - 재시도하지 않는다(`retries: 0`). 간헐적 위반도 위반이다. 로컬에서 `--retries`를 주면 리포터가 재시도 후 통과를 "불안정"으로 따로 표시하고 모든 시도의 오류·증거를 남긴다.
 - 실패한 검사는 Playwright의 실패 스크린샷(`screenshot: 'only-on-failure'`)이 그 항목의 증거로 들어간다.
