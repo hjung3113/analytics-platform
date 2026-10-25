@@ -1,4 +1,4 @@
-import { apiRequest } from '@/lib/api';
+import { apiRequest } from '@/lib/api/client';
 import { ApiError, ApiParseError } from '@/lib/api/types';
 import { findingDtoSchema } from '@fops/shared';
 import type { FindingDto } from '@fops/shared';

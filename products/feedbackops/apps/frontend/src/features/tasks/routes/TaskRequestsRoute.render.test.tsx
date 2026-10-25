@@ -39,6 +39,16 @@ vi.mock('@/features/findings/public', () => ({
     },
   }),
 }));
+vi.mock('@/features/findings/hooks/useFindingDetail', () => ({
+  useFindingDetail: () => ({
+    data: {
+      id: '40000000-0000-0000-0000-000000000004',
+      display_id: 'FIN-179',
+      title: '리포트 속도 저하',
+      status: 'active',
+    },
+  }),
+}));
 
 vi.mock('@/lib/cross-system/useWorkspaceActors', () => ({
   useWorkspaceActors: () => ({ actors: [] }),

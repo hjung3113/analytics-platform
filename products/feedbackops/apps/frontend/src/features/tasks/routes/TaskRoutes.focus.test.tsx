@@ -139,6 +139,34 @@ vi.mock('@/lib/api', async (original) => ({
   fetchNavCounts: vi.fn(async () => ({ counts: {} })),
   fetchSavedViews: vi.fn(async () => ({ items: [] })),
 }));
+// Screens import the module paths; forward at call time so the barrel mock and spies above still apply.
+vi.mock('@/lib/api/task-requests', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/task-requests')>()),
+  fetchTaskRequests: (...args: Parameters<typeof api.fetchTaskRequests>) =>
+    api.fetchTaskRequests(...args),
+  getTaskRequest: (...args: Parameters<typeof api.getTaskRequest>) => api.getTaskRequest(...args),
+  approveTaskRequest: (...args: Parameters<typeof api.approveTaskRequest>) =>
+    api.approveTaskRequest(...args),
+  rejectTaskRequest: (...args: Parameters<typeof api.rejectTaskRequest>) =>
+    api.rejectTaskRequest(...args),
+  requestMoreEvidenceForTaskRequest: (
+    ...args: Parameters<typeof api.requestMoreEvidenceForTaskRequest>
+  ) => api.requestMoreEvidenceForTaskRequest(...args),
+}));
+vi.mock('@/lib/api/tasks', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/tasks')>()),
+  listTasks: (...args: Parameters<typeof api.listTasks>) => api.listTasks(...args),
+  getTask: (...args: Parameters<typeof api.getTask>) => api.getTask(...args),
+}));
+vi.mock('@/lib/api/actors', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/actors')>()),
+  resolveActors: (...args: Parameters<typeof api.resolveActors>) => api.resolveActors(...args),
+}));
+vi.mock('@/lib/api/permissions', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/permissions')>()),
+  fetchPermissionCheck: (...args: Parameters<typeof api.fetchPermissionCheck>) =>
+    api.fetchPermissionCheck(...args),
+}));
 vi.mock('@/lib/auth/useMe', () => ({
   useMe: () => ({ data: { actor: { id: requester, role_level: 'admin' } } }),
 }));
@@ -150,6 +178,9 @@ vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
   fetchManagedSystems: async () => ({ items: [{ id: scope, name: 'Billing Ops' }] }),
 }));
 vi.mock('@/features/findings/public', () => ({ useFindingDetail: () => ({ data: null }) }));
+vi.mock('@/features/findings/hooks/useFindingDetail', () => ({
+  useFindingDetail: () => ({ data: null }),
+}));
 vi.mock('@/lib/api/entity-links', () => ({
   fetchTaskRequestEntityLinks: async () => ({ items: [] }),
 }));

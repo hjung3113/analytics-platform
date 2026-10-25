@@ -1,5 +1,5 @@
 import { resolveActors } from '@/lib/api/actors';
-import type { ManagedSystemDto } from '@/lib/api/managed-systems';
+import type { ManagedSystemDto } from '@/lib/api/registry-reads';
 import { RESPONSIBILITY_COPY } from '@/lib/copy/tasks';
 import { managedSystemsCatalogQuery } from '@/lib/cross-system/useManagedSystemNames';
 import { shortId } from '@/lib/identity';

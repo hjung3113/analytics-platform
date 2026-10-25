@@ -23,6 +23,9 @@ const { useDecision, useConversion, useLink } = vi.hoisted(() => ({
 vi.mock('@/features/findings/public', () => ({
   useFindingDetail: () => ({ data: null }),
 }));
+vi.mock('@/features/findings/hooks/useFindingDetail', () => ({
+  useFindingDetail: () => ({ data: null }),
+}));
 vi.mock('./useTaskRequestDecision', () => ({ useTaskRequestDecision: useDecision }));
 vi.mock('./useTaskRequestConversion', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./useTaskRequestConversion')>()),

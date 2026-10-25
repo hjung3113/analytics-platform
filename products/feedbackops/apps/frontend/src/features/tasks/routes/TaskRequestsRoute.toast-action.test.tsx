@@ -69,6 +69,9 @@ vi.mock('@fops/ui', async () => {
   };
 });
 vi.mock('@/features/findings/public', () => ({ useFindingDetail: () => ({ data: null }) }));
+vi.mock('@/features/findings/hooks/useFindingDetail', () => ({
+  useFindingDetail: () => ({ data: null }),
+}));
 vi.mock('@/lib/api/entity-links', () => ({
   fetchTaskRequestEntityLinks: vi.fn(async () => ({ items: [] })),
 }));
