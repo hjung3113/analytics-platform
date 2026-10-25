@@ -1,7 +1,6 @@
 import { useCallback, useLayoutEffect, useMemo, useSyncExternalStore } from 'react';
-import { buildQuery, compareHistoryText, compareQueryHistory, emptyGlobal, parseQuery, type GlobalContext, type Pair, type QueryHistoryEntry, type QueryHistoryKey, type QueryHistoryStore, type Session } from '@ap/contracts';
+import { buildQuery, compareHistoryText, compareQueryHistory, emptyGlobal, parseQuery, RETURN_TO_KEY, withoutReturnTo, type GlobalContext, type Pair, type QueryHistoryEntry, type QueryHistoryKey, type QueryHistoryStore, type Session } from '@ap/contracts';
 import { useHostPlatform } from './platform';
-import { withoutReturnTo } from './return-to';
 import type { DraftStore, DraftInputs, DraftValues } from './draft-state';
 
 export type QueryHistoryRow = { id: string; lastAppliedAt: number; count: number } & (
@@ -55,7 +54,7 @@ function candidate(input: DraftInputs, entry: QueryHistoryEntry, normalize: (val
   try {
     if (entry.schemaVersion !== 1) return null;
     const parsed = parseQuery(entry.query, input.menu?.pageKeys);
-    if (new URLSearchParams(entry.query).has('returnTo') || parsed.extras.length || parsed.global.scopeId !== input.global.scopeId || (parsed.global.metricId !== null && parsed.global.metricVersion === null)) return null;
+    if (new URLSearchParams(entry.query).has(RETURN_TO_KEY) || parsed.extras.length || parsed.global.scopeId !== input.global.scopeId || (parsed.global.metricId !== null && parsed.global.metricVersion === null)) return null;
     // History is a complete applied condition, never an incomplete or silently materialized candidate.
     if (parsed.global.from === null || parsed.global.to === null) return null;
     const normalized = normalize(parsed);

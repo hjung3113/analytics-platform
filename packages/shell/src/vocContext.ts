@@ -1,4 +1,4 @@
-import { buildQuery, emptyGlobal, formatDateTime, formatMetricVersion, parseDateTime, type ContextKey, type EquipmentAxisDescriptor, type GlobalContext, type Pair } from '@ap/contracts';
+import { buildQuery, emptyGlobal, formatDateTime, formatMetricVersion, parseDateTime, withoutReturnTo, type ContextKey, type EquipmentAxisDescriptor, type GlobalContext, type Pair } from '@ap/contracts';
 import { CONTEXT_LABELS, labelledCondition, pathFor, RETURN_CONTEXT_LABELS, type Lang, type VocComposeContext, type VocComposeContextItem } from '@ap/kernel';
 import type { HostPlatform } from '@ap/kernel/host';
 
@@ -30,7 +30,7 @@ export function freezeVocContext(input: VocFreezeInput, removed: ReadonlySet<str
   const text = TEXT[input.lang];
   const { route, global, registry } = input;
   // `returnTo` is navigation state (the way back), not screen Context: it is neither a chip nor part of the attached address (#760).
-  const page = input.page.filter(([key]) => key !== 'returnTo');
+  const page = withoutReturnTo(input.page);
   const basis = global.membershipBasis === 'asOf' ? ` · ${input.asOf}` : '';
   if (input.platformScreen === 'board' || route === null) {
     return { items: removed.has('menu') ? [] : [{ id: 'menu', label: text.screen, value: text.board }], href: null, spaceId: null, menuId: null, carried: {} };

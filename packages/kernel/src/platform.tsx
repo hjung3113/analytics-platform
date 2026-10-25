@@ -10,12 +10,12 @@ import { CONTEXT_LABELS, isBoardPath, pathFor, routeParamNames, type MenuEntry, 
 import { useI18n } from './i18n';
 import { dropResetKeys, paneHref } from './paneContext';
 import { dropDrillResetKeys } from './drillReset';
-import { RETURN_TO_KEY, stripReturnToFromUrl } from './return-to';
+import { stripReturnToFromUrl } from './return-to';
 import { appliedQueryPolicy, createDraftStore, useScreenDraft, type DraftStore } from './draft-state';
 import type { QueryHistory } from './query-history';
 import type { QueryDraft, QueryMissing } from './query-draft';
 import { createRefreshEpochs, type RefreshEpochs } from './refresh-epochs';
-import { buildQuery, clientCorrelationId, ContractError, emptyGlobal, type EquipmentAxisDescriptor, type ContextKey, type GlobalContext, incompleteMetricPair, type ModuleScopedId, isAppRelativePath, type Pair, type ParsedQuery, parseQuery, type Permission, type PlatformAdapter, sameGlobal, type Session, type SessionUser, shift, type SpaceDef, type SpaceId, type Text, type UsageEvent, type UsageVia, type QueryHistoryStore } from '@ap/contracts';
+import { buildQuery, carriesReturnTo, clientCorrelationId, ContractError, emptyGlobal, type EquipmentAxisDescriptor, type ContextKey, type GlobalContext, incompleteMetricPair, type ModuleScopedId, isAppRelativePath, type Pair, type ParsedQuery, parseQuery, type Permission, RETURN_TO_KEY, type PlatformAdapter, sameGlobal, type Session, type SessionUser, shift, type SpaceDef, type SpaceId, type Text, type UsageEvent, type UsageVia, type QueryHistoryStore } from '@ap/contracts';
 
 const NO_EQUIPMENT_AXES: readonly EquipmentAxisDescriptor[] = [];
 const NO_SLOTS: PlatformSlots = {};
@@ -525,7 +525,7 @@ function useScreenState(app: AppValue, source: ScreenSource): { screen: ScreenSt
     const targetSpace = registry.spaceOf(target);
     let sameCarryingSpace = false;
     if (route && targetSpace && registry.spaceOf(route.menu)?.id === targetSpace.id) {
-      sameCarryingSpace = (targetSpace.carriedPageKeys ?? []).includes(RETURN_TO_KEY);
+      sameCarryingSpace = carriesReturnTo(targetSpace);
       for (const k of targetSpace.carriedPageKeys ?? []) {
         if (!target.pageKeys.includes(k) || options.page?.[k] !== undefined) continue;
         const current = page.find(([pk]) => pk === k);
@@ -673,7 +673,7 @@ function useScreenState(app: AppValue, source: ScreenSource): { screen: ScreenSt
 
   const pageParam = useCallback((key: string) => page.find(([k]) => k === key)?.[1] ?? null, [page]);
   const resolveReturnOrigin = useCallback((): ReturnOrigin => {
-    const safe = safeReturnTo(pageParam('returnTo'));
+    const safe = safeReturnTo(pageParam(RETURN_TO_KEY));
     if (safe) {
       const q = safe.indexOf('?');
       const path = q === -1 ? safe : safe.slice(0, q);

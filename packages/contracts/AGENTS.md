@@ -14,6 +14,7 @@
 - `paging.ts` — 서버 페이징 모양 `PageQuery`(`page` 0부터)·`PageResult`·`sortRows`(첫 정렬 키로 정렬만, 자르지 않음 — 내보내기 mock 핸들러 3곳, #173)·`sortAndPage`(`sortRows` + 자르기, mock 핸들러가 쓴다). `@ap/components`가 같은 이름으로 재export한다(06 §15, #128).
 - `period.ts` — wall-clock 기간 계산 `periodHours`·`bucketStart`·`Grain`(화면과 서버가 함께 쓴다, 06 §6.3, #127). `@ap/mock-server`가 같은 이름으로 재export한다.
 - `instant.ts` — 실제 시점(epoch ms·offset 포함 ISO) 표시 `formatInstant`·`instantEpochMs`. wall-clock(`url.ts`의 `formatDateTime`)과 섞지 않는다(06 §6.3).
+- `return-to.ts` — `returnTo`는 화면 상태가 아니라 이동 정보라는 규칙(#760, ADR-0081 UX-10)의 한 곳: 키 `RETURN_TO_KEY`, 기록·재생 전에 쓰는 `withoutReturnTo(pairs)`, 공간이 `returnTo`를 이어받는지 `carriesReturnTo(space)`(#851). URL 문자열에서 떼는 `stripReturnToFromUrl`은 kernel 내부다.
 - `response.ts` — 응답·Trust envelope(`ApiResponse`, `Trust`, `Assessment`, `Outcome`). 06 §18–19.
 - `host.ts` — 호스트 → 모듈 계약 1판([ADR-0053](../../docs/adr/0053-host-module-contract-v1.md)): `ModuleManifest`·`ModuleScreenMeta`·`ModuleHost`·`ModuleScreenProps`·`ModuleTarget`·`ModuleStatus`, 열린 어휘 `ModuleScopedId`(`<moduleId>:<name>`), 받아들일 버전 `HOST_CONTRACTS`, 선택 기능 `HostFeature`(`query`·`detailSlot`·`write` — `write`는 `host.act`와 `ActionResult`, ADR-0054). 노드·요소는 `unknown`이다. `SessionUser.permissions`만 `ModuleScopedId`를 함께 받는다(`Permission`·`GroupId`·`SpaceId`는 `menu.ts`의 브랜드 id, ADR-0072).
 - `adapter.ts` — `PlatformAdapter` 포트와 입출력 타입. 설계는 [패키지 경계](../../docs/integration/platform-packages.md) §4.

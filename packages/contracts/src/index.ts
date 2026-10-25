@@ -13,6 +13,7 @@ export * from './measure.js';
 export * from './paging.js';
 export * from './period.js';
 export * from './response.js';
+export { RETURN_TO_KEY, carriesReturnTo, withoutReturnTo } from './return-to.js';
 export * from './url.js';
 export { CONTEXT_FIELDS, missingRequiredContext, requiredContextError } from './required-context.js';
 

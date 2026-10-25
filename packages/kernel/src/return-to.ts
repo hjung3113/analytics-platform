@@ -1,11 +1,4 @@
-import type { Pair } from '@ap/contracts';
-
-/** `returnTo` is navigation state (the way back), never screen state: stores that replay URLs or page pairs drop it (#760, ADR-0081 UX-10). */
-export const RETURN_TO_KEY = 'returnTo';
-
-export function withoutReturnTo(pairs: readonly Pair[]): Pair[] {
-  return pairs.filter(([key]) => key !== RETURN_TO_KEY);
-}
+import { RETURN_TO_KEY } from '@ap/contracts';
 
 /** The same app-relative URL without its `returnTo` query pair; other pairs keep their exact encoding and order. */
 export function stripReturnToFromUrl(url: string): string {

@@ -4,6 +4,7 @@
  * (submodule commit dc7638f); direction B builds/validates platform inbound URLs (06 §6/§22).
  * Reuses the global-Context codec in ./url; adds no React, env, registry or cross-package imports.
  */
+import { RETURN_TO_KEY } from './return-to.js';
 import { buildQuery, ContractError, isAppRelativePath, normalizeSet, parseDateTime, parseQuery, type GlobalContext, type Pair } from './url.js';
 
 const fail = (code: string, message: string): never => { throw new ContractError(code, message); };
@@ -188,7 +189,7 @@ export function parseFeedbackOpsLink(url: string, expectedOrigin: string): { tar
   return fail('feedbackops_path', `unsupported FeedbackOps path ${split.path}`);
 }
 
-const RETURN_TO: readonly string[] = ['returnTo'];
+const RETURN_TO: readonly string[] = [RETURN_TO_KEY];
 
 /** Direction B — FeedbackOps → platform. Generates the canonical inbound URL for a hop (contract §2). */
 export function buildPlatformInboundLink(input: {
@@ -203,7 +204,7 @@ export function buildPlatformInboundLink(input: {
   if (wantsReturnTo && !isAppRelativePath(input.returnTo!)) return fail('external_return', `returnTo must be an app-relative platform path, got ${JSON.stringify(input.returnTo)}`);
   if (input.hop.menuId === 'equipment-detail') equipmentDetailId(input.hop.equipmentId);
   validateContext(input.context); // before serialization: serializeGlobal would silently drop a one-sided period or orphan metricVersion.
-  const page: Pair[] = wantsReturnTo ? [['returnTo', input.returnTo!]] : [];
+  const page: Pair[] = wantsReturnTo ? [[RETURN_TO_KEY, input.returnTo!]] : [];
   const query = buildQuery(input.context, page);
   parseQuery(query, wantsReturnTo ? RETURN_TO : []); // validate the serialized form before hand-out: scopeId/ppid/condition identifiers, set markers.
   const path = input.hop.menuId === 'equipment-detail'
@@ -237,8 +238,8 @@ export function parsePlatformInboundLink(url: string, expectedOrigin: string): {
     returnToIsPageKey = true;
   } else return fail('unsupported_path', `unsupported platform hop path ${split.path}`);
   const parsed = parseQuery(split.search, returnToIsPageKey ? RETURN_TO : []);
-  if (parsed.extras.some(([k]) => k === 'returnTo')) return fail('unsupported_page_key', `returnTo is a page key of equipment-detail only, not ${hop.menuId}`);
-  const returnToPair = parsed.page.find(([k]) => k === 'returnTo') ?? null;
+  if (parsed.extras.some(([k]) => k === RETURN_TO_KEY)) return fail('unsupported_page_key', `returnTo is a page key of equipment-detail only, not ${hop.menuId}`);
+  const returnToPair = parsed.page.find(([k]) => k === RETURN_TO_KEY) ?? null;
   let returnTo: string | null = null;
   if (returnToPair !== null) {
     if (!isAppRelativePath(returnToPair[1])) return fail('external_return', `returnTo must be an app-relative platform path, got ${JSON.stringify(returnToPair[1])}`);
