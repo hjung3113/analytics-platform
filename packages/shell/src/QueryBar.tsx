@@ -1,4 +1,4 @@
-import { useId, useLayoutEffect, useRef, useState, type ReactNode, type ComponentProps } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode, type ComponentProps } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { parseDateTime, shift, type GlobalContext, type IdSet } from '@ap/contracts';
 import { CONTEXT_LABELS, useAxisOptions, useConditionPreset, useEquipmentSearch, useI18n, useQueryDraft, useResolvedSelection, type PortContext } from '@ap/kernel';
@@ -176,6 +176,20 @@ function QueryBarSession({ label, historySlot }: QueryBarProps) {
   </section>;
 }
 
+/**
+ * The candidate search the ports see: typing waits 250 ms after the last key (a port request per key otherwise, #823); clearing the
+ * search applies at once. The input itself shows every key; the field reads as loading until the waited query is the typed one.
+ */
+function useSearchQuery(search: string): string {
+  const [query, setQuery] = useState(search);
+  useEffect(() => {
+    if (search === '') { setQuery(''); return; }
+    const timer = setTimeout(() => setQuery(search), 250);
+    return () => clearTimeout(timer);
+  }, [search]);
+  return query;
+}
+
 type SetFieldProps = { name: string; values: IdSet; options: { value: string; label: string }[]; onChange: (values: IdSet) => void; invalid?: boolean; reasonId: string };
 function SetField({ name, values, onChange, invalid, reasonId, ...props }: SetFieldProps & Partial<Pick<ComponentProps<typeof MultiCombobox>, 'getLabel' | 'search' | 'onSearchChange' | 'loading' | 'error' | 'onRetry' | 'hasMore' | 'onLoadMore'>>) {
   const { lang, t } = useI18n();
@@ -188,17 +202,19 @@ function SetField({ name, values, onChange, invalid, reasonId, ...props }: SetFi
 }
 function AxisField({ axisId, context, parents, ...props }: Omit<SetFieldProps, 'options'> & { axisId: string; context: PortContext; parents: Record<string, string[]> }) {
   const [search, setSearch] = useState('');
-  const result = useAxisOptions({ axisId, context, parents, query: search });
+  const query = useSearchQuery(search);
+  const result = useAxisOptions({ axisId, context, parents, query });
   const { lang } = useI18n();
   const labels = new Map(result.items.map(item => [item.id, item.label]));
   return <div className="min-w-0">
-    <SetField {...props} search={search} onSearchChange={setSearch} options={result.items.map(item => ({ value: item.id, label: item.label }))} getLabel={value => labels.get(value) ?? value} loading={result.status === 'loading' || result.loadingMore} error={result.error?.message ?? result.loadMoreError?.message} onRetry={result.retry} hasMore={result.hasMore} onLoadMore={result.loadMore} />
+    <SetField {...props} search={search} onSearchChange={setSearch} options={result.items.map(item => ({ value: item.id, label: item.label }))} getLabel={value => labels.get(value) ?? value} loading={result.status === 'loading' || result.loadingMore || search !== query} error={result.error?.message ?? result.loadMoreError?.message} onRetry={result.retry} hasMore={result.hasMore} onLoadMore={result.loadMore} />
     {props.values?.some(value => !labels.has(value)) && <p className="max-w-56 text-xs text-text-secondary">{lang === 'ko' ? '현재 후보에 없음. 선택은 유지합니다.' : 'Not in current candidates. Selection is kept.'}</p>}
   </div>;
 }
 function EquipmentField({ context, ...props }: Omit<SetFieldProps, 'name' | 'options'> & { context: PortContext }) {
   const [search, setSearch] = useState('');
-  const result = useEquipmentSearch({ context, query: search });
+  const query = useSearchQuery(search);
+  const result = useEquipmentSearch({ context, query });
   const resolved = useResolvedSelection(props.values ?? [], { scopeId: context.scopeId });
   const { lang } = useI18n();
   const ko = lang === 'ko';
@@ -207,7 +223,7 @@ function EquipmentField({ context, ...props }: Omit<SetFieldProps, 'name' | 'opt
     const status = resolved.byId.get(value);
     return status === 'forbidden' ? `${value} (${ko ? '권한 없음' : 'Forbidden'})` : status === 'not_found' ? `${value} (${ko ? '찾을 수 없음' : 'Not found'})` : resolved.summaries.get(value)?.equipmentId ?? value;
   };
-  return <div className="min-w-0"><SetField {...props} name="EquipmentID" search={search} onSearchChange={setSearch} options={result.items.map(item => ({ value: item.equipmentId, label: label(item.equipmentId) }))} getLabel={label} loading={result.status === 'loading' || result.loadingMore || resolved.status === 'loading'} error={result.error?.message ?? result.loadMoreError?.message ?? resolved.error?.message} onRetry={() => { result.retry(); resolved.retry(); }} hasMore={result.hasMore} onLoadMore={result.loadMore} />
+  return <div className="min-w-0"><SetField {...props} name="EquipmentID" search={search} onSearchChange={setSearch} options={result.items.map(item => ({ value: item.equipmentId, label: label(item.equipmentId) }))} getLabel={label} loading={result.status === 'loading' || result.loadingMore || resolved.status === 'loading' || search !== query} error={result.error?.message ?? result.loadMoreError?.message ?? resolved.error?.message} onRetry={() => { result.retry(); resolved.retry(); }} hasMore={result.hasMore} onLoadMore={result.loadMore} />
     {props.values?.some(value => !result.items.some(item => item.equipmentId === value)) && <p className="max-w-56 text-xs text-text-secondary">{ko ? '현재 불러온 후보에 없음. 선택한 ID는 유지합니다.' : 'Not in currently loaded candidates. Selected IDs are kept.'}</p>}
   </div>;
 }

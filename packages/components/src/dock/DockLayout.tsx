@@ -148,15 +148,16 @@ export function DockLayoutBase(props: DockLayoutProps & { rows?: DockRows; revea
   const minHeight = props.minPanelSize?.height ?? DEFAULT_MIN_PANEL_SIZE.height;
   const minPanelSize = useMemo(() => ({ width: minWidth, height: minHeight }), [minWidth, minHeight]);
 
-  const [width, setWidth] = useState<number | null>(null);
+  // Only the side of `stackBelow` is state: a resize that stays on one side re-renders nothing (#823).
+  const [belowStack, setBelowStack] = useState(false);
   useLayoutEffect(() => {
     const element = container.current;
     if (!element || stackBelow === undefined) return;
-    const observer = new ResizeObserver(entries => { const entry = entries[entries.length - 1]; if (entry) setWidth(entry.contentRect.width); });
+    const observer = new ResizeObserver(entries => { const entry = entries[entries.length - 1]; if (entry) setBelowStack(entry.contentRect.width < stackBelow); });
     observer.observe(element);
     return () => { observer.disconnect(); };
   }, [stackBelow]);
-  const narrow = stackBelow !== undefined && width !== null && width < stackBelow;
+  const narrow = stackBelow !== undefined && belowStack;
 
   // Narrow display: the user's tab choice there is display-only and ends when the first group's own active tab changes.
   const firstActive = dockGroups(layout)[0]?.active ?? '';

@@ -233,3 +233,17 @@ it('reserves a full period row and date-time input widths, and uses product memb
   fireEvent.click(screen.getByRole('button', { name: '조회 조건 접기' }));
   expect(screen.getByRole('region', { name: '조회 조건' })).toHaveClass('sticky', 'top-[50px]');
 });
+it('asks the equipment port once for a typed search, after typing pauses, not per key (#823)', async () => {
+  const searchEquipment = vi.fn(async () => ({ outcome: 'ok' as const, data: { items: [], nextCursor: null }, assessments: [], trust: null, correlationId: 'test' }));
+  mount('', { searchEquipment } as unknown as Partial<PlatformAdapter>);
+  await waitFor(() => expect(platform.scope.status).toBe('valid'));
+  fireEvent.click(screen.getByRole('button', { name: 'EquipmentID' }));
+  const input = screen.getByRole('combobox', { name: 'EquipmentID' });
+  await waitFor(() => expect(searchEquipment).toHaveBeenCalled());
+  searchEquipment.mockClear();
+  // Keys 50 ms apart, like typing: each one is its own task, so the port cache's same-tick cancellation does not merge them.
+  for (const text of ['E', 'EQ', 'EQ-', 'EQ-0']) { fireEvent.change(input, { target: { value: text } }); await act(() => new Promise(resolve => setTimeout(resolve, 50))); }
+  await new Promise(resolve => setTimeout(resolve, 600));
+  const queries = (searchEquipment.mock.calls as unknown as [{ query?: string }][]).map(([request]) => request.query);
+  expect(queries).toEqual(['EQ-0']);
+});

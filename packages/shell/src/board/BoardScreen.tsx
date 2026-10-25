@@ -275,10 +275,10 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
     window.addEventListener('keydown', escape);
     return () => window.removeEventListener('keydown', escape);
   }, [dock, maximized, identity]);
-  const saved = (change: Partial<typeof arrangement>) => update(b => {
+  const saved = (change: Partial<typeof arrangement>, final = true) => update(b => {
     const current = b.sheets.find(s => s.id === sheetId);
     return current ? setArrangement(b, sheetId, layout, { ...getArrangement(current), ...change }) : b;
-  });
+  }, { save: final });
   const collapse = (index: number) => saved({ collapsed: arrangement.collapsed.includes(index)
     ? arrangement.collapsed.filter(i => i !== index) : canCollapse(layout, arrangement.collapsed, index) ? [...arrangement.collapsed, index] : arrangement.collapsed });
   const stackedHeights = paneScreens.map((_, i) => PANE_HEADER_HEIGHT + (arrangement.collapsed.includes(i) ? 0 : STACKED_PANE_MIN_HEIGHT - PANE_HEADER_HEIGHT));
@@ -351,12 +351,12 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
           onCollapse={() => collapse(index)} onMaximize={() => toggleMaximize(index)} />)}
         {!stacked && maximized === null && columns === 2 && <PaneSplitter key={`${identity}.columns`} label={text.columnSize} controls={`board-pane-${paneKey(0)}`}
           value={tracks.widths[0] / (tracks.widths[0] + tracks.widths[1]) * 100} bounds={tracks.columnBounds} extent={tracks.widths[0] + tracks.widths[1]}
-          placement={{ left: tracks.widths[0], top: 0, width: GRID_GAP, height: tracks.height }} onChange={values => saved({ columns: values })} />}
+          placement={{ left: tracks.widths[0], top: 0, width: GRID_GAP, height: tracks.height }} onChange={(values, final) => saved({ columns: values }, final)} />}
         {!stacked && maximized === null && rows === 2 && Array.from({ length: columns }, (_, c) => !arrangement.collapsed.includes(c) && !arrangement.collapsed.includes(c + columns)
           ? <PaneSplitter key={`${identity}.rows.${c}`} horizontal label={text.rowSize(c + 1, c + columns + 1)} controls={`board-pane-${paneKey(c)}`}
             value={tracks.heights[c][0] / (tracks.height - GRID_GAP) * 100} bounds={tracks.rowBounds[c]} extent={tracks.height - GRID_GAP}
             placement={{ left: c === 0 ? 0 : tracks.widths[0] + GRID_GAP, top: tracks.heights[c][0], width: tracks.widths[c], height: GRID_GAP }}
-            onChange={values => saved({ rows: arrangement.rows.map((r, i) => i === c ? values : r) })} /> : null)}
+            onChange={(values, final) => saved({ rows: arrangement.rows.map((r, i) => i === c ? values : r) }, final)} /> : null)}
       </div>}
     </div>
     </QueryBarExtensionsProvider>
