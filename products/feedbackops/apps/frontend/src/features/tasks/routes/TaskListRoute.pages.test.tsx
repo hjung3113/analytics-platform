@@ -1,3 +1,4 @@
+import { useMe } from '@/lib/auth/useMe';
 import { TasksRouteView } from '@/routes/_authed/tasks';
 import { type TaskDto, listTasksQuerySchema } from '@fops/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -26,6 +27,10 @@ vi.mock('@fops/ui', async (importOriginal) => ({
     </main>
   ),
   WorkbenchShell: ({ children }: { children: ReactNode }) => <main>{children}</main>,
+}));
+vi.mock('@/lib/api/me', async (io) => ({
+  ...(await io<typeof import('@/lib/api/me')>()),
+  useMeBridge: () => useMe(),
 }));
 vi.mock('@/lib/auth/useMe', () => ({
   useMe: () => ({

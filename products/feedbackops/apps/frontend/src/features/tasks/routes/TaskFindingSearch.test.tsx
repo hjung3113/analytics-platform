@@ -1,3 +1,4 @@
+import { useMe } from '@/lib/auth/useMe';
 import { FindingsListPage, validateFindingsSearch } from '@/routes/_authed/findings';
 import { TasksRouteView, validateTasksSearch } from '@/routes/_authed/tasks';
 import { listFindingsQuerySchema, listTasksQuerySchema } from '@fops/shared';
@@ -15,6 +16,10 @@ vi.mock('@tanstack/react-router', async (original) => ({
   useNavigate: () => router.navigate,
   useSearch: () => router.search,
   Link: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
+}));
+vi.mock('@/lib/api/me', async (io) => ({
+  ...(await io<typeof import('@/lib/api/me')>()),
+  useMeBridge: () => useMe(),
 }));
 vi.mock('@/lib/auth/useMe', () => ({ useMe: () => ({ data: { actor: { id: 'me' } } }) }));
 vi.mock('@/lib/cross-system/useWorkspaceActors', () => ({

@@ -34,7 +34,8 @@ It does not own reporter-facing VOC status or source evidence visibility rules.
 
 - `apps/frontend/src/routes/_authed/tasks.tsx` — selects the Task view from URL state.
 - `apps/frontend/src/features/tasks/routes/task-search.ts` — router-free `/tasks` search schema, `validateTasksSearch` and `isTasksSearchValueValid` (the route file re-exports the first two; the platform bridge entry `operator-screens/tasks-search` exposes the last).
-- `apps/frontend/src/features/tasks/routes/TaskListRoute.tsx` — backlog list, filters, and selected detail.
+- `apps/frontend/src/features/tasks/routes/TaskListScreen.tsx` — bridge-safe backlog / 내 Task list body (entry `operator-screens/task-list`): URL through the host seam (`useHostSearchWriter`), the host passes `renderDetail`; it never imports the Task detail tree.
+- `apps/frontend/src/features/tasks/routes/TaskListRoute.tsx` — standalone composition: `TaskListScreen` under a seam whose `useSearch` is the route props and whose `useNavigate` keeps TanStack functional `search` (boolean `overdue`, carried keys), with `TaskDetailPanel` as `renderDetail`.
 - `apps/frontend/src/features/tasks/routes/TaskBoardRoute.tsx` — Task board columns and grouping state.
 - `apps/frontend/src/features/tasks/components/task-board/` — Task board cards, columns, and grouping
   control; the route retains URL state and DnD sensors.
@@ -44,7 +45,7 @@ It does not own reporter-facing VOC status or source evidence visibility rules.
 - `apps/frontend/src/features/tasks/hooks/useTaskStatusTransition.ts` — per-column optimistic Task
   status writes (source/target pages and totals), per-invocation rollback, and stale-write handling.
 - `apps/frontend/src/features/tasks/hooks/useTaskPanelSelection.ts` — shared Task list and Task Request
-  selection reconciliation, panel close, auto-selection, and missing-link state; callers own detail queries,
+  selection reconciliation, panel close, auto-selection (`autoSelect`, default on; off when a host owns the detail), and missing-link state; callers own detail queries,
   scope/filter checks, and focus return.
 - `apps/frontend/src/features/tasks/hooks/useTaskBoardKeyboardFocus.ts` — route-lifetime keyboard
   focus recovery and generation invalidation; status cache writes stay in `useTaskStatusTransition`.

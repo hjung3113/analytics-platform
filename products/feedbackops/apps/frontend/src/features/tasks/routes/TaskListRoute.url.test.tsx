@@ -1,5 +1,6 @@
 import { getTask, listTasks } from '@/lib/api';
 import { ApiError } from '@/lib/api/types';
+import { useMe } from '@/lib/auth/useMe';
 import { parseAppSearch, stringifyAppSearch } from '@/lib/router/search-serialization';
 import { TasksRouteView, validateTasksSearch } from '@/routes/_authed/tasks';
 import { type TaskDetailDto, listTasksQuerySchema } from '@fops/shared';
@@ -28,6 +29,15 @@ vi.mock('@/lib/api', async (original) => ({
   ...(await original<typeof import('@/lib/api')>()),
   listTasks: vi.fn(),
   getTask: vi.fn(),
+}));
+vi.mock('@/lib/api/tasks', async (io) => ({
+  ...(await io<typeof import('@/lib/api/tasks')>()),
+  listTasks: (...args: Parameters<typeof listTasks>) => listTasks(...args),
+  getTask: (...args: Parameters<typeof getTask>) => getTask(...args),
+}));
+vi.mock('@/lib/api/me', async (io) => ({
+  ...(await io<typeof import('@/lib/api/me')>()),
+  useMeBridge: () => useMe(),
 }));
 vi.mock('@/lib/auth/useMe', () => ({
   useMe: () => ({

@@ -335,6 +335,33 @@ describe('FeedbackOps operator Milestones entry graph (ADR-0071)', () => {
   });
 });
 
+// The operator Task list entry (#763 l) is walked on its own: the host renders the detail, so the Task detail tree stays out.
+describe('FeedbackOps operator Task list entry graph (ADR-0071)', () => {
+  const taskList = walk([join(FRONTEND_SRC, 'operator-screens/task-list/index.ts')]);
+  const taskListReached = [...taskList.files.keys()].map(file => relative(FRONTEND_SRC, file));
+
+  it('reaches the list screen, its selection hook and the bridge me read, not the Task detail tree or the standalone route', () => {
+    expect(taskListReached).toEqual(expect.arrayContaining(['features/tasks/routes/TaskListScreen.tsx', 'features/tasks/hooks/useTaskPanelSelection.ts', 'lib/api/me.ts']));
+    expect(taskListReached.filter(file => /^features\/tasks\/components\/(TaskDetailPanel|TaskDetailParts|ResponsibilityEditor|TaskMilestoneEditor)/.test(file))).toEqual([]);
+    expect(taskListReached).not.toContain('features/tasks/routes/TaskListRoute.tsx');
+    expect(taskList.unresolved).toEqual([]);
+  });
+
+  it('imports no router and no toast library', () => {
+    expect([...taskList.specifiers].filter(specifier => /^@tanstack\/(react-)?router|^sonner$/.test(specifier))).toEqual([]);
+  });
+
+  it('reaches no route, router, layout or auth source, the auth module, the api barrel or the standalone permission check', () => {
+    const banned = /^(?:routes|lib\/router|lib\/layout|lib\/auth)\/|^lib\/api\/(?:auth|index)\.ts$|^lib\/cross-system\/usePermissionCheck\.ts$/;
+    expect(taskListReached.filter(file => banned.test(file))).toEqual([]);
+  });
+
+  it('calls fetch only in lib/api/client.ts', () => {
+    const callers = [...taskList.files].filter(([, text]) => /(?<![\w.])fetch\(/.test(text)).map(([file]) => relative(FRONTEND_SRC, file));
+    expect(callers).toEqual(['lib/api/client.ts']);
+  });
+});
+
 // The VOC triage entry (#761 t) is walked on its own: it has no sonner or router, which the screen barrel's graph does.
 describe('FeedbackOps VOC triage entry graph (ADR-0071)', () => {
   const triage = walk([join(FRONTEND_SRC, 'operator-screens/voc-triage/index.ts')]);

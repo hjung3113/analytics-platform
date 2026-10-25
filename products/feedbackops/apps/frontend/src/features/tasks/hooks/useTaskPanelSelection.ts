@@ -5,11 +5,14 @@ export function useTaskPanelSelection({
   items,
   context,
   onSelectionChange,
+  autoSelect = true,
 }: {
   selectedParam?: string | undefined;
   items: readonly { id: string }[];
   context?: readonly [string, string | undefined];
   onSelectionChange?: ((id: string | null, replace: boolean) => void) | undefined;
+  /** `false`: no first-row auto-select; selection comes from `selectedParam` only (a host with its own detail). */
+  autoSelect?: boolean;
 }) {
   const [linkMissing, setLinkMissing] = React.useState(false);
   const [panelClosed, setPanelClosed] = React.useState(false);
@@ -41,6 +44,7 @@ export function useTaskPanelSelection({
 
   React.useEffect(() => {
     if (
+      autoSelect &&
       !panelClosed &&
       !linkMissing &&
       selectedParam === undefined &&
@@ -48,7 +52,7 @@ export function useTaskPanelSelection({
       items[0]
     )
       setLocalSelectedId(items[0].id);
-  }, [items, selectedId, selectedParam, panelClosed, linkMissing, setLocalSelectedId]);
+  }, [autoSelect, items, selectedId, selectedParam, panelClosed, linkMissing, setLocalSelectedId]);
 
   const selectRow = React.useCallback(
     (id: string) => {
