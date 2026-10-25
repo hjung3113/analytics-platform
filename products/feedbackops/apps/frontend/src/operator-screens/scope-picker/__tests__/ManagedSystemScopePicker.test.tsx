@@ -211,6 +211,15 @@ describe('ManagedSystemScopePicker', () => {
       expect(screen.getByTestId('scope-selector')).not.toHaveFocus();
     });
 
+    it('closes on Shift+Tab from an option and leaves focus on the trigger', async () => {
+      const user = userEvent.setup();
+      render(<ManagedSystemScopePicker {...base} onChange={vi.fn()} />);
+      open();
+      await user.tab({ shift: true });
+      expect(screen.queryByRole('listbox')).toBeNull();
+      expect(screen.getByTestId('scope-selector')).toHaveFocus();
+    });
+
     it.each(PERSONAS)(
       'names the 전체 option without its helper ($name)',
       ({ isAdmin, workspaceWideScope }) => {

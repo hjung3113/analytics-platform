@@ -95,6 +95,13 @@ export function ManagedSystemScopePicker({
       listRef.current?.querySelectorAll<HTMLElement>('[role="option"]') ?? [],
     );
     const current = options.indexOf(event.target as HTMLElement);
+    if (event.key === 'Tab' && event.shiftKey) {
+      // Unmounting the focused option first would lose the focus position, so move to the trigger explicitly.
+      event.preventDefault();
+      triggerRef.current?.focus();
+      setOpen(false);
+      return;
+    }
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
       options[current]?.click();
@@ -115,7 +122,8 @@ export function ManagedSystemScopePicker({
     options[next]?.focus();
   };
 
-  // Tab, Shift+Tab or a click elsewhere: close without pulling focus back.
+  // Tab past the root or a click elsewhere: focus leaves the root, so close without pulling it back.
+  // Shift+Tab from an option stays inside the root (the trigger); `onListKeyDown` focuses the trigger and closes.
   const onRootBlur = (event: React.FocusEvent<HTMLDivElement>) => {
     if (open && !rootRef.current?.contains(event.relatedTarget as Node | null)) setOpen(false);
   };
