@@ -320,3 +320,16 @@ describe('FeedbackOps VOC search entry graph (ADR-0071 decision 9)', () => {
     expect([...search.specifiers].filter(specifier => /^@tanstack\/(react-)?router|^sonner$/.test(specifier))).toEqual([]);
   });
 });
+
+// The Task search entry (#763 s) is the same shape as the VOC one: schema pieces only, bridge-safe.
+describe('FeedbackOps Task search entry graph (ADR-0071 decision 9)', () => {
+  const search = walk([join(FRONTEND_SRC, 'operator-screens/tasks-search/index.ts')]);
+  const searchReached = [...search.files.keys()].map(file => relative(FRONTEND_SRC, file));
+
+  it('reaches the search schema and no screen, router, layout, auth source or api module', () => {
+    expect(searchReached).toEqual(expect.arrayContaining(['features/tasks/routes/task-search.ts', 'lib/host/search-fields.ts']));
+    expect(searchReached.filter(file => /^(?:routes|lib\/router|lib\/layout|lib\/auth|lib\/api)\/|\.tsx$/.test(file))).toEqual([]);
+    expect(search.unresolved).toEqual([]);
+    expect([...search.specifiers].filter(specifier => /^@tanstack\/(react-)?router|^sonner$/.test(specifier))).toEqual([]);
+  });
+});

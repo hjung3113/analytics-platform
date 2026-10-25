@@ -14,6 +14,7 @@ FeedbackOps 다리의 런타임(ADR-0071·0081, #759). 소비자 쪽 패키지�
 - `src/fo/uuid.ts` — `UUID_PATTERN`·`isUuid`(루트 export): 다리·메뉴·앱의 UUID 검사는 이 하나다(`VOC_ID`·`SURVEY_ID`·경로 표의 `detailPath.pattern`도 여기서 나온다).
 - `src/fo/RejectedPage.tsx` — 틀린 주소 값의 공용 거절 화면(`값 지우기`, 루트 export). 다리 메뉴(`fo-voc`의 수신함·Triage·Clusters, `fo-dashboard`)가 같은 문구를 쓴다(ADR-0071 결정 9). 값을 검사하는 훅은 FO 진입을 import하므로 각 메뉴에 둔다.
 - `src/pages/HomeTodo.tsx`·`VocCompose.tsx`·`ScopeControl.tsx`·`RecentInbox.tsx` — 슬롯이 lazy로 여는 FeedbackOps 화면. 전체 진입 `@fops/frontend/global-screens`는 여기서만 import한다.
+- `src/fo/voc-routes.ts`·`src/fo/task-routes.ts` — FeedbackOps `/vocs`·`/tasks` 경로 → 플랫폼 메뉴 경로 표(`operatorRoute`). Task 표(#763 s)는 `operatorHostLinks`에 아직 달지 않았다(플랫폼 Task 메뉴가 연결한다).
 - `src/fo-entry-graph.test.ts` — 다리가 닿는 FeedbackOps 진입의 import 그래프와 영구 로드 모듈의 `/core` 한정을 고정한다.
 
 ## 규칙
