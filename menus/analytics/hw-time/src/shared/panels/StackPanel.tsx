@@ -77,7 +77,7 @@ export function StackPanel({ chartId, title, block, visibleSeriesIds, onVisibleS
   const unmeasured = block.rows.filter(row => !row.auxiliary && Object.values(row.values).some(value => value === null)).length;
   // In the Frame's header line, not under it: the Frame fills its parent, so a caption below would overflow onto the trend toggle.
   const unmeasuredNote = unmeasured === 0 ? undefined
-    : lang === 'ko' ? `${missingText(lang)} 값이 있는 행 ${unmeasured}개 — 막대에 그리지 않고, 그 행의 합계는 ≥로 표시합니다` : `${unmeasured} rows have ${missingText(lang).toLowerCase()} values — not drawn; their totals are marked ≥`;
+    : lang === 'ko' ? `${missingText(lang)} 값이 있는 행 ${unmeasured}개 — 막대에 그리지 않고, 그 행의 합계는 ≥로 표시합니다` : `${unmeasured} rows have unmeasured values — not drawn; their totals are marked ≥`;
   const rowOf = (point: ChartPoint) => byLabel.get(point.x);
   const isPointSelectable = useCallback((point: ChartPoint) => byLabel.has(point.x), [byLabel]);
   return <div className="flex min-h-0 flex-1 flex-col gap-1">
