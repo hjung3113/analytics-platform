@@ -110,6 +110,7 @@ vi.mock('@/lib/api', () => {
 // The panel imports the module path; forward at call time to the barrel fake above.
 vi.mock('@/lib/api/tasks', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api/tasks')>()),
+  listTasks: (...args: Parameters<typeof listTasks>) => listTasks(...args),
   getTask: (...args: Parameters<typeof getTask>) => getTask(...args),
 }));
 

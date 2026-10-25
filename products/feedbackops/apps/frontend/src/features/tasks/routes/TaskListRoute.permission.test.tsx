@@ -1,3 +1,4 @@
+import { useMe } from '@/lib/auth/useMe';
 import { GLOSSARY } from '@/lib/copy/glossary';
 import { PERMISSION_BLOCKED_REASONS } from '@/lib/copy/permission-reasons';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -43,6 +44,10 @@ vi.mock('@fops/ui', async (importOriginal) => ({
       <aside data-testid="task-detail">{detailPanel}</aside>
     </main>
   ),
+}));
+vi.mock('@/lib/api/me', async (io) => ({
+  ...(await io<typeof import('@/lib/api/me')>()),
+  useMeBridge: () => useMe(),
 }));
 vi.mock('@/lib/auth/useMe', () => ({
   useMe: () => ({ data: { actor: { id: 'developer', role_level: 'developer' } } }),
