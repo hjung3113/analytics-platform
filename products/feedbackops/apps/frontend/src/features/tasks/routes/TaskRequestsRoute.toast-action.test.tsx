@@ -7,6 +7,7 @@ import type { ListTaskRequestsQuery, TaskRequestDto } from '@fops/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import * as React from 'react';
+import { useLayoutEffect, useSyncExternalStore } from 'react';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TaskRequestsRoute } from './TaskRequestsRoute';
 
@@ -52,6 +53,27 @@ const approvedB = make(5, 'approved');
 const pending = make(1, 'pending_review');
 const nextPending = make(7, 'pending_review');
 
+const slot = vi.hoisted(() => {
+  let node: unknown;
+  const listeners = new Set<() => void>();
+  return {
+    subscribe: (listener: () => void) => {
+      listeners.add(listener);
+      return () => void listeners.delete(listener);
+    },
+    get: () => node,
+    set: (next: unknown) => {
+      node = next;
+      for (const listener of listeners) listener();
+    },
+  };
+});
+function SlotContent() {
+  return (
+    <>{useSyncExternalStore(slot.subscribe, slot.get, slot.get) as import('react').ReactNode}</>
+  );
+}
+
 vi.mock('sonner', () => ({ toast }));
 vi.mock('@tanstack/react-router', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@tanstack/react-router')>()),
@@ -61,13 +83,22 @@ vi.mock('@fops/ui', async () => {
   const actual = await vi.importActual<typeof import('@fops/ui')>('@fops/ui');
   return {
     ...actual,
+    useDetailPanelSlot: (node: import('react').ReactNode) => {
+      useLayoutEffect(() => {
+        slot.set(node);
+        return () => slot.set(undefined);
+      }, [node]);
+    },
     ListShell: ({
       list,
       detailPanel,
     }: { list: React.ReactNode; detailPanel?: React.ReactNode }) => (
       <div>
         <main>{list}</main>
-        <aside>{detailPanel}</aside>
+        <aside>
+          {detailPanel}
+          <SlotContent />
+        </aside>
       </div>
     ),
   };

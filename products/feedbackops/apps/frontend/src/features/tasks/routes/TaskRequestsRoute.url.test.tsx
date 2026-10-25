@@ -16,14 +16,45 @@ import {
 } from '@tanstack/react-router';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
+import { useLayoutEffect, useSyncExternalStore } from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+
+const slot = vi.hoisted(() => {
+  let node: unknown;
+  const listeners = new Set<() => void>();
+  return {
+    subscribe: (listener: () => void) => {
+      listeners.add(listener);
+      return () => void listeners.delete(listener);
+    },
+    get: () => node,
+    set: (next: unknown) => {
+      node = next;
+      for (const listener of listeners) listener();
+    },
+  };
+});
+function SlotContent() {
+  return (
+    <>{useSyncExternalStore(slot.subscribe, slot.get, slot.get) as import('react').ReactNode}</>
+  );
+}
 
 vi.mock('@fops/ui', async (original) => ({
   ...(await original<typeof import('@fops/ui')>()),
+  useDetailPanelSlot: (node: import('react').ReactNode) => {
+    useLayoutEffect(() => {
+      slot.set(node);
+      return () => slot.set(undefined);
+    }, [node]);
+  },
   ListShell: ({ list, detailPanel }: { list: ReactNode; detailPanel?: ReactNode }) => (
     <main>
       {list}
-      <aside>{detailPanel}</aside>
+      <aside>
+        {detailPanel}
+        <SlotContent />
+      </aside>
     </main>
   ),
 }));
@@ -70,27 +101,40 @@ vi.mock('@/lib/cross-system/useWorkspaceActors', () => ({
     ],
   }),
 }));
-vi.mock('./task-requests/TaskRequestPanel', () => ({
-  TaskRequestPanel: ({
+vi.mock('./task-requests/TaskRequestPanelParts', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./task-requests/TaskRequestPanelParts')>();
+  const TaskRequestPanelBody = ({
     item,
     onClose,
     onDecisionComplete,
   }: {
     item: TaskRequestDto;
     onClose: () => void;
-    onDecisionComplete: (item: TaskRequestDto) => void;
+    onDecisionComplete?: (item: TaskRequestDto) => void;
   }) => (
     <section data-testid="detail">
       {item.display_id}
       <button type="button" onClick={onClose}>
         Close
       </button>
-      <button type="button" onClick={() => onDecisionComplete({ ...item, status: 'approved' })}>
+      <button type="button" onClick={() => onDecisionComplete?.({ ...item, status: 'approved' })}>
         Approve
       </button>
     </section>
-  ),
-}));
+  );
+  return {
+    ...actual,
+    TaskRequestPanelBody,
+    TaskRequestPanelFrame: ({ parts }: { parts: { body: ReactNode } }) => parts.body,
+    // The real builder names its own Body, so the stub is swapped in on the parts it returns.
+    buildTaskRequestPanelParts: (
+      props: Parameters<typeof actual.buildTaskRequestPanelParts>[0],
+    ) => ({
+      ...actual.buildTaskRequestPanelParts(props),
+      body: <TaskRequestPanelBody key={props.item.id} {...props} />,
+    }),
+  };
+});
 const A = '30000000-0000-0000-0000-000000000003';
 const B = '30000000-0000-0000-0000-000000000004';
 const first: TaskRequestDto = {

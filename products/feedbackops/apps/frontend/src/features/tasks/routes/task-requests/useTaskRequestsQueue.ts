@@ -66,12 +66,15 @@ export function useTaskRequestsQueue({
   reviewer,
   reviewerTeam,
   onSelectionChange,
+  autoSelect = true,
 }: {
   reviewer?: string | undefined;
   reviewerTeam?: string | undefined;
   selectedParam?: string | undefined;
   managedSystem?: string | undefined;
   onSelectionChange?: ((id: string | null, replace: boolean) => void) | undefined;
+  /** `false`: no first-row auto-select; the selection is `selectedParam` only (a host with its own detail). */
+  autoSelect?: boolean;
 }): UseTaskRequestsQueueResult {
   const queryClient = useQueryClient();
   const meQuery = useMeBridge();
@@ -135,6 +138,7 @@ export function useTaskRequestsQueue({
       items,
       context: [JSON.stringify([activeTab, reviewer, reviewerTeam]), managedSystem],
       onSelectionChange,
+      autoSelect,
     });
   const setSelectedId = React.useCallback(
     (id: string | null) => {
