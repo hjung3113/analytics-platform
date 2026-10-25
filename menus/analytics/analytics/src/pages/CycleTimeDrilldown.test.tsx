@@ -9,6 +9,7 @@ import { manifests } from '../index';
 import CycleTimeDrilldown from './CycleTimeDrilldown';
 import { installWorkspaceGeometry } from './workspaceTestSupport';
 import { groupId, menuPermission, spaceId, type ApiResponse, type MenuQuery, type PlatformAdapter } from '@ap/contracts';
+import { TEST_AXES } from '../test-axes';
 
 const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
 let restoreGeometry = () => {};
@@ -40,7 +41,7 @@ const adapter = testAdapter({
 
 function renderPage(path: string) {
   window.history.replaceState(null, '', path);
-  render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><CycleTimeDrilldown params={{}} /></PlatformProvider></I18nProvider>);
+  render(<I18nProvider><PlatformProvider equipmentAxes={TEST_AXES} adapter={adapter} registry={registry}><CycleTimeDrilldown params={{}} /></PlatformProvider></I18nProvider>);
 }
 
 describe('CycleTimeDrilldown page filter summary', () => {
@@ -121,7 +122,7 @@ describe('CycleTimeDrilldown slow-execution KPI name (#307)', () => {
     };
     const querying: PlatformAdapter = { ...adapter, menuQuery: async (req: MenuQuery) => req.endpoint === 'analytics.cycle.kpi' ? ok : empty };
     window.history.replaceState(null, '', '/analytics/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&from=2026-09-26T00:00:00&to=2026-09-26T09:00:00');
-    render(<I18nProvider><PlatformProvider adapter={querying} registry={registry}><CycleTimeDrilldown params={{}} /></PlatformProvider></I18nProvider>);
+    render(<I18nProvider><PlatformProvider equipmentAxes={TEST_AXES} adapter={querying} registry={registry}><CycleTimeDrilldown params={{}} /></PlatformProvider></I18nProvider>);
     expect(await screen.findByText('느린 실행 (P95 기준)')).toBeTruthy();
     await waitFor(() => expect(screen.getByTestId('cycle-kpi').textContent).toContain('표시된 P95 이상'));
   });
@@ -134,13 +135,13 @@ describe('CycleTimeDrilldown population caption (#397)', () => {
   it('shows … only while the KPI query is loading', async () => {
     const pending: PlatformAdapter = { ...adapter, menuQuery: () => new Promise<never>(() => undefined) };
     window.history.replaceState(null, '', url);
-    render(<I18nProvider><PlatformProvider adapter={pending} registry={registry}><CycleTimeDrilldown params={{}} /></PlatformProvider></I18nProvider>);
+    render(<I18nProvider><PlatformProvider equipmentAxes={TEST_AXES} adapter={pending} registry={registry}><CycleTimeDrilldown params={{}} /></PlatformProvider></I18nProvider>);
     expect((await screen.findByText(/페이지 필터 적용 목록입니다/)).textContent).toContain('모집단 …건.');
   });
 
   it('says 확인할 수 없음 once the KPI query completed with an empty response', async () => {
     window.history.replaceState(null, '', url);
-    render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><CycleTimeDrilldown params={{}} /></PlatformProvider></I18nProvider>);
+    render(<I18nProvider><PlatformProvider equipmentAxes={TEST_AXES} adapter={adapter} registry={registry}><CycleTimeDrilldown params={{}} /></PlatformProvider></I18nProvider>);
     const caption = await screen.findByText(/페이지 필터 적용 목록입니다.*모집단 확인할 수 없음/);
     expect(caption.textContent).not.toMatch(/모집단 …|건\./);
     expect(caption.textContent).not.toContain('URL sort');

@@ -4937,3 +4937,100 @@ test.describe('fill 페이지의 표 높이 (06 §12.8, #690k)', () => {
     await evidence(page, testInfo, 'hw-time-table-fill');
   });
 });
+
+test.describe('조건 묶음 (06 §6.4·§11, ADR-0083)', () => {
+  const BOTH = encodeURIComponent(JSON.stringify({ maker: ['TEL'], stgroup: ['STG-PHOTO-A'] }));
+  const STG_ONLY = encodeURIComponent(JSON.stringify({ stgroup: ['STG-PHOTO-A'] }));
+  const base = `/analytics/cycle-time?scopeId=MEM&roomNames=PHOTO&${PERIOD}`;
+  const kpiRequests = (page: Page) => page.evaluate(() => performance.getEntriesByName('platform:mock-menu-query')
+    .filter(entry => (entry as PerformanceMark).detail?.endpoint === 'analytics.cycle.kpi').length);
+  async function openBar(page: Page) {
+    const bar = contextBar(page);
+    await expect(bar).toBeVisible();
+    const expand = bar.getByRole('button', { name: '조회 조건 펼치기' });
+    if (await expand.count()) await expand.click();
+    return bar;
+  }
+  const switcher = (scope: Locator | Page) => scope.getByRole('radiogroup', { name: '조건 묶음' });
+  const condition = (page: Page) => JSON.parse(query(page).get('equipmentGroup') ?? 'null') as Record<string, string[]> | null;
+
+  test('기본 설비 기준은 Maker·Model만 보이고 StGroup은 미적용 칩으로 남으며, 조직 기준 전환은 적용 때만 한 번 조회한다', async ({ page }, testInfo) => {
+    await signInAs(page, 'engineer');
+    await page.goto(`${base}&equipmentGroup=${BOTH}`);
+    await expectScopeValid(page, 'MEM · 메모리');
+    const bar = await openBar(page);
+    await expandPageHead(page);
+    await bar.getByRole('button', { name: '적용', exact: true }).click().catch(() => undefined);
+    await expect(page.getByRole('region', { name: '적용된 조회 조건' })).toContainText('요약 조회 완료');
+    await expect(switcher(bar).getByRole('radio', { name: '설비 기준' })).toBeChecked();
+    await expect(bar.getByText(/StGroup .* · 설비 기준에서 미적용/)).toBeVisible();
+    await expect(bar.getByRole('button', { name: 'Maker', exact: true })).toBeVisible();
+    await expect(bar.getByRole('button', { name: 'StGroup', exact: true })).toHaveCount(0);
+    await evidence(page, testInfo, 'condition-preset-default');
+
+    // Request boundaries: settle first, observe a request-free draft phase, then count exactly one applied query.
+    const busy = page.locator('[role="status"][aria-busy="true"]');
+    await expect(busy).toHaveCount(0);
+    const before = await kpiRequests(page);
+    await switcher(bar).getByRole('radio', { name: '조직 기준' }).click();
+    await expect(switcher(bar).getByRole('radio', { name: '조직 기준' })).toBeChecked();
+    await page.waitForTimeout(1000);
+    expect(await kpiRequests(page)).toBe(before);
+    expect(query(page).get('conditionSet')).toBeNull();
+    await bar.getByRole('button', { name: '적용', exact: true }).click();
+    await expect.poll(() => query(page).get('conditionSet')).toBe('organization');
+    await expect.poll(() => kpiRequests(page)).toBeGreaterThan(before);
+    await expect(busy).toHaveCount(0);
+    await expect(page.getByRole('region', { name: '적용된 조회 조건' })).toContainText('요약 조회 완료');
+    await page.waitForTimeout(1000);
+    expect(await kpiRequests(page)).toBe(before + 1);
+    await expect(bar.getByText(/Maker .* · 조직 기준에서 미적용/)).toBeVisible();
+    // The global Condition is untouched: both axes stay in the URL.
+    expect(condition(page)).toEqual({ maker: ['TEL'], stgroup: ['STG-PHOTO-A'] });
+    await evidence(page, testInfo, 'condition-preset-organization');
+  });
+  test('conditionSet 없이 StGroup만 담은 링크는 조직 기준으로 열린다', async ({ page }) => {
+    await signInAs(page, 'engineer');
+    await page.goto(`${base}&equipmentGroup=${STG_ONLY}`);
+    await expectScopeValid(page, 'MEM · 메모리');
+    const bar = await openBar(page);
+    await expect(switcher(bar).getByRole('radio', { name: '조직 기준' })).toBeChecked();
+    await expect(bar.getByText(/미적용/)).toHaveCount(0);
+  });
+  test('다른 메뉴로 가도 전역 Condition의 Maker 값은 그대로다', async ({ page }) => {
+    await signInAs(page, 'engineer');
+    await page.goto(`${base}&equipmentGroup=${BOTH}`);
+    await expectScopeValid(page, 'MEM · 메모리');
+    const source = await openBar(page);
+    await switcher(source).getByRole('radio', { name: '조직 기준' }).click();
+    await source.getByRole('button', { name: '적용', exact: true }).click();
+    await expect.poll(() => query(page).get('conditionSet')).toBe('organization');
+    await expect(page.locator('[role="status"][aria-busy="true"]')).toHaveCount(0);
+    // Reach the destination through the app's own navigation; the destination URL is never supplied by the test.
+    await page.getByRole('navigation', { name: '주 메뉴' }).getByRole('link', { name: '생산성 개요' }).click();
+    await expect(mainHeading(page)).toHaveText('생산성 개요');
+    expect(condition(page)).toEqual({ maker: ['TEL'], stgroup: ['STG-PHOTO-A'] });
+    const bar = await openBar(page);
+    await expect(bar).toContainText('TEL');
+    await expect(switcher(bar)).toHaveCount(0);
+  });
+  test('보드 칸의 조회 조건에도 전환기가 있고 그 칸만 바뀐다', async ({ page }) => {
+    await signInAs(page, 'engineer');
+    await page.addInitScript(() => { localStorage.setItem('platform:board-layout-engine', 'grid'); });
+    await page.addInitScript(([period, group]) => {
+      const screen = { menuId: 'cycle-time', params: {}, query: `?scopeId=MEM&roomNames=PHOTO&${period}&equipmentGroup=${group}` };
+      localStorage.setItem('platform:board:engineer', JSON.stringify({ v: 1, activeSheetId: 'sets', sheets: [{ id: 'sets', name: '묶음', layout: '1x2', selected: 0, panes: [screen, screen] }] }));
+    }, [PERIOD, BOTH]);
+    await page.goto('/board?sheet=sets');
+    const first = page.getByRole('region', { name: '칸 1 · 분석 Context' });
+    await first.getByRole('button', { name: '조회 조건 펼치기' }).click();
+    await switcher(page).getByRole('radio', { name: '조직 기준' }).click();
+    await expect(switcher(page).getByRole('radio', { name: '조직 기준' })).toBeChecked();
+    // Close pane 1's popover first: it overlays the board and would take the next click.
+    await page.keyboard.press('Escape');
+    await expect(switcher(page)).toHaveCount(0);
+    await page.getByRole('button', { name: '칸 2 선택' }).click();
+    await page.getByRole('region', { name: '칸 2 · 분석 Context' }).getByRole('button', { name: '조회 조건 펼치기' }).click();
+    await expect(switcher(page).getByRole('radio', { name: '설비 기준' })).toBeChecked();
+  });
+});

@@ -8,6 +8,7 @@ import { testAdapter, testSession } from '@ap/kernel/testing';
 import { manifests } from '../index';
 import CycleTimeDrilldown from './CycleTimeDrilldown';
 import { groupId, menuPermission, spaceId, type ApiResponse, type MenuQuery } from '@ap/contracts';
+import { TEST_AXES } from '../test-axes';
 
 // ADR-0037 compact action column: a scrollport between 192px and 248px keeps 상세 pinned as an icon link with today's name.
 const registry = createRegistry({
@@ -39,7 +40,7 @@ afterEach(() => {
 describe('CycleTimeDrilldown compact action', () => {
   it('shows 상세 as an icon link with the same name and the execution-detail href', async () => {
     window.history.replaceState(null, '', '/analytics/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&from=2026-09-26T00:00:00&to=2026-09-26T09:00:00');
-    render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><CycleTimeDrilldown params={{}} /></PlatformProvider></I18nProvider>);
+    render(<I18nProvider><PlatformProvider equipmentAxes={TEST_AXES} adapter={adapter} registry={registry}><CycleTimeDrilldown params={{}} /></PlatformProvider></I18nProvider>);
     // The default layout keeps the slow list in a background tab behind the distribution.
     fireEvent.keyDown(await screen.findByRole('tab', { name: '느린 실행' }), { key: 'Enter' });
     // The first render of this page exceeds the 1s default wait under parallel load (#434, #437).

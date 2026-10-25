@@ -354,7 +354,7 @@ it('history restores only draft and leaves FeedbackOps platformReturn on the app
   const store = { list: async () => [{ id: 'old', query: '?v=1&scopeId=MEM&from=2026-09-01T00:00:00&to=2026-09-02T00:00:00&roomNames=PHOTO&granularity=day', schemaVersion: 1 as const, count: 1, lastAppliedAt: 1 }], record: async () => {}, remove: async () => {}, clear: async () => {} };
   window.history.replaceState(null, '', '/analytics/cycle-time?scopeId=MEM');
   try {
-    render(createElement(I18nProvider, null, createElement(PlatformProvider, { registry, adapter: testAdapter({ session: () => session, validateScope: async () => ({ status: 'valid', grantedRooms: ['PHOTO'] }) }), queryHistory: store, children: createElement(Probe) })));
+    render(createElement(I18nProvider, null, createElement(PlatformProvider, { equipmentAxes: (await import('./equipmentAxes')).EQUIPMENT_AXES, registry, adapter: testAdapter({ session: () => session, validateScope: async () => ({ status: 'valid', grantedRooms: ['PHOTO'] }) }), queryHistory: store, children: createElement(Probe) })));
     await waitFor(() => expect(platform.queryDraft.draft.page).toEqual([['granularity', 'day']]));
     await act(async () => {});
     const applied = P + platform.url;
