@@ -26,6 +26,7 @@
     "@ap/kernel": "workspace:*",
     "@ap/ui": "workspace:*",
     "@fops/frontend": "workspace:*",
+    "@tanstack/react-query": "5.62.7",
     "lucide-react": "^1.48.0"
   },
   "peerDependencies": {
