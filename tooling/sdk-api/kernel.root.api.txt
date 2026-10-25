@@ -1,6 +1,7 @@
 AnyGroupId | type | type AnyGroupId = @ap/contracts#GroupId | @ap/contracts#ModuleScopedId
 AxisOptionsParams | type | type AxisOptionsParams = { axisId: string; context?: @ap/kernel#PortContext; enabled?: boolean; pageSize?: number; parents?: @ap/contracts#AxisOptionsInput['parents']; query?: string; }
 CONTEXT_LABELS | const | const CONTEXT_LABELS: Record<@ap/contracts#ContextKey, @ap/contracts#Text>
+ConditionPresetView | type | type ConditionPresetView = { activeId: string; appliedId: string; key: string; outsideAxes: readonly string[]; presets: readonly @ap/contracts#ConditionPreset[]; }
 DrillInvalid | type | type DrillInvalid = { key: string; label: @ap/contracts#Text; value: string; }
 DrillLevelState | type | type DrillLevelState = { key: string; label: @ap/contracts#Text; value: null | string; }
 DrillState | type | type DrillState = { depth: number; enter: (key: string, value: string) => void; goTo: (n: number) => void; invalid: @ap/kernel#DrillInvalid | null; levels: @ap/kernel#DrillLevelState[]; trail: @ap/kernel#DrillTrailStep[]; }
@@ -77,6 +78,7 @@ pathFor | function | function pathFor(menu: @ap/kernel#MenuEntry, params?: Recor
 routeParamNames | function | function routeParamNames(path: string): string[]
 topicParticle | function | function topicParticle(name: string): '는' | '은'
 useAxisOptions | function | function useAxisOptions(params: @ap/kernel#AxisOptionsParams): @ap/kernel#PortPageResult<@ap/contracts#AxisOption>
+useConditionPreset | function | function useConditionPreset(): @ap/kernel#ConditionPresetView | null
 useDrill | function | function useDrill(): @ap/kernel#DrillState
 useEntityQuery | function | function useEntityQuery<T>(ref: @ap/contracts#EntityRef, pageInputs?: unknown, enabled?: boolean): @ap/kernel#QueryState<T>
 useEquipmentAxes | function | function useEquipmentAxes(): readonly @ap/contracts#EquipmentAxisDescriptor[]

@@ -194,6 +194,26 @@ export function createRegistry({ spaces, groups, menus, permissions: declared = 
         }
       }
     }
+    // Condition presets narrow the menu's projection only; the page key holds the active id (06 §6.4, ADR-0083).
+    if (m.conditionPresets !== undefined || m.conditionPreset !== undefined) {
+      const presets = m.conditionPresets;
+      const holder = m.conditionPreset;
+      if (presets === undefined || holder === undefined) fail(`Menu "${m.id}" conditionPresets and conditionPreset must be declared together`);
+      else {
+        if (presets.length < 2) fail(`Menu "${m.id}" conditionPresets needs at least 2 presets, found ${presets.length}`);
+        const presetIds = new Set<string>();
+        for (const preset of presets) {
+          if (typeof preset.id !== 'string' || preset.id.trim() === '') fail(`Menu "${m.id}" condition preset id must not be blank`);
+          if (presetIds.has(preset.id)) fail(`Menu "${m.id}" condition preset id "${preset.id}" is duplicated`);
+          presetIds.add(preset.id);
+          if (typeof preset.label?.ko !== 'string' || preset.label.ko.trim() === '' || typeof preset.label?.en !== 'string' || preset.label.en.trim() === '') fail(`Menu "${m.id}" condition preset "${preset.id}" needs nonempty ko and en labels`);
+          if (preset.axes.length === 0) fail(`Menu "${m.id}" condition preset "${preset.id}" needs at least one axis`);
+        }
+        if (!presetIds.has(holder.default)) fail(`Menu "${m.id}" conditionPreset default "${holder.default}" is not a declared preset id`);
+        if (!m.pageKeys.includes(holder.key)) fail(`Menu "${m.id}" conditionPreset key "${holder.key}" is not a declared pageKeys entry`);
+        if (m.context.condition !== 'apply' && m.context.condition !== 'reference') fail(`Menu "${m.id}" conditionPresets need a condition capability of apply or reference`);
+      }
+    }
     const foreignReset = (m.contextResetKeys ?? []).find(k => !m.pageKeys.includes(k));
     if (foreignReset) fail(`Menu "${m.id}" contextResetKey "${foreignReset}" is not a declared pageKeys entry`);
     // Drill levels are page keys and contextResetKeys, at least one, never returnTo (06 §6.4, ADR-0063).

@@ -14,6 +14,7 @@ export { mountModule, type MountOptions } from './module';
 export { useEquipmentAxes } from './platform';
 export { labelledCondition } from './equipmentAxes';
 
+export { useConditionPreset, type ConditionPresetView } from './condition-preset';
 export { useQueryDraft, type QueryDraft, type QueryMissing } from './query-draft';
 export { useAxisOptions, useEquipmentSearch, useResolvedSelection } from './selection-ports';
 export type { PortContext, PortFailure, PortStatus, AxisOptionsParams, EquipmentSearchParams, PortPageResult, ResolvedSelectionParams, ResolvedSelectionResult } from './selection-ports';

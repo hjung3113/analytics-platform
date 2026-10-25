@@ -1,9 +1,9 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { projectContext, type ActionResult, type ActionSpec, type ApiResponse, type ContextKey, type EndpointSpec, type GlobalContext, type ModuleHost, type ModuleScopedId, type ModuleStatus, type ModuleTarget } from '@ap/contracts';
+import { type ActionResult, type ActionSpec, type ApiResponse, type ContextKey, type EndpointSpec, type GlobalContext, type ModuleHost, type ModuleScopedId, type ModuleStatus, type ModuleTarget } from '@ap/contracts';
 import { abortError, actionRequest, launchWrite, type PendingWrite, type WriteFlight } from './action';
 import { useI18n } from './i18n';
 import { useHostPlatform } from './platform';
-import { menuRequest } from './query';
+import { menuRequest, projectMenuContext } from './query';
 import type { ModuleMenuEntry } from './registry';
 
 /** What only the shell can supply to a screen's host: status ownership, the arrival-focus target and the detail slot. */
@@ -163,7 +163,7 @@ export function useModuleHost(entry: ModuleMenuEntry, params: Readonly<Record<st
           const adapterCall = new AbortController();
           const call: Pending = {
             valid: () => instance.state === 'active' && !callerSignal?.aborted && latest.current.revision === startedFor.revision
-              && latest.current.user.id === startedFor.user && latest.current.queryPolicy.ready && !latest.current.queryPolicy.idle && JSON.stringify(projectContext(spec, latest.current.global)) === appliedKey,
+              && latest.current.user.id === startedFor.user && latest.current.queryPolicy.ready && !latest.current.queryPolicy.idle && JSON.stringify(projectMenuContext(spec, latest.current)) === appliedKey,
             fail: () => { settle(); adapterCall.abort(); reject(abortError()); },
           };
           const settle = () => { instance.pending.delete(call); callerSignal?.removeEventListener('abort', call.fail); };

@@ -30,6 +30,7 @@ ChartAnnotation | type | type ChartAnnotation = { at: string; chartId: string; f
 ClientErrorReport | type | type ClientErrorReport = { correlationId: string; menuId: string; name: string; path: string; spaceId: @ap/contracts#SpaceId | null; }
 Condition | type | type Condition = Readonly<Record<string, readonly string[]>>
 ConditionOptions | type | type ConditionOptions = { makerModel: { maker: string; model: string; }[]; stgroup: string[]; team: string[]; }
+ConditionPreset | type | type ConditionPreset = { axes: readonly string[]; id: string; label: @ap/contracts#Text; }
 ContextKey | type | type ContextKey = 'condition' | 'line' | 'lot' | 'metric' | 'ppid' | 'prcGroup' | 'recipe' | 'roomNames' | 'selection' | 'time'
 ContractError | class | class ContractError extends Error { code: string; field?: string | undefined; raw?: string | undefined; constructor(code: string, message: string, field?: string | undefined, raw?: string | undefined); }
 DrillLevel | type | type DrillLevel = { key: string; label: @ap/contracts#Text; }
@@ -55,7 +56,7 @@ KernelPermission | type | type KernelPermission = (typeof @ap/contracts#KERNEL_P
 MeasureMeta | type | type MeasureMeta = { metricVersion?: string; reaggregation: @ap/contracts#Reaggregation; unit: string; }
 MembershipPeriod | type | type MembershipPeriod = { from: string; to: string; }
 MenuAction | type | type MenuAction<I = unknown> = { action: string; context: { scopeId?: null | string; }; expectedVersion?: string; idempotencyKey: string; input: I; }
-MenuMeta | type | type MenuMeta = { context: Record<@ap/contracts#ContextKey, @ap/contracts#Capability>; contextResetKeys?: readonly string[]; description: @ap/contracts#Text; drill?: { levels: readonly @ap/contracts#DrillLevel[]; resetKeys?: readonly string[]; }; features: { annotate: boolean; board?: boolean; compare: boolean; export: boolean; savedView: boolean; }; group: @ap/contracts#GroupId; id: string; initializesMetric?: boolean; label: @ap/contracts#Text; navHidden?: boolean; navViews?: readonly @ap/contracts#NavView[]; pageKeys: readonly string[]; pageType: @ap/contracts#PageType; parent?: string; path: string; permission: @ap/contracts#Permission; primary?: boolean; query?: { mode: 'apply'; required?: { context?: readonly @ap/contracts#ContextKey[]; page?: readonly { key: string; label: @ap/contracts#Text; }[]; }; }; requiresScope: boolean; }
+MenuMeta | type | type MenuMeta = { conditionPreset?: { default: string; key: string; }; conditionPresets?: readonly @ap/contracts#ConditionPreset[]; context: Record<@ap/contracts#ContextKey, @ap/contracts#Capability>; contextResetKeys?: readonly string[]; description: @ap/contracts#Text; drill?: { levels: readonly @ap/contracts#DrillLevel[]; resetKeys?: readonly string[]; }; features: { annotate: boolean; board?: boolean; compare: boolean; export: boolean; savedView: boolean; }; group: @ap/contracts#GroupId; id: string; initializesMetric?: boolean; label: @ap/contracts#Text; navHidden?: boolean; navViews?: readonly @ap/contracts#NavView[]; pageKeys: readonly string[]; pageType: @ap/contracts#PageType; parent?: string; path: string; permission: @ap/contracts#Permission; primary?: boolean; query?: { mode: 'apply'; required?: { context?: readonly @ap/contracts#ContextKey[]; page?: readonly { key: string; label: @ap/contracts#Text; }[]; }; }; requiresScope: boolean; }
 MenuPermission | type | type MenuPermission = Brand<'MenuPermission'>
 MenuQuery | type | type MenuQuery<P = unknown> = { context: @ap/contracts#MenuQueryContext; endpoint: string; params: P; }
 MenuQueryContext | type | type MenuQueryContext = Partial<@ap/contracts#GlobalContext>
@@ -134,6 +135,7 @@ isPortError | function | function isPortError(e: unknown): e is @ap/contracts#Po
 isRecord | const | const isRecord: (value: unknown) => value is Record<string, unknown>
 menuPermission | const | const menuPermission: <const S extends string>(id: S) => S & @ap/contracts#MenuPermission
 missingRequiredContext | function | function missingRequiredContext(keys: readonly @ap/contracts#ContextKey[], context: Partial<@ap/contracts#GlobalContext>): @ap/contracts#ContextKey[]
+narrowCondition | function | function narrowCondition(condition: @ap/contracts#Condition | null, axes: readonly string[]): @ap/contracts#Condition | null
 normalizeSet | function | function normalizeSet(values: string[], field?: string, urlKey?: string): string[]
 parseDateTime | function | function parseDateTime(value: string, field: string, urlKey?: string): Date
 parseFeedbackOpsLink | function | function parseFeedbackOpsLink(url: string, expectedOrigin: string): { target: @ap/contracts#FeedbackOpsTarget; }

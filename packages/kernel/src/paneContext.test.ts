@@ -36,3 +36,14 @@ describe('withPaneContext', () => {
     expect(() => withPaneContext(menu, '?from=nope&to=nope', w2)).toThrow(ContractError);
   });
 });
+
+describe('withPaneContext with Condition presets (ADR-0083)', () => {
+  it('copies the whole Condition and keeps the pane\'s preset key', () => {
+    const presetMenu = { pageKeys: ['view'], contextResetKeys: undefined };
+    const condition = { maker: ['M'], team: ['T'] };
+    const next = withPaneContext(presetMenu, `?${w1}&view=b`, { ...w2, condition });
+    const parsed = parseQuery(next, presetMenu.pageKeys);
+    expect(parsed.global.condition).toEqual(condition);
+    expect(parsed.page).toEqual([['view', 'b']]);
+  });
+});

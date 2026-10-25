@@ -1,6 +1,11 @@
 import { paneHref } from './paneContext';
+import { cleanup, render } from '@testing-library/react';
 import { House } from 'lucide-react';
-import { describe, expect, it } from 'vitest';
+import { createElement } from 'react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { I18nProvider } from './i18n';
+import { PlatformProvider } from './platform';
+import { testAdapter, testSession } from './testing';
 import { createRegistry as create, routeParamNames, RegistryError, type GroupDef, type MenuEntry, type ModuleMenuEntry, type PlatformMenuEntry } from './registry';
 import { groupId, KERNEL_PERMISSIONS, menuPermission, spaceId, type SpaceDef } from '@ap/contracts';
 
@@ -439,5 +444,52 @@ describe('app-declared vocabulary (ADR-0072)', () => {
 
   it('accepts a module in a namespace nobody reserves', () => {
     expect(() => create({ spaces, groups: [...groups, modGroup], menus: [catalog, modMenu()], permissions: declared })).not.toThrow();
+  });
+});
+
+describe('menu conditionPresets (06 §6.4, ADR-0083)', () => {
+  const preset = (id: string, axes: readonly string[] = ['maker']) => ({ id, label: { ko: id, en: id }, axes });
+  const valid = { context: { ...none, condition: 'apply' as const }, pageKeys: ['view'], conditionPresets: [preset('a'), preset('b', ['team'])], conditionPreset: { key: 'view', default: 'a' } };
+  const withPresets = (extra: Record<string, unknown>) => menu('a', '/a', { primary: true, ...valid, ...extra } as never);
+  const home: SpaceDef[] = homeA;
+
+  it('accepts a valid declaration and a reference capability', () => {
+    expect(() => createRegistry({ spaces: home, groups, menus: [withPresets({})] })).not.toThrow();
+    expect(() => createRegistry({ spaces: home, groups, menus: [withPresets({ context: { ...none, condition: 'reference' } })] })).not.toThrow();
+  });
+
+  it.each([
+    ['fewer than 2 presets', { conditionPresets: [preset('a')] }, /at least 2 presets/],
+    ['duplicate ids', { conditionPresets: [preset('a'), preset('a', ['team'])] }, /preset id "a" is duplicated/],
+    ['a blank id', { conditionPresets: [preset(' '), preset('b')] }, /id must not be blank/],
+    ['a blank ko label', { conditionPresets: [{ ...preset('a'), label: { ko: ' ', en: 'A' } }, preset('b')] }, /nonempty ko and en labels/],
+    ['a blank en label', { conditionPresets: [{ ...preset('a'), label: { ko: 'A', en: '' } }, preset('b')] }, /nonempty ko and en labels/],
+    ['empty axes', { conditionPresets: [preset('a', []), preset('b')] }, /needs at least one axis/],
+    ['a default that is not a preset id', { conditionPreset: { key: 'view', default: 'zzz' } }, /default "zzz" is not a declared preset id/],
+    ['a key that is not a declared page key', { conditionPreset: { key: 'other', default: 'a' } }, /key "other" is not a declared pageKeys entry/],
+    ['an unsupported condition capability', { context: none }, /condition capability of apply or reference/],
+    ['presets without the page key declaration', { conditionPreset: undefined }, /declared together/],
+    ['the page key declaration without presets', { conditionPresets: undefined }, /declared together/],
+  ])('rejects %s', (_name, extra, error) => {
+    expect(() => createRegistry({ spaces: home, groups, menus: [withPresets(extra)] })).toThrow(error);
+  });
+
+  describe('PlatformProvider checks the axis ids against equipmentAxes', () => {
+    afterEach(cleanup);
+    const axes = [{ id: 'maker', label: { ko: 'Maker', en: 'Maker' }, membershipHistory: false }];
+    const mountWith = (equipmentAxes: typeof axes, url: string) => {
+      window.history.replaceState(null, '', url);
+      const registry = createRegistry({ spaces: home, groups, menus: [withPresets({})] });
+      const session = testSession(['platform:view']);
+      return render(createElement(I18nProvider, null, createElement(PlatformProvider, { registry, equipmentAxes, adapter: testAdapter({ session: () => session }), children: null })));
+    };
+    it('throws naming the menu and the axis when a preset lists an axis the app does not declare', () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      expect(() => mountWith(axes, '/a')).toThrow(/Menu "a" condition preset "b" names axis "team"/);
+      vi.restoreAllMocks();
+    });
+    it('renders when every preset axis is declared', () => {
+      expect(() => mountWith([...axes, { id: 'team', label: { ko: 'Team', en: 'Team' }, membershipHistory: false }], '/a')).not.toThrow();
+    });
   });
 });

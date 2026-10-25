@@ -706,6 +706,13 @@ function useScreenState(app: AppValue, source: ScreenSource): { screen: ScreenSt
 
 export function PlatformProvider({ adapter, registry, location = browserLocation, slots = {}, equipmentAxes = NO_EQUIPMENT_AXES, queryHistory, children }: { queryHistory?: QueryHistoryStore; equipmentAxes?: readonly EquipmentAxisDescriptor[]; location?: PlatformLocation; adapter: PlatformAdapter; registry: Registry; slots?: PlatformSlots; children: ReactNode }) {
   const { menuById } = registry;
+  // The Registry never sees `equipmentAxes`, so a Condition preset naming an unknown axis surfaces here (06 §6.4, ADR-0083).
+  for (const menu of registry.menus) {
+    for (const preset of menu.conditionPresets ?? []) {
+      const unknown = preset.axes.find(axisId => !equipmentAxes.some(axis => axis.id === axisId));
+      if (unknown !== undefined) throw new Error(`Menu "${menu.id}" condition preset "${preset.id}" names axis "${unknown}", which equipmentAxes does not declare`);
+    }
+  }
   // Bound here so class-based adapters keep their receiver when React calls these.
   const sessionStore = useMemo(() => ({ subscribe: (l: () => void) => adapter.subscribe(l), get: () => adapter.session() }), [adapter]);
   const session = useSyncExternalStore(sessionStore.subscribe, sessionStore.get);

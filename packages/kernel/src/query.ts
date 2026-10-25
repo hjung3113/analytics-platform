@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { QueryMissing } from './query-draft';
+import { narrowedGlobal } from './condition-preset';
 import { useHostPlatform } from './platform';
 import { clientCorrelationId, projectContext, type ApiResponse, type AssessmentKind, type EndpointSpec, type EntityRef, type MenuQueryContext, serializeGlobal } from '@ap/contracts';
 
@@ -115,14 +116,20 @@ function checkMenuResponse<P, T>(spec: EndpointSpec<P, T>, projected: MenuQueryC
 }
 
 /** What the request gates read from the platform; a host port reads it at call time instead of from a hook. */
-export type MenuRequestInputs = Pick<ReturnType<typeof useHostPlatform>, 'adapter' | 'global' | 'scope' | 'session' | 'queryPolicy'>;
+export type MenuRequestInputs = Pick<ReturnType<typeof useHostPlatform>, 'adapter' | 'global' | 'page' | 'route' | 'scope' | 'session' | 'queryPolicy'>;
+
+/** The Context a menu request carries: `projectContext` over the global Context narrowed to the screen's applied Condition preset (06 §6.4). */
+export function projectMenuContext<P, T>(spec: EndpointSpec<P, T>, { global, page, route }: Pick<MenuRequestInputs, 'global' | 'page' | 'route'>): MenuQueryContext {
+  return projectContext(spec, narrowedGlobal(route?.menu, page, global));
+}
 
 /**
  * The request gates shared by useMenuQuery, useMenuFetch and the module host port: Scope validated for this session,
  * absolute period when time applies, Context projection and the assessment check. Not a hook.
  */
-export function menuRequest<P, T>(spec: EndpointSpec<P, T>, { adapter, global, scope, session, queryPolicy }: MenuRequestInputs) {
-  const projected = projectContext(spec, global);
+export function menuRequest<P, T>(spec: EndpointSpec<P, T>, inputs: MenuRequestInputs) {
+  const { adapter, global, scope, session, queryPolicy } = inputs;
+  const projected = projectMenuContext(spec, inputs);
   const scopeReady = !spec.requiresScope || (scope.status === 'valid' && scope.scopeId === global.scopeId && scope.validatedFor === session);
   const periodReady = spec.context.time !== 'apply' || (global.from !== null && global.to !== null);
   const send = async (params: P, signal?: AbortSignal): Promise<ApiResponse<T>> =>

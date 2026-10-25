@@ -637,3 +637,31 @@ it('history initialization leaves module snapshots, links and query gate applied
   act(() => host.setPage({ q: 'applied-writer' }));
   expect(platform.page).toEqual([['q', 'applied-writer']]);
 });
+
+it('host.query keeps a flight alive across an out-of-preset Condition change and aborts it when the preset changes (ADR-0083)', async () => {
+  const presetSpec: EndpointSpec<{ page: number }, Data> = defineEndpoint<{ page: number }, Data>({
+    id: 'fx.preset-list', menuId: 'fx:list', paramKeys: { page: true }, permission: 'platform:view', requiresScope: false,
+    context: { time: 'apply', condition: 'apply' }, kinds: ['collection'], mergeTimeDomain: false,
+  });
+  const m = manifest();
+  m.screens = m.screens.map(screen => screen.id === 'list' ? {
+    ...screen, pageKeys: ['q', 'view'], context: { ...screen.context, condition: 'apply' as const },
+    conditionPresets: [{ id: 'a', label: { ko: 'A', en: 'A' }, axes: ['stgroup', 'team'] }, { id: 'b', label: { ko: 'B', en: 'B' }, axes: ['maker', 'model'] }],
+    conditionPreset: { key: 'view', default: 'a' },
+  } : screen);
+  const group = encodeURIComponent(JSON.stringify({ team: ['T1'], maker: ['M1'] }));
+  const s = setup(`/fx?v=1&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00&equipmentGroup=${group}`, m);
+  const outcome = settle(s.seen.host.query!(presetSpec, { page: 1 }));
+  expect(s.calls).toHaveLength(1);
+  expect(s.calls[0]!.request.context.condition).toEqual({ team: ['T1'] });
+  s.setGlobal({ condition: { team: ['T1'], maker: ['M2'] } });
+  expect(s.calls[0]!.signal?.aborted).toBe(false);
+  s.calls[0]!.resolve(ok(s.calls[0]!.request));
+  expect(await outcome).toHaveProperty('value');
+
+  const second = settle(s.seen.host.query!(presetSpec, { page: 1 }));
+  expect(s.calls[1]!.request.context.condition).toEqual({ team: ['T1'] });
+  act(() => s.seen.host.setPage({ view: 'b' }));
+  s.calls[1]!.resolve(ok(s.calls[1]!.request));
+  expect(isAbort(await second)).toBe(true);
+});

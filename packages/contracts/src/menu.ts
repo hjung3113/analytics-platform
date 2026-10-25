@@ -57,6 +57,9 @@ export type Permission = KernelPermission | MenuPermission;
 /** One drill step: a page key plus the name the path bar shows (06 §6.4, ADR-0025). */
 export type DrillLevel = { key: string; label: Text };
 
+/** One selectable axis set of a menu's Condition (`MenuMeta.conditionPresets`, 06 §6.4, ADR-0083). `axes` are equipment axis ids. */
+export type ConditionPreset = { id: string; label: Text; axes: readonly string[] };
+
 /** One sidebar sub-item of a menu (`MenuMeta.navViews`). */
 export type NavView = { id: string; label: Text; page: Readonly<Record<string, string>> };
 
@@ -94,6 +97,15 @@ export type MenuMeta = {
    * Views are not palette entries and not favorite/recent targets.
    */
   navViews?: readonly NavView[];
+  /**
+   * Axis sets the menu can view its Condition through (06 §6.4, ADR-0083; field names Candidate). A preset narrows only what the menu
+   * sends and what identifies its query: the global Condition, the URL `equipmentGroup`, pane copy and history stay whole.
+   * At least 2 presets with unique ids, non-blank ko/en labels and non-empty `axes`; needs `conditionPreset`, and `context.condition` is `apply` or `reference`.
+   * Each axis id must exist in the app's `equipmentAxes` (the Provider checks it).
+   */
+  conditionPresets?: readonly ConditionPreset[];
+  /** The page key that holds the active preset id and the id used when it is absent or unknown. The key must be a declared `pageKeys` entry. */
+  conditionPreset?: { key: string; default: string };
   /** Parent menu for breadcrumb/active-nav on detail routes. */
   parent?: string;
   /** Group's representative destination for the home group cards (08; field name Candidate, 06 §5). Exactly one per group. */
