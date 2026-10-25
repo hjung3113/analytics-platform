@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import { clientCorrelationId, serializeGlobal, type ApiResponse, type PageQuery, type PageResult, type PageSort } from '@ap/contracts';
-import { usePlatform } from '@ap/kernel';
+import { usePlatform, useQueryContext } from '@ap/kernel';
 import type { TableUrlState } from './PlatformDataTable';
 
 type PagedRowsInput<T> = {
@@ -21,12 +21,13 @@ type PagedRowsInput<T> = {
  */
 export function usePagedRows<T>(input: PagedRowsInput<T>) {
   const { filterKey, urlState, pageSize, activeSorting, viewport } = input;
-  const { global, user, revision } = usePlatform();
+  const { user, revision } = usePlatform();
+  const global = useQueryContext();
   const [page, setPage] = useState(0);
   const [retry, setRetry] = useState(0);
   const [result, setResult] = useState<{ identity: string; response: ApiResponse<PageResult<T>> } | null>(null);
 
-  // Context identity: global Context + user + page filters + adapter revision. Selection never survives a Context change (DESIGN Tables).
+  // Context identity: global Context narrowed to the applied Condition preset (06 §15) + user + page filters + adapter revision. Selection never survives a Context change (DESIGN Tables).
   const contextIdentity = JSON.stringify([serializeGlobal(global), user.id, filterKey, revision]);
   const lastContext = useRef(contextIdentity);
   const hasUrlState = !!urlState;

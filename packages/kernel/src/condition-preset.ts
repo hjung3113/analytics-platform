@@ -1,4 +1,5 @@
 import { narrowCondition, type Condition, type ConditionPreset, type GlobalContext, type Pair } from '@ap/contracts';
+import { useMemo } from 'react';
 import { useHostPlatform } from './platform';
 import type { MenuEntry } from './registry';
 
@@ -49,4 +50,15 @@ export function useConditionPreset(): ConditionPresetView | null {
   const applied = activeConditionPreset(menu, page, global.condition);
   if (!menu?.conditionPresets || !holder || !active || !applied) return null;
   return { key: holder.key, presets: menu.conditionPresets, activeId: active.id, appliedId: applied.id, outsideAxes: equipmentAxes.map(axis => axis.id).filter(id => !active.axes.includes(id)) };
+}
+
+/**
+ * The global Context a query of this screen sees: `narrowedGlobal` over the applied page and global, the same arguments `projectMenuContext` uses.
+ * Not the draft: in apply mode a preset switch changes it only on Apply. The same object as `global` for a menu without presets. Works per pane.
+ * For request identity and export headers; the global Condition, the URL and pane copies stay whole.
+ */
+export function useQueryContext(): GlobalContext {
+  const { route, page, global } = useHostPlatform();
+  const menu = route?.menu;
+  return useMemo(() => narrowedGlobal(menu, page, global), [menu, page, global]);
 }

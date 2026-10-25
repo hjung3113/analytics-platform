@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { defineEndpoint, type ApiResponse, type EndpointSpec, type MenuQuery, type PlatformAdapter, type Session, type UsageEvent, groupId, spaceId } from '@ap/contracts';
 import { I18nProvider } from './i18n';
 import { PaneQueryDraftProvider, PaneScreenProvider, PlatformProvider, useHostPlatform, type PaneScreen } from './platform';
+import { useQueryContext } from './condition-preset';
 import { useMenuFetch, useMenuQuery } from './query';
 import { createRegistry } from './registry';
 import { noContext, testAdapter, testSession, testSpace } from './testing';
@@ -636,5 +637,25 @@ describe('PaneScreenProvider — Condition presets (ADR-0083)', () => {
     expect(contextOf('pb')).toEqual({ maker: ['M1'], model: ['X1'] });
     expect(at('pa').global.condition).toEqual(condition);
     expect(at('pb').global.condition).toEqual(condition);
+  });
+
+  it('useQueryContext narrows by the pane\'s applied preset; a menu without presets gets the identical global object', async () => {
+    const seenContext = new Map<string, ReturnType<typeof useQueryContext>>();
+    function Context({ id }: { id: string }) { seenContext.set(id, useQueryContext()); return null; }
+    const plain = entry('plain', '/plain', { primary: true, context: { ...noContext, condition: 'apply' as const } });
+    const mixed = createRegistry({ spaces: [testSpace({ homeMenuId: 'plain' })], groups: presetRegistry.groups, menus: [plain, { ...presetMenu, primary: false }] });
+    const session = testSession(ANALYST);
+    window.history.replaceState(null, '', '/plain');
+    const s = spies();
+    render(<I18nProvider><PlatformProvider registry={mixed} equipmentAxes={axes} adapter={testAdapter({ session: () => session })}>
+      <Pane id="pa" initial={{ menuId: 'presets', params: {}, query: query('a') }} spies={s}><Context id="pa" /></Pane>
+      <Pane id="pb" initial={{ menuId: 'presets', params: {}, query: query('b') }} spies={s}><Context id="pb" /></Pane>
+      <Pane id="pp" initial={{ menuId: 'plain', params: {}, query: query('a') }} spies={s}><Context id="pp" /></Pane>
+    </PlatformProvider></I18nProvider>);
+    await flush();
+    expect(seenContext.get('pa')!.condition).toEqual({ stgroup: ['S1'], team: ['T1'] });
+    expect(seenContext.get('pb')!.condition).toEqual({ maker: ['M1'], model: ['X1'] });
+    expect(seenContext.get('pp')).toBe(at('pp').global);
+    expect(at('pa').global.condition).toEqual(condition);
   });
 });

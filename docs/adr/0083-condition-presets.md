@@ -21,6 +21,7 @@
 - 활성 프리셋 = 선언한 page key의 값이 프리셋 id이면 그것, 아니면 `default`. 보드 칸은 그 칸의 메뉴와 page 상태로 정한다.
 - 프리셋은 page key이므로 Apply 메뉴에서 `setDraftPage`는 초안만 바꾸고(조회 0회) `apply`가 다른 변경과 함께 한 번 조회한다. live 메뉴에서는 전환이 곧바로 투영을 바꾼다. 활성 프리셋이 그대로이면 프리셋 밖 축의 값이 바뀌어도 조회 신원이 같아 다시 조회하지 않는다. 명시한 page 키는 이를 보장한다. 키가 없는 동안에는 Condition 편집이 추론된 프리셋을 바꿀 수 있고, 그러면 요청도 바뀐다(아래 보충).
 - 계약: `MenuMeta.conditionPresets`(`{ id; label; axes }` 2개 이상)와 `MenuMeta.conditionPreset`(`{ key; default }`) — 필드명 Candidate. `createRegistry`가 개수·id 유일·ko/en 이름·`axes` 비지 않음·default·key가 `pageKeys`·`condition` 능력(`apply`/`reference`)을 검사하고, 축 id가 `equipmentAxes`에 있는지는 레지스트리가 축을 보지 못하므로 `PlatformProvider`가 렌더에서 검사해 던진다.
+- 결과: 서버 페이징 표(`PlatformDataTable`)의 조회 신원과 표 내보내기 머리말도 적용된 프리셋으로 좁힌 전역 Context(kernel `useQueryContext()`)를 따른다 — 프리셋 전환 뒤 적용하면 표가 다시 조회되고, 프리셋 밖 축의 변경은 (활성 프리셋과 다른 조회 입력 — page 필터·초기화 키 — 이 그대로일 때. 프리셋 키가 없어 조건 편집으로 추정 프리셋이 바뀌면 다시 조회한다) 표를 다시 조회하거나 선택을 버리지 않으며 내보내기 파일에 조건으로 나가지 않는다(#819).
 - 셸용 읽기 전용 노출: `useConditionPreset()`(프리셋 목록, 초안/적용 활성 id, 프리셋 밖 축 id). UI는 580c.
 
 ## 이유

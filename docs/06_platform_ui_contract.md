@@ -868,6 +868,7 @@ Table은 플랫폼 핵심 UI다.
 - Virtualization
 - Saved column preference
 - Row action
+- 서버 페이징 표의 조회 신원과 내보내기 머리말의 전역 Context는 Condition 프리셋이 있는 메뉴에서 **적용된** 활성 프리셋의 축만 남긴 값(`useQueryContext()`)을 쓴다(§6.4, ADR-0083, #819). Apply 메뉴의 미적용 프리셋 전환이나 프리셋 밖 축의 변경은 (활성 프리셋과 다른 조회 입력 — page 필터·초기화 키 — 이 그대로일 때. 프리셋 키가 없어 조건 편집으로 추정 프리셋이 바뀌면 다시 조회한다) 표를 다시 조회하거나 선택을 버리지 않고, 프리셋이 없는 메뉴는 전과 같다.
 - Export entry — 표 소유 내보내기(#173): `PlatformDataTable`이 `exportRows`·`exportNote` 계약으로 직렬화·파일·토스트까지 소유한다([ADR-0008](adr/0008-table-owned-export-fixed-toolbar.md)). 선택 행 복사(#174)도 같은 게이트·직렬화를 쓰는 내보내기다. 아래 "표 내보내기·복사 구현 계약"
 
 Baseline (Decided — `DESIGN.md` `table-density` 토큰과 일치):

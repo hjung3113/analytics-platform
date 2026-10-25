@@ -90,6 +90,7 @@ useMenuQuery | function | function useMenuQuery<P, T>(spec: @ap/contracts#Endpoi
 usePlatform | function | function usePlatform(): @ap/kernel#MenuPlatform
 usePlatformOptional | function | function usePlatformOptional(): @ap/kernel#MenuPlatform | null
 usePlatformQuery | function | function usePlatformQuery<T>(run: (signal: AbortSignal) => Promise<@ap/contracts#ApiResponse<T>>, pageInputs?: unknown, enabled?: boolean, identity?: 'context' | 'session', refreshEpoch?: number): @ap/kernel#QueryState<T>
+useQueryContext | function | function useQueryContext(): @ap/contracts#GlobalContext
 useQueryDraft | function | function useQueryDraft(): @ap/kernel#QueryDraft
 useResolvedSelection | function | function useResolvedSelection(ids: readonly string[], params?: @ap/kernel#ResolvedSelectionParams): @ap/kernel#ResolvedSelectionResult
 # reachable types
