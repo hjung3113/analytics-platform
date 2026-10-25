@@ -1,19 +1,24 @@
 import { Ban, FileQuestion, Link2Off } from 'lucide-react';
+import { lazy, Suspense } from 'react';
 import { CONTEXT_LABELS, PAGE_TYPE_LABELS, contractErrorSentence, useI18n } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
-import { Panel, PlatformPage, StateMessage, focusPageFallback } from '@ap/components';
+import { LoadingBlock, Panel, PlatformPage, StateMessage, focusPageFallback } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
 import type { Capability, ContextKey } from '@ap/contracts';
 import { contextBarVisible } from './GlobalContextBar';
 import { HomeLink } from './HomeLink';
 import { ModuleScreen } from './ModuleScreen';
 import { RouteErrorBoundary } from './RouteErrorBoundary';
-import { BoardScreen } from './board/BoardScreen';
+
+// The board is a lazy chunk: only `/board` needs it, and the start-up chunk stays without it (#821, `pnpm check:lazy-chunks`).
+const BoardScreen = lazy(() => import('./board/BoardScreen').then(module => ({ default: module.BoardScreen })));
 
 /** The main screen's outlet: `ScreenOutlet` for the URL-bound screen, or the analysis board where the kernel says `/board` (a platform screen, docs/16). */
 export function RouteOutlet() {
   const { platformScreen } = useHostPlatform();
-  return platformScreen === 'board' ? <BoardScreen Outlet={ScreenOutlet} /> : <ScreenOutlet />;
+  if (platformScreen !== 'board') return <ScreenOutlet />;
+  // Its own boundary, so the outlet works without the shell's (tests, other hosts); the fallback matches the shell's page fallback.
+  return <Suspense fallback={<div className="p-5"><LoadingBlock rows={6} height={320} /></div>}><BoardScreen Outlet={ScreenOutlet} /></Suspense>;
 }
 
 /**

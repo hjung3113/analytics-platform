@@ -10,6 +10,8 @@ import { legacyBoard as boardOf, legacySheet as sheet, seedLegacy as seed, store
 import type { BoardV1 as Board } from './boardMigrate';
 import { OpenInBoardAction } from './OpenInBoardAction';
 import { groupId, spaceId, type Session } from '@ap/contracts';
+// RouteOutlet loads the board lazily (#821); evaluate it up front so a short settle does not race a cold dynamic import.
+import './BoardScreen';
 
 const features = { export: false, savedView: false, annotate: false, compare: false, board: true };
 const apply = { ...noContext, time: 'apply' as const };

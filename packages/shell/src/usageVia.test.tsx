@@ -9,6 +9,8 @@ import { AppShell } from './AppShell';
 import { RouteOutlet } from './RouteOutlet';
 import type { BoardV1 } from './board/boardMigrate';
 import { groupId, spaceId, type UsageEvent } from '@ap/contracts';
+// RouteOutlet loads the board lazily (#821); evaluate it up front so a short settle does not race a cold dynamic import.
+import './board/BoardScreen';
 
 // Navigation path (#605): each shell entry point marks the usage entry it leads to with its `via`.
 const features = { export: false, savedView: false, annotate: false, compare: false, board: true };
