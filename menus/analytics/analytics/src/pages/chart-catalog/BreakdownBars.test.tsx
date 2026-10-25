@@ -20,7 +20,8 @@ const registry = createRegistry({
 });
 const session = testSession(['analytics:view', 'platform:view']);
 const empty = { current: [], previous: [], previousFrom: null, previousTo: null, heatmap: { xLabels: [], yLabels: [], cells: [] }, donut: [], scatter: [], boxPlot: [], pareto: [] };
-const query = vi.fn(async () => ({ outcome: 'ok' as const, data: empty, assessments: [{ kind: 'collection' as const, state: 'confirmed' as const }, { kind: 'coverage' as const, state: 'confirmed' as const }], trust: null, correlationId: 'catalog' }));
+const okQuery = async () => ({ outcome: 'ok' as const, data: empty, assessments: [{ kind: 'collection' as const, state: 'confirmed' as const }, { kind: 'coverage' as const, state: 'confirmed' as const }], trust: null, correlationId: 'catalog' });
+const query = vi.fn(okQuery);
 function ContextProbe() {
   const { setGlobal } = usePlatform();
   return <button type="button" onClick={() => setGlobal({ to: '2026-09-26T10:00:00' })}>probe-change-period</button>;
@@ -102,6 +103,26 @@ describe('breakdown bar fixtures (#580h)', () => {
     render(<I18nProvider><PlatformProvider equipmentAxes={TEST_AXES} adapter={testAdapter({ session: () => session, menuQuery: query })} registry={registry}><ChartCatalog /></PlatformProvider></I18nProvider>);
     await screen.findByText(/이 조건에서 없는 값/);
     expect(frames).toHaveLength(0);
+  });
+  it('an invalid node is rejected while the catalogue query is pending, without sending it', async () => {
+    query.mockClear();
+    query.mockImplementation(() => new Promise<never>(() => {}));
+    try {
+      await mount('&node=not-a-place', 'status');
+      expect(screen.getByRole('button', { name: '전체로 돌아가기' })).toBeTruthy();
+      expect(frames).toHaveLength(0);
+      expect(query).not.toHaveBeenCalled();
+    } finally { query.mockReset(); query.mockImplementation(okQuery); }
+  });
+  it('an invalid node is rejected when the catalogue query fails, with no chart', async () => {
+    query.mockClear();
+    query.mockImplementation(async (): Promise<never> => { throw new Error('catalogue down'); });
+    try {
+      await mount('&node=', 'status');
+      expect(screen.getByRole('button', { name: '전체로 돌아가기' })).toBeTruthy();
+      expect(frames).toHaveLength(0);
+      expect(query).not.toHaveBeenCalled();
+    } finally { query.mockReset(); query.mockImplementation(okQuery); }
   });
   it('series grouping rows have no drill button and no Enter drill; place rows do', async () => {
     await mount();

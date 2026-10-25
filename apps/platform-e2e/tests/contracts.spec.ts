@@ -4288,6 +4288,15 @@ test.describe('차트 카탈로그 — 종류별 상호작용 (06 §16, #530)', 
     await expect(page).toHaveURL(/node=B(&|$)/);
     await expect(tree.getByRole('treeitem', { name: /그룹 B/ })).toHaveAttribute('aria-current', 'true');
     await evidence(page, testInfo, 'chart-catalog-breakdown-drill');
+    // A global Context change drops the drill (node); Back restores it.
+    const preset = await periodPreset(page, '7일');
+    await preset.locator.click();
+    await preset.close();
+    await expect(page).not.toHaveURL(/node=/);
+    await expect(page).toHaveURL(/kind=breakdown/);
+    await page.goBack();
+    await expect(page).toHaveURL(/node=B(&|$)/);
+    await expect(page.getByRole('tree', { name: '분해 트리' }).getByRole('treeitem', { name: /그룹 B/ })).toHaveAttribute('aria-current', 'true');
     // A deep link shows the current item; an unknown node is rejected, not shown as the root.
     await page.goto(`${catalog}&kind=breakdown&node=A1a`);
     await expect(page.getByRole('tree', { name: '분해 트리' }).getByRole('treeitem', { name: /공정 A1a/ })).toHaveAttribute('aria-current', 'true');
