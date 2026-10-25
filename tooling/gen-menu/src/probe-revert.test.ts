@@ -25,9 +25,10 @@ function tempRoot(lock: string): string {
   return root;
 }
 
-function recordingSpawn(calls: string[][]): typeof spawnSync {
+/** Records each install's argv with the lockfile bytes at that moment: the restore must land before the frozen install. */
+function recordingSpawn(root: string, calls: { args: string[]; lock: string }[]): typeof spawnSync {
   return ((_cmd: string, args: string[]) => {
-    calls.push(args);
+    calls.push({ args, lock: readFileSync(join(root, 'pnpm-lock.yaml'), 'utf8') });
     return { status: 0 };
   }) as unknown as typeof spawnSync;
 }
@@ -35,11 +36,11 @@ function recordingSpawn(calls: string[][]): typeof spawnSync {
 describe('probe revert restores the lockfile (#805)', () => {
   it.each(['restoreHandEdits', 'fallbackRestore'] as const)('install after %s: lockfile equals the snapshot, argv is a frozen install', (path) => {
     const root = tempRoot('lockfileVersion: rewritten by a re-resolve\n');
-    const calls: string[][] = [];
-    const steps = buildRevertSteps(snapshots, root, recordingSpawn(calls));
+    const calls: { args: string[]; lock: string }[] = [];
+    const steps = buildRevertSteps(snapshots, root, recordingSpawn(root, calls));
     steps[path]();
     steps.install();
     expect(readFileSync(join(root, 'pnpm-lock.yaml'), 'utf8')).toBe(SNAPSHOT_LOCK);
-    expect(calls).toEqual([['install', '--frozen-lockfile']]);
+    expect(calls).toEqual([{ args: ['install', '--frozen-lockfile'], lock: SNAPSHOT_LOCK }]);
   });
 });

@@ -4,7 +4,7 @@ import { defineConfig } from '@playwright/test';
 const parsePort = (name: string, fallback: number): number => {
   const raw = process.env[name];
   if (raw === undefined) return fallback;
-  const port = /^[0-9]+$/.test(raw) ? Number(raw) : 0;
+  const port = /^[0-9]+$/.test(raw) ? Number.parseInt(raw, 10) : 0;
   if (port < 1 || port > 65535) throw new Error(`${name} must be an integer port in 1..65535, got ${JSON.stringify(raw)}`);
   return port;
 };
