@@ -1,12 +1,15 @@
 // Clean outside-consumer gate for the SDK release tarballs (ADR-0056, ADR-0044 ②③, #519).
 // Usage: pnpm sdk:consumer-check <dir with the five ap-*.tgz from `pnpm sdk:pack`>
 //
-// Creates a temp project outside the repo that depends on the five tarballs only (no workspace link, no SDK source) and
-// runs: install → single-copy check → tsc → vite build (CSS classes) → vitest. The first failing step is named in the error.
-import { spawnSync } from 'node:child_process';
+// Serves the tarball directory over HTTP on 127.0.0.1 and creates a temp project outside the repo that lists the five tarballs
+// as direct URL dependencies, the way a release consumer does (no workspace link, no SDK source, no @ap/* overrides, pnpm's
+// default blockExoticSubdeps; a `file:` install would hide #806), then runs: install → single-copy check → tsc → vite build
+// (CSS classes) → vitest. The first failing step is named in the error.
+import { spawn, spawnSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
-import { dirname, join, relative, resolve, sep } from 'node:path';
+import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SDK_PACKAGES } from './sdk-exports.mjs';
 import { hasCssSelector, selectCssProbes } from './sdk-css-probes.mjs';
@@ -31,6 +34,38 @@ function run(command, args, cwd) {
     fail(`${command} ${args.join(' ')} exited ${result.status}:\n${detail.slice(-3000)}`);
   }
   return result.stdout;
+}
+
+/** Like `run`, without blocking the event loop: the tarball server in this process answers pnpm while it installs. */
+function runAsync(command, args, cwd) {
+  return new Promise((resolvePromise, reject) => {
+    const child = spawn(command, args, { cwd, env: { ...process.env, CI: 'true' } });
+    let output = '';
+    child.stdout.on('data', (chunk) => { output += chunk; });
+    child.stderr.on('data', (chunk) => { output += chunk; });
+    child.on('error', (error) => reject(new Error(`${command} could not run: ${error.message}`)));
+    child.on('close', (status) => {
+      if (status === 0) resolvePromise(output);
+      else reject(new Error(`${command} ${args.join(' ')} exited ${status}:\n${output.trim().slice(-3000)}`));
+    });
+  });
+}
+
+/** Serves the `.tgz` files of one directory, nothing else, on an ephemeral 127.0.0.1 port. */
+function serveTarballs(tarballDir) {
+  const server = createServer((request, response) => {
+    const name = decodeURIComponent(new URL(request.url ?? '/', 'http://127.0.0.1').pathname.slice(1));
+    const path = join(tarballDir, name);
+    if (request.method !== 'GET' || name !== basename(name) || !name.endsWith('.tgz') || !existsSync(path)) {
+      response.writeHead(404).end();
+      return;
+    }
+    response.writeHead(200, { 'content-type': 'application/octet-stream' }).end(readFileSync(path));
+  });
+  return new Promise((resolvePromise, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', () => resolvePromise({ server, base: `http://127.0.0.1:${server.address().port}` }));
+  });
 }
 
 function installedVersion(name) {
@@ -60,6 +95,14 @@ function runStep(name, action) {
   step = name;
   const started = Date.now();
   const result = action();
+  process.stdout.write(`sdk:consumer-check PASS ${name} (${((Date.now() - started) / 1000).toFixed(1)}s)\n`);
+  return result;
+}
+
+async function runStepAsync(name, action) {
+  step = name;
+  const started = Date.now();
+  const result = await action();
   process.stdout.write(`sdk:consumer-check PASS ${name} (${((Date.now() - started) / 1000).toFixed(1)}s)\n`);
   return result;
 }
@@ -177,7 +220,7 @@ it('renders the shell, a components widget and a kernel hook under one PlatformP
 `,
 };
 
-function writeProject(root, tarballDir) {
+function writeProject(root, tarballDir, base) {
   const tarball = (name) => {
     const files = readdirSync(tarballDir).filter((candidate) => candidate.startsWith(`ap-${name}-`) && candidate.endsWith('.tgz'));
     if (files.length === 0) fail(`no ap-${name}-*.tgz in ${tarballDir}`);
@@ -185,7 +228,7 @@ function writeProject(root, tarballDir) {
     return join(tarballDir, files[0]);
   };
   const dependencies = {};
-  for (const name of SDK_PACKAGES) dependencies[`@ap/${name}`] = `file:${tarball(name)}`;
+  for (const name of SDK_PACKAGES) dependencies[`@ap/${name}`] = `${base}/${basename(tarball(name))}`;
   const external = { 'lucide-react': installedVersion('lucide-react') };
   for (const name of CONSUMER_DEPENDENCIES) external[name] = installedVersion(name);
   writeFileSync(join(root, 'package.json'), `${JSON.stringify({
@@ -202,15 +245,15 @@ function writeProject(root, tarballDir) {
   if (!existsSync(sourcePatch)) fail(`patch file from pnpm-workspace.yaml not found: ${autoAnimatePatch.path}`);
   mkdirSync(dirname(consumerPatch), { recursive: true });
   cpSync(sourcePatch, consumerPatch);
-  const overrides = SDK_PACKAGES.map((name) => `  "@ap/${name}": "file:${tarball(name)}"`);
   writeFileSync(join(root, 'pnpm-workspace.yaml'), [
     'packages: []',
+    // Explicit, so the gate does not depend on pnpm's default: a sibling a tarball pulls in by URL is rejected (#806).
+    'blockExoticSubdeps: true',
     'allowBuilds:',
     '  esbuild: true',
     'patchedDependencies:',
     `  ${JSON.stringify(autoAnimatePatch.id)}: ${JSON.stringify(autoAnimatePatch.path)}`,
     'overrides:',
-    ...overrides,
     ...tiptapOverrides(),
     '',
   ].join('\n'));
@@ -291,17 +334,18 @@ function assertProductionSignal(root) {
   if (hit) fail(`dist/assets/${hit} still carries Button's dev-only error: the production signal did not reach the SDK dist`);
 }
 
-function main() {
+async function main() {
   const tarballArg = process.argv[2];
   if (!tarballArg) fail('usage: sdk:consumer-check <dir with the ap-*.tgz files>');
   const tarballDir = resolve(tarballArg);
   if (!existsSync(tarballDir)) fail(`tarball directory ${tarballDir} does not exist`);
   const root = mkdtempSync(join(tmpdir(), 'ap-sdk-consumer-'));
+  const { server, base } = await serveTarballs(tarballDir);
   try {
     const relativeRoot = relative(repoRoot, root);
     if (relativeRoot === '' || !relativeRoot.startsWith(`..${sep}`)) fail('consumer directory must be outside the repository');
-    runStep('write consumer project', () => writeProject(root, tarballDir));
-    runStep('pnpm install (tarballs, tiptap overrides, auto-animate patch)', () => run('pnpm', ['install', '--no-frozen-lockfile'], root));
+    runStep('write consumer project', () => writeProject(root, tarballDir, base));
+    await runStepAsync('pnpm install (tarballs over http://127.0.0.1, no @ap overrides, tiptap overrides, auto-animate patch)', () => runAsync('pnpm', ['install', '--no-frozen-lockfile'], root));
     runStep('single copy of react and @ap/* packages', () => assertSingleCopies(root));
     runStep('browser tsc self-test: a Node-only declaration is rejected', () => assertBrowserCheckRejectsNode(root));
     runStep('tsc --noEmit (app source only, strict, Bundler, no @types/node)', () => run('pnpm', ['exec', 'tsc', '--noEmit', '-p', 'tsconfig.browser.json'], root));
@@ -312,14 +356,13 @@ function main() {
     runStep('vitest (jsdom): shell + components + kernel under one PlatformProvider', () => run('pnpm', ['exec', 'vitest', 'run'], root));
     process.stdout.write('sdk:consumer-check passed\n');
   } finally {
+    server.close();
     if (process.env.AP_SDK_KEEP === '1') process.stdout.write(`sdk:consumer-check kept ${root}\n`);
     else rmSync(root, { recursive: true, force: true });
   }
 }
 
-try {
-  main();
-} catch (error) {
+main().catch((error) => {
   process.stderr.write(`sdk:consumer-check FAILED at step "${step}": ${error instanceof Error ? error.message : String(error)}\n`);
   process.exitCode = 1;
-}
+});
