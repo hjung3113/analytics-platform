@@ -9,6 +9,7 @@ import { memoryStorage, testAdapter, testSession } from '@ap/kernel/testing';
 import { manifests } from '../index';
 import CycleTimeDrilldown from './CycleTimeDrilldown';
 import { installWorkspaceGeometry } from './workspaceTestSupport';
+import { TEST_AXES } from '../test-axes';
 
 const registry = createRegistry({ permissions: [menuPermission('analytics:view')], spaces: [{ id: spaceId('analytics'), label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, permission: menuPermission('analytics:view'), homeMenuId: 'productivity-overview' }], groups: [{ id: groupId('analytics'), label: { ko: '분석', en: 'Analytics' }, icon: Timer, space: spaceId('analytics') }], menus: manifests });
 function Apply() { const query = useQueryDraft(); return <button onClick={query.apply} disabled={!query.canApply}>Apply query</button>; }
@@ -24,7 +25,7 @@ it('keeps page edits in draft until the single apply, preserving applied request
   const send = vi.fn(async (_request: MenuQuery) => ({ outcome: 'empty' as const, data: null, assessments: [], trust: null, correlationId: 'test' }));
   window.history.replaceState(null, '', '/analytics/cycle-time?scopeId=MEM&roomNames=PHOTO&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
   const push = vi.spyOn(window.history, 'pushState');
-  render(<I18nProvider><PlatformProvider registry={registry} adapter={testAdapter({ session: () => session, menuQuery: send })} slots={{ contextBar: <Apply /> }}><CycleTimeDrilldown params={{}} /></PlatformProvider></I18nProvider>);
+  render(<I18nProvider><PlatformProvider equipmentAxes={TEST_AXES} registry={registry} adapter={testAdapter({ session: () => session, menuQuery: send })} slots={{ contextBar: <Apply /> }}><CycleTimeDrilldown params={{}} /></PlatformProvider></I18nProvider>);
   await waitFor(() => expect(new Set(send.mock.calls.map(([request]) => request.endpoint))).toEqual(new Set(['analytics.cycle.kpi', 'analytics.cycle.trend', 'analytics.cycle.dist', 'analytics.cycle.slow'])), { timeout: 8000 }); // first render loads the lazy chart chunks; under CI load the four initial requests exceeded the 1 s default (PR #738)
   const before = send.mock.calls.length;
   fireEvent.click(screen.getByRole('button', { name: '일' }));
@@ -54,7 +55,7 @@ it.each(['', '&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00'])('shows the sha
   const session = testSession(['analytics:view', 'platform:view']);
   const send = vi.fn();
   window.history.replaceState(null, '', `/analytics/cycle-time?scopeId=MEM${period}`);
-  render(<I18nProvider><PlatformProvider registry={registry} adapter={testAdapter({ session: () => session, menuQuery: send })}><CycleTimeDrilldown params={{}} /></PlatformProvider></I18nProvider>);
+  render(<I18nProvider><PlatformProvider equipmentAxes={TEST_AXES} registry={registry} adapter={testAdapter({ session: () => session, menuQuery: send })}><CycleTimeDrilldown params={{}} /></PlatformProvider></I18nProvider>);
   await waitFor(() => expect(screen.getAllByText('아직 조회하지 않았습니다').length).toBeGreaterThan(0));
   await waitFor(() => expect(screen.getAllByText(/room_name.*선택/).length).toBeGreaterThan(0));
   expect(screen.queryByText('전역 기간이 URL에 확정되면 조회합니다.')).toBeNull();
@@ -69,6 +70,6 @@ it('formats historical page defaults from that candidate rather than the current
     const extension = useQueryBarExtension();
     return <p>{extension?.historyPageSummary?.(candidate, [['percentile', 'all'], ['sort', 'equipmentId:asc']]).map(item => `${item.label} ${item.value}`).join(' · ') ?? 'missing formatter'}</p>;
   }
-  render(<I18nProvider><PlatformProvider registry={registry} adapter={testAdapter({ session: () => session })} slots={{ contextBar: <Summary /> }}><CycleTimeDrilldown params={{}} /></PlatformProvider></I18nProvider>);
+  render(<I18nProvider><PlatformProvider equipmentAxes={TEST_AXES} registry={registry} adapter={testAdapter({ session: () => session })} slots={{ contextBar: <Summary /> }}><CycleTimeDrilldown params={{}} /></PlatformProvider></I18nProvider>);
   await waitFor(() => expect(screen.getByText('집계 일 · 느린 실행 기준 전체 실행 · 정렬 Equipment A→Z')).toBeTruthy());
 });

@@ -10,6 +10,7 @@ import { manifests } from '../index';
 import { ProductivityDrillBody } from './productivity-drill';
 import type { DrillData } from '../endpoints';
 import { groupId, menuPermission, spaceId, type ApiResponse } from '@ap/contracts';
+import { TEST_AXES } from '../test-axes';
 
 afterEach(cleanup);
 
@@ -57,7 +58,7 @@ const fmt = { n1: (v: number) => v.toFixed(1), ni: (v: number) => String(v) };
 
 function mount(equipment: string | null) {
   return render(
-    <I18nProvider><PlatformProvider adapter={adapter} registry={registry}>
+    <I18nProvider><PlatformProvider equipmentAxes={TEST_AXES} adapter={adapter} registry={registry}>
       <DetailPanelSlotProvider>
         <SlotHost />
         <ProductivityDrillBody ko room="PHOTO" stgroup="st-01" equipment={equipment}

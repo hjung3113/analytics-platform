@@ -38,7 +38,12 @@ export const manifests: MenuEntry[] = [
     description: { ko: '사이클타임 분포에서 느린 실행을 찾아 실행 상세로 드릴다운합니다.', en: 'Find slow executions in the cycle-time distribution and drill into them.' },
     path: '/analytics/cycle-time', icon: Timer, permission: PERMISSION, requiresScope: true, pageType: 'analysis',
     context: contextCapabilities({ time: 'apply', roomNames: 'apply', line: 'apply', prcGroup: 'apply', condition: 'apply', selection: 'apply', lot: 'apply', ppid: 'apply', recipe: 'apply', metric: 'apply' }),
-    features: { export: true, savedView: false, annotate: true, compare: true, board: true }, pageKeys: ['granularity', 'percentile', 'sort', 'page', 'bucket', 'bin'], contextResetKeys: ['page', 'bucket', 'bin'], initializesMetric: true,
+    features: { export: true, savedView: false, annotate: true, compare: true, board: true }, pageKeys: ['granularity', 'percentile', 'sort', 'page', 'bucket', 'bin', 'conditionSet'], contextResetKeys: ['page', 'bucket', 'bin'], initializesMetric: true,
+    conditionPresets: [
+      { id: 'equipment', label: { ko: '설비 기준', en: 'By equipment' }, axes: ['maker', 'model'] },
+      { id: 'organization', label: { ko: '조직 기준', en: 'By organization' }, axes: ['stgroup', 'team'] },
+    ],
+    conditionPreset: { key: 'conditionSet', default: 'equipment' },
     query: { mode: 'apply', required: { context: ['time', 'roomNames'] } },
     component: lazy(() => import('./pages/CycleTimeDrilldown')),
   },

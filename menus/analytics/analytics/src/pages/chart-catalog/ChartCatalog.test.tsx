@@ -8,6 +8,7 @@ import { manifests } from '../../index';
 import { type CatalogData } from '../../endpoints';
 import ChartCatalog from './ChartCatalog';
 import { groupId, menuPermission, spaceId } from '@ap/contracts';
+import { TEST_AXES } from '../../test-axes';
 
 // Canvas is an external rendering boundary; keep the real public chart components and controls.
 const canvas = vi.hoisted(() => ({ init: vi.fn(), dispose: vi.fn(), options: [] as unknown[] }));
@@ -39,7 +40,7 @@ function ContextControls() {
 function mount(kind: string = 'line') {
   window.history.replaceState(null, '', `/analytics/chart-catalog?v=1&scopeId=MEM&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00&kind=${kind}`);
   const adapter = testAdapter({ session: () => session, menuQuery: query });
-  return render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><ChartCatalog /><ContextControls /></PlatformProvider></I18nProvider>);
+  return render(<I18nProvider><PlatformProvider equipmentAxes={TEST_AXES} adapter={adapter} registry={registry}><ChartCatalog /><ContextControls /></PlatformProvider></I18nProvider>);
 }
 const scrollIntoView = vi.fn();
 const click = (name: string) => fireEvent.click(screen.getByRole('button', { name }));

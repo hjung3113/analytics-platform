@@ -8,6 +8,7 @@ import { manifests } from '../index';
 import type { KpiSet, KpisData } from '../endpoints';
 import ProductivityOverview from './ProductivityOverview';
 import { groupId, menuPermission, spaceId, type ApiResponse, type Assessment } from '@ap/contracts';
+import { TEST_AXES } from '../test-axes';
 
 afterEach(cleanup);
 
@@ -32,7 +33,7 @@ const adapter = testAdapter({
 
 function renderPage(path: string) {
   window.history.replaceState(null, '', path);
-  render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><ProductivityOverview params={{}} /></PlatformProvider></I18nProvider>);
+  render(<I18nProvider><PlatformProvider equipmentAxes={TEST_AXES} adapter={adapter} registry={registry}><ProductivityOverview params={{}} /></PlatformProvider></I18nProvider>);
 }
 
 // #304 FIX1: the invalid-page-key alert names each field's user name and the raw value as entered,
@@ -118,7 +119,7 @@ describe('ProductivityOverview cycle-time delta label (#398)', () => {
       menuQuery: async req => (req.endpoint === 'analytics.productivity.kpis' ? data : other) as ApiResponse<unknown>,
     });
     window.history.replaceState(null, '', '/analytics/productivity?v=1&scopeId=MEM&from=2026-09-19T09:00:00&to=2026-09-26T09:00:00');
-    render(<I18nProvider><PlatformProvider adapter={kpiAdapter} registry={registry}><ProductivityOverview params={{}} /></PlatformProvider></I18nProvider>);
+    render(<I18nProvider><PlatformProvider equipmentAxes={TEST_AXES} adapter={kpiAdapter} registry={registry}><ProductivityOverview params={{}} /></PlatformProvider></I18nProvider>);
   }
 
   it.each([

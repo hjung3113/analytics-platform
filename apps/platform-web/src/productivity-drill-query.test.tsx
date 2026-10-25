@@ -3,6 +3,7 @@ import { Suspense } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { MenuQuery, PlatformAdapter } from '@ap/contracts';
 import { I18nProvider, PlatformProvider } from '@ap/kernel';
+import { EQUIPMENT_AXES } from './equipmentAxes';
 import { testAdapter, testSession } from '@ap/kernel/testing';
 import { registry } from './menus';
 
@@ -47,7 +48,7 @@ async function mount(drill: string, ready: (calls: MenuQuery[]) => boolean): Pro
   const calls: MenuQuery[] = [];
   window.history.replaceState(null, '', `${BASE}${drill}`);
   render(<I18nProvider>
-    <PlatformProvider adapter={countingAdapter(calls)} registry={registry}>
+    <PlatformProvider equipmentAxes={EQUIPMENT_AXES} adapter={countingAdapter(calls)} registry={registry}>
       <Suspense fallback={null}><Page params={{}} /></Suspense>
     </PlatformProvider>
   </I18nProvider>);
