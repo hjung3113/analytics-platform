@@ -118,16 +118,16 @@ describe('workspace assembly (#260)', () => {
       label: { ko: 'FeedbackOps', en: 'FeedbackOps' },
       subtitle: { ko: '피드백 운영', en: 'Feedback operations' },
       permission: 'feedbackops:access',
-      carriedPageKeys: ['managedSystem'],
+      carriedPageKeys: ['managedSystem', 'returnTo'],
       homeMenuId: 'fo-dashboard',
     });
-    expect(registry.menuById('fo-dashboard')).toMatchObject({ group: 'foDashboard', path: '/feedbackops', permission: 'feedbackops:access', requiresScope: false, pageKeys: ['managedSystem'] });
+    expect(registry.menuById('fo-dashboard')).toMatchObject({ group: 'foDashboard', path: '/feedbackops', permission: 'feedbackops:access', requiresScope: false, pageKeys: ['managedSystem', 'returnTo'] });
     // #761 p1: the VOC group sits after 대시보드 in the FeedbackOps space; every feedbackops menu declares managedSystem and the VOC menus a focus.
     expect(registry.menus.filter(menu => menu.group === 'foVoc').map(menu => menu.id)).toEqual(['fo-inbox', 'fo-triage', 'fo-clusters']);
     expect(registry.menuById('fo-inbox')).toMatchObject({ path: '/feedbackops/vocs', permission: 'feedbackops:access', requiresScope: false });
     expect(registry.menuById('fo-triage')).toMatchObject({ path: '/feedbackops/triage', permission: 'feedbackops:access', requiresScope: false });
     expect(registry.menuById('fo-clusters')).toMatchObject({ path: '/feedbackops/clusters', permission: 'feedbackops:access', requiresScope: false });
-    for (const id of ['fo-inbox', 'fo-triage', 'fo-clusters']) expect(registry.menuById(id).pageKeys).toEqual(expect.arrayContaining(['managedSystem', 'focus']));
+    for (const id of ['fo-inbox', 'fo-triage', 'fo-clusters']) expect(registry.menuById(id).pageKeys).toEqual(expect.arrayContaining(['managedSystem', 'focus', 'returnTo']));
     expect(registry.spaceOf(registry.menuById('fo-inbox'))?.id).toBe('feedbackops');
     // #252 (ADR-0065): work-queue first; every menu is planned and open to every signed-in user for now.
     expect(SPACES[4]).toMatchObject({ label: { ko: '표준 로그 개발', en: 'Standard log development' }, homeMenuId: 'log-my-queue' });
@@ -156,10 +156,10 @@ describe('workspace assembly (#260)', () => {
     const slots = appSlots(assembly, null, fakeSlot, fakeVocCompose, fakeHomeTodo, fakeScopeControl, fakeNavCounts, fakeSection);
     expect(slots.topBarTools).toBe(assembly.topBarTools);
     // The real composition (#251): mapped spaces get three entries, disabled while the origin is absent; operations has no row.
-    expect(slots.feedbackOps?.entriesFor(spaceId('metrics'))?.map(entry => [entry.key, entry.href])).toEqual([['voc', null], ['task', null], ['survey', null]]);
+    expect(slots.feedbackOps?.entriesFor(spaceId('metrics'))?.map(entry => [entry.key, 'href' in entry ? entry.href : undefined])).toEqual([['voc', undefined], ['task', null], ['survey', null]]);
     expect(slots.feedbackOps?.entriesFor(spaceId('operations'))).toBeNull();
     expect(slots.feedbackOps?.overall).toBeNull();
-    expect(appSlots(assembly, 'https://feedbackops.example', fakeSlot, fakeVocCompose, fakeHomeTodo, fakeScopeControl, fakeNavCounts, fakeSection).feedbackOps?.entriesFor(spaceId('metrics'))?.every(entry => entry.href?.startsWith('https://feedbackops.example/'))).toBe(true);
+    expect(appSlots(assembly, 'https://feedbackops.example', fakeSlot, fakeVocCompose, fakeHomeTodo, fakeScopeControl, fakeNavCounts, fakeSection).feedbackOps?.entriesFor(spaceId('metrics'))?.filter(entry => 'href' in entry).every(entry => 'href' in entry && entry.href?.startsWith('https://feedbackops.example/'))).toBe(true);
     expect(Object.keys(slots)).toEqual(['contextBar', 'topBarTools', 'feedbackOps', 'plannedSpaces', 'boardEntry', 'notifications', 'vocCompose', 'homeTodo', 'scopeControl', 'navCounts', 'spaceNavSection']);
     expect(slots.notifications).toBe(fakeSlot);
     expect(slots.vocCompose).toBe(fakeVocCompose);

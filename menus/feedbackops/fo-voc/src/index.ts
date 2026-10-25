@@ -16,7 +16,7 @@ export const manifests: MenuEntry[] = [
     description: { ko: '접수된 VOC를 큐별로 보고 하나씩 처리합니다', en: 'Work through incoming VOCs by queue' },
     path: '/feedbackops/vocs', icon: Inbox, permission: 'feedbackops:access', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
-    pageKeys: ['focus', 'q', 'tab', 'sort', 'severity', 'reporterStatus', 'owner', 'area', 'managedSystem'],
+    pageKeys: ['focus', 'q', 'tab', 'sort', 'severity', 'reporterStatus', 'owner', 'area', 'managedSystem', 'returnTo'],
     navViews: [{ id: 'no-link', label: { ko: '연결 없음', en: 'No link' }, page: { tab: 'no-link' } }],
     component: lazy(() => import('./pages/FoInbox')),
   },
@@ -25,7 +25,7 @@ export const manifests: MenuEntry[] = [
     description: { ko: '미배정·높음·연결 없음 VOC를 분류하고 담당을 정합니다', en: 'Classify unassigned, high and unlinked VOCs and decide owners' },
     path: '/feedbackops/triage', icon: ListChecks, permission: 'feedbackops:access', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
-    pageKeys: ['focus', 'tab', 'managedSystem', 'area'],
+    pageKeys: ['focus', 'tab', 'managedSystem', 'area', 'returnTo'],
     navViews: [
       { id: 'high', label: { ko: '높음', en: 'High' }, page: { tab: 'high' } },
       { id: 'unassigned', label: { ko: '미배정', en: 'Unassigned' }, page: { tab: 'unassigned' } },
@@ -37,7 +37,7 @@ export const manifests: MenuEntry[] = [
     description: { ko: '비슷한 VOC를 묶은 Cluster를 보고 확정합니다', en: 'Review and confirm clusters of similar VOCs' },
     path: '/feedbackops/clusters', icon: Layers, permission: 'feedbackops:access', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
-    pageKeys: ['focus', 'managedSystem'],
+    pageKeys: ['focus', 'managedSystem', 'returnTo'],
     component: lazy(() => import('./pages/FoClusters')),
   },
 ];

@@ -58,7 +58,7 @@ afterEach(() => { cleanup(); setFoApi(null); vi.unstubAllGlobals(); window.histo
 describe('Clusters manifest', () => {
   it('declares the route table page keys and the permission of the space', () => {
     const clusters = manifests.find(menu => menu.id === 'fo-clusters')!;
-    expect([...clusters.pageKeys!].sort()).toEqual([...clustersRoute.pageKeys].sort());
+    expect([...clusters.pageKeys!].sort()).toEqual([...clustersRoute.pageKeys, 'returnTo'].sort());
     expect(clusters).toMatchObject({ path: '/feedbackops/clusters', permission: 'feedbackops:access', requiresScope: false, label: { ko: 'Clusters', en: 'Clusters' } });
   });
 });

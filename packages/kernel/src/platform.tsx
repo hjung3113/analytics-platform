@@ -9,6 +9,7 @@ import { CONTEXT_LABELS, isBoardPath, pathFor, routeParamNames, type MenuEntry, 
 import { useI18n } from './i18n';
 import { dropResetKeys, paneHref } from './paneContext';
 import { dropDrillResetKeys } from './drillReset';
+import { RETURN_TO_KEY, stripReturnToFromUrl } from './return-to';
 import { appliedQueryPolicy, createDraftStore, useScreenDraft, type DraftStore } from './draft-state';
 import type { QueryHistory } from './query-history';
 import type { QueryDraft, QueryMissing } from './query-draft';
@@ -24,9 +25,14 @@ export type Toast = { id: number; text: string; tone: 'info' | 'warning' | 'dang
 export type ToastOptions = { action?: ToastAction; durationMs?: number };
 /**
  * FeedbackOps entry the shell draws for one space (ADR-0028, ADR-0072 decision 5). The app supplies the icon; `key` is only a React key,
- * the shell never branches on it. `href: null` draws the entry as a disabled link (15 §8: the FeedbackOps address is missing or invalid).
+ * the shell never branches on it. Two shapes, told apart by `menuId` vs `href`:
+ * - `{ href }` opens the FeedbackOps standalone app in a new tab; `href: null` draws it as a disabled link (15 §8: the FeedbackOps address is missing or invalid).
+ * - `{ menuId, page }` opens a registered menu in the same tab through the Context Link helper (ADR-0081 decision 7, #760): only `page` and `returnTo` are
+ *   carried, never the global Context. The shell draws it only while `resolveLink(...).allowed`.
  */
-export type FeedbackOpsEntry = { key: string; label: Text; href: string | null; icon: LucideIcon };
+export type FeedbackOpsEntry =
+  | { key: string; label: Text; href: string | null; icon: LucideIcon }
+  | { key: string; label: Text; menuId: string; page?: Record<string, string>; icon: LucideIcon };
 /**
  * Space-scoped FeedbackOps links from the app's Managed System mapping (ADR-0027, ADR-0045).
  * `entriesFor` returns null for a space without a mapping; an absent slot draws neither the block nor the rail link.
@@ -36,6 +42,8 @@ export type FeedbackOpsSlot = {
   entriesFor: (spaceId: SpaceId, platformReturn?: string) => readonly FeedbackOpsEntry[] | null;
   /** Rail link to FeedbackOps overall; the shell draws it only while the user holds `permission`. */
   overall: { href: string; permission: Permission } | null;
+  /** Block gate: the shell draws the FeedbackOps block only while the user holds it (ADR-0081 decision 8). Absent = the block is not gated. */
+  permission?: Permission;
 };
 /** A business system that is announced but cannot be entered yet. Display only — not in the Registry, no permission, no menu (ADR-0042). */
 export type PlannedSpace = { id: string; label: Text; /** Optional second line in the switcher row; same non-blank ko/en rule as SpaceDef.subtitle. */ subtitle?: Text; icon: LucideIcon };
@@ -226,6 +234,10 @@ export type ReturnOrigin = {
   menuLabel: Text;
   trail: { label: Text; value: string }[];
   revertedContext: ReturnContextKey[];
+  /** True only when `href` is a `returnTo` that passed `safeReturnTo` and `canOpen`; parent/home fallbacks are false. */
+  accepted: boolean;
+  /** Space label of the accepted origin menu; null for a fallback or a global-menu origin. */
+  spaceLabel: Text | null;
 };
 
 /** Leading drill values on `search`, stopping at the first missing step. A menu without `drill` contributes nothing. */
@@ -304,7 +316,7 @@ function sameParams(a: Record<string, string>, b: Record<string, string>): boole
 function writeSpaceLast(userId: string, spaceId: string, url: string) {
   try {
     const next = readSpaceLast(userId);
-    next[spaceId] = url;
+    next[spaceId] = stripReturnToFromUrl(url);
     sessionStorage.setItem(spaceLastKey(userId), JSON.stringify(next));
   } catch { /* memory-only */ }
 }
@@ -495,15 +507,18 @@ function useScreenState(app: AppValue, source: ScreenSource): { screen: ScreenSt
     const pagePairs: Pair[] = [];
     for (const [k, v] of requested) if (v !== null && target.pageKeys.includes(k)) pagePairs.push([k, v]);
     // Carried keys: same space, space declares them, target declares them; explicit value wins, explicit null omits.
+    // A space that carries `returnTo` only carries it: inside that space `options.returnTo` never mints or replaces the origin (#760, ADR-0081 UX-10).
     const targetSpace = registry.spaceOf(target);
+    let sameCarryingSpace = false;
     if (route && targetSpace && registry.spaceOf(route.menu)?.id === targetSpace.id) {
+      sameCarryingSpace = (targetSpace.carriedPageKeys ?? []).includes(RETURN_TO_KEY);
       for (const k of targetSpace.carriedPageKeys ?? []) {
         if (!target.pageKeys.includes(k) || options.page?.[k] !== undefined) continue;
         const current = page.find(([pk]) => pk === k);
         if (current) pagePairs.push(current);
       }
     }
-    if (options.returnTo && target.pageKeys.includes('returnTo')) pagePairs.push(['returnTo', url]);
+    if (options.returnTo && !sameCarryingSpace && target.pageKeys.includes(RETURN_TO_KEY) && !pagePairs.some(([k]) => k === RETURN_TO_KEY)) pagePairs.push([RETURN_TO_KEY, url]);
     return {
       href: pathFor(target, options.params) + buildQuery(g, pagePairs),
       allowed: canOpen(menuId),
@@ -660,20 +675,20 @@ function useScreenState(app: AppValue, source: ScreenSource): { screen: ScreenSt
           const pick = (context: GlobalContext): GlobalContext => ({ ...emptyGlobal, ...Object.fromEntries(fields[key].map(field => [field, context[field]])) });
           return !sameGlobal(pick(global), pick(starting));
         });
-        return { href: safe, menuLabel: matched.menu.label, trail: consecutiveDrillTrail(matched.menu, search), revertedContext };
+        return { href: safe, menuLabel: matched.menu.label, trail: consecutiveDrillTrail(matched.menu, search), revertedContext, accepted: true, spaceLabel: registry.spaceOf(matched.menu)?.label ?? null };
       }
     }
     if (route?.menu.parent && canOpen(route.menu.parent)) {
-      return { href: linkTo(route.menu.parent), menuLabel: menuById(route.menu.parent).label, trail: [], revertedContext: [] };
+      return { href: linkTo(route.menu.parent), menuLabel: menuById(route.menu.parent).label, trail: [], revertedContext: [], accepted: false, spaceLabel: null };
     }
     const platformHome = matchRoute('/')?.menu;
     const spaceHome = sidebarSpace ? menuById(sidebarSpace.homeMenuId) : null;
     const home = platformHome && canOpen(platformHome.id) ? platformHome
       : spaceHome && canOpen(spaceHome.id) ? spaceHome : null;
-    if (home) return { href: linkTo(home.id), menuLabel: home.label, trail: [], revertedContext: [] };
+    if (home) return { href: linkTo(home.id), menuLabel: home.label, trail: [], revertedContext: [], accepted: false, spaceLabel: null };
     // Emergency exception-prevention fallback only; '/' is not guaranteed to be a valid or accessible home.
-    return { href: '/', menuLabel: { ko: '홈', en: 'Home' }, trail: [], revertedContext: [] };
-  }, [pageParam, safeReturnTo, matchRoute, route, linkTo, menuById, sidebarSpace, canOpen, global]);
+    return { href: '/', menuLabel: { ko: '홈', en: 'Home' }, trail: [], revertedContext: [], accepted: false, spaceLabel: null };
+  }, [pageParam, safeReturnTo, matchRoute, route, linkTo, menuById, sidebarSpace, canOpen, global, registry]);
   const returnTarget = useCallback(() => resolveReturnOrigin().href, [resolveReturnOrigin]);
   const returnOrigin = useCallback((): ReturnOrigin => resolveReturnOrigin(), [resolveReturnOrigin]);
 
@@ -852,7 +867,7 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
 
   const recordVisit = useCallback((menuId: string, url: string) => {
     setRecent(list => {
-      const next = [{ menuId, url, at: Date.now() }, ...list.filter(r => r.menuId !== menuId)].slice(0, 12);
+      const next = [{ menuId, url: stripReturnToFromUrl(url), at: Date.now() }, ...list.filter(r => r.menuId !== menuId)].slice(0, 12);
       writePreference(`platform:recent:${userId}`, next);
       return next;
     });

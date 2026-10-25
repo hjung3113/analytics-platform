@@ -109,6 +109,31 @@ describe('hostLinks().useNavigate on a mounted platform', () => {
   });
 });
 
+describe('a space that carries returnTo (#760)', () => {
+  const carrying = createRegistry({
+    spaces: [testSpace({ homeMenuId: 'fo-inbox', carriedPageKeys: ['managedSystem', 'returnTo'] })],
+    groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
+    menus: [menu('fo-inbox', '/inbox', ['focus', 'q', 'severity', 'managedSystem', 'returnTo'], true), menu('fo-triage', '/triage', ['focus', 'managedSystem', 'returnTo'])],
+  });
+  const carryingWrapper = ({ children }: { children: ReactNode }) => <I18nProvider><PlatformProvider adapter={adapter} registry={carrying}>{children}</PlatformProvider></I18nProvider>;
+
+  it('an operator filter navigation from a URL without returnTo creates none', () => {
+    at('/inbox?v=1&managedSystem=ms1');
+    const { result } = renderHook(() => useNavigate(), { wrapper: carryingWrapper });
+    act(() => result.current('/vocs?view=triage&selected=x'));
+    expect(window.location.pathname).toBe('/triage');
+    expect(new URLSearchParams(window.location.search).has('returnTo')).toBe(false);
+  });
+
+  it('keeps exactly one returnTo when the URL already carries it', () => {
+    at('/inbox?v=1&managedSystem=ms1&returnTo=%2Fanalytics%3Fv%3D1');
+    const { result } = renderHook(() => useNavigate(), { wrapper: carryingWrapper });
+    act(() => result.current('/vocs?view=triage&selected=x'));
+    expect(window.location.pathname).toBe('/triage');
+    expect(new URLSearchParams(window.location.search).getAll('returnTo')).toEqual(['/analytics?v=1']);
+  });
+});
+
 describe('an explicit managedSystem=all', () => {
   it('clears the carried scope, writes no literal "all", and the screen reads no scope', () => {
     at('/clusters?v=1&managedSystem=ms1&focus=c1');

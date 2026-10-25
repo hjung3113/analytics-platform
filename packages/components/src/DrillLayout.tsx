@@ -1,6 +1,6 @@
 import { AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
 import { useRef, type ReactNode } from 'react';
-import { RETURN_CONTEXT_LABELS, PlatformLink, invalidValueSentence, useDrill, useI18n } from '@ap/kernel';
+import { RETURN_CONTEXT_LABELS, PlatformLink, type ReturnOrigin, invalidValueSentence, useDrill, useI18n } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import {
   Button, cn,
@@ -158,15 +158,23 @@ export function DrillLayout(props: DrillLayoutProps) {
   </div>;
 }
 
-/** Return control (06 §22). The accessible name is the visible label, trail values included. */
-export function ReturnLink() {
+/** What every return control shares (06 §22): the origin and the click handler that asks for return focus and names the reverted Context. Internal to this package. */
+export function useReturnNavigation({ announceReverted = true }: { announceReverted?: boolean } = {}): { origin: ReturnOrigin; onNavigate: () => void } {
   const { returnOrigin, pageNavigation, toast } = useHostPlatform();
   const { tx, t } = useI18n();
   const origin = returnOrigin();
+  const onNavigate = () => {
+    requestReturnFocus(pageNavigation, origin.href);
+    if (announceReverted && origin.revertedContext.length) toast(t('returnContextReverted', { items: origin.revertedContext.map(key => tx(RETURN_CONTEXT_LABELS[key])).join(', ') }));
+  };
+  return { origin, onNavigate };
+}
+
+/** Return control (06 §22). The accessible name is the visible label, trail values included. */
+export function ReturnLink() {
+  const { tx } = useI18n();
+  const { origin, onNavigate } = useReturnNavigation();
   const trail = origin.trail.map(step => step.value).join(' › ');
   const text = trail ? `← ${tx(origin.menuLabel)} (${trail})` : `← ${tx(origin.menuLabel)}`;
-  return <Button asChild variant="secondary" size="sm"><PlatformLink via="return" href={origin.href} onNavigate={() => {
-    requestReturnFocus(pageNavigation, origin.href);
-    if (origin.revertedContext.length) toast(t('returnContextReverted', { items: origin.revertedContext.map(key => tx(RETURN_CONTEXT_LABELS[key])).join(', ') }));
-  }}>{text}</PlatformLink></Button>;
+  return <Button asChild variant="secondary" size="sm"><PlatformLink via="return" href={origin.href} onNavigate={onNavigate}>{text}</PlatformLink></Button>;
 }

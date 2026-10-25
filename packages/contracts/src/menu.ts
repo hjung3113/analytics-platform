@@ -46,7 +46,7 @@ export type SpaceDef = {
   permission?: Permission;
   /** Landing menu inside this space whose path has no `:param`. */
   homeMenuId: string;
-  /** Page keys that stay in the URL when the user moves between menus of this space (ADR-0081 decision 4, 06 §6.4 exception): e.g. a list scope the whole space shares. Only keys a target menu declares in `pageKeys` are carried; the registry rejects a global key and a member menu that does not declare every carried key. Absent → nothing is carried (page-owned state stays per menu). */
+  /** Page keys that stay in the URL when the user moves between menus of this space (ADR-0081 decision 4, 06 §6.4 exception): e.g. a list scope the whole space shares. Only keys a target menu declares in `pageKeys` are carried; the registry rejects a global key and a member menu that does not declare every carried key. Absent → nothing is carried (page-owned state stays per menu). Carrying `returnTo` makes the space "return-aware" (ADR-0081 UX-10, #760): the way back survives moves between its menus (a same-space link only carries it, never mints or replaces it), `PlatformPage` draws the return row for an accepted `returnTo`, and last-screen/recents never store it. */
   carriedPageKeys?: readonly string[];
 };
 /** Permissions the platform's own features judge, whatever app is assembled — emitted to `vocab.json` for servers outside this workspace (#674). Canonical order. */

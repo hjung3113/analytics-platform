@@ -88,6 +88,8 @@ const dict = {
   home: { ko: '홈', en: 'Home' },
   back: { ko: '뒤로', en: 'Back' },
   returnContextReverted: { ko: '출발 화면의 Context로 돌아왔습니다. 상세에서 바꾼 항목을 되돌렸습니다: {items}', en: 'Returned to the starting context. Reverted: {items}.' },
+  returnRowBack: { ko: '← {menu}로 돌아가기', en: '← Back to {menu}' },
+  returnRowFrom: { ko: '{system}에서 왔습니다', en: 'From {system}' },
   retry: { ko: '다시 시도', en: 'Retry' },
   loading: { ko: '불러오는 중…', en: 'Loading…' },
   refreshing: { ko: '같은 조건으로 갱신 중', en: 'Refreshing same context' },

@@ -20,12 +20,12 @@ const menu = (id: string, path: string, pageKeys: string[], primary = false) => 
   requiresScope: false, pageType: 'management' as const, context: contextCapabilities(), features: NO_FEATURES, pageKeys, component: lazy(async () => ({ default: () => null })),
 });
 const registry = createRegistry({
-  spaces: [{ id: SPACE, label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'feedbackops:access', carriedPageKeys: ['managedSystem'], homeMenuId: 'fo-dashboard' }],
+  spaces: [{ id: SPACE, label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'feedbackops:access', carriedPageKeys: ['managedSystem', 'returnTo'], homeMenuId: 'fo-dashboard' }],
   groups: [{ id: GROUP, label: { ko: 'VOC', en: 'VOC' }, icon: Inbox, space: SPACE }],
   menus: [
-    menu('fo-dashboard', '/feedbackops', ['managedSystem'], true),
-    menu('fo-inbox', '/feedbackops/vocs', ['focus', 'q', 'tab', 'sort', 'severity', 'reporterStatus', 'owner', 'area', 'managedSystem']),
-    menu('fo-triage', '/feedbackops/triage', ['focus', 'tab', 'managedSystem', 'area']),
+    menu('fo-dashboard', '/feedbackops', ['managedSystem', 'returnTo'], true),
+    menu('fo-inbox', '/feedbackops/vocs', ['focus', 'q', 'tab', 'sort', 'severity', 'reporterStatus', 'owner', 'area', 'managedSystem', 'returnTo']),
+    menu('fo-triage', '/feedbackops/triage', ['focus', 'tab', 'managedSystem', 'area', 'returnTo']),
   ],
 });
 
@@ -157,6 +157,14 @@ describe('save', () => {
     expect(applyButton('내 보기')).toBeTruthy();
   });
 
+  it('stores no returnTo when saved from a screen that carries one (#760)', async () => {
+    await mount('/feedbackops/vocs?q=abc&managedSystem=ms1&returnTo=%2Forigin%3Fv%3D1');
+    await settle();
+    await type('돌아가기 없는 보기');
+    expect(JSON.stringify(posted)).not.toContain('returnTo');
+    expect(JSON.stringify(posted)).not.toContain('origin');
+  });
+
   it('posts the Triage view with its fixed view key', async () => {
     await mount('/feedbackops/triage?tab=high&managedSystem=ms1');
     await settle();
@@ -180,13 +188,14 @@ describe('apply', () => {
 
   it('lands on 수신함 with exactly the stored keys and clears a carried managedSystem', async () => {
     rows = [row('a', '높음', { view: 'inbox', 'filter.severity': 'high' })];
-    await mount('/feedbackops/vocs?q=old&managedSystem=ms1&sort=-created');
+    await mount('/feedbackops/vocs?q=old&managedSystem=ms1&sort=-created&returnTo=%2Forigin%3Fv%3D1');
     await settle();
     await click('높음');
     expect(window.location.pathname).toBe('/feedbackops/vocs');
     const search = new URLSearchParams(window.location.search);
     expect(search.get('severity')).toBe('high');
     expect([...search.keys()].filter(key => key !== 'severity' && key !== 'v')).toEqual([]);
+    expect(search.has('returnTo')).toBe(false);
   });
 
   it('keeps the stored managedSystem and lands on Triage for a triage view from another menu', async () => {

@@ -40,7 +40,7 @@ function hrefOrNull(origin: string | null, target: FeedbackOpsTarget): string | 
   }
 }
 
-/** The FeedbackOps slot for the app. Entries come only from the mapping above; links come only from `buildFeedbackOpsLink`. */
+/** The FeedbackOps slot for the app. Entries come only from the mapping above; new-tab links come only from `buildFeedbackOpsLink`. VOC opens in the shell (#760); Task and 설문 follow with #763/#764. */
 export function feedbackOpsSlot(origin: string | null): FeedbackOpsSlot {
   const overallHref = hrefOrNull(origin, { kind: 'overall' });
   return {
@@ -48,8 +48,11 @@ export function feedbackOpsSlot(origin: string | null): FeedbackOpsSlot {
       const managedSystemId = managedSystemFor(spaceId);
       if (managedSystemId === null) return null;
       const back: Back = platformReturn === undefined ? {} : { platformReturn };
-      return ENTRIES.map(({ key, label, icon, target }) => ({ key, label, icon, href: hrefOrNull(origin, target(managedSystemId, back)) }));
+      return ENTRIES.map(({ key, label, icon, target }): FeedbackOpsEntry => key === 'voc'
+        ? { key, label, icon, menuId: 'fo-inbox', page: { managedSystem: managedSystemId } }
+        : { key, label, icon, href: hrefOrNull(origin, target(managedSystemId, back)) });
     },
+    permission: 'feedbackops:access',
     overall: overallHref === null ? null : { href: overallHref, permission: 'feedbackops:access' },
   };
 }

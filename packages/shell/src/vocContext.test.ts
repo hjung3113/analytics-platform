@@ -75,6 +75,18 @@ describe('freezeVocContext (ADR-0070 decision 5)', () => {
     expect(freezeVocContext(input()).carried).toEqual({});
   });
 
+  it('drops returnTo: no chip, not in the address, not in carried (navigation state, #760)', () => {
+    const carrying = createRegistry({
+      spaces: [testSpace({ id: spaceId('analytics'), label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'home', carriedPageKeys: ['q', 'returnTo'] })],
+      groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
+      menus: [{ ...menu('home', '홈', '/'), pageKeys: ['q', 'returnTo'] }, { ...menu('prod', '생산성', '/p/:id'), pageKeys: ['q', 'returnTo'] }],
+    });
+    const context = freezeVocContext(input({ registry: carrying, page: [['q', 'x'], ['returnTo', '/origin?v=1']], route: { menu: carrying.menus.find(entry => entry.path === '/p/:id')!, params: { id: '7' } } }));
+    expect(context.items.map(item => item.id)).not.toContain('page:returnTo');
+    expect(new URL(context.href!).searchParams.has('returnTo')).toBe(false);
+    expect(context.carried).toEqual({ q: 'x' });
+  });
+
   it.each([
     ['a page chip', ['page:focus'], ['focus'], []],
     ['the period chip', ['period'], ['from', 'to'], []],
