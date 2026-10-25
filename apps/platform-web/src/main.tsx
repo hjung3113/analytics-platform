@@ -7,6 +7,7 @@ import { createRoot } from 'react-dom/client';
 import { createBasePathLocation, I18nProvider, PlatformProvider } from '@ap/kernel';
 import { setFoApi } from '@ap/fo-bridge/fo-api';
 import { homeTodoSlot } from '@ap/fo-bridge/home-todo-slot';
+import { navCountsSlot } from '@ap/fo-bridge/nav-counts';
 import { notificationsSlot } from '@ap/fo-bridge/notifications-slot';
 import { scopeControlSlot } from '@ap/fo-bridge/scope-control';
 import { vocComposeSlot } from '@ap/fo-bridge/voc-compose-slot';
@@ -48,7 +49,7 @@ void startOrFail(root, async () => {
   root.render(
     <StrictMode>
       <I18nProvider>
-        <PlatformProvider queryHistory={queryHistory} equipmentAxes={EQUIPMENT_AXES} adapter={assembly.adapter} registry={registry} location={location} slots={appSlots(assembly, feedbackOpsOrigin, notificationsSlot, vocCompose, homeTodoSlot, scopeControlSlot)}>
+        <PlatformProvider queryHistory={queryHistory} equipmentAxes={EQUIPMENT_AXES} adapter={assembly.adapter} registry={registry} location={location} slots={appSlots(assembly, feedbackOpsOrigin, notificationsSlot, vocCompose, homeTodoSlot, scopeControlSlot, navCountsSlot)}>
           <AppShell><RouteOutlet /></AppShell>
         </PlatformProvider>
       </I18nProvider>

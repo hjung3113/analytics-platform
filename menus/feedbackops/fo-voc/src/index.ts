@@ -17,6 +17,7 @@ export const manifests: MenuEntry[] = [
     path: '/feedbackops/vocs', icon: Inbox, permission: 'feedbackops:access', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['focus', 'q', 'tab', 'sort', 'severity', 'reporterStatus', 'owner', 'area', 'managedSystem'],
+    navViews: [{ id: 'no-link', label: { ko: '연결 없음', en: 'No link' }, page: { tab: 'no-link' } }],
     component: lazy(() => import('./pages/FoInbox')),
   },
   {
@@ -25,6 +26,10 @@ export const manifests: MenuEntry[] = [
     path: '/feedbackops/triage', icon: ListChecks, permission: 'feedbackops:access', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['focus', 'tab', 'managedSystem', 'area'],
+    navViews: [
+      { id: 'high', label: { ko: '높음', en: 'High' }, page: { tab: 'high' } },
+      { id: 'unassigned', label: { ko: '미배정', en: 'Unassigned' }, page: { tab: 'unassigned' } },
+    ],
     component: lazy(() => import('./pages/FoTriage')),
   },
 ];
