@@ -180,6 +180,33 @@ describe('AnalysisChartFrame SDK pieces (#541)', () => {
     view.rerender(frame({ series: [] }));
     expect(screen.queryByText('표시할 시리즈를 모두 껐습니다')).toBeNull();
   });
+  it('shows every series again from the all-off state: controlled requests allSeries ids', async () => {
+    const onVisibleSeriesChange = vi.fn();
+    await mount({ visibleSeriesIds: [], onVisibleSeriesChange });
+    fireEvent.click(screen.getByRole('button', { name: '모두 보이기' }));
+    expect(onVisibleSeriesChange).toHaveBeenCalledWith(['one', 'two']);
+    expect(screen.getByText('표시할 시리즈를 모두 껐습니다')).toBeTruthy();
+  });
+  it('shows every series again from the all-off state: uncontrolled clears hidden and notifies', async () => {
+    const onVisibleSeriesChange = vi.fn();
+    await mount({ onVisibleSeriesChange });
+    fireEvent.click(screen.getByRole('checkbox', { name: 'One' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Two' }));
+    onVisibleSeriesChange.mockClear();
+    fireEvent.click(screen.getByRole('button', { name: '모두 보이기' }));
+    expect(onVisibleSeriesChange).toHaveBeenCalledWith(['one', 'two']);
+    expect(screen.queryByText('표시할 시리즈를 모두 껐습니다')).toBeNull();
+    expect(screen.queryByRole('button', { name: '모두 보이기' })).toBeNull();
+  });
+  it('includes the compare series in show-all only while compare is on', async () => {
+    const onVisibleSeriesChange = vi.fn();
+    await mount({ compareSeries: [{ ...series[1], id: 'previous', name: 'Previous' }], visibleSeriesIds: [], onVisibleSeriesChange });
+    fireEvent.click(screen.getByRole('button', { name: '모두 보이기' }));
+    expect(onVisibleSeriesChange).toHaveBeenLastCalledWith(['one', 'two']);
+    fireEvent.click(screen.getByRole('button', { name: '비교' }));
+    fireEvent.click(screen.getByRole('button', { name: '모두 보이기' }));
+    expect(onVisibleSeriesChange).toHaveBeenLastCalledWith(['one', 'two', 'previous']);
+  });
   it('preserves wall-clock point identity and value on time axes', async () => {
     const onActivate = vi.fn(); const onPointClick = vi.fn();
     await mount({ xType: 'time', series: [{ ...series[0], points: [['2026-10-21T10:20:00', 7]] }], pointActivation: { on: 'click', onActivate }, onPointClick });

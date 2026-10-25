@@ -362,6 +362,10 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const valueLabels = horizontal && p.stacked ? p.valueLabels : undefined;
   const wantsTotal = valueLabels === 'total' || valueLabels === 'both';
   const mayClientSum = p.reaggregation !== undefined && canClientSum({ reaggregation: p.reaggregation });
+  const showAllSeries = () => {
+    if (p.visibleSeriesIds === undefined) setHidden(new Set());
+    onVisibleSeriesChange?.(allSeries.map(s => s.id));
+  };
   const anyHidden = allSeries.some(s => !visible.includes(s));
   const { serverTotals } = p;
   const totals = useMemo(() => (wantsTotal ? resolveRowTotals({ displayed, categories, mayClientSum, allShown: !anyHidden, serverTotals }) : undefined), [wantsTotal, displayed, categories, mayClientSum, anyHidden, serverTotals]);
@@ -637,7 +641,10 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
 
     </AnalysisChartPart>
     <AnalysisChartPart enabled={analysisSection !== null} body>
-    {allSeries.length > 0 && visible.length === 0 && <p role="status" className="px-4 py-3 text-text-secondary">{lang === 'ko' ? '표시할 시리즈를 모두 껐습니다' : 'All series are turned off'}</p>}
+    {allSeries.length > 0 && visible.length === 0 && <>
+      <p role="status" className="px-4 py-3 text-text-secondary">{lang === 'ko' ? '표시할 시리즈를 모두 껐습니다' : 'All series are turned off'}</p>
+      <Button type="button" variant="ghost" size="toolbar" className="mx-4 mb-3" onClick={showAllSeries}>{lang === 'ko' ? '모두 보이기' : 'Show all'}</Button>
+    </>}
     <div ref={node => { pointChart.current = node; fill.ref(node); wheelPassThrough(node); }} className={cn('px-2', size === 'fill' && (rowPitch !== undefined ? (loweredFill ? FILL_PLOT_SCROLL_BASE_CLASS : FILL_PLOT_SCROLL_CLASS) : (loweredFill ? FILL_PLOT_BASE_CLASS : FILL_PLOT_CLASS)), rowPitch !== undefined && 'overflow-y-auto')}
       // eslint-disable-next-line shadcn/no-inline-styles -- the scroll window is the given height at runtime
       style={rowPitch !== undefined && size !== 'fill' ? { maxHeight: viewportHeight } : size === 'fill' && loweredFill ? { minHeight: fillMin } : undefined} role={pointControls ? 'group' : undefined} aria-label={pointControls ? (lang === 'ko' ? '차트 지점' : 'Chart points') : undefined} tabIndex={pointControls ? 0 : undefined}
