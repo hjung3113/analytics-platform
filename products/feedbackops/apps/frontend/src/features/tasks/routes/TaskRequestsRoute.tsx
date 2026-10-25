@@ -379,6 +379,7 @@ export function TaskRequestsRoute({
               queue.setSelectedId(null);
             }}
             onDecisionComplete={completeDecision}
+            onReopenRequest={queue.reopenRequest}
             getCompletedFocusTarget={completedFocusTarget}
             onDecisionCloseComplete={() => setHandoff(null)}
             decisionRecovery={

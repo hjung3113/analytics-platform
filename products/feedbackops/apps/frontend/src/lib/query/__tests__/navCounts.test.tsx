@@ -23,6 +23,19 @@ vi.mock('@/lib/api', async (importOriginal) => ({
   requestMoreEvidenceForTaskRequest: taskRequestMutationMock,
 }));
 
+// The Task Request hooks import the module paths, not the barrel: fake the same writes there.
+vi.mock('@/lib/api/task-requests', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/task-requests')>()),
+  approveTaskRequest: taskRequestMutationMock,
+  rejectTaskRequest: taskRequestMutationMock,
+  requestMoreEvidenceForTaskRequest: taskRequestMutationMock,
+}));
+vi.mock('@/lib/api/tasks', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/tasks')>()),
+  convertTaskRequest: taskRequestMutationMock,
+  linkExistingTask: taskRequestMutationMock,
+}));
+
 vi.mock('@/lib/api/client', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api/client')>()),
   apiClient: apiClientMock,

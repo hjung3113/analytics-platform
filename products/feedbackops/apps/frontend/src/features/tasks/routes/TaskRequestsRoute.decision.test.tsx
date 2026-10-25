@@ -1,5 +1,7 @@
 import { getTaskRequest } from '@/lib/api';
+import * as barrel from '@/lib/api';
 import { ApiError } from '@/lib/api/types';
+import { useMe } from '@/lib/auth/useMe';
 import { taskRequestPage } from '@/test/task-request-pages';
 import type { ListTaskRequestsQuery } from '@fops/shared';
 import type { TaskRequestDto } from '@fops/shared';
@@ -102,6 +104,43 @@ vi.mock('@/lib/api', async (importOriginal) => ({
   rejectTaskRequest: api.rejectTaskRequest,
   requestMoreEvidenceForTaskRequest: api.requestMoreEvidenceForTaskRequest,
   resolveActors: api.resolveActors,
+}));
+// The hooks import the module paths; forward at call time so the barrel fakes above still apply.
+vi.mock('@/lib/api/task-requests', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/task-requests')>()),
+  fetchTaskRequests: (...args: Parameters<typeof barrel.fetchTaskRequests>) =>
+    barrel.fetchTaskRequests(...args),
+  getTaskRequest: (...args: Parameters<typeof barrel.getTaskRequest>) =>
+    barrel.getTaskRequest(...args),
+  approveTaskRequest: (...args: Parameters<typeof barrel.approveTaskRequest>) =>
+    barrel.approveTaskRequest(...args),
+  rejectTaskRequest: (...args: Parameters<typeof barrel.rejectTaskRequest>) =>
+    barrel.rejectTaskRequest(...args),
+  requestMoreEvidenceForTaskRequest: (
+    ...args: Parameters<typeof barrel.requestMoreEvidenceForTaskRequest>
+  ) => barrel.requestMoreEvidenceForTaskRequest(...args),
+}));
+vi.mock('@/lib/api/tasks', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/tasks')>()),
+  convertTaskRequest: (...args: Parameters<typeof barrel.convertTaskRequest>) =>
+    barrel.convertTaskRequest(...args),
+  linkExistingTask: (...args: Parameters<typeof barrel.linkExistingTask>) =>
+    barrel.linkExistingTask(...args),
+  listTasks: (...args: Parameters<typeof barrel.listTasks>) => barrel.listTasks(...args),
+}));
+vi.mock('@/lib/api/actors', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/actors')>()),
+  resolveActors: (...args: Parameters<typeof barrel.resolveActors>) =>
+    barrel.resolveActors(...args),
+}));
+vi.mock('@/lib/api/permission-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/permission-reads')>()),
+  fetchPermissionCheckViaClient: (...args: Parameters<typeof barrel.fetchPermissionCheck>) =>
+    barrel.fetchPermissionCheck(...args),
+}));
+vi.mock('@/lib/api/me', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/me')>()),
+  useMeBridge: () => useMe(),
 }));
 
 function setActor(id: string) {

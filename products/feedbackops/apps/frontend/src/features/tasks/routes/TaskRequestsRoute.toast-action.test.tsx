@@ -1,9 +1,13 @@
+import * as barrel from '@/lib/api';
+import { useMe } from '@/lib/auth/useMe';
+import { registerDefaultHost } from '@/lib/host/host-seam';
+import { tanstackHost } from '@/lib/host/tanstack-host';
 import { taskRequestPage } from '@/test/task-request-pages';
 import type { ListTaskRequestsQuery, TaskRequestDto } from '@fops/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import * as React from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TaskRequestsRoute } from './TaskRequestsRoute';
 
 const api = vi.hoisted(() => ({
@@ -91,6 +95,34 @@ vi.mock('@/lib/api', async (importOriginal) => ({
   listTasks: vi.fn(async () => ({ items: [] })),
   resolveActors: api.resolveActors,
 }));
+// The hooks import the module paths; forward at call time so the barrel fakes above still apply.
+vi.mock('@/lib/api/task-requests', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/task-requests')>()),
+  fetchTaskRequests: (...args: Parameters<typeof barrel.fetchTaskRequests>) =>
+    barrel.fetchTaskRequests(...args),
+  getTaskRequest: (...args: Parameters<typeof barrel.getTaskRequest>) =>
+    barrel.getTaskRequest(...args),
+  approveTaskRequest: (...args: Parameters<typeof barrel.approveTaskRequest>) =>
+    barrel.approveTaskRequest(...args),
+}));
+vi.mock('@/lib/api/tasks', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/tasks')>()),
+  listTasks: (...args: Parameters<typeof barrel.listTasks>) => barrel.listTasks(...args),
+}));
+vi.mock('@/lib/api/actors', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/actors')>()),
+  resolveActors: (...args: Parameters<typeof barrel.resolveActors>) =>
+    barrel.resolveActors(...args),
+}));
+vi.mock('@/lib/api/permission-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/permission-reads')>()),
+  fetchPermissionCheckViaClient: (...args: Parameters<typeof barrel.fetchPermissionCheck>) =>
+    barrel.fetchPermissionCheck(...args),
+}));
+vi.mock('@/lib/api/me', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/me')>()),
+  useMeBridge: () => useMe(),
+}));
 
 // Mirrors the router: the URL `param` is the single source of the selection.
 function Harness({ client }: { client: QueryClient }) {
@@ -109,6 +141,21 @@ function Harness({ client }: { client: QueryClient }) {
 }
 
 describe('TaskRequestsRoute approve toast action (#1293)', () => {
+  // The seam's navigation is the router's, not `useNavigate`: route it to the file's navigate mock.
+  beforeAll(() => {
+    registerDefaultHost({
+      ...tanstackHost,
+      useNavigate: () => (to, options) => {
+        const url = new URL(to, 'http://x');
+        router.navigate({
+          to: url.pathname,
+          search: Object.fromEntries(url.searchParams),
+          ...(options?.replace ? { replace: true } : {}),
+        });
+      },
+    });
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     let pendingRows = [pending, nextPending];

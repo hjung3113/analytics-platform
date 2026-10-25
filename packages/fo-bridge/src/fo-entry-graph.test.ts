@@ -388,3 +388,34 @@ describe('FeedbackOps Task search entry graph (ADR-0071 decision 9)', () => {
     expect([...search.specifiers].filter(specifier => /^@tanstack\/(react-)?router|^sonner$/.test(specifier))).toEqual([]);
   });
 });
+
+// The Task Request hooks (#763 q1) notify, navigate and link through the host seam, so the later Task Requests screen can run in the
+// bridge: each hook is walked as its own root.
+describe('FeedbackOps Task Request hooks graph (ADR-0071)', () => {
+  const ROOTS = [
+    'useTaskRequestDecision.ts',
+    'useTaskRequestConversion.ts',
+    'useTaskRequestLink.ts',
+    'useTaskRequestsQueue.ts',
+    'TaskRequestLinkedTask.tsx',
+    'useTaskRequestConvertedTaskLink.ts',
+    'useTaskRequestPanelController.ts',
+  ].map(file => join(FRONTEND_SRC, 'features/tasks/routes/task-requests', file));
+  const hooks = walk(ROOTS);
+  const hooksReached = [...hooks.files.keys()].map(file => relative(FRONTEND_SRC, file));
+
+  it('reaches no route, router, layout, auth source, api barrel, auth or permissions api, or findings public entry', () => {
+    const banned = /^(?:routes|lib\/router|lib\/layout|lib\/auth)\/|^lib\/api\/(?:auth|index|permissions|managed-systems)\.ts$|^lib\/cross-system\/usePermissionCheck\.ts$|^features\/findings\/public\.ts$/;
+    expect(hooks.unresolved).toEqual([]);
+    expect(hooksReached.filter(file => banned.test(file))).toEqual([]);
+  });
+
+  it('imports no router and no toast library', () => {
+    expect([...hooks.specifiers].filter(specifier => /^@tanstack\/(react-)?router|^sonner$/.test(specifier))).toEqual([]);
+  });
+
+  it('calls fetch only in lib/api/client.ts', () => {
+    const callers = [...hooks.files].filter(([, text]) => /(?<![\w.])fetch\(/.test(text)).map(([file]) => relative(FRONTEND_SRC, file));
+    expect(callers).toEqual(['lib/api/client.ts']);
+  });
+});

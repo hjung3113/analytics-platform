@@ -1,4 +1,6 @@
 import { fetchTaskRequests } from '@/lib/api';
+import * as barrel from '@/lib/api';
+import { useMe } from '@/lib/auth/useMe';
 import { taskRequestPage } from '@/test/task-request-pages';
 import type { ListTaskRequestsResponse, TaskRequestDto } from '@fops/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -12,6 +14,21 @@ vi.mock('@/lib/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api')>()),
   fetchTaskRequests: vi.fn(),
   resolveActors: async () => ({ actors: [], teams: [] }),
+}));
+// The hooks import the module paths; forward at call time so the barrel fakes above still apply.
+vi.mock('@/lib/api/task-requests', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/task-requests')>()),
+  fetchTaskRequests: (...args: Parameters<typeof barrel.fetchTaskRequests>) =>
+    barrel.fetchTaskRequests(...args),
+}));
+vi.mock('@/lib/api/actors', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/actors')>()),
+  resolveActors: (...args: Parameters<typeof barrel.resolveActors>) =>
+    barrel.resolveActors(...args),
+}));
+vi.mock('@/lib/api/me', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/me')>()),
+  useMeBridge: () => useMe(),
 }));
 vi.mock('@/lib/auth/useMe', () => ({
   useMe: () => ({ data: { actor: { id: 'admin', role_level: 'admin' } } }),

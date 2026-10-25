@@ -45,6 +45,7 @@ interface TaskRequestPanelProps {
   currentRole: string | null;
   onClose: () => void;
   onDecisionComplete?: (item: TaskRequestDto) => void;
+  onReopenRequest?: (id: string) => void;
   getCompletedFocusTarget?: (result: TaskRequestDto) => HTMLElement | null;
   onDecisionCloseComplete?: () => void;
   decisionRecovery?: React.ReactNode;
@@ -58,6 +59,7 @@ export function TaskRequestPanel({
   currentRole,
   onClose,
   onDecisionComplete,
+  onReopenRequest,
   getCompletedFocusTarget,
   onDecisionCloseComplete,
   decisionRecovery,
@@ -68,7 +70,12 @@ export function TaskRequestPanel({
   const requester = names.actorsById[item.requester_actor_id];
   const reviewer = item.reviewer_actor_id ? names.actorsById[item.reviewer_actor_id] : undefined;
 
-  const decision = useTaskRequestDecision({ item, currentActorId, currentRole });
+  const decision = useTaskRequestDecision({
+    item,
+    currentActorId,
+    currentRole,
+    onReopen: onReopenRequest,
+  });
   const deliveredDecisionResultRef = React.useRef<TaskRequestDto | null>(null);
   React.useEffect(() => {
     const result = decision.result;

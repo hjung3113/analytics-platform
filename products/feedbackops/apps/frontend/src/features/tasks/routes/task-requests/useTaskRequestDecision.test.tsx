@@ -1,9 +1,11 @@
 import { TASK_REQUEST_COPY } from '@/lib/copy/task-requests';
+import { registerDefaultHost } from '@/lib/host/host-seam';
+import { tanstackHost } from '@/lib/host/tanstack-host';
 import type { TaskRequestDto } from '@fops/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { FormEvent, PropsWithChildren } from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useTaskRequestDecision } from './useTaskRequestDecision';
 import type { UseTaskRequestDecisionResult } from './useTaskRequestDecision';
 
@@ -19,6 +21,13 @@ vi.mock('sonner', () => ({ toast }));
 vi.mock('@tanstack/react-router', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@tanstack/react-router')>()),
   useNavigate: () => navigate,
+}));
+vi.mock('@/lib/api/task-requests', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/task-requests')>()),
+  approveTaskRequest: (...args: unknown[]) => api.approveTaskRequest(...args),
+  rejectTaskRequest: (...args: unknown[]) => api.rejectTaskRequest(...args),
+  requestMoreEvidenceForTaskRequest: (...args: unknown[]) =>
+    api.requestMoreEvidenceForTaskRequest(...args),
 }));
 vi.mock('@/lib/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api')>()),
@@ -74,6 +83,21 @@ function submitDecision(decision: UseTaskRequestDecisionResult) {
 }
 
 describe('useTaskRequestDecision success toast', () => {
+  // The seam's navigation is the router's, not `useNavigate`: route it to the file's navigate mock.
+  beforeAll(() => {
+    registerDefaultHost({
+      ...tanstackHost,
+      useNavigate: () => (to, options) => {
+        const url = new URL(to, 'http://x');
+        navigate({
+          to: url.pathname,
+          search: Object.fromEntries(url.searchParams),
+          ...(options?.replace ? { replace: true } : {}),
+        });
+      },
+    });
+  });
+
   beforeEach(() => {
     vi.restoreAllMocks();
     api.approveTaskRequest.mockReset().mockResolvedValue({ ...taskRequest, status: 'approved' });

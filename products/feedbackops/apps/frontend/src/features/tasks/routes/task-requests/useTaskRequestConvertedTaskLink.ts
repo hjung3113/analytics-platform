@@ -1,5 +1,5 @@
-import { ApiParseError } from '@/lib/api';
 import { fetchTaskRequestEntityLinks } from '@/lib/api/entity-links';
+import { ApiParseError } from '@/lib/api/types';
 import type { EntityLinkTargetSummary, ListEntityLinksResponse } from '@fops/shared';
 import { useQuery } from '@tanstack/react-query';
 

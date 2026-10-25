@@ -1,4 +1,5 @@
 import { ApiError } from '@/lib/api/types';
+import { useMe } from '@/lib/auth/useMe';
 import { type TaskRequestDto, listTaskRequestsQuerySchema } from '@fops/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -19,6 +20,10 @@ vi.mock('@/lib/auth/useMe', () => ({
   useMe: () => ({
     data: { actor: { id: '60000000-0000-0000-0000-000000000006', role_level: 'admin' } },
   }),
+}));
+vi.mock('@/lib/api/me', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/me')>()),
+  useMeBridge: () => useMe(),
 }));
 vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api/registry-reads')>()),
