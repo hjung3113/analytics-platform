@@ -362,6 +362,34 @@ describe('FeedbackOps operator Task list entry graph (ADR-0071)', () => {
   });
 });
 
+// The operator Task board entry (#763 b) is walked on its own: the host renders the detail, so the Task detail tree stays out.
+describe('FeedbackOps operator Task board entry graph (ADR-0071)', () => {
+  const taskBoard = walk([join(FRONTEND_SRC, 'operator-screens/task-board/index.ts')]);
+  const taskBoardReached = [...taskBoard.files.keys()].map(file => relative(FRONTEND_SRC, file));
+
+  it('reaches the board screen, the status transition and the host seam, not the Task detail tree or the standalone route', () => {
+    expect(taskBoardReached).toEqual(expect.arrayContaining(['features/tasks/routes/TaskBoardScreen.tsx', 'features/tasks/hooks/useTaskStatusTransition.ts', 'lib/host/host-seam.tsx']));
+    expect(taskBoardReached.filter(file => /^features\/tasks\/components\/(TaskDetailPanel|TaskDetailParts|ResponsibilityEditor|TaskMilestoneEditor)/.test(file))).toEqual([]);
+    expect(taskBoardReached).not.toContain('routes/TaskBoardRoute.tsx');
+    expect(taskBoardReached).not.toContain('features/tasks/routes/TaskBoardRoute.tsx');
+    expect(taskBoard.unresolved).toEqual([]);
+  });
+
+  it('imports no router and no toast library', () => {
+    expect([...taskBoard.specifiers].filter(specifier => /^@tanstack\/(react-)?router|^sonner$/.test(specifier))).toEqual([]);
+  });
+
+  it('reaches no route, router, layout or auth source, the auth module, the api barrel or the standalone permission check', () => {
+    const banned = /^(?:routes|lib\/router|lib\/layout|lib\/auth)\/|^lib\/api\/(?:auth|index)\.ts$|^lib\/cross-system\/usePermissionCheck\.ts$/;
+    expect(taskBoardReached.filter(file => banned.test(file))).toEqual([]);
+  });
+
+  it('calls fetch only in lib/api/client.ts', () => {
+    const callers = [...taskBoard.files].filter(([, text]) => /(?<![\w.])fetch\(/.test(text)).map(([file]) => relative(FRONTEND_SRC, file));
+    expect(callers).toEqual(['lib/api/client.ts']);
+  });
+});
+
 // The VOC triage entry (#761 t) is walked on its own: it has no sonner or router, which the screen barrel's graph does.
 describe('FeedbackOps VOC triage entry graph (ADR-0071)', () => {
   const triage = walk([join(FRONTEND_SRC, 'operator-screens/voc-triage/index.ts')]);

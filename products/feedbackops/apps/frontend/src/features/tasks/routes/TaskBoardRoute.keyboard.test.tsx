@@ -49,10 +49,34 @@ vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
 vi.mock('@/lib/cross-system/useWorkspaceActors', () => ({
   useWorkspaceActors: () => ({ actors: [] }),
 }));
+// The Task detail now registers through `useDetailPanelSlot` instead of `WorkbenchShell.detailPanel`; the mocked shell
+// renders what was published, so the detail lands in the same <aside> as before.
+const detailSlot = vi.hoisted(() => {
+  let node: unknown;
+  const listeners = new Set<() => void>();
+  return {
+    publish(next: unknown) {
+      node = next;
+      for (const listener of listeners) listener();
+    },
+    subscribe(listener: () => void) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    snapshot: () => node,
+  };
+});
 vi.mock('@fops/ui', async () => {
   const actual = await vi.importActual<typeof import('@fops/ui')>('@fops/ui');
+  const react = await vi.importActual<typeof import('react')>('react');
   return {
     ...actual,
+    useDetailPanelSlot: (node: unknown) => {
+      react.useLayoutEffect(() => {
+        detailSlot.publish(node);
+      });
+      react.useLayoutEffect(() => () => detailSlot.publish(undefined), []);
+    },
     WorkbenchShell: ({
       toolbar,
       children,
@@ -68,7 +92,10 @@ vi.mock('@fops/ui', async () => {
           {toolbar.actions}
         </header>
         {children}
-        <aside>{detailPanel}</aside>
+        <aside>
+          {detailPanel}
+          {react.useSyncExternalStore(detailSlot.subscribe, detailSlot.snapshot) as React.ReactNode}
+        </aside>
       </div>
     ),
   };

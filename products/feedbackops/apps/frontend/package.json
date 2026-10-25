@@ -13,6 +13,7 @@
     "./operator-screens/voc-detail": "./src/operator-screens/voc-detail/index.ts",
     "./operator-screens/task-detail": "./src/operator-screens/task-detail/index.ts",
     "./operator-screens/task-list": "./src/operator-screens/task-list/index.ts",
+    "./operator-screens/task-board": "./src/operator-screens/task-board/index.ts",
     "./operator-screens/voc-inbox": "./src/operator-screens/voc-inbox/index.ts",
     "./operator-screens/voc-search": "./src/operator-screens/voc-search/index.ts",
     "./operator-screens/milestones": "./src/operator-screens/milestones/index.ts",
