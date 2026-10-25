@@ -88,7 +88,8 @@ test.describe('HW Time 메뉴 4종 — 드릴 · 작업 영역 · 보드 (06 §1
       await page.goto(`${menu.path}?v=1&scopeId=MEM`);
       await expectScopeValid(page, 'MEM · 메모리');
       // The Frame's accessible table carries the 합계 column only when the chart draws totals (valueLabels, additive seconds).
-      const chart = page.getByRole('main').locator('section[aria-label]').filter({ has: page.getByRole('button', { name: '더보기', exact: true }) }).first();
+      // The first chart Frame (its toolbar has 구간 선택); the page head has its own 더보기.
+      const chart = page.getByRole('main').locator('section').filter({ has: page.getByRole('button', { name: '구간 선택' }) }).first();
       await chart.getByRole('button', { name: '더보기', exact: true }).click();
       await page.getByRole('button', { name: '같은 데이터를 표로 보기' }).click();
       await expect(page.getByRole('columnheader', { name: '합계', exact: true }).first()).toBeVisible();
@@ -104,6 +105,8 @@ test.describe('HW Time 메뉴 4종 — 드릴 · 작업 영역 · 보드 (06 §1
       await tree.getByRole('treeitem', { name: new RegExp(MOTION) }).focus();
       await page.keyboard.press('Enter');
       await expect.poll(() => query(page).get('drillMotion')).toBe(MOTION);
+      // Drilling navigates, which closes the compare rail's peek; reopen it to read the tree.
+      if (menu.id === 'hw-time-compare' && !(await tree.count())) await page.getByRole('button', { name: '계층 범례' }).click();
       await expect(tree.getByRole('treeitem', { name: new RegExp(MOTION) })).toHaveAttribute('aria-current', 'true');
     });
   }
