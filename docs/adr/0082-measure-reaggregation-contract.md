@@ -1,4 +1,4 @@
-# ADR-0082 — 재집계 규칙은 `@ap/contracts`의 한 어휘다
+# 재집계 규칙은 `@ap/contracts`의 한 어휘다
 
 - Status: Decided (2026-10-25)
 - Decider: 코디네이터(사용자 위임), 되돌릴 수 있다.
@@ -16,7 +16,7 @@
 
 ## 결정
 
-**b.** 서버·내보내기·카탈로그·차트가 하나의 어휘를 공유한다(계획 리뷰 P4). 카탈로그에는 `none` 지표가 없으므로 `reaggregationRule`은 `Exclude<Reaggregation, 'none'>`이고 필드 이름과 동작은 그대로다.
+**b.** 서버·내보내기·카탈로그·차트가 하나의 어휘를 공유한다. 카탈로그에는 `none` 지표가 없으므로 `reaggregationRule`은 `Exclude<Reaggregation, 'none'>`이고 필드 이름과 동작은 그대로다.
 
 ## 되돌리기
 
