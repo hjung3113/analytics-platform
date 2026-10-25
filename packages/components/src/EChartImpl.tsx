@@ -26,13 +26,15 @@ function animationOff<T extends AnimationOption>(option: T): T {
 
 /** Component main types registered above: `replaceMerge` accepts only registered components (a root key such as `textStyle`, or an
  * unregistered `legend`, throws), so any other object key falls back to notMerge. */
-const COMPONENT_TYPES = new Set(['series', 'xAxis', 'yAxis', 'tooltip', 'axisPointer', 'brush', 'toolbox', 'markArea', 'markLine']);
+const COMPONENT_TYPES = new Set(['series', 'xAxis', 'yAxis', 'tooltip', 'axisPointer', 'toolbox', 'markArea', 'markLine']);
 /** Root settings whose value is an object or array but that are not components (merged, never replaced). */
 const ROOT_OBJECTS = new Set(['textStyle', 'color']);
-/** Merged, never replaced: the inside dataZoom's roam controller lives on the grid's coordinate system, so replacing either drops a drag. */
-const KEPT = new Set(['dataZoom', 'grid']);
-/** Grid entries and their keys: a merge cannot remove a key, so only the same keys may merge (orientation adds `containLabel`). */
-const gridShape = (grid: unknown): string => JSON.stringify((Array.isArray(grid) ? grid : grid ? [grid] : []).map(entry => Object.keys(entry as object).sort()));
+/** Merged, never replaced: each owns a drag in progress. The inside dataZoom's roam controller lives on the grid's coordinate
+ * system (#705), and the brush component holds the brush being drawn (#808); replacing any of them drops the drag. */
+const KEPT = new Set(['dataZoom', 'grid', 'brush']);
+/** Entries and their keys: a merge cannot remove a key, so only the same keys may merge (orientation adds `containLabel` to the grid
+ * and swaps `xAxisIndex`/`yAxisIndex` on the brush). */
+const keyShape = (component: unknown): string => JSON.stringify((Array.isArray(component) ? component : component ? [component] : []).map(entry => Object.keys(entry as object).sort()));
 type ZoomShape = { type?: unknown; xAxisIndex?: unknown; yAxisIndex?: unknown };
 const zoomShape = (zoom: unknown): string | null => {
   if (!Array.isArray(zoom) || zoom.length === 0) return null;
@@ -42,9 +44,10 @@ const zoomShape = (zoom: unknown): string | null => {
 /**
  * How the next option replaces the last one. A notMerge rebuilds every component, including the inside dataZoom whose roam
  * controller owns a drag in progress: a re-render while the user drags the zoomed plot (press, or the zoom echo through
- * `datazoom`) dropped the pan (#705). When the root keys, the dataZoom shape and the grid shape are unchanged, every other component
- * is replaced (`replaceMerge`; EChartImpl empties the series first, since a matching id would merge) and only dataZoom and grid
- * merge, so the roam state survives; root settings (`textStyle`, `animation`…)
+ * `datazoom`) dropped the pan (#705), and one while brushing (a width-dependent note layout on resize) dropped the brush (#808).
+ * When the root keys, the dataZoom shape and the grid and brush shapes are unchanged, every other component is replaced
+ * (`replaceMerge`; EChartImpl empties the series first, since a matching id would merge) and only dataZoom, grid and brush
+ * merge, so the drag survives; root settings (`textStyle`, `animation`…)
  * merge, and the same key set means none is left behind. A key that is neither a known component nor a plain root setting
  * (an object or array outside the list) rebuilds, so a component type added later cannot linger. Any other change rebuilds as before.
  */
@@ -52,7 +55,7 @@ export function setOptionMode(previous: EChartsCoreOption | null, next: EChartsC
   if (!previous) return { notMerge: true };
   const keys = Object.keys(next);
   const shape = zoomShape(next.dataZoom);
-  if (shape === null || shape !== zoomShape(previous.dataZoom) || gridShape(next.grid) !== gridShape(previous.grid) || keys.length !== Object.keys(previous).length || keys.some(key => !(key in previous))) return { notMerge: true };
+  if (shape === null || shape !== zoomShape(previous.dataZoom) || keyShape(next.grid) !== keyShape(previous.grid) || keyShape(next.brush) !== keyShape(previous.brush) || keys.length !== Object.keys(previous).length || keys.some(key => !(key in previous))) return { notMerge: true };
   if (keys.some(key => !KEPT.has(key) && !COMPONENT_TYPES.has(key) && !ROOT_OBJECTS.has(key) && typeof next[key] === 'object' && next[key] !== null)) return { notMerge: true };
   return { replaceMerge: keys.filter(key => COMPONENT_TYPES.has(key)) };
 }

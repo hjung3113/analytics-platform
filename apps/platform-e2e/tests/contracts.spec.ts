@@ -3039,6 +3039,34 @@ test.describe('차트 계약 (06 §16 — Brush → 구간 적용 확인, 주석
     expect(query(page).get('to')).toBe('2026-09-26T08:00:00');
   });
 
+  test('주석이 있는 차트에서 끄는 중 폭이 바뀌어도 Brush 선택이 끝난다 (#808)', async ({ page }) => {
+    // A note makes the option follow the plot width, so a resize mid-drag re-applies the option. Replacing the brush component
+    // then dropped the brush being drawn: no brushEnd, and the selection stayed the previous one.
+    await page.goto(CYCLE);
+    await brush(page);
+    const frame = trend(page);
+    await frame.getByRole('button', { name: '주석' }).click();
+    await frame.getByRole('textbox', { name: '주석 내용' }).fill('끌기 중 폭 변경');
+    await frame.getByRole('button', { name: '저장' }).click();
+    await expect(frame.getByText(/끌기 중 폭 변경/)).toBeVisible();
+    const summary = frame.getByRole('region', { name: '선택 요약' });
+    const before = await summary.innerText();
+    // The saved note moves the plot: measure it again.
+    const plot = frame.getByRole('img', { name: /^사이클타임 추세/ });
+    await plot.scrollIntoViewIfNeeded();
+    const box = (await plot.boundingBox())!;
+    const y = box.y + box.height * 0.5;
+    await page.mouse.move(box.x + box.width * 0.1, y);
+    await page.mouse.down();
+    for (let i = 1; i <= 8; i++) { await page.mouse.move(box.x + box.width * (0.1 + 0.1 * i / 8), y); await page.waitForTimeout(30); }
+    await page.setViewportSize({ width: 1400, height: 900 });
+    await page.waitForTimeout(300);
+    for (let i = 1; i <= 8; i++) { await page.mouse.move(box.x + box.width * (0.2 + 0.1 * i / 8), y); await page.waitForTimeout(30); }
+    await page.mouse.up();
+    await expect(summary).toContainText(/선택 구간: /);
+    await expect.poll(() => summary.innerText(), { message: 'the brush drawn across the resize became the selection' }).not.toBe(before);
+  });
+
   test('주석은 사이트(Scope)별로 저장되어 다른 사이트에는 보이지 않고, 돌아오면 다시 보인다', async ({ page }, testInfo) => {
     await page.goto(CYCLE);
     await brush(page);

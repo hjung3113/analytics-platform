@@ -176,9 +176,9 @@ describe('EChartImpl resize (#399 F3)', () => {
   });
 });
 
-describe('re-render keeps the inside dataZoom (#705)', () => {
-  const zoomed: EChartsCore.EChartsCoreOption = { grid: { left: 52 }, xAxis: { type: 'time' }, yAxis: {}, dataZoom: [{ type: 'inside', xAxisIndex: 0, start: 10, end: 90 }], series: [{ id: 'a', type: 'line', data: [[1, 2]] }] };
-  it('rebuilds the first option, then empties the series and replace-merges everything but dataZoom and grid', () => {
+describe('re-render keeps the inside dataZoom and brush (#705, #808)', () => {
+  const zoomed: EChartsCore.EChartsCoreOption = { grid: { left: 52 }, brush: { xAxisIndex: 0, brushType: 'lineX' }, xAxis: { type: 'time' }, yAxis: {}, dataZoom: [{ type: 'inside', xAxisIndex: 0, start: 10, end: 90 }], series: [{ id: 'a', type: 'line', data: [[1, 2]] }] };
+  it('rebuilds the first option, then empties the series and replace-merges everything but dataZoom, grid and brush', () => {
     stubReducedMotion(false);
     const { rerender } = render(<EChartImpl option={zoomed} ariaLabel="plot" height={120} />);
     expect(state.setOption.mock.calls[0][1]).toEqual({ notMerge: true });
@@ -188,6 +188,7 @@ describe('re-render keeps the inside dataZoom (#705)', () => {
     expect(mode.replaceMerge).toEqual(expect.arrayContaining(['series', 'xAxis', 'yAxis']));
     expect(mode.replaceMerge).not.toEqual(expect.arrayContaining(['dataZoom']));
     expect(mode.replaceMerge).not.toEqual(expect.arrayContaining(['grid']));
+    expect(mode.replaceMerge).not.toEqual(expect.arrayContaining(['brush']));
   });
   it('rebuilds when the dataZoom goes away', () => {
     stubReducedMotion(false);
