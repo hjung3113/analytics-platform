@@ -3,7 +3,7 @@ import { BrushIcon, Download, GitCompare, MessageSquarePlus, MoreHorizontal, Rot
 import { useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { ECharts, EChartsCoreOption } from 'echarts/core';
 import { useI18n, usePlatform } from '@ap/kernel';
-import { formatDateTime } from '@ap/contracts';
+import { canClientSum, formatDateTime, type Reaggregation } from '@ap/contracts';
 import { Button, cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, prefersReducedMotion } from '@ap/ui';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import { AnalysisSectionContext, resolveAnalysisChartSize, analysisChartHeight, FILL_CARD_CLASS, FILL_CHART_MIN_HEIGHT, FILL_PLOT_BASE_CLASS, FILL_PLOT_CLASS, type ChartSize } from './AnalysisSectionContext';
@@ -16,6 +16,7 @@ import { useAnnotationDeleteFocus, useAnnotationEditor } from './useAnnotationEd
 import { useChartRange, type ClipResult, type Selection } from './useChartRange';
 import { usePointMenu } from './usePointMenu';
 import { equalSeriesIds, seriesExtremes } from './chartLanes';
+import { resolveRowTotals, type ValueLabels } from './chartValueLabels';
 import { clampRowPitch, revealScrollTop, rowFocusDiagnostic, rowPitchChartHeight, ROW_PITCH_MIN } from './analysisChartGeometry';
 
 import { AnalysisChartPart, ChartHeading, ChartTrustFooter } from './analysisChartFrameParts';
@@ -141,7 +142,8 @@ export type AnalysisChartFrameProps = {
   /** Explicit drill-down on a data point; charts never silently mutate global Context on click. */
   onPointClick?: (x: string, seriesId: string) => void;
   pointClickHint?: string;
-  markLines?: { y: number; label: string }[];
+  /** A line whose `unit` or `metricVersion` is given and differs from this Frame's is not drawn; the Frame says so in a note. Omitted fields leave the line as it is. Not drawn with `startAlign` (x is not one value scale). */
+  markLines?: { y: number; label: string; unit?: string; metricVersion?: string }[];
   extraActions?: ReactNode;
   stacked?: boolean;
   /**
@@ -159,6 +161,12 @@ export type AnalysisChartFrameProps = {
   startAlign?: boolean;
   /** Horizontal only. Per series (category), outlines the segment with its smallest and the one with its largest value and labels them 최소/최대. `null`, points `isPointSelectable` rejects, hidden series and series with fewer than 2 measured rows are left out. */
   minMax?: boolean;
+  /** Horizontal + stacked only (ignored elsewhere, with a dev warning). `segment`: the short value inside each segment that fits; `total`: one total per row; `both`. Absent = no labels. */
+  valueLabels?: ValueLabels;
+  /** How this chart's measure may be recombined. The Frame adds segments itself only when `canClientSum({ reaggregation })`; absent counts as "may not add". */
+  reaggregation?: Reaggregation;
+  /** Per category, the server's total. Drawn only while every series is shown and the client may not add (a server total includes hidden series). `null` = none. */
+  serverTotals?: ReadonlyMap<string, number | null>;
 };
 
 /**
@@ -212,14 +220,23 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   // The category the last pointer click reported: the row is already visible, so that echo must not scroll.
   const [pointerRequest, setPointerRequest] = useState<string | null>(null);
   const revealedCategory = useRef<string | null | undefined>(undefined);
-  const { startAlign: rawStartAlign, stacked: rawStacked, minMax: rawMinMax } = p;
+  const { startAlign: rawStartAlign, stacked: rawStacked, minMax: rawMinMax, valueLabels: rawValueLabels, reaggregation: rawReaggregation } = p;
   const { rowPitch: rawRowPitch, activeCategory: rawActive, onActiveCategoryChange, revealActive } = p;
+  // A misuse warns once while it lasts (an unrelated active-row or callback change re-runs this effect), and again if it goes away and comes back.
+  const warned = useRef(new Set<string>());
   useEffect(() => {
+    const once = (key: string, misuse: boolean, message: string) => {
+      if (!misuse) { warned.current.delete(key); return; }
+      if (!warned.current.has(key)) { warned.current.add(key); rowFocusDiagnostic(message); }
+    };
     if (!horizontal && (rawRowPitch !== undefined || rawActive !== undefined || onActiveCategoryChange || revealActive)) rowFocusDiagnostic('activeCategory, onActiveCategoryChange, revealActive and rowPitch apply only to orientation="horizontal" with a category x axis; ignored.');
     if (rawStartAlign && !(horizontal && rawStacked)) rowFocusDiagnostic('startAlign applies only to a stacked chart with orientation="horizontal"; ignored.');
     if (rawMinMax && !horizontal) rowFocusDiagnostic('minMax applies only to orientation="horizontal" with a category x axis; ignored.');
+    once('valueLabels', !!rawValueLabels && !(horizontal && rawStacked), 'valueLabels applies only to a stacked chart with orientation="horizontal"; ignored.');
+    once('nonAdditive', !!rawStacked && rawReaggregation !== undefined && !canClientSum({ reaggregation: rawReaggregation }), `stacked draws a sum of the segments, but reaggregation "${rawReaggregation}" is not additive; draw grouped bars instead.`);
+    once('noReaggregation', !!rawValueLabels && rawValueLabels !== 'segment' && rawReaggregation === undefined, 'valueLabels="total" or "both" without reaggregation: the Frame treats the measure as not additive and draws only serverTotals.');
     if (horizontal && rawRowPitch !== undefined && !(rawRowPitch >= ROW_PITCH_MIN)) rowFocusDiagnostic(`rowPitch ${rawRowPitch} is below the ${ROW_PITCH_MIN}px target size; using ${ROW_PITCH_MIN}.`);
-  }, [horizontal, rawRowPitch, rawActive, onActiveCategoryChange, revealActive, rawStartAlign, rawStacked, rawMinMax]);
+  }, [horizontal, rawRowPitch, rawActive, onActiveCategoryChange, revealActive, rawStartAlign, rawStacked, rawMinMax, rawValueLabels, rawReaggregation]);
   // Bumped from onReady: imperative instance effects below must replay once the lazy EChartImpl
   // creates the instance (a Brush click during chunk load would otherwise never reach it, #48 P1).
   const rawFillMin = p.fillMin; const legendProp = p.legend; const controlledVisibility = p.visibleSeriesIds !== undefined;
@@ -341,15 +358,36 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   }, [xType, allSeries, annotations.length]);
   // Stable and live: the tooltip reads the formatter through the ref when it opens.
   const valueFormat = useCallback((v: number) => formatRef.current(v), []);
-  const markLines = p.markLines; const unit = p.unit; const stacked = p.stacked;
+  // Value labels exist for horizontal stacked bars only. Totals: the client adds the shown segments only for an additive measure; a server total needs every series shown.
+  const valueLabels = horizontal && p.stacked ? p.valueLabels : undefined;
+  const wantsTotal = valueLabels === 'total' || valueLabels === 'both';
+  const mayClientSum = p.reaggregation !== undefined && canClientSum({ reaggregation: p.reaggregation });
+  const anyHidden = allSeries.some(s => !visible.includes(s));
+  const { serverTotals } = p;
+  const totals = useMemo(() => (wantsTotal ? resolveRowTotals({ displayed, categories, mayClientSum, allShown: !anyHidden, serverTotals }) : undefined), [wantsTotal, displayed, categories, mayClientSum, anyHidden, serverTotals]);
+  // The total text and its grid room come from this render's formatter (the lazy one lags a layout effect); keyed by the text so an unchanged text keeps the option.
+  const totalTextKey = totals ? JSON.stringify([...totals].map(([x, t]) => [x, format(t.value)])) : '';
+  const totalText = useMemo(() => (totalTextKey ? new Map<string, string>(JSON.parse(totalTextKey) as [string, string][]) : undefined), [totalTextKey]);
+  const anyPartial = !!totals && [...totals.values()].some(t => t.partial);
+  const totalName = mayClientSum && anyHidden ? (lang === 'ko' ? '표시 합계' : 'Shown total') : (lang === 'ko' ? '합계' : 'Total');
+  // Said once per chart, not per row: what the number is, or why there is none.
+  const totalNote = !wantsTotal ? null
+    : totals && totals.size > 0 ? (mayClientSum && anyHidden ? (lang === 'ko' ? '표시 합계 — 보이는 시리즈만 더한 값입니다' : 'Shown total — only the visible series are added') : null)
+    : (lang === 'ko' ? '합계 없음 — 이 측정은 더하지 않습니다' : 'No total — this measure is not added');
+  const partialNote = anyPartial ? (lang === 'ko' ? '◇ ≥ 합계: 측정하지 못한 시리즈가 있는 행의 합계입니다' : '◇ ≥ total: a row with a series that was not measured') : null;
+  const missingText = (missing: readonly string[]) => `${missing.join(', ')} ${lang === 'ko' ? '미측정' : 'not measured'}`;
+  const unit = p.unit; const stacked = p.stacked;
+  // A reference line in another unit or metric version would sit on the wrong scale: it is not drawn and the Frame names it. No lines are drawn with startAlign, so no note either.
+  const mismatchedLines = useMemo(() => (startAlign ? [] : (p.markLines ?? []).filter(m => (m.unit !== undefined && m.unit !== p.unit) || (m.metricVersion !== undefined && m.metricVersion !== p.metricVersion))), [startAlign, p.markLines, p.unit, p.metricVersion]);
+  const markLines = useMemo(() => (mismatchedLines.length ? p.markLines?.filter(m => !mismatchedLines.includes(m)) : p.markLines), [p.markLines, mismatchedLines]);
   const option = useMemo<EChartsCoreOption>(() => {
     // A new chart instance replays the option: the lazy chunk and theme CSS may have settled since the tokens were last resolved.
     void instanceReady;
     return buildChartOption({
-      displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations, noteSpans, noteLevels, timeExtent, chartWidth, markLines, unit, lang, stacked, valueFormat, rowPitch, activeCategory, startAlign, extremes,
+      displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations, noteSpans, noteLevels, timeExtent, chartWidth, markLines, unit, lang, stacked, valueFormat, rowPitch, activeCategory, startAlign, extremes, valueLabels, totals, totalText,
       palette: resolveChartPalette(displayed),
     });
-  }, [displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations, noteSpans, noteLevels, timeExtent, chartWidth, markLines, unit, lang, stacked, valueFormat, rowPitch, activeCategory, startAlign, extremes, instanceReady]);
+  }, [displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations, noteSpans, noteLevels, timeExtent, chartWidth, markLines, unit, lang, stacked, valueFormat, rowPitch, activeCategory, startAlign, extremes, valueLabels, totals, totalText, instanceReady]);
 
   // Re-arm the brush cursor after each option replacement, and once the instance becomes ready.
   useEffect(() => {
@@ -591,6 +629,12 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
       {p.onPointClick && !brushMode && p.pointClickHint && <span className="text-tiny text-text-muted">{p.pointClickHint}</span>}
     </div>}
 
+    {(totalNote || partialNote || mismatchedLines.length > 0) && <div data-chart-notes className="space-y-0.5 px-4 pt-1 text-tiny text-text-secondary">
+      {totalNote && <p>{totalNote}</p>}
+      {partialNote && <p>{partialNote}</p>}
+      {mismatchedLines.map(m => <p key={m.label}>{lang === 'ko' ? `${m.label} 기준선은 단위가 달라 표시하지 않음` : `${m.label} reference line hidden: different unit`}</p>)}
+    </div>}
+
     </AnalysisChartPart>
     <AnalysisChartPart enabled={analysisSection !== null} body>
     {allSeries.length > 0 && visible.length === 0 && <p role="status" className="px-4 py-3 text-text-secondary">{lang === 'ko' ? '표시할 시리즈를 모두 껐습니다' : 'All series are turned off'}</p>}
@@ -608,10 +652,11 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
 
     {showTable && <div className="mx-4 mb-2 max-h-56 overflow-auto rounded-md border border-border-subtle">
       <table aria-labelledby={titleId} className="w-full text-xs tabular">
-        <thead className="sticky top-0 bg-surface-sunken"><tr><th className="t-table-header px-3 py-1.5 text-left text-text-secondary">{lang === 'ko' ? (xType === 'time' ? '시각' : '구간') : (xType === 'time' ? 'Time' : 'Category')}</th>{visible.map(s => <th key={s.id} className="t-table-header px-3 py-1.5 text-right text-text-secondary">{s.name}</th>)}</tr></thead>
+        <thead className="sticky top-0 bg-surface-sunken"><tr><th className="t-table-header px-3 py-1.5 text-left text-text-secondary">{lang === 'ko' ? (xType === 'time' ? '시각' : '구간') : (xType === 'time' ? 'Time' : 'Category')}</th>{visible.map(s => <th key={s.id} className="t-table-header px-3 py-1.5 text-right text-text-secondary">{s.name}</th>)}{totals && totals.size > 0 && <th className="t-table-header px-3 py-1.5 text-right text-text-secondary">{totalName}</th>}</tr></thead>
         <tbody>{rows.map(([x, values]) => <tr key={x} className="border-t border-border-subtle">
           <td className="px-3 py-1">{xType === 'time' ? fmt(x) : x}</td>
           {values.map((v, i) => <td key={visible[i].id} className="px-3 py-1 text-right">{v === null ? '—' : format(v)}</td>)}
+          {totals && totals.size > 0 && <td className="px-3 py-1 text-right">{(() => { const t = totals.get(x); return t ? (t.partial ? `≥ ${format(t.value)} (${missingText(t.missing)})` : format(t.value)) : '—'; })()}</td>}
         </tr>)}</tbody>
       </table>
     </div>}

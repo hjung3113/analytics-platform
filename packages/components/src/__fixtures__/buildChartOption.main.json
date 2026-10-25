@@ -1,0 +1,260 @@
+{
+ "grid": {
+  "left": 140,
+  "right": 44,
+  "top": 16,
+  "bottom": 44,
+  "containLabel": false
+ },
+ "tooltip": {
+  "trigger": "axis",
+  "confine": true,
+  "textStyle": {
+   "fontSize": 12
+  }
+ },
+ "xAxis": {
+  "type": "value",
+  "min": 0,
+  "name": "s",
+  "splitLine": {
+   "lineStyle": {
+    "color": "splitLine"
+   }
+  }
+ },
+ "yAxis": {
+  "type": "category",
+  "data": [
+   "R1",
+   "R2",
+   "R3",
+   "R4"
+  ],
+  "inverse": true,
+  "axisLine": {
+   "lineStyle": {
+    "color": "axisLine"
+   }
+  },
+  "axisLabel": {
+   "interval": 0,
+   "width": 128,
+   "overflow": "truncate",
+   "ellipsis": "…",
+   "rich": {
+    "active": {
+     "fontWeight": "bold",
+     "color": "axisLabel"
+    }
+   }
+  },
+  "axisTick": {
+   "alignWithLabel": true
+  }
+ },
+ "dataZoom": [],
+ "brush": {
+  "yAxisIndex": 0,
+  "brushType": "lineY",
+  "brushMode": "single",
+  "throttleType": "debounce",
+  "throttleDelay": 120,
+  "brushStyle": {
+   "color": "bf",
+   "borderColor": "bb"
+  }
+ },
+ "toolbox": {
+  "show": false,
+  "feature": {
+   "brush": {
+    "type": [
+     "lineY",
+     "clear"
+    ]
+   }
+  }
+ },
+ "series": [
+  {
+   "id": "a",
+   "name": "A",
+   "type": "bar",
+   "stack": "total",
+   "showSymbol": false,
+   "symbolSize": 5,
+   "connectNulls": false,
+   "barMaxWidth": 18,
+   "lineStyle": {
+    "width": 2,
+    "type": "solid"
+   },
+   "itemStyle": {
+    "color": "aFill"
+   },
+   "emphasis": {
+    "focus": "series"
+   },
+   "data": [
+    {
+     "value": 800,
+     "itemStyle": {
+      "color": "aFill",
+      "borderColor": "max",
+      "borderWidth": 3
+     },
+     "label": {
+      "show": true,
+      "position": "right",
+      "formatter": "최대",
+      "fontSize": 10,
+      "fontWeight": "bold",
+      "color": "max",
+      "backgroundColor": "surface",
+      "borderColor": "max",
+      "borderWidth": 1,
+      "borderRadius": 2,
+      "padding": [
+       1,
+       3
+      ]
+     }
+    },
+    {
+     "value": 20,
+     "itemStyle": {
+      "color": "aFill",
+      "borderColor": "min",
+      "borderWidth": 3,
+      "shadowBlur": 6,
+      "shadowColor": "aStroke"
+     },
+     "label": {
+      "show": true,
+      "position": "right",
+      "formatter": "최소",
+      "fontSize": 10,
+      "fontWeight": "bold",
+      "color": "min",
+      "backgroundColor": "surface",
+      "borderColor": "min",
+      "borderWidth": 1,
+      "borderRadius": 2,
+      "padding": [
+       1,
+       3
+      ]
+     }
+    },
+    null,
+    600
+   ]
+  },
+  {
+   "id": "b",
+   "name": "B",
+   "type": "bar",
+   "stack": "total",
+   "showSymbol": false,
+   "symbolSize": 5,
+   "connectNulls": false,
+   "barMaxWidth": 18,
+   "lineStyle": {
+    "width": 2,
+    "type": "solid"
+   },
+   "itemStyle": {
+    "color": "bFill"
+   },
+   "emphasis": {
+    "focus": "series"
+   },
+   "data": [
+    100,
+    {
+     "value": 0,
+     "itemStyle": {
+      "color": "bFill",
+      "borderColor": "min",
+      "borderWidth": 3,
+      "shadowBlur": 6,
+      "shadowColor": "bStroke"
+     },
+     "label": {
+      "show": true,
+      "position": "right",
+      "formatter": "최소",
+      "fontSize": 10,
+      "fontWeight": "bold",
+      "color": "min",
+      "backgroundColor": "surface",
+      "borderColor": "min",
+      "borderWidth": 1,
+      "borderRadius": 2,
+      "padding": [
+       1,
+       3
+      ]
+     }
+    },
+    200,
+    {
+     "value": 400,
+     "itemStyle": {
+      "color": "bFill",
+      "borderColor": "max",
+      "borderWidth": 3
+     },
+     "label": {
+      "show": true,
+      "position": "right",
+      "formatter": "최대",
+      "fontSize": 10,
+      "fontWeight": "bold",
+      "color": "max",
+      "backgroundColor": "surface",
+      "borderColor": "max",
+      "borderWidth": 1,
+      "borderRadius": 2,
+      "padding": [
+       1,
+       3
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "__overlay",
+   "type": "line",
+   "data": [],
+   "silent": true,
+   "symbol": "none",
+   "markArea": {
+    "silent": true,
+    "data": []
+   },
+   "markLine": {
+    "silent": true,
+    "symbol": "none",
+    "lineStyle": {
+     "color": "ref",
+     "type": "dashed"
+    },
+    "label": {
+     "formatter": "{b}",
+     "fontSize": 10,
+     "color": "ref",
+     "position": "insideEndTop"
+    },
+    "data": [
+     {
+      "name": "목표",
+      "xAxis": 300
+     }
+    ]
+   }
+  }
+ ]
+}

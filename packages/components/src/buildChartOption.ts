@@ -7,6 +7,7 @@ import { toMs, unknownLabel } from './analysisChartShared';
 import type { ChartSeries } from './AnalysisChartFrame';
 import type { Selection } from './useChartRange';
 import { laneLayout, type LaneLayout, type SeriesExtremes } from './chartLanes';
+import { LABEL_FONT, labelFitsSegment, labelWidth, segmentLabelStyle, shortNumber, stackEnd, type LabelRect, type RowTotal, type ValueLabels } from './chartValueLabels';
 
 /** The plot's horizontal margin (grid left 52 + right 20). */
 export const PLOT_MARGIN = 72;
@@ -16,6 +17,11 @@ const NOTE_LABEL_ROW = 12;
 const MIN_LANE_LABEL_PX = 40;
 /** Right grid room reserved for a 최소/최대 label chip beyond the last segment (row-pitch mode keeps its own 20). */
 const MIN_MAX_LABEL_ROOM = 44;
+/** A plain stacked bar's total label moves right by this much when a 최소/최대 chip may sit at the same bar end. */
+const CHIP_SHIFT = 32;
+/** Gap between a bar end (or the lane column) and its total label; the partial marker adds its own width. */
+const TOTAL_GAP = 4;
+const PARTIAL_MARKER = 8;
 
 export type LinePattern = 'solid' | number[];
 export function linePattern(series: ChartSeries, previous: boolean): LinePattern {
@@ -37,6 +43,10 @@ export type ChartPalette = {
   labelSurface: string;
   /** Index-aligned with the displayed series: the line stroke and the fill. */
   series: { stroke: string; fill: string }[];
+  /** Index-aligned with the displayed series: the segment label colour that reads on that fill, and whether it sits on a surface chip (`segmentLabelStyle`). */
+  segmentText: { color: string; chip: boolean }[];
+  /** Total label colour. */
+  totalText: string;
 };
 
 export function resolveChartPalette(displayed: readonly { color: ThemeColorToken }[]): ChartPalette {
@@ -53,6 +63,9 @@ export function resolveChartPalette(displayed: readonly { color: ThemeColorToken
     minMax: { min: token('chart-status-good'), max: token('chart-status-critical') },
     labelSurface: token('surface-card'),
     series: displayed.map(s => ({ stroke: token(strokeToken(s.color)), fill: token(s.color) })),
+    segmentText: displayed.map(s => { const l = segmentLabelStyle(s.color); return { color: token(l.text), chip: l.chip }; }),
+    // eslint-disable-next-line shadcn/no-raw-colors -- CSS variable name for token(), not a class
+    totalText: token('text-primary'),
   };
 }
 
@@ -85,14 +98,29 @@ export type ChartOptionInput = {
   startAlign?: boolean;
   /** Horizontal only. Per series id, the rows to outline as minimum and maximum (see `seriesExtremes`). */
   extremes?: ReadonlyMap<string, SeriesExtremes>;
+  /** Horizontal stacked only; absent = no value labels and the option is unchanged. */
+  valueLabels?: ValueLabels;
+  /** Per category total to draw (`resolveRowTotals`); only read when `valueLabels` includes `total`. */
+  totals?: ReadonlyMap<string, RowTotal>;
+  /** Each total's text under the render's own formatter: the text and the grid room are built from it, not from the lazy `valueFormat`. */
+  totalText?: ReadonlyMap<string, string>;
 };
+
+/** What a label that does not fit lays out as: ECharts has no hide switch for a layout callback, so the label collapses to nothing. */
+const YIELDED = { fontSize: 0, width: 0, height: 0 };
 
 export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
   const { horizontal, xType, categories, palette, lang } = i;
   const theme = palette.theme;
   const active = horizontal ? i.activeCategory ?? null : null;
   const lanes = horizontal && i.startAlign && i.stacked ? laneLayout(i.displayed, categories) : null;
-  const gridRight = i.extremes?.size && horizontal ? MIN_MAX_LABEL_ROOM : 20;
+  const chips = !!i.extremes?.size && horizontal;
+  const segments = !chips && horizontal && !!i.stacked && (i.valueLabels === 'segment' || i.valueLabels === 'both');
+  const totalTexts = horizontal && !!i.stacked && (i.valueLabels === 'total' || i.valueLabels === 'both') && i.totals?.size ? i.totals : null;
+  // Room for the widest total (plus the partial marker); a plain stacked bar shifts it clear of a 최소/최대 chip, lanes keep one fixed column.
+  const textOf = (x: string, t: RowTotal) => i.totalText?.get(x) ?? i.valueFormat(t.value);
+  const totalRoom = totalTexts ? Math.max(...[...totalTexts].map(([x, t]) => labelWidth(`≥ ${textOf(x, t)}`))) + TOTAL_GAP + PARTIAL_MARKER : 0;
+  const gridRight = (chips ? MIN_MAX_LABEL_ROOM : 20) + totalRoom;
   const xValue = (x: string) => (xType === 'time' ? toMs(x) : x);
   // Pixels per axis unit from the plot width and the zoom window, so a label can be cut to its own area (#399 AC-2).
   const plotWidth = Math.max(0, i.chartWidth - PLOT_MARGIN);
@@ -105,6 +133,33 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
     ...(i.selection ? [[{ name: lang === 'ko' ? '선택' : 'Selection', [horizontal ? 'yAxis' : 'xAxis']: xValue(i.selection.from), itemStyle: { color: palette.selection, opacity: 0.12 }, label: { position: 'insideBottom' } }, { [horizontal ? 'yAxis' : 'xAxis']: xValue(i.selection.to) }]] : []),
     ...i.annotations.map((a, n) => [{ name: a.text, [horizontal ? 'yAxis' : 'xAxis']: xValue(a.from), itemStyle: { color: palette.annotation, opacity: 0.14 }, label: { color: palette.annotationLabel, fontSize: 10, offset: [0, i.noteLevels[n] * NOTE_LABEL_ROW], width: noteWidths[n], overflow: 'truncate', ellipsis: '…' } }, { [horizontal ? 'yAxis' : 'xAxis']: xValue(a.to) }]),
   ];
+  // A segment label is hidden (ECharts' label layout has no hide switch: a zero font size draws nothing) when ECharts' own resolved boxes say it does not fit (width and height).
+  // With `minMax` on there are no segment labels at all: a 최소/최대 chip and a number would compete for the same row, and the chip is the emphasis (D7).
+  const segmentLayout = (p: { labelRect: LabelRect; rect: LabelRect }) => (labelFitsSegment(p.labelRect, p.rect) ? {} : YIELDED);
+  // The totals ride on an invisible scatter series: lanes put them at the lane span (one fixed column), a plain bar at its own end.
+  function totalSeries(totals: ReadonlyMap<string, RowTotal>) {
+    const missingText = (t: RowTotal) => `${t.missing.join(', ')} ${lang === 'ko' ? '미측정' : 'not measured'}`;
+    return {
+      id: '__total', type: 'scatter', silent: false, animation: false, z: 4,
+      // ECharts draws no label for a symbol of `none`, so the anchor is a 1px transparent dot.
+      symbol: 'circle', symbolSize: 1, itemStyle: { color: 'transparent', opacity: 1 },
+      tooltip: { trigger: 'item', formatter: (p: { data?: { tip?: string } }) => p.data?.tip ?? '' },
+      label: { show: true, position: 'right', fontSize: 11, fontWeight: 'bold', color: palette.totalText },
+      data: categories.flatMap(x => {
+        const t = totals.get(x);
+        if (!t) return [];
+        const text = textOf(x, t);
+        const offset = [TOTAL_GAP + (!lanes && chips ? CHIP_SHIFT : 0) + (t.partial ? PARTIAL_MARKER : 0), 0];
+        return [{
+          value: [lanes ? lanes.span : stackEnd(i.displayed, x), x],
+          ...(t.partial ? {
+            symbol: 'diamond', symbolSize: PARTIAL_MARKER, itemStyle: { color: 'transparent', borderColor: palette.totalText, borderWidth: 1.5 },
+            tip: missingText(t), label: { show: true, position: 'right', offset, formatter: `≥ ${text}`, fontWeight: 'normal', fontStyle: 'italic' },
+          } : { tooltip: { show: false }, label: { show: true, position: 'right', offset, formatter: text } }),
+        }];
+      }),
+    };
+  }
   return {
     // Row-pitch mode: no containLabel, so the category band is exactly height - top - bottom = rows × pitch and row i starts at top + i × pitch (the reveal maths relies on it).
     grid: horizontal && i.rowPitch !== undefined ? { left: ROW_LABEL_GUTTER, right: gridRight, top: GRID_TOP, bottom: GRID_BOTTOM, containLabel: false }
@@ -147,15 +202,20 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
           showSymbol: false, symbolSize: 5, connectNulls: false, barMaxWidth: 18,
           lineStyle: { ...(kind === 'line' ? { color } : {}), width: 2, type: pattern }, itemStyle: { color: palette.series[n].fill },
           emphasis: { focus: 'series' },
+          ...(segments && kind === 'bar' ? {
+            label: { show: true, position: 'inside', fontSize: LABEL_FONT, color: palette.segmentText[n].color, ...(palette.segmentText[n].chip ? { backgroundColor: palette.labelSurface, borderRadius: 2, padding: 0 } : {}), formatter: (p: { value: unknown }) => (typeof p.value === 'number' ? shortNumber(p.value, lang) : '') },
+            labelLayout: segmentLayout,
+          } : {}),
           data: xType === 'time' ? s.points.map(([x, y]) => [toMs(x), y]) : s.points.map(([x, y]) => datum(x, y)),
         };
         // Transparent, silent, no emphasis and out of the axis tooltip (`tooltip.show === false`, ECharts 6): it only pushes the next piece to its lane start.
         const spacer = lanes && n > 0 ? [{
           id: `__spacer-${n}`, type: 'bar', stack: 'total', silent: true, tooltip: { show: false }, emphasis: { disabled: true }, barMaxWidth: 18,
-          itemStyle: { color: 'transparent' }, data: lanes.spacers[n - 1],
+          itemStyle: { color: 'transparent', opacity: 1 }, data: lanes.spacers[n - 1],
         }] : [];
         return [...spacer, real];
       }),
+      ...(totalTexts ? [totalSeries(totalTexts)] : []),
       {
         id: '__overlay', type: 'line', data: [], silent: true, symbol: 'none',
         markArea: { silent: true, data: areas },
@@ -166,12 +226,16 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
   };
 }
 
+function extremeName(mark: 'min' | 'max', lang: string) {
+  return mark === 'min' ? (lang === 'ko' ? '최소' : 'Min') : (lang === 'ko' ? '최대' : 'Max');
+}
+
 /**
  * The 최소/최대 label chip: the surface colour behind the text and a border in the emphasis colour, so it reads on any fill.
  * In lane mode a max segment fills its whole lane, so its label sits inside the right end; every other label stays outside to the right.
  */
 function extremeLabel(mark: 'min' | 'max', lanes: boolean, palette: ChartPalette, lang: string) {
-  const name = mark === 'min' ? (lang === 'ko' ? '최소' : 'Min') : (lang === 'ko' ? '최대' : 'Max');
+  const name = extremeName(mark, lang);
   return {
     show: true, position: lanes && mark === 'max' ? 'insideRight' : 'right', formatter: name, fontSize: 10, fontWeight: 'bold', color: palette.minMax[mark],
     backgroundColor: palette.labelSurface, borderColor: palette.minMax[mark], borderWidth: 1, borderRadius: 2, padding: [1, 3],
