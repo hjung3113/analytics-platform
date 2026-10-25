@@ -20,7 +20,7 @@ LinkResolution | type | type LinkResolution = { allowed: boolean; droppedPageKey
 MenuActionState | type | type MenuActionState<I, T> = { pending: boolean; ready: boolean; run: (input: I, options?: { expectedVersion?: string; }) => Promise<@ap/contracts#ActionResult<T>>; }
 MenuEntry | type | type MenuEntry = @ap/kernel#ModuleMenuEntry | @ap/kernel#PlatformMenuEntry
 MenuFetch | type | type MenuFetch<P, T> = { fetch: (params: P, signal?: AbortSignal) => Promise<@ap/contracts#ApiResponse<T>>; ready: boolean; }
-MenuPlatform | type | type MenuPlatform = Pick<@ap/kernel/host#HostPlatform, 'absoluteUrl' | 'accessibleSpaces' | 'adapter' | 'can' | 'canOpen' | 'dismissToast' | 'favorites' | 'global' | 'homeTodo' | 'linkTo' | 'location' | 'navigate' | 'page' | 'pageParam' | 'pathname' | 'recent' | 'registry' | 'resetContext' | 'resolveLink' | 'revision' | 'route' | 'scope' | 'session' | 'setGlobal' | 'setPage' | 'spaceEntry' | 'toast' | 'toasts' | 'toggleFavorite' | 'url' | 'user'>
+MenuPlatform | type | type MenuPlatform = Pick<@ap/kernel/host#HostPlatform, 'absoluteUrl' | 'accessibleSpaces' | 'adapter' | 'can' | 'canOpen' | 'dismissToast' | 'favorites' | 'global' | 'homeTodo' | 'linkTo' | 'location' | 'navigate' | 'page' | 'pageParam' | 'pathname' | 'registry' | 'resetContext' | 'resolveLink' | 'revision' | 'route' | 'scope' | 'session' | 'setGlobal' | 'setPage' | 'spaceEntry' | 'toast' | 'toggleFavorite' | 'url' | 'user'>
 MetricInit | type | type MetricInit = { metricVersion: string; phase: 'confirm'; } | { phase: 'blocked'; reason: 'unknown_metric' | 'unpublished'; } | { phase: 'skip'; }
 ModuleGroupDef | type | type ModuleGroupDef = GroupBase & { id: @ap/contracts#ModuleScopedId; module: string; }
 ModuleMenuEntry | type | type ModuleMenuEntry = Omit<@ap/contracts#MenuMeta, 'group' | 'permission'> & { component?: undefined; group: @ap/contracts#ModuleScopedId; icon: LucideIcon; module: string; moduleConfig?: Readonly<Record<string, string>>; moduleFeatures?: readonly @ap/contracts#HostFeature[]; moduleScreen: ComponentType<@ap/contracts#ModuleScreenProps>; permission: @ap/contracts#ModuleScopedId; }
@@ -92,6 +92,7 @@ usePlatformOptional | function | function usePlatformOptional(): @ap/kernel#Menu
 usePlatformQuery | function | function usePlatformQuery<T>(run: (signal: AbortSignal) => Promise<@ap/contracts#ApiResponse<T>>, pageInputs?: unknown, enabled?: boolean, identity?: 'context' | 'session', refreshEpoch?: number): @ap/kernel#QueryState<T>
 useQueryContext | function | function useQueryContext(): @ap/contracts#GlobalContext
 useQueryDraft | function | function useQueryDraft(): @ap/kernel#QueryDraft
+useRecentVisits | function | function useRecentVisits(): readonly @ap/kernel#Recent[]
 useResolvedSelection | function | function useResolvedSelection(ids: readonly string[], params?: @ap/kernel#ResolvedSelectionParams): @ap/kernel#ResolvedSelectionResult
 # reachable types
 GroupBase | type | type GroupBase = { hideLabelWhenSingle?: boolean; icon: LucideIcon; label: @ap/contracts#Text; space: @ap/contracts#SpaceId | null; }

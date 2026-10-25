@@ -1,9 +1,9 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
+import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { GlobalContextBar } from './GlobalContextBar';
-import { memoryStorage, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { memoryStorage, testAdapter, testSession, testSpace, useToastsForTest } from '@ap/kernel/testing';
 import { groupId, spaceId, type Capability } from '@ap/contracts';
 
 const caps = { time: 'reference', roomNames: 'apply', line: 'unsupported', prcGroup: 'unsupported', condition: 'apply', selection: 'apply', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
@@ -283,7 +283,7 @@ describe('링크 복사 reports success only after the clipboard write (#300)', 
   });
 
   function ToastProbe() {
-    const { toasts } = usePlatform();
+    const toasts = useToastsForTest();
     return <div data-testid="toast-probe">{toasts.map(toast => <p key={toast.id}>{toast.tone}:{toast.text}</p>)}</div>;
   }
 

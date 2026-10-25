@@ -9,7 +9,7 @@ import { AnalysisSectionContext } from './AnalysisSectionContext';
 import { AnalysisChartFrame, type AnalysisChartFrameProps, type ChartSeries } from './AnalysisChartFrame';
 import { assignNoteLevels } from './annotationLayout';
 import type { EChartProps } from './EChart';
-import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { noContext, testAdapter, testSession, testSpace , useToastsForTest } from '@ap/kernel/testing';
 
 vi.mock('./EChartImpl', () => ({ default: FakePlot }));
 // Wraps the overlap pass so a test can count how often the frame recomputes it (#399 F4).
@@ -97,7 +97,7 @@ const series: ChartSeries[] = [{ id: 's1', name: 'S1', color: 'chart-blue', poin
 const compareSeries: ChartSeries[] = [{ id: 's2', name: 'S2', color: 'chart-purple', points: series[0].points }];
 
 function ToastProbe() {
-  const { toasts } = usePlatform();
+  const toasts = useToastsForTest();
   return <output aria-label="토스트">{toasts.map(t => <span key={t.id}>{t.text}</span>)}</output>;
 }
 function SwitchRooms() {

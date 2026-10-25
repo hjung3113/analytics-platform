@@ -2,7 +2,7 @@ import { act, cleanup, render } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from './i18n';
-import { PaneScreenProvider, PlatformProvider, useHostPlatform } from './platform';
+import { PaneScreenProvider, PlatformProvider, useHostPlatform, useRecentVisits } from './platform';
 import { createRegistry } from './registry';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from './testing';
 import { groupId, spaceId, type UsageEvent } from '@ap/contracts';
@@ -27,7 +27,8 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 type Platform = ReturnType<typeof useHostPlatform>;
 let seen: Platform | null = null;
 let paneSeen: Platform | null = null;
-function Probe() { seen = useHostPlatform(); return null; }
+let seenRecent: ReturnType<typeof useRecentVisits> | null = null;
+function Probe() { seen = useHostPlatform(); seenRecent = useRecentVisits(); return null; }
 function PaneProbe() { paneSeen = useHostPlatform(); return null; }
 
 function mountAt(url: string) {
@@ -56,7 +57,7 @@ describe('/board is a platform screen (#497, docs/16 §7)', () => {
   it('writes no recent entry, space-last URL or usage event for the board screen', async () => {
     const { events } = mountAt('/board?sheet=s1');
     await flush();
-    expect(seen!.recent).toEqual([]);
+    expect(seenRecent).toEqual([]);
     expect(sessionStorage.getItem(`platform:space-last:${seen!.user.id}`)).toBeNull();
     expect(events.filter(e => e.source !== 'board')).toEqual([]);
   });

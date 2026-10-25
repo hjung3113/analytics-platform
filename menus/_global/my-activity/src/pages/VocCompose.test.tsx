@@ -1,10 +1,10 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, type VocComposeContext } from '@ap/kernel';
-import { memoryStorage } from '@ap/kernel/testing';
+import { memoryStorage, ToastProbe } from '@ap/kernel/testing';
 import { setFoApi } from '@ap/fo-bridge/fo-api';
 import { foQueryClient } from '@ap/fo-bridge';
-import { json, registry, stubFetch, switchableAdapter, ToastProbe, type Call } from '../fo/test-support';
+import { json, registry, stubFetch, switchableAdapter, type Call } from '../fo/test-support';
 import VocCompose from '@ap/fo-bridge/voc-compose-page';
 
 // ProseMirror refuses text in jsdom, so the editor is a textarea (FeedbackOps' own compose tests do the same). The path is the file `@fops/ui` resolves to.

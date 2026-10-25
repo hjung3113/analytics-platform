@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useSyncExternalStore } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useSyncExternalStore } from 'react';
 import { buildQuery, compareHistoryText, compareQueryHistory, emptyGlobal, parseQuery, type GlobalContext, type Pair, type QueryHistoryEntry, type QueryHistoryKey, type QueryHistoryStore, type Session } from '@ap/contracts';
 import { useHostPlatform } from './platform';
 import { withoutReturnTo } from './return-to';
@@ -75,10 +75,12 @@ export function useScreenHistory(input: DraftInputs, store: DraftStore, normaliz
   const checks = useMemo(() => new Set<AbortController>(), [tag]);
   useLayoutEffect(() => () => { checks.forEach(controller => controller.abort()); checks.clear(); }, [checks]);
   const enabled = input.menu?.query?.mode === 'apply' && input.history !== undefined;
-  const key: QueryHistoryKey = { userId: input.session.user.id, menuId: input.menu?.id ?? '', scopeId: input.global.scopeId };
-  const current = () => history.active() && sameTag(history.get().tag, tag) && input.adapter.session() === input.session && input.currentRevision() === input.revision && store.get()?.identity === input.identity && store.get()?.session === input.session;
-  const authorizedScope = () => input.allowed && (!(input.menu?.requiresScope || key.scopeId !== null) || (input.scope.status === 'valid' && input.scope.scopeId === key.scopeId && input.scope.validatedFor === input.session));
-  const validate = async (entries: readonly QueryHistoryEntry[]): Promise<QueryHistoryRow[]> => {
+  const userId = input.session.user.id; const menuId = input.menu?.id ?? ''; const scopeId = input.global.scopeId;
+  const key = useMemo((): QueryHistoryKey => ({ userId, menuId, scopeId }), [userId, menuId, scopeId]);
+  // The history functions below are memoized on `input` (stable per content, `useScreenDraft`) so the returned object only changes with its content or input (#824).
+  const current = useCallback(() => history.active() && sameTag(history.get().tag, tag) && input.adapter.session() === input.session && input.currentRevision() === input.revision && store.get()?.identity === input.identity && store.get()?.session === input.session, [history, tag, input, store]);
+  const authorizedScope = useCallback(() => input.allowed && (!(input.menu?.requiresScope || key.scopeId !== null) || (input.scope.status === 'valid' && input.scope.scopeId === key.scopeId && input.scope.validatedFor === input.session)), [input, key]);
+  const validate = useCallback(async (entries: readonly QueryHistoryEntry[]): Promise<QueryHistoryRow[]> => {
     if (!entries.length) return [];
     const candidates = entries.map(entry => candidate(input, entry, normalize));
     if (!authorizedScope()) return entries.map(entry => ({ ...base(entry), status: input.scope.status === 'validating' ? 'loading' : 'unavailable', reason: input.scope.status === 'validating' ? 'checking' : 'permission' }));
@@ -113,9 +115,9 @@ export function useScreenHistory(input: DraftInputs, store: DraftStore, normaliz
         return { ...base(entry), status: 'ready', candidate: value };
       });
     } finally { checks.delete(controller); }
-  };
-  const fail = () => { if (current()) history.put({ ...history.get(), status: 'unavailable', rows: [] }); };
-  const load = () => {
+  }, [input, normalize, authorizedScope, checks, current, key]);
+  const fail = useCallback(() => { if (current()) history.put({ ...history.get(), status: 'unavailable', rows: [] }); }, [current, history]);
+  const load = useCallback(() => {
     if (!input.history || !current()) return;
     const token = { ...history.get(), status: 'loading' as const, rows: [], raw: [] };
     history.put(token);
@@ -130,7 +132,7 @@ export function useScreenHistory(input: DraftInputs, store: DraftStore, normaliz
       if (!current() || history.get() !== pending) return;
       history.put({ ...pending, rows: [...rows, ...checking.slice(rows.length)], checking: false });
     }).catch(fail);
-  };
+  }, [input, history, current, validate, fail, key]);
   useLayoutEffect(() => {
     if (!enabled) return;
     const view = history.get();
@@ -159,13 +161,13 @@ export function useScreenHistory(input: DraftInputs, store: DraftStore, normaliz
     const row = view.rows[0];
     if (row.status === 'ready') replace(row.candidate);
   });
-  return {
-    status: enabled ? visible?.status ?? 'loading' : 'disabled',
-    entries: enabled ? (visible?.rows ?? []).map(row => {
-      if (row.status !== 'ready') return row;
-      if (!authorizedScope()) return { ...base(row), status: 'loading' as const, reason: 'checking' as const };
-      return row;
-    }) : [],
+  const status = enabled ? visible?.status ?? 'loading' : 'disabled';
+  // A masked row keeps one identity while its inputs are equal, so the render converges (#824).
+  const authorized = authorizedScope();
+  const rows = visible?.rows;
+  const entries = useMemo(() => enabled ? (rows ?? []).map(row => row.status !== 'ready' || authorized ? row : { ...base(row), status: 'loading' as const, reason: 'checking' as const }) : [], [enabled, rows, authorized]);
+  return useMemo((): QueryHistory => ({
+    status, entries,
     open() {
       if (!current() || !enabled || history.get().opened) return;
       history.put({ ...history.get(), opened: true }); load();
@@ -189,5 +191,5 @@ export function useScreenHistory(input: DraftInputs, store: DraftStore, normaliz
       if (!current() || !input.history) return;
       try { await input.history.clear(key); if (current()) historyChanged(input.history, key); } catch { fail(); }
     },
-  };
+  }), [status, entries, current, enabled, history, load, authorizedScope, store, validate, replace, input.history, key, fail]);
 }

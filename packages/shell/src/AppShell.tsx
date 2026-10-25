@@ -1,7 +1,7 @@
 import { AlertTriangle, Info, X, XCircle } from 'lucide-react';
 import { Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useEquipmentAxes, useI18n, type Toast } from '@ap/kernel';
-import { useHostPlatform } from '@ap/kernel/host';
+import { useHostPlatform, useToastList } from '@ap/kernel/host';
 import { LoadingBlock } from '@ap/components';
 import { cn, DetailPanelSlotProvider, readLocalStorage, useDetailPanelSlotHost, writeLocalStorage } from '@ap/ui';
 import { CommandPalette } from './CommandPalette';
@@ -63,7 +63,7 @@ function ShellLayout({ children }: { children: ReactNode }) {
 }
 
 function Toasts() {
-  const { toasts } = useHostPlatform();
+  const toasts = useToastList();
   // Toasts sit above the command palette scrim (z-60) so their dismiss stays clickable (#310).
   return <div aria-live="polite" className="pointer-events-none fixed bottom-4 right-4 z-70 flex w-[min(420px,90vw)] flex-col gap-2">
     {toasts.map(tst => <ToastItem key={tst.id} toast={tst} />)}

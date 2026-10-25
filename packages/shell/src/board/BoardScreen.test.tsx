@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
+import { I18nProvider, PlatformProvider, createRegistry, useRecentVisits } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { BOARD_LAYOUT_ENGINE_KEY } from './layoutEngine';
@@ -695,7 +695,7 @@ describe('shell entry (docs/16 §4, §8)', () => {
     window.history.replaceState(null, '', '/beta?from=2026-09-01T00:00:00&to=2026-09-02T00:00:00');
     const s = testSession(['platform:view']);
     let seenRecent: string[] = [];
-    function Spy() { seenRecent = useHostPlatform().recent.map(r => r.menuId); return null; }
+    function Spy() { seenRecent = useRecentVisits().map(r => r.menuId); return null; }
     render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => s })} registry={makeRegistry()}><Spy /><AppShell><RouteOutlet /></AppShell></PlatformProvider></I18nProvider>);
     await settle();
     expect(seenRecent).toEqual(['beta']);
@@ -838,5 +838,51 @@ describe('docked detail overlay lifetime', () => {
     expect(screen.queryByText('detail popup')).toBeNull();
     expect(screen.getByRole('dialog', { name: 'owned detail' })).toBeInTheDocument();
     if (transition === 'maximize sibling') expect(screen.getByRole('button', { name: '원래 크기로' })).toBeInTheDocument();
+  });
+});
+
+describe('shell-only state does not wake a pane (#824)', () => {
+  let paneRenders = 0;
+  let host: ReturnType<typeof useHostPlatform>;
+  function PaneProbe() { paneRenders++; return <p>pane probe</p>; }
+  function Controls() { host = useHostPlatform(); return null; }
+  const probeRegistry = () => createRegistry({
+    spaces: [testSpace({ homeMenuId: 'beta' })],
+    groups: [{ id: groupId('equipment'), label: { ko: '그룹', en: 'Group' }, icon: House, space: spaceId('analytics') }],
+    menus: [
+      { ...entry('beta', '/beta', { component: () => null, label: { ko: '베타', en: 'Beta' } }), primary: true },
+      entry('alpha', '/alpha', { component: PaneProbe, label: { ko: '알파', en: 'Alpha' } }),
+    ],
+  });
+  const mountProbe = (url: string, ui: React.ReactNode) => {
+    window.history.replaceState(null, '', url);
+    const s = testSession(['platform:view']);
+    return render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => s })} registry={probeRegistry()}>{ui}</PlatformProvider></I18nProvider>);
+  };
+
+  it('a toast, a dismiss, a palette open and a palette close render no pane', async () => {
+    seed(boardOf([sheet('a', { panes: [alpha(w1)] })]));
+    mountProbe('/board?sheet=a', <><Controls /><RouteOutlet /></>);
+    await settle();
+    expect(screen.getByText('pane probe')).toBeInTheDocument();
+    const before = paneRenders;
+    let id = 0;
+    act(() => { id = host.toast('hello'); });
+    act(() => { host.dismissToast(id); });
+    act(() => { host.setPaletteOpen(true); });
+    act(() => { host.setPaletteOpen(false); });
+    expect(paneRenders - before).toBe(0);
+  });
+
+  it('inserting into a pane after a main-screen visit starts from the newest recent visit\'s Context', async () => {
+    seed(boardOf([sheet('a')]));
+    mountProbe('/beta?from=2026-09-01T00:00:00&to=2026-09-02T00:00:00', <AppShell><RouteOutlet /></AppShell>);
+    await settle();
+    fireEvent.click(screen.getByRole('button', { name: '분석 보드' }));
+    await settle();
+    fireEvent.click(screen.getByRole('button', { name: '분석 화면 넣기' }));
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: '알파' }));
+    await settle();
+    expect(stored().sheets[0].panes[0]?.query).toContain('from=2026-09-01T00%3A00%3A00');
   });
 });

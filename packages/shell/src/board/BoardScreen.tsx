@@ -39,7 +39,7 @@ function raiseUndo(text: BoardText, message: string, onUndo: () => void) {
  * `Outlet` renders a pane's menu (the shell's `ScreenOutlet`); it is passed in so this folder does not import the outlet that mounts it.
  */
 export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
-  const { user, url, pathname, navigate, registry, recent, pageNavigation, canOpen } = useHostPlatform();
+  const { user, url, pathname, navigate, registry, readRecent, pageNavigation, canOpen } = useHostPlatform();
   const { lang, t } = useI18n();
   const text = boardText(lang);
   const { board, update, storageNotice } = useBoardStore(user.id, text.sheetPrefix);
@@ -147,7 +147,7 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
   const replaceScreen = (index: number, menu: MenuEntry) => {
     const old = paneScreens[index];
     if (!old) return;
-    editPanes([{ index, paneId: sheet.panes[index].id, before: old, after: replacementScreen(registry, canOpen, old, menu, defaultQuery(registry, recent)), fresh: true }], text.replaced(index + 1));
+    editPanes([{ index, paneId: sheet.panes[index].id, before: old, after: replacementScreen(registry, canOpen, old, menu, defaultQuery(registry, readRecent())), fresh: true }], text.replaced(index + 1));
   };
   const duplicate = (index: number) => {
     const from = paneScreens[index];
@@ -196,7 +196,7 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
   const axes = useEquipmentAxes();
   const signals = paneSignals(registry, canOpen, paneScreens, text.noneValue, axes, lang, t('membershipAsOf'));
   const emptyIndex = firstEmptyPane(sheet);
-  const insert = (index: number, menu: MenuEntry) => writePane(index, { menuId: menu.id, params: {}, query: defaultQuery(registry, recent) });
+  const insert = (index: number, menu: MenuEntry) => writePane(index, { menuId: menu.id, params: {}, query: defaultQuery(registry, readRecent()) });
 
   const shrinkCount = confirmLayout ? droppedPaneCount(sheet, confirmLayout) : 0;
   const cancelShrink = useRef<HTMLButtonElement>(null);

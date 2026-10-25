@@ -2,14 +2,14 @@ import type { ReactNode } from 'react';
 import { ChevronLeft, ChevronRight, Clock3, ExternalLink, Star } from 'lucide-react';
 import { emptyGlobal, platformReturnFor, type NavView } from '@ap/contracts';
 import { badgeCountText } from '@ap/components';
-import { type MenuEntry, PlatformLink, useI18n } from '@ap/kernel';
+import { type MenuEntry, PlatformLink, useI18n, useRecentVisits } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import { cn, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { ScopeSelector } from './ScopeSelector';
 import { useSystemSections } from './systemSections';
 
 export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
-  const { visibleMenus, route, favorites, recent, registry, sidebarSpace, slots, page } = useHostPlatform();
+  const { visibleMenus, route, favorites, registry, sidebarSpace, slots, page } = useHostPlatform();
   const { t, tx, lang } = useI18n();
   const activeId = route?.menu.navHidden && route.menu.parent ? route.menu.parent : route?.menu.id;
   const systems = useSystemSections();
@@ -21,7 +21,6 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
       .map(group => ({ group, items: visibleMenus.filter(m => !m.navHidden && m.group === group.id) })).filter(g => g.items.length);
   const sectionName = currentSection === null ? null : tx(currentSection.group.label);
   const favoriteMenus = favorites.map(id => visibleMenus.find(m => m.id === id)).filter((m): m is MenuEntry => !!m);
-  const recentItems = recent.filter(r => visibleMenus.some(m => m.id === r.menuId)).slice(0, 5);
   // The counts component is rendered once around the menu list; without a slot (or for a space without counts) the list gets `null` counts (06 §8 `navCounts`).
   const CountsHost = (sidebarSpace === null ? null : slots.navCounts?.For(sidebarSpace.id)) ?? NoCounts;
   const sectionSlot = sidebarSpace === null ? null : slots.spaceNavSection?.For(sidebarSpace.id) ?? null;
@@ -68,12 +67,7 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
             ? <ul className="space-y-0.5">{favoriteMenus.map(menu => <li key={menu.id}><NavItem menu={menu} active={false} collapsed={collapsed} /></li>)}</ul>
             : <p className="px-3 py-1 text-xs leading-4 text-text-muted">{t('noFavorites')}</p>}
         </section>}
-        {!collapsed && <section aria-label={t('recent')}>
-          <p className="mx-2 mb-1 mt-3.5 flex items-center gap-1 text-caption font-semibold uppercase tracking-wide text-text-muted"><Clock3 className="size-3" aria-hidden />{t('recent')}</p>
-          {recentItems.length > 0
-            ? <ul className="space-y-0.5">{recentItems.map(r => <li key={r.menuId}><NavItem menu={registry.menuById(r.menuId)} active={false} collapsed={collapsed} href={r.url} labelPrefix={t('recent')} /></li>)}</ul>
-            : <p className="px-3 py-1 text-xs leading-4 text-text-muted">{t('noRecent')}</p>}
-        </section>}
+        {!collapsed && <SidebarRecent />}
       </div>
       <FeedbackOpsBlock collapsed={collapsed} />
       {!collapsed && <div className="shrink-0 border-t border-border-subtle px-4 py-2.5 text-caption text-text-muted">{lang === 'ko' ? '통합 프로토타입 · 합성 데이터' : 'Integrated prototype · synthetic data'}</div>}
@@ -82,6 +76,20 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
 }
 
 const NoCounts = ({ children }: { children: (counts: null) => ReactNode }) => <>{children(null)}</>;
+
+/** The recent-visit list, a leaf of its own: a visit wakes only this list, never the menu tree around it (#824). */
+function SidebarRecent() {
+  const { visibleMenus, registry } = useHostPlatform();
+  const recent = useRecentVisits();
+  const { t } = useI18n();
+  const recentItems = recent.filter(r => visibleMenus.some(m => m.id === r.menuId)).slice(0, 5);
+  return <section aria-label={t('recent')}>
+    <p className="mx-2 mb-1 mt-3.5 flex items-center gap-1 text-caption font-semibold uppercase tracking-wide text-text-muted"><Clock3 className="size-3" aria-hidden />{t('recent')}</p>
+    {recentItems.length > 0
+      ? <ul className="space-y-0.5">{recentItems.map(r => <li key={r.menuId}><NavItem menu={registry.menuById(r.menuId)} active={false} collapsed={false} href={r.url} labelPrefix={t('recent')} /></li>)}</ul>
+      : <p className="px-3 py-1 text-xs leading-4 text-text-muted">{t('noRecent')}</p>}
+  </section>;
+}
 
 /** The view whose preset keys all equal the URL's page values; with several matches the one with the most keys wins, then declaration order. The registry guarantees a non-empty preset. */
 function currentNavView(views: readonly NavView[], page: readonly (readonly [string, string])[]): NavView | null {

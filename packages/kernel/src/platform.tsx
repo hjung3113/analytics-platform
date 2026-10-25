@@ -1,10 +1,11 @@
 import { createPortCache, type PortCache } from './selection-port-cache';
 import type { LucideIcon } from 'lucide-react';
 import { createBrowserLocation, hasDotSegment, type PlatformLocation } from './location';
-import { use, createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ComponentType, type ReactNode } from 'react';
+import { use, createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ComponentType, type ReactNode } from 'react';
 import { createPaletteFocus, useFocusGate, type PaletteSession } from './paletteFocus';
 import { createPageNavigation, type PageFocus, type PageNavigation } from './pageNavigation';
-import { classifyMetricInit, type MetricInit } from './metric-init';
+import { classifyMetricInit, sameMetricInit, type MetricInit } from './metric-init';
+import { sameItems, useStable } from './stable';
 import { CONTEXT_LABELS, isBoardPath, pathFor, routeParamNames, type MenuEntry, type Registry } from './registry';
 import { useI18n } from './i18n';
 import { dropResetKeys, paneHref } from './paneContext';
@@ -17,8 +18,15 @@ import { createRefreshEpochs, type RefreshEpochs } from './refresh-epochs';
 import { buildQuery, clientCorrelationId, ContractError, emptyGlobal, type EquipmentAxisDescriptor, type ContextKey, type GlobalContext, incompleteMetricPair, type ModuleScopedId, isAppRelativePath, type Pair, type ParsedQuery, parseQuery, type Permission, type PlatformAdapter, sameGlobal, type Session, type SessionUser, shift, type SpaceDef, type SpaceId, type Text, type UsageEvent, type UsageVia, type QueryHistoryStore } from '@ap/contracts';
 
 const NO_EQUIPMENT_AXES: readonly EquipmentAxisDescriptor[] = [];
+const NO_SLOTS: PlatformSlots = {};
 
 export type ScopeState = { scopeId: string | null; status: 'none' | 'validating' | 'valid' | 'forbidden' | 'unknown_scope' | 'error'; validatedFor: Session | null; grantedRooms: string[] };
+function sameQueryPolicy(a: HostPlatform['queryPolicy'], b: HostPlatform['queryPolicy']): boolean {
+  return a.ready === b.ready && a.idle === b.idle && JSON.stringify(a.missing) === JSON.stringify(b.missing);
+}
+function sameScopeState(a: ScopeState, b: ScopeState): boolean {
+  return a.scopeId === b.scopeId && a.status === b.status && a.validatedFor === b.validatedFor && sameItems(a.grantedRooms, b.grantedRooms);
+}
 export type Recent = { menuId: string; url: string; at: number };
 export type ToastAction = { label: string; onAction: () => void };
 export type Toast = { id: number; text: string; tone: 'info' | 'warning' | 'danger'; detail?: string; action?: ToastAction };
@@ -190,8 +198,8 @@ export type HostPlatform = {
   lastScope: string | null;
   favorites: string[];
   toggleFavorite: (menuId: string) => void;
-  recent: Recent[];
-  toasts: Toast[];
+  /** Latest recent visits at call time (a stable function, ADR-0076 supplement #824). Read it in an event handler; render with `useRecentVisits()`. */
+  readRecent: () => readonly Recent[];
   toast: (text: string, tone?: Toast['tone'], detail?: string, options?: ToastOptions) => number;
   dismissToast: (id: number) => void;
   /** Pauses (`true`) or restarts (`false`) a toast's auto-dismiss while focus or the pointer is inside it. */
@@ -200,12 +208,8 @@ export type HostPlatform = {
   slots: PlatformSlots;
   /** = `slots.homeTodo ?? null`, raised for menus (ADR-0076). */
   homeTodo: HomeTodoSlot | null;
-  paletteSession: PaletteSession | null;
-  paletteOpen: boolean;
   setPaletteOpen: (open: boolean) => void;
-  /** The business-system switcher takes part in the same arrival-focus gate as the palette (ADR-0032). */
-  switcherSession: PaletteSession | null;
-  switcherOpen: boolean;
+  /** The business-system switcher takes part in the same arrival-focus gate as the palette (ADR-0032). Open state and sessions: `useOverlayState()`. */
   setSwitcherOpen: (open: boolean) => void;
   /** `'main'` for the URL-bound screen, `'pane'` inside a `PaneScreenProvider` (ADR-0049). Read-only. */
   screenMode: 'main' | 'pane';
@@ -219,7 +223,7 @@ export type HostPlatform = {
  * What a menu page sees through `usePlatform()` (ADR-0076): the same runtime value as `HostPlatform`, narrowed to the menu contract.
  * A field a menu needs that is missing here moves up from `HostPlatform`; a menu never imports `@ap/kernel/host`.
  */
-export type MenuPlatform = Pick<HostPlatform, 'route' | 'url' | 'pathname' | 'absoluteUrl' | 'location' | 'global' | 'page' | 'pageParam' | 'setGlobal' | 'setPage' | 'resetContext' | 'navigate' | 'linkTo' | 'resolveLink' | 'session' | 'user' | 'revision' | 'can' | 'canOpen' | 'scope' | 'toast' | 'dismissToast' | 'toasts' | 'registry' | 'adapter' | 'favorites' | 'toggleFavorite' | 'recent' | 'accessibleSpaces' | 'spaceEntry' | 'homeTodo'>;
+export type MenuPlatform = Pick<HostPlatform, 'route' | 'url' | 'pathname' | 'absoluteUrl' | 'location' | 'global' | 'page' | 'pageParam' | 'setGlobal' | 'setPage' | 'resetContext' | 'navigate' | 'linkTo' | 'resolveLink' | 'session' | 'user' | 'revision' | 'can' | 'canOpen' | 'scope' | 'toast' | 'dismissToast' | 'registry' | 'adapter' | 'favorites' | 'toggleFavorite' | 'accessibleSpaces' | 'spaceEntry' | 'homeTodo'>;
 
 /** Context items named by return notifications, separate from menu capabilities. */
 export type ReturnContextKey = ContextKey | 'scope';
@@ -362,6 +366,13 @@ const ScreenContext = createContext<ScreenState | null>(null);
 // screen changes, even below a nested provider of the same context, so a shared object would wake all panes (C3).
 const PaneScreenContext = createContext<ScreenState | null>(null);
 
+// Shell state that changes often lives in contexts of its own, one per concern, so a toast, an overlay or a visit wakes only its readers
+// and never a menu, a chart or a table behind `usePlatform()` (ADR-0076 supplement, #824).
+export type OverlayState = { paletteOpen: boolean; paletteSession: PaletteSession | null; switcherOpen: boolean; switcherSession: PaletteSession | null };
+const ToastsContext = createContext<readonly Toast[] | null>(null);
+const OverlayContext = createContext<OverlayState | null>(null);
+const RecentContext = createContext<readonly Recent[] | null>(null);
+
 type CommitOptions = { focus?: PageFocus; materialize?: boolean };
 /** What the screen state hook needs from its owner: where the URL lives and how a write or a navigation lands. */
 type ScreenSource = {
@@ -438,9 +449,12 @@ function useScreenState(app: AppValue, source: ScreenSource): { screen: ScreenSt
     }
   }, [search, route, platformScreen, equipmentAxes]);
   const global = parsed?.global ?? emptyGlobal;
-  const pairError = contractError ? null : incompleteMetricPair(route?.menu ?? null, global.metricId, global.metricVersion);
-  const routeContractError = contractError ?? pairError;
-  const metricInit = classifyMetricInit(adapter.publishedMetrics(), route?.menu.initializesMetric === true, global.metricId, global.metricVersion);
+  const routeMenu = route?.menu ?? null;
+  const routeContractError = useMemo(
+    () => contractError ?? incompleteMetricPair(routeMenu, global.metricId, global.metricVersion),
+    [contractError, routeMenu, global.metricId, global.metricVersion],
+  );
+  const metricInit = useStable(classifyMetricInit(adapter.publishedMetrics(), route?.menu.initializesMetric === true, global.metricId, global.metricVersion), sameMetricInit);
   const page = useMemo(() => parsed?.page ?? [], [parsed]);
   const extras = useMemo(() => parsed?.extras ?? [], [parsed]);
 
@@ -570,11 +584,12 @@ function useScreenState(app: AppValue, source: ScreenSource): { screen: ScreenSt
   // previous session. The mask is exactly the value the effect will set next — never the previous Scope's
   // error/forbidden/unknown_scope/valid, id, or grantedRooms, and never the previous session's `valid` (#183, #186).
   const scopeMasked = scope.scopeId !== global.scopeId || scope.validatedFor !== session;
-  const scopeView: ScopeState = scopeMasked
+  const maskedScope: ScopeState = scopeMasked
     ? global.scopeId === null
       ? { scopeId: null, status: 'none', validatedFor: session, grantedRooms: [] }
       : { scopeId: global.scopeId, status: 'validating', validatedFor: session, grantedRooms: [] }
     : scope;
+  const scopeView = useStable(maskedScope, sameScopeState);
 
   // Materialize the default period for time-applying menus (§6.3/§6.4: absolute from/to written into the address)
   // and the server-confirmed metric version in ONE replace computed from the same parsed snapshot. The initial Δ
@@ -707,19 +722,19 @@ function useScreenState(app: AppValue, source: ScreenSource): { screen: ScreenSt
     return correlationId;
   }, [adapter, registry, route, pageNavigation]);
 
-  const queryPolicy = { ...appliedQueryPolicy(route?.menu ?? null, global, page, routeContractError !== null || metricInit.phase !== 'skip'),
-    ready: route?.menu.query?.mode !== 'apply' || !route.menu.requiresScope || (scopeView.status === 'valid' && scopeView.scopeId === global.scopeId && scopeView.validatedFor === session) };
+  const queryPolicy = useStable({ ...appliedQueryPolicy(route?.menu ?? null, global, page, routeContractError !== null || metricInit.phase !== 'skip'),
+    ready: route?.menu.query?.mode !== 'apply' || !route.menu.requiresScope || (scopeView.status === 'valid' && scopeView.scopeId === global.scopeId && scopeView.validatedFor === session) }, sameQueryPolicy);
   const { queryDraft, queryHistory } = useScreenDraft({ store: source.draftStore, menu: route?.menu ?? null, identity: `${route?.menu.id ?? ''}\0${pathname}`, session, url,
     global, page, extras, defaultRangeTo, scope: scopeView, adapter, axes: equipmentAxes, invalid: routeContractError !== null,
     commit, setGlobal, setPage, history: app.pub.queryHistoryStore, revision: app.pub.revision, currentRevision: app.internal.currentRevision, allowed: route !== null && app.pub.canOpen(route.menu.id) });
-  const screen: ScreenState = { queryDraft, queryHistory, queryPolicy,
+  const screen = useMemo((): ScreenState => ({ queryDraft, queryHistory, queryPolicy,
     url, pathname, route, platformScreen, pageNavigation, contractError: routeContractError, metricInit, global, page, extras, pageParam, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, reportError, returnTarget, returnOrigin,
     currentSpace, scope: scopeView, retryScope, screenMode: mode, paneId, paneLabel,
-  };
+  }), [queryDraft, queryHistory, queryPolicy, url, pathname, route, platformScreen, pageNavigation, routeContractError, metricInit, global, page, extras, pageParam, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, reportError, returnTarget, returnOrigin, currentSpace, scopeView, retryScope, mode, paneId, paneLabel]);
   return { screen, sidebarSpace };
 }
 
-export function PlatformProvider({ adapter, registry, location = browserLocation, slots = {}, equipmentAxes = NO_EQUIPMENT_AXES, queryHistory, children }: { queryHistory?: QueryHistoryStore; equipmentAxes?: readonly EquipmentAxisDescriptor[]; location?: PlatformLocation; adapter: PlatformAdapter; registry: Registry; slots?: PlatformSlots; children: ReactNode }) {
+export function PlatformProvider({ adapter, registry, location = browserLocation, slots = NO_SLOTS, equipmentAxes = NO_EQUIPMENT_AXES, queryHistory, children }: { queryHistory?: QueryHistoryStore; equipmentAxes?: readonly EquipmentAxisDescriptor[]; location?: PlatformLocation; adapter: PlatformAdapter; registry: Registry; slots?: PlatformSlots; children: ReactNode }) {
   const { menuById } = registry;
   // The Registry never sees `equipmentAxes`, so a Condition preset naming an unknown axis surfaces here (06 §6.4, ADR-0083).
   for (const menu of registry.menus) {
@@ -865,12 +880,15 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
     });
   }, [userId]);
 
+  // `readRecent` reads this ref: it follows the state in a layout effect and at once in `recordVisit` (never written during render).
+  const recentRef = useRef(recent);
+  useLayoutEffect(() => { recentRef.current = recent; }, [recent]);
+  const readRecent = useCallback((): readonly Recent[] => recentRef.current, []);
   const recordVisit = useCallback((menuId: string, url: string) => {
-    setRecent(list => {
-      const next = [{ menuId, url: stripReturnToFromUrl(url), at: Date.now() }, ...list.filter(r => r.menuId !== menuId)].slice(0, 12);
-      writePreference(`platform:recent:${userId}`, next);
-      return next;
-    });
+    const next = [{ menuId, url: stripReturnToFromUrl(url), at: Date.now() }, ...recentRef.current.filter(r => r.menuId !== menuId)].slice(0, 12);
+    recentRef.current = next;
+    writePreference(`platform:recent:${userId}`, next);
+    setRecent(next);
   }, [userId]);
   const rememberScope = useCallback((scopeId: string) => { setLastScope(scopeId); writePreference(`platform:lastScope:${userId}`, scopeId); }, [userId]);
   // Latest session user id, readable from a usage effect's cleanup at call time: a role switch
@@ -887,17 +905,32 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
   const absoluteUrl = useCallback((next: string) => location.absoluteUrl(next), [location]);
   const defaultRangeTo = adapter.defaultRangeTo();
 
-  const pub: AppState = {
-    registry, adapter, location, absoluteUrl, equipmentAxes, queryHistoryStore: queryHistory,
-    session, user, revision, refreshEpochs, can, canOpen, globalMenus, menusInSpace, accessibleSpaces, lastScope, favorites, toggleFavorite, recent,
-    toasts, toast, dismissToast, holdToast, defaultRangeTo, slots, homeTodo: slots.homeTodo ?? null, paletteOpen, setPaletteOpen, paletteSession, switcherOpen, setSwitcherOpen, switcherSession,
-  };
-  const value: AppValue = { pub, internal: { currentRevision: revisions.get, selectionPortCache, enters, usageSessionId, userIdRef, usageNav, mainNavigation: pageNavigation, initialUrl, recordVisit, rememberScope } };
-  return <AppContext.Provider value={value}><MainScreenProvider app={value}>{children}</MainScreenProvider></AppContext.Provider>;
+  const homeTodo = slots.homeTodo ?? null;
+  const value = useMemo((): AppValue => ({
+    pub: {
+      registry, adapter, location, absoluteUrl, equipmentAxes, queryHistoryStore: queryHistory,
+      session, user, revision, refreshEpochs, can, canOpen, globalMenus, menusInSpace, accessibleSpaces, lastScope, favorites, toggleFavorite, readRecent,
+      toast, dismissToast, holdToast, defaultRangeTo, slots, homeTodo, setPaletteOpen, setSwitcherOpen,
+    },
+    internal: { currentRevision: revisions.get, selectionPortCache, enters, usageSessionId, userIdRef, usageNav, mainNavigation: pageNavigation, initialUrl, recordVisit, rememberScope },
+  }), [registry, adapter, location, absoluteUrl, equipmentAxes, queryHistory, session, user, revision, refreshEpochs, can, canOpen, globalMenus, menusInSpace, accessibleSpaces, lastScope, favorites, toggleFavorite, readRecent,
+    toast, dismissToast, holdToast, defaultRangeTo, slots, homeTodo, setPaletteOpen, setSwitcherOpen, revisions, selectionPortCache, enters, usageSessionId, userIdRef, usageNav, pageNavigation, initialUrl, recordVisit, rememberScope]);
+  const overlay = useMemo((): OverlayState => ({ paletteOpen, paletteSession, switcherOpen, switcherSession }), [paletteOpen, paletteSession, switcherOpen, switcherSession]);
+  return (
+    <AppContext.Provider value={value}>
+      <ToastsContext.Provider value={toasts}>
+        <OverlayContext.Provider value={overlay}>
+          <RecentContext.Provider value={recent}>
+            <MainScreenProvider app={value}>{children}</MainScreenProvider>
+          </RecentContext.Provider>
+        </OverlayContext.Provider>
+      </ToastsContext.Provider>
+    </AppContext.Provider>
+  );
 }
 
 /** The main screen: the browser URL, history, and the shell navigation that follows it. */
-function MainScreenProvider({ app, children }: { app: AppValue; children: ReactNode }) {
+const MainScreenProvider = memo(function MainScreenProvider({ app, children }: { app: AppValue; children: ReactNode }) {
   const { location, registry, can, canOpen, accessibleSpaces, menusInSpace, user } = app.pub;
   const { enters, mainNavigation: pageNavigation, initialUrl, recordVisit, rememberScope } = app.internal;
   const { matchRoute } = registry;
@@ -990,7 +1023,7 @@ function MainScreenProvider({ app, children }: { app: AppValue; children: ReactN
   // Stable while the five members are: an unrelated main Scope update must not re-render every pane consumer.
   const mainBound = useMemo<MainBound>(() => ({ visibleMenus, sidebarSpace, spaceResume, spaceEntry, switchSpace }), [visibleMenus, sidebarSpace, spaceResume, spaceEntry, switchSpace]);
   return <MainBoundContext.Provider value={mainBound}><ScreenContext.Provider value={screen}>{children}</ScreenContext.Provider></MainBoundContext.Provider>;
-}
+});
 
 /** One analysis-board pane's screen (ADR-0049). `query` is `buildQuery(global, page, extras)` of that pane, with its leading `?` (or empty). */
 export type PaneScreen = { menuId: string; params: Record<string, string>; query: string };
@@ -1085,6 +1118,27 @@ function useMerged(): HostPlatform | null {
   // `use` reads the main screen only outside a pane, so a pane reader has no dependency on it.
   const screen = paneScreen ?? use(ScreenContext);
   return useMemo(() => (app && main && screen ? { ...app.pub, ...main, ...screen } : null), [app, main, screen]);
+}
+
+/** Recent visits of the main screen, newest first. For a rendered list; an event handler reads `readRecent()` (host). Throws outside a provider. */
+export function useRecentVisits(): readonly Recent[] {
+  const value = useContext(RecentContext);
+  if (value === null) throw new Error('useRecentVisits outside PlatformProvider');
+  return value;
+}
+
+/** The shell toast list (`@ap/kernel/host`). Raising and dismissing stay `toast`/`dismissToast`. Throws outside a provider. */
+export function useToastList(): readonly Toast[] {
+  const value = useContext(ToastsContext);
+  if (value === null) throw new Error('useToastList outside PlatformProvider');
+  return value;
+}
+
+/** Open state and focus-gate sessions of the command palette and the system switcher (`@ap/kernel/host`). Throws outside a provider. */
+export function useOverlayState(): OverlayState {
+  const value = useContext(OverlayContext);
+  if (value === null) throw new Error('useOverlayState outside PlatformProvider');
+  return value;
 }
 
 /** The menu contract (ADR-0076). The same runtime value as `useHostPlatform()`, typed down to `MenuPlatform`. */

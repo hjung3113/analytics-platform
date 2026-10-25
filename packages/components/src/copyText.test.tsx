@@ -6,9 +6,9 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createBasePathLocation, I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
+import { createBasePathLocation, I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { copyText, useCopyLink } from './copyText';
-import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { noContext, testAdapter, testSession, testSpace , useToastsForTest } from '@ap/kernel/testing';
 import { groupId, spaceId } from '@ap/contracts';
 
 function secureClipboard() {
@@ -127,7 +127,7 @@ const SUCCESS = '이 버전의 링크를 복사했습니다.';
 const FAILURE = '링크를 복사하지 못했습니다. 주소창의 주소를 직접 복사하세요.';
 
 function ToastProbe() {
-  const { toasts } = usePlatform();
+  const toasts = useToastsForTest();
   return <div data-testid="toast-probe">{toasts.map(toast => <p key={toast.id}>{toast.tone}:{toast.text}</p>)}</div>;
 }
 

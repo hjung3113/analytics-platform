@@ -6,9 +6,9 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
+import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { PlatformDataTable, type PlatformDataTableProps } from './PlatformDataTable';
-import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { noContext, testAdapter, testSession, testSpace , useToastsForTest } from '@ap/kernel/testing';
 import { groupId, spaceId, type ApiResponse } from '@ap/contracts';
 
 const mockBlobResolvers: ((blob: Blob) => void)[] = [];
@@ -31,7 +31,7 @@ type Row = { id: string; status: string };
 const columns: PlatformDataTableProps<Row>['columns'] = [{ id: 'status', header: 'Status', cell: row => String(row.status) }];
 
 function ToastProbe() {
-  const { toasts } = usePlatform();
+  const toasts = useToastsForTest();
   return <div data-testid="toast-probe">{toasts.map(toast => <p key={toast.id}>{toast.text}</p>)}</div>;
 }
 

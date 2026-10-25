@@ -13,7 +13,7 @@ import * as publicApi from './index';
 import { InWorkspacePanelProvider } from './workspace/panelContext';
 import { readXlsx } from './xlsxTestReader';
 import { PlatformDataTable, type PageQuery, type PageResult, type PlatformDataTableProps, type TableUrlState } from './PlatformDataTable';
-import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { memoryStorage, noContext, testAdapter, testSession, testSpace , useToastsForTest } from '@ap/kernel/testing';
 import { groupId, spaceId, type ApiResponse, type GlobalContext, type PageSort } from '@ap/contracts';
 
 afterEach(cleanup);
@@ -724,7 +724,7 @@ const originalRevokeObjectURL = URL.revokeObjectURL;
 
 /** Stands in for the shell's Toasts: body text plus the named detail note (F2, like StateMessage's 서버 세부). */
 function ToastProbe() {
-  const { toasts } = usePlatform();
+  const toasts = useToastsForTest();
   const { t } = useI18n();
   return <div data-testid="toast-probe">{toasts.map(toast => <p key={toast.id}>{toast.text}
     {toast.detail && <span role="note" aria-label={t('serverDetail')}>{toast.detail}</span>}

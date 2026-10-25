@@ -4,7 +4,7 @@ import { House } from 'lucide-react';
 import { useState, type ReactElement, type ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
-import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { noContext, testAdapter, testSession, testSpace, useToastsForTest } from '@ap/kernel/testing';
 import { groupId, spaceId } from '@ap/contracts';
 import { useHostSeam } from '@/lib/host/host-seam';
 import type { HostSeam } from '@fops/frontend/global-screens/core';
@@ -233,10 +233,10 @@ describe('FoBridge seam notices', () => {
   function mountSeam() {
     setFoApi({ basePath: '/fo', onSessionLost: () => undefined });
     at('/inbox?v=1');
-    const live = { seam: undefined as HostSeam | undefined, toasts: [] as ReturnType<typeof usePlatform>['toasts'] };
+    const live = { seam: undefined as HostSeam | undefined, toasts: [] as ReturnType<typeof useToastsForTest> };
     function Probe() {
       live.seam = useHostSeam();
-      live.toasts = usePlatform().toasts;
+      live.toasts = useToastsForTest();
       return null;
     }
     render(<FoBridge><Probe /></FoBridge>, { wrapper });

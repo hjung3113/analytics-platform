@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { buildQuery, emptyGlobal, incompleteMetricPair, missingRequiredContext, parseQuery, sameGlobal, shift, type EquipmentAxisDescriptor, type GlobalContext, type Pair, type PlatformAdapter, type Session } from '@ap/contracts';
 import { createHistoryState, useScreenHistory, canonicalHistoryQuery, historyChanged } from './query-history';
 import { queryHistoryId, type QueryHistoryStore, type QueryHistoryKey, type QueryHistoryEntry } from '@ap/contracts';
@@ -7,6 +7,7 @@ import { CONTEXT_LABELS, type MenuEntry } from './registry';
 import { dropResetKeys } from './paneContext';
 import type { QueryDraft, QueryMissing } from './query-draft';
 import type { ScopeState } from './platform';
+import { shallowEqual, useStable } from './stable';
 
 export type DraftValues = QueryDraft['draft'];
 type Values = DraftValues;
@@ -86,13 +87,14 @@ function dirtyFields(applied: Values, draft: Values): string[] {
   const keys = [...new Set([...applied.page, ...draft.page].map(([key]) => key))];
   return [...changed, ...keys.filter(key => (applied.page.find(([k]) => k === key)?.[1] || null) !== (draft.page.find(([k]) => k === key)?.[1] || null))];
 }
-export function useScreenDraft(input: DraftInputs) {
+export function useScreenDraft(rawInput: DraftInputs) {
+  // The screen state rebuilds this object every render; one identity per distinct content keeps `queryDraft` and `queryHistory` stable (#824).
+  const input = useStable(rawInput, shallowEqual);
   const [local] = useState(createDraftStore);
   const active = useRef(true);
   useLayoutEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
   const store = input.store ?? local;
   const snapshot = useSyncExternalStore(store.subscribe, store.get);
-  const state = reconcile(snapshot, input);
   const mode = input.menu?.query?.mode ?? 'live';
   useLayoutEffect(() => {
     if (mode !== 'apply') return;
@@ -106,13 +108,19 @@ export function useScreenDraft(input: DraftInputs) {
       });
     }
   });
-  const replace = (values: Values) => {
+  const replace = useCallback((values: Values) => {
     const previous = reconcile(store.get(), input);
     const next = normalize(input, values);
     store.put({ ...previous, draft: next, pageBasis: next.global, lastRestoreRevision: previous.editRevision + 1, editRevision: previous.editRevision + 1, historyInitialized: true });
-  };
-  const queryHistory = useScreenHistory(input, store, values => normalize(input, values), replace);
-  if (mode === 'live') return { queryHistory, queryDraft: { mode, draft: { global: input.global, page: input.page }, dirty: [], setDraftGlobal: input.setGlobal, setDraftPage: input.setPage, apply() {}, revert() {}, reset() {}, missing: [], canApply: true, applying: false } satisfies QueryDraft };
+  }, [store, input]);
+  const normalizeFor = useCallback((values: Values) => normalize(input, values), [input]);
+  const queryHistory = useScreenHistory(input, store, normalizeFor, replace);
+  const queryDraft = useMemo((): QueryDraft => draftApi(input, store, reconcile(snapshot, input), active), [input, store, snapshot, active]);
+  return { queryHistory, queryDraft };
+}
+function draftApi(input: DraftInputs, store: DraftStore, state: Snapshot, active: { current: boolean }): QueryDraft {
+  const mode = input.menu?.query?.mode ?? 'live';
+  if (mode === 'live') return { mode, draft: { global: input.global, page: input.page }, dirty: [], setDraftGlobal: input.setGlobal, setDraftPage: input.setPage, apply() {}, revert() {}, reset() {}, missing: [], canApply: true, applying: false };
   const current = () => reconcile(store.get(), input);
   const candidate = (values: Values) => {
     const next = normalize(input, values);
@@ -128,7 +136,7 @@ export function useScreenDraft(input: DraftInputs) {
     const next = candidate(values);
     store.put({ ...previous, draft: next, editRevision: previous.editRevision + 1 });
   };
-  return { queryHistory, queryDraft: {
+  return {
     mode, draft: state.draft, dirty: dirtyFields({ global: input.global, page: input.page }, state.draft), missing, canApply, applying: state.pending?.dispatching === true,
     setDraftGlobal(patch) {
       if ('scopeId' in patch && patch.scopeId !== input.global.scopeId) { input.setGlobal({ scopeId: patch.scopeId }); return; }
@@ -162,5 +170,5 @@ export function useScreenDraft(input: DraftInputs) {
     },
     revert() { const previous = current(); store.put({ ...previous, draft: { global: input.global, page: input.page }, pageBasis: undefined, editRevision: previous.editRevision + 1 }); },
     reset() { const previous = current(); store.put({ ...previous, draft: defaults(input), pageBasis: undefined, editRevision: previous.editRevision + 1 }); },
-  } satisfies QueryDraft };
+  };
 }

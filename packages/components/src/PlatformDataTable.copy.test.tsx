@@ -6,9 +6,9 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
+import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { PlatformDataTable, type PlatformDataTableProps } from './PlatformDataTable';
-import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { noContext, testAdapter, testSession, testSpace , useToastsForTest } from '@ap/kernel/testing';
 import { groupId, spaceId, type ApiResponse, type PageQuery, type PageResult, type PageSort } from '@ap/contracts';
 
 const registryWith = (exportFeature: boolean) => createRegistry({
@@ -44,7 +44,7 @@ const serverSelected = vi.fn(async (request: { scope: { kind: 'selected'; ids: s
   ok(request.scope.kind === 'selected' ? ALL.filter(r => (request.scope as { ids: string[] }).ids.includes(r.id)).reverse() : ALL));
 
 function ToastProbe() {
-  const { toasts } = usePlatform();
+  const toasts = useToastsForTest();
   return <div data-testid="toast-probe">{toasts.map(toast => <p key={toast.id}>{toast.text}</p>)}</div>;
 }
 
