@@ -83,7 +83,7 @@ describe('workspace assembly (#260)', () => {
       ['foDashboard', 'feedbackops'],
       ['foVoc', 'feedbackops'],
     ]);
-    expect(SPACES.map(space => space.id)).toEqual(['analytics', 'metrics', 'clas', 'log-dev', 'improvement', 'operations', 'feedbackops']);
+    expect(SPACES.map(space => space.id)).toEqual(['analytics', 'metrics', 'clas', 'tools', 'log-dev', 'improvement', 'operations', 'feedbackops']);
     expect(SPACES[0]).toMatchObject({
       label: { ko: 'MARS', en: 'MARS' },
       subtitle: { ko: '생산성 분석', en: 'Productivity analysis' },
@@ -104,14 +104,17 @@ describe('workspace assembly (#260)', () => {
       homeMenuId: 'operation-time',
     });
     expect(SPACES[2].permission).toBeUndefined();
-    expect(SPACES[5]).toMatchObject({
+    // #817: the EV Top View lives in its own "tools" space; no entry permission (a space permission must be a platform permission, the module one is eqv:view).
+    expect(SPACES[3]).toMatchObject({ label: { ko: '도구', en: 'Tools' }, homeMenuId: 'eqv:topview' });
+    expect(SPACES[3].permission).toBeUndefined();
+    expect(SPACES[6]).toMatchObject({
       label: { ko: '운영 콘솔', en: 'Operations console' },
       description: { ko: '권한·감사·메뉴 활용률을 운영합니다.', en: 'Operate permissions, audit, and menu usage.' },
       permission: 'console:access',
       homeMenuId: 'admin-roles',
     });
-    expect(SPACES[5].subtitle).toBeUndefined();
-    expect(SPACES[6]).toMatchObject({
+    expect(SPACES[6].subtitle).toBeUndefined();
+    expect(SPACES[7]).toMatchObject({
       label: { ko: 'FeedbackOps', en: 'FeedbackOps' },
       subtitle: { ko: '피드백 운영', en: 'Feedback operations' },
       permission: 'feedbackops:access',
@@ -127,9 +130,9 @@ describe('workspace assembly (#260)', () => {
     for (const id of ['fo-inbox', 'fo-triage', 'fo-clusters']) expect(registry.menuById(id).pageKeys).toEqual(expect.arrayContaining(['managedSystem', 'focus']));
     expect(registry.spaceOf(registry.menuById('fo-inbox'))?.id).toBe('feedbackops');
     // #252 (ADR-0065): work-queue first; every menu is planned and open to every signed-in user for now.
-    expect(SPACES[3]).toMatchObject({ label: { ko: '표준 로그 개발', en: 'Standard log development' }, homeMenuId: 'log-my-queue' });
-    expect(SPACES[4]).toMatchObject({ label: { ko: '개선 실행', en: 'Improvement execution' }, homeMenuId: 'imp-my-tasks' });
-    expect(SPACES.slice(3, 5).every(space => space.permission === undefined)).toBe(true);
+    expect(SPACES[4]).toMatchObject({ label: { ko: '표준 로그 개발', en: 'Standard log development' }, homeMenuId: 'log-my-queue' });
+    expect(SPACES[5]).toMatchObject({ label: { ko: '개선 실행', en: 'Improvement execution' }, homeMenuId: 'imp-my-tasks' });
+    expect(SPACES.slice(4, 6).every(space => space.permission === undefined)).toBe(true);
     const planned = registry.menus.filter(menu => ['log-dev', 'improvement'].includes(registry.spaceOf(menu)?.id ?? ''));
     expect(planned.map(menu => menu.id)).toEqual([
       'log-my-queue', 'log-recent-models', 'log-models', 'log-defects', 'log-partner-reviews', 'log-rules',
