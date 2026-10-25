@@ -29,13 +29,13 @@ A.
 - 틀린 형식이거나 다른 대상에 묶인 커서는 outcome `error`(`Invalid cursor`). 첫 쪽이 0건이면 `empty`, 뒤쪽이 0건이면 `ok` + `events: []` + `nextCursor: null`.
 - 권한·Scope·room 게이트 순서는 그대로이고 커서는 게이트를 모두 지난 뒤에만 해석한다(커서가 게이트를 우회하거나 다른 대상 행을 섞지 않는다).
 
-**적합성 자동 skip.** server-conformance는 커서 검사 5건(한 쪽 ≤ 50, 끝까지 따라가면 중복 없이 정렬 순서로 모두·마지막 `null`, 틀린 커서 `error`, 커서를 붙여도 다른 site·권한 없음은 `forbidden`)을 더한다. 첫 쪽 응답에 `nextCursor` 키가 없는 서버는 이 검사들을 이유(`server does not page entityAudit`)를 단 skipped로 바꾸고 `cursor`를 보내지 않는다 — 통과로 세지 않는다. FeedbackOps 백엔드의 `entityAudit`은 아직 쪽을 나누지 않으므로 코드를 바꾸지 않고도 CI가 깨지지 않으며, 구현은 [#857](https://github.com/hjung3113/analytics-platform/issues/857)이다.
+**적합성 자동 skip.** server-conformance는 커서 검사 9건(한 쪽 ≤ 50, 끝까지 따라가면 중복 없이 정렬 순서로 모두·마지막 `null`, 틀린 커서 `error`, 틀린 커서를 붙여도 다른 site·권한 없음은 `forbidden`, 그리고 서버가 실제로 발급한 커서를 다른 대상·다른 site·권한 없는 계정·권한 없는 room에 보내면 커서 없는 요청과 같이 거절되고 표본의 행이 하나도 나오지 않음)을 더한다. site 검사는 site 없는 목적지(`scopeId: null`) 표본이면 건너뛴다. 발급 커서가 필요한 4건은 표본이 한 쪽에 들어가 커서가 없으면 이유를 단 skipped다. 첫 쪽 응답에 `nextCursor` 키가 없는 서버는 이 검사들을 이유(`server does not page entityAudit`)를 단 skipped로 바꾸고 `cursor`를 보내지 않는다 — 통과로 세지 않는다. FeedbackOps 백엔드의 `entityAudit`은 아직 쪽을 나누지 않으므로 코드를 바꾸지 않고도 CI가 깨지지 않으며, 구현은 [#857](https://github.com/hjung3113/analytics-platform/issues/857)이다.
 
 **Kernel과 화면.** `useEntityAudit(ref, enabled?)`(`@ap/kernel`)가 첫 쪽(`query`, `QueryView`용)과 `timeline = { events, more }`를 준다. 커서를 이어 붙이는 일(누적, id 중복 제거, 같은 커서 재시도, 정체성 변경 시 abort, 끝 판정, 전진하지 않는 커서는 `error`)은 도메인을 모르는 내부 모듈 `cursor-pages.ts`가 맡는다. `AuditTimeline({ events, more? })`는 `more`가 없으면 지금과 같은 마크업이고, 있으면 목록 끝에 버튼·끝 캡션·실패 재시도·권한 안내와 상태 알림을 그린다(문구와 상태는 06 §13).
 
 **포커스 예외(06 §26).** 같은 화면 안 상태 변경은 포커스를 옮기지 않는다는 규칙에 예외 하나를 더한다 — `이전 변경 이력 더 보기`가 성공하면 붙은 첫 항목(없으면 끝 캡션)으로 옮기되, 포커스가 아직 그 버튼에 있을 때만이다. 키보드 사용자가 새 항목을 처음부터 이어 읽게 하고, 그 사이 다른 곳으로 옮긴 사용자의 포커스는 뺏지 않는다.
 
-**설비 감사 탭의 정체성은 session이다.** `useEntityAudit`의 첫 쪽은 `useEntityQuery`와 같은 session 정체성(revision·user·ref, ref가 `scopeId`를 싣는다)이다. 설비 감사 탭이 context 정체성(전역 Context가 바뀌면 다시 읽음)에서 session으로 바뀌므로, 기간·조건을 바꿔도 다시 읽지 않는다 — 감사 기록은 전역 기간으로 거르지 않기 때문이다. Scope·사용자·revision이 바뀌거나 같은 정체성을 다시 조회하면 붙인 쪽을 버리고 첫 쪽부터 읽는다. 불러온 쪽 수는 URL에 두지 않는다.
+**설비 감사 탭의 정체성은 session이다.** `useEntityAudit`의 첫 쪽은 `useEntityQuery`와 같은 session 정체성(revision·user·ref, ref가 `scopeId`를 싣는다)이다. 설비 감사 탭이 context 정체성(전역 Context가 바뀌면 다시 읽음)에서 session으로 바뀌므로, 기간·조건을 바꿔도 다시 읽지 않는다 — 감사 기록은 전역 기간으로 거르지 않기 때문이다. Scope·사용자·revision이 바뀌거나 같은 정체성을 다시 조회하면 붙인 쪽을 버리고 첫 쪽부터 읽는다. 첫 쪽은 응답 객체가 아니라 조회가 시작될 때마다 오르는 읽기 세대로 구분한다(어댑터가 같은 응답 객체를 돌려줘도 붙인 쪽을 버리고, 다시 읽는 동안에는 붙인 쪽을 보이지 않는다). 불러온 쪽 수는 URL에 두지 않는다.
 
 ## 되돌리기
 

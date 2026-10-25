@@ -224,6 +224,45 @@ describe('useEntityAudit (ADR-0085)', () => {
     expect('cursor' in f.requests[2]!.req).toBe(false);
   });
 
+  it('hides the appended pages while the first page is read again, and drops them when it lands', async () => {
+    let release: (() => void) | null = null;
+    let firstCalls = 0;
+    const f = fixture(async req => {
+      if (req.cursor) return ok(PAGES[req.cursor]!);
+      firstCalls += 1;
+      if (firstCalls === 1) return ok(PAGES.first!);
+      await new Promise<void>(resolve => { release = resolve; });
+      return ok(PAGES.first!);
+    });
+    const m = mount(f);
+    await flush();
+    act(() => m.seen().more.load()); await flush();
+    expect(text('events')).toBe('e5,e4,e3,e2');
+    act(() => m.seen().refetch());
+    await flush();
+    expect(text('events')).toBe('e5,e4');
+    expect(text('added')).toBe('-');
+    act(() => release?.()); await flush();
+    expect(text('events')).toBe('e5,e4');
+    expect(text('status')).toBe('idle');
+  });
+
+  it('drops the appended pages when the adapter answers the refetch with the identical response object', async () => {
+    const same = ok(PAGES.first!);
+    const f = fixture(async req => (req.cursor ? ok(PAGES[req.cursor]!) : same));
+    const m = mount(f);
+    await flush();
+    act(() => m.seen().more.load()); await flush();
+    expect(text('events')).toBe('e5,e4,e3,e2');
+    act(() => m.seen().refetch());
+    await flush();
+    expect(text('events')).toBe('e5,e4');
+    expect(text('status')).toBe('idle');
+    expect(text('added')).toBe('-');
+    act(() => m.seen().more.load()); await flush();
+    expect(text('events')).toBe('e5,e4,e3,e2');
+  });
+
   it('aborts an in-flight load on unmount', async () => {
     const f = fixture(async req => req.cursor ? new Promise<ApiResponse<EntityAuditPage>>(() => {}) : ok(PAGES.first!));
     const m = mount(f);

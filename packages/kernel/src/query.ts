@@ -97,19 +97,25 @@ function compareAuditEvents(a: AuditEvent, b: AuditEvent): number {
  */
 export function useEntityAudit(ref: EntityRef, enabled = true): { query: QueryState<EntityAuditPage>; timeline: { events: readonly AuditEvent[]; more: AuditMore } } {
   const { adapter } = useHostPlatform();
+  // The read generation of the first page: bumped whenever a first-page read starts, so the appended pages belong to
+  // one read even when the adapter answers a refetch with the very same response object.
+  const [generation, setGeneration] = useState(0);
   const query = usePlatformQuery<EntityAuditPage>(
-    signal => adapter.entityAudit({ type: ref.type, id: ref.id, scopeId: ref.scopeId }, signal),
+    signal => {
+      setGeneration(n => n + 1);
+      return adapter.entityAudit({ type: ref.type, id: ref.id, scopeId: ref.scopeId }, signal);
+    },
     [ref],
     enabled,
     'session',
   );
   const { response, status } = query;
   const first = useMemo<FirstPage<AuditEvent> | null>(() => response && {
-    key: response,
+    key: generation,
     settled: status === 'done',
     items: response.outcome === 'ok' ? response.data?.events ?? [] : [],
     nextCursor: response.outcome === 'ok' ? response.data?.nextCursor ?? null : null,
-  }, [response, status]);
+  }, [response, status, generation]);
   const { items, more } = useCursorPages<AuditEvent>(
     first,
     async (cursor, signal) => {

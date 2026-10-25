@@ -967,6 +967,23 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
       const first = await probe();
       return 'skipped' in first ? first : judge(first);
     };
+    /** A cursor the server really issued (page 1's `nextCursor`) plus the ids of the sample's first two pages, for the leak check. */
+    const issue = async (): Promise<ConformanceSkipped | { cursor: string; sampleIds: ReadonlySet<string> }> => {
+      const first = await probe();
+      if ('skipped' in first) return first;
+      const cursor = first.data?.nextCursor;
+      if (typeof cursor !== 'string' || cursor === '') return { skipped: 'the sample fits one page — the server issued no cursor to replay' };
+      const second = await adapter.entityAudit({ ...entityRef, cursor });
+      const rows = [...(first.data?.events ?? []), ...(second.outcome === 'ok' ? second.data?.events ?? [] : [])];
+      return { cursor, sampleIds: new Set(rows.map(event => event.id)) };
+    };
+    /** Replays the issued cursor at `target`: the answer is `want` and carries no row of the sample the cursor was issued for. */
+    const replayRefused = async (target: EntityRef, issued: { cursor: string; sampleIds: ReadonlySet<string> }, want: 'forbidden' | 'error', why: string): Promise<string | null> => {
+      const r = await adapter.entityAudit({ ...target, cursor: issued.cursor });
+      const leaked = (r.data?.events ?? []).filter(event => issued.sampleIds.has(event.id));
+      if (leaked.length > 0) return `an issued cursor replayed ${why} returned ${leaked.length} row(s) of the sample it was issued for (${describeResponse(r)})`;
+      return r.outcome === want ? null : `an issued cursor replayed ${why}: expected ${want}, got ${describeResponse(r)}`;
+    };
     const cursorProblem = (cursor: unknown): string | null =>
       cursor === null || (typeof cursor === 'string' && cursor !== '') ? null : 'nextCursor is a non-empty string, or null on the last page';
     return [
@@ -1022,13 +1039,13 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
         mode: 'granted',
         run: skipOr(() => expectOutcome(() => adapter.entityAudit({ ...entityRef, cursor: '__conformance_invalid_cursor' }), 'error', 'a cursor the server never issued')()),
       },
-      {
+      atSite({
         id: 'port · entityAudit with a cursor at a site without a grant → forbidden',
         uses: ['entityAudit'],
         needsSites: true,
         mode: 'granted',
         run: skipOr(() => expectOutcome(() => adapter.entityAudit({ ...entityRef, scopeId: harness.foreignScopeId, cursor: '__conformance_invalid_cursor' }), 'forbidden', 'a cursor is read only after the scope gate, so it opens nothing')()),
-      },
+      }),
       {
         id: `port · entityAudit with a cursor without ${ports.entity.permission} → forbidden`,
         uses: ['entityAudit'],
@@ -1042,6 +1059,53 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
           );
         },
       },
+      // The same gates with a cursor the server really issued: a server that trusts a valid cursor over the request
+      // it arrives with would still pass the invalid-cursor checks above. Each replay must be refused like the
+      // cursor-less request, and no row of the sample may come back.
+      {
+        id: 'port · entityAudit with an issued cursor on another destination → error',
+        uses: ['entityAudit'],
+        mode: 'granted',
+        run: async () => {
+          const issued = await issue();
+          if ('skipped' in issued) return issued;
+          const other: EntityRef = { ...entityRef, id: `${entityRef.id}__conformance_other` };
+          const plain = await adapter.entityAudit(other);
+          return replayRefused(other, issued, plain.outcome === 'forbidden' ? 'forbidden' : 'error', 'on another destination (a cursor is bound to the destination it was issued for)');
+        },
+      },
+      atSite({
+        id: 'port · entityAudit with an issued cursor at a site without a grant → forbidden',
+        uses: ['entityAudit'],
+        needsSites: true,
+        mode: 'granted',
+        run: async () => {
+          const issued = await issue();
+          return 'skipped' in issued ? issued : replayRefused({ ...entityRef, scopeId: harness.foreignScopeId }, issued, 'forbidden', 'at a site without a grant');
+        },
+      }),
+      {
+        id: `port · entityAudit with an issued cursor without ${ports.entity.permission} → forbidden`,
+        uses: ['entityAudit'],
+        mode: 'permission',
+        run: async () => {
+          const issued = await harness.asGranted(issue);
+          if ('skipped' in issued) return issued;
+          return harness.withoutPermission(ports.entity.permission, () => replayRefused(entityRef, issued, 'forbidden', 'by an account without the destination permission'));
+        },
+      },
+      atSite({
+        id: 'port · entityAudit with an issued cursor in an ungranted room → forbidden',
+        uses: ['entityAudit'],
+        needsSites: true,
+        mode: ungrantedRoomRef ? 'granted' : 'skipped',
+        run: ungrantedRoomRef
+          ? async () => {
+            const issued = await issue();
+            return 'skipped' in issued ? issued : replayRefused(ungrantedRoomRef, issued, 'forbidden', 'for a destination in an ungranted room');
+          }
+          : async () => null, // never called: skipped checks are filtered out of every run
+      }),
     ];
   }
   checks.push({

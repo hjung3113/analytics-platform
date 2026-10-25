@@ -17,11 +17,15 @@ export type CursorMore = {
   /** New object on every successful `load` (`seq` + 1); null until one succeeds and again when the first page is replaced. */
   last: CursorMoreLast | null;
 };
-/** The first page, as the caller read it. `key` is the identity of that read: a new object means "start over". */
-export type FirstPage<T> = { key: object; settled: boolean; items: readonly T[]; nextCursor: string | null };
+/**
+ * The first page, as the caller read it. `key` is the read generation: it changes on every new first-page read (identity
+ * change or refetch, whatever object the adapter answers with) and means "start over". While `settled` is false the
+ * first page is being read again and no appended page is shown.
+ */
+export type FirstPage<T> = { key: number; settled: boolean; items: readonly T[]; nextCursor: string | null };
 export type CursorPage<T> = { items: readonly T[]; nextCursor?: string | null };
 
-type Tail<T> = { key: object; appended: readonly T[]; cursor: string | null; seen: readonly string[]; status: 'idle' | 'loading' | 'error'; error: CursorMoreError | null; last: CursorMoreLast | null };
+type Tail<T> = { key: number; appended: readonly T[]; cursor: string | null; seen: readonly string[]; status: 'idle' | 'loading' | 'error'; error: CursorMoreError | null; last: CursorMoreLast | null };
 
 function freshTail<T>(first: FirstPage<T>): Tail<T> {
   return { key: first.key, appended: [], cursor: first.nextCursor, seen: [], status: 'idle', error: null, last: null };
@@ -39,7 +43,7 @@ export function useCursorPages<T>(
   const orderRef = useRef(order);
   useLayoutEffect(() => { runRef.current = run; idRef.current = id; orderRef.current = order; });
 
-  const tail = first && state?.key === first.key ? state : null;
+  const tail = first && first.settled && state?.key === first.key ? state : null;
   const firstKey = first?.key;
   const settled = first?.settled ?? false;
   // A superseded first page (identity change, refetch, unmount) abandons the request that was appending to it.
@@ -95,11 +99,10 @@ export function useCursorPages<T>(
     const cursor = tail ? tail.cursor : first?.nextCursor ?? null;
     const status: CursorMoreStatus = cursor === null ? 'end'
       : !tail ? 'idle'
-      : tail.status === 'loading' && !settled ? 'idle'
       : tail.status;
     return {
       items: tail ? [...(first?.items ?? []), ...tail.appended] : first?.items ?? [],
       more: { status, load, error: cursor === null ? null : tail?.error ?? null, last: tail?.last ?? null },
     };
-  }, [first, tail, settled, load]);
+  }, [first, tail, load]);
 }
