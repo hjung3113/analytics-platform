@@ -5,6 +5,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { defineEndpoint, type ApiResponse, groupId, spaceId } from '@ap/contracts';
 import { I18nProvider } from './i18n';
 import { PaneQueryDraftProvider, PaneScreenProvider, PlatformProvider, useHostPlatform, type PaneScreen } from './platform';
+import { useConditionPreset } from './condition-preset';
 import { useQueryDraft } from './query-draft';
 import { useDrill } from './drill';
 import { useMenuQuery, useMenuFetch, usePlatformQuery, useEntityQuery } from './query';
@@ -414,4 +415,76 @@ it('normalizes injected Condition order and refuses asOf for an axis without mem
   expect(draft.draft.page).toEqual([['page', '3']]);
   expect(() => draft.setDraftGlobal({ membershipBasis: 'asOf' })).toThrow(/membership_basis_unsupported/);
   expect(draft.draft.global.membershipBasis).toBeNull();
+});
+
+// Condition presets (06 §6.4, ADR-0083): a preset narrows the request, never the global Condition or the URL.
+const presetAxes = ['stgroup', 'team', 'maker', 'model'].map(id => ({ id, label: { ko: id, en: id }, membershipHistory: false }));
+const presetFields = {
+  pageKeys: ['view'],
+  conditionPresets: [
+    { id: 'a', label: { ko: 'A', en: 'A' }, axes: ['stgroup', 'team'] },
+    { id: 'b', label: { ko: 'B', en: 'B' }, axes: ['maker', 'model'] },
+  ],
+  conditionPreset: { key: 'view', default: 'a' },
+};
+const presetEndpoint = (context: Parameters<typeof defineEndpoint>[0]['context']) => defineEndpoint<{}, number>({ id: 'fixture.preset', menuId: 'home', permission: 'platform:view', requiresScope: false, context, paramKeys: {}, kinds: [], mergeTimeDomain: false });
+const groupParam = (condition: Record<string, string[]>) => `&equipmentGroup=${encodeURIComponent(JSON.stringify(condition))}`;
+const fullCondition = { maker: ['M1'], model: ['X1'], team: ['T1'] };
+let presetQuery: ReturnType<typeof useMenuQuery<{}, number>>;
+let presetView: ReturnType<typeof useConditionPreset>;
+function mountPreset(chosenMenu: typeof menu & Partial<typeof presetFields>, spec: ReturnType<typeof presetEndpoint>, url: string) {
+  function PresetProbe() { draft = useQueryDraft(); platform = useHostPlatform(); presetQuery = useMenuQuery(spec, {}); presetView = useConditionPreset(); return null; }
+  const chosen = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: [chosenMenu] });
+  window.history.replaceState(null, '', url);
+  const session = testSession(['platform:view']);
+  const send = vi.fn(async (_request: { context: { condition?: unknown } }) => ({ outcome: 'ok' as const, data: 7, assessments: [], trust: null, correlationId: 'result' }));
+  render(<I18nProvider><PlatformProvider registry={chosen} equipmentAxes={presetAxes} adapter={testAdapter({ session: () => session, menuQuery: send as never })}><PresetProbe /></PlatformProvider></I18nProvider>);
+  return { send };
+}
+const sentConditions = (send: ReturnType<typeof mountPreset>['send']) => send.mock.calls.map(([request]) => request.context.condition);
+const urlCondition = () => JSON.parse(new URLSearchParams(window.location.search).get('equipmentGroup') ?? 'null');
+
+it('apply mode: switching a Condition preset queries nothing, Apply queries once with only that preset\'s axes, and the Condition stays whole', async () => {
+  const presetMenu = { ...menu, ...presetFields, pageKeys: [...menu.pageKeys, ...presetFields.pageKeys], context: { ...menu.context, condition: 'apply' as const } };
+  const { send } = mountPreset(presetMenu, presetEndpoint({ time: 'apply', condition: 'apply' }), '/' + period + groupParam(fullCondition));
+  await waitFor(() => expect(presetQuery.status).toBe('done'));
+  expect(sentConditions(send)).toEqual([{ team: ['T1'] }]);
+  const mounted = send.mock.calls.length;
+  expect(presetView).toMatchObject({ key: 'view', activeId: 'a', appliedId: 'a', outsideAxes: ['maker', 'model'] });
+  act(() => draft.setDraftPage({ view: 'b' }));
+  expect(presetView).toMatchObject({ activeId: 'b', appliedId: 'a', outsideAxes: ['stgroup', 'team'] });
+  expect(send.mock.calls.length - mounted).toBe(0);
+  act(() => draft.apply());
+  await waitFor(() => expect(platform.pageParam('view')).toBe('b'));
+  await waitFor(() => expect(presetQuery.status).toBe('done'));
+  expect(send.mock.calls.length - mounted).toBe(1);
+  expect(sentConditions(send).at(-1)).toEqual({ maker: ['M1'], model: ['X1'] });
+  expect(platform.global.condition).toEqual(fullCondition);
+  expect(urlCondition()).toEqual(fullCondition);
+});
+
+it('live mode: an axis outside the active preset neither reaches the request nor refetches; switching the preset refetches once', async () => {
+  const { query: _applyOnly, ...liveMenu } = menu;
+  const presetMenu = { ...liveMenu, ...presetFields, pageKeys: [...menu.pageKeys, ...presetFields.pageKeys], context: { ...menu.context, condition: 'apply' as const } };
+  const { send } = mountPreset(presetMenu as never, presetEndpoint({ condition: 'apply' }), '/?v=1' + groupParam(fullCondition));
+  await waitFor(() => expect(presetQuery.status).toBe('done'));
+  expect(sentConditions(send)).toEqual([{ team: ['T1'] }]);
+  const mounted = send.mock.calls.length;
+  act(() => platform.setGlobal({ condition: { ...fullCondition, maker: ['M2'] } }));
+  await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+  expect(send.mock.calls.length - mounted).toBe(0);
+  expect(urlCondition()).toEqual({ ...fullCondition, maker: ['M2'] });
+  act(() => draft.setDraftPage({ view: 'b' }));
+  await waitFor(() => expect(send.mock.calls.length - mounted).toBe(1));
+  expect(sentConditions(send).at(-1)).toEqual({ maker: ['M2'], model: ['X1'] });
+  expect(platform.global.condition).toEqual({ ...fullCondition, maker: ['M2'] });
+  expect(urlCondition()).toEqual({ ...fullCondition, maker: ['M2'] });
+});
+
+it('a menu without presets sends the whole Condition', async () => {
+  const plain = { ...menu, context: { ...menu.context, condition: 'apply' as const } };
+  const { send } = mountPreset(plain, presetEndpoint({ time: 'apply', condition: 'apply' }), '/' + period + groupParam(fullCondition));
+  await waitFor(() => expect(presetQuery.status).toBe('done'));
+  expect(sentConditions(send)).toEqual([fullCondition]);
+  expect(presetView).toBeNull();
 });

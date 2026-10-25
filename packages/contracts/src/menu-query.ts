@@ -1,6 +1,6 @@
 import type { AssessmentKind } from './response.js';
 import type { Capability, ContextKey, Permission } from './menu.js';
-import type { GlobalContext } from './url.js';
+import type { Condition, GlobalContext } from './url.js';
 
 /** Menu endpoint declaration shared by the client and server. */
 export type EndpointSpec<P, T> = {
@@ -41,6 +41,16 @@ export const defineEndpoint = <P, T>(spec: Omit<EndpointSpec<P, T>, '_types'>): 
  * so only `any` admits all specs.
  */
 export type AnyEndpointSpec = EndpointSpec<any, unknown>;
+
+/**
+ * The Condition restricted to `axes` (a Condition Preset, 06 §6.4). `null` when the Condition is null or none of its axes remain:
+ * `projectContext` reads a non-null Condition as present, while the URL codec normalizes `{}` to null. Keeps the Condition's axis order.
+ */
+export function narrowCondition(condition: Condition | null, axes: readonly string[]): Condition | null {
+  if (condition === null) return null;
+  const kept = Object.entries(condition).filter(([axis]) => axes.includes(axis));
+  return kept.length === 0 ? null : Object.fromEntries(kept);
+}
 
 /** Request Context includes only declared `apply` keys and `scopeId`. */
 export type MenuQueryContext = Partial<GlobalContext>;

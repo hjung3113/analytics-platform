@@ -310,6 +310,8 @@ Global Context와 Page-local Filter를 같은 Chip 스타일로 혼용하지 않
 
 **Equipment Group / Context Capability (Decided; 공개 표현 Candidate, ADR-0059 확장 Decided·#552 1부 계약·호환 구현):** 메뉴는 Condition과 Selection의 적용/참조/미지원 범위를 선언하고 두 층을 전달·보존한다. 주입된 사용 축 전체와 소속 기준을 유지하며 다른 축으로 역추정하지 않는다. Condition만 있으면 선언한 소속 기준으로 재평가하고, 명시 Selection이 있으면 그 고정 ID 집합을 분석 대상으로 사용한다. 재평가된 Condition에서 빠졌다는 이유로 선택을 자동 교집합·확장·대체하지 않는다. 권한/Scope 검증 실패는 명시적으로 처리한다. 조건 편집 시 기존 선택의 처리 UI는 Candidate이며 조용한 선택 변경은 허용하지 않는다.
 
+**Condition 프리셋(Decided, 2026-10-25, [ADR-0083](adr/0083-condition-presets.md); 필드명 Candidate):** 메뉴가 `conditionPresets`(id·이름·축 id 집합 2개 이상)와 그 id를 담는 page key `conditionPreset`을 선언하면, 커널은 그 메뉴(보드 칸이면 그 칸)의 조회 투영과 조회 신원에서 Condition을 **활성 프리셋의 축만** 남긴다(남는 축이 없으면 `null`). 프리셋은 투영만 좁힌다 — 전역 Condition과 URL `equipmentGroup`, 칸 복사, 히스토리 복원은 그대로이고, 프리셋 밖 축의 값은 전역에 남아 다른 메뉴가 쓴다(이 보기에서 미적용으로 보이는 것은 580c). Apply 메뉴에서 프리셋 전환은 초안 page만 바꾸므로 조회 0회이고 적용이 1회다. live 메뉴에서는 전환이 곧바로 투영을 바꾼다.
+
 **`equipmentGroup` v1 호환 확장(Decided, 2026-10-21; #552 1부 계약·호환 구현):** URL 버전을 올리지 않는다. 새 표현은 배열 맵 `{"stgroup":["A"]}`이고 serializer는 배열 맵만 쓴다. v1 tag는 축 이름을 모르는 구조 규칙으로 읽는다 (2026-10-21, 코드 리뷰 C2 — SDK에 구체 축 이름을 두지 않는다는 사용자 규칙). 문자열 `axis`가 있는 객체는 v1 tag이며, 정확히 `{axis: X, id: Y}`인 문자열 쌍은 `{[X]: [Y]}`로 읽는다. `id` 없이 문자열 필드가 하나 이상 있으면 각 필드 이름을 축으로 하는 단일값 배열 맵으로 읽고, 그 밖의 tag 모양은 `invalid_condition`이다. 이 구분을 위해 축 id `axis`는 예약한다. 기존 Maker+Model 두 ID도 필드 이름에 따라 `{maker:[X], model:[Y]}`로 읽어 AND 의미를 보존한다. 단일축 소비자는 같은 한 값 조건으로 동작해야 한다. `membershipBasis=asOf`는 §6.1의 이력 지원 검증을 거치며 생략은 current다. 미주입 축은 오류로 거부하고 검증된 조회에 쓰지 않는다. 주입된 축이 대상 메뉴에서 미지원인 경우는 전체 Condition과 기준을 보존하고 미적용으로 표시한다. 보드 복사도 Condition 전체와 기준을 함께 전달하며 칸 소유권([ADR-0049](adr/0049-analysis-context-belongs-to-a-pane.md))은 유지한다.
 
 **옵션·Selection 평가 포트(Decided, 2026-10-21):**
@@ -532,6 +534,8 @@ Create VOC from current context
 대표 Context: Time Range · room_name · Line · PRC 그룹 · Equipment Group(Condition·Selection) · Lot · PPID · Recipe · Metric(ID+버전 쌍). Scope는 Global Context에 속하지만 선택기는 사이드바 머리에 하나만 둔다(§7).
 
 **다중축·소속 기준(Decided, 2026-10-21; Apply 모드 구현 — [ADR-0059](adr/0059-app-injected-equipment-axes-and-condition.md)):** 바는 앱이 주입한 여러 축과 축별 여러 값을 표시·편집하고 축 간 AND / 축 안 OR의 적용 조건을 요약한다. “그 시점 소속 / 지금 소속” 선택과 현재 적용한 기준을 표시하며 이력 없는 축을 쓰면 지금 소속만 허용한다. 미지원 축·무효 조합·옵션 갱신 시 기존 값을 조용히 지우지 않고 사유를 표시한다. 후보의 서버 검색·페이징과 고정 선택의 페이지 밖 보존은 §6.4를 따른다. Apply 모드는 아래 조회 바를 쓰고 live 모드는 기존 즉시 적용 바를 유지한다.
+
+Condition 프리셋(§6.4)은 조회 투영만 좁히므로 뒤로가기·보드 칸 복원에서 Condition 전체와 프리셋 page key가 주소 그대로 복원된다.
 
 Apply 모드의 Line·PRC 그룹은 독립 전역 키 옵션 포트로 편집하며 live 바는 전달값 요약·제거를 유지한다(2026-10-21 사용자 정정 — 소유자 #552). Condition 요약은 주입 descriptor 순서의 축 이름과 값, `asOf`일 때 “그 시점 소속”을 표시하고 PRC 그룹에도 같은 기준 표시를 붙인다.
 

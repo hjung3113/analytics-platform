@@ -90,6 +90,7 @@
 | [0080](0080-inspector-forms.md) | `Inspector`는 보조 섹션을 한 번 선언하고 두 형태(`stack` APG 아코디언, `rail` 40 px 아이콘 열 + Popover peek)로 보인다 — A 아코디언 스택·B 레일+peek·C 탭 중 A+B를 한 부품으로, 동시 다중 열림이 기본. 섹션 내용은 질의를 소유하지 않는다 | Decided(2026-10-24, 코디네이터, 되돌릴 수 있음) — #690 |
 | [0081](0081-feedbackops-operator-screens-platform-frame.md) | FeedbackOps 운영 화면은 플랫폼 틀(사이드바 `목록 범위`, 한 줄 머리)로 업무 시스템 `FeedbackOps`(부제 `피드백 운영`) 하나에 옮긴다: 레일 7섹션, 신고자 항목 제외, 바닥 블록은 셸 안 이동 + 복귀 줄, 사용자 메뉴 `FeedbackOps 전체` 제거 | Decided(2026-10-24, 사용자 — 시안 A + UX 리뷰 개선) — #595, 0042·0045·0070 부분 대체, 구현 안 함 |
 | [0082](0082-measure-reaggregation-contract.md) | 재집계 규칙은 `@ap/contracts`의 `Reaggregation`·`MeasureMeta`·`canClientSum` 한 어휘다 — 새 집계 어휘(`sum/count/rate/weightedAvg/min/max/nonAdditive`) 대신 지표 카탈로그의 `reaggregationRule` 세 값에 `none`을 더해 계약으로 올린다 | Decided(2026-10-25, 코디네이터(사용자 위임), 되돌릴 수 있음) — #580 580a |
+| [0083](0083-condition-presets.md) | Condition 프리셋은 메뉴 조회의 투영·신원만 활성 프리셋의 축으로 좁히고 전역 Condition·URL·칸 복사는 그대로 둔다(대안: 값 제거 / 세션 보관 / 유지하되 투영 안 함 — 마지막 선택) | Decided(2026-10-25, 코디네이터(사용자 위임), 되돌릴 수 있다) — #580 노드 580b, 0059 결정 7 유지 |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 

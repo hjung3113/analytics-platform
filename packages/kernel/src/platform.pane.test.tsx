@@ -606,3 +606,35 @@ it('shares history initialization between the two pane providers but keeps anoth
   await act(async () => {});
   expect(record).toHaveBeenCalledTimes(1);
 });
+
+describe('PaneScreenProvider — Condition presets (ADR-0083)', () => {
+  const axes = ['stgroup', 'team', 'maker', 'model'].map(id => ({ id, label: { ko: id, en: id }, membershipHistory: false }));
+  const presetMenu = entry('presets', '/presets', {
+    primary: true, context: { ...noContext, condition: 'apply' as const }, pageKeys: ['view'],
+    conditionPresets: [{ id: 'a', label: { ko: 'A', en: 'A' }, axes: ['stgroup', 'team'] }, { id: 'b', label: { ko: 'B', en: 'B' }, axes: ['maker', 'model'] }],
+    conditionPreset: { key: 'view', default: 'a' },
+  });
+  const presetRegistry = createRegistry({ spaces: [testSpace({ homeMenuId: 'presets' })], groups: [{ id: groupId('equipment'), label: { ko: '그룹', en: 'Group' }, icon: House, space: spaceId('analytics') }], menus: [presetMenu] });
+  const spec = defineEndpoint<{ pane: string }, unknown>({ id: 'fx.presets', menuId: 'presets', paramKeys: { pane: true }, permission: 'platform:view', requiresScope: false, context: { condition: 'apply' }, kinds: [], mergeTimeDomain: false });
+  const condition = { stgroup: ['S1'], team: ['T1'], maker: ['M1'], model: ['X1'] };
+  const query = (view: string) => `?v=1&equipmentGroup=${encodeURIComponent(JSON.stringify(condition))}&view=${view}`;
+  function Reader({ pane }: { pane: string }) { useMenuQuery(spec, { pane }); return null; }
+
+  it('each pane narrows its own request by its own preset, and every pane keeps the whole Condition', async () => {
+    const requests: MenuQuery<{ pane: string }>[] = [];
+    const menuQuery = vi.fn(async (request: MenuQuery): Promise<ApiResponse<never>> => { requests.push(request as MenuQuery<{ pane: string }>); return { outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'c' }; });
+    const session = testSession(ANALYST);
+    window.history.replaceState(null, '', '/presets');
+    const s = spies();
+    render(<I18nProvider><PlatformProvider registry={presetRegistry} equipmentAxes={axes} adapter={testAdapter({ session: () => session, menuQuery })}>
+      <Pane id="pa" initial={{ menuId: 'presets', params: {}, query: query('a') }} spies={s}><Reader pane="pa" /></Pane>
+      <Pane id="pb" initial={{ menuId: 'presets', params: {}, query: query('b') }} spies={s}><Reader pane="pb" /></Pane>
+    </PlatformProvider></I18nProvider>);
+    await flush();
+    const contextOf = (pane: string) => requests.find(request => request.params.pane === pane)?.context.condition;
+    expect(contextOf('pa')).toEqual({ stgroup: ['S1'], team: ['T1'] });
+    expect(contextOf('pb')).toEqual({ maker: ['M1'], model: ['X1'] });
+    expect(at('pa').global.condition).toEqual(condition);
+    expect(at('pb').global.condition).toEqual(condition);
+  });
+});

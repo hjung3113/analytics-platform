@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { type AnyEndpointSpec, defineEndpoint, emptyGlobal, projectContext, type ContextKey, type EndpointSpec, type GlobalContext, menuPermission } from '@ap/contracts';
+import { type AnyEndpointSpec, defineEndpoint, emptyGlobal, narrowCondition, projectContext, type ContextKey, type EndpointSpec, type GlobalContext, menuPermission } from '@ap/contracts';
 
 const endpoint = (
   context: Partial<Record<ContextKey, 'apply' | 'reference'>>,
@@ -258,5 +258,31 @@ describe('basis and site-bound projection (#552)', () => {
     expect(projectContext(endpoint({ prcGroup: 'apply', line: 'apply' }), g)).toEqual({ prcGroups: ['P'], lineNames: ['L'], membershipBasis: 'asOf' });
     expect(projectContext(endpoint({ prcGroup: 'apply' }), { ...g, prcGroups: null })).toEqual({ prcGroups: null, membershipBasis: null });
     expect(projectContext(endpoint({ condition: 'reference', prcGroup: 'reference' }), g)).toEqual({});
+  });
+});
+
+describe('narrowCondition and the basis on a narrowed Condition (06 §6.4, ADR-0083)', () => {
+  it.each([
+    ['keeps only the preset axes, in the Condition\'s order', { maker: ['M'], team: ['T'], model: ['X'] }, ['model', 'maker'], { maker: ['M'], model: ['X'] }],
+    ['returns null, not {}, when no preset axis remains', { team: ['T'] }, ['maker'], null],
+    ['returns null for a null Condition', null, ['maker'], null],
+    ['returns null for an empty axis list', { team: ['T'] }, [], null],
+  ])('%s', (_name, condition, axes, expected) => {
+    expect(narrowCondition(condition, axes)).toStrictEqual(expected);
+  });
+
+  it('does not mutate the Condition and keeps the kept value arrays', () => {
+    const condition = { maker: ['M'], team: ['T'] };
+    const narrowed = narrowCondition(condition, ['team']);
+    expect(condition).toStrictEqual({ maker: ['M'], team: ['T'] });
+    expect(narrowed?.team).toBe(condition.team);
+  });
+
+  it('follows the existing basis formula on the narrowed Condition', () => {
+    const g = { ...emptyGlobal, condition: { maker: ['M'] }, prcGroups: ['P'], membershipBasis: 'asOf' as const };
+    const narrowedAway = { ...g, condition: narrowCondition(g.condition, ['team']) };
+    expect(projectContext(endpoint({ condition: 'apply' }), narrowedAway)).toEqual({ condition: null, membershipBasis: null });
+    expect(projectContext(endpoint({ condition: 'apply', prcGroup: 'apply' }), narrowedAway)).toEqual({ condition: null, prcGroups: ['P'], membershipBasis: 'asOf' });
+    expect(projectContext(endpoint({ condition: 'apply' }), { ...g, condition: narrowCondition(g.condition, ['maker']) })).toEqual({ condition: { maker: ['M'] }, membershipBasis: 'asOf' });
   });
 });
