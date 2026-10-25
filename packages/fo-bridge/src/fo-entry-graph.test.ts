@@ -331,6 +331,9 @@ describe('FeedbackOps operator Milestones entry graph (ADR-0071)', () => {
 
   it('calls fetch only in lib/api/client.ts', () => {
     const callers = [...milestones.files].filter(([, text]) => /(?<![\w.])fetch\(/.test(text)).map(([file]) => relative(FRONTEND_SRC, file));
+    expect(callers).toEqual(['lib/api/client.ts']);
+  });
+});
 
 // The operator Task list entry (#763 l) is walked on its own: the host renders the detail, so the Task detail tree stays out.
 describe('FeedbackOps operator Task list entry graph (ADR-0071)', () => {
