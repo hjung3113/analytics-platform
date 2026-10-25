@@ -115,12 +115,25 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
   const active = horizontal ? i.activeCategory ?? null : null;
   const lanes = horizontal && i.startAlign && i.stacked ? laneLayout(i.displayed, categories) : null;
   const chips = !!i.extremes?.size && horizontal;
-  const segments = !chips && horizontal && !!i.stacked && (i.valueLabels === 'segment' || i.valueLabels === 'both');
+  const segments = !chips && horizontal && !!i.stacked && i.displayed.length > 1 && (i.valueLabels === 'segment' || i.valueLabels === 'both');
   const totalTexts = horizontal && !!i.stacked && (i.valueLabels === 'total' || i.valueLabels === 'both') && i.totals?.size ? i.totals : null;
   // Room for the widest total (plus the partial marker); a plain stacked bar shifts it clear of a 최소/최대 chip, lanes keep one fixed column.
   const textOf = (x: string, t: RowTotal) => i.totalText?.get(x) ?? i.valueFormat(t.value);
   const totalRoom = totalTexts ? Math.max(...[...totalTexts].map(([x, t]) => labelWidth(`≥ ${textOf(x, t)}`))) + TOTAL_GAP + PARTIAL_MARKER : 0;
   const gridRight = (chips ? MIN_MAX_LABEL_ROOM : 20) + totalRoom;
+  // The chip sits on its own segment, so it is at the bar end when that segment ends where the row's stack ends (a zero-width tail after it does not move the end).
+  const chipAtEnd = (x: string) => {
+    const end = stackEnd(i.displayed, x);
+    let run = 0;
+    for (const s of i.displayed) {
+      const y = s.points.find(([label]) => label === x)?.[1];
+      if (typeof y !== 'number') continue;
+      if (y > 0) run += y;
+      const e = i.extremes?.get(s.id);
+      if ((e?.min.x === x || e?.max.x === x) && run === end) return true;
+    }
+    return false;
+  };
   const xValue = (x: string) => (xType === 'time' ? toMs(x) : x);
   // Pixels per axis unit from the plot width and the zoom window, so a label can be cut to its own area (#399 AC-2).
   const plotWidth = Math.max(0, i.chartWidth - PLOT_MARGIN);
@@ -149,7 +162,8 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
         const t = totals.get(x);
         if (!t) return [];
         const text = textOf(x, t);
-        const offset = [TOTAL_GAP + (!lanes && chips ? CHIP_SHIFT : 0) + (t.partial ? PARTIAL_MARKER : 0), 0];
+        // Only a row whose last stacked series carries the chip (its min or max) moves; the other rows keep the bar-end gap.
+        const offset = [TOTAL_GAP + (!lanes && chips && chipAtEnd(x) ? CHIP_SHIFT : 0) + (t.partial ? PARTIAL_MARKER : 0), 0];
         return [{
           value: [lanes ? lanes.span : stackEnd(i.displayed, x), x],
           ...(t.partial ? {

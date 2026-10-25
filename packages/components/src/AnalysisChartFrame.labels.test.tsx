@@ -70,7 +70,7 @@ describe('segment labels (#580d, UX-6/12/13)', () => {
     await mount({ valueLabels: 'segment' });
     const a = bySeries('a') as Plotted & { labelLayout?: unknown };
     expect(a.label).toMatchObject({ show: true, position: 'inside' });
-    expect(a.label!.formatter!({ value: 12345 })).not.toContain(',');
+    expect(a.label!.formatter!({ value: 12345 })).toContain(',');
     expect(a.label!.formatter!({ value: null })).toBe('');
     expect(typeof a.labelLayout).toBe('function');
     expect(a.data).toEqual([800, 20, null, 600]);
@@ -91,11 +91,16 @@ describe('segment labels (#580d, UX-6/12/13)', () => {
     expect(a[0]).toMatchObject({ label: { show: true, formatter: '최대' } });
     expect(a[0]).not.toMatchObject({ label: { show: false } });
   });
-  it('keeps the labels on the bars when startAlign has fewer than two visible series (no-op, no warning)', async () => {
+  it('draws no segment label for exactly one shown series, with startAlign too (the totals stay)', async () => {
     await mount({ valueLabels: 'segment', startAlign: true, visibleSeriesIds: ['a'] });
-    expect(bySeries('a').label).toMatchObject({ show: true });
+    expect(bySeries('a').label).toBeUndefined();
     expect(option().series.some(s => s.id!.startsWith('__spacer'))).toBe(false);
     expect(warn).not.toHaveBeenCalledWith(expect.stringContaining('startAlign'));
+  });
+  it.each(['segment', 'both'] as const)('draws no segment label for one shown series, valueLabels %s, and keeps the total', async valueLabels => {
+    await mount({ valueLabels, reaggregation: 'sum', visibleSeriesIds: ['b'] });
+    expect(bySeries('b').label).toBeUndefined();
+    if (valueLabels === 'both') expect(total().data).toHaveLength(4);
   });
   it('keeps them inside the lane segments with startAlign', async () => {
     await mount({ valueLabels: 'segment', startAlign: true });
@@ -148,6 +153,18 @@ describe('totals (#580d, UX-7/8)', () => {
     expect(rows[0]).toContain('합계');
     expect(rows[3]).toContain('≥ 200 (A 미측정)');
     expect(screen.getAllByText(/^◇ ≥ 합계/)).toHaveLength(1);
+    expect(screen.getByText('◇ ≥ 합계: 미측정 계열이 있는 행의 합계')).toBeTruthy();
+  });
+  it('drops the partial note with partialTotalNote={false}', async () => {
+    await mount({ valueLabels: 'total', reaggregation: 'sum', partialTotalNote: false });
+    expect(screen.queryByText(/^◇ ≥ 합계/)).toBeNull();
+    expect(total().data).toHaveLength(4);
+  });
+  it.each(['sum', 'ratioOfSums'] as const)('says no 합계 없음 when every series is hidden (%s); the status sentence explains', async reaggregation => {
+    await mount({ valueLabels: 'both', reaggregation, visibleSeriesIds: [] });
+    expect(screen.queryByText(/합계 없음/)).toBeNull();
+    expect(screen.getByText('표시할 시리즈를 모두 껐습니다')).toBeTruthy();
+    expect(screen.getByRole('button', { name: '모두 보이기' })).toBeTruthy();
   });
   it('puts the totals in one fixed right column with startAlign', async () => {
     await mount({ valueLabels: 'both', reaggregation: 'sum', startAlign: true });
@@ -163,7 +180,30 @@ describe('totals (#580d, UX-7/8)', () => {
     const plain = (total().data as { label: { offset: number[] } }[])[0].label.offset[0];
     cleanup();
     await mount({ valueLabels: 'total', reaggregation: 'sum', minMax: true });
-    expect((total().data as { label: { offset: number[] } }[])[0].label.offset[0]).toBeGreaterThan(plain);
+    const rows = total().data as { label: { offset: number[] } }[];
+    // R1: series b is the stack end and is no extreme there; R4 is b's max, so its chip sits at the bar end.
+    expect(rows[0].label.offset[0]).toBe(plain);
+    expect(rows[3].label.offset[0]).toBeGreaterThan(plain);
+  });
+  it('still shifts a total whose chip segment ends at the stack end when a measured-zero series follows it', async () => {
+    const zeroTail = [bar('a', 'chart-blue', [800, 300, 100, 50]), bar('b', 'chart-series-1', [0, 0, 0, 0])];
+    await mount({ series: zeroTail, valueLabels: 'total', reaggregation: 'sum' });
+    const plain = (total().data as { label: { offset: number[] } }[])[0].label.offset[0];
+    cleanup();
+    await mount({ series: zeroTail, valueLabels: 'total', reaggregation: 'sum', minMax: true });
+    const rows = total().data as { label: { offset: number[] } }[];
+    // a is max on R1 and min on R4; b (all zeros) is no extreme. The zero tail leaves a's end as the stack end.
+    expect(rows[0].label.offset[0]).toBeGreaterThan(plain);
+    expect(rows[3].label.offset[0]).toBeGreaterThan(plain);
+    // R2/R3 carry no chip.
+    expect(rows[1].label.offset[0]).toBe(plain);
+    expect(rows[2].label.offset[0]).toBe(plain);
+  });
+  it('does not shift totals in startAlign even with 최소/최대 on', async () => {
+    await mount({ valueLabels: 'total', reaggregation: 'sum', startAlign: true, minMax: true });
+    const offsets = (total().data as { label: { offset: number[] } }[]).map(d => d.label.offset[0]);
+    expect(new Set(offsets).size).toBeLessThanOrEqual(2);
+    expect(Math.max(...offsets)).toBeLessThan(4 + 8 + 1);
   });
 });
 

@@ -27,9 +27,9 @@ export function segmentLabelStyle(fill: ThemeColorToken): { text: 'text-primary'
 }
 /* eslint-enable shadcn/no-raw-colors */
 
-/** Segment label: short form (1.2K), the exact value stays in the tooltip. */
+/** Segment label: grouped digits, no compact notation (1,234 / 12.3), so it reads like the uncompacted numbers beside it; the exact value stays in the tooltip. */
 export function shortNumber(v: number, lang: string): string {
-  return new Intl.NumberFormat(lang === 'ko' ? 'ko-KR' : 'en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(v);
+  return new Intl.NumberFormat(lang === 'ko' ? 'ko-KR' : 'en-US', { maximumFractionDigits: Math.abs(v) >= 100 ? 0 : 1 }).format(v);
 }
 
 export const LABEL_FONT = 10;
