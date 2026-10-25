@@ -35,7 +35,9 @@ function useListNavigate(): HostNavigate {
           const next = { ...previous };
           for (const key of LIST_KEYS) delete next[key];
           for (const [key, value] of location.searchParams) {
-            next[key] = String(previous[key]) === value ? previous[key] : value;
+            // Only `overdue` is decoded to a boolean by the router; every other key is the string it is.
+            next[key] =
+              key === 'overdue' && value === 'true' && previous[key] === true ? true : value;
           }
           return next;
         }) as never,

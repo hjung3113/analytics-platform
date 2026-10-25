@@ -5,7 +5,7 @@
 import { SEARCH_DEBOUNCE_MS } from '@/lib/forms/search-debounce';
 import { type HostSeam, HostSeamProvider } from '@/lib/host/host-seam';
 import type { TaskDto } from '@fops/shared';
-import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@fops/ui';
+import { DetailPanelSlotProvider, useDetailPanelSlot, useDetailPanelSlotHost } from '@fops/ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -79,6 +79,11 @@ function DetailSlotHost() {
   return <div ref={ref} data-testid="slot" />;
 }
 
+function ExistingRegistrant() {
+  useDetailPanelSlot(<p>기존 상세</p>);
+  return null;
+}
+
 const renderDetail = vi.fn(
   (taskId: string, { onClose }: { onClose: () => void }): ReactNode => (
     <button type="button" onClick={onClose}>
@@ -87,12 +92,13 @@ const renderDetail = vi.fn(
   ),
 );
 
-function mount(view: 'backlog' | 'my' = 'backlog', autoSelect = false) {
+function mount(view: 'backlog' | 'my' = 'backlog', autoSelect = false, withRegistrant = false) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
       <HostSeamProvider value={SEAM}>
         <DetailPanelSlotProvider>
+          {withRegistrant ? <ExistingRegistrant /> : null}
           <TaskListScreen view={view} autoSelect={autoSelect} renderDetail={renderDetail} />
           <DetailSlotHost />
         </DetailPanelSlotProvider>
@@ -243,12 +249,12 @@ describe('TaskListScreen selection', () => {
     expect(navigateMock).not.toHaveBeenCalled();
   });
 
-  it('renderDetail returning undefined leaves the detail slot empty', async () => {
+  it('renderDetail returning undefined leaves an existing slot registration visible', async () => {
     renderDetail.mockReturnValue(undefined);
     searchState = { ...CARRIED, param: SECOND.id };
-    mount();
+    mount('backlog', false, true);
     await screen.findByText('Task 2');
     expect(renderDetail).toHaveBeenCalled();
-    expect(screen.getByTestId('slot')).toBeEmptyDOMElement();
+    expect(screen.getByTestId('slot')).toHaveTextContent('기존 상세');
   });
 });
