@@ -5,7 +5,39 @@ import { Check, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '../../utils/cn.js';
 import { SELECT_CONTENT_MOTION } from '../../utils/motion.js';
 
-export const Select: React.FC<SelectPrimitive.SelectProps> = withScopedOverlay(SelectPrimitive.Root);
+const ScopedSelectRoot = withScopedOverlay(SelectPrimitive.Root);
+// Radix 2.3 replays onValueChange("") from the hidden native select's effect right after a consumer-driven value
+// change whose item is not registered yet (#644). Only that replay is dropped; "" from an empty-value item or a
+// form reset is a deliberate clear and is forwarded unchanged.
+export const Select: React.FC<SelectPrimitive.SelectProps> = ({ onValueChange, ...props }) => {
+  const { value } = props;
+  const replayWindow = React.useRef(false);
+  const mounted = React.useRef(false);
+  React.useLayoutEffect(() => {
+    const changed = mounted.current;
+    mounted.current = true;
+    if (!changed || !value) return;
+    replayWindow.current = true;
+    const timer = setTimeout(() => {
+      replayWindow.current = false;
+    }, 0);
+    return () => {
+      clearTimeout(timer);
+      replayWindow.current = false;
+    };
+  }, [value]);
+  return (
+    <ScopedSelectRoot
+      {...props}
+      {...(onValueChange && {
+        onValueChange: (next: string) => {
+          if (next === '' && replayWindow.current && value) return;
+          onValueChange(next);
+        },
+      })}
+    />
+  );
+};
 export const SelectGroup = SelectPrimitive.Group;
 export const SelectValue = SelectPrimitive.Value;
 
