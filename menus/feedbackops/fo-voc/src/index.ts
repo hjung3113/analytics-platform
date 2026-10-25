@@ -1,10 +1,10 @@
 /**
- * @ap/menu-fo-voc — foVoc group manifests (FeedbackOps space VOC: 수신함, Triage; ADR-0081, #761).
- * The FeedbackOps operator VOC screens through the bridge; the page keys equal the route tables in `@ap/fo-bridge` (`inboxRoute`, `triageRoute`; pinned by the page tests),
+ * @ap/menu-fo-voc — foVoc group manifests (FeedbackOps space VOC: 수신함, Triage, Clusters; ADR-0081, #761).
+ * The FeedbackOps operator VOC screens through the bridge; the page keys equal the route tables in `@ap/fo-bridge` (`inboxRoute`, `triageRoute`, `clustersRoute`; pinned by the page tests),
  * and the space carries `managedSystem` (ADR-0081 decision 4). `focus` is the selected VOC (06 §13).
  */
 import { lazy } from 'react';
-import { Inbox, ListChecks } from 'lucide-react';
+import { Inbox, Layers, ListChecks } from 'lucide-react';
 import { NO_FEATURES, contextCapabilities, groupId } from '@ap/contracts';
 import type { MenuEntry } from '@ap/kernel';
 
@@ -31,5 +31,13 @@ export const manifests: MenuEntry[] = [
       { id: 'unassigned', label: { ko: '미배정', en: 'Unassigned' }, page: { tab: 'unassigned' } },
     ],
     component: lazy(() => import('./pages/FoTriage')),
+  },
+  {
+    id: 'fo-clusters', group: GROUP, label: { ko: 'Clusters', en: 'Clusters' },
+    description: { ko: '비슷한 VOC를 묶은 Cluster를 보고 확정합니다', en: 'Review and confirm clusters of similar VOCs' },
+    path: '/feedbackops/clusters', icon: Layers, permission: 'feedbackops:access', requiresScope: false, pageType: 'management',
+    context: contextCapabilities(), features: NO_FEATURES,
+    pageKeys: ['focus', 'managedSystem'],
+    component: lazy(() => import('./pages/FoClusters')),
   },
 ];

@@ -22,11 +22,25 @@ export const triageRoute = operatorRoute({
   keys: { selected: 'focus', tab: 'tab', managedSystem: 'managedSystem', 'filter.analytics_area': 'area' },
 });
 
+/**
+ * Clusters: `/voc-clusters`; `selected` is `focus` (06 §13). FeedbackOps' cluster schema treats `managedSystem=all` as no scope, and the platform scope writes a uuid
+ * or nothing, so an `all` in an FO href maps to no `managedSystem` (the link is kept, nothing stored).
+ */
+export const clustersRoute = operatorRoute({
+  foPath: '/voc-clusters',
+  foFixed: {},
+  menuId: 'fo-clusters',
+  keys: { selected: 'focus', managedSystem: 'managedSystem' },
+  foAbsent: { managedSystem: 'all' },
+});
+
 /** Module-level hooks: `FoBridge` memoizes its seam on their identities (unrelated renders never rebuild it). */
 export const useInboxSearch = routeSearch(inboxRoute);
 export const useInboxHere = routeHere(inboxRoute);
 export const useTriageSearch = routeSearch(triageRoute);
 export const useTriageHere = routeHere(triageRoute);
+export const useClustersSearch = routeSearch(clustersRoute);
+export const useClustersHere = routeHere(clustersRoute);
 
-/** The FeedbackOps paths the operator pages and the dashboard can reach: the two operator tables, 내 VOC and the survey menus. Other routes stay unlinked (ADR-0071 decision 10). */
-export const operatorHostLinks = hostLinks(inboxRoute.target, triageRoute.target, vocTarget, vocListTarget, surveyTarget);
+/** The FeedbackOps paths the operator pages and the dashboard can reach: the three operator tables, 내 VOC and the survey menus. Other routes stay unlinked (ADR-0071 decision 10). */
+export const operatorHostLinks = hostLinks(inboxRoute.target, triageRoute.target, clustersRoute.target, vocTarget, vocListTarget, surveyTarget);

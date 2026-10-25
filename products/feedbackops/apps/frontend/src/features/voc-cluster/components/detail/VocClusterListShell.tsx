@@ -39,6 +39,7 @@ export function VocClusterListShell({
   defaultToFirst = false,
   managedSystemId,
   onSuggestionModeChange,
+  renderDetail,
 }: {
   selectedId: string | null;
   onSelect: (id: string) => void;
@@ -49,6 +50,11 @@ export function VocClusterListShell({
   /** Optional scope from the list route's `managedSystem` URL param (undefined = caller's scope union). */
   managedSystemId?: string | undefined;
   onSuggestionModeChange?: (active: boolean, options?: { preserveSelection: boolean }) => void;
+  /** A host that draws the cluster detail itself (the platform, outside these providers); absent = the built-in side panel. */
+  renderDetail?: (
+    clusterId: string,
+    options: { onClose: () => void },
+  ) => React.ReactNode | undefined;
 }): React.ReactElement {
   const listQuery = useVocClusterList(managedSystemId);
   const clusters = listQuery.data?.items ?? [];
@@ -201,11 +207,15 @@ export function VocClusterListShell({
             suggestionSlots.panel
           ) : null
         ) : selectedVisibleInList || resolvedAbsentDetailIsVisible ? (
-          <VocClusterDetailPanel
-            key={selectedId}
-            clusterId={selectedId}
-            onClose={() => onCloseDetail()}
-          />
+          renderDetail !== undefined ? (
+            renderDetail(selectedId, { onClose: () => onCloseDetail() })
+          ) : (
+            <VocClusterDetailPanel
+              key={selectedId}
+              clusterId={selectedId}
+              onClose={() => onCloseDetail()}
+            />
+          )
         ) : undefined
       }
     />

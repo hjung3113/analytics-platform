@@ -13,6 +13,7 @@ const SCOPE_KEY = 'managedSystem';
 const SLOT_KEYS: Readonly<Record<string, string>> = {
   'voc.inbox': 'fo-inbox',
   'voc.triage': 'fo-triage',
+  'voc.clusters': 'fo-clusters',
   'voc.inbox.no-link': 'fo-inbox/no-link',
   'voc.tab.high': 'fo-triage/high',
   'voc.tab.unassigned': 'fo-triage/unassigned',

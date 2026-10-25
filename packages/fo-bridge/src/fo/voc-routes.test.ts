@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { inboxRoute, operatorHostLinks, triageRoute } from './voc-routes';
+import { clustersRoute, inboxRoute, operatorHostLinks, triageRoute } from './voc-routes';
 
 const SYSTEM = '33333333-3333-4333-8333-333333333333';
 const AREA = '55555555-5555-4555-8555-555555555555';
@@ -40,6 +40,32 @@ describe('triageRoute', () => {
   it('leaves the inbox-only keys unmapped', () => {
     expect(triageRoute.target('/vocs?view=triage&q=pump')).toBeNull();
     expect(triageRoute.target('/vocs?view=inbox&tab=unassigned')).toBeNull();
+  });
+});
+
+describe('clustersRoute', () => {
+  const CLUSTER = '77777777-7777-4777-8777-777777777777';
+
+  it('maps selected to focus and the scope to managedSystem, and back', () => {
+    const to = `/voc-clusters?selected=${CLUSTER}&managedSystem=${SYSTEM}`;
+    const target = clustersRoute.target(to);
+    expect(target).toEqual({ menuId: 'fo-clusters', page: { focus: CLUSTER, managedSystem: SYSTEM } });
+    expect(clustersRoute.toFoSearch(target!.page!)).toEqual(Object.fromEntries(new URLSearchParams(to.slice(to.indexOf('?') + 1))));
+  });
+
+  it('reads managedSystem=all as no scope: the link stays and nothing is stored', () => {
+    expect(clustersRoute.target(`/voc-clusters?managedSystem=all&selected=${CLUSTER}`)).toEqual({ menuId: 'fo-clusters', page: { focus: CLUSTER } });
+    expect(clustersRoute.target('/voc-clusters')).toEqual({ menuId: 'fo-clusters', page: {} });
+  });
+
+  it('declares exactly focus and managedSystem and leaves other FO keys unmapped', () => {
+    expect([...clustersRoute.pageKeys].sort()).toEqual(['focus', 'managedSystem']);
+    expect(clustersRoute.target('/voc-clusters?tab=confirmed')).toBeNull();
+  });
+
+  it('is reached through operatorHostLinks, and a cluster member row href lands on fo-inbox with focus', () => {
+    expect(operatorHostLinks.targetOf(`/voc-clusters?selected=${CLUSTER}`)).toEqual({ menuId: 'fo-clusters', page: { focus: CLUSTER } });
+    expect(operatorHostLinks.targetOf(`/vocs?view=inbox&selected=${VOC}`)).toEqual({ menuId: 'fo-inbox', page: { focus: VOC } });
   });
 });
 

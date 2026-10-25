@@ -10,6 +10,8 @@ export type OperatorRouteSpec = {
   menuId: string;
   /** FO key → platform page key, e.g. `{ selected: 'focus', q: 'q' }`. */
   keys: Readonly<Record<string, string>>;
+  /** FO key → a value that means "no value" for it (e.g. `{ managedSystem: 'all' }`): the link is kept and the page key is left absent. */
+  foAbsent?: Readonly<Record<string, string>>;
 };
 
 export type OperatorRoute = {
@@ -28,7 +30,7 @@ export type OperatorRoute = {
 };
 
 /** One route table for an operator menu; both directions (FO → page, page → FO) come from it (761 plan P5). */
-export function operatorRoute({ foPath, foFixed, menuId, keys }: OperatorRouteSpec): OperatorRoute {
+export function operatorRoute({ foPath, foFixed, menuId, keys, foAbsent = {} }: OperatorRouteSpec): OperatorRoute {
   const target = (to: string): PlatformTarget | null => {
     if (to.includes('#')) return null;
     const at = to.indexOf('?');
@@ -43,7 +45,7 @@ export function operatorRoute({ foPath, foFixed, menuId, keys }: OperatorRouteSp
       if (Object.hasOwn(foFixed, key)) {
         if (foFixed[key] !== value) return null;
       } else if (Object.hasOwn(keys, key)) {
-        if (value !== '') page[keys[key]!] = value;
+        if (value !== '' && foAbsent[key] !== value) page[keys[key]!] = value;
       } else return null;
     }
     if (Object.keys(foFixed).some(key => !search.has(key))) return null;

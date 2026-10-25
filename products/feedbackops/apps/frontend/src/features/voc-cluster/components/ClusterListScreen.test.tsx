@@ -15,6 +15,7 @@ const shell = vi.hoisted(() => ({
     onCloseDetail: (opts?: { reconcile?: boolean }) => void;
     selectedId: string | null;
     managedSystemId: string | undefined;
+    renderDetail?: unknown;
   },
 }));
 const list = vi.hoisted(() => ({ items: [] as Array<{ id: string }> }));
@@ -34,7 +35,7 @@ vi.mock('@/lib/api/me', () => ({
 
 const navigate = vi.fn();
 
-function mount(search: Record<string, string>) {
+function mount(search: Record<string, string>, renderDetail?: () => undefined) {
   const host: HostSeam = {
     canLink: () => true,
     Link: ({ to, children }: { to: string; children: ReactNode }) => <a href={to}>{children}</a>,
@@ -46,7 +47,10 @@ function mount(search: Record<string, string>) {
   return render(
     <QueryClientProvider client={new QueryClient()}>
       <HostSeamProvider value={host}>
-        <ClusterListScreen onCreated={vi.fn()} />
+        <ClusterListScreen
+          onCreated={vi.fn()}
+          {...(renderDetail !== undefined ? { renderDetail } : {})}
+        />
       </HostSeamProvider>
     </QueryClientProvider>,
   );
@@ -94,5 +98,13 @@ describe('ClusterListScreen selection through the host seam', () => {
     mount({ selected: B });
     expect(navigate).not.toHaveBeenCalled();
     expect(screen.getByTestId('shell')).toBeInTheDocument();
+  });
+
+  it('hands renderDetail to the shell only when the host gives one', () => {
+    mount({ selected: A });
+    expect(shell.props).not.toHaveProperty('renderDetail');
+    const renderDetail = () => undefined;
+    mount({ selected: A }, renderDetail);
+    expect(shell.props?.renderDetail).toBe(renderDetail);
   });
 });

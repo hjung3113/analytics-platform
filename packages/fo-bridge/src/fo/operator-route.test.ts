@@ -64,3 +64,17 @@ describe('operatorRoute.rejectedKey', () => {
     expect(inbox.rejectedKey(page({ other: 'x' }), () => false)).toBeNull();
   });
 });
+
+describe('foAbsent', () => {
+  const route = operatorRoute({ foPath: '/c', foFixed: {}, menuId: 'm', keys: { selected: 'focus', managedSystem: 'managedSystem' }, foAbsent: { managedSystem: 'all' } });
+
+  it('keeps the link and leaves the page key absent for the value that means no value', () => {
+    expect(route.target('/c?managedSystem=all&selected=x')).toEqual({ menuId: 'm', page: { focus: 'x' } });
+    expect(route.target('/c?managedSystem=abc')).toEqual({ menuId: 'm', page: { managedSystem: 'abc' } });
+  });
+
+  it('never writes the value back', () => {
+    expect(route.toFoSearch({ focus: 'x' })).toEqual({ selected: 'x' });
+  });
+});
+
