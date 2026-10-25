@@ -4269,6 +4269,22 @@ test.describe('차트 카탈로그 — 종류별 상호작용 (06 §16, #530)', 
       await evidence(page, testInfo, `chart-catalog-${kind}-selection`);
     });
   }
+  test('분해 막대 — 합계 열·합계 없음·트리 드릴 (#580h)', async ({ page }, testInfo) => {
+    await signInAs(page, 'engineer');
+    await page.goto(`${catalog}&kind=breakdown`);
+    await expect(page.getByRole('tab', { name: /^분해 막대 / })).toHaveAttribute('aria-selected', 'true');
+    const workspace = page.getByRole('region', { name: '차트 작업 영역', exact: true });
+    const stacked = workspace.getByRole('region', { name: /상태별 시간/ });
+    await stacked.getByRole('button', { name: '표로 보기', exact: true }).click();
+    await expect(stacked.getByRole('table').getByRole('columnheader', { name: '합계', exact: true })).toBeVisible();
+    await expect(workspace.getByLabel('서버 합계')).toContainText('합계 없음');
+    const tree = workspace.getByRole('tree', { name: '분해 트리' });
+    const group = tree.getByRole('treeitem', { name: /그룹 B/ });
+    await group.focus(); await group.press('Enter');
+    await expect(page).toHaveURL(/node=B(&|$)/);
+    await expect(tree.getByRole('treeitem', { name: /그룹 B/ })).toHaveAttribute('aria-current', 'true');
+    await evidence(page, testInfo, 'chart-catalog-breakdown-drill');
+  });
   test('미지원 동작은 차트에 없고 지원 패널에 이유가 있다', async ({ page }, testInfo) => {
     await signInAs(page, 'engineer');
     await page.goto(`${catalog}&kind=heatmap`);
