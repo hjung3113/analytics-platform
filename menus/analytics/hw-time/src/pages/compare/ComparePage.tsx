@@ -4,21 +4,20 @@
  * one focused row (`row` page key, ADR-0079). The page owns the single level query; panels only draw what it hands them.
  */
 import { Inbox, ListTree, SlidersHorizontal, Target } from 'lucide-react';
-import { useMemo, useState, type ReactNode } from 'react';
+import { type ReactNode } from 'react';
 import { useDrill, useI18n, usePlatform, type PageProps } from '@ap/kernel';
 import { DrillLayout, Inspector, LegendTree, PanelWorkspace, PlatformPage, QueryView, SegmentedRadio, StateMessage, type InspectorSection, type PanelWorkspaceLayout, type PanelWorkspacePanel } from '@ap/components';
 import { Checkbox } from '@ap/ui';
 import type { ThemeColorToken } from '@ap/ui/theme';
-import { HW_TIME_MAX_TREND_ROWS, HW_TIME_UNIT, isHwTimeRowId, type HwTimeBlock, type HwTimeDrill, type HwTimeLevelData } from '../../endpoints';
+import { HW_TIME_UNIT, type HwTimeBlock, type HwTimeDrill, type HwTimeLevelData } from '../../endpoints';
 import { useHwTimeLevel, useHwTimeTrend } from '../../shared/data';
 import { formatSeconds, missingText } from '../../shared/format';
-import { selectionCounts } from '../../shared/selectionCounts';
+import { HwTimeUrlWarning } from '../../shared/HwTimeUrlWarning';
 import { RankingPanel } from '../../shared/panels/RankingPanel';
-import { StackPanel, type StackSort } from '../../shared/panels/StackPanel';
+import { StackPanel } from '../../shared/panels/StackPanel';
 import { TrendPanel } from '../../shared/panels/TrendPanel';
-import { formatTrendKey, parseTrendKey } from '../../shared/trendKey';
+import { useHwTimeLevelState } from '../../shared/useHwTimeLevelState';
 
-const SORTS: readonly StackSort[] = ['total-desc', 'total-asc'];
 const EMPTY_BLOCK: HwTimeBlock = { series: [], rows: [], totals: { values: {}, total: null } };
 
 /**
@@ -60,55 +59,26 @@ export default function ComparePage(_props: PageProps) {
   // Only L3 has a drilled node among the series; at L2 the Module is not one of the Motion nodes.
   const currentId = drill.depth === 2 ? motion : null;
   const params: HwTimeDrill = { ...(module ? { drillModule: module } : {}), ...(module && motion ? { drillMotion: motion } : {}) };
-  const levelQ = useHwTimeLevel(params, drill.invalid === null);
+  // Keyed by what changes the series set: the Module and the level. A sibling Motion switch at L3 keeps the same context series, so hidden Motions stay hidden.
+  // The URL `row` is the truth at every level: any drill step clears it in the same navigation (manifest `drill.resetKeys`, 06 §6.4), and the
+  // Frame names only a row it draws (a URL row of another level shows no active row).
+  const state = useHwTimeLevelState({ hiddenKey: `${module ?? ''}/${drill.depth}`, row: true, revealTrend: true });
+  const { invalid, sort, sortText, row, trendRows, hidden, setHidden, notice, reveal } = state;
+  const levelQ = useHwTimeLevel(params, drill.invalid === null && invalid === null);
+  const trendQ = useHwTimeTrend(trendRows, trendRows.length > 0 && invalid === null);
 
-  const trendRows = useMemo(() => parseTrendKey(pageParam('trend')), [pageParam]);
-  const trendQ = useHwTimeTrend(trendRows, trendRows.length > 0);
-
-  const rawSort = pageParam('sort');
-  const sort: StackSort = SORTS.includes(rawSort as StackSort) ? rawSort as StackSort : null;
   // Page keys, not reset keys. `scroll` is on unless `scroll=0`; `align` and `minmax` are off unless `1`.
   const scroll = pageParam('scroll') !== '0';
   const align = pageParam('align') === '1';
   const minmax = pageParam('minmax') === '1';
-  const rawRow = pageParam('row');
-  // Keyed by what changes the series set: the Module and the level. A sibling Motion switch at L3 keeps the same context series, so hidden Motions stay hidden.
-  const levelKey = `${module ?? ''}/${drill.depth}`;
-  // The URL `row` is the truth at every level: any drill step clears it in the same navigation (manifest `drill.resetKeys`, 06 §6.4), and the
-  // Frame names only a row it draws (a URL row of another level shows no active row).
-  const row = isHwTimeRowId(rawRow) ? rawRow : null;
-  const [hiddenState, setHiddenState] = useState<{ key: string; ids: string[] }>({ key: levelKey, ids: [] });
-  const hidden = hiddenState.key === levelKey ? hiddenState.ids : [];
-  const [reveal, setReveal] = useState<{ panelId: string; seq: number } | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
 
   const response = levelQ.response?.outcome === 'ok' ? levelQ.response.data : null;
   const context: HwTimeBlock | null = response ? (response.level === 2 ? response.context ?? response : response) : null;
   const detail: HwTimeBlock | null = response?.level === 2 ? response.detail ?? EMPTY_BLOCK : null;
-  const counts = context ? selectionCounts(context) : null;
-
-  const addTrend = (rowId: string) => {
-    if (!isHwTimeRowId(rowId) || trendRows.includes(rowId)) return;
-    if (trendRows.length >= HW_TIME_MAX_TREND_ROWS) {
-      setNotice(ko ? `추세는 최대 ${HW_TIME_MAX_TREND_ROWS}행까지 볼 수 있습니다.` : `The trend shows at most ${HW_TIME_MAX_TREND_ROWS} rows.`);
-      return;
-    }
-    setNotice(null);
-    setPage({ trend: formatTrendKey([...trendRows, rowId]) });
-    setReveal(current => ({ panelId: 'trend', seq: (current?.seq ?? 0) + 1 }));
-  };
-  const removeTrend = (rowId: string) => {
-    if (!trendRows.includes(rowId)) return;
-    setNotice(null);
-    setPage({ trend: formatTrendKey(trendRows.filter(id => id !== rowId)) });
-  };
-  const rowActionsOf = (rowId: string) => (!isHwTimeRowId(rowId) ? []
-    : trendRows.includes(rowId) ? [{ id: 'trend-remove', label: ko ? '추세에서 제거' : 'Remove from trend', keepsFocus: true, onSelect: removeTrend }]
-      : [{ id: 'trend-add', label: ko ? '추세에 추가' : 'Add to trend', keepsFocus: true, onSelect: addTrend }]);
+  const counts = state.countsOf(context);
 
   const legendSeries = context?.series ?? [];
   const visibleIds = legendSeries.map(item => item.id).filter(id => !hidden.includes(id));
-  const sortText = sort === 'total-desc' ? { ko: '정렬: 큰 순', en: 'Sort: high' } : sort === 'total-asc' ? { ko: '정렬: 작은 순', en: 'Sort: low' } : { ko: '정렬: 기본', en: 'Sort: default' };
   const optionText = [
     sortText[lang],
     ko ? (scroll ? '행 스크롤' : '전체 맞춤') : (scroll ? 'Row scroll' : 'Fit all'),
@@ -129,7 +99,7 @@ export default function ComparePage(_props: PageProps) {
       render: () => <LegendTree label={ko ? '계층 범례' : 'Legend'}
         nodes={legendSeries.map(item => ({ id: item.id, label: item.name, color: item.color as ThemeColorToken }))}
         visible={new Set(visibleIds)}
-        onVisibleChange={next => setHiddenState({ key: levelKey, ids: legendSeries.map(item => item.id).filter(id => !next.has(id)) })}
+        onVisibleChange={next => setHidden(legendSeries.map(item => item.id).filter(id => !next.has(id)))}
         onDrill={drillTo} canDrill={() => true} currentId={currentId}
           emptyText={ko ? '표시할 범례가 없습니다.' : 'No legend to show.'} />,
     },
@@ -175,7 +145,7 @@ export default function ComparePage(_props: PageProps) {
     sort, startAlign: align, minMax: minmax, rowPitch: scroll ? 26 : null,
   } as const;
   const visibleOf = (block: HwTimeBlock) => block.series.map(item => item.id).filter(id => !hidden.includes(id));
-  const setVisible = (block: HwTimeBlock) => (ids: string[]) => setHiddenState({ key: levelKey, ids: block.series.map(item => item.id).filter(id => !ids.includes(id)) });
+  const setVisible = (block: HwTimeBlock) => (ids: string[]) => setHidden(block.series.map(item => item.id).filter(id => !ids.includes(id)));
 
   const trendPanel: PanelWorkspacePanel = {
     id: 'trend', title: { ko: '추세', en: 'Trend' },
@@ -195,7 +165,7 @@ export default function ComparePage(_props: PageProps) {
       persistKey = 'hw-compare-l3'; layout = PRESETS.l3;
       const ctx = context ?? data;
       const det = detail ?? EMPTY_BLOCK;
-      const shared = { ...stackProps, activeRowId: row, revealActive: scroll, onActiveRowChange: (rowId: string | null) => setPage({ row: rowId }), rowActions: rowActionsOf };
+      const shared = { ...stackProps, activeRowId: row, revealActive: scroll, onActiveRowChange: (rowId: string | null) => setPage({ row: rowId }), rowActions: state.rowActionsOf };
       panels = [
         { id: 'context', title: { ko: `Module ${module} 전체 Motion`, en: `All Motions of Module ${module}` }, render: () =>
           <PanelFill><StackPanel chartId="hw-compare-L3-context" title={ko ? `Module ${module} 전체 Motion` : `All Motions of Module ${module}`} block={ctx}
@@ -213,7 +183,7 @@ export default function ComparePage(_props: PageProps) {
         { id: 'ranking', title: { ko: '합계 순위', en: 'Ranking' }, minWidth: 180, render: () => <RankingPanel block={data} visibleSeriesIds={visibleOf(data)} /> },
         { id: 'stack', primary: true, title: { ko: 'Motion별', en: 'By Motion' }, render: () =>
           <PanelFill><StackPanel chartId="hw-compare-L2" title={stackTitle} block={data} visibleSeriesIds={visibleOf(data)} onVisibleSeriesChange={setVisible(data)} {...stackProps}
-            onActivate={({ seriesId }) => drill.enter('drillMotion', seriesId)} rowActions={rowActionsOf} /></PanelFill> },
+            onActivate={({ seriesId }) => drill.enter('drillMotion', seriesId)} rowActions={state.rowActionsOf} /></PanelFill> },
         trendPanel,
       ];
     } else {
@@ -236,9 +206,10 @@ export default function ComparePage(_props: PageProps) {
       </aside>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <DrillLayout fill summary={summary}>
-          <QueryView fill query={levelQ} widgetName={ko ? 'HW Time 비교' : 'HW Time compare'} hideWidgetName skeletonRows={6}>
-            {data => renderBody(data)}
-          </QueryView>
+          {invalid ? <HwTimeUrlWarning sentences={invalid} onRecover={state.recover} />
+            : <QueryView fill query={levelQ} widgetName={ko ? 'HW Time 비교' : 'HW Time compare'} hideWidgetName skeletonRows={6}>
+              {data => renderBody(data)}
+            </QueryView>}
         </DrillLayout>
       </div>
     </div>

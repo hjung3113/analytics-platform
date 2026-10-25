@@ -119,4 +119,17 @@ test.describe('HW Time 메뉴 4종 — 드릴 · 작업 영역 · 보드 (06 §1
       await expect(tree.getByRole('treeitem', { name: new RegExp(MOTION) })).toHaveAttribute('aria-current', 'true');
     });
   }
+
+  test('HW Time 단계별: 잘못된 sort는 보정하지 않고 경고 — 초기화하면 차트가 돌아온다 (06 §6)', async ({ page }) => {
+    await page.goto('/hw-time/steps?v=1&scopeId=MEM&sort=bogus');
+    await expect(page.getByRole('main').getByRole('heading', { level: 1 })).toHaveText('HW Time 단계별');
+    const warning = page.getByText('필터 값이 올바르지 않습니다');
+    await expect(warning).toBeVisible();
+    await expect(page.getByText(/정렬 “bogus”/)).toBeVisible();
+    await expect(page.getByRole('combobox', { name: '차트 지점 선택' })).toHaveCount(0);
+    await page.getByRole('button', { name: '초기화' }).click();
+    await expect.poll(() => query(page).has('sort')).toBe(false);
+    await expect(warning).toBeHidden();
+    await expect(page.getByRole('combobox', { name: '차트 지점 선택' })).toBeEnabled();
+  });
 });

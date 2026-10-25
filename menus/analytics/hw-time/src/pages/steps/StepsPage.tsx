@@ -4,20 +4,18 @@
  * The page owns the single level query; Inspector sections only render what it passes in (ADR-0080).
  */
 import { ChevronDown, Inbox, ListTree, SlidersHorizontal, Target } from 'lucide-react';
-import { useId, useMemo, useState } from 'react';
+import { useId, useState } from 'react';
 import { useDrill, useI18n, usePlatform, type PageProps } from '@ap/kernel';
 import { DrillLayout, Inspector, LegendTree, PlatformPage, QueryView, SegmentedRadio, StateMessage, type InspectorSection } from '@ap/components';
 import { Button, Checkbox, cn } from '@ap/ui';
 import type { ThemeColorToken } from '@ap/ui/theme';
-import { HW_TIME_MAX_TREND_ROWS, HW_TIME_UNIT, isHwTimeRowId, type HwTimeBlock, type HwTimeDrill, type HwTimeLevelData } from '../../endpoints';
+import { HW_TIME_UNIT, type HwTimeBlock, type HwTimeDrill, type HwTimeLevelData } from '../../endpoints';
 import { useHwTimeLevel, useHwTimeTrend } from '../../shared/data';
 import { formatSeconds, missingText } from '../../shared/format';
-import { selectionCounts } from '../../shared/selectionCounts';
-import { StackPanel, type StackSort } from '../../shared/panels/StackPanel';
+import { HwTimeUrlWarning } from '../../shared/HwTimeUrlWarning';
+import { StackPanel } from '../../shared/panels/StackPanel';
 import { TrendPanel } from '../../shared/panels/TrendPanel';
-import { formatTrendKey, parseTrendKey } from '../../shared/trendKey';
-
-const SORTS: readonly StackSort[] = ['total-desc', 'total-asc'];
+import { useHwTimeLevelState } from '../../shared/useHwTimeLevelState';
 
 /** The block the body draws: the whole response at L1/L2, the selected Motion's detail at L3. */
 function bodyBlock(data: HwTimeLevelData): HwTimeBlock {
@@ -36,22 +34,15 @@ export default function StepsPage(_props: PageProps) {
   // Only L3 has a drilled node among the series; at L2 the Module is not one of the Motion nodes.
   const currentId = drill.depth === 2 ? motion : null;
   const params: HwTimeDrill = { ...(module ? { drillModule: module } : {}), ...(module && motion ? { drillMotion: motion } : {}) };
-  const levelQ = useHwTimeLevel(params, drill.invalid === null);
-
-  const trendRows = useMemo(() => parseTrendKey(pageParam('trend')), [pageParam]);
-  const trendQ = useHwTimeTrend(trendRows, trendRows.length > 0);
-
-  const rawSort = pageParam('sort');
-  const sort: StackSort = SORTS.includes(rawSort as StackSort) ? rawSort as StackSort : null;
+  // Keyed by Module and Motion on purpose: at L3 the series are that Motion's detail, so another Motion is another series set.
+  const state = useHwTimeLevelState({ hiddenKey: `${module ?? ''}/${motion ?? ''}` });
+  const { invalid, sort, sortText, trendRows, hidden, setHidden, notice } = state;
+  const levelQ = useHwTimeLevel(params, drill.invalid === null && invalid === null);
+  const trendQ = useHwTimeTrend(trendRows, trendRows.length > 0 && invalid === null);
 
   // Page keys, not reset keys: `align=1` is on, absent is off.
   const align = pageParam('align') === '1';
   const minmax = pageParam('minmax') === '1';
-
-  // Keyed by Module and Motion on purpose: at L3 the series are that Motion's detail, so another Motion is another series set.
-  const levelKey = `${module ?? ''}/${motion ?? ''}`;
-  const [hiddenState, setHiddenState] = useState<{ key: string; ids: string[] }>({ key: levelKey, ids: [] });
-  const hidden = hiddenState.key === levelKey ? hiddenState.ids : [];
 
   const [trendOpen, setTrendOpen] = useState(trendRows.length > 0);
   const [lastCount, setLastCount] = useState(trendRows.length);
@@ -60,35 +51,14 @@ export default function StepsPage(_props: PageProps) {
     if (trendRows.length > lastCount) setTrendOpen(true);
     if (trendRows.length === 0) setTrendOpen(false);
   }
-  const [notice, setNotice] = useState<string | null>(null);
   const trendId = useId();
 
   const response = levelQ.response?.outcome === 'ok' ? levelQ.response.data : null;
   const block = response ? bodyBlock(response) : null;
-  const counts = block ? selectionCounts(block) : null;
-
-  const addTrend = (rowId: string) => {
-    if (!isHwTimeRowId(rowId) || trendRows.includes(rowId)) return;
-    if (trendRows.length >= HW_TIME_MAX_TREND_ROWS) {
-      setNotice(ko ? `추세는 최대 ${HW_TIME_MAX_TREND_ROWS}행까지 볼 수 있습니다.` : `The trend shows at most ${HW_TIME_MAX_TREND_ROWS} rows.`);
-      return;
-    }
-    setNotice(null);
-    setPage({ trend: formatTrendKey([...trendRows, rowId]) });
-  };
-  const removeTrend = (rowId: string) => {
-    if (!trendRows.includes(rowId)) return;
-    setNotice(null);
-    setPage({ trend: formatTrendKey(trendRows.filter(id => id !== rowId)) });
-  };
-  // The Frame evaluates the list for the selected row: one applicable action, L1 (equipment rows) none.
-  const rowActionsOf = (rowId: string) => (!isHwTimeRowId(rowId) ? []
-    : trendRows.includes(rowId) ? [{ id: 'trend-remove', label: ko ? '추세에서 제거' : 'Remove from trend', keepsFocus: true, onSelect: removeTrend }]
-      : [{ id: 'trend-add', label: ko ? '추세에 추가' : 'Add to trend', keepsFocus: true, onSelect: addTrend }]);
+  const counts = state.countsOf(block);
 
   const legendTotal = block?.series.length ?? 0;
   const legendShown = block ? block.series.filter(item => !hidden.includes(item.id)).length : 0;
-  const sortText = sort === 'total-desc' ? { ko: '정렬: 큰 순', en: 'Sort: high' } : sort === 'total-asc' ? { ko: '정렬: 작은 순', en: 'Sort: low' } : { ko: '정렬: 기본', en: 'Sort: default' };
 
   const optionText = [
     sortText[lang],
@@ -112,7 +82,7 @@ export default function StepsPage(_props: PageProps) {
         return <LegendTree label={ko ? '계층 범례' : 'Legend'}
           nodes={series.map(item => ({ id: item.id, label: item.name, color: item.color as ThemeColorToken }))}
           visible={visible}
-          onVisibleChange={next => setHiddenState({ key: levelKey, ids: series.map(item => item.id).filter(id => !next.has(id)) })}
+          onVisibleChange={next => setHidden(series.map(item => item.id).filter(id => !next.has(id)))}
           onDrill={drillTo} canDrill={() => true} currentId={currentId}
           emptyText={ko ? '표시할 범례가 없습니다.' : 'No legend to show.'} />;
       },
@@ -160,11 +130,11 @@ export default function StepsPage(_props: PageProps) {
         : (ko ? `Motion ${motion} 상세 — Module ${module}` : `Motion ${motion} detail — Module ${module}`);
     return <StackPanel chartId={`hw-time-steps-L${data.level + 1}`} title={chartTitle} block={shown}
       visibleSeriesIds={shown.series.map(item => item.id).filter(id => !hidden.includes(id))}
-      onVisibleSeriesChange={ids => setHiddenState({ key: levelKey, ids: shown.series.map(item => item.id).filter(id => !ids.includes(id)) })}
+      onVisibleSeriesChange={ids => setHidden(shown.series.map(item => item.id).filter(id => !ids.includes(id)))}
       sort={sort} startAlign={align} minMax={minmax}
       onActivate={data.level === 0 ? ({ seriesId }) => drill.enter('drillModule', seriesId)
         : data.level === 1 ? ({ seriesId }) => drill.enter('drillMotion', seriesId) : undefined}
-      rowActions={data.level === 0 ? undefined : rowActionsOf} />;
+      rowActions={data.level === 0 ? undefined : state.rowActionsOf} />;
   };
 
   return <PlatformPage layout="fill">
@@ -176,11 +146,13 @@ export default function StepsPage(_props: PageProps) {
         {/* Clip as a guard: the detail's fill floor (fillMin) is low enough to fit, but the plot must never draw over the trend toggle. */}
         <div className="flex min-h-0 flex-[3] flex-col overflow-hidden">
           <DrillLayout fill summary={summary}>
-            <QueryView fill query={levelQ} widgetName={ko ? 'HW Time 단계별' : 'HW Time by level'} hideWidgetName skeletonRows={6}>
-              {data => renderBody(data)}
-            </QueryView>
+            {invalid ? <HwTimeUrlWarning sentences={invalid} onRecover={state.recover} />
+              : <QueryView fill query={levelQ} widgetName={ko ? 'HW Time 단계별' : 'HW Time by level'} hideWidgetName skeletonRows={6}>
+                {data => renderBody(data)}
+              </QueryView>}
           </DrillLayout>
         </div>
+        {invalid === null && <>
         {/* No min-h-0 on the trend: its least height is the Frame's chrome (legend, toolbar) plus the plot floor, so a legend that wraps
           pushes the detail's clipped box up instead of the trend plot out of its card. */}
         <section aria-label={ko ? '추세' : 'Trend'} className={cn('flex flex-col rounded-lg border border-border-subtle bg-surface-card', trendOpen ? 'flex-[2]' : 'shrink-0')}>
@@ -196,6 +168,7 @@ export default function StepsPage(_props: PageProps) {
             <TrendPanel chartId="hw-time-steps-trend" title={ko ? '행별 일 추세' : 'Daily trend by row'} rowIds={trendRows} query={trendQ} level={drill.depth} />
           </div>
         </section>
+        </>}
       </div>
     </div>
   </PlatformPage>;
