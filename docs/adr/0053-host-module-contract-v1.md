@@ -12,6 +12,7 @@
 - **등록은 Kernel이 한다:** `mountModule(manifest, screens, { prefix, groupSpace, config, icons })`(이름 Candidate)가 `MenuEntry[]`·`GroupDef[]`를 만든다. 모르는 `contract`, 빠진 필수 기능, 빠진 `config` 키, 모듈 접두사가 없는 권한·그룹 id, 접두사 밖 경로는 `RegistryError`로 거부한다(fail closed). 경로 충돌 검사는 지금 Registry 규칙 그대로다.
 - **열린 어휘(G1):** 모듈 권한과 그룹 id는 `<moduleId>:` 접두사 문자열이다. 플랫폼 고유 `PERMISSIONS`·`GroupId`·`SpaceId` 목록은 그대로 둔다. **개정(2026-10-23, [ADR-0072](0072-open-menu-vocabulary-app-declared-branded-ids.md), 구현 전):** 이 목록은 contracts에서 빠지고 앱이 선언한다. contracts에는 Kernel 고유 권한만 남는다.
 - **모듈 상태(G4) 화면은 새 모양을 만들지 않는다:** `auth_required`·`identity_mismatch`·`unavailable`은 기존 `StateView` 계열 표현으로 호스트가 그린다. 새 시각 표현이 필요해지면 프로토타입 컨펌을 거친다.
+- **개정(2026-10-25, #804): 호스트가 모듈 화면에 제목 줄·Context 바·Scope 게이트와 상세 패널을 그린다.** `ModuleScreen`이 `PlatformPage`로, `detail`을 `DetailDrawer`로 감싼다. 계약 1과 모듈의 import 범위는 그대로다.
 - **포트는 다른 저장소 모듈 전용 경계다.** 이 저장소의 견본 메뉴는 `usePlatform()`을 계속 쓰고 옮기지 않는다.
 - **모듈 패키지의 의존 범위:** `@ap/contracts`와 SDK UI(`@ap/ui`)만 import한다. `@ap/kernel`·`@ap/shell`·`@ap/components`는 import하지 않는다(탑재 설계 §4의 Open을 이렇게 닫는다). 경계 lint 프리셋으로 강제한다.
 - **첫 소비자는 저장소 안 고정 모듈(fixture)이다.** EV `platform-adapter`는 #332 게이트가 풀릴 때까지 기다린다. 고정 모듈은 견본 메뉴가 아니라 계약 검사용이고 플랫폼 앱 메뉴에 노출하지 않는다. **개정(2026-10-25, #801):** EV `eqv`(Top View·Focus)가 EV 릴리스 tarball(EV ADR-0014)로 설치되어 앱 mock 조립에 마운트됐다. #332의 비공개 저장소 게이트는 EV 공개(2026-10-15)로 해소됐고, 첫 외부 소비자는 EV다. 고정 모듈은 계약 검사용으로 남고 앱 메뉴에 올리지 않는다는 부분은 그대로다.

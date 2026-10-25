@@ -62,7 +62,7 @@
 | 감사·활용률 | 활용률(진입·체류)은 **호스트가 자동 기록**(등록 화면 단위), 감사는 서버가 쓴다 | `recordUsage`, `AuditEvent`, `entityAudit` | 모듈은 클라이언트에서 감사 행을 쓰지 않는다. 플랫폼 `AuditTimeline`을 쓸지는 모듈 선택 |
 | 상세 패널 | 셸의 오른쪽 고정 슬롯에 노드 하나를 올리고 내림 | `@ap/ui` `DetailPanelSlot`(ADR-0013) — FO는 별도 `@fops/ui` `DetailPanelSlotContext`(AppFrame이 제공) | FO 목록+상세 화면은 이 슬롯 없이는 상세가 보이지 않는다(제공자가 없으면 hook이 아무것도 하지 않음). 슬롯 primitive가 두 벌이었으나 [ADR-0047](../adr/0047-detail-panel-slot-single-registrant-model.md)로 하나로 합쳤다(G10) |
 | 문서 제목 | 호스트가 `document.title`을 소유하고 화면 이름은 manifest `label`에서 | 없음(플랫폼은 미정, FO는 `DocumentTitleProvider`) | 모듈이 `document.title`을 직접 쓰지 않는다(G11) |
-| 포커스·복귀 | 도착 포커스 요청 소비, 복귀 대상 `returnTarget()`·출발 표시 `returnOrigin()` | `PageNavigation`, `ReturnLink`(06 §22), ADR-0032 | 지금 도착 포커스는 `PlatformPage`가 수행한다. `PlatformPage`를 쓰지 않는 모듈 화면을 위해 포트에 "도착 포커스 대상 등록"이 필요 |
+| 포커스·복귀 | 도착 포커스 요청 소비, 복귀 대상 `returnTarget()`·출발 표시 `returnOrigin()` | `PageNavigation`, `ReturnLink`(06 §22), ADR-0032 | 도착 포커스는 `PlatformPage`가 수행한다. 호스트가 모듈 화면을 `PlatformPage`로 감싸므로(#804) 모듈이 `focusTarget`에 등록한 요소가 제목보다 먼저 포커스를 받고, 등록이 없으면 제목(h1)이 받는다 |
 | 오류·상태 | 라우트 오류 경계(호스트 소유), `reportError` → correlation id, 알림 `notify` | `RouteErrorBoundary`, `reportClientError`, `toast` | 모듈 상태 `auth_required`·`identity_mismatch`·`unavailable`을 호스트가 공통 화면으로 그린다(새 항목) |
 | 수명주기 | 화면 해제 시 abort되는 `signal`, 세션·Scope 변경 알림 | `RouteOutlet`의 `resetKey`(메뉴·params와 revision) | 모듈은 해제 때 구독·타이머·worker·요청을 정리한다(#396 §7) |
 
@@ -100,7 +100,7 @@
 | G4 | 모듈 상태 | 제품 서버 인증 실패·신원 불일치를 모듈마다 다르게 그리면 로그인 화면이 셸 안에 생긴다 | `host.status(...)` 또는 화면 반환 상태로 `auth_required`·`identity_mismatch`·`unavailable`. 호스트가 공통 화면과 조치(새 탭 로그인 등)를 그림 |
 | G5 | 조립 설정 주입 | FeedbackOps `apiBase`, Managed System 매핑, EV 테마 매핑은 모듈 밖 값이다. 지금은 메뉴가 모듈 변수에 넣는 방식(`@ap/fo-bridge/fo-api`) | 연결 패키지가 `config`로 넘기고 모듈 manifest가 필요한 키를 선언 |
 | G6 | 계약 버전·필수 기능 검사 | 모듈과 호스트의 출시 시점이 다르다(#396 §9) | manifest `contract`·`requires`, 등록 때 모르는 버전·빠진 필수 기능을 `RegistryError`로 거부(fail closed) |
-| G7 | 도착 포커스 대상 | 도착 포커스(ADR-0032)가 `PlatformPage` 안에 있다 | 포트에 `focusTarget(el)` 등록 또는 모듈 화면이 정해진 속성의 제목을 그림 |
+| G7 | 도착 포커스 대상 | 도착 포커스(ADR-0032)가 `PlatformPage` 안에 있다 | 포트에 `focusTarget(el)` 등록. 호스트가 `PlatformPage`의 `arrivalTarget`으로 넘겨 제목을 덮어쓴다(#804) |
 | G8 | 모듈 CSS 소스 등록 | 모듈 패키지가 Tailwind 클래스를 쓰면 앱 `style.css`의 `@source`가 필요하다(지금 메뉴는 `styles.css` + 앱 import) | 생성기 마커처럼 연결 패키지가 `styles.css`를 내고 앱이 import |
 | G9 | 화면 해제 신호 | 지금은 React 언마운트에 맡긴다 | `host.signal`(AbortSignal) — React 밖 자원(EV worker, FO 업로드 큐) 정리용 |
 | G10 | 상세 슬롯 primitive 두 벌 (결정됨: [ADR-0047](../adr/0047-detail-panel-slot-single-registrant-model.md) — 슬롯 하나, FO는 전환 시점에 `DetailPanelSlotProvider`를 채택) | 플랫폼 `@ap/ui` `DetailPanelSlot`과 FO `@fops/ui` `DetailPanelSlotContext`가 다른 구현이다 | 포트에 선택 기능 `detail`(노드는 `unknown` 타입)을 두고 FO 모듈 루트가 자기 Context를 그쪽에 잇는다. 장기적으로 원본 하나(`@fops/ui`)로 — ADR-0023 절차대로 FO 이슈 제안 |
@@ -157,12 +157,14 @@ export type ModuleHost = {
   status(next: ModuleStatus): void;
   reportError(error: unknown): string;
   focusTarget(el: unknown): void;
-  /** 선택 기능 detailSlot. 노드 타입은 React지만 계약은 모른다(unknown). */
+  /** 선택 기능 detailSlot. 노드 타입은 React지만 계약은 모른다(unknown). 호스트가 `DetailDrawer` 틀(제목 = label, 닫기)을 그리고 닫힘은 모듈에 알리지 않는다. */
   detail?: { show(node: unknown, label: string): void; clear(): void };
   subscribe(onChange: () => void): () => void;
   signal: AbortSignal;
 };
 ```
+
+호스트가 모듈 화면에 그리는 틀(#804): 화면은 `PlatformPage`(호스트가 그리는 제목 줄·Context 바·Scope 게이트, 모듈 화면은 페이지 머리 슬롯 내용을 넘기지 않음)로 감싸 그려지고 상태 화면도 같은 틀의 본문이며, `detail.show`는 `DetailDrawer`(탭 하나 `상세`)에 올라간다. 알려진 한계: ① 셸에서 상세를 닫아도 모듈은 알림을 받지 못한다(계약 1에 닫힘 콜백이 없다). ② 도착 때 상세를 다시 여는 모듈은 포커스가 닫기 버튼으로 간다. ③ 모듈 화면은 `layout="fill"`을 고를 수 없다(항상 `flow`). 모듈 상세의 URL 보존은 범위 밖이다.
 
 Kernel 쪽(React)은 `mountModule(manifest, components, { prefix, groupSpace, config, icons })` 같은 등록 함수가 `MenuEntry[]`·`GroupDef[]`를 만들고, 화면을 `{ params, host }`로 렌더하는 래퍼를 둔다(추정 — 지금 `RouteOutlet`이 `<Page params>`를 그리는 자리). 플랫폼 자기 메뉴는 지금처럼 `usePlatform()`을 계속 쓴다 — 포트는 **다른 저장소 모듈 전용 경계**이고 견본 메뉴를 옮기지 않는다.
 
