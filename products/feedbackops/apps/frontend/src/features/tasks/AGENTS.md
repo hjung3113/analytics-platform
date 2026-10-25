@@ -27,7 +27,7 @@ It does not own reporter-facing VOC status or source evidence visibility rules.
 - Show evidence/source panels only when linked context exists and is visible or safely summarized.
 - Managed System filters refine lists and defaults; they do not duplicate VOC, Survey, Task, or Integration navigation.
 - Task creation from Finding must preserve pending, error, and linked context states.
-- Task Request review reads Finding sources through `features/findings/hooks/useFindingDetail` (bridge-safe direct read; the platform bridge cannot reach `features/findings/public.ts`, which also re-exports the router-bound `FindingRequestTaskDraftHost`). `FindingRequestTaskDraftHost` stays reachable through `public.ts` for hosts that need it (Surveys).
+- Task Request review reads Finding source defaults through `features/findings/hooks/useFindingDetail` (the bridge-mounted read; the rule is owned by `features/findings/AGENTS.md`).
 
 ## Key files
 
