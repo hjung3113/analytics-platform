@@ -37,6 +37,13 @@ export const nextCorrelation = () => `corr-${(correlation++).toString(16)}-${Mat
 export function partialFails(s: Scenario): boolean {
   return s === 'partial' && partialCounter++ % 2 === 1;
 }
+/**
+ * Default delay of a read, near a same-region server (#917: the old 450–650 ms made every drill step and menu change feel
+ * slow in the demo). `latency` overrides the base only; the `slow` scenario still adds its fixed 2.2 s and jitter stays.
+ */
+export const DEFAULT_QUERY_LATENCY_MS = 120;
+export const QUERY_LATENCY_JITTER_MS = 60;
+export const queryDelay = (latency: number | undefined, s: Scenario) => (latency ?? DEFAULT_QUERY_LATENCY_MS) + (s === 'slow' ? 2200 : 0) + Math.random() * QUERY_LATENCY_JITTER_MS;
 export const sleep = (ms: number, signal?: AbortSignal) => new Promise<void>((resolve, reject) => {
   const id = setTimeout(resolve, ms);
   signal?.addEventListener('abort', () => { clearTimeout(id); reject(new DOMException('aborted', 'AbortError')); });
@@ -221,7 +228,7 @@ export async function serve<T>(o: ServeOptions<T>): Promise<ApiResponse<T>> {
   const s = scenario;
   const requestRole = o.role ?? role;
   const correlationId = nextCorrelation();
-  await sleep((o.latency ?? 450) + (s === 'slow' ? 2200 : 0) + Math.random() * 200, o.signal);
+  await sleep(queryDelay(o.latency, s), o.signal);
   const base = { correlationId, data: null, trust: null, assessments: [] as Assessment[] };
   // Menu permission (§17): the same rule as menu visibility and route access, re-validated per request
   // with the pinned role. A missing permission outranks every response scenario.
@@ -297,7 +304,7 @@ export async function getEntity(ref: EntityRef, signal?: AbortSignal, opts?: Get
   const s = scenario;
   const requestRole = opts?.role ?? role;
   const correlationId = nextCorrelation();
-  await sleep((opts?.latency ?? 450) + (s === 'slow' ? 2200 : 0) + Math.random() * 200, signal);
+  await sleep(queryDelay(opts?.latency, s), signal);
   const base = { correlationId, data: null, trust: null, assessments: [] as Assessment[] };
   // 1. Unknown entity type.
   if (ref.type !== 'equipment') return { ...base, outcome: 'error', message: 'Unknown entity type' };

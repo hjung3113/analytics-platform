@@ -1016,7 +1016,8 @@ test.describe('PageFilterBar page-key 계약 (#54)', () => {
     await expect.poll(() => query(page).has('page')).toBe(false);
 
     await page.goto('/equipment?v=1&scopeId=MEM&q=PHOTO&status=maintenance&maker=ZZZ&page=2');
-    await page.getByRole('button', { name: '필터 초기화' }).click();
+    // Scoped to the bar: once the list answers, its empty state shows a second 필터 초기화 (the old 450 ms read hid it, #917).
+    await page.getByTestId('page-filter-bar').getByRole('button', { name: '필터 초기화' }).click();
     await expect.poll(() => query(page).has('q')).toBe(false);
     expect(query(page).has('status')).toBe(false);
     expect(query(page).has('maker')).toBe(false);
