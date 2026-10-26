@@ -1,5 +1,5 @@
-import type { DockNode } from '@ap/components/dock';
-import { MAX_PANES, type LayoutNode, type Sheet } from './boardTypes';
+import type { DockDropPosition, DockNode } from '@ap/components/dock';
+import { MAX_GROUPS, MAX_PANES, type LayoutNode, type Sheet } from './boardTypes';
 
 /**
  * The dock renderer's view of a sheet's layout tree (ADR-0067). `LayoutNode` and `DockNode` are the same recursive tree; only the group's
@@ -25,6 +25,17 @@ export function groupsOf(tree: LayoutNode): GroupNode[] {
 }
 
 export const groupHolding = (tree: LayoutNode, paneId: string): GroupNode | undefined => groupsOf(tree).find(group => group.panes.includes(paneId));
+
+/**
+ * Whether dropping `paneId` at `position` (an edge of another group: a split) would leave more than `MAX_GROUPS` display groups. A drop in the
+ * middle of a group only joins tabs, and a pane that is alone in its group moves its group instead of adding one. This is the check `setTree`
+ * makes on the result tree, asked before there is one (while the drag hovers), so a preview is never drawn for a drop `setTree` would ignore.
+ */
+export function splitExceedsCap(tree: LayoutNode, paneId: string, position: DockDropPosition): boolean {
+  if (position === 'center') return false;
+  const source = groupHolding(tree, paneId);
+  return !!source && source.panes.length >= 2 && groupsOf(tree).length >= MAX_GROUPS;
+}
 
 /** The tree with `paneId` the active tab of its group; the same object when it already is. An unknown id changes nothing. */
 export function activateInTree(tree: LayoutNode, paneId: string): LayoutNode {

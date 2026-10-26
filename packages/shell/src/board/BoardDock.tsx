@@ -4,7 +4,7 @@ import { DockLayout, dockLayoutMenu, movePanel, type DockPanel } from '@ap/compo
 import { useI18n } from '@ap/kernel';
 import { useHostPlatform, type PaneScreen } from '@ap/kernel/host';
 import { Button, DropdownMenuItem, DropdownMenuSeparator, useSurfacePaused } from '@ap/ui';
-import { effectiveTree, fromDockTree, groupHolding, groupsOf, toDockTree } from './boardDockTree';
+import { effectiveTree, fromDockTree, groupHolding, groupsOf, splitExceedsCap, toDockTree } from './boardDockTree';
 import { MAX_GROUPS } from './boardTypes';
 import { indexOfPane, selectedIndex, setTree, type Board, type Sheet } from './boardModel';
 import { BoardPane, type BoardPaneProps } from './BoardPane';
@@ -240,6 +240,7 @@ export function BoardDock({ sheet, update, paneProps, onSelect, onClear, onClose
       renderGroupActions={(group, { stripWidth }) => <HeadSlot key={group.active} paneId={group.active} stripWidth={stripWidth} tabs={group.panels.length} setHead={setHead} />}
       separatorLabel={info => (info.dir === 'row' ? text.columnSizeBetween : text.rowSize)(numberOf(info.before[0]!), numberOf(info.after[0]!))}
       currentPanelId={sheet.selectedPaneId} tabA11y={tabA11y}
+      canDropAt={({ panelId, position }) => !splitExceedsCap(tree, panelId, position)}
       minPanelSize={MIN_PANEL_SIZE} stackBelow={STACK_BELOW} />
   </div>;
 }

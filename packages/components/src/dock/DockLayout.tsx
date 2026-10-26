@@ -132,7 +132,7 @@ export function DockLayout(props: DockLayoutProps) {
 
 /** Internal (the workspace imports it from this file; `index.ts` does not): `DockLayout` plus the row capability of `DockRows`. */
 export function DockLayoutBase(props: DockLayoutProps & { rows?: DockRows; reveal?: { panelId: string; seq: number } | null }) {
-  const { rows, reveal, panels, layout, onLayoutChange, onActivate, maximizedPanelId = null, onMaximizedChange, onPanelDelete, renderTab, renderGroupActions, renderGroupTabsEnd, separatorLabel, stackBelow, label, currentPanelId, tabA11y } = props;
+  const { rows, reveal, panels, layout, onLayoutChange, onActivate, maximizedPanelId = null, onMaximizedChange, onPanelDelete, renderTab, renderGroupActions, renderGroupTabsEnd, separatorLabel, stackBelow, label, currentPanelId, tabA11y, canDropAt } = props;
   const { t } = useI18n();
   const instanceId = useId();
   const container = useRef<HTMLDivElement>(null);
@@ -341,7 +341,7 @@ export function DockLayoutBase(props: DockLayoutProps & { rows?: DockRows; revea
     <ChunkLoadBoundary key={attempt} onError={onError}>
       <Suspense fallback={<div role="status" aria-busy className="h-full w-full"><Skeleton className="h-full w-full" /></div>}>
         <DockEngine panels={panels} layout={layout} display={display} interactive={!narrow} maximizedPanelId={maximized} visible={visible} minPanelSize={minPanelSize}
-          onLayoutChange={onLayoutChange} onActivate={activate} renderTab={renderTab} renderGroupActions={renderGroupActions} renderGroupTabsEnd={renderGroupTabsEnd} tabA11y={tabA11y} separatorLabel={separatorLabel}
+          onLayoutChange={onLayoutChange} onActivate={activate} renderTab={renderTab} renderGroupActions={renderGroupActions} renderGroupTabsEnd={renderGroupTabsEnd} tabA11y={tabA11y} separatorLabel={separatorLabel} canDropAt={canDropAt}
           containerRef={container} instanceId={instanceId} rows={narrow ? undefined : rows} />
       </Suspense>
     </ChunkLoadBoundary>
