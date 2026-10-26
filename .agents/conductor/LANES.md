@@ -34,7 +34,7 @@ E2E는 `E2E_PORT=<포트>`로, base-path E2E는 `E2E_BASE_PATH_PORT=<포트 + 1>
 ## 기계 자원(16GB)
 
 - [`PROFILE.md`](PROFILE.md) §Launch의 동시 작업자 1–2개는 기계 전체의 한도다. 흐름 세션은 동시에 3개까지 띄우고(2026-10-26, 세션 3개가 루트 검사를 겹쳐 돌린 부하 평균 40에서 무관한 테스트가 시간 초과), 작업자(구현·리뷰)는 자리 둘 중 하나를 잡은 세션만 띄운다: `mkdir "$AP_MAIN/.review/worker-slot-1"`(실패하면 `-2`)이 성공하면 띄우고, 그 작업자가 끝나면 `rmdir`로 푼다. 둘 다 실패하면 기다리는 동안 호스트 검증·문서 일을 한다.
-- 무거운 단계는 기계 전체에서 하나씩 돈다: 루트 `pnpm test`·`build`, 전체 `pnpm e2e`, `probe.ts`, FeedbackOps integration, 미리보기·ego-browser 단계(UX 리뷰, 캡처). `mkdir "$AP_MAIN/.review/heavy.lock"`이 성공한 세션만 시작하고, 끝나면 `rmdir`로 푼다. 실패하면 그 이슈는 기다리고 다른 일을 한다. 좁힌 E2E(`-g`)와 패키지 단위 검사는 잠그지 않는다.
+- 무거운 단계는 기계 전체에서 하나씩 돈다: 루트 `pnpm test`·`build`, 전체 `pnpm e2e`, `probe.ts`, FeedbackOps integration, 미리보기·ego-browser 단계(UX 리뷰, 캡처). `mkdir "$AP_MAIN/.review/heavy.lock" && echo "$ORCA_TERMINAL_HANDLE" > "$AP_MAIN/.review/heavy.lock/owner"`이 성공한 세션만 시작한다. 푸는 것은 `owner`가 자기 handle일 때만이다(`[ "$(cat …/owner)" = "$ORCA_TERMINAL_HANDLE" ] && rm -r …/heavy.lock`) — 남의 잠금을 지운 일이 있었다(2026-10-26). 아래 작업자 자리·병합 잠금도 같은 방식이다. 실패하면 그 이슈는 기다리고 다른 일을 한다. 좁힌 E2E(`-g`)와 패키지 단위 검사는 잠그지 않는다.
 - 팀장은 정기 점검 때 잠금·자리가 90분을 넘었으면 `pgrep -fl 'vitest|playwright|turbo'`와 `lsof -a -p <PID> -d cwd`로 주인을 찾고, 주인이 없으면 푼다. swap이 늘면(`memory_pressure`) 흐름 세션 수를 줄인다.
 
 ## 흐름 세션
