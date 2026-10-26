@@ -2,8 +2,8 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, use
 import type { QueryMissing } from './query-draft';
 import { narrowedGlobal } from './condition-preset';
 import { useHostPlatform } from './platform';
-import { clientCorrelationId, instantEpochMs, projectContext, type ApiResponse, type AssessmentKind, type AuditEvent, type EndpointSpec, type EntityAuditPage, type EntityRef, type MenuQueryContext, serializeGlobal } from '@ap/contracts';
-import { useCursorPages, type CursorMore, type FirstPage } from './cursor-pages';
+import { clientCorrelationId, compareAuditEvents, projectContext, type ApiResponse, type AssessmentKind, type AuditEvent, type EndpointSpec, type EntityAuditPage, type EntityRef, type MenuQueryContext, serializeGlobal } from '@ap/contracts';
+import { useCursorPages, type CursorMore, type CursorMoreError, type CursorMoreLast, type CursorMoreStatus, type FirstPage } from './cursor-pages';
 
 export type QueryState<T> = {
   /** loading: no result for the current Context yet. refreshing: same Context re-query, prior result kept. */
@@ -82,11 +82,9 @@ export function useEntityQuery<T>(ref: EntityRef, pageInputs: unknown = null, en
 /** Older changes of one destination, appended after the first page (ADR-0085). `status` 'end' also covers a first page that was the whole list. */
 export type AuditMore = CursorMore;
 
-/** Newest first by instant, id ascending on a tie — the order of the port and of `AuditTimeline`. */
-function compareAuditEvents(a: AuditEvent, b: AuditEvent): number {
-  const byAt = instantEpochMs(b.at) - instantEpochMs(a.at);
-  return byAt !== 0 ? byAt : a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
-}
+export type AuditMoreStatus = CursorMoreStatus;
+export type AuditMoreError = CursorMoreError;
+export type AuditMoreLast = CursorMoreLast;
 
 /**
  * One destination's change history (docs/06 §13, ADR-0085) via `adapter.entityAudit`: `query` is the first page for

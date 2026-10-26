@@ -11,7 +11,7 @@
  * mart trust. `partial` and `too_large` do not apply to `auditTrail` (not a mart, no period budget);
  * `entityAudit` consults `partial` through getEntity's shared counter.
  */
-import { ENTITY_AUDIT_PAGE_MAX, instantEpochMs, menuPermission, type ApiResponse, type Assessment, type AuditAction, type AuditEvent, type AuditSortField, type AuditSource, type AuditTrailPage, type AuditTrailQuery, type EntityAuditPage, type EntityAuditRequest } from '@ap/contracts';
+import { ENTITY_AUDIT_PAGE_MAX, compareAuditEvents, instantEpochMs, menuPermission, type ApiResponse, type Assessment, type AuditAction, type AuditEvent, type AuditSortField, type AuditSource, type AuditTrailPage, type AuditTrailQuery, type EntityAuditPage, type EntityAuditRequest } from '@ap/contracts';
 import { checkScope, getRole, getScenario, nextCorrelation, partialFails, sleep } from './server';
 import { AUDIT_EVENTS } from './audit-fixtures';
 import { runtimeAuditEvents } from './annotations';
@@ -66,12 +66,6 @@ function invalidAuditQuery(query: AuditTrailQuery): boolean {
   return false;
 }
 
-/** Newest first, with the id as the tie-break: string compare is wrong once `Z` and `+09:00` both occur. */
-function compareEventsDesc(a: AuditEvent, b: AuditEvent): number {
-  const byAt = instantEpochMs(b.at) - instantEpochMs(a.at);
-  return byAt !== 0 ? byAt : a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
-}
-
 /**
  * Keyset cursor for `entityAudit` (ADR-0085): the last row's (instant, id), bound to the ref so a cursor never opens
  * another destination. Opaque to the client; a mock token, not a wire format a real server must copy.
@@ -95,7 +89,7 @@ function decodeAuditCursor(ref: EntityAuditRequest, cursor: string): { ms: numbe
 
 /** The shared cut for both destination branches: sort, drop up to the cursor, take a page, null cursor on the last. */
 function cutAuditPage(ref: EntityAuditRequest, events: readonly AuditEvent[], after: { ms: number; id: string } | null): EntityAuditPage {
-  const sorted = [...events].sort(compareEventsDesc);
+  const sorted = [...events].sort(compareAuditEvents);
   const rest = after === null ? sorted : sorted.filter(event => {
     const byAt = after.ms - instantEpochMs(event.at);
     return byAt !== 0 ? byAt > 0 : event.id > after.id;
@@ -116,7 +110,7 @@ function compareBySort(sort: { field: AuditSortField; desc: boolean }): (a: Audi
       ? instantEpochMs(a.at) - instantEpochMs(b.at)
       : sortValue(a, sort.field).localeCompare(sortValue(b, sort.field));
     const directed = sort.desc ? -ordered : ordered;
-    return directed !== 0 ? directed : compareEventsDesc(a, b);
+    return directed !== 0 ? directed : compareAuditEvents(a, b);
   };
 }
 
@@ -150,7 +144,7 @@ export async function auditTrail(query: AuditTrailQuery, signal?: AbortSignal, o
     && (query.targetId === undefined || event.target.id === query.targetId)
     && (fromMs === null || instantEpochMs(event.at) >= fromMs)
     && (toMs === null || instantEpochMs(event.at) < toMs))
-    .sort(query.sort ? compareBySort(query.sort) : compareEventsDesc);
+    .sort(query.sort ? compareBySort(query.sort) : compareAuditEvents);
   if (filtered.length === 0) return { ...base, outcome: 'empty' };
   const page = query.page ?? 1;
   const pageSize = query.pageSize ?? 25;
