@@ -36,6 +36,8 @@ describe('DetailDrawer tab row (06 §13, #886 UX-8)', () => {
     expect(screen.queryByRole('tablist')).toBeNull();
     expect(screen.queryByRole('tab')).toBeNull();
     expect(screen.queryByRole('tabpanel')).toBeNull();
+    // Still a keyboard-scrollable region, named by the drawer title (as the tabpanel was focusable).
+    expect(screen.getByRole('region', { name: '상세' }).getAttribute('tabindex')).toBe('0');
   });
 
   it('keeps the tab row for two or more tabs', async () => {

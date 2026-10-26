@@ -126,10 +126,9 @@ function DetailContent({ superseded, title, subtitle, headerActions, context, ta
     </header>
     {context && <div className="border-b border-border-subtle bg-surface-sunken px-5 py-2 text-xs text-text-secondary">{context}</div>}
     <OutcomeBanners />
-    {/* One tab draws no tab row (06 §13, #886 UX-8): a single tab has nothing to choose, and a panel inside the drawer with its
-        own tabs no longer shows two rows. Focus that needs the selected tab falls back to the panel, as when no trigger exists. */}
+    {/* One tab draws no tab row (06 §13, #886 UX-8); the content stays a focusable, named scroll region like a tabpanel. */}
     {tabs.length === 1
-      ? <div className="min-h-0 flex-1 overflow-auto px-5 py-3">{tabs[0].content}</div>
+      ? <div role="region" tabIndex={0} aria-labelledby={`${id}-t`} className="min-h-0 flex-1 overflow-auto px-5 py-3 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2">{tabs[0].content}</div>
       : <Tabs value={tab} defaultValue={tab ? undefined : tabs[0].id} onValueChange={onTabChange} className="flex min-h-0 flex-1 flex-col">
         <TabsList aria-label={lang === 'ko' ? '상세 탭' : 'Detail tabs'} className="mx-5 mt-3 w-auto">
           {tabs.map(tb => <TabsTrigger key={tb.id} value={tb.id}>{tb.label}</TabsTrigger>)}
