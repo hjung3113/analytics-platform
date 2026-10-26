@@ -4,7 +4,7 @@
 
 ## 무엇을 검사하나
 
-`tests/contracts.spec.ts`의 `describe`가 계약 영역, `test`가 보고서의 한 줄이다. 목록은 이 파일에 복사하지 않는다 — spec과 `contract-report/README.md`(실행 산출물, CI Job 요약에도 실린다)가 원본이다. 새 영역의 `describe` 제목에는 해당 06 절을 적는다.
+`tests/contract-<갈래>.spec.ts`(shell·context-links·components·chart·board·feedbackops)의 `describe`가 계약 영역, `test`가 보고서의 한 줄이다. 목록은 이 파일에 복사하지 않는다 — spec과 `contract-report/README.md`(실행 산출물, CI Job 요약에도 실린다)가 원본이고, 여러 spec이 쓰는 도우미는 `tests/contract-helpers.ts`에 있다. 새 영역의 `describe` 제목에는 해당 06 절을 적는다.
 
 각 검사가 실제로 계약을 지키는지는 Kernel 가드를 일부러 망가뜨려 실패하는지로 확인했다(PR 본문 "변이 검사"). 검사를 고치거나 더할 때도 같은 방식으로 확인한다.
 
