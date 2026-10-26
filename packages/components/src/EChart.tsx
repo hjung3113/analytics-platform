@@ -1,4 +1,4 @@
-import { Component, Suspense, lazy, useCallback, useMemo, useState, type ReactNode } from 'react';
+import { Component, Suspense, lazy, useCallback, useState, type ReactNode } from 'react';
 import { RotateCw, ServerCrash } from 'lucide-react';
 import type { EChartsCoreOption, ECharts } from 'echarts/core';
 import { useI18n } from '@ap/kernel';
@@ -87,14 +87,23 @@ class ChunkLoadBoundary extends Component<{ onError: (error: unknown) => void; c
   render() { return this.state.failed ? null : this.props.children; }
 }
 
+// One lazy component for every chart (#915): once the chunk has loaded, a newly mounted chart (a drill step that swaps the panel, a new
+// pane) draws in its first commit. A lazy made per mount re-suspended each time and waited out React's fallback throttle (~400 ms a step).
+// A retry after a failed load replaces it, so the rejected import runs again; charts mounted afterwards share the new one.
+const loadImpl = () => import('./EChartImpl');
+let sharedImpl = lazy(loadImpl);
+
 export function EChart({ option, height = 280, onEvents, onReady, onResize, ariaLabel, className }: EChartProps) {
   const { t } = useI18n();
   const [attempt, setAttempt] = useState(0);
   const [failed, setFailed] = useState(false);
-  // A new lazy component per attempt re-runs the rejected chunk import on retry.
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- `attempt` is the deliberate re-run trigger: it is not read, a retry only needs a new lazy component
-  const EChartImpl = useMemo(() => lazy(() => import('./EChartImpl')), [attempt]);
-  const retry = useCallback(() => { setFailed(false); setAttempt(a => a + 1); }, []);
+  const [EChartImpl, setEChartImpl] = useState(() => sharedImpl);
+  const retry = useCallback(() => {
+    sharedImpl = lazy(loadImpl);
+    setEChartImpl(() => sharedImpl);
+    setFailed(false);
+    setAttempt(a => a + 1);
+  }, []);
   if (failed) {
     // Same box as the plot (height · width: 100% · className) so the layout does not shift.
     // eslint-disable-next-line shadcn/no-inline-styles -- chart height comes from the height prop at runtime
