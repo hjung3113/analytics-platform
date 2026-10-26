@@ -116,11 +116,24 @@ describe('metric catalog invalid URL values (ADR-0034 sentences)', () => {
   it('an invalid status states the exact filter sentence and Reset clears only that key', async () => {
     renderAt('/metrics?status=bogus&domain=quality');
     const alert = await screen.findByRole('alert');
-    expect(alertParagraphs(alert)).toEqual(['상태 “bogus”는 이 화면에서 쓸 수 없는 필터입니다. 조건을 초기화하세요.']);
+    expect(alertParagraphs(alert)).toEqual(['상태 “bogus”는 이 화면에서 쓸 수 없는 값입니다. 조건을 초기화하세요.']);
     fireEvent.click(within(alert).getByRole('button', { name: '초기화' }));
     const params = new URLSearchParams(window.location.search);
     expect(params.has('status')).toBe(false);
     expect(params.get('domain')).toBe('quality');
+  });
+
+  it('Reset of an invalid filter moves focus off the removed button (06 §26, #924)', async () => {
+    renderAt('/metrics?status=bogus');
+    const alert = await screen.findByRole('alert');
+    const reset = within(alert).getByRole('button', { name: '초기화' });
+    reset.focus();
+    fireEvent.click(reset);
+    await act(async () => { await Promise.resolve(); });
+    expect(reset.isConnected).toBe(false);
+    // The button went away with the message: focus must not fall to <body>.
+    expect(document.activeElement).not.toBe(document.body);
+    expect(document.activeElement).not.toBe(reset);
   });
 
   it('invalid sort and page state the exact value sentences and Reset clears both', async () => {
