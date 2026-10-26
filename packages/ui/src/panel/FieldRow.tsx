@@ -36,6 +36,8 @@ export function FieldRow({
         'flex items-center justify-between gap-3 px-4 py-2 text-sm',
         INSET_CLASSES[inset],
         LAYOUT_CLASSES[layout],
+        // The property layout left-aligns a div value; inside a FieldList the value is a dd.
+        inList && layout === 'property' && '[&>dd]:text-left',
         className,
       )}
     >

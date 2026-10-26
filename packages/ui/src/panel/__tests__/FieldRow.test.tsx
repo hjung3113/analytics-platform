@@ -83,6 +83,11 @@ describe('FieldRow', () => {
     }
   });
 
+  it('keeps the property layout left-aligned inside FieldList', () => {
+    render(<FieldList><FieldRow label="담당자" layout="property">Alice</FieldRow></FieldList>);
+    expect(screen.getByRole('definition').closest('div')?.className).toContain('[&>dd]:text-left');
+  });
+
   it('outside FieldList keeps span/div markup', () => {
     const { container } = render(<FieldRow label="담당자">Alice</FieldRow>);
     expect(container.querySelector('dt, dd, dl')).toBeNull();
