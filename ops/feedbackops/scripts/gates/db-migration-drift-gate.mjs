@@ -139,23 +139,19 @@ function checkSchemaDrift() {
     // snapshot files), which would make the file comparison below pass
     // vacuously. Capture the output, echo it, and require a completion marker
     // before trusting the comparison.
-    const run = spawnSync(
-      'pnpm',
-      ['--filter', '@fops/backend', 'db:generate'],
-      {
-        cwd: root,
-        stdio: ['ignore', 'pipe', 'pipe'],
-        encoding: 'utf8',
-        env: {
-          ...process.env,
-          DATABASE_URL_MIGRATE: safeMigrateUrl,
-          // drizzle-kit resolves a config-supplied `out` against the config
-          // dir and mangles absolute paths ("./" + path), so hand it a
-          // "./"-relative path from apps/backend into the throwaway copy.
-          DRIZZLE_OUT: `./${relative(backendDir, scratchOut)}`,
-        },
+    const run = spawnSync('pnpm', ['--filter', '@fops/backend', 'db:generate'], {
+      cwd: root,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        DATABASE_URL_MIGRATE: safeMigrateUrl,
+        // drizzle-kit resolves a config-supplied `out` against the config
+        // dir and mangles absolute paths ("./" + path), so hand it a
+        // "./"-relative path from apps/backend into the throwaway copy.
+        DRIZZLE_OUT: `./${relative(backendDir, scratchOut)}`,
       },
-    );
+    });
     if (run.error) {
       console.error(`migration drift: could not run db:generate: ${run.error.message}`);
       process.exit(2);
@@ -167,8 +163,7 @@ function checkSchemaDrift() {
       process.exit(run.status ?? 1);
     }
     const completed =
-      run.stdout?.includes('No schema changes') ||
-      run.stdout?.includes('Your SQL migration file');
+      run.stdout?.includes('No schema changes') || run.stdout?.includes('Your SQL migration file');
     if (!completed) {
       console.error(
         'migration drift: db:generate produced no completion marker — cannot assess drift',
@@ -185,7 +180,10 @@ function checkSchemaDrift() {
         generatedFiles.includes(file) &&
         sha256File(join(migrationsDir, file)) !== sha256File(join(scratchOut, file)),
     );
-    printList('generate would add (schema drift)', newFiles.map((file) => relative(root, join(scratchOut, file))));
+    printList(
+      'generate would add (schema drift)',
+      newFiles.map((file) => relative(root, join(scratchOut, file))),
+    );
     printList(
       'generate would rewrite (schema drift)',
       rewrittenFiles.map((file) => relative(root, join(migrationsDir, file))),
@@ -202,10 +200,7 @@ function checkSchemaDrift() {
       const latest = journal.entries.at(-1);
       if (latest && !committedSet.has(snapshotFileFor(latest.tag))) {
         console.error(
-          `migration drift: newest journal entry ${latest.tag} has no meta snapshot ` +
-            `(${snapshotFileFor(latest.tag)}); drizzle-kit generate would diff against a stale ` +
-            'base. Regenerate it: run `pnpm --filter @fops/backend db:generate`, keep only the new ' +
-            `meta snapshot renamed to ${snapshotFileFor(latest.tag)}, and discard the generated SQL/journal change.`,
+          `migration drift: newest journal entry ${latest.tag} has no meta snapshot (${snapshotFileFor(latest.tag)}); drizzle-kit generate would diff against a stale base. Regenerate it: run \`pnpm --filter @fops/backend db:generate\`, keep only the new meta snapshot renamed to ${snapshotFileFor(latest.tag)}, and discard the generated SQL/journal change.`,
         );
       }
       process.exit(1);

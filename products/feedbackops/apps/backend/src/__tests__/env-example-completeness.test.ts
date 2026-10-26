@@ -145,8 +145,7 @@ describe('.env.example completeness (Slice 3 #22)', () => {
     const all = [...missingRequired, ...missingOptional];
     expect(
       all,
-      `add the following key(s) to .env.example (required first, then optional/defaulted): ` +
-        `required=[${missingRequired.join(', ')}] optional=[${missingOptional.join(', ')}]`,
+      `add the following key(s) to .env.example (required first, then optional/defaulted): required=[${missingRequired.join(', ')}] optional=[${missingOptional.join(', ')}]`,
     ).toEqual([]);
   });
 });
