@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { type PageProps, PlatformLink, useEntityAudit, useI18n, useMenuQuery, usePlatform } from '@ap/kernel';
-import { AuditTimeline, Field, Panel, PlatformPage, QueryView, ReturnLink, StateMessage, useCopyLink } from '@ap/components';
-import { Button, cn, StatusBadge } from '@ap/ui';
+import { AuditTimeline, Panel, PlatformPage, QueryView, ReturnLink, StateMessage, useCopyLink } from '@ap/components';
+import { Button, cn, FieldList, FieldRow, StatusBadge } from '@ap/ui';
 import { MetricPairBanner } from './MetricCatalog';
 import {
   PERIOD_BASIS, definitionEndpoint, metricPairEndpoint, usageEndpoint, versionDiff,
@@ -244,11 +244,11 @@ function VersionSection({ metric, selected, onSelect }: { metric: MetricDef; sel
 function OwnershipSection({ metric }: { metric: MetricDef }) {
   const { lang } = useI18n();
   return <Panel id={sectionId('ownership')} title={lang === 'ko' ? '소유' : 'Ownership'} subtitle={lang === 'ko' ? '정의 책임과 발행 권한은 별개입니다.' : 'Definition ownership and publish permission are separate.'}>
-    <dl>
-      <Field label={lang === 'ko' ? '정의 책임' : 'Owner'}>{lang === 'ko' ? metric.owner.ko : metric.owner.en}</Field>
-      <Field label="ownerId" mono>{metric.ownerId}</Field>
-      <Field label={lang === 'ko' ? '소유 조직' : 'Organization'} mono>{metric.organizationRef ?? (lang === 'ko' ? '미정' : 'Unset')}</Field>
-    </dl>
+    <FieldList>
+      <FieldRow layout="detail" label={lang === 'ko' ? '정의 책임' : 'Owner'}>{lang === 'ko' ? metric.owner.ko : metric.owner.en}</FieldRow>
+      <FieldRow layout="detail" label="ownerId" mono>{metric.ownerId}</FieldRow>
+      <FieldRow layout="detail" label={lang === 'ko' ? '소유 조직' : 'Organization'} mono>{metric.organizationRef ?? (lang === 'ko' ? '미정' : 'Unset')}</FieldRow>
+    </FieldList>
   </Panel>;
 }
 
@@ -257,20 +257,20 @@ function DefinitionSection({ metric, version, previous }: { metric: MetricDef; v
   const diff = versionDiff(version, previous, lang);
   return <Panel id={sectionId('definition')} title={lang === 'ko' ? '정의' : 'Definition'} subtitle={<span className="t-mono">{metric.metricId} @ {version.version}</span>}
     actions={<StatusBadge tone={STATUS_TONE[version.state]} dot>{tx(STATUS_LABEL[version.state])}</StatusBadge>}>
-    <dl>
-      <Field label={lang === 'ko' ? '유형' : 'Kind'}>{tx(KIND_LABEL[metric.kind])}</Field>
-      <Field label={lang === 'ko' ? '수식 계약' : 'Formula contract'}>{tx(version.formula)}</Field>
-      <Field label="grain">{tx(version.grain)}</Field>
-      <Field label={lang === 'ko' ? '단위' : 'Unit'} mono>{version.unit}</Field>
-      <Field label={lang === 'ko' ? '분자' : 'Numerator'} mono>{version.numerator ?? (lang === 'ko' ? '해당 없음' : 'Not applicable')}</Field>
-      <Field label={lang === 'ko' ? '분모' : 'Denominator'} mono>{version.denominator ?? (lang === 'ko' ? '해당 없음' : 'Not applicable')}</Field>
-      <Field label={lang === 'ko' ? '재집계' : 'Reaggregation'} mono>{version.reaggregationRule}</Field>
-      <Field label="averageOfRatiosAllowed" mono>{String(version.averageOfRatiosAllowed)}</Field>
-      <Field label="averageOfQuantilesAllowed" mono>{version.averageOfQuantilesAllowed === null ? '—' : String(version.averageOfQuantilesAllowed)}</Field>
-      <Field label={lang === 'ko' ? '필터' : 'Filters'}>{version.filters.map(f => tx(f)).join(' · ') || '—'}</Field>
-      <Field label={lang === 'ko' ? '기간 기준' : 'Time basis'}>{tx(PERIOD_BASIS)}</Field>
-      <Field label="sourceContractRef" mono>{version.sourceContractRef}</Field>
-    </dl>
+    <FieldList>
+      <FieldRow layout="detail" label={lang === 'ko' ? '유형' : 'Kind'}>{tx(KIND_LABEL[metric.kind])}</FieldRow>
+      <FieldRow layout="detail" label={lang === 'ko' ? '수식 계약' : 'Formula contract'}>{tx(version.formula)}</FieldRow>
+      <FieldRow layout="detail" label="grain">{tx(version.grain)}</FieldRow>
+      <FieldRow layout="detail" label={lang === 'ko' ? '단위' : 'Unit'} mono>{version.unit}</FieldRow>
+      <FieldRow layout="detail" label={lang === 'ko' ? '분자' : 'Numerator'} mono>{version.numerator ?? (lang === 'ko' ? '해당 없음' : 'Not applicable')}</FieldRow>
+      <FieldRow layout="detail" label={lang === 'ko' ? '분모' : 'Denominator'} mono>{version.denominator ?? (lang === 'ko' ? '해당 없음' : 'Not applicable')}</FieldRow>
+      <FieldRow layout="detail" label={lang === 'ko' ? '재집계' : 'Reaggregation'} mono>{version.reaggregationRule}</FieldRow>
+      <FieldRow layout="detail" label="averageOfRatiosAllowed" mono>{String(version.averageOfRatiosAllowed)}</FieldRow>
+      <FieldRow layout="detail" label="averageOfQuantilesAllowed" mono>{version.averageOfQuantilesAllowed === null ? '—' : String(version.averageOfQuantilesAllowed)}</FieldRow>
+      <FieldRow layout="detail" label={lang === 'ko' ? '필터' : 'Filters'}>{version.filters.map(f => tx(f)).join(' · ') || '—'}</FieldRow>
+      <FieldRow layout="detail" label={lang === 'ko' ? '기간 기준' : 'Time basis'}>{tx(PERIOD_BASIS)}</FieldRow>
+      <FieldRow layout="detail" label="sourceContractRef" mono>{version.sourceContractRef}</FieldRow>
+    </FieldList>
     <p className="mt-3 text-xs text-text-muted">{previous ? (lang === 'ko' ? `이전 v${previous.version} 대비 변경 ${diff.length}개 필드는 왼쪽 버전 영역에 있습니다.` : `${diff.length} field(s) differ from previous v${previous.version}; see Version.`) : (lang === 'ko' ? '비교할 이전 버전이 없습니다.' : 'No previous version to diff.')}</p>
   </Panel>;
 }
@@ -279,13 +279,13 @@ function CoverageSection({ version, ids, rooms }: { version: MetricVersion; ids:
   const { lang, tx } = useI18n();
   const c = version.coverage;
   return <Panel id={sectionId('coverage')} title={lang === 'ko' ? '커버리지 기준' : 'Coverage basis'} subtitle={lang === 'ko' ? '지표 정의에 적힌 기준입니다. 조회 결과에 보이는 커버리지 비율과는 다른 값입니다.' : 'The basis written in the metric definition. It is not the coverage rate shown with query results.'}>
-    <dl>
-      <Field label={lang === 'ko' ? '모집단' : 'Population'}>{tx(c.populationRef)}</Field>
-      <Field label={lang === 'ko' ? '포함' : 'Included'}>{tx(c.includedBasis)}</Field>
-      <Field label={lang === 'ko' ? '제외' : 'Excluded'}>{tx(c.excludedBasis)}</Field>
-      <Field label={lang === 'ko' ? '분모 기준' : 'Denominator basis'}>{tx(c.denominatorBasis)}</Field>
-      <Field label="sourceRef" mono>{c.sourceRef ?? (lang === 'ko' ? '미정' : 'Unset')}</Field>
-    </dl>
+    <FieldList>
+      <FieldRow layout="detail" label={lang === 'ko' ? '모집단' : 'Population'}>{tx(c.populationRef)}</FieldRow>
+      <FieldRow layout="detail" label={lang === 'ko' ? '포함' : 'Included'}>{tx(c.includedBasis)}</FieldRow>
+      <FieldRow layout="detail" label={lang === 'ko' ? '제외' : 'Excluded'}>{tx(c.excludedBasis)}</FieldRow>
+      <FieldRow layout="detail" label={lang === 'ko' ? '분모 기준' : 'Denominator basis'}>{tx(c.denominatorBasis)}</FieldRow>
+      <FieldRow layout="detail" label="sourceRef" mono>{c.sourceRef ?? (lang === 'ko' ? '미정' : 'Unset')}</FieldRow>
+    </FieldList>
     <p className="mt-3 text-xs font-semibold text-text-primary">{lang === 'ko' ? '실행 Coverage 값 없음' : 'No runtime coverage value'}</p>
     <p className="mt-1 text-xs text-text-secondary">
       {lang === 'ko'

@@ -110,6 +110,13 @@ describe('toXlsx (#173 step 2)', () => {
     expect(cut.endsWith('…(잘림)')).toBe(true);
     expect(info).toEqual({ A1: '메뉴', B1: 'equipment', A2: '커버리지', B2: 0.97, A3: '원천' });
   });
+
+  // #891: one cell rule with the workbook export — a non-finite number is a blank cell, never a NaN/Infinity number cell.
+  it('writes a non-finite query-info number as a blank cell, like the workbook export', async () => {
+    const blob = await toXlsx(['ID'], [['a']], [['커버리지', Number.NaN], ['상한', Number.POSITIVE_INFINITY], ['건수', 3]]);
+    const { sheets: [, info] } = await readXlsx(blob);
+    expect(info).toEqual({ A1: '커버리지', A2: '상한', A3: '건수', B3: 3 });
+  });
 });
 
 describe('xlsxText truncation (#173 P3-9)', () => {

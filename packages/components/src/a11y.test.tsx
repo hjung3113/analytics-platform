@@ -2,9 +2,9 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { SlidersHorizontal, Target } from 'lucide-react';
 import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
+import { DetailPanelSlotProvider, FieldList, FieldRow, useDetailPanelSlotHost } from '@ap/ui';
 import { I18nProvider } from '@ap/kernel';
-import { DetailDrawer, Field } from './DetailDrawer';
+import { DetailDrawer } from './DetailDrawer';
 import { Inspector } from './inspector/Inspector';
 import { SegmentedRadio } from './RadioGroup';
 
@@ -221,12 +221,12 @@ describe('DetailDrawer docked slot', () => {
 
   // B-12: a label longer than the fixed 9rem column (e.g. averageOfQuantilesAllowed, 171px) must wrap,
   // not overlap the value column; the track widths themselves stay unchanged.
-  it('wraps long Field labels inside the fixed label column', () => {
+  it('wraps long detail-row labels inside the fixed label column', () => {
     render(<I18nProvider><DetailPanelSlotProvider>
       <DetailDrawer title="Detail" onClose={() => {}} tabs={[{ id: 'a', label: 'Attributes', content: (
-        <dl>
-          <Field label="averageOfQuantilesAllowed">p95 · 3.2s</Field>
-        </dl>
+        <FieldList>
+          <FieldRow layout="detail" label="averageOfQuantilesAllowed">p95 · 3.2s</FieldRow>
+        </FieldList>
       ) }]} /><SlotHost />
     </DetailPanelSlotProvider></I18nProvider>);
     const row = screen.getByText('averageOfQuantilesAllowed').closest('div');
@@ -239,11 +239,11 @@ describe('DetailDrawer docked slot', () => {
   it('offers fold points at camelCase word boundaries without changing the label text', () => {
     render(<I18nProvider><DetailPanelSlotProvider>
       <DetailDrawer title="Detail" onClose={() => {}} tabs={[{ id: 'a', label: 'Attributes', content: (
-        <dl>
-          <Field label="averageOfQuantilesAllowed">—</Field>
-          <Field label="owed">false</Field>
-          <Field label={<span>Coverage</span>}>12 rooms</Field>
-        </dl>
+        <FieldList>
+          <FieldRow layout="detail" label="averageOfQuantilesAllowed">—</FieldRow>
+          <FieldRow layout="detail" label="owed">false</FieldRow>
+          <FieldRow layout="detail" label={<span>Coverage</span>}>12 rooms</FieldRow>
+        </FieldList>
       ) }]} /><SlotHost />
     </DetailPanelSlotProvider></I18nProvider>);
     const camel = screen.getByText('averageOfQuantilesAllowed');

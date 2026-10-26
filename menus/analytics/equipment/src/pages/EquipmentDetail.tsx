@@ -1,7 +1,7 @@
 import { AlertTriangle } from 'lucide-react';
 import { type PageProps, PlatformLink, useEntityAudit, useEntityQuery, useI18n, usePlatform } from '@ap/kernel';
-import { AuditTimeline, DataTrustIndicator, Field, PlatformPage, QueryView, ReturnLink, StateMessage } from '@ap/components';
-import { Button, StatusBadge, Tabs, TabsContent, TabsList, TabsTrigger } from '@ap/ui';
+import { AuditTimeline, DataTrustIndicator, PlatformPage, QueryView, ReturnLink, StateMessage } from '@ap/components';
+import { Button, FieldList, FieldRow, StatusBadge, Tabs, TabsContent, TabsList, TabsTrigger } from '@ap/ui';
 import { EQUIPMENT_ENTITY_TYPE, type Equipment } from '../endpoints';
 import { fields, statusText, statusTone, validity } from './data';
 
@@ -32,7 +32,7 @@ export function EquipmentPanel({ id, kind }: { id: string; kind: 'attributes' | 
   return <QueryView widgetName={ko ? '설비 상세' : 'Equipment details'} query={query}>{(e, response) => e && <div className="space-y-4">
     <DataTrustIndicator trust={response.trust} assessments={response.assessments} />
     {kind === 'attributes' && <>
-      <dl>{fields.map(f => <Field key={f.key} label={f[lang]} mono={f.key === 'equipmentId'}>{f.key === 'status' ? <EquipmentStatus equipment={e} /> : e[f.key] ?? '—'}</Field>)}</dl>
+      <FieldList>{fields.map(f => <FieldRow layout="detail" key={f.key} label={f[lang]} mono={f.key === 'equipmentId'}>{f.key === 'status' ? <EquipmentStatus equipment={e} /> : e[f.key] ?? '—'}</FieldRow>)}</FieldList>
       <p className="t-caption text-text-muted">{ko ? 'StGroup·분임조: 현재 외부 공급값. 그 외 필드는 편집을 제공하지 않습니다.' : 'StGroup and team: current external values. Other fields are not editable.'}</p>
     </>}
     {kind === 'validity' && <>

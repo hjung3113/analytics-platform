@@ -89,8 +89,8 @@ FieldLabel | function | function FieldLabel({ appearance, required, tone, tip, c
 FieldLabelProps | interface | interface FieldLabelProps extends React.ComponentPropsWithoutRef<typeof @ap/ui#Label> { appearance?: 'default' | 'section'; children: React.ReactNode; required?: boolean; tip?: string; tone?: 'default' | 'secondary'; }
 FieldList | function | function FieldList({ children, className }: @ap/ui#FieldListProps): React.JSX.Element
 FieldListProps | interface | interface FieldListProps { children: React.ReactNode; className?: string; }
-FieldRow | function | function FieldRow({ label, children, inset, layout, className, }: @ap/ui#FieldRowProps): React.JSX.Element
-FieldRowProps | interface | interface FieldRowProps { children: React.ReactNode; className?: string; inset?: 'default' | 'none'; label: string; layout?: 'default' | 'property'; }
+FieldRow | function | function FieldRow({ label, children, inset, layout, mono, className, }: @ap/ui#FieldRowProps): React.JSX.Element
+FieldRowProps | interface | interface FieldRowProps { children: React.ReactNode; className?: string; inset?: 'default' | 'none'; label: React.ReactNode; layout?: 'default' | 'detail' | 'property'; mono?: boolean; }
 FilterCategory | interface | interface FilterCategory { key: string; label: string; options: { label: string; value: string; }[]; }
 HoverCard | const | const HoverCard: React.FC<HoverCardPrimitive.HoverCardProps>
 HoverCardContent | const | const HoverCardContent: React.ForwardRefExoticComponent<Omit<HoverCardPrimitive.HoverCardContentProps & React.RefAttributes<HTMLDivElement>, "ref"> & React.RefAttributes<HTMLDivElement>>
