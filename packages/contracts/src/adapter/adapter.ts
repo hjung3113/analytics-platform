@@ -1,11 +1,11 @@
 import type { AxisOptionsInput, AxisOptionsPage, EquipmentSearchInput, EquipmentSearchPage, SelectionResolveInput, SelectionResolveResult } from './selection-ports.js';
-import type { Text } from './i18n.js';
-import type { Permission, SpaceId } from './menu.js';
-import type { ModuleScopedId } from './host.js';
+import type { Text } from '../i18n.js';
+import type { Permission, SpaceId } from '../menu/menu.js';
+import type { ModuleScopedId } from '../host/host.js';
 import type { AuditAction, AuditEvent, AuditSource } from './audit.js';
 import type { ApiResponse } from './response.js';
-import type { Condition, IdSet } from './url.js';
-import type { MenuQuery } from './menu-query.js';
+import type { Condition, IdSet } from '../links/url.js';
+import type { MenuQuery } from '../menu/menu-query.js';
 import type { ActionResponse, MenuAction } from './action.js';
 
 /**
@@ -201,9 +201,9 @@ export type PlatformAdapter = {
   evaluateSelection(input: SelectionInput, signal?: AbortSignal): Promise<SelectionEvaluation>;
   /** One destination row by ref (detail pages). Not an analysis query: no GlobalContext, no Selection substitute. */
   getEntity(ref: EntityRef, signal?: AbortSignal): Promise<ApiResponse<unknown>>;
-  /** Menu data query (packages/contracts/src/menu-query.ts, docs/adr/0019-menu-query-endpoint-declaration.md). The server resolves `req.endpoint` to its own copy of the declaration; permission, kinds and limits never travel in the request. */
+  /** Menu data query (packages/contracts/src/menu/menu-query.ts, docs/adr/0019-menu-query-endpoint-declaration.md). The server resolves `req.endpoint` to its own copy of the declaration; permission, kinds and limits never travel in the request. */
   menuQuery(req: MenuQuery, signal?: AbortSignal): Promise<ApiResponse<unknown>>;
-  /** Menu write (packages/contracts/src/action.ts, docs/adr/0054-write-port-declared-actions-idempotency-version.md). The server resolves `req.action` to its own copy of the declaration; permission and concurrency never travel in the request. Never throws for a judged request. */
+  /** Menu write (packages/contracts/src/adapter/action.ts, docs/adr/0054-write-port-declared-actions-idempotency-version.md). The server resolves `req.action` to its own copy of the declaration; permission and concurrency never travel in the request. Never throws for a judged request. */
   menuAction(req: MenuAction, signal?: AbortSignal): Promise<ActionResponse<unknown>>;
   /** Anchor for default periods (naive wall-clock, docs/06 §6.3). */
   defaultRangeTo(): string;

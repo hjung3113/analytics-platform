@@ -4,7 +4,7 @@
 
 이 문서가 플랫폼 ↔ FeedbackOps 양방향 링크의 원본이다. 플랫폼 URL 규칙 자체(전역 Context 키, `v`, `returnTo`)는 06 §6이 원본이고, FeedbackOps 라우트·검색 스키마는 그쪽 `docs/frontend/routes-and-layout.md`가 원본이다. 여기는 **매핑, phase-1 허용 키(allowlist), 소유 경계, 변경 절차**만 다룬다.
 
-구현은 `packages/contracts/src/feedbackops-link.ts`(`buildFeedbackOpsLink`, `parseFeedbackOpsLink`, `buildPlatformInboundLink`, `parsePlatformInboundLink`). 테스트는 `apps/platform-web/src/feedbackops-link.test.ts`.
+구현은 `packages/contracts/src/links/feedbackops-link.ts`(`buildFeedbackOpsLink`, `parseFeedbackOpsLink`, `buildPlatformInboundLink`, `parsePlatformInboundLink`). 테스트는 `apps/platform-web/src/feedbackops-link.test.ts`.
 
 FeedbackOps `validateSearch`가 `.strict()`라 알 수 없는 쿼리 키는 그쪽 라우트가 throw 한다. 그래서 **phase-1 생성기는 오늘 그 스키마가 받는 키만 낸다.** 기간·설비·`scopeId`·`returnTo`·`fo`·`v`를 FeedbackOps URL에 넣지 않는다. 복귀는 FeedbackOps가 정한 `platformReturn` 하나뿐이다(아래 "복귀").
 
@@ -83,7 +83,7 @@ https://platform.example/analytics/cycle-time?v=1&scopeId=MEM&from=2026-09-25T09
 
 ## 3. 소유 경계
 
-- **플랫폼 소유:** inbound 경로, `v`·전역 키, `returnTo` 규칙, `packages/contracts/src/feedbackops-link.ts`.
+- **플랫폼 소유:** inbound 경로, `v`·전역 키, `returnTo` 규칙, `packages/contracts/src/links/feedbackops-link.ts`.
 - **FeedbackOps 소유:** path, strict search 스키마, MS uuid, VOC/survey uuid. 관찰 기준 커밋(합류 뒤에는 이 저장소의 커밋)을 이 문서 헤더에 적어 기준을 고정한다.
 - 두 쪽은 같은 저장소에 있지만 소유는 위와 같다. FeedbackOps 쪽 키를 바꾸는 변경은 아래 §4 절차로만 한다(동결된 원본 FeedbackOps 저장소는 고치지 않는다, #592).
 

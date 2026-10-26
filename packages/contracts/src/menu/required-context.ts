@@ -1,5 +1,5 @@
 import type { ContextKey, Capability } from './menu.js';
-import { parseDateTime, type GlobalContext } from './url.js';
+import { parseDateTime, type GlobalContext } from '../links/url.js';
 
 /** Capability-to-field mapping shared by client gating and server validation. Empty sets are present. */
 export const CONTEXT_FIELDS: Readonly<Record<ContextKey, readonly (keyof GlobalContext)[]>> = {

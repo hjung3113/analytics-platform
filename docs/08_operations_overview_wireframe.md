@@ -104,7 +104,7 @@ React 컴포넌트 이름이나 API 선언이 아니다. 슬롯 결합 규칙은
 | Decided (2026-09-24) | 공지 배너 닫기는 세션 동안만 유지(영구 dismiss 아님) | 이 문서 — 열린 입력 질문 9([.planning/inputs.md](../.planning/inputs.md#q9))의 하위 범위 중 이 화면분만 해소, 배너 위치·노출 조건 자체는 여전히 Open |
 | Decided (2026-09-24) | 공지 Scope 타게팅은 현재 요청 `scopeId` 기준 | 이 문서 |
 | 대체됨 (ADR-0028) | 그룹 카드 클릭 시 대표 목적지로 즉시 이동하던 2026-09-24 결정은 쓰지 않는다. 업무 시스템 카드가 대신한다 | [ADR-0028](adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md) |
-| Decided | Menu Registry는 그룹당 정확히 1개 `primary` 메뉴를 요구하고 Kernel이 등록 때 검증한다 | `packages/contracts/src/menu.ts`, `packages/kernel/src/registry.ts` |
+| Decided | Menu Registry는 그룹당 정확히 1개 `primary` 메뉴를 요구하고 Kernel이 등록 때 검증한다 | `packages/contracts/src/menu/menu.ts`, `packages/kernel/src/registry.ts` |
 | 대체됨 (ADR-0028) | 대표 메뉴만 권한이 없을 때 그룹 카드를 비활성으로 그리던 결정은 쓰지 않는다 | [ADR-0028](adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md) |
 | Decided (2026-09-24) | 즐겨찾기는 목적지 ID만 저장(마지막 조회 Context는 저장하지 않음, 전달 Context 보존 규칙과는 별개) | 이 문서, `07` §6에 반영 완료 |
 | Decided (2026-09-24) | 최근 방문은 Kernel이 최대 12건을 보관한다. 홈 본문은 그중 5건만 표시한다(15 §3.1). 사이드바 축약도 같은 정렬의 상위 5개다 | Kernel `platform.tsx`, 이 문서 |

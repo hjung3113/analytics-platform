@@ -1,9 +1,9 @@
-import type { ActionResult, ActionSpec } from './action.js';
-import type { Text } from './i18n.js';
-import type { ApiResponse } from './response.js';
-import type { EndpointSpec } from './menu-query.js';
-import type { ContextKey, MenuMeta } from './menu.js';
-import type { GlobalContext } from './url.js';
+import type { ActionResult, ActionSpec } from '../adapter/action.js';
+import type { Text } from '../i18n.js';
+import type { ApiResponse } from '../adapter/response.js';
+import type { EndpointSpec } from '../menu/menu-query.js';
+import type { ContextKey, MenuMeta } from '../menu/menu.js';
+import type { GlobalContext } from '../links/url.js';
 
 /**
  * Host → module contract, version 1 (ADR-0053, docs/integration/platform-hosting-design.md §2.5).

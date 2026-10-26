@@ -16,7 +16,7 @@
         "$TURBO_ROOT$/apps/platform-web/src/menus.ts",
         "$TURBO_ROOT$/apps/platform-web/src/dev/mock-assembly.tsx",
         "$TURBO_ROOT$/apps/platform-web/src/style.css",
-        "$TURBO_ROOT$/packages/contracts/src/menu.ts",
+        "$TURBO_ROOT$/packages/contracts/src/menu/menu.ts",
         "$TURBO_ROOT$/packages/*/src/**",
         "$TURBO_ROOT$/packages/*/package.json"
       ]

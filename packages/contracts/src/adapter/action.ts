@@ -1,5 +1,5 @@
-import type { Permission } from './menu.js';
-import type { AnyEndpointSpec } from './menu-query.js';
+import type { Permission } from '../menu/menu.js';
+import type { AnyEndpointSpec } from '../menu/menu-query.js';
 
 /** Menu write declaration shared by the client and server (docs/adr/0054-write-port-declared-actions-idempotency-version.md). */
 export type ActionSpec<I, T> = {

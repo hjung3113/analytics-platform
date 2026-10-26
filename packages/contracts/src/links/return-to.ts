@@ -1,4 +1,4 @@
-import type { SpaceDef } from './menu.js';
+import type { SpaceDef } from '../menu/menu.js';
 import type { Pair } from './url.js';
 
 /** `returnTo` is navigation state (the way back), never screen state: stores that replay URLs or page pairs drop it (#760, ADR-0081 UX-10). */

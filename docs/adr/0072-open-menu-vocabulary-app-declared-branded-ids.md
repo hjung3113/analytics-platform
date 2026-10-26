@@ -7,7 +7,7 @@
 
 ## 맥락
 
-`packages/contracts/src/menu.ts`가 이 저장소의 견본 메뉴 목록을 SDK 타입으로 갖고 있다.
+`packages/contracts/src/menu/menu.ts`가 이 저장소의 견본 메뉴 목록을 SDK 타입으로 갖고 있다.
 
 - `GroupId`: 16개 닫힌 union(`overview`·`myActivity`·`equipment` … `impReports`)과 그 런타임 사본 `GROUP_ID_SET`/`GROUP_IDS`.
 - `SpaceId`: 6개 닫힌 union(`analytics`·`metrics`·`clas`·`operations`·`log-dev`·`improvement`).
