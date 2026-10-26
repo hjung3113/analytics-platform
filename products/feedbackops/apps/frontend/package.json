@@ -21,6 +21,7 @@
     "./operator-screens/tasks-search": "./src/operator-screens/tasks-search/index.ts",
     "./operator-screens/findings-search": "./src/operator-screens/findings-search/index.ts",
     "./operator-screens/integration-search": "./src/operator-screens/integration-search/index.ts",
+    "./operator-screens/findings": "./src/operator-screens/findings/index.ts",
     "./operator-screens/voc-triage": "./src/operator-screens/voc-triage/index.ts"
   },
   "scripts": {
