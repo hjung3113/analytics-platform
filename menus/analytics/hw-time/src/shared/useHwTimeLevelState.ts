@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { invalidValueSentence, useI18n, usePlatform, type Text } from '@ap/kernel';
+import { usePageKeyRules, type PageKeyRule } from '@ap/components';
+import { useI18n, usePlatform, type Text } from '@ap/kernel';
 import { HW_TIME_MAX_TREND_ROWS, isHwTimeRowId, type HwTimeBlock } from '../endpoints';
 import type { StackSort } from './panels/StackPanel';
 import { selectionCounts } from './selectionCounts';
@@ -7,13 +8,11 @@ import { formatTrendKey, parseTrendKey } from './trendKey';
 
 const SORTS: readonly string[] = ['total-desc', 'total-asc'];
 
-const FIELD_NAMES = {
-  sort: { ko: '정렬', en: 'Sort' },
-  trend: { ko: '추세 행', en: 'Trend rows' },
-  row: { ko: '선택 행', en: 'Selected row' },
-} as const satisfies Record<string, Text>;
-
-type BadKey = keyof typeof FIELD_NAMES;
+const SORT_RULE: PageKeyRule = { key: 'sort', label: { ko: '정렬', en: 'Sort' }, valid: raw => SORTS.includes(raw) };
+const TREND_RULE: PageKeyRule = { key: 'trend', label: { ko: '추세 행', en: 'Trend rows' }, valid: raw => parseTrendKey(raw).ok };
+const ROW_RULE: PageKeyRule = { key: 'row', label: { ko: '선택 행', en: 'Selected row' }, valid: isHwTimeRowId };
+const RULES = [SORT_RULE, TREND_RULE];
+const RULES_WITH_ROW = [SORT_RULE, TREND_RULE, ROW_RULE];
 
 export interface HwTimeLevelStateOptions {
   /** Legend hidden-state key: the screen decides what makes another series set (Steps: Module/Motion, Compare/Overview: Module/depth). */
@@ -27,8 +26,9 @@ export interface HwTimeLevelStateOptions {
 /**
  * The level state the three HW Time screens share: `sort`, `trend` and `row` page keys parsed once, trend add/remove with the row
  * actions of the Frame, the selection counts, the sort copy and the legend hidden set. A malformed value of a registered key is
- * rejected, never corrected (06 §6): `invalid` holds one ADR-0034 sentence per bad key (`null` when all are well-formed), and
- * `recover` clears exactly those keys in one `setPage`. While `invalid` is set the screen sends no query and shows the warning.
+ * rejected, never corrected (06 §6): the SDK's `usePageKeyRules` gives `invalid` (one ADR-0034 sentence per bad key, `null`
+ * when all are well-formed) and `recover` (clears exactly those keys in one `setPage`). While `invalid` is set the screen sends
+ * no query and shows `PageKeyWarning`.
  */
 export function useHwTimeLevelState({ hiddenKey, row: hasRow = false, revealTrend = false }: HwTimeLevelStateOptions) {
   const { lang } = useI18n();
@@ -38,18 +38,18 @@ export function useHwTimeLevelState({ hiddenKey, row: hasRow = false, revealTren
   const rawSort = pageParam('sort');
   const rawTrend = pageParam('trend');
   const rawRow = hasRow ? pageParam('row') : null;
+  const keys = usePageKeyRules(hasRow ? RULES_WITH_ROW : RULES);
+  // The rules are the one validity check; the values below only read what they accepted.
+  const invalid = keys.invalid ? keys.sentences : null;
+  const { recover } = keys;
+  const sortOk = !keys.badKeys.includes('sort');
+  const rowOk = !keys.badKeys.includes('row');
   const trendParse = useMemo(() => parseTrendKey(rawTrend), [rawTrend]);
-  const sortOk = rawSort === null || SORTS.includes(rawSort);
-  const rowOk = rawRow === null || isHwTimeRowId(rawRow);
 
-  const badKeys: BadKey[] = [...(sortOk ? [] : ['sort' as const]), ...(trendParse.ok ? [] : ['trend' as const]), ...(rowOk ? [] : ['row' as const])];
-  const rawOf: Record<BadKey, string | null> = { sort: rawSort, trend: rawTrend, row: rawRow };
-  const invalid = badKeys.length === 0 ? null : badKeys.map(key => invalidValueSentence(lang, 'value', FIELD_NAMES[key], rawOf[key] ?? ''));
-  const recover = () => setPage(Object.fromEntries(badKeys.map(key => [key, null])));
 
   const sort: StackSort = sortOk && rawSort !== null ? rawSort as StackSort : null;
   const row = rowOk ? rawRow : null;
-  const trendRows = useMemo(() => (trendParse.ok ? trendParse.rows : []), [trendParse]);
+  const trendRows = useMemo(() => (trendParse.ok && !keys.badKeys.includes('trend') ? trendParse.rows : []), [trendParse, keys.badKeys]);
   const sortText: Text = sort === 'total-desc' ? { ko: '정렬: 큰 순', en: 'Sort: high' } : sort === 'total-asc' ? { ko: '정렬: 작은 순', en: 'Sort: low' } : { ko: '정렬: 기본', en: 'Sort: default' };
 
   const [hiddenState, setHiddenState] = useState<{ key: string; ids: string[] }>({ key: hiddenKey, ids: [] });

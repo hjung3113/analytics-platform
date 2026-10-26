@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { House } from 'lucide-react';
 import { I18nProvider, PlatformProvider, createRegistry, type MenuEntry } from '@ap/kernel';
-import { FilterUrlWarning, TableUrlWarning, useTableUrlWarning } from './tableUrlWarning';
+import { FilterUrlWarning, PageKeyWarning, TableUrlWarning, usePageKeyRules, useTableUrlWarning, type PageKeyRule } from './tableUrlWarning';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { groupId, spaceId } from '@ap/contracts';
 
@@ -13,7 +13,7 @@ afterEach(cleanup);
 const menu: MenuEntry = {
   id: 'home', path: '/list', primary: true, group: groupId('overview'), label: { ko: '목록', en: 'List' }, description: { ko: '', en: '' }, icon: House,
   permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'management',
-  features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: ['sort', 'page', 'q'],
+  features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: ['sort', 'page', 'q', 'mode', 'n'],
 };
 const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }], menus: [menu] });
 const session = testSession(['platform:view']);
@@ -127,5 +127,62 @@ describe('FilterUrlWarning (invalid filter keys, ADR-0034)', () => {
     expect(slot.compareDocumentPosition(alert) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(slot.parentElement!.classList.contains('gap-3')).toBe(true);
     expect(alert.parentElement).toBe(slot.parentElement);
+  });
+});
+
+describe('usePageKeyRules + PageKeyWarning (rejected page keys, #852)', () => {
+  const rules: PageKeyRule[] = [
+    { key: 'mode', label: { ko: '보기', en: 'View' }, valid: raw => raw === 'a' || raw === 'b' },
+    { key: 'n', label: { ko: '개수', en: 'Count' }, valid: raw => /^[1-9]\d*$/.test(raw) },
+  ];
+  function RulesProbe() {
+    const { invalid, sentences, badKeys, recover } = usePageKeyRules(rules);
+    return <div>
+      <span data-testid="bad">{badKeys.join(',') || 'none'}</span>
+      {invalid ? <PageKeyWarning sentences={sentences} onRecover={recover} /> : <p>body</p>}
+    </div>;
+  }
+  const mountRules = (search: string) => {
+    window.history.replaceState(null, '', `/list${search}`);
+    return render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}>
+      <main tabIndex={-1}><RulesProbe /></main>
+    </PlatformProvider></I18nProvider>);
+  };
+
+  it('accepts absent and valid keys', () => {
+    mountRules('?v=1&mode=b&n=3');
+    expect(screen.getByTestId('bad').textContent).toBe('none');
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('rejects each bad key with its field name and raw value, never correcting it', () => {
+    mountRules('?v=1&mode=zz&n=0&q=keep');
+    expect(screen.getByTestId('bad').textContent).toBe('mode,n');
+    const alert = screen.getByRole('alert');
+    expect(alert.textContent).toContain('필터 값이 올바르지 않습니다');
+    expect([...alert.querySelectorAll('p')].map(p => p.textContent)).toEqual([
+      '보기 “zz”는 이 화면에서 쓸 수 없는 값입니다. 조건을 초기화하세요.',
+      '개수 “0”는 이 화면에서 쓸 수 없는 값입니다. 조건을 초기화하세요.',
+    ]);
+    expect(new URLSearchParams(window.location.search).get('mode')).toBe('zz');
+  });
+
+  it('Reset clears exactly the bad keys in one navigation and leaves focus on main', async () => {
+    const user = userEvent.setup();
+    mountRules('?v=1&mode=zz&n=0&q=keep');
+    const push = vi.spyOn(window.history, 'pushState');
+    const replace = vi.spyOn(window.history, 'replaceState');
+    const button = screen.getByRole('button', { name: '초기화' });
+    button.focus();
+    await user.keyboard('{Enter}');
+    const params = new URLSearchParams(window.location.search);
+    expect(params.has('mode')).toBe(false);
+    expect(params.has('n')).toBe(false);
+    expect(params.get('q')).toBe('keep');
+    expect(push.mock.calls.length + replace.mock.calls.length).toBe(1);
+    push.mockRestore();
+    replace.mockRestore();
+    expect(screen.getByText('body')).toBeTruthy();
+    expect(document.activeElement).toBe(screen.getByRole('main'));
   });
 });

@@ -1,10 +1,9 @@
 import type { ReactNode } from 'react';
 import { AlertTriangle } from 'lucide-react';
-import { invalidValueSentence, useI18n, usePlatform } from '@ap/kernel';
-import { Button } from '@ap/ui';
+import { invalidValueSentence, useI18n, usePlatform, type Text } from '@ap/kernel';
 import { encodeTableSort, parsePageIndex, parseTableSort, type TableUrlState } from './PlatformDataTable';
 import { StateMessage } from './StateView';
-import { focusPageFallback } from './pageFocus';
+import { RecoverButton } from './RecoverButton';
 
 /**
  * §6.1 `sort`/`page` raw values parsed against the page's allowed sort columns, plus the ADR-0034 sentences
@@ -52,6 +51,33 @@ export function useTableUrlState(
   return { ...warning, urlState };
 }
 
+/**
+ * One page key the screen accepts: its user-facing field name and the check of a present raw value (an absent key is always fine).
+ * `key` must be one of the menu's `pageKeys`: `pageParam` reads nothing else, so a rule for another key never fires.
+ */
+export type PageKeyRule = { key: string; label: Text; valid: (raw: string) => boolean };
+
+/**
+ * Rejects malformed page keys, never corrects them (06 §6, ADR-0034), shaped like `useTableUrlWarning`: `invalid` is true when
+ * a present key fails its rule, `sentences` holds one sentence per bad key (field name + raw value as entered), `badKeys` are
+ * those keys and `recover` clears exactly them in one `setPage`. While `invalid` the screen sends no query and shows `PageKeyWarning`.
+ */
+export function usePageKeyRules(rules: readonly PageKeyRule[]): { invalid: boolean; sentences: string[]; badKeys: string[]; recover: () => void } {
+  const { pageParam, setPage } = usePlatform();
+  const { lang } = useI18n();
+  const bad = rules.flatMap(rule => {
+    const raw = pageParam(rule.key);
+    return raw === null || rule.valid(raw) ? [] : [{ rule, raw }];
+  });
+  const badKeys = bad.map(({ rule }) => rule.key);
+  return {
+    invalid: bad.length > 0,
+    sentences: bad.map(({ rule, raw }) => invalidValueSentence(lang, 'value', rule.label, raw)),
+    badKeys,
+    recover: () => setPage(Object.fromEntries(badKeys.map(key => [key, null]))),
+  };
+}
+
 function UrlWarning({ title, sentences, action, filters }: { title: string; sentences: readonly string[]; action: ReactNode; filters?: ReactNode }) {
   const message = <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />}
     title={title}
@@ -68,7 +94,7 @@ export function TableUrlWarning({ sentences, filters }: { sentences: readonly st
   const { t } = useI18n();
   const { setPage } = usePlatform();
   return <UrlWarning title={t('invalidTableTitle')} sentences={sentences} filters={filters}
-    action={<Button size="sm" variant="secondary" onClick={event => { focusPageFallback(event.currentTarget); setPage({ sort: null, page: null }); }}>{t('reset')}</Button>} />;
+    action={<RecoverButton onRecover={() => setPage({ sort: null, page: null })} />} />;
 }
 
 /**
@@ -78,4 +104,12 @@ export function TableUrlWarning({ sentences, filters }: { sentences: readonly st
 export function FilterUrlWarning({ sentences, filters, recover }: { sentences: readonly string[]; filters?: ReactNode; recover: ReactNode }) {
   const { t } = useI18n();
   return <UrlWarning title={t('invalidFilterTitle')} sentences={sentences} filters={filters} action={recover} />;
+}
+
+/**
+ * The rejected page-key message of a screen (06 §6, ADR-0034): the same frame as `FilterUrlWarning`, one sentence per bad key
+ * (`usePageKeyRules().sentences`), and a Reset that clears exactly those keys (`recover`) after focus moved off the button.
+ */
+export function PageKeyWarning({ sentences, onRecover, filters }: { sentences: readonly string[]; onRecover: () => void; filters?: ReactNode }) {
+  return <FilterUrlWarning sentences={sentences} filters={filters} recover={<RecoverButton onRecover={onRecover} />} />;
 }

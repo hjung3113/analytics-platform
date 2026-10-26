@@ -6,13 +6,12 @@
 import { ChevronDown, Inbox, ListTree, SlidersHorizontal, Target } from 'lucide-react';
 import { useId, useState } from 'react';
 import { useDrill, useI18n, usePlatform, type PageProps } from '@ap/kernel';
-import { DrillLayout, Inspector, LegendTree, PlatformPage, QueryView, SegmentedRadio, StateMessage, type InspectorSection } from '@ap/components';
+import { DrillLayout, Inspector, LegendTree, PageKeyWarning, PlatformPage, QueryView, SegmentedRadio, StateMessage, type InspectorSection } from '@ap/components';
 import { Button, Checkbox, cn } from '@ap/ui';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import { HW_TIME_UNIT, type HwTimeBlock, type HwTimeDrill, type HwTimeLevelData } from '../../endpoints';
 import { useHwTimeLevel, useHwTimeTrend } from '../../shared/data';
 import { formatSeconds, missingText } from '../../shared/format';
-import { HwTimeUrlWarning } from '../../shared/HwTimeUrlWarning';
 import { StackPanel } from '../../shared/panels/StackPanel';
 import { TrendPanel } from '../../shared/panels/TrendPanel';
 import { useHwTimeLevelState } from '../../shared/useHwTimeLevelState';
@@ -146,7 +145,7 @@ export default function StepsPage(_props: PageProps) {
         {/* Clip as a guard: the detail's fill floor (fillMin) is low enough to fit, but the plot must never draw over the trend toggle. */}
         <div className="flex min-h-0 flex-[3] flex-col overflow-hidden">
           <DrillLayout fill summary={summary}>
-            {invalid ? <HwTimeUrlWarning sentences={invalid} onRecover={state.recover} />
+            {invalid ? <PageKeyWarning sentences={invalid} onRecover={state.recover} />
               : <QueryView fill query={levelQ} widgetName={ko ? 'HW Time 단계별' : 'HW Time by level'} hideWidgetName skeletonRows={6}>
                 {data => renderBody(data)}
               </QueryView>}
