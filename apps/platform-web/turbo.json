@@ -5,6 +5,7 @@
   ],
   "tasks": {
     "test": {
+      "env": ["GEN_MENU_PROBE"],
       "inputs": [
         "$TURBO_DEFAULT$",
         "../../packages/ui/src/rich-content/**",

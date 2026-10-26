@@ -7,10 +7,10 @@
     "typecheck": { "dependsOn": ["transit"] },
     "lint": {
       "dependsOn": ["transit"],
-      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/components.json", "$TURBO_ROOT$/apps/platform-web/src/style.css"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/components.json", "$TURBO_ROOT$/apps/platform-web/src/style.css", "$TURBO_ROOT$/tooling/eslint/src/**"],
       "outputs": []
     },
-    "test": { "dependsOn": ["transit"], "env": ["GEN_MENU_PROBE"] },
+    "test": { "dependsOn": ["transit"] },
     "build": {
       "dependsOn": ["transit", "^build"],
       "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/tooling/scripts/sdk-finalize-dist.mjs"],

@@ -46,13 +46,21 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
 검사는 순서대로 돌리고, 모두 0이어야 커밋한다.
 
 1. 바뀐 패키지 검사.
-2. 루트 `pnpm lint && pnpm typecheck && pnpm test --concurrency=2 && pnpm build`를 순서대로 한 번 돌린다. test의 상한은 CI와 같고, 빠지면 과부하로 시간 초과 실패가 난다([operations.md](../../docs/agents/operations.md)). 의존 패키지가 바뀐 브랜치는 캐시를 피하려 `pnpm exec turbo run <task> --filter='!@fops/*' --filter='!feedbackops' --force`(루트 스크립트와 같은 필터 — `feedbackops`가 빠지면 FeedbackOps 루트 lint가 플랫폼 biome 설정으로 돌아 1000건 넘게 실패한다)(test는 `--concurrency=2`)로 돌린다.
-3. Kernel·셸·공통 컴포넌트·mock 서버가 바뀌었으면 E2E를 돌린다. 새 describe만 먼저(`cd apps/platform-e2e && pnpm exec playwright test -g "<describe>"`), 그다음 관련 E2E 또는 전체 `pnpm e2e`.
-5. **FeedbackOps(`products/feedbackops/**`)를 바꿨으면** 그 디렉터리에서 `scripts/ci/gate.sh static --base origin/main`, `unit`, 그리고 integration을 모두 돌린다. integration은 `gate.sh integration`으로 돌리지 않는다: 그 단계는 `CI_PG_ADMIN_URL` 서버의 `feedbackops` DB를 migrate·truncate하는데, verify 컨테이너(5439)에서는 그것이 이슈 DB를 복제하는 원본이다. 대신 이슈 DB에서 `FEEDBACKOPS_ENV_FILE=$WAVE_STATE/env.verify.<n> pnpm --filter @fops/backend test:integration`(전체)을 돌린다. 브랜치가 migration을 더했으면 먼저 `verify-db.sh drop <n>` → `create <n> --migrate-from <worktree>/products/feedbackops`로 다시 만든다(#621). 5434는 쓰지 않는다. 플랫폼 루트 검사는 FeedbackOps를 보지 않는다. 한 단계라도 빼면 CI가 대신 잡는다(#620: unit을 빼서 proxy 완전성 테스트 실패를 CI에서야 봤다). 새 파일은 커밋 전에 `pnpm exec biome format --write`를 돌린다(#603·#620에서 포맷만으로 static 실패).
+2. 루트 `pnpm lint && pnpm typecheck && pnpm test --concurrency=2 && pnpm build`를 순서대로 한 번 돌린다. test의 패키지 동시 실행 상한은 루트 `turbo.json` `concurrency`가 정하고 CI도 같다([operations.md](../../docs/agents/operations.md)). turbo 캐시는 worktree끼리 공유되니 `--force`·`--affected`·`...[ref]` 같은 git diff 필터를 쓰지 않는다 — 해시 입력이 바뀐 패키지와 그 의존자만 다시 돌고, diff 필터는 입력이 아닌 파일 목록으로 범위를 정해 더 위험하다(메뉴만 바꿨는데 gen-menu test가 빠진 일이 있었다). 필터는 루트 스크립트와 같은 `--filter='!@fops/*' --filter='!feedbackops'`만 쓴다(`feedbackops`가 빠지면 FeedbackOps 루트 lint가 플랫폼 biome 설정으로 돌아 1000건 넘게 실패한다). 패키지 밖 파일을 읽는 테스트는 `turbo.json`에 `$TURBO_ROOT$` inputs를 선언해야 이 캐시가 믿을 만하다.
+3. Kernel·셸·공통 컴포넌트·mock 서버가 바뀌었으면 E2E를 돌린다. 새 describe만 먼저(`cd apps/platform-e2e && pnpm exec playwright test -g "<describe>"`), 그다음 브리프 「영향 범위」 절이 적은 describe만 `-g "A|B"`로 돌린다. 전체 `pnpm e2e`는 `packages/{shell,kernel}/src`나 `apps/platform-web/src/style.css`를 바꿨을 때 리뷰 전에 한 번만 돌린다(전체는 PR CI가 다시 돈다).
+5. **FeedbackOps 단계는 `.github/workflows/feedbackops.yml`의 `paths`에 닿았을 때만 돌린다**(경로 목록의 원본은 그 워크플로 파일이다: `products/feedbackops/**`, `packages/{ui,contracts,http-adapter,server-conformance}/**`, 루트 manifest·lockfile·`.nvmrc` 등). 닿았으면 그 디렉터리에서 `scripts/ci/gate.sh static --base origin/main`, `unit`, 그리고 integration을 모두 돌린다. integration은 `gate.sh integration`으로 돌리지 않는다: 그 단계는 `CI_PG_ADMIN_URL` 서버의 `feedbackops` DB를 migrate·truncate하는데, verify 컨테이너(5439)에서는 그것이 이슈 DB를 복제하는 원본이다. 대신 이슈 DB에서 `FEEDBACKOPS_ENV_FILE=$WAVE_STATE/env.verify.<n> pnpm --filter @fops/backend test:integration`(전체)을 돌린다. 브랜치가 migration을 더했으면 먼저 `verify-db.sh drop <n>` → `create <n> --migrate-from <worktree>/products/feedbackops`로 다시 만든다(#621). 5434는 쓰지 않는다. 플랫폼 루트 검사는 FeedbackOps를 보지 않는다. 한 단계라도 빼면 CI가 대신 잡는다(#620: unit을 빼서 proxy 완전성 테스트 실패를 CI에서야 봤다). 새 파일은 커밋 전에 `pnpm exec biome format --write`를 돌린다(#603·#620에서 포맷만으로 static 실패).
 4. 메뉴 manifest·`menus.ts`·contracts 메뉴 타입·`tooling/gen-menu`를 바꿨으면 `node tooling/gen-menu/scripts/probe.ts`(생성 → 전체 검사 → 되돌리기)를 돌린다. 루트 4종과 CI에 없어서, #671 B9에서 probe 템플릿의 타입 오류를 이 단계가 처음 잡았다. 미리보기가 떠 있는 worktree에서는 돌리지 않는다(아래 §Traps).
 6. `python3 $ENGINE/worker-hygiene.py <worktree>`: 이유 없는 새 `eslint-disable`과 `eslint-suppressions.json` 증가는 실패, 공백만 바뀐 변경은 보고만 한다(설정 `worker_hygiene`).
 
 디자인 lint 오류는 메시지가 알려 주는 토큰·variant·부품으로 고치고, suppressions에 새 위반을 더하지 않는다. 기계적으로 직접 고쳐도 되는 것에는 빠진 mock 등록(`MOCK_ENDPOINTS`, `server-conformance.test.ts`의 `PARAMS`)도 들어간다.
+
+### 수정 라운드 (Fix round)
+
+리뷰 지적이나 호스트 실패를 고친 라운드는 위 전부를 다시 돌리지 않는다. 바뀐 패키지 검사, 루트 `lint`·`typecheck`·`test`(캐시 사용), 닿은 describe만 `-g`로 E2E, 닿은 FeedbackOps 단계, hygiene(6)만 돌린다. `build`·전체 E2E·`probe.ts`는 돌리지 않는다 — 그 라운드가 build 입력(설정, 공개 export, `tooling/gen-menu`)을 바꾼 경우만 예외다. 전체는 PR CI가 한 번 다시 돈다(#945).
+
+### Final head (ship 직전)
+
+마지막 수정 라운드 뒤 ship 전에는 hygiene(6)만 돌린다. `ship-pr.sh`의 rebase가 충돌했을 때만 위 「수정 라운드」 검사를 돌린다. 충돌이 없으면 CI가 최종 head의 기록이다. 릴리스 태그는 `main` CI가 초록인 SHA에 단다.
 
 ## Browser evidence
 
@@ -115,6 +123,7 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
 - **기준 문서**: 루트 `AGENTS.md`(목적, 의존 방향, 공통화 기준, 검증)와 `packages/AGENTS.md`, 건드린 경로의 폴더 `AGENTS.md`; `docs/integration/platform-packages.md`(패키지 경계 §3), `docs/06_platform_ui_contract.md` §24(공통화 — 실제 소비자 2–3곳에서 확인된 뒤), `docs/AGENTS.md`(계약은 소유 문서 한 곳).
 - **경계 누출**: Kernel·공통 컴포넌트·셸이 메뉴나 mock을 안다; 역방향 import; 메뉴가 공개 진입점이 아닌 `@ap/*` 내부를 import한다; FeedbackOps primitive를 `@ap/ui` 밖에서 쓴다; 프런트가 권한을 진실로 강제한다.
 - **공통화 판단**: 소비자 하나뿐인데 공통 패키지로 올라간 것, 반대로 2–3곳에 반복되는데 메뉴에 남은 것.
+- **캐시 입력**: 패키지 밖 파일을 읽는 테스트·린트는 `turbo.json`에 `$TURBO_ROOT$` inputs를 선언했는가(없으면 turbo 캐시가 바뀐 입력을 놓친다, #945).
 - **죽은 코드에 더해**: 지우지 않은 프로토타입(`?variant=`) 코드.
 - **문서 표류에 더해**: 06 절, ADR, `.planning/README.md` 줄.
 - **release-blocker**: 틀린 동작이나 데이터를 내보낼 패키지 경계·06 계약·권한 위반만.
