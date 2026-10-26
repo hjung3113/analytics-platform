@@ -1,9 +1,9 @@
 # 드릴다운은 단계마다 page key 하나, Context가 바뀌면 지우고, 경로 바 + 단계마다 본문 교체로 보인다
 
 상태: **Decided (2026-10-08)**. 깊이 제한은 [ADR-0063](0063-consumer-owned-chart-pieces-and-unbounded-drill.md)이 대체한다.
-- 결정자: 사용자 — #225 설계 초안([14](../14_drilldown_platform.md))의 두 질문에 권장안을 골랐다("단계마다 키 하나", "지운다"). 이어서 실제 앱 위 `?variant=` 시안(브랜치 `hjung3113/proto-225-drill-layout`) A/B/C 중 A를 골랐다.
+- 결정자: 사용자 — #225 설계 초안([14](../design/drilldown-platform.md))의 두 질문에 권장안을 골랐다("단계마다 키 하나", "지운다"). 이어서 실제 앱 위 `?variant=` 시안(브랜치 `hjung3113/proto-225-drill-layout`) A/B/C 중 A를 골랐다.
 
-메뉴가 단계별로 좁혀 들어가는 화면(예: 공정 → StGroup → 설비)을 직접 만들지 않고 플랫폼 기능과 레이아웃으로 조립하게 한다(#225). 리서치(Power BI·Superset·Sisense·SAP Fiori·Carbon·PatternFly·Grafana)에서 공통으로 나온 함정은 세 가지다. 단계 상태를 URL 밖에 두면 링크로 공유할 수 없다. 앞 단계를 바꾸고도 뒤 단계를 남기면 모순된 경로가 생긴다. 메뉴 위치(breadcrumb), 단계 경로, 이동 기록(돌아가기)을 한 요소에 섞으면 무엇을 누르면 어디로 가는지 알 수 없다. 계약의 원본은 [06](../06_platform_ui_contract.md) §6.4(URL)·§12.7(레이아웃)·§22(메뉴 간 복귀)다.
+메뉴가 단계별로 좁혀 들어가는 화면(예: 공정 → StGroup → 설비)을 직접 만들지 않고 플랫폼 기능과 레이아웃으로 조립하게 한다(#225). 리서치(Power BI·Superset·Sisense·SAP Fiori·Carbon·PatternFly·Grafana)에서 공통으로 나온 함정은 세 가지다. 단계 상태를 URL 밖에 두면 링크로 공유할 수 없다. 앞 단계를 바꾸고도 뒤 단계를 남기면 모순된 경로가 생긴다. 메뉴 위치(breadcrumb), 단계 경로, 이동 기록(돌아가기)을 한 요소에 섞으면 무엇을 누르면 어디로 가는지 알 수 없다. 계약의 원본은 [06](../contract/platform-ui-contract.md) §6.4(URL)·§12.7(레이아웃)·§22(메뉴 간 복귀)다.
 
 ## 결정
 

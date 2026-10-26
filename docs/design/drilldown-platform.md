@@ -1,6 +1,6 @@
 # 14. 드릴다운 — 플랫폼 기능과 레이아웃 (#225)
 
-상태: **Decided (2026-10-08, [ADR-0025](adr/0025-drilldown-level-page-keys-path-bar-layout.md)).** 계약의 원본은 [06](06_platform_ui_contract.md)이다: 단계 URL은 §6.4, 레이아웃은 §12.7, 다른 메뉴로 갔다 돌아오는 복귀는 §22. 이 문서는 사용자 과업·정보 구조·와이어프레임과 견본 소비자를 남긴다. 대표 왕복 경로(사이클타임 → 실행 상세)의 화면 계약은 [12](12_cycle_time_drilldown_wireframe.md)가 소유한다.
+상태: **Decided (2026-10-08, [ADR-0025](../adr/0025-drilldown-level-page-keys-path-bar-layout.md)).** 계약의 원본은 [06](../contract/platform-ui-contract.md)이다: 단계 URL은 §6.4, 레이아웃은 §12.7, 다른 메뉴로 갔다 돌아오는 복귀는 §22. 이 문서는 사용자 과업·정보 구조·와이어프레임과 견본 소비자를 남긴다. 대표 왕복 경로(사이클타임 → 실행 상세)의 화면 계약은 [12](../wireframes/cycle-time-drilldown.md)가 소유한다.
 
 ## 1. USER TASK
 

@@ -1,0 +1,32 @@
+# 02. 도메인 메뉴 그룹 및 플랫폼 코어 공통 기능 (기획/PM 담당자용)
+
+이 문서는 capability catalog다. 표의 순서는 구현 순서나 착수 승인이 아니며, 남은 일과 순서는 [`.planning/README.md`](../../.planning/README.md)가 관리한다.
+
+## 플랫폼 코어 공통 기능
+
+개별 메뉴가 아니라 플랫폼 자체가 제공해야 여러 메뉴가 재사용하는 기능들.
+
+- **메뉴 레지스트리**: 메뉴를 선언적으로 등록해 신규 메뉴 추가 시 셸 코드 수정 없이 확장 — 배포 없이 설치하는 외부 플러그인은 별개 요구로, 초기에는 코드 내 선언만으로 충분
+- **전역 필터 컨텍스트**: 기간/room_name/설비/Equipment Group Condition·Selection/Lot/PPID/Recipe 등 공통 필터를 메뉴 간 유지되는 상태로 관리
+- **필터 포워딩(딥링크) 프로토콜**: URL query param 계약을 전역 필터 컨텍스트와 동일한 상태로 설계 — 다른 기능보다 먼저 계약을 고정해야 이후 메뉴가 늘어도 재작업이 없다. 상세는 `../contract/platform-ui-contract.md` §6
+- **공통 위젯/대시보드 프레임워크**: 차트/표/도식 배치 레이아웃 엔진 — 실제 분석 화면 2~3개에서 반복되는 책임을 먼저 확인한 뒤 추출(후순위)
+- **지표 정의 관리**: 계산식뿐 아니라 grain/분자·분모/기간/버전·발행이력/커버리지까지 데이터로 관리해 여러 분석 메뉴가 같은 정의를 참조
+- **데이터 최신성/커버리지 표시 + 재집계(지연 완료) 정책**: 열린 occurrence는 결과 테이블에 없고, 늦게 완료되면 과거 구간 집계가 다시 바뀔 수 있다 — "확정/미확정" 개념과 캐시 무효화 모델이 필요(재계산 트리거는 지연 완료뿐 아니라 마스터 소급 정정·설비 재분류·지표 정의 변경도 포함, 상세는 [01 재계산 트리거](../architecture/architecture-and-data-contract.md#mart-재계산-트리거)와 [R/H 정책](../architecture/architecture-and-data-contract.md#late-arrival-policy))
+- **권한/역할 관리**: 메뉴 단위 + [06 §6.2의 Site·room_name 기준 Scope](../contract/platform-ui-contract.md#62-scope와-권한-decided--open) 접근 제어(Site→room_name→StGroup→Equipment 관계, Line은 독립 축), 캐시·내보내기·저장된 뷰·공유 링크에도 동일하게 적용
+- **변경 감사(Audit Trail)**: 마스터/기준정보/지표 정의 변경의 who/when/before-after 기록 — 유효기간 이력과는 별개 기능(언제 바뀌었는지 계산 vs 누가 바꿨는지 기록)
+- **저장된 조회조건/즐겨찾기, 최근 조회 이력**
+
+## 도메인 capability catalog
+
+| 메뉴 그룹 | 대표 기능 | 비고 |
+| --- | --- | --- |
+| 설비관리 | 설비 마스터(유효구간 이력) 조회·속성 관리, 사용중지/복원 | 파서 레포 `docs/23` §1.2 `equipment_master` 설계 채택 — 조인 키는 `equipment_id` 하나뿐. 단순 CRUD·물리 삭제 대신 유효기간 종료로 이력 보존. As-Is는 외부/사내 DB의 설비 마스터이며 To-Be는 플랫폼이 등록·관리하는 소유 시스템([ADR-0003](../adr/0003-equipment-master-platform-owned-target.md)). StGroup·분임조 소속은 외부 공급값으로 소비한다. 사용중지된 ID는 재사용하지 않는다. 설비 키는 EquipmentID 하나(별도 설비명 없음)이고, room_name(공정명) 변경은 같은 ID를 유지한다. 같은 필드를 외부 마스터 import와 플랫폼 수동 수정이 동시에 건드리지 않도록 필드별 원천 소유자를 구현 전에 구분(`../architecture/architecture-and-data-contract.md`) |
+| 기준정보관리 | 공정(room_name, Operation과 별개)/레시피/자재 등 마스터 데이터 CRUD | 외부 시스템(MES 등)이 관리하는 항목과 플랫폼이 직접 관리하는 항목을 구분 |
+| 생산성 분석 | 물리 점유율/비Process 체류, Wafer Journey 이송 분포, 사이클타임 P50/P95, Job 기준 처리량 | 파서 데이터만으로 낼 수 있는 범위로 한정(파서 레포 `docs/23` 제안 1/2/4). 가동률(SEMI E10)·수율은 설비 상태 이력·외부 라벨 데이터가 전제라 이번 범위에서 제외하거나 "제한된 정의"임을 화면에 명시 |
+| 지표관리 | 지표 정의(grain/분자·분모/기간/버전) 등록·발행·이력 관리 | 계산식 저장소가 아니라 grain/분모/커버리지 카탈로그로 설계 — 다른 분석 메뉴가 참조. 예: 설비별 가동률·P95를 평균해 전체값으로 만들지 않고 분자·분모를 각각 합산하는 규칙을 스키마에 강제 |
+| 공지 | 공지 등록/수정, 게시기간·대상 메뉴·권한 스코프 설정 | 새 플랫폼 축이 아니라 기준정보관리와 동일한 패턴(등록/수정 + 변경 감사 재사용) — 별도 알림 엔진 없이 로그인 배너/목록 노출로 충분. "대상 메뉴·권한 스코프" 타게팅은 메뉴 레지스트리 + 권한/스코프 모델에 의존하므로 코어 셸 이후에만 가능 |
+| VOC | 내 VOC 조회(사용자용), 분석 화면에서 VOC 생성·복귀 링크 | VOC 원본 도메인(접수·담당·상태·댓글)은 FeedbackOps가 소유한다(화면은 [ADR-0066](../adr/0066-feedbackops-merges-into-platform.md)이 플랫폼으로 합치기로 해 "옮기지 않는다"는 [ADR-0027](../adr/0027-feedbackops-stays-standalone-entry-links.md)을 대체했다). 플랫폼은 사용자용 내 VOC(FeedbackOps 신고자 화면을 다리로 올려 `/voc`·`/voc/:vocId`, 읽기 전용, ADR-0071, #654)·딥링크와 공간별 FeedbackOps 진입 링크를 제공한다. VOC 열람 권한이 분석 권한을 부여하지 않는다 |
+
+### 정보구조 그룹과의 관계
+
+이 표는 6개 도메인 capability를 분류한다. navigation IA의 단일 기준은 `../contract/platform-ui-contract.md` §9다. 공지와 VOC는 별개 도메인이지만 하나의 내비게이션 그룹을 공유하며, 운영 개요·관리·감사는 플랫폼 기능 그룹이다. 도메인 표와 navigation IA를 동일한 목록으로 맞추지 않는다.

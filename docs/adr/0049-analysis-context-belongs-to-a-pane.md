@@ -1,8 +1,8 @@
 # 분석 Context는 화면이 아니라 칸에 속한다 — 본 화면은 칸이 하나인 경우
 
-상태: **Decided (2026-10-19, 결정자: 사용자 — #421 설계 질의 Q4·Q9·Q11)** — 구현은 [#421](https://github.com/hjung3113/analytics-platform/issues/421). 세부 규칙은 [06 §6.5](../06_platform_ui_contract.md#65-분석-context의-범위--칸-decided-adr-0049), 보드 사양은 [16](../16_analysis_board.md).
+상태: **Decided (2026-10-19, 결정자: 사용자 — #421 설계 질의 Q4·Q9·Q11)** — 구현은 [#421](https://github.com/hjung3113/analytics-platform/issues/421). 세부 규칙은 [06 §6.5](../contract/platform-ui-contract.md#65-분석-context의-범위--칸-decided-adr-0049), 보드 사양은 [16](../design/analysis-board.md).
 
-06 §6은 화면 하나에 분석 Context 하나를 두고, 셸 Context 바가 그것을 편집하며, 값은 URL이 소유한다(§6.4). 분석 보드([16](../16_analysis_board.md))는 한 화면에 메뉴 여러 개를 나란히 놓고 칸마다 다른 조건(지난달 vs 이번 달, PHOTO vs ETCH)으로 본다. 그러면 "화면당 Context 하나"가 성립하지 않는다.
+06 §6은 화면 하나에 분석 Context 하나를 두고, 셸 Context 바가 그것을 편집하며, 값은 URL이 소유한다(§6.4). 분석 보드([16](../design/analysis-board.md))는 한 화면에 메뉴 여러 개를 나란히 놓고 칸마다 다른 조건(지난달 vs 이번 달, PHOTO vs ETCH)으로 본다. 그러면 "화면당 Context 하나"가 성립하지 않는다.
 
 ## 결정
 

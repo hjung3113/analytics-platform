@@ -1,6 +1,6 @@
 # 실서버 연결 체크리스트 (사내 적용)
 
-> 상태: **Candidate** — 지금 mock(`@ap/mock-server`)이 하는 일을 기준으로 실서버·실어댑터가 지켜야 할 것을 모은 목록(#145). 계약의 원본은 [06](../06_platform_ui_contract.md) §5·§6·§17·§19·§22와 [패키지 경계](platform-packages.md) §4이고, 이 문서는 사내 구현자가 한 번에 보도록 묶은 것이다. 충돌하면 원본을 따른다. 본문의 Q3·Q5·Q9는 [ADR-0019](../adr/0019-menu-query-endpoint-declaration.md)의 결정 항목이다.
+> 상태: **Candidate** — 지금 mock(`@ap/mock-server`)이 하는 일을 기준으로 실서버·실어댑터가 지켜야 할 것을 모은 목록(#145). 계약의 원본은 [06](../contract/platform-ui-contract.md) §5·§6·§17·§19·§22와 [패키지 경계](platform-packages.md) §4이고, 이 문서는 사내 구현자가 한 번에 보도록 묶은 것이다. 충돌하면 원본을 따른다. 본문의 Q3·Q5·Q9는 [ADR-0019](../adr/0019-menu-query-endpoint-declaration.md)의 결정 항목이다.
 
 ## 1. 무엇을 바꾸나
 
@@ -23,7 +23,7 @@
 | `defaultRangeTo()` | 기본 기간의 기준 시각(wall-clock, 06 §6.3). |
 | `menuQuery(req)` | §3 판정 순서 전부. 메뉴 데이터는 모두 이 한 메서드로 온다. |
 | `menuAction(req)` | §3 `menuAction` 판정 순서. 쓰기는 선언한 동작 하나씩 이 한 메서드로 온다([ADR-0054](../adr/0054-write-port-declared-actions-idempotency-version.md)). 답은 `ActionResponse`(`outcome`·`data`·`version`·`fieldErrors`·`replayed`·`correlationId`)이고 `ApiResponse` envelope 규칙(assessments·trust, 06 §19)은 적용되지 않는다 — `ApiResponse`·`Outcome`은 그대로다. 응답을 받지 못해 반영 여부를 모르는 전송 실패는 `unknown`이지 `error`가 아니다(`error`는 서버가 답했고 아무것도 바꾸지 않았다는 뜻). 판정된 요청에는 던지지 않는다. |
-| `listAxisOptions`·`searchEquipment`·`resolveSelection` | 인증·Scope·room 부여만으로 쓰는 비 envelope 조회. 입력·권한·커서/이력 실패는 PortError로 reject, 전송 실패도 reject한다. 빈 페이지는 성공이며 ID별 forbidden은 제출 ID·상태 외 필드가 없다. 입력·시간·커서·캐시·세션 재검사는 [06 §6.4](../06_platform_ui_contract.md#64-url-계약-decided-필드명enum-문자열은-candidate), Candidate HTTP 변환은 [HTTP §2.2](http-adapter-contract.md#22-그-밖의-묶음)를 따른다. |
+| `listAxisOptions`·`searchEquipment`·`resolveSelection` | 인증·Scope·room 부여만으로 쓰는 비 envelope 조회. 입력·권한·커서/이력 실패는 PortError로 reject, 전송 실패도 reject한다. 빈 페이지는 성공이며 ID별 forbidden은 제출 ID·상태 외 필드가 없다. 입력·시간·커서·캐시·세션 재검사는 [06 §6.4](../contract/platform-ui-contract.md#64-url-계약-decided-필드명enum-문자열은-candidate), Candidate HTTP 변환은 [HTTP §2.2](http-adapter-contract.md#22-그-밖의-묶음)를 따른다. |
 | `getEntity(ref)` | §22 목적지 단건. 권한은 클라이언트 인수가 아니라 서버 소유 map(예: `equipment` → `equipment:view`)으로 판정하고, site 검증 뒤 그 객체의 room을 다시 검증한다. 등록 안 된 type은 `error`다. 거부 응답에 행 필드를 싣지 않는다. 전역 Context·Selection으로 대체하지 않는다. |
 | `auditTrail`·`entityAudit` | 변경 감사. 전역은 `console:access`, 단건은 그 목적지의 조회 권한. 클라이언트는 actor·at을 보내지 않는다(서버가 기록). 조건에 맞는 것이 없으면 `empty`(빈 목록의 `ok`가 아니다). 전역(`auditTrail`)에서 결과가 있는데 범위를 넘은 페이지는 `ok`에 `items: []`와 실제 `total` — 1페이지로 바꿔 답하지 않는다. 단건(`entityAudit`)은 `getEntity`와 같은 게이트 — 목적지 type의 조회 권한, site가 있는 type은 site·room 부여(부여 안 된 site·null Scope는 `forbidden`), site가 없는 type(지표)은 `scopeId: null`, 등록 안 된 type은 `error`. 단건(`entityAudit`)은 커서로 쪽을 나눈다(ADR-0085): 요청은 `EntityRef` + 선택 `cursor`, 한 쪽은 최대 `ENTITY_AUDIT_PAGE_MAX`(50)건이고 `at` 내림차순(instant)·같으면 `id` 오름차순의 keyset이다. 응답 `nextCursor`는 불투명 문자열이며 마지막 쪽은 `null`(빈 쪽에 non-null 커서를 주지 않는다). 첫 쪽이 0건이면 `empty`, 뒤쪽이 0건이면 `ok`+`events: []`+`nextCursor: null`. 형식이 틀렸거나 다른 대상에 묶인 커서는 `error`(`Invalid cursor`). 커서는 위 게이트를 모두 지난 뒤에만 해석한다. `nextCursor` 키가 없는 응답은 끝으로 읽는다(쪽을 나누지 않는 서버). |
 | `accessDirectory` | 권한/역할 조회 전용(`console:access`). 부여·회수 쓰기는 원천 결정(#98) 전에는 없다. 조건에 맞는 것이 없으면 `empty`(빈 목록의 `ok`가 아니다). 결과가 있는데 범위를 넘은 페이지는 `ok`에 `items: []`와 실제 `total` — 1페이지로 바꿔 답하지 않는다. |
@@ -56,7 +56,7 @@
 9. **행 상한** → `limits.maxRows`를 선언한 비페이지 엔드포인트(내보내기·탐색)는 핸들러가 돌려준 결과 **전체**(페이지가 아님)로 판정한다. 배열 길이가 `maxRows`를 넘으면 데이터 없이 `too_large`(원천을 다 읽기 전에 판정할 수 있으면 그렇게 — 단, 1–8단계 판정이 언제나 앞선다). ids를 params로 받는 선택 내보내기(#173)는 ids로 거른 **뒤의 크기**가 기준이라 큰 필터 결과 안의 작은 선택도 내보낼 수 있다. 선언했는데 핸들러가 배열이 아닌 값을 돌려주면 데이터 답이 아니라 계약 `error`(선언 오용)다. 페이지 엔드포인트에 선언하면 등록 검증이 거부한다.
 10. **응답** → `assessments`는 선언한 kind마다 정확히 하나. mart 데이터면 `trust`(갱신 시각·데이터 기준 시각·커버리지·지표 버전·잠정 여부·원천), FeedbackOps 같은 비 mart 원천이면 `trust: null`. 원천 의존 kind(`collection`·`processing_delay`·`coverage`)의 원천이 아직 없으면(적재 워커 기록 구현 전 — 스키마는 #37로 Decided) 빼지 않고 `state: 'unknown'`, `reason: 'source_unavailable'`로 답한다(06 §19 — 생략은 계약 위반, 행 수로 `clear`를 추론하지 않음). Trust는 키가 모두 필수이고 모르는 값(`dataThrough`·`coverage`)은 `null`(06 §18, `@ap/contracts` `Trust`).
 
-**필수 Context:** requiredContext의 의미·등록 검증은 [06 §5·§11](../06_platform_ui_contract.md)이 소유한다. 모든 투영 필드의 구조적 존재 검사를 유지하고 required의 null을 원천 조회 전에 error로 거부한다. 공집합은 기존 empty 예외를 따른다. ConformanceCase.context에 부여 계정이 성공하는 필수값 표본을 제공한다(공통 Scope·기간과 합친 뒤 투영). 표본이 없으면 해당 엔드포인트의 검사는 required Context: no valid sample로 명시적으로 건너뛴다. 표본이 있으면 각 required 키의 null·필드 생략 변이를 다른 필드와 독립적으로 검사한다.
+**필수 Context:** requiredContext의 의미·등록 검증은 [06 §5·§11](../contract/platform-ui-contract.md)이 소유한다. 모든 투영 필드의 구조적 존재 검사를 유지하고 required의 null을 원천 조회 전에 error로 거부한다. 공집합은 기존 empty 예외를 따른다. ConformanceCase.context에 부여 계정이 성공하는 필수값 표본을 제공한다(공통 Scope·기간과 합친 뒤 투영). 표본이 없으면 해당 엔드포인트의 검사는 required Context: no valid sample로 명시적으로 건너뛴다. 표본이 있으면 각 required 키의 null·필드 생략 변이를 다른 필드와 독립적으로 검사한다.
 
 Kernel은 받은 `ok`/`empty`의 kind가 선언과 다르면 `contract_violation` 오류로 바꾼다 — 서버가 틀리면 화면에 그대로 드러난다.
 
@@ -91,7 +91,7 @@ Kernel은 받은 `ok`/`empty`의 kind가 선언과 다르면 `contract_violation
 
 ## 4. 적합성 묶음으로 확인하기
 
-필수 조회조건의 원본은 [플랫폼 계약 §5·§11](../06_platform_ui_contract.md)이다. `EndpointSpec.requiredContext`는 apply capability만 선언하고, 구조적 투영 검사에 더해 null/누락을 거부한다. `[]`는 존재하는 명시적 공집합이다. `ConformanceCase.context?: Partial<GlobalContext>`에는 그 엔드포인트가 성공할 수 있는 앱 소유 표본을 넣는다. 하네스 Scope·기간과 합친 뒤 투영하며, 필수값의 유효 표본이 없으면 해당 엔드포인트 검사들을 `required Context: no valid sample`로 건너뛰었다고 표시한다(통과로 세지 않음). 표본이 있으면 관련 필드만 null/누락으로 바꾸어 각각 오류·데이터 없음 봉투를 검사한다. 보조 엔드포인트는 더 작은 투영을 가질 수 있다.
+필수 조회조건의 원본은 [플랫폼 계약 §5·§11](../contract/platform-ui-contract.md)이다. `EndpointSpec.requiredContext`는 apply capability만 선언하고, 구조적 투영 검사에 더해 null/누락을 거부한다. `[]`는 존재하는 명시적 공집합이다. `ConformanceCase.context?: Partial<GlobalContext>`에는 그 엔드포인트가 성공할 수 있는 앱 소유 표본을 넣는다. 하네스 Scope·기간과 합친 뒤 투영하며, 필수값의 유효 표본이 없으면 해당 엔드포인트 검사들을 `required Context: no valid sample`로 건너뛰었다고 표시한다(통과로 세지 않음). 표본이 있으면 관련 필드만 null/누락으로 바꾸어 각각 오류·데이터 없음 봉투를 검사한다. 보조 엔드포인트는 더 작은 투영을 가질 수 있다.
 
 [`@ap/server-conformance`](../../packages/server-conformance/AGENTS.md)는 §3의 1·3·4·6·10(그리고 표본이 있으면 9)을 엔드포인트 선언에서 도출해 검사한다(엔드포인트마다 성공 요청, 알 수 없는 키·비적용 키·적용 키 누락·`from` null·`metricVersion` 단독 거부, 권한 없으면 `forbidden`, 부여 안 된 site·`null` Scope `forbidden`, 명시적 공집합, kind 정확히 일치). 선언한 `maxRows`가 있고 표본 요청이 `oversizeParams`를 갖고 있으면(#175), 그 요청이 `too_large`로 데이터 없이 답하는지도 검사한다. 지금은 `apps/platform-web/src/server-conformance.test.ts`가 앱의 모든 메뉴 엔드포인트와 mock 어댑터로 돌리고, FeedbackOps 백엔드 통합 테스트 `products/feedbackops/apps/backend/src/modules/platform-port/__tests__/platform-conformance.integration.test.ts`가 실서버에 실어댑터(`app.inject` 위 `fetch`)로 돌린다(#674) — 아직 없는 포트는 건너뛴 검사로 남아 실서버 준비 현황표가 된다.
 

@@ -2,7 +2,7 @@
 
 - Status: Decided (2026-10-27)
 - Decider: 코디네이터(이슈 #893 설계 보강 §6과 plan review P11), 되돌릴 수 있다.
-- Scope: [#893](https://github.com/hjung3113/analytics-platform/issues/893) 노드 893e. 관련: [ADR-0067](0067-dockview-layout-engine-board-v2.md)(저장 모델 V2·dock 렌더러). 계약 본문은 [docs/16](../16_analysis_board.md) §4·§7.
+- Scope: [#893](https://github.com/hjung3113/analytics-platform/issues/893) 노드 893e. 관련: [ADR-0067](0067-dockview-layout-engine-board-v2.md)(저장 모델 V2·dock 렌더러). 계약 본문은 [docs/16](../design/analysis-board.md) §4·§7.
 
 ## 맥락
 

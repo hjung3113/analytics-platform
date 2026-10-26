@@ -24,7 +24,7 @@ analysis의 합성 execution 행에서 `Open detail`을 누르면 `/equipment/{i
 
 ## Candidate 선택
 
-`docs/04_frontend_ui_ux.md`의 React + TypeScript + Tailwind 후보를 사용했다. 작은 독립 실행 디렉터리를 위해 Vite, 자동 DOM 검증에 Vitest/jsdom/Testing Library를 선택했다. Radix Dialog는 palette의 focus trap/Escape/초점 복귀에 사용한다. lockfile이 이번 검증 버전을 고정하며 production 채택 결정이 아니다.
+`docs/architecture/frontend-ui-ux.md`의 React + TypeScript + Tailwind 후보를 사용했다. 작은 독립 실행 디렉터리를 위해 Vite, 자동 DOM 검증에 Vitest/jsdom/Testing Library를 선택했다. Radix Dialog는 palette의 focus trap/Escape/초점 복귀에 사용한다. lockfile이 이번 검증 버전을 고정하며 production 채택 결정이 아니다.
 
 ### Decided 스택 이식 (docs/04, 2026-09-25)
 

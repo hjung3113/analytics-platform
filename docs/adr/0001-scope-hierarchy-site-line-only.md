@@ -2,7 +2,7 @@
 
 상태: **부분 대체됨 (2026-09-24)** — 아래는 당시 결정 기록이다. Site→Line Scope 주장과 Line을 최대 Scope로 보는 가정은 [ADR-0005](0005-scope-room-name-line-independent.md)가 대체한다. Factory를 별도 Scope로 모델링하지 않는 결정만 유지한다. 현행 관계는 Site → room_name → StGroup → Equipment이며 Line은 독립 축이다.
 
-물리적으로는 하나의 Factory가 여러 Line을 포함하지만, 사내 시스템 전체가 데이터를 Line 단위로만 조직하고 있어 Factory 단위로 묶는 것 자체가 의미가 없다(2026-09-22 도메인 인터뷰 확인). 기존 문서(`docs/06_platform_ui_contract.md`)가 가정했던 Site→공장→라인 3단계 가설을 폐기하고, 이 플랫폼은 Scope를 **Site → Line 2단계**로만 모델링하며 Factory를 별도 Scope 레벨로 두지 않는다.
+물리적으로는 하나의 Factory가 여러 Line을 포함하지만, 사내 시스템 전체가 데이터를 Line 단위로만 조직하고 있어 Factory 단위로 묶는 것 자체가 의미가 없다(2026-09-22 도메인 인터뷰 확인). 기존 문서(`docs/contract/platform-ui-contract.md`)가 가정했던 Site→공장→라인 3단계 가설을 폐기하고, 이 플랫폼은 Scope를 **Site → Line 2단계**로만 모델링하며 Factory를 별도 Scope 레벨로 두지 않는다.
 
 ## Consequences
 

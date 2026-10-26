@@ -3,7 +3,7 @@
 2026-09-22 · **Research / Candidate** · 코디네이터 판단. 기존 Decided를 변경하거나 구현 착수를 승인하지 않는다.
 
 
-> 현재 상태 안내(2026-09-23): 아래 권고는 당시 Research/Candidate 기록이다. 이후 백엔드 방향은 [03의 FastAPI](../../03_backend_stack.md)로 결정됐다. 현재 채택·보류 상태는 [05](../../05_roadmap_and_open_questions.md)를 우선하며, 아래 조사 본문은 소급 수정하지 않는다.
+> 현재 상태 안내(2026-09-23): 아래 권고는 당시 Research/Candidate 기록이다. 이후 백엔드 방향은 [03의 FastAPI](../../architecture/backend-stack.md)로 결정됐다. 현재 채택·보류 상태는 [05](../../overview/roadmap-and-open-questions.md)를 우선하며, 아래 조사 본문은 소급 수정하지 않는다.
 
 ## 1. 결론
 
@@ -109,11 +109,11 @@ Kernel 책임은 첫 메뉴부터 지켜야 한다. 반면 범용 Table Toolbar�
 
 | 소유 문서 | 개선·보강 내용 | 결정 상태 |
 | --- | --- | --- |
-| [06 플랫폼 계약](../../06_platform_ui_contract.md) | raw codec 손실 방지 검증, 요청/결과/권한 구분, 후속 조회·캐시의 기준, export 재인가·만료 | 기존 계약 명확화와 신규 Candidate 구분. §13과 04/05의 선택 상태를 함께 정렬 |
-| [01 데이터](../../01_architecture_and_data_contract.md) | 입력/마스터 revision 공급자, grain·집계 가능성, 공개 전 검증, read-basis 수명 | 구체 저장 구조·TTL Open |
-| [03 백엔드](../../03_backend_stack.md) | Fastify·pg-boss 실제 자산 추가, runtime/큐 비교와 취소·복구 검증 | 스택 확정 전 Candidate |
-| [04 프론트](../../04_frontend_ui_ux.md) | 탐색/고정 query 구분, raw parser adapter, table/chart parity, primitive 비교 | 라이브러리 POC 후보 |
-| [05 결정 상태](../../05_roadmap_and_open_questions.md) | 아래 Open 질문과 채택 게이트 추적. Deferred Phase를 구현 승인으로 승격하지 않음 | Open/Candidate/Deferred 유지 |
+| [06 플랫폼 계약](../../contract/platform-ui-contract.md) | raw codec 손실 방지 검증, 요청/결과/권한 구분, 후속 조회·캐시의 기준, export 재인가·만료 | 기존 계약 명확화와 신규 Candidate 구분. §13과 04/05의 선택 상태를 함께 정렬 |
+| [01 데이터](../../architecture/architecture-and-data-contract.md) | 입력/마스터 revision 공급자, grain·집계 가능성, 공개 전 검증, read-basis 수명 | 구체 저장 구조·TTL Open |
+| [03 백엔드](../../architecture/backend-stack.md) | Fastify·pg-boss 실제 자산 추가, runtime/큐 비교와 취소·복구 검증 | 스택 확정 전 Candidate |
+| [04 프론트](../../architecture/frontend-ui-ux.md) | 탐색/고정 query 구분, raw parser adapter, table/chart parity, primitive 비교 | 라이브러리 POC 후보 |
+| [05 결정 상태](../../overview/roadmap-and-open-questions.md) | 아래 Open 질문과 채택 게이트 추적. Deferred Phase를 구현 승인으로 승격하지 않음 | Open/Candidate/Deferred 유지 |
 | [통합 경계](../../integration/repository-layout.md) | 독립 제품·adapter·domain API·관계 링크의 책임, 이식 검증 범위 | 제품 코드/서브모듈 변경 별도 |
 | [DESIGN](../../../DESIGN.md) | 결정된 primitive와 시각 token/component 표현만 반영 | URL/권한/상태 의미를 이 문서로 이동하지 않음 |
 

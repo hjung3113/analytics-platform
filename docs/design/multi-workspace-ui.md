@@ -1,13 +1,13 @@
 # 15. 멀티 워크스페이스 v2 — UI·IA·화면 설계
 
-상태: **Decided — UX 구성 원칙(2026-10-08 사용자 승인). 공간 마지막 화면 복원은 사용자+공간별 탭 세션([ADR-0028](adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md), [06 §9.1](06_platform_ui_contract.md#91-워크스페이스-decided-2026-09-26))** / **Candidate — 표 열 등 다른 사용자 설정 저장** / **Decided — 표준 로그 개발·개선 실행 메뉴 구성([ADR-0065](adr/0065-log-dev-and-improvement-spaces-work-queue-first.md), 2026-10-21, 화면은 예정)** / **Decided — Managed System 매핑(앱 정적 표, 공간당 하나, [ADR-0045](adr/0045-feedbackops-entry-link-mapping-and-scope.md), 2026-10-19)** / **Open — 인증**. FeedbackOps 진입은 링크다([ADR-0027](adr/0027-feedbackops-stays-standalone-entry-links.md), 2026-10-09 — 화면을 옮기지 않는다). **Decided(방향, 2026-10-18) — 시스템 전환기 + 시스템별 레일([ADR-0042](adr/0042-system-switcher-and-system-owned-rail.md)); 화면 사양 §3.2 Decided(2026-10-19, 전환기 A안).**
+상태: **Decided — UX 구성 원칙(2026-10-08 사용자 승인). 공간 마지막 화면 복원은 사용자+공간별 탭 세션([ADR-0028](../adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md), [06 §9.1](../contract/platform-ui-contract.md#91-워크스페이스-decided-2026-09-26))** / **Candidate — 표 열 등 다른 사용자 설정 저장** / **Decided — 표준 로그 개발·개선 실행 메뉴 구성([ADR-0065](../adr/0065-log-dev-and-improvement-spaces-work-queue-first.md), 2026-10-21, 화면은 예정)** / **Decided — Managed System 매핑(앱 정적 표, 공간당 하나, [ADR-0045](../adr/0045-feedbackops-entry-link-mapping-and-scope.md), 2026-10-19)** / **Open — 인증**. FeedbackOps 진입은 링크다([ADR-0027](../adr/0027-feedbackops-stays-standalone-entry-links.md), 2026-10-09 — 화면을 옮기지 않는다). **Decided(방향, 2026-10-18) — 시스템 전환기 + 시스템별 레일([ADR-0042](../adr/0042-system-switcher-and-system-owned-rail.md)); 화면 사양 §3.2 Decided(2026-10-19, 전환기 A안).**
 
-> 이 문서는 **업무 시스템별 독립 워크스페이스**의 화면 설계·도입 계획이다. 플랫폼 전체 Navigation/Context/Permission의 단일 계약은 [06 §9·9.1](06_platform_ui_contract.md#9-information-architecture)이고, 이 문서는 이를 소비하는 상세 설계다. 기존 백엔드/DB의 소유권이나 구현 완료를 선언하지 않는다.
+> 이 문서는 **업무 시스템별 독립 워크스페이스**의 화면 설계·도입 계획이다. 플랫폼 전체 Navigation/Context/Permission의 단일 계약은 [06 §9·9.1](../contract/platform-ui-contract.md#9-information-architecture)이고, 이 문서는 이를 소비하는 상세 설계다. 기존 백엔드/DB의 소유권이나 구현 완료를 선언하지 않는다.
 
-- [승인된 클릭형 v2 프로토타입](prototypes/multi-workspace-v2/index.html)
-- [프로토타입 사용법 및 구현 차이](prototypes/multi-workspace-v2/README.md)
-- [결정 근거 ADR-0026](adr/0026-multi-workspace-app-boundaries-and-feedbackops-scoping.md)
-- [FeedbackOps 진입 링크 ADR-0027](adr/0027-feedbackops-stays-standalone-entry-links.md)(ADR-0018 대체)
+- [승인된 클릭형 v2 프로토타입](../prototypes/multi-workspace-v2/index.html)
+- [프로토타입 사용법 및 구현 차이](../prototypes/multi-workspace-v2/README.md)
+- [결정 근거 ADR-0026](../adr/0026-multi-workspace-app-boundaries-and-feedbackops-scoping.md)
+- [FeedbackOps 진입 링크 ADR-0027](../adr/0027-feedbackops-stays-standalone-entry-links.md)(ADR-0018 대체)
 - [구현 추적 이슈 #249](https://github.com/hjung3113/analytics-platform/issues/249)
 
 ## 1. 요구사항과 사용자 작업
@@ -84,18 +84,18 @@ Equipment Platform
 **불변 UI 원칙**
 
 1. Rail은 플랫폼 레벨: 포털·접근 가능한 워크스페이스·통합 검색·프로필. 모든 워크스페이스에서 같은 위치다.
-2. Sidebar는 *현재 워크스페이스*의 그룹·메뉴만 표시한다. 공간 밖 전역 화면은 예외로 플랫폼 사이드바를 쓴다(§3.2, ADR-0070). 그룹 접기, 최근/즐겨찾기, 검색은 [기존 셸](07_app_shell_wireframe.md) 계약을 활용한다.
+2. Sidebar는 *현재 워크스페이스*의 그룹·메뉴만 표시한다. 공간 밖 전역 화면은 예외로 플랫폼 사이드바를 쓴다(§3.2, ADR-0070). 그룹 접기, 최근/즐겨찾기, 검색은 [기존 셸](../wireframes/app-shell.md) 계약을 활용한다.
 3. Sidebar의 VOC·Task·설문은 시스템별 **공통 협업 진입점**이고, 기능 내용은 FeedbackOps가 소유한다. 진입은 FeedbackOps를 새 탭으로 여는 링크다(ADR-0027). 메뉴 수가 많아도 쉽게 접근할 수 있는 구역에 둔다. 실제 상시 고정 위치는 화면 높이·권한·메뉴 밀도 검증 대상이다.
 4. Main은 업무 유형에 따라 자유롭게 다르다. 분석 차트, 지표 카탈로그, 로그 검증 표, Task 보드·성과 폼을 하나의 보편적 레이아웃에 억지로 맞추지 않는다.
 5. Right detail은 문맥이 필요한 조회·수정에서 재사용한다. 대용량 검증·원문 로그는 전체폭 Workbench/Drill로 예외 허용.
-6. 색·서체·입력/버튼/배지·테이블 기본 규칙은 [FeedbackOps 디자인 시스템](../DESIGN.md) 및 `@ap/ui`로 재사용한다. **워크스페이스마다 별도의 테마를 만들지 않는다.**
-7. 실제 앱 치수는 **rail 52px, sidebar 240/56px, page header 50px, right panel 440px**의 현재 [06 §7](06_platform_ui_contract.md#7-application-shell) / ADR-0011·0013 계약을 유지한다. HTML 샘플의 56px rail·252px nav·56px 최상단 바는 별도 변경 승인 전 **픽셀 사양이 아니다**.
+6. 색·서체·입력/버튼/배지·테이블 기본 규칙은 [FeedbackOps 디자인 시스템](../../DESIGN.md) 및 `@ap/ui`로 재사용한다. **워크스페이스마다 별도의 테마를 만들지 않는다.**
+7. 실제 앱 치수는 **rail 52px, sidebar 240/56px, page header 50px, right panel 440px**의 현재 [06 §7](../contract/platform-ui-contract.md#7-application-shell) / ADR-0011·0013 계약을 유지한다. HTML 샘플의 56px rail·252px nav·56px 최상단 바는 별도 변경 승인 전 **픽셀 사양이 아니다**.
 
 ### 3.1 셸 배치 (Decided, 2026-10-09)
 
-> 아래 **레일(로고 홈 링크·공간 버튼)**, 사이드바 머리·본문은 [§3.2](#32-시스템별-레일-decided-2026-10-19-adr-0042)가 대체한다(구현 #423). 홈·FeedbackOps 블록·접근성 규칙은 그대로다. 홈의 사이드바 없음·홈 순서·공간 0개 안내, FeedbackOps 블록의 `VOC 등록`은 [ADR-0070](adr/0070-global-features-platform-menu-and-voc-drawer.md)이 대체한다(§3.2, 구현 #594).
+> 아래 **레일(로고 홈 링크·공간 버튼)**, 사이드바 머리·본문은 [§3.2](#32-시스템별-레일-decided-2026-10-19-adr-0042)가 대체한다(구현 #423). 홈·FeedbackOps 블록·접근성 규칙은 그대로다. 홈의 사이드바 없음·홈 순서·공간 0개 안내, FeedbackOps 블록의 `VOC 등록`은 [ADR-0070](../adr/0070-global-features-platform-menu-and-voc-drawer.md)이 대체한다(§3.2, 구현 #594).
 
-[ADR-0028](adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md)이 실제 앱 위 시안(#250)에서 고른 배치다. 위 원칙 7의 치수를 그대로 쓴다.
+[ADR-0028](../adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md)이 실제 앱 위 시안(#250)에서 고른 배치다. 위 원칙 7의 치수를 그대로 쓴다.
 
 **레일 (위 → 아래)**: 플랫폼 홈 링크(로고 자리, 툴팁 `플랫폼 홈`) → 공간 버튼(MARS · BRAVO · 표준 로그 개발 · 개선 실행 · 개발·운영 콘솔 순, 접근 가능 공간이 2개 이상일 때만, 최근 사용 순으로 바꾸지 않음) → 구분선 → 메뉴 검색(⌘/Ctrl K) → 여백 → `FeedbackOps 전체`(노출 권한자만, 새 탭, 공간 표식 없음) → 앱 주입 도구 → 도움말 → 언어 → 사용자 메뉴.
 
@@ -113,7 +113,7 @@ Equipment Platform
 
 > 상태: 전환기·섹션 레일·사이드바 머리·페이지 머리 시스템 이름·팔레트 전체 경로 구현(#423). 전환기 플랫폼 메뉴·전역 화면 플랫폼 사이드바·사용자 메뉴의 언어/FeedbackOps 전체 구현(#594). 레일 `알림` 종·팝오버·플랫폼 메뉴 `알림` 배지 구현(#652); 설문 전체 페이지(`/surveys`, `/surveys/:surveyId/respond`, 제출 뒤 출발 화면 복귀) 구현(#653); 권한 요청 페이지(`/permission-requests`, 새 요청 폼·내 요청 상태·철회, mock은 `실서버 필요`) 구현(#657 1부); 홈 `내 할 일`(Kernel 슬롯 `homeTodo`) 구현(#657 2부); 내 VOC(`/voc` 목록 + 셸 상세 패널 `focus`, `/voc/:vocId` 전체 화면, 읽기 전용 — 답글·설명 수정은 백로그) 구현(#654). 레일 `VOC 등록` 도킹 드로어(Context 고정 칩·오른쪽 패널 하나·인라인 닫기 확인) 셸 구현(#655), 드로어 내용(`VocComposeScreen`)·앱 연결·사이드바 `VOC 등록` 항목 제거 구현(#656). 팝오버 `모두 읽음`과 설문·권한 요청 배지는 아직 없다(백로그).
 
-[ADR-0042](adr/0042-system-switcher-and-system-owned-rail.md)(Decided, 방향)가 3.1의 레일·로고 부분을 대체한다. FeedbackOps를 셸 안에서 여는 것은 ADR-0038을 따르고, 그 전까지 바닥 블록은 새 탭 링크다. 전환기 모양은 실제 앱 위 `?variant=` 시안 세 안(A 팝오버 카드 · B 펼침 패널 · C 검색형, 버리는 브랜치 `hjung3113/proto-423-switcher`)과 UX 리뷰(A + 기존 검색 유지 권고)를 본 뒤 사용자가 **A**로 정했다(2026-10-19, #423). 원칙 7의 치수는 그대로다.
+[ADR-0042](../adr/0042-system-switcher-and-system-owned-rail.md)(Decided, 방향)가 3.1의 레일·로고 부분을 대체한다. FeedbackOps를 셸 안에서 여는 것은 ADR-0038을 따르고, 그 전까지 바닥 블록은 새 탭 링크다. 전환기 모양은 실제 앱 위 `?variant=` 시안 세 안(A 팝오버 카드 · B 펼침 패널 · C 검색형, 버리는 브랜치 `hjung3113/proto-423-switcher`)과 UX 리뷰(A + 기존 검색 유지 권고)를 본 뒤 사용자가 **A**로 정했다(2026-10-19, #423). 원칙 7의 치수는 그대로다.
 
 **레일 (위 → 아래)**: 전환기(맨 위 50px 영역, 시각 32×32px, 대상 40×40px) → 구분선 → 현재 시스템 섹션(많으면 이 구역만 스크롤) → 공통 도구(메뉴 검색 → 분석 보드 → `VOC 등록` → `알림`) → 구분선 → 도움말 → 사용자. `언어`와 `FeedbackOps 전체`(노출 권한자만, #595가 담당자의 셸 안 진입을 줄 때까지 — #595 구현 때 없애고 전환기 카드가 대신한다, ADR-0081)는 사용자 메뉴 안에 있다(ADR-0070). `VOC 등록`은 오른쪽 도킹 드로어를 연다(06 §8·§13). `알림`은 종 아이콘 + 읽지 않은 수 배지, 누르면 팝오버(최근 알림, `모두 읽음`, `모두 보기` → 알림 페이지)이고 읽음은 설문 완료와 별개다. 버튼 시각 32px, 세로 간격 6px. 공통 도구는 시스템을 바꿔도 움직이지 않는다. 플랫폼 홈·분석 보드 화면에서는 섹션 구역을 비우고 전환기는 플랫폼 표식을 쓴다.
 
@@ -131,11 +131,11 @@ Equipment Platform
 
 **권한 요청 페이지 (ADR-0070 결정 8, #657)**: `권한 요청` 전체 페이지는 먼저 업무 시스템 접근 권한은 플랫폼 관리자가 준다는 안내 한 줄을 보이고, FeedbackOps 기능 권한(필요하면 Managed System과 사유)을 요청하는 폼, 내가 보낸 요청의 상태 목록(대기 중·승인됨 등), 열린 요청의 `요청 철회`(줄 안 확인)를 둔다. 승인은 FeedbackOps 관리자 화면이 맡고(합류 설계 §3.3), 보완 제출·수정·만료일은 이 페이지에 없다(백로그).
 
-**홈**: FeedbackOps 카드를 같은 권한·순서로 더한다. 순서는 업무 시스템 카드 → `내 할 일`(`응답할 설문` 마감 순 · `내 VOC` 지난 방문 이후 변경 · `권한 요청` 대기·결정됨, 빈 묶음은 숨김, 차트 없음) → `즐겨찾기` · `최근 방문` · `공지`다(ADR-0070, 3.1 홈 순서 대체). 구현(#657 2부, Kernel 슬롯 `homeTodo`): `마감 순`은 설문에 마감 필드가 없어 서버 순서(`opened_at` 내림차순)로 대신하고, `지난 방문 이후 변경`은 읽지 않은 공개 업데이트 알림(`voc.public_update_posted`, VOC당 한 줄)이다. `권한 요청`은 열린 요청과 7일 안에 결정된 요청(철회 제외)이다. 묶음마다 5줄까지 보이고, FeedbackOps 세션이 없거나 mock이면 구역이 없다([백로그](../.planning/backlog.md)). 공간 0개면 `접근 가능한 업무 시스템이 없습니다` 아래 `권한 요청` 버튼을 둔다. FeedbackOps 자기 홈은 접근 이름 `FeedbackOps 홈`으로 플랫폼 홈과 구별한다(#595 구현 뒤에는 업무 시스템 `FeedbackOps`의 레일 섹션 `대시보드`, ADR-0081).
+**홈**: FeedbackOps 카드를 같은 권한·순서로 더한다. 순서는 업무 시스템 카드 → `내 할 일`(`응답할 설문` 마감 순 · `내 VOC` 지난 방문 이후 변경 · `권한 요청` 대기·결정됨, 빈 묶음은 숨김, 차트 없음) → `즐겨찾기` · `최근 방문` · `공지`다(ADR-0070, 3.1 홈 순서 대체). 구현(#657 2부, Kernel 슬롯 `homeTodo`): `마감 순`은 설문에 마감 필드가 없어 서버 순서(`opened_at` 내림차순)로 대신하고, `지난 방문 이후 변경`은 읽지 않은 공개 업데이트 알림(`voc.public_update_posted`, VOC당 한 줄)이다. `권한 요청`은 열린 요청과 7일 안에 결정된 요청(철회 제외)이다. 묶음마다 5줄까지 보이고, FeedbackOps 세션이 없거나 mock이면 구역이 없다([백로그](../../.planning/backlog.md)). 공간 0개면 `접근 가능한 업무 시스템이 없습니다` 아래 `권한 요청` 버튼을 둔다. FeedbackOps 자기 홈은 접근 이름 `FeedbackOps 홈`으로 플랫폼 홈과 구별한다(#595 구현 뒤에는 업무 시스템 `FeedbackOps`의 레일 섹션 `대시보드`, ADR-0081).
 
 **검색**: 지금 전역 메뉴 검색(⌘K / Ctrl+K, 위쪽 640px 팔레트, 빈 입력이면 메뉴 목록)을 그대로 쓰고, 결과 보조 줄에 `<시스템> › <섹션> › <메뉴>` 전체 경로를 보인다. 플랫폼 메뉴의 목적지(홈·알림·내 VOC·설문·권한 요청·공지)도 같은 권한으로 찾는다(ADR-0070). 전환기는 작은 고정 목록, 검색은 숙련자의 직접 이동으로 역할을 나눈다.
 
-**분석 보드 자리**: [16 §8](16_analysis_board.md#8-셸-결정에서-지금-정해-둘-것). 보드 화면에서만 main 열 맨 아래 40px + 위 경계 1px 시트 탭 띠를 쓰고, 일반 화면에서는 높이 0이다.
+**분석 보드 자리**: [16 §8](analysis-board.md#8-셸-결정에서-지금-정해-둘-것). 보드 화면에서만 main 열 맨 아래 40px + 위 경계 1px 시트 탭 띠를 쓰고, 일반 화면에서는 높이 0이다.
 
 ## 4. 화면 목록(Screen Inventory)
 
@@ -185,16 +185,16 @@ Equipment Platform
 - 딥링크는 **대상 식별자 + 발신 화면의 안전한 복귀 참조 + 지원 가능한 컨텍스트**로 구성한다. 목적지 객체 ID를 전역 필터인 것처럼 사용하지 않는다(06 §6·§22).
 - **다른 시스템으로 넘어갔다고 사용자의 전역 Scope·권한이 바뀌지 않는다.** 대상 화면은 지원·권한 검증된 컨텍스트만 적용한다.
 - 지원하지 않는 필터는 조용히 사용하지 않고 '이 화면에서 미사용' 등 구분하여 표시한다. 임의로 기존 범위의 데이터를 보여주는 것처럼 속이지 않는다.
-- 각 워크스페이스의 로컬 페이지 상태(탭, 정렬, 테이블 열, 검색어 등)는 전역 Scope와 분리한다. 공간의 마지막 화면 복원은 사용자+공간별 탭 세션으로 Decided다([ADR-0028](adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md), [06 §9.1](06_platform_ui_contract.md#91-워크스페이스-decided-2026-09-26)). 표 열 같은 다른 사용자 설정의 저장 위치는 아직 정하지 않았다.
+- 각 워크스페이스의 로컬 페이지 상태(탭, 정렬, 테이블 열, 검색어 등)는 전역 Scope와 분리한다. 공간의 마지막 화면 복원은 사용자+공간별 탭 세션으로 Decided다([ADR-0028](../adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md), [06 §9.1](../contract/platform-ui-contract.md#91-워크스페이스-decided-2026-09-26)). 표 열 같은 다른 사용자 설정의 저장 위치는 아직 정하지 않았다.
 - 안전한 딥링크·Back/Forward·새로고침·직접 진입은 기존 플랫폼 URL/Context 계약을 유지한다.
 
 ## 6. FeedbackOps UX 통합
 
 ### 6.1 시스템 안의 FeedbackOps
 
-> 업무 시스템 `FeedbackOps`의 셸 안 화면은 ADR-0066·[ADR-0081](adr/0081-feedbackops-operator-screens-platform-frame.md)이 정하고 §3.2가 소유한다. 이 절은 아직 새 탭으로 여는 진입(`설문`, #764 전까지)을 적는다.
+> 업무 시스템 `FeedbackOps`의 셸 안 화면은 ADR-0066·[ADR-0081](../adr/0081-feedbackops-operator-screens-platform-frame.md)이 정하고 §3.2가 소유한다. 이 절은 아직 새 탭으로 여는 진입(`설문`, #764 전까지)을 적는다.
 
-FeedbackOps 화면은 이 절의 새 탭 진입에서는 플랫폼으로 옮기지 않는다([ADR-0027](adr/0027-feedbackops-stays-standalone-entry-links.md), 셸 안으로 옮긴 화면은 ADR-0081). VOC → Evidence → Finding → Task Request/Task로 이어지는 흐름과 그 권한·상태 규칙은 FeedbackOps가 전담한다.
+FeedbackOps 화면은 이 절의 새 탭 진입에서는 플랫폼으로 옮기지 않는다([ADR-0027](../adr/0027-feedbackops-stays-standalone-entry-links.md), 셸 안으로 옮긴 화면은 ADR-0081). VOC → Evidence → Finding → Task Request/Task로 이어지는 흐름과 그 권한·상태 규칙은 FeedbackOps가 전담한다.
 
 - 현재 시스템 Sidebar의 진입 중 `VOC`는 셸 안 `수신함`으로, `Task`는 셸 안 `Task 목록`으로 열리고(같은 탭, `managedSystem`과 `returnTo`만 싣는다, #760·#763), `설문`은 FeedbackOps를 **새 탭**으로 연다(`VOC 등록`은 레일 드로어로 옮겼다 — ADR-0070, #656). 링크에는 그 시스템의 Managed System(`managedSystem`)을 실어 FeedbackOps가 그 시스템의 요청만 기본으로 보이게 한다. `feedbackops:access`가 없으면 블록 전체를 그리지 않는다.
 - 공간에 대응하는 Managed System 매핑이 없으면 진입을 그리지 않는다. 시스템 범위 없이 열면 다른 시스템의 요청이 보이기 때문이다.
@@ -221,7 +221,7 @@ FeedbackOps 화면은 이 절의 새 탭 진입에서는 플랫폼으로 옮기�
 
 플랫폼의 `SpaceDef.id`(UI 탐색), FeedbackOps의 `Managed System`(협업 스코프), 설비의 `Site/room_name/EquipmentID`(데이터 스코프)는 **서로 다른 식별 계층**이다. `workspaceId → managedSystemId`는 기본적으로 1:1이라고 가정하지 않는다. 명시적 매핑 모델, 호출 시 범위 검증, SSO/세션 위임/권한 설명을 #81·#150·#213에서 해결한다.
 
-FeedbackOps 화면과 백엔드는 모두 독립 앱으로 남는다([ADR-0027](adr/0027-feedbackops-stays-standalone-entry-links.md)). 플랫폼은 매핑 표와 진입 링크만 소유한다.
+FeedbackOps 화면과 백엔드는 모두 독립 앱으로 남는다([ADR-0027](../adr/0027-feedbackops-stays-standalone-entry-links.md)). 플랫폼은 매핑 표와 진입 링크만 소유한다.
 
 ## 7. 컴포넌트 맵(소유권)
 
@@ -263,7 +263,7 @@ FeedbackOps 화면과 백엔드는 모두 독립 앱으로 남는다([ADR-0027](
 
 ## 9. 프로토타입과 실제 구현의 차이
 
-[HTML](prototypes/multi-workspace-v2/index.html)은 **UI 상호작용 검토용 Mock**이다. 실제 백엔드, SSO, 서버 권한, 정확한 표준 로그 검증 결과, 실데이터, 정식 XLSX는 포함하지 않는다.
+[HTML](../prototypes/multi-workspace-v2/index.html)은 **UI 상호작용 검토용 Mock**이다. 실제 백엔드, SSO, 서버 권한, 정확한 표준 로그 검증 결과, 실데이터, 정식 XLSX는 포함하지 않는다.
 
 | 항목 | v2 HTML 표현 | 실제 앱 계약/과제 |
 | --- | --- | --- |

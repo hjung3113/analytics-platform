@@ -3,7 +3,7 @@
 상태: **Decided (2026-10-20)**.
 - 결정자: 사용자 2026-10-20 spec("ARIA treeview 표준: 방향키, 스페이스 체크") + 코디네이터.
 
-범용 `LegendTree`는 계층별 보이기 체크와 별도의 단일 현재 항목 선택을 제공한다(#539). APG 트리의 한 Tab 진입점과 행 사이 방향키 이동은 [06 §26](../06_platform_ui_contract.md#26-accessibility-baseline)의 Tab 하한에 명시적인 예외가 필요하다. 세부 접근성 계약의 소유 문서는 06 §26이다.
+범용 `LegendTree`는 계층별 보이기 체크와 별도의 단일 현재 항목 선택을 제공한다(#539). APG 트리의 한 Tab 진입점과 행 사이 방향키 이동은 [06 §26](../contract/platform-ui-contract.md#26-accessibility-baseline)의 Tab 하한에 명시적인 예외가 필요하다. 세부 접근성 계약의 소유 문서는 06 §26이다.
 
 ## 결정
 

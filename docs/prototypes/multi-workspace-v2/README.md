@@ -1,6 +1,6 @@
 # 멀티 워크스페이스 v2 시안
 
-사용자가 2026-10-08에 승인한 클릭형 HTML 시안이다([#249](https://github.com/hjung3113/analytics-platform/issues/249), [ADR-0026](../../adr/0026-multi-workspace-app-boundaries-and-feedbackops-scoping.md)). 설계 문서는 [15](../../15_multi_workspace_ui.md)다.
+사용자가 2026-10-08에 승인한 클릭형 HTML 시안이다([#249](https://github.com/hjung3113/analytics-platform/issues/249), [ADR-0026](../../adr/0026-multi-workspace-app-boundaries-and-feedbackops-scoping.md)). 설계 문서는 [15](../../design/multi-workspace-ui.md)다.
 
 ## 보는 법
 
@@ -12,7 +12,7 @@
 
 ## 실제 앱과 다른 점
 
-시안은 방향 승인용 모의 화면이다. 구현 정본이 아니며 차이는 [15 §9](../../15_multi_workspace_ui.md#9-프로토타입과-실제-구현의-차이)에 정리했다. 요약:
+시안은 방향 승인용 모의 화면이다. 구현 정본이 아니며 차이는 [15 §9](../../design/multi-workspace-ui.md#9-프로토타입과-실제-구현의-차이)에 정리했다. 요약:
 
 - 치수: 시안의 레일 56px·사이드바 252px·상단 바 56px 대신 실제 앱 계약(레일 52px, 사이드바 240/56px, 상단 바 없음 + 페이지 머리 50px, 06 §7)을 따른다.
 - 데이터·권한: 샘플 배열, 모두 접근 가능한 샘플 사용자, 브라우저 메모리의 최근·복귀 상태다. 실제로는 FeedbackOps API·서버 권한·SSO·URL 계약을 쓴다.

@@ -3,11 +3,11 @@
 상태: **Decided (2026-10-15)**.
 - 결정자: 사용자 — [이슈 #356](https://github.com/hjung3113/analytics-platform/issues/356)에서 (a)를 선택했다(에이전트 추천).
 
-메뉴에 도착하면 포커스는 새 화면 제목으로 간다([06 §26](../06_platform_ui_contract.md#26-accessibility-baseline)). 그 URL에 `focus=`가 있으면 상세 패널도 함께 열린다([06 §13](../06_platform_ui_contract.md#detaildrawer--docked-shell-slot-decided-adr-0013)). 패널이 도착보다 늦게 마운트되면 닫기 버튼이 제목 포커스를 빼앗고, 복귀 경로에서는 제목 툴팁이 열린 채 남아 첫 Escape를 가로챈다. 스크린리더는 도착한 화면 이름 대신 "상세 닫기"를 먼저 듣는다.
+메뉴에 도착하면 포커스는 새 화면 제목으로 간다([06 §26](../contract/platform-ui-contract.md#26-accessibility-baseline)). 그 URL에 `focus=`가 있으면 상세 패널도 함께 열린다([06 §13](../contract/platform-ui-contract.md#detaildrawer--docked-shell-slot-decided-adr-0013)). 패널이 도착보다 늦게 마운트되면 닫기 버튼이 제목 포커스를 빼앗고, 복귀 경로에서는 제목 툴팁이 열린 채 남아 첫 Escape를 가로챈다. 스크린리더는 도착한 화면 이름 대신 "상세 닫기"를 먼저 듣는다.
 
 ## 결정
 
-- 링크·팔레트·공간 전환·복귀 링크(`returnTo`)·메뉴 사이 Back/Forward로 메뉴에 도착하면 포커스는 새 화면 제목(h1)이다(등록된 `arrivalTarget`이 있는 화면은 제목 대신 그 요소, [06 §26](../06_platform_ui_contract.md#26-accessibility-baseline), #804). 첫 로드·새로고침에는 제목 포커스 요청이 없으므로 포커스를 옮기지 않는다.
+- 링크·팔레트·공간 전환·복귀 링크(`returnTo`)·메뉴 사이 Back/Forward로 메뉴에 도착하면 포커스는 새 화면 제목(h1)이다(등록된 `arrivalTarget`이 있는 화면은 제목 대신 그 요소, [06 §26](../contract/platform-ui-contract.md#26-accessibility-baseline), #804). 첫 로드·새로고침에는 제목 포커스 요청이 없으므로 포커스를 옮기지 않는다.
 - 그 도착 URL의 `focus=`로 함께 열린 상세 패널은 포커스를 가져가지 않는다. 패널은 열린 채 보인다. 사용자가 Tab·클릭으로 들어간 뒤의 규칙(패널 안 Escape 한 번에 닫힘, 닫히면 트리거 또는 main으로 복귀)은 그대로다.
 - 같은 화면에서 연 패널([보기], 행 클릭, 같은 화면 Back/Forward로 `focus=`가 생기는 경우)은 지금처럼 닫기 버튼으로 포커스한다.
 - 어떤 도착 경로도 `role="tooltip"`을 남겨 다음 Escape를 가로채지 않는다. 프로그램이 준 제목 포커스로는 툴팁을 열지 않는다(§26).

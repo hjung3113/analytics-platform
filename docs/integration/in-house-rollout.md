@@ -1,6 +1,6 @@
 # 사내 적용 가이드 (mock → 실어댑터·실서버)
 
-> 상태: **Candidate** — 2026-10-02 작성. 사내 적용의 **순서·확인할 것·사람이 할 일**을 한 곳에 모은 안내서다. 서버·어댑터가 지켜야 할 **규칙**의 원본은 [실서버 연결 체크리스트](real-server-checklist.md)이고, 계약 원본은 [06](../06_platform_ui_contract.md)·[패키지 경계](platform-packages.md)다. 충돌하면 원본을 따른다. 진행 추적은 지도 이슈 [#157](https://github.com/hjung3113/analytics-platform/issues/157)과 마일스톤 `M4 사내 적용`.
+> 상태: **Candidate** — 2026-10-02 작성. 사내 적용의 **순서·확인할 것·사람이 할 일**을 한 곳에 모은 안내서다. 서버·어댑터가 지켜야 할 **규칙**의 원본은 [실서버 연결 체크리스트](real-server-checklist.md)이고, 계약 원본은 [06](../contract/platform-ui-contract.md)·[패키지 경계](platform-packages.md)다. 충돌하면 원본을 따른다. 진행 추적은 지도 이슈 [#157](https://github.com/hjung3113/analytics-platform/issues/157)과 마일스톤 `M4 사내 적용`.
 
 ## 0. 지금 어디까지 왔나
 
@@ -94,7 +94,7 @@
 
 실제 메뉴는 사내에서 새로 만든다. 이 저장소의 메뉴 화면은 플랫폼 계약을 검증하는 견본이다. 사내 메뉴 개발자는 아래 순서를 따르고, 규칙의 원본은 각 링크다.
 
-1. **시작 전:** [06](../06_platform_ui_contract.md) §5 Menu Extension Contract와 §29 Platform-first Definition of Done을 읽고, Page Archetype(§12)·쓸 공통 컴포넌트·연결할 메뉴(§22)를 먼저 적는다. 화면 설계는 [설계 스킬](../../.agents/skills/analysis-platform-wireframe/SKILL.md) 절차(Requirements → IA → Screen Spec → Wireframe → Open Decisions).
+1. **시작 전:** [06](../contract/platform-ui-contract.md) §5 Menu Extension Contract와 §29 Platform-first Definition of Done을 읽고, Page Archetype(§12)·쓸 공통 컴포넌트·연결할 메뉴(§22)를 먼저 적는다. 화면 설계는 [설계 스킬](../../.agents/skills/analysis-platform-wireframe/SKILL.md) 절차(Requirements → IA → Screen Spec → Wireframe → Open Decisions).
 2. **그룹·패키지:** 기존 그룹에 manifest를 추가한다. 새 그룹은 사람이 앱 조립 파일(`apps/platform-web/src/menus.ts`)의 `GROUPS` 행을 먼저 추가한 뒤(그룹 id는 `groupId('…')`, 새 공간·권한도 같은 파일의 `SPACES`·`PERMISSIONS`에 선언하고 계약 패키지는 고치지 않는다, ADR-0072) `pnpm gen:menu`로 만든다. 패키지 규칙은 [menus/AGENTS.md](../../menus/AGENTS.md).
 3. **조회 선언:** `menus/<space>/<g>/src/endpoints.ts`에 `defineEndpoint`로 권한(데이터 접근 권한 — 메뉴 권한과 다를 수 있음)·적용 Context·params 키·assessment kind·한도를 선언한다. 서버 판정 규칙은 [체크리스트 §3](real-server-checklist.md), 결정은 [ADR-0019](../adr/0019-menu-query-endpoint-declaration.md).
 4. **화면:** [페이지 작성 가이드](../../apps/platform-web/README.md#페이지-작성-가이드-consumer-규칙).
@@ -121,6 +121,6 @@
 - [`@ap/server-conformance`](../../packages/server-conformance/AGENTS.md) — 적합성 묶음과 하네스
 - [패키지 경계](platform-packages.md) §3–§5 — 의존 방향, 포트 메서드 기준
 - [ADR-0019 메뉴 조회 포트](../adr/0019-menu-query-endpoint-declaration.md) — Q2(선언 원본) 배경
-- [03 백엔드 스택](../03_backend_stack.md) — FastAPI·SQL-first·인증 구조·Alembic
+- [03 백엔드 스택](../architecture/backend-stack.md) — FastAPI·SQL-first·인증 구조·Alembic
 - [적재 워커 상태 스키마](ingest-status-schema.md) — #37
 - [FeedbackOps 딥링크 계약](feedbackops-deeplink.md) — M3

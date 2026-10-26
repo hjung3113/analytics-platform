@@ -1,10 +1,10 @@
 # 04. 프론트엔드 기술 스택 및 UI/UX 설계 (프론트엔드 담당자용)
 
-백엔드 스택은 `03_backend_stack.md`를 본다.
+백엔드 스택은 `backend-stack.md`를 본다.
 
 ## 제품 제약과 구현 후보
 
-**Decided product constraints**는 `06_platform_ui_contract.md`의 Desktop-first, 메뉴 공통 계약, Context/URL 재현, 서버 권한 재검증, 접근성 및 데이터 상태 근거 규칙이다. 이 제약들은 특정 프레임워크를 요구하지 않는다.
+**Decided product constraints**는 `../contract/platform-ui-contract.md`의 Desktop-first, 메뉴 공통 계약, Context/URL 재현, 서버 권한 재검증, 접근성 및 데이터 상태 근거 규칙이다. 이 제약들은 특정 프레임워크를 요구하지 않는다.
 
 아래 대시보드 편집 후보(react-grid-layout)만 여전히 **implementation candidate**다 — 해당 기능 자체가 Deferred이기 때문이며, 채택 시점에 버전·성능을 재검증한다.
 
@@ -15,8 +15,8 @@
 | 계층 | 채택(2026-09-25 결정) | 근거 | 현재 코드(2026-10-05) |
 | --- | --- | --- | --- |
 | Frontend 기반 | React + TypeScript + Vite | FeedbackOps `apps/frontend`와 동일 | 사용 중(Vite 7) |
-| 스타일링 | **Tailwind CSS v4** | Tailwind CSS v4(CSS-first `@theme`). FeedbackOps도 v4다(FeedbackOps#743, ADR-0058). 플랫폼은 `@ap/ui/styles.css`에서 `@fops/ui/styles/*`를 import한다([ADR-0010](adr/0010-feedbackops-design-system-shared-on-tailwind-v4.md)·[0011](adr/0011-design-direction-feedbackops-shell.md)) | 사용 중(Tailwind 4.3, `@theme`) |
-| UI 컴포넌트 | **shadcn/ui + Radix**(`@ap/ui` 소유) + 플랫폼 공용 부품(`@ap/components`) | 디자인 시스템 primitive는 `@ap/ui`가 소유한다([ADR-0046](adr/0046-design-system-source-moves-to-platform-whole-package.md), ADR-0050). 플랫폼 자체: `StatusBadge`·`DetailPanelSlot` | 사용 중 — `@ap/ui`와 `@ap/components`가 플랫폼 UI를 제공한다 |
+| 스타일링 | **Tailwind CSS v4** | Tailwind CSS v4(CSS-first `@theme`). FeedbackOps도 v4다(FeedbackOps#743, ADR-0058). 플랫폼은 `@ap/ui/styles.css`에서 `@fops/ui/styles/*`를 import한다([ADR-0010](../adr/0010-feedbackops-design-system-shared-on-tailwind-v4.md)·[0011](../adr/0011-design-direction-feedbackops-shell.md)) | 사용 중(Tailwind 4.3, `@theme`) |
+| UI 컴포넌트 | **shadcn/ui + Radix**(`@ap/ui` 소유) + 플랫폼 공용 부품(`@ap/components`) | 디자인 시스템 primitive는 `@ap/ui`가 소유한다([ADR-0046](../adr/0046-design-system-source-moves-to-platform-whole-package.md), ADR-0050). 플랫폼 자체: `StatusBadge`·`DetailPanelSlot` | 사용 중 — `@ap/ui`와 `@ap/components`가 플랫폼 UI를 제공한다 |
 | 라우팅 | TanStack Router | FeedbackOps와 동일. 타입 있는 검색 파라미터로 06 §6.4 URL 계약을 타입 안전하게 관리하되, 버전·폐기 필드·미지원 필터 처리는 이 문서 §6.4 메커니즘을 별도로 구현해야 한다 | **미도입** — Kernel 자체 History + URL codec이 06 §6.4를 소유(Unit A부터 알려진 divergence). 도입·미채택 확정은 Open(05) |
 | 서버 상태 | TanStack Query | FeedbackOps와 동일 | **미도입** — Kernel `usePlatformQuery`·`useMenuQuery`가 조회 수명주기 소유. 5분 폴링·계산 세대 재검증(#165)을 만들 때 Kernel 내부 구현 후보(메뉴 비노출) |
 | UI 상태 | Zustand | FeedbackOps와 동일 | **미도입** — 전역 상태는 Kernel Context + URL로 충분 |
@@ -25,7 +25,7 @@
 | Toast | sonner | FeedbackOps와 동일 | **라이브러리 미도입** — 현재 Kernel 자체 구현(sonner 미사용): `usePlatform().toast`·`dismissToast`를 셸이 렌더하고 메뉴가 사용 중. 전환은 필요해질 때 검토 |
 | Command Palette | cmdk | FeedbackOps와 동일. §4 Kernel 책임의 Command Palette를 이 라이브러리로 구현 | **자체 구현**(`packages/shell/src/CommandPalette.tsx`, 메뉴 이동만). 실검색(Entity Search)을 넣을 때 cmdk 재검토 |
 | 테이블/가상화 | TanStack Table + TanStack Virtual | FeedbackOps에 선례 없음. 이 세션 Unit C(`archive/kernel-platform-table/`)에서 서버사이드 sort/filter·virtualization·column 선호 저장·multi-select를 Playwright/Chromium으로 실검증(23 tests) | 사용 중. 메뉴는 엔진 타입이 아니라 플랫폼 열 타입 `PlatformColumn`만 쓴다(#160, 메뉴가 표 엔진 패키지 `@tanstack/react-table`·`react-virtual`·`table-core`·`virtual-core`를 import하면 lint 에러) — 엔진 교체가 `@ap/components` 안에서 끝난다 |
-| 차트 | Apache ECharts(Canvas 렌더러, [ADR-0021](adr/0021-echarts-canvas-renderer.md)) | FeedbackOps에 선례 없음. 이 세션 Unit B(`archive/kernel-chart-frame/`)에서 실제 SVG SSR 렌더링·4층 상태 분리·Toolbar 7종을 검증(23 tests) | 사용 중(ECharts 6.1, 별도 지연 청크 #48). 렌더러는 Canvas(`EChartImpl.tsx`) — 프로토타입은 SVG로 검증했다 |
+| 차트 | Apache ECharts(Canvas 렌더러, [ADR-0021](../adr/0021-echarts-canvas-renderer.md)) | FeedbackOps에 선례 없음. 이 세션 Unit B(`archive/kernel-chart-frame/`)에서 실제 SVG SSR 렌더링·4층 상태 분리·Toolbar 7종을 검증(23 tests) | 사용 중(ECharts 6.1, 별도 지연 청크 #48). 렌더러는 Canvas(`EChartImpl.tsx`) — 프로토타입은 SVG로 검증했다 |
 | 테스트 | Playwright(e2e/visual) + Vitest(unit) | FeedbackOps와 동일, 이 세션 프로토타입도 동일 조합 사용 | 사용 중(Playwright 1.63, Vitest 3.2) |
 | 조회 레이아웃 | CSS Grid | 고정 화면은 react-grid-layout보다 단순·안정적 | 사용 중 |
 
@@ -33,15 +33,15 @@
 
 **아직 Candidate로 남는 것**: 대시보드 편집(react-grid-layout, Deferred 기능이라 채택 보류), 정확한 라이브러리 버전 고정(실제 구현 착수 시 재검증), FeedbackOps 컴포넌트/토큰 이식의 세부 매핑(실제 포팅 작업에서 확정).
 
-**결정과 코드의 차이(2026-10-05 확인):** 위 표의 "현재 코드" 열이 실제 의존(`package.json`)과 구현이다. 결정 자체는 바꾸지 않았다. 라우팅·UI 상태처럼 Kernel이 자체 구현으로 대신하는 항목을 "미채택"으로 확정할지는(서버 상태 TanStack Query는 미채택 후보가 아니라 #165의 Kernel 내부 후보) [05 Open](05_roadmap_and_open_questions.md)에 올렸다. 새 라이브러리는 그것이 필요한 기능을 만들 때 Kernel·공통 컴포넌트 **안**에 넣고, 메뉴에 노출하지 않는다.
+**결정과 코드의 차이(2026-10-05 확인):** 위 표의 "현재 코드" 열이 실제 의존(`package.json`)과 구현이다. 결정 자체는 바꾸지 않았다. 라우팅·UI 상태처럼 Kernel이 자체 구현으로 대신하는 항목을 "미채택"으로 확정할지는(서버 상태 TanStack Query는 미채택 후보가 아니라 #165의 Kernel 내부 후보) [05 Open](../overview/roadmap-and-open-questions.md)에 올렸다. 새 라이브러리는 그것이 필요한 기능을 만들 때 Kernel·공통 컴포넌트 **안**에 넣고, 메뉴에 노출하지 않는다.
 
-Node/NestJS는 프론트와의 언어 통일·SQL-first 관점에서 비교했던 대안이다. 현재 백엔드는 FastAPI 방향이 Decided이며 세부 버전·구성은 Candidate다([05 결정 상태](05_roadmap_and_open_questions.md), [03 백엔드 스택](03_backend_stack.md)).
+Node/NestJS는 프론트와의 언어 통일·SQL-first 관점에서 비교했던 대안이다. 현재 백엔드는 FastAPI 방향이 Decided이며 세부 버전·구성은 Candidate다([05 결정 상태](../overview/roadmap-and-open-questions.md), [03 백엔드 스택](backend-stack.md)).
 
 ## 그리드·차트·데이터 도구 검토 (2026-10-02)
 
-사내 리서치 문서 "반도체 생산성 분석 웹 시스템: 스킬·그리드·차트 조사"(2026-10-02, 조사 기준일 2026-10-01)의 후보를 이 플랫폼 계약(06 §15 표, §16 차트, §19 응답, §24 승격 기준, §26 접근성, [실서버 연결 체크리스트](integration/real-server-checklist.md) §3)에 비춰 검토했다. 라이선스·기능 경계는 리서치 문서와 아래 출처를 따랐고 성능은 측정하지 않았다. **상태:** 판정 표의 후보 순위·유료 후보는 Candidate(채택·구매 결정이 아니다). 무료 우선·엔진 은닉·2026-10-02 범위는 [ADR-0006](adr/0006-grid-free-first-engine-hidden-from-menus.md), Perspective 경계는 [ADR-0007](adr/0007-perspective-browser-engine-only.md)(Decided).
+사내 리서치 문서 "반도체 생산성 분석 웹 시스템: 스킬·그리드·차트 조사"(2026-10-02, 조사 기준일 2026-10-01)의 후보를 이 플랫폼 계약(06 §15 표, §16 차트, §19 응답, §24 승격 기준, §26 접근성, [실서버 연결 체크리스트](../integration/real-server-checklist.md) §3)에 비춰 검토했다. 라이선스·기능 경계는 리서치 문서와 아래 출처를 따랐고 성능은 측정하지 않았다. **상태:** 판정 표의 후보 순위·유료 후보는 Candidate(채택·구매 결정이 아니다). 무료 우선·엔진 은닉·2026-10-02 범위는 [ADR-0006](../adr/0006-grid-free-first-engine-hidden-from-menus.md), Perspective 경계는 [ADR-0007](../adr/0007-perspective-browser-engine-only.md)(Decided).
 
-**방침:** 무료로 시작하고 필요성이 확인되면 유료로 전환한다 — [ADR-0006](adr/0006-grid-free-first-engine-hidden-from-menus.md), [05 결정 상태](05_roadmap_and_open_questions.md)(2026-10-02, 사용자).
+**방침:** 무료로 시작하고 필요성이 확인되면 유료로 전환한다 — [ADR-0006](../adr/0006-grid-free-first-engine-hidden-from-menus.md), [05 결정 상태](../overview/roadmap-and-open-questions.md)(2026-10-02, 사용자).
 
 ### 판정
 
@@ -59,12 +59,12 @@ Node/NestJS는 프론트와의 언어 통일·SQL-first 관점에서 비교했�
 | Apache ECharts | Apache-2.0 | **유지** | 이미 채택·구현(지연 청크 #48). 설비 상태 타임라인(custom range-bar)·히트맵·박스플롯도 ECharts로. 단 메뉴 2–3곳에서 반복되기 전까지 각 메뉴의 도메인 컴포넌트(06 §24) |
 | Plotly.js · uPlot | MIT | 보류 | 통계 trace·고빈도 파형 요구가 생길 때. 엔진을 미리 늘리지 않는다 |
 | TanStack Query | MIT | Kernel 내부 후보 | 위 스택 표 "서버 상태" 행, #165 |
-| Polars · Pandera | MIT | 보류 | [03](03_backend_stack.md) SQL-first — API 요청 경로에서 데이터프레임 금지. mart는 지금 pg_cron SQL이라 쓸 곳이 없다. 원천 처리 검증은 파서 저장소 책임이라 Pandera를 플랫폼에 들이면 역할이 겹친다 |
-| DuckDB + Parquet | MIT | 보류 | 병목이 입증될 때 비교(리서치 [SYNTHESIS](research/platform-build-2026-09-22/SYNTHESIS.md)) |
+| Polars · Pandera | MIT | 보류 | [03](backend-stack.md) SQL-first — API 요청 경로에서 데이터프레임 금지. mart는 지금 pg_cron SQL이라 쓸 곳이 없다. 원천 처리 검증은 파서 저장소 책임이라 Pandera를 플랫폼에 들이면 역할이 겹친다 |
+| DuckDB + Parquet | MIT | 보류 | 병목이 입증될 때 비교(리서치 [SYNTHESIS](../research/platform-build-2026-09-22/SYNTHESIS.md)) |
 
 ### 무료 경로와 유료 전환
 
-그리드 선택은 "엑셀 수준 편의성"이 구체적으로 무엇인지에 달려 있다. 2026-10-02 결정(#159, [ADR-0006](adr/0006-grid-free-first-engine-hidden-from-menus.md)): 행 복사(#174)·전체 결과 XLSX(#173)를 무료 경로로 먼저 적용하고, 자유 피벗(#163)·셀 범위 복붙·채우기(#164)는 보류한다.
+그리드 선택은 "엑셀 수준 편의성"이 구체적으로 무엇인지에 달려 있다. 2026-10-02 결정(#159, [ADR-0006](../adr/0006-grid-free-first-engine-hidden-from-menus.md)): 행 복사(#174)·전체 결과 XLSX(#173)를 무료 경로로 먼저 적용하고, 자유 피벗(#163)·셀 범위 복붙·채우기(#164)는 보류한다.
 
 | 요구 | 무료 경로 | 유료 경로 |
 | --- | --- | --- |
@@ -87,7 +87,7 @@ Node/NestJS는 프론트와의 언어 통일·SQL-first 관점에서 비교했�
 
 Perspective(조사 시점 최신 5.x — v5.5.1, 2026-09-18)는 C++ 엔진을 WASM으로 돌리고, 표·WebGL 차트·그룹·분할(피벗)·필터·수식 열을 웹 컴포넌트 하나로 준다. 같은 클라이언트 API로 Web Worker 안 엔진과 원격 서버(WebSocket)를 모두 쓸 수 있고, Virtual Server로 DuckDB·ClickHouse·PostgreSQL(Python, 16 이상)에 피벗 설정을 SQL로 보낸다.
 
-- **경계는 [ADR-0007](adr/0007-perspective-browser-engine-only.md)**: 브라우저 엔진만, Virtual Server·원격 모드로 DB·서버 엔진에 직접 붙지 않는다(이유와 대안은 ADR).
+- **경계는 [ADR-0007](../adr/0007-perspective-browser-engine-only.md)**: 브라우저 엔진만, Virtual Server·원격 모드로 DB·서버 엔진에 직접 붙지 않는다(이유와 대안은 ADR).
 - 데이터는 메뉴가 선언한 엔드포인트의 `menuQuery` 결과다. 지금 엔드포인트는 화면용으로 집계·비율화된 값을 주므로 대개 탐색용 원 값 엔드포인트를 새로 선언해야 한다. 브라우저 적재량의 상한은 아직 계약에 없다(선언 `limits`는 `maxHours`뿐) — 탐색용 엔드포인트에 행 상한 선언이 필요하다(06 §15 "대규모 데이터에서는 브라우저에 전체 데이터를 전달하지 않는다" — 선언 상한의 계약은 #175, 탐색 엔드포인트의 값은 #163).
 - 탐색 탭에는 더할 수 있는 원 값(건수·시간·분자·분모)만 넣고 "공식 지표 아님"과 결과 집합의 `DataTrustIndicator`를 함께 보인다.
 - Perspective 차트(WebGL)는 탐색 탭 안에서만. 06 §16 Chart Frame 계약 화면은 ECharts. WebGL 차트는 스크린 리더로 읽히지 않으므로 같은 데이터의 표 경로를 남긴다(06 §26).
@@ -102,9 +102,9 @@ FastAPI 공식·Postgres Best Practices·React Best Practices를 `.agents/skills
 
 ## 정보구조·Context·딥링크 계약의 소유권
 
-플랫폼 전역 계약은 `06_platform_ui_contract.md`가 소유한다: §6은 occurrence 식별자와 목적지 객체 ID 분리, URL 상태, Scope/서버 권한 검증, 시간 의미와 Open 결정; §9는 navigation IA; §11은 Context 변경과 이전 데이터 차단 규칙이다. 이 문서에서 별도 규칙을 재정의하지 않는다.
+플랫폼 전역 계약은 `../contract/platform-ui-contract.md`가 소유한다: §6은 occurrence 식별자와 목적지 객체 ID 분리, URL 상태, Scope/서버 권한 검증, 시간 의미와 Open 결정; §9는 navigation IA; §11은 Context 변경과 이전 데이터 차단 규칙이다. 이 문서에서 별도 규칙을 재정의하지 않는다.
 
-TanStack Router는 계약의 구현 후보다. URL 직렬화·집합/단일값 키의 중복 규칙은 [06 전역 계약](06_platform_ui_contract.md) §6.1, 세션 우선순위·버전 `v` 수명주기·잘못된 값·뒤로가기/미지원 Context 복원 메커니즘은 §6.4에서 Decided다. 공개 필드명·enum 문자열 및 공유 산출물 형식(OpenAPI/JSON Schema/codegen)은 Candidate이며, 구현·라이브러리 채택·완성된 URL API를 이 결정만으로 주장하지 않는다. 구체 셸 배치는 [07 App Shell](07_app_shell_wireframe.md)을 참조한다.
+TanStack Router는 계약의 구현 후보다. URL 직렬화·집합/단일값 키의 중복 규칙은 [06 전역 계약](../contract/platform-ui-contract.md) §6.1, 세션 우선순위·버전 `v` 수명주기·잘못된 값·뒤로가기/미지원 Context 복원 메커니즘은 §6.4에서 Decided다. 공개 필드명·enum 문자열 및 공유 산출물 형식(OpenAPI/JSON Schema/codegen)은 Candidate이며, 구현·라이브러리 채택·완성된 URL API를 이 결정만으로 주장하지 않는다. 구체 셸 배치는 [07 App Shell](../wireframes/app-shell.md)을 참조한다.
 
 ## 페이지별 UI 패턴
 
@@ -122,11 +122,11 @@ KPI 카드 수 제한 후 핵심 지표 하나를 가장 크게, 주 차트-상�
 
 ### 공지·VOC
 
-VOC는 분석 화면과 시각 언어를 일부 공유하되 접수/담당자/상태전이/댓글은 VOC 자체 도메인 모델(Audit Trail이 대체하지 않음) — 접수/담당/상태/우선순위 필터, 설비·Lot·지표로부터 VOC 생성, VOC에서 원본 분석 화면으로 돌아가는 링크, 분석 화면에는 열람 권한 범위 내의 관련 VOC 수만 표시(VOC 열람 권한이 원본 분석 권한을 자동 부여하지 않음). 상세는 `02_domain_menus.md`.
+VOC는 분석 화면과 시각 언어를 일부 공유하되 접수/담당자/상태전이/댓글은 VOC 자체 도메인 모델(Audit Trail이 대체하지 않음) — 접수/담당/상태/우선순위 필터, 설비·Lot·지표로부터 VOC 생성, VOC에서 원본 분석 화면으로 돌아가는 링크, 분석 화면에는 열람 권한 범위 내의 관련 VOC 수만 표시(VOC 열람 권한이 원본 분석 권한을 자동 부여하지 않음). 상세는 `../product/domain-menus.md`.
 
 ## 로딩·빈 상태·오류
 
-"데이터가 없음"의 의미가 여러 가지라 상태를 세분화해야 한다: 아직 수집안됨 / 파서 처리 지연 / 필터 결과 0건 / 권한으로 인해 비노출 / 데이터 품질 경고 / 쿼리 결과 과대 / 실제 서버 오류. 각 상태는 화면 밖의 근거(어느 서비스가 그 사실을 확정하는지)가 필요하다 — 근거 없이는 "원인 미확인"(`06_platform_ui_contract.md` §19가 표시 근거 규칙을 소유하며 원천 제약은 `03_backend_stack.md` 참조).
+"데이터가 없음"의 의미가 여러 가지라 상태를 세분화해야 한다: 아직 수집안됨 / 파서 처리 지연 / 필터 결과 0건 / 권한으로 인해 비노출 / 데이터 품질 경고 / 쿼리 결과 과대 / 실제 서버 오류. 각 상태는 화면 밖의 근거(어느 서비스가 그 사실을 확정하는지)가 필요하다 — 근거 없이는 "원인 미확인"(`../contract/platform-ui-contract.md` §19가 표시 근거 규칙을 소유하며 원천 제약은 `backend-stack.md` 참조).
 
 권장 동작:
 
@@ -152,4 +152,4 @@ DataZoom만으로 대용량 문제를 해결하지 말고 백엔드에서 화면
 
 ### 주석 저장 모델 (진짜 설계 과제)
 
-라이브러리 선택보다 중요한 것은 **주석 저장 모델**이다. 그린 영역/필기를 화면 픽셀이 아니라 시간구간·데이터 좌표·대상 occurrence 기준으로 저장하고, 자유 필기 메모와 분석 필터용 선택 영역을 구분한다. 대표 화면 하나로 줌/팬/영역선택 동기화, 주석 이동·수정·삭제, 리사이즈·줌 후 위치 유지, 저장 후 복원까지 검증한 뒤 라이브러리 선택을 고정한다. 영역 주석 최소형과 자유 필기·고급 편집기는 서로 다른 범위 후보다. 구현 순서와 배치 시점은 Deferred이며 `05_roadmap_and_open_questions.md`의 과거 Phase 표는 확정 계획이 아니다.
+라이브러리 선택보다 중요한 것은 **주석 저장 모델**이다. 그린 영역/필기를 화면 픽셀이 아니라 시간구간·데이터 좌표·대상 occurrence 기준으로 저장하고, 자유 필기 메모와 분석 필터용 선택 영역을 구분한다. 대표 화면 하나로 줌/팬/영역선택 동기화, 주석 이동·수정·삭제, 리사이즈·줌 후 위치 유지, 저장 후 복원까지 검증한 뒤 라이브러리 선택을 고정한다. 영역 주석 최소형과 자유 필기·고급 편집기는 서로 다른 범위 후보다. 구현 순서와 배치 시점은 Deferred이며 `../overview/roadmap-and-open-questions.md`의 과거 Phase 표는 확정 계획이 아니다.

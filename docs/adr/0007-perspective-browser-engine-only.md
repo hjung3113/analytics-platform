@@ -1,6 +1,6 @@
 # 자유 피벗 엔진(Perspective)은 브라우저 안에서만 쓰고, DB나 서버 엔진에 직접 붙이지 않는다
 
-상태: **Decided (2026-10-02)** — **플랫폼 결정**. 이미 Decided인 서버 경계 계약(서버는 매 요청을 자기 선언 사본으로 판정한다 — [실서버 연결 체크리스트](../integration/real-server-checklist.md) §3, 06 §6.2)에서 유도한 것이고, #159 결정 기록에 함께 남겼다. 도입 자체는 보류(POC #163). 사용 방식의 세부(원 값 엔드포인트, Data Trust 표시, WebGL 차트와 접근성, 피벗 설정의 상태, 지연 로드)는 [04 Perspective 사용 방식](../04_frontend_ui_ux.md#그리드차트데이터-도구-검토-2026-10-02)이 소유한다.
+상태: **Decided (2026-10-02)** — **플랫폼 결정**. 이미 Decided인 서버 경계 계약(서버는 매 요청을 자기 선언 사본으로 판정한다 — [실서버 연결 체크리스트](../integration/real-server-checklist.md) §3, 06 §6.2)에서 유도한 것이고, #159 결정 기록에 함께 남겼다. 도입 자체는 보류(POC #163). 사용 방식의 세부(원 값 엔드포인트, Data Trust 표시, WebGL 차트와 접근성, 피벗 설정의 상태, 지연 로드)는 [04 Perspective 사용 방식](../architecture/frontend-ui-ux.md#그리드차트데이터-도구-검토-2026-10-02)이 소유한다.
 
 자유 피벗의 무료 1순위 후보는 Perspective(Apache-2.0)다. Perspective는 C++ 엔진을 WASM으로 브라우저 Web Worker에서 돌릴 수도 있고, 같은 클라이언트 API로 원격 서버(WebSocket)에 붙거나 Virtual Server로 DuckDB·ClickHouse·PostgreSQL에 피벗 설정을 SQL로 바꿔 보낼 수도 있다. 이 플랫폼에서는 메뉴 데이터가 모두 `menuQuery` 하나로 오고, 서버가 요청이 아니라 자기 선언 사본으로 권한·Scope·한도를 판정한다. Virtual Server는 브라우저가 보낸 임의 피벗 설정을 그대로 쿼리로 만들고, 공식 문서에 권한·행 단위 보안 장치에 대한 언급이 없다.
 

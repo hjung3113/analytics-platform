@@ -2,7 +2,7 @@
 
 - Status: Decided (2026-10-21)
 - Decider: 사용자(공간 메뉴 구성 소유자) — 실제 앱 시안 A/B/C 중 C 선택("니 추천대로 하자")
-- Scope: #252, 지도 #249, 설계 [15 §2](../15_multi_workspace_ui.md#2-정보-구조ia)
+- Scope: #252, 지도 #249, 설계 [15 §2](../design/multi-workspace-ui.md#2-정보-구조ia)
 
 ## 맥락
 

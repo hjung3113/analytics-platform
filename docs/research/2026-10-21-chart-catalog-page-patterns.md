@@ -4,7 +4,7 @@
 
 - 확인일: 2026-10-21
 - 목적: 차트 종류마다 공통 상호작용(Zoom/Brush/Reset/Compare/Annotate/Export/Drill) 중 무엇이 되는지 보여 주는 "차트 카탈로그" 견본 메뉴의 `?variant=` 프로토타입 3안을 설계할 근거를 모은다.
-- 범위: **페이지 수준 표현**(레이아웃, 지원/미지원 표시, 상호작용을 직접 해 보는 방식, 코드·spec 노출, 밀도, 상태, 키보드). 종류별 지원 여부 자체는 `docs/research/2026-10-20-chart-kinds-patterns.md` §질문 4와 계약 원본 `docs/06_platform_ui_contract.md` §16 「종류별 상호작용」 표를 따르며 여기서 반복하지 않는다.
+- 범위: **페이지 수준 표현**(레이아웃, 지원/미지원 표시, 상호작용을 직접 해 보는 방식, 코드·spec 노출, 밀도, 상태, 키보드). 종류별 지원 여부 자체는 `docs/research/2026-10-20-chart-kinds-patterns.md` §질문 4와 계약 원본 `docs/contract/platform-ui-contract.md` §16 「종류별 상호작용」 표를 따르며 여기서 반복하지 않는다.
 - 원칙: 출처에서 직접 확인한 사실과 플랫폼 추론을 구분한다. 아래 A/B/C는 컨펌 전 검토안이다.
 
 ## 요약

@@ -2,9 +2,9 @@
 
 ## 이 문서의 지위
 
-이 문서는 `06_platform_ui_contract.md`와 `05_roadmap_and_open_questions.md`의 Open 항목 중 **사용자(사람)의 도메인 지식 없이 지금 결정 가능한 플랫폼 엔지니어링/UX 컨벤션**만 골라, 두 개의 독립 에이전트(grok-4.6 high를 질문자, codex gpt-6-astra medium을 답변자)가 4라운드에 걸쳐 상호 심문(grilling)한 산출물이다. 오케스트레이션은 Orca CLI(`orca terminal create/send/read/wait`)로 두 에이전트를 각자의 터미널에서 구동하고, 저장소 문서를 각자 직접 읽게 한 뒤 라운드 결과를 파일로 중계하는 방식으로 진행했다(원래는 herdr 스킬을 쓰려 했으나 이 세션 환경에는 `HERDR_ENV`가 없어 사용자 지시로 Orca CLI/오케스트레이션으로 대체).
+이 문서는 `docs/contract/platform-ui-contract.md`와 `docs/overview/roadmap-and-open-questions.md`의 Open 항목 중 **사용자(사람)의 도메인 지식 없이 지금 결정 가능한 플랫폼 엔지니어링/UX 컨벤션**만 골라, 두 개의 독립 에이전트(grok-4.6 high를 질문자, codex gpt-6-astra medium을 답변자)가 4라운드에 걸쳐 상호 심문(grilling)한 산출물이다. 오케스트레이션은 Orca CLI(`orca terminal create/send/read/wait`)로 두 에이전트를 각자의 터미널에서 구동하고, 저장소 문서를 각자 직접 읽게 한 뒤 라운드 결과를 파일로 중계하는 방식으로 진행했다(원래는 herdr 스킬을 쓰려 했으나 이 세션 환경에는 `HERDR_ENV`가 없어 사용자 지시로 Orca CLI/오케스트레이션으로 대체).
 
-**이 문서는 인터뷰 합의록이다.** 저장소의 authoritative source는 계속 `06_platform_ui_contract.md`(전역 계약)·`05_roadmap_and_open_questions.md`(결정 상태)·`03_backend_stack.md`·`01_architecture_and_data_contract.md`이며, 이 문서에서 합의된 내용 중 실제로 반영이 필요한 부분은 해당 문서에 Decided로 승격했다(이 세션에서 함께 수행, §10 참조). 이 리뷰 문서 자체를 인용해 구현을 검증하지 않는다.
+**이 문서는 인터뷰 합의록이다.** 저장소의 authoritative source는 계속 `docs/contract/platform-ui-contract.md`(전역 계약)·`docs/overview/roadmap-and-open-questions.md`(결정 상태)·`docs/architecture/backend-stack.md`·`docs/architecture/architecture-and-data-contract.md`이며, 이 문서에서 합의된 내용 중 실제로 반영이 필요한 부분은 해당 문서에 Decided로 승격했다(이 세션에서 함께 수행, §10 참조). 이 리뷰 문서 자체를 인용해 구현을 검증하지 않는다.
 
 ## 범위 결정 (사용자 확인됨)
 
@@ -122,7 +122,7 @@ grilling 방법론(design tree / frontier / round 단위 질문·추천답변)�
   1. `outcome`(배타): `ok | empty | error | forbidden | too_large | timeout`. `empty` = 성공 0건. 본 조회 실패는 `empty`가 아니라 `error`.
   2. `assessments[]`(이름 Candidate): 그 조회 계약이 선언한 **적용 kind**를 빠짐없이 1회씩, 각 항목은 `state = confirmed | clear | unknown`.
 - `Loading`/`Refreshing same context`는 이 페이로드에 없다(클라이언트 생명주기). `Partial widget failure`는 위젯 결과가 섞일 때 페이지가 도출한다.
-- **근거:** 단일 배타 enum으로는 `07_app_shell_wireframe.md`가 요구하는 "0건 + 원인 Unknown 공존" 시나리오를 표현할 수 없다.
+- **근거:** 단일 배타 enum으로는 `docs/wireframes/app-shell.md`가 요구하는 "0건 + 원인 Unknown 공존" 시나리오를 표현할 수 없다.
 
 ### 5.2 적용 목록과 3상태
 
@@ -183,4 +183,4 @@ grilling 방법론(design tree / frontier / round 단위 질문·추천답변)�
 
 ## 10. 저장소 반영
 
-이 리뷰의 §1~§6 결정 중 저장소에 반영 가능한 항목은 이 세션에서 `06_platform_ui_contract.md`(§6.1, §6.3, §6.4, §19)와 `05_roadmap_and_open_questions.md`(실시간성/파서 DB 접근/지연완료 메커니즘)에 Open → Decided로 직접 반영했다. §8(미해결)과 §9(범위 밖)는 그대로 Open/범위 밖으로 남아 있다. 구체 숫자·필드명·enum 문자열은 Candidate로 남기고 확정하지 않았다.
+이 리뷰의 §1~§6 결정 중 저장소에 반영 가능한 항목은 이 세션에서 `docs/contract/platform-ui-contract.md`(§6.1, §6.3, §6.4, §19)와 `docs/overview/roadmap-and-open-questions.md`(실시간성/파서 DB 접근/지연완료 메커니즘)에 Open → Decided로 직접 반영했다. §8(미해결)과 §9(범위 밖)는 그대로 Open/범위 밖으로 남아 있다. 구체 숫자·필드명·enum 문자열은 Candidate로 남기고 확정하지 않았다.

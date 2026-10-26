@@ -3,7 +3,7 @@
 상태: **Decided (2026-10-15)**.
 - 결정자: 사용자 — 2026-10-15, [#304](https://github.com/hjung3113/analytics-platform/issues/304) 추천안을 채택했다.
 
-기본 7일 조회에서 위젯 여러 개가 `time_domain_unverified: …` 원문만 보이고, 왜 실패했는지와 무엇을 하면 되는지는 없었다. 같은 화면에 계약 상태어·enum 원문·수식 표기·계약 문장이 사용자 문장으로 섞여 있었다. 상태 분류 자체는 [06 §19](../06_platform_ui_contract.md#19-loading--empty--error-taxonomy)가 그대로 소유한다. 이 결정은 그 분류를 바꾸지 않고 사용자에게 보이는 문장만 정한다.
+기본 7일 조회에서 위젯 여러 개가 `time_domain_unverified: …` 원문만 보이고, 왜 실패했는지와 무엇을 하면 되는지는 없었다. 같은 화면에 계약 상태어·enum 원문·수식 표기·계약 문장이 사용자 문장으로 섞여 있었다. 상태 분류 자체는 [06 §19](../contract/platform-ui-contract.md#19-loading--empty--error-taxonomy)가 그대로 소유한다. 이 결정은 그 분류를 바꾸지 않고 사용자에게 보이는 문장만 정한다.
 
 ## 결정
 
@@ -20,6 +20,6 @@
 
 ## 결과
 
-- 문구 원칙은 [06 §19](../06_platform_ui_contract.md#19-loading--empty--error-taxonomy)에 한 단락이다. §19 상태 분류와 `outcome` 분기는 바꾸지 않는다.
+- 문구 원칙은 [06 §19](../contract/platform-ui-contract.md#19-loading--empty--error-taxonomy)에 한 단락이다. §19 상태 분류와 `outcome` 분기는 바꾸지 않는다.
 - 카탈로그는 Kernel i18n이고 표현은 `StateMessage`다. 응답 포트(`@ap/contracts`)는 바꾸지 않으며, 코드는 message 접두로만 판정한다.
 - 구현은 #304다.

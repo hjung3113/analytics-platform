@@ -3,9 +3,9 @@
 상태: **Decided (2026-10-05)**.
 - 결정자: 사용자 — 실제 앱 위 `?variant=` 프로토타입(#156, 브랜치 `hjung3113/proto-156-layout-slots`)에서 관리 A(현재)/B(표 안 필터)/C(왼쪽 필터 레일) 중 C를 골랐고 접기는 필수라고 했다("결국 메인화면이 주니까"). 분석 A(세로 쌓기)/B(KPI 띠 + 차트 2열)/C(KPI 레일) 중 B를 골랐으며 섹션별 접기도 요구했다.
 
-플랫폼은 사내에서 새로 만드는 관리·분석 메뉴에 공통 레이아웃 슬롯을 제공한다. 세부 동작은 [06 §12.6](../06_platform_ui_contract.md#126-pagetype의-현재-계약과-레이아웃-슬롯-104-156), 시각 규칙은 [DESIGN.md](../../DESIGN.md#shell-visual-rules)가 소유한다.
+플랫폼은 사내에서 새로 만드는 관리·분석 메뉴에 공통 레이아웃 슬롯을 제공한다. 세부 동작은 [06 §12.6](../contract/platform-ui-contract.md#126-pagetype의-현재-계약과-레이아웃-슬롯-104-156), 시각 규칙은 [DESIGN.md](../../DESIGN.md#shell-visual-rules)가 소유한다.
 
-Amended 2026-10-20: 크기·밀도 선택지와 기본값·상속 규칙은 [06 §12.6](../06_platform_ui_contract.md#126-pagetype의-현재-계약과-레이아웃-슬롯-104-156)을 따른다.
+Amended 2026-10-20: 크기·밀도 선택지와 기본값·상속 규칙은 [06 §12.6](../contract/platform-ui-contract.md#126-pagetype의-현재-계약과-레이아웃-슬롯-104-156)을 따른다.
 
 ## 결정
 

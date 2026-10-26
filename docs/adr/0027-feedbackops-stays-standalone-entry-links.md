@@ -23,4 +23,4 @@ ADR-0018은 FeedbackOps 화면을 플랫폼 메뉴 패키지로 옮기고 백엔
 - 링크 계약을 넓힌다: 지금 `buildFeedbackOpsLink`(`packages/contracts/src/links/feedbackops-link.ts`)는 VOC 등록·VOC 상세·설문 상세만 만든다. 시스템별 목록 진입(VOC 목록·Task·설문 목록 + `managedSystem`)과 범위 없는 허브 진입을 [딥링크 계약](../integration/feedbackops-deeplink.md)에 더한다. FeedbackOps 프런트엔드는 범위를 지원하는 화면에서 URL의 `managedSystem`을 읽는다(설문 응답 화면과 관리 화면 일부는 제외).
 - 공간 → Managed System 매핑 표(#81)가 진입의 선행 조건이다. 세션 공유(#150)가 정해지기 전에는 FeedbackOps에서 로그인을 한 번 더 거칠 수 있다.
 - FeedbackOps 2단계(#213)는 화면 이전에서 "매핑·링크 계약·진입점"으로 줄어든다. ADR-0018이 남긴 결정 중 독립 앱 존속은 이 결정으로 정해졌고(존속), 권한 매핑·알림·감사 통합·메뉴 조회 포트 쓰기 계약·Workflow 레이아웃은 FeedbackOps 때문에는 필요 없어진다. 다른 소비자가 생기면 그때 다시 본다.
-- 계약 원본: [06 §9.1](../06_platform_ui_contract.md#91-워크스페이스-decided-2026-09-26), 화면 설계 [15 §6](../15_multi_workspace_ui.md#6-feedbackops-ux-통합), 단계 계획 [저장소 연결](../integration/repository-layout.md#feedbackops-통합-방식-decided-2026-09-26).
+- 계약 원본: [06 §9.1](../contract/platform-ui-contract.md#91-워크스페이스-decided-2026-09-26), 화면 설계 [15 §6](../design/multi-workspace-ui.md#6-feedbackops-ux-통합), 단계 계획 [저장소 연결](../integration/repository-layout.md#feedbackops-통합-방식-decided-2026-09-26).

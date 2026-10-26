@@ -36,4 +36,4 @@
 - `tooling/gen-menu`는 contracts `menu.ts`를 더 이상 고치지 않는다. 그룹 존재 확인은 앱 선언(`menus.ts`의 `GROUPS`)을 읽는다. `probe-support`·`repo-invariants`의 contracts 편집도 함께 바뀐다.
 - 오타 안전은 컴파일 시점(SDK union)에서 Registry 검증 + 앱이 자기 선언에서 유도한 타입으로 옮긴다. Registry 단위 테스트가 선언되지 않은 그룹·공간·권한 거부를 고정한다.
 - mock 서버의 권한 목록(`world.ts`·`access.ts`의 `PERMISSIONS` 사용)과 콘솔 필터는 앱 조립이 넘긴 목록을 쓴다. FeedbackOps Capability 대응표의 계약 테스트([합류 설계](../integration/feedbackops-merge-design.md) §5)는 contracts 고정 목록 대신 Kernel 고유 권한 + 앱 선언 목록과 묶는다.
-- 소유 문서 갱신은 구현 PR에서 한다: [패키지 경계](../integration/platform-packages.md) §3의 `@ap/contracts` 행과 규칙 7, [06](../06_platform_ui_contract.md) §5.
+- 소유 문서 갱신은 구현 PR에서 한다: [패키지 경계](../integration/platform-packages.md) §3의 `@ap/contracts` 행과 규칙 7, [06](../contract/platform-ui-contract.md) §5.
