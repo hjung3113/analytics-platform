@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { isValidDockTree } from '@ap/components/dock';
-import { activateInTree, defaultTree, effectiveTree, fromDockTree, groupHolding, groupsOf, reconcileSelection, toDockTree } from './boardDockTree';
+import { activateInTree, defaultTree, effectiveTree, fromDockTree, groupHolding, groupsOf, reconcileSelection, splitExceedsCap, toDockTree } from './boardDockTree';
 import {
   addPane, addPaneInGroup, applyPaneEdits, closePane, freshBoard, normalizeBoard, restoreClosedPane, restorePane, resetTree, revertPaneEdits, selectPane, selectPaneActive, setPane, setTree, withGrid,
   type Board, type LayoutNode, type Sheet,
@@ -389,5 +389,22 @@ describe('undo addresses a pane by its slot, not its number (a close renumbers t
     expect(sheetOf(revertPaneEdits(closedA, sid(closedA), [edit])!).panes.map(p => p.screen?.query ?? null)).toEqual(['', null]);
     const withoutB = setPane(closedA, sid(closedA), 0, null);
     expect(revertPaneEdits(closePane(withoutB, sid(withoutB), 0)!.board, sid(board), [edit])).toBeNull();
+  });
+});
+
+describe('splitExceedsCap', () => {
+  const four = (extra: boolean): LayoutNode => {
+    const grp = (panes: string[]): LayoutNode => ({ type: 'group', panes, active: panes[0]! });
+    return { type: 'branch', dir: 'row', sizes: [25, 25, 25, 25], children: [grp(extra ? ['a', 'e'] : ['a']), grp(['b']), grp(['c']), grp(['d'])] };
+  };
+  it('refuses a split of a tab out of a shared group at four groups, and allows the middle', () => {
+    expect(splitExceedsCap(four(true), 'a', 'left')).toBe(true);
+    expect(splitExceedsCap(four(true), 'e', 'bottom')).toBe(true);
+    expect(splitExceedsCap(four(true), 'a', 'center')).toBe(false);
+  });
+  it('allows a split of a group\'s only tab (the group count stays) and any drop below the cap', () => {
+    expect(splitExceedsCap(four(false), 'b', 'right')).toBe(false);
+    const three: LayoutNode = { type: 'branch', dir: 'row', sizes: [50, 50], children: [{ type: 'group', panes: ['a', 'b'], active: 'a' }, { type: 'group', panes: ['c'], active: 'c' }] };
+    expect(splitExceedsCap(three, 'a', 'top')).toBe(false);
   });
 });

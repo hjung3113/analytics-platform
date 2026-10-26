@@ -6,7 +6,7 @@ import {
   createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type RefObject,
 } from 'react';
 import {
-  DockviewReact, getPanelData, type DockviewApi, type DockviewReadyEvent, type DockviewWillDropEvent, type IDockviewHeaderActionsProps, type IDockviewPanelHeaderProps, type IDockviewPanelProps,
+  DockviewReact, getPanelData, type DockviewApi, type DockviewReadyEvent, type DockviewWillDropEvent, type DockviewWillShowOverlayLocationEvent, type IDockviewHeaderActionsProps, type IDockviewPanelHeaderProps, type IDockviewPanelProps,
 } from 'dockview-react';
 import { TransientOverlayScope } from '@ap/ui';
 import { groupOf } from './commands';
@@ -18,7 +18,7 @@ import { isProgrammaticFocus, programmaticFocus } from './programmaticFocus';
 import { canonicalDockTree, type DockNode } from './schema';
 import './dock.css';
 
-export type DockEngineProps = Pick<DockLayoutProps, 'panels' | 'layout' | 'onLayoutChange' | 'renderTab' | 'renderGroupActions' | 'renderGroupTabsEnd' | 'tabA11y' | 'separatorLabel'> & {
+export type DockEngineProps = Pick<DockLayoutProps, 'panels' | 'layout' | 'onLayoutChange' | 'renderTab' | 'renderGroupActions' | 'renderGroupTabsEnd' | 'tabA11y' | 'separatorLabel' | 'canDropAt'> & {
   /** What the engine shows: `layout`, or the one-group stack of the narrow display. */
   display: DockNode;
   /** False in the narrow display: no drag and drop, nothing reported. */
@@ -166,7 +166,7 @@ function readEngine(api: DockviewApi, stored: DockNode): { tree: DockNode; measu
 }
 
 export default function DockEngine({
-  panels, layout, display, interactive, maximizedPanelId, visible, minPanelSize, onLayoutChange, onActivate, renderTab, renderGroupActions, renderGroupTabsEnd, tabA11y, separatorLabel,
+  panels, layout, display, interactive, maximizedPanelId, visible, minPanelSize, onLayoutChange, onActivate, renderTab, renderGroupActions, renderGroupTabsEnd, tabA11y, separatorLabel, canDropAt,
   containerRef, instanceId, rows,
 }: DockEngineProps) {
   const [api, setApi] = useState<DockviewApi | null>(null);
@@ -216,7 +216,22 @@ export default function DockEngine({
   }, [measure]);
   useEffect(() => () => { cancelAnimationFrame(frame.current); }, []);
 
-  const onReady = useCallback((event: DockviewReadyEvent) => { setApi(event.api); }, []);
+  // The latest `canDropAt`, read by the preview subscription and the drop handler (one function, so both judge alike) without resubscribing.
+  const canDrop = useRef(canDropAt);
+  useLayoutEffect(() => { canDrop.current = canDropAt; });
+  const refused = useCallback((event: DockviewWillDropEvent | DockviewWillShowOverlayLocationEvent): boolean => {
+    const judge = canDrop.current;
+    const data = event.getData();
+    // A dragged whole group has no panel id: it keeps the engine's behaviour.
+    if (!judge || !data?.panelId) return false;
+    const target = event.kind === 'edge' ? undefined : event.group;
+    return !judge({ panelId: data.panelId, targetGroupPanelIds: target ? target.panels.map(panel => panel.id) : [], position: event.position });
+  }, []);
+  const onReady = useCallback((event: DockviewReadyEvent) => {
+    setApi(event.api);
+    // A refused place draws no preview; the drag effect stays `none` there because nothing accepts it.
+    event.api.onWillShowOverlay(overlay => { if (refused(overlay)) overlay.preventDefault(); });
+  }, [refused]);
 
   // Report what the user did to the engine (drag, sash, tab drop, tab activation) as a new tree. Sizes are only news while a sash is being
   // dragged: the engine's own px rounding, gaps and minimum sizes would otherwise differ from `layout` by a fraction on every load.
@@ -408,9 +423,10 @@ export default function DockEngine({
   const onWillDrop = useCallback((event: DockviewWillDropEvent) => {
     const data = event.getData();
     if (!data || data.viewId !== event.api.id) { event.preventDefault(); return; }
+    if (refused(event)) event.preventDefault();
     // The drop is reported as a layout right after this (before any other drop); the row model needs to know which panel moved.
     onPanelDrop?.(event.defaultPrevented ? null : data.panelId);
-  }, [onPanelDrop]);
+  }, [onPanelDrop, refused]);
 
   // The strip under the last row accepts one tab of this layout: not a whole group, not another layout's tab, not outside data. Every drag over the strip
   // ends here, taken or refused: an ancestor dock (the board around a pane) must never act on a drop released over it. These are native listeners on the

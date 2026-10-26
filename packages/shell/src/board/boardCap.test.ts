@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
-import { groupsOf } from './boardDockTree';
+import { movePanel } from '@ap/components/dock';
+import { fromDockTree, groupsOf, splitExceedsCap, toDockTree } from './boardDockTree';
 import {
   MAX_GROUPS, MAX_TABS, addPane, addPaneInGroup, closePane, droppedPaneCount, freshBoard, normalizeBoard, parseBoard, resetTree, restoreClosedPane, setLayout, setPane, setTree,
   type Board, type LayoutNode, type Sheet,
@@ -180,5 +181,29 @@ describe('tab total and display groups are separate caps (893e)', () => {
     const loaded = loadBoard(storage, 'u1', '시트');
     expect(loaded.notice).toBe('corrupt');
     expect(storage.getItem('platform:board:corrupt-backup:v2:u1')).toBe(raw);
+  });
+});
+
+describe('the drop preview rule and setTree agree (978b)', () => {
+  const positions = ['left', 'right', 'top', 'bottom', 'center'] as const;
+  const shapes: Array<[string, () => Board]> = [
+    ['three groups', () => grown(3)],
+    ['four groups', () => grown(4)],
+    ['four groups with a two-tab group', () => { const base = grown(4); return addPaneInGroup(base, sid(base), ids(base)[0]!, null); }],
+  ];
+  it.each(shapes)('%s: every drop splitExceedsCap allows is accepted by setTree, every one it refuses is ignored', (_name, build) => {
+    const board = build();
+    const tree = sheetOf(board).tree;
+    for (const source of ids(board)) {
+      for (const target of ids(board).filter(id => id !== source)) {
+        for (const position of positions) {
+          const result = fromDockTree(movePanel(toDockTree(tree), source, { panelId: target, position }));
+          const accepted = groupsOf(result).length <= MAX_GROUPS;
+          expect(!splitExceedsCap(tree, source, position) || !accepted).toBe(true);
+          if (splitExceedsCap(tree, source, position)) expect(setTree(board, sid(board), result)).toBe(board);
+          else if (JSON.stringify(result) !== JSON.stringify(tree)) expect(sheetOf(setTree(board, sid(board), result)).tree).toEqual(result);
+        }
+      }
+    }
   });
 });

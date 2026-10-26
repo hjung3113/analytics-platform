@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import type { DockDropPosition } from './commands';
 import type { DockNode } from './schema';
 
 export type DockPanel = {
@@ -11,10 +12,24 @@ export type DockPanel = {
   minHeight?: number;
 };
 
+/** A dragged tab over a place of the layout; `position` is one edge of the group (a split) or its middle (joins the group's tabs). */
+export type DockDrop = {
+  /** The dragged tab. */
+  panelId: string;
+  /** The tabs of the group under the pointer; empty over the layout's outer edge or when there is no group. */
+  targetGroupPanelIds: readonly string[];
+  position: DockDropPosition;
+};
+
 export type DockSeparatorInfo = { dir: 'row' | 'column'; before: string[]; after: string[] };
 
 export type DockLayoutProps = {
   panels: readonly DockPanel[];
+  /**
+   * Whether a dragged tab may be dropped at a place. False draws no drop preview there and refuses the drop; the other places are
+   * unaffected. Called while dragging, so it must be pure and cheap. Not called for a dragged whole group. Absent = every place accepts.
+   */
+  canDropAt?: (drop: DockDrop) => boolean;
   /** Normalised by the caller (`normalizeDockTree`). */
   layout: DockNode;
   /** Drag, sash drag, separator keys, tab drop and user tab activation. */

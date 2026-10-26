@@ -863,6 +863,33 @@ test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
     await expect(groups(page)).toHaveCount(4);
     await expect(paneTabs(page)).toHaveCount(5);
   });
+  test('4개 영역일 때 탭을 다른 영역 가장자리에 끌면 분할 미리보기가 없고 가운데에는 있다 (#978 UX-2)', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await signInWithDockBoard(page, [populated('dock', '2x2', 4)]);
+    await dockReady(page, 4);
+    await page.locator('[data-group-add]').first().click();
+    await page.getByRole('dialog').getByRole('button').first().click();
+    await expect(paneTabs(page)).toHaveCount(5);
+    await expect(page.locator('[data-dock-layout] [data-pane-body] [role="status"][aria-busy]')).toHaveCount(0);
+    const target = groupBody(page, 2);
+    const box = (await target.boundingBox())!;
+    const source = (await paneTab(page, 5).boundingBox())!;
+    const preview = page.locator('[data-dock-layout] .dv-drop-target-dropzone, [data-dock-layout] .dv-drop-target-anchor');
+    const hoverAt = async (x: number, y: number) => {
+      await page.mouse.move(x, y, { steps: 8 });
+      for (let i = 0; i < 4; i++) { await page.waitForTimeout(80); await page.mouse.move(x + (i % 2 === 0 ? -2 : 2), y); }
+    };
+    await page.mouse.move(source.x + source.width / 2, source.y + source.height / 2);
+    await page.mouse.down();
+    // The middle joins the group's tabs: the engine draws its preview (this also proves the selector sees one).
+    await hoverAt(box.x + box.width / 2, box.y + box.height / 2);
+    await expect(preview.first()).toBeVisible();
+    // The edge would split into a fifth group: no preview.
+    await hoverAt(box.x + box.width - 6, box.y + box.height / 2);
+    await expect(preview).toHaveCount(0);
+    await page.mouse.up();
+    await expect(groups(page)).toHaveCount(4);
+  });
 });
 
 test.describe('메뉴 작업 영역 (ADR-0067 3b)', () => {

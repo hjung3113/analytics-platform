@@ -1248,6 +1248,27 @@ describe('dock renderer: tab total and display groups are separate caps (893e, A
     expect(localStorage.getItem(V2_KEY)).toBe(before);
   });
 
+  it('978b: at four groups the dock refuses a split drop of a shared-group tab and still accepts the middle', async () => {
+    seedV2(bigBoard(5));
+    mount('/board?sheet=a');
+    await ready();
+    const [a, b] = v2().sheets[0].panes.map(p => p.id) as [string, string];
+    const canDropAt = dockProbe.latest!.canDropAt!;
+    const shared = groupsOf(tree()).find(g => g.panes.length > 1)!.panes;
+    const member = shared[0]!;
+    for (const position of ['left', 'right', 'top', 'bottom'] as const) expect(canDropAt({ panelId: member, targetGroupPanelIds: [b], position })).toBe(false);
+    expect(canDropAt({ panelId: member, targetGroupPanelIds: [b], position: 'center' })).toBe(true);
+    expect(canDropAt({ panelId: a === member ? b : a, targetGroupPanelIds: [member], position: 'left' })).toBe(true);
+  });
+
+  it('978b: below four groups every drop place is accepted', async () => {
+    seedV2(v2Board(boardOf([sheet('a', { layout: '1x2', panes: [alpha(w1), beta(w1)] })])));
+    mount('/board?sheet=a');
+    await ready();
+    const [a, b] = v2().sheets[0].panes.map(p => p.id) as [string, string];
+    for (const position of ['left', 'right', 'top', 'bottom', 'center'] as const) expect(dockProbe.latest!.canDropAt!({ panelId: a, targetGroupPanelIds: [b], position })).toBe(true);
+  });
+
   it('E6: a board with more than four panes opens in the dock although the browser asks for the grid, and says so once', async () => {
     localStorage.setItem(BOARD_LAYOUT_ENGINE_KEY, 'grid');
     seedV2(bigBoard(5));
