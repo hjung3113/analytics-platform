@@ -389,13 +389,22 @@ describe('HW Time compare page', () => {
   });
 
   it.each([
-    ['delayed', () => ({ status: 'loading' as const, response: null, missing: [], completedAt: null, refetch: () => undefined })],
-    ['failed', () => ({ status: 'done' as const, missing: [], completedAt: 1, refetch: () => undefined, response: { outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'fixture', message: 'boom' } as ApiResponse<HwTimeLevelData> })],
-  ])('a %s composition leaves the legend without Module rows: nothing to drill, no Motion request carries a Module id', async (_name, pending) => {
+    ['delayed', () => ({ status: 'loading' as const, response: null, missing: [], completedAt: null, refetch: () => undefined }), null],
+    ['failed', () => ({ status: 'done' as const, missing: [], completedAt: 1, refetch: () => undefined, response: { outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'fixture', message: 'boom' } as ApiResponse<HwTimeLevelData> }), '구성을 불러오지 못했습니다.'],
+    ['empty', () => ({ status: 'done' as const, missing: [], completedAt: 1, refetch: () => undefined, response: { outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' } as ApiResponse<HwTimeLevelData> }), '이 Module에는 구성 기록이 없습니다.'],
+  ])('a %s composition leaves the legend without Module rows: nothing to drill, no Motion request carries a Module id', async (_name, pending, copy) => {
     data.level.mockImplementation((drill: HwTimeDrill, enabled: boolean) => (drill.drillModule && !drill.drillMotion && enabled ? pending() : done(fixtureFor(drill))));
     await renderPage('&drillModule=PM2');
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: '계층 범례' })); });
+    await waitFor(() => expect(data.level.mock.calls.some(([drill, enabled]) => enabled && drill.drillModule === 'PM2' && !drill.drillMotion)).toBe(true));
+    if (copy) {
+      await act(async () => { fireEvent.click(screen.getByRole('button', { name: '분석 대상' })); });
+      expect((await screen.findByRole('dialog', { name: '분석 대상' })).textContent).toContain(copy);
+    }
+    const legendButton = screen.getByRole('button', { name: '계층 범례' });
+    if (copy) fireEvent.pointerDown(legendButton);
+    await act(async () => { fireEvent.click(legendButton); });
     const tree = await screen.findByRole('tree', { name: '계층 범례' });
+    if (copy) expect(tree.textContent).toContain(copy);
     expect(within(tree).queryByRole('treeitem')).toBeNull();
     expect(screen.queryByRole('button', { name: /단계로 이동/ })).toBeNull();
     fireEvent.keyDown(tree, { key: 'Enter' });

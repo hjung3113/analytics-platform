@@ -84,7 +84,8 @@ export default function ComparePage(_props: PageProps) {
   const hidden = module === null ? summaryHidden : moduleHidden;
   const setHidden = module === null ? setSummaryHidden : setModuleHidden;
   const legendState = module === null || context ? null
-    : moduleQ.response && moduleQ.response.outcome !== 'ok' ? (ko ? '구성을 불러오지 못했습니다.' : 'The composition could not be loaded.')
+    : moduleQ.response?.outcome === 'empty' ? (ko ? '이 Module에는 구성 기록이 없습니다.' : 'This Module has no composition records.')
+      : moduleQ.response && moduleQ.response.outcome !== 'ok' ? (ko ? '구성을 불러오지 못했습니다.' : 'The composition could not be loaded.')
       : ko ? '구성을 불러오는 중입니다.' : 'Loading the composition.';
   const detailBlock: HwTimeBlock | null = detailData ? (detailData.level === 2 ? detailData.detail ?? EMPTY_BLOCK : EMPTY_BLOCK) : null;
   const counts = state.countsOf(context);
