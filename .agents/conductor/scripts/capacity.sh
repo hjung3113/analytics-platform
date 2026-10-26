@@ -4,14 +4,14 @@
 # 호출자(흐름 세션·팀장)가 출력을 보고 판단한다. macOS 전용(memory_pressure, sysctl).
 #
 # 출력(한 줄, 종료 코드 항상 0):
-#   <green|yellow|red> workers=<1-3> lanes=<2-4> start=<yes|no> free=<%> swap_used_mb=<n> swap_total_mb=<n> swap_delta_mb=<n|?> load1=<x> ncpu=<n> why=<이유>
+#   <green|yellow|red> workers=<1-5> lanes=<2-4> start=<yes|no> free=<%> swap_used_mb=<n> swap_total_mb=<n> swap_delta_mb=<n|?> load1=<x> ncpu=<n> why=<이유>
 #   start=no는 새 작업자·무거운 단계를 시작하지 않는다는 뜻이다. 이미 잡은 자리와 잠금은 뺏지 않는다.
 # 환경 변수(모두 선택): CAPACITY_STATE(직전 swap 기록 파일, 기본 $AP_MAIN/.review/capacity.last, AP_MAIN이 없으면 $TMPDIR/capacity.last),
-#   CAPACITY_GREEN_FREE(40) CAPACITY_RED_FREE(25) CAPACITY_SWAP_GROW_MB(256) CAPACITY_SWAP_FULL_MB(8192) CAPACITY_SWAP_WINDOW_S(1800) CAPACITY_SWAP_MIN_AGE_S(120)
+#   CAPACITY_GREEN_FREE(25) CAPACITY_RED_FREE(20) CAPACITY_SWAP_GROW_MB(256) CAPACITY_SWAP_FULL_MB(8192) CAPACITY_SWAP_WINDOW_S(1800) CAPACITY_SWAP_MIN_AGE_S(120)
 set -u
 
-green_free=${CAPACITY_GREEN_FREE:-40}
-red_free=${CAPACITY_RED_FREE:-25}
+green_free=${CAPACITY_GREEN_FREE:-25}
+red_free=${CAPACITY_RED_FREE:-20}
 grow_mb=${CAPACITY_SWAP_GROW_MB:-256}
 full_mb=${CAPACITY_SWAP_FULL_MB:-8192}
 window_s=${CAPACITY_SWAP_WINDOW_S:-1800}
@@ -29,7 +29,7 @@ pl=$(sysctl -n kern.memorystatus_vm_pressure_level 2>/dev/null)
 pl=${pl:-1}
 
 if [ -z "$free" ] || [ -z "$swap_used" ] || [ -z "$load1" ] || [ -z "$ncpu" ]; then
-  echo "yellow workers=2 lanes=3 start=yes free=${free:-?} swap_used_mb=${swap_used:-?} swap_total_mb=${swap_total:-?} swap_delta_mb=? load1=${load1:-?} ncpu=${ncpu:-?} why=측정 실패, 지금 상한 유지"
+  echo "yellow workers=3 lanes=3 start=yes free=${free:-?} swap_used_mb=${swap_used:-?} swap_total_mb=${swap_total:-?} swap_delta_mb=? load1=${load1:-?} ncpu=${ncpu:-?} why=측정 실패, 지금 상한 유지"
   exit 0
 fi
 swap_used=${swap_used%.*}
@@ -76,8 +76,8 @@ else
 fi
 
 case $level in
-  green) w=3; l=4; s=yes ;;
-  yellow) w=2; l=3; s=yes ;;
+  green) w=5; l=4; s=yes ;;
+  yellow) w=3; l=3; s=yes ;;
   red) w=1; l=2; s=no ;;
 esac
 echo "$level workers=$w lanes=$l start=$s free=$free swap_used_mb=$swap_used swap_total_mb=$swap_total swap_delta_mb=$delta load1=$load1 ncpu=$ncpu why=$why"
