@@ -20,7 +20,7 @@ npm run dev
 - `src/fixture/App.tsx`: generic column/cell 의미, category filter, 표의 접근성 이름(`ariaLabel`), 페이지 크기(`pageSize`), row action와 상세 내용을 주입한다. Audit은 명시적 미연동 placeholder이며 AuditTimeline 구현이 아니다.
 - `src/fixture/server.ts`: Vite Node middleware 전용. 2,000행을 서버에 생성하고 sort/filter 후 최대 250행만 반환한다. 브라우저가 전체 배열을 받거나 생성하지 않는다.
 - `src/fixture/types.ts`: 타입만 공유한다. 실제 domain identifier나 CRUD가 없다.
-- `src/ui/`: `docs/04_frontend_ui_ux.md` Decided 스택(Tailwind CSS v4 + shadcn/ui·Radix + `cn()`)의 이 프로토타입 전용 사본. 아래 "디자인 시스템 이식" 참고.
+- `src/ui/`: `docs/architecture/frontend-ui-ux.md` Decided 스택(Tailwind CSS v4 + shadcn/ui·Radix + `cn()`)의 이 프로토타입 전용 사본. 아래 "디자인 시스템 이식" 참고.
 
 ## 디자인 시스템 이식
 

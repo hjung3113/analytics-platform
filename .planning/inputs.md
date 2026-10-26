@@ -18,10 +18,10 @@
 번호는 옛 `PLATFORM_REQUIREMENTS.md` Open Questions 번호를 유지한다(화면 설계 문서가 이 번호로 인용한다). 1·10·14번은 결정이 끝나 지웠다.
 
 <a id="q2"></a>
-**2. Scope 상속 세부** — 관계(Site → room_name → StGroup → Equipment, Line 독립 축)와 room_name 기준 권한은 Decided(ADR-0004·0005). v1 Scope 단일 선택도 Decided(06 §6.2, 05)다. 부모·자식 권한 상속과 조회 필터 자동 포함(행 스코핑) 세부만 Open([06 §6.2](../docs/06_platform_ui_contract.md#62-scope와-권한-decided--open)).
+**2. Scope 상속 세부** — 관계(Site → room_name → StGroup → Equipment, Line 독립 축)와 room_name 기준 권한은 Decided(ADR-0004·0005). v1 Scope 단일 선택도 Decided(06 §6.2, 05)다. 부모·자식 권한 상속과 조회 필터 자동 포함(행 스코핑) 세부만 Open([06 §6.2](../docs/contract/platform-ui-contract.md#62-scope와-권한-decided--open)).
 
 <a id="q3"></a>
-**3. 시간 의미** — TZ는 Asia/Seoul 단일값으로 시작(Decided). timeDomain assertion 공급자, 교대일/영업일, 다중 Site의 "같은 날짜"는 Open. assertion 공급 근거는 복수 시간축 병합을 제공하기 전에 필요하다([06 시간 계약](../docs/06_platform_ui_contract.md#ctx-time)).
+**3. 시간 의미** — TZ는 Asia/Seoul 단일값으로 시작(Decided). timeDomain assertion 공급자, 교대일/영업일, 다중 Site의 "같은 날짜"는 Open. assertion 공급 근거는 복수 시간축 병합을 제공하기 전에 필요하다([06 시간 계약](../docs/contract/platform-ui-contract.md#ctx-time)).
 
 <a id="q4"></a>
 **4. 운영 수치** — `defaultRangeTo` 기본 길이, 실제 데이터 볼륨·조회 패턴, 최대 조회량·timeout, 폴링 중단 조건·워커 감지 주기. (`H`=1시간, 폴링 5분은 Decided.)
@@ -58,4 +58,4 @@
 견본 메뉴는 사내에서 새로 만들므로 지금 정하지 않는다.
 
 - **기준정보(공정·레시피·자재)**: 탭 하나의 페이지인가, 메뉴 두 개인가(현재 manifest는 `master-process`·`master-recipe` 두 메뉴, 화면 없음). 유형별 안정 키·유일성, Recipe 마스터와 PRC `prc_name`의 관계(키·원천·이름 변경 전파), 필드별 원천 소유권(정해질 때까지 쓰기 없음), '자재' 용어·식별키, 공정 마스터 변경이 설비 `room_name`에 미치는 영향, 유형 탭·상세의 URL 계약과 유효구간 필요 여부. 원래 설계는 git 이력의 `docs/10_reference_data_wireframe.md`.
-- **CFG 데이터**: 형식과 mart 의존성([01](../docs/01_architecture_and_data_contract.md) CFG 경계, [반도체 도메인 조사](../docs/research/semiconductor-domain-2026-09-24/README.md)).
+- **CFG 데이터**: 형식과 mart 의존성([01](../docs/architecture/architecture-and-data-contract.md) CFG 경계, [반도체 도메인 조사](../docs/research/semiconductor-domain-2026-09-24/README.md)).

@@ -8,7 +8,7 @@
 
 메뉴 manifest가 필요한 수만큼 `drill.levels`를 선언한다. Registry는 비어 있지 않음과 키 계약을 검사하며 임의 깊이 상한을 두지 않는다. 단계·행·목적지의 의미를 공통 차트에 넣지 않는다.
 
-공개 이름은 `AnalysisChartFrame`의 `pointActivation`, `pointActions`, `orientation`, `visibleSeriesIds`, `onVisibleSeriesChange`와 `ChartPoint`·`ChartPointAction`이다. 동작·기본값·우선순위의 원본은 [06 §16](../06_platform_ui_contract.md#16-analysis-chart-contract), 드릴 URL은 §6.4, 경로 바는 §12.7이다. 프레임 콜백은 내비게이션이 아니며 메뉴가 자신의 `useDrill` 등으로 연결한다.
+공개 이름은 `AnalysisChartFrame`의 `pointActivation`, `pointActions`, `orientation`, `visibleSeriesIds`, `onVisibleSeriesChange`와 `ChartPoint`·`ChartPointAction`이다. 동작·기본값·우선순위의 원본은 [06 §16](../contract/platform-ui-contract.md#16-analysis-chart-contract), 드릴 URL은 §6.4, 경로 바는 §12.7이다. 프레임 콜백은 내비게이션이 아니며 메뉴가 자신의 `useDrill` 등으로 연결한다.
 
 ## Considered Options
 

@@ -3,7 +3,7 @@
 상태: **Decided (2026-10-04)**.
 - 결정자: 사용자 — 실제 앱 위 `?variant=` 프로토타입에서 A(overlay) / B(docked) / C(responsive) 중 B를 선택했다(#195).
 
-세부(슬롯·폭·URL·포커스 계약)는 [06 §7 Baseline·§8·§13](../06_platform_ui_contract.md#13-shared-component-layers), 배치는 [07 앱 셸 와이어프레임](../07_app_shell_wireframe.md), 표면·토큰 역할은 [DESIGN.md](../../DESIGN.md#shell-visual-rules)가 소유한다. 구현 범위는 #205다. 이 ADR은 결정과 이유만 둔다.
+세부(슬롯·폭·URL·포커스 계약)는 [06 §7 Baseline·§8·§13](../contract/platform-ui-contract.md#13-shared-component-layers), 배치는 [07 앱 셸 와이어프레임](../wireframes/app-shell.md), 표면·토큰 역할은 [DESIGN.md](../../DESIGN.md#shell-visual-rules)가 소유한다. 구현 범위는 #205다. 이 ADR은 결정과 이유만 둔다.
 
 [ADR-0011](0011-design-direction-feedbackops-shell.md)은 FeedbackOps 토큰과 AppFrame 구조를 채택했지만 상세 패널 방식은 별도 결정으로 남겼다. 기존 DetailDrawer는 화면 폭에 따라 본문 위에 뜨거나 scrim·inert를 쓰는 overlay였다. FeedbackOps의 상세는 셸 슬롯에 놓여 목록과 나란히 보인다. 통합 때 같은 셸 구조를 쓰면서 목록을 계속 조작할 수 있도록 이 차이를 해결한다.
 

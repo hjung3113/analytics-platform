@@ -6,7 +6,7 @@
 
 ## 맥락
 
-첫 `AnalysisChart` 메뉴 소비자는 [06 §16](../06_platform_ui_contract.md#16-analysis-chart-contract)의 종류별 상호작용을 실제 데이터 조회·Scope·Context와 함께 검증한다. 작은 차트를 일곱 개 동시에 압축하기보다 선택한 한 차트의 축·단위·선택 요약·Trust를 읽을 공간이 필요하다. 공개 사례와 초기 A/B/C 대안은 [표현 패턴 조사](../research/2026-10-21-chart-catalog-page-patterns.md)에 있다.
+첫 `AnalysisChart` 메뉴 소비자는 [06 §16](../contract/platform-ui-contract.md#16-analysis-chart-contract)의 종류별 상호작용을 실제 데이터 조회·Scope·Context와 함께 검증한다. 작은 차트를 일곱 개 동시에 압축하기보다 선택한 한 차트의 축·단위·선택 요약·Trust를 읽을 공간이 필요하다. 공개 사례와 초기 A/B/C 대안은 [표현 패턴 조사](../research/2026-10-21-chart-catalog-page-patterns.md)에 있다.
 
 ## 결정
 
@@ -25,4 +25,4 @@ D의 상단 종류 Tabs + 큰 단일 차트 + 기본 접힘 지원 레일 + 집�
 
 ## 결과
 
-패널·측정 코드는 현재 한 소비자이므로 메뉴 내부에 둔다([06 §24](../06_platform_ui_contract.md#premature-platformization)). #575 Composable Analysis Workspace의 공통 Panel 계약이 정해지면 그 계약으로 이관한다. 이번 결정은 범용 Panel API·자유 배치·Saved View를 구현하지 않는다. line/bar Drill은 #541 계약 전까지 구현하지 않으며 [백로그](../../.planning/backlog.md)에 재개 조건을 남긴다.
+패널·측정 코드는 현재 한 소비자이므로 메뉴 내부에 둔다([06 §24](../contract/platform-ui-contract.md#premature-platformization)). #575 Composable Analysis Workspace의 공통 Panel 계약이 정해지면 그 계약으로 이관한다. 이번 결정은 범용 Panel API·자유 배치·Saved View를 구현하지 않는다. line/bar Drill은 #541 계약 전까지 구현하지 않으며 [백로그](../../.planning/backlog.md)에 재개 조건을 남긴다.

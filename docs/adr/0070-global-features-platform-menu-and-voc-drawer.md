@@ -11,7 +11,7 @@
 
 ADR-0066은 모든 사용자가 쓰는 FeedbackOps 기능(VOC 등록·내 VOC·설문 응답·알림·권한 요청·내 활동)을 공간 밖 플랫폼 전역 기능으로 두기로 했다. ADR-0028은 전역 유틸리티(홈·공지·내 VOC)를 사이드바 없이 두었고, ADR-0042는 레일 맨 위 전환기를 업무 시스템 전환에만 썼다. 전역 기능이 여섯으로 늘자 질문이 둘 생겼다. 전역 화면에서 이 기능들 사이를 어떻게 오가는지, 업무 시스템 안에서 어떻게 닿는지다.
 
-시안 1차(A/B/C)와 2차(P1 전역 사이드바·P2 홈 허브·P3 레일 아이콘)를 실제 앱 위에서 비교했다. 사용자는 P1을 고르고, 어느 시스템 안에서든 플랫폼 메뉴에 닿을 수 있게 고쳤다. 화면 사양은 [15 §3.1–3.2](../15_multi_workspace_ui.md#31-셸-배치-decided-2026-10-09), 셸 계약은 [06 §8·§9.1·§10·§13](../06_platform_ui_contract.md#8-shell-slots), 기능 배치는 [합류 설계](../integration/feedbackops-merge-design.md) §3.1이 소유한다.
+시안 1차(A/B/C)와 2차(P1 전역 사이드바·P2 홈 허브·P3 레일 아이콘)를 실제 앱 위에서 비교했다. 사용자는 P1을 고르고, 어느 시스템 안에서든 플랫폼 메뉴에 닿을 수 있게 고쳤다. 화면 사양은 [15 §3.1–3.2](../design/multi-workspace-ui.md#31-셸-배치-decided-2026-10-09), 셸 계약은 [06 §8·§9.1·§10·§13](../contract/platform-ui-contract.md#8-shell-slots), 기능 배치는 [합류 설계](../integration/feedbackops-merge-design.md) §3.1이 소유한다.
 
 ## 결정
 
@@ -48,5 +48,5 @@ ADR-0066은 모든 사용자가 쓰는 FeedbackOps 기능(VOC 등록·내 VOC·�
 ## 결과
 
 - ADR-0028·0042의 해당 항목에 `부분 대체: ADR-0070`을 적는다. ADR-0066 결정 2가 이 ADR을 가리킨다.
-- 소유 문서 갱신: [15 §3.1–3.2](../15_multi_workspace_ui.md#31-셸-배치-decided-2026-10-09)(전역 사이드바, 홈 순서, 레일, 팝오버 두 구역), [06](../06_platform_ui_contract.md) §8(셸 소유 `VOC 등록 패널` 자리), §9.1(전역 메뉴), §10(팔레트), §13(상세 슬롯과의 관계), [합류 설계](../integration/feedbackops-merge-design.md) §3.1.
+- 소유 문서 갱신: [15 §3.1–3.2](../design/multi-workspace-ui.md#31-셸-배치-decided-2026-10-09)(전역 사이드바, 홈 순서, 레일, 팝오버 두 구역), [06](../contract/platform-ui-contract.md) §8(셸 소유 `VOC 등록 패널` 자리), §9.1(전역 메뉴), §10(팔레트), §13(상세 슬롯과의 관계), [합류 설계](../integration/feedbackops-merge-design.md) §3.1.
 - 구현은 #594다. 구현 때 넣을 것: Ctrl+K의 플랫폼 메뉴, 상세에 저장하지 않은 편집이 있을 때 드로어로 바꾸는 처리.

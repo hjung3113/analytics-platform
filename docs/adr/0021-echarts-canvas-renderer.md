@@ -3,7 +3,7 @@
 상태: **Decided (2026-10-05)**.
 - 결정자: 사용자 — 에이전트 추천을 따랐다("나머지도 니추천대로 진행"). 2026-09-25 프론트엔드 스택 결정의 "ECharts (SVG 렌더러)"를 대체한다.
 
-스택 표의 원본은 [04 프론트 기술 스택](../04_frontend_ui_ux.md), 차트 계약은 [06 §16](../06_platform_ui_contract.md#16-analysis-chart-contract)이다. 이 ADR은 결정과 이유만 둔다.
+스택 표의 원본은 [04 프론트 기술 스택](../architecture/frontend-ui-ux.md), 차트 계약은 [06 §16](../contract/platform-ui-contract.md#16-analysis-chart-contract)이다. 이 ADR은 결정과 이유만 둔다.
 
 2026-09-25 스택 결정은 ECharts를 SVG 렌더러로 적었다. 근거는 Unit B 프로토타입(`archive/kernel-chart-frame/`)이 테스트에서 SVG SSR 렌더링을 검증했다는 것이었다. 통합 앱은 처음부터 Canvas 렌더러로 출시됐고(`packages/components/src/EChartImpl.tsx`, 별도 지연 청크 #48), 문서와 코드가 어긋난 채 남아 있었다.
 

@@ -5,7 +5,7 @@
 
 ## 읽는 순서·관계
 
-- 메서드의 **의미**(무엇을 지키는가)의 원본은 [실서버 연결 체크리스트](real-server-checklist.md) §2(메서드 표·네 묶음), §3(`menuQuery` 판정 순서), §5(세션·사용자·시각), §6(시간). 이 문서는 그것을 **HTTP로 어떻게 나르는가**만 정한다. 충돌하면 체크리스트와 [06](../06_platform_ui_contract.md)(§4 Correlation ID·Error Boundary, §6.3 wall-clock/instant, §19 envelope)을 따른다.
+- 메서드의 **의미**(무엇을 지키는가)의 원본은 [실서버 연결 체크리스트](real-server-checklist.md) §2(메서드 표·네 묶음), §3(`menuQuery` 판정 순서), §5(세션·사용자·시각), §6(시간). 이 문서는 그것을 **HTTP로 어떻게 나르는가**만 정한다. 충돌하면 체크리스트와 [06](../contract/platform-ui-contract.md)(§4 Correlation ID·Error Boundary, §6.3 wall-clock/instant, §19 envelope)을 따른다.
 - 남은 사람 결정 목록은 [사내 적용 가이드](in-house-rollout.md) §2–§3. 이 문서의 질문 목록(§10)은 가이드 §3.3의 #149 항목을 펼친 것이다.
 - 실어댑터는 `#platform-assembly`의 `createAssembly` 모듈로 꽂는다([ADR-0009](../adr/0009-production-assembly-injection.md), 구현 [#154](https://github.com/hjung3113/analytics-platform/issues/154)). 서버 구현은 [#155](https://github.com/hjung3113/analytics-platform/issues/155), 폴링·세대 재검증은 [#165](https://github.com/hjung3113/analytics-platform/issues/165).
 - 타입 원본: `packages/contracts/src/adapter/adapter.ts`(`PlatformAdapter`), `adapter/response.ts`(`ApiResponse`), `menu/menu-query.ts`(`MenuQuery`).
@@ -50,9 +50,9 @@
 
 FeedbackOps의 `auditTrail`·`entityAudit`(#621, [ADR-0069](../adr/0069-platform-port-in-feedbackops-backend.md) 결정 6·7·9): 응답의 `AuditEvent`에는 `changes`·`reason`을 싣지 않는다(사유·메모 본문과 민감 detail은 내보내지 않는다). `target.type`은 FeedbackOps `subject_type` 18종(voc, finding, task, task_request, entity_link, voc_cluster, permission_request, permission_grant, permission_deny, survey, survey_question, managed_system, analytics_area, milestone, attachment, public_update_review_candidate, voc_cluster_suggestion, workspace)이고 `scopeId`는 항상 `null`이다. SQL이 셋을 뺀다: ① 설문 응답 주체·event와 한쪽 끝이 `survey_response`인 `entity_link` 행, ② `detail.capability`가 비민감 허용 목록(`CAPABILITY_META.sensitive = false`)에 없는 권한 행(민감 권한 요청의 수정·취소·결정 이력 포함), ③ `detail.sensitive = true` 행. 빠진 행은 `items`·`total`·`targetId` 필터·페이지에 나타나지 않는다. `page`는 안전한 정수(≤ 2^53−1)만 받고, 끝을 넘은 먼 페이지는 `ok`·`items: []`·실제 `total`이다. `entityAudit`의 `type`은 voc·finding·voc_cluster·task_request·task만 받으며 그 밖(`survey_response` 포함)은 `error`, 읽을 수 없거나 없는 대상은 모두 `forbidden`이다. `sync` 액션에 대응하는 FeedbackOps event는 아직 없다.
 
-새 세 조회 경로도 다른 플랫폼 포트와 같은 `/api/v1/platform/...` 접두사 아래의 Candidate 매핑이다(#660, FeedbackOps 백엔드에 아직 구현 없음). 최종 경로는 백엔드 구현 때 확정한다. 성공은 HTTP 200 + 자기 JSON 타입(빈 페이지도 성공), 판정 실패는 4xx + `{code,message,field?}`다. invalid_input·invalid_cursor·invalid_period·unknown_axis·membership_basis_unsupported는 400, scope_forbidden·room_forbidden은 403, unknown_scope는 404다. 어댑터는 이를 PortError로 reject한다(HTTP 200 envelope 정책의 예외). 의미 원본은 [06 §6.4](../06_platform_ui_contract.md#64-url-계약-decided-필드명enum-문자열은-candidate)다.
+새 세 조회 경로도 다른 플랫폼 포트와 같은 `/api/v1/platform/...` 접두사 아래의 Candidate 매핑이다(#660, FeedbackOps 백엔드에 아직 구현 없음). 최종 경로는 백엔드 구현 때 확정한다. 성공은 HTTP 200 + 자기 JSON 타입(빈 페이지도 성공), 판정 실패는 4xx + `{code,message,field?}`다. invalid_input·invalid_cursor·invalid_period·unknown_axis·membership_basis_unsupported는 400, scope_forbidden·room_forbidden은 403, unknown_scope는 404다. 어댑터는 이를 PortError로 reject한다(HTTP 200 envelope 정책의 예외). 의미 원본은 [06 §6.4](../contract/platform-ui-contract.md#64-url-계약-decided-필드명enum-문자열은-candidate)다.
 
-`listAxisOptions`의 JSON `axisId`는 주입 축 id 또는 SDK 전역 집합 키 `lineNames`·`prcGroups`다. 전역 키도 같은 경로와 페이지/오류 타입으로 전송하며, `parents`에는 다른 전역 키(예: `{roomNames:["PHOTO"]}`)의 배열 맵을 보낸다. 서버는 요청 Scope의 부여된 행에서만 옵션을 도출한다. `searchEquipment`와 성공한 `resolveSelection`의 `summary.axes`는 Line·PRC 소속도 담는다. 의미·부모 제한·맵 키 원본은 [06 §6.4](../06_platform_ui_contract.md#64-url-계약-decided-필드명enum-문자열은-candidate)다.
+`listAxisOptions`의 JSON `axisId`는 주입 축 id 또는 SDK 전역 집합 키 `lineNames`·`prcGroups`다. 전역 키도 같은 경로와 페이지/오류 타입으로 전송하며, `parents`에는 다른 전역 키(예: `{roomNames:["PHOTO"]}`)의 배열 맵을 보낸다. 서버는 요청 Scope의 부여된 행에서만 옵션을 도출한다. `searchEquipment`와 성공한 `resolveSelection`의 `summary.axes`는 Line·PRC 소속도 담는다. 의미·부모 제한·맵 키 원본은 [06 §6.4](../contract/platform-ui-contract.md#64-url-계약-decided-필드명enum-문자열은-candidate)다.
 
 `recordUsage`의 본문을 배열이 아닌 `{ events }`로 감싸는 이유: 최상위 JSON 배열은 나중에 필드(예: 배치 id)를 더할 수 없다.
 
@@ -194,7 +194,7 @@ GET /api/v1/platform/bootstrap
 
 ## 9. 합의 뒤 할 일
 
-- 이 문서를 Decided로 바꾸고, 바뀐 결정을 [05](../05_roadmap_and_open_questions.md)에 행으로 올린다(대안이 있던 결정은 ADR).
+- 이 문서를 Decided로 바꾸고, 바뀐 결정을 [05](../overview/roadmap-and-open-questions.md)에 행으로 올린다(대안이 있던 결정은 ADR).
 - [체크리스트](real-server-checklist.md) §1 전송 형식 항목을 Decided로.
 - [사내 적용 가이드](in-house-rollout.md) §2 #149 행·§3.3 체크박스.
 - `packages/contracts/src/adapter/adapter.ts` `subscribe` 주석 갱신(세션·권한 변경 전용, 세대는 별도 경로 — §4 Candidate가 합의되면), 체크리스트 §2 `subscribe` 행도 Decided로.

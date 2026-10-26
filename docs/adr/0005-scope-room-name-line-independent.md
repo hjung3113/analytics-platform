@@ -14,4 +14,4 @@
 - 권한 검증은 Site와 room_name 기준을 따른다. Line·StGroup·분임조·Maker/Model 필터를 권한 증명으로 사용하지 않는다.
 - Line은 유용한 생산·조회 축으로 유지하지만 room_name을 포함하는 상위 Scope나 최대 Scope 단위로 표시하지 않는다.
 - v1의 단일 요청 `scopeId`와 매 요청 서버 검증은 유지한다. Site 선택은 DB 연결 선택이며, 부모·자식 권한 상속과 조회 필터 자동 포함의 세부 규칙은 여전히 Open이다.
-- [06 §6.2](../06_platform_ui_contract.md#62-scope와-권한-decided--open)가 전역 소비 계약을 소유한다. 기존 Scope 식별값의 공개 표현·마이그레이션은 구현 시 확정하며, 기존 값을 새 의미로 조용히 재해석하지 않는다.
+- [06 §6.2](../contract/platform-ui-contract.md#62-scope와-권한-decided--open)가 전역 소비 계약을 소유한다. 기존 Scope 식별값의 공개 표현·마이그레이션은 구현 시 확정하며, 기존 값을 새 의미로 조용히 재해석하지 않는다.

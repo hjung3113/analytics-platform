@@ -3,7 +3,7 @@
 상태: **Decided (2026-10-05)**.
 - 결정자: 사용자 — 에이전트 추천(#75의 (a))을 따랐다("나머지도 니추천대로 진행"). 2026-09-22 grilling의 "수집 필드에 조회조건·필터값까지 포함"을 대체한다.
 
-정책의 원본은 [05 메뉴 활용률 계측](../05_roadmap_and_open_questions.md#메뉴-활용률-계측-decided--v1-범위-포함-2026-09-22-grilling-round-2), 포트는 `adapter.recordUsage`(entry/dwell)·`usageSummary`(`packages/contracts/src/adapter/adapter.ts`)다. 이 ADR은 결정과 이유만 둔다.
+정책의 원본은 [05 메뉴 활용률 계측](../overview/roadmap-and-open-questions.md#메뉴-활용률-계측-decided--v1-범위-포함-2026-09-22-grilling-round-2), 포트는 `adapter.recordUsage`(entry/dwell)·`usageSummary`(`packages/contracts/src/adapter/adapter.ts`)다. 이 ADR은 결정과 이유만 둔다.
 
 활용률 계측은 Kernel 관측 범위로 v1에 들어갔고(#43), 보존 기간은 무제한이다. URL과 전역 Context에는 Lot id, PPID, 자유 텍스트 검색어 `q` 같은 값이 들어 있다. 조회조건 값을 이벤트에 넣으면 서버가 이 값을 영구히 쌓는다. 활용률의 목적(어느 메뉴가 얼마나, 어떻게 쓰이는지)은 식별 필드로 채워진다.
 

@@ -119,7 +119,7 @@
           "any": [
             {
               "exact": [
-                "docs/06_platform_ui_contract.md"
+                "docs/contract/platform-ui-contract.md"
               ]
             },
             {

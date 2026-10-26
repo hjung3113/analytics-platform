@@ -11,7 +11,7 @@ sources:
   sharedTypography: products/feedbackops/docs/frontend/tokens.md
   sharedPrimitives: products/feedbackops/docs/frontend/ui-design-system.md
   consumptionContract: products/feedbackops/docs/adr/0058-tailwind-v4-css-first-theme.md
-  shellContract: docs/06_platform_ui_contract.md
+  shellContract: docs/contract/platform-ui-contract.md
   extensionValues: packages/ui/src/styles/platform-tokens.css
   extensionMappings: packages/ui/src/styles/index.css
 colors:
@@ -110,13 +110,13 @@ components:
 
 이 문서는 **FeedbackOps 위에 얹는 플랫폼 디자인 확장**의 원본이다. 공유 디자인 시스템을 다시 정의하지 않는다. [ADR-0010](docs/adr/0010-feedbackops-design-system-shared-on-tailwind-v4.md)의 직접 소비 방식과 [ADR-0011](docs/adr/0011-design-direction-feedbackops-shell.md)의 승인된 프로토타입 C안을 따른다. #193의 토큰 이행과 #194의 밝은 셸 규칙을 반영한다. 이 문서 갱신은 새 프로토타입 승인이나 런타임 검증 기록이 아니다.
 
-메뉴 화면은 Kernel·공통 컴포넌트·차트 계약·Page Archetype·메뉴간 연결을 검증하는 Consumer다. 화면마다 새 팔레트나 부품 체계를 만들지 않는다. 행동·권한·Context·상태 의미는 [06](docs/06_platform_ui_contract.md)이 우선한다.
+메뉴 화면은 Kernel·공통 컴포넌트·차트 계약·Page Archetype·메뉴간 연결을 검증하는 Consumer다. 화면마다 새 팔레트나 부품 체계를 만들지 않는다. 행동·권한·Context·상태 의미는 [06](docs/contract/platform-ui-contract.md)이 우선한다.
 
 | 소유자 | 소유하는 규칙 | 이 문서의 관계 |
 | --- | --- | --- |
 | 플랫폼 [tokens.css](packages/ui/src/styles/tokens.css)·[semantic.css](packages/ui/src/styles/semantic.css)(FeedbackOps `a8d768b8`에서 이전, ADR-0046), FeedbackOps [tokens.md](products/feedbackops/docs/frontend/tokens.md)(이전 시점 설명) | 공유 색·표면·간격·반경·폰트·본문 타이포·AA 의미 label 쌍 | 원본은 플랫폼; 값 스케일을 복제하지 않고 semantic token을 소비 |
 | 플랫폼 `@ap/ui`(원본, ADR-0046). FeedbackOps [ui-design-system.md](products/feedbackops/docs/frontend/ui-design-system.md)·[ADR-0058](products/feedbackops/docs/adr/0058-tailwind-v4-css-first-theme.md)는 이전 시점(`a8d768b8`)의 참고 문서 | primitive의 모양·상태, CSS-first 소비·폰트 로딩 계약. 이전 뒤 변경은 `@ap/ui`에서 한다 | `@ap/ui`를 통한 공개 primitive·CSS 소비 |
-| [06 §7–9](docs/06_platform_ui_contract.md#7-application-shell), [07](docs/07_app_shell_wireframe.md) | 셸 구조·치수·슬롯·navigation IA·시나리오 | 구조를 복사하지 않고 플랫폼 시각 보완만 정의 |
+| [06 §7–9](docs/contract/platform-ui-contract.md#7-application-shell), [07](docs/wireframes/app-shell.md) | 셸 구조·치수·슬롯·navigation IA·시나리오 | 구조를 복사하지 않고 플랫폼 시각 보완만 정의 |
 | DESIGN.md | 플랫폼 확장 token의 역할·값 출처, 허용 전경/표면, 분석·KPI·표·차트 시각 패턴 | 아래 정의가 원본 |
 | [플랫폼 확장 CSS](packages/ui/src/styles/platform-tokens.css), [매핑·역할 유틸리티](packages/ui/src/styles/index.css) | 확장 구현 | 문서와 대조; 불일치는 별도 보고 |
 
@@ -186,11 +186,11 @@ components:
 | `breakpoint-wide` | 넓은 분석 grid를 전환하는 `wide:` 기준 | 플랫폼 literal `90rem` |
 | `detail-panel-width` | 셸 고정 상세 슬롯 폭 | FeedbackOps 공유 토큰; 소비 시 fallback·clamp는 06 §7 |
 
-사용하지 않는 overlay 전용 `width-detail-panel`/`w-detail-panel` 확장은 ADR-0013으로 폐기했다. 상세 슬롯은 공유 `--detail-panel-width`를 직접 소비한다. 반응형 정책의 상태·MVP 범위는 [06 §25](docs/06_platform_ui_contract.md#25-responsive-strategy)와 [05](docs/05_roadmap_and_open_questions.md#mvp-지원-환경--데스크톱-웹만-decided-2026-09-27)를 따른다. DetailDrawer는 지원 데스크톱에서 고정 슬롯을 유지한다.
+사용하지 않는 overlay 전용 `width-detail-panel`/`w-detail-panel` 확장은 ADR-0013으로 폐기했다. 상세 슬롯은 공유 `--detail-panel-width`를 직접 소비한다. 반응형 정책의 상태·MVP 범위는 [06 §25](docs/contract/platform-ui-contract.md#25-responsive-strategy)와 [05](docs/overview/roadmap-and-open-questions.md#mvp-지원-환경--데스크톱-웹만-decided-2026-09-27)를 따른다. DetailDrawer는 지원 데스크톱에서 고정 슬롯을 유지한다.
 
 ## Accessibility pairing rules
 
-[06 §26](docs/06_platform_ui_contract.md#26-accessibility-baseline)의 색+shape/text, visible focus, 차트 대체 경로 의무를 소비한다. 아래는 플랫폼의 구체 token pairing 규칙이다. 작은 일반 글자는 최소 4.5:1, 의미 있는 control 경계는 최소 3:1을 확보한다. **필수 글자에 opacity fade를 적용하지 않는다.** `text-disabled`는 실제 비활성 표현에만 쓰고 그룹 제목·현재 Scope·도움말·상태·단위에 쓰지 않는다.
+[06 §26](docs/contract/platform-ui-contract.md#26-accessibility-baseline)의 색+shape/text, visible focus, 차트 대체 경로 의무를 소비한다. 아래는 플랫폼의 구체 token pairing 규칙이다. 작은 일반 글자는 최소 4.5:1, 의미 있는 control 경계는 최소 3:1을 확보한다. **필수 글자에 opacity fade를 적용하지 않는다.** `text-disabled`는 실제 비활성 표현에만 쓰고 그룹 제목·현재 Scope·도움말·상태·단위에 쓰지 않는다.
 
 ### Allowed foreground/surface pairs
 
@@ -214,7 +214,7 @@ label 행은 #210(FeedbackOps 원본 값), 나머지 행은 #193/#194 UI/UX 리�
 
 ## Shell visual rules
 
-셸 구조·치수·본문 여백·gap·sticky 배치의 원본은 [06 §7 Baseline](docs/06_platform_ui_contract.md#7-application-shell)과 [07 §4](docs/07_app_shell_wireframe.md)다. 이 문서는 아래 시각 보완만 소유하며 구조 값을 다시 정의하지 않는다.
+셸 구조·치수·본문 여백·gap·sticky 배치의 원본은 [06 §7 Baseline](docs/contract/platform-ui-contract.md#7-application-shell)과 [07 §4](docs/wireframes/app-shell.md)다. 이 문서는 아래 시각 보완만 소유하며 구조 값을 다시 정의하지 않는다.
 
 - B안 Context 바는 적용 배지를 생략하고 참조/미지원 capability만 배지로 표시한다. control 표면은 유지한다. 넘침 버튼은 숨은 조건을 대신하는 Context 칩이라 이웃 칩과 같은 칩 모양(플랫폼 확장, `packages/shell/src/contextChip.ts`)을 쓰며 숨은 조건 수와 적용 수를 표시하고, 축약된 기간·아이콘 동작은 전체 접근 이름과 title을 제공한다(06 §7, ADR-0015).
 - 상세 슬롯은 공유 `surface-detail` 표면과 왼쪽 1px `border-subtle` 구분선으로 본문과 나눈다. 셸 전체 높이를 쓰고 그림자·scrim은 없다. 내부 상세 탭 내용은 독립 스크롤하며 폭은 06 §7 Baseline을 소비한다(ADR-0013).
@@ -236,7 +236,7 @@ label 행은 #210(FeedbackOps 원본 값), 나머지 행은 #193/#194 UI/UX 리�
 
 ### Dashboard composition and focal point
 
-플랫폼 Overview/Analysis Workspace의 시각 패턴은 [06 §12](docs/06_platform_ui_contract.md#12-canonical-page-archetypes)를 소비한다. 요약 → 주요 분석 → 예외 → 상세 근거로 읽을 수 있어야 한다. KPI는 5–6개 이하로 제한하고 모든 tile을 hero 크기로 만들지 않는다. 주요 과제 하나에 넓이·순서·제목의 우선순위를 준다.
+플랫폼 Overview/Analysis Workspace의 시각 패턴은 [06 §12](docs/contract/platform-ui-contract.md#12-canonical-page-archetypes)를 소비한다. 요약 → 주요 분석 → 예외 → 상세 근거로 읽을 수 있어야 한다. KPI는 5–6개 이하로 제한하고 모든 tile을 hero 크기로 만들지 않는다. 주요 과제 하나에 넓이·순서·제목의 우선순위를 준다.
 
 산업 로그 분석 reference는 5개 KPI → pipeline 왼쪽/operations 오른쪽(약 64/36) → lifecycle 왼쪽/quality 오른쪽(약 47/53) → 전체 폭 equipment table의 구성이었다. quality는 **3개 ring + 1개 bar**이며 네 번째 donut을 만들지 않는다. pipeline-status가 첫 주요 행의 넓은 focal region이라는 판단은 **Candidate**다. 실제 사용자 과제가 예외 처리를 우선하면 재검토한다. 모든 메뉴의 필수 배치가 아니다.
 
@@ -251,15 +251,15 @@ label 행은 #210(FeedbackOps 원본 값), 나머지 행은 #193/#194 UI/UX 리�
 
 ## Charts
 
-[06 §16](docs/06_platform_ui_contract.md#16-analysis-chart-contract)과 [§26](docs/06_platform_ui_contract.md#26-accessibility-baseline)의 Chart Frame/interaction 계약을 따른다. 모든 차트에는 **title, unit, textual summary, 동일 데이터 table 접근 경로**가 있다. legend는 이름+선 모양/기호+색을 제공한다. Tooltip은 hover와 keyboard focus에 대응하고 label/value/unit을 포함한다. passive mark에 가짜 pressed 동작을 넣지 않는다.
+[06 §16](docs/contract/platform-ui-contract.md#16-analysis-chart-contract)과 [§26](docs/contract/platform-ui-contract.md#26-accessibility-baseline)의 Chart Frame/interaction 계약을 따른다. 모든 차트에는 **title, unit, textual summary, 동일 데이터 table 접근 경로**가 있다. legend는 이름+선 모양/기호+색을 제공한다. Tooltip은 hover와 keyboard focus에 대응하고 label/value/unit을 포함한다. passive mark에 가짜 pressed 동작을 넣지 않는다.
 
 새 chart kind의 기본 범주 순서는 `chart-series-1` → `chart-series-2` → `chart-series-3` → `chart-series-4`이며, 기존 `chart-blue` / `chart-teal` / `chart-green` / `chart-purple`도 계속 유효하다. series fill 정체성은 `chart-*`, 범주 구분은 `cat-*`, 상태 판정은 별도 label vocabulary로 표현한다. `chart-status-*`는 실제 판정일 때만 쓴다. 얇은 line/outline mark는 `chart-*-stroke` 별칭을 쓰고 legend도 같은 stroke 색을 사용한다. 이전 기간의 `cat-amber` 선·외곽선 마크는 `cat-amber-stroke` 별칭을 쓴다. stroke 별칭은 EChart의 JS 매핑(`EChart.tsx` `strokeAliases`)으로만 쓰며 Tailwind 유틸리티가 아니다. 기준선은 `text-secondary` 점선과 label을 쓰고 null은 빗금으로 구분한다. 막대와 영역, series symbol, 선택/annotation fill은 기존 fill token을 유지한다. P50 solid / P95 dashed처럼 색 이외의 구별을 유지한다. 선택/brush/drill-down이 전역 Context를 바꾸는지는 명시적으로 구분하고 단순 chart click으로 조용히 조건을 바꾸지 않는다.
 
-reference quality recipe는 coverage→blue, traceability→teal, consistency→green, missing/untraced→이름 있는 remainder, inconsistent→cat-amber다. 분자·분모를 detail/table에서 제공하며 donut/gauge의 기본 허용 범위는 [06 §24](docs/06_platform_ui_contract.md#decorative-visualization)를 따른다. defect bar는 zero baseline·정수 ticks·날짜·단위를 갖고 max는 데이터로 산정한다. queue/progress는 완료율과 성공률을 분리하고 분모 없는 회색 remainder를 만들어내지 않는다. pipeline/queue/lifecycle의 도메인 의미는 Consumer 후보이며 반복 확인 전 범용 플랫폼 컴포넌트로 승격하지 않는다.
+reference quality recipe는 coverage→blue, traceability→teal, consistency→green, missing/untraced→이름 있는 remainder, inconsistent→cat-amber다. 분자·분모를 detail/table에서 제공하며 donut/gauge의 기본 허용 범위는 [06 §24](docs/contract/platform-ui-contract.md#decorative-visualization)를 따른다. defect bar는 zero baseline·정수 ticks·날짜·단위를 갖고 max는 데이터로 산정한다. queue/progress는 완료율과 성공률을 분리하고 분모 없는 회색 remainder를 만들어내지 않는다. pipeline/queue/lifecycle의 도메인 의미는 Consumer 후보이며 반복 확인 전 범용 플랫폼 컴포넌트로 승격하지 않는다.
 
 ## Tables
 
-플랫폼 table 동작은 [06 §15](docs/06_platform_ui_contract.md#15-platform-data-table-contract)가 소유한다. 이 문서의 `components.table-density`가 기본 시각 밀도의 원본이다:
+플랫폼 table 동작은 [06 §15](docs/contract/platform-ui-contract.md#15-platform-data-table-contract)가 소유한다. 이 문서의 `components.table-density`가 기본 시각 밀도의 원본이다:
 
 ```yaml
 rowMinHeight: 32px
@@ -279,7 +279,7 @@ cellPadding: 4px 12px
 
 ## Status & Badges
 
-`StatusBadge` vocabulary는 **success / warning / danger / neutral / info**다. 실제 데이터 판정은 [06 §19](docs/06_platform_ui_contract.md#19-loading--empty--error-taxonomy)의 원천·관측 시각에 근거한다. success는 확인된 긍정, warning은 확인된 주의, danger는 확인된 실패, neutral은 미평가/보조, info는 정보 전달의 시각 역할이다. unknown·permission 제한·미수집을 화면 임의로 success/failure로 바꾸지 않는다.
+`StatusBadge` vocabulary는 **success / warning / danger / neutral / info**다. 실제 데이터 판정은 [06 §19](docs/contract/platform-ui-contract.md#19-loading--empty--error-taxonomy)의 원천·관측 시각에 근거한다. success는 확인된 긍정, warning은 확인된 주의, danger는 확인된 실패, neutral은 미평가/보조, info는 정보 전달의 시각 역할이다. unknown·permission 제한·미수집을 화면 임의로 success/failure로 바꾸지 않는다.
 
 작은 badge text는 FeedbackOps `text-text-*-label`, neutral은 secondary이며 soft fill/dot은 별도 vivid accent를 쓴다. text+icon/shape로 의미를 함께 전달한다. 평범한 label에 새 상태 색을 만들지 않는다. 범주/제품 milestone label은 성공 판정과 다르다. 새로운 Tone은 플랫폼 디자인 결정으로 다룬다.
 
@@ -289,15 +289,15 @@ cellPadding: 4px 12px
 
 ### Filter bar
 
-Apply-mode QueryBar follows the delegated #553 B groups with C collapsed summary ([06 §11](docs/06_platform_ui_contract.md#11-global-context-bar)). Main editors wrap whole semantic groups; controls and actions remain reachable. Board keeps its 48px row and uses an anchored, viewport-bounded scrolling editor. Full draft/applied values remain accessible beyond the compact summary. The result strip belongs below the normal header, or inside pane content without a duplicate title/header. PageFilterBar draft presentation has no second Apply. Live-mode overflow and immediate behavior below remain unchanged.
+Apply-mode QueryBar follows the delegated #553 B groups with C collapsed summary ([06 §11](docs/contract/platform-ui-contract.md#11-global-context-bar)). Main editors wrap whole semantic groups; controls and actions remain reachable. Board keeps its 48px row and uses an anchored, viewport-bounded scrolling editor. Full draft/applied values remain accessible beyond the compact summary. The result strip belongs below the normal header, or inside pane content without a duplicate title/header. PageFilterBar draft presentation has no second Apply. Live-mode overflow and immediate behavior below remain unchanged.
 
-전역 기간은 Context bar의 동일한 control 하나다. page-owned 검색·stage/status filter는 content toolbar에 두고 전역 Context를 보존한다. 적용된 조건은 보이며 persistent accessible label을 제공한다. page-owned toolbar는 폭이 부족하면 wrap하고 active filter를 숨기지 않는다. 전역 Context 바는 [06 §7](docs/06_platform_ui_contract.md#7-application-shell)의 우선순위 넘침을 소비하며 한 줄을 유지한다. 입력/검색 문구가 sunken이면 secondary를 사용한다.
+전역 기간은 Context bar의 동일한 control 하나다. page-owned 검색·stage/status filter는 content toolbar에 두고 전역 Context를 보존한다. 적용된 조건은 보이며 persistent accessible label을 제공한다. page-owned toolbar는 폭이 부족하면 wrap하고 active filter를 숨기지 않는다. 전역 Context 바는 [06 §7](docs/contract/platform-ui-contract.md#7-application-shell)의 우선순위 넘침을 소비하며 한 줄을 유지한다. 입력/검색 문구가 sunken이면 secondary를 사용한다.
 
 #54의 PageFilterBar B안은 card 표면과 `border-subtle` 경계를 쓰며, 보이는 label을 각 control 위에 둔다. 필드는 한 행에서 시작해 폭이 부족하면 모두 보이도록 줄바꿈한다. `@ap/ui` Input과 Select는 FeedbackOps 기본 표면·문구·크기(40px)를 쓰고 높이를 덮어쓰지 않으며 경계만 `border-control`로 둔다(접근성 예외, [ADR-0023](docs/adr/0023-feedbackops-primitive-shapes-and-sizes.md), [ADR-0037](docs/adr/0037-table-filter-consistency.md)). 검색 필드의 아이콘 자리 왼쪽 여백은 이유를 단 예외로 둔다(FeedbackOps와 같은 처리). Search 아이콘은 검색 필드에만 두며 정확 일치 텍스트와 시각 입력에는 붙이지 않는다. 초기화·적용은 소비 화면이 actions 슬롯에 제공한다. 관리 화면의 `적용`은 바뀐 필드 수를 `적용 (n)`으로 보이고 변경이 없으면 꺼지며, 접힌 필터 버튼은 미적용 변경을 `미적용 n` 글로 표시한다.
 
 접기(ADR-0029)는 opt-in이며, 접힌 줄은 chevron·`필터`·필드명/값 요약을 담은 secondary 버튼 하나와 오른쪽 독립 초기화다. 요약은 한 줄이 기본이지만 폭이 부족하면 `필드명 값` 항목 단위로 줄바꿈하되 요약은 왼쪽 정렬을 유지하고 구분점 `·`은 다음 항목 앞이 아니라 앞 항목 끝에 붙이며, 긴 값은 단어 내부에서라도 줄바꿈한다 — 말줄임·`+n`·title 전용 치환으로 조건을 숨기지 않는다. 펼친 입력 줄 끝의 `⌃ 접기`는 그 줄 actions 버튼과 같은 크기·variant를 쓰며, 미적용 변경이 있으면 요약 끝에 `미적용 변경 있음`을 함께 보인다.
 
-Live 기간 preset은 `1일 / 7일 / 사용자 지정`; Apply 조회 바의 달력·기간 preset은 06 §6.3을 따른다. rolling wall-clock Δ와 `[from,to)` 물질화는 [06 시간 계약](docs/06_platform_ui_contract.md#ctx-time)을 따른다. screenshot의 기간 preset을 제품 의미로 복사하지 않는다. segment는 이름 있는 single-select/radio+selected 표식, custom picker는 Apply 때 반영하고 Cancel/Escape는 기존 구간을 보존한다. 현재 적용 구간과 draft를 구별하고 browser now로 기본값을 새로 만들지 않는다. 최초 기본 Δ·shift/business-day는 원본의 Open 상태를 따른다.
+Live 기간 preset은 `1일 / 7일 / 사용자 지정`; Apply 조회 바의 달력·기간 preset은 06 §6.3을 따른다. rolling wall-clock Δ와 `[from,to)` 물질화는 [06 시간 계약](docs/contract/platform-ui-contract.md#ctx-time)을 따른다. screenshot의 기간 preset을 제품 의미로 복사하지 않는다. segment는 이름 있는 single-select/radio+selected 표식, custom picker는 Apply 때 반영하고 Cancel/Escape는 기존 구간을 보존한다. 현재 적용 구간과 draft를 구별하고 browser now로 기본값을 새로 만들지 않는다. 최초 기본 Δ·shift/business-day는 원본의 Open 상태를 따른다.
 
 ### Other reference recipes
 
@@ -319,13 +319,13 @@ primitive 상태·keyboard 동작의 원본은 `@ap/ui`(ADR-0046)이고, [Feedba
 
 첫 load는 reserved geometry와 region `aria-busy`를 유지하며 fabricated 값을 만들지 않는다. 공유 Skeleton의 기본 fill은 FeedbackOps UI 계약이 소유하며, 플랫폼 호출부(PlatformDataTable·StateView·EChart lazy)는 크기만 지정하고 fill을 덮어쓰지 않는다(ADR-0023). 동일 Context refresh는 값+Refreshing을 유지할 수 있다. Context/Scope가 바뀌면 이전 결과를 새 결과처럼 표시하지 않고 권한을 재검증한다(06 §11). 부분 실패는 해당 widget에 국한하고 정상 panel을 유지한다.
 
-Empty/error는 원인 설명·허용된 다음 행동·Retry·correlation ID를 읽을 수 있게 표시한다. [06 §19](docs/06_platform_ui_contract.md#19-loading--empty--error-taxonomy)의 no-match/not-collected/delayed/coverage/forbidden/too-large/unknown을 하나로 합치지 않는다. 조회 0건에서 수집/파서 지연을 추론하지 않는다. 실제 비활성·busy도 필요한 이유를 opacity로 숨기지 않는다.
+Empty/error는 원인 설명·허용된 다음 행동·Retry·correlation ID를 읽을 수 있게 표시한다. [06 §19](docs/contract/platform-ui-contract.md#19-loading--empty--error-taxonomy)의 no-match/not-collected/delayed/coverage/forbidden/too-large/unknown을 하나로 합치지 않는다. 조회 0건에서 수집/파서 지연을 추론하지 않는다. 실제 비활성·busy도 필요한 이유를 opacity로 숨기지 않는다.
 
 `live-dot`은 기본 static이다. pulse는 **Candidate**로 실제 live freshness source가 확인될 때만 허용하며 label/layout을 움직이지 않는다. reduced-motion에서는 animation을 끄고 freshness가 사라지면 Updated/Data through/Unknown으로 전환한다. Live는 completeness의 증거가 아니다. optional breadcrumb는 nested page의 ancestor link와 current page를 구별하고 Context를 보존한다.
 
 ### Shared outcome banner and compact widget state — Decided (B, 2026-10-04)
 
-[06 §19](docs/06_platform_ui_contract.md#19-loading--empty--error-taxonomy)의 공유 응답 계약을 B안으로 표시한다([ADR-0017](docs/adr/0017-shared-outcome-banner.md)). 본문 상단 배너는 Callout 구조(아이콘·상태 제목·관측한 동일 응답 요약·그룹 재시도)이며 error/timeout은 danger-soft + danger-label border/title, empty는 sunken + control border + secondary다. 대표 Correlation ID나 추론한 수집 원인을 배너에 두지 않는다. 배너는 non-live group이며 처음부터 마운트된 scope의 assertive/polite 채널이 요약·갱신을 안내한다. 갱신 중 재시도는 같은 폭·포커스를 유지하고 spinner·busy를 표시하며 중복 활성화를 막는다. 배너 제거 때 내부 포커스는 이름 있는 본문/상세 영역으로 이동한다.
+[06 §19](docs/contract/platform-ui-contract.md#19-loading--empty--error-taxonomy)의 공유 응답 계약을 B안으로 표시한다([ADR-0017](docs/adr/0017-shared-outcome-banner.md)). 본문 상단 배너는 Callout 구조(아이콘·상태 제목·관측한 동일 응답 요약·그룹 재시도)이며 error/timeout은 danger-soft + danger-label border/title, empty는 sunken + control border + secondary다. 대표 Correlation ID나 추론한 수집 원인을 배너에 두지 않는다. 배너는 non-live group이며 처음부터 마운트된 scope의 assertive/polite 채널이 요약·갱신을 안내한다. 갱신 중 재시도는 같은 폭·포커스를 유지하고 spinner·busy를 표시하며 중복 활성화를 막는다. 배너 제거 때 내부 포커스는 이름 있는 본문/상세 영역으로 이동한다.
 
 그룹 위젯은 중립 sunken 표면, 의미 아이콘·제목만 label token으로 표시한다. 이름·본문·timeout 조언·동작·ID를 직접 읽을 수 있게 배치한다. 작은 필수 본문은 sunken 위 secondary이며 opacity fade를 쓰지 않는다. 본문은 독립 행, 동작·ID는 다음 wrap 행으로 두어 좁은 카드에서 단어마다 줄이 갈라지지 않게 한다. 상위 heading과 같은 위젯 제목을 중복 표시하지 않되 접근 이름은 보존한다. chip/disclosure C안은 조언이 추가 클릭 뒤에 숨으므로 채택하지 않는다.
 
@@ -400,7 +400,7 @@ posthog와 sentry(Sentry 스타일) 자료는 당시 illustration/mascot 중심 
 
 ### Remaining decisions and reference limits
 
-- Dark mode는 [05 상태 추적](docs/05_roadmap_and_open_questions.md)의 **Deferred**, 현재 light design을 단순 invert하지 않는다.
-- 차트 렌더러는 ECharts Canvas로 Decided([ADR-0021](docs/adr/0021-echarts-canvas-renderer.md), 04 기술 스택·[05 결정 상태](docs/05_roadmap_and_open_questions.md)와 같다). 이 문서가 새로운 chart theme 구현을 뜻하지 않는다.
+- Dark mode는 [05 상태 추적](docs/overview/roadmap-and-open-questions.md)의 **Deferred**, 현재 light design을 단순 invert하지 않는다.
+- 차트 렌더러는 ECharts Canvas로 Decided([ADR-0021](docs/adr/0021-echarts-canvas-renderer.md), 04 기술 스택·[05 결정 상태](docs/overview/roadmap-and-open-questions.md)와 같다). 이 문서가 새로운 chart theme 구현을 뜻하지 않는다.
 - 언어 번역 범위는 06 §23의 **Decided**, 계정 저장 선호는 **Candidate**다. Lucide는 기존 **Decided**를 유지한다.
 - pipeline focal priority·live pulse·reference queue/lifecycle의 domain 의미는 **Candidate/Open**이며 원천이 확인되기 전 실제 운영 데이터로 주장하지 않는다.

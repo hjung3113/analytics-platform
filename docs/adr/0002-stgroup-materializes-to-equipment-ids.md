@@ -17,5 +17,5 @@ StGroup·분임조·Maker+Model 및 향후 그룹 축에서 “어떤 조건으�
 
 - 같은 조건 URL은 선언한 소속 기준의 멤버/매칭 설비나 이력이 바뀌면 결과도 바뀔 수 있다. UI는 적용한 소속 기준을 표시하고, 결과에는 평가 기준시각을 연결한다. 딥링크 재현성은 조건과 명시 선택의 재현이며 결과 불변 보장이 아니다.
 - 선택 목록은 조건을 역산하거나 현재 멤버로 확장·교체·축소하지 않는다. 권한·Scope는 매번 재검증하며 고정 선택이 권한을 부여하지 않는다.
-- 공개 키 후보와 기존 `equipmentIds`의 대응은 [06 §6.1/§6.4](../06_platform_ui_contract.md)가 소유한다. StGroup을 포함한 모든 주입 축의 그 시점 소속 / 지금 소속은 [ADR-0059](0059-app-injected-equipment-axes-and-condition.md)를 따른다. 이력 없는 축은 지금 소속만 허용한다.
+- 공개 키 후보와 기존 `equipmentIds`의 대응은 [06 §6.1/§6.4](../contract/platform-ui-contract.md)가 소유한다. StGroup을 포함한 모든 주입 축의 그 시점 소속 / 지금 소속은 [ADR-0059](0059-app-injected-equipment-axes-and-condition.md)를 따른다. 이력 없는 축은 지금 소속만 허용한다.
 - 상세를 본 뒤 분석으로 돌아오면 진입 전 Condition/Selection을 그대로 복원한다. 목적지 EquipmentID가 기존 선택 밖이어도 선택을 변경하지 않는다.

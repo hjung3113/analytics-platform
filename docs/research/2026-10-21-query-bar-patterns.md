@@ -16,7 +16,7 @@
 | [Datadog template variables](https://docs.datadoghq.com/dashboards/template_variables/), [Carbon filtering](https://www.carbondesignsystem.com/building-blocks/core/patterns/filtering), [Atlassian filters](https://atlassian.design/components/filter/) | 대시보드 변수, batch filter와 직접 적용 사례 |
 | [Grafana query history](https://grafana.com/docs/grafana/latest/visualizations/explore/query-management/), [Looker user history](https://docs.cloud.google.com/looker/docs/user-history), [Kibana saved search](https://www.elastic.co/guide/en/kibana/current/save-open-search.html) | 최근 조회 내역과 저장된 검색의 복원 범위 |
 | [Grafana dashboard time range](https://grafana.com/docs/grafana/latest/visualizations/dashboards/use-dashboards/), [Power BI relative date slicer](https://learn.microsoft.com/en-us/power-bi/visuals/desktop-slicer-filter-date-range), [Tableau relative dates](https://help.tableau.com/current/pro/desktop/en-gb/qs_relative_dates.htm) | 오늘/상대 기간의 기준 시점과 날짜 필터 |
-| [PageFilterBar](../../packages/components/src/PageFilterBar.tsx), [GlobalContextBar](../../packages/shell/src/GlobalContextBar.tsx), [Combobox](../../packages/ui/src/components/shadcn/combobox.tsx), [시간 계약](../../docs/06_platform_ui_contract.md) | 현재 공개된 플랫폼 API와 시간 범위 경계 |
+| [PageFilterBar](../../packages/components/src/PageFilterBar.tsx), [GlobalContextBar](../../packages/shell/src/GlobalContextBar.tsx), [Combobox](../../packages/ui/src/components/shadcn/combobox.tsx), [시간 계약](../contract/platform-ui-contract.md) | 현재 공개된 플랫폼 API와 시간 범위 경계 |
 
 ## 질문 1: 검색·원격 옵션을 갖춘 Multi-select Combobox는 어떻게 만드는가?
 
@@ -64,7 +64,7 @@
 
 필수 조건이 빠졌으면 Apply는 disabled이고, 버튼 가까이에 누락된 조건의 구체적 이유를 보여 주며, 각 입력도 오류와 보조 설명으로 연결한다. 누락 사유를 hover tooltip에만 두면 키보드/터치 사용자에게 원인이 감춰진다. 조회 상태는 “아직 조회하지 않음”, “조회 중”, “결과 없음”, “권한/오류/timeout”을 구분한다. 첫 상태를 loading이나 empty로 재사용하면 요청 전과 요청 후 결과가 같아 보인다. `QueryView`는 서버 응답의 loading과 empty/error 같은 outcome을 구분하므로 query page는 여기에 pre-run idle 상태 하나를 추가하는 편이 맞다. [StateView / QueryView](../../packages/components/src/StateView.tsx) · [PageFilterBar](../../packages/components/src/PageFilterBar.tsx)
 
-날짜가 Global Context인지 page query 조건인지는 적용 경계를 정해야 한다. 현재 `GlobalContextBar`는 변경을 Apply할 때 `setGlobal()`로 URL/global context를 즉시 바꾸고, 조건 편집기는 한 axis와 한 value를 다룬다. MARS draft 편집 도중 이를 수정하면 query 실행 전부터 다른 메뉴의 Context가 바뀔 수 있다. MARS 날짜가 Global Context의 공유 기간이라면 Apply 시점에만 승격하고, 아니면 page-local query로 유지한다. [GlobalContextBar](../../packages/shell/src/GlobalContextBar.tsx) · [시간 및 Context 계약](../../docs/06_platform_ui_contract.md)
+날짜가 Global Context인지 page query 조건인지는 적용 경계를 정해야 한다. 현재 `GlobalContextBar`는 변경을 Apply할 때 `setGlobal()`로 URL/global context를 즉시 바꾸고, 조건 편집기는 한 axis와 한 value를 다룬다. MARS draft 편집 도중 이를 수정하면 query 실행 전부터 다른 메뉴의 Context가 바뀔 수 있다. MARS 날짜가 Global Context의 공유 기간이라면 Apply 시점에만 승격하고, 아니면 page-local query로 유지한다. [GlobalContextBar](../../packages/shell/src/GlobalContextBar.tsx) · [시간 및 Context 계약](../contract/platform-ui-contract.md)
 
 ## 질문 3: 최근 Query History와 복귀 동작
 
@@ -76,7 +76,7 @@ Issue #554의 결정사항에 맞춰 저장량은 20개, 노출은 최근 10개�
 
 Grafana는 “Last 7 days”, “Today so far” 같은 상대 범위와 absolute range를 제공한다. Power BI Relative date slicer는 Today, Last N days 등의 선택을 제공하며 현재 날짜를 기준으로 상대 범위를 계산한다. Tableau는 상대 기간의 기간 단위 경계가 달라질 수 있음을 설명한다. 그러므로 “지난 7일”이 오늘 포함인지, 완료된 7개 달력일인지 label만으로 추론하게 두면 안 된다. [Grafana time range](https://grafana.com/docs/grafana/latest/visualizations/dashboards/use-dashboards/) · [Power BI relative date](https://learn.microsoft.com/en-us/power-bi/visuals/desktop-slicer-filter-date-range) · [Tableau relative date](https://help.tableau.com/current/pro/desktop/en-gb/qs_relative_dates.htm)
 
-우리 계약에서 공통 조회 구간은 naive 설비 wall-clock 기준의 half-open `[from, to)`다. 이 경계에서는 끝 시각과 같은 값은 제외되어 연속된 구간끼리 중복되지 않는다. “오늘”은 사업장 날짜의 시작부터 다음 날 시작 직전까지, 단일 기준일도 `[D 00:00, D+1 00:00)`로 요청한다. “최근 N일”은 prototype에서 기준을 명확히 표시한다. 예를 들어 오늘 포함 N개 달력일이면 `[today−(N−1) at 00:00, tomorrow at 00:00)`이다. 실제 MARS wall-clock domain이 다중 사업장으로 확대되면 같은 날짜의 의미는 open domain decision이므로 단일 고정 timezone으로 추정하지 않는다. [시간 계약](../../docs/06_platform_ui_contract.md) · [Grafana time range](https://grafana.com/docs/grafana/latest/visualizations/dashboards/use-dashboards/)
+우리 계약에서 공통 조회 구간은 naive 설비 wall-clock 기준의 half-open `[from, to)`다. 이 경계에서는 끝 시각과 같은 값은 제외되어 연속된 구간끼리 중복되지 않는다. “오늘”은 사업장 날짜의 시작부터 다음 날 시작 직전까지, 단일 기준일도 `[D 00:00, D+1 00:00)`로 요청한다. “최근 N일”은 prototype에서 기준을 명확히 표시한다. 예를 들어 오늘 포함 N개 달력일이면 `[today−(N−1) at 00:00, tomorrow at 00:00)`이다. 실제 MARS wall-clock domain이 다중 사업장으로 확대되면 같은 날짜의 의미는 open domain decision이므로 단일 고정 timezone으로 추정하지 않는다. [시간 계약](../contract/platform-ui-contract.md) · [Grafana time range](https://grafana.com/docs/grafana/latest/visualizations/dashboards/use-dashboards/)
 
 ## Prototype 후보
 

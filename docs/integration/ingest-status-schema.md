@@ -2,7 +2,7 @@
 
 상태: **Decided(2026-10-26) — 파서·워커 담당의 사내 조사 답변으로 §7 Q1–Q7을 닫았다.** 구조와 규칙, 보존 기간 숫자는 확정이다. 테이블·필드·코드 **이름만 Candidate**로 둔다(구현이 시작되면 이름을 확정한다). 작업 이슈: #37. 소비 화면: 운영 콘솔 모니터링·트레이스(#51), 분석 공간 가공 상태 조회.
 
-이 문서는 적재 워커 기록의 **모양과, 그것을 06 §19 평가로 줄이는 규칙**만 다룬다. 원천·최소 기록 항목·노출 수준은 [01 가공 상태 보고](../01_architecture_and_data_contract.md#processing-status-report)가, 응답 모양(`outcome`/`assessments[]`, 가짜 `clear` 금지)과 표시 상태는 [06 §19](../06_platform_ui_contract.md#19-loading--empty--error-taxonomy)가 원본이다.
+이 문서는 적재 워커 기록의 **모양과, 그것을 06 §19 평가로 줄이는 규칙**만 다룬다. 원천·최소 기록 항목·노출 수준은 [01 가공 상태 보고](../architecture/architecture-and-data-contract.md#processing-status-report)가, 응답 모양(`outcome`/`assessments[]`, 가짜 `clear` 금지)과 표시 상태는 [06 §19](../contract/platform-ui-contract.md#19-loading--empty--error-taxonomy)가 원본이다.
 
 관찰 기준: `context_recognized_parser` `main` `d84fab1`(2026-09-28). 파서 쪽 사실은 그 저장소 `docs/11`·`docs/16`·`docs/22`와 `src/`에서 확인했다.
 
@@ -31,7 +31,7 @@ ingest_status.stage_detail   워커가 쓴다. 원시 오류·로그. 트레이�
 parser.processing_segment    파서가 이미 쓴다. 파일 커밋 성공의 원자적 증거.
 ```
 
-- **저장 위치:** 파서와 같은 Postgres 인스턴스의 별도 스키마 `ingest_status`. 워커가 쓰고, 플랫폼은 기존 read-only 역할로 읽는다([01 파서 DB 접근 방식](../01_architecture_and_data_contract.md#parser-db-access)과 같은 토폴로지). 플랫폼 메타 DB에 두면 워커에게 플랫폼 DB 쓰기 권한을 줘야 한다.
+- **저장 위치:** 파서와 같은 Postgres 인스턴스의 별도 스키마 `ingest_status`. 워커가 쓰고, 플랫폼은 기존 read-only 역할로 읽는다([01 파서 DB 접근 방식](../architecture/architecture-and-data-contract.md#parser-db-access)과 같은 토폴로지). 플랫폼 메타 DB에 두면 워커에게 플랫폼 DB 쓰기 권한을 줘야 한다.
 - **두 종류의 구간을 섞지 않는다.** 슬롯 구간(`slot_start`~`slot_end`)은 "이 구간의 파일이 와야 한다"는 **권위 있는 커버리지**다. 파일 레코드의 최소·최대 시각(`data_first_at`~`data_last_at`)은 **관측된 데이터 범위**일 뿐이며, 파일이 다 왔다는 증거가 아니다. `clear`는 슬롯 목록으로만 판정한다(§3).
 - **사용자 조회와 트레이스의 분리:** 원시 오류는 `stage_detail`에만 둔다. 사용자용 소비 뷰는 `stage_detail`을 조인하지 않는다.
 
@@ -93,13 +93,13 @@ parser.processing_segment    파서가 이미 쓴다. 파일 커밋 성공의 �
 | `error_type` | `text` | 예외 타입 전체 이름. |
 | `error_message` | `text` | 원시 메시지. |
 | `error_detail` | `jsonb` | 스택, 예외별 속성(`Reason`, `Stage` 등), 입력 파일 위치 등. |
-| `log_excerpt` | `text` | 해당 단계 로그 일부. 원문 로그 전체 drill-through는 [05](../05_roadmap_and_open_questions.md#결정-상태) defer 결정을 따르며 이 계약으로 열리지 않는다. |
+| `log_excerpt` | `text` | 해당 단계 로그 일부. 원문 로그 전체 drill-through는 [05](../overview/roadmap-and-open-questions.md#결정-상태) defer 결정을 따르며 이 계약으로 열리지 않는다. |
 
 - `trace_id`는 선택 사항이다. 워커가 쓰는 `{설비}:{구간시작}` 형태의 값을 `error_detail`에 실을 수 있다.
 
 ## 3. 06 §19 평가로 줄이는 규칙
 
-플랫폼은 원본 테이블을 직접 조회하지 않고 플랫폼 소유 소비 뷰를 둔다([01 전체 아키텍처](../01_architecture_and_data_contract.md#전체-아키텍처)). 아래는 그 뷰가 지켜야 할 의미다. kind 이름("미수집", "가공 지연")은 06 §19 어휘를 설명용으로 쓴 것이다.
+플랫폼은 원본 테이블을 직접 조회하지 않고 플랫폼 소유 소비 뷰를 둔다([01 전체 아키텍처](../architecture/architecture-and-data-contract.md#전체-아키텍처)). 아래는 그 뷰가 지켜야 할 의미다. kind 이름("미수집", "가공 지연")은 06 §19 어휘를 설명용으로 쓴 것이다.
 
 ### 3.1 가용성 판정에 들어가지 않는 것
 

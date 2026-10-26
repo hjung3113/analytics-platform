@@ -3,7 +3,7 @@
 상태: **Decided (2026-10-08)** — UX 구성 원칙. FeedbackOps 진입의 형태는 [ADR-0027](0027-feedbackops-stays-standalone-entry-links.md)(2026-10-09)이 정했다: 협업 진입은 FeedbackOps를 새 탭으로 여는 링크이고, 전체 허브는 FeedbackOps 자체 화면이다. 기존 메뉴의 귀속, 허브의 등록 형태, 시스템별 복원 저장은 Candidate, 인증·Managed System 매핑은 Open이다.
 - 결정자: 사용자 — 클릭형 HTML 시안 [멀티 워크스페이스 v2](../prototypes/multi-workspace-v2/index.html)를 승인하고 구현 추적 이슈 [#249](https://github.com/hjung3113/analytics-platform/issues/249)를 올렸다.
 
-06 §9.1(2026-09-26)은 그룹 위에 분석 / 운영 콘솔 / 피드백 세 공간을 두었다. 그 뒤 이 플랫폼 위에 올라갈 업무 시스템이 넷(생산성 분석, 지표관리, 표준 로그 개발, 개선 실행)이고, 시스템마다 고유 메뉴·업무 객체가 많다는 것이 분명해졌다. 분석 공간 하나에 모두 담으면 사이드바가 평면으로 커지고, FeedbackOps를 별도 공간으로 두면 사용자가 지금 쓰는 시스템의 VOC·Task·설문을 찾으려고 공간을 바꿔야 한다. 화면 설계의 상세는 [15](../15_multi_workspace_ui.md), 계약 원본은 [06 §9.1](../06_platform_ui_contract.md#91-워크스페이스-decided-2026-09-26)이다.
+06 §9.1(2026-09-26)은 그룹 위에 분석 / 운영 콘솔 / 피드백 세 공간을 두었다. 그 뒤 이 플랫폼 위에 올라갈 업무 시스템이 넷(생산성 분석, 지표관리, 표준 로그 개발, 개선 실행)이고, 시스템마다 고유 메뉴·업무 객체가 많다는 것이 분명해졌다. 분석 공간 하나에 모두 담으면 사이드바가 평면으로 커지고, FeedbackOps를 별도 공간으로 두면 사용자가 지금 쓰는 시스템의 VOC·Task·설문을 찾으려고 공간을 바꿔야 한다. 화면 설계의 상세는 [15](../design/multi-workspace-ui.md), 계약 원본은 [06 §9.1](../contract/platform-ui-contract.md#91-워크스페이스-decided-2026-09-26)이다.
 
 ## 결정
 

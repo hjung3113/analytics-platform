@@ -3,7 +3,7 @@
 상태: **Decided (2026-10-16)**.
 - 결정자: 사용자 — 2026-10-16, [#303](https://github.com/hjung3113/analytics-platform/issues/303) A안. 실제 앱 `?variant=` 시안을 캡처로 비교한 뒤 확정했다.
 
-상세 패널이 열리면 페이지 머리가 좁아져, 1440에서 제목 폭이 0이 되고 1280에서 주 동작이 머리 가로 스크롤 밖으로 밀렸다. 머리 높이는 [06 §7](../06_platform_ui_contract.md#7-application-shell)과 [ADR-0011](0011-design-direction-feedbackops-shell.md)의 50px 한 줄이다. 양보 순서의 시각 원본은 [DESIGN.md 셸 시각 보완](../../DESIGN.md#shell-visual-rules)이다.
+상세 패널이 열리면 페이지 머리가 좁아져, 1440에서 제목 폭이 0이 되고 1280에서 주 동작이 머리 가로 스크롤 밖으로 밀렸다. 머리 높이는 [06 §7](../contract/platform-ui-contract.md#7-application-shell)과 [ADR-0011](0011-design-direction-feedbackops-shell.md)의 50px 한 줄이다. 양보 순서의 시각 원본은 [DESIGN.md 셸 시각 보완](../../DESIGN.md#shell-visual-rules)이다.
 
 ## 결정
 

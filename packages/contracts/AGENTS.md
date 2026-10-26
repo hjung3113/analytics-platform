@@ -23,7 +23,7 @@
 - `adapter.ts` — `PlatformAdapter` 포트와 입출력 타입. 설계는 [패키지 경계](../../docs/integration/platform-packages.md) §4.
 - `correlation.ts` — `clientCorrelationId()`: 클라이언트가 만드는 `client-…` 상관 ID(오류 화면·클라이언트 오류 보고). 형식 제약은 파일 주석.
 - `guards.ts` — `isRecord`(null·배열이 아닌 객체, 프로토타입은 보지 않음): 신뢰할 수 없는 값(저장 JSON·서버 응답)의 필드를 읽기 전 모양 검사 한 벌(#673). `@ap/ui`는 `@ap/*`를 import하지 않으므로 sanitizer 사본을 유지하고, mock-server의 `isPlainObject`(프로토타입 검사)는 다른 판정이다.
-- `measure.ts` — 측정값 재결합 방식 `Reaggregation`(`sum`·`ratioOfSums`·`recomputeFromDistribution`·`none`)·`MeasureMeta`와 `canClientSum`(클라이언트가 직접 더해도 되는지). 서버·내보내기·지표 카탈로그·차트가 같은 어휘를 쓴다. 원본은 [01 §집계 가능성 계약](../../docs/01_architecture_and_data_contract.md#집계-가능성-계약), 결정은 [ADR-0082](../../docs/adr/0082-measure-reaggregation-contract.md).
+- `measure.ts` — 측정값 재결합 방식 `Reaggregation`(`sum`·`ratioOfSums`·`recomputeFromDistribution`·`none`)·`MeasureMeta`와 `canClientSum`(클라이언트가 직접 더해도 되는지). 서버·내보내기·지표 카탈로그·차트가 같은 어휘를 쓴다. 원본은 [01 §집계 가능성 계약](../../docs/architecture/architecture-and-data-contract.md#집계-가능성-계약), 결정은 [ADR-0082](../../docs/adr/0082-measure-reaggregation-contract.md).
 - `required-context.ts` — 필수 Context 판정 `CONTEXT_FIELDS`(capability → Context 필드)·`missingRequiredContext`·`requiredContextError`. 클라이언트 게이트와 서버 검증이 함께 쓴다([ADR-0061](../../docs/adr/0061-query-draft-applied-address-and-required-gate.md)).
 - `selection-ports.ts` — 설비 선택 메타데이터 포트의 입출력 타입(축 선택지·설비 검색·선택 해석)과 판정 오류 `PortError`·`PORT_ERROR_CODES`·`isPortError`(구조 검사, `instanceof` 아님). 결정은 [ADR-0059](../../docs/adr/0059-app-injected-equipment-axes-and-condition.md), 오류 판정은 [ADR-0074](../../docs/adr/0074-port-failures-three-surfaces-structural-port-error.md).
 - `audit.ts`, `i18n.ts` — `AuditEvent`·`AUDIT_ACTIONS`, `Text`.

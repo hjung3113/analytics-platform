@@ -3,9 +3,9 @@
 상태: **Decided (2026-10-01)**.
 - 결정자: 사용자 — 2026-09-29 #100 설계 결정 기록에서 방향(Q1)·엔드포인트 권한(Q5)·kind 어휘(Q6)·이행 범위(Q7)를 정하고 어댑터 판정 기준(Q8)에 동의했다. 2026-10-01 #100 사람 확인 게이트에서 Q3·Q4·Q9·Q10과 06 §19 명시적 공집합 예외를 정하고 단계 9 범위를 "계약 검증 + 최소 이전"으로 줄였다 | 플랫폼 — 포트 판정 규칙 초안(Q8이 동의한 기준)과 Q10 적용 키 범위의 확장을 06 §4·§22에서 유도했다.
 
-#100 전에는 메뉴가 데이터를 읽는 길이 셋이었다. 화면이 mock `serve()`를 직접 불러 권한·assessment kind·계산을 클라이언트 인자로 넘기는 길, Kernel 포트 `PlatformAdapter`에 메뉴 어휘 메서드(VOC 이력 등)를 늘리는 길, Registry만 읽는 길. 앞의 둘은 권한·kind·계산·원천 데이터가 클라이언트에 남아 실서버(FastAPI, [03](../03_backend_stack.md))로 교체할 수 없고 포트가 메뉴 수에 비례해 커진다. 서버 경계 계약을 mock 밖으로 꺼내야 했다.
+#100 전에는 메뉴가 데이터를 읽는 길이 셋이었다. 화면이 mock `serve()`를 직접 불러 권한·assessment kind·계산을 클라이언트 인자로 넘기는 길, Kernel 포트 `PlatformAdapter`에 메뉴 어휘 메서드(VOC 이력 등)를 늘리는 길, Registry만 읽는 길. 앞의 둘은 권한·kind·계산·원천 데이터가 클라이언트에 남아 실서버(FastAPI, [03](../architecture/backend-stack.md))로 교체할 수 없고 포트가 메뉴 수에 비례해 커진다. 서버 경계 계약을 mock 밖으로 꺼내야 했다.
 
-세부 규칙의 소유 문서: 메뉴가 선언하는 항목은 [06 §5](../06_platform_ui_contract.md#5-menu-extension-contract)("조회 엔드포인트"), 명시적 공집합 예외는 [06 §19](../06_platform_ui_contract.md#19-loading--empty--error-taxonomy), 서버 판정 순서·등록 검증은 [실서버 연결 체크리스트](../integration/real-server-checklist.md) §3, 패키지 경계·포트 판정·메뉴 패키지 모양은 [패키지 경계](../integration/platform-packages.md) §3–§5, 선언·요청 타입의 원본은 `packages/contracts/src/menu/menu-query.ts`다. 구현은 2026-10-01에 끝났다(#110–#115, #125–#133). 이 ADR은 결정과 이유만 둔다.
+세부 규칙의 소유 문서: 메뉴가 선언하는 항목은 [06 §5](../contract/platform-ui-contract.md#5-menu-extension-contract)("조회 엔드포인트"), 명시적 공집합 예외는 [06 §19](../contract/platform-ui-contract.md#19-loading--empty--error-taxonomy), 서버 판정 순서·등록 검증은 [실서버 연결 체크리스트](../integration/real-server-checklist.md) §3, 패키지 경계·포트 판정·메뉴 패키지 모양은 [패키지 경계](../integration/platform-packages.md) §3–§5, 선언·요청 타입의 원본은 `packages/contracts/src/menu/menu-query.ts`다. 구현은 2026-10-01에 끝났다(#110–#115, #125–#133). 이 ADR은 결정과 이유만 둔다.
 
 ## 결정
 

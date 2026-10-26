@@ -2,7 +2,7 @@
 
 - Status: Decided (2026-10-27)
 - Decider: 코디네이터(사용자 결정: 복원 진입점은 왼쪽 아래 칩 + 레일 버튼 상태 표시, 2026-10-26), 되돌릴 수 있다.
-- Scope: [#893](https://github.com/hjung3113/analytics-platform/issues/893) 노드 893c. 관련: [docs/16 §4·§7](../16_analysis_board.md), [ADR-0049](0049-analysis-context-belongs-to-a-pane.md).
+- Scope: [#893](https://github.com/hjung3113/analytics-platform/issues/893) 노드 893c. 관련: [docs/16 §4·§7](../design/analysis-board.md), [ADR-0049](0049-analysis-context-belongs-to-a-pane.md).
 
 ## 맥락
 

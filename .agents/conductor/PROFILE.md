@@ -105,7 +105,7 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
 - **뷰포트**: 1440×900(`page.cdp("Emulation.setDeviceMetricsOverride", …)`), 상세 슬롯이 열리는 화면은 1280에서도 본다.
 - **기준 문서**:
   - 루트 `AGENTS.md`(플랫폼이 목적, 메뉴 화면은 견본), `DESIGN.md`(FeedbackOps 디자인 시스템을 따르는 시각 규칙), `GLOSSARY.md`(용어).
-  - `docs/06_platform_ui_contract.md`의 해당 절: 셸 §7, 상세 슬롯 §13, 차트 §16, 상태 표시 §19, 메뉴 간 연결 §22, 그리고 이슈가 가리키는 절과 ADR.
+  - `docs/contract/platform-ui-contract.md`의 해당 절: 셸 §7, 상세 슬롯 §13, 차트 §16, 상태 표시 §19, 메뉴 간 연결 §22, 그리고 이슈가 가리키는 절과 ADR.
   - 컨펌된 시안(실제 앱 위 `?variant=` 중 사용자가 고른 안). 시안과 다르면 `owner-question`이다.
   - 프로젝트가 말하지 않는 곳에만 일반 관점: `web-design-guidelines`·`interface-design` 스킬.
 - **추가 점검**:
@@ -120,7 +120,7 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
 전역 `review-quality` 페르소나가 이 절을 먼저 읽는다. 보고서는 한국어로 쓴다.
 
 - **범위**: `<직전 릴리스 태그>...origin/main`(위 Slice close).
-- **기준 문서**: 루트 `AGENTS.md`(목적, 의존 방향, 공통화 기준, 검증)와 `packages/AGENTS.md`, 건드린 경로의 폴더 `AGENTS.md`; `docs/integration/platform-packages.md`(패키지 경계 §3), `docs/06_platform_ui_contract.md` §24(공통화 — 실제 소비자 2–3곳에서 확인된 뒤), `docs/AGENTS.md`(계약은 소유 문서 한 곳).
+- **기준 문서**: 루트 `AGENTS.md`(목적, 의존 방향, 공통화 기준, 검증)와 `packages/AGENTS.md`, 건드린 경로의 폴더 `AGENTS.md`; `docs/integration/platform-packages.md`(패키지 경계 §3), `docs/contract/platform-ui-contract.md` §24(공통화 — 실제 소비자 2–3곳에서 확인된 뒤), `docs/AGENTS.md`(계약은 소유 문서 한 곳).
 - **경계 누출**: Kernel·공통 컴포넌트·셸이 메뉴나 mock을 안다; 역방향 import; 메뉴가 공개 진입점이 아닌 `@ap/*` 내부를 import한다; FeedbackOps primitive를 `@ap/ui` 밖에서 쓴다; 프런트가 권한을 진실로 강제한다.
 - **공통화 판단**: 소비자 하나뿐인데 공통 패키지로 올라간 것, 반대로 2–3곳에 반복되는데 메뉴에 남은 것.
 - **캐시 입력**: 패키지 밖 파일을 읽는 테스트·린트는 `turbo.json`에 `$TURBO_ROOT$` inputs를 선언했는가(없으면 turbo 캐시가 바뀐 입력을 놓친다, #945).

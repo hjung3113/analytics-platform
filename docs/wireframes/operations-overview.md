@@ -1,10 +1,10 @@
 # 08. 운영 개요(랜딩) 요구사항·와이어프레임
 
-> 상태(2026-10-09): 플랫폼 홈은 카드 런처로 바뀌었다([ADR-0028](adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md), [15 §3.1](15_multi_workspace_ui.md)). 아래 절 중 그룹 바로가기·페이지 유형 라벨·운영 개요 랜딩으로 적힌 부분은 그 결정으로 대체된다. 공지·즐겨찾기·최근 방문의 데이터 규칙은 그대로다.
+> 상태(2026-10-09): 플랫폼 홈은 카드 런처로 바뀌었다([ADR-0028](../adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md), [15 §3.1](../design/multi-workspace-ui.md)). 아래 절 중 그룹 바로가기·페이지 유형 라벨·운영 개요 랜딩으로 적힌 부분은 그 결정으로 대체된다. 공지·즐겨찾기·최근 방문의 데이터 규칙은 그대로다.
 
-상태: 화면 계약 노트. 구현은 `menus/_global/home`이고 배치·시각은 구현과 [DESIGN](../DESIGN.md)이 기준이다. 이 문서는 아래 계약·소유 경계·결정 상태만 소유한다.
+상태: 화면 계약 노트. 구현은 `menus/_global/home`이고 배치·시각은 구현과 [DESIGN](../../DESIGN.md)이 기준이다. 이 문서는 아래 계약·소유 경계·결정 상태만 소유한다.
 
-이 문서는 `07_app_shell_wireframe.md` §4 WIREFRAME의 "하위 화면 content slot"에 들어가는 첫 화면 — 운영 개요(랜딩) — 만 소유한다. 셸 자체의 배치·헤더·내비게이션·전역 Context Bar는 07의 범위이며 여기서 재정의하지 않는다. 전역 계약 원본은 `06_platform_ui_contract.md`다.
+이 문서는 `app-shell.md` §4 WIREFRAME의 "하위 화면 content slot"에 들어가는 첫 화면 — 운영 개요(랜딩) — 만 소유한다. 셸 자체의 배치·헤더·내비게이션·전역 Context Bar는 07의 범위이며 여기서 재정의하지 않는다. 전역 계약 원본은 `../contract/platform-ui-contract.md`다.
 
 ## 1. USER TASK
 
@@ -18,7 +18,7 @@
 
 ## 2. IA / SCREEN INVENTORY
 
-`06_platform_ui_contract.md` §9의 "운영 개요" 그룹 랜딩 화면 1개. 하위 화면 없음(공지 목록/상세는 `공지·VOC` 그룹 소유이며 이 화면은 진입 링크만 제공).
+`../contract/platform-ui-contract.md` §9의 "운영 개요" 그룹 랜딩 화면 1개. 하위 화면 없음(공지 목록/상세는 `공지·VOC` 그룹 소유이며 이 화면은 진입 링크만 제공).
 
 - 업무 시스템 카드 → 그 공간의 마지막 화면, 없으면 공간 홈(ADR-0028). 그룹 바로가기는 쓰지 않는다.
 - 즐겨찾기 항목 → 저장된 목적지 화면(저장된 Context 없이 진입, 전달 Context는 별개로 보존). 추가는 목적지 화면 소유
@@ -67,10 +67,10 @@ React 컴포넌트 이름이나 API 선언이 아니다. 슬롯 결합 규칙은
 - **Context capability 선언(매니페스트 `menus/_global/home`)**: Time·roomNames·condition·selection·Lot·PPID·Recipe·metric 모두 `unsupported`, `pageType: overview`, `requiresScope: false`, `pageKeys: []`, `primary: true`, 권한 `platform:view`. 지원하지 않는 전달 Context는 위 보존 규칙(§4)대로 미적용 표시만 한다.
 - 이 화면은 메뉴 레지스트리를 직접 조회·필터링하지 않는다. Kernel이 현재 사용자·Scope 기준으로 이미 판정한 "접근 가능한 그룹" 목록을 소비해 그대로 렌더링한다(`06` §4/§5). 페이지가 별도로 권한 로직을 구현하는 것은 금지된 패턴이다(`06` §5 금지 목록).
 - 진입 시 권한 재검증은 이미 Decided다(`06` §6.2 "재적용 전에 현재 Scope에서 ... 권한의 유효성을 다시 검증", §17 매 요청 재검증). 이 문서에서 Open인 것은 재검증 **결과의 화면 표현**(항목을 숨길지 비활성 표시할지)뿐이다.
-- **즐겨찾기는 목적지 ID만 저장한다(Decided, 2026-09-24, [07 §6](07_app_shell_wireframe.md#6-data-requirements)도 같이 갱신함)** — 즐겨찾기 자체에는 마지막 조회 Context(기간·설비·필터 등)를 저장하지 않으므로, 클릭 시 그 화면이 자체적으로 물질화하는 기본 Context로 진입한다(예: 기간 화면이면 `defaultRangeTo` 기준 기본 구간, `06` §6.3). **이는 다른 화면에서 지금 들고 온 전달 Context를 지운다는 뜻이 아니다** — Context Link helper의 보존 규칙(`06` §6.4)은 즐겨찾기 클릭에도 그대로 적용되며, 전달된 Context가 있으면 그 목적지가 지원하는 한 계속 적용된다. 서버 권한 재검증도 그대로 적용된다(§6 재검증 규칙).
-- 공지는 게시기간·대상 메뉴·Scope 타게팅 필드로 판정된 결과를 참조한다(`02_domain_menus.md` 공지 항목). 공지의 게시·타게팅 판정 로직 자체는 공지 도메인이 소유하고, 이 화면은 그 결과를 표시만 하는 소비자다. **Scope 타게팅은 현재 요청 `scopeId` 기준이다(Decided, 2026-09-24)** — 사용자가 접근 가능한 다른 Scope의 공지는 그 Scope를 선택했을 때만 보인다.
+- **즐겨찾기는 목적지 ID만 저장한다(Decided, 2026-09-24, [07 §6](app-shell.md#6-data-requirements)도 같이 갱신함)** — 즐겨찾기 자체에는 마지막 조회 Context(기간·설비·필터 등)를 저장하지 않으므로, 클릭 시 그 화면이 자체적으로 물질화하는 기본 Context로 진입한다(예: 기간 화면이면 `defaultRangeTo` 기준 기본 구간, `06` §6.3). **이는 다른 화면에서 지금 들고 온 전달 Context를 지운다는 뜻이 아니다** — Context Link helper의 보존 규칙(`06` §6.4)은 즐겨찾기 클릭에도 그대로 적용되며, 전달된 Context가 있으면 그 목적지가 지원하는 한 계속 적용된다. 서버 권한 재검증도 그대로 적용된다(§6 재검증 규칙).
+- 공지는 게시기간·대상 메뉴·Scope 타게팅 필드로 판정된 결과를 참조한다(`../product/domain-menus.md` 공지 항목). 공지의 게시·타게팅 판정 로직 자체는 공지 도메인이 소유하고, 이 화면은 그 결과를 표시만 하는 소비자다. **Scope 타게팅은 현재 요청 `scopeId` 기준이다(Decided, 2026-09-24)** — 사용자가 접근 가능한 다른 Scope의 공지는 그 Scope를 선택했을 때만 보인다.
 - Scope는 전역 Context Bar가 대표하는 Context 중 하나다(`06` §11). 다만 Scope **선택기 UI**는 Context Bar 스트립이 아니라 헤더에 위치한다(`06` §7, `07` §4 — "헤더 Scope 선택기와 중복 배치 금지"). 이 화면이 "전역 Context를 분석 필터로 소비하지 않는다"고 선언한 것과 무관하게, Scope 자체의 재검증·전환·이전 결과 숨김은 계속 셸이 수행한다(`06` §6.2/§11). Scope 전환·재검증 **중**이면 이 화면의 Scope 의존 콘텐츠(공지 타게팅 등)도 셸의 로딩 상태를 그대로 따른다(별도 로딩 상태를 만들지 않음). Scope가 아직 한 번도 **선택되지 않은** 경우는 로딩이 아니라 `06` §6.2의 "명시적 선택 상태"다 — 이때 Scope 의존 콘텐츠는 선택 요구 안내를 따르고, 로딩 스피너로 표현하지 않는다.
-- **사이드바 축약과 홈 본문은 같은 정렬 기준을 쓴다(Decided, 2026-09-24)** — 최근 사용/방문순. Kernel이 최근 방문 12건을 보관하고, 홈 본문과 사이드바는 각각 상위 5개만 표시한다([15 §3.1](15_multi_workspace_ui.md#31-셸-배치-decided-2026-10-09)). 별도의 사이드바 전용 정렬을 두지 않는다.
+- **사이드바 축약과 홈 본문은 같은 정렬 기준을 쓴다(Decided, 2026-09-24)** — 최근 사용/방문순. Kernel이 최근 방문 12건을 보관하고, 홈 본문과 사이드바는 각각 상위 5개만 표시한다([15 §3.1](../design/multi-workspace-ui.md#31-셸-배치-decided-2026-10-09)). 별도의 사이드바 전용 정렬을 두지 않는다.
 
 ## 7. INTERACTION RULES
 
@@ -101,15 +101,15 @@ React 컴포넌트 이름이나 API 선언이 아니다. 슬롯 결합 규칙은
 | Decided | 메뉴 노출 판정·권한/Scope 재검증은 Kernel이 소유하며 이 화면은 그 결과를 소비만 한다 | `06` §4/§5/§17 |
 | Decided | 미지원/미적용 Context는 숨기지 않고 보존·미적용 표시하며, 지원 화면 복귀 시 재검증 후 재적용한다(이 화면이 Context Bar 자체를 숨기지 않음) | `06` §6.4 |
 | Decided | "수집 상태" 위젯은 statusSource 확보 전까지 Deferred | `06` §19, `07` §2 |
-| Decided (2026-09-24) | 공지 배너 닫기는 세션 동안만 유지(영구 dismiss 아님) | 이 문서 — 열린 입력 질문 9([.planning/inputs.md](../.planning/inputs.md#q9))의 하위 범위 중 이 화면분만 해소, 배너 위치·노출 조건 자체는 여전히 Open |
+| Decided (2026-09-24) | 공지 배너 닫기는 세션 동안만 유지(영구 dismiss 아님) | 이 문서 — 열린 입력 질문 9([.planning/inputs.md](../../.planning/inputs.md#q9))의 하위 범위 중 이 화면분만 해소, 배너 위치·노출 조건 자체는 여전히 Open |
 | Decided (2026-09-24) | 공지 Scope 타게팅은 현재 요청 `scopeId` 기준 | 이 문서 |
-| 대체됨 (ADR-0028) | 그룹 카드 클릭 시 대표 목적지로 즉시 이동하던 2026-09-24 결정은 쓰지 않는다. 업무 시스템 카드가 대신한다 | [ADR-0028](adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md) |
+| 대체됨 (ADR-0028) | 그룹 카드 클릭 시 대표 목적지로 즉시 이동하던 2026-09-24 결정은 쓰지 않는다. 업무 시스템 카드가 대신한다 | [ADR-0028](../adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md) |
 | Decided | Menu Registry는 그룹당 정확히 1개 `primary` 메뉴를 요구하고 Kernel이 등록 때 검증한다 | `packages/contracts/src/menu/menu.ts`, `packages/kernel/src/registry.ts` |
-| 대체됨 (ADR-0028) | 대표 메뉴만 권한이 없을 때 그룹 카드를 비활성으로 그리던 결정은 쓰지 않는다 | [ADR-0028](adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md) |
+| 대체됨 (ADR-0028) | 대표 메뉴만 권한이 없을 때 그룹 카드를 비활성으로 그리던 결정은 쓰지 않는다 | [ADR-0028](../adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md) |
 | Decided (2026-09-24) | 즐겨찾기는 목적지 ID만 저장(마지막 조회 Context는 저장하지 않음, 전달 Context 보존 규칙과는 별개) | 이 문서, `07` §6에 반영 완료 |
 | Decided (2026-09-24) | 최근 방문은 Kernel이 최대 12건을 보관한다. 홈 본문은 그중 5건만 표시한다(15 §3.1). 사이드바 축약도 같은 정렬의 상위 5개다 | Kernel `platform.tsx`, 이 문서 |
 | Candidate | 이 화면이 전역 Context를 분석 필터로 사용하지 않는 화면이라는 설계 선택, 공지 배너·메뉴 바로가기 그리드·즐겨찾기/최근방문 2열 배치 | 이 문서 |
-| Open | 공지 배너 위치·노출 조건 자체(언제 어떤 공지를 노출할지)·재노출 규칙 세부 | [열린 입력 질문 9](../.planning/inputs.md#q9) |
+| Open | 공지 배너 위치·노출 조건 자체(언제 어떤 공지를 노출할지)·재노출 규칙 세부 | [열린 입력 질문 9](../../.planning/inputs.md#q9) |
 
 ## OPEN QUESTIONS / RISKS
 

@@ -1,6 +1,6 @@
 # Analytics Platform
 
-설비 계측 데이터를 Scope(조회 범위)로 좁혀 분석하는 사내 플랫폼의 핵심 도메인 개념. 현행 용어와 관계를 아래에 정의한다. 전역 소비 계약은 [06](docs/06_platform_ui_contract.md), 결정 근거는 [ADR](docs/adr/)을 따른다.
+설비 계측 데이터를 Scope(조회 범위)로 좁혀 분석하는 사내 플랫폼의 핵심 도메인 개념. 현행 용어와 관계를 아래에 정의한다. 전역 소비 계약은 [06](docs/contract/platform-ui-contract.md), 결정 근거는 [ADR](docs/adr/)을 따른다.
 
 ## Language
 
@@ -16,7 +16,7 @@ Site 내부의 실제 생산 라인. room_name과 교차하는 독립 조회축�
 _Avoid_: 공장, Factory — 구어로는 Line과 같은 뜻으로 쓰이지만, 공식 계층에는 Factory 레벨이 없으므로 Line만 쓴다. 근거: [ADR-0005](docs/adr/0005-scope-room-name-line-independent.md).
 
 **Scope** (`scopeId`):
-사용자가 조회 한 번에 고르는 단일 접근·조회 범위로, 단위는 Site다 — 데이터가 Site별로 나뉘어 있고 사용 권한도 보통 Site 단위로 나뉜다. 그 Site 안에서는 부여된 room_name만 보이며, 서버가 요청마다 권한을 다시 검증한다. v1은 단일 Scope 선택이다([06 §6.2](docs/06_platform_ui_contract.md#62-scope와-권한-decided--open)).
+사용자가 조회 한 번에 고르는 단일 접근·조회 범위로, 단위는 Site다 — 데이터가 Site별로 나뉘어 있고 사용 권한도 보통 Site 단위로 나뉜다. 그 Site 안에서는 부여된 room_name만 보이며, 서버가 요청마다 권한을 다시 검증한다. v1은 단일 Scope 선택이다([06 §6.2](docs/contract/platform-ui-contract.md#62-scope와-권한-decided--open)).
 _Avoid_: 범위, 조회 범위(단독) — 화면 문구도 `Scope`로 쓴다. 결과 크기를 말할 때는 범위 대신 조건·결과를 쓴다.
 
 ### 설비 식별 계층
@@ -59,10 +59,10 @@ _Avoid_: 분임조 — 분임조는 StGroup과 별개의 값이다(아래 참고
 **분임조** (`team`):
 그 범위의 설비들을 관리하는 **엔지니어들의 묶음**(조직·담당자 단위). StGroup(공정 능력 단위)과 이름은 비슷하지만 완전히 다른 축이다 — 분임조는 사람을 묶고, StGroup은 설비의 공정 대체 가능성을 묶는다. 소속 정보는 외부 시스템에서 공급받는다.
 
-Line·PRC 그룹은 독립 전역 Context 집합이며 Condition 축이 아니다(2026-10-21 사용자 정정 — 소유자 #552·#513, [06 §6.1](docs/06_platform_ui_contract.md#61-식별자와-url-소유-상태-decided)).
+Line·PRC 그룹은 독립 전역 Context 집합이며 Condition 축이 아니다(2026-10-21 사용자 정정 — 소유자 #552·#513, [06 §6.1](docs/contract/platform-ui-contract.md#61-식별자와-url-소유-상태-decided)).
 
 **Equipment Group Condition / Selection** (`equipmentGroup` / `selectedEquipmentIds`):
-Condition은 앱이 제공한 설비 묶음 축의 조건으로 선언한 소속 기준에 맞는 설비를 다시 찾는 질의이며, 여러 축은 AND·같은 축의 여러 값은 OR로 결합한다. Selection은 사용자가 명시적으로 고른 고정 EquipmentID 목록으로 Condition과 별개의 상태다([ADR-0059](docs/adr/0059-app-injected-equipment-axes-and-condition.md), [06 §6.1](docs/06_platform_ui_contract.md#61-식별자와-url-소유-상태-decided)).
+Condition은 앱이 제공한 설비 묶음 축의 조건으로 선언한 소속 기준에 맞는 설비를 다시 찾는 질의이며, 여러 축은 AND·같은 축의 여러 값은 OR로 결합한다. Selection은 사용자가 명시적으로 고른 고정 EquipmentID 목록으로 Condition과 별개의 상태다([ADR-0059](docs/adr/0059-app-injected-equipment-axes-and-condition.md), [06 §6.1](docs/contract/platform-ui-contract.md#61-식별자와-url-소유-상태-decided)).
 
 ### 설비 내부 단위와 설정
 
@@ -94,7 +94,7 @@ _Avoid_: Job — Lot과 Job은 다른 개념이다(아래 Job 참고). Carrier�
 한 Lot이 **특정 시점에** 수행하는 작업(실행 인스턴스). 한 Lot이 하나의 Operation을 수행할 때도 여러 Job으로 나뉠 수 있다 — Lot:Job은 1:1이 아니다. XFR/FNC/PRC 동작의 시간 기반 생산성 분석은 이 Job 단위로 이뤄진다.
 
 **Occurrence** (`equipmentId`, `entityType`, `anchor`):
-파서가 완료한 실행 한 건을 가리키는 식별 키이며 세 값의 조합이다. Lot ID로 대체하지 않는다. anchor는 원천 시각의 전체 정밀도를 보존하는 불투명 키다. 분석 Context와 별개인 목적지 객체 ID로 전달한다([06 §6.1](docs/06_platform_ui_contract.md#61-식별자와-url-소유-상태-decided)).
+파서가 완료한 실행 한 건을 가리키는 식별 키이며 세 값의 조합이다. Lot ID로 대체하지 않는다. anchor는 원천 시각의 전체 정밀도를 보존하는 불투명 키다. 분석 Context와 별개인 목적지 객체 ID로 전달한다([06 §6.1](docs/contract/platform-ui-contract.md#61-식별자와-url-소유-상태-decided)).
 
 **Recipe** (`prc_name`):
 PRC 로그의 `RecipeId`에 대응하는 값 — Lot이 특정 Module/Slot에서 진행하는 PRC 단계의 레시피다. 설비 자체의 고정 속성이 아니라 Lot(그리고 그 안의 PRC 단계)마다 달라질 수 있다. 지표 산출과 분석 모두에서 가장 많이 쓰이는 1급 분류 축이다.
@@ -144,7 +144,7 @@ Registry에 등록된 진입점 하나. 경로·권한·Context 지원 방식·�
 _Avoid_: Capability(단독), Context Capability — 공정 능력(StGroup)·FeedbackOps 권한 어휘와 섞인다.
 
 **페이지 유형** (Page Archetype, `pageType`):
-메뉴 화면이 따르는 배치 틀 다섯 — Overview, Analysis Workspace, Management, Catalog, Workflow([06 §12](docs/06_platform_ui_contract.md)).
+메뉴 화면이 따르는 배치 틀 다섯 — Overview, Analysis Workspace, Management, Catalog, Workflow([06 §12](docs/contract/platform-ui-contract.md)).
 _Avoid_: 템플릿.
 
 **플랫폼 메뉴** (`space: null`):
@@ -152,7 +152,7 @@ _Avoid_: 템플릿.
 _Avoid_: 전역 유틸리티 메뉴 — ADR-0028 때의 이름이다.
 
 **레일** (접근 이름 `시스템 레일`):
-셸 맨 왼쪽의 세로 띠. 위에서부터 전환기, 현재 업무 시스템의 메뉴 그룹(섹션), 시스템을 바꿔도 그대로인 공통 도구(메뉴 검색·분석 보드·VOC 등록·알림), 도움말·사용자 순이다([15 §3.2](docs/15_multi_workspace_ui.md)).
+셸 맨 왼쪽의 세로 띠. 위에서부터 전환기, 현재 업무 시스템의 메뉴 그룹(섹션), 시스템을 바꿔도 그대로인 공통 도구(메뉴 검색·분석 보드·VOC 등록·알림), 도움말·사용자 순이다([15 §3.2](docs/design/multi-workspace-ui.md)).
 _Avoid_: 앱 레일.
 
 **전환기** (`시스템 및 플랫폼 메뉴`):
@@ -167,7 +167,7 @@ _Avoid_: 패널(단독) — 작업 영역 패널과 섞인다.
 _Avoid_: VOC 등록 패널 — 상세 패널과 섞인다.
 
 **목적지 객체 ID**:
-메뉴 간 이동이나 상세 패널에서 열 객체 하나를 가리키는 ID(예: Occurrence, EquipmentID). 단독 `목적지`는 이동할 화면을 뜻하고, 객체는 늘 `목적지 객체 ID`로 쓴다. 분석 Context와 따로 전달하고, 그 값으로 분석 Context를 추정하지 않는다([06 §22](docs/06_platform_ui_contract.md)).
+메뉴 간 이동이나 상세 패널에서 열 객체 하나를 가리키는 ID(예: Occurrence, EquipmentID). 단독 `목적지`는 이동할 화면을 뜻하고, 객체는 늘 `목적지 객체 ID`로 쓴다. 분석 Context와 따로 전달하고, 그 값으로 분석 Context를 추정하지 않는다([06 §22](docs/contract/platform-ui-contract.md)).
 
 **호스트 모듈** (`ModuleManifest`):
 플랫폼 밖 제품이 자기 메뉴 그룹·메뉴 화면을 가지고 플랫폼에 올라오는 단위. 플랫폼(호스트)이 주는 기능만 쓴다([ADR-0053](docs/adr/0053-host-module-contract-v1.md)).
@@ -178,7 +178,7 @@ _Avoid_: 모듈(단독) — 설비 Module/Slot과 섞인다. 업무 시스템을
 _Avoid_: 서버 포트, API(단독) — 포트는 네트워크 포트와, API는 서버의 HTTP 엔드포인트와 섞인다.
 
 **응답 봉투** (envelope):
-조회 응답이 데이터와 함께 싣는 공통 겉 — 결과 상태(`outcome`: 정상·빈 결과·오류·권한 없음·너무 큼·시간 초과), 판정(`assessments`), Data Trust([06 §18–19](docs/06_platform_ui_contract.md#18-data-trust-contract)).
+조회 응답이 데이터와 함께 싣는 공통 겉 — 결과 상태(`outcome`: 정상·빈 결과·오류·권한 없음·너무 큼·시간 초과), 판정(`assessments`), Data Trust([06 §18–19](docs/contract/platform-ui-contract.md#18-data-trust-contract)).
 
 ### 업무 시스템과 협업
 
@@ -285,7 +285,7 @@ _Avoid_: 행 — 표 행·보드 격자의 행과 섞인다.
 ### 조회·드릴·데이터 신뢰
 
 **page key** (`pageKeys`):
-메뉴가 manifest에 선언하고 URL에 쓰는 그 화면 고유의 상태 키(예: 표 페이지 번호, 드릴 단계 값, `returnTo`). 전역 Context 키가 아니다. 그중 `contextResetKeys`에 함께 선언한 키는 사용자가 전역 Context를 바꾸면 지워진다([06 §6.4](docs/06_platform_ui_contract.md)).
+메뉴가 manifest에 선언하고 URL에 쓰는 그 화면 고유의 상태 키(예: 표 페이지 번호, 드릴 단계 값, `returnTo`). 전역 Context 키가 아니다. 그중 `contextResetKeys`에 함께 선언한 키는 사용자가 전역 Context를 바꾸면 지워진다([06 §6.4](docs/contract/platform-ui-contract.md)).
 
 **드릴** (드릴 단계, `drill.levels`):
 한 화면 안에서 단계별로 좁혀 들어가는 조회(예: room_name → StGroup → 설비). 메뉴가 manifest에 단계 순서(page key와 표시 이름)를 선언하고 단계 수에 상한이 없다. 단계마다 page key 하나를 URL에 쓰고, 올라가거나 값을 바꾸면 뒤 단계 키를 지운다. 경로 바로 보이고 단계마다 본문을 바꾼다([ADR-0025](docs/adr/0025-drilldown-level-page-keys-path-bar-layout.md), [ADR-0063](docs/adr/0063-consumer-owned-chart-pieces-and-unbounded-drill.md)).
@@ -295,4 +295,4 @@ _Avoid_: 드릴다운 메뉴 — 별도 메뉴가 아니라 한 메뉴 안의 �
 여러 조회 조건을 모아 한 번에 실행하는 메뉴의 조회 방식. 편집 중인 조건은 칸의 초안에만 있고, `적용`을 눌러야 URL(적용 주소)에 쓰이고 조회가 실행된다. 선언이 없는 메뉴는 바꾸는 즉시 적용되는 live 모드다. 필수 조건이 비면 조회하지 않는 idle 상태다([ADR-0061](docs/adr/0061-query-draft-applied-address-and-required-gate.md)).
 
 **Data Trust** (`trust`):
-조회 결과 숫자의 상태 — 갱신 시각(`updatedAt`), 데이터 기준 시각(`dataThrough`), Coverage, 지표 버전, 잠정(provisional) 여부, 원천. 응답 봉투의 `trust`로 오고 `DataTrustIndicator`가 같은 어휘로 보인다. 그 조회의 신뢰이며 화면이 말하는 대상의 상태가 아니다([06 §18](docs/06_platform_ui_contract.md#18-data-trust-contract)). Coverage는 늘 이 Data Trust 필드를 뜻하며, 견본 표시나 FeedbackOps 연동 화면에 쓰지 않는다.
+조회 결과 숫자의 상태 — 갱신 시각(`updatedAt`), 데이터 기준 시각(`dataThrough`), Coverage, 지표 버전, 잠정(provisional) 여부, 원천. 응답 봉투의 `trust`로 오고 `DataTrustIndicator`가 같은 어휘로 보인다. 그 조회의 신뢰이며 화면이 말하는 대상의 상태가 아니다([06 §18](docs/contract/platform-ui-contract.md#18-data-trust-contract)). Coverage는 늘 이 Data Trust 필드를 뜻하며, 견본 표시나 FeedbackOps 연동 화면에 쓰지 않는다.

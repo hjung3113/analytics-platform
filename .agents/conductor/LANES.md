@@ -8,7 +8,7 @@
 
 | 라벨 | 맡는 것 | 주로 소유하는 경로 | E2E 포트 |
 | --- | --- | --- | --- |
-| `lane:sdk` | 공개 패키지 계약·부품, 분석 작업 영역·MARS 이관(M7), SDK 품질(M8) | `packages/{contracts,ui,kernel,components,shell}`, `tooling/sdk-api`, `tooling/scripts/sdk-*`, `docs/06_platform_ui_contract.md`, `docs/integration/sdk-*` | 4190 |
+| `lane:sdk` | 공개 패키지 계약·부품, 분석 작업 영역·MARS 이관(M7), SDK 품질(M8) | `packages/{contracts,ui,kernel,components,shell}`, `tooling/sdk-api`, `tooling/scripts/sdk-*`, `docs/contract/platform-ui-contract.md`, `docs/integration/sdk-*` | 4190 |
 | `lane:platform` | 앱 조립·mock·실어댑터·서버 적합성, 견본 메뉴, 사내 적용(M4), 운영 콘솔 | `apps/platform-web`, `packages/{mock-server,http-adapter,server-conformance}`, `menus/*`(FeedbackOps 다리 메뉴 제외) | 4590 |
 | `lane:arch` | 리팩터링·폴더 구조·용어·경계 lint·CI·문서 구조 | `tooling/{eslint,gen-menu,tsconfig,css-selectors}`, `.github/workflows`, `docs/INDEX.md`, `docs/AGENTS.md`, `GLOSSARY.md` | 4690 |
 | `lane:fo` | FeedbackOps 이관(M6) | `products/feedbackops/`, `packages/fo-bridge`, `menus/feedbackops/*`, `menus/_global/*`의 FeedbackOps 다리 | 4390 |
@@ -25,7 +25,7 @@ E2E는 `E2E_PORT=<포트>`로, base-path E2E는 `E2E_BASE_PATH_PORT=<포트 + 1>
 
 위에서부터 묻고, 처음 맞는 것이 그 요청(또는 그 조각)의 분류다.
 
-1. **Kernel 책임:** 06 [§4](../../docs/06_platform_ui_contract.md#4-platform-kernel-responsibilities) 목록(셸, Registry, 전역 Context, URL, 권한·Scope, 감사, 계측 등)이나 Kernel 런타임 책임([`packages/kernel/AGENTS.md`](../../packages/kernel/AGENTS.md): 조회 수명주기·캐시·중복 제거 등)에 드는가. 계약·런타임(`packages/{contracts,kernel,shell}`)은 `lane:sdk`, 그 계약을 앱에 잇는 일(조립, mock, 실어댑터, 서버 적합성)은 `lane:platform`이다. 소비자 수를 기다리지 않는다. 06 계약을 바꾸는 결정은 사용자 몫이다(§흐름 세션).
+1. **Kernel 책임:** 06 [§4](../../docs/contract/platform-ui-contract.md#4-platform-kernel-responsibilities) 목록(셸, Registry, 전역 Context, URL, 권한·Scope, 감사, 계측 등)이나 Kernel 런타임 책임([`packages/kernel/AGENTS.md`](../../packages/kernel/AGENTS.md): 조회 수명주기·캐시·중복 제거 등)에 드는가. 계약·런타임(`packages/{contracts,kernel,shell}`)은 `lane:sdk`, 그 계약을 앱에 잇는 일(조립, mock, 실어댑터, 서버 적합성)은 `lane:platform`이다. 소비자 수를 기다리지 않는다. 06 계약을 바꾸는 결정은 사용자 몫이다(§흐름 세션).
 2. **SDK 조각:** 메뉴마다 다른 것(위계, 단계 수, 줄 이름, 내려가는 조작, 업무 문구·권한)을 메뉴 선언으로 빼고 남는 것이 다른 메뉴도 그대로 쓸 수 있는 부품인가([ADR-0052](../../docs/adr/0052-rich-content-stays-in-the-sdk.md) 편입 기준). 그러면 `lane:sdk`이고 소비자 수와 관계없이 SDK에 둔다. 요구 문장의 도메인 용어는 [`GLOSSARY.md`](../../GLOSSARY.md)로 확인하고 조각의 이름·API에는 넣지 않는다.
    - **SDK 운영:** 특정 기능이 아니라 SDK 자체의 배포·품질(tarball·의존 고정, 성능, 테스트 안정성, 공개 API 스냅샷)이면 이 분류로 보고 `lane:sdk`다(#806, #706, #741).
 3. **메뉴 몫:** 남은 것, 곧 그 메뉴의 업무 의미(숫자·CRUD·상태 전이, 특정 차트 설정, 그 메뉴만의 Form — 06 §4 「Kernel이 소유하지 않는 것」, §13 Domain Component). 메뉴 요구가 공통 계약과 부딪히면 이것도 메뉴 몫이다 — 메뉴를 계약에 맞춘다(루트 `AGENTS.md`). 누가 하는지는 메뉴가 어디 있느냐로 정한다.

@@ -1,10 +1,10 @@
 # 플랫폼 모노레포 패키지 경계 (Decided 2026-09-26 — 세부 필드명은 Candidate)
 
-> 상태: [05 Decided "다음 구현 범위: 프론트엔드 플랫폼 틀 + 메뉴 개발 환경"](../05_roadmap_and_open_questions.md)의 첫 단계로 패키지 경계와 의존 방향을 정한다. §8의 5개 항목은 2026-09-26 사용자가 제안안대로 **Decided**. `PlatformAdapter`·`MenuMeta`·`evaluateSelection` 같은 필드·타입 이름은 구현하면서 바뀔 수 있는 Candidate다.
+> 상태: [05 Decided "다음 구현 범위: 프론트엔드 플랫폼 틀 + 메뉴 개발 환경"](../overview/roadmap-and-open-questions.md)의 첫 단계로 패키지 경계와 의존 방향을 정한다. §8의 5개 항목은 2026-09-26 사용자가 제안안대로 **Decided**. `PlatformAdapter`·`MenuMeta`·`evaluateSelection` 같은 필드·타입 이름은 구현하면서 바뀔 수 있는 Candidate다.
 >
 > §2·§7은 비어 있다 — 모노레포 추출 순서와 기록은 git 이력(PR #16–#32).
 >
-> 근거: [06 §3 아키텍처](../06_platform_ui_contract.md#3-platform-ui-architecture), [§4 Kernel 책임](../06_platform_ui_contract.md#4-platform-kernel-responsibilities), [§5 Menu Extension Contract](../06_platform_ui_contract.md#5-menu-extension-contract), [§13 컴포넌트 층](../06_platform_ui_contract.md#13-shared-component-layers).
+> 근거: [06 §3 아키텍처](../contract/platform-ui-contract.md#3-platform-ui-architecture), [§4 Kernel 책임](../contract/platform-ui-contract.md#4-platform-kernel-responsibilities), [§5 Menu Extension Contract](../contract/platform-ui-contract.md#5-menu-extension-contract), [§13 컴포넌트 층](../contract/platform-ui-contract.md#13-shared-component-layers).
 
 ## 1. 목표와 범위
 
@@ -81,7 +81,7 @@
 
 - 역할 전환과 응답 시나리오 시뮬레이터(`setRole`, `setScenario`)는 **실서버에 없는 개발 기능**이다. `Platform` 컨텍스트에서 빼고 `apps/platform-web`의 dev 도구가 레일 아래 `topBarTools` 슬롯에 붙인다. 운영 빌드에는 포함하지 않는다 — mock 조립(`src/dev/mock-assembly.tsx`)이 `topBarTools`로 넘기고, 운영 빌드는 그 조립을 쓰지 않으며 빌드 단계 그래프 검사가 막는다(#153, ADR-0009).
 - **무효화 계약 보존:** 현재 `usePlatformQuery`는 결과 identity에 `role`·`scenario`를 넣어, 전환 즉시 이전 결과를 숨기고 재조회한다. 분리 후에는 dev 도구가 mock 어댑터의 상태를 바꾸고 어댑터가 `subscribe` 리스너를 호출한다. Kernel은 알림을 받으면 ① `session()`을 다시 읽고 ② 세션 객체가 바뀌었으면 현재 Scope를 재검증하고 ③ revision을 올린다(시나리오처럼 세션이 그대로인 변경은 ③만). `usePlatformQuery`의 identity는 `[revision, user 식별자, 전역 Context, page 입력]`이 되어 지금과 같은 시점에 이전 결과를 숨긴다. 실서버에서는 재로그인·권한 변경 알림이 같은 경로를 탄다. 검증: 역할·시나리오 전환 직후 이전 결과가 한 프레임도 보이지 않을 것(`kernel/adapter.test.tsx`).
-- listAxisOptions·searchEquipment·resolveSelection은 필수 어댑터 멤버다. 외부 어댑터도 구현해야 한다. 의미·오류·페이징·Kernel 훅/화면 캐시 원본은 [06 §6.4](../06_platform_ui_contract.md#64-url-계약-decided-필드명enum-문자열은-candidate)다. contextOptions·evaluateSelection은 deprecated 호환 포트로 남는다.
+- listAxisOptions·searchEquipment·resolveSelection은 필수 어댑터 멤버다. 외부 어댑터도 구현해야 한다. 의미·오류·페이징·Kernel 훅/화면 캐시 원본은 [06 §6.4](../contract/platform-ui-contract.md#64-url-계약-decided-필드명enum-문자열은-candidate)다. contextOptions·evaluateSelection은 deprecated 호환 포트로 남는다.
 - `matchesCondition` 같은 조건 판정은 서버 책임이다. 셸은 조건·방·Selection이 바뀔 때 `evaluateSelection`을 다시 호출하고 결과(후보, 조건 결과 개수, 조건 밖 선택)만 표시한다. 이전 요청 결과를 새 결과로 보이지 않는 요청 수명주기는 `usePlatformQuery`와 같은 규칙을 따른다.
 
 ## 5. 메뉴 패키지 계약과 템플릿
@@ -121,7 +121,7 @@ const registry = createRegistry({ spaces: SPACES, groups: GROUPS, menus: [...hom
 - **route 충돌 없음:** 파라미터 이름을 지운 정규형(`/metrics/:metricId` → `/metrics/:`)이 같은 두 패턴은 거부한다. 정적 세그먼트와 파라미터가 같은 위치에서 겹치는 경우(`/metrics/new` vs `/metrics/:metricId`)는 허용하되, `matchRoute`가 등록 순서가 아니라 **정적 세그먼트 우선**(앞 세그먼트부터 정적 > 파라미터)으로 고른다. 현재 `matchRoute`는 선언 순서 first-match라 메뉴 패키지로 나누면 등록 순서가 결과를 바꿀 수 있다
 - 그룹마다 `primary` 정확히 하나(06 §5)
 - `pageKeys`가 전역 Context 키와 겹치지 않음(06 §6.1)
-- **공간:** 검증 규칙은 [06 §9.1](../06_platform_ui_contract.md#91-워크스페이스-decided-2026-09-26)과 [`packages/kernel/src/registry/registry.ts`](../../packages/kernel/src/registry/registry.ts)가 소유한다. 전역 유틸리티 그룹은 `space: null`이고, 그 외에는 등록된 공간만 허용한다.
+- **공간:** 검증 규칙은 [06 §9.1](../contract/platform-ui-contract.md#91-워크스페이스-decided-2026-09-26)과 [`packages/kernel/src/registry/registry.ts`](../../packages/kernel/src/registry/registry.ts)가 소유한다. 전역 유틸리티 그룹은 `space: null`이고, 그 외에는 등록된 공간만 허용한다.
 
 생성기는 manifest 뼈대, `pageType`별 06 §12 슬롯 뼈대(화면 슬롯은 12.6), 조회 선언·mock 핸들러, 테스트를 만들고 앱 등록 목록에 연결한다. 메뉴 템플릿이 Sidebar·Breadcrumb·권한 숨김을 직접 구현하지 못하게 하는 것은 06 §5 "금지" 목록을 lint로 옮겨 막는다(§6).
 

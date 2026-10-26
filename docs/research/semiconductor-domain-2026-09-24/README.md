@@ -2,9 +2,9 @@
 
 작성일: 2026-09-24. 상태: **Research / Candidate**.
 
-후속 도메인 확인(같은 날 2차 도메인 인터뷰, 결과는 [GLOSSARY.md](../../../GLOSSARY.md)·[01](../../01_architecture_and_data_contract.md)에 반영): XFR/FNC/PRC는 Module/Slot grain, CFG 기록은 설비 단위이며 Module 대상은 값 내부 속성(테이블 분할 키 아님)이다. 분석의 유효값 기준은 Job 시작 시점 하나로 충분하다. 아래 외부 조사·형식 제안의 Candidate 상태는 유지한다.
+후속 도메인 확인(같은 날 2차 도메인 인터뷰, 결과는 [GLOSSARY.md](../../../GLOSSARY.md)·[01](../../architecture/architecture-and-data-contract.md)에 반영): XFR/FNC/PRC는 Module/Slot grain, CFG 기록은 설비 단위이며 Module 대상은 값 내부 속성(테이블 분할 키 아님)이다. 분석의 유효값 기준은 Job 시작 시점 하나로 충분하다. 아래 외부 조사·형식 제안의 Candidate 상태는 유지한다.
 
-이 문서는 외부 표준·특허·제품 자료를 이번 세션의 열린 질문에만 비춘 조사다. [GLOSSARY.md](../../../GLOSSARY.md)와 `docs/adr/`, [06](../../06_platform_ui_contract.md)의 Decided를 덮지 않는다. 용어를 바꾸거나 CFG 형식을 확정하는 문서가 아니다. 다음 리뷰의 입력이다.
+이 문서는 외부 표준·특허·제품 자료를 이번 세션의 열린 질문에만 비춘 조사다. [GLOSSARY.md](../../../GLOSSARY.md)와 `docs/adr/`, [06](../../contract/platform-ui-contract.md)의 Decided를 덮지 않는다. 용어를 바꾸거나 CFG 형식을 확정하는 문서가 아니다. 다음 리뷰의 입력이다.
 
 범위는 세 가지다. Operation이라는 임시 이름이 업계 용어와 맞는지, CFG를 어떤 데이터 형태로 봐야 하는지, 생산성·연계 분석이 이미 있는 제품 패턴을 벗어나는지. `GLOSSARY.md`에 이미 있는 Carrier/Lot/Recipe 정의는 반복하지 않는다.
 
@@ -39,7 +39,7 @@ Applied 특허가 이 갈라짐을 XFR/PRC에 그대로 쓴다. 챔버 레시피
 
 그래서 CFG 화면을 만든다면, 업계에서 빠지기 쉬운 실수는 “지금 값”을 보여주는 것이다. EC는 바뀔 때까지 유효한 값이라, Job과의 조인은 설비 + 그 Job 시작 시각에 유효했던 값이어야 한다. 형상은 파라미터 식별(이름, 단위)과 유효 시각이 있는 변경 이력이다. 원천이 로그·파일·외부 시스템으로 섞여 있는 것은 이 모델과 충돌하지 않는다. 당초 질문했던 grain은 후속 인터뷰로 해소됐다. **기록은 설비 단위이고 Module 대상은 개별 CFG 값 안의 속성**이다. 분석은 Job 시작 시점 값 하나로 충분하며 구간별·Job 중간 CFG 변경 모델은 요구하지 않는다. 구체 값 스키마와 원천 매핑은 여전히 Open이며 별도 Recipe 키나 Module 테이블 분할을 추론하지 않는다.
 
-메뉴 간 이동을 보류한 것(인터뷰 14)은 화면 연결을 미루는 것이지, 이 유효 시각 모델을 미루는 것이 아니어야 한다. 향후 §22 연계를 검토하더라도 유효값 조인 기준은 Job 시작이다. 설정 변경/정정의 mart 의존·재계산 정책은 [01](../../01_architecture_and_data_contract.md)에 Open으로 추적하며 이 조사로 자동 트리거를 확정하지 않는다.
+메뉴 간 이동을 보류한 것(인터뷰 14)은 화면 연결을 미루는 것이지, 이 유효 시각 모델을 미루는 것이 아니어야 한다. 향후 §22 연계를 검토하더라도 유효값 조인 기준은 Job 시작이다. 설정 변경/정정의 mart 의존·재계산 정책은 [01](../../architecture/architecture-and-data-contract.md)에 Open으로 추적하며 이 조사로 자동 트리거를 확정하지 않는다.
 
 ## 3. 제품 패턴 — 없는 화면을 만들고 있는 것은 아니다
 
