@@ -287,7 +287,8 @@ describe('dock renderer: Delete = 비우기, X, 칸 추가, 칸 닫기, 복제',
     expect(add).toHaveAccessibleDescription('시트당 분석 화면 8개까지 둘 수 있습니다.');
     expect(add).not.toHaveAccessibleDescription(/표시 영역/);
     expect(JSON.parse(localStorage.getItem(V2_KEY)!).v).toBe(3);
-  });
+    // Six dock mounts in a row: about 1 s here, but past the 5 s default on the loaded CI runner (#981 run 40392437172).
+  }, 30_000);
 
   it('칸 닫기 on the empty pane 2 of 3 renumbers pane 3 to 2 without re-querying, and 실행 취소 puts it back', async () => {
     let board = freshBoard('시트');
