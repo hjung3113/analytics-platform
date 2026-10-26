@@ -828,6 +828,41 @@ test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
       return Math.abs(after[0]! - after[1]!) <= 2 && Math.abs(after[0]! - before[0]!) <= 2 && Math.abs(after[1]! - before[1]!) <= 2;
     }).toBe(true);
   });
+
+  // 893e (ADR-0089): the sheet holds up to 8 tabs but only 4 displayed groups; the 5th tab joins a group instead of making a 5th one.
+  const boardOf = (page: Page) => page.evaluate(() => Object.entries(localStorage).filter(([key]) => key.startsWith('platform:board:v2:')).map(([, value]) => JSON.parse(value) as { v: number; sheets: { panes: unknown[] }[] })[0]);
+
+  test('4개 영역을 유지한 채 한 영역에 5번째 탭을 더하고, 저장은 v:3이며 새로고침 뒤에도 남는다 (#893 893e)', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await signInWithDockBoard(page, [populated('dock', '2x2', 4)]);
+    await dockReady(page, 4);
+    await expect(groups(page)).toHaveCount(4);
+    await page.locator('[data-group-add]').first().click();
+    await page.getByRole('dialog').getByRole('button').first().click();
+    await expect(paneTabs(page)).toHaveCount(5);
+    await expect(groups(page)).toHaveCount(4);
+    await expect.poll(async () => (await boardOf(page))?.v).toBe(3);
+    expect((await boardOf(page))!.sheets[0]!.panes).toHaveLength(5);
+    await page.reload();
+    await expect(paneTabs(page)).toHaveCount(5);
+    await expect(groups(page)).toHaveCount(4);
+  });
+
+  test('4개 영역일 때 탭을 가장자리에 끌어도 5번째 영역은 생기지 않는다 (#893 893e)', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await signInWithDockBoard(page, [populated('dock', '2x2', 4)]);
+    await dockReady(page, 4);
+    await page.locator('[data-group-add]').first().click();
+    await page.getByRole('dialog').getByRole('button').first().click();
+    await expect(paneTabs(page)).toHaveCount(5);
+    // The picked screen is not the KPI one `panesLoaded` counts; wait for every skeleton to go instead.
+    await expect(page.locator('[data-dock-layout] [data-pane-body] [role="status"][aria-busy]')).toHaveCount(0);
+    const target = groupBody(page, 2);
+    const box = (await target.boundingBox())!;
+    await dragTab(page, 5, target, { x: box.width - 6, y: box.height / 2 });
+    await expect(groups(page)).toHaveCount(4);
+    await expect(paneTabs(page)).toHaveCount(5);
+  });
 });
 
 test.describe('메뉴 작업 영역 (ADR-0067 3b)', () => {
