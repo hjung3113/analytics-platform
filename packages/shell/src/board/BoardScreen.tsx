@@ -303,7 +303,7 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
     onDuplicate: () => duplicate(index), onEditContext: () => editContext(index),
   });
 
-  return <div data-board className="flex h-full min-h-0 flex-col">
+  return <div data-board className="relative flex h-full min-h-0 flex-col">
     <header className="flex h-[50px] shrink-0 items-center justify-between gap-3 overflow-x-auto border-b border-border-subtle bg-surface-canvas px-4">
       <div className="flex min-w-0 items-center gap-3">
         <h1 data-page-heading ref={heading} tabIndex={0} className="min-w-28 truncate text-sm font-semibold text-text-primary">{text.board}</h1>
@@ -377,6 +377,7 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
-    <Toaster position="bottom-center" offset={56} />
+    {/* `!absolute` (over sonner's injected `position:fixed`) anchors the undo toast to the board root (`relative`, the full main box), so it centres on the content column like the shell toast stack (06 Toast, #886). */}
+    <Toaster position="bottom-center" offset={56} className="!absolute" />
   </div>;
 }

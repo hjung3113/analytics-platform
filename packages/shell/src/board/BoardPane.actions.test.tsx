@@ -393,6 +393,8 @@ describe('⋯ pane menu (docs/16 §4)', () => {
     fireEvent.click(await item('비우기'));
     await settle();
     const toast = (await screen.findByText('칸 1의 조건을 칸 2에 적용했습니다')).closest('[data-sonner-toast]') as HTMLElement;
+    // The undo toast anchors to the shell content column like the shell toast stack, not to the viewport (#886 UX-6).
+    expect(toast.closest('[data-sonner-toaster]')).toHaveClass('!absolute');
     fireEvent.click(within(toast).getByRole('button', { name: '실행 취소' }));
     await settle();
     expect(await screen.findByText('실행 취소할 수 없습니다 — 그 뒤에 바뀌었습니다')).toBeInTheDocument();

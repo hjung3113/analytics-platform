@@ -48,25 +48,37 @@ function ShellLayout({ children }: { children: ReactNode }) {
     <VocDrawerContext.Provider value={voc}><AppRail /></VocDrawerContext.Provider>
     {showSidebar && <AppSidebar collapsed={collapsed} onToggle={toggle} />}
     {showPlatformSidebar && <PlatformSidebar collapsed={collapsed} onToggle={toggle} />}
-    <div className="flex min-w-0 flex-1 flex-col">
+    {/* The column stays unpositioned: a `relative` column would become the containing block of every `absolute` element inside main (sr-only text, popovers) and let them overflow it unclipped. */}
+    <div data-shell-content className="flex min-w-0 flex-1 flex-col">
       <main id="platform-main" tabIndex={-1} className="min-h-0 min-w-0 flex-1 overflow-y-auto outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring">
         <Suspense fallback={<div className="p-5"><LoadingBlock rows={6} height={320} /></div>}>{children}</Suspense>
       </main>
+      {/* The toast anchor: a zero-height positioned strip at the column's bottom edge, so the stack centres on the content column and never reaches the detail aside or the VOC drawer (06 Toast). */}
+      <div data-toast-anchor className="relative h-0"><Toasts lifted={platformScreen === 'board'} /></div>
     </div>
     <aside ref={detail.ref} hidden={!detailShown} aria-label={lang === 'ko' ? '상세 패널' : 'Detail panel'} data-open={detailShown}
       className={cn('h-full max-w-[520px] shrink-0 overflow-hidden border-border-subtle bg-surface-detail',
         detailShown ? 'w-[clamp(360px,var(--detail-panel-width,440px),520px)] min-w-[360px] border-l' : 'w-0 min-w-0 border-l-0')} />
     {voc && <VocDrawer voc={voc} lang={lang} />}
     <CommandPalette />
-    <Toasts />
   </div>;
 }
 
-function Toasts() {
+/**
+ * One persistent stack in the content column (the containers never remount when the layout changes). Liveness lives on two
+ * persistent containers, none on the items: polite for info/warning, assertive for danger, so each toast is announced once.
+ */
+function Toasts({ lifted }: { lifted: boolean }) {
   const toasts = useToastList();
   // Toasts sit above the command palette scrim (z-60) so their dismiss stays clickable (#310).
-  return <div aria-live="polite" className="pointer-events-none fixed bottom-4 right-4 z-70 flex w-[min(420px,90vw)] flex-col gap-2">
-    {toasts.map(tst => <ToastItem key={tst.id} toast={tst} />)}
+  // The board's sonner undo toast sits in this same column (bottom 56px); the board lifts the stack above it so the two stack, not overlap.
+  return <div data-toast-stack className={cn('pointer-events-none absolute inset-x-4 z-70 mx-auto flex max-w-[420px] flex-col gap-2', lifted ? 'bottom-[8.5rem]' : 'bottom-4')}>
+    <div aria-live="polite" aria-atomic="false" className="flex flex-col gap-2">
+      {toasts.filter(tst => tst.tone !== 'danger').map(tst => <ToastItem key={tst.id} toast={tst} />)}
+    </div>
+    <div aria-live="assertive" aria-atomic="false" className="flex flex-col gap-2">
+      {toasts.filter(tst => tst.tone === 'danger').map(tst => <ToastItem key={tst.id} toast={tst} />)}
+    </div>
   </div>;
 }
 
@@ -74,10 +86,9 @@ function ToastItem({ toast: tst }: { toast: Toast }) {
   const { dismissToast, holdToast } = useHostPlatform();
   const { lang, t } = useI18n();
   const { id, action } = tst;
-  // An action toast waits while focus or the pointer is inside it (WCAG 2.2.1) and restarts its timer once both have left.
+  // Every toast waits while focus or the pointer is inside it (WCAG 2.2.1) and restarts its timer once both have left.
   const inside = useRef({ focus: false, pointer: false });
   const hold = (key: 'focus' | 'pointer', on: boolean) => {
-    if (!action) return;
     inside.current[key] = on;
     holdToast(id, inside.current.focus || inside.current.pointer);
   };
@@ -86,7 +97,7 @@ function ToastItem({ toast: tst }: { toast: Toast }) {
     if (inside.current.focus || inside.current.pointer) holdToast(id, false);
   }, [id, holdToast]);
   const Icon = tst.tone === 'danger' ? XCircle : tst.tone === 'warning' ? AlertTriangle : Info;
-  return <div role={tst.tone === 'danger' ? 'alert' : 'status'}
+  return <div
     onFocus={() => hold('focus', true)} onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget)) hold('focus', false); }}
     onPointerEnter={() => hold('pointer', true)} onPointerLeave={() => hold('pointer', false)}
     className={cn('pointer-events-auto flex items-start gap-2 rounded-md border bg-surface-card px-3 py-2.5 text-xs shadow-lg',

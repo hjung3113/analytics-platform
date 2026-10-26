@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Flag } from 'lucide-react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -134,11 +134,62 @@ describe('ListToolbar — tabs mode', () => {
     },
   );
 
-  it('locks the toolbar row to the 50px h-toolbar rhythm', () => {
-    const { container } = render(<ListToolbar tabs={tabs} activeTab="untriaged" />);
+  it('locks each toolbar row to the 50px h-toolbar rhythm', () => {
+    const { container } = render(
+      <ListToolbar tabs={tabs} activeTab="untriaged" action={<button type="button">Action</button>} />,
+    );
     const toolbar = container.firstElementChild;
-    expect(toolbar?.className).toContain('h-toolbar');
     expect(toolbar).toHaveAttribute('data-toolbar-height', '50');
+    expect(toolbar?.className).not.toContain('h-toolbar');
+    expect(container.querySelector('[data-list-toolbar-main]')?.className).toContain('h-toolbar');
+    expect(container.querySelector('[data-list-toolbar-actions]')?.className).toContain('h-toolbar');
+  });
+
+  it('wraps the action block to its own right-aligned row on the toolbar width, not the viewport', () => {
+    const { container } = render(
+      <ListToolbar tabs={tabs} activeTab="untriaged" action={<button type="button">Action</button>} />,
+    );
+    const toolbar = container.firstElementChild as HTMLElement;
+    const main = container.querySelector('[data-list-toolbar-main]') as HTMLElement;
+    const actions = container.querySelector('[data-list-toolbar-actions]') as HTMLElement;
+    expect(toolbar).toHaveClass('flex', 'flex-wrap');
+    expect(toolbar.className).not.toMatch(/(^|\s)(sm|md|lg|xl):/);
+    // Siblings: the tab row can take the full width when the action row wraps below it.
+    expect(main.parentElement).toBe(toolbar);
+    expect(actions.parentElement).toBe(toolbar);
+    expect(actions).toHaveClass('ml-auto');
+    // The tab block keeps a minimum width before the actions wrap, so a dragged panel width crosses one threshold only.
+    expect(main.className).toMatch(/basis-\[\d+rem\]/);
+    expect(main).toHaveClass('min-w-0', 'flex-1');
+    expect(within(main).getByRole('tablist')).toBeInTheDocument();
+    expect(within(actions).getByRole('button', { name: 'Action' })).toBeInTheDocument();
+    expect(main.contains(actions)).toBe(false);
+    expect(container.querySelector('[role="toolbar"]')).toBeNull();
+  });
+
+  it('reports the measured height instead of a fixed 50, on the toolbar and as a variable on its parent', () => {
+    let height = 100;
+    const spy = vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(() => height);
+    const notify = stubResizeObserver();
+    try {
+      const { container, unmount } = render(
+        <div data-host>
+          <ListToolbar tabs={tabs} activeTab="untriaged" action={<button type="button">Action</button>} />
+        </div>,
+      );
+      const host = container.firstElementChild as HTMLElement;
+      const toolbar = host.firstElementChild as HTMLElement;
+      expect(toolbar).toHaveAttribute('data-toolbar-height', '100');
+      expect(host.style.getPropertyValue('--list-toolbar-height')).toBe('100px');
+      height = 50;
+      act(() => notify());
+      expect(toolbar).toHaveAttribute('data-toolbar-height', '50');
+      expect(host.style.getPropertyValue('--list-toolbar-height')).toBe('50px');
+      unmount();
+    } finally {
+      spy.mockRestore();
+      vi.unstubAllGlobals();
+    }
   });
 
   it('renders all tab labels', () => {
@@ -305,6 +356,9 @@ describe('ListToolbar — tabs mode', () => {
     const tabViewport = container.querySelector('[data-list-toolbar-tabs]');
     expect(tabViewport?.className).toContain('overflow-x-auto');
     expect(tabViewport?.className).toContain('whitespace-nowrap');
+    // The actions sit in their own block beside the tab row, never inside the scrolling strip.
+    expect(tabViewport?.closest('[data-list-toolbar-main]')).not.toBeNull();
+    expect(tabViewport?.contains(screen.getByRole('button', { name: 'Action' }))).toBe(false);
   });
 
   it.each([
