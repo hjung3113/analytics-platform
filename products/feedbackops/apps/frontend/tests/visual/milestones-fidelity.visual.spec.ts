@@ -31,6 +31,31 @@ test.describe('milestone fidelity (final pixel pass)', () => {
     await expect(detail.getByText('담당자', { exact: true })).toBeVisible();
     await page.evaluate(() => document.fonts.ready);
 
+    // The title pill first renders the 'Managed System' fallback name (dot
+    // --managed-system-default) until the ['managed-systems'] lookup lands;
+    // the same pill node then switches to the Power BI token and its dot runs a
+    // background-color transition from the gray start value (#980). Poll until
+    // the dot has settled on the token colour before the single capture.
+    const powerBiRgb = await detail.evaluate((root) => {
+      const raw = getComputedStyle(root).getPropertyValue('--managed-system-power-bi').trim();
+      if (!/^\d+ \d+ \d+$/.test(raw)) {
+        throw new Error(`Expected --managed-system-power-bi to be an R G B triplet, got "${raw}"`);
+      }
+      return `rgb(${raw.split(' ').join(', ')})`;
+    });
+    await expect
+      .poll(() =>
+        detail.evaluate((root) => {
+          const pill = root.querySelector<HTMLElement>(
+            '[style*="--milestone-managed-system-color"]',
+          );
+          const dot = pill?.querySelector<HTMLElement>('span[aria-hidden="true"]');
+          if (dot === null || dot === undefined) return '';
+          return getComputedStyle(dot).backgroundColor;
+        }),
+      )
+      .toBe(powerBiRgb);
+
     const captured = await detail.evaluate((root) => {
       // Own-text match: pills/badges keep their text in a node that also
       // carries the dot element, so leaf matching alone cannot find them.
