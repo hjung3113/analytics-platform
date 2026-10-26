@@ -685,7 +685,7 @@ test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
     await expect(paneTabs(page)).toHaveCount(2);
     await expect(paneTab(page, 2)).toBeFocused();
     // The shell also puts each toast's text in a sr-only announcement (#886): query the visible toast item.
-    await expect(page.locator('[data-toast-item]').getByText('칸 2을 비웠습니다')).toBeVisible();
+    await expect(page.locator('[data-toast-item]').getByText('칸 2를 비웠습니다')).toBeVisible();
     await evidence(page, testInfo, 'board-dock-delete-empties');
     // The pane is empty now: Delete on its tab does nothing more.
     await paneTab(page, 2).focus();

@@ -130,7 +130,7 @@ describe('pane header signals (ADR-0051)', () => {
     await settle();
     const head = within(paneGroup(1));
     expect(paneGroup(1).querySelectorAll('[data-pane-chip]')).toHaveLength(1);
-    expect(paneGroup(1).querySelector('[data-pane-chip="time"]')).toHaveTextContent('기간 2026-09-01 00:00 ~ 2026-09-02 00:00');
+    expect(paneGroup(1).querySelector('[data-pane-chip="time"]')).toHaveTextContent('기간 09-01 00:00 → 09-02 00:00 (24h)');
     expect(paneGroup(1).querySelector('[data-pane-chip="scope"]')).toBeNull();
     expect(head.getByRole('button', { name: '칸 1의 같은 조건 1개' })).toHaveTextContent('같음 1');
     expect(within(paneGroup(2)).getByRole('button', { name: '칸 2의 같은 조건 1개' })).toBeInTheDocument();
@@ -220,7 +220,7 @@ describe('pane header signals (ADR-0051)', () => {
     const popover = await screen.findByRole('dialog', { name: '칸 1의 분석 Context' });
     expect(within(popover).getByText('S1')).toBeInTheDocument();
     const time = popover.querySelector('[data-popover-row="time"]')!;
-    expect(time).toHaveTextContent('2026-09-01 00:00 ~ 2026-09-02 00:00');
+    expect(time).toHaveTextContent('09-01 00:00 → 09-02 00:00 (24h)');
     expect(time).toHaveTextContent('다름');
     expect(popover.querySelector('[data-popover-row="scope"]')).not.toHaveTextContent('다름');
     cleanup();

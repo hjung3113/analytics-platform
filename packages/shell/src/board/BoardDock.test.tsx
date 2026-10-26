@@ -200,7 +200,7 @@ describe('dock renderer: Delete = 비우기, X, 칸 추가, 칸 닫기, 복제',
     tabOf('칸 2 · 베타').focus();
     await userEvent.keyboard('{Delete}');
     await settle();
-    expect(await screen.findByText('칸 2을 비웠습니다')).toBeInTheDocument();
+    expect(await screen.findByText('칸 2를 비웠습니다')).toBeInTheDocument();
     expect(tabLabels()).toEqual(['칸 1 · 알파', '칸 2 · 빈 칸']);
     expect(v2().sheets[0].panes[1].screen).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: '실행 취소' }));
@@ -218,13 +218,13 @@ describe('dock renderer: Delete = 비우기, X, 칸 추가, 칸 닫기, 복제',
       tabOf('칸 2 · 베타').focus();
       await userEvent.setup({ advanceTimers: vi.advanceTimersByTime }).keyboard('{Delete}');
       await settle();
-      expect(await screen.findByText('칸 2을 비웠습니다')).toBeInTheDocument();
+      expect(await screen.findByText('칸 2를 비웠습니다')).toBeInTheDocument();
       // The board's sheet strip (41px) stays clear: the shared stack sits above it on the board (#886 G1).
       expect(document.querySelector('[data-toast-stack]')).toHaveClass('bottom-14');
       act(() => { vi.advanceTimersByTime(7000); });
-      expect(screen.getByText('칸 2을 비웠습니다')).toBeInTheDocument();
+      expect(screen.getByText('칸 2를 비웠습니다')).toBeInTheDocument();
       act(() => { vi.advanceTimersByTime(1500); });
-      await waitFor(() => expect(screen.queryByText('칸 2을 비웠습니다')).toBeNull());
+      await waitFor(() => expect(screen.queryByText('칸 2를 비웠습니다')).toBeNull());
     } finally {
       vi.useRealTimers();
     }
@@ -586,7 +586,7 @@ describe('dock renderer: clearing a pane keeps focus on its tab (U1, U5)', () =>
     await userEvent.click(screen.getByRole('button', { name: '칸 4 비우기' }));
     await waitFor(() => { expect(tabLabels()).toContain('칸 4 · 빈 칸'); });
     await settle();
-    expect(await screen.findByText('칸 4을 비웠습니다')).toBeInTheDocument();
+    expect(await screen.findByText('칸 4를 비웠습니다')).toBeInTheDocument();
     expect(v2().sheets[0].selectedPaneId).toBe(v2().sheets[0].panes[3].id);
     expect(document.activeElement).toBe(tabOf('칸 4 · 빈 칸'));
     expect(v2().sheets[0].panes.map(p => p.screen === null)).toEqual([false, false, false, true]);
@@ -609,7 +609,7 @@ describe('dock renderer: undo addresses panes by slot (C3)', () => {
     fireEvent.click(await screen.findByRole('menuitem', { name: '칸 1 닫기' }));
     await settle();
     expect(tabLabels()).toEqual(['칸 1 · 빈 칸', '칸 2 · 빈 칸']);
-    const toast = (await screen.findByText('칸 2을 비웠습니다')).closest<HTMLElement>('[data-toast-item]')!;
+    const toast = (await screen.findByText('칸 2를 비웠습니다')).closest<HTMLElement>('[data-toast-item]')!;
     fireEvent.click(within(toast).getByRole('button', { name: '실행 취소' }));
     await settle();
     expect(v2().sheets[0].panes.map(p => p.screen?.query ?? null)).toEqual([w1, null]);

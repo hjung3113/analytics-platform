@@ -2,8 +2,8 @@ import type { Lang } from '@ap/kernel';
 
 /** `3` or `3–4`: pane numbers from `from` to `to`. */
 const numberRange = (from: number, to: number) => (from === to ? `${from}` : `${from}–${to}`);
-/** Whether the Korean reading of a pane number (1–4) ends in a consonant, for the particle after it: 일 삼 yes, 이 사 no. */
-const hasFinalConsonant = (n: number) => n === 1 || n === 3;
+/** Whether the Korean reading of a pane number ends in a consonant, for the particle after it: 영 일 삼 육 칠 팔 (last digit 0 1 3 6 7 8) yes, 이 사 오 구 no. */
+export const hasFinalConsonant = (n: number) => [0, 1, 3, 6, 7, 8].includes(n % 10);
 /** `와`/`과` after the Korean reading of a pane number. */
 const withParticle = (n: number) => (hasFinalConsonant(n) ? '과' : '와');
 
@@ -43,7 +43,7 @@ const KO = {
   clearPane: (n: number) => `칸 ${n} 비우기`,
   unavailable: '더는 보드에서 열 수 없는 화면',
   unavailableBody: '메뉴가 없어졌거나 보드 지원이 꺼졌습니다. 칸은 자동으로 지우지 않습니다.',
-  paneCleared: (n: number) => `칸 ${n}을 비웠습니다`,
+  paneCleared: (n: number) => `칸 ${n}${hasFinalConsonant(n) ? '을' : '를'} 비웠습니다`,
   shrinkTitle: (count: number) => `칸 ${count}개가 비워집니다`,
   shrinkBody: '줄어드는 레이아웃에 들어가지 않는 칸의 화면과 조건이 사라집니다. 바로 뒤에 실행 취소할 수 있습니다.',
   cancel: '취소',

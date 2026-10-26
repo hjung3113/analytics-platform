@@ -5,7 +5,8 @@ import { parseQuery, groupId, spaceId } from '@ap/contracts';
 import { createRegistry } from '@ap/kernel';
 import { type PaneScreen } from '@ap/kernel/host';
 import { noContext, testSpace } from '@ap/kernel/testing';
-import { applyContextToSheet, defaultQuery, copyContextToSheet, paneSignals, replacementScreen } from './paneActions';
+import { applyContextToSheet, contextValues, defaultQuery, copyContextToSheet, paneSignals, replacementScreen } from './paneActions';
+import { boardText, hasFinalConsonant } from './text';
 import { v2Sheet } from './__fixtures__/legacyBoard';
 
 const features = { export: false, savedView: false, annotate: false, compare: false, board: true };
@@ -40,6 +41,26 @@ describe('paneSignals compares the Context itself, not its displayed text', () =
     const at = (second: string) => pane(`?from=2026-09-01T00:00:${second}&to=2026-09-02T00:00:00`);
     expect(differing([at('01'), at('59')])).toEqual([['time'], ['time']]);
     expect(differing([at('01'), at('01')])).toEqual([[], []]);
+  });
+
+  it('periods that differ only by year differ although the display drops the year', () => {
+    const year = (y: string) => pane(`?from=${y}-09-25T09:00:00&to=${y}-09-26T09:00:00`);
+    expect(differing([year('2025'), year('2026')])).toEqual([['time'], ['time']]);
+    expect(differing([year('2026'), year('2026')])).toEqual([[], []]);
+  });
+
+  it('shows the period in the one display rule', () => {
+    const { global } = parseQuery('?from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
+    expect(contextValues(global, '없음').find(e => e.key === 'time')?.value).toBe('09-25 09:00 → 09-26 09:00 (24h)');
+  });
+});
+
+describe('paneCleared particle', () => {
+  it('follows the final consonant of the Korean number reading', () => {
+    const particle = (n: number) => boardText('ko').paneCleared(n).replace(/^칸 \d+/, '').slice(0, 1);
+    expect([1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(particle)).toEqual(['을', '를', '을', '를', '를', '을', '을', '을', '를', '을']);
+    expect(hasFinalConsonant(10)).toBe(true);
+    expect(boardText('en').paneCleared(2)).toBe('Cleared pane 2');
   });
 });
 
