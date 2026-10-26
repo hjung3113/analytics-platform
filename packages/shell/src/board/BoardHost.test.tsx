@@ -324,3 +324,18 @@ describe('board surface while hidden (893c, issue §3)', () => {
     expect(columns()).toBe('2');
   });
 });
+
+describe('board host: head at narrow widths (893c FIX3 UX-5)', () => {
+  it('keeps each head button named by its words and titled, and hides the words below the container width', async () => {
+    seedTwo();
+    mount('/board?sheet=a');
+    await settle();
+    expect(document.querySelector('[data-board]')).toHaveClass('@container');
+    for (const label of ['이 브라우저에만 저장', '최소화', '보드 닫기']) {
+      const button = screen.getByRole('button', { name: label });
+      expect(button).toHaveAttribute('title', label);
+      expect(button).not.toHaveAttribute('aria-label');
+      expect(button.querySelector('span')).toHaveClass('@max-[760px]:sr-only');
+    }
+  });
+});

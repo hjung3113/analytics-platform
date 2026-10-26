@@ -5310,6 +5310,30 @@ test.describe('분석 보드 최소화·복원 (#893 893c)', () => {
     await expect(page.locator('canvas[data-dock-probe="canvas"]')).toHaveCount(canvases);
   });
 
+  test('보드 머리 버튼은 600·1280·1440 폭에서 서로 겹치지 않고, 좁으면 글자 없이 아이콘만 남는다', async ({ page }) => {
+    await openSeededBoard(page);
+    const names = ['이 브라우저에만 저장', '칸 추가', '기본 배치', '최소화', '보드 닫기'];
+    for (const width of [1440, 1280, 600]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.waitForTimeout(500);
+      const boxes = [];
+      for (const name of names) {
+        const button = page.getByRole('main').getByRole('button', { name, exact: true }).first();
+        await expect(button).toBeVisible();
+        boxes.push({ name, box: (await button.boundingBox())! });
+      }
+      for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
+        const a = boxes[i].box; const b = boxes[j].box;
+        const overlap = a.x < b.x + b.width - 0.5 && b.x < a.x + a.width - 0.5 && a.y < b.y + b.height - 0.5 && b.y < a.y + a.height - 0.5;
+        expect(overlap, `${boxes[i].name} overlaps ${boxes[j].name} at ${width}px`).toBe(false);
+      }
+      for (const { name, box } of boxes) {
+        expect(box.width, `${name} width at ${width}px`).toBeGreaterThanOrEqual(24);
+        expect(box.height, `${name} height at ${width}px`).toBeGreaterThanOrEqual(24);
+      }
+    }
+  });
+
   test('닫기는 live 보드만 끝내고 저장된 시트는 남기며 /board에 남아 다시 열리지 않는다', async ({ page }) => {
     await openSeededBoard(page);
     await page.getByRole('button', { name: '보드 닫기' }).click();

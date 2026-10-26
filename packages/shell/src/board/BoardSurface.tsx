@@ -388,15 +388,15 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
     onDuplicate: () => duplicate(index), onEditContext: () => editContext(index),
   });
 
-  return <div ref={root} data-board className="relative flex h-full min-h-0 flex-col"
+  return <div ref={root} data-board className="@container relative flex h-full min-h-0 flex-col"
     onFocusCapture={event => { if (visible && event.target instanceof HTMLElement && !event.target.closest('[data-board-leave]')) rememberFocus(user.id, event.target); }}>
     <header className="flex h-[50px] shrink-0 items-center justify-between gap-3 overflow-x-auto border-b border-border-subtle bg-surface-canvas px-4">
       <div className="flex min-w-0 items-center gap-3">
         <h1 data-page-heading ref={heading} tabIndex={-1} className="min-w-28 truncate focus:outline-none text-sm font-semibold text-text-primary">{text.board}</h1>
         <Popover>
           <PopoverTrigger asChild>
-            <Button type="button" variant="ghost" size="sm" className="shrink-0" aria-haspopup="dialog">
-              <HardDrive className="size-3.5 text-text-muted" aria-hidden />{text.browserOnly}
+            <Button type="button" variant="ghost" size="sm" className="shrink-0" aria-haspopup="dialog" title={text.browserOnly}>
+              <HardDrive className="size-3.5 text-text-muted" aria-hidden /><span className="@max-[760px]:sr-only">{text.browserOnly}</span>
             </Button>
           </PopoverTrigger>
           <PopoverContent align="start" role="dialog" aria-label={text.browserOnly} className="w-72">
@@ -415,9 +415,9 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
       </ToggleGroup>
       </div>}
       {(onMinimize || onClose) && <div data-board-leave className="flex shrink-0 items-center gap-1 border-l border-border-subtle pl-2">
-        {onMinimize && <Button type="button" variant="ghost" size="sm" onClick={onMinimize}><Minus className="size-3.5" aria-hidden />{text.minimize}</Button>}
+        {onMinimize && <Button type="button" variant="ghost" size="sm" title={text.minimize} onClick={onMinimize}><Minus className="size-3.5" aria-hidden /><span className="@max-[760px]:sr-only">{text.minimize}</span></Button>}
         {onClose && <>
-          <Button type="button" variant="ghost" size="sm" aria-describedby={closeHint} onClick={onClose}><X className="size-3.5" aria-hidden />{text.closeBoard}</Button>
+          <Button type="button" variant="ghost" size="sm" title={text.closeBoard} aria-describedby={closeHint} onClick={onClose}><X className="size-3.5" aria-hidden /><span className="@max-[760px]:sr-only">{text.closeBoard}</span></Button>
           <span id={closeHint} className="sr-only">{text.closeHint}</span>
         </>}
       </div>}
