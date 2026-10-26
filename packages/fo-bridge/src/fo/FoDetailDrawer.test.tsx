@@ -1,5 +1,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from '@ap/kernel';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
@@ -59,5 +61,16 @@ describe('FoDetailDrawer', () => {
     mount(onClose, requestClose).close();
     expect(requestClose).toHaveBeenCalledOnce();
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  // #927 UX-3: jsdom computes no CSS, so pin the structure the styles.css selector relies on.
+  it('draws the one-tab content area as a region holding .fo-detail-body as a direct child, and styles.css targets that region', () => {
+    const { aside } = mount(vi.fn());
+    const region = aside.querySelector('[role="dialog"] [role="region"]')!;
+    expect(region.querySelector(':scope > .fo-detail-body')).toBeTruthy();
+    const css = readFileSync(resolve(process.cwd(), 'src/styles.css'), 'utf8');
+    const rule = css.split('}').find(block => block.includes(':has(> .fo-detail-body)'))!;
+    expect(rule).toContain('[role="region"]');
+    expect(rule).toContain('[role="tabpanel"]');
   });
 });

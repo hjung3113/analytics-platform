@@ -657,4 +657,21 @@ describe('FindingDetailPanel', () => {
     expect(screen.getByText('FIN-180')).toBeInTheDocument();
     expect(screen.queryByTestId('request-task-draft')).not.toBeInTheDocument();
   });
+
+  // #927 UX-2: the modals are controlled (no DialogTrigger), so Radix cannot return focus on its own.
+  it.each([
+    ['add-evidence-btn', 'add-evidence-modal'],
+    ['link-evidence-btn', 'link-evidence-modal'],
+  ])('returns focus to %s after Esc closes its modal', async (buttonId, modalId) => {
+    const user = userEvent.setup();
+    renderWithClient(<FullFindingDetail finding={mediumFinding} />);
+    const button = screen.getByTestId(buttonId);
+
+    await user.click(button);
+    expect(await screen.findByTestId(modalId)).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+
+    await waitFor(() => expect(screen.queryByTestId(modalId)).not.toBeInTheDocument());
+    await waitFor(() => expect(document.activeElement).toBe(button));
+  });
 });

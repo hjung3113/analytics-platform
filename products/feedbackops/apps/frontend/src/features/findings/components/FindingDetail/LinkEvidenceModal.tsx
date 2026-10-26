@@ -27,6 +27,7 @@ interface LinkEvidenceModalProps {
   managedSystemId: string;
   open: boolean;
   onClose: () => void;
+  returnFocusRef?: React.RefObject<HTMLButtonElement | null>;
 }
 
 export function LinkEvidenceModal({
@@ -34,6 +35,7 @@ export function LinkEvidenceModal({
   managedSystemId,
   open,
   onClose,
+  returnFocusRef,
 }: LinkEvidenceModalProps): React.ReactElement {
   const { notifyError, notifySuccess } = useHostSeam();
   const { key: idempotencyKey, markConsumed } = useIdempotencyKey();
@@ -89,7 +91,18 @@ export function LinkEvidenceModal({
         if (!isOpen) closeAndReset();
       }}
     >
-      <DialogContent className="max-w-lg" data-testid="link-evidence-modal">
+      <DialogContent
+        className="max-w-lg"
+        data-testid="link-evidence-modal"
+        onCloseAutoFocus={(event) => {
+          // The modal is controlled (no DialogTrigger), so Radix does not know the opener (#927 UX-2).
+          const trigger = returnFocusRef?.current;
+          if (trigger?.isConnected && !trigger.disabled) {
+            event.preventDefault();
+            trigger.focus();
+          }
+        }}
+      >
         <DialogHeader>
           <DialogTitle>기존 Evidence 연결</DialogTitle>
         </DialogHeader>
