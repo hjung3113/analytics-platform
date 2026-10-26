@@ -91,9 +91,9 @@ function Toasts({ aboveStrip }: { aboveStrip: boolean }) {
     setAssertive(list => [...list, ...fresh.filter(tst => tst.tone === 'danger').map(entry)].slice(-4));
   }, [toasts]);
   const said = (item: { id: number; said: string }) => <p key={item.id}>{item.said}</p>;
-  // Toasts sit above the command palette scrim (z-60) so their dismiss stays clickable (#310).
+  // Toasts sit above the command palette scrim (z-60) so their dismiss stays clickable (#310), and above the board's dock sashes (z-99, #886).
   // The board keeps its 41px sheet strip at the column bottom: the stack sits above it (06 Toast, bottom bars).
-  return <div data-toast-stack className={cn('pointer-events-none absolute inset-x-4 z-70 mx-auto max-w-[420px]', aboveStrip ? 'bottom-14' : 'bottom-4')}>
+  return <div data-toast-stack className={cn('pointer-events-none absolute inset-x-4 z-[100] mx-auto max-w-[420px]', aboveStrip ? 'bottom-14' : 'bottom-4')}>
     <div className="flex flex-col gap-2">
       {toasts.map(tst => <ToastItem key={tst.id} toast={tst} />)}
     </div>
@@ -117,7 +117,10 @@ function ToastItem({ toast: tst }: { toast: Toast }) {
     if (inside.current.focus || inside.current.pointer) holdToast(id, false);
   }, [id, holdToast]);
   const Icon = tst.tone === 'danger' ? XCircle : tst.tone === 'warning' ? AlertTriangle : Info;
-  return <div data-toast-item
+  // A toast that leaves with focus inside hands focus to main, not to <body>; an action that moves focus itself runs after and wins (#886).
+  const root = useRef<HTMLDivElement>(null);
+  const leave = () => { if (root.current?.contains(document.activeElement)) document.getElementById('platform-main')?.focus({ preventScroll: true }); };
+  return <div ref={root} data-toast-item
     onFocus={() => hold('focus', true)} onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget)) hold('focus', false); }}
     onPointerEnter={() => hold('pointer', true)} onPointerLeave={() => hold('pointer', false)}
     className={cn('pointer-events-auto flex items-start gap-2 rounded-md border bg-surface-card px-3 py-2.5 text-xs shadow-lg',
@@ -127,7 +130,7 @@ function ToastItem({ toast: tst }: { toast: Toast }) {
       {/* Same named detail as StateMessage's server detail (#304 F2): the original stays visible, outside the body. */}
       {tst.detail && <span role="note" aria-label={t('serverDetail')} className="mt-0.5 block max-w-full break-all text-tiny">{tst.detail}</span>}
     </span>
-    {action && <button type="button" onClick={() => { action.onAction(); dismissToast(id); }} className="font-medium text-accent-primary hover:underline">{action.label}</button>}
-    <button type="button" aria-label={lang === 'ko' ? '닫기' : 'Dismiss'} onClick={() => dismissToast(id)} className="text-text-muted hover:text-text-primary"><X className="size-3.5" aria-hidden /></button>
+    {action && <button type="button" onClick={() => { leave(); action.onAction(); dismissToast(id); }} className="font-medium text-accent-primary hover:underline">{action.label}</button>}
+    <button type="button" aria-label={lang === 'ko' ? '닫기' : 'Dismiss'} onClick={() => { leave(); dismissToast(id); }} className="text-text-muted hover:text-text-primary"><X className="size-3.5" aria-hidden /></button>
   </div>;
 }

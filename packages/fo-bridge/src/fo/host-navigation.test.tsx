@@ -257,6 +257,20 @@ describe('FoBridge seam notices', () => {
   });
 
   // Infinity would fire the kernel's setTimeout at once; the bridge drops it so the kernel default (8000 ms with an action) applies (#763 D5).
+  it('notify without a duration keeps FO undo notices to the 8 s undo window (#886 UX-2)', async () => {
+    const live = mountSeam();
+    await waitFor(() => expect(live.seam).toBeDefined());
+    vi.useFakeTimers();
+    try {
+      act(() => { live.seam!.notify!({ tone: 'success', message: 'VOC-1 Triage 확정됨', action: { label: '실행 취소', onAction: () => undefined } }); });
+      expect(live.toasts).toHaveLength(1);
+      act(() => { vi.advanceTimersByTime(7999); });
+      expect(live.toasts).toHaveLength(1);
+      act(() => { vi.advanceTimersByTime(1); });
+      expect(live.toasts).toHaveLength(0);
+    } finally { vi.useRealTimers(); }
+  });
+
   it('notify with a non-finite duration keeps the action toast until it is dismissed (kernel action default, #886)', async () => {
     const live = mountSeam();
     await waitFor(() => expect(live.seam).toBeDefined());

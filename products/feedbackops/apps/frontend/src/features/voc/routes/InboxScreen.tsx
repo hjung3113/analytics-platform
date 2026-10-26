@@ -109,7 +109,8 @@ export function InboxScreen({ view, renderDetail }: InboxScreenProps): React.Rea
               </Button>
             ) : undefined
           ) : (
-            <div className="flex items-center gap-2">
+            // #886 UX-7: on a narrow toolbar the actions get their own row; the controls wrap within it rather than overflow.
+            <div className="flex flex-wrap items-center justify-end gap-2">
               {/* #821: server-side text search on GET /vocs. The box is a local
                 draft; useCommittedSearchDraft writes the URL q on debounce or
                 Enter/blur (#864). */}

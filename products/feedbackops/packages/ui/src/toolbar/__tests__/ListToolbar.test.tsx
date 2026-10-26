@@ -154,20 +154,13 @@ describe('ListToolbar — tabs mode', () => {
     expect(
       container.querySelectorAll('[data-list-toolbar-main], [data-list-toolbar-actions]'),
     ).toHaveLength(2);
-    for (const row of container.querySelectorAll(
-      '[data-list-toolbar-main], [data-list-toolbar-actions]',
-    )) {
-      expect(row.className).toMatch(/(^|\s)h-toolbar(\s|$)/);
-      expect(row.className).not.toMatch(/(^|\s)(border|p[tby]?-|m[tby]-)/);
-    }
-    expect(container.querySelector('[data-list-toolbar-main]')?.className).toContain('h-toolbar');
-    expect(container.querySelector('[data-list-toolbar-actions]')?.className).toContain(
-      'h-toolbar',
-    );
-    expect(container.querySelector('[data-list-toolbar-main]')?.className).toContain('h-toolbar');
-    expect(container.querySelector('[data-list-toolbar-actions]')?.className).toContain(
-      'h-toolbar',
-    );
+    // The tab row is exactly one row; the action row is at least one and grows only when its own controls wrap (#886 UX-1).
+    const main = container.querySelector('[data-list-toolbar-main]');
+    const actions = container.querySelector('[data-list-toolbar-actions]');
+    expect(main?.className).toMatch(/(^|\s)h-toolbar(\s|$)/);
+    expect(main?.className).not.toMatch(/(^|\s)(border|p[tby]?-|m[tby]-)/);
+    expect(actions).toHaveClass('min-h-toolbar', 'min-w-0', 'max-w-full');
+    expect(actions?.className).not.toMatch(/(^|\s)(h-toolbar|shrink-0|border)(\s|$)/);
   });
 
   it('wraps the action block to its own right-aligned row on the toolbar width, not the viewport', () => {

@@ -75,7 +75,7 @@ export function ListToolbar({
 
       {action !== undefined && (
         <div
-          className="ml-auto flex h-toolbar shrink-0 items-center"
+          className="ml-auto flex min-h-toolbar min-w-0 max-w-full items-center py-2"
           data-list-toolbar-actions
         >
           {action}

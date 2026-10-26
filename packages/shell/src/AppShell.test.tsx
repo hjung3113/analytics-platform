@@ -1119,7 +1119,7 @@ describe('toast stack placement and live regions (#886)', () => {
     // The column itself stays unpositioned so absolute content inside main keeps main as its clip (#886 E2E PageFilterBar).
     expect(column).not.toHaveClass('relative');
     expect(column.contains(document.getElementById('platform-main'))).toBe(true);
-    expect(stack).toHaveClass('absolute', 'inset-x-4', 'mx-auto', 'max-w-[420px]', 'bottom-4');
+    expect(stack).toHaveClass('absolute', 'inset-x-4', 'mx-auto', 'max-w-[420px]', 'bottom-4', 'z-[100]');
     expect(stack).not.toHaveClass('fixed');
     expect(stack.closest('aside')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'fire info' }));
@@ -1151,6 +1151,15 @@ describe('toast stack placement and live regions (#886)', () => {
     expect(before[1]!.textContent).toBe('오류: 실패');
     fireEvent.click(screen.getByRole('button', { name: 'fire info' }));
     expect(before[0]!.textContent).toBe('알림: 안내Notice: 안내');
+  });
+  it('hands focus to main when a focused toast closes, not to <body> (#886 UX-3)', () => {
+    mount();
+    fireEvent.click(screen.getByRole('button', { name: 'fire info' }));
+    const close = within(document.querySelector<HTMLElement>('[data-toast-item]')!).getByRole('button', { name: '닫기' });
+    close.focus();
+    fireEvent.click(close);
+    expect(document.querySelector('[data-toast-item]')).toBeNull();
+    expect(document.activeElement).toBe(document.getElementById('platform-main'));
   });
   it('keeps newest at the bottom across tones: danger A then info B puts B below A', () => {
     mount();
