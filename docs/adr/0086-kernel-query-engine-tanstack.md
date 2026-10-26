@@ -39,7 +39,7 @@ B. 조회 수명주기 계약의 원본은 [06 §19](../06_platform_ui_contract.
 ## 결과
 
 - 같은 메뉴·Context를 읽는 칸·컴포넌트는 요청 하나를 나눈다. 뒤로/앞으로/다시 마운트는 5분 안이면 이전 결과를 `refreshing`으로 보이고 다시 읽는다(`completedAt`은 그 결과의 시각). 06 §19를 이에 맞춰 고쳤다.
-- TanStack은 관찰자를 `setTimeout(0)`으로 알린다. 미세 작업만 기다리던 테스트 flush는 매크로태스크를 기다린다. `notifyManager`의 스케줄러는 바꾸지 않는다(FO와 공유 모듈).
+- TanStack은 관찰자를 `setTimeout(0)`으로 알린다. 미세 작업만 기다리던 테스트 flush는 매크로태스크를 기다린다 — `@ap/kernel/testing`의 `settleQueries()`(#907)가 이 대기를 맡는다. `notifyManager`의 스케줄러는 바꾸지 않는다(FO와 공유 모듈).
 - 어댑터 객체가 바뀌면 새 세션 세대라 다시 읽는다(ADR-0071 §5). 테스트가 렌더마다 어댑터를 새로 만들면 매번 다시 읽는다.
 - 새 런타임 의존 하나: SDK 소비자가 다른 버전의 react-query를 쓰면 두 벌이 번들된다. 공개 API 변화는 없다.
 
