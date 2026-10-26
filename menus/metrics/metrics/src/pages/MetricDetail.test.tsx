@@ -233,6 +233,27 @@ describe('MetricDetail change history reads the shared audit store (#90, ADR-004
   });
 });
 
+/**
+ * #741 diagnostics: the appended page has twice failed to show in CI only (never locally, under load or with reordered reads).
+ * Same wait as `findByText`; on a timeout the error states what the paging did — the cursors asked, whether each request was
+ * aborted, and the older-changes button's state — so the next failure names its cause. Remove with the #741 fix.
+ */
+async function findAppended(text: string, requests: readonly { cursor: string | undefined; signal: AbortSignal | undefined; done: boolean }[]) {
+  const started = performance.now();
+  try {
+    return await screen.findByText(text);
+  } catch (error) {
+    // `다시 시도` is the same control after a failed load; queryAll so two matches cannot throw inside this catch.
+    const button = screen.queryAllByRole('button').find(node => /이전 변경 이력 더 보기|다시 시도/.test(node.textContent ?? ''));
+    const list = document.querySelector('ol');
+    const alert = screen.queryAllByRole('alert').map(node => node.textContent).join(' | ');
+    // `done`: the adapter answered (vs. never answered); `aborted`: the kernel's own signal for that request.
+    const asked = requests.map(({ cursor, signal, done }) => ({ cursor: cursor ?? null, done, aborted: signal?.aborted ?? null }));
+    const state = button ? `"${button.textContent}" aria-busy=${button.getAttribute('aria-busy')} aria-disabled=${button.getAttribute('aria-disabled')}` : 'gone';
+    throw new Error(`#741 diagnostics: "${text}" not shown after ${Math.round(performance.now() - started)}ms; requests=${JSON.stringify(asked)}; button ${state}; list ${list ? `aria-busy=${list.getAttribute('aria-busy')}` : 'absent'}; alerts=${alert || 'none'}`, { cause: error });
+  }
+}
+
 describe('MetricDetail change history pages (ADR-0085)', () => {
   const recorded = (id: string, minute: number, reason: string): AuditEvent => ({
     id, at: `2026-09-20T02:${String(minute).padStart(2, '0')}:00.000Z`, actor: 'park.seo', action: 'update', source: 'user', target: { type: 'metric', id: 'cycle_time', scopeId: null }, reason,
@@ -240,18 +261,22 @@ describe('MetricDetail change history pages (ADR-0085)', () => {
 
   it('shows the older-changes button for a first page with a cursor and appends the next page on press', async () => {
     const cursors: (string | undefined)[] = [];
+    const requests: { cursor: string | undefined; signal: AbortSignal | undefined; done: boolean }[] = [];
     const adapter: PlatformAdapter = {
       ...fixtureAdapter(),
-      entityAudit: async req => {
+      entityAudit: async (req, signal) => {
         cursors.push(req.cursor);
+        const request = { cursor: req.cursor, signal, done: false };
+        requests.push(request);
         const data = req.cursor === undefined ? { events: [recorded('v5', 5, '새 변경')], nextCursor: 'c1' } : { events: [recorded('v4', 4, '옛 변경')], nextCursor: null };
+        request.done = true;
         return { outcome: 'ok', data, assessments: [], trust: null, correlationId: 'corr-audit' };
       },
     };
     renderDetail('/metrics/cycle_time?version=4', 'cycle_time', adapter);
     expect(await screen.findByText('새 변경')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: '이전 변경 이력 더 보기' }));
-    expect(await screen.findByText('옛 변경')).toBeTruthy();
+    expect(await findAppended('옛 변경', requests)).toBeTruthy();
     expect(cursors).toEqual([undefined, 'c1']);
   });
 });
