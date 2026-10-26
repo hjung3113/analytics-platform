@@ -43,7 +43,7 @@
 
 ## 검증
 
-- 코드를 바꿨으면 커밋 전에 `pnpm lint && pnpm typecheck && pnpm test && pnpm build`가 모두 0으로 끝나야 한다. `--force` 없이 worktree 공용 turbo 캐시를 써서 바뀐 패키지와 그 의존자만 다시 돌게 한다. 작업 중에는 `pnpm --filter <pkg> …`로 충분하다.
+- 이슈의 첫 구현 커밋 전에는 `pnpm lint && pnpm typecheck && pnpm test && pnpm build`가 모두 0으로 끝나야 한다. 수정 라운드와 ship 직전은 아래 PROFILE 규칙을 따르며 `build`를 다시 돌리지 않을 수 있다. `--force` 없이 worktree 공용 turbo 캐시를 써서 바뀐 패키지와 그 의존자만 다시 돌게 한다. 작업 중에는 `pnpm --filter <pkg> …`로 충분하다.
 - 전체 검사의 기록은 PR CI다(CI는 범위를 줄이지 않고 cold로 전체를 돈다). 수정 라운드와 ship 직전에 로컬에서 무엇을 다시 돌리는지는 [`PROFILE.md`](.agents/conductor/PROFILE.md) §Verify의 「수정 라운드」·「Final head」를 따른다(#945).
 - 화면이 바뀌면 브라우저로 확인한다. Kernel·셸·공통 컴포넌트·mock 서버를 바꾸면 관련 E2E만 `apps/platform-e2e`에서 `pnpm exec playwright test -g "<describe>"`로 돌린다. 로컬에서 전체 `pnpm e2e`는 돌리지 않는다(CI 실패 재현 때만). 새 describe와 브리프 「영향 범위」가 적은 describe만 `-g`로 돌린다. CI가 전체 E2E를 다시 돌리고 항목별 보고(`apps/platform-e2e/contract-report/`)를 남긴다.
 - `main`은 ruleset `main: required CI`(2026-10-23, #670 D2)로 보호한다. `Platform workspace (pnpm monorepo)`·`Platform contracts (E2E)` 두 검사가 통과해야 병합되고, force push와 삭제는 막힌다. 브랜치가 최신일 필요는 없다(strict 아님).
