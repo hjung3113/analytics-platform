@@ -1,9 +1,9 @@
 import { Ban } from 'lucide-react';
-import { useLayoutEffect, useRef, useState, type CSSProperties, type ComponentType, type ReactNode, type RefObject } from 'react';
+import { Suspense, useLayoutEffect, useRef, useState, type CSSProperties, type ComponentType, type ReactNode, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { useI18n, type MenuEntry } from '@ap/kernel';
 import { PaneScreenProvider, useHostPlatform, type PaneScreen } from '@ap/kernel/host';
-import { StateMessage } from '@ap/components';
+import { LoadingBlock, StateMessage } from '@ap/components';
 import { WorkspaceCommandsHost } from '@ap/components/dock';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, cn, TransientOverlayScope } from '@ap/ui';
 import { admitPaneScreen } from './boardMenus';
@@ -126,7 +126,11 @@ export function BoardPane({ dock = false, dockHead, onClosePane, placement, hidd
           </div>
         </div>
         : admitted
-          ? <PaneScreenProvider paneId={paneId} paneLabel={text.paneCaption(number, menuName)} screen={screen} onChange={onChange} onLeave={onLeave}><Outlet /></PaneScreenProvider>
+          ? <PaneScreenProvider paneId={paneId} paneLabel={text.paneCaption(number, menuName)} screen={screen} onChange={onChange} onLeave={onLeave}>
+            {/* The pane's own boundary (#915): a pane whose menu screen is still loading shows its own skeleton, instead of suspending to the
+                dock's boundary and covering every pane and tab strip again. */}
+            <Suspense fallback={<div className="p-4"><LoadingBlock rows={4} height={240} /></div>}><Outlet /></Suspense>
+          </PaneScreenProvider>
           : <div className="p-4">
             <StateMessage tone="warning" icon={<Ban className="size-4" aria-hidden />} title={text.unavailable} body={text.unavailableBody}
               action={<Button type="button" size="sm" variant="secondary" onClick={clear}>{text.clear}</Button>} />

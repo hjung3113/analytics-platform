@@ -27,6 +27,7 @@
 
 | 버전 | 패키지 | 바뀐 공개 API | 이전 방법 |
 | --- | --- | --- | --- |
+| 다음 릴리스 | components·shell | 성능(#915 2부) — 호스트 전용 `DockLayout`도 엔진 청크 lazy 하나를 같이 쓴다: 받은 뒤 새로 마운트되는 레이아웃(보드 재방문·다음 화면의 작업 영역)은 로딩 스켈레톤 없이 첫 commit에 그려진다. 분석 보드 칸은 칸마다 Suspense 경계를 둬, 메뉴 화면 청크를 받는 동안 그 칸에만 스켈레톤을 그리고 다른 칸·탭 줄을 덮지 않는다(보드 첫 로드에서 칸이 보이는 시각 약 990→390 ms, 첫 차트 약 1.6→1.1 s). 공개 API는 그대로 | 없음 |
 | 다음 릴리스 | components | 성능(#915) — `EChart`가 차트 청크의 lazy 컴포넌트 하나를 모든 차트에서 같이 쓴다. 청크를 한 번 받은 뒤 새로 마운트되는 차트(드릴 단계·새 보드 칸)는 로딩 스켈레톤 없이 첫 commit에 그려진다(드릴 단계당 약 200–270 ms 단축). 청크 실패 뒤 '다시 시도'는 그대로 다시 받는다. 공개 API는 그대로 | 없음 |
 | 다음 릴리스 | ui | 추가(#891) — `FieldRow`의 `layout="detail"`(상세 패널 속성 목록: 9rem 라벨 칸·행 구분선·문자열 라벨 camelCase 접기·값 tabular)과 `mono?: boolean`(값을 고정폭으로). `label`은 `string`에서 `ReactNode`로 넓어졌다. `FieldList`는 `className`이 없으면 빈 `class` 속성을 붙이지 않는다 | 없음 |
 | 다음 릴리스 | components | **폐기 예고**(#891, ADR-0044) — `Field`. 다음 SDK 릴리스에서 지운다 | `<dl><Field label mono>…</Field></dl>`를 `@ap/ui`의 `<FieldList><FieldRow layout="detail" label mono>…</FieldRow></FieldList>`로 바꾼다. 그려지는 DOM이 같다(`Field.test.tsx`) |
