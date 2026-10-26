@@ -9,10 +9,10 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 
 const target = new URL('../src/vocab.json', import.meta.url);
-const { KERNEL_PERMISSIONS } = await import('../src/menu.ts');
-const { AUDIT_ACTIONS } = await import('../src/audit.ts');
-const { USAGE_VIAS } = await import('../src/adapter.ts');
-const { OUTCOMES } = await import('../src/response.ts');
+const { KERNEL_PERMISSIONS } = await import('../src/menu/menu.ts');
+const { AUDIT_ACTIONS } = await import('../src/adapter/audit.ts');
+const { USAGE_VIAS } = await import('../src/adapter/adapter.ts');
+const { OUTCOMES } = await import('../src/adapter/response.ts');
 
 const vocab = {
   kernelPermissions: KERNEL_PERMISSIONS,

@@ -1,4 +1,4 @@
-import type { Condition, IdSet } from './url.js';
+import type { Condition, IdSet } from '../links/url.js';
 
 export const PORT_ERROR_CODES = ['invalid_input', 'unknown_axis', 'invalid_cursor', 'invalid_period', 'membership_basis_unsupported', 'unknown_scope', 'scope_forbidden', 'room_forbidden'] as const;
 export type PortErrorCode = typeof PORT_ERROR_CODES[number];

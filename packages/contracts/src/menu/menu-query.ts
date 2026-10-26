@@ -1,6 +1,6 @@
-import type { AssessmentKind } from './response.js';
+import type { AssessmentKind } from '../adapter/response.js';
 import type { Capability, ContextKey, Permission } from './menu.js';
-import type { Condition, GlobalContext } from './url.js';
+import type { Condition, GlobalContext } from '../links/url.js';
 
 /** Menu endpoint declaration shared by the client and server. */
 export type EndpointSpec<P, T> = {

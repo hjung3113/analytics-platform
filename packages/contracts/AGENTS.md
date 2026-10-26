@@ -4,6 +4,8 @@
 
 ## 파일
 
+`src/` 배치(ADR-0090, #713e): 루트에는 공개 진입점 `index.ts`, 생성 산출물 `vocab.json`(`exports`가 가리킨다), `globals.d.ts`, 갈래를 가로지르는 `guards.ts`·`i18n.ts`만 둔다. 나머지는 폴더다 — `adapter/`(포트·동작·감사·응답·페이징·선택 포트·상관 ID), `menu/`(메뉴 선언·조회 선언·필수 Context), `links/`(URL codec·`returnTo`·FeedbackOps 링크·적용 이력), `host/`(호스트 → 모듈 계약), `values/`(기간·측정값·시점). 아래 목록의 파일명은 이 폴더 안 파일이다. 공개 API는 `index.ts`뿐이라 이동은 import 경로만 바꾼다.
+
 - `query-history.ts` — 적용 이력 저장 포트·항목·키와 결정적 정렬/id. 저장소가 병합·횟수·시각·20건 보존을 소유한다(06 §11).
 - `url.ts` — 전역 Context URL codec(`parseQuery`, `buildQuery`, `isAppRelativePath` 등). 06 §6 URL 계약의 구현.
 - `feedbackops-link.ts` — FeedbackOps ↔ 플랫폼 딥링크 codec. 원본은 [통합 계약](../../docs/integration/feedbackops-deeplink.md)이며 이 파일은 구현이다.
