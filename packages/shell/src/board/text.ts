@@ -116,6 +116,11 @@ const KO = {
   paneTab: (n: number, name: string | null) => (name === null ? `칸 ${n} · 빈 칸` : `칸 ${n} · ${name}`),
   addPane: '칸 추가',
   paneLimit: '칸은 시트당 4개까지입니다.',
+  addInGroup: '이 묶음에 분석 탭 추가',
+  groupAddTitle: (n: number) => `칸 ${n} 묶음에 추가할 분석 화면`,
+  groupAddLimit: '시트당 분석 화면은 4개까지입니다. 새 탭을 더하려면 칸을 먼저 닫으세요(내용이 있는 칸은 비운 뒤 닫습니다).',
+  groupAddGone: '선택하는 사이 대상 묶음이 바뀌어 추가하지 않았습니다. 묶음의 + 버튼을 다시 눌러 주세요.',
+  groupAddUnavailable: '이 화면은 지금 보드에 넣을 수 없습니다. 다른 화면을 고르세요.',
   defaultLayout: '기본 배치',
   closePane: (n: number) => `칸 ${n} 닫기`,
   paneClosed: (closed: number, count: number) => {
@@ -240,6 +245,11 @@ const EN: Strings<typeof KO> = {
   paneTab: (n: number, name: string | null) => (name === null ? `Pane ${n} · empty` : `Pane ${n} · ${name}`),
   addPane: 'Add pane',
   paneLimit: 'A sheet has at most 4 panes.',
+  addInGroup: 'Add analysis tab to this group',
+  groupAddTitle: (n: number) => `Analysis screen to add to the group of pane ${n}`,
+  groupAddLimit: 'A sheet has at most 4 analysis screens. To add a tab, close a pane first (clear a pane that has content, then close it).',
+  groupAddGone: 'The target group changed while you were choosing, so nothing was added. Press the + of the group again.',
+  groupAddUnavailable: 'This screen cannot be placed on the board now. Choose another one.',
   defaultLayout: 'Default layout',
   closePane: (n: number) => `Close pane ${n}`,
   paneClosed: (closed: number, count: number) => `Closed pane ${closed}.` + (count > closed

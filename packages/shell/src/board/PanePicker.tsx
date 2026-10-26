@@ -5,8 +5,8 @@ import { placeableMenus } from './boardMenus';
 import { boardText } from './text';
 
 /** `분석 화면 넣기`: the board-declared menus the user can open, grouped by business system (docs/16 §4). */
-export function PanePicker({ open, paneNumber, onOpenChange, onPick, onCloseAutoFocus }: {
-  open: boolean; paneNumber: number; onOpenChange: (open: boolean) => void; onPick: (menu: MenuEntry) => void;
+export function PanePicker({ open, title, notice, onOpenChange, onPick, onCloseAutoFocus }: {
+  open: boolean; title: string; notice?: string | null; onOpenChange: (open: boolean) => void; onPick: (menu: MenuEntry) => void;
   onCloseAutoFocus: (event: Event) => void;
 }) {
   const { registry, canOpen } = usePlatform();
@@ -26,9 +26,10 @@ export function PanePicker({ open, paneNumber, onOpenChange, onPick, onCloseAuto
   return <Dialog open={open} onOpenChange={onOpenChange}>
     <DialogContent closeLabel={text.close} onCloseAutoFocus={onCloseAutoFocus} className="max-h-[80vh] overflow-y-auto">
       <DialogHeader>
-        <DialogTitle>{text.insertTitle(paneNumber)}</DialogTitle>
+        <DialogTitle>{title}</DialogTitle>
         <DialogDescription>{text.insertBody}</DialogDescription>
       </DialogHeader>
+      {notice && <p role="alert" className="text-sm text-text-secondary">{notice}</p>}
       {groups.length === 0 ? <p className="text-sm text-text-secondary">{text.insertEmpty}</p>
         : groups.map(group => <section key={group.label} aria-label={group.label} className="grid gap-1">
           <h3 className="text-tiny font-semibold uppercase tracking-wide text-text-secondary">{group.label}</h3>

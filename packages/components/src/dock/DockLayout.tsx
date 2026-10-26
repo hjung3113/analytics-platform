@@ -15,6 +15,8 @@ const tabOf = (target: EventTarget | null, root: Element | null) => {
   const tab = target instanceof Element ? target.closest<HTMLElement>('[role="tab"][data-tab-panel-id]') : null;
   return tab && tab.closest('[data-dock-layout]') === root ? tab : null;
 };
+/** The header slots of a group, in DOM (= Tab) order: after the tabs, then the right side. */
+const SLOT = '[data-dock-group-tabs-end], [data-dock-group-actions]';
 const NAVIGATION_KEYS = new Set(['Enter', ' ', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End']);
 const TABBABLE = 'a[href], button, input:not([type="hidden"]), select, textarea, summary, [tabindex], [contenteditable="true"]';
 
@@ -130,7 +132,7 @@ export function DockLayout(props: DockLayoutProps) {
 
 /** Internal (the workspace imports it from this file; `index.ts` does not): `DockLayout` plus the row capability of `DockRows`. */
 export function DockLayoutBase(props: DockLayoutProps & { rows?: DockRows; reveal?: { panelId: string; seq: number } | null }) {
-  const { rows, reveal, panels, layout, onLayoutChange, onActivate, maximizedPanelId = null, onMaximizedChange, onPanelDelete, renderTab, renderGroupActions, separatorLabel, stackBelow, label, currentPanelId, tabA11y } = props;
+  const { rows, reveal, panels, layout, onLayoutChange, onActivate, maximizedPanelId = null, onMaximizedChange, onPanelDelete, renderTab, renderGroupActions, renderGroupTabsEnd, separatorLabel, stackBelow, label, currentPanelId, tabA11y } = props;
   const { t } = useI18n();
   const instanceId = useId();
   const container = useRef<HTMLDivElement>(null);
@@ -187,7 +189,7 @@ export function DockLayoutBase(props: DockLayoutProps & { rows?: DockRows; revea
   }, [maximized, focusTab]);
 
   /**
-   * Tab order of a group: its active tab, the buttons of its header slot (`renderGroupActions`), then its visible panel's content; then the
+   * Tab order of a group: its active tab, the buttons of its header slots (`renderGroupTabsEnd` after the tabs, then `renderGroupActions`), then its visible panel's content; then the
    * next group's tab, groups in reading order (the engine's DOM puts every tab strip before every panel, in tree order). Only the steps between
    * those parts, and the step out of a panel's first or last stop, are made here; Tab inside the slot or the content is the browser's.
    * Returns whether it moved focus. After the last group (and before the first) focus leaves for the next (previous) focusable outside the layout.
@@ -206,12 +208,12 @@ export function DockLayoutBase(props: DockLayoutProps & { rows?: DockRows; revea
         const id = tab.dataset.tabPanelId ?? '';
         const group = tab.closest('.dv-groupview');
         const panel = Array.from(root.querySelectorAll<HTMLElement>('[data-dock-panel]')).find(item => item.dataset.dockPanel === id && item.dataset.dockVisible === 'true' && item.closest('[data-dock-layout]') === root) ?? null;
-        const slot = group?.querySelector<HTMLElement>('[data-dock-group-actions]') ?? null;
-        return { tab, panel, group, slot, order: reading.get(id) ?? 0 };
+        const slots = Array.from(group?.querySelectorAll<HTMLElement>(SLOT) ?? []);
+        return { tab, panel, group, slots, order: reading.get(id) ?? 0 };
       })
       .sort((a, b) => a.order - b.order);
     type Stop = (typeof stops)[number];
-    const slotItems = (stop: Stop) => (stop.slot ? tabbablesIn(stop.slot) : []);
+    const slotItems = (stop: Stop) => stop.slots.flatMap(slot => tabbablesIn(slot));
     const contentItems = (stop: Stop) => (stop.panel ? tabbablesIn(stop.panel) : []);
     /** The first (or last) place Tab can stop in the group: tab, then slot, then content. */
     const enter = (stop: Stop, last: boolean) => {
@@ -242,9 +244,9 @@ export function DockLayoutBase(props: DockLayoutProps & { rows?: DockRows; revea
       enter(stops[at - 1]!, true);
       return true;
     }
-    const slot = target.closest<HTMLElement>('[data-dock-group-actions]');
+    const slot = target.closest<HTMLElement>(SLOT);
     if (slot && slot.closest('[data-dock-layout]') === root) {
-      const at = stops.findIndex(stop => stop.slot === slot);
+      const at = stops.findIndex(stop => stop.slots.includes(slot));
       if (at < 0) return false;
       const stop = stops[at]!;
       const items = slotItems(stop);
@@ -339,7 +341,7 @@ export function DockLayoutBase(props: DockLayoutProps & { rows?: DockRows; revea
     <ChunkLoadBoundary key={attempt} onError={onError}>
       <Suspense fallback={<div role="status" aria-busy className="h-full w-full"><Skeleton className="h-full w-full" /></div>}>
         <DockEngine panels={panels} layout={layout} display={display} interactive={!narrow} maximizedPanelId={maximized} visible={visible} minPanelSize={minPanelSize}
-          onLayoutChange={onLayoutChange} onActivate={activate} renderTab={renderTab} renderGroupActions={renderGroupActions} tabA11y={tabA11y} separatorLabel={separatorLabel}
+          onLayoutChange={onLayoutChange} onActivate={activate} renderTab={renderTab} renderGroupActions={renderGroupActions} renderGroupTabsEnd={renderGroupTabsEnd} tabA11y={tabA11y} separatorLabel={separatorLabel}
           containerRef={container} instanceId={instanceId} rows={narrow ? undefined : rows} />
       </Suspense>
     </ChunkLoadBoundary>

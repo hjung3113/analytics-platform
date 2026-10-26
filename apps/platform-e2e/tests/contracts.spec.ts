@@ -783,13 +783,52 @@ test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
     // While the screen is still loading the pane has no focusable control yet; wait for its first one.
     await expect(page.locator('[data-pane-index="0"]').getByRole('radio', { name: '시간' })).toBeVisible();
     await paneTab(page, 1).focus();
+    // The group's `+` (#893 893a) is the first stop after the tab, then the head buttons.
+    await page.keyboard.press('Tab');
+    await expect(page.locator('[data-group-add]:focus')).toHaveCount(1);
     await page.keyboard.press('Tab');
     await expect.poll(inHead).toBe(true);
     for (let step = 0; step < 6 && await inHead(); step++) await page.keyboard.press('Tab');
     await expect.poll(paneOfFocus).toBe('0');
     for (let step = 0; step < 6 && !(await inHead()); step++) await page.keyboard.press('Shift+Tab');
     for (let step = 0; step < 6 && await inHead(); step++) await page.keyboard.press('Shift+Tab');
+    await expect(page.locator('[data-group-add]:focus')).toHaveCount(1);
+    await page.keyboard.press('Shift+Tab');
     await expect(paneTab(page, 1)).toBeFocused();
+  });
+
+  test('묶음 +는 탭이 하나여도 둘이어도 마지막 탭 바로 뒤에 있고, 선택기를 거쳐 그 묶음에 새 탭을 더하며 취소는 아무것도 바꾸지 않는다 (#893)', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await signInWithDockBoard(page, [populated('dock', '1x2', 2)]);
+    await dockReady(page, 2);
+    const gapAfterLastTab = async (group: number) => page.evaluate(index => {
+      const root = document.querySelectorAll('[data-dock-layout] .dv-groupview')[index]!;
+      const tabs = Array.from(root.querySelectorAll('[role="tab"]'));
+      const plus = root.querySelector('[data-group-add]')!.getBoundingClientRect();
+      const last = tabs[tabs.length - 1]!.getBoundingClientRect();
+      return { gap: plus.left - last.right, width: plus.width, height: plus.height, tabs: tabs.length };
+    }, group);
+    const one = await gapAfterLastTab(0);
+    expect(one.tabs).toBe(1);
+    expect(one.gap).toBeGreaterThanOrEqual(0);
+    expect(one.gap).toBeLessThanOrEqual(8);
+    expect(one.width).toBeGreaterThanOrEqual(24);
+    expect(one.height).toBeGreaterThanOrEqual(24);
+    const add = page.locator('[data-group-add]').first();
+    await add.click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden();
+    await expect(paneTabs(page)).toHaveCount(2);
+    await expect(add).toBeFocused();
+    await add.click();
+    await dialog.getByRole('button').first().click();
+    await expect(paneTabs(page)).toHaveCount(3);
+    const two = await gapAfterLastTab(0);
+    expect(two.tabs).toBe(2);
+    expect(two.gap).toBeGreaterThanOrEqual(0);
+    expect(two.gap).toBeLessThanOrEqual(8);
   });
 
   test('기본 2×2에서 Tab은 칸 1→2→3→4 순서다', async ({ page }) => {

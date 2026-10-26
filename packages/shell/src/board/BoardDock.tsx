@@ -1,9 +1,9 @@
-import { X } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { DockLayout, dockLayoutMenu, movePanel, type DockPanel } from '@ap/components/dock';
 import { useI18n } from '@ap/kernel';
 import { useHostPlatform, type PaneScreen } from '@ap/kernel/host';
-import { DropdownMenuItem, DropdownMenuSeparator } from '@ap/ui';
+import { Button, DropdownMenuItem, DropdownMenuSeparator } from '@ap/ui';
 import { effectiveTree, fromDockTree, groupHolding, toDockTree } from './boardDockTree';
 import { indexOfPane, selectedIndex, setTree, type Board, type Sheet } from './boardModel';
 import { BoardPane, type BoardPaneProps } from './BoardPane';
@@ -14,6 +14,8 @@ import { boardText } from './text';
 /** Below this container width every pane sits in one tab group (692px, docs/16 §4): two panes side by side at their minimum width plus the gap. */
 const STACK_BELOW = 2 * PANE_MIN_WIDTH + GRID_GAP;
 const MIN_PANEL_SIZE = { width: PANE_MIN_WIDTH, height: PANE_HEADER_HEIGHT + PANE_BODY_MIN_HEIGHT };
+
+const GROUP_ADD_OFF = 'board-group-add-off';
 
 /** What `BoardScreen` wires for every pane in both renderers; the dock adds its own frame, head slot and close. */
 export type DockPaneProps = Omit<BoardPaneProps, 'dock' | 'dockHead' | 'onClosePane' | 'placement' | 'hidden' | 'collapsed' | 'maximized' | 'sizing' | 'canMaximize' | 'collapseOff' | 'onCollapse' | 'onMaximize'>;
@@ -33,6 +35,10 @@ export type BoardDockProps = {
   /** The dock has taken the `newPane` request; the owner drops it so a later mount of this dock does not focus a pane added long ago. */
   onNewPaneHandled: () => void;
   heading: RefObject<HTMLHeadingElement | null>;
+  /** The `+` after a group's last tab was pressed: `anchorPaneId` is the group's active pane (the stored group holding it is the target), `trigger` the button, for the focus return. */
+  onAddInGroup: (anchorPaneId: string, trigger: HTMLElement) => void;
+  /** The sheet has 4 panes: the `+` stays pressable and says why nothing can be added (`aria-describedby`). */
+  groupAddOff: boolean;
 };
 
 /** A group's header slot for its active pane: where that pane draws its head (`BoardPane` `dockHead`). */
@@ -50,7 +56,7 @@ function HeadSlot({ paneId, stripWidth, tabs, setHead }: { paneId: string; strip
  * The dock renderer of a sheet (ADR-0067, docs/16 §4): the sheet's layout tree on a `DockLayout`, each pane a `BoardPane` in its panel. The tree
  * is the sheet's own; every change the dock reports or a group command makes goes through `setTree`, which keeps the selection on the active tab.
  */
-export function BoardDock({ sheet, update, paneProps, onSelect, onClear, onClosePane, maximizedPaneId, onMaximizedChange, newPane, onNewPaneHandled, heading }: BoardDockProps) {
+export function BoardDock({ sheet, update, paneProps, onSelect, onClear, onClosePane, maximizedPaneId, onMaximizedChange, newPane, onNewPaneHandled, heading, onAddInGroup, groupAddOff }: BoardDockProps) {
   const { lang, tx } = useI18n();
   const { registry } = useHostPlatform();
   const text = boardText(lang);
@@ -203,13 +209,17 @@ export function BoardDock({ sheet, update, paneProps, onSelect, onClear, onClose
   };
 
   return <div ref={wrap} data-board-dock className="h-full min-h-0">
+    {groupAddOff && <span id={GROUP_ADD_OFF} className="sr-only">{text.groupAddLimit}</span>}
     <DockLayout
       panels={panels} layout={toDockTree(tree)} label={text.board}
       onLayoutChange={next => update(b => setTree(b, sheetId, fromDockTree(next)))}
       onActivate={id => { const index = indexOfPane(sheet, id); if (index >= 0) onSelect(index); }}
       onPanelDelete={id => { const index = indexOfPane(sheet, id); if (index >= 0 && sheet.panes[index].screen !== null) onClear(index); }}
       maximizedPanelId={maximizedPaneId} onMaximizedChange={onMaximizedChange}
-      renderTab={renderTab} renderGroupActions={(group, { stripWidth }) => <HeadSlot key={group.active} paneId={group.active} stripWidth={stripWidth} tabs={group.panels.length} setHead={setHead} />}
+      renderTab={renderTab}
+      renderGroupTabsEnd={group => <Button type="button" variant="ghost" size="icon-sm" data-group-add={group.panels.join(' ')} aria-label={text.addInGroup} title={text.addInGroup}
+        aria-describedby={groupAddOff ? GROUP_ADD_OFF : undefined} onClick={event => { onAddInGroup(group.active, event.currentTarget); }}><Plus className="size-3.5" aria-hidden /></Button>}
+      renderGroupActions={(group, { stripWidth }) => <HeadSlot key={group.active} paneId={group.active} stripWidth={stripWidth} tabs={group.panels.length} setHead={setHead} />}
       separatorLabel={info => (info.dir === 'row' ? text.columnSizeBetween : text.rowSize)(numberOf(info.before[0]!), numberOf(info.after[0]!))}
       currentPanelId={sheet.selectedPaneId} tabA11y={tabA11y}
       minPanelSize={MIN_PANEL_SIZE} stackBelow={STACK_BELOW} />

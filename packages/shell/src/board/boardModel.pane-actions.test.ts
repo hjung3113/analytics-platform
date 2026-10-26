@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { PaneScreen } from '@ap/kernel/host';
 import {
-  setArrangement, MAX_SHEETS, addSheet, applyPaneEdits, editPane, freshBoard, goBackPane, layoutOf, normalizeBoard, openScreenInNewSheet, parseBoardV2, previousAt, restoreLayout,
+  addPaneInGroup, addPane, setArrangement, MAX_SHEETS, addSheet, applyPaneEdits, editPane, freshBoard, goBackPane, layoutOf, normalizeBoard, openScreenInNewSheet, parseBoardV2, previousAt, restoreLayout,
   revertPaneEdits, screens, setLayout, setPane, type Board, type PaneEdit,
 } from './boardModel';
+import { groupHolding, groupsOf } from './boardDockTree';
 import { migrateV1 } from './boardMigrate';
 import { toLegacy } from './__fixtures__/legacyBoard';
 
@@ -141,4 +142,70 @@ it('pane navigation and edits/undo retain all saved arrangements', () => {
   const applied = applyPaneEdits(board, id, edits);
   expect(revertPaneEdits(applied, id, edits)?.sheets[0].gridMemory).toEqual(board.sheets[0].gridMemory);
   expect(openScreenInNewSheet(board, '시트', screen('c'))?.sheets[0].gridMemory).toEqual(board.sheets[0].gridMemory);
+});
+
+describe('addPaneInGroup (893a)', () => {
+  const grouped = () => {
+    const { board, id } = base();
+    const sheet = sheetOf(board, id);
+    const [a, b] = sheet.panes.map(p => p.id);
+    return { board, id, a: a!, b: b!, sheet };
+  };
+  const everyOnce = (board: Board, id: string) => {
+    const sheet = sheetOf(board, id);
+    const listed = groupsOf(sheet.tree).flatMap(g => g.panes);
+    expect([...listed].sort()).toEqual(sheet.panes.map(p => p.id).sort());
+  };
+
+  it('puts a new last pane into the anchor group as its active, selected tab and leaves ids, order, numbers and sizes alone', () => {
+    const { board, id, a, b, sheet } = grouped();
+    const before = JSON.stringify(sheet.tree);
+    const next = sheetOf(addPaneInGroup(board, id, a, screen('z', '?q=1')), id);
+    expect(next.panes.slice(0, 2).map(p => p.id)).toEqual([a, b]);
+    expect(next.panes.slice(0, 2)).toEqual(sheet.panes);
+    expect(next.panes).toHaveLength(3);
+    const added = next.panes[2]!;
+    expect(added.screen).toEqual(screen('z', '?q=1'));
+    expect(added.previous).toBeNull();
+    expect(next.selectedPaneId).toBe(added.id);
+    const holder = groupHolding(next.tree, added.id)!;
+    expect(holder.panes).toContain(a);
+    expect(holder.active).toBe(added.id);
+    expect(groupHolding(next.tree, b)!.panes).toEqual([b]);
+    expect((next.tree as { sizes: number[] }).sizes).toEqual((sheet.tree as { sizes: number[] }).sizes);
+    expect(JSON.stringify(sheet.tree)).toBe(before);
+    everyOnce(addPaneInGroup(board, id, a, screen('z')), id);
+  });
+
+  it('keeps every pane in the tree exactly once while a group grows to four tabs', () => {
+    const { board, id, a } = grouped();
+    let next = board;
+    for (const menu of ['x', 'y']) { next = addPaneInGroup(next, id, a, screen(menu)); everyOnce(next, id); }
+    expect(sheetOf(next, id).panes).toHaveLength(4);
+    expect(groupHolding(sheetOf(next, id).tree, a)!.panes).toHaveLength(3);
+  });
+
+  it('is the same board at 4 panes, for an unknown anchor and for an unknown sheet', () => {
+    const { board, id, a } = grouped();
+    const full = addPaneInGroup(addPaneInGroup(board, id, a, null), id, a, null);
+    expect(sheetOf(full, id).panes).toHaveLength(4);
+    expect(addPaneInGroup(full, id, a, null)).toBe(full);
+    expect(addPaneInGroup(board, id, 'nope', null)).toBe(board);
+    expect(addPaneInGroup(board, 'nope', a, null)).toBe(board);
+  });
+
+  it('adds to the stored group, not a display group: the stored split stays when the tree is read at any width', () => {
+    const { board, id, a, b } = grouped();
+    const split = sheetOf(addPaneInGroup(board, id, b, screen('z')), id);
+    expect(groupsOf(split.tree).map(g => g.panes.length).sort()).toEqual([1, 2]);
+    expect(groupHolding(split.tree, a)!.panes).toEqual([a]);
+  });
+
+  it('makes the slot with the rule of `칸 추가` (same id shape, empty `previous`), with the screen it is given', () => {
+    const { board, id, a } = grouped();
+    const viaGroup = sheetOf(addPaneInGroup(board, id, a, null), id).panes[2]!;
+    const viaAdd = sheetOf(addPane(board, id), id).panes[2]!;
+    expect(viaGroup).toEqual({ ...viaAdd, id: viaGroup.id });
+    expect(viaGroup.id).toMatch(/^p[0-9a-z]{8}$/);
+  });
 });
