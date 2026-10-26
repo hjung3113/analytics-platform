@@ -362,8 +362,14 @@ export function restoreLayout(board: Board, change: LayoutChange): Board | null 
   return normalizeBoard(mapSheet(board, change.sheetId, s => withGrid({ ...s, panes: change.before.panes, selectedPaneId }, layout, memoryOf(s, layout))));
 }
 
-/** A board as it is opened: the first pane of every sheet selected (docs/16 §4). The stored selection is never used for arrival. */
-export const atFirstPanes = (board: Board): Board => (board.sheets.every(s => selectedIndex(s) === 0) ? board : { ...board, sheets: board.sheets.map(s => (selectedIndex(s) === 0 ? s : { ...s, selectedPaneId: s.panes[0].id })) });
+/**
+ * A stored board as it is opened: the stored selection and each group's active tab are kept (docs/design/analysis-board.md §선택된 칸).
+ * A selection that is no pane of its sheet becomes the first pane, and one that disagrees with its group's active tab gives way to that tab (`reconcileSelection`); the same object when nothing does.
+ */
+export const asStored = (board: Board): Board => {
+  const sheets = board.sheets.map(s => reconcileSelection(indexOfPane(s, s.selectedPaneId) < 0 ? { ...s, selectedPaneId: s.panes[0].id } : s));
+  return sheets.every((s, i) => s === board.sheets[i]) ? board : { ...board, sheets };
+};
 
 /** Puts `index`'s pane in front of its group as well as selecting it (dock renderer). Unlike `selectPane` this writes the tree, which the grid reads as which pane of a collapsed column is open. */
 export function selectPaneActive(board: Board, sheetId: string, index: number): Board {

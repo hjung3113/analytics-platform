@@ -1,7 +1,8 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
-import { addSheet, freshBoard, parseBoardV2, renameSheet, screens, setPane, type Board } from './boardModel';
+import { addPaneInGroup, addSheet, freshBoard, parseBoardV2, renameSheet, screens, selectedIndex, selectPaneActive, setLayout, setPane, type Board } from './boardModel';
+import { groupHolding } from './boardDockTree';
 import { useBoardSession as useBoardStore } from './boardSession';
 import { loadBoard, readStoredBoard, saveBoard, writeStoredBoard } from './boardStore';
 import { legacyBoard, legacySheet, toLegacy, V1_KEY, V2_KEY } from './__fixtures__/legacyBoard';
@@ -16,14 +17,45 @@ const v2 = (): Board => { const board = addSheet(freshBoard('시트'), '시트')
 const keys = (storage: Storage) => Array.from({ length: storage.length }, (_, i) => storage.key(i)!).sort();
 
 describe('loadBoard', () => {
-  it('reads a V1-only value as a migrated board, writes nothing, and starts on pane 1', () => {
+  // Two groups: A holds panes 1 and 3 (tabs), B holds pane 2.
+  const twoGroups = () => {
+    const seed = freshBoard('시트');
+    const id = seed.sheets[0].id;
+    const two = setLayout(seed, id, '1x2');
+    return { id, board: addPaneInGroup(two, id, two.sheets[0].panes[0].id, null, false) };
+  };
+
+  it('restores the stored selection and each group\'s active tab after a save (activating a tab in a background group is saved)', () => {
+    const storage = memoryStorage();
+    const { id, board } = twoGroups();
+    const thirdTab = selectPaneActive(board, id, 2);
+    const secondGroup = selectPaneActive(thirdTab, id, 1);
+    expect(saveBoard(storage, 'u1', secondGroup)).toBe(true);
+    const sheet = loadBoard(storage, 'u1', '시트').board.sheets[0];
+    expect(selectedIndex(sheet)).toBe(1);
+    expect(groupHolding(sheet.tree, sheet.panes[0].id)!.active).toBe(sheet.panes[2].id);
+    expect(sheet).toEqual(secondGroup.sheets[0]);
+  });
+
+  it('starts on pane 1 when nothing is stored, and on pane 1 when the stored selection is no pane of its sheet', () => {
+    const storage = memoryStorage();
+    expect(selectedIndex(loadBoard(storage, 'u1', '시트').board.sheets[0])).toBe(0);
+    const { board } = twoGroups();
+    const sheet = board.sheets[0];
+    storage.setItem(V2_KEY, JSON.stringify({ ...board, sheets: [{ ...sheet, selectedPaneId: sheet.panes[1].id }] }));
+    expect(selectedIndex(loadBoard(storage, 'u1', '시트').board.sheets[0])).toBe(1);
+    storage.setItem(V2_KEY, JSON.stringify({ ...board, sheets: [{ ...sheet, selectedPaneId: 'gone' }] }));
+    expect(selectedIndex(loadBoard(storage, 'u1', '시트').board.sheets[0])).toBe(0);
+  });
+
+  it('reads a V1-only value as a migrated board, writes nothing, and keeps its selected pane', () => {
     const storage = memoryStorage();
     const raw = JSON.stringify(v1());
     storage.setItem(V1_KEY, raw);
     const loaded = loadBoard(storage, 'u1', '시트');
     expect(loaded).toMatchObject({ notice: null, readOnly: false });
     expect(loaded.board.v).toBe(2);
-    expect(toLegacy(loaded.board)).toEqual({ ...v1(), sheets: [{ ...v1().sheets[0], selected: 0 }] });
+    expect(toLegacy(loaded.board)).toEqual({ ...v1(), sheets: [{ ...v1().sheets[0], selected: 1 }] });
     expect(keys(storage)).toEqual([V1_KEY]);
     expect(storage.getItem(V1_KEY)).toBe(raw);
   });

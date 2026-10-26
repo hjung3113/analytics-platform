@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PaneScreen } from '@ap/kernel/host';
-import { defaultArrangement, getArrangement, setArrangement, MAX_SHEETS, addSheet, atFirstPanes, droppedPaneCount, freshBoard, layoutOf, moveSheet, nextSheetName, normalizeBoard, paneCount, parseBoardV2, removeSheet, renameSheet, restoreLayout, restorePane, restoreSheet, screens, selectedIndex, selectPane, setLayout, setPane, type Board, type LayoutChange } from './boardModel';
+import { defaultArrangement, getArrangement, setArrangement, MAX_SHEETS, addSheet, asStored, droppedPaneCount, freshBoard, layoutOf, moveSheet, nextSheetName, normalizeBoard, paneCount, parseBoardV2, removeSheet, renameSheet, restoreLayout, restorePane, restoreSheet, screens, selectedIndex, selectPane, setLayout, setPane, type Board, type LayoutChange } from './boardModel';
 import { migrateV1 } from './boardMigrate';
 import { legacyBoard, legacySheet, toLegacy } from './__fixtures__/legacyBoard';
 
@@ -278,14 +278,23 @@ describe('normalizeBoard', () => {
   });
 });
 
-describe('atFirstPanes', () => {
-  it('selects the first pane of every sheet and keeps an already-first board as is', () => {
+describe('asStored', () => {
+  it('keeps the stored selection of every sheet and the same object when nothing disagrees', () => {
     const start = two();
     const [a] = start.sheets;
     const picked = selectPane(setLayout(start, a.id, '2x2'), a.id, 3);
     expect(selectedIndex(picked.sheets[0])).toBe(3);
-    expect(atFirstPanes(picked).sheets.map(selectedIndex)).toEqual([0, 0]);
-    expect(atFirstPanes(start)).toBe(start);
+    expect(asStored(picked)).toBe(picked);
+    expect(asStored(picked).sheets.map(selectedIndex)).toEqual([3, 0]);
+  });
+  it('puts a selection that is no pane of its sheet on the first pane, and one off its group\'s active tab on that tab', () => {
+    const seed = freshBoard('시트');
+    const start = setLayout(seed, seed.sheets[0].id, '1x2');
+    const sheet = start.sheets[0];
+    const stale = { ...start, sheets: [{ ...sheet, selectedPaneId: 'gone' }] };
+    expect(asStored(stale).sheets[0].selectedPaneId).toBe(sheet.panes[0].id);
+    const offTab = { ...start, sheets: [{ ...sheet, selectedPaneId: sheet.panes[1].id, tree: { ...sheet.tree, type: 'group' as const, panes: sheet.panes.map(p => p.id), active: sheet.panes[0].id } }] };
+    expect(asStored(offTab).sheets[0].selectedPaneId).toBe(sheet.panes[0].id);
   });
 });
 
@@ -303,7 +312,7 @@ describe('per-layout arrangement', () => {
     expect(restored.sheets[0].gridMemory?.['1x2']?.columns).toEqual([55, 45]);
     const edited = renameSheet(selectPane(setPane(restored, id, 0, screen('a')), id, 1), id, 'edited');
     expect(parseBoardV2(JSON.parse(JSON.stringify(edited)))).toEqual(edited);
-    expect(atFirstPanes(edited).sheets[0].gridMemory).toEqual(restored.sheets[0].gridMemory);
+    expect(asStored(edited).sheets[0].gridMemory).toEqual(restored.sheets[0].gridMemory);
     expect(addSheet(edited, '시트').sheets[1].gridMemory).toBeUndefined();
   });
   it.each([

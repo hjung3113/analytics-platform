@@ -848,6 +848,25 @@ test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
     await expect(groups(page)).toHaveCount(4);
   });
 
+  test('새로고침하면 마지막 선택 칸과 묶음별 활성 탭을 되살린다 (#978 978d)', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await signInWithDockBoard(page, [populated('dock', '2x2', 4)]);
+    await dockReady(page, 4);
+    // Pane 5 joins the first group as its active tab; then another group's pane is selected.
+    await page.locator('[data-group-add]').first().click();
+    await page.getByRole('dialog').getByRole('button').first().click();
+    await expect(paneTabs(page)).toHaveCount(5);
+    await paneTab(page, 2).click();
+    await expect(contextOf(page, 2)).toBeVisible();
+    await expect(paneTab(page, 5)).toHaveAttribute('aria-selected', 'true');
+    await page.reload();
+    await expect(paneTabs(page)).toHaveCount(5);
+    await expect(contextOf(page, 2)).toBeVisible();
+    await expect(paneTab(page, 2)).toHaveAttribute('aria-selected', 'true');
+    await expect(paneTab(page, 5)).toHaveAttribute('aria-selected', 'true');
+    await expect(paneTab(page, 1)).toHaveAttribute('aria-selected', 'false');
+  });
+
   test('4개 영역일 때 탭을 가장자리에 끌어도 5번째 영역은 생기지 않는다 (#893 893e)', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await signInWithDockBoard(page, [populated('dock', '2x2', 4)]);

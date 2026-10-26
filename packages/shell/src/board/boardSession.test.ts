@@ -85,6 +85,14 @@ describe('the board session store (docs/16 §7)', () => {
 
   const twoPanes = () => { const seed = freshBoard('시트'); return setLayout(seed, seed.sheets[0].id, '1x2'); };
 
+  it('a new session starts on the stored selection (refresh / new tab), not the first pane', () => {
+    const first = twoPanes();
+    localStorage.setItem(V2('u1'), JSON.stringify(selectPane(first, first.sheets[0].id, 1)));
+    expect(selectedIndex(readBoardSession('u1', '시트').board.sheets[0])).toBe(1);
+    const { result } = renderHook(() => useBoardSession('u1', '시트'));
+    expect(selectedIndex(result.current.board.sheets[0])).toBe(1);
+  });
+
   it('reloadBoardSession keeps the selected pane and the active sheet of a live board (no first-entry reset)', () => {
     const first = twoPanes();
     localStorage.setItem(V2('u1'), JSON.stringify(first));
