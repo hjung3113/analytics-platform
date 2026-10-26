@@ -6,8 +6,8 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi, t
 import { I18nProvider, PlatformProvider, createRegistry, useI18n, usePlatform } from '@ap/kernel';
 import { PaneScreenProvider } from '@ap/kernel/host';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
-import { DetailDrawer } from '../../DetailDrawer';
-import { ManagementLayout } from '../../ManagementLayout';
+import { DetailDrawer } from '../../drawer/DetailDrawer';
+import { ManagementLayout } from '../../archetypes/ManagementLayout';
 import { toColumnDef } from '../columnDef';
 import * as publicApi from '../../index';
 import { InWorkspacePanelProvider } from '../../workspace/panelContext';

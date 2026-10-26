@@ -4,8 +4,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry, useDrill, usePlatform } from '@ap/kernel';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { AnalysisChartFrame } from '../AnalysisChartFrame';
-import { DrillLayout } from '../../DrillLayout';
-import { PlatformPage } from '../../PlatformPage';
+import { DrillLayout } from '../../archetypes/DrillLayout';
+import { PlatformPage } from '../../archetypes/PlatformPage';
 import { groupId, spaceId } from '@ap/contracts';
 
 vi.mock('../EChartImpl', () => ({ default: () => <div role="img" aria-label="Plot" /> }));

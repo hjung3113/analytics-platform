@@ -1,6 +1,6 @@
-import { AnalysisSectionContext } from './AnalysisSectionContext';
+import { AnalysisSectionContext } from './archetypes/AnalysisSectionContext';
 import { useInWorkspacePanel } from './workspace/panelContext';
-import { useSharedOutcome } from './OutcomeScope';
+import { useSharedOutcome } from './filters/OutcomeScope';
 import { Ban, Clock, HelpCircle, Inbox, Loader2, Maximize2, RotateCw, ServerCrash } from 'lucide-react';
 import { useContext, useId, type ReactNode } from 'react';
 import { errorGuidance, queryMissingSentence, type QueryState, useI18n } from '@ap/kernel';

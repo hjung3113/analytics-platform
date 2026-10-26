@@ -5,7 +5,7 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
-import { AnalysisSectionContext } from '../../AnalysisSectionContext';
+import { AnalysisSectionContext } from '../../archetypes/AnalysisSectionContext';
 import { AnalysisChart, type AnalysisChartProps, type ChartSpec } from '../AnalysisChart';
 import { readColorToken, type ThemeColorToken } from '@ap/ui/theme';
 import type { EChartProps } from '../EChart';

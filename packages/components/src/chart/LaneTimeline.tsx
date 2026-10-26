@@ -6,7 +6,7 @@ import type { ThemeColorToken } from '@ap/ui/theme';
 import { prepareLanes, segmentText } from './laneTimelineGeometry';
 import { ChartTrustFooter } from './analysisChartFrameParts';
 import { createLaneRenderer } from './laneTimelineRenderer';
-import { AnalysisSectionContext } from '../AnalysisSectionContext';
+import { AnalysisSectionContext } from '../archetypes/AnalysisSectionContext';
 
 export type TimelineSegment = {
   id: string; start: number; end: number; depth?: number; rank?: string;

@@ -9,7 +9,7 @@ import { House } from 'lucide-react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { PlatformDataTable, type PlatformDataTableProps } from '../PlatformDataTable';
-import { RowAction } from '../../RowAction';
+import { RowAction } from '../../drawer/RowAction';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { groupId, spaceId, type ApiResponse, type PageQuery, type PageResult } from '@ap/contracts';
 

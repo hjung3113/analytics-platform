@@ -1,0 +1,293 @@
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { useLayoutEffect, useRef } from 'react';
+import { House } from 'lucide-react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
+import { PlatformPage } from '../PlatformPage';
+import { QueryView } from '../../StateView';
+import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { groupId, spaceId, type PlatformAdapter, type ScopeCheck } from '@ap/contracts';
+
+const registry = createRegistry({
+  spaces: [testSpace()],
+  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
+  menus: [{ id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: true, context: noContext, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] }],
+});
+
+const forbidden = { outcome: 'forbidden' as const, data: null, assessments: [], trust: null, correlationId: 'fixture' };
+function adapterWith(validateScope: PlatformAdapter['validateScope']): PlatformAdapter {
+  const session = testSession(['platform:view']);
+  return testAdapter({
+    session: () => session,
+    validateScope,
+    getEntity: async () => forbidden,
+    listAnnotations: async () => forbidden,
+  });
+}
+
+afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+
+describe('PlatformPage Scope gate: validation failure (#167)', () => {
+  it('shows the check-failed message with a retry that re-validates and then renders the page', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
+    let fail = true;
+    let calls = 0;
+    const adapter = adapterWith(async (): Promise<ScopeCheck> => { calls++; if (fail) throw new Error('down'); return { status: 'valid', grantedRooms: [] }; });
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><PlatformPage><p>page body</p></PlatformPage></PlatformProvider></I18nProvider>);
+    expect(await screen.findByText('Scope를 확인하지 못했습니다')).toBeTruthy();
+    expect(screen.getByText(/서버에 닿지 못했습니다/)).toBeTruthy();
+    expect(screen.queryByText(/scopeId=/)).toBeNull();
+    expect(screen.queryByText('page body')).toBeNull();
+
+    fail = false;
+    act(() => screen.getByRole('button', { name: '다시 시도' }).click());
+    expect(await screen.findByText('page body')).toBeTruthy();
+    expect(calls).toBe(2);
+  });
+});
+
+describe('PlatformPage Scope gate follow-ups (#183)', () => {
+  /** Records the page text of every commit, so the one-frame state between a switch and its effect is visible. */
+  function GateRecorder({ frames }: { frames: string[] }) {
+    usePlatform(); // consume the context: Provider's stable `children` prop alone would bail this subtree out
+    const ref = useRef<HTMLDivElement>(null);
+    useLayoutEffect(() => { frames.push(ref.current?.textContent ?? ''); });
+    return <div ref={ref}><PlatformPage><p>page body</p></PlatformPage></div>;
+  }
+
+  function SwitchScope() {
+    const { setGlobal } = usePlatform();
+    return <button type="button" data-testid="switch" onClick={() => setGlobal({ scopeId: 'XIA' })}>switch</button>;
+  }
+
+  it('shows the validating gate — never the previous status or scopeId — in the frame right after a switch', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
+    const adapter = adapterWith(scopeId => scopeId === 'MEM'
+      ? Promise.reject(new Error('down'))
+      : new Promise<ScopeCheck>(() => { /* the new Scope never settles */ }));
+    const frames: string[] = [];
+    render(
+      <I18nProvider><PlatformProvider adapter={adapter} registry={registry}>
+        <GateRecorder frames={frames} />
+        <SwitchScope />
+      </PlatformProvider></I18nProvider>,
+    );
+    expect(await screen.findByText('Scope를 확인하지 못했습니다')).toBeTruthy();
+    const before = frames.length;
+
+    fireEvent.click(screen.getByTestId('switch'));
+
+    const after = frames.slice(before);
+    expect(after.length).toBeGreaterThan(0);
+    expect(after.some(frame => frame.includes('검증 중'))).toBe(true);
+    for (const frame of after) {
+      expect(frame).not.toContain('확인하지 못했습니다');
+      expect(frame).not.toContain('scopeId=MEM');
+    }
+  });
+});
+
+
+describe('PlatformPage 50px header (#194)', () => {
+  it('keeps title, full description, favorite and actions in one sticky header above Context and padded content', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
+    const adapter = adapterWith(async () => ({ status: 'valid', grantedRooms: [] }));
+    const view = render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry} slots={{ contextBar: <div>global context</div> }}>
+      <PlatformPage title="Custom title" description="A long full description" dataTrustSummary={<span>trust</span>} secondaryActions={<button>secondary</button>} primaryAction={<button>primary</button>}><p>page body</p></PlatformPage>
+    </PlatformProvider></I18nProvider>);
+    await screen.findByText('page body');
+    const header = view.container.querySelector('header')!;
+    expect(header.className).toContain('h-[50px]');
+    expect(header.parentElement).toHaveClass('sticky', 'top-0');
+    expect(header).not.toHaveClass('sticky');
+    expect(header.parentElement?.contains(screen.getByText('global context'))).toBe(true);
+    expect(header.querySelector('h1')?.textContent).toBe('Custom title');
+    expect(screen.getByText('A long full description').getAttribute('title')).toBe('A long full description');
+    expect(header.textContent).toContain('trust');
+    expect(header.contains(screen.getByRole('button', { name: 'primary' }))).toBe(true);
+    expect(screen.queryByRole('button', { name: 'secondary' })).toBeNull();
+    const more = screen.getByRole('button', { name: '더보기' });
+    expect(header.contains(more)).toBe(true);
+    await userEvent.setup().click(more);
+    expect(header.contains(await screen.findByRole('button', { name: 'secondary' }))).toBe(false);
+    fireEvent.keyDown(screen.getByRole('group', { name: '기타 페이지 동작' }), { key: 'Escape' });
+    expect(header.nextElementSibling?.textContent).toBe('global context');
+    const content = view.container.querySelector('[data-platform-page-content]');
+    expect(content).toBe(screen.getByText('page body').parentElement);
+    expect(view.container.querySelectorAll('[data-platform-page-content]')).toHaveLength(1);
+    expect(content?.className).toContain('px-8');
+    expect(content?.contains(header)).toBe(false);
+    expect(content?.contains(screen.getByText('global context'))).toBe(false);
+    fireEvent.click(screen.getByRole('button', { name: '즐겨찾기에 추가' }));
+    expect(screen.getByRole('button', { name: '즐겨찾기에서 제거' }).getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('retains header identity and Context but gates trust, actions, extension and body until Scope is valid', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
+    const adapter = adapterWith(async () => ({ status: 'forbidden', grantedRooms: [] }));
+    const view = render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry} slots={{ contextBar: <div>global context</div> }}>
+      <PlatformPage title="Gated title" description="Gated description" dataTrustSummary={<span>trust</span>} secondaryActions={<button>secondary</button>} primaryAction={<button>primary</button>} contextExtension={<div>extension</div>}><p>page body</p></PlatformPage>
+    </PlatformProvider></I18nProvider>);
+    await screen.findByText('이 Scope에 접근 권한이 없습니다');
+    expect(view.container.querySelector('header')?.className).toContain('h-[50px]');
+    expect(screen.getByRole('heading', { name: 'Gated title' })).toBeTruthy();
+    expect(screen.getByText('global context')).toBeTruthy();
+    expect(view.container.querySelector('[data-platform-page-content]')?.textContent).toContain('이 Scope에 접근 권한이 없습니다');
+    expect(screen.queryByRole('button', { name: '더보기' })).toBeNull();
+    for (const text of ['trust', 'secondary', 'primary', 'extension', 'page body']) expect(screen.queryByText(text)).toBeNull();
+  });
+});
+
+
+describe('page header width (#194 FIX2)', () => {
+  it('allows breadcrumb and rich title to shrink, yields description first and reserves favorite/actions', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
+    render(<I18nProvider><PlatformProvider adapter={adapterWith(async () => ({ status: 'valid', grantedRooms: [] }))} registry={registry}>
+      <PlatformPage title={<span>Long object ID</span>} description="Description" crumbs={[{ label: 'Long parent', href: '/' }]} primaryAction={<button>Save</button>}><p>body</p></PlatformPage>
+    </PlatformProvider></I18nProvider>);
+    await screen.findByText('body');
+    const title = screen.getByRole('heading', { name: 'Long object ID' });
+    expect(title).toHaveClass('min-w-28', 'shrink', 'truncate');
+    expect(title).not.toHaveClass('shrink-0');
+    expect(title).toHaveAttribute('tabindex', '0');
+    expect(screen.getByRole('navigation', { name: '이동 경로' })).toHaveClass('min-w-0');
+    expect(screen.getByRole('link', { name: 'Long parent' })).toHaveClass('truncate');
+    expect(screen.getByText('Description')).toHaveClass('min-w-0', 'basis-0');
+    expect(screen.getByRole('button', { name: '즐겨찾기에 추가' })).toHaveClass('shrink-0');
+    expect(screen.getByRole('button', { name: 'Save' }).parentElement).toHaveClass('shrink-0', 'flex-nowrap');
+    fireEvent.focus(title);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Long object ID');
+  });
+
+  it.each(['', '   '])('does not create an empty description tab stop (%j)', async description => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
+    const view = render(<I18nProvider><PlatformProvider adapter={adapterWith(async () => ({ status: 'valid', grantedRooms: [] }))} registry={registry}>
+      <PlatformPage description={description}><p>body</p></PlatformPage>
+    </PlatformProvider></I18nProvider>);
+    await screen.findByText('body');
+    expect(view.container.querySelector('header div[tabindex="0"]')).toBeNull();
+  });
+
+  it('keeps the actual parent link shrinkable and exposes its full label', async () => {
+    const detailRegistry = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: [
+      ...registry.menus, { ...registry.menus[0], id: 'detail', path: '/detail', primary: false, navHidden: true, parent: 'home' },
+    ] });
+    window.history.replaceState(null, '', '/detail?v=1&scopeId=MEM');
+    render(<I18nProvider><PlatformProvider adapter={adapterWith(async () => ({ status: 'valid', grantedRooms: [] }))} registry={detailRegistry}>
+      <PlatformPage title="Detail"><p>body</p></PlatformPage>
+    </PlatformProvider></I18nProvider>);
+    await screen.findByText('body');
+    const parent = screen.getByRole('link', { name: '홈' });
+    expect(parent).toHaveClass('min-w-0', 'truncate');
+    expect(parent).toHaveAttribute('title', '홈');
+  });
+
+});
+
+
+describe('PlatformPage shared outcome placement (#55)', () => {
+  it('provides the scope automatically and places one banner before the page body', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
+    const adapter = adapterWith(async () => ({ status: 'valid', grantedRooms: [] }));
+    const response = { ...forbidden, outcome: 'error' as const, message: 'Same response' };
+    const query = { missing: [], completedAt: null, response, status: 'done' as const, refetch: () => {} };
+    const view = render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}>
+      <PlatformPage><section data-testid="consumer-body">
+        <QueryView query={query} widgetName="First">{() => null}</QueryView>
+        <QueryView query={query} widgetName="Second">{() => null}</QueryView>
+      </section></PlatformPage>
+    </PlatformProvider></I18nProvider>);
+    expect(await screen.findByRole('group', { name: '위젯 상태 요약' })).toHaveTextContent('위젯 2개');
+    const content = view.container.querySelector('[data-platform-page-content]')!;
+    expect(content.querySelector('[data-outcome-banner]')?.nextElementSibling).toHaveAttribute('data-testid', 'consumer-body');
+    expect(content).toHaveAttribute('tabindex', '-1');
+    // No extra landmark around page content: chart/section regions stay the only regions inside <main>.
+    expect(content).not.toHaveAttribute('role');
+    expect(screen.queryByRole('region')).toBeNull();
+    expect(content.lastElementChild).toHaveAttribute('data-testid', 'consumer-body');
+  });
+});
+
+
+describe('Scope gate action focus (#353)', () => {
+  /** Node's file-less localStorage shadows jsdom's here, so give the test an in-memory store. */
+  function stubLocalStorage() {
+    const storage = memoryStorage();
+    vi.stubGlobal('localStorage', storage);
+    return storage;
+  }
+
+  it('sends focus to the page content element when the suggested-scope button disappears', async () => {
+    stubLocalStorage().setItem('platform:lastScope:u1', JSON.stringify('MEM'));
+    window.history.replaceState(null, '', '/?v=1');
+    const view = render(<I18nProvider><PlatformProvider adapter={adapterWith(async () => ({ status: 'valid', grantedRooms: [] }))} registry={registry}>
+      <PlatformPage><p>page body</p></PlatformPage>
+    </PlatformProvider></I18nProvider>);
+    const apply = await screen.findByRole('button', { name: '최근 Scope 적용: MEM' });
+    apply.focus();
+    expect(apply).toHaveFocus();
+    fireEvent.click(apply);
+    expect(view.container.querySelector<HTMLElement>('[data-platform-page-content]')).toHaveFocus();
+  });
+
+  it('sends focus to the main landmark when the gate sits inside a shell main', async () => {
+    // jsdom has no element.scrollTo; the kernel scrolls platform-main on push navigation (AppShell.test.tsx does the same).
+    Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value: vi.fn() });
+    stubLocalStorage().setItem('platform:lastScope:u1', JSON.stringify('MEM'));
+    window.history.replaceState(null, '', '/?v=1');
+    const view = render(<I18nProvider><PlatformProvider adapter={adapterWith(async () => ({ status: 'valid', grantedRooms: [] }))} registry={registry}>
+      <main id="platform-main" tabIndex={-1}><PlatformPage><p>page body</p></PlatformPage></main>
+    </PlatformProvider></I18nProvider>);
+    const apply = await screen.findByRole('button', { name: '최근 Scope 적용: MEM' });
+    apply.focus();
+    fireEvent.click(apply);
+    expect(view.container.querySelector('main')).toHaveFocus();
+  });
+
+  it('sends focus to the page content element when the retry button disappears', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
+    const view = render(<I18nProvider><PlatformProvider adapter={adapterWith(async (): Promise<ScopeCheck> => { throw new Error('down'); })} registry={registry}>
+      <PlatformPage><p>page body</p></PlatformPage>
+    </PlatformProvider></I18nProvider>);
+    expect(await screen.findByText('Scope를 확인하지 못했습니다')).toBeTruthy();
+    const retry = screen.getByRole('button', { name: '다시 시도' });
+    retry.focus();
+    expect(retry).toHaveFocus();
+    fireEvent.click(retry);
+    expect(view.container.querySelector<HTMLElement>('[data-platform-page-content]')).toHaveFocus();
+  });
+});
+
+describe('PlatformPage sticky offset', () => {
+  it('publishes the entire sticky header height and updates it through ResizeObserver', () => {
+    let height = 98;
+    let resize: (() => void) | undefined;
+    let observed: Element | undefined;
+    const disconnect = vi.fn();
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(callback: () => void) { resize = callback; }
+      observe(element: Element) { observed = element; }
+      disconnect = disconnect;
+    });
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(() => ({ width: 1200, height, x: 0, y: 0, top: 0, left: 0, right: 1200, bottom: height, toJSON() {} }));
+    window.history.replaceState(null, '', '/');
+    const { container, unmount } = render(<I18nProvider><PlatformProvider adapter={adapterWith(async () => ({ status: 'valid', grantedRooms: [] }))} registry={registry} slots={{ contextBar: <div>Context</div> }}><PlatformPage>body</PlatformPage></PlatformProvider></I18nProvider>);
+    const root = container.firstElementChild as HTMLElement;
+    expect(observed).toContainElement(screen.getByText('Context'));
+    expect(observed).toContainElement(screen.getByRole('heading', { level: 1 }));
+    expect(root.style.getPropertyValue('--page-sticky-offset')).toBe('98px');
+    act(() => { height = 128; resize?.(); });
+    expect(root.style.getPropertyValue('--page-sticky-offset')).toBe('128px');
+    unmount();
+    expect(disconnect).toHaveBeenCalledOnce();
+  });
+
+  it('measures once when ResizeObserver is unavailable', () => {
+    vi.stubGlobal('ResizeObserver', undefined);
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ width: 1200, height: 98, x: 0, y: 0, top: 0, left: 0, right: 1200, bottom: 98, toJSON() {} });
+    window.history.replaceState(null, '', '/');
+    const { container } = render(<I18nProvider><PlatformProvider adapter={adapterWith(async () => ({ status: 'valid', grantedRooms: [] }))} registry={registry}><PlatformPage>body</PlatformPage></PlatformProvider></I18nProvider>);
+    expect((container.firstElementChild as HTMLElement).style.getPropertyValue('--page-sticky-offset')).toBe('98px');
+  });
+});
