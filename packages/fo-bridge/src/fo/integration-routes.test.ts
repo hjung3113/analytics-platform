@@ -83,10 +83,17 @@ describe('연동 tables', () => {
     expect(sorted(entityLinksRoute.pageKeys)).toEqual(['managedSystem', 'status', 'type']);
   });
 
-  it('exposes the four targets and none is in operatorHostLinks yet', () => {
+  it('exposes the four targets, all wired into operatorHostLinks', () => {
     expect(integrationOperatorTargets).toHaveLength(4);
-    for (const to of ['/integration', '/integration/evidence', '/integration/coverage', '/integration/links']) {
-      expect(operatorHostLinks.targetOf(to)).toBeNull();
-    }
+    const { targetOf } = operatorHostLinks;
+    expect(targetOf('/integration')?.menuId).toBe('fo-integration');
+    expect(targetOf('/integration/evidence')?.menuId).toBe('fo-evidence');
+    expect(targetOf('/integration/coverage')?.menuId).toBe('fo-coverage');
+    expect(targetOf('/integration/links')?.menuId).toBe('fo-entity-links');
+    expect(targetOf(`/integration?selected=${ITEM}`)).toEqual({ menuId: 'fo-integration', page: { focus: ITEM } });
+    expect(targetOf(`/integration/evidence?selected=${EVIDENCE}`)).toEqual({ menuId: 'fo-evidence', page: { focus: EVIDENCE } });
+    expect(targetOf('/integration/coverage?view=areas')).toEqual({ menuId: 'fo-coverage', page: { view: 'areas' } });
+    expect(targetOf('/integration/coverage?returnTo=%2Fhome')).toBeNull();
+    expect(targetOf('/admin/settings#coverage')).toBeNull();
   });
 });

@@ -3,8 +3,8 @@ import { operatorRoute, routeHere, routeSearch } from './operator-route';
 /**
  * 연동 route tables (#762 s, #595 4d): FeedbackOps' `/integration…` → the four platform 연동 menus and back (대시보드·근거·커버리지·연결). `selected` is the
  * platform `focus` (06 §13) on the two screens that select; Coverage keeps FO's `view`. `managedSystem=all` is FO's "no scope", so it maps to an explicit clear.
- * `returnTo` and `platformReturn` are never mapped (the platform carries `returnTo` itself), so a link carrying either stays unlinked. Not in `operatorHostLinks`
- * (`operator-links.ts`) until 762p2 wires them, so nothing links to the menus yet.
+ * `returnTo` and `platformReturn` are never mapped (the platform carries `returnTo` itself), so a link carrying either stays unlinked. In `operatorHostLinks`
+ * (`operator-links.ts`) since 762p2, so the Home coverage card, the jump cards and the recovery source links reach the menus.
  */
 const SCOPE_ALL = { managedSystem: 'all' } as const;
 

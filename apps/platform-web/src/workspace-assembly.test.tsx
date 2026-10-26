@@ -84,6 +84,7 @@ describe('workspace assembly (#260)', () => {
       ['foVoc', 'feedbackops'],
       ['foFindings', 'feedbackops'],
       ['foTasks', 'feedbackops'],
+      ['foIntegration', 'feedbackops'],
     ]);
     expect(SPACES.map(space => space.id)).toEqual(['analytics', 'metrics', 'clas', 'tools', 'log-dev', 'improvement', 'operations', 'feedbackops']);
     expect(SPACES[0]).toMatchObject({
@@ -145,6 +146,16 @@ describe('workspace assembly (#260)', () => {
     expect(registry.menuById('fo-task-list')).toMatchObject({ path: '/feedbackops/tasks/list', navHidden: true, parent: 'fo-tasks' });
     for (const id of ['fo-task-requests', 'fo-tasks', 'fo-my-tasks', 'fo-milestones', 'fo-task-list']) expect(registry.menuById(id).pageKeys).toEqual(expect.arrayContaining(['managedSystem', 'focus', 'returnTo']));
     expect(registry.spaceOf(registry.menuById('fo-task-list'))?.id).toBe('feedbackops');
+    // #762 p2: the 연동 group closes the rail; four menus, no Findings row (ADR-0081 decision 3), every menu declares managedSystem and returnTo.
+    expect(registry.menus.filter(menu => menu.group === 'foIntegration').map(menu => menu.id)).toEqual(['fo-integration', 'fo-evidence', 'fo-entity-links', 'fo-coverage']);
+    expect(registry.menuById('fo-integration')).toMatchObject({ path: '/feedbackops/integration', primary: true, permission: 'feedbackops:access', requiresScope: false });
+    expect(registry.menuById('fo-evidence')).toMatchObject({ path: '/feedbackops/evidence', permission: 'feedbackops:access', requiresScope: false });
+    expect(registry.menuById('fo-entity-links')).toMatchObject({ path: '/feedbackops/entity-links', permission: 'feedbackops:access', requiresScope: false });
+    expect(registry.menuById('fo-coverage')).toMatchObject({ path: '/feedbackops/coverage', permission: 'feedbackops:access', requiresScope: false });
+    for (const id of ['fo-integration', 'fo-evidence', 'fo-entity-links', 'fo-coverage']) {
+      expect(registry.menuById(id).pageKeys).toEqual(expect.arrayContaining(['managedSystem', 'returnTo']));
+      expect(registry.spaceOf(registry.menuById(id))?.id).toBe('feedbackops');
+    }
     // #252 (ADR-0065): work-queue first; every menu is planned and open to every signed-in user for now.
     expect(SPACES[4]).toMatchObject({ label: { ko: '표준 로그 개발', en: 'Standard log development' }, homeMenuId: 'log-my-queue' });
     expect(SPACES[5]).toMatchObject({ label: { ko: '개선 실행', en: 'Improvement execution' }, homeMenuId: 'imp-my-tasks' });

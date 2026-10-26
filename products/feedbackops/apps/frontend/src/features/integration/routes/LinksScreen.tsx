@@ -62,10 +62,12 @@ export function LinksScreen() {
   const queryClient = useQueryClient();
 
   const activeTab = search.status ?? 'all';
-  const currentFilters = React.useMemo(
-    () => (search.type !== undefined ? { type: [search.type] } : {}),
-    [search.type],
-  );
+  const currentFilters = React.useMemo(() => {
+    // Built rather than a `{ type } | {}` union: under the platform's `exactOptionalPropertyTypes` that union is not a `Record<string, string[]>`.
+    const filters: Record<string, string[]> = {};
+    if (search.type !== undefined) filters.type = [search.type];
+    return filters;
+  }, [search.type]);
 
   const inventoryParams = React.useMemo(
     () => ({
