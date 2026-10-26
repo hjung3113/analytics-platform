@@ -1,6 +1,6 @@
 # docs/integration/platform-packages.md §3.
 # products/feedbackops joins this workspace (ADR-0066 decision 1, #642); its packages are @fops/* and the root scripts exclude them.
-# prototypes/* are standalone npm units.
+# archive/* are standalone npm units.
 packages:
   - apps/*
   - packages/*

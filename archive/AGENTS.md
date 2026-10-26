@@ -1,4 +1,4 @@
-# prototypes/ — Kernel 단위 프로토타입 (보존)
+# archive/ — Kernel 단위 프로토타입 (보존)
 
 `apps/platform-web`으로 통합되기 전, Kernel 유닛을 하나씩 검증한 독립 프로토타입이다. 각자 npm lockfile을 가진 별도 프로젝트이며 pnpm workspace에 포함되지 않는다.
 

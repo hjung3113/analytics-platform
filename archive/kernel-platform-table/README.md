@@ -3,7 +3,7 @@
 **합성 fixture, 실제 메뉴 아님.** 공통 컴포넌트 2개를 검증하는 React/TypeScript/Vite 실험이다. 제품 라이브러리 최종 채택이나 실제 권한/Scope·메뉴 통합을 의미하지 않는다.
 
 ```sh
-cd prototypes/kernel-platform-table
+cd archive/kernel-platform-table
 npm ci
 PLAYWRIGHT_BROWSERS_PATH=.browsers npx playwright install chromium
 npm test

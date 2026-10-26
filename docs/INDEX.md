@@ -42,7 +42,7 @@
 | 설계 문서·결정 갱신 | 해당 소유 문서 → [ADR 목록](adr/README.md) 또는 [05](05_roadmap_and_open_questions.md) | [docs](AGENTS.md) | 바꾼 뒤 `pnpm docs:links` |
 | 적재 워커 상태·가공 상태 조회·운영 콘솔 모니터링 | [01 가공 상태 보고](01_architecture_and_data_contract.md#processing-status-report), 06 §19, [상태 기록 스키마](integration/ingest-status-schema.md) | [docs](AGENTS.md) | 파서 저장소 `context_recognized_parser` |
 | FeedbackOps 연결 | [저장소 구조](integration/repository-layout.md), [딥링크 계약](integration/feedbackops-deeplink.md), [ADR-0066](adr/0066-feedbackops-merges-into-platform.md) 합류, [합류 설계](integration/feedbackops-merge-design.md) | [products/feedbackops](../products/feedbackops/AGENTS.md) | 그 디렉터리 하위 `AGENTS.md` |
-| 통합 전 단위 프로토타입 | — | [prototypes](../prototypes/AGENTS.md) | 각 프로토타입 README |
+| 통합 전 단위 프로토타입 | — | [prototypes](../archive/AGENTS.md) | 각 프로토타입 README |
 
 ## 문서 목록
 
