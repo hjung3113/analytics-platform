@@ -6,6 +6,7 @@
 // cannot pass vacuously.
 
 import { useVocClusterDetail } from '@/features/voc-cluster/hooks/useVocClusterDetail';
+import * as api from '@/lib/api';
 import type { PermissionCheckResponse } from '@/lib/api';
 import { apiClient, getTask } from '@/lib/api';
 import type { MeResponse } from '@/lib/auth/useMe';
@@ -41,6 +42,11 @@ vi.mock('@/lib/api', () => ({
   getTask: vi.fn(),
   apiClient: vi.fn(),
   useIdempotencyKey: () => ({ key: 'idem-key', markConsumed: vi.fn() }),
+}));
+
+vi.mock('@/lib/api/client', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/client')>()),
+  apiClient: (...args: Parameters<typeof api.apiClient>) => api.apiClient(...args),
 }));
 
 vi.mock('@/lib/api/registry-reads', () => ({

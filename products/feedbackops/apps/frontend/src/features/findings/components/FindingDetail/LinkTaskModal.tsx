@@ -1,10 +1,8 @@
-import {
-  type ApiError,
-  errorMapper,
-  linkTaskToFinding,
-  listTasks,
-  useIdempotencyKey,
-} from '@/lib/api';
+import { errorMapper } from '@/lib/api/errorMapper';
+import { linkTaskToFinding, listTasks } from '@/lib/api/tasks';
+import type { ApiError } from '@/lib/api/types';
+import { useIdempotencyKey } from '@/lib/api/useIdempotencyKey';
+import { useHostSeam } from '@/lib/host/host-seam';
 import { invalidateRecovery } from '@/lib/query/recovery';
 import type { FindingDto } from '@fops/shared';
 import {
@@ -23,7 +21,6 @@ import {
 } from '@fops/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
-import { toast } from 'sonner';
 
 interface LinkTaskModalProps {
   finding: FindingDto;
@@ -32,6 +29,7 @@ interface LinkTaskModalProps {
 }
 
 export function LinkTaskModal({ finding, open, onClose }: LinkTaskModalProps): React.ReactElement {
+  const { notifyError, notifySuccess } = useHostSeam();
   const queryClient = useQueryClient();
   const [selectedTaskId, setSelectedTaskId] = React.useState('');
   const { key: idempotencyKey, markConsumed } = useIdempotencyKey();
@@ -54,14 +52,14 @@ export function LinkTaskModal({ finding, open, onClose }: LinkTaskModalProps): R
     onSuccess: () => {
       void invalidateRecovery(queryClient);
       markConsumed();
-      toast.success('Task가 Finding에 연결되었습니다.');
+      notifySuccess('Task가 Finding에 연결되었습니다.');
       void queryClient.invalidateQueries({ queryKey: ['finding', finding.id] });
       void queryClient.invalidateQueries({ queryKey: ['findings'] });
       void queryClient.invalidateQueries({ queryKey: ['tasks'] });
       onClose();
     },
     onError: (err: ApiError) => {
-      toast.error(errorMapper(err.envelope).message);
+      notifyError(errorMapper(err.envelope).message);
     },
   });
 

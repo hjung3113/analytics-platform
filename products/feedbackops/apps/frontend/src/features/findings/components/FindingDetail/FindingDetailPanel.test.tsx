@@ -1,3 +1,4 @@
+import * as api from '@/lib/api';
 import { TASK_REQUEST_STATUS_LABELS } from '@/lib/copy/enum-labels';
 import { type FindingDto, listEntityLinksQuerySchema } from '@fops/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -129,6 +130,24 @@ vi.mock('@/lib/api', () => ({
   })),
   linkTaskToFinding: vi.fn(),
   listTasks: vi.fn(async () => ({ items: [] })),
+  useIdempotencyKey: () => ({ key: 'idem-key', markConsumed: vi.fn() }),
+}));
+vi.mock('@/lib/api/client', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/client')>()),
+  apiClient: apiClientMock,
+}));
+vi.mock('@/lib/api/tasks', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/tasks')>()),
+  listTasks: (...args: Parameters<typeof api.listTasks>) => api.listTasks(...args),
+  linkTaskToFinding: (...args: Parameters<typeof api.linkTaskToFinding>) =>
+    api.linkTaskToFinding(...args),
+}));
+vi.mock('@/lib/api/errorMapper', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/errorMapper')>()),
+  errorMapper: () => ({ message: 'mapped error' }),
+}));
+vi.mock('@/lib/api/useIdempotencyKey', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/useIdempotencyKey')>()),
   useIdempotencyKey: () => ({ key: 'idem-key', markConsumed: vi.fn() }),
 }));
 vi.mock('@/lib/api/task-requests', async (importOriginal) => ({

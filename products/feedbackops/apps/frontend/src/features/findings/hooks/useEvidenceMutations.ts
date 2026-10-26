@@ -1,4 +1,5 @@
-import { type ApiError, apiClient, apiRequest } from '@/lib/api';
+import { apiClient, apiRequest } from '@/lib/api/client';
+import type { ApiError } from '@/lib/api/types';
 import { EVIDENCE_INVENTORY_QUERY_KEY } from '@/lib/query/evidence-inventory-key';
 import { invalidateRecovery } from '@/lib/query/recovery';
 import {

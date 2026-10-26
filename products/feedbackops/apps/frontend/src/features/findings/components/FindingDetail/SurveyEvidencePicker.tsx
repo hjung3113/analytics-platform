@@ -1,4 +1,4 @@
-import { ApiError } from '@/lib/api';
+import { ApiError } from '@/lib/api/types';
 import { SURVEY_EVIDENCE_PICKER_COPY as COPY } from '@/lib/copy/survey-evidence-picker';
 import { useManagedSystemNames } from '@/lib/cross-system/useManagedSystemNames';
 import { Button, Combobox, FieldLabel, RadioGroup, RadioGroupItem } from '@fops/ui';

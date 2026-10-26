@@ -18,6 +18,7 @@ vi.mock('@/lib/api', async (importOriginal) => ({
 
 vi.mock('@/lib/api/client', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api/client')>()),
+  apiClient,
   apiRequest,
 }));
 
