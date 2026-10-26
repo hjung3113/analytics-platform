@@ -2,7 +2,7 @@
 // Import only from test files (*.test.ts(x), test-support.ts, test-setup.ts); the boundary lint rejects production imports.
 // Deliberately not exported from src/index.ts.
 import { act, createElement, type ReactElement } from 'react';
-import { useToastList, type Toast } from './platform';
+import { useToastList, type Toast } from './platform/platform';
 import { contextCapabilities, type ActionResponse, type ApiResponse, type Capability, type ContextKey, type ModuleScopedId, type Permission, type PlatformAdapter, type ScopeOption, type Session, type SessionUser, type SpaceDef, spaceId } from '@ap/contracts';
 
 /** Every Context key 'unsupported': the no-op Global Context capability record (06 §6). */
