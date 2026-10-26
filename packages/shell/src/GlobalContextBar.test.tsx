@@ -48,7 +48,7 @@ beforeEach(() => {
     const name = this.dataset.measure;
     const width = this.getAttribute('role') === 'region' ? barWidth
       : this.hasAttribute('data-measure-key') ? (keyWidths[this.dataset.measureKey!] ?? (this.dataset.measureKey === 'time' ? 450 : 100))
-      : name === 'period' ? 220 : name === 'actions' ? 160 : name === 'icons' ? 64 : name === 'label' ? 80
+      : name === 'period' ? 220 : name === 'actions' ? 160 : name === 'icons' ? 64
       : this.hasAttribute('data-measure-overflow') ? (this.textContent?.includes('적용 중') || this.textContent?.includes('applied') ? 190 : 110) : 0;
     return { width, height: 32, x: 0, y: 0, top: 0, left: 0, right: width, bottom: 32, toJSON() {} };
   });
@@ -79,10 +79,11 @@ describe('Global Context priority overflow (#56)', () => {
     await vi.waitFor(() => expect(evaluation).toHaveBeenCalledTimes(1)); // one owner; inert copies never query
   });
 
-  it('hides only the label at 1400px and keeps the label at wide widths', () => {
+  it('never draws the "전역 Context" label at any width; the region name stays the accessible name', () => {
     barWidth = 1400;
     mount('&lotIds=L1&ppid=P1&recipeIds=R1&metricId=M1&metricVersion=1');
     expect(visibleContextLabel()).toBe(false);
+    expect(screen.queryAllByText('전역 Context', { exact: true })).toHaveLength(0);
     expect(within(bar()).getByRole('radio', { name: '1일' })).toBeVisible();
     expect(inlineKeys()).toHaveLength(8);
     for (const name of ['링크 복사', '초기화']) {
@@ -90,10 +91,14 @@ describe('Global Context priority overflow (#56)', () => {
     }
 
     width(2000);
-    expect(visibleContextLabel()).toBe(true);
+    expect(visibleContextLabel()).toBe(false);
+    expect(bar()).toHaveAccessibleName('전역 Context');
+    width(450);
+    expect(visibleContextLabel()).toBe(false);
+    expect(bar().textContent).not.toContain('전역 Context');
   });
 
-  it('hides the label before compacting presets and then removes trailing keys in fixed priority order', () => {
+  it('compacts presets first and then removes trailing keys in fixed priority order', () => {
     mount('&lotIds=L1&ppid=P1&recipeIds=R1&metricId=M1&metricVersion=1');
     const initialReads = reads;
     const initialQueries = evaluation.mock.calls.length;
