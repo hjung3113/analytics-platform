@@ -1,0 +1,190 @@
+import { describe, expect, it } from 'vitest';
+import type { AuditEvent } from '@ap/contracts';
+import { createMockAdapter } from '../adapter';
+import { MockRegistrationError } from '../query/endpoints';
+import { getRole, matchesCondition, setRole, setScenario } from '../server';
+import { EQUIPMENT, USERS, type RoleId } from '../world';
+
+const mockAdapter = createMockAdapter({ endpoints: [], registry: { menus: [] } });
+
+/** The pre-adapter GlobalContextBar computed this in the browser; the server-side evaluation must agree. */
+function clientSide(role: RoleId, scopeId: string, roomNames: string[] | null, condition: Parameters<typeof matchesCondition>[1], selection: string[] | null) {
+  const granted = USERS[role].grants[scopeId] ?? [];
+  const pool = EQUIPMENT.filter(e => e.site === scopeId && granted.includes(e.room) && (roomNames === null || roomNames.includes(e.room)));
+  const inCondition = pool.filter(e => matchesCondition(e, condition)).map(e => e.equipmentId);
+  return { inCondition, outOfCondition: (selection ?? []).filter(id => !inCondition.includes(id)) };
+}
+
+describe('mockAdapter.evaluateSelection', () => {
+  it('matches the former client-side computation across roles, rooms and conditions', async () => {
+    const before = getRole();
+    try {
+      const stgroup = EQUIPMENT.find(e => e.site === 'MEM')!.stgroup;
+      const someId = EQUIPMENT.find(e => e.site === 'MEM' && e.room === 'DIFF')!.equipmentId; // DIFF is granted to admin only
+      for (const role of ['engineer', 'admin', 'viewer'] as const) {
+        setRole(role);
+        for (const [roomNames, condition] of [[null, null], [['PHOTO'], null], [null, { stgroup: [stgroup] }]] as const) {
+          const selection = [someId, 'NOPE-1'];
+          const got = await mockAdapter.evaluateSelection({ scopeId: 'MEM', lineNames: null, prcGroups: null, membershipBasis: null, roomNames: roomNames ? [...roomNames] : null, condition, selection });
+          const want = clientSide(role, 'MEM', roomNames ? [...roomNames] : null, condition, selection);
+          expect({ inCondition: got.inCondition.map(e => e.equipmentId), outOfCondition: got.outOfCondition }).toEqual(want);
+        }
+      }
+    } finally {
+      setRole(before);
+    }
+  });
+
+  it('returns condition choices only from rooms the session may see', async () => {
+    const before = getRole();
+    try {
+      for (const role of ['engineer', 'admin', 'viewer'] as const) {
+        setRole(role);
+        const granted = USERS[role].grants.MEM ?? [];
+        const visible = EQUIPMENT.filter(e => e.site === 'MEM' && granted.includes(e.room));
+        const got = await mockAdapter.contextOptions('MEM');
+        expect(got.stgroup).toEqual([...new Set(visible.map(e => e.stgroup))].sort());
+        expect(got.team).toEqual([...new Set(visible.map(e => e.team))].sort());
+        expect(new Set(got.makerModel.map(m => `${m.maker}/${m.model}`))).toEqual(new Set(visible.map(e => `${e.maker}/${e.model}`)));
+      }
+      setRole('viewer');
+      expect(await mockAdapter.contextOptions('XIA')).toEqual({ stgroup: [], team: [], makerModel: [] }); // no grant
+    } finally {
+      setRole(before);
+    }
+  });
+
+  // #242: room names repeat across Sites (PHOTO is in every Site), so a second granted Site must use its own grants
+  // and rows. The engineer holds PHOTO/ETCH/CVD in MEM but only PHOTO in FDRY.
+  it('keeps a second granted Site to its own room grants and rows', async () => {
+    const before = getRole();
+    try {
+      setRole('engineer');
+      expect(USERS.engineer.grants.FDRY).toEqual(['PHOTO']);
+      const fdryPhoto = EQUIPMENT.filter(e => e.site === 'FDRY' && e.room === 'PHOTO');
+      const fdryEtch = EQUIPMENT.find(e => e.site === 'FDRY' && e.room === 'ETCH')!;
+      const memPhoto = EQUIPMENT.find(e => e.site === 'MEM' && e.room === 'PHOTO')!;
+      const got = await mockAdapter.evaluateSelection({ scopeId: 'FDRY', lineNames: null, prcGroups: null, membershipBasis: null, roomNames: null, condition: null, selection: [fdryEtch.equipmentId, memPhoto.equipmentId] });
+      expect(got.inCondition.map(e => e.equipmentId).sort()).toEqual(fdryPhoto.map(e => e.equipmentId).sort());
+      expect(got.outOfCondition).toEqual([fdryEtch.equipmentId, memPhoto.equipmentId]);
+      const options = await mockAdapter.contextOptions('FDRY');
+      expect(options.stgroup).toEqual([...new Set(fdryPhoto.map(e => e.stgroup))].sort());
+      expect(options.stgroup).not.toContain(fdryEtch.stgroup);
+    } finally {
+      setRole(before);
+    }
+  });
+});
+
+describe('scope_error scenario (#167)', () => {
+  it('rejects validateScope and leaves other calls normal', async () => {
+    const before = getRole();
+    setScenario('scope_error');
+    try {
+      setRole('engineer');
+      await expect(mockAdapter.validateScope('MEM')).rejects.toThrow('Scope check failed (scenario)');
+      const got = await mockAdapter.evaluateSelection({ scopeId: 'MEM', lineNames: null, prcGroups: null, membershipBasis: null, roomNames: null, condition: null, selection: [] });
+      setScenario('normal');
+      expect(got).toEqual(await mockAdapter.evaluateSelection({ scopeId: 'MEM', lineNames: null, prcGroups: null, membershipBasis: null, roomNames: null, condition: null, selection: [] }));
+      expect((await mockAdapter.validateScope('MEM')).status).toBe('valid');
+    } finally { setScenario('normal'); setRole(before); }
+  });
+
+  it('pins the scenario at send time — a later switch to normal does not rescue an in-flight check', async () => {
+    const before = getRole();
+    try {
+      setRole('engineer');
+      setScenario('scope_error');
+      const failing = mockAdapter.validateScope('MEM');
+      setScenario('normal');
+      await expect(failing).rejects.toThrow('Scope check failed (scenario)');
+    } finally { setScenario('normal'); setRole(before); }
+  });
+
+  it('pins the scenario at send time — a later switch to scope_error does not fail an in-flight check', async () => {
+    const before = getRole();
+    try {
+      setRole('engineer');
+      setScenario('normal');
+      const passing = mockAdapter.validateScope('MEM');
+      setScenario('scope_error');
+      expect((await passing).status).toBe('valid');
+    } finally { setScenario('normal'); setRole(before); }
+  });
+});
+
+describe('createMockAdapter auditEvents (ADR-0048: menu-owned audit seeds)', () => {
+  const seed = (patch: Partial<AuditEvent> = {}): AuditEvent => ({
+    id: 'metric-x-v1-draft', at: '2026-09-20T02:00:00.000Z', actor: 'park.seo', action: 'create', source: 'user',
+    target: { type: 'metric', id: 'x', scopeId: null }, reason: '최초 등록', ...patch,
+  });
+  const build = (events: AuditEvent[]) => () => createMockAdapter({ endpoints: [], registry: { menus: [] }, auditEvents: events });
+
+  it('serves the seeds through both auditTrail and entityAudit', async () => {
+    const before = getRole();
+    try {
+      setRole('admin');
+      const adapter = build([seed()])();
+      const detail = await adapter.entityAudit({ type: 'metric', id: 'x', scopeId: null });
+      const log = await adapter.auditTrail({ type: 'metric' });
+      expect(detail.data?.events.map(e => e.id)).toEqual(['metric-x-v1-draft']);
+      expect(log.data?.items.map(e => e.id)).toEqual(['metric-x-v1-draft']);
+      expect((await mockAdapter.entityAudit({ type: 'metric', id: 'x', scopeId: null })).outcome).toBe('empty');
+    } finally { setRole(before); }
+  });
+
+  it.each([
+    ['a duplicate id', [seed(), seed()]],
+    ['an equipment target (the mock server owns equipment events)', [seed({ target: { type: 'equipment', id: 'MEM-PHOTO-0103', scopeId: 'MEM' } })]],
+    ['an undeclared target type', [seed({ target: { type: 'lot', id: 'L1', scopeId: null } })]],
+    ['a metric with a site', [seed({ target: { type: 'metric', id: 'x', scopeId: 'MEM' } })]],
+    ['a zone-less time', [seed({ at: '2026-09-20T11:00:00' })]],
+  ])('refuses %s at registration', (_name, events) => {
+    expect(build(events)).toThrow(MockRegistrationError);
+  });
+});
+
+describe('multi-axis Condition matching (#552)', () => {
+  it('ANDs axes and ORs values; unknown axes never broaden the query', () => {
+    const row = EQUIPMENT[0];
+    expect(matchesCondition(row, { maker: [row.maker], model: [row.model] })).toBe(true);
+    expect(matchesCondition(row, { maker: [row.maker, 'other'] })).toBe(true);
+    expect(matchesCondition(row, { maker: [row.maker], model: ['other'] })).toBe(false);
+    expect(matchesCondition(row, { unknown: ['other'] })).toBe(false);
+  });
+});
+
+describe('Selection evaluation carries Line/PRC and basis (#552)', () => {
+  it.each([
+    ['array Condition', { condition: [] }, 'invalid_condition'],
+    ['scalar axis', { condition: { maker: 'X' } }, 'invalid_condition'],
+    ['empty Condition', { condition: {} }, 'invalid_condition'],
+    ['empty axis array', { condition: { maker: [] } }, 'invalid_condition'],
+    ['blank axis value', { condition: { maker: [' '] } }, 'invalid_condition'],
+    ['non-string axis value', { condition: { maker: [1] } }, 'invalid_condition'],
+    ['scalar Line', { lineNames: 'L10' }, 'invalid request context'],
+    ['scalar PRC', { prcGroups: 'P10' }, 'invalid request context'],
+    ['blank Line ID', { lineNames: [' '] }, 'invalid request context'],
+    ['non-string PRC ID', { prcGroups: [1] }, 'invalid request context'],
+    ['invalid basis', { membershipBasis: 'current' }, 'invalid_membership_basis'],
+    ['orphan basis', { membershipBasis: 'asOf' }, 'membership_basis_pair'],
+    ['scalar rooms', { roomNames: 'PHOTO' }, 'invalid request context'],
+    ['scalar Selection', { selection: 'E1' }, 'invalid request context'],
+  ])('rejects malformed runtime Selection input: %s', async (_label, patch, message) => {
+    const input = { scopeId: 'MEM', roomNames: null, condition: null, selection: null, lineNames: null, prcGroups: null, membershipBasis: null, ...patch };
+    await expect(mockAdapter.evaluateSelection(input as unknown as Parameters<typeof mockAdapter.evaluateSelection>[0])).rejects.toThrow(message as string);
+  });
+  it('filters both sets and treats PRC-only asOf as current membership', async () => {
+    const before = getRole();
+    try {
+      setRole('engineer');
+      const row = EQUIPMENT.find(e => e.site === 'MEM' && e.room === 'PHOTO')!;
+      const input = { scopeId: 'MEM', roomNames: null, condition: null, selection: [row.equipmentId], lineNames: [row.line], prcGroups: [row.prcGroup], membershipBasis: 'asOf' as const };
+      const result = await mockAdapter.evaluateSelection(input);
+      expect(result.inCondition.length).toBeGreaterThan(0);
+      expect(result.inCondition.every(e => EQUIPMENT.some(r => r.equipmentId === e.equipmentId && r.line === row.line && r.prcGroup === row.prcGroup))).toBe(true);
+      expect(await mockAdapter.evaluateSelection({ ...input, lineNames: [] })).toEqual({ inCondition: [], outOfCondition: [row.equipmentId] });
+      await expect(mockAdapter.evaluateSelection({ ...input, condition: { stgroup: [row.stgroup] } })).rejects.toThrow('membership_basis_unsupported');
+    } finally { setRole(before); }
+  });
+});

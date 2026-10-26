@@ -1,2 +1,2 @@
-export { bootstrapHttpAdapter } from './bootstrap.js';
-export type { BootstrapResult, HttpAdapterOptions } from './bootstrap.js';
+export { bootstrapHttpAdapter } from './session/bootstrap.js';
+export type { BootstrapResult, HttpAdapterOptions } from './session/bootstrap.js';
