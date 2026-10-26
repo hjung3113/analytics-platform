@@ -9,7 +9,9 @@ import {
 } from '@/features/findings/routes/FindingsScreen';
 import { validateFindingsSearch } from '@/features/findings/routes/findings-search';
 import { type HostNavigate, HostSeamProvider, useHostSeam } from '@/lib/host/host-seam';
+import { InternalLink } from '@/lib/router/InternalLink';
 import { createFileRoute, useNavigate, useSearch } from '@tanstack/react-router';
+import { ChevronLeft } from 'lucide-react';
 import * as React from 'react';
 
 export {
@@ -85,14 +87,41 @@ function useFindingsNavigate(): HostNavigate {
   );
 }
 
+/** The VOC back link: the stored URL stays as written (the app codec's string), and a plain left click navigates by href through the router. */
+function VocReturnLink({ returnTo }: { returnTo: string }): React.ReactElement {
+  const navigate = useNavigate({ from: '/findings/' });
+  return (
+    <InternalLink
+      href={returnTo}
+      onClick={(event) => {
+        if (
+          event.metaKey ||
+          event.ctrlKey ||
+          event.shiftKey ||
+          event.altKey ||
+          event.button !== 0
+        ) {
+          return;
+        }
+        event.preventDefault();
+        void navigate({ href: returnTo });
+      }}
+      className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-xs text-text-muted hover:bg-surface-canvas hover:text-text-primary"
+    >
+      <ChevronLeft className="h-3.5 w-3.5" aria-hidden />
+      <span>원래 VOC로 돌아가기</span>
+    </InternalLink>
+  );
+}
+
 const renderStandaloneDetail: FindingsScreenProps['renderDetail'] = (
   findingId,
-  { listDenied, headerExtras },
+  { listDenied, returnTo },
 ) =>
   listDenied ? null : findingId !== null ? (
     <FindingDetailPanel
       findingId={findingId}
-      {...(headerExtras !== undefined ? { headerExtras } : {})}
+      {...(returnTo !== null ? { headerExtras: <VocReturnLink returnTo={returnTo} /> } : {})}
     />
   ) : (
     <FindingEmptyDetail />

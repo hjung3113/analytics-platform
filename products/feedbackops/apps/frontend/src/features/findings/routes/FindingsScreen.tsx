@@ -28,7 +28,7 @@ import { PERMISSION_BLOCKED_REASONS } from '@/lib/copy/permission-reasons';
 import { useWorkspaceActors } from '@/lib/cross-system/useWorkspaceActors';
 import { formatCount } from '@/lib/format/count';
 import { formatShortDate } from '@/lib/format/datetime';
-import { HostLink, useHostSeam } from '@/lib/host/host-seam';
+import { useHostSeam } from '@/lib/host/host-seam';
 import { useHostSearchWriter } from '@/lib/host/useHostSearchWriter';
 import { useAnalyticsAreaFilterLabel } from '@/lib/useAnalyticsAreaFilterLabel';
 import { useCommittedSearchDraft } from '@/lib/useCommittedSearchDraft';
@@ -51,7 +51,6 @@ import {
   UserAvatar,
 } from '@fops/ui';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronLeft } from 'lucide-react';
 import * as React from 'react';
 
 type SearchWriter = ReturnType<
@@ -62,11 +61,12 @@ type WriteSearch = SearchWriter['write'];
 export type FindingsScreenProps = {
   /**
    * The host's detail slot, called once per render and handed to `ListShell` as returned (`undefined` = no `detailPanel`, the host draws its own).
-   * `headerExtras` is the FeedbackOps back link, present only when the search carries a safe VOC `returnTo` and the host does not carry the return itself.
+   * `returnTo` is the stored safe VOC URL, set only when the search carries one and the host does not carry the return itself, else `null`. It is a
+   * codec string only the router can decode, so the standalone host draws the back link; the screen never renders it.
    */
   renderDetail: (
     findingId: string | null,
-    options: { listDenied: boolean; headerExtras: React.ReactNode | undefined },
+    options: { listDenied: boolean; returnTo: string | null },
   ) => React.ReactNode;
 };
 
@@ -329,19 +329,9 @@ function FindingsListShell({
     onSelectionReconciled,
   ]);
 
-  const headerExtras =
-    !hostCarriesReturn && safeReturnTo !== null ? (
-      <HostLink
-        to={safeReturnTo}
-        className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-xs text-text-muted hover:bg-surface-canvas hover:text-text-primary"
-      >
-        <ChevronLeft className="h-3.5 w-3.5" aria-hidden />
-        <span>원래 VOC로 돌아가기</span>
-      </HostLink>
-    ) : undefined;
   const detailPanel = renderDetail(selectedId, {
     listDenied: stateIsError && isPermissionDenied(stateError),
-    headerExtras,
+    returnTo: !hostCarriesReturn ? safeReturnTo : null,
   });
 
   return (

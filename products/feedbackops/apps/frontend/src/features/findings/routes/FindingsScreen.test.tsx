@@ -133,7 +133,7 @@ function mount(initial: Record<string, string>, { hostCarriesReturn = false } = 
 
 const lastDetailCall = () =>
   renderDetail.mock.calls.at(-1) as [string | null, Record<string, unknown>];
-const headerExtras = () => lastDetailCall()[1].headerExtras as React.ReactNode | undefined;
+const detailReturnTo = () => lastDetailCall()[1].returnTo as string | null;
 
 beforeEach(() => {
   // jsdom lacks the pointer-capture and scroll APIs Radix Select calls.
@@ -263,20 +263,23 @@ describe('FindingsScreen under a host seam', () => {
     expect(await screen.findByRole('button', { name: '권한 요청하기' })).toBeInTheDocument();
   });
 
-  it('gives headerExtras a back link with returnTo, and none without it or when the host carries the return', async () => {
+  it('hands renderDetail the stored returnTo, and null without it, for an unsafe one, or when the host carries the return', async () => {
     mount({ managedSystem: MS, selected: F1_ID, returnTo: RETURN_TO });
-    await waitFor(() => expect(headerExtras()).toBeDefined());
-    expect(React.isValidElement(headerExtras())).toBe(true);
-    expect((headerExtras() as React.ReactElement<{ to: string }>).props.to).toBe(RETURN_TO);
+    await waitFor(() => expect(detailReturnTo()).toBe(RETURN_TO));
     cleanup();
 
     mount({ managedSystem: MS, selected: F1_ID });
     await screen.findByText('결제 실패 반복');
-    expect(headerExtras()).toBeUndefined();
+    expect(detailReturnTo()).toBeNull();
+    cleanup();
+
+    mount({ managedSystem: MS, selected: F1_ID, returnTo: 'https://evil.example/x' });
+    await screen.findByText('결제 실패 반복');
+    expect(detailReturnTo()).toBeNull();
     cleanup();
 
     mount({ managedSystem: MS, selected: F1_ID, returnTo: RETURN_TO }, { hostCarriesReturn: true });
     await screen.findByText('결제 실패 반복');
-    expect(headerExtras()).toBeUndefined();
+    expect(detailReturnTo()).toBeNull();
   });
 });
