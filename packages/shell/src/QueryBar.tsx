@@ -1,7 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode, type ComponentProps } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { formatPeriod, parseDateTime, periodHours, shift, type GlobalContext, type IdSet } from '@ap/contracts';
-import { CONTEXT_LABELS, useAxisOptions, useConditionPreset, useEquipmentSearch, useI18n, useQueryDraft, useResolvedSelection, type PortContext } from '@ap/kernel';
+import { CONTEXT_LABELS, useAxisOptions, useConditionPreset, useEquipmentSearch, queryMissingSentence, useI18n, useQueryDraft, useResolvedSelection, type PortContext } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import { formatQuerySummary, presetOutsideAxes, querySummaryItems, SegmentedRadio, summaryPreset, useCopyLink, useQueryBarExtension } from '@ap/components';
 import { Alert, AlertDescription, Button, Input, MultiCombobox, Popover, PopoverContent, PopoverTrigger, readLocalStorage, writeLocalStorage } from '@ap/ui';
@@ -72,7 +72,7 @@ function QueryBarSession({ label, historySlot }: QueryBarProps) {
   }
   const context: PortContext = { scopeId: g.scopeId ?? '', roomNames: g.roomNames, lineNames: g.lineNames, prcGroups: g.prcGroups, condition: g.condition, membershipBasis: g.membershipBasis, period: g.from && g.to ? { from: g.from, to: g.to } : null };
   const cap = route!.menu.context;
-  const reasons = missing.map(m => ({ key: m.key, reason: t('queryMissing', { label: m.key === 'roomNames' ? (ko ? '공정' : 'Process') : tx(m.label) }) }));
+  const reasons = missing.map(m => ({ key: m.key, reason: queryMissingSentence(lang, m.label) }));
   if (route!.menu.requiresScope && (scope.status !== 'valid' || scope.validatedFor !== session)) reasons.push({ key: 'scope', reason: ko ? 'Scope를 선택하고 권한 확인을 완료하세요.' : 'Select a Scope and finish authorization.' });
   if (applying) reasons.push({ key: 'commit', reason: ko ? '조건을 적용하고 있습니다.' : 'Applying conditions.' });
   const periodInputInvalid = (periodEditor.mode === 'reference' && periodEditor.invalidReference) || range.from !== (g.from ?? '') || range.to !== (g.to ?? '');

@@ -57,7 +57,7 @@ it.each(['', '&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00'])('shows the sha
   window.history.replaceState(null, '', `/analytics/cycle-time?scopeId=MEM${period}`);
   render(<I18nProvider><PlatformProvider equipmentAxes={TEST_AXES} registry={registry} adapter={testAdapter({ session: () => session, menuQuery: send })}><CycleTimeDrilldown params={{}} /></PlatformProvider></I18nProvider>);
   await waitFor(() => expect(screen.getAllByText('아직 조회하지 않았습니다').length).toBeGreaterThan(0));
-  await waitFor(() => expect(screen.getAllByText(/room_name.*선택/).length).toBeGreaterThan(0));
+  await waitFor(() => expect(screen.getAllByText(/공정.*선택/).length).toBeGreaterThan(0));
   expect(screen.queryByText('전역 기간이 URL에 확정되면 조회합니다.')).toBeNull();
   expect(send).not.toHaveBeenCalled();
 });

@@ -3,7 +3,7 @@ import { useInWorkspacePanel } from './workspace/panelContext';
 import { useSharedOutcome } from './OutcomeScope';
 import { Ban, Clock, HelpCircle, Inbox, Loader2, Maximize2, RotateCw, ServerCrash } from 'lucide-react';
 import { useContext, useId, type ReactNode } from 'react';
-import { errorGuidance, type QueryState, useI18n } from '@ap/kernel';
+import { errorGuidance, queryMissingSentence, type QueryState, useI18n } from '@ap/kernel';
 import type { ApiResponse } from '@ap/contracts';
 import { Button, cn, Skeleton } from '@ap/ui';
 
@@ -111,14 +111,14 @@ export function QueryView<T>({ query, children, skeletonRows, skeletonHeight, em
   /** The wrapper takes the parent's height (`flex min-h-0 flex-1 flex-col`) so a `size="fill"` chart inside has a bounded parent, as it does in a workspace panel. */
   fill?: boolean;
 }) {
-  const { t, tx } = useI18n();
+  const { t, lang } = useI18n();
   const analysisSection = useContext(AnalysisSectionContext);
   const chart = analysisSection?.kind === 'chart';
   // In a workspace panel the wrapper takes the panel's height so a `size="fill"` chart inside has a bounded parent.
   const inPanel = useInWorkspacePanel();
   const grouped = useSharedOutcome(query.response, query.refetch, widgetName, query.status);
   if (query.status === 'idle') return <StateMessage icon={<HelpCircle className="size-4" aria-hidden />} title={t('stateIdle')}
-    body={query.missing.length ? <ul>{query.missing.map(item => <li key={item.key}>{t('queryMissing', { label: tx(item.label) })}</li>)}</ul> : undefined} compact={compact} />;
+    body={query.missing.length ? <ul>{query.missing.map(item => <li key={item.key}>{queryMissingSentence(lang, item.label)}</li>)}</ul> : undefined} compact={compact} />;
   if (!query.response) return <LoadingBlock rows={skeletonRows} height={skeletonHeight} className={chart ? 'row-span-2 pr-12' : undefined} />;
   const response = query.response;
   return <div aria-busy={query.status === 'refreshing'} className={cn('relative', inPanel && 'h-full min-h-0', fill && 'flex min-h-0 flex-1 flex-col', chart && 'row-span-2', chart && response.outcome === 'ok' && 'grid grid-rows-subgrid gap-y-0', analysisSection && response.outcome !== 'ok' && 'pr-12')}>

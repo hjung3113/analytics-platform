@@ -1,6 +1,6 @@
 export { createBrowserLocation, createBasePathLocation, type PlatformLocation } from './context/location';
 export { useDrill, type DrillInvalid, type DrillLevelState, type DrillState, type DrillTrailStep } from './context/drill';
-export { contractErrorSentence, errorGuidance, I18nProvider, invalidValueSentence, topicParticle, useI18n, type ErrorGuidance, type Key, type Lang, type Text } from './i18n';
+export { contractErrorSentence, errorGuidance, I18nProvider, invalidValueSentence, objectParticle, queryMissingSentence, topicParticle, useI18n, type ErrorGuidance, type Key, type Lang, type Text } from './i18n';
 export { classifyMetricInit, type MetricInit } from './registry/metric-init';
 export { RETURN_CONTEXT_LABELS, PlatformLink, PlatformProvider, usePlatform, usePlatformOptional, useRecentVisits, type MenuPlatform, type FeedbackOpsEntry, type FeedbackOpsSlot, type HomeTodoSlot, type LinkOptions, type LinkResolution, type NavCountsSlot, type NotificationsSlot, type PlannedSpace, type PlatformSlots, type Recent, type ReturnContextKey, type ReturnOrigin, type ScopeControlSlot, type SpaceNavSectionSlot, type ScopeState, type Toast, type ToastAction, type ToastOptions, type VocComposeContext, type VocComposeContextItem, type VocComposeProps, type VocComposeSlot } from './platform/platform';
 export { useMenuAction, type MenuActionState } from './query/action';
