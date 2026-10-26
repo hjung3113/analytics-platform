@@ -196,7 +196,7 @@ ADR-0043의 목표를 배포 구조로 옮긴 후보다. 이 후보에 대한 �
 | FO 셸·AuthProvider를 지금 플랫폼으로 옮기기 | 두 번째 소비자 없음(06 §14·§24). ADR-0027 범위 밖 |
 | 레포별 conductor 스크립트를 더 고쳐 쓰기 | #394가 끝날 때까지 포크 diff가 는다 |
 | 플랫폼 Kernel을 FO 라우터(TanStack Router)로 바꾸는 식의 "같은 라이브러리로 통일" | #396 §9: 공유되는 자원의 실제 요구만 맞춘다. 04는 TanStack Router 미채택을 기록 |
-| `products/equipment-visualization` gitlink를 #332 게이트 전에 main에 추가 | #332 수용 기준 |
+| `products/equipment-visualization` gitlink를 #332 게이트 전에 main에 추가 | #332 수용 기준 — #332는 not planned로 닫힘(2026-10-26): 서브모듈 대신 EV 릴리스 tarball URL 고정(EV ADR-0014, #811) |
 
 ## 6. 단계
 
@@ -232,7 +232,7 @@ ADR-0043의 목표를 배포 구조로 옮긴 후보다. 이 후보에 대한 �
 | 결정 | 사용자: #332 정책(권고 아래 Q3), EV#44(권고: 지원 정밀도를 fail-closed로 제한하고 플랫폼 §6.3과의 관계를 EV ADR + 플랫폼 06 주석으로), 권한 문자열(`equipment:topview:*`), 쓰기(publish)를 1차 범위에서 빼는 것. 유도: 엔드포인트 선언 값, 테마 매핑 표(`--eqv-*` ← 플랫폼 토큰) |
 | 위험 | 첫 "플랫폼 밖 원본을 플랫폼이 소비"하는 경로라 빌드(`@eqv/*`는 `dist/` 빌드가 있음 — 플랫폼 패키지와 다름)·CSS 소스 등록·turbo 해시가 FO 때처럼 한 번씩 걸린다. private/public 전제 불일치(#332 vs 현재 `private: false`)를 먼저 확인 |
 | SDK 관점 | `platform-adapter`가 정의하는 "호스트가 모듈에 주는 것"(테마·Context·권한·수명주기)이 SDK 호스트 인터페이스의 초안이 된다. **EV가 `@ap/*`를 import하지 않는 규칙을 유지**하면 이 인터페이스는 자연히 "타입만 공유"에 가깝다 — SDK 때 그 타입을 `@ap/contracts`에 둘지, EV가 자기 타입을 내고 플랫폼이 맞출지가 결정 항목(Q4) |
-| 이슈 | 기존 #332·#333·#334·#335, EV#2·#3·#44·#15. 제안(미등록, EV 레포): **P2-a** `packages/platform-adapter` 뼈대와 테마 매핑 표, **P2-b** `packages/replay`(Studio Focus #15와 겹침 확인). 제안(AP): **P2-c** `products/equipment-visualization` 편입 절차 문서(저장소 구조 문서 확장, #332 뒤) |
+| 이슈 | 기존 #332·#333·#334·#335, EV#2·#3·#44·#15. 제안(미등록, EV 레포): **P2-a** `packages/platform-adapter` 뼈대와 테마 매핑 표, **P2-b** `packages/replay`(Studio Focus #15와 겹침 확인). 제안(AP): **P2-c** `products/equipment-visualization` 편입 절차 문서(저장소 구조 문서 확장, #332 뒤 — #332가 not planned로 닫혀 서브모듈 편입은 하지 않는다, 2026-10-26) |
 
 ### 단계 3 — 서버 경계를 SDK에 넣을 모양 (선언·codegen·실어댑터)
 
