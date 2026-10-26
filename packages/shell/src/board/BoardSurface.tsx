@@ -1,7 +1,7 @@
 import { QueryBarExtensionsProvider } from '@ap/components';
 import { useEquipmentAxes } from '@ap/kernel';
 import { PaneQueryDraftProvider } from '@ap/kernel/host';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties } from 'react';
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties } from 'react';
 import { HardDrive, Minus, X } from 'lucide-react';
 import { UNDO_WINDOW_MS, useI18n, type MenuEntry } from '@ap/kernel';
 import { paneHref, useHostPlatform, type PaneScreen } from '@ap/kernel/host';
@@ -54,6 +54,7 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
   const [engine] = useState(readLayoutEngine);
   const dock = engine === 'dock';
   const heading = useRef<HTMLHeadingElement>(null);
+  const closeHint = useId();
   const [confirmLayout, setConfirmLayout] = useState<BoardLayout | null>(null);
 
   const sheet = board.sheets.find(s => s.id === requestedSheetId) ?? board.sheets.find(s => s.id === board.activeSheetId) ?? board.sheets[0];
@@ -213,9 +214,13 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
   // `Context 바에서 편집`: the bar row is keyed by the selected pane, so it remounts for the new one; focus its first control afterwards.
   const [editRequest, setEditRequest] = useState(0);
   const editContext = (index: number) => { select(index); setEditRequest(n => n + 1); };
+  // A request is consumed when it runs: a restore (`visible` again) must not replay it over the focus remembered for the restore.
+  const editHandled = useRef(0);
   useEffect(() => {
-    if (editRequest === 0 || !visible) return;
+    if (editRequest === 0) { editHandled.current = 0; return; }
+    if (!visible || editHandled.current === editRequest) return;
     const timer = setTimeout(() => {
+      editHandled.current = editRequest;
       document.querySelector<HTMLElement>('[data-board-context-row] button:not(:disabled), [data-board-context-row] [tabindex="0"]')?.focus({ preventScroll: true });
     }, 0);
     return () => clearTimeout(timer);
@@ -247,24 +252,27 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
   const tracks = effectiveTracks(layout, arrangement, width, height);
   const owner = `${user.id}.${sheetId}.${dock ? 'dock' : layout}`;
   const identity = `${owner}.${stacked}`;
-  const [presentation, setPresentation] = useState<{ identity: string; maximized: number | null; dockMaximized: string | null }>({ identity, maximized: null, dockMaximized: null });
+  // The maximize intent belongs to the owner (user, sheet, layout), not to the drawn width: a narrow stacking only hides it, a wide board shows it again.
+  const [presentation, setPresentation] = useState<{ identity: string; maximized: number | null; dockMaximized: string | null }>({ identity: owner, maximized: null, dockMaximized: null });
+  const [seenIdentity, setSeenIdentity] = useState(identity);
   // Identity changes cancel transient presentation before children commit; no outgoing focus handoff survives.
-  if (presentation.identity !== identity) {
-    setPresentation({ identity, maximized: null, dockMaximized: null });
+  if (seenIdentity !== identity) {
+    setSeenIdentity(identity);
     if (confirmLayout !== null) setConfirmLayout(null);
     if (editRequest !== 0) setEditRequest(0);
   }
-  const maximized = presentation.identity === identity ? presentation.maximized : null;
-  const dockMaximized = presentation.identity === identity ? presentation.dockMaximized : null;
+  if (presentation.identity !== owner) setPresentation({ identity: owner, maximized: null, dockMaximized: null });
+  const maximized = stacked || presentation.identity !== owner ? null : presentation.maximized;
+  const dockMaximized = presentation.identity === owner ? presentation.dockMaximized : null;
   const toggleMaximize = (index: number) => {
     select(index);
-    setPresentation({ identity, maximized: maximized === index ? null : index, dockMaximized: null });
+    setPresentation({ identity: owner, maximized: maximized === index ? null : index, dockMaximized: null });
   };
   /** The dock renderer's maximize is a group command; the maximized pane is the one the user is working in, so it is selected. */
   const maximizeDock = (paneId: string | null) => {
     const index = paneId === null ? -1 : indexOfPane(sheet, paneId);
     if (index >= 0) select(index);
-    setPresentation({ identity, maximized: null, dockMaximized: index >= 0 ? paneId : null });
+    setPresentation({ identity: owner, maximized: null, dockMaximized: index >= 0 ? paneId : null });
   };
   /** `칸 추가` (dock): ends a maximize so the new pane, which the model selects, is on screen, and tells the dock which tab to focus. */
   const dockKey = `${user.id}.${sheetId}`;
@@ -306,7 +314,7 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
     const added = grown === board ? undefined : grown.sheets.find(s => s.id === sheetId)?.panes.at(-1);
     if (!added) { setGroupAdd(null); notify(text.groupAddGone); return; }
     // A maximized group stays maximized with the new tab, active in it, on screen (docs/16 §4); the dock focuses its tab.
-    if (dockMaximized !== null) setPresentation({ identity, maximized: null, dockMaximized: holder.panes.includes(dockMaximized) ? added.id : null });
+    if (dockMaximized !== null) setPresentation({ identity: owner, maximized: null, dockMaximized: holder.panes.includes(dockMaximized) ? added.id : null });
     groupAdded.current = true;
     setGroupAdd(null);
     update(() => grown);
@@ -342,16 +350,16 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
       trigger: grid.current?.querySelector<HTMLElement>(`[data-pane-index="${maximized}"] [data-pane-maximize]`) ?? null };
   }, [dock, maximized, identity, owner, stacked]);
   useEffect(() => {
-    if (dock || maximized === null) return;
+    if (dock || maximized === null || !visible) return;
     // Radix handles Escape at document capture; React detail/consumer handlers run before window bubble.
     const escape = (event: KeyboardEvent) => {
       if (event.key !== 'Escape' || event.defaultPrevented) return;
       event.preventDefault();
-      setPresentation({ identity, maximized: null, dockMaximized: null });
+      setPresentation({ identity: owner, maximized: null, dockMaximized: null });
     };
     window.addEventListener('keydown', escape);
     return () => window.removeEventListener('keydown', escape);
-  }, [dock, maximized, identity]);
+  }, [dock, maximized, owner, visible]);
   const saved = (change: Partial<typeof arrangement>, final = true) => update(b => {
     const current = b.sheets.find(s => s.id === sheetId);
     return current ? setArrangement(b, sheetId, layout, { ...getArrangement(current), ...change }) : b;
@@ -408,7 +416,10 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
       </div>}
       {(onMinimize || onClose) && <div data-board-leave className="flex shrink-0 items-center gap-1 border-l border-border-subtle pl-2">
         {onMinimize && <Button type="button" variant="ghost" size="sm" onClick={onMinimize}><Minus className="size-3.5" aria-hidden />{text.minimize}</Button>}
-        {onClose && <Button type="button" variant="ghost" size="sm" onClick={onClose}><X className="size-3.5" aria-hidden />{text.closeBoard}</Button>}
+        {onClose && <>
+          <Button type="button" variant="ghost" size="sm" aria-describedby={closeHint} onClick={onClose}><X className="size-3.5" aria-hidden />{text.closeBoard}</Button>
+          <span id={closeHint} className="sr-only">{text.closeHint}</span>
+        </>}
       </div>}
     </header>
     <PaneQueryDraftProvider key={sheetId} screens={Object.fromEntries(paneScreens.map((screen, index) => [paneKey(index), screen]))}>

@@ -2,7 +2,7 @@
 
 - Status: Decided (2026-10-27)
 - Decider: 코디네이터(사용자 결정: 복원 진입점은 왼쪽 아래 칩 + 레일 버튼 상태 표시, 2026-10-26), 되돌릴 수 있다.
-- Scope: [#893](https://github.com/hjung3113/analytics-platform/issues/893) 노드 893c. 관련: [docs/16 §4·§7](../16_analysis_board.md), [ADR-0049](0049-board-pane-kernel-context.md).
+- Scope: [#893](https://github.com/hjung3113/analytics-platform/issues/893) 노드 893c. 관련: [docs/16 §4·§7](../16_analysis_board.md), [ADR-0049](0049-analysis-context-belongs-to-a-pane.md).
 
 ## 맥락
 
@@ -41,6 +41,7 @@
 - 계측: `via`는 `navigate` 호출마다 기록되고 `enter`/`recordVisit`은 일반 경로 도착마다 남는다. 보드 왕복도 일반 화면 쪽은 매번 한 방문이다(`/board`는 방문·계측 대상이 아니다, docs/16 §7).
 - 일반 화면은 최대화 ↔ 최소화마다 다시 마운트한다(`ScreenOutlet`을 `/board`에서 내린다). 일반 화면 상태까지 살리는 것은 이 결정의 범위 밖이다(알려진 한계).
 - 최소화 중 보드의 상세·overlay·토스트 처리와 세션·권한 경계는 893c2가 이어받는다. `visible=false`가 그 노드의 훅이다.
+- 일반 화면 `ScreenOutlet`은 보드와 다른 `Suspense` 경계에 둔다. 같은 경계의 형제가 suspend하면 React가 이미 마운트된 보드를 숨기고 layout effect를 정리·재실행해 ECharts 캔버스가 교체된다(실제 앱 재현: 홈으로 이동 후 복원 시 캔버스 0/4 유지).
 - 최소화 알림은 명시적 최소화·복원·닫기에만 낭독한다. 메뉴 이동으로 인한 자동 최소화는 목적지의 도착 포커스가 낭독을 맡는다.
 
 ## 되돌리기

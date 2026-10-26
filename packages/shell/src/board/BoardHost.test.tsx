@@ -208,7 +208,7 @@ describe('board host: chip and rail (893c)', () => {
     const row = button.closest('[data-board-chip-row]')!;
     expect(row.previousElementSibling).toBe(document.getElementById('platform-main'));
     expect(row.compareDocumentPosition(document.querySelector('[data-toast-anchor]')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(document.querySelector('[data-toast-stack]')!.className).toContain('bottom-14');
+    expect(document.querySelector('[data-toast-stack]')!.className).toContain('bottom-16');
   });
 
   it('C7: the rail button says closed / open / minimized in words and a shape, and a press does the matching thing', async () => {

@@ -5293,6 +5293,23 @@ test.describe('분석 보드 최소화·복원 (#893 893c)', () => {
     await expect(mainHeading(page)).toBeFocused();
   });
 
+  test('숨은 보드는 지연 로드되는 일반 화면(홈)으로 이동해도 차트가 다시 만들어지지 않는다 (같은 Suspense 경계로 숨겨지지 않음)', async ({ page }) => {
+    await openSeededBoard(page);
+    await expect(page.locator('canvas').first()).toBeVisible();
+    await markPanes(page);
+    await page.locator('canvas').evaluateAll(canvases => canvases.forEach(canvas => { (canvas as HTMLElement).dataset.dockProbe = 'canvas'; }));
+    const canvases = await page.locator('canvas[data-dock-probe="canvas"]').count();
+    expect(canvases).toBeGreaterThan(0);
+    const popover = await openSwitcher(page);
+    await popover.getByRole('link', { name: '홈' }).click();
+    await expect(page).not.toHaveURL(/\/board/);
+    await expect(chip(page)).toBeVisible();
+    await chip(page).click();
+    await expect(page).toHaveURL(/\/board\?sheet=dock/);
+    await expect(marks(page)).toHaveCount(2);
+    await expect(page.locator('canvas[data-dock-probe="canvas"]')).toHaveCount(canvases);
+  });
+
   test('닫기는 live 보드만 끝내고 저장된 시트는 남기며 /board에 남아 다시 열리지 않는다', async ({ page }) => {
     await openSeededBoard(page);
     await page.getByRole('button', { name: '보드 닫기' }).click();
