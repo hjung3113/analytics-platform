@@ -18,7 +18,7 @@
 - 작업자가 쓴 E2E는 실행해 보지 못하고 쓴 것이라 첫 실행에서 자주 깨진다(mock에 없는 값, primitive 기본값 추정, Radix 동작). 전체 E2E 전에 `cd apps/platform-e2e && pnpm exec playwright test -g "<describe 이름>"`으로 새 테스트만 먼저 돌린다.
 - 테스트를 고치는 라운드에는 `pnpm --filter <pkg> typecheck`도 넣는다 — vitest는 타입을 보지 않는다.
 - 스펙에 ADR 형식을 그대로 적어 준다(영어 예시를 주면 그대로 베낀다). 형식은 [`docs/adr/README.md`](../adr/README.md).
-- 읽기 전용 리뷰어는 dispatch 없이 첫 프롬프트로 띄우는 게 간단하다: `orca terminal create --worktree path:<repo> --command "codex --model <m> -c model_reasoning_effort=<e> -s workspace-write -a never 'Read .review/<n>-review-spec.md and follow it exactly.'"` → 상태 표시줄에서 모델·effort 확인 → 보고서 파일의 끝 표시(sentinel)를 백그라운드로 기다린다. GitHub 상태가 필요하면 `gh` 결과를 `.review/`에 스냅샷으로 넣어 준다(샌드박스는 네트워크 없음).
+- 읽기 전용 리뷰어는 dispatch 없이 첫 프롬프트로 띄우는 게 간단하다: `orca terminal create --worktree path:<repo> --command "codex --model <m> -c model_reasoning_effort=<e> -s workspace-write -a never 'Read .review/<n>-review-spec.md and follow it exactly.'"` → 상태 표시줄에서 모델·effort 확인 → 보고서 파일의 끝 표시(sentinel)와 작업자 프로세스 종료를 함께 보는 `worker-wait.sh`를 백그라운드로 건다(sentinel만 기다리는 대기는 쓰지 않는다, LANES §기계 자원). GitHub 상태가 필요하면 `gh` 결과를 `.review/`에 스냅샷으로 넣어 준다(샌드박스는 네트워크 없음).
 
 ## 메모리(16GB 머신)
 
