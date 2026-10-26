@@ -1,5 +1,5 @@
 import { isPortError, menuPermission, type EquipmentSummary, type PortErrorCode } from '@ap/contracts';
-import type { ConformanceCheck, ServerConformanceHarness } from './index';
+import type { ConformanceCheck, ServerConformanceHarness } from '../../types';
 
 /** All vocabulary and authorization evidence belong to the integrating app/server. */
 export type OptionPortSamples = {

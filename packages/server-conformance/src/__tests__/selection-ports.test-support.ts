@@ -1,5 +1,5 @@
 import { PortError, type PlatformAdapter } from '@ap/contracts';
-import type { OptionPortSamples } from './selection-ports';
+import type { OptionPortSamples } from '../plan/ports/selection-ports';
 
 export const optionSamples: OptionPortSamples = {
   axisId: 'classification', knownValues: ['A', 'B'], query: 'A', queryValue: 'A',
