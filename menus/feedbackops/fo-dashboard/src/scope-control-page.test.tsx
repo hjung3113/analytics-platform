@@ -23,13 +23,13 @@ describe('목록 범위 picker (ready session)', () => {
   const Control = scopeControlSlot.For(spaceId('feedbackops'))!;
 
   it('gets a uuid managedSystem as its value', async () => {
-    mountAt(`/feedbackops?managedSystem=${SYSTEM}`, <Control collapsed={false} />);
+    mountAt(`/feedbackops?managedSystem=${SYSTEM}`, { extra: <Control collapsed={false} /> });
     await screen.findByTestId('picker');
     expect(picker.props.at(-1)?.value).toBe(SYSTEM);
   });
 
   it.each(['not-a-uuid', ''])('does not pass the invalid managedSystem %j to the picker as a selection', async value => {
-    mountAt(`/feedbackops?managedSystem=${value}`, <Control collapsed={false} />);
+    mountAt(`/feedbackops?managedSystem=${value}`, { extra: <Control collapsed={false} /> });
     await screen.findByTestId('picker');
     await waitFor(() => expect(picker.props.length).toBeGreaterThan(0));
     expect(picker.props.every(props => props.value === undefined)).toBe(true);

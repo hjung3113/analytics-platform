@@ -66,7 +66,7 @@ describe('대시보드 through the FeedbackOps bridge', () => {
   });
 
   it('labels the refresh button in English when the language is en', async () => {
-    mountAt(`/feedbackops?managedSystem=${SYSTEM}`, <English />);
+    mountAt(`/feedbackops?managedSystem=${SYSTEM}`, { extra: <English /> });
     expect(await screen.findByRole('button', { name: 'Refresh' })).toBeTruthy();
   });
 });

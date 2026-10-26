@@ -3,6 +3,7 @@
  * Imports `@fops/frontend/global-screens/core` only, so the eagerly loaded app code stays off the FeedbackOps screen barrel.
  */
 export { RejectedPage } from './fo/RejectedPage';
+export { FoScreenPage } from './fo/FoScreenPage';
 export { UUID_PATTERN, isUuid } from './fo/uuid';
 export { foApi, setFoApi, type FoApi } from './fo-api';
 export { FoBridge, UnlinkedLink } from './fo/FoBridge';

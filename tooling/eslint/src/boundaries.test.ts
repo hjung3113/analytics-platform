@@ -682,6 +682,25 @@ rows.push(
   { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '@ap/fo-bridge/src/saved-views';`, rule: 'no-restricted-imports' },
 );
 
+// The fo-bridge menu test harness (#951): `kernel/testing` for exactly `packages/fo-bridge/src/testing.tsx`; `@ap/fo-bridge/testing` for bridge-menu test and test-support files only.
+rows.push(
+  { file: `${FO_PKG}/testing.tsx`, code: `import { testAdapter } from '@ap/kernel/testing';`, rule: '' },
+  { file: `${FO_PKG}/testing.tsx`, code: `const m = await import('@ap/kernel/testing');`, rule: '' },
+  { file: `${FO_PKG}/fo/FoScreenPage.tsx`, code: `import { testAdapter } from '@ap/kernel/testing';`, rule: 'no-restricted-imports' },
+  { file: `${FO_PKG}/fo/FoScreenPage.tsx`, code: `const m = await import('@ap/kernel/testing');`, rule: 'ap/restricted-import-source' },
+  { file: `${FO_PKG}/index.ts`, code: `import { testAdapter } from '@ap/kernel/testing';`, rule: 'no-restricted-imports' },
+  { file: 'menus/feedbackops/fo-voc/src/test-support.tsx', code: `import { createFoMenuHarness } from '@ap/fo-bridge/testing';`, rule: '' },
+  { file: 'menus/feedbackops/fo-voc/src/pages/x.test.tsx', code: `import { createFoMenuHarness } from '@ap/fo-bridge/testing';`, rule: '' },
+  { file: 'menus/feedbackops/fo-voc/src/pages/x.test.tsx', code: `const m = await import('@ap/fo-bridge/testing');`, rule: '' },
+  { file: 'menus/feedbackops/fo-voc/src/pages/FoInbox.tsx', code: `import { createFoMenuHarness } from '@ap/fo-bridge/testing';`, rule: 'no-restricted-imports' },
+  { file: 'menus/feedbackops/fo-voc/src/pages/FoInbox.tsx', code: `const m = await import('@ap/fo-bridge/testing');`, rule: 'ap/restricted-import-source' },
+  { file: BRIDGE, code: `import { createFoMenuHarness } from '@ap/fo-bridge/testing';`, rule: 'no-restricted-imports' },
+  { file: 'menus/_global/home/src/pages/x.test.tsx', code: `import { createFoMenuHarness } from '@ap/fo-bridge/testing';`, rule: 'no-restricted-imports' },
+  { file: 'menus/_global/home/src/test-support.tsx', code: `import { createFoMenuHarness } from '@ap/fo-bridge/testing';`, rule: 'no-restricted-imports' },
+  { file: 'apps/platform-web/src/menus.ts', code: `import { createFoMenuHarness } from '@ap/fo-bridge/testing';`, rule: 'no-restricted-imports' },
+  { file: 'apps/platform-web/src/main.tsx', code: `import { createFoMenuHarness } from '@ap/fo-bridge/testing';`, rule: 'no-restricted-imports' },
+);
+
 rows.push(
   { file: 'packages/ui/src/x.ts', code: `import { x } from '@fops/shared';`, rule: 'no-restricted-imports', token: '@ap/ui' },
   { file: 'packages/ui/src/x.ts', code: `void import('@fops/shared');`, rule: 'ap/restricted-import-source', token: '@ap/ui' },

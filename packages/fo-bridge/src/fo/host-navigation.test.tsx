@@ -51,7 +51,7 @@ afterEach(() => {
   for (const root of roots.splice(0)) act(() => root.unmount());
 });
 
-/** `@testing-library/react` is not a dependency of this package: mount with react-dom directly. */
+/** Mounts with react-dom directly (this test predates the `./testing` harness, which brings `@testing-library/react` as a devDependency). */
 function render(ui: ReactElement, options: { wrapper?: (props: { children: ReactNode }) => ReactElement } = {}) {
   const root = createRoot(document.body.appendChild(document.createElement('div')));
   roots.push(root);
