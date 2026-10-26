@@ -100,7 +100,7 @@ describe('Clusters through the FeedbackOps bridge', () => {
       groups: [{ id: groupId('foVoc'), label: { ko: 'VOC', en: 'VOC' }, icon: findings.icon, space: spaceId('feedbackops') }],
       menus: [...manifests, findings],
     });
-    mountAt(`/feedbackops/clusters?managedSystem=${SYSTEM}`, withFindings);
+    mountAt(`/feedbackops/clusters?managedSystem=${SYSTEM}`, { registry: withFindings });
     const linked = await screen.findByTestId('clusters');
     expect(linked.getAttribute('data-can-finding-id')).toBe('true');
     expect(linked.getAttribute('data-can-findings')).toBe('false');

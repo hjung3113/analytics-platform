@@ -19,7 +19,7 @@ describe('scopeControlSlot', () => {
 
   it('in the mock preview draws the 목록 범위 label and a disabled 전체 button titled 실서버 필요', () => {
     const Control = scopeControlSlot.For(spaceId('feedbackops'))!;
-    mountAt('/feedbackops', <Control collapsed={false} />);
+    mountAt('/feedbackops', { extra: <Control collapsed={false} /> });
     expect(screen.getByText('목록 범위')).toBeTruthy();
     const button = screen.getByRole('button', { name: /전체/ }) as HTMLButtonElement;
     expect(button.disabled).toBe(true);
@@ -28,10 +28,10 @@ describe('scopeControlSlot', () => {
 
   it('draws nothing when collapsed, and nothing off a menu without the managedSystem page key', () => {
     const Control = scopeControlSlot.For(spaceId('feedbackops'))!;
-    mountAt('/feedbackops', <Control collapsed />);
+    mountAt('/feedbackops', { extra: <Control collapsed /> });
     expect(screen.queryByText('목록 범위')).toBeNull();
     cleanup();
-    mountAt('/nowhere', <Control collapsed={false} />);
+    mountAt('/nowhere', { extra: <Control collapsed={false} /> });
     expect(screen.queryByText('목록 범위')).toBeNull();
   });
 });

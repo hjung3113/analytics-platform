@@ -70,11 +70,13 @@ const HOME_TODO_SLOT_SUBPATH = 'fo-bridge/home-todo-slot';
 const SCOPE_CONTROL_SLOT_SUBPATH = 'fo-bridge/scope-control';
 const NAV_COUNTS_SLOT_SUBPATH = 'fo-bridge/nav-counts';
 const SAVED_VIEWS_SLOT_SUBPATH = 'fo-bridge/saved-views';
+// The fo-bridge menu test harness (`createFoMenuHarness`) subpath: test-only like `kernel/testing`, so only bridge-menu test files import it (FO_BRIDGE_TEST_SUBPATHS).
+const FO_BRIDGE_TESTING_SUBPATH = 'fo-bridge/testing';
 // Rule 8 exception (platform ADR-0071, ADR-0081): a bridge menu imports exactly these entries (the screen barrel, its eager-code subset `/core`,
 // the lazy notifications panel entry `/inbox-panel`, and the operator dashboard and VOC entries); nothing else under @fops/*. the fo-bridge package imports `/core` only (FO_BRIDGE_PACKAGE_ENTRIES)
 // except its lazy `src/pages/**`, which are screens too (the notifications slot loads `inbox-panel` through one of them).
 const FO_BRIDGE_ENTRIES = ['@fops/frontend/global-screens', '@fops/frontend/global-screens/core', '@fops/frontend/global-screens/inbox-panel', '@fops/frontend/operator-screens/scope-picker', '@fops/frontend/operator-screens/dashboard', '@fops/frontend/operator-screens/voc-clusters', '@fops/frontend/operator-screens/task-detail', '@fops/frontend/operator-screens/voc-detail', '@fops/frontend/operator-screens/voc-inbox', '@fops/frontend/operator-screens/milestones', '@fops/frontend/operator-screens/voc-search', '@fops/frontend/operator-screens/tasks-search', '@fops/frontend/operator-screens/voc-triage', '@fops/frontend/operator-screens/task-list', '@fops/frontend/operator-screens/task-board', '@fops/frontend/operator-screens/task-requests', '@fops/frontend/operator-screens/findings-search', '@fops/frontend/operator-screens/integration-search', '@fops/frontend/operator-screens/findings', '@fops/frontend/operator-screens/finding-detail', '@fops/frontend/operator-screens/evidence', '@fops/frontend/operator-screens/integration-dashboard', '@fops/frontend/operator-screens/coverage', '@fops/frontend/operator-screens/entity-links'];
-const FO_BRIDGE_TEST_SUBPATHS = [FO_API_SUBPATH, NOTIFICATIONS_SLOT_SUBPATH, VOC_COMPOSE_SLOT_SUBPATH, HOME_TODO_SLOT_SUBPATH, SCOPE_CONTROL_SLOT_SUBPATH, NAV_COUNTS_SLOT_SUBPATH, SAVED_VIEWS_SLOT_SUBPATH, 'fo-bridge/home-todo-page', 'fo-bridge/voc-compose-page'];
+const FO_BRIDGE_TEST_SUBPATHS = [FO_API_SUBPATH, NOTIFICATIONS_SLOT_SUBPATH, VOC_COMPOSE_SLOT_SUBPATH, HOME_TODO_SLOT_SUBPATH, SCOPE_CONTROL_SLOT_SUBPATH, NAV_COUNTS_SLOT_SUBPATH, SAVED_VIEWS_SLOT_SUBPATH, 'fo-bridge/home-todo-page', 'fo-bridge/voc-compose-page', FO_BRIDGE_TESTING_SUBPATH];
 const FO_BRIDGE_PACKAGE_ENTRIES = ['@fops/frontend/global-screens/core'];
 const UI_THEME_SUBPATHS = ['ui/theme', 'ui/theme-tokens.json'];
 
@@ -169,10 +171,10 @@ function importRestrictions({ allow, denyReact, denyTableEngine, denyQueryEngine
 const TEST_ENTRY_SUBPATH = 'kernel/testing';
 const COMPONENTS_TEST_ENTRY_SUBPATH = 'components/testing';
 const TEST_ENTRY_FILES = ['**/*.test.{ts,tsx}', '**/test-support.{ts,tsx}', '**/test-setup.ts'];
-const testEntryOverride = (restriction, subpaths = [TEST_ENTRY_SUBPATH]) => {
+const testEntryOverride = (restriction, subpaths = [TEST_ENTRY_SUBPATH], files = TEST_ENTRY_FILES) => {
   const withEntry = { ...restriction, allowSubpaths: [...(restriction.allowSubpaths ?? []), ...subpaths] };
   return {
-    files: TEST_ENTRY_FILES,
+    files,
     rules: {
       'no-restricted-imports': importRestrictions(withEntry),
       'ap/restricted-import-source': ['error', importSourceOptions(withEntry)],
@@ -537,6 +539,8 @@ export const foBridge = [
   layerConfig({ restriction: FO_BRIDGE_PACKAGE_RESTRICTION, extraRules: menuContractRules }),
   // Its tests mount a platform with the kernel fixtures (ADR-0040); production files stay restricted.
   testEntryOverride(FO_BRIDGE_PACKAGE_RESTRICTION),
+  // The menu test harness is the one non-test file that mounts a platform with the kernel fixtures; it is exported only as the `fo-bridge/testing` subpath, never from the root.
+  testEntryOverride(FO_BRIDGE_PACKAGE_RESTRICTION, [TEST_ENTRY_SUBPATH], ['src/testing.tsx']),
   {
     files: ['src/pages/**/*.{ts,tsx}'],
     rules: {
