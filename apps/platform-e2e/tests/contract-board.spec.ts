@@ -882,6 +882,27 @@ test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
     await expect(groups(page)).toHaveCount(4);
     await expect(paneTabs(page)).toHaveCount(5);
   });
+  test('좁은 띠에서 배경 탭은 뒤에서부터 하나씩 배지가 되고 활성 탭은 이름을 지킨다 (#978 UX-4, docs/16 §4 ②)', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await signInWithDockBoard(page, [populated('dock', '2x2', 4)]);
+    await dockReady(page, 4);
+    // Below 692px every pane is one tab group; its strip is as wide as the viewport lets it be.
+    await page.setViewportSize({ width: 640, height: 900 });
+    await expect(groups(page)).toHaveCount(1);
+    const tabs = page.locator('[data-dock-layout] .dv-tab');
+    await expect(tabs).toHaveCount(4);
+    const marks = async () => tabs.evaluateAll(list => list.map(tab => ({ compact: tab.hasAttribute('data-dock-tab-compact'), active: tab.classList.contains('dv-active-tab') })));
+    await expect.poll(async () => (await marks()).some(tab => tab.compact)).toBe(true);
+    const state = await marks();
+    // The active tab never shrinks; the shrunk background tabs are the last ones, as a block.
+    expect(state.filter(tab => tab.active && tab.compact)).toHaveLength(0);
+    const background = state.filter(tab => !tab.active).map(tab => tab.compact);
+    const shrunk = background.filter(Boolean).length;
+    expect(background).toEqual(background.map((_, n) => n >= background.length - shrunk));
+    // Not every background tab shrinks when the strip has room for a name beside the badge of the others: widen it and fewer shrink.
+    await page.setViewportSize({ width: 690, height: 900 });
+    await expect.poll(async () => (await marks()).filter(tab => tab.compact).length).toBeLessThanOrEqual(shrunk);
+  });
   test('4개 영역일 때 탭을 다른 영역 가장자리에 끌면 분할 미리보기가 없고 가운데에는 있다 (#978 UX-2)', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await signInWithDockBoard(page, [populated('dock', '2x2', 4)]);

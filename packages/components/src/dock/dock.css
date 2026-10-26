@@ -93,11 +93,11 @@
   box-shadow: inset 0 -2px 0 var(--color-accent-primary);
 }
 
-/* Narrowing (host asks with `data-dock-compact`): a background tab keeps its badge only; its action shows while the tab is hovered or has focus. */
-.ap-dock .dv-tabs-and-actions-container:has([data-dock-compact]) .dv-tab:not(.dv-active-tab) [data-dock-tab-shrinkable] { display: none; }
-.ap-dock .dv-tabs-and-actions-container:has([data-dock-compact]) .dv-tab:not(.dv-active-tab) [data-dock-tab-action] { display: none; }
-.ap-dock .dv-tabs-and-actions-container:has([data-dock-compact]) .dv-tab:not(.dv-active-tab):hover [data-dock-tab-action],
-.ap-dock .dv-tabs-and-actions-container:has([data-dock-compact]) .dv-tab:not(.dv-active-tab):focus-within [data-dock-tab-action] { display: grid; }
+/* Narrowing (host marks a tab `data-dock-tab-compact`, from the back, one at a time): a background tab keeps its badge only; its action shows while the tab is hovered or has focus. */
+.ap-dock .dv-tab[data-dock-tab-compact]:not(.dv-active-tab) [data-dock-tab-shrinkable] { display: none; }
+.ap-dock .dv-tab[data-dock-tab-compact]:not(.dv-active-tab) [data-dock-tab-action] { display: none; }
+.ap-dock .dv-tab[data-dock-tab-compact]:not(.dv-active-tab):hover [data-dock-tab-action],
+.ap-dock .dv-tab[data-dock-tab-compact]:not(.dv-active-tab):focus-within [data-dock-tab-action] { display: grid; }
 
 /* Last step (host asks with `data-dock-wrap`): the slot takes its own 40px row under the tabs. */
 .ap-dock .dv-tabs-and-actions-container:has([data-dock-wrap]) { flex-wrap: wrap; height: auto; }
