@@ -2,7 +2,7 @@ import * as api from '@/lib/api';
 import { TASK_REQUEST_STATUS_LABELS } from '@/lib/copy/enum-labels';
 import { type FindingDto, listEntityLinksQuerySchema } from '@fops/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -657,4 +657,45 @@ describe('FindingDetailPanel', () => {
     expect(screen.getByText('FIN-180')).toBeInTheDocument();
     expect(screen.queryByTestId('request-task-draft')).not.toBeInTheDocument();
   });
+
+  // #927 UX-2: the modals are controlled (no DialogTrigger), so Radix cannot return focus on its own.
+  it.each([
+    ['add-evidence-btn', 'add-evidence-modal'],
+    ['link-evidence-btn', 'link-evidence-modal'],
+  ])('returns focus to %s after Esc closes its modal', async (buttonId, modalId) => {
+    const user = userEvent.setup();
+    renderWithClient(<FullFindingDetail finding={mediumFinding} />);
+    const button = screen.getByTestId(buttonId);
+
+    await user.click(button);
+    expect(await screen.findByTestId(modalId)).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+
+    await waitFor(() => expect(screen.queryByTestId(modalId)).not.toBeInTheDocument());
+    await waitFor(() => expect(document.activeElement).toBe(button));
+  });
+
+  it.each([
+    ['add-evidence-btn', 'add-evidence-modal'],
+    ['link-evidence-btn', 'link-evidence-modal'],
+  ])(
+    'keeps focus the user moved elsewhere after %s closes its modal',
+    async (buttonId, modalId) => {
+      const user = userEvent.setup();
+      renderWithClient(<FullFindingDetail finding={mediumFinding} />);
+      const other = screen.getByTestId(
+        buttonId === 'add-evidence-btn' ? 'link-evidence-btn' : 'add-evidence-btn',
+      );
+
+      await user.click(screen.getByTestId(buttonId));
+      const modal = await screen.findByTestId(modalId);
+      // Radix runs close autofocus from a queued timeout; move focus before it fires.
+      fireEvent.keyDown(modal, { key: 'Escape' });
+      act(() => other.focus());
+
+      await waitFor(() => expect(screen.queryByTestId(modalId)).not.toBeInTheDocument());
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(document.activeElement).toBe(other);
+    },
+  );
 });

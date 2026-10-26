@@ -46,6 +46,7 @@ import {
 import { surveyEvidenceCandidatesKey } from '../../hooks/useSurveyEvidence';
 import { SurveyEvidencePicker } from './SurveyEvidencePicker';
 import { VocSourcePicker } from './VocSourcePicker';
+import { restoreOpenerFocus } from './returnFocus';
 
 // ── Add Evidence modal ────────────────────────────────────────────────────────
 
@@ -54,6 +55,7 @@ interface AddEvidenceModalProps {
   managedSystemId: string;
   open: boolean;
   onClose: () => void;
+  returnFocusRef?: React.RefObject<HTMLButtonElement | null>;
 }
 
 const SOURCE_TYPE_OPTIONS: {
@@ -87,6 +89,7 @@ export function AddEvidenceModal({
   managedSystemId,
   open,
   onClose,
+  returnFocusRef,
 }: AddEvidenceModalProps): React.ReactElement {
   const { notifyError, notifySuccess } = useHostSeam();
   const { key: idempotencyKey, markConsumed } = useIdempotencyKey();
@@ -233,7 +236,11 @@ export function AddEvidenceModal({
         if (!isOpen) closeAndReset();
       }}
     >
-      <DialogContent className="max-w-lg" data-testid="add-evidence-modal">
+      <DialogContent
+        className="max-w-lg"
+        data-testid="add-evidence-modal"
+        onCloseAutoFocus={(event) => restoreOpenerFocus(event, returnFocusRef)}
+      >
         <DialogHeader>
           <DialogTitle>{GLOSSARY.addEvidence}</DialogTitle>
         </DialogHeader>
