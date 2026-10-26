@@ -46,8 +46,10 @@ export function EquipmentPanel({ id, kind }: { id: string; kind: 'attributes' | 
     </>}
     {kind === 'analysis' && <>
       <p className="text-sm">{ko ? '사이클타임 링크를 누르면 설비 선택이 이 설비 한 대로 바뀝니다. 상세를 여는 것만으로는 바뀌지 않습니다.' : 'The cycle time link changes the equipment selection to this one equipment. Opening details alone does not change it.'}</p>
-      <Button asChild size="sm"><PlatformLink href={linkTo('cycle-time', { global: { selection: [id] } })}>{ko ? '이 설비로 사이클타임 상세' : 'Cycle time for this equipment'}</PlatformLink></Button>
-      {topView && <Button asChild size="sm" variant="secondary"><PlatformLink href={topView.href}>{ko ? '이 설비 Top View' : 'Top View for this equipment'}</PlatformLink></Button>}
+      <div className="flex flex-wrap gap-2">
+        <Button asChild size="sm"><PlatformLink href={linkTo('cycle-time', { global: { selection: [id] } })}>{ko ? '이 설비로 사이클타임 상세' : 'Cycle time for this equipment'}</PlatformLink></Button>
+        {topView && <Button asChild size="sm" variant="secondary"><PlatformLink href={topView.href}>{ko ? '이 설비 Top View' : 'Top View for this equipment'}</PlatformLink></Button>}
+      </div>
     </>}
   </div>}</QueryView>;
 }
