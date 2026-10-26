@@ -82,3 +82,7 @@ done
 # 중괄호로 묶어 쓴 목록(위 치환이 닿지 않는 두 곳).
 perl -pi -e 's#packages/components/src/\{pageFocus,PlatformPage\}\.tsx#packages/components/src/{state/pageFocus,archetypes/PlatformPage}.tsx#' docs/integration/platform-hosting-design.md
 perl -pi -e 's#packages/components/src/\{AnalysisChartFrame,AuditTimeline,DataTrustIndicator,DetailDrawer,EChart,PageFilterBar,PlatformDataTable,PlatformPage,RadioGroup,StatCard,StateView,ManagementLayout,AnalysisLayout,DrillLayout\}\.tsx#packages/components/src/{chart/AnalysisChartFrame,drawer/AuditTimeline,state/DataTrustIndicator,drawer/DetailDrawer,chart/EChart,filters/PageFilterBar,table/PlatformDataTable,archetypes/PlatformPage,RadioGroup,state/StatCard,StateView,archetypes/ManagementLayout,archetypes/AnalysisLayout,archetypes/DrillLayout}.tsx#' site/SOURCES.md
+# 713f(chart·table) 이후 남은 사이트·백로그의 옛 파일 경로(재실행해도 접두가 붙은 경로는 건드리지 않는다).
+for f in site/index.html site/SOURCES.md .planning/backlog.md; do
+  perl -pi -e 's#(components/src/)(AnalysisChartFrame|EChartImpl|EChart)(\.tsx)#$1chart/$2$3#g; s#(components/src/)(PlatformDataTable\.tsx|tableFit\.ts)#$1table/$2#g' "$f"
+done
