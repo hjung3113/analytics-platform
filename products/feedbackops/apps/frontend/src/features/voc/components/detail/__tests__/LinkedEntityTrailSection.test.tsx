@@ -296,4 +296,51 @@ describe('<LinkedEntityTrailSection>', () => {
     expect(screen.queryByText('운영자 전용 Finding')).not.toBeInTheDocument();
     expect(screen.queryByText('FIN-1042')).not.toBeInTheDocument();
   });
+
+  it.each([
+    { name: 'the same Finding is shown once', directFinding: IDS.finding, expected: 1 },
+    {
+      name: 'a different Finding keeps both',
+      directFinding: '88888888-8888-4888-8888-888888888888',
+      expected: 2,
+    },
+  ])(
+    'de-duplicates a direct link already inside a Cluster trail: $name',
+    ({ directFinding, expected }) => {
+      const clusterId = '99999999-9999-4999-8999-999999999999';
+      const inherited = allowedFindingLink();
+      if (inherited.visibility_state !== 'allowed') throw new Error('expected allowed fixture');
+      const direct = allowedFindingLink();
+      if (direct.visibility_state !== 'allowed') throw new Error('expected allowed fixture');
+      render(
+        <LinkedEntityTrailSection
+          links={[
+            {
+              ...direct,
+              id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+              target_id: directFinding,
+            },
+          ]}
+          trails={[
+            {
+              origin: 'cluster',
+              cluster: {
+                type: 'voc_cluster',
+                id: clusterId,
+                display_id: 'CLU-1225',
+                title: '공통 장애 Cluster',
+                summary: null,
+                status: 'draft',
+                primary_managed_system_id: IDS.system,
+              },
+              links: [{ ...inherited, source_type: 'voc_cluster', source_id: clusterId }],
+            },
+          ]}
+          isReporterContext={false}
+        />,
+      );
+
+      expect(screen.getAllByText('FIN-1042')).toHaveLength(expected);
+    },
+  );
 });

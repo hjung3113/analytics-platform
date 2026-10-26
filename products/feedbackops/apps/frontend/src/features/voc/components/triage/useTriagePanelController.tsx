@@ -167,7 +167,6 @@ export function useTriagePanelController({
             dismiss(successToastId);
           },
         },
-        durationMs: 4000,
         variant: 'undo',
       });
 
@@ -224,7 +223,6 @@ export function useTriagePanelController({
           dismiss(successToastId);
         },
       },
-      durationMs: 4000,
       variant: 'undo',
     });
 

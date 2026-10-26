@@ -99,7 +99,7 @@ Names in the primitive table and the composed list above are design-time names. 
 | --- | --- | --- |
 | AppShell | `AppFrame` | `apps/frontend/src/lib/layout/AppFrame.tsx` |
 | RoleLevelAwareSidebar | `AppRail` + `AppSidebar` | `apps/frontend/src/lib/layout/` |
-| ManagedSystemScopeSwitcher | scope selector inside `AppSidebar` (`ManagedSystemScopeOption`) | `apps/frontend/src/lib/layout/AppSidebar.tsx` |
+| ManagedSystemScopeSwitcher | scope selector (`ManagedSystemScopeOption`), rendered by `AppSidebar` and the platform `목록 범위` | `apps/frontend/src/operator-screens/scope-picker/ManagedSystemScopePicker.tsx` |
 | ObjectList, ListRow | `ObjectRow` + `ListToolbar` / `ListTabs` + `ListStateMessage` | `packages/ui/src/data/ObjectRow.tsx` (compatibility re-export of `@ap/ui`), `packages/ui/src/toolbar/`, `apps/frontend/src/components/ListStateMessage.tsx` |
 | Active filters | `ActiveFilterBar` — presentational chips with visible labels, tooltip-backed remove buttons, and one clear-all control; empty items render nothing | `packages/ui/src/toolbar/ActiveFilterBar.tsx` |
 | FilterViewTabs, Toolbar | `ListTabs` composed by `ListToolbar`, with `ListFilterButton` and `ListSortButton` | `packages/ui/src/toolbar/` |

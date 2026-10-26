@@ -324,33 +324,36 @@ describe('TriageActions mutation wire-up', () => {
         fireEvent.click(screen.getByRole('button', { name: '보류' }));
       },
     },
-  ] as const)('raises the undo notice with the 4 s window ($kind)', async ({ trigger }) => {
-    globalThis.fetch = vi.fn(async () =>
-      jsonResponse({
-        id: MOCK_VOC.id,
-        triage_state: 'triaged',
-        updated_at: '2026-05-01T12:01:00.000Z',
-      }),
-    ) as typeof globalThis.fetch;
+  ] as const)(
+    "raises the undo notice with the host's default window ($kind)",
+    async ({ trigger }) => {
+      globalThis.fetch = vi.fn(async () =>
+        jsonResponse({
+          id: MOCK_VOC.id,
+          triage_state: 'triaged',
+          updated_at: '2026-05-01T12:01:00.000Z',
+        }),
+      ) as typeof globalThis.fetch;
 
-    const Wrapper = makeWrapper();
-    render(
-      <Wrapper>
-        <TriagePanel voc={MOCK_VOC} onAct={vi.fn()} onOptimisticRemove={vi.fn()} />
-      </Wrapper>,
-    );
+      const Wrapper = makeWrapper();
+      render(
+        <Wrapper>
+          <TriagePanel voc={MOCK_VOC} onAct={vi.fn()} onOptimisticRemove={vi.fn()} />
+        </Wrapper>,
+      );
 
-    await trigger();
+      await trigger();
 
-    // Sonner's own timer stays off (Infinity) inside the standalone host's `sonnerNotify`; the notice carries the window.
-    const lastNotice = noticeHost.notify.mock.calls.at(-1)?.[0];
-    expect(lastNotice).toMatchObject({
-      tone: 'success',
-      variant: 'undo',
-      durationMs: 4000,
-      action: { label: '실행 취소' },
-    });
-  });
+      // No override: the host owns the window (standalone 4 s, platform action-toast 8 s).
+      const lastNotice = noticeHost.notify.mock.calls.at(-1)?.[0];
+      expect(lastNotice).toMatchObject({
+        tone: 'success',
+        variant: 'undo',
+        action: { label: '실행 취소' },
+      });
+      expect(lastNotice).not.toHaveProperty('durationMs');
+    },
+  );
 
   // 6. a failed command dismisses its undo notice by id ──────────────────────
 

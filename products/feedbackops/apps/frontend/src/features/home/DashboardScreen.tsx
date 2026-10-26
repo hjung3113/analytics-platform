@@ -84,11 +84,12 @@ export function useDashboardData(actorId: string | undefined, managedSystemId?: 
     retry: false,
   });
   const myTasks = useQuery({
-    queryKey: ['home-my-tasks', actorId] as const,
+    queryKey: ['home-my-tasks', actorId, managedSystemId] as const,
     enabled: actorId !== undefined,
     queryFn: ({ signal }) =>
       listTasks({
         ...(actorId !== undefined ? { assignee: actorId } : {}),
+        ...(managedSystemId === undefined ? {} : { managed_system_id: managedSystemId }),
         signal,
       }),
     retry: false,
