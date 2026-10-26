@@ -4,6 +4,13 @@
 
 ## 작은 후속 (확인된 것)
 
+- **구현 안 함 — `selection-port-cache`를 Kernel 조회 엔진으로 옮기기(#825, ADR-0086):** 설비 검색·선택 포트는 자기 06 §6.5 계약(소유자별 LRU 50, 커서)을 가진 별도 캐시로 남겼다. 이유: 계약이 달라 옮기면 06을 함께 바꾸고 칸 소유(retain) 규칙을 다시 짜야 한다. 다시 여는 조건: 이 캐시의 버그가 나거나 세 번째 캐시되는 포트가 생길 때.
+- **구현 안 함 — FeedbackOps와 Kernel이 QueryClient 하나를 쓰기(#825, ADR-0086):** Kernel 내부 클라이언트와 FO의 `foQueryClient`는 따로다. 이유: 키 공간·세션 세대 처리·GC 정책이 다르고 `QueryClientProvider` 공유는 메뉴가 Kernel 캐시를 읽게 만든다. 다시 여는 조건: FO 다리 화면과 플랫폼 메뉴가 같은 엔드포인트를 읽어 중복 요청이 측정될 때.
+- **구현 안 함 — `staleTime > 0`·폴링(#825, ADR-0086):** Kernel 클라이언트는 `staleTime: 0`이라 새 마운트는 늘 다시 읽는다. 이유: 서버 세대 신호(#165)가 없어 낡은 결과를 안전하다고 말할 근거가 없다. 다시 여는 조건: #165에서 세대 신호가 정해질 때.
+- **구현 안 함 — `useMenuFetch` 표 쪽을 `useInfiniteQuery`로(#825, ADR-0086):** 표 쪽 조회는 호출자가 신원을 소유하는 호출형 그대로다. 이유: 표 신원(Context·사용자·revision)과 내보내기가 이 모양에 묶여 있다. 다시 여는 조건: 표 쪽에도 SWR(뒤로 가기 때 이전 쪽 유지)이 필요해질 때.
+- **구현 안 함 — 조회 캐시 개발자 도구(devtools)(#825, ADR-0086):** 이유: 사용 요구가 없다. 다시 여는 조건: 캐시 상태를 눈으로 봐야 하는 디버깅이 반복될 때.
+- **구현 안 함 — 모듈 호스트 `query`(`module-host.ts`의 `menuRequest` 직접 호출)를 캐시에 올리기(#825, ADR-0086):** 이유: 호출마다 시작 시점 값을 잡고 해제·Context 변화로 거절하는 더 엄격한 `valid()`가 있어 캐시의 유효성 규칙과 섞인다. 다시 여는 조건: 같은 모듈 화면을 두 칸에 띄웠을 때 중복 요청이 측정될 때.
+- **구현 안 함 — `usePlatformQuery`·`useAdapterRequest`의 명시적 키 인자로 공유(#825, ADR-0086):** 두 훅은 호출자가 `run`을 주므로 인스턴스별 키라 공유·SWR이 없다(엔진만 바뀜). 이유: 공유하려면 호출자가 캐시 키를 선언하는 공개 API 변경이 필요하다. 다시 여는 조건: 이 두 훅에서 중복 요청이 측정될 때.
 - **구현 안 함 — `TaskRequestConversionForm`의 `""` 가드 제거(#644):** `products/feedbackops/apps/frontend/src/features/tasks/routes/task-requests/TaskRequestConversionForm.tsx`가 `onValueChange`에서 `""`를 무시한다. 이제 `Select` 래퍼가 값 변경 직후의 빈 값 재생을 걸러(의도한 `""` 비우기는 전달) 이 가드는 재생 방어로는 필요 없다. 이 폼에 `value=""` 비우기 항목이 없는지 확인한 뒤 지운다. 이유: FeedbackOps 영역은 다른 세션의 작업 중이다. 다시 여는 조건: FeedbackOps가 그 폼을 다음에 건드릴 때.
 - **구현 안 함 — 다른 메뉴의 틀린 page key 거부를 `usePageKeyRules`로 옮기기(#852):** 지표 카탈로그(`status`·`domain`), 사이클타임(`granularity`·`tail`·`sort`·`bucket`·`bin`·`page`), 생산성 개요(`kpi`·`axis`·`sort`)는 아직 `invalidValueSentence`로 문장을 직접 만들고 초기화를 손으로 배선한다(지표 카탈로그 초기화는 포커스를 옮기지 않는다). 이유: 메뉴 화면은 `lane:platform` 소유이고, 문장 종류(`filter`·`plain`)와 초기화 범위가 메뉴마다 달라 옮기면 보이는 문구가 바뀐다. 다시 여는 조건: 그 메뉴를 다음에 고칠 때, 또는 `usePageKeyRules`가 문장 종류를 받게 될 때.
 - **구현 안 함 — Workbook `조회 정보` 시트 도우미와 첫 메뉴 소비(#860 리뷰):** `useWorkbookExport`는 메뉴가 만든 시트만 쓴다. 표 내보내기가 만드는 `조회 정보`(메뉴·Context·필터·Trust·correlationId) 행을 메뉴가 그대로 얻는 공개 도우미(`queryInfoRows` 같은 것)와, 실제 메뉴(HW Time 다중 시트 버튼)의 사용은 넣지 않았다. 이유: 첫 소비 메뉴가 없어 시트 구성·행 이름이 정해지지 않았고, 표의 행 생성(`useTableTransfer`)은 표 상태에 묶여 있어 떼려면 소비 모양부터 알아야 한다. 다시 여는 조건: 첫 메뉴가 Workbook 내보내기를 붙일 때 그 메뉴 이슈에서 함께 한다. 함께 볼 것: `tableExport.xlsxCell`과 `workbookCell`이 거의 같다(표 경로는 비유한 숫자를 직렬화 전에 이미 빈 값으로 바꾼다) — 그때 하나로 합친다.

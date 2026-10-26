@@ -5,7 +5,7 @@ FeedbackOps 다리의 런타임(ADR-0071·0081, #759). 소비자 쪽 패키지�
 ## 파일
 
 - `src/fo-api.ts` — `setFoApi`/`foApi`: 앱이 주입하는 FeedbackOps API 슬롯. FeedbackOps를 import하지 않는다.
-- `src/fo/session.ts` — `foQueryClient`(QueryClient는 이 하나, ADR-0071 결정 5)와 `useFoSession`(세션 세대).
+- `src/fo/session.ts` — `foQueryClient`(FeedbackOps QueryClient는 이 하나, ADR-0071 결정 5 — Kernel의 내부 조회 클라이언트(ADR-0086)와는 별개)와 `useFoSession`(세션 세대).
 - `src/fo/FoBridge.tsx`·`links.tsx`·`survey-links.tsx`·`voc-links.tsx` — 호스트 이음매(`FoBridge`)와 FeedbackOps 경로 → 플랫폼 메뉴 링크 맵.
 - `src/notifications-slot.tsx`·`voc-compose-slot.tsx`·`home-todo-slot.tsx` — Kernel 슬롯 값. 앱 `main.tsx`만 import한다. 페이지(`src/pages/`)는 첫 사용 때 lazy로 불러온다. 알림 `Recent`도 `src/pages/RecentInbox.tsx`(lazy, FO 진입 `global-screens/inbox-panel`)를 열어 패널이 시작 청크에 실리지 않는다(종·배지는 `/core`의 `useUnreadNotificationCount`로 같은 자리에 남고, Suspense는 패널 안에만 있다, #820).
 - `src/scope-control.tsx` — Kernel 슬롯 `scopeControl`(사이드바 `목록 범위`, ADR-0081, #759). 앱 `main.tsx`만 import한다. `For('feedbackops')`는 모듈 수준의 한 컴포넌트를 돌려주고(호출마다 새로 만들면 사이드바가 다시 마운트된다), mock에서는 비활성 `전체` 자리표시를 직접 그리고, 준비된 세션에서만 `src/pages/ScopeControl.tsx`(lazy)를 연다.

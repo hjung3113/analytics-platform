@@ -516,10 +516,12 @@ describe('PaneScreenProvider — query lifecycle per pane', () => {
     await flush();
     expect(first.signal?.aborted).toBe(true);
     await act(async () => { first.resolve('stale'); });
+    await flush();
     expect(results.get('a')).toBeNull();
     const second = h.calls.at(-1)!;
     expect(second.request.context.scopeId).toBe('S3');
     await act(async () => { second.resolve('fresh'); });
+    await flush();
     expect(results.get('a')).toBe('fresh');
     expect(results.get('b')).toBeNull();
   });
@@ -531,6 +533,7 @@ describe('PaneScreenProvider — query lifecycle per pane', () => {
     const view = mount(ui(true), h.adapter);
     await flush();
     await act(async () => { h.calls[0]!.resolve('first'); });
+    await flush();
     expect(results.get('a')).toBe('first');
     await act(async () => { h.switchUser('u2'); });
     expect(results.get('a')).toBeNull();

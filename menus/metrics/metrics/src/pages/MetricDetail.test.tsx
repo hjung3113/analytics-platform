@@ -328,6 +328,9 @@ describe('MetricDetail tab anchor scroll timing (#325-2)', () => {
     else delete (HTMLElement.prototype as Partial<HTMLElement>).scrollIntoView;
   });
 
+  // ADR-0086: TanStack notifies observers after a macrotask, so a reply is on screen two macrotasks after it resolves.
+  const settle = () => act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); await new Promise(resolve => setTimeout(resolve, 0)); });
+
   function scrollTargets(): string[] {
     const stub = HTMLElement.prototype.scrollIntoView as unknown as { mock: { contexts: unknown[] } };
     return stub.mock.contexts.map(element => (element as HTMLElement).id);
@@ -362,27 +365,28 @@ describe('MetricDetail tab anchor scroll timing (#325-2)', () => {
   it('a. scrolls to metric-section-history only after the queries above it have answered', async () => {
     const definition = deferred<ApiResponse<never>>();
     renderDetail('/metrics/cycle_time?version=4&tab=history', 'cycle_time', delayedDefinitionAdapter(definition.promise));
-    await act(async () => {}); // usage·usage-less history land immediately; the definition reply is held back
+    await settle(); // usage·usage-less history land immediately; the definition reply is held back
     expect(scrollTargets()).toEqual([]);
     await act(async () => { definition.resolve(asFixtureResponse(definitionResponse(CYCLE_TIME, '4'))); });
+    await settle();
     expect(scrollTargets()).toEqual(['metric-section-history']);
   });
 
   it('b. does not scroll again when the same queries answer after a refetch', async () => {
     renderDetail('/metrics/cycle_time?version=4&tab=history', 'cycle_time');
     await screen.findAllByText('게시'); // the definition response arrived
-    await act(async () => {}); // passive effects (the one anchor scroll) flushed
+    await settle(); // passive effects (the one anchor scroll) flushed
     expect(scrollTargets()).toEqual(['metric-section-history']);
     fireEvent.click(screen.getByRole('button', { name: /v5/ })); // re-query: version=5 refetches the definition
     await screen.findAllByText('초안'); // the refetched definition response arrived
-    await act(async () => {});
+    await settle();
     expect(scrollTargets()).toEqual(['metric-section-history']); // still the single scroll from arrival
   });
 
   it('c. keeps the immediate section-chip scroll on 버전', async () => {
     renderDetail('/metrics/cycle_time?version=4', 'cycle_time');
     await screen.findAllByText('게시');
-    await act(async () => {});
+    await settle();
     expect(scrollTargets()).toEqual([]); // no tab param — no anchor scroll on arrival
     fireEvent.click(screen.getByRole('button', { name: '버전' }));
     expect(scrollTargets()).toEqual(['metric-section-version']);
@@ -392,9 +396,10 @@ describe('MetricDetail tab anchor scroll timing (#325-2)', () => {
     const pair = deferred<ApiResponse<never>>();
     renderDetail('/metrics/cycle_time?version=4&tab=history', 'cycle_time', delayedPairAdapter(pair.promise));
     await screen.findAllByText('게시'); // definition answered; usage·history answer in the same flush
-    await act(async () => {});
+    await settle();
     expect(scrollTargets()).toEqual([]); // the pair skeleton still sits above the anchor — no scroll yet
     await act(async () => { pair.resolve(pairAbsent); });
+    await settle();
     expect(scrollTargets()).toEqual(['metric-section-history']); // exactly one, after the banner loads
     // The released banner must be the success reply, not a Kernel contract_violation rewrite: an ok
     // envelope without the declared processing_delay assessment is turned into an error, and the gate
@@ -407,16 +412,17 @@ describe('MetricDetail tab anchor scroll timing (#325-2)', () => {
     const usage = deferred<ApiResponse<never>>();
     renderDetail('/metrics/cycle_time?version=4&tab=version', 'cycle_time', delayedUsageAdapter(usage.promise));
     await screen.findAllByText('게시'); // definition + pair answered; usage is held below the target
-    await act(async () => {});
+    await settle();
     expect(scrollTargets()).toEqual(['metric-section-version']); // an upper target never waits for usage
     await act(async () => { usage.resolve(asFixtureResponse(usageResponse({ problem: null, rows: [] }))); });
+    await settle();
     expect(scrollTargets()).toEqual(['metric-section-version']); // still exactly one scroll
   });
 
   it('f. scrolls again when history traversal re-enters the same tab', async () => {
     renderDetail('/metrics/cycle_time?version=4&tab=history', 'cycle_time');
     await screen.findAllByText('게시');
-    await act(async () => {});
+    await settle();
     expect(scrollTargets()).toEqual(['metric-section-history']); // arrival 1
     await act(async () => {
       window.history.pushState(null, '', '/metrics/cycle_time?version=4');
@@ -433,7 +439,7 @@ describe('MetricDetail tab anchor scroll timing (#325-2)', () => {
   it('g. keeps exactly one pending history scroll across known→known moves while the gate is closed', async () => {
     const definition = deferred<ApiResponse<never>>();
     renderDetail('/metrics/cycle_time?tab=history', 'cycle_time', delayedDefinitionAdapter(definition.promise));
-    await act(async () => {}); // pair·history answered; the definition reply is held back
+    await settle(); // pair·history answered; the definition reply is held back
     await act(async () => {
       window.history.pushState(null, '', '/metrics/cycle_time?tab=version');
       window.dispatchEvent(new PopStateEvent('popstate'));
@@ -444,6 +450,7 @@ describe('MetricDetail tab anchor scroll timing (#325-2)', () => {
     });
     expect(scrollTargets()).toEqual([]); // the gate stayed closed through both arrivals — nothing scrolled
     await act(async () => { definition.resolve(asFixtureResponse(definitionResponse(CYCLE_TIME, '4'))); });
+    await settle();
     expect(scrollTargets()).toEqual(['metric-section-history']); // exactly one — the stale arrivals do not scroll
   });
 
@@ -453,10 +460,11 @@ describe('MetricDetail tab anchor scroll timing (#325-2)', () => {
     const pair = deferred<ApiResponse<never>>();
     renderDetail('/metrics/cycle_time?version=4&tab=history', 'cycle_time', delayedPairAdapter(pair.promise));
     await screen.findAllByText('게시'); // definition answered; usage·history answer in the same flush
-    await act(async () => {});
+    await settle();
     expect(scrollTargets()).toEqual([]);
     const pairError: ApiResponse<never> = { outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'corr-fixture', message: 'Upstream mart query failed' };
     await act(async () => { pair.resolve(pairError); });
+    await settle();
     expect(scrollTargets()).toEqual(['metric-section-history']); // the error response opens the gate
     expect(screen.getAllByText('데이터를 불러오지 못했습니다').length).toBeGreaterThan(0); // the banner shows that error
   });
@@ -467,7 +475,7 @@ describe('MetricDetail tab anchor scroll timing (#325-2)', () => {
     const anchor = document.getElementById('metric-section-definition');
     expect(anchor?.tagName).toBe('H2'); // the id sits on the Panel h2, like every other section — not the sentence
     expect(anchor?.textContent).toBe('정의');
-    await act(async () => {}); // flush the one arrival scroll
+    await settle(); // flush the one arrival scroll
     expect(scrollTargets()).toEqual(['metric-section-definition']); // the heading itself is the scroll target
   });
 });

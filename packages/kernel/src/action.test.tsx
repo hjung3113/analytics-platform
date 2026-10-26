@@ -73,7 +73,8 @@ function Reader({ probes, spec }: { probes: Probes; spec: typeof listEndpoint })
   return null;
 }
 const both = (spec = plain) => (probes: Probes, show = true) => <><Reader probes={probes} spec={listEndpoint} /><Reader probes={probes} spec={otherEndpoint} />{show && <Writer probes={probes} spec={spec} />}</>;
-const flush = () => act(async () => { await Promise.resolve(); });
+// ADR-0086: TanStack notifies observers after a macrotask (notifyManager) that is queued once the reply landed, so a flush waits two.
+const flush = () => act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); await new Promise(resolve => setTimeout(resolve, 0)); });
 const settle = <T,>(promise: Promise<T>) => promise.then(value => ({ value }), (error: unknown) => ({ error }));
 const isAbort = (outcome: object) => 'error' in outcome && outcome.error instanceof DOMException && outcome.error.name === 'AbortError';
 
@@ -290,6 +291,7 @@ describe('refresh epochs', () => {
     expect(t.probes.lists.get('fx.list')).toMatchObject({ status: 'refreshing', response: prior });
     expect(t.probes.lists.get('fx.other')).toMatchObject({ status: 'done', response: priorOther });
     await act(async () => { hold(); });
+    await flush();
     expect(t.probes.lists.get('fx.list')!.status).toBe('done');
   });
 
@@ -319,7 +321,8 @@ describe('refresh epochs', () => {
     await act(async () => { resolveAction(response('ok')); await promise; });
     await flush();
     expect(sent).toHaveLength(1);
-    expect(queries).toBe(before + 2);
+    // ADR-0086: the main screen and the pane read one shared key, so the write's refetch is one request for both.
+    expect(queries).toBe(before + 1);
     expect(seen.main.response).not.toBe(priors.main);
     expect(seen.side.response).not.toBe(priors.side);
     expect(seen.unrelated.response).toBe(priors.unrelated);

@@ -1380,6 +1380,9 @@ importers:
       '@ap/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@tanstack/react-query':
+        specifier: 5.62.7
+        version: 5.62.7(react@19.3.0)
       lucide-react:
         specifier: ^1.48.0
         version: 1.48.0(react@19.3.0)

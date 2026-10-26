@@ -7,7 +7,8 @@ export type RefreshEpochs = {
   subscribe: (listener: () => void) => () => void;
 };
 
-export function createRefreshEpochs(): RefreshEpochs {
+/** `sink` is the internal bump-id delivery (the query engine invalidates exactly those endpoints, ADR-0086); it is given at creation, so no bump precedes it, and it is not on the public type. */
+export function createRefreshEpochs(sink?: (endpointIds: readonly string[]) => void): RefreshEpochs {
   const counts = new Map<string, number>();
   const listeners = new Set<() => void>();
   let total = 0;
@@ -17,6 +18,7 @@ export function createRefreshEpochs(): RefreshEpochs {
       for (const id of ids) counts.set(id, (counts.get(id) ?? 0) + 1);
       total++;
       for (const listener of [...listeners]) listener();
+      sink?.(ids);
     },
     get: id => counts.get(id) ?? 0,
     total: () => total,
