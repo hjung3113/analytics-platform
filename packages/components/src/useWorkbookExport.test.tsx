@@ -137,7 +137,13 @@ describe('useWorkbookExport (#860)', () => {
     mount(true);
     fireEvent.click(screen.getByText('export'));
     await waitFor(() => expect(toasts()).toContain('warning:내보내기 요청이 시간 초과되었습니다'));
-    expect(results).toEqual(['refused', 'failed']);
+    cleanup();
+    build = () => Promise.reject(new DOMException('signal timed out', 'TimeoutError'));
+    options = { fileName: '  ' };
+    mount(true);
+    fireEvent.click(screen.getByText('export'));
+    await waitFor(() => expect(toasts()).toContain('warning:내보내기 요청이 시간 초과되었습니다'));
+    expect(results).toEqual(['refused', 'refused', 'refused']);
     expect(downloads).toHaveLength(0);
   });
 

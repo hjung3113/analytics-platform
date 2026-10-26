@@ -7,8 +7,8 @@ export function fileStamp(now: Date): string {
 /** File-name part from a menu id: anything outside `A-Za-z0-9._-` becomes `-`. */
 export const safeFileName = (base: string) => base.replace(/[^A-Za-z0-9._-]/g, '-');
 
-/** A menu-given file name (Korean allowed): only characters no OS accepts in a file name, and controls, become `-`. */
-export const displayFileName = (base: string) => base.replace(/[\\/:*?"<>|\u0000-\u001f]/g, '-').trim() || 'workbook';
+/** A menu-given file name (Korean allowed): only characters no OS accepts in a file name, and controls, become `-`; `''` when nothing is left. */
+export const displayFileName = (base: string) => base.replace(/[\\/:*?"<>|\u0000-\u001f\u007f]/g, '-').trim();
 
 /** Starts the browser download of `blob` as `fileName`. */
 export function downloadBlob(blob: Blob, fileName: string): void {
