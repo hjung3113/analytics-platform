@@ -88,8 +88,18 @@ TimelineLane | type | type TimelineLane = { id: string; label: string; segments:
 TimelineSegment | type | type TimelineSegment = { colorToken?: @ap/ui/theme#ThemeColorToken; depth?: number; end: number; endBoundary?: 'closed' | 'open'; id: string; neutral?: boolean; rank?: string; start: number; startBoundary?: 'closed' | 'orphan'; }
 TopNBarItem | type | type TopNBarItem = { colorToken: @ap/ui/theme#ThemeColorToken; id: string; label: string; value: number; }
 TopNBarSpec | type | type TopNBarSpec = { defaultExpanded?: boolean; expanded?: boolean; hideWhenEmpty?: boolean; items: @ap/components#TopNBarItem[]; kind: 'topNBar'; legend?: { colorToken: @ap/ui/theme#ThemeColorToken; label: string; }[]; onExpandedChange?: (next: boolean) => void; onItemClick?: (id: string) => void; topN?: number; }
+WORKBOOK_LIMITS | const | const WORKBOOK_LIMITS: { readonly cells: 2000000; readonly columns: 16384; readonly rowsPerSheet: 100000; readonly sheets: 20; }
+WorkbookCell | type | type WorkbookCell = null | number | string
+WorkbookError | class | class WorkbookError extends Error { readonly code: @ap/components#WorkbookErrorCode; readonly sheet?: string | undefined; constructor(code: @ap/components#WorkbookErrorCode, sheet?: string | undefined); }
+WorkbookErrorCode | type | type WorkbookErrorCode = 'no-sheets' | 'sheet-name-duplicate' | 'sheet-name-empty' | 'sheet-name-invalid' | 'sheet-name-too-long' | 'too-many-cells' | 'too-many-columns' | 'too-many-rows' | 'too-many-sheets'
+WorkbookExport | type | type WorkbookExport = { canExport: boolean; cancel: () => void; exportWorkbook: (build: (signal: AbortSignal) => Promise<readonly @ap/components#WorkbookSheet[]> | readonly @ap/components#WorkbookSheet[], options?: @ap/components#WorkbookExportOptions) => Promise<@ap/components#WorkbookExportResult>; exporting: boolean; }
+WorkbookExportOptions | type | type WorkbookExportOptions = { fileName?: string; trust?: @ap/contracts#Trust | null; }
+WorkbookExportResult | type | type WorkbookExportResult = 'cancelled' | 'done' | 'failed' | 'ignored' | 'refused' | 'too-large'
+WorkbookRefusal | class | class WorkbookRefusal extends Error { readonly response: @ap/contracts#ApiResponse<unknown> & { outcome: 'error' | 'forbidden' | 'timeout' | 'too_large'; }; constructor(response: @ap/contracts#ApiResponse<unknown> & { outcome: 'error' | 'forbidden' | 'timeout' | 'too_large'; }); }
+WorkbookSheet | type | type WorkbookSheet = { header?: readonly string[]; name: string; rows: readonly (readonly @ap/components#WorkbookCell[])[]; }
 badgeCountText | const | const badgeCountText: (count: number) => string
 chartTheme | function | function chartTheme(): { readonly axisLabel: { readonly color: string; }; readonly axisLine: { readonly lineStyle: { readonly color: string; }; }; readonly referenceLine: { readonly label: { readonly color: string; readonly fontSize: 10; readonly formatter: "{b}"; readonly position: "insideEndTop"; }; readonly lineStyle: { readonly color: string; readonly type: "dashed"; }; readonly silent: true; readonly symbol: "none"; }; readonly splitLine: { readonly lineStyle: { readonly color: string; }; }; readonly tooltip: { readonly backgroundColor: string; readonly borderColor: string; readonly textStyle: { readonly color: string; }; }; }
+checkWorkbook | function | function checkWorkbook(sheets: readonly @ap/components#WorkbookSheet[]): void
 copyText | function | function copyText(text: string): Promise<boolean>
 encodeTableSort | function | function encodeTableSort(sorting: @ap/contracts#PageSort[]): null | string
 focusPageFallback | function | function focusPageFallback(source: HTMLElement | null): void
@@ -100,6 +110,7 @@ presetOutsideAxes | function | function presetOutsideAxes(global: @ap/contracts#
 querySummaryItems | function | function querySummaryItems(g: @ap/contracts#GlobalContext, options: @ap/components#QuerySummaryOptions): @ap/components#QuerySummaryItem[]
 sortAndPage | function | function sortAndPage<T>(rows: T[], q: @ap/contracts#PageQuery): @ap/contracts#PageResult<T>
 summaryPreset | function | function summaryPreset(view: null | { activeId: string; appliedId: string; key: string; presets: readonly @ap/contracts#ConditionPreset[]; }, which: 'applied' | 'draft'): @ap/components#SummaryPreset | undefined
+toWorkbookXlsx | function | function toWorkbookXlsx(sheets: readonly @ap/components#WorkbookSheet[], signal?: AbortSignal): Promise<Blob>
 token | function | function token(name: @ap/ui/theme#ThemeColorToken): string
 useCopyLink | function | function useCopyLink(successText: string): (url: string) => void
 useHeaderOverflowDialog | function | function useHeaderOverflowDialog(): ShowHeaderDialog | null
@@ -107,6 +118,7 @@ useManagementFilters | function | function useManagementFilters<K extends string
 useQueryBarExtension | function | function useQueryBarExtension(): @ap/components#QueryBarExtension | undefined
 useTableUrlState | function | function useTableUrlState(allowedSort: readonly string[], options?: { extraPatch?: (reason: @ap/components#TableUrlChangeReason) => Record<string, null | string> | undefined; }): { invalid: boolean; parsedPage: { ok: false; } | { ok: true; page: number; }; parsedSort: { ok: false; } | { ok: true; sorting: @ap/contracts#PageSort[]; }; sentences: string[]; urlState: @ap/components#TableUrlState | undefined; }
 useTableUrlWarning | function | function useTableUrlWarning(allowedSort: readonly string[]): { invalid: boolean; parsedPage: { ok: false; } | { ok: true; page: number; }; parsedSort: { ok: false; } | { ok: true; sorting: @ap/contracts#PageSort[]; }; sentences: string[]; }
+useWorkbookExport | function | function useWorkbookExport(): @ap/components#WorkbookExport
 # reachable types
 ChartSize | type | type ChartSize = 'compact' | 'fill' | 'hero' | 'regular'
 PageFilterBarShared | type | type PageFilterBarShared = { actions?: ReactNode; fields: readonly @ap/components#PageFilterField[]; label: string; mode?: 'draft'; onApply?: () => void; }

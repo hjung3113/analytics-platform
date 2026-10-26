@@ -4,6 +4,7 @@ import type { ApiResponse, Capability, ContextKey, PageSort } from '@ap/contract
 import { useEquipmentAxes, useI18n, usePlatform, useQueryContext } from '@ap/kernel';
 import { isProductionEnv } from '@ap/ui';
 import type { PlatformColumn } from './PlatformDataTable';
+import { downloadBlob, fileStamp, safeFileName } from './download';
 import { exportCell, exportColumns, toClipboardHtml, toCsv, toTsv, toXlsx } from './tableExport';
 import {
   clipboardFailure, copiedText, copyingNote, copyRowCapNote, copyUnavailable, exportDoneText, EXPORT_REFUSAL, exportPreparingNote, exportRefusal, EXPORT_ROW_CAP,
@@ -129,7 +130,7 @@ export function useTableTransfer<T>(input: TransferInput<T>) {
       }
       const now = new Date();
       const pad = (n: number) => String(n).padStart(2, '0');
-      const stamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`;
+      const stamp = fileStamp(now);
       const target = exportTarget(scope.kind, rows.length, lang);
       let blob: Blob;
       if (format === 'csv') {
@@ -162,13 +163,7 @@ export function useTableTransfer<T>(input: TransferInput<T>) {
         blob = await toXlsx(headers, cells, info, lang);
         if (controller.signal.aborted) return;
       }
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${(route?.menu.id ?? 'table').replace(/[^A-Za-z0-9._-]/g, '-')}-${stamp}${response.trust?.provisional ? '-provisional' : ''}.${format}`;
-      link.click();
-      // Safari/older Firefox cancel downloads whose blob URL is revoked synchronously — release after the click settles.
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      downloadBlob(blob, `${safeFileName(route?.menu.id ?? 'table')}-${stamp}${response.trust?.provisional ? '-provisional' : ''}.${format}`);
       const done = exportDoneText(target, format, lang);
       const provisional = provisionalSuffix(response.trust, lang);
       toast(input.menuNote ? `${done}${provisional} — ${input.menuNote}` : done + provisional);

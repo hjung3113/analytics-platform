@@ -901,6 +901,16 @@ Cell padding     4px 12px
 - 비보안 경로는 클릭·keydown 안에서 document 수준 일회성 capture `copy` 리스너(text/plain·text/html 설정 + `preventDefault`)를 걸고 `execCommand('copy')`를 부르며, `finally`에서 리스너를 반드시 제거한다. 표 `section`에 리스너를 달지 않는다(Chromium은 이 이벤트를 selection 노드나 `<body>`로 보낸다).
 - 글자만 복사하는 곳(상세 패널 링크 복사 등)은 `@ap/ui`의 `copyText`를 쓴다. 같은 기능 감지 규칙이다: 보안 컨텍스트는 `writeText`가 resolve해야 성공이고 거절은 실패로 알린다(폴백 없음). 비보안 컨텍스트는 위 capture `copy` 리스너 + `execCommand('copy')`이고, 리스너가 실제로 글자를 채워야 성공이다(#673).
 
+### 메뉴 선언 Workbook 내보내기(#860)
+
+표 하나의 내보내기(위, 데이터 + 조회 정보 2시트)로 담을 수 없는 파일 — 차트·요약·원본·조회 정보를 메뉴가 정한 이름의 여러 시트로 — 은 `@ap/components`의 `useWorkbookExport()`로 만든다. 메뉴는 `exportWorkbook(build, { fileName?, trust? })`에 `WorkbookSheet[]`(`name`, 선택 `header`, `rows`: 문자열·숫자·`null` 셀)를 돌려주는 `build(signal)`를 주고, 게이트·직렬화·파일·토스트는 SDK가 소유한다. 결과는 `'done' | 'refused' | 'too-large' | 'failed' | 'cancelled' | 'ignored'`라 메뉴는 성공일 때만 대화상자를 닫을 수 있다.
+
+- 게이트는 manifest `features.export`다(`canExport`가 거짓이면 아무것도 하지 않고, 메뉴는 버튼을 숨기거나 비활성으로 둔다). 진행 중 두 번째 호출은 무시하고, `cancel()`·unmount는 `build`의 `signal`을 끊어 조용히 끝낸다. `build`가 스스로 낸 `AbortError`·`TimeoutError`는 서버 `timeout` 거절과 같이 시간 초과로 알린다(결과 `refused`). 서버 조회가 거절되면 `build`가 `WorkbookRefusal(response)`를 던지고, SDK가 표 내보내기와 같은 원인·다음 행동·서버 세부(메시지·correlationId)를 토스트로 보인다(§26). 진행 중 표시는 메뉴 몫이다(`exporting`으로 버튼을 busy로) — SDK는 끝만 알린다.
+- 시트 이름은 Excel 규칙을 따른다: 1–31자, `: \ / ? * [ ]` 없음, `'`로 시작·끝나지 않음, 제어 문자 없음, `History` 아님, 대소문자 무시 중복 없음. 이것과 시트 0개·21개 이상은 메뉴 선언 결함이라 개발 중 콘솔 오류와 일반 실패 토스트다.
+- 셀: 숫자는 숫자 셀(비유한 값은 빈 셀), 문자열은 문자열 셀로 수식으로 실행되지 않는다(표 XLSX와 같다). 설비 wall-clock 문자열은 날짜로 바꾸지 않고 원형 그대로, `null`·`''`는 빈 셀(머리 줄도 같다), 32,767자를 넘는 글자는 표와 같은 표식으로 자른다.
+- 상한(`WORKBOOK_LIMITS`): 시트 20개, 시트마다 100,000행(표 내보내기 상한과 같음)·16,384열(Excel 폭), 셀 합계 2,000,000개. 파일을 사용자 브라우저 메모리에서 만들기 때문이고, 행·열·셀 상한을 넘으면 "필터를 좁혀 주세요" 경고 토스트를 띄우고 파일을 만들지 않는다. 더 큰 파일은 서버 비동기 내보내기(#555) 몫이다.
+- 파일 이름은 `<fileName 또는 메뉴 id>-<yyyyMMdd-HHmm>.xlsx`다. 메뉴 id는 `A-Za-z0-9._-` 밖 글자를, 메뉴가 준 `fileName`(한글 가능)은 OS가 받지 않는 글자(`\ / : * ? " < > |`)와 제어 문자만 `-`로 바꾸고, 남는 글자가 없으면 메뉴 id를 쓴다. `trust.provisional`이면 표처럼 `-provisional`이 붙고 토스트에 잠정 데이터 안내가 붙는다. `write-excel-file/browser`는 표와 같이 클릭 때 지연 청크로 불러온다. 순수 함수 `checkWorkbook`·`toWorkbookXlsx(sheets, signal?)`도 공개한다. 세부는 `workbook.test.ts`·`useWorkbookExport.test.tsx`가 고정한다.
+
 ### Platform Table과 Domain Table의 경계
 
 Platform이 소유:
