@@ -126,8 +126,8 @@ describe('Global Context priority overflow (#56)', () => {
       expect(button.textContent).toBe('');
     }
     const period = within(bar()).getByRole('button', { name: /^기간:/ });
-    expect(period).toHaveAttribute('title', '기간: 2026-09-25T09:00:00 – 2026-09-26T09:00:00');
-    expect(period).toHaveAccessibleName('기간: 2026-09-25T09:00:00 – 2026-09-26T09:00:00, 참조만');
+    expect(period).toHaveAttribute('title', '기간: 09-25 09:00 → 09-26 09:00 (24h)');
+    expect(period).toHaveAccessibleName('기간: 09-25 09:00 → 09-26 09:00 (24h), 참조만');
     fireEvent.click(period);
     expect(screen.getByRole('radio', { name: '7일' })).toBeVisible();
   });
@@ -248,13 +248,13 @@ describe('Global Context priority overflow (#56)', () => {
 
   it('keeps the exception status in period names that replace the visible tag (#218 review)', () => {
     mount();
-    expect(within(bar()).getByRole('button', { name: '기간: 2026-09-25T09:00:00 – 2026-09-26T09:00:00, 참조만' })).toBeVisible();
+    expect(within(bar()).getByRole('button', { name: '기간: 09-25 09:00 → 09-26 09:00 (24h), 참조만' })).toBeVisible();
     cleanup();
     mount('', 'ko', true, registryWith({ ...caps, time: 'unsupported' }));
-    expect(within(bar()).getByRole('group', { name: '기간: 2026-09-25T09:00:00 – 2026-09-26T09:00:00, 이 화면에서 미사용' })).toBeVisible();
+    expect(within(bar()).getByRole('group', { name: '기간: 09-25 09:00 → 09-26 09:00 (24h), 이 화면에서 미사용' })).toBeVisible();
     cleanup();
     mount('', 'ko', true, registryWith({ ...caps, time: 'apply' }));
-    expect(within(bar()).getByRole('button', { name: '기간: 2026-09-25T09:00:00 – 2026-09-26T09:00:00' })).toBeVisible();
+    expect(within(bar()).getByRole('button', { name: '기간: 09-25 09:00 → 09-26 09:00 (24h)' })).toBeVisible();
   });
 
   it('measures once and responds to window resize when ResizeObserver is unavailable (P3-3)', () => {

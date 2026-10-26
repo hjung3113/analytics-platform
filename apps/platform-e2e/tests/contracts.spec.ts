@@ -360,18 +360,18 @@ test.describe('분석 보드 계약 (16 §4–§7, ADR-0049·0051)', () => {
     await expect(firstHead).toContainText('생산성 개요');
     await expect(firstRoomChip).toBeVisible();
     const originalPeriodChip = '기간 2026-09-25 09:00 ~ 2026-09-26 09:00';
-    const originalPeriod = boardContext(page, 1).getByRole('button', { name: '기간: 2026-09-25T09:00:00 – 2026-09-26T09:00:00' });
+    const originalPeriod = boardContext(page, 1).getByRole('button', { name: '기간: 09-25 09:00 → 09-26 09:00 (24h)' });
     await expect(originalPeriod).toBeVisible();
 
     await boardPane(page, 2).getByRole('button', { name: '칸 2 선택' }).click();
     await boardPeriodPreset(page, 2, '7일');
-    await expect(boardContext(page, 2).getByRole('button', { name: '기간: 2026-09-19T09:00:00 – 2026-09-26T09:00:00' })).toBeVisible();
+    await expect(boardContext(page, 2).getByRole('button', { name: '기간: 09-19 09:00 → 09-26 09:00 (7일)' })).toBeVisible();
     await expect(boardPaneHead(page, 2).locator('[data-pane-chip="time"]')).toHaveText('기간 2026-09-19 09:00 ~ 2026-09-26 09:00');
     await expect(firstHead.locator('[data-pane-chip="time"]')).toHaveText(originalPeriodChip);
     await expect(firstRoomChip).toBeVisible();
 
     await first.getByRole('button', { name: '칸 1 선택' }).click();
-    await expect(boardContext(page, 1).getByRole('button', { name: '기간: 2026-09-25T09:00:00 – 2026-09-26T09:00:00' })).toBeVisible();
+    await expect(boardContext(page, 1).getByRole('button', { name: '기간: 09-25 09:00 → 09-26 09:00 (24h)' })).toBeVisible();
     await page.goBack();
     await expect.poll(() => page.url()).toBe(originalMainUrl);
     expect(query(page).get('from')).toBe('2026-09-25T09:00:00');
@@ -382,7 +382,7 @@ test.describe('분석 보드 계약 (16 §4–§7, ADR-0049·0051)', () => {
 
   test('일괄 적용: 모든 칸이 같은 조건이 되고 실행 취소가 차이 칩을 복원한다', async ({ page }, testInfo) => {
     const paneQuery = `v=1&scopeId=MEM&${PERIOD}`;
-    const sourcePeriod = '기간: 2026-09-25T09:00:00 – 2026-09-26T09:00:00';
+    const sourcePeriod = '기간: 09-25 09:00 → 09-26 09:00 (24h)';
     await signInWithBoard(page, 'engineer', boardOf(boardSheet('apply', '적용', '1x2', [
       boardScreen(`${paneQuery}&roomNames=PHOTO`), boardScreen(`${paneQuery}&roomNames=ETCH`),
     ])));
@@ -1435,7 +1435,7 @@ test.describe('딥링크 복원 (06 §6.4)', () => {
     await expect(mainHeading(page)).toHaveText('생산성 개요');
     await expectScopeValid(page, 'MEM · 메모리');
     const bar = contextBar(page);
-    await expect(bar.getByRole('button', { name: '기간: 2026-09-25T09:00:00 – 2026-09-26T09:00:00' })).toBeVisible();
+    await expect(bar.getByRole('button', { name: '기간: 09-25 09:00 → 09-26 09:00 (24h)' })).toBeVisible();
     await expect(bar.getByRole('button', { name: 'room_name PHOTO' })).toBeVisible();
     await expect(page.getByRole('radiogroup', { name: '집계 단위' }).getByRole('radio', { name: '일' })).toBeChecked();
     expect(query(page).toString()).toBe(new URL(url, 'http://x').searchParams.toString());

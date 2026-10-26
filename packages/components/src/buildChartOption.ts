@@ -21,6 +21,9 @@ const MIN_MAX_LABEL_ROOM = 44;
 const CHIP_SHIFT = 32;
 /** Gap between a bar end (or the lane column) and its total label; the partial marker adds its own width. */
 const TOTAL_GAP = 4;
+/** Value-axis tick spacing floor in px and ECharts' default tick count (`splitNumber`); only a plot narrower than the former times the latter gets fewer ticks. */
+const MIN_TICK_PITCH = 64;
+const DEFAULT_TICKS = 5;
 const PARTIAL_MARKER = 8;
 
 export type LinePattern = 'solid' | number[];
@@ -140,6 +143,10 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
   const zoomed = Math.max((i.zoom[1] - i.zoom[0]) / 100, 0.01);
   const units = xType === 'time' ? i.timeExtent : categories.length;
   const pxPerUnit = units > 0 ? plotWidth / (units * zoomed) : 0;
+  // A narrow plot (a 400px drawer) cannot hold five numeric ticks: fewer ticks, and any that still touch are dropped; a wide plot keeps ECharts' defaults instead of printing `1,0002,000`.
+  const gridPlotWidth = i.chartWidth - (i.rowPitch !== undefined ? ROW_LABEL_GUTTER : 52) - gridRight;
+  const tickCount = Math.floor(gridPlotWidth / MIN_TICK_PITCH);
+  const valueAxisTicks = tickCount < DEFAULT_TICKS ? { splitNumber: Math.max(1, tickCount), axisLabel: { hideOverlap: true } } : {};
   const noteWidths = noteLabelWidths(i.noteSpans, pxPerUnit, plotWidth);
   const areas = [
     // Notes keep the default top label; the selection labels its bottom so a note saved over it never collides (#320).
@@ -184,7 +191,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
     },
     // Lane mode: ticks sit at scale intervals and cannot mark lane starts, so the numbers and the unit go; lane names are drawn by the overlay's markLine.
     xAxis: lanes ? { type: 'value', min: 0, max: lanes.span || undefined, axisLabel: { show: false }, axisTick: { show: false }, splitLine: { show: false } }
-      : horizontal ? { type: 'value', min: 0, name: i.unit, splitLine: theme.splitLine } : xType === 'time'
+      : horizontal ? { type: 'value', min: 0, name: i.unit, splitLine: theme.splitLine, ...valueAxisTicks } : xType === 'time'
       ? { type: 'time', axisLine: theme.axisLine, axisLabel: { hideOverlap: true }, splitLine: { show: false } }
       : { type: 'category', data: categories, axisLine: theme.axisLine, axisTick: { alignWithLabel: true } },
     yAxis: horizontal ? { type: 'category', data: categories, inverse: true, axisLine: theme.axisLine, axisLabel: { interval: i.rowPitch !== undefined ? 0 : 'auto', ...(i.rowPitch !== undefined ? { width: ROW_LABEL_GUTTER - 12, overflow: 'truncate', ellipsis: '…' } : {}), ...(active ? { formatter: (v: string) => (v === active ? `{active|${v}}` : v), rich: { active: { fontWeight: 'bold', color: theme.axisLabel.color } } } : {}) }, axisTick: { alignWithLabel: true } } : { type: 'value', min: 0, name: i.unit, nameTextStyle: { align: 'right' }, splitLine: theme.splitLine },

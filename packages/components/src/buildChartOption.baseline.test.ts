@@ -20,3 +20,15 @@ describe('main-derived option (#580d, F9)', () => {
     expect(JSON.parse(JSON.stringify(buildChartOption(baselineInput({ totals: new Map([['R1', { value: 9, partial: false, missing: [] }]]), totalText: new Map([['R1', '9']]) }))))).toEqual(main);
   });
 });
+
+describe('horizontal value-axis ticks on a narrow plot (#914 B3)', () => {
+  const xAxis = (chartWidth: number) => (buildChartOption(baselineInput({ chartWidth })) as unknown as { xAxis: { splitNumber?: number; axisLabel?: { hideOverlap?: boolean } } }).xAxis;
+  it('thins the ticks and hides touching labels at drawer width', () => {
+    const axis = xAxis(300);
+    expect(axis.splitNumber).toBeLessThan(5);
+    expect(axis.axisLabel?.hideOverlap).toBe(true);
+  });
+  it('leaves the default tick count on a wide plot', () => {
+    expect(xAxis(600).splitNumber).toBeUndefined();
+  });
+});

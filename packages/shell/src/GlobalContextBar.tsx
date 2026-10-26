@@ -111,7 +111,7 @@ function ChipShell({ label, value, cap, empty, children, ...rest }: { label: Rea
 function CarriedChip({ k, cap, value, onRemove }: { k: ContextKey; cap: Capability; value: string; onRemove: () => void }) {
   const { tx, t, lang } = useI18n();
   const { global } = useHostPlatform();
-  const fullValue = k === 'time' ? (global.from ? `${global.from} – ${global.to}` : t('selectPeriod')) : value;
+  const fullValue = k === 'time' ? (global.from ? formatPeriod(global.from, global.to, lang) : t('selectPeriod')) : value;
   return <span role={k === 'time' ? 'group' : undefined} aria-label={k === 'time' ? `${tx(CONTEXT_LABELS[k])}: ${fullValue}${capStatus(cap, t)}` : undefined} className={cn('inline-flex h-8 max-w-full min-w-0 items-center gap-1.5 rounded-sm border pl-2.5 pr-1 whitespace-nowrap text-xs',
     cap === 'unsupported' ? 'border-dashed border-border-strong text-text-muted' : 'border-border-strong bg-surface-card')}
     title={cap === 'unsupported' ? (lang === 'ko' ? 'URL에 보존되며 지원 메뉴로 이동하면 재검증 후 적용됩니다.' : 'Kept in the URL; re-validated and applied on a supporting page.') : undefined}>
@@ -127,7 +127,7 @@ function PeriodControl({ cap, compact = false }: { cap: Capability; compact?: bo
   const { t, lang } = useI18n();
   const [open, setOpen] = useContextEditorState('open', false);
   const preserveRelocationFocus = useContextEditorFocusRecovery();
-  const periodName = `${t('period')}: ${global.from ? `${global.from} – ${global.to}` : t('selectPeriod')}`;
+  const periodName = `${t('period')}: ${global.from ? formatPeriod(global.from, global.to, lang) : t('selectPeriod')}`;
   const h = hours(global);
   const preset = global.to === defaultRangeTo && h === 24 ? '1d' : global.to === defaultRangeTo && h === 168 ? '7d' : global.from ? 'custom' : null;
   const presets = [{ id: '1d', label: t('preset1d'), h: 24 }, { id: '7d', label: t('preset7d'), h: 168 }, { id: 'custom', label: t('presetCustom'), h: 0 }] as const;

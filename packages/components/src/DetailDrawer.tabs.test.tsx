@@ -48,3 +48,18 @@ describe('DetailDrawer tab row (06 §13, #886 UX-8)', () => {
     expect(screen.getByRole('tab', { name: '이력' }).getAttribute('aria-selected')).toBe('true');
   });
 });
+
+// The aside clips its overflow, so an outset ring shows only its top edge (#914 A1). jsdom has no layout: pin the classes.
+describe('DetailDrawer focus ring stays inside the clipped aside (#914 A1)', () => {
+  it.each([
+    ['one tab (region)', [{ id: 'a', label: '속성', content: <p>속성 내용</p> }], 'region'],
+    ['several tabs (tabpanel)', [{ id: 'a', label: '속성', content: <p>속성 내용</p> }, { id: 'b', label: '이력', content: <p>이력 내용</p> }], 'tabpanel'],
+  ] as const)('%s', async (_name, tabs, role) => {
+    render(tree(<DetailDrawer title="상세" onClose={() => {}} tabs={[...tabs]} />));
+    await screen.findByText('속성 내용');
+    const panel = screen.getByRole(role, { name: role === 'region' ? '상세' : undefined });
+    expect(panel.className).toContain('focus-visible:ring-inset');
+    expect(panel.className).toContain('focus-visible:ring-offset-0');
+    expect(panel.className).not.toContain('focus-visible:ring-offset-2');
+  });
+});
