@@ -424,7 +424,7 @@ test.describe('분석 보드 계약 (16 §4–§7, ADR-0049·0051)', () => {
     await expect(boardPaneHead(page, 1)).toContainText('사이클타임 상세');
     await expect(cycleTimeBody(page, 1)).toBeVisible();
     await boardPeriodPreset(page, 1, '1일');
-    const changedPeriod = '[2026-09-25T09:00:00, 2026-09-26T09:00:00)';
+    const changedPeriod = '09-25 09:00 → 09-26 09:00 (24h)';
     await expect(boardContext(page, 1)).toContainText(changedPeriod);
 
     await page.reload();
@@ -4263,7 +4263,7 @@ test.describe('일괄 적용 조회 바 (06 §11·§19, ADR-0061)', () => {
     await page.getByRole('button', { name: '최근 7일', exact: true }).click();
     await page.getByRole('button', { name: '닫기', exact: true }).click();
     await page.getByRole('button', { name: '칸 2 선택' }).click();
-    await expect(page.getByRole('region', { name: '칸 2 · 분석 Context' })).toContainText('적용 안 된 변경 0개');
+    await expect(page.getByRole('region', { name: '칸 2 · 분석 Context' })).not.toContainText('적용 안 된 변경');
     await page.getByRole('button', { name: '칸 1 선택' }).click();
     await expect(page.getByRole('region', { name: '칸 1 · 분석 Context' })).toContainText('적용 안 된 변경 1개');
   });

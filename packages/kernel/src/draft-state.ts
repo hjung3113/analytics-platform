@@ -80,6 +80,7 @@ function normalize(input: DraftInputs, values: Values): Values {
   if (g.membershipBasis !== null && parsed.global.membershipBasis === null) throw new RangeError('membership_basis_pair');
   return { global: parsed.global, page: parsed.page.filter(([, value]) => value !== '') };
 }
+/** `applied` is the entry draft: the applied values plus the seeded default period, which is not a change (#913). */
 function dirtyFields(applied: Values, draft: Values): string[] {
   const normalized = (g: GlobalContext) => parseQuery(buildQuery(g)).global;
   const a = normalized(applied.global); const b = normalized(draft.global);
@@ -137,7 +138,7 @@ function draftApi(input: DraftInputs, store: DraftStore, state: Snapshot, active
     store.put({ ...previous, draft: next, editRevision: previous.editRevision + 1 });
   };
   return {
-    mode, draft: state.draft, dirty: dirtyFields({ global: input.global, page: input.page }, state.draft), missing, canApply, applying: state.pending?.dispatching === true,
+    mode, draft: state.draft, dirty: dirtyFields(initial(input), state.draft), missing, canApply, applying: state.pending?.dispatching === true,
     setDraftGlobal(patch) {
       if ('scopeId' in patch && patch.scopeId !== input.global.scopeId) { input.setGlobal({ scopeId: patch.scopeId }); return; }
       edit({ ...current().draft, global: { ...current().draft.global, ...patch } });
@@ -168,7 +169,7 @@ function draftApi(input: DraftInputs, store: DraftStore, state: Snapshot, active
         if (latest?.pending === pending) store.put({ ...latest, pending: { ...pending, dispatching: false } });
       });
     },
-    revert() { const previous = current(); store.put({ ...previous, draft: { global: input.global, page: input.page }, pageBasis: undefined, editRevision: previous.editRevision + 1 }); },
+    revert() { const previous = current(); store.put({ ...previous, draft: initial(input), pageBasis: undefined, editRevision: previous.editRevision + 1 }); },
     reset() { const previous = current(); store.put({ ...previous, draft: defaults(input), pageBasis: undefined, editRevision: previous.editRevision + 1 }); },
   };
 }

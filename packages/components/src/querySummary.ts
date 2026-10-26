@@ -1,4 +1,4 @@
-import type { Capability, ConditionPreset, ContextKey, EquipmentAxisDescriptor, GlobalContext, Pair } from '@ap/contracts';
+import { formatPeriod, type Capability, ConditionPreset, ContextKey, EquipmentAxisDescriptor, GlobalContext, Pair } from '@ap/contracts';
 import { CONTEXT_LABELS } from '@ap/kernel';
 import type { PageFilterSummaryItem } from './PageFilterBar';
 
@@ -20,7 +20,7 @@ export function querySummaryItems(g: GlobalContext, options: QuerySummaryOptions
   const items: QuerySummaryItem[] = [];
   const add = (key: ContextKey, value: string, label = CONTEXT_LABELS[key][lang]) => items.push({ key, contextKey: key, label, value, capability: context?.[key] });
   const ids = (values: readonly string[]) => values.length ? values.join(', ') : ko ? '명시적 빈 선택' : 'Explicit empty selection';
-  if (g.from !== null || g.to !== null) add('time', `[${g.from ?? '—'}, ${g.to ?? '—'})`);
+  if (g.from !== null || g.to !== null) add('time', formatPeriod(g.from, g.to, lang));
   if (g.roomNames !== null) add('roomNames', ids(g.roomNames), ko ? '공정' : 'Process');
   if (g.lineNames !== null) add('line', ids(g.lineNames));
   if (g.prcGroups !== null) add('prcGroup', ids(g.prcGroups));

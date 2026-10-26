@@ -6,12 +6,11 @@ import { ContextBarLayout, MeasuringContext, useContextEditorState, useContextEd
 import { CONTEXT_CHIP, CONTEXT_CHIP_TONE } from './contextChip';
 import { CONTEXT_LABELS, labelledCondition, useEquipmentAxes, useI18n, type RequestState } from '@ap/kernel';
 import { useAdapterRequest, useHostPlatform } from '@ap/kernel/host';
-import { type Capability, type Condition, type ContextKey, formatDateTime, type GlobalContext, type SelectionEvaluation, parseDateTime, shift } from '@ap/contracts';
+import { type Capability, type Condition, type ContextKey, formatDateTime, formatPeriod, periodShort, periodSpan, type GlobalContext, type SelectionEvaluation, parseDateTime, shift } from '@ap/contracts';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger, RadioGroup, RadioGroupItem } from '@ap/ui';
 import { SegmentedRadio, useCopyLink } from '@ap/components';
 
 const hours = (g: GlobalContext) => (g.from && g.to ? (parseDateTime(g.to, 'to').getTime() - parseDateTime(g.from, 'from').getTime()) / 3_600_000 : null);
-const short = (v: string) => v.replace('T', ' ').slice(5, 16);
 const CONTEXT_KEYS: ContextKey[] = ['time', 'roomNames', 'line', 'prcGroup', 'condition', 'selection', 'lot', 'ppid', 'recipe', 'metric'];
 
 export function contextHasValue(global: GlobalContext): Record<ContextKey, boolean> {
@@ -55,7 +54,7 @@ function LiveContextBar({ label, whenEmpty }: { label?: { visible: string; regio
   const editable = (k: ContextKey) => cap[k] !== 'unsupported';
 
   const controls = [
-    ...(shown.includes('time') ? [{ key: 'time' as const, applied: has.time, node: (editable('time') ? <PeriodControl cap={cap.time} /> : <CarriedChip k="time" cap={cap.time} value={global.from ? `${short(global.from)} → ${short(global.to!)}` : ''} onRemove={() => setGlobal({ from: null, to: null })} />), compactNode: editable('time') ? <PeriodControl cap={cap.time} compact /> : <CarriedChip k="time" cap={cap.time} value={global.from ? `${short(global.from)} → ${short(global.to!)}` : ''} onRemove={() => setGlobal({ from: null, to: null })} /> }] : []),
+    ...(shown.includes('time') ? [{ key: 'time' as const, applied: has.time, node: (editable('time') ? <PeriodControl cap={cap.time} /> : <CarriedChip k="time" cap={cap.time} value={global.from ? formatPeriod(global.from, global.to, lang) : ''} onRemove={() => setGlobal({ from: null, to: null })} />), compactNode: editable('time') ? <PeriodControl cap={cap.time} compact /> : <CarriedChip k="time" cap={cap.time} value={global.from ? formatPeriod(global.from, global.to, lang) : ''} onRemove={() => setGlobal({ from: null, to: null })} /> }] : []),
     ...(shown.includes('roomNames') ? [{ key: 'roomNames' as const, applied: has.roomNames, node: (editable('roomNames') ? <RoomEditor cap={cap.roomNames} /> : <CarriedChip k="roomNames" cap={cap.roomNames} value={setText(global.roomNames, t)} onRemove={() => setGlobal({ roomNames: null })} />) }] : []),
     ...(has.line ? [{ key: 'line' as const, applied: has.line, node: <CarriedChip k="line" cap={cap.line} value={setText(global.lineNames, t)} onRemove={() => setGlobal({ lineNames: null })} /> }] : []),
     ...(has.prcGroup ? [{ key: 'prcGroup' as const, applied: has.prcGroup, node: <CarriedChip k="prcGroup" cap={cap.prcGroup} value={setText(global.prcGroups, t) + basisText} onRemove={() => setGlobal({ prcGroups: null })} /> }] : []),
@@ -151,8 +150,8 @@ function PeriodControl({ cap, compact = false }: { cap: Capability; compact?: bo
       <PopoverTrigger asChild>
         <button type="button" className={cn('inline-flex h-8 items-center gap-2 rounded-sm border border-border-strong bg-surface-card px-2.5 whitespace-nowrap text-xs hover:border-border-control', compact ? 'w-full min-w-0' : 'min-w-[204px]')} title={periodName} aria-label={`${periodName}${capStatus(cap, t)}`}>
           <CalendarDays className="size-4 shrink-0 text-text-muted" aria-hidden />
-          {global.from ? <span className="min-w-0 truncate font-medium tabular">{short(global.from)} → {short(global.to!)}</span> : <span className="min-w-0 truncate text-text-muted">{t('selectPeriod')}</span>}
-          {!compact && h !== null && <span className="text-text-muted tabular">({h >= 48 ? `${Math.round(h / 24)}${lang === 'ko' ? '일' : 'd'}` : `${h}h`})</span>}
+          {global.from ? <span className="min-w-0 truncate font-medium tabular">{periodShort(global.from)} → {periodShort(global.to!)}</span> : <span className="min-w-0 truncate text-text-muted">{t('selectPeriod')}</span>}
+          {!compact && h !== null && <span className="text-text-muted tabular">({periodSpan(h, lang)})</span>}
           <CapTag cap={cap} />
           <ChevronDown className="size-3.5 shrink-0 text-text-muted" aria-hidden />
         </button>

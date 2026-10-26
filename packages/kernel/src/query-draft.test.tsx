@@ -36,7 +36,7 @@ it('keeps the default period in draft, commits once, and preserves applied resul
   expect(window.location.search).toBe('');
   expect(send).not.toHaveBeenCalled();
   act(() => { draft.setDraftPage({ filter: 'one' }); });
-  expect(draft.dirty).toEqual(['from', 'to', 'filter']);
+  expect(draft.dirty).toEqual(['filter']);
   act(() => { draft.apply(); draft.apply(); });
   await waitFor(() => expect(query.status).toBe('done'));
   expect(push).toHaveBeenCalledTimes(1);
@@ -51,6 +51,7 @@ it('keeps the default period in draft, commits once, and preserves applied resul
 });
 
 const period = '?v=1&from=2026-09-25T09%3A00%3A00&to=2026-09-26T09%3A00%3A00';
+const week = { from: '2026-09-19T08:00:00', to: '2026-09-26T08:00:00' };
 function mount(url = '/', chosen = registry, over: Parameters<typeof testAdapter>[0] = {}) {
   window.history.replaceState(null, '', url);
   const session = testSession(['platform:view']);
@@ -59,6 +60,33 @@ function mount(url = '/', chosen = registry, over: Parameters<typeof testAdapter
   const view = render(<I18nProvider><PlatformProvider registry={chosen} adapter={adapter}><Probe /></PlatformProvider></I18nProvider>);
   return { send, adapter, view };
 }
+it('a seeded default period is not a change: entry is clean, an edit counts the period, revert returns to the entry draft (#913)', () => {
+  mount('/');
+  const entry = { from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00' };
+  expect(draft.draft.global).toMatchObject(entry);
+  expect(draft.dirty).toEqual([]);
+  act(() => draft.setDraftGlobal(week));
+  expect(draft.dirty).toEqual(['from', 'to']);
+  act(() => draft.revert());
+  expect(draft.draft.global).toMatchObject(entry);
+  expect(draft.dirty).toEqual([]);
+  expect(draft.missing).toEqual([]);
+  act(() => draft.setDraftGlobal(entry));
+  expect(draft.dirty).toEqual([]);
+  act(() => draft.setDraftGlobal(week));
+  act(() => draft.reset());
+  expect(draft.draft.global).toMatchObject(entry);
+  expect(draft.dirty).toEqual([]);
+});
+it('an applied address that already has a period still counts a changed period', () => {
+  mount('/' + period);
+  expect(draft.dirty).toEqual([]);
+  act(() => draft.setDraftGlobal(week));
+  expect(draft.dirty).toEqual(['from', 'to']);
+  act(() => draft.revert());
+  expect(draft.draft.global).toMatchObject({ from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00' });
+  expect(draft.dirty).toEqual([]);
+});
 it.each([
   ['', 'idle'], ['?v=1&extra=value', 'idle'], ['?scopeId=MEM', 'idle'], ['?filter=value', 'idle'],
   ['?ppid=unsupported', 'idle'], [period, 'done'], ['?from=2026-09-25T09:00:00', 'idle'],
