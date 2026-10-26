@@ -56,7 +56,7 @@ function mount(url = '/board?sheet=a', permissions: Session['user']['permissions
   window.history.replaceState(null, '', url);
   session = testSession(permissions);
   const adapter = testAdapter({ session: () => session, subscribe: l => { listeners.add(l); return () => { listeners.delete(l); }; }, ...adapterOver });
-  return render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><RouteOutlet /></PlatformProvider></I18nProvider>);
+  return render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><AppShell><RouteOutlet /></AppShell></PlatformProvider></I18nProvider>);
 }
 const openMenu = (trigger: HTMLElement) => { act(() => { trigger.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0 })); }); };
 const settle = () => act(() => new Promise(resolve => setTimeout(resolve, 30)));
@@ -775,7 +775,7 @@ describe('stateful Outlet presentation lifetime', () => {
     seed(boardOf([sheet('a', { layout: '2x2', panes: [alpha(), alpha(), alpha(), alpha()] }), sheet('b', { panes: [alpha()] })]));
     window.history.replaceState(null, '', '/board?sheet=a');
     let current = testSession(['platform:view']);
-    render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => current, subscribe: l => { listeners.add(l); return () => { listeners.delete(l); }; } })} registry={makeRegistry()}><BoardScreen Outlet={Stateful} /></PlatformProvider></I18nProvider>);
+    render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => current, subscribe: l => { listeners.add(l); return () => { listeners.delete(l); }; } })} registry={makeRegistry()}><AppShell><BoardScreen Outlet={Stateful} /></AppShell></PlatformProvider></I18nProvider>);
     await settle();
     const input = screen.getByRole('textbox', { name: `local ${paneIdOf(1)}` });
     const body = input.closest('[data-pane-body]') as HTMLElement;

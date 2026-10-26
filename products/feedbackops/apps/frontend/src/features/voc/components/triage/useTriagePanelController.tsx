@@ -124,6 +124,14 @@ export function useTriagePanelController({
   // Keep the ref current
   undoLastRef.current = undoLast;
 
+  // The notice of the call that is still undoable. A newer call replaces the current call, which makes the earlier
+  // notice's undo inert (token guard in useUndoableMutation), so the earlier notice is dismissed when the newer call starts.
+  const liveNoticeRef = React.useRef<string | null>(null);
+  const supersedeNotice = React.useCallback(() => {
+    if (liveNoticeRef.current !== null) dismiss(liveNoticeRef.current);
+    liveNoticeRef.current = null;
+  }, [dismiss]);
+
   // ── handlers ───────────────────────────────────────────────────────────────
 
   const handleConfirmOrFinding = React.useCallback(
@@ -146,6 +154,7 @@ export function useTriagePanelController({
       // REV-3 Cluster X: capture the per-call token so the toast we issue
       // below binds its undo to THIS call only. Once a follow-up mutate
       // replaces the current call, this toast becomes inert.
+      supersedeNotice();
       const callToken: CallToken = commit(input, () => {
         dismiss(successToastId);
       });
@@ -169,6 +178,7 @@ export function useTriagePanelController({
         },
         variant: 'undo',
       });
+      liveNoticeRef.current = successToastId;
 
       onAct?.(kind, {
         vocId: voc.id,
@@ -193,6 +203,7 @@ export function useTriagePanelController({
       commit,
       notify,
       dismiss,
+      supersedeNotice,
     ],
   );
 
@@ -208,6 +219,7 @@ export function useTriagePanelController({
     (onOptimisticPostpone ?? onOptimisticRemove)?.(voc.id, ...(onQueueOutcome ? [input] : []));
 
     // REV-3 Cluster X: capture per-call token and bind the toast's undo to it.
+    supersedeNotice();
     const callToken: CallToken = commit(input, () => {
       dismiss(successToastId);
     });
@@ -225,6 +237,7 @@ export function useTriagePanelController({
       },
       variant: 'undo',
     });
+    liveNoticeRef.current = successToastId;
 
     onAct?.('skip');
   }, [
@@ -241,6 +254,7 @@ export function useTriagePanelController({
     commit,
     notify,
     dismiss,
+    supersedeNotice,
   ]);
 
   return {

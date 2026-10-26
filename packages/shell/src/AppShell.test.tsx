@@ -789,7 +789,7 @@ describe('toast action and caller-driven dismiss (#761 k2)', () => {
     function Plain() { const { toast } = useHostPlatform(); return <button type="button" onClick={() => toast('안내')}>plain</button>; }
     mount(<Plain />);
     fireEvent.click(screen.getByRole('button', { name: 'plain' }));
-    const item = screen.getByText('안내').closest('[data-toast-stack] [aria-live] > div')!;
+    const item = screen.getByText('안내').closest('[data-toast-item]')!;
     fireEvent.pointerEnter(item);
     act(() => { vi.advanceTimersByTime(30000); });
     expect(screen.getByText('안내')).toBeInTheDocument();
@@ -1123,18 +1123,33 @@ describe('toast stack placement and live regions (#886)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'fire info' }));
     expect(document.querySelector('[data-toast-stack]')).toBe(stack);
   });
-  it('announces each toast once: persistent polite and assertive containers, items carry no live role, nothing nested', () => {
+  it('announces each toast once: two persistent sr-only live regions, a non-live visible list', () => {
     mount();
     const live = () => [...document.querySelectorAll('[data-toast-stack] [aria-live]')];
     const before = live();
     expect(before.map(e => e.getAttribute('aria-live'))).toEqual(['polite', 'assertive']);
+    for (const el of before) expect(el).toHaveClass('sr-only');
     fireEvent.click(screen.getByRole('button', { name: 'fire info' }));
     fireEvent.click(screen.getByRole('button', { name: 'fire danger' }));
     expect(live()).toEqual(before);
-    expect(before[0]!.textContent).toContain('안내');
-    expect(before[0]!.textContent).not.toContain('실패');
-    expect(before[1]!.textContent).toContain('실패');
-    for (const el of live()) expect(el.querySelector('[aria-live], [role="alert"], [role="status"]')).toBeNull();
-    expect(document.querySelector('[data-toast-stack]')!.closest('[aria-live]')).toBeNull();
+    expect(before[0]!.textContent).toBe('알림: 안내');
+    expect(before[1]!.textContent).toBe('오류: 실패');
+    // The visible list and its items carry no liveness, and nothing is announced inside another live region.
+    const list = document.querySelector('[data-toast-item]')!.parentElement!;
+    expect(list.closest('[aria-live]')).toBeNull();
+    expect(list.querySelector('[aria-live], [role="alert"], [role="status"]')).toBeNull();
+    expect(list.getAttribute('role')).toBeNull();
+    // A dismissal re-announces nothing.
+    fireEvent.click(screen.getAllByRole('button', { name: '닫기' })[0]!);
+    expect(before[0]!.textContent).toBe('알림: 안내');
+    expect(before[1]!.textContent).toBe('오류: 실패');
+  });
+  it('keeps newest at the bottom across tones: danger A then info B puts B below A', () => {
+    mount();
+    fireEvent.click(screen.getByRole('button', { name: 'fire danger' }));
+    fireEvent.click(screen.getByRole('button', { name: 'fire info' }));
+    const items = [...document.querySelectorAll('[data-toast-item]')].map(e => e.textContent);
+    expect(items[0]).toContain('실패');
+    expect(items[1]).toContain('안내');
   });
 });

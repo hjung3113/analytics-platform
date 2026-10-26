@@ -15,13 +15,11 @@ export interface ListToolbarProps {
   className?: string;
 }
 
-/** CSS variable the toolbar sets on its parent: the real toolbar height, for sticky offsets of siblings below it. */
-const LIST_TOOLBAR_HEIGHT_VAR = '--list-toolbar-height';
-
 /**
  * Tabs and actions share one 50px row while the toolbar is wide enough; the tab block keeps `basis-[22rem]`, so when
  * the toolbar itself (not the viewport) cannot hold that plus the actions, the actions wrap to a second 50px row,
- * right-aligned. The wrap depends only on the toolbar's own width, so dragging a panel crosses one threshold.
+ * right-aligned. The bottom rule is a 1px overlay (`after:`), not a border, so rows add up exactly: 50px for one row, 100px for two.
+ * The wrap depends only on the toolbar's own width, so dragging a panel crosses one threshold.
  */
 export function ListToolbar({
   title,
@@ -37,26 +35,22 @@ export function ListToolbar({
   React.useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const host = el.parentElement;
     const publish = () => {
       const height = el.offsetHeight;
       if (height <= 0) return;
       el.dataset.toolbarHeight = String(Math.round(height));
-      host?.style.setProperty(LIST_TOOLBAR_HEIGHT_VAR, `${Math.round(height)}px`);
     };
     publish();
     const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(publish);
     observer?.observe(el);
-    return () => {
-      observer?.disconnect();
-      host?.style.removeProperty(LIST_TOOLBAR_HEIGHT_VAR);
-    };
+    return () => observer?.disconnect();
   }, []);
   return (
     <div
       ref={ref}
       className={cn(
-        'flex flex-wrap items-center gap-x-3 border-b border-border-subtle px-4 bg-surface-canvas sticky top-0 z-10',
+        'flex flex-wrap items-center gap-x-3 px-4 bg-surface-canvas sticky top-0 z-10',
+        'after:pointer-events-none after:absolute after:inset-x-0 after:bottom-0 after:h-px after:bg-border-subtle',
         className,
       )}
       data-toolbar-height="50"

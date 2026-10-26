@@ -55,7 +55,7 @@ const ctx = (query: string) => parseQuery(query, ['tab', 'page']);
 function mount(url = '/board?sheet=a', permissions: ('platform:view' | 'console:access')[] = ['platform:view']) {
   window.history.replaceState(null, '', url);
   const session = testSession(permissions);
-  return render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}><RouteOutlet /></PlatformProvider></I18nProvider>);
+  return render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}><AppShell><RouteOutlet /></AppShell></PlatformProvider></I18nProvider>);
 }
 const openMenu = (trigger: HTMLElement) => { act(() => { trigger.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0 })); }); };
 const settle = () => act(() => new Promise(resolve => setTimeout(resolve, 30)));
@@ -392,9 +392,9 @@ describe('⋯ pane menu (docs/16 §4)', () => {
     await openActions(2);
     fireEvent.click(await item('비우기'));
     await settle();
-    const toast = (await screen.findByText('칸 1의 조건을 칸 2에 적용했습니다')).closest('[data-sonner-toast]') as HTMLElement;
-    // The undo toast anchors to the shell content column like the shell toast stack, not to the viewport (#886 UX-6).
-    expect(toast.closest('[data-sonner-toaster]')).toHaveClass('!absolute');
+    const toast = (await screen.findByText('칸 1의 조건을 칸 2에 적용했습니다')).closest('[data-toast-item]') as HTMLElement;
+    // The undo notice is an item of the one shell toast stack (#886 UX-6).
+    expect(toast.closest('[data-toast-stack]')).not.toBeNull();
     fireEvent.click(within(toast).getByRole('button', { name: '실행 취소' }));
     await settle();
     expect(await screen.findByText('실행 취소할 수 없습니다 — 그 뒤에 바뀌었습니다')).toBeInTheDocument();
@@ -570,7 +570,7 @@ describe('이 시트 조건을 다른 시트에 복사 (docs/16 §4)', () => {
     await openActions(2);
     fireEvent.click(await item('비우기'));
     await settle();
-    const toast = screen.getByText("칸 1–2의 조건을 'B'의 같은 칸에 복사했습니다").closest('[data-sonner-toast]') as HTMLElement;
+    const toast = screen.getByText("칸 1–2의 조건을 'B'의 같은 칸에 복사했습니다").closest('[data-toast-item]') as HTMLElement;
     fireEvent.click(within(toast).getByRole('button', { name: '실행 취소' }));
     await settle();
     expect(await screen.findByText('실행 취소할 수 없습니다 — 그 뒤에 바뀌었습니다')).toBeInTheDocument();
@@ -583,7 +583,7 @@ describe('이 시트 조건을 다른 시트에 복사 (docs/16 §4)', () => {
     mount();
     await settle();
     await copy('B');
-    expect(await screen.findByText(/'B'에 복사할 칸이 없습니다/)).toBeInTheDocument();
+    expect(await screen.findByText(/^'B'에 복사할 칸이 없습니다/)).toBeInTheDocument();
     cleanup();
     seed(boardOf([sheet('a')]));
     mount();

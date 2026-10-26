@@ -141,6 +141,15 @@ describe('ListToolbar — tabs mode', () => {
     const toolbar = container.firstElementChild;
     expect(toolbar).toHaveAttribute('data-toolbar-height', '50');
     expect(toolbar?.className).not.toContain('h-toolbar');
+    // 50px including the rule: the toolbar adds no border or padding of its own, so one row is exactly one row height
+    // (a `border-b` here made it 51px) and two rows are 2 x 50. jsdom has no layout, so the structure is what is pinned.
+    expect(toolbar?.className).not.toMatch(/(^|\s)(border|border-[tb]|py-\S+|pt-\S+|pb-\S+|p-\S+)(\s|$)/);
+    expect(toolbar).toHaveClass('after:absolute', 'after:h-px', 'after:bottom-0');
+    expect(container.querySelectorAll('[data-list-toolbar-main], [data-list-toolbar-actions]')).toHaveLength(2);
+    for (const row of container.querySelectorAll('[data-list-toolbar-main], [data-list-toolbar-actions]')) {
+      expect(row.className).toMatch(/(^|\s)h-toolbar(\s|$)/);
+      expect(row.className).not.toMatch(/(^|\s)(border|p[tby]?-|m[tby]-)/);
+    }
     expect(container.querySelector('[data-list-toolbar-main]')?.className).toContain('h-toolbar');
     expect(container.querySelector('[data-list-toolbar-actions]')?.className).toContain('h-toolbar');
   });
@@ -167,7 +176,7 @@ describe('ListToolbar — tabs mode', () => {
     expect(container.querySelector('[role="toolbar"]')).toBeNull();
   });
 
-  it('reports the measured height instead of a fixed 50, on the toolbar and as a variable on its parent', () => {
+  it('reports the measured height instead of a fixed 50, on the toolbar', () => {
     let height = 100;
     const spy = vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(() => height);
     const notify = stubResizeObserver();
@@ -180,11 +189,9 @@ describe('ListToolbar — tabs mode', () => {
       const host = container.firstElementChild as HTMLElement;
       const toolbar = host.firstElementChild as HTMLElement;
       expect(toolbar).toHaveAttribute('data-toolbar-height', '100');
-      expect(host.style.getPropertyValue('--list-toolbar-height')).toBe('100px');
       height = 50;
       act(() => notify());
       expect(toolbar).toHaveAttribute('data-toolbar-height', '50');
-      expect(host.style.getPropertyValue('--list-toolbar-height')).toBe('50px');
       unmount();
     } finally {
       spy.mockRestore();

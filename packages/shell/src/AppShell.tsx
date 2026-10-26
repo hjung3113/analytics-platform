@@ -54,7 +54,7 @@ function ShellLayout({ children }: { children: ReactNode }) {
         <Suspense fallback={<div className="p-5"><LoadingBlock rows={6} height={320} /></div>}>{children}</Suspense>
       </main>
       {/* The toast anchor: a zero-height positioned strip at the column's bottom edge, so the stack centres on the content column and never reaches the detail aside or the VOC drawer (06 Toast). */}
-      <div data-toast-anchor className="relative h-0"><Toasts lifted={platformScreen === 'board'} /></div>
+      <div data-toast-anchor className="relative h-0"><Toasts /></div>
     </div>
     <aside ref={detail.ref} hidden={!detailShown} aria-label={lang === 'ko' ? '상세 패널' : 'Detail panel'} data-open={detailShown}
       className={cn('h-full max-w-[520px] shrink-0 overflow-hidden border-border-subtle bg-surface-detail',
@@ -65,20 +65,35 @@ function ShellLayout({ children }: { children: ReactNode }) {
 }
 
 /**
- * One persistent stack in the content column (the containers never remount when the layout changes). Liveness lives on two
- * persistent containers, none on the items: polite for info/warning, assertive for danger, so each toast is announced once.
+ * One persistent stack in the content column, newest at the bottom whatever the tone. The visible list carries no liveness; announcement
+ * lives in two persistent visually-hidden regions (polite for info/warning, assertive for danger) that receive a toast's text once, when it
+ * is raised — a layout change or a dismissal announces nothing.
  */
-function Toasts({ lifted }: { lifted: boolean }) {
+function Toasts() {
   const toasts = useToastList();
+  const heard = useRef<Set<number> | null>(null);
+  const [polite, setPolite] = useState<Toast[]>([]);
+  const [assertive, setAssertive] = useState<Toast[]>([]);
+  // The first render only records what is already there; later renders announce the ids not yet heard.
+  useEffect(() => {
+    const seen = heard.current ?? new Set<number>();
+    const fresh = toasts.filter(tst => !seen.has(tst.id));
+    heard.current = new Set(toasts.map(tst => tst.id));
+    if (fresh.length === 0) return;
+    setPolite(list => [...list, ...fresh.filter(tst => tst.tone !== 'danger')].slice(-4));
+    setAssertive(list => [...list, ...fresh.filter(tst => tst.tone === 'danger')].slice(-4));
+  }, [toasts]);
+  const { lang } = useI18n();
+  // The tone is not visible to a screen reader (an icon), so the announcement names it first.
+  const toneWord = (tone: Toast['tone']) => lang === 'ko' ? { info: '알림', warning: '경고', danger: '오류' }[tone] : { info: 'Notice', warning: 'Warning', danger: 'Error' }[tone];
+  const said = (tst: Toast) => <p key={tst.id}>{`${toneWord(tst.tone)}: ${tst.text}${tst.detail ? ` ${tst.detail}` : ''}`}</p>;
   // Toasts sit above the command palette scrim (z-60) so their dismiss stays clickable (#310).
-  // The board's sonner undo toast sits in this same column (bottom 56px); the board lifts the stack above it so the two stack, not overlap.
-  return <div data-toast-stack className={cn('pointer-events-none absolute inset-x-4 z-70 mx-auto flex max-w-[420px] flex-col gap-2', lifted ? 'bottom-[8.5rem]' : 'bottom-4')}>
-    <div aria-live="polite" aria-atomic="false" className="flex flex-col gap-2">
-      {toasts.filter(tst => tst.tone !== 'danger').map(tst => <ToastItem key={tst.id} toast={tst} />)}
+  return <div data-toast-stack className="pointer-events-none absolute inset-x-4 bottom-4 z-70 mx-auto max-w-[420px]">
+    <div className="flex flex-col gap-2">
+      {toasts.map(tst => <ToastItem key={tst.id} toast={tst} />)}
     </div>
-    <div aria-live="assertive" aria-atomic="false" className="flex flex-col gap-2">
-      {toasts.filter(tst => tst.tone === 'danger').map(tst => <ToastItem key={tst.id} toast={tst} />)}
-    </div>
+    <div aria-live="polite" aria-atomic="false" className="sr-only">{polite.map(said)}</div>
+    <div aria-live="assertive" aria-atomic="false" className="sr-only">{assertive.map(said)}</div>
   </div>;
 }
 
@@ -97,7 +112,7 @@ function ToastItem({ toast: tst }: { toast: Toast }) {
     if (inside.current.focus || inside.current.pointer) holdToast(id, false);
   }, [id, holdToast]);
   const Icon = tst.tone === 'danger' ? XCircle : tst.tone === 'warning' ? AlertTriangle : Info;
-  return <div
+  return <div data-toast-item
     onFocus={() => hold('focus', true)} onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget)) hold('focus', false); }}
     onPointerEnter={() => hold('pointer', true)} onPointerLeave={() => hold('pointer', false)}
     className={cn('pointer-events-auto flex items-start gap-2 rounded-md border bg-surface-card px-3 py-2.5 text-xs shadow-lg',

@@ -1,3 +1,4 @@
+import { AppShell } from '../AppShell';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { House } from 'lucide-react';
@@ -92,7 +93,7 @@ function mount(url = '/board', permissions: Session['user']['permissions'] = ['p
   window.history.replaceState(null, '', url);
   session = testSession(permissions);
   const adapter = testAdapter({ session: () => session, subscribe: l => { listeners.add(l); return () => { listeners.delete(l); }; }, menuQuery: menuQuery as unknown as PlatformAdapter['menuQuery'], ...adapterOver });
-  return render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><RouteOutlet /></PlatformProvider></I18nProvider>);
+  return render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><AppShell><RouteOutlet /></AppShell></PlatformProvider></I18nProvider>);
 }
 const settle = () => act(() => new Promise(resolve => setTimeout(resolve, 30)));
 const openMenu = (trigger: HTMLElement) => { act(() => { trigger.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0 })); }); };
@@ -206,6 +207,25 @@ describe('dock renderer: Delete = 비우기, X, 칸 추가, 칸 닫기, 복제',
     await settle();
     expect(tabLabels()).toEqual(['칸 1 · 알파', '칸 2 · 베타']);
     expect(v2().sheets[0].panes[1].screen).toEqual(beta(w2));
+  });
+
+  it('the undo notice leaves after its 8 s window: an essential time limit, not the no-expiry action default (#886)', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      seed(boardOf([sheet('a', { layout: '1x2', panes: [alpha(w1), beta(w2)] })]));
+      mount('/board?sheet=a');
+      await ready();
+      tabOf('칸 2 · 베타').focus();
+      await userEvent.setup({ advanceTimers: vi.advanceTimersByTime }).keyboard('{Delete}');
+      await settle();
+      expect(await screen.findByText('칸 2을 비웠습니다')).toBeInTheDocument();
+      act(() => { vi.advanceTimersByTime(7000); });
+      expect(screen.getByText('칸 2을 비웠습니다')).toBeInTheDocument();
+      act(() => { vi.advanceTimersByTime(1500); });
+      await waitFor(() => expect(screen.queryByText('칸 2을 비웠습니다')).toBeNull());
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('Delete on an empty tab does nothing', async () => {
@@ -587,7 +607,7 @@ describe('dock renderer: undo addresses panes by slot (C3)', () => {
     fireEvent.click(await screen.findByRole('menuitem', { name: '칸 1 닫기' }));
     await settle();
     expect(tabLabels()).toEqual(['칸 1 · 빈 칸', '칸 2 · 빈 칸']);
-    const toast = (await screen.findByText('칸 2을 비웠습니다')).closest<HTMLElement>('[data-sonner-toast]')!;
+    const toast = (await screen.findByText('칸 2을 비웠습니다')).closest<HTMLElement>('[data-toast-item]')!;
     fireEvent.click(within(toast).getByRole('button', { name: '실행 취소' }));
     await settle();
     expect(v2().sheets[0].panes.map(p => p.screen?.query ?? null)).toEqual([w1, null]);

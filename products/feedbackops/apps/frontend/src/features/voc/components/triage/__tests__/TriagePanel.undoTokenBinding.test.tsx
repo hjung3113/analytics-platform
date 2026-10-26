@@ -184,6 +184,10 @@ describe('TriagePanel — UndoToast token binding (REV-3 Cluster X)', () => {
       expect(capturedRenderers.length).toBe(2);
     });
 
+    // The superseded notice is dismissed as B starts (its undo is inert); B's own notice stays.
+    expect(dismissedIds).toContain('toast-id-1');
+    expect(dismissedIds).not.toContain('toast-id-2');
+
     // Reset restore mock so we can tell if clicking toast A causes any restore.
     onOptimisticRestore.mockClear();
 

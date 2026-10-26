@@ -58,7 +58,7 @@ export function FoBridge({ children, canLink = noLink, Link = UnlinkedLink, targ
     useSearch,
     useTitle,
     // One look on the platform: `variant` is ignored, the action is the kernel toast's single button.
-    // A non-finite duration (FO's "stay", `Infinity`) would fire the kernel timer at once: it gets the kernel default instead (D5).
+    // A non-finite duration (FO's "stay", `Infinity`) is left to the kernel default (D5): an action toast then stays until acted on or dismissed (06 Toast, #886).
     notify: ({ tone, message, description, action, durationMs }) =>
       String(toast(message, TONE[tone], description, { ...(action ? { action } : {}), ...(durationMs !== undefined && Number.isFinite(durationMs) ? { durationMs } : {}) })),
     dismiss: id => dismissToast(Number(id)),
