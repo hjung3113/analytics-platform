@@ -160,6 +160,9 @@ describe('ListToolbar — tabs mode', () => {
     expect(main?.className).toMatch(/(^|\s)h-toolbar(\s|$)/);
     expect(main?.className).not.toMatch(/(^|\s)(border|p[tby]?-|m[tby]-)/);
     expect(actions).toHaveClass('min-h-toolbar', 'min-w-0', 'max-w-full');
+    // 40px controls (Input h-10) + 2 x 4px stay within one 50px row; py-2 made it 56px (#886 C1).
+    expect(actions).toHaveClass('py-1');
+    expect(actions?.className).not.toMatch(/(^|\s)py-([2-9]|1\d)(\s|$)/);
     expect(actions?.className).not.toMatch(/(^|\s)(h-toolbar|shrink-0|border)(\s|$)/);
   });
 
