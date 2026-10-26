@@ -783,12 +783,17 @@ test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
     // While the screen is still loading the pane has no focusable control yet; wait for its first one.
     await expect(page.locator('[data-pane-index="0"]').getByRole('radio', { name: '시간' })).toBeVisible();
     await paneTab(page, 1).focus();
+    // The group's `+` (#893 893a) is the first stop after the tab, then the head buttons.
+    await page.keyboard.press('Tab');
+    await expect(page.locator('[data-group-add]:focus')).toHaveCount(1);
     await page.keyboard.press('Tab');
     await expect.poll(inHead).toBe(true);
     for (let step = 0; step < 6 && await inHead(); step++) await page.keyboard.press('Tab');
     await expect.poll(paneOfFocus).toBe('0');
     for (let step = 0; step < 6 && !(await inHead()); step++) await page.keyboard.press('Shift+Tab');
     for (let step = 0; step < 6 && await inHead(); step++) await page.keyboard.press('Shift+Tab');
+    await expect(page.locator('[data-group-add]:focus')).toHaveCount(1);
+    await page.keyboard.press('Shift+Tab');
     await expect(paneTab(page, 1)).toBeFocused();
   });
 
