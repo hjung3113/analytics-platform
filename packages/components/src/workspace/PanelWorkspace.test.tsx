@@ -66,8 +66,9 @@ const KEY = (persistKey = 'main') => `platform:workspace:v1:u1:home:${persistKey
 
 let storage: Storage;
 const session = testSession(['platform:view'], { user: { id: 'u1', name: 'u', title: { ko: 'u', en: 'u' } } });
+// One adapter for every render of a test: a new adapter object is a new session generation and reads again (ADR-0086).
+const adapter = testAdapter({ session: () => session, menuQuery: menuQuery as unknown as PlatformAdapter['menuQuery'] });
 function shell(children: ReactNode) {
-  const adapter = testAdapter({ session: () => session, menuQuery: menuQuery as unknown as PlatformAdapter['menuQuery'] });
   return <I18nProvider><PlatformProvider adapter={adapter} registry={registry}><Query />{children}</PlatformProvider></I18nProvider>;
 }
 const mountWorkspace = (props: Partial<PanelWorkspaceProps> = {}) => render(shell(<PanelWorkspace {...BASE} {...props} />));

@@ -126,8 +126,11 @@ describe('HW Time table page', () => {
     await waitFor(() => expect(screen.getByRole('table').textContent).toContain('11.00'), { timeout: 8000 });
     fireEvent.click(screen.getAllByRole('button', { name: 'PM2 들어가기' })[0]);
     expect(searchParams().get('drillModule')).toBe('PM2');
-    fireEvent.click((await screen.findAllByRole('button', { name: 'Chuck 들어가기' }, { timeout: 8000 }))[0]);
-    expect(searchParams().get('drillMotion')).toBe('Chuck');
+    // ADR-0086: the level-2 rows replace the level-1 rows one macrotask after the reply, so a button found earlier may be detached; click the attached one.
+    await waitFor(() => {
+      fireEvent.click(screen.getAllByRole('button', { name: 'Chuck 들어가기' })[0]!);
+      expect(searchParams().get('drillMotion')).toBe('Chuck');
+    }, { timeout: 8000 });
   });
 
   it('pages and sorts on the server at L3 and keeps unmeasured values apart from 0', async () => {

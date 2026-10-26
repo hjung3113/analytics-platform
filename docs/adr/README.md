@@ -93,6 +93,7 @@
 | [0083](0083-condition-presets.md) | Condition 프리셋은 메뉴 조회의 투영·신원만 활성 프리셋의 축으로 좁히고 전역 Condition·URL·칸 복사는 그대로 둔다(대안: 값 제거 / 세션 보관 / 유지하되 투영 안 함 — 마지막 선택) | Decided(2026-10-25, 코디네이터(사용자 위임), 되돌릴 수 있다) — #580 노드 580b, 0059 결정 7 유지 |
 | [0084](0084-legend-tree-drill.md) | LegendTree 드릴은 보이기와 분리한다 — 시리즈 줄은 체크박스·이름 = 보이기 + hover 단계 버튼, `drillOnly` 줄은 줄 클릭 = 드릴, Enter는 모두 드릴(대안: b1 이름 클릭 드릴 / b2 버튼만 — 조합 선택) | Decided(2026-10-25, 코디네이터(사용자 위임, Opus xhigh 리뷰 반영), 되돌릴 수 있다) — #580 노드 580e, 0057 보충 |
 | [0085](0085-entity-audit-cursor-pages.md) | 목적지 감사 `entityAudit`은 서버 상한(50)·keyset 커서로 쪽을 나누고, `AuditTimeline`은 목록 끝 `이전 변경 이력 더 보기` 버튼으로 이어 붙인다(대안: B 총건수·`N/M건` 표시 / C 전역 감사 화면으로 넘기기 — A 선택) | Decided(2026-10-26, 코디네이터(사용자 지시: 시안은 Opus xhigh 리뷰 후 결정), 되돌릴 수 있다) — #826 |
+| [0086](0086-kernel-query-engine-tanstack.md) | Kernel 조회 수명주기는 내부 엔진으로 TanStack Query를 쓴다 — 공유 키로 요청 중복 제거, 5분 메모리 SWR, 세션 세대 키로 이전 사용자 데이터 제거(대안: A Kernel 자체 중복 제거 / C TanStack을 SDK 조회 API로 공개 / D 하지 않음 — B 선택) | Decided(2026-10-26, 사용자 방향 + 코디네이터, 되돌릴 수 있다) — #825 |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 

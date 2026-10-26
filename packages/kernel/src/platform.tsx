@@ -15,6 +15,7 @@ import { appliedQueryPolicy, createDraftStore, useScreenDraft, type DraftStore }
 import type { QueryHistory } from './query-history';
 import type { QueryDraft, QueryMissing } from './query-draft';
 import { createRefreshEpochs, type RefreshEpochs } from './refresh-epochs';
+import { createQueryClient, invalidateEndpoints, removeOtherGenerations, startQueryEngine, type QueryEngine } from './query-engine';
 import { buildQuery, carriesReturnTo, clientCorrelationId, ContractError, emptyGlobal, type EquipmentAxisDescriptor, type ContextKey, type GlobalContext, incompleteMetricPair, type ModuleScopedId, isAppRelativePath, type Pair, type ParsedQuery, parseQuery, type Permission, RETURN_TO_KEY, type PlatformAdapter, sameGlobal, type Session, type SessionUser, shift, type SpaceDef, type SpaceId, type Text, type UsageEvent, type UsageVia, type QueryHistoryStore } from '@ap/contracts';
 
 const NO_EQUIPMENT_AXES: readonly EquipmentAxisDescriptor[] = [];
@@ -345,6 +346,8 @@ type AppState = Omit<HostPlatform, ScreenFields | MainBoundFields | 'screenMode'
 /** App-internal handles the screen layers need; never part of the public `usePlatform()` value. */
 type AppInternal = {
   selectionPortCache: PortCache;
+  /** The Kernel's own query client and session generation (ADR-0086); never on `HostPlatform`. */
+  queryEngine: QueryEngine;
   currentRevision: () => number;
   enters: (menu: MenuEntry) => boolean;
   usageSessionId: string;
@@ -748,11 +751,26 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
   const session = useSyncExternalStore(sessionStore.subscribe, sessionStore.get);
   const revisions = useMemo(() => counterStore(adapter), [adapter]);
   const revision = useSyncExternalStore(revisions.subscribe, revisions.get);
-  const [refreshEpochs] = useState(createRefreshEpochs);
+  // Created together: the store hears the engine from its first bump (a descendant's mount effect may bump before any Provider effect).
+  const [{ refreshEpochs, queryClient }] = useState(() => {
+    const queryClient = createQueryClient();
+    return { queryClient, refreshEpochs: createRefreshEpochs(ids => invalidateEndpoints(queryClient, ids)) };
+  });
   // eslint-disable-next-line react-hooks/exhaustive-deps -- `adapter`, `session` and `revision` are deliberate triggers: the cache is dropped and rebuilt when the server side changes
   const selectionPortCache = useMemo(() => createPortCache(), [adapter, session, revision]);
   const user = session.user;
   const userId = user.id;
+  // `adapterEpoch` counts adapter swaps (ADR-0071 §5: the generation includes the adapter), adjusted during render so the new key is used at once.
+  const [adapterEpoch, setAdapterEpoch] = useState({ adapter, epoch: 0 });
+  let epoch = adapterEpoch.epoch;
+  if (adapterEpoch.adapter !== adapter) {
+    epoch++;
+    setAdapterEpoch({ adapter, epoch });
+  }
+  const gen = `${epoch}:${revision}:${userId}`;
+  const queryEngine = useMemo((): QueryEngine => ({ client: queryClient, gen }), [queryClient, gen]);
+  useLayoutEffect(() => { removeOtherGenerations(queryClient, gen); }, [queryClient, gen]);
+  useEffect(() => startQueryEngine(queryClient), [queryClient]);
   const [initialUrl] = useState(() => location.read() ?? '');
   const [{ pageNavigation, paletteFocus, switcherFocus }] = useState(() => {
     const paletteFocus = createPaletteFocus({ cancel: () => pageNavigation.cancel(), notify: () => pageNavigation.notify() });
@@ -912,9 +930,9 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
       session, user, revision, refreshEpochs, can, canOpen, globalMenus, menusInSpace, accessibleSpaces, lastScope, favorites, toggleFavorite, readRecent,
       toast, dismissToast, holdToast, defaultRangeTo, slots, homeTodo, setPaletteOpen, setSwitcherOpen,
     },
-    internal: { currentRevision: revisions.get, selectionPortCache, enters, usageSessionId, userIdRef, usageNav, mainNavigation: pageNavigation, initialUrl, recordVisit, rememberScope },
+    internal: { currentRevision: revisions.get, selectionPortCache, queryEngine, enters, usageSessionId, userIdRef, usageNav, mainNavigation: pageNavigation, initialUrl, recordVisit, rememberScope },
   }), [registry, adapter, location, absoluteUrl, equipmentAxes, queryHistory, session, user, revision, refreshEpochs, can, canOpen, globalMenus, menusInSpace, accessibleSpaces, lastScope, favorites, toggleFavorite, readRecent,
-    toast, dismissToast, holdToast, defaultRangeTo, slots, homeTodo, setPaletteOpen, setSwitcherOpen, revisions, selectionPortCache, enters, usageSessionId, userIdRef, usageNav, pageNavigation, initialUrl, recordVisit, rememberScope]);
+    toast, dismissToast, holdToast, defaultRangeTo, slots, homeTodo, setPaletteOpen, setSwitcherOpen, revisions, selectionPortCache, queryEngine, enters, usageSessionId, userIdRef, usageNav, pageNavigation, initialUrl, recordVisit, rememberScope]);
   const overlay = useMemo((): OverlayState => ({ paletteOpen, paletteSession, switcherOpen, switcherSession }), [paletteOpen, paletteSession, switcherOpen, switcherSession]);
   return (
     <AppContext.Provider value={value}>
@@ -1180,6 +1198,13 @@ export function useEquipmentAxes(): readonly EquipmentAxisDescriptor[] {
   const app = useContext(AppContext);
   if (!app) throw new Error('useEquipmentAxes outside PlatformProvider');
   return app.pub.equipmentAxes;
+}
+
+/** The Kernel's internal query client and session generation (ADR-0086); intentionally absent from the SDK index. */
+export function useQueryEngine(): QueryEngine {
+  const app = useContext(AppContext);
+  if (!app) throw new Error('Kernel queries outside PlatformProvider');
+  return app.internal.queryEngine;
 }
 
 /** Internal screen request store; intentionally absent from the SDK index. */

@@ -233,16 +233,21 @@ it('clears timestamps and aborts when the gate closes at the same projection, ig
   await act(async () => resolve({ outcome: 'ok', data: 99, assessments: [], trust: null, correlationId: 'late' }));
   expect(query.response).toBeNull();
 });
+// ADR-0086: TanStack notifies observers after a macrotask that is queued once the reply landed, so a settle waits two.
+const settle = () => act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); await new Promise(resolve => setTimeout(resolve, 0)); });
 it('keeps completedAt while refreshing and stamps every accepted terminal envelope', async () => {
   const responses: ((response: ApiResponse<number>) => void)[] = [];
   mount('/' + period, registry, { menuQuery: () => new Promise(resolve => responses.push(resolve)) });
   await act(async () => responses[0]({ outcome: 'ok', data: 1, assessments: [], trust: null, correlationId: 'first' }));
+  await settle(); // ADR-0086: observers are notified after a macrotask
   const completedAt = query.completedAt;
   act(() => query.refetch());
+  await settle();
   expect(query.status).toBe('refreshing');
   expect(query.response?.data).toBe(1);
   expect(query.completedAt).toBe(completedAt);
   await act(async () => responses[1]({ outcome: 'timeout', data: null, assessments: [], trust: null, correlationId: 'timeout' }));
+  await settle();
   expect(query.status).toBe('done');
   expect(query.completedAt).toEqual(expect.any(Number));
   act(() => platform.setGlobal({ from: '2026-09-24T09:00:00' }));
@@ -374,10 +379,12 @@ it('timestamps synthesized rejection envelopes and keeps that timestamp through 
   let reject: (error: Error) => void;
   mount('/' + period, registry, { menuQuery: () => new Promise((_resolve, fail) => { reject = fail; }) });
   await act(async () => reject(new Error('adapter failure')));
+  await settle(); // ADR-0086: observers are notified after a macrotask
   expect(query.response).toMatchObject({ outcome: 'error', message: 'Error: adapter failure' });
   expect(query.completedAt).toEqual(expect.any(Number));
   const completedAt = query.completedAt;
   act(() => platform.refreshEpochs.bump([endpoint.id]));
+  await settle();
   expect(query.status).toBe('refreshing');
   expect(query.completedAt).toBe(completedAt);
 });

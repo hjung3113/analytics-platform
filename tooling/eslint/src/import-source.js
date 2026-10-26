@@ -70,6 +70,12 @@ function makeEvaluate(opts) {
       return opts.tableEngineMessage;
     }
     if (
+      opts.denyQueryEngine &&
+      (opts.queryEnginePackages ?? []).some((name) => source === name || source.startsWith(`${name}/`))
+    ) {
+      return opts.queryEngineMessage;
+    }
+    if (
       opts.denyDockEngine &&
       (opts.dockEnginePackages ?? []).some((name) => source === name || source.startsWith(`${name}/`))
     ) {

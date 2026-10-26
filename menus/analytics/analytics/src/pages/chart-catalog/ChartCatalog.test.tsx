@@ -181,7 +181,8 @@ describe('chart catalog route and lifetime', () => {
     fireEvent.click(within(summary()).getByRole('button', { name: '상세' }));
     fireEvent.mouseDown(screen.getByRole('tab', { name: /^산점도 / }), { button: 0, ctrlKey: false });
     await waitFor(() => expect(screen.queryByRole('status', { name: '상세 결과' })).toBeNull());
-    expect(within(summary()).queryByRole('button', { name: '상세' })).toBeNull();
+    // ADR-0086: the new kind's reply reaches the screen one macrotask later, so wait for the summary region.
+    expect(within(await screen.findByRole('region', { name: '선택 요약' })).queryByRole('button', { name: '상세' })).toBeNull();
   });
   it.each(['line', 'bar'] as const)('%s exposes Compare with a visible previous period', async kind => {
     mount(kind); await screen.findByRole('img'); click('비교');

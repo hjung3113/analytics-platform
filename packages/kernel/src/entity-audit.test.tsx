@@ -62,7 +62,8 @@ function mount(f: ReturnType<typeof fixture>, id?: string) {
   return { seen: () => seen, rerender: (nextId: string) => view.rerender(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><Probe id={nextId} onSeen={s => { seen = s; }} /></PlatformProvider></I18nProvider>) };
 }
 const text = (id: string) => screen.getByTestId(id).textContent;
-const flush = () => act(async () => { await Promise.resolve(); await Promise.resolve(); });
+// ADR-0086: TanStack notifies observers after a macrotask (notifyManager) that is queued once the reply landed, so a flush waits two.
+const flush = () => act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); await new Promise(resolve => setTimeout(resolve, 0)); });
 
 /** Pages by cursor: undefined → first, 'c1' → second, 'c2' → third. */
 const PAGES: Record<string, EntityAuditPage> = {

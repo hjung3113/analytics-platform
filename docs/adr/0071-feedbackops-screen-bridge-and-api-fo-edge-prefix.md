@@ -4,7 +4,7 @@
 - Amended (2026-10-23, #652): 결정 1(진입점에 `useUnreadNotificationCount`), 결정 6(알림 종·배지는 Kernel 선택 슬롯), 결정 7(종은 mock에서도 보인다).
 - Amended (2026-10-23, #653): 결정 1(설문 화면 내보내기, 호스트 이음매 훅은 아직 불필요), 결정 10(설문 경로 둘만 링크).
 - Amended (2026-10-23, #654): 결정 1(내 VOC 화면 내보내기, 운영 화면을 옮기지 않는다), 결정 10(알림 페이지는 `voc.public_update_posted`만 링크).
-- Amended (2026-10-24, #759): 다리 런타임은 `@ap/fo-bridge`(`packages/fo-bridge`, 소비자 쪽 패키지, SDK 아님)로 옮겼다 — 결정 1·6의 `@ap/menu-my-activity` 다리 패키지는 `@ap/fo-bridge`(세션·`FoBridge`·`fo-api`·슬롯 값)와 다리 메뉴(화면)로 나뉜다. 한 QueryClient·세션 세대(결정 5)는 그대로 이 패키지에만 있다. 상세는 ADR-0081과 패키지 경계 §3 규칙 8.
+- Amended (2026-10-24, #759): 다리 런타임은 `@ap/fo-bridge`(`packages/fo-bridge`, 소비자 쪽 패키지, SDK 아님)로 옮겼다 — 결정 1·6의 `@ap/menu-my-activity` 다리 패키지는 `@ap/fo-bridge`(세션·`FoBridge`·`fo-api`·슬롯 값)와 다리 메뉴(화면)로 나뉜다. 한 QueryClient·세션 세대(결정 5)는 그대로 이 패키지에만 있다. (보충 2026-10-26, ADR-0086: Kernel은 자기 조회 수명주기용 내부 QueryClient를 따로 가진다 — 이 FeedbackOps 클라이언트와 별개이고 `QueryClientProvider`로 공유하지 않는다.) 상세는 ADR-0081과 패키지 경계 §3 규칙 8.
 - Amended (2026-10-23, #654 FIX2): 결정 1·6(영구 로드되는 다리 코드는 `global-screens/core`만 import한다 — 화면 배럴이 메인 청크에 실리지 않게).
 - Scope: [#594](https://github.com/hjung3113/analytics-platform/issues/594), 단위 이슈 [#651](https://github.com/hjung3113/analytics-platform/issues/651). [합류 설계](../integration/feedbackops-merge-design.md) §7의 O5(라우팅 이전)·O13(FeedbackOps API 경로)을 #594 범위에서 닫는다.
 - 갱신: [ADR-0069](0069-platform-port-in-feedbackops-backend.md) 결정 3(O13)·결정 4(CSRF)의 FeedbackOps 경로 부분.
@@ -34,7 +34,7 @@ ADR-0070은 알림·설문·내 VOC·권한 요청 같은 전역 기능을 플�
    - 이유: 백엔드 경로를 옮기면 테스트와 배포 설정이 크게 바뀌고, 독립 FeedbackOps 앱은 #597에서 은퇴한다.
    - 다시 열 조건: 운영 배포(#151)에서 접두사를 떼는 프록시를 둘 수 없을 때.
 4. **CSRF(ADR-0069 결정 4의 열린 메모)는 이 경로에 대해 바뀌지 않는다.** 앞단을 지난 요청은 같은 출처이고, FeedbackOps 경로의 방어는 SameSite=Lax 세션 쿠키(FO ADR-0006), JSON 본문, `Idempotency-Key`(FO ADR-0015)다. 다시 볼 조건: 앱과 FeedbackOps API가 서로 다른 사이트로 배포될 때(#151).
-5. **세션 결합.** FeedbackOps QueryClient는 앱에 하나다. 세션 세대 `(adapter, revision, user)`가 바뀌면 이전 세대의 화면을 그 커밋에서 내리고, 새 화면을 그리기 전에 캐시를 비운다(진행 중 요청은 취소되어 늦은 응답이 어디에도 닿지 않는다). 다리 아래 FeedbackOps 트리는 세대마다 새로 마운트된다. FeedbackOps 401은 조립이 준 `onSessionLost`를 부른다(포트의 세션 상실과 같은 처리: 로그인으로 이동). FeedbackOps의 `/me` 가드와 로그인 화면은 플랫폼 안에서 그려지지 않는다.
+5. **세션 결합.** FeedbackOps QueryClient는 앱에 하나다(Kernel의 내부 조회 클라이언트와는 별개다, ADR-0086). 세션 세대 `(adapter, revision, user)`가 바뀌면 이전 세대의 화면을 그 커밋에서 내리고, 새 화면을 그리기 전에 캐시를 비운다(진행 중 요청은 취소되어 늦은 응답이 어디에도 닿지 않는다). 다리 아래 FeedbackOps 트리는 세대마다 새로 마운트된다. FeedbackOps 401은 조립이 준 `onSessionLost`를 부른다(포트의 세션 상실과 같은 처리: 로그인으로 이동). FeedbackOps의 `/me` 가드와 로그인 화면은 플랫폼 안에서 그려지지 않는다.
 6. **설정은 메뉴 서브패스로 준다.** 조립(`Assembly.feedbackOpsApi?`)이 `{ basePath, onSessionLost }`를 내고, `main.tsx`가 `@ap/fo-bridge/fo-api`의 `setFoApi`로 넣는다(#60 `feedbackops-origin` 패턴). 이 서브패스는 FeedbackOps를 import하지 않아 FeedbackOps 코드는 lazy 페이지 청크에만 실린다. API 설정에는 Kernel 슬롯·SDK API 변경이 없다. 셸 UI(레일 알림 종·플랫폼 메뉴 배지, #652)는 다르다: API 설정이 아니라 셸 자리라서 Kernel 선택 슬롯 `notifications`로 받는다(기각된 "FeedbackOps API용 Kernel 슬롯"과 다르다). 앱 `main.tsx`가 `@ap/fo-bridge/notifications-slot`을 넣고, 그래서 알림 건수·팝오버 경로의 FeedbackOps 코드는 메인 청크에 실린다(종이 모든 화면에 있다).
 7. **mock 정책.** mock 미리보기에는 FeedbackOps 서버가 없다. FeedbackOps 데이터를 쓰는 화면은 `실서버 필요` 상태를 보이고 FeedbackOps 화면을 마운트하지 않으며 요청도 하지 않는다. 배지(#652)는 숨긴다. 종은 mock에서도 보이고 배지만 숨긴다. 팝오버 본문은 `실서버 필요`다. 이 화면들의 UX 검토는 `dev:real`과 이슈 DB에서 한다.
 8. **CSS와 별칭.** FeedbackOps의 전역 `styles.css`(리셋·`html, body, #root` 높이·본문 글꼴)는 가져오지 않는다. FeedbackOps 컴포넌트의 클래스는 메뉴 `styles.css`의 `@source`로만 Tailwind에 닿는다. FeedbackOps 소스의 `@/` 별칭은 앱 `vite.config.ts`·메뉴 `vitest.config.ts`·두 `tsconfig.json`에 같은 경로로 둔다.

@@ -201,6 +201,22 @@ const rows: Row[] = [
   { file: 'packages/components/src/x.ts', code: `import { x } from '@tanstack/react-table';`, rule: '' },
   { file: 'packages/shell/src/x.ts', code: `import { x } from '@tanstack/react-table';`, rule: '' },
 
+  // --- ADR-0086: the Kernel's query engine is kernel-internal; menus, components, shell and the app ban it statically and dynamically, kernel and the fo-bridge package pass ---
+  { file: MENU, code: `import { useQuery } from '@tanstack/react-query';`, rule: 'no-restricted-imports', token: 'query engine' },
+  { file: MENU, code: `import { useQuery } from '@tanstack/react-query/build/modern';`, rule: 'no-restricted-imports', token: 'query engine' },
+  { file: MENU, code: `const m = await import('@tanstack/react-query');`, rule: 'ap/restricted-import-source' },
+  { file: 'menus/_global/home/src/mock/handlers.ts', code: `import { useQuery } from '@tanstack/react-query';`, rule: 'no-restricted-imports', token: 'query engine' },
+  { file: 'packages/components/src/x.ts', code: `import { useQuery } from '@tanstack/react-query';`, rule: 'no-restricted-imports', token: 'query engine' },
+  { file: 'packages/components/src/x.ts', code: `const m = await import('@tanstack/react-query');`, rule: 'ap/restricted-import-source' },
+  { file: 'packages/shell/src/x.ts', code: `import { useQuery } from '@tanstack/react-query';`, rule: 'no-restricted-imports', token: 'query engine' },
+  { file: 'packages/shell/src/x.ts', code: `const m = await import('@tanstack/react-query');`, rule: 'ap/restricted-import-source' },
+  { file: 'apps/platform-web/src/menus.ts', code: `import { useQuery } from '@tanstack/react-query';`, rule: 'no-restricted-imports', token: 'query engine' },
+  { file: 'apps/platform-web/src/menus.ts', code: `const m = await import('@tanstack/react-query');`, rule: 'ap/restricted-import-source' },
+  { file: 'packages/kernel/src/x.ts', code: `import { useQuery } from '@tanstack/react-query';`, rule: '' },
+  { file: 'packages/kernel/src/x.ts', code: `const m = await import('@tanstack/react-query');`, rule: '' },
+  { file: 'packages/fo-bridge/src/nav-counts.tsx', code: `import { useQuery } from '@tanstack/react-query';`, rule: '' },
+  { file: 'packages/fo-bridge/src/pages/SavedViews.tsx', code: `import { useQuery } from '@tanstack/react-query';`, rule: '' },
+
   // --- ADR-0067 (#575): `@ap/components/dock` is a host-only entry (shell, app); the dock engine is components-internal ---
   { file: 'packages/shell/src/x.ts', code: `import { DockLayout } from '@ap/components/dock';`, rule: '' },
   { file: 'packages/shell/src/x.ts', code: `const m = await import('@ap/components/dock');`, rule: '' },
@@ -802,5 +818,18 @@ describe('restricted-import-source table-engine list comes from options', () => 
       }]);
     expect(run(`import('only-engine/x');`).map((m) => m.message)).toEqual(['engine']);
     expect(run(`import('@tanstack/react-table');`)).toEqual([]);
+  });
+});
+
+// ADR-0086 decision 13: the Kernel's query engine and the FeedbackOps bridge's client share one lockfile entry; bump both together.
+describe('query engine version lock', () => {
+  it('pins the same exact @tanstack/react-query in kernel and fo-bridge', async () => {
+    const version = async (pkg: string) => {
+      const manifest = JSON.parse(await readFile(path.join(REPO_ROOT, 'packages', pkg, 'package.json'), 'utf8')) as { dependencies?: Record<string, string> };
+      return manifest.dependencies?.['@tanstack/react-query'];
+    };
+    const kernelVersion = await version('kernel');
+    expect(kernelVersion).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(await version('fo-bridge')).toBe(kernelVersion);
   });
 });

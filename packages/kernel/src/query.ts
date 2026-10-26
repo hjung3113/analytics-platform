@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { hashKey, useQuery, type QueryClient, type QueryKey } from '@tanstack/react-query';
 import type { QueryMissing } from './query-draft';
 import { narrowedGlobal } from './condition-preset';
-import { useHostPlatform } from './platform';
+import { useHostPlatform, useQueryEngine } from './platform';
 import { clientCorrelationId, compareAuditEvents, projectContext, type ApiResponse, type AssessmentKind, type AuditEvent, type EndpointSpec, type EntityAuditPage, type EntityRef, type MenuQueryContext, serializeGlobal } from '@ap/contracts';
 import { useCursorPages, type CursorMore, type CursorMoreError, type CursorMoreLast, type CursorMoreStatus, type FirstPage } from './cursor-pages';
 
@@ -15,53 +16,93 @@ export type QueryState<T> = {
 };
 
 /**
- * Platform request lifecycle (§11/§19). The identity of a result is (adapter revision, user, identity scope, page inputs):
- * when it changes the previous result is hidden immediately and late responses are discarded. The revision covers
- * server-side changes the URL cannot show (session switch, dev response scenario). identity 'context' (default)
- * includes the global Context; 'session' drops it — a period/room/condition change neither refetches nor hides
- * the result (destination single-row lookup, docs/06 §22). `refreshEpoch` is outside the identity: a change refetches
- * like `refetch()` (prior result kept, `refreshing`).
+ * Platform request lifecycle (§11/§19) on the Kernel's internal query client (ADR-0086). The identity of a result is
+ * (session generation = adapter, revision, user; identity scope; page inputs): when it changes the previous result is
+ * hidden immediately and late responses are discarded. The revision covers server-side changes the URL cannot show
+ * (session switch, dev response scenario). identity 'context' (default) includes the global Context; 'session' drops it —
+ * a period/room/condition change neither refetches nor hides the result (destination single-row lookup, docs/06 §22).
+ * `refreshEpoch` is outside the identity: a change refetches like `refetch()` (prior result kept, `refreshing`).
+ * The key carries a per-instance id, because `run` is the caller's: no sharing across instances.
  */
 export function usePlatformQuery<T>(run: (signal: AbortSignal) => Promise<ApiResponse<T>>, pageInputs: unknown = null, enabled = true, identity: 'context' | 'session' = 'context', refreshEpoch = 0): QueryState<T> {
-  return useQueryLifecycle(run, pageInputs, enabled, identity, refreshEpoch, null);
+  const { global } = useHostPlatform();
+  const instance = useId();
+  return useQueryLifecycle(['platform', instance, identity === 'session' ? null : serializeGlobal(global), pageInputs], run, enabled, refreshEpoch, null);
 }
 
-function useQueryLifecycle<T>(run: (signal: AbortSignal) => Promise<ApiResponse<T>>, pageInputs: unknown, enabled: boolean, identity: 'context' | 'session', refreshEpoch: number, idle: readonly QueryMissing[] | null): QueryState<T> {
-  const { global, user, revision } = useHostPlatform();
-  const key = JSON.stringify(identity === 'session'
-    ? [revision, user.id, idle !== null, pageInputs]
-    : [revision, user.id, idle !== null, serializeGlobal(global), pageInputs]);
-  const [result, setResult] = useState<{ identity: string; response: ApiResponse<T>; completedAt: number } | null>(null);
-  const [tick, setTick] = useState(0);
-  const [inFlight, setInFlight] = useState<{ identity: string; tick: number } | null>(null);
-  const isIdle = idle !== null;
-  const runRef = useRef(run);
-  useLayoutEffect(() => { runRef.current = run; });
+function errorEnvelope(error: unknown): ApiResponse<never> {
+  return { outcome: 'error', data: null, assessments: [], trust: null, correlationId: clientCorrelationId(), message: String(error) };
+}
 
+type Accepted = { key: string; data: unknown; at: number };
+
+/** The idle gate hides prior results (§19): when it closes, the same-identity result of the open gate is not kept for a later reopening. */
+function useDropOnIdle(client: QueryClient, openKey: QueryKey, hash: string, isIdle: boolean): void {
   useEffect(() => {
-    if (isIdle) { setResult(null); setInFlight(null); return; }
-    if (!enabled) return;
-    const controller = new AbortController();
-    setInFlight({ identity: key, tick });
-    runRef.current(controller.signal).then(response => {
-      if (controller.signal.aborted) return;
-      setResult({ identity: key, response, completedAt: Date.now() });
-      setInFlight(null);
-    }).catch(error => {
-      // Only the Kernel's own abort means superseded (#183); any other rejection — even an adapter-internal
-      // AbortError timeout — is the normal error path (error outcome + retry), like validateScope since #167.
-      if (controller.signal.aborted) return;
-      setResult({ identity: key, completedAt: Date.now(), response: { outcome: 'error', data: null, assessments: [], trust: null, correlationId: clientCorrelationId(), message: String(error) } });
-      setInFlight(null);
-    });
-    return () => controller.abort();
-  }, [key, tick, refreshEpoch, enabled, isIdle]);
+    if (!isIdle) return;
+    const query = client.getQueryCache().find({ queryKey: openKey, exact: true });
+    if (query && query.getObserversCount() === 0) client.removeQueries({ queryKey: openKey, exact: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `hash` stands for the structurally compared `openKey`
+  }, [client, hash, isIdle]);
+}
 
-  const refetch = useCallback(() => setTick(t => t + 1), []);
+/** Calls `refetch` when `refreshEpoch` changes after the first render, through the same guard as `refetch()`. */
+function useRefreshEpoch(refreshEpoch: number, refetch: () => void): void {
+  const seen = useRef(refreshEpoch);
+  useEffect(() => {
+    if (seen.current === refreshEpoch) return;
+    seen.current = refreshEpoch;
+    refetch();
+  }, [refreshEpoch, refetch]);
+}
+
+/**
+ * The engine under every envelope hook. `parts` is the identity after the session generation: key = [kind, gen, ...parts].
+ * While `enabled` the hook shows the key's cached/fetched result (a same-identity result still in memory is `refreshing`
+ * while it is re-read); while not enabled it shows only a result it accepted while enabled (§19 `enabled=false`), so an
+ * unready pane never shows another pane's result and a reply landing after the disable is never shown (it is cancelled
+ * when no enabled observer of the key remains).
+ */
+function useQueryLifecycle<T>(parts: readonly [string, ...unknown[]], run: (signal: AbortSignal) => Promise<ApiResponse<T>>, enabled: boolean, refreshEpoch: number, idle: readonly QueryMissing[] | null): QueryState<T> {
+  const { client, gen } = useQueryEngine();
+  const isIdle = idle !== null;
+  const [kind, ...rest] = parts;
+  const queryKey = [kind, gen, ...rest, isIdle];
+  const hash = hashKey(queryKey);
+  const active = enabled && !isIdle;
+  const query = useQuery<ApiResponse<T>>({
+    queryKey,
+    queryFn: async ({ signal }) => {
+      try {
+        return await run(signal);
+      } catch (error) {
+        // Only the Kernel's own abort means superseded (#183); any other rejection — even an adapter-internal AbortError
+        // timeout — is the normal error path (error outcome + retry), like validateScope since #167.
+        if (signal.aborted) throw error;
+        return errorEnvelope(error);
+      }
+    },
+    enabled: active,
+  }, client);
+  const openKey = [kind, gen, ...rest, false];
+  useDropOnIdle(client, openKey, hashKey(openKey), isIdle);
+
+  const [accepted, setAccepted] = useState<Accepted | null>(null);
+  const live: Accepted | null = active && query.data !== undefined ? { key: hash, data: query.data, at: query.dataUpdatedAt } : null;
+  if (live && (accepted?.key !== hash || accepted.data !== live.data || accepted.at !== live.at)) setAccepted(live);
+  else if (isIdle && accepted !== null) setAccepted(null);
+  const shown = live ?? (!isIdle && accepted?.key === hash ? accepted : null);
+
+  const guard = useRef({ active });
+  useLayoutEffect(() => { guard.current = { active }; });
+  const { refetch: engineRefetch } = query;
+  // TanStack's `refetch()` ignores `enabled`; a closed gate (06 §19) stays closed. `cancelRefetch: false` lets observers of one key share the request.
+  const refetch = useCallback(() => { if (guard.current.active) void engineRefetch({ cancelRefetch: false }); }, [engineRefetch]);
+  useRefreshEpoch(refreshEpoch, refetch);
+
   if (idle !== null) return { status: 'idle', response: null, missing: idle, completedAt: null, refetch };
-  const current = result?.identity === key ? result.response : null;
-  const busy = inFlight?.identity === key || (enabled && !current);
-  return { status: !current ? 'loading' : busy ? 'refreshing' : 'done', response: current, missing: [], completedAt: current ? result!.completedAt : null, refetch };
+  if (!shown) return { status: 'loading', response: null, missing: [], completedAt: null, refetch };
+  return { status: active && query.isFetching ? 'refreshing' : 'done', response: shown.data as ApiResponse<T>, missing: [], completedAt: shown.at, refetch };
 }
 
 /**
@@ -71,12 +112,7 @@ function useQueryLifecycle<T>(run: (signal: AbortSignal) => Promise<ApiResponse<
  */
 export function useEntityQuery<T>(ref: EntityRef, pageInputs: unknown = null, enabled = true): QueryState<T> {
   const { adapter } = useHostPlatform();
-  return usePlatformQuery<T>(
-    signal => adapter.getEntity(ref, signal) as Promise<ApiResponse<T>>,
-    [ref, pageInputs],
-    enabled,
-    'session',
-  );
+  return useQueryLifecycle<T>(['entity', ref, pageInputs], signal => adapter.getEntity(ref, signal) as Promise<ApiResponse<T>>, enabled, 0, null);
 }
 
 /** Older changes of one destination, appended after the first page (ADR-0085). `status` 'end' also covers a first page that was the whole list. */
@@ -95,18 +131,20 @@ export type AuditMoreLast = CursorMoreLast;
  */
 export function useEntityAudit(ref: EntityRef, enabled = true): { query: QueryState<EntityAuditPage>; timeline: { events: readonly AuditEvent[]; more: AuditMore } } {
   const { adapter } = useHostPlatform();
-  // The read generation of the first page: bumped whenever a first-page read starts, so the appended pages belong to
-  // one read even when the adapter answers a refetch with the very same response object.
-  const [generation, setGeneration] = useState(0);
-  const query = usePlatformQuery<EntityAuditPage>(
-    signal => {
-      setGeneration(n => n + 1);
-      return adapter.entityAudit({ type: ref.type, id: ref.id, scopeId: ref.scopeId }, signal);
-    },
-    [ref],
-    enabled,
-    'session',
-  );
+  const { client, gen } = useQueryEngine();
+  const query = useQueryLifecycle<EntityAuditPage>(['audit', ref], signal => adapter.entityAudit({ type: ref.type, id: ref.id, scopeId: ref.scopeId }, signal), enabled, 0, null);
+  // The read generation of the first page: bumped whenever a first-page read starts (the cache event of the key's fetch
+  // action, which no batching can swallow), so the appended pages belong to one read even when the adapter answers a
+  // refetch with the very same response object.
+  const hash = hashKey(['audit', gen, ref, false]);
+  const [read, setRead] = useState({ hash, n: 0 });
+  // A new identity (ref, session generation) is a new read too; the cache event covers the reads of the same identity.
+  let current = read;
+  if (read.hash !== hash) { current = { hash, n: read.n + 1 }; setRead(current); }
+  const generation = current.n;
+  useEffect(() => client.getQueryCache().subscribe(event => {
+    if (event.type === 'updated' && event.action.type === 'fetch' && event.query.queryHash === hash) setRead(prev => ({ ...prev, n: prev.n + 1 }));
+  }), [client, hash]);
   const { response, status } = query;
   const first = useMemo<FirstPage<AuditEvent> | null>(() => response && {
     key: generation,
@@ -202,9 +240,7 @@ export function menuRequest<P, T>(spec: EndpointSpec<P, T>, inputs: MenuRequestI
 export function useMenuQuery<P, T>(spec: EndpointSpec<P, T>, params: NoInfer<P>, enabled = true): QueryState<T> {
   const platform = useHostPlatform();
   const { projected, ready, send } = menuRequest(spec, platform);
-  const { refreshEpochs } = platform;
-  const epoch = useSyncExternalStore(refreshEpochs.subscribe, () => refreshEpochs.get(spec.id));
-  return useQueryLifecycle<T>(signal => send(params, signal), [spec.id, projected, params], enabled && ready, 'session', epoch, platform.queryPolicy.idle ? platform.queryPolicy.missing : null);
+  return useQueryLifecycle<T>(['menu', spec.id, projected, params], signal => send(params, signal), enabled && ready, 0, platform.queryPolicy.idle ? platform.queryPolicy.missing : null);
 }
 
 export type MenuFetch<P, T> = {
@@ -232,29 +268,29 @@ export type RequestState<T> = { status: 'loading' | 'done' | 'error'; data: T | 
 
 /**
  * Same lifecycle as usePlatformQuery for plain adapter calls (shell editors): the result is keyed by
- * (adapter revision, user, key); when that changes the previous data is hidden at once and late replies are dropped.
+ * (session generation, key); when that changes the previous data is hidden at once and late replies are dropped.
+ * The key carries a per-instance id: no sharing across instances.
  */
 export function useAdapterRequest<T>(run: (signal: AbortSignal) => Promise<T>, key: unknown, enabled = true): RequestState<T> {
-  const { user, revision } = useHostPlatform();
-  const identity = JSON.stringify([revision, user.id, key]);
-  const [result, setResult] = useState<{ identity: string; state: Omit<RequestState<T>, 'retry'> } | null>(null);
-  const [tick, setTick] = useState(0);
-  const retry = useCallback(() => { setResult(null); setTick(t => t + 1); }, []);
-  const runRef = useRef(run);
-  runRef.current = run;
-
-  useEffect(() => {
-    if (!enabled) return;
-    const controller = new AbortController();
-    runRef.current(controller.signal).then(data => {
-      if (!controller.signal.aborted) setResult({ identity, state: { status: 'done', data } });
-    }).catch(() => {
-      // Only the Kernel's own abort means superseded (#183); an adapter-internal AbortError is the error path.
-      if (controller.signal.aborted) return;
-      setResult({ identity, state: { status: 'error', data: null } });
-    });
-    return () => controller.abort();
-  }, [identity, enabled, tick]);
-
-  return result?.identity === identity ? { ...result.state, retry } : { status: 'loading', data: null, retry };
+  const { client, gen } = useQueryEngine();
+  const instance = useId();
+  const queryKey = ['request', gen, instance, key];
+  const query = useQuery<{ ok: true; data: T } | { ok: false }>({
+    queryKey,
+    queryFn: async ({ signal }) => {
+      try {
+        return { ok: true, data: await run(signal) };
+      } catch (error) {
+        // Only the Kernel's own abort means superseded (#183); an adapter-internal AbortError is the error path.
+        if (signal.aborted) throw error;
+        return { ok: false };
+      }
+    },
+    enabled,
+  }, client);
+  // Hides, then loads again: the reset drops the key's data before the refetch.
+  const retry = useCallback(() => { void client.resetQueries({ queryKey, exact: true }); }, [client, hashKey(queryKey)]); // eslint-disable-line react-hooks/exhaustive-deps -- the hash stands for `queryKey`
+  const { data } = query;
+  if (data === undefined) return { status: 'loading', data: null, retry };
+  return data.ok ? { status: 'done', data: data.data, retry } : { status: 'error', data: null, retry };
 }
