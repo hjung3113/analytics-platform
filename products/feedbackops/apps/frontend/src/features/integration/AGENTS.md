@@ -43,10 +43,10 @@ Code ownership and URL mount are not the same thing here:
 - `apps/frontend/src/features/integration/routes/EvidenceRoute.tsx` — composes `EvidenceScreen` under the default host and frames the parts in the standalone detail slot.
 - `apps/frontend/src/features/integration/api/evidence-inventory.ts` — parsed read clients and `evidenceInventoryQueryKey()`, which returns the shared `EVIDENCE_INVENTORY_QUERY_KEY` from `lib/query/evidence-inventory-key.ts` that Finding attachments (54-5) invalidate.
 - `apps/frontend/src/features/integration/routes/IntegrationDashboardScreen.tsx` — Integration action dashboard (bridge-safe, entry `operator-screens/integration-dashboard`; the selected recovery item is handed to the host as parts and rendered in place).
-- `apps/frontend/src/features/integration/routes/IntegrationDashboardRoute.tsx` — composes the screen for `/integration` (route-local navigate keeps the boolean `history`; frames the parts in the standalone detail slot).
+- `apps/frontend/src/features/integration/routes/IntegrationDashboardRoute.tsx` — composes the screen for `/integration` (route-local navigate; the route schema's `history` preprocess keeps `history=true` a boolean; frames the parts in the standalone detail slot).
 - `apps/frontend/src/features/integration/recovery/useRecoveryQueueCore.tsx` — router-free recovery queue core and its seam adapter; `useRecoveryQueue.tsx` stays the router-bound adapter for Home.
-- `apps/frontend/src/features/integration/routes/CoverageRoute.tsx` — coverage columns, labels, and coverage states.
-- `apps/frontend/src/features/integration/routes/LinksRoute.tsx` — Links list filters, tabs, and selected state.
+- `apps/frontend/src/features/integration/routes/CoverageRoute.tsx` — composes `CoverageScreen` (bridge-safe, entry `operator-screens/coverage`; standalone `InternalLink` anchors); the screen holds coverage columns, labels, and coverage states.
+- `apps/frontend/src/features/integration/routes/LinksRoute.tsx` — composes `LinksScreen` (bridge-safe, entry `operator-screens/entity-links`; owns its `ListShell`; the search box and row checkboxes are inert, D8); the screen holds Links list filters, tabs, and selected state.
 - `apps/frontend/src/features/integration/components/EntityLinksInventoryTable.tsx` — Entity Link inventory rows and permission state.
 - `apps/frontend/src/features/integration/components/EntityRelationRow.tsx` — relation summary within an inventory row.
 - Entity-link rows accept Entity Link DTOs only. VOC Cluster member presentation belongs to `apps/frontend/src/features/voc-cluster/components/detail/VocClusterMemberRow.tsx`.

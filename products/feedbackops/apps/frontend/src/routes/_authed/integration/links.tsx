@@ -1,6 +1,5 @@
 import { LinksRoute } from '@/features/integration/routes/LinksRoute';
 import { validateIntegrationLinksSearch } from '@/features/integration/routes/integration-search';
-import { ListShell } from '@fops/ui';
 import { createFileRoute } from '@tanstack/react-router';
 
 export {
@@ -19,5 +18,5 @@ export const Route = createFileRoute('/_authed/integration/links')({
 });
 
 export function IntegrationLinksRouteShell() {
-  return <ListShell list={<LinksRoute />} />;
+  return <LinksRoute />;
 }

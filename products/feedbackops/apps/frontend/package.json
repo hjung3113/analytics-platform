@@ -19,6 +19,8 @@
     "./operator-screens/voc-search": "./src/operator-screens/voc-search/index.ts",
     "./operator-screens/milestones": "./src/operator-screens/milestones/index.ts",
     "./operator-screens/task-requests": "./src/operator-screens/task-requests/index.ts",
+    "./operator-screens/coverage": "./src/operator-screens/coverage/index.ts",
+    "./operator-screens/entity-links": "./src/operator-screens/entity-links/index.ts",
     "./operator-screens/tasks-search": "./src/operator-screens/tasks-search/index.ts",
     "./operator-screens/findings-search": "./src/operator-screens/findings-search/index.ts",
     "./operator-screens/integration-search": "./src/operator-screens/integration-search/index.ts",

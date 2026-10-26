@@ -1,5 +1,5 @@
 import { AREA_REPORT_COPY as COPY } from '@/lib/copy/area-report';
-import { InternalLink } from '@/lib/router/InternalLink';
+import { HostLink, useHostSeam } from '@/lib/host/host-seam';
 import type { AreaReportLink, DashboardAreaReport } from '@fops/shared';
 import { formatRecoveryTime } from '../recovery/RecoveryFreshness';
 
@@ -26,6 +26,7 @@ function CountLine({
   label,
   metric,
 }: { systemName: string; domain: string; area: string; label: string; metric: Count | undefined }) {
+  const { canLink } = useHostSeam();
   if (!metric)
     return (
       <div>
@@ -34,14 +35,14 @@ function CountLine({
     );
   return (
     <div>
-      {metric.count > 0 && metric.link ? (
-        <InternalLink
-          href={href(metric.link)}
+      {metric.count > 0 && metric.link && canLink(href(metric.link)) ? (
+        <HostLink
+          to={href(metric.link)}
           className={`text-accent-primary ${focus}`}
           aria-label={`${systemName} · ${area} ${domain} ${label} ${metric.count}건`}
         >
           {label} {metric.count}
-        </InternalLink>
+        </HostLink>
       ) : (
         <span>
           {label} {metric.count}
@@ -57,6 +58,7 @@ function RatioLine({
   label,
   metric,
 }: { systemName: string; domain: string; area: string; label: string; metric: Ratio | undefined }) {
+  const { canLink } = useHostSeam();
   if (!metric)
     return (
       <div className="text-xs text-text-muted">
@@ -66,14 +68,14 @@ function RatioLine({
   const text = `${label} ${metric.total === 0 ? COPY.notApplicable : `${metric.value}/${metric.total} · ${Math.round((metric.value / metric.total) * 100)}%`}`;
   return (
     <div className="text-xs text-text-muted">
-      {metric.total > 0 && metric.link ? (
-        <InternalLink
-          href={href(metric.link)}
+      {metric.total > 0 && metric.link && canLink(href(metric.link)) ? (
+        <HostLink
+          to={href(metric.link)}
           className={`text-accent-primary ${focus}`}
           aria-label={`${systemName} · ${area} ${domain} ${text}`}
         >
           {text}
-        </InternalLink>
+        </HostLink>
       ) : (
         text
       )}
@@ -177,6 +179,7 @@ function ReportColumns() {
   );
 }
 export function AnalyticsAreaReportTable({ report }: { report: DashboardAreaReport }) {
+  const { canLink } = useHostSeam();
   const domains = ['voc', 'finding', 'task', 'survey'] as const;
   const names = { voc: 'VOC', finding: 'Finding', task: 'Task', survey: 'Survey' };
   const available = report.classification_context.flatMap((context) =>
@@ -223,12 +226,14 @@ export function AnalyticsAreaReportTable({ report }: { report: DashboardAreaRepo
                     .join(' · ')}
                 </p>
               </div>
-              <InternalLink
-                className={`text-xs text-accent-primary ${focus}`}
-                href={`/tasks?view=requests&managedSystem=${id}`}
-              >
-                {COPY.review} · {first?.managed_system_name} {COPY.reviewScope}
-              </InternalLink>
+              {canLink(`/tasks?view=requests&managedSystem=${id}`) && (
+                <HostLink
+                  className={`text-xs text-accent-primary ${focus}`}
+                  to={`/tasks?view=requests&managedSystem=${id}`}
+                >
+                  {COPY.review} · {first?.managed_system_name} {COPY.reviewScope}
+                </HostLink>
+              )}
             </div>
             <div className="overflow-x-auto">
               <table className="w-full table-fixed border-collapse text-left">

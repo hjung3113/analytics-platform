@@ -1,7 +1,7 @@
 import { ListStateMessage } from '@/components/ListStateMessage';
 import { fetchAnalyticsAreaReport } from '@/lib/api/area-report';
+import { useMeBridge } from '@/lib/api/me';
 import { isPermissionDenied } from '@/lib/api/types';
-import { useMe } from '@/lib/auth/useMe';
 import { AREA_REPORT_COPY as COPY } from '@/lib/copy/area-report';
 import { Button, PermissionBlockedPanel, SkeletonRows } from '@fops/ui';
 import { useQuery } from '@tanstack/react-query';
@@ -18,7 +18,7 @@ export function AnalyticsAreaReportPanel({
   cursor: string | undefined;
   onPage: (cursor: string | undefined) => void;
 }) {
-  const me = useMe();
+  const me = useMeBridge();
   const query = useQuery({
     queryKey: [
       'dashboard-area-report',

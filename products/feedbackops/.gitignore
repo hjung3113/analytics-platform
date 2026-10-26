@@ -3,6 +3,8 @@ dist
 build
 .turbo
 coverage
+# The bridge entry `@fops/frontend/operator-screens/coverage` (#762 c) is source, not a test-coverage report.
+!apps/frontend/src/operator-screens/coverage/
 .env
 .env.local
 .env.*.local
