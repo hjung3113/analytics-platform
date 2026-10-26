@@ -245,6 +245,37 @@ describe('closePane', () => {
     expect(open(2).selectedPaneId).toBe(ids[1]);
     expect(open(0).selectedPaneId).toBe(ids[1]);
   });
+  describe('a closed selected pane whose group keeps other tabs (978c)', () => {
+    // Group [0,1,2] beside group [3]: closing the selected empty tab selects the tab that comes to the front of its own group, not the next number.
+    const setup = (selectedIndex: number, active: number) => {
+      const { board, ids } = withScreens(4);
+      const tabbed = setTree(board, sid(board), row([50, 50], g([ids[0]!, ids[1]!, ids[2]!], ids[active]), g([ids[3]!])));
+      const emptied = setPane(selectPaneActive(tabbed, sid(tabbed), selectedIndex), sid(tabbed), selectedIndex, null);
+      return { emptied, ids };
+    };
+    it.each<[string, number, number]>([
+      ['a middle tab: the tab after it', 1, 2],
+      ['the last tab: the tab before it', 2, 1],
+      ['the first tab: the tab after it', 0, 1],
+    ])('%s', (_name, index, expected) => {
+      const { emptied, ids } = setup(index, index);
+      const closed = closePane(emptied, sid(emptied), index)!;
+      const sheet = sheetOf(closed.board);
+      const rest = ids.filter((_, i) => i !== index);
+      expect(sheet.selectedPaneId).toBe(ids[expected]);
+      expect(groupHolding(sheet.tree, ids[expected]!)!.active).toBe(ids[expected]);
+      expect(sheet.panes.map(p => p.id)).toEqual(rest);
+      // The old rule would have picked the pane that takes the number: for a middle tab that is the same tab, for the last tab it is the other group's pane 3.
+      expect(sheet.selectedPaneId).not.toBe(index === 2 ? ids[3] : undefined);
+    });
+    it('undo brings back the selection and the active tab from before the close', () => {
+      const { emptied, ids } = setup(1, 1);
+      const closed = closePane(emptied, sid(emptied), 1)!;
+      const restored = sheetOf(restoreClosedPane(closed.board, closed.closed)!);
+      expect(restored.selectedPaneId).toBe(ids[1]);
+      expect(groupHolding(restored.tree, ids[1]!)!.active).toBe(ids[1]);
+    });
+  });
   it('closes a background tab without moving the selection', () => {
     const { board, ids } = withScreens(2);
     const tabbed = setTree(setPane(board, sid(board), 1, null), sid(board), g(ids, ids[0]));

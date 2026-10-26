@@ -1224,7 +1224,7 @@ describe('dock renderer: tab total and display groups are separate caps (893e, A
     await ready();
     openMenu(paneMenu(1));
     for (const name of ['오른쪽으로 나누기', '아래로 나누기']) expect(await screen.findByRole('menuitem', { name })).toHaveAttribute('aria-disabled', 'true');
-    expect(screen.getByRole('note')).toHaveTextContent('표시 영역은 4개까지입니다');
+    expect(screen.getByRole('note')).toHaveTextContent('표시 영역은 4개까지입니다. 나누려면 먼저 칸을 다른 묶음으로 옮기세요.');
     for (const name of ['오른쪽으로 나누기', '아래로 나누기']) {
       const reason = screen.getByRole('menuitem', { name }).getAttribute('aria-describedby');
       expect(reason).toBeTruthy();
