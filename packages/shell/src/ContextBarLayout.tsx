@@ -36,14 +36,14 @@ export function useContextEditorFocusRecovery() {
 type Control = { key: ContextKey; applied: boolean; node: ReactNode; compactNode?: ReactNode };
 type Measurements = { width: number; controls: number[]; period: number; actions: number; icons: number; overflow: number[] };
 
-export function ContextBarLayout({ controls, revision, actions, barName }: {
+export function ContextBarLayout({ controls, revision, actions, regionName }: {
   controls: Control[]; revision: string; actions: (compact: boolean) => ReactNode;
-  /** The analysis board names the bar after the pane it edits: the region's accessible name (docs/16 §4). `visible` is not drawn. */
-  barName?: { visible: string; region: string };
+  /** The analysis board names the bar after the pane it edits: the region's accessible name (docs/16 §4). */
+  regionName?: string;
 }) {
   const { t, lang } = useI18n();
   // The bar draws no visible label (#914, 06 §7); the region name is its accessible name.
-  const barLabel = barName?.region ?? t('globalContext');
+  const barLabel = regionName ?? t('globalContext');
   const host = useRef<HTMLDivElement>(null);
   const probe = useRef<HTMLDivElement>(null);
   const [drafts, setDrafts] = useState<Drafts>({});

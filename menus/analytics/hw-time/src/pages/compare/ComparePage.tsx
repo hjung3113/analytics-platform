@@ -5,7 +5,7 @@
  * The composition and the detail share one focused row (`row` page key, ADR-0079).
  */
 import { Inbox, ListTree, SlidersHorizontal, Target } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { useDrill, useI18n, usePlatform, type PageProps, type QueryState } from '@ap/kernel';
 import { DrillLayout, Inspector, LegendTree, PageKeyWarning, PanelWorkspace, PlatformPage, QueryView, SegmentedRadio, StateMessage, type InspectorSection, type PanelWorkspacePanel, type PanelWorkspacePreset } from '@ap/components';
 import { Checkbox } from '@ap/ui';
@@ -16,6 +16,7 @@ import { formatSeconds, missingText } from '../../shared/format';
 import { StackPanel } from '../../shared/panels/StackPanel';
 import { TrendPanel } from '../../shared/panels/TrendPanel';
 import { useHwTimeLevelState } from '../../shared/useHwTimeLevelState';
+import { useKeyedHidden } from '../../shared/useKeyedHidden';
 
 const EMPTY_BLOCK: HwTimeBlock = { series: [], rows: [], totals: { values: {}, total: null } };
 
@@ -52,15 +53,13 @@ export default function ComparePage(_props: PageProps) {
   // Only a chosen Motion is a drilled node among the legend series; the Module is not one of the Motion nodes.
   const currentId = drill.depth === 2 ? motion : null;
   // Hidden series are per panel input, never per drill depth (#912 C1): the summary's Modules are independent of any drill; the composition's Motions
-  // are keyed by its Module input alone (a Motion step of the same Module keeps them; the detail shares this set); a hook-owned set is unused.
+  // are keyed by its Module input alone (a Motion step of the same Module keeps them; the detail shares this set); the level hook owns no legend set here.
   // The URL `row` is the truth: any drill step clears it in the same navigation (manifest `drill.resetKeys`, 06 §6.4), and the Frame names only a
   // row it draws. `revealTrend` is off: adding a row to the trend leaves the detail tab active and only the trend badge changes (#912 a).
-  const state = useHwTimeLevelState({ hiddenKey: '', row: true });
+  const state = useHwTimeLevelState({ row: true });
   const { invalid, sort, sortText, row, trendRows, notice } = state;
-  const [summaryHidden, setSummaryHidden] = useState<string[]>([]);
-  const [moduleHiddenState, setModuleHiddenState] = useState<{ module: string | null; ids: string[] }>({ module: null, ids: [] });
-  const moduleHidden = moduleHiddenState.module === module ? moduleHiddenState.ids : [];
-  const setModuleHidden = (ids: string[]) => setModuleHiddenState({ module, ids });
+  const [summaryHidden, setSummaryHidden] = useKeyedHidden('summary');
+  const [moduleHidden, setModuleHidden] = useKeyedHidden(module ?? '');
   const enabled = drill.invalid === null && invalid === null;
   // One query per panel, each projecting only its own drill keys (#912 §5). A panel whose input is missing sends nothing; its placeholder
   // identity (`''`) differs from the summary's, so a disabled query never reads another panel's cached answer.

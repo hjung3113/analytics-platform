@@ -5,6 +5,7 @@ import { CONTEXT_LABELS, useAxisOptions, useConditionPreset, useEquipmentSearch,
 import { useHostPlatform } from '@ap/kernel/host';
 import { formatQuerySummary, presetOutsideAxes, querySummaryItems, SegmentedRadio, summaryPreset, useCopyLink, useQueryBarExtension } from '@ap/components';
 import { Alert, AlertDescription, Button, Input, MultiCombobox, Popover, PopoverContent, PopoverTrigger, readLocalStorage, writeLocalStorage } from '@ap/ui';
+import { isTrailingPeriod } from './trailingPeriod';
 
 export type QueryBarProps = {
   label?: { visible: string; region: string };
@@ -246,7 +247,7 @@ function PeriodFields({ global: g, range, setRange, write, invalid, reasonId, re
     try { parseDateTime(next.from, 'from'); parseDateTime(next.to, 'to'); write(next); } catch { reportInvalid(); }
   };
   const hours = periodHours(g);
-  const ends = (hoursBack: number) => g.to === defaultRangeTo && hours === hoursBack;
+  const ends = (hoursBack: number) => isTrailingPeriod(g, defaultRangeTo, hoursBack);
   const presets = [
     { label: ko ? '최근 24시간' : 'Last 24 hours', pressed: ends(24), apply: () => { setMode('range'); write({ from: shift(defaultRangeTo, -24), to: defaultRangeTo }); } },
     { label: ko ? '최근 7일' : 'Last 7 days', pressed: ends(168), apply: () => { setMode('range'); write({ from: shift(defaultRangeTo, -168), to: defaultRangeTo }); } },

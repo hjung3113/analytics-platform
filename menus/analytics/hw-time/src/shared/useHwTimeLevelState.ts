@@ -5,6 +5,7 @@ import { HW_TIME_MAX_TREND_ROWS, isHwTimeRowId, type HwTimeBlock } from '../endp
 import type { StackSort } from './panels/StackPanel';
 import { selectionCounts } from './selectionCounts';
 import { formatTrendKey, parseTrendKey } from './trendKey';
+import { useKeyedHidden } from './useKeyedHidden';
 
 const SORTS: readonly string[] = ['total-desc', 'total-asc'];
 
@@ -15,11 +16,11 @@ const RULES = [SORT_RULE, TREND_RULE];
 const RULES_WITH_ROW = [SORT_RULE, TREND_RULE, ROW_RULE];
 
 export interface HwTimeLevelStateOptions {
-  /** Legend hidden-state key: the screen decides what makes another series set (Steps: Module/Motion, Compare/Overview: Module/depth). */
-  hiddenKey: string;
+  /** Legend hidden-state key for a screen whose one legend the hook owns (Steps: Module/Motion; Overview); Compare keeps its panels' own sets. */
+  hiddenKey?: string;
   /** The screen has a focused `row` page key (Compare, Overview). */
   row?: boolean;
-  /** Adding a trend row asks the screen's trend panel to show itself (Compare, Overview). */
+  /** Adding a trend row asks the screen's trend panel to show itself (Overview; Compare leaves its detail tab active, #912 a). */
   revealTrend?: boolean;
 }
 
@@ -30,7 +31,7 @@ export interface HwTimeLevelStateOptions {
  * when all are well-formed) and `recover` (clears exactly those keys in one `setPage`). While `invalid` is set the screen sends
  * no query and shows `PageKeyWarning`.
  */
-export function useHwTimeLevelState({ hiddenKey, row: hasRow = false, revealTrend = false }: HwTimeLevelStateOptions) {
+export function useHwTimeLevelState({ hiddenKey = '', row: hasRow = false, revealTrend = false }: HwTimeLevelStateOptions) {
   const { lang } = useI18n();
   const ko = lang === 'ko';
   const { pageParam, setPage } = usePlatform();
@@ -52,9 +53,7 @@ export function useHwTimeLevelState({ hiddenKey, row: hasRow = false, revealTren
   const trendRows = useMemo(() => (trendParse.ok && !keys.badKeys.includes('trend') ? trendParse.rows : []), [trendParse, keys.badKeys]);
   const sortText: Text = sort === 'total-desc' ? { ko: '정렬: 큰 순', en: 'Sort: high' } : sort === 'total-asc' ? { ko: '정렬: 작은 순', en: 'Sort: low' } : { ko: '정렬: 기본', en: 'Sort: default' };
 
-  const [hiddenState, setHiddenState] = useState<{ key: string; ids: string[] }>({ key: hiddenKey, ids: [] });
-  const hidden = hiddenState.key === hiddenKey ? hiddenState.ids : [];
-  const setHidden = (ids: string[]) => setHiddenState({ key: hiddenKey, ids });
+  const [hidden, setHidden] = useKeyedHidden(hiddenKey);
 
   const [reveal, setReveal] = useState<{ panelId: string; seq: number } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);

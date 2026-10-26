@@ -1,11 +1,11 @@
-import { Component, Suspense, useCallback, useState, type ReactNode } from 'react';
+import { Suspense } from 'react';
 import { RotateCw, ServerCrash } from 'lucide-react';
 import type { EChartsCoreOption, ECharts } from 'echarts/core';
 import { useI18n } from '@ap/kernel';
 import { Button, Skeleton, cn } from '@ap/ui';
 import { readColorToken, type ThemeColorToken } from '@ap/ui/theme';
 import { StateMessage } from './StateView';
-import { lazyChunk } from './lazyChunk';
+import { ChunkLoadBoundary, lazyChunk, useLazyChunk } from './lazyChunk';
 
 /** Palette contract consumed by charts (DESIGN.md platform chart/category extensions). Read from CSS variables so tokens stay single-sourced. */
 export function token(name: ThemeColorToken): string {
@@ -80,28 +80,13 @@ export type EChartProps = {
   onResize?: (width: number) => void;
 };
 
-/** Contains a rejected EChartImpl chunk load inside the chart box so it never unmounts the surrounding app (#48 P2). */
-class ChunkLoadBoundary extends Component<{ onError: (error: unknown) => void; children: ReactNode }, { failed: boolean }> {
-  state = { failed: false };
-  static getDerivedStateFromError() { return { failed: true }; }
-  componentDidCatch(error: unknown) { this.props.onError(error); }
-  render() { return this.state.failed ? null : this.props.children; }
-}
-
 // One chunk component for every chart (#915): once the chunk has loaded, a newly mounted chart (a drill step that swaps the panel, a new
 // pane) draws in its first commit. A lazy made per mount re-suspended each time and waited out React's fallback throttle (~400 ms a step).
 const chartChunk = lazyChunk(() => import('./EChartImpl'));
 
 export function EChart({ option, height = 280, onEvents, onReady, onResize, ariaLabel, className }: EChartProps) {
   const { t } = useI18n();
-  const [attempt, setAttempt] = useState(0);
-  const [failed, setFailed] = useState(false);
-  const [EChartImpl, setEChartImpl] = useState(chartChunk.current);
-  const retry = useCallback(() => {
-    setEChartImpl(chartChunk.retry);
-    setFailed(false);
-    setAttempt(a => a + 1);
-  }, []);
+  const { Component: EChartImpl, failed, attempt, onError, retry } = useLazyChunk(chartChunk);
   if (failed) {
     // Same box as the plot (height · width: 100% · className) so the layout does not shift.
     // eslint-disable-next-line shadcn/no-inline-styles -- chart height comes from the height prop at runtime
@@ -111,7 +96,7 @@ export function EChart({ option, height = 280, onEvents, onReady, onResize, aria
     </div>;
   }
   return (
-    <ChunkLoadBoundary key={attempt} onError={() => setFailed(true)}>
+    <ChunkLoadBoundary key={attempt} onError={onError}>
       <Suspense fallback={
         // eslint-disable-next-line shadcn/no-inline-styles -- chart height comes from the height prop at runtime
         <div role="status" aria-busy className={cn(className, 'w-full')} style={{ height }}>
