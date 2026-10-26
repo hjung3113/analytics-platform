@@ -8,6 +8,8 @@ import {
   FINDING_STATUS_LABELS,
 } from '@/lib/copy/enum-labels';
 import { GLOSSARY } from '@/lib/copy/glossary';
+import { HostLink, useHostSeam } from '@/lib/host/host-seam';
+import { searchHref } from '@/lib/host/search';
 import { shortId } from '@/lib/identity';
 import type { FindingDto, FindingStatus } from '@fops/shared';
 import {
@@ -21,7 +23,6 @@ import {
   type SeverityEnum,
   UserChip,
 } from '@fops/ui';
-import { Link } from '@tanstack/react-router';
 import type * as React from 'react';
 import { AddEvidenceModal } from './AddEvidenceModal';
 import { EvidenceHighlightsSection } from './EvidenceHighlights';
@@ -38,6 +39,11 @@ import { FitBadge, SectionDivider } from './detail-primitives';
 import { useFindingDetailController } from './useFindingDetailController';
 
 // ── Full detail view ─────────────────────────────────────────────────────────
+
+const LINKED_TASK_CHIP_CLASS =
+  'inline-flex items-center gap-2 rounded-sm border border-border-subtle bg-surface-card px-2.5 py-1.5 text-sm text-accent-primary hover:bg-surface-row-hover';
+const LINKED_SOURCE_CLASS =
+  'inline-flex items-center gap-1.5 text-sm text-accent-primary underline underline-offset-2 hover:text-accent-primary/80';
 
 interface FullFindingDetailProps {
   finding: FindingDto;
@@ -66,6 +72,41 @@ export function FullFindingDetail({ finding }: FullFindingDetailProps): React.Re
     markNotActionableDisabled,
   } = useFindingDetailController(finding);
   const executionController = useFindingExecutionSection(finding);
+  const { canLink } = useHostSeam();
+  const linkedTaskTo = searchHref('/tasks', {
+    view: 'backlog',
+    param: finding.linked_task_id ?? undefined,
+  });
+  const linkedTaskLabel = (
+    <>
+      <span>{linkedTaskQuery.data?.title ?? GLOSSARY.linkedTask}</span>
+      <span className="shrink-0 whitespace-nowrap font-mono text-xs text-text-muted">
+        {linkedTaskQuery.data?.display_id ??
+          (finding.linked_task_id !== null ? shortId(finding.linked_task_id) : '')}
+      </span>
+    </>
+  );
+  const sourceId = 'source_id' in finding ? finding.source_id : null;
+  const linkedVocLabel = (
+    <>
+      <span>{linkedVocTitle ?? GLOSSARY.linkedVoc}</span>
+      <span className="font-mono text-xs text-text-muted">
+        {linkedVocDisplayId ?? (sourceId !== null ? shortId(sourceId) : '')}
+      </span>
+    </>
+  );
+  const linkedClusterLabel = (
+    <>
+      <span>{linkedClusterTitle ?? GLOSSARY.linkedCluster}</span>
+      <span className="font-mono text-xs text-text-muted">{linkedClusterDisplayId}</span>
+    </>
+  );
+  const linkedSourceTo =
+    sourceId === null
+      ? null
+      : finding.source_type === 'voc'
+        ? searchHref('/vocs', { view: 'inbox', selected: sourceId })
+        : `/voc-clusters/${sourceId}`;
 
   return (
     <>
@@ -127,17 +168,14 @@ export function FullFindingDetail({ finding }: FullFindingDetailProps): React.Re
             <PanelSectionTitle>실행</PanelSectionTitle>
             <FieldRow label={GLOSSARY.linkedTask} inset="none">
               {finding.linked_task_id !== null ? (
-                <Link
-                  to="/tasks"
-                  search={{ view: 'backlog', param: finding.linked_task_id }}
-                  className="inline-flex items-center gap-2 rounded-sm border border-border-subtle bg-surface-card px-2.5 py-1.5 text-sm text-accent-primary hover:bg-surface-row-hover"
-                >
-                  <span>{linkedTaskQuery.data?.title ?? GLOSSARY.linkedTask}</span>
-                  <span className="shrink-0 whitespace-nowrap font-mono text-xs text-text-muted">
-                    {linkedTaskQuery.data?.display_id ?? shortId(finding.linked_task_id)}
-                  </span>
-                  <span className="shrink-0 whitespace-nowrap text-xs text-text-muted">이동</span>
-                </Link>
+                canLink(linkedTaskTo) ? (
+                  <HostLink to={linkedTaskTo} className={LINKED_TASK_CHIP_CLASS}>
+                    {linkedTaskLabel}
+                    <span className="shrink-0 whitespace-nowrap text-xs text-text-muted">이동</span>
+                  </HostLink>
+                ) : (
+                  <span className={LINKED_TASK_CHIP_CLASS}>{linkedTaskLabel}</span>
+                )
               ) : (
                 <span className="text-text-muted">—</span>
               )}
@@ -194,32 +232,26 @@ export function FullFindingDetail({ finding }: FullFindingDetailProps): React.Re
               }
               inset="none"
             >
-              {finding.source_type === 'voc' && finding.source_id !== null ? (
-                <Link
-                  to="/vocs"
-                  search={{ view: 'inbox', selected: finding.source_id }}
-                  className="inline-flex items-center gap-1.5 text-sm text-accent-primary underline underline-offset-2 hover:text-accent-primary/80"
-                >
-                  <span>{linkedVocTitle ?? GLOSSARY.linkedVoc}</span>
-                  <span className="font-mono text-xs text-text-muted">
-                    {linkedVocDisplayId ?? shortId(finding.source_id)}
-                  </span>
-                </Link>
+              {finding.source_type === 'voc' && linkedSourceTo !== null ? (
+                canLink(linkedSourceTo) ? (
+                  <HostLink to={linkedSourceTo} className={LINKED_SOURCE_CLASS}>
+                    {linkedVocLabel}
+                  </HostLink>
+                ) : (
+                  <span className={LINKED_SOURCE_CLASS}>{linkedVocLabel}</span>
+                )
               ) : finding.source_type === 'voc_cluster' &&
-                finding.source_id !== null &&
+                linkedSourceTo !== null &&
                 linkedClusterDisplayId !== null ? (
                 // #1174b U2-2: named only after an authorized Cluster read succeeds;
                 // a denied or not-found read renders the safe placeholder below.
-                <Link
-                  to="/voc-clusters/$clusterId"
-                  params={{ clusterId: finding.source_id }}
-                  className="inline-flex items-center gap-1.5 text-sm text-accent-primary underline underline-offset-2 hover:text-accent-primary/80"
-                >
-                  <span>{linkedClusterTitle ?? GLOSSARY.linkedCluster}</span>
-                  <span className="font-mono text-xs text-text-muted">
-                    {linkedClusterDisplayId}
-                  </span>
-                </Link>
+                canLink(linkedSourceTo) ? (
+                  <HostLink to={linkedSourceTo} className={LINKED_SOURCE_CLASS}>
+                    {linkedClusterLabel}
+                  </HostLink>
+                ) : (
+                  <span className={LINKED_SOURCE_CLASS}>{linkedClusterLabel}</span>
+                )
               ) : (
                 <span className="text-text-muted">—</span>
               )}

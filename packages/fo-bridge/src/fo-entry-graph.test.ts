@@ -15,6 +15,7 @@ const ENTRIES = [join(FRONTEND_SRC, 'global-screens/index.ts'), join(FRONTEND_SR
 const DASHBOARD_ENTRY = join(FRONTEND_SRC, 'operator-screens/dashboard/index.ts');
 const VOC_DETAIL_ENTRY = join(FRONTEND_SRC, 'operator-screens/voc-detail/index.ts');
 const TASK_DETAIL_ENTRY = join(FRONTEND_SRC, 'operator-screens/task-detail/index.ts');
+const FINDING_DETAIL_ENTRY = join(FRONTEND_SRC, 'operator-screens/finding-detail/index.ts');
 const PACKAGE_ENTRIES: Record<string, string> = {
   '@fops/ui': join(FO, 'packages/ui/src/index.ts'),
   '@fops/shared': join(FO, 'packages/shared/src/index.ts'),
@@ -206,6 +207,42 @@ describe('FeedbackOps operator Task detail entry graph (ADR-0071)', () => {
 
   it('reaches no route, router, layout or auth source, the auth module, the api barrel, the permissions or managed-systems api', () => {
     const banned = /^(?:routes|lib\/router|lib\/layout|lib\/auth)\/|^lib\/api\/(?:auth|index|permissions|managed-systems)\.ts$|^lib\/cross-system\/usePermissionCheck\.ts$/;
+    expect(detailReached.filter(file => banned.test(file))).toEqual([]);
+  });
+
+  it('calls fetch only in lib/api/client.ts', () => {
+    const callers = [...detail.files].filter(([, text]) => /(?<![\w.])fetch\(/.test(text)).map(([file]) => relative(FRONTEND_SRC, file));
+    expect(callers).toEqual(['lib/api/client.ts']);
+  });
+});
+
+// The operator Finding detail entry (#762 d) is walked on its own, with the same rules as the Task detail entry.
+describe('FeedbackOps operator Finding detail entry graph (ADR-0071)', () => {
+  const detail = walk([FINDING_DETAIL_ENTRY]);
+  const detailReached = [...detail.files.keys()].map(file => relative(FRONTEND_SRC, file));
+
+  it('reaches the detail parts hook, its body, the Request Task host and the controller, not the standalone panel, the public edge or the routes', () => {
+    expect(detailReached).toEqual(
+      expect.arrayContaining([
+        'features/findings/components/FindingDetail/FindingDetailParts.tsx',
+        'features/findings/components/FindingDetail/FullFindingDetail.tsx',
+        'features/findings/components/FindingDetail/FindingRequestTaskDraftHost.tsx',
+        'features/findings/components/FindingDetail/useFindingDetailController.ts',
+        'lib/host/host-seam.tsx',
+      ]),
+    );
+    expect(detailReached).not.toContain('features/findings/components/FindingDetail/FindingDetailPanel.tsx');
+    expect(detailReached).not.toContain('features/findings/public.ts');
+    expect(detailReached.filter(file => /^(?:features\/findings\/)?routes\//.test(file))).toEqual([]);
+    expect(detail.unresolved).toEqual([]);
+  });
+
+  it('imports no router and no toast library', () => {
+    expect([...detail.specifiers].filter(specifier => /^@tanstack\/(react-)?router|^sonner$/.test(specifier))).toEqual([]);
+  });
+
+  it('reaches no route, router, layout or auth source, the auth module, the api barrel, the permissions or managed-systems api', () => {
+    const banned = /^(?:routes|lib\/router|lib\/layout|lib\/auth)\/|^lib\/api\/(?:auth|index|permissions|managed-systems)\.ts$|^lib\/cross-system\/usePermissionCheck\.ts$|^features\/findings\/public\.ts$/;
     expect(detailReached.filter(file => banned.test(file))).toEqual([]);
   });
 

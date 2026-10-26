@@ -60,6 +60,27 @@ vi.mock('@/lib/auth/useMe', () => ({ useMe: vi.fn() }));
 
 vi.mock('@/lib/cross-system/usePermissionCheck', () => ({ usePermissionCheck: vi.fn() }));
 
+vi.mock('@/lib/api/tasks', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/tasks')>()),
+  getTask: (...args: Parameters<typeof api.getTask>) => api.getTask(...args),
+}));
+vi.mock('@/lib/api/errorMapper', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/errorMapper')>()),
+  errorMapper: () => ({ message: 'mapped error' }),
+}));
+vi.mock('@/lib/api/useIdempotencyKey', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/useIdempotencyKey')>()),
+  useIdempotencyKey: () => ({ key: 'idem-key', markConsumed: vi.fn() }),
+}));
+vi.mock('@/lib/api/me', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/me')>()),
+  useMeBridge: (...args: Parameters<typeof useMe>) => useMe(...args),
+}));
+vi.mock('@/lib/cross-system/usePermissionCheckBridge', () => ({
+  usePermissionCheckBridge: (...args: Parameters<typeof usePermissionCheck>) =>
+    usePermissionCheck(...args),
+}));
+
 vi.mock('@/lib/cross-system/useVocDetail', () => ({ useVocDetail: vi.fn() }));
 
 vi.mock('@/features/voc-cluster/hooks/useVocClusterDetail', () => ({

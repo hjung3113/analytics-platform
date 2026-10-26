@@ -235,4 +235,41 @@ describe('EvidenceHighlightsSection labels', () => {
       expect(screen.queryByRole('link')).not.toBeInTheDocument();
     }
   });
+
+  it('draws the unlinked VOC source id with the muted non-link look', () => {
+    const seam = {
+      canLink: vi.fn(() => false),
+      Link: ({ to, children, ...rest }: HostLinkProps) => (
+        <a href={to} {...rest}>
+          {children}
+        </a>
+      ),
+      notifyError: vi.fn(),
+      notifySuccess: vi.fn(),
+    };
+    useEvidenceHighlightsMock.mockReturnValue({
+      data: [
+        {
+          ...makeHighlight('voc', null),
+          source_id: '55555555-5555-4555-8555-555555555555',
+          source_title: 'Export failures',
+          source_meta: 'VOC-1001',
+        },
+      ],
+      isLoading: false,
+      isError: false,
+    });
+    render(
+      <HostSeamProvider value={seam}>
+        <EvidenceHighlightsSection findingId="finding-id" evidenceCount={1} />
+      </HostSeamProvider>,
+    );
+
+    const sourceLabel = screen.getByTestId('evidence-source-id');
+    expect(sourceLabel.tagName).toBe('SPAN');
+    expect(sourceLabel).toHaveTextContent('VOC-1001');
+    expect(sourceLabel).toHaveClass('text-text-muted');
+    expect(sourceLabel).not.toHaveClass('underline');
+    expect(sourceLabel).not.toHaveClass('text-accent-primary');
+  });
 });

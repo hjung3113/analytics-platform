@@ -53,10 +53,7 @@ function EvidenceHighlightRow({ highlight }: EvidenceHighlightRowProps): React.R
               {highlight.source_meta}
             </HostLink>
           ) : (
-            <span
-              className="text-xs font-mono text-accent-primary underline underline-offset-2 hover:text-accent-primary/80"
-              data-testid="evidence-source-id"
-            >
+            <span className="text-xs text-text-muted font-mono" data-testid="evidence-source-id">
               {highlight.source_meta}
             </span>
           ))}

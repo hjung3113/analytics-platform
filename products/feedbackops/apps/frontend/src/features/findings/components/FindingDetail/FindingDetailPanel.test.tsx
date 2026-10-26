@@ -44,13 +44,16 @@ vi.mock('@tanstack/react-router', () => ({
       {children}
     </a>
   ),
-  useRouter: () => undefined,
+  useRouter: () => ({ navigate }),
   useNavigate: () => navigate,
 }));
 
 let permissionState = 'approved';
 vi.mock('@/lib/cross-system/usePermissionCheck', () => ({
   usePermissionCheck: () => ({ data: { state: permissionState } }),
+}));
+vi.mock('@/lib/cross-system/usePermissionCheckBridge', () => ({
+  usePermissionCheckBridge: () => ({ data: { state: permissionState } }),
 }));
 
 vi.mock('@/features/findings/hooks/useEvidenceHighlights', () => ({
@@ -118,6 +121,10 @@ let roleLevel = 'admin';
 vi.mock('@/lib/auth/useMe', () => ({
   useMe: () => ({ data: { actor: { role_level: roleLevel } } }),
 }));
+vi.mock('@/lib/api/me', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/me')>()),
+  useMeBridge: () => ({ data: { actor: { role_level: roleLevel } } }),
+}));
 
 vi.mock('@/lib/api', () => ({
   apiClient: apiClientMock,
@@ -138,6 +145,7 @@ vi.mock('@/lib/api/client', async (importOriginal) => ({
 }));
 vi.mock('@/lib/api/tasks', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api/tasks')>()),
+  getTask: (...args: Parameters<typeof api.getTask>) => api.getTask(...args),
   listTasks: (...args: Parameters<typeof api.listTasks>) => api.listTasks(...args),
   linkTaskToFinding: (...args: Parameters<typeof api.linkTaskToFinding>) =>
     api.linkTaskToFinding(...args),
@@ -627,6 +635,7 @@ describe('FindingDetailPanel', () => {
     expect(navigate).toHaveBeenCalledWith({
       to: '/tasks',
       search: { view: 'requests', param: 'task-request-1' },
+      replace: false,
     });
   });
 
