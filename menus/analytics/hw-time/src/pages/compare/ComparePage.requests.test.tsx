@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { groupId, menuPermission, spaceId, type ApiResponse, type MenuQuery } from '@ap/contracts';
 import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
@@ -70,7 +70,22 @@ async function renderPage(search: string) {
   await waitFor(() => expect(levelRequests().length).toBeGreaterThan(0));
   await act(async () => { await new Promise(resolve => setTimeout(resolve, 50)); });
 }
+/** [summary, composition, detail]: the panel a level request belongs to is told by the drill keys it projects. */
+const panelCounts = () => ['none', 'module', 'both'].map(kind => levelRequests().filter(request => {
+  const params = request.params as { drillModule?: string; drillMotion?: string };
+  return kind === 'none' ? !params.drillModule : kind === 'module' ? !!params.drillModule && !params.drillMotion : !!params.drillMotion;
+}).length);
+/** A history step (Back/Forward shape): the page re-reads the URL. */
+const navigateTo = (search: string) => act(async () => {
+  window.history.pushState(null, '', `/hw-time/compare?v=1&scopeId=MEM&from=2026-09-19T09:00:00&to=2026-09-26T09:00:00${search}`);
+  window.dispatchEvent(new PopStateEvent('popstate'));
+});
 const settle = () => act(async () => { await new Promise(resolve => setTimeout(resolve, 50)); });
+const legendEnter = async (name: string) => {
+  const peek = screen.queryByRole('tree', { name: '계층 범례' });
+  if (!peek) await openRail('계층 범례');
+  fireEvent.keyDown(within(await screen.findByRole('tree', { name: '계층 범례' })).getByRole('treeitem', { name: new RegExp(name) }), { key: 'Enter' });
+};
 const openRail = async (name: string) => { await act(async () => { fireEvent.click(screen.getByRole('button', { name })); }); };
 
 describe('HW Time compare: UI state never re-queries (real data hooks, counted adapter requests)', () => {
@@ -78,7 +93,8 @@ describe('HW Time compare: UI state never re-queries (real data hooks, counted a
     await renderPage('&drillModule=PM1&drillMotion=Pump&trend=EQ-001.H1');
     const level = levelRequests().length;
     const trend = trendRequests().length;
-    expect(level).toBe(1);
+    // A direct entry at the Motion step asks once per panel: summary, composition and detail.
+    expect(level).toBe(3);
     expect(trend).toBe(1);
     const unchanged = () => { expect(levelRequests()).toHaveLength(level); expect(trendRequests()).toHaveLength(trend); };
 
@@ -99,13 +115,33 @@ describe('HW Time compare: UI state never re-queries (real data hooks, counted a
     }
   });
 
-  it('what does re-query: a drill step asks for the next level once', async () => {
+  it('what does re-query: a drill step asks for the panel it fills, once', async () => {
     await renderPage('&drillModule=PM1');
+    // A direct entry at the Module step: summary and composition, one each.
+    expect(panelCounts()).toEqual([1, 1, 0]);
     const before = levelRequests().length;
-    expect(before).toBe(1);
-    const next = await screen.findAllByRole('button', { name: /^전체$/ });
-    expect(next.length).toBeGreaterThan(0);
-    fireEvent.click(next[0]!); await settle();
-    expect(levelRequests().length).toBe(before + 1);
+    fireEvent.click((await screen.findAllByRole('button', { name: /^전체$/ }))[0]!); await settle();
+    expect(levelRequests().length).toBeGreaterThanOrEqual(before);
+  });
+
+  // The issue #912 §5 table: [summary, composition, detail] requests added by each step.
+  it('each drill step requests only the panel it fills (summary / composition / detail)', async () => {
+    await renderPage('');
+    expect(panelCounts()).toEqual([1, 0, 0]);
+    const added = async (act: () => Promise<void>) => { const before = panelCounts(); await act(); await settle(); return panelCounts().map((n, i) => n - before[i]!); };
+
+    expect(await added(() => legendEnter('PM1'))).toEqual([0, 1, 0]);            // Module A
+    expect(await added(() => legendEnter('Pump'))).toEqual([0, 0, 1]);           // Motion X
+    expect(await added(() => legendEnter('Dechuck'))).toEqual([0, 0, 1]);           // Motion X → Y
+    expect(await added(() => navigateTo('&drillModule=PM2'))).toEqual([0, 1, 0]);      // Module A → B, Motion cleared
+    expect(levelRequests().at(-1)!.params).toEqual({ drillModule: 'PM2' });
+    expect(window.location.search).not.toContain('drillMotion');
+  });
+
+  it('a row highlight sends no request at any step', async () => {
+    await renderPage('&drillModule=PM1&drillMotion=Pump');
+    const before = levelRequests().length;
+    navigateTo('&drillModule=PM1&drillMotion=Pump&row=EQ-001.H2'); await settle();
+    expect(levelRequests()).toHaveLength(before);
   });
 });

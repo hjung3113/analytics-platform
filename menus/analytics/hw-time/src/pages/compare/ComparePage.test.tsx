@@ -132,42 +132,40 @@ describe('HW Time compare page', () => {
     expect(menu.drill?.levels).toEqual(manifests[0].drill?.levels);
   });
 
-  it.each([
-    ['', 'hw-compare-l1', ['panel stack', 'panel trend']],
-    ['&drillModule=PM1', 'hw-compare-l2', ['panel ranking', 'panel stack', 'panel trend']],
-    ['&drillModule=PM1&drillMotion=Pump', 'hw-compare-l3', ['panel context', 'panel detail', 'panel trend']],
-  ])('%s uses its own persistKey and panels', async (query, key, panels) => {
-    await renderPage(query);
-    expect(workspace().getAttribute('data-persist')).toBe(key);
-    expect(panelIds()).toEqual(panels);
+  it('one static persistKey and one preset at every depth: summary | composition over detail+trend', async () => {
+    await renderPage('&drillModule=PM1&drillMotion=Pump');
+    expect(workspace().getAttribute('data-persist')).toBe('hw-compare');
+    // Panel order is the reading order of the narrow stack: summary, composition, detail, trend.
+    expect(panelIds()).toEqual(['panel summary', 'panel module', 'panel detail', 'panel trend']);
     const presets = JSON.parse(workspace().getAttribute('data-layout')!);
     expect(presets).toHaveLength(1);
-    // The trend row is the last child of the column root, about 40% at every level.
-    expect(presets[0].sizes).toEqual([60, 40]);
-    expect(presets[0].children.at(-1)).toEqual({ type: 'group', panels: ['trend'] });
+    expect(presets[0]).toEqual({ type: 'branch', dir: 'row', sizes: [34, 66], children: [
+      { type: 'group', panels: ['summary'] },
+      { type: 'branch', dir: 'column', sizes: [48, 52], children: [{ type: 'group', panels: ['module'] }, { type: 'group', panels: ['detail', 'trend'] }] },
+    ] });
   });
 
   it('L3 draws every Motion in the context and only the selected Motion in the detail', async () => {
     await renderPage('&drillModule=PM1&drillMotion=Pump');
-    expect(JSON.parse(screen.getByTestId('hw-compare-L3-context-series').textContent!).map((s: { id: string }) => s.id)).toEqual(MOTIONS);
-    expect(JSON.parse(screen.getByTestId('hw-compare-L3-detail-series').textContent!).map((s: { id: string }) => s.id)).toEqual(['Pump']);
-    expect(screen.getByTestId('hw-compare-L3-context-selector').textContent).not.toContain('MEG');
+    expect(JSON.parse(screen.getByTestId('hw-compare-module-series').textContent!).map((s: { id: string }) => s.id)).toEqual(MOTIONS);
+    expect(JSON.parse(screen.getByTestId('hw-compare-detail-series').textContent!).map((s: { id: string }) => s.id)).toEqual(['Pump']);
+    expect(screen.getByTestId('hw-compare-module-selector').textContent).not.toContain('MEG');
   });
 
-  it.each(['context', 'detail'])('a row picked in the %s Frame sets row and both Frames get it as activeCategory', async side => {
+  it.each(['module', 'detail'])('a row picked in the %s Frame sets row and both Frames get it as activeCategory', async side => {
     await renderPage('&drillModule=PM1&drillMotion=Pump');
-    expect(screen.getByTestId('hw-compare-L3-context-active').textContent).toBe('null');
-    fireEvent.click(screen.getByRole('button', { name: `pick hw-compare-L3-${side} EQ-001 · H3` }));
+    expect(screen.getByTestId('hw-compare-module-active').textContent).toBe('null');
+    fireEvent.click(screen.getByRole('button', { name: `pick hw-compare-${side} EQ-001 · H3` }));
     expect(searchParams().get('row')).toBe('EQ-001.H3');
-    expect(screen.getByTestId('hw-compare-L3-context-active').textContent).toBe('EQ-001 · H3');
-    expect(screen.getByTestId('hw-compare-L3-detail-active').textContent).toBe('EQ-001 · H3');
-    expect(screen.getByTestId('hw-compare-L3-context-reveal').textContent).toBe('true');
-    expect(screen.getByTestId('hw-compare-L3-detail-reveal').textContent).toBe('true');
+    expect(screen.getByTestId('hw-compare-module-active').textContent).toBe('EQ-001 · H3');
+    expect(screen.getByTestId('hw-compare-detail-active').textContent).toBe('EQ-001 · H3');
+    expect(screen.getByTestId('hw-compare-module-reveal').textContent).toBe('true');
+    expect(screen.getByTestId('hw-compare-detail-reveal').textContent).toBe('true');
   });
 
   it('a row restored from the URL is active', async () => {
     await renderPage('&drillModule=PM1&drillMotion=Pump&row=EQ-001.H2');
-    expect(screen.getByTestId('hw-compare-L3-detail-active').textContent).toBe('EQ-001 · H2');
+    expect(screen.getByTestId('hw-compare-detail-active').textContent).toBe('EQ-001 · H2');
   });
 
   it.each([
@@ -179,11 +177,11 @@ describe('HW Time compare page', () => {
     expect(screen.getByText(`${field} “${raw}”`, { exact: false })).toBeTruthy();
     expect(data.level.mock.calls.every(call => call[1] === false)).toBe(true);
     expect(data.trend.mock.calls.every(call => call[1] === false)).toBe(true);
-    expect(screen.queryByTestId('hw-compare-L3-detail-active')).toBeNull();
+    expect(screen.queryByTestId('hw-compare-detail-active')).toBeNull();
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: '초기화' })); });
     expect(searchParams().has(key)).toBe(false);
     expect(searchParams().get('drillMotion')).toBe('Pump');
-    expect(await screen.findByTestId('hw-compare-L3-detail-active')).toBeTruthy();
+    expect(await screen.findByTestId('hw-compare-detail-active')).toBeTruthy();
   });
 
   it('adding a trend row writes the key and requests the trend panel; the action is only the applicable one; none at L1', async () => {
@@ -193,7 +191,8 @@ describe('HW Time compare page', () => {
     expect(screen.getAllByRole('button', { name: '추세에서 제거 EQ-001 · H1' }).length).toBeGreaterThan(0);
     fireEvent.click(screen.getAllByRole('button', { name: '추세에 추가 EQ-001 · H2' })[0]!);
     expect(searchParams().get('trend')).toBe('EQ-001.H1,EQ-001.H2');
-    expect(JSON.parse(workspace().getAttribute('data-reveal')!)).toEqual({ panelId: 'trend', seq: 1 });
+    // revealTrend is off for this page (#912 a): the detail tab stays active, only the badge changes.
+    expect(workspace().getAttribute('data-reveal')).toBe('null');
     expect(screen.getByLabelText('panel trend').getAttribute('data-badge')).toBe('2');
     cleanup();
     await renderPage();
@@ -217,12 +216,12 @@ describe('HW Time compare page', () => {
 
   it('ScrollView: on by default (rowPitch 26 + revealActive), scroll=0 omits rowPitch', async () => {
     await renderPage('&drillModule=PM1&drillMotion=Pump');
-    expect(screen.getByTestId('hw-compare-L3-context-pitch').textContent).toBe('26');
-    expect(screen.getByTestId('hw-compare-L3-detail-pitch').textContent).toBe('26');
+    expect(screen.getByTestId('hw-compare-module-pitch').textContent).toBe('26');
+    expect(screen.getByTestId('hw-compare-detail-pitch').textContent).toBe('26');
     cleanup();
     await renderPage('&drillModule=PM1&drillMotion=Pump&scroll=0');
-    expect(screen.getByTestId('hw-compare-L3-context-pitch').textContent).toBe('');
-    expect(screen.getByTestId('hw-compare-L3-detail-pitch').textContent).toBe('');
+    expect(screen.getByTestId('hw-compare-module-pitch').textContent).toBe('');
+    expect(screen.getByTestId('hw-compare-detail-pitch').textContent).toBe('');
   });
 
   it('the scroll toggle writes scroll=0 / clears it and keeps the row', async () => {
@@ -237,27 +236,26 @@ describe('HW Time compare page', () => {
 
   it('the minmax and align keys reach every stack panel', async () => {
     await renderPage('&drillModule=PM1&drillMotion=Pump&minmax=1&align=1');
-    for (const id of ['hw-compare-L3-context', 'hw-compare-L3-detail']) expect(screen.getByTestId(`${id}-options`).textContent).toBe('align=true minmax=true');
+    for (const id of ['hw-compare-module', 'hw-compare-detail']) expect(screen.getByTestId(`${id}-options`).textContent).toBe('align=true minmax=true');
     cleanup();
     await renderPage('&drillModule=PM1');
-    expect(screen.getByTestId('hw-compare-L2-options').textContent).toBe('align=false minmax=false');
+    expect(screen.getByTestId('hw-compare-module-options').textContent).toBe('align=false minmax=false');
   });
 
   it('the legend hides a Motion in both stacks; hiding the selected Motion empties the detail', async () => {
     await renderPage('&drillModule=PM1&drillMotion=Pump');
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: '계층 범례' })); });
     fireEvent.click(await screen.findByRole('checkbox', { name: /Chuck/ }));
-    expect(screen.getByTestId('hw-compare-L3-context-visible').textContent).toBe('Dechuck,Pump,Vent,Transfer');
-    expect(screen.getByTestId('hw-compare-L3-detail-visible').textContent).toBe('Pump');
+    expect(screen.getByTestId('hw-compare-module-visible').textContent).toBe('Dechuck,Pump,Vent,Transfer');
+    expect(screen.getByTestId('hw-compare-detail-visible').textContent).toBe('Pump');
     fireEvent.click(screen.getByRole('checkbox', { name: /Pump/ }));
-    expect(screen.getByTestId('hw-compare-L3-detail-visible').textContent).toBe('');
-    expect(screen.getByTestId('hw-compare-L3-detail-legend').textContent).toBe('false');
+    expect(screen.getByTestId('hw-compare-detail-visible').textContent).toBe('');
+    expect(screen.getByTestId('hw-compare-detail-legend').textContent).toBe('false');
   });
 
-  it('L2 shows a ranking beside the Motion stack; L1 drills by segment', async () => {
+  it('the composition fills at the Module step; the summary drills by segment', async () => {
     await renderPage('&drillModule=PM1');
-    const list = screen.getByRole('list', { name: '합계 순위' });
-    expect(within(list).getAllByRole('listitem').length).toBeGreaterThan(0);
+    expect(screen.getByTestId('hw-compare-module-series').textContent).toContain('Chuck');
     cleanup();
     await renderPage();
     fireEvent.click(screen.getByRole('button', { name: 'segment PM1 EQ-001' }));
@@ -270,7 +268,7 @@ describe('HW Time compare page', () => {
     expect(screen.getByTitle('Module PM4 · Motion Vent · 기록 없음')).toBeTruthy();
     cleanup();
     await renderPage('&drillModule=PM3');
-    expect(screen.getByText(/미측정 값이 있는 행 \d+개/)).toBeTruthy();
+    expect(screen.getAllByText(/미측정 값이 있는 행 \d+개/).length).toBeGreaterThan(0);
     expect(screen.getByTitle(/^Module PM3 · [\d,]+\.\d{2} 초 · 일부 미측정$/)).toBeTruthy();
   });
 
@@ -290,7 +288,7 @@ describe('HW Time compare page', () => {
 
   it('going up through the breadcrumb clears the row in that one navigation', async () => {
     await renderPage('&drillModule=PM1&drillMotion=Pump');
-    fireEvent.click(screen.getByRole('button', { name: 'pick hw-compare-L3-detail EQ-001 · H3' }));
+    fireEvent.click(screen.getByRole('button', { name: 'pick hw-compare-detail EQ-001 · H3' }));
     expect(searchParams().get('row')).toBe('EQ-001.H3');
     const before = window.history.length;
     fireEvent.click(screen.getByRole('button', { name: /Module: PM1/ }));
@@ -301,39 +299,39 @@ describe('HW Time compare page', () => {
 
   it('the URL is the truth: Back to the path a row was picked on restores that row', async () => {
     await renderPage('&drillModule=PM1&drillMotion=Pump');
-    fireEvent.click(screen.getByRole('button', { name: 'pick hw-compare-L3-detail EQ-001 · H3' }));
+    fireEvent.click(screen.getByRole('button', { name: 'pick hw-compare-detail EQ-001 · H3' }));
     const pickedOn = window.location.search;
     fireEvent.click(screen.getByRole('button', { name: '전체' }));
     fireEvent.click(screen.getByRole('button', { name: 'segment PM2 EQ-001' }));
     fireEvent.click(screen.getAllByRole('button', { name: /^segment Pump EQ-001/ })[0]!);
-    expect(screen.getByTestId('hw-compare-L3-detail-active').textContent).toBe('null');
-    fireEvent.click(screen.getByRole('button', { name: 'pick hw-compare-L3-detail EQ-001 · H1' }));
+    expect(screen.getByTestId('hw-compare-detail-active').textContent).toBe('null');
+    fireEvent.click(screen.getByRole('button', { name: 'pick hw-compare-detail EQ-001 · H1' }));
     expect(searchParams().get('row')).toBe('EQ-001.H1');
     // pick, Pump, PM2, 전체 are four entries after the entry the first row was picked on.
     act(() => { window.history.go(-4); });
     await waitFor(() => expect(window.location.search).toBe(pickedOn));
-    expect(screen.getByTestId('hw-compare-L3-detail-active').textContent).toBe('EQ-001 · H3');
+    expect(screen.getByTestId('hw-compare-detail-active').textContent).toBe('EQ-001 · H3');
   });
 
   it('a URL row that does not belong to the current level shows no active row', async () => {
     await renderPage('&drillModule=PM1&row=EQ-001.H3');
-    expect(screen.getByTestId('hw-compare-L2-active-shown').textContent).toBe('');
+    expect(screen.getByTestId('hw-compare-module-active-shown').textContent).toBe('');
     cleanup();
     await renderPage('&drillModule=PM1&drillMotion=Pump&row=EQ-001.H3');
-    expect(screen.getByTestId('hw-compare-L3-detail-active-shown').textContent).toBe('EQ-001 · H3');
+    expect(screen.getByTestId('hw-compare-detail-active-shown').textContent).toBe('EQ-001 · H3');
   });
 
   it('a row that arrives with the URL stays active, and history Back restores the row as it was', async () => {
     await renderPage('&drillModule=PM1&drillMotion=Pump&row=EQ-001.H2');
-    expect(screen.getByTestId('hw-compare-L3-detail-active').textContent).toBe('EQ-001 · H2');
+    expect(screen.getByTestId('hw-compare-detail-active').textContent).toBe('EQ-001 · H2');
     fireEvent.click(screen.getByRole('button', { name: /Module: PM1/ }));
-    expect(screen.queryByTestId('hw-compare-L3-detail-active')).toBeNull();
+    expect(screen.queryByTestId('hw-compare-detail-active')).toBeNull();
     act(() => { window.history.back(); });
-    await waitFor(() => expect(screen.getByTestId('hw-compare-L3-detail-active').textContent).toBe('EQ-001 · H2'));
+    await waitFor(() => expect(screen.getByTestId('hw-compare-detail-active').textContent).toBe('EQ-001 · H2'));
     expect(searchParams().get('row')).toBe('EQ-001.H2');
   });
 
-  it.each([['', 'hw-compare-L1'], ['&drillModule=PM1', 'hw-compare-L2'], ['&drillModule=PM1&drillMotion=Pump', 'hw-compare-L3-detail']])('%s stack asks the Frame for segment and total labels over additive seconds', async (query, chart) => {
+  it.each([['', 'hw-compare-summary'], ['&drillModule=PM1', 'hw-compare-module'], ['&drillModule=PM1&drillMotion=Pump', 'hw-compare-detail']])('%s stack asks the Frame for segment and total labels over additive seconds', async (query, chart) => {
     await renderPage(query);
     expect(screen.getByTestId(`${chart}-labels`).textContent).toBe('valueLabels=both reaggregation=sum');
   });
@@ -348,7 +346,7 @@ describe('HW Time compare page', () => {
     fireEvent.keyDown(within(tree).getByRole('treeitem', { name: /PM2/ }), { key: 'Enter' });
     expect(searchParams().get('drillModule')).toBe('PM2');
     expect(searchParams().get('drillMotion')).toBeNull();
-    expect(data.level).toHaveBeenLastCalledWith({ drillModule: 'PM2' }, true);
+    expect(data.level).toHaveBeenCalledWith({ drillModule: 'PM2' }, true);
   });
 
   it('legend tree Enter at L2 drills to the Motion and L3 marks it current', async () => {
@@ -365,22 +363,22 @@ describe('HW Time compare page', () => {
     await renderPage('&drillModule=PM1&drillMotion=Pump');
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: '계층 범례' })); });
     fireEvent.click(await screen.findByRole('checkbox', { name: /Chuck/ }));
-    expect(screen.getByTestId('hw-compare-L3-context-visible').textContent).toBe('Dechuck,Pump,Vent,Transfer');
+    expect(screen.getByTestId('hw-compare-module-visible').textContent).toBe('Dechuck,Pump,Vent,Transfer');
     fireEvent.keyDown(within(await screen.findByRole('tree', { name: '계층 범례' })).getByRole('treeitem', { name: /Vent/ }), { key: 'Enter' });
     expect(searchParams().get('drillMotion')).toBe('Vent');
-    expect(screen.getByTestId('hw-compare-L3-context-visible').textContent).toBe('Dechuck,Pump,Vent,Transfer');
+    expect(screen.getByTestId('hw-compare-module-visible').textContent).toBe('Dechuck,Pump,Vent,Transfer');
     fireEvent.click(screen.getByRole('button', { name: /Module: PM1/ }));
-    expect(screen.getByTestId('hw-compare-L2-visible').textContent).toBe('Chuck,Dechuck,Pump,Vent,Transfer');
+    expect(screen.getByTestId('hw-compare-module-visible').textContent).toBe('Chuck,Dechuck,Pump,Vent,Transfer');
   });
 
   it('a hidden Motion does not carry over to another Module', async () => {
     await renderPage('&drillModule=PM1');
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: '계층 범례' })); });
     fireEvent.click(await screen.findByRole('checkbox', { name: /Chuck/ }));
-    expect(screen.getByTestId('hw-compare-L2-visible').textContent).toBe('Dechuck,Pump,Vent,Transfer');
+    expect(screen.getByTestId('hw-compare-module-visible').textContent).toBe('Dechuck,Pump,Vent,Transfer');
     fireEvent.click(screen.getByRole('button', { name: '전체' }));
     fireEvent.click(screen.getByRole('button', { name: 'segment PM2 EQ-001' }));
-    expect(screen.getByTestId('hw-compare-L2-visible').textContent).toBe('Chuck,Dechuck,Pump,Vent,Transfer');
+    expect(screen.getByTestId('hw-compare-module-visible').textContent).toBe('Chuck,Dechuck,Pump,Vent,Transfer');
   });
 
   it('every legend row offers a drill button and the Enter description', async () => {
