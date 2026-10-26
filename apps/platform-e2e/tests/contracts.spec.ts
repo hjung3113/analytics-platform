@@ -957,7 +957,9 @@ test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
       screenOf(`v=1&scopeId=MEM&${PERIOD}&roomNames=PHOTO`),
       { menuId: 'hw-time-compare', params: {}, query: `?v=1&scopeId=MEM&${PERIOD}` },
     ])]);
-    await dockReady(page, 2);
+    // `dockReady` counts every dock tab, and HW Time's own dock adds more, so wait on the two pane roots instead.
+    await page.goto('/board?sheet=dock');
+    await expect(page.locator('[data-pane-id]')).toHaveCount(2);
     // The lazy HW Time screen draws its own dock after the first paint; wait for it so the check below cannot pass on an empty pane.
     await expect(page.locator('[data-pane-id]').nth(1).locator('.dv-groupview').first()).toBeVisible();
     const visibilityOf = (selector: string) => page.locator(selector).evaluateAll(nodes => nodes.map(node => getComputedStyle(node).visibility));
