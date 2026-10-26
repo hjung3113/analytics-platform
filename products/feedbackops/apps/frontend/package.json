@@ -23,7 +23,8 @@
     "./operator-screens/findings-search": "./src/operator-screens/findings-search/index.ts",
     "./operator-screens/integration-search": "./src/operator-screens/integration-search/index.ts",
     "./operator-screens/findings": "./src/operator-screens/findings/index.ts",
-    "./operator-screens/voc-triage": "./src/operator-screens/voc-triage/index.ts"
+    "./operator-screens/voc-triage": "./src/operator-screens/voc-triage/index.ts",
+    "./operator-screens/evidence": "./src/operator-screens/evidence/index.ts"
   },
   "scripts": {
     "dev": "vite",

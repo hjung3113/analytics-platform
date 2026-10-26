@@ -5,20 +5,21 @@ import {
   SURVEY_TYPE_LABELS,
 } from '@/lib/copy/enum-labels';
 import { EVIDENCE_COPY } from '@/lib/copy/evidence';
-import { InternalLink } from '@/lib/router/InternalLink';
+import { HostLink, useHostSeam } from '@/lib/host/host-seam';
 import type { EvidenceInventoryItem } from '@fops/shared';
 
 export function EvidenceSource({
   item,
   linked = false,
 }: { item: EvidenceInventoryItem; linked?: boolean }) {
+  const { canLink } = useHostSeam();
   if (item.content_state === 'withheld') return null;
   if (item.source_type === 'voc' && item.source) {
-    if (linked)
+    if (linked && canLink(item.source.route))
       return (
-        <InternalLink href={item.source.route} className="underline underline-offset-2">
+        <HostLink to={item.source.route} className="underline underline-offset-2">
           {item.source.display_id} · {item.source.title}
-        </InternalLink>
+        </HostLink>
       );
     return (
       <span>

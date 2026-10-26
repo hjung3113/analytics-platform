@@ -14,16 +14,41 @@ import {
 } from '@tanstack/react-router';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { ReactNode } from 'react';
+import { type ReactNode, useLayoutEffect, useSyncExternalStore } from 'react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { EvidenceRoute } from '../EvidenceRoute';
 
+const slot = vi.hoisted(() => {
+  let node: unknown;
+  const listeners = new Set<() => void>();
+  return {
+    subscribe: (listener: () => void) => {
+      listeners.add(listener);
+      return () => void listeners.delete(listener);
+    },
+    get: () => node,
+    set: (next: unknown) => {
+      node = next;
+      for (const listener of listeners) listener();
+    },
+  };
+});
+function SlotContent() {
+  return <>{useSyncExternalStore(slot.subscribe, slot.get, slot.get) as ReactNode}</>;
+}
 vi.mock('@fops/ui', async (original) => ({
   ...(await original<typeof import('@fops/ui')>()),
+  useDetailPanelSlot: (node: ReactNode) => {
+    useLayoutEffect(() => {
+      slot.set(node);
+      return () => slot.set(undefined);
+    }, [node]);
+  },
   ListShell: ({ list, detailPanel }: { list: ReactNode; detailPanel?: ReactNode }) => (
     <div>
       {list}
       {detailPanel}
+      <SlotContent />
     </div>
   ),
 }));
@@ -59,7 +84,16 @@ function installFetch(
       const url = new URL(input, 'http://localhost');
       if (url.pathname === '/me')
         return Promise.resolve(
-          response({ actor: { id: 'actor', role_level: 'admin' }, workspace_id: 'workspace' }),
+          response({
+            actor: {
+              id: 'actor',
+              external_id: 'external',
+              email: 'actor@example.com',
+              display_name: 'Actor',
+              role_level: 'admin',
+            },
+            workspace_id: 'workspace',
+          }),
         );
       if (url.pathname === '/evidence-highlights') return Promise.resolve(list(url));
       if (url.pathname === `/evidence-highlights/${ID}`) return Promise.resolve(detail());
