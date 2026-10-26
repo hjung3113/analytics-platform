@@ -2,6 +2,7 @@
 import * as React from 'react';
 import { render, screen } from '@testing-library/react';
 import { FieldRow } from '../FieldRow.js';
+import { FieldList } from '../FieldList.js';
 
 describe('FieldRow', () => {
   it('renders label text', () => {
@@ -64,5 +65,27 @@ describe('FieldRow', () => {
     );
     const variantClasses = [...(after.container.firstElementChild?.classList ?? [])].sort();
     expect(variantClasses).toEqual(oldClasses);
+  });
+
+  it('inside FieldList renders label as dt and value as dd of one dl', () => {
+    const { container } = render(
+      <FieldList>
+        <FieldRow label="담당자">Alice</FieldRow>
+        <FieldRow label="상태">활성</FieldRow>
+      </FieldList>,
+    );
+    const dl = container.querySelector('dl');
+    expect(dl).not.toBeNull();
+    expect(screen.getAllByRole('term').map((el) => el.textContent)).toEqual(['담당자', '상태']);
+    expect(screen.getAllByRole('definition').map((el) => el.textContent)).toEqual(['Alice', '활성']);
+    for (const el of [...screen.getAllByRole('term'), ...screen.getAllByRole('definition')]) {
+      expect(dl?.contains(el)).toBe(true);
+    }
+  });
+
+  it('outside FieldList keeps span/div markup', () => {
+    const { container } = render(<FieldRow label="담당자">Alice</FieldRow>);
+    expect(container.querySelector('dt, dd, dl')).toBeNull();
+    expect(container.querySelector('span')).toHaveTextContent('담당자');
   });
 });

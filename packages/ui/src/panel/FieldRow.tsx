@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { cn } from '../utils/cn.js';
+import { FieldListContext } from './FieldList.js';
 
 export interface FieldRowProps {
   label: string;
@@ -26,6 +27,9 @@ export function FieldRow({
   layout = 'default',
   className,
 }: FieldRowProps) {
+  const inList = React.useContext(FieldListContext);
+  const Label = inList ? 'dt' : 'span';
+  const Value = inList ? 'dd' : 'div';
   return (
     <div
       className={cn(
@@ -35,8 +39,8 @@ export function FieldRow({
         className,
       )}
     >
-      <span className="text-text-muted shrink-0">{label}</span>
-      <div className="text-text-primary text-right">{children}</div>
+      <Label className="text-text-muted shrink-0">{label}</Label>
+      <Value className={cn('text-text-primary text-right', inList && 'm-0')}>{children}</Value>
     </div>
   );
 }
