@@ -359,14 +359,14 @@ test.describe('분석 보드 계약 (16 §4–§7, ADR-0049·0051)', () => {
     const firstRoomChip = first.getByText('room_name PHOTO', { exact: true }).filter({ visible: true });
     await expect(firstHead).toContainText('생산성 개요');
     await expect(firstRoomChip).toBeVisible();
-    const originalPeriodChip = '기간 2026-09-25 09:00 ~ 2026-09-26 09:00';
+    const originalPeriodChip = '기간 09-25 09:00 → 09-26 09:00 (24h)';
     const originalPeriod = boardContext(page, 1).getByRole('button', { name: '기간: 09-25 09:00 → 09-26 09:00 (24h)' });
     await expect(originalPeriod).toBeVisible();
 
     await boardPane(page, 2).getByRole('button', { name: '칸 2 선택' }).click();
     await boardPeriodPreset(page, 2, '7일');
     await expect(boardContext(page, 2).getByRole('button', { name: '기간: 09-19 09:00 → 09-26 09:00 (7일)' })).toBeVisible();
-    await expect(boardPaneHead(page, 2).locator('[data-pane-chip="time"]')).toHaveText('기간 2026-09-19 09:00 ~ 2026-09-26 09:00');
+    await expect(boardPaneHead(page, 2).locator('[data-pane-chip="time"]')).toHaveText('기간 09-19 09:00 → 09-26 09:00 (7일)');
     await expect(firstHead.locator('[data-pane-chip="time"]')).toHaveText(originalPeriodChip);
     await expect(firstRoomChip).toBeVisible();
 
