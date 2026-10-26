@@ -438,15 +438,20 @@ export type ClosedPane = { sheetId: string; slot: PaneSlot; index: number; befor
 
 /**
  * `칸 닫기` (dock renderer): removes an empty pane from the sheet and the tree; later panes move down one number. Null for a pane with a
- * screen and for a sheet's only pane. A closed selected pane hands the selection to the pane that takes its number (the last one if it was last).
+ * screen and for a sheet's only pane. A closed selected pane hands the selection to the tab that comes to the front of its group when the group keeps
+ * other tabs (the one after it, the one before if it was last); a group that disappears hands it to the pane that takes its number (the last one if it was last).
  */
 export function closePane(board: Board, sheetId: string, index: number): { board: Board; closed: ClosedPane } | null {
   const sheet = board.sheets.find(s => s.id === sheetId);
   const slot = sheet?.panes[index];
   if (!sheet || !slot || slot.screen !== null || sheet.panes.length <= 1) return null;
   const panes = sheet.panes.filter((_, i) => i !== index);
-  const selectedPaneId = sheet.selectedPaneId === slot.id ? panes[Math.min(index, panes.length - 1)].id : sheet.selectedPaneId;
-  const tree = activateInTree(fromDockTree(removePanel(toDockTree(effectiveTree(sheet)), slot.id)), selectedPaneId);
+  const removed = fromDockTree(removePanel(toDockTree(effectiveTree(sheet)), slot.id));
+  const sibling = groupHolding(effectiveTree(sheet), slot.id)?.panes.find(id => id !== slot.id);
+  // A closed selected pane with tabs left in its group hands the selection to the tab that comes to the front there; a group that vanishes hands it to the pane that takes the number.
+  const successor = sibling === undefined ? undefined : groupHolding(removed, sibling)?.active;
+  const selectedPaneId = sheet.selectedPaneId !== slot.id ? sheet.selectedPaneId : successor ?? panes[Math.min(index, panes.length - 1)].id;
+  const tree = activateInTree(removed, selectedPaneId);
   const after = reconcileSelection({ ...sheet, panes, selectedPaneId, tree });
   return { board: mapSheet(board, sheetId, () => after), closed: { sheetId, slot, index, before: sheet, after } };
 }
