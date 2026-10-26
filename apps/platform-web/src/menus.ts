@@ -4,7 +4,7 @@
  * live in their own menu package (docs/integration/platform-packages.md §5); the app concatenates them.
  */
 import {
-  BarChart3, ClipboardList, Cpu, Database, FileSearch, Gauge, Inbox, LayoutDashboard, LineChart, ListTodo, Megaphone, Ruler, ShieldCheck, Timer, UserRound,
+  BarChart3, ClipboardList, Cpu, Database, FileSearch, Gauge, Inbox, LayoutDashboard, LineChart, ListChecks, ListTodo, Megaphone, Ruler, ShieldCheck, Timer, UserRound,
 } from 'lucide-react';
 import { groupId, menuPermission, spaceId, type SpaceDef } from '@ap/contracts';
 import { createRegistry, type GroupDef, type MenuEntry } from '@ap/kernel';
@@ -29,6 +29,7 @@ import { manifests as impReports } from '@ap/menu-imp-reports';
 import { manifests as hwTime } from '@ap/menu-hw-time';
 import { manifests as foDashboard } from '@ap/menu-fo-dashboard';
 import { manifests as foVoc } from '@ap/menu-fo-voc';
+import { manifests as foFindings } from '@ap/menu-fo-findings';
 import { manifests as foTasks } from '@ap/menu-fo-tasks';
 // </gen:menu-imports>
 
@@ -55,6 +56,7 @@ export const GROUPS: GroupDef[] = [
   { id: groupId('impReports'), label: { ko: '보고', en: 'Reports' }, icon: BarChart3, space: spaceId('improvement') },
   { id: groupId('foDashboard'), label: { ko: '대시보드', en: 'Dashboard' }, icon: ListTodo, space: spaceId('feedbackops') },
   { id: groupId('foVoc'), label: { ko: 'VOC', en: 'VOC' }, icon: Inbox, space: spaceId('feedbackops') },
+  { id: groupId('foFindings'), label: { ko: 'Findings', en: 'Findings' }, icon: ListChecks, space: spaceId('feedbackops') },
   { id: groupId('foTasks'), label: { ko: 'Tasks', en: 'Tasks' }, icon: ClipboardList, space: spaceId('feedbackops') },
   // </gen:menu-groups>
 ];
@@ -92,6 +94,7 @@ export const MENUS: MenuEntry[] = [
   ...hwTime,
   ...foDashboard,
   ...foVoc,
+  ...foFindings,
   ...foTasks,
   // </gen:menu-spreads>
 ];

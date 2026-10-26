@@ -40,13 +40,13 @@ FeedbackOps를 플랫폼 앱 하나·서버 하나·저장소 하나로 합친�
 
 ### 3.2 `피드백 운영` 업무 시스템 — 관리자·개발자
 
-시스템 전환기의 업무 시스템 하나([ADR-0042](../adr/0042-system-switcher-and-system-owned-rail.md)). 틀은 **Decided: [ADR-0081](../adr/0081-feedbackops-operator-screens-platform-frame.md)**(이름 `FeedbackOps`·부제 `피드백 운영`, 레일 순서 `대시보드` · `VOC` · `Findings` · `Tasks` · `연동` · `Surveys` · `관리자`, 사이드바 `목록 범위`, 한 줄 머리). **구현됨(#759, #760, #761, #763):** 공간·`대시보드` 섹션·`목록 범위`·`VOC`의 `수신함`/`Triage`/`Clusters`(`/feedbackops/vocs`·`/feedbackops/triage`·`/feedbackops/clusters`, 선택은 `focus`)와 사이드바 보기·개수·저장된 보기, 다른 시스템 바닥 블록의 셸 안 이동·`Tasks` 그룹의 `Task Requests`·`Tasks`(보드)·`내 Task`·`Milestones`·숨은 `Task 목록`(`/feedbackops/task-requests`·`/feedbackops/tasks`·`/feedbackops/my-tasks`·`/feedbackops/milestones`·`/feedbackops/tasks/list`, 선택은 `focus`); 나머지 섹션은 `Findings`·`연동`이 #762, `Surveys`·`관리자`가 #764다. 아래 표의 메뉴 열은 원본 기준이고, 신고자 항목과 `연동 › Findings` 중복은 뺀다. 레일 섹션과 메뉴는 지금 FeedbackOps 레일·사이드바(`NAV_TREE`)를 출발점으로 한다. 이슈 [#595](https://github.com/hjung3113/analytics-platform/issues/595).
+시스템 전환기의 업무 시스템 하나([ADR-0042](../adr/0042-system-switcher-and-system-owned-rail.md)). 틀은 **Decided: [ADR-0081](../adr/0081-feedbackops-operator-screens-platform-frame.md)**(이름 `FeedbackOps`·부제 `피드백 운영`, 레일 순서 `대시보드` · `VOC` · `Findings` · `Tasks` · `연동` · `Surveys` · `관리자`, 사이드바 `목록 범위`, 한 줄 머리). **구현됨(#759, #760, #761, #762 p1, #763):** 공간·`대시보드` 섹션·`목록 범위`·`VOC`의 `수신함`/`Triage`/`Clusters`(`/feedbackops/vocs`·`/feedbackops/triage`·`/feedbackops/clusters`, 선택은 `focus`)와 사이드바 보기·개수·저장된 보기, 다른 시스템 바닥 블록의 셸 안 이동·`Tasks` 그룹의 `Task Requests`·`Tasks`(보드)·`내 Task`·`Milestones`·숨은 `Task 목록`(`/feedbackops/task-requests`·`/feedbackops/tasks`·`/feedbackops/my-tasks`·`/feedbackops/milestones`·`/feedbackops/tasks/list`, 선택은 `focus`); `Findings` 그룹의 `전체 Finding`(`/feedbackops/findings`, 선택은 `focus`); 나머지 섹션은 `연동`이 #762 p2, `Surveys`·`관리자`가 #764다. 아래 표의 메뉴 열은 원본 기준이고, 신고자 항목과 `연동 › Findings` 중복은 뺀다. 레일 섹션과 메뉴는 지금 FeedbackOps 레일·사이드바(`NAV_TREE`)를 출발점으로 한다. 이슈 [#595](https://github.com/hjung3113/analytics-platform/issues/595).
 
 | 레일 섹션(Decided, ADR-0081) | 메뉴 | 지금 FeedbackOps 경로 |
 | --- | --- | --- |
 | 대시보드 | 대시보드(액션 큐) | `/home` |
 | VOC | 수신함·Triage(구현됨, #761 1부)·저장된 보기·VOC Cluster | `/vocs`, `/voc-clusters` |
-| Findings | Finding 목록·상세 | `/findings` |
+| Findings | Finding 목록·상세 | `/findings` (목록·상세 구현됨 #762 p1) |
 | Tasks | Task Request·Task·내 Task·Milestone | `/tasks` (Task Request·보드·내 Task·Milestone·Task 목록 구현됨 #763) |
 | 연동 | 연동 액션 대시보드·Evidence·Links·Coverage | `/integration`, `/integration/*` |
 | Surveys | Survey 관리(빌더·결과·후속 조치) | `/surveys`, `/surveys/$id/results`, `/follow-up` |

@@ -118,7 +118,7 @@ describe('taskOperatorTargets', () => {
     expect(menuOf(`/tasks?view=inbox&param=${TASK}`)).toEqual(['fo-task-list']);
   });
 
-  it('wires all seven Task tables into operatorHostLinks; Findings stay unlinked', () => {
+  it('wires all seven Task tables into operatorHostLinks; Findings are wired too', () => {
     const { targetOf } = operatorHostLinks;
     expect(targetOf(`/tasks?param=${TASK}`)).toEqual({ menuId: 'fo-task-list', page: { focus: TASK } });
     expect(targetOf('/tasks?view=board&param=')).toEqual({ menuId: 'fo-tasks', page: {} });
@@ -129,7 +129,6 @@ describe('taskOperatorTargets', () => {
     expect(targetOf('/tasks?view=requests&param=x')).toEqual({ menuId: 'fo-task-requests', page: { focus: 'x' } });
     expect(targetOf('/tasks?view=requests&reviewer=me')?.menuId).toBe('fo-task-requests');
     expect(targetOf('/tasks?view=milestones&param=m-1')).toEqual({ menuId: 'fo-milestones', page: { focus: 'm-1' } });
-    expect(targetOf('/findings')).toBeNull();
-    expect(targetOf('/findings')).toBeNull();
+    expect(targetOf('/findings')).toEqual({ menuId: 'fo-findings', page: {} });
   });
 });

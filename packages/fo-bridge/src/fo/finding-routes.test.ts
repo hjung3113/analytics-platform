@@ -55,8 +55,10 @@ describe('Findings table', () => {
     expect(findingsRoute.toFoSearch({ focus: FINDING, returnTo: '/x', platformReturn: 'y' })).toEqual({ selected: FINDING });
   });
 
-  it('is not in operatorHostLinks yet', () => {
-    expect(operatorHostLinks.targetOf('/findings')).toBeNull();
-    expect(operatorHostLinks.targetOf(`/findings/${FINDING}`)).toBeNull();
+  it('is wired into operatorHostLinks: the bare list, ?selected= and /findings/<id> link; returnTo stays unlinked', () => {
+    expect(operatorHostLinks.targetOf('/findings')).toEqual({ menuId: 'fo-findings', page: {} });
+    expect(operatorHostLinks.targetOf(`/findings?selected=${FINDING}`)).toEqual({ menuId: 'fo-findings', page: { focus: FINDING } });
+    expect(operatorHostLinks.targetOf(`/findings/${FINDING}`)).toEqual({ menuId: 'fo-findings', page: { focus: FINDING } });
+    expect(operatorHostLinks.targetOf('/findings?returnTo=/vocs')).toBeNull();
   });
 });

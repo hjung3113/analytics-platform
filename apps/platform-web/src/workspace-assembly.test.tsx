@@ -82,6 +82,7 @@ describe('workspace assembly (#260)', () => {
       ['impReports', 'improvement'],
       ['foDashboard', 'feedbackops'],
       ['foVoc', 'feedbackops'],
+      ['foFindings', 'feedbackops'],
       ['foTasks', 'feedbackops'],
     ]);
     expect(SPACES.map(space => space.id)).toEqual(['analytics', 'metrics', 'clas', 'tools', 'log-dev', 'improvement', 'operations', 'feedbackops']);
@@ -130,6 +131,11 @@ describe('workspace assembly (#260)', () => {
     expect(registry.menuById('fo-clusters')).toMatchObject({ path: '/feedbackops/clusters', permission: 'feedbackops:access', requiresScope: false });
     for (const id of ['fo-inbox', 'fo-triage', 'fo-clusters']) expect(registry.menuById(id).pageKeys).toEqual(expect.arrayContaining(['managedSystem', 'focus', 'returnTo']));
     expect(registry.spaceOf(registry.menuById('fo-inbox'))?.id).toBe('feedbackops');
+    // #762 p1: the Findings group sits between VOC and Tasks; its one menu declares managedSystem, returnTo and focus.
+    expect(registry.menus.filter(menu => menu.group === 'foFindings').map(menu => menu.id)).toEqual(['fo-findings']);
+    expect(registry.menuById('fo-findings')).toMatchObject({ path: '/feedbackops/findings', primary: true, permission: 'feedbackops:access', requiresScope: false });
+    expect(registry.menuById('fo-findings').pageKeys).toEqual(expect.arrayContaining(['managedSystem', 'focus', 'returnTo']));
+    expect(registry.spaceOf(registry.menuById('fo-findings'))?.id).toBe('feedbackops');
     // #763: the Tasks group follows VOC (p2 adds Task Requests and Milestones); the Task list is hidden under Tasks (which the shell marks current for it), and every menu declares managedSystem, returnTo and focus.
     expect(registry.menus.filter(menu => menu.group === 'foTasks').map(menu => menu.id)).toEqual(['fo-task-requests', 'fo-tasks', 'fo-my-tasks', 'fo-milestones', 'fo-task-list']);
     expect(registry.menuById('fo-tasks')).toMatchObject({ path: '/feedbackops/tasks', primary: true, permission: 'feedbackops:access', requiresScope: false });
