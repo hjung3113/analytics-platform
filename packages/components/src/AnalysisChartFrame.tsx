@@ -41,6 +41,8 @@ const FILL_MIN_FLOOR = 160;
 const stopPlainWheel = (event: WheelEvent) => { if (!event.shiftKey) event.stopPropagation(); };
 /** The width assumed before the chart instance exists. */
 const NOTE_FALLBACK_WIDTH = 640;
+const TICK_ROOM_STEP = 64;
+const TICK_ROOM_CAP = 1024;
 const fmt = (v: string) => v.replace('T', ' ').slice(0, 16);
 const HOUR_MS = 3_600_000;
 
@@ -407,14 +409,16 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const markLines = useMemo(() => (mismatchedLines.length ? p.markLines?.filter(m => !mismatchedLines.includes(m)) : p.markLines), [p.markLines, mismatchedLines]);
   // The plot width only feeds note labels and start-aligned lanes; any other chart keeps its option (and skips a full setOption) on resize (#822).
   const optionWidth = noteSpans.length > 0 || (horizontal && startAlign && !!stacked) ? chartWidth : NOTE_FALLBACK_WIDTH;
+  // A horizontal value axis budgets its ticks from the measured width, in 64px steps capped where five ticks always fit, so a resize inside one step keeps the option.
+  const tickRoom = horizontal && !startAlign ? Math.min(TICK_ROOM_CAP, Math.floor(chartWidth / TICK_ROOM_STEP) * TICK_ROOM_STEP) : undefined;
   const option = useMemo<EChartsCoreOption>(() => {
     // A new chart instance replays the option: the lazy chunk and theme CSS may have settled since the tokens were last resolved.
     void instanceReady;
     return buildChartOption({
-      displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations, noteSpans, noteLevels, timeExtent, chartWidth: optionWidth, markLines, unit, lang, stacked, valueFormat, rowPitch, activeCategory, startAlign, extremes, valueLabels, totals, totalText,
+      displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations, noteSpans, noteLevels, timeExtent, chartWidth: optionWidth, tickRoom, markLines, unit, lang, stacked, valueFormat, rowPitch, activeCategory, startAlign, extremes, valueLabels, totals, totalText,
       palette: resolveChartPalette(displayed),
     });
-  }, [displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations, noteSpans, noteLevels, timeExtent, optionWidth, markLines, unit, lang, stacked, valueFormat, rowPitch, activeCategory, startAlign, extremes, valueLabels, totals, totalText, instanceReady]);
+  }, [displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations, noteSpans, noteLevels, timeExtent, optionWidth, tickRoom, markLines, unit, lang, stacked, valueFormat, rowPitch, activeCategory, startAlign, extremes, valueLabels, totals, totalText, instanceReady]);
 
   // Re-arm the brush cursor after each option replacement, and once the instance becomes ready.
   useEffect(() => {

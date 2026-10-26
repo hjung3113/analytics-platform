@@ -34,15 +34,16 @@ export function useContextEditorFocusRecovery() {
 }
 
 type Control = { key: ContextKey; applied: boolean; node: ReactNode; compactNode?: ReactNode };
-type Measurements = { width: number; controls: number[]; period: number; actions: number; icons: number; label: number; overflow: number[] };
+type Measurements = { width: number; controls: number[]; period: number; actions: number; icons: number; overflow: number[] };
 
 export function ContextBarLayout({ controls, revision, actions, barName }: {
   controls: Control[]; revision: string; actions: (compact: boolean) => ReactNode;
-  /** The analysis board names the bar after the pane it edits: visible text and the region's accessible name (docs/16 §4). */
+  /** The analysis board names the bar after the pane it edits: the region's accessible name (docs/16 §4). `visible` is not drawn. */
   barName?: { visible: string; region: string };
 }) {
   const { t, lang } = useI18n();
-  const barLabel = barName?.visible ?? t('globalContext');
+  // The bar draws no visible label (#914, 06 §7); the region name is its accessible name.
+  const barLabel = barName?.region ?? t('globalContext');
   const host = useRef<HTMLDivElement>(null);
   const probe = useRef<HTMLDivElement>(null);
   const [drafts, setDrafts] = useState<Drafts>({});
@@ -68,7 +69,7 @@ export function ContextBarLayout({ controls, revision, actions, barName }: {
       // Both boxes may change independently (docked slot, font swap, late glyph subsets).
       const intrinsic = {
         controls: Array.from(layer.querySelectorAll<HTMLElement>('[data-measure-key]'), node => node.getBoundingClientRect().width),
-        period: size('period'), actions: size('actions'), icons: size('icons'), label: size('label'),
+        period: size('period'), actions: size('actions'), icons: size('icons'),
         overflow: Array.from(layer.querySelectorAll<HTMLElement>('[data-measure-overflow]'), node => node.getBoundingClientRect().width),
       };
       const style = getComputedStyle(element);
@@ -95,12 +96,11 @@ export function ContextBarLayout({ controls, revision, actions, barName }: {
 
   const gap = 8;
   const fullWidth = measurement ? measurement.controls.reduce((sum, width) => sum + width, 0)
-    + measurement.actions + measurement.label + gap * (controls.length + 1) : Infinity;
-  const labelVisible = !!measurement && fullWidth <= measurement.width;
-  const compact = !measurement || fullWidth - measurement.label - gap > measurement.width;
+    + measurement.actions + gap * controls.length : Infinity;
+  const compact = !measurement || fullWidth > measurement.width;
   let inlineCount = others.length;
   if (compact && measurement) {
-    // Hide the label first, then presets, then trailing keys; reserve the actual overflow label.
+    // Presets first, then trailing keys; reserve the actual overflow label.
     const widths = measurement.controls.slice(period ? 1 : 0);
     for (; inlineCount >= 0; inlineCount--) {
       const hiddenCount = others.length - inlineCount;
@@ -143,11 +143,10 @@ export function ContextBarLayout({ controls, revision, actions, barName }: {
       {compactPeriod ? control.compactNode ?? control.node : control.node}
     </div>
   </EditorState.Provider>;
-  return <div ref={host} tabIndex={-1} role="region" aria-label={barName?.region ?? barLabel} className="relative h-12 min-w-0 border-b border-border-subtle bg-surface-canvas/95 px-3 backdrop-blur">
+  return <div ref={host} tabIndex={-1} role="region" aria-label={barLabel} className="relative h-12 min-w-0 border-b border-border-subtle bg-surface-canvas/95 px-3 backdrop-blur">
     <div inert aria-hidden className="pointer-events-none invisible absolute inset-0 overflow-hidden">
     <div ref={probe} data-context-measuring className="flex w-max items-center gap-2 whitespace-nowrap">
       <MeasuringContext.Provider value>
-        <span data-measure="label" className="text-tiny font-semibold uppercase tracking-wide text-text-muted">{barLabel}</span>
         {controls.map(control => <div key={control.key} data-measure-key={control.key}>{control.node}</div>)}
         {period && <div data-measure="period">{period.compactNode ?? period.node}</div>}
         <div data-measure="actions">{actions(false)}</div><div data-measure="icons">{actions(true)}</div>
@@ -158,7 +157,6 @@ export function ContextBarLayout({ controls, revision, actions, barName }: {
       </MeasuringContext.Provider>
     </div></div>
     <div className="flex h-full min-w-0 items-center gap-2 whitespace-nowrap">
-      {labelVisible && <span className="shrink-0 text-tiny font-semibold uppercase tracking-wide text-text-muted">{barLabel}</span>}
       {period && item(period, compact)}
       {others.slice(0, inlineCount).map(control => item(control))}
       {hidden.length > 0 && <Popover open={overflowOpen || activeHidden} onOpenChange={setOverflowOpen}><PopoverTrigger asChild>

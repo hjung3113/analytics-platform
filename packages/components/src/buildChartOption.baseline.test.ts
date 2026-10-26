@@ -20,3 +20,22 @@ describe('main-derived option (#580d, F9)', () => {
     expect(JSON.parse(JSON.stringify(buildChartOption(baselineInput({ totals: new Map([['R1', { value: 9, partial: false, missing: [] }]]), totalText: new Map([['R1', '9']]) }))))).toEqual(main);
   });
 });
+
+describe('horizontal value-axis ticks on a narrow plot (#914 B3)', () => {
+  const xAxis = (chartWidth: number) => (buildChartOption(baselineInput({ chartWidth })) as unknown as { xAxis: { splitNumber?: number; axisLabel?: { hideOverlap?: boolean } } }).xAxis;
+  it('thins the ticks and hides touching labels at drawer width', () => {
+    const axis = xAxis(300);
+    expect(axis.splitNumber).toBeLessThan(5);
+    expect(axis.axisLabel?.hideOverlap).toBe(true);
+  });
+  it('leaves the default tick count on a wide plot', () => {
+    expect(xAxis(600).splitNumber).toBeUndefined();
+  });
+  // C2: without rowPitch the grid is containLabel, so long category names narrow the numeric grid too.
+  it('budgets the category-label room when there is no row pitch', () => {
+    const long = ['가나다라마바사아자차카타파하 긴 범주 이름', 'R2', 'R3', 'R4'];
+    const axis = (categories: string[]) => (buildChartOption(baselineInput({ rowPitch: undefined, chartWidth: 450, extremes: undefined, markLines: undefined, categories })) as unknown as { xAxis: { splitNumber?: number } }).xAxis;
+    expect(axis(['R1', 'R2', 'R3', 'R4']).splitNumber).toBeUndefined();
+    expect(axis(long).splitNumber).toBeLessThan(5);
+  });
+});
