@@ -32,6 +32,8 @@ export type Recent = { menuId: string; url: string; at: number };
 export type ToastAction = { label: string; onAction: () => void };
 export type Toast = { id: number; text: string; tone: 'info' | 'warning' | 'danger'; detail?: string; action?: ToastAction };
 export type ToastOptions = { action?: ToastAction; durationMs?: number };
+/** The undo window: an action toast without `durationMs` stays until dismissed (06 Toast), so an undo passes this essential time limit (#946 Q8). */
+export const UNDO_WINDOW_MS = 8000;
 /**
  * FeedbackOps entry the shell draws for one space (ADR-0028, ADR-0072 decision 5). The app supplies the icon; `key` is only a React key,
  * the shell never branches on it. Two shapes, told apart by `menuId` vs `href`:

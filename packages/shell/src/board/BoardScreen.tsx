@@ -3,7 +3,7 @@ import { useEquipmentAxes } from '@ap/kernel';
 import { PaneQueryDraftProvider } from '@ap/kernel/host';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties } from 'react';
 import { HardDrive } from 'lucide-react';
-import { useI18n, type MenuEntry } from '@ap/kernel';
+import { UNDO_WINDOW_MS, useI18n, type MenuEntry } from '@ap/kernel';
 import { BOARD_PATH, paneHref, useHostPlatform, type PaneScreen } from '@ap/kernel/host';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, cn, Popover, PopoverContent, PopoverTrigger, ToggleGroup, ToggleGroupItem } from '@ap/ui';
 import { BoardContextBar } from './BoardContextBar';
@@ -29,7 +29,6 @@ const paneIdOf = (sheetId: string, slotId: string) => `${sheetId}.${slotId}`;
 const sheetHref = (id: string) => `${BOARD_PATH}?sheet=${encodeURIComponent(id)}`;
 
 /** The undo window: an essential time limit, so the notice names it explicitly (the shell stack keeps an action notice without one). */
-const UNDO_WINDOW_MS = 8000;
 
 /**
  * The analysis board (docs/16): a platform screen at `/board?sheet=<id>`, not a Registry menu. State lives in browser storage per user;

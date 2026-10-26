@@ -218,7 +218,7 @@ test.describe('/tasks?view=milestones visual harness', () => {
     const searchBox = requireBox(await search.boundingBox());
     // The list column the toolbar lives in (rail 52 + sidebar 240 = x 292 …
     // detail 440 → right edge 1000 at 1440).
-    const toolbar = page.locator('[data-toolbar-height="50"]').first();
+    const toolbar = page.locator('[data-list-toolbar]').first();
     const toolbarBox = requireBox(await toolbar.boundingBox());
 
     for (const label of ['전체', '진행 중', '계획 중', '릴리스됨']) {

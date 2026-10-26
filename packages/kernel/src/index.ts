@@ -11,7 +11,7 @@ export {
 } from './registry';
 export { mountModule, type MountOptions } from './module';
 
-export { useEquipmentAxes } from './platform';
+export { useEquipmentAxes, UNDO_WINDOW_MS } from './platform';
 export { labelledCondition } from './equipmentAxes';
 
 export { useConditionPreset, useQueryContext, type ConditionPresetView } from './condition-preset';
