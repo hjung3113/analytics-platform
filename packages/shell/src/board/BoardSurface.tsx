@@ -92,7 +92,10 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
   // Undo closures write through `update`, so they must not outlive the user or the screen they were raised on.
   const raised = useRef(new Set<number>());
   const notifyRef = useRef<(message: string) => void>(() => {});
-  useEffect(() => () => { for (const id of raised.current) dismissToast(id); raised.current.clear(); }, [user.id, dismissToast]);
+  const storageSaid = useRef<string | null>(null);
+  const gridSaid = useRef<string | null>(null);
+  // The once-markers reset with the toasts they stand for: a re-mount (StrictMode's probe included) says its notices again.
+  useEffect(() => () => { for (const id of raised.current) dismissToast(id); raised.current.clear(); storageSaid.current = null; gridSaid.current = null; }, [user.id, dismissToast]);
   // Minimizing does not unmount, so its notices end here: an undo offered on a covered board would write to it unseen (docs/16 §4).
   useEffect(() => {
     if (visible) return;
@@ -116,7 +119,6 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
 
   // A stored value this build did not use (newer version, unreadable) is said once per user, in the toast every other board message uses.
   // Keyed by user and condition, not by the translated copy: a language switch must not raise it again (#886).
-  const storageSaid = useRef<string | null>(null);
   useEffect(() => {
     const key = storageNotice === null ? null : `${user.id}:${storageNotice}`;
     // A covered board says nothing yet; it is said, once, when it is shown.
@@ -126,7 +128,6 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
   }, [storageNotice, user.id, text, visible]);
 
   // Said once per user, in the board's toast; a covered board says it when shown.
-  const gridSaid = useRef<string | null>(null);
   useEffect(() => {
     if (engine !== 'grid' || !gridBlocked || !visible || gridSaid.current === user.id) return;
     gridSaid.current = user.id;

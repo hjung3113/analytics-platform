@@ -2,6 +2,7 @@ import { AppShell } from '../AppShell';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { House } from 'lucide-react';
+import { StrictMode } from 'react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { defineEndpoint, type PlatformAdapter, type Session, groupId, spaceId } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, useMenuQuery } from '@ap/kernel';
@@ -90,11 +91,12 @@ const menuQuery = vi.fn(async () => {
   queries += 1;
   return { outcome: 'ok' as const, data: { text: `ROW-${queries}` }, assessments: [{ kind: 'collection' as const, state: 'clear' as const }], trust: null, correlationId: `c${queries}` };
 });
-function mount(url = '/board', permissions: Session['user']['permissions'] = ['platform:view', 'console:access'], adapterOver: Partial<PlatformAdapter> = {}) {
+function mount(url = '/board', permissions: Session['user']['permissions'] = ['platform:view', 'console:access'], adapterOver: Partial<PlatformAdapter> = {}, strict = false) {
   window.history.replaceState(null, '', url);
   session = testSession(permissions);
   const adapter = testAdapter({ session: () => session, subscribe: l => { listeners.add(l); return () => { listeners.delete(l); }; }, menuQuery: menuQuery as unknown as PlatformAdapter['menuQuery'], ...adapterOver });
-  return render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><AppShell><RouteOutlet /></AppShell></PlatformProvider></I18nProvider>);
+  const tree = <I18nProvider><PlatformProvider adapter={adapter} registry={registry}><AppShell><RouteOutlet /></AppShell></PlatformProvider></I18nProvider>;
+  return render(strict ? <StrictMode>{tree}</StrictMode> : tree);
 }
 const settle = () => act(() => new Promise(resolve => setTimeout(resolve, 30)));
 const openMenu = (trigger: HTMLElement) => { act(() => { trigger.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0 })); }); };
@@ -1222,6 +1224,11 @@ describe('dock renderer: tab total and display groups are separate caps (893e, A
     openMenu(paneMenu(1));
     for (const name of ['오른쪽으로 나누기', '아래로 나누기']) expect(await screen.findByRole('menuitem', { name })).toHaveAttribute('aria-disabled', 'true');
     expect(screen.getByRole('note')).toHaveTextContent('표시 영역은 4개까지입니다');
+    for (const name of ['오른쪽으로 나누기', '아래로 나누기']) {
+      const reason = screen.getByRole('menuitem', { name }).getAttribute('aria-describedby');
+      expect(reason).toBeTruthy();
+      expect(document.getElementById(reason!)).toBe(screen.getByRole('note'));
+    }
     expect(screen.getByRole('note')).not.toHaveTextContent('분석 화면');
     expect(groupsOf(tree())).toHaveLength(4);
   });
@@ -1251,6 +1258,15 @@ describe('dock renderer: tab total and display groups are separate caps (893e, A
     await userEvent.click(tabOf('칸 2 · 베타'));
     await settle();
     expect(toastText().split('격자 보기는 4칸까지').length - 1).toBe(1);
+  });
+
+  it.each([false, true])('E6: the grid-to-dock notice is raised once and stays visible (StrictMode: %s)', async strict => {
+    localStorage.setItem(BOARD_LAYOUT_ENGINE_KEY, 'grid');
+    seedV2(bigBoard(5));
+    mount('/board?sheet=a', undefined, undefined, strict);
+    await ready();
+    await waitFor(() => { expect(toastText()).toContain('격자 보기는 4칸까지라 이 보드는 도킹 보기로 엽니다.'); });
+    expect(toastText().split('격자 보기는 4칸까지라 이 보드는 도킹 보기로 엽니다.').length - 1).toBe(1);
   });
 
   it('E6: shrinking the sheet to four panes (close, undo) keeps the dock drawn for this visit, so the surviving panes are not remounted', async () => {

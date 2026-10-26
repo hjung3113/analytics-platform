@@ -1,5 +1,5 @@
 import { Plus, X } from 'lucide-react';
-import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useRef, useState, type RefObject } from 'react';
+import { useCallback, useEffect, useEffectEvent, useId, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { DockLayout, dockLayoutMenu, movePanel, type DockPanel } from '@ap/components/dock';
 import { useI18n } from '@ap/kernel';
 import { useHostPlatform, type PaneScreen } from '@ap/kernel/host';
@@ -153,6 +153,7 @@ export function BoardDock({ sheet, update, paneProps, onSelect, onClear, onClose
   });
 
   const groupsFull = groupsOf(tree).length >= MAX_GROUPS;
+  const groupLimitId = useId();
   /** The layout group of a pane's `칸 N 동작` menu: maximize or restore, split a tab group, move into another. A move puts focus back on the pane's tab. */
   const layoutMenu = (paneId: string) => (afterMenuClose: RefObject<(() => void) | null>) => {
     const n = numberOf(paneId);
@@ -167,9 +168,9 @@ export function BoardDock({ sheet, update, paneProps, onSelect, onClear, onClose
       {menu.split !== null && <>
         <DropdownMenuSeparator />
         {/* A split makes a new display group; at `MAX_GROUPS` it is offered off, with the reason (the sheet's tab total is another limit). */}
-        <DropdownMenuItem disabled={groupsFull} onSelect={() => { move(dock => movePanel(dock, paneId, { panelId: menu.split!, position: 'right' })); }}>{text.splitRight}</DropdownMenuItem>
-        <DropdownMenuItem disabled={groupsFull} onSelect={() => { move(dock => movePanel(dock, paneId, { panelId: menu.split!, position: 'bottom' })); }}>{text.splitDown}</DropdownMenuItem>
-        {groupsFull && <div role="note" className="px-2 py-1 text-tiny text-text-muted">{text.groupLimit}</div>}
+        <DropdownMenuItem disabled={groupsFull} aria-describedby={groupsFull ? groupLimitId : undefined} onSelect={() => { move(dock => movePanel(dock, paneId, { panelId: menu.split!, position: 'right' })); }}>{text.splitRight}</DropdownMenuItem>
+        <DropdownMenuItem disabled={groupsFull} aria-describedby={groupsFull ? groupLimitId : undefined} onSelect={() => { move(dock => movePanel(dock, paneId, { panelId: menu.split!, position: 'bottom' })); }}>{text.splitDown}</DropdownMenuItem>
+        {groupsFull && <div id={groupLimitId} role="note" className="px-2 py-1 text-tiny text-text-muted">{text.groupLimit}</div>}
       </>}
       {menu.moves.length > 0 && <DropdownMenuSeparator />}
       {menu.moves.map(other => <DropdownMenuItem key={other.group.panels[0]} onSelect={() => { move(dock => movePanel(dock, paneId, { panelId: other.target, position: 'center' })); }}>{text.moveToGroup(other.order)}</DropdownMenuItem>)}
