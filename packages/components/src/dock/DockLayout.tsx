@@ -1,8 +1,9 @@
-import { Component, Suspense, lazy, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { Component, Suspense, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { RotateCw, ServerCrash } from 'lucide-react';
 import { useI18n } from '@ap/kernel';
 import { Button, Skeleton } from '@ap/ui';
 import { StateMessage } from '../StateView';
+import { lazyChunk } from '../lazyChunk';
 import { panelOrder } from './commands';
 import { stackedTree, visiblePanelIds } from './displayModel';
 import { DEFAULT_MIN_PANEL_SIZE, type DockLayoutProps, type DockRows } from './dockTypes';
@@ -114,6 +115,10 @@ function leave(root: HTMLElement, backward: boolean): boolean {
   return true;
 }
 
+// One engine chunk component for every layout (#915): once Dockview has loaded, a newly mounted layout (a board revisit, a workspace on the
+// next page) draws in its first commit instead of suspending again and waiting out React's fallback throttle.
+const engineChunk = lazyChunk(() => import('./DockEngine'));
+
 /**
  * Controlled dock layout (ADR-0067): the caller owns a `DockNode` tree, the engine renders it and reports what the user did to it.
  * Host-only entry `@ap/components/dock`; the engine is a lazy chunk and never appears in this API.
@@ -139,10 +144,8 @@ export function DockLayoutBase(props: DockLayoutProps & { rows?: DockRows; revea
   const container = useRef<HTMLDivElement>(null);
   const [attempt, setAttempt] = useState(0);
   const [failed, setFailed] = useState(false);
-  // A new lazy component per attempt re-runs the rejected chunk import on retry.
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- `attempt` is the deliberate re-run trigger: it is not read, a retry only needs a new lazy component
-  const DockEngine = useMemo(() => lazy(() => import('./DockEngine')), [attempt]);
-  const retry = useCallback(() => { setFailed(false); setAttempt(value => value + 1); }, []);
+  const [DockEngine, setDockEngine] = useState(engineChunk.current);
+  const retry = useCallback(() => { setDockEngine(engineChunk.retry); setFailed(false); setAttempt(value => value + 1); }, []);
 
   const minWidth = props.minPanelSize?.width ?? DEFAULT_MIN_PANEL_SIZE.width;
   const minHeight = props.minPanelSize?.height ?? DEFAULT_MIN_PANEL_SIZE.height;

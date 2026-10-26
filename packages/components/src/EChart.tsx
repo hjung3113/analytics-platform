@@ -1,10 +1,11 @@
-import { Component, Suspense, lazy, useCallback, useState, type ReactNode } from 'react';
+import { Component, Suspense, useCallback, useState, type ReactNode } from 'react';
 import { RotateCw, ServerCrash } from 'lucide-react';
 import type { EChartsCoreOption, ECharts } from 'echarts/core';
 import { useI18n } from '@ap/kernel';
 import { Button, Skeleton, cn } from '@ap/ui';
 import { readColorToken, type ThemeColorToken } from '@ap/ui/theme';
 import { StateMessage } from './StateView';
+import { lazyChunk } from './lazyChunk';
 
 /** Palette contract consumed by charts (DESIGN.md platform chart/category extensions). Read from CSS variables so tokens stay single-sourced. */
 export function token(name: ThemeColorToken): string {
@@ -87,20 +88,17 @@ class ChunkLoadBoundary extends Component<{ onError: (error: unknown) => void; c
   render() { return this.state.failed ? null : this.props.children; }
 }
 
-// One lazy component for every chart (#915): once the chunk has loaded, a newly mounted chart (a drill step that swaps the panel, a new
+// One chunk component for every chart (#915): once the chunk has loaded, a newly mounted chart (a drill step that swaps the panel, a new
 // pane) draws in its first commit. A lazy made per mount re-suspended each time and waited out React's fallback throttle (~400 ms a step).
-// A retry after a failed load replaces it, so the rejected import runs again; charts mounted afterwards share the new one.
-const loadImpl = () => import('./EChartImpl');
-let sharedImpl = lazy(loadImpl);
+const chartChunk = lazyChunk(() => import('./EChartImpl'));
 
 export function EChart({ option, height = 280, onEvents, onReady, onResize, ariaLabel, className }: EChartProps) {
   const { t } = useI18n();
   const [attempt, setAttempt] = useState(0);
   const [failed, setFailed] = useState(false);
-  const [EChartImpl, setEChartImpl] = useState(() => sharedImpl);
+  const [EChartImpl, setEChartImpl] = useState(chartChunk.current);
   const retry = useCallback(() => {
-    sharedImpl = lazy(loadImpl);
-    setEChartImpl(() => sharedImpl);
+    setEChartImpl(chartChunk.retry);
     setFailed(false);
     setAttempt(a => a + 1);
   }, []);
