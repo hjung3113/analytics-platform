@@ -79,7 +79,9 @@ invalidValueSentence | function | function invalidValueSentence(lang: @ap/kernel
 isBoardPath | const | const isBoardPath: (pathname: string) => boolean
 labelledCondition | function | function labelledCondition(condition: @ap/contracts#Condition, axes: readonly @ap/contracts#EquipmentAxisDescriptor[], lang: 'en' | 'ko'): string
 mountModule | function | function mountModule(manifest: @ap/contracts#ModuleManifest, screens: Readonly<Record<string, ComponentType<@ap/contracts#ModuleScreenProps>>>, { prefix, groupSpace, config, icons, features }: @ap/kernel#MountOptions): { groups: @ap/kernel#ModuleGroupDef[]; menus: @ap/kernel#ModuleMenuEntry[]; }
+objectParticle | function | function objectParticle(name: string): '를' | '을'
 pathFor | function | function pathFor(menu: @ap/kernel#MenuEntry, params?: Record<string, string>): string
+queryMissingSentence | function | function queryMissingSentence(lang: @ap/kernel#Lang, label: @ap/contracts#Text): string
 routeParamNames | function | function routeParamNames(path: string): string[]
 topicParticle | function | function topicParticle(name: string): '는' | '은'
 useAxisOptions | function | function useAxisOptions(params: @ap/kernel#AxisOptionsParams): @ap/kernel#PortPageResult<@ap/contracts#AxisOption>
