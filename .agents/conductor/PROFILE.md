@@ -24,7 +24,7 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
   - 전역 `impl-rules.md`·`review-rules.md`에 [`addenda/`](addenda/)를 붙여 worktree `.review/00-IMPL-RULES.md`·`00-REVIEW-RULES.md`로 쓰고, `.review/W-<n>-TASK.md` 맨 앞 줄은 그 구현 규칙 포인터다.
   - 공유 실행기를 부른다.
 - 필요한 환경 변수: `WAVE_STATE`·`WAVE_BRIEFS`·`AP_MAIN`. 역할은 `WORKER_ROLE`, 덮어쓰기는 `WORKER_MODEL`·`WORKER_EFFORT`로 준다.
-- 16GB 머신이라 동시에 1–2개만, 파일이 겹치지 않는 이슈만 병렬로 돌린다(메모리 기록은 `docs/agents/operations.md`). 흐름 세션이 여럿이면 이 수는 기계 전체 한도이고, 무거운 단계는 [`LANES.md`](LANES.md) §기계 자원의 잠금을 따른다.
+- 16GB 머신이라 동시 작업자 수는 `scripts/capacity.sh`가 정한다(1–3개, 첫 값은 yellow=2개). 파일이 겹치지 않는 이슈만 병렬로 돌린다(메모리 기록은 `docs/agents/operations.md`). 이 수는 기계 전체 한도이고, 자리·무거운 단계는 [`LANES.md`](LANES.md) §기계 자원의 잠금을 따른다.
 - **FeedbackOps 이슈는 모드 `fo`로 띄운다:** `python3 $ENGINE/launch-worker.py <n> <slug> fo`.
   - FeedbackOps(`products/feedbackops/`)는 루트 workspace의 일부이고 Node 26.7·pnpm 11을 루트와 같이 쓴다. 설치는 런처의 루트 설치가 끝낸다(#642).
   - 모드 훅 `scripts/fo-prepare.sh`는 설치하지 않고, `.env`를 채운 뒤 FeedbackOps `verify-db.sh create <n>`으로 이슈 DB(5439)를 만든다.
