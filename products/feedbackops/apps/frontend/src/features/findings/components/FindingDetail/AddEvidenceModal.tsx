@@ -1,5 +1,7 @@
-import { ApiError, errorMapper, useIdempotencyKey } from '@/lib/api';
+import { errorMapper } from '@/lib/api/errorMapper';
 import { mintIdempotencyKey } from '@/lib/api/idempotency';
+import { ApiError } from '@/lib/api/types';
+import { useIdempotencyKey } from '@/lib/api/useIdempotencyKey';
 import {
   EVIDENCE_IMPORTANCE_LABELS,
   EVIDENCE_SENTIMENT_LABELS,
@@ -9,6 +11,7 @@ import { GLOSSARY } from '@/lib/copy/glossary';
 import { SURVEY_EVIDENCE_PICKER_COPY as SURVEY_COPY } from '@/lib/copy/survey-evidence-picker';
 import { VOC_SOURCE_PICKER_COPY } from '@/lib/copy/voc';
 import { koreanZodErrorMap, zodIssueMessage } from '@/lib/forms/zodIssueMessage';
+import { useHostSeam } from '@/lib/host/host-seam';
 import {
   type AddEvidenceHighlightRequest,
   type EvidenceHighlightImportance,
@@ -36,7 +39,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import type * as React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { toast } from 'sonner';
 import {
   useAddEvidenceHighlightMutation,
   useAttachSurveyEvidenceMutation,
@@ -86,6 +88,7 @@ export function AddEvidenceModal({
   open,
   onClose,
 }: AddEvidenceModalProps): React.ReactElement {
+  const { notifyError, notifySuccess } = useHostSeam();
   const { key: idempotencyKey, markConsumed } = useIdempotencyKey();
   const queryClient = useQueryClient();
   const surveyMutation = useAttachSurveyEvidenceMutation(findingId);
@@ -122,7 +125,7 @@ export function AddEvidenceModal({
     findingId,
     idempotencyKey,
     onError: (err: ApiError) => {
-      toast.error(errorMapper(err.envelope).message);
+      notifyError(errorMapper(err.envelope).message);
     },
   });
 
@@ -143,7 +146,7 @@ export function AddEvidenceModal({
       onSuccess: () => {
         markConsumed();
         closeAndReset();
-        toast.success('Evidence가 추가되었습니다.');
+        notifySuccess('Evidence가 추가되었습니다.');
       },
     });
   }
@@ -199,7 +202,7 @@ export function AddEvidenceModal({
       await surveyMutation.mutateAsync({ body, idempotencyKey: attempt.current.key });
       if (session.current === currentSession) {
         closeAndReset();
-        toast.success(SURVEY_COPY.success);
+        notifySuccess(SURVEY_COPY.success);
       }
     } catch (error) {
       if (session.current !== currentSession) return;

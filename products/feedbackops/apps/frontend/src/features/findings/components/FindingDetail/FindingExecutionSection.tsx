@@ -1,5 +1,7 @@
 import { fetchEntityLinksBySource } from '@/lib/api/entity-links';
 import { TASK_REQUEST_STATUS_LABELS } from '@/lib/copy/enum-labels';
+import { HostLink, useHostSeam } from '@/lib/host/host-seam';
+import { searchHref } from '@/lib/host/search';
 import type {
   EntityLinkTargetSummary,
   FindingDto,
@@ -9,7 +11,6 @@ import type {
 import { taskRequestStatusSchema } from '@fops/shared';
 import { Button, FieldRow } from '@fops/ui';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from '@tanstack/react-router';
 import * as React from 'react';
 import { FindingRequestTaskDraftHost } from './FindingRequestTaskDraftHost';
 
@@ -134,6 +135,7 @@ export function FindingExecutionRequestRow({
 }: {
   controller: FindingExecutionSectionController;
 }): React.ReactElement {
+  const { canLink } = useHostSeam();
   const {
     requestedTaskRequests,
     requestedTaskRequestsState,
@@ -172,19 +174,30 @@ export function FindingExecutionRequestRow({
           </div>
         ) : requestedTaskRequests.length > 0 ? (
           <div className="flex flex-wrap gap-2">
-            {requestedTaskRequests.map((request) => (
-              <Link
-                key={request.id}
-                to="/tasks"
-                search={{ view: 'requests', param: request.id }}
-                className="inline-flex items-center gap-2 rounded-sm border border-border-subtle bg-surface-card px-2.5 py-1.5 text-sm text-accent-primary hover:bg-surface-row-hover"
-              >
-                <span className="font-mono">{request.display_id}</span>
-                <span className="text-xs text-text-muted">
-                  {TASK_REQUEST_STATUS_LABELS[request.status]}
+            {requestedTaskRequests.map((request) => {
+              const to = searchHref('/tasks', { view: 'requests', param: request.id });
+              const className =
+                'inline-flex items-center gap-2 rounded-sm border border-border-subtle bg-surface-card px-2.5 py-1.5 text-sm text-accent-primary hover:bg-surface-row-hover';
+              const children = (
+                <>
+                  <span key="display-id" className="font-mono">
+                    {request.display_id}
+                  </span>
+                  <span key="status" className="text-xs text-text-muted">
+                    {TASK_REQUEST_STATUS_LABELS[request.status]}
+                  </span>
+                </>
+              );
+              return canLink(to) ? (
+                <HostLink key={request.id} to={to} className={className}>
+                  {children}
+                </HostLink>
+              ) : (
+                <span key={request.id} className={className}>
+                  {children}
                 </span>
-              </Link>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <span className="text-text-muted">—</span>
@@ -220,35 +233,48 @@ export function FindingExecutionRequestActions({
   canManage: boolean;
   linkedTaskId: string | null;
 }): React.ReactElement | null {
+  const { canLink } = useHostSeam();
   const { requestedTaskRequestsState, pendingTaskRequest, setRequestTaskOpen } = controller;
   if (requestedTaskRequestsState !== 'loaded') return null;
+
+  if (linkedTaskId !== null) {
+    const to = searchHref('/tasks', { view: 'backlog', param: linkedTaskId });
+    if (!canLink(to)) return null;
+    return (
+      <fieldset className="m-0 min-w-0 border-0 p-0">
+        <legend className="sr-only">주요 실행</legend>
+        <Button asChild variant="primary" size="sm">
+          <HostLink to={to}>Task 열기</HostLink>
+        </Button>
+      </fieldset>
+    );
+  }
+
+  if (pendingTaskRequest) {
+    const to = searchHref('/tasks', { view: 'requests', param: pendingTaskRequest.id });
+    if (!canLink(to)) return null;
+    return (
+      <fieldset className="m-0 min-w-0 border-0 p-0">
+        <legend className="sr-only">주요 실행</legend>
+        <Button asChild variant="primary" size="sm">
+          <HostLink to={to}>Task Request 보기</HostLink>
+        </Button>
+      </fieldset>
+    );
+  }
 
   return (
     <fieldset className="m-0 min-w-0 border-0 p-0">
       <legend className="sr-only">주요 실행</legend>
-      {linkedTaskId !== null ? (
-        <Button asChild variant="primary" size="sm">
-          <Link to="/tasks" search={{ view: 'backlog', param: linkedTaskId }}>
-            Task 열기
-          </Link>
-        </Button>
-      ) : pendingTaskRequest ? (
-        <Button asChild variant="primary" size="sm">
-          <Link to="/tasks" search={{ view: 'requests', param: pendingTaskRequest.id }}>
-            Task Request 보기
-          </Link>
-        </Button>
-      ) : (
-        <Button
-          variant="primary"
-          size="sm"
-          onClick={() => setRequestTaskOpen(true)}
-          disabled={!canManage}
-          data-testid="request-task-btn"
-        >
-          Task 요청
-        </Button>
-      )}
+      <Button
+        variant="primary"
+        size="sm"
+        onClick={() => setRequestTaskOpen(true)}
+        disabled={!canManage}
+        data-testid="request-task-btn"
+      >
+        Task 요청
+      </Button>
     </fieldset>
   );
 }

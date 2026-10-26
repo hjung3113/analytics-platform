@@ -1,4 +1,5 @@
-import { ApiError, apiRequest } from '@/lib/api';
+import { apiRequest } from '@/lib/api/client';
+import { ApiError } from '@/lib/api/types';
 import { listSurveysResponseSchema, surveyEvidenceCandidatesResponseSchema } from '@fops/shared';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 

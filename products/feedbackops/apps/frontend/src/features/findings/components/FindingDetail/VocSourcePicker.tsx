@@ -1,5 +1,6 @@
-import { ApiError, apiRequest } from '@/lib/api';
+import { apiRequest } from '@/lib/api/client';
 import { fetchNavResolve } from '@/lib/api/nav';
+import { ApiError } from '@/lib/api/types';
 import { PERMISSION_BLOCKED_REASONS } from '@/lib/copy/permission-reasons';
 import { VOC_SOURCE_PICKER_COPY } from '@/lib/copy/voc';
 import { searchDebounceMs } from '@/lib/forms/search-debounce';

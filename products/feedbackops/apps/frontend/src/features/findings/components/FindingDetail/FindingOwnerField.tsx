@@ -1,6 +1,8 @@
-import { ApiError, apiRequest, useIdempotencyKey } from '@/lib/api';
 import { resolveActors } from '@/lib/api/actors';
+import { apiRequest } from '@/lib/api/client';
 import { mapUnknownError } from '@/lib/api/errorMapper';
+import { ApiError } from '@/lib/api/types';
+import { useIdempotencyKey } from '@/lib/api/useIdempotencyKey';
 import { FINDING_RESPONSIBILITY_COPY as COPY } from '@/lib/copy/finding-responsibility';
 import { GLOSSARY } from '@/lib/copy/glossary';
 import { shortId } from '@/lib/identity';

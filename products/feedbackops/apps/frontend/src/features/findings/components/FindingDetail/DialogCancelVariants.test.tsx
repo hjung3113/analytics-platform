@@ -17,6 +17,15 @@ vi.mock('@/lib/api', async (importOriginal) => {
     useIdempotencyKey: () => ({ key: 'idem-key', markConsumed: vi.fn() }),
   };
 });
+vi.mock('@/lib/api/tasks', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/tasks')>()),
+  listTasks,
+  linkTaskToFinding,
+}));
+vi.mock('@/lib/api/useIdempotencyKey', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/useIdempotencyKey')>()),
+  useIdempotencyKey: () => ({ key: 'idem-key', markConsumed: vi.fn() }),
+}));
 vi.mock('../../hooks/useEvidenceMutations', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../hooks/useEvidenceMutations')>()),
   useAddEvidenceHighlightMutation: () => ({ mutate: vi.fn(), isPending: false, reset: vi.fn() }),

@@ -1,3 +1,4 @@
+import { type HostLinkProps, HostSeamProvider } from '@/lib/host/host-seam';
 import {
   type EvidenceHighlightDto,
   type EvidenceHighlightImportance,
@@ -191,5 +192,47 @@ describe('EvidenceHighlightsSection labels', () => {
     expect(screen.queryByTestId('evidence-source-id')).not.toBeInTheDocument();
     expect(screen.queryByText(sourceId.slice(0, 8))).not.toBeInTheDocument();
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
+  });
+
+  it.each([true, false])('uses the host link only when canLink is %s', (canLink) => {
+    const sourceId = '55555555-5555-4555-8555-555555555555';
+    const href = `/vocs?view=inbox&selected=${sourceId}`;
+    const seam = {
+      canLink: vi.fn(() => canLink),
+      Link: ({ to, children, ...rest }: HostLinkProps) => (
+        <a href={to} {...rest}>
+          {children}
+        </a>
+      ),
+      notifyError: vi.fn(),
+      notifySuccess: vi.fn(),
+    };
+    useEvidenceHighlightsMock.mockReturnValue({
+      data: [
+        {
+          ...makeHighlight('voc', null),
+          source_id: sourceId,
+          source_title: 'Export failures',
+          source_meta: 'VOC-1001',
+        },
+      ],
+      isLoading: false,
+      isError: false,
+    });
+    render(
+      <HostSeamProvider value={seam}>
+        <EvidenceHighlightsSection findingId="finding-id" evidenceCount={1} />
+      </HostSeamProvider>,
+    );
+
+    if (canLink) {
+      expect(screen.getByRole('link', { name: 'VOC-1001' }).getAttribute('href')).toBe(href);
+      expect(seam.canLink).toHaveBeenCalledWith(href);
+    } else {
+      const sourceLabel = screen.getByTestId('evidence-source-id');
+      expect(sourceLabel.tagName).toBe('SPAN');
+      expect(sourceLabel).toHaveTextContent('VOC-1001');
+      expect(screen.queryByRole('link')).not.toBeInTheDocument();
+    }
   });
 });

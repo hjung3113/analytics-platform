@@ -1,18 +1,28 @@
+import { ApiError } from '@/lib/api/types';
+import { type HostLinkProps, HostSeamProvider } from '@/lib/host/host-seam';
 import type { VocListItem } from '@fops/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { toast } from 'sonner';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { UseAddEvidenceHighlightArgs } from '../../hooks/useEvidenceMutations';
+
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 const evidenceMutation = vi.hoisted(() => ({
   mutate: vi.fn(),
   reset: vi.fn(),
+  onError: vi.fn(),
   isPending: false,
 }));
 
 vi.mock('../../hooks/useEvidenceMutations', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../hooks/useEvidenceMutations')>()),
-  useAddEvidenceHighlightMutation: () => evidenceMutation,
+  useAddEvidenceHighlightMutation: (args: UseAddEvidenceHighlightArgs) => {
+    evidenceMutation.onError.mockImplementation((error) => args.onError?.(error as ApiError));
+    return evidenceMutation;
+  },
 }));
 
 import { AddEvidenceModal } from './AddEvidenceModal';
@@ -55,6 +65,9 @@ describe('AddEvidenceModal source kind options', () => {
   beforeEach(() => {
     evidenceMutation.mutate.mockClear();
     evidenceMutation.reset.mockClear();
+    evidenceMutation.onError.mockClear();
+    vi.mocked(toast.success).mockClear();
+    vi.mocked(toast.error).mockClear();
     vi.stubGlobal(
       'fetch',
       vi.fn(
@@ -210,5 +223,53 @@ describe('AddEvidenceModal source kind options', () => {
       }),
       expect.any(Object),
     );
+  });
+
+  it.each([
+    { outcome: 'success', expected: 'Evidence가 추가되었습니다.' },
+    { outcome: 'error', expected: '일시적 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.' },
+  ] as const)('notifies the host on $outcome', async ({ outcome, expected }) => {
+    const seam = {
+      canLink: vi.fn(() => true),
+      Link: ({ to, children, ...rest }: HostLinkProps) => (
+        <a href={to} {...rest}>
+          {children}
+        </a>
+      ),
+      notifyError: vi.fn(),
+      notifySuccess: vi.fn(),
+    };
+    evidenceMutation.mutate.mockImplementationOnce((_values, options) => {
+      if (outcome === 'success') options.onSuccess();
+      else {
+        evidenceMutation.onError(
+          new ApiError(500, { code: 'internal.unexpected', message: 'server failed' }),
+        );
+      }
+    });
+    const user = userEvent.setup();
+    render(
+      <HostSeamProvider value={seam}>
+        <QueryClientProvider client={new QueryClient()}>
+          <AddEvidenceModal
+            findingId="10000000-0000-0000-0000-000000000001"
+            managedSystemId="30000000-0000-0000-0000-000000000003"
+            open
+            onClose={vi.fn()}
+          />
+        </QueryClientProvider>
+      </HostSeamProvider>,
+    );
+
+    await user.type(screen.getByTestId('evidence-quote-input'), '수동 관찰 메모');
+    await user.click(screen.getByTestId('add-evidence-submit'));
+
+    if (outcome === 'success') {
+      expect(seam.notifySuccess).toHaveBeenCalledWith(expected);
+    } else {
+      expect(seam.notifyError).toHaveBeenCalledWith(expected);
+    }
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(toast.error).not.toHaveBeenCalled();
   });
 });

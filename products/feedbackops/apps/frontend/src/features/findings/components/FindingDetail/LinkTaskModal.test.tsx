@@ -1,4 +1,6 @@
+import * as api from '@/lib/api';
 import { linkTaskToFinding, listTasks } from '@/lib/api';
+import { type HostLinkProps, HostSeamProvider } from '@/lib/host/host-seam';
 import type { FindingDto, TaskDto } from '@fops/shared';
 // LinkTaskModal.test.tsx — the link-task mutation's success wiring lives inside
 // this modal component (invalidation + close), so it is covered with RTL
@@ -22,6 +24,23 @@ vi.mock('@/lib/api', () => ({
   errorMapper: () => ({ message: 'mapped error' }),
   listTasks: vi.fn(),
   linkTaskToFinding: vi.fn(),
+  useIdempotencyKey: () => ({ key: 'idem-key', markConsumed: vi.fn() }),
+}));
+
+vi.mock('@/lib/api/tasks', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/tasks')>()),
+  listTasks: (...args: Parameters<typeof api.listTasks>) => api.listTasks(...args),
+  linkTaskToFinding: (...args: Parameters<typeof api.linkTaskToFinding>) =>
+    api.linkTaskToFinding(...args),
+}));
+
+vi.mock('@/lib/api/errorMapper', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/errorMapper')>()),
+  errorMapper: () => ({ message: 'mapped error' }),
+}));
+
+vi.mock('@/lib/api/useIdempotencyKey', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/useIdempotencyKey')>()),
   useIdempotencyKey: () => ({ key: 'idem-key', markConsumed: vi.fn() }),
 }));
 
@@ -106,6 +125,54 @@ describe('LinkTaskModal', () => {
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['finding', IDS.finding] });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['tasks'] });
     expect(toast.success).toHaveBeenCalledWith('Task가 Finding에 연결되었습니다.');
+  });
+
+  it.each([
+    { outcome: 'success', expected: 'Task가 Finding에 연결되었습니다.' },
+    { outcome: 'error', expected: 'mapped error' },
+  ] as const)('notifies the host on $outcome', async ({ outcome, expected }) => {
+    const seam = {
+      canLink: vi.fn(() => true),
+      Link: ({ to, children, ...rest }: HostLinkProps) => (
+        <a href={to} {...rest}>
+          {children}
+        </a>
+      ),
+      notifyError: vi.fn(),
+      notifySuccess: vi.fn(),
+    };
+    if (outcome === 'success') {
+      vi.mocked(linkTaskToFinding).mockResolvedValueOnce(FINDING);
+    } else {
+      vi.mocked(linkTaskToFinding).mockRejectedValueOnce(
+        Object.assign(new Error('server failed'), {
+          envelope: { code: 'internal.unexpected', message: 'server failed' },
+        }),
+      );
+    }
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    const user = userEvent.setup();
+    render(
+      <HostSeamProvider value={seam}>
+        <QueryClientProvider client={client}>
+          <LinkTaskModal finding={FINDING} open onClose={vi.fn()} />
+        </QueryClientProvider>
+      </HostSeamProvider>,
+    );
+
+    await user.click(await screen.findByRole('combobox'));
+    await user.click(await screen.findByRole('option', { name: /TASK-901/ }));
+    await user.click(screen.getByTestId('link-task-submit'));
+
+    if (outcome === 'success') {
+      await waitFor(() => expect(seam.notifySuccess).toHaveBeenCalledWith(expected));
+    } else {
+      await waitFor(() => expect(seam.notifyError).toHaveBeenCalledWith(expected));
+    }
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(toast.error).not.toHaveBeenCalled();
   });
 
   it('keeps loading, error, and empty task states exclusive and retries the read', async () => {

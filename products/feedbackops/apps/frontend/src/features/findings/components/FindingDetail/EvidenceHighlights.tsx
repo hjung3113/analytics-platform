@@ -3,9 +3,10 @@ import {
   EVIDENCE_SENTIMENT_LABELS,
   EVIDENCE_SOURCE_TYPE_LABELS,
 } from '@/lib/copy/enum-labels';
+import { HostLink, useHostSeam } from '@/lib/host/host-seam';
+import { searchHref } from '@/lib/host/search';
 import type { EvidenceHighlightDto } from '@fops/shared';
 import { EmptyState, SkeletonBlocks } from '@fops/ui';
-import { Link } from '@tanstack/react-router';
 import type * as React from 'react';
 import { useEvidenceHighlights } from '../../hooks/useEvidenceHighlights';
 import { FitBadge } from './detail-primitives';
@@ -17,8 +18,13 @@ interface EvidenceHighlightRowProps {
 }
 
 function EvidenceHighlightRow({ highlight }: EvidenceHighlightRowProps): React.ReactElement {
+  const { canLink } = useHostSeam();
   // quote_or_summary is OMITTED from the DTO when the source is unreadable (withheld rule).
   const isWithheld = highlight.quote_or_summary === undefined;
+  const sourceHref =
+    highlight.source_type !== 'voc' || highlight.source_id === null
+      ? null
+      : searchHref('/vocs', { view: 'inbox', selected: highlight.source_id });
 
   return (
     <div
@@ -37,16 +43,23 @@ function EvidenceHighlightRow({ highlight }: EvidenceHighlightRowProps): React.R
         )}
         {highlight.source_type === 'voc' &&
           highlight.source_meta &&
-          highlight.source_id !== null && (
-            <Link
-              to="/vocs"
-              search={{ view: 'inbox', selected: highlight.source_id }}
+          sourceHref !== null &&
+          (canLink(sourceHref) ? (
+            <HostLink
+              to={sourceHref}
               className="text-xs font-mono text-accent-primary underline underline-offset-2 hover:text-accent-primary/80"
               data-testid="evidence-source-id"
             >
               {highlight.source_meta}
-            </Link>
-          )}
+            </HostLink>
+          ) : (
+            <span
+              className="text-xs font-mono text-accent-primary underline underline-offset-2 hover:text-accent-primary/80"
+              data-testid="evidence-source-id"
+            >
+              {highlight.source_meta}
+            </span>
+          ))}
         {highlight.source_type !== 'survey_response' &&
           highlight.source_type !== 'voc' &&
           highlight.source_id !== null && (

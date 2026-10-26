@@ -1,6 +1,9 @@
-import { type ApiError, errorMapper, useIdempotencyKey } from '@/lib/api';
+import { errorMapper } from '@/lib/api/errorMapper';
+import type { ApiError } from '@/lib/api/types';
+import { useIdempotencyKey } from '@/lib/api/useIdempotencyKey';
 import { VOC_SOURCE_PICKER_COPY } from '@/lib/copy/voc';
 import { koreanZodErrorMap } from '@/lib/forms/zodIssueMessage';
+import { useHostSeam } from '@/lib/host/host-seam';
 import { type LinkEvidenceRequest, linkEvidenceRequestSchema } from '@fops/shared';
 import {
   Button,
@@ -14,7 +17,6 @@ import {
 import { zodResolver } from '@hookform/resolvers/zod';
 import type * as React from 'react';
 import { useForm } from 'react-hook-form';
-import { toast } from 'sonner';
 import { useLinkEvidenceMutation } from '../../hooks/useEvidenceMutations';
 import { VocSourcePicker } from './VocSourcePicker';
 
@@ -33,6 +35,7 @@ export function LinkEvidenceModal({
   open,
   onClose,
 }: LinkEvidenceModalProps): React.ReactElement {
+  const { notifyError, notifySuccess } = useHostSeam();
   const { key: idempotencyKey, markConsumed } = useIdempotencyKey();
 
   const form = useForm<LinkEvidenceRequest>({
@@ -48,7 +51,7 @@ export function LinkEvidenceModal({
     findingId,
     idempotencyKey,
     onError: (err: ApiError) => {
-      toast.error(errorMapper(err.envelope).message);
+      notifyError(errorMapper(err.envelope).message);
     },
   });
 
@@ -63,7 +66,7 @@ export function LinkEvidenceModal({
       onSuccess: () => {
         markConsumed();
         closeAndReset();
-        toast.success('Evidence가 연결되었습니다.');
+        notifySuccess('Evidence가 연결되었습니다.');
       },
     });
   }
