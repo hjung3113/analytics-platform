@@ -31,9 +31,9 @@ function Routes() {
   return Page ? <Suspense fallback={null}><Page key={route.menu.id} params={route.params} /></Suspense> : null;
 }
 
-export function mountAt(url: string) {
+export function mountAt(url: string, withRegistry: typeof registry = registry) {
   window.history.replaceState(null, '', url);
-  return render(<I18nProvider><PlatformProvider adapter={adapter()} registry={registry}><DetailPanelSlotProvider><Routes /><SlotHost /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
+  return render(<I18nProvider><PlatformProvider adapter={adapter()} registry={withRegistry}><DetailPanelSlotProvider><Routes /><SlotHost /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
 }
 
 /**

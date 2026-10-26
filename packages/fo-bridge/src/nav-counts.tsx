@@ -17,6 +17,7 @@ const SLOT_KEYS: Readonly<Record<string, string>> = {
   'voc.inbox.no-link': 'fo-inbox/no-link',
   'voc.tab.high': 'fo-triage/high',
   'voc.tab.unassigned': 'fo-triage/unassigned',
+  'findings.all': 'fo-findings',
 };
 
 /** An omitted FeedbackOps key stays omitted (no visible queue → no badge); zero stays zero. */

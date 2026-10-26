@@ -14,8 +14,8 @@ FeedbackOps 다리의 런타임(ADR-0071·0081, #759). 소비자 쪽 패키지�
 - `src/fo/uuid.ts` — `UUID_PATTERN`·`isUuid`(루트 export): 다리·메뉴·앱의 UUID 검사는 이 하나다(`VOC_ID`·`SURVEY_ID`·경로 표의 `detailPath.pattern`도 여기서 나온다).
 - `src/fo/RejectedPage.tsx` — 틀린 주소 값의 공용 거절 화면(`값 지우기`, 루트 export). 다리 메뉴(`fo-voc`의 수신함·Triage·Clusters, `fo-dashboard`)가 같은 문구를 쓴다(ADR-0071 결정 9). 값을 검사하는 훅은 FO 진입을 import하므로 각 메뉴에 둔다.
 - `src/pages/HomeTodo.tsx`·`VocCompose.tsx`·`ScopeControl.tsx`·`RecentInbox.tsx` — 슬롯이 lazy로 여는 FeedbackOps 화면. 전체 진입 `@fops/frontend/global-screens`는 여기서만 import한다.
-- `src/fo/voc-routes.ts`·`src/fo/task-routes.ts`·`src/fo/finding-routes.ts`·`src/fo/integration-routes.ts` — FeedbackOps `/vocs`·`/tasks`·`/findings`·`/integration…` 경로 → 플랫폼 메뉴 경로 표(`operatorRoute`). Findings·연동 다섯 표(#762 s)는 `operatorHostLinks`에 아직 없다(762p1·p2). Task 표 일곱(#763 s: Task Request·보드·Milestone·목록·내 Task·목록 별칭 둘)은 모두 `src/fo/operator-links.ts`의 `operatorHostLinks`에 달려 있다(#763 p1·p2). `FoBridge`는 비유한 알림 시간(`Infinity`)을 빼서 Kernel 기본값을 쓴다.
-- `src/fo/operator-links.ts` — `operatorHostLinks`: 다리 메뉴와 대시보드가 쓰는 FeedbackOps 경로 → 플랫폼 메뉴 링크 묶음(VOC·Task 표, 내 VOC, 설문; 나머지는 연결하지 않는다, ADR-0071 결정 10).
+- `src/fo/voc-routes.ts`·`src/fo/task-routes.ts`·`src/fo/finding-routes.ts`·`src/fo/integration-routes.ts` — FeedbackOps `/vocs`·`/tasks`·`/findings`·`/integration…` 경로 → 플랫폼 메뉴 경로 표(`operatorRoute`). Findings 표(#762 s)는 `operatorHostLinks`에 달려 있고(#762 p1), 연동 네 표는 아직 없다(762p2). Task 표 일곱(#763 s: Task Request·보드·Milestone·목록·내 Task·목록 별칭 둘)은 모두 `src/fo/operator-links.ts`의 `operatorHostLinks`에 달려 있다(#763 p1·p2). `FoBridge`는 비유한 알림 시간(`Infinity`)을 빼서 Kernel 기본값을 쓴다.
+- `src/fo/operator-links.ts` — `operatorHostLinks`: 다리 메뉴와 대시보드가 쓰는 FeedbackOps 경로 → 플랫폼 메뉴 링크 묶음(VOC·Findings·Task 표, 내 VOC, 설문; 나머지는 연결하지 않는다, ADR-0071 결정 10).
 - `src/fo/FoDetailDrawer.tsx` — FeedbackOps 상세 `DetailParts`를 셸 상세 슬롯 `DetailDrawer`에 그리는 래퍼(루트 export, `.fo-detail-body` 스타일은 `src/styles.css`). 다리 메뉴(`fo-voc`·`fo-tasks`)가 `FoBridge` 안에서 쓴다.
 - `src/fo-entry-graph.test.ts` — 다리가 닿는 FeedbackOps 진입의 import 그래프와 영구 로드 모듈의 `/core` 한정을 고정한다.
 

@@ -5,6 +5,8 @@ import { memoryStorage } from '@ap/kernel/testing';
 import { setFoApi } from '@ap/fo-bridge/fo-api';
 import { clustersRoute } from '@ap/fo-bridge';
 import { useHostSeam } from '@/lib/host/host-seam';
+import { createRegistry, type MenuEntry } from '@ap/kernel';
+import { NO_FEATURES, contextCapabilities, groupId, spaceId } from '@ap/contracts';
 import { manifests } from '../index';
 import { mountAt, warmPages } from '../test-support';
 
@@ -25,7 +27,7 @@ vi.mock('@fops/frontend/operator-screens/voc-clusters', async importOriginal => 
     const seam = useHostSeam();
     const here = seam.useHere!();
     const go = seam.useNavigate!();
-    return <div data-testid="clusters" data-here={here} data-can-inbox={String(seam.canLink(`/vocs?view=inbox&selected=${VOC}`))} data-can-findings={String(seam.canLink('/findings/x'))}>
+    return <div data-testid="clusters" data-here={here} data-can-inbox={String(seam.canLink(`/vocs?view=inbox&selected=${VOC}`))} data-can-findings={String(seam.canLink('/findings/x'))} data-can-finding-id={String(seam.canLink(`/findings/${FINDING}`))}>
       <button type="button" onClick={() => go(`/voc-clusters?selected=${CLUSTER_Z}`)}>선택</button>
       <button type="button" onClick={() => go(`/voc-clusters?selected=${CLUSTER_A}`, { replace: true })}>첫 행</button>
     </div>;
@@ -42,6 +44,7 @@ const SYSTEM = '33333333-3333-4333-8333-333333333333';
 const CLUSTER_A = 'c1821f1b-0000-4000-8000-00000000000a';
 const CLUSTER_Z = 'c1821f1b-0000-4000-8000-00000000000f';
 const VOC = 'a1821f1b-0000-4000-8000-00000000000a';
+const FINDING = '99999999-9999-4999-8999-999999999999';
 const request = vi.fn();
 
 beforeAll(warmPages, 60_000);
@@ -83,6 +86,27 @@ describe('Clusters through the FeedbackOps bridge', () => {
     expect(Object.fromEntries(here.searchParams)).toEqual({ managedSystem: SYSTEM });
     expect(clusters.getAttribute('data-can-inbox')).toBe('true');
     expect(clusters.getAttribute('data-can-findings')).toBe('false');
+  });
+
+  it('links a Finding by UUID once a fo-findings menu is registered (762-I1): the VOC-only registry stays false, and a non-UUID stays false in both', async () => {
+    // A stand-in for the `fo-findings` manifest of `@ap/menu-fo-findings`, which this package does not depend on.
+    const findings: MenuEntry = {
+      id: 'fo-findings', group: groupId('foVoc'), label: { ko: '전체 Finding', en: 'All Findings' }, description: { ko: '목적', en: 'Purpose' },
+      path: '/feedbackops/findings', icon: manifests[0]!.icon, permission: 'feedbackops:access', requiresScope: false, pageType: 'management',
+      context: contextCapabilities(), features: NO_FEATURES, pageKeys: ['focus', 'managedSystem', 'returnTo'],
+    };
+    const withFindings = createRegistry({
+      spaces: [{ id: spaceId('feedbackops'), label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'feedbackops:access', carriedPageKeys: ['managedSystem', 'returnTo'], homeMenuId: 'fo-inbox' }],
+      groups: [{ id: groupId('foVoc'), label: { ko: 'VOC', en: 'VOC' }, icon: findings.icon, space: spaceId('feedbackops') }],
+      menus: [...manifests, findings],
+    });
+    mountAt(`/feedbackops/clusters?managedSystem=${SYSTEM}`, withFindings);
+    const linked = await screen.findByTestId('clusters');
+    expect(linked.getAttribute('data-can-finding-id')).toBe('true');
+    expect(linked.getAttribute('data-can-findings')).toBe('false');
+    cleanup();
+    mountAt(`/feedbackops/clusters?managedSystem=${SYSTEM}`);
+    expect((await screen.findByTestId('clusters')).getAttribute('data-can-finding-id')).toBe('false');
   });
 
   it('moves a screen navigation through the platform URL (selected becomes focus)', async () => {

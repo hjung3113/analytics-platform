@@ -63,6 +63,18 @@ describe('navCounts slot', () => {
       expect(read()).toEqual({ 'fo-inbox': 12, 'fo-triage': 0, 'fo-inbox/no-link': 4, 'fo-triage/high': 2, 'fo-clusters': 1 });
     });
 
+    it('maps findings.all to the fo-findings slot and leaves it absent when omitted', async () => {
+      stubFetch(() => json({ counts: { 'voc.inbox': 1, 'findings.all': 7 } }));
+      mountAt('/feedbackops/vocs');
+      await waitFor(() => expect(read()).not.toBeNull());
+      expect(read()).toEqual({ 'fo-inbox': 1, 'fo-findings': 7 });
+      cleanup();
+      stubFetch(() => json({ counts: { 'voc.inbox': 1 } }));
+      mountAt('/feedbackops/vocs');
+      await waitFor(() => expect(read()).not.toBeNull());
+      expect(read()).toEqual({ 'fo-inbox': 1 });
+    });
+
     it('asks for all systems without managedSystem and forwards the page value when present', async () => {
       const calls = stubFetch(() => json({ counts: { 'voc.inbox': 1 } }));
       mountAt('/feedbackops/vocs');
