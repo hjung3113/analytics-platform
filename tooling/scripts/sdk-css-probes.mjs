@@ -90,5 +90,5 @@ export function selectCssProbes(packageSources, count = 3, targetPackageNames = 
 /** Match an exact simple class selector rather than a selector with the same prefix. */
 export function hasCssSelector(cssText, className) {
   const escaped = className.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return new RegExp(`\\.${escaped}(?=[,:\\s{])`).test(cssText);
+  return new RegExp(`\\.${escaped}(?=[,:\\s{>+~)])`).test(cssText);
 }
