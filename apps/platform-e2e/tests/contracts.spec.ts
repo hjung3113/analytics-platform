@@ -372,7 +372,8 @@ test.describe('분석 보드 계약 (16 §4–§7, ADR-0049·0051)', () => {
 
     await first.getByRole('button', { name: '칸 1 선택' }).click();
     await expect(boardContext(page, 1).getByRole('button', { name: '기간: 09-25 09:00 → 09-26 09:00 (24h)' })).toBeVisible();
-    await page.goBack();
+    // Opening the board from the rail replaces the main screen's entry (ADR-0087, #893): going back to it is `최소화`, which returns to the recorded address.
+    await page.getByRole('button', { name: '최소화' }).click();
     await expect.poll(() => page.url()).toBe(originalMainUrl);
     expect(query(page).get('from')).toBe('2026-09-25T09:00:00');
     expect(query(page).get('to')).toBe('2026-09-26T09:00:00');
