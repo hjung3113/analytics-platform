@@ -1,7 +1,7 @@
 import { addPanel, isValidDockTree, removePanel } from '@ap/components/dock';
 import { isRecord } from '@ap/contracts';
 import type { PaneScreen } from '@ap/kernel/host';
-import { activateInTree, defaultTree, effectiveTree, fromDockTree, groupsOf, largestGroup, reconcileSelection, reinsertPane, toDockTree, treeShape } from './boardDockTree';
+import { activateInTree, defaultTree, effectiveTree, fromDockTree, groupHolding, groupsOf, largestGroup, reconcileSelection, reinsertPane, toDockTree, treeShape } from './boardDockTree';
 import { defaultLayoutFor, gridOf, memoryOf, withGrid, withGridMemory } from './boardGrid';
 import {
   MAX_GROUPS, MAX_PANES, MAX_SHEETS, MAX_TABS, columnPanes, isRatioVector, layoutShape, makeId, paneCount, parseArrangementEntry, parseGridMemory, parsePane,
@@ -394,7 +394,7 @@ export const resetTree = (board: Board, sheetId: string): Board => mapSheet(boar
 
 /**
  * `칸 추가` (dock renderer): a new empty pane as the last number. While the sheet has fewer than `MAX_GROUPS` groups it is a new group: on the default
- * arrangement of the sheet's panes the result is the default arrangement of those panes plus the new one (three panes become 2×2); on any other it
+ * arrangement of the sheet's panes the result is the default arrangement of those panes plus the new one (a fourth pane makes the 2×2); on any other it
  * splits the largest group along its longer side. At `MAX_GROUPS` groups it is a tab of the selected pane's group instead (`addPaneInGroup`), so no
  * fifth group appears. Selected unless `select` is false. Unchanged at `MAX_TABS` panes.
  */
@@ -417,7 +417,10 @@ export function addPane(board: Board, sheetId: string, select = true): Board {
 function withNewPaneInGroup(s: Sheet, anchorPaneId: string, screen: PaneScreen | null, select: boolean): Sheet {
   if (s.panes.length >= MAX_TABS || !s.panes.some(p => p.id === anchorPaneId)) return s;
   const slot: PaneSlot = { ...newSlot(new Set(s.panes.map(p => p.id))), screen };
-  const tree = fromDockTree(addPanel(toDockTree(s.tree), slot.id, { panelId: anchorPaneId, position: 'center' }));
+  const previousActive = groupHolding(s.tree, anchorPaneId)?.active;
+  const inserted = fromDockTree(addPanel(toDockTree(s.tree), slot.id, { panelId: anchorPaneId, position: 'center' }));
+  // The center insertion puts the new tab in front; without `select` the group keeps the tab it showed, so the selection stays where it was.
+  const tree = select || previousActive === undefined ? inserted : activateInTree(inserted, previousActive);
   return reconcileSelection({ ...s, panes: [...s.panes, slot], selectedPaneId: select ? slot.id : s.selectedPaneId, tree });
 }
 

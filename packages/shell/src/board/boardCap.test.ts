@@ -90,6 +90,17 @@ describe('tab total and display groups are separate caps (893e)', () => {
     (sheet.panes as unknown[]).push({ id: 'extra', screen: null, previous: null });
     sheet.tree = { type: 'branch', dir: 'row', sizes: [20, 20, 20, 20, 20], children: panes.map(id => ({ type: 'group', panes: [id], active: id })) };
     expect(parseBoard(tooManyGroups)).toBeNull();
+    // v:3 with six panes (under the tab cap): five display groups are the only reason to refuse.
+    const fiveGroups = json(base, 3) as { sheets: Record<string, unknown>[] };
+    const wide = fiveGroups.sheets[0]!;
+    const ownIds = (wide.panes as { id: string }[]).map(p => p.id);
+    (wide.panes as unknown[]).push({ id: 'x1', screen: null, previous: null }, { id: 'x2', screen: null, previous: null });
+    const members = [...ownIds.map(id => [id]), ['x1', 'x2']];
+    wide.tree = { type: 'branch', dir: 'row', sizes: [20, 20, 20, 20, 20], children: members.map(m => ({ type: 'group', panes: m, active: m[0] })) };
+    expect(parseBoard(fiveGroups)).toBeNull();
+    members.splice(3, 2, [ownIds[3]!, 'x1', 'x2']);
+    wide.tree = { type: 'branch', dir: 'row', sizes: [25, 25, 25, 25], children: members.map(m => ({ type: 'group', panes: m, active: m[0] })) };
+    expect(parseBoard(fiveGroups)).not.toBeNull();
   });
 
   it('E3: normalize, 기본 배치, restoreClosedPane and layout change keep every pane of a sheet over four', () => {

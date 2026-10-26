@@ -1253,6 +1253,32 @@ describe('dock renderer: tab total and display groups are separate caps (893e, A
     expect(toastText().split('격자 보기는 4칸까지').length - 1).toBe(1);
   });
 
+  it('E6: shrinking the sheet to four panes (close, undo) keeps the dock drawn for this visit, so the surviving panes are not remounted', async () => {
+    localStorage.setItem(BOARD_LAYOUT_ENGINE_KEY, 'grid');
+    seedV2({ ...addPane(bigBoard(4), 'a', false), v: 3 });
+    mount('/board?sheet=a');
+    await ready();
+    expect(tabLabels()).toHaveLength(5);
+    const mark = (n: number) => { paneRoot(n).setAttribute('data-keep-probe', `p${n}`); return paneRoot(n); };
+    const kept = [mark(1), mark(2), mark(3), mark(4)];
+    const stillSame = () => kept.forEach((node, i) => { expect(paneRoot(i + 1)).toBe(node); expect(node.isConnected).toBe(true); expect(node.getAttribute('data-keep-probe')).toBe(`p${i + 1}`); });
+    await userEvent.click(tabOf('칸 5 · 빈 칸'));
+    await settle();
+    openMenu(paneMenu(5));
+    fireEvent.click(await screen.findByRole('menuitem', { name: '칸 5 닫기' }));
+    await settle();
+    expect(tabLabels()).toHaveLength(4);
+    expect(v2().v).toBe(2);
+    expect(document.querySelector('[data-board-grid]')).toBeNull();
+    expect(document.querySelector('[data-board-dock]')).not.toBeNull();
+    stillSame();
+    fireEvent.click(screen.getByRole('button', { name: '실행 취소' }));
+    await settle();
+    expect(tabLabels()).toHaveLength(5);
+    expect(document.querySelector('[data-board-grid]')).toBeNull();
+    stillSame();
+  });
+
   it('E6: a board of four panes keeps the grid when the browser asks for it, with no notice', async () => {
     localStorage.setItem(BOARD_LAYOUT_ENGINE_KEY, 'grid');
     seed(boardOf([sheet('a', { layout: '2x2', panes: [alpha(w1), beta(w1), alpha(w2), beta(w2)] })]));

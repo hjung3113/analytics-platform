@@ -54,7 +54,11 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
   // a board with a sheet over that (`v:3`) is drawn by the dock whatever the setting says, and says so once (ADR-0089).
   const [engine] = useState(readLayoutEngine);
   const gridBlocked = board.sheets.some(s => s.panes.length > MAX_PANES);
-  const dock = engine === 'dock' || gridBlocked;
+  // Once the dock has been drawn because of it, it stays for this mounted surface: a sheet shrinking back to four panes must not swap the renderer
+  // under the surviving panes (their state would be lost). The next visit reads the setting again.
+  const [dockLatched, setDockLatched] = useState(false);
+  if (gridBlocked && !dockLatched) setDockLatched(true);
+  const dock = engine === 'dock' || gridBlocked || dockLatched;
   const heading = useRef<HTMLHeadingElement>(null);
   const closeHint = useId();
   const [confirmLayout, setConfirmLayout] = useState<BoardLayout | null>(null);
