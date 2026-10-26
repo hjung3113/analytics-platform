@@ -56,7 +56,7 @@ function mount(url = '/board?sheet=a', permissions: Session['user']['permissions
   window.history.replaceState(null, '', url);
   session = testSession(permissions);
   const adapter = testAdapter({ session: () => session, subscribe: l => { listeners.add(l); return () => { listeners.delete(l); }; }, ...adapterOver });
-  return render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><RouteOutlet /></PlatformProvider></I18nProvider>);
+  return render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><AppShell><RouteOutlet /></AppShell></PlatformProvider></I18nProvider>);
 }
 const openMenu = (trigger: HTMLElement) => { act(() => { trigger.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0 })); }); };
 const settle = () => act(() => new Promise(resolve => setTimeout(resolve, 30)));
@@ -152,10 +152,15 @@ describe('storage (docs/16 §7)', () => {
     mount('/board');
     await settle();
     expect(await screen.findByText('더 새 버전에서 저장한 보드라 이 화면에서는 저장하지 않습니다.')).toBeInTheDocument();
+    // Once per user and condition: neither an edit nor a language switch raises it again (#886 G3).
     fireEvent.click(screen.getByRole('button', { name: '시트 추가' }));
     await settle();
     expect(screen.getAllByRole('tab')).toHaveLength(2);
     expect(localStorage.getItem(V2_KEY)).toBe(newer);
+    openMenu(screen.getByRole('button', { name: '사용자 메뉴' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: /언어/ }));
+    await settle();
+    expect(document.querySelectorAll('[data-toast-item]')).toHaveLength(1);
   });
 
   it('says that an unreadable board was set aside, and keeps the original value', async () => {
@@ -775,7 +780,7 @@ describe('stateful Outlet presentation lifetime', () => {
     seed(boardOf([sheet('a', { layout: '2x2', panes: [alpha(), alpha(), alpha(), alpha()] }), sheet('b', { panes: [alpha()] })]));
     window.history.replaceState(null, '', '/board?sheet=a');
     let current = testSession(['platform:view']);
-    render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => current, subscribe: l => { listeners.add(l); return () => { listeners.delete(l); }; } })} registry={makeRegistry()}><BoardScreen Outlet={Stateful} /></PlatformProvider></I18nProvider>);
+    render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => current, subscribe: l => { listeners.add(l); return () => { listeners.delete(l); }; } })} registry={makeRegistry()}><AppShell><BoardScreen Outlet={Stateful} /></AppShell></PlatformProvider></I18nProvider>);
     await settle();
     const input = screen.getByRole('textbox', { name: `local ${paneIdOf(1)}` });
     const body = input.closest('[data-pane-body]') as HTMLElement;

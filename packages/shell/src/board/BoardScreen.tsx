@@ -1,11 +1,11 @@
 import { QueryBarExtensionsProvider } from '@ap/components';
 import { useEquipmentAxes } from '@ap/kernel';
 import { PaneQueryDraftProvider } from '@ap/kernel/host';
-import { useEffect, useLayoutEffect, useRef, useState, type ComponentType, type CSSProperties } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties } from 'react';
 import { HardDrive } from 'lucide-react';
 import { useI18n, type MenuEntry } from '@ap/kernel';
 import { BOARD_PATH, paneHref, useHostPlatform, type PaneScreen } from '@ap/kernel/host';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, cn, Popover, PopoverContent, PopoverTrigger, Toaster, ToggleGroup, ToggleGroupItem, UndoToast, toast } from '@ap/ui';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, cn, Popover, PopoverContent, PopoverTrigger, ToggleGroup, ToggleGroupItem } from '@ap/ui';
 import { BoardContextBar } from './BoardContextBar';
 import { BoardDock, type DockPaneProps } from './BoardDock';
 import { BoardPane } from './BoardPane';
@@ -28,10 +28,8 @@ const PANEL_ID = 'board-panel';
 const paneIdOf = (sheetId: string, slotId: string) => `${sheetId}.${slotId}`;
 const sheetHref = (id: string) => `${BOARD_PATH}?sheet=${encodeURIComponent(id)}`;
 
-function raiseUndo(text: BoardText, message: string, onUndo: () => void) {
-  toast.custom(id => <UndoToast message={message} actionLabel={text.undo} duration={8000}
-    onAction={() => { onUndo(); toast.dismiss(id); }} onDismiss={() => toast.dismiss(id)} />, { duration: Infinity });
-}
+/** The undo window: an essential time limit, so the notice names it explicitly (the shell stack keeps an action notice without one). */
+const UNDO_WINDOW_MS = 8000;
 
 /**
  * The analysis board (docs/16): a platform screen at `/board?sheet=<id>`, not a Registry menu. State lives in browser storage per user;
@@ -39,9 +37,9 @@ function raiseUndo(text: BoardText, message: string, onUndo: () => void) {
  * `Outlet` renders a pane's menu (the shell's `ScreenOutlet`); it is passed in so this folder does not import the outlet that mounts it.
  */
 export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
-  const { user, url, pathname, navigate, registry, readRecent, pageNavigation, canOpen } = useHostPlatform();
+  const { user, url, pathname, navigate, registry, readRecent, pageNavigation, canOpen, toast, dismissToast } = useHostPlatform();
   const { lang, t } = useI18n();
-  const text = boardText(lang);
+  const text = useMemo(() => boardText(lang), [lang]);
   const { board, update, storageNotice } = useBoardStore(user.id, text.sheetPrefix);
   // Which renderer draws the panes is a browser setting read once per visit (`board.layoutEngine`, default grid).
   const [engine] = useState(readLayoutEngine);
@@ -67,15 +65,31 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
   }, [url, pathname, pageNavigation]);
 
   // Undo closures write through `update`, so they must not outlive the user or the screen they were raised on.
-  useEffect(() => () => { toast.dismiss(); }, [user.id]);
+  const raised = useRef(new Set<number>());
+  const notifyRef = useRef<(message: string) => void>(() => {});
+  useEffect(() => () => { for (const id of raised.current) dismissToast(id); raised.current.clear(); }, [user.id, dismissToast]);
+  /** Board notices go through the shell toast stack; the ids are kept so leaving the board or the user dismisses them. */
+  const notify = (message: string, onUndo?: () => void) => {
+    const id = onUndo
+      ? toast(message, 'info', undefined, { action: { label: text.undo, onAction: onUndo }, durationMs: UNDO_WINDOW_MS })
+      : toast(message);
+    raised.current.add(id);
+  };
+  notifyRef.current = message => notify(message);
+  const raiseUndo = (message: string, onUndo: () => void) => notify(message, onUndo);
 
   // The latest committed board, for undo to check against; closures raised earlier would otherwise see the board of their own render.
   const latest = useRef(board);
   useEffect(() => { latest.current = board; });
 
   // A stored value this build did not use (newer version, unreadable) is said once per user, in the toast every other board message uses.
+  // Keyed by user and condition, not by the translated copy: a language switch must not raise it again (#886).
+  const storageSaid = useRef<string | null>(null);
   useEffect(() => {
-    if (storageNotice !== null) toast.info(storageNotice === 'newer' ? text.storageNewer : text.storageCorrupt, { id: 'board-storage-notice' });
+    const key = storageNotice === null ? null : `${user.id}:${storageNotice}`;
+    if (key === null || storageSaid.current === key) return;
+    storageSaid.current = key;
+    notifyRef.current(storageNotice === 'newer' ? text.storageNewer : text.storageCorrupt);
   }, [storageNotice, user.id, text]);
 
   const sheetId = sheet.id;
@@ -89,7 +103,7 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
 
   /** Runs an undo only if nothing changed what it would restore (the model returns null); otherwise says so and changes nothing. */
   const undo = (restore: (b: Board) => Board | null): boolean => {
-    if (restore(latest.current) === null) { toast.info(text.undoStale); return false; }
+    if (restore(latest.current) === null) { notify(text.undoStale); return false; }
     update(b => restore(b) ?? b);
     return true;
   };
@@ -98,14 +112,14 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
     const slotId = sheet.panes[index].id;
     writePane(index, null);
     // The undo names the slot: a pane closed since renumbers the others, and `index` would then be another pane.
-    if (previous) raiseUndo(text, text.paneCleared(index + 1), () => { undo(b => restorePane(b, sheetId, index, previous, slotId)); });
+    if (previous) raiseUndo(text.paneCleared(index + 1), () => { undo(b => restorePane(b, sheetId, index, previous, slotId)); });
   };
   const applyLayout = (target: BoardLayout) => {
     const after = setLayout(board, sheetId, target).sheets.find(s => s.id === sheetId) ?? sheet;
     const change: LayoutChange = { sheetId, before: sheet, after, layout: target };
     const dropped = droppedPaneCount(sheet, target);
     update(b => setLayout(b, sheetId, target));
-    if (dropped > 0) raiseUndo(text, text.shrunk(dropped), () => { undo(b => restoreLayout(b, change)); });
+    if (dropped > 0) raiseUndo(text.shrunk(dropped), () => { undo(b => restoreLayout(b, change)); });
   };
   const requestLayout = (target: BoardLayout) => {
     if (target === layout) return;
@@ -116,7 +130,7 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
     if (!result) return;
     const { removed } = result;
     update(() => result.board);
-    raiseUndo(text, text.sheetDeleted(removed.sheet.name), () => {
+    raiseUndo(text.sheetDeleted(removed.sheet.name), () => {
       if (undo(b => restoreSheet(b, removed)) && removed.wasActive) navigate(sheetHref(removed.sheet.id), { replace: true });
     });
   };
@@ -129,19 +143,19 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
   /** Runs `edits` on this sheet (or `onSheet`) and raises an undo that restores them only while every edited pane still holds what they left. */
   const editPanes = (edits: PaneEdit[], message: string, onSheet = sheetId) => {
     update(b => applyPaneEdits(b, onSheet, edits));
-    raiseUndo(text, message, () => { undo(b => revertPaneEdits(b, onSheet, edits)); });
+    raiseUndo(message, () => { undo(b => revertPaneEdits(b, onSheet, edits)); });
   };
   const applyToAll = (index: number) => {
     const result = applyContextToSheet(registry, canOpen, sheet, index);
     if (!result) return;
-    if (result.edits.length === 0) { toast.info(text.appliedNothing); return; }
+    if (result.edits.length === 0) { notify(text.appliedNothing); return; }
     editPanes(result.edits, text.applied(index + 1, paneNumbers(result.edits.map(e => e.index))));
   };
   const copyContext = (targetId: string) => {
     const target = board.sheets.find(s => s.id === targetId);
     if (!target) return;
     const edits = copyContextToSheet(registry, canOpen, sheet, target);
-    if (edits.length === 0) { toast.info(text.copiedNothing(target.name)); return; }
+    if (edits.length === 0) { notify(text.copiedNothing(target.name)); return; }
     editPanes(edits, text.copied(paneNumbers(edits.map(e => e.index)), target.name), targetId);
   };
   const replaceScreen = (index: number, menu: MenuEntry) => {
@@ -159,7 +173,7 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
     const slotId = grown.sheets.find(s => s.id === sheetId)!.panes[sheet.panes.length].id;
     const edit: PaneEdit = { index: sheet.panes.length, paneId: slotId, before: null, after: { ...from, params: { ...from.params } }, fresh: true };
     update(() => applyPaneEdits(grown, sheetId, [edit]));
-    raiseUndo(text, text.duplicated(index + 1, edit.index + 1), () => {
+    raiseUndo(text.duplicated(index + 1, edit.index + 1), () => {
       undo(b => {
         const reverted = revertPaneEdits(b, sheetId, [edit]);
         const at = reverted?.sheets.find(x => x.id === sheetId)?.panes.findIndex(p => p.id === slotId) ?? -1;
@@ -171,7 +185,7 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
     const result = closePane(board, sheetId, index);
     if (!result) return;
     update(b => closePane(b, sheetId, index)?.board ?? b);
-    raiseUndo(text, text.paneClosed(index + 1, sheet.panes.length), () => { undo(b => restoreClosedPane(b, result.closed)); });
+    raiseUndo(text.paneClosed(index + 1, sheet.panes.length), () => { undo(b => restoreClosedPane(b, result.closed)); });
   };
   const openFull = (index: number) => {
     const screen = paneScreens[index];
@@ -303,7 +317,7 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
     onDuplicate: () => duplicate(index), onEditContext: () => editContext(index),
   });
 
-  return <div data-board className="flex h-full min-h-0 flex-col">
+  return <div data-board className="relative flex h-full min-h-0 flex-col">
     <header className="flex h-[50px] shrink-0 items-center justify-between gap-3 overflow-x-auto border-b border-border-subtle bg-surface-canvas px-4">
       <div className="flex min-w-0 items-center gap-3">
         <h1 data-page-heading ref={heading} tabIndex={0} className="min-w-28 truncate text-sm font-semibold text-text-primary">{text.board}</h1>
@@ -377,6 +391,5 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
-    <Toaster position="bottom-center" offset={56} />
   </div>;
 }

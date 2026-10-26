@@ -773,10 +773,10 @@ try {
       await expect(page.getByRole("main").locator('[role="status"][aria-busy]')).toHaveCount(0);
       await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin });
       await button("링크 복사").click();
-      await expect(page.getByRole("status").filter({ hasText: "현재 Context가 담긴 링크를 복사했습니다" })).toBeVisible();
+      await expect(page.locator("[data-toast-item]").filter({ hasText: "현재 Context가 담긴 링크를 복사했습니다" })).toBeVisible();
     },
     () =>
-      elementClip(page.getByRole("status").filter({ hasText: "현재 Context가 담긴 링크를 복사했습니다" }), 12).then((clip) => ({
+      elementClip(page.locator("[data-toast-item]").filter({ hasText: "현재 Context가 담긴 링크를 복사했습니다" }), 12).then((clip) => ({
         clip,
         cover: true,
         hideSticky: false,

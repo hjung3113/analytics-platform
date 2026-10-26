@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { DetailDrawer } from '@ap/components';
 import { House, ListTodo, MessagesSquare, MessageSquarePlus, Rocket, Star } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
+import { I18nProvider, PlatformProvider, createRegistry, useI18n } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import type { FeedbackOpsSlot, PlatformSlots } from '@ap/kernel';
 import { AppShell } from './AppShell';
@@ -760,7 +760,7 @@ describe('toast action and caller-driven dismiss (#761 k2)', () => {
     expect(screen.queryByText('분류했습니다.')).toBeNull();
   });
   it('waits while the action button has focus and restarts after blur', () => {
-    mount(<ActionProbe onAction={vi.fn()} />);
+    mount(<ActionProbe onAction={vi.fn()} durationMs={8000} />);
     fireEvent.click(screen.getByRole('button', { name: 'fire' }));
     const action = screen.getByRole('button', { name: '되돌리기' });
     act(() => { action.focus(); });
@@ -772,16 +772,35 @@ describe('toast action and caller-driven dismiss (#761 k2)', () => {
     act(() => { vi.advanceTimersByTime(200); });
     expect(screen.queryByText('분류했습니다.')).toBeNull();
   });
-  it('an action toast defaults to 8 s', () => {
+  it('an action toast without durationMs never auto-dismisses and holds no timer (#886)', () => {
     mount(<ActionProbe onAction={vi.fn()} />);
+    const base = vi.getTimerCount();
     fireEvent.click(screen.getByRole('button', { name: 'fire' }));
-    act(() => { vi.advanceTimersByTime(7900); });
+    expect(vi.getTimerCount()).toBe(base);
+    act(() => { vi.advanceTimersByTime(10 * 60 * 1000); });
     expect(screen.getByText('분류했습니다.')).toBeInTheDocument();
+    const action = screen.getByRole('button', { name: '되돌리기' });
+    act(() => { action.focus(); });
+    act(() => { action.blur(); });
+    act(() => { vi.advanceTimersByTime(10 * 60 * 1000); });
+    expect(screen.getByText('분류했습니다.')).toBeInTheDocument();
+  });
+  it('a plain toast pauses while the pointer is inside and restarts the full 5 s after (#886)', () => {
+    function Plain() { const { toast } = useHostPlatform(); return <button type="button" onClick={() => toast('안내')}>plain</button>; }
+    mount(<Plain />);
+    fireEvent.click(screen.getByRole('button', { name: 'plain' }));
+    const item = screen.getByText('안내').closest('[data-toast-item]')!;
+    fireEvent.pointerEnter(item);
+    act(() => { vi.advanceTimersByTime(30000); });
+    expect(screen.getByText('안내')).toBeInTheDocument();
+    fireEvent.pointerLeave(item);
+    act(() => { vi.advanceTimersByTime(4900); });
+    expect(screen.getByText('안내')).toBeInTheDocument();
     act(() => { vi.advanceTimersByTime(200); });
-    expect(screen.queryByText('분류했습니다.')).toBeNull();
+    expect(screen.queryByText('안내')).toBeNull();
   });
   it('evicting a held toast by the 4-item cap leaves nothing that resurrects or lingers', () => {
-    mount(<ActionProbe onAction={vi.fn()} />);
+    mount(<ActionProbe onAction={vi.fn()} durationMs={8000} />);
     const fire = screen.getByRole('button', { name: 'fire' });
     fireEvent.click(fire);
     act(() => { screen.getByRole('button', { name: '되돌리기' }).focus(); });
@@ -803,7 +822,7 @@ describe('toast action and caller-driven dismiss (#761 k2)', () => {
     function Host() {
       const [shown, setShown] = useState(true);
       return <I18nProvider><PlatformProvider adapter={adapterWith()} registry={registry}>
-        <ActionProbe onAction={vi.fn()} />
+        <ActionProbe onAction={vi.fn()} durationMs={8000} />
         <button type="button" onClick={() => setShown(false)}>drop shell</button>
         {shown && <AppShell>{null}</AppShell>}
       </PlatformProvider></I18nProvider>;
@@ -846,7 +865,7 @@ describe('toast layer above palette scrim (#310)', () => {
     fireEvent.click(fireToast);
     const overlay = document.querySelector('[data-state="open"][class*="inset-0"]');
     expect(overlay).toBeInTheDocument();
-    const toastHost = screen.getByText('내보내기를 시작합니다.').closest('[aria-live="polite"]');
+    const toastHost = screen.getByText('내보내기를 시작합니다.').closest('[data-toast-stack]');
     expect(toastHost).toBeInTheDocument();
     expect(Number(toastHost!.className.match(/z-\[?(\d+)\]?/)![1])).toBeGreaterThan(Number(overlay!.className.match(/z-\[?(\d+)\]?/)![1]));
   });
@@ -1071,5 +1090,83 @@ describe('sidebar navViews, navCounts and spaceNavSection (#761)', () => {
       expect(current).toHaveLength(1);
       expect(current[0]).toHaveAttribute('aria-label', name);
     });
+  });
+});
+
+// #886 UX-6: the stack is anchored in the content column, with one persistent live region per politeness and no nesting.
+describe('toast stack placement and live regions (#886)', () => {
+  function Fire() {
+    const { toast } = useHostPlatform();
+    const { setLang } = useI18n();
+    return <>
+      <button type="button" onClick={() => toast('안내', 'info')}>fire info</button>
+      <button type="button" onClick={() => toast('실패', 'danger')}>fire danger</button>
+      <button type="button" onClick={() => setLang('en')}>to english</button>
+    </>;
+  }
+  const mount = () => render(<I18nProvider><PlatformProvider adapter={adapterWith()} registry={registry}>
+    <AppShell><Fire /></AppShell>
+  </PlatformProvider></I18nProvider>);
+
+  it('keeps one never-remounting stack in the content column bottom anchor, outside the detail aside', () => {
+    mount();
+    const stack = document.querySelector('[data-toast-stack]')!;
+    const anchor = stack.parentElement!;
+    const column = anchor.parentElement!;
+    expect(anchor).toHaveAttribute('data-toast-anchor');
+    expect(anchor).toHaveClass('relative', 'h-0');
+    expect(column).toHaveAttribute('data-shell-content');
+    // The column itself stays unpositioned so absolute content inside main keeps main as its clip (#886 E2E PageFilterBar).
+    expect(column).not.toHaveClass('relative');
+    expect(column.contains(document.getElementById('platform-main'))).toBe(true);
+    expect(stack).toHaveClass('absolute', 'inset-x-4', 'mx-auto', 'max-w-[420px]', 'bottom-4', 'z-[100]');
+    expect(stack).not.toHaveClass('fixed');
+    expect(stack.closest('aside')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'fire info' }));
+    expect(document.querySelector('[data-toast-stack]')).toBe(stack);
+  });
+  it('announces each toast once: two persistent sr-only live regions, a non-live visible list', () => {
+    mount();
+    const live = () => [...document.querySelectorAll('[data-toast-stack] [aria-live]')];
+    const before = live();
+    expect(before.map(e => e.getAttribute('aria-live'))).toEqual(['polite', 'assertive']);
+    for (const el of before) expect(el).toHaveClass('sr-only');
+    fireEvent.click(screen.getByRole('button', { name: 'fire info' }));
+    fireEvent.click(screen.getByRole('button', { name: 'fire danger' }));
+    expect(live()).toEqual(before);
+    expect(before[0]!.textContent).toBe('알림: 안내');
+    expect(before[1]!.textContent).toBe('오류: 실패');
+    // The visible list and its items carry no liveness, and nothing is announced inside another live region.
+    const list = document.querySelector('[data-toast-item]')!.parentElement!;
+    expect(list.closest('[aria-live]')).toBeNull();
+    expect(list.querySelector('[aria-live], [role="alert"], [role="status"]')).toBeNull();
+    expect(list.getAttribute('role')).toBeNull();
+    // A dismissal re-announces nothing.
+    fireEvent.click(screen.getAllByRole('button', { name: '닫기' })[0]!);
+    expect(before[0]!.textContent).toBe('알림: 안내');
+    expect(before[1]!.textContent).toBe('오류: 실패');
+    // A language switch rewrites nothing already said; a toast raised after it is said in the new language (#886 G2).
+    fireEvent.click(screen.getByRole('button', { name: 'to english' }));
+    expect(before[0]!.textContent).toBe('알림: 안내');
+    expect(before[1]!.textContent).toBe('오류: 실패');
+    fireEvent.click(screen.getByRole('button', { name: 'fire info' }));
+    expect(before[0]!.textContent).toBe('알림: 안내Notice: 안내');
+  });
+  it('hands focus to main when a focused toast closes, not to <body> (#886 UX-3)', () => {
+    mount();
+    fireEvent.click(screen.getByRole('button', { name: 'fire info' }));
+    const close = within(document.querySelector<HTMLElement>('[data-toast-item]')!).getByRole('button', { name: '닫기' });
+    close.focus();
+    fireEvent.click(close);
+    expect(document.querySelector('[data-toast-item]')).toBeNull();
+    expect(document.activeElement).toBe(document.getElementById('platform-main'));
+  });
+  it('keeps newest at the bottom across tones: danger A then info B puts B below A', () => {
+    mount();
+    fireEvent.click(screen.getByRole('button', { name: 'fire danger' }));
+    fireEvent.click(screen.getByRole('button', { name: 'fire info' }));
+    const items = [...document.querySelectorAll('[data-toast-item]')].map(e => e.textContent);
+    expect(items[0]).toContain('실패');
+    expect(items[1]).toContain('안내');
   });
 });

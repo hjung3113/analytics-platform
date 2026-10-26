@@ -455,3 +455,25 @@ describe('a detail takes the position (C2, C4)', () => {
     expect(within(drawer()).getByLabelText('내용')).toHaveValue('a');
   });
 });
+
+// #886 UX-6: the toast stack lives in the content column, so the drawer's 취소 / 제출 buttons are never under it.
+describe('toast stack and the drawer (#886)', () => {
+  it('keeps the stack in the content column bottom anchor, outside the open drawer and the detail aside', () => {
+    function Fire() { const { toast } = useHostPlatform(); return <button type="button" onClick={() => toast('안내')}>토스트</button>; }
+    window.history.replaceState(null, '', '/?v=1');
+    const session = testSession(['platform:view']);
+    render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry} slots={SLOTS}>
+      <AppShell><Fire /></AppShell>
+    </PlatformProvider></I18nProvider>);
+    openDrawer();
+    fireEvent.click(screen.getByRole('button', { name: '토스트' }));
+    const stack = document.querySelector<HTMLElement>('[data-toast-stack]')!;
+    const column = stack.closest<HTMLElement>('[data-shell-content]')!;
+    expect(stack.textContent).toContain('안내');
+    expect(stack.parentElement).toHaveClass('relative', 'h-0');
+    expect(column.contains(drawer())).toBe(false);
+    expect(column.contains(detailAside())).toBe(false);
+    expect(drawer().contains(stack)).toBe(false);
+    expect(detailAside().contains(stack)).toBe(false);
+  });
+});

@@ -39,7 +39,7 @@ export { DatePicker, type DatePickerProps } from './forms/DatePicker.js';
 export { SearchInput, type SearchInputProps } from './forms/SearchInput';
 export { DirtyConfirmation, type DirtyConfirmationProps } from './feedback/DirtyConfirmation';
 export { UndoToast, type UndoToastProps } from './feedback/UndoToast';
-// The board mounts one <Toaster> and raises undo through toast.custom(); shell has no sonner dependency of its own (#497).
+// Kept for consumers that still mount sonner; the analysis board raises its undo notices through the shell toast stack (#886).
 export { Toaster, toast } from 'sonner';
 export { PreviewModal, type PreviewModalProps } from './feedback/PreviewModal';
 export { EmptyState, type EmptyStateProps } from './feedback/EmptyState';

@@ -820,6 +820,8 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
   const durations = useRef(new Map<number, number>());
   const armToast = useCallback((id: number) => {
     clearTimeout(timers.current.get(id));
+    // An action toast without an explicit durationMs has no timer (Infinity): it stays until acted on or dismissed (06 Toast).
+    if (!Number.isFinite(durations.current.get(id))) return;
     timers.current.set(id, setTimeout(() => {
       timers.current.delete(id);
       durations.current.delete(id);
@@ -835,8 +837,8 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
       durations.current.delete(old);
     }
     setToasts(list => [...list.slice(-3), { id, text, tone, ...(detail === undefined ? {} : { detail }), ...(options?.action ? { action: options.action } : {}) }]);
-    // An action toast gets longer by default: the user has to reach and read it first (06 Toast paragraph).
-    durations.current.set(id, options?.durationMs ?? (options?.action ? 8000 : 5000));
+    // An action toast stays by default: the user has to reach and read it first (06 Toast paragraph).
+    durations.current.set(id, options?.durationMs ?? (options?.action ? Infinity : 5000));
     armToast(id);
     return id;
   }, [armToast]);
