@@ -91,6 +91,7 @@ PublishedMetric | type | type PublishedMetric = { metricId: string; publishedVer
 QueryHistoryEntry | type | type QueryHistoryEntry = { count: number; id: string; lastAppliedAt: number; query: string; schemaVersion: 1; }
 QueryHistoryKey | type | type QueryHistoryKey = { menuId: string; scopeId: null | string; userId: string; }
 QueryHistoryStore | type | type QueryHistoryStore = { clear(key: @ap/contracts#QueryHistoryKey): Promise<void>; list(key: @ap/contracts#QueryHistoryKey): Promise<readonly @ap/contracts#QueryHistoryEntry[]>; record(key: @ap/contracts#QueryHistoryKey, entry: @ap/contracts#QueryHistoryEntry): Promise<void>; remove(key: @ap/contracts#QueryHistoryKey, id: string): Promise<void>; }
+RETURN_TO_KEY | const | const RETURN_TO_KEY: "returnTo"
 Reaggregation | type | type Reaggregation = 'none' | 'ratioOfSums' | 'recomputeFromDistribution' | 'sum'
 ScopeCheck | type | type ScopeCheck = { grantedRooms: string[]; status: 'forbidden' | 'unknown_scope' | 'valid'; }
 ScopeOption | type | type ScopeOption = { grantedRooms: number; id: string; label: string; totalRooms: number; }
@@ -119,6 +120,7 @@ buildFeedbackOpsLink | function | function buildFeedbackOpsLink(input: { origin:
 buildPlatformInboundLink | function | function buildPlatformInboundLink(input: { context: @ap/contracts#GlobalContext; hop: @ap/contracts#PlatformHop; origin: string; returnTo?: string; }): string
 buildQuery | function | function buildQuery(g: @ap/contracts#GlobalContext, page?: @ap/contracts#Pair[], extras?: @ap/contracts#Pair[]): string
 canClientSum | function | function canClientSum(measure: Pick<@ap/contracts#MeasureMeta, 'reaggregation'>): boolean
+carriesReturnTo | function | function carriesReturnTo(space: Pick<@ap/contracts#SpaceDef, 'carriedPageKeys'> | null | undefined): boolean
 clientCorrelationId | function | function clientCorrelationId(): string
 compareHistoryText | function | function compareHistoryText(a: string, b: string): number
 compareQueryHistory | function | function compareQueryHistory(a: @ap/contracts#QueryHistoryEntry, b: @ap/contracts#QueryHistoryEntry): number
@@ -155,5 +157,6 @@ shift | function | function shift(value: string, hours: number): string
 sortAndPage | function | function sortAndPage<T>(rows: T[], q: @ap/contracts#PageQuery): @ap/contracts#PageResult<T>
 sortRows | function | function sortRows<T>(rows: readonly T[], sorting: @ap/contracts#PageSort[]): T[]
 spaceId | const | const spaceId: <const S extends string>(id: S) => S & @ap/contracts#SpaceId
+withoutReturnTo | function | function withoutReturnTo(pairs: readonly @ap/contracts#Pair[]): @ap/contracts#Pair[]
 # reachable types
 Brand | type | type Brand<Name extends string> = string & { readonly [brand]: Name; }

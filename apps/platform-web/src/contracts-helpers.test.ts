@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { NO_FEATURES, contextCapabilities, isRecord, type Capability, type ContextKey } from '@ap/contracts';
+import { NO_FEATURES, RETURN_TO_KEY, carriesReturnTo, contextCapabilities, isRecord, withoutReturnTo, type Capability, type ContextKey } from '@ap/contracts';
 
-// #673: shared @ap/contracts helpers — the manifest defaults every menu index and the gen-menu scaffold share (06 §5), and `isRecord`.
+// #673: shared @ap/contracts helpers — the manifest defaults every menu index and the gen-menu scaffold share (06 §5), `isRecord`, and the `returnTo` rule (#851).
 const ALL_UNSUPPORTED: Record<ContextKey, Capability> = {
   time: 'unsupported', roomNames: 'unsupported', line: 'unsupported', prcGroup: 'unsupported', condition: 'unsupported', selection: 'unsupported',
   lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported',
@@ -50,5 +50,25 @@ describe('isRecord', () => {
 
   it.each([null, undefined, [], [1], 'x', 1, true, () => {}])('rejects %s', value => {
     expect(isRecord(value)).toBe(false);
+  });
+});
+
+describe('returnTo is navigation state (#851, ADR-0081 UX-10)', () => {
+  it('names the page key once', () => {
+    expect(RETURN_TO_KEY).toBe('returnTo');
+  });
+
+  it('withoutReturnTo drops every returnTo pair and keeps the rest in order', () => {
+    const pairs: [string, string][] = [['tab', 'a'], ['returnTo', '/x'], ['focus', 'f'], ['returnTo', '/y']];
+    expect(withoutReturnTo(pairs)).toEqual([['tab', 'a'], ['focus', 'f']]);
+    expect(pairs).toHaveLength(4);
+  });
+
+  it('carriesReturnTo is true only for a space that carries returnTo', () => {
+    expect(carriesReturnTo({ carriedPageKeys: ['managedSystem', 'returnTo'] })).toBe(true);
+    expect(carriesReturnTo({ carriedPageKeys: ['managedSystem'] })).toBe(false);
+    expect(carriesReturnTo({})).toBe(false);
+    expect(carriesReturnTo(null)).toBe(false);
+    expect(carriesReturnTo(undefined)).toBe(false);
   });
 });

@@ -1,6 +1,6 @@
 import type { ComponentType, LazyExoticComponent } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import { GLOBAL_KEYS, KERNEL_PERMISSIONS, isAppRelativePath, parseQuery, requiredContextError, type ContextKey, type GroupId, type HostFeature, type MenuMeta, type MenuPermission, type ModuleScopedId, type ModuleScreenProps, type PageType, type Permission, type SpaceDef, type SpaceId, type Text } from '@ap/contracts';
+import { GLOBAL_KEYS, KERNEL_PERMISSIONS, isAppRelativePath, parseQuery, requiredContextError, RETURN_TO_KEY, type ContextKey, type GroupId, type HostFeature, type MenuMeta, type MenuPermission, type ModuleScopedId, type ModuleScreenProps, type PageType, type Permission, type SpaceDef, type SpaceId, type Text } from '@ap/contracts';
 
 /** docs/06 §5: menus declare, the shell consumes. Metadata lives in @ap/contracts; this adds the React bindings. */
 export type PageProps = { params: Record<string, string> };
@@ -226,7 +226,7 @@ export function createRegistry({ spaces, groups, menus, permissions: declared = 
         seen.add(level.key);
         if (!m.pageKeys.includes(level.key)) fail(`Menu "${m.id}" drill level key "${level.key}" is not a declared pageKeys entry`);
         if (!(m.contextResetKeys ?? []).includes(level.key)) fail(`Menu "${m.id}" drill level key "${level.key}" is not a declared contextResetKeys entry`);
-        if (level.key === 'returnTo') fail(`Menu "${m.id}" drill level key "returnTo" cannot be a drill level`);
+        if (level.key === RETURN_TO_KEY) fail(`Menu "${m.id}" drill level key "${RETURN_TO_KEY}" cannot be a drill level`);
       }
       const seenReset = new Set<string>();
       for (const key of m.drill.resetKeys ?? []) {
@@ -234,7 +234,7 @@ export function createRegistry({ spaces, groups, menus, permissions: declared = 
         seenReset.add(key);
         if (!m.pageKeys.includes(key)) fail(`Menu "${m.id}" drill resetKey "${key}" is not a declared pageKeys entry`);
         if (seen.has(key)) fail(`Menu "${m.id}" drill resetKey "${key}" is a drill level key`);
-        if (key === 'returnTo') fail(`Menu "${m.id}" drill resetKey "returnTo" cannot be reset by a drill step`);
+        if (key === RETURN_TO_KEY) fail(`Menu "${m.id}" drill resetKey "${RETURN_TO_KEY}" cannot be reset by a drill step`);
       }
     }
     // Same shape once parameter names are erased (/a/:x vs /a/:y) is ambiguous; static-vs-param overlaps are resolved below.
