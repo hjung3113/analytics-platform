@@ -13,7 +13,7 @@ export function restoreOpenerFocus(
   const dialog = event.currentTarget instanceof Element ? event.currentTarget : null;
   // Without the dialog node only body/null count as lost: the detail drawer around the opener is a dialog too.
   const focusLost =
-    active === null || active === document.body || (dialog !== null && dialog.contains(active));
+    active === null || active === document.body || dialog?.contains(active) === true;
   if (!focusLost) return;
   event.preventDefault();
   trigger.focus();
