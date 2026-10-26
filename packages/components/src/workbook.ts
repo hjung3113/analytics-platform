@@ -4,7 +4,7 @@
  * export (`tableExport.ts`) shares the cell rules. `write-excel-file/browser` stays a lazy chunk.
  */
 import { EXPORT_ROW_CAP } from './tableMessages';
-import { xlsxText } from './tableExport';
+import { xlsxCell } from './tableExport';
 
 /** One cell: a number stays a number cell, a string stays a string cell (never a formula), `null` is a blank cell. */
 export type WorkbookCell = string | number | null;
@@ -62,13 +62,6 @@ export function checkWorkbook(sheets: readonly WorkbookSheet[]): void {
   }
 }
 
-/** A non-finite number or `''` becomes a blank cell; strings keep their text (a wall-clock `2026-09-25T09:00:00` is not parsed) and are cut at Excel's cell limit. */
-export function workbookCell(value: WorkbookCell): string | number | null {
-  if (value === null) return null;
-  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
-  return value === '' ? null : xlsxText(value);
-}
-
 const aborted = () => new DOMException('Aborted', 'AbortError');
 
 /** Checks and writes the workbook (`.xlsx` Blob). Rejects with `WorkbookError`, or with an `AbortError` once `signal` aborts. */
@@ -79,7 +72,7 @@ export async function toWorkbookXlsx(sheets: readonly WorkbookSheet[], signal?: 
   if (signal?.aborted) throw aborted();
   const blob = await writeXlsxFile(sheets.map(sheet => ({
     sheet: sheet.name,
-    data: [...(sheet.header ? [sheet.header.map(workbookCell)] : []), ...sheet.rows.map(row => row.map(workbookCell))],
+    data: [...(sheet.header ? [sheet.header.map(xlsxCell)] : []), ...sheet.rows.map(row => row.map(xlsxCell))],
   }))).toBlob();
   if (signal?.aborted) throw aborted();
   return blob;

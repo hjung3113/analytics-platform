@@ -147,6 +147,10 @@ function foldedLabel(label: string): ReactNode {
   ));
 }
 
+/**
+ * @deprecated since the next SDK release (#891): use `FieldRow layout="detail"` from `@ap/ui` inside a `FieldList` instead of
+ * `Field` inside a `<dl>` — the rows draw the same. Removed one release later (ADR-0044).
+ */
 export function Field({ label, children, mono }: { label: ReactNode; children: ReactNode; mono?: boolean }) {
   return <div className="grid grid-cols-[9rem_1fr] gap-3 border-b border-border-subtle py-1.5 text-sm last:border-0">
     <dt className="min-w-0 break-words text-text-muted">{typeof label === 'string' ? foldedLabel(label) : label}</dt>

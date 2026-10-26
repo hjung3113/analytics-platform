@@ -2,8 +2,8 @@ import { ChevronRight } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { QueryState } from '@ap/kernel';
 import { PlatformLink } from '@ap/kernel';
-import { DetailDrawer, Field, QueryView } from '@ap/components';
-import { Button, cn } from '@ap/ui';
+import { DetailDrawer, QueryView } from '@ap/components';
+import { Button, cn, FieldList, FieldRow } from '@ap/ui';
 import type { DrillData, DrillEquipmentRow, DrillStgroupRow, KpiSet } from '../endpoints';
 
 type Fmt = { n1: (value: number) => string; ni: (value: number) => string };
@@ -127,12 +127,12 @@ export function ProductivityDrillBody({ ko, room, stgroup, equipment, stgroupQue
                 id: 'summary',
                 label: ko ? '요약' : 'Summary',
                 content: <>
-                  <dl>
-                    <Field label="EquipmentID" mono>{row.equipmentId}</Field>
-                    <Field label={ko ? '점유율' : 'Occupancy'}>{pctHint(ko, row.occupancyPct, n1)}</Field>
-                    <Field label={ko ? '완료 Job' : 'Jobs'}>{ni(row.jobs)}</Field>
-                    <Field label={ko ? 'P95 사이클타임' : 'P95 cycle time'}>{row.p95Min === null ? (ko ? '미확인' : 'Not confirmed') : `${n1(row.p95Min)} ${ko ? '분' : 'min'}`}</Field>
-                  </dl>
+                  <FieldList>
+                    <FieldRow layout="detail" label="EquipmentID" mono>{row.equipmentId}</FieldRow>
+                    <FieldRow layout="detail" label={ko ? '점유율' : 'Occupancy'}>{pctHint(ko, row.occupancyPct, n1)}</FieldRow>
+                    <FieldRow layout="detail" label={ko ? '완료 Job' : 'Jobs'}>{ni(row.jobs)}</FieldRow>
+                    <FieldRow layout="detail" label={ko ? 'P95 사이클타임' : 'P95 cycle time'}>{row.p95Min === null ? (ko ? '미확인' : 'Not confirmed') : `${n1(row.p95Min)} ${ko ? '분' : 'min'}`}</FieldRow>
+                  </FieldList>
                   <div className="mt-3">
                     <Button size="sm" asChild>
                       <PlatformLink href={equipmentHref}>{ko ? '설비 상세로' : 'Equipment detail'}</PlatformLink>

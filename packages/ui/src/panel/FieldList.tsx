@@ -1,5 +1,4 @@
 import * as React from 'react';
-import { cn } from '../utils/cn.js';
 
 export interface FieldListProps {
   children: React.ReactNode;
@@ -12,7 +11,7 @@ export const FieldListContext = React.createContext(false);
 export function FieldList({ children, className }: FieldListProps) {
   return (
     <FieldListContext.Provider value>
-      <dl className={cn(className)}>{children}</dl>
+      <dl className={className}>{children}</dl>
     </FieldListContext.Provider>
   );
 }

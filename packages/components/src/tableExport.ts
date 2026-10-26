@@ -77,9 +77,15 @@ export function xlsxText(text: string): string {
   if (unit >= 0xd800 && unit <= 0xdbff) cut -= 1;
   return text.slice(0, cut) + XLSX_TRUNCATED;
 }
-/** Numbers stay number cells; strings become string cells as-is — no formula guard, a string cell is never evaluated. Empty → blank cell. */
-function xlsxCell(value: string | number): string | number | null {
-  return typeof value === 'number' ? value : value === '' ? null : xlsxText(value);
+/**
+ * The one XLSX cell rule for the table export and the workbook export (#891): a finite number stays a number cell; a non-finite number,
+ * `''` or `null` is a blank cell; a string is a string cell as-is (no formula guard — a string cell is never evaluated; a wall-clock
+ * `2026-09-25T09:00:00` is not parsed) cut at Excel's cell limit.
+ */
+export function xlsxCell(value: string | number | null): string | number | null {
+  if (value === null) return null;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  return value === '' ? null : xlsxText(value);
 }
 
 /**

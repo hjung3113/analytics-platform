@@ -27,6 +27,9 @@
 
 | 버전 | 패키지 | 바뀐 공개 API | 이전 방법 |
 | --- | --- | --- | --- |
+| 다음 릴리스 | ui | 추가(#891) — `FieldRow`의 `layout="detail"`(상세 패널 속성 목록: 9rem 라벨 칸·행 구분선·문자열 라벨 camelCase 접기·값 tabular)과 `mono?: boolean`(값을 고정폭으로). `label`은 `string`에서 `ReactNode`로 넓어졌다. `FieldList`는 `className`이 없으면 빈 `class` 속성을 붙이지 않는다 | 없음 |
+| 다음 릴리스 | components | **폐기 예고**(#891, ADR-0044) — `Field`. 다음 SDK 릴리스에서 지운다 | `<dl><Field label mono>…</Field></dl>`를 `@ap/ui`의 `<FieldList><FieldRow layout="detail" label mono>…</FieldRow></FieldList>`로 바꾼다. 그려지는 DOM이 같다(`Field.test.tsx`) |
+| 다음 릴리스 | components | 동작 바뀜(#891) — 표 내보내기 XLSX의 '조회 정보' 시트에서 유한하지 않은 숫자(NaN·±Infinity)가 숫자 셀 대신 빈 셀이 된다. Workbook 내보내기와 셀 규칙 하나를 쓴다. 공개 API는 그대로 | 없음 |
 | `sdk-v0.16.0` | components | **동작 바뀜**(#886 UX-8, 06 §13) — `DetailDrawer`는 탭이 하나뿐이면 탭 줄(`tablist`·`tab`·`tabpanel`)을 그리지 않고 그 내용만 그린다. 내용은 패널 제목으로 이름 붙은 초점 가능한 `region`이다. 탭이 둘에서 하나로 줄면 탭 줄이 사라지고 포커스는 패널로 가며, 탭 수가 1↔2로 바뀌면 내용이 다시 마운트된다. props는 그대로 | 탭 하나짜리 상세에서 `role="tab"`을 찾던 테스트는 내용으로 단언한다. 탭 줄이 필요하면 탭을 둘 이상 준다 |
 | `sdk-v0.16.0` | kernel | 추가(#907) — 테스트 진입점 `@ap/kernel/testing`에 `settleQueries()`(→ `Promise<void>`). ADR-0086 이후 조회 관찰자는 응답 뒤 매크로태스크에서 알림을 받으므로, 이 도우미가 `act` 안에서 매크로태스크 둘을 기다려 끝난 조회를 화면에 올린다 | 테스트에서 어댑터 응답을 풀어 준 뒤 `await settleQueries()`. 직접 쓰던 `setTimeout(0)` 두 번 대기는 이것으로 바꾼다 |
 | `sdk-v0.16.0` | kernel | 동작·의존(#825, ADR-0086) — 새 런타임 의존 `@tanstack/react-query` 5.62.7(정확 고정)이 조회 수명주기의 내부 엔진이 된다. 같은 메뉴·Context를 읽는 훅과 보드 칸은 요청 하나를 나누고(공유 키 중복 제거), 5분 안에 같은 신원으로 다시 마운트하면 이전 결과를 `refreshing`으로 보이며 다시 읽는다(메모리 SWR). 공개 API·타입 변화는 없다 | 앱 코드는 그대로다. 테스트와 조립에서 둘을 확인한다: ① 관찰자는 응답 뒤 매크로태스크에서 알림을 받으므로, 응답 뒤 `await act(async () => {})`만 기다리던 테스트는 `await settleQueries()`(#907)나 `findBy…`·`waitFor`로 기다린다. ② `PlatformProvider`의 `adapter`를 렌더마다 새로 만들지 않는다 — 새 adapter 객체는 새 세션 세대라 결과를 숨기고 다시 읽는다(모듈 수준이나 `useMemo`로 둔다). 앱이 다른 버전의 `@tanstack/react-query`를 쓰면 두 벌이 번들된다(Kernel 것은 내부 전용이고 앱의 `QueryClientProvider`와 섞이지 않는다) |
