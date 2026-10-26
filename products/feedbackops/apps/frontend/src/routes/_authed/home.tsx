@@ -9,7 +9,7 @@ import { HomeScreen, type HomeTab } from '@/features/home/HomeScreen';
 import { recoverySearchFields } from '@/lib/router/recovery-search';
 import { parseRouteSearch } from '@/lib/router/search';
 
-const homeSearchSchema = z
+export const homeSearchSchema = z
   .object({
     ...recoverySearchFields,
     managedSystem: z.string().uuid().optional(),

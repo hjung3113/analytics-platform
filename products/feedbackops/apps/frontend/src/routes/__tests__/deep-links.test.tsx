@@ -19,6 +19,7 @@ import { routeTree } from '@/routeTree.gen';
 import { ALL_SIDEBAR_ENTRIES } from '../_authed';
 
 const respondentSurveyId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const clusterId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const respondentForm = surveyRespondentFormDtoSchema.parse({
   survey: {
     id: respondentSurveyId,
@@ -282,6 +283,84 @@ describe('shipped deep-link contract', () => {
       );
     },
   );
+
+  test.each([
+    {
+      name: 'an undeclared cursor on Cluster detail is kept (system)',
+      initial: `/voc-clusters/${clusterId}?cursor=c1`,
+      choose: 'system',
+      expected: { cursor: 'c1', managedSystem: '33333333-3333-4333-8333-333333333333' },
+    },
+    {
+      name: 'an undeclared cursor on Cluster detail is kept (전체)',
+      initial: `/voc-clusters/${clusterId}?managedSystem=33333333-3333-4333-8333-333333333333&cursor=c1`,
+      choose: 'all',
+      expected: { cursor: 'c1' },
+    },
+    {
+      name: 'a declared cursor on Evidence is dropped',
+      initial: '/integration/evidence?cursor=c1',
+      choose: 'system',
+      expected: { managedSystem: '33333333-3333-4333-8333-333333333333' },
+    },
+  ])('scope switch: $name', async ({ initial, choose, expected }) => {
+    const systemId = '33333333-3333-4333-8333-333333333333';
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = new URL(String(input), 'http://localhost');
+        if (url.pathname === '/managed-systems')
+          return jsonResponse(200, {
+            items: [
+              {
+                id: systemId,
+                workspace_id: '22222222-2222-4222-8222-222222222222',
+                slug: 'finance',
+                name: 'Finance',
+                description: null,
+                archived_at: null,
+                created_at: '2026-01-01T00:00:00.000Z',
+                updated_at: '2026-01-01T00:00:00.000Z',
+              },
+            ],
+            total: 1,
+          });
+        if (url.pathname === '/me/permissions/scope')
+          return jsonResponse(200, { scope: { kind: 'all' } });
+        if (url.pathname === '/me/permissions/check')
+          return jsonResponse(200, { state: 'approved', decision: { allow: true } });
+        if (url.pathname === '/nav/counts') return jsonResponse(200, { counts: {} });
+        if (url.pathname === '/actors') return jsonResponse(200, { actors: [] });
+        return jsonResponse(200, { items: [], total: 0, page: { has_more: false, total: 0 } });
+      }),
+    );
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    queryClient.setQueryData(ME_QUERY_KEY, {
+      actor: {
+        id: '11111111-1111-4111-8111-111111111111',
+        external_id: 'scope-test',
+        email: 'scope@example.test',
+        display_name: 'Scope test',
+        role_level: 'admin',
+      },
+      workspace_id: '22222222-2222-4222-8222-222222222222',
+    });
+    const routeRouter = createRouter({
+      routeTree,
+      context: { queryClient },
+      history: createMemoryHistory({ initialEntries: [initial] }),
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={routeRouter} />
+      </QueryClientProvider>,
+    );
+    fireEvent.click(await screen.findByTestId('scope-selector'));
+    fireEvent.click(
+      await screen.findByTestId(`scope-option-${choose === 'system' ? systemId : 'all'}`),
+    );
+    await waitFor(() => expect(routeRouter.state.location.search).toEqual(expected));
+  });
 
   test.each([
     {

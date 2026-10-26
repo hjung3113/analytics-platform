@@ -1,3 +1,8 @@
+import {
+  evidenceSearchSchema,
+  integrationCoverageSearchSchema,
+  integrationDashboardSearchSchema,
+} from '@/features/integration/routes/integration-search';
 import { scopeSwitchClears } from '@/lib/host/scope-switch';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -50,10 +55,20 @@ import {
 } from '../lib/layout/command-palette/CommandPaletteContext';
 import { selectPlatformReturn } from '../lib/router/platform-return';
 import type { AppRouterContext } from './__root';
+import { homeSearchSchema } from './_authed/home';
 import { VOC_DEFAULT_VIEW } from './_authed/vocs';
 
 const SIDEBAR_ROUTE_DEFAULT_VIEWS: Record<string, string> = {
   '/vocs': VOC_DEFAULT_VIEW,
+};
+
+// Leaf route id -> the schema that route validates its search with. A route
+// absent here has no validator, so it declares no scope-bound `cursor`.
+const ROUTE_SEARCH_SCHEMAS: Record<string, { shape: Record<string, unknown> }> = {
+  '/_authed/home': homeSearchSchema,
+  '/_authed/integration/': integrationDashboardSearchSchema,
+  '/_authed/integration/evidence': evidenceSearchSchema,
+  '/_authed/integration/coverage': integrationCoverageSearchSchema,
 };
 
 export const NAV_TREE: Record<Exclude<RailDomain, 'home'>, SidebarNavEntry[]> = {
@@ -379,6 +394,7 @@ export function AuthedLayout() {
 
 function AuthedShell() {
   const location = useRouterState({ select: (state) => state.location });
+  const leafRouteId = useRouterState({ select: (state) => state.matches.at(-1)?.routeId });
   const platformReturn = useRouterState({
     select: (state) => selectPlatformReturn(state.matches),
   });
@@ -447,12 +463,13 @@ function AuthedShell() {
         to: location.pathname as never,
         search: (previous: Record<string, unknown>) => {
           const { managedSystem: _managedSystem, ...remaining } = previous;
-          // The validated search carries a key only when the screen's schema declares it (`parseRouteSearch` drops the rest).
+          // `parseRouteSearch` keeps undeclared keys as `undefined`, so key presence says nothing; ask the matched route's schema.
+          const declared = ROUTE_SEARCH_SCHEMAS[leafRouteId ?? '']?.shape ?? {};
           const clears = scopeSwitchClears({
             nextSystem: managedSystemId,
             area: remaining['filter.analytics_area'] as string | undefined,
             declaresArea: 'filter.analytics_area' in remaining,
-            declaresCursor: 'cursor' in remaining,
+            declaresCursor: 'cursor' in declared,
           });
           const scopedSearch = { ...remaining };
           if (clears.area) scopedSearch['filter.analytics_area'] = undefined;
@@ -463,7 +480,7 @@ function AuthedShell() {
         },
       } as never);
     },
-    [location.pathname, navigate, supportsManagedSystemScope],
+    [leafRouteId, location.pathname, navigate, supportsManagedSystemScope],
   );
   const savedViewFilter = React.useMemo<Record<string, unknown> | undefined>(() => {
     if (activeDomain !== 'voc' || location.pathname !== '/vocs') return undefined;
