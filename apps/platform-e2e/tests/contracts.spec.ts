@@ -5228,3 +5228,77 @@ test.describe('조건 묶음 (06 §6.4·§11, ADR-0083)', () => {
     await expect(switcher(page).getByRole('radio', { name: '설비 기준' })).toBeChecked();
   });
 });
+
+test.describe('분석 보드 최소화·복원 (#893 893c)', () => {
+  const screenOf = (roomNames: string) => ({ menuId: 'productivity-overview', params: {}, query: `?v=1&scopeId=MEM&${PERIOD}&roomNames=${roomNames}` });
+  async function openSeededBoard(page: Page) {
+    await signInAs(page, 'engineer');
+    await page.addInitScript(({ value }) => {
+      const seeded = 'platform:board-fixture-seeded:engineer';
+      localStorage.setItem('platform:board-layout-engine', 'dock');
+      if (sessionStorage.getItem(seeded)) return;
+      localStorage.setItem('platform:board:engineer', JSON.stringify(value));
+      sessionStorage.setItem(seeded, '1');
+    }, { value: { v: 1, activeSheetId: 'dock', sheets: [{ id: 'dock', name: '도킹', layout: '1x2', selected: 0, panes: [screenOf('PHOTO'), screenOf('ETCH')] }] } });
+    await page.goto('/board?sheet=dock');
+    const tabs = page.locator('[data-dock-layout] [role="tab"][data-tab-panel-id]');
+    await expect(tabs).toHaveCount(2);
+    await expect(page.locator('[data-dock-layout] [data-pane-body]').first()).toBeVisible();
+  }
+  const chip = (page: Page) => page.getByRole('button', { name: '분석 보드 · 도킹' });
+  const marks = (page: Page) => page.locator('[data-dock-probe="same"]');
+  const markPanes = (page: Page) => page.locator('[data-pane-id]').evaluateAll(panes => panes.forEach(pane => { (pane as HTMLElement).dataset.dockProbe = 'same'; }));
+
+  test('최대화한 보드에서 일반 메뉴를 고르면 자동으로 최소화되고, 칩 한 번으로 같은 인스턴스·같은 내부 최대화로 돌아온다', async ({ page }) => {
+    await openSeededBoard(page);
+    await markPanes(page);
+    await page.getByRole('button', { name: '칸 1 최대화' }).click();
+    await expect(page.getByRole('button', { name: '원래 크기로' })).toBeVisible();
+    // No prior minimize or close: choosing a regular menu is enough.
+    await chooseSystem(page, 'MARS');
+    await expect(page).not.toHaveURL(/\/board/);
+    await expect(chip(page)).toBeVisible();
+    await expect(page.getByRole('navigation', { name: '앱 레일' }).getByRole('button', { name: '분석 보드(최소화됨, 눌러 복원)' })).toBeVisible();
+    await chip(page).click();
+    await expect(page).toHaveURL(/\/board\?sheet=dock/);
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    // The same board instance: the marked pane roots survived, the inner maximize survived, nothing was picked again.
+    await expect(marks(page)).toHaveCount(2);
+    await expect(page.getByRole('button', { name: '원래 크기로' })).toBeVisible();
+    await expect(chip(page)).toHaveCount(0);
+  });
+
+  test('반복 왕복은 history 항목을 늘리지 않고, 명시적 최소화는 칩으로, 자동 최소화는 목적지로 포커스를 준다', async ({ page }) => {
+    await openSeededBoard(page);
+    const length = () => page.evaluate(() => history.length);
+    const before = await length();
+    // Explicit minimize: focus goes to the chip.
+    await page.getByRole('button', { name: '최소화' }).click();
+    await expect(chip(page)).toBeFocused();
+    expect(await length()).toBe(before);
+    for (let round = 0; round < 3; round++) {
+      await chip(page).click();
+      await expect(page).toHaveURL(/\/board\?sheet=dock/);
+      await page.getByRole('button', { name: '최소화' }).click();
+      await expect(chip(page)).toBeVisible();
+    }
+    expect(await length()).toBe(before);
+    // Automatic minimize: the destination's arrival focus wins; the chip does not take it.
+    await chip(page).click();
+    await expect(page).toHaveURL(/\/board\?sheet=dock/);
+    await chooseSystem(page, 'MARS');
+    await expect(chip(page)).toBeVisible();
+    await expect(chip(page)).not.toBeFocused();
+    await expect(mainHeading(page)).toBeFocused();
+  });
+
+  test('닫기는 live 보드만 끝내고 저장된 시트는 남기며 /board에 남아 다시 열리지 않는다', async ({ page }) => {
+    await openSeededBoard(page);
+    await page.getByRole('button', { name: '보드 닫기' }).click();
+    await expect(page).not.toHaveURL(/\/board/);
+    await expect(chip(page)).toHaveCount(0);
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('platform:board:v2:engineer') ?? localStorage.getItem('platform:board:engineer') ?? 'null')?.sheets?.length)).toBe(1);
+    await page.getByRole('navigation', { name: '앱 레일' }).getByRole('button', { name: '분석 보드' }).click();
+    await expect(page).toHaveURL(/\/board\?sheet=dock/);
+  });
+});
