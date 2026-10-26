@@ -1,7 +1,7 @@
 import { useCallback, useState, type ReactNode } from 'react';
 import { useI18n, usePlatform } from '@ap/kernel';
 import { Button } from '@ap/ui';
-import { focusPageFallback } from './pageFocus';
+import { RecoverButton } from './RecoverButton';
 
 export type FilterDraft<K extends string> = {
   /** Draft text of every applied field; fields omitted by reset read as ''. */
@@ -90,7 +90,7 @@ export function useManagementFilters<K extends string>({ applied, identity, clea
     if (patch !== null) setPage({ ...patch, page: null });
   };
   const clearButton: ReactNode = activeFilterCount > 0 ? <Button type="button" size="sm" variant="secondary" onClick={clear}>{t('clearFilters')}</Button> : null;
-  const recoverButton: ReactNode = <Button type="button" size="sm" variant="secondary" onClick={event => { focusPageFallback(event.currentTarget); clear(); }}>{t('clearFilters')}</Button>;
+  const recoverButton: ReactNode = <RecoverButton label={t('clearFilters')} onRecover={clear} />;
   return {
     draft,
     clear,

@@ -7,13 +7,12 @@
 import { Inbox, SlidersHorizontal, Target } from 'lucide-react';
 import { type ReactNode } from 'react';
 import { useDrill, useI18n, usePlatform, type PageProps } from '@ap/kernel';
-import { DrillLayout, Inspector, LegendTree, PanelWorkspace, PlatformPage, QueryView, SegmentedRadio, StateMessage, type InspectorSection, type PanelWorkspaceLayout, type PanelWorkspacePanel, type PanelWorkspacePreset } from '@ap/components';
+import { DrillLayout, Inspector, LegendTree, PageKeyWarning, PanelWorkspace, PlatformPage, QueryView, SegmentedRadio, StateMessage, type InspectorSection, type PanelWorkspaceLayout, type PanelWorkspacePanel, type PanelWorkspacePreset } from '@ap/components';
 import { Checkbox } from '@ap/ui';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import { HW_TIME_UNIT, type HwTimeBlock, type HwTimeDrill, type HwTimeLevelData } from '../../endpoints';
 import { useHwTimeLevel, useHwTimeTrend } from '../../shared/data';
 import { formatSeconds, missingText } from '../../shared/format';
-import { HwTimeUrlWarning } from '../../shared/HwTimeUrlWarning';
 import { RankingPanel } from '../../shared/panels/RankingPanel';
 import { StackPanel } from '../../shared/panels/StackPanel';
 import { TrendPanel } from '../../shared/panels/TrendPanel';
@@ -225,7 +224,7 @@ export default function OverviewPage(_props: PageProps) {
       </aside>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <DrillLayout fill summary={summary}>
-          {invalid ? <HwTimeUrlWarning sentences={invalid} onRecover={state.recover} />
+          {invalid ? <PageKeyWarning sentences={invalid} onRecover={state.recover} />
             : <QueryView fill query={levelQ} widgetName={ko ? 'HW Time 개요' : 'HW Time overview'} hideWidgetName skeletonRows={6}>
               {data => renderBody(data)}
             </QueryView>}
