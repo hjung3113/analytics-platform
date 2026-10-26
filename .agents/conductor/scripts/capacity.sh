@@ -62,22 +62,17 @@ growing=0
 [ "$delta" != '?' ] && [ "$delta" -ge "$grow_mb" ] && growing=1
 
 why=
-if [ "$free" -lt "$red_free" ] || [ "$growing" = 1 ] || [ "$load_hi" = 1 ] || [ "$pl" -ge 4 ]; then
+# 단계는 메모리 여유 %만으로 정한다(사용자 2026-10-26: "지금은 메모리 사용량으로만 판단").
+# swap·load·커널 압박은 출력에 참고값으로만 남긴다 — 쌓인 swap은 지금 부족하다는 뜻이 아니었다.
+if [ "$free" -lt "$red_free" ]; then
   level=red
-  [ "$free" -lt "$red_free" ] && why="여유 ${free}% < ${red_free}%"
-  [ "$growing" = 1 ] && why="${why:+$why, }swap +${delta}MB"
-  [ "$load_hi" = 1 ] && why="${why:+$why, }load ${load1} > 2×${ncpu}"
-  [ "$pl" -ge 4 ] && why="${why:+$why, }커널 메모리 압박 critical"
-elif [ "$free" -ge "$green_free" ] && [ "$delta" != '?' ] && [ "$load_ok" = 1 ] && [ "$swap_used" -lt "$full_mb" ] && [ "$pl" -lt 2 ]; then
+  why="여유 ${free}% < ${red_free}%"
+elif [ "$free" -ge "$green_free" ]; then
   level=green
-  why="여유 ${free}%, swap 증가 없음, load < ncpu, 커널 압박 normal"
+  why="여유 ${free}% ≥ ${green_free}%"
 else
   level=yellow
-  [ "$free" -lt "$green_free" ] && why="여유 ${free}% < ${green_free}%"
-  [ "$delta" = '?' ] && why="${why:+$why, }swap 직전 기록 없음"
-  [ "$load_ok" != 1 ] && why="${why:+$why, }load ${load1} ≥ ncpu ${ncpu}"
-  [ "$swap_used" -ge "$full_mb" ] && why="${why:+$why, }swap ${swap_used}MB ≥ ${full_mb}MB"
-  [ "$pl" -ge 2 ] && why="${why:+$why, }커널 메모리 압박 warn 이상"
+  why="여유 ${free}% < ${green_free}%"
 fi
 
 case $level in
