@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { House } from 'lucide-react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry, useRecentVisits } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
@@ -693,6 +694,25 @@ describe('shell entry (docs/16 §4, §8)', () => {
     expect(document.querySelector('aside[data-collapsed]')).toBeNull();
     expect(screen.getByRole('heading', { name: '분석 보드' })).toHaveFocus();
     expect(screen.getByRole('button', { name: '분석 보드' })).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('keeps the arrival heading out of the Tab order and ringless, so the next Tab lands on the first control with its normal ring', async () => {
+    seed(boardOf([sheet('a')]));
+    window.history.replaceState(null, '', '/alpha');
+    const s = testSession(['platform:view']);
+    render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => s })} registry={makeRegistry()}><AppShell><RouteOutlet /></AppShell></PlatformProvider></I18nProvider>);
+    await settle();
+    fireEvent.click(screen.getByRole('button', { name: '분석 보드' }));
+    await settle();
+    const heading = screen.getByRole('heading', { name: '분석 보드' });
+    expect(heading).toHaveFocus();
+    expect(heading).toHaveAttribute('tabindex', '-1');
+    expect(heading.className).toContain('focus:outline-none');
+    expect(heading.className).not.toMatch(/ring|outline-(?!none)/);
+    await userEvent.tab();
+    expect(document.activeElement).not.toBe(heading);
+    expect(heading.compareDocumentPosition(document.activeElement as Node) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(document.activeElement?.className).toMatch(/ring|outline/);
   });
 
   it('never writes the board screen into the main screen\'s recent list or last screen', async () => {
