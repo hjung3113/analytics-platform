@@ -14,7 +14,7 @@
 | `lane:fo` | FeedbackOps 이관(M6) | `products/feedbackops/`, `packages/fo-bridge`, `menus/feedbackops/*`, `menus/_global/*`의 FeedbackOps 다리 | 4390 |
 | `lane:ev` | equipment-visualization 이관의 AP 쪽(`tools` 공간, 호스트 모듈 fixture, EV tarball 버전 올리기) | 위 AP 경로. EV 저장소 쪽 일은 그 저장소의 `AGENTS.md`·이슈를 따르고 그 저장소의 Orca worktree에서 한다. `eqv-v*` 릴리스는 EV 규칙대로 내고 팀장에게 알린다 | 4490 |
 | `lane:site` | 소개 사이트 | `site/`(소개 페이지와 사이트 안 안내·캡처). 사내 적용·개발 가이드(`docs/integration/in-house-rollout.md` 등)는 `lane:platform` | 4790 |
-| `lane:ops` | 플랫폼 개발 밖의 부가 요청(사용자 2026-10-26): 운영 방식, conductor 프로필·함정·덧붙임, 에이전트 자산, 사용자가 시키는 조사·정리 보고서. 팀장이 직접 하지 않고 이 흐름에 넘긴다. 파일이 바뀌는 요청은 팀장이 `lane:ops` 이슈를 열어 배정한다(답만 하면 되는 질문은 이슈 없이). 전역 오케스트레이션 도구(conductor-engine·스킬)는 그 저장소에서 고치거나 `upstream-file.sh`로 올린다 | `.agents/`(이 문서 `LANES.md` 제외), `docs/agents/` | 4990 |
+| `lane:ops` | 플랫폼 개발 밖의 부가 요청(사용자 2026-10-26): 운영 방식, conductor 프로필·함정·덧붙임, 에이전트 자산, 사용자가 시키는 조사·정리 보고서. 팀장이 직접 하지 않고 이 흐름에 넘긴다. 파일이 바뀌는 요청은 팀장이 `lane:ops` 이슈를 열어 배정한다(답만 하면 되는 질문은 이슈 없이). 전역 오케스트레이션 도구(conductor-engine·스킬)는 고치지 않고 `upstream-file.sh`로 conductor-engine 이슈를 올린다(PROFILE §Review) | `.agents/`(이 문서 `LANES.md` 제외), `docs/agents/` | 4990 |
 | (팀장) | 배정·충돌·릴리스, 보드 | `.planning/`, 릴리스 노트, 이 문서(`LANES.md`) | 4890 |
 
 E2E는 `E2E_PORT=<포트>`로, base-path E2E는 `E2E_BASE_PATH_PORT=<포트 + 1>`로 돌린다.
@@ -33,7 +33,7 @@ E2E는 `E2E_PORT=<포트>`로, base-path E2E는 `E2E_BASE_PATH_PORT=<포트 + 1>
    - **제품 메뉴**: FeedbackOps 다리 메뉴는 `lane:fo`, EV 호스트 모듈은 `lane:ev`. 업무 의미는 제품이 소유한다([ADR-0043](../../docs/adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md)).
    - **사내 메뉴**(이 저장소 밖에서 새로 만드는 실제 메뉴): 여기서 만들지 않는다. 요청이 이슈로 왔으면 [사내 메뉴 개발 가이드](../../docs/integration/in-house-rollout.md) §5의 해당 단계와 쓸 SDK 조각을 코멘트로 적고 not planned로 닫는다. 대화로 왔으면 답으로 안내하고 이슈를 열지 않는다. 가이드에 없는 조립법이 드러나면 가이드를 고친다(`lane:platform`, M4).
 
-- **섞인 요청:** 분류마다 나눈다. Kernel 일과 SDK 조각은 `lane:sdk` 이슈로, 메뉴 선언·화면은 그 메뉴 흐름의 이슈로 하고, 메뉴 이슈는 SDK 이슈 뒤에 둔다. 사내 메뉴 요청이면 SDK 조각만 이슈로 남기고 메뉴 부분은 그 이슈에 소비자 안내로 적는다. 예: HW Time의 설비 → 설비-모듈 → 동작 드릴은 SDK 조각 둘("메뉴가 선언한 단계대로 드릴", "가로 막대의 범주 줄")과 HW Time의 단계 선언이다(#541). 첫 소비자가 그 조각을 검증하는 견본 메뉴이고 작으면 한 PR에 둔다(#852 — 다른 견본 메뉴로 옮기는 일은 [`backlog.md`](../../.planning/backlog.md)에 남겼다).
+- **섞인 요청:** 분류마다 나눈다. Kernel 일과 SDK 조각은 `lane:sdk` 이슈로, 메뉴 선언·화면은 그 메뉴 흐름의 이슈로 하고, 메뉴 이슈는 SDK 이슈 뒤에 둔다. 사내 메뉴 요청이면 SDK 조각만 이슈로 남기고 메뉴 부분은 그 이슈에 소비자 안내로 적는다. 예: HW Time의 설비 → 설비-모듈 → 동작 드릴은 SDK 조각 둘("메뉴가 선언한 단계대로 드릴", "가로 막대의 범주 줄")과 HW Time의 단계 선언이다(#541). 첫 소비자가 그 조각을 검증하는 견본 메뉴이거나, 요청에 딸린 견본 메뉴 수정이 작으면(링크 하나 등) 한 PR에 둔다(#753, #852 — 다른 견본 메뉴로 옮기는 일은 [`backlog.md`](../../.planning/backlog.md)에 남겼다).
 - **승격 후보:** 승격 기준은 루트 `AGENTS.md`가 원본이고, 팀장이 할 일은 메뉴에서 생긴 패턴의 소비자를 세는 것이다. 2번을 통과하지 못했지만(업무 의미가 섞였거나 모양이 메뉴마다 다르다) 다른 메뉴에도 나올 패턴은 `backlog.md`에 `구현 안 함 — <패턴> SDK 승격` 줄로 남기고 지금 소비자(메뉴와 이슈)와 다시 여는 조건(실제 소비자 2–3곳)을 적는다. 같은 패턴이 또 오면 그 줄에 소비자를 더하고, 조건이 차면 `lane:sdk` 이슈로 올린다. 견본·제품·사내 메뉴를 모두 소비자로 센다.
 - **흐름과 분류가 다를 때:** 기본값은 고칠 경로의 주인 흐름(§흐름 표)이다. 다른 흐름(예: 제품 흐름)이 맡는 것은 팀장이 그 흐름에 배정했을 때뿐이다. 흐름은 경로 주인을 따르고, 분류는 원본 문서·승격 기준·사용자 몫을 정한다. 제품 흐름이 자기 제품 때문에 Kernel·SDK 일을 맡을 수 있다(#829 — Kernel 책임을 `lane:ev`가 맡았다). SDK 조각이 다른 흐름이 소유한 소비자 파일을 고쳐야 할 때도 같다. 두 경우 모두 §함께 쓰는 경로의 착수를 보내고 팀장이 순서를 정한다. 버그는 증상이 보이는 곳이 아니라 확인된 원인이 있는 곳으로 나눈다.
 - **이름:** "플랫폼 역할"로 오는 요구는 대개 Kernel 책임이다. `lane:platform`은 앱 조립·mock·어댑터·견본 메뉴의 흐름이지 Kernel이 아니다([`GLOSSARY.md`](../../GLOSSARY.md) `Kernel`).
