@@ -101,7 +101,7 @@ function DrawerHost({ deepLink = false, removeTrigger = false }: { deepLink?: bo
 
 /** #353: controlled tabs that start on the unknown-tab fallback; the recovery button swaps the parent
  * to the attributes tab and removes the invalid tab in the same commit, unmounting the button. */
-function RecoveryDrawerHost({ title = 'Detail', initialTab = 'invalid' }: { title?: string; initialTab?: string }) {
+function RecoveryDrawerHost({ title = 'Detail', initialTab = 'invalid', audit = true }: { title?: string; initialTab?: string; audit?: boolean }) {
   const [tab, setTab] = useState(initialTab);
   const [unknown, setUnknown] = useState(true);
   return <I18nProvider><DetailPanelSlotProvider>
@@ -110,6 +110,8 @@ function RecoveryDrawerHost({ title = 'Detail', initialTab = 'invalid' }: { titl
       <DetailDrawer title={title} onClose={() => {}} tab={tab} onTabChange={setTab}
         tabs={[
           { id: 'attributes', label: 'Attributes', content: <button>속성 내용</button> },
+          // A second real tab keeps the tab row after the unknown tab goes (one tab draws no row, #886 UX-8).
+          ...(audit ? [{ id: 'audit', label: 'Audit', content: <button>감사 내용</button> }] : []),
           ...(unknown ? [{ id: 'invalid', label: '알 수 없는 탭', content: (
             <p role="alert">등록되지 않은 탭입니다. <button onClick={() => { setTab('attributes'); setUnknown(false); }}>속성 열기</button></p>
           ) }] : []),
@@ -261,6 +263,16 @@ describe('DetailDrawer docked slot', () => {
     fireEvent.click(recover);
     expect(screen.queryByRole('alert')).toBeNull();
     await waitFor(() => expect(screen.getByRole('tab', { name: 'Attributes' })).toHaveFocus());
+  });
+
+  // #886 UX-8: when the tab switch leaves one tab, the tab row goes with it; focus falls back to the panel (06 §13).
+  it('moves focus to the panel when the tab switch leaves a single tab and the row disappears', async () => {
+    render(<RecoveryDrawerHost audit={false} />);
+    const recover = screen.getByRole('button', { name: '속성 열기' });
+    recover.focus();
+    fireEvent.click(recover);
+    expect(screen.queryByRole('tablist')).toBeNull();
+    await waitFor(() => expect(screen.getByRole('dialog', { name: 'Detail' })).toHaveFocus());
   });
 
   // #353 FIX1: history Back can change the controlled tab while the tab list itself stays; the focused

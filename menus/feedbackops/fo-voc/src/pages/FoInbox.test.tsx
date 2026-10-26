@@ -113,7 +113,8 @@ describe('수신함 through the FeedbackOps bridge', () => {
     const aside = await screen.findByRole('complementary', { name: '상세 패널' });
     const dialog = await within(aside).findByRole('dialog');
     expect(within(dialog).getByText(`상세 본문 ${VOC_A}`)).toBeTruthy();
-    expect(within(dialog).getByRole('tab', { name: '상세' })).toBeTruthy();
+    // One tab draws no tab row (06 §13, #886 UX-8): the panel's own tabs are the only row.
+    expect(within(dialog).queryByRole('tablist', { name: '상세 탭' })).toBeNull();
     expect(fo.detailArgs.at(-1)).toEqual({ vocId: VOC_A, managedSystemId: SYSTEM });
   });
 
