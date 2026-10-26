@@ -63,7 +63,10 @@ function OpenInBoardDialogBody({ control }: { control: HeaderOverflowDialogContr
     // The one session the board screen uses; a change made in another tab is taken in first, and the check, the change and the save are one update.
     reloadBoardSession(user.id, text.sheetPrefix);
     // A board from a newer build is never written: say so before judging the destination, which that board cannot contain.
-    if (readBoardSession(user.id, text.sheetPrefix).readOnly) { setProblem(text.boardNotSaved); return; }
+    const held = readBoardSession(user.id, text.sheetPrefix);
+    if (held.readOnly) { setProblem(text.boardNotSaved); return; }
+    // Moves still only in memory (a splitter drag) are never written over what another tab saved meanwhile: that is a conflict, not a retry-able pane change.
+    if (held.unsaved) { setProblem(text.boardBusy); return; }
     const run: { current: Board | null; next: Board | null } = { current: null, next: null };
     const after = updateBoardSession(user.id, text.sheetPrefix, held => {
       run.current = held;

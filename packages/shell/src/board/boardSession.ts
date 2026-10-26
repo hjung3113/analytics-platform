@@ -19,6 +19,8 @@ const open = (userId: string, prefix: string): Session => {
   if (!session) { session = { ...loadBoard(browserStorage, userId, prefix), unsaved: false }; sessions.set(userId, session); }
   return session;
 };
+/** A session nobody subscribes to is not kept: the next reader loads the stored value. */
+const dropIfAlone = (userId: string) => { if (!subscribers.has(userId)) sessions.delete(userId); };
 const emit = (userId: string) => { for (const listener of Array.from(subscribers.get(userId) ?? [])) listener(); };
 const subscribe = (userId: string, listener: () => void) => {
   let set = subscribers.get(userId);
@@ -35,14 +37,14 @@ function apply(userId: string, prefix: string, change: (board: Board) => Board, 
   const previous = open(userId, prefix);
   const next = change(previous.board);
   // A saving update that changes nothing still writes a board held in memory by `save: false`.
-  if (next === previous.board && !(save && previous.unsaved)) return previous;
+  if (next === previous.board && !(save && previous.unsaved)) { dropIfAlone(userId); return previous; }
   let session: Session;
   if (!save) session = { ...previous, board: next, unsaved: true };
   // A newer build may have written since the load: that refusal latches this session read-only, with the notice.
   else if (!previous.readOnly && !saveBoard(browserStorage, userId, next)) session = { ...previous, board: next, notice: 'newer', readOnly: true, unsaved: false };
   else session = { ...previous, board: next, unsaved: false };
   sessions.set(userId, session);
-  if (!subscribers.has(userId)) sessions.delete(userId);
+  dropIfAlone(userId);
   emit(userId);
   return session;
 }
@@ -55,24 +57,37 @@ export function useBoardSession(userId: string, prefix: string): { board: Board;
 }
 
 /** For code outside the board screen: the user's board and whether this session may write it. */
-export const readBoardSession = (userId: string, prefix: string): { board: Board; readOnly: boolean; notice: StorageNotice | null } => {
+export const readBoardSession = (userId: string, prefix: string): { board: Board; readOnly: boolean; notice: StorageNotice | null; unsaved: boolean } => {
   const live = sessions.get(userId);
   if (live) return live;
-  return loadBoard(browserStorage, userId, prefix);
+  return { ...loadBoard(browserStorage, userId, prefix), unsaved: false };
 };
 
 /** Runs `change` against the one session and returns it afterwards (`readOnly` true: nothing was written). */
 export const updateBoardSession = (userId: string, prefix: string, change: (board: Board) => Board, { save = true }: { save?: boolean } = {}): { board: Board; readOnly: boolean; notice: StorageNotice | null } =>
   apply(userId, prefix, change, save);
 
+/** The stored board with the live board's selected panes and active sheet kept where their ids are still there; the first-entry reset is for a new session only. */
+const keepingLive = (stored: Board, live: Board): Board => {
+  const sheets = stored.sheets.map(sheet => {
+    const was = live.sheets.find(s => s.id === sheet.id);
+    return was && was.selectedPaneId !== sheet.selectedPaneId && sheet.panes.some(p => p.id === was.selectedPaneId) ? { ...sheet, selectedPaneId: was.selectedPaneId } : sheet;
+  });
+  return { ...stored, activeSheetId: stored.sheets.some(s => s.id === live.activeSheetId) ? live.activeSheetId : stored.activeSheetId, sheets };
+};
+
 /**
  * Takes the stored value into a live session, so a change another tab made is seen before a confirm judges its target (`분석 보드에 열기…`).
- * A session holding unsaved moves keeps them; with no live session the next read loads from storage anyway.
+ * A session holding unsaved moves keeps them, and a read-only one stays as it is (its latch and notice last the session). The selected panes
+ * and the active sheet stay as they are on screen; only the stored document is taken in. With no live session the next read loads from storage anyway.
  */
 export function reloadBoardSession(userId: string, prefix: string): void {
   const live = sessions.get(userId);
-  if (!live || live.unsaved) return;
-  sessions.set(userId, { ...loadBoard(browserStorage, userId, prefix), unsaved: false });
+  if (!live) return;
+  if (live.unsaved || live.readOnly) { dropIfAlone(userId); return; }
+  const stored = loadBoard(browserStorage, userId, prefix, board => board);
+  sessions.set(userId, { ...stored, board: stored.readOnly ? stored.board : keepingLive(stored.board, live.board), unsaved: false });
+  dropIfAlone(userId);
   emit(userId);
 }
 

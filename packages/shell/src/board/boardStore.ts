@@ -29,9 +29,9 @@ function quarantine(storage: KeyValueStore, key: string, raw: string) {
 /**
  * Reads the signed-in user's board: the V2 key, else the V1 key migrated in memory (nothing is written until the first edit; the V1 key is
  * never written or deleted). A corrupt value is copied to its backup key and reading falls through; a value from a newer build opens a fresh
- * board that this session never writes.
+ * board that this session never writes. `enter` is the first-entry normalization (every sheet's first pane selected); a refresh of a live board passes its own.
  */
-export function loadBoard(storage: KeyValueStore, userId: string, prefix: string): LoadedBoard {
+export function loadBoard(storage: KeyValueStore, userId: string, prefix: string, enter: (board: Board) => Board = atFirstPanes): LoadedBoard {
   let notice: StorageNotice | null = null;
   try {
     const rawV2 = storage.getItem(v2Key(userId));
@@ -39,7 +39,7 @@ export function loadBoard(storage: KeyValueStore, userId: string, prefix: string
       const json = parseJson(rawV2);
       if (json && isNewer(json.value)) return { board: freshBoard(prefix), notice: 'newer', readOnly: true };
       const parsed = json && parseBoardV2(json.value);
-      if (parsed) return { board: atFirstPanes(parsed), notice, readOnly: false };
+      if (parsed) return { board: enter(parsed), notice, readOnly: false };
       quarantine(storage, corruptBackupKey(userId, 'v2'), rawV2);
       notice = 'corrupt';
     }
@@ -47,7 +47,7 @@ export function loadBoard(storage: KeyValueStore, userId: string, prefix: string
     if (rawV1 !== null) {
       const json = parseJson(rawV1);
       const migrated = json && migrateV1(json.value);
-      if (migrated) return { board: atFirstPanes(migrated), notice, readOnly: false };
+      if (migrated) return { board: enter(migrated), notice, readOnly: false };
       quarantine(storage, corruptBackupKey(userId, 'v1'), rawV1);
       notice = 'corrupt';
     }

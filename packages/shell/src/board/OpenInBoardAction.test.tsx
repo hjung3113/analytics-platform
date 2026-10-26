@@ -5,7 +5,9 @@ import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { PlatformPage } from '@ap/components';
 import { RouteOutlet } from '../RouteOutlet';
-import { MAX_SHEETS } from './boardModel';
+import { renderHook } from '@testing-library/react';
+import { MAX_SHEETS, addSheet } from './boardModel';
+import { useBoardSession } from './boardSession';
 import { legacyBoard as boardOf, legacySheet as sheet, seedLegacy as seed, storedLegacy as stored, V1_KEY as KEY, V2_KEY } from './__fixtures__/legacyBoard';
 import type { BoardV1 as Board } from './boardMigrate';
 import { OpenInBoardAction } from './OpenInBoardAction';
@@ -170,6 +172,24 @@ describe('분석 보드에 열기… (docs/16 §6)', () => {
     expect(localStorage.getItem(V2_KEY)).toBeNull();
     expect(window.location.pathname).toBe('/alpha');
     expect(screen.getByRole('dialog', { name: '분석 보드에 열기' })).toBeInTheDocument();
+  });
+
+  it('a board with moves only in memory is never written over another tab\'s save: the dialog says the board is being edited', async () => {
+    seed(boardOf([sheet('a', { panes: [beta] })]));
+    mount(`/alpha?${w1}`);
+    await settle();
+    const live = renderHook(() => useBoardSession('u1', '시트'));
+    const dialog = await openDialog();
+    act(() => { live.result.current.update(board => addSheet(board, '시트'), { save: false }); });
+    const other = boardOf([sheet('a', { panes: [beta] }), sheet('b', { panes: [beta] })]);
+    seed(other);
+    fireEvent.click(within(dialog).getByRole('button', { name: '열기' }));
+    await settle();
+    expect(within(dialog).getByText('보드를 편집하는 중입니다. 편집을 마친 뒤 다시 시도하세요.')).toBeInTheDocument();
+    expect(stored()).toEqual(other);
+    expect(localStorage.getItem(V2_KEY)).toBeNull();
+    expect(window.location.pathname).toBe('/alpha');
+    live.unmount();
   });
 
   it.each([
