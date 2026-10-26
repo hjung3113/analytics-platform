@@ -85,7 +85,15 @@ const macrotask = () => new Promise<void>(resolve => { setTimeout(resolve, 0); }
 /**
  * Waits until a settled menu query is on screen (ADR-0086): TanStack tells its observers after a macrotask (notifyManager) that is
  * queued only once the reply has landed, so this waits two macrotasks inside `act`. Await it after resolving an adapter reply.
+ * Like Testing Library's `act`, it marks the run as an act environment and restores the previous flag afterwards.
  */
-export function settleQueries(): Promise<void> {
-  return act(async () => { await macrotask(); await macrotask(); });
+export async function settleQueries(): Promise<void> {
+  const scope = globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean };
+  const previous = scope.IS_REACT_ACT_ENVIRONMENT;
+  scope.IS_REACT_ACT_ENVIRONMENT = true;
+  try {
+    await act(async () => { await macrotask(); await macrotask(); });
+  } finally {
+    scope.IS_REACT_ACT_ENVIRONMENT = previous;
+  }
 }

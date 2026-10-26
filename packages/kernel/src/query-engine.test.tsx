@@ -77,6 +77,26 @@ describe('Kernel query engine (ADR-0086)', () => {
     expect(state('x').response?.data?.n).toBe(5);
   });
 
+  it('settleQueries (#907): runs as an act environment without the flag set and restores the flag afterwards', async () => {
+    const flagged = globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean };
+    const before = flagged.IS_REACT_ACT_ENVIRONMENT;
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      delete flagged.IS_REACT_ACT_ENVIRONMENT;
+      const h = harness();
+      render(tree(h.adapter, <Menu id="x" />));
+      await settleQueries();
+      h.calls[0]!.resolve(6);
+      await settleQueries();
+      expect(state('x').response?.data?.n).toBe(6);
+      expect(flagged.IS_REACT_ACT_ENVIRONMENT).toBeUndefined();
+      expect(errors.mock.calls.filter(call => String(call[0]).includes('not configured to support act'))).toEqual([]);
+    } finally {
+      errors.mockRestore();
+      flagged.IS_REACT_ACT_ENVIRONMENT = before;
+    }
+  });
+
   it('A1: observers of one shared key share one request; the signal aborts only when the last one leaves', async () => {
     const h = harness();
     const view = render(tree(h.adapter, <><Menu id="x" /><Menu id="y" /></>));
