@@ -47,7 +47,7 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
 
 1. 바뀐 패키지 검사.
 2. 루트 `pnpm lint && pnpm typecheck && pnpm test --concurrency=2 && pnpm build`를 순서대로 한 번 돌린다. test의 패키지 동시 실행 상한은 루트 `turbo.json` `concurrency`가 정하고 CI도 같다([operations.md](../../docs/agents/operations.md)). turbo 캐시는 worktree끼리 공유되니 `--force`·`--affected`·`...[ref]` 같은 git diff 필터를 쓰지 않는다 — 해시 입력이 바뀐 패키지와 그 의존자만 다시 돌고, diff 필터는 입력이 아닌 파일 목록으로 범위를 정해 더 위험하다(메뉴만 바꿨는데 gen-menu test가 빠진 일이 있었다). 필터는 루트 스크립트와 같은 `--filter='!@fops/*' --filter='!feedbackops'`만 쓴다(`feedbackops`가 빠지면 FeedbackOps 루트 lint가 플랫폼 biome 설정으로 돌아 1000건 넘게 실패한다). 패키지 밖 파일을 읽는 테스트는 `turbo.json`에 `$TURBO_ROOT$` inputs를 선언해야 이 캐시가 믿을 만하다.
-3. Kernel·셸·공통 컴포넌트·mock 서버가 바뀌었으면 E2E를 돌린다. 새 describe만 먼저(`cd apps/platform-e2e && pnpm exec playwright test -g "<describe>"`), 그다음 브리프 「영향 범위」 절이 적은 describe만 `-g "A|B"`로 돌린다. 전체 `pnpm e2e`는 `packages/{shell,kernel}/src`나 `apps/platform-web/src/style.css`를 바꿨을 때 리뷰 전에 한 번만 돌린다(전체는 PR CI가 다시 돈다).
+3. Kernel·셸·공통 컴포넌트·mock 서버가 바뀌었으면 E2E를 돌린다. 새 describe만 먼저(`cd apps/platform-e2e && pnpm exec playwright test -g "<describe>"`), 그다음 브리프 「영향 범위」 절이 적은 describe만 `-g "A|B"`로 돌린다. 로컬에서 전체 `pnpm e2e`는 돌리지 않는다. 전체는 PR CI가 돌고, 로컬 전체 실행은 CI 실패를 재현할 때만 쓴다(사용자 2026-10-26, #959).
 5. **FeedbackOps 단계는 `.github/workflows/feedbackops.yml`의 `paths`에 닿았을 때만 돌린다**(경로 목록의 원본은 그 워크플로 파일이다: `products/feedbackops/**`, `packages/{ui,contracts,http-adapter,server-conformance}/**`, 루트 manifest·lockfile·`.nvmrc` 등). 닿았으면 그 디렉터리에서 `scripts/ci/gate.sh static --base origin/main`, `unit`, 그리고 integration을 모두 돌린다. integration은 `gate.sh integration`으로 돌리지 않는다: 그 단계는 `CI_PG_ADMIN_URL` 서버의 `feedbackops` DB를 migrate·truncate하는데, verify 컨테이너(5439)에서는 그것이 이슈 DB를 복제하는 원본이다. 대신 이슈 DB에서 `FEEDBACKOPS_ENV_FILE=$WAVE_STATE/env.verify.<n> pnpm --filter @fops/backend test:integration`(전체)을 돌린다. 브랜치가 migration을 더했으면 먼저 `verify-db.sh drop <n>` → `create <n> --migrate-from <worktree>/products/feedbackops`로 다시 만든다(#621). 5434는 쓰지 않는다. 플랫폼 루트 검사는 FeedbackOps를 보지 않는다. 한 단계라도 빼면 CI가 대신 잡는다(#620: unit을 빼서 proxy 완전성 테스트 실패를 CI에서야 봤다). 새 파일은 커밋 전에 `pnpm exec biome format --write`를 돌린다(#603·#620에서 포맷만으로 static 실패).
 4. 메뉴 manifest·`menus.ts`·contracts 메뉴 타입·`tooling/gen-menu`를 바꿨으면 `node tooling/gen-menu/scripts/probe.ts`(생성 → 전체 검사 → 되돌리기)를 돌린다. 루트 4종과 CI에 없어서, #671 B9에서 probe 템플릿의 타입 오류를 이 단계가 처음 잡았다. 미리보기가 떠 있는 worktree에서는 돌리지 않는다(아래 §Traps).
 6. `python3 $ENGINE/worker-hygiene.py <worktree>`: 이유 없는 새 `eslint-disable`과 `eslint-suppressions.json` 증가는 실패, 공백만 바뀐 변경은 보고만 한다(설정 `worker_hygiene`).
@@ -87,7 +87,7 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
 - **영향 범위·회귀 점검**(사용자 2026-10-23, 모든 브리프): 브리프마다 `영향 범위와 회귀 가능성` 절을 넣는다. 깊이는 얕게, 범위는 넓게 본다.
   - 닿는 소비자를 적는다: 바꾸는 부품·계약을 쓰는 곳을 `rg`로 찾은 메뉴, 셸, 보드, 앱 조립.
   - 함께 바뀌어야 하는 06 절, ADR, 문서를 적는다.
-  - 회귀 위험을 높은 순으로 적고, 위험마다 그것을 잡는 테스트·E2E describe를 적는다. 없으면 "덮지 않음"이라고 쓰고 브리프에 테스트를 더한다.
+  - 회귀 위험을 높은 순으로 적고, 위험마다 그것을 잡는 테스트·E2E describe를 적는다. 변경이 화면·셸·Kernel·공통 컴포넌트·mock 서버에 닿아 E2E가 필요하면 **E2E describe 이름이 반드시 있어야 한다**(단위 테스트만 적은 브리프는 미완성이다, #959). 로컬 E2E는 이 목록의 describe만 `-g`로 돌리므로 목록이 곧 안전망이다. 없으면 "덮지 않음"이라고 쓰고 브리프에 테스트를 더한다.
   - `packages/*`, 셸, `@ap/contracts`, 메뉴 둘 이상을 건드리는 브리프는 작업자를 띄우기 전에 넓게 보는 리뷰어 한 명이 이 절을 검토한다. 브리프 점검과 같은 `review-check` 역할로, 계획 리뷰와 나란히 돌린다. 이 리뷰어는 저장소 전체를 얕게 훑고(import, Registry, E2E describe, 문서 소유) 빠진 영향과 회귀를 막는 항목으로 돌려준다.
   - 엔진에 전용 역할(`review-impact`)과 브리프 절이 생기기 전까지는 이 절이 규칙이다(conductor-engine#91).
 - **병합 전 문서 단계**(사용자 2026-10-23): 이슈·묶음마다 마지막 수정 라운드 뒤, 병합 전에 두 가지를 한다.
