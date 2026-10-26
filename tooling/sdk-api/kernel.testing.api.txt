@@ -1,6 +1,7 @@
 ToastProbe | function | function ToastProbe(): ReactElement
 memoryStorage | function | function memoryStorage(): Storage
 noContext | const | const noContext: Record<@ap/contracts#ContextKey, @ap/contracts#Capability>
+settleQueries | function | function settleQueries(): Promise<void>
 testAdapter | function | function testAdapter(over?: Partial<@ap/contracts#PlatformAdapter>): @ap/contracts#PlatformAdapter
 testSession | function | function testSession(permissions: readonly (@ap/contracts#ModuleScopedId | @ap/contracts#Permission)[], over?: { scopes?: readonly @ap/contracts#ScopeOption[]; user?: Partial<@ap/contracts#SessionUser>; }): @ap/contracts#Session
 testSpace | function | function testSpace(over?: Partial<@ap/contracts#SpaceDef>): @ap/contracts#SpaceDef

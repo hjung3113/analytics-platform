@@ -10,7 +10,7 @@ import { useQueryDraft } from './query-draft';
 import { useDrill } from './drill';
 import { useMenuQuery, useMenuFetch, usePlatformQuery, useEntityQuery } from './query';
 import { createRegistry } from './registry';
-import { noContext, testAdapter, testSession, testSpace } from './testing';
+import { noContext, settleQueries, testAdapter, testSession, testSpace } from './testing';
 
 const menu = { id: 'home', group: groupId('overview'), primary: true, path: '/', icon: House,
   label: { ko: '조회', en: 'Query' }, description: { ko: '', en: '' }, permission: 'platform:view' as const,
@@ -233,8 +233,7 @@ it('clears timestamps and aborts when the gate closes at the same projection, ig
   await act(async () => resolve({ outcome: 'ok', data: 99, assessments: [], trust: null, correlationId: 'late' }));
   expect(query.response).toBeNull();
 });
-// ADR-0086: TanStack notifies observers after a macrotask that is queued once the reply landed, so a settle waits two.
-const settle = () => act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); await new Promise(resolve => setTimeout(resolve, 0)); });
+const settle = settleQueries;
 it('keeps completedAt while refreshing and stamps every accepted terminal envelope', async () => {
   const responses: ((response: ApiResponse<number>) => void)[] = [];
   mount('/' + period, registry, { menuQuery: () => new Promise(resolve => responses.push(resolve)) });

@@ -7,7 +7,7 @@ import { I18nProvider } from './i18n';
 import { PlatformProvider } from './platform';
 import { useEntityAudit } from './query';
 import { createRegistry } from './registry';
-import { memoryStorage, testAdapter, testSession, testSpace } from './testing';
+import { memoryStorage, settleQueries, testAdapter, testSession, testSpace } from './testing';
 
 const registry = createRegistry({
   spaces: [testSpace()],
@@ -62,8 +62,7 @@ function mount(f: ReturnType<typeof fixture>, id?: string) {
   return { seen: () => seen, rerender: (nextId: string) => view.rerender(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><Probe id={nextId} onSeen={s => { seen = s; }} /></PlatformProvider></I18nProvider>) };
 }
 const text = (id: string) => screen.getByTestId(id).textContent;
-// ADR-0086: TanStack notifies observers after a macrotask (notifyManager) that is queued once the reply landed, so a flush waits two.
-const flush = () => act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); await new Promise(resolve => setTimeout(resolve, 0)); });
+const flush = settleQueries;
 
 /** Pages by cursor: undefined → first, 'c1' → second, 'c2' → third. */
 const PAGES: Record<string, EntityAuditPage> = {
