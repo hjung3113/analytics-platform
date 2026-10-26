@@ -9,6 +9,8 @@ import { AppSidebar } from './AppSidebar';
 import { PlatformSidebar } from './PlatformSidebar';
 import { AppRail } from './AppRail';
 import { useVocDrawer, VocDrawer, VocDrawerContext } from './VocDrawer';
+import { BoardRestoreChip } from './board/BoardRestoreChip';
+import { useBoardPresentation } from './board/boardPresentation';
 
 const COLLAPSE_KEY = 'platform:sidebar-collapsed';
 
@@ -33,6 +35,7 @@ function ShellLayout({ children }: { children: ReactNode }) {
   const axes = useEquipmentAxes();
   const voc = useVocDrawer(slots.vocCompose, () => ({ route, platformScreen, global, page, absoluteUrl, registry, lang, axes, asOf: t('membershipAsOf') }), detail.activation, session);
   const detailShown = detail.open && !voc?.visible;
+  const board = useBoardPresentation();
   const toggle = () => setCollapsed(c => { writeLocalStorage(COLLAPSE_KEY, c ? '0' : '1'); return !c; });
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -53,8 +56,9 @@ function ShellLayout({ children }: { children: ReactNode }) {
       <main id="platform-main" tabIndex={-1} className="min-h-0 min-w-0 flex-1 overflow-y-auto outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring">
         <Suspense fallback={<div className="p-5"><LoadingBlock rows={6} height={320} /></div>}>{children}</Suspense>
       </main>
+      <BoardRestoreChip />
       {/* The toast anchor: a zero-height positioned strip at the column's bottom edge, so the stack centres on the content column and never reaches the detail aside or the VOC drawer (06 Toast). */}
-      <div data-toast-anchor className="relative h-0"><Toasts aboveStrip={platformScreen === 'board'} /></div>
+      <div data-toast-anchor className="relative h-0"><Toasts aboveStrip={platformScreen === 'board' || board.minimized} /></div>
     </div>
     <aside ref={detail.ref} hidden={!detailShown} aria-label={lang === 'ko' ? '상세 패널' : 'Detail panel'} data-open={detailShown}
       className={cn('h-full max-w-[520px] shrink-0 overflow-hidden border-border-subtle bg-surface-detail',

@@ -9,12 +9,16 @@ export const PANE_MIN_WIDTH = 340;
 /** The grid gap in px (`gap-3` = 12px); `drawnColumns` needs the number. */
 export const GRID_GAP = 12;
 
-/** Width of an element's content box, tracked with a ResizeObserver. 0 until measured (or where there is no observer). */
-export function useElementWidth(ref: RefObject<HTMLElement | null>): number {
+/**
+ * Width of an element's content box, tracked with a ResizeObserver. 0 until measured (or where there is no observer).
+ * While `active` is false (the board is minimized: `display: none` measures 0) nothing is observed and the last valid width stays;
+ * becoming active measures again.
+ */
+export function useElementWidth(ref: RefObject<HTMLElement | null>, active = true): number {
   const [width, setWidth] = useState(0);
   useLayoutEffect(() => {
     const element = ref.current;
-    if (!element) return;
+    if (!element || !active) return;
     setWidth(element.getBoundingClientRect().width);
     if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(entries => {
@@ -23,7 +27,7 @@ export function useElementWidth(ref: RefObject<HTMLElement | null>): number {
     });
     observer.observe(element);
     return () => observer.disconnect();
-  }, [ref]);
+  }, [ref, active]);
   return width;
 }
 
@@ -66,11 +70,11 @@ export function effectiveTracks(layout: BoardLayout, arrangement: Arrangement, w
 }
 
 /** The panel is flex-sized after head, Context and tabs; subtract actual padding and conditional guidance. */
-export function useGridHeight(panel: RefObject<HTMLElement | null>, guidance: RefObject<HTMLElement | null>, allEmpty: boolean): number {
+export function useGridHeight(panel: RefObject<HTMLElement | null>, guidance: RefObject<HTMLElement | null>, allEmpty: boolean, active = true): number {
   const [height, setHeight] = useState(0);
   useLayoutEffect(() => {
     const element = panel.current;
-    if (!element) return;
+    if (!element || !active) return;
     const measure = () => {
       const style = getComputedStyle(element);
       const note = guidance.current;
@@ -83,6 +87,6 @@ export function useGridHeight(panel: RefObject<HTMLElement | null>, guidance: Re
     observer.observe(element);
     if (guidance.current) observer.observe(guidance.current);
     return () => observer.disconnect();
-  }, [panel, guidance, allEmpty]);
+  }, [panel, guidance, allEmpty, active]);
   return height;
 }

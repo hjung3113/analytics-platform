@@ -9,16 +9,26 @@ import { contextBarVisible } from './GlobalContextBar';
 import { HomeLink } from './HomeLink';
 import { ModuleScreen } from './ModuleScreen';
 import { RouteErrorBoundary } from './RouteErrorBoundary';
+import { useBoardPresentationSync } from './board/boardPresentation';
 
 // The board is a lazy chunk: only `/board` needs it, and the start-up chunk stays without it (#821, `pnpm check:lazy-chunks`).
 const BoardScreen = lazy(() => import('./board/BoardScreen').then(module => ({ default: module.BoardScreen })));
 
-/** The main screen's outlet: `ScreenOutlet` for the URL-bound screen, or the analysis board where the kernel says `/board` (a platform screen, docs/16). */
+/**
+ * The main screen's outlet: `ScreenOutlet` for the URL-bound screen, and the analysis board (a platform screen, docs/16) beside it. The board is mounted
+ * from the first time it is opened and stays mounted — the same React instance — while an ordinary screen is shown (minimized): its container is only
+ * `hidden` and `inert`, never re-keyed or moved, so sheet, selection, drafts and results are still there when the user comes back. Before the first
+ * open nothing of the board is loaded (ADR-0087).
+ */
 export function RouteOutlet() {
-  const { platformScreen } = useHostPlatform();
-  if (platformScreen !== 'board') return <ScreenOutlet />;
+  const { mounted, maximized } = useBoardPresentationSync();
   // Its own boundary, so the outlet works without the shell's (tests, other hosts); the fallback matches the shell's page fallback.
-  return <Suspense fallback={<div className="p-5"><LoadingBlock rows={6} height={320} /></div>}><BoardScreen Outlet={ScreenOutlet} /></Suspense>;
+  return <>
+    {!maximized && <ScreenOutlet />}
+    {mounted && <div data-board-host hidden={!maximized} inert={!maximized} aria-hidden={maximized ? undefined : true} className="h-full min-h-0">
+      <Suspense fallback={<div className="p-5"><LoadingBlock rows={6} height={320} /></div>}><BoardScreen Outlet={ScreenOutlet} visible={maximized} /></Suspense>
+    </div>}
+  </>;
 }
 
 /**

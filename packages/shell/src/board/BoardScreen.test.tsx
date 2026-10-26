@@ -693,7 +693,7 @@ describe('shell entry (docs/16 §4, §8)', () => {
     expect(window.location.pathname).toBe('/board');
     expect(document.querySelector('aside[data-collapsed]')).toBeNull();
     expect(screen.getByRole('heading', { name: '분석 보드' })).toHaveFocus();
-    expect(screen.getByRole('button', { name: '분석 보드' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('button', { name: '분석 보드(열림)' })).toHaveAttribute('aria-current', 'page');
   });
 
   it('keeps the arrival heading out of the Tab order and ringless, so the next Tab lands on the first control with its normal ring', async () => {

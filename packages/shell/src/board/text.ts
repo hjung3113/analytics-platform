@@ -135,6 +135,16 @@ const KO = {
   paneHead: (n: number) => `칸 ${n} 머리`,
   emptyTabName: '빈 칸',
   paneEditing: '편집 대상 칸',
+  minimize: '최소화',
+  closeBoard: '보드 닫기',
+  chipLabel: (sheet: string | null) => (sheet ? `분석 보드 · ${sheet}` : '분석 보드'),
+  chipHint: '눌러 보드를 원래 자리로 복원합니다',
+  railClosed: '분석 보드',
+  railOpen: '분석 보드(열림)',
+  railMinimized: '분석 보드(최소화됨, 눌러 복원)',
+  announceMinimized: '분석 보드를 최소화했습니다. 왼쪽 아래 칩으로 복원할 수 있습니다',
+  announceRestored: '분석 보드를 복원했습니다',
+  announceClosed: '분석 보드를 닫았습니다. 저장된 시트는 남아 있습니다',
 };
 
 type Strings<T> = { [K in keyof T]: T[K] extends (...args: infer A) => string ? (...args: A) => string : string };
@@ -262,6 +272,16 @@ const EN: Strings<typeof KO> = {
   paneHead: (n: number) => `Pane ${n} header`,
   emptyTabName: 'Empty',
   paneEditing: 'Editing target pane',
+  minimize: 'Minimize',
+  closeBoard: 'Close board',
+  chipLabel: (sheet: string | null) => (sheet ? `Analysis board · ${sheet}` : 'Analysis board'),
+  chipHint: 'Press to restore the board where you left it',
+  railClosed: 'Analysis board',
+  railOpen: 'Analysis board (open)',
+  railMinimized: 'Analysis board (minimized, press to restore)',
+  announceMinimized: 'Analysis board minimized. Restore it from the chip at the bottom left',
+  announceRestored: 'Analysis board restored',
+  announceClosed: 'Analysis board closed. Saved sheets are kept',
 };
 
 export type BoardText = Strings<typeof KO>;

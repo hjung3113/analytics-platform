@@ -823,6 +823,8 @@ Domain Component를 억지로 Platform Component로 승격하지 않는다.
 
 ---
 
+분석 보드의 활동 범위(최대화·최소화·닫기)와 복원 칩·레일 상태 표시는 [docs/16 §4](16_analysis_board.md#4-화면-구조-decided)와 [ADR-0087](adr/0087-board-minimize-restore-history.md)이 소유한다. 상세·overlay 표시권 중지는 893c2에서 이 절에 이어 적는다.
+
 ## 14. Platform Component Promotion Rule
 
 플랫폼 개발에서 가장 위험한 것은 **너무 늦은 공통화와 너무 이른 공통화** 둘 다다.

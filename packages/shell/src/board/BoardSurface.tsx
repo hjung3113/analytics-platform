@@ -2,7 +2,7 @@ import { QueryBarExtensionsProvider } from '@ap/components';
 import { useEquipmentAxes } from '@ap/kernel';
 import { PaneQueryDraftProvider } from '@ap/kernel/host';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties } from 'react';
-import { HardDrive } from 'lucide-react';
+import { HardDrive, Minus, X } from 'lucide-react';
 import { UNDO_WINDOW_MS, useI18n, type MenuEntry } from '@ap/kernel';
 import { paneHref, useHostPlatform, type PaneScreen } from '@ap/kernel/host';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, cn, Popover, PopoverContent, PopoverTrigger, ToggleGroup, ToggleGroupItem } from '@ap/ui';
@@ -19,6 +19,7 @@ import { MAX_PANES } from './boardTypes';
 import { readLayoutEngine } from './layoutEngine';
 import { canMountPaneScreen } from './boardMenus';
 import { applyContextToSheet, copyContextToSheet, defaultQuery, firstEmptyPane, paneNumbers, paneSignals, replacementScreen } from './paneActions';
+import { recallFocus, rememberFocus, rememberSheet } from './boardPresentation';
 import { useBoardSession } from './boardSession';
 import { GRID_GAP, PANE_HEADER_HEIGHT, PANE_BODY_MIN_HEIGHT, STACKED_PANE_MIN_HEIGHT, drawnColumns, effectiveTracks, useElementWidth, useGridHeight } from './layout';
 import { PanePicker } from './PanePicker';
@@ -37,9 +38,13 @@ const groupKey = (panes: readonly string[]) => [...panes].sort().join('|');
  * State lives in the board session store per user. A pane edits its own screen through `onChange`, never the main screen's Context or last-screen record.
  * `Outlet` renders a pane's menu (the shell's `ScreenOutlet`); it is passed in so this folder does not import the outlet that mounts it.
  * `arrivalKey` changes whenever the host's address does, so a page-arrival request left for the board is taken again.
+ * `visible` is false while the board is minimized but still mounted (docs/16 §4): it then takes no focus and no size, and shows the last valid
+ * layout; becoming visible again re-measures and puts focus back where it was.
  */
-export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrivalKey, Outlet }: {
+export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrivalKey, Outlet, visible = true, onMinimize, onClose }: {
   sheetId: string; onSheetChange: (id: string, options?: { replace?: boolean }) => void; arrivalKey: string; Outlet: ComponentType;
+  /** False while the host keeps the board minimized (hidden, inert): no arrival focus, no size taken from the hidden container. */
+  visible?: boolean; onMinimize?: () => void; onClose?: () => void;
 }) {
   const { user, pathname, navigate, registry, readRecent, pageNavigation, canOpen, toast, dismissToast } = useHostPlatform();
   const { lang, t } = useI18n();
@@ -54,11 +59,28 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
   const sheet = board.sheets.find(s => s.id === requestedSheetId) ?? board.sheets.find(s => s.id === board.activeSheetId) ?? board.sheets[0];
 
   // Arriving at the board takes page-arrival focus like any screen (06 §26); the kernel left the request for it.
+  // Not while minimized: the arrival then belongs to the ordinary screen that the address names.
+  const arrived = useRef(false);
   useLayoutEffect(() => {
-    const focus = () => { if (pageNavigation.consume(pathname)) heading.current?.focus({ preventScroll: true }); };
+    if (!visible) { arrived.current = false; return; }
+    const focus = () => { if (pageNavigation.consume(pathname)) { arrived.current = true; heading.current?.focus({ preventScroll: true }); } };
     focus();
     return pageNavigation.subscribe(focus);
-  }, [arrivalKey, pathname, pageNavigation]);
+  }, [arrivalKey, pathname, pageNavigation, visible]);
+
+  // The chip names the sheet shown; the focus that was inside the visible board comes back with it (heading when that element is gone).
+  useEffect(() => { rememberSheet(user.id, sheet.id, sheet.name); }, [user.id, sheet.id, sheet.name]);
+  const root = useRef<HTMLDivElement>(null);
+  const wasVisible = useRef(visible);
+  useLayoutEffect(() => {
+    const returning = visible && !wasVisible.current;
+    wasVisible.current = visible;
+    // A restore that is also an arrival (`분석 보드에 열기…`) keeps the arrival's title focus.
+    if (!returning || arrived.current) { arrived.current = false; return; }
+    const before = recallFocus(user.id);
+    const usable = before !== null && before.isConnected && root.current?.contains(before) === true && !before.closest('[inert], [hidden]');
+    (usable ? before : heading.current)?.focus({ preventScroll: true });
+  }, [visible, user.id]);
 
   // Undo closures write through `update`, so they must not outlive the user or the screen they were raised on.
   const raised = useRef(new Set<number>());
@@ -192,12 +214,12 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
   const [editRequest, setEditRequest] = useState(0);
   const editContext = (index: number) => { select(index); setEditRequest(n => n + 1); };
   useEffect(() => {
-    if (editRequest === 0) return;
+    if (editRequest === 0 || !visible) return;
     const timer = setTimeout(() => {
       document.querySelector<HTMLElement>('[data-board-context-row] button:not(:disabled), [data-board-context-row] [tabindex="0"]')?.focus({ preventScroll: true });
     }, 0);
     return () => clearTimeout(timer);
-  }, [editRequest, user.id, sheetId, layout]);
+  }, [editRequest, user.id, sheetId, layout, visible]);
 
   const unavailable = (index: number) => { const own = paneScreens[index]; return own !== null && !canMountPaneScreen(registry, canOpen, own); };
   const applyOff = (index: number) => (unavailable(index) ? text.paneUnavailable : applyContextToSheet(registry, canOpen, sheet, index)?.others ? null : text.applyToAllNone);
@@ -216,8 +238,9 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
   const panel = useRef<HTMLDivElement>(null);
   const guidance = useRef<HTMLElement>(null);
   const allEmpty = paneScreens.every(screen => screen === null);
-  const height = useGridHeight(panel, guidance, allEmpty);
-  const width = useElementWidth(grid);
+  // A hidden board measures 0: that is not a narrow window, so neither measurement is taken until it is visible again.
+  const height = useGridHeight(panel, guidance, allEmpty, visible);
+  const width = useElementWidth(grid, visible);
   const drawn = drawnColumns(columns, width);
   const stacked = drawn !== columns;
   const arrangement = getArrangement(sheet);
@@ -357,7 +380,8 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
     onDuplicate: () => duplicate(index), onEditContext: () => editContext(index),
   });
 
-  return <div data-board className="relative flex h-full min-h-0 flex-col">
+  return <div ref={root} data-board className="relative flex h-full min-h-0 flex-col"
+    onFocusCapture={event => { if (visible && event.target instanceof HTMLElement && !event.target.closest('[data-board-leave]')) rememberFocus(user.id, event.target); }}>
     <header className="flex h-[50px] shrink-0 items-center justify-between gap-3 overflow-x-auto border-b border-border-subtle bg-surface-canvas px-4">
       <div className="flex min-w-0 items-center gap-3">
         <h1 data-page-heading ref={heading} tabIndex={-1} className="min-w-28 truncate focus:outline-none text-sm font-semibold text-text-primary">{text.board}</h1>
@@ -381,6 +405,10 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
       <ToggleGroup type="single" appearance="filter" aria-label={text.layout} value={layout} onValueChange={value => { if (value) requestLayout(value as BoardLayout); }}>
         {BOARD_LAYOUTS.map(option => <ToggleGroupItem key={option} value={option} size="sm" appearance="selected-filter" aria-label={text.layoutOption(option)}>{option.replace('x', '×')}</ToggleGroupItem>)}
       </ToggleGroup>
+      </div>}
+      {(onMinimize || onClose) && <div data-board-leave className="flex shrink-0 items-center gap-1 border-l border-border-subtle pl-2">
+        {onMinimize && <Button type="button" variant="ghost" size="sm" onClick={onMinimize}><Minus className="size-3.5" aria-hidden />{text.minimize}</Button>}
+        {onClose && <Button type="button" variant="ghost" size="sm" onClick={onClose}><X className="size-3.5" aria-hidden />{text.closeBoard}</Button>}
       </div>}
     </header>
     <PaneQueryDraftProvider key={sheetId} screens={Object.fromEntries(paneScreens.map((screen, index) => [paneKey(index), screen]))}>
