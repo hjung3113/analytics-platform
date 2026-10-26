@@ -73,4 +73,6 @@ JS
 # xlsxTestReader now sits under __tests__/, which the build exclude already covers.
 sed -i '' -e 's#, "src/xlsxTestReader.ts"##' packages/components/tsconfig.build.json
 # docs/research 등 역사 문서의 파일 링크(링크 검사 대상)도 새 경로로 맞춘다.
-git grep -lE "packages/components/src/(AnalysisChart|AnalysisChartFrame|EChart|LegendTree)\.tsx" -- docs | xargs -r perl -pi -e 's#(packages/components/src/)(AnalysisChartFrame|AnalysisChart|EChart|LegendTree)\.tsx#$1chart/$2.tsx#g'
+(git grep -lE "packages/components/src/(AnalysisChart|AnalysisChartFrame|EChart|LegendTree)\.tsx" -- docs || true) | xargs -r perl -pi -e 's#(packages/components/src/)(AnalysisChartFrame|AnalysisChart|EChart|LegendTree)\.tsx#$1chart/$2.tsx#g'
+# 메뉴 쪽 vi.mock 문자열 경로(코드모드가 못 닿는 곳).
+perl -pi -e "s#packages/components/src/AnalysisChartFrame#packages/components/src/chart/AnalysisChartFrame#g" menus/analytics/analytics/src/pages/chart-catalog/BreakdownBars.test.tsx
