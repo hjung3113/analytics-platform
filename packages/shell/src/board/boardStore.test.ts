@@ -2,7 +2,8 @@ import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
 import { addSheet, freshBoard, parseBoardV2, renameSheet, screens, setPane, type Board } from './boardModel';
-import { loadBoard, readStoredBoard, saveBoard, useBoardStore, writeStoredBoard } from './boardStore';
+import { useBoardSession as useBoardStore } from './boardSession';
+import { loadBoard, readStoredBoard, saveBoard, writeStoredBoard } from './boardStore';
 import { legacyBoard, legacySheet, toLegacy, V1_KEY, V2_KEY } from './__fixtures__/legacyBoard';
 
 const V1_BACKUP = 'platform:board:v1-backup:u1';
