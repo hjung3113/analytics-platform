@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { DetailDrawer } from '@ap/components';
 import { House, ListTodo, MessagesSquare, MessageSquarePlus, Rocket, Star } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
+import { I18nProvider, PlatformProvider, createRegistry, useI18n } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import type { FeedbackOpsSlot, PlatformSlots } from '@ap/kernel';
 import { AppShell } from './AppShell';
@@ -1097,9 +1097,11 @@ describe('sidebar navViews, navCounts and spaceNavSection (#761)', () => {
 describe('toast stack placement and live regions (#886)', () => {
   function Fire() {
     const { toast } = useHostPlatform();
+    const { setLang } = useI18n();
     return <>
       <button type="button" onClick={() => toast('안내', 'info')}>fire info</button>
       <button type="button" onClick={() => toast('실패', 'danger')}>fire danger</button>
+      <button type="button" onClick={() => setLang('en')}>to english</button>
     </>;
   }
   const mount = () => render(<I18nProvider><PlatformProvider adapter={adapterWith()} registry={registry}>
@@ -1117,7 +1119,7 @@ describe('toast stack placement and live regions (#886)', () => {
     // The column itself stays unpositioned so absolute content inside main keeps main as its clip (#886 E2E PageFilterBar).
     expect(column).not.toHaveClass('relative');
     expect(column.contains(document.getElementById('platform-main'))).toBe(true);
-    expect(stack).toHaveClass('absolute', 'inset-x-4', 'mx-auto', 'max-w-[420px]');
+    expect(stack).toHaveClass('absolute', 'inset-x-4', 'mx-auto', 'max-w-[420px]', 'bottom-4');
     expect(stack).not.toHaveClass('fixed');
     expect(stack.closest('aside')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'fire info' }));
@@ -1143,6 +1145,12 @@ describe('toast stack placement and live regions (#886)', () => {
     fireEvent.click(screen.getAllByRole('button', { name: '닫기' })[0]!);
     expect(before[0]!.textContent).toBe('알림: 안내');
     expect(before[1]!.textContent).toBe('오류: 실패');
+    // A language switch rewrites nothing already said; a toast raised after it is said in the new language (#886 G2).
+    fireEvent.click(screen.getByRole('button', { name: 'to english' }));
+    expect(before[0]!.textContent).toBe('알림: 안내');
+    expect(before[1]!.textContent).toBe('오류: 실패');
+    fireEvent.click(screen.getByRole('button', { name: 'fire info' }));
+    expect(before[0]!.textContent).toBe('알림: 안내Notice: 안내');
   });
   it('keeps newest at the bottom across tones: danger A then info B puts B below A', () => {
     mount();

@@ -152,10 +152,15 @@ describe('storage (docs/16 §7)', () => {
     mount('/board');
     await settle();
     expect(await screen.findByText('더 새 버전에서 저장한 보드라 이 화면에서는 저장하지 않습니다.')).toBeInTheDocument();
+    // Once per user and condition: neither an edit nor a language switch raises it again (#886 G3).
     fireEvent.click(screen.getByRole('button', { name: '시트 추가' }));
     await settle();
     expect(screen.getAllByRole('tab')).toHaveLength(2);
     expect(localStorage.getItem(V2_KEY)).toBe(newer);
+    openMenu(screen.getByRole('button', { name: '사용자 메뉴' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: /언어/ }));
+    await settle();
+    expect(document.querySelectorAll('[data-toast-item]')).toHaveLength(1);
   });
 
   it('says that an unreadable board was set aside, and keeps the original value', async () => {

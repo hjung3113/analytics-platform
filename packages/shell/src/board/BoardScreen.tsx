@@ -83,8 +83,13 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
   useEffect(() => { latest.current = board; });
 
   // A stored value this build did not use (newer version, unreadable) is said once per user, in the toast every other board message uses.
+  // Keyed by user and condition, not by the translated copy: a language switch must not raise it again (#886).
+  const storageSaid = useRef<string | null>(null);
   useEffect(() => {
-    if (storageNotice !== null) notifyRef.current(storageNotice === 'newer' ? text.storageNewer : text.storageCorrupt);
+    const key = storageNotice === null ? null : `${user.id}:${storageNotice}`;
+    if (key === null || storageSaid.current === key) return;
+    storageSaid.current = key;
+    notifyRef.current(storageNotice === 'newer' ? text.storageNewer : text.storageCorrupt);
   }, [storageNotice, user.id, text]);
 
   const sheetId = sheet.id;

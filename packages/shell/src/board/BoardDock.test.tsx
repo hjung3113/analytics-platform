@@ -219,6 +219,8 @@ describe('dock renderer: Delete = 비우기, X, 칸 추가, 칸 닫기, 복제',
       await userEvent.setup({ advanceTimers: vi.advanceTimersByTime }).keyboard('{Delete}');
       await settle();
       expect(await screen.findByText('칸 2을 비웠습니다')).toBeInTheDocument();
+      // The board's sheet strip (41px) stays clear: the shared stack sits above it on the board (#886 G1).
+      expect(document.querySelector('[data-toast-stack]')).toHaveClass('bottom-14');
       act(() => { vi.advanceTimersByTime(7000); });
       expect(screen.getByText('칸 2을 비웠습니다')).toBeInTheDocument();
       act(() => { vi.advanceTimersByTime(1500); });

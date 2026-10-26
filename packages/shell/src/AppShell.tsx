@@ -54,7 +54,7 @@ function ShellLayout({ children }: { children: ReactNode }) {
         <Suspense fallback={<div className="p-5"><LoadingBlock rows={6} height={320} /></div>}>{children}</Suspense>
       </main>
       {/* The toast anchor: a zero-height positioned strip at the column's bottom edge, so the stack centres on the content column and never reaches the detail aside or the VOC drawer (06 Toast). */}
-      <div data-toast-anchor className="relative h-0"><Toasts /></div>
+      <div data-toast-anchor className="relative h-0"><Toasts aboveStrip={platformScreen === 'board'} /></div>
     </div>
     <aside ref={detail.ref} hidden={!detailShown} aria-label={lang === 'ko' ? '상세 패널' : 'Detail panel'} data-open={detailShown}
       className={cn('h-full max-w-[520px] shrink-0 overflow-hidden border-border-subtle bg-surface-detail',
@@ -69,26 +69,31 @@ function ShellLayout({ children }: { children: ReactNode }) {
  * lives in two persistent visually-hidden regions (polite for info/warning, assertive for danger) that receive a toast's text once, when it
  * is raised — a layout change or a dismissal announces nothing.
  */
-function Toasts() {
+function Toasts({ aboveStrip }: { aboveStrip: boolean }) {
   const toasts = useToastList();
   const heard = useRef<Set<number> | null>(null);
-  const [polite, setPolite] = useState<Toast[]>([]);
-  const [assertive, setAssertive] = useState<Toast[]>([]);
+  // Announcements are frozen strings: a later language switch must not rewrite (and so re-announce) what was already said.
+  const [polite, setPolite] = useState<{ id: number; said: string }[]>([]);
+  const [assertive, setAssertive] = useState<{ id: number; said: string }[]>([]);
+  const { lang } = useI18n();
+  const langRef = useRef(lang);
+  langRef.current = lang;
   // The first render only records what is already there; later renders announce the ids not yet heard.
   useEffect(() => {
     const seen = heard.current ?? new Set<number>();
     const fresh = toasts.filter(tst => !seen.has(tst.id));
     heard.current = new Set(toasts.map(tst => tst.id));
     if (fresh.length === 0) return;
-    setPolite(list => [...list, ...fresh.filter(tst => tst.tone !== 'danger')].slice(-4));
-    setAssertive(list => [...list, ...fresh.filter(tst => tst.tone === 'danger')].slice(-4));
+    // The tone is not visible to a screen reader (an icon), so the announcement names it first, in the language of the moment it is raised.
+    const toneWord = (tone: Toast['tone']) => langRef.current === 'ko' ? { info: '알림', warning: '경고', danger: '오류' }[tone] : { info: 'Notice', warning: 'Warning', danger: 'Error' }[tone];
+    const entry = (tst: Toast) => ({ id: tst.id, said: `${toneWord(tst.tone)}: ${tst.text}${tst.detail ? ` ${tst.detail}` : ''}` });
+    setPolite(list => [...list, ...fresh.filter(tst => tst.tone !== 'danger').map(entry)].slice(-4));
+    setAssertive(list => [...list, ...fresh.filter(tst => tst.tone === 'danger').map(entry)].slice(-4));
   }, [toasts]);
-  const { lang } = useI18n();
-  // The tone is not visible to a screen reader (an icon), so the announcement names it first.
-  const toneWord = (tone: Toast['tone']) => lang === 'ko' ? { info: '알림', warning: '경고', danger: '오류' }[tone] : { info: 'Notice', warning: 'Warning', danger: 'Error' }[tone];
-  const said = (tst: Toast) => <p key={tst.id}>{`${toneWord(tst.tone)}: ${tst.text}${tst.detail ? ` ${tst.detail}` : ''}`}</p>;
+  const said = (item: { id: number; said: string }) => <p key={item.id}>{item.said}</p>;
   // Toasts sit above the command palette scrim (z-60) so their dismiss stays clickable (#310).
-  return <div data-toast-stack className="pointer-events-none absolute inset-x-4 bottom-4 z-70 mx-auto max-w-[420px]">
+  // The board keeps its 41px sheet strip at the column bottom: the stack sits above it (06 Toast, bottom bars).
+  return <div data-toast-stack className={cn('pointer-events-none absolute inset-x-4 z-70 mx-auto max-w-[420px]', aboveStrip ? 'bottom-14' : 'bottom-4')}>
     <div className="flex flex-col gap-2">
       {toasts.map(tst => <ToastItem key={tst.id} toast={tst} />)}
     </div>
