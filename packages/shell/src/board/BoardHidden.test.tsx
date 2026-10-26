@@ -12,7 +12,7 @@ import { RouteOutlet } from '../RouteOutlet';
 import { BoardSurface } from './BoardSurface';
 import { BOARD_LAYOUT_ENGINE_KEY } from './layoutEngine';
 import { legacyBoard as boardOf, legacySheet as sheet, seedLegacy as seed, V2_KEY } from './__fixtures__/legacyBoard';
-import { resetBoardPresentationForTests } from './boardPresentation';
+import { resetBoardPresentationForTests, withoutDetailKey } from './boardPresentation';
 import { boardText } from './text';
 
 /** The covered board (893c2, ADR-0088): transient UI, notices and the detail slot are paused; state and requests are not touched. */
@@ -78,7 +78,7 @@ let session: Session;
 const listeners = new Set<() => void>();
 function Nav() {
   const { navigate } = useHostPlatform();
-  return <button type="button" onClick={() => navigate('/beta')}>go beta</button>;
+  return <><button type="button" onClick={() => navigate('/beta')}>go beta</button><button type="button" onClick={() => navigate('/board?sheet=a')}>go board</button></>;
 }
 function mount(url: string, permissions: Session['user']['permissions'] = ['platform:view']) {
   window.history.replaceState(null, '', url);
@@ -201,6 +201,37 @@ describe('a minimized board keeps its state and drops its transient UI (893c2)',
     act(() => { setVisible(true); });
     await settle();
     expect(screen.queryByText(text.storageCorrupt)).toBeNull();
+  });
+});
+
+describe('the return address never reopens a general detail (893c2 UX-1)', () => {
+  it('UX-1: minimizing from a screen address that carried focus= returns without it, keeps the board detail and hands focus to the chip', async () => {
+    seed(boardOf([sheet('a', { panes: [alpha] })]));
+    mount('/beta?x=1&focus=zz');
+    await settle();
+    fireEvent.click(screen.getByRole('button', { name: 'go board' }));
+    await settle();
+    fireEvent.click(screen.getByRole('button', { name: 'open owned detail' }));
+    const detail = screen.getByRole('dialog', { name: 'owned detail' });
+    fireEvent.click(screen.getByRole('button', { name: text.minimize }));
+    await settle();
+    expect(window.location.pathname).toBe('/beta');
+    expect(new URLSearchParams(window.location.search).has('focus')).toBe(false);
+    expect(new URLSearchParams(window.location.search).get('x')).toBe('1');
+    expect(screen.queryByRole('dialog', { name: 'general detail' })).toBeNull();
+    expect(document.activeElement).toBe(chip());
+    fireEvent.click(chip()!);
+    await settle();
+    expect(screen.getByRole('dialog', { name: 'owned detail' })).toBe(detail);
+    expect(asideOpen()).toBe('true');
+  });
+
+  it('an address without focus is left as it is', () => {
+    expect(withoutDetailKey('/beta?x=1&y=2#h')).toBe('/beta?x=1&y=2#h');
+    expect(withoutDetailKey('/beta')).toBe('/beta');
+    expect(withoutDetailKey('/beta?focus=a&x=1#h')).toBe('/beta?x=1#h');
+    expect(withoutDetailKey('/beta?focus=a')).toBe('/beta');
+    expect(withoutDetailKey('/beta?xfocus=a&focusx=b')).toBe('/beta?xfocus=a&focusx=b');
   });
 });
 

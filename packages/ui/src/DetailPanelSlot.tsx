@@ -97,7 +97,8 @@ export function DetailPanelSlotProvider({ children }: { children: ReactNode }) {
       const wasShown = shown.current.get(key) === true;
       shown.current.set(key, node != null);
       if (keys.current.includes(key)) {
-        if (node != null && !wasShown) setActivation(count => count + 1);
+        // Only a winner that is not paused becomes visible here; a paused one counts when it resumes (`setPaused`), once.
+        if (node != null && !wasShown && keys.current.at(-1) === key && !pausedRef.current.has(key)) setActivation(count => count + 1);
       } else takeSlot(key, node != null, paused);
       setContents(prev => {
         if (prev.get(key) === node) return prev;
@@ -113,9 +114,12 @@ export function DetailPanelSlotProvider({ children }: { children: ReactNode }) {
         return next;
       });
       if (keys.current.includes(key)) unregister(key);
+      else if (pausedRef.current.delete(key)) syncPaused();
     },
     setPaused: (key, paused) => {
       if (pausedRef.current.has(key) === paused) return;
+      // A key without a registration keeps no pause entry; a registrant that comes later brings its own pause state.
+      if (paused && !keys.current.includes(key)) return;
       if (paused) pausedRef.current.add(key); else pausedRef.current.delete(key);
       syncPaused();
       // Resuming shows a detail again, so it takes the VOC drawer's place like any newly visible detail, but only if nothing newer holds the slot.

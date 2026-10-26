@@ -51,6 +51,20 @@ const forget = (userId: string) => {
 
 export function resetBoardPresentationForTests(): void { states.clear(); focusBefore.clear(); chipFocus.clear(); listeners.clear(); }
 
+/**
+ * The address a minimize or close goes back to must not reopen a detail the user did not ask for: it drops the `focus` key (the detail-opening query,
+ * docs/06 §6.4) and keeps the screen, its other keys and the hash. Recording and using the address both pass through here (docs/16 §4).
+ */
+export const withoutDetailKey = (href: string): string => {
+  const hashAt = href.indexOf('#');
+  const base = hashAt === -1 ? href : href.slice(0, hashAt);
+  const hash = hashAt === -1 ? '' : href.slice(hashAt);
+  const queryAt = base.indexOf('?');
+  if (queryAt === -1) return href;
+  const kept = base.slice(queryAt + 1).split('&').filter(part => part !== '' && part.split('=')[0] !== 'focus');
+  return `${base.slice(0, queryAt)}${kept.length > 0 ? `?${kept.join('&')}` : ''}${hash}`;
+};
+
 const sheetHref = (id: string | null) => (id === null ? BOARD_PATH : `${BOARD_PATH}?sheet=${encodeURIComponent(id)}`);
 
 /**
@@ -68,7 +82,7 @@ export function useBoardPresentationSync(): { mounted: boolean; maximized: boole
   }, [user.id]);
   useLayoutEffect(() => {
     if (maximized) write(user.id, { live: true });
-    else if (registry.safeReturnTo(url) !== null) write(user.id, { returnHref: url });
+    else if (registry.safeReturnTo(url) !== null) write(user.id, { returnHref: withoutDetailKey(url) });
   }, [maximized, url, user.id, registry]);
   return { mounted: state.live || maximized, maximized };
 }
@@ -84,7 +98,7 @@ export function useBoardPresentation() {
 
   /** Where leaving the board goes: the last ordinary path while it can still be opened, else the platform home. */
   const leaveHref = (): string => {
-    const stored = read(user.id).returnHref;
+    const stored = read(user.id).returnHref === null ? null : withoutDetailKey(read(user.id).returnHref!);
     const menu = stored !== null && registry.safeReturnTo(stored) !== null ? registry.matchRoute(stored.split('?')[0])?.menu : undefined;
     return stored !== null && menu !== undefined && canOpen(menu.id) ? stored : home ?? '/';
   };

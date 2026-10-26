@@ -1,7 +1,8 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import * as React from 'react';
+import { act, cleanup, render, screen } from '@testing-library/react';
 import { createPortal } from 'react-dom';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { DetailPanelSlotProvider, useDetailPanelSlot, useDetailPanelSlotHost } from './DetailPanelSlot';
+import { DetailPanelSlotActionsContext, DetailPanelSlotProvider, useDetailPanelSlot, useDetailPanelSlotHost } from './DetailPanelSlot';
 import { useDetailPanelContent } from './layout/useDetailPanelContent';
 import { SurfacePauseScope } from './SurfacePauseScope';
 
@@ -101,4 +102,33 @@ it('nested scopes pause when any of them does', () => {
   const view = render(<Fixture><SurfacePauseScope paused><SurfacePauseScope paused={false}><Content node={<p>x</p>} /></SurfacePauseScope></SurfacePauseScope></Fixture>);
   expect(isOpen()).toBe(false);
   view.unmount();
+});
+
+it('F1: a paused winner that receives its content changes neither the activation nor the foreground detail', () => {
+  const view = (paused: boolean, node: React.ReactNode) => <Fixture><SurfacePauseScope paused={paused}><Content node={node} /></SurfacePauseScope></Fixture>;
+  const start = render(view(true, null));
+  const before = activation();
+  start.rerender(view(true, <p>late</p>));
+  expect(activation()).toBe(before);
+  expect(isOpen()).toBe(false);
+  expect(screen.queryByText('late')).toBeNull();
+});
+
+it('F1: resuming while the content arrives in the same render counts one newly visible detail', () => {
+  const view = (paused: boolean, node: React.ReactNode) => <Fixture><SurfacePauseScope paused={paused}><Content node={node} /></SurfacePauseScope></Fixture>;
+  const start = render(view(true, null));
+  const before = activation();
+  start.rerender(view(false, <p>late</p>));
+  expect(screen.getByText('late')).toBeInTheDocument();
+  expect(activation()).toBe(before + 1);
+});
+
+it('F2: a pause entry for a key without a registration is not kept', () => {
+  let actions: React.ContextType<typeof DetailPanelSlotActionsContext> = null;
+  function Probe() { actions = React.useContext(DetailPanelSlotActionsContext); return null; }
+  render(<Fixture><Probe /></Fixture>);
+  act(() => { actions!.setPaused('gone', true); });
+  act(() => { actions!.setContent('gone', <p>back</p>); });
+  expect(isOpen()).toBe(true);
+  expect(screen.getByText('back')).toBeInTheDocument();
 });
