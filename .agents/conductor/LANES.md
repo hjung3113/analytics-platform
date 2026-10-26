@@ -10,13 +10,32 @@
 | --- | --- | --- | --- |
 | `lane:sdk` | 공개 패키지 계약·부품, 분석 작업 영역·MARS 이관(M7), SDK 품질(M8) | `packages/{contracts,ui,kernel,components,shell}`, `tooling/sdk-api`, `tooling/scripts/sdk-*`, `docs/06_platform_ui_contract.md`, `docs/integration/sdk-*` | 4190 |
 | `lane:platform` | 앱 조립·mock·실어댑터·서버 적합성, 견본 메뉴, 사내 적용(M4), 운영 콘솔 | `apps/platform-web`, `packages/{mock-server,http-adapter,server-conformance}`, `menus/*`(FeedbackOps 다리 메뉴 제외) | 4590 |
-| `lane:arch` | 리팩터링·폴더 구조·용어·경계 lint·CI·에이전트 자산·문서 구조 | `tooling/{eslint,gen-menu,tsconfig,css-selectors}`, `.github/workflows`, `.agents/`, `docs/agents/`, `docs/INDEX.md`, `GLOSSARY.md` | 4690 |
+| `lane:arch` | 리팩터링·폴더 구조·용어·경계 lint·CI·문서 구조 | `tooling/{eslint,gen-menu,tsconfig,css-selectors}`, `.github/workflows`, `docs/INDEX.md`, `GLOSSARY.md` | 4690 |
 | `lane:fo` | FeedbackOps 이관(M6) | `products/feedbackops/`, `packages/fo-bridge`, `menus/feedbackops/*`, `menus/_global/*`의 FeedbackOps 다리 | 4390 |
 | `lane:ev` | equipment-visualization 이관의 AP 쪽(`tools` 공간, 호스트 모듈 fixture, EV tarball 버전 올리기) | 위 AP 경로. EV 저장소 쪽 일은 그 저장소의 `AGENTS.md`·이슈를 따르고 그 저장소의 Orca worktree에서 한다. `eqv-v*` 릴리스는 EV 규칙대로 내고 팀장에게 알린다 | 4490 |
 | `lane:site` | 소개 페이지·가이드 문서 | `site/`, 도입·사용 가이드 문서 | 4790 |
+| `lane:ops` | 플랫폼 개발 밖의 부가 요청(사용자 2026-10-26): 운영 방식·이 문서·conductor 프로필과 함정, 에이전트 자산(`.agents/`), 오케스트레이션 도구, 보고·조사·정리 같은 사용자 잡무. 팀장이 직접 하지 않고 이 흐름에 넘긴다 | `.agents/conductor/`, `.agents/skills`·`.agents/commands`, `docs/agents/` 중 운영 메모 | 4990 |
 | (팀장) | 배정·충돌·릴리스, 보드 | `.planning/`, 릴리스 노트, 이 문서 | 4890 |
 
 E2E는 `E2E_PORT=<포트>`로, base-path E2E는 `E2E_BASE_PATH_PORT=<포트 + 1>`로 돌린다.
+
+## 요청 분류
+
+새 요청(이슈, 리뷰 후속, 제품 세션이 보낸 요구)에 `lane:*`를 달기 전에 팀장은 그 요청이 누구 몫인지 정한다. 기준의 원본은 루트 [`AGENTS.md`](../../AGENTS.md) 「이 레포의 목적」(SDK는 범용 조각을 준다, 승격 기준, 공통 계약과 충돌할 때)이고, 이 절은 그 기준을 흐름과 할 일로 옮긴다. 도구·CI·문서 구조(`lane:arch`), 소개 페이지(`lane:site`), 운영·부가 요청(`lane:ops`)은 나누지 않는다.
+
+위에서부터 묻고, 처음 맞는 것이 그 요청(또는 그 조각)의 분류다.
+
+1. **Kernel 책임:** 06 [§4](../../docs/06_platform_ui_contract.md#4-platform-kernel-responsibilities) 목록(셸, Registry, 전역 Context, URL, 권한·Scope, 감사, 계측 등)에 드는가. 계약·런타임(`packages/{contracts,kernel,shell}`)은 `lane:sdk`, 그 계약을 앱에 잇는 일(조립, mock, 실어댑터, 서버 적합성)은 `lane:platform`이다. 소비자 수를 기다리지 않는다. 06 계약을 바꾸는 결정은 사용자 몫이다(§흐름 세션).
+2. **SDK 조각:** 메뉴마다 다른 것(위계, 단계 수, 줄 이름, 내려가는 조작, 업무 문구·권한)을 메뉴 선언으로 빼고 남는 것이 다른 메뉴도 그대로 쓸 수 있는 부품인가([ADR-0052](../../docs/adr/0052-rich-content-stays-in-the-sdk.md) 편입 기준). 그러면 `lane:sdk`이고 소비자 수와 관계없이 SDK에 둔다. 요구 문장의 도메인 용어는 [`GLOSSARY.md`](../../GLOSSARY.md)로 확인하고 조각의 이름·API에는 넣지 않는다.
+3. **메뉴 몫:** 남은 것, 곧 그 메뉴의 업무 의미(숫자·CRUD·상태 전이, 특정 차트 설정, 그 메뉴만의 Form — 06 §4 「Kernel이 소유하지 않는 것」, §13 Domain Component). 메뉴 요구가 공통 계약과 부딪히면 이것도 메뉴 몫이다 — 메뉴를 계약에 맞춘다(루트 `AGENTS.md`). 누가 하는지는 메뉴가 어디 있느냐로 정한다.
+   - **견본 메뉴**(`menus/*`, 다리 메뉴 제외): `lane:platform`. 견본은 그것이 검증하는 플랫폼 계약만큼만 고친다. 화면만 다듬는 요구는 배정하지 않는다.
+   - **제품 메뉴**: FeedbackOps 다리 메뉴는 `lane:fo`, EV 호스트 모듈은 `lane:ev`. 업무 의미는 제품이 소유한다([ADR-0043](../../docs/adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md)).
+   - **사내 메뉴**(이 저장소 밖에서 새로 만드는 실제 메뉴): 여기서 만들지 않는다. 요청이 이슈로 왔으면 [사내 메뉴 개발 가이드](../../docs/integration/in-house-rollout.md) §5의 해당 단계와 쓸 SDK 조각을 코멘트로 적고 not planned로 닫는다. 대화로 왔으면 답으로 안내하고 이슈를 열지 않는다. 가이드에 없는 조립법이 드러나면 가이드를 고친다(`lane:platform`, M4).
+
+- **섞인 요청:** 분류마다 나눈다. Kernel 일과 SDK 조각은 `lane:sdk` 이슈로, 메뉴 선언·화면은 그 메뉴 흐름의 이슈로 하고, 메뉴 이슈는 SDK 이슈 뒤에 둔다. 사내 메뉴 요청이면 SDK 조각만 이슈로 남기고 메뉴 부분은 그 이슈에 소비자 안내로 적는다. 예: HW Time의 설비 → 설비-모듈 → 동작 드릴은 SDK 조각 둘("메뉴가 선언한 단계대로 드릴", "가로 막대의 범주 줄")과 HW Time의 단계 선언이다(#541). 첫 소비자가 그 조각을 검증하는 견본 메뉴이고 작으면 한 PR에 둔다(#852 — 다른 견본 메뉴로 옮기는 일은 [`backlog.md`](../../.planning/backlog.md)에 남겼다).
+- **승격 후보:** 승격 기준은 루트 `AGENTS.md`가 원본이고, 팀장이 할 일은 메뉴에서 생긴 패턴의 소비자를 세는 것이다. 2번을 통과하지 못했지만(업무 의미가 섞였거나 모양이 메뉴마다 다르다) 다른 메뉴에도 나올 패턴은 `backlog.md`에 `구현 안 함 — <패턴> SDK 승격` 줄로 남기고 지금 소비자(메뉴와 이슈)와 다시 여는 조건(실제 소비자 2–3곳)을 적는다. 같은 패턴이 또 오면 그 줄에 소비자를 더하고, 조건이 차면 `lane:sdk` 이슈로 올린다. 견본·제품·사내 메뉴를 모두 소비자로 센다.
+- **흐름과 분류가 다를 때:** 흐름은 고칠 경로의 주인(§흐름 표)을 따르고, 분류는 원본 문서·승격 기준·사용자 몫을 정한다. 제품 흐름이 자기 제품 때문에 Kernel·SDK 일을 맡을 수 있다(#829 — Kernel 책임을 `lane:ev`가 맡았다). SDK 조각이 다른 흐름이 소유한 소비자 파일을 고쳐야 할 때도 같다. 두 경우 모두 §함께 쓰는 경로의 착수를 보내고 팀장이 순서를 정한다. 버그는 증상이 보이는 곳이 아니라 확인된 원인이 있는 곳으로 나눈다.
+- **이름:** "플랫폼 역할"로 오는 요구는 대개 Kernel 책임이다. `lane:platform`은 앱 조립·mock·어댑터·견본 메뉴의 흐름이지 Kernel이 아니다([`GLOSSARY.md`](../../GLOSSARY.md) `Kernel`).
 
 ## 함께 쓰는 경로
 
@@ -50,7 +69,7 @@ E2E는 `E2E_PORT=<포트>`로, base-path E2E는 `E2E_BASE_PATH_PORT=<포트 + 1>
 
 ## 팀장
 
-- **배정 기록:** 새 이슈에 `lane:*`를 달고, 맡길 일은 이슈 코멘트(`배정: lane-<흐름>, 순서 …`)로 남긴다. 이것이 유일한 원본이다.
+- **배정 기록:** 새 이슈를 §요청 분류대로 나눠 `lane:*`를 달고, 맡길 일은 이슈 코멘트(`배정: lane-<흐름>, 분류 <Kernel|SDK 조각|메뉴 몫>, 순서 …`)로 남긴다. 이것이 유일한 원본이다. 분류 라벨은 따로 두지 않는다.
 - **전달 경로:** 팀장 → 흐름은 터미널 입력이고, 흐름 → 팀장은 Orca Run 메시지다. Run은 하나다(`orca orchestration run-create --objective "AP 팀 — 흐름 배정(LANES.md)"`; 다음 팀장은 `run-list`로 찾아 `run-use --id <run>`).
   - 넣기 전에 `orca terminal wait --terminal <handle> --for tui-idle`을 돌리고 `orca terminal read --terminal <handle> --screen`으로 입력 대기 화면인지 본다. 권한·선택 창이 떠 있으면 넣지 않는다 — Enter가 그 창에 답한다. 확인한 뒤 `orca terminal send --terminal <handle> --text "[팀장 배정 #n] …" --enter`.
   - 흐름 세션은 `orca orchestration send --run <run> --to run:<run> --from "$ORCA_TERMINAL_HANDLE" --type status --subject "<흐름>: <병합|막힘|질문|착수|대기|교대|main 깨짐|E2E> [#n]" --body <세 문장>`으로 알린다.
@@ -63,5 +82,8 @@ E2E는 `E2E_PORT=<포트>`로, base-path E2E는 `E2E_BASE_PATH_PORT=<포트 + 1>
   - handle은 `orca terminal list --worktree path:<흐름 worktree> --json`으로 찾는다.
   - 닫기: `대기`를 받았고 그 흐름의 작업자·미리보기가 없을 때(`wave-status.py --state-dir <WAVE_STATE>`) `orca terminal close --terminal <handle>`로 닫는다.
 - **정기 점검과 보고(사용자 2026-10-26: 2시간):** 팀장 세션에서 2시간 주기 점검을 건다(`CronCreate`, 세션 안 예약이라 팀장 세션이 바뀌면 다시 건다). 흐름 세션은 heartbeat가 없으니 점검마다 본다: `gh issue list --label lane:<x>`, `gh pr list`, `orca worktree ps`, 흐름 터미널마다 `orca terminal read --screen`(멈춘 권한 창·오류), `heavy.lock`. 보고에는 흐름별 병합·진행·막힘, 모아 둔 결정 질문(추천안 포함), 릴리스 후보를 한 번에 담는다. 흐름 하나를 통째로 막는 질문만 받는 즉시 묻는다. 모든 배정이 끝나면 다음 일을 나눈다.
-- **릴리스:** 흐름 세션은 SDK 공개 변경마다 [`sdk-git-tag-consumption.md`](../../docs/integration/sdk-git-tag-consumption.md)에 "다음 릴리스" 행만 남긴다. 팀장은 정기 점검 때 "다음 릴리스" 행이 있고 `main` CI가 초록이면 SDK를 낸다. 그 SDK를 기다리는 흐름이 있으면 바로 낸다. 순서는 PROFILE §Flow와 같다: 슬라이스 마감 `review-quality` → 보드·변경 기록 문서 PR → `sdk-v*` 태그·GitHub Release → 보고. 앱 `v0.x`는 팀장이 릴리스 PR까지 만들고 태그 전에 사용자에게 묻는다(사용자 2026-10-26).
+- **릴리스:** 흐름 세션은 SDK 공개 변경마다 [`sdk-git-tag-consumption.md`](../../docs/integration/sdk-git-tag-consumption.md)에 "다음 릴리스" 행만 남긴다. 팀장은 정기 점검 때 "다음 릴리스" 행이 있고 `main` CI가 초록이면 SDK를 낸다. 그 SDK를 기다리는 흐름이 있으면 바로 낸다. 순서: 슬라이스 마감 `review-quality` → **문서 점검**(아래) → 보드·변경 기록 문서 PR(점검 반영 포함) → `sdk-v*` 태그·GitHub Release → **소개 사이트 갱신**(아래) → 보고. 단계 이름은 PROFILE §Flow와 같다. 앱 `v0.x`는 팀장이 릴리스 PR까지 만들고 태그 전에 사용자에게 묻는다(사용자 2026-10-26).
+- **문서 점검자(릴리스 전, 사용자 2026-10-26):** 릴리스마다 한 번, 오래 붙어 있는 세션이 아니라 일회성 리뷰어(`review-quality`)를 띄운다. 작업서 앞에 [`addenda/doc-audit.md`](addenda/doc-audit.md)를 붙인다: 에이전트가 문서를 찾아갈 수 있는지, 낡거나 더 볼 필요 없는 문서, 목차·소유권, 릴리스 문서가 맞는지. 지적은 팀장(또는 arch 흐름)이 문서 PR 하나로 고치고 그 PR을 릴리스에 넣는다. 문서를 지우는 결정은 사용자에게 묻는다.
+- **소개 사이트 담당(사용자 2026-10-26):** `lane:site` 흐름 세션이 맡는다. 앱 `v0.x`나 사용자에게 보이는 SDK 기능이 든 릴리스를 낼 때 팀장이 site 세션을 띄워 `site/`(소개 페이지·가이드·캡처)를 그 릴리스 내용에 맞추고, 끝나면 닫는다. 앱 릴리스는 사이트 갱신 PR이 병합된 뒤 태그를 묻는다.
+- **팀장 세션 교대(사용자 2026-10-26):** 팀장 세션이 길어지면(문맥이 크게 쌓였거나 판단이 흐려진다고 느끼면, 늦어도 conductor 스킬의 교대 한도 전) 새 일을 받지 않고 하던 일을 마무리한 뒤 `LEAD.md`를 갱신하고 사용자에게 세션 초기화(`/clear` 후 이 문서로 다시 시작)를 요청한다. 흐름 세션은 그사이 계속 일한다.
 - **팀장 교대·복구:** 팀장은 `$AP_MAIN/.review/lanes/LEAD.md`에 Run id와 흐름별 worktree·handle·진행 중 이슈를 적어 둔다. 팀장 세션이 끝나도 흐름 세션은 배정을 이어 가고 메시지는 Run에 쌓인다. 새 팀장은 이 순서로 잇는다: 이 문서 → `LEAD.md` → `run-list`·`run-use --id <run>` → `orchestration check --run <run>`(쌓인 메시지) → `orca terminal list`(handle) → 정기 점검 다시 걸기.

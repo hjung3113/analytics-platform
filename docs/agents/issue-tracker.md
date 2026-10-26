@@ -23,7 +23,7 @@
 
 ## 흐름 라벨
 
-`lane:sdk`·`lane:platform`·`lane:arch`·`lane:fo`·`lane:ev`·`lane:site`. 다는 규칙과 범위는 [`.agents/conductor/LANES.md`](../../.agents/conductor/LANES.md)다.
+`lane:sdk`·`lane:platform`·`lane:arch`·`lane:fo`·`lane:ev`·`lane:site`·`lane:ops`. 다는 규칙과 범위, 요청을 Kernel 책임·SDK 조각·메뉴 몫으로 나누는 법은 [`.agents/conductor/LANES.md`](../../.agents/conductor/LANES.md) §흐름·§요청 분류다.
 
 보류 중인 이슈에는 `on-hold` 라벨을 단다(외부 조건이 풀리면 제거). 예: #163·#164는 업무 필수로 확인될 때까지 보류.
 
