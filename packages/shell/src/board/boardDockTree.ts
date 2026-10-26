@@ -1,5 +1,5 @@
 import type { DockNode } from '@ap/components/dock';
-import type { LayoutNode, Sheet } from './boardTypes';
+import { MAX_PANES, type LayoutNode, type Sheet } from './boardTypes';
 
 /**
  * The dock renderer's view of a sheet's layout tree (ADR-0067). `LayoutNode` and `DockNode` are the same recursive tree; only the group's
@@ -53,13 +53,15 @@ const branch = (dir: 'row' | 'column', ...children: LayoutNode[]): LayoutNode =>
 
 /**
  * `기본 배치` for the pane count: the shapes the grid gives 1, 2 and 4 panes (a row of two columns of two for four), and for three panes a
- * row of pane 1 beside a column of panes 2 and 3. `ids` are in pane-number order.
+ * row of pane 1 beside a column of panes 2 and 3. Beyond four panes the display stays the four groups of the 2×2: the extra panes are tabs
+ * of the last group, after pane 4 (no pane is dropped). `ids` are in pane-number order.
  */
 export function defaultTree(ids: readonly string[]): LayoutNode {
   if (ids.length <= 1) return group(ids[0]!);
   if (ids.length === 2) return branch('row', group(ids[0]!), group(ids[1]!));
   if (ids.length === 3) return branch('row', group(ids[0]!), branch('column', group(ids[1]!), group(ids[2]!)));
-  return branch('row', branch('column', group(ids[0]!), group(ids[2]!)), branch('column', group(ids[1]!), group(ids[3]!)));
+  const last: LayoutNode = ids.length > MAX_PANES ? { type: 'group', panes: ids.slice(MAX_PANES - 1), active: ids[MAX_PANES - 1]! } : group(ids[3]!);
+  return branch('row', branch('column', group(ids[0]!), group(ids[2]!)), branch('column', group(ids[1]!), last));
 }
 
 /** The structure of a tree without sizes and active tabs: what "the same arrangement" means for an undo that must not undo a later resize. */

@@ -185,10 +185,11 @@ describe('addPaneInGroup (893a)', () => {
     expect(groupHolding(sheetOf(next, id).tree, a)!.panes).toHaveLength(3);
   });
 
-  it('is the same board at 4 panes, for an unknown anchor and for an unknown sheet', () => {
+  it('is the same board at 8 panes, for an unknown anchor and for an unknown sheet', () => {
     const { board, id, a } = grouped();
-    const full = addPaneInGroup(addPaneInGroup(board, id, a, null), id, a, null);
-    expect(sheetOf(full, id).panes).toHaveLength(4);
+    let full = board;
+    for (let i = 0; i < 6; i++) full = addPaneInGroup(full, id, a, null);
+    expect(sheetOf(full, id).panes).toHaveLength(8);
     expect(addPaneInGroup(full, id, a, null)).toBe(full);
     expect(addPaneInGroup(board, id, 'nope', null)).toBe(board);
     expect(addPaneInGroup(board, 'nope', a, null)).toBe(board);

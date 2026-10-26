@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { isValidDockTree } from '@ap/components/dock';
-import { activateInTree, defaultTree, effectiveTree, fromDockTree, reconcileSelection, toDockTree } from './boardDockTree';
+import { activateInTree, defaultTree, effectiveTree, fromDockTree, groupHolding, groupsOf, reconcileSelection, toDockTree } from './boardDockTree';
 import {
   addPane, applyPaneEdits, closePane, freshBoard, normalizeBoard, restoreClosedPane, restorePane, resetTree, revertPaneEdits, selectPane, selectPaneActive, setPane, setTree, withGrid,
   type Board, type LayoutNode, type Sheet,
@@ -186,9 +186,17 @@ describe('addPane', () => {
     const { board, ids } = boardOf(1);
     expect(sheetOf(addPane(board, sid(board), false)).selectedPaneId).toBe(ids[0]);
   });
-  it('is a no-op at four panes', () => {
-    const { board } = boardOf(4);
-    expect(addPane(board, sid(board))).toBe(board);
+  it('at four groups adds a tab to the selected pane\'s group instead of a fifth group, and is a no-op at eight panes (893e)', () => {
+    const { board, ids } = boardOf(4);
+    let next = board;
+    for (let n = 5; n <= 8; n++) {
+      next = addPane(next, sid(next));
+      expect(sheetOf(next).panes).toHaveLength(n);
+      expect(groupsOf(sheetOf(next).tree)).toHaveLength(4);
+    }
+    expect(sheetOf(next).panes.slice(0, 4).map(p => p.id)).toEqual(ids);
+    expect(groupHolding(sheetOf(next).tree, ids[3]!)!.panes.length).toBeGreaterThan(1);
+    expect(addPane(next, sid(next))).toBe(next);
   });
 });
 

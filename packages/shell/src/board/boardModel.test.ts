@@ -19,7 +19,7 @@ describe('parseBoardV2', () => {
   it.each([
     ['non-object', () => 'x'],
     ['version 1', () => ({ ...stored(), v: 1 })],
-    ['a newer version', () => ({ ...stored(), v: 3 })],
+    ['a newer version', () => ({ ...stored(), v: 4 })],
     ['no sheets', () => ({ ...stored(), sheets: [] })],
     ['unknown active sheet', () => ({ ...stored(), activeSheetId: 'nope' })],
     ['no panes', () => { const b = stored(); b.sheets[0].panes = []; return b; }],

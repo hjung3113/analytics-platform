@@ -5,7 +5,12 @@ import type { PaneScreen } from '@ap/kernel/host';
 export type BoardLayout = '1x1' | '1x2' | '2x1' | '2x2';
 export const BOARD_LAYOUTS: readonly BoardLayout[] = ['1x1', '1x2', '2x1', '2x2'];
 export const MAX_SHEETS = 20;
+/** Panes per sheet a `v:2` board may hold: the cap every build before 893e wrote. Larger sheets are stored as `v:3` (ADR-0089). */
 export const MAX_PANES = 4;
+/** Panes (tabs) per sheet in total, the first value of the cap split (ADR-0089); the display cap is `MAX_GROUPS`. */
+export const MAX_TABS = 8;
+/** Display groups (dock cells) per sheet: the 2×2 the layout was designed for. Extra tabs go into an existing group. */
+export const MAX_GROUPS = 4;
 
 /** The grid renderer's per-layout sizes: column ratios, per-column row ratios and the collapsed panes (row-major pane indices). */
 export type Arrangement = { columns: number[]; rows: number[][]; collapsed: number[] };
@@ -24,7 +29,11 @@ export type LayoutNode =
 /** `gridMemory` keeps the grid renderer's `Arrangement` of every layout (non-default entries only), including the current one. */
 export type GridMemory = Partial<Record<BoardLayout, Arrangement>>;
 export type Sheet = { id: string; name: string; panes: PaneSlot[]; selectedPaneId: string; tree: LayoutNode; gridMemory?: GridMemory };
-export type Board = { v: 2; activeSheetId: string; sheets: Sheet[] };
+/** `v` is 3 only while some sheet holds more than `MAX_PANES` panes (`boardVersionFor`); a board a build can read is stamped with the version it was stored under. */
+export type Board = { v: 2 | 3; activeSheetId: string; sheets: Sheet[] };
+
+/** The version a board is stored as: 3 once any sheet is over the V2 cap, else 2 (readable by older builds, the rollback path). */
+export const boardVersionFor = (sheets: readonly Pick<Sheet, 'panes'>[]): 2 | 3 => (sheets.some(s => s.panes.length > MAX_PANES) ? 3 : 2);
 
 export const paneCount = (layout: BoardLayout) => ({ '1x1': 1, '1x2': 2, '2x1': 2, '2x2': 4 })[layout];
 export const layoutShape = (layout: BoardLayout) => ({ rows: Number(layout[0]), columns: Number(layout[2]) });

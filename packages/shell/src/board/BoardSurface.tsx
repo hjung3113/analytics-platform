@@ -15,7 +15,7 @@ import {
   BOARD_LAYOUTS, canCollapse, defaultArrangement, getArrangement, setArrangement, addPane, addPaneInGroup, addSheet, applyPaneEdits, closePane, droppedPaneCount, editPane, goBackPane, indexOfPane, layoutOf, layoutShape, moveSheet, previousAt, removeSheet, renameSheet,
   resetTree, restoreClosedPane, restoreLayout, restorePane, restoreSheet, revertPaneEdits, screens, selectedIndex, selectPane, selectPaneActive, setLayout, setPane, type Board, type BoardLayout, type LayoutChange, type PaneEdit,
 } from './boardModel';
-import { MAX_PANES } from './boardTypes';
+import { MAX_PANES, MAX_TABS } from './boardTypes';
 import { readLayoutEngine } from './layoutEngine';
 import { canMountPaneScreen } from './boardMenus';
 import { applyContextToSheet, copyContextToSheet, defaultQuery, firstEmptyPane, paneNumbers, paneSignals, replacementScreen } from './paneActions';
@@ -50,9 +50,11 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
   const { lang, t } = useI18n();
   const text = useMemo(() => boardText(lang), [lang]);
   const { board, update, storageNotice } = useBoardSession(user.id, text.sheetPrefix);
-  // Which renderer draws the panes is a browser setting read once per visit (`board.layoutEngine`, default grid).
+  // Which renderer draws the panes is a browser setting read once per visit (`board.layoutEngine`, default dock). The grid holds at most four panes:
+  // a board with a sheet over that (`v:3`) is drawn by the dock whatever the setting says, and says so once (ADR-0089).
   const [engine] = useState(readLayoutEngine);
-  const dock = engine === 'dock';
+  const gridBlocked = board.sheets.some(s => s.panes.length > MAX_PANES);
+  const dock = engine === 'dock' || gridBlocked;
   const heading = useRef<HTMLHeadingElement>(null);
   const closeHint = useId();
   const [confirmLayout, setConfirmLayout] = useState<BoardLayout | null>(null);
@@ -118,6 +120,14 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
     storageSaid.current = key;
     notifyRef.current(storageNotice === 'newer' ? text.storageNewer : text.storageCorrupt);
   }, [storageNotice, user.id, text, visible]);
+
+  // Said once per user, in the board's toast; a covered board says it when shown.
+  const gridSaid = useRef<string | null>(null);
+  useEffect(() => {
+    if (engine !== 'grid' || !gridBlocked || !visible || gridSaid.current === user.id) return;
+    gridSaid.current = user.id;
+    notifyRef.current(text.gridNeedsDock);
+  }, [engine, gridBlocked, visible, user.id, text]);
 
   const sheetId = sheet.id;
   const layout = layoutOf(sheet);
@@ -236,7 +246,7 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
 
   const unavailable = (index: number) => { const own = paneScreens[index]; return own !== null && !canMountPaneScreen(registry, canOpen, own); };
   const applyOff = (index: number) => (unavailable(index) ? text.paneUnavailable : applyContextToSheet(registry, canOpen, sheet, index)?.others ? null : text.applyToAllNone);
-  const canGrow = dock && sheet.panes.length < MAX_PANES;
+  const canGrow = dock && sheet.panes.length < MAX_TABS;
   const duplicateOff = (index: number) => (unavailable(index) ? text.paneUnavailable : emptyIndex === -1 && !canGrow ? text.noEmptyPane : null);
   const axes = useEquipmentAxes();
   const signals = paneSignals(registry, canOpen, paneScreens, text.noneValue, axes, lang, t('membershipAsOf'));
@@ -302,7 +312,7 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
   const groupAddFocus = useRef<{ trigger: HTMLElement; anchorId: string } | null>(null);
   const groupAdded = useRef(false);
   const openGroupAdd = (anchorId: string, trigger: HTMLElement) => {
-    if (sheet.panes.length >= MAX_PANES) { notify(text.groupAddLimit); return; }
+    if (sheet.panes.length >= MAX_TABS) { notify(text.groupAddLimit); return; }
     const group = groupHolding(sheet.tree, anchorId);
     if (!group) return;
     groupAddFocus.current = { trigger, anchorId };
@@ -315,7 +325,7 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
     if (!target) return;
     const holder = groupHolding(sheet.tree, target.anchorId);
     if (target.userId !== user.id || target.sheetId !== sheetId || !holder || groupKey(holder.panes) !== target.members) { setGroupAdd(null); notify(text.groupAddGone); return; }
-    if (sheet.panes.length >= MAX_PANES) { setGroupAdd(null); notify(text.groupAddLimit); return; }
+    if (sheet.panes.length >= MAX_TABS) { setGroupAdd(null); notify(text.groupAddLimit); return; }
     const screen = { menuId: menu.id, params: {}, query: defaultQuery(registry, readRecent()) };
     if (!canMountPaneScreen(registry, canOpen, screen)) { setGroupAdd({ ...target, notice: text.groupAddUnavailable }); return; }
     const grown = addPaneInGroup(board, sheetId, target.anchorId, screen);

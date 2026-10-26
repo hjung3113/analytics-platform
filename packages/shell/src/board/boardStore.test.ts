@@ -40,7 +40,7 @@ describe('loadBoard', () => {
 
   it('opens a fresh read-only board with a notice for a value from a newer build, touching nothing', () => {
     const storage = memoryStorage();
-    const raw = JSON.stringify({ v: 3, anything: true });
+    const raw = JSON.stringify({ v: 4, anything: true });
     storage.setItem(V2_KEY, raw);
     storage.setItem(V1_KEY, JSON.stringify(v1()));
     const loaded = loadBoard(storage, 'u1', '시트');
@@ -170,7 +170,7 @@ describe('the board hook and the open-in-board entry', () => {
   });
 
   it('keeps edits in memory, never writes V2 and reports the notice for a newer value', () => {
-    const raw = JSON.stringify({ v: 3 });
+    const raw = JSON.stringify({ v: 4 });
     localStorage.setItem(V2_KEY, raw);
     const { result } = renderHook(() => useBoardStore('u1', '시트'));
     expect(result.current.storageNotice).toBe('newer');
@@ -183,7 +183,7 @@ describe('the board hook and the open-in-board entry', () => {
     const { result } = renderHook(() => useBoardStore('u1', '시트'));
     act(() => { result.current.update(b => addSheet(b, '시트')); });
     expect(result.current.storageNotice).toBeNull();
-    const newer = JSON.stringify({ v: 3 });
+    const newer = JSON.stringify({ v: 4 });
     localStorage.setItem(V2_KEY, newer);
     act(() => { result.current.update(b => addSheet(b, '시트')); });
     expect(result.current.board.sheets).toHaveLength(3);
@@ -212,8 +212,8 @@ describe('the board hook and the open-in-board entry', () => {
     expect(screens(readStoredBoard('u1', '시트').board.sheets[0])).toEqual([shot('a'), null]);
     expect(writeStoredBoard('u1', freshBoard('시트'))).toBe(true);
     expect(localStorage.getItem(V1_BACKUP)).not.toBeNull();
-    localStorage.setItem(V2_KEY, JSON.stringify({ v: 3 }));
+    localStorage.setItem(V2_KEY, JSON.stringify({ v: 4 }));
     expect(writeStoredBoard('u1', freshBoard('시트'))).toBe(false);
-    expect(localStorage.getItem(V2_KEY)).toBe(JSON.stringify({ v: 3 }));
+    expect(localStorage.getItem(V2_KEY)).toBe(JSON.stringify({ v: 4 }));
   });
 });

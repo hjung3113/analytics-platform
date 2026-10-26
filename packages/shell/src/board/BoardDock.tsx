@@ -4,7 +4,8 @@ import { DockLayout, dockLayoutMenu, movePanel, type DockPanel } from '@ap/compo
 import { useI18n } from '@ap/kernel';
 import { useHostPlatform, type PaneScreen } from '@ap/kernel/host';
 import { Button, DropdownMenuItem, DropdownMenuSeparator, useSurfacePaused } from '@ap/ui';
-import { effectiveTree, fromDockTree, groupHolding, toDockTree } from './boardDockTree';
+import { effectiveTree, fromDockTree, groupHolding, groupsOf, toDockTree } from './boardDockTree';
+import { MAX_GROUPS } from './boardTypes';
 import { indexOfPane, selectedIndex, setTree, type Board, type Sheet } from './boardModel';
 import { BoardPane, type BoardPaneProps } from './BoardPane';
 import { PaneBadge } from './PaneBadge';
@@ -37,7 +38,7 @@ export type BoardDockProps = {
   heading: RefObject<HTMLHeadingElement | null>;
   /** The `+` after a group's last tab was pressed: `anchorPaneId` is the group's active pane (the stored group holding it is the target), `trigger` the button, for the focus return. */
   onAddInGroup: (anchorPaneId: string, trigger: HTMLElement) => void;
-  /** The sheet has 4 panes: the `+` stays pressable and says why nothing can be added (`aria-describedby`). */
+  /** The sheet has `MAX_TABS` panes: the `+` stays pressable and says why nothing can be added (`aria-describedby`). */
   groupAddOff: boolean;
 };
 
@@ -151,6 +152,7 @@ export function BoardDock({ sheet, update, paneProps, onSelect, onClear, onClose
     }
   });
 
+  const groupsFull = groupsOf(tree).length >= MAX_GROUPS;
   /** The layout group of a pane's `칸 N 동작` menu: maximize or restore, split a tab group, move into another. A move puts focus back on the pane's tab. */
   const layoutMenu = (paneId: string) => (afterMenuClose: RefObject<(() => void) | null>) => {
     const n = numberOf(paneId);
@@ -164,8 +166,10 @@ export function BoardDock({ sheet, update, paneProps, onSelect, onClear, onClose
       <DropdownMenuItem onSelect={() => onMaximizedChange(paneId)}>{text.maximizePane(n)}</DropdownMenuItem>
       {menu.split !== null && <>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => { move(dock => movePanel(dock, paneId, { panelId: menu.split!, position: 'right' })); }}>{text.splitRight}</DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => { move(dock => movePanel(dock, paneId, { panelId: menu.split!, position: 'bottom' })); }}>{text.splitDown}</DropdownMenuItem>
+        {/* A split makes a new display group; at `MAX_GROUPS` it is offered off, with the reason (the sheet's tab total is another limit). */}
+        <DropdownMenuItem disabled={groupsFull} onSelect={() => { move(dock => movePanel(dock, paneId, { panelId: menu.split!, position: 'right' })); }}>{text.splitRight}</DropdownMenuItem>
+        <DropdownMenuItem disabled={groupsFull} onSelect={() => { move(dock => movePanel(dock, paneId, { panelId: menu.split!, position: 'bottom' })); }}>{text.splitDown}</DropdownMenuItem>
+        {groupsFull && <div role="note" className="px-2 py-1 text-tiny text-text-muted">{text.groupLimit}</div>}
       </>}
       {menu.moves.length > 0 && <DropdownMenuSeparator />}
       {menu.moves.map(other => <DropdownMenuItem key={other.group.panels[0]} onSelect={() => { move(dock => movePanel(dock, paneId, { panelId: other.target, position: 'center' })); }}>{text.moveToGroup(other.order)}</DropdownMenuItem>)}
