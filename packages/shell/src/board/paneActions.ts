@@ -1,4 +1,4 @@
-import { buildQuery, type EquipmentAxisDescriptor, ContractError, emptyGlobal, formatMetricVersion, parseQuery, sameGlobal, serializeGlobal, type GlobalContext } from '@ap/contracts';
+import { buildQuery, type EquipmentAxisDescriptor, ContractError, emptyGlobal, formatMetricVersion, formatPeriod, parseQuery, sameGlobal, serializeGlobal, type GlobalContext } from '@ap/contracts';
 import { labelledCondition, type MenuEntry, type Registry, type ReturnContextKey } from '@ap/kernel';
 import { withPaneContext, type PaneScreen } from '@ap/kernel/host';
 import { canMountPaneScreen } from './boardMenus';
@@ -25,14 +25,12 @@ function rawValue(global: GlobalContext, key: ReturnContextKey): string | null {
   return pairs.length === 0 ? null : JSON.stringify(pairs);
 }
 
-const minutes = (value: string) => value.replace('T', ' ').slice(0, 16);
-
 /** The keys a Context sets: the value the header shows and the canonical one two panes are compared by. `none` names an explicitly empty set in the display. */
 export function contextValues(global: GlobalContext, none: string, axes: readonly EquipmentAxisDescriptor[] = [], lang: 'ko' | 'en' = 'ko', asOf = ''): ContextEntry[] {
   const set = (ids: readonly string[] | null) => (ids === null ? null : ids.length === 0 ? none : ids.join(', '));
   const values: Record<ReturnContextKey, string | null> = {
     scope: global.scopeId,
-    time: global.from !== null && global.to !== null ? `${minutes(global.from)} ~ ${minutes(global.to)}` : null,
+    time: global.from !== null && global.to !== null ? formatPeriod(global.from, global.to, lang) : null,
     roomNames: set(global.roomNames),
     line: set(global.lineNames),
     prcGroup: global.prcGroups === null ? null : set(global.prcGroups) + (global.membershipBasis === 'asOf' ? ` · ${asOf}` : ''),

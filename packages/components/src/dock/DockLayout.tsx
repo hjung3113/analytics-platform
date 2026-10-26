@@ -1,22 +1,14 @@
-import { Component, Suspense, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { Suspense, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { RotateCw, ServerCrash } from 'lucide-react';
 import { useI18n } from '@ap/kernel';
 import { Button, Skeleton } from '@ap/ui';
 import { StateMessage } from '../StateView';
-import { lazyChunk } from '../lazyChunk';
+import { ChunkLoadBoundary, lazyChunk, useLazyChunk } from '../lazyChunk';
 import { panelOrder } from './commands';
 import { stackedTree, visiblePanelIds } from './displayModel';
 import { DEFAULT_MIN_PANEL_SIZE, type DockLayoutProps, type DockRows } from './dockTypes';
 import { programmaticFocus } from './programmaticFocus';
 import { dockGroups, dockGroupsInReadingOrder } from './schema';
-
-/** Contains a rejected DockEngine chunk load inside the layout box so it never unmounts the surrounding app (same pattern as EChart). */
-class ChunkLoadBoundary extends Component<{ onError: (error: unknown) => void; children: ReactNode }, { failed: boolean }> {
-  state = { failed: false };
-  static getDerivedStateFromError() { return { failed: true }; }
-  componentDidCatch(error: unknown) { this.props.onError(error); }
-  render() { return this.state.failed ? null : this.props.children; }
-}
 
 /** The tab the event is on, if it belongs to the layout rooted at `root` (a nested layout's tabs belong to that layout). */
 const tabOf = (target: EventTarget | null, root: Element | null) => {
@@ -142,10 +134,7 @@ export function DockLayoutBase(props: DockLayoutProps & { rows?: DockRows; revea
   const { t } = useI18n();
   const instanceId = useId();
   const container = useRef<HTMLDivElement>(null);
-  const [attempt, setAttempt] = useState(0);
-  const [failed, setFailed] = useState(false);
-  const [DockEngine, setDockEngine] = useState(engineChunk.current);
-  const retry = useCallback(() => { setDockEngine(engineChunk.retry); setFailed(false); setAttempt(value => value + 1); }, []);
+  const { Component: DockEngine, failed, attempt, onError, retry } = useLazyChunk(engineChunk);
 
   const minWidth = props.minPanelSize?.width ?? DEFAULT_MIN_PANEL_SIZE.width;
   const minHeight = props.minPanelSize?.height ?? DEFAULT_MIN_PANEL_SIZE.height;
@@ -347,7 +336,7 @@ export function DockLayoutBase(props: DockLayoutProps & { rows?: DockRows; revea
       const tab = event.button === 0 ? tabOf(event.target, container.current) : null;
       if (tab?.dataset.tabPanelId) activate(tab.dataset.tabPanelId);
     }}>
-    <ChunkLoadBoundary key={attempt} onError={() => { setFailed(true); }}>
+    <ChunkLoadBoundary key={attempt} onError={onError}>
       <Suspense fallback={<div role="status" aria-busy className="h-full w-full"><Skeleton className="h-full w-full" /></div>}>
         <DockEngine panels={panels} layout={layout} display={display} interactive={!narrow} maximizedPanelId={maximized} visible={visible} minPanelSize={minPanelSize}
           onLayoutChange={onLayoutChange} onActivate={activate} renderTab={renderTab} renderGroupActions={renderGroupActions} tabA11y={tabA11y} separatorLabel={separatorLabel}

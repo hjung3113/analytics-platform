@@ -6,11 +6,11 @@ import { ContextBarLayout, MeasuringContext, useContextEditorState, useContextEd
 import { CONTEXT_CHIP, CONTEXT_CHIP_TONE } from './contextChip';
 import { CONTEXT_LABELS, labelledCondition, useEquipmentAxes, useI18n, type RequestState } from '@ap/kernel';
 import { useAdapterRequest, useHostPlatform } from '@ap/kernel/host';
-import { type Capability, type Condition, type ContextKey, formatDateTime, formatPeriod, periodShort, periodSpan, type GlobalContext, type SelectionEvaluation, parseDateTime, shift } from '@ap/contracts';
+import { type Capability, type Condition, type ContextKey, formatDateTime, formatPeriod, periodShort, periodHours, periodSpan, type GlobalContext, type SelectionEvaluation, parseDateTime, shift } from '@ap/contracts';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger, RadioGroup, RadioGroupItem } from '@ap/ui';
 import { SegmentedRadio, useCopyLink } from '@ap/components';
+import { isTrailingPeriod } from './trailingPeriod';
 
-const hours = (g: GlobalContext) => (g.from && g.to ? (parseDateTime(g.to, 'to').getTime() - parseDateTime(g.from, 'from').getTime()) / 3_600_000 : null);
 const CONTEXT_KEYS: ContextKey[] = ['time', 'roomNames', 'line', 'prcGroup', 'condition', 'selection', 'lot', 'ppid', 'recipe', 'metric'];
 
 export function contextHasValue(global: GlobalContext): Record<ContextKey, boolean> {
@@ -65,7 +65,7 @@ function LiveContextBar({ label, whenEmpty }: { label?: { visible: string; regio
     ...(has.recipe ? [{ key: 'recipe' as const, applied: has.recipe, node: <CarriedChip k="recipe" cap={cap.recipe} value={setText(global.recipeIds, t)} onRemove={() => setGlobal({ recipeIds: null })} /> }] : []),
     ...(has.metric ? [{ key: 'metric' as const, applied: has.metric, node: <CarriedChip k="metric" cap={cap.metric} value={`${global.metricId}${global.metricVersion ? ` @ ${global.metricVersion}` : ` (${lang === 'ko' ? '버전 미정' : 'no version'})`}`} onRemove={() => setGlobal({ metricId: null, metricVersion: null })} /> }] : []),
   ];
-  return <ContextBarLayout barName={label} controls={controls} revision={JSON.stringify([global, cap, lang, shown, evaluation.status, evaluation.data?.inCondition.length, label])} actions={compact => <span className="flex items-center gap-1">
+  return <ContextBarLayout regionName={label?.region} controls={controls} revision={JSON.stringify([global, cap, lang, shown, evaluation.status, evaluation.data?.inCondition.length, label])} actions={compact => <span className="flex items-center gap-1">
         <Button type="button" variant="ghost" size="toolbar" aria-label={lang === 'ko' ? '링크 복사' : 'Copy link'} title={lang === 'ko' ? '링크 복사' : 'Copy link'} onClick={() => copyLink(url)}>
           <Link2 className="size-3.5" aria-hidden />{!compact && (lang === 'ko' ? '링크 복사' : 'Copy link')}
         </Button>
@@ -128,8 +128,8 @@ function PeriodControl({ cap, compact = false }: { cap: Capability; compact?: bo
   const [open, setOpen] = useContextEditorState('open', false);
   const preserveRelocationFocus = useContextEditorFocusRecovery();
   const periodName = `${t('period')}: ${global.from ? formatPeriod(global.from, global.to, lang) : t('selectPeriod')}`;
-  const h = hours(global);
-  const preset = global.to === defaultRangeTo && h === 24 ? '1d' : global.to === defaultRangeTo && h === 168 ? '7d' : global.from ? 'custom' : null;
+  const h = periodHours(global);
+  const preset = isTrailingPeriod(global, defaultRangeTo, 24) ? '1d' : isTrailingPeriod(global, defaultRangeTo, 168) ? '7d' : global.from ? 'custom' : null;
   const presets = [{ id: '1d', label: t('preset1d'), h: 24 }, { id: '7d', label: t('preset7d'), h: 168 }, { id: 'custom', label: t('presetCustom'), h: 0 }] as const;
   const choose = (id: string) => {
     const p = presets.find(x => x.id === id)!;
