@@ -334,18 +334,17 @@ export default function DockEngine({
 
   // Maximize is the engine's group maximize and is never stored, so it is re-asserted after every reconcile. The engine hides the other groups
   // with the px size they had, and gives that size back on restore whatever the container became meanwhile: a resize in between leaves the
-  // shares skewed (and below the minimum), so a restore after a resize puts the stored shares back at the current size.
-  const maximizedAt = useRef<{ width: number; height: number } | null>(null);
+  // shares skewed (and below the minimum), so every restore puts the stored shares back at the current size. The size at the start of the
+  // maximize and at the restore cannot tell whether it changed in between (1440 -> 600 -> 1440 looks unchanged), and re-applying equal shares
+  // changes nothing.
   useEffect(() => {
     if (!api) return;
     const target = maximizedPanelId ? api.getPanel(maximizedPanelId) : undefined;
     if (target) {
-      if (!target.api.isMaximized()) { maximizedAt.current ??= { width: api.width, height: api.height }; target.api.maximize(); }
+      if (!target.api.isMaximized()) target.api.maximize();
     } else if (api.hasMaximizedGroup()) {
-      const at = maximizedAt.current;
-      maximizedAt.current = null;
       api.exitMaximizedGroup();
-      if (at && (at.width !== api.width || at.height !== api.height) && applied.current) applyLayout(api, applied.current.key, applied.current.meta);
+      if (applied.current) applyLayout(api, applied.current.key, applied.current.meta);
     }
     scheduleMeasure();
   }, [api, maximizedPanelId, key, epoch, reconciles, scheduleMeasure, applyLayout]);
