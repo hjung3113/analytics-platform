@@ -20,5 +20,5 @@
     }
   },
   "include": ["src"],
-  "exclude": ["**/*.test.*", "**/__tests__/**", "**/__fixtures__/**", "src/test-setup.ts", "src/vitest.setup.ts", "src/xlsxTestReader.ts"]
+  "exclude": ["**/*.test.*", "**/__tests__/**", "**/__fixtures__/**", "src/test-setup.ts", "src/vitest.setup.ts"]
 }

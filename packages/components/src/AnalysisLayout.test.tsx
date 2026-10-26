@@ -5,13 +5,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { QueryView } from './StateView';
 import { AnalysisLayout } from './AnalysisLayout';
-import { AnalysisChart } from './AnalysisChart';
-import { AnalysisChartFrame } from './AnalysisChartFrame';
-import { PlatformDataTable } from './PlatformDataTable';
+import { AnalysisChart } from './chart/AnalysisChart';
+import { AnalysisChartFrame } from './chart/AnalysisChartFrame';
+import { PlatformDataTable } from './table/PlatformDataTable';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { groupId, spaceId, type ApiResponse } from '@ap/contracts';
 
-vi.mock('./EChartImpl', () => ({ default: ({ ariaLabel }: { ariaLabel: string }) => <div role="img" aria-label={ariaLabel} /> }));
+vi.mock('./chart/EChartImpl', () => ({ default: ({ ariaLabel }: { ariaLabel: string }) => <div role="img" aria-label={ariaLabel} /> }));
 
 const registry = createRegistry({
   spaces: [testSpace()],

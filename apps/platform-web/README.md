@@ -24,7 +24,7 @@ pnpm --filter @ap/platform-web check:prod-graph  # 운영 모듈 그래프에 mo
 | --- | --- |
 | Kernel: Menu Registry, 전역 Context, URL 계약, 권한·Scope, 즐겨찾기/최근/활용 계측 | `packages/kernel`(`@ap/kernel`: `createRegistry`, `PlatformProvider`, `usePlatformQuery`, i18n), 메뉴 선언은 `menus/<space>/<group>/src/index.ts`(앱 `src/menus.ts`가 연결), URL codec·manifest·응답 envelope 타입은 `packages/contracts` |
 | 공통 컴포넌트 | `packages/components`(`@ap/components`) — `PlatformPage`(§8 Slot: Context Bar는 `slots.contextBar`로 주입), `PlatformDataTable`, `DetailDrawer`, `AuditTimeline`, `DataTrustIndicator`, `StateView`(§19), `StatCard`. UI primitive·`StatusBadge`·토큰은 `packages/ui`(`@ap/ui`) |
-| 차트 계약 | `packages/components/src/AnalysisChartFrame.tsx` (Zoom/Brush/Reset/Compare/Annotate/Export/More, 4층 상태 분리), `EChart.tsx` |
+| 차트 계약 | `packages/components/src/chart/AnalysisChartFrame.tsx` (Zoom/Brush/Reset/Compare/Annotate/Export/More, 4층 상태 분리), `chart/EChart.tsx` |
 | 레이아웃 | `packages/shell`(`@ap/shell`: AppShell 레일 52px·사이드바 240/56px·페이지 머리 50px, AppRail, AppSidebar 평면 그룹, GlobalContextBar, CommandPalette, RouteOutlet) + 페이지 archetype |
 | 메뉴간 연결 | `usePlatform().linkTo()` Context Link helper, `returnTo` 복귀 |
 

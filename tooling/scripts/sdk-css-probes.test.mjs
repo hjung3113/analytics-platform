@@ -34,6 +34,13 @@ test('CSS selector matching requires the complete utility class', () => {
   assert.equal(hasCssSelector('.flex-1{flex:1}', 'flex'), false);
 });
 
+test('CSS selector matching accepts a combinator or closing parenthesis right after the class (minified Tailwind output)', () => {
+  assert.equal(hasCssSelector('.space-y-4>:not(:last-child){margin-block-end:0}', 'space-y-4'), true);
+  assert.equal(hasCssSelector(':where(.space-y-4>:not(:last-child)){--tw-space-y-reverse:0}', 'space-y-4'), true);
+  assert.equal(hasCssSelector(':where(.divide-x)>.a+.b~.c{x:1}', 'divide-x'), true);
+  assert.equal(hasCssSelector('.space-y-4x>:not(:last-child){x:1}', 'space-y-4'), false);
+});
+
 test('CSS probe selection reports packages without a unique utility class', () => {
   assert.throws(
     () => selectCssProbes([
