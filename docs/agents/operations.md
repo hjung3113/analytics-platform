@@ -22,7 +22,7 @@
 
 ## 메모리(16GB 머신)
 
-- vitest 워커 수는 환경 변수로 2개로 묶는다(`VITEST_MAX_WORKERS`·`VITEST_MAX_FORKS`·`VITEST_MAX_THREADS`=2, `VITEST_MIN_FORKS`·`VITEST_MIN_THREADS`=1 — 이 Mac은 `~/.zshenv`, 작업자 실행기는 `workerops.py`가 넣는다). 상한이 없으면 실행 하나가 CPU 수만큼(9개, 약 19GiB) jsdom 워커를 띄워 2026-10-14에 macOS가 프로세스를 강제 종료했다. 수를 바꾸려면 환경 변수를 준다 — 변수가 있으면 `--maxWorkers` 플래그는 무시되고, `pnpm run test -- --maxWorkers=2`처럼 `--` 뒤에 둔 플래그는 변수가 없어도 파일 필터가 되어 무시된다. 루트 `pnpm test`는 CI처럼 `pnpm test --concurrency=2`로 돌린다(패키지 2개 × 워커 2; 스크립트에 넣으면 CI의 같은 플래그와 겹쳐 turbo가 실패한다). turbo는 strict env 모드라 이 변수들을 `turbo.json` `globalPassThroughEnv`에 둔다(빠지면 루트 `pnpm test`에서 상한이 사라진다).
+- vitest 워커 수는 환경 변수로 2개로 묶는다(`VITEST_MAX_WORKERS`·`VITEST_MAX_FORKS`·`VITEST_MAX_THREADS`=2, `VITEST_MIN_FORKS`·`VITEST_MIN_THREADS`=1 — 이 Mac은 `~/.zshenv`, 작업자 실행기는 `workerops.py`가 넣는다). 상한이 없으면 실행 하나가 CPU 수만큼(9개, 약 19GiB) jsdom 워커를 띄워 2026-10-14에 macOS가 프로세스를 강제 종료했다. 수를 바꾸려면 환경 변수를 준다 — 변수가 있으면 `--maxWorkers` 플래그는 무시되고, `pnpm run test -- --maxWorkers=2`처럼 `--` 뒤에 둔 플래그는 변수가 없어도 파일 필터가 되어 무시된다. 루트 `pnpm test`의 패키지 동시 실행은 루트 `turbo.json`의 `"concurrency": "2"`가 이미 2개로 묶는다(패키지 2개 × 워커 2) — 명령줄에 `--concurrency=2`를 따로 줄 필요가 없다(#166 이후 설정이 상한이고, 줘도 같은 값이라 무해하다, #945). turbo는 strict env 모드라 이 변수들을 `turbo.json` `globalPassThroughEnv`에 둔다(빠지면 루트 `pnpm test`에서 상한이 사라진다).
 - 작업자는 패키지 범위 검사만 한다. 루트 `pnpm test`/`build`/`e2e`는 코디네이터가 순서대로 한 번씩 돌린다.
 - 작업자가 죽거나 Orca 런타임이 재시작되면 남은 vitest(부모 PID 1)를 찾아 정리한다: `pgrep -fl vitest`, `lsof -a -p <pid> -d cwd`.
 - 자기 검사를 멈출 때는 자기 프로세스만 끝낸다: 백그라운드 작업 ID나 `$!`, 또는 cwd가 자기 worktree인 PID(`lsof -a -p <pid> -d cwd`)만 끝낸다. `pkill -f "turbo run"`처럼 명령 이름으로 끝내면 같은 기계에서 도는 다른 세션의 검사도 함께 죽는다(2026-10-26).

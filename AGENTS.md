@@ -43,8 +43,9 @@
 
 ## 검증
 
-- 코드를 바꿨으면 커밋 전에 `pnpm lint && pnpm typecheck && pnpm test && pnpm build`가 모두 0으로 끝나야 한다. 작업 중에는 `pnpm --filter <pkg> …`로 충분하다.
-- 화면이 바뀌면 브라우저로 확인한다. Kernel·셸·공통 컴포넌트·mock 서버를 바꾸면 관련 E2E를 돌린다(`pnpm e2e`, 좁히려면 `apps/platform-e2e`에서 `pnpm exec playwright test -g "<describe>"`). CI가 전체 E2E를 다시 돌리고 항목별 보고(`apps/platform-e2e/contract-report/`)를 남긴다.
+- 코드를 바꿨으면 커밋 전에 `pnpm lint && pnpm typecheck && pnpm test && pnpm build`가 모두 0으로 끝나야 한다. `--force` 없이 worktree 공용 turbo 캐시를 써서 바뀐 패키지와 그 의존자만 다시 돌게 한다. 작업 중에는 `pnpm --filter <pkg> …`로 충분하다.
+- 전체 검사의 기록은 PR CI다(CI는 범위를 줄이지 않고 cold로 전체를 돈다). 수정 라운드와 ship 직전에 로컬에서 무엇을 다시 돌리는지는 [`PROFILE.md`](.agents/conductor/PROFILE.md) §Verify의 「수정 라운드」·「Final head」를 따른다(#945).
+- 화면이 바뀌면 브라우저로 확인한다. Kernel·셸·공통 컴포넌트·mock 서버를 바꾸면 관련 E2E만 `apps/platform-e2e`에서 `pnpm exec playwright test -g "<describe>"`로 돌린다. 로컬 전체 `pnpm e2e`는 셸·Kernel·`style.css`를 바꾼 이슈에서 리뷰 전에 한 번만 돌린다. CI가 전체 E2E를 다시 돌리고 항목별 보고(`apps/platform-e2e/contract-report/`)를 남긴다.
 - `main`은 ruleset `main: required CI`(2026-10-23, #670 D2)로 보호한다. `Platform workspace (pnpm monorepo)`·`Platform contracts (E2E)` 두 검사가 통과해야 병합되고, force push와 삭제는 막힌다. 브랜치가 최신일 필요는 없다(strict 아님).
 - `pnpm lint`는 디자인 시스템 규칙(`@shadcn/lint`, #228)도 검사한다. 오류 메시지가 대신 쓸 토큰·variant·컴포넌트를 알려 주니 그대로 고친다. `.ts` 파일의 클래스 문자열도 검사한다. 예외 목록 파일은 없다(#236·#241에서 모두 해소) — 예외는 이유를 단 `eslint-disable-next-line`만 쓰고, 아무것도 막지 않는 disable 주석은 오류다. `@radix-ui/*`는 `@ap/ui`만 import한다.
 - 문서만 바꿨으면 `pnpm docs:links`(문서 링크 검사)만 돌린다.
