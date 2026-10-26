@@ -35,6 +35,8 @@ const PUBLIC_EXPORTS = [
   'ActiveFilterBar', 'Callout', 'DatePicker', 'DetailPanelFullscreenContext', 'DetailPanelFullscreenToggle', 'DetailPanelHeader', 'DetailPanelHeaderActions', 'DetailPanelReadingColumn', 'DetailPanelSectionNav', 'StatusBadgeFrame', 'DirtyConfirmation', 'EmptyState', 'FieldLabel', 'FieldList', 'FieldRow', 'ListFilterButton', 'ListShell', 'ListSortButton', 'ListTabs', 'ListToolbar', 'NestedTextBlock', 'PageShell', 'PanelSectionTitle', 'PanelTitleBlock', 'PreviewModal', 'SearchInput', 'ShellHeader', 'ToolbarKicker', 'UndoToast', 'WorkbenchShell', 'useDetailPanelContent',
   // Re-exported sonner for the analysis board's single <Toaster> and toast.custom() undo (#497).
   'Toaster', 'toast', 'TransientOverlayScope',
+  // The surface that owns detail-slot registrants is covered but mounted (ADR-0088, #893 893c2).
+  'SurfacePauseScope', 'useSurfacePaused',
   // Domain-neutral parts retained from FeedbackOps in #443 (ADR-0046); ADR-0050 returned the coupled parts.
   // Rich content restored by ADR-0052.
   'RichEditor', 'AttachButton', 'RichContentRenderer', 'AttachmentRef', 'Mention',

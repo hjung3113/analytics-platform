@@ -1,4 +1,4 @@
-import { useLayoutEffect, useSyncExternalStore } from 'react';
+import { useLayoutEffect, useRef, useSyncExternalStore } from 'react';
 import { BOARD_PATH, useHostPlatform } from '@ap/kernel/host';
 import { useHomeHref } from '../HomeLink';
 
@@ -41,7 +41,35 @@ export const recallFocus = (userId: string): HTMLElement | null => focusBefore.g
 /** True once after the board was minimized with its own button: the chip takes focus when it appears. */
 export const takeChipFocus = (userId: string): boolean => chipFocus.delete(userId);
 
+/** A user who is no longer the signed-in one keeps no live board, return path, chip label or remembered focus behind (893c2): the next sign-in starts closed. */
+const forget = (userId: string) => {
+  const had = states.delete(userId);
+  focusBefore.delete(userId);
+  chipFocus.delete(userId);
+  if (had) for (const listener of Array.from(listeners)) listener();
+};
+
 export function resetBoardPresentationForTests(): void { states.clear(); focusBefore.clear(); chipFocus.clear(); listeners.clear(); }
+
+/** A query key as the Kernel reads it: percent-decoded, so `%66ocus` is `focus`; a malformed escape keeps its raw spelling. */
+const keyOf = (part: string): string => {
+  const raw = part.split('=')[0];
+  try { return decodeURIComponent(raw.replace(/\+/g, ' ')); } catch { return raw; }
+};
+
+/**
+ * The address a minimize or close goes back to must not reopen a detail the user did not ask for: it drops the `focus` key (the detail-opening query,
+ * docs/06 §6.4) and keeps the screen, its other keys and the hash. Recording and using the address both pass through here (docs/16 §4).
+ */
+export const withoutDetailKey = (href: string): string => {
+  const hashAt = href.indexOf('#');
+  const base = hashAt === -1 ? href : href.slice(0, hashAt);
+  const hash = hashAt === -1 ? '' : href.slice(hashAt);
+  const queryAt = base.indexOf('?');
+  if (queryAt === -1) return href;
+  const kept = base.slice(queryAt + 1).split('&').filter(part => part !== '' && keyOf(part) !== 'focus');
+  return `${base.slice(0, queryAt)}${kept.length > 0 ? `?${kept.join('&')}` : ''}${hash}`;
+};
 
 const sheetHref = (id: string | null) => (id === null ? BOARD_PATH : `${BOARD_PATH}?sheet=${encodeURIComponent(id)}`);
 
@@ -53,9 +81,14 @@ export function useBoardPresentationSync(): { mounted: boolean; maximized: boole
   const { user, platformScreen, url, registry } = useHostPlatform();
   const state = useSyncExternalStore(subscribe, () => read(user.id));
   const maximized = platformScreen === 'board';
+  // The mounted board of the previous user unmounts with this render (`mounted` is read per user); its stored state goes with it.
+  const signedIn = useRef(user.id);
+  useLayoutEffect(() => {
+    if (signedIn.current !== user.id) { forget(signedIn.current); signedIn.current = user.id; }
+  }, [user.id]);
   useLayoutEffect(() => {
     if (maximized) write(user.id, { live: true });
-    else if (registry.safeReturnTo(url) !== null) write(user.id, { returnHref: url });
+    else if (registry.safeReturnTo(url) !== null) write(user.id, { returnHref: withoutDetailKey(url) });
   }, [maximized, url, user.id, registry]);
   return { mounted: state.live || maximized, maximized };
 }
@@ -71,7 +104,7 @@ export function useBoardPresentation() {
 
   /** Where leaving the board goes: the last ordinary path while it can still be opened, else the platform home. */
   const leaveHref = (): string => {
-    const stored = read(user.id).returnHref;
+    const stored = read(user.id).returnHref === null ? null : withoutDetailKey(read(user.id).returnHref!);
     const menu = stored !== null && registry.safeReturnTo(stored) !== null ? registry.matchRoute(stored.split('?')[0])?.menu : undefined;
     return stored !== null && menu !== undefined && canOpen(menu.id) ? stored : home ?? '/';
   };

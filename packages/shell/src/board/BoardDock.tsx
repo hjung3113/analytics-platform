@@ -3,7 +3,7 @@ import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useRef, useSta
 import { DockLayout, dockLayoutMenu, movePanel, type DockPanel } from '@ap/components/dock';
 import { useI18n } from '@ap/kernel';
 import { useHostPlatform, type PaneScreen } from '@ap/kernel/host';
-import { Button, DropdownMenuItem, DropdownMenuSeparator } from '@ap/ui';
+import { Button, DropdownMenuItem, DropdownMenuSeparator, useSurfacePaused } from '@ap/ui';
 import { effectiveTree, fromDockTree, groupHolding, toDockTree } from './boardDockTree';
 import { indexOfPane, selectedIndex, setTree, type Board, type Sheet } from './boardModel';
 import { BoardPane, type BoardPaneProps } from './BoardPane';
@@ -76,14 +76,27 @@ export function BoardDock({ sheet, update, paneProps, onSelect, onClear, onClose
   const tabOfPane = (paneId: string) => Array.from(wrap.current?.querySelectorAll<HTMLElement>('[role="tab"][data-tab-panel-id]') ?? []).find(tab => tab.dataset.tabPanelId === paneId);
   const toggleOfPane = (paneId: string) => Array.from(wrap.current?.querySelectorAll<HTMLElement>('[data-pane-head-slot]') ?? []).find(slot => slot.dataset.paneHeadSlot === paneId)?.querySelector<HTMLElement>('[data-pane-maximize]');
   /** Focus goes to an element once the engine has laid the new tree out: the one it had may have been rebuilt or moved to another group. */
+  const paused = useSurfacePaused();
+  // Covering the board drops the focus hand-offs still waiting: they would otherwise land on whatever is in front.
+  const pending = useRef(new Set<ReturnType<typeof setTimeout>>());
+  useEffect(() => {
+    if (!paused) return;
+    for (const timer of pending.current) clearTimeout(timer);
+    pending.current.clear();
+  }, [paused]);
+  const later = (run: () => void, ms: number) => {
+    if (paused) return;
+    const timer = setTimeout(() => { pending.current.delete(timer); run(); }, ms);
+    pending.current.add(timer);
+  };
   const focusSoon = (find: () => HTMLElement | null | undefined, fallback?: () => void) => {
     let tries = 0;
     const attempt = () => {
       const element = find();
       if (usable(element)) { element.focus({ preventScroll: true }); return; }
-      if (++tries < 10 && wrap.current?.isConnected) setTimeout(attempt, 30); else fallback?.();
+      if (++tries < 10 && wrap.current?.isConnected) later(attempt, 30); else fallback?.();
     };
-    setTimeout(attempt, 0);
+    later(attempt, 0);
   };
   const focusTabSoon = (paneId: string) => { focusSoon(() => tabOfPane(paneId)); };
 
@@ -170,7 +183,7 @@ export function BoardDock({ sheet, update, paneProps, onSelect, onClear, onClose
         onClosePane={slot.screen === null && sheet.panes.length > 1 ? () => {
           onClosePane(index);
           // The pane (and the menu that closed it) is gone: focus goes to the selected pane's tab.
-          setTimeout(() => { tabOfPane(latestSelected.current)?.focus({ preventScroll: true }); }, 0);
+          later(() => { tabOfPane(latestSelected.current)?.focus({ preventScroll: true }); }, 0);
         } : undefined} />,
     };
   });

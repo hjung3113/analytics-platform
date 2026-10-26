@@ -1,7 +1,7 @@
 import { MoreHorizontal, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { useI18n } from '@ap/kernel';
-import { Button, cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@ap/ui';
+import { Button, cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger, useSurfacePaused } from '@ap/ui';
 import { MAX_SHEETS, type Sheet } from './boardModel';
 import { boardText } from './text';
 
@@ -29,6 +29,9 @@ export function SheetTabs({ sheets, activeId, panelId, onSwitch, onAdd, onRename
   const text = boardText(lang);
   const [editing, setEditing] = useState<string | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
+  // A tab drag cannot finish on a covered board.
+  const paused = useSurfacePaused();
+  if (paused && dragging !== null) setDragging(null);
   const list = useRef<HTMLDivElement>(null);
   const refocus = useRef<string | null>(null);
   const renameNext = useRef(false);

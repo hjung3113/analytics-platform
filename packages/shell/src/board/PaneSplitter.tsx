@@ -1,5 +1,5 @@
 import { useEffect, useRef, type CSSProperties } from 'react';
-import { cn } from '@ap/ui';
+import { cn, useSurfacePaused } from '@ap/ui';
 import type { SplitBounds } from './layout';
 
 /**
@@ -27,6 +27,16 @@ export function PaneSplitter({ horizontal, label, controls, value, bounds, exten
   // The latest `onChange` for the unmount cleanup below.
   const latest = useRef(onChange);
   useEffect(() => { latest.current = onChange; });
+  // Covering the board ends a drag in progress where it stopped: the pointer can no longer reach the handle.
+  const paused = useSurfacePaused();
+  useEffect(() => {
+    if (!paused || !drag.current) return;
+    const id = drag.current.pointerId;
+    if (root.current?.hasPointerCapture(id)) root.current.releasePointerCapture(id);
+    const last = drag.current.last;
+    drag.current = null;
+    if (last !== undefined) latest.current([last, 100 - last], true);
+  }, [paused]);
   useEffect(() => () => {
     const id = drag.current?.pointerId;
     if (id !== undefined && root.current?.hasPointerCapture(id)) root.current.releasePointerCapture(id);

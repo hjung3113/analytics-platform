@@ -193,6 +193,7 @@ StatusBadgeAppearance | type | type StatusBadgeAppearance = 'compact' | 'compact
 StatusBadgeFrame | function | function StatusBadgeFrame({ appearance, ariaLabel, tone, children, indicator, textClassName, tintClassName, className, style, token, }: @ap/ui#StatusBadgeFrameProps): React.JSX.Element
 StatusBadgeFrameProps | interface | interface StatusBadgeFrameProps { appearance: @ap/ui#StatusBadgeAppearance; ariaLabel?: string; children: React.ReactNode; className?: string; indicator?: React.ReactNode; style?: React.CSSProperties; textClassName?: string; tintClassName?: string; token?: string; tone?: @ap/ui#StatusBadgeTone; }
 StatusBadgeTone | type | type StatusBadgeTone = 'danger' | 'internal-doing' | 'internal-done' | 'internal-todo' | 'muted' | 'success' | 'warning'
+SurfacePauseScope | function | function SurfacePauseScope({ paused, children }: { children: ReactNode; paused: boolean; }): import("react").JSX.Element
 Tabs | const | const Tabs: React.ForwardRefExoticComponent<TabsPrimitive.TabsProps & React.RefAttributes<HTMLDivElement>>
 TabsContent | const | const TabsContent: React.ForwardRefExoticComponent<Omit<TabsPrimitive.TabsContentProps & React.RefAttributes<HTMLDivElement>, "ref"> & React.RefAttributes<HTMLDivElement>>
 TabsList | const | const TabsList: React.ForwardRefExoticComponent<Omit<Omit<import("@radix-ui/react-tabs").TabsListProps & React.RefAttributes<HTMLDivElement>, "ref"> & React.RefAttributes<HTMLDivElement>, "ref"> & React.RefAttributes<HTMLDivElement>>
@@ -238,6 +239,7 @@ useDetailPanelContent | function | function useDetailPanelContent(node: ReactNod
 useDetailPanelSlot | function | function useDetailPanelSlot(options?: { onSuperseded?: () => void; }): HTMLElement | null
 useDetailPanelSlotHost | function | function useDetailPanelSlotHost(): { activation: number; expanded: boolean; open: boolean; ref: (host: HTMLElement | null) => void; toggle: () => void; }
 useListMotion | function | function useListMotion(): RefCallback<HTMLElement>
+useSurfacePaused | function | function useSurfacePaused(): boolean
 writeLocalStorage | function | function writeLocalStorage(key: string, value: null | string): boolean
 # reachable types
 ButtonSize | type | type ButtonSize = NonNullable<VariantProps<typeof @ap/ui#buttonVariants>['size']>

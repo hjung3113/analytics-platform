@@ -5,7 +5,7 @@ import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type Comp
 import { HardDrive, Minus, X } from 'lucide-react';
 import { UNDO_WINDOW_MS, useI18n, type MenuEntry } from '@ap/kernel';
 import { paneHref, useHostPlatform, type PaneScreen } from '@ap/kernel/host';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, cn, Popover, PopoverContent, PopoverTrigger, ToggleGroup, ToggleGroupItem } from '@ap/ui';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, cn, Popover, PopoverContent, PopoverTrigger, SurfacePauseScope, ToggleGroup, ToggleGroupItem, TransientOverlayScope } from '@ap/ui';
 import { BoardContextBar } from './BoardContextBar';
 import { BoardDock, type DockPaneProps } from './BoardDock';
 import { BoardPane } from './BoardPane';
@@ -87,8 +87,15 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
   const raised = useRef(new Set<number>());
   const notifyRef = useRef<(message: string) => void>(() => {});
   useEffect(() => () => { for (const id of raised.current) dismissToast(id); raised.current.clear(); }, [user.id, dismissToast]);
-  /** Board notices go through the shell toast stack; the ids are kept so leaving the board or the user dismisses them. */
+  // Minimizing does not unmount, so its notices end here: an undo offered on a covered board would write to it unseen (docs/16 §4).
+  useEffect(() => {
+    if (visible) return;
+    for (const id of raised.current) dismissToast(id);
+    raised.current.clear();
+  }, [visible, dismissToast]);
+  /** Board notices go through the shell toast stack; the ids are kept so leaving the board or the user dismisses them. A covered board raises none. */
   const notify = (message: string, onUndo?: () => void) => {
+    if (!visible) return;
     const id = onUndo
       ? toast(message, 'info', undefined, { action: { label: text.undo, onAction: onUndo }, durationMs: UNDO_WINDOW_MS })
       : toast(message);
@@ -106,10 +113,11 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
   const storageSaid = useRef<string | null>(null);
   useEffect(() => {
     const key = storageNotice === null ? null : `${user.id}:${storageNotice}`;
-    if (key === null || storageSaid.current === key) return;
+    // A covered board says nothing yet; it is said, once, when it is shown.
+    if (key === null || storageSaid.current === key || !visible) return;
     storageSaid.current = key;
     notifyRef.current(storageNotice === 'newer' ? text.storageNewer : text.storageCorrupt);
-  }, [storageNotice, user.id, text]);
+  }, [storageNotice, user.id, text, visible]);
 
   const sheetId = sheet.id;
   const layout = layoutOf(sheet);
@@ -388,7 +396,9 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
     onDuplicate: () => duplicate(index), onEditContext: () => editContext(index),
   });
 
-  return <div ref={root} data-board className="@container relative flex h-full min-h-0 flex-col"
+  // A covered board keeps its state (selection, drafts, drill, scroll) but not its transient UI: menus and dialogs close, and the detail slot is told
+  // that the surface owning its registrants is paused (ADR-0088).
+  return <SurfacePauseScope paused={!visible}><TransientOverlayScope active={visible}><div ref={root} data-board className="@container relative flex h-full min-h-0 flex-col"
     onFocusCapture={event => { if (visible && event.target instanceof HTMLElement && !event.target.closest('[data-board-leave]')) rememberFocus(user.id, event.target); }}>
     <header className="flex h-[50px] shrink-0 items-center justify-between gap-3 overflow-x-auto border-b border-border-subtle bg-surface-canvas px-4">
       <div className="flex min-w-0 items-center gap-3">
@@ -474,5 +484,5 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
-  </div>;
+  </div></TransientOverlayScope></SurfacePauseScope>;
 }
