@@ -95,6 +95,7 @@
 | [0085](0085-entity-audit-cursor-pages.md) | 목적지 감사 `entityAudit`은 서버 상한(50)·keyset 커서로 쪽을 나누고, `AuditTimeline`은 목록 끝 `이전 변경 이력 더 보기` 버튼으로 이어 붙인다(대안: B 총건수·`N/M건` 표시 / C 전역 감사 화면으로 넘기기 — A 선택) | Decided(2026-10-26, 코디네이터(사용자 지시: 시안은 Opus xhigh 리뷰 후 결정), 되돌릴 수 있다) — #826 |
 | [0086](0086-kernel-query-engine-tanstack.md) | Kernel 조회 수명주기는 내부 엔진으로 TanStack Query를 쓴다 — 공유 키로 요청 중복 제거, 5분 메모리 SWR, 세션 세대 키로 이전 사용자 데이터 제거(대안: A Kernel 자체 중복 제거 / C TanStack을 SDK 조회 API로 공개 / D 하지 않음 — B 선택) | Decided(2026-10-26, 사용자 방향 + 코디네이터, 되돌릴 수 있다) — #825 |
 | [0087](0087-board-minimize-restore-history.md) | 분석 보드는 URL이 최대화의 정본이고 `live`만 저장한 채 마운트를 유지하며 열기·최소화·복원·`분석 보드에 열기…`는 history replace로 전이한다(대안: a 언마운트 / b `history.back()` 최소화 / c 별도 mode 저장 — d 선택) | Decided(2026-10-27, 코디네이터(사용자 결정: 칩 + 레일 상태 표시), 되돌릴 수 있다) — #893 |
+| [0088](0088-surface-pause-detail-slot.md) | 소유 표면이 가려지면(최소화된 보드) 상세 슬롯 등록자는 자리를 지키되 표시권만 멈춘다 — 종료(`onSuperseded`)가 아니다, 재개 때 여전히 승자일 때만 다시 보이고 `activation`+1(대안: a 해제 / b 보드 전용 prop / c unmount — d 도메인 중립 scope 선택, ADR-0047 개정) | Decided(2026-10-27, 코디네이터, 되돌릴 수 있다) — #893 |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 

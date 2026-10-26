@@ -6,7 +6,7 @@ import { createPortal } from 'react-dom';
 import { buildQuery } from '@ap/contracts';
 import { useI18n } from '@ap/kernel';
 import { useHostPlatformOptional } from '@ap/kernel/host';
-import { Tabs, TabsContent, TabsList, TabsTrigger, TransientOverlayScope, useDetailPanelSlot } from '@ap/ui';
+import { Tabs, TabsContent, TabsList, TabsTrigger, TransientOverlayScope, useDetailPanelSlot, useSurfacePaused } from '@ap/ui';
 
 /** §13: URL-controlled detail content rendered into the shell-owned docked slot. */
 export function DetailDrawer({ title, subtitle, headerActions, context, tabs, onClose, tab, onTabChange }: {
@@ -24,7 +24,9 @@ export function DetailDrawer({ title, subtitle, headerActions, context, tabs, on
     closeLatest.current();
   } } : undefined);
   useCloseOnPaneChange(onClose);
-  return host ? createPortal(<TransientOverlayScope active detached><OutcomeScope><DetailContent superseded={superseded} title={title} subtitle={subtitle} headerActions={headerActions} context={context} tabs={tabs} onClose={onClose} tab={tab} onTabChange={onTabChange} /></OutcomeScope></TransientOverlayScope>, host) : null;
+  // A drawer whose owning surface is covered stays mounted in the hidden host; its own transient UI is dismissed, as a docked detail owns its visibility.
+  const paused = useSurfacePaused();
+  return host ? createPortal(<TransientOverlayScope active={!paused} detached><OutcomeScope><DetailContent superseded={superseded} title={title} subtitle={subtitle} headerActions={headerActions} context={context} tabs={tabs} onClose={onClose} tab={tab} onTabChange={onTabChange} /></OutcomeScope></TransientOverlayScope>, host) : null;
 }
 
 /**
@@ -56,17 +58,22 @@ function DetailContent({ superseded, title, subtitle, headerActions, context, ta
   const id = useId();
   const platform = useHostPlatformOptional();
   const pageNavigation = platform?.pageNavigation;
+  // Read live by the mount claim and the close cleanup: a covered surface's drawer must not move or restore focus on the screen in front.
+  const pausedNow = useSurfacePaused();
+  const paused = useRef(pausedNow);
+  useInsertionEffect(() => { paused.current = pausedNow; });
   const paneId = platform?.paneId ?? null;
   const paneLabel = platform?.paneLabel ?? null;
   useLayoutEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
     // Arrival with focus= leaves the title focused (§26). Same-screen open still moves here.
     // No provider means a locally mounted drawer, which still claims the close button.
-    const claim = pageNavigation?.claimsDetailFocus() ?? true;
+    const claim = (pageNavigation?.claimsDetailFocus() ?? true) && !paused.current;
     if (claim) close.current?.focus({ preventScroll: true });
     return () => {
       // eslint-disable-next-line react-hooks/exhaustive-deps -- the cleanup must read the latest flag; a copy taken at mount would never see the supersession
       if (superseded.current) return;
+      if (paused.current) return;
       // eslint-disable-next-line react-hooks/exhaustive-deps -- the cleanup asks the live panel node whether focus is inside, not a mount-time copy
       const inside = panel.current?.contains(document.activeElement) ?? false;
       // A panel that never took focus must not treat the untouched body as its own.
@@ -86,7 +93,7 @@ function DetailContent({ superseded, title, subtitle, headerActions, context, ta
       }
       restoreFocus();
     };
-  }, [pageNavigation, paneId, superseded]);
+  }, [pageNavigation, paneId, superseded, paused]);
   useLayoutEffect(() => {
     // A pointerdown outside the panel is the user choosing a focus destination (often body).
     const onPointerDown = (e: PointerEvent) => { if (!panel.current?.contains(e.target as Node)) focusInside.current = false; };

@@ -1,4 +1,4 @@
-import { useLayoutEffect, useSyncExternalStore } from 'react';
+import { useLayoutEffect, useRef, useSyncExternalStore } from 'react';
 import { BOARD_PATH, useHostPlatform } from '@ap/kernel/host';
 import { useHomeHref } from '../HomeLink';
 
@@ -41,6 +41,14 @@ export const recallFocus = (userId: string): HTMLElement | null => focusBefore.g
 /** True once after the board was minimized with its own button: the chip takes focus when it appears. */
 export const takeChipFocus = (userId: string): boolean => chipFocus.delete(userId);
 
+/** A user who is no longer the signed-in one keeps no live board, return path, chip label or remembered focus behind (893c2): the next sign-in starts closed. */
+const forget = (userId: string) => {
+  const had = states.delete(userId);
+  focusBefore.delete(userId);
+  chipFocus.delete(userId);
+  if (had) for (const listener of Array.from(listeners)) listener();
+};
+
 export function resetBoardPresentationForTests(): void { states.clear(); focusBefore.clear(); chipFocus.clear(); listeners.clear(); }
 
 const sheetHref = (id: string | null) => (id === null ? BOARD_PATH : `${BOARD_PATH}?sheet=${encodeURIComponent(id)}`);
@@ -53,6 +61,11 @@ export function useBoardPresentationSync(): { mounted: boolean; maximized: boole
   const { user, platformScreen, url, registry } = useHostPlatform();
   const state = useSyncExternalStore(subscribe, () => read(user.id));
   const maximized = platformScreen === 'board';
+  // The mounted board of the previous user unmounts with this render (`mounted` is read per user); its stored state goes with it.
+  const signedIn = useRef(user.id);
+  useLayoutEffect(() => {
+    if (signedIn.current !== user.id) { forget(signedIn.current); signedIn.current = user.id; }
+  }, [user.id]);
   useLayoutEffect(() => {
     if (maximized) write(user.id, { live: true });
     else if (registry.safeReturnTo(url) !== null) write(user.id, { returnHref: url });

@@ -24,6 +24,7 @@ export { copyText } from './utils/copyText';
 export { readLocalStorage, writeLocalStorage } from './utils/storage';
 
 export { DetailPanelSlotProvider, useDetailPanelSlot, useDetailPanelSlotHost } from './DetailPanelSlot';
+export { SurfacePauseScope, useSurfacePaused } from './SurfacePauseScope';
 
 // Layout shells (ADR-0020 — exactly three shells), panel, toolbar, forms, feedback: moved from FeedbackOps (#442, ADR-0046).
 // `useDetailPanelContent` is the content registrant of the same slot; FeedbackOps' `DetailPanelSlotContext` is not moved (ADR-0047).
