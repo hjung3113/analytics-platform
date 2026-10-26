@@ -7,10 +7,10 @@ import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testi
 import { installResizeObserver } from '../../dock/__tests__/harness';
 import { AnalysisChart } from '../AnalysisChart';
 import { AnalysisChartFrame } from '../AnalysisChartFrame';
-import { AnalysisLayout } from '../../AnalysisLayout';
-import { analysisChartHeight, fillChartHeight, resolveAnalysisChartSize } from '../../AnalysisSectionContext';
+import { AnalysisLayout } from '../../archetypes/AnalysisLayout';
+import { analysisChartHeight, fillChartHeight, resolveAnalysisChartSize } from '../../archetypes/AnalysisSectionContext';
 import type { EChartProps } from '../EChart';
-import { Panel } from '../../PlatformPage';
+import { Panel } from '../../archetypes/PlatformPage';
 import { InWorkspacePanelProvider } from '../../workspace/panelContext';
 import { groupId, spaceId } from '@ap/contracts';
 

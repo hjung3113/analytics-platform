@@ -4,7 +4,7 @@ import { Profiler, createRef, type ReactElement } from 'react';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { LaneTimeline, type LaneTimelineHandle } from '../LaneTimeline';
-import { AnalysisSectionContext } from '../../AnalysisSectionContext';
+import { AnalysisSectionContext } from '../../archetypes/AnalysisSectionContext';
 const lanes = Array.from({ length: 40 }, (_, i) => ({ id: `lane-${i}`, label: `Lane ${i}`, segments: [{ id: `segment-${i}`, start: i * 10, end: i * 10 + 100 }] }));
 function mountLane(element: ReactElement) { return render(<I18nProvider>{element}</I18nProvider>); }
 let queue: Map<number, FrameRequestCallback>; let counter: number;

@@ -5,7 +5,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { parseDateTime, groupId, spaceId, type AnnotationInput, type ApiResponse, type AnnotationRef, type ChartAnnotation, type PlatformAdapter } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
 import userEvent from '@testing-library/user-event';
-import { AnalysisSectionContext } from '../../AnalysisSectionContext';
+import { AnalysisSectionContext } from '../../archetypes/AnalysisSectionContext';
 import { AnalysisChartFrame, type AnalysisChartFrameProps, type ChartSeries } from '../AnalysisChartFrame';
 import { assignNoteLevels } from '../annotationLayout';
 import type { EChartProps } from '../EChart';

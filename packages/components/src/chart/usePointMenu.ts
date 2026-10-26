@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { drillDestinationOf, paneRootOf } from '../pageFocus';
+import { drillDestinationOf, paneRootOf } from '../state/pageFocus';
 
 /**
  * The point menu: the selected point's key, whether the menu is open, and the opener session that close-focus

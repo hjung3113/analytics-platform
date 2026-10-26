@@ -3,7 +3,7 @@ import { AlertTriangle } from 'lucide-react';
 import { invalidValueSentence, useI18n, usePlatform, type Text } from '@ap/kernel';
 import { encodeTableSort, parsePageIndex, parseTableSort, type TableUrlState } from './PlatformDataTable';
 import { StateMessage } from '../StateView';
-import { RecoverButton } from '../RecoverButton';
+import { RecoverButton } from '../state/RecoverButton';
 
 /**
  * §6.1 `sort`/`page` raw values parsed against the page's allowed sort columns, plus the ADR-0034 sentences
