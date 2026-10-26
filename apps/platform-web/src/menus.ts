@@ -4,7 +4,7 @@
  * live in their own menu package (docs/integration/platform-packages.md §5); the app concatenates them.
  */
 import {
-  BarChart3, ClipboardList, Cpu, Database, FileSearch, Gauge, Inbox, LayoutDashboard, LineChart, ListChecks, ListTodo, Megaphone, Ruler, ShieldCheck, Timer, UserRound,
+  BarChart3, Boxes, ClipboardList, Cpu, Database, FileSearch, Gauge, Inbox, LayoutDashboard, LineChart, ListChecks, ListTodo, Megaphone, Ruler, ShieldCheck, Timer, UserRound,
 } from 'lucide-react';
 import { groupId, menuPermission, spaceId, type SpaceDef } from '@ap/contracts';
 import { createRegistry, type GroupDef, type MenuEntry } from '@ap/kernel';
@@ -31,6 +31,7 @@ import { manifests as foDashboard } from '@ap/menu-fo-dashboard';
 import { manifests as foVoc } from '@ap/menu-fo-voc';
 import { manifests as foFindings } from '@ap/menu-fo-findings';
 import { manifests as foTasks } from '@ap/menu-fo-tasks';
+import { manifests as foIntegration } from '@ap/menu-fo-integration';
 // </gen:menu-imports>
 
 /** The menu permissions this app's menus use, on top of the kernel's (ADR-0072). Each menu package spells its own with `menuPermission`; `createRegistry` fails on one missing here. */
@@ -58,6 +59,7 @@ export const GROUPS: GroupDef[] = [
   { id: groupId('foVoc'), label: { ko: 'VOC', en: 'VOC' }, icon: Inbox, space: spaceId('feedbackops') },
   { id: groupId('foFindings'), label: { ko: 'Findings', en: 'Findings' }, icon: ListChecks, space: spaceId('feedbackops') },
   { id: groupId('foTasks'), label: { ko: 'Tasks', en: 'Tasks' }, icon: ClipboardList, space: spaceId('feedbackops') },
+  { id: groupId('foIntegration'), label: { ko: '연동', en: 'Integration' }, icon: Boxes, space: spaceId('feedbackops') },
   // </gen:menu-groups>
 ];
 
@@ -96,6 +98,7 @@ export const MENUS: MenuEntry[] = [
   ...foVoc,
   ...foFindings,
   ...foTasks,
+  ...foIntegration,
   // </gen:menu-spreads>
 ];
 

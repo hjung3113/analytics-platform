@@ -136,6 +136,20 @@ describe('대시보드 host links', () => {
     expect(canLink('/vocs?view=inbox&tab=unassigned')).toBe(true);
   });
 
+  it('links the coverage href to 커버리지 when the registry has fo-coverage (#762 p2)', () => {
+    const live = createRegistry({
+      spaces: [{ id: spaceId('feedbackops'), label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'platform:view', carriedPageKeys: ['managedSystem'], homeMenuId: 'fo-coverage' }],
+      groups: [{ id: groupId('myActivity'), label: { ko: '내 활동', en: 'Mine' }, space: spaceId('feedbackops') }],
+      menus: [stub('fo-coverage', '/feedbackops/coverage', { primary: true, pageKeys: ['view', 'area', 'cursor', 'managedSystem'] })],
+    } as never);
+    const session = testSession(['platform:view']);
+    window.history.replaceState(null, '', '/');
+    render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={live}>
+      <Link to="/integration/coverage">커버리지</Link>
+    </PlatformProvider></I18nProvider>);
+    expect(new URL(screen.getByRole('link', { name: '커버리지' }).getAttribute('href')!, 'http://x').pathname).toBe('/feedbackops/coverage');
+  });
+
   it('links 보드 to the Tasks board when the registry has fo-tasks (#763 p1)', () => {
     const live = createRegistry({
       spaces: [{ id: spaceId('feedbackops'), label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'platform:view', carriedPageKeys: ['managedSystem'], homeMenuId: 'fo-tasks' }],

@@ -19,3 +19,7 @@ export {
 } from './fo/task-routes';
 export { findingsRoute, useFindingsHere, useFindingsSearch } from './fo/finding-routes';
 export { clustersRoute, inboxRoute, triageRoute, useClustersHere, useClustersSearch, useInboxHere, useInboxSearch, useTriageHere, useTriageSearch } from './fo/voc-routes';
+export {
+  coverageRoute, entityLinksRoute, evidenceRoute, integrationDashboardRoute, useCoverageHere, useCoverageSearch, useEntityLinksHere, useEntityLinksSearch,
+  useEvidenceHere, useEvidenceSearch, useIntegrationDashboardHere, useIntegrationDashboardSearch,
+} from './fo/integration-routes';
