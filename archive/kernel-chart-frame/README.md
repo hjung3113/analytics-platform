@@ -7,7 +7,7 @@
 ## 실행
 
 ```sh
-cd prototypes/kernel-chart-frame
+cd archive/kernel-chart-frame
 npm ci --cache .npm-cache --no-audit --no-fund
 npm run dev
 npm run typecheck

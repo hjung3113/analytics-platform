@@ -8,8 +8,8 @@ Work order / authority mapping: kernel-work-order-context-url-scope-draft.md(git
 Run from repository root:
 
 ```sh
-python3 -B -m unittest discover -s prototypes/kernel-context-url-scope -p 'test_*.py' -v
-python3 -B prototypes/kernel-context-url-scope/demo.py
+python3 -B -m unittest discover -s archive/kernel-context-url-scope -p 'test_*.py' -v
+python3 -B archive/kernel-context-url-scope/demo.py
 ```
 
 `verification.log` captures both commands, exit codes and their real output. Tests assert codec round trips, all three group axes, absent/empty/selected sets, Unicode code-point ordering, aliases, malformed input, unsupported-context preservation, server validation, membership change, destination separation and revalidation on return. The demo prints the actual encoded deep links and reconstructed state.

@@ -62,7 +62,7 @@ jobs:
     timeout-minutes: 10
     defaults:
       run:
-        working-directory: prototypes/kernel-context-url-scope
+        working-directory: archive/kernel-context-url-scope
     steps:
       - uses: actions/checkout@v5
         with:
@@ -82,7 +82,7 @@ jobs:
     timeout-minutes: 10
     defaults:
       run:
-        working-directory: prototypes/kernel-app-shell
+        working-directory: archive/kernel-app-shell
     steps:
       - uses: actions/checkout@v5
         with:
@@ -92,7 +92,7 @@ jobs:
           # README: "설치된 Node 26.7.0 / npm 11.19.0으로 검증했다"
           node-version: '26.7.0'
           cache: npm
-          cache-dependency-path: prototypes/kernel-app-shell/package-lock.json
+          cache-dependency-path: archive/kernel-app-shell/package-lock.json
       - run: npm ci
       - run: npm run typecheck
       - run: npm run test
@@ -104,7 +104,7 @@ jobs:
     timeout-minutes: 10
     defaults:
       run:
-        working-directory: prototypes/kernel-chart-frame
+        working-directory: archive/kernel-chart-frame
     steps:
       - uses: actions/checkout@v5
         with:
@@ -114,7 +114,7 @@ jobs:
           # README에 Node 버전 명시 없음 → Active LTS
           node-version: '24'
           cache: npm
-          cache-dependency-path: prototypes/kernel-chart-frame/package-lock.json
+          cache-dependency-path: archive/kernel-chart-frame/package-lock.json
       - run: npm ci
       - run: npm run typecheck
       - run: npm run test
@@ -126,12 +126,12 @@ jobs:
     timeout-minutes: 15
     defaults:
       run:
-        working-directory: prototypes/kernel-platform-table
+        working-directory: archive/kernel-platform-table
     env:
       # playwright.config.ts는 PLAYWRIGHT_BROWSERS_PATH ||= resolve('.browsers')를 설정하지만
       # `playwright install`은 config를 읽지 않아 기본 ~/.cache/ms-playwright에 설치한다.
       # install/run 양쪽이 같은 .browsers 경로를 쓰도록 Job 전체에 명시한다(README의 설치 커맨드와 동일).
-      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/prototypes/kernel-platform-table/.browsers
+      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/archive/kernel-platform-table/.browsers
     steps:
       - uses: actions/checkout@v5
         with:
@@ -141,7 +141,7 @@ jobs:
           # README에 Node 버전 명시 없음 → Active LTS
           node-version: '24'
           cache: npm
-          cache-dependency-path: prototypes/kernel-platform-table/package-lock.json
+          cache-dependency-path: archive/kernel-platform-table/package-lock.json
       - run: npm ci
       # package.json에 typecheck 스크립트가 없고 build가 `tsc --noEmit && vite build`로 타입 검사를 포함한다.
       - run: npm run test:unit

@@ -14,7 +14,7 @@ apps/platform-e2e/        플랫폼 계약 E2E(Playwright 블랙박스)
 packages/                 플랫폼 패키지: contracts, ui, kernel, components, shell, mock-server, server-conformance
 menus/                    메뉴 Consumer 패키지(@ap/menu-<group>)
 tooling/                  공유 도구: tsconfig, eslint 경계 규칙, gen-menu, css-selectors
-prototypes/               통합 전 Kernel 단위 프로토타입(보존)
+archive/               통합 전 Kernel 단위 프로토타입(보존)
 products/feedbackops/     FeedbackOps 디렉터리, 자체 중첩 workspace(구조는 저장소 구조 문서)
 .agents/                  플랫폼 에이전트 자산
 ```
