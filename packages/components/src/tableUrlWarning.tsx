@@ -51,15 +51,18 @@ export function useTableUrlState(
   return { ...warning, urlState };
 }
 
-/** One page key the screen accepts: its user-facing field name and the check of a present raw value (an absent key is always fine). */
+/**
+ * One page key the screen accepts: its user-facing field name and the check of a present raw value (an absent key is always fine).
+ * `key` must be one of the menu's `pageKeys`: `pageParam` reads nothing else, so a rule for another key never fires.
+ */
 export type PageKeyRule = { key: string; label: Text; valid: (raw: string) => boolean };
 
 /**
- * Rejects malformed page keys, never corrects them (06 §6, ADR-0034): `invalid` is `null` when every present key passes,
- * else one sentence per bad key (field name + raw value as entered). `badKeys` are those keys and `recover` clears exactly
- * them in one `setPage`. While `invalid` is set the screen sends no query and shows `PageKeyWarning`.
+ * Rejects malformed page keys, never corrects them (06 §6, ADR-0034), shaped like `useTableUrlWarning`: `invalid` is true when
+ * a present key fails its rule, `sentences` holds one sentence per bad key (field name + raw value as entered), `badKeys` are
+ * those keys and `recover` clears exactly them in one `setPage`. While `invalid` the screen sends no query and shows `PageKeyWarning`.
  */
-export function usePageKeyRules(rules: readonly PageKeyRule[]): { invalid: string[] | null; badKeys: string[]; recover: () => void } {
+export function usePageKeyRules(rules: readonly PageKeyRule[]): { invalid: boolean; sentences: string[]; badKeys: string[]; recover: () => void } {
   const { pageParam, setPage } = usePlatform();
   const { lang } = useI18n();
   const bad = rules.flatMap(rule => {
@@ -68,7 +71,8 @@ export function usePageKeyRules(rules: readonly PageKeyRule[]): { invalid: strin
   });
   const badKeys = bad.map(({ rule }) => rule.key);
   return {
-    invalid: bad.length === 0 ? null : bad.map(({ rule, raw }) => invalidValueSentence(lang, 'value', rule.label, raw)),
+    invalid: bad.length > 0,
+    sentences: bad.map(({ rule, raw }) => invalidValueSentence(lang, 'value', rule.label, raw)),
     badKeys,
     recover: () => setPage(Object.fromEntries(badKeys.map(key => [key, null]))),
   };
@@ -104,7 +108,7 @@ export function FilterUrlWarning({ sentences, filters, recover }: { sentences: r
 
 /**
  * The rejected page-key message of a screen (06 §6, ADR-0034): the same frame as `FilterUrlWarning`, one sentence per bad key
- * (`usePageKeyRules().invalid`), and a Reset that clears exactly those keys (`recover`) after focus moved off the button.
+ * (`usePageKeyRules().sentences`), and a Reset that clears exactly those keys (`recover`) after focus moved off the button.
  */
 export function PageKeyWarning({ sentences, onRecover, filters }: { sentences: readonly string[]; onRecover: () => void; filters?: ReactNode }) {
   return <FilterUrlWarning sentences={sentences} filters={filters} recover={<RecoverButton onRecover={onRecover} />} />;

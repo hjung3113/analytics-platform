@@ -38,15 +38,18 @@ export function useHwTimeLevelState({ hiddenKey, row: hasRow = false, revealTren
   const rawSort = pageParam('sort');
   const rawTrend = pageParam('trend');
   const rawRow = hasRow ? pageParam('row') : null;
+  const keys = usePageKeyRules(hasRow ? RULES_WITH_ROW : RULES);
+  // The rules are the one validity check; the values below only read what they accepted.
+  const invalid = keys.invalid ? keys.sentences : null;
+  const { recover } = keys;
+  const sortOk = !keys.badKeys.includes('sort');
+  const rowOk = !keys.badKeys.includes('row');
   const trendParse = useMemo(() => parseTrendKey(rawTrend), [rawTrend]);
-  const sortOk = rawSort === null || SORTS.includes(rawSort);
-  const rowOk = rawRow === null || isHwTimeRowId(rawRow);
 
-  const { invalid, recover } = usePageKeyRules(hasRow ? RULES_WITH_ROW : RULES);
 
   const sort: StackSort = sortOk && rawSort !== null ? rawSort as StackSort : null;
   const row = rowOk ? rawRow : null;
-  const trendRows = useMemo(() => (trendParse.ok ? trendParse.rows : []), [trendParse]);
+  const trendRows = useMemo(() => (trendParse.ok && !keys.badKeys.includes('trend') ? trendParse.rows : []), [trendParse, keys.badKeys]);
   const sortText: Text = sort === 'total-desc' ? { ko: '정렬: 큰 순', en: 'Sort: high' } : sort === 'total-asc' ? { ko: '정렬: 작은 순', en: 'Sort: low' } : { ko: '정렬: 기본', en: 'Sort: default' };
 
   const [hiddenState, setHiddenState] = useState<{ key: string; ids: string[] }>({ key: hiddenKey, ids: [] });

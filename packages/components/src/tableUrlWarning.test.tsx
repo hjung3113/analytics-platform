@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { House } from 'lucide-react';
@@ -136,10 +136,10 @@ describe('usePageKeyRules + PageKeyWarning (rejected page keys, #852)', () => {
     { key: 'n', label: { ko: '개수', en: 'Count' }, valid: raw => /^[1-9]\d*$/.test(raw) },
   ];
   function RulesProbe() {
-    const { invalid, badKeys, recover } = usePageKeyRules(rules);
+    const { invalid, sentences, badKeys, recover } = usePageKeyRules(rules);
     return <div>
       <span data-testid="bad">{badKeys.join(',') || 'none'}</span>
-      {invalid ? <PageKeyWarning sentences={invalid} onRecover={recover} /> : <p>body</p>}
+      {invalid ? <PageKeyWarning sentences={sentences} onRecover={recover} /> : <p>body</p>}
     </div>;
   }
   const mountRules = (search: string) => {
@@ -169,16 +169,19 @@ describe('usePageKeyRules + PageKeyWarning (rejected page keys, #852)', () => {
 
   it('Reset clears exactly the bad keys in one navigation and leaves focus on main', async () => {
     const user = userEvent.setup();
-    mountRules('?v=1&mode=zz&n=3&q=keep');
-    const before = window.history.length;
+    mountRules('?v=1&mode=zz&n=0&q=keep');
+    const push = vi.spyOn(window.history, 'pushState');
+    const replace = vi.spyOn(window.history, 'replaceState');
     const button = screen.getByRole('button', { name: '초기화' });
     button.focus();
     await user.keyboard('{Enter}');
     const params = new URLSearchParams(window.location.search);
     expect(params.has('mode')).toBe(false);
-    expect(params.get('n')).toBe('3');
+    expect(params.has('n')).toBe(false);
     expect(params.get('q')).toBe('keep');
-    expect(window.history.length - before).toBeLessThanOrEqual(1);
+    expect(push.mock.calls.length + replace.mock.calls.length).toBe(1);
+    push.mockRestore();
+    replace.mockRestore();
     expect(screen.getByText('body')).toBeTruthy();
     expect(document.activeElement).toBe(screen.getByRole('main'));
   });
