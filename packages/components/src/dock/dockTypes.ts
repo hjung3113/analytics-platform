@@ -42,6 +42,11 @@ export type DockLayoutProps = {
    */
   renderGroupActions?: (group: { panels: string[]; active: string }, state: { stripWidth: number }) => ReactNode;
   /**
+   * Header-left slot of every group: right after its last tab, outside the tab list (never inside a `role=tab`), e.g. an add button. The
+   * group is the displayed one, as for `renderGroupActions`. Tab order of a group: its active tab, this slot, the header-right slot, the content.
+   */
+  renderGroupTabsEnd?: (group: { panels: string[]; active: string }) => ReactNode;
+  /**
    * The panel the host treats as current (the board's selected pane). The narrow display shows it, so what the user sees and what the host
    * works on stay the same panel; without it the narrow display follows the first group's active tab and the user's own tab choice.
    */

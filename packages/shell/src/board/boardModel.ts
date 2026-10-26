@@ -405,6 +405,20 @@ export function addPane(board: Board, sheetId: string, select = true): Board {
   });
 }
 
+/**
+ * `이 묶음에 분석 탭 추가` (dock renderer): a new pane holding `screen` as the last number, put into the stored group of `anchorPaneId` as its active
+ * tab (not beside it: no split, no other pane moves, the sizes stay) and selected. The group is the sheet's own, never the one-group display of a
+ * narrow container. Unchanged at 4 panes or when the anchor is not a pane of the sheet.
+ */
+export function addPaneInGroup(board: Board, sheetId: string, anchorPaneId: string, screen: PaneScreen | null): Board {
+  return mapSheet(board, sheetId, s => {
+    if (s.panes.length >= MAX_PANES || !s.panes.some(p => p.id === anchorPaneId)) return s;
+    const slot: PaneSlot = { ...newSlot(new Set(s.panes.map(p => p.id))), screen };
+    const tree = fromDockTree(addPanel(toDockTree(s.tree), slot.id, { panelId: anchorPaneId, position: 'center' }));
+    return reconcileSelection({ ...s, panes: [...s.panes, slot], selectedPaneId: slot.id, tree });
+  });
+}
+
 /** What `closePane` removed and the sheet on both sides of it, so the undo can put the pane back where it was and only while nothing else changed the panes. */
 export type ClosedPane = { sheetId: string; slot: PaneSlot; index: number; before: Sheet; after: Sheet };
 

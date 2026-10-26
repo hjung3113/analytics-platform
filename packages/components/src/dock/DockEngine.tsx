@@ -18,7 +18,7 @@ import { isProgrammaticFocus, programmaticFocus } from './programmaticFocus';
 import { canonicalDockTree, type DockNode } from './schema';
 import './dock.css';
 
-export type DockEngineProps = Pick<DockLayoutProps, 'panels' | 'layout' | 'onLayoutChange' | 'renderTab' | 'renderGroupActions' | 'tabA11y' | 'separatorLabel'> & {
+export type DockEngineProps = Pick<DockLayoutProps, 'panels' | 'layout' | 'onLayoutChange' | 'renderTab' | 'renderGroupActions' | 'renderGroupTabsEnd' | 'tabA11y' | 'separatorLabel'> & {
   /** What the engine shows: `layout`, or the one-group stack of the narrow display. */
   display: DockNode;
   /** False in the narrow display: no drag and drop, nothing reported. */
@@ -44,6 +44,7 @@ type Context = {
   display: DockNode;
   renderTab: DockEngineProps['renderTab'];
   renderGroupActions: DockEngineProps['renderGroupActions'];
+  renderGroupTabsEnd: DockEngineProps['renderGroupTabsEnd'];
   tabA11y: DockEngineProps['tabA11y'];
   /** Counts the reconciles: the engine rebuilds tab elements in one, so what is set on them from outside is set again. */
   reconciles: number;
@@ -122,6 +123,15 @@ function GroupActions({ activePanel, panels }: IDockviewHeaderActionsProps) {
   return <div ref={slot} data-dock-group-actions data-dock-active={group.active} className="flex h-full min-w-0 items-center">{engine.renderGroupActions(group, { stripWidth })}</div>;
 }
 
+/** The host's slot right after the group's last tab (dockview's left header actions, which sit after the tab list). */
+function GroupTabsEnd({ activePanel, panels }: IDockviewHeaderActionsProps) {
+  const engine = useEngine();
+  const anchor = activePanel?.id ?? panels[0]?.id;
+  const group = engine.renderGroupTabsEnd && anchor ? groupOf(engine.display, anchor) : undefined;
+  if (!engine.renderGroupTabsEnd || !group) return null;
+  return <div data-dock-group-tabs-end data-dock-active={group.active} className="flex h-full min-w-0 items-center">{engine.renderGroupTabsEnd(group)}</div>;
+}
+
 const COMPONENTS = { panel: PanelHost };
 const TAB_COMPONENTS = { tab: DockTab };
 /** Module-level so the option object keeps its identity across renders (a new one re-applies the theme). */
@@ -156,7 +166,7 @@ function readEngine(api: DockviewApi, stored: DockNode): { tree: DockNode; measu
 }
 
 export default function DockEngine({
-  panels, layout, display, interactive, maximizedPanelId, visible, minPanelSize, onLayoutChange, onActivate, renderTab, renderGroupActions, tabA11y, separatorLabel,
+  panels, layout, display, interactive, maximizedPanelId, visible, minPanelSize, onLayoutChange, onActivate, renderTab, renderGroupActions, renderGroupTabsEnd, tabA11y, separatorLabel,
   containerRef, instanceId, rows,
 }: DockEngineProps) {
   const [api, setApi] = useState<DockviewApi | null>(null);
@@ -444,8 +454,8 @@ export default function DockEngine({
     const active = new Set<string>();
     const collect = (node: DockNode) => { if (node.type === 'group') active.add(node.active); else node.children.forEach(collect); };
     collect(canonicalDisplay);
-    return { instanceId, panels: panelMap, visible, active, focused: new Set(focusGroup), display: canonicalDisplay, renderTab, renderGroupActions, tabA11y, reconciles, moves, onActivate };
-  }, [instanceId, panelMap, visible, focusedPanel, canonicalDisplay, renderTab, renderGroupActions, tabA11y, reconciles, moves, onActivate]);
+    return { instanceId, panels: panelMap, visible, active, focused: new Set(focusGroup), display: canonicalDisplay, renderTab, renderGroupActions, renderGroupTabsEnd, tabA11y, reconciles, moves, onActivate };
+  }, [instanceId, panelMap, visible, focusedPanel, canonicalDisplay, renderTab, renderGroupActions, renderGroupTabsEnd, tabA11y, reconciles, moves, onActivate]);
 
   // Separator keys change the layout without the engine having moved: the parent's answer is applied to the engine (or reverted if it ignores it).
   const separate = (next: DockNode) => {
@@ -457,7 +467,7 @@ export default function DockEngine({
 
   return <EngineContext.Provider value={context}>
     <div ref={rowsWrapper} data-dock-rows={rows ? '' : undefined} className={rows ? 'h-(--dock-rows-box) w-full' : 'h-full w-full'} style={rowsTotal === undefined ? undefined : { '--dock-rows-height': `${rowsTotal}px`, '--dock-rows-box': `${rowsBox}px` } as CSSProperties}>
-      <DockviewReact components={COMPONENTS} tabComponents={TAB_COMPONENTS} defaultTabComponent={DockTab} rightHeaderActionsComponent={GroupActions}
+      <DockviewReact components={COMPONENTS} tabComponents={TAB_COMPONENTS} defaultTabComponent={DockTab} rightHeaderActionsComponent={GroupActions} leftHeaderActionsComponent={GroupTabsEnd}
         onReady={onReady} onWillDrop={onWillDrop} theme={THEME} defaultRenderer="always" singleTabMode="fullwidth"
         disableFloatingGroups disableDnd={!interactive} announcements={false} />
     </div>

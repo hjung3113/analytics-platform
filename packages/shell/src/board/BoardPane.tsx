@@ -136,7 +136,7 @@ export function BoardPane({ dock = false, dockHead, onClosePane, placement, hidd
               action={<Button type="button" size="sm" variant="secondary" onClick={clear}>{text.clear}</Button>} />
           </div>}
     </div></TransientOverlayScope>
-    <PanePicker open={picking !== null} paneNumber={number} onOpenChange={open => { if (!open) setPicking(null); }}
+    <PanePicker open={picking !== null} title={text.insertTitle(number)} onOpenChange={open => { if (!open) setPicking(null); }}
       onPick={picked_ => {
         const mode = picking;
         setPicking(null);

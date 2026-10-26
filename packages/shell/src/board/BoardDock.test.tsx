@@ -624,7 +624,11 @@ describe('dock renderer: keyboard order and focus (U2, U3)', () => {
     await ready();
     const panelOf = (n: number) => paneRoot(n).closest<HTMLElement>('[data-dock-panel]')!;
     const slot = (n: number) => document.querySelector<HTMLElement>(`[data-pane-head-slot="${paneRoot(n).dataset.paneId?.replace(/^a\./, '')}"]`)!;
+    // The group's + (893a) sits between the active tab and the head: tab, +, head, pane.
+    const plus = tabOf('칸 1 · 알파').closest('.dv-groupview')!.querySelector<HTMLElement>('[data-group-add]')!;
     tabOf('칸 1 · 알파').focus();
+    await userEvent.tab();
+    expect(document.activeElement).toBe(plus);
     await userEvent.tab();
     expect(slot(1).contains(document.activeElement)).toBe(true);
     for (let step = 0; step < 6 && slot(1).contains(document.activeElement); step++) await userEvent.tab();
@@ -632,6 +636,8 @@ describe('dock renderer: keyboard order and focus (U2, U3)', () => {
     await userEvent.tab({ shift: true });
     expect(slot(1).contains(document.activeElement)).toBe(true);
     for (let step = 0; step < 6 && slot(1).contains(document.activeElement); step++) await userEvent.tab({ shift: true });
+    expect(document.activeElement).toBe(plus);
+    await userEvent.tab({ shift: true });
     expect(document.activeElement).toBe(tabOf('칸 1 · 알파'));
     // From the last stop of pane 1 the next stop is pane 2's tab; Shift+Tab from that tab is back in pane 1.
     const stops = Array.from(panelOf(1).querySelectorAll<HTMLElement>('button, [tabindex="0"], a[href], input')).filter(el => el.tabIndex >= 0);
@@ -1006,5 +1012,135 @@ describe('dock renderer: focus requests are answered once (FIX1 C2, C3)', () => 
       else { tabOf('칸 2 · 베타').focus(); await userEvent.keyboard('{Escape}'); }
       await waitFor(() => { expect(document.activeElement).toBe(toggle('칸 2 최대화')); });
     }
+  });
+});
+
+describe('dock renderer: + after a group\'s last tab (#893a)', () => {
+  const plusButtons = () => screen.getAllByRole('button', { name: '이 묶음에 분석 탭 추가' });
+  const pickDialog = () => screen.findByRole('dialog', { name: '이 묶음에 추가할 분석 화면' });
+  const toastText = () => Array.from(document.querySelectorAll('[data-toast-item]')).map(item => item.textContent).join('\n');
+  const twoGroups = () => seed(boardOf([sheet('a', { layout: '1x2', panes: [alpha(w1), beta(w2)] })]));
+
+  it('A6: every group has one, even with a single tab; it is a 24px+ button outside every tab, named by target and action', async () => {
+    twoGroups();
+    mount('/board?sheet=a');
+    await ready();
+    const buttons = plusButtons();
+    expect(buttons).toHaveLength(2);
+    for (const button of buttons) {
+      expect(button.closest('[role="tab"]')).toBeNull();
+      expect(button.closest('[role="tablist"]')).toBeNull();
+      expect(button.className).toMatch(/\bw-8\b/);
+      expect(button.className).toMatch(/\bh-8\b/);
+    }
+    expect(screen.getByRole('button', { name: '칸 추가' })).not.toBe(buttons[0]);
+    expect(screen.getByRole('button', { name: '시트 추가' })).not.toBe(buttons[0]);
+    const strip = buttons[0]!.closest('.dv-tabs-and-actions-container')!;
+    const last = within(strip as HTMLElement).getAllByRole('tab').at(-1)!;
+    expect(last.compareDocumentPosition(buttons[0]!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('A1 in the screen: the picker opens first; picking adds the screen as the group\'s active last tab, focused, and the other group is untouched', async () => {
+    twoGroups();
+    mount('/board?sheet=a');
+    await ready();
+    await userEvent.click(plusButtons()[0]!);
+    const dialog = await pickDialog();
+    expect(tabLabels()).toHaveLength(2);
+    await userEvent.click(within(dialog).getByRole('button', { name: '알파' }));
+    await waitFor(() => { expect(tabLabels()).toContain('칸 3 · 알파'); });
+    const stored = v2().sheets[0];
+    expect(stored.panes).toHaveLength(3);
+    expect(stored.selectedPaneId).toBe(stored.panes[2].id);
+    const [first, second] = [stored.panes[0].id, stored.panes[1].id];
+    const holder = (id: string) => (function find(node: LayoutNode): string[] | null { return node.type === 'group' ? (node.panes.includes(id) ? node.panes : null) : node.children.map(find).find(Boolean) ?? null; })(stored.tree);
+    expect(holder(first)).toEqual([first, stored.panes[2].id]);
+    expect(holder(second)).toEqual([second]);
+    await waitFor(() => { expect(document.activeElement).toBe(tabOf('칸 3 · 알파')); });
+    expect(tabOf('칸 3 · 알파')).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('A2: cancelling the picker (Esc) changes nothing, stores nothing and puts focus back on that +', async () => {
+    twoGroups();
+    mount('/board?sheet=a');
+    await ready();
+    const before = localStorage.getItem(V2_KEY);
+    const labels = tabLabels();
+    const second = plusButtons()[1]!;
+    await userEvent.click(second);
+    await pickDialog();
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => { expect(screen.queryByRole('dialog')).toBeNull(); });
+    expect(tabLabels()).toEqual(labels);
+    expect(localStorage.getItem(V2_KEY)).toBe(before);
+    await waitFor(() => { expect(document.activeElement).toBe(second); });
+  });
+
+  it('A3: a sheet switch while the picker is open adds nothing anywhere and says so', async () => {
+    seed(boardOf([sheet('a', { layout: '1x2', panes: [alpha(w1), beta(w2)] }), sheet('b', { layout: '1x2', panes: [alpha(w2), beta(w1)] })]));
+    mount('/board?sheet=a');
+    await ready();
+    await userEvent.click(plusButtons()[0]!);
+    await pickDialog();
+    act(() => { window.history.pushState(null, '', '/board?sheet=b'); window.dispatchEvent(new PopStateEvent('popstate')); });
+    await settle();
+    await userEvent.click(within(await pickDialog()).getByRole('button', { name: '알파' }));
+    await settle();
+    if (localStorage.getItem(V2_KEY) !== null) for (const stored of v2().sheets) expect(stored.panes).toHaveLength(2);
+    expect(tabLabels()).toHaveLength(2);
+    expect(toastText()).toContain('대상 묶음이 바뀌어 추가하지 않았습니다');
+  });
+
+  it('A5: at 4 panes the + stays pressable, describes the limit and a press says it without opening the picker', async () => {
+    seed(boardOf([sheet('a', { layout: '2x2', panes: [alpha(w1), beta(w2), alpha(w2), beta(w1)] })]));
+    mount('/board?sheet=a');
+    await ready();
+    const plus = plusButtons()[0]!;
+    expect(plus).toBeEnabled();
+    expect(plus).toHaveAccessibleDescription(/시트당 분석 화면은 4개까지입니다/);
+    expect(plus.getAttribute('aria-describedby')).toBe('board-group-add-off');
+    const before = localStorage.getItem(V2_KEY);
+    await userEvent.click(plus);
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(toastText()).toContain('시트당 분석 화면은 4개까지입니다');
+    expect(toastText()).not.toContain('표시 그룹');
+    expect(document.getElementById('board-group-add-off')?.textContent ?? '').not.toContain('표시 그룹');
+    expect(localStorage.getItem(V2_KEY)).toBe(before);
+    expect(tabLabels()).toHaveLength(4);
+  });
+
+  it('A4: adding in the narrow one-group display puts the tab in the stored group, and widening keeps the stored split', async () => {
+    twoGroups();
+    mount('/board?sheet=a');
+    await ready();
+    observer.resize(600);
+    await waitFor(() => { expect(document.querySelectorAll('.dv-groupview')).toHaveLength(1); });
+    await userEvent.click(plusButtons()[0]!);
+    await userEvent.click(within(await pickDialog()).getByRole('button', { name: '알파' }));
+    await waitFor(() => { expect(tabLabels()).toContain('칸 3 · 알파'); });
+    const stored = v2().sheets[0];
+    expect(stored.tree.type).toBe('branch');
+    const groups = stored.tree.type === 'branch' ? stored.tree.children : [];
+    expect(groups.map(node => (node.type === 'group' ? node.panes.length : 0))).toEqual([2, 1]);
+    observer.resize(900);
+    await waitFor(() => { expect(document.querySelectorAll('.dv-groupview')).toHaveLength(2); });
+    const shown = Array.from(document.querySelectorAll('.dv-groupview')).map(view => Array.from(view.querySelectorAll('[role="tab"][data-tab-panel-id]')).map(tab => tab.getAttribute('aria-label')));
+    expect(shown.map(tabs => tabs.length).sort()).toEqual([1, 2]);
+    expect(shown.find(tabs => tabs.length === 2)).toContain('칸 3 · 알파');
+    observer.resize(900, 600);
+  });
+
+  it('A7: pressing + in a maximized group shows the new tab (the maximize ends like 칸 추가)', async () => {
+    twoGroups();
+    mount('/board?sheet=a');
+    await ready();
+    await chooseGroupItem(1, '칸 1 최대화');
+    await waitFor(() => { expect(paneRoot(2).closest('[inert]')).not.toBeNull(); });
+    await userEvent.click(plusButtons()[0]!);
+    await userEvent.click(within(await pickDialog()).getByRole('button', { name: '베타' }));
+    await waitFor(() => { expect(tabLabels()).toContain('칸 3 · 베타'); });
+    await waitFor(() => { expect(paneRoot(3).closest('[inert]')).toBeNull(); });
+    expect(tabOf('칸 3 · 베타')).toHaveAttribute('aria-selected', 'true');
+    await waitFor(() => { expect(document.activeElement).toBe(tabOf('칸 3 · 베타')); });
   });
 });

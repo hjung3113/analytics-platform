@@ -662,6 +662,42 @@ describe('DockLayout host controls: current panel, tab order, tab speech', () =>
   });
 });
 
+describe('DockLayout slot after the tabs (renderGroupTabsEnd)', () => {
+  it('draws once per group right after its last tab, outside the tab list and every tab', async () => {
+    mountDock({ layout: row([50, 50], group(['a', 'b'], 'b'), group(['c'])), props: { renderGroupTabsEnd: g => <button type="button" data-testid={`end-${g.active}`}>{g.panels.join('')}</button> } });
+    await ready();
+    const end = screen.getByTestId('end-b');
+    expect(end).toHaveTextContent('ab');
+    expect(screen.getByTestId('end-c')).toHaveTextContent('c');
+    expect(end.closest('[role="tablist"]')).toBeNull();
+    expect(end.closest('[role="tab"]')).toBeNull();
+    const strip = end.closest('.dv-tabs-and-actions-container')!;
+    const tabs = within(strip as HTMLElement).getAllByRole('tab');
+    expect(tabs[tabs.length - 1]!.compareDocumentPosition(end) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('Tab runs the active tab → the slot after the tabs → the header-right slot → the content, and Shift+Tab runs back', async () => {
+    mountDock({ layout: row([50, 50], group(['a']), group(['c'])), ids: ['a', 'c'], inner: id => (id === 'a' ? <button type="button">content a</button> : null),
+      props: { renderGroupTabsEnd: group => <button type="button">{group.active} end</button>, renderGroupActions: group => <button type="button">{group.active} right</button> } });
+    await ready();
+    const tab = (id: string) => screen.getByRole('tab', { name: `패널 ${id}` });
+    tab('a').focus();
+    const order: (string | null)[] = [];
+    for (let step = 0; step < 3; step++) { await userEvent.tab(); order.push(document.activeElement?.textContent ?? null); }
+    expect(order).toEqual(['a end', 'a right', 'content a']);
+    await userEvent.tab();
+    expect(document.activeElement).toBe(tab('c'));
+    await userEvent.tab({ shift: true });
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'content a' }));
+    await userEvent.tab({ shift: true });
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'a right' }));
+    await userEvent.tab({ shift: true });
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'a end' }));
+    await userEvent.tab({ shift: true });
+    expect(document.activeElement).toBe(tab('a'));
+  });
+});
+
 describe('DockLayout header slot and Tab order of a group (2c)', () => {
   const slot = (group: string[]) => (_: unknown, state: { stripWidth: number }) => (
     <><button type="button">{group.join('')} first {state.stripWidth}</button><button type="button">{group.join('')} last</button></>
