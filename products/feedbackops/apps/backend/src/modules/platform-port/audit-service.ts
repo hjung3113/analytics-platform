@@ -3,10 +3,20 @@
 // `core.audit_log` only through the allowlisted projection (core/audit), never directly.
 
 import type { Db } from '../../db/client.js';
-import { type PlatformAuditRow, platformAuditEvents } from '../core/audit/index.js';
+import {
+  type PlatformAuditRow,
+  platformAuditEvents,
+  platformEntityAuditPage,
+} from '../core/audit/index.js';
 import type { CheckService } from '../permissions/check-service.js';
 import { AUDIT_ACTION_BY_EVENT_TYPE, type PlatformAuditAction } from './audit-actions.js';
 import { isUuid, parseAuditQuery } from './audit-query.js';
+import {
+  ENTITY_AUDIT_PAGE_MAX,
+  decodeEntityAuditCursor,
+  encodeEntityAuditCursor,
+  splitEntityAuditBody,
+} from './entity-audit-cursor.js';
 import type { EntityReader } from './entity-read.js';
 import type { Outcome } from './envelope.js';
 import { type PlatformActor, holdsPlatformPermission } from './permissions.js';
@@ -79,21 +89,30 @@ export function createPlatformAuditService(deps: PlatformAuditServiceDeps) {
   async function entityAudit(
     actor: PlatformActor,
     body: unknown,
-  ): Promise<AuditJudgement<{ events: PlatformAuditEvent[] }>> {
-    const gate = await deps.entityReader.gateEntity(actor, body);
+  ): Promise<AuditJudgement<{ events: PlatformAuditEvent[]; nextCursor: string | null }>> {
+    const { ref: rawRef, cursor, hasCursor } = splitEntityAuditBody(body);
+    const gate = await deps.entityReader.gateEntity(actor, rawRef);
     if (!gate.ok) return { outcome: gate.outcome, message: gate.message };
     const { type, id } = gate.ref;
-    const { rows } = await platformAuditEvents(deps.db, {
+    // The cursor is read only after every gate has passed (ADR-0085).
+    const after = hasCursor ? decodeEntityAuditCursor(gate.ref, cursor) : null;
+    if (hasCursor && !after) return { outcome: 'error', message: 'Invalid cursor' };
+    const rows = await platformEntityAuditPage(deps.db, {
       workspaceId: actor.workspace_id,
       subjectType: type,
       subjectId: id,
       actionByEventType: AUDIT_ACTION_BY_EVENT_TYPE,
-      sort: { field: 'at', desc: true },
-      limit: null,
-      offset: 0n,
+      after,
+      limit: ENTITY_AUDIT_PAGE_MAX + 1,
     });
-    if (rows.length === 0) return { outcome: 'empty' };
-    return { outcome: 'ok', data: { events: rows.map(toAuditEvent) } };
+    if (rows.length === 0 && !hasCursor) return { outcome: 'empty' };
+    const page = rows.slice(0, ENTITY_AUDIT_PAGE_MAX);
+    const last = page[page.length - 1];
+    const nextCursor =
+      rows.length > ENTITY_AUDIT_PAGE_MAX && last
+        ? encodeEntityAuditCursor(gate.ref, { at: last.at, id: last.id })
+        : null;
+    return { outcome: 'ok', data: { events: page.map(toAuditEvent), nextCursor } };
   }
 
   return { auditTrail, entityAudit };

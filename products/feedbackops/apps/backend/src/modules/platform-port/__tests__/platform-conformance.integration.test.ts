@@ -8,7 +8,12 @@
 // grants exist), is a visible skipped test, never a pass. Annotations are a gate only (#622
 // decision 6, .planning/backlog.md "주석 저장"), so they are declared not implemented.
 
-import { type PlatformAdapter, menuPermission, spaceId } from '@ap/contracts';
+import {
+  ENTITY_AUDIT_PAGE_MAX as CONTRACT_ENTITY_AUDIT_PAGE_MAX,
+  type PlatformAdapter,
+  menuPermission,
+  spaceId,
+} from '@ap/contracts';
 import { bootstrapHttpAdapter } from '@ap/http-adapter';
 import { type PortMethod, describeServerConformance } from '@ap/server-conformance';
 import type { FastifyInstance } from 'fastify';
@@ -25,6 +30,7 @@ import { insertFindingRow } from '../../../test-support/findings-fixtures.js';
 import { uid } from '../../../test-support/ids.js';
 import { grantCapability } from '../../../test-support/permissions-fixtures.js';
 import { insertVocDirectly } from '../../../test-support/voc-fixtures.js';
+import { ENTITY_AUDIT_PAGE_MAX } from '../entity-audit-cursor.js';
 
 const APP_URL = process.env.DATABASE_URL ?? '';
 const MIGRATE_URL = process.env.DATABASE_URL_MIGRATE ?? '';
@@ -174,6 +180,11 @@ async function served(app: FastifyInstance, probe: RouteProbe): Promise<boolean>
   return res.statusCode !== 404;
 }
 
+// Runs without a database: the FO source cannot import the contract constant (rule 11), so it mirrors it.
+it('mirrors the contract entityAudit page size', () => {
+  expect(ENTITY_AUDIT_PAGE_MAX).toBe(CONTRACT_ENTITY_AUDIT_PAGE_MAX);
+});
+
 describe.skipIf(!runIntegration)('platform port server conformance (#674)', () => {
   let dbHandle: DbHandle;
   let migrateHandle: DbHandle;
@@ -265,6 +276,17 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
     });
     findingRef.id = finding.id;
     await grantCapability(migrateHandle, WORKSPACE_ID, grantedId, 'finding.read', msId, adminId);
+    // More than one entityAudit page, so the kit's cursor checks run instead of skipping (#857).
+    // Distinct instants plus a block of equal ones, to exercise the id tie-break.
+    await migrateHandle.pool.query(
+      `insert into core.audit_log
+         (workspace_id, actor_id, event_type, subject_type, subject_id, summary, created_at)
+       select $1, $2, 'finding_status_changed', 'finding', $3, 'conformance',
+              case when g <= 40 then timestamptz '2026-03-01T00:00:00Z' + g * interval '1 hour'
+                   else timestamptz '2026-03-01T00:00:00Z' end
+       from generate_series(1, 53) g`,
+      [WORKSPACE_ID, grantedId, finding.id],
+    );
   });
 
   afterAll(async () => {

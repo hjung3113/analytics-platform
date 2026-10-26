@@ -27,7 +27,12 @@ const PREFIX = uid('it-platform-audit');
 type Role = 'admin' | 'developer' | 'user';
 type Envelope = {
   outcome: string;
-  data: { items?: Array<Record<string, unknown>>; total?: number; events?: unknown[] } | null;
+  data: {
+    items?: Array<Record<string, unknown>>;
+    total?: number;
+    events?: Array<{ id: string }>;
+    nextCursor?: string | null;
+  } | null;
   assessments: unknown[];
   trust: unknown;
   correlationId: string;
@@ -56,6 +61,10 @@ describe.skipIf(!runIntegration)('platform port audit reads (#621)', () => {
   let userCookie = '';
   let vocWithEvents = '';
   let vocWithoutEvents = '';
+  let vocPaged = '';
+  let vocTie = '';
+  let pagedOrder: string[] = [];
+  let tieOrder: string[] = [];
   const seeded: Record<string, string> = {};
 
   const post = (path: string, payload: unknown, cookie?: string) =>
@@ -98,12 +107,16 @@ describe.skipIf(!runIntegration)('platform port audit reads (#621)', () => {
       subjectId?: string;
       hours: number;
       detail?: Record<string, unknown>;
+      id?: string;
+      /** Raw timestamptz text (microseconds); replaces `hours`. */
+      createdAt?: string;
     },
   ) {
     const res = await migrateHandle.pool.query<{ id: string }>(
       `insert into core.audit_log
-         (workspace_id, actor_id, event_type, subject_type, subject_id, summary, detail, created_at)
-       values ($1, $2, $3, $4, $5, 'secret summary', $6::jsonb, $7) returning id`,
+         (id, workspace_id, actor_id, event_type, subject_type, subject_id, summary, detail, created_at)
+       values (coalesce($8::uuid, gen_random_uuid()), $1, $2, $3, $4, $5, 'secret summary', $6::jsonb, $7::timestamptz)
+       returning id`,
       [
         WORKSPACE_ID,
         row.actorId ?? seedActorId,
@@ -111,7 +124,8 @@ describe.skipIf(!runIntegration)('platform port audit reads (#621)', () => {
         row.subjectType,
         row.subjectId ?? randomUUID(),
         JSON.stringify({ reason: 'secret reason', ...row.detail }),
-        at(row.hours),
+        row.createdAt ?? at(row.hours),
+        row.id ?? null,
       ],
     );
     const id = res.rows[0]?.id as string;
@@ -151,7 +165,9 @@ describe.skipIf(!runIntegration)('platform port audit reads (#621)', () => {
     vocWithoutEvents = (
       await insertVocDirectly(dbHandle, WORKSPACE_ID, msId, reader.id, 'quiet voc')
     ).id;
-    vocIds.push(vocWithEvents, vocWithoutEvents);
+    vocPaged = (await insertVocDirectly(dbHandle, WORKSPACE_ID, msId, reader.id, 'paged voc')).id;
+    vocTie = (await insertVocDirectly(dbHandle, WORKSPACE_ID, msId, reader.id, 'tie voc')).id;
+    vocIds.push(vocWithEvents, vocWithoutEvents, vocPaged, vocTie);
 
     // Visible rows (seed actor): A, B and E share B's instant to pin the id tie-break.
     await seedAudit('A', {
@@ -184,6 +200,46 @@ describe.skipIf(!runIntegration)('platform port audit reads (#621)', () => {
       subjectType: 'voc_cluster_suggestion',
       hours: 5,
     });
+    // Paged VOCs get their own audit actor so auditTrail's exact pins (seed and system actors) never see them.
+    const pagedActorId = (await newActor('user')).id;
+    const pagedRows: Array<{ id: string; hours: number }> = [];
+    const hoursFor = [...Array.from({ length: 48 }, (_, i) => 10 + i), 5, 5, 5, 1, 2];
+    for (const hours of hoursFor) {
+      const id = await seedAudit(`p${pagedRows.length}`, {
+        actorId: pagedActorId,
+        id: randomUUID(),
+        eventType: 'voc_created',
+        subjectType: 'voc',
+        subjectId: vocPaged,
+        hours,
+      });
+      pagedRows.push({ id, hours });
+    }
+    pagedOrder = pagedRows
+      .sort((a, b) => b.hours - a.hours || (a.id < b.id ? -1 : 1))
+      .map((r) => r.id);
+    // Same millisecond, different microseconds: the larger id is the later one, yet sorts second.
+    const [small, large] = [randomUUID(), randomUUID()].sort() as [string, string];
+    await seedAudit('t1', {
+      actorId: pagedActorId,
+      id: large,
+      eventType: 'voc_created',
+      subjectType: 'voc',
+      subjectId: vocTie,
+      hours: 0,
+      createdAt: '2026-03-02T00:00:00.000900Z',
+    });
+    await seedAudit('t2', {
+      actorId: pagedActorId,
+      id: small,
+      eventType: 'voc_created',
+      subjectType: 'voc',
+      subjectId: vocTie,
+      hours: 0,
+      createdAt: '2026-03-02T00:00:00.000100Z',
+    });
+    tieOrder = [small, large];
+
     // Excluded rows of the seed actor: they must be in neither items nor total.
     await seedAudit('x1', {
       eventType: 'survey_response_submitted',
@@ -462,6 +518,7 @@ describe.skipIf(!runIntegration)('platform port audit reads (#621)', () => {
             target: { type: 'voc', id: vocWithEvents, scopeId: null },
           },
         ],
+        nextCursor: null,
       });
     });
 
@@ -501,6 +558,79 @@ describe.skipIf(!runIntegration)('platform port audit reads (#621)', () => {
         ).toBe('error');
       }
       expect((await entityAudit({ type: 'voc' }, adminCookie)).outcome).toBe('error');
+    });
+
+    describe('cursor pages (#857, ADR-0085)', () => {
+      const pageOf = (cursor?: unknown, id = vocPaged, cookie = adminCookie) =>
+        entityAudit(
+          { type: 'voc', id, scopeId: null, ...(cursor === undefined ? {} : { cursor }) },
+          cookie,
+        );
+
+      it('pages 50 + 3 in at-desc, id-asc order without overlap or gap across a tie', async () => {
+        const first = await pageOf();
+        expect(first.outcome).toBe('ok');
+        expect(first.data?.events).toHaveLength(50);
+        const cursor = first.data?.nextCursor;
+        expect(typeof cursor === 'string' && cursor.length > 0).toBe(true);
+        const second = await pageOf(cursor);
+        expect(second.outcome).toBe('ok');
+        expect(second.data?.events).toHaveLength(3);
+        expect(second.data?.nextCursor).toBeNull();
+        const ids = [...(first.data?.events ?? []), ...(second.data?.events ?? [])].map(
+          (e) => e.id,
+        );
+        expect(ids).toEqual(pagedOrder);
+      });
+
+      it('orders rows of one millisecond by id, not by microseconds', async () => {
+        const body = await pageOf(undefined, vocTie);
+        expect(body.data?.events?.map((e) => e.id)).toEqual(tieOrder);
+        expect(body.data?.nextCursor).toBeNull();
+      });
+
+      it.each([
+        ['conformance garbage', '__conformance_invalid_cursor'],
+        ['a number', 7],
+      ])('a bad cursor (%s) → error Invalid cursor', async (_name, cursor) => {
+        expect(await pageOf(cursor)).toMatchObject({
+          outcome: 'error',
+          data: null,
+          message: 'Invalid cursor',
+        });
+      });
+
+      it('a cursor issued for another destination → error Invalid cursor', async () => {
+        const cursor = (await pageOf()).data?.nextCursor;
+        expect(await pageOf(cursor, vocWithEvents)).toMatchObject({
+          outcome: 'error',
+          data: null,
+          message: 'Invalid cursor',
+        });
+      });
+
+      it('an unreadable caller gets forbidden for an issued and a garbage cursor, never error', async () => {
+        const cursor = (await pageOf()).data?.nextCursor;
+        for (const c of [cursor, '__conformance_invalid_cursor']) {
+          expect(await pageOf(c, vocPaged, strangerCookie)).toMatchObject({
+            outcome: 'forbidden',
+            data: null,
+            message: 'Not readable',
+          });
+        }
+      });
+
+      it('POST /entity still rejects a cursor key', async () => {
+        const res = await post(
+          '/entity',
+          { type: 'voc', id: vocPaged, scopeId: null, cursor: 'x' },
+          adminCookie,
+        );
+        expect(res.json<Envelope>()).toMatchObject({
+          outcome: 'error',
+          message: 'Invalid entity reference',
+        });
+      });
     });
 
     it('a readable entity with no events → empty', async () => {
