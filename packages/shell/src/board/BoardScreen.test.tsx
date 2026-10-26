@@ -514,8 +514,8 @@ describe('sheet strip (docs/16 §4)', () => {
     expect(stored().sheets[0].panes[0]).toEqual(alpha(w1));
     expect(window.location.search).toBe('?sheet=a');
     // Last sheet.
-    seed(boardOf([sheet('only', { panes: [alpha(w1)] })]));
     cleanup();
+    seed(boardOf([sheet('only', { panes: [alpha(w1)] })]));
     mount('/board?sheet=only');
     await settle();
     openMenu(screen.getByRole('button', { name: '시트 동작: only' }));

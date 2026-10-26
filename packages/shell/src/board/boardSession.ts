@@ -5,8 +5,8 @@ import { browserStorage, loadBoard, saveBoard, type StorageNotice } from './boar
 /**
  * The board session store (docs/16 §7): one module-level store of the signed-in users' boards, the only path that reads or writes the stored
  * board. The board screen and `분석 보드에 열기…` both go through it, so a board held in memory is never overwritten by a stale copy. It holds
- * the board document only; what is on screen is not part of it. A user's session lives while someone subscribes to it (or for one call of
- * `updateBoardSession`); the next one reads the stored value again.
+ * the board document only; what is on screen is not part of it. A user's session lives while someone subscribes to it (plus the tick after the last one leaves) or for one call of
+ * `updateBoardSession`; the next one reads the stored value again.
  */
 type Session = { board: Board; notice: StorageNotice | null; readOnly: boolean; unsaved: boolean };
 export type BoardUpdate = (change: (board: Board) => Board, options?: { save?: boolean }) => void;
@@ -21,6 +21,12 @@ const open = (userId: string, prefix: string): Session => {
 };
 /** A session nobody subscribes to is not kept: the next reader loads the stored value. */
 const dropIfAlone = (userId: string) => { if (!subscribers.has(userId)) sessions.delete(userId); };
+/** The last subscriber leaving drops the session one microtask later, so a re-subscribe in the same tick (StrictMode's effect replay, a board swapped within one commit) keeps the unsaved moves and the read-only latch. */
+let generation = 0;
+const dropAfterTick = (userId: string) => {
+  const queued = generation;
+  queueMicrotask(() => { if (queued === generation && !subscribers.has(userId)) sessions.delete(userId); });
+};
 const emit = (userId: string) => { for (const listener of Array.from(subscribers.get(userId) ?? [])) listener(); };
 const subscribe = (userId: string, listener: () => void) => {
   let set = subscribers.get(userId);
@@ -28,7 +34,7 @@ const subscribe = (userId: string, listener: () => void) => {
   set.add(listener);
   return () => {
     set.delete(listener);
-    if (set.size === 0) { subscribers.delete(userId); sessions.delete(userId); }
+    if (set.size === 0) { subscribers.delete(userId); dropAfterTick(userId); }
   };
 };
 
@@ -91,4 +97,7 @@ export function reloadBoardSession(userId: string, prefix: string): void {
   emit(userId);
 }
 
-export function resetBoardSessionsForTests(): void { sessions.clear(); subscribers.clear(); }
+export function resetBoardSessionsForTests(): void { generation += 1; sessions.clear(); subscribers.clear(); }
+
+/** Drops the sessions nobody subscribes to now, instead of waiting for the tick: a test that cleans up and mounts again in one tick starts from its stored value. */
+export function dropIdleBoardSessionsForTests(): void { for (const userId of Array.from(sessions.keys())) if (!subscribers.has(userId)) sessions.delete(userId); }
