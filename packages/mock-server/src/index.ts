@@ -1,12 +1,12 @@
 export { createMockAdapter } from './adapter';
-export { defineMockAction, type AnyMockAction, type MockAction } from './actions';
-export { defineMockEndpoint, MockRegistrationError, MockRequestError, type AnyMockEndpoint, type MockEndpoint } from './endpoints';
+export { defineMockAction, type AnyMockAction, type MockAction } from './actions/actions';
+export { defineMockEndpoint, MockRegistrationError, MockRequestError, type AnyMockEndpoint, type MockEndpoint } from './query/endpoints';
 
 export { bucketStart, periodHours, type Grain } from '@ap/contracts';
 export {
   DATA_THROUGH, cycleMinutes, jobPercentile,
   jobsForEquipmentDay, jobsInPeriod, observableHours, type Job,
-} from './jobs';
+} from './actions/jobs';
 
 export {
   aggregateUsage, getEntity, getRole, getScenario, resetUsage, resolveEquipment, setRole, storedUsage,

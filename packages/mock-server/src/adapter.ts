@@ -5,16 +5,16 @@
  */
 import type { AuditEvent, EquipmentAxisDescriptor, ContextKey, MenuMeta, Permission, PlatformAdapter, Session } from '@ap/contracts';
 import { instantEpochMs, requiredContextError } from '@ap/contracts';
-import { createSelectionPorts } from './selection-ports';
-import { contextShapeError } from './context-validation';
+import { createSelectionPorts } from './query/selection-ports';
+import { contextShapeError } from './access/context-validation';
 import { checkScope, getEntity, getRole, matchesCondition, recordUsage, reportClientError, subscribeServer, usageSummary, validateScope } from './server';
-import { AUDIT_TYPES, auditTrail, entityAudit } from './audit';
-import { AUDIT_EVENTS } from './audit-fixtures';
-import { accessDirectory } from './access';
-import { deleteAnnotation, listAnnotations, saveAnnotation } from './annotations';
+import { AUDIT_TYPES, auditTrail, entityAudit } from './audit/audit';
+import { AUDIT_EVENTS } from './audit/audit-fixtures';
+import { accessDirectory } from './access/access';
+import { deleteAnnotation, listAnnotations, saveAnnotation } from './audit/annotations';
 import { DEFAULT_RANGE_TO, EQUIPMENT, PUBLISHED_METRICS, SITES, installWorld, type RoleId, type World } from './world';
-import { MockRegistrationError, serveEndpoint, type AnyMockEndpoint } from './endpoints';
-import { serveAction, type AnyMockAction } from './actions';
+import { MockRegistrationError, serveEndpoint, type AnyMockEndpoint } from './query/endpoints';
+import { serveAction, type AnyMockAction } from './actions/actions';
 
 const siteBoundContextKeys = new Set<ContextKey>(['roomNames', 'line', 'prcGroup', 'condition', 'selection', 'lot', 'recipe', 'ppid']);
 

@@ -24,9 +24,9 @@ import type {
   UsageSummary,
 } from '@ap/contracts';
 import { isRecord } from '@ap/contracts';
-import { envelopeCall, actionCall, plainCall, portCall, TransportError, type CallContext, type PlainReply } from './calls.js';
-import type { SessionStore } from './session.js';
-import type { Transport } from './transport.js';
+import { envelopeCall, actionCall, plainCall, portCall, TransportError, type CallContext, type PlainReply } from './calls/calls.js';
+import type { SessionStore } from './session/session.js';
+import type { Transport } from './calls/transport.js';
 
 const PLATFORM = '/api/v1/platform';
 
