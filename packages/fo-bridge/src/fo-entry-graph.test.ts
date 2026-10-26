@@ -565,6 +565,33 @@ describe('FeedbackOps operator Task Requests entry graph (ADR-0071)', () => {
   });
 });
 
+describe('FeedbackOps operator Evidence entry graph (ADR-0071)', () => {
+  const evidence = walk([join(FRONTEND_SRC, 'operator-screens/evidence/index.ts')]);
+  const evidenceReached = [...evidence.files.keys()].map(file => relative(FRONTEND_SRC, file));
+
+  it('reaches the screen, the panel parts, the host seam and the bridge-safe me read, and not the standalone route, anything under routes/ or InternalLink', () => {
+    expect(evidenceReached).toEqual(expect.arrayContaining(['features/integration/routes/EvidenceScreen.tsx', 'features/integration/components/EvidencePanel.tsx', 'lib/host/host-seam.tsx', 'lib/api/me.ts']));
+    expect(evidenceReached).not.toContain('features/integration/routes/EvidenceRoute.tsx');
+    expect(evidenceReached).not.toContain('lib/router/InternalLink.tsx');
+    expect(evidenceReached.filter(file => /^routes\//.test(file))).toEqual([]);
+    expect(evidence.unresolved).toEqual([]);
+  });
+
+  it('imports no router and no toast library', () => {
+    expect([...evidence.specifiers].filter(specifier => /^@tanstack\/(react-)?router|^sonner$/.test(specifier))).toEqual([]);
+  });
+
+  it('reaches no route, router, layout or auth source, the auth module, the api barrel, the permissions or managed-systems api, the standalone permission check or the findings public surface', () => {
+    const banned = /^(?:routes|lib\/router|lib\/layout|lib\/auth)\/|^lib\/api\/(?:auth|index|permissions|managed-systems)\.ts$|^lib\/cross-system\/usePermissionCheck\.ts$|^features\/findings\/public\.ts$/;
+    expect(evidenceReached.filter(file => banned.test(file))).toEqual([]);
+  });
+
+  it('calls fetch only in lib/api/client.ts', () => {
+    const callers = [...evidence.files].filter(([, text]) => /(?<![\w.])fetch\(/.test(text)).map(([file]) => relative(FRONTEND_SRC, file));
+    expect(callers).toEqual(['lib/api/client.ts']);
+  });
+});
+
 describe('FeedbackOps operator Findings list entry graph (ADR-0071)', () => {
   const findings = walk([join(FRONTEND_SRC, 'operator-screens/findings/index.ts')]);
   const findingsReached = [...findings.files.keys()].map(file => relative(FRONTEND_SRC, file));

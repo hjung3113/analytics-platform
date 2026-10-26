@@ -39,7 +39,8 @@ Code ownership and URL mount are not the same thing here:
 - `apps/frontend/src/routes/_authed/integration/coverage.tsx` — Coverage route and URL search validation.
 - `apps/frontend/src/routes/_authed/integration/links.tsx` — Links route and URL filters.
 - `apps/frontend/src/routes/_authed/integration/evidence.tsx` — strict Evidence URL search validation.
-- `apps/frontend/src/features/integration/routes/EvidenceRoute.tsx` — Evidence inventory and safe detail reconciliation.
+- `apps/frontend/src/features/integration/routes/EvidenceScreen.tsx` — Evidence inventory and safe detail reconciliation (bridge-safe, entry `operator-screens/evidence`; the panel is `ClosableDetailParts` rendered by the host).
+- `apps/frontend/src/features/integration/routes/EvidenceRoute.tsx` — composes `EvidenceScreen` under the default host and frames the parts in the standalone detail slot.
 - `apps/frontend/src/features/integration/api/evidence-inventory.ts` — parsed read clients and `evidenceInventoryQueryKey()`, which returns the shared `EVIDENCE_INVENTORY_QUERY_KEY` from `lib/query/evidence-inventory-key.ts` that Finding attachments (54-5) invalidate.
 - `apps/frontend/src/features/integration/routes/IntegrationDashboardRoute.tsx` — Integration action dashboard.
 - `apps/frontend/src/features/integration/routes/CoverageRoute.tsx` — coverage columns, labels, and coverage states.
