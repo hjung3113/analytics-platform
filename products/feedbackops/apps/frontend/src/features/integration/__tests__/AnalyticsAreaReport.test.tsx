@@ -1,3 +1,5 @@
+import { HostSeamProvider } from '@/lib/host/host-seam';
+import { registerAnchorLinkHost } from '@/test/anchor-link-host';
 import { areaReportLink } from '@fops/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
@@ -9,7 +11,7 @@ import {
   createRouter,
 } from '@tanstack/react-router';
 import { cleanup, render, screen, within } from '@testing-library/react';
-import { afterEach, expect, it } from 'vitest';
+import { afterEach, beforeAll, expect, it } from 'vitest';
 import {
   areaReportFixture,
   unclassifiedAreaReportFixture,
@@ -17,6 +19,9 @@ import {
 import { COVERAGE_IDS as IDS } from '../../../../tests/visual/fixtures/coverage';
 import { AnalyticsAreaReportTable } from '../components/AnalyticsAreaReportTable';
 
+beforeAll(async () => {
+  await registerAnchorLinkHost();
+});
 afterEach(cleanup);
 it('renders exact domain links, neutral ratios, unavailable metrics and whole-system review queues', async () => {
   const root = createRootRoute({ component: Outlet });
@@ -121,4 +126,33 @@ it.each([
     screen.queryByText('모든 항목이 미분류 상태입니다. Analytics Area 분류는 선택 사항입니다.') !==
       null,
   ).toBe(shown);
+});
+
+it.each([
+  ['refuses', false],
+  ['allows', true],
+])('when the host %s the hrefs, count and review links follow canLink', async (_name, allowed) => {
+  const { tanstackHost } = await import('@/lib/host/tanstack-host');
+  render(
+    <HostSeamProvider
+      value={{
+        ...tanstackHost,
+        canLink: () => allowed,
+        Link: ({ to, children, ref, ...rest }) => (
+          <a href={to} ref={ref as React.Ref<HTMLAnchorElement>} {...rest}>
+            {children}
+          </a>
+        ),
+      }}
+    >
+      <AnalyticsAreaReportTable report={areaReportFixture} />
+    </HostSeamProvider>,
+  );
+  const count = screen.queryByRole('link', { name: 'Identity Platform · 인증 VOC 전체 10건' });
+  const review = screen.queryByRole('link', {
+    name: 'Task Request 검토 · Identity Platform 전체 대기열',
+  });
+  expect(count !== null).toBe(allowed);
+  expect(review !== null).toBe(allowed);
+  expect(screen.queryByText('전체 10') !== null).toBe(true);
 });
