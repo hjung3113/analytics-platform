@@ -123,6 +123,16 @@ it('F1: resuming while the content arrives in the same render counts one newly v
   expect(activation()).toBe(before + 1);
 });
 
+it('F1: pausing while the content arrives in the same render counts nothing and keeps the foreground drawer', () => {
+  const view = (paused: boolean, node: React.ReactNode) => <Fixture><SurfacePauseScope paused={paused}><Content node={node} /></SurfacePauseScope></Fixture>;
+  const start = render(view(false, null));
+  const before = activation();
+  start.rerender(view(true, <p>late</p>));
+  expect(activation()).toBe(before);
+  expect(isOpen()).toBe(false);
+  expect(screen.queryByText('late')).toBeNull();
+});
+
 it('F2: a pause entry for a key without a registration is not kept', () => {
   let actions: React.ContextType<typeof DetailPanelSlotActionsContext> = null;
   function Probe() { actions = React.useContext(DetailPanelSlotActionsContext); return null; }

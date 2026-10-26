@@ -5334,6 +5334,33 @@ test.describe('분석 보드 최소화·복원 (#893 893c)', () => {
     }
   });
 
+  test('상세가 열린 일반 화면에서 보드를 열고 칸 상세를 둔 채 최소화해도 복귀 주소가 그 상세를 다시 열어 교체하지 않는다 (#893 893c2)', async ({ page }) => {
+    await signInAs(page, 'engineer');
+    const equipment = (focus: string) => ({ menuId: 'equipment-master', params: {}, query: `?v=1&scopeId=MEM&${PERIOD}&focus=${focus}` });
+    await page.addInitScript(({ value }) => {
+      const seeded = 'platform:board-fixture-seeded:engineer';
+      localStorage.setItem('platform:board-layout-engine', 'dock');
+      if (sessionStorage.getItem(seeded)) return;
+      localStorage.setItem('platform:board:engineer', JSON.stringify(value));
+      sessionStorage.setItem(seeded, '1');
+    }, { value: { v: 1, activeSheetId: 'dock', sheets: [{ id: 'dock', name: '도킹', layout: '1x1', selected: 0, panes: [equipment('MEM-PHOTO-0103')] }] } });
+    const slot = page.getByRole('complementary', { name: '상세 패널' }).getByRole('dialog');
+    await page.goto('/equipment?v=1&scopeId=MEM&focus=MEM-PHOTO-0104');
+    await expect(slot).toBeVisible();
+    await expect(slot).toContainText('MEM-PHOTO-0104');
+    await page.getByRole('navigation', { name: '앱 레일' }).getByRole('button', { name: '분석 보드' }).click();
+    await expect(page).toHaveURL(/\/board\?sheet=dock/);
+    await expect(slot).toContainText('MEM-PHOTO-0103');
+    await page.getByRole('button', { name: '최소화' }).click();
+    // The address we return to opens no detail of its own: the board's detail is paused, not replaced, and the focus is on the chip.
+    await expect(page).not.toHaveURL(/focus=/);
+    await expect(chip(page)).toBeFocused();
+    await expect(slot).toHaveCount(0);
+    await chip(page).click();
+    await expect(page).toHaveURL(/\/board\?sheet=dock/);
+    await expect(slot).toContainText('MEM-PHOTO-0103');
+  });
+
   test('닫기는 live 보드만 끝내고 저장된 시트는 남기며 /board에 남아 다시 열리지 않는다', async ({ page }) => {
     await openSeededBoard(page);
     await page.getByRole('button', { name: '보드 닫기' }).click();

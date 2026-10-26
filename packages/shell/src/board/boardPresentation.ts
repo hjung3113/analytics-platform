@@ -51,6 +51,12 @@ const forget = (userId: string) => {
 
 export function resetBoardPresentationForTests(): void { states.clear(); focusBefore.clear(); chipFocus.clear(); listeners.clear(); }
 
+/** A query key as the Kernel reads it: percent-decoded, so `%66ocus` is `focus`; a malformed escape keeps its raw spelling. */
+const keyOf = (part: string): string => {
+  const raw = part.split('=')[0];
+  try { return decodeURIComponent(raw.replace(/\+/g, ' ')); } catch { return raw; }
+};
+
 /**
  * The address a minimize or close goes back to must not reopen a detail the user did not ask for: it drops the `focus` key (the detail-opening query,
  * docs/06 §6.4) and keeps the screen, its other keys and the hash. Recording and using the address both pass through here (docs/16 §4).
@@ -61,7 +67,7 @@ export const withoutDetailKey = (href: string): string => {
   const hash = hashAt === -1 ? '' : href.slice(hashAt);
   const queryAt = base.indexOf('?');
   if (queryAt === -1) return href;
-  const kept = base.slice(queryAt + 1).split('&').filter(part => part !== '' && part.split('=')[0] !== 'focus');
+  const kept = base.slice(queryAt + 1).split('&').filter(part => part !== '' && keyOf(part) !== 'focus');
   return `${base.slice(0, queryAt)}${kept.length > 0 ? `?${kept.join('&')}` : ''}${hash}`;
 };
 

@@ -51,9 +51,12 @@ function Owner() {
     {open && <DetailDrawer title="owned detail" onClose={() => setOpen(false)} tabs={[{ id: 'a', label: 'A', content: <p>owned detail body</p> }]} />}
   </PlatformPage>;
 }
-/** An ordinary screen with a detail of its own. */
+/** An ordinary screen with a detail of its own; the `focus` page key opens it, as on a real menu (06 §6.4). */
 function Ordinary() {
-  const [open, setOpen] = useState(false);
+  const { url } = useHostPlatform();
+  const focused = new URLSearchParams(url.split('#')[0].split('?')[1] ?? '').has('focus');
+  const [opened, setOpen] = useState(false);
+  const open = opened || focused;
   return <PlatformPage>
     <Fetcher label="beta" />
     <button type="button" onClick={() => setOpen(true)}>open general detail</button>
@@ -68,7 +71,7 @@ const registry = createRegistry({
   menus: [
     { ...entry('home', '/', { component: () => <PlatformPage><p>home</p></PlatformPage>, features: { ...features, board: false } }), primary: true },
     entry('alpha', '/alpha', { component: Owner, label: { ko: '알파', en: 'Alpha' } }),
-    entry('beta', '/beta', { component: Ordinary, label: { ko: '베타', en: 'Beta' } }),
+    entry('beta', '/beta', { component: Ordinary, pageKeys: ['x', 'focus'], label: { ko: '베타', en: 'Beta' } }),
     entry('locked', '/locked', { component: Gated, permission: 'console:access', label: { ko: '잠김', en: 'Locked' } }),
   ],
 });
@@ -232,6 +235,15 @@ describe('the return address never reopens a general detail (893c2 UX-1)', () =>
     expect(withoutDetailKey('/beta?focus=a&x=1#h')).toBe('/beta?x=1#h');
     expect(withoutDetailKey('/beta?focus=a')).toBe('/beta');
     expect(withoutDetailKey('/beta?xfocus=a&focusx=b')).toBe('/beta?xfocus=a&focusx=b');
+  });
+
+  it.each([
+    ['/beta?x=1&%66ocus=zz#h', '/beta?x=1#h'],
+    ['/beta?fo%63us=zz&x=%66ocus', '/beta?x=%66ocus'],
+    ['/beta?%66ocus&focus=a&y=2', '/beta?y=2'],
+    ['/beta?%66ocusX=a&xfocus=b&%zz=c', '/beta?%66ocusX=a&xfocus=b&%zz=c'],
+  ])('an encoded key spelling is the same key: %s', (href, expected) => {
+    expect(withoutDetailKey(href)).toBe(expected);
   });
 });
 

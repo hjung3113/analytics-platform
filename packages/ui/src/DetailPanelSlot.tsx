@@ -98,7 +98,8 @@ export function DetailPanelSlotProvider({ children }: { children: ReactNode }) {
       shown.current.set(key, node != null);
       if (keys.current.includes(key)) {
         // Only a winner that is not paused becomes visible here; a paused one counts when it resumes (`setPaused`), once.
-        if (node != null && !wasShown && keys.current.at(-1) === key && !pausedRef.current.has(key)) setActivation(count => count + 1);
+        // The pause state arriving in this same render counts too, whichever of `setPaused` and `setContent` runs first.
+        if (node != null && !wasShown && keys.current.at(-1) === key && !paused && !pausedRef.current.has(key)) setActivation(count => count + 1);
       } else takeSlot(key, node != null, paused);
       setContents(prev => {
         if (prev.get(key) === node) return prev;
