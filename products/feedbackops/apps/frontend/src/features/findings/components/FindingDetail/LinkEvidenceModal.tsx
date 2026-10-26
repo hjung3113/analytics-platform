@@ -19,6 +19,7 @@ import type * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { useLinkEvidenceMutation } from '../../hooks/useEvidenceMutations';
 import { VocSourcePicker } from './VocSourcePicker';
+import { restoreOpenerFocus } from './returnFocus';
 
 // ── Link Existing Evidence modal ──────────────────────────────────────────────
 
@@ -94,14 +95,7 @@ export function LinkEvidenceModal({
       <DialogContent
         className="max-w-lg"
         data-testid="link-evidence-modal"
-        onCloseAutoFocus={(event) => {
-          // The modal is controlled (no DialogTrigger), so Radix does not know the opener (#927 UX-2).
-          const trigger = returnFocusRef?.current;
-          if (trigger?.isConnected && !trigger.disabled) {
-            event.preventDefault();
-            trigger.focus();
-          }
-        }}
+        onCloseAutoFocus={(event) => restoreOpenerFocus(event, returnFocusRef)}
       >
         <DialogHeader>
           <DialogTitle>기존 Evidence 연결</DialogTitle>

@@ -46,6 +46,7 @@ import {
 import { surveyEvidenceCandidatesKey } from '../../hooks/useSurveyEvidence';
 import { SurveyEvidencePicker } from './SurveyEvidencePicker';
 import { VocSourcePicker } from './VocSourcePicker';
+import { restoreOpenerFocus } from './returnFocus';
 
 // ── Add Evidence modal ────────────────────────────────────────────────────────
 
@@ -238,14 +239,7 @@ export function AddEvidenceModal({
       <DialogContent
         className="max-w-lg"
         data-testid="add-evidence-modal"
-        onCloseAutoFocus={(event) => {
-          // The modal is controlled (no DialogTrigger), so Radix does not know the opener (#927 UX-2).
-          const trigger = returnFocusRef?.current;
-          if (trigger?.isConnected && !trigger.disabled) {
-            event.preventDefault();
-            trigger.focus();
-          }
-        }}
+        onCloseAutoFocus={(event) => restoreOpenerFocus(event, returnFocusRef)}
       >
         <DialogHeader>
           <DialogTitle>{GLOSSARY.addEvidence}</DialogTitle>
