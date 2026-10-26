@@ -17,16 +17,17 @@ const MODULE = 'PM1';
 const MOTION = 'Chuck';
 
 /** The menu's own visible entry: a `<값> 들어가기` row action in the table, the chart's point picker + `선택 지점 실행` in the chart menus. */
-async function enter(page: Page, entry: Entry, value: string) {
+async function enter(page: Page, entry: Entry, value: string, chartName?: string) {
   if (entry === 'table') {
     await page.getByRole('button', { name: `${value} 들어가기` }).first().click();
     return;
   }
-  const picker = page.getByRole('combobox', { name: '차트 지점 선택' });
+  const chart = chartName ? page.getByRole('region', { name: chartName }) : page;
+  const picker = chart.getByRole('combobox', { name: '차트 지점 선택' });
   await expect(picker).toBeEnabled();
   const option = picker.locator('option').filter({ hasText: ` · ${value} · ` }).first();
   await picker.selectOption({ value: (await option.getAttribute('value'))! });
-  await page.getByRole('button', { name: '선택 지점 실행' }).click();
+  await chart.getByRole('button', { name: '선택 지점 실행' }).click();
 }
 
 const drillPath = (page: Page) => page.getByRole('navigation', { name: '드릴 경로' });
@@ -44,13 +45,14 @@ test.describe('HW Time 메뉴 4종 — 드릴 · 작업 영역 · 보드 (06 §1
       await expect(page.getByRole('main').getByRole('heading', { level: 1 })).toHaveText(menu.label);
       expect(query(page).has('drillModule')).toBe(false);
 
-      await enter(page, menu.entry, MODULE);
+      await enter(page, menu.entry, MODULE, menu.id === 'hw-time-compare' ? 'Module별 동작시간' : undefined);
       await expect.poll(() => query(page).get('drillModule')).toBe(MODULE);
       expect(query(page).has('drillMotion')).toBe(false);
       await expect(drillPath(page)).toContainText(MODULE);
 
-      await enter(page, menu.entry, MOTION);
+      await enter(page, menu.entry, MOTION, menu.id === 'hw-time-compare' ? `Motion별 동작시간 — Module ${MODULE}` : undefined);
       await expect.poll(() => query(page).get('drillMotion')).toBe(MOTION);
+      if (menu.id === 'hw-time-compare') await expect(page.getByRole('region', { name: 'Module별 동작시간' })).toBeVisible();
       expect(query(page).get('drillModule')).toBe(MODULE);
       await expect(drillPath(page)).toContainText(MOTION);
       await evidence(page, testInfo, `${menu.id}-l3`);

@@ -214,6 +214,29 @@ describe('DrillLayout (06 §12.7, ADR-0025)', () => {
   });
 });
 
+describe('DrillLayout keeps a body child across drill steps (06 §12.7, #912)', () => {
+  it('does not key or remount its body per step: a child declared in the same place keeps its instance and state', () => {
+    let mounts = 0;
+    function Panel() {
+      const [seen] = useState(() => { mounts += 1; return mounts; });
+      const [text, setText] = useState('');
+      return <input aria-label="메모" value={text} data-seen={seen} onChange={event => setText(event.target.value)} />;
+    }
+    function Page() {
+      const drill = useDrill();
+      return <DrillLayout><Panel /><button onClick={() => drill.enter('drillStgroup', 'A')}>step</button></DrillLayout>;
+    }
+    mount('/source?v=1&drillRoom=PHOTO', <Page />);
+    const input = screen.getByRole('textbox', { name: '메모' });
+    fireEvent.change(input, { target: { value: '남는다' } });
+    fireEvent.click(screen.getByRole('button', { name: 'step' }));
+    expect(window.location.search).toContain('drillStgroup=A');
+    expect(screen.getByRole('textbox', { name: '메모' })).toBe(input);
+    expect((input as HTMLInputElement).value).toBe('남는다');
+    expect(mounts).toBe(1);
+  });
+});
+
 describe('ReturnLink (06 §22, ADR-0025)', () => {
   it('names the origin menu and its drill trail', () => {
     const accepted = '/source?v=1&drillRoom=PHOTO&drillStgroup=A&drillLine=L1&drillEquipment=E';
