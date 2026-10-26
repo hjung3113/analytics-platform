@@ -35,13 +35,14 @@ function mount(onClose: () => void, requestClose?: () => void) {
 }
 
 describe('FoDetailDrawer', () => {
-  it('shows the parts in the slot, the body inside .fo-detail-body under the 상세 tab', () => {
+  it('shows the parts in the slot, the body inside .fo-detail-body with no tab row for its one 상세 tab', () => {
     const { aside } = mount(vi.fn());
     const dialog = aside.querySelector('[role="dialog"]')!;
     expect(dialog.textContent).toContain('제목');
     expect(dialog.textContent).toContain('부제');
     expect(dialog.textContent).toContain('링크 복사');
-    expect(dialog.querySelector('[role="tab"]')?.textContent).toContain('상세');
+    // One tab draws no tab row (06 §13, #886 UX-8).
+    expect(dialog.querySelector('[role="tablist"]')).toBeNull();
     const body = [...dialog.querySelectorAll('p')].find(p => p.textContent === '본문');
     expect(body?.closest('.fo-detail-body')).toBeTruthy();
   });

@@ -123,7 +123,8 @@ describe.each([['내 Task', '/feedbackops/my-tasks', 'my'], ['Task 목록', '/fe
     const aside = await screen.findByRole('complementary', { name: '상세 패널' });
     const dialog = await within(aside).findByRole('dialog');
     expect(within(dialog).getByText(`상세 본문 ${TASK_A}`).getAttribute('data-instance')).toBe('1');
-    expect(within(dialog).getByRole('tab', { name: '상세' })).toBeTruthy();
+    // One tab draws no tab row (06 §13, #886 UX-8).
+    expect(within(dialog).queryByRole('tablist', { name: '상세 탭' })).toBeNull();
     expect(fo.detailArgs.at(-1)).toMatchObject({ taskId: TASK_A, view, actorName: '김담당' });
     window.history.replaceState(null, '', `${path}?focus=${TASK_B}`);
     act(() => { window.dispatchEvent(new PopStateEvent('popstate')); });
