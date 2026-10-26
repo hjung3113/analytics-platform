@@ -70,7 +70,7 @@
 
 ## FeedbackOps (`products/feedbackops/`)
 
-`products/feedbackops/`는 이 저장소의 일반 디렉터리다(서브모듈 아님, [ADR-0066](docs/adr/0066-feedbackops-merges-into-platform.md), #592). 루트 pnpm workspace의 일부이고(#642) Node 26.7·pnpm 11·루트 lockfile·turbo를 함께 쓰며 `@ap/ui`는 `workspace:*`로 받는다. 린트는 자체 Biome이고, 루트 `lint|typecheck|test|build`는 FeedbackOps를 뺀다. 내부 작업은 그 디렉터리의 `AGENTS.md`를 따르고 명령은 그 디렉터리에서 실행하며, 플랫폼 규칙을 소급 적용하지 않는다. CI는 `.github/workflows/feedbackops.yml`(그 디렉터리, `packages/{ui,contracts,http-adapter,server-conformance}`, 루트 manifest·lockfile 등이 바뀔 때 — 경로 목록의 원본은 그 파일). 통합 계약이 충돌하면 한쪽을 임의로 고치지 말고 사용자에게 올린다. 구조는 `docs/integration/repository-layout.md`.
+`products/feedbackops/`는 이 저장소의 일반 디렉터리다(서브모듈 아님, [ADR-0066](docs/adr/0066-feedbackops-merges-into-platform.md), #592). 루트 pnpm workspace의 일부이고(#642) Node 26.7·pnpm 11·루트 lockfile·turbo를 함께 쓰며 `@ap/ui`는 `workspace:*`로 받는다. 린트는 자체 Biome이고, 루트 `lint|typecheck|test|build`는 FeedbackOps를 뺀다. FeedbackOps 루트 도구(스크립트·게이트·compose·conductor, 워크스페이스 패키지 `@fops/ops`)는 `ops/feedbackops/`에 있고 FeedbackOps 명령은 저장소 루트에서 `pnpm --filter @fops/ops <script>`·`bash ops/feedbackops/scripts/ci/gate.sh …`로 실행한다(앱·패키지 위치는 `ops/feedbackops/paths.sh`·`paths.mjs` 한 곳, [ADR-0090](docs/adr/0090-repo-structure-by-branch.md)). 내부 작업은 `products/feedbackops/`의 `AGENTS.md`를 따르며, 플랫폼 규칙을 소급 적용하지 않는다. CI는 `.github/workflows/feedbackops.yml`(`products/feedbackops/`·`ops/feedbackops/`, `packages/{ui,contracts,http-adapter,server-conformance}`, 루트 manifest·lockfile 등이 바뀔 때 — 경로 목록의 원본은 그 파일). 통합 계약이 충돌하면 한쪽을 임의로 고치지 말고 사용자에게 올린다. 구조는 `docs/integration/repository-layout.md`.
 
 ## 폴더별 지침
 

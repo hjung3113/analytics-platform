@@ -1,14 +1,16 @@
 # FeedbackOps gate (moved from products/feedbackops/.github/workflows/ci.yml, #592).
 # FeedbackOps is part of the root pnpm workspace (ADR-0066, #642): this workflow installs at the repo root with the root
-# pnpm/Node/lockfile, then runs the gates from products/feedbackops. It runs when that directory, the shared @ap/ui
-# package, the platform packages its backend tests import, or the workspace toolchain files change.
-# The commands live in products/feedbackops/scripts/ci/gate.sh; this file provides Node, pnpm and Postgres.
+# pnpm/Node/lockfile, then runs the gates from the repository root. It runs when products/feedbackops, its tool package
+# (ops/feedbackops), the shared @ap/ui package, the platform packages its backend tests import, or the workspace toolchain
+# files change.
+# The commands live in ops/feedbackops/scripts/ci/gate.sh; this file provides Node, pnpm and Postgres.
 name: FeedbackOps
 
 on:
   pull_request:
     paths:
       - 'products/feedbackops/**'
+      - 'ops/feedbackops/**'
       - 'packages/ui/**'
       # Backend tests read @ap/contracts/vocab.json and run @ap/server-conformance through @ap/http-adapter (#674).
       - 'packages/contracts/**'
@@ -23,6 +25,7 @@ on:
     branches: [main]
     paths:
       - 'products/feedbackops/**'
+      - 'ops/feedbackops/**'
       - 'packages/ui/**'
       # Backend tests read @ap/contracts/vocab.json and run @ap/server-conformance through @ap/http-adapter (#674).
       - 'packages/contracts/**'
@@ -44,7 +47,7 @@ permissions:
 
 defaults:
   run:
-    working-directory: products/feedbackops
+    working-directory: .
 
 jobs:
   static:
@@ -70,7 +73,7 @@ jobs:
         run: |
           base=""
           if [ "$GITHUB_EVENT_NAME" = pull_request ]; then base=origin/main; fi
-          scripts/ci/gate.sh static ${base:+--base "$base"}
+          bash ops/feedbackops/scripts/ci/gate.sh static ${base:+--base "$base"}
 
   unit:
     name: FeedbackOps · Unit tests (frontend, ui, shared)
@@ -88,7 +91,7 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
         working-directory: .
-      - run: scripts/ci/gate.sh unit
+      - run: bash ops/feedbackops/scripts/ci/gate.sh unit
 
   integration:
     name: FeedbackOps · Backend integration
@@ -120,6 +123,6 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
         working-directory: .
-      - run: scripts/ci/gate.sh integration
+      - run: bash ops/feedbackops/scripts/ci/gate.sh integration
         env:
           CI_PG_ADMIN_URL: postgres://postgres:postgres@localhost:5432/postgres

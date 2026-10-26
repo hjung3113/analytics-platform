@@ -1341,6 +1341,21 @@ importers:
         specifier: ^3.2.7
         version: 3.2.7(@types/node@26.6.3)(happy-dom@20.14.6)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)
 
+  ops/feedbackops:
+    devDependencies:
+      '@biomejs/biome':
+        specifier: 1.9.4
+        version: 1.9.4
+      '@shadcn/lint':
+        specifier: 0.2.0
+        version: 0.2.0(@typescript-eslint/parser@8.70.1(eslint@10.11.0(jiti@2.7.0))(typescript@5.7.2))(eslint@10.11.0(jiti@2.7.0))
+      oxlint:
+        specifier: 1.86.0
+        version: 1.86.0
+      typescript:
+        specifier: 5.7.2
+        version: 5.7.2
+
   packages/components:
     dependencies:
       '@ap/contracts':
@@ -1813,21 +1828,6 @@ importers:
       vitest:
         specifier: ^3.2.7
         version: 3.2.7(@types/node@26.6.3)(happy-dom@20.14.6)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)
-
-  products/feedbackops:
-    devDependencies:
-      '@biomejs/biome':
-        specifier: 1.9.4
-        version: 1.9.4
-      '@shadcn/lint':
-        specifier: 0.2.0
-        version: 0.2.0(@typescript-eslint/parser@8.70.1(eslint@10.11.0(jiti@2.7.0))(typescript@5.7.2))(eslint@10.11.0(jiti@2.7.0))
-      oxlint:
-        specifier: 1.86.0
-        version: 1.86.0
-      typescript:
-        specifier: 5.7.2
-        version: 5.7.2
 
   products/feedbackops/apps/backend:
     dependencies:

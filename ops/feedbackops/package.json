@@ -1,0 +1,29 @@
+{
+  "name": "@fops/ops",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "engines": {
+    "node": ">=26.7.0"
+  },
+  "scripts": {
+    "build": "turbo run build --filter='@fops/*' --filter='!@fops/ops'",
+    "dev": "turbo run dev --filter='@fops/*' --filter='!@fops/ops'",
+    "gen:routes": "node scripts/generate-routes.mjs",
+    "test": "turbo run test --filter='@fops/*' --filter='!@fops/ops'",
+    "lint": "node scripts/lint-tools.mjs biome-check",
+    "lint:design": "node scripts/lint-tools.mjs lint-design",
+    "format": "node scripts/lint-tools.mjs biome-format",
+    "typecheck": "turbo run typecheck --filter='@fops/*' --filter='!@fops/ops'",
+    "check:boundaries": "node scripts/check-boundaries.mjs",
+    "gate:db-migration-drift": "node scripts/gates/db-migration-drift-gate.mjs",
+    "gate:fe-typecheck": "node scripts/gates/fe-typecheck-gate.mjs",
+    "gate:fe-lint": "node scripts/gates/fe-biome-gate.mjs"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "1.9.4",
+    "@shadcn/lint": "0.2.0",
+    "oxlint": "1.86.0",
+    "typescript": "5.7.2"
+  }
+}

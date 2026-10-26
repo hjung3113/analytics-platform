@@ -1,4 +1,4 @@
-// ADR-0066 (#642): FeedbackOps packages (`@fops/*` and the `feedbackops` root package) share the workspace but the root
+// ADR-0066 (#642): FeedbackOps packages (`@fops/*`, including the `@fops/ops` tool package in ops/feedbackops) share the workspace but the root
 // scripts filter them out; FeedbackOps gates run via its own CI. Reads `pnpm <task> --dry=json` for each root task and fails
 // when the plan holds any FeedbackOps task, or when typecheck lost @ap/ui.
 //
@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 const repoRoot = fileURLToPath(new URL('../..', import.meta.url));
 const taskNames = ['test', 'typecheck', 'lint', 'build'];
 
-const isFeedbackOpsPackage = (packageName) => packageName === 'feedbackops' || Boolean(packageName?.startsWith('@fops/'));
+const isFeedbackOpsPackage = (packageName) => Boolean(packageName?.startsWith('@fops/'));
 
 /** Errors for one task's dry-run plan (`{ tasks: [{ taskId, package }] }`); empty when the plan is platform-only. */
 export function planErrors(taskName, plan) {
@@ -31,7 +31,7 @@ function selfTest() {
     { name: 'platform-only test plan passes', taskName: 'test', tasks: [task('@ap/ui', 'test'), task('@ap/kernel', 'test')], fails: false },
     { name: 'platform-only typecheck plan passes', taskName: 'typecheck', tasks: [task('@ap/ui', 'typecheck')], fails: false },
     { name: 'an @fops/* task fails', taskName: 'test', tasks: [task('@ap/ui', 'test'), task('@fops/x', 'test')], fails: true },
-    { name: 'a feedbackops root task fails', taskName: 'test', tasks: [task('@ap/ui', 'test'), task('feedbackops', 'test')], fails: true },
+    { name: 'an @fops/ops tool package task fails', taskName: 'test', tasks: [task('@ap/ui', 'test'), task('@fops/ops', 'test')], fails: true },
     { name: 'typecheck without @ap/ui fails', taskName: 'typecheck', tasks: [task('@ap/kernel', 'typecheck')], fails: true },
   ];
   let bad = 0;

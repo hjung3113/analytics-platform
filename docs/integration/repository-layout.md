@@ -29,7 +29,7 @@ FeedbackOps 원본 개발을 유지하면서 동일 체크아웃에서 코드를
 | `products/feedbackops/packages/shared/` | FeedbackOps 프론트·백엔드 공유 계약. 아직 플랫폼 공통 계약은 아님 |
 | `products/feedbackops/packages/ui/` | FeedbackOps UI 패키지(`@fops/ui`). `a8d768b8` 기준으로 전체가 `packages/ui`(`@ap/ui`)에 옮겨졌고(#441–#443) 이 사본은 FeedbackOps에 그대로 남는다 |
 | `products/feedbackops/docs/` | FeedbackOps 설계·ADR·구현 계약·프로토타입 |
-| `products/feedbackops/scripts/` | FeedbackOps 빌드 지원 및 검증 도구 |
+| `ops/feedbackops/` | FeedbackOps 루트 도구(워크스페이스 패키지 `@fops/ops`): 스크립트·게이트·compose·conductor, 앱·패키지 위치 지도 `paths.sh`/`paths.mjs`(713p1, [ADR-0090](../adr/0090-repo-structure-by-branch.md)) |
 
 FeedbackOps의 인증·권한·감사·VOC·Finding·Task 등은 기존 구현을 유지한다. 업무 모듈을 별도 앱으로 재분할하거나 플랫폼 공통 패키지로 승격하지 않았다.
 
@@ -37,13 +37,13 @@ FeedbackOps의 인증·권한·감사·VOC·Finding·Task 등은 기존 구현�
 
 - `products/feedbackops/`는 이 저장소의 일반 디렉터리다(서브모듈 아님, [ADR-0066](../adr/0066-feedbackops-merges-into-platform.md), #592). FeedbackOps `develop` `c73c55c5`의 이력을 그대로 합쳤다(디렉터리 내용은 그 커밋과 같다).
 - 원본 저장소 `https://github.com/hjung3113/FeedbackOps`는 `c73c55c5`에서 동결되고 은퇴한다(#597). 이후 FeedbackOps 변경은 이 저장소의 PR(`feat/<n>-<slug>`, `main`)로만 한다.
-- 도구는 통일했다(1b단계, #642): `products/feedbackops/`는 루트 pnpm workspace의 일부이고 Node 26.7·pnpm 11·루트 `pnpm-lock.yaml`·루트 turbo를 쓰며 `@ap/ui`는 `workspace:*`로 받는다. 런타임 `dependencies`에 올 수 있는 플랫폼 패키지는 `@ap/ui` 하나다. 백엔드 테스트(실서버 적합성 #674)만 `@ap/server-conformance`·`@ap/http-adapter`·`@ap/contracts`를 `devDependencies`로 받는다([ADR-0073](../adr/0073-feedbackops-backend-tests-may-import-conformance-and-http-adapter.md), `products/feedbackops/scripts/check-boundaries.mjs` 규칙 11이 import와 `package.json`을 함께 검사). 린터는 FeedbackOps가 Biome를 계속 쓴다.
+- 도구는 통일했다(1b단계, #642): `products/feedbackops/`는 루트 pnpm workspace의 일부이고 Node 26.7·pnpm 11·루트 `pnpm-lock.yaml`·루트 turbo를 쓰며 `@ap/ui`는 `workspace:*`로 받는다. 런타임 `dependencies`에 올 수 있는 플랫폼 패키지는 `@ap/ui` 하나다. 백엔드 테스트(실서버 적합성 #674)만 `@ap/server-conformance`·`@ap/http-adapter`·`@ap/contracts`를 `devDependencies`로 받는다([ADR-0073](../adr/0073-feedbackops-backend-tests-may-import-conformance-and-http-adapter.md), `ops/feedbackops/scripts/check-boundaries.mjs` 규칙 11이 import와 `package.json`을 함께 검사). 린터는 FeedbackOps가 Biome를 계속 쓴다.
 
 ## 설치와 검증
 
-설치는 저장소 루트에서 한 번(`pnpm install --frozen-lockfile`)이고 FeedbackOps도 거기서 설치된다. FeedbackOps 명령은 `products/feedbackops/`에서 실행한다(`scripts/ci/gate.sh static|unit|integration`, `pnpm typecheck`). CI는 `.github/workflows/feedbackops.yml`이고 `products/feedbackops/**`·`packages/ui/**`·루트 도구 파일이 바뀐 PR에서만 돈다.
+설치는 저장소 루트에서 한 번(`pnpm install --frozen-lockfile`)이고 FeedbackOps도 거기서 설치된다. FeedbackOps 명령은 저장소 루트에서 실행한다(`bash ops/feedbackops/scripts/ci/gate.sh static|unit|integration`, `pnpm --filter @fops/ops typecheck`). CI는 `.github/workflows/feedbackops.yml`이고 `products/feedbackops/**`·`ops/feedbackops/**`·`packages/ui/**`·루트 도구 파일이 바뀐 PR에서만 돈다.
 
-루트 `lint|typecheck|test|build` 스크립트는 `--filter='!@fops/*' --filter='!feedbackops'`로 FeedbackOps를 뺀다: FeedbackOps 게이트는 Postgres와 자체 검사가 필요해 `scripts/ci/gate.sh`로 돈다. FeedbackOps의 turbo 작업(`gen:routes`, `test`·`typecheck`의 `dependsOn`)은 각 패키지의 `turbo.json`(`extends: ["//"]`)이 선언하고 `products/feedbackops/`의 `pnpm build|dev|test|typecheck`가 `--filter='@fops/*'`로 돌린다. 가드 `.github/scripts/check-platform-turbo-scope.mjs`가 루트 작업 그래프에 `@fops/*`가 들어오지 않는지 확인한다. 의존 패키지 해시는 스크립트 없는 `transit` 태스크가 전파한다(#390).
+루트 `lint|typecheck|test|build` 스크립트는 `--filter='!@fops/*'`로 FeedbackOps(도구 패키지 `@fops/ops` 포함)를 뺀다: FeedbackOps 게이트는 Postgres와 자체 검사가 필요해 `ops/feedbackops/scripts/ci/gate.sh`로 돈다. FeedbackOps의 turbo 작업(`gen:routes`, `test`·`typecheck`의 `dependsOn`)은 각 패키지의 `turbo.json`(`extends: ["//"]`)이 선언하고 `pnpm --filter @fops/ops build|dev|test|typecheck`가 `--filter='@fops/*' --filter='!@fops/ops'`로 돌린다. 가드 `.github/scripts/check-platform-turbo-scope.mjs`가 루트 작업 그래프에 `@fops/*`가 들어오지 않는지 확인한다. 의존 패키지 해시는 스크립트 없는 `transit` 태스크가 전파한다(#390).
 
 ## 디자인 시스템 이전 기록 (#441, ADR-0046)
 

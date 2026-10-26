@@ -1,12 +1,13 @@
 # docs/integration/platform-packages.md §3.
-# products/feedbackops joins this workspace (ADR-0066 decision 1, #642); its packages are @fops/* and the root scripts exclude them.
+# FeedbackOps joins this workspace (ADR-0066 decision 1, #642); its packages and its tool package (ops/feedbackops, @fops/ops)
+# are @fops/* and the root scripts exclude them.
 # archive/* are standalone npm units.
 packages:
   - apps/*
   - packages/*
   - menus/*/*
   - tooling/*
-  - products/feedbackops
+  - ops/*
   - products/feedbackops/apps/*
   - products/feedbackops/packages/*
 allowBuilds:

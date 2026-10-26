@@ -9,7 +9,7 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "test": "vitest run",
-    "test:integration": "bash ../../scripts/test-integration.sh",
+    "test:integration": "bash ../../../../ops/feedbackops/scripts/test-integration.sh",
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.platform-tests.json",
     "db:generate": "node scripts/bundle-schema.mjs && drizzle-kit generate",

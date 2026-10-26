@@ -12,7 +12,7 @@ import { afterEach, expect, it } from 'vitest';
 
 import { loadConfig } from '../config.js';
 
-const ENV_EXAMPLE = path.resolve(__dirname, '../../../../.env.example');
+const ENV_EXAMPLE = path.resolve(__dirname, '../../../../../../ops/feedbackops/.env.example');
 const originalEnvironment = { ...process.env };
 
 afterEach(() => {

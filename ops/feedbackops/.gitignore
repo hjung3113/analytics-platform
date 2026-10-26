@@ -1,0 +1,8 @@
+# Local FeedbackOps env files (docker-compose.dev.yml / docker-compose.release.yml read them from this directory)
+.env
+.env.local
+.env.*.local
+.env.release
+
+# MinIO local data volume (docker-compose.dev.yml)
+minio_data/
