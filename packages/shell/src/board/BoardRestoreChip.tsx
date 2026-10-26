@@ -30,6 +30,7 @@ export function BoardRestoreChip() {
       </Button>
       <span id={hint} className="sr-only">{text.chipHint}</span>
     </div>}
-    <div role="status" data-board-status className="sr-only">{board.announcement && <span key={board.announcement.n}>{board.announcement.text}</span>}</div>
+    {/* A live region without `role=status`: every page already has its own status elements (loading, empty), and a second persistent `status` on all of them breaks the screens' own role lookups (CI #968). Toasts use the same pattern. */}
+    <div aria-live="polite" aria-atomic="false" data-board-status className="sr-only">{board.announcement && <span key={board.announcement.n}>{board.announcement.text}</span>}</div>
   </>;
 }
