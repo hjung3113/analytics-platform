@@ -8,7 +8,7 @@ import { I18nProvider } from './i18n';
 import { PaneScreenProvider, PlatformProvider } from './platform';
 import { useMenuQuery, type QueryState } from './query';
 import { createRegistry } from './registry';
-import { memoryStorage, noContext, testAdapter, testSession, testSpace } from './testing';
+import { memoryStorage, noContext, settleQueries, testAdapter, testSession, testSpace } from './testing';
 
 type Input = { text: string; nested: { n: number } };
 const endpoint = (id: string) => defineEndpoint<{ page: number }, { id: string }>({
@@ -73,8 +73,7 @@ function Reader({ probes, spec }: { probes: Probes; spec: typeof listEndpoint })
   return null;
 }
 const both = (spec = plain) => (probes: Probes, show = true) => <><Reader probes={probes} spec={listEndpoint} /><Reader probes={probes} spec={otherEndpoint} />{show && <Writer probes={probes} spec={spec} />}</>;
-// ADR-0086: TanStack notifies observers after a macrotask (notifyManager) that is queued once the reply landed, so a flush waits two.
-const flush = () => act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); await new Promise(resolve => setTimeout(resolve, 0)); });
+const flush = settleQueries;
 const settle = <T,>(promise: Promise<T>) => promise.then(value => ({ value }), (error: unknown) => ({ error }));
 const isAbort = (outcome: object) => 'error' in outcome && outcome.error instanceof DOMException && outcome.error.name === 'AbortError';
 

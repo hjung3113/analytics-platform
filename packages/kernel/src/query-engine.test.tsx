@@ -8,7 +8,7 @@ import { I18nProvider } from './i18n';
 import { PaneScreenProvider, PlatformProvider, useHostPlatform, useQueryEngine } from './platform';
 import { useAdapterRequest, useEntityAudit, useMenuQuery, usePlatformQuery, type QueryState } from './query';
 import { createRegistry } from './registry';
-import { noContext, testAdapter, testSession, testSpace } from './testing';
+import { noContext, settleQueries, testAdapter, testSession, testSpace } from './testing';
 
 // Kernel query engine on TanStack Query (ADR-0086): shared keys, generations, guarded refetch, cancel on disable.
 
@@ -23,8 +23,7 @@ const group = { id: groupId('overview'), label: { ko: '개요', en: 'Overview' }
 const registry = createRegistry({ spaces: [testSpace()], groups: [group], menus: [{ ...meta, id: 'home', group: group.id, primary: true, label: { ko: '홈', en: 'Home' }, path: '/', context: noContext, features }] });
 const applyRegistry = createRegistry({ spaces: [testSpace()], groups: [group], menus: [{ ...meta, id: 'home', group: group.id, primary: true, label: { ko: '홈', en: 'Home' }, path: '/', context: { ...noContext, time: 'apply' as const }, features, query: { mode: 'apply' as const } }] });
 
-// Two macrotasks: the reply lands in a microtask, then the notifyManager timer is queued (A10).
-const flush = () => act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); await new Promise(resolve => setTimeout(resolve, 0)); });
+const flush = settleQueries;
 
 type Call = { request: MenuQuery; signal: AbortSignal | undefined; resolve: (n: number) => void; reject: (error: unknown) => void };
 
@@ -68,6 +67,36 @@ beforeEach(() => { window.history.replaceState(null, '', '/'); seen.clear(); tra
 afterEach(cleanup);
 
 describe('Kernel query engine (ADR-0086)', () => {
+  it('settleQueries (#907): a reply resolved outside act is on screen once it settles', async () => {
+    const h = harness();
+    render(tree(h.adapter, <Menu id="x" />));
+    await settleQueries();
+    h.calls[0]!.resolve(5);
+    expect(state('x').response?.data?.n).toBeUndefined();
+    await settleQueries();
+    expect(state('x').response?.data?.n).toBe(5);
+  });
+
+  it('settleQueries (#907): runs as an act environment without the flag set and restores the flag afterwards', async () => {
+    const flagged = globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean };
+    const before = flagged.IS_REACT_ACT_ENVIRONMENT;
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      delete flagged.IS_REACT_ACT_ENVIRONMENT;
+      const h = harness();
+      render(tree(h.adapter, <Menu id="x" />));
+      await settleQueries();
+      h.calls[0]!.resolve(6);
+      await settleQueries();
+      expect(state('x').response?.data?.n).toBe(6);
+      expect(flagged.IS_REACT_ACT_ENVIRONMENT).toBeUndefined();
+      expect(errors.mock.calls.filter(call => String(call[0]).includes('not configured to support act'))).toEqual([]);
+    } finally {
+      errors.mockRestore();
+      flagged.IS_REACT_ACT_ENVIRONMENT = before;
+    }
+  });
+
   it('A1: observers of one shared key share one request; the signal aborts only when the last one leaves', async () => {
     const h = harness();
     const view = render(tree(h.adapter, <><Menu id="x" /><Menu id="y" /></>));

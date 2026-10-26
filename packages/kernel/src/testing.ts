@@ -1,7 +1,7 @@
 // Test-only public entry `@ap/kernel/testing` (ADR-0040, #381): adapter, session and space fixtures.
 // Import only from test files (*.test.ts(x), test-support.ts, test-setup.ts); the boundary lint rejects production imports.
 // Deliberately not exported from src/index.ts.
-import { createElement, type ReactElement } from 'react';
+import { act, createElement, type ReactElement } from 'react';
 import { useToastList, type Toast } from './platform';
 import { contextCapabilities, type ActionResponse, type ApiResponse, type Capability, type ContextKey, type ModuleScopedId, type Permission, type PlatformAdapter, type ScopeOption, type Session, type SessionUser, type SpaceDef, spaceId } from '@ap/contracts';
 
@@ -78,4 +78,22 @@ export function useToastsForTest(): readonly Toast[] {
 export function ToastProbe(): ReactElement {
   const toasts = useToastList();
   return createElement('ul', { 'aria-label': 'toasts' }, toasts.map(t => createElement('li', { key: t.id, 'data-tone': t.tone }, t.text)));
+}
+
+const macrotask = () => new Promise<void>(resolve => { setTimeout(resolve, 0); });
+
+/**
+ * Waits until a settled menu query is on screen (ADR-0086): TanStack tells its observers after a macrotask (notifyManager) that is
+ * queued only once the reply has landed, so this waits two macrotasks inside `act`. Await it after resolving an adapter reply.
+ * Like Testing Library's `act`, it marks the run as an act environment and restores the previous flag afterwards.
+ */
+export async function settleQueries(): Promise<void> {
+  const scope = globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean };
+  const previous = scope.IS_REACT_ACT_ENVIRONMENT;
+  scope.IS_REACT_ACT_ENVIRONMENT = true;
+  try {
+    await act(async () => { await macrotask(); await macrotask(); });
+  } finally {
+    scope.IS_REACT_ACT_ENVIRONMENT = previous;
+  }
 }

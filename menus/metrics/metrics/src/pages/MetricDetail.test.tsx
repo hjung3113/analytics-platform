@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { Activity, Gauge, Timer } from 'lucide-react';
 import { createRegistry, I18nProvider, PlatformProvider, type MenuEntry } from '@ap/kernel';
-import { memoryStorage, testAdapter, testSession } from '@ap/kernel/testing';
+import { memoryStorage, settleQueries, testAdapter, testSession } from '@ap/kernel/testing';
 import { manifests } from '../index';
 import MetricDetailPage from './MetricDetail';
 import {
@@ -328,8 +328,7 @@ describe('MetricDetail tab anchor scroll timing (#325-2)', () => {
     else delete (HTMLElement.prototype as Partial<HTMLElement>).scrollIntoView;
   });
 
-  // ADR-0086: TanStack notifies observers after a macrotask, so a reply is on screen two macrotasks after it resolves.
-  const settle = () => act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); await new Promise(resolve => setTimeout(resolve, 0)); });
+  const settle = settleQueries;
 
   function scrollTargets(): string[] {
     const stub = HTMLElement.prototype.scrollIntoView as unknown as { mock: { contexts: unknown[] } };
