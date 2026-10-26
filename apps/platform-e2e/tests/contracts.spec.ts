@@ -950,6 +950,30 @@ test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
     }
     await evidence(page, testInfo, 'board-dock-strip-middle');
   });
+
+  test('최대화한 칸 뒤의 숨은 칸 안 중첩 dock는 그려지지 않는다 (#964)', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await signInWithDockBoard(page, [sheetOf('dock', '도킹', '1x2', [
+      screenOf(`v=1&scopeId=MEM&${PERIOD}&roomNames=PHOTO`),
+      { menuId: 'hw-time-compare', params: {}, query: `?v=1&scopeId=MEM&${PERIOD}` },
+    ])]);
+    // `dockReady` counts every dock tab, and HW Time's own dock adds more, so wait on the two pane roots instead.
+    await page.goto('/board?sheet=dock');
+    await expect(page.locator('[data-pane-id]')).toHaveCount(2);
+    // The lazy HW Time screen draws its own dock after the first paint; wait for it so the check below cannot pass on an empty pane.
+    await expect(page.locator('[data-pane-id]').nth(1).locator('.dv-groupview').first()).toBeVisible();
+    const visibilityOf = (selector: string) => page.locator(selector).evaluateAll(nodes => nodes.map(node => getComputedStyle(node).visibility));
+    await maximizeOf(page, 1).click();
+    await expect(page.getByRole('button', { name: '원래 크기로' })).toBeVisible();
+    // The second pane root is hidden; a nested dock inside it must inherit that, not draw its empty frames over pane 1.
+    expect((await visibilityOf('[data-pane-id]'))[1]).toBe('hidden');
+    const nested = page.locator('[data-pane-id]').nth(1).locator('.dv-groupview');
+    expect(await nested.count()).toBeGreaterThan(0);
+    expect(await nested.evaluateAll(nodes => nodes.map(node => getComputedStyle(node).visibility))).not.toContain('visible');
+    await page.getByRole('button', { name: '원래 크기로' }).click();
+    await expect(page.getByRole('button', { name: '원래 크기로' })).toHaveCount(0);
+    expect(await visibilityOf('[data-pane-id]')).toEqual(['visible', 'visible']);
+  });
 });
 
 test.describe('관리 레이아웃 필터 레일 (06 §12.6, ADR-0022)', () => {

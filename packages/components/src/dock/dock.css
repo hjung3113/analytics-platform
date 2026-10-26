@@ -32,6 +32,11 @@
   --dv-tab-font-size: inherit;
 }
 
+/* dockview puts a `.visible` class on shown split views; it equals Tailwind's `.visible` utility, which re-shows views inside a hidden pane, so inherit instead. */
+.ap-dock .dv-view {
+  visibility: inherit;
+}
+
 .ap-dock .dv-groupview {
   border: 1px solid var(--color-border-subtle);
   border-radius: 6px;
