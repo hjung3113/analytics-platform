@@ -133,6 +133,7 @@ emptyGlobal | const | const emptyGlobal: @ap/contracts#GlobalContext
 formatDateTime | function | function formatDateTime(date: Date): string
 formatInstant | function | function formatInstant(instant: number | string, lang: keyof @ap/contracts#Text, timeZone?: string): string
 formatMetricVersion | function | function formatMetricVersion(version: string): string
+formatPeriod | function | function formatPeriod(from: null | string, to: null | string, lang: 'en' | 'ko'): string
 groupId | const | const groupId: <const S extends string>(id: S) => S & @ap/contracts#GroupId
 incompleteMetricPair | function | function incompleteMetricPair(menu: null | { initializesMetric?: boolean; }, metricId: null | string, metricVersion: null | string): @ap/contracts#ContractError | null
 instantEpochMs | function | function instantEpochMs(instant: string): number
@@ -148,6 +149,8 @@ parseFeedbackOpsLink | function | function parseFeedbackOpsLink(url: string, exp
 parsePlatformInboundLink | function | function parsePlatformInboundLink(url: string, expectedOrigin: string): { context: @ap/contracts#GlobalContext; extras: @ap/contracts#Pair[]; hop: @ap/contracts#PlatformHop; returnTo: null | string; }
 parseQuery | function | function parseQuery(search: string, pageKeys?: readonly string[]): @ap/contracts#ParsedQuery
 periodHours | function | function periodHours(g: { from: null | string; to: null | string; }): null | number
+periodShort | const | const periodShort: (instant: string) => string
+periodSpan | function | function periodSpan(hours: number, lang: 'en' | 'ko'): string
 platformReturnFor | function | function platformReturnFor(fullUrl: string, pathOnlyUrl: string): string | undefined
 projectContext | function | function projectContext<P, T>(spec: @ap/contracts#EndpointSpec<P, T>, g: @ap/contracts#GlobalContext): @ap/contracts#MenuQueryContext
 queryHistoryId | function | function queryHistoryId(query: string): string

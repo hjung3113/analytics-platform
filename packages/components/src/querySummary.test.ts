@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { noContext } from '@ap/kernel/testing';
-import { formatQuerySummary } from './querySummary';
-import type { GlobalContext } from '@ap/contracts';
+import { formatQuerySummary, querySummaryItems } from './querySummary';
+import { formatPeriod, type GlobalContext } from '@ap/contracts';
 
 const global: GlobalContext = { scopeId: 'S', from: null, to: null, roomNames: ['PHOTO'], lineNames: ['L1', 'L2'], prcGroups: null, condition: { vendor: ['V1'] }, membershipBasis: 'asOf', selection: [], lotIds: ['LOT'], ppid: 'PP', recipeIds: ['R'], metricId: 'M', metricVersion: '3' };
 describe('query summary values', () => {
@@ -14,6 +14,22 @@ describe('query summary values', () => {
     expect(summary(null)).toContain('전체 후보');
     expect(summary([])).toContain('명시적 빈 선택');
     expect(summary(['EQ-X'])).toContain('EQ-X');
+  });
+});
+
+describe('query summary period (#913)', () => {
+  it.each([
+    ['ko', '2026-09-25T09:00:00', '2026-09-26T09:00:00', '09-25 09:00 → 09-26 09:00 (24h)'],
+    ['en', '2026-09-19T09:00:00', '2026-09-26T09:00:00', '09-19 09:00 → 09-26 09:00 (7d)'],
+    ['ko', '2026-09-19T09:00:00', '2026-09-26T09:00:00', '09-19 09:00 → 09-26 09:00 (7일)'],
+  ] as const)('prints the same readable range as the Context bar (%s)', (lang, from, to, text) => {
+    const time = querySummaryItems({ ...global, from, to }, { lang }).find(item => item.key === 'time');
+    expect(time?.value).toBe(text);
+    expect(time?.value).toBe(formatPeriod(from, to, lang));
+    expect(formatQuerySummary({ ...global, from, to }, [], { lang })).not.toContain('[20');
+  });
+  it('keeps an open end visible', () => {
+    expect(querySummaryItems({ ...global, from: '2026-09-25T09:00:00' }, { lang: 'ko' }).find(item => item.key === 'time')?.value).toBe('09-25 09:00 → —');
   });
 });
 

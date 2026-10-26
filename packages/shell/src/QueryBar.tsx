@@ -1,6 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode, type ComponentProps } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
-import { parseDateTime, shift, type GlobalContext, type IdSet } from '@ap/contracts';
+import { formatPeriod, parseDateTime, periodHours, shift, type GlobalContext, type IdSet } from '@ap/contracts';
 import { CONTEXT_LABELS, useAxisOptions, useConditionPreset, useEquipmentSearch, useI18n, useQueryDraft, useResolvedSelection, type PortContext } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import { formatQuerySummary, presetOutsideAxes, querySummaryItems, SegmentedRadio, summaryPreset, useCopyLink, useQueryBarExtension } from '@ap/components';
@@ -81,6 +81,10 @@ function QueryBarSession({ label, historySlot }: QueryBarProps) {
   if (!canApply && !reasons.length) reasons.push({ key: 'validation', reason: ko ? '기간·지표 쌍·소속 기준을 확인하세요.' : 'Check the period, metric pair and membership basis.' });
   const reasonId = `${id}-reasons`;
   const summaryOptions = { lang, axes: equipmentAxes, context: cap, pageSummary: extension?.pageSummary };
+  // The seeded default period is not a change (#913) but is not applied either: until Apply the summary still reads as the draft.
+  // The period is one change however many of its ends moved (`오늘` moves both, `최근 7일` only `from`).
+  const changes = new Set(dirty.map(key => key === 'from' || key === 'to' ? 'time' : key)).size;
+  const editing = dirty.length > 0 || (global.from === null && g.from !== null);
   const summary = formatQuerySummary(g, draft.page, { ...summaryOptions, preset: summaryPreset(conditionPreset, 'draft') });
   const applied = formatQuerySummary(global, page, { ...summaryOptions, pageSummary: extension?.appliedPageSummary, preset: summaryPreset(conditionPreset, 'applied') });
   const copy = useCopyLink(ko ? '현재 적용된 조건의 링크를 복사했습니다. 받는 사람의 권한으로 서버가 다시 검증합니다.' : 'Copied the applied link. The server re-validates for the recipient.');
@@ -89,8 +93,8 @@ function QueryBarSession({ label, historySlot }: QueryBarProps) {
     ? <Alert id={reasonId} role="status"><AlertDescription>{reasons.map(r => <p key={r.key}>{r.reason}</p>)}</AlertDescription></Alert>
     : <span id={reasonId} className="sr-only" />;
   const actions = <div role="group" aria-label={ko ? '조회 조건 동작' : 'Query actions'} className={board ? 'flex shrink-0 items-center gap-2' : 'flex flex-wrap items-center gap-2'}>
-    <span className="text-xs text-text-secondary">{ko ? `적용 안 된 변경 ${dirty.length}개` : `${dirty.length} unapplied changes`}</span>
-    <Button type="button" variant="ghost" size="toolbar" onClick={() => { revert(); setPeriodEditor({ mode: 'range', reference: (global.from ?? platform.defaultRangeTo).slice(0, 10), invalidReference: false }); setRange({ from: global.from ?? '', to: global.to ?? '' }); setEditError(null); }}>{ko ? '되돌리기' : 'Revert'}</Button>
+    {changes > 0 && <span className="text-xs text-text-secondary">{ko ? `적용 안 된 변경 ${changes}개` : `${changes} unapplied changes`}</span>}
+    <Button type="button" variant="ghost" size="toolbar" onClick={() => { revert(); setPeriodEditor({ mode: 'range', reference: (global.from ?? platform.defaultRangeTo).slice(0, 10), invalidReference: false }); setRangeSource('revert'); setEditError(null); }}>{ko ? '되돌리기' : 'Revert'}</Button>
     <Button type="button" variant="ghost" size="toolbar" onClick={() => { reset(); setPeriodEditor({ mode: 'range', reference: platform.defaultRangeTo.slice(0, 10), invalidReference: false }); setRangeSource('reset'); setEditError(null); }}>{t('reset')}</Button>
     <Button type="button" size="toolbar" disabled={!canApply || reasons.length > 0} aria-describedby={reasonId} onClick={apply}>{ko ? '적용' : 'Apply'}</Button>
     {historySlot}
@@ -165,8 +169,8 @@ function QueryBarSession({ label, historySlot }: QueryBarProps) {
   return <section role="region" aria-label={label?.region ?? (ko ? '조회 조건' : 'Query conditions')} data-query-bar data-query-bar-collapsed={!board && !expanded ? '' : undefined} className={!board && !expanded ? 'sticky top-[50px] z-20 min-w-0 border-b border-border-subtle bg-surface-canvas' : 'min-w-0 border-b border-border-subtle bg-surface-canvas'}>
     <div className={board ? 'flex h-12 min-w-0 items-center gap-2 overflow-x-auto px-3' : 'flex min-h-12 min-w-0 flex-wrap items-center gap-2 px-3'}>
       {board ? <Popover open={expanded} onOpenChange={toggle}><PopoverTrigger asChild>{trigger}</PopoverTrigger><PopoverContent align="start" side="bottom" className="max-h-[var(--radix-popover-content-available-height)] w-[min(64rem,var(--radix-popover-content-available-width))] overflow-y-auto" onOpenAutoFocus={event => { event.preventDefault(); editor.current?.querySelector<HTMLElement>('button:not(:disabled), input:not(:disabled)')?.focus(); }} onCloseAutoFocus={event => { event.preventDefault(); disclosure.current?.focus(); }}>{content}</PopoverContent></Popover> : trigger}
-      {board && !expanded && <Button type="button" variant="ghost" size="toolbar" className="min-w-0 flex-1" aria-label={ko ? '전체 조회 조건 보기' : 'View full query conditions'} onClick={() => toggle(true)}><span className="truncate">{dirty.length ? (ko ? '편집 중' : 'Editing') : (ko ? '적용 조건' : 'Applied conditions')} · {summary}</span></Button>}
-      {!board && !expanded && <details className="min-w-0 flex-1 text-xs"><summary className="cursor-pointer truncate list-none [&::-webkit-details-marker]:hidden">{dirty.length ? (ko ? '편집 중' : 'Editing') : (ko ? '적용 조건' : 'Applied conditions')} · {summary}</summary><p className="whitespace-normal [overflow-wrap:anywhere]">{ko ? '편집 중 조건' : 'Editing conditions'} · {summary}</p><p className="whitespace-normal [overflow-wrap:anywhere]">{ko ? '적용 조건' : 'Applied conditions'} · {applied}</p></details>}
+      {board && !expanded && <Button type="button" variant="ghost" size="toolbar" className="min-w-0 flex-1" aria-label={ko ? '전체 조회 조건 보기' : 'View full query conditions'} onClick={() => toggle(true)}><span className="truncate">{editing ? (ko ? '편집 중' : 'Editing') : (ko ? '적용 조건' : 'Applied conditions')} · {summary}</span></Button>}
+      {!board && !expanded && <details className="min-w-0 flex-1 text-xs"><summary className="cursor-pointer truncate list-none [&::-webkit-details-marker]:hidden">{editing ? (ko ? '편집 중' : 'Editing') : (ko ? '적용 조건' : 'Applied conditions')} · {summary}</summary><p className="whitespace-normal [overflow-wrap:anywhere]">{ko ? '편집 중 조건' : 'Editing conditions'} · {summary}</p><p className="whitespace-normal [overflow-wrap:anywhere]">{ko ? '적용 조건' : 'Applied conditions'} · {applied}</p></details>}
       {!expanded && actions}
       {board && !expanded && <span id={reasonId} className="max-w-56 truncate text-xs text-text-secondary">{reasons.map(r => r.reason).join(' · ')}</span>}
       <Button type="button" variant="ghost" size="toolbar" onClick={() => copy(url)}>{ko ? '링크 복사' : 'Copy link'}</Button>
@@ -241,18 +245,25 @@ function PeriodFields({ global: g, range, setRange, write, invalid, reasonId, re
     const next = { ...range, [key]: normalized }; setRange(next);
     try { parseDateTime(next.from, 'from'); parseDateTime(next.to, 'to'); write(next); } catch { reportInvalid(); }
   };
+  const hours = periodHours(g);
+  const ends = (hoursBack: number) => g.to === defaultRangeTo && hours === hoursBack;
+  const presets = [
+    { label: ko ? '최근 24시간' : 'Last 24 hours', pressed: ends(24), apply: () => { setMode('range'); write({ from: shift(defaultRangeTo, -24), to: defaultRangeTo }); } },
+    { label: ko ? '최근 7일' : 'Last 7 days', pressed: ends(168), apply: () => { setMode('range'); write({ from: shift(defaultRangeTo, -168), to: defaultRangeTo }); } },
+    { label: ko ? '오늘' : 'Today', pressed: g.from === `${defaultRangeTo.slice(0, 10)}T00:00:00` && hours === 24, apply: () => date(defaultRangeTo.slice(0, 10)) },
+  ];
   return <div className="grid min-w-0 flex-1 basis-full gap-1 text-xs text-text-secondary" role="group" aria-label={ko ? '기간' : 'Period'}>
-    <div className="flex flex-wrap gap-1">
-      <Button type="button" size="toolbar" variant="secondary" onClick={() => { setMode('range'); write({ from: shift(defaultRangeTo, -24), to: defaultRangeTo }); }}>{ko ? '최근 24시간' : 'Last 24 hours'}</Button>
-      <Button type="button" size="toolbar" variant="secondary" onClick={() => { setMode('range'); write({ from: shift(defaultRangeTo, -168), to: defaultRangeTo }); }}>{ko ? '최근 7일' : 'Last 7 days'}</Button>
-      <Button type="button" size="toolbar" variant="secondary" onClick={() => date(defaultRangeTo.slice(0, 10))}>{ko ? '오늘' : 'Today'}</Button>
-      <Button type="button" size="toolbar" variant="ghost" onClick={() => setMode('reference')}>{ko ? '기준일' : 'Reference date'}</Button>
-      <Button type="button" size="toolbar" variant="ghost" onClick={() => setMode('range')}>{ko ? '직접 범위' : 'Custom range'}</Button>
+    <div className="flex flex-wrap items-center gap-1">
+      {presets.map(p => <Button key={p.label} type="button" size="toolbar" variant={p.pressed ? 'secondary' : 'ghost'} aria-pressed={p.pressed} onClick={p.apply}>{p.label}</Button>)}
+      {/* Presets pick a range, the pair picks how to type one: a divider keeps two pressed buttons from reading as one choice. */}
+      <span aria-hidden className="mx-1 h-5 w-px bg-border-subtle" data-period-divider />
+      <Button type="button" size="toolbar" variant={mode === 'reference' ? 'secondary' : 'ghost'} aria-pressed={mode === 'reference'} onClick={() => setMode('reference')}>{ko ? '기준일' : 'Reference date'}</Button>
+      <Button type="button" size="toolbar" variant={mode === 'range' ? 'secondary' : 'ghost'} aria-pressed={mode === 'range'} onClick={() => setMode('range')}>{ko ? '직접 범위' : 'Custom range'}</Button>
     </div>
     {mode === 'reference' ? <Input type="date" aria-invalid={invalid || undefined} aria-describedby={invalid ? reasonId : undefined} aria-label={ko ? '기준일' : 'Reference date'} value={reference} onChange={event => date(event.target.value)} /> : <div className="flex flex-wrap gap-2">
       <Input type="datetime-local" step="1" aria-label={ko ? '시작 시각' : 'From'} aria-invalid={invalid || undefined} aria-describedby={invalid ? reasonId : undefined} value={range.from} onChange={event => custom('from', event.target.value)} className="min-w-64 flex-1" />
       <Input type="datetime-local" step="1" aria-label={ko ? '종료 시각 (제외)' : 'To (exclusive)'} aria-invalid={invalid || undefined} aria-describedby={invalid ? reasonId : undefined} value={range.to} onChange={event => custom('to', event.target.value)} className="min-w-64 flex-1" />
     </div>}
-    <span className="[overflow-wrap:anywhere]">[{g.from ?? '—'}, {g.to ?? '—'})</span>
+    <span className="[overflow-wrap:anywhere]">{formatPeriod(g.from, g.to, lang)}</span>
   </div>;
 }
