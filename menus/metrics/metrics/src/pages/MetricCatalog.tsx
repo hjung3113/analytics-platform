@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { AlertTriangle, BookOpen, FilePen } from 'lucide-react';
-import { CONTEXT_LABELS, type PageProps, PlatformLink, type QueryState, invalidValueSentence, topicParticle, useI18n, useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
-import { PageFilterBar, RowAction, type PlatformColumn, PlatformDataTable, PlatformPage, QueryView, StateMessage, TableUrlWarning, useTableUrlState } from '@ap/components';
+import { CONTEXT_LABELS, type PageProps, PlatformLink, type QueryState, topicParticle, useI18n, useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
+import { PageFilterBar, RowAction, type PlatformColumn, PlatformDataTable, PageKeyWarning, type PageKeyRule, PlatformPage, QueryView, StateMessage, TableUrlWarning, usePageKeyRules, useTableUrlState } from '@ap/components';
 import { Button } from '@ap/ui';
 import {
   DOMAINS, STATUSES, catalogExportEndpoint, catalogListEndpoint, catalogPageEndpoint, metricPairEndpoint, sortColumns,
@@ -69,6 +69,11 @@ export function MetricPairBanner({ query, pageVersion = null }: { query: QuerySt
   </QueryView>;
 }
 
+const FILTER_RULES: readonly PageKeyRule[] = [
+  { key: 'status', label: { ko: '상태', en: 'Status' }, valid: raw => STATUSES.includes(raw as PublicationState) },
+  { key: 'domain', label: { ko: '도메인', en: 'Domain' }, valid: raw => DOMAINS.includes(raw as typeof DOMAINS[number]) },
+];
+
 export default function MetricCatalogPage(_: PageProps) {
   const { pageParam, setPage, linkTo, global } = usePlatform();
   const { lang, tx, t } = useI18n();
@@ -76,16 +81,10 @@ export default function MetricCatalogPage(_: PageProps) {
   const q = pageParam('q');
   const status = pageParam('status');
   const domain = pageParam('domain');
-  const statusIllegal = status !== null && !STATUSES.includes(status as PublicationState);
-  const domainIllegal = domain !== null && !DOMAINS.includes(domain as typeof DOMAINS[number]);
+  // Rejected, never corrected (06 §6): one sentence per bad key with its user name and the raw value as entered, and a Reset that clears exactly those keys.
+  const keys = usePageKeyRules(FILTER_RULES);
   // §6.1 page keys: sort/page are URL-owned; invalid wire values alert instead of substituting (never "empty rows").
   const { urlState: tableUrlState, invalid: tableInvalid, sentences: invalidTableSentences } = useTableUrlState(sortColumns);
-  // #304 FIX1 (06 §19): each invalid field keeps its user name and the raw value as entered (quoted, untruncated),
-  // one sentence per field — never `key=value`.
-  const invalidFilterSentences = [
-    statusIllegal ? invalidValueSentence(lang, 'filter', { ko: '상태', en: 'Status' }, status) : null,
-    domainIllegal ? invalidValueSentence(lang, 'filter', { ko: '도메인', en: 'Domain' }, domain) : null,
-  ].filter((sentence): sentence is string => sentence !== null);
   // A global-Context change clears `page` in the kernel (manifest contextResetKeys); pages write no reset effect.
   const pair = useMenuQuery(metricPairEndpoint, NO_DESTINATION);
   const verdict = pair.response?.outcome === 'ok' ? pair.response.data : null;
@@ -120,10 +119,7 @@ export default function MetricCatalogPage(_: PageProps) {
           ? `설비 선택 ${global.selection.length}건은 이 화면에서 참조만입니다.`
           : `Equipment selection (${global.selection.length}) is reference only on this page.`}
       </p>}
-      {(statusIllegal || domainIllegal) && <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />}
-        title={lang === 'ko' ? '등록되지 않은 필터입니다' : 'This filter is not registered'}
-        body={invalidFilterSentences.map((sentence, index) => <p key={index}>{sentence}</p>)}
-        action={<Button size="sm" variant="secondary" onClick={() => setPage({ ...(statusIllegal ? { status: null } : {}), ...(domainIllegal ? { domain: null } : {}) })}>{lang === 'ko' ? '초기화' : 'Reset'}</Button>} />}
+      {keys.invalid && <PageKeyWarning sentences={keys.sentences} onRecover={keys.recover} />}
       {tableInvalid ? <TableUrlWarning sentences={invalidTableSentences} /> : <PlatformDataTable
         title={lang === 'ko' ? '지표 카탈로그' : 'Metric catalog'}
         subtitle={lang === 'ko'

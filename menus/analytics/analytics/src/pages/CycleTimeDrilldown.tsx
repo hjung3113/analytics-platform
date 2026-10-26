@@ -1,8 +1,8 @@
 import { useCallback, useMemo, useState } from 'react';
 import { AlertTriangle, ArrowRight, Gauge, Hash, RotateCw, Timer, X } from 'lucide-react';
 import { periodHours, type GlobalContext, type Pair, type Trust } from '@ap/contracts';
-import { type PageProps, PlatformLink, invalidValueSentence, useI18n, useMenuFetch, useMenuQuery, useQueryDraft, usePlatform } from '@ap/kernel';
-import { PanelWorkspace, RowAction, AnalysisChartFrame, DataTrustIndicator, PageFilterBar, type Delta, type PlatformColumn, parsePageIndex, PlatformDataTable, PlatformPage, QueryView, StatCard, StateMessage } from '@ap/components';
+import { type PageProps, PlatformLink, useI18n, useMenuFetch, useMenuQuery, useQueryDraft, usePlatform } from '@ap/kernel';
+import { PanelWorkspace, RowAction, AnalysisChartFrame, DataTrustIndicator, PageFilterBar, type Delta, type PlatformColumn, parsePageIndex, PageKeyWarning, PlatformDataTable, PlatformPage, QueryView, StatCard, StateMessage, usePageKeyRules } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
 import {
   CYCLE_VERSION_NOTE, PAGE_METRIC_ID, bucketEnd, cycleDistEndpoint, cycleExportEndpoint, cycleKpiEndpoint, cycleSlowPageEndpoint,
@@ -76,7 +76,17 @@ export default function CycleTimeDrilldown(_: PageProps) {
   const bucketResult = parseBucket(bucketRaw, granularityResult.ok ? granularityResult.value : 'hour');
   const binResult = parseBin(binRaw);
   const pageResult = parsePageIndex(pageRaw);
-  const invalidPage = !granularityResult.ok || !tailResult.ok || !sortResult.ok || !bucketResult.ok || !binResult.ok || !pageResult.ok;
+  // Rejected, never corrected (06 §6): one sentence per bad key (user name + raw value as entered) and a Reset that clears exactly those keys.
+  const keys = usePageKeyRules([
+    { key: 'granularity', label: { ko: '집계', en: 'Grain' }, valid: raw => resolveGranularity(raw, hours).ok },
+    { key: 'percentile', label: { ko: '느린 실행 기준', en: 'Slow executions' }, valid: raw => resolveTail(raw).ok },
+    { key: 'sort', label: { ko: '정렬', en: 'Sort' }, valid: raw => parseSortParam(raw).ok },
+    { key: 'bucket', label: { ko: '버킷', en: 'Bucket' }, valid: raw => parseBucket(raw, granularityResult.ok ? granularityResult.value : 'hour').ok },
+    { key: 'bin', label: { ko: '분포 구간', en: 'Histogram' }, valid: raw => parseBin(raw).ok },
+    { key: 'page', label: { ko: '페이지', en: 'Page' }, valid: raw => parsePageIndex(raw).ok },
+  ]);
+
+  const invalidPage = keys.invalid;
   const granularity: Granularity = granularityResult.ok ? granularityResult.value : 'hour';
   const tailMode: TailMode = tailResult.ok ? tailResult.value : 'p95';
   const sortSpec = sortResult.ok ? sortResult : { ok: true as const, id: 'cycleMin' as const, desc: true, explicit: false };
@@ -133,17 +143,6 @@ export default function CycleTimeDrilldown(_: PageProps) {
   const unknown = ko ? '미확인' : 'Not confirmed';
   const granularityPending = draftParam('granularity') === null && draftHours === null;
 
-  // #304 FIX1 (06 §19): each invalid field keeps its user name and the raw value as entered (quoted,
-  // untruncated), one sentence per field — never `key=value`.
-  const pageRefusals = [
-    !granularityResult.ok ? invalidValueSentence(lang, 'plain', { ko: '집계', en: 'Grain' }, granularityRaw ?? '') : null,
-    !tailResult.ok ? invalidValueSentence(lang, 'plain', { ko: '느린 실행 기준', en: 'Slow executions' }, percentileRaw ?? '') : null,
-    !sortResult.ok ? invalidValueSentence(lang, 'plain', { ko: '정렬', en: 'Sort' }, sortRaw ?? '') : null,
-    !bucketResult.ok ? invalidValueSentence(lang, 'plain', { ko: '버킷', en: 'Bucket' }, bucketRaw ?? '') : null,
-    !binResult.ok ? invalidValueSentence(lang, 'plain', { ko: '분포 구간', en: 'Histogram' }, binRaw ?? '') : null,
-    !pageResult.ok ? invalidValueSentence(lang, 'plain', { ko: '페이지', en: 'Page' }, pageRaw ?? '') : null,
-  ].filter((sentence): sentence is string => sentence !== null);
-
   // Field labels and option labels shared by the edit controls and the collapsed summary. The summary states
   // facts: pending stays pending and unknown raw values are shown as unknown, never as a default value label.
   const { grainFieldLabel, grainLabel, tailFieldLabel, tailOptions, sortFieldLabel, sortOptions, unknownRaw } = filterVocabulary(lang);
@@ -190,8 +189,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
       </div>}
     </div>}
   >
-    {invalidPage ? <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />} title={ko ? '페이지 키 값이 올바르지 않습니다' : 'Invalid page key'}
-      body={pageRefusals.map((sentence, index) => <p key={index}>{sentence} {ko ? '페이지 조건을 기본값으로 되돌리세요.' : 'Reset the page conditions.'}</p>)} />
+    {invalidPage ? <PageKeyWarning sentences={keys.sentences} onRecover={keys.recover} />
       : kpi.status === 'idle' ? <QueryView query={kpi}>{() => null}</QueryView>
         : <PanelWorkspace
           persistKey="drilldown"

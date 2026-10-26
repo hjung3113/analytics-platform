@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Timer } from 'lucide-react';
 import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
@@ -52,10 +52,19 @@ describe('ProductivityOverview invalid page key warnings (#304 FIX1)', () => {
     renderPage('/analytics/productivity?v=1&scopeId=MEM&kpi=bogus&axis=zzz&sort=nope');
     const alert = await screen.findByRole('alert');
     expect([...alert.querySelectorAll('p')].map(p => p.textContent)).toEqual([
-      '지표 “bogus”는 이 화면에서 쓸 수 없습니다. 주소를 고치거나 조건을 초기화하세요.',
-      '축 “zzz”은 이 화면에서 쓸 수 없습니다. 주소를 고치거나 조건을 초기화하세요.',
-      '정렬 “nope”은 이 화면에서 쓸 수 없습니다. 주소를 고치거나 조건을 초기화하세요.',
+      '지표 “bogus”는 이 화면에서 쓸 수 없는 값입니다. 조건을 초기화하세요.',
+      '축 “zzz”은 이 화면에서 쓸 수 없는 값입니다. 조건을 초기화하세요.',
+      '정렬 “nope”은 이 화면에서 쓸 수 없는 값입니다. 조건을 초기화하세요.',
     ]);
+  });
+
+  it('Reset clears exactly the rejected keys and keeps the valid ones (#924)', async () => {
+    renderPage('/analytics/productivity?v=1&scopeId=MEM&kpi=bogus&axis=stgroup');
+    const alert = await screen.findByRole('alert');
+    fireEvent.click(within(alert).getByRole('button', { name: '초기화' }));
+    const params = new URLSearchParams(window.location.search);
+    expect(params.has('kpi')).toBe(false);
+    expect(params.get('axis')).toBe('stgroup');
   });
 });
 

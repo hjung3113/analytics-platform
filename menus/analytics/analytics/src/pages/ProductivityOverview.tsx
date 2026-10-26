@@ -9,8 +9,8 @@ import { formatMetricVersion, periodHours } from '@ap/contracts';
  * mock server half. Definitions are Candidates per wireframe 11 §6.
  */
 import { AlertTriangle, ArrowRight, BarChart3, ChevronRight, Hourglass, Percent, RotateCw, Timer } from 'lucide-react';
-import { type PageProps, PlatformLink, useDrill, invalidValueSentence, useI18n, usePlatform, useMenuQuery } from '@ap/kernel';
-import { AnalysisChartFrame, type ChartSeries, DataTrustIndicator, type Delta, DrillLayout, Panel, PlatformPage, QueryView, SegmentedRadio, StatCard, StateMessage } from '@ap/components';
+import { type PageProps, PlatformLink, useDrill, useI18n, usePlatform, useMenuQuery } from '@ap/kernel';
+import { AnalysisChartFrame, type ChartSeries, DataTrustIndicator, type Delta, DrillLayout, PageKeyWarning, Panel, PlatformPage, QueryView, SegmentedRadio, StatCard, StateMessage, usePageKeyRules } from '@ap/components';
 import { Button, cn, StatusBadge } from '@ap/ui';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import {
@@ -48,24 +48,23 @@ export default function ProductivityOverview(_: PageProps) {
   const kpiResult = resolveChoice(rawKpi, KPI_KEYS, 'throughput');
   const axisResult = resolveChoice(rawAxis, AXES, 'room');
   const sortResult = resolveBreakdownSort(rawSort);
+  // Rejected, never corrected (06 §6): one sentence per bad key (user name + raw value as entered) and a Reset that clears exactly those keys.
+  const keys = usePageKeyRules([
+    { key: 'kpi', label: { ko: '지표', en: 'Metric' }, valid: raw => resolveChoice(raw, KPI_KEYS, 'throughput').ok },
+    { key: 'axis', label: { ko: '축', en: 'Axis' }, valid: raw => resolveChoice(raw, AXES, 'room').ok },
+    { key: 'sort', label: { ko: '정렬', en: 'Sort' }, valid: raw => resolveBreakdownSort(raw).ok },
+  ]);
+
   const drill = useDrill();
   const room = drill.levels.find(level => level.key === 'drillRoom')?.value ?? null;
   const stgroup = drill.levels.find(level => level.key === 'drillStgroup')?.value ?? null;
   const equipment = drill.levels.find(level => level.key === 'drillEquipment')?.value ?? null;
-  const pageInvalid = !kpiResult.ok || !axisResult.ok || !sortResult.ok;
+  const pageInvalid = keys.invalid;
   const canQuery = !pageInvalid && drill.invalid === null;
   const summary = canQuery && drill.depth === 0;
   const selectedKpi = kpiResult.ok ? kpiResult.value : 'throughput';
   const axis = axisResult.ok ? axisResult.value : 'room';
   const sort = sortResult.ok ? { key: sortResult.key, dir: sortResult.dir } : { key: 'key' as const, dir: 1 as const };
-  // #304 FIX1 (06 §19): each invalid field keeps its user name and the raw value as entered (quoted,
-  // untruncated), one sentence per field — never `key=value`.
-  const pageRefusals = [
-    !kpiResult.ok ? invalidValueSentence(lang, 'plain', { ko: '지표', en: 'Metric' }, rawKpi ?? '') : null,
-    !axisResult.ok ? invalidValueSentence(lang, 'plain', { ko: '축', en: 'Axis' }, rawAxis ?? '') : null,
-    !sortResult.ok ? invalidValueSentence(lang, 'plain', { ko: '정렬', en: 'Sort' }, rawSort ?? '') : null,
-  ].filter((sentence): sentence is string => sentence !== null);
-
   // Page-owned URL key `granularity` (wireframe 11 §3.1). Unset → hour for ≤48h, else day (Candidate).
   const rawGran = pageParam('granularity');
   const granKnown = GRANS.includes(rawGran as Granularity);
@@ -254,8 +253,7 @@ export default function ProductivityOverview(_: PageProps) {
       {rawGran !== null && !granKnown && <StatusBadge tone="warning">{ko ? `집계 단위 “${rawGran}”는 이 화면에서 쓸 수 없습니다. 지금은 기본 집계 단위(${granLabel})로 조회합니다. 시간·일·주 중에서 고르세요.` : `Grain “${rawGran}” is not a value this page can use; the default grain (${granLabel}) is used until you choose one. Choose hour, day, or week.`}</StatusBadge>}
     </div>}
   >
-    {pageInvalid ? <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />} title={ko ? '페이지 키 값이 올바르지 않습니다' : 'Invalid page key'}
-      body={pageRefusals.map((sentence, index) => <p key={index}>{sentence} {ko ? '주소를 고치거나 조건을 초기화하세요.' : 'Fix the address or reset the conditions.'}</p>)} />
+    {pageInvalid ? <PageKeyWarning sentences={keys.sentences} onRecover={keys.recover} />
       : <DrillLayout siblings={drillSiblings} notFound={notFound}>{drill.depth === 0 ? <div className="@container space-y-4">
       {/* Primary KPI / Summary */}
       <section aria-labelledby="kpi-heading">
