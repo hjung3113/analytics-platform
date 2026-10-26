@@ -122,6 +122,7 @@ buildQuery | function | function buildQuery(g: @ap/contracts#GlobalContext, page
 canClientSum | function | function canClientSum(measure: Pick<@ap/contracts#MeasureMeta, 'reaggregation'>): boolean
 carriesReturnTo | function | function carriesReturnTo(space: Pick<@ap/contracts#SpaceDef, 'carriedPageKeys'> | null | undefined): boolean
 clientCorrelationId | function | function clientCorrelationId(): string
+compareAuditEvents | function | function compareAuditEvents(a: @ap/contracts#AuditEvent, b: @ap/contracts#AuditEvent): number
 compareHistoryText | function | function compareHistoryText(a: string, b: string): number
 compareQueryHistory | function | function compareQueryHistory(a: @ap/contracts#QueryHistoryEntry, b: @ap/contracts#QueryHistoryEntry): number
 conditionLabel | function | function conditionLabel(c: @ap/contracts#Condition): string

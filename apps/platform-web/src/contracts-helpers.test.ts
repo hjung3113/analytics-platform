@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { NO_FEATURES, RETURN_TO_KEY, carriesReturnTo, contextCapabilities, isRecord, withoutReturnTo, type Capability, type ContextKey } from '@ap/contracts';
+import { NO_FEATURES, RETURN_TO_KEY, carriesReturnTo, compareAuditEvents, contextCapabilities, isRecord, withoutReturnTo, type AuditEvent, type Capability, type ContextKey } from '@ap/contracts';
 
 // #673: shared @ap/contracts helpers — the manifest defaults every menu index and the gen-menu scaffold share (06 §5), `isRecord`, and the `returnTo` rule (#851).
 const ALL_UNSUPPORTED: Record<ContextKey, Capability> = {
@@ -70,5 +70,15 @@ describe('returnTo is navigation state (#851, ADR-0081 UX-10)', () => {
     expect(carriesReturnTo({})).toBe(false);
     expect(carriesReturnTo(null)).toBe(false);
     expect(carriesReturnTo(undefined)).toBe(false);
+  });
+});
+
+describe('compareAuditEvents', () => {
+  const event = (id: string, at: string): AuditEvent => ({ id, at, actor: 'u', action: 'update', source: 'user', target: { type: 'equipment', id: 'e1', scopeId: null } });
+
+  it('puts the later instant first and breaks an equal instant by id ascending, across Z and +09:00 (ADR-0085)', () => {
+    // 11:00+09:00 equals 02:00Z, so 'b' ties with 'a' (id ascending) and sits after 'c' (03:00Z); a string compare would put it first.
+    const events = [event('b', '2026-09-26T11:00:00+09:00'), event('c', '2026-09-26T03:00:00Z'), event('a', '2026-09-26T02:00:00.000Z'), event('d', '2026-09-26T01:30:00Z')];
+    expect([...events].sort(compareAuditEvents).map(e => e.id)).toEqual(['c', 'a', 'b', 'd']);
   });
 });

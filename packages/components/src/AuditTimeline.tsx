@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { ChevronDown, FilePen, FilePlus2, FileX2, Loader2, RefreshCw, RotateCw, Trash2 } from 'lucide-react';
 import { useI18n, type AuditMore } from '@ap/kernel';
 import { Button, StatusBadge } from '@ap/ui';
-import { formatInstant, instantEpochMs, type AuditEvent } from '@ap/contracts';
+import { compareAuditEvents, formatInstant, type AuditEvent } from '@ap/contracts';
 
 const ICONS = { create: FilePlus2, update: FilePen, retire: FileX2, sync: RefreshCw, delete: Trash2 };
 const LABEL = {
@@ -35,10 +35,7 @@ export function AuditTimeline({ events, more }: { events: readonly AuditEvent[];
     (last.firstId ? itemRefs.current.get(last.firstId) : captionRef.current)?.focus();
   }, [last]);
   if (!events.length) return <p className="rounded-md bg-surface-sunken p-3 text-xs text-text-secondary">{ko ? '변경 이력이 없습니다.' : 'No changes recorded.'}</p>;
-  const sorted = [...events].sort((a, b) => {
-    const byAt = instantEpochMs(b.at) - instantEpochMs(a.at);
-    return byAt !== 0 ? byAt : a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
-  });
+  const sorted = [...events].sort(compareAuditEvents);
   const list = <ol aria-busy={more ? more.status === 'loading' : undefined} className="relative space-y-3 before:absolute before:bottom-2 before:left-[11px] before:top-2 before:w-px before:bg-border-subtle">
     {sorted.map(e => {
       const Icon = ICONS[e.action];

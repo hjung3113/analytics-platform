@@ -4,7 +4,7 @@ export { contractErrorSentence, errorGuidance, I18nProvider, invalidValueSentenc
 export { classifyMetricInit, type MetricInit } from './metric-init';
 export { RETURN_CONTEXT_LABELS, PlatformLink, PlatformProvider, usePlatform, usePlatformOptional, useRecentVisits, type MenuPlatform, type FeedbackOpsEntry, type FeedbackOpsSlot, type HomeTodoSlot, type LinkOptions, type LinkResolution, type NavCountsSlot, type NotificationsSlot, type PlannedSpace, type PlatformSlots, type Recent, type ReturnContextKey, type ReturnOrigin, type ScopeControlSlot, type SpaceNavSectionSlot, type ScopeState, type Toast, type ToastAction, type ToastOptions, type VocComposeContext, type VocComposeContextItem, type VocComposeProps, type VocComposeSlot } from './platform';
 export { useMenuAction, type MenuActionState } from './action';
-export { useEntityAudit, useEntityQuery, useMenuFetch, useMenuQuery, usePlatformQuery, type AuditMore, type MenuFetch, type QueryState, type RequestState } from './query';
+export { useEntityAudit, useEntityQuery, useMenuFetch, useMenuQuery, usePlatformQuery, type AuditMore, type AuditMoreError, type AuditMoreLast, type AuditMoreStatus, type MenuFetch, type QueryState, type RequestState } from './query';
 export {
   CONTEXT_LABELS, createRegistry, isBoardPath, PAGE_TYPE_LABELS, pathFor, routeParamNames, RegistryError,
   type AnyGroupId, type GroupDef, type MenuEntry, type ModuleGroupDef, type ModuleMenuEntry, type PageProps, type PlatformGroupDef, type PlatformMenuEntry, type Registry, type RouteMatch,
