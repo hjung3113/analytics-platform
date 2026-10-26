@@ -31,6 +31,8 @@ A.
 
 **적합성 자동 skip.** server-conformance는 커서 검사 9건(한 쪽 ≤ 50, 끝까지 따라가면 중복 없이 정렬 순서로 모두·마지막 `null`, 틀린 커서 `error`, 틀린 커서를 붙여도 다른 site·권한 없음은 `forbidden`, 그리고 서버가 실제로 발급한 커서를 다른 대상·다른 site·권한 없는 계정·권한 없는 room에 보내면 표본의 행이 하나도 나오지 않음 — 다른 site·권한 없음·권한 없는 room은 커서 없는 요청과 같이 `forbidden`, 다른 대상은 게이트 뒤 `error`)을 더한다. site 검사는 site 없는 목적지(`scopeId: null`) 표본이면 건너뛴다. 발급 커서가 필요한 4건은 표본이 한 쪽에 들어가 커서가 없으면 이유를 단 skipped다. 첫 쪽 응답에 `nextCursor` 키가 없는 서버는 이 검사들을 이유(`server does not page entityAudit`)를 단 skipped로 바꾸고 `cursor`를 보내지 않는다 — 통과로 세지 않는다. FeedbackOps 백엔드의 `entityAudit`은 아직 쪽을 나누지 않으므로 코드를 바꾸지 않고도 CI가 깨지지 않으며, 구현은 [#857](https://github.com/hjung3113/analytics-platform/issues/857)이다.
 
+보충(2026-10-26, #857): FeedbackOps 백엔드가 쪽을 나눈다 — 한 쪽 50건, 대상(type·id)에 묶인 keyset 커서, `nextCursor`, 틀린 커서 `error`(`Invalid cursor`), 게이트 뒤에만 커서 해석. 적합성 커서 검사 9건 중 site 없는 표본에서 도는 6건이 건너뛰지 않고 실행된다.
+
 **Kernel과 화면.** `useEntityAudit(ref, enabled?)`(`@ap/kernel`)가 첫 쪽(`query`, `QueryView`용)과 `timeline = { events, more }`를 준다. 커서를 이어 붙이는 일(누적, id 중복 제거, 같은 커서 재시도, 정체성 변경 시 abort, 끝 판정, 전진하지 않는 커서는 `error`)은 도메인을 모르는 내부 모듈 `cursor-pages.ts`가 맡는다. `AuditTimeline({ events, more? })`는 `more`가 없으면 지금과 같은 마크업이고, 있으면 목록 끝에 버튼·끝 캡션·실패 재시도·권한 안내와 상태 알림을 그린다(문구와 상태는 06 §13).
 
 **포커스 예외(06 §26).** 같은 화면 안 상태 변경은 포커스를 옮기지 않는다는 규칙에 예외 하나를 더한다 — `이전 변경 이력 더 보기`가 성공하면 붙은 첫 항목(없으면 끝 캡션)으로 옮기되, 포커스가 아직 그 버튼에 있을 때만이다. 키보드 사용자가 새 항목을 처음부터 이어 읽게 하고, 그 사이 다른 곳으로 옮긴 사용자의 포커스는 뺏지 않는다.

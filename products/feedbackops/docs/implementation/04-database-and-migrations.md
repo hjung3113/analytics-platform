@@ -634,7 +634,7 @@ nothing else; `fops_app` still has no SELECT on `core.audit_log`. The allowlist 
 no `survey_response*` rows, no `entity_link` whose `detail.source/target.type` is missing or
 `survey_response`, permission rows only for the non-sensitive `detail.capability` list (pinned to
 `CAPABILITY_META` by a test), no `detail.sensitive = true`, no `summary`/`detail` output) is in the
-function body. `p_offset` is `bigint` so a far page returns no rows and the true total. Callers: `modules/core/audit/platform-audit-projection.ts`, used by
+function body. `p_offset` is `bigint` so a far page returns no rows and the true total. Callers: `modules/core/audit/platform-audit-projection.ts` (`platformAuditEvents`, and `platformEntityAuditPage` for the `entityAudit` keyset pages, #857), used by
 `modules/platform-port` (ADR-0069 decision 6).
 
 ### #1109 approved Survey attachment extension (0066)
