@@ -359,7 +359,7 @@ describe('HW Time compare page', () => {
     expect(within(tree).getByRole('treeitem', { current: true }).getAttribute('data-id')).toBe('Pump');
   });
 
-  it('a hidden Motion stays hidden after a sibling Motion drill in the same Module; another level or Module resets it', async () => {
+  it('a hidden Motion stays hidden through a Motion drill and back up to the same Module; another Module resets it', async () => {
     await renderPage('&drillModule=PM1&drillMotion=Pump');
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: '계층 범례' })); });
     fireEvent.click(await screen.findByRole('checkbox', { name: /Chuck/ }));
@@ -368,7 +368,39 @@ describe('HW Time compare page', () => {
     expect(searchParams().get('drillMotion')).toBe('Vent');
     expect(screen.getByTestId('hw-compare-module-visible').textContent).toBe('Dechuck,Pump,Vent,Transfer');
     fireEvent.click(screen.getByRole('button', { name: /Module: PM1/ }));
-    expect(screen.getByTestId('hw-compare-module-visible').textContent).toBe('Chuck,Dechuck,Pump,Vent,Transfer');
+    expect(screen.getByTestId('hw-compare-module-visible').textContent).toBe('Dechuck,Pump,Vent,Transfer');
+  });
+
+  it('a hidden Module in the summary stays hidden after entering a Module and going back; the composition keeps its own hidden Motions', async () => {
+    await renderPage();
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: '계층 범례' })); });
+    fireEvent.click(await screen.findByRole('checkbox', { name: /PM2/ }));
+    expect(screen.getByTestId('hw-compare-summary-visible').textContent).toBe('PM1,PM3,PM4');
+    fireEvent.click(screen.getByRole('button', { name: 'segment PM1 EQ-001' }));
+    expect(searchParams().get('drillModule')).toBe('PM1');
+    expect(screen.getByTestId('hw-compare-summary-visible').textContent).toBe('PM1,PM3,PM4');
+    // Hiding in the composition leaves the summary alone.
+    if (!screen.queryByRole('tree', { name: '계층 범례' })) await act(async () => { fireEvent.click(screen.getByRole('button', { name: '계층 범례' })); });
+    fireEvent.click(await screen.findByRole('checkbox', { name: /Chuck/ }));
+    expect(screen.getByTestId('hw-compare-module-visible').textContent).toBe('Dechuck,Pump,Vent,Transfer');
+    expect(screen.getByTestId('hw-compare-summary-visible').textContent).toBe('PM1,PM3,PM4');
+    fireEvent.click(screen.getByRole('button', { name: '전체' }));
+    expect(screen.getByTestId('hw-compare-summary-visible').textContent).toBe('PM1,PM3,PM4');
+  });
+
+  it.each([
+    ['delayed', () => ({ status: 'loading' as const, response: null, missing: [], completedAt: null, refetch: () => undefined })],
+    ['failed', () => ({ status: 'done' as const, missing: [], completedAt: 1, refetch: () => undefined, response: { outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'fixture', message: 'boom' } as ApiResponse<HwTimeLevelData> })],
+  ])('a %s composition leaves the legend without Module rows: nothing to drill, no Motion request carries a Module id', async (_name, pending) => {
+    data.level.mockImplementation((drill: HwTimeDrill, enabled: boolean) => (drill.drillModule && !drill.drillMotion && enabled ? pending() : done(fixtureFor(drill))));
+    await renderPage('&drillModule=PM2');
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: '계층 범례' })); });
+    const tree = await screen.findByRole('tree', { name: '계층 범례' });
+    expect(within(tree).queryByRole('treeitem')).toBeNull();
+    expect(screen.queryByRole('button', { name: /단계로 이동/ })).toBeNull();
+    fireEvent.keyDown(tree, { key: 'Enter' });
+    expect(searchParams().has('drillMotion')).toBe(false);
+    expect(data.level.mock.calls.every(([drill, on]) => !(on && drill.drillMotion))).toBe(true);
   });
 
   it('a hidden Motion does not carry over to another Module', async () => {

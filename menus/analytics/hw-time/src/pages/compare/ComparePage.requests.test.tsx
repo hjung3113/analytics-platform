@@ -141,7 +141,7 @@ describe('HW Time compare: UI state never re-queries (real data hooks, counted a
   it('a row highlight sends no request at any step', async () => {
     await renderPage('&drillModule=PM1&drillMotion=Pump');
     const before = levelRequests().length;
-    navigateTo('&drillModule=PM1&drillMotion=Pump&row=EQ-001.H2'); await settle();
+    await navigateTo('&drillModule=PM1&drillMotion=Pump&row=EQ-001.H2'); await settle();
     expect(levelRequests()).toHaveLength(before);
   });
 });

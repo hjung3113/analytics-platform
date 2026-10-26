@@ -5,7 +5,7 @@
  * The composition and the detail share one focused row (`row` page key, ADR-0079).
  */
 import { Inbox, ListTree, SlidersHorizontal, Target } from 'lucide-react';
-import { type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useDrill, useI18n, usePlatform, type PageProps, type QueryState } from '@ap/kernel';
 import { DrillLayout, Inspector, LegendTree, PageKeyWarning, PanelWorkspace, PlatformPage, QueryView, SegmentedRadio, StateMessage, type InspectorSection, type PanelWorkspacePanel, type PanelWorkspacePreset } from '@ap/components';
 import { Checkbox } from '@ap/ui';
@@ -51,11 +51,16 @@ export default function ComparePage(_props: PageProps) {
   const drillTo = (id: string) => drill.enter(drill.depth === 0 ? 'drillModule' : 'drillMotion', id);
   // Only a chosen Motion is a drilled node among the legend series; the Module is not one of the Motion nodes.
   const currentId = drill.depth === 2 ? motion : null;
-  // Keyed by what changes the series set: the Module and the depth. A sibling Motion switch keeps the same composition series, so hidden Motions stay hidden.
+  // Hidden series are per panel input, never per drill depth (#912 C1): the summary's Modules are independent of any drill; the composition's Motions
+  // are keyed by its Module input alone (a Motion step of the same Module keeps them; the detail shares this set); a hook-owned set is unused.
   // The URL `row` is the truth: any drill step clears it in the same navigation (manifest `drill.resetKeys`, 06 §6.4), and the Frame names only a
   // row it draws. `revealTrend` is off: adding a row to the trend leaves the detail tab active and only the trend badge changes (#912 a).
-  const state = useHwTimeLevelState({ hiddenKey: `${module ?? ''}/${drill.depth}`, row: true });
-  const { invalid, sort, sortText, row, trendRows, hidden, setHidden, notice } = state;
+  const state = useHwTimeLevelState({ hiddenKey: '', row: true });
+  const { invalid, sort, sortText, row, trendRows, notice } = state;
+  const [summaryHidden, setSummaryHidden] = useState<string[]>([]);
+  const [moduleHiddenState, setModuleHiddenState] = useState<{ module: string | null; ids: string[] }>({ module: null, ids: [] });
+  const moduleHidden = moduleHiddenState.module === module ? moduleHiddenState.ids : [];
+  const setModuleHidden = (ids: string[]) => setModuleHiddenState({ module, ids });
   const enabled = drill.invalid === null && invalid === null;
   // One query per panel, each projecting only its own drill keys (#912 §5). A panel whose input is missing sends nothing; its placeholder
   // identity (`''`) differs from the summary's, so a disabled query never reads another panel's cached answer.
@@ -73,8 +78,14 @@ export default function ComparePage(_props: PageProps) {
   const summaryData = okData(summaryQ, true);
   const moduleData = okData(moduleQ, module !== null);
   const detailData = okData(detailQ, module !== null && motion !== null);
-  // The legend and the target counts follow the deepest series set that is loaded: the Motions of the chosen Module, else the Modules.
-  const context: HwTimeBlock | null = moduleData ?? summaryData;
+  // The legend and the target counts follow the selected input: the Modules without one, the Motions of the chosen Module with one. While that
+  // composition is pending, failed or empty the legend says so; it never falls back to the Module rows (they would be drilled as Motions).
+  const context: HwTimeBlock | null = module === null ? summaryData : moduleData;
+  const hidden = module === null ? summaryHidden : moduleHidden;
+  const setHidden = module === null ? setSummaryHidden : setModuleHidden;
+  const legendState = module === null || context ? null
+    : moduleQ.response && moduleQ.response.outcome !== 'ok' ? (ko ? '구성을 불러오지 못했습니다.' : 'The composition could not be loaded.')
+      : ko ? '구성을 불러오는 중입니다.' : 'Loading the composition.';
   const detailBlock: HwTimeBlock | null = detailData ? (detailData.level === 2 ? detailData.detail ?? EMPTY_BLOCK : EMPTY_BLOCK) : null;
   const counts = state.countsOf(context);
 
@@ -92,7 +103,7 @@ export default function ComparePage(_props: PageProps) {
       summary: counts ?? undefined,
       render: () => counts
         ? <p className="t-caption text-text-secondary">{counts[lang]}</p>
-        : <p className="t-caption text-text-muted">{ko ? '불러오는 중입니다.' : 'Loading.'}</p>,
+        : <p className="t-caption text-text-muted">{legendState ?? (ko ? '불러오는 중입니다.' : 'Loading.')}</p>,
     },
     {
       id: 'legend', title: { ko: '계층 범례', en: 'Legend' }, icon: ListTree,
@@ -102,7 +113,7 @@ export default function ComparePage(_props: PageProps) {
         visible={new Set(visibleIds)}
         onVisibleChange={next => setHidden(legendSeries.map(item => item.id).filter(id => !next.has(id)))}
         onDrill={drillTo} canDrill={() => true} currentId={currentId}
-          emptyText={ko ? '표시할 범례가 없습니다.' : 'No legend to show.'} />,
+          emptyText={legendState ?? (ko ? '표시할 범례가 없습니다.' : 'No legend to show.')} />,
     },
     {
       id: 'options', title: { ko: '옵션', en: 'Options' }, icon: SlidersHorizontal, summary: { ko: optionText, en: optionText },
@@ -145,8 +156,8 @@ export default function ComparePage(_props: PageProps) {
   const stackProps = {
     sort, startAlign: align, minMax: minmax, rowPitch: scroll ? 26 : null,
   } as const;
-  const visibleOf = (block: HwTimeBlock) => block.series.map(item => item.id).filter(id => !hidden.includes(id));
-  const setVisible = (block: HwTimeBlock) => (ids: string[]) => setHidden(block.series.map(item => item.id).filter(id => !ids.includes(id)));
+  const visibleOf = (block: HwTimeBlock, hiddenIds: string[]) => block.series.map(item => item.id).filter(id => !hiddenIds.includes(id));
+  const setVisible = (block: HwTimeBlock, setHiddenIds: (ids: string[]) => void) => (ids: string[]) => setHiddenIds(block.series.map(item => item.id).filter(id => !ids.includes(id)));
 
   const trendPanel: PanelWorkspacePanel = {
     id: 'trend', title: { ko: '추세', en: 'Trend' },
@@ -170,7 +181,7 @@ export default function ComparePage(_props: PageProps) {
       : { ko: 'Module별', en: 'By Module' }, render: () =>
       <PanelFill><QueryView fill query={summaryQ} widgetName={ko ? 'Module별 동작시간' : 'Operation time by Module'} hideWidgetName skeletonRows={6}>
         {data => <StackPanel chartId="hw-compare-summary" title={ko ? 'Module별 동작시간' : 'Operation time by Module'} block={data}
-          visibleSeriesIds={visibleOf(data)} onVisibleSeriesChange={setVisible(data)} {...stackProps}
+          visibleSeriesIds={visibleOf(data, summaryHidden)} onVisibleSeriesChange={setVisible(data, setSummaryHidden)} {...stackProps}
           onActivate={({ seriesId }) => drill.enter('drillModule', seriesId)} />}
       </QueryView></PanelFill> },
     { id: 'module', title: module
@@ -181,7 +192,7 @@ export default function ComparePage(_props: PageProps) {
       ? waiting(ko ? 'Module을 고르세요' : 'Choose a Module')
       : <PanelFill><QueryView fill query={moduleQ} widgetName={ko ? `Module ${module} 구성` : `Module ${module} composition`} hideWidgetName skeletonRows={6}>
         {data => <StackPanel chartId="hw-compare-module" title={ko ? `Motion별 동작시간 — Module ${module}` : `Operation time by Motion — Module ${module}`} block={data}
-          visibleSeriesIds={visibleOf(data)} onVisibleSeriesChange={setVisible(data)} {...stackProps} {...rowFocus}
+          visibleSeriesIds={visibleOf(data, moduleHidden)} onVisibleSeriesChange={setVisible(data, setModuleHidden)} {...stackProps} {...rowFocus}
           onActivate={({ seriesId }) => drill.enter('drillMotion', seriesId)} rowActions={state.rowActionsOf} />}
       </QueryView></PanelFill> },
     { id: 'detail', title: motion ? { ko: `Motion ${motion} 상세`, en: `Motion ${motion} detail` } : { ko: 'Motion 상세', en: 'Motion detail' }, render: () => !module || !motion
@@ -193,7 +204,7 @@ export default function ComparePage(_props: PageProps) {
             ? <StateMessage icon={<Inbox className="size-4" aria-hidden />} title={ko ? `${module} Module에는 ${motion} 동작 기록이 없습니다` : `No ${motion} records for Module ${module}`}
               body={ko ? 'Module의 다른 Motion은 한 단계 위에서 볼 수 있습니다.' : 'Other Motions of this Module are one level up.'} />
             : <StackPanel chartId="hw-compare-detail" title={ko ? `Motion ${motion} 상세 — Module ${module}` : `Motion ${motion} detail — Module ${module}`} block={det}
-              visibleSeriesIds={visibleOf(det).filter(id => visibleIds.includes(id))} onVisibleSeriesChange={setVisible(moduleBlock)} {...stackProps} {...rowFocus} rowActions={state.rowActionsOf} />;
+              visibleSeriesIds={visibleOf(det, moduleHidden)} onVisibleSeriesChange={setVisible(moduleBlock, setModuleHidden)} {...stackProps} {...rowFocus} rowActions={state.rowActionsOf} />;
         }}
       </QueryView></PanelFill> },
     trendPanel,
