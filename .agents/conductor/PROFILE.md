@@ -6,7 +6,7 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
 
 ## Flow
 
-- `<base>`는 `main` 하나다(develop 없음). 병합은 squash로 한다. 릴리스는 보드 문서 PR → 태그 + GitHub Release이고, SDK·앱 릴리스를 누가 언제 내는지는 [`LANES.md`](LANES.md)다.
+- `<base>`는 `main` 하나다(develop 없음). 병합은 squash로 한다. 릴리스 순서와 담당은 [`LANES.md`](LANES.md) §팀장 릴리스다.
 - 브랜치는 `feat/<n>-<slug>`. `$MAIN`은 `AP_MAIN`(메인 체크아웃 경로)이고, worktree는 Orca가 정한 위치를 이름(`<n>-<slug>`)으로 찾는다.
 - 공통 도구(`launch-worker`·`review-plan`·`worker-hygiene`·`wave-status`)는 전역 엔진이다: `$ENGINE` = `~/.agents/skills/issue-wave-conductor/scripts`. 이 레포 설정은 [`conductor.json`](conductor.json)(base·브랜치·설치·리뷰 규칙·플래그·hygiene·미리보기 판정), 템플릿 덧붙임은 [`addenda/`](addenda/)다(#394). 규칙을 바꾸면 설정을 고친다 — 엔진 원본과 테스트는 provider 정식 체크아웃 `~/orca/projects/conductor-engine`(설치는 아래 Tools).
 - `WAVE_BRIEFS`는 `$AP_MAIN/.review/wave/`(`.review/`는 `.git/info/exclude`).
@@ -127,7 +127,7 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
 
 - 품질 리뷰 범위는 `<직전 태그>...origin/main`이다.
 - 화면이 바뀐 슬라이스면 `origin/main` 미리보기로 사용자 흐름을 `review-ux`로 본다.
-- 그다음 보드 문서 PR → 태그 + GitHub Release → 다음 슬라이스를 사용자에게 묻는다. 릴리스 명령은 `SHA=$(git rev-parse origin/main)`로 시작해 `gh release create --target "$SHA"`에 전체 SHA를 준다(짧은 SHA는 `target_commitish is invalid`).
+- 그다음 순서(문서 점검·소개 사이트 갱신 포함)는 [`LANES.md`](LANES.md) §팀장 릴리스가 원본이다. 끝나면 다음 슬라이스를 사용자에게 묻는다. 릴리스 명령은 `SHA=$(git rev-parse origin/main)`로 시작해 `gh release create --target "$SHA"`에 전체 SHA를 준다(짧은 SHA는 `target_commitish is invalid`).
 - 인계 전 `$ENGINE/app-preview.py status`에 추적 중인 미리보기가 없어야 한다.
 
 ## Tools
