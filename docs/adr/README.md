@@ -94,6 +94,7 @@
 | [0084](0084-legend-tree-drill.md) | LegendTree 드릴은 보이기와 분리한다 — 시리즈 줄은 체크박스·이름 = 보이기 + hover 단계 버튼, `drillOnly` 줄은 줄 클릭 = 드릴, Enter는 모두 드릴(대안: b1 이름 클릭 드릴 / b2 버튼만 — 조합 선택) | Decided(2026-10-25, 코디네이터(사용자 위임, Opus xhigh 리뷰 반영), 되돌릴 수 있다) — #580 노드 580e, 0057 보충 |
 | [0085](0085-entity-audit-cursor-pages.md) | 목적지 감사 `entityAudit`은 서버 상한(50)·keyset 커서로 쪽을 나누고, `AuditTimeline`은 목록 끝 `이전 변경 이력 더 보기` 버튼으로 이어 붙인다(대안: B 총건수·`N/M건` 표시 / C 전역 감사 화면으로 넘기기 — A 선택) | Decided(2026-10-26, 코디네이터(사용자 지시: 시안은 Opus xhigh 리뷰 후 결정), 되돌릴 수 있다) — #826 |
 | [0086](0086-kernel-query-engine-tanstack.md) | Kernel 조회 수명주기는 내부 엔진으로 TanStack Query를 쓴다 — 공유 키로 요청 중복 제거, 5분 메모리 SWR, 세션 세대 키로 이전 사용자 데이터 제거(대안: A Kernel 자체 중복 제거 / C TanStack을 SDK 조회 API로 공개 / D 하지 않음 — B 선택) | Decided(2026-10-26, 사용자 방향 + 코디네이터, 되돌릴 수 있다) — #825 |
+| [0087](0087-board-minimize-restore-history.md) | 분석 보드는 URL이 최대화의 정본이고 `live`만 저장한 채 마운트를 유지하며 열기·최소화·복원·`분석 보드에 열기…`는 history replace로 전이한다(대안: a 언마운트 / b `history.back()` 최소화 / c 별도 mode 저장 — d 선택) | Decided(2026-10-27, 코디네이터(사용자 결정: 칩 + 레일 상태 표시), 되돌릴 수 있다) — #893 |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 

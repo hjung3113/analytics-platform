@@ -301,3 +301,17 @@ it('external open rereads and preserves arrangement edits made while its dialog 
   expect(stored().sheets[0].arrangement).toEqual(live.sheets[0].arrangement);
   expect(stored().sheets[0].panes[1]?.menuId).toBe('alpha');
 });
+
+describe('분석 보드에 열기… transition (893c, C10)', () => {
+  it('opens the board with a replace, like the rail and the chip: no history entry is added', async () => {
+    seed(boardOf([sheet('a', { panes: [beta] })]));
+    mount(`/alpha?${w1}`);
+    await settle();
+    const push = vi.spyOn(window.history, 'pushState');
+    const dialog = await openDialog();
+    fireEvent.click(within(dialog).getByRole('button', { name: '열기' }));
+    await settle();
+    expect(window.location.pathname).toBe('/board');
+    expect(push).not.toHaveBeenCalled();
+  });
+});

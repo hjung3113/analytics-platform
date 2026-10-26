@@ -1,10 +1,12 @@
 import { useContext } from 'react';
 import { CircleHelp, ExternalLink, LayoutGrid, Languages, LogOut, MessageSquarePlus, Search } from 'lucide-react';
 import { useI18n } from '@ap/kernel';
-import { BOARD_PATH, useHostPlatform } from '@ap/kernel/host';
+import { useHostPlatform } from '@ap/kernel/host';
 import { cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger, shortcutLabel, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { SystemSwitcher } from './SystemSwitcher';
 import { placeableMenus } from './board/boardMenus';
+import { useBoardPresentation } from './board/boardPresentation';
+import { boardText } from './board/text';
 import { NotificationsBell } from './NotificationsBell';
 import { firstOpenableMenu, useSystemSections } from './systemSections';
 import { VocDrawerContext } from './VocDrawer';
@@ -12,14 +14,17 @@ import { VocDrawerContext } from './VocDrawer';
 /** System switcher, the current system's section buttons and global tools; the app keeps ownership of topBarTools. */
 export function AppRail() {
   const voc = useContext(VocDrawerContext);
-  const { slots, user, setPaletteOpen, navigate, linkTo, can, canOpen, registry, platformScreen } = useHostPlatform();
+  const { slots, user, setPaletteOpen, navigate, linkTo, can, canOpen, registry } = useHostPlatform();
   const { t, tx, lang, setLang } = useI18n();
   const overallLabel = lang === 'ko' ? 'FeedbackOps 전체 — 새 탭' : 'FeedbackOps overall — new tab';
   const systems = useSystemSections();
   const overall = slots.feedbackOps?.overall ?? null;
   // The board is offered only where something can be placed on it: the same menus the empty pane lists (docs/16 §4).
   const showBoard = placeableMenus(registry, canOpen).length > 0;
-  const boardLabel = lang === 'ko' ? '분석 보드' : 'Analysis board';
+  const board = useBoardPresentation();
+  const boardCopy = boardText(lang);
+  // Three states told by words, not by colour: closed, open (this screen), minimized (a shape on the icon too).
+  const boardLabel = board.maximized ? boardCopy.railOpen : board.minimized ? boardCopy.railMinimized : boardCopy.railClosed;
   const vocLabel = lang === 'ko' ? 'VOC 등록' : 'File a VOC';
   return <TooltipProvider delayDuration={200}>
     <nav aria-label={lang === 'ko' ? '앱 레일' : 'App rail'} className="flex h-full w-(--rail-width) shrink-0 flex-col items-center gap-1.5 overflow-y-auto border-r border-border-subtle bg-surface-sidebar pb-3">
@@ -46,8 +51,12 @@ export function AppRail() {
           className="grid size-8 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover"><Search className="size-4" aria-hidden /></button>
       </TooltipTrigger><TooltipContent side="right">{t('searchPlaceholder')} · {shortcutLabel('K')}</TooltipContent></Tooltip>
       {showBoard && <Tooltip><TooltipTrigger asChild>
-        <button type="button" onClick={() => { if (platformScreen !== 'board') navigate(BOARD_PATH, { focus: 'page', via: 'sidebar' }); }} aria-label={boardLabel} aria-current={platformScreen === 'board' ? 'page' : undefined}
-          className={cn('grid size-8 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover', platformScreen === 'board' && 'bg-surface-row-selected text-accent-primary')}><LayoutGrid className="size-4" aria-hidden /></button>
+        <button type="button" data-board-state={board.maximized ? 'open' : board.minimized ? 'minimized' : 'closed'} aria-label={boardLabel} aria-current={board.maximized ? 'page' : undefined}
+          onClick={() => { if (board.minimized) board.restore(boardCopy.announceRestored); else if (!board.maximized) board.open(); }}
+          className={cn('relative grid size-8 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover', board.maximized && 'bg-surface-row-selected text-accent-primary', board.minimized && 'text-accent-primary')}>
+          <LayoutGrid className="size-4" aria-hidden />
+          {board.minimized && <span data-board-minimized-mark aria-hidden className="absolute bottom-0.5 right-0.5 size-2 rounded-xs border border-accent-primary bg-surface-sidebar" />}
+        </button>
       </TooltipTrigger><TooltipContent side="right">{boardLabel}</TooltipContent></Tooltip>}
       {voc && <Tooltip><TooltipTrigger asChild>
         <button ref={voc.railButton} type="button" onClick={voc.toggle} aria-expanded={voc.visible} aria-controls={voc.panelId} aria-label={voc.draftHidden ? `${vocLabel} (${lang === 'ko' ? '작성 중' : 'draft'})` : vocLabel}

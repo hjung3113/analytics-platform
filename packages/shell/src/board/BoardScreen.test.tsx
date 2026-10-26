@@ -609,8 +609,9 @@ describe('narrow stacking (docs/16 §4)', () => {
     act(() => { notify(600); });
     expect(paneGroup(2)).toHaveFocus();
     act(() => { notify(764); });
-    expect(paneGroup(2)).toHaveFocus();
-    expect(screen.getByRole('button', { name: '칸 2 최대화' })).toBeInTheDocument();
+    // The maximize intent outlives the stacking (893c fix 1): wide again, pane 2 is maximized again and its restore button has the focus.
+    expect(screen.getByRole('button', { name: '원래 크기로' })).toHaveFocus();
+    expect(paneGroup(2)).toContainElement(screen.getByRole('button', { name: '원래 크기로' }));
   });
 
   it('does not steal focus on stacking from a surviving control or an outgoing sheet', async () => {
@@ -621,7 +622,7 @@ describe('narrow stacking (docs/16 §4)', () => {
     act(() => { collapse.focus(); notify(600); });
     expect(collapse).toHaveFocus();
     act(() => { notify(764); });
-    fireEvent.click(screen.getByRole('button', { name: '칸 2 최대화' }));
+    expect(screen.getByRole('button', { name: '원래 크기로' })).toBeInTheDocument();
     const oldPane = paneGroup(2);
     fireEvent.click(screen.getByRole('tab', { name: 'b' }));
     await settle();
@@ -693,7 +694,7 @@ describe('shell entry (docs/16 §4, §8)', () => {
     expect(window.location.pathname).toBe('/board');
     expect(document.querySelector('aside[data-collapsed]')).toBeNull();
     expect(screen.getByRole('heading', { name: '분석 보드' })).toHaveFocus();
-    expect(screen.getByRole('button', { name: '분석 보드' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('button', { name: '분석 보드(열림)' })).toHaveAttribute('aria-current', 'page');
   });
 
   it('keeps the arrival heading out of the Tab order and ringless, so the next Tab lands on the first control with its normal ring', async () => {

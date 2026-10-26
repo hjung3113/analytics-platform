@@ -89,7 +89,8 @@ function OpenInBoardDialogBody({ control }: { control: HeaderOverflowDialogContr
     }
     if (after.readOnly) { setProblem(text.boardNotSaved); return; }
     control.close();
-    navigate(`${BOARD_PATH}?sheet=${encodeURIComponent(next.activeSheetId)}`, { focus: 'page', via: 'board' });
+    // The same transition as the rail's open and the chip's restore: a replace, so a board opened from here never adds a history entry.
+    navigate(`${BOARD_PATH}?sheet=${encodeURIComponent(next.activeSheetId)}`, { replace: true, focus: 'page', via: 'board' });
   };
   const pick = (value: string) => { setDestination(value as Destination); setSheetId(''); setPaneIndex(null); setProblem(null); };
 
