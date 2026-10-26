@@ -53,9 +53,9 @@ E2E는 `E2E_PORT=<포트>`로, base-path E2E는 `E2E_BASE_PATH_PORT=<포트 + 1>
 
 ## 기계 자원(16GB)
 
-- [`PROFILE.md`](PROFILE.md) §Launch의 동시 작업자 1–2개는 기계 전체의 한도다. 흐름 세션은 동시에 3개까지 띄우고(2026-10-26, 세션 3개가 루트 검사를 겹쳐 돌린 부하 평균 40에서 무관한 테스트가 시간 초과), 작업자(구현·리뷰)는 자리 둘 중 하나를 잡은 세션만 띄운다: `mkdir "$AP_MAIN/.review/worker-slot-1"`(실패하면 `-2`)이 성공하면 띄우고, 그 작업자가 끝나면 `rmdir`로 푼다. 둘 다 실패하면 기다리는 동안 호스트 검증·문서 일을 한다.
-- 무거운 단계는 기계 전체에서 하나씩 돈다: 루트 `pnpm test`·`build`, 전체 `pnpm e2e`, `probe.ts`, FeedbackOps integration, 미리보기·ego-browser 단계(UX 리뷰, 캡처). `mkdir "$AP_MAIN/.review/heavy.lock" && echo "$ORCA_TERMINAL_HANDLE" > "$AP_MAIN/.review/heavy.lock/owner"`이 성공한 세션만 시작한다. 푸는 것은 `owner`가 자기 handle일 때만이다(`[ "$(cat …/owner)" = "$ORCA_TERMINAL_HANDLE" ] && trash …/heavy.lock`, `rm`은 전역 훅이 막는다) — 남의 잠금을 지운 일이 있었다(2026-10-26). 아래 작업자 자리·병합 잠금도 같은 방식이다. 실패하면 그 이슈는 기다리고 다른 일을 한다. 좁힌 E2E(`-g`)와 패키지 단위 검사는 잠그지 않는다.
-- 팀장은 정기 점검 때 잠금·자리가 90분을 넘었으면 `pgrep -fl 'vitest|playwright|turbo'`와 `lsof -a -p <PID> -d cwd`로 주인을 찾고, 주인이 없으면 푼다. swap이 늘면(`memory_pressure`) 흐름 세션 수를 줄인다.
+- [`PROFILE.md`](PROFILE.md) §Launch의 동시 작업자 1–2개는 기계 전체의 한도다. 흐름 세션은 동시에 3개까지 띄우고(2026-10-26, 세션 3개가 루트 검사를 겹쳐 돌린 부하 평균 40에서 무관한 테스트가 시간 초과), 이 한도는 이 저장소 일을 하는 모든 Claude 세션(AP 밖 cwd의 fo·ev 세션, 「사용자 시작」 세션 포함)이 센다. 넘으면 `대기` 상태인 세션부터 닫고, 사용자 시작 세션은 닫지 않고 사용자에게 알린다. 작업자(구현·리뷰)는 자리 둘 중 하나를 잡은 세션만 띄운다: 작업자마다 자리를 잡고(`$AP_MAIN/.review/worker-slot-1`, 실패하면 `-2`; 잡는 법은 아래 잠금과 같다), 그 작업자가 끝나면 바로 푼다. 구현이 끝나 리뷰어를 띄울 때는 풀었다가 다시 잡는다 — 단계 사이에 자리를 쥐고 있지 않는다. 둘 다 잡혀 있으면 자리 없이 작업자(리뷰어 포함)를 띄우지 않는다(#899에서 어겼다). 기다리는 동안 호스트 검증·문서 일을 하고, 자리 없이 할 수 있는 다른 일이 없으면 `<흐름>: 대기 #n 자리 없음`을 팀장에게 보낸다.
+- 무거운 단계는 기계 전체에서 하나씩 돈다: 루트 `pnpm test`·`build`, 전체 `pnpm e2e`, `probe.ts`, FeedbackOps integration, 미리보기·ego-browser 단계(UX 리뷰, 캡처). `mkdir "$AP_MAIN/.review/heavy.lock" && echo "$ORCA_TERMINAL_HANDLE" > "$AP_MAIN/.review/heavy.lock/owner"`이 성공한 세션만 시작한다. 푸는 것은 `owner`가 자기 handle일 때만이다(`[ "$(cat …/owner)" = "$ORCA_TERMINAL_HANDLE" ] && trash …/heavy.lock`, `rm`은 전역 훅이 막고, owner 파일이 있어 `rmdir`은 안 된다) — 남의 잠금을 지운 일이 있었다(2026-10-26). 이 잡기·풀기가 `heavy.lock`·`worker-slot-1|2`·`merge.lock` 셋의 유일한 방법이다(디렉터리 이름만 바꾼다). 팀장의 점검 해제만 예외다(아래). 실패하면 그 이슈는 기다리고 다른 일을 한다. 좁힌 E2E(`-g`)와 패키지 단위 검사는 잠그지 않는다.
+- 팀장은 정기 점검 때 `heavy.lock`·`worker-slot-*`·`merge.lock`마다 `owner` handle을 `orca terminal list`와 대조한다(팀장도 `trash`로 푼다). 풀어도 되는 경우는 위에서부터 첫 번째다: ① 디렉터리가 5분 넘게 `owner` 없이 있거나 handle이 이미 닫혔다 → 바로 푼다. ② 주인 세션이 살아 있지만 `orca worktree ps`·`wave-status.py --state-dir <WAVE_STATE>`로 본 작업자가 없다 → 주인 흐름에 풀라고 보내고 다음 점검(최대 2시간)까지 그대로면 푼다. ③ 90분이 넘었고 작업자도 있다 → `pgrep -fl 'vitest|playwright|turbo'`와 `lsof -a -p <PID> -d cwd`로 실제 프로세스가 도는지 보고, 없으면 푼다. swap이 늘면(`memory_pressure`) 흐름 세션 수를 줄인다.
 
 ## 흐름 세션
 
@@ -64,9 +64,10 @@ E2E는 `E2E_PORT=<포트>`로, base-path E2E는 `E2E_BASE_PATH_PORT=<포트 + 1>
 - **시작:** 지시서 파일을 읽는다. 병합 권한은 지시서에 적힌 사용자 권한(모양·날짜)이다. 다시 묻지 않고 `AskUserQuestion`도 쓰지 않는다 — 답할 사람이 없어 흐름이 멈춘다.
 - **사용자 몫:** 시안 컨펌(아티팩트 링크), 06 계약을 바꾸는 결정, 테스트 삭제, 새 메뉴 화면 3개 이상, 전역 도구 업데이트는 `<흐름>: 질문 #n`으로 보낸다. 그 이슈는 멈추고 다른 배정을 진행한다. 그 밖의 판단은 스킬 Decisions대로 스스로 정하고 기록한다.
 - **배정 사이:** 하나가 끝나면 이슈 코멘트의 순서대로 다음 이슈를 바로 시작한다. 모두 끝나면 `<흐름>: 대기`를 보내고, 새 배정이 올 때까지 아무것도 띄우지 않는다.
-- **교대:** 스킬 Session hygiene 한도에 가까우면 흐름 worktree 루트의 `HANDOFF.md`를 고친 뒤 `<흐름>: 교대`를 보낸다. 팀장이 `/clear`를 넣고, 이어서 "지시서를 다시 읽고 HANDOFF.md로 잇는다"를 넣는다.
-- **병합:** PR은 기계 전체에서 하나씩 병합한다(루트 AGENTS.md). `ship-pr.sh`를 돌리는 동안(rebase → CI → 병합) `mkdir "$AP_MAIN/.review/merge.lock"`을 잡고, 끝나면 `rmdir`. 병합한 뒤 `main` CI가 실패하면 `<흐름>: main 깨짐`을 보내고 고친다. 팀장은 그동안 다른 흐름의 병합을 멈춘다.
+- **교대:** 터미널 상태줄의 `ctx:`가 60%를 넘으면(2026-10-26 fo 세션이 67%, 자동 요약 직전까지 갔다) 이슈 하나를 끝내는 조용한 때에 교대한다. 흐름 세션은 모델에게 상태줄이 보이지 않으므로 배정이 끝날 때마다 `orca terminal read --terminal "$ORCA_TERMINAL_HANDLE" --screen | grep -o 'ctx:[0-9]*%'`로 확인하고, 팀장도 정기 점검에서 흐름 터미널 화면의 `ctx:`를 읽어 60%를 넘었으면 `교대`를 지시한다(받은 세션은 진행 중인 이슈를 마무리한 뒤 `교대`를 보낸다). 75%를 넘으면 이슈 중간이라도 `HANDOFF.md`에 진행 중인 일을 적고 바로 교대한다. ctx%가 우선 기준이고 스킬의 토큰 한도는 보조다. 스킬 Session hygiene 한도에 가까울 때도 같다. 교대는 흐름 worktree 루트의 `HANDOFF.md`를 고친 뒤 `<흐름>: 교대`를 보내는 것이다. 팀장이 `/clear`를 넣고, 이어서 "지시서를 다시 읽고 HANDOFF.md로 잇는다"를 넣는다.
+- **병합:** PR은 기계 전체에서 하나씩 병합한다(루트 AGENTS.md). `ship-pr.sh`를 돌리는 동안(rebase → CI → 병합) `merge.lock`을 잡고(위 잠금 방법) 끝나면 푼다. 병합한 뒤 `main` CI가 실패하면 `<흐름>: main 깨짐`을 보내고 고친다. 팀장은 그동안 다른 흐름의 병합을 멈춘다.
 - **전체 E2E:** 시작·끝을 팀장에게 한 줄로 알린다.
+- **이슈 올리기 전 중복 확인:** 흐름 세션은 새 이슈(테스트 간헐 실패, 함정, 후속)를 열기 전에 `gh issue list --state all --limit 20 --search "<키워드·테스트 이름·파일>"`로 열린 이슈와 최근에 닫은 이슈를 본다. 같은 원인이면 새로 열지 않고 기존 이슈에 코멘트로 더한다(`.planning/README.md` 줄 정리는 팀장 몫이다)(#897이 #741과 같은 간헐 실패를 따로 기록해 #741로 합쳤다).
 
 ## 팀장
 
@@ -76,6 +77,10 @@ E2E는 `E2E_PORT=<포트>`로, base-path E2E는 `E2E_BASE_PATH_PORT=<포트 + 1>
   - 흐름 세션은 `orca orchestration send --run <run> --to run:<run> --from "$ORCA_TERMINAL_HANDLE" --type status --subject "<흐름>: <병합|막힘|질문|착수|대기|교대|main 깨짐|E2E> [#n]" --body <세 문장>`으로 알린다.
   - 팀장은 `orca orchestration check --run <run> --wait`를 백그라운드로 걸어 두고 깰 때마다 다시 건다. 질문이 정기 보고까지 묵지 않게 하려는 것이다.
   - `orchestration dispatch --inject`는 쓰지 않는다. 그 작업자 머리말은 실행 중 GitHub 게시를 막고 5분 heartbeat를 요구해, PR을 올리고 병합하는 흐름 세션과 맞지 않는다(드라이런 확인, 2026-10-26). Claude 세션 간 메시지(`SendMessage`)는 권한 모드가 같은 세션에만 닿으므로 보조로만 쓴다.
+  - **보내기 전 화면 확인과 보낸 뒤 확인:** 위 확인에 더해 피드백 초안이 떠 있거나 입력란에 글이 남아 있어도 넣지 않는다(#825 세션에서 어겼다). 넣을 수 없으면 다음 점검에 다시 보고, 한 주기가 넘게 그대로면 사용자에게 그 화면(사용자가 보는 세션이다)을 정리해 달라고 알린다. `terminal send --enter`가 Claude TUI에 `no turn start was observed` 경고를 내도 세 번 모두 실제로는 전달됐다. 경고를 실패로 보고 다시 보내지 않는다: 보낸 뒤 `orca terminal read --screen`으로 입력이 들어갔는지 확인하고, 없을 때만 한 번 더 보낸다.
+  - `orchestration check --wait --json` 출력은 JSON 앞에 `{"_keepalive":…}` 줄이 붙는다. 바로 파싱하지 말고 그 줄을 걸러(`grep -v '^{"_keepalive"'` 등) 읽는다. `send` 경고와 이 keepalive 줄은 Orca 쪽 동작이라 conductor-engine 이슈로도 올렸다([conductor-engine#131](https://github.com/hjung3113/conductor-engine/issues/131)).
+- **흐름 밖 세션(사용자 시작):** 사용자가 직접 띄운 세션(2026-10-26 #825 세션: main checkout 터미널, Run 보고 없이 `heavy.lock`·작업자 자리를 잡았다)은 흐름 규칙 밖에 있어 지시도 못 받고 보고도 안 한다. 팀장은 정기 점검에서 `orca terminal list`의 세션과 락·자리 `owner` handle을 `LEAD.md` 흐름 표와 맞춰, 표에 없는 handle(cwd가 AP 밖인 세션도)을 찾는다. 찾으면 `$AP_MAIN/.review/lanes/<흐름>-<이슈>.md` 지시서(흐름 라벨, Run id, 병합 권한 — 사용자가 그 세션에 준 범위 그대로, `AP_MAIN`, `WAVE_STATE`, 포트, "LANES.md §흐름 세션을 따른다")를 쓰고 터미널 입력으로 붙인다(위 전달 경로의 확인 순서). 그 세션은 동시 세션 3개 한도에 들고 팀장 점검 표에는 「사용자 시작」으로 적는다. 사용자가 시킨 일이므로 이슈의 `lane:*` 라벨과 배정 코멘트는 팀장이 사후에 단다. 지시서를 붙일 수 없는 세션(Orca 터미널이 아님)은 사용자에게 알린다.
+- **새 이슈 중복 대조:** 팀장은 정기 점검 때 새로 열린 이슈를 열린 이슈와 대조한다(제목·테스트 이름·파일로 `gh issue list --search`). 같은 원인이면 먼저 번호가 있는 쪽으로 합치고(나중 이슈에 `→ #이전` 코멘트를 남기고 닫는다) `.planning/README.md` 줄을 맞춘다.
 - **흐름 세션 띄우기·닫기:** 할 일이 있는데 세션이 없는 흐름은 팀장이 띄운다.
   - 지시서를 `$AP_MAIN/.review/lanes/<흐름>.md`에 쓴다: 흐름 라벨, Run id, 사용자 병합 권한(모양·날짜), `AP_MAIN`, `WAVE_STATE=$AP_MAIN/.review/wave/state-<흐름>`, E2E 포트, "LANES.md §흐름 세션과 PROFILE.md를 따른다".
   - `orca worktree create --name lane-<흐름> --base-branch origin/main --agent claude --surface terminal --prompt "Read <지시서 절대 경로> and follow it."`. 첫 화면에서 권한 모드를 확인한다.
