@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { loadConfig } from '../../../../config.js';
 import { type DbHandle, createDb } from '../../../../db/client.js';
 import { buildServer } from '../../../../server.js';
@@ -143,6 +143,50 @@ describe.skipIf(!runIntegration)(
       await db.close();
       await ops.close();
     });
+    // A test-only schema shadows now() so a connection can sit on either side of a UTC hour boundary (#934).
+    // Only connections built by clockedDb() put it first in search_path; every other connection keeps pg_catalog.now().
+    const clockSchema = `test_clock_${randomUUID().replaceAll('-', '').slice(0, 12)}`;
+    let baseSearchPath = '';
+    beforeAll(async () => {
+      const admin = createDb(boundedUrl(MIGRATE_URL));
+      try {
+        baseSearchPath = (
+          await admin.pool.query<{ p: string }>("select current_setting('search_path') as p")
+        ).rows[0]?.p as string;
+        await admin.pool.query(`create schema ${clockSchema}`);
+        await admin.pool.query(
+          `create function ${clockSchema}.now() returns timestamptz language sql stable as
+           $$ select coalesce(nullif(current_setting('test.clock', true), '')::timestamptz, pg_catalog.now()) $$`,
+        );
+        await admin.pool.query(`grant usage on schema ${clockSchema} to fops_app`);
+        await admin.pool.query(`grant execute on function ${clockSchema}.now() to fops_app`);
+      } finally {
+        await admin.close();
+      }
+    });
+    afterAll(async () => {
+      const admin = createDb(boundedUrl(MIGRATE_URL));
+      try {
+        await admin.pool.query(`drop schema if exists ${clockSchema} cascade`);
+      } finally {
+        await admin.close();
+      }
+    });
+    function clockedDb(role: string, at: string) {
+      const url = new URL(role);
+      const searchPath = `${clockSchema},pg_catalog,${baseSearchPath.replaceAll(' ', '')}`;
+      url.searchParams.set(
+        'options',
+        `-c statement_timeout=15000 -c lock_timeout=5000 -c search_path=${searchPath} -c test.clock=${at}`,
+      );
+      return createDb(url.toString());
+    }
+    async function clockHourStart(handle: DbHandle) {
+      const { rows } = await handle.pool.query<{ w: Date }>(
+        "select date_trunc('hour', now() at time zone 'UTC') at time zone 'UTC' as w",
+      );
+      return rows[0]?.w as Date;
+    }
     async function dbHourStart() {
       const { rows } = await ops.pool.query<{ w: Date }>(
         "select date_trunc('hour', now() at time zone 'UTC') at time zone 'UTC' as w",
@@ -970,6 +1014,88 @@ describe.skipIf(!runIntegration)(
       const checkWindow = utcHourStart(new Date(runWindow.getTime() + HOUR_MS + 100));
       expect(await admittedAt(checkWindow)).toBeNull();
       expect(await admittedAfter(seedWindow)).toBe(1);
+    });
+    it('serializes two runs written just before a UTC hour; the check just after it: new assertion holds, the pre-#934 one is null', async () => {
+      const before = '2026-10-26T09:59:59.900Z';
+      const after = '2026-10-26T10:00:00.100Z';
+      const runDb = clockedDb(APP_URL, before);
+      const otherDb = clockedDb(APP_URL, before);
+      const checkOps = clockedDb(MIGRATE_URL, after);
+      try {
+        const runWindow = await clockHourStart(runDb);
+        expect(runWindow.toISOString()).toBe('2026-10-26T09:00:00.000Z');
+        const seedWindow = new Date(runWindow.getTime() - HOUR_MS);
+        for (let i = 0; i < 19; i++) {
+          const system = await newMs();
+          await seedPair(system);
+          await ops.pool.query(
+            `insert into voc.voc_cluster_suggestion_admissions(workspace_id,primary_managed_system_id,window_start,new_admissions)
+          values($1,$2,$3,1)`,
+            [ws, system, seedWindow],
+          );
+        }
+        await pair();
+        await pair(await newMs());
+        await Promise.all([run(1, true, runDb), run(1, true, otherDb)]);
+        expect(await rows()).toHaveLength(20);
+        // The check's clock is in the next UTC hour; the runs wrote the previous one.
+        expect((await clockHourStart(checkOps)).toISOString()).toBe('2026-10-26T10:00:00.000Z');
+        expect(await admittedAfter(seedWindow)).toBe(1);
+        expect(await admittedAt(runWindow)).toBe(1);
+        // Pre-#934 assertion: the window read at check time (now() on the check connection, or its helper form).
+        const preFix = await checkOps.pool.query<{ n: number | null }>(
+          "select sum(new_admissions)::int as n from voc.voc_cluster_suggestion_admissions where workspace_id=$1 and window_start=date_trunc('hour', now() at time zone 'UTC') at time zone 'UTC'",
+          [ws],
+        );
+        expect(preFix.rows[0]?.n).toBeNull();
+        expect(await admittedAt(utcHourStart(new Date(after)))).toBeNull();
+      } finally {
+        await runDb.close();
+        await otherDb.close();
+        await checkOps.close();
+      }
+    });
+    it('the sixth hourly admission lands in the new window when the runs straddle a UTC hour; hourStable-style guard sees it', async () => {
+      const early = clockedDb(APP_URL, '2026-10-26T09:59:59.900Z');
+      const late = clockedDb(APP_URL, '2026-10-26T10:00:00.100Z');
+      const earlyOps = clockedDb(MIGRATE_URL, '2026-10-26T09:59:59.900Z');
+      const lateOps = clockedDb(MIGRATE_URL, '2026-10-26T10:00:00.100Z');
+      try {
+        for (let i = 0; i < 6; i++) {
+          const ids = await pair();
+          const vector = JSON.stringify(Array.from({ length: 8 }, (_, j) => (j === i ? 1 : 0)));
+          await ops.pool.query(
+            'update voc.voc_embeddings set dimensions=8,embedding=$2::vector where voc_id=any($1::uuid[])',
+            [ids, vector],
+          );
+        }
+        const identity = { ...testIdentity, dimensions: 8 };
+        await run(1, true, early, identity);
+        expect(await rows()).toHaveLength(5);
+        // Same UTC hour: still five, the sixth is deferred.
+        await run(1, true, early, identity);
+        expect(await rows()).toHaveLength(5);
+        // The guard compares the DB hour on each side of the setup; across the boundary it must throw.
+        expect(() =>
+          assertHourStable(
+            new Date('2026-10-26T09:00:00.000Z'),
+            new Date('2026-10-26T10:00:00.000Z'),
+          ),
+        ).toThrow('UTC hour changed during test setup');
+        expect((await clockHourStart(earlyOps)).getTime()).not.toBe(
+          (await clockHourStart(lateOps)).getTime(),
+        );
+        // Next UTC hour: a fresh bucket admits the sixth pair.
+        await run(1, true, late, identity);
+        expect(await rows()).toHaveLength(6);
+        expect(await admittedAt(new Date('2026-10-26T09:00:00.000Z'))).toBe(5);
+        expect(await admittedAt(new Date('2026-10-26T10:00:00.000Z'))).toBe(1);
+      } finally {
+        await early.close();
+        await late.close();
+        await earlyOps.close();
+        await lateOps.close();
+      }
     });
     it('a stale pending pair releases the workspace cap', async () => {
       for (let i = 0; i < 20; i++) await seedPair(await newMs());
