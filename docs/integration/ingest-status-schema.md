@@ -1,6 +1,6 @@
-# 적재 워커 상태 기록 스키마 (초안)
+# 적재 워커 상태 기록 스키마
 
-상태: **Candidate(초안) — 파서 담당 합의는 Open.** 테이블·필드·코드 이름과 보존 기간 숫자는 모두 Candidate다. 합의되면 [01 가공 상태 보고](../01_architecture_and_data_contract.md#processing-status-report)의 Open을 닫고 이 문서를 Decided로 올린다. 작업 이슈: #37. 소비 화면: 운영 콘솔 모니터링·트레이스(#51), 분석 공간 가공 상태 조회.
+상태: **Decided(2026-10-26) — 파서·워커 담당의 사내 조사 답변으로 §7 Q1–Q7을 닫았다.** 구조와 규칙, 보존 기간 숫자는 확정이다. 테이블·필드·코드 **이름만 Candidate**로 둔다(구현이 시작되면 이름을 확정한다). 작업 이슈: #37. 소비 화면: 운영 콘솔 모니터링·트레이스(#51), 분석 공간 가공 상태 조회.
 
 이 문서는 적재 워커 기록의 **모양과, 그것을 06 §19 평가로 줄이는 규칙**만 다룬다. 원천·최소 기록 항목·노출 수준은 [01 가공 상태 보고](../01_architecture_and_data_contract.md#processing-status-report)가, 응답 모양(`outcome`/`assessments[]`, 가짜 `clear` 금지)과 표시 상태는 [06 §19](../06_platform_ui_contract.md#19-loading--empty--error-taxonomy)가 원본이다.
 
@@ -18,7 +18,7 @@
 | `data_quality_issue`는 레코드 단위 품질 문제이고 정상 커밋의 일부다(`DataQualityCode` 15종). | 품질 이슈는 가공 실패가 아니다. 원인 분류에 넣지 않는다. |
 | 업무 시각은 시간대 없는 설비 wall-clock(`timestamp`), 운영 시각은 `timestamptz`다. PK는 `(equipment_id, date, …)`로 시작하고 global UNIQUE를 요구하지 않는다(`docs/11` §5). `processing_segment.created_at`은 앱이 INSERT 전에 채운다(커밋 시각이 아니다). | 이 스키마도 같은 키 규칙을 따른다. `created_at`은 증거 시각이지 관측 시각이 아니다(§3.3). |
 
-"적재 워커"는 이 문서에서 **Scheduler + raw 변환 + 파서 호출을 묶은 실행 주체**를 뜻한다. 그 코드가 어느 저장소에 있는지는 Open이다(§7 Q1).
+"적재 워커"는 이 문서에서 **스케줄러 + 수집기 + 변환기 + 파서 호출을 묶은 실행 주체**를 뜻하고, 상태 테이블은 이 묶음이 소유하고 쓴다. 실무로는 job 진행상황 DB를 쓰는 스케줄러가 중심이다. 읽기 전용 파일 게이트웨이는 여기에 들지 않는다(§7 Q1).
 
 ## 2. 기록 구조
 
@@ -43,10 +43,11 @@ parser.processing_segment    파서가 이미 쓴다. 파일 커밋 성공의 �
 | `date` | `date` | ✓ | 슬롯의 운영 날짜. 파티션 키 호환용. |
 | `slot_key` | `text` | ✓ | 설비 안에서 유일한 슬롯 키. 날짜가 바뀌면 반복되는 키라면 날짜를 포함한다. |
 | `slot_start` | `timestamp` | ✓ | 슬롯 시작(설비 wall-clock, 포함). |
-| `slot_end` | `timestamp` | ✓ | 슬롯 끝(설비 wall-clock, **배타**). |
-| `wait_until` | `timestamptz` | ✓ | 이 시각까지 파일이 안 오면 미수신으로 판정한다. |
+| `slot_end` | `timestamp` | ✓ | 슬롯 끝(설비 wall-clock, **배타**). `slot_start + 1시간`이다. |
+| `wait_until` | `timestamptz` | ✓ | 이 시각까지 파일이 안 오면 미수신으로 판정한다. **슬롯 끝 + 2시간**이다. |
 | `created_at` | `timestamptz` | ✓ | `DEFAULT now()`. |
 
+- **슬롯 = (설비, 1시간)이다.** 설비마다 1시간 주기로 파일이 생기므로 슬롯은 그 주기에서 기계적으로 유도한다(§7 Q2). 슬롯 목록이 없으면 `clear`가 나오지 않는 규칙(§3.2)은 그대로다.
 - 슬롯은 한 번 쓰면 바뀌지 않는다. 일정이 바뀌면 새 슬롯을 쓰고, 옛 슬롯은 `stage_event`로 `cancelled` 처리한다(§2.3 `result`).
 - 한 슬롯을 어느 파일이 채우는지는 `stage_event.satisfied_by`로 기록한다(§2.3). 파일 하나가 여러 슬롯을 채울 수 있고, 한 슬롯을 여러 파일이 나눠 채울 수도 있다. 한 슬롯이 여러 파일로 채워지면 그 파일들이 모두 커밋돼야 슬롯이 가공 완료다.
 
@@ -59,7 +60,7 @@ parser.processing_segment    파서가 이미 쓴다. 파일 커밋 성공의 �
 | `event_id` | `uuid` | ✓ | 행 식별자. |
 | `unit_kind` | `text` | ✓ | `slot`(expected_slot 단위) · `source_file`(받은 파일) · `delivery`(전달 시도, 트레이스 전용 §3.1). |
 | `unit_key` | `text` | ✓ | `slot`이면 `slot_key`, `source_file`·`delivery`면 `file_name`. `(equipment_id, unit_kind, unit_key)`가 단위 식별자다. |
-| `stage` | `text` | ✓ | `collect` · `convert` · `parse` · `load` · `validate`. |
+| `stage` | `text` | ✓ | `collect` · `convert` · `parse` · `load`. |
 | `result` | `text` | ✓ | `succeeded` · `failed` · `pending` · `cancelled`(슬롯 취소 전용). |
 | `cause_code` | `text` | `failed`·`pending`이면 ✓ | §4.2 내부 원인 코드. |
 | `satisfied_by` | `text[]` | | `slot`의 `collect` `succeeded`일 때 그 슬롯을 채운 `file_name` 목록. |
@@ -67,8 +68,8 @@ parser.processing_segment    파서가 이미 쓴다. 파일 커밋 성공의 �
 | `seq` | `bigint` | ✓ | 단위별 단조 증가 순번. 같은 `attempt` 안의 순서를 정한다. |
 | `data_first_at` | `timestamp` | | 파일 레코드 `DateTime` 최소값(설비 wall-clock, 포함). 트레이스·슬롯 매핑용. |
 | `data_last_at` | `timestamp` | | 파일 레코드 `DateTime` 최대값(포함). |
-| `next_attempt_at` | `timestamptz` | | 워커가 예약한 **다음 재시도 시각**. 해소 예상 시각이 아니다. |
-| `estimated_resolution_at` | `timestamptz` | | 워커가 명시적 추정 정책으로 낸 예상 해소 시각. 정책이 없으면 null이고 사용자 화면에 내지 않는다(§7 Q5). |
+| `next_attempt_at` | `timestamptz` | | 워커가 예약한 **다음 재시도 시각**. 해소 예상 시각이 아니다. 워커가 **상태 행을 쓸 때 계산해 저장한다**(§7 Q5). |
+| `estimated_resolution_at` | `timestamptz` | | 예상 해소 시각. **항상 null이다**(파일 대기는 해소 시점을 추정할 수 없다, §7 Q5). 사용자 화면에 내지 않는다. |
 | `processing_run_id` | `uuid` | | 파서 호출이 있었으면 그 Run. |
 | `segment_id` | `uuid` | | 파서 커밋에 성공했으면 그 Segment. |
 | `logic_version` | `text` | | 파서 호출이 있었으면 `processing_run.logic_version`. |
@@ -93,6 +94,8 @@ parser.processing_segment    파서가 이미 쓴다. 파일 커밋 성공의 �
 | `error_message` | `text` | 원시 메시지. |
 | `error_detail` | `jsonb` | 스택, 예외별 속성(`Reason`, `Stage` 등), 입력 파일 위치 등. |
 | `log_excerpt` | `text` | 해당 단계 로그 일부. 원문 로그 전체 drill-through는 [05](../05_roadmap_and_open_questions.md#결정-상태) defer 결정을 따르며 이 계약으로 열리지 않는다. |
+
+- `trace_id`는 선택 사항이다. 워커가 쓰는 `{설비}:{구간시작}` 형태의 값을 `error_detail`에 실을 수 있다.
 
 ## 3. 06 §19 평가로 줄이는 규칙
 
@@ -119,7 +122,7 @@ parser.processing_segment    파서가 이미 쓴다. 파일 커밋 성공의 �
 1. `[a, b)`와 겹치는 슬롯 가운데 (a) 현재 `collect`가 `pending`(`file_waiting`)이거나, (b) 그 슬롯을 채운 파일 중 하나라도 현재 어느 단계가 `pending`/`failed`이다 → `confirmed`, 원인은 §4.1 사용자 분류(여러 개면 모두).
 2. 다음을 모두 만족한다 → `clear`:
     - 슬롯이 `[a, b)`를 빈틈없이 덮고 모든 슬롯의 `collect`가 `succeeded`다.
-    - 각 슬롯의 `satisfied_by` 파일이 모두 `processing_segment`를 가진다(마지막 필수 단계는 `validate`가 켜지기 전까지 `load`다. §4.3).
+    - 각 슬롯의 `satisfied_by` 파일이 모두 `processing_segment`를 가진다(마지막 필수 단계는 `load`다. §4.3).
     - 같은 설비에 **어느 슬롯에도 매핑되지 않은** `pending`/`failed` 파일 단위가 없다(구간을 모르는 실패가 이 조회 구간에 속할 수 있으므로).
 3. 그 밖 → `unknown`. 슬롯 목록이 없거나 틈이 있으면 `source_unavailable`, 매핑되지 않은 실패가 있으면 `check_failed`.
 
@@ -169,14 +172,15 @@ parser.processing_segment    파서가 이미 쓴다. 파일 커밋 성공의 �
 | source_file · load | `db_transient` | 연결·타임아웃 등 재시도 가능한 DB 오류 | pending(재시도 예약) / failed(한도 초과) | `retrying` / `processing_error` |
 | 공통 | `unclassified` | 위에 없는 예외 | failed | `processing_error` |
 
-- 워커는 **예외 타입(과 `Reason`)으로 분류하고 메시지 문자열을 파싱하지 않는다.**
+- 워커는 **예외 타입(과 `Reason`)으로 분류하고 메시지 문자열을 파싱하지 않는다.** 현재 워커는 재시도 분류를 오류 메시지 키워드 매칭으로 하고(실례: 파서 실패는 `parse() returned False`라 전부 UNKNOWN이 된다), `cause_code`가 이 문제의 해법이다.
+- `cause_code`는 워커의 에러 코드 YAML SSOT(Python/C# enum 생성 관행)에 넣고, 이 계약은 코드 이름만 고정한다.
 - 파일 서술 오류를 `source_format`으로 보이려면 워커가 파서 호출 전에 스스로 검증해야 한다(`descriptor_invalid`). 파서의 전용 예외(§6 P2)가 생기면 그쪽으로 옮긴다.
 
 ### 4.3 `validate` 단계
 
-무엇을 검사하는지 아직 정해지지 않았다(§7 Q4). 정해지기 전까지 워커는 `validate` 행을 쓰지 않고, 플랫폼은 마지막 필수 단계를 `load`로 본다. `validate`를 켜면 그때부터 마지막 필수 단계가 `validate`가 되며, 이는 이 계약의 버전 변경이다.
+사용하지 않는다(담당 확인, §7 Q4). 워커는 `validate` 행을 쓰지 않고 마지막 필수 단계는 `load`다. 나중에 `validate`를 도입하면 그때부터 마지막 필수 단계가 바뀌므로 이 계약의 버전 변경이다.
 
-## 5. 보존 기간 (Candidate 숫자)
+## 5. 보존 기간 (확정)
 
 | 대상 | 보존 | 이유 |
 | --- | --- | --- |
@@ -197,22 +201,24 @@ parser.processing_segment    파서가 이미 쓴다. 파일 커밋 성공의 �
 | P4 | `docs/16`에 "상태 보고 경계" 절 추가: 파서는 상태 테이블을 쓰지 않고 예외·결과만 돌려준다 | 상태 기록 책임이 파서로 새어 들어가지 않게 경계를 고정한다(`docs/16` §4와 같은 취지). |
 
 - 워커 코드와 `ingest_status` DDL이 파서 저장소에 들어간다면(§7 Q1) 마이그레이션 번호·방식은 파서 `docs/19`를 따른다.
-- 일정은 파서 담당이 정한다. 플랫폼 화면(#51)은 합의 전 설계까지만 한다.
+- 일정은 파서 담당이 정한다. 플랫폼 화면(#51)은 이 계약으로 설계한다.
 
-## 7. 파서 담당에게 물을 것
+## 7. 확정된 사실
 
-| # | 질문 | 이 초안의 가정 |
+파서·워커 담당의 사내 조사 답변(2026-10-26)이다. 위 규칙은 이 사실을 따른다.
+
+| # | 주제 | 확정 |
 | --- | --- | --- |
-| Q1 | 적재 워커(Scheduler + raw 변환 + 파서 호출) 코드는 어느 저장소에 있나? 누가 운영하나? | 파서 저장소 밖. 상태 테이블은 워커가 소유한다. |
-| Q2 | Scheduler가 "받아야 할 파일"의 일정(슬롯)을 아는가? 대기 시간과 누락 판정 규칙은? | 안다고 가정하고 `expected_slot`을 둔다. 모르면 "미수집"과 "가공 지연"의 `clear`는 나올 수 없고, 알려진 실패만 `confirmed`로 보인다. |
-| Q3 | 받은 파일을 어느 슬롯에 매핑하나? 파일명 규칙, `file_timestamp`, 변환 후 레코드 시각 중 무엇인가? 변환 전에 실패한 파일도 매핑할 수 있나? | 파일명 규칙으로 변환 전에 매핑할 수 있다고 가정한다. 매핑하지 못한 실패는 그 설비의 `clear`를 막는다(§3.2). |
-| Q4 | `validate` 단계는 실제로 무엇을 검사하나? 필요한가? | 정해질 때까지 쓰지 않는다(§4.3). |
-| Q5 | 재시도 정책(횟수, 간격)은? 예상 해소 시각을 추정할 근거가 있나? | 재시도는 `next_attempt_at`으로만 기록한다. 추정 정책이 없으면 `estimated_resolution_at`은 null이다. |
-| Q6 | 보존 90일/30일이 운영 저장 용량과 맞나? | 표 5의 숫자. |
-| Q7 | 재처리(트레이스의 "재처리" 동작)를 무엇이 받나? 파서 재처리는 Post-MVP다(`docs/12`). | 트레이스의 재처리 동작은 워커의 "같은 파일 다시 시도"(`docs/16` §5)만 뜻한다. 범위 재처리는 이 계약 밖이다. |
+| Q1 | 적재 워커 | 스케줄러 + 수집기 + 변환기 + 파서 호출을 묶은 실행 주체이고, 상태 테이블은 이 묶음이 소유하고 쓴다. 실무로는 job 진행상황 DB를 쓰는 스케줄러가 중심이다. 읽기 전용 파일 게이트웨이는 제외한다. |
+| Q2 | 일정·대기 | 설비별로 1시간 주기로 파일이 생긴다. 수집·변환·가공 중 어느 단계든 2시간 넘게 진행되지 않으면 오류다. 슬롯 = (설비, 1시간), `wait_until` = 슬롯 끝 + 2시간(§2.2). |
+| Q3 | 파일 → 슬롯 매핑 | 파일명 규칙으로 매핑한다. 변환 전에 실패한 파일도 매핑할 수 있다. |
+| Q4 | `validate` | 필요 없다. `load`가 마지막 필수 단계다(§4.3). |
+| Q5 | 재시도 | 워커 코드를 실측한 정책이다. TRANSIENT·UNKNOWN: 최대 3회, 60초 지수 백오프(±10%), 다 쓰면 영구 실패. AWAITING_DATA: 횟수 상한 없음, 60→120→240초 뒤 1시간 고정. PERMANENT: 재시도 없음. 수집기 내부 FTP 재시도는 3회. `next_attempt_at`은 지금 DB에 저장되지 않으므로 상태 행을 쓸 때 계산해 저장한다(§2.3). `estimated_resolution_at`은 null을 유지한다(파일 대기는 해소 시점을 추정할 수 없다). |
+| Q6 | 보존 | 90일(`expected_slot`·`stage_event`) / 30일(`stage_detail`)을 확정한다(§5). |
+| Q7 | 재처리 | 미정이다. 트레이스의 재처리는 같은 파일 다시 시도로 한정하고, 범위 재처리는 이 계약 밖이다. 정해지면 계약 버전 변경으로 다룬다. |
 
-## 8. 합의 후 할 일
+## 8. 남은 일
 
-1. 이 문서 상태를 Decided로 올리고 Candidate 이름을 확정한다. [01 가공 상태 보고](../01_architecture_and_data_contract.md#processing-status-report)의 Open 줄과 [05](../05_roadmap_and_open_questions.md) 행을 고친다.
-2. #51 모니터링·트레이스 화면 설계를 시작한다.
-3. 소비 뷰와 `PlatformAdapter` 포트는 서버 골격 작업에서 만든다. mock 서버에 이 스키마를 흉내 낸 fixture를 넣는 일은 #51 화면이 필요로 할 때 이슈로 올린다.
+1. #51 모니터링·트레이스 화면 설계를 시작한다.
+2. 소비 뷰와 `PlatformAdapter` 포트는 서버 골격 작업에서 만든다. mock 서버에 이 스키마를 흉내 낸 fixture를 넣는 일은 #51 화면이 필요로 할 때 이슈로 올린다.
+3. 테이블·필드·코드 이름은 구현이 시작될 때 확정한다(그때까지 Candidate).

@@ -74,7 +74,7 @@
 
 ### 3.4 파서 담당 — [#37](https://github.com/hjung3113/analytics-platform/issues/37)
 
-- [ ] 적재 워커 상태 스키마 초안([ingest-status-schema.md](ingest-status-schema.md)) 합의 — 데이터 신뢰(`trust`, 미수집·처리 지연·커버리지)의 원천. 합의 전 서버 동작은 체크리스트 §3-10(추측으로 채우지 않음). 합의 뒤 모니터링·트레이스(#51).
+- [x] 적재 워커 상태 스키마([ingest-status-schema.md](ingest-status-schema.md)) 합의(2026-10-26) — 데이터 신뢰(`trust`, 미수집·처리 지연·커버리지)의 원천. 합의 전 서버 동작은 체크리스트 §3-10(추측으로 채우지 않음). 합의 뒤 모니터링·트레이스(#51).
 
 ### 3.5 FeedbackOps — M3
 
@@ -122,5 +122,5 @@
 - [패키지 경계](platform-packages.md) §3–§5 — 의존 방향, 포트 메서드 기준
 - [ADR-0019 메뉴 조회 포트](../adr/0019-menu-query-endpoint-declaration.md) — Q2(선언 원본) 배경
 - [03 백엔드 스택](../03_backend_stack.md) — FastAPI·SQL-first·인증 구조·Alembic
-- [적재 워커 상태 스키마 초안](ingest-status-schema.md) — #37
+- [적재 워커 상태 스키마](ingest-status-schema.md) — #37
 - [FeedbackOps 딥링크 계약](feedbackops-deeplink.md) — M3

@@ -40,7 +40,7 @@
 | 플랫폼 계약 자동 검사(E2E) | 06 §6·§11·§17·§19·§22 | [apps/platform-e2e](../apps/platform-e2e/AGENTS.md) | `apps/platform-e2e/tests/contracts.spec.ts` → `support.ts` → 보고 `contract-reporter.ts` |
 | 모노레포 구조·빌드·CI·접두사 변경 | [패키지 경계](integration/platform-packages.md), [저장소 구조](integration/repository-layout.md) | [tooling](../tooling/AGENTS.md) → [packages](../packages/AGENTS.md) | 루트 `package.json`·`pnpm-workspace.yaml`·`turbo.json` → `.github/workflows/ci.yml` |
 | 설계 문서·결정 갱신 | 해당 소유 문서 → [ADR 목록](adr/README.md) 또는 [05](05_roadmap_and_open_questions.md) | [docs](AGENTS.md) | 바꾼 뒤 `pnpm docs:links` |
-| 적재 워커 상태·가공 상태 조회·운영 콘솔 모니터링 | [01 가공 상태 보고](01_architecture_and_data_contract.md#processing-status-report), 06 §19, [상태 기록 스키마 초안](integration/ingest-status-schema.md) | [docs](AGENTS.md) | 파서 저장소 `context_recognized_parser` |
+| 적재 워커 상태·가공 상태 조회·운영 콘솔 모니터링 | [01 가공 상태 보고](01_architecture_and_data_contract.md#processing-status-report), 06 §19, [상태 기록 스키마](integration/ingest-status-schema.md) | [docs](AGENTS.md) | 파서 저장소 `context_recognized_parser` |
 | FeedbackOps 연결 | [저장소 구조](integration/repository-layout.md), [딥링크 계약](integration/feedbackops-deeplink.md), [ADR-0066](adr/0066-feedbackops-merges-into-platform.md) 합류, [합류 설계](integration/feedbackops-merge-design.md) | [products/feedbackops](../products/feedbackops/AGENTS.md) | 그 디렉터리 하위 `AGENTS.md` |
 | 통합 전 단위 프로토타입 | — | [prototypes](../prototypes/AGENTS.md) | 각 프로토타입 README |
 
@@ -66,7 +66,7 @@
 - [실서버 연결 체크리스트](integration/real-server-checklist.md) — `PlatformAdapter` 메서드별 의미, `menuQuery` 판정 순서·등록 검증, 적합성 묶음 실행. Candidate.
 - [전송 형식](integration/http-adapter-contract.md) — 메서드별 HTTP 경로·요청/응답, 상태 코드와 `outcome`, 세션·CSRF, 백엔드 담당 질문. 구현 기준(#620–#623, PR #632·#636), `[제안]` 표식 행은 아직 제안.
 - [사내 적용 가이드](integration/in-house-rollout.md) — mock → 실어댑터·실서버 전환 순서, 담당자별 확인 질문, 사내 메뉴 개발 가이드, 완료 기준.
-- [적재 워커 상태 기록 스키마](integration/ingest-status-schema.md) — 가공 상태 원천의 기록 구조와 평가 규칙. Candidate(#37 파서 담당 합의 대기).
+- [적재 워커 상태 기록 스키마](integration/ingest-status-schema.md) — 가공 상태 원천의 기록 구조와 평가 규칙. Decided(2026-10-26, #37 — 이름만 Candidate).
 - [FeedbackOps 합류 설계](integration/feedbackops-merge-design.md) — 전역 기능·피드백 운영 업무 시스템 배치, 서버 출발점, 단계, Open. 방향 Decided([ADR-0066](adr/0066-feedbackops-merges-into-platform.md)).
 - [FeedbackOps 딥링크 계약](integration/feedbackops-deeplink.md) — 양방향 딥링크 1단계(확장은 #81).
 - [프레임워크 통합 계획](integration/framework-unification-plan.md) — FeedbackOps·equipment-visualization 프레임워크 조각을 플랫폼 프레임워크로 합치는 지도(현황·중복·목표·단계·SDK 준비 메모). Proposed(#396의 입력). 목표는 [ADR-0043](adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md)이 우선한다.
