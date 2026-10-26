@@ -64,7 +64,12 @@
    The 1px line under it is inside the 40px (border-box), so the strip and the body stay apart on a group that is not selected. */
 .ap-dock .dv-tabs-and-actions-container { box-sizing: border-box; border-bottom: 1px solid var(--color-border-subtle); }
 .ap-dock .dv-scrollable { flex: 0 1 auto; min-width: 0; }
-.ap-dock .dv-tabs-and-actions-container.dv-single-tab.dv-full-width-single-tab .dv-scrollable { flex: 1 1 0; }
+.ap-dock .dv-tabs-and-actions-container.dv-single-tab.dv-full-width-single-tab:not(:has([data-dock-group-tabs-end])) .dv-scrollable { flex: 1 1 0; }
+/* A group whose host draws something right after the last tab (`renderGroupTabsEnd`) keeps it against that tab with one tab too: the free space is the void
+   container's, not the tab list's (the engine's single-tab rules grow the list and push the slot to the strip's far end). */
+.ap-dock .dv-tabs-and-actions-container.dv-single-tab.dv-full-width-single-tab:has([data-dock-group-tabs-end]) .dv-scrollable { flex: 0 1 auto; }
+.ap-dock .dv-tabs-and-actions-container.dv-single-tab.dv-full-width-single-tab:has([data-dock-group-tabs-end]) .dv-tabs-container { flex-grow: 0; }
+.ap-dock .dv-tabs-and-actions-container.dv-single-tab.dv-full-width-single-tab:has([data-dock-group-tabs-end]) .dv-void-container { flex: 1 1 0; min-width: 0; }
 .ap-dock .dv-tabs-container { overflow: hidden; overscroll-behavior: auto; } /* vendor contains it; a strip with no room to scroll chains the wheel outward (#700) */
 .ap-dock .dv-tab { flex-shrink: 1; min-width: 0; }
 .ap-dock .dv-right-actions-container { flex: 0 0 auto; }

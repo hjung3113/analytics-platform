@@ -1017,7 +1017,7 @@ describe('dock renderer: focus requests are answered once (FIX1 C2, C3)', () => 
 
 describe('dock renderer: + after a group\'s last tab (#893a)', () => {
   const plusButtons = () => screen.getAllByRole('button', { name: '이 묶음에 분석 탭 추가' });
-  const pickDialog = () => screen.findByRole('dialog', { name: '이 묶음에 추가할 분석 화면' });
+  const pickDialog = (n = 1) => screen.findByRole('dialog', { name: `칸 ${n} 묶음에 추가할 분석 화면` });
   const toastText = () => Array.from(document.querySelectorAll('[data-toast-item]')).map(item => item.textContent).join('\n');
   const twoGroups = () => seed(boardOf([sheet('a', { layout: '1x2', panes: [alpha(w1), beta(w2)] })]));
 
@@ -1068,7 +1068,7 @@ describe('dock renderer: + after a group\'s last tab (#893a)', () => {
     const labels = tabLabels();
     const second = plusButtons()[1]!;
     await userEvent.click(second);
-    await pickDialog();
+    await pickDialog(2);
     await userEvent.keyboard('{Escape}');
     await waitFor(() => { expect(screen.queryByRole('dialog')).toBeNull(); });
     expect(tabLabels()).toEqual(labels);
@@ -1091,6 +1091,55 @@ describe('dock renderer: + after a group\'s last tab (#893a)', () => {
     expect(toastText()).toContain('대상 묶음이 바뀌어 추가하지 않았습니다');
   });
 
+  it('F1: the anchor\'s group changing while the picker is open adds nothing and says so', async () => {
+    twoGroups();
+    mount('/board?sheet=a');
+    await ready();
+    const [p1, p2] = dockProbe.latest!.panels.map(panel => panel.id);
+    await userEvent.click(plusButtons()[0]!);
+    await pickDialog();
+    const before = localStorage.getItem(V2_KEY);
+    act(() => { dockProbe.latest!.onLayoutChange({ type: 'group', panels: [p1!, p2!], active: p1! }); });
+    await settle();
+    const merged = localStorage.getItem(V2_KEY);
+    expect(merged).not.toBe(before);
+    await userEvent.click(within(await pickDialog()).getByRole('button', { name: '알파' }));
+    await settle();
+    expect(localStorage.getItem(V2_KEY)).toBe(merged);
+    expect(v2().sheets[0].panes).toHaveLength(2);
+    expect(toastText()).toContain('대상 묶음이 바뀌어 추가하지 않았습니다');
+  });
+
+  it('F1: the group title carries the lowest pane number of the pressed group', async () => {
+    twoGroups();
+    mount('/board?sheet=a');
+    await ready();
+    await userEvent.click(plusButtons()[1]!);
+    expect(await pickDialog(2)).toBeInTheDocument();
+  });
+
+  it('F1: a user change while the picker is open adds nothing to the new user\'s board even with the same ids', async () => {
+    const other = 'platform:board:v2:u2';
+    const same = v2Board(boardOf([sheet('a', { layout: '1x2', panes: [alpha(w1), beta(w2)] })]));
+    seedV2(same);
+    localStorage.setItem(other, JSON.stringify(same));
+    mount('/board?sheet=a');
+    await ready();
+    await userEvent.click(plusButtons()[0]!);
+    await pickDialog();
+    session = testSession(['platform:view', 'console:access'], { user: { id: 'u2' } });
+    act(() => { listeners.forEach(l => l()); });
+    await settle();
+    const mine = localStorage.getItem(V2_KEY);
+    const theirs = localStorage.getItem(other);
+    await userEvent.click(within(await pickDialog()).getByRole('button', { name: '알파' }));
+    await settle();
+    expect(localStorage.getItem(other)).toBe(theirs);
+    expect(localStorage.getItem(V2_KEY)).toBe(mine);
+    expect(tabLabels()).toHaveLength(2);
+    expect(toastText()).toContain('대상 묶음이 바뀌어 추가하지 않았습니다');
+  });
+
   it('A5: at 4 panes the + stays pressable, describes the limit and a press says it without opening the picker', async () => {
     seed(boardOf([sheet('a', { layout: '2x2', panes: [alpha(w1), beta(w2), alpha(w2), beta(w1)] })]));
     mount('/board?sheet=a');
@@ -1103,6 +1152,7 @@ describe('dock renderer: + after a group\'s last tab (#893a)', () => {
     await userEvent.click(plus);
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(toastText()).toContain('시트당 분석 화면은 4개까지입니다');
+    expect(toastText()).toContain('칸을 먼저 닫으세요(내용이 있는 칸은 비운 뒤 닫습니다)');
     expect(toastText()).not.toContain('표시 그룹');
     expect(document.getElementById('board-group-add-off')?.textContent ?? '').not.toContain('표시 그룹');
     expect(localStorage.getItem(V2_KEY)).toBe(before);
@@ -1130,7 +1180,7 @@ describe('dock renderer: + after a group\'s last tab (#893a)', () => {
     observer.resize(900, 600);
   });
 
-  it('A7: pressing + in a maximized group shows the new tab (the maximize ends like 칸 추가)', async () => {
+  it('A7: pressing + in a maximized group keeps it maximized with the new tab shown', async () => {
     twoGroups();
     mount('/board?sheet=a');
     await ready();
@@ -1140,6 +1190,8 @@ describe('dock renderer: + after a group\'s last tab (#893a)', () => {
     await userEvent.click(within(await pickDialog()).getByRole('button', { name: '베타' }));
     await waitFor(() => { expect(tabLabels()).toContain('칸 3 · 베타'); });
     await waitFor(() => { expect(paneRoot(3).closest('[inert]')).toBeNull(); });
+    expect(paneRoot(2).closest('[inert]')).not.toBeNull();
+    expect(screen.getByRole('button', { name: '원래 크기로' })).toBeInTheDocument();
     expect(tabOf('칸 3 · 베타')).toHaveAttribute('aria-selected', 'true');
     await waitFor(() => { expect(document.activeElement).toBe(tabOf('칸 3 · 베타')); });
   });

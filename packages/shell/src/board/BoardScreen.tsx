@@ -9,6 +9,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { BoardContextBar } from './BoardContextBar';
 import { BoardDock, type DockPaneProps } from './BoardDock';
 import { BoardPane } from './BoardPane';
+import { groupHolding } from './boardDockTree';
 import { SheetTabs } from './SheetTabs';
 import {
   BOARD_LAYOUTS, canCollapse, defaultArrangement, getArrangement, setArrangement, addPane, addPaneInGroup, addSheet, applyPaneEdits, closePane, droppedPaneCount, editPane, goBackPane, indexOfPane, layoutOf, layoutShape, moveSheet, previousAt, removeSheet, renameSheet,
@@ -27,6 +28,8 @@ import { boardText, type BoardText } from './text';
 const PANEL_ID = 'board-panel';
 /** The Kernel's id for a pane: the sheet and the pane's slot, so moving or renumbering a pane never changes it. */
 const paneIdOf = (sheetId: string, slotId: string) => `${sheetId}.${slotId}`;
+/** A saved group's panes as one comparable value: who is in it, not in which order its tabs sit. */
+const groupKey = (panes: readonly string[]) => [...panes].sort().join('|');
 const sheetHref = (id: string) => `${BOARD_PATH}?sheet=${encodeURIComponent(id)}`;
 
 /** The undo window: an essential time limit, so the notice names it explicitly (the shell stack keeps an action notice without one). */
@@ -259,30 +262,35 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
     if (added) setNewPane({ id: added.id, dock: dockKey });
   };
   /**
-   * The `+` after a group's last tab (docs/16 §4): the picker comes first and cancelling changes nothing. The target (sheet, anchor pane) is
-   * recorded at the press and checked again at the pick; the state sits here, not in the dock, which is rebuilt per sheet and per active tab.
+   * The `+` after a group's last tab (docs/16 §4): the picker comes first and cancelling changes nothing. The whole target (user, sheet, anchor pane,
+   * the panes of the stored group holding it) is recorded at the press and checked again at the pick; the state sits here, not in the dock, which is
+   * rebuilt per sheet and per active tab.
    */
-  const [groupAdd, setGroupAdd] = useState<{ sheetId: string; anchorId: string; notice: string | null } | null>(null);
+  const [groupAdd, setGroupAdd] = useState<{ userId: string; sheetId: string; anchorId: string; members: string; number: number; notice: string | null } | null>(null);
   const groupAddFocus = useRef<{ trigger: HTMLElement; anchorId: string } | null>(null);
   const groupAdded = useRef(false);
   const openGroupAdd = (anchorId: string, trigger: HTMLElement) => {
     if (sheet.panes.length >= MAX_PANES) { notify(text.groupAddLimit); return; }
+    const group = groupHolding(sheet.tree, anchorId);
+    if (!group) return;
     groupAddFocus.current = { trigger, anchorId };
     groupAdded.current = false;
-    setGroupAdd({ sheetId, anchorId, notice: null });
+    // The group's number is its lowest pane number, as in the `칸 N 동작` move targets.
+    setGroupAdd({ userId: user.id, sheetId, anchorId, members: groupKey(group.panes), number: Math.min(...group.panes.map(id => indexOfPane(sheet, id) + 1)), notice: null });
   };
   const pickInGroup = (menu: MenuEntry) => {
     const target = groupAdd;
     if (!target) return;
-    if (target.sheetId !== sheetId || !sheet.panes.some(p => p.id === target.anchorId)) { setGroupAdd(null); notify(text.groupAddGone); return; }
+    const holder = groupHolding(sheet.tree, target.anchorId);
+    if (target.userId !== user.id || target.sheetId !== sheetId || !holder || groupKey(holder.panes) !== target.members) { setGroupAdd(null); notify(text.groupAddGone); return; }
     if (sheet.panes.length >= MAX_PANES) { setGroupAdd(null); notify(text.groupAddLimit); return; }
     const screen = { menuId: menu.id, params: {}, query: defaultQuery(registry, readRecent()) };
     if (!canMountPaneScreen(registry, canOpen, screen)) { setGroupAdd({ ...target, notice: text.groupAddUnavailable }); return; }
     const grown = addPaneInGroup(board, sheetId, target.anchorId, screen);
     const added = grown === board ? undefined : grown.sheets.find(s => s.id === sheetId)?.panes.at(-1);
     if (!added) { setGroupAdd(null); notify(text.groupAddGone); return; }
-    // Ends a maximize like `칸 추가` does, so the new tab, active in the group the user pressed in, is on screen; the dock focuses its tab.
-    if (dockMaximized !== null) maximizeDock(null);
+    // A maximized group stays maximized with the new tab, active in it, on screen (docs/16 §4); the dock focuses its tab.
+    if (dockMaximized !== null) setPresentation({ identity, maximized: null, dockMaximized: holder.panes.includes(dockMaximized) ? added.id : null });
     groupAdded.current = true;
     setGroupAdd(null);
     update(() => grown);
@@ -419,7 +427,7 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
       onSwitch={id => { if (id !== sheetId) navigate(sheetHref(id)); }} onAdd={addNewSheet}
       onCopyContext={copyContext}
       onRename={(id, name) => update(b => renameSheet(b, id, name))} onMove={(id, to) => update(b => moveSheet(b, id, to))} onDelete={deleteSheet} />
-    {dock && <PanePicker open={groupAdd !== null} title={text.groupAddTitle} notice={groupAdd?.notice}
+    {dock && <PanePicker open={groupAdd !== null} title={text.groupAddTitle(groupAdd?.number ?? 1)} notice={groupAdd?.notice}
       onOpenChange={open => { if (!open) setGroupAdd(null); }} onPick={pickInGroup}
       onCloseAutoFocus={event => { event.preventDefault(); returnToGroupAdd(); }} />}
     <AlertDialog open={confirmLayout !== null} onOpenChange={open => { if (!open) setConfirmLayout(null); }}>

@@ -886,4 +886,13 @@ describe('dock.css, FIX1 (#575 2c): rules jsdom cannot lay out', () => {
     expect(strip).toContain('border-bottom: 1px solid var(--color-border-subtle)');
     expect(css).toMatch(/\[data-dock-wrap\]\) \.dv-right-actions-container > \[data-dock-group-actions\] \{ margin-left: auto; \}/);
   });
+
+  it('U6 (#893a): a one-tab group with a tabs-end slot lets the void container, not the tab list, take the free space, so the slot stays against the tab', () => {
+    const css = readFileSync(resolve(process.cwd(), 'src/dock/dock.css'), 'utf8');
+    const single = '\\.dv-tabs-and-actions-container\\.dv-single-tab\\.dv-full-width-single-tab';
+    expect(css).toMatch(new RegExp(`${single}:not\\(:has\\(\\[data-dock-group-tabs-end\\]\\)\\) \\.dv-scrollable \\{ flex: 1 1 0; \\}`));
+    expect(css).toMatch(new RegExp(`${single}:has\\(\\[data-dock-group-tabs-end\\]\\) \\.dv-scrollable \\{ flex: 0 1 auto; \\}`));
+    expect(css).toMatch(new RegExp(`${single}:has\\(\\[data-dock-group-tabs-end\\]\\) \\.dv-tabs-container \\{ flex-grow: 0; \\}`));
+    expect(css).toMatch(new RegExp(`${single}:has\\(\\[data-dock-group-tabs-end\\]\\) \\.dv-void-container \\{ flex: 1 1 0;`));
+  });
 });
