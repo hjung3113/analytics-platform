@@ -24,7 +24,8 @@ import { describe, expect, it } from 'vitest';
 // to keep config.ts API surface unchanged.)
 const REPO_ROOT = path.resolve(__dirname, '../../../..');
 const CONFIG_TS = path.join(REPO_ROOT, 'apps/backend/src/config.ts');
-const ENV_EXAMPLE = path.join(REPO_ROOT, '.env.example');
+// .env.example moved to ops/feedbackops/ (713p1); the path is repository-root relative from this file.
+const ENV_EXAMPLE = path.resolve(__dirname, '../../../../../../ops/feedbackops/.env.example');
 
 interface SchemaKey {
   name: string;

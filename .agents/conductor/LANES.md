@@ -11,7 +11,7 @@
 | `lane:sdk` | 공개 패키지 계약·부품, 분석 작업 영역·MARS 이관(M7), SDK 품질(M8) | `packages/{contracts,ui,kernel,components,shell}`, `tooling/sdk-api`, `tooling/scripts/sdk-*`, `docs/contract/platform-ui-contract.md`, `docs/integration/sdk-*` | 4190 |
 | `lane:platform` | 앱 조립·mock·실어댑터·서버 적합성, 견본 메뉴, 사내 적용(M4), 운영 콘솔 | `apps/platform-web`, `packages/{mock-server,http-adapter,server-conformance}`, `menus/*`(FeedbackOps 다리 메뉴 제외) | 4590 |
 | `lane:arch` | 리팩터링·폴더 구조·용어·경계 lint·CI·문서 구조 | `tooling/{eslint,gen-menu,tsconfig,css-selectors}`, `.github/workflows`, `docs/INDEX.md`, `docs/AGENTS.md`, `GLOSSARY.md` | 4690 |
-| `lane:fo` | FeedbackOps 이관(M6) | `products/feedbackops/`, `packages/fo-bridge`, `menus/feedbackops/*`, `menus/_global/*`의 FeedbackOps 다리 | 4390 |
+| `lane:fo` | FeedbackOps 이관(M6) | `products/feedbackops/`, `ops/feedbackops/`, `packages/fo-bridge`, `menus/feedbackops/*`, `menus/_global/*`의 FeedbackOps 다리 | 4390 |
 | `lane:ev` | equipment-visualization 이관의 AP 쪽(`tools` 공간, 호스트 모듈 fixture, EV tarball 버전 올리기) | 위 AP 경로. EV 저장소 쪽 일은 그 저장소의 `AGENTS.md`·이슈를 따르고 그 저장소의 Orca worktree에서 한다. `eqv-v*` 릴리스는 EV 규칙대로 내고 팀장에게 알린다 | 4490 |
 | `lane:site` | 소개 사이트 | `site/`(소개 페이지와 사이트 안 안내·캡처). 사내 적용·개발 가이드(`docs/integration/in-house-rollout.md` 등)는 `lane:platform` | 4790 |
 | `lane:ops` | 플랫폼 개발 밖의 부가 요청(사용자 2026-10-26): 운영 방식, conductor 프로필·함정·덧붙임, 에이전트 자산, 사용자가 시키는 조사·정리 보고서. 팀장이 직접 하지 않고 이 흐름에 넘긴다. 파일이 바뀌는 요청은 팀장이 `lane:ops` 이슈를 열어 배정한다(답만 하면 되는 질문은 이슈 없이). 전역 오케스트레이션 도구(conductor-engine·스킬)는 고치지 않고 `upstream-file.sh`로 conductor-engine 이슈를 올린다(PROFILE §Review) | `.agents/`(이 문서 `LANES.md` 제외), `docs/agents/` | 4990 |

@@ -14,7 +14,7 @@
 
 - In-app navigation uses TanStack `<Link>` or `InternalLink`; a plain `<a href>` to an app path reloads the whole app (#840). Screens exported through `src/global-screens` (the platform bridge, platform ADR-0071) navigate and notify only through `lib/host` and never import TanStack Router or the `@/lib/api` barrel.
 - Consume semantic tokens such as `--text-primary`, `--surface-detail`, and `--border-selected`; do not hard-code hex colors in screens.
-- `pnpm lint:design` (`@shadcn/lint`, ADR-0062) checks restyled `@fops/ui` components, raw colors, arbitrary values, and inline styles. Do not add findings; its messages suggest a variant or token, which you verify before applying. When the same override or hard-coded value repeats, add a shared token, variant, or component instead of repeating it. Mechanics: `scripts/gates/AGENTS.md`.
+- `pnpm --filter @fops/ops lint:design` (`@shadcn/lint`, ADR-0062) checks restyled `@fops/ui` components, raw colors, arbitrary values, and inline styles. Do not add findings; its messages suggest a variant or token, which you verify before applying. When the same override or hard-coded value repeats, add a shared token, variant, or component instead of repeating it. Mechanics: `ops/feedbackops/scripts/gates/AGENTS.md`.
 - Keep the visual model light, compact, and list-first. Avoid decorative cards, broad gradients, oversized hero sections, and empty whitespace.
 - Use one primary action per toolbar or panel. Secondary actions belong in subtle buttons, menus, or contextual rows.
 - Reuse `ObjectRow`, `DetailPanelHeader`, `ReporterStatusBadge`, `InternalTaskBadge`, `SeverityBadge`, `PermissionBlockedPanel`, `RichEditor`, and `LinkedEntityTrail` (full list: `packages/ui/src/index.ts`) before making a screen-specific variant.
@@ -35,7 +35,7 @@
 - Before creating a new component, check `packages/ui`, the feature's existing components, and `docs/frontend/component-inventory.md`.
 - Use existing wrappers from `@fops/ui` before importing shadcn/Radix primitives directly. Bundle-1 token and primitive implementations come from the pinned `@ap/ui` dependency; local compatibility files under `packages/ui/src/components/shadcn` only re-export them.
 - The detail slot is `@ap/ui`'s (bundle 2b): `AppFrame` wraps its frame in `DetailPanelSlotProvider` and hosts the panel through `useDetailPanelSlotHost()`; shells forward `detailPanel` with `useDetailPanelSlot(node)`, which is `@ap/ui`'s `useDetailPanelContent` (`undefined` clears, `null` closes). There is no `DetailPanelSlotContext`; tests that render a shell with `detailPanel` mount `DetailPanelSlotProvider` plus a host element.
-- Never import `@radix-ui/*` in `apps/frontend` (enforced by `pnpm check:boundaries`); use the `@fops/ui` wrappers.
+- Never import `@radix-ui/*` in `apps/frontend` (enforced by `pnpm --filter @fops/ops check:boundaries`); use the `@fops/ui` wrappers.
 - Use installed libraries, shadcn/Radix wrappers, and `lucide-react` before hand-rolling interaction behavior, accessibility primitives, icons, popovers, menus, tabs, dialogs, or form controls.
 - Add new tokens or variants to docs before using them broadly.
 - Use `lucide-react` icons and accessible labels for icon-only controls.

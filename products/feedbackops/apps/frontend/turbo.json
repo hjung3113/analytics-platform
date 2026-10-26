@@ -7,7 +7,7 @@
         "package.json",
         "src/routes/**",
         "vite.config.ts",
-        "../../scripts/generate-routes.mjs",
+        "$TURBO_ROOT$/ops/feedbackops/scripts/generate-routes.mjs",
         "$TURBO_ROOT$/pnpm-lock.yaml"
       ],
       "outputs": ["src/routeTree.gen.ts"]

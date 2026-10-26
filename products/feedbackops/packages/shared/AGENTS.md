@@ -11,7 +11,7 @@
 
 ## Forbidden Content
 
-- Imports from `apps/backend`, `apps/frontend`, or `@fops/ui` (enforced by `pnpm check:boundaries`).
+- Imports from `apps/backend`, `apps/frontend`, or `@fops/ui` (enforced by `pnpm --filter @fops/ops check:boundaries`).
 - Database access.
 - HTTP clients.
 - React components or hooks.

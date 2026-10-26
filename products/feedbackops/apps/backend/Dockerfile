@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.7
-# Build context is the repository root (docker-compose.release.yml `context: ../..`): FeedbackOps is part of the root pnpm
+# Build context is the repository root (ops/feedbackops/docker-compose.release.yml `context: ../..`): FeedbackOps is part of the root pnpm
 # workspace and its lockfile (ADR-0066, #642).
 FROM node:26.7.0-bookworm-slim AS build
 
@@ -9,8 +9,8 @@ RUN npm install -g pnpm@11.1.1
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY patches ./patches
-COPY products/feedbackops/package.json ./products/feedbackops/package.json
-COPY products/feedbackops/tsconfig.base.json ./products/feedbackops/tsconfig.base.json
+COPY ops/feedbackops/package.json ./ops/feedbackops/package.json
+COPY ops/feedbackops/tsconfig.base.json ./ops/feedbackops/tsconfig.base.json
 COPY products/feedbackops/packages/shared/package.json ./products/feedbackops/packages/shared/package.json
 COPY products/feedbackops/apps/backend/package.json ./products/feedbackops/apps/backend/package.json
 RUN pnpm install --filter @fops/backend... --frozen-lockfile

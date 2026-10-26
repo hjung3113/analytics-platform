@@ -31,7 +31,7 @@
   },
   "scripts": {
     "dev": "vite",
-    "gen:routes": "node ../../scripts/generate-routes.mjs",
+    "gen:routes": "node ../../../../ops/feedbackops/scripts/generate-routes.mjs",
     "build": "vite build",
     "preview": "vite preview",
     "test": "pnpm run gen:routes && vitest run",

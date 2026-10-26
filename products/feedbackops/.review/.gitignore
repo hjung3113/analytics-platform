@@ -1,4 +1,0 @@
-# .review/ holds per-run agent artifacts (briefs, reports, captures). They are
-# local only and never committed.
-*
-!.gitignore
