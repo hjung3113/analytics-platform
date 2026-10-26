@@ -64,6 +64,7 @@ Text | type | type Text = { en: string; ko: string; }
 Toast | type | type Toast = { action?: @ap/kernel#ToastAction; detail?: string; id: number; text: string; tone: 'danger' | 'info' | 'warning'; }
 ToastAction | type | type ToastAction = { label: string; onAction: () => void; }
 ToastOptions | type | type ToastOptions = { action?: @ap/kernel#ToastAction; durationMs?: number; }
+UNDO_WINDOW_MS | const | const UNDO_WINDOW_MS: 8000
 VocComposeContext | type | type VocComposeContext = { carried: Readonly<Record<string, string>>; href: null | string; items: readonly @ap/kernel#VocComposeContextItem[]; menuId: null | string; spaceId: @ap/contracts#SpaceId | null; }
 VocComposeContextItem | type | type VocComposeContextItem = { id: string; label: string; value: string; }
 VocComposeProps | type | type VocComposeProps = { context: @ap/kernel#VocComposeContext; onCancel: () => void; onDirtyChange: (dirty: boolean) => void; onSubmitted: (result: { displayId: string; vocId: string; }) => void; }

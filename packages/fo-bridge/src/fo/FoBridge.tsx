@@ -1,6 +1,6 @@
 import { useMemo, type ComponentType, type ReactNode } from 'react';
 import { ServerOff } from 'lucide-react';
-import { useI18n, usePlatform } from '@ap/kernel';
+import { UNDO_WINDOW_MS, useI18n, usePlatform } from '@ap/kernel';
 import { StateMessage } from '@ap/components';
 import { FoScreenRoot, type HostLinkProps, type HostNavigate, type HostNotice, type HostSearch, type HostSeam } from '@fops/frontend/global-screens/core';
 import type { TargetOf } from './links';
@@ -8,8 +8,6 @@ import { isReachable } from './reachable';
 import { foQueryClient, useFoSession } from './session';
 
 /** The default seam links nothing (backlog: 알림 목적지 연결); `Link` is the unreachable fallback, and a screen passes `canLink`/`Link` for the targets it can reach. */
-/** FO's undo notices carry no duration; on the platform they keep the 8 s undo window they had before #886 made action toasts stay by default. */
-const FO_UNDO_WINDOW_MS = 8000;
 
 export function UnlinkedLink({ to: _to, children, ...rest }: HostLinkProps) {
   return <span {...rest}>{children}</span>;
@@ -64,7 +62,7 @@ export function FoBridge({ children, canLink = noLink, Link = UnlinkedLink, targ
     // FO's two action lifetimes (D5, #886): no duration is FO's short undo window (standalone 4 s) — the platform keeps its 8 s undo window;
     // `Infinity` is FO's "stay" — the kernel's action default, which stays until acted on or dismissed (06 Toast). A finite duration passes through.
     notify: ({ tone, message, description, action, durationMs }) =>
-      String(toast(message, TONE[tone], description, { ...(action ? { action } : {}), ...(durationMs === undefined ? (action ? { durationMs: FO_UNDO_WINDOW_MS } : {}) : Number.isFinite(durationMs) ? { durationMs } : {}) })),
+      String(toast(message, TONE[tone], description, { ...(action ? { action } : {}), ...(durationMs === undefined ? (action ? { durationMs: UNDO_WINDOW_MS } : {}) : Number.isFinite(durationMs) ? { durationMs } : {}) })),
     dismiss: id => dismissToast(Number(id)),
     useHere,
   }), [canLink, targetOf, hrefLinkTo, hrefAbsoluteUrl, registry, Link, toast, dismissToast, useNavigate, useSearch, useTitle, useHere]);

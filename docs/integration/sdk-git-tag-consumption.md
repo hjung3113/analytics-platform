@@ -27,6 +27,9 @@
 
 | 버전 | 패키지 | 바뀐 공개 API | 이전 방법 |
 | --- | --- | --- | --- |
+| 다음 릴리스 | kernel·shell·fo-bridge | 추가(#946 Q8) — `@ap/kernel`의 `UNDO_WINDOW_MS`(8000). 되돌리기 창은 이 값 하나이고 보드 되돌리기와 FeedbackOps 다리가 같이 쓴다. 액션 토스트는 `durationMs`가 없으면 닫을 때까지 남으므로(#946) 되돌리기는 `durationMs: UNDO_WINDOW_MS`를 준다 | 자체 되돌리기 토스트를 띄우는 소비자는 `durationMs: UNDO_WINDOW_MS`를 쓴다 |
+| 다음 릴리스 | ui | 동작 바뀜(#946 Q9) — `ListToolbar`가 `data-toolbar-height`를 더 내보내지 않고(두 줄이면 고정 `50`이 거짓이고 측정값을 읽는 곳도 없음) 고정 표지 `data-list-toolbar`를 둔다. `ListShell`·`ShellHeader`의 `data-toolbar-height="50"`은 그대로 | `ListToolbar`를 `[data-toolbar-height]`로 찾던 테스트는 `[data-list-toolbar]`로 |
+| 다음 릴리스 | shell | 동작 바뀜(#914) — 분석 보드 제목은 프로그램 포커스 전용(`tabindex=-1`, 도착 초점은 그대로)이라 Tab 순서에 들지 않고 도착 때 링을 그리지 않는다. 다음 Tab은 첫 컨트롤로 간다 | 보드 제목에 Tab으로 닿던 테스트는 첫 컨트롤에서 시작 |
 | 다음 릴리스 | components·shell | 성능(#915 2부) — 호스트 전용 `DockLayout`도 엔진 청크 lazy 하나를 같이 쓴다: 받은 뒤 새로 마운트되는 레이아웃(보드 재방문·다음 화면의 작업 영역)은 로딩 스켈레톤 없이 첫 commit에 그려진다. 분석 보드 칸은 칸마다 Suspense 경계를 둬, 메뉴 화면 청크를 받는 동안 그 칸에만 스켈레톤을 그리고 다른 칸·탭 줄을 덮지 않는다(보드 첫 로드에서 칸이 보이는 시각 약 990→390 ms, 첫 차트 약 1.6→1.1 s). 공개 API는 그대로 | 없음 |
 | 다음 릴리스 | components | 성능(#915) — `EChart`가 차트 청크의 lazy 컴포넌트 하나를 모든 차트에서 같이 쓴다. 청크를 한 번 받은 뒤 새로 마운트되는 차트(드릴 단계·새 보드 칸)는 로딩 스켈레톤 없이 첫 commit에 그려진다(드릴 단계당 약 200–270 ms 단축). 청크 실패 뒤 '다시 시도'는 그대로 다시 받는다. 공개 API는 그대로 | 없음 |
 | 다음 릴리스 | ui | 추가(#891) — `FieldRow`의 `layout="detail"`(상세 패널 속성 목록: 9rem 라벨 칸·행 구분선·문자열 라벨 camelCase 접기·값 tabular)과 `mono?: boolean`(값을 고정폭으로). `label`은 `string`에서 `ReactNode`로 넓어졌다. `FieldList`는 `className`이 없으면 빈 `class` 속성을 붙이지 않는다 | 없음 |

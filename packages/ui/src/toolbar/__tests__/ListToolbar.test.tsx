@@ -139,7 +139,9 @@ describe('ListToolbar — tabs mode', () => {
       <ListToolbar tabs={tabs} activeTab="untriaged" action={<button type="button">Action</button>} />,
     );
     const toolbar = container.firstElementChild;
-    expect(toolbar).toHaveAttribute('data-toolbar-height', '50');
+    // A stable hook, no height claim: two rows would make a fixed `50` false, and nothing reads a measured value (#946 Q9).
+    expect(toolbar).toHaveAttribute('data-list-toolbar');
+    expect(toolbar).not.toHaveAttribute('data-toolbar-height');
     expect(toolbar?.className).not.toContain('h-toolbar');
     // 50px including the rule: the toolbar adds no border or padding of its own, so one row is exactly one row height
     // (a `border-b` here made it 51px) and two rows are 2 x 50. jsdom has no layout, so the structure is what is pinned.
@@ -178,29 +180,6 @@ describe('ListToolbar — tabs mode', () => {
     expect(within(actions).getByRole('button', { name: 'Action' })).toBeInTheDocument();
     expect(main.contains(actions)).toBe(false);
     expect(container.querySelector('[role="toolbar"]')).toBeNull();
-  });
-
-  it('reports the measured height instead of a fixed 50, on the toolbar', () => {
-    let height = 100;
-    const spy = vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(() => height);
-    const notify = stubResizeObserver();
-    try {
-      const { container, unmount } = render(
-        <div data-host>
-          <ListToolbar tabs={tabs} activeTab="untriaged" action={<button type="button">Action</button>} />
-        </div>,
-      );
-      const host = container.firstElementChild as HTMLElement;
-      const toolbar = host.firstElementChild as HTMLElement;
-      expect(toolbar).toHaveAttribute('data-toolbar-height', '100');
-      height = 50;
-      act(() => notify());
-      expect(toolbar).toHaveAttribute('data-toolbar-height', '50');
-      unmount();
-    } finally {
-      spy.mockRestore();
-      vi.unstubAllGlobals();
-    }
   });
 
   it('renders all tab labels', () => {
