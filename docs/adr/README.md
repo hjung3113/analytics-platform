@@ -96,6 +96,7 @@
 | [0086](0086-kernel-query-engine-tanstack.md) | Kernel 조회 수명주기는 내부 엔진으로 TanStack Query를 쓴다 — 공유 키로 요청 중복 제거, 5분 메모리 SWR, 세션 세대 키로 이전 사용자 데이터 제거(대안: A Kernel 자체 중복 제거 / C TanStack을 SDK 조회 API로 공개 / D 하지 않음 — B 선택) | Decided(2026-10-26, 사용자 방향 + 코디네이터, 되돌릴 수 있다) — #825 |
 | [0087](0087-board-minimize-restore-history.md) | 분석 보드는 URL이 최대화의 정본이고 `live`만 저장한 채 마운트를 유지하며 열기·최소화·복원·`분석 보드에 열기…`는 history replace로 전이한다(대안: a 언마운트 / b `history.back()` 최소화 / c 별도 mode 저장 — d 선택) | Decided(2026-10-27, 코디네이터(사용자 결정: 칩 + 레일 상태 표시), 되돌릴 수 있다) — #893 |
 | [0088](0088-surface-pause-detail-slot.md) | 소유 표면이 가려지면(최소화된 보드) 상세 슬롯 등록자는 자리를 지키되 표시권만 멈춘다 — 종료(`onSuperseded`)가 아니다, 재개 때 여전히 승자일 때만 다시 보이고 `activation`+1(대안: a 해제 / b 보드 전용 prop / c unmount — d 도메인 중립 scope 선택, ADR-0047 개정) | Decided(2026-10-27, 코디네이터, 되돌릴 수 있다) — #893 |
+| [0090](0090-repo-structure-by-branch.md) | 저장소는 갈래별 구조로 정리한다: FeedbackOps를 루트 `apps/`·`packages/`로 펼치고, `packages/`는 `sdk/`·`adapters/`로 묶고, 공간 id를 `mars`·`bravo`로 바꾸고, docs는 종류별 폴더 + 06 계약 분할(대안: #712 D1–D5의 A/B/C — D1 B, D2 C, D3 B, D4 A, D5 C 선택) | Decided(2026-10-27, 사용자, 최종 트리 표는 되돌릴 수 있다) — #713 |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 
