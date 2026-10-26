@@ -1,5 +1,6 @@
-// Router-free home of the search validation pieces the VOC search schema needs. The bridge entry graph bans
-// `lib/router/**`, so they live here and `lib/router/{search,platform-return,recovery-search}.ts` re-export them.
+// Router-free home of the search validation pieces the VOC, Task, Findings and 연동 search schemas need (the recovery queue fields included). The
+// bridge entry graph bans `lib/router/**`, so they live here and `lib/router/{search,platform-return,recovery-search}.ts` re-export them.
+import { recoveryCategorySchema } from '@fops/shared';
 import { z } from 'zod';
 
 /** Keeps valid route-search fields and drops invalid or unrecognized URL values. */
@@ -97,3 +98,34 @@ export const returnToField = z
   .string()
   .refine((value) => safeRecoveryReturnTo(value) !== undefined)
   .optional();
+
+export const recoverySearchFields = {
+  category: recoveryCategorySchema.optional(),
+  selected: z
+    .string()
+    .regex(/^r1_[A-Za-z0-9_-]{23}$/)
+    .optional(),
+  presentation: z
+    .enum(['visible', 'hidden'])
+    .transform((value) => (value === 'visible' ? undefined : value))
+    .optional(),
+  // TanStack decodes a hand-written ?history=true as the boolean true; a host's string 'true' means the same.
+  history: z.preprocess(
+    (value) => (value === 'true' ? true : value),
+    z
+      .boolean()
+      .transform((value) => (value ? true : undefined))
+      .optional(),
+  ),
+  returnTo: returnToField,
+  cursor: z.string().min(1).max(4096).optional(),
+};
+export interface RecoverySearch {
+  managedSystem?: string;
+  category?: z.infer<typeof recoveryCategorySchema>;
+  selected?: string;
+  presentation?: 'hidden';
+  history?: boolean;
+  returnTo?: string;
+  cursor?: string;
+}

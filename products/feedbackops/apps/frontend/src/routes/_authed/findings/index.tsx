@@ -11,6 +11,11 @@ import { RequestAccessButton } from '@/features/admin/public';
 import { FindingDetailPanel } from '@/features/findings/components/FindingDetail';
 import { useFindingDetail } from '@/features/findings/hooks/useFindingDetail';
 import { useFindingsPages, useFindingsTotal } from '@/features/findings/hooks/useFindingsList';
+import {
+  type FindingsSearch,
+  getSafeVocReturnTo,
+  validateFindingsSearch,
+} from '@/features/findings/routes/findings-search';
 import { resolveActors } from '@/lib/api/actors';
 import { ApiError, isPermissionDenied } from '@/lib/api/types';
 import {
@@ -25,9 +30,8 @@ import { useWorkspaceActors } from '@/lib/cross-system/useWorkspaceActors';
 import { formatCount } from '@/lib/format/count';
 import { formatShortDate } from '@/lib/format/datetime';
 import { InternalLink } from '@/lib/router/InternalLink';
-import { parseRouteSearch } from '@/lib/router/search';
 import { useAnalyticsAreaFilterLabel } from '@/lib/useAnalyticsAreaFilterLabel';
-import { type FindingDto, listFindingsQuerySchema } from '@fops/shared';
+import type { FindingDto } from '@fops/shared';
 import {
   ActiveFilterBar,
   type AvatarUser,
@@ -48,34 +52,11 @@ import {
 import { createFileRoute, useNavigate, useSearch } from '@tanstack/react-router';
 import { ChevronLeft } from 'lucide-react';
 import * as React from 'react';
-import { z } from 'zod';
-import { vocSearchSchema } from '../vocs';
 
-// Selection + Managed System scope are URL state (docs/frontend/routes-and-layout.md
-// §URL State Rules): /findings?managedSystem=:managedSystemId|all&selected=:findingId.
-// Defaults (scope union / nothing selected) are omitted from the URL. `all` and an
-// absent managedSystem both query WITHOUT managed_system_id (the backend applies the
-// caller's effective scope union); a uuid is passed through.
-// execution=none is the coverage gap hop. `returnTo` carries a same-origin VOC list URL.
-// Absent execution stays unfiltered.
-export const findingsSearchSchema = z
-  .object({
-    q: listFindingsQuerySchema.shape.q,
-    'filter.analytics_area': z.union([z.string().uuid(), z.literal('unset')]).optional(),
-    status: z.literal('active').optional(),
-    managedSystem: z.union([z.string().uuid(), z.literal('all')]).optional(),
-    selected: z.string().uuid().optional(),
-    execution: z.literal('none').optional(),
-    assignment: z.enum(['assigned', 'unassigned']).optional(),
-    returnTo: z.string().max(2048).optional(),
-  })
-  .strict();
-
-type FindingsSearch = z.infer<typeof findingsSearchSchema>;
-
-export function validateFindingsSearch(raw: unknown) {
-  return parseRouteSearch(findingsSearchSchema, raw);
-}
+export {
+  findingsSearchSchema,
+  validateFindingsSearch,
+} from '@/features/findings/routes/findings-search';
 
 // #982: the router plugin skips code-splitting when the route component is an
 // exported local (hasExport check). The alias keeps FindingsListPage exported
@@ -516,25 +497,6 @@ function FindingsListShell({
       }
     />
   );
-}
-
-function getSafeVocReturnTo(value: string | undefined): string | null {
-  if (value === undefined || !value.startsWith('/vocs')) return null;
-
-  try {
-    const url = new URL(value, 'http://feedbackops.local');
-    if (url.origin !== 'http://feedbackops.local' || url.pathname !== '/vocs' || url.hash) {
-      return null;
-    }
-
-    const searchEntries = [...url.searchParams.entries()];
-    if (new Set(searchEntries.map(([key]) => key)).size !== searchEntries.length) return null;
-    if (!vocSearchSchema.safeParse(Object.fromEntries(searchEntries)).success) return null;
-
-    return `${url.pathname}${url.search}`;
-  } catch {
-    return null;
-  }
 }
 
 function FindingsListBody({

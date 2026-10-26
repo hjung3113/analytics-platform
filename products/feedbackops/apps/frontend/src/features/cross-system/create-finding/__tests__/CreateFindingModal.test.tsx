@@ -62,9 +62,10 @@ function renderModal(
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   }),
   defaults: { defaultTitle?: string; defaultSeverity?: FindingSeverity } = {},
+  hostSeam: HostSeam = seam,
 ) {
   return render(
-    <HostSeamProvider value={seam}>
+    <HostSeamProvider value={hostSeam}>
       <QueryClientProvider client={client}>
         <CreateFindingModal
           vocId={IDS.voc}
@@ -267,6 +268,22 @@ describe('CreateFindingModal Analytics Area inheritance', () => {
   it('omits returnTo when the modal is not mounted on a VOC list URL', async () => {
     useLocation.mockReturnValue({ pathname: '/', href: 'http://localhost/' });
     renderModal(null);
+    submitValidForm();
+
+    await submittedBody();
+    await waitFor(() =>
+      expect(navigate).toHaveBeenCalledWith(
+        searchHref('/findings', { selected: '10000000-0000-4000-8000-000000000050' }),
+      ),
+    );
+  });
+
+  it('adds no returnTo when the host carries the return path itself', async () => {
+    useLocation.mockReturnValue({
+      pathname: '/vocs',
+      href: `/vocs?view=triage&selected=${IDS.voc}&tab=high`,
+    });
+    renderModal(null, undefined, {}, { ...seam, hostCarriesReturn: true });
     submitValidForm();
 
     await submittedBody();

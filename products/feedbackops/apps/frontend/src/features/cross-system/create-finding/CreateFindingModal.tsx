@@ -80,7 +80,7 @@ export function CreateFindingModal({
 }: CreateFindingModalProps): React.ReactElement {
   const navigate = useHostNavigate();
   const here = useHostHere();
-  const { canLink, notifyError, notifySuccess } = useHostSeam();
+  const { canLink, hostCarriesReturn, notifyError, notifySuccess } = useHostSeam();
   const [editedFields, setEditedFields] = React.useState(INITIAL_TEXT_FIELD_INTERACTION);
   const { key: idempotencyKey, markConsumed } = useIdempotencyKey();
 
@@ -185,7 +185,7 @@ export function CreateFindingModal({
           mutation.reset();
           onCreated?.();
           onClose();
-          const returnTo = returnToRef.current;
+          const returnTo = hostCarriesReturn ? undefined : returnToRef.current;
           const findingHref = searchHref('/findings', {
             selected: finding.id,
             ...(returnTo !== undefined ? { returnTo } : {}),

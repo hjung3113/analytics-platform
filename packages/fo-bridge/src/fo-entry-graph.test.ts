@@ -444,6 +444,33 @@ describe('FeedbackOps Task search entry graph (ADR-0071 decision 9)', () => {
   });
 });
 
+// The Findings and 연동 search entries (#762 s) are the same shape: schema pieces only, bridge-safe.
+describe('FeedbackOps Findings search entry graph (ADR-0071 decision 9)', () => {
+  const search = walk([join(FRONTEND_SRC, 'operator-screens/findings-search/index.ts')]);
+  const searchReached = [...search.files.keys()].map(file => relative(FRONTEND_SRC, file));
+
+  it('reaches the search schema and no screen, router, layout, auth source or api module', () => {
+    expect(searchReached).toEqual(
+      expect.arrayContaining(['features/findings/routes/findings-search.ts', 'features/voc/routes/voc-search.ts', 'lib/host/search-fields.ts']),
+    );
+    expect(searchReached.filter(file => /^(?:routes|lib\/router|lib\/layout|lib\/auth|lib\/api)\/|\.tsx$/.test(file))).toEqual([]);
+    expect(search.unresolved).toEqual([]);
+    expect([...search.specifiers].filter(specifier => /^@tanstack\/(react-)?router|^sonner$/.test(specifier))).toEqual([]);
+  });
+});
+
+describe('FeedbackOps 연동 search entry graph (ADR-0071 decision 9)', () => {
+  const search = walk([join(FRONTEND_SRC, 'operator-screens/integration-search/index.ts')]);
+  const searchReached = [...search.files.keys()].map(file => relative(FRONTEND_SRC, file));
+
+  it('reaches the search schemas and no screen, router, layout, auth source or api module', () => {
+    expect(searchReached).toEqual(expect.arrayContaining(['features/integration/routes/integration-search.ts', 'lib/host/search-fields.ts']));
+    expect(searchReached.filter(file => /^(?:routes|lib\/router|lib\/layout|lib\/auth|lib\/api)\/|\.tsx$/.test(file))).toEqual([]);
+    expect(search.unresolved).toEqual([]);
+    expect([...search.specifiers].filter(specifier => /^@tanstack\/(react-)?router|^sonner$/.test(specifier))).toEqual([]);
+  });
+});
+
 // The Task Request hooks (#763 q1) notify, navigate and link through the host seam, so the later Task Requests screen can run in the
 // bridge: each hook is walked as its own root.
 describe('FeedbackOps Task Request hooks graph (ADR-0071)', () => {
