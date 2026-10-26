@@ -24,7 +24,8 @@ It does not own source object lifecycles or backend authorization truth.
 
 ## Key files
 
-- `apps/frontend/src/routes/_authed/findings/index.tsx` — list, selected-detail state, and list status labels.
+- `apps/frontend/src/features/findings/routes/FindingsScreen.tsx` — the list, its URL state and list status labels (bridge-safe, entry `operator-screens/findings`; the host renders every detail-slot branch through `renderDetail`).
+- `apps/frontend/src/routes/_authed/findings/index.tsx` — the route: composes `FindingsScreen` with `FindingDetailPanel` through a route-local seam.
 - `apps/frontend/src/routes/_authed/findings/$findingId.tsx` — redirects direct Finding deep links
   to the list + selected panel.
 - `apps/frontend/src/features/findings/hooks/useFindingsList.ts` — Finding list query.

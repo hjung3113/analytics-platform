@@ -527,3 +527,29 @@ describe('FeedbackOps operator Task Requests entry graph (ADR-0071)', () => {
     expect(callers).toEqual(['lib/api/client.ts']);
   });
 });
+
+describe('FeedbackOps operator Findings list entry graph (ADR-0071)', () => {
+  const findings = walk([join(FRONTEND_SRC, 'operator-screens/findings/index.ts')]);
+  const findingsReached = [...findings.files.keys()].map(file => relative(FRONTEND_SRC, file));
+
+  it('reaches the screen, the list hook and the host seam, and not the Finding detail tree or anything under routes/', () => {
+    expect(findingsReached).toEqual(expect.arrayContaining(['features/findings/routes/FindingsScreen.tsx', 'features/findings/hooks/useFindingsList.ts', 'lib/host/host-seam.tsx']));
+    expect(findingsReached.filter(file => file.startsWith('features/findings/components/FindingDetail/'))).toEqual([]);
+    expect(findingsReached.filter(file => /^routes\//.test(file))).toEqual([]);
+    expect(findings.unresolved).toEqual([]);
+  });
+
+  it('imports no router and no toast library', () => {
+    expect([...findings.specifiers].filter(specifier => /^@tanstack\/(react-)?router|^sonner$/.test(specifier))).toEqual([]);
+  });
+
+  it('reaches no route, router, layout or auth source, the auth module, the api barrel, the permissions or managed-systems api, the standalone permission check or the findings public surface', () => {
+    const banned = /^(?:routes|lib\/router|lib\/layout|lib\/auth)\/|^lib\/api\/(?:auth|index|permissions|managed-systems)\.ts$|^lib\/cross-system\/usePermissionCheck\.ts$|^features\/findings\/public\.ts$/;
+    expect(findingsReached.filter(file => banned.test(file))).toEqual([]);
+  });
+
+  it('calls fetch only in lib/api/client.ts', () => {
+    const callers = [...findings.files].filter(([, text]) => /(?<![\w.])fetch\(/.test(text)).map(([file]) => relative(FRONTEND_SRC, file));
+    expect(callers).toEqual(['lib/api/client.ts']);
+  });
+});
