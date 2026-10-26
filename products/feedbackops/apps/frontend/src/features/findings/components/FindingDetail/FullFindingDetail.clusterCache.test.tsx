@@ -37,6 +37,10 @@ vi.mock('@/features/findings/hooks/useEvidenceHighlights', () => ({
 vi.mock('@/lib/auth/useMe', () => ({
   useMe: () => ({ data: { actor: { role_level: 'admin' } } }),
 }));
+vi.mock('@/lib/api/me', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/me')>()),
+  useMeBridge: () => ({ data: { actor: { role_level: 'admin' } } }),
+}));
 
 const CLUSTER_ID = '70000000-0000-7000-8000-000000000007';
 

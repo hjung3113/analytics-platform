@@ -5,17 +5,20 @@
 // useFindingExecutionSection; rendering lives in FullFindingDetail.
 
 import { useVocClusterDetail } from '@/features/voc-cluster/hooks/useVocClusterDetail';
-import { type ApiError, errorMapper, getTask, useIdempotencyKey } from '@/lib/api';
-import { useMe } from '@/lib/auth/useMe';
+import { errorMapper } from '@/lib/api/errorMapper';
+import { useMeBridge } from '@/lib/api/me';
+import { getTask } from '@/lib/api/tasks';
+import type { ApiError } from '@/lib/api/types';
+import { useIdempotencyKey } from '@/lib/api/useIdempotencyKey';
 import { analyticsAreasCatalogQuery } from '@/lib/cross-system/analyticsAreasCatalog';
 import { managedSystemsCatalogQuery } from '@/lib/cross-system/useManagedSystemNames';
-import { usePermissionCheck } from '@/lib/cross-system/usePermissionCheck';
+import { usePermissionCheckBridge } from '@/lib/cross-system/usePermissionCheckBridge';
 import { useVocDetail } from '@/lib/cross-system/useVocDetail';
 import { useWorkspaceActors } from '@/lib/cross-system/useWorkspaceActors';
+import { useHostSeam } from '@/lib/host/host-seam';
 import type { FindingDto, TaskDetailDto } from '@fops/shared';
 import { type UseQueryResult, useQuery } from '@tanstack/react-query';
 import * as React from 'react';
-import { toast } from 'sonner';
 import { useFindingStatusMutation } from '../../hooks/useFindingStatusMutation';
 
 export interface FindingDetailController {
@@ -119,8 +122,9 @@ export function useFindingDetailController(finding: FindingDto): FindingDetailCo
     ? (linkedClusterQuery.data?.display_id ?? null)
     : null;
   const { key: statusIdempotencyKey, markConsumed: markStatusKeyConsumed } = useIdempotencyKey();
-  const { data: me } = useMe();
-  const managePermissionQuery = usePermissionCheck({
+  const { notifyError, notifySuccess } = useHostSeam();
+  const { data: me } = useMeBridge();
+  const managePermissionQuery = usePermissionCheckBridge({
     capability: 'finding.manage',
     managedSystemId: finding.primary_managed_system_id,
   });
@@ -132,7 +136,7 @@ export function useFindingDetailController(finding: FindingDto): FindingDetailCo
     findingId: finding.id,
     idempotencyKey: statusIdempotencyKey,
     onError: (err: ApiError) => {
-      toast.error(errorMapper(err.envelope).message);
+      notifyError(errorMapper(err.envelope).message);
     },
   });
 
@@ -142,7 +146,7 @@ export function useFindingDetailController(finding: FindingDto): FindingDetailCo
       {
         onSuccess: () => {
           markStatusKeyConsumed();
-          toast.success('Finding이 조치 불필요로 표시되었습니다.');
+          notifySuccess('Finding이 조치 불필요로 표시되었습니다.');
         },
       },
     );

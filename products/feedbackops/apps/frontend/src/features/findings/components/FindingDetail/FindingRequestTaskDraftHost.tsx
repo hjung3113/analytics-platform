@@ -1,10 +1,12 @@
 import { TaskRequestDraftCard } from '@/features/cross-system/request-task/TaskRequestDraftCard';
-import { type ApiError, errorMapper, useIdempotencyKey } from '@/lib/api';
+import { errorMapper } from '@/lib/api/errorMapper';
+import type { ApiError } from '@/lib/api/types';
+import { useIdempotencyKey } from '@/lib/api/useIdempotencyKey';
 import { TASK_REQUEST_COPY } from '@/lib/copy/task-requests';
+import { useHostNotice, useHostSeam } from '@/lib/host/host-seam';
+import { searchHref } from '@/lib/host/search';
 import type { FindingDto } from '@fops/shared';
-import { useNavigate } from '@tanstack/react-router';
 import type * as React from 'react';
-import { toast } from 'sonner';
 import { useRequestTaskFromFinding } from '../../hooks/useRequestTaskFromFinding';
 
 export interface FindingRequestTaskDraftHostProps {
@@ -25,12 +27,14 @@ function FindingRequestTaskDraftSubmission({
   markConsumed: () => void;
   onClose: () => void;
 }): React.ReactElement {
-  const navigate = useNavigate();
+  const { canLink, notifyError, useNavigate } = useHostSeam();
+  const navigate = useNavigate?.();
+  const { notify } = useHostNotice();
   const mutation = useRequestTaskFromFinding({
     findingId: finding.id,
     idempotencyKey,
     onError: (err: ApiError) => {
-      toast.error(errorMapper(err.envelope).message);
+      notifyError(errorMapper(err.envelope).message);
     },
   });
 
@@ -48,14 +52,19 @@ function FindingRequestTaskDraftSubmission({
             markConsumed();
             mutation.reset();
             onClose();
-            toast.success(TASK_REQUEST_COPY.created, {
-              duration: Number.POSITIVE_INFINITY,
-              action: {
-                label: TASK_REQUEST_COPY.openRequest,
-                onClick: () => {
-                  void navigate({ to: '/tasks', search: { view: 'requests', param: request.id } });
-                },
-              },
+            const to = searchHref('/tasks', { view: 'requests', param: request.id });
+            notify({
+              tone: 'success',
+              message: TASK_REQUEST_COPY.created,
+              durationMs: Number.POSITIVE_INFINITY,
+              ...(navigate !== undefined && canLink(to)
+                ? {
+                    action: {
+                      label: TASK_REQUEST_COPY.openRequest,
+                      onAction: () => navigate(to),
+                    },
+                  }
+                : {}),
             });
           },
         });
