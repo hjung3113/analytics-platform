@@ -25,6 +25,8 @@ const TOTAL_GAP = 4;
 const MIN_TICK_PITCH = 64;
 const DEFAULT_TICKS = 5;
 const PARTIAL_MARKER = 8;
+/** Upper bound of the category-label allowance in a `containLabel` horizontal grid. */
+const MAX_CATEGORY_ROOM = 160;
 
 export type LinePattern = 'solid' | number[];
 export function linePattern(series: ChartSeries, previous: boolean): LinePattern {
@@ -86,6 +88,8 @@ export type ChartOptionInput = {
   noteLevels: readonly number[];
   timeExtent: number;
   chartWidth: number;
+  /** Horizontal value axis only: the measured width bucketed by the Frame, so the tick budget follows a resize without the whole option changing. Absent = `chartWidth`. */
+  tickRoom?: number;
   markLines: { y: number; label: string }[] | undefined;
   unit: string;
   lang: string;
@@ -144,7 +148,9 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
   const units = xType === 'time' ? i.timeExtent : categories.length;
   const pxPerUnit = units > 0 ? plotWidth / (units * zoomed) : 0;
   // A narrow plot (a 400px drawer) cannot hold five numeric ticks: fewer ticks, and any that still touch are dropped; a wide plot keeps ECharts' defaults instead of printing `1,0002,000`.
-  const gridPlotWidth = i.chartWidth - (i.rowPitch !== undefined ? ROW_LABEL_GUTTER : 52) - gridRight;
+  // Without rowPitch the grid is `containLabel`, so the category labels also eat plot width; their real width is unknown here, so the longest category is estimated (capped) and taken off.
+  const categoryRoom = i.rowPitch !== undefined ? ROW_LABEL_GUTTER : 52 + Math.min(MAX_CATEGORY_ROOM, Math.max(0, ...categories.map(labelWidth)));
+  const gridPlotWidth = (i.tickRoom ?? i.chartWidth) - categoryRoom - gridRight;
   const tickCount = Math.floor(gridPlotWidth / MIN_TICK_PITCH);
   const valueAxisTicks = tickCount < DEFAULT_TICKS ? { splitNumber: Math.max(1, tickCount), axisLabel: { hideOverlap: true } } : {};
   const noteWidths = noteLabelWidths(i.noteSpans, pxPerUnit, plotWidth);

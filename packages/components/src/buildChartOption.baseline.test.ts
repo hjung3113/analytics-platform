@@ -31,4 +31,11 @@ describe('horizontal value-axis ticks on a narrow plot (#914 B3)', () => {
   it('leaves the default tick count on a wide plot', () => {
     expect(xAxis(600).splitNumber).toBeUndefined();
   });
+  // C2: without rowPitch the grid is containLabel, so long category names narrow the numeric grid too.
+  it('budgets the category-label room when there is no row pitch', () => {
+    const long = ['가나다라마바사아자차카타파하 긴 범주 이름', 'R2', 'R3', 'R4'];
+    const axis = (categories: string[]) => (buildChartOption(baselineInput({ rowPitch: undefined, chartWidth: 450, extremes: undefined, markLines: undefined, categories })) as unknown as { xAxis: { splitNumber?: number } }).xAxis;
+    expect(axis(['R1', 'R2', 'R3', 'R4']).splitNumber).toBeUndefined();
+    expect(axis(long).splitNumber).toBeLessThan(5);
+  });
 });

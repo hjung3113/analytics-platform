@@ -1,4 +1,4 @@
-import { type ReactElement } from 'react';
+import { type ComponentProps, type ReactElement } from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -112,14 +112,14 @@ function mount(
   adapter: PlatformAdapter,
   features: typeof off,
   url = '/?v=1&scopeId=MEM',
-  chart: { series?: ChartSeries[]; compareSeries?: ChartSeries[]; markLines?: { y: number; label: string }[]; size?: 'fill'; valueFormat?: (value: number) => string } = {},
+  chart: { series?: ChartSeries[]; compareSeries?: ChartSeries[]; markLines?: { y: number; label: string }[]; size?: 'fill'; valueFormat?: (value: number) => string; frame?: Partial<ComponentProps<typeof AnalysisChartFrame>> } = {},
 ) {
   window.history.replaceState(null, '', url);
   return render(<I18nProvider><PlatformProvider adapter={adapter} registry={registryWith(features)}>
     <SwitchScope />
     <SwitchRooms />
     <ToastProbe />
-    <AnalysisChartFrame chartId="chart-1" title="Chart" series={chart.series ?? series} compareSeries={chart.compareSeries ?? compareSeries} markLines={chart.markLines} unit="ea" size={chart.size} valueFormat={chart.valueFormat} />
+    <AnalysisChartFrame chartId="chart-1" title="Chart" series={chart.series ?? series} compareSeries={chart.compareSeries ?? compareSeries} markLines={chart.markLines} unit="ea" size={chart.size} valueFormat={chart.valueFormat} {...chart.frame} />
   </PlatformProvider></I18nProvider>);
 }
 const brushAndOpenNote = async () => {
@@ -966,6 +966,37 @@ describe('author-only annotation delete (#399, ADR-0041)', () => {
     act(() => plotProps?.onResize?.(320));
     act(() => plotProps?.onResize?.(480));
     expect(plotProps?.option).toBe(before);
+  });
+
+  // #914 C1: a horizontal stacked row-pitch chart without notes (the HW Time drawer) still budgets ticks from its measured width.
+  describe('horizontal value-axis ticks follow the measured width', () => {
+    const bars: ChartSeries[] = [{ id: 'a', name: 'A', color: 'chart-blue', kind: 'bar', points: [['R1', 800], ['R2', 20]] }, { id: 'b', name: 'B', color: 'chart-green', kind: 'bar', points: [['R1', 100], ['R2', 200]] }];
+    const mountBars = async () => {
+      mount(fixture().adapter, off, '/?v=1&scopeId=MEM', { series: bars, compareSeries: [], frame: { xType: 'category', orientation: 'horizontal', stacked: true, rowPitch: 26 } });
+      await screen.findByRole('img');
+    };
+    const xAxis = () => (plotProps?.option as unknown as { xAxis: { splitNumber?: number; axisLabel?: { hideOverlap?: boolean } } }).xAxis;
+    it('thins ticks and hides touching labels at a narrow width', async () => {
+      await mountBars();
+      act(() => plotProps?.onReady?.(plotInstance(300)));
+      expect(xAxis().splitNumber).toBeLessThanOrEqual(4);
+      expect(xAxis().axisLabel?.hideOverlap).toBe(true);
+    });
+    it('keeps the default ticks at a wide width', async () => {
+      await mountBars();
+      act(() => plotProps?.onReady?.(plotInstance(900)));
+      expect(xAxis().splitNumber).toBeUndefined();
+      expect(xAxis().axisLabel?.hideOverlap).toBeUndefined();
+    });
+    it('keeps the option object while a resize stays inside one budget step', async () => {
+      await mountBars();
+      act(() => plotProps?.onReady?.(plotInstance(300)));
+      const before = plotProps?.option;
+      act(() => plotProps?.onResize?.(310));
+      expect(plotProps?.option).toBe(before);
+      act(() => plotProps?.onResize?.(900));
+      expect(plotProps?.option).not.toBe(before);
+    });
   });
 
   // F3: the label budget follows the plot width, with no other chart interaction.
