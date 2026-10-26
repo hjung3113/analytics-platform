@@ -901,6 +901,16 @@ Cell padding     4px 12px
 - 비보안 경로는 클릭·keydown 안에서 document 수준 일회성 capture `copy` 리스너(text/plain·text/html 설정 + `preventDefault`)를 걸고 `execCommand('copy')`를 부르며, `finally`에서 리스너를 반드시 제거한다. 표 `section`에 리스너를 달지 않는다(Chromium은 이 이벤트를 selection 노드나 `<body>`로 보낸다).
 - 글자만 복사하는 곳(상세 패널 링크 복사 등)은 `@ap/ui`의 `copyText`를 쓴다. 같은 기능 감지 규칙이다: 보안 컨텍스트는 `writeText`가 resolve해야 성공이고 거절은 실패로 알린다(폴백 없음). 비보안 컨텍스트는 위 capture `copy` 리스너 + `execCommand('copy')`이고, 리스너가 실제로 글자를 채워야 성공이다(#673).
 
+### 메뉴 선언 Workbook 내보내기(#860)
+
+표 하나의 내보내기(위, 데이터 + 조회 정보 2시트)로 담을 수 없는 파일 — 차트·요약·원본·조회 정보를 메뉴가 정한 이름의 여러 시트로 — 은 `@ap/components`의 `useWorkbookExport()`로 만든다. 메뉴는 `exportWorkbook(build, { fileName? })`에 `WorkbookSheet[]`(`name`, 선택 `header`, `rows`: 문자열·숫자·`null` 셀)를 돌려주는 `build(signal)`를 주고, 게이트·직렬화·파일·토스트는 SDK가 소유한다.
+
+- 게이트는 manifest `features.export`다(`canExport`가 거짓이면 아무것도 하지 않고, 메뉴는 버튼을 숨기거나 비활성으로 둔다). 진행 중 두 번째 호출은 무시하고, `cancel()`·unmount는 `build`의 `signal`을 끊어 조용히 끝낸다. `build`가 스스로 낸 `AbortError`(시간 초과)는 실패로 알린다.
+- 시트 이름은 Excel 규칙을 따른다: 1–31자, `: \ / ? * [ ]` 없음, `'`로 시작·끝나지 않음, `History` 아님, 대소문자 무시 중복 없음. 어기면 메뉴 선언 결함이라 개발 중 콘솔 오류와 일반 실패 토스트다.
+- 셀: 숫자는 숫자 셀(비유한 값은 빈 셀), 문자열은 문자열 셀로 수식으로 실행되지 않는다(표 XLSX와 같다). 설비 wall-clock 문자열은 날짜로 바꾸지 않고 원형 그대로, `null`·`''`는 빈 셀, 32,767자를 넘는 글자는 표와 같은 표식으로 자른다.
+- 상한(`WORKBOOK_LIMITS`): 시트 20개, 시트마다 100,000행(표 내보내기 상한과 같음), 셀 합계 2,000,000개. 파일을 사용자 브라우저 메모리에서 만들기 때문이고, 넘으면 "필터를 좁혀 주세요" 경고 토스트를 띄우고 파일을 만들지 않는다. 더 큰 파일은 서버 비동기 내보내기(#555) 몫이다.
+- 파일 이름은 `<fileName 또는 메뉴 id>-<yyyyMMdd-HHmm>.xlsx`(`A-Za-z0-9._-` 밖 글자는 `-`)이고, `write-excel-file/browser`는 표와 같이 클릭 때 지연 청크로 불러온다. 순수 함수 `checkWorkbook`·`toWorkbookXlsx(sheets, signal?)`도 공개한다. 세부는 `workbook.test.ts`·`useWorkbookExport.test.tsx`가 고정한다.
+
 ### Platform Table과 Domain Table의 경계
 
 Platform이 소유:

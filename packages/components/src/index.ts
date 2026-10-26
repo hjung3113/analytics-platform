@@ -10,6 +10,8 @@ export * from './PageFilterBar';
 export * from './PlatformDataTable';
 export * from './tableUrlWarning';
 export { focusPageFallback } from './pageFocus';
+export { checkWorkbook, toWorkbookXlsx, WorkbookError, WORKBOOK_LIMITS, type WorkbookCell, type WorkbookErrorCode, type WorkbookSheet } from './workbook';
+export { useWorkbookExport, type WorkbookExport, type WorkbookExportOptions } from './useWorkbookExport';
 export * from './PlatformPage';
 export * from './RadioGroup';
 export { RowAction, type RowActionProps } from './RowAction';

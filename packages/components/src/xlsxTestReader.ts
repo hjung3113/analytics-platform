@@ -3,7 +3,7 @@ import { strFromU8, unzipSync } from 'fflate';
 
 const unescape = (text: string) => text.replaceAll('&lt;', '<').replaceAll('&gt;', '>').replaceAll('&quot;', '"').replaceAll('&apos;', "'").replaceAll('&amp;', '&');
 
-export async function readXlsx(blob: Blob): Promise<{ sheetNames: string[]; sheets: Record<string, number | string>[] }> {
+export async function readXlsx(blob: Blob): Promise<{ sheetNames: string[]; sheets: Record<string, number | string>[]; sheetXml: string[] }> {
   const bytes = await new Promise<Uint8Array>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(new Uint8Array(reader.result as ArrayBuffer));
@@ -24,5 +24,5 @@ export async function readXlsx(blob: Blob): Promise<{ sheetNames: string[]; shee
     }
     return cells;
   });
-  return { sheetNames, sheets };
+  return { sheetNames, sheets, sheetXml: sheetNames.map((_, i) => text(`xl/worksheets/sheet${i + 1}.xml`)) };
 }
