@@ -1,6 +1,6 @@
 // Router-free home of the /voc-clusters search schema, so the list screen (bridge entry) can parse its host's search
 // without importing the route. `routes/_authed/voc-clusters/index.tsx` re-exports it.
-import { parseRouteSearch } from '@/lib/host/search-fields';
+import { isSearchFieldValueValid, parseRouteSearch } from '@/lib/host/search-fields';
 import { z } from 'zod';
 
 // Selection + Managed System scope are URL state (docs/frontend/routes-and-layout.md
@@ -27,8 +27,5 @@ export function validateVocClustersSearch(raw: unknown): VocClustersSearch {
  * that fails; a host that must reject instead (platform ADR-0071 decision 9) asks this before mounting. `all` is valid for `managedSystem`.
  */
 export function isVocClustersSearchValueValid(key: string, value: string): boolean {
-  if (!Object.prototype.hasOwnProperty.call(vocClustersSearchSchema.shape, key)) return false;
-  return vocClustersSearchSchema.shape[key as keyof typeof vocClustersSearchSchema.shape].safeParse(
-    value,
-  ).success;
+  return isSearchFieldValueValid(vocClustersSearchSchema, key, value);
 }

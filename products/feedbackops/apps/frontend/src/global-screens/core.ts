@@ -10,3 +10,5 @@ export type { HostLinkProps, HostNavigate, HostNotice, HostSeam } from '@/lib/ho
 export type { HostSearch } from '@/lib/host/search';
 export { createFoQueryClient } from '@/lib/query/query-client';
 export { FoScreenRoot } from './FoScreenRoot';
+export { scopeSwitchClears } from '@/lib/host/scope-switch';
+export type { ScopeSwitchInput } from '@/lib/host/scope-switch';

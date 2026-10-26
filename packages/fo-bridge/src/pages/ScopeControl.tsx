@@ -1,5 +1,5 @@
 import { usePlatform } from '@ap/kernel';
-import { FoScreenRoot, type HostSeam } from '@fops/frontend/global-screens/core';
+import { FoScreenRoot, type HostSeam, scopeSwitchClears } from '@fops/frontend/global-screens/core';
 import { ManagedSystemScopeControl } from '@fops/frontend/operator-screens/scope-picker';
 import { UnlinkedLink } from '../fo/FoBridge';
 import { foQueryClient, useFoSession } from '../fo/session';
@@ -15,13 +15,18 @@ export default function ScopeControl({ collapsed }: { collapsed: boolean }) {
   const raw = pageParam('managedSystem');
   // A value that is not a uuid is rejected on the page; the picker never receives it as a selection.
   const value = raw !== null && isUuid(raw) ? raw : undefined;
-  // Mirrors FO `_authed.tsx:421-449`: a specific system drops the Analytics Area filter (unless `unset`), any change drops a scope-bound cursor.
-  // FO drops `cursor` by path (evidence, coverage, integration, home); "the menu declares `cursor`" matches that list only while those are the only menus declaring it (#762 Design 8).
+  // The rule is FO's own (`scopeSwitchClears`, one for both hosts): a specific system drops the Analytics Area filter (unless `unset`), and a cursor the menu declares is bound to scope.
   const onChange = (id: string | undefined) => {
     const declares = (key: string) => route?.menu.pageKeys.includes(key) === true;
+    const clears = scopeSwitchClears({
+      nextSystem: id,
+      area: pageParam('area') ?? undefined,
+      declaresArea: declares('area'),
+      declaresCursor: declares('cursor'),
+    });
     const patch: Record<string, string | null> = { managedSystem: id ?? null };
-    if (id !== undefined && declares('area') && pageParam('area') !== 'unset') patch['area'] = null;
-    if (declares('cursor')) patch['cursor'] = null;
+    if (clears.area) patch['area'] = null;
+    if (clears.cursor) patch['cursor'] = null;
     setPage(patch, { replace: true });
   };
   return <FoScreenRoot client={foQueryClient} host={SEAM} key={session.status === 'ready' ? session.epoch : 0}>

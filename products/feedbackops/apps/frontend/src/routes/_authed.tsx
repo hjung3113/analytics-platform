@@ -1,3 +1,9 @@
+import {
+  evidenceSearchSchema,
+  integrationCoverageSearchSchema,
+  integrationDashboardSearchSchema,
+} from '@/features/integration/routes/integration-search';
+import { scopeSwitchClears } from '@/lib/host/scope-switch';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Outlet,
@@ -49,10 +55,20 @@ import {
 } from '../lib/layout/command-palette/CommandPaletteContext';
 import { selectPlatformReturn } from '../lib/router/platform-return';
 import type { AppRouterContext } from './__root';
+import { homeSearchSchema } from './_authed/home';
 import { VOC_DEFAULT_VIEW } from './_authed/vocs';
 
 const SIDEBAR_ROUTE_DEFAULT_VIEWS: Record<string, string> = {
   '/vocs': VOC_DEFAULT_VIEW,
+};
+
+// Leaf route id -> the schema that route validates its search with. A route
+// absent here has no validator, so it declares no scope-bound `cursor`.
+const ROUTE_SEARCH_SCHEMAS: Record<string, { shape: Record<string, unknown> }> = {
+  '/_authed/home': homeSearchSchema,
+  '/_authed/integration/': integrationDashboardSearchSchema,
+  '/_authed/integration/evidence': evidenceSearchSchema,
+  '/_authed/integration/coverage': integrationCoverageSearchSchema,
 };
 
 export const NAV_TREE: Record<Exclude<RailDomain, 'home'>, SidebarNavEntry[]> = {
@@ -173,7 +189,14 @@ export const NAV_TREE: Record<Exclude<RailDomain, 'home'>, SidebarNavEntry[]> = 
       section: '연동',
       icon: <Activity className="h-4 w-4" />,
     },
-    { id: 'integration-findings', label: 'Findings', href: '/findings', section: '연동', icon: <ListChecks className="h-4 w-4" />, countKey: 'findings.all' },
+    {
+      id: 'integration-findings',
+      label: 'Findings',
+      href: '/findings',
+      section: '연동',
+      icon: <ListChecks className="h-4 w-4" />,
+      countKey: 'findings.all',
+    },
     {
       id: 'integration-evidence',
       label: 'Evidence',
@@ -181,8 +204,20 @@ export const NAV_TREE: Record<Exclude<RailDomain, 'home'>, SidebarNavEntry[]> = 
       section: '연동',
       icon: <FileBarChart className="h-4 w-4" />,
     },
-    { id: 'integration-links', label: GLOSSARY.entityLinks, href: '/integration/links', section: '연동', icon: <Link2 className="h-4 w-4" /> },
-    { id: 'integration-coverage', label: GLOSSARY.coverage, href: '/integration/coverage', section: '연동', icon: <Layers className="h-4 w-4" /> },
+    {
+      id: 'integration-links',
+      label: GLOSSARY.entityLinks,
+      href: '/integration/links',
+      section: '연동',
+      icon: <Link2 className="h-4 w-4" />,
+    },
+    {
+      id: 'integration-coverage',
+      label: GLOSSARY.coverage,
+      href: '/integration/coverage',
+      section: '연동',
+      icon: <Layers className="h-4 w-4" />,
+    },
   ],
   surveys: [
     {
@@ -294,8 +329,7 @@ export function getSidebarEntryStates(
   const currentEntries = matchingEntries.filter(
     (entry) =>
       !matchingEntries.some(
-        (candidate) =>
-          candidate.id !== entry.id && isMoreSpecificSidebarEntry(candidate, entry),
+        (candidate) => candidate.id !== entry.id && isMoreSpecificSidebarEntry(candidate, entry),
       ),
   );
   const currentIds = new Set(currentEntries.map((entry) => entry.id));
@@ -360,6 +394,7 @@ export function AuthedLayout() {
 
 function AuthedShell() {
   const location = useRouterState({ select: (state) => state.location });
+  const leafRouteId = useRouterState({ select: (state) => state.matches.at(-1)?.routeId });
   const platformReturn = useRouterState({
     select: (state) => selectPlatformReturn(state.matches),
   });
@@ -398,7 +433,10 @@ function AuthedShell() {
     retry: false,
   });
   const { setOpen: setCommandPaletteOpen } = useCommandPalette();
-  const openCommandPalette = React.useCallback(() => setCommandPaletteOpen(true), [setCommandPaletteOpen]);
+  const openCommandPalette = React.useCallback(
+    () => setCommandPaletteOpen(true),
+    [setCommandPaletteOpen],
+  );
   const entries = React.useMemo(
     () =>
       activeDomain === 'home'
@@ -425,26 +463,24 @@ function AuthedShell() {
         to: location.pathname as never,
         search: (previous: Record<string, unknown>) => {
           const { managedSystem: _managedSystem, ...remaining } = previous;
-          const { 'filter.analytics_area': area, ...withoutArea } = remaining;
-          const areaSearch =
-            managedSystemId !== undefined && area !== 'unset' ? withoutArea : remaining;
-          // Evidence/recovery/report cursors are bound to scope; retain readable selection.
-          const { cursor: _cursor, ...withoutCursor } = areaSearch;
-          const scopedSearch = [
-            '/integration/evidence',
-            '/integration/coverage',
-            '/integration',
-            '/home',
-          ].includes(location.pathname)
-            ? withoutCursor
-            : areaSearch;
+          // `parseRouteSearch` keeps undeclared keys as `undefined`, so key presence says nothing; ask the matched route's schema.
+          const declared = ROUTE_SEARCH_SCHEMAS[leafRouteId ?? '']?.shape ?? {};
+          const clears = scopeSwitchClears({
+            nextSystem: managedSystemId,
+            area: remaining['filter.analytics_area'] as string | undefined,
+            declaresArea: 'filter.analytics_area' in remaining,
+            declaresCursor: 'cursor' in declared,
+          });
+          const scopedSearch = { ...remaining };
+          if (clears.area) scopedSearch['filter.analytics_area'] = undefined;
+          if (clears.cursor) scopedSearch.cursor = undefined;
           return managedSystemId === undefined
             ? scopedSearch
             : { ...scopedSearch, managedSystem: managedSystemId };
         },
       } as never);
     },
-    [location.pathname, navigate, supportsManagedSystemScope],
+    [leafRouteId, location.pathname, navigate, supportsManagedSystemScope],
   );
   const savedViewFilter = React.useMemo<Record<string, unknown> | undefined>(() => {
     if (activeDomain !== 'voc' || location.pathname !== '/vocs') return undefined;

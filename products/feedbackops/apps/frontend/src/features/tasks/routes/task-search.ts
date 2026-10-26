@@ -1,7 +1,12 @@
 // /tasks search schema — owned by the feature layer and free of the router (voc-search.ts precedent) so the route file, the views and the
 // platform bridge's entry import one definition. The route file re-exports `tasksSearchSchema` and `validateTasksSearch` for existing consumers.
 
-import { parseRouteSearch, platformReturnField, returnToField } from '@/lib/host/search-fields';
+import {
+  isSearchFieldValueValid,
+  parseRouteSearch,
+  platformReturnField,
+  returnToField,
+} from '@/lib/host/search-fields';
 import { listTasksQuerySchema, taskStatusSchema } from '@fops/shared';
 import { z } from 'zod';
 
@@ -36,7 +41,5 @@ export function validateTasksSearch(raw: unknown) {
  * the screen then queries a default; a host that must reject instead (platform ADR-0071 decision 9) asks this before mounting.
  */
 export function isTasksSearchValueValid(key: string, value: string): boolean {
-  if (!Object.prototype.hasOwnProperty.call(tasksSearchSchema.shape, key)) return false;
-  return tasksSearchSchema.shape[key as keyof typeof tasksSearchSchema.shape].safeParse(value)
-    .success;
+  return isSearchFieldValueValid(tasksSearchSchema, key, value);
 }

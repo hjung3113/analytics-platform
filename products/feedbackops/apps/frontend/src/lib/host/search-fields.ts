@@ -45,6 +45,16 @@ export function parseRouteSearch<Schema extends z.AnyZodObject>(
   }
 }
 
+/** Whether `value` is one the `key` field of `schema` accepts; an unknown key is not. The hosts' strict per-field checks (ADR-0071 decision 9) delegate here. */
+export function isSearchFieldValueValid(
+  schema: z.AnyZodObject,
+  key: string,
+  value: string,
+): boolean {
+  if (!Object.prototype.hasOwnProperty.call(schema.shape, key)) return false;
+  return schema.shape[key].safeParse(value).success;
+}
+
 const MAX_PLATFORM_RETURN_LENGTH = 2048;
 
 /** Syntactic check only: the allowlist is deployment config, see allowedPlatformReturnHref. */

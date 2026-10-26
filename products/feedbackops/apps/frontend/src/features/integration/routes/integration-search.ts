@@ -2,7 +2,11 @@
 // router (voc-search.ts precedent) so the route files, the screens and the platform bridge's entry import one definition. Each route file
 // re-exports its schema and `validate…` for existing consumers.
 
-import { parseRouteSearch, recoverySearchFields } from '@/lib/host/search-fields';
+import {
+  isSearchFieldValueValid,
+  parseRouteSearch,
+  recoverySearchFields,
+} from '@/lib/host/search-fields';
 import { z } from 'zod';
 
 export const integrationDashboardSearchSchema = z
@@ -65,25 +69,20 @@ export function validateIntegrationLinksSearch(raw: unknown) {
   return parseRouteSearch(integrationLinksSearchSchema, raw);
 }
 
-function isSearchValueValid(schema: z.AnyZodObject, key: string, value: string): boolean {
-  if (!Object.prototype.hasOwnProperty.call(schema.shape, key)) return false;
-  return schema.shape[key].safeParse(value).success;
-}
-
 /**
  * Strict per-field checks: whether `value` is one `key` accepts under the matching schema. The `validate…` functions drop a value that fails and the
  * screen then shows a default; a host that must reject instead (platform ADR-0071 decision 9) asks these before mounting. One per schema, because
  * the schemas differ per key (Links `managedSystem` is any string, the dashboard `selected` is a queue item id, Evidence `selected` a uuid).
  */
 export function isIntegrationDashboardSearchValueValid(key: string, value: string): boolean {
-  return isSearchValueValid(integrationDashboardSearchSchema, key, value);
+  return isSearchFieldValueValid(integrationDashboardSearchSchema, key, value);
 }
 export function isEvidenceSearchValueValid(key: string, value: string): boolean {
-  return isSearchValueValid(evidenceSearchSchema, key, value);
+  return isSearchFieldValueValid(evidenceSearchSchema, key, value);
 }
 export function isIntegrationCoverageSearchValueValid(key: string, value: string): boolean {
-  return isSearchValueValid(integrationCoverageSearchSchema, key, value);
+  return isSearchFieldValueValid(integrationCoverageSearchSchema, key, value);
 }
 export function isIntegrationLinksSearchValueValid(key: string, value: string): boolean {
-  return isSearchValueValid(integrationLinksSearchSchema, key, value);
+  return isSearchFieldValueValid(integrationLinksSearchSchema, key, value);
 }
