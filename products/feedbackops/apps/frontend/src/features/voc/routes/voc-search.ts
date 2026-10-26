@@ -1,4 +1,9 @@
-import { parseRouteSearch, platformReturnField, returnToField } from '@/lib/host/search-fields';
+import {
+  isSearchFieldValueValid,
+  parseRouteSearch,
+  platformReturnField,
+  returnToField,
+} from '@/lib/host/search-fields';
 // /vocs search schema — owned by the feature layer (admin/permissions
 // precedent) so both the route file and VocRouteShell import one definition.
 // The route file re-exports these for existing consumers (findings route,
@@ -49,8 +54,7 @@ export function validateVocSearch(raw: unknown) {
  * the screen then queries a default; a host that must reject instead (platform ADR-0071 decision 9) asks this before mounting.
  */
 export function isVocSearchValueValid(key: string, value: string): boolean {
-  if (!Object.prototype.hasOwnProperty.call(vocSearchSchema.shape, key)) return false;
-  return vocSearchSchema.shape[key as keyof typeof vocSearchSchema.shape].safeParse(value).success;
+  return isSearchFieldValueValid(vocSearchSchema, key, value);
 }
 
 // Lives here (not in VocRouteShell.tsx) so the route file's component import

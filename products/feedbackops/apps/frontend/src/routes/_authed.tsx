@@ -1,3 +1,4 @@
+import { scopeSwitchClears } from '@/lib/host/scope-switch';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Outlet,
@@ -173,7 +174,14 @@ export const NAV_TREE: Record<Exclude<RailDomain, 'home'>, SidebarNavEntry[]> = 
       section: '연동',
       icon: <Activity className="h-4 w-4" />,
     },
-    { id: 'integration-findings', label: 'Findings', href: '/findings', section: '연동', icon: <ListChecks className="h-4 w-4" />, countKey: 'findings.all' },
+    {
+      id: 'integration-findings',
+      label: 'Findings',
+      href: '/findings',
+      section: '연동',
+      icon: <ListChecks className="h-4 w-4" />,
+      countKey: 'findings.all',
+    },
     {
       id: 'integration-evidence',
       label: 'Evidence',
@@ -181,8 +189,20 @@ export const NAV_TREE: Record<Exclude<RailDomain, 'home'>, SidebarNavEntry[]> = 
       section: '연동',
       icon: <FileBarChart className="h-4 w-4" />,
     },
-    { id: 'integration-links', label: GLOSSARY.entityLinks, href: '/integration/links', section: '연동', icon: <Link2 className="h-4 w-4" /> },
-    { id: 'integration-coverage', label: GLOSSARY.coverage, href: '/integration/coverage', section: '연동', icon: <Layers className="h-4 w-4" /> },
+    {
+      id: 'integration-links',
+      label: GLOSSARY.entityLinks,
+      href: '/integration/links',
+      section: '연동',
+      icon: <Link2 className="h-4 w-4" />,
+    },
+    {
+      id: 'integration-coverage',
+      label: GLOSSARY.coverage,
+      href: '/integration/coverage',
+      section: '연동',
+      icon: <Layers className="h-4 w-4" />,
+    },
   ],
   surveys: [
     {
@@ -294,8 +314,7 @@ export function getSidebarEntryStates(
   const currentEntries = matchingEntries.filter(
     (entry) =>
       !matchingEntries.some(
-        (candidate) =>
-          candidate.id !== entry.id && isMoreSpecificSidebarEntry(candidate, entry),
+        (candidate) => candidate.id !== entry.id && isMoreSpecificSidebarEntry(candidate, entry),
       ),
   );
   const currentIds = new Set(currentEntries.map((entry) => entry.id));
@@ -398,7 +417,10 @@ function AuthedShell() {
     retry: false,
   });
   const { setOpen: setCommandPaletteOpen } = useCommandPalette();
-  const openCommandPalette = React.useCallback(() => setCommandPaletteOpen(true), [setCommandPaletteOpen]);
+  const openCommandPalette = React.useCallback(
+    () => setCommandPaletteOpen(true),
+    [setCommandPaletteOpen],
+  );
   const entries = React.useMemo(
     () =>
       activeDomain === 'home'
@@ -425,19 +447,16 @@ function AuthedShell() {
         to: location.pathname as never,
         search: (previous: Record<string, unknown>) => {
           const { managedSystem: _managedSystem, ...remaining } = previous;
-          const { 'filter.analytics_area': area, ...withoutArea } = remaining;
-          const areaSearch =
-            managedSystemId !== undefined && area !== 'unset' ? withoutArea : remaining;
-          // Evidence/recovery/report cursors are bound to scope; retain readable selection.
-          const { cursor: _cursor, ...withoutCursor } = areaSearch;
-          const scopedSearch = [
-            '/integration/evidence',
-            '/integration/coverage',
-            '/integration',
-            '/home',
-          ].includes(location.pathname)
-            ? withoutCursor
-            : areaSearch;
+          // The validated search carries a key only when the screen's schema declares it (`parseRouteSearch` drops the rest).
+          const clears = scopeSwitchClears({
+            nextSystem: managedSystemId,
+            area: remaining['filter.analytics_area'] as string | undefined,
+            declaresArea: 'filter.analytics_area' in remaining,
+            declaresCursor: 'cursor' in remaining,
+          });
+          const scopedSearch = { ...remaining };
+          if (clears.area) scopedSearch['filter.analytics_area'] = undefined;
+          if (clears.cursor) scopedSearch.cursor = undefined;
           return managedSystemId === undefined
             ? scopedSearch
             : { ...scopedSearch, managedSystem: managedSystemId };

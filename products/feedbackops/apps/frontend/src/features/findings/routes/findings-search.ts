@@ -2,7 +2,7 @@
 // platform bridge's entry import one definition. The route file re-exports `findingsSearchSchema` and `validateFindingsSearch` for existing consumers.
 
 import { vocSearchSchema } from '@/features/voc/routes/voc-search';
-import { parseRouteSearch } from '@/lib/host/search-fields';
+import { isSearchFieldValueValid, parseRouteSearch } from '@/lib/host/search-fields';
 import { listFindingsQuerySchema } from '@fops/shared';
 import { z } from 'zod';
 
@@ -37,9 +37,7 @@ export function validateFindingsSearch(raw: unknown) {
  * and the screen then lists a default; a host that must reject instead (platform ADR-0071 decision 9) asks this before mounting.
  */
 export function isFindingsSearchValueValid(key: string, value: string): boolean {
-  if (!Object.prototype.hasOwnProperty.call(findingsSearchSchema.shape, key)) return false;
-  return findingsSearchSchema.shape[key as keyof typeof findingsSearchSchema.shape].safeParse(value)
-    .success;
+  return isSearchFieldValueValid(findingsSearchSchema, key, value);
 }
 
 export function getSafeVocReturnTo(value: string | undefined): string | null {
