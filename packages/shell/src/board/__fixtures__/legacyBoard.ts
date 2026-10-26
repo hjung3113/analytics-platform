@@ -1,4 +1,5 @@
 import { gridOf, parseBoardV2, screens, selectedIndex, type Board, type Sheet } from '../boardModel';
+import { dropIdleBoardSessionsForTests } from '../boardSession';
 import { migrateV1, type BoardV1, type SheetV1 } from '../boardMigrate';
 
 /**
@@ -26,7 +27,8 @@ export function toLegacySheet(sheet: Sheet): SheetV1 {
 export const toLegacy = (board: Board): BoardV1 => ({ v: 1, activeSheetId: board.activeSheetId, sheets: board.sheets.map(toLegacySheet) });
 
 /** Makes the stored board exactly `board`: the V1 value is set and any V2 value is gone, so a test can re-seed mid-way as another tab would. */
-export const seedLegacy = (board: unknown) => { localStorage.removeItem(V2_KEY); localStorage.setItem(V1_KEY, JSON.stringify(board)); };
+/** Seeding is a fresh start: a session of the last mount (still held for one tick after its cleanup) must not answer for the new storage. */
+export const seedLegacy = (board: unknown) => { dropIdleBoardSessionsForTests(); localStorage.removeItem(V2_KEY); localStorage.setItem(V1_KEY, JSON.stringify(board)); };
 /** The board as stored now, as V1 terms: the V2 value if the screen wrote one, else the migrated V1 value. The raw selection is kept (a load resets it to pane 1). */
 export function storedLegacy(): BoardV1 {
   const v2 = localStorage.getItem(V2_KEY);

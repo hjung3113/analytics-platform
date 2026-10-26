@@ -6,7 +6,7 @@ import {
   Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Label, RadioGroup, RadioGroupItem,
 } from '@ap/ui';
 import { MAX_SHEETS, openScreenInNewSheet, samePane, setPane, type Board } from './boardModel';
-import { readStoredBoard, writeStoredBoard } from './boardStore';
+import { readBoardSession, reloadBoardSession, updateBoardSession } from './boardSession';
 import { boardText } from './text';
 
 type Destination = 'new' | 'empty' | 'replace';
@@ -46,7 +46,7 @@ function OpenInBoardDialogBody({ control }: { control: HeaderOverflowDialogContr
   const screen = useCurrentScreen();
   const menuName = (menuId: string) => { const menu = registry.menus.find(m => m.id === menuId); return menu ? tx(menu.label) : menuId; };
   // Read when the dialog opens; the confirm re-reads and checks the chosen target again, so a board changed in another tab is never overwritten with stale data.
-  const [board, setBoard] = useState<Board>(() => readStoredBoard(user.id, text.sheetPrefix).board);
+  const [board, setBoard] = useState<Board>(() => readBoardSession(user.id, text.sheetPrefix).board);
   const full = board.sheets.length >= MAX_SHEETS;
   const withEmpty = board.sheets.filter(s => s.panes.some(p => p.screen === null));
   const [destination, setDestination] = useState<Destination>(() => initialDestination(board));
@@ -60,26 +60,34 @@ function OpenInBoardDialogBody({ control }: { control: HeaderOverflowDialogContr
 
   const confirm = () => {
     if (!screen || !ready) return;
-    const stored = readStoredBoard(user.id, text.sheetPrefix);
+    // The one session the board screen uses; a change made in another tab is taken in first, and the check, the change and the save are one update.
+    reloadBoardSession(user.id, text.sheetPrefix);
     // A board from a newer build is never written: say so before judging the destination, which that board cannot contain.
-    if (stored.readOnly) { setProblem(text.boardNotSaved); return; }
-    const current = stored.board;
-    let next: Board | null = null;
-    if (destination === 'new') next = openScreenInNewSheet(current, text.sheetPrefix, screen);
-    else if (paneIndex !== null && sheet) {
-      // The pane the user was shown must still be what they chose: empty for 빈 칸, the same screen for 바꾸기.
-      const live = current.sheets.find(s => s.id === sheet.id)?.panes[paneIndex]?.screen;
-      const shown = sheet.panes[paneIndex]?.screen ?? null;
-      const unchanged = live !== undefined && (destination === 'empty' ? live === null : live !== null && samePane(live, shown));
-      if (unchanged) next = { ...setPane(current, sheet.id, paneIndex, screen), activeSheetId: sheet.id };
-    }
-    if (!next) {
-      setBoard(current);
+    const held = readBoardSession(user.id, text.sheetPrefix);
+    if (held.readOnly) { setProblem(text.boardNotSaved); return; }
+    // Moves still only in memory (a splitter drag) are never written over what another tab saved meanwhile: that is a conflict, not a retry-able pane change.
+    if (held.unsaved) { setProblem(text.boardBusy); return; }
+    const run: { current: Board | null; next: Board | null } = { current: null, next: null };
+    const after = updateBoardSession(user.id, text.sheetPrefix, held => {
+      run.current = held;
+      if (destination === 'new') run.next = openScreenInNewSheet(held, text.sheetPrefix, screen);
+      else if (paneIndex !== null && sheet) {
+        // The pane the user was shown must still be what they chose: empty for 빈 칸, the same screen for 바꾸기.
+        const live = held.sheets.find(s => s.id === sheet.id)?.panes[paneIndex]?.screen;
+        const shown = sheet.panes[paneIndex]?.screen ?? null;
+        const unchanged = live !== undefined && (destination === 'empty' ? live === null : live !== null && samePane(live, shown));
+        if (unchanged) run.next = { ...setPane(held, sheet.id, paneIndex, screen), activeSheetId: sheet.id };
+      }
+      return run.next ?? held;
+    });
+    const { current, next } = run;
+    if (!next || !current) {
+      setBoard(current ?? after.board);
       setPaneIndex(null);
-      if (destination === 'new') { setDestination(initialDestination(current)); setProblem(text.maxSheets); } else setProblem(text.paneChanged);
+      if (destination === 'new') { setDestination(initialDestination(current ?? after.board)); setProblem(text.maxSheets); } else setProblem(text.paneChanged);
       return;
     }
-    if (!writeStoredBoard(user.id, next)) { setProblem(text.boardNotSaved); return; }
+    if (after.readOnly) { setProblem(text.boardNotSaved); return; }
     control.close();
     navigate(`${BOARD_PATH}?sheet=${encodeURIComponent(next.activeSheetId)}`, { focus: 'page', via: 'board' });
   };
