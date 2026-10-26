@@ -40,6 +40,9 @@ function boundedUrl(value: string) {
   url.searchParams.set('options', '-c statement_timeout=15000 -c lock_timeout=5000');
   return url.toString();
 }
+const HOUR_MS = 3_600_000;
+// The admission window a transaction at `at` writes to (job: date_trunc('hour', now() AT TIME ZONE 'UTC')).
+const utcHourStart = (at: Date) => new Date(Math.floor(at.getTime() / HOUR_MS) * HOUR_MS);
 const runIntegration = Boolean(APP_URL && MIGRATE_URL && process.env.WORKSPACE_ID);
 
 describe.skipIf(!runIntegration)(
@@ -136,6 +139,26 @@ describe.skipIf(!runIntegration)(
       await db.close();
       await ops.close();
     });
+    async function dbHourStart() {
+      const { rows } = await ops.pool.query<{ w: Date }>(
+        "select date_trunc('hour', now() at time zone 'UTC') at time zone 'UTC' as w",
+      );
+      return rows[0]?.w as Date;
+    }
+    async function admittedAfter(window: Date) {
+      const { rows } = await ops.pool.query<{ n: number | null }>(
+        'select sum(new_admissions)::int as n from voc.voc_cluster_suggestion_admissions where workspace_id=$1 and window_start>$2',
+        [ws, window],
+      );
+      return rows[0]?.n ?? null;
+    }
+    async function admittedAt(window: Date) {
+      const { rows } = await ops.pool.query<{ n: number | null }>(
+        'select sum(new_admissions)::int as n from voc.voc_cluster_suggestion_admissions where workspace_id=$1 and window_start=$2',
+        [ws, window],
+      );
+      return rows[0]?.n ?? null;
+    }
     async function newMs() {
       const id = await insertMsDirectly(ops, ws, `sg-${randomUUID()}`, 'suggestions');
       systems.push(id);
@@ -872,13 +895,15 @@ describe.skipIf(!runIntegration)(
         expect((await action(name, (await rows())[0])).statusCode).toBe(409);
     });
     it('serializes two independent generation runs at the final workspace slot', async () => {
+      // One window read for the whole test: a UTC hour boundary during the runs must not move the seed or the check.
+      const seedWindow = new Date((await dbHourStart()).getTime() - HOUR_MS);
       for (let i = 0; i < 19; i++) {
         const system = await newMs();
         await seedPair(system);
         await ops.pool.query(
           `insert into voc.voc_cluster_suggestion_admissions(workspace_id,primary_managed_system_id,window_start,new_admissions)
-        values($1,$2,(date_trunc('hour',now() at time zone 'UTC') at time zone 'UTC')-interval '1 hour',1)`,
-          [ws, system],
+        values($1,$2,$3,1)`,
+          [ws, system, seedWindow],
         );
       }
       await pair();
@@ -892,15 +917,32 @@ describe.skipIf(!runIntegration)(
           [ws],
         );
         expect(counter.rows[0].eligible_pending_count).toBe(20);
-        const current = await ops.pool.query(
-          `select sum(new_admissions)::int as n from voc.voc_cluster_suggestion_admissions
-        where workspace_id=$1 and window_start=date_trunc('hour',now() at time zone 'UTC') at time zone 'UTC'`,
-          [ws],
-        );
-        expect(current.rows[0].n).toBe(1);
+        // The runs' own admissions are every bucket newer than the seeded one (one window, or two across a boundary).
+        expect(await admittedAfter(seedWindow)).toBe(1);
       } finally {
         await other.close();
       }
+    });
+    it('utcHourStart maps either side of a UTC hour boundary to its own window', () => {
+      expect(utcHourStart(new Date('2026-10-26T09:59:59.900Z')).toISOString()).toBe(
+        '2026-10-26T09:00:00.000Z',
+      );
+      expect(utcHourStart(new Date('2026-10-26T10:00:00.100Z')).toISOString()).toBe(
+        '2026-10-26T10:00:00.000Z',
+      );
+    });
+    it('window check survives the UTC hour changing between the runs and the check (#934)', async () => {
+      const seedWindow = new Date((await dbHourStart()).getTime() - HOUR_MS);
+      const runWindow = new Date(seedWindow.getTime() + HOUR_MS);
+      await ops.pool.query(
+        `insert into voc.voc_cluster_suggestion_admissions(workspace_id,primary_managed_system_id,window_start,new_admissions)
+        values($1,$2,$3,1),($1,$2,$4,1)`,
+        [ws, ms, seedWindow, runWindow],
+      );
+      // The check ran one hour after the run wrote its bucket: the old "window = now() at check time" is empty.
+      const checkWindow = utcHourStart(new Date(runWindow.getTime() + HOUR_MS + 100));
+      expect(await admittedAt(checkWindow)).toBeNull();
+      expect(await admittedAfter(seedWindow)).toBe(1);
     });
     it('a stale pending pair releases the workspace cap', async () => {
       for (let i = 0; i < 20; i++) await seedPair(await newMs());
