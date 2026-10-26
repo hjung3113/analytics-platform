@@ -68,6 +68,7 @@ export {
 export { PanelTitleBlock, type PanelTitleBlockProps } from './panel/PanelTitleBlock';
 export { NestedTextBlock, type NestedTextBlockProps } from './panel/NestedTextBlock';
 export { FieldRow, type FieldRowProps } from './panel/FieldRow';
+export { FieldList, type FieldListProps } from './panel/FieldList';
 export { PanelSectionTitle, type PanelSectionTitleProps } from './panel/PanelSectionTitle';
 export { Callout, type CalloutProps, type CalloutTone } from './panel/Callout';
 export { DetailPanelHeaderActions, type DetailPanelHeaderActionsProps } from './panel/DetailPanelHeaderActions';

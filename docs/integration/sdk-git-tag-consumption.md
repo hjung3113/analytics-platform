@@ -14,7 +14,7 @@
 | TS 소스 export(`./src/index.ts`)로 빌드되는가 | 된다. Vite가 `node_modules`의 `.ts`·`.tsx`를 그대로 변환한다 | — |
 | 소비자 `tsc --noEmit` | `@ap/ui` 소스가 `process.env.NODE_ENV`를 쓰므로(`components/Button.tsx`) 소비자 tsconfig에 `@types/node`가 필요하다. 그 밖의 오류는 없었다 | 소비자 `types`에 `node` 포함. 소스를 `tsc`가 통과시킬 `strict` 수준(`@ap/tsconfig/base.json`)이 소비자에도 필요한지는 미확인 |
 | `@ap/ui/styles.css`와 클래스 스캔 | 된다. `styles/index.css`가 `@source "../"`를 가지고 있어 `node_modules` 안의 `@ap/ui` 소스 클래스(`inline-flex`, `h-8` 등)가 CSS에 생성된다. 소비자 CSS 첫 줄은 `@import "tailwindcss"`, 그다음 `@import "@ap/ui/styles.css"` | 이 순서를 지킨다(`index.css` 첫 주석) |
-| `@tiptap/*` 버전 | **소비자가 고정해야 한다.** 잠금 없는 소비자는 starter-kit의 확장이 3.32.0으로 떠서 `@tiptap/core` 3.23.5와 어긋나 빌드가 `MISSING_EXPORT`로 실패한다 | 소비자에 `@tiptap/*` 22개 `overrides`를 3.23.5로(이 저장소 `pnpm-workspace.yaml`과 같음). FeedbackOps는 #642부터 루트 workspace라 이 저장소의 `overrides`를 그대로 쓴다 |
+| `@tiptap/*` 버전 | **소비자가 고정해야 한다.** 잠금 없는 소비자는 starter-kit의 확장이 3.32.0으로 떠서 `@tiptap/core` 3.23.5와 어긋나 빌드가 `MISSING_EXPORT`로 실패한다 | 소비자에 `@tiptap/*` 24개 `overrides`를 3.23.5로(이 저장소 `pnpm-workspace.yaml`의 22개 + `@tiptap/core`·`@tiptap/pm`; 이 workspace는 core·pm을 직접 의존으로 풀지만 외부 소비자는 그렇지 않아 빠지면 3.32.0으로 뜨고 `pnpm peers check`가 경고한다). FeedbackOps는 #642부터 루트 workspace라 이 저장소의 `overrides`를 그대로 쓴다 |
 | `@formkit/auto-animate` 패치 | 소비자가 같은 `patchedDependencies`를 가져야 한다(패치가 `@ap/ui`와 함께 오지 않는다). FeedbackOps는 #642부터 루트 workspace라 루트 `patchedDependencies`를 쓴다 | 패치 파일 내용이 `@ap/ui`와 같은지 전환 때 대조 |
 
 테마 이름은 `@ap/ui/theme`의 `ThemeColorToken`·`THEME_COLOR_TOKENS`·`readColorToken`으로 소비하고, 도구는 `@ap/ui/theme-tokens.json`의 `color` 이름 목록을 읽는다. CSS는 계속 `rgb(var(--…))`로 쓰며, 제품 쪽 매핑 검사는 JSON 이름 목록과 대조한다. `$value.hex`는 매핑 키로 쓰지 않는다.
@@ -31,6 +31,7 @@
 | 다음 릴리스 | contracts | 깨지지 않음(#826, ADR-0085) — `PlatformAdapter.entityAudit`의 입력이 `EntityAuditRequest = EntityRef & { cursor?: string }`(기존 `EntityRef` 호출은 그대로 컴파일), 응답 data가 `EntityAuditPage = { events; nextCursor?: string \| null }`. 상수 `ENTITY_AUDIT_PAGE_MAX`(50)와 타입 `EntityAuditRequest`·`EntityAuditPage` 추가 | 없음 — 쪽을 나누는 서버를 만들면 `nextCursor`를 주고, 나누지 않는 서버는 키를 생략하면 끝으로 읽힌다. 어댑터 구현은 첫 인자를 `EntityAuditRequest`로 받는다 |
 | 다음 릴리스 | kernel | 추가(#826, ADR-0085) — root `useEntityAudit(ref, enabled?)`(→ `{ query, timeline }`)와 타입 `AuditMore`. 목적지 감사 첫 쪽은 session 정체성(`useEntityQuery`와 같다)이라 설비 감사 탭이 기간을 바꿔도 다시 읽지 않는다 | 없음 — 감사 탭을 `usePlatformQuery`로 읽던 소비자는 `useEntityAudit` + `<AuditTimeline {...audit.timeline} />`로 옮기면 `이전 변경 이력 더 보기`를 얻는다 |
 | 다음 릴리스 | components | 추가·넓힘(#826, ADR-0085) — `AuditTimeline`에 선택 `more?: AuditMore`, `events`는 `readonly AuditEvent[]` | 없음 |
+| 다음 릴리스 | ui | 추가(#753) — `FieldList`(`dl`). `FieldList` 안의 `FieldRow`는 `dt`/`dd`를 그린다(밖에서는 지금 마크업 그대로) | 없음 — 행을 `FieldList`로 감싸면 옵트인 |
 | 다음 릴리스 | kernel | **깨짐**(#824, ADR-0076 보충) — 자주 바뀌는 셸 상태를 `usePlatform()`·`useHostPlatform()` 값에서 뺐다. `MenuPlatform`에서 `toasts`·`recent`가, `HostPlatform`에서 `toasts`·`recent`·`paletteOpen`·`paletteSession`·`switcherOpen`·`switcherSession`이 없어졌다. 새로 생긴 것: root `useRecentVisits()`, `@ap/kernel/host` `useToastList()`·`useOverlayState()`·`type OverlayState`와 `HostPlatform.readRecent()`(호출 때 최신 최근 방문, 안정된 함수), `@ap/kernel/testing` `ToastProbe`·`useToastsForTest()`. 같은 값이면 `usePlatform()` 값과 `queryDraft`·`queryHistory`가 같은 참조를 유지하고, 토스트·팔레트·전환기는 메뉴·표·차트 소비자를 다시 그리지 않는다 | `usePlatform().recent` → `useRecentVisits()`. `usePlatform().toasts`(테스트) → `@ap/kernel/testing`의 `ToastProbe`/`useToastsForTest()`. host `paletteOpen`·`paletteSession`·`switcherOpen`·`switcherSession` → `useOverlayState()`. host `toasts` → `useToastList()`. host `recent` → `useRecentVisits()`(그리기) 또는 `readRecent()`(이벤트 처리) |
 | `sdk-v0.14.0` | ui | **동작 수정**(#644): `Select`가 제어형 `value`가 바뀐 직후 Radix 2.3이 되풀이하는 빈 값 재생(`onValueChange("")`)만 소비자에게 넘기지 않는다. 의도한 비우기(`SelectItem value=""` 선택, 폼 reset)는 그대로 전달된다 | 없음 — `""`를 "선택 없음"으로 지역 가드하던 소비자는 가드를 지울 수 있다 |
 | `sdk-v0.14.0` | kernel | **깨짐** — `dict.platformHome` 제거(`sdk-v0.12.0` 예고, #650) | `t('home')`이나 메뉴 라벨 |
@@ -139,14 +140,15 @@
 strictPeerDependencies: true
 overrides:
   "@tiptap/core": 3.23.5
-  # … 나머지 @tiptap/* 21개도 3.23.5로 (이 저장소 pnpm-workspace.yaml의 overrides와 같게)
+  "@tiptap/pm": 3.23.5
+  # … 나머지 @tiptap/* 22개도 3.23.5로 (이 저장소 pnpm-workspace.yaml의 overrides 22개 + core·pm = 24개)
 patchedDependencies:
   "@formkit/auto-animate@0.10.0": patches/@formkit__auto-animate@0.10.0.patch
 ```
 
 남는 소비자 조건:
 
-- `@tiptap/*` 22개 `overrides`를 3.23.5로 고정하고 `@formkit/auto-animate@0.10.0` 패치를 갖는다(위 표와 같은 이유; tarball이 이 둘을 대신 해 주지 않는다).
+- `@tiptap/*` 24개(이 저장소 22개 + `@tiptap/core`·`@tiptap/pm`) `overrides`를 3.23.5로 고정하고 `@formkit/auto-animate@0.10.0` 패치를 갖는다(위 표와 같은 이유; tarball이 이 둘을 대신 해 주지 않는다).
 - React 19: `react`·`react-dom`은 SDK 패키지의 peer다. 소비자가 한 벌만 설치한다(Provider·Context 짝이 한 사본이어야 한다). `@ap/kernel`도 한 벌이어야 하는데, 형제가 peer라 소비자의 직접 의존 한 벌로 풀린다.
 - CSS: `@import "tailwindcss"` 다음에 `@ap/ui/styles.css`, `@ap/components/styles.css`, `@ap/shell/styles.css` 순서로 import한다. 각 파일의 `@source`가 tarball 안 `dist`를 스캔한다.
 - `@ap/components/testing`은 `vitest`를 import한다(`vitest`는 선택 peer). 그 진입점을 쓰는 소비자만 `vitest`를 설치하면 된다. `@ap/kernel/testing`은 `vitest`가 필요 없다.

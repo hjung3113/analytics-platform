@@ -87,6 +87,8 @@ EmptyState | function | function EmptyState({ icon, title, body, action, size, d
 EmptyStateProps | interface | interface EmptyStateProps { action?: React.ReactNode; body?: string; className?: string; density?: 'compact' | 'default'; icon?: React.ReactNode; padding?: 'default' | 'wide'; size?: 'lg' | 'md' | 'sm'; title: string; }
 FieldLabel | function | function FieldLabel({ appearance, required, tone, tip, children, className, ...props }: @ap/ui#FieldLabelProps): React.JSX.Element
 FieldLabelProps | interface | interface FieldLabelProps extends React.ComponentPropsWithoutRef<typeof @ap/ui#Label> { appearance?: 'default' | 'section'; children: React.ReactNode; required?: boolean; tip?: string; tone?: 'default' | 'secondary'; }
+FieldList | function | function FieldList({ children, className }: @ap/ui#FieldListProps): React.JSX.Element
+FieldListProps | interface | interface FieldListProps { children: React.ReactNode; className?: string; }
 FieldRow | function | function FieldRow({ label, children, inset, layout, className, }: @ap/ui#FieldRowProps): React.JSX.Element
 FieldRowProps | interface | interface FieldRowProps { children: React.ReactNode; className?: string; inset?: 'default' | 'none'; label: string; layout?: 'default' | 'property'; }
 FilterCategory | interface | interface FilterCategory { key: string; label: string; options: { label: string; value: string; }[]; }
