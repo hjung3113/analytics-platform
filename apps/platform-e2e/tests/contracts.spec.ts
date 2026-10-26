@@ -974,6 +974,31 @@ test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
     await expect(page.getByRole('button', { name: '원래 크기로' })).toHaveCount(0);
     expect(await visibilityOf('[data-pane-id]')).toEqual(['visible', 'visible']);
   });
+
+  test('최대화 중 폭이 바뀌었다 돌아와도 원래 크기로 하면 분할 비율이 그대로다', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await signInWithDockBoard(page, [populated('dock', '1x2', 2)]);
+    await dockReady(page, 2);
+    await panesLoaded(page, 2);
+    const widths = () => groups(page).evaluateAll(nodes => nodes.map(node => node.getBoundingClientRect().width));
+    const before = await widths();
+    expect(before).toHaveLength(2);
+    expect(before[0]! + before[1]!).toBeGreaterThan(1000);
+    expect(Math.abs(before[0]! - before[1]!)).toBeLessThanOrEqual(2);
+    await maximizeOf(page, 1).click();
+    const restore = groupOfTab(page, 1).getByRole('button', { name: '원래 크기로' });
+    await expect(restore).toBeVisible();
+    await page.setViewportSize({ width: 600, height: 900 });
+    await expect(restore).toBeVisible();
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expect(restore).toBeVisible();
+    await restore.click();
+    await expect.poll(async () => {
+      const after = await widths();
+      if (after.length !== 2) return false;
+      return Math.abs(after[0]! - after[1]!) <= 2 && Math.abs(after[0]! - before[0]!) <= 2 && Math.abs(after[1]! - before[1]!) <= 2;
+    }).toBe(true);
+  });
 });
 
 test.describe('관리 레이아웃 필터 레일 (06 §12.6, ADR-0022)', () => {

@@ -24,6 +24,8 @@ const ready = async () => {
   });
 };
 const root = (id: string) => document.querySelector<HTMLElement>(`[data-dock-panel="${id}"]`)!;
+const widths = () => Array.from(document.querySelectorAll<HTMLElement>('.dv-view')).filter(view => view.querySelector(':scope > .dv-groupview')).map(view => parseFloat(view.style.width));
+const frame = () => act(() => new Promise<void>(resolve => { setTimeout(resolve, 60); }));
 
 describe('DockLayout reconcile (D9: remount 0)', () => {
   it('renders the layout it is given: groups, tab order and active tabs', async () => {
@@ -86,8 +88,6 @@ describe('DockLayout reconcile (D9: remount 0)', () => {
 
   // The engine caches a hidden group's px size and restores it as it was; a resize in between would leave the shares skewed (#575 2c).
   it('resizing while a group is maximized and then restoring keeps the stored column proportions', async () => {
-    const widths = () => Array.from(document.querySelectorAll<HTMLElement>('.dv-view')).filter(view => view.querySelector(':scope > .dv-groupview')).map(view => parseFloat(view.style.width));
-    const frame = () => act(() => new Promise<void>(resolve => { setTimeout(resolve, 60); }));
     // jsdom has no layout parent, and the engine ignores a resize of an element without one.
     Object.defineProperty(HTMLElement.prototype, 'offsetParent', { configurable: true, get() { return this.parentNode; } });
     try {
@@ -110,6 +110,33 @@ describe('DockLayout reconcile (D9: remount 0)', () => {
       await frame();
       const [wideLeft, wideRight] = widths();
       expect(Math.abs(wideLeft! - wideRight!)).toBeLessThanOrEqual(2);
+    } finally {
+      delete (HTMLElement.prototype as { offsetParent?: unknown }).offsetParent;
+    }
+  });
+
+  // The size at the start of the maximize and at the restore are equal here, so only the in-between resize can tell the engine's cached px sizes are stale.
+  it('resizing while a group is maximized and back to the same size, then restoring keeps the stored column proportions', async () => {
+    // jsdom has no layout parent, and the engine ignores a resize of an element without one.
+    Object.defineProperty(HTMLElement.prototype, 'offsetParent', { configurable: true, get() { return this.parentNode; } });
+    try {
+      const { controls } = mountDock({ layout: row([50, 50], group(['a']), group(['c'])) });
+      await ready();
+      await frame();
+      const [left0, right0] = widths();
+      expect(left0! + right0!).toBeGreaterThan(800);
+      controls.setMaximized('a');
+      await waitFor(() => { expect(root('c')).toHaveAttribute('data-dock-visible', 'false'); });
+      observer.resize(600, 600);
+      await frame();
+      observer.resize(900, 600);
+      await frame();
+      controls.setMaximized(null);
+      await waitFor(() => { expect(root('c')).toHaveAttribute('data-dock-visible', 'true'); });
+      await frame();
+      const [left, right] = widths();
+      expect(left! + right!).toBeGreaterThan(800);
+      expect(Math.abs(left! - right!)).toBeLessThanOrEqual(2);
     } finally {
       delete (HTMLElement.prototype as { offsetParent?: unknown }).offsetParent;
     }
