@@ -53,6 +53,8 @@ export type HostSeam = {
   useHere?: () => string;
   /** True when the host already shows the screen's identity (its own page title), so a screen drops its inline route kicker. Absent = the screen shows it. */
   hostOwnsTitle?: boolean;
+  /** True when the host carries the return path itself (the platform's `returnTo`), so a screen adds no FeedbackOps `returnTo` to an outbound href and draws no FO-only back link. Absent = the screen does. */
+  hostCarriesReturn?: boolean;
   /** An absolute URL for the FeedbackOps path `to` (copy-link actions), or `null` when this host has no address to give. */
   absoluteHref?: (to: string) => string | null;
 };

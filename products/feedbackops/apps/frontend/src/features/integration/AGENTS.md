@@ -34,6 +34,7 @@ Code ownership and URL mount are not the same thing here:
 
 ## Key files
 
+- `apps/frontend/src/features/integration/routes/integration-search.ts` — the four 연동 search schemas (dashboard, evidence, coverage, links) and their per-key validators, router-free; the route files below re-export them.
 - `apps/frontend/src/routes/_authed/integration/index.tsx` — Integration dashboard route.
 - `apps/frontend/src/routes/_authed/integration/coverage.tsx` — Coverage route and URL search validation.
 - `apps/frontend/src/routes/_authed/integration/links.tsx` — Links route and URL filters.

@@ -10,7 +10,9 @@ It does not own source object lifecycles or backend authorization truth.
 
 - Finding screens mount at the top-level `/findings` route; `/findings/$findingId` remains a
   redirect to `/findings?selected=:findingId` and preserves `returnTo` when provided. Route files
-  live in `apps/frontend/src/routes/_authed/findings/`, not in this folder.
+  live in `apps/frontend/src/routes/_authed/findings/`, not in this folder. The `/findings` search
+  schema is the exception: it lives router-free in `features/findings/routes/findings-search.ts`
+  (the route file re-exports it), so the platform bridge's `findings-search` entry can import it.
 - This folder does not own the entity-link inventory or `/integration/links` — `EntityRelationRow`, `EntityLinksInventoryTable`, `LinkStatusBadge`, and `useEntityLinkInventory` stay under `features/integration/`.
 
 ## Rules

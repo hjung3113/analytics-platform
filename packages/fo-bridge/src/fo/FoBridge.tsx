@@ -50,6 +50,8 @@ export function FoBridge({ children, canLink = noLink, Link = UnlinkedLink, targ
     Link,
     // The platform page head carries the menu title, so a screen drops its own route kicker (UX-5).
     hostOwnsTitle: true,
+    // The platform carries the return path as its own `returnTo`, so a screen adds no FeedbackOps one (Design 6).
+    hostCarriesReturn: true,
     notifyError: message => toast(message, 'danger'),
     notifySuccess: message => toast(message),
     useNavigate,

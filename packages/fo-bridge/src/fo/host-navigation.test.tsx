@@ -395,6 +395,7 @@ describe('FoBridge absoluteHref', () => {
     render(<FoBridge><Probe /></FoBridge>, { wrapper });
     await waitFor(() => expect(seam).toBeDefined());
     expect(seam.hostOwnsTitle).toBe(true);
+    expect(seam.hostCarriesReturn).toBe(true);
   });
 
   it('renders the address of the same navigation (a copy URL never keeps the cleared scope), and rebuilds the seam only on navigation', async () => {

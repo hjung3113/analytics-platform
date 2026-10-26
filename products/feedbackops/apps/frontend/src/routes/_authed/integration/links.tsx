@@ -1,20 +1,12 @@
 import { LinksRoute } from '@/features/integration/routes/LinksRoute';
-import { parseRouteSearch } from '@/lib/router/search';
+import { validateIntegrationLinksSearch } from '@/features/integration/routes/integration-search';
 import { ListShell } from '@fops/ui';
 import { createFileRoute } from '@tanstack/react-router';
-import { z } from 'zod';
 
-export const integrationLinksSearchSchema = z
-  .object({
-    status: z.enum(['active', 'stale', 'detached', 'revoked']).optional(),
-    type: z.enum(['related_to']).optional(),
-    managedSystem: z.string().optional(),
-  })
-  .strict();
-
-export function validateIntegrationLinksSearch(raw: unknown) {
-  return parseRouteSearch(integrationLinksSearchSchema, raw);
-}
+export {
+  integrationLinksSearchSchema,
+  validateIntegrationLinksSearch,
+} from '@/features/integration/routes/integration-search';
 
 // #982: the router plugin skips code-splitting when the route component is an
 // exported local (hasExport check). The alias keeps the shell exported for
