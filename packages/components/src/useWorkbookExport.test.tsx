@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { noContext, testAdapter, testSession, testSpace, useToastsForTest } from '@ap/kernel/testing';
 import { groupId, spaceId } from '@ap/contracts';
-import { useWorkbookExport } from './useWorkbookExport';
+import { useWorkbookExport, WorkbookRefusal, type WorkbookExportResult } from './useWorkbookExport';
 import { WORKBOOK_LIMITS, type WorkbookSheet } from './workbook';
 
 const DONE = 'info:Excel 파일로 내보냈습니다';
@@ -16,12 +16,13 @@ function ToastProbe() {
 
 type Build = (signal: AbortSignal) => readonly WorkbookSheet[] | Promise<readonly WorkbookSheet[]>;
 let build: Build;
-let fileName: string | undefined;
+let options: Parameters<ReturnType<typeof useWorkbookExport>['exportWorkbook']>[1];
+let results: WorkbookExportResult[];
 
 function Harness() {
   const workbook = useWorkbookExport();
   return <>
-    <button type="button" onClick={() => void workbook.exportWorkbook(build, fileName === undefined ? undefined : { fileName })}>export</button>
+    <button type="button" onClick={() => { void workbook.exportWorkbook(build, options).then(result => results.push(result)); }}>export</button>
     <button type="button" onClick={workbook.cancel}>cancel</button>
     <p data-testid="state">{`${workbook.canExport}/${workbook.exporting}`}</p>
     <ToastProbe />
@@ -46,7 +47,8 @@ let downloads: string[];
 
 beforeEach(() => {
   build = () => [{ name: '요약', rows: [[1]] }];
-  fileName = undefined;
+  options = undefined;
+  results = [];
   downloads = [];
   vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) { downloads.push(this.download); });
   URL.createObjectURL = vi.fn(() => 'blob:x');
@@ -66,12 +68,14 @@ describe('useWorkbookExport (#860)', () => {
     expect(screen.getByTestId('state').textContent).toBe('true/false');
   });
 
-  it('uses the menu file name with unsafe characters replaced', async () => {
-    fileName = 'HW Time/요약';
+  it('keeps a Korean menu file name, replaces characters no OS accepts, and marks provisional data', async () => {
+    options = { fileName: 'HW Time/가동률', trust: { provisional: true, dataThrough: '2026-09-25T09:00:00' } as never };
     mount(true);
     fireEvent.click(screen.getByText('export'));
     await waitFor(() => expect(downloads).toHaveLength(1), { timeout: 8000 });
-    expect(downloads[0]).toMatch(/^HW-Time----\d{8}-\d{4}\.xlsx$/);
+    expect(downloads[0]).toMatch(/^HW Time-가동률-\d{8}-\d{4}-provisional\.xlsx$/);
+    expect(toasts()).toContain('Excel 파일로 내보냈습니다 — 잠정 데이터(데이터 기준 시각 2026-09-25 09:00)');
+    expect(results).toEqual(['done']);
   });
 
   it('does nothing without features.export', async () => {
@@ -81,6 +85,7 @@ describe('useWorkbookExport (#860)', () => {
     expect(screen.getByTestId('state').textContent).toBe('false/false');
     fireEvent.click(screen.getByText('export'));
     await act(async () => {});
+    expect(results).toEqual(['ignored']);
     expect(spy).not.toHaveBeenCalled();
     expect(downloads).toHaveLength(0);
   });
@@ -101,6 +106,39 @@ describe('useWorkbookExport (#860)', () => {
     await act(async () => release([{ name: 'a', rows: [] }]));
     expect(downloads).toHaveLength(0);
     expect(toasts()).toBe('');
+    expect(results).toEqual(['ignored', 'cancelled']);
+  });
+
+  it('a cancelled export that settles later does not touch the next one', async () => {
+    const releases: ((sheets: WorkbookSheet[]) => void)[] = [];
+    build = () => new Promise<WorkbookSheet[]>(resolve => { releases.push(resolve); });
+    mount(true);
+    fireEvent.click(screen.getByText('export'));
+    await waitFor(() => expect(releases).toHaveLength(1));
+    fireEvent.click(screen.getByText('cancel'));
+    fireEvent.click(screen.getByText('export'));
+    await waitFor(() => expect(releases).toHaveLength(2));
+    await act(async () => releases[0]([{ name: 'old', rows: [] }]));
+    expect(screen.getByTestId('state').textContent).toBe('true/true');
+    await act(async () => releases[1]([{ name: 'new', rows: [[1]] }]));
+    await waitFor(() => expect(downloads).toHaveLength(1), { timeout: 8000 });
+    expect(results).toEqual(['cancelled', 'done']);
+    expect(screen.getByTestId('state').textContent).toBe('true/false');
+  });
+
+  it('shows a refused server read with its cause and detail, and a build timeout as a timeout', async () => {
+    build = () => { throw new WorkbookRefusal({ outcome: 'forbidden', data: null, trust: null, message: 'no scope', correlationId: 'c-1' } as never); };
+    mount(true);
+    fireEvent.click(screen.getByText('export'));
+    await waitFor(() => expect(toasts()).toContain('warning:서버가 이 조건의 내보내기를 거부했습니다'));
+    expect(results).toEqual(['refused']);
+    cleanup();
+    build = () => Promise.reject(new DOMException('timeout', 'AbortError'));
+    mount(true);
+    fireEvent.click(screen.getByText('export'));
+    await waitFor(() => expect(toasts()).toContain('warning:내보내기 요청이 시간 초과되었습니다'));
+    expect(results).toEqual(['refused', 'failed']);
+    expect(downloads).toHaveLength(0);
   });
 
   it('aborts the build on unmount', async () => {
@@ -119,9 +157,10 @@ describe('useWorkbookExport (#860)', () => {
     fireEvent.click(screen.getByText('export'));
     await waitFor(() => expect(toasts()).toContain('warning:내보낼 데이터가 브라우저 내보내기 상한'));
     expect(downloads).toHaveLength(0);
+    expect(results).toEqual(['too-large']);
   });
 
-  it('reports a bad sheet name or a failed build as the generic failure (dev logs it)', async () => {
+  it('reports a bad sheet name, a sheet-count overflow or a failed build as the generic failure (dev logs it)', async () => {
     const log = vi.spyOn(console, 'error').mockImplementation(() => {});
     build = () => [{ name: 'a/b', rows: [] }];
     mount(true);
@@ -129,10 +168,16 @@ describe('useWorkbookExport (#860)', () => {
     await waitFor(() => expect(toasts()).toContain('warning:내보내기를 수행하지 못했습니다'));
     expect(log).toHaveBeenCalledWith(expect.objectContaining({ code: 'sheet-name-invalid' }));
     cleanup();
-    build = () => Promise.reject(new DOMException('timeout', 'AbortError'));
+    build = () => Array.from({ length: WORKBOOK_LIMITS.sheets + 1 }, (_, i) => ({ name: `s${i}`, rows: [] }));
     mount(true);
     fireEvent.click(screen.getByText('export'));
     await waitFor(() => expect(toasts()).toContain('warning:내보내기를 수행하지 못했습니다'));
+    cleanup();
+    build = () => Promise.reject(new Error('boom'));
+    mount(true);
+    fireEvent.click(screen.getByText('export'));
+    await waitFor(() => expect(toasts()).toContain('warning:내보내기를 수행하지 못했습니다'));
+    expect(results).toEqual(['failed', 'failed', 'failed']);
     expect(downloads).toHaveLength(0);
   });
 });

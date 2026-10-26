@@ -36,7 +36,7 @@ Platform Component 층(06 §13) + 차트 계약(§16) + 페이지 archetype 골�
 
 **표 소유 내보내기·복사(#173·#174, [ADR-0008](../../docs/adr/0008-table-owned-export-fixed-toolbar.md), 06 §15).** 메뉴는 `exportRows(request, signal)`(선택 ids 또는 필터 전체 + 표의 활성 `sorting`)·`exportNote`·`exportFilterSummary`·`exportContext`만 주고, outcome 처리·CSV/XLSX 직렬화·파일·토스트·[복사]는 `PlatformDataTable`이 소유한다. 직렬화기는 내부 모듈 `src/tableExport.ts`(`index.ts` 비공개). 화면에 보이는 값만 나가며 라벨·시간 열은 `PlatformColumn.exportValue`로 같은 텍스트를 준다. 게이트는 manifest `features.export`. XLSX(`write-excel-file/browser`)는 클릭 때 동적 `import()`로만 불러 별도 청크에 둔다. 툴바 순서·거절 문구·시트 구성·클립보드 경로의 세부는 `PlatformDataTable.test.tsx`·`PlatformDataTable.copy.test.tsx`·`tableExport.test.ts`가 고정하고, 테스트가 고정하지 않는 접근성·클립보드 규칙은 06 §15 "표 내보내기·복사 구현 계약"에 있다 — 바꾸면 테스트·06 §15·ADR-0008부터 고친다.
 
-**메뉴 선언 Workbook 내보내기(#860, 06 §15).** `workbook.ts`(공개 `WorkbookSheet`·`checkWorkbook`·`toWorkbookXlsx`·`WORKBOOK_LIMITS`·`WorkbookError`)는 시트 이름 규칙·상한·셀 변환을, `useWorkbookExport.ts`는 `features.export` 게이트·중복 실행 방지·취소·다운로드·토스트를 소유한다. 셀 글자 자르기(`xlsxText`)와 행 상한은 표 내보내기와 공유하고, 파일 다운로드·이름 stamp는 `download.ts`를 표와 함께 쓴다. 표의 2시트 내보내기는 바꾸지 않는다.
+**메뉴 선언 Workbook 내보내기(#860, 06 §15).** `workbook.ts`(공개 `WorkbookSheet`·`checkWorkbook`·`toWorkbookXlsx`·`WORKBOOK_LIMITS`·`WorkbookError`)는 시트 이름 규칙·상한·셀 변환을, `useWorkbookExport.ts`(공개 `WorkbookRefusal` — `build`의 거절된 서버 조회를 표와 같은 원인 토스트로)는 `features.export` 게이트·중복 실행 방지·취소·다운로드·토스트·결과 값을 소유한다. 셀 글자 자르기(`xlsxText`)와 행 상한은 표 내보내기와 공유하고, 파일 다운로드·이름 stamp는 `download.ts`를 표와 함께 쓴다. 표의 2시트 내보내기는 바꾸지 않는다.
 
 - import 가능: `@ap/contracts`, `@ap/kernel`, `@ap/ui`와 표·차트 라이브러리. `@ap/shell`, 앱, mock, 메뉴 화면 import 금지.
 - 컴포넌트는 도메인 의미(설비, 지표 이름)를 모른다. 컬럼·셀·탭 내용은 props로 주입받는다.

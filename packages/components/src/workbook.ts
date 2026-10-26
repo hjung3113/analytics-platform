@@ -21,13 +21,13 @@ export type WorkbookSheet = {
  * not Excel: rows per sheet match the table export cap, and the cell total keeps a many-sheet workbook from multiplying it.
  * Larger exports belong to the server export (#555).
  */
-export const WORKBOOK_LIMITS = { sheets: 20, rowsPerSheet: EXPORT_ROW_CAP, cells: 2_000_000 } as const;
+export const WORKBOOK_LIMITS = { sheets: 20, rowsPerSheet: EXPORT_ROW_CAP, cells: 2_000_000, columns: 16_384 } as const;
 
 export type WorkbookErrorCode =
-  | 'no-sheets' | 'too-many-sheets' | 'too-many-rows' | 'too-many-cells'
+  | 'no-sheets' | 'too-many-sheets' | 'too-many-rows' | 'too-many-columns' | 'too-many-cells'
   | 'sheet-name-empty' | 'sheet-name-too-long' | 'sheet-name-invalid' | 'sheet-name-duplicate';
 
-/** A workbook the SDK refuses to write. Size codes are the data's (tell the user to narrow); sheet-name codes are the menu's declaration bug. */
+/** A workbook the SDK refuses to write. Row, column and cell codes are the data's (tell the user to narrow); the rest are the menu's declaration bug. */
 export class WorkbookError extends Error {
   constructor(readonly code: WorkbookErrorCode, readonly sheet?: string) {
     super(`Workbook: ${code}${sheet === undefined ? '' : ` (sheet "${sheet}")`}`);
@@ -36,7 +36,8 @@ export class WorkbookError extends Error {
 }
 
 const SHEET_NAME_MAX = 31;
-const FORBIDDEN = /[:\\/?*[\]]/;
+// C0 controls too: the writer strips them silently, so `'a\u0001'` and `'a'` would collide in the file.
+const FORBIDDEN = /[:\\/?*[\]\u0000-\u001f]/;
 
 /** Throws `WorkbookError` for the first rule the sheets break; returns normally when Excel and the limits accept them. */
 export function checkWorkbook(sheets: readonly WorkbookSheet[]): void {
@@ -54,6 +55,8 @@ export function checkWorkbook(sheets: readonly WorkbookSheet[]): void {
     if (seen.has(key)) throw new WorkbookError('sheet-name-duplicate', name);
     seen.add(key);
     if (sheet.rows.length > WORKBOOK_LIMITS.rowsPerSheet) throw new WorkbookError('too-many-rows', name);
+    // Excel's sheet width (XFD); a wider row makes a file Excel has to repair.
+    if ((sheet.header?.length ?? 0) > WORKBOOK_LIMITS.columns || sheet.rows.some(row => row.length > WORKBOOK_LIMITS.columns)) throw new WorkbookError('too-many-columns', name);
     cells += (sheet.header?.length ?? 0) + sheet.rows.reduce((sum, row) => sum + row.length, 0);
     if (cells > WORKBOOK_LIMITS.cells) throw new WorkbookError('too-many-cells', name);
   }
@@ -76,7 +79,7 @@ export async function toWorkbookXlsx(sheets: readonly WorkbookSheet[], signal?: 
   if (signal?.aborted) throw aborted();
   const blob = await writeXlsxFile(sheets.map(sheet => ({
     sheet: sheet.name,
-    data: [...(sheet.header ? [sheet.header.map(xlsxText)] : []), ...sheet.rows.map(row => row.map(workbookCell))],
+    data: [...(sheet.header ? [sheet.header.map(workbookCell)] : []), ...sheet.rows.map(row => row.map(workbookCell))],
   }))).toBlob();
   if (signal?.aborted) throw aborted();
   return blob;

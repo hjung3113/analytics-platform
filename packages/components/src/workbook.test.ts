@@ -16,7 +16,7 @@ describe('checkWorkbook sheet names (#860)', () => {
   it.each([
     ['', 'sheet-name-empty'], ['   ', 'sheet-name-empty'], ['a'.repeat(32), 'sheet-name-too-long'],
     ['a:b', 'sheet-name-invalid'], ['a\\b', 'sheet-name-invalid'], ['a/b', 'sheet-name-invalid'], ['a?b', 'sheet-name-invalid'],
-    ['a*b', 'sheet-name-invalid'], ['[a]', 'sheet-name-invalid'], ["'a", 'sheet-name-invalid'], ["a'", 'sheet-name-invalid'], ['History', 'sheet-name-invalid'],
+    ['a*b', 'sheet-name-invalid'], ['[a]', 'sheet-name-invalid'], ['a\u0001', 'sheet-name-invalid'], ["'a", 'sheet-name-invalid'], ["a'", 'sheet-name-invalid'], ['History', 'sheet-name-invalid'],
   ])('rejects %j as %s', (name, code) => {
     expect(codeOf([sheet(name)])).toBe(code);
   });
@@ -41,13 +41,20 @@ describe('checkWorkbook limits (#860)', () => {
     const wide = rows(WORKBOOK_LIMITS.rowsPerSheet, 10);
     expect(codeOf([sheet('a', wide), sheet('b', wide), sheet('c', [[1]])])).toBe('too-many-cells');
   });
+
+  it('caps the row width at Excel\'s 16,384 columns', () => {
+    const row = (width: number) => Array.from({ length: width }, () => 1);
+    expect(codeOf([sheet('a', [row(WORKBOOK_LIMITS.columns)])])).toBeNull();
+    expect(codeOf([sheet('a', [row(WORKBOOK_LIMITS.columns + 1)])])).toBe('too-many-columns');
+    expect(codeOf([{ name: 'a', header: row(WORKBOOK_LIMITS.columns + 1).map(String), rows: [] }])).toBe('too-many-columns');
+  });
 });
 
 describe('toWorkbookXlsx (#860)', () => {
   it('writes the sheets in order with their names, header and cells', async () => {
     const long = 'x'.repeat(XLSX_CELL_MAX + 5);
     const blob = await toWorkbookXlsx([
-      { name: '요약', header: ['설비', '가동률'], rows: [['EQ-1', 0.93], ['EQ-2', null]] },
+      { name: '요약', header: ['설비', '가동률', ''], rows: [['EQ-1', 0.93], ['EQ-2', null]] },
       { name: '원본', rows: [['=SUM(A1)', 42], ['2026-09-25T09:00:00', Number.NaN], ['', Number.POSITIVE_INFINITY], [long, -1.5]] },
       { name: '조회 정보', rows: [['기간', '2026-09-25 09:00 – 2026-09-26 09:00']] },
     ]);

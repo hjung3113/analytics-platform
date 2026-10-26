@@ -4,8 +4,11 @@ export function fileStamp(now: Date): string {
   return `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`;
 }
 
-/** File-name part from a menu id or a menu-given base: anything outside `A-Za-z0-9._-` becomes `-`. */
+/** File-name part from a menu id: anything outside `A-Za-z0-9._-` becomes `-`. */
 export const safeFileName = (base: string) => base.replace(/[^A-Za-z0-9._-]/g, '-');
+
+/** A menu-given file name (Korean allowed): only characters no OS accepts in a file name, and controls, become `-`. */
+export const displayFileName = (base: string) => base.replace(/[\\/:*?"<>|\u0000-\u001f]/g, '-').trim() || 'workbook';
 
 /** Starts the browser download of `blob` as `fileName`. */
 export function downloadBlob(blob: Blob, fileName: string): void {
