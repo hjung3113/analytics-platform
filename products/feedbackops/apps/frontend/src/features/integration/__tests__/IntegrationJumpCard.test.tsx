@@ -1,6 +1,10 @@
 import { render, screen } from '@testing-library/react';
-import { expect, it } from 'vitest';
+import { beforeAll, expect, it } from 'vitest';
+import { registerAnchorLinkHost } from '../../../test/anchor-link-host';
 import { IntegrationJumpCard } from '../components/IntegrationDashboardCards';
+
+beforeAll(() => registerAnchorLinkHost());
+
 it.each(['', '&managedSystem=a1111111-1111-4111-8111-111111111111'])(
   'keeps the primary anchor and renders a sibling Area link %s',
   (scope) => {

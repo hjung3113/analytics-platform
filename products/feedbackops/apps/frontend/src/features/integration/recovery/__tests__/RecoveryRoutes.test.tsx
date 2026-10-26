@@ -153,7 +153,13 @@ function install(blocked = false, role = 'admin') {
       requests.push({ path, method, body: init?.body ? JSON.parse(String(init.body)) : null });
       if (method === 'GET' && path === '/me')
         return response({
-          actor: { id: ID, role_level: role, display_name: '지원' },
+          actor: {
+            id: ID,
+            external_id: 'ext-support',
+            email: 'support@example.com',
+            role_level: role,
+            display_name: '지원',
+          },
           workspace_id: ID,
         });
       if (method === 'GET' && path === '/dashboard/summary')
@@ -336,4 +342,17 @@ it('shows one freshness line when page, queue and detail have the same computati
   await screen.findByRole('button', { name: '내 화면에서 1일 숨기기' });
   expect(screen.getAllByTestId('recovery-freshness')).toHaveLength(1);
   expect(screen.queryByText('목록, 상세, 요약은 각각 계산됩니다.')).toBeNull();
+});
+it('keeps the standalone history tab URL a boolean, not a quoted string', async () => {
+  install();
+  const { router } = await mount('/integration');
+  fireEvent.mouseDown(
+    await within(await screen.findByTestId('recovery-queue')).findByRole('tab', {
+      name: '최근 처리 이력',
+    }),
+    { button: 0, ctrlKey: false },
+  );
+  await waitFor(() => expect(router.state.location.search.history).toBe(true));
+  expect(router.state.location.href).toContain('history=true');
+  expect(router.state.location.href).not.toContain('%22');
 });

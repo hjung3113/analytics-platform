@@ -61,7 +61,16 @@ function setup(
       const body = init?.body ? JSON.parse(String(init.body)) : null;
       requests.push({ url, method, body });
       if (method === 'GET' && url.pathname === '/me')
-        return response({ actor: { id: SOURCE, role_level: 'admin' }, workspace_id: SOURCE });
+        return response({
+          actor: {
+            id: SOURCE,
+            external_id: 'ext-admin',
+            email: 'admin@example.com',
+            display_name: '관리자',
+            role_level: 'admin',
+          },
+          workspace_id: SOURCE,
+        });
       if (
         method === 'PATCH' &&
         [ID, SECOND].some((id) => url.pathname === `/dashboard/recovery-items/${id}/presentation`)
