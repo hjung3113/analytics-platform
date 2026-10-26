@@ -1,14 +1,14 @@
 import { addPanel, isValidDockTree, removePanel } from '@ap/components/dock';
 import { isRecord } from '@ap/contracts';
 import type { PaneScreen } from '@ap/kernel/host';
-import { activateInTree, defaultTree, effectiveTree, fromDockTree, largestGroup, reconcileSelection, reinsertPane, toDockTree, treeShape } from './boardDockTree';
+import { activateInTree, defaultTree, effectiveTree, fromDockTree, groupHolding, groupsOf, largestGroup, reconcileSelection, reinsertPane, toDockTree, treeShape } from './boardDockTree';
 import { defaultLayoutFor, gridOf, memoryOf, withGrid, withGridMemory } from './boardGrid';
 import {
-  MAX_PANES, MAX_SHEETS, columnPanes, isRatioVector, layoutShape, makeId, paneCount, parseArrangementEntry, parseGridMemory, parsePane,
+  MAX_GROUPS, MAX_PANES, MAX_SHEETS, MAX_TABS, columnPanes, isRatioVector, layoutShape, makeId, paneCount, parseArrangementEntry, parseGridMemory, parsePane,
   type Arrangement, type Board, type BoardLayout, type LayoutNode, type PaneSlot, type Sheet,
 } from './boardTypes';
 
-export { BOARD_LAYOUTS, MAX_SHEETS, columnPanes, defaultArrangement, layoutShape, paneCount } from './boardTypes';
+export { BOARD_LAYOUTS, MAX_GROUPS, MAX_PANES, MAX_SHEETS, MAX_TABS, boardVersionFor, columnPanes, defaultArrangement, layoutShape, paneCount } from './boardTypes';
 export type { Arrangement, Board, BoardLayout, GridMemory, LayoutNode, PaneSlot, Sheet } from './boardTypes';
 export { gridOf, withGrid, type GridView } from './boardGrid';
 
@@ -80,8 +80,8 @@ function cleanTree(node: unknown, ids: ReadonlySet<string>, seen: Set<string>): 
   return { type: 'branch', dir: node.dir, sizes: [...node.sizes], children };
 }
 
-function parseSlots(value: unknown): PaneSlot[] | null {
-  if (!Array.isArray(value) || value.length < 1 || value.length > MAX_PANES) return null;
+function parseSlots(value: unknown, cap: number): PaneSlot[] | null {
+  if (!Array.isArray(value) || value.length < 1 || value.length > cap) return null;
   const ids = new Set<string>();
   const slots: PaneSlot[] = [];
   for (const item of value) {
@@ -95,37 +95,41 @@ function parseSlots(value: unknown): PaneSlot[] | null {
   return slots;
 }
 
-function parseSheet(item: unknown): Sheet | null {
+function parseSheet(item: unknown, cap: number): Sheet | null {
   if (!isRecord(item) || typeof item.id !== 'string' || item.id.length === 0 || typeof item.name !== 'string') return null;
-  const panes = parseSlots(item.panes);
+  const panes = parseSlots(item.panes, cap);
   if (!panes || typeof item.selectedPaneId !== 'string' || !panes.some(p => p.id === item.selectedPaneId)) return null;
   const ids = new Set(panes.map(p => p.id));
   const seen = new Set<string>();
   const tree = cleanTree(item.tree, ids, seen);
-  if (!tree || seen.size !== ids.size) return null;
+  if (!tree || seen.size !== ids.size || groupsOf(tree).length > MAX_GROUPS) return null;
   const sheet: Sheet = { id: item.id, name: item.name, panes, selectedPaneId: item.selectedPaneId, tree };
   const gridMemory = parseGridMemory(item.gridMemory);
   return gridMemory ? { ...sheet, gridMemory } : sheet;
 }
 
 /**
- * Validates a stored V2 value. Anything off — shape, version, pane ids, tree, duplicate sheet ids — is null, never a partial board. Only
- * `gridMemory` (the grid renderer's remembered sizes) drops an unreadable entry instead of rejecting the board.
+ * Validates a stored V2 or V3 value (`v:2`: at most `MAX_PANES` panes per sheet, `v:3`: at most `MAX_TABS`; both: every pane in exactly one group
+ * once, at most `MAX_GROUPS` groups). Anything off — shape, version, pane ids, tree, duplicate sheet ids — is null, never a partial board: a
+ * `v:2` value holding a fifth pane is corrupt, not trimmed. Only `gridMemory` (the grid renderer's remembered sizes) drops an unreadable entry.
  */
-export function parseBoardV2(raw: unknown): Board | null {
-  if (!isRecord(raw) || raw.v !== 2 || typeof raw.activeSheetId !== 'string' || !Array.isArray(raw.sheets)) return null;
+export function parseBoard(raw: unknown): Board | null {
+  if (!isRecord(raw) || (raw.v !== 2 && raw.v !== 3) || typeof raw.activeSheetId !== 'string' || !Array.isArray(raw.sheets)) return null;
   if (raw.sheets.length < 1 || raw.sheets.length > MAX_SHEETS) return null;
   const ids = new Set<string>();
   const sheets: Sheet[] = [];
   for (const item of raw.sheets) {
-    const sheet = parseSheet(item);
+    const sheet = parseSheet(item, raw.v === 3 ? MAX_TABS : MAX_PANES);
     if (!sheet || ids.has(sheet.id)) return null;
     ids.add(sheet.id);
     sheets.push(sheet);
   }
   if (!ids.has(raw.activeSheetId)) return null;
-  return { v: 2, activeSheetId: raw.activeSheetId, sheets };
+  return { v: raw.v, activeSheetId: raw.activeSheetId, sheets };
 }
+
+/** The name `parseBoard` had while only V2 existed; the same validation. */
+export const parseBoardV2 = parseBoard;
 
 const mapSheet = (board: Board, id: string, change: (sheet: Sheet) => Sheet): Board => {
   const index = board.sheets.findIndex(s => s.id === id);
@@ -186,14 +190,14 @@ const samePanes = (a: Sheet, b: Sheet) => layoutOf(a) === layoutOf(b) && a.panes
 const sameSheet = (a: Sheet, b: Sheet) => a.name === b.name && a.selectedPaneId === b.selectedPaneId && samePanes(a, b)
   && JSON.stringify(a.tree) === JSON.stringify(b.tree) && JSON.stringify(a.gridMemory) === JSON.stringify(b.gridMemory);
 
-/** Repairs one sheet that broke an invariant; the same object when nothing needed repair. Panes beyond 4 are dropped, a missing tree becomes the default grid. */
+/** Repairs one sheet that broke an invariant; the same object when nothing needed repair. No pane is dropped (a sheet is never cut to a cap); a missing tree becomes the default arrangement. */
 function normalizeSheet(sheet: Sheet): Sheet {
   const memory = parseGridMemory(sheet.gridMemory);
   const memoryFits = JSON.stringify(memory) === JSON.stringify(sheet.gridMemory);
-  const unique = sheet.panes.filter((p, i) => sheet.panes.findIndex(q => q.id === p.id) === i).slice(0, MAX_PANES);
+  const unique = sheet.panes.filter((p, i) => sheet.panes.findIndex(q => q.id === p.id) === i);
   const ids = new Set(unique.map(p => p.id));
   const seen = new Set<string>();
-  const treeFits = unique.length === sheet.panes.length && unique.length > 0 && cleanTree(sheet.tree, ids, seen) !== null && seen.size === ids.size;
+  const treeFits = unique.length === sheet.panes.length && unique.length > 0 && cleanTree(sheet.tree, ids, seen) !== null && seen.size === ids.size && groupsOf(sheet.tree).length <= MAX_GROUPS;
   const selectedFits = ids.has(sheet.selectedPaneId);
   if (treeFits && selectedFits && memoryFits) return sheet;
   const canonical: Sheet = { ...sheet };
@@ -204,13 +208,15 @@ function normalizeSheet(sheet: Sheet): Sheet {
   const selectedPaneId = panes.some(p => p.id === sheet.selectedPaneId) ? sheet.selectedPaneId : panes[0].id;
   const fitted: Sheet = { ...canonical, panes, selectedPaneId };
   if (treeFits) return fitted;
+  // Beyond the V2 cap there is no grid shape: the default arrangement keeps every pane (the extra ones as tabs of the last group).
+  if (panes.length > MAX_PANES) return { ...fitted, tree: activateInTree(defaultTree(panes.map(p => p.id)), selectedPaneId) };
   const layout = defaultLayoutFor(panes.length);
   return withGrid(fitted, layout, memoryOf(canonical, layout));
 }
 
 /**
  * The one place the board's invariants are enforced after an undo: 1–20 sheets, every sheet's panes, tree and selection consistent
- * (1–4 panes with unique ids, every pane in exactly one group, the selected pane one of them), canonical `gridMemory`, and an active sheet
+ * (1–8 panes with unique ids, at most 4 groups, every pane in exactly one group, the selected pane one of them), canonical `gridMemory`, and an active sheet
  * that exists. Returns the same object when nothing needed repair, and null for a board with no sheets (nothing to repair it from).
  */
 export function normalizeBoard(board: Board): Board | null {
@@ -331,7 +337,8 @@ export type LayoutChange = { sheetId: string; before: Sheet; after: Sheet; layou
 export function setLayout(board: Board, sheetId: string, layout: BoardLayout): Board {
   return mapSheet(board, sheetId, s => {
     const grid = gridOf(s);
-    if (grid.layout === layout) return s;
+    // A grid layout holds at most four panes: a sheet over the V2 cap is never cut to one.
+    if (grid.layout === layout || s.panes.length > MAX_PANES) return s;
     const count = paneCount(layout);
     // The layout being left keeps its current sizes in `gridMemory`, so switching back restores them.
     const kept = s.panes.length === paneCount(grid.layout) ? withGridMemory(s, grid.layout, grid.arrangement) : s;
@@ -370,11 +377,11 @@ export function selectPaneActive(board: Board, sheetId: string, index: number): 
 
 /**
  * Stores the layout tree the dock renderer reports or a group command builds. A tree that is not exactly the sheet's panes (each in one group
- * once, sizes that sum to 100) is ignored, and so is one the sheet already has. The selection then follows the tree (`reconcileSelection`).
+ * once, sizes that sum to 100) is ignored, and so is one the sheet already has or one with more than `MAX_GROUPS` groups (a drop or move that would make a fifth display group). The selection then follows the tree (`reconcileSelection`).
  */
 export function setTree(board: Board, sheetId: string, tree: LayoutNode): Board {
   return mapSheet(board, sheetId, s => {
-    if (!isValidDockTree(toDockTree(tree), s.panes.map(p => p.id)) || JSON.stringify(tree) === JSON.stringify(s.tree)) return s;
+    if (!isValidDockTree(toDockTree(tree), s.panes.map(p => p.id)) || JSON.stringify(tree) === JSON.stringify(s.tree) || groupsOf(tree).length > MAX_GROUPS) return s;
     return reconcileSelection({ ...s, tree });
   });
 }
@@ -386,13 +393,15 @@ export const resetTree = (board: Board, sheetId: string): Board => mapSheet(boar
 });
 
 /**
- * `칸 추가` (dock renderer): a new empty pane as the last number. On the default arrangement of the sheet's panes the result is the default
- * arrangement of those panes plus the new one (four panes become 2×2); on any other it splits the largest group along its longer side. Selected
- * unless `select` is false. Unchanged at 4 panes.
+ * `칸 추가` (dock renderer): a new empty pane as the last number. While the sheet has fewer than `MAX_GROUPS` groups it is a new group: on the default
+ * arrangement of the sheet's panes the result is the default arrangement of those panes plus the new one (a fourth pane makes the 2×2); on any other it
+ * splits the largest group along its longer side. At `MAX_GROUPS` groups it is a tab of the selected pane's group instead (`addPaneInGroup`), so no
+ * fifth group appears. Selected unless `select` is false. Unchanged at `MAX_TABS` panes.
  */
 export function addPane(board: Board, sheetId: string, select = true): Board {
   return mapSheet(board, sheetId, s => {
-    if (s.panes.length >= MAX_PANES) return s;
+    if (s.panes.length >= MAX_TABS) return s;
+    if (groupsOf(s.tree).length >= MAX_GROUPS) return withNewPaneInGroup(s, s.selectedPaneId, null, select);
     const ids = s.panes.map(p => p.id);
     const slot = newSlot(new Set(ids));
     let tree: LayoutNode;
@@ -405,18 +414,23 @@ export function addPane(board: Board, sheetId: string, select = true): Board {
   });
 }
 
+function withNewPaneInGroup(s: Sheet, anchorPaneId: string, screen: PaneScreen | null, select: boolean): Sheet {
+  if (s.panes.length >= MAX_TABS || !s.panes.some(p => p.id === anchorPaneId)) return s;
+  const slot: PaneSlot = { ...newSlot(new Set(s.panes.map(p => p.id))), screen };
+  const previousActive = groupHolding(s.tree, anchorPaneId)?.active;
+  const inserted = fromDockTree(addPanel(toDockTree(s.tree), slot.id, { panelId: anchorPaneId, position: 'center' }));
+  // The center insertion puts the new tab in front; without `select` the group keeps the tab it showed, so the selection stays where it was.
+  const tree = select || previousActive === undefined ? inserted : activateInTree(inserted, previousActive);
+  return reconcileSelection({ ...s, panes: [...s.panes, slot], selectedPaneId: select ? slot.id : s.selectedPaneId, tree });
+}
+
 /**
  * `이 묶음에 분석 탭 추가` (dock renderer): a new pane holding `screen` as the last number, put into the stored group of `anchorPaneId` as its active
- * tab (not beside it: no split, no other pane moves, the sizes stay) and selected. The group is the sheet's own, never the one-group display of a
- * narrow container. Unchanged at 4 panes or when the anchor is not a pane of the sheet.
+ * tab (not beside it: no split, no other pane moves, the sizes stay) and selected unless `select` is false. The group is the sheet's own, never the
+ * one-group display of a narrow container. Unchanged at `MAX_TABS` panes or when the anchor is not a pane of the sheet.
  */
-export function addPaneInGroup(board: Board, sheetId: string, anchorPaneId: string, screen: PaneScreen | null): Board {
-  return mapSheet(board, sheetId, s => {
-    if (s.panes.length >= MAX_PANES || !s.panes.some(p => p.id === anchorPaneId)) return s;
-    const slot: PaneSlot = { ...newSlot(new Set(s.panes.map(p => p.id))), screen };
-    const tree = fromDockTree(addPanel(toDockTree(s.tree), slot.id, { panelId: anchorPaneId, position: 'center' }));
-    return reconcileSelection({ ...s, panes: [...s.panes, slot], selectedPaneId: slot.id, tree });
-  });
+export function addPaneInGroup(board: Board, sheetId: string, anchorPaneId: string, screen: PaneScreen | null, select = true): Board {
+  return mapSheet(board, sheetId, s => withNewPaneInGroup(s, anchorPaneId, screen, select));
 }
 
 /** What `closePane` removed and the sheet on both sides of it, so the undo can put the pane back where it was and only while nothing else changed the panes. */
@@ -440,17 +454,19 @@ export function closePane(board: Board, sheetId: string, index: number): { board
 /**
  * Undo of `closePane`: the pane returns under its old number. Where it sits in the tree is restored while the arrangement is still the one
  * the close left, keeping the sizes the user set since (`reinsertPane`); after a later move it is docked right of the selected pane instead. Null — nothing restored — once the sheet's panes are
- * not the ones the close left or the sheet is back at 4 panes.
+ * not the ones the close left or the sheet is back at `MAX_TABS` panes.
  */
 export function restoreClosedPane(board: Board, closed: ClosedPane): Board | null {
   const sheet = board.sheets.find(s => s.id === closed.sheetId);
   const ids = (s: Sheet) => s.panes.map(p => p.id).join('\n');
-  if (!sheet || sheet.panes.length >= MAX_PANES || ids(sheet) !== ids(closed.after)) return null;
+  if (!sheet || sheet.panes.length >= MAX_TABS || ids(sheet) !== ids(closed.after)) return null;
   const { slot, index } = closed;
   const panes = [...sheet.panes.slice(0, index), slot, ...sheet.panes.slice(index)];
   const reselect = closed.before.selectedPaneId === slot.id && sheet.selectedPaneId === closed.after.selectedPaneId;
   const selectedPaneId = reselect ? slot.id : sheet.selectedPaneId;
   const sameArrangement = JSON.stringify(treeShape(sheet.tree)) === JSON.stringify(treeShape(closed.after.tree));
-  const tree = sameArrangement ? reinsertPane(closed.before.tree, sheet.tree, slot.id) : fromDockTree(addPanel(toDockTree(effectiveTree(sheet)), slot.id, { panelId: sheet.selectedPaneId, position: 'right' }));
+  // Docked beside the selected pane, unless the sheet already shows `MAX_GROUPS` groups: then it joins the selected pane's group as a tab.
+  const position = groupsOf(sheet.tree).length >= MAX_GROUPS ? 'center' : 'right';
+  const tree = sameArrangement ? reinsertPane(closed.before.tree, sheet.tree, slot.id) : fromDockTree(addPanel(toDockTree(effectiveTree(sheet)), slot.id, { panelId: sheet.selectedPaneId, position }));
   return normalizeBoard(mapSheet(board, closed.sheetId, s => reconcileSelection({ ...s, panes, selectedPaneId, tree: activateInTree(tree, selectedPaneId) })));
 }

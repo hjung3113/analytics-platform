@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { isValidDockTree } from '@ap/components/dock';
-import { activateInTree, defaultTree, effectiveTree, fromDockTree, reconcileSelection, toDockTree } from './boardDockTree';
+import { activateInTree, defaultTree, effectiveTree, fromDockTree, groupHolding, groupsOf, reconcileSelection, toDockTree } from './boardDockTree';
 import {
-  addPane, applyPaneEdits, closePane, freshBoard, normalizeBoard, restoreClosedPane, restorePane, resetTree, revertPaneEdits, selectPane, selectPaneActive, setPane, setTree, withGrid,
+  addPane, addPaneInGroup, applyPaneEdits, closePane, freshBoard, normalizeBoard, restoreClosedPane, restorePane, resetTree, revertPaneEdits, selectPane, selectPaneActive, setPane, setTree, withGrid,
   type Board, type LayoutNode, type Sheet,
 } from './boardModel';
 import { defaultArrangement } from './boardTypes';
@@ -186,9 +186,30 @@ describe('addPane', () => {
     const { board, ids } = boardOf(1);
     expect(sheetOf(addPane(board, sid(board), false)).selectedPaneId).toBe(ids[0]);
   });
-  it('is a no-op at four panes', () => {
-    const { board } = boardOf(4);
-    expect(addPane(board, sid(board))).toBe(board);
+  it('can leave the selection and the group\'s active tab alone at four groups (893e)', () => {
+    const { board, ids } = boardOf(4);
+    const selected = sheetOf(board).selectedPaneId;
+    const group = groupHolding(sheetOf(board).tree, selected)!;
+    const viaAdd = sheetOf(addPane(board, sid(board), false));
+    expect(viaAdd.panes).toHaveLength(5);
+    expect(viaAdd.selectedPaneId).toBe(selected);
+    expect(groupHolding(viaAdd.tree, selected)!.active).toBe(group.active);
+    expect(groupHolding(viaAdd.tree, viaAdd.panes[4]!.id)!.panes).toContain(selected);
+    const viaGroup = sheetOf(addPaneInGroup(board, sid(board), ids[3]!, null, false));
+    expect(viaGroup.selectedPaneId).toBe(selected);
+    expect(groupHolding(viaGroup.tree, ids[3]!)!.active).toBe(ids[3]);
+  });
+  it('at four groups adds a tab to the selected pane\'s group instead of a fifth group, and is a no-op at eight panes (893e)', () => {
+    const { board, ids } = boardOf(4);
+    let next = board;
+    for (let n = 5; n <= 8; n++) {
+      next = addPane(next, sid(next));
+      expect(sheetOf(next).panes).toHaveLength(n);
+      expect(groupsOf(sheetOf(next).tree)).toHaveLength(4);
+    }
+    expect(sheetOf(next).panes.slice(0, 4).map(p => p.id)).toEqual(ids);
+    expect(groupHolding(sheetOf(next).tree, ids[3]!)!.panes.length).toBeGreaterThan(1);
+    expect(addPane(next, sid(next))).toBe(next);
   });
 });
 

@@ -2,6 +2,7 @@ import { AppShell } from '../AppShell';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { House } from 'lucide-react';
+import { StrictMode } from 'react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { defineEndpoint, type PlatformAdapter, type Session, groupId, spaceId } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, useMenuQuery } from '@ap/kernel';
@@ -10,6 +11,7 @@ import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@
 import { PlatformPage } from '@ap/components';
 import { RouteOutlet } from '../RouteOutlet';
 import { addPane, freshBoard, parseBoardV2, setPane, setTree, type Board, type LayoutNode } from './boardModel';
+import { groupsOf, toDockTree } from './boardDockTree';
 import { BOARD_LAYOUT_ENGINE_KEY } from './layoutEngine';
 import { legacyBoard as boardOf, legacySheet as sheet, seedLegacy as seed, v2Board, V2_KEY } from './__fixtures__/legacyBoard';
 // RouteOutlet loads the board lazily (#821); evaluate it up front so a short settle does not race a cold dynamic import.
@@ -89,11 +91,12 @@ const menuQuery = vi.fn(async () => {
   queries += 1;
   return { outcome: 'ok' as const, data: { text: `ROW-${queries}` }, assessments: [{ kind: 'collection' as const, state: 'clear' as const }], trust: null, correlationId: `c${queries}` };
 });
-function mount(url = '/board', permissions: Session['user']['permissions'] = ['platform:view', 'console:access'], adapterOver: Partial<PlatformAdapter> = {}) {
+function mount(url = '/board', permissions: Session['user']['permissions'] = ['platform:view', 'console:access'], adapterOver: Partial<PlatformAdapter> = {}, strict = false) {
   window.history.replaceState(null, '', url);
   session = testSession(permissions);
   const adapter = testAdapter({ session: () => session, subscribe: l => { listeners.add(l); return () => { listeners.delete(l); }; }, menuQuery: menuQuery as unknown as PlatformAdapter['menuQuery'], ...adapterOver });
-  return render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><AppShell><RouteOutlet /></AppShell></PlatformProvider></I18nProvider>);
+  const tree = <I18nProvider><PlatformProvider adapter={adapter} registry={registry}><AppShell><RouteOutlet /></AppShell></PlatformProvider></I18nProvider>;
+  return render(strict ? <StrictMode>{tree}</StrictMode> : tree);
 }
 const settle = () => act(() => new Promise(resolve => setTimeout(resolve, 30)));
 const openMenu = (trigger: HTMLElement) => { act(() => { trigger.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0 })); }); };
@@ -125,6 +128,13 @@ const v2 = (): Board => parseBoardV2(JSON.parse(localStorage.getItem(V2_KEY)!))!
 const tree = (): LayoutNode => v2().sheets[0].tree;
 const seedV2 = (board: Board) => { localStorage.setItem(V2_KEY, JSON.stringify(board)); };
 const group = (panes: string[], active = panes[0]!): LayoutNode => ({ type: 'group', panes, active });
+/** A sheet `a` of `count` panes (4 groups of the 2×2, the rest tabs), all with a screen; stored as `v:3` once it is over four. */
+const bigBoard = (count: number): Board => {
+  let board = v2Board(boardOf([sheet('a', { layout: '2x2', panes: [alpha(w1), beta(w1), alpha(w2), beta(w2)] })]));
+  while (board.sheets[0].panes.length < count) board = addPane(board, 'a', false);
+  for (let i = 4; i < count; i++) board = setPane(board, 'a', i, i % 2 ? beta(w1) : alpha(`?from=2026-07-0${i}T00:00:00&to=2026-07-0${i}T12:00:00`));
+  return { ...board, v: count > 4 ? 3 : 2 };
+};
 
 beforeEach(() => {
   for (const name of ['localStorage', 'sessionStorage'] as const) vi.stubGlobal(name, memoryStorage());
@@ -255,7 +265,7 @@ describe('dock renderer: Delete = 비우기, X, 칸 추가, 칸 닫기, 복제',
     expect(tabLabels()).toEqual(['칸 1 · 빈 칸', '칸 2 · 빈 칸']);
   });
 
-  it('칸 추가 adds pane 3 on a 2-pane sheet and is disabled with its reason at 4 panes', async () => {
+  it('칸 추가 adds pane 3 on a 2-pane sheet, keeps four display groups from the fifth pane on and is disabled with its reason at 8 panes (893e)', async () => {
     seed(boardOf([sheet('a', { layout: '1x2', panes: [alpha(w1), beta(w2)] })]));
     mount('/board?sheet=a');
     await ready();
@@ -266,10 +276,19 @@ describe('dock renderer: Delete = 비우기, X, 칸 추가, 칸 닫기, 복제',
     expect(v2().sheets[0].selectedPaneId).toBe(v2().sheets[0].panes[2].id);
     fireEvent.click(screen.getByRole('button', { name: '칸 추가' }));
     await waitFor(() => { expect(tabLabels()).toHaveLength(4); });
+    expect(screen.getByRole('button', { name: '칸 추가' })).toBeEnabled();
+    for (let n = 5; n <= 8; n++) {
+      fireEvent.click(screen.getByRole('button', { name: '칸 추가' }));
+      await waitFor(() => { expect(tabLabels()).toHaveLength(n); });
+      expect(groupsOf(tree())).toHaveLength(4);
+    }
     const add = screen.getByRole('button', { name: '칸 추가' });
     expect(add).toBeDisabled();
-    expect(add).toHaveAccessibleDescription('칸은 시트당 4개까지입니다.');
-  });
+    expect(add).toHaveAccessibleDescription('시트당 분석 화면 8개까지 둘 수 있습니다.');
+    expect(add).not.toHaveAccessibleDescription(/표시 영역/);
+    expect(JSON.parse(localStorage.getItem(V2_KEY)!).v).toBe(3);
+    // Six dock mounts in a row: about 1 s here, but past the 5 s default on the loaded CI runner (#981 run 40392437172).
+  }, 30_000);
 
   it('칸 닫기 on the empty pane 2 of 3 renumbers pane 3 to 2 without re-querying, and 실행 취소 puts it back', async () => {
     let board = freshBoard('시트');
@@ -329,8 +348,8 @@ describe('dock renderer: Delete = 비우기, X, 칸 추가, 칸 닫기, 복제',
     expect(v2().sheets[0].panes).toHaveLength(2);
   });
 
-  it('복제 stays off at four panes with no empty pane', async () => {
-    seed(boardOf([sheet('a', { layout: '2x2', panes: [alpha(w1), beta(w1), alpha(w2), beta(w2)] })]));
+  it('복제 stays off at eight panes with no empty pane', async () => {
+    seedV2(bigBoard(8));
     mount('/board?sheet=a');
     await ready();
     openMenu(paneMenu(1));
@@ -846,7 +865,7 @@ describe('dock renderer: the pane head is one strip per group (ADR-0067 2c)', ()
     expect(screen.getAllByRole('button', { name: '칸 1 동작' })).toHaveLength(1);
   });
 
-  it('칸 추가 puts focus on the new pane\'s tab at 3 and at 4 panes, where the button disables', async () => {
+  it('칸 추가 puts focus on the new pane\'s tab at 3 and at 4 panes', async () => {
     seed(boardOf([sheet('a', { layout: '1x2', panes: [alpha(w1), beta(w2)] })]));
     mount('/board?sheet=a');
     await ready();
@@ -856,7 +875,6 @@ describe('dock renderer: the pane head is one strip per group (ADR-0067 2c)', ()
     await userEvent.click(screen.getByRole('button', { name: '칸 추가' }));
     await waitFor(() => { expect(tabLabels()).toContain('칸 4 · 빈 칸'); });
     await waitFor(() => { expect(document.activeElement).toBe(tabOf('칸 4 · 빈 칸')); });
-    expect(screen.getByRole('button', { name: '칸 추가' })).toBeDisabled();
   });
 });
 
@@ -1140,23 +1158,23 @@ describe('dock renderer: + after a group\'s last tab (#893a)', () => {
     expect(toastText()).toContain('대상 묶음이 바뀌어 추가하지 않았습니다');
   });
 
-  it('A5: at 4 panes the + stays pressable, describes the limit and a press says it without opening the picker', async () => {
-    seed(boardOf([sheet('a', { layout: '2x2', panes: [alpha(w1), beta(w2), alpha(w2), beta(w1)] })]));
+  it('A5: at 8 panes the + stays pressable, describes the limit and a press says it without opening the picker', async () => {
+    seedV2(bigBoard(8));
     mount('/board?sheet=a');
     await ready();
     const plus = plusButtons()[0]!;
     expect(plus).toBeEnabled();
-    expect(plus).toHaveAccessibleDescription(/시트당 분석 화면은 4개까지입니다/);
+    expect(plus).toHaveAccessibleDescription(/시트당 분석 화면 8개까지/);
     expect(plus.getAttribute('aria-describedby')).toBe('board-group-add-off');
     const before = localStorage.getItem(V2_KEY);
     await userEvent.click(plus);
     expect(screen.queryByRole('dialog')).toBeNull();
-    expect(toastText()).toContain('시트당 분석 화면은 4개까지입니다');
+    expect(toastText()).toContain('시트당 분석 화면 8개까지');
     expect(toastText()).toContain('칸을 먼저 닫으세요(내용이 있는 칸은 비운 뒤 닫습니다)');
     expect(toastText()).not.toContain('표시 그룹');
     expect(document.getElementById('board-group-add-off')?.textContent ?? '').not.toContain('표시 그룹');
     expect(localStorage.getItem(V2_KEY)).toBe(before);
-    expect(tabLabels()).toHaveLength(4);
+    expect(tabLabels()).toHaveLength(8);
   });
 
   it('A4: adding in the narrow one-group display puts the tab in the stored group, and widening keeps the stored split', async () => {
@@ -1194,5 +1212,110 @@ describe('dock renderer: + after a group\'s last tab (#893a)', () => {
     expect(screen.getByRole('button', { name: '원래 크기로' })).toBeInTheDocument();
     expect(tabOf('칸 3 · 베타')).toHaveAttribute('aria-selected', 'true');
     await waitFor(() => { expect(document.activeElement).toBe(tabOf('칸 3 · 베타')); });
+  });
+});
+
+describe('dock renderer: tab total and display groups are separate caps (893e, ADR-0089)', () => {
+  const toastText = () => Array.from(document.querySelectorAll('[data-toast-item]')).map(item => item.textContent).join('\n');
+
+  it('E4: at four groups a group of two tabs offers the splits off with the group limit, not the tab limit', async () => {
+    seedV2(bigBoard(5));
+    mount('/board?sheet=a');
+    await ready();
+    openMenu(paneMenu(1));
+    for (const name of ['오른쪽으로 나누기', '아래로 나누기']) expect(await screen.findByRole('menuitem', { name })).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByRole('note')).toHaveTextContent('표시 영역은 4개까지입니다');
+    for (const name of ['오른쪽으로 나누기', '아래로 나누기']) {
+      const reason = screen.getByRole('menuitem', { name }).getAttribute('aria-describedby');
+      expect(reason).toBeTruthy();
+      expect(document.getElementById(reason!)).toBe(screen.getByRole('note'));
+    }
+    expect(screen.getByRole('note')).not.toHaveTextContent('분석 화면');
+    expect(groupsOf(tree())).toHaveLength(4);
+  });
+
+  it('E4: a layout with a fifth group (a drop that splits) is refused and the board keeps its four groups', async () => {
+    seedV2(bigBoard(5));
+    mount('/board?sheet=a');
+    await ready();
+    const stored = v2().sheets[0];
+    const [a, b, c, d, e] = stored.panes.map(p => p.id) as [string, string, string, string, string];
+    const five: LayoutNode = { type: 'branch', dir: 'row', sizes: [20, 20, 20, 20, 20], children: [a, b, c, d, e].map(id => group([id])) };
+    const before = localStorage.getItem(V2_KEY);
+    act(() => { dockProbe.latest!.onLayoutChange(toDockTree(five)); });
+    await settle();
+    expect(groupsOf(tree())).toHaveLength(4);
+    expect(localStorage.getItem(V2_KEY)).toBe(before);
+  });
+
+  it('E6: a board with more than four panes opens in the dock although the browser asks for the grid, and says so once', async () => {
+    localStorage.setItem(BOARD_LAYOUT_ENGINE_KEY, 'grid');
+    seedV2(bigBoard(5));
+    mount('/board?sheet=a');
+    await ready();
+    expect(document.querySelector('[data-board-grid]')).toBeNull();
+    expect(document.querySelector('[data-board-dock]')).not.toBeNull();
+    await waitFor(() => { expect(toastText()).toContain('격자 보기는 4칸까지라 이 보드는 도킹 보기로 엽니다'); });
+    await userEvent.click(tabOf('칸 2 · 베타'));
+    await settle();
+    expect(toastText().split('격자 보기는 4칸까지').length - 1).toBe(1);
+  });
+
+  it.each([false, true])('E6: the grid-to-dock notice is raised once and stays visible (StrictMode: %s)', async strict => {
+    localStorage.setItem(BOARD_LAYOUT_ENGINE_KEY, 'grid');
+    seedV2(bigBoard(5));
+    mount('/board?sheet=a', undefined, undefined, strict);
+    await ready();
+    await waitFor(() => { expect(toastText()).toContain('격자 보기는 4칸까지라 이 보드는 도킹 보기로 엽니다.'); });
+    expect(toastText().split('격자 보기는 4칸까지라 이 보드는 도킹 보기로 엽니다.').length - 1).toBe(1);
+  });
+
+  it('E6: shrinking the sheet to four panes (close, undo) keeps the dock drawn for this visit, so the surviving panes are not remounted', async () => {
+    localStorage.setItem(BOARD_LAYOUT_ENGINE_KEY, 'grid');
+    seedV2({ ...addPane(bigBoard(4), 'a', false), v: 3 });
+    mount('/board?sheet=a');
+    await ready();
+    expect(tabLabels()).toHaveLength(5);
+    const mark = (n: number) => { paneRoot(n).setAttribute('data-keep-probe', `p${n}`); return paneRoot(n); };
+    const kept = [mark(1), mark(2), mark(3), mark(4)];
+    const stillSame = () => kept.forEach((node, i) => { expect(paneRoot(i + 1)).toBe(node); expect(node.isConnected).toBe(true); expect(node.getAttribute('data-keep-probe')).toBe(`p${i + 1}`); });
+    await userEvent.click(tabOf('칸 5 · 빈 칸'));
+    await settle();
+    openMenu(paneMenu(5));
+    fireEvent.click(await screen.findByRole('menuitem', { name: '칸 5 닫기' }));
+    await settle();
+    expect(tabLabels()).toHaveLength(4);
+    expect(v2().v).toBe(2);
+    expect(document.querySelector('[data-board-grid]')).toBeNull();
+    expect(document.querySelector('[data-board-dock]')).not.toBeNull();
+    stillSame();
+    fireEvent.click(screen.getByRole('button', { name: '실행 취소' }));
+    await settle();
+    expect(tabLabels()).toHaveLength(5);
+    expect(document.querySelector('[data-board-grid]')).toBeNull();
+    stillSame();
+  });
+
+  it('E6: a board of four panes keeps the grid when the browser asks for it, with no notice', async () => {
+    localStorage.setItem(BOARD_LAYOUT_ENGINE_KEY, 'grid');
+    seed(boardOf([sheet('a', { layout: '2x2', panes: [alpha(w1), beta(w1), alpha(w2), beta(w2)] })]));
+    mount('/board?sheet=a');
+    await waitFor(() => { expect(document.querySelector('[data-board-grid]')).not.toBeNull(); });
+    expect(document.querySelector('[data-board-dock]')).toBeNull();
+    expect(toastText()).not.toContain('격자 보기는 4칸까지');
+  });
+
+  it('E7: eight panes mount with one first query per pane that asks, and a ninth tab-less 칸 추가 does not re-query the others', async () => {
+    seedV2(bigBoard(7));
+    mount('/board?sheet=a');
+    await ready();
+    // `bigBoard` puts the querying screen (alpha) on panes 1, 3, 5 and 7, each with its own condition.
+    const alphas = 4;
+    await waitFor(() => { expect(menuQuery).toHaveBeenCalledTimes(alphas); });
+    expect(tabLabels()).toHaveLength(7);
+    await userEvent.click(screen.getByRole('button', { name: '칸 추가' }));
+    await waitFor(() => { expect(tabLabels()).toHaveLength(8); });
+    await settle();
+    expect(menuQuery).toHaveBeenCalledTimes(alphas);
   });
 });

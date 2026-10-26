@@ -263,7 +263,7 @@ describe('V1 storage (#575 D1)', () => {
     fireEvent.click(within(dialog).getByRole('radio', { name: '기존 시트의 빈 칸' }));
     fireEvent.click(within(dialog).getByRole('radio', { name: '비교' }));
     fireEvent.click(within(dialog).getByRole('radio', { name: '칸 2 · 비어 있음' }));
-    const newer = JSON.stringify({ v: 3, anything: true });
+    const newer = JSON.stringify({ v: 4, anything: true });
     localStorage.setItem(V2_KEY, newer);
     fireEvent.click(within(dialog).getByRole('button', { name: '열기' }));
     await settle();
@@ -273,7 +273,7 @@ describe('V1 storage (#575 D1)', () => {
   });
 
   it('over a board saved by a newer build it writes nothing, says so and keeps the dialog open', async () => {
-    const newer = JSON.stringify({ v: 3, anything: true });
+    const newer = JSON.stringify({ v: 4, anything: true });
     localStorage.setItem(V2_KEY, newer);
     mount(`/alpha?${w1}`);
     await settle();

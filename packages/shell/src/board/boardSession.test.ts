@@ -45,7 +45,7 @@ describe('the board session store (docs/16 §7)', () => {
   });
 
   it('a newer stored value latches the session read-only and is never written', () => {
-    const newer = JSON.stringify({ v: 3 });
+    const newer = JSON.stringify({ v: 4 });
     localStorage.setItem(V2('u1'), newer);
     const { result } = renderHook(() => useBoardSession('u1', '시트'));
     expect(result.current.storageNotice).toBe('newer');
@@ -103,7 +103,7 @@ describe('the board session store (docs/16 §7)', () => {
   });
 
   it('a read-only session keeps its board, notice and refusal to write across reloadBoardSession', () => {
-    const newer = JSON.stringify({ v: 3 });
+    const newer = JSON.stringify({ v: 4 });
     localStorage.setItem(V2('u1'), newer);
     const { result } = renderHook(() => useBoardSession('u1', '시트'));
     act(() => { result.current.update(board => addSheet(board, '시트')); });
@@ -142,7 +142,7 @@ describe('the board session store (docs/16 §7)', () => {
       second.unmount();
       await tick();
 
-      const newer = JSON.stringify({ v: 3 });
+      const newer = JSON.stringify({ v: 4 });
       localStorage.setItem(V2('u2'), newer);
       const latched = renderHook(() => useBoardSession('u2', '시트'));
       latched.unmount();

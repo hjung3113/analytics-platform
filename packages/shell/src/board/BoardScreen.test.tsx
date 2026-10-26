@@ -148,7 +148,7 @@ describe('storage (docs/16 §7)', () => {
   });
 
   it('says once that a board saved by a newer build is not saved here, and never writes it', async () => {
-    const newer = JSON.stringify({ v: 3, anything: true });
+    const newer = JSON.stringify({ v: 4, anything: true });
     localStorage.setItem(V2_KEY, newer);
     mount('/board');
     await settle();

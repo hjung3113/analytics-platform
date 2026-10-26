@@ -1,6 +1,6 @@
 import { isRecord } from '@ap/contracts';
 import { migrateV1 } from './boardMigrate';
-import { atFirstPanes, freshBoard, parseBoardV2, type Board } from './boardModel';
+import { atFirstPanes, boardVersionFor, freshBoard, parseBoard, type Board } from './boardModel';
 
 const v2Key = (userId: string) => `platform:board:v2:${userId}`;
 const v1Key = (userId: string) => `platform:board:${userId}`;
@@ -19,7 +19,9 @@ export const browserStorage: KeyValueStore = { getItem: key => localStorage.getI
 const parseJson = (raw: string): { value: unknown } | null => {
   try { return { value: JSON.parse(raw) as unknown }; } catch { return null; }
 };
-const isNewer = (value: unknown) => isRecord(value) && typeof value.v === 'number' && value.v > 2;
+/** The newest board version this build reads (`v:3`, ADR-0089). A build before it read `v>2` as newer, so it opens a `v:3` value read-only instead of quarantining it. */
+const NEWEST_VERSION = 3;
+const isNewer = (value: unknown) => isRecord(value) && typeof value.v === 'number' && value.v > NEWEST_VERSION;
 
 /** Copies an unreadable value aside, once; the original key is never touched. */
 function quarantine(storage: KeyValueStore, key: string, raw: string) {
@@ -38,7 +40,7 @@ export function loadBoard(storage: KeyValueStore, userId: string, prefix: string
     if (rawV2 !== null) {
       const json = parseJson(rawV2);
       if (json && isNewer(json.value)) return { board: freshBoard(prefix), notice: 'newer', readOnly: true };
-      const parsed = json && parseBoardV2(json.value);
+      const parsed = json && parseBoard(json.value);
       if (parsed) return { board: enter(parsed), notice, readOnly: false };
       quarantine(storage, corruptBackupKey(userId, 'v2'), rawV2);
       notice = 'corrupt';
@@ -56,7 +58,8 @@ export function loadBoard(storage: KeyValueStore, userId: string, prefix: string
 }
 
 /**
- * Writes the board as V2. False — nothing written — while the stored V2 value is from a newer build. The first write over a V1 board copies
+ * Writes the board under the V2 key, stamped `v:3` while some sheet holds more than four panes and `v:2` otherwise (so closing back to four
+ * panes is the rollback path for older builds). False — nothing written — while the stored value is from a newer build. The first write over a V1 board copies
  * the untouched V1 value to its backup key once.
  */
 export function saveBoard(storage: KeyValueStore, userId: string, board: Board): boolean {
@@ -65,8 +68,8 @@ export function saveBoard(storage: KeyValueStore, userId: string, board: Board):
     const json = rawV2 === null ? null : parseJson(rawV2);
     if (json && isNewer(json.value)) return false;
     const rawV1 = storage.getItem(v1Key(userId));
-    if (rawV1 !== null && storage.getItem(v1BackupKey(userId)) === null && (rawV2 === null || !parseBoardV2(json?.value))) storage.setItem(v1BackupKey(userId), rawV1);
-    storage.setItem(v2Key(userId), JSON.stringify(board));
+    if (rawV1 !== null && storage.getItem(v1BackupKey(userId)) === null && (rawV2 === null || !parseBoard(json?.value))) storage.setItem(v1BackupKey(userId), rawV1);
+    storage.setItem(v2Key(userId), JSON.stringify({ ...board, v: boardVersionFor(board.sheets) }));
   } catch { /* memory-only */ }
   return true;
 }
