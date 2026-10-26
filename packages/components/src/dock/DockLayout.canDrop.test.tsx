@@ -43,7 +43,7 @@ const target = (ids: string[]) => ({ panels: ids.map(id => ({ id })) });
 function overlay(over: { panelId?: string | null; position: string; group?: string[]; kind?: string }) {
   const event = {
     kind: over.kind ?? 'content', position: over.position, group: over.group ? target(over.group) : undefined,
-    getData: () => (over.panelId === null ? undefined : { viewId: 'own', groupId: 'g', panelId: over.panelId ?? 'a' }),
+    getData: () => ({ viewId: 'own', groupId: 'g', panelId: over.panelId === undefined ? 'a' : over.panelId }),
     defaultPrevented: false, preventDefault: vi.fn(() => { event.defaultPrevented = true; }),
   };
   act(() => { engine.overlay!(event); });
