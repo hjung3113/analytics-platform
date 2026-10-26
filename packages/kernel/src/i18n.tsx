@@ -103,7 +103,7 @@ const dict = {
   sharedOutcomeEmpty: { ko: '0건', en: 'zero rows' },
   stateTimeoutBody: { ko: '조회가 제한 시간 안에 끝나지 않았습니다. 기간을 줄이거나 집계 단위를 키워 다시 시도하세요.', en: 'The query did not finish in time. Shorten the period or coarsen the granularity and retry.' },
   stateIdle: { ko: '아직 조회하지 않았습니다', en: 'No query has run yet' },
-  queryMissing: { ko: '{label}을(를) 선택하세요', en: 'Select {label}' },
+  queryMissing: { ko: '{label}{particle} 선택하세요', en: 'Select {label}' },
   stateEmpty: { ko: '조건에 맞는 결과가 없습니다', en: 'No matching result' },
   stateEmptyBody: { ko: '조회는 성공했고 결과가 0건입니다. 조건을 바꿔 다시 조회하세요.', en: 'The query succeeded with zero rows. Change the conditions and query again.' },
   stateForbidden: { ko: '이 Scope에 접근 권한이 없습니다', en: 'You do not have access to this scope' },
@@ -244,6 +244,18 @@ export function topicParticle(name: string): '은' | '는' {
   const code = name.charCodeAt(name.length - 1);
   const syllable = code >= 0xac00 && code <= 0xd7a3;
   return syllable && (code - 0xac00) % 28 !== 0 ? '은' : '는';
+}
+
+/** Korean object particle by the final-consonant of the last character; anything that is not a Hangul syllable takes 를. */
+export function objectParticle(name: string): '을' | '를' {
+  const code = name.charCodeAt(name.length - 1);
+  const syllable = code >= 0xac00 && code <= 0xd7a3;
+  return syllable && (code - 0xac00) % 28 !== 0 ? '을' : '를';
+}
+
+/** Missing-condition line shared by the query bar and the result area, so both name the field and particle the same way. */
+export function queryMissingSentence(lang: Lang, label: Text): string {
+  return dict.queryMissing[lang].replace(/\{(label|particle)\}/g, (_token, name: string) => name === 'label' ? label[lang] : lang === 'ko' ? objectParticle(label.ko) : '');
 }
 
 /** ADR-0034 sentence for an invalid URL value: the field's user name + the raw value as entered (quoted, untruncated) + cause/action. Placeholders fill in one pass, so the raw value is never re-read. */

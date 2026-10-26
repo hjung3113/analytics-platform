@@ -52,7 +52,7 @@ function reconcile(state: Snapshot | null, input: DraftInputs): Snapshot {
 }
 export function queryMissing(menu: MenuEntry | null, global: GlobalContext, page: Pair[]): QueryMissing[] {
   return [
-    ...missingRequiredContext(menu?.query?.required?.context ?? [], global).map(key => ({ key, label: CONTEXT_LABELS[key] })),
+    ...missingRequiredContext(menu?.query?.required?.context ?? [], global).map(key => ({ key, label: key === 'roomNames' ? { ko: '공정', en: 'Process' } : CONTEXT_LABELS[key] })),
     ...(menu?.query?.required?.page ?? []).filter(({ key }) => !page.some(([k, value]) => k === key && value !== '')).map(item => ({ ...item })),
   ];
 }

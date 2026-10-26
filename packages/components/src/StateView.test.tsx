@@ -61,9 +61,15 @@ it('renders idle with localized missing reasons and without loading or outcome c
   const query: QueryState<unknown> = { status: 'idle', response: null, refetch: vi.fn(), missing: [{ key: 'time', label: { ko: '기간', en: 'Period' } }], completedAt: null };
   render(<I18nProvider><QueryView query={query}>{() => <span>result</span>}</QueryView></I18nProvider>);
   expect(screen.getByRole('status')).toHaveTextContent('아직 조회하지 않았습니다');
-  expect(screen.getByRole('listitem')).toHaveTextContent('기간을(를) 선택하세요');
+  expect(screen.getByRole('listitem')).toHaveTextContent('기간을 선택하세요');
   expect(screen.queryByText('불러오는 중')).not.toBeInTheDocument();
   expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+});
+
+it('renders the roomNames missing item as 공정 with the object particle', () => {
+  const query: QueryState<unknown> = { status: 'idle', response: null, refetch: vi.fn(), missing: [{ key: 'roomNames', label: { ko: '공정', en: 'Process' } }], completedAt: null };
+  render(<I18nProvider><QueryView query={query}>{() => <span>result</span>}</QueryView></I18nProvider>);
+  expect(screen.getByRole('listitem')).toHaveTextContent('공정을 선택하세요');
 });
 
 describe('QueryView inside a workspace panel', () => {
