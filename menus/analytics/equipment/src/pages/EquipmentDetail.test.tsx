@@ -2,11 +2,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Boxes } from 'lucide-react';
-import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
+import { lazy } from 'react';
+import { createRegistry, I18nProvider, PlatformProvider, type MenuEntry } from '@ap/kernel';
 import { memoryStorage, testAdapter, testSession } from '@ap/kernel/testing';
 import { manifests } from '../index';
 import EquipmentDetail from './EquipmentDetail';
-import { groupId, menuPermission, spaceId, type ApiResponse, type AuditEvent, type EntityAuditPage, type EntityAuditRequest } from '@ap/contracts';
+import { contextCapabilities, groupId, menuPermission, NO_FEATURES, spaceId, type ApiResponse, type AuditEvent, type EntityAuditPage, type EntityAuditRequest } from '@ap/contracts';
 
 // ADR-0085: the audit tab reads cursor pages of the destination's changes. There was no screen test for this tab.
 const registry = createRegistry({
@@ -27,8 +28,53 @@ function renderAudit(entityAudit: (req: EntityAuditRequest) => Promise<ApiRespon
   render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session, entityAudit })} registry={registry}><EquipmentDetail params={{ equipmentId: 'EQ-1' }} /></PlatformProvider></I18nProvider>);
 }
 
+const topViewMenuBase = (id: string, path: string): MenuEntry => ({
+  id, group: groupId('equipment'), label: { ko: id, en: id }, description: { ko: '모듈', en: 'Module' },
+  path, icon: Boxes, permission: menuPermission('equipment:view'), requiresScope: false, pageType: 'analysis',
+  context: contextCapabilities({ time: 'reference', roomNames: 'reference', condition: 'reference', selection: 'reference' }),
+  features: NO_FEATURES, pageKeys: [], component: lazy(() => import('./EquipmentDetail')),
+});
+// The tab's existing cycle-time link needs its destination registered; this package does not own it.
+const cycleTimeMenu: MenuEntry = { ...topViewMenuBase('cycle-time', '/cycle-time'), pageKeys: [] };
+const topViewMenu: MenuEntry = { ...topViewMenuBase('eqv:topview', '/tools/topview'), label: { ko: 'Top View', en: 'Top View' }, permission: menuPermission('eqv:view'), pageKeys: ['equipment'] };
+const registryFor = (extra: MenuEntry[]) => createRegistry({
+  permissions: [menuPermission('equipment:view'), menuPermission('eqv:view')],
+  spaces: [{ id: spaceId('analytics'), label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, permission: menuPermission('equipment:view'), homeMenuId: 'equipment-master' }],
+  groups: [{ id: groupId('equipment'), label: { ko: '설비', en: 'Equipment' }, icon: Boxes, space: spaceId('analytics') }],
+  menus: [...manifests, ...extra],
+});
+const withTopView = registryFor([cycleTimeMenu, topViewMenu]);
+const withoutTopView = registryFor([cycleTimeMenu]);
+
+function renderAnalysis(reg: typeof registry, permissions: Parameters<typeof testSession>[0]) {
+  window.history.replaceState(null, '', '/equipment/EQ-1?v=1&scopeId=MEM&tab=analysis');
+  const s = testSession(permissions, { user: { id: 'analyst-a', name: 'analyst-a', title: { ko: '분석가', en: 'Analyst' } }, scopes: [{ id: 'MEM', label: 'MEM', grantedRooms: 1, totalRooms: 1 }] });
+  render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => s, getEntity: async () => ({ outcome: 'ok', data: { equipmentId: 'EQ-1', status: 'active' }, assessments: [], trust: null, correlationId: 'corr-eq' }) })} registry={reg}><EquipmentDetail params={{ equipmentId: 'EQ-1' }} /></PlatformProvider></I18nProvider>);
+}
+
 beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
+
+describe('EquipmentDetail related analysis tab: Top View link', () => {
+  it('links to the EV Top View with the equipment page key when the menu is registered and allowed', async () => {
+    renderAnalysis(withTopView, ['equipment:view', 'eqv:view', 'platform:view']);
+    const link = await screen.findByRole('link', { name: '이 설비 Top View' });
+    expect(link.getAttribute('href')).toContain('/tools/topview');
+    expect(link.getAttribute('href')).toContain('equipment=EQ-1');
+  });
+
+  it('has no Top View link when the menu is not registered', async () => {
+    renderAnalysis(withoutTopView, ['equipment:view', 'eqv:view', 'platform:view']);
+    expect(await screen.findByRole('link', { name: '이 설비로 사이클타임 상세' })).toBeTruthy();
+    expect(screen.queryByRole('link', { name: '이 설비 Top View' })).toBeNull();
+  });
+
+  it('has no Top View link without the module permission', async () => {
+    renderAnalysis(withTopView, ['equipment:view', 'platform:view']);
+    expect(await screen.findByRole('link', { name: '이 설비로 사이클타임 상세' })).toBeTruthy();
+    expect(screen.queryByRole('link', { name: '이 설비 Top View' })).toBeNull();
+  });
+});
 
 describe('EquipmentDetail change history tab', () => {
   it('lists the first page for the ref and offers no button when it is the whole list', async () => {

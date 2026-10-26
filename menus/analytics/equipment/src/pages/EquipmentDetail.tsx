@@ -5,15 +5,21 @@ import { Button, StatusBadge, Tabs, TabsContent, TabsList, TabsTrigger } from '@
 import { EQUIPMENT_ENTITY_TYPE, type Equipment } from '../endpoints';
 import { fields, statusText, statusTone, validity } from './data';
 
+// EV host module menu (apps/platform-web mounts it); its page key `equipment` selects the equipment.
+const EV_TOP_VIEW_MENU_ID = 'eqv:topview';
+
 export function EquipmentStatus({ equipment }: { equipment: Equipment }) {
   const { lang } = useI18n();
   return <StatusBadge tone={statusTone[equipment.status]} dot>{statusText[equipment.status][lang]}</StatusBadge>;
 }
 
 export function EquipmentPanel({ id, kind }: { id: string; kind: 'attributes' | 'validity' | 'audit' | 'analysis' }) {
-  const { global, scope, linkTo } = usePlatform();
+  const { global, scope, linkTo, resolveLink, registry } = usePlatform();
   const { lang } = useI18n();
   const ko = lang === 'ko';
+  // resolveLink throws for an unregistered menu, so look before resolving. No permission ⇒ no link.
+  const topViewLink = registry.menus.some(m => m.id === EV_TOP_VIEW_MENU_ID) ? resolveLink(EV_TOP_VIEW_MENU_ID, { page: { equipment: id } }) : null;
+  const topView = topViewLink?.allowed ? topViewLink : null;
   const query = useEntityQuery<Equipment>({ type: EQUIPMENT_ENTITY_TYPE, id, scopeId: global.scopeId }, kind, kind !== 'audit' && scope.status === 'valid');
   // #50: the audit tab reads the destination's changes from the port, not the entity payload. Session identity
   // (ADR-0085): the ref carries the scope, so a scope change reads again, a period change does not. Older pages are
@@ -39,8 +45,9 @@ export function EquipmentPanel({ id, kind }: { id: string; kind: 'attributes' | 
       {e.validTo && <p className="text-sm">{ko ? '유효 종료된 ID입니다. 레코드와 이력은 보존됩니다.' : 'This ID is retired. The record and history are retained.'}</p>}
     </>}
     {kind === 'analysis' && <>
-      <p className="text-sm">{ko ? '아래 링크를 누르면 설비 선택이 이 설비 한 대로 바뀝니다. 상세를 여는 것만으로는 바뀌지 않습니다.' : 'This link changes the equipment selection to this one equipment. Opening details alone does not change it.'}</p>
+      <p className="text-sm">{ko ? '사이클타임 링크를 누르면 설비 선택이 이 설비 한 대로 바뀝니다. 상세를 여는 것만으로는 바뀌지 않습니다.' : 'The cycle time link changes the equipment selection to this one equipment. Opening details alone does not change it.'}</p>
       <Button asChild size="sm"><PlatformLink href={linkTo('cycle-time', { global: { selection: [id] } })}>{ko ? '이 설비로 사이클타임 상세' : 'Cycle time for this equipment'}</PlatformLink></Button>
+      {topView && <Button asChild size="sm" variant="secondary"><PlatformLink href={topView.href}>{ko ? '이 설비 Top View' : 'Top View for this equipment'}</PlatformLink></Button>}
     </>}
   </div>}</QueryView>;
 }
