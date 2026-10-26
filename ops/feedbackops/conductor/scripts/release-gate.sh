@@ -106,7 +106,7 @@ main() {
   run_check 'packages/shared vitest' "$logdir/shared-vitest.log" bash -c 'cd "$1" && pnpm --filter @fops/shared exec vitest run' bash "$checkout"
   run_check 'verify-fe' "$logdir/verify-fe.log" "$SCRIPT_DIR/verify-fe.sh" "$checkout"
   run_check 'packages/ui vitest' "$logdir/ui-vitest.log" bash -c 'cd "$1" && pnpm --filter @fops/ui exec vitest run' bash "$checkout"
-  run_check 'gate:fe-lint --base origin/main' "$logdir/fe-lint.log" bash -c 'cd "$1" && pnpm -s gate:fe-lint --base origin/main' bash "$checkout"
+  run_check 'gate:fe-lint --base origin/main' "$logdir/fe-lint.log" bash -c 'cd "$1" && pnpm -s --filter @fops/ops run gate:fe-lint --base origin/main' bash "$checkout"
   run_check 'visual harness' "$logdir/visual.log" env VISUAL_ROOT="$checkout" "$SCRIPT_DIR/visual.sh" run
 
   printf "Next command: gh pr create --base main --head develop --title 'Release: develop -> main' --body 'Verified develop tip: %s'\n" "$TESTED_SHA"
