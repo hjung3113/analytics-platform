@@ -617,3 +617,37 @@ describe('FeedbackOps operator Findings list entry graph (ADR-0071)', () => {
     expect(callers).toEqual(['lib/api/client.ts']);
   });
 });
+
+describe('FeedbackOps operator integration dashboard entry graph (ADR-0071)', () => {
+  const integrationDashboard = walk([join(FRONTEND_SRC, 'operator-screens/integration-dashboard/index.ts')]);
+  const integrationDashboardReached = [...integrationDashboard.files.keys()].map(file => relative(FRONTEND_SRC, file));
+
+  it('reaches the screen, the router-free queue core, the recovery panel parts and the me read, and not the router-bound queue, the standalone route or anything under routes/', () => {
+    expect(integrationDashboardReached).toEqual(
+      expect.arrayContaining([
+        'features/integration/routes/IntegrationDashboardScreen.tsx',
+        'features/integration/recovery/useRecoveryQueueCore.tsx',
+        'features/integration/recovery/RecoveryPanel.tsx',
+        'lib/api/me.ts',
+      ]),
+    );
+    expect(integrationDashboardReached).not.toContain('features/integration/recovery/useRecoveryQueue.tsx');
+    expect(integrationDashboardReached).not.toContain('features/integration/routes/IntegrationDashboardRoute.tsx');
+    expect(integrationDashboardReached.filter(file => /^routes\//.test(file))).toEqual([]);
+    expect(integrationDashboard.unresolved).toEqual([]);
+  });
+
+  it('imports no router and no toast library', () => {
+    expect([...integrationDashboard.specifiers].filter(specifier => /^@tanstack\/(react-)?router|^sonner$/.test(specifier))).toEqual([]);
+  });
+
+  it('reaches no route, router, layout or auth source, the auth module, the api barrel, the permissions or managed-systems api, the standalone permission check or the findings public surface', () => {
+    const banned = /^(?:routes|lib\/router|lib\/layout|lib\/auth)\/|^lib\/api\/(?:auth|index|permissions|managed-systems)\.ts$|^lib\/cross-system\/usePermissionCheck\.ts$|^features\/findings\/public\.ts$/;
+    expect(integrationDashboardReached.filter(file => banned.test(file))).toEqual([]);
+  });
+
+  it('calls fetch only in lib/api/client.ts', () => {
+    const callers = [...integrationDashboard.files].filter(([, text]) => /(?<![\w.])fetch\(/.test(text)).map(([file]) => relative(FRONTEND_SRC, file));
+    expect(callers).toEqual(['lib/api/client.ts']);
+  });
+});

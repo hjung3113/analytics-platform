@@ -1,7 +1,7 @@
+import { hrefWithManagedSystem } from '@/features/home/href';
 import { DASHBOARD_QUEUE_ACTION_LABELS, dashboardActionLabel } from '@/lib/copy/dashboard-actions';
 import { GLOSSARY } from '@/lib/copy/glossary';
-import { InternalLink } from '@/lib/router/InternalLink';
-import { hrefWithManagedSystem } from '@/lib/router/managed-system-href';
+import { HostLink, useHostSeam } from '@/lib/host/host-seam';
 import type { DashboardSummary } from '@fops/shared';
 import { Button } from '@fops/ui';
 import { ArrowRight } from 'lucide-react';
@@ -65,7 +65,13 @@ export function IntegrationDashboardQueueCard({
   queue: DashboardQueue;
   managedSystemId?: string;
 }): React.ReactElement {
+  const { canLink } = useHostSeam();
   const copy = QUEUE_COPY[queue.id];
+  const primaryHref = hrefWithManagedSystem(queue.next_action.route, managedSystemId);
+  const secondaryHref =
+    queue.secondary_action !== null && queue.secondary_action.intent !== 'bulk_assign'
+      ? hrefWithManagedSystem(queue.secondary_action.route, managedSystemId)
+      : undefined;
   const countTone = QUEUE_SEVERITY_COUNT_TONE[queue.severity];
   const secondaryActionLabel =
     queue.secondary_action === null
@@ -99,28 +105,30 @@ export function IntegrationDashboardQueueCard({
       </div>
 
       <div className="mt-auto flex items-center justify-between gap-3 border-t border-border-subtle pt-3">
-        {queue.secondary_action !== null && queue.secondary_action.intent !== 'bulk_assign' ? (
-          <InternalLink
+        {secondaryHref !== undefined && canLink(secondaryHref) ? (
+          <HostLink
             className="min-w-0 truncate text-xs text-text-secondary hover:text-text-primary"
             data-testid={`integration-queue-secondary-${queue.id}`}
-            href={hrefWithManagedSystem(queue.secondary_action.route, managedSystemId)}
+            to={secondaryHref}
           >
             {secondaryActionLabel}
-          </InternalLink>
+          </HostLink>
         ) : (
           <span />
         )}
-        <Button asChild variant="primary" size="sm">
-          <InternalLink
-            className="inline-flex shrink-0 items-center gap-1"
-            data-testid={`integration-queue-primary-${queue.id}`}
-            href={hrefWithManagedSystem(queue.next_action.route, managedSystemId)}
-          >
-            {DASHBOARD_QUEUE_ACTION_LABELS[queue.id] ??
-              dashboardActionLabel(queue.next_action.intent, queue.next_action.label)}
-            <ArrowRight className="h-3 w-3" aria-hidden="true" />
-          </InternalLink>
-        </Button>
+        {canLink(primaryHref) && (
+          <Button asChild variant="primary" size="sm">
+            <HostLink
+              className="inline-flex shrink-0 items-center gap-1"
+              data-testid={`integration-queue-primary-${queue.id}`}
+              to={primaryHref}
+            >
+              {DASHBOARD_QUEUE_ACTION_LABELS[queue.id] ??
+                dashboardActionLabel(queue.next_action.intent, queue.next_action.label)}
+              <ArrowRight className="h-3 w-3" aria-hidden="true" />
+            </HostLink>
+          </Button>
+        )}
       </div>
     </article>
   );
@@ -146,12 +154,14 @@ export function IntegrationJumpCard({
   statMuted,
   testId,
   secondaryLink,
-}: IntegrationJumpCardProps): React.ReactElement {
+}: IntegrationJumpCardProps): React.ReactElement | null {
+  const { canLink } = useHostSeam();
+  if (!canLink(href)) return null;
   const primary = (
-    <InternalLink
+    <HostLink
       className="inline-flex items-center gap-2 text-sm font-medium text-text-secondary hover:text-text-primary"
       data-testid={testId}
-      href={href}
+      to={href}
     >
       <span className="inline-flex items-center text-accent-primary">{icon}</span>
       <span>{title}</span>
@@ -170,19 +180,19 @@ export function IntegrationJumpCard({
           </span>
         </>
       )}
-    </InternalLink>
+    </HostLink>
   );
-  if (!secondaryLink) return primary;
+  if (!secondaryLink || !canLink(secondaryLink.href)) return primary;
   return (
     <div className="flex flex-wrap items-center gap-3">
       {primary}
-      <InternalLink
-        href={secondaryLink.href}
+      <HostLink
+        to={secondaryLink.href}
         className="inline-flex items-center gap-1 text-xs text-accent-primary hover:underline focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
       >
         {secondaryLink.label}
         <ArrowRight className="h-3 w-3" aria-hidden="true" />
-      </InternalLink>
+      </HostLink>
     </div>
   );
 }
