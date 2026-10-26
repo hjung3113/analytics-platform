@@ -24,9 +24,9 @@ test.describe('FeedbackOps Findings 그룹(#762 p1)', () => {
 
   test('레일 섹션은 대시보드, VOC, Findings, Tasks 순이다', async ({ page }) => {
     await page.goto('/feedbackops');
-    const labels = (await sections(page).getByRole('button').allTextContents()).map(label => label.trim());
     const wanted = ['대시보드', 'VOC', 'Findings', 'Tasks'];
-    expect(labels.filter(label => wanted.includes(label))).toEqual(wanted);
+    // Rail section buttons are icon buttons named by `aria-label` (AppRail.tsx); poll until the rail has rendered.
+    await expect.poll(async () => (await sections(page).getByRole('button').evaluateAll(buttons => buttons.map(button => button.getAttribute('aria-label') ?? ''))).filter(label => wanted.includes(label))).toEqual(wanted);
   });
 
   test('focus 주소는 전체 Finding을 현재로 표시하고 새로고침해도 focus가 남는다', async ({ page }) => {
