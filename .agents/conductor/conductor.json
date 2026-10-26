@@ -67,7 +67,7 @@
           "match": {
             "any": [
               {
-                "regex": "^packages/kernel/src/(query|platform|drill|registry)[\\w.-]*\\.tsx?$"
+                "regex": "^packages/kernel/src/(query/|platform/|registry/|context/drill)[\\w.-]*\\.tsx?$"
               },
               {
                 "regex": "(^|/)use[A-Z][\\w-]*\\.tsx?$"
