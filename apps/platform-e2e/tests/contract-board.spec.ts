@@ -886,13 +886,11 @@ test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await signInWithDockBoard(page, [populated('dock', '2x2', 4)]);
     await dockReady(page, 4);
-    // Below 692px every pane is one tab group; add a fifth tab to it (the group `+`, the 893e cap allows 8).
-    await page.setViewportSize({ width: 600, height: 900 });
+    // Below 692px every pane is one tab group of four tabs (a fifth already needs every background tab shrunk at the widest single-group width).
+    await page.setViewportSize({ width: 680, height: 900 });
     await expect(groups(page)).toHaveCount(1);
-    await page.locator('[data-group-add]').first().click();
-    await page.getByRole('dialog').getByRole('button').first().click();
     const tabs = page.locator('[data-dock-layout] .dv-tab');
-    await expect(tabs).toHaveCount(5);
+    await expect(tabs).toHaveCount(4);
     await expect(page.locator('[data-dock-layout] [data-pane-body] [role="status"][aria-busy]')).toHaveCount(0);
     const marks = async () => tabs.evaluateAll(list => list.map(tab => ({
       compact: tab.hasAttribute('data-dock-tab-compact'), active: tab.classList.contains('dv-active-tab'),
