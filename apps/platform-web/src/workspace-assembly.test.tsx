@@ -104,6 +104,7 @@ describe('workspace assembly (#260)', () => {
       ['foFindings', 'feedbackops'],
       ['foTasks', 'feedbackops'],
       ['foIntegration', 'feedbackops'],
+      ['foSurveys', 'feedbackops'],
     ]);
     expect(SPACES.map(space => space.id)).toEqual(['mars', 'bravo', 'clas', 'tools', 'log-dev', 'improvement', 'operations', 'feedbackops']);
     expect(SPACES[0]).toMatchObject({
@@ -175,6 +176,16 @@ describe('workspace assembly (#260)', () => {
       expect(registry.menuById(id).pageKeys).toEqual(expect.arrayContaining(['managedSystem', 'returnTo']));
       expect(registry.spaceOf(registry.menuById(id))?.id).toBe('feedbackops');
     }
+    // #764 p1: the Surveys group follows 연동; Survey 관리 is primary, its three screens are hidden children (navHidden, parent fo-surveys) with a :surveyId path param.
+    expect(registry.menus.filter(menu => menu.group === 'foSurveys').map(menu => menu.id)).toEqual(['fo-surveys', 'fo-survey-builder', 'fo-survey-results', 'fo-survey-follow-up']);
+    expect(registry.menuById('fo-surveys')).toMatchObject({ path: '/feedbackops/fo-surveys', primary: true, permission: 'feedbackops:access', requiresScope: false });
+    for (const [id, segment] of [['fo-survey-builder', 'builder'], ['fo-survey-results', 'results'], ['fo-survey-follow-up', 'follow-up']] as const) {
+      expect(registry.menuById(id)).toMatchObject({ path: `/feedbackops/${id}/:surveyId`, navHidden: true, parent: 'fo-surveys', aliases: [`/feedbackops/surveys/:surveyId/${segment}`] });
+    }
+    for (const id of ['fo-surveys', 'fo-survey-builder', 'fo-survey-results', 'fo-survey-follow-up']) {
+      expect(registry.menuById(id).pageKeys).toEqual(expect.arrayContaining(['managedSystem', 'returnTo']));
+      expect(registry.spaceOf(registry.menuById(id))?.id).toBe('feedbackops');
+    }
     // #252 (ADR-0065): work-queue first; every menu is planned and open to every signed-in user for now.
     expect(SPACES[4]).toMatchObject({ label: { ko: '표준 로그 개발', en: 'Standard log development' }, homeMenuId: 'log-my-queue' });
     expect(SPACES[5]).toMatchObject({ label: { ko: '개선 실행', en: 'Improvement execution' }, homeMenuId: 'imp-my-tasks' });
@@ -202,8 +213,8 @@ describe('workspace assembly (#260)', () => {
     const fakeSection: SpaceNavSectionSlot = { For: () => null };
     const slots = appSlots(assembly, null, fakeSlot, fakeVocCompose, fakeHomeTodo, fakeScopeControl, fakeNavCounts, fakeSection);
     expect(slots.topBarTools).toBe(assembly.topBarTools);
-    // The real composition (#251): mapped spaces get three entries, only 설문 disabled while the origin is absent (VOC and Task are in-shell); operations has no row.
-    expect(slots.feedbackOps?.entriesFor(spaceId('bravo'))?.map(entry => [entry.key, 'href' in entry ? entry.href : undefined])).toEqual([['voc', undefined], ['task', undefined], ['survey', null]]);
+    // The real composition (#251): mapped spaces get three in-shell entries (VOC, Task, 설문); operations has no row.
+    expect(slots.feedbackOps?.entriesFor(spaceId('bravo'))?.map(entry => [entry.key, 'href' in entry ? entry.href : undefined])).toEqual([['voc', undefined], ['task', undefined], ['survey', undefined]]);
     expect(slots.feedbackOps?.entriesFor(spaceId('operations'))).toBeNull();
     expect(slots.feedbackOps?.overall).toBeNull();
     expect(appSlots(assembly, 'https://feedbackops.example', fakeSlot, fakeVocCompose, fakeHomeTodo, fakeScopeControl, fakeNavCounts, fakeSection).feedbackOps?.entriesFor(spaceId('bravo'))?.filter(entry => 'href' in entry).every(entry => 'href' in entry && entry.href?.startsWith('https://feedbackops.example/'))).toBe(true);

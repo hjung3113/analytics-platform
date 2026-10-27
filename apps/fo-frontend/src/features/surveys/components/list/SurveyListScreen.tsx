@@ -7,6 +7,7 @@ import {
   useSurveyManageGate,
 } from '@/features/surveys/routes/SurveyPermissionGate';
 import { SURVEY_REPORT_FILTER_COPY as FILTER_COPY } from '@/lib/copy/surveys';
+import { useHostSeam } from '@/lib/host/host-seam';
 import { useAnalyticsAreaFilterLabel } from '@/lib/useAnalyticsAreaFilterLabel';
 import { ListShell } from '@ap/ui';
 import type { ListSurveysQuery } from '@fops/shared';
@@ -98,6 +99,7 @@ export function SurveyListScreen({
   const scopeGate = useSurveyManageAnySystemGate();
   const gate = useSurveyManageGate();
   const [createOpen, setCreateOpen] = React.useState(false);
+  const { hostOwnsTitle } = useHostSeam();
   const labels = {
     'filter.analytics_area': areaLabel,
     status: FILTER_COPY.status(surveyStatusLabel('open')),
@@ -118,7 +120,7 @@ export function SurveyListScreen({
   return (
     <>
       <ListShell
-        toolbar={{ title: 'Surveys' }}
+        {...(hostOwnsTitle ? {} : { toolbar: { title: 'Surveys' } })}
         list={
           <SurveyList
             surveys={query.data ?? []}

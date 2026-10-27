@@ -24,7 +24,7 @@ function record(href: string): Record<string, string> {
   return Object.fromEntries(new URL(href, 'http://feedbackops.local').searchParams);
 }
 
-function mount(initial: Record<string, string>) {
+function mount(initial: Record<string, string>, hostSeam: Partial<HostSeam> = {}) {
   function Host() {
     const [search, set] = React.useState(initial);
     const seam = React.useMemo<HostSeam>(
@@ -41,8 +41,9 @@ function mount(initial: Record<string, string>) {
         useTitle: (title) => {
           titles.push(title);
         },
+        ...hostSeam,
       }),
-      [search],
+      [search, hostSeam],
     );
     return (
       <HostSeamProvider value={seam}>
@@ -68,6 +69,16 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('SurveysScreen over the host seam', () => {
+  it('draws its own Surveys toolbar title standalone and drops it when the host owns the title', async () => {
+    const standalone = mount({});
+    await screen.findByText('온보딩 설문');
+    expect(screen.getByText('Surveys')).toBeTruthy();
+    standalone.unmount();
+    mount({}, { hostOwnsTitle: true });
+    await screen.findByText('온보딩 설문');
+    expect(screen.queryByText('Surveys')).toBeNull();
+  });
+
   it('writes selected as a push when a row is picked, and never selects on its own', async () => {
     mount({});
     const row = await screen.findByText('온보딩 설문');

@@ -73,4 +73,13 @@ describe('assembled registry: canonical paths and legacy aliases', () => {
     expect(registry.menuById('surveys')).toMatchObject({ path: '/survey', aliases: ['/surveys'] });
     expect(registry.menuById('survey-respond')).toMatchObject({ path: '/survey/:surveyId/respond', aliases: ['/surveys/:surveyId/respond'] });
   });
+
+  it('puts the Survey 관리 menus under /feedbackops and aliases none of them to the reporter /surveys paths (#764 p1)', () => {
+    const operator = ['fo-surveys', 'fo-survey-builder', 'fo-survey-results', 'fo-survey-follow-up'].map(id => registry.menuById(id));
+    expect(operator.map(menu => menu.path)).toEqual(['/feedbackops/fo-surveys', '/feedbackops/fo-survey-builder/:surveyId', '/feedbackops/fo-survey-results/:surveyId', '/feedbackops/fo-survey-follow-up/:surveyId']);
+    for (const menu of operator) expect(menu.aliases ?? []).not.toContain('/surveys');
+    for (const menu of operator) expect((menu.aliases ?? []).some(alias => /^\/surveys(\/|$)/.test(alias))).toBe(false);
+    expect(registry.matchRoute('/surveys')).toMatchObject({ menu: { id: 'surveys' }, viaAlias: true });
+    expect(registry.matchRoute('/surveys/x1/respond')).toMatchObject({ menu: { id: 'survey-respond' }, viaAlias: true });
+  });
 });

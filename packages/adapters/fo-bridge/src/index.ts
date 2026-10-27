@@ -24,3 +24,7 @@ export {
   coverageRoute, entityLinksRoute, evidenceRoute, integrationDashboardRoute, useCoverageHere, useCoverageSearch, useEntityLinksHere, useEntityLinksSearch,
   useEvidenceHere, useEvidenceSearch, useIntegrationDashboardHere, useIntegrationDashboardSearch,
 } from './fo/integration-routes';
+export {
+  surveyBuilderRoute, surveyFollowUpRoute, surveyOperatorTargets, surveyResultsRoute, surveysRoute, useSurveyBuilderHere, useSurveyBuilderSearch, useSurveyFollowUpHere,
+  useSurveyFollowUpSearch, useSurveyResultsHere, useSurveyResultsSearch, useSurveysHere, useSurveysSearch,
+} from './fo/survey-routes';

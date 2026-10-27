@@ -401,6 +401,35 @@ describe('SurveyFollowUpScreen selection', () => {
     expect(screen.getByTestId('detail-title')).toHaveTextContent('응답 #03');
   });
 
+  it('follows a restored focus into its own filter on the same instance instead of clearing it as stale', () => {
+    const onSelect = vi.fn();
+    const renderDetail = vi.fn((parts: ClosableDetailParts) => (
+      <div data-testid="detail-title">{parts.title}</div>
+    ));
+    const { seam } = host();
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const tree = (selectedId: string | null) => (
+      <QueryClientProvider client={queryClient}>
+        <HostSeamProvider value={seam}>
+          <SurveyFollowUpScreen
+            renderDetail={renderDetail}
+            selection={{ selectedId, onSelect }}
+            surveyId={SURVEY_ID}
+          />
+        </HostSeamProvider>
+      </QueryClientProvider>
+    );
+    const view = render(tree('r-3'));
+    expect(screen.getByTestId('detail-title')).toHaveTextContent('응답 #03');
+    view.rerender(tree('r-1'));
+    expect(onSelect).not.toHaveBeenCalled();
+    expect(screen.getByTestId('detail-title')).toHaveTextContent('응답 #01');
+    // An id outside the authorized list is still dropped, and nothing opens for it.
+    view.rerender(tree('gone'));
+    expect(onSelect).toHaveBeenCalledWith(null);
+    expect(screen.queryByTestId('detail-title')).toBeNull();
+  });
+
   it('hands working detail parts to renderDetail: requestClose clears, a decision notifies through the seam and the intent comes from useHere()', async () => {
     markFollowUp.mockResolvedValue(undefined);
     const onSelect = vi.fn();

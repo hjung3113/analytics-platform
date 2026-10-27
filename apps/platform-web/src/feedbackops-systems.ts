@@ -30,7 +30,7 @@ type Row = Pick<FeedbackOpsEntry, 'key' | 'label' | 'icon'> & ({ menuId: string 
 const ENTRIES: readonly Row[] = [
   { key: 'voc', icon: MessagesSquare, label: { ko: 'VOC', en: 'VOC' }, menuId: 'fo-inbox' },
   { key: 'task', icon: ListTodo, label: { ko: 'Task', en: 'Tasks' }, menuId: 'fo-task-list' },
-  { key: 'survey', icon: ClipboardList, label: { ko: '설문', en: 'Surveys' }, target: (managedSystemId, back) => ({ kind: 'survey-list', managedSystemId, ...back }) },
+  { key: 'survey', icon: ClipboardList, label: { ko: '설문', en: 'Surveys' }, menuId: 'fo-surveys' },
 ];
 
 /** href for one entry; a missing or non-canonical origin yields null (the shell draws the entry disabled, 15 §8). */
@@ -42,7 +42,7 @@ function hrefOrNull(origin: string | null, target: FeedbackOpsTarget): string | 
   }
 }
 
-/** The FeedbackOps slot for the app. Entries come only from the mapping above; new-tab links come only from `buildFeedbackOpsLink`. VOC (#760) and Task (#763) open in the shell; 설문 stays a new-tab link until #764. */
+/** The FeedbackOps slot for the app. Entries come only from the mapping above; new-tab links come only from `buildFeedbackOpsLink`. VOC (#760), Task (#763) and 설문 (#764) open in the shell; a `target` row would be a new-tab link. */
 export function feedbackOpsSlot(origin: string | null): FeedbackOpsSlot {
   const overallHref = hrefOrNull(origin, { kind: 'overall' });
   return {
