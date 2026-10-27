@@ -24,5 +24,6 @@ Lane commands (all under `.agents/conductor/scripts/`):
 | Message the lead | `lane-send.sh <kind> <#n\|-> "<≤3 sentences>"` |
 | Rotate or not | `lane-rotate.sh` (`rotate=no\|after-issue\|now`) |
 | Review, verify and merge mode | `tier.sh` |
+| Pre-merge shared-path check | `merge-precheck.sh <pr> <branch> <sha>` (exit 3 = rebase) |
 | Who else touches my files | `shared-overlap.sh [--paths a,b]` |
 | Machine room | `capacity.sh`; locks only through `with-lock.sh` |
