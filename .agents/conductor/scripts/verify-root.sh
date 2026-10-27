@@ -2,7 +2,7 @@
 # Run the root checks in order and log each step (PROFILE §Verify, stage 2).
 #   verify-root.sh [--light] <log-dir>
 # Steps: lint → typecheck (without a lock) → test → build. Run test and build together under heavy.lock (with-lock.sh, purpose `verify-root foreground`; an owner is required, so set WITH_LOCK_OWNER outside Orca).
-# --light: run lint and typecheck only; do not acquire heavy.lock (for nodes that do not touch Kernel, shell, shared components, mock server, or apps/platform-web assembly; PROFILE §Verify).
+# --light: run lint and typecheck only; do not acquire heavy.lock (when tier.sh prints verify=light; PROFILE §Verify).
 # Logs: <log-dir>/<step>.log — full output and final line `exit=<code>`. Stop at the first failure and return that step's code.
 # At the end, print `step=<name> exit=<n> seconds=<s>` to stdout for each step.
 # Exit codes: 0 success / that step's code / 3 if capacity.sh returns start=no (no lock is acquired; one-line reason) / 75 if heavy.lock is already held (the same value is returned if child test or build returns 75) / 2 if owner (ORCA_TERMINAL_HANDLE or WITH_LOCK_OWNER) is missing / 64 for invalid arguments.

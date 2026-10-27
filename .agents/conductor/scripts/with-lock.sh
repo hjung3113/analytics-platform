@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Acquire a machine-resource lock and release it when the child command ends (success, failure, or signal) (LANES §Machine resources (16 GB)).
+# Acquire a machine-resource lock and release it when the child command ends (success, failure, or signal) (LANES §Machine resources).
 # The lock protocol is unchanged: acquire $AP_MAIN/.review/<lock> with mkdir and write owner, since, and purpose.
 # On release, use mv + trash only if owner is ours (never use rm). This script implements that protocol; direct mkdir acquisition remains valid.
 # Also writes a `token` file ($$-<epoch>-$RANDOM). Release requires both owner and token to match — processes with the same handle (subagents or background commands in one terminal) cannot release a lock acquired by someone else.

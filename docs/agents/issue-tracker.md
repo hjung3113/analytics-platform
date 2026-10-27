@@ -23,7 +23,7 @@ This repository tracks work, decisions, and PRDs in GitHub issues at `hjung3113/
 
 ## Flow Labels
 
-`lane:sdk` · `lane:platform` · `lane:arch` · `lane:fo` · `lane:ev` · `lane:site` · `lane:ops`. For label rules and how to classify requests as Kernel responsibility, SDK components, or menu work, see [`.agents/conductor/LANES.md`](../../.agents/conductor/LANES.md) §Flows and §Request classification.
+`lane:sdk` · `lane:platform` · `lane:arch` · `lane:fo` · `lane:ev` · `lane:site` · `lane:ops`. For label rules and how to classify requests as Kernel responsibility, SDK components, or menu work, see [`.agents/conductor/LANES.md`](../../.agents/conductor/LANES.md) §Lanes and §Request classification.
 
 Add the `on-hold` label to an issue while an external condition remains unresolved; remove it when the condition clears. For example, keep #163 and #164 on hold until their work requirement is confirmed.
 
