@@ -141,3 +141,22 @@ describe('hash', () => {
     expect(inbox.target('/vocs?view=inbox#coverage')).toBeNull();
   });
 });
+
+describe('preset with hash', () => {
+  const route = operatorRoute({ foPath: '/s', foFixed: {}, menuId: 'm', keys: { selected: 'focus' }, hash: { fragment: 'coverage', key: 'section' } });
+  const settings = operatorRoute({ foPath: '/s', foFixed: {}, menuId: 'm', keys: {}, hash: { fragment: 'coverage', key: 'section' } });
+
+  it('keeps the declared fragment under the hash key', () => {
+    expect(settings.preset({ section: 'coverage' })).toEqual({ section: 'coverage' });
+    expect(route.preset({ selected: 'x', section: 'coverage' })).toEqual({ focus: 'x', section: 'coverage' });
+  });
+
+  it('ignores any other fragment value', () => {
+    expect(settings.preset({ section: 'other' })).toEqual({});
+    expect(route.preset({ selected: 'x', section: '' })).toEqual({ focus: 'x' });
+  });
+
+  it('is unchanged for a table without hash', () => {
+    expect(inbox.preset({ section: 'coverage' })).toEqual({});
+  });
+});

@@ -84,6 +84,7 @@ export function operatorRoute({ foPath, foFixed, menuId, keys, foAbsent = {}, de
       for (const [foKey, value] of Object.entries(foSearch)) {
         if (Object.hasOwn(keys, foKey)) page[keys[foKey]!] = value;
       }
+      if (hash !== undefined && foSearch[hash.key] === hash.fragment) page[hash.key] = hash.fragment;
       return page;
     },
     rejectedKey(pageParam, accepts) {
