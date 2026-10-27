@@ -69,7 +69,7 @@ it('wraps the mixed trust badge in the table status line', async () => {
   });
   render(<UncontrolledHarness loadPage={loadPage} />);
   const badge = await screen.findByText('로직 버전 혼재');
-  const button = screen.getByRole('button', { name: '데이터 신뢰' });
+  const button = screen.getByRole('button', { name: '데이터 신뢰 · 로직 버전 혼재' });
   expect(badge.parentElement).toBe(button);
   expect(button).toHaveClass('max-w-full', 'flex-wrap');
   expect(button.querySelector('[data-trust-summary-details]')).toHaveClass('flex-wrap');

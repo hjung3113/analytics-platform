@@ -145,6 +145,8 @@ test.describe('메뉴 간 Context 보존과 미적용 표시 (06 §6, §22)', ()
     // Pick a Lot that really exists in the period so the destination can prove the filter, not just the chip.
     await page.goto(`/mars/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}`);
     await showSlowExecutions(page);
+    // The period spans the mock logic cutover (#1008): the table's own status line carries the mixed badge.
+    await expect(tableStatusLine(page).getByText('로직 버전 혼재')).toBeVisible();
     const lots = await lotColumn(page);
     const lot = lots[0];
     expect(lots.some(l => l !== lot), 'fixture needs more than one Lot in the unfiltered period').toBe(true);

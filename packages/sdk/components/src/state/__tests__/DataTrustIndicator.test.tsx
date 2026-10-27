@@ -32,8 +32,8 @@ describe('source logic versions', () => {
   }
 
   it.each([
-    ['ko', '데이터 신뢰', '잠정', '로직 버전 혼재', '원천 로직 버전', '지표 버전'],
-    ['en', 'Data trust', 'Provisional', 'Logic versions mixed', 'Source logic versions', 'Metric version'],
+    ['ko', '데이터 신뢰 · 로직 버전 혼재', '잠정', '로직 버전 혼재', '원천 로직 버전', '지표 버전'],
+    ['en', 'Data trust · Logic versions mixed', 'Provisional', 'Logic versions mixed', 'Source logic versions', 'Metric version'],
   ])('%s: displays mixed versions in server order after the provisional badge and metric row', (lang, name, provisional, mixed, source, metric) => {
     render(<I18nProvider>{lang === 'en' && <English />}<DataTrustIndicator trust={{ ...trust, provisional: true, metricVersion: '3', sourceLogicVersions: ['v1.3', 'v1.2'] }} assessments={[]} /></I18nProvider>);
     const button = screen.getByRole('button', { name });
@@ -66,6 +66,18 @@ describe('source logic versions', () => {
     expect(!!screen.queryByText('잠정')).toBe(!hideProvisional);
   });
 
+  it.each([
+    ['ko', '데이터 신뢰', '로직 버전 혼재'],
+    ['en', 'Data trust', 'Logic versions mixed'],
+  ])('%s: the expanded mixed name carries the label and the mixed text; a non-mixed one stays the label', (lang, label, mixed) => {
+    const withLang = (versions: string[]) => <I18nProvider>{lang === 'en' && <English />}<DataTrustIndicator trust={{ ...trust, sourceLogicVersions: versions }} assessments={[]} /></I18nProvider>;
+    const view = render(withLang(['v1', 'v2']));
+    expect(screen.getByRole('button', { name: `${label} · ${mixed}` })).toBeTruthy();
+    expect(screen.getByRole('button', { name: new RegExp(label) })).toBeTruthy();
+    view.rerender(withLang(['v1']));
+    expect(screen.getByRole('button')).toHaveAttribute('aria-label', label);
+  });
+
   it('keeps the non-mixed compact name and tone', () => {
     render(<I18nProvider><DataTrustIndicator trust={trust} assessments={[]} compact /></I18nProvider>);
     const button = screen.getByRole('button', { name: '데이터 신뢰' });
@@ -75,7 +87,7 @@ describe('source logic versions', () => {
 
   it('keeps mixed badges in the wrapping button flow', () => {
     render(<I18nProvider><DataTrustIndicator trust={{ ...trust, provisional: true, sourceLogicVersions: ['v1', 'v2'] }} assessments={[]} wrap /></I18nProvider>);
-    const button = screen.getByRole('button', { name: '데이터 신뢰' });
+    const button = screen.getByRole('button', { name: '데이터 신뢰 · 로직 버전 혼재' });
     expect(button).toHaveClass('flex-wrap', 'max-w-full');
     expect(screen.getByText('로직 버전 혼재').parentElement).toBe(button);
   });

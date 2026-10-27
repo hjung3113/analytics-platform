@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createMockAdapter, getRole, setRole, setScenario, type AnyMockEndpoint } from '@ap/mock-server';
 import { analyticsMock } from './index';
 import { LOGIC_CUTOVER, sourceLogicVersionsFor } from './productivity';
-import { cycleKpiEndpoint } from '../endpoints';
+import { cycleKpiEndpoint, cycleSlowPageEndpoint } from '../endpoints';
 import {
   METRIC_VERSIONS, attentionEndpoint, breakdownEndpoint, drillEndpoint, kpisEndpoint, trendEndpoint,
   type AttentionRow, type BreakdownRow, type DrillData, type KpisData, type TrendData,
@@ -231,9 +231,11 @@ describe('Trust.sourceLogicVersions fixture (parser logic cutover)', () => {
   const after = shift(cutover, 6);
   /** The cycle menu applies more context keys than the overview; the engine rejects a request that omits them. */
   const cycleContext = { lineNames: null, prcGroups: null, lotIds: null, metricId: null, metricVersion: null };
+  const slowPageParams = { tail: 'all', granularity: 'hour', bucket: null, bin: null, page: 0, pageSize: 10, sorting: [] };
   const versionsOf = async (endpoint: string, from: string, to: string) => {
-    const extra = endpoint === cycleKpiEndpoint.id ? cycleContext : {};
-    const response = await adapter.menuQuery({ endpoint, context: { ...context, ...extra, from, to }, params: {} });
+    const extra = endpoint === cycleKpiEndpoint.id || endpoint === cycleSlowPageEndpoint.id ? cycleContext : {};
+    const params = endpoint === cycleSlowPageEndpoint.id ? slowPageParams : {};
+    const response = await adapter.menuQuery({ endpoint, context: { ...context, ...extra, from, to }, params });
     expect(response.outcome).toBe('ok');
     return response.trust?.sourceLogicVersions;
   };
@@ -241,6 +243,7 @@ describe('Trust.sourceLogicVersions fixture (parser logic cutover)', () => {
   it.each([
     ['productivity overview', kpisEndpoint.id],
     ['cycle KPI', cycleKpiEndpoint.id],
+    ['cycle slow-execution table', cycleSlowPageEndpoint.id],
   ])('%s: before / after / spanning the cutover, with boundary instants', async (_name, endpoint) => {
     expect(await versionsOf(endpoint, before, after)).toEqual(['v1.2', 'v1.3']);
     expect(await versionsOf(endpoint, shift(cutover, -3), cutover)).toEqual(['v1.2']); // to === cutover: before
@@ -259,6 +262,17 @@ describe('Trust.sourceLogicVersions fixture (parser logic cutover)', () => {
     expect(response.outcome).toBe('ok');
     expect(response.trust).not.toBeNull();
     expect(response.trust).not.toHaveProperty('sourceLogicVersions');
+  });
+
+  it('an empty slow-execution page carries no field', async () => {
+    setScenario('empty');
+    try {
+      const response = await adapter.menuQuery({ endpoint: cycleSlowPageEndpoint.id, context: { ...context, ...cycleContext, from: before, to: after }, params: slowPageParams });
+      expect(response.outcome).toBe('empty');
+      expect(response.trust).not.toHaveProperty('sourceLogicVersions');
+    } finally {
+      setScenario('normal');
+    }
   });
 
   it('an empty (0-row) answer carries no field', async () => {

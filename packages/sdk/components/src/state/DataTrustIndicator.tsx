@@ -58,7 +58,7 @@ export function DataTrustIndicator({ trust, assessments, className, compact = fa
   const summaryName = `${headline} · ${coverageText} · ${updatedText}${compact && mixed ? ` · ${mixedText}` : ''}`;
   return <Popover>
     <PopoverTrigger asChild>
-      <button type="button" className={cn('inline-flex min-h-8 items-center gap-2 rounded-sm px-2 text-xs text-text-secondary hover:bg-surface-sunken', wrap && 'min-w-0 max-w-full flex-wrap text-left', className)} aria-label={compact && mixed ? summaryName : t('dataTrust')} title={summaryName}>
+      <button type="button" className={cn('inline-flex min-h-8 items-center gap-2 rounded-sm px-2 text-xs text-text-secondary hover:bg-surface-sunken', wrap && 'min-w-0 max-w-full flex-wrap text-left', className)} aria-label={compact && mixed ? summaryName : mixed ? `${t('dataTrust')} · ${mixedText}` : t('dataTrust')} title={summaryName}>
         <Dot tone={tone} />
         <span data-trust-summary-details className={cn('inline-flex items-center gap-2', wrap && 'min-w-0 flex-wrap gap-y-0', compact && 'sr-only')}>
           <span className="tabular">{headline}</span>
