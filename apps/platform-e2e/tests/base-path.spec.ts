@@ -48,3 +48,5 @@ test('차트 카탈로그의 /demo/ 직접 kind 링크와 새로고침 (06 §16,
   expect(new URL(page.url()).pathname).toBe(`${BASE}/mars/chart-catalog`);
   await evidence(page, testInfo, 'base-path-chart-catalog');
 });
+
+// ci probe: base-path spec only
