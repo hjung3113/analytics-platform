@@ -9,16 +9,9 @@ import { Controller } from 'react-hook-form';
 import { mapUnknownError } from '@/lib/api';
 import { uploadRichEditorAttachment } from '@/lib/attachments/rich-editor-upload';
 import { VOC_CREATE_COPY } from '@/lib/copy/voc';
+import { Button, FieldLabel, Input, RichEditor, Skeleton } from '@ap/ui';
 import { isTipTapDocBlank } from '@fops/shared';
-import {
-  AnalyticsAreaPicker,
-  Button,
-  FieldLabel,
-  Input,
-  ManagedSystemPicker,
-  RichEditor,
-  Skeleton,
-} from '@fops/ui';
+import { AnalyticsAreaPicker, ManagedSystemPicker } from '@fops/ui';
 import { AttachmentDropzone } from './AttachmentDropzone';
 import { ReporterCard } from './ReporterCard';
 import { SemanticVocPanel } from './SemanticVocPanel';
@@ -35,7 +28,11 @@ export interface VocCreateScreenProps {
   onDirtyChange?: (isDirty: boolean) => void;
 }
 
-export function VocCreateScreen({ initialManagedSystemId, onCancel, onDirtyChange }: VocCreateScreenProps): React.ReactElement {
+export function VocCreateScreen({
+  initialManagedSystemId,
+  onCancel,
+  onDirtyChange,
+}: VocCreateScreenProps): React.ReactElement {
   const {
     form,
     msQuery,
@@ -113,7 +110,7 @@ export function VocCreateScreen({ initialManagedSystemId, onCancel, onDirtyChang
                 render={({ field }) => (
                   <RichEditor
                     surface="voc-description"
-                    value={field.value as import('@fops/ui').TipTapDoc}
+                    value={field.value as import('@ap/ui').TipTapDoc}
                     onChange={(doc) => field.onChange(doc)}
                     placeholder="VOC 내용을 자세히 적어주세요"
                     minHeight={160}
@@ -153,7 +150,9 @@ export function VocCreateScreen({ initialManagedSystemId, onCancel, onDirtyChang
                   />
                 )}
               />
-              <p className="text-xs text-text-muted">타인 대신 보고는 다른 팀원이나 고객의 경험을 대신 등록하는 경우입니다.</p>
+              <p className="text-xs text-text-muted">
+                타인 대신 보고는 다른 팀원이나 고객의 경험을 대신 등록하는 경우입니다.
+              </p>
             </div>
 
             <FormDivider />
@@ -175,9 +174,7 @@ export function VocCreateScreen({ initialManagedSystemId, onCancel, onDirtyChang
                   <Skeleton className="h-8 w-20" />
                 </div>
               ) : msQuery.isError ? (
-                <p className="text-sm text-text-danger">
-                  {mapUnknownError(msQuery.error).message}
-                </p>
+                <p className="text-sm text-text-danger">{mapUnknownError(msQuery.error).message}</p>
               ) : msOptions.length === 0 ? (
                 <p className="text-sm text-text-muted">
                   등록된 Managed System이 없습니다.{' '}
@@ -242,7 +239,9 @@ export function VocCreateScreen({ initialManagedSystemId, onCancel, onDirtyChang
                   {form.formState.errors.analytics_area_id.message}
                 </p>
               )}
-              <p className="text-xs text-text-muted">Analytics Area는 VOC를 분석할 때 함께 볼 주제에 맞춰 선택하세요.</p>
+              <p className="text-xs text-text-muted">
+                Analytics Area는 VOC를 분석할 때 함께 볼 주제에 맞춰 선택하세요.
+              </p>
             </div>
 
             <FormDivider />
@@ -276,7 +275,8 @@ export function VocCreateScreen({ initialManagedSystemId, onCancel, onDirtyChang
           data-testid="attachment-submit-blocked-alert"
           className="sticky bottom-16 mx-4 mb-2 rounded-md border border-border-subtle bg-surface-card px-3 py-2 text-sm text-text-danger shadow-sm md:mx-6"
         >
-          첨부 파일에 오류가 있어 제출할 수 없습니다. 빨간색으로 표시된 파일을 제거하거나 다른 파일로 교체해 주세요.
+          첨부 파일에 오류가 있어 제출할 수 없습니다. 빨간색으로 표시된 파일을 제거하거나 다른
+          파일로 교체해 주세요.
         </div>
       )}
 
@@ -296,12 +296,7 @@ export function VocCreateScreen({ initialManagedSystemId, onCancel, onDirtyChang
             {missingRequired.join(', ')}
           </span>
         )}
-        <Button
-          type="button"
-          variant="subtle"
-          onClick={onCancel}
-          disabled={isSubmitting}
-        >
+        <Button type="button" variant="subtle" onClick={onCancel} disabled={isSubmitting}>
           취소
         </Button>
         <Button
@@ -309,10 +304,7 @@ export function VocCreateScreen({ initialManagedSystemId, onCancel, onDirtyChang
           form="voc-create-form"
           {...(missingRequired.length > 0 ? { 'aria-describedby': 'voc-submit-missing' } : {})}
           disabled={
-            !form.formState.isValid ||
-            isSubmitting ||
-            attachmentsUploading ||
-            hasAttachmentErrors
+            !form.formState.isValid || isSubmitting || attachmentsUploading || hasAttachmentErrors
           }
         >
           VOC 제출

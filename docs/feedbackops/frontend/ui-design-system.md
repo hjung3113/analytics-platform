@@ -195,7 +195,7 @@ Anatomy:
 - ListTabs: compact 28px strip with optional bare counts, decorative icons, native title tips, and overflow controls
 - FilterViewTabs
 - ObjectRow[]
-- `ListStateMessage` for application list states, wrapping `@fops/ui` `EmptyState` with `empty`,
+- `ListStateMessage` for application list states, wrapping `@ap/ui` `EmptyState` with `empty`,
   `filtered`, and `error` variants
 - LoadingState
 - ErrorState
@@ -903,7 +903,7 @@ Values live in `@ap/ui/styles/tokens.css`; `@ap/ui/styles/theme.css` exposes the
 | `--motion-ease-enter` | `cubic-bezier(0, 0, 0.2, 1)` |
 | `--motion-ease-exit` | `cubic-bezier(0.4, 0, 1, 1)` |
 
-`readMotionTiming(duration, easing)` exported from `@fops/ui` is the one JS entry to these
+`readMotionTiming(duration, easing)` exported from `@ap/ui` is the one JS entry to these
 CSS tokens for Web Animations, auto-animate, and dnd-kit. It reads the root computed style
 at call time, parses `ms`/`s`, and returns zero duration for missing/invalid timing, SSR,
 or reduced motion. Never repeat token literals in JS.

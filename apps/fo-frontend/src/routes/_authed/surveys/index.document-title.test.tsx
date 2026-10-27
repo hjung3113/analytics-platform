@@ -13,8 +13,8 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type * as React from 'react';
 import { describe, expect, test, vi } from 'vitest';
 
-vi.mock('@fops/ui', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@fops/ui')>();
+vi.mock('@ap/ui', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@ap/ui')>();
   return {
     ...actual,
     ListShell: ({

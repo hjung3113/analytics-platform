@@ -1,6 +1,6 @@
+import { DetailPanelHeaderActions } from '@ap/ui';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { DetailPanelHeaderActions } from '../DetailPanelHeaderActions.js';
 
 // Mock sonner's success and error methods.
 vi.mock('sonner', () => ({

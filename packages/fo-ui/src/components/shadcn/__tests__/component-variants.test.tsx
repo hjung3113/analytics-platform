@@ -1,13 +1,24 @@
+import {
+  Card,
+  CardContent,
+  DialogFooter,
+  Popover,
+  PopoverContent,
+  RadioGroup,
+  RadioGroupItem,
+  Select,
+  SelectTrigger,
+  SelectValue,
+  Skeleton,
+  ToggleGroup,
+  ToggleGroupItem,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@ap/ui';
 /// <reference types="@testing-library/jest-dom" />
 import { render, screen } from '@testing-library/react';
-import { Card, CardContent } from '../card.js';
-import { DialogFooter } from '../dialog.js';
-import { Popover, PopoverContent } from '../popover.js';
-import { RadioGroup, RadioGroupItem } from '../radio-group.js';
-import { Select, SelectTrigger, SelectValue } from '../select.js';
-import { Skeleton } from '../skeleton.js';
-import { ToggleGroup, ToggleGroupItem } from '../toggle-group.js';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../tooltip.js';
 
 describe('shadcn component variants', () => {
   it.each([['compact footer spacing', 'gap-2 sm:gap-2']])(

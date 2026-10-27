@@ -1,5 +1,5 @@
 import { GLOSSARY } from '@/lib/copy/glossary';
-import { StatusBadgeFrame } from '@fops/ui';
+import { StatusBadgeFrame } from '@ap/ui';
 
 export interface MilestoneStatusBadgeProps {
   /** MilestoneDto.status is the ADR-0050 closed set planning | in_progress |

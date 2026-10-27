@@ -10,10 +10,9 @@
 // Required behavior: an explicit clear from the parent (value === null /
 // undefined / empty-doc) must reset the editor to an empty doc.
 
+import { RichEditor, type TipTapDoc } from '@ap/ui';
 import { render } from '@testing-library/react';
-import * as React from 'react';
 import { describe, expect, it } from 'vitest';
-import { RichEditor, type TipTapDoc } from '../src/index';
 
 const NON_EMPTY_DOC: TipTapDoc = {
   type: 'doc',

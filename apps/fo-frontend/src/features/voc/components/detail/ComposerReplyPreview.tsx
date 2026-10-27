@@ -50,9 +50,9 @@
 
 import { ATTACHMENT_FALLBACK_LABEL } from '@/lib/copy/attachments';
 import { formatDate } from '@/lib/format/datetime';
+import { RichContentRenderer } from '@ap/ui';
+import type { TipTapDoc } from '@ap/ui';
 import { type VocDetailEnvelope, isTipTapDocStructurallyEmpty } from '@fops/shared';
-import { RichContentRenderer } from '@fops/ui';
-import type { TipTapDoc } from '@fops/ui';
 import type { ReactElement } from 'react';
 
 // ── Props ─────────────────────────────────────────────────────────────────────

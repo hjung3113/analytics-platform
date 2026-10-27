@@ -3,7 +3,6 @@ import { ENTITY_LINK_RELATION_LABELS } from '@/lib/copy/enum-labels';
 import { GLOSSARY } from '@/lib/copy/glossary';
 import { managedSystemsCatalogQuery } from '@/lib/cross-system/useManagedSystemNames';
 import { useHostSearchWriter } from '@/lib/host/useHostSearchWriter';
-import type { EntityLinkRelationType, EntityLinkStatus } from '@fops/shared';
 import {
   Button,
   ListFilterButton,
@@ -11,7 +10,8 @@ import {
   ListToolbar,
   type ListToolbarTab,
   SearchInput,
-} from '@fops/ui';
+} from '@ap/ui';
+import type { EntityLinkRelationType, EntityLinkStatus } from '@fops/shared';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { RefreshCw } from 'lucide-react';
 import * as React from 'react';

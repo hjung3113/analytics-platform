@@ -23,7 +23,7 @@ import {
   ListToolbar,
   SearchInput,
   type SortOption,
-} from '@fops/ui';
+} from '@ap/ui';
 import * as React from 'react';
 import { useVocListPages } from '../../hooks/useVocListPages';
 import { VocRow } from '../list/VocRow';

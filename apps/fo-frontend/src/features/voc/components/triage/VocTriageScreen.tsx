@@ -14,14 +14,14 @@ import { GLOSSARY } from '@/lib/copy/glossary';
 import { VOC_TRIAGE_QUEUE_TOTAL_LABELS, VOC_TRIAGE_TAB_LABELS } from '@/lib/copy/voc-views';
 import { useHostSeam } from '@/lib/host/host-seam';
 import { useFullscreenPanel } from '@/lib/panel/useFullscreenPanel';
-import type { VocListItem } from '@fops/shared';
 import {
   DetailPanelFullscreenContext,
   DetailPanelReadingColumn,
   ListTabs,
   type ListToolbarTab,
   ToolbarKicker,
-} from '@fops/ui';
+} from '@ap/ui';
+import type { VocListItem } from '@fops/shared';
 import { Flag } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type * as React from 'react';

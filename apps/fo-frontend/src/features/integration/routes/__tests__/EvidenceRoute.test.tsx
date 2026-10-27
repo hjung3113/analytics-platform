@@ -36,6 +36,16 @@ const slot = vi.hoisted(() => {
 function SlotContent() {
   return <>{useSyncExternalStore(slot.subscribe, slot.get, slot.get) as ReactNode}</>;
 }
+vi.mock('@ap/ui', async (original) => ({
+  ...(await original<typeof import('@ap/ui')>()),
+  ListShell: ({ list, detailPanel }: { list: ReactNode; detailPanel?: ReactNode }) => (
+    <div>
+      {list}
+      {detailPanel}
+      <SlotContent />
+    </div>
+  ),
+}));
 vi.mock('@fops/ui', async (original) => ({
   ...(await original<typeof import('@fops/ui')>()),
   useDetailPanelSlot: (node: ReactNode) => {
@@ -44,13 +54,6 @@ vi.mock('@fops/ui', async (original) => ({
       return () => slot.set(undefined);
     }, [node]);
   },
-  ListShell: ({ list, detailPanel }: { list: ReactNode; detailPanel?: ReactNode }) => (
-    <div>
-      {list}
-      {detailPanel}
-      <SlotContent />
-    </div>
-  ),
 }));
 const ID = '11111111-1111-4111-8111-111111111111';
 const PARENT = '22222222-2222-4222-8222-222222222222';

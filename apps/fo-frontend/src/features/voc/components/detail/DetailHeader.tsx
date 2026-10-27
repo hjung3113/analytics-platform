@@ -2,7 +2,7 @@
 
 import { useHostSeam } from '@/lib/host/host-seam';
 import { searchHref } from '@/lib/host/search';
-import { DetailPanelHeader, DetailPanelHeaderActions } from '@fops/ui';
+import { DetailPanelHeader, DetailPanelHeaderActions } from '@ap/ui';
 import type * as React from 'react';
 
 export interface DetailHeaderProps {

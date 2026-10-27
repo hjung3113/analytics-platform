@@ -13,8 +13,9 @@
 import { errorMapper } from '@/lib/api/errorMapper';
 import type { ApiError } from '@/lib/api/types';
 import { useHostSeam } from '@/lib/host/host-seam';
+import { Button, RichEditor, type TipTapDoc } from '@ap/ui';
 import { isTipTapDocBlank } from '@fops/shared';
-import { Button, RichEditor, type TipTapDoc, type TipTapEditor } from '@fops/ui';
+import type { TipTapEditor } from '@fops/ui';
 import { Bold, Code, Italic, Link, List } from 'lucide-react';
 import * as React from 'react';
 import { ComposerToolbarButton } from '../composer-editor/ComposerToolbarButton';

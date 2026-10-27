@@ -1,5 +1,5 @@
 import { SURVEY_BUILDER_COPY } from '@/lib/copy/survey-builder';
-import { Button, useListMotion } from '@fops/ui';
+import { Button, useListMotion } from '@ap/ui';
 import { ChevronDown, ChevronUp, GripVertical, Plus, Trash2 } from 'lucide-react';
 import * as React from 'react';
 import type { SurveyQuestion } from '../../types';

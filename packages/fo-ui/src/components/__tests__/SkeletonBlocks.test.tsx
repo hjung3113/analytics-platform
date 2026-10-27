@@ -1,5 +1,5 @@
+import { SkeletonBlocks } from '@ap/ui';
 import { render } from '@testing-library/react';
-import { SkeletonBlocks } from '../SkeletonBlocks.js';
 
 describe('SkeletonBlocks', () => {
   it('renders one placeholder for each requested detail block', () => {

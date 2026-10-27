@@ -3,8 +3,9 @@
 // Renders above the triage queue list when the backend signals filtered-out VOCs.
 
 import { GLOSSARY } from '@/lib/copy/glossary';
-import { PermissionBlockedPanel, SEVERITY_LABELS, type SeverityEnum } from '@fops/ui';
-import * as React from 'react';
+import { PermissionBlockedPanel, type SeverityEnum } from '@ap/ui';
+import { SEVERITY_LABELS } from '@fops/ui';
+import type * as React from 'react';
 
 export interface OutOfScopeSummaryBannerProps {
   count: number;

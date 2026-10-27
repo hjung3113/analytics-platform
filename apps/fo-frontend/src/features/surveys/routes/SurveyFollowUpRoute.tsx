@@ -7,7 +7,7 @@ import { useOutcomeFollowUp } from '@/features/surveys/hooks/useOutcomeFollowUp'
 import { useSurvey, useSurveyResults } from '@/features/surveys/hooks/useSurveys';
 import { PERMISSION_BLOCKED_REASONS } from '@/lib/copy/permission-reasons';
 import { formatRecordDocumentTitle, useDocumentTitle } from '@/lib/router/document-title';
-import { Button, EmptyState, PermissionBlockedPanel } from '@fops/ui';
+import { Button, EmptyState, PermissionBlockedPanel } from '@ap/ui';
 import { useSurveyReadGate } from './SurveyPermissionGate';
 
 export function SurveyFollowUpRouteView({ surveyId }: { surveyId: string }) {

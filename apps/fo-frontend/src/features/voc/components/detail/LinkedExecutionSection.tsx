@@ -1,7 +1,8 @@
 // LinkedExecutionSection — linked-execution heading and summary/empty-state wrapper.
 
+import { EmptyState, PanelSectionTitle, PermissionBlockedPanel } from '@ap/ui';
 import type { TaskStatus, VocDetailEnvelope } from '@fops/shared';
-import { EmptyState, OutlineBadge, PanelSectionTitle, PermissionBlockedPanel } from '@fops/ui';
+import { OutlineBadge } from '@fops/ui';
 import type * as React from 'react';
 
 import { TASK_STATUS_LABELS } from '@/lib/copy/enum-labels';

@@ -1,13 +1,8 @@
 import { ROLE_LEVEL_DISPLAY_LABELS } from '@/lib/copy/enum-labels';
 import { GLOSSARY } from '@/lib/copy/glossary';
 
-import {
-  Button,
-  DetailPanelFullscreenToggle,
-  FieldRow,
-  OutlineBadge,
-  PanelSectionTitle,
-} from '@fops/ui';
+import { Button, DetailPanelFullscreenToggle, FieldRow, PanelSectionTitle } from '@ap/ui';
+import { OutlineBadge } from '@fops/ui';
 import * as React from 'react';
 
 import { ADMIN_PERMISSIONS_COPY } from '@/lib/copy/admin-permissions';

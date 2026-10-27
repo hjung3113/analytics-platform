@@ -1,4 +1,4 @@
-import { DetailPanelHeader, ListShell } from '@fops/ui';
+import { DetailPanelHeader, ListShell } from '@ap/ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import * as React from 'react';

@@ -2,7 +2,7 @@
 // packages/fo-shared/src/rich-content/fixtures.ts; drift is pinned by
 // __tests__/fixtures-drift.test.ts.
 
-import type { TipTapDoc } from './RichEditor';
+import type { TipTapDoc } from '@ap/ui';
 import type { UISurface } from './allowlist-local';
 
 export const UI_RICH_CONTENT_ERROR_CODES = [
@@ -24,7 +24,8 @@ const ATTACHMENT_ID = '00000000-0000-4000-8000-000000000001';
 const ATTACHMENT_ID_2 = '11111111-1111-4111-8111-111111111111';
 const ACTOR_ID = '22222222-2222-4222-8222-222222222222';
 
-const doc = (...content: unknown[]): TipTapDoc => ({ type: 'doc', content } as unknown as TipTapDoc);
+const doc = (...content: unknown[]): TipTapDoc =>
+  ({ type: 'doc', content }) as unknown as TipTapDoc;
 
 const paragraph = (text: string, marks?: unknown[]) => ({
   type: 'paragraph',
@@ -79,7 +80,12 @@ export const UI_VALID_RICH_CONTENT_FIXTURES: Record<UISurface, TipTapDoc[]> = {
       {
         type: 'codeBlock',
         attrs: { language: 'sql' },
-        content: [{ type: 'text', text: 'select job_id, status from refresh_jobs where status = ' + "'failed';" }],
+        content: [
+          {
+            type: 'text',
+            text: 'select job_id, status from refresh_jobs where status = ' + "'failed';",
+          },
+        ],
       },
       { type: 'attachmentRef', attrs: { id: ATTACHMENT_ID } },
     ),
@@ -101,7 +107,11 @@ export const UI_INVALID_RICH_CONTENT_FIXTURES: Record<UISurface, UIInvalidRichCo
       expectedCode: 'rich_content.disallowed_node',
     },
     {
-      doc: doc({ type: 'paragraph', attrs: { onclick: 'alert(1)' }, content: [{ type: 'text', text: 'unsafe' }] }),
+      doc: doc({
+        type: 'paragraph',
+        attrs: { onclick: 'alert(1)' },
+        content: [{ type: 'text', text: 'unsafe' }],
+      }),
       expectedCode: 'rich_content.disallowed_attr',
     },
     {
@@ -119,7 +129,11 @@ export const UI_INVALID_RICH_CONTENT_FIXTURES: Record<UISurface, UIInvalidRichCo
       expectedCode: 'rich_content.disallowed_node',
     },
     {
-      doc: doc(paragraph('첨부 확인 부탁드립니다.', [{ type: 'link', attrs: { href: 'https://example.com', target: '_blank' } }])),
+      doc: doc(
+        paragraph('첨부 확인 부탁드립니다.', [
+          { type: 'link', attrs: { href: 'https://example.com', target: '_blank' } },
+        ]),
+      ),
       expectedCode: 'rich_content.disallowed_attr',
     },
     {
@@ -141,7 +155,11 @@ export const UI_INVALID_RICH_CONTENT_FIXTURES: Record<UISurface, UIInvalidRichCo
       expectedCode: 'rich_content.disallowed_node',
     },
     {
-      doc: doc({ type: 'paragraph', attrs: { dataPrivate: 'jira-ops-778' }, content: [{ type: 'text', text: 'update' }] }),
+      doc: doc({
+        type: 'paragraph',
+        attrs: { dataPrivate: 'jira-ops-778' },
+        content: [{ type: 'text', text: 'update' }],
+      }),
       expectedCode: 'rich_content.disallowed_attr',
     },
   ],
@@ -155,11 +173,18 @@ export const UI_INVALID_RICH_CONTENT_FIXTURES: Record<UISurface, UIInvalidRichCo
       expectedCode: 'rich_content.disallowed_node',
     },
     {
-      doc: doc({ type: 'mention', attrs: { actor_id: ACTOR_ID, label: '<script>alert(1)</script>' } }),
+      doc: doc({
+        type: 'mention',
+        attrs: { actor_id: ACTOR_ID, label: '<script>alert(1)</script>' },
+      }),
       expectedCode: 'rich_content.disallowed_attr',
     },
     {
-      doc: doc({ type: 'codeBlock', attrs: { language: 'x'.repeat(33) }, content: [{ type: 'text', text: 'select 1' }] }),
+      doc: doc({
+        type: 'codeBlock',
+        attrs: { language: 'x'.repeat(33) },
+        content: [{ type: 'text', text: 'select 1' }],
+      }),
       expectedCode: 'rich_content.invalid_attr_value',
     },
     {

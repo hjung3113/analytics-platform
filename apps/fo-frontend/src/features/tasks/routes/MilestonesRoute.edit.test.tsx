@@ -9,8 +9,8 @@ import {
 } from '@/lib/api/milestones';
 import { ApiError } from '@/lib/api/types';
 import { registerDefaultHost } from '@/lib/host/host-seam';
+import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import type { MilestoneDetailDto, MilestoneDto } from '@fops/shared';
-import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@fops/ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';

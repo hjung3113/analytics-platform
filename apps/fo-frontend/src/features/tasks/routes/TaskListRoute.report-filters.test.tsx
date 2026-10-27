@@ -16,8 +16,8 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
-vi.mock('@fops/ui', async (original) => ({
-  ...(await original<typeof import('@fops/ui')>()),
+vi.mock('@ap/ui', async (original) => ({
+  ...(await original<typeof import('@ap/ui')>()),
   ListShell: ({ list, detailPanel }: { list: ReactNode; detailPanel?: ReactNode }) => (
     <main>
       {list}

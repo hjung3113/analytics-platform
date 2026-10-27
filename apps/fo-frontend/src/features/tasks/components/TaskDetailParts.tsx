@@ -18,23 +18,25 @@ import type { DetailParts } from '@/lib/host/detail-parts';
 import { formatRecordDocumentTitle } from '@/lib/host/document-title-format';
 import { useHostSeam, useHostTitle } from '@/lib/host/host-seam';
 import { searchHref } from '@/lib/host/search';
-import type { TaskDetailDto, TaskStatus } from '@fops/shared';
 import {
   Button,
   DetailPanelHeaderActions,
   DetailPanelSectionNav,
   FieldRow,
-  InternalTaskBadge,
-  LinkedEntityTrail,
-  ManagedSystemPill,
-  OutlineBadge,
   type PanelSection,
   PanelSectionTitle,
   PanelTitleBlock,
   PermissionBlockedPanel,
-  SeverityBadge,
   Skeleton,
   SkeletonBlocks,
+} from '@ap/ui';
+import type { TaskDetailDto, TaskStatus } from '@fops/shared';
+import {
+  InternalTaskBadge,
+  LinkedEntityTrail,
+  ManagedSystemPill,
+  OutlineBadge,
+  SeverityBadge,
 } from '@fops/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowRight } from 'lucide-react';

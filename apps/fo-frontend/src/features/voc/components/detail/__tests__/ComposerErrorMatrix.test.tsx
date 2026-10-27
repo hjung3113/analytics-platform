@@ -19,19 +19,20 @@ import * as React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('sonner', () => ({
+  Toaster: () => null,
   toast: { error: vi.fn(), success: vi.fn() },
 }));
 
 // ── Shared RichEditor mock ─────────────────────────────────────────────────
 
-vi.mock('@fops/ui', async (importActual) => {
-  const actual = await importActual<typeof import('@fops/ui')>();
+vi.mock('@ap/ui', async (importActual) => {
+  const actual = await importActual<typeof import('@ap/ui')>();
   return {
     ...actual,
     RichEditor: ({
       onChange,
     }: {
-      onChange?: (doc: import('@fops/ui').TipTapDoc) => void;
+      onChange?: (doc: import('@ap/ui').TipTapDoc) => void;
     }) =>
       React.createElement('div', {
         'data-testid': 'rich-editor',

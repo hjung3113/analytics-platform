@@ -16,8 +16,8 @@
 // Vite's `import.meta.env.PROD` (true in `vite build`
 // production bundle; false in `vite dev` and during vitest runs).
 
+import { Button } from '@ap/ui';
 import { ROLE_LEVEL_LABELS, type RoleLevel } from '@fops/shared';
-import { Button } from '@fops/ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useEffect, useRef } from 'react';

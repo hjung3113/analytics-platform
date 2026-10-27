@@ -1,9 +1,7 @@
-/// <reference types="@testing-library/jest-dom" />
-import * as React from 'react';
+import { ListFilterButton } from '@ap/ui';
+import type { FilterCategory } from '@ap/ui';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { ListFilterButton } from '../ListFilterButton.js';
-import type { FilterCategory } from '../ListFilterButton.js';
 
 const categories: FilterCategory[] = [
   {

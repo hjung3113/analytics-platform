@@ -23,7 +23,7 @@ import {
   DialogTitle,
   Label,
   Textarea,
-} from '@fops/ui';
+} from '@ap/ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { type ReactNode, useMemo, useState } from 'react';
 

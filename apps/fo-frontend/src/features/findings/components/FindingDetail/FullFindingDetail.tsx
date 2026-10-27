@@ -11,18 +11,17 @@ import { GLOSSARY } from '@/lib/copy/glossary';
 import { HostLink, useHostSeam } from '@/lib/host/host-seam';
 import { searchHref } from '@/lib/host/search';
 import { shortId } from '@/lib/identity';
-import type { FindingDto, FindingStatus } from '@fops/shared';
 import {
   Button,
   DetailPanelSectionNav,
   FieldRow,
-  ManagedSystemPill,
   PanelSectionTitle,
   PanelTitleBlock,
-  SeverityBadge,
   type SeverityEnum,
   UserChip,
-} from '@fops/ui';
+} from '@ap/ui';
+import type { FindingDto, FindingStatus } from '@fops/shared';
+import { ManagedSystemPill, SeverityBadge } from '@fops/ui';
 import type * as React from 'react';
 import { useRef } from 'react';
 import { AddEvidenceModal } from './AddEvidenceModal';

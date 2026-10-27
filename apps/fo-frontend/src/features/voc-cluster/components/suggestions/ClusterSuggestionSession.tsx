@@ -5,12 +5,12 @@ import { ApiError } from '@/lib/api/types';
 import { CLUSTER_SUGGESTION_COPY as COPY } from '@/lib/copy/voc-cluster';
 import { useHostNavigate, useHostNotice, useHostSeam, useHostSearch } from '@/lib/host/host-seam';
 import { searchHref } from '@/lib/host/search';
+import { Button, ObjectRow, PermissionBlockedPanel, SkeletonRows } from '@ap/ui';
 import type {
   DiscardVocClusterSuggestionResponse,
   VocClusterSuggestionItem,
   VocClusterSuggestionsResponse,
 } from '@fops/shared';
-import { Button, ObjectRow, PermissionBlockedPanel, SkeletonRows } from '@fops/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { clusterSuggestionsKey, useClusterSuggestions } from '../../hooks/useClusterSuggestions';

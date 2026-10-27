@@ -40,8 +40,8 @@ vi.mock('@dnd-kit/core', () => ({
   useSensor: () => ({}),
   useSensors: () => [],
 }));
-vi.mock('@fops/ui', async () => {
-  const actual = await vi.importActual<typeof import('@fops/ui')>('@fops/ui');
+vi.mock('@ap/ui', async () => {
+  const actual = await vi.importActual<typeof import('@ap/ui')>('@ap/ui');
   return {
     ...actual,
     WorkbenchShell: ({

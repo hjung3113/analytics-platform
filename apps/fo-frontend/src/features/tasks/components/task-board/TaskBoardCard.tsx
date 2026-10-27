@@ -1,9 +1,10 @@
 import { TASK_PRIORITY_LABELS } from '@/lib/copy/enum-labels';
 import { TASK_BOARD_COPY } from '@/lib/copy/task-board';
 import { RESPONSIBILITY_COPY } from '@/lib/copy/tasks';
+import { UserAvatar } from '@ap/ui';
 import { useDraggable } from '@dnd-kit/core';
 import type { TaskDto } from '@fops/shared';
-import { SeverityBadge, UnassignedBadge, UserAvatar } from '@fops/ui';
+import { SeverityBadge, UnassignedBadge } from '@fops/ui';
 import { useId } from 'react';
 
 import { taskPriorityToSeverity } from '../../adapters/taskDisplayAdapters';

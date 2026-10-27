@@ -39,8 +39,8 @@ const consoleState = vi.hoisted(() => {
   };
 });
 
-vi.mock('@fops/ui', async () => {
-  const actual = await vi.importActual<typeof import('@fops/ui')>('@fops/ui');
+vi.mock('@ap/ui', async () => {
+  const actual = await vi.importActual<typeof import('@ap/ui')>('@ap/ui');
   return {
     ...actual,
     ListShell: ({ tabs, list }: { tabs: ReactNode; list: ReactNode }) => (

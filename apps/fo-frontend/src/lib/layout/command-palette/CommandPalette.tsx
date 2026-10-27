@@ -14,7 +14,7 @@ import {
   DialogPortal,
   KeyboardShortcut,
   isToastTarget,
-} from '@fops/ui';
+} from '@ap/ui';
 import { useCommandPalette } from './CommandPaletteContext';
 import {
   type PaletteCommandDescriptor,

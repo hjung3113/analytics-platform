@@ -1,6 +1,6 @@
+import { ActiveFilterBar } from '@ap/ui';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { ActiveFilterBar } from '../ActiveFilterBar.js';
 
 describe('ActiveFilterBar', () => {
   it('renders nothing when no filters apply', () => {

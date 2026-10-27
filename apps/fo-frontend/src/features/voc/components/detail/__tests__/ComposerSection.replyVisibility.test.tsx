@@ -8,12 +8,13 @@ import * as React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('sonner', () => ({
+  Toaster: () => null,
   toast: { error: vi.fn(), warning: vi.fn(), info: vi.fn(), success: vi.fn() },
 }));
 
 // Focusable textarea stand-in (TipTap takes no text in jsdom); `data-draft` mirrors the value.
-vi.mock('@fops/ui', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@fops/ui')>();
+vi.mock('@ap/ui', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@ap/ui')>();
   return {
     ...actual,
     RichEditor: ({
@@ -22,8 +23,8 @@ vi.mock('@fops/ui', async (importOriginal) => {
       onChange,
     }: {
       surface?: string;
-      value?: import('@fops/ui').TipTapDoc | null;
-      onChange?: (doc: import('@fops/ui').TipTapDoc) => void;
+      value?: import('@ap/ui').TipTapDoc | null;
+      onChange?: (doc: import('@ap/ui').TipTapDoc) => void;
     }) =>
       React.createElement('textarea', {
         'data-testid': `editor-${surface}`,

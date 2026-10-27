@@ -1,4 +1,4 @@
-import type { RichEditorAttachmentResult } from '@fops/ui';
+import type { RichEditorAttachmentResult } from '@ap/ui';
 
 import { uploadAttachment } from '@/lib/api/attachments';
 

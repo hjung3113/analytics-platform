@@ -20,6 +20,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 // sonner toast — capture calls for assertions
 vi.mock('sonner', () => ({
+  Toaster: () => null,
   toast: {
     error: vi.fn(),
     warning: vi.fn(),
@@ -40,8 +41,8 @@ vi.mock('@/lib/auth/useMe', () => ({
 // handling, not the editor. The editor's own behaviour is covered by its tests.
 const EDITOR_ATT_ID = 'e1000000-0000-4000-8000-000000000001';
 
-vi.mock('@fops/ui', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@fops/ui')>()),
+vi.mock('@ap/ui', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@ap/ui')>()),
   RichEditor: ({ onChange }: { onChange: (doc: unknown) => void }) => (
     <>
       <textarea

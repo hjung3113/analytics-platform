@@ -1,6 +1,5 @@
 import { VOC_NO_FOLLOW_UP as copy } from '@/lib/copy/voc';
 import { formatShortDate } from '@/lib/format/datetime';
-import type { VocFollowUpState } from '@fops/shared';
 import {
   Button,
   Dialog,
@@ -10,7 +9,8 @@ import {
   DialogHeader,
   DialogTitle,
   Textarea,
-} from '@fops/ui';
+} from '@ap/ui';
+import type { VocFollowUpState } from '@fops/shared';
 import { useVocNoFollowUpController } from './useVocNoFollowUpController';
 
 export function NoFollowUpSection({

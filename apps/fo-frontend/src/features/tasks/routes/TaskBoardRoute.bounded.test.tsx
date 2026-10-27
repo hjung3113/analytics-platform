@@ -74,17 +74,11 @@ const detailSlot = vi.hoisted(() => {
     snapshot: () => node,
   };
 });
-vi.mock('@fops/ui', async () => {
-  const actual = await vi.importActual<typeof import('@fops/ui')>('@fops/ui');
+vi.mock('@ap/ui', async () => {
+  const actual = await vi.importActual<typeof import('@ap/ui')>('@ap/ui');
   const react = await vi.importActual<typeof import('react')>('react');
   return {
     ...actual,
-    useDetailPanelSlot: (node: unknown) => {
-      react.useLayoutEffect(() => {
-        detailSlot.publish(node);
-      });
-      react.useLayoutEffect(() => () => detailSlot.publish(undefined), []);
-    },
     WorkbenchShell: ({
       toolbar,
       children,
@@ -108,6 +102,19 @@ vi.mock('@fops/ui', async () => {
     ),
   };
 });
+vi.mock('@fops/ui', async () => {
+  const actual = await vi.importActual<typeof import('@fops/ui')>('@fops/ui');
+  const react = await vi.importActual<typeof import('react')>('react');
+  return {
+    ...actual,
+    useDetailPanelSlot: (node: unknown) => {
+      react.useLayoutEffect(() => {
+        detailSlot.publish(node);
+      });
+      react.useLayoutEffect(() => () => detailSlot.publish(undefined), []);
+    },
+  };
+});
 vi.mock('@/lib/cross-system/useWorkspaceActors', () => ({
   useWorkspaceActors: () => ({ actors: [{ id: ACTOR, display_name: '김담당' }] }),
 }));
@@ -120,7 +127,10 @@ vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
     ],
   })),
 }));
-vi.mock('sonner', () => ({ toast: { error: vi.fn(), warning: vi.fn() } }));
+vi.mock('sonner', () => ({
+  Toaster: () => null,
+  toast: { error: vi.fn(), warning: vi.fn() },
+}));
 
 const MILESTONE_ID = '50000000-0000-0000-0000-000000000001';
 const MILESTONES = [

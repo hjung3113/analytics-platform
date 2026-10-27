@@ -29,7 +29,7 @@ describe('<ComposerReplyPreview>', () => {
       content: [
         { type: 'paragraph', content: [{ type: 'text', text: '안녕하세요, 처리하겠습니다.' }] },
       ],
-    } as import('@fops/ui').TipTapDoc;
+    } as import('@ap/ui').TipTapDoc;
 
     render(
       <ComposerReplyPreview voc={BASE_VOC} owner={OWNER} reporter={REPORTER} draftDoc={draftDoc} />,
@@ -44,7 +44,7 @@ describe('<ComposerReplyPreview>', () => {
   });
 
   it('renders italic placeholder copy when reply doc is empty', () => {
-    const emptyDoc = { type: 'doc', content: [] } as import('@fops/ui').TipTapDoc;
+    const emptyDoc = { type: 'doc', content: [] } as import('@ap/ui').TipTapDoc;
 
     render(
       <ComposerReplyPreview voc={BASE_VOC} owner={OWNER} reporter={REPORTER} draftDoc={emptyDoc} />,

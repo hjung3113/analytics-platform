@@ -22,8 +22,9 @@ import type { ResolvedManagedSystem } from '@/lib/cross-system/useManagedSystem'
 import { managedSystemsCatalogQuery } from '@/lib/cross-system/useManagedSystemNames';
 import { usePermissionCheckBridge } from '@/lib/cross-system/usePermissionCheckBridge';
 import { useWorkspaceActors } from '@/lib/cross-system/useWorkspaceActors';
+import { type AvatarUser, Button, EmptyState } from '@ap/ui';
 import type { VocListItem } from '@fops/shared';
-import { type AvatarUser, Button, EmptyState, managedSystemMarkColor } from '@fops/ui';
+import { managedSystemMarkColor } from '@fops/ui';
 import { useQuery } from '@tanstack/react-query';
 import * as React from 'react';
 import { useMemo } from 'react';

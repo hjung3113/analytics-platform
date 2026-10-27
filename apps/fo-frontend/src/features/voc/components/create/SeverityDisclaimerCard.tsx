@@ -2,7 +2,7 @@
 // severity after review.
 
 import { VOC_SEVERITY_DISCLAIMER } from '@/lib/copy/voc';
-import { cn } from '@fops/ui';
+import { cn } from '@ap/ui';
 import type * as React from 'react';
 
 export interface SeverityDisclaimerCardProps {

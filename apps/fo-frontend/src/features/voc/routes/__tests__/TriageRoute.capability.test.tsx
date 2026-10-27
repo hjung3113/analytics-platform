@@ -52,8 +52,8 @@ vi.mock('@/lib/cross-system/usePermissionCheckBridge', () => ({
   permissionRequestsMineKey: ['permission-requests-mine'],
 }));
 
-vi.mock('@fops/ui', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@fops/ui')>();
+vi.mock('@ap/ui', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@ap/ui')>();
   return {
     ...actual,
     PermissionBlockedPanel: ({

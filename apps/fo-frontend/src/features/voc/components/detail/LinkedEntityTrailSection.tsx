@@ -2,6 +2,7 @@ import { TASK_REQUEST_STATUS_LABELS, TASK_STATUS_LABELS } from '@/lib/copy/enum-
 import { GLOSSARY } from '@/lib/copy/glossary';
 import { VOC_FOLLOW_UP_COPY } from '@/lib/copy/voc';
 import { formatDateOnly, formatRelativeTime } from '@/lib/format/datetime';
+import { PanelSectionTitle, PermissionBlockedPanel } from '@ap/ui';
 import type {
   EntityLinkDto,
   EntityLinkTargetSummary,
@@ -10,13 +11,7 @@ import type {
   TaskStatus,
   VocDetailEnvelope,
 } from '@fops/shared';
-import {
-  type EntityNodeRef,
-  LinkedEntityTrail,
-  OutlineBadge,
-  PanelSectionTitle,
-  PermissionBlockedPanel,
-} from '@fops/ui';
+import { type EntityNodeRef, LinkedEntityTrail, OutlineBadge } from '@fops/ui';
 import type * as React from 'react';
 
 export interface LinkedEntityTrailSectionProps {

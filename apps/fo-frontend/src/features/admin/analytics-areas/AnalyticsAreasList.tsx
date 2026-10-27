@@ -4,8 +4,6 @@ import {
   Callout,
   Checkbox,
   Label,
-  ManagedSystemMark,
-  OutlineBadge,
   PanelSectionTitle,
   Popover,
   PopoverContent,
@@ -15,7 +13,8 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@fops/ui';
+} from '@ap/ui';
+import { ManagedSystemMark, OutlineBadge } from '@fops/ui';
 import { Filter, Layers, Plus, Shield } from 'lucide-react';
 import type * as React from 'react';
 

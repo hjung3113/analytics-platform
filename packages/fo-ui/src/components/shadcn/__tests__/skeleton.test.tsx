@@ -1,6 +1,6 @@
+import { Skeleton } from '@ap/ui';
 /// <reference types="@testing-library/jest-dom" />
 import { render, screen } from '@testing-library/react';
-import { Skeleton } from '../skeleton.js';
 
 describe('Skeleton', () => {
   it('renders the registered placeholder token, not the raised surface it sits on', () => {

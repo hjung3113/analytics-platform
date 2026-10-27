@@ -11,8 +11,8 @@ import { adminDetailFixture } from '@/test/permission-details';
 // Harness: createRoute + memory history with the route's own search schema
 // (same pattern as __tests__/vocs.test.tsx and ./requests.test.tsx).
 
+import type * as ApUi from '@ap/ui';
 import type { PermissionRiskIndicator } from '@fops/shared';
-import type * as FopsUi from '@fops/ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   Outlet,
@@ -26,8 +26,8 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import type React from 'react';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
-vi.mock('@fops/ui', async (importOriginal) => {
-  const actual = await importOriginal<typeof FopsUi>();
+vi.mock('@ap/ui', async (importOriginal) => {
+  const actual = await importOriginal<typeof ApUi>();
   return {
     ...actual,
     ListShell: ({

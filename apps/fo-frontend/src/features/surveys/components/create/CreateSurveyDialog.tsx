@@ -7,11 +7,6 @@ import {
 } from '@/lib/cross-system/analyticsAreasCatalog';
 import { searchDebounceMs } from '@/lib/forms/search-debounce';
 import {
-  type SurveyCopySourceQuestion,
-  type SurveyStartingPoint,
-  surveyTypeSchema,
-} from '@fops/shared';
-import {
   Button,
   Dialog,
   DialogContent,
@@ -28,7 +23,12 @@ import {
   Textarea,
   ToggleGroup,
   ToggleGroupItem,
-} from '@fops/ui';
+} from '@ap/ui';
+import {
+  type SurveyCopySourceQuestion,
+  type SurveyStartingPoint,
+  surveyTypeSchema,
+} from '@fops/shared';
 import { useQuery } from '@tanstack/react-query';
 import * as React from 'react';
 import {

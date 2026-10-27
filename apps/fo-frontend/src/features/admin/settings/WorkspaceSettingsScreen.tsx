@@ -24,7 +24,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@fops/ui';
+} from '@ap/ui';
 import { AlertTriangle, Check, LockKeyhole } from 'lucide-react';
 import { type ReactNode, useEffect, useState } from 'react';
 

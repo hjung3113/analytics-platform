@@ -18,14 +18,14 @@ import { ComposerSection } from '../ComposerSection';
 
 // RichEditor mock: emits onChange on a custom event the test fires directly,
 // simulating keyboard typing (no container click required).
-vi.mock('@fops/ui', async (importActual) => {
-  const actual = await importActual<typeof import('@fops/ui')>();
+vi.mock('@ap/ui', async (importActual) => {
+  const actual = await importActual<typeof import('@ap/ui')>();
   return {
     ...actual,
     RichEditor: ({
       onChange,
     }: {
-      onChange?: (doc: import('@fops/ui').TipTapDoc) => void;
+      onChange?: (doc: import('@ap/ui').TipTapDoc) => void;
     }) =>
       React.createElement('div', {
         'data-testid': 'rich-editor',
@@ -33,20 +33,37 @@ vi.mock('@fops/ui', async (importActual) => {
         onKeyDown: () =>
           onChange?.({
             type: 'doc',
-            content: [{ type: 'paragraph', content: [{ type: 'text', text: 'typed via keyboard' }] }],
+            content: [
+              { type: 'paragraph', content: [{ type: 'text', text: 'typed via keyboard' }] },
+            ],
           }),
       }),
   };
 });
 
 vi.mock('@/features/voc/hooks/useVocPublicUpdateMutation', () => ({
-  useVocPublicUpdateMutation: vi.fn(() => ({ mutate: vi.fn(), isPending: false, isError: false, error: null })),
+  useVocPublicUpdateMutation: vi.fn(() => ({
+    mutate: vi.fn(),
+    isPending: false,
+    isError: false,
+    error: null,
+  })),
 }));
 vi.mock('@/features/voc/hooks/useVocReporterReplyMutation', () => ({
-  useVocReporterReplyMutation: vi.fn(() => ({ mutate: vi.fn(), isPending: false, isError: false, error: null })),
+  useVocReporterReplyMutation: vi.fn(() => ({
+    mutate: vi.fn(),
+    isPending: false,
+    isError: false,
+    error: null,
+  })),
 }));
 vi.mock('@/features/voc/hooks/useVocInternalCommentMutation', () => ({
-  useVocInternalCommentMutation: vi.fn(() => ({ mutate: vi.fn(), isPending: false, isError: false, error: null })),
+  useVocInternalCommentMutation: vi.fn(() => ({
+    mutate: vi.fn(),
+    isPending: false,
+    isError: false,
+    error: null,
+  })),
 }));
 
 const ADMIN_ID = '00000000-0000-0000-0000-000000000002';
@@ -98,10 +115,9 @@ function makeWrapper() {
 describe('ComposerSection dirty from draft state (REV-2 #6)', () => {
   it('keyboard-only typing (no container click) still triggers DirtyConfirmation', async () => {
     const onCloseRequest = vi.fn();
-    render(
-      <ComposerSection voc={BASE_VOC} me={ME_ADMIN} onCloseRequest={onCloseRequest} />,
-      { wrapper: makeWrapper() },
-    );
+    render(<ComposerSection voc={BASE_VOC} me={ME_ADMIN} onCloseRequest={onCloseRequest} />, {
+      wrapper: makeWrapper(),
+    });
 
     const editor = screen.getByRole('textbox');
 
@@ -126,10 +142,9 @@ describe('ComposerSection dirty from draft state (REV-2 #6)', () => {
 
   it('empty draft state allows close without confirmation', async () => {
     const onCloseRequest = vi.fn();
-    render(
-      <ComposerSection voc={BASE_VOC} me={ME_ADMIN} onCloseRequest={onCloseRequest} />,
-      { wrapper: makeWrapper() },
-    );
+    render(<ComposerSection voc={BASE_VOC} me={ME_ADMIN} onCloseRequest={onCloseRequest} />, {
+      wrapper: makeWrapper(),
+    });
 
     const closeBtn = screen.getByRole('button', { name: /닫기/i });
     await act(async () => {

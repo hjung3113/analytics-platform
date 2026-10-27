@@ -36,8 +36,8 @@ vi.mock('@/lib/api/attachments', () => ({ uploadAttachment: vi.fn() }));
 
 // ── @fops/ui RichEditor mock ─────────────────────────────────────────────────
 // Replace heavy TipTap editor with a simple textarea so RTL can interact with it.
-vi.mock('@fops/ui', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@fops/ui')>();
+vi.mock('@ap/ui', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@ap/ui')>();
   return {
     ...actual,
     RichEditor: ({

@@ -1,11 +1,6 @@
-/// <reference types="@testing-library/jest-dom" />
-import * as React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { PermissionBlockedPanel, type PermissionState } from '@ap/ui';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { vi } from 'vitest';
-import {
-  PermissionBlockedPanel,
-  type PermissionState,
-} from '../PermissionBlockedPanel.js';
 
 describe('PermissionBlockedPanel — state rendering', () => {
   it('state=request_access: sets data-state attribute', () => {
@@ -18,9 +13,7 @@ describe('PermissionBlockedPanel — state rendering', () => {
   it('state=request_access: renders Lock icon area + heading + body copy', () => {
     render(<PermissionBlockedPanel state="request_access" category="VOC 상세" />);
     expect(screen.getByText('VOC 상세')).toBeInTheDocument();
-    expect(
-      screen.getByText('이 항목에 접근하려면 권한 요청이 필요합니다.'),
-    ).toBeInTheDocument();
+    expect(screen.getByText('이 항목에 접근하려면 권한 요청이 필요합니다.')).toBeInTheDocument();
   });
 
   it('state=request_access: renders a domain reason when provided', () => {
@@ -107,9 +100,7 @@ describe('PermissionBlockedPanel — state rendering', () => {
   });
 
   it('state=denied: sets data-state attribute', () => {
-    const { container } = render(
-      <PermissionBlockedPanel state="denied" category="VOC 상세" />,
-    );
+    const { container } = render(<PermissionBlockedPanel state="denied" category="VOC 상세" />);
     expect(container.querySelector('[data-state="denied"]')).not.toBeNull();
   });
 
@@ -126,36 +117,23 @@ describe('PermissionBlockedPanel — state rendering', () => {
         reason="계약 만료로 인해 접근이 차단되었습니다."
       />,
     );
-    expect(
-      screen.getByText('계약 만료로 인해 접근이 차단되었습니다.'),
-    ).toBeInTheDocument();
+    expect(screen.getByText('계약 만료로 인해 접근이 차단되었습니다.')).toBeInTheDocument();
   });
 
   it('state=denied: no CTA button rendered', () => {
-    render(
-      <PermissionBlockedPanel state="denied" category="VOC 상세" reason="denied" />,
-    );
-    expect(
-      screen.queryByRole('button', { name: '권한 요청하기' }),
-    ).toBeNull();
+    render(<PermissionBlockedPanel state="denied" category="VOC 상세" reason="denied" />);
+    expect(screen.queryByRole('button', { name: '권한 요청하기' })).toBeNull();
   });
 
   it('state=blocked_not_requestable: sets data-state attribute', () => {
     const { container } = render(
-      <PermissionBlockedPanel
-        state="blocked_not_requestable"
-        category="VOC 상세"
-      />,
+      <PermissionBlockedPanel state="blocked_not_requestable" category="VOC 상세" />,
     );
-    expect(
-      container.querySelector('[data-state="blocked_not_requestable"]'),
-    ).not.toBeNull();
+    expect(container.querySelector('[data-state="blocked_not_requestable"]')).not.toBeNull();
   });
 
   it('state=blocked_not_requestable: shows default message when no reason', () => {
-    render(
-      <PermissionBlockedPanel state="blocked_not_requestable" category="VOC 상세" />,
-    );
+    render(<PermissionBlockedPanel state="blocked_not_requestable" category="VOC 상세" />);
     expect(screen.getByText('권한 요청이 허용되지 않습니다.')).toBeInTheDocument();
   });
 
@@ -171,27 +149,14 @@ describe('PermissionBlockedPanel — state rendering', () => {
   });
 
   it('state=blocked_not_requestable: no CTA button rendered', () => {
-    render(
-      <PermissionBlockedPanel
-        state="blocked_not_requestable"
-        category="VOC 상세"
-      />,
-    );
-    expect(
-      screen.queryByRole('button', { name: '권한 요청하기' }),
-    ).toBeNull();
+    render(<PermissionBlockedPanel state="blocked_not_requestable" category="VOC 상세" />);
+    expect(screen.queryByRole('button', { name: '권한 요청하기' })).toBeNull();
   });
 });
 
 describe('PermissionBlockedPanel — audit footer', () => {
   it('renders decisionId when provided', () => {
-    render(
-      <PermissionBlockedPanel
-        state="denied"
-        category="VOC 상세"
-        decisionId="dec-abc123"
-      />,
-    );
+    render(<PermissionBlockedPanel state="denied" category="VOC 상세" decisionId="dec-abc123" />);
     expect(screen.getByText('dec-abc123')).toBeInTheDocument();
   });
 
@@ -224,9 +189,7 @@ describe('PermissionBlockedPanel — all four states set data-state', () => {
   ];
   states.forEach((state) => {
     it(`data-state="${state}" present`, () => {
-      const { container } = render(
-        <PermissionBlockedPanel state={state} category="테스트" />,
-      );
+      const { container } = render(<PermissionBlockedPanel state={state} category="테스트" />);
       expect(container.querySelector(`[data-state="${state}"]`)).not.toBeNull();
     });
   });

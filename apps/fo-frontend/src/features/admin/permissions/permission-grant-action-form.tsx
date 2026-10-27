@@ -3,7 +3,7 @@ import { useId, useState } from 'react';
 import { useIdempotencyKey } from '@/lib/api/useIdempotencyKey';
 import { useMe } from '@/lib/auth/useMe';
 import { ADMIN_PERMISSIONS_COPY } from '@/lib/copy/admin-permissions';
-import { Button, PanelSectionTitle, Textarea } from '@fops/ui';
+import { Button, PanelSectionTitle, Textarea } from '@ap/ui';
 
 import { useWorkspaceSettings } from '../settings/use-workspace-settings.js';
 import { useRevokePermission } from './useRevokePermission.js';

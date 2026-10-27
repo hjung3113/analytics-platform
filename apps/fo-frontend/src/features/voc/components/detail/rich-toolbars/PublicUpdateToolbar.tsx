@@ -10,7 +10,8 @@
 // The optional `onAttach` branch below stays generic and is not wired on this surface.
 
 import { ComposerToolbarButton } from '@/features/cross-system/composer-editor/ComposerToolbarButton';
-import { AttachButton, type TipTapEditor } from '@fops/ui';
+import { AttachButton } from '@ap/ui';
+import type { TipTapEditor } from '@fops/ui';
 import { Bold, Italic, List } from 'lucide-react';
 import type * as React from 'react';
 

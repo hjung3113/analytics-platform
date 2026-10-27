@@ -27,7 +27,7 @@ import { usePermissionCheckBridge } from '@/lib/cross-system/usePermissionCheckB
 import { HostLink, useHostSeam } from '@/lib/host/host-seam';
 import { useHostSearchWriter } from '@/lib/host/useHostSearchWriter';
 import { NAV_COUNTS_QUERY_KEY } from '@/lib/query/navCounts';
-import { Button, PermissionBlockedPanel } from '@fops/ui';
+import { Button, PermissionBlockedPanel } from '@ap/ui';
 import { useQuery } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import type * as React from 'react';

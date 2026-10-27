@@ -1,4 +1,4 @@
-import { cn } from '@fops/ui';
+import { cn } from '@ap/ui';
 import * as React from 'react';
 
 export interface PickerOptionGridProps {

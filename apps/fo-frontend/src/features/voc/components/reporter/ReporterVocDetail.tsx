@@ -9,16 +9,16 @@ import { useSignedInActor } from '@/lib/cross-system/useSignedInActor';
 import { useVocDetail } from '@/lib/cross-system/useVocDetail';
 import { useWorkspaceActors } from '@/lib/cross-system/useWorkspaceActors';
 import { formatDateTime } from '@/lib/format/datetime';
-import { isTipTapDocStructurallyEmpty } from '@fops/shared';
 import {
   EmptyState,
   PanelSectionTitle,
   PanelTitleBlock,
-  ReporterStatusBadge,
   RichContentRenderer,
   SkeletonBlocks,
   type TipTapDoc,
-} from '@fops/ui';
+} from '@ap/ui';
+import { isTipTapDocStructurallyEmpty } from '@fops/shared';
+import { ReporterStatusBadge } from '@fops/ui';
 import * as React from 'react';
 import { AttachmentChipList } from '../detail/AttachmentChip';
 import { ConversationTimeline } from '../detail/ConversationTimeline';

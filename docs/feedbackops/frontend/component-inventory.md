@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This inventory defines the reusable components that should exist before domain screens are built. The complete shipped `@fops/ui` export inventory is `packages/fo-ui/src/index.ts`; this document describes reusable component contracts and required states.
+This inventory defines the reusable components that should exist before domain screens are built. The shipped FeedbackOps-owned `@fops/ui` export inventory is `packages/fo-ui/src/index.ts` (shared parts such as `EmptyState` and the shells come from `@ap/ui`); this document describes reusable component contracts and required states.
 
 Component ownership paths live in `docs/tech-stack/component-stack.md`.
 Screen mapping lives in `docs/frontend/ui-design-system.md`.
@@ -62,7 +62,7 @@ Screen mapping lives in `docs/frontend/ui-design-system.md`.
 
 ## Composed Components
 
-This list is the original prescriptive inventory and several entries were never built under these names, or at all. The shell shipped as `AppFrame` / `AppRail` / `AppSidebar` (`apps/fo-frontend/src/lib/layout/`), governed by ADR-0020, which supersedes the `AppShell` / `RoleLevelAwareSidebar` naming below. Route shells (`ListShell`, `PageShell`) and `ObjectRow` live in `@fops/ui`. Treat the code and ADR-0020 as authoritative when they disagree with a name here. The Built Mapping section below maps design-time names to what shipped.
+This list is the original prescriptive inventory and several entries were never built under these names, or at all. The shell shipped as `AppFrame` / `AppRail` / `AppSidebar` (`apps/fo-frontend/src/lib/layout/`), governed by ADR-0020, which supersedes the `AppShell` / `RoleLevelAwareSidebar` naming below. Route shells (`ListShell`, `PageShell`) and `ObjectRow` live in `@ap/ui` (`packages/ui/src/layout/`, `packages/ui/src/data/ObjectRow.tsx`). Treat the code and ADR-0020 as authoritative when they disagree with a name here. The Built Mapping section below maps design-time names to what shipped.
 
 ```text
 AppShell (built as AppFrame)
@@ -93,22 +93,22 @@ AuditTimeline
 
 ## Built Mapping
 
-Names in the primitive table and the composed list above are design-time names. This table maps them to what shipped; `packages/fo-ui/src/index.ts` remains the export inventory.
+Names in the primitive table and the composed list above are design-time names. This table maps them to what shipped; `packages/fo-ui/src/index.ts` is the inventory of the 18 FeedbackOps-owned `@fops/ui` exports only; SDK parts (shells, `ObjectRow`, `RichEditor`, panels, toolbars, forms) are exported from `@ap/ui` (`packages/ui/src/index.ts`).
 
 | Design-time name | Shipped as | Path |
 | --- | --- | --- |
 | AppShell | `AppFrame` | `apps/fo-frontend/src/lib/layout/AppFrame.tsx` |
 | RoleLevelAwareSidebar | `AppRail` + `AppSidebar` | `apps/fo-frontend/src/lib/layout/` |
 | ManagedSystemScopeSwitcher | scope selector (`ManagedSystemScopeOption`), rendered by `AppSidebar` and the platform `목록 범위` | `apps/fo-frontend/src/operator-screens/scope-picker/ManagedSystemScopePicker.tsx` |
-| ObjectList, ListRow | `ObjectRow` + `ListToolbar` / `ListTabs` + `ListStateMessage` | `packages/fo-ui/src/data/ObjectRow.tsx` (compatibility re-export of `@ap/ui`), `packages/fo-ui/src/toolbar/`, `apps/fo-frontend/src/components/ListStateMessage.tsx` |
-| Active filters | `ActiveFilterBar` — presentational chips with visible labels, tooltip-backed remove buttons, and one clear-all control; empty items render nothing | `packages/fo-ui/src/toolbar/ActiveFilterBar.tsx` |
-| FilterViewTabs, Toolbar | `ListTabs` composed by `ListToolbar`, with `ListFilterButton` and `ListSortButton` | `packages/fo-ui/src/toolbar/` |
+| ObjectList, ListRow | `ObjectRow` + `ListToolbar` / `ListTabs` + `ListStateMessage` | `@ap/ui` (`ObjectRow`, `ListToolbar`, `ListTabs`), `apps/fo-frontend/src/components/ListStateMessage.tsx` |
+| Active filters | `ActiveFilterBar` — presentational chips with visible labels, tooltip-backed remove buttons, and one clear-all control; empty items render nothing | `@ap/ui` |
+| FilterViewTabs, Toolbar | `ListTabs` composed by `ListToolbar`, with `ListFilterButton` and `ListSortButton` | `@ap/ui` |
 | LoadingState, ErrorState | `Skeleton` rows; `ListStateMessage` `error` variant | `@ap/ui`, `apps/fo-frontend/src/components/ListStateMessage.tsx` |
 | BulkActionBar | internal `BulkActionBar` of the VOC list (actions disabled by design) | `apps/fo-frontend/src/features/voc/components/list/VocList.tsx` |
-| DetailPanel, Panel | `DetailPanelHeader`, `DetailPanelReadingColumn`, `DetailPanelSectionNav` (mount the nav as a sibling above the scroll root; the cover is then the strip's overlap with the root), `PanelTitleBlock` (`inset=none`), `PanelSectionTitle` (`inset=panel`, `size=tiny`), `FieldRow`, `NestedTextBlock`, `Callout` | `packages/fo-ui/src/panel/` |
+| DetailPanel, Panel | `DetailPanelHeader`, `DetailPanelReadingColumn`, `DetailPanelSectionNav` (mount the nav as a sibling above the scroll root; the cover is then the strip's overlap with the root), `PanelTitleBlock` (`inset=none`), `PanelSectionTitle` (`inset=panel`, `size=tiny`), `FieldRow`, `NestedTextBlock`, `Callout` | `@ap/ui` |
 | StatusBadge | shared `ReporterStatusBadge`, `InternalTaskBadge`; feature-local `SurveyStatusBadge`, `LinkStatusBadge`, `MilestoneStatusBadge` | `packages/fo-ui/src/badges/`, `apps/fo-frontend/src/features/surveys/components/`, `apps/fo-frontend/src/features/integration/components/`, `apps/fo-frontend/src/features/tasks/components/` |
-| SignalBadge | `SeverityBadge` (default accessible prefix `심각도`; full `ariaLabel` override for Task `우선순위`), `SeverityIndicator` (full `label` override; compatibility re-export of `@ap/ui`), `UnassignedBadge`, `ManagedSystemPill`, `EntityIconBadge`, generic `OutlineBadge` | `packages/fo-ui/src/badges/`, `packages/fo-ui/src/indicators/` |
-| RichContentEditor | `RichEditor` + `RichContentRenderer` | `packages/fo-ui/src/rich-content/` |
+| SignalBadge | `SeverityBadge` (default accessible prefix `심각도`; full `ariaLabel` override for Task `우선순위`), `SeverityIndicator` (full `label` override; from `@ap/ui`), `UnassignedBadge`, `ManagedSystemPill`, `EntityIconBadge`, generic `OutlineBadge` | `packages/fo-ui/src/badges/`, `packages/fo-ui/src/indicators/` |
+| RichContentEditor | `RichEditor` + `RichContentRenderer` (from `@ap/ui`; FO keeps only the drift/sanitization helpers `allowlist-local.ts`, `sanitizeClient.ts`, `fixtures-local.ts` in `packages/fo-ui/src/rich-content/`) | `packages/ui/src/rich-content/` |
 | PublicUpdateComposer | feature-local `PublicUpdateComposer` | `apps/fo-frontend/src/features/voc/components/detail/` |
 | ConversationComposer | feature-local `ComposerSection` + `ComposerTabs` hosting `PublicUpdateComposer`, `ReporterReplyComposer`, `InternalCommentComposer` | `apps/fo-frontend/src/features/voc/components/detail/` |
 | Evidence inventory | feature-local `EvidenceContent`, `EvidenceMetadata`, `EvidenceRow`, `EvidencePanel` | `apps/fo-frontend/src/features/integration/components/` |
@@ -118,15 +118,15 @@ Names in the primitive table and the composed list above are design-time names. 
 | CommandMenu | `CommandPalette` with local `CommandPaletteItemIcon` | `apps/fo-frontend/src/lib/layout/command-palette/` |
 | UserPicker | feature-local `OwnerPicker` (VOC Triage owner) | `apps/fo-frontend/src/features/voc/components/triage/OwnerPicker.tsx` |
 | Drawer | `Sheet` | `@ap/ui` |
-| Toast | `sonner` `Toaster` mounted in the root route; `UndoToast` | `apps/fo-frontend/src/routes/__root.tsx`, `packages/fo-ui/src/feedback/UndoToast.tsx` |
-| Avatar | `Avatar`, `UserAvatar`, `UserChip` | `@ap/ui`, `packages/fo-ui/src/identity/` (compatibility re-exports) |
+| Toast | `sonner` `Toaster` mounted in the root route; `UndoToast` | `apps/fo-frontend/src/routes/__root.tsx`, `@ap/ui` |
+| Avatar | `Avatar`, `UserAvatar`, `UserChip` | `@ap/ui` |
 | TextInput | `Input` | `@ap/ui` |
-| Progress indicator | `ProgressMeter` | `packages/fo-ui/src/indicators/ProgressMeter.tsx` (compatibility re-export of `@ap/ui`) |
-| Status badge frame | `StatusBadgeFrame` | `packages/fo-ui/src/badges/StatusBadgeFrame.tsx` (compatibility re-export of `@ap/ui`) |
+| Progress indicator | `ProgressMeter` | `@ap/ui` |
+| Status badge frame | `StatusBadgeFrame` | `@ap/ui` |
 | Managed System square mark | `ManagedSystemMark` | `packages/fo-ui/src/badges/ManagedSystemMark.tsx` |
 | Loading rows and panel blocks | `SkeletonRows`, `SkeletonBlocks` | `@ap/ui` |
 | Keyboard shortcut hint | `KeyboardShortcut` | `@ap/ui` |
-| Workbench toolbar kicker | `ToolbarKicker` | `packages/fo-ui/src/layout/ToolbarKicker.tsx` |
+| Workbench toolbar kicker | `ToolbarKicker` | `@ap/ui` |
 | Picker option grid | `PickerOptionGrid` (VOC triage) | `apps/fo-frontend/src/features/voc/components/triage/PickerOptionGrid.tsx` |
 
 Built under the same name: `LinkedEntityTrail`, `ManagedSystemPicker`, and `AnalyticsAreaPicker`. `PermissionBlockedPanel` is forwarded from `@ap/ui` through its local compatibility module.
@@ -135,7 +135,7 @@ Never built: `IconButton`, `Table` / `DataTable`, `InboxList`, `ScopeFilterBar`,
 
 ## Implemented Shared Flow Components
 
-- `CommandPalette` (`apps/fo-frontend/src/lib/layout/command-palette/`) — the inventory's `CommandMenu`, built in #611: cmdk `Command` composed inside `@fops/ui` Radix dialog primitives (`Dialog` + `DialogPortal` + `DialogOverlay` + `DialogContentBare`; the palette scrim/panel is the `variant="palette"` treatment owned by `packages/fo-ui`, not app-side classes), hosted by `AppFrame`; #1050 replaced `Command.Dialog` so undo-toast clicks don't dismiss the palette. Shortcut + sidebar-row entry per `docs/frontend/routes-and-layout.md` → Global command palette (#611).
+- `CommandPalette` (`apps/fo-frontend/src/lib/layout/command-palette/`) — the inventory's `CommandMenu`, built in #611: cmdk `Command` composed inside `@ap/ui` Radix dialog primitives (`Dialog` + `DialogPortal` + `DialogOverlay` + `DialogContentBare`; the palette scrim/panel is the `variant="palette"` treatment owned by `packages/fo-ui`, not app-side classes), hosted by `AppFrame`; #1050 replaced `Command.Dialog` so undo-toast clicks don't dismiss the palette. Shortcut + sidebar-row entry per `docs/frontend/routes-and-layout.md` → Global command palette (#611).
 - `apps/fo-frontend/src/features/cross-system/request-task/TaskRequestDraftCard.tsx` — neutral inline source request form and pending-source read presentation with the contract fields Evidence Summary and Requested Outcome; source mutations stay in their owning features.
 - `ListTabs` — reusable 28px list tab strip with optional bare counts, icons, native title tips, and overflow controls; composed by `ListToolbar`.
 - Internal `useHorizontalOverflow` — shared 1px scroll-edge state, resize observation, direct-child rebinding, and cleanup for `ListTabs` and `DetailPanelSectionNav`. Each consumer retains its active-item reveal, fade or scrollspy behavior, and component-specific layout rules.

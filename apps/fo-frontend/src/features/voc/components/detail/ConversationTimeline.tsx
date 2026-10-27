@@ -1,16 +1,11 @@
 // ConversationTimeline — tabbed public / internal conversation view.
 
-import * as React from 'react';
+import { PanelSectionTitle, Tabs, TabsContent } from '@ap/ui';
 import type { VocDetailEnvelope } from '@fops/shared';
-import {
-  PanelSectionTitle,
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-} from '@fops/ui';
-import { PublicTimeline } from './PublicTimeline';
+import { TabsList, TabsTrigger } from '@fops/ui';
+import * as React from 'react';
 import { InternalTimeline } from './InternalTimeline';
+import { PublicTimeline } from './PublicTimeline';
 
 export interface ConversationPostSignal {
   tab: 'public' | 'internal';
@@ -60,9 +55,7 @@ export function ConversationTimeline({
   const publicEntries = voc.conversation_timeline.filter(
     (e) => e.kind === 'public_update' || e.kind === 'reporter_reply',
   );
-  const internalEntries = voc.conversation_timeline.filter(
-    (e) => e.kind === 'internal_comment',
-  );
+  const internalEntries = voc.conversation_timeline.filter((e) => e.kind === 'internal_comment');
 
   return (
     <div>

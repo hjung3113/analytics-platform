@@ -3,7 +3,6 @@ import { TASK_REQUEST_COPY } from '@/lib/copy/task-requests';
 import { RESPONSIBILITY_COPY } from '@/lib/copy/tasks';
 import type { WorkspaceActor } from '@/lib/cross-system/useWorkspaceActors';
 import { shortId } from '@/lib/identity';
-import type { TaskPriority } from '@fops/shared';
 import {
   Button,
   DatePicker,
@@ -13,7 +12,8 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@fops/ui';
+} from '@ap/ui';
+import type { TaskPriority } from '@fops/shared';
 
 import { useResponsibilityIdentityNames } from '../../components/ResponsibilityEditor';
 

@@ -7,8 +7,8 @@ vi.mock('@/features/voc/hooks/useVocReporterReplyMutation', () => ({
   useVocReporterReplyMutation: () => ({ mutate: vi.fn(), isPending: false, error: null }),
 }));
 
-vi.mock('@fops/ui', async (importActual) => {
-  const actual = await importActual<typeof import('@fops/ui')>();
+vi.mock('@ap/ui', async (importActual) => {
+  const actual = await importActual<typeof import('@ap/ui')>();
   return {
     ...actual,
     RichEditor: ({ placeholder }: { placeholder?: string }) =>

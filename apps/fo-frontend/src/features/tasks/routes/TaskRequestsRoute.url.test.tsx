@@ -40,14 +40,8 @@ function SlotContent() {
   );
 }
 
-vi.mock('@fops/ui', async (original) => ({
-  ...(await original<typeof import('@fops/ui')>()),
-  useDetailPanelSlot: (node: import('react').ReactNode) => {
-    useLayoutEffect(() => {
-      slot.set(node);
-      return () => slot.set(undefined);
-    }, [node]);
-  },
+vi.mock('@ap/ui', async (original) => ({
+  ...(await original<typeof import('@ap/ui')>()),
   ListShell: ({ list, detailPanel }: { list: ReactNode; detailPanel?: ReactNode }) => (
     <main>
       {list}
@@ -57,6 +51,15 @@ vi.mock('@fops/ui', async (original) => ({
       </aside>
     </main>
   ),
+}));
+vi.mock('@fops/ui', async (original) => ({
+  ...(await original<typeof import('@fops/ui')>()),
+  useDetailPanelSlot: (node: import('react').ReactNode) => {
+    useLayoutEffect(() => {
+      slot.set(node);
+      return () => slot.set(undefined);
+    }, [node]);
+  },
 }));
 vi.mock('@/lib/api', async (original) => ({
   ...(await original<typeof import('@/lib/api')>()),

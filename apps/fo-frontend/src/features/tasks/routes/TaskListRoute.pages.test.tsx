@@ -13,8 +13,8 @@ vi.mock('@tanstack/react-router', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@tanstack/react-router')>()),
   useNavigate: () => navigate,
 }));
-vi.mock('@fops/ui', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@fops/ui')>()),
+vi.mock('@ap/ui', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@ap/ui')>()),
   ListShell: ({
     list,
     detailPanel,

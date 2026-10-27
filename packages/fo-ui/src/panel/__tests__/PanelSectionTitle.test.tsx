@@ -1,7 +1,5 @@
-/// <reference types="@testing-library/jest-dom" />
-import * as React from 'react';
+import { PanelSectionTitle } from '@ap/ui';
 import { render, screen } from '@testing-library/react';
-import { PanelSectionTitle } from '../PanelSectionTitle.js';
 
 describe('PanelSectionTitle', () => {
   it('renders children text', () => {

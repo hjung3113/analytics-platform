@@ -21,8 +21,8 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
     ),
   };
 });
-vi.mock('@fops/ui', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@fops/ui')>()),
+vi.mock('@ap/ui', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@ap/ui')>()),
   ListShell: ({
     toolbar,
     tabs,

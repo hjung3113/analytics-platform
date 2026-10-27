@@ -2,8 +2,8 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 // RichContentRenderer is a @fops/ui primitive — stub it
-vi.mock('@fops/ui', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@fops/ui')>();
+vi.mock('@ap/ui', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@ap/ui')>();
   return {
     ...actual,
     RichContentRenderer: ({ doc }: { doc: unknown; mode: string }) => (

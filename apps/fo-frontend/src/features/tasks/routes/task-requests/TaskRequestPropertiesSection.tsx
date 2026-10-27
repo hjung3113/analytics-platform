@@ -3,14 +3,9 @@ import { GLOSSARY } from '@/lib/copy/glossary';
 import { TASK_REQUEST_COPY } from '@/lib/copy/task-requests';
 import { RESPONSIBILITY_COPY } from '@/lib/copy/tasks';
 import { shortId } from '@/lib/identity';
+import { FieldRow, PanelSectionTitle, UserChip } from '@ap/ui';
 import type { TaskRequestDto } from '@fops/shared';
-import {
-  FieldRow,
-  ManagedSystemPill,
-  PanelSectionTitle,
-  UnassignedBadge,
-  UserChip,
-} from '@fops/ui';
+import { ManagedSystemPill, UnassignedBadge } from '@fops/ui';
 import { ResponsibilityEditor } from '../../components/ResponsibilityEditor';
 
 import type { NameMaps } from './TaskRequestRow';

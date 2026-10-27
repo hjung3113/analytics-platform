@@ -2,7 +2,6 @@ import { RequestAccessButton } from '@/features/admin/public';
 import { ApiError, errorMapper, useIdempotencyKey } from '@/lib/api';
 import { SURVEY_QUESTION_KIND_LABELS } from '@/lib/copy/enum-labels';
 import { formatShortDate } from '@/lib/format/datetime';
-import type { OutcomeFollowUpItem, OutcomeFollowUpReadDto, SurveyResultDto } from '@fops/shared';
 import {
   Button,
   DetailPanelHeader,
@@ -15,7 +14,8 @@ import {
   EmptyState,
   ListShell,
   Textarea,
-} from '@fops/ui';
+} from '@ap/ui';
+import type { OutcomeFollowUpItem, OutcomeFollowUpReadDto, SurveyResultDto } from '@fops/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';

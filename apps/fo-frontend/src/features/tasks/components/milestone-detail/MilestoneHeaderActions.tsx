@@ -1,6 +1,6 @@
 import { useHostSeam } from '@/lib/host/host-seam';
 import { searchHref } from '@/lib/host/search';
-import { DetailPanelHeaderActions } from '@fops/ui';
+import { DetailPanelHeaderActions } from '@ap/ui';
 import type * as React from 'react';
 
 /** The copy-link / more actions; the copy URL is the host's address of the Milestone, so a host without one shows no actions. */

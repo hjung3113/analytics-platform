@@ -3,7 +3,7 @@
 
 import { stringifyAppSearch } from '@/lib/router/search-serialization';
 import { parseAppSearch } from '@/lib/router/search-serialization';
-import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@fops/ui';
+import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import {
   Outlet,
   RouterProvider,

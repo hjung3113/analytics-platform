@@ -28,15 +28,15 @@ vi.mock('@/features/voc/hooks/useVocReporterReplyMutation', () => ({
 }));
 
 // Mock RichEditor to avoid TipTap JSDOM issues.
-vi.mock('@fops/ui', async (importActual) => {
-  const actual = await importActual<typeof import('@fops/ui')>();
+vi.mock('@ap/ui', async (importActual) => {
+  const actual = await importActual<typeof import('@ap/ui')>();
   return {
     ...actual,
     RichEditor: ({
       onChange,
       'data-testid': testId,
     }: {
-      onChange?: (doc: import('@fops/ui').TipTapDoc) => void;
+      onChange?: (doc: import('@ap/ui').TipTapDoc) => void;
       'data-testid'?: string;
     }) =>
       React.createElement('div', {
@@ -190,16 +190,10 @@ describe('<ReporterReplyComposer>', () => {
     // This presentational composer is unguarded. Only the VOC's Reporter is offered the Reply
     // tab (useComposerVisibility: actor.id === voc.reporter_id, any role), so an Admin on
     // someone else's VOC never reaches it in the app.
-    render(
-      <ReporterReplyComposer voc={BASE_VOC} me={ME_REPORTER} />,
-      { wrapper: makeWrapper() },
-    );
+    render(<ReporterReplyComposer voc={BASE_VOC} me={ME_REPORTER} />, { wrapper: makeWrapper() });
     expect(screen.getByTestId('reporter-reply-composer')).toBeInTheDocument();
 
-    render(
-      <ReporterReplyComposer voc={BASE_VOC} me={ME_ADMIN} />,
-      { wrapper: makeWrapper() },
-    );
+    render(<ReporterReplyComposer voc={BASE_VOC} me={ME_ADMIN} />, { wrapper: makeWrapper() });
     expect(screen.getAllByTestId('reporter-reply-composer')).toHaveLength(2);
   });
 

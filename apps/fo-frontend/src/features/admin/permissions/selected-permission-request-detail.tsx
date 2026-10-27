@@ -1,4 +1,4 @@
-import { Button } from '@fops/ui';
+import { Button } from '@ap/ui';
 import { useQuery } from '@tanstack/react-query';
 import * as React from 'react';
 

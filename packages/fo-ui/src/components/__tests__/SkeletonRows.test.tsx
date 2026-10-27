@@ -1,5 +1,5 @@
+import { SkeletonRows } from '@ap/ui';
 import { render } from '@testing-library/react';
-import { SkeletonRows } from '../SkeletonRows.js';
 
 describe('SkeletonRows', () => {
   it.each([

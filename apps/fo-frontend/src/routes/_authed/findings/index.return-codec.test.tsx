@@ -17,8 +17,8 @@ import userEvent from '@testing-library/user-event';
 import type * as React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@fops/ui', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@fops/ui')>();
+vi.mock('@ap/ui', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@ap/ui')>();
   return {
     ...actual,
     ListShell: ({

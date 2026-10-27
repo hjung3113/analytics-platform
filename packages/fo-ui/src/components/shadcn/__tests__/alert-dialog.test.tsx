@@ -1,10 +1,5 @@
+import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogTitle } from '@ap/ui';
 import { act, fireEvent, render, screen } from '@testing-library/react';
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogTitle,
-} from '../alert-dialog.js';
 
 describe('AlertDialogContent toast interactions (#1030)', () => {
   it.each(['toast', 'outside', 'caller'] as const)(

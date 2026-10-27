@@ -5,7 +5,7 @@
 //
 // C5.4 of slice3 #21.
 
-import type { TipTapDoc } from '@fops/ui';
+import type { TipTapDoc } from '@ap/ui';
 import { describe, expect, it } from 'vitest';
 
 // Named import after implementation ships.

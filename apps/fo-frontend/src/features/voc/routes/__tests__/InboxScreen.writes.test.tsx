@@ -4,7 +4,7 @@
 
 import { SEARCH_DEBOUNCE_MS } from '@/lib/forms/search-debounce';
 import { type HostSeam, HostSeamProvider } from '@/lib/host/host-seam';
-import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@fops/ui';
+import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { InboxScreen } from '../InboxScreen';

@@ -24,8 +24,8 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import type * as React from 'react';
 import { afterEach, describe, expect, it, test, vi } from 'vitest';
 
-vi.mock('@fops/ui', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@fops/ui')>();
+vi.mock('@ap/ui', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@ap/ui')>();
   return {
     ...actual,
     // The real ListShell only mounts the detail panel at desktop breakpoints;

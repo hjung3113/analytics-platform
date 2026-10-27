@@ -1,5 +1,5 @@
 import type { ApiError } from '@/lib/api';
-import { Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@fops/ui';
+import { Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@ap/ui';
 
 function messageFor(error: ApiError | null, target: 'open' | 'close') {
   // #561: a network TypeError or non-JSON body is not an ApiError and has no envelope.

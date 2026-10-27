@@ -1,28 +1,14 @@
-/// <reference types="@testing-library/jest-dom" />
-import * as React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
-import { DirtyConfirmation } from '../DirtyConfirmation.js';
+import { DirtyConfirmation } from '@ap/ui';
+import { fireEvent, render, screen } from '@testing-library/react';
 
 describe('DirtyConfirmation', () => {
   it('does not show dialog content when open is false', () => {
-    render(
-      <DirtyConfirmation
-        open={false}
-        onConfirm={vi.fn()}
-        onCancel={vi.fn()}
-      />,
-    );
+    render(<DirtyConfirmation open={false} onConfirm={vi.fn()} onCancel={vi.fn()} />);
     expect(screen.queryByText('변경사항이 저장되지 않았습니다')).toBeNull();
   });
 
   it('shows title, message, and buttons with Korean defaults when open is true', () => {
-    render(
-      <DirtyConfirmation
-        open={true}
-        onConfirm={vi.fn()}
-        onCancel={vi.fn()}
-      />,
-    );
+    render(<DirtyConfirmation open={true} onConfirm={vi.fn()} onCancel={vi.fn()} />);
     expect(screen.getByText('변경사항이 저장되지 않았습니다')).toBeInTheDocument();
     expect(screen.getByText('이동하면 작성 중인 내용이 사라집니다.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '이동' })).toBeInTheDocument();
@@ -32,9 +18,7 @@ describe('DirtyConfirmation', () => {
   it('calls onConfirm (and not onCancel) when the confirm button is clicked', () => {
     const onConfirm = vi.fn();
     const onCancel = vi.fn();
-    render(
-      <DirtyConfirmation open={true} onConfirm={onConfirm} onCancel={onCancel} />,
-    );
+    render(<DirtyConfirmation open={true} onConfirm={onConfirm} onCancel={onCancel} />);
     fireEvent.click(screen.getByRole('button', { name: '이동' }));
     expect(onConfirm).toHaveBeenCalledOnce();
     expect(onCancel).not.toHaveBeenCalled();
@@ -43,9 +27,7 @@ describe('DirtyConfirmation', () => {
   it('calls onCancel (and not onConfirm) when the cancel button is clicked', () => {
     const onConfirm = vi.fn();
     const onCancel = vi.fn();
-    render(
-      <DirtyConfirmation open={true} onConfirm={onConfirm} onCancel={onCancel} />,
-    );
+    render(<DirtyConfirmation open={true} onConfirm={onConfirm} onCancel={onCancel} />);
     fireEvent.click(screen.getByRole('button', { name: '계속 작성' }));
     expect(onCancel).toHaveBeenCalledOnce();
     expect(onConfirm).not.toHaveBeenCalled();

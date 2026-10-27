@@ -1,6 +1,6 @@
+import type { AvatarUser } from '@ap/ui';
+import { ObjectRow } from '@ap/ui';
 import type { MilestoneDto } from '@fops/shared';
-import type { AvatarUser } from '@fops/ui';
-import { ObjectRow } from '@fops/ui';
 import { Flag } from 'lucide-react';
 import {
   MilestoneManagedSystemPill,

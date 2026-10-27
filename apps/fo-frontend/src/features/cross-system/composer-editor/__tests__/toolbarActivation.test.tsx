@@ -7,7 +7,8 @@ import { InternalCommentToolbar } from '@/features/voc/components/detail/rich-to
 import { PublicUpdateToolbar } from '@/features/voc/components/detail/rich-toolbars/PublicUpdateToolbar';
 import { ReporterReplyToolbar } from '@/features/voc/components/detail/rich-toolbars/ReporterReplyToolbar';
 import { HELLO_WORLD_DOC, RealEditorHarness, useJsdomRangeGeometry } from '@/test/realEditor';
-import type { RichEditorSurface, TipTapEditor } from '@fops/ui';
+import type { RichEditorSurface } from '@ap/ui';
+import type { TipTapEditor } from '@fops/ui';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type * as React from 'react';

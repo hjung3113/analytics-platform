@@ -4,8 +4,9 @@ import { GLOSSARY } from '@/lib/copy/glossary';
 import { PERMISSION_BLOCKED_REASONS } from '@/lib/copy/permission-reasons';
 import { formatShortDateTime } from '@/lib/format/datetime';
 import { shortId } from '@/lib/identity';
+import { Button, Checkbox, PermissionBlockedPanel, cn } from '@ap/ui';
 import type { EntityLinkDto } from '@fops/shared';
-import { Button, Checkbox, ManagedSystemPill, PermissionBlockedPanel, cn } from '@fops/ui';
+import { ManagedSystemPill } from '@fops/ui';
 import { EntityRelationRow, entityLinkEndpointPrimaryLabels } from './EntityRelationRow';
 import { LinkStatusBadge } from './LinkStatusBadge';
 

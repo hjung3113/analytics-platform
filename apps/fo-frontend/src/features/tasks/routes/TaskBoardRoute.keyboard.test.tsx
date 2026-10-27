@@ -66,17 +66,11 @@ const detailSlot = vi.hoisted(() => {
     snapshot: () => node,
   };
 });
-vi.mock('@fops/ui', async () => {
-  const actual = await vi.importActual<typeof import('@fops/ui')>('@fops/ui');
+vi.mock('@ap/ui', async () => {
+  const actual = await vi.importActual<typeof import('@ap/ui')>('@ap/ui');
   const react = await vi.importActual<typeof import('react')>('react');
   return {
     ...actual,
-    useDetailPanelSlot: (node: unknown) => {
-      react.useLayoutEffect(() => {
-        detailSlot.publish(node);
-      });
-      react.useLayoutEffect(() => () => detailSlot.publish(undefined), []);
-    },
     WorkbenchShell: ({
       toolbar,
       children,
@@ -98,6 +92,19 @@ vi.mock('@fops/ui', async () => {
         </aside>
       </div>
     ),
+  };
+});
+vi.mock('@fops/ui', async () => {
+  const actual = await vi.importActual<typeof import('@fops/ui')>('@fops/ui');
+  const react = await vi.importActual<typeof import('react')>('react');
+  return {
+    ...actual,
+    useDetailPanelSlot: (node: unknown) => {
+      react.useLayoutEffect(() => {
+        detailSlot.publish(node);
+      });
+      react.useLayoutEffect(() => () => detailSlot.publish(undefined), []);
+    },
   };
 });
 

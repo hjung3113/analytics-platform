@@ -1,6 +1,7 @@
 import { RESPONSIBILITY_COPY } from '@/lib/copy/tasks';
+import { ObjectRow } from '@ap/ui';
 import type { TaskRequestDto, TaskRequestStatus } from '@fops/shared';
-import { ObjectRow, UnassignedBadge } from '@fops/ui';
+import { UnassignedBadge } from '@fops/ui';
 import type { ReactNode } from 'react';
 
 import { TASK_REQUEST_STATUS_LABELS } from '@/lib/copy/enum-labels';

@@ -24,13 +24,9 @@
 // ADR-0016: @fops/ui MUST NOT import @fops/shared. The allowlist values are
 // duplicated locally and kept in lockstep via drift tests on both sides
 // (backend↔shared and ui↔inline-fixture).
-import {
-  UI_ALLOWLISTS,
-  type AttrSchema,
-  type UISurface,
-} from './allowlist-local';
+import { type AttrSchema, type UISurface, UI_ALLOWLISTS } from './allowlist-local';
 
-import type { TipTapDoc } from './RichEditor';
+import type { TipTapDoc } from '@ap/ui';
 
 // ── Public types ─────────────────────────────────────────────────────────────
 
@@ -117,7 +113,11 @@ function coerceAttrValue(schema: AttrSchema, value: unknown, key: string): unkno
       // The link extension in our renderer accepts them. Allow through if
       // they are clearly not script schemes.
       const lower = value.trim().toLowerCase();
-      if (lower.startsWith('javascript:') || lower.startsWith('vbscript:') || lower.startsWith('data:')) {
+      if (
+        lower.startsWith('javascript:') ||
+        lower.startsWith('vbscript:') ||
+        lower.startsWith('data:')
+      ) {
         return key === 'href' ? '' : DROP;
       }
       return value;
@@ -182,7 +182,8 @@ function cleanNode(raw: unknown, depth: number, ctx: WalkCtx): CleanNode | null 
   // image is always dropped — there is no allowed image node on any surface.
   if (node.type === 'image') return null;
   if (!allow.nodes.has(node.type)) return null;
-  if (allow.leafNodes.has(node.type) && Array.isArray(node.content) && node.content.length > 0) return null;
+  if (allow.leafNodes.has(node.type) && Array.isArray(node.content) && node.content.length > 0)
+    return null;
 
   ctx.nodeCount++;
   if (ctx.nodeCount > allow.maxNodes) return null;

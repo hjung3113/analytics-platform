@@ -15,7 +15,7 @@ import { formatRecordDocumentTitle, useDocumentTitle } from '@/lib/router/docume
 import { platformReturnField } from '@/lib/router/platform-return';
 import { recoverySearchFields } from '@/lib/router/recovery-search';
 import { parseRouteSearch } from '@/lib/router/search';
-import { DirtyConfirmation, EmptyState, PermissionBlockedPanel } from '@fops/ui';
+import { DirtyConfirmation, EmptyState, PermissionBlockedPanel } from '@ap/ui';
 import {
   Outlet,
   createFileRoute,

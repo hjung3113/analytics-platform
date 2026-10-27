@@ -15,8 +15,8 @@
 import { render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import { RichContentRenderer } from '../RichContentRenderer';
-import type { TipTapDoc } from '../RichEditor';
+import { RichContentRenderer } from '@ap/ui';
+import type { TipTapDoc } from '@ap/ui';
 
 const docWithLink = (href: string): TipTapDoc =>
   ({
@@ -36,9 +36,7 @@ const docWithLink = (href: string): TipTapDoc =>
   }) as unknown as TipTapDoc;
 
 function renderDoc(href: string): HTMLAnchorElement {
-  const { container } = render(
-    <RichContentRenderer doc={docWithLink(href)} mode="internal" />,
-  );
+  const { container } = render(<RichContentRenderer doc={docWithLink(href)} mode="internal" />);
   const a = container.querySelector('a');
   if (!a) throw new Error(`no anchor rendered for href=${href}`);
   return a as HTMLAnchorElement;

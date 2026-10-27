@@ -8,8 +8,8 @@
 
 import { GLOSSARY } from '@/lib/copy/glossary';
 import { VOC_LIST_LOAD_ERROR_LABELS } from '@/lib/copy/voc';
+import { Button, EmptyState, useListMotion } from '@ap/ui';
 import type { VocListItem } from '@fops/shared';
-import { Button, EmptyState, useListMotion } from '@fops/ui';
 import type * as React from 'react';
 import { useRef, useState } from 'react';
 import { OutOfScopeSummaryBanner } from './OutOfScopeSummaryBanner';

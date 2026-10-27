@@ -1,4 +1,4 @@
-import { StatusBadgeFrame } from './StatusBadgeFrame.js';
+import { StatusBadgeFrame } from '@ap/ui';
 
 export type InternalTaskStatusEnum =
   | 'backlog'

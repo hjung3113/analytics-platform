@@ -9,9 +9,8 @@ import {
   DialogTitle,
   FieldLabel,
   Input,
-  ManagedSystemPicker,
-  type PickerOption,
-} from '@fops/ui';
+} from '@ap/ui';
+import { ManagedSystemPicker, type PickerOption } from '@fops/ui';
 import { useRef, useState } from 'react';
 
 import type { AnalyticsAreaDto, UpdateAnalyticsAreaBody } from '../../../lib/api';

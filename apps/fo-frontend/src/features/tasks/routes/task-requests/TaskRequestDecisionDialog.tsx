@@ -1,4 +1,3 @@
-import type { TaskRequestDto } from '@fops/shared';
 import {
   Button,
   Dialog,
@@ -9,7 +8,8 @@ import {
   DialogTitle,
   Label,
   Textarea,
-} from '@fops/ui';
+} from '@ap/ui';
+import type { TaskRequestDto } from '@fops/shared';
 import { Loader2 } from 'lucide-react';
 import * as React from 'react';
 

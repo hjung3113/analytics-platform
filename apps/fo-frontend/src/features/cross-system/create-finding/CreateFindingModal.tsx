@@ -10,13 +10,6 @@ import { analyticsAreasCatalogQuery } from '@/lib/cross-system/analyticsAreasCat
 import { useHostHere, useHostNavigate, useHostSeam } from '@/lib/host/host-seam';
 import { searchHref } from '@/lib/host/search';
 import {
-  type CreateFindingRequest,
-  type FindingSeverity,
-  createFindingRequestSchema,
-  findingSeveritySchema,
-} from '@fops/shared';
-import {
-  AnalyticsAreaPicker,
   Button,
   Dialog,
   DialogContent,
@@ -31,7 +24,14 @@ import {
   SelectTrigger,
   SelectValue,
   Textarea,
-} from '@fops/ui';
+} from '@ap/ui';
+import {
+  type CreateFindingRequest,
+  type FindingSeverity,
+  createFindingRequestSchema,
+  findingSeveritySchema,
+} from '@fops/shared';
+import { AnalyticsAreaPicker } from '@fops/ui';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
 import * as React from 'react';

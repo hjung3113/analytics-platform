@@ -1,5 +1,5 @@
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@ap/ui';
 import { act, fireEvent, render, screen } from '@testing-library/react';
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from '../dialog.js';
 
 describe('DialogContent accessible labels', () => {
   it('uses its configured close label', () => {

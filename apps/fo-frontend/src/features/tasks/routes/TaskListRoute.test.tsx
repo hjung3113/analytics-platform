@@ -18,8 +18,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { TaskDetailPanel } from '../components/TaskDetailPanel';
 import { TaskListRoute } from './TaskListRoute';
 
-vi.mock('@fops/ui', async () => {
-  const actual = await vi.importActual<typeof import('@fops/ui')>('@fops/ui');
+vi.mock('@ap/ui', async () => {
+  const actual = await vi.importActual<typeof import('@ap/ui')>('@ap/ui');
   return {
     ...actual,
     ListShell: ({

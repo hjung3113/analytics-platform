@@ -1,9 +1,8 @@
+import { DetailPanelFullscreenContext, DetailPanelHeader } from '@ap/ui';
+import type { DetailPanelKind } from '@ap/ui';
 /// <reference types="@testing-library/jest-dom" />
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { DetailPanelFullscreenContext } from '../DetailPanelFullscreenContext.js';
-import { DetailPanelHeader } from '../DetailPanelHeader.js';
-import type { DetailPanelKind } from '../DetailPanelHeader.js';
 
 // #525: the tokens are raw RGB triplets, so tint CSS needs an `rgb(...)`
 // wrapper. The exact tint assertion below catches a bare `var(--color-X)`,

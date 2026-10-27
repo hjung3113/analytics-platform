@@ -15,7 +15,6 @@ import { managedSystemsCatalogBridgeQuery } from '@/lib/cross-system/managedSyst
 import { formatDateOnly } from '@/lib/format/datetime';
 import { useHostSeam } from '@/lib/host/host-seam';
 import { shortId } from '@/lib/identity';
-import type { PermissionRequestOwnerDetail } from '@fops/shared';
 import {
   Button,
   DatePicker,
@@ -35,7 +34,8 @@ import {
   SelectTrigger,
   SelectValue,
   Textarea,
-} from '@fops/ui';
+} from '@ap/ui';
+import type { PermissionRequestOwnerDetail } from '@fops/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
 

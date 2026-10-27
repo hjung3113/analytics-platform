@@ -12,7 +12,7 @@
 // AttachmentRow (icon mapping, oversize / pending / uploaded state, remove
 // button, formatFileSize) mirrors screen-voc-create.jsx:285-340.
 
-import { FieldLabel, cn } from '@fops/ui';
+import { FieldLabel, cn } from '@ap/ui';
 import { Check, FileText, Paperclip, X } from 'lucide-react';
 import type * as React from 'react';
 

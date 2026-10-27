@@ -5,8 +5,6 @@
 // cannot open Findings (the platform until #763), closes with a success notice.
 
 import { FINDING_SEVERITY_LABELS } from '@/lib/copy/enum-labels';
-import type { CreateFindingRequest } from '@fops/shared';
-import { createFindingRequestSchema, findingSeveritySchema } from '@fops/shared';
 import {
   Button,
   Dialog,
@@ -22,7 +20,9 @@ import {
   SelectTrigger,
   SelectValue,
   Textarea,
-} from '@fops/ui';
+} from '@ap/ui';
+import type { CreateFindingRequest } from '@fops/shared';
+import { createFindingRequestSchema, findingSeveritySchema } from '@fops/shared';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type * as React from 'react';
 import { useForm } from 'react-hook-form';

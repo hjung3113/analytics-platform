@@ -6,15 +6,15 @@ import userEvent from '@testing-library/user-event';
 import * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@fops/ui', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@fops/ui')>();
+vi.mock('@ap/ui', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@ap/ui')>();
   return {
     ...actual,
     RichEditor: ({
       onChange,
       surface,
     }: {
-      onChange?: (doc: import('@fops/ui').TipTapDoc) => void;
+      onChange?: (doc: import('@ap/ui').TipTapDoc) => void;
       surface?: string;
     }) =>
       React.createElement('button', {
@@ -30,6 +30,7 @@ vi.mock('@fops/ui', async (importOriginal) => {
 });
 
 vi.mock('sonner', () => ({
+  Toaster: () => null,
   toast: { error: vi.fn(), warning: vi.fn(), info: vi.fn(), success: vi.fn() },
 }));
 

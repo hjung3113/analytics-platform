@@ -21,16 +21,9 @@
  * `↔ FIN-xxx` chip renders only if a linkedFindingId is ever supplied (today never).
  */
 
+import { type AvatarUser, UserAvatar, cn } from '@ap/ui';
 import type { VocListItem } from '@fops/shared';
-import {
-  type AvatarUser,
-  ManagedSystemPill,
-  ReporterStatusBadge,
-  SeverityBadge,
-  UnassignedBadge,
-  UserAvatar,
-} from '@fops/ui';
-import { cn } from '@fops/ui';
+import { ManagedSystemPill, ReporterStatusBadge, SeverityBadge, UnassignedBadge } from '@fops/ui';
 import { Paperclip } from 'lucide-react';
 import type * as React from 'react';
 

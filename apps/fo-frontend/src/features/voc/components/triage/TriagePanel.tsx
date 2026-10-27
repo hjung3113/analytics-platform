@@ -16,17 +16,16 @@
 
 import { formatRecordDocumentTitle } from '@/lib/host/document-title-format';
 import { useHostTitle } from '@/lib/host/host-seam';
-import { type FindingSeverity, type VocListItem, isTipTapDocStructurallyEmpty } from '@fops/shared';
 import {
-  AnalyticsAreaPicker,
   DetailPanelFullscreenToggle,
   DetailPanelSectionNav,
   PanelSectionTitle,
   PanelTitleBlock,
-  ReporterStatusBadge,
   RichContentRenderer,
   type TipTapDoc,
-} from '@fops/ui';
+} from '@ap/ui';
+import { type FindingSeverity, type VocListItem, isTipTapDocStructurallyEmpty } from '@fops/shared';
+import { AnalyticsAreaPicker, ReporterStatusBadge } from '@fops/ui';
 import type * as React from 'react';
 
 import { ATTACHMENT_FALLBACK_LABEL } from '@/lib/copy/attachments';

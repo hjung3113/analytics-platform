@@ -4,7 +4,7 @@ import { ROUTER_FALLBACK_COPY } from '@/lib/copy/router';
 import { InternalLink } from '@/lib/router/InternalLink';
 import { ManagedSystemScopePicker } from '@/operator-screens/scope-picker/ManagedSystemScopePicker';
 import type { ManagedSystemScopeOption } from '@/operator-screens/scope-picker/ManagedSystemScopePicker';
-import { cn } from '@fops/ui';
+import { cn } from '@ap/ui';
 import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
 import * as React from 'react';
 

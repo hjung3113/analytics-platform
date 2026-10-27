@@ -1,13 +1,7 @@
 import {
-  type PermissionRequestAdminDetail,
-  isCapability,
-  isSensitiveCapability,
-} from '@fops/shared';
-import {
   Button,
   DatePicker,
   Input,
-  OutlineBadge,
   PanelSectionTitle,
   RadioGroup,
   RadioGroupItem,
@@ -18,7 +12,13 @@ import {
   SelectTrigger,
   SelectValue,
   Textarea,
-} from '@fops/ui';
+} from '@ap/ui';
+import {
+  type PermissionRequestAdminDetail,
+  isCapability,
+  isSensitiveCapability,
+} from '@fops/shared';
+import { OutlineBadge } from '@fops/ui';
 import * as React from 'react';
 
 import type { PermissionRequestDecisionAction } from '@/lib/api';

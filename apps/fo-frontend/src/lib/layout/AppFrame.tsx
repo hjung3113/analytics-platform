@@ -18,7 +18,7 @@ import {
   DetailPanelSlotProvider,
   cn,
   useDetailPanelSlotHost,
-} from '@fops/ui';
+} from '@ap/ui';
 import { useQuery } from '@tanstack/react-query';
 import * as React from 'react';
 import { AppRail, type RailDomain } from './AppRail';
@@ -63,12 +63,32 @@ export function AppFrame(props: AppFrameProps) {
   );
 }
 
-function AppFrameBody({ sidebarEntries, activeDomain, paletteNavTree, platformReturn, managedSystemId, syncManagedSystemFromUrl = false, scopeControlEnabled = true, onManagedSystemChange, savedViewFilter, onApplySavedView, children, className }: AppFrameProps) {
-  const [selectedManagedSystemId, setSelectedManagedSystemId] = React.useState<string | undefined>(managedSystemId);
+function AppFrameBody({
+  sidebarEntries,
+  activeDomain,
+  paletteNavTree,
+  platformReturn,
+  managedSystemId,
+  syncManagedSystemFromUrl = false,
+  scopeControlEnabled = true,
+  onManagedSystemChange,
+  savedViewFilter,
+  onApplySavedView,
+  children,
+  className,
+}: AppFrameProps) {
+  const [selectedManagedSystemId, setSelectedManagedSystemId] = React.useState<string | undefined>(
+    managedSystemId,
+  );
   React.useEffect(() => {
     if (syncManagedSystemFromUrl) setSelectedManagedSystemId(managedSystemId);
   }, [managedSystemId, syncManagedSystemFromUrl]);
-  const { ref: slotHostRef, open: slotOpen, expanded: isExpanded, toggle: toggleSlot } = useDetailPanelSlotHost();
+  const {
+    ref: slotHostRef,
+    open: slotOpen,
+    expanded: isExpanded,
+    toggle: toggleSlot,
+  } = useDetailPanelSlotHost();
   // The provider hands `DetailPanelFullscreenContext` only to the portaled panel; the reading
   // column sits outside it, so it gets the host's own view of the same state.
   const columnContextValue = React.useMemo(
@@ -105,19 +125,23 @@ function AppFrameBody({ sidebarEntries, activeDomain, paletteNavTree, platformRe
     grantsQuery.fetchStatus === 'fetching';
   const countsQuery = useQuery({
     queryKey: [...NAV_COUNTS_QUERY_KEY, selectedManagedSystemId] as const,
-    queryFn: ({ signal }) => fetchNavCounts({
-      signal,
-      ...(selectedManagedSystemId !== undefined ? { managedSystemId: selectedManagedSystemId } : {}),
-    }),
+    queryFn: ({ signal }) =>
+      fetchNavCounts({
+        signal,
+        ...(selectedManagedSystemId !== undefined
+          ? { managedSystemId: selectedManagedSystemId }
+          : {}),
+      }),
     retry: false,
   });
-  const savedViewSurface: SavedViewSurface | undefined = activeDomain === 'voc'
-    ? 'voc'
-    : activeDomain === 'tasks'
-      ? 'tasks'
-      : activeDomain === 'findings'
-        ? 'findings'
-        : undefined;
+  const savedViewSurface: SavedViewSurface | undefined =
+    activeDomain === 'voc'
+      ? 'voc'
+      : activeDomain === 'tasks'
+        ? 'tasks'
+        : activeDomain === 'findings'
+          ? 'findings'
+          : undefined;
   const savedViewsQuery = useQuery({
     queryKey: ['saved-views', savedViewSurface] as const,
     queryFn: ({ signal }) => fetchSavedViews(savedViewSurface, signal),
@@ -146,19 +170,30 @@ function AppFrameBody({ sidebarEntries, activeDomain, paletteNavTree, platformRe
     surveys: { label: 'Surveys', subtitle: '탐색 · 검증 · 결과' },
     admin: { label: '관리자', subtitle: '워크스페이스' },
   };
-  const changeManagedSystem = React.useCallback((managedSystemId: string | undefined) => {
-    setSelectedManagedSystemId(managedSystemId);
-    onManagedSystemChange?.(managedSystemId);
-  }, [onManagedSystemChange]);
+  const changeManagedSystem = React.useCallback(
+    (managedSystemId: string | undefined) => {
+      setSelectedManagedSystemId(managedSystemId);
+      onManagedSystemChange?.(managedSystemId);
+    },
+    [onManagedSystemChange],
+  );
   const counts = countsQuery.data?.counts;
   const savedViews = savedViewSurface === undefined ? [] : (savedViewsQuery.data?.items ?? []);
-  const saveCurrentView = React.useCallback((name: string) => {
-    if (activeDomain !== 'voc' || savedViewFilter === undefined) return;
-    void createSavedView({ surface: 'voc', name, filter: savedViewFilter }).then(() => savedViewsQuery.refetch());
-  }, [activeDomain, savedViewFilter, savedViewsQuery]);
-  const deleteCurrentView = React.useCallback((id: string) => {
-    return deleteSavedView(id).then(() => savedViewsQuery.refetch());
-  }, [savedViewsQuery]);
+  const saveCurrentView = React.useCallback(
+    (name: string) => {
+      if (activeDomain !== 'voc' || savedViewFilter === undefined) return;
+      void createSavedView({ surface: 'voc', name, filter: savedViewFilter }).then(() =>
+        savedViewsQuery.refetch(),
+      );
+    },
+    [activeDomain, savedViewFilter, savedViewsQuery],
+  );
+  const deleteCurrentView = React.useCallback(
+    (id: string) => {
+      return deleteSavedView(id).then(() => savedViewsQuery.refetch());
+    },
+    [savedViewsQuery],
+  );
   const platformReturnUrl = allowedPlatformReturnHref(
     platformReturn,
     me.data?.platform_return_origins,
@@ -188,7 +223,10 @@ function AppFrameBody({ sidebarEntries, activeDomain, paletteNavTree, platformRe
 
   return (
     <>
-      <div className={cn('flex h-screen bg-surface-canvas text-text-primary', className)} data-app-frame>
+      <div
+        className={cn('flex h-screen bg-surface-canvas text-text-primary', className)}
+        data-app-frame
+      >
         <AppRail
           activeDomain={activeDomain}
           canAccessWorkspaceAdmin={canAccessWorkspaceAdmin}
@@ -228,7 +266,10 @@ function AppFrameBody({ sidebarEntries, activeDomain, paletteNavTree, platformRe
           )}
         </aside>
         {paletteNavTree !== undefined && (
-          <CommandPalette navTree={paletteNavTree} canAccessWorkspaceAdmin={canAccessWorkspaceAdmin} />
+          <CommandPalette
+            navTree={paletteNavTree}
+            canAccessWorkspaceAdmin={canAccessWorkspaceAdmin}
+          />
         )}
       </div>
     </>

@@ -1,7 +1,5 @@
-/// <reference types="@testing-library/jest-dom" />
-import * as React from 'react';
+import { FieldRow } from '@ap/ui';
 import { render, screen } from '@testing-library/react';
-import { FieldRow } from '../FieldRow.js';
 
 describe('FieldRow', () => {
   it('renders label text', () => {
@@ -28,7 +26,11 @@ describe('FieldRow', () => {
   });
 
   it('applies custom className to row', () => {
-    const { container } = render(<FieldRow label="l" className="custom-row">v</FieldRow>);
+    const { container } = render(
+      <FieldRow label="l" className="custom-row">
+        v
+      </FieldRow>,
+    );
     expect(container.firstElementChild).toHaveClass('custom-row');
   });
 

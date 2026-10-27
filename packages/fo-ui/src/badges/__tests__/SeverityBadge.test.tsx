@@ -1,5 +1,5 @@
+import type { SeverityEnum } from '@ap/ui';
 import { render, screen } from '@testing-library/react';
-import type { SeverityEnum } from '../../indicators/SeverityIndicator.js';
 import { SeverityBadge } from '../SeverityBadge.js';
 
 const cases: Array<{ severity: SeverityEnum; label: string }> = [

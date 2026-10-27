@@ -9,16 +9,16 @@
 // VOC defaults. Until the user clicks the action, in-flight edits stay intact
 // — the form does NOT auto-reset on updated_at change.
 
-import * as React from 'react';
-import { render, screen, waitFor, act } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { act, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import * as React from 'react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ── Mocks ───────────────────────────────────────────────────────────────────
 
-vi.mock('@fops/ui', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@fops/ui')>();
+vi.mock('@ap/ui', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@ap/ui')>();
   return {
     ...actual,
     RichEditor: ({

@@ -1,6 +1,6 @@
 import { GLOSSARY } from '@/lib/copy/glossary';
 import { HostLink } from '@/lib/host/host-seam';
-import { Button } from '@fops/ui';
+import { Button } from '@ap/ui';
 import { ArrowRight } from 'lucide-react';
 
 /**

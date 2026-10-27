@@ -11,8 +11,8 @@
 import { ApiError } from '@/lib/api/types';
 import { LIST_SEARCH_PLACEHOLDER } from '@/lib/copy/list-search';
 import { type HostSeam, HostSeamProvider } from '@/lib/host/host-seam';
+import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { listVocsQuerySchema } from '@fops/shared';
-import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@fops/ui';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useEffect } from 'react';
 import type * as React from 'react';

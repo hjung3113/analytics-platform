@@ -5,7 +5,7 @@ import { ME_QUERY_KEY, useMe } from '@/lib/auth/useMe';
 import { DOCUMENT_TITLE_COPY } from '@/lib/copy/document-titles';
 import { ROUTER_FALLBACK_COPY } from '@/lib/copy/router';
 import { useDocumentTitle } from '@/lib/router/document-title';
-import { Button, PageShell } from '@fops/ui';
+import { Button, PageShell } from '@ap/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, useRouter, useRouterState } from '@tanstack/react-router';
 import { type ReactNode, useEffect, useState } from 'react';

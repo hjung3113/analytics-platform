@@ -3,7 +3,7 @@
 // Mirrors VocDetailPanel structure per domain-module-boundaries §Frontend Boundary Rules.
 
 import { useHostSeam } from '@/lib/host/host-seam';
-import { DetailPanelHeader } from '@fops/ui';
+import { DetailPanelHeader } from '@ap/ui';
 import type * as React from 'react';
 import { useFindingDetailParts } from './FindingDetailParts';
 

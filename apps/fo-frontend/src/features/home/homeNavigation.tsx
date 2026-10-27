@@ -6,7 +6,7 @@ import { HOME_QUEUE_COPY } from '@/lib/copy/home';
 import type { SidebarNavItem } from '@/lib/layout/AppSidebar';
 import { shortcutLabel } from '@/lib/layout/command-palette/platform';
 import { hrefWithManagedSystem } from '@/lib/router/managed-system-href';
-import { KeyboardShortcut } from '@fops/ui';
+import { KeyboardShortcut } from '@ap/ui';
 
 const QUEUE_COUNT_KEY = {
   'unassigned-voc': 'home.unassigned-voc',
@@ -23,14 +23,15 @@ export function homeSidebarEntries(
   onOpenCommandPalette?: () => void,
   managedSystemId?: string,
 ): SidebarNavItem[] {
-  const queues = summary?.action_queues.map((queue) => ({
-    id: `queue-${queue.id}`,
-    label: HOME_QUEUE_COPY[queue.id].sidebarLabel,
-    href: hrefWithManagedSystem(queue.next_action.route, managedSystemId),
-    section: '액션 큐',
-    countKey: QUEUE_COUNT_KEY[queue.id],
-    count: queue.count,
-  })) ?? [];
+  const queues =
+    summary?.action_queues.map((queue) => ({
+      id: `queue-${queue.id}`,
+      label: HOME_QUEUE_COPY[queue.id].sidebarLabel,
+      href: hrefWithManagedSystem(queue.next_action.route, managedSystemId),
+      section: '액션 큐',
+      countKey: QUEUE_COUNT_KEY[queue.id],
+      count: queue.count,
+    })) ?? [];
   // #611 exposes the action only in frames that can open the mounted palette.
   const commandRow: SidebarNavItem[] =
     onOpenCommandPalette === undefined
@@ -47,7 +48,14 @@ export function homeSidebarEntries(
         ];
 
   return [
-    { id: 'home', label: '홈', href: '/home', section: 'FEEDBACKOPS', icon: <Home className="h-4 w-4" />, active },
+    {
+      id: 'home',
+      label: '홈',
+      href: '/home',
+      section: 'FEEDBACKOPS',
+      icon: <Home className="h-4 w-4" />,
+      active,
+    },
     ...commandRow,
     ...queues,
   ];

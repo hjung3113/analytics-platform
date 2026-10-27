@@ -1,5 +1,3 @@
-import { render, screen, within } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
 import {
   DetailPanelSlotProvider,
   ListShell,
@@ -7,7 +5,9 @@ import {
   ShellHeader,
   WorkbenchShell,
   useDetailPanelSlotHost,
-} from '../src/index';
+} from '@ap/ui';
+import { render, screen, within } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
 
 describe('Three-shell taxonomy (ADR-0020)', () => {
   it('PageShell renders with data-shell="page" and 50px header', () => {

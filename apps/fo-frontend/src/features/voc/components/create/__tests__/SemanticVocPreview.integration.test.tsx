@@ -18,10 +18,11 @@ vi.mock('@/lib/auth/useMe', () => ({
   useMe: () => ({ data: { actor: { display_name: '작성자', email: 'reporter@example.local' } } }),
 }));
 vi.mock('sonner', () => ({
+  Toaster: () => null,
   toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() },
 }));
-vi.mock('@fops/ui', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@fops/ui')>()),
+vi.mock('@ap/ui', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@ap/ui')>()),
   RichEditor: ({
     value,
     onChange,

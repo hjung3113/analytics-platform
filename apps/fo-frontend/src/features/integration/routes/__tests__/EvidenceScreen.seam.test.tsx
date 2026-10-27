@@ -11,8 +11,8 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { EvidenceScreen } from '../EvidenceScreen';
 
 const listShell = vi.hoisted(() => ({ detailPanels: [] as unknown[] }));
-vi.mock('@fops/ui', async (original) => ({
-  ...(await original<typeof import('@fops/ui')>()),
+vi.mock('@ap/ui', async (original) => ({
+  ...(await original<typeof import('@ap/ui')>()),
   ListShell: ({ list, detailPanel }: { list: ReactNode; detailPanel?: ReactNode }) => {
     listShell.detailPanels.push(detailPanel);
     return <div>{list}</div>;

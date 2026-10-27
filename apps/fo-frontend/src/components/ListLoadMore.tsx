@@ -1,5 +1,5 @@
 import { HOME_INBOX_COPY } from '@/lib/copy/home';
-import { Button } from '@fops/ui';
+import { Button } from '@ap/ui';
 
 // Same control placement and states as the shipped Entity Link inventory.
 export function ListLoadMore({

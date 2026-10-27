@@ -3,8 +3,8 @@
  * Anchor ranking, sticky geometry, and tab rendering stay with the caller.
  */
 
+import { prefersReducedMotion } from '@ap/ui';
 import * as React from 'react';
-import { prefersReducedMotion } from '../utils/motion.js';
 
 /** Stall net. It starts only once the jump's scroll moves, and restarts on each pulse. */
 const JUMP_SAFETY_MS = 700;

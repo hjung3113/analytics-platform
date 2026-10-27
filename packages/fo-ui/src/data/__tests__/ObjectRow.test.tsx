@@ -1,8 +1,6 @@
-/// <reference types="@testing-library/jest-dom" />
-import * as React from 'react';
+import { ObjectRow } from '@ap/ui';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { vi } from 'vitest';
-import { ObjectRow } from '../ObjectRow.js';
 
 describe('ObjectRow', () => {
   it('renders title and mono id', () => {

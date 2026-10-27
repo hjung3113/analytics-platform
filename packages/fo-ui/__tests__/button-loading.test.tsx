@@ -1,6 +1,6 @@
-import { describe, it, expect, vi } from 'vitest';
+import { Button } from '@ap/ui';
 import { render, screen } from '@testing-library/react';
-import { Button } from '../src/components/Button';
+import { describe, expect, it, vi } from 'vitest';
 
 describe('Button loading + aria-busy contract', () => {
   it('loading=true sets disabled + aria-busy + renders spinner', () => {
@@ -12,7 +12,11 @@ describe('Button loading + aria-busy contract', () => {
   });
 
   it('asChild without loading renders child element intact', () => {
-    render(<Button asChild><a href="/foo">Link</a></Button>);
+    render(
+      <Button asChild>
+        <a href="/foo">Link</a>
+      </Button>,
+    );
     const link = screen.getByRole('link', { name: /link/i });
     expect(link).toBeInTheDocument();
     expect(link.tagName).toBe('A');
@@ -23,7 +27,11 @@ describe('Button loading + aria-busy contract', () => {
     const originalEnv = process.env.NODE_ENV;
     process.env.NODE_ENV = 'development';
     expect(() => {
-      render(<Button asChild loading><a href="/foo">Link</a></Button>);
+      render(
+        <Button asChild loading>
+          <a href="/foo">Link</a>
+        </Button>,
+      );
     }).toThrow(/loading.*incompatible.*asChild/i);
     process.env.NODE_ENV = originalEnv;
   });
@@ -32,7 +40,11 @@ describe('Button loading + aria-busy contract', () => {
     const originalEnv = process.env.NODE_ENV;
     process.env.NODE_ENV = 'production';
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    render(<Button asChild loading><a href="/foo">Link</a></Button>);
+    render(
+      <Button asChild loading>
+        <a href="/foo">Link</a>
+      </Button>,
+    );
     const link = screen.getByRole('link', { name: /link/i });
     expect(link).toBeInTheDocument();
     expect(link.querySelector('svg')).not.toBeInTheDocument();

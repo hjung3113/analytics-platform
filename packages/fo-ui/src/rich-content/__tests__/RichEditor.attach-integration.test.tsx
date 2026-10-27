@@ -4,16 +4,15 @@
 // cursor with {attachment_id, name, size_bytes, mime_type}. Failure path
 // does NOT insert a node and re-throws so caller can toast.
 
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import * as React from 'react';
-import { describe, expect, it, vi } from 'vitest';
 import {
   AttachButton,
   RichEditor,
   type RichEditorAttachmentResult,
   type RichEditorSurface,
   type RichEditorToolbarApi,
-} from '../../index';
+} from '@ap/ui';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 
 const SURFACES: readonly RichEditorSurface[] = [
   'voc-description',

@@ -1,5 +1,6 @@
+import { cn } from '@ap/ui';
 import type { EntityLinkDto } from '@fops/shared';
-import { EntityIconBadge, type EntityIconType, cn } from '@fops/ui';
+import { EntityIconBadge, type EntityIconType } from '@fops/ui';
 import { ArrowRight, Lock } from 'lucide-react';
 
 import { ENTITY_LINK_RELATION_LABELS } from '@/lib/copy/enum-labels';

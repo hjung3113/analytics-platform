@@ -10,8 +10,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FindingsScreen } from './FindingsScreen';
 
 const shell = vi.hoisted(() => ({ props: [] as Record<string, unknown>[] }));
-vi.mock('@fops/ui', async (original) => ({
-  ...(await original<typeof import('@fops/ui')>()),
+vi.mock('@ap/ui', async (original) => ({
+  ...(await original<typeof import('@ap/ui')>()),
   ListShell: (props: Record<string, unknown> & { toolbar?: { actions?: React.ReactNode } }) => {
     shell.props.push(props);
     return (

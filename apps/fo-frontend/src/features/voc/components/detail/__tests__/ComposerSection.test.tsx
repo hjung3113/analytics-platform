@@ -21,11 +21,11 @@ vi.mock('@/lib/api/me', async (importOriginal) => ({
 
 // Mock RichEditor to avoid TipTap JSDOM issues. Emits onChange with a
 // non-empty doc on click so the dirty derivation (REV-2 #6) lights up.
-vi.mock('@fops/ui', async (importActual) => {
-  const actual = await importActual<typeof import('@fops/ui')>();
+vi.mock('@ap/ui', async (importActual) => {
+  const actual = await importActual<typeof import('@ap/ui')>();
   return {
     ...actual,
-    RichEditor: ({ onChange }: { onChange?: (doc: import('@fops/ui').TipTapDoc) => void }) =>
+    RichEditor: ({ onChange }: { onChange?: (doc: import('@ap/ui').TipTapDoc) => void }) =>
       React.createElement('div', {
         'data-testid': 'rich-editor',
         onClick: () =>

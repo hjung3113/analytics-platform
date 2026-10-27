@@ -3,8 +3,8 @@ import { useVocDetail } from '@/lib/cross-system/useVocDetail';
 import type { DetailParts } from '@/lib/host/detail-parts';
 import { formatRecordDocumentTitle } from '@/lib/host/document-title-format';
 import { useHostTitle } from '@/lib/host/host-seam';
+import { SkeletonBlocks } from '@ap/ui';
 import type { VocDetailEnvelope, VocSummaryEnvelope } from '@fops/shared';
-import { SkeletonBlocks } from '@fops/ui';
 import * as React from 'react';
 
 import { VocHeaderActions } from './DetailHeader';

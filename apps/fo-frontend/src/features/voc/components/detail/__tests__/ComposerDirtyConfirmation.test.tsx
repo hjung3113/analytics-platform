@@ -5,7 +5,7 @@
 //
 // C5.5 of slice3 #21.
 // Spec: PLAN-21-SUBCHUNKS.md C5.5 (DirtyConfirmation on panel close)
-// See: packages/fo-ui/src/feedback/DirtyConfirmation.tsx for the primitive
+// See: packages/ui/src/feedback/DirtyConfirmation.tsx for the primitive
 
 import type { MeResponse } from '@/lib/auth/useMe';
 import type { VocDetailEnvelope } from '@fops/shared';
@@ -17,14 +17,14 @@ import { ComposerSection } from '../ComposerSection';
 
 // ── Mock RichEditor ────────────────────────────────────────────────────────
 
-vi.mock('@fops/ui', async (importActual) => {
-  const actual = await importActual<typeof import('@fops/ui')>();
+vi.mock('@ap/ui', async (importActual) => {
+  const actual = await importActual<typeof import('@ap/ui')>();
   return {
     ...actual,
     RichEditor: ({
       onChange,
     }: {
-      onChange?: (doc: import('@fops/ui').TipTapDoc) => void;
+      onChange?: (doc: import('@ap/ui').TipTapDoc) => void;
     }) =>
       React.createElement('div', {
         'data-testid': 'rich-editor',

@@ -1,5 +1,5 @@
+import { cn } from '@ap/ui';
 import type * as React from 'react';
-import { cn } from '../utils/cn.js';
 
 export type EntityIconType =
   | 'voc'

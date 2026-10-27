@@ -1,14 +1,14 @@
 // NextActionFooter — sticky bottom footer with next actions.
 // next_actions is opaque in Slice 3; BE returns [] for fresh VOCs.
 
-import type { VocDetailEnvelope } from '@fops/shared';
 import {
   Button,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@fops/ui';
+} from '@ap/ui';
+import type { VocDetailEnvelope } from '@fops/shared';
 import { Ellipsis } from 'lucide-react';
 import * as React from 'react';
 

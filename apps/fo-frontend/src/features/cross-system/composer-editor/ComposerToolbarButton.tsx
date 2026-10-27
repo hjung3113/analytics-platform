@@ -1,7 +1,7 @@
 // ComposerToolbarButton — the one formatting button shared by every composer toolbar.
 // The onMouseDown guard keeps the editor's focus and selection when the button is clicked.
 
-import { cn } from '@fops/ui';
+import { cn } from '@ap/ui';
 import type * as React from 'react';
 
 export function ComposerToolbarButton({

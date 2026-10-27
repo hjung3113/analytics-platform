@@ -1,5 +1,5 @@
+import { StatusBadgeFrame } from '@ap/ui';
 import type { EntityLinkStatus } from '@fops/shared';
-import { StatusBadgeFrame } from '@fops/ui';
 
 const STATUS_META: Record<
   EntityLinkStatus,

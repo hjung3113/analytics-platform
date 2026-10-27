@@ -16,8 +16,8 @@
 
 import { apiClient } from '@/lib/api/client';
 import type { ApiError } from '@/lib/api/types';
+import type { TipTapDoc } from '@ap/ui';
 import type { VocDetailEnvelope, VocSummaryEnvelope } from '@fops/shared';
-import type { TipTapDoc } from '@fops/ui';
 import { type UseMutationResult, useMutation } from '@tanstack/react-query';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
