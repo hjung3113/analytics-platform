@@ -61,7 +61,7 @@ function fixedPeriod(from: string | null | undefined, to: string | null | undefi
 
 /** One short line per saved part; a relative period and an absolute one read differently. Never lists master values. */
 export function contentLines(view: SavedView, tx: (text: Text) => string, lang: 'ko' | 'en'): string[] {
-  const lines = [view.kind === 'menu-view' ? tx({ ko: '메뉴 화면', en: 'Menu view' }) : tx({ ko: '조회 조건', en: 'Query condition' })];
+  const lines = [view.kind === 'menu-view' ? tx({ ko: '메뉴 뷰', en: 'Menu view' }) : tx({ ko: '조회 조건', en: 'Query condition' })];
   const { context } = view;
   if (context.relativePeriod) lines.push(tx({ ko: `기간 최근 ${context.relativePeriod.hours}시간`, en: `Period: last ${context.relativePeriod.hours} h` }));
   else if (context.from != null || context.to != null) { const period = fixedPeriod(context.from, context.to, lang); lines.push(tx({ ko: `기간 ${period}`, en: `Period: ${period}` })); }

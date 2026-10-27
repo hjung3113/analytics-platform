@@ -50,13 +50,13 @@ const base = (ownerId: string, menuId: string | null, seq: number, name: string,
 const menuView = (ownerId: string, menuId: string, seq: number, name: string, sharing: Sharing, over: { schema?: number; roomNames?: string[] } = {}): SavedView => ({
   ...base(ownerId, menuId, seq, name, sharing), kind: 'menu-view', menuId, menuSchemaVersion: over.schema ?? CURRENT_SCHEMA,
   context: { relativePeriod: { hours: 24 }, ...(over.roomNames ? { roomNames: over.roomNames } : {}) },
-  page: { grain: ['hour'] }, chartOptions: { stacked: true }, layout: { split: [1, 2] }, panels: null,
+  page: { granularity: ['hour'] }, chartOptions: { stacked: true }, layout: { split: [1, 2] }, panels: null,
 });
 
 /** Seed rows of one owner+menu bucket; the bucket is written (materialized) only when something in it changes. */
 export function seedViews(ownerId: string, menuId: string | null): SavedView[] {
   if (menuId === null) return ownerId === 'engineer' ? [{ ...base(ownerId, null, 1, '야간 A동', PRIVATE), kind: 'condition-set', context: { lineNames: ['L1'], roomNames: ['PHOTO'] } }] : [];
-  if (menuId !== 'productivity-overview') return [];
+  if (menuId !== 'productivity-overview' && menuId !== 'cycle-time') return [];
   switch (ownerId) {
     case 'engineer': return [
       menuView(ownerId, menuId, 1, '내 야간 점검', PRIVATE),

@@ -32,7 +32,7 @@ function Harness({ value = base, groups = ready([group('t1', '포토팀', 'org-t
 it('lists org teams and custom groups in two blocks, marking org-team members as not editable', () => {
   render(<Harness />);
   const org = screen.getByRole('region', { name: '조직 팀' });
-  const custom = screen.getByRole('region', { name: '내 커스텀 그룹' });
+  const custom = screen.getByRole('region', { name: '커스텀 그룹' });
   expect(within(org).getByText('포토팀')).toBeTruthy();
   expect(within(org).getByText('멤버 편집 불가')).toBeTruthy();
   expect(within(custom).getByText('내 교대조')).toBeTruthy();

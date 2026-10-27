@@ -169,7 +169,7 @@ function PickerBody({ onOpenChange, value, groups, currentUserId, searchPeople, 
           <section aria-label="조직 팀"><h3 className="text-xs font-semibold">조직 팀</h3>
             <ul className="grid gap-1">{orgTeams.map(renderGroup)}</ul>
             {groups.status === 'ready' && orgTeams.length === 0 && <p className="text-xs text-text-secondary">해당하는 조직 팀이 없습니다.</p>}</section>
-          <section aria-label="내 커스텀 그룹"><h3 className="text-xs font-semibold">내 커스텀 그룹</h3>
+          <section aria-label="커스텀 그룹"><h3 className="text-xs font-semibold">커스텀 그룹</h3>
             <ul className="grid gap-1">{custom.map(renderGroup)}</ul>
             {groups.status === 'ready' && custom.length === 0 && <p className="text-xs text-text-secondary">해당하는 커스텀 그룹이 없습니다.</p>}</section>
         </>}

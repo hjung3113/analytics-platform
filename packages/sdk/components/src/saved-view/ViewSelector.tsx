@@ -32,7 +32,10 @@ export type ViewSelectorProps = {
   userId: string;
   /** Group names for audience text and the group filters; the list is the groups worth a filter. */
   groups?: readonly { id: string; name: string }[];
+  /** Owner name for the detail view and for rows of views other people own. */
   ownerLabel?: (ownerId: string) => string;
+  /** Ids of views the menu can no longer apply as saved; the row says so before the view is picked. */
+  staleIds?: ReadonlySet<string>;
   /** Panel conditions held by a view (`패널 조건 N`); the content stays opaque to this component. */
   panelCount?: (view: SavedView) => number;
   onSelect: (id: string) => void;
@@ -137,7 +140,7 @@ export function ViewSelector(props: ViewSelectorProps) {
   };
 
   const triggerLabel = current ? current.view.name : state === 'unsaved' || state === 'unapplied' ? word('unsavedCondition', lang) : word('noView', lang);
-  const badge = state === 'modified' ? word('modified', lang) : state === 'unsaved' ? word('unsaved', lang) : state === 'unapplied' ? word('unapplied', lang) : null;
+  const badge = state === 'modified' ? word('modified', lang) : state === 'unapplied' ? word('unapplied', lang) : null;
 
   const canEdit = current?.capabilities.canEdit ?? false;
   const canCopy = current?.capabilities.canCopy ?? false;
@@ -191,6 +194,8 @@ export function ViewSelector(props: ViewSelectorProps) {
                           <span className="flex flex-wrap items-center gap-1 text-text-secondary">
                             <span>{kindText(item.view.kind, lang)}</span>
                             <Badge variant="outline">{visibilityShort(item.view.visibility, lang, groupNames)}</Badge>
+                            {props.ownerLabel && item.view.ownerId !== userId && <span>{props.ownerLabel(item.view.ownerId)}</span>}
+                            {props.staleIds?.has(item.view.id) && <Badge variant="outline">{word('stale', lang)}</Badge>}
                             {item.view.approval === 'pending' && <Badge variant="secondary">{approvalText('pending', lang)}</Badge>}
                             {item.view.id === defaultId && <Badge variant="secondary"><Star className="mr-1 h-3 w-3" aria-hidden />{word('myDefault', lang)}</Badge>}
                           </span>

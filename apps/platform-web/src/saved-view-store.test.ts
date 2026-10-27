@@ -91,7 +91,7 @@ it('org-team membership and name cannot be edited; a custom group needs a manage
 });
 
 it.each([
-  ['권한 밖 룸', 'CMP 설비 비교'],
+  ['권한 밖 공정', 'CMP 설비 비교'],
 ])('every read re-judges scope: %s becomes a denied entry with only a reason', async (_label, name) => {
   const items = await store().list(key(ENG));
   const denied = items.filter(i => i.denied);

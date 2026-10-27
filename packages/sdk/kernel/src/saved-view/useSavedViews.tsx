@@ -32,6 +32,7 @@ export type SavedViews = {
   refresh: () => void;
 };
 
+const MAX_DEFAULT_RETRIES = 3;
 const NO_ITEMS: readonly SavedViewListItem[] = [];
 const NO_UNSUPPORTED: readonly Unsupported[] = [];
 const OFF: Result<never> = { ok: false, reason: 'unavailable' };
@@ -109,6 +110,11 @@ export function useSavedViews(): SavedViews {
   // Latest values for async callbacks. `intent` numbers the user's latest restore/pick/save: a result that arrives after a newer one, a changed address or generation, or the screen's unmount is dropped.
   const live = useRef({ gen, host, selectedId });
   useEffect(() => { live.current = { gen, host, selectedId }; });
+  // A default whose read was overtaken by a newer generation or a moved address (scope check done, the Kernel completing the address) was never judged: the entry is armed again.
+  // Capped per entry: every retry needs a new discard, and the cap ends a generation or address that keeps changing.
+  const entered = useRef<object | null>(null);
+  const [rearmed, setRearmed] = useState(0);
+  const retries = useRef<{ entry: object; n: number }>({ entry: entryGen, n: 0 });
   const intent = useRef(0);
   const alive = useRef(true);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
@@ -124,7 +130,14 @@ export function useSavedViews(): SavedViews {
     // Always asks the store: a restore is judged on the view's current capabilities, never on an earlier list answer or the cached copy.
     let found: SavedViewListItem | null;
     try { found = await store.get(id); } catch { found = null; }
-    if (stale(at) || intent.current !== mine || live.current.host.url !== startUrl) return { ok: false, reason: 'unavailable' };
+    if (stale(at) || intent.current !== mine || live.current.host.url !== startUrl) {
+      // Only a default that nobody replaced (no newer intent) and that is still on screen is retried; the restore rule refuses it if the address now carries explicit Context.
+      if (source === 'default' && alive.current && intent.current === mine) {
+        if (retries.current.entry !== entryGen) retries.current = { entry: entryGen, n: 0 };
+        if (retries.current.n < MAX_DEFAULT_RETRIES) { retries.current.n += 1; entered.current = null; setRearmed(n => n + 1); }
+      }
+      return { ok: false, reason: 'unavailable' };
+    }
     const fail = (reason: Exclude<SelectOutcome, { ok: true }>['reason']): SelectOutcome => { clearSelection(); return { ok: false, reason }; };
     if (!found) return fail('unavailable');
     if (found.denied || !found.capabilities.canView) return fail('denied');
@@ -137,11 +150,10 @@ export function useSavedViews(): SavedViews {
     setFresh({ gen: at, entry: found });
     setSelected(id);
     return { ok: true, unsupported: result.unsupported };
-  }, [enabled, support, blocked, gen, store, anchor, clearSelection, setSelected]);
+  }, [enabled, support, blocked, gen, entryGen, store, anchor, clearSelection, setSelected]);
   const validated = useRef<object | null>(null);
 
   // Entering a screen: a selection that no longer matches the address is dropped (the address wins), then the personal default fills a bare route once.
-  const entered = useRef<object | null>(null);
   useEffect(() => {
     if (!enabled || !support || blocked || loaded?.status !== 'ready') return;
     const arriving = entered.current !== entryGen;
@@ -155,7 +167,7 @@ export function useSavedViews(): SavedViews {
     else if (selected !== null) return;
     if (loaded.defaultId !== null) void apply(loaded.defaultId, 'default');
   // eslint-disable-next-line react-hooks/exhaustive-deps -- `differs` is rebuilt every render from `applied`/`anchor`, both listed
-  }, [enabled, support, blocked, loaded, gen, entryGen, selected, selectedId, applied, anchor, apply, clearSelection]);
+  }, [enabled, support, blocked, loaded, gen, entryGen, rearmed, selected, selectedId, applied, anchor, apply, clearSelection]);
   // Back/Forward is an address arrival too: the arrived address wins over the selected view.
   const traversed = useRef(false);
   useEffect(() => {
