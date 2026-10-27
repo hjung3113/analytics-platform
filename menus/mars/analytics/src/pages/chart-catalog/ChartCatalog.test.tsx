@@ -13,7 +13,7 @@ import { supportFor } from './support';
 
 // Canvas is an external rendering boundary; keep the real public chart components and controls.
 const canvas = vi.hoisted(() => ({ init: vi.fn(), dispose: vi.fn(), options: [] as unknown[] }));
-vi.mock('../../../../../../packages/components/node_modules/echarts/core.js', () => ({ use: vi.fn(), init: (...args: unknown[]) => {
+vi.mock('../../../../../../packages/sdk/components/node_modules/echarts/core.js', () => ({ use: vi.fn(), init: (...args: unknown[]) => {
   canvas.init(...args);
   return { setOption: (option: unknown) => canvas.options.push(option), on: vi.fn(), off: vi.fn(), dispose: canvas.dispose, resize: vi.fn(), dispatchAction: vi.fn(), getWidth: () => 800, getHeight: () => 300, getModel: () => ({ getComponent: () => null }) };
 } }));

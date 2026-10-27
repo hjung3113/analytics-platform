@@ -5,6 +5,8 @@
 packages:
   - apps/*
   - packages/*
+  - packages/sdk/*
+  - packages/adapters/*
   - menus/*/*
   - tooling/*
   - ops/*

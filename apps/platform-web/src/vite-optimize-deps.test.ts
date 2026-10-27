@@ -7,6 +7,12 @@ import viteConfig from '../vite.config.ts';
 
 // A bare `echarts/<x>` import that the dev server's dependency scan has not seen makes Vite re-optimize and reload the page when the lazy chunk first loads (#580 DIAG1).
 const PACKAGES = fileURLToPath(new URL('../../../packages', import.meta.url));
+// Platform packages sit one folder deeper (packages/sdk/*, packages/adapters/*); the FeedbackOps packages stay at packages/fo-*.
+function packageDirs(): string[] {
+  return readdirSync(PACKAGES, { withFileTypes: true })
+    .filter(entry => entry.isDirectory())
+    .flatMap(entry => (entry.name === 'sdk' || entry.name === 'adapters' ? readdirSync(join(PACKAGES, entry.name)).map(name => join(PACKAGES, entry.name, name)) : [join(PACKAGES, entry.name)]));
+}
 const SPECIFIER = /\bfrom\s+['"](echarts\/[\w/]+)['"]/g;
 
 function sources(dir: string): string[] {
@@ -25,14 +31,14 @@ describe('vite optimizeDeps', () => {
     for (const entry of entries) {
       const [owner, id] = entry.split(' > ');
       expect(id, entry).toMatch(/^echarts\//);
-      const manifest = JSON.parse(readFileSync(join(PACKAGES, owner!.replace('@ap/', ''), 'package.json'), 'utf8')) as { dependencies?: Record<string, string> };
+      const manifest = JSON.parse(readFileSync(join(PACKAGES, 'sdk', owner!.replace('@ap/', ''), 'package.json'), 'utf8')) as { dependencies?: Record<string, string> };
       expect(manifest.dependencies?.echarts, `${owner} must depend on echarts`).toBeTruthy();
     }
     const include = new Set(entries.map(entry => entry.split(' > ')[1]));
     const used = new Set<string>();
-    for (const pkg of readdirSync(PACKAGES)) {
+    for (const dir of packageDirs()) {
       let files: string[] = [];
-      try { files = sources(join(PACKAGES, pkg, 'src')); } catch { continue; }
+      try { files = sources(join(dir, 'src')); } catch { continue; }
       for (const file of files) for (const m of readFileSync(file, 'utf8').matchAll(SPECIFIER)) used.add(m[1]);
     }
     expect([...used].length).toBeGreaterThan(0);

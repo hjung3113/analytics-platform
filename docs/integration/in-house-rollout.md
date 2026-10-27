@@ -118,7 +118,7 @@
 ## 7. 관련 문서
 
 - [실서버 연결 체크리스트](real-server-checklist.md) — 서버·어댑터 규칙 원본
-- [`@ap/server-conformance`](../../packages/server-conformance/AGENTS.md) — 적합성 묶음과 하네스
+- [`@ap/server-conformance`](../../packages/adapters/server-conformance/AGENTS.md) — 적합성 묶음과 하네스
 - [패키지 경계](platform-packages.md) §3–§5 — 의존 방향, 포트 메서드 기준
 - [ADR-0019 메뉴 조회 포트](../adr/0019-menu-query-endpoint-declaration.md) — Q2(선언 원본) 배경
 - [03 백엔드 스택](../architecture/backend-stack.md) — FastAPI·SQL-first·인증 구조·Alembic

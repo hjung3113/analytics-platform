@@ -370,12 +370,12 @@ Unknown
 
 ### Token value source (Decided — ADR-0011)
 
-공유 색·반경·간격·폰트·본문 값의 원본은 플랫폼이다: [tokens.css](../../packages/ui/src/styles/tokens.css)·[semantic.css](../../packages/ui/src/styles/semantic.css)·[theme.css](../../packages/ui/src/styles/theme.css)·[compat.css](../../packages/ui/src/styles/compat.css)는 FeedbackOps `a8d768b8`에서 `@ap/ui`로 옮겼고([ADR-0046](../adr/0046-design-system-source-moves-to-platform-whole-package.md), #441) 값은 그대로다. 소비 순서·본문·레이어 없는 webfont 규칙은 [FO ADR-0058](../feedbackops/adr/0058-tailwind-v4-css-first-theme.md) §2(이전 시점의 설명)를 따른다. FeedbackOps `@fops/ui`는 소비 전환 전까지 FeedbackOps에 그대로 남는 별개의 사본이다. 플랫폼이 별도 값 스케일을 만들지 않는다([ADR-0011](../adr/0011-design-direction-feedbackops-shell.md)).
+공유 색·반경·간격·폰트·본문 값의 원본은 플랫폼이다: [tokens.css](../../packages/sdk/ui/src/styles/tokens.css)·[semantic.css](../../packages/sdk/ui/src/styles/semantic.css)·[theme.css](../../packages/sdk/ui/src/styles/theme.css)·[compat.css](../../packages/sdk/ui/src/styles/compat.css)는 FeedbackOps `a8d768b8`에서 `@ap/ui`로 옮겼고([ADR-0046](../adr/0046-design-system-source-moves-to-platform-whole-package.md), #441) 값은 그대로다. 소비 순서·본문·레이어 없는 webfont 규칙은 [FO ADR-0058](../feedbackops/adr/0058-tailwind-v4-css-first-theme.md) §2(이전 시점의 설명)를 따른다. FeedbackOps `@fops/ui`는 소비 전환 전까지 FeedbackOps에 그대로 남는 별개의 사본이다. 플랫폼이 별도 값 스케일을 만들지 않는다([ADR-0011](../adr/0011-design-direction-feedbackops-shell.md)).
 
-플랫폼 전용 theme 키·차트/카테고리/아이콘 색·`t-*` 역할·반응형/detail-panel 확장과 label/control pairing의 설계 원본은 [DESIGN 플랫폼 확장](../../DESIGN.md#platform-extension-layer) 및 [허용 전경/표면](../../DESIGN.md#allowed-foregroundsurface-pairs)이다. `packages/ui/src/styles/`는 그 구현을 소유한다(플랫폼 확장 값은 `platform-tokens.css`). 제거된 어두운 navigation 확장은 다시 도입하지 않는다.
+플랫폼 전용 theme 키·차트/카테고리/아이콘 색·`t-*` 역할·반응형/detail-panel 확장과 label/control pairing의 설계 원본은 [DESIGN 플랫폼 확장](../../DESIGN.md#platform-extension-layer) 및 [허용 전경/표면](../../DESIGN.md#allowed-foregroundsurface-pairs)이다. `packages/sdk/ui/src/styles/`는 그 구현을 소유한다(플랫폼 확장 값은 `platform-tokens.css`). 제거된 어두운 navigation 확장은 다시 도입하지 않는다.
 
 ### Semantic Colors
 
-Component에서 Tailwind primitive 색을 직접 의미로 사용하지 않는다. 의미 토큰 이름·값은 `packages/ui/src/styles/theme.css`와 [DESIGN](../../DESIGN.md#platform-extension-layer) 플랫폼 확장 층이 소유한다.
+Component에서 Tailwind primitive 색을 직접 의미로 사용하지 않는다. 의미 토큰 이름·값은 `packages/sdk/ui/src/styles/theme.css`와 [DESIGN](../../DESIGN.md#platform-extension-layer) 플랫폼 확장 층이 소유한다.
 
 Shadow보다 Border를 기본으로 하고 Shadow는 Popover/Dropdown/Drawer/Modal 같은 floating surface에 제한한다.

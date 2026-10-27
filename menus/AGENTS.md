@@ -37,7 +37,7 @@ Registry 그룹마다 하나의 패키지(`@ap/menu-<group>`)다. 메뉴가 `man
 - 표 엔진(`@tanstack/*` 4종)은 `@ap/components` 내부다. 메뉴는 `PlatformColumn<T>`·`PageSort[]`만 쓴다(lint `TABLE_ENGINE_PACKAGES`가 강제, `src/mock/**` 포함).
 - 메뉴 `src/mock/**`에는 mock handler를 두고 `@ap/mock-server`·`@ap/contracts`·자기 `src/endpoints.ts`만 import한다(react 금지, 상대 import는 자기 `src/mock/**`·`src/endpoints`로 한정 — lint `ap/no-menu-mock-import`가 강제). 화면과 서버가 함께 쓰는 순수 계약(코덱·지표 버전 해석)은 `src/endpoints.ts`에 둔다. handler는 앱 `src/dev/mock-assembly.tsx`의 `MOCK_ENDPOINTS`(생성기 마커)가 `@ap/menu-<g>/mock`으로 등록한다(운영 빌드 제외, ADR-0009).
 - 조회 패턴의 기준 구현은 `@ap/menu-analytics`다(`productivity-overview` = apply 경로, `execution-detail` = 모든 Context `reference`).
-- 표 내보내기·복사는 `PlatformDataTable`이 소유한다([components/AGENTS.md](../packages/components/AGENTS.md), 06 §15). 메뉴는 `exportRows`·`exportNote`·`exportFilterSummary`만 주고, 내보내기 엔드포인트는 행 배열 + `limits.maxRows`로 `src/endpoints.ts`에 선언한다. 렌더 게이트로 전체 목록을 읽지 않는다.
+- 표 내보내기·복사는 `PlatformDataTable`이 소유한다([components/AGENTS.md](../packages/sdk/components/AGENTS.md), 06 §15). 메뉴는 `exportRows`·`exportNote`·`exportFilterSummary`만 주고, 내보내기 엔드포인트는 행 배열 + `limits.maxRows`로 `src/endpoints.ts`에 선언한다. 렌더 게이트로 전체 목록을 읽지 않는다.
 - 화면이 없는 그룹도 계획 메뉴의 manifest로 자기 그룹을 소유한다. `component` 없는 항목에 화면을 얹는 것이 이 패키지 분리의 목적이 아니다 — 새 화면 추가는 별도 요청·검증(06 §5, §29)이 필요하다.
 - 페이지는 `@ap/contracts`·`@ap/kernel`·`@ap/components`·`@ap/ui`(공개 진입점만)와 자기 `src/endpoints.ts`를 import할 수 있다. 기간 계산 `periodHours`·`bucketStart`는 `@ap/contracts`(`period.ts`)에서, 표시용 상수는 자기 `src/endpoints.ts`에서 가져온다. mock handler의 의존은 위 `src/mock/**` 규칙을 따른다. 앱(`apps/*`)과 다른 `@ap/menu-*`는 import하지 않는다(패키지 경계 §3).
 

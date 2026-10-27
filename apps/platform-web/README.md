@@ -1,6 +1,6 @@
 # Platform App — 통합 인터랙티브 프로토타입
 
-**합성 데이터 프로토타입.** 실제 파서 데이터·SSO·권한 서버·mart가 없다. `@ap/mock-server`(`packages/mock-server`)이 서버 역할(Scope/room 재검증, `outcome`+`assessments[]` 응답 envelope)을 흉내낸다. Kernel은 mock을 직접 import하지 않고 `@ap/contracts`의 `PlatformAdapter`를 통해서만 서버에 닿는다(dev·mock 빌드에서는 `src/dev/mock-assembly.tsx`의 `createMockAdapter` 결과를 `main.tsx`가 `#platform-assembly`로 받아 주입, ADR-0009).
+**합성 데이터 프로토타입.** 실제 파서 데이터·SSO·권한 서버·mart가 없다. `@ap/mock-server`(`packages/adapters/mock-server`)이 서버 역할(Scope/room 재검증, `outcome`+`assessments[]` 응답 envelope)을 흉내낸다. Kernel은 mock을 직접 import하지 않고 `@ap/contracts`의 `PlatformAdapter`를 통해서만 서버에 닿는다(dev·mock 빌드에서는 `src/dev/mock-assembly.tsx`의 `createMockAdapter` 결과를 `main.tsx`가 `#platform-assembly`로 받아 주입, ADR-0009).
 
 기존 4개 Kernel 유닛(`kernel-app-shell`, `kernel-chart-frame`, `kernel-platform-table`, `kernel-context-url-scope`)을 하나의 앱으로 통합해, 플랫폼 다섯 갈래가 실제 메뉴 화면(Consumer) 아래에서 함께 동작하는지 검증한다. 기존 유닛은 수정하지 않았다.
 
@@ -22,10 +22,10 @@ pnpm --filter @ap/platform-web check:prod-graph  # 운영 모듈 그래프에 mo
 
 | 갈래 (AGENTS.md) | 위치 |
 | --- | --- |
-| Kernel: Menu Registry, 전역 Context, URL 계약, 권한·Scope, 즐겨찾기/최근/활용 계측 | `packages/kernel`(`@ap/kernel`: `createRegistry`, `PlatformProvider`, `usePlatformQuery`, i18n), 메뉴 선언은 `menus/<space>/<group>/src/index.ts`(앱 `src/menus.ts`가 연결), URL codec·manifest·응답 envelope 타입은 `packages/contracts` |
-| 공통 컴포넌트 | `packages/components`(`@ap/components`) — `PlatformPage`(§8 Slot: Context Bar는 `slots.contextBar`로 주입), `PlatformDataTable`, `DetailDrawer`, `AuditTimeline`, `DataTrustIndicator`, `StateView`(§19), `StatCard`. UI primitive·`StatusBadge`·토큰은 `packages/ui`(`@ap/ui`) |
-| 차트 계약 | `packages/components/src/chart/AnalysisChartFrame.tsx` (Zoom/Brush/Reset/Compare/Annotate/Export/More, 4층 상태 분리), `chart/EChart.tsx` |
-| 레이아웃 | `packages/shell`(`@ap/shell`: AppShell 레일 52px·사이드바 240/56px·페이지 머리 50px, AppRail, AppSidebar 평면 그룹, GlobalContextBar, CommandPalette, RouteOutlet) + 페이지 archetype |
+| Kernel: Menu Registry, 전역 Context, URL 계약, 권한·Scope, 즐겨찾기/최근/활용 계측 | `packages/sdk/kernel`(`@ap/kernel`: `createRegistry`, `PlatformProvider`, `usePlatformQuery`, i18n), 메뉴 선언은 `menus/<space>/<group>/src/index.ts`(앱 `src/menus.ts`가 연결), URL codec·manifest·응답 envelope 타입은 `packages/sdk/contracts` |
+| 공통 컴포넌트 | `packages/sdk/components`(`@ap/components`) — `PlatformPage`(§8 Slot: Context Bar는 `slots.contextBar`로 주입), `PlatformDataTable`, `DetailDrawer`, `AuditTimeline`, `DataTrustIndicator`, `StateView`(§19), `StatCard`. UI primitive·`StatusBadge`·토큰은 `packages/sdk/ui`(`@ap/ui`) |
+| 차트 계약 | `packages/sdk/components/src/chart/AnalysisChartFrame.tsx` (Zoom/Brush/Reset/Compare/Annotate/Export/More, 4층 상태 분리), `chart/EChart.tsx` |
+| 레이아웃 | `packages/sdk/shell`(`@ap/shell`: AppShell 레일 52px·사이드바 240/56px·페이지 머리 50px, AppRail, AppSidebar 평면 그룹, GlobalContextBar, CommandPalette, RouteOutlet) + 페이지 archetype |
 | 메뉴간 연결 | `usePlatform().linkTo()` Context Link helper, `returnTo` 복귀 |
 
 ## 페이지 작성 가이드 (Consumer 규칙)
@@ -39,8 +39,8 @@ pnpm --filter @ap/platform-web check:prod-graph  # 운영 모듈 그래프에 mo
 3. 전역 Context 읽기: `const { global } = usePlatform()` (`from`,`to`,`roomNames`,`condition`,`selection`,`lotIds`,`ppid`,`recipeIds`,`metricId`,`metricVersion`, `scopeId`). 전역 변경은 사용자의 명시적 액션일 때만 `setGlobal(patch)`.
 4. Page-owned URL 상태: registry의 `pageKeys`에 등록된 키만 `pageParam(key)` / `setPage({key: value|null}, {replace?})`. 미등록 키를 쓰지 않는다. 탭·필터·정렬처럼 공유 링크로 재현돼야 하는 것만 URL에 둔다.
 5. 다른 메뉴로 이동은 반드시 `linkTo(menuId, { params, page, global, returnTo: true })` + `<PlatformLink href>` 또는 `navigate()`. URL 문자열을 직접 조립하지 않는다(§22). 목적지 객체 ID(`params`)와 분석 Context(`global`)는 분리한다 — 상세로 갈 때 Selection을 목적지 ID로 바꾸지 않는다. 상세의 “분석으로 돌아가기”는 `pageParam('returnTo')`로 받은 URL을 그대로 `navigate()`한다(§6.4).
-6. 차트는 `AnalysisChartFrame`으로 감싼다. 시리즈 색은 `packages/ui/src/styles/platform-tokens.css` 변수명(`chart-blue`, `chart-teal`, `chart-green`, `chart-purple`, `accent-warn` …). 차트 클릭으로 전역 Context를 조용히 바꾸지 않는다 — 드릴다운은 `onPointClick`의 명시적 이동, 구간 승격은 프레임의 “분석 구간 적용”.
-7. 표는 `PlatformDataTable`: `loadPage`는 `useMenuFetch(pageEndpoint).fetch({ ...filters, ...query }, signal)`(params에 `PageQuery`를 펼치고 서버는 `sortAndPage`로 답한다), 열은 `PlatformColumn<T>`(`id` = 서버 정렬 필드·열 설정 키·URL sort 값, 표시 전용은 `sortable: false`)로 선언한다. 내보내기·복사는 표가 소유한다([components/AGENTS.md](../../packages/components/AGENTS.md), 06 §15). 상세는 `DetailDrawer` + `Field` + `AuditTimeline`. 정렬·페이지·드로어 탭은 manifest `pageKeys`에 등록하고 `parsePageIndex`·`parseTableSort`·`encodeTableSort`로 다루며 잘못된 값은 대체하지 않고 경고로 보인다(표의 sort/page는 `useTableUrlState`가 경고 문장과 표의 `urlState`를 함께 준다). 행 집합 필터가 바뀌면 같은 `setPage`에서 `page`를 지우고, 전역 Context 변경 때 지울 키는 manifest `contextResetKeys`로 선언한다(페이지가 지우는 effect를 쓰지 않는다, #45).
+6. 차트는 `AnalysisChartFrame`으로 감싼다. 시리즈 색은 `packages/sdk/ui/src/styles/platform-tokens.css` 변수명(`chart-blue`, `chart-teal`, `chart-green`, `chart-purple`, `accent-warn` …). 차트 클릭으로 전역 Context를 조용히 바꾸지 않는다 — 드릴다운은 `onPointClick`의 명시적 이동, 구간 승격은 프레임의 “분석 구간 적용”.
+7. 표는 `PlatformDataTable`: `loadPage`는 `useMenuFetch(pageEndpoint).fetch({ ...filters, ...query }, signal)`(params에 `PageQuery`를 펼치고 서버는 `sortAndPage`로 답한다), 열은 `PlatformColumn<T>`(`id` = 서버 정렬 필드·열 설정 키·URL sort 값, 표시 전용은 `sortable: false`)로 선언한다. 내보내기·복사는 표가 소유한다([components/AGENTS.md](../../packages/sdk/components/AGENTS.md), 06 §15). 상세는 `DetailDrawer` + `Field` + `AuditTimeline`. 정렬·페이지·드로어 탭은 manifest `pageKeys`에 등록하고 `parsePageIndex`·`parseTableSort`·`encodeTableSort`로 다루며 잘못된 값은 대체하지 않고 경고로 보인다(표의 sort/page는 `useTableUrlState`가 경고 문장과 표의 `urlState`를 함께 준다). 행 집합 필터가 바뀌면 같은 `setPage`에서 `page`를 지우고, 전역 Context 변경 때 지울 키는 manifest `contextResetKeys`로 선언한다(페이지가 지우는 effect를 쓰지 않는다, #45).
 8. 스타일은 DESIGN.md 토큰 유틸리티만 사용: `bg-surface-card`, `border-border-subtle`, `text-text-muted`, `bg-accent-primary-soft`, `t-page-title`/`t-section-title`/`t-card-title`/`t-stat`/`t-caption`/`t-mono`/`tabular` 등. 임의 hex·그림자 스택·pill 버튼 금지. 상태 색은 `StatusBadge`(success/warning/danger/neutral/info)만.
 9. UI 문구는 `const { tx, lang } = useI18n()`로 한/영 모두 제공(`lang === 'ko' ? … : …` 또는 `tx({ko, en})`). 설비 ID·팀명 같은 마스터 값은 번역하지 않는다.
 10. 합성 데이터는 서버 쪽(`menus/<space>/<group>/src/mock/`)에 둔다. 화면에는 표시 라벨만 남기고, 화면과 서버가 함께 쓰는 순수 계약(타입·코덱)은 `src/endpoints.ts`에 둔다.

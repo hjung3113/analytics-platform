@@ -1,0 +1,36 @@
+{
+  "name": "@ap/contracts",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./vocab.json": "./src/vocab.json"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      },
+      "./vocab.json": "./dist/vocab.json"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc -p tsconfig.build.json && node ../../../tooling/sdk/sdk-finalize-dist.mjs",
+    "check:pack": "node scripts/check-pack.mjs",
+    "gen:vocab": "node scripts/vocab.mjs",
+    "test": "node scripts/vocab.mjs --check"
+  },
+  "devDependencies": {
+    "@ap/eslint-config": "workspace:*",
+    "@ap/tsconfig": "workspace:*",
+    "eslint": "^10.11.0",
+    "typescript": "^5.9.3"
+  }
+}

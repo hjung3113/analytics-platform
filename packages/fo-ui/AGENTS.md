@@ -19,7 +19,7 @@
 ## Design Rules
 
 - Use semantic tokens, not raw hex values, outside token implementation files.
-- SDK-owned parts are imported from the workspace `@ap/ui` (`packages/ui`, `workspace:*` since #642) directly,
+- SDK-owned parts are imported from the workspace `@ap/ui` (`packages/sdk/ui`, `workspace:*` since #642) directly,
   not through `@fops/ui` (#713q, ADR-0090). That covers the shadcn primitives, tokens and motion
   utilities (`cn`, `prefersReducedMotion`, ...), the panel, toolbar, forms, feedback and layout
   shells, the detail slot (`DetailPanelSlotProvider`, `useDetailPanelSlotHost`,
@@ -58,8 +58,8 @@
   `@ap/ui/styles/sources.css`.
   Preserve `layer(base)` on the token and semantic imports. Do not use
   `@ap/ui/styles.css`, which adds the platform extension layer.
-- `@ap/ui` is the workspace package (`workspace:*` in `packages/ui/package.json` and
-  `apps/fo-frontend/package.json`, #642): a change under the repository's `packages/ui`
+- `@ap/ui` is the workspace package (`workspace:*` in `packages/sdk/ui/package.json` and
+  `apps/fo-frontend/package.json`, #642): a change under the repository's `packages/sdk/ui`
   reaches FeedbackOps at once and runs the FeedbackOps CI. Keep the consumer CSS contract
   when either side changes. Keep TipTap at 3.23.5 and
   `@formkit/auto-animate@0.10.0` with its root workspace patch unless a separate
@@ -71,7 +71,7 @@
 - `components.json` here only points `@shadcn/lint` at the app's Tailwind
   entry (ADR-0062). It is not a shadcn CLI config; use the intake guidance in
   `docs/feedbackops/tech-stack/component-stack.md`.
-- Follow `docs/feedbackops/frontend/tokens.md` tokens for light surfaces, spacing, typography, and density; do not introduce a new visual theme from `packages/ui`.
+- Follow `docs/feedbackops/frontend/tokens.md` tokens for light surfaces, spacing, typography, and density; do not introduce a new visual theme from `packages/sdk/ui`.
 - Promote from feature-local code only after a second real consumer proves reuse.
 - Every reusable component must define loading, empty, error, disabled, focus-visible, and permission-limited behavior when applicable.
 - Icon-only controls require accessible labels and tooltips.

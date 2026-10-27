@@ -4,7 +4,7 @@
 
 import { z } from 'zod';
 
-/** Mirror of `ENTITY_AUDIT_PAGE_MAX` in packages/contracts/src/audit.ts:33 (check-boundaries rule 11 forbids the import); platform-conformance.integration.test.ts pins equality. */
+/** Mirror of `ENTITY_AUDIT_PAGE_MAX` in packages/sdk/contracts/src/audit.ts:33 (check-boundaries rule 11 forbids the import); platform-conformance.integration.test.ts pins equality. */
 export const ENTITY_AUDIT_PAGE_MAX = 50;
 
 const BASE64URL = /^[A-Za-z0-9_-]+$/;

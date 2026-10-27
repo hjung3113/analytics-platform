@@ -5,7 +5,7 @@ import { hwTime } from '../endpoints';
 import { useHwTimeLevel, useHwTimeTrend } from './data';
 
 // The lifecycle itself (applied vs draft Context, kind check, Scope/period gates) is the Kernel's and is tested in
-// packages/kernel/src/menu-query.test.tsx; this package has no DOM test environment. These tests pin that the HW Time
+// packages/sdk/kernel/src/menu-query.test.tsx; this package has no DOM test environment. These tests pin that the HW Time
 // hooks reach it with the declared endpoint instead of keeping a query lifecycle of their own.
 vi.mock('@ap/kernel', () => ({ useMenuQuery: vi.fn(() => ({ status: 'loading', response: null })) }));
 

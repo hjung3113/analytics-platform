@@ -16,7 +16,7 @@
 | [Datadog template variables](https://docs.datadoghq.com/dashboards/template_variables/), [Carbon filtering](https://www.carbondesignsystem.com/building-blocks/core/patterns/filtering), [Atlassian filters](https://atlassian.design/components/filter/) | 대시보드 변수, batch filter와 직접 적용 사례 |
 | [Grafana query history](https://grafana.com/docs/grafana/latest/visualizations/explore/query-management/), [Looker user history](https://docs.cloud.google.com/looker/docs/user-history), [Kibana saved search](https://www.elastic.co/guide/en/kibana/current/save-open-search.html) | 최근 조회 내역과 저장된 검색의 복원 범위 |
 | [Grafana dashboard time range](https://grafana.com/docs/grafana/latest/visualizations/dashboards/use-dashboards/), [Power BI relative date slicer](https://learn.microsoft.com/en-us/power-bi/visuals/desktop-slicer-filter-date-range), [Tableau relative dates](https://help.tableau.com/current/pro/desktop/en-gb/qs_relative_dates.htm) | 오늘/상대 기간의 기준 시점과 날짜 필터 |
-| [PageFilterBar](../../packages/components/src/filters/PageFilterBar.tsx), [GlobalContextBar](../../packages/shell/src/GlobalContextBar.tsx), [Combobox](../../packages/ui/src/components/shadcn/combobox.tsx), [시간 계약](../contract/platform-ui-contract.md) | 현재 공개된 플랫폼 API와 시간 범위 경계 |
+| [PageFilterBar](../../packages/sdk/components/src/filters/PageFilterBar.tsx), [GlobalContextBar](../../packages/sdk/shell/src/context/GlobalContextBar.tsx), [Combobox](../../packages/sdk/ui/src/components/shadcn/combobox.tsx), [시간 계약](../contract/platform-ui-contract.md) | 현재 공개된 플랫폼 API와 시간 범위 경계 |
 
 ## 질문 1: 검색·원격 옵션을 갖춘 Multi-select Combobox는 어떻게 만드는가?
 
@@ -36,7 +36,7 @@
 
 ### 우리 플랫폼에 맞는 형태
 
-현재 primitive를 여러 번 호출해도 API 자체는 단일값이다. MARS용 선택 컨트롤은 `selectedIds: string[]`와 `searchText`를 따로 소유하고, 선택할 때 popup은 열린 채 유지하며, 선택된 값은 현재 검색 결과 페이지가 바뀌어도 유지해야 한다. 원격 옵션은 debounce, 늦은 응답 폐기, loading/error/empty 상태, 다음 페이지 로딩 상태를 포함한다. 이 구성은 Ant의 순서 제어와 Spectrum의 `onLoadMore`를 참고하되, 플랫폼 계약으로 새로 정해야 할 부분이다. [Ant Design Select](https://ant.design/components/select/) · [Spectrum ListBox](https://react-spectrum.adobe.com/v3/ListBox.html) · [현재 Combobox](../../packages/ui/src/components/shadcn/combobox.tsx)
+현재 primitive를 여러 번 호출해도 API 자체는 단일값이다. MARS용 선택 컨트롤은 `selectedIds: string[]`와 `searchText`를 따로 소유하고, 선택할 때 popup은 열린 채 유지하며, 선택된 값은 현재 검색 결과 페이지가 바뀌어도 유지해야 한다. 원격 옵션은 debounce, 늦은 응답 폐기, loading/error/empty 상태, 다음 페이지 로딩 상태를 포함한다. 이 구성은 Ant의 순서 제어와 Spectrum의 `onLoadMore`를 참고하되, 플랫폼 계약으로 새로 정해야 할 부분이다. [Ant Design Select](https://ant.design/components/select/) · [Spectrum ListBox](https://react-spectrum.adobe.com/v3/ListBox.html) · [현재 Combobox](../../packages/sdk/ui/src/components/shadcn/combobox.tsx)
 
 선택이 적을 때는 chips를 모두 보여 주고, 많을 때는 처음 일부와 `+N` 또는 `N개 선택`을 표시한다. 전체 선택을 바꾸지 않고 선택된 chip 각각을 제거할 수 있어야 하며, 요약 상태에서도 선택값을 잃지 않아야 한다. 검색 결과의 옵션은 focus 이동과 실제 선택 상태를 구별하고, 다중 listbox의 선택 상태를 보조기기에 노출해야 한다. 제거 버튼의 accessible name에는 제거할 항목명이 포함되어야 한다. [Carbon MultiSelect](https://v10.carbondesignsystem.com/components/dropdown/usage/) · [MUI Autocomplete](https://mui.com/material-ui/react-autocomplete/) · [WAI-ARIA Listbox](https://www.w3.org/WAI/ARIA/apg/patterns/listbox/)
 
@@ -58,13 +58,13 @@
 
 ### 우리 플랫폼에 맞는 형태
 
-모든 조건은 page-owned `draft`로 편집하고, Apply 한 번에 query를 한 번만 보낸다. Reset은 draft를 기본 조건으로 돌리고, Revert/취소는 마지막으로 실제 적용된 조건으로 되돌린다. 변경 상태는 collapsed summary에도 남긴다. Tableau, Carbon, Power BI는 pending 상태 또는 deferred Apply 사례를 제공하고, Metabase는 자동 Apply도 허용하므로, MARS의 한 번 실행은 issue 요구에 맞춘 플랫폼 선택이다. [Tableau](https://help.tableau.com/current/pro/desktop/en-us/filtering.htm) · [Carbon](https://www.carbondesignsystem.com/building-blocks/core/patterns/filtering) · [PageFilterBar](../../packages/components/src/filters/PageFilterBar.tsx)
+모든 조건은 page-owned `draft`로 편집하고, Apply 한 번에 query를 한 번만 보낸다. Reset은 draft를 기본 조건으로 돌리고, Revert/취소는 마지막으로 실제 적용된 조건으로 되돌린다. 변경 상태는 collapsed summary에도 남긴다. Tableau, Carbon, Power BI는 pending 상태 또는 deferred Apply 사례를 제공하고, Metabase는 자동 Apply도 허용하므로, MARS의 한 번 실행은 issue 요구에 맞춘 플랫폼 선택이다. [Tableau](https://help.tableau.com/current/pro/desktop/en-us/filtering.htm) · [Carbon](https://www.carbondesignsystem.com/building-blocks/core/patterns/filtering) · [PageFilterBar](../../packages/sdk/components/src/filters/PageFilterBar.tsx)
 
-`PageFilterBar`는 consumer가 fields/actions를 주고 `onApply`를 전달하면 submit form을 만든다. `custom` field는 arbitrary control 슬롯이다. 접힌 summary에는 모든 조건과 `hasPendingChanges` 표시도 consumer가 공급한다. 따라서 현재 shared part를 조합해 query owner를 소비자에 둘 수 있으나, Multi-select와 validation/disabled-reason UI를 primitive API로 제공하지는 않는다. [PageFilterBar](../../packages/components/src/filters/PageFilterBar.tsx)
+`PageFilterBar`는 consumer가 fields/actions를 주고 `onApply`를 전달하면 submit form을 만든다. `custom` field는 arbitrary control 슬롯이다. 접힌 summary에는 모든 조건과 `hasPendingChanges` 표시도 consumer가 공급한다. 따라서 현재 shared part를 조합해 query owner를 소비자에 둘 수 있으나, Multi-select와 validation/disabled-reason UI를 primitive API로 제공하지는 않는다. [PageFilterBar](../../packages/sdk/components/src/filters/PageFilterBar.tsx)
 
-필수 조건이 빠졌으면 Apply는 disabled이고, 버튼 가까이에 누락된 조건의 구체적 이유를 보여 주며, 각 입력도 오류와 보조 설명으로 연결한다. 누락 사유를 hover tooltip에만 두면 키보드/터치 사용자에게 원인이 감춰진다. 조회 상태는 “아직 조회하지 않음”, “조회 중”, “결과 없음”, “권한/오류/timeout”을 구분한다. 첫 상태를 loading이나 empty로 재사용하면 요청 전과 요청 후 결과가 같아 보인다. `QueryView`는 서버 응답의 loading과 empty/error 같은 outcome을 구분하므로 query page는 여기에 pre-run idle 상태 하나를 추가하는 편이 맞다. [StateView / QueryView](../../packages/components/src/StateView.tsx) · [PageFilterBar](../../packages/components/src/filters/PageFilterBar.tsx)
+필수 조건이 빠졌으면 Apply는 disabled이고, 버튼 가까이에 누락된 조건의 구체적 이유를 보여 주며, 각 입력도 오류와 보조 설명으로 연결한다. 누락 사유를 hover tooltip에만 두면 키보드/터치 사용자에게 원인이 감춰진다. 조회 상태는 “아직 조회하지 않음”, “조회 중”, “결과 없음”, “권한/오류/timeout”을 구분한다. 첫 상태를 loading이나 empty로 재사용하면 요청 전과 요청 후 결과가 같아 보인다. `QueryView`는 서버 응답의 loading과 empty/error 같은 outcome을 구분하므로 query page는 여기에 pre-run idle 상태 하나를 추가하는 편이 맞다. [StateView / QueryView](../../packages/sdk/components/src/StateView.tsx) · [PageFilterBar](../../packages/sdk/components/src/filters/PageFilterBar.tsx)
 
-날짜가 Global Context인지 page query 조건인지는 적용 경계를 정해야 한다. 현재 `GlobalContextBar`는 변경을 Apply할 때 `setGlobal()`로 URL/global context를 즉시 바꾸고, 조건 편집기는 한 axis와 한 value를 다룬다. MARS draft 편집 도중 이를 수정하면 query 실행 전부터 다른 메뉴의 Context가 바뀔 수 있다. MARS 날짜가 Global Context의 공유 기간이라면 Apply 시점에만 승격하고, 아니면 page-local query로 유지한다. [GlobalContextBar](../../packages/shell/src/GlobalContextBar.tsx) · [시간 및 Context 계약](../contract/platform-ui-contract.md)
+날짜가 Global Context인지 page query 조건인지는 적용 경계를 정해야 한다. 현재 `GlobalContextBar`는 변경을 Apply할 때 `setGlobal()`로 URL/global context를 즉시 바꾸고, 조건 편집기는 한 axis와 한 value를 다룬다. MARS draft 편집 도중 이를 수정하면 query 실행 전부터 다른 메뉴의 Context가 바뀔 수 있다. MARS 날짜가 Global Context의 공유 기간이라면 Apply 시점에만 승격하고, 아니면 page-local query로 유지한다. [GlobalContextBar](../../packages/sdk/shell/src/context/GlobalContextBar.tsx) · [시간 및 Context 계약](../contract/platform-ui-contract.md)
 
 ## 질문 3: 최근 Query History와 복귀 동작
 
@@ -80,8 +80,8 @@ Grafana는 “Last 7 days”, “Today so far” 같은 상대 범위와 absolut
 
 ## Prototype 후보
 
-**A — 한 줄 필터 + 단일 Apply:** 기간 preset, 기준일/직접 기간, 다중 Equipment 검색, Maker/Module 조건과 Query History를 한 filter bar에 둔다. 필요한 조건이 빠지면 disabled Apply 바로 옆에 이유를 표시하고, bar 하단 summary에 draft 변경 상태를 노출한다. 화면 공간을 덜 쓰고 상태가 한 곳에 모이지만, 넓은 Multi-select와 많은 조건이 한 줄에서 경쟁한다. [PageFilterBar](../../packages/components/src/filters/PageFilterBar.tsx) · [Carbon filtering](https://www.carbondesignsystem.com/building-blocks/core/patterns/filtering)
+**A — 한 줄 필터 + 단일 Apply:** 기간 preset, 기준일/직접 기간, 다중 Equipment 검색, Maker/Module 조건과 Query History를 한 filter bar에 둔다. 필요한 조건이 빠지면 disabled Apply 바로 옆에 이유를 표시하고, bar 하단 summary에 draft 변경 상태를 노출한다. 화면 공간을 덜 쓰고 상태가 한 곳에 모이지만, 넓은 Multi-select와 많은 조건이 한 줄에서 경쟁한다. [PageFilterBar](../../packages/sdk/components/src/filters/PageFilterBar.tsx) · [Carbon filtering](https://www.carbondesignsystem.com/building-blocks/core/patterns/filtering)
 
-**B — 날짜/Context 줄 + 분석 조건 줄:** 날짜를 Global Context 또는 page query 중 하나로 결정해 첫 줄에 두고, Equipment/Maker/Module, History, Reset을 두 번째 줄에 둔다. 두 줄 모두 같은 draft 소유자와 Apply에 연결한다. 조건 의미가 계층화되고 긴 다중 선택이 넓어지지만, 날짜를 page draft에서 전역 Context로 승격하는 시점을 명시해야 한다. [GlobalContextBar](../../packages/shell/src/GlobalContextBar.tsx) · [Looker Explore filters](https://docs.cloud.google.com/looker/docs/filtering-and-limiting-new-explore-experience)
+**B — 날짜/Context 줄 + 분석 조건 줄:** 날짜를 Global Context 또는 page query 중 하나로 결정해 첫 줄에 두고, Equipment/Maker/Module, History, Reset을 두 번째 줄에 둔다. 두 줄 모두 같은 draft 소유자와 Apply에 연결한다. 조건 의미가 계층화되고 긴 다중 선택이 넓어지지만, 날짜를 page draft에서 전역 Context로 승격하는 시점을 명시해야 한다. [GlobalContextBar](../../packages/sdk/shell/src/context/GlobalContextBar.tsx) · [Looker Explore filters](https://docs.cloud.google.com/looker/docs/filtering-and-limiting-new-explore-experience)
 
 **C — 요약형 bar + full-screen 고급 조건:** 기본 화면에서는 적용 조건을 chips/`N개 선택`과 dirty 상태로 요약하고, 고급 편집 panel에서 검색·paging·조건별 validation을 보여 준다. Save/Apply가 조건 draft를 확정하고, 취소는 마지막 Apply로 되돌린다. 긴 목록과 작은 화면에서 여유가 있지만 요약을 열고 닫는 단계가 추가되고, selection summary가 모든 조건을 빠짐없이 담아야 한다. [Primer SelectPanel](https://primer.style/product/components/select-panel/) · [MUI Autocomplete](https://mui.com/material-ui/react-autocomplete/)

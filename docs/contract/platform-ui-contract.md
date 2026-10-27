@@ -13,7 +13,7 @@
 - **Open**: Scope 부모·자식 상속, 최초 기본 Δ, timeDomain assertion 공급 근거, 다중 Site의 같은 날짜·교대일/영업일 등 각 절에 명시한 미결 입력. URL 메커니즘과 Site→room_name→StGroup→Equipment 관계의 Decided 상태 및 공개 필드명·enum의 Candidate 상태와 구별한다.
 - **Deferred**: 저장된 뷰 등 후속 구현 범위. 이 설계가 기능 제공 시점을 확정하지 않는다.
 
-§5~6, §8~9, §11, §17, §19의 책임·행동 규칙은 Decided다. §7 셸 구조·치수는 2026-10-04 [ADR-0011](../adr/0011-design-direction-feedbackops-shell.md)로 FeedbackOps AppFrame 구조(레일 52px·사이드바 240/56px·상단 바 없음·페이지 머리 50px)로 Decided됐다. 치수 값의 단일 원본은 `packages/ui/src/styles/tokens.css`의 레이아웃 토큰이다(FeedbackOps `a8d768b8`에서 이전). §15 테이블 밀도(최소 32px)는 2026-09-21 `DESIGN.md` canonical 값으로 Decided다. §23 토큰 값의 원본은 ADR-0011로 Decided이며, 나머지 §23 정책·§25 반응형 정책은 아직 Candidate다. 구현 순서와 남은 일은 [`.planning/README.md`](../../.planning/README.md)가 관리하며 이 문서의 계약 상태와 별개다.
+§5~6, §8~9, §11, §17, §19의 책임·행동 규칙은 Decided다. §7 셸 구조·치수는 2026-10-04 [ADR-0011](../adr/0011-design-direction-feedbackops-shell.md)로 FeedbackOps AppFrame 구조(레일 52px·사이드바 240/56px·상단 바 없음·페이지 머리 50px)로 Decided됐다. 치수 값의 단일 원본은 `packages/sdk/ui/src/styles/tokens.css`의 레이아웃 토큰이다(FeedbackOps `a8d768b8`에서 이전). §15 테이블 밀도(최소 32px)는 2026-09-21 `DESIGN.md` canonical 값으로 Decided다. §23 토큰 값의 원본은 ADR-0011로 Decided이며, 나머지 §23 정책·§25 반응형 정책은 아직 Candidate다. 구현 순서와 남은 일은 [`.planning/README.md`](../../.planning/README.md)가 관리하며 이 문서의 계약 상태와 별개다.
 
 구현 순서·배치 시점은 Deferred이며, 이 문서의 계약은 각 기능이 구현될 때 따라야 할 조건이다. 와이어프레임에 표현됐다는 이유만으로 해당 기능의 구현이 승인되지는 않는다. 구체 셸 배치·사용자 작업·상태 시나리오는 `../wireframes/app-shell.md`가 관리한다.
 

@@ -1,0 +1,251 @@
+diff -ruN a/.agents/conductor/PROFILE.md b/.agents/conductor/PROFILE.md
+--- a/.agents/conductor/PROFILE.md	2026-10-27 16:01:28
++++ b/.agents/conductor/PROFILE.md	2026-10-27 16:01:34
+@@ -48,7 +48,7 @@
+ 1. 바뀐 패키지 검사.
+ 2. 루트 `pnpm lint && pnpm typecheck && pnpm test --concurrency=2 && pnpm build`를 순서대로 한 번 돌린다. test의 패키지 동시 실행 상한은 루트 `turbo.json` `concurrency`가 정하고 CI도 같다([operations.md](../../docs/agents/operations.md)). turbo 캐시는 worktree끼리 공유되니 `--force`·`--affected`·`...[ref]` 같은 git diff 필터를 쓰지 않는다 — 해시 입력이 바뀐 패키지와 그 의존자만 다시 돌고, diff 필터는 입력이 아닌 파일 목록으로 범위를 정해 더 위험하다(메뉴만 바꿨는데 gen-menu test가 빠진 일이 있었다). 필터는 루트 스크립트와 같은 `--filter='!@fops/*'`만 쓴다(FeedbackOps 루트 도구 `@fops/ops`가 빠지지 않으면 그 lint가 플랫폼 biome 설정으로 돌아 1000건 넘게 실패한다). 패키지 밖 파일을 읽는 테스트는 `turbo.json`에 `$TURBO_ROOT$` inputs를 선언해야 이 캐시가 믿을 만하다.
+ 3. Kernel·셸·공통 컴포넌트·mock 서버가 바뀌었으면 E2E를 돌린다. 새 describe만 먼저(`cd apps/platform-e2e && pnpm exec playwright test -g "<describe>"`), 그다음 브리프 「영향 범위」 절이 적은 describe만 `-g "A|B"`로 돌린다. 로컬에서 전체 `pnpm e2e`는 돌리지 않는다. 전체는 PR CI가 돌고, 로컬 전체 실행은 CI 실패를 재현할 때만 쓴다(사용자 2026-10-26, #959).
+-5. **FeedbackOps 단계는 `.github/workflows/feedbackops.yml`의 `paths`에 닿았을 때만 돌린다**(경로 목록의 원본은 그 워크플로 파일이다: `docs/feedbackops/**`, `apps/fo-*/**`, `packages/fo-*/**`, `ops/feedbackops/**`, `packages/{ui,contracts,http-adapter,server-conformance}/**`, 루트 manifest·lockfile·`.nvmrc` 등). 닿았으면 저장소 루트에서 `bash ops/feedbackops/scripts/ci/gate.sh static --base origin/main`, `unit`, 그리고 integration을 모두 돌린다. integration은 `gate.sh integration`으로 돌리지 않는다: 그 단계는 `CI_PG_ADMIN_URL` 서버의 `feedbackops` DB를 migrate·truncate하는데, verify 컨테이너(5439)에서는 그것이 이슈 DB를 복제하는 원본이다. 대신 이슈 DB에서 `FEEDBACKOPS_ENV_FILE=$WAVE_STATE/env.verify.<n> pnpm --filter @fops/backend test:integration`(전체)을 돌린다. 브랜치가 migration을 더했으면 먼저 `verify-db.sh drop <n>` → `create <n> --migrate-from <worktree>`(저장소 루트 checkout)로 다시 만든다(#621). 5434는 쓰지 않는다. 플랫폼 루트 검사는 FeedbackOps를 보지 않는다. 한 단계라도 빼면 CI가 대신 잡는다(#620: unit을 빼서 proxy 완전성 테스트 실패를 CI에서야 봤다). 새 파일은 커밋 전에 `ops/feedbackops/node_modules/.bin/biome format --config-path=ops/feedbackops --write <파일>`을 돌린다(#603·#620에서 포맷만으로 static 실패).
++5. **FeedbackOps 단계는 `.github/workflows/feedbackops.yml`의 `paths`에 닿았을 때만 돌린다**(경로 목록의 원본은 그 워크플로 파일이다: `docs/feedbackops/**`, `apps/fo-*/**`, `packages/fo-*/**`, `ops/feedbackops/**`, `packages/sdk/{ui,contracts}/**`·`packages/adapters/{http-adapter,server-conformance}/**`, 루트 manifest·lockfile·`.nvmrc` 등). 닿았으면 저장소 루트에서 `bash ops/feedbackops/scripts/ci/gate.sh static --base origin/main`, `unit`, 그리고 integration을 모두 돌린다. integration은 `gate.sh integration`으로 돌리지 않는다: 그 단계는 `CI_PG_ADMIN_URL` 서버의 `feedbackops` DB를 migrate·truncate하는데, verify 컨테이너(5439)에서는 그것이 이슈 DB를 복제하는 원본이다. 대신 이슈 DB에서 `FEEDBACKOPS_ENV_FILE=$WAVE_STATE/env.verify.<n> pnpm --filter @fops/backend test:integration`(전체)을 돌린다. 브랜치가 migration을 더했으면 먼저 `verify-db.sh drop <n>` → `create <n> --migrate-from <worktree>`(저장소 루트 checkout)로 다시 만든다(#621). 5434는 쓰지 않는다. 플랫폼 루트 검사는 FeedbackOps를 보지 않는다. 한 단계라도 빼면 CI가 대신 잡는다(#620: unit을 빼서 proxy 완전성 테스트 실패를 CI에서야 봤다). 새 파일은 커밋 전에 `ops/feedbackops/node_modules/.bin/biome format --config-path=ops/feedbackops --write <파일>`을 돌린다(#603·#620에서 포맷만으로 static 실패).
+ 4. 메뉴 manifest·`menus.ts`·contracts 메뉴 타입·`tooling/gen-menu`를 바꿨으면 `node tooling/gen-menu/scripts/probe.ts`(생성 → 전체 검사 → 되돌리기)를 돌린다. 루트 4종과 CI에 없어서, #671 B9에서 probe 템플릿의 타입 오류를 이 단계가 처음 잡았다. 미리보기가 떠 있는 worktree에서는 돌리지 않는다(아래 §Traps).
+ 6. `python3 $ENGINE/worker-hygiene.py <worktree>`: 이유 없는 새 `eslint-disable`과 `eslint-suppressions.json` 증가는 실패, 공백만 바뀐 변경은 보고만 한다(설정 `worker_hygiene`).
+ 
+diff -ruN a/AGENTS.md b/AGENTS.md
+--- a/AGENTS.md	2026-10-27 16:01:28
++++ b/AGENTS.md	2026-10-27 16:01:34
+@@ -37,7 +37,7 @@
+ 
+ ## 코드
+ 
+-- 루트 pnpm workspace: `apps/*`, `packages/*`, `menus/*/*`, `tooling/*`. Node 26.7.0, pnpm 11.1.1. 명령은 루트에서 `pnpm install|dev|lint|typecheck|test|build|e2e`.
++- 루트 pnpm workspace: `apps/*`, `packages/*`(FeedbackOps `fo-*`), `packages/sdk/*`, `packages/adapters/*`, `menus/*/*`, `tooling/*`. Node 26.7.0, pnpm 11.1.1. 명령은 루트에서 `pnpm install|dev|lint|typecheck|test|build|e2e`.
+ - 의존 방향은 `contracts → ui/kernel → components → shell → apps`, 역방향 import 금지(경계 lint가 강제, 원본 `docs/integration/platform-packages.md` §3). FeedbackOps primitive는 `@ap/ui`로만 소비한다.
+ - Kernel·공통 컴포넌트·셸은 메뉴와 mock을 모른다. 메뉴 목록은 Registry로, 서버는 `PlatformAdapter`로 앱이 주입한다.
+ 
+@@ -70,7 +70,7 @@
+ 
+ ## FeedbackOps (`apps/fo-*`·`packages/fo-*`·`docs/feedbackops/`·`ops/feedbackops/`)
+ 
+-FeedbackOps는 이 저장소의 일반 코드다(서브모듈 아님, [ADR-0066](docs/adr/0066-feedbackops-merges-into-platform.md), #592). 앱·패키지(`@fops/*`)는 `apps/fo-backend`·`apps/fo-frontend`·`packages/fo-shared`·`packages/fo-ui`, 문서는 `docs/feedbackops/`에 있다([ADR-0090](docs/adr/0090-repo-structure-by-branch.md), #713). 루트 pnpm workspace의 일부이고(#642) Node 26.7·pnpm 11·루트 lockfile·turbo를 함께 쓰며 `@ap/ui`는 `workspace:*`로 받는다. 린트는 자체 Biome이고, 루트 `lint|typecheck|test|build`는 FeedbackOps를 뺀다. FeedbackOps 루트 도구(스크립트·게이트·compose·conductor, 워크스페이스 패키지 `@fops/ops`)는 `ops/feedbackops/`에 있고 FeedbackOps 명령은 저장소 루트에서 `pnpm --filter @fops/ops <script>`·`bash ops/feedbackops/scripts/ci/gate.sh …`로 실행한다(앱·패키지 위치는 `ops/feedbackops/paths.sh`·`paths.mjs` 한 곳, [ADR-0090](docs/adr/0090-repo-structure-by-branch.md)). 내부 작업은 `docs/feedbackops/AGENTS.md`와 각 앱·패키지의 `AGENTS.md`를 따르며, 플랫폼 규칙을 소급 적용하지 않는다. CI는 `.github/workflows/feedbackops.yml`(`docs/feedbackops/`·`apps/fo-*`·`packages/fo-*`·`ops/feedbackops/`, `packages/{ui,contracts,http-adapter,server-conformance}`, 루트 manifest·lockfile 등이 바뀔 때 — 경로 목록의 원본은 그 파일). 통합 계약이 충돌하면 한쪽을 임의로 고치지 말고 사용자에게 올린다. 구조는 `docs/integration/repository-layout.md`.
++FeedbackOps는 이 저장소의 일반 코드다(서브모듈 아님, [ADR-0066](docs/adr/0066-feedbackops-merges-into-platform.md), #592). 앱·패키지(`@fops/*`)는 `apps/fo-backend`·`apps/fo-frontend`·`packages/fo-shared`·`packages/fo-ui`, 문서는 `docs/feedbackops/`에 있다([ADR-0090](docs/adr/0090-repo-structure-by-branch.md), #713). 루트 pnpm workspace의 일부이고(#642) Node 26.7·pnpm 11·루트 lockfile·turbo를 함께 쓰며 `@ap/ui`는 `workspace:*`로 받는다. 린트는 자체 Biome이고, 루트 `lint|typecheck|test|build`는 FeedbackOps를 뺀다. FeedbackOps 루트 도구(스크립트·게이트·compose·conductor, 워크스페이스 패키지 `@fops/ops`)는 `ops/feedbackops/`에 있고 FeedbackOps 명령은 저장소 루트에서 `pnpm --filter @fops/ops <script>`·`bash ops/feedbackops/scripts/ci/gate.sh …`로 실행한다(앱·패키지 위치는 `ops/feedbackops/paths.sh`·`paths.mjs` 한 곳, [ADR-0090](docs/adr/0090-repo-structure-by-branch.md)). 내부 작업은 `docs/feedbackops/AGENTS.md`와 각 앱·패키지의 `AGENTS.md`를 따르며, 플랫폼 규칙을 소급 적용하지 않는다. CI는 `.github/workflows/feedbackops.yml`(`docs/feedbackops/`·`apps/fo-*`·`packages/fo-*`·`ops/feedbackops/`, `packages/sdk/{ui,contracts}`·`packages/adapters/{http-adapter,server-conformance}`, 루트 manifest·lockfile 등이 바뀔 때 — 경로 목록의 원본은 그 파일). 통합 계약이 충돌하면 한쪽을 임의로 고치지 말고 사용자에게 올린다. 구조는 `docs/integration/repository-layout.md`.
+ 
+ ## 폴더별 지침
+ 
+diff -ruN a/apps/platform-web/src/vite-optimize-deps.test.ts b/apps/platform-web/src/vite-optimize-deps.test.ts
+--- a/apps/platform-web/src/vite-optimize-deps.test.ts	2026-10-27 16:01:28
++++ b/apps/platform-web/src/vite-optimize-deps.test.ts	2026-10-27 16:01:34
+@@ -7,6 +7,12 @@
+ 
+ // A bare `echarts/<x>` import that the dev server's dependency scan has not seen makes Vite re-optimize and reload the page when the lazy chunk first loads (#580 DIAG1).
+ const PACKAGES = fileURLToPath(new URL('../../../packages', import.meta.url));
++// Platform packages sit one folder deeper (packages/sdk/*, packages/adapters/*); the FeedbackOps packages stay at packages/fo-*.
++function packageDirs(): string[] {
++  return readdirSync(PACKAGES, { withFileTypes: true })
++    .filter(entry => entry.isDirectory())
++    .flatMap(entry => (entry.name === 'sdk' || entry.name === 'adapters' ? readdirSync(join(PACKAGES, entry.name)).map(name => join(PACKAGES, entry.name, name)) : [join(PACKAGES, entry.name)]));
++}
+ const SPECIFIER = /\bfrom\s+['"](echarts\/[\w/]+)['"]/g;
+ 
+ function sources(dir: string): string[] {
+@@ -25,14 +31,14 @@
+     for (const entry of entries) {
+       const [owner, id] = entry.split(' > ');
+       expect(id, entry).toMatch(/^echarts\//);
+-      const manifest = JSON.parse(readFileSync(join(PACKAGES, owner!.replace('@ap/', ''), 'package.json'), 'utf8')) as { dependencies?: Record<string, string> };
++      const manifest = JSON.parse(readFileSync(join(PACKAGES, 'sdk', owner!.replace('@ap/', ''), 'package.json'), 'utf8')) as { dependencies?: Record<string, string> };
+       expect(manifest.dependencies?.echarts, `${owner} must depend on echarts`).toBeTruthy();
+     }
+     const include = new Set(entries.map(entry => entry.split(' > ')[1]));
+     const used = new Set<string>();
+-    for (const pkg of readdirSync(PACKAGES)) {
++    for (const dir of packageDirs()) {
+       let files: string[] = [];
+-      try { files = sources(join(PACKAGES, pkg, 'src')); } catch { continue; }
++      try { files = sources(join(dir, 'src')); } catch { continue; }
+       for (const file of files) for (const m of readFileSync(file, 'utf8').matchAll(SPECIFIER)) used.add(m[1]);
+     }
+     expect([...used].length).toBeGreaterThan(0);
+diff -ruN a/docs/INDEX.md b/docs/INDEX.md
+--- a/docs/INDEX.md	2026-10-27 16:01:28
++++ b/docs/INDEX.md	2026-10-27 16:01:34
+@@ -1,6 +1,6 @@
+ # 문서 인덱스
+ 
+-이 레포는 `context_recognized_parser`(별도 레포)가 적재한 데이터를 소비하는 분석 플랫폼의 설계와 프론트엔드 플랫폼 코드를 담는다. 코드는 루트 pnpm workspace(`packages/*` 플랫폼 패키지, `menus/*/*` 견본 메뉴, `apps/platform-web` 조립 앱, 서버는 mock 또는 `@ap/http-adapter` 실어댑터)이고, FeedbackOps는 `apps/fo-*`·`packages/fo-*`·`docs/feedbackops/`에 있다(서브모듈 아님, ADR-0066·ADR-0090).
++이 레포는 `context_recognized_parser`(별도 레포)가 적재한 데이터를 소비하는 분석 플랫폼의 설계와 프론트엔드 플랫폼 코드를 담는다. 코드는 루트 pnpm workspace(`packages/sdk/*`·`packages/adapters/*` 플랫폼 패키지, `menus/*/*` 견본 메뉴, `apps/platform-web` 조립 앱, 서버는 mock 또는 `@ap/http-adapter` 실어댑터)이고, FeedbackOps는 `apps/fo-*`·`packages/fo-*`·`docs/feedbackops/`에 있다(서브모듈 아님, ADR-0066·ADR-0090).
+ 
+ | 알고 싶은 것 | 어디 |
+ | --- | --- |
+diff -ruN a/docs/adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md b/docs/adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md
+--- a/docs/adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md	2026-10-27 16:01:28
++++ b/docs/adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md	2026-10-27 16:01:34
+@@ -30,7 +30,7 @@
+ 
+ ## 결과
+ 
+-- **코드를 옮기기 전까지는 지금 규칙을 그대로 따른다.** 06 §13, [ADR-0010](0010-feedbackops-design-system-shared-on-tailwind-v4.md)·[ADR-0011](0011-design-direction-feedbackops-shell.md)·[ADR-0023](0023-feedbackops-primitive-shapes-and-sizes.md), [`packages/ui/AGENTS.md`](../../packages/ui/AGENTS.md)대로 `@ap/ui`는 `@fops/ui`를 재수출하고, primitive 변경은 FeedbackOps에 제안한다. 이 문서들의 "원본은 FeedbackOps" 서술은 소유 방향만 바뀌었다는 표시를 달고, 본문은 코드 이전 이슈에서 고친다. 이전 이슈는 SDK 첫 슬라이스에서 연다.
++- **코드를 옮기기 전까지는 지금 규칙을 그대로 따른다.** 06 §13, [ADR-0010](0010-feedbackops-design-system-shared-on-tailwind-v4.md)·[ADR-0011](0011-design-direction-feedbackops-shell.md)·[ADR-0023](0023-feedbackops-primitive-shapes-and-sizes.md), [`packages/ui/AGENTS.md`](../../packages/sdk/ui/AGENTS.md)대로 `@ap/ui`는 `@fops/ui`를 재수출하고, primitive 변경은 FeedbackOps에 제안한다. 이 문서들의 "원본은 FeedbackOps" 서술은 소유 방향만 바뀌었다는 표시를 달고, 본문은 코드 이전 이슈에서 고친다. 이전 이슈는 SDK 첫 슬라이스에서 연다.
+ - #396 본문의 제목·목표와 ADR-0043과 어긋나는 절(§2 상위집합 전제, §3 기능별 원본 선정, §5·§6 두 조립 진입점, §7 두 호스트 공통 구현, §8·§10 독립 실행 조건, §9 primitive 소유, §11 대안 판정, §12 Open)을 이 ADR에 맞춘다. §7 안전 조건과 §8 착수 증거는 플랫폼 실행에 대해서만 그대로 둔다.
+ - [프레임워크 통합 계획](../integration/framework-unification-plan.md)과 [플랫폼 탑재 설계](../integration/platform-hosting-design.md)의 어긋나는 서술은 각 문서 머리말에서 이 ADR이 우선한다고 표시한다. 세 프레임워크가 하는 일을 SDK가 다 덮는지 확인하는 **포괄 목록**(통합 계획 §2·§3 지도에서 출발)이 다음 설계 산출물이다(Open, [보드](../../.planning/README.md)).
+ - 호스트 → 모듈 계약(ADR-0038·0039, 탑재 설계 §2)은 SDK의 중심으로 남는다. 다만 탑재 설계 §4의 "모듈 패키지는 `@ap/contracts`만 import"와 `@fops/ui` 배포·peer 행은 "앱이 SDK 프레임워크를 소비한다"와 맞지 않으므로 SDK 배포 단위를 설계할 때 다시 정한다(Open).
+diff -ruN a/docs/integration/platform-packages.md b/docs/integration/platform-packages.md
+--- a/docs/integration/platform-packages.md	2026-10-27 16:01:28
++++ b/docs/integration/platform-packages.md	2026-10-27 16:01:34
+@@ -18,7 +18,7 @@
+ > 목표 의존 방향은 SDK ← 제품 한 방향이다([ADR-0043](../adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md), 2026-10-19). 아래 `@ap/ui → @fops/ui` 간선(규칙 8)은 지금 구조이고, 토큰·primitive 코드를 SDK로 옮길 때 없앤다.
+ 
+ 
+-루트에 pnpm workspace를 두고 세 갈래로 나눈다: `packages/`(플랫폼), `menus/<space>/<group>/`(Consumer, `null` 소속은 `_global`), `apps/`(조립 지점). 이름 접두사는 Candidate `@ap/`.
++루트에 pnpm workspace를 두고 세 갈래로 나눈다: `packages/`(플랫폼: SDK 다섯은 `packages/sdk/`, 어댑터·소비자 쪽 넷은 `packages/adapters/`, FeedbackOps `fo-*`는 `packages/` 바로 아래), `menus/<space>/<group>/`(Consumer, `null` 소속은 `_global`), `apps/`(조립 지점). 이름 접두사는 Candidate `@ap/`.
+ 
+ | 패키지 | 06 갈래 | 내용(현재 파일 기준) | React | 의존 가능 |
+ | --- | --- | --- | --- | --- |
+@@ -66,7 +66,7 @@
+ 4. 각 패키지는 `package.json` `exports`로 공개 진입점만 연다. `@ap/components/src/...` 같은 깊은 경로 import 금지. 호스트 전용 진입점 `@ap/components/dock`은 셸·앱 프리셋만 import할 수 있고(메뉴·모듈 프리셋은 lint가 막는다), `dockview`·`dockview-react`·`dockview-core`는 `@ap/components` 밖에서 import할 수 없다(`tooling/eslint`, ADR-0067).
+ 5. `contracts`는 React·브라우저 API에 타입 수준으로도 의존하지 않는다(향후 백엔드와 공유할 수 있게). 아이콘·화면 컴포넌트처럼 React 타입이 필요한 manifest 필드는 `kernel`의 `MenuEntry`가 소유한다.
+ 6. 규칙 1–3은 테스트 파일에도 적용한다. 층을 넘는 검증은 그 위층(메뉴 또는 앱)의 통합 테스트로 둔다.
+-7. **모듈 패키지**(다른 저장소에서 플랫폼에 올라오는 화면 묶음, [ADR-0053](../adr/0053-host-module-contract-v1.md))는 `@ap/contracts`와 `@ap/ui`(+ `@ap/ui` CSS 하위 경로·`@ap/ui/theme`·`@ap/ui/theme-tokens.json`)만 import한다. `@ap/kernel`·`@ap/shell`·`@ap/components`·`menu-*`·`mock-server`는 import하지 않는다. `tooling/eslint`의 `hostModule` 프리셋이 강제하며, 이 저장소의 실제 패키지에는 적용하지 않고, 고정 모듈 fixture(`packages/shell/src/__fixtures__/module-fixture/`, 패키지가 아닌 디렉터리 — `hostModuleDir`가 그 디렉터리를 경계로 강제하고 `tooling/eslint` 회귀 테스트가 고정)에만 쓴다. 고정 fixture는 앱에 마운트하지 않는다. 외부 모듈은 앱의 `src/modules.ts`에서 `mountModule`로 마운트하고 `menus.ts`가 레지스트리 호출에서만 합친다 — 첫 외부 모듈은 EV의 `eqv`(릴리스 tarball `@eqv/*`를 URL로 설치, ADR-0053 소비자, 설치 절차는 EV ADR-0014·`INTEGRATION.md`가 소유, #801). 모듈은 자기 패키지 루트 안의 상대 import만 쓴다(패키지 이름 접두사와 무관). 열린 어휘(`<moduleId>:` 권한·그룹)와 등록 `mountModule`은 Kernel이 소유한다. 모듈 id는 플랫폼 권한 네임스페이스(`KERNEL_PERMISSIONS`와 앱이 선언한 메뉴 권한의 `:` 앞)를 쓸 수 없고, 화면 id는 메뉴 id `<moduleId>:<screenId>`로 등록된다.
++7. **모듈 패키지**(다른 저장소에서 플랫폼에 올라오는 화면 묶음, [ADR-0053](../adr/0053-host-module-contract-v1.md))는 `@ap/contracts`와 `@ap/ui`(+ `@ap/ui` CSS 하위 경로·`@ap/ui/theme`·`@ap/ui/theme-tokens.json`)만 import한다. `@ap/kernel`·`@ap/shell`·`@ap/components`·`menu-*`·`mock-server`는 import하지 않는다. `tooling/eslint`의 `hostModule` 프리셋이 강제하며, 이 저장소의 실제 패키지에는 적용하지 않고, 고정 모듈 fixture(`packages/sdk/shell/src/__fixtures__/module-fixture/`, 패키지가 아닌 디렉터리 — `hostModuleDir`가 그 디렉터리를 경계로 강제하고 `tooling/eslint` 회귀 테스트가 고정)에만 쓴다. 고정 fixture는 앱에 마운트하지 않는다. 외부 모듈은 앱의 `src/modules.ts`에서 `mountModule`로 마운트하고 `menus.ts`가 레지스트리 호출에서만 합친다 — 첫 외부 모듈은 EV의 `eqv`(릴리스 tarball `@eqv/*`를 URL로 설치, ADR-0053 소비자, 설치 절차는 EV ADR-0014·`INTEGRATION.md`가 소유, #801). 모듈은 자기 패키지 루트 안의 상대 import만 쓴다(패키지 이름 접두사와 무관). 열린 어휘(`<moduleId>:` 권한·그룹)와 등록 `mountModule`은 Kernel이 소유한다. 모듈 id는 플랫폼 권한 네임스페이스(`KERNEL_PERMISSIONS`와 앱이 선언한 메뉴 권한의 `:` 앞)를 쓸 수 없고, 화면 id는 메뉴 id `<moduleId>:<screenId>`로 등록된다.
+ 8. 어떤 플랫폼 패키지도 `@fops/*`를 import하지 않는다(ADR-0046, #441 — 디자인 시스템은 `@ap/ui`로 옮겨 왔고 `@fops/ui`가 `@ap/ui`에 의존한다). primitive는 모든 플랫폼 코드에서 `@ap/ui`를 통해 쓴다(ADR-0011). **예외는 다리 하나다**(ADR-0071, ADR-0081): `@ap/fo-bridge`는 `@fops/frontend/global-screens/core`만 import하고(프리셋 `foBridge`, 슬롯이 lazy로 여는 `src/pages/`만 `global-screens`도), 다리 메뉴(`@ap/menu-my-activity`, 이후 `menus/feedbackops/*`)는 정확한 FeedbackOps 진입(`global-screens`·`global-screens/core`, 이후 `operator-screens/<entry>`)과 `@ap/fo-bridge` root를 import한다(프리셋 `foBridgeMenu`; 테스트 전용 `@ap/fo-bridge/testing`은 다리 메뉴의 테스트·`test-support` 파일만, `@ap/kernel/testing`은 `foBridge` 프리셋에서 `src/testing.tsx` 한 파일만 더 import한다). 다른 `@fops/*` 경로와 다른 메뉴·층은 그대로 막힌다. 영구 로드 코드(루트·슬롯)가 화면 배럴을 들이지 않는 것과 진입점의 import 그래프(라우터·로그인 셸·`@/lib/api` 배럴 없음, 네트워크 호출은 `client.ts` 하나)는 `packages/adapters/fo-bridge/src/fo-entry-graph.test.ts`가 고정한다.
+ 9. **실어댑터** `http-adapter`는 `contracts`만 import한다(React 없음). 이를 import할 수 있는 곳은 앱의 운영 조립 `apps/platform-web/src/real/**`(와 그 테스트)뿐이고, `main.tsx`·`src/dev/**`·그 밖의 앱 파일·다른 패키지·메뉴는 `tooling/eslint`가 막는다(#154). 플랫폼 밖 예외는 FeedbackOps 백엔드 테스트 코드 하나다([ADR-0073](../adr/0073-feedbackops-backend-tests-may-import-conformance-and-http-adapter.md), #674) — FeedbackOps 런타임 코드는 `ops/feedbackops/scripts/check-boundaries.mjs` 규칙 11이 막는다.
+ 
+diff -ruN a/docs/integration/repository-layout.md b/docs/integration/repository-layout.md
+--- a/docs/integration/repository-layout.md	2026-10-27 16:01:28
++++ b/docs/integration/repository-layout.md	2026-10-27 16:01:34
+@@ -16,10 +16,11 @@
+ | `DESIGN.md`, `GLOSSARY.md` | 플랫폼 디자인 방향, 도메인 용어 |
+ | `.planning/` | 남은 일·결정 대기(원본은 GitHub 이슈) |
+ | `.agents/` | 플랫폼 에이전트 스킬·참고자료·보고서 |
+-| `package.json`, `pnpm-workspace.yaml`, `turbo.json` | 플랫폼 pnpm workspace 루트(`apps/*`, `packages/*`, `menus/*/*`, `tooling/*`) |
++| `package.json`, `pnpm-workspace.yaml`, `turbo.json` | 플랫폼 pnpm workspace 루트(`apps/*`, `packages/*`(FeedbackOps `fo-*`), `packages/sdk/*`, `packages/adapters/*`, `menus/*/*`, `tooling/*`) |
+ | `apps/platform-web/` | 플랫폼 앱(조립 지점, dev 도구) |
+ | `apps/platform-e2e/` | 플랫폼 계약 E2E(Playwright 블랙박스) |
+-| `packages/` | 플랫폼 패키지 `contracts`·`ui`·`kernel`·`components`·`shell`·`mock-server`·`server-conformance`(`@ap/*`). 경계는 [패키지 경계](platform-packages.md) |
++| `packages/sdk/` | SDK 패키지 `contracts`·`ui`·`kernel`·`components`·`shell`(`@ap/*`, 공개 API). 경계는 [패키지 경계](platform-packages.md) |
++| `packages/adapters/` | 어댑터·소비자 쪽 패키지 `mock-server`·`http-adapter`·`server-conformance`·`fo-bridge`(`@ap/*`, SDK 아님). 경계는 [패키지 경계](platform-packages.md) |
+ | `menus/` | 공간별 `menus/<space>/<group>/` 메뉴 Consumer 패키지(`@ap/menu-<group>`, 전역은 `_global`) |
+ | `tooling/` | 공유 도구: tsconfig, eslint 경계 규칙, `gen-menu`, `css-selectors` |
+ | `archive/` | 통합 전 Kernel 단위 프로토타입(개별 npm 프로젝트, workspace 밖). 보존 |
+diff -ruN a/packages/AGENTS.md b/packages/AGENTS.md
+--- a/packages/AGENTS.md	2026-10-27 16:01:28
++++ b/packages/AGENTS.md	2026-10-27 16:01:34
+@@ -6,6 +6,8 @@
+ 
+ ## 패키지와 의존 방향
+ 
++폴더는 한 단계 묶여 있다(ADR-0090, #713): SDK 다섯은 `sdk/`, 어댑터·소비자 쪽 넷은 `adapters/`, FeedbackOps(`@fops/*`) `fo-shared/`·`fo-ui/`는 `packages/` 바로 아래다. 패키지 이름(`@ap/*`)과 공개 API는 폴더와 무관하다. 패키지 안에서 저장소 루트로 가는 상대 경로는 `../../../`다.
++
+ | 패키지 | 역할 | import 가능 |
+ | --- | --- | --- |
+ | `sdk/contracts/` (`@ap/contracts`) | URL codec, manifest 메타데이터 타입, 응답·Trust envelope, `PlatformAdapter` 포트 | 없음 |
+diff -ruN a/pnpm-workspace.yaml b/pnpm-workspace.yaml
+--- a/pnpm-workspace.yaml	2026-10-27 16:01:28
++++ b/pnpm-workspace.yaml	2026-10-27 16:01:34
+@@ -5,6 +5,8 @@
+ packages:
+   - apps/*
+   - packages/*
++  - packages/sdk/*
++  - packages/adapters/*
+   - menus/*/*
+   - tooling/*
+   - ops/*
+diff -ruN a/tooling/eslint/src/boundaries.test.ts b/tooling/eslint/src/boundaries.test.ts
+--- a/tooling/eslint/src/boundaries.test.ts	2026-10-27 16:01:28
++++ b/tooling/eslint/src/boundaries.test.ts	2026-10-27 16:01:34
+@@ -46,7 +46,7 @@
+ };
+ 
+ async function lint(relFile: string, code: string): Promise<Linter.LintMessage[]> {
+-  const pkgDir = relFile.split('/').slice(0, relFile.startsWith('menus/') ? 3 : 2).join('/');
++  const pkgDir = relFile.split('/').slice(0, relFile.startsWith('menus/') || /^packages\/(sdk|adapters)\//.test(relFile) ? 3 : 2).join('/');
+   const preset = PRESETS[pkgDir];
+   if (!preset) throw new Error(`no preset mapped for ${pkgDir}`);
+   const eslint = new ESLint({
+@@ -77,7 +77,7 @@
+ }
+ 
+ interface Row {
+-  /** Repo-relative file path; space and group segments pick menu packages; other packages use two segments. */
++  /** Repo-relative file path; space and group segments pick menu packages; packages/sdk and packages/adapters packages use three, other packages two. */
+   file: string;
+   code: string;
+   /** Expected rule id; '' means the code must lint clean; null is a linter report with no rule (an unused disable directive). */
+@@ -847,8 +847,8 @@
+       const manifest = JSON.parse(await readFile(path.join(REPO_ROOT, 'packages', pkg, 'package.json'), 'utf8')) as { dependencies?: Record<string, string> };
+       return manifest.dependencies?.['@tanstack/react-query'];
+     };
+-    const kernelVersion = await version('kernel');
++    const kernelVersion = await version('sdk/kernel');
+     expect(kernelVersion).toMatch(/^\d+\.\d+\.\d+$/);
+-    expect(await version('fo-bridge')).toBe(kernelVersion);
++    expect(await version('adapters/fo-bridge')).toBe(kernelVersion);
+   });
+ });
+diff -ruN a/tooling/gen-menu/turbo.json b/tooling/gen-menu/turbo.json
+--- a/tooling/gen-menu/turbo.json	2026-10-27 16:01:28
++++ b/tooling/gen-menu/turbo.json	2026-10-27 16:01:34
+@@ -18,7 +18,11 @@
+         "$TURBO_ROOT$/apps/platform-web/src/style.css",
+         "$TURBO_ROOT$/packages/sdk/contracts/src/menu/menu.ts",
+         "$TURBO_ROOT$/packages/*/src/**",
+-        "$TURBO_ROOT$/packages/*/package.json"
++        "$TURBO_ROOT$/packages/*/package.json",
++        "$TURBO_ROOT$/packages/sdk/*/src/**",
++        "$TURBO_ROOT$/packages/sdk/*/package.json",
++        "$TURBO_ROOT$/packages/adapters/*/src/**",
++        "$TURBO_ROOT$/packages/adapters/*/package.json"
+       ]
+     }
+   }
+diff -ruN a/tooling/sdk/sdk-api-snapshot.mjs b/tooling/sdk/sdk-api-snapshot.mjs
+--- a/tooling/sdk/sdk-api-snapshot.mjs	2026-10-27 16:01:28
++++ b/tooling/sdk/sdk-api-snapshot.mjs	2026-10-27 16:01:34
+@@ -39,7 +39,7 @@
+     const absolute = normalized.startsWith('/') || /^[A-Za-z]:\//.test(normalized) || normalized.startsWith('//');
+     if (!absolute) return whole;
+ 
+-    const packageMatch = normalized.match(/(?:^|\/)packages\/([^/]+)\/(.+)$/);
++    const packageMatch = normalized.match(/(?:^|\/)packages\/sdk\/([^/]+)\/(.+)$/);
+     if (packageMatch) {
+       const currentPackage = basename(packageRoot);
+       const prefix = packageMatch[1] === currentPackage ? './' : '../' + packageMatch[1] + '/';
+@@ -112,7 +112,7 @@
+ 
+ // The SDK package that owns a built declaration file, or undefined for third-party and lib files.
+ function ownerPackage(fileName) {
+-  const match = fileName.replace(/\\/g, '/').match(/\/packages\/([^/]+)\/dist\//);
++  const match = fileName.replace(/\\/g, '/').match(/\/packages\/sdk\/([^/]+)\/dist\//);
+   return match ? match[1] : undefined;
+ }
+ 
+@@ -517,7 +517,7 @@
+ 
+ function packageConfigs() {
+   return SDK_PACKAGES.map((name) => {
+-    const packageRoot = join(repoRoot, 'packages', name);
++    const packageRoot = join(repoRoot, 'packages', 'sdk', name);
+     const manifest = readJson(join(packageRoot, 'package.json'));
+     return { name, packageRoot, manifest };
+   });
+diff -ruN a/tooling/sdk/sdk-pack.mjs b/tooling/sdk/sdk-pack.mjs
+--- a/tooling/sdk/sdk-pack.mjs	2026-10-27 16:01:28
++++ b/tooling/sdk/sdk-pack.mjs	2026-10-27 16:01:34
+@@ -6,7 +6,7 @@
+ // SHA256SUMS next to the tarballs and rejects archives that carry source, tests, tsconfigs or a loose @ap/* version.
+ // `--out` must be absent or an empty directory (nothing in it is ever deleted); the five tarballs + SHA256SUMS are built in
+ // the temp directory and moved into `--out` only after every step passed.
+-// Tracked files are never touched; the only repo writes are the git-ignored `packages/<name>/dist` folders.
++// Tracked files are never touched; the only repo writes are the git-ignored `packages/sdk/<name>/dist` folders.
+ import { spawnSync } from 'node:child_process';
+ import { createHash } from 'node:crypto';
+ import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+@@ -142,7 +142,7 @@
+ 
+     const tarballs = [];
+     for (const name of SDK_PACKAGES) {
+-      const packageRoot = join(repoRoot, 'packages', name);
++      const packageRoot = join(repoRoot, 'packages', 'sdk', name);
+       const source = readJson(join(packageRoot, 'package.json'));
+       // dist is git-ignored; clearing it keeps a deleted source file from lingering in the tarball.
+       rmSync(join(packageRoot, 'dist'), { recursive: true, force: true });

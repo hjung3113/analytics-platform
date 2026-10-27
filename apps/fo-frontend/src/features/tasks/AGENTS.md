@@ -27,7 +27,7 @@ It does not own reporter-facing VOC status or source evidence visibility rules.
 - Show evidence/source panels only when linked context exists and is visible or safely summarized.
 - Managed System filters refine lists and defaults; they do not duplicate VOC, Survey, Task, or Integration navigation.
 - Task creation from Finding must preserve pending, error, and linked context states.
-- The Task Request hooks (`routes/task-requests/use*.ts`, `TaskRequestLinkedTask`) notify, navigate and link through the host seam (`lib/host/host-seam`), read through `client.ts` modules, and import no router, `sonner` or `@/lib/api` barrel (walked in `packages/fo-bridge` `fo-entry-graph.test.ts`).
+- The Task Request hooks (`routes/task-requests/use*.ts`, `TaskRequestLinkedTask`) notify, navigate and link through the host seam (`lib/host/host-seam`), read through `client.ts` modules, and import no router, `sonner` or `@/lib/api` barrel (walked in `packages/adapters/fo-bridge` `fo-entry-graph.test.ts`).
 - Task Request review reads Finding source defaults through `features/findings/hooks/useFindingDetail` (the bridge-mounted read; the rule is owned by `features/findings/AGENTS.md`).
 
 ## Key files

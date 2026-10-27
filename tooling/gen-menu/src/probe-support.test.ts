@@ -18,7 +18,7 @@ describe('probe support helpers (F8)', () => {
     const text = readFileSync(path, 'utf8');
     expect(text).toContain(`id: groupId('${FIXTURE_GROUP}')`);
     expect(groupSpaces(text).get(FIXTURE_GROUP)).toBe('mars');
-    expect(existsSync(join(root, 'packages/contracts'))).toBe(false);
+    expect(existsSync(join(root, 'packages/sdk/contracts'))).toBe(false);
   });
 
   it('gitPorcelain throws when git cannot run (bad cwd)', () => {

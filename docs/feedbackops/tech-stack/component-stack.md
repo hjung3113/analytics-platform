@@ -67,7 +67,7 @@ Those components must be owned by this codebase.
 The primitive source and the shared display components `ObjectRow`, `UserAvatar`,
 `UserChip`, `ProgressMeter`, `SeverityIndicator`, `PermissionBlockedPanel`, and
 `StatusBadgeFrame` live in the pinned `@ap/ui` package (analytics-platform's
-`packages/ui`, tag `sdk-v0.5.0`). FeedbackOps code imports them from `@ap/ui` directly;
+`packages/sdk/ui`, tag `sdk-v0.5.0`). FeedbackOps code imports them from `@ap/ui` directly;
 `@fops/ui` no longer re-exports them (#713q). The SDK ownership decision is recorded
 upstream in ADR-0050. FeedbackOps-owned composed components live at:
 
@@ -246,7 +246,7 @@ TipTap (ADR-0011)
 Use:
 
 ```text
-- one shared WYSIWYG-first editor foundation in packages/ui/src/rich-content/, consumed from `@ap/ui` (RichEditor for authoring, RichContentRenderer for read-only rendering)
+- one shared WYSIWYG-first editor foundation in packages/sdk/ui/src/rich-content/, consumed from `@ap/ui` (RichEditor for authoring, RichContentRenderer for read-only rendering)
 - VOC description
 - Reporter Reply
 - Public Update

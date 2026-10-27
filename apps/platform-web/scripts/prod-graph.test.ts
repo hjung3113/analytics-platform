@@ -6,17 +6,17 @@ describe('findForbiddenModules (#153)', () => {
     const ids = [
       '/repo/apps/platform-web/src/main.tsx',
       '/repo/apps/platform-web/src/menus.ts',
-      '/repo/packages/kernel/src/index.ts',
+      '/repo/packages/sdk/kernel/src/index.ts',
       '/repo/menus/mars/equipment/src/index.ts',
       '/repo/menus/mars/equipment/src/mockups.ts',
-      '/repo/packages/mock-server/src/adapter.ts',
+      '/repo/packages/adapters/mock-server/src/adapter.ts',
       '/repo/node_modules/@ap/mock-server/src/index.ts',
       '/repo/menus/mars/equipment/src/mock/index.ts',
       '/repo/apps/platform-web/src/dev/DevTools.tsx',
       'C:\\repo\\menus\\_global\\home\\src\\mock\\data.ts',
     ];
     expect(findForbiddenModules(ids)).toEqual([
-      { id: '/repo/packages/mock-server/src/adapter.ts', rule: 'packages/mock-server/' },
+      { id: '/repo/packages/adapters/mock-server/src/adapter.ts', rule: 'packages/adapters/mock-server/' },
       { id: '/repo/node_modules/@ap/mock-server/src/index.ts', rule: '@ap/mock-server' },
       { id: '/repo/menus/mars/equipment/src/mock/index.ts', rule: 'menus/*/*/src/mock/' },
       { id: '/repo/apps/platform-web/src/dev/DevTools.tsx', rule: 'apps/platform-web/src/dev/' },
@@ -40,7 +40,7 @@ describe('findForbiddenModules (#153)', () => {
   });
 
   it('passes a clean graph', () => {
-    expect(findForbiddenModules(['/repo/packages/shell/src/index.ts'])).toEqual([]);
+    expect(findForbiddenModules(['/repo/packages/sdk/shell/src/index.ts'])).toEqual([]);
   });
 });
 
@@ -57,10 +57,10 @@ describe('prodGraphGuard (#153 review P2-1)', () => {
   };
 
   it('fails the build listing every offender, assembly modules included', () => {
-    expect(run(['/repo/apps/platform-web/src/main.tsx', '/repo/apps/platform-web/src/dev/mock-assembly.tsx', '/repo/packages/mock-server/src/adapter.ts']))
+    expect(run(['/repo/apps/platform-web/src/main.tsx', '/repo/apps/platform-web/src/dev/mock-assembly.tsx', '/repo/packages/adapters/mock-server/src/adapter.ts']))
       .toBe('production build bundles mock/dev code (ADR-0009):\n'
         + '  - [apps/platform-web/src/dev/] /repo/apps/platform-web/src/dev/mock-assembly.tsx\n'
-        + '  - [packages/mock-server/] /repo/packages/mock-server/src/adapter.ts');
+        + '  - [packages/adapters/mock-server/] /repo/packages/adapters/mock-server/src/adapter.ts');
   });
 
   it('passes a clean graph and only runs for builds', () => {

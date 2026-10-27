@@ -1,0 +1,16 @@
+{
+  "$schema": "../../../node_modules/turbo/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "test": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/**/*.{ts,tsx,css,mjs,js}",
+        "$TURBO_ROOT$/menus/**/*.{ts,tsx,css,mjs,js}",
+        "$TURBO_ROOT$/apps/**/*.{ts,tsx,css,mjs,js}",
+        "!$TURBO_ROOT$/**/node_modules/**",
+        "!$TURBO_ROOT$/**/dist/**"
+      ]
+    }
+  }
+}

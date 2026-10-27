@@ -5,7 +5,7 @@
 !pnpm-lock.yaml
 !pnpm-workspace.yaml
 !patches
-!packages/ui
+!packages/sdk/ui
 !tooling/eslint/package.json
 !tooling/tsconfig/package.json
 !tooling/tsconfig/base.json

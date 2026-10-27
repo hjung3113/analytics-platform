@@ -129,7 +129,7 @@ Actor candidates come from schema-parsed `GET /vocs/:id/owner-candidates`, requi
 | Analytics Area chip selector | `<AnalyticsAreaPicker>` in `packages/fo-ui/src/components/AnalyticsAreaPicker.tsx` | shadcn `<ToggleGroup>` | `managedSystemId: string`, `value: string \| null`, `onChange`, `allowEmpty: true` (defaults to true; user may pick 없음) | default · empty-list (helper text) |
 | Source segmented control | `<SourceContextSegmented>` in `features/voc/components/create/` | shadcn `<RadioGroup appearance="segmented">` | `value: SourceContext`, `onChange`, `labelId`, `disabled?` | radiogroup named `출처` with 4 labeled radio options; no proxy sub-fields (Proxy Report adds no extra row) |
 | Dropzone + file list | `<AttachmentDropzone>` (with an internal `AttachmentRow`) in `features/voc/components/create/` | none (HTML5 drag/drop + shadcn `<Card>` for rows) | `attachments: PendingAttachment[]`, `onAdd`, `onRemove`, `maxBytes: 25 * 1024 * 1024` (per file), `accept?: string[]` | empty · drag-over · with-files · over-limit (row-level error) |
-| `<RichEditor surface="voc-description">` | `<RichEditor>` from `@ap/ui` (`packages/ui/src/rich-content/`; TipTap-based per ADR-0011) | none (TipTap React) | `surface: 'voc-description' \| 'reporter-reply' \| 'public-update' \| 'internal-comment'`, `value?: TipTapDoc`, `defaultValue?: TipTapDoc`, `onChange: (doc: TipTapDoc) => void`, `placeholder?: string`, `onAttach?`, `onMention?`, `minHeight?: number`, `disabled?: boolean` | per-surface toolbar allowlist (see §5.7), focused · invalid · disabled · uploading |
+| `<RichEditor surface="voc-description">` | `<RichEditor>` from `@ap/ui` (`packages/sdk/ui/src/rich-content/`; TipTap-based per ADR-0011) | none (TipTap React) | `surface: 'voc-description' \| 'reporter-reply' \| 'public-update' \| 'internal-comment'`, `value?: TipTapDoc`, `defaultValue?: TipTapDoc`, `onChange: (doc: TipTapDoc) => void`, `placeholder?: string`, `onAttach?`, `onMention?`, `minHeight?: number`, `disabled?: boolean` | per-surface toolbar allowlist (see §5.7), focused · invalid · disabled · uploading |
 | `<DirtyConfirmation>` modal | `<DirtyConfirmation>` from `@ap/ui` | shadcn `<AlertDialog>` | `open`, `onConfirm`, `onCancel`, `title?`, `message?` | open · closed |
 
 ### 3.5 Detail panel composers + Reporter status
@@ -375,7 +375,7 @@ Mirrors prototype `screen-voc-create.jsx · TriageScreen.handleAct`.
 | Kebab → Subscribe / Unsubscribe | Not implemented (notifications, ADR-0014) | same |
 | Kebab → Archive | Not implemented (Slice 2 archive policy in ADR-0019 Section A; archived VOCs are immutable) | same |
 
-Only Copy link is implemented. The shipped kebab (`packages/ui/src/panel/DetailPanelHeaderActions.tsx`, `DEFERRED_ITEMS`) renders the four items disabled with `이후 제공 예정입니다`; read-state/snooze/subscribe/archive endpoints do not exist (backlog rows in `docs/design/14-post-mvp-backlog.md`).
+Only Copy link is implemented. The shipped kebab (`packages/sdk/ui/src/panel/DetailPanelHeaderActions.tsx`, `DEFERRED_ITEMS`) renders the four items disabled with `이후 제공 예정입니다`; read-state/snooze/subscribe/archive endpoints do not exist (backlog rows in `docs/design/14-post-mvp-backlog.md`).
 
 ### 5.5 Composer Preview modal
 

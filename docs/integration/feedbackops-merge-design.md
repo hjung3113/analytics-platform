@@ -129,7 +129,7 @@ FeedbackOps를 플랫폼 앱 하나·서버 하나·저장소 하나로 합친�
 
 | | 플랫폼 계약 | FeedbackOps |
 | --- | --- | --- |
-| 권한 어휘 | Kernel 고유 권한 `KERNEL_PERMISSIONS` + 앱이 선언한 메뉴 권한, 콜론 표기(`packages/contracts/src/menu/menu.ts`, ADR-0072) | capability 11개, 점 표기(`packages/shared/src/enums/capabilities.ts:13-25`) |
+| 권한 어휘 | Kernel 고유 권한 `KERNEL_PERMISSIONS` + 앱이 선언한 메뉴 권한, 콜론 표기(`packages/sdk/contracts/src/menu/menu.ts`, ADR-0072) | capability 11개, 점 표기(`packages/shared/src/enums/capabilities.ts:13-25`) |
 | 역할 | 서버 데이터, 계약이 고정하지 않음 | `admin`·`developer`·`user`(FO ADR-0048) |
 | 데이터 범위 | Scope = site, 그 안의 room_name 부여(ADR-0004·0005) | Managed System(FO ADR-0001). site·room이 없다 |
 | 판정 순서 | 권한 → site → 행 조회 → room | workspace → 명시적 거부 → workspace 부여 → 역할 → Managed System 범위 부여 → 요청 가능 여부(`modules/permissions/check-service.ts:119-246`) |

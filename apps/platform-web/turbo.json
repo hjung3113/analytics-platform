@@ -8,7 +8,7 @@
       "env": ["GEN_MENU_PROBE"],
       "inputs": [
         "$TURBO_DEFAULT$",
-        "../../packages/ui/src/rich-content/**",
+        "../../packages/sdk/ui/src/rich-content/**",
         "../../packages/fo-shared/src/rich-content/**"
       ]
     },

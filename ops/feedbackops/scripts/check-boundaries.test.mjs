@@ -355,9 +355,9 @@ runCase(
     [join(FO_BACKEND, 'package.json')]: JSON.stringify({
       dependencies: { fastify: '5.2.0' },
       devDependencies: {
-        '@ap/contracts': 'link:../../../../packages/contracts',
-        '@ap/http-adapter': 'link:../../../../packages/http-adapter',
-        '@ap/server-conformance': 'link:../../../../packages/server-conformance',
+        '@ap/contracts': 'link:../../../../packages/sdk/contracts',
+        '@ap/http-adapter': 'link:../../../../packages/adapters/http-adapter',
+        '@ap/server-conformance': 'link:../../../../packages/adapters/server-conformance',
       },
     }),
     [join(FO_SHARED, 'package.json')]: JSON.stringify({ name: '@fops/shared' }),
@@ -371,7 +371,7 @@ runCase(
   {
     ...zero,
     [join(FO_BACKEND, 'package.json')]: JSON.stringify({
-      dependencies: { '@ap/contracts': 'link:../../../../packages/contracts' },
+      dependencies: { '@ap/contracts': 'link:../../../../packages/sdk/contracts' },
     }),
     [join(FO_SHARED, 'package.json')]: JSON.stringify({
       dependencies: { '@ap/ui': '0.5.0', '@ap/kernel': '0.5.0' },

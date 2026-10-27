@@ -1,0 +1,19 @@
+{
+  "$schema": "../../../node_modules/turbo/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "transit": {
+      "dependsOn": ["@ap/components#transit", "@ap/contracts#transit", "@ap/kernel#transit", "@ap/ui#transit"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/apps/fo-frontend/src/**",
+        "$TURBO_ROOT$/apps/fo-frontend/package.json",
+        "$TURBO_ROOT$/packages/fo-shared/src/**",
+        "$TURBO_ROOT$/packages/fo-ui/src/**"
+      ]
+    },
+    "build": {
+      "dependsOn": ["transit", "@ap/components#build", "@ap/contracts#build", "@ap/kernel#build", "@ap/ui#build"]
+    }
+  }
+}

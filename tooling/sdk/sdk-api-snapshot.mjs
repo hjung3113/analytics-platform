@@ -29,7 +29,7 @@ function readJson(path) {
 
 function loadTypeScript() {
   // @ap/contracts uses TypeScript to build and validate the same SDK declarations.
-  const packageRequire = createRequire(resolve(repoRoot, 'packages/contracts/package.json'));
+  const packageRequire = createRequire(resolve(repoRoot, 'packages/sdk/contracts/package.json'));
   return packageRequire('typescript');
 }
 
@@ -39,7 +39,7 @@ function normalizeModulePaths(value, packageRoot) {
     const absolute = normalized.startsWith('/') || /^[A-Za-z]:\//.test(normalized) || normalized.startsWith('//');
     if (!absolute) return whole;
 
-    const packageMatch = normalized.match(/(?:^|\/)packages\/([^/]+)\/(.+)$/);
+    const packageMatch = normalized.match(/(?:^|\/)packages\/sdk\/([^/]+)\/(.+)$/);
     if (packageMatch) {
       const currentPackage = basename(packageRoot);
       const prefix = packageMatch[1] === currentPackage ? './' : '../' + packageMatch[1] + '/';
@@ -112,7 +112,7 @@ function createCompilerProgram(ts, declarationPaths, baseUrl, paths) {
 
 // The SDK package that owns a built declaration file, or undefined for third-party and lib files.
 function ownerPackage(fileName) {
-  const match = fileName.replace(/\\/g, '/').match(/\/packages\/([^/]+)\/dist\//);
+  const match = fileName.replace(/\\/g, '/').match(/\/packages\/sdk\/([^/]+)\/dist\//);
   return match ? match[1] : undefined;
 }
 
@@ -517,7 +517,7 @@ function entrySnapshotPath(packageName, subpath) {
 
 function packageConfigs() {
   return SDK_PACKAGES.map((name) => {
-    const packageRoot = join(repoRoot, 'packages', name);
+    const packageRoot = join(repoRoot, 'packages', 'sdk', name);
     const manifest = readJson(join(packageRoot, 'package.json'));
     return { name, packageRoot, manifest };
   });

@@ -93,13 +93,13 @@ importers:
     devDependencies:
       '@ap/contracts':
         specifier: workspace:*
-        version: link:../../packages/contracts
+        version: link:../../packages/sdk/contracts
       '@ap/http-adapter':
         specifier: workspace:*
-        version: link:../../packages/http-adapter
+        version: link:../../packages/adapters/http-adapter
       '@ap/server-conformance':
         specifier: workspace:*
-        version: link:../../packages/server-conformance
+        version: link:../../packages/adapters/server-conformance
       '@types/node':
         specifier: 22.10.2
         version: 22.10.2
@@ -132,7 +132,7 @@ importers:
     dependencies:
       '@ap/ui':
         specifier: workspace:*
-        version: link:../../packages/ui
+        version: link:../../packages/sdk/ui
       '@dnd-kit/core':
         specifier: ^6.3.1
         version: 6.3.1(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -259,19 +259,19 @@ importers:
     dependencies:
       '@ap/components':
         specifier: workspace:*
-        version: link:../../packages/components
+        version: link:../../packages/sdk/components
       '@ap/contracts':
         specifier: workspace:*
-        version: link:../../packages/contracts
+        version: link:../../packages/sdk/contracts
       '@ap/fo-bridge':
         specifier: workspace:*
-        version: link:../../packages/fo-bridge
+        version: link:../../packages/adapters/fo-bridge
       '@ap/http-adapter':
         specifier: workspace:*
-        version: link:../../packages/http-adapter
+        version: link:../../packages/adapters/http-adapter
       '@ap/kernel':
         specifier: workspace:*
-        version: link:../../packages/kernel
+        version: link:../../packages/sdk/kernel
       '@ap/menu-admin':
         specifier: workspace:*
         version: link:../../menus/operations/admin
@@ -352,13 +352,13 @@ importers:
         version: link:../../menus/mars/wpt
       '@ap/mock-server':
         specifier: workspace:*
-        version: link:../../packages/mock-server
+        version: link:../../packages/adapters/mock-server
       '@ap/shell':
         specifier: workspace:*
-        version: link:../../packages/shell
+        version: link:../../packages/sdk/shell
       '@ap/ui':
         specifier: workspace:*
-        version: link:../../packages/ui
+        version: link:../../packages/sdk/ui
       '@eqv/core':
         specifier: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-core-0.7.0.tgz
         version: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-core-0.7.0.tgz
@@ -401,7 +401,7 @@ importers:
         version: link:../../tooling/eslint
       '@ap/server-conformance':
         specifier: workspace:*
-        version: link:../../packages/server-conformance
+        version: link:../../packages/adapters/server-conformance
       '@ap/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/tsconfig
@@ -452,19 +452,19 @@ importers:
     dependencies:
       '@ap/components':
         specifier: workspace:*
-        version: link:../../../packages/components
+        version: link:../../../packages/sdk/components
       '@ap/contracts':
         specifier: workspace:*
-        version: link:../../../packages/contracts
+        version: link:../../../packages/sdk/contracts
       '@ap/kernel':
         specifier: workspace:*
-        version: link:../../../packages/kernel
+        version: link:../../../packages/sdk/kernel
       '@ap/mock-server':
         specifier: workspace:*
-        version: link:../../../packages/mock-server
+        version: link:../../../packages/adapters/mock-server
       '@ap/ui':
         specifier: workspace:*
-        version: link:../../../packages/ui
+        version: link:../../../packages/sdk/ui
       lucide-react:
         specifier: ^1.48.0
         version: 1.48.0(react@19.3.0)
@@ -510,19 +510,19 @@ importers:
     dependencies:
       '@ap/components':
         specifier: workspace:*
-        version: link:../../../packages/components
+        version: link:../../../packages/sdk/components
       '@ap/contracts':
         specifier: workspace:*
-        version: link:../../../packages/contracts
+        version: link:../../../packages/sdk/contracts
       '@ap/fo-bridge':
         specifier: workspace:*
-        version: link:../../../packages/fo-bridge
+        version: link:../../../packages/adapters/fo-bridge
       '@ap/kernel':
         specifier: workspace:*
-        version: link:../../../packages/kernel
+        version: link:../../../packages/sdk/kernel
       '@ap/ui':
         specifier: workspace:*
-        version: link:../../../packages/ui
+        version: link:../../../packages/sdk/ui
       '@fops/frontend':
         specifier: workspace:*
         version: link:../../../apps/fo-frontend
@@ -574,10 +574,10 @@ importers:
     dependencies:
       '@ap/contracts':
         specifier: workspace:*
-        version: link:../../../packages/contracts
+        version: link:../../../packages/sdk/contracts
       '@ap/kernel':
         specifier: workspace:*
-        version: link:../../../packages/kernel
+        version: link:../../../packages/sdk/kernel
       lucide-react:
         specifier: ^1.48.0
         version: 1.48.0(react@19.3.0)
@@ -611,19 +611,19 @@ importers:
     dependencies:
       '@ap/components':
         specifier: workspace:*
-        version: link:../../../packages/components
+        version: link:../../../packages/sdk/components
       '@ap/contracts':
         specifier: workspace:*
-        version: link:../../../packages/contracts
+        version: link:../../../packages/sdk/contracts
       '@ap/kernel':
         specifier: workspace:*
-        version: link:../../../packages/kernel
+        version: link:../../../packages/sdk/kernel
       '@ap/mock-server':
         specifier: workspace:*
-        version: link:../../../packages/mock-server
+        version: link:../../../packages/adapters/mock-server
       '@ap/ui':
         specifier: workspace:*
-        version: link:../../../packages/ui
+        version: link:../../../packages/sdk/ui
       lucide-react:
         specifier: ^1.48.0
         version: 1.48.0(react@19.3.0)
@@ -669,16 +669,16 @@ importers:
     dependencies:
       '@ap/components':
         specifier: workspace:*
-        version: link:../../../packages/components
+        version: link:../../../packages/sdk/components
       '@ap/contracts':
         specifier: workspace:*
-        version: link:../../../packages/contracts
+        version: link:../../../packages/sdk/contracts
       '@ap/kernel':
         specifier: workspace:*
-        version: link:../../../packages/kernel
+        version: link:../../../packages/sdk/kernel
       '@ap/mock-server':
         specifier: workspace:*
-        version: link:../../../packages/mock-server
+        version: link:../../../packages/adapters/mock-server
       lucide-react:
         specifier: ^1.48.0
         version: 1.48.0(react@19.3.0)
@@ -715,19 +715,19 @@ importers:
     dependencies:
       '@ap/components':
         specifier: workspace:*
-        version: link:../../../packages/components
+        version: link:../../../packages/sdk/components
       '@ap/contracts':
         specifier: workspace:*
-        version: link:../../../packages/contracts
+        version: link:../../../packages/sdk/contracts
       '@ap/fo-bridge':
         specifier: workspace:*
-        version: link:../../../packages/fo-bridge
+        version: link:../../../packages/adapters/fo-bridge
       '@ap/kernel':
         specifier: workspace:*
-        version: link:../../../packages/kernel
+        version: link:../../../packages/sdk/kernel
       '@ap/ui':
         specifier: workspace:*
-        version: link:../../../packages/ui
+        version: link:../../../packages/sdk/ui
       '@fops/frontend':
         specifier: workspace:*
         version: link:../../../apps/fo-frontend
@@ -779,19 +779,19 @@ importers:
     dependencies:
       '@ap/components':
         specifier: workspace:*
-        version: link:../../../packages/components
+        version: link:../../../packages/sdk/components
       '@ap/contracts':
         specifier: workspace:*
-        version: link:../../../packages/contracts
+        version: link:../../../packages/sdk/contracts
       '@ap/fo-bridge':
         specifier: workspace:*
-        version: link:../../../packages/fo-bridge
+        version: link:../../../packages/adapters/fo-bridge
       '@ap/kernel':
         specifier: workspace:*
-        version: link:../../../packages/kernel
+        version: link:../../../packages/sdk/kernel
       '@ap/ui':
         specifier: workspace:*
-        version: link:../../../packages/ui
+        version: link:../../../packages/sdk/ui
       '@fops/frontend':
         specifier: workspace:*
         version: link:../../../apps/fo-frontend
@@ -843,19 +843,19 @@ importers:
     dependencies:
       '@ap/components':
         specifier: workspace:*
-        version: link:../../../packages/components
+        version: link:../../../packages/sdk/components
       '@ap/contracts':
         specifier: workspace:*
-        version: link:../../../packages/contracts
+        version: link:../../../packages/sdk/contracts
       '@ap/fo-bridge':
         specifier: workspace:*
-        version: link:../../../packages/fo-bridge
+        version: link:../../../packages/adapters/fo-bridge
       '@ap/kernel':
         specifier: workspace:*
-        version: link:../../../packages/kernel
+        version: link:../../../packages/sdk/kernel
       '@ap/ui':
         specifier: workspace:*
-        version: link:../../../packages/ui
+        version: link:../../../packages/sdk/ui
       '@fops/frontend':
         specifier: workspace:*
         version: link:../../../apps/fo-frontend
@@ -907,19 +907,19 @@ importers:
     dependencies:
       '@ap/components':
         specifier: workspace:*
-        version: link:../../../packages/components
+        version: link:../../../packages/sdk/components
       '@ap/contracts':
         specifier: workspace:*
-        version: link:../../../packages/contracts
+        version: link:../../../packages/sdk/contracts
       '@ap/fo-bridge':
         specifier: workspace:*
-        version: link:../../../packages/fo-bridge
+        version: link:../../../packages/adapters/fo-bridge
       '@ap/kernel':
         specifier: workspace:*
-        version: link:../../../packages/kernel
+        version: link:../../../packages/sdk/kernel
       '@ap/ui':
         specifier: workspace:*
-        version: link:../../../packages/ui
+        version: link:../../../packages/sdk/ui
       '@fops/frontend':
         specifier: workspace:*
         version: link:../../../apps/fo-frontend
@@ -971,19 +971,19 @@ importers:
     dependencies:
       '@ap/components':
         specifier: workspace:*
-        version: link:../../../packages/components
+        version: link:../../../packages/sdk/components
       '@ap/contracts':
         specifier: workspace:*
-        version: link:../../../packages/contracts
+        version: link:../../../packages/sdk/contracts
       '@ap/fo-bridge':
         specifier: workspace:*
-        version: link:../../../packages/fo-bridge
+        version: link:../../../packages/adapters/fo-bridge
       '@ap/kernel':
         specifier: workspace:*
-        version: link:../../../packages/kernel
+        version: link:../../../packages/sdk/kernel
       '@ap/ui':
         specifier: workspace:*
-        version: link:../../../packages/ui
+        version: link:../../../packages/sdk/ui
       '@fops/frontend':
         specifier: workspace:*
         version: link:../../../apps/fo-frontend
@@ -1035,10 +1035,10 @@ importers:
     dependencies:
       '@ap/contracts':
         specifier: workspace:*
-        version: link:../../../packages/contracts
+        version: link:../../../packages/sdk/contracts
       '@ap/kernel':
         specifier: workspace:*
-        version: link:../../../packages/kernel
+        version: link:../../../packages/sdk/kernel
       lucide-react:
         specifier: ^1.48.0
         version: 1.48.0(react@19.3.0)
@@ -1072,10 +1072,10 @@ importers:
     dependencies:
       '@ap/contracts':
         specifier: workspace:*
-        version: link:../../../packages/contracts
+        version: link:../../../packages/sdk/contracts
       '@ap/kernel':
         specifier: workspace:*
-        version: link:../../../packages/kernel
+        version: link:../../../packages/sdk/kernel
       lucide-react:
         specifier: ^1.48.0
         version: 1.48.0(react@19.3.0)
@@ -1109,10 +1109,10 @@ importers:
     dependencies:
       '@ap/contracts':
         specifier: workspace:*
-        version: link:../../../packages/contracts
+        version: link:../../../packages/sdk/contracts
       '@ap/kernel':
         specifier: workspace:*
-        version: link:../../../packages/kernel
+        version: link:../../../packages/sdk/kernel
       lucide-react:
         specifier: ^1.48.0
         version: 1.48.0(react@19.3.0)
@@ -1146,10 +1146,10 @@ importers:
     dependencies:
       '@ap/contracts':
         specifier: workspace:*
-        version: link:../../../packages/contracts
+        version: link:../../../packages/sdk/contracts
       '@ap/kernel':
         specifier: workspace:*
-        version: link:../../../packages/kernel
+        version: link:../../../packages/sdk/kernel
       lucide-react:
         specifier: ^1.48.0
         version: 1.48.0(react@19.3.0)
@@ -1183,10 +1183,10 @@ importers:
     dependencies:
       '@ap/contracts':
         specifier: workspace:*
-        version: link:../../../packages/contracts
+        version: link:../../../packages/sdk/contracts
       '@ap/kernel':
         specifier: workspace:*
-        version: link:../../../packages/kernel
+        version: link:../../../packages/sdk/kernel
       lucide-react:
         specifier: ^1.48.0
         version: 1.48.0(react@19.3.0)
@@ -1220,10 +1220,10 @@ importers:
     dependencies:
       '@ap/contracts':
         specifier: workspace:*
-        version: link:../../../packages/contracts
+        version: link:../../../packages/sdk/contracts
       '@ap/kernel':
         specifier: workspace:*
-        version: link:../../../packages/kernel
+        version: link:../../../packages/sdk/kernel
       lucide-react:
         specifier: ^1.48.0
         version: 1.48.0(react@19.3.0)
@@ -1257,10 +1257,10 @@ importers:
     dependencies:
       '@ap/contracts':
         specifier: workspace:*
-        version: link:../../../packages/contracts
+        version: link:../../../packages/sdk/contracts
       '@ap/kernel':
         specifier: workspace:*
-        version: link:../../../packages/kernel
+        version: link:../../../packages/sdk/kernel
       lucide-react:
         specifier: ^1.48.0
         version: 1.48.0(react@19.3.0)
@@ -1294,10 +1294,10 @@ importers:
     dependencies:
       '@ap/contracts':
         specifier: workspace:*
-        version: link:../../../packages/contracts
+        version: link:../../../packages/sdk/contracts
       '@ap/kernel':
         specifier: workspace:*
-        version: link:../../../packages/kernel
+        version: link:../../../packages/sdk/kernel
       lucide-react:
         specifier: ^1.48.0
         version: 1.48.0(react@19.3.0)
@@ -1331,10 +1331,10 @@ importers:
     dependencies:
       '@ap/contracts':
         specifier: workspace:*
-        version: link:../../../packages/contracts
+        version: link:../../../packages/sdk/contracts
       '@ap/kernel':
         specifier: workspace:*
-        version: link:../../../packages/kernel
+        version: link:../../../packages/sdk/kernel
       lucide-react:
         specifier: ^1.48.0
         version: 1.48.0(react@19.3.0)
@@ -1368,10 +1368,10 @@ importers:
     dependencies:
       '@ap/contracts':
         specifier: workspace:*
-        version: link:../../../packages/contracts
+        version: link:../../../packages/sdk/contracts
       '@ap/kernel':
         specifier: workspace:*
-        version: link:../../../packages/kernel
+        version: link:../../../packages/sdk/kernel
       lucide-react:
         specifier: ^1.48.0
         version: 1.48.0(react@19.3.0)
@@ -1405,10 +1405,10 @@ importers:
     dependencies:
       '@ap/contracts':
         specifier: workspace:*
-        version: link:../../../packages/contracts
+        version: link:../../../packages/sdk/contracts
       '@ap/kernel':
         specifier: workspace:*
-        version: link:../../../packages/kernel
+        version: link:../../../packages/sdk/kernel
       lucide-react:
         specifier: ^1.48.0
         version: 1.48.0(react@19.3.0)
@@ -1442,19 +1442,19 @@ importers:
     dependencies:
       '@ap/components':
         specifier: workspace:*
-        version: link:../../../packages/components
+        version: link:../../../packages/sdk/components
       '@ap/contracts':
         specifier: workspace:*
-        version: link:../../../packages/contracts
+        version: link:../../../packages/sdk/contracts
       '@ap/kernel':
         specifier: workspace:*
-        version: link:../../../packages/kernel
+        version: link:../../../packages/sdk/kernel
       '@ap/mock-server':
         specifier: workspace:*
-        version: link:../../../packages/mock-server
+        version: link:../../../packages/adapters/mock-server
       '@ap/ui':
         specifier: workspace:*
-        version: link:../../../packages/ui
+        version: link:../../../packages/sdk/ui
       lucide-react:
         specifier: ^1.48.0
         version: 1.48.0(react@19.3.0)
@@ -1497,19 +1497,19 @@ importers:
     dependencies:
       '@ap/components':
         specifier: workspace:*
-        version: link:../../../packages/components
+        version: link:../../../packages/sdk/components
       '@ap/contracts':
         specifier: workspace:*
-        version: link:../../../packages/contracts
+        version: link:../../../packages/sdk/contracts
       '@ap/kernel':
         specifier: workspace:*
-        version: link:../../../packages/kernel
+        version: link:../../../packages/sdk/kernel
       '@ap/mock-server':
         specifier: workspace:*
-        version: link:../../../packages/mock-server
+        version: link:../../../packages/adapters/mock-server
       '@ap/ui':
         specifier: workspace:*
-        version: link:../../../packages/ui
+        version: link:../../../packages/sdk/ui
       lucide-react:
         specifier: ^1.48.0
         version: 1.48.0(react@19.3.0)
@@ -1552,19 +1552,19 @@ importers:
     dependencies:
       '@ap/components':
         specifier: workspace:*
-        version: link:../../../packages/components
+        version: link:../../../packages/sdk/components
       '@ap/contracts':
         specifier: workspace:*
-        version: link:../../../packages/contracts
+        version: link:../../../packages/sdk/contracts
       '@ap/kernel':
         specifier: workspace:*
-        version: link:../../../packages/kernel
+        version: link:../../../packages/sdk/kernel
       '@ap/mock-server':
         specifier: workspace:*
-        version: link:../../../packages/mock-server
+        version: link:../../../packages/adapters/mock-server
       '@ap/ui':
         specifier: workspace:*
-        version: link:../../../packages/ui
+        version: link:../../../packages/sdk/ui
       lucide-react:
         specifier: ^1.48.0
         version: 1.48.0(react@19.3.0)
@@ -1607,10 +1607,10 @@ importers:
     dependencies:
       '@ap/contracts':
         specifier: workspace:*
-        version: link:../../../packages/contracts
+        version: link:../../../packages/sdk/contracts
       '@ap/kernel':
         specifier: workspace:*
-        version: link:../../../packages/kernel
+        version: link:../../../packages/sdk/kernel
       lucide-react:
         specifier: ^1.48.0
         version: 1.48.0(react@19.3.0)
@@ -1644,16 +1644,16 @@ importers:
     dependencies:
       '@ap/components':
         specifier: workspace:*
-        version: link:../../../packages/components
+        version: link:../../../packages/sdk/components
       '@ap/contracts':
         specifier: workspace:*
-        version: link:../../../packages/contracts
+        version: link:../../../packages/sdk/contracts
       '@ap/kernel':
         specifier: workspace:*
-        version: link:../../../packages/kernel
+        version: link:../../../packages/sdk/kernel
       '@ap/ui':
         specifier: workspace:*
-        version: link:../../../packages/ui
+        version: link:../../../packages/sdk/ui
       lucide-react:
         specifier: ^1.48.0
         version: 1.48.0(react@19.3.0)
@@ -1707,7 +1707,7 @@ importers:
         specifier: 5.7.2
         version: 5.7.2
 
-  packages/components:
+  packages/sdk/components:
     dependencies:
       '@ap/contracts':
         specifier: workspace:*
@@ -1739,10 +1739,10 @@ importers:
     devDependencies:
       '@ap/eslint-config':
         specifier: workspace:*
-        version: link:../../tooling/eslint
+        version: link:../../../tooling/eslint
       '@ap/tsconfig':
         specifier: workspace:*
-        version: link:../../tooling/tsconfig
+        version: link:../../../tooling/tsconfig
       '@testing-library/dom':
         specifier: ^10.4.2
         version: 10.4.2
@@ -1783,14 +1783,14 @@ importers:
         specifier: ^3.2.7
         version: 3.2.7(@types/node@26.6.3)(happy-dom@20.14.6)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)
 
-  packages/contracts:
+  packages/sdk/contracts:
     devDependencies:
       '@ap/eslint-config':
         specifier: workspace:*
-        version: link:../../tooling/eslint
+        version: link:../../../tooling/eslint
       '@ap/tsconfig':
         specifier: workspace:*
-        version: link:../../tooling/tsconfig
+        version: link:../../../tooling/tsconfig
       eslint:
         specifier: ^10.11.0
         version: 10.11.0(jiti@2.7.0)
@@ -1798,23 +1798,23 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
-  packages/fo-bridge:
+  packages/adapters/fo-bridge:
     dependencies:
       '@ap/components':
         specifier: workspace:*
-        version: link:../components
+        version: link:../../sdk/components
       '@ap/contracts':
         specifier: workspace:*
-        version: link:../contracts
+        version: link:../../sdk/contracts
       '@ap/kernel':
         specifier: workspace:*
-        version: link:../kernel
+        version: link:../../sdk/kernel
       '@ap/ui':
         specifier: workspace:*
-        version: link:../ui
+        version: link:../../sdk/ui
       '@fops/frontend':
         specifier: workspace:*
-        version: link:../../apps/fo-frontend
+        version: link:../../../apps/fo-frontend
       '@tanstack/react-query':
         specifier: 5.62.7
         version: 5.62.7(react@19.3.0)
@@ -1824,10 +1824,10 @@ importers:
     devDependencies:
       '@ap/eslint-config':
         specifier: workspace:*
-        version: link:../../tooling/eslint
+        version: link:../../../tooling/eslint
       '@ap/tsconfig':
         specifier: workspace:*
-        version: link:../../tooling/tsconfig
+        version: link:../../../tooling/tsconfig
       '@testing-library/react':
         specifier: ^16.3.3
         version: 16.3.3(@testing-library/dom@10.4.2)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -1873,7 +1873,7 @@ importers:
     dependencies:
       '@ap/ui':
         specifier: workspace:*
-        version: link:../ui
+        version: link:../sdk/ui
       '@fops/shared':
         specifier: workspace:*
         version: link:../fo-shared
@@ -2008,18 +2008,18 @@ importers:
         specifier: 2.1.8
         version: 2.1.8(@types/node@22.10.2)(happy-dom@20.14.6)(jsdom@25.0.1)(lightningcss@1.32.0)
 
-  packages/http-adapter:
+  packages/adapters/http-adapter:
     dependencies:
       '@ap/contracts':
         specifier: workspace:*
-        version: link:../contracts
+        version: link:../../sdk/contracts
     devDependencies:
       '@ap/eslint-config':
         specifier: workspace:*
-        version: link:../../tooling/eslint
+        version: link:../../../tooling/eslint
       '@ap/tsconfig':
         specifier: workspace:*
-        version: link:../../tooling/tsconfig
+        version: link:../../../tooling/tsconfig
       eslint:
         specifier: ^10.11.0
         version: 10.11.0(jiti@2.7.0)
@@ -2030,7 +2030,7 @@ importers:
         specifier: ^3.2.7
         version: 3.2.7(@types/node@26.6.3)(happy-dom@20.14.6)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)
 
-  packages/kernel:
+  packages/sdk/kernel:
     dependencies:
       '@ap/contracts':
         specifier: workspace:*
@@ -2044,10 +2044,10 @@ importers:
     devDependencies:
       '@ap/eslint-config':
         specifier: workspace:*
-        version: link:../../tooling/eslint
+        version: link:../../../tooling/eslint
       '@ap/tsconfig':
         specifier: workspace:*
-        version: link:../../tooling/tsconfig
+        version: link:../../../tooling/tsconfig
       '@testing-library/dom':
         specifier: ^10.4.2
         version: 10.4.2
@@ -2082,18 +2082,18 @@ importers:
         specifier: ^3.2.7
         version: 3.2.7(@types/node@26.6.3)(happy-dom@20.14.6)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)
 
-  packages/mock-server:
+  packages/adapters/mock-server:
     dependencies:
       '@ap/contracts':
         specifier: workspace:*
-        version: link:../contracts
+        version: link:../../sdk/contracts
     devDependencies:
       '@ap/eslint-config':
         specifier: workspace:*
-        version: link:../../tooling/eslint
+        version: link:../../../tooling/eslint
       '@ap/tsconfig':
         specifier: workspace:*
-        version: link:../../tooling/tsconfig
+        version: link:../../../tooling/tsconfig
       eslint:
         specifier: ^10.11.0
         version: 10.11.0(jiti@2.7.0)
@@ -2107,18 +2107,18 @@ importers:
         specifier: ^3.2.7
         version: 3.2.7(@types/node@26.6.3)(happy-dom@20.14.6)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)
 
-  packages/server-conformance:
+  packages/adapters/server-conformance:
     dependencies:
       '@ap/contracts':
         specifier: workspace:*
-        version: link:../contracts
+        version: link:../../sdk/contracts
     devDependencies:
       '@ap/eslint-config':
         specifier: workspace:*
-        version: link:../../tooling/eslint
+        version: link:../../../tooling/eslint
       '@ap/tsconfig':
         specifier: workspace:*
-        version: link:../../tooling/tsconfig
+        version: link:../../../tooling/tsconfig
       eslint:
         specifier: ^10.11.0
         version: 10.11.0(jiti@2.7.0)
@@ -2129,7 +2129,7 @@ importers:
         specifier: ^3.2.7
         version: 3.2.7(@types/node@26.6.3)(happy-dom@20.14.6)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)
 
-  packages/shell:
+  packages/sdk/shell:
     dependencies:
       '@ap/components':
         specifier: workspace:*
@@ -2149,10 +2149,10 @@ importers:
     devDependencies:
       '@ap/eslint-config':
         specifier: workspace:*
-        version: link:../../tooling/eslint
+        version: link:../../../tooling/eslint
       '@ap/tsconfig':
         specifier: workspace:*
-        version: link:../../tooling/tsconfig
+        version: link:../../../tooling/tsconfig
       '@testing-library/dom':
         specifier: ^10.4.2
         version: 10.4.2
@@ -2190,7 +2190,7 @@ importers:
         specifier: ^3.2.7
         version: 3.2.7(@types/node@26.6.3)(happy-dom@20.14.6)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)
 
-  packages/ui:
+  packages/sdk/ui:
     dependencies:
       '@formkit/auto-animate':
         specifier: 0.10.0
@@ -2279,10 +2279,10 @@ importers:
     devDependencies:
       '@ap/eslint-config':
         specifier: workspace:*
-        version: link:../../tooling/eslint
+        version: link:../../../tooling/eslint
       '@ap/tsconfig':
         specifier: workspace:*
-        version: link:../../tooling/tsconfig
+        version: link:../../../tooling/tsconfig
       '@tailwindcss/node':
         specifier: 4.3.3
         version: 4.3.3
@@ -7414,8 +7414,8 @@ snapshots:
 
   '@eqv/platform-adapter@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-platform-adapter-0.7.0.tgz(5834492632ad9f6969bac765792725f1)':
     dependencies:
-      '@ap/contracts': link:packages/contracts
-      '@ap/ui': link:packages/ui
+      '@ap/contracts': link:packages/sdk/contracts
+      '@ap/ui': link:packages/sdk/ui
       '@eqv/core': https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-core-0.7.0.tgz
       '@eqv/renderer': https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-renderer-0.7.0.tgz(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-core-0.7.0.tgz)(react@19.3.0)
       '@eqv/replay': https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-replay-0.7.0.tgz(@ap/ui@packages+ui)(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-core-0.7.0.tgz)(@eqv/ui@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-ui-0.7.0.tgz(@ap/ui@packages+ui)(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-core-0.7.0.tgz)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react@19.3.0)
@@ -7432,7 +7432,7 @@ snapshots:
 
   '@eqv/replay@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-replay-0.7.0.tgz(@ap/ui@packages+ui)(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-core-0.7.0.tgz)(@eqv/ui@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-ui-0.7.0.tgz(@ap/ui@packages+ui)(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-core-0.7.0.tgz)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react@19.3.0)':
     dependencies:
-      '@ap/ui': link:packages/ui
+      '@ap/ui': link:packages/sdk/ui
       '@eqv/core': https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-core-0.7.0.tgz
       '@eqv/ui': https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-ui-0.7.0.tgz(@ap/ui@packages+ui)(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-core-0.7.0.tgz)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       lucide-react: 0.469.0(react@19.3.0)
@@ -7440,7 +7440,7 @@ snapshots:
 
   '@eqv/ui@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-ui-0.7.0.tgz(@ap/ui@packages+ui)(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-core-0.7.0.tgz)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
     dependencies:
-      '@ap/ui': link:packages/ui
+      '@ap/ui': link:packages/sdk/ui
       '@eqv/core': https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-core-0.7.0.tgz
       '@tanstack/react-virtual': 3.14.13(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       lucide-react: 0.469.0(react@19.3.0)
@@ -7450,7 +7450,7 @@ snapshots:
 
   '@eqv/views@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-views-0.7.0.tgz(2d0ddf3b334e88efe44066bf2a76a130)':
     dependencies:
-      '@ap/ui': link:packages/ui
+      '@ap/ui': link:packages/sdk/ui
       '@eqv/core': https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-core-0.7.0.tgz
       '@eqv/renderer': https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-renderer-0.7.0.tgz(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-core-0.7.0.tgz)(react@19.3.0)
       '@eqv/replay': https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-replay-0.7.0.tgz(@ap/ui@packages+ui)(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-core-0.7.0.tgz)(@eqv/ui@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-ui-0.7.0.tgz(@ap/ui@packages+ui)(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-core-0.7.0.tgz)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react@19.3.0)

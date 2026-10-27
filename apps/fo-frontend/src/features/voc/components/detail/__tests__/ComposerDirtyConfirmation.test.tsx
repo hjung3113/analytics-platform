@@ -5,7 +5,7 @@
 //
 // C5.5 of slice3 #21.
 // Spec: PLAN-21-SUBCHUNKS.md C5.5 (DirtyConfirmation on panel close)
-// See: packages/ui/src/feedback/DirtyConfirmation.tsx for the primitive
+// See: packages/sdk/ui/src/feedback/DirtyConfirmation.tsx for the primitive
 
 import type { MeResponse } from '@/lib/auth/useMe';
 import type { VocDetailEnvelope } from '@fops/shared';

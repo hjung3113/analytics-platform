@@ -1,5 +1,5 @@
 /**
- * Equipment query endpoints (packages/contracts/src/menu/menu-query.ts, #128).
+ * Equipment query endpoints (packages/sdk/contracts/src/menu/menu-query.ts, #128).
  * Client-safe: declarations, params/data types and display constants only — filtering, sorting and paging
  * live in `src/mock/` (the server half). Pages import from here, never from `src/mock/**`.
  */

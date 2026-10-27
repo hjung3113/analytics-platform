@@ -76,8 +76,8 @@ if (
   throw new Error("site.css에는 색 literal을 쓸 수 없습니다. semantic 토큰을 사용하세요.");
 }
 const tokens = [
-  [join(root, "packages/ui/src/styles/tokens.css"), "fops-tokens.css"],
-  [join(root, "packages/ui/src/styles/platform-tokens.css"), "ap-tokens.css"],
+  [join(root, "packages/sdk/ui/src/styles/tokens.css"), "fops-tokens.css"],
+  [join(root, "packages/sdk/ui/src/styles/platform-tokens.css"), "ap-tokens.css"],
 ];
 for (const [source] of tokens) await access(source); // Missing token source is a hard failure.
 if (demo) await access(join(demo, "index.html"));

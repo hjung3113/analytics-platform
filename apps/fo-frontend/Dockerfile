@@ -1,5 +1,5 @@
 # Build context is the repository root (ops/feedbackops/docker-compose.release.yml `context: ../..`): FeedbackOps is part of the root pnpm
-# workspace and its lockfile, and consumes @ap/ui from packages/ui (ADR-0066, #642).
+# workspace and its lockfile, and consumes @ap/ui from packages/sdk/ui (ADR-0066, #642).
 FROM node:26.7.0-bookworm-slim AS build
 
 WORKDIR /workspace
@@ -13,17 +13,17 @@ COPY ops/feedbackops/tsconfig.base.json ./ops/feedbackops/tsconfig.base.json
 COPY apps/fo-frontend/package.json ./apps/fo-frontend/package.json
 COPY packages/fo-shared/package.json ./packages/fo-shared/package.json
 COPY packages/fo-ui/package.json ./packages/fo-ui/package.json
-COPY packages/ui/package.json ./packages/ui/package.json
+COPY packages/sdk/ui/package.json ./packages/sdk/ui/package.json
 COPY tooling/eslint/package.json ./tooling/eslint/package.json
 COPY tooling/tsconfig/package.json ./tooling/tsconfig/package.json
-# packages/ui/tsconfig.json extends @ap/tsconfig/base.json, which vite reads when it transforms @ap/ui source.
+# packages/sdk/ui/tsconfig.json extends @ap/tsconfig/base.json, which vite reads when it transforms @ap/ui source.
 COPY tooling/tsconfig/base.json ./tooling/tsconfig/base.json
 RUN pnpm install --filter @fops/frontend... --frozen-lockfile
 
 COPY apps/fo-frontend ./apps/fo-frontend
 COPY packages/fo-shared ./packages/fo-shared
 COPY packages/fo-ui ./packages/fo-ui
-COPY packages/ui ./packages/ui
+COPY packages/sdk/ui ./packages/sdk/ui
 RUN pnpm --filter @fops/frontend build
 
 # Unprivileged variant: nginx runs as a non-root user and listens on 8080.

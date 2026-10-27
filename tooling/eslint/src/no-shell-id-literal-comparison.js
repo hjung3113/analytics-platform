@@ -2,7 +2,7 @@
 // Any member access whose property is an id-like key (`x.id`, `x.group`, `x.menuId`, optional chains included) is
 // treated as a Registry identifier regardless of the local variable name, and comparing it to a string/template
 // literal — by ==/===/!=/!==, a switch case, or `[...literals].includes(member)` — is reported, as is a literal
-// argument to `groupById` / `menuById`. The complementary source scan (packages/shell/src/no-group-id-literals.test.ts)
+// argument to `groupById` / `menuById`. The complementary source scan (packages/sdk/shell/src/routing/__tests__/no-group-id-literals.test.ts)
 // catches GroupId literals in any other syntax.
 const ID_KEYS = new Set(['id', 'group', 'menuId']);
 const COMPARISON_OPERATORS = new Set(['==', '===', '!=', '!==']);

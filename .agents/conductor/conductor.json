@@ -41,11 +41,12 @@
                   "docs/feedbackops/",
                   "apps/fo-",
                   "packages/fo-",
+                  "packages/adapters/fo-bridge/",
                   "ops/feedbackops/"
                 ]
               },
               {
-                "regex": "^(packages/(ui|components|shell)/src|menus/[^/]+/[^/]+/src|apps/platform-web/src)/",
+                "regex": "^(packages/sdk/(ui|components|shell)/src|menus/[^/]+/[^/]+/src|apps/platform-web/src)/",
                 "suffix": [
                   ".tsx",
                   ".css"
@@ -57,10 +58,10 @@
       ],
       "optional": [
         {
-          "regex": "^(packages/(ui|components|shell)/src|menus/[^/]+/[^/]+/src|apps/platform-web/src)/"
+          "regex": "^(packages/sdk/(ui|components|shell)/src|menus/[^/]+/[^/]+/src|apps/platform-web/src)/"
         },
         {
-          "regex": "^packages/(kernel|contracts|mock-server)/src/"
+          "regex": "^packages/(sdk/(kernel|contracts)|adapters/mock-server)/src/"
         }
       ]
     },
@@ -70,7 +71,7 @@
           "match": {
             "any": [
               {
-                "regex": "^packages/kernel/src/(query/|platform/|registry/|context/drill)[\\w.-]*\\.tsx?$"
+                "regex": "^packages/sdk/kernel/src/(query/|platform/|registry/|context/drill)[\\w.-]*\\.tsx?$"
               },
               {
                 "regex": "(^|/)use[A-Z][\\w-]*\\.tsx?$"
@@ -81,7 +82,7 @@
         },
         {
           "match": {
-            "regex": "^(apps|packages)/[^/]+/package\\.json$"
+            "regex": "^(apps|packages|packages/sdk|packages/adapters)/[^/]+/package\\.json$"
           },
           "reason": "dependency change: {file}"
         }
@@ -113,7 +114,7 @@
         "name": "e2e",
         "scope": "reviewed",
         "match": {
-          "regex": "^packages/(kernel|shell|components|mock-server)/src/"
+          "regex": "^packages/(sdk/(kernel|shell|components)|adapters/mock-server)/src/"
         }
       },
       {
@@ -124,7 +125,7 @@
               "prefix": [
                 "docs/contract/",
                 "docs/adr/",
-                "packages/contracts/"
+                "packages/sdk/contracts/"
               ]
             }
           ]
@@ -137,6 +138,7 @@
             "docs/feedbackops/",
             "apps/fo-",
             "packages/fo-",
+            "packages/adapters/fo-bridge/",
             "ops/feedbackops/"
           ]
         }

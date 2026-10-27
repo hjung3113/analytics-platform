@@ -53,7 +53,7 @@ export const kebab = (camel: string): string => camel.replace(/[A-Z]/g, c => `-$
 export const pageName = (menuId: string): string =>
   menuId.split('-').map(p => p.charAt(0).toUpperCase() + p.slice(1)).join('');
 
-/** Route shapes — mirrors packages/kernel/src/registry/registry.ts createRegistry: split on '/', drop empty
+/** Route shapes — mirrors packages/sdk/kernel/src/registry/registry.ts createRegistry: split on '/', drop empty
  * segments (leading/trailing/double slashes), whole-segment params become ':'. Static-vs-param
  * overlaps are allowed by the kernel, so only identical shapes collide. */
 export const pathShape = (path: string): string =>
