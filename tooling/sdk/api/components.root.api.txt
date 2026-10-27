@@ -88,6 +88,9 @@ RecoverButton | function | function RecoverButton({ onRecover, label }: { label?
 ReturnLink | function | function ReturnLink(): import("react").JSX.Element
 RowAction | function | function RowAction({ compact, icon: Icon, label, text, variant, onClick, link, textLink, disabled, 'aria-describedby': describedBy }: @ap/components#RowActionProps): import("react").JSX.Element
 RowActionProps | type | type RowActionProps = { 'aria-describedby'?: string; compact: boolean; disabled?: boolean; icon: LucideIcon; label: string; link?: ReactElement<{ 'aria-label'?: string; className?: string; }>; onClick?: () => void; text: string; textLink?: 'primary' | 'secondary'; variant?: 'ghost' | 'secondary'; }
+SaveViewDialog | function | function SaveViewDialog(props: @ap/components#SaveViewDialogProps): import("react").JSX.Element
+SaveViewDialogProps | type | type SaveViewDialogProps = { context: @ap/contracts#SavedViewContext; hasDraft?: boolean; initialMode?: 'new' | 'update'; initialName?: string; onOpenChange: (open: boolean) => void; onSubmit: (input: @ap/components#SaveViewSubmit) => Promise<@ap/contracts#Result<unknown>>; open: boolean; panels?: { count: number; excluded?: readonly string[]; }; returnFocusRef?: RefObject<HTMLElement | null>; units: readonly @ap/contracts#SavedViewKind[]; updatable?: { name: string; unit?: @ap/contracts#SavedViewKind; }; visibilityOptions?: readonly { label: string; value: string; }[]; }
+SaveViewSubmit | type | type SaveViewSubmit = { mode: 'new' | 'update'; name: string; unit: @ap/contracts#SavedViewKind; visibility: string; }
 ScatterPoint | type | type ScatterPoint = { group?: string; id: string; label?: string; x: null | number; y: null | number; }
 ScatterSpec | type | type ScatterSpec = { groups?: { color?: @ap/ui/theme#ThemeColorToken; id: string; label: string; }[]; kind: 'scatter'; onPointClick?: (id: string) => void; points: @ap/components#ScatterPoint[]; referenceLines?: { axis: 'x' | 'y'; label: string; value: number; }[]; xLabel: string; xUnit: string; yLabel: string; }
 SegmentedRadio | function | function SegmentedRadio<T extends string>({ label, labelledBy, value, onChange, onActivate, options, className, disabled, describedBy }: { className?: string; describedBy?: string; disabled?: boolean; label: string; labelledBy?: string; onActivate?: (option: T) => void; onChange: (next: T) => void; options: readonly @ap/components#SegmentedRadioOption<T>[]; value: T | null; }): import("react").JSX.Element
@@ -102,6 +105,10 @@ TimelineLane | type | type TimelineLane = { id: string; label: string; segments:
 TimelineSegment | type | type TimelineSegment = { colorToken?: @ap/ui/theme#ThemeColorToken; depth?: number; end: number; endBoundary?: 'closed' | 'open'; id: string; neutral?: boolean; rank?: string; start: number; startBoundary?: 'closed' | 'orphan'; }
 TopNBarItem | type | type TopNBarItem = { colorToken: @ap/ui/theme#ThemeColorToken; id: string; label: string; value: number; }
 TopNBarSpec | type | type TopNBarSpec = { defaultExpanded?: boolean; expanded?: boolean; hideWhenEmpty?: boolean; items: @ap/components#TopNBarItem[]; kind: 'topNBar'; legend?: { colorToken: @ap/ui/theme#ThemeColorToken; label: string; }[]; onExpandedChange?: (next: boolean) => void; onItemClick?: (id: string) => void; topN?: number; }
+ViewFilter | type | type ViewFilter = 'all' | 'mine' | 'official' | `group:${string}`
+ViewSelector | function | function ViewSelector(props: @ap/components#ViewSelectorProps): import("react").JSX.Element
+ViewSelectorProps | type | type ViewSelectorProps = { currentId: null | string; defaultId: null | string; discardsChanges?: boolean; error?: boolean; filter: @ap/components#ViewFilter; groups?: readonly { id: string; name: string; }[]; loading?: boolean; onDelete?: (id: string) => void; onFilter: (filter: @ap/components#ViewFilter) => void; onMakeDefault?: (id: null | string) => void; onManage?: () => void; onQuery: (query: string) => void; onRetry?: () => void; onRevert?: () => void; onSave?: () => Promise<boolean | void> | boolean | void; onSaveAs?: () => Promise<boolean | void> | boolean | void; onSelect: (id: string) => void; ownerLabel?: (ownerId: string) => string; panelCount?: (view: @ap/contracts#SavedView) => number; query: string; saveTriggerRef?: Ref<HTMLButtonElement>; state: @ap/components#ViewSelectorState; userId: string; views: readonly @ap/contracts#SavedViewListItem[]; }
+ViewSelectorState | type | type ViewSelectorState = 'clean' | 'modified' | 'unapplied' | 'unsaved'
 WORKBOOK_LIMITS | const | const WORKBOOK_LIMITS: { readonly cells: 2000000; readonly columns: 16384; readonly rowsPerSheet: 100000; readonly sheets: 20; }
 WorkbookCell | type | type WorkbookCell = null | number | string
 WorkbookError | class | class WorkbookError extends Error { readonly code: @ap/components#WorkbookErrorCode; readonly sheet?: string | undefined; constructor(code: @ap/components#WorkbookErrorCode, sheet?: string | undefined); }
@@ -129,6 +136,7 @@ resizeGeometry | function | function resizeGeometry(handle: @ap/components#Float
 sizeGeometry | function | function sizeGeometry(preset: @ap/components#FloatingSizePreset, geometry: @ap/components#FloatingGeometry, area: @ap/components#FloatingArea, minSize: @ap/components#FloatingSize): @ap/components#FloatingGeometry
 sortAndPage | function | function sortAndPage<T>(rows: T[], q: @ap/contracts#PageQuery): @ap/contracts#PageResult<T>
 stepGeometry | function | function stepGeometry(geometry: @ap/components#FloatingGeometry, key: 'ArrowDown' | 'ArrowLeft' | 'ArrowRight' | 'ArrowUp', far: boolean, resize: boolean, area: @ap/components#FloatingArea, minSize: @ap/components#FloatingSize): @ap/components#FloatingGeometry
+summarizeSavedViewContext | function | function summarizeSavedViewContext(context: @ap/contracts#SavedViewContext, lang: Lang): string[]
 summaryPreset | function | function summaryPreset(view: null | { activeId: string; appliedId: string; key: string; presets: readonly @ap/contracts#ConditionPreset[]; }, which: 'applied' | 'draft'): @ap/components#SummaryPreset | undefined
 toWorkbookXlsx | function | function toWorkbookXlsx(sheets: readonly @ap/components#WorkbookSheet[], signal?: AbortSignal): Promise<Blob>
 token | function | function token(name: @ap/ui/theme#ThemeColorToken): string
@@ -142,6 +150,7 @@ useTableUrlWarning | function | function useTableUrlWarning(allowedSort: readonl
 useWorkbookExport | function | function useWorkbookExport(): @ap/components#WorkbookExport
 # reachable types
 ChartSize | type | type ChartSize = 'compact' | 'fill' | 'hero' | 'regular'
+Lang | type | type Lang = 'en' | 'ko'
 PageFilterBarShared | type | type PageFilterBarShared = { actions?: ReactNode; fields: readonly @ap/components#PageFilterField[]; label: string; mode?: 'draft'; onApply?: () => void; }
 PageFilterFieldBase | type | type PageFilterFieldBase = { key: string; label: string; testId?: string; }
 Selection | type | type Selection = { from: string; to: string; }

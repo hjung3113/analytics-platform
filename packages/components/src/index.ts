@@ -34,3 +34,7 @@ export { LaneTimeline, type LaneTimelineProps, type LaneTimelineHandle, type Tim
 export { Inspector, type InspectorProps, type InspectorSection } from './inspector/Inspector';
 
 export * from './floating';
+
+export { ViewSelector, type ViewFilter, type ViewSelectorProps, type ViewSelectorState } from './saved-view/ViewSelector';
+export { SaveViewDialog, type SaveViewDialogProps, type SaveViewSubmit } from './saved-view/SaveViewDialog';
+export { summarizeContext as summarizeSavedViewContext } from './saved-view/text';
