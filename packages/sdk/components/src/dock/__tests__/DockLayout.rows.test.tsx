@@ -12,12 +12,22 @@ import type { DockNode } from '../schema';
 const panelData = vi.hoisted(() => ({ current: null as { viewId: string; groupId: string; panelId: string | null } | null }));
 // The engine's own drop events need real geometry; the will-drop handler the layout hands the engine is captured and called directly.
 const willDrop = vi.hoisted(() => ({ current: null as ((event: unknown) => void) | null }));
+// Every `fromJSON` the layout sends the engine, with the height the engine had when it was called and the height the layout asks for.
+const loads = vi.hoisted(() => ({ current: [] as { engineHeight: number; layoutHeight: number }[] }));
 vi.mock('dockview-react', async importOriginal => {
   const actual = await importOriginal<typeof import('dockview-react')>();
   return {
     ...actual,
     getPanelData: () => panelData.current,
-    DockviewReact: (props: React.ComponentProps<typeof actual.DockviewReact>) => { willDrop.current = props.onWillDrop as typeof willDrop.current; return <actual.DockviewReact {...props} />; },
+    DockviewReact: (props: React.ComponentProps<typeof actual.DockviewReact>) => {
+      willDrop.current = props.onWillDrop as typeof willDrop.current;
+      const onReady: typeof props.onReady = event => {
+        const load = event.api.fromJSON.bind(event.api);
+        event.api.fromJSON = (data, options) => { loads.current.push({ engineHeight: event.api.height, layoutHeight: (data.grid as { height: number }).height }); load(data, options); };
+        props.onReady(event);
+      };
+      return <actual.DockviewReact {...props} onReady={onReady} />;
+    },
   };
 });
 
@@ -29,7 +39,7 @@ beforeAll(() => {
   if (typeof window.PointerEvent === 'undefined') window.PointerEvent = class extends MouseEvent { pointerId = 1; } as unknown as typeof PointerEvent;
 });
 afterAll(() => { observer.restore(); });
-afterEach(() => { cleanup(); panelData.current = null; });
+afterEach(() => { cleanup(); panelData.current = null; loads.current = []; });
 
 const IDS = ['a', 'b', 'c'];
 const panels = IDS.map(id => ({ id, title: `패널 ${id}`, render: () => <div>content {id}</div> }));
@@ -212,5 +222,18 @@ describe('DockLayout rows (workspace stack mode)', () => {
     expect(drop({ viewId: 'another-layout', groupId: 'g', panelId: 'a' }).preventDefault).toHaveBeenCalled();
     drop(null);
     expect(onPanelDrop).not.toHaveBeenCalled();
+  });
+
+  it('puts the engine on the new total height before it loads the layout, so the load does not rescale the rows to the old height', async () => {
+    const view = mountRows(column([40, 60], group(['a']), group(['c'])));
+    await ready();
+    loads.current = [];
+    const onHeightsChange = vi.fn();
+    view.rerender(<I18nProvider><DockLayoutBase panels={panels} layout={column([45, 55], group(['a']), group(['c']))} onLayoutChange={vi.fn()} separatorLabel={label} label="행 배치" minPanelSize={{ width: 20, height: 20 }} rows={{ heights: [330, 400], minimums: [200, 200], maximum: 700, onHeightsChange }} />
+    </I18nProvider>);
+    await waitFor(() => { expect(loads.current.length).toBeGreaterThan(0); });
+    // The engine's forced relayout at the end of `fromJSON` uses the height it had on entry: that must already be the layout's height.
+    expect(loads.current.every(load => load.engineHeight === load.layoutHeight)).toBe(true);
+    expect(loads.current.at(-1)!.layoutHeight).toBeGreaterThan(730);
   });
 });
