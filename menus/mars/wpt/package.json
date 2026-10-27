@@ -1,0 +1,33 @@
+{
+  "name": "@ap/menu-wpt",
+  "private": true,
+  "version": "0.1.0",
+  "ap": { "sdk": ">=0.17.0 <0.18.0" },
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ap/contracts": "workspace:*",
+    "@ap/kernel": "workspace:*",
+    "lucide-react": "^1.48.0"
+  },
+  "peerDependencies": {
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@ap/eslint-config": "workspace:*",
+    "@ap/tsconfig": "workspace:*",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "eslint": "^10.11.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "typescript": "^5.9.3"
+  }
+}

@@ -5,7 +5,7 @@ import { testAdapter, testSession } from '@ap/kernel/testing';
 import { createAssembly, type Assembly } from '#platform-assembly';
 import { GROUPS, SPACES, registry } from './menus';
 import { appSlots } from './slots';
-import { spaceId, type PlatformAdapter } from '@ap/contracts';
+import { NO_FEATURES, spaceId, type PlatformAdapter } from '@ap/contracts';
 import { EQUIPMENT_AXES } from './equipmentAxes';
 
 // The gen-menu probe (tooling/gen-menu/scripts/probe.ts) adds a `genProbe` group in the mars space and runs the
@@ -13,6 +13,19 @@ import { EQUIPMENT_AXES } from './equipmentAxes';
 const probeRun = process.env.GEN_MENU_PROBE === '1';
 
 describe('workspace assembly (#260)', () => {
+  it.each([
+    ['rcc', 'RCC', '프로세스 시간 분석 (예정)', 'Process time (planned)'],
+    ['mcc', 'MCC', '설비 사이클 분석 (예정)', 'Equipment cycle (planned)'],
+    ['wpt', 'WPT', '웨이퍼 사이클 분석 (예정)', 'Wafer cycle (planned)'],
+    ['configuration', 'Configuration', '파라미터 분석 (예정)', 'Parameter analysis (planned)'],
+  ])('registers %s as a planned MARS menu', (id, label, ko, en) => {
+    const entry = registry.menuById(id);
+    expect(entry).toMatchObject({ group: id, path: `/${id}`, label: { ko: label, en: label }, description: { ko, en }, permission: 'analytics:view', requiresScope: false, pageKeys: [] });
+    expect(entry.component).toBeUndefined();
+    expect(entry.moduleScreen).toBeUndefined();
+    expect(entry.features).toEqual(NO_FEATURES);
+    expect(registry.spaceOf(entry)?.id).toBe('mars');
+  });
   it('enters productivity analysis at equipment-master for a partial-permission session (#264)', async () => {
     const assembly = await createAssembly({ registry }) as Assembly;
     const session = testSession(['platform:view', 'equipment:view'], { user: { id: 'partial', name: 'partial', title: { ko: '부분 권한', en: 'Partial access' } } });
@@ -70,6 +83,10 @@ describe('workspace assembly (#260)', () => {
       ['equipment', 'mars'],
       ['masterData', 'mars'],
       ['hwTime', 'mars'],
+      ['rcc', 'mars'],
+      ['mcc', 'mars'],
+      ['wpt', 'mars'],
+      ['configuration', 'mars'],
       ['metrics', 'bravo'],
       ['clas', 'clas'],
       ['admin', 'operations'],

@@ -34,9 +34,13 @@
 
 /menus/mars/ @hjung3113
 /menus/mars/analytics/ @hjung3113
+/menus/mars/configuration/ @hjung3113
 /menus/mars/equipment/ @hjung3113
 /menus/mars/hw-time/ @hjung3113
 /menus/mars/master-data/ @hjung3113
+/menus/mars/mcc/ @hjung3113
+/menus/mars/rcc/ @hjung3113
+/menus/mars/wpt/ @hjung3113
 
 /menus/operations/ @hjung3113
 /menus/operations/admin/ @hjung3113
