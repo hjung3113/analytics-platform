@@ -1,6 +1,6 @@
 # 15. 멀티 워크스페이스 v2 — UI·IA·화면 설계
 
-상태: **Decided — UX 구성 원칙(2026-10-08 사용자 승인). 공간 마지막 화면 복원은 사용자+공간별 탭 세션([ADR-0028](../adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md), [06 §9.1](../contract/kernel.md#91-워크스페이스-decided-2026-09-26))** / **Candidate — 표 열 등 다른 사용자 설정 저장** / **Decided — 표준 로그 개발·개선 실행 메뉴 구성([ADR-0065](../adr/0065-log-dev-and-improvement-spaces-work-queue-first.md), 2026-10-21, 화면은 예정)** / **Decided — Managed System 매핑(앱 정적 표, 공간당 하나, [ADR-0045](../adr/0045-feedbackops-entry-link-mapping-and-scope.md), 2026-10-19)** / **Open — 인증**. FeedbackOps 진입은 링크다([ADR-0027](../adr/0027-feedbackops-stays-standalone-entry-links.md), 2026-10-09 — 화면을 옮기지 않는다). **Decided(방향, 2026-10-18) — 시스템 전환기 + 시스템별 레일([ADR-0042](../adr/0042-system-switcher-and-system-owned-rail.md)); 화면 사양 §3.2 Decided(2026-10-19, 전환기 A안).**
+상태: **Decided — UX 구성 원칙(2026-10-08 사용자 승인). 공간 마지막 화면 복원은 사용자+공간별 탭 세션([ADR-0028](../adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md), [06 §9.1](../contract/kernel.md#91-업무-시스템-decided-2026-09-26))** / **Candidate — 표 열 등 다른 사용자 설정 저장** / **Decided — 표준 로그 개발·개선 실행 메뉴 구성([ADR-0065](../adr/0065-log-dev-and-improvement-spaces-work-queue-first.md), 2026-10-21, 화면은 예정)** / **Decided — Managed System 매핑(앱 정적 표, 공간당 하나, [ADR-0045](../adr/0045-feedbackops-entry-link-mapping-and-scope.md), 2026-10-19)** / **Open — 인증**. FeedbackOps는 플랫폼에 합류한다([ADR-0066](../adr/0066-feedbackops-merges-into-platform.md)). **Decided(방향, 2026-10-18) — 시스템 전환기 + 시스템별 레일([ADR-0042](../adr/0042-system-switcher-and-system-owned-rail.md)); 화면 사양 §3.2 Decided(2026-10-19, 전환기 A안).**
 
 > 이 문서는 **업무 시스템별 독립 워크스페이스**의 화면 설계·도입 계획이다. 플랫폼 전체 Navigation/Context/Permission의 단일 계약은 [06 §9·9.1](../contract/kernel.md#9-information-architecture)이고, 이 문서는 이를 소비하는 상세 설계다. 기존 백엔드/DB의 소유권이나 구현 완료를 선언하지 않는다.
 
@@ -127,7 +127,7 @@ Equipment Platform
 
 **복귀 줄 (구현됨, #760)**: FeedbackOps 페이지 머리 아래 본문 맨 위 32px(`PlatformPage`가 그린다), 링크 `← <출발 메뉴>로 돌아가기`, 옆 문구 `<시스템>에서 왔습니다`(출발 메뉴가 공간 밖이면 문구 없음). URL 페이지 키 `returnTo`가 `safeReturnTo`와 `canOpen`을 통과했을 때만 그리고(parent·홈 fallback이면 줄 없음), 돌아가면 출발 메뉴의 URL·Scope·기간·Condition/Selection·등록된 page 상태를 06 §6.4·§22 규칙으로 되살린다. `returnTo`는 FeedbackOps 공간의 `carriedPageKeys`라서 **줄이 남고 사라지는 규칙(UX-10)**은 이렇다: FeedbackOps 메뉴 사이를 옮기는 동안(레일 섹션·사이드바·대시보드 링크·FeedbackOps 안 필터 이동) 남고, 다른 시스템·전역 메뉴로 나가거나 전환기로 다른 시스템을 고르면 사라지며, 돌아가기 링크를 따라가면 사라진다. 저장된 보기를 적용하면 사라진다(새 목록을 여는 일이고, 적용 뒤 복귀 줄 유지는 사용자 요청이 있을 때 다시 연다 — 백로그). FeedbackOps 안의 링크는 이어받기만 하고 새 `returnTo`를 만들거나 덮어쓰지 않는다. **복원은 줄을 되살리지 않는다**: 공간 마지막 화면 복원(탭 세션)과 최근 방문은 저장할 때 `returnTo`를 뺀다. 그래서 전환기로 FeedbackOps에 들어오면 줄이 없다. 양식에서 고른 업무 시스템이 출발 화면의 조회 범위를 덮어쓰지 않는다. 미저장 입력이 있으면 이탈 확인 뒤 이동한다. 단순 시스템 전환(전환기)은 이 복귀와 다른 동작이다.
 
-**전역 화면 사이드바 (ADR-0070)**: 홈을 포함한 공간 밖 전역 화면은 플랫폼 사이드바를 쓴다 — `홈` / 묶음 `내 활동`(`알림` · `내 VOC` · `설문` · `권한 요청`) / `공지`. 접기(`[`)는 업무 사이드바와 같다. 각 항목은 자기 메뉴 권한으로 판정하고, 건수가 있으면 배지를 단다. 이 화면들은 공간이 아니고(`space: null`) 공간 수에 들지 않으며 전환기에 현재 표식이 없다. `내 활동`은 묶음 이름이고 별도 페이지가 아니다. 설문은 레일 자리 없이 전체 페이지로 열리고(알림·홈·플랫폼 메뉴에서 진입), 미리 선택된 답이 없으며, 제출 뒤 출발 화면으로 돌아간다.
+**전역 화면 사이드바 (ADR-0070)**: 홈을 포함한 공간 밖 전역 화면은 플랫폼 사이드바를 쓴다 — `홈` / 메뉴 그룹 `내 활동`(`알림` · `내 VOC` · `설문` · `권한 요청`) / `공지`. 접기(`[`)는 업무 사이드바와 같다. 각 항목은 자기 메뉴 권한으로 판정하고, 건수가 있으면 배지를 단다. 이 화면들은 공간이 아니고(`space: null`) 공간 수에 들지 않으며 전환기에 현재 표식이 없다. `내 활동`은 메뉴 그룹 이름이고 별도 페이지가 아니다. 설문은 레일 자리 없이 전체 페이지로 열리고(알림·홈·플랫폼 메뉴에서 진입), 미리 선택된 답이 없으며, 제출 뒤 출발 화면으로 돌아간다.
 
 **권한 요청 페이지 (ADR-0070 결정 8, #657)**: `권한 요청` 전체 페이지는 먼저 업무 시스템 접근 권한은 플랫폼 관리자가 준다는 안내 한 줄을 보이고, FeedbackOps 기능 권한(필요하면 Managed System과 사유)을 요청하는 폼, 내가 보낸 요청의 상태 목록(대기 중·승인됨 등), 열린 요청의 `요청 철회`(줄 안 확인)를 둔다. 승인은 FeedbackOps 관리자 화면이 맡고(합류 설계 §3.3), 보완 제출·수정·만료일은 이 페이지에 없다(백로그).
 
@@ -185,7 +185,7 @@ Equipment Platform
 - 딥링크는 **대상 식별자 + 발신 화면의 안전한 복귀 참조 + 지원 가능한 컨텍스트**로 구성한다. 목적지 객체 ID를 전역 필터인 것처럼 사용하지 않는다(06 §6·§22).
 - **다른 시스템으로 넘어갔다고 사용자의 전역 Scope·권한이 바뀌지 않는다.** 대상 화면은 지원·권한 검증된 컨텍스트만 적용한다.
 - 지원하지 않는 필터는 조용히 사용하지 않고 '이 화면에서 미사용' 등 구분하여 표시한다. 임의로 기존 범위의 데이터를 보여주는 것처럼 속이지 않는다.
-- 각 워크스페이스의 로컬 페이지 상태(탭, 정렬, 테이블 열, 검색어 등)는 전역 Scope와 분리한다. 공간의 마지막 화면 복원은 사용자+공간별 탭 세션으로 Decided다([ADR-0028](../adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md), [06 §9.1](../contract/kernel.md#91-워크스페이스-decided-2026-09-26)). 표 열 같은 다른 사용자 설정의 저장 위치는 아직 정하지 않았다.
+- 각 워크스페이스의 로컬 페이지 상태(탭, 정렬, 테이블 열, 검색어 등)는 전역 Scope와 분리한다. 공간의 마지막 화면 복원은 사용자+공간별 탭 세션으로 Decided다([ADR-0028](../adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md), [06 §9.1](../contract/kernel.md#91-업무-시스템-decided-2026-09-26)). 표 열 같은 다른 사용자 설정의 저장 위치는 아직 정하지 않았다.
 - 안전한 딥링크·Back/Forward·새로고침·직접 진입은 기존 플랫폼 URL/Context 계약을 유지한다.
 
 ## 6. FeedbackOps UX 통합
@@ -221,7 +221,7 @@ FeedbackOps 화면은 이 절의 새 탭 진입에서는 플랫폼으로 옮기�
 
 플랫폼의 `SpaceDef.id`(UI 탐색), FeedbackOps의 `Managed System`(협업 스코프), 설비의 `Site/room_name/EquipmentID`(데이터 스코프)는 **서로 다른 식별 계층**이다. `workspaceId → managedSystemId`는 기본적으로 1:1이라고 가정하지 않는다. 명시적 매핑 모델, 호출 시 범위 검증, SSO/세션 위임/권한 설명을 #81·#150·#213에서 해결한다.
 
-FeedbackOps 화면과 백엔드는 모두 독립 앱으로 남는다([ADR-0027](../adr/0027-feedbackops-stays-standalone-entry-links.md)). 플랫폼은 매핑 표와 진입 링크만 소유한다.
+FeedbackOps 화면은 플랫폼에 합류하고 독립 앱은 은퇴한다([ADR-0066](../adr/0066-feedbackops-merges-into-platform.md)). 백엔드와 업무 객체는 FeedbackOps가 소유한다.
 
 ## 7. 컴포넌트 맵(소유권)
 
@@ -231,7 +231,7 @@ FeedbackOps 화면과 백엔드는 모두 독립 앱으로 남는다([ADR-0027](
 | `@ap/kernel` | SpaceDef/GroupDef/MenuEntry, Registry, 권한·Context·URL·전환 | 기존 계약 확장 |
 | `@ap/shell` | AppRail·AppSidebar·Portal·CommandPalette·복귀 UX | 기존 셸 확장 |
 | `menus/*/*` | 각 워크스페이스의 고유 업무 메뉴/화면 | 메뉴 그룹별 Consumer 유지 |
-| FeedbackOps(독립 앱) | VOC·Evidence·Finding·Task·설문 화면과 API | 그대로 둔다. 플랫폼은 공간 → Managed System 매핑과 진입 링크만(ADR-0027) |
+| FeedbackOps | VOC·Evidence·Finding·Task·설문 화면과 API | 플랫폼에 합류하며 업무 객체와 API는 FeedbackOps가 소유한다(ADR-0066) |
 | 각 독립 백엔드 | 로그·분석·지표·개선·운영 도메인 규칙/DB | 합치지 않음 |
 
 워크스페이스별로 새로운 FE를 복제하지 않는다. **동일한 FE shell/runtime이 등록된 도메인 메뉴를 조립**한다. 서로 다른 서버·DB를 합치거나 도메인 테이블을 공유 DB로 이동시키지 않는다.
@@ -284,7 +284,7 @@ FeedbackOps 화면과 백엔드는 모두 독립 앱으로 남는다([ADR-0027](
 1. **설계 기준 고정:** UX·IA·예외·Open 문서/ADR/HTML 승인안 저장. 이 단계에서는 서비스 코드·서브모듈을 수정하지 않는다.
 2. **셸/Registry 확장:** 포털·워크스페이스 메뉴·전용 Sidebar·통합 검색/탐색·권한 기반 노출·기존 라우트 호환.
 3. **업무 워크스페이스 등록:** 분석/지표 분리, 로그 개발·개선 실행·운영 콘솔 추가; 기존 설비/기준정보 귀속 확정.
-4. **FeedbackOps 진입:** 공간 → Managed System 매핑(#81, Decided — ADR-0045)과 링크 계약 확장 뒤 공간별 진입과 허브 링크를 단다(#251 완료). 화면은 옮기지 않는다(ADR-0027, #213).
+4. **FeedbackOps 진입:** 공간 → Managed System 매핑(#81, Decided — ADR-0045)과 링크 계약 확장 뒤 공간별 진입과 허브 링크를 단다(#251 완료). 화면의 플랫폼 합류는 ADR-0066과 #595를 따른다.
 5. **시스템 간 링크 UX/회귀:** 출발 화면 복귀, 무권한, 필터 미지원, 새로고침·Back/Forward·직접 URL, 시스템 0개/많음, 좁은 데스크톱 폭 검사.
 
 ## 11. 구현 수용 기준

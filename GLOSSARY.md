@@ -59,7 +59,7 @@ _Avoid_: 분임조 — 분임조는 StGroup과 별개의 값이다(아래 참고
 **분임조** (`team`):
 그 범위의 설비들을 관리하는 **엔지니어들의 묶음**(조직·담당자 단위). StGroup(공정 능력 단위)과 이름은 비슷하지만 완전히 다른 축이다 — 분임조는 사람을 묶고, StGroup은 설비의 공정 대체 가능성을 묶는다. 소속 정보는 외부 시스템에서 공급받는다.
 
-Line·PRC 그룹은 독립 전역 Context 집합이며 Condition 축이 아니다(2026-10-21 사용자 정정 — 소유자 #552·#513, [06 §6.1](docs/contract/kernel.md#61-식별자와-url-소유-상태-decided)).
+Line·PRC 그룹은 독립 전역 집합 키 `lineNames`·`prcGroups`이며 Condition 축이 아니다(2026-10-21 사용자 정정 — 소유자 #552·#513, [06 §6.1](docs/contract/kernel.md#61-식별자와-url-소유-상태-decided)).
 
 **Equipment Group Condition / Selection** (`equipmentGroup` / `selectedEquipmentIds`):
 Condition은 앱이 제공한 설비 묶음 축의 조건으로 선언한 소속 기준에 맞는 설비를 다시 찾는 질의이며, 여러 축은 AND·같은 축의 여러 값은 OR로 결합한다. Selection은 사용자가 명시적으로 고른 고정 EquipmentID 목록으로 Condition과 별개의 상태다([ADR-0059](docs/adr/0059-app-injected-equipment-axes-and-condition.md), [06 §6.1](docs/contract/kernel.md#61-식별자와-url-소유-상태-decided)).
