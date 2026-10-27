@@ -15,19 +15,22 @@ type Presentation = {
   floating: boolean;
   lastMode: 'maximized' | 'floating';
   geometry: BoardWindowGeometry | null;
+  /** The window is shown in its narrow replacement (`fill`): the rail must not call it a window. Set by the host that measures. */
+  windowFill: boolean;
   returnHref: string | null;
   lastSheetId: string | null;
   lastSheetName: string | null;
   /** The last status sentence for the chip's live region; `n` makes the same sentence announce again. */
   announcement: { text: string; n: number } | null;
 };
-const EMPTY: Presentation = { live: false, floating: false, lastMode: 'maximized', geometry: null, returnHref: null, lastSheetId: null, lastSheetName: null, announcement: null };
+const EMPTY: Presentation = { live: false, floating: false, lastMode: 'maximized', geometry: null, windowFill: false, returnHref: null, lastSheetId: null, lastSheetName: null, announcement: null };
 
 const states = new Map<string, Presentation>();
 const listeners = new Set<() => void>();
 // Not part of the snapshot: read once by whoever takes them, so they never re-render anything.
 const focusBefore = new Map<string, HTMLElement>();
 const chipFocus = new Set<string>();
+const displayFocus = new Map<string, 'window' | 'maximized'>();
 const windowFocus = new Map<string, () => void>();
 
 const read = (userId: string): Presentation => states.get(userId) ?? EMPTY;
@@ -41,11 +44,16 @@ const subscribe = (listener: () => void) => { listeners.add(listener); return ()
 
 /** The board surface tells the store which sheet it shows, for the chip's label (a copy, so the chip never reads the board document). */
 export const rememberSheet = (userId: string, id: string, name: string) => { write(userId, { lastSheetId: id, lastSheetName: name }); };
+/** The board host tells the store whether the window is currently shown as `fill`. */
+export const rememberWindowFill = (userId: string, fill: boolean) => { write(userId, { windowFill: fill }); };
 /** The element holding focus inside the visible board; restoring puts focus back on it. */
 export const rememberFocus = (userId: string, element: HTMLElement) => { focusBefore.set(userId, element); };
 export const recallFocus = (userId: string): HTMLElement | null => focusBefore.get(userId) ?? null;
 /** True once after the board was minimized with its own button: the chip takes focus when it appears. */
 export const takeChipFocus = (userId: string): boolean => chipFocus.delete(userId);
+
+/** Set by `창으로 보기` and window `최대화`: the display they lead to takes focus once it is on screen (their button unmounts, and focus would fall to `body`). */
+export const takeDisplayFocus = (userId: string, display: 'window' | 'maximized'): boolean => displayFocus.get(userId) === display && displayFocus.delete(userId);
 
 /** The window frame registers how to focus its title bar, for the rail button of a window that is already on screen. */
 export const registerWindowFocus = (userId: string, focus: () => void): (() => void) => {
@@ -58,10 +66,11 @@ const forget = (userId: string) => {
   const had = states.delete(userId);
   focusBefore.delete(userId);
   chipFocus.delete(userId);
+  displayFocus.delete(userId);
   if (had) for (const listener of Array.from(listeners)) listener();
 };
 
-export function resetBoardPresentationForTests(): void { states.clear(); focusBefore.clear(); chipFocus.clear(); windowFocus.clear(); listeners.clear(); }
+export function resetBoardPresentationForTests(): void { states.clear(); focusBefore.clear(); chipFocus.clear(); displayFocus.clear(); windowFocus.clear(); listeners.clear(); }
 
 /** A query key as the Kernel reads it: percent-decoded, so `%66ocus` is `focus`; a malformed escape keeps its raw spelling. */
 const keyOf = (part: string): string => {
@@ -132,7 +141,7 @@ export function useBoardPresentation() {
     return stored !== null && menu !== undefined && canOpen(menu.id) ? stored : home ?? '/';
   };
   return {
-    live: state.live, maximized, floating, minimized, geometry: state.geometry, sheetId: state.lastSheetId, sheetName: state.lastSheetName, announcement: state.announcement,
+    live: state.live, maximized, floating, minimized, geometry: state.geometry, windowFill: state.windowFill, sheetId: state.lastSheetId, sheetName: state.lastSheetName, announcement: state.announcement,
     /** Closed → open: arrives like any page (title focus). */
     open: () => { navigate(sheetHref(read(user.id).lastSheetId), { replace: true, focus: 'page', via: 'sidebar' }); },
     /** Minimized → the mode it was minimized from: a window needs no address change; maximized is a display change, not an arrival (the board puts focus back itself). */
@@ -149,9 +158,9 @@ export function useBoardPresentation() {
       navigate(leaveHref(), { replace: true });
     },
     /** Maximized → window: back to the last ordinary path (replace), then the window shows; the stored geometry (or the default) places it. */
-    toWindow: (text: string) => { announce(text); navigate(leaveHref(), { replace: true }); write(user.id, { floating: true, lastMode: 'floating' }); },
+    toWindow: (text: string) => { displayFocus.set(user.id, 'window'); announce(text); navigate(leaveHref(), { replace: true }); write(user.id, { floating: true, lastMode: 'floating' }); },
     /** Window → maximized: the background path is already in `returnHref`; the address becomes `/board?sheet=`. */
-    maximize: (text: string) => { announce(text); navigate(sheetHref(read(user.id).lastSheetId), { replace: true }); write(user.id, { floating: false, lastMode: 'maximized' }); },
+    maximize: (text: string) => { displayFocus.set(user.id, 'maximized'); announce(text); navigate(sheetHref(read(user.id).lastSheetId), { replace: true }); write(user.id, { floating: false, lastMode: 'maximized' }); },
     /** The window's position and size, written only by the user's own gestures. */
     setGeometry: (geometry: BoardWindowGeometry) => { write(user.id, { geometry }); },
     /** The rail button of a window already on screen: focus its title bar (the frame registered how). */

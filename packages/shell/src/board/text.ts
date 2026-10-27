@@ -156,7 +156,7 @@ const KO = {
   windowTitle: (sheet: string | null) => (sheet ? `분석 보드 · ${sheet}` : '분석 보드'),
   narrowNote: '창 대신 최대화 표시로 열립니다',
   window: {
-    titleBar: '분석 보드 창 제목줄(방향키로 이동, Alt+방향키로 크기 조절)', menu: '⋯ 창', positionGroup: '위치', sizeGroup: '크기',
+    titleBar: '분석 보드 창 제목줄(방향키로 이동, Alt+방향키로 크기 조절)', menu: '창 메뉴', positionGroup: '위치', sizeGroup: '크기',
     place: { 'top-left': '왼쪽 위', 'top-right': '오른쪽 위', 'bottom-left': '왼쪽 아래', 'bottom-right': '오른쪽 아래', center: '가운데' },
     size: { small: '작게', medium: '중간', large: '크게' },
     handle: { n: '위쪽 크기 조절', s: '아래쪽 크기 조절', e: '오른쪽 크기 조절', w: '왼쪽 크기 조절', nw: '왼쪽 위 크기 조절', ne: '오른쪽 위 크기 조절', sw: '왼쪽 아래 크기 조절', se: '오른쪽 아래 크기 조절' },
@@ -311,7 +311,7 @@ const EN: Strings<typeof KO> = {
   windowTitle: (sheet: string | null) => (sheet ? `Analysis board · ${sheet}` : 'Analysis board'),
   narrowNote: 'Opens maximized instead of a window',
   window: {
-    titleBar: 'Analysis board window title bar (arrow keys move, Alt+arrows resize)', menu: '⋯ Window', positionGroup: 'Position', sizeGroup: 'Size',
+    titleBar: 'Analysis board window title bar (arrow keys move, Alt+arrows resize)', menu: 'Window menu', positionGroup: 'Position', sizeGroup: 'Size',
     place: { 'top-left': 'Top left', 'top-right': 'Top right', 'bottom-left': 'Bottom left', 'bottom-right': 'Bottom right', center: 'Center' },
     size: { small: 'Small', medium: 'Medium', large: 'Large' },
     handle: { n: 'Resize top', s: 'Resize bottom', e: 'Resize right', w: 'Resize left', nw: 'Resize top left', ne: 'Resize top right', sw: 'Resize bottom left', se: 'Resize bottom right' },

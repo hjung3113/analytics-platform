@@ -137,7 +137,7 @@ export const FloatingWindow = /*#__PURE__*/ forwardRef<FloatingWindowHandle, Flo
       {windowed ? (
         <div
           ref={titleBar} role="group" tabIndex={0} aria-label={labels.titleBar} onKeyDown={onKeyDown} {...pointerProps('move')}
-          className="flex h-10 shrink-0 cursor-move touch-none items-center gap-1 border-b border-border-subtle bg-surface-sunken px-2 outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+          className="flex h-10 shrink-0 cursor-move touch-none items-center gap-1 border-b border-border-subtle bg-surface-sunken px-2 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
         >
           <span id={titleId} className="min-w-0 flex-1 truncate text-sm font-medium">{title}</span>
           <DropdownMenu modal={false}>

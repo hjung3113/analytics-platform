@@ -5,11 +5,16 @@ import { useHostPlatform } from '@ap/kernel/host';
 import { FLOATING_MIN_SIZE, FloatingWindow, fitsArea, type FloatingArea, type FloatingGeometry, type FloatingWindowHandle } from '@ap/components';
 import { Button } from '@ap/ui';
 import { BoardScreen } from './BoardScreen';
-import { registerWindowFocus, useBoardPresentation } from './boardPresentation';
+import { registerWindowFocus, rememberWindowFill, takeDisplayFocus, useBoardPresentation } from './boardPresentation';
 import { boardText } from './text';
-import { WINDOW_NARROW_BELOW, toastBand } from './windowLayout';
+import { WINDOW_NARROW_BELOW, fillArea, windowArea } from './windowLayout';
 
 const NO_AREA: FloatingArea = { left: 0, top: 0, width: 0, height: 0 };
+/** Where the ordinary screen's page header ends inside the area box (0 when the screen draws none): a window never covers it. */
+const pageHeaderBottom = (container: HTMLElement): number => {
+  const header = container.querySelector('[data-page-sticky-header] > header');
+  return header ? Math.max(0, Math.round(header.getBoundingClientRect().bottom - container.getBoundingClientRect().top)) : 0;
+};
 /** The first window of a user: 60% × 70% of the area, nearly centred (prototype A). Computed here, in the lazy chunk, never stored. */
 const defaultGeometry = (area: FloatingArea): FloatingGeometry => ({ x: Math.round(area.width * 0.2), y: Math.round(area.height * 0.12), width: Math.round(area.width * 0.6), height: Math.round(area.height * 0.7) });
 
@@ -26,7 +31,8 @@ export function BoardHost({ Outlet, display }: { Outlet: ComponentType; display:
   const host = useRef<HTMLDivElement>(null);
   const frame = useRef<FloatingWindowHandle>(null);
   const titleId = useId();
-  const [area, setArea] = useState<FloatingArea>(NO_AREA);
+  // The measured box and where the page header ends; the window's own area and the `fill` area both derive from them.
+  const [box, setBox] = useState({ width: 0, height: 0, header: 0 });
 
   // Only a window needs the area: no observer while the board is maximized or minimized.
   const windowed = display === 'window';
@@ -35,25 +41,42 @@ export function BoardHost({ Outlet, display }: { Outlet: ComponentType; display:
     const container = host.current?.closest<HTMLElement>('[data-board-window-area]') ?? null;
     if (!container) return;
     const measure = () => {
-      const next = { left: 0, top: 0, width: container.clientWidth, height: Math.max(0, container.clientHeight - toastBand('bottom-4')) };
-      setArea(prev => (prev.width === next.width && prev.height === next.height ? prev : next));
+      const next = { width: container.clientWidth, height: container.clientHeight, header: pageHeaderBottom(container) };
+      setBox(prev => (prev.width === next.width && prev.height === next.height && prev.header === next.header ? prev : next));
     };
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(container);
-    return () => { observer.disconnect(); };
+    // Another screen behind the window brings its own page header (or none).
+    let pending = 0;
+    const mutations = new MutationObserver(() => { cancelAnimationFrame(pending); pending = requestAnimationFrame(measure); });
+    mutations.observe(container, { childList: true, subtree: true });
+    return () => { observer.disconnect(); mutations.disconnect(); cancelAnimationFrame(pending); };
   }, [windowed]);
 
-  const narrow = display === 'window' && !fitsArea(area, FLOATING_MIN_SIZE, WINDOW_NARROW_BELOW);
+  const windowBox = windowArea(box.width, box.height, box.header);
+  const narrow = display === 'window' && !fitsArea(windowBox, FLOATING_MIN_SIZE, WINDOW_NARROW_BELOW);
+  // `fill` is the maximized display: the whole box, no page header or toast band kept clear (the board covers the page like the maximized one).
+  const area: FloatingArea = display === 'window' ? (narrow ? fillArea(box.width, box.height) : windowBox) : NO_AREA;
   const mode = display === 'window' ? (narrow ? 'fill' : 'window') : 'off';
   // The rail's "bring forward" lands on the title bar; where the frame draws none (`fill`) it lands on the board's own heading. Read through a ref so the
   // registered callback sees the display of the moment it is called, not the one of the render that registered it.
+  useEffect(() => { rememberWindowFill(user.id, mode === 'fill'); }, [mode, user.id]);
   const modeNow = useRef(mode);
   useEffect(() => { modeNow.current = mode; }, [mode]);
+  const focusHeading = () => { host.current?.querySelector<HTMLElement>('[data-board-heading]')?.focus({ preventScroll: true }); };
   useEffect(() => registerWindowFocus(user.id, () => {
     if (modeNow.current === 'window') frame.current?.focusTitleBar();
-    else host.current?.querySelector<HTMLElement>('[data-board-heading]')?.focus({ preventScroll: true });
+    else focusHeading();
   }), [user.id]);
+  // `창으로 보기` and window `최대화` unmount the pressed button: once the new display is on screen focus goes to its title bar / the board heading.
+  // A window waits for its first measured area (before it the frame is still `fill` and has no title bar).
+  useEffect(() => {
+    if (display === 'window' && area.width > 0 && takeDisplayFocus(user.id, 'window')) {
+      if (modeNow.current === 'window') frame.current?.focusTitleBar();
+      else focusHeading();
+    } else if (display === 'maximized' && takeDisplayFocus(user.id, 'maximized')) focusHeading();
+  }, [display, mode, area.width, user.id]);
   const shown = display !== 'minimized';
   return <FloatingWindow ref={frame} area={area} geometry={board.geometry ?? defaultGeometry(area)} onGeometryChange={board.setGeometry} mode={mode}
     title={text.windowTitle(board.sheetName)} titleId={titleId} labels={text.window}

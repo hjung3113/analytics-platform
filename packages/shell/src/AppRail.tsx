@@ -24,7 +24,7 @@ export function AppRail() {
   const board = useBoardPresentation();
   const boardCopy = boardText(lang);
   // Three states told by words, not by colour: closed, open (this screen), minimized (a shape on the icon too).
-  const boardLabel = board.maximized ? boardCopy.railOpen : board.floating ? boardCopy.railFloating : board.minimized ? boardCopy.railMinimized : boardCopy.railClosed;
+  const boardLabel = board.maximized ? boardCopy.railOpen : board.floating ? (board.windowFill ? boardCopy.railOpen : boardCopy.railFloating) : board.minimized ? boardCopy.railMinimized : boardCopy.railClosed;
   const vocLabel = lang === 'ko' ? 'VOC 등록' : 'File a VOC';
   return <TooltipProvider delayDuration={200}>
     <nav aria-label={lang === 'ko' ? '앱 레일' : 'App rail'} className="flex h-full w-(--rail-width) shrink-0 flex-col items-center gap-1.5 overflow-y-auto border-r border-border-subtle bg-surface-sidebar pb-3">

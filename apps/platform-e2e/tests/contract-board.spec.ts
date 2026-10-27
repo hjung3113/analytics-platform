@@ -1868,6 +1868,14 @@ test.describe('분석 보드 창 (#893 893d)', () => {
     await expect(windowFrame(page)).toBeVisible();
     await expect(page).toHaveURL(/\/analytics\/productivity/);
     expect(await page.evaluate(() => history.length)).toBe(length);
+    // The pressed button is gone; focus is on the window's title bar, not `body` (UX-1), and its focus ring is drawn inside the window (UX-2).
+    await expect(titleBar(page)).toBeFocused();
+    // The ring only shows for keyboard focus: a key press first, then the title bar takes focus again.
+    await page.keyboard.press('Shift');
+    await titleBar(page).blur();
+    await titleBar(page).focus();
+    const ring = await titleBar(page).evaluate(el => getComputedStyle(el).boxShadow);
+    expect(ring).toContain('inset');
     await expect(rail(page).getByRole('button', { name: '분석 보드(창으로 열림, 눌러 앞으로)' })).toHaveAttribute('data-board-state', 'floating');
     await expect(mainHeading(page)).toBeVisible();
     await page.getByRole('link', { name: '사이클타임 상세', exact: true }).click();
@@ -1910,7 +1918,7 @@ test.describe('분석 보드 창 (#893 893d)', () => {
     await page.keyboard.press('Alt+ArrowRight');
     expect((await box(frame)).width).toBeGreaterThanOrEqual(keyed.width);
     // Menu: a position preset puts it in a corner of the area, and it never leaves the area.
-    await page.getByRole('button', { name: '⋯ 창' }).click();
+    await page.getByRole('button', { name: '창 메뉴' }).click();
     await page.getByRole('menuitem', { name: '오른쪽 아래' }).click();
     const corner = await box(frame);
     expect(Math.round(corner.x + corner.width)).toBeLessThanOrEqual(Math.round(area.x + area.width));
@@ -1936,11 +1944,16 @@ test.describe('분석 보드 창 (#893 893d)', () => {
 
   test('창 → 최대화 → 다시 창으로 보기는 이전 위치·크기로 열린다', async ({ page }) => {
     await openWindow(page);
-    await page.getByRole('button', { name: '⋯ 창' }).click();
+    await page.getByRole('button', { name: '창 메뉴' }).click();
     await page.getByRole('menuitem', { name: '왼쪽 위' }).click();
     const before = await box(windowFrame(page));
+    // The window stops under the ordinary screen's page header and never covers it (UX-3).
+    const head = await box(page.locator('[data-page-sticky-header] > header'));
+    expect(before.y).toBeGreaterThanOrEqual(Math.round(head.y + head.height));
+    await expect(mainHeading(page)).toBeVisible();
     await page.getByRole('button', { name: '최대화', exact: true }).click();
     await expect(page).toHaveURL(/\/board\?sheet=dock/);
+    await expect(page.locator('[data-board-heading]')).toBeFocused();
     await expect(windowFrame(page)).toHaveCount(0);
     await page.getByRole('button', { name: '창으로 보기' }).click();
     await expect(windowFrame(page)).toBeVisible();
@@ -1956,6 +1969,12 @@ test.describe('분석 보드 창 (#893 893d)', () => {
     await expect(page.locator('[data-floating-mode="fill"]')).toBeVisible();
     await expect(page.getByText('창 대신 최대화 표시로 열립니다')).toBeVisible();
     await expect(page).not.toHaveURL(/\/board/);
+    // `fill` is the maximized display: the whole area, no empty strip below (UX-5), the heading holds focus (UX-1), the rail does not say "window".
+    const filled = await box(page.locator('[data-floating-mode="fill"]'));
+    const areaBox = await box(page.locator('[data-board-window-area]'));
+    expect(Math.round(filled.height)).toBe(Math.round(areaBox.height));
+    await expect(page.locator('[data-board-heading]')).toBeFocused();
+    await expect(rail(page).getByRole('button', { name: '분석 보드(열림)' })).toBeVisible();
     await page.setViewportSize({ width: 1440, height: 900 });
     await expect(windowFrame(page)).toBeVisible();
   });
@@ -1963,7 +1982,7 @@ test.describe('분석 보드 창 (#893 893d)', () => {
   test('토스트가 떠 있어도 레일 버튼으로 창 제목줄에 닿고, 창은 토스트 띠 위에 머문다', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await openWindow(page);
-    await page.getByRole('button', { name: '⋯ 창' }).click();
+    await page.getByRole('button', { name: '창 메뉴' }).click();
     await page.getByRole('menuitem', { name: '오른쪽 아래' }).click();
     // A real toast: Delete on a pane tab empties the pane and raises the undo toast.
     const tab = page.locator('[role="tab"][data-tab-panel-id]').nth(1);
@@ -1997,7 +2016,7 @@ test.describe('분석 보드 창 (#893 893d)', () => {
     await expect(page.locator('[data-floating-mode="fill"]')).toBeVisible();
     const url = page.url();
     await mainHeading(page).focus();
-    const button = rail(page).getByRole('button', { name: '분석 보드(창으로 열림, 눌러 앞으로)' });
+    const button = rail(page).getByRole('button', { name: '분석 보드(열림)' });
     await button.focus();
     await page.keyboard.press('Enter');
     await expect(page.locator('[data-board-heading]')).toBeFocused();

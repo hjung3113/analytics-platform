@@ -331,7 +331,9 @@ describe('board window: narrow width, geometry, rail, toast strip', () => {
     (document.activeElement as HTMLElement | null)?.blur();
     const push = vi.spyOn(window.history, 'pushState');
     const replace = vi.spyOn(window.history, 'replaceState');
-    const button = rail('분석 보드(창으로 열림, 눌러 앞으로)');
+    // In `fill` nothing is a window: the rail uses the plain open name, and still brings the board forward.
+    expect(screen.queryByRole('button', { name: '분석 보드(창으로 열림, 눌러 앞으로)' })).toBeNull();
+    const button = rail('분석 보드(열림)');
     button.focus();
     fireEvent.keyDown(button, { key: 'Enter' });
     fireEvent.click(button);
@@ -393,6 +395,42 @@ describe('board window: narrow width, geometry, rail, toast strip', () => {
     expect(height).toBe(Math.round((area.height - toastBand('bottom-4')) * 0.7));
     expect(document.querySelector('[data-toast-stack]')!.className).toContain('bottom-4');
     expect(toastBand('bottom-4')).toBe(72);
+  });
+
+  it('B7b: the narrow (fill) display uses the whole area — no toast strip is left empty', async () => {
+    seedTwo();
+    mount('/beta?scopeId=MEM');
+    await settle();
+    fireEvent.click(rail('분석 보드'));
+    await screen.findByRole('button', { name: '창으로 보기' });
+    area.width = 800;
+    fireEvent.click(screen.getByRole('button', { name: '창으로 보기' }));
+    await settle();
+    expect(mode()).toBe('fill');
+    expect(Number.parseFloat(frame()!.style.getPropertyValue('--fw-height'))).toBe(area.height);
+    expect(Number.parseFloat(frame()!.style.getPropertyValue('--fw-top'))).toBe(0);
+  });
+
+  it('UX-1: `창으로 보기` lands focus on the title bar; window `최대화` lands it on the board heading', async () => {
+    await openAsWindow();
+    expect(document.activeElement).toBe(titleBar());
+    fireEvent.click(screen.getByRole('button', { name: '최대화' }));
+    await settle();
+    expect(document.activeElement).toBe(document.querySelector('[data-board-heading]'));
+    expect(path()).toContain('/board');
+  });
+
+  it('UX-1: `창으로 보기` in the narrow display lands focus on the board heading (no title bar)', async () => {
+    seedTwo();
+    mount('/beta?scopeId=MEM');
+    await settle();
+    fireEvent.click(rail('분석 보드'));
+    await screen.findByRole('button', { name: '창으로 보기' });
+    area.width = 800;
+    fireEvent.click(screen.getByRole('button', { name: '창으로 보기' }));
+    await settle();
+    expect(mode()).toBe('fill');
+    expect(document.activeElement).toBe(document.querySelector('[data-board-heading]'));
   });
 
   it('rail on a window sends focus to its title bar and changes nothing else', async () => {
