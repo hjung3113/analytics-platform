@@ -322,6 +322,29 @@ describe('an unapplied draft is not dropped silently (C4)', () => {
   });
 });
 
+describe('a switch asks only when something would be lost (UX-1)', () => {
+  it('switches at once from the conditions the screen was opened with', async () => {
+    const user = userEvent.setup();
+    mount(createFakeViewStore([L1]), `/?scopeId=MEM&${period}&roomNames=PHOTO`);
+    await waitFor(() => expect(platform.scope.status).toBe('valid'));
+    await user.click(await screen.findByRole('button', { name: /^저장된 뷰:/ }));
+    await user.click(await screen.findByRole('button', row('포토 뷰')));
+    expect(screen.queryByRole('dialog', { name: '변경한 내용을 어떻게 할까요?' })).toBeNull();
+    await waitFor(() => expect(selector()).toHaveAccessibleName('저장된 뷰: 포토 뷰'));
+  });
+
+  it('asks once the user applied other conditions without a view', async () => {
+    const user = userEvent.setup();
+    mount(createFakeViewStore([L1]), `/?scopeId=MEM&${period}&roomNames=ETCH`);
+    await waitFor(() => expect(platform.scope.status).toBe('valid'));
+    await screen.findByRole('button', { name: /^저장된 뷰:/ });
+    act(() => platform.setGlobal({ roomNames: ['PHOTO'] }));
+    await user.click(selector());
+    await user.click(await screen.findByRole('button', row('포토 뷰')));
+    expect(await screen.findByRole('dialog', { name: '변경한 내용을 어떻게 할까요?' })).toBeTruthy();
+  });
+});
+
 describe('the selection survives folding the query bar (C5)', () => {
   it('keeps the edited view while folding and unfolding', async () => {
     const user = userEvent.setup();

@@ -217,6 +217,33 @@ describe('ViewSelector', () => {
   });
 });
 
+describe('ViewSelector list marks (UX-2, UX-5, UX-6)', () => {
+  it('marks a stale view in the list before it is picked, with text', async () => {
+    render(<Harness staleIds={new Set(['b'])} />);
+    await open();
+    expect(screen.getByRole('button', row('Beta shared'))).toHaveTextContent('낡음');
+    expect(screen.getByRole('button', row('Alpha'))).not.toHaveTextContent('낡음');
+  });
+
+  it('names the owner on rows other people own, and by name in the details', async () => {
+    const user = userEvent.setup();
+    render(<Harness ownerLabel={id => (id === 'other' ? '한지우' : id)} />);
+    await open(user);
+    expect(screen.getByRole('button', row('Beta shared'))).toHaveTextContent('한지우');
+    expect(screen.getByRole('button', row('Alpha'))).not.toHaveTextContent('한지우');
+    await user.click(screen.getByRole('button', { name: 'Beta shared 동작' }));
+    await user.click(screen.getByRole('menuitem', { name: '자세히 보기' }));
+    expect(screen.getByRole('region', { name: '자세히 보기' })).toHaveTextContent('한지우');
+  });
+
+  it('says unsaved conditions once, in the label, not again as a badge', () => {
+    render(<Harness currentId={null} state="unsaved" />);
+    const trigger = screen.getByRole('button', { name: /저장된 뷰/ });
+    expect(trigger).toHaveTextContent('저장하지 않은 조건');
+    expect(trigger).not.toHaveTextContent('저장 안 됨');
+  });
+});
+
 describe('ViewSelector fix round', () => {
   const switchTo = async (user: ReturnType<typeof userEvent.setup>, name: string) => {
     await open(user);
@@ -381,7 +408,7 @@ describe('ViewSelector fix round', () => {
     await user.click(within(region).getByRole('button', { name: '목록으로' }));
     await waitFor(() => expect(screen.getByRole('button', { name: `${long} 동작` })).toHaveFocus());
     await user.keyboard('{Tab}{Tab}{Enter}{Enter}');
-    expect(screen.getByRole('region', { name: '자세히 보기' })).toHaveTextContent('(7일) (고정 기간)');
+    expect(screen.getByRole('region', { name: '자세히 보기' })).toHaveTextContent(/고정 기간 .*\(7일\)/);
   });
 
   it('save-as opens the parent surface with the applied conditions and focus returns to the save button', async () => {

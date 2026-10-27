@@ -112,8 +112,16 @@ function Ready({ views, store, support }: { views: SavedViews; store: SavedViewS
   const groupNames = useMemo(() => new Map(groups.entries.map(entry => [entry.group.id, entry.group.name] as const)), [groups.entries]);
 
   const { modified, unsaved, unapplied } = views.state;
+  const ownerName = (id: string) => (id === userId ? host.user.name : people.get(id) ?? id);
+  const staleIds = useMemo(() => new Set(Object.entries(diagnoses).flatMap(([id, found]) => (found.status === 'stale' ? [id] : []))), [diagnoses]);
   const state: ViewSelectorState = modified ? 'modified' : unsaved ? 'unsaved' : unapplied ? 'unapplied' : 'clean';
   const selected = views.selected;
+  // Conditions the screen was opened with (or that a cleared selection left) are not the user's edit: with no view, only a change after that point is worth a confirmation.
+  const appliedNow = useMemo(() => JSON.stringify(captureApplied({ global: host.global, page: host.page }, support)), [host.global, host.page, support]);
+  const selectedId = selected?.view.id ?? null;
+  const [baseline, setBaseline] = useState({ id: selectedId, key: appliedNow });
+  if (baseline.id !== selectedId) setBaseline({ id: selectedId, key: appliedNow });
+  const discards = modified || unapplied || (unsaved && appliedNow !== baseline.key);
   const updatable = selected?.capabilities.canEdit ? { name: selected.view.name, unit: selected.view.kind } : undefined;
 
   // A save holds the applied conditions only; with an unapplied draft the user is told the draft is lost, and cancelling saves nothing.
@@ -192,9 +200,9 @@ function Ready({ views, store, support }: { views: SavedViews; store: SavedViewS
 
   return <span ref={wrapper} className="inline-flex flex-wrap items-center gap-1">
     <ViewSelector
-      views={items} currentId={selected?.view.id ?? null} defaultId={views.defaultId} state={state} discardsChanges={unsaved || unapplied}
+      views={items} currentId={selected?.view.id ?? null} defaultId={views.defaultId} state={state} discardsChanges={discards}
       loading={views.status === 'loading'} error={views.status === 'unavailable'} onRetry={views.refresh}
-      groups={groups.entries.map(entry => ({ id: entry.group.id, name: entry.group.name }))} query={query} onQuery={setQuery} filter={filter} onFilter={setFilter} userId={userId} panelCount={panelCount}
+      groups={groups.entries.map(entry => ({ id: entry.group.id, name: entry.group.name }))} query={query} onQuery={setQuery} filter={filter} onFilter={setFilter} userId={userId} ownerLabel={ownerName} staleIds={staleIds} panelCount={panelCount}
       onSelect={id => { void views.select(id).then(pickFailed); }}
       onSave={saveCurrent} onSaveAs={() => openSave('new')} saveTriggerRef={saveTrigger}
       onRevert={() => { void views.revertToSaved().then(pickFailed); }}
@@ -206,7 +214,7 @@ function Ready({ views, store, support }: { views: SavedViews; store: SavedViewS
     <SaveViewDialog
       key={saveMode} open={saveOpen} onOpenChange={closeSave} units={['menu-view', 'condition-set']} {...(updatable ? { updatable } : {})} initialMode={saveMode}
       context={captureApplied({ global: host.global, page: [] }, support).context} hasDraft={unapplied} returnFocusRef={saveTrigger}
-      visibilityOptions={[{ value: 'private', label: ko ? '나만 보기' : 'Only me' }, { value: 'share', label: ko ? '공유 대상 지정… (다음 단계)' : 'Choose who can see it… (next step)' }]}
+      visibilityOptions={[{ value: 'private', label: ko ? '나만 보기' : 'Only me' }, { value: 'share', label: ko ? '공유 대상 지정…' : 'Choose who can see it…' }]}
       onSubmit={submit}
     />
     <ShareTargetPicker

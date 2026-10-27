@@ -24,7 +24,7 @@ describe('SaveViewDialog', () => {
 
   it('summarizes applied conditions with fixed-period and 공정 wording, panels and exclusions read-only', () => {
     view({ panels: { count: 2, excluded: ['설비 A'] }, units: ['menu-view'] });
-    expect(screen.getByText(/09-25 09:00 → 09-26 09:00 \(24h\) \(고정 기간\)/)).toBeVisible();
+    expect(screen.getByText(/고정 기간 09-25 09:00 → 09-26 09:00 \(24h\)/)).toBeVisible();
     expect(screen.getByText('공정 1')).toBeVisible();
     expect(screen.getByText(/패널 조건 2/)).toBeVisible();
     expect(screen.getByText(/제외값: 설비 A/)).toBeVisible();

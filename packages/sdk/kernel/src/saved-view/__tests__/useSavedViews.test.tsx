@@ -479,3 +479,45 @@ it('reverting to a saved copy that changed in the store selects that new version
   await act(async () => { saved = await views.saveToSelected(); });
   expect(saved?.ok).toBe(true);
 });
+
+// FIX4: a default restore dropped by a newer generation or a moved address is tried again on the new one
+it('a personal default whose read is overtaken by a permission notification is applied on the new generation', async () => {
+  const store = createFakeStore([L1], { 'u1:home': 'l1' });
+  const slow = deferred();
+  store.getHold.set('l1', slow.promise);
+  const live = mountLive(store);
+  await waitFor(() => expect(store.calls).toContain('get'));
+  live.notify();
+  await waitFor(() => expect(views.status).toBe('ready'));
+  store.getHold.delete('l1');
+  await act(async () => { slow.release(); });
+  await waitFor(() => expect(window.location.search).toBe(query(['L1'])));
+  await waitFor(() => expect(views.selected?.view.id).toBe('l1'));
+});
+it('a personal default whose read is overtaken by an address change is applied on the new address', async () => {
+  const store = createFakeStore([L1], { 'u1:home': 'l1' });
+  const slow = deferred();
+  store.getHold.set('l1', slow.promise);
+  mount(store);
+  await waitFor(() => expect(store.calls).toContain('get'));
+  store.getHold.delete('l1');
+  await act(async () => { host.navigate('/?v=1'); });
+  await act(async () => { slow.release(); });
+  await waitFor(() => expect(window.location.search).toBe(query(['L1'])));
+  await waitFor(() => expect(views.selected?.view.id).toBe('l1'));
+});
+it('a personal default overtaken by the user\'s own pick is not applied again', async () => {
+  const store = createFakeStore([L1, L2], { 'u1:home': 'l1' });
+  const slow = deferred();
+  store.getHold.set('l1', slow.promise);
+  const live = mountLive(store);
+  await waitFor(() => expect(store.calls).toContain('get'));
+  await act(async () => { await views.select('l2'); });
+  live.notify();
+  await waitFor(() => expect(views.status).toBe('ready'));
+  store.getHold.delete('l1');
+  await act(async () => { slow.release(); });
+  await act(async () => {});
+  expect(window.location.search).toBe(query(['L2']));
+  expect(views.selected?.view.id).toBe('l2');
+});

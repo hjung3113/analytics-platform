@@ -88,7 +88,7 @@ function denial(content: { kind: string; menuId?: string; context: { roomNames?:
     if (needed === undefined) return '알 수 없는 메뉴입니다.';
     if (!a.permissions.includes(needed)) return '이 메뉴를 열 권한이 없습니다.';
   }
-  if (content.context.roomNames?.some(r => !a.rooms.includes(r))) return '조회 권한이 없는 룸이 포함되어 있습니다.';
+  if (content.context.roomNames?.some(r => !a.rooms.includes(r))) return '조회 권한이 없는 공정이 포함되어 있습니다.';
   return null;
 }
 function evaluate(stored: Stored, a: Actor, groups: readonly GroupRecord[], perm: MenuPermissionOf, forced = false): SavedViewListItem | null {

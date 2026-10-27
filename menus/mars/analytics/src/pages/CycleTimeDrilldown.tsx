@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { AlertTriangle, ArrowRight, Gauge, Hash, RotateCw, Timer, X } from 'lucide-react';
 import { periodHours, type GlobalContext, type Pair, type Trust } from '@ap/contracts';
-import { type PageProps, PlatformLink, useI18n, useMenuFetch, useMenuQuery, useQueryDraft, usePlatform } from '@ap/kernel';
+import { type PageProps, PlatformLink, useI18n, useMenuFetch, useMenuQuery, useQueryDraft, usePlatform, useSavedViewSupport } from '@ap/kernel';
 import { PanelWorkspace, RowAction, AnalysisChartFrame, DataTrustIndicator, PageFilterBar, type Delta, type PlatformColumn, parsePageIndex, PageKeyWarning, PlatformDataTable, PlatformPage, QueryView, StatCard, StateMessage, usePageKeyRules } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
 import {
@@ -13,6 +13,7 @@ import {
   DEFAULT_SORT, bucketContaining, encodeSort, exportFilterSummary, exportParams, parseBucket, parseBin, parseSortParam, qualityLabel, resolveGranularity, resolveTail,
   cycleTailFilterLabel, executionKey, equipmentIdFromKey, exportRowsWhenConfirmed,
 } from './cycleData';
+import { CYCLE_TIME_SAVED_VIEW } from '../saved-view';
 
 const NO_PARAMS = {};
 
@@ -54,6 +55,7 @@ function summaryFor(global: GlobalContext, page: readonly Pair[], lang: 'ko' | '
 export default function CycleTimeDrilldown(_: PageProps) {
   const { t, lang } = useI18n();
   const { global, page, pageParam, setPage, setGlobal, linkTo, toast, route } = usePlatform();
+  useSavedViewSupport(CYCLE_TIME_SAVED_VIEW);
   const queryDraft = useQueryDraft();
   const draftParam = (key: string) => queryDraft.draft.page.find(([k]) => k === key)?.[1] ?? null;
   const draftHours = periodHours(queryDraft.draft.global);

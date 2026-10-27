@@ -8,8 +8,8 @@ const WORDS = {
   noView: { ko: '뷰 선택', en: 'Select a view' },
   unsavedCondition: { ko: '저장하지 않은 조건', en: 'Unsaved conditions' },
   modified: { ko: '수정됨', en: 'Modified' },
-  unsaved: { ko: '저장 안 됨', en: 'Not saved' },
-  unapplied: { ko: '미적용 변경', en: 'Unapplied changes' },
+  unapplied: { ko: '적용 안 된 변경', en: 'Unapplied changes' },
+  stale: { ko: '낡음', en: 'Out of date' },
   search: { ko: '뷰 이름 검색', en: 'Search view names' },
   filterGroup: { ko: '공개 대상 필터', en: 'Filter by audience' },
   filterAll: { ko: '전체', en: 'All' },
@@ -123,7 +123,7 @@ export function visibilityShort(visibility: ViewVisibility, lang: Lang, groupNam
 export function summarizeContext(context: SavedViewContext, lang: Lang): string[] {
   const out: string[] = [];
   if (context.relativePeriod) out.push(lang === 'ko' ? `최근 ${periodSpan(context.relativePeriod.hours, lang)} (상대 기간)` : `Last ${periodSpan(context.relativePeriod.hours, lang)} (relative)`);
-  else if (context.from != null || context.to != null) out.push(`${formatPeriod(context.from ?? null, context.to ?? null, lang)} ${lang === 'ko' ? '(고정 기간)' : '(fixed)'}`);
+  else if (context.from != null || context.to != null) out.push(`${lang === 'ko' ? '고정 기간' : 'Fixed period'} ${formatPeriod(context.from ?? null, context.to ?? null, lang)}`);
   if (context.roomNames?.length) out.push(count(context.roomNames.length, '공정', 'Rooms', lang));
   if (context.lineNames?.length) out.push(count(context.lineNames.length, 'Line', 'Lines', lang));
   if (context.prcGroups?.length) out.push(count(context.prcGroups.length, 'PRC 그룹', 'PRC groups', lang));
