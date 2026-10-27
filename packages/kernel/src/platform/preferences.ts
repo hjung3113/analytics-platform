@@ -60,7 +60,9 @@ export function readSpaceLast(userId: string, migrations?: Readonly<Record<strin
       delete out[former];
       moved = true;
     }
-    if (moved) sessionStorage.setItem(spaceLastKey(userId), JSON.stringify(out));
+    if (moved) {
+      try { sessionStorage.setItem(spaceLastKey(userId), JSON.stringify(out)); } catch { /* memory-only: the migrated map is still returned */ }
+    }
     return out;
   } catch {
     return {};

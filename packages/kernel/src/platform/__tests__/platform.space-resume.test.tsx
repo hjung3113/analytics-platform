@@ -3,6 +3,7 @@ import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from '../../i18n';
 import { PlatformProvider, useHostPlatform } from '../platform';
+import { readSpaceLast, writeSpaceLast } from '../preferences';
 import { createRegistry, type PlatformMenuEntry } from '../../registry/registry';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '../../testing';
 import { groupId, spaceId, menuPermission, type Session, type SpaceDef } from '@ap/contracts';
@@ -167,6 +168,15 @@ describe('spaceResume (06 §9.1)', () => {
       sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ operations: '/admin/child?v=1', legacy: '/x?v=1' }));
       mountAt('/equipment?v=1&scopeId=MEM', ADMIN, RENAMED);
       expect(read()).toEqual({ operations: '/admin/child?v=1', legacy: '/x?v=1', mars: '/equipment?v=1&scopeId=MEM' });
+    });
+
+    it('returns the migrated map and keeps unrelated entries when persisting the migration throws', () => {
+      sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ analytics: STORED, operations: '/admin/child?v=1', legacy: '/x?v=1' }));
+      const setItem = vi.spyOn(sessionStorage, 'setItem').mockImplementationOnce(() => { throw new Error('quota'); });
+      expect(readSpaceLast('u1', RENAMED)).toEqual({ mars: STORED, operations: '/admin/child?v=1', legacy: '/x?v=1' });
+      expect(setItem).toHaveBeenCalledTimes(1);
+      writeSpaceLast('u1', 'mars', '/equipment?v=1&page=9', RENAMED);
+      expect(read()).toEqual({ mars: '/equipment?v=1&page=9', operations: '/admin/child?v=1', legacy: '/x?v=1' });
     });
 
     it('does not read the former id without a migration table', () => {
