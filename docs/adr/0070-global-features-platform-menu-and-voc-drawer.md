@@ -1,7 +1,7 @@
 # ADR-0070 — 전역 기능은 플랫폼 메뉴로 모으고(전역 화면은 사이드바, 업무 시스템 안은 전환기 팝오버), VOC 등록은 오른쪽 도킹 드로어, 설문은 전체 페이지로 둔다
 
 - Status: Decided (2026-10-22) — 사용자. 화면 사양은 소유 문서에 있다.
-- 부분 대체 (2026-10-24): [ADR-0081](0081-feedbackops-operator-screens-platform-frame.md) — 결정 4의 사용자 메뉴 `FeedbackOps 전체`는 #595 구현 때 없앤다(전환기 카드가 대신함).
+- 부분 대체 (2026-10-24): [ADR-0081](0081-feedbackops-operator-screens-platform-frame.md) — 결정 4의 사용자 메뉴 `FeedbackOps 전체`는 없앴다(2026-10-28, #764 p2; 전환기 카드가 대신함).
 - Amended (2026-10-23, #653): 결정 6의 제출 뒤 동작을 완료 안내와 출발 화면 복귀 링크로 적는다(자동 이동 없음). 복귀 링크는 Kernel `ReturnLink`(`← <출발 메뉴>`, 페이지 머리 `더보기`)를 그대로 쓴다. 시안 m-8b의 `원래 화면으로 돌아가기` 문구와 머리 노출은 백로그다.
 - Decider: 사용자 — 시안 세 차례(A/B/C → P1/P2/P3 → 수정 P1)를 본 뒤 "수정 P1"로 확정했다([#594 코멘트](https://github.com/hjung3113/analytics-platform/issues/594), 2026-10-22). 최종 화면은 owner 확인 시안(2026-10-22, owner 비공개 링크 https://claude.ai/artifact/WXwBny8wJEs1RXx9uCyFD4)이다. 리뷰는 Opus xhigh(IA)와 GPT-6-Astra high(결정)가 했다. 시안 코드는 버린다.
 - Scope: [#594](https://github.com/hjung3113/analytics-platform/issues/594), 지도 [#598](https://github.com/hjung3113/analytics-platform/issues/598), [ADR-0066](0066-feedbackops-merges-into-platform.md) 결정 2.
@@ -18,7 +18,7 @@ ADR-0066은 모든 사용자가 쓰는 FeedbackOps 기능(VOC 등록·내 VOC·�
 1. **전역 화면에는 플랫폼 사이드바를 둔다.** 홈을 포함한 전역 화면에 `홈` / `내 활동`(`알림` · `내 VOC` · `설문` · `권한 요청`) / `공지` 사이드바를 붙인다. 접을 수 있다. 이 화면들은 그대로 `space: null`이다. 공간이 아니고 공간 수에 들지 않는다. 각 항목은 자기 메뉴 권한으로 판정한다.
 2. **업무 시스템 안에서는 전환기 팝오버로 플랫폼 메뉴에 닿는다.** 레일 맨 위 전환기 버튼의 이름을 `시스템 및 플랫폼 메뉴`로 바꾼다. 팝오버 위쪽에 `플랫폼 메뉴` 구역(글자 링크와 배지)을 따로 두고, 그 아래에 업무 시스템 카드를 둔다. 현재 시스템 표식은 유지한다. 플랫폼 메뉴는 시스템 카드가 아니다. Ctrl+K 메뉴 검색에서도 같은 목적지에 닿는다.
 3. **전환기에 `플랫폼` 시스템을 따로 두지 않는다.** ADR-0028이 모든 사용자용 공통 공간을 기각한 이유(공간 0개 상태가 깨진다)가 그대로 유효하다.
-4. **레일에 `VOC 등록`과 `알림`을 더한다.** `알림`은 종 모양이고 읽지 않은 수 배지를 단다. 누르면 팝오버가 열리고 `모두 보기`로 알림 페이지에 간다. `언어`와 `FeedbackOps 전체` 링크는 사용자 메뉴로 옮긴다. `FeedbackOps 전체`는 [#595](https://github.com/hjung3113/analytics-platform/issues/595)가 담당자에게 셸 안 진입을 줄 때까지만 둔다. 사이드바 FeedbackOps 블록에서는 `VOC 등록` 항목을 뺀다.
+4. **레일에 `VOC 등록`과 `알림`을 더한다.** `알림`은 종 모양이고 읽지 않은 수 배지를 단다. 누르면 팝오버가 열리고 `모두 보기`로 알림 페이지에 간다. `언어`와 `FeedbackOps 전체` 링크는 사용자 메뉴로 옮긴다. `FeedbackOps 전체`는 [#595](https://github.com/hjung3113/analytics-platform/issues/595)가 담당자에게 셸 안 진입을 줄 때까지만 둔다(없앴다: ADR-0081 결정 6, #764 p2). 사이드바 FeedbackOps 블록에서는 `VOC 등록` 항목을 뺀다.
 5. **VOC 등록은 오른쪽 도킹 드로어다.**
    - 본문을 밀어낸다. 본문을 덮는 overlay가 아니다.
    - 열 때 지금 화면의 Context를 고정해 지울 수 있는 칩으로 보인다: 시스템·메뉴, URL page key, 집계 단위, 시각까지 쓴 기간, Global Context(Condition·Selection 포함), 열려 있는 상세 엔티티, 보이는 Correlation ID. 지운 칩은 첨부하지 않는다.

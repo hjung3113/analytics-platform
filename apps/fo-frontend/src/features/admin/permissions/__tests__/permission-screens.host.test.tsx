@@ -91,7 +91,11 @@ function record(href: string): Record<string, string> {
   return Object.fromEntries(new URL(href, 'http://feedbackops.local').searchParams);
 }
 
-function mount(initial: Record<string, string>, screen: (host: HostSeam) => React.ReactElement) {
+function mount(
+  initial: Record<string, string>,
+  screen: (host: HostSeam) => React.ReactElement,
+  overrides: Partial<HostSeam> = {},
+) {
   function Host() {
     const [search, set] = React.useState(initial);
     const seam = React.useMemo<HostSeam>(
@@ -109,8 +113,9 @@ function mount(initial: Record<string, string>, screen: (host: HostSeam) => Reac
         useHere: () => '/x',
         notify: () => 'n',
         dismiss: () => {},
+        ...overrides,
       }),
-      [search],
+      [search, overrides],
     );
     return <HostSeamProvider value={seam}>{screen(seam)}</HostSeamProvider>;
   }
@@ -319,5 +324,19 @@ describe('usePermissionGrantsConsole over the host seam', () => {
     expect(calls).toEqual([
       { href: `/admin/permissions/grants?selected=${R1}`, options: undefined },
     ]);
+  });
+});
+
+describe('the consoles draw their own title only when the host does not own it', () => {
+  it.each([
+    ['PermissionRequestsScreen', '권한 요청 검토', () => <PermissionRequestsScreen />],
+    ['PermissionGrantsScreen', '활성 권한', () => <PermissionGrantsScreen />],
+  ])('%s', async (_name, title, screenEl) => {
+    const standalone = mount({}, screenEl);
+    expect(await screen.findByRole('heading', { name: new RegExp(title) })).toBeTruthy();
+    standalone.unmount();
+    mount({}, screenEl, { hostOwnsTitle: true });
+    await screen.findByRole('tablist');
+    expect(screen.queryByRole('heading', { name: new RegExp(title) })).toBeNull();
   });
 });

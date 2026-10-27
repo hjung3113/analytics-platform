@@ -60,11 +60,11 @@ describe('feedbackOpsSlot', () => {
     expect(entries.some(entry => 'href' in entry)).toBe(false);
   });
 
-  it('draws no platformReturn new-tab entry any more; the overall link stays', () => {
+  it('draws no platformReturn new-tab entry any more, and no overall link', () => {
     const back = 'https://platform.example/analytics/cycle-time?v=1&scopeId=MEM';
     const entries = feedbackOpsSlot(F).entriesFor(spaceId('mars'), back)!;
     expect(entries.some(entry => 'href' in entry)).toBe(false);
-    expect(feedbackOpsSlot(F).overall!.href).toBe(`${F}/home`);
+    expect(feedbackOpsSlot(F).overall).toBeNull();
   });
 
   it('gates the whole block on feedbackops:access', () => {
@@ -84,7 +84,7 @@ describe('feedbackOpsSlot', () => {
     ['absent', null],
     ['non-https non-loopback', 'http://example.com'],
     ['with a path', 'https://feedbackops.example/app'],
-  ])('keeps the three mapped in-shell entries and hides overall when the origin is %s', (_name, origin) => {
+  ])('keeps the three mapped in-shell entries when the origin is %s', (_name, origin) => {
     const slot = feedbackOpsSlot(origin);
     // VOC, Task and 설문 are in-shell and need no FeedbackOps address.
     const entries = slot.entriesFor(spaceId('mars'))!;
@@ -95,8 +95,7 @@ describe('feedbackOpsSlot', () => {
     expect(slot.overall).toBeNull();
   });
 
-  it('offers the overall link at /home behind feedbackops:access only when the origin is valid', () => {
-    expect(feedbackOpsSlot(F).overall).toEqual({ href: `${F}/home`, permission: 'feedbackops:access' });
-    expect(feedbackOpsSlot('http://localhost:5173').overall).toEqual({ href: 'http://localhost:5173/home', permission: 'feedbackops:access' });
+  it.each([[F], ['http://localhost:5173'], [null]])('draws no FeedbackOps 전체 link for origin %s (#764 p2, ADR-0081 decision 6)', origin => {
+    expect(feedbackOpsSlot(origin).overall).toBeNull();
   });
 });

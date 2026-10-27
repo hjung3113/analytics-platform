@@ -1,6 +1,6 @@
 # 멀티 워크스페이스 셸은 카드 런처 홈 · 사이드바 바닥 고정 FeedbackOps 진입으로 하고, 홈·공지·내 VOC는 공간 밖 전역 유틸리티로 둔다
 
-상태: **Decided (2026-10-09)** — 레일 = 공간 전환·로고 = 홈 링크·레일 하단 "FeedbackOps 전체"는 [ADR-0042](0042-system-switcher-and-system-owned-rail.md)가 대체(2026-10-18 방향, 구현 #423). 레일 52px, 사이드바 240/56px, 페이지 머리 50px, 오른쪽 상세 440px(ADR-0011·0013)은 바꾸지 않는다. 부분 대체: [ADR-0070](0070-global-features-platform-menu-and-voc-drawer.md)(2026-10-22) — 홈·전역 화면의 사이드바 없음, 홈 순서, FeedbackOps 블록의 `VOC 등록`, 공간 0개 권한 요청 안내 목적지.
+상태: **Decided (2026-10-09)** — 레일 = 공간 전환·로고 = 홈 링크·레일 하단 "FeedbackOps 전체"는 [ADR-0042](0042-system-switcher-and-system-owned-rail.md)가 대체(2026-10-18 방향, 구현 #423; 옮겨 간 사용자 메뉴의 링크도 없앴다: [ADR-0081](0081-feedbackops-operator-screens-platform-frame.md) 결정 6, #764 p2). 레일 52px, 사이드바 240/56px, 페이지 머리 50px, 오른쪽 상세 440px(ADR-0011·0013)은 바꾸지 않는다. 부분 대체: [ADR-0070](0070-global-features-platform-menu-and-voc-drawer.md)(2026-10-22) — 홈·전역 화면의 사이드바 없음, 홈 순서, FeedbackOps 블록의 `VOC 등록`, 공간 0개 권한 요청 안내 목적지.
 - 결정자: 사용자 — 실제 앱 위 `?variant=A|B|C` 시안(버리는 브랜치 `hjung3113/proto-250-workspaces`, #250)을 본 뒤 조합 판정을 UX 리뷰어(GPT-6-Astra high, 페르소나 7명의 작업 흐름 기준)에게 위임했고, 그 판정을 채택했다. 홈·공지·내 VOC를 전역 유틸리티로 두는 계약 변경은 사용자가 직접 골랐다.
 
 ADR-0026은 공간을 업무 시스템 단위로 나누고 레일은 공간 전환, 사이드바는 현재 공간 메뉴만 보이기로 했고, ADR-0027은 FeedbackOps를 공간별 진입 링크로 정했다. 남은 질문은 플랫폼 홈의 모양, FeedbackOps 진입이 사이드바 어디에 놓이는지, 기존 메뉴(운영 개요·설비관리·기준정보관리·공지·내 VOC)의 귀속이었다. 시안에서 드러난 제약도 있었다: 모든 메뉴가 그룹을 거쳐 어느 공간에 속해야 해서, 지표관리만 쓰는 현업 문의자는 생산성 분석 공간에 있는 내 VOC·공지를 열 수 없었다.

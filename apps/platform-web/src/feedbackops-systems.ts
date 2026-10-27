@@ -44,7 +44,6 @@ function hrefOrNull(origin: string | null, target: FeedbackOpsTarget): string | 
 
 /** The FeedbackOps slot for the app. Entries come only from the mapping above; new-tab links come only from `buildFeedbackOpsLink`. VOC (#760), Task (#763) and 설문 (#764) open in the shell; a `target` row would be a new-tab link. */
 export function feedbackOpsSlot(origin: string | null): FeedbackOpsSlot {
-  const overallHref = hrefOrNull(origin, { kind: 'overall' });
   return {
     entriesFor: (spaceId, platformReturn) => {
       const managedSystemId = managedSystemFor(spaceId);
@@ -55,6 +54,7 @@ export function feedbackOpsSlot(origin: string | null): FeedbackOpsSlot {
         : { key: row.key, label: row.label, icon: row.icon, href: hrefOrNull(origin, row.target(managedSystemId, back)) });
     },
     permission: 'feedbackops:access',
-    overall: overallHref === null ? null : { href: overallHref, permission: 'feedbackops:access' },
+    // No `FeedbackOps 전체` user-menu link any more (#764 p2, ADR-0081 decision 6): every FeedbackOps screen is a platform menu. The SDK slot keeps the field for other apps.
+    overall: null,
   };
 }

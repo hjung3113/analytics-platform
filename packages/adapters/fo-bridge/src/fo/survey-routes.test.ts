@@ -110,7 +110,7 @@ describe('surveyOperatorTargets', () => {
     expect(operatorHostLinks.canLink(to)).toBe(true);
   });
 
-  it.each(['/admin/managed-systems', '/admin/settings#coverage', '/surveys/not-a-uuid', `/surveys/${SURVEY}/results?returnTo=%2Fhome`])('operatorHostLinks leaves %s unlinked', to => {
+  it.each(['/admin/foo', '/admin/settings#other', '/surveys/not-a-uuid', `/surveys/${SURVEY}/results?returnTo=%2Fhome`])('operatorHostLinks leaves %s unlinked', to => {
     expect(operatorHostLinks.canLink(to)).toBe(false);
   });
 });

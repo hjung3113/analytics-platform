@@ -8,6 +8,7 @@ import {
   WORKSPACE_SETTINGS_SELF_APPROVAL_COPY,
   coverageBandFieldLabel,
 } from '@/lib/copy/workspace-settings';
+import { useHostSeam } from '@/lib/host/host-seam';
 import {
   clusterSuggestionActorContext,
   useClusterSuggestions,
@@ -175,9 +176,10 @@ function isCoveragePairValid(pair: CoverageThresholdPair): boolean {
 
 export function WorkspaceSettingsScreen({ section }: { section?: string | null }) {
   const settingsQuery = useWorkspaceSettings();
+  const { hostOwnsTitle } = useHostSeam();
 
   return (
-    <PageShell header={{ title: '워크스페이스 설정', subtitle }}>
+    <PageShell {...(hostOwnsTitle ? {} : { header: { title: '워크스페이스 설정', subtitle } })}>
       {settingsQuery.isPending ? (
         <p className="text-sm text-text-muted" data-testid="workspace-settings-loading">
           불러오는 중…

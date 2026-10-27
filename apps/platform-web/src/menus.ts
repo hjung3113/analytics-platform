@@ -4,7 +4,7 @@
  * live in their own menu package (docs/integration/platform-packages.md §5); the app concatenates them.
  */
 import {
-  BarChart3, Boxes, ClipboardCheck, ClipboardList, Cpu, Database, FileSearch, Gauge, Inbox, LayoutDashboard, LineChart, ListChecks, ListTodo, Megaphone, Ruler, Settings, ShieldCheck, Timer, UserRound, Waves, Workflow, CircleGauge,
+  BarChart3, Boxes, ClipboardCheck, ClipboardList, Cpu, Database, FileSearch, Gauge, Inbox, LayoutDashboard, LineChart, ListChecks, ListTodo, Megaphone, Ruler, Settings, ShieldCheck, Timer, UserCog, UserRound, Waves, Workflow, CircleGauge,
 } from 'lucide-react';
 import { groupId, menuPermission, spaceId, type SpaceDef } from '@ap/contracts';
 import { createRegistry, type GroupDef, type MenuEntry } from '@ap/kernel';
@@ -33,6 +33,7 @@ import { manifests as foFindings } from '@ap/menu-fo-findings';
 import { manifests as foTasks } from '@ap/menu-fo-tasks';
 import { manifests as foIntegration } from '@ap/menu-fo-integration';
 import { manifests as foSurveys } from '@ap/menu-fo-surveys';
+import { manifests as foAdmin } from '@ap/menu-fo-admin';
 import { manifests as rcc } from '@ap/menu-rcc';
 import { manifests as mcc } from '@ap/menu-mcc';
 import { manifests as wpt } from '@ap/menu-wpt';
@@ -70,6 +71,7 @@ export const GROUPS: GroupDef[] = [
   { id: groupId('foTasks'), label: { ko: 'Tasks', en: 'Tasks' }, icon: ClipboardList, space: spaceId('feedbackops') },
   { id: groupId('foIntegration'), label: { ko: '연동', en: 'Integration' }, icon: Boxes, space: spaceId('feedbackops') },
   { id: groupId('foSurveys'), label: { ko: 'Surveys', en: 'Surveys' }, icon: ClipboardCheck, space: spaceId('feedbackops') },
+  { id: groupId('foAdmin'), label: { ko: '관리자', en: 'Admin' }, icon: UserCog, space: spaceId('feedbackops') },
   // </gen:menu-groups>
 ];
 
@@ -113,6 +115,7 @@ export const MENUS: MenuEntry[] = [
   ...foTasks,
   ...foIntegration,
   ...foSurveys,
+  ...foAdmin,
   ...rcc,
   ...mcc,
   ...wpt,

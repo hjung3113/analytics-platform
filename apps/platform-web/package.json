@@ -25,6 +25,7 @@
     "@ap/menu-clas": "workspace:*",
     "@ap/menu-configuration": "workspace:*",
     "@ap/menu-equipment": "workspace:*",
+    "@ap/menu-fo-admin": "workspace:*",
     "@ap/menu-fo-dashboard": "workspace:*",
     "@ap/menu-fo-findings": "workspace:*",
     "@ap/menu-fo-integration": "workspace:*",

@@ -25,6 +25,10 @@ export {
   useEvidenceHere, useEvidenceSearch, useIntegrationDashboardHere, useIntegrationDashboardSearch,
 } from './fo/integration-routes';
 export {
+  analyticsAreasRoute, managedSystemsRoute, permissionGrantsRoute, permissionRequestsRoute, settingsRoute, useAnalyticsAreasHere, useAnalyticsAreasSearch, useManagedSystemsHere,
+  useManagedSystemsSearch, usePermissionGrantsHere, usePermissionGrantsSearch, usePermissionRequestsHere, usePermissionRequestsSearch, useSettingsHere, useSettingsSearch,
+} from './fo/admin-routes';
+export {
   surveyBuilderRoute, surveyFollowUpRoute, surveyOperatorTargets, surveyResultsRoute, surveysRoute, useSurveyBuilderHere, useSurveyBuilderSearch, useSurveyFollowUpHere,
   useSurveyFollowUpSearch, useSurveyResultsHere, useSurveyResultsSearch, useSurveysHere, useSurveysSearch,
 } from './fo/survey-routes';
