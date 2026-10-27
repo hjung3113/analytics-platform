@@ -10,7 +10,7 @@ import { RouteOutlet } from '../RouteOutlet';
 import { BOARD_LAYOUT_ENGINE_KEY } from './layoutEngine';
 import { legacyBoard as boardOf, legacySheet as sheet, seedLegacy as seed } from './__fixtures__/legacyBoard';
 // RouteOutlet loads the board lazily (#821); evaluate it up front so the board itself is not what suspends.
-import './BoardScreen';
+import './BoardHost';
 
 // #915: a pane whose menu screen is a lazy chunk still loading shows its own skeleton. Without the pane's own boundary it suspended to the
 // board's outer boundary, covering every pane (and, in the dock, the tab strips) with the page skeleton and waiting out React's fallback

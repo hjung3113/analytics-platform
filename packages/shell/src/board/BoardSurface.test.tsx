@@ -12,6 +12,8 @@ import { addSheet, freshBoard } from './boardModel';
 import { OpenInBoardAction } from './OpenInBoardAction';
 import { BOARD_LAYOUT_ENGINE_KEY } from './layoutEngine';
 import { RouteOutlet } from '../RouteOutlet';
+// RouteOutlet loads the board lazily (#821); evaluate it up front so a short settle does not race a cold dynamic import.
+import './BoardHost';
 import { useBoardSession } from './boardSession';
 
 const features = { export: false, savedView: false, annotate: false, compare: false, board: true };

@@ -12,6 +12,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
 import { BoardScreen } from './BoardScreen';
 import { GRID_GAP, PANE_HEADER_HEIGHT, STACKED_PANE_MIN_HEIGHT } from './layout';
 import { RouteOutlet } from '../RouteOutlet';
+// RouteOutlet loads the board lazily (#821); evaluate it up front so a short settle does not race a cold dynamic import.
+import './BoardHost';
 import { AppRail } from '../AppRail';
 import { AppShell } from '../AppShell';
 import { MAX_SHEETS } from './boardModel';
@@ -77,10 +79,18 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); listeners.clear(); window.history.replaceState(null, '', '/'); });
 
 describe('storage (docs/16 §7)', () => {
+  // Must stay the file's first mount: `RouteOutlet`'s `lazy()` runs its import once, and this is the one that gets the delay.
+  it('draws the first-visit sheet even when the board chunk arrives late', async () => {
+    vi.doMock('./BoardHost', async () => { await new Promise(resolve => setTimeout(resolve, 80)); return vi.importActual('./BoardHost'); });
+    try {
+      mount('/board');
+      expect(await screen.findByRole('tab', { name: '시트 1' })).toHaveAttribute('aria-selected', 'true');
+    } finally { vi.doUnmock('./BoardHost'); }
+  });
+
   it('first visit is one empty 1×1 sheet named 시트 1, and nothing is written until an edit', async () => {
     mount('/board');
-    await settle();
-    expect(screen.getByRole('tab', { name: '시트 1' })).toHaveAttribute('aria-selected', 'true');
+    expect(await screen.findByRole('tab', { name: '시트 1' })).toHaveAttribute('aria-selected', 'true');
     expect(within(paneGroup(1)).getByRole('button', { name: '분석 화면 넣기' })).toBeInTheDocument();
     expect(localStorage.getItem(KEY)).toBeNull();
     expect(localStorage.getItem(V2_KEY)).toBeNull();

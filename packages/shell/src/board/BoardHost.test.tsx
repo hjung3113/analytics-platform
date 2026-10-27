@@ -9,6 +9,8 @@ import { PlatformPage } from '@ap/components';
 import { groupId, spaceId } from '@ap/contracts';
 import { AppShell } from '../AppShell';
 import { RouteOutlet } from '../RouteOutlet';
+// RouteOutlet loads the board lazily (#821); evaluate it up front so a short settle does not race a cold dynamic import.
+import './BoardHost';
 import { BoardSurface } from './BoardSurface';
 import { BOARD_LAYOUT_ENGINE_KEY } from './layoutEngine';
 import { legacyBoard as boardOf, legacySheet as sheet, seedLegacy as seed, V1_KEY } from './__fixtures__/legacyBoard';
