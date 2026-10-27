@@ -41,3 +41,6 @@ export { summarizeContext as summarizeSavedViewContext } from './saved-view/text
 export { ShareTargetPicker, type ShareGroupsState, type ShareMode, type ShareTargetDraft, type ShareTargetPickerProps } from './saved-view/ShareTargetPicker';
 export { GroupEditor, type GroupEditorProps } from './saved-view/GroupEditor';
 export { personLabel, toggleMember, usePeopleSearch, type PeopleSearch, type PeopleSearchState } from './saved-view/people';
+export { ViewManagement, type ViewManagementFilter, type ViewManagementProps } from './saved-view/ViewManagement';
+export { ApprovalQueue, type ApprovalQueueProps, type ApprovalQueueStatus } from './saved-view/ApprovalQueue';
+export type { ApprovalRequestInfo, ViewActionOutcome, ViewDecideHandler, ViewDiagnosis, ViewRevokeHandler } from './saved-view/viewInfo';
