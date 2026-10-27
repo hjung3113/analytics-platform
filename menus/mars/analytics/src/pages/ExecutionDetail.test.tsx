@@ -55,7 +55,9 @@ describe('ExecutionDetail identity', () => {
     expect(within(key).getByText('시작 시각').nextElementSibling?.textContent).toBe('2026-09-26 01:02:03');
     expect(queries.find(q => q.endpoint === 'analytics.execution.occurrence')?.params).toMatchObject({ anchor: '2456001' });
     // Timeline axis origin is the start time, not the key.
-    expect(screen.getAllByText('2026-09-26 01:02:03').length).toBeGreaterThan(1);
+    const axis = screen.getByRole('img', { name: '공정 구간 막대' }).nextElementSibling as HTMLElement;
+    expect(axis.firstElementChild?.textContent).toBe('2026-09-26 01:02:03');
+    expect(axis.firstElementChild?.textContent).not.toBe('2456001');
   });
 
   it('shows — for the start time before data and does not query a time-shaped anchor', async () => {

@@ -218,6 +218,29 @@ describe('execution-detail occurrence endpoint behavior', () => {
     }
   });
 
+  it.each(['0', '100000000001', '999999999999', '9999999999999999999', '3652059073', '2456001'])(
+    'returns missing, not an error, for the canonical but unknown anchor %s',
+    async anchor => {
+      const response = await adapter.menuQuery({
+        endpoint: occurrenceEndpoint.id,
+        context: { scopeId: 'MEM' },
+        params: occurrenceParams({ anchor }),
+      });
+      expect(response.outcome).toBe('empty');
+      expect((response.data as OccurrenceResult | null)?.access).toBe('missing');
+    },
+  );
+
+  it('returns missing for a rank slot no job uses on an existing day', async () => {
+    const execution = grantedExecution();
+    const response = await adapter.menuQuery({
+      endpoint: occurrenceEndpoint.id,
+      context: { scopeId: 'MEM' },
+      params: occurrenceParams({ anchor: String(BigInt(execution.anchor) - BigInt(execution.anchor) % 1000n + 1073n) }),
+    });
+    expect((response.data as OccurrenceResult | null)?.access).toBe('missing');
+  });
+
   it('returns missing for a well-formed sequence that no job has', async () => {
     const response = await adapter.menuQuery({
       endpoint: occurrenceEndpoint.id,

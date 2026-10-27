@@ -129,21 +129,39 @@ export function jobsForEquipmentDay(equipment: Equipment, day: string): Job[] {
   return jobs;
 }
 
-const SEQUENCE_EPOCH_MS = Date.UTC(2020, 0, 1);
-
-/** Whole days from the fixed epoch 2020-01-01. */
-function dayNumber(day: string): number {
-  const [y, m, d] = day.split('-').map(Number);
-  return Math.round((Date.UTC(y, m - 1, d) - SEQUENCE_EPOCH_MS) / 86_400_000);
+function utcMs(year: number, month: number, day: number): number {
+  // Date.UTC maps years 0-99 to 1900-1999; setUTCFullYear does not.
+  const t = new Date(0);
+  t.setUTCFullYear(year, month - 1, day);
+  return t.getTime();
 }
 
-/** The job of `equipment` with RecordSequence `anchor`, or null when none has it (also for non-sequence text). */
+const DAY_MS = 86_400_000;
+const SEQUENCE_EPOCH_MS = utcMs(1, 1, 1);
+const MAX_SEQUENCE_DAY = Math.round((utcMs(9999, 12, 31) - SEQUENCE_EPOCH_MS) / DAY_MS);
+const MAX_RANK = 72;
+
+/** Whole days from the fixed epoch 0001-01-01, so every date the period contract accepts (years 0100-9999; `parseDateTime` rejects 0001-0099) is nonnegative. */
+function dayNumber(day: string): number {
+  const [y, m, d] = day.split('-').map(Number);
+  return Math.round((utcMs(y, m, d) - SEQUENCE_EPOCH_MS) / DAY_MS);
+}
+
+/** The job of `equipment` with RecordSequence `anchor` (`dayNumber * 1000 + rank`, rank 1..72), or null when none has it. Never throws. */
 export function findJobByAnchor(equipment: Equipment, anchor: string): Job | null {
-  if (!/^[1-9][0-9]{0,11}$/.test(anchor)) return null;
-  const value = Number(anchor) - 1;
-  const days = Math.floor(value / 1000);
-  const date = new Date(SEQUENCE_EPOCH_MS + days * 86_400_000).toISOString().slice(0, 10);
-  return jobsForEquipmentDay(equipment, date).find((job) => job.anchor === anchor) ?? null;
+  if (!/^[1-9][0-9]{0,18}$/.test(anchor)) return null;
+  const value = BigInt(anchor) - 1n;
+  const days = value / 1000n;
+  const rank = value % 1000n + 1n;
+  if (rank > BigInt(MAX_RANK) || days > BigInt(MAX_SEQUENCE_DAY)) return null;
+  const at = new Date(SEQUENCE_EPOCH_MS + Number(days) * DAY_MS);
+  const date = `${String(at.getUTCFullYear()).padStart(4, '0')}-${pad(at.getUTCMonth() + 1)}-${pad(at.getUTCDate())}`;
+  try {
+    return jobsForEquipmentDay(equipment, date).find((job) => job.anchor === anchor) ?? null;
+  } catch {
+    // parseDateTime rejects years 0001-0099 (Date.UTC maps them to 19xx), so no job can exist on such a day.
+    return null;
+  }
 }
 
 function eachDay(from: string, to: string): string[] {
