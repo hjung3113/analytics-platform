@@ -22,7 +22,9 @@
         "$TURBO_ROOT$/packages/sdk/*/src/**",
         "$TURBO_ROOT$/packages/sdk/*/package.json",
         "$TURBO_ROOT$/packages/adapters/*/src/**",
-        "$TURBO_ROOT$/packages/adapters/*/package.json"
+        "$TURBO_ROOT$/packages/adapters/*/package.json",
+        "$TURBO_ROOT$/.github/CODEOWNERS",
+        "$TURBO_ROOT$/menus/*/*/CHANGELOG.md"
       ]
     }
   }

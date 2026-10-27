@@ -144,7 +144,7 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
 
 - 품질 리뷰 범위는 `<직전 태그>...origin/main`이다.
 - 화면이 바뀐 슬라이스면 `origin/main` 미리보기로 사용자 흐름을 `review-ux`로 본다.
-- 태그 전 단계: 태그할 SHA의 `gh workflow run ci.yml --ref main -f full=true`(전체 CI)가 초록이어야 한다. 확인은 `gh run list --workflow ci.yml --event workflow_dispatch --json headSha,conclusion,status,databaseId --limit 5`에서 `headSha`가 그 SHA이고 `conclusion == success`인 실행이 있는지(가장 최근 한 건만 보지 않는다, #1019).
+- Pre-tag step: a full run (`gh workflow run ci.yml --ref main -f full=true`) on the SHA to tag must pass. Check the run you started (its id from `gh run list --workflow ci.yml --event workflow_dispatch --limit 1 --json databaseId`; `gh run view <id> --json headSha,conclusion` must show the tag SHA and `success`), not any dispatch at that SHA: a `full=false` dispatch also passes on cache hits. A moved SHA needs a new full run.
 - 그다음 순서(문서 점검·소개 사이트 갱신 포함)는 [`LANES.md`](LANES.md) §팀장 릴리스가 원본이다. 끝나면 다음 슬라이스를 사용자에게 묻는다. 릴리스 명령은 `SHA=$(git rev-parse origin/main)`로 시작해 `gh release create --target "$SHA"`에 전체 SHA를 준다(짧은 SHA는 `target_commitish is invalid`).
 - 인계 전 `$ENGINE/app-preview.py status`에 추적 중인 미리보기가 없어야 한다.
 
