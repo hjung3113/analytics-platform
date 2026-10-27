@@ -18,73 +18,73 @@
 //      defer-with-issue note; no invented counts (locked decision).
 
 import { Button, PageShell } from '@ap/ui';
-import { useNavigate, useSearch } from '@tanstack/react-router';
 import { Plus } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { useState } from 'react';
 
 import { createLabel } from '@/lib/copy/glossary';
+import type { ClosableDetailParts } from '@/lib/host/detail-parts';
+import { useHostSearchWriter } from '@/lib/host/useHostSearchWriter';
 import { PermissionGate } from '../permissions/permission-gate.js';
 import { AnalyticsAreasBody } from './AnalyticsAreasContainer.js';
 import { AnalyticsAreasFilter } from './AnalyticsAreasList.js';
-import type { AnalyticsAreasSearch } from './search.js';
+import { validateAnalyticsAreasSearch } from './search.js';
 
 const SUBTITLE = 'Managed System 안에서 Analytics Area 분류 기준을 관리합니다.';
 const GUARDRAIL_TITLE = 'Analytics Area는 권한 경계가 아닙니다';
 const GUARDRAIL_BODY =
   'Analytics Area는 Managed System 안에서 분류와 집계에만 쓰입니다. 권한 범위는 Managed System으로만 정해집니다.';
 
-export function AnalyticsAreasAdminPage() {
-  const search = useSearch({ strict: false }) as AnalyticsAreasSearch;
-  const navigate = useNavigate({ from: '/admin/analytics-areas' });
+export type AnalyticsAreasScreenProps = {
+  /** The host places the detail parts in its drawer; absent keeps the standalone Sheet. */
+  renderDetail?: ((parts: ClosableDetailParts) => ReactNode) | undefined;
+};
+
+export function AnalyticsAreasAdminPage({ renderDetail }: AnalyticsAreasScreenProps = {}) {
+  const { search, write } = useHostSearchWriter(
+    '/admin/analytics-areas',
+    validateAnalyticsAreasSearch,
+  );
   const [registerCtx, setRegisterCtx] = useState<{ open: boolean; msId: string | null }>({
     open: false,
     msId: null,
   });
   const managedSystemId = search.managedSystem;
-  const includeArchived = search.includeArchived ?? false;
+  const includeArchived = search.includeArchived === 'true';
 
   // Filter changes drop `selected` in the same navigation; defaults are omitted
   // from the URL (never write undefined/false values).
   function handleManagedSystemChange(value: string | undefined): void {
-    void navigate({
-      to: '/admin/analytics-areas',
-      search: (prev: AnalyticsAreasSearch) => {
-        const { selected: _dropped, ...rest } = prev;
-        if (value === undefined) {
-          const { managedSystem: _managedSystem, ...restWithoutMs } = rest;
-          return restWithoutMs;
-        }
-        return { ...rest, managedSystem: value };
-      },
+    write((prev) => {
+      const { selected: _dropped, ...rest } = prev;
+      if (value === undefined) {
+        const { managedSystem: _managedSystem, ...restWithoutMs } = rest;
+        return restWithoutMs;
+      }
+      return { ...rest, managedSystem: value };
     });
   }
 
   function handleIncludeArchivedChange(value: boolean): void {
-    void navigate({
-      to: '/admin/analytics-areas',
-      search: (prev: AnalyticsAreasSearch) => {
-        const { selected: _dropped, ...rest } = prev;
-        if (!value) {
-          const { includeArchived: _includeArchived, ...restWithoutArchived } = rest;
-          return restWithoutArchived;
-        }
-        return { ...rest, includeArchived: true };
-      },
+    write((prev) => {
+      const { selected: _dropped, ...rest } = prev;
+      if (!value) {
+        const { includeArchived: _includeArchived, ...restWithoutArchived } = rest;
+        return restWithoutArchived;
+      }
+      return { ...rest, includeArchived: 'true' };
     });
   }
 
   function handleClearFilters(): void {
-    void navigate({
-      to: '/admin/analytics-areas',
-      search: (prev: AnalyticsAreasSearch) => {
-        const {
-          managedSystem: _managedSystem,
-          includeArchived: _includeArchived,
-          selected: _selected,
-          ...rest
-        } = prev;
-        return rest;
-      },
+    write((prev) => {
+      const {
+        managedSystem: _managedSystem,
+        includeArchived: _includeArchived,
+        selected: _selected,
+        ...rest
+      } = prev;
+      return rest;
     });
   }
 
@@ -119,6 +119,7 @@ export function AnalyticsAreasAdminPage() {
           includeArchived={includeArchived}
           managedSystemId={managedSystemId}
           selectedId={search.selected}
+          renderDetail={renderDetail}
           onClearFilters={handleClearFilters}
           registerCtx={registerCtx}
           setRegisterCtx={setRegisterCtx}

@@ -131,6 +131,48 @@ describe('FeedbackOps bridge entry graph (ADR-0071)', () => {
   });
 });
 
+describe('Analytics Areas operator entry (#764y)', () => {
+  const analyticsAreas = walk([
+    join(FRONTEND_SRC, 'operator-screens/analytics-areas/index.ts'),
+  ]);
+  const analyticsAreasReached = [...analyticsAreas.files.keys()].map((file) =>
+    relative(FRONTEND_SRC, file),
+  );
+
+  it('reaches the screen, detail parts and host seam without unresolved imports', () => {
+    expect(analyticsAreasReached).toEqual(
+      expect.arrayContaining([
+        'features/admin/analytics-areas/AnalyticsAreasScreen.tsx',
+        'features/admin/analytics-areas/AnalyticsAreasContainer.tsx',
+        'features/admin/analytics-areas/AnalyticsAreaDetail.tsx',
+        'features/admin/analytics-areas/search.ts',
+        'lib/host/host-seam.tsx',
+      ]),
+    );
+    expect(analyticsAreas.unresolved).toEqual([]);
+  });
+
+  it('reaches no router, route, auth or API barrel module and imports no router or toast library', () => {
+    const banned =
+      /^(?:routes|lib\/router|lib\/layout|lib\/auth)\/|^lib\/api\/(?:index|auth)\.ts$/;
+    expect(analyticsAreasReached.filter((file) => banned.test(file))).toEqual([]);
+    expect(
+      [...analyticsAreas.specifiers].filter(
+        (specifier) =>
+          /^@tanstack\/(?:react-)?router$|^sonner$/.test(specifier) ||
+          /^@\/lib\/api(?:\/index)?$/.test(specifier),
+      ),
+    ).toEqual([]);
+  });
+
+  it('calls fetch only in lib/api/client.ts', () => {
+    const callers = [...analyticsAreas.files]
+      .filter(([, text]) => /(?<![\w.])fetch\(/.test(text))
+      .map(([file]) => relative(FRONTEND_SRC, file));
+    expect(callers).toEqual(['lib/api/client.ts']);
+  });
+});
+
 // The operator dashboard entry (#759) is walked on its own: it has no sonner either, which the screen barrel's graph does.
 describe('FeedbackOps operator dashboard entry graph (ADR-0071)', () => {
   const dashboard = walk([DASHBOARD_ENTRY]);

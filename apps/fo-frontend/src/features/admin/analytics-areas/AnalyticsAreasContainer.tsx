@@ -1,15 +1,16 @@
 import type { PickerOption } from '@fops/ui';
 import { useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 
+import type { ClosableDetailParts } from '@/lib/host/detail-parts';
+import { useHostSearchWriter } from '@/lib/host/useHostSearchWriter';
 import type { AnalyticsAreaDto, ManagedSystemDto } from '../../../lib/api/registry-reads';
 import { groupAreasByMs } from '../lib/groupAreasByMs.js';
 import { restoreFocus, useRestoreFocusAfterRefetch } from '../lib/restoreFocus.js';
-import { AnalyticsAreaSlideOver } from './AnalyticsAreaDetail.js';
+import { AnalyticsAreaSlideOver, buildAnalyticsAreaDetailParts } from './AnalyticsAreaDetail.js';
 import { EditDialog, RegisterDialog } from './AnalyticsAreaDialogs.js';
 import { AnalyticsAreasCatalog } from './AnalyticsAreasList.js';
-import type { AnalyticsAreasSearch } from './search.js';
+import { validateAnalyticsAreasSearch } from './search.js';
 import {
   invalidateAnalyticsAreas,
   useAnalyticsAreaTeams,
@@ -22,6 +23,7 @@ export function AnalyticsAreasBody({
   managedSystemId,
   selectedId,
   onClearFilters,
+  renderDetail,
   registerCtx,
   setRegisterCtx,
   guardrailTitle,
@@ -31,13 +33,14 @@ export function AnalyticsAreasBody({
   managedSystemId: string | undefined;
   selectedId: string | undefined;
   onClearFilters: () => void;
+  renderDetail?: ((parts: ClosableDetailParts) => ReactNode) | undefined;
   registerCtx: { open: boolean; msId: string | null };
   setRegisterCtx: (v: { open: boolean; msId: string | null }) => void;
   guardrailTitle: string;
   guardrailBody: string;
 }) {
   const qc = useQueryClient();
-  const navigate = useNavigate({ from: '/admin/analytics-areas' });
+  const { write } = useHostSearchWriter('/admin/analytics-areas', validateAnalyticsAreasSearch);
   const [editTarget, setEditTarget] = useState<AnalyticsAreaDto | null>(null);
   // Row control that opened the detail drawer and, from it, the edit dialog.
   const rowTrigger = useRef<HTMLElement | null>(null);
@@ -60,32 +63,30 @@ export function AnalyticsAreasBody({
 
   function selectArea(id: string, trigger: HTMLElement): void {
     rowTrigger.current = trigger;
-    void navigate({
-      to: '/admin/analytics-areas',
-      search: (prev: AnalyticsAreasSearch) => ({ ...prev, selected: id }),
-    });
+    write((prev) => ({ ...prev, selected: id }));
   }
 
   function closeDetail(): void {
-    void navigate({
-      to: '/admin/analytics-areas',
-      search: ({ selected: _selected, ...rest }: AnalyticsAreasSearch) => rest,
-    });
+    write(({ selected: _selected, ...rest }) => rest);
+  }
+
+  function requestCloseDetail(): void {
+    const detailButton = detail
+      ? document.querySelector<HTMLButtonElement>(`button[data-area-id="${CSS.escape(detail.id)}"]`)
+      : null;
+    restoreFocus(detailButton ?? rowTrigger.current);
+    closeDetail();
   }
 
   // Stale/invalid `selected` (archived, deleted, or filtered away): once the
   // list has loaded, replace-drop it so Back is not trapped in the invalid URL.
   // While loading the selection is kept.
   useEffect(() => {
-    if (aaQuery.data === undefined) return;
+    if (!aaQuery.isSuccess) return;
     if (selectedId !== undefined && !areas.some((a) => a.id === selectedId)) {
-      void navigate({
-        to: '/admin/analytics-areas',
-        replace: true,
-        search: ({ selected: _selected, ...rest }: AnalyticsAreasSearch) => rest,
-      });
+      write(({ selected: _selected, ...rest }) => rest, { replace: true });
     }
-  }, [aaQuery.data, areas, navigate, selectedId]);
+  }, [aaQuery.isSuccess, areas, selectedId, write]);
 
   const areasByMs = useMemo(() => groupAreasByMs(areas, includeArchived), [areas, includeArchived]);
   const renderedAreaCount = useMemo(
@@ -140,18 +141,35 @@ export function AnalyticsAreasBody({
         }}
       />
 
-      <AnalyticsAreaSlideOver
-        area={detail}
-        ms={detail ? (msById.get(detail.managed_system_id) ?? null) : null}
-        resolved={resolveQuery.data}
-        onOpenChange={(open) => {
-          if (!open) closeDetail();
-        }}
-        onEdit={(area) => {
-          closeDetail();
-          setEditTarget(area);
-        }}
-      />
+      {renderDetail && detail
+        ? renderDetail(
+            buildAnalyticsAreaDetailParts({
+              area: detail,
+              ms: msById.get(detail.managed_system_id) ?? null,
+              resolved: resolveQuery.data,
+              onClose: requestCloseDetail,
+              onEdit: (area) => {
+                closeDetail();
+                setEditTarget(area);
+              },
+            }),
+          )
+        : null}
+
+      {!renderDetail ? (
+        <AnalyticsAreaSlideOver
+          area={detail}
+          ms={detail ? (msById.get(detail.managed_system_id) ?? null) : null}
+          resolved={resolveQuery.data}
+          onOpenChange={(open) => {
+            if (!open) closeDetail();
+          }}
+          onEdit={(area) => {
+            closeDetail();
+            setEditTarget(area);
+          }}
+        />
+      ) : null}
 
       <EditDialog
         target={editTarget}

@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { NavRouteIntent } from '@fops/shared';
 
 import { routeTree } from '@/routeTree.gen';
-import { validateAnalyticsAreasSearch } from '../../features/admin/analytics-areas/search';
+import { validateAnalyticsAreasRouteSearch } from '../../features/admin/analytics-areas/search';
 import { validatePermissionRequestsSearch } from '../../features/admin/permissions/permission-requests-search';
 import { validateFindingsSearch } from '../_authed/findings';
 import { validateHomeSearch } from '../_authed/home';
@@ -93,7 +93,7 @@ const routeCases: Array<{
   {
     name: 'Analytics Areas',
     pathname: '/admin/analytics-areas',
-    validateSearch: validateAnalyticsAreasSearch,
+    validateSearch: validateAnalyticsAreasRouteSearch,
     // 'yes' is invalid both as a raw string and after the router's JSON search parsing.
     raw: { selected: ID, includeArchived: 'yes' },
     expected: { selected: ID },
