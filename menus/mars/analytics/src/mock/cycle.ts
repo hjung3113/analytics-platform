@@ -220,6 +220,7 @@ export const cycleMock: readonly AnyMockEndpoint[] = [
       sortAndPage(slowRows(equipment, context, { tail, granularity, bucket, bin }), { page, pageSize, sorting }),
     isEmpty: data => data.total === 0,
     metricVersion,
+    sourceLogicVersions: ({ context }) => sourceLogicVersionsFor(context),
   }),
   defineMockEndpoint(cycleExportEndpoint, {
     // Selection export: the server filters by execution keys itself, so the row cap is judged on the selection.

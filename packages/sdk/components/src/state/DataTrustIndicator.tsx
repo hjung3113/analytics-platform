@@ -36,7 +36,7 @@ export function DataTrustIndicator({ trust, assessments, className, compact = fa
   trust: Trust | null; assessments: Assessment[]; className?: string;
   /** Header yield (#303): keep the summary name on title/aria and show the dot. */
   compact?: boolean;
-  /** Header yield (#303): drop the provisional badge once the summary is already compact. */
+  /** Header yield (#303): drop the provisional and mixed-version badges once the summary is already compact. */
   hideProvisional?: boolean;
   /** Table status line: let headline · coverage · updated wrap inside the button instead of widening the line. */
   wrap?: boolean;
@@ -45,7 +45,9 @@ export function DataTrustIndicator({ trust, assessments, className, compact = fa
   if (!trust) return null;
   const confirmed = assessments.filter(a => a.state === 'confirmed');
   const unknown = assessments.filter(a => a.state === 'unknown');
-  const tone: Tone = confirmed.length ? 'warning' : unknown.length ? 'neutral' : 'success';
+  const mixed = (trust.sourceLogicVersions?.length ?? 0) >= 2;
+  const mixedText = lang === 'ko' ? '로직 버전 혼재' : 'Logic versions mixed';
+  const tone: Tone = (compact && mixed) || confirmed.length ? 'warning' : unknown.length ? 'neutral' : 'success';
   const headline = confirmed.length
     ? (lang === 'ko' ? `확인된 이슈 ${confirmed.length}건` : `${confirmed.length} confirmed issue(s)`)
     : unknown.length
@@ -53,10 +55,10 @@ export function DataTrustIndicator({ trust, assessments, className, compact = fa
       : (lang === 'ko' ? '확인된 이슈 없음' : 'No confirmed issues');
   const coverageText = `${t('coverage')} ${trust.coverage === null ? '—' : `${(trust.coverage * 100).toFixed(1)}%`}`;
   const updatedText = `${t('updated')} ${time(trust.updatedAt)}`;
-  const summaryName = `${headline} · ${coverageText} · ${updatedText}`;
+  const summaryName = `${headline} · ${coverageText} · ${updatedText}${compact && mixed ? ` · ${mixedText}` : ''}`;
   return <Popover>
     <PopoverTrigger asChild>
-      <button type="button" className={cn('inline-flex min-h-8 items-center gap-2 rounded-sm px-2 text-xs text-text-secondary hover:bg-surface-sunken', wrap && 'min-w-0 max-w-full text-left', className)} aria-label={t('dataTrust')} title={summaryName}>
+      <button type="button" className={cn('inline-flex min-h-8 items-center gap-2 rounded-sm px-2 text-xs text-text-secondary hover:bg-surface-sunken', wrap && 'min-w-0 max-w-full flex-wrap text-left', className)} aria-label={compact && mixed ? summaryName : mixed ? `${t('dataTrust')} · ${mixedText}` : t('dataTrust')} title={summaryName}>
         <Dot tone={tone} />
         <span data-trust-summary-details className={cn('inline-flex items-center gap-2', wrap && 'min-w-0 flex-wrap gap-y-0', compact && 'sr-only')}>
           <span className="tabular">{headline}</span>
@@ -66,6 +68,7 @@ export function DataTrustIndicator({ trust, assessments, className, compact = fa
           <span className="tabular">{updatedText}</span>
         </span>
         {trust.provisional && !hideProvisional && <StatusBadge tone="warning">{t('provisional')}</StatusBadge>}
+        {mixed && !hideProvisional && <StatusBadge tone="warning">{mixedText}</StatusBadge>}
         <Info className="size-3.5 text-text-muted" aria-hidden />
       </button>
     </PopoverTrigger>
@@ -76,6 +79,7 @@ export function DataTrustIndicator({ trust, assessments, className, compact = fa
         <dt className="text-text-secondary">{t('dataThrough')}</dt><dd>{trust.dataThrough?.replace('T', ' ') ?? '—'}</dd>
         <dt className="text-text-secondary">{t('coverage')}</dt><dd>{trust.coverage === null ? t('stateUnknown') : `${(trust.coverage * 100).toFixed(1)}%`}</dd>
         {trust.metricVersion && <><dt className="text-text-secondary">{t('metricVersion')}</dt><dd>{/^\d+$/.test(trust.metricVersion) ? formatMetricVersion(trust.metricVersion) : trust.metricVersion}</dd></>}
+        {!!trust.sourceLogicVersions?.length && <><dt className="text-text-secondary">{lang === 'ko' ? '원천 로직 버전' : 'Source logic versions'}</dt><dd>{trust.sourceLogicVersions.join(', ')}</dd></>}
         <dt className="text-text-secondary">{t('status')}</dt><dd>{trust.provisional ? t('provisional') : t('final')}</dd>
         <dt className="text-text-secondary">{t('source')}</dt><dd className="t-mono">{trust.source}</dd>
       </dl>

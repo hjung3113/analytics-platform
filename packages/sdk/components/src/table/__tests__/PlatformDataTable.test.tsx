@@ -62,6 +62,19 @@ function UncontrolledHarness(props: { loadPage: PlatformDataTableProps<Row>['loa
   </PlatformProvider></I18nProvider>;
 }
 
+it('wraps the mixed trust badge in the table status line', async () => {
+  const loadPage: PlatformDataTableProps<Row>['loadPage'] = async () => ({
+    outcome: 'ok', data: { rows: [{ id: 'r1', status: 's' }], total: 1 }, assessments: [], correlationId: 'c',
+    trust: { updatedAt: '2026-10-16T09:00:00', dataThrough: null, coverage: 1, source: 'fixture', provisional: true, sourceLogicVersions: ['v1', 'v2'] },
+  });
+  render(<UncontrolledHarness loadPage={loadPage} />);
+  const badge = await screen.findByText('로직 버전 혼재');
+  const button = screen.getByRole('button', { name: '데이터 신뢰 · 로직 버전 혼재' });
+  expect(badge.parentElement).toBe(button);
+  expect(button).toHaveClass('max-w-full', 'flex-wrap');
+  expect(button.querySelector('[data-trust-summary-details]')).toHaveClass('flex-wrap');
+});
+
 describe('PlatformDataTable inside a workspace panel', () => {
   it('draws its title heading visually hidden (the panel tab names it) and keeps the accessible name', async () => {
     const view = render(<InWorkspacePanelProvider value><UncontrolledHarness loadPage={makeLoadPage(3)} /></InWorkspacePanelProvider>);

@@ -47,12 +47,12 @@ function headerWidths() {
   };
 }
 
-function page(onSecondary: () => void) {
+function page(onSecondary: () => void, pageTrust: Trust = trust) {
   return <I18nProvider><PlatformProvider adapter={adapter()} registry={registry}>
     <PlatformPage
       title="아주 긴 생산성 개요 제목"
       description="폭을 먼저 양보하는 설명"
-      dataTrustSummary={<DataTrustIndicator trust={trust} assessments={[]} />}
+      dataTrustSummary={<DataTrustIndicator trust={pageTrust} assessments={[]} />}
       secondaryActions={<button type="button" onClick={onSecondary}>보조 동작</button>}
       primaryAction={<button type="button">주 동작</button>}
     ><p>page body</p></PlatformPage>
@@ -196,6 +196,28 @@ describe('page header yield order (#303)', () => {
     const more = screen.getByRole('button', { name: '더보기' });
     expect(header.contains(more)).toBe(true);
   });
+  it('yields mixed and provisional badges together after description and summary', async () => {
+    const widths = headerWidths();
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
+    render(page(vi.fn(), { ...trust, sourceLogicVersions: ['v1', 'v2'] }));
+    await screen.findByText('page body');
+    expect(screen.getByText('로직 버전 혼재')).toBeTruthy();
+    widths.set(960);
+    expect(screen.getByRole('button', { name: '폭을 먼저 양보하는 설명' })).toBeTruthy();
+    expect(screen.getByText('로직 버전 혼재')).toBeTruthy();
+    widths.set(800);
+    let button = screen.getByRole('button', { name: /로직 버전 혼재/ });
+    expect(button.querySelector('[data-trust-summary-details]')).toHaveClass('sr-only');
+    expect(within(button).getByText('잠정')).toBeTruthy();
+    expect(within(button).getByText('로직 버전 혼재')).toBeTruthy();
+    widths.set(700);
+    button = screen.getByRole('button', { name: /로직 버전 혼재/ });
+    expect(within(button).queryByText('잠정')).toBeNull();
+    expect(within(button).queryByText('로직 버전 혼재')).toBeNull();
+    expect(button.firstElementChild).toHaveClass('bg-accent-warn');
+    expect(button).toHaveAttribute('title', expect.stringContaining(' · 로직 버전 혼재'));
+  });
+
   // #398 UX-1/FIX4: mount measures once. A second read in the same commit still sees the pre-yield overflow
   // and would close the provisional badge too.
   it('keeps the provisional badge when the mount measure sees overflow near 900px', async () => {

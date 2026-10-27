@@ -746,7 +746,10 @@ try {
     "tables",
     async () => {
       await go(productivity);
-      await button("데이터 신뢰").first().click();
+      // 기간이 로직 버전 전환을 걸치면 읽기 이름이 「데이터 신뢰 · 로직 버전 혼재」가 되므로 부분 일치로 찾는다.
+      await page.getByRole("button", { name: "데이터 신뢰" }).first().click();
+      await expect(page.getByRole("dialog").getByText("원천 로직 버전", { exact: true })).toBeVisible();
+      await expect(page.getByRole("dialog").getByText("v1.2, v1.3", { exact: true })).toBeVisible();
     },
     () =>
       unionClip([page.getByRole("dialog").filter({ hasText: "문제 없음은" })], 0).then((clip) => ({ clip, cover: true })),
