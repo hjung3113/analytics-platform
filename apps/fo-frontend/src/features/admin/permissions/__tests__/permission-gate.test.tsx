@@ -5,11 +5,24 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
+import { type HostSeam, HostSeamProvider } from '@/lib/host/host-seam';
 import { PermissionGate } from '../permission-gate.js';
+
+const HOST_SEAM: HostSeam = {
+  canLink: () => true,
+  Link: ({ to, children }) => <a href={to}>{children}</a>,
+  notifyError: () => {},
+  notifySuccess: () => {},
+  useHere: () => '/permission-gate-test',
+};
 
 function wrap(node: React.ReactNode) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(<QueryClientProvider client={qc}>{node}</QueryClientProvider>);
+  return render(
+    <QueryClientProvider client={qc}>
+      <HostSeamProvider value={HOST_SEAM}>{node}</HostSeamProvider>
+    </QueryClientProvider>,
+  );
 }
 
 function mockPermissionState(

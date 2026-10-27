@@ -31,7 +31,8 @@ import { useRef, useState } from 'react';
 import { GLOSSARY } from '@/lib/copy/glossary';
 import { MANAGED_SYSTEM_COPY } from '@/lib/copy/managed-systems';
 import { formatDateTime } from '@/lib/format/datetime';
-import type { AnalyticsAreaDto, ManagedSystemDto, ResolveActorsResponse } from '../../../lib/api';
+import type { ResolveActorsResponse } from '../../../lib/api/actors';
+import type { AnalyticsAreaDto, ManagedSystemDto } from '../../../lib/api/registry-reads';
 import { envelopeMessage } from '../lib/envelopeMessage.js';
 import {
   ADMIN_LIST_FOCUS_FALLBACK_ID,

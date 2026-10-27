@@ -30,7 +30,9 @@ export function sonnerNotify(notice: HostNotice): string {
     ...(action !== undefined ? { action: { label: action.label, onClick: action.onAction } } : {}),
     ...(durationMs !== undefined ? { duration: durationMs } : {}),
   };
-  return String(tone === 'info' ? toast(message, options) : toast[tone](message, options));
+  const hasOptions = Object.keys(options).length > 0;
+  if (tone === 'info') return String(hasOptions ? toast(message, options) : toast(message));
+  return String(hasOptions ? toast[tone](message, options) : toast[tone](message));
 }
 
 /** sonner keys its own toasts by number; `notify` returned it as a string, so a numeric id goes back as a number. */

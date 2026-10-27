@@ -22,17 +22,17 @@ import { useEffect, useRef, useState } from 'react';
 
 import { GLOSSARY } from '@/lib/copy/glossary';
 import { MANAGED_SYSTEM_COPY } from '@/lib/copy/managed-systems';
+import type { ManagedSystemDto } from '../../../lib/api/registry-reads';
 import type {
-  ManagedSystemDto,
   RegisterManagedSystemBody,
   UpdateManagedSystemBody,
-} from '../../../lib/api';
+} from '../../../lib/api/registry-writes';
 import {
-  ApiError,
   archiveManagedSystem,
   registerManagedSystem,
   updateManagedSystem,
-} from '../../../lib/api';
+} from '../../../lib/api/registry-writes';
+import { ApiError } from '../../../lib/api/types';
 import { ArchiveConfirmButton } from '../lib/ArchiveConfirmButton';
 import { envelopeMessage } from '../lib/envelopeMessage.js';
 

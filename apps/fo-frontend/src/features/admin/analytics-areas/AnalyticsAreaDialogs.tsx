@@ -13,7 +13,8 @@ import {
 import { ManagedSystemPicker, type PickerOption } from '@fops/ui';
 import { useRef, useState } from 'react';
 
-import type { AnalyticsAreaDto, UpdateAnalyticsAreaBody } from '../../../lib/api';
+import type { AnalyticsAreaDto } from '../../../lib/api/registry-reads';
+import type { UpdateAnalyticsAreaBody } from '../../../lib/api/registry-writes';
 import { ArchiveConfirmButton } from '../lib/ArchiveConfirmButton';
 import {
   useArchiveAnalyticsAreaMutation,

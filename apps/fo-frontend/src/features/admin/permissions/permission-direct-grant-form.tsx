@@ -21,16 +21,17 @@ import type { PermissionGrantAdminItem, PermissionGrantOptions } from '@fops/sha
 import { useQuery } from '@tanstack/react-query';
 import * as React from 'react';
 
-import { ApiError, mapUnknownError } from '@/lib/api';
+import { mapUnknownError } from '@/lib/api/errorMapper';
 import { mintIdempotencyKey } from '@/lib/api/idempotency';
-import { fetchPermissionGrantOptions, permissionGrantOptionsKey } from '@/lib/api/permissions';
-import { useMe } from '@/lib/auth/useMe';
+import { useMeBridge } from '@/lib/api/me';
+import { fetchPermissionGrantOptions, permissionGrantOptionsKey } from '@/lib/api/permission-admin';
+import { ApiError } from '@/lib/api/types';
 import { ADMIN_PERMISSIONS_COPY } from '@/lib/copy/admin-permissions';
 import { getCapabilityDisplayLabel } from '@/lib/copy/capabilities';
 import { SCOPE_SELECTOR_COPY } from '@/lib/copy/managed-system-scope';
 import { useWorkspaceActors } from '@/lib/cross-system/useWorkspaceActors';
+import { HostLink, useHostSeam } from '@/lib/host/host-seam';
 import { shortId } from '@/lib/identity';
-import { InternalLink } from '@/lib/router/InternalLink';
 
 import { useDirectPermissionGrant } from './useDirectPermissionGrant.js';
 
@@ -319,7 +320,8 @@ function DirectGrantFields({
   initialReason?: string;
   initialExpirationDate?: string;
 }) {
-  const me = useMe();
+  const me = useMeBridge();
+  const { canLink } = useHostSeam();
   const actorId = me.data?.actor.id ?? null;
   const [selectedCandidateKey, setSelectedCandidateKey] = React.useState(initialCandidateKey);
   const [reason, setReason] = React.useState(initialReason);
@@ -527,40 +529,47 @@ function DirectGrantFields({
             data-testid="direct-grant-held"
           >
             <p>{DIRECT_GRANT_COPY.alreadyGrantedNote}</p>
-            {heldEntries.map(({ grant, candidate }) => (
-              <InternalLink
-                key={grant.id}
-                className="w-fit text-accent-primary underline underline-offset-2"
-                href={`/admin/permissions/grants?selected=${grant.id}`}
-                onClick={onClose}
-              >
-                {candidateLabel(candidate, managedSystemNames)} ·{' '}
-                {DIRECT_GRANT_COPY.alreadyGrantedLink}
-              </InternalLink>
-            ))}
+            {heldEntries.map(({ grant, candidate }) => {
+              const to = `/admin/permissions/grants?selected=${grant.id}`;
+              return canLink(to) ? (
+                <HostLink
+                  key={grant.id}
+                  className="w-fit text-accent-primary underline underline-offset-2"
+                  to={to}
+                  onClick={onClose}
+                >
+                  {candidateLabel(candidate, managedSystemNames)} ·{' '}
+                  {DIRECT_GRANT_COPY.alreadyGrantedLink}
+                </HostLink>
+              ) : null;
+            })}
           </div>
         ) : null}
         {selectedCandidate?.preflight.state === 'request_review' ? (
           <div className="flex flex-col gap-1 text-sm text-text-secondary">
             <p>{DIRECT_GRANT_COPY.preflightReview}</p>
-            <InternalLink
-              className="w-fit text-accent-primary underline underline-offset-2"
-              href={selectedCandidate.preflight.review_route}
-            >
-              {DIRECT_GRANT_COPY.reviewLink}
-            </InternalLink>
+            {canLink(selectedCandidate.preflight.review_route) ? (
+              <HostLink
+                className="w-fit text-accent-primary underline underline-offset-2"
+                to={selectedCandidate.preflight.review_route}
+              >
+                {DIRECT_GRANT_COPY.reviewLink}
+              </HostLink>
+            ) : null}
           </div>
         ) : null}
         {selectedCandidate?.preflight.state === 'deny_lift' ? (
           <div className="flex flex-col gap-1 text-sm text-text-secondary">
             <p>{DIRECT_GRANT_COPY.preflightDeny}</p>
-            <InternalLink
-              className="w-fit text-accent-primary underline underline-offset-2"
-              href={selectedCandidate.preflight.lift_route}
-              onClick={onClose}
-            >
-              {DIRECT_GRANT_COPY.denyLink}
-            </InternalLink>
+            {canLink(selectedCandidate.preflight.lift_route) ? (
+              <HostLink
+                className="w-fit text-accent-primary underline underline-offset-2"
+                to={selectedCandidate.preflight.lift_route}
+                onClick={onClose}
+              >
+                {DIRECT_GRANT_COPY.denyLink}
+              </HostLink>
+            ) : null}
           </div>
         ) : null}
         {readPrerequisite?.state === 'missing' ? (
@@ -569,13 +578,15 @@ function DirectGrantFields({
         {readPrerequisite?.state === 'denied' ? (
           <div className="flex flex-col gap-1 text-sm text-text-secondary">
             <p>{DIRECT_GRANT_COPY.deniedReadPrerequisite}</p>
-            <InternalLink
-              className="w-fit text-accent-primary underline underline-offset-2"
-              href={readDenyLiftRoute}
-              onClick={onClose}
-            >
-              {DIRECT_GRANT_COPY.denyLink}
-            </InternalLink>
+            {canLink(readDenyLiftRoute) ? (
+              <HostLink
+                className="w-fit text-accent-primary underline underline-offset-2"
+                to={readDenyLiftRoute}
+                onClick={onClose}
+              >
+                {DIRECT_GRANT_COPY.denyLink}
+              </HostLink>
+            ) : null}
           </div>
         ) : null}
         <label className="flex flex-col gap-2 text-sm text-text-secondary" htmlFor={reasonId}>
@@ -673,14 +684,14 @@ function DirectGrantFields({
         {mappedError ? (
           <div role="alert" className="flex flex-col gap-1 text-sm text-accent-danger">
             <p>{mappedError}</p>
-            {submitErrorDestination ? (
-              <InternalLink
+            {submitErrorDestination && canLink(submitErrorDestination.href) ? (
+              <HostLink
                 className="w-fit text-accent-primary underline underline-offset-2"
-                href={submitErrorDestination.href}
+                to={submitErrorDestination.href}
                 {...(submitErrorDestination.closesDialog ? { onClick: onClose } : {})}
               >
                 {submitErrorDestination.label}
-              </InternalLink>
+              </HostLink>
             ) : null}
           </div>
         ) : null}

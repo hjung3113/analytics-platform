@@ -1,4 +1,4 @@
-import { useMe } from '@/lib/auth/useMe';
+import { useMeBridge } from '@/lib/api/me';
 import { ADMIN_PERMISSIONS_COPY } from '@/lib/copy/admin-permissions';
 import { COVERAGE_METRIC_LABELS } from '@/lib/copy/coverage';
 import { GLOSSARY } from '@/lib/copy/glossary';
@@ -205,7 +205,7 @@ export function WorkspaceSettingsScreen() {
 
 export function WorkspaceSettingsForm({ initialSettings }: { initialSettings: WorkspaceSettings }) {
   const updateMutation = useUpdateWorkspaceSettings();
-  const { data: me } = useMe();
+  const { data: me } = useMeBridge();
   const suggestionsQuery = useClusterSuggestions(
     undefined,
     clusterSuggestionActorContext(me),

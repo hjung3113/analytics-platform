@@ -2,7 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import type { CoverageThresholds } from '@fops/shared';
 
-import { type ApiError, apiClient } from '../../../lib/api';
+import { apiClient } from '../../../lib/api/client';
+import type { ApiError } from '../../../lib/api/types';
 
 export type PermissionSelfApproval = 'allowed' | 'forbidden';
 

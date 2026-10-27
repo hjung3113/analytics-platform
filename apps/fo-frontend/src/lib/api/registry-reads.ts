@@ -1,6 +1,6 @@
 // Managed System and Analytics Area list reads. Their own module so the platform bridge's compose screen
 // reaches them through `client.ts` (`/api/fo`, platform ADR-0071); `managed-systems.ts` and `analytics-areas.ts`
-// re-export them, and their write calls still use raw `fetch`.
+// re-export the reads and the `client.ts` write twins from `registry-writes.ts`.
 
 import { analyticsAreaListSchema, managedSystemListSchema } from '@fops/shared';
 import { apiRequest } from './client';

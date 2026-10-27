@@ -1,10 +1,11 @@
 import { type UseMutationResult, useMutation, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
 
-import { type ApiError, mapUnknownError } from '@/lib/api';
-import { createDirectPermissionGrant } from '@/lib/api/permissions';
+import { mapUnknownError } from '@/lib/api/errorMapper';
+import { createDirectPermissionGrant } from '@/lib/api/permission-admin';
+import { permissionRequestsMineKey } from '@/lib/api/permission-requests';
+import type { ApiError } from '@/lib/api/types';
 import { ADMIN_PERMISSIONS_COPY } from '@/lib/copy/admin-permissions';
-import { permissionRequestsMineKey } from '@/lib/cross-system/usePermissionCheck';
+import { useHostNotice } from '@/lib/host/host-seam';
 import type { DirectPermissionGrant, PermissionGrantAdminItem } from '@fops/shared';
 
 import { permissionRequestsReviewKey } from './useDecidePermissionRequest.js';
@@ -19,13 +20,14 @@ export function useDirectPermissionGrant(
   cacheReturnedGrant: (item: PermissionGrantAdminItem) => void,
 ): UseMutationResult<PermissionGrantAdminItem, ApiError, DirectPermissionGrantArgs> {
   const queryClient = useQueryClient();
+  const { notify } = useHostNotice();
 
   return useMutation({
     mutationFn: ({ body, idempotencyKey }) => createDirectPermissionGrant(body, idempotencyKey),
     retry: false,
     onSuccess: (item) => {
       cacheReturnedGrant(item);
-      toast.success(ADMIN_PERMISSIONS_COPY.directGrant.success);
+      notify({ tone: 'success', message: ADMIN_PERMISSIONS_COPY.directGrant.success });
       void Promise.all([
         queryClient.invalidateQueries({ queryKey: permissionGrantsListKey }),
         queryClient.invalidateQueries({ queryKey: permissionDeniesListKey }),
@@ -37,7 +39,7 @@ export function useDirectPermissionGrant(
       ]);
     },
     onError: (error) => {
-      toast.error(mapUnknownError(error).message);
+      notify({ tone: 'error', message: mapUnknownError(error).message });
     },
   });
 }

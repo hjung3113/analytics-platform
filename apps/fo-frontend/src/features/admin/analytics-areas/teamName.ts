@@ -1,4 +1,5 @@
-import type { AnalyticsAreaDto, ResolveActorsResponse } from '../../../lib/api';
+import type { ResolveActorsResponse } from '../../../lib/api/actors';
+import type { AnalyticsAreaDto } from '../../../lib/api/registry-reads';
 
 export function teamName(
   area: AnalyticsAreaDto,

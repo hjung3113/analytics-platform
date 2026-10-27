@@ -2,7 +2,10 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import * as React from 'react';
 
-import { type AdminPermissionRequestRow, fetchPermissionRequestsAll } from '@/lib/api';
+import {
+  type AdminPermissionRequestRow,
+  fetchPermissionRequestsAllViaClient,
+} from '@/lib/api/permission-reads';
 import { useWorkspaceActors } from '@/lib/cross-system/useWorkspaceActors';
 
 import { managedSystemsCatalogQuery } from '@/lib/cross-system/useManagedSystemNames';
@@ -27,7 +30,7 @@ export function usePermissionRequestsConsole(): {
   const navigate = useNavigate({ from: '/admin/permissions/requests' });
   const query = useQuery({
     queryKey: permissionRequestsReviewKey,
-    queryFn: ({ signal }) => fetchPermissionRequestsAll({ status: 'all', signal }),
+    queryFn: ({ signal }) => fetchPermissionRequestsAllViaClient({ status: 'all', signal }),
     retry: false,
   });
   const actors = useWorkspaceActors({ retry: false, staleTime: 0 });

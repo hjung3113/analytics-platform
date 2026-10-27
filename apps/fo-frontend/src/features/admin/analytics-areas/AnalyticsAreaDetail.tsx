@@ -22,7 +22,8 @@ import { Layers, Settings, Shield } from 'lucide-react';
 import { useRef } from 'react';
 
 import { formatDate } from '@/lib/format/datetime';
-import type { AnalyticsAreaDto, ManagedSystemDto, ResolveActorsResponse } from '../../../lib/api';
+import type { ResolveActorsResponse } from '../../../lib/api/actors';
+import type { AnalyticsAreaDto, ManagedSystemDto } from '../../../lib/api/registry-reads';
 import { scopeMark } from '../lib/scopeMark.js';
 import { teamName } from './teamName.js';
 

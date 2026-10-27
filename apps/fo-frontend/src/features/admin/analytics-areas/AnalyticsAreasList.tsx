@@ -18,7 +18,8 @@ import { ManagedSystemMark, OutlineBadge } from '@fops/ui';
 import { Filter, Layers, Plus, Shield } from 'lucide-react';
 import type * as React from 'react';
 
-import type { AnalyticsAreaDto, ManagedSystemDto, ResolveActorsResponse } from '../../../lib/api';
+import type { ResolveActorsResponse } from '../../../lib/api/actors';
+import type { AnalyticsAreaDto, ManagedSystemDto } from '../../../lib/api/registry-reads';
 import { envelopeMessage } from '../lib/envelopeMessage.js';
 import { ADMIN_LIST_FOCUS_FALLBACK_ID } from '../lib/restoreFocus.js';
 import { scopeMark } from '../lib/scopeMark.js';
@@ -227,9 +228,9 @@ function GroupCard({
         areas.map((a, i) => {
           const lead = teamName(a, resolved);
           return (
-            // biome-ignore lint/a11y/useKeyWithClickEvents: row is a real <div> with a nested <button> affordance; click anywhere opens the detail.
             <div
               key={a.id}
+              // biome-ignore lint/a11y/useSemanticElements: the row holds a nested <button>; a <button> row would nest interactive content.
               role="button"
               tabIndex={0}
               data-testid={`aa-row-${a.slug}`}

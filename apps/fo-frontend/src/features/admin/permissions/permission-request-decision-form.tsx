@@ -21,9 +21,9 @@ import {
 import { OutlineBadge } from '@fops/ui';
 import * as React from 'react';
 
-import type { PermissionRequestDecisionAction } from '@/lib/api';
 import { mintIdempotencyKey } from '@/lib/api/idempotency';
-import { useMe } from '@/lib/auth/useMe';
+import { useMeBridge } from '@/lib/api/me';
+import type { PermissionRequestDecisionAction } from '@/lib/api/permission-admin';
 import { ADMIN_PERMISSIONS_COPY } from '@/lib/copy/admin-permissions';
 import { getCapabilityDisplayLabel } from '@/lib/copy/capabilities';
 import { GLOSSARY } from '@/lib/copy/glossary';
@@ -184,7 +184,7 @@ export function PermissionRequestDecisionForm({
     },
     (result) => onDecisionSucceeded?.(result),
   );
-  const me = useMe();
+  const me = useMeBridge();
   const captureCopy = ADMIN_PERMISSIONS_COPY.selfApprovalCapture;
   const workspaceSettings = useWorkspaceSettings();
   const minExpirationDate = localDateInputValue(new Date());

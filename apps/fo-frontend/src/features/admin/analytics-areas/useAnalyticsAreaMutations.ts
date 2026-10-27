@@ -6,7 +6,7 @@ import {
   archiveAnalyticsArea,
   registerAnalyticsArea,
   updateAnalyticsArea,
-} from '../../../lib/api';
+} from '../../../lib/api/registry-writes';
 import { envelopeMessage } from '../lib/envelopeMessage.js';
 
 export function useRegisterAnalyticsAreaMutation(opts: {
