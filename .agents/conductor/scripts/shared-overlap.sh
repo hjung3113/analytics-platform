@@ -8,7 +8,7 @@
 # order hint: the lower PR number is the earlier one; this branch's own PR is excluded. The lead decides, this is the input.
 # Exit: 0 / 64 bad arguments / 2 gh failed.
 set -u
-shared_re='^(tooling/sdk/api/|package\.json$|packages/sdk/(contracts|kernel|components|shell)/package\.json$|pnpm-lock\.yaml$|turbo\.json$|\.github/workflows/|apps/platform-e2e/)'
+. "$(dirname "$0")/shared-paths.sh"
 if [ "${1:-}" = "--paths" ]; then
   [ -n "${2:-}" ] || { echo "usage: shared-overlap.sh --paths <path>[,<path>…]" >&2; exit 64; }
   mine=$(printf '%s' "$2" | tr ',' '\n')
