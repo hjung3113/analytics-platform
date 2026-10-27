@@ -4,25 +4,31 @@ import { useHomeHref } from '../HomeLink';
 
 /**
  * What the board looks like right now (docs/16 §4, ADR-0087): one module-level store per signed-in user, beside the board session (the document).
- * Only `live` (the board is open: maximized or minimized), the last ordinary path to go back to, and the last sheet shown (for the chip) live here.
- * Whether it is maximized is not stored: the address is the source — on `/board` it is maximized, anywhere else a live board is minimized.
+ * Only `live` (the board is open: maximized, a window or minimized), the last ordinary path to go back to, and the last sheet shown (for the chip) live here.
+ * Window state (893d2, ADR-0091): `floating` (shown as a window), `lastMode` (the visible mode a minimize restores to) and the window's `geometry` (this run only).
+ * Whether it is maximized is not stored: the address is the source — on `/board` it is maximized; anywhere else a live board is a window when `floating`, else minimized.
  * Small on purpose: the start-up chunk (shell, rail, chip) imports it, so it must not reach the board engine (`pnpm check:lazy-chunks`).
  */
+export type BoardWindowGeometry = { x: number; y: number; width: number; height: number };
 type Presentation = {
   live: boolean;
+  floating: boolean;
+  lastMode: 'maximized' | 'floating';
+  geometry: BoardWindowGeometry | null;
   returnHref: string | null;
   lastSheetId: string | null;
   lastSheetName: string | null;
   /** The last status sentence for the chip's live region; `n` makes the same sentence announce again. */
   announcement: { text: string; n: number } | null;
 };
-const EMPTY: Presentation = { live: false, returnHref: null, lastSheetId: null, lastSheetName: null, announcement: null };
+const EMPTY: Presentation = { live: false, floating: false, lastMode: 'maximized', geometry: null, returnHref: null, lastSheetId: null, lastSheetName: null, announcement: null };
 
 const states = new Map<string, Presentation>();
 const listeners = new Set<() => void>();
 // Not part of the snapshot: read once by whoever takes them, so they never re-render anything.
 const focusBefore = new Map<string, HTMLElement>();
 const chipFocus = new Set<string>();
+const windowFocus = new Map<string, () => void>();
 
 const read = (userId: string): Presentation => states.get(userId) ?? EMPTY;
 const write = (userId: string, patch: Partial<Presentation>) => {
@@ -41,6 +47,12 @@ export const recallFocus = (userId: string): HTMLElement | null => focusBefore.g
 /** True once after the board was minimized with its own button: the chip takes focus when it appears. */
 export const takeChipFocus = (userId: string): boolean => chipFocus.delete(userId);
 
+/** The window frame registers how to focus its title bar, for the rail button of a window that is already on screen. */
+export const registerWindowFocus = (userId: string, focus: () => void): (() => void) => {
+  windowFocus.set(userId, focus);
+  return () => { if (windowFocus.get(userId) === focus) windowFocus.delete(userId); };
+};
+
 /** A user who is no longer the signed-in one keeps no live board, return path, chip label or remembered focus behind (893c2): the next sign-in starts closed. */
 const forget = (userId: string) => {
   const had = states.delete(userId);
@@ -49,7 +61,7 @@ const forget = (userId: string) => {
   if (had) for (const listener of Array.from(listeners)) listener();
 };
 
-export function resetBoardPresentationForTests(): void { states.clear(); focusBefore.clear(); chipFocus.clear(); listeners.clear(); }
+export function resetBoardPresentationForTests(): void { states.clear(); focusBefore.clear(); chipFocus.clear(); windowFocus.clear(); listeners.clear(); }
 
 /** A query key as the Kernel reads it: percent-decoded, so `%66ocus` is `focus`; a malformed escape keeps its raw spelling. */
 const keyOf = (part: string): string => {
@@ -77,7 +89,7 @@ const sheetHref = (id: string | null) => (id === null ? BOARD_PATH : `${BOARD_PA
  * For the main screen's outlet: keeps the store in step with the address. Arriving at `/board` (typed, Back/Forward, a link) opens the board;
  * every ordinary path that can be opened again is remembered as the place a minimize goes back to. Returns whether the board is mounted.
  */
-export function useBoardPresentationSync(): { mounted: boolean; maximized: boolean } {
+export function useBoardPresentationSync(): { mounted: boolean; maximized: boolean; floating: boolean } {
   const { user, platformScreen, url, registry } = useHostPlatform();
   const state = useSyncExternalStore(subscribe, () => read(user.id));
   const maximized = platformScreen === 'board';
@@ -86,20 +98,31 @@ export function useBoardPresentationSync(): { mounted: boolean; maximized: boole
   useLayoutEffect(() => {
     if (signedIn.current !== user.id) { forget(signedIn.current); signedIn.current = user.id; }
   }, [user.id]);
+  // Arriving at `/board` (Back/Forward, typed) ends a window; the window → maximized and maximized → window transitions write `floating` themselves,
+  // so only the rising edge of the address clears it (a sync running between the replace and the write must not erase the new window).
+  const wasMaximized = useRef(maximized);
   useLayoutEffect(() => {
-    if (maximized) write(user.id, { live: true });
+    const arrived = maximized && !wasMaximized.current;
+    wasMaximized.current = maximized;
+    if (maximized) write(user.id, { live: true, lastMode: 'maximized', ...(arrived ? { floating: false } : {}) });
     else if (registry.safeReturnTo(url) !== null) write(user.id, { returnHref: withoutDetailKey(url) });
   }, [maximized, url, user.id, registry]);
-  return { mounted: state.live || maximized, maximized };
+  // `lastMode` is always the last visible mode, so an automatic minimize (the address moved) restores to what was on screen.
+  useLayoutEffect(() => {
+    if (!maximized && state.live && state.floating) write(user.id, { lastMode: 'floating' });
+  }, [maximized, state.live, state.floating, user.id]);
+  const floating = state.live && state.floating && !maximized;
+  return { mounted: state.live || maximized, maximized, floating };
 }
 
-/** The board's presentation and its transitions. Every transition is a `replace`, so the history holds one entry however often the board comes and goes. */
+/** The board's presentation and its transitions. Every address change is a `replace`, so the history holds one entry however often the board comes and goes. */
 export function useBoardPresentation() {
   const { user, platformScreen, navigate, registry, canOpen } = useHostPlatform();
   const state = useSyncExternalStore(subscribe, () => read(user.id));
   const home = useHomeHref();
   const maximized = state.live && platformScreen === 'board';
-  const minimized = state.live && platformScreen !== 'board';
+  const floating = state.live && state.floating && platformScreen !== 'board';
+  const minimized = state.live && platformScreen !== 'board' && !floating;
   const announce = (text: string) => { write(user.id, { announcement: { text, n: (read(user.id).announcement?.n ?? 0) + 1 } }); };
 
   /** Where leaving the board goes: the last ordinary path while it can still be opened, else the platform home. */
@@ -109,14 +132,31 @@ export function useBoardPresentation() {
     return stored !== null && menu !== undefined && canOpen(menu.id) ? stored : home ?? '/';
   };
   return {
-    live: state.live, maximized, minimized, sheetId: state.lastSheetId, sheetName: state.lastSheetName, announcement: state.announcement,
+    live: state.live, maximized, floating, minimized, geometry: state.geometry, sheetId: state.lastSheetId, sheetName: state.lastSheetName, announcement: state.announcement,
     /** Closed → open: arrives like any page (title focus). */
     open: () => { navigate(sheetHref(read(user.id).lastSheetId), { replace: true, focus: 'page', via: 'sidebar' }); },
-    /** Minimized → maximized: a display change, not an arrival; the board puts focus back itself. */
-    restore: (text: string) => { announce(text); navigate(sheetHref(read(user.id).lastSheetId), { replace: true }); },
-    /** The board's own button: leave for the last ordinary path and hand focus to the chip. */
-    minimize: (text: string) => { chipFocus.add(user.id); announce(text); navigate(leaveHref(), { replace: true }); },
-    /** Ends the live board (the stored sheets stay) and leaves `/board` so it does not open again at once. */
-    close: (text: string) => { announce(text); if (platformScreen === 'board') navigate(leaveHref(), { replace: true }); write(user.id, { live: false }); },
+    /** Minimized → the mode it was minimized from: a window needs no address change; maximized is a display change, not an arrival (the board puts focus back itself). */
+    restore: (text: string) => {
+      announce(text);
+      if (read(user.id).lastMode === 'floating') write(user.id, { floating: true });
+      else navigate(sheetHref(read(user.id).lastSheetId), { replace: true });
+    },
+    /** The board's own button: a window just stops being shown (no address change); a maximized board leaves for the last ordinary path. Focus goes to the chip. */
+    minimize: (text: string) => {
+      chipFocus.add(user.id); announce(text);
+      if (floating) { write(user.id, { floating: false, lastMode: 'floating' }); return; }
+      write(user.id, { lastMode: 'maximized' });
+      navigate(leaveHref(), { replace: true });
+    },
+    /** Maximized → window: back to the last ordinary path (replace), then the window shows; the stored geometry (or the default) places it. */
+    toWindow: (text: string) => { announce(text); navigate(leaveHref(), { replace: true }); write(user.id, { floating: true, lastMode: 'floating' }); },
+    /** Window → maximized: the background path is already in `returnHref`; the address becomes `/board?sheet=`. */
+    maximize: (text: string) => { announce(text); navigate(sheetHref(read(user.id).lastSheetId), { replace: true }); write(user.id, { floating: false, lastMode: 'maximized' }); },
+    /** The window's position and size, written only by the user's own gestures. */
+    setGeometry: (geometry: BoardWindowGeometry) => { write(user.id, { geometry }); },
+    /** The rail button of a window already on screen: focus its title bar (the frame registered how). */
+    focusWindow: () => { windowFocus.get(user.id)?.(); },
+    /** Ends the live board (the stored sheets stay) and leaves `/board` so it does not open again at once. A window's background address stays. */
+    close: (text: string) => { announce(text); if (platformScreen === 'board') navigate(leaveHref(), { replace: true }); write(user.id, { live: false, floating: false }); },
   };
 }

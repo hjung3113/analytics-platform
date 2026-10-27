@@ -11,6 +11,7 @@ import { AppRail } from './AppRail';
 import { useVocDrawer, VocDrawer, VocDrawerContext } from './VocDrawer';
 import { BoardRestoreChip } from './board/BoardRestoreChip';
 import { useBoardPresentation } from './board/boardPresentation';
+import type { ToastBottom } from './board/windowLayout';
 
 const COLLAPSE_KEY = 'platform:sidebar-collapsed';
 
@@ -53,9 +54,12 @@ function ShellLayout({ children }: { children: ReactNode }) {
     {showPlatformSidebar && <PlatformSidebar collapsed={collapsed} onToggle={toggle} />}
     {/* The column stays unpositioned: a `relative` column would become the containing block of every `absolute` element inside main (sr-only text, popovers) and let them overflow it unclipped. */}
     <div data-shell-content className="flex min-w-0 flex-1 flex-col">
-      <main id="platform-main" tabIndex={-1} className="min-h-0 min-w-0 flex-1 overflow-y-auto outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring">
-        <Suspense fallback={<div className="p-5"><LoadingBlock rows={6} height={320} /></div>}>{children}</Suspense>
-      </main>
+      {/* The board window's area (893d2): a positioned box around main only, so a window is placed against main, not against its scrolling content, and never covers the rail, sidebar, or the chip row. */}
+      <div data-board-window-area className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
+        <main id="platform-main" tabIndex={-1} className="h-full min-h-0 min-w-0 overflow-y-auto outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring">
+          <Suspense fallback={<div className="p-5"><LoadingBlock rows={6} height={320} /></div>}>{children}</Suspense>
+        </main>
+      </div>
       <BoardRestoreChip />
       {/* The toast anchor: a zero-height positioned strip at the column's bottom edge, so the stack centres on the content column and never reaches the detail aside or the VOC drawer (06 Toast). */}
       <div data-toast-anchor className="relative h-0"><Toasts bottom={platformScreen === 'board' ? 'bottom-14' : board.minimized ? 'bottom-16' : 'bottom-4'} /></div>
@@ -74,7 +78,7 @@ function ShellLayout({ children }: { children: ReactNode }) {
  * is raised — a layout change or a dismissal announces nothing.
  */
 /** `bottom` clears the strip under main: the board's sheet strip (56px) or the minimized board's chip row (64px, so its focus ring is not clipped). */
-function Toasts({ bottom }: { bottom: 'bottom-4' | 'bottom-14' | 'bottom-16' }) {
+function Toasts({ bottom }: { bottom: ToastBottom }) {
   const toasts = useToastList();
   const heard = useRef<Set<number> | null>(null);
   // Announcements are frozen strings: a later language switch must not rewrite (and so re-announce) what was already said.

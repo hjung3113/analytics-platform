@@ -330,7 +330,7 @@ it('owns a full-height named aside beside main, with a clamped theme width and h
   expect(slot.classList.contains('border-l')).toBe(true);
   expect(slot.classList.contains('h-full')).toBe(true);
   expect(slot.classList.contains('shrink-0')).toBe(true);
-  expect(main.parentElement?.parentElement).toBe(slot.parentElement);
+  expect(main.parentElement?.parentElement?.parentElement).toBe(slot.parentElement); // main sits in the board window's area box (893d2)
   expect(slot.contains(screen.getByRole('dialog', { name: 'Detail' }))).toBe(true);
   expect(main.contains(screen.getByRole('dialog'))).toBe(false);
   fireEvent.click(screen.getByRole('button', { name: '상세 닫기' }));

@@ -2,7 +2,7 @@ import { QueryBarExtensionsProvider } from '@ap/components';
 import { useEquipmentAxes } from '@ap/kernel';
 import { PaneQueryDraftProvider } from '@ap/kernel/host';
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties } from 'react';
-import { HardDrive, Minus, X } from 'lucide-react';
+import { AppWindow, HardDrive, Minus, X } from 'lucide-react';
 import { UNDO_WINDOW_MS, useI18n, type MenuEntry } from '@ap/kernel';
 import { paneHref, useHostPlatform, type PaneScreen } from '@ap/kernel/host';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, cn, Popover, PopoverContent, PopoverTrigger, SurfacePauseScope, ToggleGroup, ToggleGroupItem, TransientOverlayScope } from '@ap/ui';
@@ -40,11 +40,13 @@ const groupKey = (panes: readonly string[]) => [...panes].sort().join('|');
  * `arrivalKey` changes whenever the host's address does, so a page-arrival request left for the board is taken again.
  * `visible` is false while the board is minimized but still mounted (docs/16 §4): it then takes no focus and no size, and shows the last valid
  * layout; becoming visible again re-measures and puts focus back where it was.
+ * `windowed` (893d2, ADR-0091) is the board inside the floating window frame: the frame's title bar owns minimize/maximize/close (the host passes no
+ * `onMinimize`/`onClose`), the board's own heading is not the page heading and the surface takes no arrival focus — the page behind is the arrival's.
  */
-export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrivalKey, Outlet, visible = true, onMinimize, onClose }: {
+export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrivalKey, Outlet, visible = true, windowed = false, onMinimize, onFloat, onClose }: {
   sheetId: string; onSheetChange: (id: string, options?: { replace?: boolean }) => void; arrivalKey: string; Outlet: ComponentType;
   /** False while the host keeps the board minimized (hidden, inert): no arrival focus, no size taken from the hidden container. */
-  visible?: boolean; onMinimize?: () => void; onClose?: () => void;
+  visible?: boolean; windowed?: boolean; onMinimize?: () => void; onFloat?: () => void; onClose?: () => void;
 }) {
   const { user, pathname, navigate, registry, readRecent, pageNavigation, canOpen, toast, dismissToast } = useHostPlatform();
   const { lang, t } = useI18n();
@@ -69,11 +71,11 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
   // Not while minimized: the arrival then belongs to the ordinary screen that the address names.
   const arrived = useRef(false);
   useLayoutEffect(() => {
-    if (!visible) { arrived.current = false; return; }
+    if (!visible || windowed) { arrived.current = false; return; }
     const focus = () => { if (pageNavigation.consume(pathname)) { arrived.current = true; heading.current?.focus({ preventScroll: true }); } };
     focus();
     return pageNavigation.subscribe(focus);
-  }, [arrivalKey, pathname, pageNavigation, visible]);
+  }, [arrivalKey, pathname, pageNavigation, visible, windowed]);
 
   // The chip names the sheet shown; the focus that was inside the visible board comes back with it (heading when that element is gone).
   useEffect(() => { rememberSheet(user.id, sheet.id, sheet.name); }, [user.id, sheet.id, sheet.name]);
@@ -417,7 +419,9 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
     onFocusCapture={event => { if (visible && event.target instanceof HTMLElement && !event.target.closest('[data-board-leave]')) rememberFocus(user.id, event.target); }}>
     <header className="flex h-[50px] shrink-0 items-center justify-between gap-3 overflow-x-auto border-b border-border-subtle bg-surface-canvas px-4">
       <div className="flex min-w-0 items-center gap-3">
-        <h1 data-page-heading ref={heading} tabIndex={-1} className="min-w-28 truncate focus:outline-none text-sm font-semibold text-text-primary">{text.board}</h1>
+        {windowed
+          ? <h2 ref={heading} tabIndex={-1} className="min-w-28 truncate focus:outline-none text-sm font-semibold text-text-primary">{text.board}</h2>
+          : <h1 data-page-heading ref={heading} tabIndex={-1} className="min-w-28 truncate focus:outline-none text-sm font-semibold text-text-primary">{text.board}</h1>}
         <Popover>
           <PopoverTrigger asChild>
             <Button type="button" variant="ghost" size="sm" className="shrink-0" aria-haspopup="dialog" title={text.browserOnly}>
@@ -439,7 +443,8 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
         {BOARD_LAYOUTS.map(option => <ToggleGroupItem key={option} value={option} size="sm" appearance="selected-filter" aria-label={text.layoutOption(option)}>{option.replace('x', '×')}</ToggleGroupItem>)}
       </ToggleGroup>
       </div>}
-      {(onMinimize || onClose) && <div data-board-leave className="flex shrink-0 items-center gap-1 border-l border-border-subtle pl-2">
+      {(onMinimize || onFloat || onClose) && <div data-board-leave className="flex shrink-0 items-center gap-1 border-l border-border-subtle pl-2">
+        {onFloat && <Button type="button" variant="ghost" size="sm" title={text.floatWindow} onClick={onFloat}><AppWindow className="size-3.5" aria-hidden /><span className="@max-[760px]:sr-only">{text.floatWindow}</span></Button>}
         {onMinimize && <Button type="button" variant="ghost" size="sm" title={text.minimize} onClick={onMinimize}><Minus className="size-3.5" aria-hidden /><span className="@max-[760px]:sr-only">{text.minimize}</span></Button>}
         {onClose && <>
           <Button type="button" variant="ghost" size="sm" title={text.closeBoard} aria-describedby={closeHint} onClick={onClose}><X className="size-3.5" aria-hidden /><span className="@max-[760px]:sr-only">{text.closeBoard}</span></Button>
