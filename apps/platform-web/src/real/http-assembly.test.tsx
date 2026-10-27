@@ -17,9 +17,10 @@ function assemblyFor(result: BootstrapResult) {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe('real assembly (#154)', () => {
-  it('ready → the adapter with no top-bar tools and the FeedbackOps API under /api/fo (ADR-0071)', async () => {
+  it('ready → the adapter and FeedbackOps API with no mock SavedViewStore or top-bar tools (ADR-0071)', async () => {
     const outcome = await assemblyFor({ kind: 'ready', adapter }).create();
     expect(outcome).toEqual({ adapter, topBarTools: null, feedbackOpsApi: { basePath: '/api/fo', onSessionLost: expect.any(Function) } });
+    expect(outcome).not.toHaveProperty('savedViews');
     const replace = vi.fn();
     vi.stubGlobal('location', { ...window.location, replace });
     (outcome as { feedbackOpsApi: { onSessionLost: () => void } }).feedbackOpsApi.onSessionLost();

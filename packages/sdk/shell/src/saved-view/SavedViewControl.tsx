@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ApprovalRequestInfo, GroupMember, SavedViewSupport, Result, SavedView, SavedViewListItem, SavedViewStore, ViewVisibility } from '@ap/contracts';
-import { diagnoseSavedView, useEquipmentAxes, useI18n } from '@ap/kernel';
+import { diagnoseSavedView, useEquipmentAxes, useI18n, type SavedViewDiagnosis } from '@ap/kernel';
 import { captureApplied, useHostPlatform, useSavedViews, type SavedViews, type SelectOutcome } from '@ap/kernel/host';
 import { DirtyConfirmation } from '@ap/ui';
-import { SaveViewDialog, ShareTargetPicker, ViewManagement, ViewSelector, type ShareGroupsState, type ShareTargetDraft, type ViewDiagnosis, type ViewFilter, type ViewSelectorState } from '@ap/components';
+import { failureText, SaveViewDialog, ShareTargetPicker, ViewManagement, ViewSelector, type ShareGroupsState, type ShareTargetDraft, type ViewFilter, type ViewSelectorState } from '@ap/components';
 
 /**
  * The Saved View selector of the query tool row (06 §21): current view, `수정됨`, the save menu and the requested `뷰 관리` surface.
@@ -23,7 +23,7 @@ const entriesOf = (items: readonly SavedViewListItem[]) => items.flatMap(item =>
 function Ready({ views, store, support }: { views: SavedViews; store: SavedViewStore; support: SavedViewSupport }) {
   const host = useHostPlatform();
   const axes = useEquipmentAxes();
-  const { lang } = useI18n();
+  const { lang, tx } = useI18n();
   const ko = lang === 'ko';
   const { toast } = host;
   const userId = host.user.id;
@@ -48,12 +48,7 @@ function Ready({ views, store, support }: { views: SavedViews; store: SavedViewS
   const saveAsDone = useRef<{ resolve: (ok: boolean) => void; ok: boolean } | null>(null);
   const searchPeople = useCallback((q: string, signal: AbortSignal): Promise<readonly GroupMember[]> => store.searchPeople(q, signal), [store]);
 
-  const fail = (reason: Extract<Result<never>, { ok: false }>['reason']) => ({
-    conflict: ko ? '다른 곳에서 먼저 바뀌었습니다. 목록을 새로 불러온 뒤 다시 시도하세요.' : 'It was changed elsewhere first. Reload the list and try again.',
-    forbidden: ko ? '이 동작을 할 권한이 없습니다.' : 'You are not allowed to do this.',
-    unavailable: ko ? '뷰 저장소에 닿지 못했습니다. 잠시 뒤 다시 시도하세요.' : 'The view store could not be reached. Try again shortly.',
-    invalid: ko ? '저장할 수 없는 값이 있습니다.' : 'Some values cannot be saved.',
-  })[reason];
+  const fail = (reason: Extract<Result<never>, { ok: false }>['reason']) => failureText({ ok: false, reason }, tx);
   const report = (result: Result<unknown>, done: string): boolean => {
     if (result.ok) toast(done, 'info'); else toast(fail(result.reason), 'warning');
     return result.ok;
@@ -92,7 +87,7 @@ function Ready({ views, store, support }: { views: SavedViews; store: SavedViewS
 
   const items = useMemo(() => [...views.menuViews, ...views.conditionSets], [views.menuViews, views.conditionSets]);
   const diagnoses = useMemo(() => {
-    const result: Record<string, ViewDiagnosis> = {};
+    const result: Record<string, SavedViewDiagnosis> = {};
     const known = axes.map(axis => axis.id);
     for (const item of entriesOf(items)) result[item.view.id] = diagnoseSavedView(item.view, support, { capabilities: item.capabilities, knownAxisIds: known });
     return result;
@@ -183,8 +178,8 @@ function Ready({ views, store, support }: { views: SavedViews; store: SavedViewS
 
   const migrate = async (id: string) => {
     const item = entriesOf(items).find(entry => entry.view.id === id);
-    const diagnosis = diagnoses[id] as (ViewDiagnosis & { migration?: { apply?: () => SavedView } }) | undefined;
-    const next = diagnosis?.migration?.apply?.();
+    const diagnosis = diagnoses[id];
+    const next = diagnosis?.status === 'stale' ? diagnosis.migration?.apply() : undefined;
     if (!item || !next) return;
     const done = ko ? `"${item.view.name}" 뷰를 새 버전으로 갱신했습니다.` : `Updated "${item.view.name}" to the new version.`;
     const patch = next.kind === 'menu-view' ? { menuSchemaVersion: support.menuSchemaVersion, context: next.context, page: next.page, chartOptions: next.chartOptions, layout: next.layout, panels: next.panels } : { context: next.context };

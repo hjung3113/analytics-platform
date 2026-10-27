@@ -22,8 +22,9 @@ afterEach(() => { cleanup(); window.history.replaceState(null, '', '/'); });
 const PERMS: Record<string, string> = { 'productivity-overview': 'platform:view', 'admin-only': 'console:access' };
 async function mount() {
   const assembly = await createAssembly({ registry: appRegistry }) as Assembly;
+  expect(assembly).toHaveProperty('savedViews');
   const storage = memoryStorage();
-  const store = createLocalSavedViewStore(() => storage, { request: async (_n, cb) => cb() }, () => 5, undefined, id => PERMS[id], () => assembly.adapter.session().user.permissions);
+  const store = createLocalSavedViewStore({ getStorage: () => storage, locks: { request: async (_n, cb) => cb() }, now: () => 5, menuPermissionOf: id => PERMS[id], sessionPermissions: () => assembly.adapter.session().user.permissions });
   window.history.replaceState(null, '', '/');
   render(<I18nProvider><PlatformProvider registry={registry} adapter={assembly.adapter} savedViews={store}><Probe /></PlatformProvider></I18nProvider>);
   await act(async () => { await new Promise(r => setTimeout(r, 300)); });

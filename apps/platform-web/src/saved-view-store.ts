@@ -3,7 +3,7 @@ import {
   type ApprovalRequestInfo, type GroupCapabilities, type GroupMember, type Result, type SavedView, type SavedViewDraft, type SavedViewEntry, type SavedViewKey,
   type SavedViewListItem, type SavedViewPatch, type SavedViewStore, type ViewCapabilities, type ViewGroupEntry, type ViewVisibility,
 } from '@ap/contracts';
-import { ACTORS, DIRECTORY, MENU_PERMISSIONS, ROLE_KEY, seedGroups, seedViews, type Actor, type GroupRecord } from './saved-view-seed';
+import { ACTORS, DIRECTORY, ROLE_KEY, seedGroups, seedViews, type Actor, type GroupRecord } from './saved-view-seed';
 
 // Not the FeedbackOps `savedViewsSlot` (sidebar list): this is the SDK saved-view port's browser-local simulation of a server ACL (#1011).
 type StoragePort = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
@@ -76,6 +76,14 @@ function groupCapabilities(g: GroupRecord, a: Actor): GroupCapabilities {
 /** The only place scope, menu permission and sharing are judged; every read goes through it again. */
 /** `forced` skips reachability for the entry a mutation answers with (an admin's revoke makes the view unreachable to the admin). */
 type MenuPermissionOf = (menuId: string) => string | undefined;
+type LocalSavedViewStoreOptions = {
+  getStorage?: () => StoragePort;
+  locks?: Locks | undefined;
+  now?: () => number;
+  getActor?: () => Actor;
+  menuPermissionOf?: MenuPermissionOf;
+  sessionPermissions?: () => readonly string[] | undefined;
+};
 /** A stored view; `pending` is an edit of the approved official copy waiting for (re)approval, kept apart so readers keep the approved content. */
 type Stored = SavedView & { pending?: SavedView };
 /** The owner and an approver see the proposed change; everyone else the approved copy. */
@@ -134,9 +142,9 @@ function proposalChanges(stored: Stored): string[] {
 type Tx = { buckets: Map<string, { ownerId: string; menuId: string | null; views: Stored[] }>; groups: GroupRecord[] | null; defaults: Map<string, string | null> };
 
 /** Browser-local simulation of a server ACL behind the SavedViewStore port. Mutations need the origin lock and fail closed without it. */
-export function createLocalSavedViewStore(getStorage: () => StoragePort = () => localStorage, locks: Locks | undefined = typeof navigator === 'undefined' ? undefined : navigator.locks, now: () => number = Date.now, getActor?: () => Actor, menuPermissionOf: MenuPermissionOf = id => MENU_PERMISSIONS[id], sessionPermissions?: () => readonly string[] | undefined): SavedViewStore {
+export function createLocalSavedViewStore({ getStorage = () => localStorage, locks = typeof navigator === 'undefined' ? undefined : navigator.locks, now = Date.now, getActor, menuPermissionOf = () => undefined, sessionPermissions }: LocalSavedViewStoreOptions = {}): SavedViewStore {
   const ev = (v: Stored, a: Actor, groups: readonly GroupRecord[], forced = false) => evaluate(v, a, groups, menuPermissionOf, forced);
-  /** The permission vocabulary is the real session's (what the Kernel judges menus by); the seed table is only the fallback before a session exists. */
+  /** The permission vocabulary is the real session's (what the Kernel judges menus by); the mock role fills it in before a session exists. */
   const actorNow = (): Actor => { const a = (getActor ?? (() => storedActor(getStorage())))(); const p = sessionPermissions?.(); return p ? { ...a, permissions: p } : a; };
   const readBucket = (storage: StoragePort, ownerId: string, menuId: string | null) => {
     const r = readEnvelope<Stored>(storage, savedViewsStorageKey(ownerId, menuId), 'views', storedView(ownerId, menuId));

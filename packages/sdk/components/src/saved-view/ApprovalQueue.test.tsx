@@ -56,7 +56,7 @@ describe('detail', () => {
     });
     await userEvent.click(screen.getByRole('button', { name: /반려된 뷰/ }));
     const region = screen.getByRole('region', { name: '반려된 뷰' });
-    for (const text of ['소유자', '이름:approver', 'T' + Date.UTC(2026, 9, 20, 3, 0), '기간 최근 24시간', '선택 2개', '승인 대상 버전', 'v4', '신청자', '변경 내용', '기간 24시간 → 72시간', '반려 이유', '기간이 너무 넓습니다'])
+    for (const text of ['소유자', '이름:approver', 'T' + Date.UTC(2026, 9, 20, 3, 0), '최근 24h (상대 기간)', '설비 2대 선택', '승인 대상 버전', 'v4', '신청자', '변경 내용', '기간 24시간 → 72시간', '반려 이유', '기간이 너무 넓습니다'])
       expect(within(region).getAllByText(text, { exact: false }).length).toBeGreaterThan(0);
   });
   it('explains a stale view and offers the preview-confirmed update, independent of any apply control', async () => {
@@ -147,7 +147,7 @@ describe('approve / reject / revoke', () => {
     expect(onDone).toHaveBeenCalledWith('reject', '뷰 x');
   });
 
-  it.each([['conflict', '다른 변경이 먼저'], ['forbidden', '권한이 없습니다'], ['unavailable', '지금은 처리할 수 없습니다'], ['invalid', '올바르지 않아']] as const)('a %s failure keeps the typed reason and the detail, and never claims an audit', async (reason, text) => {
+  it.each([['conflict', '다른 곳에서 먼저 바뀌었습니다'], ['forbidden', '저장할 권한이 없습니다'], ['unavailable', '지금은 저장할 수 없습니다'], ['invalid', '저장할 수 없는 내용입니다']] as const)('a %s failure keeps the typed reason and the detail, and never claims an audit', async (reason, text) => {
     const onDecide = vi.fn().mockResolvedValue({ ok: false, reason });
     const onDone = vi.fn();
     mount({ items: [entry('x', 'pending', { canApprove: true })], onDecide, onDone });
@@ -166,7 +166,7 @@ describe('approve / reject / revoke', () => {
     await userEvent.click(screen.getByRole('button', { name: /뷰 x/ }));
     await userEvent.type(screen.getByRole('textbox', { name: /반려 이유/ }), '이유');
     await userEvent.click(screen.getByRole('button', { name: '승인' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('지금은 처리할 수 없습니다');
+    expect(await screen.findByRole('alert')).toHaveTextContent('지금은 저장할 수 없습니다');
     expect(screen.getByRole('textbox', { name: /반려 이유/ })).toHaveValue('이유');
   });
 
