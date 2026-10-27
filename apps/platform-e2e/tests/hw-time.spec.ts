@@ -138,3 +138,5 @@ test.describe('HW Time 메뉴 4종 — 드릴 · 작업 영역 · 보드 (06 §1
     await expect(page.getByRole('combobox', { name: '차트 지점 선택' })).toBeEnabled();
   });
 });
+
+// ci probe: spec only
