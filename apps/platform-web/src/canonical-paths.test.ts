@@ -1,7 +1,16 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createRegistry, pathFor } from '@ap/kernel';
 import { EQV_MODULE } from './modules';
-import { APP_RESERVED_ROOTS, MENUS, SPACES, registry } from './menus';
+import { MENUS, SPACES, registry } from './menus';
+
+// Spy on the kernel's createRegistry so the test sees the arguments menus.ts really assembled with.
+vi.mock('@ap/kernel', async importOriginal => {
+  const actual = await importOriginal<typeof import('@ap/kernel')>();
+  return { ...actual, createRegistry: vi.fn(actual.createRegistry) };
+});
+// The first call is menus.ts at import time.
+const ASSEMBLY_CALL = vi.mocked(createRegistry).mock.calls[0]![0];
+const RESERVED_ROOTS = ['home', 'survey', 'voc', 'notifications', 'notices', 'permission-requests'];
 
 // ADR-0093 / kernel.md §6.4: the assembled app's old → canonical path table. A menu added without canonical/alias coverage fails here.
 const RAW = [...MENUS, ...EQV_MODULE.menus];
@@ -9,10 +18,13 @@ const segments = (path: string) => path.split('/').filter(Boolean);
 const slugOf = (id: string) => id.replace(/:/g, '-').replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
 
 describe('assembled registry: canonical paths and legacy aliases', () => {
-  it.each(APP_RESERVED_ROOTS)('the app declares "%s" as a reserved root: a space with that id is refused', root => {
+  it('menus.ts assembles the registry with the app reserved roots', () => {
+    expect(ASSEMBLY_CALL.reservedRoots).toEqual(RESERVED_ROOTS);
+  });
+
+  it.each(RESERVED_ROOTS)('the assembly call refuses a space with the reserved id "%s"', root => {
     const clash = { ...SPACES[0], id: root } as (typeof SPACES)[number];
-    expect(() => createRegistry({ spaces: [clash], groups: [], menus: [], reservedRoots: APP_RESERVED_ROOTS })).toThrow(/reserved platform root/);
-    expect(APP_RESERVED_ROOTS).toEqual(['home', 'survey', 'voc', 'notifications', 'notices', 'permission-requests']);
+    expect(() => createRegistry({ ...ASSEMBLY_CALL, spaces: [clash], groups: [], menus: [] })).toThrow(/reserved platform root/);
   });
 
   it('registers every manifest exactly once', () => {

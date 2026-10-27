@@ -47,6 +47,7 @@ it('stays inactive for a menu that does not declare features.savedView', async (
   await act(async () => {});
   expect(views.status).toBe('disabled');
   expect(store.calls).toEqual([]);
+  expect(store.reads).toEqual([]);
 });
 
 it('applies the personal default to a bare route with one replace that Back cannot return to', async () => {
