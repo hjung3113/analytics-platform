@@ -6,19 +6,30 @@ on:
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened]
+  # Release gate (#1019): the only run that is cold and whole. `gh workflow run ci.yml -f full=true` before the release tag.
+  workflow_dispatch:
+    inputs:
+      full:
+        description: 'Run everything cold: no turbo cache restore, turbo --force (release gate)'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
-  # Superseded PR runs are cancelled; every push to main runs to the end so a red main is never hidden.
+  # A manual run has its own group so it never cancels, or is cancelled by, the push/PR run on the same ref.
+  group: ci-${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && 'dispatch-' || '' }}${{ github.ref }}
+  # Superseded PR runs are cancelled; every push to main and every manual run goes to the end so a red main is never hidden.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-# 워크플로 수준 경로 필터는 쓰지 않는다: 필수 검사가 아예 안 뜨면 병합이 Pending으로 막힌다. `changes` Job이 Markdown과 `.agents/` 아래만 바뀐 PR(#1018)을 가려
-# `code=false`를 내면, 필수 Job 둘(workspace·E2E 병합)은 그대로 돌되 무거운 단계만 건너뛴다(#671 B6, D2). 필수 Job을 Job 수준 `if`로
+# 워크플로 수준 경로 필터는 쓰지 않는다: 필수 검사가 아예 안 뜨면 병합이 Pending으로 막힌다. `changes` Job이 `.github/scripts/classify-changes.mjs`로 Markdown과 `.agents/` 아래만
+# 바뀐 PR(#1018)을 가려 `code=false`를 내면, 필수 Job 둘(workspace·E2E 병합)은 그대로 돌되 무거운 단계만 건너뛴다(#671 B6, D2). 필수 Job을 Job 수준 `if`로
 # 건너뛰면 Success로 보고되어, `changes`가 실패해도 필수 검사가 통과해 버린다 — 그래서 쓰지 않는다. 판정은 fail-safe다: `code`가
-# 정확히 'false'일 때만 건너뛰고, `changes`가 실패하면(출력 없음) 전부 돈다. main push는 늘 전체. 프로토타입 4개 Job은 늘 돈다(Unit C는 docs/06을 읽는다).
+# 정확히 'false'일 때만 건너뛰고, `changes`가 실패하면(출력 없음) 전부 돈다. 프로토타입 4개 Job은 늘 돈다(Unit C는 docs/06을 읽는다).
+# workspace 검사(#1019)는 turbo 캐시로 바뀐 패키지와 그 의존자만 다시 돈다(`.turbo/cache`를 main push가 저장하고 PR은 복원만 한다). 전체·cold는 `full`일 때뿐이다:
+# `workflow_dispatch`의 `full=true`(릴리스 태그 전 수동), 또는 `changes`가 판단하지 못해 `full`이 'false'가 아닐 때(출력 없음 포함) → 캐시를 복원하지 않고 `TURBO_FORCE=true`.
+# `Platform workspace (pnpm monorepo)`는 병렬 두 Job(Platform static·Platform test)의 모음 Job이고, 하위 결과가 둘 다 정확히 success일 때만 통과한다.
 # E2E는 shard 3개 Job + 병합 Job(#666)이다.
 # FeedbackOps는 서브모듈이 아니라 일반 디렉터리(apps/fo-*·packages/fo-*·docs/feedbackops)라 checkout 옵션이 따로 없다(FeedbackOps CI는 feedbackops.yml). 프로토타입 4개 Job은 submodules: false를 명시한다.
 
@@ -30,32 +41,23 @@ jobs:
     outputs:
       code: ${{ steps.classify.outputs.code }}
       site: ${{ steps.classify.outputs.site }}
+      full: ${{ steps.classify.outputs.full }}
     steps:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      # code=false only for a PR whose every changed file is Markdown or under .agents/ (agent assets: conductor scripts/config, skills; nothing in the
-      # workspace, CI or tests reads them, and the doc-link check runs regardless of `code`). Anything else, and every push to main, runs everything.
-      # site=false only for a PR with a non-empty diff that touches nothing the intro-site captures depend on (#608).
+      # The rules live in the script (with --self-test): code=false only for a PR whose every changed file is Markdown or under .agents/;
+      # site=false only for a PR with a non-empty diff that touches nothing the intro-site captures depend on (#608);
+      # full=true for a manual full=true run, and for anything the script cannot decide (it then prints code=true site=true full=true).
       - id: classify
         env:
           EVENT: ${{ github.event_name }}
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}
-        run: |
-          code=true
-          site=true
-          if [ "$EVENT" = pull_request ]; then
-            files="$(git diff --name-only --no-renames "$BASE...$HEAD")"
-            if [ -n "$files" ] && ! printf '%s\n' "$files" | grep -qvE '(\.md$|^\.agents/)'; then code=false; fi
-            # FeedbackOps frontend sources are bundled into the demo through the `@` alias; GLOSSARY.md feeds the site's banned-term check.
-            site_dirs='^(menus|packages|apps/fo-frontend|apps/platform-web|site|tooling|patches)/'
-            site_files='^(package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|GLOSSARY\.md|apps/platform-e2e/package\.json|\.github/workflows/(ci|pages)\.yml)$'
-            if [ -n "$files" ] && ! { printf '%s\n' "$files" | grep -v '\.md$' | grep -E "$site_dirs" >/dev/null || printf '%s\n' "$files" | grep -E "$site_files" >/dev/null; }; then site=false; fi
-            printf 'changed files:\n%s\n' "$files"
-          fi
-          echo "code=$code" | tee -a "$GITHUB_OUTPUT"
-          echo "site=$site" | tee -a "$GITHUB_OUTPUT"
+          BEFORE: ${{ github.event.before }}
+          SHA: ${{ github.sha }}
+          FULL_INPUT: ${{ inputs.full }}
+        run: node .github/scripts/classify-changes.mjs
 
   python-codec:
     name: Python codec (kernel-context-url-scope)
@@ -152,16 +154,19 @@ jobs:
       - run: npm run test:browser
       - run: npm run build
 
-  platform-workspace:
-    name: Platform workspace (pnpm monorepo)
+  # Lint, typecheck, build and the checks that need the build output (#1019 splits the old single job so `pnpm test` runs beside it).
+  platform-static:
+    name: Platform static
     needs: changes
-    # Runs even when `changes` failed (then every step runs). Never skipped as a whole: it is a required check.
+    # Runs even when `changes` failed (then every step runs). Never skipped as a whole: the aggregate required check reads its result.
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
       # 'false' only for a Markdown-only PR; empty (changes failed) or 'true' runs every step.
       DOCS_ONLY: ${{ needs.changes.outputs.code == 'false' }}
+      # Cold and whole when `full` is 'true' (release gate) or empty (changes failed): the turbo cache is neither restored nor trusted.
+      TURBO_FORCE: ${{ needs.changes.outputs.full != 'false' }}
     steps:
       - uses: actions/checkout@v5
       # pnpm 버전은 루트 package.json의 packageManager를 따른다.
@@ -175,6 +180,13 @@ jobs:
       - run: node .github/scripts/check-doc-links.mjs
       - run: pnpm install --frozen-lockfile
         if: ${{ env.DOCS_ONLY != 'true' }}
+      # turbo cache (#1019): restored on every non-full run, saved only by a push to main so PR runs cannot grow the cache.
+      - uses: actions/cache/restore@v4
+        if: ${{ env.DOCS_ONLY != 'true' && env.TURBO_FORCE != 'true' }}
+        with:
+          path: .turbo/cache
+          key: turbo-${{ runner.os }}-node26.7.0-static-${{ github.sha }}
+          restore-keys: turbo-${{ runner.os }}-node26.7.0-static-
       - name: Guard FeedbackOps out of platform task graph
         if: ${{ env.DOCS_ONLY != 'true' }}
         run: |
@@ -183,9 +195,6 @@ jobs:
       - run: pnpm lint
         if: ${{ env.DOCS_ONLY != 'true' }}
       - run: pnpm typecheck
-        if: ${{ env.DOCS_ONLY != 'true' }}
-      # #166: turbo concurrency is capped at 2 in turbo.json (vitest workers × parallel packages oversubscribe a runner or a 16 GB Mac)
-      - run: pnpm test
         if: ${{ env.DOCS_ONLY != 'true' }}
       - run: pnpm build
         if: ${{ env.DOCS_ONLY != 'true' }}
@@ -225,6 +234,74 @@ jobs:
         run: |
           if out=$(pnpm --filter @ap/platform-web exec node scripts/check-prod-graph.ts --force-mock-build 2>&1); then echo "$out"; exit 1; fi
           echo "$out" | grep -q 'failed as it must' && echo "$out" | grep -q 'production build bundles mock/dev code'
+      # Entries older than 7 days are dropped before the save (a failure here must not skip the save). GitHub evicts the least recently used caches above the repository limit (10 GB).
+      - name: Prune turbo cache
+        if: ${{ !cancelled() && github.event_name == 'push' && env.DOCS_ONLY != 'true' }}
+        run: find .turbo/cache -type f -mtime +7 -delete || true
+      - uses: actions/cache/save@v4
+        if: ${{ !cancelled() && github.event_name == 'push' && env.DOCS_ONLY != 'true' }}
+        with:
+          path: .turbo/cache
+          key: turbo-${{ runner.os }}-node26.7.0-static-${{ github.sha }}
+
+  # `pnpm test` beside Platform static. #166: turbo concurrency is capped at 2 in turbo.json (vitest workers × parallel packages oversubscribe a runner or a 16 GB Mac).
+  platform-test:
+    name: Platform test
+    needs: changes
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DOCS_ONLY: ${{ needs.changes.outputs.code == 'false' }}
+      TURBO_FORCE: ${{ needs.changes.outputs.full != 'false' }}
+    steps:
+      - uses: actions/checkout@v5
+        if: ${{ env.DOCS_ONLY != 'true' }}
+      - uses: pnpm/action-setup@v6
+        if: ${{ env.DOCS_ONLY != 'true' }}
+      - uses: actions/setup-node@v5
+        if: ${{ env.DOCS_ONLY != 'true' }}
+        with:
+          node-version: '26.7.0'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+        if: ${{ env.DOCS_ONLY != 'true' }}
+      # turbo cache (#1019): restored on every non-full run, saved only by a push to main so PR runs cannot grow the cache.
+      - uses: actions/cache/restore@v4
+        if: ${{ env.DOCS_ONLY != 'true' && env.TURBO_FORCE != 'true' }}
+        with:
+          path: .turbo/cache
+          key: turbo-${{ runner.os }}-node26.7.0-test-${{ github.sha }}
+          restore-keys: turbo-${{ runner.os }}-node26.7.0-test-
+      - run: pnpm test
+        if: ${{ env.DOCS_ONLY != 'true' }}
+      # Entries older than 7 days are dropped before the save (a failure here must not skip the save). GitHub evicts the least recently used caches above the repository limit (10 GB).
+      - name: Prune turbo cache
+        if: ${{ !cancelled() && github.event_name == 'push' && env.DOCS_ONLY != 'true' }}
+        run: find .turbo/cache -type f -mtime +7 -delete || true
+      - uses: actions/cache/save@v4
+        if: ${{ !cancelled() && github.event_name == 'push' && env.DOCS_ONLY != 'true' }}
+        with:
+          path: .turbo/cache
+          key: turbo-${{ runner.os }}-node26.7.0-test-${{ github.sha }}
+
+  # The required check keeps its name (ruleset `main: required CI`). A required job skipped as a whole would report Success, so this one always runs
+  # and fails unless both halves are exactly `success` (a docs-only run is success: the halves run and skip their steps; skipped, cancelled, failure → red).
+  platform-workspace:
+    name: Platform workspace (pnpm monorepo)
+    needs: [changes, platform-static, platform-test]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: .github/scripts
+      - name: Both halves succeeded
+        env:
+          STATIC: ${{ needs.platform-static.result }}
+          TEST: ${{ needs.platform-test.result }}
+        run: .github/scripts/require-success.sh "static=$STATIC" "test=$TEST"
 
   # #666: the contract suite (~600 s of tests on one worker) runs as 3 Playwright shards in parallel. Each shard starts
   # its own dev server and runs its contiguous slice serially (fullyParallel + workers: 1), so evidence stays in contract
