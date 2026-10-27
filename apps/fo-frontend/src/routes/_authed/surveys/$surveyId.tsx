@@ -1,4 +1,3 @@
-import { SurveyBuilder } from '@/features/surveys/components/builder/SurveyBuilder';
 import { useBuilderDirtyGuard } from '@/features/surveys/components/builder/hooks/useBuilderDirtyGuard';
 import { SurveyDetail } from '@/features/surveys/components/detail/SurveyDetail';
 import {
@@ -7,14 +6,13 @@ import {
   surveyListContextSearch,
 } from '@/features/surveys/components/list/SurveyListScreen';
 import { useSurvey } from '@/features/surveys/hooks/useSurveys';
+import { SurveyBuilderScreen } from '@/features/surveys/routes/SurveyBuilderScreen';
 import { useSurveyManageGate } from '@/features/surveys/routes/SurveyPermissionGate';
 import { validateSurveyDetailSearch } from '@/features/surveys/routes/surveys-search';
-import type { Survey } from '@/features/surveys/types';
-import { PERMISSION_BLOCKED_REASONS } from '@/lib/copy/permission-reasons';
 import { useManagedSystemNamesResult } from '@/lib/cross-system/useManagedSystemNames';
 import { useWorkspaceActors } from '@/lib/cross-system/useWorkspaceActors';
 import { formatRecordDocumentTitle, useDocumentTitle } from '@/lib/router/document-title';
-import { DirtyConfirmation, EmptyState, PermissionBlockedPanel } from '@ap/ui';
+import { DirtyConfirmation, EmptyState } from '@ap/ui';
 import {
   Outlet,
   createFileRoute,
@@ -36,20 +34,12 @@ export const Route = createFileRoute('/_authed/surveys/$surveyId')({
   component: SurveyDetailRouteSplit,
 });
 
-function SurveyBuilderWithDirtyConfirmation({
-  survey,
-  canManage,
-  gateState,
-  managedSystemNamesById,
-  onBack,
-}: {
-  survey: Survey;
-  canManage: boolean;
-  gateState?: 'loading' | 'error' | 'absent';
-  managedSystemNamesById: ReadonlyMap<string, string> | undefined;
-  onBack: () => void;
-}) {
-  const { dirtyRef: builderDirtyRef, setDirty: handleBuilderDirtyChange } = useBuilderDirtyGuard();
+// The builder's screen owns the data states and its own Back confirmation; the router-only part stays here: a blocker (browser back,
+// sidebar navigation) and the unload prompt over the screen's guard. A dirty Back is confirmed by the screen before it navigates, with
+// the guard cleared first, so the blocker never opens a second dialog.
+function StandaloneSurveyBuilder({ surveyId, onBack }: { surveyId: string; onBack: () => void }) {
+  const leaveGuard = useBuilderDirtyGuard();
+  const { dirtyRef: builderDirtyRef, setDirty: handleBuilderDirtyChange } = leaveGuard;
   const [dirtyDialogOpen, setDirtyDialogOpen] = useState(false);
   const blocker = useBlocker({
     shouldBlockFn: () => builderDirtyRef.current,
@@ -71,14 +61,7 @@ function SurveyBuilderWithDirtyConfirmation({
 
   return (
     <>
-      <SurveyBuilder
-        survey={survey}
-        canManage={canManage}
-        {...(gateState ? { gateState } : {})}
-        managedSystemNamesById={managedSystemNamesById}
-        onBack={onBack}
-        onDirtyChange={handleBuilderDirtyChange}
-      />
+      <SurveyBuilderScreen surveyId={surveyId} onBack={onBack} leaveGuard={leaveGuard} />
       <DirtyConfirmation
         open={dirtyDialogOpen}
         onConfirm={confirmLeaveBuilder}
@@ -107,10 +90,7 @@ export function SurveyDetailRoute() {
   const query = useSurvey(surveyId);
   const gate = useSurveyManageGate(query.data?.primary_managed_system_id);
   const documentTitleRecord =
-    !isOutcomeReviewRoute &&
-    query.isSuccess &&
-    !query.isFetching &&
-    (!search.builder || gate.canManage)
+    !isOutcomeReviewRoute && query.isSuccess && !query.isFetching && !search.builder
       ? formatRecordDocumentTitle({
           displayId: query.data.display_id,
           title: query.data.title,
@@ -132,32 +112,18 @@ export function SurveyDetailRoute() {
   );
 
   if (isOutcomeReviewRoute) return <Outlet />;
+  if (search.builder)
+    return (
+      <StandaloneSurveyBuilder
+        surveyId={surveyId}
+        onBack={() => void navigate({ to: '/surveys/$surveyId', params: { surveyId } })}
+      />
+    );
   if (query.isLoading) return <div className="p-6 text-sm text-text-muted">불러오는 중…</div>;
   if (query.isError || !query.data)
     return (
       <EmptyState title="Survey를 찾을 수 없습니다." body="삭제되었거나 접근 권한이 없습니다." />
     );
-  if (search.builder) {
-    if (!gate.canManage)
-      return (
-        <div className="p-6">
-          <PermissionBlockedPanel
-            state="blocked_not_requestable"
-            category="Survey 빌더"
-            reason={PERMISSION_BLOCKED_REASONS.surveyBuilder}
-          />
-        </div>
-      );
-    return (
-      <SurveyBuilderWithDirtyConfirmation
-        survey={query.data}
-        canManage
-        managedSystemNamesById={managedSystemNamesById}
-        {...(gate.gateState ? { gateState: gate.gateState } : {})}
-        onBack={() => void navigate({ to: '/surveys/$surveyId', params: { surveyId } })}
-      />
-    );
-  }
   return (
     <SurveyListScreen
       context={listContext}

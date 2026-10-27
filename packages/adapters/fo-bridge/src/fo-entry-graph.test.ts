@@ -727,6 +727,32 @@ describe('FeedbackOps operator Surveys list entry graph (ADR-0071)', () => {
   });
 });
 
+describe('FeedbackOps operator Survey builder entry graph (ADR-0071)', () => {
+  const builder = walk([join(FRONTEND_SRC, 'operator-screens/survey-builder/index.ts')]);
+  const builderReached = [...builder.files.keys()].map(file => relative(FRONTEND_SRC, file));
+
+  it('reaches the screen, the builder and the host seam, and not the Survey detail tree or anything under routes/', () => {
+    expect(builderReached).toEqual(expect.arrayContaining(['features/surveys/routes/SurveyBuilderScreen.tsx', 'features/surveys/components/builder/SurveyBuilder.tsx', 'lib/host/host-seam.tsx']));
+    expect(builderReached.filter(file => file.startsWith('features/surveys/components/detail/'))).toEqual([]);
+    expect(builderReached.filter(file => /^routes\//.test(file))).toEqual([]);
+    expect(builder.unresolved).toEqual([]);
+  });
+
+  it('imports no router and no toast library', () => {
+    expect([...builder.specifiers].filter(specifier => /^@tanstack\/(react-)?router|^sonner$/.test(specifier))).toEqual([]);
+  });
+
+  it('reaches no route, router, layout or auth source, the auth module, the api barrel, the permissions or managed-systems api or the standalone permission check', () => {
+    const banned = /^(?:routes|lib\/router|lib\/layout|lib\/auth)\/|^lib\/api\/(?:auth|index|permissions|managed-systems)\.ts$|^lib\/cross-system\/usePermissionCheck\.ts$/;
+    expect(builderReached.filter(file => banned.test(file))).toEqual([]);
+  });
+
+  it('calls fetch only in lib/api/client.ts', () => {
+    const callers = [...builder.files].filter(([, text]) => /(?<![\w.])fetch\(/.test(text)).map(([file]) => relative(FRONTEND_SRC, file));
+    expect(callers).toEqual(['lib/api/client.ts']);
+  });
+});
+
 describe('FeedbackOps operator Survey detail entry graph (ADR-0071)', () => {
   const detail = walk([join(FRONTEND_SRC, 'operator-screens/survey-detail/index.ts')]);
   const detailReached = [...detail.files.keys()].map(file => relative(FRONTEND_SRC, file));

@@ -21,6 +21,7 @@ const SOURCES = [
   'hooks/useSurveyResultsController.ts',
   'routes/SurveyFollowUpRoute.tsx',
   'components/builder/hooks/useBuilderDirtyGuard.ts',
+  'routes/SurveyBuilderScreen.tsx',
 ] as const;
 
 const FORBIDDEN = [
@@ -34,7 +35,7 @@ const FORBIDDEN = [
 
 describe('survey seam leaves', () => {
   it('keeps the named sources free of host-specific imports', () => {
-    expect(SOURCES.length).toBeGreaterThanOrEqual(14);
+    expect(SOURCES.length).toBeGreaterThanOrEqual(15);
 
     for (const relativePath of SOURCES) {
       const source = readFileSync(path.join(SURVEYS_ROOT, relativePath), 'utf8');
