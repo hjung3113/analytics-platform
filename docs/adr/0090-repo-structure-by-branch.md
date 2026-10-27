@@ -17,6 +17,7 @@
 - **D3 공간 id.** A 유지 / **B `analytics`→`mars`, `metrics`→`bravo`, 그룹 id 유지, 저장된 공간 재개 키 이행 포함(선택)** / C 그룹 id까지 변경.
   - 결과(713m): 공간 id가 `mars`·`bravo`로 확정됐다. 앱이 `SPACE_ID_MIGRATIONS`를 `PlatformProvider.spaceIdMigrations`로 넘겨 탭의 옛 재개 키를 한 번 새 키로 옮기고, 이미 쌓인 사용 기록은 옛 id로 남는다.
 - **D4 소유.** **A 그룹 단위 소유 + 시스템·그룹 폴더 `CODEOWNERS`(선택)** / B 시스템 단위 소유 / C 메뉴 단위 소유.
+  - 결과(713n): `.github/CODEOWNERS`에 시스템·그룹 폴더를 기록하고 `repo-invariants`가 그룹 누락과 없는 폴더 참조를 검사한다.
 - **D5 메뉴 버전.** A 단일 버전 / B 메뉴 패키지별 발행 / **C 메뉴 패키지별 내부 버전 + CHANGELOG(발행 없음) + 기대는 SDK 버전 범위(선택)**.
 
 ## 결정
@@ -47,6 +48,8 @@
 - **순서.** 지금 sdk 흐름이 만지는 `packages/shell/src/board`·`packages/components/src/dock`과 `packages/` 묶음 이동은 맨 뒤에 한다.
 - **프로토타입 CI.** 아카이브된 프로토타입의 CI 작업은 유지한다.
 - **완료 기준.** 공개 API 변화 0(`sdk:api` 스냅샷·exports), 루트 lint·typecheck·test·build 0, `pnpm docs:links` 0, CI E2E 통과.
+
+D5 결과: 모든 메뉴는 내부 버전 0.1.0과 CHANGELOG로 시작하고 SDK 태그 범위 `>=0.17.0 <0.18.0`을 기록하며 발행하지 않는다. 동작·화면 변경 시 minor/patch와 CHANGELOG를 같은 PR에서 갱신한다.
 
 D4·D5는 위 폴더 이동 뒤 적용한다: 소유는 시스템·그룹 폴더의 `CODEOWNERS`, 버전은 메뉴 패키지별 내부 버전과 CHANGELOG(발행 없음)이며 각 메뉴 패키지는 기대는 SDK 버전 범위를 적는다.
 

@@ -66,6 +66,20 @@ function section(lines: string[], start: string, end: string): string {
 
 const toBinding = (folder: string): string => folder.replace(/-([a-z0-9])/g, (_, c: string) => c.toUpperCase());
 
+/** Require explicit group entries and reject menu directory entries without a matching folder. */
+export function checkCodeowners(folders: string[], codeowners: string, systems = [...new Set(folders.map(f => f.split('/')[0]))]): void {
+  const paths = codeowners.split(/\r?\n/).map(line => line.trim()).filter(line => line !== '' && !line.startsWith('#'))
+    .map(line => line.split(/\s+/)[0])
+    .map(path => path.startsWith('menus/') ? `/${path}` : path);
+  const existing = new Set([...systems.map(system => `/menus/${system}/`), ...folders.map(folder => `/menus/${folder}/`)]);
+  for (const path of paths) {
+    if (path.startsWith('/menus/') && !existing.has(path)) throw new Error(`CODEOWNERS points to nonexistent menu folder: ${path}`);
+  }
+  for (const folder of folders) {
+    if (!paths.includes(`/menus/${folder}/`)) throw new Error(`CODEOWNERS missing menus/${folder}/`);
+  }
+}
+
 /** Markers exist exactly once and in import → groups → spreads (→ styles) order; the mock-assembly.tsx
  * mock markers exist exactly once and in imports → spreads order. */
 export function checkMarkers(shape: RepoShape): void {
@@ -189,5 +203,28 @@ export function checkNoProbe(shape: RepoShape, skip: boolean): void {
       if (text.includes(name)) throw new Error(`probe leftover '${name}' found in ${label}`);
     }
     if (shape.folders.some(folder => folder.split('/').at(-1) === name)) throw new Error(`probe leftover: menus/${name} exists`);
+  }
+}
+
+/** Each menu package records its internal version and expected SDK tag range. */
+export function checkMenuVersions(root: string): void {
+  for (const folder of menuFolders(root)) {
+    const dir = join(root, 'menus', folder);
+    const pkgPath = join(dir, 'package.json');
+    if (!existsSync(pkgPath)) continue;
+    const pkg = JSON.parse(readFileSync(pkgPath, 'utf8')) as { version?: unknown; ap?: { sdk?: unknown } };
+    if (typeof pkg.version !== 'string' || !pkg.version || pkg.version === '0.0.0') throw new Error(`${pkgPath}: invalid version`);
+    const sdk = pkg.ap?.sdk;
+    const range = typeof sdk === 'string' ? /^>=(\d+)\.(\d+)\.(\d+) <(\d+)\.(\d+)\.0$/.exec(sdk) : null;
+    const caret = typeof sdk === 'string' && /^\^\d+\.\d+\.\d+$/.test(sdk);
+    if (!caret && !(range && range[1] === range[4] && Number(range[5]) === Number(range[2]) + 1)) {
+      throw new Error(`${pkgPath}: invalid ap.sdk range`);
+    }
+    const changelog = join(dir, 'CHANGELOG.md');
+    if (!existsSync(changelog)) throw new Error(`${changelog}: missing CHANGELOG`);
+    const heading = /^## (.+)$/m.exec(readFileSync(changelog, 'utf8'))?.[1];
+    if (!heading || (heading !== pkg.version && !heading.startsWith(`${pkg.version} — `))) {
+      throw new Error(`${changelog}: first CHANGELOG version does not match package.json`);
+    }
   }
 }

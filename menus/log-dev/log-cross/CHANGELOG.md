@@ -1,0 +1,7 @@
+# @ap/menu-log-cross 변경 기록
+
+내부 버전이며 발행하지 않는다. SDK 범위는 package.json의 ap.sdk를 따른다.
+
+## 0.1.0 — 2026-10-27
+
+- 초기 기록: 화면 없이 계획 메뉴 manifest만 선언.

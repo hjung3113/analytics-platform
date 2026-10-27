@@ -54,7 +54,14 @@ export function planRemove(root: string, group: string): RemovePlan {
   const packageDir = join(root, 'menus', location);
   for (const rel of [MENUS_TS, MOCK_ASSEMBLY_TSX, STYLE_CSS, APP_PKG]) checkInsideRoot(realRoot, join(root, rel), `--remove: ${rel}`);
 
-  for (const f of renderFiles(inputs)) {
+  const changelogPath = join(packageDir, 'CHANGELOG.md');
+  const changelog = existsSync(changelogPath) ? readFileSync(changelogPath, 'utf8') : '';
+  const date = /^## 0\.1\.0 — (\d{4}-\d{2}-\d{2})$/m.exec(changelog)?.[1];
+  if (!date || Number.isNaN(Date.parse(`${date}T00:00:00.000Z`)) || new Date(`${date}T00:00:00.000Z`).toISOString().slice(0, 10) !== date) {
+    throw new GenMenuError(`--remove: menus/${location}/CHANGELOG.md was edited`);
+  }
+  const files = renderFiles(inputs, date);
+  for (const f of files) {
     const path = join(packageDir, f.relPath);
     if (!existsSync(path) || readFileSync(path, 'utf8') !== f.content) {
       throw new GenMenuError(`--remove: menus/${location}/${f.relPath} was edited`);
@@ -88,7 +95,7 @@ export function planRemove(root: string, group: string): RemovePlan {
     }
   }
 
-  const known = new Set([...renderFiles(inputs).map(f => f.relPath), '.gen-menu.json']);
+  const known = new Set([...files.map(f => f.relPath), '.gen-menu.json']);
   checkEntries(packageDir, `menus/${location}`, '', known);
 
   return { root, inputs, packageDir, inserts, deleteDir: `menus/${location}` };

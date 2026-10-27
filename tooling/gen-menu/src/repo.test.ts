@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { repoRoot } from './fixture.ts';
 import { checkAppMarkers } from './generate.ts';
-import { checkGroups, checkMarkers, checkNoProbe, checkWiring, loadShape } from './repo-invariants.ts';
+import { checkCodeowners, checkMenuVersions, checkGroups, checkMarkers, checkNoProbe, checkWiring, loadShape } from './repo-invariants.ts';
 
 /**
  * Extensible wiring locks read from the real repo: whatever the current union, groups and
- * packages are, they must be wired completely. During the probe the generated menu is part of
- * the tree, so these still hold — only the probe-name check is skipped (GEN_MENU_PROBE=1).
+ * packages are, they must be wired completely. During the probe the temporary gen-probe folder
+ * is excluded from CODEOWNERS and the probe-name check is skipped (GEN_MENU_PROBE=1).
  */
 describe('committed wiring locks (real repo, read-only)', () => {
   const shape = loadShape(repoRoot());
@@ -29,8 +31,19 @@ describe('committed wiring locks (real repo, read-only)', () => {
     expect(() => checkGroups(shape)).not.toThrow();
   });
 
+  it('covers every menu group in CODEOWNERS and references existing menu folders', () => {
+    const root = repoRoot();
+    const folders = process.env.GEN_MENU_PROBE === '1' ? shape.folders.filter(f => f.split('/').at(-1) !== 'gen-probe') : shape.folders;
+    const systems = readdirSync(join(root, 'menus'), { withFileTypes: true }).filter(entry => entry.isDirectory()).map(entry => entry.name);
+    expect(() => checkCodeowners(folders, readFileSync(join(root, '.github/CODEOWNERS'), 'utf8'), systems)).not.toThrow();
+  });
+
   it('wires every menu dependency to import+spread and every styles.css to the style markers', () => {
     expect(() => checkWiring(shape)).not.toThrow();
+  });
+
+  it('records version metadata for every menu package', () => {
+    expect(() => checkMenuVersions(repoRoot())).not.toThrow();
   });
 
   it('has no probe leftovers (skipped while the probe menu exists)', () => {

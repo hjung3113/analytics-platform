@@ -24,6 +24,8 @@ export type MenuInputs = {
  * it, because the server re-validates data permission per request (#47). Kept in one place so the
  * two never drift apart.
  */
+export const SDK_RANGE = '>=0.17.0 <0.18.0';
+
 export const SCAFFOLD_PERMISSION = 'platform:view';
 
 export const menuPackage = (folder: string): string => `${PACKAGE_PREFIX}menu-${folder}`;
@@ -48,9 +50,10 @@ export const styleLine = (i: MenuInputs): string => `@import "${menuPackage(i.fo
 /** apps/platform-web/package.json dependency insert. */
 export const depLine = (i: MenuInputs): string => `    "${menuPackage(i.folder)}": "workspace:*",`;
 
-/** The eleven generated files, paths relative to `menus/<space>/<folder>/`. LF, trailing newline, UTF-8. */
-export const renderFiles = (i: MenuInputs): { relPath: string; content: string }[] => [
+/** The generated files, paths relative to `menus/<space>/<folder>/`. LF, trailing newline, UTF-8. */
+export const renderFiles = (i: MenuInputs, date = new Date().toISOString().slice(0, 10)): { relPath: string; content: string }[] => [
   { relPath: 'package.json', content: packageJson(i) },
+  { relPath: 'CHANGELOG.md', content: `# ${menuPackage(i.folder)} 변경 기록\n\n내부 버전이며 발행하지 않는다. SDK 범위는 package.json의 ap.sdk를 따른다.\n\n## 0.1.0 — ${date}\n\n- 초기 기록: ${i.labelKo} 화면과 manifest 스켈레톤.\n` },
   {
     relPath: 'tsconfig.json',
     content: `{"extends": "${PACKAGE_PREFIX}tsconfig/base.json", "include": ["src", "vitest.config.ts"]}\n`,
@@ -93,7 +96,8 @@ function packageJson(i: MenuInputs): string {
   const body = {
     name: menuPackage(i.folder),
     private: true,
-    version: '0.0.0',
+    version: '0.1.0',
+    ap: { sdk: SDK_RANGE },
     type: 'module',
     exports: { '.': './src/index.ts', './mock': './src/mock/index.ts', './styles.css': './src/styles.css' },
     scripts: { lint: 'eslint .', typecheck: 'tsc --noEmit', test: 'vitest run' },

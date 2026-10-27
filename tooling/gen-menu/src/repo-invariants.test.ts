@@ -1,10 +1,25 @@
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { PACKAGE_PREFIX } from './prefix.ts';
 import { removeFixture } from './fixture.ts';
-import { checkGroups, checkMarkers, checkNoProbe, checkWiring, loadShape, type RepoShape } from './repo-invariants.ts';
+import { checkCodeowners, checkMenuVersions, checkGroups, checkMarkers, checkNoProbe, checkWiring, loadShape, type RepoShape } from './repo-invariants.ts';
+
+describe('CODEOWNERS menu folders', () => {
+  const folders = ['mars/analytics', 'mars/equipment'];
+  const owners = '# comment\n\n/menus/mars/ @hjung3113\n/menus/mars/analytics/ @hjung3113\n/menus/mars/equipment/ @hjung3113\n';
+
+  it('requires an explicit entry for each group even when the system is covered', () => {
+    expect(() => checkCodeowners(folders, owners)).not.toThrow();
+    expect(() => checkCodeowners(folders, owners.replace('/menus/mars/analytics/', 'menus/mars/analytics/'))).not.toThrow();
+    expect(() => checkCodeowners(folders, owners.replace('/menus/mars/analytics/ @hjung3113\n', '# /menus/mars/analytics/ @hjung3113\n'))).toThrow(/menus\/mars\/analytics/);
+  });
+
+  it.each(['/menus/mars/missing/', '/menus/missing/', 'menus/mars/missing/', 'menus/missing/'])('rejects a nonexistent menu folder %s', path => {
+    expect(() => checkCodeowners(folders, `${owners}${path} @hjung3113\n`)).toThrow(/nonexistent/);
+  });
+});
 
 /** folder ↔ GroupId of the seven real packages plus an eighth wired one. */
 const GROUPS: { folder: string; group: string }[] = [
@@ -204,5 +219,46 @@ describe('wiring invariants against a fixture repo', () => {
     writeFileSync(menusTs, `${readFileSync(menusTs, 'utf8')}// genProbe\n`);
     expect(() => checkNoProbe(loadShape(root), false)).toThrow(/genProbe/);
     expect(() => checkNoProbe(loadShape(root), true)).not.toThrow();
+  });
+});
+
+describe('menu version metadata', () => {
+  const keep: string[] = [];
+  const fresh = (): string => {
+    const root = mkdtempSync(join(tmpdir(), 'menu-versions-'));
+    keep.push(root);
+    const dir = join(root, 'menus/mars/example');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'package.json'), JSON.stringify({ version: '0.1.0', ap: { sdk: '>=0.17.0 <0.18.0' } }));
+    writeFileSync(join(dir, 'CHANGELOG.md'), '# 기록\n\n## 0.1.0 — 2026-10-27\n');
+    return root;
+  };
+  afterAll(() => { for (const root of keep) removeFixture(root); });
+  it('accepts valid metadata and caret ranges', () => {
+    const root = fresh();
+    expect(() => checkMenuVersions(root)).not.toThrow();
+    writeFileSync(join(root, 'menus/mars/example/package.json'), JSON.stringify({ version: '1.2.3', ap: { sdk: '^1.2.3' } }));
+    writeFileSync(join(root, 'menus/mars/example/CHANGELOG.md'), '## 1.2.3\n');
+    expect(() => checkMenuVersions(root)).not.toThrow();
+  });
+  it.each([
+    ['missing version', { ap: { sdk: '^0.17.0' } }],
+    ['zero version', { version: '0.0.0', ap: { sdk: '^0.17.0' } }],
+    ['missing SDK range', { version: '0.1.0' }],
+    ['invalid SDK range', { version: '0.1.0', ap: { sdk: '>=0.17.0 <0.19.0' } }],
+  ])('rejects %s', (_label, pkg) => {
+    const root = fresh();
+    writeFileSync(join(root, 'menus/mars/example/package.json'), JSON.stringify(pkg));
+    expect(() => checkMenuVersions(root)).toThrow();
+  });
+  it('rejects a missing changelog', () => {
+    const root = fresh();
+    unlinkSync(join(root, 'menus/mars/example/CHANGELOG.md'));
+    expect(() => checkMenuVersions(root)).toThrow(/CHANGELOG/);
+  });
+  it('rejects a first changelog version mismatch', () => {
+    const root = fresh();
+    writeFileSync(join(root, 'menus/mars/example/CHANGELOG.md'), '## 0.2.0\n## 0.1.0\n');
+    expect(() => checkMenuVersions(root)).toThrow(/CHANGELOG/);
   });
 });
