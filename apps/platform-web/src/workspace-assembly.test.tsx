@@ -20,7 +20,7 @@ describe('workspace assembly (#260)', () => {
     ['configuration', 'Configuration', '파라미터 분석 (예정)', 'Parameter analysis (planned)'],
   ])('registers %s as a planned MARS menu', (id, label, ko, en) => {
     const entry = registry.menuById(id);
-    expect(entry).toMatchObject({ group: id, path: `/${id}`, label: { ko: label, en: label }, description: { ko, en }, permission: 'platform:view', requiresScope: false, pageKeys: [] });
+    expect(entry).toMatchObject({ group: id, path: `/${id}`, label: { ko: label, en: label }, description: { ko, en }, permission: 'analytics:view', requiresScope: false, pageKeys: [] });
     expect(entry.component).toBeUndefined();
     expect(entry.moduleScreen).toBeUndefined();
     expect(entry.features).toEqual(NO_FEATURES);
@@ -230,7 +230,7 @@ describe('workspace assembly (#260)', () => {
     vi.stubGlobal('sessionStorage', { getItem: () => null, setItem: () => {}, removeItem: () => {}, clear: () => {} });
     window.history.replaceState(null, '', '/');
     render(<I18nProvider><PlatformProvider equipmentAxes={EQUIPMENT_AXES} adapter={adapter} registry={registry} slots={slots}><Probe /></PlatformProvider></I18nProvider>);
-    expect(screen.getByTestId('spaces').textContent).toBe('mars:MARS,bravo:BRAVO,log-dev:표준 로그 개발,improvement:개선 실행');
+    expect(screen.getByTestId('spaces').textContent).toBe('bravo:BRAVO,log-dev:표준 로그 개발,improvement:개선 실행');
     expect(screen.getByTestId('allowed').textContent).toBe('home:true,notices:true,voc:true');
     cleanup();
     vi.unstubAllGlobals();
