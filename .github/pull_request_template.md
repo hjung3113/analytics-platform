@@ -12,7 +12,7 @@ Closes #
 
 ## 검증
 
-- [ ] `pnpm lint && pnpm typecheck && pnpm test && pnpm build` (문서만 바꿨으면 `pnpm docs:links`)
+- [ ] Kernel·셸·공통 컴포넌트·mock 서버·`apps/platform-web` 조립을 건드렸으면 `verify-root.sh`(`pnpm lint && pnpm typecheck && pnpm test && pnpm build`), 아니면 `lint`·`typecheck`(와 바뀐 패키지 검사)만 — test·build는 PR CI. 문서만 바꿨으면 `pnpm docs:links` ([PROFILE §Verify](../.agents/conductor/PROFILE.md))
 - 브라우저/E2E:
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)

@@ -46,10 +46,10 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
 검사는 순서대로 돌리고, 모두 0이어야 커밋한다.
 
 1. 바뀐 패키지 검사.
-2. 루트 검사는 `bash .agents/conductor/scripts/verify-root.sh <log-dir>`로 한 번 돌린다(#1018). `pnpm lint` → `pnpm typecheck`(잠금 없이) → `pnpm test` → `pnpm build` 순서이고, test·build는 `heavy.lock` 아래에서 한 번에 묶어 돈다. 시작 전 `capacity.sh`가 `start=no`이면 잠금을 잡지 않고 종료 코드 3으로 끝난다. 단계마다 `<log-dir>/<step>.log`(마지막 줄 `exit=<코드>`)를 남기고, 첫 실패에서 멈춰 그 단계의 코드를 돌려주며, 끝에 `step=<name> exit=<n> seconds=<s>` 요약을 낸다. test의 패키지 동시 실행 상한은 루트 `turbo.json` `concurrency`가 정하고 CI도 같다([operations.md](../../docs/agents/operations.md)) — 스크립트에도 `--concurrency`·워커 수 플래그를 넣지 않는다. turbo 캐시는 worktree끼리 공유되니 `--force`·`--affected`·`...[ref]` 같은 git diff 필터를 쓰지 않는다 — 해시 입력이 바뀐 패키지와 그 의존자만 다시 돌고, diff 필터는 입력이 아닌 파일 목록으로 범위를 정해 더 위험하다(메뉴만 바꿨는데 gen-menu test가 빠진 일이 있었다). `--filter='!@fops/*'`는 루트 `package.json` 스크립트(`lint`·`typecheck`·`test`·`build`)가 이미 갖고 있어 스크립트가 따로 넣지 않는다(FeedbackOps 루트 도구 `@fops/ops`가 빠지지 않으면 그 lint가 플랫폼 biome 설정으로 돌아 1000건 넘게 실패한다). 패키지 밖 파일을 읽는 테스트는 `turbo.json`에 `$TURBO_ROOT$` inputs를 선언해야 이 캐시가 믿을 만하다.
-   - **가벼운 노드(O2, 사용자 2026-10-27):** 그 노드의 diff가 Kernel·셸·공통 컴포넌트(`packages/{kernel,components,shell,ui,contracts}`)·mock 서버·`apps/platform-web` 조립을 건드리지 **않으면**(메뉴·문서·도구·스크립트·이동) 로컬에서는 바뀐 패키지 검사와 `verify-root.sh --light <log-dir>`(lint·typecheck만, `heavy.lock`을 잡지 않는다)만 돌리고 `test`·`build`는 PR CI에 맡긴다. 건드리는 노드는 위 전체다. 기준은 그 노드 diff의 경로로 판정하고 VERIFY에 한 줄 적는다("가벼운 노드: 경로 …, test·build는 CI").
+2. 루트 검사는 `bash .agents/conductor/scripts/verify-root.sh <log-dir>`로 한 번 돌린다(#1018). `pnpm lint` → `pnpm typecheck`(잠금 없이) → `pnpm test` → `pnpm build` 순서이고, test·build는 `heavy.lock` 아래에서 한 번에 묶어 돈다. lint·typecheck가 끝난 뒤 test·build 직전에 `capacity.sh`가 `start=no`이면 잠금을 잡지 않고 종료 코드 3으로 끝난다. 단계마다 `<log-dir>/<step>.log`(마지막 줄 `exit=<코드>`)를 남기고, 첫 실패에서 멈춰 그 단계의 코드를 돌려주며, 끝에 `step=<name> exit=<n> seconds=<s>` 요약을 낸다. test의 패키지 동시 실행 상한은 루트 `turbo.json` `concurrency`가 정하고 CI도 같다([operations.md](../../docs/agents/operations.md)) — 스크립트에도 `--concurrency`·워커 수 플래그를 넣지 않는다. turbo 캐시는 worktree끼리 공유되니 `--force`·`--affected`·`...[ref]` 같은 git diff 필터를 쓰지 않는다 — 해시 입력이 바뀐 패키지와 그 의존자만 다시 돌고, diff 필터는 입력이 아닌 파일 목록으로 범위를 정해 더 위험하다(메뉴만 바꿨는데 gen-menu test가 빠진 일이 있었다). `--filter='!@fops/*'`는 루트 `package.json` 스크립트(`lint`·`typecheck`·`test`·`build`)가 이미 갖고 있어 스크립트가 따로 넣지 않는다(FeedbackOps 루트 도구 `@fops/ops`가 빠지지 않으면 그 lint가 플랫폼 biome 설정으로 돌아 1000건 넘게 실패한다). 패키지 밖 파일을 읽는 테스트는 `turbo.json`에 `$TURBO_ROOT$` inputs를 선언해야 이 캐시가 믿을 만하다.
+   - **가벼운 노드(O2, 사용자 2026-10-27):** 그 노드의 diff가 Kernel·셸·공통 컴포넌트(`packages/{kernel,components,shell,ui,contracts}`)·mock 서버·`apps/platform-web` 조립을 건드리지 **않으면**(메뉴·문서·도구·스크립트·위 경로 밖의 이동) 로컬에서는 바뀐 패키지 검사와 `verify-root.sh --light <log-dir>`(lint·typecheck만, `heavy.lock`을 잡지 않는다)만 돌리고 `test`·`build`는 PR CI에 맡긴다. 건드리는 노드는 위 전체다. 공유 경로 PR(루트 `AGENTS.md` 작업 흐름의 다섯 갈래: 공개 API·루트 `package.json`/lockfile/`turbo.json`·`.github/workflows`·`apps/platform-e2e`)은 경로와 관계없이 `verify-root.sh` 전체를 돈다 — CI 실패 비용이 `merge.lock`을 쥔 채 줄 전체에 걸린다. 기준은 그 노드 diff의 경로로 판정하고 VERIFY에 한 줄 적는다("가벼운 노드: 경로 …, test·build는 CI").
 7. 입력이 바뀐 경우만, 루트 4종에 없고 CI만 도는 검사를 로컬에서 돌린다(#1018, 아래 §Traps의 증거 문장이 근거):
-   1. `packages/contracts`·SDK 패키지의 공개 타입을 바꿨으면 `pnpm sdk:api`. 의도한 변경이면 `--update`와 `docs/integration/sdk-git-tag-consumption.md` 변경 기록 한 줄.
+   1. `packages/contracts`·SDK 패키지의 공개 타입을 바꿨으면 build 뒤(수정 라운드면 해당 패키지 `pnpm --filter <pkg> build`를 먼저 — `sdk:api`는 빌드된 dist 선언을 읽는다, `tooling/sdk/sdk-api-snapshot.mjs`) `pnpm sdk:api`. 의도한 변경이면 `--update`와 `docs/integration/sdk-git-tag-consumption.md` 변경 기록 한 줄.
    2. SDK 패키지(`packages/{contracts,ui,kernel,components,shell}`)의 파일을 옮기거나 이름을 바꿨으면 `pnpm sdk:pack --out <dir> && pnpm sdk:consumer-check <dir>`.
    3. CSS 규칙을 지우는 diff면 PR을 만든 뒤 ship 전에 `css-removal-ok` 라벨을 먼저 달고 `gh pr checks <n> --watch`로 재실행이 끝나기를 기다린 다음 ship한다.
 3. Kernel·셸·공통 컴포넌트·mock 서버가 바뀌었으면 E2E를 돌린다. 새 describe만 먼저(`cd apps/platform-e2e && pnpm exec playwright test -g "<describe>"`), 그다음 브리프 「영향 범위」 절이 적은 describe만 `-g "A|B"`로 돌린다. 로컬에서 전체 `pnpm e2e`는 돌리지 않는다. 전체는 PR CI가 돌고, 로컬 전체 실행은 CI 실패를 재현할 때만 쓴다(사용자 2026-10-26, #959).
@@ -87,7 +87,7 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
   - UX 리뷰어와 품질 리뷰어는 전역 `~/.agents/agents/review-ux.md`·`review-quality.md`이고, 이 레포의 기준은 아래 `Review lens` 두 절이다.
 - **리뷰를 줄이는 경우(#1018 C6·O5, 사용자 2026-10-27):** 한곳에 모은다.
   - 기계적·문구 전용 diff(이동·이름 바꾸기·생성기 출력·문구만 바뀜)는 VERIFY에 `git diff --numstat` 근거 한 줄과 "기계적 diff, review-final 생략"을 적으면 `review-final`을 건너뛸 수 있다(전역 스킬 7g가 이미 허용한다; 팀장 점검은 [`LANES.md`](LANES.md) §팀장 「흐름 점검」).
-  - 리뷰 결과에 blocker·major가 없고 minor·nit뿐이며 diff가 작으면(≲150 변경 줄, 기계적·문구 diff 포함) 병합 전 수정 라운드를 열지 않고 병합한다. 지적은 다음 PR에 묶거나 `.planning/backlog.md`에 남긴다(Deferrals 규칙). 전역 스킬 7f의 minor·nit 처리보다 이 프로필이 우선한다. blocker·major가 하나라도 있으면 지금 규칙 그대로다.
+  - 리뷰 결과에 blocker·major가 없고 minor·nit뿐이며 diff가 작으면(≲150 변경 줄 — 이 수는 사용자 결정이 아니라 팀장 판단이고 되돌릴 수 있다. 기계적·문구 diff는 크기와 관계없이 작은 diff로 본다, 생성기 출력 포함) 병합 전 수정 라운드를 열지 않고 병합한다. 지적은 항상 그날 `.planning/backlog.md`나 묶음 이슈에 남기고 링크를 단다(Deferrals 규칙; 다음 PR이 고치면 그 줄을 지운다). 전역 스킬 7f의 minor·nit 처리보다 이 프로필이 우선한다. blocker·major가 하나라도 있으면 지금 규칙 그대로다.
 - 성능: 측정 도구가 없다. 회귀를 실제로 재었을 때만 `review-perf`를 띄우고, 그 밖에는 코드 리뷰어 작업에 성능 관점을 넣는다.
 - 충돌을 정하는 순서의 맨 앞: 권한·데이터 누출 규칙 → ADR·06 계약·기록된 사용자 결정.
 - 과거 병합으로 맞춰 본 결과: #247(드릴다운) → code+ux+perf, permission·e2e·contract / #246(표 컬럼) → code+ux, e2e / #248·#253(문서) → 리뷰 없음.
@@ -156,10 +156,13 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
 | `$ENGINE/launch-worker.py <n> <slug>` | 위 Launch | 엔진 저장소 `test-launch-worker.py` |
 | `$ENGINE/review-plan.py <checkout> [--base origin/main] [--head HEAD]` | 리뷰 계획 | 엔진 저장소 `engine/tests/ap/` |
 | `$ENGINE/wave-status.py [--json] [--prs] [--state-dir <dir>]` | 읽기 전용 스냅숏: 작업자·리뷰어, 미리보기(엔진 `app-preview.py`로 소유 판정), worktree, `--prs`면 열린 PR의 CI. `$WAVE_STATE`가 없으면 이 레포의 최근 세션 `wave/` 폴더(하루 안)를 읽는다 | 엔진 저장소 `engine/tests/ap/` |
-| `$ENGINE/worker-hygiene.py <worktree>` | 위 Verify 4단계 | 엔진 저장소 `engine/tests/ap/` |
+| `$ENGINE/worker-hygiene.py <worktree>` | 위 Verify 6단계 | 엔진 저장소 `engine/tests/ap/` |
 | `$ENGINE/app-preview.py start <checkout> [--name <label>]` / `stop <label>\|--all` / `status` | mock 미리보기(엔진 도구, 이 레포 설정은 `conductor.json`의 `app_preview`) | 엔진 저장소 `engine/tests/test-app-preview.py` |
 | 전역 `templates/brief-check.md` + `addenda/brief-check.md` | 브리프 사전 점검 항목 | – |
 | `bash tooling/scripts/next-adr.sh` | ADR 번호 정하기 | – |
+| `bash .agents/conductor/scripts/with-lock.sh <잠금> "<purpose>" -- <명령…>` | 기계 자원 잠금(`heavy.lock`·`browser.lock`·`merge.lock`·`worker-slot-N`)을 잡고 자식 수명에 묶어 푼다. owner(`ORCA_TERMINAL_HANDLE`/`WITH_LOCK_OWNER`)와 `token`이 같아야 풀고, purpose 끝에 `, pid <래퍼 PID>`를 붙인다(LANES §기계 자원) | 임시 `AP_MAIN` 시험(#1018 FIX1 보고) |
+| `bash .agents/conductor/scripts/verify-root.sh [--light] <log-dir>` | 위 Verify 2단계(루트 lint→typecheck→test→build, test·build는 `heavy.lock` 아래) | 임시 저장소 시험(#1018 FIX1 보고) |
+| `bash .agents/conductor/scripts/lock-audit.sh` | 끝난 일의 잠금 찾기(30분 점검, 아무것도 풀지 않는다) | 임시 `AP_MAIN` 시험(#1018 FIX1 보고) |
 
 `app-preview.py`의 동작:
 
@@ -170,7 +173,7 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
   - 여기에 `--port`가 정확히 맞고 `--strictPort`가 있어야 한다.
 - 소유가 불명확하면 상태 파일을 남긴 채 `ownership unclear`로 건너뛴다.
 
-이 폴더에는 레포 전용 conductor 도구가 없다. `app-preview.py`를 포함한 전역 엔진의 테스트는 엔진 저장소에서 돈다(`bash engine/scripts/test.sh`, conductor-engine#18).
+레포 전용 conductor 도구는 `scripts/`에 있다(위 표의 `with-lock.sh`·`verify-root.sh`·`lock-audit.sh`, 그리고 `capacity.sh` — LANES §기계 자원). `app-preview.py`를 포함한 전역 엔진의 테스트는 엔진 저장소에서 돈다(`bash engine/scripts/test.sh`, conductor-engine#18).
 
 ## Traps
 
