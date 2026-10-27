@@ -24,7 +24,7 @@
 | L12 | 현재 조건 공유 알림: "현재 적용된 조건의 링크를 복사했습니다. 편집 중인 변경은 제외됩니다.", URL은 권한 증명이 아님 | `packages/sdk/shell/src/context/ShareControl.tsx`, `site/scripts/shots.mjs` (`link-copy`) | 캡처는 mock 데모의 링크 복사 알림 |
 | L13 | PlatformDataTable: 서버 페이징·정렬, URL 상태, 가상화, 열 너비·표시·고정, 선택, 행 복사, CSV/XLSX | `packages/sdk/components/AGENTS.md` | — |
 | L14 | AnalysisChartFrame: 확대·구간 선택·초기화·비교·주석·내보내기, Brush 로컬, 전역 기간은 확인 뒤, 주석 `(chartId, scopeId)`, 같은 데이터 표 보기. 툴바 문구 `확대`·`구간 선택`·`초기화`·`비교`·`주석`·`내보내기`·`분석 구간 적용…` | `packages/sdk/components/src/chart/AnalysisChartFrame.tsx:292-348`, 플랫폼 UI 계약 §16 | — |
-| L15 | DataTrustIndicator: 이슈·미확인·coverage·갱신 시각·원천·잠정 상태, unknown을 정상·0으로 바꾸지 않음 | 플랫폼 UI 계약 §18 | — |
+| L15 | DataTrustIndicator: 이슈·미확인·coverage·갱신 시각·원천·잠정 상태·원천 로직 버전 혼재 배지와 상세, unknown을 정상·0으로 바꾸지 않음 | 플랫폼 UI 계약 §18 | — |
 | L16 | 조회 상태 loading·empty·forbidden·too_large·timeout·error 구분, 위젯별 부분 실패 격리. 데모 DevTools 응답 시나리오 11종(정상·느린 응답·0건·상태 원천 미확인·일부 위젯 실패·권한 거부·조회 과대·시간 초과·서버 오류·응답 형식 오류·Scope 확인 실패) | `packages/sdk/components/src/StateView.tsx`, `apps/platform-web/src/dev/DevTools.tsx:14-26`, `docs/integration/in-house-rollout.md` §5-7 | — |
 | L17 | ManagementLayout: 자기 폭 960px 이상 260px 필터 열, 좁으면 팝오버. AnalysisLayout: KPI 띠·차트(960px 이상·펼친 차트 2개 이상이면 2열)·분해 표, 단위별 접기 | 플랫폼 UI 계약 §12.6, ADR-0022 | — |
 | L18 | 드릴 단계 공정 → StGroup → 설비, 단계마다 page key, 경로 칩, 복귀 | `menus/mars/analytics/src/index.ts:22-27`, `.planning` v0.4.0 | — |

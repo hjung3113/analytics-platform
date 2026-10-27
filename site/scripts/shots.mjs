@@ -747,6 +747,8 @@ try {
     async () => {
       await go(productivity);
       await button("데이터 신뢰").first().click();
+      await expect(page.getByRole("dialog").getByText("원천 로직 버전", { exact: true })).toBeVisible();
+      await expect(page.getByRole("dialog").getByText("v1.2, v1.3", { exact: true })).toBeVisible();
     },
     () =>
       unionClip([page.getByRole("dialog").filter({ hasText: "문제 없음은" })], 0).then((clip) => ({ clip, cover: true })),
