@@ -18,6 +18,11 @@ export type Trust = {
   dataThrough: string | null;
   coverage: number | null;
   metricVersion?: string;
+  /**
+   * Parser logic versions behind the queried range (06 §18). Present ⇒ non-empty, distinct, non-empty strings; unknown
+   * is expressed by omitting the field, never `[]`. Order is the server's and means nothing; values are opaque.
+   */
+  sourceLogicVersions?: string[];
   provisional: boolean;
   source: string;
 };

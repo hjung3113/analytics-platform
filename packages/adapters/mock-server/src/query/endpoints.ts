@@ -22,6 +22,8 @@ export type MockEndpoint<P, T> = {
   mart?: boolean;
   /** Server-attached metricVersion display value (§2.4 step 9); may depend on the request params. */
   metricVersion?: (input: { context: GlobalContext; params: P }) => string | undefined;
+  /** Server-attached parser logic versions of the queried range (Trust.sourceLogicVersions); undefined = unknown, field omitted. */
+  sourceLogicVersions?: (input: { context: GlobalContext; params: P }) => string[] | undefined;
   /**
    * Param value check the shape rules cannot express (e.g. a metricVersion the series does not have, #123).
    * Returns an error message to reject the request as `error`, or null. Runs after the shape checks, before
@@ -155,6 +157,7 @@ export async function serveEndpoint(
       source: endpoint.source,
       mart: endpoint.mart,
       metricVersionOf: endpoint.metricVersion ? () => endpoint.metricVersion!({ context: global, params: req.params }) : undefined,
+      sourceLogicVersionsOf: endpoint.sourceLogicVersions ? () => endpoint.sourceLogicVersions!({ context: global, params: req.params }) : undefined,
       isEmpty: endpoint.isEmpty,
       provisionalOf: endpoint.provisional ? data => endpoint.provisional!({ data, params: req.params, context: global }) : undefined,
       compute: ({ equipment, role }) => endpoint.handle({ equipment, context: global, params: req.params, actor: role }),

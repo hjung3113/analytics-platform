@@ -528,6 +528,46 @@ describe('serveEndpoint declaration pipeline', () => {
     expect(result.trust?.metricVersion).toBe('v9');
   });
 
+  describe('sourceLogicVersions', () => {
+    const spec = makeSpec('analytics.logic-versions');
+    const send = (hook: MockEndpoint<Params, unknown>['sourceLogicVersions'], extra: Partial<MockEndpoint<Params, unknown>> = {}) =>
+      serveEndpoint(
+        new Map<string, AnyMockEndpoint>([[spec.id, defineMockEndpoint(spec, { handle: () => ({ ok: true }), sourceLogicVersions: hook, ...extra })]]),
+        request(spec.id),
+        undefined,
+        { role: 'engineer', latency: 0 },
+      );
+
+    it('attaches the hook value to a mart trust and passes context and params', async () => {
+      const hook = vi.fn(() => ['v1.2', 'v1.3']);
+      const result = await send(hook);
+      expect(result.trust?.sourceLogicVersions).toEqual(['v1.2', 'v1.3']);
+      expect(hook).toHaveBeenCalledWith({ context: expect.objectContaining(PERIOD), params: { term: 'probe' } });
+    });
+
+    it('omits the key when the endpoint has no hook or the hook returns undefined', async () => {
+      for (const hook of [undefined, () => undefined]) {
+        const result = await send(hook);
+        expect(result.trust).not.toBeNull();
+        expect(result.trust).not.toHaveProperty('sourceLogicVersions');
+      }
+    });
+
+    it('omits the key on an empty answer and on a non-mart endpoint (trust null)', async () => {
+      const empty = await send(() => ['v1.2'], { isEmpty: () => true });
+      expect(empty.outcome).toBe('empty');
+      expect(empty.trust).not.toHaveProperty('sourceLogicVersions');
+      const nonMart = await send(() => ['v1.2'], { mart: false });
+      expect(nonMart.trust).toBeNull();
+    });
+
+    it('omits the key on the malformed dev scenario', async () => {
+      setScenario('malformed');
+      const result = await send(() => ['v1.2']);
+      expect(result.trust).not.toHaveProperty('sourceLogicVersions');
+    });
+  });
+
   it('preserves malformed endpoint data without calling its empty predicate', async () => {
     const spec = makeSpec('analytics.malformed-empty-check');
     const isEmpty = vi.fn((data: unknown) => (data as { total: number }).total === 0);

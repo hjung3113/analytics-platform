@@ -5,6 +5,7 @@
  */
 import { bucketStart, formatDateTime, parseDateTime, shift, sortAndPage, sortRows, type GlobalContext } from '@ap/contracts';
 import { cycleMinutes, defineMockEndpoint, EQUIPMENT, findJobByAnchor, jobPercentile, jobsInPeriod, type AnyMockEndpoint, type Equipment, type Job } from '@ap/mock-server';
+import { sourceLogicVersionsFor } from './productivity';
 import {
   BINS, binIndex, bucketEnd, cycleDistEndpoint, cycleExportEndpoint, cycleKpiEndpoint, cycleSlowPageEndpoint, cycleTrendEndpoint,
   cycleVersionOf, executionKey, isAnchor, resolveMetric,
@@ -188,6 +189,7 @@ export const cycleMock: readonly AnyMockEndpoint[] = [
     },
     isEmpty: data => data.count === 0,
     metricVersion,
+    sourceLogicVersions: ({ context }) => sourceLogicVersionsFor(context),
   }),
   defineMockEndpoint(cycleTrendEndpoint, {
     handle: ({ equipment, context, params }): CycleTrendData => {
