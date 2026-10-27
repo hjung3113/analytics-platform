@@ -15,7 +15,7 @@
 
 ## 2. IA / SCREEN INVENTORY
 
-[06 §12.4](../contract/platform-ui-contract.md#124-catalog)의 Catalog List / Definition Detail / Version / Ownership / Coverage / Usage-Dependency / History를 사용한다. [06 §20](../contract/platform-ui-contract.md#20-detail-surface-contract)의 **Metric Definition = Full Page**에 따라 상세를 큰 편집 Drawer로 만들지 않는다.
+[06 §12.4](../contract/layout.md#124-catalog)의 Catalog List / Definition Detail / Version / Ownership / Coverage / Usage-Dependency / History를 사용한다. [06 §20](../contract/components.md#20-detail-surface-contract)의 **Metric Definition = Full Page**에 따라 상세를 큰 편집 Drawer로 만들지 않는다.
 
 - 카탈로그(`/metrics`): 지표당 한 행, 게시 버전과 초안을 따로 표시
 - 정의 상세 Full Page(`/metrics/:metricId`, 선택 버전은 page key `version`): 목적지 지표 + 선택 버전
@@ -34,7 +34,7 @@
 
 ### 3.1 Context Capability / 상태 소유 (매니페스트 `menus/metrics/metrics`)
 
-[06 §6](../contract/platform-ui-contract.md#6-context-capability-contract)의 Metric Catalog 예시와 같은 선언이다. 목록(`metric-catalog`)과 상세(`metric-detail`) 모두 같다.
+[06 §6](../contract/kernel.md#6-context-capability-contract)의 Metric Catalog 예시와 같은 선언이다. 목록(`metric-catalog`)과 상세(`metric-detail`) 모두 같다.
 
 | Time | Equipment | Lot | Metric Version |
 | --- | --- | --- | --- |
@@ -74,7 +74,7 @@ Candidate로 최초 등록은 서버 발급 `metricId`와 초안을 만들고, �
 
 ## 4. LAYOUT BOUNDARY
 
-배치는 구현(`menus/metrics/metrics/src/pages`)이 기준이다. 셸은 현재 [07](app-shell.md)의 배치와 [06 §7](../contract/platform-ui-contract.md#7-application-shell)의 치수·여백, FeedbackOps 공유 토큰 및 [DESIGN](../../DESIGN.md)의 플랫폼 확장·pairing을 소비한다. 카탈로그 목록은 게시 버전과 초안을 별개로 보이고 초안은 분석의 기본 버전으로 쓰이지 않는다. 표는 모든 게시 버전을 나열하지 않고 확인된 대표 게시 버전을 보이며(대표 선택 규칙 Open) 행이 최신 버전을 보장한다고 표기하지 않는다. 버전 전체는 상세 Version 영역에서 확인한다.
+배치는 구현(`menus/metrics/metrics/src/pages`)이 기준이다. 셸은 현재 [07](app-shell.md)의 배치와 [06 §7](../contract/layout.md#7-application-shell)의 치수·여백, FeedbackOps 공유 토큰 및 [DESIGN](../../DESIGN.md)의 플랫폼 확장·pairing을 소비한다. 카탈로그 목록은 게시 버전과 초안을 별개로 보이고 초안은 분석의 기본 버전으로 쓰이지 않는다. 표는 모든 게시 버전을 나열하지 않고 확인된 대표 게시 버전을 보이며(대표 선택 규칙 Open) 행이 최신 버전을 보장한다고 표기하지 않는다. 버전 전체는 상세 Version 영역에서 확인한다.
 
 상세는 Definition/Coverage/Usage/History를 숨은 탭으로 감추지 않고 한 Full Page에 두며 `tab`은 영역 이동일 뿐이다. 좌열의 Version/Ownership은 관리용 Drawer가 아니다. History는 지표 전체 흐름을 버전 라벨과 함께 보여주며 Usage는 **선택 쌍**만 조회한다.
 
@@ -98,7 +98,7 @@ Candidate로 최초 등록은 서버 발급 `metricId`와 초안을 만들고, �
 | --- | --- | --- |
 | 정체성 | `metricId`, `metricVersion`, 이름, 설명. 쌍 유일성·버전 소속 검증, ID 안정성. 메타 DB의 지표 정의/버전 원본 | [06 §6.1](../contract/platform-ui-contract.md), [01 아키텍처 구성](../architecture/architecture-and-data-contract.md), [02 지표관리](../product/domain-menus.md) |
 | 발행 | `publicationState=draft/published`, 등록·갱신·발행 주체/시각, 변경 사유, 후보 `revision` 충돌 토큰. 게시 초기화 응답은 게시 상태 근거 필요; 선택 정책 Open | [02 등록·발행·이력](../product/domain-menus.md), [06 §6.1](../contract/platform-ui-contract.md); 수명주기 구체화는 §3.3 Candidate |
-| 정의 기준 | `grain`, `unit`, `periodBasis`, null 의미, `sourceContractRef`와 지원 원천 버전. 기간 기준은 메타데이터이며 이 화면의 전역 Time 필터가 아님 | [01 대응](../architecture/architecture-and-data-contract.md#대응), [02](../product/domain-menus.md), [06 §6.3](../contract/platform-ui-contract.md#ctx-time) |
+| 정의 기준 | `grain`, `unit`, `periodBasis`, null 의미, `sourceContractRef`와 지원 원천 버전. 기간 기준은 메타데이터이며 이 화면의 전역 Time 필터가 아님 | [01 대응](../architecture/architecture-and-data-contract.md#대응), [02](../product/domain-menus.md), [06 §6.3](../contract/kernel.md#ctx-time) |
 | 비율 집계 스키마 | `metricKind=ratio`이면 `numerator={measureRef,unit,aggregation:sum}`와 `denominator={measureRef,unit,aggregation:sum}` 필수, `reaggregationRule=ratioOfSums`, `aggregationSafety={averageOfRatiosAllowed:false,validationState}`. 서버 등록·발행 검증이 쌍 누락/단순 평균/단위·grain 부적합을 거부. 참조는 소비 계약 measure ID이지 수식 텍스트가 아님 | [01 집계 가능성 계약](../architecture/architecture-and-data-contract.md#집계-가능성-계약), [02 지표관리](../product/domain-menus.md); 스키마 필드 모양 Candidate |
 | 집계 안전성 조건 | sum 허용은 같은 정의·호환 grain·겹치지 않는 기초 관측·기간/단위 조건 충족 시에만 유효. 분모 0/null 처리와 물리 점유율의 중첩/모집단 세부는 Open. `validationState=unverified`를 안전 판정으로 표시하지 않음; 발행 전 충족해야 할 서버 검증 규칙 확정 필요 | [01 대응/집계 가능성](../architecture/architecture-and-data-contract.md), [06 §19](../contract/platform-ui-contract.md); 가드 표현 Candidate |
 | 분위수/계수 구분 | `metricKind=quantile`이면 비율 분자·분모는 notApplicable, `reaggregationRule=recomputeFromDistribution`, `averageOfQuantilesAllowed=false`, 기초 분포 계약 참조 필수. P50/P95는 cycle-time의 같은 버전 소비. count는 허용되는 가산 grain·단위 명시. 분위수 알고리즘/merge 가능한 통계 구조는 Open | [01 집계 가능성](../architecture/architecture-and-data-contract.md#집계-가능성-계약), [11 §3.1](productivity-overview.md), [12 §6](cycle-time-drilldown.md). P95를 비율처럼 분자/분모 합산으로 계산하지 않음 |

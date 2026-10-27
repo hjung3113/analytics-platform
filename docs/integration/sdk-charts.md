@@ -1,6 +1,6 @@
 # SDK TopN·Lane 차트
 
-`@ap/components`는 `AnalysisChart`의 `TopNBarSpec`과 독립 `LaneTimeline`을 공개한다([ADR-0064](../adr/0064-topn-bar-and-lane-timeline.md), [06 §16](../contract/platform-ui-contract.md#16-analysis-chart-contract)). 두 부품은 플랫폼의 `I18nProvider` 아래에 놓는다. `AnalysisChart`는 기존과 같이 `PlatformProvider`도 필요하다.
+`@ap/components`는 `AnalysisChart`의 `TopNBarSpec`과 독립 `LaneTimeline`을 공개한다([ADR-0064](../adr/0064-topn-bar-and-lane-timeline.md), [06 §16](../contract/chart.md#16-analysis-chart-contract)). 두 부품은 플랫폼의 `I18nProvider` 아래에 놓는다. `AnalysisChart`는 기존과 같이 `PlatformProvider`도 필요하다.
 
 ## TopN
 

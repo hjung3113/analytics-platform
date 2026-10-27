@@ -1,8 +1,8 @@
 # 15. 멀티 워크스페이스 v2 — UI·IA·화면 설계
 
-상태: **Decided — UX 구성 원칙(2026-10-08 사용자 승인). 공간 마지막 화면 복원은 사용자+공간별 탭 세션([ADR-0028](../adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md), [06 §9.1](../contract/platform-ui-contract.md#91-워크스페이스-decided-2026-09-26))** / **Candidate — 표 열 등 다른 사용자 설정 저장** / **Decided — 표준 로그 개발·개선 실행 메뉴 구성([ADR-0065](../adr/0065-log-dev-and-improvement-spaces-work-queue-first.md), 2026-10-21, 화면은 예정)** / **Decided — Managed System 매핑(앱 정적 표, 공간당 하나, [ADR-0045](../adr/0045-feedbackops-entry-link-mapping-and-scope.md), 2026-10-19)** / **Open — 인증**. FeedbackOps 진입은 링크다([ADR-0027](../adr/0027-feedbackops-stays-standalone-entry-links.md), 2026-10-09 — 화면을 옮기지 않는다). **Decided(방향, 2026-10-18) — 시스템 전환기 + 시스템별 레일([ADR-0042](../adr/0042-system-switcher-and-system-owned-rail.md)); 화면 사양 §3.2 Decided(2026-10-19, 전환기 A안).**
+상태: **Decided — UX 구성 원칙(2026-10-08 사용자 승인). 공간 마지막 화면 복원은 사용자+공간별 탭 세션([ADR-0028](../adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md), [06 §9.1](../contract/kernel.md#91-워크스페이스-decided-2026-09-26))** / **Candidate — 표 열 등 다른 사용자 설정 저장** / **Decided — 표준 로그 개발·개선 실행 메뉴 구성([ADR-0065](../adr/0065-log-dev-and-improvement-spaces-work-queue-first.md), 2026-10-21, 화면은 예정)** / **Decided — Managed System 매핑(앱 정적 표, 공간당 하나, [ADR-0045](../adr/0045-feedbackops-entry-link-mapping-and-scope.md), 2026-10-19)** / **Open — 인증**. FeedbackOps 진입은 링크다([ADR-0027](../adr/0027-feedbackops-stays-standalone-entry-links.md), 2026-10-09 — 화면을 옮기지 않는다). **Decided(방향, 2026-10-18) — 시스템 전환기 + 시스템별 레일([ADR-0042](../adr/0042-system-switcher-and-system-owned-rail.md)); 화면 사양 §3.2 Decided(2026-10-19, 전환기 A안).**
 
-> 이 문서는 **업무 시스템별 독립 워크스페이스**의 화면 설계·도입 계획이다. 플랫폼 전체 Navigation/Context/Permission의 단일 계약은 [06 §9·9.1](../contract/platform-ui-contract.md#9-information-architecture)이고, 이 문서는 이를 소비하는 상세 설계다. 기존 백엔드/DB의 소유권이나 구현 완료를 선언하지 않는다.
+> 이 문서는 **업무 시스템별 독립 워크스페이스**의 화면 설계·도입 계획이다. 플랫폼 전체 Navigation/Context/Permission의 단일 계약은 [06 §9·9.1](../contract/kernel.md#9-information-architecture)이고, 이 문서는 이를 소비하는 상세 설계다. 기존 백엔드/DB의 소유권이나 구현 완료를 선언하지 않는다.
 
 - [승인된 클릭형 v2 프로토타입](../prototypes/multi-workspace-v2/index.html)
 - [프로토타입 사용법 및 구현 차이](../prototypes/multi-workspace-v2/README.md)
@@ -89,7 +89,7 @@ Equipment Platform
 4. Main은 업무 유형에 따라 자유롭게 다르다. 분석 차트, 지표 카탈로그, 로그 검증 표, Task 보드·성과 폼을 하나의 보편적 레이아웃에 억지로 맞추지 않는다.
 5. Right detail은 문맥이 필요한 조회·수정에서 재사용한다. 대용량 검증·원문 로그는 전체폭 Workbench/Drill로 예외 허용.
 6. 색·서체·입력/버튼/배지·테이블 기본 규칙은 [FeedbackOps 디자인 시스템](../../DESIGN.md) 및 `@ap/ui`로 재사용한다. **워크스페이스마다 별도의 테마를 만들지 않는다.**
-7. 실제 앱 치수는 **rail 52px, sidebar 240/56px, page header 50px, right panel 440px**의 현재 [06 §7](../contract/platform-ui-contract.md#7-application-shell) / ADR-0011·0013 계약을 유지한다. HTML 샘플의 56px rail·252px nav·56px 최상단 바는 별도 변경 승인 전 **픽셀 사양이 아니다**.
+7. 실제 앱 치수는 **rail 52px, sidebar 240/56px, page header 50px, right panel 440px**의 현재 [06 §7](../contract/layout.md#7-application-shell) / ADR-0011·0013 계약을 유지한다. HTML 샘플의 56px rail·252px nav·56px 최상단 바는 별도 변경 승인 전 **픽셀 사양이 아니다**.
 
 ### 3.1 셸 배치 (Decided, 2026-10-09)
 
@@ -185,7 +185,7 @@ Equipment Platform
 - 딥링크는 **대상 식별자 + 발신 화면의 안전한 복귀 참조 + 지원 가능한 컨텍스트**로 구성한다. 목적지 객체 ID를 전역 필터인 것처럼 사용하지 않는다(06 §6·§22).
 - **다른 시스템으로 넘어갔다고 사용자의 전역 Scope·권한이 바뀌지 않는다.** 대상 화면은 지원·권한 검증된 컨텍스트만 적용한다.
 - 지원하지 않는 필터는 조용히 사용하지 않고 '이 화면에서 미사용' 등 구분하여 표시한다. 임의로 기존 범위의 데이터를 보여주는 것처럼 속이지 않는다.
-- 각 워크스페이스의 로컬 페이지 상태(탭, 정렬, 테이블 열, 검색어 등)는 전역 Scope와 분리한다. 공간의 마지막 화면 복원은 사용자+공간별 탭 세션으로 Decided다([ADR-0028](../adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md), [06 §9.1](../contract/platform-ui-contract.md#91-워크스페이스-decided-2026-09-26)). 표 열 같은 다른 사용자 설정의 저장 위치는 아직 정하지 않았다.
+- 각 워크스페이스의 로컬 페이지 상태(탭, 정렬, 테이블 열, 검색어 등)는 전역 Scope와 분리한다. 공간의 마지막 화면 복원은 사용자+공간별 탭 세션으로 Decided다([ADR-0028](../adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md), [06 §9.1](../contract/kernel.md#91-워크스페이스-decided-2026-09-26)). 표 열 같은 다른 사용자 설정의 저장 위치는 아직 정하지 않았다.
 - 안전한 딥링크·Back/Forward·새로고침·직접 진입은 기존 플랫폼 URL/Context 계약을 유지한다.
 
 ## 6. FeedbackOps UX 통합

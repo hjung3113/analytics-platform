@@ -21,7 +21,7 @@ C는 ADR-0043의 "플랫폼 소유 단일 프레임워크"를 깨고 TanStack �
 
 ## 결정
 
-B. 조회 수명주기 계약의 원본은 [06 §19](../contract/platform-ui-contract.md#19-loading--empty--error-taxonomy), 패키지 경계는 [platform-packages §3](../integration/platform-packages.md)이다. 아래는 결정 당시의 세부와 이유다.
+B. 조회 수명주기 계약의 원본은 [06 §19](../contract/components.md#19-loading--empty--error-taxonomy), 패키지 경계는 [platform-packages §3](../integration/platform-packages.md)이다. 아래는 결정 당시의 세부와 이유다.
 
 1. `@tanstack/react-query` `5.62.7`을 `packages/kernel` `dependencies`에 정확히 고정한다(`@ap/fo-bridge`와 같은 버전, 함께 올린다 — `tooling/eslint` `boundaries.test.ts`가 두 manifest를 비교한다).
 2. 내부 전용: `QueryClientProvider`를 쓰지 않고 `useQuery(options, client)`로 명시적으로 넘긴다. 메뉴의 `useQuery`가 Kernel 캐시를 조용히 읽지 않고 FO의 중첩 Provider도 독립이다. 클라이언트와 TanStack 타입은 `HostPlatform`/`MenuPlatform`·공개 `.d.ts`에 나가지 않는다. lint `denyQueryEngine`은 메뉴·메뉴 mock·components·shell·앱 프리셋에서 `@tanstack/react-query`·`@tanstack/query-core`와 하위 경로 import를 막는다. kernel·`@ap/fo-bridge`는 허용한다(그 밖의 패키지에는 이 게이트가 없다).

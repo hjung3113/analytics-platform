@@ -3,9 +3,9 @@
 상태: **Decided (2026-10-15)**.
 - 결정자: 사용자 — 2026-10-15, [#305](https://github.com/hjung3113/analytics-platform/issues/305) 추천안을 채택했다.
 
-감사 화면 page key `fromAt`/`toAt`는 전역 분석 기간 `from`/`to`와 다르다. 전역 기간은 [06 §6.3](../contract/platform-ui-contract.md#ctx-time)·[§6.4](../contract/platform-ui-contract.md#64-url-계약-decided-필드명enum-문자열은-candidate)대로 한쪽만 있으면 형식 오류다. 이 결정은 그 규칙을 바꾸지 않고 감사 조회 창만 연다. 시각의 화면 표시는 같은 §6.3대로 보는 사람 시간대이고, URL과 포트에 실리는 값은 zone이 붙은 시점이다.
+감사 화면 page key `fromAt`/`toAt`는 전역 분석 기간 `from`/`to`와 다르다. 전역 기간은 [06 §6.3](../contract/kernel.md#ctx-time)·[§6.4](../contract/kernel.md#64-url-계약-decided-필드명enum-문자열은-candidate)대로 한쪽만 있으면 형식 오류다. 이 결정은 그 규칙을 바꾸지 않고 감사 조회 창만 연다. 시각의 화면 표시는 같은 §6.3대로 보는 사람 시간대이고, URL과 포트에 실리는 값은 zone이 붙은 시점이다.
 
-공통 시점 입력은 아직 만들지 않는다. 승격 기준은 [06 §14](../contract/platform-ui-contract.md#14-platform-component-promotion-rule)와 [한 화면만의 일반화 금지](../contract/platform-ui-contract.md#premature-platformization)다.
+공통 시점 입력은 아직 만들지 않는다. 승격 기준은 [06 §14](../contract/components.md#14-platform-component-promotion-rule)와 [한 화면만의 일반화 금지](../contract/platform-ui-contract.md#premature-platformization)다.
 
 ## 결정
 

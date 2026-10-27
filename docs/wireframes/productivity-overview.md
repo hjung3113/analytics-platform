@@ -27,7 +27,7 @@
 
 ### 3.1 Context Capability / 상태 소유권 (매니페스트 `productivity-overview`)
 
-[06](../contract/platform-ui-contract.md) §6의 Occupancy Analysis 예시를 참고하되, 네 지표를 함께 읽는 화면의 적용 범위를 별도로 선언한다. 선언은 `requiresScope: true`, `pageType: overview`, 내보내기 `export: true`다.
+[06](../contract/kernel.md) §6의 Occupancy Analysis 예시를 참고하되, 네 지표를 함께 읽는 화면의 적용 범위를 별도로 선언한다. 선언은 `requiresScope: true`, `pageType: overview`, 내보내기 `export: true`다.
 
 | Time | roomNames | Condition | Selection | Lot | PPID | Recipe | Metric |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -37,12 +37,12 @@
 - Lot은 이 화면이 지원하지 않는다. 전달된 Lot은 보존하고 미적용으로 표시한다. PPID와 Recipe는 분석 필터 축으로 받되 적용 가능한 지표와 조인 범위는 메뉴 정의 Candidate로 둔다. Recipe가 Job 전체를 포함할지 매칭 PRC 구간만 포함할지, 점유율 분모에 어떻게 적용할지는 이 화면의 분석 로직 담당자가 정하며 Kernel이 강제하지 않는다. 미지원 지표에는 미적용을 표시한다.
 - **room_name은 Global Context**다. 공개 키 후보 `roomNames`를 소비하며 별도 `processIds` Page Filter를 만들지 않는다. 현재 Site·room_name 권한 범위 안에서 설비를 좁히며 다른 메뉴로 보존·전달한다. Line은 독립 축이고 room_name의 상위 계층이 아니다(`06` §6.1–6.2).
 - **Equipment Group은 Global Context의 Condition/Selection 두 층**이다. StGroup / 분임조 / Maker+Model 중 한 축만 조건으로 사용한다. Condition(`equipmentGroup`)은 현재 결과를 재평가하고, 결과 안에서 사용자가 명시 선택한 설비만 Selection(`selectedEquipmentIds`, 기존 `equipmentIds` 대응)에 고정한다. 조건 적용과 설비 명시 선택을 구분하고 상세 열기만으로 선택을 바꾸지 않는다. [ADR-0002](../adr/0002-stgroup-materializes-to-equipment-ids.md)를 모든 축에 동일 적용한다.
-- **page-owned URL 키(등록: [06](../contract/platform-ui-contract.md) §6.1)**: `granularity=hour|day|week`는 기간과 다른 축이며 전역 Context로 전달하지 않는다. 미지정이면 조회 기간이 48시간 이하일 때 `hour`, 아니면 `day`로 본다(Candidate 기본값). bucket 경계/주 시작일/부분 bucket 규칙은 지표 계약으로 확정 전 Open. `kpi=occupancy|dwell|cycleTime|throughput`(추세에 보일 지표, 기본 `throughput`), `axis=room|stgroup`(점유 구성의 구성 축, 기본 `room`), `sort=key|occ|obs|pct|jobs:asc|desc`(점유 구성 표 정렬, 기본 `key` 오름차순)도 page-owned다. 등록된 값 밖의 값은 다른 값으로 바꾸지 않고 오류로 보인다.
+- **page-owned URL 키(등록: [06](../contract/kernel.md) §6.1)**: `granularity=hour|day|week`는 기간과 다른 축이며 전역 Context로 전달하지 않는다. 미지정이면 조회 기간이 48시간 이하일 때 `hour`, 아니면 `day`로 본다(Candidate 기본값). bucket 경계/주 시작일/부분 bucket 규칙은 지표 계약으로 확정 전 Open. `kpi=occupancy|dwell|cycleTime|throughput`(추세에 보일 지표, 기본 `throughput`), `axis=room|stgroup`(점유 구성의 구성 축, 기본 `room`), `sort=key|occ|obs|pct|jobs:asc|desc`(점유 구성 표 정렬, 기본 `key` 오름차순)도 page-owned다. 등록된 값 밖의 값은 다른 값으로 바꾸지 않고 오류로 보인다.
 - **지표별 버전 page key**(`occupancyVersion`·`dwellVersion`·`cycleTimeVersion`·`throughputVersion` 후보)는 매니페스트에 등록돼 있지 않다. 등록 여부는 결정 대기다. 구현의 지표별 버전 값(`METRIC_VERSIONS`)은 Candidate 상수이고 Context의 metric은 `reference`(전역 쌍 보존만)다. 버전 키를 등록한다면 각각 Registry에 등록된 해당 metricId와 결합해 서버 검증하고 P50/P95는 같은 사이클타임 정의 버전의 두 값으로 다룬다. 빠진 버전은 선택 상태이고 임의 최신값 적용은 없다. 전역 metricId/version이 해당 지표와 같으면 동일 버전만 허용하고 상충은 오류이며, 다른 지표면 전역 쌍을 미적용 보존한다. 전역 단일 버전을 네 지표 전체에 적용하지 않는다.
 
 ## 4. LAYOUT BOUNDARY
 
-배치는 구현(`menus/analytics/analytics/src/pages/ProductivityOverview.tsx`)이 기준이다. Overview archetype(`06` §12.1) 순서로 KPI 요약, 추세, 구성, Attention을 두고 Data Trust 요약은 페이지 머리 슬롯에 둔다. 위젯마다 자체 조회를 가져 부분 실패가 그 위젯에 머문다. 셸 구조·치수는 [06 §7](../contract/platform-ui-contract.md#7-application-shell)/[07](app-shell.md), 공유 색·폰트·primitive는 FeedbackOps 원본, 플랫폼 시각 확장은 [DESIGN](../../DESIGN.md)이 소유한다.
+배치는 구현(`menus/analytics/analytics/src/pages/ProductivityOverview.tsx`)이 기준이다. Overview archetype(`06` §12.1) 순서로 KPI 요약, 추세, 구성, Attention을 두고 Data Trust 요약은 페이지 머리 슬롯에 둔다. 위젯마다 자체 조회를 가져 부분 실패가 그 위젯에 머문다. 셸 구조·치수는 [06 §7](../contract/layout.md#7-application-shell)/[07](app-shell.md), 공유 색·폰트·primitive는 FeedbackOps 원본, 플랫폼 시각 확장은 [DESIGN](../../DESIGN.md)이 소유한다.
 
 ## 5. OWNERSHIP
 
@@ -54,14 +54,14 @@
 
 - **허용 지표/정의(Open)**: 지표별 ID·grain·단위·분자/분모·기간 경계·null 의미·버전·coverage 정의가 필요하다. 점유 interval의 중복 제거/기간 clipping과 유효 관측시간 분모, 비Process 분류/체류 집계 통계, Job 사이클타임 시작·끝/미완료 제외, Job 처리량의 시작 또는 완료 귀속·중복 집계 방지는 원문에 없다. 구현의 수치는 합성 mock 값이고 이 세부 정의는 승인되지 않았다. 근거: [02](../product/domain-menus.md) 생산성 분석/지표관리, [01](../architecture/architecture-and-data-contract.md) 「대응」「집계 가능성 계약」, [GLOSSARY](../../GLOSSARY.md) Lot/Job/Recipe.
 - **소비 경계(Decided)**: API는 호환 view/mart를 소비하며 파서 원본 직접 조회를 하지 않는다. 조인/원천 정밀도·분류·품질은 서버가 소유한다. 여러 설비/날짜의 P95를 평균하지 않으며 비율은 분자·분모 각각 합산한다. 표시용 downsampling을 지표 계산으로 사용하지 않는다. 근거: [01](../architecture/architecture-and-data-contract.md) 「전체 아키텍처」「집계 가능성 계약」.
-- **Scope/Equipment(Decided)**: 단일 scopeId 필수, Site·room_name 기준으로 서버가 조회/옵션/링크마다 권한을 재검증한다. Site→room_name→StGroup→Equipment 관계와 독립 Line 축을 따르며 권한 상속 세부는 Open이다. 고정 Selection은 조용히 제거/대체하지 않는다. 명시적 공집합은 유효한 나머지 요청에 대해 empty이며 무제약과 다르다. 근거: [06](../contract/platform-ui-contract.md) §6.1–6.2/§17, [ADR-0005](../adr/0005-scope-room-name-line-independent.md).
-- **페이지 조회 계약(Candidate)**: page-owned 키는 `granularity`·`kpi`·`axis`·`sort`이며 Kernel에 등록돼 있다(지표별 버전 키 등록 여부는 결정 대기). roomNames/ppid/recipeIds 및 Equipment Group Condition/Selection은 전역 계약을 소비한다. 그룹 현재 결과와 평가 기준시각이 필요하다. 현재 조건의 결과 0건은 live Condition을 유지한 empty이며 고정 공집합으로 자동 바꾸지 않는다. 사용자가 명시한 선택 0건만 Selection 공집합 표식으로 표현한다. 근거: [06](../contract/platform-ui-contract.md) §6.1/§6.4, [ADR-0002](../adr/0002-stgroup-materializes-to-equipment-ids.md).
-- **시간(Decided)**: naive 초 정렬 `[from,to)`와 wall-clock을 소비하고 UTC 변환하지 않는다. 프리셋 1일/7일은 서버 defaultRangeTo에서 Δ24h/168h로 물질화하며 R이 있을 때 defaultRangeTo≤R 조건을 확인한다. 둘 다 없는 기간은 기본 Δ가 미정이면 선택 상태, 한쪽만 있으면 오류. 첫 기본 Δ는 Open; defaultRangeTo=Data through=now로 추정하지 않는다. 근거: [06](../contract/platform-ui-contract.md#ctx-time) §6.3/§6.4.
-- **다중 설비 시간축(Decided/Open)**: 모든 설비의 요청 전체 기간을 동일 timeDomainId assertion이 덮어야 병합 가능. 공급자는 Open. 부재/불일치는 time_domain_unverified/time_domain_mismatch 오류 + Correlation ID이며 경고 후 합산하지 않는다. 단일 설비 또는 분리 조회 경로를 안내한다. 근거: [06](../contract/platform-ui-contract.md#ctx-time).
+- **Scope/Equipment(Decided)**: 단일 scopeId 필수, Site·room_name 기준으로 서버가 조회/옵션/링크마다 권한을 재검증한다. Site→room_name→StGroup→Equipment 관계와 독립 Line 축을 따르며 권한 상속 세부는 Open이다. 고정 Selection은 조용히 제거/대체하지 않는다. 명시적 공집합은 유효한 나머지 요청에 대해 empty이며 무제약과 다르다. 근거: [06](../contract/kernel.md) §6.1–6.2/§17, [ADR-0005](../adr/0005-scope-room-name-line-independent.md).
+- **페이지 조회 계약(Candidate)**: page-owned 키는 `granularity`·`kpi`·`axis`·`sort`이며 Kernel에 등록돼 있다(지표별 버전 키 등록 여부는 결정 대기). roomNames/ppid/recipeIds 및 Equipment Group Condition/Selection은 전역 계약을 소비한다. 그룹 현재 결과와 평가 기준시각이 필요하다. 현재 조건의 결과 0건은 live Condition을 유지한 empty이며 고정 공집합으로 자동 바꾸지 않는다. 사용자가 명시한 선택 0건만 Selection 공집합 표식으로 표현한다. 근거: [06](../contract/kernel.md) §6.1/§6.4, [ADR-0002](../adr/0002-stgroup-materializes-to-equipment-ids.md).
+- **시간(Decided)**: naive 초 정렬 `[from,to)`와 wall-clock을 소비하고 UTC 변환하지 않는다. 프리셋 1일/7일은 서버 defaultRangeTo에서 Δ24h/168h로 물질화하며 R이 있을 때 defaultRangeTo≤R 조건을 확인한다. 둘 다 없는 기간은 기본 Δ가 미정이면 선택 상태, 한쪽만 있으면 오류. 첫 기본 Δ는 Open; defaultRangeTo=Data through=now로 추정하지 않는다. 근거: [06](../contract/kernel.md#ctx-time) §6.3/§6.4.
+- **다중 설비 시간축(Decided/Open)**: 모든 설비의 요청 전체 기간을 동일 timeDomainId assertion이 덮어야 병합 가능. 공급자는 Open. 부재/불일치는 time_domain_unverified/time_domain_mismatch 오류 + Correlation ID이며 경고 후 합산하지 않는다. 단일 설비 또는 분리 조회 경로를 안내한다. 근거: [06](../contract/kernel.md#ctx-time).
 - **계산 세대(Decided)**: 카드·차트·대체 표가 같은 완료 세대/계산 기준시각을 사용해야 한다. Updated(결과 갱신), Data through(원천 데이터 진행 범위), calculation basis time(계산 기준)을 분리하고 각각 시간역·경계 의미를 제공한다. 다른 세대가 섞이면 새 조합을 완료 결과처럼 노출하지 않는다. 세대 ID/원자 교체 방식은 Candidate 구현 계약. 근거: [01](../architecture/architecture-and-data-contract.md) 「mart 재계산 트리거」, [06](../contract/platform-ui-contract.md) §6.1/§18.
 - **재계산/갱신(Decided/Open)**: 지연 완료, 마스터 소급 정정, module_class_map 재분류, 지표 정의 변경이 트리거다. H=1시간, 자동 창 `[R-H,R)` 밖은 식별 가능한 정정/backfill 후보로 보존하며 이 화면에 실행 UI는 만들지 않는다. R 부재는 자동 재집계 보류이고 autoRefreshClosed는 완전성 보장이 아니다. 300s 폴링은 완료된 계산 세대 정보로 캐시 재검증, watermark 이동만으로 결과를 완료 처리하지 않는다. 폴링 중단/워커 주기는 Open. 근거: [01](../architecture/architecture-and-data-contract.md#late-arrival-policy), [01 갱신 정책](../architecture/architecture-and-data-contract.md#refresh-policy).
-- **Data Trust(Decided/Candidate)**: 지표별 Updated/Data through/Coverage/Metric version/Status·source/lineage·계산 기준시각이 필요하다. Coverage는 지표별 분자·분모·대상 모집단이 있어야 하며 한 지표의 Coverage를 전체 건강도로 확대하지 않는다. 확인되지 않은 지표는 Unknown이며 분모의 실제 검증 원천은 Open. 근거: [06](../contract/platform-ui-contract.md) §18–19, [02](../product/domain-menus.md) 지표 정의 관리.
-- **응답/Attention(Candidate 적용안)**: 위젯별 outcome과 적용 assessments 목록을 선언한다. 미수집/지연/coverage 부족/미확정의 적용 여부와 statusSource는 구현 전 확정 필요. 적용 kind의 근거가 없으면 unknown+이유를 반환하며 누락을 clear로 만들지 않는다. Attention List는 비Process 체류·P95 상위 설비의 랭킹이며 임계값 경보·이상 판정을 만들지 않는다. confirmed/clear는 statusSource·observedAt 필수이고 빈 결과 원인은 explainsEmpty 규칙으로만 설명한다. 근거: [06](../contract/platform-ui-contract.md) §18–19.
+- **Data Trust(Decided/Candidate)**: 지표별 Updated/Data through/Coverage/Metric version/Status·source/lineage·계산 기준시각이 필요하다. Coverage는 지표별 분자·분모·대상 모집단이 있어야 하며 한 지표의 Coverage를 전체 건강도로 확대하지 않는다. 확인되지 않은 지표는 Unknown이며 분모의 실제 검증 원천은 Open. 근거: [06](../contract/components.md) §18–19, [02](../product/domain-menus.md) 지표 정의 관리.
+- **응답/Attention(Candidate 적용안)**: 위젯별 outcome과 적용 assessments 목록을 선언한다. 미수집/지연/coverage 부족/미확정의 적용 여부와 statusSource는 구현 전 확정 필요. 적용 kind의 근거가 없으면 unknown+이유를 반환하며 누락을 clear로 만들지 않는다. Attention List는 비Process 체류·P95 상위 설비의 랭킹이며 임계값 경보·이상 판정을 만들지 않는다. confirmed/clear는 statusSource·observedAt 필수이고 빈 결과 원인은 explainsEmpty 규칙으로만 설명한다. 근거: [06](../contract/components.md) §18–19.
 - **조회량(Decided/Open)**: 서버 집계·반환량 제한·timeout/취소를 지원하고 원본 로그 전체를 내려보내지 않는다. 실제 상한·bucket 제한·주별 정렬 정의는 Open이다. 근거: [06](../contract/platform-ui-contract.md) §27, [01](../architecture/architecture-and-data-contract.md) 「확장성」, [열린 입력 질문 4](../../.planning/inputs.md#q4).
 
 ## 7. INTERACTION RULES
@@ -69,13 +69,13 @@
 | 규칙 | 상태 / 근거 |
 | --- | --- |
 | 기간/Equipment 변경 시 URL 갱신 후 새 조회; 이전 결과 숨김, 늦은 이전 응답 폐기. 동일 조건 새로고침만 기존 결과+Refreshing | Decided — [06](../contract/platform-ui-contract.md) §11/§19 |
-| Scope/권한 변경은 결과 숨김 후 재검증. 무단 ID를 제거해 남은 설비만 자동 조회하지 않음 | Decided — [06](../contract/platform-ui-contract.md) §6.2/§17 |
-| room_name·그룹 Condition·Selection·PPID/Recipe 변경은 명시 적용 시 전역 Context 변경. 조건 결과와 고정 선택을 구분 표시 | Decided 계약 / Candidate UI — [06](../contract/platform-ui-contract.md) §6/§11, [ADR-0002](../adr/0002-stgroup-materializes-to-equipment-ids.md) |
+| Scope/권한 변경은 결과 숨김 후 재검증. 무단 ID를 제거해 남은 설비만 자동 조회하지 않음 | Decided — [06](../contract/kernel.md) §6.2/§17 |
+| room_name·그룹 Condition·Selection·PPID/Recipe 변경은 명시 적용 시 전역 Context 변경. 조건 결과와 고정 선택을 구분 표시 | Decided 계약 / Candidate UI — [06](../contract/kernel.md) §6/§11, [ADR-0002](../adr/0002-stgroup-materializes-to-equipment-ids.md) |
 | 집계 단위 변경은 page-owned URL과 차트 조회를 변경. 기간이나 원 지표 정의는 변경하지 않으며 세대 정합성 유지 | Candidate — [06](../contract/platform-ui-contract.md) §6.1/§16, [01](../architecture/architecture-and-data-contract.md) 집계 가능성 |
-| 지표별 버전 키가 등록되면: 버전 확인은 지표별 버전 목록·정의를 표시. 변경을 채택할 경우 해당 키를 명시적으로 바꾸고 재조회; 전역 동일 metric 쌍과 충돌하면 오류 | Candidate UI / Decided 검증 — [06](../contract/platform-ui-contract.md) §6.1 |
+| 지표별 버전 키가 등록되면: 버전 확인은 지표별 버전 목록·정의를 표시. 변경을 채택할 경우 해당 키를 명시적으로 바꾸고 재조회; 전역 동일 metric 쌍과 충돌하면 오류 | Candidate UI / Decided 검증 — [06](../contract/kernel.md) §6.1 |
 | 사이클타임 상세는 Context Link helper로 이동. Scope/Time/Equipment 및 미적용 전역 Context 보존. cycleTimeVersion을 동일 metricId/version 쌍으로 전달하려면 명시적 목적지 계약 필요; 기존 다른 전역 쌍을 덮어쓰지 않음 | Decided 경계 / Candidate 목적지 매핑 — [06](../contract/platform-ui-contract.md) §6.1/§6.4/§22 |
 | room_name·PPID·Recipe·Equipment Group 두 층은 목적지 지원 여부와 무관하게 보존하고 지원하는 값만 적용. granularity/다른 지표 버전은 자동 복사하지 않음. 분석 복귀 시 진입 전 Context를 그대로 복원 | Decided — [06](../contract/platform-ui-contract.md) §6.4/§22 |
-| Lot/다른 지표 쌍과 지표별 미지원 PPID/Recipe는 URL 보존+미적용 표시; 임의 제거 없음. back/forward는 등록된 URL 상태 재검증 후 복원 | Decided — [06](../contract/platform-ui-contract.md) §6.1/§6.4 |
+| Lot/다른 지표 쌍과 지표별 미지원 PPID/Recipe는 URL 보존+미적용 표시; 임의 제거 없음. back/forward는 등록된 URL 상태 재검증 후 복원 | Decided — [06](../contract/kernel.md) §6.1/§6.4 |
 | 표 보기/신뢰 근거 보기는 현재 영역을 펼치는 로컬 상태. KPI 카드 클릭은 page key `kpi`만 바꾸고(전역 Context 불변), 숫자 클릭/hover는 전역 필터를 바꾸지 않는다; 상세 진입 링크만 이동 | Candidate — [06](../contract/platform-ui-contract.md) §12.1/§16/§18/§24/§26 |
 | 오류 영역 재시도+Correlation ID. too_large/timeout은 취소·기간 축소·집계 단위 변경 경로. 0값/결측/권한 없음은 별도 표현 | Decided — [06](../contract/platform-ui-contract.md) §17/§19/§27 |
 | 상태/차트는 텍스트 병행, 버튼 키보드 포커스, 차트 제목·단위·합계와 동일 데이터 표 제공. 1024–1439는 sidebar collapse/카드 2열 후보; 작은 화면에서는 조회 중심 | Baseline / responsive Candidate — [06](../contract/platform-ui-contract.md) §25–26, [DESIGN](../../DESIGN.md) interaction |

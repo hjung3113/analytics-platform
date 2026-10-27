@@ -31,7 +31,7 @@
 
 ### 3.1 Context Capability와 상태 계층
 
-[06](../contract/platform-ui-contract.md) §6/§6.1/§6.4를 소비한다. 아래는 매니페스트가 선언한 값이다.
+[06](../contract/kernel.md) §6/§6.1/§6.4를 소비한다. 아래는 매니페스트가 선언한 값이다.
 
 | Surface | Time | roomNames | Condition | Selection | Lot | PPID | Recipe | Metric |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -83,13 +83,13 @@ D = destinationOccurrence {
 | VOC 저장 후 / 취소 → occurrence | VOC 객체는 **vocId**로 식별. 관련 분석/복귀 링크는 returnTarget의 D/C를 재검증해 복원; vocId로 occurrence를 추론하지 않음. 생성 성공을 분석 화면이 추정하지 않음 |
 | occurrence → 느린 실행 / browser back | 진입 직전 등록된 URL 소유 C/P 그대로 재검증·복원. 상세에서 본 객체나 변경한 조건으로 출발 Context를 덮어쓰지 않음. chip, 정렬, 집계 단위 유지; 로컬 줌/brush 복원 약속 없음. 결과 숫자는 재계산으로 달라질 수 있음 |
 
-복귀는 `returnTo` page key로 한다([06](../contract/platform-ui-contract.md) §6.4): 출발 화면의 앱 내 상대경로 전체 URL이며, 등록된 비상세 메뉴 경로로 매칭되고 그 메뉴의 `pageKeys`로 파싱될 때만 채택하고 아니면 부모 메뉴로 복귀한다. 임의 외부 return URL을 받아 조립하지 않는다. 복귀 상태 직렬화·크기 제한은 Open; Deferred savedViewToken을 임시 해결책으로 쓰지 않는다. VOC 권한이 분석 권한을 부여하지 않으며 이동·저장·복귀 시 서버가 각각 검증한다. 대상 등록 전 "VOC 연결 준비 중", 권한 거부 시 "VOC 생성 권한 없음"으로 구분한다. 구현의 occurrence 상세는 `VOC 생성(예정)` 링크로 VOC 메뉴(내 VOC)에 전역 Context만 전달한다. VOC 생성은 FeedbackOps 연결(#85/#86) 뒤다.
+복귀는 `returnTo` page key로 한다([06](../contract/kernel.md) §6.4): 출발 화면의 앱 내 상대경로 전체 URL이며, 등록된 비상세 메뉴 경로로 매칭되고 그 메뉴의 `pageKeys`로 파싱될 때만 채택하고 아니면 부모 메뉴로 복귀한다. 임의 외부 return URL을 받아 조립하지 않는다. 복귀 상태 직렬화·크기 제한은 Open; Deferred savedViewToken을 임시 해결책으로 쓰지 않는다. VOC 권한이 분석 권한을 부여하지 않으며 이동·저장·복귀 시 서버가 각각 검증한다. 대상 등록 전 "VOC 연결 준비 중", 권한 거부 시 "VOC 생성 권한 없음"으로 구분한다. 구현의 occurrence 상세는 `VOC 생성(예정)` 링크로 VOC 메뉴(내 VOC)에 전역 Context만 전달한다. VOC 생성은 FeedbackOps 연결(#85/#86) 뒤다.
 
 KPI는 전체 기간 통계, 일별 값은 각 bucket 통계로 서로 단순 평균하지 않는다. P95 tail은 동일 계산 세대에서 C의 적용 모집단 기준이고 동률을 포함하는 `≥` 후보다. P95 정의/동률·미완료 정책은 Open이다. 빈 tail을 데이터 미수집으로 해석하지 않는다. 품질 표시와 Data Trust는 역할이 다르다. 전자는 occurrence에 대한 품질 근거 자리이며 후자는 조회 결과의 신뢰 정보다. `01`은 품질 필드 계약 필요성만 명시하고 `02`에는 특정 품질 필드·타임라인 상세 정의가 없다. 원문에 없는 불량률/결함수/품질점수는 만들지 않는다.
 
 ## 4. LAYOUT BOUNDARY
 
-배치는 구현(`menus/analytics/analytics/src/pages`)이 기준이다. 셸 구조·치수는 [06 §7](../contract/platform-ui-contract.md#7-application-shell)/[07](app-shell.md), 공유 표면·폰트는 FeedbackOps 원본, 수치 alignment·표 밀도·pairing은 [DESIGN](../../DESIGN.md#tables)이 소유한다. 차트 데이터 표는 접근성 대체 표현이며 Breakdown Table과 다른 표다.
+배치는 구현(`menus/analytics/analytics/src/pages`)이 기준이다. 셸 구조·치수는 [06 §7](../contract/layout.md#7-application-shell)/[07](app-shell.md), 공유 표면·폰트는 FeedbackOps 원본, 수치 alignment·표 밀도·pairing은 [DESIGN](../../DESIGN.md#tables)이 소유한다. 차트 데이터 표는 접근성 대체 표현이며 Breakdown Table과 다른 표다.
 
 ## 5. CONCEPTUAL COMPONENT MAP
 
@@ -105,12 +105,12 @@ KPI는 전체 기간 통계, 일별 값은 각 bucket 통계로 서로 단순 �
 
 ## 6. DATA REQUIREMENTS
 
-- **조회 계약**: API는 소비 계층 view/mart·occurrence_directory 조인 결과를 읽는다. 원천 DB 직접 조회 금지. D의 entityType별 조인과 관계 키를 서버가 검증하고 lotId fallback을 허용하지 않는다. 기간 밖 공정 구간을 단순 global clip으로 잃지 않는 occurrence 조회가 필요하다. 근거: [01](../architecture/architecture-and-data-contract.md) 전체 아키텍처/대응, [06](../contract/platform-ui-contract.md) §6.1; 전체 상세 구간 표현은 이 문서 Candidate.
+- **조회 계약**: API는 소비 계층 view/mart·occurrence_directory 조인 결과를 읽는다. 원천 DB 직접 조회 금지. D의 entityType별 조인과 관계 키를 서버가 검증하고 lotId fallback을 허용하지 않는다. 기간 밖 공정 구간을 단순 global clip으로 잃지 않는 occurrence 조회가 필요하다. 근거: [01](../architecture/architecture-and-data-contract.md) 전체 아키텍처/대응, [06](../contract/kernel.md) §6.1; 전체 상세 구간 표현은 이 문서 Candidate.
 - **지표 정의 Open**: cycle-time metricId, Job grain의 시작/끝 이벤트, 기간 귀속(시작/완료), 미완료 제외, 분위수 알고리즘·동률, 단위·null·coverage 분모, bucket 경계가 확정돼야 한다. 구현의 버전·단위·완료 interval은 합성 값이다. 설비별/일별 P95를 평균하지 않으며 downsampling과 지표 계산을 분리한다. 근거: [01](../architecture/architecture-and-data-contract.md) 집계 가능성/대응, [02](../product/domain-menus.md) 생산성 분석/지표관리.
-- **Context/URL**: C와 P의 등록된 공개 스키마, 무손실 D, Return 계약이 필요하다. 반복 집합 정규화·공집합 표식, 단일값 중복 오류, 미등록 키 비적용, v 디코더, 지표 쌍 원자성은 전역 계약 그대로다. URL 없는 값을 세션으로 보충하지 않는다. Equipment Group Condition은 사용한 축 그대로 보존하며 현재 결과를 재평가할 수 있고, Selection은 명시 ID 목록을 그대로 유지한다. 근거: [06](../contract/platform-ui-contract.md) §6.1/§6.4, [ADR-0002](../adr/0002-stgroup-materializes-to-equipment-ids.md), [11](productivity-overview.md) §3.1/§7.
-- **시간**: naive 초 정렬 `[from,to)`와 원천 anchor 전체 정밀도를 분리한다. Z/offset/한쪽 경계 누락은 오류. 기본 기간 공급과 defaultRangeTo/R 조건은 [06 CTX-TIME](../contract/platform-ui-contract.md#ctx-time)을 소비하며 최초 Δ는 Open이다. 다중 설비 같은 축 집계는 요청 전체를 덮는 서버 timeDomain assertion 필요; 미확인/불일치면 error로 차단하고 단일 설비/분리 조회 안내. assertion 공급자는 Open이다.
+- **Context/URL**: C와 P의 등록된 공개 스키마, 무손실 D, Return 계약이 필요하다. 반복 집합 정규화·공집합 표식, 단일값 중복 오류, 미등록 키 비적용, v 디코더, 지표 쌍 원자성은 전역 계약 그대로다. URL 없는 값을 세션으로 보충하지 않는다. Equipment Group Condition은 사용한 축 그대로 보존하며 현재 결과를 재평가할 수 있고, Selection은 명시 ID 목록을 그대로 유지한다. 근거: [06](../contract/kernel.md) §6.1/§6.4, [ADR-0002](../adr/0002-stgroup-materializes-to-equipment-ids.md), [11](productivity-overview.md) §3.1/§7.
+- **시간**: naive 초 정렬 `[from,to)`와 원천 anchor 전체 정밀도를 분리한다. Z/offset/한쪽 경계 누락은 오류. 기본 기간 공급과 defaultRangeTo/R 조건은 [06 CTX-TIME](../contract/kernel.md#ctx-time)을 소비하며 최초 Δ는 Open이다. 다중 설비 같은 축 집계는 요청 전체를 덮는 서버 timeDomain assertion 필요; 미확인/불일치면 error로 차단하고 단일 설비/분리 조회 안내. assertion 공급자는 Open이다.
 - **타임라인/품질 Open**: 소비 계약의 공정 구간 이름·시작/끝·부모 occurrence 관계·겹침/null 의미·품질 필드와 statusSource가 필요하다. 빈 간격으로 대기나 불량을 추정하지 않는다. `01`/`02`만으로 구체 품질 스키마는 확정할 수 없다. 근거: [01](../architecture/architecture-and-data-contract.md) 대응, [02](../product/domain-menus.md) 허용 지표 경계.
-- **Data Trust/정합성**: KPI·차트·tail 목록·CSV는 같은 완료 계산 세대/기준시각을 사용한다. occurrence의 별도 조회 세대가 달라졌으면 재계산 차이를 표시한다. Updated/Data through/계산 기준시각을 분리하고 원천 계약/지표 버전을 혼동하지 않는다. coverage 원천이 없으면 Unknown. 근거: [01](../architecture/architecture-and-data-contract.md) mart 재계산 트리거, [06](../contract/platform-ui-contract.md) §18–19.
+- **Data Trust/정합성**: KPI·차트·tail 목록·CSV는 같은 완료 계산 세대/기준시각을 사용한다. occurrence의 별도 조회 세대가 달라졌으면 재계산 차이를 표시한다. Updated/Data through/계산 기준시각을 분리하고 원천 계약/지표 버전을 혼동하지 않는다. coverage 원천이 없으면 Unknown. 근거: [01](../architecture/architecture-and-data-contract.md) mart 재계산 트리거, [06](../contract/components.md) §18–19.
 - **갱신**: 300s 폴링과 완료 세대 기반 재검증. 열린 occurrence는 완료 결과에 없을 수 있고 지연완료/마스터 소급/재분류/지표 변경으로 숫자가 변한다. R/H 정책(H=1h)과 창 밖 backfill 후보는 데이터 계층 소유; 이 화면에 새 실행 UI를 만들지 않는다. 근거: [01 갱신](../architecture/architecture-and-data-contract.md#refresh-policy)/[지연완료](../architecture/architecture-and-data-contract.md#late-arrival-policy), [02](../product/domain-menus.md) 최신성/커버리지.
 - **권한/성능**: 모든 조회·선택지·export·drill-through·VOC return은 서버 Scope 재검증. 지정한 무단 ID를 자동 제거하지 않는다. 서버 정렬/필터/페이지네이션·가상화·집계, timeout/cancel/기간 축소 필요. 실제 상한·분할 방식은 Open. 근거: [06](../contract/platform-ui-contract.md) §6.2/§15/§17/§27, [01](../architecture/architecture-and-data-contract.md) 확장성, [02](../product/domain-menus.md) VOC.
 
@@ -121,14 +121,14 @@ KPI는 전체 기간 통계, 일별 값은 각 bucket 통계로 서로 단순 �
 | Zoom/hover/brush만 하면 URL·KPI·Breakdown 불변. `선택 구간 분석`으로만 Time 변경, P95를 새 모집단/세대에서 재계산하고 chip 임계값도 갱신 | [06](../contract/platform-ui-contract.md) §6.1/§11/§16/§24; tail 재계산 UI Candidate |
 | 소수초 brush 적용은 외향 초 정렬 preview → 공통 확인 Modal. 확인 전 URL/조회 불변, 취소는 brush 유지. anchor는 절대 반올림하지 않음 | [06](../contract/platform-ui-contract.md) §6.1/§20 |
 | P95 선택/해제는 명시 Page Filter chip으로 현재 C의 tail 목록을 조회. 단일 mark 진입은 selectedOccurrence chip 추가 후 상세; 집계 mark는 단일 D 진입 금지 | [06](../contract/platform-ui-contract.md) §6/§16/§24 및 사용자 명시 규칙; predicate Candidate |
-| 목록 행 열기는 D만 목적지로 설정하고 C/P를 보존. C.selectedEquipmentIds=[A,B]에서 D.equipmentId=A를 열어도 [A,B] 유지. D가 선택 밖의 EQ-C여도 분석 복귀는 진입 전 [A,B] 그대로이며 EQ-C를 추가하지 않음. 불일치는 안내하고 허용 여부는 서버 Scope 검증; Context를 권한으로 사용하지 않음 | [06](../contract/platform-ui-contract.md) §6.1/§17 |
-| anchor 누락/invalid D는 객체 조회 중단. Lot 검색 결과에서 온전한 D를 다시 선택하도록 안내. 누락을 Lot으로 복원하지 않음 | [06](../contract/platform-ui-contract.md) §6.1 |
+| 목록 행 열기는 D만 목적지로 설정하고 C/P를 보존. C.selectedEquipmentIds=[A,B]에서 D.equipmentId=A를 열어도 [A,B] 유지. D가 선택 밖의 EQ-C여도 분석 복귀는 진입 전 [A,B] 그대로이며 EQ-C를 추가하지 않음. 불일치는 안내하고 허용 여부는 서버 Scope 검증; Context를 권한으로 사용하지 않음 | [06](../contract/kernel.md) §6.1/§17 |
+| anchor 누락/invalid D는 객체 조회 중단. Lot 검색 결과에서 온전한 D를 다시 선택하도록 안내. 누락을 Lot으로 복원하지 않음 | [06](../contract/kernel.md) §6.1 |
 | VOC 생성 진입은 D/C/검증된 returnTarget를 helper에 전달. 취소·저장 후 돌아가기는 동일 D/C, 목록 복귀는 P도 복원. VOC 열람 권한만으로 분석이 열리면 실패 | [06](../contract/platform-ui-contract.md) §6.1/§17/§22, [02](../product/domain-menus.md) VOC |
-| browser back/forward·새로고침은 URL 소유 상태만 복원. 미지원 Context 보존·미적용 표시. Site가 활성 Scope에 확립된 직접 D 링크라도 출발 분석 조건이 없으면 이를 추정하지 않고 '출발 분석 조건 없음' 표시. Site/필수 scopeId 부재는 별도 선택 요구이며 D에서 역산하지 않음 | [06](../contract/platform-ui-contract.md) §6.4; 직접 진입 안내 Candidate |
+| browser back/forward·새로고침은 URL 소유 상태만 복원. 미지원 Context 보존·미적용 표시. Site가 활성 Scope에 확립된 직접 D 링크라도 출발 분석 조건이 없으면 이를 추정하지 않고 '출발 분석 조건 없음' 표시. Site/필수 scopeId 부재는 별도 선택 요구이며 D에서 역산하지 않음 | [06](../contract/kernel.md) §6.4; 직접 진입 안내 Candidate |
 | Scope/Time/Equipment 변경은 이전 값 숨김·이전 응답 무시. 권한 변경은 상세/목록 모두 숨기고 재검증. 같은 조건 Refreshing만 기존 값 유지 | [06](../contract/platform-ui-contract.md) §11/§19 |
-| 성공 0건은 No matching result. 원인 confirmed + statusSource/observedAt + explainsEmpty 근거가 있을 때만 미수집/지연을 원인으로 표시. source 부재는 unknown+이유, clear로 보정 금지 | [06](../contract/platform-ui-contract.md) §19 |
+| 성공 0건은 No matching result. 원인 confirmed + statusSource/observedAt + explainsEmpty 근거가 있을 때만 미수집/지연을 원인으로 표시. source 부재는 unknown+이유, clear로 보정 금지 | [06](../contract/components.md) §19 |
 | outcome forbidden/too_large/timeout/error 구분. 권한 없음/키 없음/품질 Unknown은 다른 상태. 일부 위젯 실패는 성공 영역 유지·실패 영역 재시도/Correlation ID, 장기 요청 취소·기간 축소 제공 | [06](../contract/platform-ui-contract.md) §17/§19/§27 |
-| 표 server-side sort/filter, 컬럼 resize/visibility/pin/preferences·다중선택/선택 CSV, 가상화. 표 최소 32px·터치 44px, 수치 우측 정렬. 단일 행 목적지 키는 선택 행 index가 아님 | [06](../contract/platform-ui-contract.md) §15, [DESIGN](../../DESIGN.md) table-density |
+| 표 server-side sort/filter, 컬럼 resize/visibility/pin/preferences·다중선택/선택 CSV, 가상화. 표 최소 32px·터치 44px, 수치 우측 정렬. 단일 행 목적지 키는 선택 행 index가 아님 | [06](../contract/components.md) §15, [DESIGN](../../DESIGN.md) table-density |
 | 차트 이름/단위/서술/동일 데이터 표, 선의 모양+텍스트, 키보드 focus, 링크 접근 이름. 1024–1439 sidebar collapse·표 가로 스크롤, 작은 화면 조회 중심 후보 | [06](../contract/platform-ui-contract.md) §25–26, [DESIGN](../../DESIGN.md) focus |
 
 ## 8. DESIGN DECISIONS / OPEN QUESTIONS

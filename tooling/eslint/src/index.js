@@ -373,7 +373,7 @@ const designSystem = ({ componentSource = false } = {}) => ({
   settings: {
     shadcn: {
       componentImports: [`^${pkg('ui')}(/|$)`, `^${pkg('components')}(/|$)`],
-      note: 'Visual rules: DESIGN.md. Shared components: docs/contract/platform-ui-contract.md §13. New tokens go in packages/ui/src/styles (platform extension layer: DESIGN.md).',
+      note: 'Visual rules: DESIGN.md. Shared components: docs/contract/components.md §13. New tokens go in packages/ui/src/styles (platform extension layer: DESIGN.md).',
     },
   },
   rules: componentSource ? COMPONENT_SOURCE_RULES : DESIGN_SYSTEM_RULES,

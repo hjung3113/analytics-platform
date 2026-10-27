@@ -6,13 +6,13 @@
 
 | 갈래 | 내용 | 원본 |
 | --- | --- | --- |
-| Kernel 기능 | Menu Registry, 전역 Context, 딥링크/URL 계약, 권한·Scope, Audit | `docs/contract/platform-ui-contract.md` §4–6 |
-| 공통 컴포넌트 | PlatformDataTable, DetailDrawer, AuditTimeline, DataTrustIndicator 등 | §13 |
-| 차트 계약 | Chart Frame + Zoom/Brush/Compare/Annotate 공통 Interaction | §16 |
-| 레이아웃 | Overview/Analysis Workspace/Management/Catalog/Workflow 5개 Page Archetype | §12 |
-| 메뉴간 연결 | Cross-menu Context Link, 목적지 ID와 분석 Context 분리 | §22 |
+| Kernel 기능 | Menu Registry, 전역 Context, 딥링크/URL 계약, 권한·Scope, Audit | `docs/contract/kernel.md` §4–6 |
+| 공통 컴포넌트 | PlatformDataTable, DetailDrawer, AuditTimeline, DataTrustIndicator 등 | `docs/contract/components.md` §13 |
+| 차트 계약 | Chart Frame + Zoom/Brush/Compare/Annotate 공통 Interaction | `docs/contract/chart.md` §16 |
+| 레이아웃 | Overview/Analysis Workspace/Management/Catalog/Workflow 5개 Page Archetype | `docs/contract/layout.md` §12 |
+| 메뉴간 연결 | Cross-menu Context Link, 목적지 ID와 분석 Context 분리 | `docs/contract/cross-menu-links.md` §22 |
 
-상세 원본은 `docs/contract/platform-ui-contract.md`다(Platform Done §29, 공통화 기준 §24).
+상세 원본은 `docs/contract/platform-ui-contract.md`(색인)와 그 「절 → 문서」 대응표가 가리키는 갈래별 문서다(Platform Done §29, 공통화 기준 §24).
 
 **SDK는 범용 조각을 준다.** 요구가 오면 그 메뉴 하나를 완성하는 부품을 찾는 대신, 그 기능과 다음 비슷한 기능을 메뉴가 직접 조립할 수 있는 **범용 조각**을 찾는다. 기준은 크기가 아니라 다른 메뉴도 그대로 쓸 수 있느냐다 — 범용이면 복잡한 기능도 SDK가 통째로 제공한다(승격 기준은 아래 목록). 위계와 단계 수, 줄 이름, 내려가는 조작(클릭·더블클릭·버튼)처럼 메뉴마다 다른 것은 메뉴가 선언하고, SDK는 그 선언을 받아 동작한다. SDK가 거는 제약(상한, 고정된 조작, 하나만 고르는 정책)은 보안·데이터 정합성·접근성 같은 이유가 있을 때만 두고 그 이유를 계약에 적는다. 요구 문장의 도메인 용어는 `GLOSSARY.md`로 확인한 뒤 조각으로 옮긴다. 예: HWTime3의 설비 → 설비-모듈 → 동작 드릴은 "메뉴가 선언한 단계대로 드릴"과 "가로 막대의 범주 줄" 두 조각으로 조립한다(#541, 사용자 2026-10-21).
 

@@ -65,7 +65,7 @@ FeedbackOps의 인증·권한·감사·VOC·Finding·Task 등은 기존 구현�
 
 > **2026-10-21: FeedbackOps는 플랫폼에 합친다([ADR-0066](../adr/0066-feedbackops-merges-into-platform.md), [합류 설계](feedbackops-merge-design.md)).** 아래 1·2단계는 합류 단계 4까지의 전환 규칙으로만 유효하다. 서브모듈은 합류 단계 1a(#592)에서 일반 디렉터리가 됐다.
 
-FeedbackOps는 플랫폼의 **공통 협업 서비스**다. 독립 앱으로 남고, 플랫폼은 각 업무 공간 안에 그 시스템으로 좁힌 진입 링크와 권한자용 전체 허브 링크를 둔다([ADR-0027](../adr/0027-feedbackops-stays-standalone-entry-links.md)([06 §9.1](../contract/platform-ui-contract.md#91-워크스페이스-decided-2026-09-26), [ADR-0026](../adr/0026-multi-workspace-app-boundaries-and-feedbackops-scoping.md)). 단계적으로 연결한다.
+FeedbackOps는 플랫폼의 **공통 협업 서비스**다. 독립 앱으로 남고, 플랫폼은 각 업무 공간 안에 그 시스템으로 좁힌 진입 링크와 권한자용 전체 허브 링크를 둔다([ADR-0027](../adr/0027-feedbackops-stays-standalone-entry-links.md)([06 §9.1](../contract/kernel.md#91-워크스페이스-decided-2026-09-26), [ADR-0026](../adr/0026-multi-workspace-app-boundaries-and-feedbackops-scoping.md)). 단계적으로 연결한다.
 
 1. **1단계 — 연결:** 원본 앱은 독립 실행을 유지한다. 공유 SSO·디자인 토큰, 서로의 Context를 넘기는 딥링크로 연결한다. 분석 공간의 사용자용 화면은 VOC 상태와 설문 응답 이력을 FeedbackOps API에서 **읽기 전용**으로 조회한다. **VOC 등록과 설문 응답 제출(쓰기)은 1단계에서 FeedbackOps 원본 화면으로 딥링크한다(Decided, 2026-09-27)** — 플랫폼 화면 안의 쓰기는 두지 않는다(ADR-0027). 사용자에게 보이는 상태와 내부 처리 상태를 자동으로 연결하지 않는 FeedbackOps 원칙(ADR-0005)을 그대로 따른다.
 2. **2단계 — 공간별 진입:** FeedbackOps 화면은 플랫폼으로 옮기지 않는다(**Decided, 2026-10-09, [ADR-0027](../adr/0027-feedbackops-stays-standalone-entry-links.md)**, ADR-0018의 화면 이전을 대체). 공간 → Managed System 매핑(#81)이 정해지면 각 공간 사이드바에 그 시스템으로 좁힌 진입(VOC 등록·VOC·Task·설문)과 권한자용 전체 허브 링크를 단다. 목록 진입과 허브 진입은 [딥링크 계약](feedbackops-deeplink.md)에 더한다. FeedbackOps 코드를 플랫폼 계약에 맞춰 소급 수정하지 않는다. 진행 계획은 [#213](https://github.com/hjung3113/analytics-platform/issues/213).

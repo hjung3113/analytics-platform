@@ -2,7 +2,7 @@
 
 상태: 화면 계약 노트. 구현은 `menus/analytics/equipment`(조회 전용)이고 배치·시각은 구현과 [DESIGN](../../DESIGN.md)이 기준이다. 이 문서는 아래 계약·소유 경계·결정 상태만 소유한다.
 
-이 문서는 `../contract/platform-ui-contract.md` §9 "설비관리" 그룹의 첫 화면 — 설비 마스터 목록 + 상세 — 를 소유한다. App Shell(헤더·사이드바·Breadcrumb·전역 Context Bar)은 `app-shell.md`의 범위이며 여기서 재정의하지 않는다. 이 화면은 첫 Consumer 후보다 — 계산 로직 없는 순수 CRUD+이력 화면이라 Kernel 계약(Menu Registry·Permission·Data Table·Detail Drawer·Audit)을 가장 적은 변수로 검증할 수 있다.
+이 문서는 `../contract/kernel.md` §9 "설비관리" 그룹의 첫 화면 — 설비 마스터 목록 + 상세 — 를 소유한다. App Shell(헤더·사이드바·Breadcrumb·전역 Context Bar)은 `app-shell.md`의 범위이며 여기서 재정의하지 않는다. 이 화면은 첫 Consumer 후보다 — 계산 로직 없는 순수 CRUD+이력 화면이라 Kernel 계약(Menu Registry·Permission·Data Table·Detail Drawer·Audit)을 가장 적은 변수로 검증할 수 있다.
 
 ## 1. USER TASK
 

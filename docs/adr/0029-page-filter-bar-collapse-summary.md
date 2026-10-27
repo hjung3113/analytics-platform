@@ -3,7 +3,7 @@
 상태: **Decided (2026-10-10)**.
 - 결정자: 사용자 — 이 결정을 Astra(gpt-6-astra high) 리뷰에 위임(2026-10-10)했고, 그 권고를 그대로 채택했다(DEC-230). | 플랫폼 — ADR-0016의 현재 조건 가시성 원칙과 #230의 요구(한 줄 요약·접힘 기억·공통 부품)에서 유도.
 
-#230은 분석 화면 페이지 필터 줄의 접기를 요구했다(#156 후속). 접으면 현재 조건이 입력 뒤로 숨으므로, 접힘 상태에서도 조건을 읽을 수 있게 하는 방법이 문제였다. 세 시안(A 한 줄 값 요약 / B 개수 배지 / C 칩 스트립)을 실제 앱 위에서 비교했고(#230, 브랜치 `hjung3113/proto-230-filter-collapse`), 사용자가 A·B·C 선택을 위임했다. 세부 계약은 [06 §13·§15](../contract/platform-ui-contract.md#13-shared-component-layers), 시각 규칙은 [DESIGN.md Filter bar](../../DESIGN.md#filter-bar)가 소유한다.
+#230은 분석 화면 페이지 필터 줄의 접기를 요구했다(#156 후속). 접으면 현재 조건이 입력 뒤로 숨으므로, 접힘 상태에서도 조건을 읽을 수 있게 하는 방법이 문제였다. 세 시안(A 한 줄 값 요약 / B 개수 배지 / C 칩 스트립)을 실제 앱 위에서 비교했고(#230, 브랜치 `hjung3113/proto-230-filter-collapse`), 사용자가 A·B·C 선택을 위임했다. 세부 계약은 [06 §13·§15](../contract/components.md#13-shared-component-layers), 시각 규칙은 [DESIGN.md Filter bar](../../DESIGN.md#filter-bar)가 소유한다.
 
 ## 결정
 

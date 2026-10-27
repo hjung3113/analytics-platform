@@ -3,7 +3,7 @@
 상태: **Decided (2026-10-15)**.
 - 결정자: 사용자 — [이슈 #356](https://github.com/hjung3113/analytics-platform/issues/356)에서 (a)를 선택했다(에이전트 추천).
 
-메뉴에 도착하면 포커스는 새 화면 제목으로 간다([06 §26](../contract/platform-ui-contract.md#26-accessibility-baseline)). 그 URL에 `focus=`가 있으면 상세 패널도 함께 열린다([06 §13](../contract/platform-ui-contract.md#detaildrawer--docked-shell-slot-decided-adr-0013)). 패널이 도착보다 늦게 마운트되면 닫기 버튼이 제목 포커스를 빼앗고, 복귀 경로에서는 제목 툴팁이 열린 채 남아 첫 Escape를 가로챈다. 스크린리더는 도착한 화면 이름 대신 "상세 닫기"를 먼저 듣는다.
+메뉴에 도착하면 포커스는 새 화면 제목으로 간다([06 §26](../contract/platform-ui-contract.md#26-accessibility-baseline)). 그 URL에 `focus=`가 있으면 상세 패널도 함께 열린다([06 §13](../contract/components.md#detaildrawer--docked-shell-slot-decided-adr-0013)). 패널이 도착보다 늦게 마운트되면 닫기 버튼이 제목 포커스를 빼앗고, 복귀 경로에서는 제목 툴팁이 열린 채 남아 첫 Escape를 가로챈다. 스크린리더는 도착한 화면 이름 대신 "상세 닫기"를 먼저 듣는다.
 
 ## 결정
 

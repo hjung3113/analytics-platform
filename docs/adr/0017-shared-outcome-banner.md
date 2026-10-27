@@ -3,7 +3,7 @@
 상태: **Decided (2026-10-04)**.
 - 결정자: 사용자 — 실제 앱 위 `?variant=` 프로토타입에서 A/B/C 중 B를 선택했다(#55, 브랜치 `hjung3113/proto-m2-batch2`).
 
-세부 상태·묶음·재시도·접근성 계약은 [06 §19](../contract/platform-ui-contract.md#19-loading--empty--error-taxonomy), 시각 토큰과 배치는 [DESIGN](../../DESIGN.md#shared-interaction-and-data-states)이 소유한다. 이 ADR은 결정과 이유만 둔다.
+세부 상태·묶음·재시도·접근성 계약은 [06 §19](../contract/components.md#19-loading--empty--error-taxonomy), 시각 토큰과 배치는 [DESIGN](../../DESIGN.md#shared-interaction-and-data-states)이 소유한다. 이 ADR은 결정과 이유만 둔다.
 
 여러 위젯이 같은 응답을 받으면 전체 상태 상자가 반복돼 페이지를 압도한다. 위젯별 정체성과 다음 행동은 남기면서 페이지가 관측한 동일 응답을 한 번 안내할 필요가 있다. 같은 응답이라는 사실만으로 수집·상위 시스템 원인을 단정할 수는 없다.
 

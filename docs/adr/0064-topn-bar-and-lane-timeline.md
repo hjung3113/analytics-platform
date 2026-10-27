@@ -16,7 +16,7 @@
 - Ctrl/⌘+wheel은 포인터 기준 확대, modifier 없는 wheel은 네이티브 세로 스크롤이다. 키보드 +/−·버튼 확대는 가운데 기준이다. plot drag는 시간 이동이며 pointer cancel/lost capture는 선택을 실행하지 않는다. 확대 범위는 데이터 domain 안에서 최소 1ms(전체 domain이 작으면 그 폭)부터 전체 domain까지다. reset은 시간 viewport만 초기화한다. reveal은 유효 데이터 flatten 순서(lanes→segments)로 행을 드러내고 시간 중앙으로 이동한다. 유효하지 않은 index/ID는 no-op이다.
 - viewport·scroll·drag는 refs/렌더러 클로저와 rAF에만 둔다. 연속 wheel/pan은 React render를 추가하지 않는다. 선택·키보드 요약·DOM 툴팁만 React state를 사용한다. 데이터 변경은 domain 초기화, 그 밖의 props/선택 변경은 viewport를 보존한다. 선택은 controlled/uncontrolled이며 없는 ID는 표시하지 않는다. URL·Global Context를 변경하지 않는다. Lane은 조회·내보내기·상세 이동을 소유하지 않는다.
 
-세부 공통 계약과 Interaction 매트릭스는 [06 §16](../contract/platform-ui-contract.md#16-analysis-chart-contract), 공개 API와 사용 예는 [SDK 차트](../integration/sdk-charts.md)가 소유한다.
+세부 공통 계약과 Interaction 매트릭스는 [06 §16](../contract/chart.md#16-analysis-chart-contract), 공개 API와 사용 예는 [SDK 차트](../integration/sdk-charts.md)가 소유한다.
 
 ## Considered Options
 
