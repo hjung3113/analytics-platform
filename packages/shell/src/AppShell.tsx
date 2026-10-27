@@ -54,8 +54,8 @@ function ShellLayout({ children }: { children: ReactNode }) {
     {showPlatformSidebar && <PlatformSidebar collapsed={collapsed} onToggle={toggle} />}
     {/* The column stays unpositioned: a `relative` column would become the containing block of every `absolute` element inside main (sr-only text, popovers) and let them overflow it unclipped. */}
     <div data-shell-content className="flex min-w-0 flex-1 flex-col">
-      {/* The board window's area (893d2): a positioned box around main only, so a window is placed against main, not against its scrolling content, and never covers the rail, sidebar, or the chip row. */}
-      <div data-board-window-area className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
+      {/* The board window's area (893d2): a positioned box around main only, so a window is placed against main, not against its scrolling content, and never covers the rail, sidebar, or the chip row. It is `relative`, so every `absolute` element inside main (sr-only text, …) now has it as containing block: `contain: paint` clips what overflows it (as the root's clipping did before) without an `overflow` clip, which `contract-components` (PageFilterBar 접힘 요약) reads as a clipped ancestor of text. */}
+      <div data-board-window-area className="relative min-h-0 min-w-0 flex-1 [contain:paint]">
         <main id="platform-main" tabIndex={-1} className="h-full min-h-0 min-w-0 overflow-y-auto outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring">
           <Suspense fallback={<div className="p-5"><LoadingBlock rows={6} height={320} /></div>}>{children}</Suspense>
         </main>
