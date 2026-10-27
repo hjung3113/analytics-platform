@@ -103,3 +103,41 @@ describe('detailPath', () => {
     expect(inbox.target('/vocs/ab12?view=inbox')).toBeNull();
   });
 });
+
+describe('hash', () => {
+  const route = operatorRoute({ foPath: '/s', foFixed: {}, menuId: 'm', keys: { selected: 'focus' }, hash: { fragment: 'coverage', key: 'section' } });
+
+  it('accepts the declared fragment as the page key and writes it back through toFoHash', () => {
+    const target = route.target('/s#coverage');
+    expect(target).toEqual({ menuId: 'm', page: { section: 'coverage' } });
+    expect(route.toFoHash(target!.page!)).toBe('#coverage');
+    expect(route.toFoSearch(target!.page!)).toEqual({});
+  });
+
+  it('keeps the query next to the fragment', () => {
+    expect(route.target('/s?selected=x#coverage')).toEqual({ menuId: 'm', page: { focus: 'x', section: 'coverage' } });
+  });
+
+  it.each([['another fragment', '/s#other'], ['an empty fragment', '/s#'], ['a longer fragment', '/s#coverage2'], ['a nested fragment', '/s#coverage#x'], ['an unknown key', '/s?tab=a#coverage']])('is null for %s', (_name, to) => {
+    expect(route.target(to)).toBeNull();
+  });
+
+  it('lists the hash key among the page keys, and toFoHash is empty without the fragment', () => {
+    expect([...route.pageKeys]).toEqual(['focus', 'section']);
+    expect(route.toFoHash({})).toBe('');
+    expect(route.toFoHash({ section: 'other' })).toBe('');
+    expect(route.toFoHash({ section: null })).toBe('');
+  });
+
+  it('rejectedKey refuses any hash-key value except the fragment', () => {
+    const accepts = () => true;
+    expect(route.rejectedKey(key => (key === 'section' ? 'coverage' : null), accepts)).toBeNull();
+    expect(route.rejectedKey(key => (key === 'section' ? 'other' : null), accepts)).toEqual({ key: 'section', value: 'other' });
+    expect(route.rejectedKey(key => (key === 'section' ? '' : null), accepts)).toEqual({ key: 'section', value: '' });
+  });
+
+  it('is off for a table without hash', () => {
+    expect(inbox.toFoHash({ section: 'coverage' })).toBe('');
+    expect(inbox.target('/vocs?view=inbox#coverage')).toBeNull();
+  });
+});

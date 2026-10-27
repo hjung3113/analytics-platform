@@ -29,6 +29,7 @@ It does not own VOC creation, Finding persistence, Task mutation, or permission 
 
 ## Key files
 
+- `apps/fo-frontend/src/features/surveys/routes/surveys-search.ts` — router-free list and detail search schemas + validators (`isSurveysSearchValueValid`, `isSurveyDetailSearchValueValid`); the two route files re-export them, and the bridge reads them through `operator-screens/surveys-search`.
 - `apps/fo-frontend/src/routes/_authed/surveys/index.tsx` — Survey list route adapter (search, selection, document title) over `SurveyListScreen`.
 - `apps/fo-frontend/src/routes/_authed/surveys/$surveyId.tsx` — Survey builder and detail route; the non-builder branch uses `SurveyListScreen`.
 - `apps/fo-frontend/src/features/surveys/components/list/SurveyListScreen.tsx` — shared Survey list composition (toolbar, filters, create, detail slot) for the index and detail routes.

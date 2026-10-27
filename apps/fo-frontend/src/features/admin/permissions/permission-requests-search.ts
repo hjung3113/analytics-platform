@@ -1,22 +1,9 @@
-import { parseRouteSearch, returnToField } from '@/lib/host/search-fields';
-import { z } from 'zod';
-
-// Tab + selection are URL state (docs/feedbackops/frontend/routes-and-layout.md §URL State
-// Rules): /admin/permissions/requests?tab=approved&selected=:requestId.
-// `pending` is the default tab and omitted from the URL.
-export const permissionRequestsSearchSchema = z
-  .object({
-    returnTo: returnToField,
-    tab: z.enum(['needs_more_info', 'approved', 'rejected', 'all']).optional(),
-    selected: z.string().uuid().optional(),
-  })
-  .strict();
-
-export type PermissionRequestsSearch = z.infer<typeof permissionRequestsSearchSchema>;
-
-export function validatePermissionRequestsSearch(raw: unknown) {
-  return parseRouteSearch(permissionRequestsSearchSchema, raw);
-}
+export {
+  isPermissionRequestsSearchValueValid,
+  permissionRequestsSearchSchema,
+  validatePermissionRequestsSearch,
+} from '@/features/admin/permissions/permission-requests-schema';
+export type { PermissionRequestsSearch } from '@/features/admin/permissions/permission-requests-schema';
 
 export type ReviewTab = 'pending' | 'needs_more_info' | 'approved' | 'rejected' | 'all';
 
