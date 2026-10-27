@@ -107,7 +107,7 @@ On a rebase, keep both sides of a conflicting table or list row.
   1. Run the slice-close `review-quality` (plus a `review-ux` walk-through if screens changed).
   2. Draft the release-docs PR. Do steps 1–2 alongside the last PRs' reviews.
   3. Run a one-off doc audit with the `review-doc` role and [addenda/doc-audit.md](addenda/doc-audit.md). Fold its findings into the release-docs PR.
-  4. Run a full cold CI on the SHA to tag: `gh workflow run ci.yml --ref main -f full=true`. Take the run id from `gh run list --workflow ci.yml --event workflow_dispatch --limit 1 --json databaseId` and require `headSha` = tag SHA and `success`. Rerun it if the SHA moves.
+  4. Run a full cold CI on the SHA to tag: `gh workflow run ci.yml --ref main -f full=true`. PR and main-push CI run only what changed (turbo cache; E2E specs picked by `.github/scripts/select-e2e.mjs`), so this run is the only whole, cold gate. Take the run id from `gh run list --workflow ci.yml --event workflow_dispatch --limit 1 --json databaseId` and require `headSha` = tag SHA and `success`. Rerun it if the SHA moves.
   5. Tag `sdk-v*` with the tarballs and a GitHub Release. Ask the owner before tagging an app `v0.x`. For an app release, the site lane updates `site/`.
 - **Lead rotation:** before the skill's session limit, at a quiet point, update `LEAD.md`. A new lead resumes in this order:
   1. this file

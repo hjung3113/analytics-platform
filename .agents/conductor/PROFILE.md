@@ -58,7 +58,7 @@ Every step must exit 0 before commit.
    - `verify=full`: run `bash .agents/conductor/scripts/verify-root.sh <log-dir>` (lint → typecheck → test+build under `heavy.lock`; exits 3 if capacity says `start=no`).
    - `verify=light`: run `verify-root.sh --light <log-dir>` (lint + typecheck). Test and build are left to PR CI. `tier.sh` gives `verify=full` for any change under the full paths, tests included (root `AGENTS.md` §검증).
    - Never use `--force` or diff filters. The turbo cache decides what reruns.
-3. E2E, only when Kernel, shell, shared components or the mock server change. Run the new describe first, then the brief's "Impact" describes with `-g "A|B"`. Never run full `pnpm e2e` locally, except to reproduce a CI failure.
+3. E2E, only when Kernel, shell, shared components or the mock server change. Run the new describe first, then the brief's "Impact" describes with `-g "A|B"`. Never run full `pnpm e2e` locally, except to reproduce a CI failure. PR and main-push CI run only the affected specs (`.github/scripts/select-e2e.mjs`: all for `menus/**`, `packages/**` and anything it cannot narrow; none for docs-only; just that spec for a spec-only change). A green PR is therefore not a full E2E record; the release `full=true` run is.
 4. If menu manifests, `menus.ts`, contract menu types or `tooling/gen-menu` change: run `node tooling/gen-menu/scripts/probe.ts`, never in a worktree with a live preview.
 5. FeedbackOps gates, only when `.github/workflows/feedbackops.yml` `paths` are touched:
    - `bash ops/feedbackops/scripts/ci/gate.sh static --base origin/main` and `unit`.
