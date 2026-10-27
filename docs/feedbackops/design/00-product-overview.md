@@ -89,7 +89,7 @@ FeedbackOps Suite
 Implementation agents should read these required documents in order:
 
 ```text
-1. docs/README.md
+1. docs/feedbackops/INDEX.md
 2. 00-product-overview.md
 3. 01-domain-model.md
 4. 02-requirements-matrix.md

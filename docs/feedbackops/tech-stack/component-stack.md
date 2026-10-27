@@ -67,7 +67,7 @@ Those components must be owned by this codebase.
 The primitive source and the shared display components `ObjectRow`, `UserAvatar`,
 `UserChip`, `ProgressMeter`, `SeverityIndicator`, `PermissionBlockedPanel`, and
 `StatusBadgeFrame` live in the pinned `@ap/ui` package (analytics-platform's
-`packages/fo-ui`, tag `sdk-v0.5.0`). Matching paths in `packages/fo-ui/src` are
+`packages/ui`, tag `sdk-v0.5.0`). Matching paths in `packages/fo-ui/src` are
 compatibility re-exports for `@fops/ui`; the SDK ownership decision is recorded
 upstream in ADR-0050. FeedbackOps-owned composed components live at:
 

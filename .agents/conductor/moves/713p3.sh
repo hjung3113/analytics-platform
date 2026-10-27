@@ -2,7 +2,7 @@
 # 713p3: FeedbackOps 문서(products/feedbackops/{docs/**,AGENTS,CLAUDE,DESIGN,GLOSSARY,PRODUCT,README}.md, shadcn 스킬, .gitignore)를
 # docs/feedbackops/ 등 새 자리로 옮기고 경로 문자열을 고친다. products/feedbackops/를 비운다. 멱등.
 # 사용: bash .agents/conductor/moves/713p3.sh   (git 없이 옮기려면 MV=mv RM="rm -rf")
-# 손으로 고친 부분(루트 문서의 문장)은 이 스크립트에 없다 — 713p3 보고서의 「손 편집」 목록.
+# 기계 치환으로 안 되는 손 편집(설정·워크플로·게이트·문장)은 713p3-config.patch에 있고 맨 끝에서 멱등하게 적용한다.
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 MV="${MV:-git mv}"
@@ -81,13 +81,14 @@ for f in $FO_ROOT6; do
 done
 
 # (3) FO 문서(ADR 제외)와 여섯 문서: 코드 위치 표기 apps/backend|frontend, packages/shared|ui → apps/fo-*·packages/fo-*(p2가 못 고친 문서 쪽 잔여).
-#     ADR 본문은 결정 당시의 사실이라 그대로 둔다. packages/ui는 FO UI(@fops/ui)다; 워크플로 트리거(feedbackops.yml) 줄의 packages/ui/**는 플랫폼 @ap/ui다.
+#     ADR 본문은 결정 당시의 사실이라 그대로 둔다. packages/ui는 FO UI(@fops/ui)다; 워크플로 트리거(feedbackops.yml) 줄의 packages/ui/**와 `tag sdk-v…`가 붙은 줄의 packages/ui는 플랫폼 @ap/ui다.
 find "$NEW" -type f -name '*.md' -not -path "$NEW/adr/*" -not -path '*/node_modules/*' -print | while IFS= read -r f; do
   perl -pi \
     -e 's#(?<![\w/.-])apps/backend(?![\w-])#apps/fo-backend#g;' \
     -e 's#(?<![\w/.-])apps/frontend(?![\w-])#apps/fo-frontend#g;' \
     -e 's#(?<![\w/.-])packages/shared(?![\w-])#packages/fo-shared#g;' \
-    -e 'next if /feedbackops\.yml/; s#(?<![\w/.-])packages/ui(?![\w-])#packages/fo-ui#g;' "$f"
+    -e 's#^(\d+\. )docs/README\.md$#$1docs/feedbackops/INDEX.md#;' \
+    -e 'next if /feedbackops\.yml|tag `sdk-v/; s#(?<![\w/.-])packages/ui(?![\w-])#packages/fo-ui#g;' "$f"
 done
 
 # (4) FO 문서 안 링크 깊이. docs/feedbackops/ 안 파일의 폴더 깊이를 d라 하면 저장소 루트까지 `../`가 d+2번이다(옛 products/feedbackops/docs/는 d+3).
@@ -125,6 +126,7 @@ for f in $ROOT_FILES .claude/rules/fo-*.md; do
     -e 's#products/feedbackops/(AGENTS|CLAUDE|DESIGN|GLOSSARY|PRODUCT|README)\.md#docs/feedbackops/$1.md#g;' \
     -e 's#products/feedbackops/apps/backend(?![\w-])#apps/fo-backend#g; s#products/feedbackops/apps/frontend(?![\w-])#apps/fo-frontend#g;' \
     -e 's#products/feedbackops/packages/shared(?![\w-])#packages/fo-shared#g; s#products/feedbackops/packages/ui(?![\w-])#packages/fo-ui#g;' \
+    -e 's#(ADR-0043(?:, `| · ))products/feedbackops/package\.json#$1apps/fo-frontend/package.json#g;' \
     -e 's#products/feedbackops/package\.json#ops/feedbackops/package.json#g; s#products/feedbackops/scripts/#ops/feedbackops/scripts/#g;' \
     -e 's#products/feedbackops/\.claude/conductor#ops/feedbackops/conductor#g;' "$f"
 done
@@ -144,3 +146,16 @@ if [ -f "$NEW/AGENTS.md" ] && ! grep -qF 'Paths written as `docs/<x>` inside Fee
 fi
 
 echo "713p3: substituted"
+
+# ── 손 편집(설정·워크플로·게이트·문장) ─────────────────────────────────────
+# 위 규칙으로 만든 결과와 검토된 결과의 차이를 patch로 두었다(paths.{sh,mjs}, fe-biome-gate.mjs의 FO_ALLOWLIST_PREFIX 삭제, 허용 목록 접두·추가분,
+# 두 워크플로, 링크 검사기, hookify 규칙, 두 conductor.json, 루트·docs 문서 문장 …). 이미 적용돼 있으면(역방향 적용이 되면) 건너뛴다.
+PATCH=.agents/conductor/moves/713p3-config.patch
+if [ -f "$PATCH" ]; then
+  if patch -p1 -R --dry-run --silent <"$PATCH" >/dev/null 2>&1; then
+    echo "713p3: config patch already applied"
+  else
+    patch -p1 -N --no-backup-if-mismatch <"$PATCH"
+    echo "713p3: config patch applied"
+  fi
+fi

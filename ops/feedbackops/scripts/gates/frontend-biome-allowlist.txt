@@ -504,3 +504,13 @@ packages/fo-shared/src/errors/__tests__/retired-codes-gate.test.ts lint/suspicio
 packages/fo-shared/src/errors/__tests__/retired-codes-gate.test.ts format -- pre-existing on main at the old products/feedbackops path; 713p2 only rewrote path strings in this file (measured 2026-10-27, numstat 1-5 lines), so this is the first time the gate sees it
 packages/fo-shared/src/rich-content/allowlist.ts format -- pre-existing on main at the old products/feedbackops path; 713p2 only rewrote path strings in this file (measured 2026-10-27, numstat 1-5 lines), so this is the first time the gate sees it
 packages/fo-ui/__tests__/pickers.test.tsx lint/correctness/noUnusedImports -- pre-existing on main at the old products/feedbackops path; 713p2 only rewrote path strings in this file (measured 2026-10-27, numstat 1-5 lines), so this is the first time the gate sees it
+apps/fo-backend/src/modules/core/audit/audit-service.ts organizeImports -- pre-existing on main; 713p3 changed only a docs-path comment in this file (first time the gate sees it)
+apps/fo-backend/src/modules/attachments/repo.ts lint/style/noNonNullAssertion -- pre-existing on main; 713p3 changed only a docs-path comment in this file (first time the gate sees it)
+apps/fo-backend/src/modules/attachments/repo.ts format -- pre-existing on main; 713p3 changed only a docs-path comment in this file (first time the gate sees it)
+apps/fo-backend/src/seed/voc-fixtures.ts lint/style/useTemplate -- pre-existing on main; 713p3 changed only a docs-path comment in this file (first time the gate sees it)
+apps/fo-backend/src/seed/voc-fixtures.ts lint/style/noUnusedTemplateLiteral -- pre-existing on main; 713p3 changed only a docs-path comment in this file (first time the gate sees it)
+apps/fo-backend/src/seed/voc-fixtures.ts organizeImports -- pre-existing on main; 713p3 changed only a docs-path comment in this file (first time the gate sees it)
+apps/fo-backend/src/seed/voc-fixtures.ts format -- pre-existing on main; 713p3 changed only a docs-path comment in this file (first time the gate sees it)
+apps/fo-frontend/src/features/voc/hooks/useComposerDraft.ts organizeImports -- pre-existing on main; 713p3 changed only a docs-path comment in this file (first time the gate sees it)
+apps/fo-frontend/src/features/voc/hooks/useComposerDraft.ts format -- pre-existing on main; 713p3 changed only a docs-path comment in this file (first time the gate sees it)
+apps/fo-frontend/src/lib/copy/reporter-status-labels.ts format -- pre-existing on main; 713p3 changed only a docs-path comment in this file (first time the gate sees it)
