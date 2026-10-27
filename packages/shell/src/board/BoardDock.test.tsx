@@ -390,6 +390,33 @@ describe('dock renderer: group commands', () => {
     expect(written.mock.calls.filter(([key]) => key === V2_KEY)).toHaveLength(1);
   });
 
+  it('leaves the stored board as it was when the board unmounts with the pointer still down on a sash, and a fresh mount drags normally (#1013)', async () => {
+    seed(boardOf([sheet('a', { layout: '1x2', panes: [alpha(w1), beta(w2)] })]));
+    const sashEvent = (type: string, target: EventTarget, clientX: number) => {
+      const event = new Event(type, { bubbles: true, cancelable: true });
+      Object.assign(event, { clientX, clientY: 0, pointerId: 1 });
+      act(() => { target.dispatchEvent(event); });
+    };
+    const first = mount('/board?sheet=a');
+    await ready();
+    const before = localStorage.getItem(V2_KEY);
+    const written = vi.spyOn(localStorage, 'setItem');
+    sashEvent('pointerdown', document.querySelector<HTMLElement>('.dv-sash')!, 450);
+    sashEvent('pointermove', document, 520);
+    first.unmount();
+    await settle();
+    expect(written.mock.calls.filter(([key]) => key === V2_KEY)).toHaveLength(0);
+    expect(localStorage.getItem(V2_KEY)).toBe(before);
+    cleanup();
+    mount('/board?sheet=a');
+    await ready();
+    expect(paneTabs().length).toBeGreaterThan(0);
+    const props = dockProbe.latest!;
+    act(() => { props.onLayoutChange({ ...props.layout, sizes: [60, 40] } as typeof props.layout); });
+    await settle();
+    expect(tree()).toMatchObject({ type: 'branch', dir: 'row', sizes: [60, 40] });
+  });
+
   it('offers split only for a group with two or more panes', async () => {
     seed(boardOf([sheet('a', { layout: '1x2', panes: [alpha(w1), beta(w2)] })]));
     mount('/board?sheet=a');

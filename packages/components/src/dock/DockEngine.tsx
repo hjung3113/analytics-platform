@@ -76,7 +76,7 @@ function PanelHost({ api }: IDockviewPanelProps) {
       if (!(event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget))) engine.onActivate(id);
     }}>
     {/* A panel is a page-flow boundary: a workspace stacked inside it scrolls inside the panel and never changes the page around the dock. */}
-    <PageFlowContext.Provider value={null}><TransientOverlayScope active={visible}>{panel?.render() ?? null}</TransientOverlayScope></PageFlowContext.Provider>
+    <PageFlowContext.Provider value={null}><TransientOverlayScope active={visible}><div data-dock-panel-content className="h-full min-w-0 w-full">{panel?.render() ?? null}</div></TransientOverlayScope></PageFlowContext.Provider>
   </div>;
 }
 
@@ -101,6 +101,9 @@ function DockTab({ api }: IDockviewPanelHeaderProps) {
   </span>;
 }
 
+/** Fired on the layout root when a sash drag ends and the panel contents are released. */
+const RESIZE_END = 'dock-resize-end';
+
 function GroupActions({ activePanel, panels }: IDockviewHeaderActionsProps) {
   const engine = useEngine();
   const slot = useRef<HTMLDivElement>(null);
@@ -112,12 +115,14 @@ function GroupActions({ activePanel, panels }: IDockviewHeaderActionsProps) {
   useLayoutEffect(() => {
     const strip = slot.current?.closest<HTMLElement>('.dv-tabs-and-actions-container');
     if (!strip) return;
-    const measure = () => { setStripWidth(Math.round(strip.getBoundingClientRect().width)); };
+    // While a sash is dragged the width is read once, when the drag ends (`DockEngine` announces it), not on every frame.
+    const root = strip.closest('[data-dock-layout]');
+    const measure = () => { if (!root?.hasAttribute('data-dock-resizing')) setStripWidth(Math.round(strip.getBoundingClientRect().width)); };
     measure();
-    if (typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(measure);
-    observer.observe(strip);
-    return () => { observer.disconnect(); };
+    root?.addEventListener(RESIZE_END, measure);
+    const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(measure);
+    observer?.observe(strip);
+    return () => { observer?.disconnect(); root?.removeEventListener(RESIZE_END, measure); };
   }, [drawn]);
   if (!engine.renderGroupActions || !group) return null;
   return <div ref={slot} data-dock-group-actions data-dock-active={group.active} className="flex h-full min-w-0 items-center">{engine.renderGroupActions(group, { stripWidth })}</div>;
@@ -185,6 +190,9 @@ export default function DockEngine({
   const dragging = useRef(false);
   const released = useRef(false);
   const dragTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  // `deferred`: a sash drag changed the sizes and the parent has not been told yet (it is told once, when the drag ends); `frozen`: the panel hosts held at their size.
+  const deferred = useRef(false);
+  const frozen = useRef<HTMLElement[]>([]);
   const canonicalDisplay = useMemo(() => canonicalDockTree(display), [display]);
   const key = useMemo(() => JSON.stringify(canonicalDisplay), [canonicalDisplay]);
   const panelMinimums = useMemo(() => new Map(panels.map(panel => [panel.id, { minWidth: panel.minWidth, minHeight: panel.minHeight }])), [panels]);
@@ -235,14 +243,55 @@ export default function DockEngine({
 
   // Report what the user did to the engine (drag, sash, tab drop, tab activation) as a new tree. Sizes are only news while a sash is being
   // dragged: the engine's own px rounding, gaps and minimum sizes would otherwise differ from `layout` by a fraction on every load.
+  // While a sash is dragged the panel contents keep the size they had when it started and what overflows is clipped: the frame and the separators
+  // move live, the contents (charts, tables) are laid out again once, when the drag ends. Only this layout's own panels, not a layout nested in one.
+  const freeze = useCallback(() => {
+    const root = containerRef.current;
+    if (!root) return;
+    const hosts = Array.from(root.querySelectorAll<HTMLElement>('[data-dock-panel]')).filter(host => host.closest('[data-dock-layout]') === root);
+    const sizes = hosts.map(host => ({ host, width: host.clientWidth, height: host.clientHeight }));
+    root.setAttribute('data-dock-resizing', '');
+    for (const { host, width, height } of sizes) {
+      host.setAttribute('data-dock-frozen', '');
+      const content = host.querySelector<HTMLElement>('[data-dock-panel-content]');
+      if (content && width > 0 && height > 0) { content.style.width = `${width}px`; content.style.height = `${height}px`; }
+    }
+    frozen.current = hosts;
+  }, [containerRef]);
+  const thaw = useCallback(() => {
+    const root = containerRef.current;
+    if (!root?.hasAttribute('data-dock-resizing')) return;
+    for (const host of frozen.current) {
+      host.removeAttribute('data-dock-frozen');
+      const content = host.querySelector<HTMLElement>('[data-dock-panel-content]');
+      if (content) { content.style.width = ''; content.style.height = ''; }
+    }
+    frozen.current = [];
+    root.removeAttribute('data-dock-resizing');
+    root.dispatchEvent(new Event(RESIZE_END));
+  }, [containerRef]);
   const endDrag = useCallback(() => {
     clearTimeout(dragTimer.current);
     dragging.current = false;
     released.current = false;
+    deferred.current = false;
+    thaw();
+  }, [thaw]);
+  const report = useCallback((next: DockNode) => {
+    const nextKey = JSON.stringify(next);
+    // The engine fires several events for one change (active, move, layout) before the parent's commit; the same tree is reported once.
+    if (nextKey === emitted.current) return;
+    emitted.current = nextKey;
+    pending.current = true;
+    live.current.onLayoutChange(next);
+    // A parent that ignores the change leaves the engine ahead of `layout`; the epoch makes the reconcile below run and win.
+    setEpoch(value => value + 1);
   }, []);
   const check = useCallback((target: DockviewApi) => {
     if (applying.current) return;
-    scheduleMeasure();
+    // A sash drag is measured and reported when it ends, not on every frame of it.
+    const sashDrag = dragging.current && !released.current;
+    if (!sashDrag) scheduleMeasure();
     const current = live.current;
     if (!current.interactive) return;
     const shown = canonicalDockTree(current.layout);
@@ -253,17 +302,11 @@ export default function DockEngine({
     // so nothing later (a reconcile, a window resize) can be reported as this drag's sizes.
     if (released.current && read.measured) endDrag();
     if (!structural && !resized) return;
+    // The sizes of a drag in progress are only remembered; the final notification (or the release timer) tells the parent once.
+    if (resized && sashDrag) { deferred.current = true; return; }
     // Only a sash drag brings the engine's sizes along; any other change keeps the stored shares (the engine's px are rounded and clamped).
-    const next = resized ? read.tree : keepStoredSizes(read.tree, shown);
-    const nextKey = JSON.stringify(next);
-    // The engine fires several events for one change (active, move, layout) before the parent's commit; the same tree is reported once.
-    if (nextKey === emitted.current) return;
-    emitted.current = nextKey;
-    pending.current = true;
-    current.onLayoutChange(next);
-    // A parent that ignores the change leaves the engine ahead of `layout`; the epoch makes the reconcile below run and win.
-    setEpoch(value => value + 1);
-  }, [scheduleMeasure, endDrag]);
+    report(resized ? read.tree : keepStoredSizes(read.tree, shown));
+  }, [scheduleMeasure, endDrag, report]);
   useEffect(() => {
     if (!api) return;
     const subscriptions = [api.onDidLayoutChange(() => { check(api); }), api.onDidActivePanelChange(() => { check(api); }), api.onDidMovePanel(() => { setMoves(value => value + 1); check(api); })];
@@ -273,14 +316,24 @@ export default function DockEngine({
     // `onDidLayoutChange`, an `AsapEvent` fired from `queueMicrotask` (:2952-2953, :300-307). That notification is the drag's final one and `check`
     // consumes the permission there. A drag that changed nothing sends none, so the timer lowers the flag once the dispatch and its microtasks are
     // done; `applyLayout` lowers it too when a caller-owned layout lands first.
+    // No final notification came: lower the flag, and tell the parent the sizes the drag left in the engine, if it changed any.
+    const settle = () => {
+      const owed = deferred.current && released.current;
+      endDrag();
+      scheduleMeasure();
+      if (!owed) return;
+      const shown = canonicalDockTree(live.current.layout);
+      const read = readEngine(api, shown);
+      if (live.current.interactive && read.measured && sameDockTree(read.tree, shown, { sizes: false }) && !sameDockTree(read.tree, shown, { sizes: true, tolerance: 0.05 })) report(read.tree);
+    };
     const up = () => {
       if (!dragging.current || released.current) return;
       released.current = true;
       clearTimeout(dragTimer.current);
-      dragTimer.current = setTimeout(endDrag, 0);
+      dragTimer.current = setTimeout(settle, 0);
     };
     const down = (event: Event) => {
-      if (event.target instanceof Element && event.target.closest('.dv-sash')) { endDrag(); dragging.current = true; }
+      if (event.target instanceof Element && event.target.closest('.dv-sash')) { endDrag(); dragging.current = true; freeze(); }
     };
     container?.addEventListener('pointerdown', down, true);
     window.addEventListener('pointerup', up, true);
@@ -292,7 +345,7 @@ export default function DockEngine({
       window.removeEventListener('pointerup', up, true);
       window.removeEventListener('pointercancel', up, true);
     };
-  }, [api, check, containerRef, endDrag]);
+  }, [api, check, containerRef, endDrag, freeze, report, scheduleMeasure]);
 
   /** Puts the live engine on `live.current.canonicalDisplay` (shares at the engine's current size) and brings focus back to the tab it had. */
   const applyLayout = useCallback((target: DockviewApi, appliedKey: string, appliedMeta: string) => {
