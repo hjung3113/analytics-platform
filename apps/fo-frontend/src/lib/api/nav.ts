@@ -59,7 +59,7 @@ export async function fetchNavCounts(options?: {
 
 /**
  * Command palette display-id resolution (#611): `GET /nav/resolve?display_id=`
- * per docs/implementation/api/navigation.md. Missing, foreign-workspace, and
+ * per docs/feedbackops/implementation/api/navigation.md. Missing, foreign-workspace, and
  * not-readable records all arrive as the identical `404 not_found.record`
  * ApiError; malformed ids are `422 validation.failed`.
  */

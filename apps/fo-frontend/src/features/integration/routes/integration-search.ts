@@ -41,7 +41,7 @@ export function validateEvidenceSearch(raw: unknown) {
   return parseRouteSearch(evidenceSearchSchema, raw);
 }
 
-// docs/frontend/routes-and-layout.md: /integration/coverage?managedSystem=:managedSystemId|all
+// docs/feedbackops/frontend/routes-and-layout.md: /integration/coverage?managedSystem=:managedSystemId|all
 export const integrationCoverageSearchSchema = z
   .object({
     view: z.literal('areas').optional(),

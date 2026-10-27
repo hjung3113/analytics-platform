@@ -38,7 +38,7 @@
             "any": [
               {
                 "prefix": [
-                  "products/feedbackops/",
+                  "docs/feedbackops/",
                   "apps/fo-",
                   "packages/fo-",
                   "ops/feedbackops/"
@@ -138,7 +138,7 @@
         "name": "submodule",
         "match": {
           "prefix": [
-            "products/feedbackops/",
+            "docs/feedbackops/",
             "apps/fo-",
             "packages/fo-",
             "ops/feedbackops/"

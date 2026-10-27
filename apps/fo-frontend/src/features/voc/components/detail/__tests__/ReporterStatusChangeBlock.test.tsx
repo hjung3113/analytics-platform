@@ -2,7 +2,7 @@
 // C4.1: 7 tests — order, forbidden DOM disabled, forbidden Callout, gate Callout,
 //        with-body preview, empty-body preview, 변경 예정 chip.
 //
-// Prototype ref: docs/design-prototype/screen-voc.jsx:537-655
+// Prototype ref: docs/feedbackops/design-prototype/screen-voc.jsx:537-655
 
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';

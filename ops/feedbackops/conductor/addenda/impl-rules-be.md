@@ -1,7 +1,7 @@
 # Backend addendum to 00-IMPL-RULES.md (read both)
 
 1. Read `apps/fo-backend/AGENTS.md` and every module `AGENTS.md` you touch, plus
-   `docs/implementation/02-domain-module-boundaries.md` §Approved cross-module surfaces.
+   `docs/feedbackops/implementation/02-domain-module-boundaries.md` §Approved cross-module surfaces.
 2. Backend integration suites are env-gated: they skip without a DB. Your task names **your own throwaway issue
    database** (port 5439) and the exact command:
    `FEEDBACKOPS_ENV_FILE=<abs worktree>/.review/env.verify pnpm --filter @fops/backend test:integration <files>`

@@ -132,7 +132,7 @@ export async function assignTaskResponsibility(
 }
 
 // #1181 — POST /tasks/:id/milestone. `null` clears the assignment; If-Match is
-// the Task's updated_at (docs/implementation/api/tasks.md §POST /tasks/:id/milestone).
+// the Task's updated_at (docs/feedbackops/implementation/api/tasks.md §POST /tasks/:id/milestone).
 export async function assignTaskMilestone(
   id: string,
   body: AssignTaskMilestoneRequest,

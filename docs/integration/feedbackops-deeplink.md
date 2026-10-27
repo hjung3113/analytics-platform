@@ -46,7 +46,7 @@ https://feedbackops.example/home
 - **기간 `from`/`to`, 설비 Selection → 보내지 않음.** VOC create body에 그 필드가 없고 strict search가 거부한다.
 - **플랫폼 `returnTo` → 보내지 않음.** FeedbackOps `sanitizeLoginReturnTo`는 same-origin 상대경로만 받고 `redirectTo`는 로그인 전용이며, `/vocs`·`/tasks`의 `returnTo`는 FeedbackOps 안 경로 세 개(`/home`·`/integration`·`/integration/coverage`)만 받는다.
 - **복귀 → `platformReturn`(contract 2, FO ADR-0071).** `voc-create`·`voc-detail`·`voc-list`·`task-list`·`survey-list`·`survey-detail`이 선택 필드 `platformReturn`을 받아 쿼리 맨 끝에 붙인다. `overall`(`/home`)은 받지 않는다. 값은 링크를 그린 플랫폼 화면의 절대 URL이다 — 셸 사이드바는 `FeedbackOpsSlot.entriesFor(spaceId, platformReturn)`로, '내 VOC'는 자기 화면 URL로 넘긴다. 규칙은 FeedbackOps와 같다: 절대 URL, 2048자 이하(`PLATFORM_RETURN_MAX`), `https`(`http`는 `localhost`·`127.0.0.1`만), userinfo 없음. 생성·파스 모두 어기면 `feedbackops_return`으로 거부한다. 화면은 `platformReturnFor(전체 URL, 경로만 URL)`로 고른다: 전체 URL이 길면 경로만, 그것도 안 되면 키를 빼고 링크는 그대로 둔다. 링크가 보이는지는 FeedbackOps 배포의 `PLATFORM_RETURN_ORIGINS`에 플랫폼 origin이 있는지로 정해지고(그쪽 판정), 그 밖이면 FeedbackOps가 아무것도 그리지 않는다. 키는 FeedbackOps URL에만 살아서 그쪽에서 다른 화면으로 옮기면 사라질 수 있다.
-- **설문 응답 화면은 있지만 딥링크 타입은 아직 두지 않는다.** FeedbackOps에는 로그인 사용자용 설문 참여 목록 `/surveys/participate`와 응답 폼 `/surveys/$surveyId/respond`가 있다(서브모듈 `dc7638f`에서 확인, FeedbackOps #726). 공개 링크는 FeedbackOps [ADR-0036](../../products/feedbackops/docs/adr/0036-survey-link-distribution-and-respondent-model.md)에서 Rejected(2026-10-13)다 — MVP 응답자는 AD 인증 내부 사용자이고, 외부 응답이 필요해지면 새 ADR로 시작한다. 플랫폼은 이 두 경로로 링크하지 않는다 — 설문 진입은 목록·상세까지다(ADR-0045).
+- **설문 응답 화면은 있지만 딥링크 타입은 아직 두지 않는다.** FeedbackOps에는 로그인 사용자용 설문 참여 목록 `/surveys/participate`와 응답 폼 `/surveys/$surveyId/respond`가 있다(서브모듈 `dc7638f`에서 확인, FeedbackOps #726). 공개 링크는 FeedbackOps [ADR-0036](../feedbackops/adr/0036-survey-link-distribution-and-respondent-model.md)에서 Rejected(2026-10-13)다 — MVP 응답자는 AD 인증 내부 사용자이고, 외부 응답이 필요해지면 새 ADR로 시작한다. 플랫폼은 이 두 경로로 링크하지 않는다 — 설문 진입은 목록·상세까지다(ADR-0045).
 
 호출은 `<a href target="_blank" rel="noopener noreferrer">`다(사이드바 `VOC`의 셸 안 이동은 제외). `navigate`/`linkTo`/플랫폼 `returnTo`에 절대 URL을 넣지 않는다. 플랫폼 `returnTo`는 `isAppRelativePath` + `safeReturnTo`(등록 라우트, `pageKeys`로 `parseQuery`)만 사용한다.
 
@@ -89,7 +89,7 @@ https://platform.example/analytics/cycle-time?v=1&scopeId=MEM&from=2026-09-25T09
 
 ## 4. 변경 절차
 
-1. FeedbackOps 라우트·스키마 변경은 `products/feedbackops/`를 고치는 이 저장소 PR로 한다(#592) → 이 문서를 같은 PR에서 갱신하고 링크 키가 바뀌면 헤더의 관찰 기준 커밋을 고친다(`platformReturn`, #448).
+1. FeedbackOps 라우트·스키마 변경은 `apps/fo-*`·`packages/fo-*`·`docs/feedbackops/`를 고치는 이 저장소 PR로 한다(#592) → 이 문서를 같은 PR에서 갱신하고 링크 키가 바뀌면 헤더의 관찰 기준 커밋을 고친다(`platformReturn`, #448).
 2. 새 키로 조회 의미가 바뀌면 플랫폼은 `v` bump(06 §6.4), 이 통합 문서는 `contract` bump를 함께 올린다.
 3. **생성기는 이 문서 allowlist 밖의 키를 내지 않는다.** 허용 전 생성기 변경 금지. 테스트(`feedbackops-link.test.ts`)가 이 불변을 단언한다.
 

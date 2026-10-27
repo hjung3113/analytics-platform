@@ -5,7 +5,7 @@ import type * as React from 'react';
 // (.review/fix-514-pixel-final-fidelity-prompt.txt). The shared pill/badge/
 // avatar primitives render the roomier defaults (rounded-full, 12px
 // semibold/primary text, muted mark); the milestone surfaces need the
-// prototype's compact .badge geometry (docs/design-prototype/styles.css:
+// prototype's compact .badge geometry (docs/feedbackops/design-prototype/styles.css:
 // 20px height, 6px padding, 4px radius, --text-tiny 11px, weight 500,
 // transparent + --shadow-subtle). Badge and avatar geometry remains local to
 // milestones; the repeated title scale uses PanelSectionTitle's named variant.

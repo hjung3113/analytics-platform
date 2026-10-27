@@ -8,7 +8,7 @@ import {
 export type { MilestoneDetailPanelProps } from './useMilestoneDetailParts';
 
 // #514 B2d — Milestone detail panel mirroring MilestoneDetailPanel in
-// docs/design-prototype/screen-milestones.jsx, mounted in the existing
+// docs/feedbackops/design-prototype/screen-milestones.jsx, mounted in the existing
 // ListShell detail slot (never a new shell). This is the standalone frame
 // around the detail parts (`useMilestoneDetailParts`).
 export function MilestoneDetailPanel(props: MilestoneDetailPanelProps) {

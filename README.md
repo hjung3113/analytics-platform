@@ -2,9 +2,9 @@
 
 `context_recognized_parser`가 적재한 설비 로그 데이터를 소비하는 분석 플랫폼. 설비관리, 기준정보관리, 생산성 분석, 지표관리, 공지, VOC를 아우르는 다중 메뉴 플랫폼.
 
-플랫폼 프론트엔드는 루트 pnpm workspace로 개발 중이다(서버는 mock). `products/feedbackops/`는 같은 저장소의 디렉터리지만 루트 workspace에 포함하지 않고(자체 중첩 workspace 유지) UI primitive는 `@ap/ui`가 소유한다(ADR-0046). 서버·배포 통합은 아직 결정하지 않았다.
+플랫폼 프론트엔드는 루트 pnpm workspace로 개발 중이다(서버는 mock). FeedbackOps(`apps/fo-*`·`packages/fo-*`·`docs/feedbackops/`)는 같은 저장소의 코드이며 루트 workspace의 일부이고 UI primitive는 `@ap/ui`가 소유한다(ADR-0046). 서버·배포 통합은 아직 결정하지 않았다.
 
-시작점: [플랫폼 문서](docs/INDEX.md) · [저장소 구조와 FeedbackOps 사용법](docs/integration/repository-layout.md) · [FeedbackOps README](products/feedbackops/README.md)
+시작점: [플랫폼 문서](docs/INDEX.md) · [저장소 구조와 FeedbackOps 사용법](docs/integration/repository-layout.md) · [FeedbackOps README](docs/feedbackops/README.md)
 
 ```text
 docs/                     플랫폼 설계 문서
@@ -15,7 +15,8 @@ packages/                 플랫폼 패키지: contracts, ui, kernel, components
 menus/                    메뉴 Consumer 패키지(@ap/menu-<group>)
 tooling/                  공유 도구: tsconfig, eslint 경계 규칙, gen-menu, css-selectors
 archive/               통합 전 Kernel 단위 프로토타입(보존)
-products/feedbackops/     FeedbackOps 디렉터리, 자체 중첩 workspace(구조는 저장소 구조 문서)
+apps/fo-*, packages/fo-*  FeedbackOps 앱·패키지(@fops/*), 도구는 ops/feedbackops/
+docs/feedbackops/        FeedbackOps 문서(구조는 저장소 구조 문서)
 .agents/                  플랫폼 에이전트 자산
 ```
 

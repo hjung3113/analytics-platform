@@ -182,7 +182,7 @@ _Avoid_: 서버 포트, API(단독) — 포트는 네트워크 포트와, API는
 
 ### 업무 시스템과 협업
 
-VOC·Task·설문·알림의 정의는 [FeedbackOps 용어집](products/feedbackops/GLOSSARY.md)이 원본이다. 아래는 플랫폼에서 그 용어가 닿는 자리다.
+VOC·Task·설문·알림의 정의는 [FeedbackOps 용어집](docs/feedbackops/GLOSSARY.md)이 원본이다. 아래는 플랫폼에서 그 용어가 닿는 자리다.
 
 **Managed System**:
 FeedbackOps가 피드백과 개선 작업을 추적하는 사내 시스템 하나. 업무 시스템은 Managed System 하나에 연결될 수 있지만 같은 개념이 아니다 — 업무 시스템 둘이 같은 Managed System을 가리킬 수 있고, 연결은 기본값과 이동에만 쓰이며 권한을 주지 않는다([ADR-0068](docs/adr/0068-permission-scope-and-business-system-link.md)). Scope(room_name)와도 다르다.

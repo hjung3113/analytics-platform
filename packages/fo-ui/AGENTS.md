@@ -76,8 +76,8 @@
   drops it next to `text-text-muted` (#782).
 - `components.json` here only points `@shadcn/lint` at the app's Tailwind
   entry (ADR-0062). It is not a shadcn CLI config; use the intake guidance in
-  `docs/tech-stack/component-stack.md`.
-- Follow `docs/frontend/tokens.md` tokens for light surfaces, spacing, typography, and density; do not introduce a new visual theme from `packages/ui`.
+  `docs/feedbackops/tech-stack/component-stack.md`.
+- Follow `docs/feedbackops/frontend/tokens.md` tokens for light surfaces, spacing, typography, and density; do not introduce a new visual theme from `packages/ui`.
 - Promote from feature-local code only after a second real consumer proves reuse.
 - Every reusable component must define loading, empty, error, disabled, focus-visible, and permission-limited behavior when applicable.
 - Icon-only controls require accessible labels and tooltips.

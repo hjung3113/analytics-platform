@@ -61,7 +61,7 @@ const PARTIAL_COVERAGE_SUBTITLE = '부분 커버리지. 정책이 요구하는 �
 
 // Coverage columns are the five rollup ratios; the queue columns are the five
 // per-system queues. permission-requests-pending is workspace review, never a
-// system row key (docs/implementation/api/dashboard.md), so it has no column.
+// system row key (docs/feedbackops/implementation/api/dashboard.md), so it has no column.
 type SystemCoverageColumn = Exclude<DashboardCoverageId, 'milestone-outcome'>;
 const COVERAGE_COLUMNS: SystemCoverageColumn[] = [
   'voc-task',
@@ -271,7 +271,7 @@ export function CoverageScreen(): React.ReactElement {
 
   // A successful response whose projections are all omitted is an
   // availability state, not an empty result set of zeros
-  // (docs/implementation/api/dashboard.md: absence is not zero).
+  // (docs/feedbackops/implementation/api/dashboard.md: absence is not zero).
   const isEmptySummary =
     summary.data !== undefined &&
     summary.data.coverage.length === 0 &&

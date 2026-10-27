@@ -4,7 +4,7 @@
 
 Attachments owns the upload (`POST /attachments`) and download (`GET /attachments/:id/download`) commands, the storage seam, the filename and MIME rules, and the link step that attaches an uploaded file to a VOC or VOC comment (`linkAttachments`). It writes only `voc.voc_attachments`.
 
-It is the implementation of Core's attachment governance (`docs/implementation/02-domain-module-boundaries.md`), not a second owner. Storage shape and server-proxied transfer are ADR-0011. VOC owns the read projections of its own attachment links (`voc/repo-read.ts`).
+It is the implementation of Core's attachment governance (`docs/feedbackops/implementation/02-domain-module-boundaries.md`), not a second owner. Storage shape and server-proxied transfer are ADR-0011. VOC owns the read projections of its own attachment links (`voc/repo-read.ts`).
 
 ## Invariants
 

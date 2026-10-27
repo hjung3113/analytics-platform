@@ -2,7 +2,7 @@
 //
 // REV-1's gate was role_level !== 'user'. That allowed a Developer (or any
 // non-'user' role label) to enter the triage queue even when their actual
-// voc.triage capability scope was empty. Per docs/design/09-permission-access.md
+// voc.triage capability scope was empty. Per docs/feedbackops/design/09-permission-access.md
 // the frontend must not derive authorization from display labels — capability
 // is the authoritative signal. The fix wires the route to
 // usePermissionCheck({ capability: 'voc.triage' }) and renders

@@ -1,4 +1,4 @@
-// #611 command palette copy. Prototype authority: docs/design-prototype/cmdk.jsx
+// #611 command palette copy. Prototype authority: docs/feedbackops/design-prototype/cmdk.jsx
 // (placeholder, empty state, footer) rendered verbatim; chrome is Korean per
 // ADR-0057 A2 (prototype's English command labels become the app's Korean nav
 // labels — see CommandPalette command building).
@@ -32,7 +32,7 @@ export const COMMAND_PALETTE_COPY = {
   notFound: '해당 항목을 찾을 수 없거나 접근 권한이 없습니다.',
 } as const;
 
-/** Display ids the first version can open via GET /nav/resolve (docs/implementation/api/navigation.md). */
+/** Display ids the first version can open via GET /nav/resolve (docs/feedbackops/implementation/api/navigation.md). */
 export const DISPLAY_ID_PATTERN = /^(VOC|FIN|REQ|TASK)-[1-9][0-9]*$/i;
 
 /** `voc-12` → `VOC-12`; `undefined` when the query is not a display id. */

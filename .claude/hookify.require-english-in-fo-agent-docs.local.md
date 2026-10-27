@@ -6,7 +6,7 @@ action: block
 conditions:
   - field: file_path
     operator: regex_match
-    pattern: (/memory/[^/]+\.md$|products/feedbackops/(.*/)?(AGENTS|CLAUDE)\.md$|\.claude/rules/fo-[^/]+\.md$)
+    pattern: (/memory/[^/]+\.md$|(docs/feedbackops|apps/fo-(backend|frontend)|packages/fo-(shared|ui)|ops/feedbackops)/(.*/)?(AGENTS|CLAUDE)\.md$|\.claude/rules/fo-[^/]+\.md$)
   - field: content
     operator: regex_match
     pattern: '[가-힣ᄀ-ᇿ㄰-㆏]'

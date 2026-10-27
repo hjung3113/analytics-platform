@@ -19,7 +19,7 @@
           },
           {
             "prefix": [
-              "docs/",
+              "docs/feedbackops/",
               "apps/fo-frontend/src/lib/copy/"
             ]
           }

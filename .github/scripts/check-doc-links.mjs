@@ -33,7 +33,7 @@ import { lstatSync, readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 
 const DEFAULT_EXCLUDES = [
-  'products/', // FeedbackOps docs keep their own link conventions
+  'docs/feedbackops/', // FeedbackOps docs keep their own link conventions
   '.agents/skills/', // vendored external skills
   '.agents/references/', // vendored external references
   '.review/', // local scratch

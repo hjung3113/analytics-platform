@@ -1,7 +1,7 @@
 import { parseRouteSearch, returnToField } from '@/lib/host/search-fields';
 import { z } from 'zod';
 
-// Tab + selection are URL state (docs/frontend/routes-and-layout.md §URL State
+// Tab + selection are URL state (docs/feedbackops/frontend/routes-and-layout.md §URL State
 // Rules): /admin/permissions/requests?tab=approved&selected=:requestId.
 // `pending` is the default tab and omitted from the URL.
 export const permissionRequestsSearchSchema = z

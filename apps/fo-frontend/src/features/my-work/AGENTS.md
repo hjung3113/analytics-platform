@@ -25,8 +25,8 @@ This folder does not own a screen. Home's assigned-work panel is `features/home/
 - `apps/fo-frontend/src/features/home/homeNavigation.tsx` — Home queue destinations; no My Work destination is registered.
 - `apps/fo-frontend/src/routes/_authed/tasks.tsx` — maps `view=my` to `TaskListRoute` and passes its view mode.
 - `apps/fo-frontend/src/features/tasks/routes/TaskListRoute.tsx` — Task list; `view=my` filters to Tasks assigned to the current actor.
-- `docs/adr/0038-entity-link-management-surface-out-of-mvp.md` — records the MVP My Work exclusion.
-- `docs/adr/0040-ux-voc-home-navigation-deviations.md` — records the remaining Home assigned-work panel.
+- `docs/feedbackops/adr/0038-entity-link-management-surface-out-of-mvp.md` — records the MVP My Work exclusion.
+- `docs/feedbackops/adr/0040-ux-voc-home-navigation-deviations.md` — records the remaining Home assigned-work panel.
 
 ## Verification
 

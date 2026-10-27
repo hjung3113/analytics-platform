@@ -77,7 +77,7 @@ async function loadTypeScriptSource<T>(sourceUrl: URL, label: string): Promise<T
   const sourcePath = fileURLToPath(sourceUrl);
   if (!existsSync(sourcePath)) {
     throw new Error(
-      `Required ${label} source is missing at ${sourcePath}. The products/feedbackops directory must be present before running this parity test.`,
+      `Required ${label} source is missing at ${sourcePath}. The packages/fo-shared directory must be present before running this parity test.`,
     );
   }
 

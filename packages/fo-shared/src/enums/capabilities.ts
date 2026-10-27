@@ -4,7 +4,7 @@
 // remains scannable and the permission UI can group by module.
 //
 // Sensitive marker: certain capabilities require a reason on request per
-// docs/implementation/05-permission-policy.md ## Sensitive Permissions.
+// docs/feedbackops/implementation/05-permission-policy.md ## Sensitive Permissions.
 // `workspace.admin` is the concrete Slice 1 implementation of the policy
 // doc's "Admin permission" entry and is therefore Sensitive — a request for
 // it must carry a non-empty reason and the audit detail must mark it
@@ -83,10 +83,10 @@ export const CAPABILITY_META: Readonly<Record<Capability, CapabilityMeta>> = {
   // ADR-0033 §C: same Admin bypass as survey.read, explicit deny dominant.
   'survey.manage': { sensitive: true, adminModuleBypass: 'unless_denied' },
   // Workspace Admin does not bypass this by role alone; explicit permission is required.
-  // See docs/design/07-survey-system.md and ADR-0033 §C ("no role bypass, including Admin").
+  // See docs/feedbackops/design/07-survey-system.md and ADR-0033 §C ("no role bypass, including Admin").
   'survey.read_personal_responses': { sensitive: true, adminModuleBypass: 'none' },
   // Workspace Admin does not bypass this by role alone; explicit permission is required.
-  // See docs/design/07-survey-system.md and ADR-0033 §C ("no role bypass, including Admin").
+  // See docs/feedbackops/design/07-survey-system.md and ADR-0033 §C ("no role bypass, including Admin").
   'survey.export': { sensitive: true, adminModuleBypass: 'none' },
 };
 

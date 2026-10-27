@@ -4,7 +4,7 @@ import { expect, test } from './support/visual-test';
 
 // #611 — the palette is app-shell chrome, captured over the Home action
 // dashboard. jsdom covers the behavior matrix; these two screenshots pin the
-// prototype panel (docs/design-prototype/cmdk.jsx + probe-cmdk.png): default
+// prototype panel (docs/feedbackops/design-prototype/cmdk.jsx + probe-cmdk.png): default
 // grouped list, and the 열기 row for a display-id query.
 
 test.describe('/home command palette', () => {

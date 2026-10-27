@@ -2,7 +2,7 @@
 //
 // C5.3 (slice3 #21)
 // Spec: PLAN-21-SUBCHUNKS.md C5.3
-// Prototype ref: docs/design-prototype/screen-voc.jsx:415-468 (reply variant)
+// Prototype ref: docs/feedbackops/design-prototype/screen-voc.jsx:415-468 (reply variant)
 //
 // Endpoint: POST /vocs/:id/reporter-replies
 // Body: { body_rich_content, attachment_ids? }

@@ -1,5 +1,5 @@
 // Audit event vocabulary. The canonical verb list is locked verbatim by
-// the "Audit events" list in docs/implementation/05-permission-policy.md
+// the "Audit events" list in docs/feedbackops/implementation/05-permission-policy.md
 // under the heading "### Permission Request self-approval policy"
 // (snake_case, single token, no dot — e.g. `permission_requested`,
 // `permission_approved`).

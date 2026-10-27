@@ -1,5 +1,5 @@
 // Idempotency lookup/reserve service. Owned by the Core module per
-// docs/implementation/02-domain-module-boundaries.md.
+// docs/feedbackops/implementation/02-domain-module-boundaries.md.
 //
 // Protocol (ADR-0015:71-90):
 //   1. Lookup (actor_id, key) in core.idempotency_keys.

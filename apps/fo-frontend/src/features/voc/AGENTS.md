@@ -76,4 +76,4 @@ While loading, keep the mounted check button focusable with `aria-disabled="true
 Distinguish quota/provider/empty states, leave submit usable, and preserve UUID navigation's unsaved-change blocker.
 No draft VOC, dismiss/confirm/join or extra continue step. Use existing copy module
 and shared similarity-preview schemas with typed `apiRequest`. Saved recommendation
-states above remain distinct from the preview union in `docs/implementation/api/voc.md`.
+states above remain distinct from the preview union in `docs/feedbackops/implementation/api/voc.md`.

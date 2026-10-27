@@ -48,7 +48,7 @@
 }
 
 @layer base {
-  /* Prototype body spec (docs/design-prototype/styles.css .body rule):
+  /* Prototype body spec (docs/feedbackops/design-prototype/styles.css .body rule):
      Pack 17 body size + leading on top of the Inter stack. */
   body {
     font-family: var(--font-sans);

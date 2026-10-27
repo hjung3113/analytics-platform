@@ -3,8 +3,8 @@ import type { RecoveryRecorder } from '../dashboard/recorder.js';
 import { RECOVERY_PERMISSION_ACTIVE_STATUSES } from './recovery-read.js';
 // Permission-request application service. Owns permission request commands and
 // permission_requests read models per
-// docs/implementation/02-domain-module-boundaries.md and
-// docs/implementation/05-permission-policy.md.
+// docs/feedbackops/implementation/02-domain-module-boundaries.md and
+// docs/feedbackops/implementation/05-permission-policy.md.
 //
 // Single transaction contract (AGENTS.md, ADR-0008):
 //   1. Idempotency lookup against (actor_id, key).
@@ -128,7 +128,7 @@ export function createRequestService(deps: RequestServiceDeps) {
     }
     const capability: Capability = body.requested_capability;
     const sensitive = isSensitiveCapability(capability);
-    // Sensitive capabilities (docs/implementation/05-permission-policy.md ## Sensitive Permissions)
+    // Sensitive capabilities (docs/feedbackops/implementation/05-permission-policy.md ## Sensitive Permissions)
     // require a non-empty `reason`. The route Zod schema already requires
     // `reason.min(1)`, but we re-check here so the service emits a distinct
     // ADR-0012 code that downstream UIs can surface specifically.

@@ -7,7 +7,7 @@
 // IDs of `uploaded` rows via `onChange(serverAttachmentIds)`.
 //
 // Prototype mirror (verbatim copy):
-// docs/design-prototype/screen-voc-create.jsx:146-194 (FieldLabel "첨부",
+// docs/feedbackops/design-prototype/screen-voc-create.jsx:146-194 (FieldLabel "첨부",
 // dropzone-compact, multi-file <input>, AttachmentRow rendering, max-25MB).
 // AttachmentRow (icon mapping, oversize / pending / uploaded state, remove
 // button, formatFileSize) mirrors screen-voc-create.jsx:285-340.

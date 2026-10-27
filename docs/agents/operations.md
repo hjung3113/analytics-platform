@@ -31,7 +31,7 @@
 
 - `orca worktree create --setup run|skip`은 의존성을 설치하지 않는다 → `pnpm install --frozen-lockfile --config.optimistic-repeat-install=false`. 기본으로 생기는 셸 탭은 닫는다.
 - pnpm 11은 설정(`pnpm-workspace.yaml`)만 바뀌면 "Already up to date"로 건너뛴다 → `pnpm install --config.optimistic-repeat-install=false`.
-- `products/feedbackops/`는 루트 workspace의 일부다(ADR-0066, #642): 루트 `pnpm install` 한 번이 FeedbackOps도 설치하고 lockfile은 하나다. 루트 `lint|typecheck|test|build`는 `--filter='!@fops/*' --filter='!feedbackops'`로 FeedbackOps를 뺀다([저장소 구조](../integration/repository-layout.md)). 가드 `.github/scripts/check-platform-turbo-scope.mjs`는 `@fops/*` 패키지가 루트 작업 그래프에 들어오지 않았는지 확인한다. 의존 패키지 해시는 스크립트 없는 `transit` 태스크가 전파하고(#390), `--only`는 의존 해시까지 지워 로컬 캐시가 CI를 못 따라가게 하므로(#388) 쓰지 않는다.
+- FeedbackOps(`apps/fo-*`·`packages/fo-*`)는 루트 workspace의 일부다(ADR-0066, #642): 루트 `pnpm install` 한 번이 FeedbackOps도 설치하고 lockfile은 하나다. 루트 `lint|typecheck|test|build`는 `--filter='!@fops/*' --filter='!feedbackops'`로 FeedbackOps를 뺀다([저장소 구조](../integration/repository-layout.md)). 가드 `.github/scripts/check-platform-turbo-scope.mjs`는 `@fops/*` 패키지가 루트 작업 그래프에 들어오지 않았는지 확인한다. 의존 패키지 해시는 스크립트 없는 `transit` 태스크가 전파하고(#390), `--only`는 의존 해시까지 지워 로컬 캐시가 CI를 못 따라가게 하므로(#388) 쓰지 않는다.
 
 - 문서 링크 검사는 `node .github/scripts/check-doc-links.mjs`로 직접 돌려도 된다(`products/`는 검사에서 제외된다).
 

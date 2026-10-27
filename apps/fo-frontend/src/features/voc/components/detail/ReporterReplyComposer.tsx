@@ -5,8 +5,8 @@
 //                     idempotency_key_reuse locks submit + preview)
 //
 // Spec: PLAN-21-SUBCHUNKS.md C5.3 / C5.5
-// Prototype ref: docs/design-prototype/screen-voc.jsx:415-468 (reply variant)
-//               docs/design-prototype/screen-voc.jsx:486-504 (PreviewModal mount)
+// Prototype ref: docs/feedbackops/design-prototype/screen-voc.jsx:415-468 (reply variant)
+//               docs/feedbackops/design-prototype/screen-voc.jsx:486-504 (PreviewModal mount)
 //
 // Verbatim prototype JSX (lines 415-468, Pack 17 translation, reply variant):
 //

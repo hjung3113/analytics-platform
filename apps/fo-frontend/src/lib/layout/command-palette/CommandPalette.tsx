@@ -24,7 +24,7 @@ import {
 import { shortcutLabel } from './platform';
 import { useCommandPaletteShortcut } from './useCommandPaletteShortcut';
 
-// #611 command palette — spec: docs/design-prototype/cmdk.jsx (panel, input row,
+// #611 command palette — spec: docs/feedbackops/design-prototype/cmdk.jsx (panel, input row,
 // grouped small-cap rows, empty state, footer), platform-aware shortcut (issue
 // #611 owner decision). Composed from @fops/ui Radix dialog primitives with
 // cmdk's <Command> inside: Command.Dialog cannot forward onInteractOutside, and
