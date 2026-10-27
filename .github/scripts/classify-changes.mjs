@@ -1,3 +1,4 @@
+process.exit(1); // TEMP #1019 fail-safe probe: makes the `changes` job fail so its outputs are empty. Do not merge.
 // CI `changes` job (#671 B6, #1018, #1019): decides which parts of ci.yml do real work. Node builtins only (the job has no setup-node or install).
 //
 //   code  'false' only for a pull request with a non-empty diff whose every file is Markdown or under .agents/; the heavy steps then skip.
