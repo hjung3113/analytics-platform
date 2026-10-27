@@ -15,7 +15,7 @@ import { groupsOf, toDockTree } from './boardDockTree';
 import { BOARD_LAYOUT_ENGINE_KEY } from './layoutEngine';
 import { legacyBoard as boardOf, legacySheet as sheet, seedLegacy as seed, v2Board, V2_KEY } from './__fixtures__/legacyBoard';
 // RouteOutlet loads the board lazily (#821); evaluate it up front so a short settle does not race a cold dynamic import.
-import './BoardScreen';
+import './BoardHost';
 
 const dockProbe = vi.hoisted(() => ({ latest: undefined as undefined | import('@ap/components/dock').DockLayoutProps }));
 vi.mock('@ap/components/dock', async importActual => {
