@@ -1870,7 +1870,7 @@ test.describe('분석 보드 창 (#893 893d)', () => {
     expect(await page.evaluate(() => history.length)).toBe(length);
     await expect(rail(page).getByRole('button', { name: '분석 보드(창으로 열림, 눌러 앞으로)' })).toHaveAttribute('data-board-state', 'floating');
     await expect(mainHeading(page)).toBeVisible();
-    await page.getByRole('link', { name: '사이클타임 상세' }).click();
+    await page.getByRole('link', { name: '사이클타임 상세', exact: true }).click();
     await expect(page).toHaveURL(/\/analytics\/cycle-time/);
     await expect(windowFrame(page)).toBeVisible();
     await expect(chip(page)).toHaveCount(0);
@@ -1960,19 +1960,48 @@ test.describe('분석 보드 창 (#893 893d)', () => {
     await expect(windowFrame(page)).toBeVisible();
   });
 
-  test('토스트가 떠 있어도 레일 버튼으로 창 제목줄에 닿는다', async ({ page }) => {
+  test('토스트가 떠 있어도 레일 버튼으로 창 제목줄에 닿고, 창은 토스트 띠 위에 머문다', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
     await openWindow(page);
     await page.getByRole('button', { name: '⋯ 창' }).click();
     await page.getByRole('menuitem', { name: '오른쪽 아래' }).click();
+    // A real toast: Delete on a pane tab empties the pane and raises the undo toast.
+    const tab = page.locator('[role="tab"][data-tab-panel-id]').nth(1);
+    await tab.focus();
+    await page.keyboard.press('Delete');
+    const toast = page.locator('[data-toast-item]').getByText('칸 2를 비웠습니다');
+    await expect(toast).toBeVisible();
+    // Hold the toast (a pointer inside waits its timer) while the boxes are read.
+    await toast.hover();
     // Focus somewhere else, then the rail brings focus to the title bar whatever covers it.
     await mainHeading(page).focus();
     await rail(page).getByRole('button', { name: '분석 보드(창으로 열림, 눌러 앞으로)' }).click();
     await expect(titleBar(page)).toBeFocused();
+    await expect(toast).toBeVisible();
     const bar = await box(titleBar(page));
-    const stack = page.locator('[data-toast-stack]');
-    const stackBox = await stack.boundingBox();
-    // The toast strip is kept free: the title bar of the bottom-right window ends above where a toast stack starts.
-    if (stackBox) expect(bar.y + bar.height).toBeLessThanOrEqual(stackBox.y + stackBox.height);
+    const frame = await box(windowFrame(page));
+    const area = await box(page.locator('[data-board-window-area]'));
+    const item = await box(page.locator('[data-toast-item]').first());
+    // The toast strip is reserved: the lowest window position leaves the shell's stack offset (16) plus one row (56) free at the bottom of the area ...
+    expect(area.y + area.height - (frame.y + frame.height)).toBeGreaterThanOrEqual(72);
+    // ... so the title bar, and the whole frame, end above the top edge of the visible toast.
+    expect(bar.y + bar.height).toBeLessThanOrEqual(item.y);
+    expect(frame.y + frame.height).toBeLessThanOrEqual(item.y);
+  });
+
+  test('폭 800의 최대화 표시(fill)에서 레일 버튼은 보드 제목으로 포커스를 옮기고 주소를 그대로 둔다', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openMaximized(page);
+    await page.setViewportSize({ width: 1100, height: 900 });
+    await page.getByRole('button', { name: '창으로 보기' }).click();
+    await expect(page.locator('[data-floating-mode="fill"]')).toBeVisible();
+    const url = page.url();
+    await mainHeading(page).focus();
+    const button = rail(page).getByRole('button', { name: '분석 보드(창으로 열림, 눌러 앞으로)' });
+    await button.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.locator('[data-board-heading]')).toBeFocused();
+    expect(page.url()).toBe(url);
   });
 
   test('창에서 닫기는 보드만 끝내고 뒤 화면 주소를 그대로 둔다', async ({ page }) => {

@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect } from 'react';
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
@@ -314,6 +314,56 @@ describe('board window: narrow width, geometry, rail, toast strip', () => {
     await settle();
     expect(mode()).toBe('window');
     expect(screen.queryByText('창 대신 최대화 표시로 열립니다')).toBeNull();
+  });
+
+  it('fill: the rail moves focus to the board heading (no title bar is drawn) and leaves the background address alone', async () => {
+    seedTwo();
+    mount('/beta?scopeId=MEM');
+    await settle();
+    BG = path();
+    fireEvent.click(rail('분석 보드'));
+    await screen.findByRole('button', { name: '창으로 보기' });
+    area.width = 800;
+    fireEvent.click(screen.getByRole('button', { name: '창으로 보기' }));
+    await settle();
+    expect(mode()).toBe('fill');
+    expect(screen.queryByRole('group', { name: /분석 보드 창 제목줄/ })).toBeNull();
+    (document.activeElement as HTMLElement | null)?.blur();
+    const push = vi.spyOn(window.history, 'pushState');
+    const replace = vi.spyOn(window.history, 'replaceState');
+    const button = rail('분석 보드(창으로 열림, 눌러 앞으로)');
+    button.focus();
+    fireEvent.keyDown(button, { key: 'Enter' });
+    fireEvent.click(button);
+    await settle();
+    expect(document.activeElement).toBe(document.querySelector('[data-board-heading]'));
+    expect(document.activeElement).toBe(screen.getByRole('heading', { name: '분석 보드' }));
+    expect(mode()).toBe('fill');
+    expect(path()).toBe(BG);
+    expect(push).not.toHaveBeenCalled();
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it('a board-owned confirmation inside the window: Cancel takes focus and works, and the window and the background address survive', async () => {
+    const pane = { menuId: 'counted', params: {}, query: '?scopeId=MEM' };
+    seed(boardOf([sheet('a', { layout: '2x2', panes: [pane, pane, pane, pane] }), sheet('b')]));
+    mount('/beta?scopeId=MEM');
+    await settle();
+    BG = path();
+    fireEvent.click(rail('분석 보드'));
+    fireEvent.click(await screen.findByRole('button', { name: '창으로 보기' }));
+    await settle();
+    expect(mode()).toBe('window');
+    fireEvent.click(screen.getByRole('radio', { name: '1×2 레이아웃' }));
+    const alert = await screen.findByRole('alertdialog');
+    const cancel = within(alert).getByRole('button', { name: '취소' });
+    expect(cancel).toHaveFocus();
+    fireEvent.click(cancel);
+    await settle();
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(mode()).toBe('window');
+    expect(path()).toBe(BG);
+    expect(screen.getByRole('radio', { name: '2×2 레이아웃' })).toBeChecked();
   });
 
   it('geometry from a key is remembered; a shrunken area clamps the display and a larger one gets the stored value back', async () => {

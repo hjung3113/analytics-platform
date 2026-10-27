@@ -43,10 +43,17 @@ export function BoardHost({ Outlet, display }: { Outlet: ComponentType; display:
     observer.observe(container);
     return () => { observer.disconnect(); };
   }, [windowed]);
-  useEffect(() => registerWindowFocus(user.id, () => { frame.current?.focusTitleBar(); }), [user.id]);
 
   const narrow = display === 'window' && !fitsArea(area, FLOATING_MIN_SIZE, WINDOW_NARROW_BELOW);
   const mode = display === 'window' ? (narrow ? 'fill' : 'window') : 'off';
+  // The rail's "bring forward" lands on the title bar; where the frame draws none (`fill`) it lands on the board's own heading. Read through a ref so the
+  // registered callback sees the display of the moment it is called, not the one of the render that registered it.
+  const modeNow = useRef(mode);
+  useEffect(() => { modeNow.current = mode; }, [mode]);
+  useEffect(() => registerWindowFocus(user.id, () => {
+    if (modeNow.current === 'window') frame.current?.focusTitleBar();
+    else host.current?.querySelector<HTMLElement>('[data-board-heading]')?.focus({ preventScroll: true });
+  }), [user.id]);
   const shown = display !== 'minimized';
   return <FloatingWindow ref={frame} area={area} geometry={board.geometry ?? defaultGeometry(area)} onGeometryChange={board.setGeometry} mode={mode}
     title={text.windowTitle(board.sheetName)} titleId={titleId} labels={text.window}

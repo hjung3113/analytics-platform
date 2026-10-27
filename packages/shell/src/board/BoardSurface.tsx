@@ -420,8 +420,8 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
     <header className="flex h-[50px] shrink-0 items-center justify-between gap-3 overflow-x-auto border-b border-border-subtle bg-surface-canvas px-4">
       <div className="flex min-w-0 items-center gap-3">
         {windowed
-          ? <h2 ref={heading} tabIndex={-1} className="min-w-28 truncate focus:outline-none text-sm font-semibold text-text-primary">{text.board}</h2>
-          : <h1 data-page-heading ref={heading} tabIndex={-1} className="min-w-28 truncate focus:outline-none text-sm font-semibold text-text-primary">{text.board}</h1>}
+          ? <h2 data-board-heading ref={heading} tabIndex={-1} className="min-w-28 truncate focus:outline-none text-sm font-semibold text-text-primary">{text.board}</h2>
+          : <h1 data-page-heading data-board-heading ref={heading} tabIndex={-1} className="min-w-28 truncate focus:outline-none text-sm font-semibold text-text-primary">{text.board}</h1>}
         <Popover>
           <PopoverTrigger asChild>
             <Button type="button" variant="ghost" size="sm" className="shrink-0" aria-haspopup="dialog" title={text.browserOnly}>
