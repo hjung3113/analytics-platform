@@ -4,8 +4,7 @@ import type { TargetOf } from './links';
 /**
  * Admin route tables (#764 s, #595 4f): FeedbackOps' `/admin/…` → the platform admin menus and back. `selected` is the platform `focus` (06 §13). On
  * Analytics Areas the screen's own filter (`managedSystem`, a uuid only) is the page key `system`, not the carried `managedSystem` scope (plan F1).
- * `returnTo` and `platformReturn` are never mapped, so a link carrying either stays unlinked. Not in `operatorHostLinks` (`operator-links.ts`) yet:
- * 764p1 wires `adminOperatorTargets`.
+ * `returnTo` and `platformReturn` are never mapped, so a link carrying either stays unlinked. `operatorHostLinks` (`operator-links.ts`) spreads `adminOperatorTargets`.
  */
 export const managedSystemsRoute = operatorRoute({
   foPath: '/admin/managed-systems',
@@ -56,7 +55,7 @@ export const usePermissionGrantsHere = routeHere(permissionGrantsRoute);
 export const useSettingsSearch = routeSearch(settingsRoute);
 export const useSettingsHere = routeHere(settingsRoute);
 
-/** The five Admin targets for `operatorHostLinks` (764p1 spreads this; not wired yet). */
+/** The five Admin targets for `operatorHostLinks` (spreads this). */
 export const adminOperatorTargets: TargetOf[] = [
   managedSystemsRoute.target,
   analyticsAreasRoute.target,

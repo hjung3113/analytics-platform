@@ -52,7 +52,7 @@ function pad(n: number): string {
   return String(n).padStart(2, '0');
 }
 function addSeconds(value: string, seconds: number): string {
-  return formatDateTime(new Date(parseDateTime(value, 'anchor').getTime() + seconds * 1000));
+  return formatDateTime(new Date(parseDateTime(value, 'startedAt').getTime() + seconds * 1000));
 }
 
 /** Linear interpolation, then 0.1 min. Both screens call this for cycle P50/P95. */

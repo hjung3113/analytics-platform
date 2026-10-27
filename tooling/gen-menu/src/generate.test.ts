@@ -338,7 +338,7 @@ it('generates version metadata and a matching changelog', () => {
   const files = renderFiles(INPUTS, '2026-01-02');
   const pkg = JSON.parse(files.find(f => f.relPath === 'package.json')!.content) as { version: string; ap: { sdk: string } };
   expect(pkg.version).toBe('0.1.0');
-  expect(pkg.ap.sdk).toBe('>=0.17.0 <0.18.0');
+  expect(pkg.ap.sdk).toBe('>=0.19.0 <0.20.0');
   expect(files.find(f => f.relPath === 'CHANGELOG.md')?.content).toMatch(/^# @ap\/menu-gen-probe 변경 기록[\s\S]*^## 0\.1\.0 — 2026-01-02$/m);
 });
 
