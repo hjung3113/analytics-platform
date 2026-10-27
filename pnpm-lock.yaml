@@ -360,23 +360,23 @@ importers:
         specifier: workspace:*
         version: link:../../packages/sdk/ui
       '@eqv/core':
-        specifier: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-core-0.7.0.tgz
-        version: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-core-0.7.0.tgz
+        specifier: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-core-0.8.0.tgz
+        version: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-core-0.8.0.tgz
       '@eqv/platform-adapter':
-        specifier: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-platform-adapter-0.7.0.tgz
-        version: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-platform-adapter-0.7.0.tgz(5834492632ad9f6969bac765792725f1)
+        specifier: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-platform-adapter-0.8.0.tgz
+        version: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-platform-adapter-0.8.0.tgz(855bae8d9c5f632d84157c8091efcaaf)
       '@eqv/renderer':
-        specifier: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-renderer-0.7.0.tgz
-        version: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-renderer-0.7.0.tgz(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-core-0.7.0.tgz)(react@19.3.0)
+        specifier: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-renderer-0.8.0.tgz
+        version: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-renderer-0.8.0.tgz(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-core-0.8.0.tgz)(react@19.3.0)
       '@eqv/replay':
-        specifier: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-replay-0.7.0.tgz
-        version: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-replay-0.7.0.tgz(@ap/ui@packages+ui)(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-core-0.7.0.tgz)(@eqv/ui@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-ui-0.7.0.tgz(@ap/ui@packages+ui)(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-core-0.7.0.tgz)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react@19.3.0)
+        specifier: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-replay-0.8.0.tgz
+        version: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-replay-0.8.0.tgz(@ap/ui@packages+sdk+ui)(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-core-0.8.0.tgz)(@eqv/ui@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-ui-0.8.0.tgz(@ap/ui@packages+sdk+ui)(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-core-0.8.0.tgz)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react@19.3.0)
       '@eqv/ui':
-        specifier: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-ui-0.7.0.tgz
-        version: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-ui-0.7.0.tgz(@ap/ui@packages+ui)(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-core-0.7.0.tgz)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+        specifier: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-ui-0.8.0.tgz
+        version: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-ui-0.8.0.tgz(@ap/ui@packages+sdk+ui)(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-core-0.8.0.tgz)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@eqv/views':
-        specifier: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-views-0.7.0.tgz
-        version: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-views-0.7.0.tgz(2d0ddf3b334e88efe44066bf2a76a130)
+        specifier: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-views-0.8.0.tgz
+        version: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-views-0.8.0.tgz(7fe9193f7fb70e818bdb776d436e0a33)
       '@fontsource-variable/inter':
         specifier: 5.3.0
         version: 5.3.0
@@ -1290,154 +1290,6 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
-  menus/mars/rcc:
-    dependencies:
-      '@ap/contracts':
-        specifier: workspace:*
-        version: link:../../../packages/sdk/contracts
-      '@ap/kernel':
-        specifier: workspace:*
-        version: link:../../../packages/sdk/kernel
-      lucide-react:
-        specifier: ^1.48.0
-        version: 1.48.0(react@19.3.0)
-    devDependencies:
-      '@ap/eslint-config':
-        specifier: workspace:*
-        version: link:../../../tooling/eslint
-      '@ap/tsconfig':
-        specifier: workspace:*
-        version: link:../../../tooling/tsconfig
-      '@types/react':
-        specifier: ^19.3.0
-        version: 19.3.0
-      '@types/react-dom':
-        specifier: ^19.3.0
-        version: 19.3.0(@types/react@19.3.0)
-      eslint:
-        specifier: ^10.11.0
-        version: 10.11.0(jiti@2.7.0)
-      react:
-        specifier: ^19.3.0
-        version: 19.3.0
-      react-dom:
-        specifier: ^19.3.0
-        version: 19.3.0(react@19.3.0)
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-
-  menus/mars/mcc:
-    dependencies:
-      '@ap/contracts':
-        specifier: workspace:*
-        version: link:../../../packages/sdk/contracts
-      '@ap/kernel':
-        specifier: workspace:*
-        version: link:../../../packages/sdk/kernel
-      lucide-react:
-        specifier: ^1.48.0
-        version: 1.48.0(react@19.3.0)
-    devDependencies:
-      '@ap/eslint-config':
-        specifier: workspace:*
-        version: link:../../../tooling/eslint
-      '@ap/tsconfig':
-        specifier: workspace:*
-        version: link:../../../tooling/tsconfig
-      '@types/react':
-        specifier: ^19.3.0
-        version: 19.3.0
-      '@types/react-dom':
-        specifier: ^19.3.0
-        version: 19.3.0(@types/react@19.3.0)
-      eslint:
-        specifier: ^10.11.0
-        version: 10.11.0(jiti@2.7.0)
-      react:
-        specifier: ^19.3.0
-        version: 19.3.0
-      react-dom:
-        specifier: ^19.3.0
-        version: 19.3.0(react@19.3.0)
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-
-  menus/mars/wpt:
-    dependencies:
-      '@ap/contracts':
-        specifier: workspace:*
-        version: link:../../../packages/sdk/contracts
-      '@ap/kernel':
-        specifier: workspace:*
-        version: link:../../../packages/sdk/kernel
-      lucide-react:
-        specifier: ^1.48.0
-        version: 1.48.0(react@19.3.0)
-    devDependencies:
-      '@ap/eslint-config':
-        specifier: workspace:*
-        version: link:../../../tooling/eslint
-      '@ap/tsconfig':
-        specifier: workspace:*
-        version: link:../../../tooling/tsconfig
-      '@types/react':
-        specifier: ^19.3.0
-        version: 19.3.0
-      '@types/react-dom':
-        specifier: ^19.3.0
-        version: 19.3.0(@types/react@19.3.0)
-      eslint:
-        specifier: ^10.11.0
-        version: 10.11.0(jiti@2.7.0)
-      react:
-        specifier: ^19.3.0
-        version: 19.3.0
-      react-dom:
-        specifier: ^19.3.0
-        version: 19.3.0(react@19.3.0)
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-
-  menus/mars/configuration:
-    dependencies:
-      '@ap/contracts':
-        specifier: workspace:*
-        version: link:../../../packages/sdk/contracts
-      '@ap/kernel':
-        specifier: workspace:*
-        version: link:../../../packages/sdk/kernel
-      lucide-react:
-        specifier: ^1.48.0
-        version: 1.48.0(react@19.3.0)
-    devDependencies:
-      '@ap/eslint-config':
-        specifier: workspace:*
-        version: link:../../../tooling/eslint
-      '@ap/tsconfig':
-        specifier: workspace:*
-        version: link:../../../tooling/tsconfig
-      '@types/react':
-        specifier: ^19.3.0
-        version: 19.3.0
-      '@types/react-dom':
-        specifier: ^19.3.0
-        version: 19.3.0(@types/react@19.3.0)
-      eslint:
-        specifier: ^10.11.0
-        version: 10.11.0(jiti@2.7.0)
-      react:
-        specifier: ^19.3.0
-        version: 19.3.0
-      react-dom:
-        specifier: ^19.3.0
-        version: 19.3.0(react@19.3.0)
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-
   menus/mars/analytics:
     dependencies:
       '@ap/components':
@@ -1492,6 +1344,43 @@ importers:
       vitest:
         specifier: ^3.2.7
         version: 3.2.7(@types/node@26.6.3)(happy-dom@20.14.6)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)
+
+  menus/mars/configuration:
+    dependencies:
+      '@ap/contracts':
+        specifier: workspace:*
+        version: link:../../../packages/sdk/contracts
+      '@ap/kernel':
+        specifier: workspace:*
+        version: link:../../../packages/sdk/kernel
+      lucide-react:
+        specifier: ^1.48.0
+        version: 1.48.0(react@19.3.0)
+    devDependencies:
+      '@ap/eslint-config':
+        specifier: workspace:*
+        version: link:../../../tooling/eslint
+      '@ap/tsconfig':
+        specifier: workspace:*
+        version: link:../../../tooling/tsconfig
+      '@types/react':
+        specifier: ^19.3.0
+        version: 19.3.0
+      '@types/react-dom':
+        specifier: ^19.3.0
+        version: 19.3.0(@types/react@19.3.0)
+      eslint:
+        specifier: ^10.11.0
+        version: 10.11.0(jiti@2.7.0)
+      react:
+        specifier: ^19.3.0
+        version: 19.3.0
+      react-dom:
+        specifier: ^19.3.0
+        version: 19.3.0(react@19.3.0)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
 
   menus/mars/equipment:
     dependencies:
@@ -1640,6 +1529,117 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
+  menus/mars/mcc:
+    dependencies:
+      '@ap/contracts':
+        specifier: workspace:*
+        version: link:../../../packages/sdk/contracts
+      '@ap/kernel':
+        specifier: workspace:*
+        version: link:../../../packages/sdk/kernel
+      lucide-react:
+        specifier: ^1.48.0
+        version: 1.48.0(react@19.3.0)
+    devDependencies:
+      '@ap/eslint-config':
+        specifier: workspace:*
+        version: link:../../../tooling/eslint
+      '@ap/tsconfig':
+        specifier: workspace:*
+        version: link:../../../tooling/tsconfig
+      '@types/react':
+        specifier: ^19.3.0
+        version: 19.3.0
+      '@types/react-dom':
+        specifier: ^19.3.0
+        version: 19.3.0(@types/react@19.3.0)
+      eslint:
+        specifier: ^10.11.0
+        version: 10.11.0(jiti@2.7.0)
+      react:
+        specifier: ^19.3.0
+        version: 19.3.0
+      react-dom:
+        specifier: ^19.3.0
+        version: 19.3.0(react@19.3.0)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
+  menus/mars/rcc:
+    dependencies:
+      '@ap/contracts':
+        specifier: workspace:*
+        version: link:../../../packages/sdk/contracts
+      '@ap/kernel':
+        specifier: workspace:*
+        version: link:../../../packages/sdk/kernel
+      lucide-react:
+        specifier: ^1.48.0
+        version: 1.48.0(react@19.3.0)
+    devDependencies:
+      '@ap/eslint-config':
+        specifier: workspace:*
+        version: link:../../../tooling/eslint
+      '@ap/tsconfig':
+        specifier: workspace:*
+        version: link:../../../tooling/tsconfig
+      '@types/react':
+        specifier: ^19.3.0
+        version: 19.3.0
+      '@types/react-dom':
+        specifier: ^19.3.0
+        version: 19.3.0(@types/react@19.3.0)
+      eslint:
+        specifier: ^10.11.0
+        version: 10.11.0(jiti@2.7.0)
+      react:
+        specifier: ^19.3.0
+        version: 19.3.0
+      react-dom:
+        specifier: ^19.3.0
+        version: 19.3.0(react@19.3.0)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
+  menus/mars/wpt:
+    dependencies:
+      '@ap/contracts':
+        specifier: workspace:*
+        version: link:../../../packages/sdk/contracts
+      '@ap/kernel':
+        specifier: workspace:*
+        version: link:../../../packages/sdk/kernel
+      lucide-react:
+        specifier: ^1.48.0
+        version: 1.48.0(react@19.3.0)
+    devDependencies:
+      '@ap/eslint-config':
+        specifier: workspace:*
+        version: link:../../../tooling/eslint
+      '@ap/tsconfig':
+        specifier: workspace:*
+        version: link:../../../tooling/tsconfig
+      '@types/react':
+        specifier: ^19.3.0
+        version: 19.3.0
+      '@types/react-dom':
+        specifier: ^19.3.0
+        version: 19.3.0(@types/react@19.3.0)
+      eslint:
+        specifier: ^10.11.0
+        version: 10.11.0(jiti@2.7.0)
+      react:
+        specifier: ^19.3.0
+        version: 19.3.0
+      react-dom:
+        specifier: ^19.3.0
+        version: 19.3.0(react@19.3.0)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
   menus/operations/admin:
     dependencies:
       '@ap/components':
@@ -1707,97 +1707,6 @@ importers:
         specifier: 5.7.2
         version: 5.7.2
 
-  packages/sdk/components:
-    dependencies:
-      '@ap/contracts':
-        specifier: workspace:*
-        version: link:../contracts
-      '@ap/kernel':
-        specifier: workspace:*
-        version: link:../kernel
-      '@ap/ui':
-        specifier: workspace:*
-        version: link:../ui
-      '@tanstack/react-table':
-        specifier: ^8.21.3
-        version: 8.21.3(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      '@tanstack/react-virtual':
-        specifier: ^3.14.13
-        version: 3.14.13(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      dockview-react:
-        specifier: 8.6.1
-        version: 8.6.1(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      echarts:
-        specifier: ^6.1.0
-        version: 6.1.0
-      lucide-react:
-        specifier: ^1.48.0
-        version: 1.48.0(react@19.3.0)
-      write-excel-file:
-        specifier: ^4.1.1
-        version: 4.1.1
-    devDependencies:
-      '@ap/eslint-config':
-        specifier: workspace:*
-        version: link:../../../tooling/eslint
-      '@ap/tsconfig':
-        specifier: workspace:*
-        version: link:../../../tooling/tsconfig
-      '@testing-library/dom':
-        specifier: ^10.4.2
-        version: 10.4.2
-      '@testing-library/jest-dom':
-        specifier: ^7.0.1
-        version: 7.0.1(@testing-library/dom@10.4.2)(vitest@3.2.7(@types/node@26.6.3)(happy-dom@20.14.6)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0))
-      '@testing-library/react':
-        specifier: ^16.3.3
-        version: 16.3.3(@testing-library/dom@10.4.2)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      '@testing-library/user-event':
-        specifier: ^14.6.7
-        version: 14.6.7(@testing-library/dom@10.4.2)
-      '@types/react':
-        specifier: ^19.3.0
-        version: 19.3.0
-      '@types/react-dom':
-        specifier: ^19.3.0
-        version: 19.3.0(@types/react@19.3.0)
-      eslint:
-        specifier: ^10.11.0
-        version: 10.11.0(jiti@2.7.0)
-      fflate:
-        specifier: ^0.8.3
-        version: 0.8.3
-      jsdom:
-        specifier: ^26.1.0
-        version: 26.1.0
-      react:
-        specifier: ^19.3.0
-        version: 19.3.0
-      react-dom:
-        specifier: ^19.3.0
-        version: 19.3.0(react@19.3.0)
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-      vitest:
-        specifier: ^3.2.7
-        version: 3.2.7(@types/node@26.6.3)(happy-dom@20.14.6)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)
-
-  packages/sdk/contracts:
-    devDependencies:
-      '@ap/eslint-config':
-        specifier: workspace:*
-        version: link:../../../tooling/eslint
-      '@ap/tsconfig':
-        specifier: workspace:*
-        version: link:../../../tooling/tsconfig
-      eslint:
-        specifier: ^10.11.0
-        version: 10.11.0(jiti@2.7.0)
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-
   packages/adapters/fo-bridge:
     dependencies:
       '@ap/components':
@@ -1849,6 +1758,75 @@ importers:
       react-dom:
         specifier: ^19.3.0
         version: 19.3.0(react@19.3.0)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.7
+        version: 3.2.7(@types/node@26.6.3)(happy-dom@20.14.6)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)
+
+  packages/adapters/http-adapter:
+    dependencies:
+      '@ap/contracts':
+        specifier: workspace:*
+        version: link:../../sdk/contracts
+    devDependencies:
+      '@ap/eslint-config':
+        specifier: workspace:*
+        version: link:../../../tooling/eslint
+      '@ap/tsconfig':
+        specifier: workspace:*
+        version: link:../../../tooling/tsconfig
+      eslint:
+        specifier: ^10.11.0
+        version: 10.11.0(jiti@2.7.0)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.7
+        version: 3.2.7(@types/node@26.6.3)(happy-dom@20.14.6)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)
+
+  packages/adapters/mock-server:
+    dependencies:
+      '@ap/contracts':
+        specifier: workspace:*
+        version: link:../../sdk/contracts
+    devDependencies:
+      '@ap/eslint-config':
+        specifier: workspace:*
+        version: link:../../../tooling/eslint
+      '@ap/tsconfig':
+        specifier: workspace:*
+        version: link:../../../tooling/tsconfig
+      eslint:
+        specifier: ^10.11.0
+        version: 10.11.0(jiti@2.7.0)
+      jsdom:
+        specifier: ^26.1.0
+        version: 26.1.0
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.7
+        version: 3.2.7(@types/node@26.6.3)(happy-dom@20.14.6)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)
+
+  packages/adapters/server-conformance:
+    dependencies:
+      '@ap/contracts':
+        specifier: workspace:*
+        version: link:../../sdk/contracts
+    devDependencies:
+      '@ap/eslint-config':
+        specifier: workspace:*
+        version: link:../../../tooling/eslint
+      '@ap/tsconfig':
+        specifier: workspace:*
+        version: link:../../../tooling/tsconfig
+      eslint:
+        specifier: ^10.11.0
+        version: 10.11.0(jiti@2.7.0)
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -2008,11 +1986,83 @@ importers:
         specifier: 2.1.8
         version: 2.1.8(@types/node@22.10.2)(happy-dom@20.14.6)(jsdom@25.0.1)(lightningcss@1.32.0)
 
-  packages/adapters/http-adapter:
+  packages/sdk/components:
     dependencies:
       '@ap/contracts':
         specifier: workspace:*
-        version: link:../../sdk/contracts
+        version: link:../contracts
+      '@ap/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+      '@ap/ui':
+        specifier: workspace:*
+        version: link:../ui
+      '@tanstack/react-table':
+        specifier: ^8.21.3
+        version: 8.21.3(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@tanstack/react-virtual':
+        specifier: ^3.14.13
+        version: 3.14.13(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      dockview-react:
+        specifier: 8.6.1
+        version: 8.6.1(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      echarts:
+        specifier: ^6.1.0
+        version: 6.1.0
+      lucide-react:
+        specifier: ^1.48.0
+        version: 1.48.0(react@19.3.0)
+      write-excel-file:
+        specifier: ^4.1.1
+        version: 4.1.1
+    devDependencies:
+      '@ap/eslint-config':
+        specifier: workspace:*
+        version: link:../../../tooling/eslint
+      '@ap/tsconfig':
+        specifier: workspace:*
+        version: link:../../../tooling/tsconfig
+      '@testing-library/dom':
+        specifier: ^10.4.2
+        version: 10.4.2
+      '@testing-library/jest-dom':
+        specifier: ^7.0.1
+        version: 7.0.1(@testing-library/dom@10.4.2)(vitest@3.2.7(@types/node@26.6.3)(happy-dom@20.14.6)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0))
+      '@testing-library/react':
+        specifier: ^16.3.3
+        version: 16.3.3(@testing-library/dom@10.4.2)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@testing-library/user-event':
+        specifier: ^14.6.7
+        version: 14.6.7(@testing-library/dom@10.4.2)
+      '@types/react':
+        specifier: ^19.3.0
+        version: 19.3.0
+      '@types/react-dom':
+        specifier: ^19.3.0
+        version: 19.3.0(@types/react@19.3.0)
+      eslint:
+        specifier: ^10.11.0
+        version: 10.11.0(jiti@2.7.0)
+      fflate:
+        specifier: ^0.8.3
+        version: 0.8.3
+      jsdom:
+        specifier: ^26.1.0
+        version: 26.1.0
+      react:
+        specifier: ^19.3.0
+        version: 19.3.0
+      react-dom:
+        specifier: ^19.3.0
+        version: 19.3.0(react@19.3.0)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.7
+        version: 3.2.7(@types/node@26.6.3)(happy-dom@20.14.6)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)
+
+  packages/sdk/contracts:
     devDependencies:
       '@ap/eslint-config':
         specifier: workspace:*
@@ -2026,9 +2076,6 @@ importers:
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
-      vitest:
-        specifier: ^3.2.7
-        version: 3.2.7(@types/node@26.6.3)(happy-dom@20.14.6)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)
 
   packages/sdk/kernel:
     dependencies:
@@ -2075,53 +2122,6 @@ importers:
       react-dom:
         specifier: ^19.3.0
         version: 19.3.0(react@19.3.0)
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-      vitest:
-        specifier: ^3.2.7
-        version: 3.2.7(@types/node@26.6.3)(happy-dom@20.14.6)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)
-
-  packages/adapters/mock-server:
-    dependencies:
-      '@ap/contracts':
-        specifier: workspace:*
-        version: link:../../sdk/contracts
-    devDependencies:
-      '@ap/eslint-config':
-        specifier: workspace:*
-        version: link:../../../tooling/eslint
-      '@ap/tsconfig':
-        specifier: workspace:*
-        version: link:../../../tooling/tsconfig
-      eslint:
-        specifier: ^10.11.0
-        version: 10.11.0(jiti@2.7.0)
-      jsdom:
-        specifier: ^26.1.0
-        version: 26.1.0
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-      vitest:
-        specifier: ^3.2.7
-        version: 3.2.7(@types/node@26.6.3)(happy-dom@20.14.6)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)
-
-  packages/adapters/server-conformance:
-    dependencies:
-      '@ap/contracts':
-        specifier: workspace:*
-        version: link:../../sdk/contracts
-    devDependencies:
-      '@ap/eslint-config':
-        specifier: workspace:*
-        version: link:../../../tooling/eslint
-      '@ap/tsconfig':
-        specifier: workspace:*
-        version: link:../../../tooling/tsconfig
-      eslint:
-        specifier: ^10.11.0
-        version: 10.11.0(jiti@2.7.0)
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -2703,57 +2703,57 @@ packages:
   '@drizzle-team/brocli@0.10.2':
     resolution: {integrity: sha512-z33Il7l5dKjUgGULTqBsQBQwckHh5AbIuxhdsIxDDiZAzBOrZO6q9ogcWC65kU382AfynTfgNumVcNIjuIua6w==}
 
-  '@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-core-0.7.0.tgz':
-    resolution: {integrity: sha512-U2cisRi6tngOKXHJyC8jy9LPBsk7I+yZPz9Rjf4pbOMgxw1TYli8R15BoEe6zdlpxNUwLiEArULFdJaMfIbWVg==, tarball: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-core-0.7.0.tgz}
-    version: 0.7.0
+  '@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-core-0.8.0.tgz':
+    resolution: {integrity: sha512-u0xuelOjULflCH9qTwNBwRAnjm8OpxExXxpD+0umM47LxO1vCuIIisTjkm4TOGtWO+gTGLlKFUwSBPF81Cs1pQ==, tarball: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-core-0.8.0.tgz}
+    version: 0.8.0
 
-  '@eqv/platform-adapter@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-platform-adapter-0.7.0.tgz':
-    resolution: {integrity: sha512-wuj2a9rbhF1L5EIZF+o40ErsYuc3EpqM3UqEJIKJq2WFwQ6CuRnDgUgeXb/HLjL1Nb1qcNqsHRtjqjZIDsynxQ==, tarball: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-platform-adapter-0.7.0.tgz}
-    version: 0.7.0
+  '@eqv/platform-adapter@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-platform-adapter-0.8.0.tgz':
+    resolution: {integrity: sha512-9MUS3FH98CrKYIMEqhoD3PpEvoZEidmnwB+S5fyQv2uWM5MzU+zbChA3SBIXoAhRcYcTQ+97n3kARLnyUFuLFw==, tarball: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-platform-adapter-0.8.0.tgz}
+    version: 0.8.0
     peerDependencies:
       '@ap/contracts': 0.15.0
       '@ap/ui': 0.15.0
-      '@eqv/core': 0.7.0
-      '@eqv/renderer': 0.7.0
-      '@eqv/replay': 0.7.0
-      '@eqv/ui': 0.7.0
-      '@eqv/views': 0.7.0
+      '@eqv/core': 0.8.0
+      '@eqv/renderer': 0.8.0
+      '@eqv/replay': 0.8.0
+      '@eqv/ui': 0.8.0
+      '@eqv/views': 0.8.0
       react: ^19.0.0
       react-dom: ^19.0.0
 
-  '@eqv/renderer@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-renderer-0.7.0.tgz':
-    resolution: {integrity: sha512-UV4sEAXTO9oXDWzsK1074MciX23w7d62Sib03Kq6K9ITOdwkoO+EyzVqHWP+hQYT89bNmPGB1JV4sD34QBaS+g==, tarball: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-renderer-0.7.0.tgz}
-    version: 0.7.0
+  '@eqv/renderer@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-renderer-0.8.0.tgz':
+    resolution: {integrity: sha512-jKeQ7eoXNy4uqu+ZhfBDLVyMfDkSP2Vm2GNqOuV8gzMoXg/PbDaNGlmDkZ5LV3SXmsDzyvfFyEqI3rXOrzXCaw==, tarball: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-renderer-0.8.0.tgz}
+    version: 0.8.0
     peerDependencies:
-      '@eqv/core': 0.7.0
+      '@eqv/core': 0.8.0
       react: ^19.0.0
 
-  '@eqv/replay@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-replay-0.7.0.tgz':
-    resolution: {integrity: sha512-zNRdKIXy9b9YTNrlTIkyxv4NVd1IdC5L7DgBbevOqIPrhyhaFnE9SO26OOA10rb9aXulzQIQo1m9ZXZJC+5mDw==, tarball: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-replay-0.7.0.tgz}
-    version: 0.7.0
+  '@eqv/replay@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-replay-0.8.0.tgz':
+    resolution: {integrity: sha512-FKVyPbuK6dEzTsZRRPPzSYVuuMBbAuaeOY9tcyjHYfLaWAqYZi42oTq7wNGWCoeZ33dZbT0BJnX0249IAH9xkQ==, tarball: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-replay-0.8.0.tgz}
+    version: 0.8.0
     peerDependencies:
       '@ap/ui': 0.15.0
-      '@eqv/core': 0.7.0
-      '@eqv/ui': 0.7.0
+      '@eqv/core': 0.8.0
+      '@eqv/ui': 0.8.0
       react: ^19.0.0
 
-  '@eqv/ui@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-ui-0.7.0.tgz':
-    resolution: {integrity: sha512-IVQsBKcI8iWEMg+zQavDLLjsOg6XNU8KM59MTuHp3/g2Y7fewhM5DEICgUiR8kQCrdyPkZXNehZsRP464YamBw==, tarball: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-ui-0.7.0.tgz}
-    version: 0.7.0
+  '@eqv/ui@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-ui-0.8.0.tgz':
+    resolution: {integrity: sha512-K5JKBDM5uGSEs+OamXxpQN0TY8WCwQlwgwqZ473f9K+4622XbV7OenkT7mIQ7Q86zNYvGnP8fwxiE5Lt/5kK8A==, tarball: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-ui-0.8.0.tgz}
+    version: 0.8.0
     peerDependencies:
       '@ap/ui': 0.15.0
-      '@eqv/core': 0.7.0
+      '@eqv/core': 0.8.0
       react: ^19.0.0
 
-  '@eqv/views@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-views-0.7.0.tgz':
-    resolution: {integrity: sha512-kyTSoJ9CshAJClj043vmjiywdY/W/s63e81SZGvGh8+ZhEBz8WkJkCvQ4knumMbXE5UjKkE8kREzQ1kGD3K8vA==, tarball: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-views-0.7.0.tgz}
-    version: 0.7.0
+  '@eqv/views@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-views-0.8.0.tgz':
+    resolution: {integrity: sha512-JcV7LWhj/QveUJS110DxO2sAeRg9qerInika1H6K/BGUgO/linc30G/kRaxpBTUVZcuVoXj5AfSXj5JFbDxpow==, tarball: https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-views-0.8.0.tgz}
+    version: 0.8.0
     peerDependencies:
       '@ap/ui': 0.15.0
-      '@eqv/core': 0.7.0
-      '@eqv/renderer': 0.7.0
-      '@eqv/replay': 0.7.0
-      '@eqv/ui': 0.7.0
+      '@eqv/core': 0.8.0
+      '@eqv/renderer': 0.8.0
+      '@eqv/replay': 0.8.0
+      '@eqv/ui': 0.8.0
       react: ^19.0.0
       react-dom: ^19.0.0
 
@@ -7408,53 +7408,53 @@ snapshots:
 
   '@drizzle-team/brocli@0.10.2': {}
 
-  '@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-core-0.7.0.tgz':
+  '@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-core-0.8.0.tgz':
     dependencies:
       zod: 4.6.5
 
-  '@eqv/platform-adapter@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-platform-adapter-0.7.0.tgz(5834492632ad9f6969bac765792725f1)':
+  '@eqv/platform-adapter@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-platform-adapter-0.8.0.tgz(855bae8d9c5f632d84157c8091efcaaf)':
     dependencies:
       '@ap/contracts': link:packages/sdk/contracts
       '@ap/ui': link:packages/sdk/ui
-      '@eqv/core': https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-core-0.7.0.tgz
-      '@eqv/renderer': https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-renderer-0.7.0.tgz(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-core-0.7.0.tgz)(react@19.3.0)
-      '@eqv/replay': https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-replay-0.7.0.tgz(@ap/ui@packages+ui)(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-core-0.7.0.tgz)(@eqv/ui@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-ui-0.7.0.tgz(@ap/ui@packages+ui)(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-core-0.7.0.tgz)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react@19.3.0)
-      '@eqv/ui': https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-ui-0.7.0.tgz(@ap/ui@packages+ui)(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-core-0.7.0.tgz)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      '@eqv/views': https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-views-0.7.0.tgz(2d0ddf3b334e88efe44066bf2a76a130)
+      '@eqv/core': https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-core-0.8.0.tgz
+      '@eqv/renderer': https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-renderer-0.8.0.tgz(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-core-0.8.0.tgz)(react@19.3.0)
+      '@eqv/replay': https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-replay-0.8.0.tgz(@ap/ui@packages+sdk+ui)(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-core-0.8.0.tgz)(@eqv/ui@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-ui-0.8.0.tgz(@ap/ui@packages+sdk+ui)(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-core-0.8.0.tgz)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react@19.3.0)
+      '@eqv/ui': https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-ui-0.8.0.tgz(@ap/ui@packages+sdk+ui)(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-core-0.8.0.tgz)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@eqv/views': https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-views-0.8.0.tgz(7fe9193f7fb70e818bdb776d436e0a33)
       lucide-react: 0.469.0(react@19.3.0)
       react: 19.3.0
       react-dom: 19.3.0(react@19.3.0)
 
-  '@eqv/renderer@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-renderer-0.7.0.tgz(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-core-0.7.0.tgz)(react@19.3.0)':
+  '@eqv/renderer@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-renderer-0.8.0.tgz(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-core-0.8.0.tgz)(react@19.3.0)':
     dependencies:
-      '@eqv/core': https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-core-0.7.0.tgz
+      '@eqv/core': https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-core-0.8.0.tgz
       react: 19.3.0
 
-  '@eqv/replay@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-replay-0.7.0.tgz(@ap/ui@packages+ui)(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-core-0.7.0.tgz)(@eqv/ui@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-ui-0.7.0.tgz(@ap/ui@packages+ui)(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-core-0.7.0.tgz)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react@19.3.0)':
+  '@eqv/replay@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-replay-0.8.0.tgz(@ap/ui@packages+sdk+ui)(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-core-0.8.0.tgz)(@eqv/ui@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-ui-0.8.0.tgz(@ap/ui@packages+sdk+ui)(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-core-0.8.0.tgz)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react@19.3.0)':
     dependencies:
       '@ap/ui': link:packages/sdk/ui
-      '@eqv/core': https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-core-0.7.0.tgz
-      '@eqv/ui': https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-ui-0.7.0.tgz(@ap/ui@packages+ui)(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-core-0.7.0.tgz)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@eqv/core': https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-core-0.8.0.tgz
+      '@eqv/ui': https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-ui-0.8.0.tgz(@ap/ui@packages+sdk+ui)(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-core-0.8.0.tgz)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       lucide-react: 0.469.0(react@19.3.0)
       react: 19.3.0
 
-  '@eqv/ui@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-ui-0.7.0.tgz(@ap/ui@packages+ui)(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-core-0.7.0.tgz)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
+  '@eqv/ui@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-ui-0.8.0.tgz(@ap/ui@packages+sdk+ui)(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-core-0.8.0.tgz)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
     dependencies:
       '@ap/ui': link:packages/sdk/ui
-      '@eqv/core': https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-core-0.7.0.tgz
+      '@eqv/core': https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-core-0.8.0.tgz
       '@tanstack/react-virtual': 3.14.13(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       lucide-react: 0.469.0(react@19.3.0)
       react: 19.3.0
     transitivePeerDependencies:
       - react-dom
 
-  '@eqv/views@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-views-0.7.0.tgz(2d0ddf3b334e88efe44066bf2a76a130)':
+  '@eqv/views@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-views-0.8.0.tgz(7fe9193f7fb70e818bdb776d436e0a33)':
     dependencies:
       '@ap/ui': link:packages/sdk/ui
-      '@eqv/core': https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-core-0.7.0.tgz
-      '@eqv/renderer': https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-renderer-0.7.0.tgz(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-core-0.7.0.tgz)(react@19.3.0)
-      '@eqv/replay': https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-replay-0.7.0.tgz(@ap/ui@packages+ui)(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-core-0.7.0.tgz)(@eqv/ui@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-ui-0.7.0.tgz(@ap/ui@packages+ui)(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-core-0.7.0.tgz)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react@19.3.0)
-      '@eqv/ui': https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-ui-0.7.0.tgz(@ap/ui@packages+ui)(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.7.0/eqv-core-0.7.0.tgz)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@eqv/core': https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-core-0.8.0.tgz
+      '@eqv/renderer': https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-renderer-0.8.0.tgz(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-core-0.8.0.tgz)(react@19.3.0)
+      '@eqv/replay': https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-replay-0.8.0.tgz(@ap/ui@packages+sdk+ui)(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-core-0.8.0.tgz)(@eqv/ui@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-ui-0.8.0.tgz(@ap/ui@packages+sdk+ui)(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-core-0.8.0.tgz)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react@19.3.0)
+      '@eqv/ui': https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-ui-0.8.0.tgz(@ap/ui@packages+sdk+ui)(@eqv/core@https://github.com/hjung3113/equipment-visualization/releases/download/eqv-v0.8.0/eqv-core-0.8.0.tgz)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       lucide-react: 0.469.0(react@19.3.0)
       react: 19.3.0
       react-dom: 19.3.0(react@19.3.0)
