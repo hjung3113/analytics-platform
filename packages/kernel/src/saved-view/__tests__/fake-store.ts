@@ -45,7 +45,7 @@ export function createFakeStore(seed: SavedView[] = [], defaults: Record<string,
     async setDefault(key, id) { if (id === null) fake.defaults.delete(`${key.userId}:${key.menuId}`); else fake.defaults.set(`${key.userId}:${key.menuId}`, id); return { ok: true, value: null }; },
     async getDefaultId(key) { return fake.defaults.get(`${key.userId}:${key.menuId}`) ?? null; },
     setVisibility: unsupportedCall, requestOfficial: unsupportedCall, decide: unsupportedCall, revoke: unsupportedCall,
-    listGroups: unsupportedCall, createGroup: unsupportedCall, updateGroup: unsupportedCall, searchPeople: unsupportedCall,
+    listApprovalRequests: async () => [], listGroups: unsupportedCall, createGroup: unsupportedCall, updateGroup: unsupportedCall, searchPeople: unsupportedCall,
   };
   return fake;
 }

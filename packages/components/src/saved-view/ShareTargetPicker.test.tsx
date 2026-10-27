@@ -319,3 +319,16 @@ it('people search ignores a late answer to an older query', async () => {
   await new Promise(resolve => setTimeout(resolve, 0));
   expect(screen.queryByLabelText('김민수 (포토 1공정)')).toBeNull();
 });
+
+it('stays open with the choice when an async confirm answers false, and closes when it answers true', async () => {
+  const user = userEvent.setup();
+  let answer = false;
+  render(<Harness value={{ mode: 'people', people: [kim1], groupIds: [] }} confirmError="공유하지 못했습니다." onConfirm={async () => answer} />);
+  await user.click(screen.getByRole('button', { name: '공유 대상 저장' }));
+  await waitFor(() => expect(screen.getByRole('button', { name: '공유 대상 저장' })).toBeEnabled());
+  expect(screen.getByRole('dialog', { name: '공유 대상' })).toBeTruthy();
+  expect(screen.getByRole('alert')).toHaveTextContent('공유하지 못했습니다.');
+  answer = true;
+  await user.click(screen.getByRole('button', { name: '공유 대상 저장' }));
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: '공유 대상' })).toBeNull());
+});

@@ -26,7 +26,7 @@ const menuView = (over: Partial<MenuView> = {}): SavedView =>
 const support = (over: Partial<SavedViewSupport> = {}): SavedViewSupport => ({
   menuId: 'm',
   menuSchemaVersion: 1,
-  contextKeys: ['condition', 'selection', 'from', 'to'],
+  contextKeys: ['condition', 'selection', 'time'],
   pageKeys: ['tab'],
   ...over,
 });
@@ -41,6 +41,17 @@ const ctx = (over: Partial<DiagnoseContext> = {}): DiagnoseContext => ({
 describe('diagnoseSavedView', () => {
   it('returns ok when nothing is stale', () => {
     expect(diagnoseSavedView(menuView(), support(), ctx())).toEqual({ status: 'ok', reasons: [] });
+  });
+
+  it.each([
+    ['time', { from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00' }, ['time']],
+    ['time (relative)', { relativePeriod: { hours: 24 } }, ['time']],
+    ['line', { lineNames: ['L1'] }, ['line']],
+    ['prcGroup + basis', { prcGroups: ['G'], membershipBasis: 'asOf' }, ['prcGroup']],
+    ['condition basis', { condition: { fab: ['A'] }, membershipBasis: 'asOf' }, ['condition']],
+  ] as const)('accepts a %s context declared once by its menu key', (_n, context, keys) => {
+    const d = diagnoseSavedView(menuView({ context: context as never }), support({ contextKeys: keys }), ctx());
+    expect(d).toEqual({ status: 'ok', reasons: [] });
   });
 
   it.each([
@@ -62,7 +73,7 @@ describe('diagnoseSavedView', () => {
     const run = (view: SavedView, over: Partial<MenuView['context']>, dropKeys: string[] = []) =>
       diagnoseSavedView(view, support({
         menuSchemaVersion: 2,
-        contextKeys: ['condition', 'selection', 'from', 'to', 'roomNames'],
+        contextKeys: ['condition', 'selection', 'time', 'roomNames'],
         migrate: (_f, v) => {
           const context: Record<string, unknown> = { ...v.context, ...over };
           for (const k of dropKeys) delete context[k];

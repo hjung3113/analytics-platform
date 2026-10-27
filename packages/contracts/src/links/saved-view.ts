@@ -39,7 +39,8 @@ export type SavedView = (ConditionSetView | MenuView) & ViewSharing;
 export type ConditionSetDraft = { schemaVersion: 1; kind: 'condition-set'; name: string; context: SavedViewContext };
 export type MenuViewDraft = Omit<MenuView, 'id' | 'ownerId' | 'version' | 'updatedAt'>;
 export type SavedViewDraft = ConditionSetDraft | MenuViewDraft;
-export type SavedViewPatch = { name?: string; context?: SavedViewContext; page?: MenuView['page']; chartOptions?: MenuView['chartOptions']; layout?: JsonValue; panels?: unknown };
+/** `menuSchemaVersion` is for menu views only: a migration that rewrote the content raises it in the same write. */
+export type SavedViewPatch = { name?: string; menuSchemaVersion?: number; context?: SavedViewContext; page?: MenuView['page']; chartOptions?: MenuView['chartOptions']; layout?: JsonValue; panels?: unknown };
 
 export type ViewGroup = { id: string; kind: 'org-team' | 'custom'; name: string; memberCount: number; managerIds?: string[] };
 /** `affiliation` tells same-named people apart in people search and member lists. */
@@ -59,6 +60,18 @@ export type ViewGroupEntry = { group: ViewGroup; members: readonly GroupMember[]
 /** A failed or conflicting call leaves the stored state unchanged. */
 export type Result<T> = { ok: true; value: T } | { ok: false; reason: 'conflict' | 'forbidden' | 'unavailable' | 'invalid'; detail?: string };
 
+/** The application behind an approval state. The store knows it; the view itself does not. */
+export type ApprovalRequestInfo = {
+  viewId: string;
+  requestedBy: string;
+  requestedAt: number;
+  /** The view version the approval would publish. */
+  targetVersion: number;
+  /** Plain lines for what the application changes. */
+  changes: readonly string[];
+  rejectReason?: string;
+};
+
 /** `menuId: null` lists condition sets. */
 export type SavedViewKey = { userId: string; menuId: string | null };
 export type ExpectedVersion = { expectedVersion: number };
@@ -77,6 +90,8 @@ export type SavedViewStore = {
   requestOfficial(id: string, opts: ExpectedVersion): Promise<Result<SavedViewEntry>>;
   decide(id: string, decision: 'approve' | 'reject', note: string | undefined, opts: ExpectedVersion): Promise<Result<SavedViewEntry>>;
   revoke(id: string, opts: ExpectedVersion): Promise<Result<SavedViewEntry>>;
+  /** Applications of this key's views, only for their requester or someone who can approve or revoke them. */
+  listApprovalRequests(key: SavedViewKey): Promise<readonly ApprovalRequestInfo[]>;
   listGroups(): Promise<readonly ViewGroupEntry[]>;
   createGroup(input: { name: string; memberIds: string[] }): Promise<Result<ViewGroupEntry>>;
   updateGroup(id: string, patch: { name?: string; addMembers?: string[]; removeMembers?: string[] }): Promise<Result<ViewGroupEntry>>;

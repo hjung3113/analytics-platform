@@ -9,6 +9,7 @@ import {
   type Result,
   type SavedView,
   type SavedViewEntry,
+  type SavedViewPatch,
   type SavedViewStore,
   type SavedViewSupport,
   type ViewApproval,
@@ -180,6 +181,8 @@ describe('타입 계약', () => {
     expectTypeOf<SavedViewStore>().toHaveProperty('createGroup');
     expectTypeOf<SavedViewStore>().toHaveProperty('updateGroup');
     expectTypeOf<SavedViewStore>().toHaveProperty('searchPeople');
+    expectTypeOf<SavedViewStore>().toHaveProperty('listApprovalRequests');
+    expectTypeOf<SavedViewPatch>().toHaveProperty('menuSchemaVersion');
     expectTypeOf<SavedViewEntry>().toHaveProperty('capabilities');
   });
   it('denied 변형에는 name·payload가 없다', () => {

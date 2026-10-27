@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode, type ComponentProps } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { formatPeriod, parseDateTime, periodHours, shift, type GlobalContext, type IdSet } from '@ap/contracts';
@@ -11,6 +12,8 @@ export type QueryBarProps = {
   label?: { visible: string; region: string };
   /** Reserved for query history; selecting history must only restore the draft. */
   historySlot?: ReactNode;
+  /** The Saved View selector (06 §21); sits beside history in the tool row, so no extra fixed row exists. */
+  viewSlot?: ReactNode;
 };
 
 /** Remount transient editor state on logical screen/session switches; Kernel owns retained drafts. */
@@ -20,7 +23,19 @@ export function QueryBar(props: QueryBarProps) {
   if (identity.session !== session) setIdentity({ session, generation: identity.generation + 1 });
   return <QueryBarSession key={`${identity.generation}:${paneId ?? 'main'}:${route?.menu.id}:${JSON.stringify(route?.params)}`} {...props} />;
 }
-function QueryBarSession({ label, historySlot }: QueryBarProps) {
+/**
+ * The view slot keeps one React position while the bar folds: the action group is drawn in the header row when folded and under the
+ * editor when open, and a node that moves between two React parents would remount (and lose a selected, edited view). The slot is
+ * portalled into one host element that the visible action group adopts, so folding moves the DOM node but never the component.
+ */
+function useStableSlot(slot: ReactNode) {
+  const [host] = useState(() => (slot === undefined || slot === null || typeof document === 'undefined' ? null : Object.assign(document.createElement('span'), { className: 'inline-flex' })));
+  const adopt = (parent: HTMLElement | null) => { if (host && parent && host.parentElement !== parent) parent.appendChild(host); };
+  return { adopt, portal: host && slot ? createPortal(slot, host) : null, present: host !== null };
+}
+
+function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
+  const stableView = useStableSlot(viewSlot);
   const platform = useHostPlatform();
   const { route, global, page, scope, screenMode, equipmentAxes, url, session } = platform;
   const query = useQueryDraft();
@@ -95,10 +110,11 @@ function QueryBarSession({ label, historySlot }: QueryBarProps) {
     : <span id={reasonId} className="sr-only" />;
   const actions = <div role="group" aria-label={ko ? '조회 조건 동작' : 'Query actions'} className={board ? 'flex shrink-0 items-center gap-2' : 'flex flex-wrap items-center gap-2'}>
     {changes > 0 && <span className="text-xs text-text-secondary">{ko ? `적용 안 된 변경 ${changes}개` : `${changes} unapplied changes`}</span>}
-    <Button type="button" variant="ghost" size="toolbar" onClick={() => { revert(); setPeriodEditor({ mode: 'range', reference: (global.from ?? platform.defaultRangeTo).slice(0, 10), invalidReference: false }); setRangeSource('revert'); setEditError(null); }}>{ko ? '되돌리기' : 'Revert'}</Button>
-    <Button type="button" variant="ghost" size="toolbar" onClick={() => { reset(); setPeriodEditor({ mode: 'range', reference: platform.defaultRangeTo.slice(0, 10), invalidReference: false }); setRangeSource('reset'); setEditError(null); }}>{t('reset')}</Button>
+    <Button type="button" variant="ghost" size="toolbar" onClick={() => { revert(); setPeriodEditor({ mode: 'range', reference: (global.from ?? platform.defaultRangeTo).slice(0, 10), invalidReference: false }); setRangeSource('revert'); setEditError(null); }}>{ko ? '초안 되돌리기' : 'Revert draft'}</Button>
+    <Button type="button" variant="ghost" size="toolbar" onClick={() => { reset(); setPeriodEditor({ mode: 'range', reference: platform.defaultRangeTo.slice(0, 10), invalidReference: false }); setRangeSource('reset'); setEditError(null); }}>{ko ? '조건 초기화' : 'Reset conditions'}</Button>
     <Button type="button" size="toolbar" disabled={!canApply || reasons.length > 0} aria-describedby={reasonId} onClick={apply}>{ko ? '적용' : 'Apply'}</Button>
     {historySlot}
+    {stableView.present && <span ref={stableView.adopt} className="contents" />}
   </div>;
   const remove = (key: string) => {
     const fields: Record<string, Partial<GlobalContext>> = { time: { from: null, to: null }, roomNames: { roomNames: null }, line: { lineNames: null }, prcGroup: { prcGroups: null }, selection: { selection: null }, lot: { lotIds: null }, ppid: { ppid: null }, recipe: { recipeIds: null }, metric: { metricId: null, metricVersion: null } };
@@ -167,7 +183,7 @@ function QueryBarSession({ label, historySlot }: QueryBarProps) {
     {board && <><p className="text-xs [overflow-wrap:anywhere]">{ko ? '편집 중 조건' : 'Editing conditions'} · {summary}</p><p className="text-xs [overflow-wrap:anywhere]">{ko ? '적용 조건' : 'Applied conditions'} · {applied}</p>{actions}{issues}<Button type="button" variant="ghost" size="toolbar" onClick={() => toggle(false)}>{ko ? '닫기' : 'Close'}</Button></>}
   </div>;
   const trigger = <Button ref={disclosure} type="button" variant="secondary" size="toolbar" aria-label={ko ? `조회 조건 ${expanded ? '접기' : '펼치기'}` : `${expanded ? 'Collapse' : 'Expand'} query conditions`} aria-expanded={expanded} aria-controls={`${id}-editor`} onClick={board ? undefined : () => toggle(!expanded)}>{expanded ? <ChevronUp aria-hidden className="size-4" /> : <ChevronDown aria-hidden className="size-4" />}{label?.visible ?? (ko ? '조회 조건' : 'Query conditions')}</Button>;
-  return <section role="region" aria-label={label?.region ?? (ko ? '조회 조건' : 'Query conditions')} data-query-bar data-query-bar-collapsed={!board && !expanded ? '' : undefined} className={!board && !expanded ? 'sticky top-[50px] z-20 min-w-0 border-b border-border-subtle bg-surface-canvas' : 'min-w-0 border-b border-border-subtle bg-surface-canvas'}>
+  return <><section role="region" aria-label={label?.region ?? (ko ? '조회 조건' : 'Query conditions')} data-query-bar data-query-bar-collapsed={!board && !expanded ? '' : undefined} className={!board && !expanded ? 'sticky top-[50px] z-20 min-w-0 border-b border-border-subtle bg-surface-canvas' : 'min-w-0 border-b border-border-subtle bg-surface-canvas'}>
     <div className={board ? 'flex h-12 min-w-0 items-center gap-2 overflow-x-auto px-3' : 'flex min-h-12 min-w-0 flex-wrap items-center gap-2 px-3'}>
       {board ? <Popover open={expanded} onOpenChange={toggle}><PopoverTrigger asChild>{trigger}</PopoverTrigger><PopoverContent align="start" side="bottom" className="max-h-[var(--radix-popover-content-available-height)] w-[min(64rem,var(--radix-popover-content-available-width))] overflow-y-auto" onOpenAutoFocus={event => { event.preventDefault(); editor.current?.querySelector<HTMLElement>('button:not(:disabled), input:not(:disabled)')?.focus(); }} onCloseAutoFocus={event => { event.preventDefault(); disclosure.current?.focus(); }}>{content}</PopoverContent></Popover> : trigger}
       {board && !expanded && <Button type="button" variant="ghost" size="toolbar" className="min-w-0 flex-1" aria-label={ko ? '전체 조회 조건 보기' : 'View full query conditions'} onClick={() => toggle(true)}><span className="truncate">{editing ? (ko ? '편집 중' : 'Editing') : (ko ? '적용 조건' : 'Applied conditions')} · {summary}</span></Button>}
@@ -178,7 +194,7 @@ function QueryBarSession({ label, historySlot }: QueryBarProps) {
     </div>
     {!board && expanded && <>{content}<div className="px-3 pb-2">{issues}</div><div className="px-3 pb-3">{actions}</div></>}
     {!board && !expanded && <div className="px-3 pb-2">{issues}</div>}
-  </section>;
+  </section>{stableView.portal}</>;
 }
 
 /**

@@ -1,3 +1,4 @@
+import { supportedFields } from './capture';
 import type { ChangeLine, MenuView, SavedView, SavedViewContext, SavedViewSupport, ViewCapabilities } from '@ap/contracts';
 
 /** What the app knows now. Supported keys and the menu schema version come from the support declaration, not from here. */
@@ -42,8 +43,10 @@ const cloneJson = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 
 function contextReasons(view: SavedView, support: SavedViewSupport, ctx: DiagnoseContext): DiagnoseReason[] {
   const reasons: DiagnoseReason[] = [];
+  // Same field rule as capture and restore: a menu declares Context keys (`time`), the view stores fields (`from`, `to`).
+  const fields = supportedFields(support);
   for (const key of Object.keys(view.context)) {
-    if (!support.contextKeys.includes(key)) reasons.push({ code: 'stale-context-key', key });
+    if (!fields.has(key as never)) reasons.push({ code: 'stale-context-key', key });
   }
   const { condition, selection } = view.context;
   if (condition) {
