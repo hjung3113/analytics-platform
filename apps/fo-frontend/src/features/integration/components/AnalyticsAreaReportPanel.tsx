@@ -3,7 +3,7 @@ import { fetchAnalyticsAreaReport } from '@/lib/api/area-report';
 import { useMeBridge } from '@/lib/api/me';
 import { isPermissionDenied } from '@/lib/api/types';
 import { AREA_REPORT_COPY as COPY } from '@/lib/copy/area-report';
-import { Button, PermissionBlockedPanel, SkeletonRows } from '@fops/ui';
+import { Button, PermissionBlockedPanel, SkeletonRows } from '@ap/ui';
 import { useQuery } from '@tanstack/react-query';
 import { AnalyticsAreaReportTable } from './AnalyticsAreaReportTable';
 

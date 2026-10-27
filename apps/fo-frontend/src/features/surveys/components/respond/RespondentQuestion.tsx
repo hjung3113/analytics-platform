@@ -1,6 +1,6 @@
 import { SURVEY_PARTICIPATION_COPY } from '@/lib/copy/survey-participation';
+import { Textarea } from '@ap/ui';
 import type { SurveyQuestionKind } from '@fops/shared';
-import { Textarea } from '@fops/ui';
 
 export type RespondentAnswer = string | string[] | number;
 

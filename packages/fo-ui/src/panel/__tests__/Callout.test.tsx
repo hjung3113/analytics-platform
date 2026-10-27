@@ -1,7 +1,7 @@
+import { Callout } from '@ap/ui';
+import type { CalloutTone } from '@ap/ui';
 /// <reference types="@testing-library/jest-dom" />
 import { render, screen } from '@testing-library/react';
-import { Callout } from '../Callout.js';
-import type { CalloutTone } from '../Callout.js';
 
 const TONE_VAR: Record<CalloutTone, string> = {
   amber: '--color-amber',

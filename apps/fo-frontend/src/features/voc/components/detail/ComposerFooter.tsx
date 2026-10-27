@@ -21,7 +21,7 @@
 // The consumer is responsible for deciding isEmpty, isSubmitting, isPreviewDisabled,
 // isSubmitDisabled, and the optional status hint node.
 
-import { cn } from '@fops/ui';
+import { cn } from '@ap/ui';
 import { Expand } from 'lucide-react';
 import type * as React from 'react';
 

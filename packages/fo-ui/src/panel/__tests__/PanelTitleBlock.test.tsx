@@ -1,6 +1,6 @@
+import { PanelTitleBlock } from '@ap/ui';
 /// <reference types="@testing-library/jest-dom" />
 import { render, screen } from '@testing-library/react';
-import { PanelTitleBlock } from '../PanelTitleBlock.js';
 
 describe('PanelTitleBlock', () => {
   it('renders title text', () => {

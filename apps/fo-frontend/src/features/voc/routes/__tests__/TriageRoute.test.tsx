@@ -104,8 +104,8 @@ vi.mock('@/lib/cross-system/usePermissionCheckBridge', () => ({
 }));
 
 // ── Stub PermissionBlockedPanel (avoids JSDOM rendering issues with @fops/ui internals)
-vi.mock('@fops/ui', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@fops/ui')>();
+vi.mock('@ap/ui', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@ap/ui')>();
   return {
     ...actual,
     PermissionBlockedPanel: ({

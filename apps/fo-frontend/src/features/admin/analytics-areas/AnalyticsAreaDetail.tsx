@@ -8,9 +8,6 @@ import {
   Button,
   DetailPanelSectionNav,
   FieldRow,
-  ManagedSystemMark,
-  ManagedSystemPill,
-  OutlineBadge,
   type PanelSection,
   PanelSectionTitle,
   PanelTitleBlock,
@@ -19,7 +16,8 @@ import {
   SheetDescription,
   SheetTitle,
   UserChip,
-} from '@fops/ui';
+} from '@ap/ui';
+import { ManagedSystemMark, ManagedSystemPill, OutlineBadge } from '@fops/ui';
 import { Layers, Settings, Shield } from 'lucide-react';
 import { useRef } from 'react';
 

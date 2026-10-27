@@ -1,6 +1,5 @@
 import { SURVEY_QUESTION_KIND_LABELS } from '@/lib/copy/enum-labels';
 import { SURVEY_BUILDER_COPY } from '@/lib/copy/survey-builder';
-import { surveyQuestionKindSchema } from '@fops/shared';
 import {
   Input,
   Select,
@@ -9,7 +8,8 @@ import {
   SelectTrigger,
   SelectValue,
   Textarea,
-} from '@fops/ui';
+} from '@ap/ui';
+import { surveyQuestionKindSchema } from '@fops/shared';
 import * as React from 'react';
 import type { QuestionKind, SurveyQuestion } from '../../types';
 import { BranchEditor } from './BranchEditor';

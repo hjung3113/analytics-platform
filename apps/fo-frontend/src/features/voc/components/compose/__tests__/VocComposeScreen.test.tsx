@@ -11,8 +11,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { VocComposeScreen, type VocComposeScreenProps } from '../VocComposeScreen';
 import type { VocComposeContextBlock } from '../context-block';
 
-vi.mock('@fops/ui', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@fops/ui')>()),
+vi.mock('@ap/ui', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@ap/ui')>()),
   RichEditor: ({ onChange }: { onChange: (doc: unknown) => void }) => (
     <textarea
       data-testid="mock-rich-editor"

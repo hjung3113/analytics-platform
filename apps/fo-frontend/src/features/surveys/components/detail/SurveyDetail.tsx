@@ -1,7 +1,7 @@
 import { SURVEY_TYPE_LABELS } from '@/lib/copy/enum-labels';
 import { GLOSSARY } from '@/lib/copy/glossary';
 import { SURVEY_PARTICIPATION_COPY } from '@/lib/copy/survey-participation';
-import { Button, DetailPanelHeader, EmptyState, PanelTitleBlock } from '@fops/ui';
+import { Button, DetailPanelHeader, EmptyState, PanelTitleBlock } from '@ap/ui';
 import { Link } from '@tanstack/react-router';
 import { ArrowRight } from 'lucide-react';
 import * as React from 'react';

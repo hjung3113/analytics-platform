@@ -1,3 +1,4 @@
+import { cn } from '@ap/ui';
 /**
  * ManagedSystemPill — outline pill: border + rounded-full + name + 6 px round color dot.
  *
@@ -10,7 +11,6 @@
  * A missing record can omit `mark` and renders in the muted version.
  */
 import type * as React from 'react';
-import { cn } from '../utils/cn.js';
 
 export interface ManagedSystemPillProps {
   name: string;

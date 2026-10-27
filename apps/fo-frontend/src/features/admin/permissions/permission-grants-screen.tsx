@@ -1,6 +1,6 @@
 import { ListStateMessage } from '@/components/ListStateMessage';
+import { Button, ListShell, ListTabs, type ListToolbarTab, ObjectRow } from '@ap/ui';
 import type { PermissionGrantAdminItem } from '@fops/shared';
-import { Button, ListShell, ListTabs, type ListToolbarTab, ObjectRow } from '@fops/ui';
 import * as React from 'react';
 
 import { ADMIN_PERMISSIONS_COPY } from '@/lib/copy/admin-permissions';

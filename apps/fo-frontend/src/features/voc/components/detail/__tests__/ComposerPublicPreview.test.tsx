@@ -21,7 +21,7 @@ describe('<ComposerPublicPreview>', () => {
     const draftDoc = {
       type: 'doc',
       content: [{ type: 'paragraph', content: [{ type: 'text', text: '검토 완료되었습니다.' }] }],
-    } as import('@fops/ui').TipTapDoc;
+    } as import('@ap/ui').TipTapDoc;
 
     render(
       <ComposerPublicPreview
@@ -43,7 +43,7 @@ describe('<ComposerPublicPreview>', () => {
   });
 
   it('renders italic placeholder copy when body doc is empty', () => {
-    const emptyDoc = { type: 'doc', content: [] } as import('@fops/ui').TipTapDoc;
+    const emptyDoc = { type: 'doc', content: [] } as import('@ap/ui').TipTapDoc;
 
     render(
       <ComposerPublicPreview

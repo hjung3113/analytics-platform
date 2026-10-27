@@ -5,7 +5,7 @@
 // Rules:
 //   1. packages/shared MUST NOT import from apps/* or packages/ui.
 //   2. packages/ui MUST NOT import from apps/* or packages/shared, MUST NOT call fetch/axios.
-//   3. apps/frontend MUST NOT import from @radix-ui/* directly (shadcn primitives wrapped via @fops/ui).
+//   3. apps/frontend MUST NOT import from @radix-ui/* directly (shadcn primitives come from @ap/ui).
 //   4. apps/frontend MUST NOT import from apps/backend.
 //   5. apps/backend MUST NOT import from apps/frontend or packages/ui.
 //   6. apps/backend/src/modules/* MUST NOT import another top-level module's repo*.js.
@@ -53,7 +53,7 @@ const RULES = [
   {
     scope: FO_FRONTEND,
     forbid: [/from\s+['"]@radix-ui\//, siblingImport(FO_BACKEND)],
-    msg: 'apps/frontend must import primitives via @fops/ui, not @radix-ui/*; must not import apps/fo-backend',
+    msg: 'apps/frontend must import primitives via @ap/ui, not @radix-ui/*; must not import apps/fo-backend',
   },
   {
     scope: FO_BACKEND,

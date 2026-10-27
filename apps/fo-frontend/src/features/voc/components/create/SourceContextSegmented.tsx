@@ -1,9 +1,9 @@
 // SourceContextSegmented — segmented radio control for VOC source context.
 // Spec §3.4: no proxy sub-fields in this slice.
 
+import { RadioGroup, RadioGroupItem } from '@ap/ui';
 import { SOURCE_CONTEXTS } from '@fops/shared';
 import type { SourceContext } from '@fops/shared';
-import { RadioGroup, RadioGroupItem } from '@fops/ui';
 import { Megaphone, Search, User, Users } from 'lucide-react';
 import type * as React from 'react';
 

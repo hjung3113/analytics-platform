@@ -6,7 +6,7 @@
 // Walks the TipTap JSON node tree, collects actor_id from `mention` nodes, and
 // deduplicates. Works on raw JSONContent — no HTML serialisation or regex.
 
-import type { TipTapDoc } from '@fops/ui';
+import type { TipTapDoc } from '@ap/ui';
 
 // ── Public API ────────────────────────────────────────────────────────────────
 

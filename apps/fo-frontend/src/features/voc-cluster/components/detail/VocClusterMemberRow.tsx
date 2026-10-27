@@ -1,7 +1,8 @@
 import { FINDING_SEVERITY_LABELS } from '@/lib/copy/enum-labels';
 import { HostLink } from '@/lib/host/host-seam';
 import { shortId } from '@/lib/identity';
-import { Button, ReporterStatusBadge, cn } from '@fops/ui';
+import { Button, cn } from '@ap/ui';
+import { ReporterStatusBadge } from '@fops/ui';
 import { Trash2 } from 'lucide-react';
 import type * as React from 'react';
 import type { VocClusterMemberPresentation } from '../types';

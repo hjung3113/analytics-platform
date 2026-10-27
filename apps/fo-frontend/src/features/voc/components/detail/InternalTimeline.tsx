@@ -6,8 +6,8 @@
 // so an empty array here for Reporter-only viewers is expected.
 
 import { useVocConversation } from '@/features/voc/hooks/useVocConversation';
+import { Button, EmptyState } from '@ap/ui';
 import type { ConversationEntry } from '@fops/shared';
-import { Button, EmptyState } from '@fops/ui';
 import type * as React from 'react';
 import { TimelineEntry } from './TimelineEntry';
 

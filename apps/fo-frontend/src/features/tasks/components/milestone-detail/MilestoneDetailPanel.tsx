@@ -1,4 +1,4 @@
-import { DetailPanelHeader } from '@fops/ui';
+import { DetailPanelHeader } from '@ap/ui';
 import {
   type MilestoneDetailPanelProps,
   type MilestoneDetailParts,

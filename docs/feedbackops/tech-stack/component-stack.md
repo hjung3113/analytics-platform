@@ -67,24 +67,24 @@ Those components must be owned by this codebase.
 The primitive source and the shared display components `ObjectRow`, `UserAvatar`,
 `UserChip`, `ProgressMeter`, `SeverityIndicator`, `PermissionBlockedPanel`, and
 `StatusBadgeFrame` live in the pinned `@ap/ui` package (analytics-platform's
-`packages/ui`, tag `sdk-v0.5.0`). Matching paths in `packages/fo-ui/src` are
-compatibility re-exports for `@fops/ui`; the SDK ownership decision is recorded
+`packages/ui`, tag `sdk-v0.5.0`). FeedbackOps code imports them from `@ap/ui` directly;
+`@fops/ui` no longer re-exports them (#713q). The SDK ownership decision is recorded
 upstream in ADR-0050. FeedbackOps-owned composed components live at:
 
 ```text
 packages/fo-ui/src/{badges,data,entity,feedback,forms,identity,indicators,layout,panel,permissions,rich-content,toolbar}/*
 ```
 
-The matching `ObjectRow`, `UserAvatar`, `UserChip`, `ProgressMeter`,
-`SeverityIndicator`, `PermissionBlockedPanel`, and `StatusBadgeFrame` modules
-are compatibility re-exports. FeedbackOps-owned badges, `LinkedEntityTrail`,
+`ObjectRow`, `UserAvatar`, `UserChip`, `ProgressMeter`,
+`SeverityIndicator`, `PermissionBlockedPanel`, and `StatusBadgeFrame` are imported from `@ap/ui`.
+FeedbackOps-owned badges, `LinkedEntityTrail`,
 pickers, and rich-content remain local for now. The SDK also carries a
 rich-content copy (restored in `sdk-v0.5.0`, upstream ADR-0052); switching to it
 is a later bundle. `allowlist-local.ts` is the UI copy of the canonical shared
 contract and remains drift-tested.
 
-Compatibility re-exports remain in `packages/fo-ui/src/components/shadcn/`;
-the `@fops/ui` public API is assembled by `packages/fo-ui/src/index.ts`.
+The shadcn primitives are not wrapped in `packages/fo-ui`; the `@fops/ui` public API (FeedbackOps-owned
+components and aliases only) is assembled by `packages/fo-ui/src/index.ts`.
 
 Recommended source:
 
@@ -98,7 +98,7 @@ Rules:
 - These components expose visual tokens and accessibility behavior.
 - They do not know FeedbackOps domain concepts.
 - They must be normalized to frontend semantic tokens derived from docs/frontend/tokens.md.
-- Feature screens must not import @radix-ui/* directly (scripts/check-boundaries.mjs rule 3). They import the wrapper from @fops/ui.
+- Feature screens must not import @radix-ui/* directly (scripts/check-boundaries.mjs rule 3). They import the primitive from @ap/ui.
 ```
 
 ### Layer 2: Product And Domain Components
@@ -109,7 +109,7 @@ Owned path:
 packages/fo-ui/src/<area>/*
 ```
 
-Areas: `badges`, `data`, `entity`, `feedback`, `forms`, `identity`, `indicators`, `layout`, `panel`, `permissions`, `rich-content`, `toolbar`. Shared pickers live in `packages/fo-ui/src/components/*`; `Button` is exposed through `@fops/ui` and sourced from `@ap/ui`. The layout shells are exactly `PageShell`, `ListShell`, and `WorkbenchShell` (ADR-0020).
+Areas: `badges`, `data`, `entity`, `feedback`, `forms`, `identity`, `indicators`, `layout`, `panel`, `permissions`, `rich-content`, `toolbar`. Shared pickers live in `packages/fo-ui/src/components/*`; `Button` and the other shadcn primitives come from `@ap/ui`. The layout shells are exactly `PageShell`, `ListShell`, and `WorkbenchShell` (ADR-0020).
 
 Components that only one feature uses stay feature-local, under `apps/fo-frontend/src/features/<feature>/`.
 
@@ -161,7 +161,7 @@ cmdk
 Use:
 
 ```text
-- shadcn/ui primitives sourced through the pinned `@ap/ui` SDK; FeedbackOps consumers use the `@fops/ui` wrappers
+- shadcn/ui primitives sourced through the pinned `@ap/ui` SDK; FeedbackOps consumers import them from `@ap/ui`
 - Radix UI for accessible primitives (@radix-ui/react-* dependencies of packages/fo-ui)
 - lucide-react for icons
 - sonner for ephemeral mutation feedback
@@ -276,7 +276,7 @@ These libraries were considered and are not installed in any `package.json`:
 - recharts
 ```
 
-Lists use the shared list shells and `ObjectRow` (`packages/fo-ui/src/data`). Adopting any of these is a new dependency: add it to the owning package and move it into the Approved MVP Stack in the same change.
+Lists use the shared list shells and `ObjectRow` (`@ap/ui`). Adopting any of these is a new dependency: add it to the owning package and move it into the Approved MVP Stack in the same change.
 
 ## Reference Registries
 
@@ -397,7 +397,7 @@ They are useful Tailwind component accelerators, but FeedbackOps needs React-own
 
 ## Permission-Aware UI Requirements
 
-The stack must include explicit permission-aware components. `PermissionBlockedPanel` (`packages/fo-ui/src/permissions/`) is the shared blocked state.
+The stack must include explicit permission-aware components. `PermissionBlockedPanel` (`@ap/ui`) is the shared blocked state.
 
 Rules:
 
@@ -462,7 +462,7 @@ packages/fo-ui dependencies:
 - lucide-react, sonner
 ```
 
-shadcn/ui is not a normal runtime UI dependency; bundle-1 source files are shipped by the pinned `@ap/ui` package. Local files under `packages/fo-ui/src/components/shadcn` are compatibility re-exports.
+shadcn/ui is not a normal runtime UI dependency; bundle-1 source files are shipped by the pinned `@ap/ui` package. FeedbackOps code imports the primitives from `@ap/ui`; `packages/fo-ui` keeps no shadcn files.
 Install reusable component dependencies at the workspace root or target package
 according to the chosen workspace manager; do not create per-app lockfiles.
 

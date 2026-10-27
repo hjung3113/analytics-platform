@@ -4,8 +4,8 @@
 
 import { useMe } from '@/lib/auth/useMe';
 import { ROLE_LEVEL_DISPLAY_LABELS } from '@/lib/copy/enum-labels';
+import { Avatar, AvatarFallback, Card, CardContent, Skeleton } from '@ap/ui';
 import type { RoleLevel } from '@fops/shared';
-import { Avatar, AvatarFallback, Card, CardContent, Skeleton } from '@fops/ui';
 import type * as React from 'react';
 
 export interface ReporterCardProps {

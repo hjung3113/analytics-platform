@@ -1,7 +1,7 @@
+import { DatePicker } from '@ap/ui';
 /// <reference types="@testing-library/jest-dom" />
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { vi } from 'vitest';
-import { DatePicker } from '../../index.js';
 
 describe('DatePicker', () => {
   it.each([['detail surface', 'bg-surface-detail']])(

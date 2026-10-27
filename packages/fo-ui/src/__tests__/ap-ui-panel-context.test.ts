@@ -1,8 +1,7 @@
-import { DetailPanelFullscreenContext as platformContext } from '@ap/ui';
-import { DetailPanelFullscreenContext as feedbackOpsContext } from '../index.js';
-import { DetailPanelFullscreenContext as localModuleContext } from '../panel/DetailPanelFullscreenContext.js';
+import { useDetailPanelContent } from '@ap/ui';
+import { useDetailPanelSlot } from '../index.js';
 
-it('shares the @ap/ui fullscreen context with FeedbackOps consumers', () => {
-  expect(feedbackOpsContext).toBe(platformContext);
-  expect(localModuleContext).toBe(platformContext);
+// FeedbackOps screens use the `@ap/ui` detail slot through one module instance: the FeedbackOps name is the same function.
+it('names the @ap/ui detail slot registrant for FeedbackOps consumers', () => {
+  expect(useDetailPanelSlot).toBe(useDetailPanelContent);
 });

@@ -1,5 +1,5 @@
 import { SURVEY_BUILDER_COPY } from '@/lib/copy/survey-builder';
-import { Button, Input } from '@fops/ui';
+import { Button, Input } from '@ap/ui';
 import { Plus, Trash2 } from 'lucide-react';
 import type { SurveyQuestion } from '../../types';
 import { createClientId } from './lib/createClientId';

@@ -1,7 +1,7 @@
 // Real RichContentRenderer (no mock): attachment refs in reply bodies resolve to names (#745 FIX1 C1).
 
+import type { TipTapDoc } from '@ap/ui';
 import type { ConversationEntry, VocDetailEnvelope } from '@fops/shared';
-import type { TipTapDoc } from '@fops/ui';
 import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { ComposerReplyPreview } from '../ComposerReplyPreview';

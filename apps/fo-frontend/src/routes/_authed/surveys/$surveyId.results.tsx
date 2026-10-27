@@ -5,7 +5,7 @@ import { useSurveyResultsController } from '@/features/surveys/hooks/useSurveyRe
 import { mapUnknownError } from '@/lib/api/errorMapper';
 import { ApiError, isPermissionDenied } from '@/lib/api/types';
 import { PERMISSION_BLOCKED_REASONS } from '@/lib/copy/permission-reasons';
-import { EmptyState, PermissionBlockedPanel, WorkbenchShell } from '@fops/ui';
+import { EmptyState, PermissionBlockedPanel, WorkbenchShell } from '@ap/ui';
 import { createFileRoute } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 

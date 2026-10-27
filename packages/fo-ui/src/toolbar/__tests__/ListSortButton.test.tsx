@@ -1,9 +1,7 @@
-/// <reference types="@testing-library/jest-dom" />
-import * as React from 'react';
+import { ListSortButton } from '@ap/ui';
+import type { SortOption } from '@ap/ui';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { ListSortButton } from '../ListSortButton.js';
-import type { SortOption } from '../ListSortButton.js';
 
 const options: SortOption[] = [
   { value: 'created_at:desc', label: '최신순' },

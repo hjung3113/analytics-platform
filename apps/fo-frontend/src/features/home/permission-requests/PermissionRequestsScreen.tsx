@@ -26,12 +26,6 @@ import { PERMISSION_REQUESTS_PAGE_COPY as COPY } from '@/lib/copy/permission-req
 import { formatDate } from '@/lib/format/datetime';
 import { useHostSeam } from '@/lib/host/host-seam';
 import {
-  CAPABILITIES,
-  type Capability,
-  type MinePermissionRequestRow,
-  OPEN_PERMISSION_REQUEST_STATUSES,
-} from '@fops/shared';
-import {
   Button,
   Label,
   Select,
@@ -42,7 +36,13 @@ import {
   SelectValue,
   Skeleton,
   Textarea,
-} from '@fops/ui';
+} from '@ap/ui';
+import {
+  CAPABILITIES,
+  type Capability,
+  type MinePermissionRequestRow,
+  OPEN_PERMISSION_REQUEST_STATUSES,
+} from '@fops/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
 

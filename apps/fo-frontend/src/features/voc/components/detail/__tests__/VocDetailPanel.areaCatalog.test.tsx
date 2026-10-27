@@ -44,8 +44,8 @@ vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
 vi.mock('@/lib/api/milestones', () => ({ listMilestones: vi.fn(async () => ({ items: [] })) }));
 vi.mock('@/lib/auth/useMe', () => ({ useMe: vi.fn() }));
 vi.mock('@/lib/cross-system/usePermissionCheck', () => ({ usePermissionCheck: vi.fn() }));
-vi.mock('@fops/ui', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@fops/ui')>()),
+vi.mock('@ap/ui', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@ap/ui')>()),
   RichContentRenderer: () => <div data-testid="rce" />,
 }));
 

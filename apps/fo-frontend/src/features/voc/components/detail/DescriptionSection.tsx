@@ -6,8 +6,8 @@
 
 import { ATTACHMENT_FALLBACK_LABEL } from '@/lib/copy/attachments';
 import { VOC_DETAIL_BODY_LABEL } from '@/lib/copy/voc';
+import { RichContentRenderer, type TipTapDoc } from '@ap/ui';
 import { type VocDetailEnvelope, isTipTapDocStructurallyEmpty } from '@fops/shared';
-import { RichContentRenderer, type TipTapDoc } from '@fops/ui';
 import * as React from 'react';
 import { AttachmentChipList } from './AttachmentChip';
 import { EditDescriptionModal } from './EditDescriptionModal';

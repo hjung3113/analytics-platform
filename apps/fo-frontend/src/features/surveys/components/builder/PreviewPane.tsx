@@ -5,7 +5,7 @@ import {
   DialogDescription,
   DialogTitle,
   DialogTrigger,
-} from '@fops/ui';
+} from '@ap/ui';
 import { Eye } from 'lucide-react';
 import * as React from 'react';
 

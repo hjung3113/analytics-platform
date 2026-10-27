@@ -20,8 +20,8 @@ import { invalidateRecovery } from '@/lib/query/recovery';
 import { apiClient } from '@/lib/api/client';
 import type { ApiError } from '@/lib/api/types';
 import { invalidateNavCounts } from '@/lib/query/navCounts';
+import type { TipTapDoc } from '@ap/ui';
 import type { ReporterFacingStatusEnum, VocDetailEnvelope, VocSummaryEnvelope } from '@fops/shared';
-import type { TipTapDoc } from '@fops/ui';
 import { type UseMutationResult, useMutation, useQueryClient } from '@tanstack/react-query';
 
 // ── Types ─────────────────────────────────────────────────────────────────────

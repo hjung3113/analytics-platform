@@ -1,8 +1,8 @@
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { POPPER_CONTENT_MOTION } from '@ap/ui';
 import { compile } from '@tailwindcss/node';
 import { expect, it } from 'vitest';
-import { POPPER_CONTENT_MOTION } from '../../utils/motion.js';
 
 /**
  * Consumer contract for the documented @ap/ui stylesheet imports (ADR-0058).

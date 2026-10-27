@@ -1,4 +1,4 @@
-import { Button, DetailPanelFullscreenToggle, FieldRow, PanelSectionTitle } from '@fops/ui';
+import { Button, DetailPanelFullscreenToggle, FieldRow, PanelSectionTitle } from '@ap/ui';
 
 import { ADMIN_PERMISSIONS_COPY } from '@/lib/copy/admin-permissions';
 import { getCapabilityDisplayLabel } from '@/lib/copy/capabilities';

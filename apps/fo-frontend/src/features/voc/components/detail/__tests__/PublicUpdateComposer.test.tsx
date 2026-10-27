@@ -34,15 +34,15 @@ vi.mock('@/features/voc/hooks/useVocPublicUpdateMutation', () => ({
 }));
 
 // Mock RichEditor to avoid TipTap JSDOM issues.
-vi.mock('@fops/ui', async (importActual) => {
-  const actual = await importActual<typeof import('@fops/ui')>();
+vi.mock('@ap/ui', async (importActual) => {
+  const actual = await importActual<typeof import('@ap/ui')>();
   return {
     ...actual,
     RichEditor: ({
       onChange,
       'data-testid': testId,
     }: {
-      onChange?: (doc: import('@fops/ui').TipTapDoc) => void;
+      onChange?: (doc: import('@ap/ui').TipTapDoc) => void;
       'data-testid'?: string;
     }) =>
       React.createElement('div', {

@@ -1,10 +1,9 @@
+import { ListTabs, ListToolbar } from '@ap/ui';
+import type { ListToolbarTab } from '@ap/ui';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Flag } from 'lucide-react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ListTabs } from '../ListTabs.js';
-import { ListToolbar } from '../ListToolbar.js';
-import type { ListToolbarTab } from '../ListToolbar.js';
 
 const tabs: ListToolbarTab[] = [
   { value: 'untriaged', label: '미분류' },

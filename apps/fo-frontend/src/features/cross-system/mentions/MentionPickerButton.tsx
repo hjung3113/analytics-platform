@@ -13,8 +13,7 @@
 // so the picker can be tested without a live TipTap instance.
 
 import { type WorkspaceActor, useWorkspaceActors } from '@/lib/cross-system/useWorkspaceActors';
-import { Popover, PopoverContent, PopoverTrigger } from '@fops/ui';
-import { cn } from '@fops/ui';
+import { Popover, PopoverContent, PopoverTrigger, cn } from '@ap/ui';
 import { AtSign } from 'lucide-react';
 import * as React from 'react';
 

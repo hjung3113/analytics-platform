@@ -64,14 +64,8 @@ vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
 vi.mock('@/lib/cross-system/useWorkspaceActors', () => ({
   useWorkspaceActors: () => ({ actors: [] }),
 }));
-vi.mock('@fops/ui', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@fops/ui')>()),
-  useDetailPanelSlot: (node: import('react').ReactNode) => {
-    useLayoutEffect(() => {
-      slot.set(node);
-      return () => slot.set(undefined);
-    }, [node]);
-  },
+vi.mock('@ap/ui', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@ap/ui')>()),
   ListShell: ({ list, detailPanel }: { list: ReactNode; detailPanel?: ReactNode }) => (
     <main>
       {list}
@@ -81,6 +75,15 @@ vi.mock('@fops/ui', async (importOriginal) => ({
       </aside>
     </main>
   ),
+}));
+vi.mock('@fops/ui', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@fops/ui')>()),
+  useDetailPanelSlot: (node: import('react').ReactNode) => {
+    useLayoutEffect(() => {
+      slot.set(node);
+      return () => slot.set(undefined);
+    }, [node]);
+  },
 }));
 vi.mock('./task-requests/TaskRequestPanelParts', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./task-requests/TaskRequestPanelParts')>();

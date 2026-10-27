@@ -1,5 +1,5 @@
+import { ProgressMeter } from '@ap/ui';
 import { render, screen } from '@testing-library/react';
-import { ProgressMeter } from '../ProgressMeter.js';
 
 describe('ProgressMeter', () => {
   it('preserves plain, labeled, and decorative accessibility semantics', () => {

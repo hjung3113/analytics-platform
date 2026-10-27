@@ -47,8 +47,8 @@ const docWithUpload = (...ids: string[]) => ({
   ],
 });
 
-vi.mock('@fops/ui', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@fops/ui')>()),
+vi.mock('@ap/ui', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@ap/ui')>()),
   RichEditor: ({ onChange }: { onChange: (doc: unknown) => void }) => (
     <>
       <button type="button" onClick={() => onChange(docWithUpload(ATT_A, ATT_B, ATT_A))}>

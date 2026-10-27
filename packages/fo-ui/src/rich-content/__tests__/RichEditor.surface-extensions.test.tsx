@@ -1,8 +1,8 @@
-import type { Editor } from '@tiptap/react';
 import { render, waitFor } from '@testing-library/react';
+import type { Editor } from '@tiptap/react';
 import { describe, expect, it } from 'vitest';
 
-import { RichEditor, type RichEditorSurface, type TipTapDoc } from '../RichEditor';
+import { RichEditor, type RichEditorSurface, type TipTapDoc } from '@ap/ui';
 
 const ATTACHMENT_UUID = '22222222-2222-2222-2222-222222222222';
 const ACTOR_UUID = '11111111-1111-1111-1111-111111111111';

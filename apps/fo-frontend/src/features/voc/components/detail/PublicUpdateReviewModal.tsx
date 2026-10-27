@@ -7,7 +7,6 @@ import { GLOSSARY } from '@/lib/copy/glossary';
 import { REPORTER_STATUS_LABELS } from '@/lib/copy/reporter-status-labels';
 import { formatDate } from '@/lib/format/datetime';
 import { useHostSeam } from '@/lib/host/host-seam';
-import type { ReporterFacingStatusEnum, VocDetailEnvelope } from '@fops/shared';
 import {
   Button,
   Dialog,
@@ -24,7 +23,8 @@ import {
   SelectTrigger,
   SelectValue,
   Textarea,
-} from '@fops/ui';
+} from '@ap/ui';
+import type { ReporterFacingStatusEnum, VocDetailEnvelope } from '@fops/shared';
 import { useEffect, useState } from 'react';
 
 const STATUSES: ReporterFacingStatusEnum[] = [

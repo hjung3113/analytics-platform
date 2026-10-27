@@ -1,6 +1,6 @@
+import { PreviewModal } from '@ap/ui';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { PreviewModal } from '../PreviewModal.js';
 
 describe('PreviewModal', () => {
   it('renders children and title when open', () => {

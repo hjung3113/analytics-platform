@@ -32,19 +32,22 @@ vi.mock('@/features/voc/hooks/useVocInternalCommentMutation', () => ({
     },
   ),
 }));
-vi.mock('sonner', () => ({ toast }));
+vi.mock('sonner', () => ({
+  Toaster: () => null,
+  toast,
+}));
 
 // Mock RichEditor — exposes a callback to simulate doc changes with mention nodes.
-let capturedOnChange: ((doc: import('@fops/ui').TipTapDoc) => void) | undefined;
+let capturedOnChange: ((doc: import('@ap/ui').TipTapDoc) => void) | undefined;
 
-vi.mock('@fops/ui', async (importActual) => {
-  const actual = await importActual<typeof import('@fops/ui')>();
+vi.mock('@ap/ui', async (importActual) => {
+  const actual = await importActual<typeof import('@ap/ui')>();
   return {
     ...actual,
     RichEditor: ({
       onChange,
     }: {
-      onChange?: (doc: import('@fops/ui').TipTapDoc) => void;
+      onChange?: (doc: import('@ap/ui').TipTapDoc) => void;
     }) => {
       capturedOnChange = onChange;
       return React.createElement('div', {
@@ -120,7 +123,7 @@ describe('<InternalCommentComposer>', () => {
     render(<InternalCommentComposer voc={BASE_VOC} me={ME_ADMIN} />, { wrapper: makeWrapper() });
 
     // Simulate typing content with a mention node.
-    const docWithMention: import('@fops/ui').TipTapDoc = {
+    const docWithMention: import('@ap/ui').TipTapDoc = {
       type: 'doc',
       content: [
         {
@@ -156,7 +159,7 @@ describe('<InternalCommentComposer>', () => {
     render(<InternalCommentComposer voc={BASE_VOC} me={ME_ADMIN} />, { wrapper: makeWrapper() });
 
     // Simulate doc with two mentions of the same actor.
-    const docWithDuplicateMentions: import('@fops/ui').TipTapDoc = {
+    const docWithDuplicateMentions: import('@ap/ui').TipTapDoc = {
       type: 'doc',
       content: [
         {

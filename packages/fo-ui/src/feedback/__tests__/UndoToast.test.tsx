@@ -1,13 +1,7 @@
-/// <reference types="@testing-library/jest-dom" />
-// UndoToast.test.tsx — RED tests for the UndoToast primitive.
-// TDD RED: these tests are written before the implementation file exists.
-// Prototype ref: docs/feedbackops/design-prototype/screen-voc-create.jsx:699-730
-
-import * as React from 'react';
+import { UndoToast } from '@ap/ui';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { UndoToast } from '../UndoToast.js';
 
 afterEach(() => {
   cleanup();
@@ -17,26 +11,14 @@ afterEach(() => {
 
 describe('UndoToast', () => {
   it('renders message and 실행 취소 button', () => {
-    render(
-      <UndoToast
-        message="Triage 확정됨"
-        onAction={vi.fn()}
-        duration={5000}
-      />,
-    );
+    render(<UndoToast message="Triage 확정됨" onAction={vi.fn()} duration={5000} />);
     expect(screen.getByText('Triage 확정됨')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '실행 취소' })).toBeInTheDocument();
   });
 
   it('calls onAction when 실행 취소 button is clicked', () => {
     const onAction = vi.fn();
-    render(
-      <UndoToast
-        message="보류 처리됨"
-        onAction={onAction}
-        duration={5000}
-      />,
-    );
+    render(<UndoToast message="보류 처리됨" onAction={onAction} duration={5000} />);
     fireEvent.click(screen.getByRole('button', { name: '실행 취소' }));
     expect(onAction).toHaveBeenCalledOnce();
   });
@@ -45,15 +27,12 @@ describe('UndoToast', () => {
     vi.useFakeTimers();
     const onDismiss = vi.fn();
     render(
-      <UndoToast
-        message="Triage 확정됨"
-        onAction={vi.fn()}
-        onDismiss={onDismiss}
-        duration={200}
-      />,
+      <UndoToast message="Triage 확정됨" onAction={vi.fn()} onDismiss={onDismiss} duration={200} />,
     );
     expect(onDismiss).not.toHaveBeenCalled();
-    act(() => { vi.advanceTimersByTime(200); });
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
     expect(onDismiss).toHaveBeenCalledOnce();
   });
 
@@ -61,13 +40,7 @@ describe('UndoToast', () => {
   it('calls onAction once when Enter is pressed on the focused button', async () => {
     const user = userEvent.setup();
     const onAction = vi.fn();
-    render(
-      <UndoToast
-        message="Finding 만들기로 이동"
-        onAction={onAction}
-        duration={5000}
-      />,
-    );
+    render(<UndoToast message="Finding 만들기로 이동" onAction={onAction} duration={5000} />);
     const btn = screen.getByRole('button', { name: '실행 취소' });
     await user.tab();
     expect(btn).toHaveFocus();
@@ -118,19 +91,31 @@ describe('UndoToast auto-dismiss pause (#960)', () => {
       const btn = screen.getByRole('button', { name: '실행 취소' });
 
       // 3 s elapsed normally.
-      act(() => { vi.advanceTimersByTime(3000); });
+      act(() => {
+        vi.advanceTimersByTime(3000);
+      });
       expect(onDismiss).not.toHaveBeenCalled();
 
       // Pause source enters at 3 s: even 7 s more must not dismiss.
-      act(() => { pause({ root, btn }); });
-      act(() => { vi.advanceTimersByTime(7000); });
+      act(() => {
+        pause({ root, btn });
+      });
+      act(() => {
+        vi.advanceTimersByTime(7000);
+      });
       expect(onDismiss).not.toHaveBeenCalled();
 
       // Source leaves: exactly the remaining ~1 s, not before.
-      act(() => { resume({ root, btn }); });
-      act(() => { vi.advanceTimersByTime(999); });
+      act(() => {
+        resume({ root, btn });
+      });
+      act(() => {
+        vi.advanceTimersByTime(999);
+      });
       expect(onDismiss).not.toHaveBeenCalled();
-      act(() => { vi.advanceTimersByTime(1); });
+      act(() => {
+        vi.advanceTimersByTime(1);
+      });
       expect(onDismiss).toHaveBeenCalledOnce();
     },
   );
@@ -149,22 +134,34 @@ describe('UndoToast auto-dismiss pause (#960)', () => {
     const root = screen.getByRole('status');
     const btn = screen.getByRole('button', { name: '실행 취소' });
 
-    act(() => { vi.advanceTimersByTime(1000); });
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
     act(() => {
       fireEvent.focus(btn);
       fireEvent.pointerOver(root);
     });
 
     // Pointer leaves but focus stays inside: still paused.
-    act(() => { fireEvent.pointerOut(root); });
-    act(() => { vi.advanceTimersByTime(5000); });
+    act(() => {
+      fireEvent.pointerOut(root);
+    });
+    act(() => {
+      vi.advanceTimersByTime(5000);
+    });
     expect(onDismiss).not.toHaveBeenCalled();
 
     // Last source leaves at 6 s: 3 s remain.
-    act(() => { fireEvent.blur(btn, { relatedTarget: document.body }); });
-    act(() => { vi.advanceTimersByTime(2999); });
+    act(() => {
+      fireEvent.blur(btn, { relatedTarget: document.body });
+    });
+    act(() => {
+      vi.advanceTimersByTime(2999);
+    });
     expect(onDismiss).not.toHaveBeenCalled();
-    act(() => { vi.advanceTimersByTime(1); });
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
     expect(onDismiss).toHaveBeenCalledOnce();
   });
 });
@@ -194,25 +191,42 @@ describe('UndoToast pause host covers the sonner toast <li> (#960)', () => {
       host.tabIndex = 0;
       document.body.appendChild(host);
       render(
-        <UndoToast message="Triage 확정됨" onAction={vi.fn()} onDismiss={onDismiss} duration={4000} />,
+        <UndoToast
+          message="Triage 확정됨"
+          onAction={vi.fn()}
+          onDismiss={onDismiss}
+          duration={4000}
+        />,
         { container: host },
       );
       const wrapper = screen.getByRole('status').closest('[data-sonner-toast]') as HTMLElement;
 
       // 3 s elapsed normally.
-      act(() => { vi.advanceTimersByTime(3000); });
+      act(() => {
+        vi.advanceTimersByTime(3000);
+      });
       expect(onDismiss).not.toHaveBeenCalled();
 
       // Wrapper focus at 3 s: even 7 s more must not dismiss.
-      act(() => { pause({ wrapper }); });
-      act(() => { vi.advanceTimersByTime(7000); });
+      act(() => {
+        pause({ wrapper });
+      });
+      act(() => {
+        vi.advanceTimersByTime(7000);
+      });
       expect(onDismiss).not.toHaveBeenCalled();
 
       // Focus moves outside: exactly the remaining ~1 s, not before.
-      act(() => { resume({ wrapper }); });
-      act(() => { vi.advanceTimersByTime(999); });
+      act(() => {
+        resume({ wrapper });
+      });
+      act(() => {
+        vi.advanceTimersByTime(999);
+      });
       expect(onDismiss).not.toHaveBeenCalled();
-      act(() => { vi.advanceTimersByTime(1); });
+      act(() => {
+        vi.advanceTimersByTime(1);
+      });
       expect(onDismiss).toHaveBeenCalledOnce();
     },
   );
@@ -235,7 +249,9 @@ describe('UndoToast duration change resets the budget (#960)', () => {
           duration={from}
         />,
       );
-      act(() => { vi.advanceTimersByTime(used); });
+      act(() => {
+        vi.advanceTimersByTime(used);
+      });
       expect(onDismiss).not.toHaveBeenCalled();
 
       rerender(
@@ -246,9 +262,13 @@ describe('UndoToast duration change resets the budget (#960)', () => {
           duration={to}
         />,
       );
-      act(() => { vi.advanceTimersByTime(to - 1); });
+      act(() => {
+        vi.advanceTimersByTime(to - 1);
+      });
       expect(onDismiss).not.toHaveBeenCalled();
-      act(() => { vi.advanceTimersByTime(1); });
+      act(() => {
+        vi.advanceTimersByTime(1);
+      });
       expect(onDismiss).toHaveBeenCalledOnce();
     },
   );
@@ -267,7 +287,9 @@ describe('UndoToast expiry is one-shot (#960)', () => {
         duration={4000}
       />,
     );
-    act(() => { vi.advanceTimersByTime(4000); });
+    act(() => {
+      vi.advanceTimersByTime(4000);
+    });
     expect(onDismiss).toHaveBeenCalledOnce();
 
     // A re-render with a new onDismiss must not re-run the expired budget.
@@ -279,15 +301,25 @@ describe('UndoToast expiry is one-shot (#960)', () => {
         duration={4000}
       />,
     );
-    act(() => { vi.advanceTimersByTime(8000); });
+    act(() => {
+      vi.advanceTimersByTime(8000);
+    });
     expect(onDismissNext).not.toHaveBeenCalled();
 
     // Pause/resume cycling after expiry must not call either callback again.
     const btn = screen.getByRole('button', { name: '실행 취소' });
-    act(() => { fireEvent.focus(btn); });
-    act(() => { vi.advanceTimersByTime(5000); });
-    act(() => { fireEvent.blur(btn, { relatedTarget: document.body }); });
-    act(() => { vi.advanceTimersByTime(5000); });
+    act(() => {
+      fireEvent.focus(btn);
+    });
+    act(() => {
+      vi.advanceTimersByTime(5000);
+    });
+    act(() => {
+      fireEvent.blur(btn, { relatedTarget: document.body });
+    });
+    act(() => {
+      vi.advanceTimersByTime(5000);
+    });
     expect(onDismissNext).not.toHaveBeenCalled();
     expect(onDismiss).toHaveBeenCalledOnce();
   });
@@ -316,7 +348,12 @@ describe('UndoToast Escape dismisses (#1025)', () => {
         document.body.appendChild(container);
       }
       const ui = (
-        <UndoToast message="Triage 확정됨" onAction={vi.fn()} onDismiss={onDismiss} duration={4000} />
+        <UndoToast
+          message="Triage 확정됨"
+          onAction={vi.fn()}
+          onDismiss={onDismiss}
+          duration={4000}
+        />
       );
       if (container) render(ui, { container });
       else render(ui);
@@ -332,7 +369,9 @@ describe('UndoToast Escape dismisses (#1025)', () => {
       // Escape spends the one-shot budget: after focus leaves and the
       // remaining duration elapses, the timer must not call onDismiss again.
       fireEvent.blur(focusTarget, { relatedTarget: document.body });
-      act(() => { vi.advanceTimersByTime(4000); });
+      act(() => {
+        vi.advanceTimersByTime(4000);
+      });
       expect(onDismiss).toHaveBeenCalledOnce();
     },
   );
@@ -341,10 +380,17 @@ describe('UndoToast Escape dismisses (#1025)', () => {
     vi.useFakeTimers();
     const onDismiss = vi.fn();
     render(
-      <UndoToast message="Triage 확정됨" onAction={vi.fn()} onDismiss={onDismiss} duration={4000} />,
+      <UndoToast
+        message="Triage 확정됨"
+        onAction={vi.fn()}
+        onDismiss={onDismiss}
+        duration={4000}
+      />,
     );
     fireEvent.keyDown(document.body, { key: 'Escape' });
-    act(() => { vi.advanceTimersByTime(1000); });
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
     expect(onDismiss).not.toHaveBeenCalled();
   });
 });

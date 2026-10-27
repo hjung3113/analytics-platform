@@ -1,8 +1,8 @@
+import { DetailPanelSectionNav } from '@ap/ui';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useLayoutEffect, useRef } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { DetailPanelSectionNav } from '../DetailPanelSectionNav';
 
 const SECTIONS = [
   { id: 'overview', label: 'Overview' },

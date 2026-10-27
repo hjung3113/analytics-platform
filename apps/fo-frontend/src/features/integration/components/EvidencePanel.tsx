@@ -5,8 +5,8 @@ import { formatDate } from '@/lib/format/datetime';
 import type { ClosableDetailParts } from '@/lib/host/detail-parts';
 import { HostLink, useHostSeam } from '@/lib/host/host-seam';
 import { searchHref } from '@/lib/host/search';
+import { Button, PermissionBlockedPanel, Skeleton } from '@ap/ui';
 import type { EvidenceInventoryItem } from '@fops/shared';
-import { Button, PermissionBlockedPanel, Skeleton } from '@fops/ui';
 import { EvidenceContent } from './EvidenceContent';
 
 export type EvidencePanelProps = {

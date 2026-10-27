@@ -1,6 +1,6 @@
 import { validateHomeSearch } from '@/routes/_authed/home';
 import { validateIntegrationDashboardSearch } from '@/routes/_authed/integration';
-import { DetailPanelSlotProvider, PageShell, useDetailPanelSlotHost } from '@fops/ui';
+import { DetailPanelSlotProvider, PageShell, useDetailPanelSlotHost } from '@ap/ui';
 import { QueryClient, QueryClientProvider, focusManager } from '@tanstack/react-query';
 import {
   Outlet,

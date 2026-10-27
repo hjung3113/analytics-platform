@@ -7,7 +7,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
   Button,
-} from '@fops/ui';
+} from '@ap/ui';
 import { useState } from 'react';
 
 interface ArchiveConfirmButtonProps {

@@ -13,7 +13,7 @@ import type { VocSearch } from '@/features/voc/routes/voc-search';
 import { fetchNavCounts } from '@/lib/api/nav';
 import { GLOSSARY, createLabel } from '@/lib/copy/glossary';
 import { NAV_COUNTS_QUERY_KEY } from '@/lib/query/navCounts';
-import { PageShell, WorkbenchShell } from '@fops/ui';
+import { PageShell, WorkbenchShell } from '@ap/ui';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useSearch } from '@tanstack/react-router';
 import { ChevronLeft } from 'lucide-react';

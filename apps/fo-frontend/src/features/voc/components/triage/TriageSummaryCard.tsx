@@ -1,9 +1,11 @@
 /** Summary of staged changes in the triage panel. */
 
 import { GLOSSARY } from '@/lib/copy/glossary';
+import { FieldRow, cn } from '@ap/ui';
+import type { AvatarUser, SeverityEnum } from '@ap/ui';
 import type { VocListItem } from '@fops/shared';
-import { FieldRow, ReporterStatusBadge, SEVERITY_LABELS, cn } from '@fops/ui';
-import type { AvatarUser, ReporterFacingStatusEnum, SeverityEnum } from '@fops/ui';
+import { ReporterStatusBadge, SEVERITY_LABELS } from '@fops/ui';
+import type { ReporterFacingStatusEnum } from '@fops/ui';
 import { ArrowRight } from 'lucide-react';
 import type * as React from 'react';
 import type { TriagePanelLocalState } from '../../hooks/useTriagePanelState';

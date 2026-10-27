@@ -16,8 +16,9 @@
  *   .card-nested → bg-surface-canvas rounded-md p-3
  */
 
+import { Button, PanelSectionTitle, useListMotion } from '@ap/ui';
 import type { VocRecommendationItem } from '@fops/shared';
-import { Button, PanelSectionTitle, ReporterStatusBadge, useListMotion } from '@fops/ui';
+import { ReporterStatusBadge } from '@fops/ui';
 import { Check, Layers } from 'lucide-react';
 import * as React from 'react';
 

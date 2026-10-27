@@ -1,6 +1,6 @@
+import { RichContentRenderer, RichEditor, type TipTapDoc } from '@ap/ui';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { RichContentRenderer, RichEditor, type TipTapDoc } from '../src/index';
 
 // UUIDs are required by the shared allowlist (PLAN-22 C9) — the FE sanitizer
 // drops mention/attachmentRef nodes whose required id attrs fail UUID shape,

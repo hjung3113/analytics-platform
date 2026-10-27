@@ -1,4 +1,4 @@
-import { PanelSectionTitle, StatusBadgeFrame } from '@fops/ui';
+import { PanelSectionTitle, StatusBadgeFrame } from '@ap/ui';
 import type * as React from 'react';
 
 // Milestone-local presentation wrappers for the #514 final fidelity pass

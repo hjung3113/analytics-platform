@@ -26,8 +26,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Route as FindingDeepLinkRoute } from '../$findingId';
 import { FindingsListPage, findingsSearchSchema } from '../index';
 
-vi.mock('@fops/ui', async () => {
-  const actual = await vi.importActual<typeof import('@fops/ui')>('@fops/ui');
+vi.mock('@ap/ui', async () => {
+  const actual = await vi.importActual<typeof import('@ap/ui')>('@ap/ui');
   return {
     ...actual,
     ListShell: ({
@@ -87,9 +87,6 @@ vi.mock('@fops/ui', async () => {
         <span>{trailing}</span>
       </button>
     ),
-    OutlineBadge: ({ children, ...props }: { children: React.ReactNode }) => (
-      <span {...props}>{children}</span>
-    ),
     PermissionBlockedPanel: ({
       state,
       category,
@@ -122,6 +119,15 @@ vi.mock('@fops/ui', async () => {
       <span data-size={size} data-testid={`owner-avatar-${user.display_name}`}>
         {user.display_name}
       </span>
+    ),
+  };
+});
+vi.mock('@fops/ui', async () => {
+  const actual = await vi.importActual<typeof import('@fops/ui')>('@fops/ui');
+  return {
+    ...actual,
+    OutlineBadge: ({ children, ...props }: { children: React.ReactNode }) => (
+      <span {...props}>{children}</span>
     ),
   };
 });

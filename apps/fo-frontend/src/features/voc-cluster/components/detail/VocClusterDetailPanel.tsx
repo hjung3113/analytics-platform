@@ -6,14 +6,11 @@ import {
   DetailPanelHeader,
   DetailPanelSectionNav,
   FieldRow,
-  ManagedSystemPill,
-  OutlineBadge,
   type PanelSection,
   PanelSectionTitle,
-  SeverityBadge,
   SkeletonBlocks,
-  UnassignedBadge,
-} from '@fops/ui';
+} from '@ap/ui';
+import { ManagedSystemPill, OutlineBadge, SeverityBadge, UnassignedBadge } from '@fops/ui';
 import { Plus } from 'lucide-react';
 import * as React from 'react';
 import { useState } from 'react';

@@ -1,4 +1,4 @@
-import { Card, CardContent } from '@fops/ui';
+import { Card, CardContent } from '@ap/ui';
 import { Link } from '@tanstack/react-router';
 import type * as React from 'react';
 
@@ -10,7 +10,9 @@ export interface SimilarVocPanelProps {
   managedSystemId: string | null | undefined;
 }
 
-export function SimilarVocPanel({ managedSystemId }: SimilarVocPanelProps): React.ReactElement | null {
+export function SimilarVocPanel({
+  managedSystemId,
+}: SimilarVocPanelProps): React.ReactElement | null {
   const { data, isError } = useVocPreSubmitPeers(managedSystemId);
 
   if (!managedSystemId || isError || !data) return null;

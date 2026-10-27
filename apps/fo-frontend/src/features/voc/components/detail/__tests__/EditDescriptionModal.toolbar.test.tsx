@@ -11,7 +11,7 @@ vi.mock('@/features/voc/hooks/useVocEditDescriptionMutation', () => ({
   useVocEditDescriptionMutation: () => ({ mutate: vi.fn(), isPending: false, reset: vi.fn() }),
 }));
 
-import { RichEditor } from '@fops/ui';
+import { RichEditor } from '@ap/ui';
 import { EditDescriptionModal } from '../EditDescriptionModal';
 
 const VOC = {

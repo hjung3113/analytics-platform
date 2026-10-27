@@ -1,7 +1,6 @@
+import { ToggleGroup, ToggleGroupItem, cn } from '@ap/ui';
 import { ManagedSystemMark } from '../badges/ManagedSystemMark.js';
 import { managedSystemMarkColor, managedSystemMarkToken } from '../badges/managed-system-mark.js';
-import { cn } from '../utils/cn.js';
-import { ToggleGroup, ToggleGroupItem } from './shadcn/toggle-group.js';
 
 export interface PickerOption {
   id: string;
@@ -50,18 +49,19 @@ export function ChipPicker({
       className={cn('flex flex-wrap justify-start gap-2', className)}
     >
       {options.map((option) => {
-        const label = includeArchivedInLabel && option.archived
-          ? `${option.label} (archived)`
-          : option.label;
+        const label =
+          includeArchivedInLabel && option.archived ? `${option.label} (archived)` : option.label;
 
         return (
           <ToggleGroupItem
             key={option.id}
             value={option.id}
             aria-label={label}
-            className={isManagedSystem
-              ? 'gap-2 rounded-md border border-border-subtle bg-surface-canvas px-2.5 text-text-secondary shadow-subtle hover:bg-surface-row-hover data-[state=on]:border-border-selected data-[state=on]:bg-surface-row-selected data-[state=on]:text-text-primary'
-              : 'rounded-pill border border-border-subtle px-3 data-[state=on]:bg-accent-primary data-[state=on]:text-text-inverse data-[state=on]:border-accent-primary'}
+            className={
+              isManagedSystem
+                ? 'gap-2 rounded-md border border-border-subtle bg-surface-canvas px-2.5 text-text-secondary shadow-subtle hover:bg-surface-row-hover data-[state=on]:border-border-selected data-[state=on]:bg-surface-row-selected data-[state=on]:text-text-primary'
+                : 'rounded-pill border border-border-subtle px-3 data-[state=on]:bg-accent-primary data-[state=on]:text-text-inverse data-[state=on]:border-accent-primary'
+            }
           >
             {isManagedSystem && (
               <ManagedSystemMark
@@ -89,8 +89,12 @@ function managedSystemMark(label: string): string {
   if (normalized.includes('metabase')) return 'MB';
 
   const parts = label.match(/[A-Za-z0-9]+/g) ?? [];
-  const initials = parts.length > 1
-    ? parts.slice(0, 2).map((part) => part[0]).join('')
-    : (parts[0] ?? label).slice(0, 2);
+  const initials =
+    parts.length > 1
+      ? parts
+          .slice(0, 2)
+          .map((part) => part[0])
+          .join('')
+      : (parts[0] ?? label).slice(0, 2);
   return initials.toUpperCase();
 }

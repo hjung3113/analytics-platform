@@ -1,6 +1,6 @@
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ap/ui';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { vi } from 'vitest';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../select.js';
 
 describe('Select keyboard interaction', () => {
   it('uses keyboard typeahead to select a matching option', () => {

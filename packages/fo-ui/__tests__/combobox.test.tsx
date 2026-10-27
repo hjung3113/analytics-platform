@@ -1,10 +1,10 @@
+import { Combobox } from '@ap/ui';
+import { fireEvent, render, screen } from '@testing-library/react';
 /**
  * Combobox a11y + keyboard nav tests.
  * Cycle-1 codex review P1-3.
  */
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
-import { Combobox } from '../src/components/shadcn/combobox';
+import { describe, expect, it, vi } from 'vitest';
 
 const OPTIONS = [
   { value: 'apple', label: 'Apple' },
@@ -14,9 +14,7 @@ const OPTIONS = [
 
 describe('Combobox', () => {
   it('renders trigger with placeholder', () => {
-    render(
-      <Combobox options={OPTIONS} value={null} onChange={() => {}} placeholder="Pick one" />,
-    );
+    render(<Combobox options={OPTIONS} value={null} onChange={() => {}} placeholder="Pick one" />);
     expect(screen.getByRole('combobox')).toHaveTextContent('Pick one');
   });
 

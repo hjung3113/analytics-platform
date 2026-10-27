@@ -7,7 +7,6 @@ import {
   useUnreadNotificationCount,
 } from '@/lib/cross-system/useUnreadNotificationCount';
 import { InternalLink } from '@/lib/router/InternalLink';
-import type { RoleLevel } from '@fops/shared';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,7 +18,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
   cn,
-} from '@fops/ui';
+} from '@ap/ui';
+import type { RoleLevel } from '@fops/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import {

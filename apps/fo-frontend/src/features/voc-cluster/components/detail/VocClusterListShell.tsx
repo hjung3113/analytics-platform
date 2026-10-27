@@ -18,7 +18,7 @@ import {
   ObjectRow,
   PermissionBlockedPanel,
   SkeletonRows,
-} from '@fops/ui';
+} from '@ap/ui';
 import * as React from 'react';
 import { useState } from 'react';
 import {

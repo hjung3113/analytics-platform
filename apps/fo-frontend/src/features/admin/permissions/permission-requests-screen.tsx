@@ -1,5 +1,6 @@
 import { ListStateMessage } from '@/components/ListStateMessage';
-import { ListShell, ListTabs, type ListToolbarTab, ObjectRow, OutlineBadge } from '@fops/ui';
+import { ListShell, ListTabs, type ListToolbarTab, ObjectRow } from '@ap/ui';
+import { OutlineBadge } from '@fops/ui';
 
 import type { AdminPermissionRequestRow } from '@/lib/api';
 import { getCapabilityDisplayLabel } from '@/lib/copy/capabilities';

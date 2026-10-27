@@ -15,8 +15,8 @@
  * — a richer layout than ToggleGroupItem supports.
  */
 
-import { SEVERITY_LABELS, cn } from '@fops/ui';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@fops/ui';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, cn } from '@ap/ui';
+import { SEVERITY_LABELS } from '@fops/ui';
 import { HelpCircle } from 'lucide-react';
 import type * as React from 'react';
 import { PickerOptionGrid } from './PickerOptionGrid';

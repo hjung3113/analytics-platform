@@ -1,8 +1,5 @@
+import { DetailPanelFullscreenContext, DetailPanelReadingColumn } from '@ap/ui';
 import { render, screen } from '@testing-library/react';
-import {
-  DetailPanelFullscreenContext,
-  DetailPanelReadingColumn,
-} from '../DetailPanelFullscreenContext.js';
 
 const EXPANDED_CLASS = 'mx-auto h-full w-full max-w-[60rem] border-x border-border-subtle';
 

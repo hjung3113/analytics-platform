@@ -18,8 +18,9 @@
  */
 
 import { formatRelativeTime } from '@/lib/format/datetime';
+import { SeverityIndicator, cn } from '@ap/ui';
 import type { VocListItem } from '@fops/shared';
-import { ReporterStatusBadge, SeverityIndicator, UnassignedBadge, cn } from '@fops/ui';
+import { ReporterStatusBadge, UnassignedBadge } from '@fops/ui';
 import { useId } from 'react';
 import type * as React from 'react';
 

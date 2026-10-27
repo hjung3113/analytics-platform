@@ -1,5 +1,5 @@
 import { adminDetailFixture } from '@/test/permission-details';
-import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@fops/ui';
+import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   Outlet,

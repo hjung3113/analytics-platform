@@ -3,28 +3,38 @@
 // Covers: successful upload → PATCH body includes attachment_ids[];
 // failed upload → not included; submit disabled while uploading.
 
-import * as React from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // RichEditor stub so the modal mounts headlessly.
-vi.mock('@fops/ui', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@fops/ui')>();
+vi.mock('@ap/ui', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@ap/ui')>();
   return {
     ...actual,
-    RichEditor: ({ value, onChange, surface }: { value?: unknown; onChange?: (doc: unknown) => void; surface?: string }) => (
+    RichEditor: ({
+      value,
+      onChange,
+      surface,
+    }: { value?: unknown; onChange?: (doc: unknown) => void; surface?: string }) => (
       <textarea
         data-testid={`rich-editor-${surface ?? 'default'}`}
         defaultValue={value ? JSON.stringify(value) : ''}
-        onChange={(e) => onChange?.({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: e.target.value }] }] })}
+        onChange={(e) =>
+          onChange?.({
+            type: 'doc',
+            content: [{ type: 'paragraph', content: [{ type: 'text', text: e.target.value }] }],
+          })
+        }
       />
     ),
   };
 });
 
 vi.mock('sonner', () => ({
+  Toaster: () => null,
   toast: { error: vi.fn(), warning: vi.fn(), info: vi.fn(), success: vi.fn() },
 }));
 
@@ -34,15 +44,18 @@ vi.mock('@/features/voc/hooks/useVocEditDescriptionMutation', () => ({
 }));
 
 import { useVocEditDescriptionMutation } from '@/features/voc/hooks/useVocEditDescriptionMutation';
-import { EditDescriptionModal } from '../EditDescriptionModal';
 import * as attachmentsApi from '@/lib/api/attachments';
 import { ApiError } from '@/lib/api/types';
+import { EditDescriptionModal } from '../EditDescriptionModal';
 
 const VOC = {
   id: 'voc-uuid-1111',
   title: '기존 제목',
   updated_at: '2026-05-01T00:00:00Z',
-  description_rich_content: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: '기존 내용' }] }] },
+  description_rich_content: {
+    type: 'doc',
+    content: [{ type: 'paragraph', content: [{ type: 'text', text: '기존 내용' }] }],
+  },
 };
 
 const ATTACHMENT = {
@@ -55,7 +68,9 @@ const ATTACHMENT = {
 };
 
 function wrap() {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+  const qc = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
   return ({ children }: { children: React.ReactNode }) =>
     React.createElement(QueryClientProvider, { client: qc }, children);
 }
@@ -108,14 +123,14 @@ describe('<EditDescriptionModal> attachments (C6)', () => {
   it('Attach → upload → PATCH body includes attachment_ids[]', async () => {
     vi.spyOn(attachmentsApi, 'uploadAttachment').mockResolvedValue(ATTACHMENT);
     const mutateMock = vi.fn();
-    vi.mocked(useVocEditDescriptionMutation).mockReturnValue(
-      { ...DEFAULT_MUTATION, mutate: mutateMock } as unknown as ReturnType<typeof useVocEditDescriptionMutation>,
-    );
+    vi.mocked(useVocEditDescriptionMutation).mockReturnValue({
+      ...DEFAULT_MUTATION,
+      mutate: mutateMock,
+    } as unknown as ReturnType<typeof useVocEditDescriptionMutation>);
 
-    const { container } = render(
-      <EditDescriptionModal voc={VOC} open={true} onClose={vi.fn()} />,
-      { wrapper: wrap() },
-    );
+    const { container } = render(<EditDescriptionModal voc={VOC} open={true} onClose={vi.fn()} />, {
+      wrapper: wrap(),
+    });
 
     await act(async () => {
       pickFile(container, makeFile());
@@ -147,14 +162,14 @@ describe('<EditDescriptionModal> attachments (C6)', () => {
       new ApiError(422, { code: 'attachment.unsupported_type', message: 'nope' }),
     );
     const mutateMock = vi.fn();
-    vi.mocked(useVocEditDescriptionMutation).mockReturnValue(
-      { ...DEFAULT_MUTATION, mutate: mutateMock } as unknown as ReturnType<typeof useVocEditDescriptionMutation>,
-    );
+    vi.mocked(useVocEditDescriptionMutation).mockReturnValue({
+      ...DEFAULT_MUTATION,
+      mutate: mutateMock,
+    } as unknown as ReturnType<typeof useVocEditDescriptionMutation>);
 
-    const { container } = render(
-      <EditDescriptionModal voc={VOC} open={true} onClose={vi.fn()} />,
-      { wrapper: wrap() },
-    );
+    const { container } = render(<EditDescriptionModal voc={VOC} open={true} onClose={vi.fn()} />, {
+      wrapper: wrap(),
+    });
 
     await act(async () => {
       pickFile(container, makeFile('a.zip', 'application/zip'));
@@ -194,10 +209,9 @@ describe('<EditDescriptionModal> attachments (C6)', () => {
 
     it('renders existing attachments[] when opened on a VOC with attachments', () => {
       const vocWithExisting = { ...VOC, attachments: [EXISTING_A] };
-      render(
-        <EditDescriptionModal voc={vocWithExisting} open={true} onClose={vi.fn()} />,
-        { wrapper: wrap() },
-      );
+      render(<EditDescriptionModal voc={vocWithExisting} open={true} onClose={vi.fn()} />, {
+        wrapper: wrap(),
+      });
       // The existing-attachment list is portaled to the dialog; query the
       // document for the chip.
       const chip = document.querySelector('[data-testid="attachment-chip"]');
@@ -210,9 +224,10 @@ describe('<EditDescriptionModal> attachments (C6)', () => {
     it('PATCH body only includes NEW upload ids — additive semantics (BE rejects re-link)', async () => {
       vi.spyOn(attachmentsApi, 'uploadAttachment').mockResolvedValue(ATTACHMENT);
       const mutateMock = vi.fn();
-      vi.mocked(useVocEditDescriptionMutation).mockReturnValue(
-        { ...DEFAULT_MUTATION, mutate: mutateMock } as unknown as ReturnType<typeof useVocEditDescriptionMutation>,
-      );
+      vi.mocked(useVocEditDescriptionMutation).mockReturnValue({
+        ...DEFAULT_MUTATION,
+        mutate: mutateMock,
+      } as unknown as ReturnType<typeof useVocEditDescriptionMutation>);
 
       const vocWithExisting = { ...VOC, attachments: [EXISTING_A] };
       const { container } = render(
@@ -254,10 +269,9 @@ describe('<EditDescriptionModal> attachments (C6)', () => {
       }),
     );
 
-    const { container } = render(
-      <EditDescriptionModal voc={VOC} open={true} onClose={vi.fn()} />,
-      { wrapper: wrap() },
-    );
+    const { container } = render(<EditDescriptionModal voc={VOC} open={true} onClose={vi.fn()} />, {
+      wrapper: wrap(),
+    });
 
     await act(async () => {
       pickFile(container, makeFile());

@@ -8,17 +8,17 @@
 //
 // C6.2 of slice3 #21.
 
-import * as React from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import * as React from 'react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ── Mocks ───────────────────────────────────────────────────────────────────
 
 // RichEditor: render a textarea so form tests can interact
-vi.mock('@fops/ui', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@fops/ui')>();
+vi.mock('@ap/ui', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@ap/ui')>();
   return {
     ...actual,
     RichEditor: ({
@@ -36,7 +36,12 @@ vi.mock('@fops/ui', async (importOriginal) => {
         data-testid={`rich-editor-${surface ?? 'default'}`}
         placeholder={placeholder}
         defaultValue={value ? JSON.stringify(value) : ''}
-        onChange={(e) => onChange?.({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: e.target.value }] }] })}
+        onChange={(e) =>
+          onChange?.({
+            type: 'doc',
+            content: [{ type: 'paragraph', content: [{ type: 'text', text: e.target.value }] }],
+          })
+        }
       />
     ),
   };
@@ -63,7 +68,9 @@ const VOC = {
 };
 
 function makeWrapper() {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+  const qc = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
   return ({ children }: { children: React.ReactNode }) =>
     React.createElement(QueryClientProvider, { client: qc }, children);
 }
@@ -91,19 +98,16 @@ const DEFAULT_MUTATION = {
 
 describe('<EditDescriptionModal>', () => {
   beforeEach(() => {
-    vi.mocked(useVocEditDescriptionMutation).mockReturnValue(DEFAULT_MUTATION as unknown as ReturnType<typeof useVocEditDescriptionMutation>);
+    vi.mocked(useVocEditDescriptionMutation).mockReturnValue(
+      DEFAULT_MUTATION as unknown as ReturnType<typeof useVocEditDescriptionMutation>,
+    );
   });
 
   // Test 1: Modal prefills title + description from voc props
   it('prefills title and description from voc on open', async () => {
-    render(
-      <EditDescriptionModal
-        voc={VOC}
-        open={true}
-        onClose={vi.fn()}
-      />,
-      { wrapper: makeWrapper() },
-    );
+    render(<EditDescriptionModal voc={VOC} open={true} onClose={vi.fn()} />, {
+      wrapper: makeWrapper(),
+    });
 
     // FieldLabel renders a <label for="edit-title"> with extra children (* and tip icon).
     // Use getByRole with name regex to match the accessible label.
@@ -116,14 +120,9 @@ describe('<EditDescriptionModal>', () => {
 
   // Test 2 (C6): AttachmentDropzone is rendered in active upload mode.
   it('renders AttachmentDropzone (active upload mode after C6)', async () => {
-    render(
-      <EditDescriptionModal
-        voc={VOC}
-        open={true}
-        onClose={vi.fn()}
-      />,
-      { wrapper: makeWrapper() },
-    );
+    render(<EditDescriptionModal voc={VOC} open={true} onClose={vi.fn()} />, {
+      wrapper: makeWrapper(),
+    });
 
     expect(screen.getByTestId('edit-attachment-dropzone')).toBeInTheDocument();
     // C6 dropzone shows prototype copy
@@ -134,14 +133,9 @@ describe('<EditDescriptionModal>', () => {
   it('shows DirtyConfirmation when modal is closed with dirty form', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
-    render(
-      <EditDescriptionModal
-        voc={VOC}
-        open={true}
-        onClose={onClose}
-      />,
-      { wrapper: makeWrapper() },
-    );
+    render(<EditDescriptionModal voc={VOC} open={true} onClose={onClose} />, {
+      wrapper: makeWrapper(),
+    });
 
     // Dirty the title field using userEvent (fires realistic keyboard events that
     // properly trigger react-hook-form's onChange handler and isDirty tracking)
@@ -236,14 +230,9 @@ describe('<EditDescriptionModal>', () => {
       error: validationError,
     } as unknown as ReturnType<typeof useVocEditDescriptionMutation>);
 
-    render(
-      <EditDescriptionModal
-        voc={VOC}
-        open={true}
-        onClose={vi.fn()}
-      />,
-      { wrapper: makeWrapper() },
-    );
+    render(<EditDescriptionModal voc={VOC} open={true} onClose={vi.fn()} />, {
+      wrapper: makeWrapper(),
+    });
 
     // The useEffect should fire on mount and call form.setError.
     // waitFor ensures the effect has run and the DOM has updated.

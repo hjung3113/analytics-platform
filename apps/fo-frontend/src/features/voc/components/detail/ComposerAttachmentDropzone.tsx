@@ -18,7 +18,7 @@
 // composer POST body (widened from legacy `attachments: AttachmentRef[]` —
 // schema is reconciled in C7b).
 
-import { cn } from '@fops/ui';
+import { cn } from '@ap/ui';
 import { Check, Paperclip, X } from 'lucide-react';
 import type * as React from 'react';
 

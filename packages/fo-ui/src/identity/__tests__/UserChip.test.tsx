@@ -1,15 +1,11 @@
-/// <reference types="@testing-library/jest-dom" />
-import * as React from 'react';
+import { UserChip } from '@ap/ui';
 import { render, screen } from '@testing-library/react';
-import { UserChip } from '../UserChip.js';
 
 const mockUser = { display_name: '이유진' };
 
 describe('UserChip — size variants', () => {
   it('sm: renders display_name and avatar uses sm size (h-6 w-6)', () => {
-    const { container } = render(
-      <UserChip user={mockUser} size="sm" />,
-    );
+    const { container } = render(<UserChip user={mockUser} size="sm" />);
     // Avatar root should carry h-6 w-6 for sm
     expect(container.innerHTML).toContain('h-6');
     expect(container.innerHTML).toContain('w-6');
@@ -18,9 +14,7 @@ describe('UserChip — size variants', () => {
   });
 
   it('md (default): renders display_name and avatar uses md size (h-8 w-8)', () => {
-    const { container } = render(
-      <UserChip user={mockUser} />,
-    );
+    const { container } = render(<UserChip user={mockUser} />);
     // Avatar root should carry h-8 w-8 for md
     expect(container.innerHTML).toContain('h-8');
     expect(container.innerHTML).toContain('w-8');

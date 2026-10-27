@@ -1,4 +1,5 @@
-import { Button, PageShell, Tabs, TabsContent, TabsList, TabsTrigger } from '@fops/ui';
+import { Button, PageShell, Tabs, TabsContent } from '@ap/ui';
+import { TabsList, TabsTrigger } from '@fops/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { Plus, RefreshCw } from 'lucide-react';
 import type * as React from 'react';

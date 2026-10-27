@@ -1,5 +1,5 @@
 import { adminDetailFixture } from '@/test/permission-details';
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   Outlet,
   RouterProvider,
@@ -7,28 +7,23 @@ import {
   createRootRoute,
   createRoute,
   createRouter,
-} from "@tanstack/react-router";
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import type React from "react";
-import { afterEach, describe, expect, test, vi } from "vitest";
+} from '@tanstack/react-router';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import type React from 'react';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 
-import { type AdminPermissionRequestRow, errorMapper } from "@/lib/api";
-import { ADMIN_PERMISSIONS_COPY } from "@/lib/copy/admin-permissions";
+import { type AdminPermissionRequestRow, errorMapper } from '@/lib/api';
+import { ADMIN_PERMISSIONS_COPY } from '@/lib/copy/admin-permissions';
 import type { PermissionRiskIndicator } from '@fops/shared';
 
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
-vi.mock("sonner", () => ({ toast }));
-vi.mock("@fops/ui", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@fops/ui")>();
+vi.mock('sonner', () => ({
+  Toaster: () => null,
+  toast,
+}));
+vi.mock('@ap/ui', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@ap/ui')>();
   return {
     ...actual,
     ListShell: ({
@@ -55,52 +50,52 @@ vi.mock("@fops/ui", async (importOriginal) => {
   };
 });
 
-import { PermissionRequestsConsolePage } from "./requests";
+import { PermissionRequestsConsolePage } from './requests';
 
 const REQUESTS = [
   {
-    id: "11111111-1111-4111-8111-111111111111",
-    requester_actor_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1",
-    requested_capability: "workspace.read",
+    id: '11111111-1111-4111-8111-111111111111',
+    requester_actor_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1',
+    requested_capability: 'workspace.read',
     requested_managed_system_id: null,
     requested_expiration: null,
     revision: 7,
-    reason: "need access",
-    status: "pending",
-    created_at: "2026-07-17T00:00:00.000Z",
+    reason: 'need access',
+    status: 'pending',
+    created_at: '2026-07-17T00:00:00.000Z',
   },
   {
-    id: "22222222-2222-4222-8222-222222222222",
-    requester_actor_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2",
-    requested_capability: "workspace.write",
-    requested_managed_system_id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+    id: '22222222-2222-4222-8222-222222222222',
+    requester_actor_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2',
+    requested_capability: 'workspace.write',
+    requested_managed_system_id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
     requested_expiration: null,
     revision: 7,
-    reason: "need detail",
-    status: "needs_more_info",
-    created_at: "2026-07-16T00:00:00.000Z",
+    reason: 'need detail',
+    status: 'needs_more_info',
+    created_at: '2026-07-16T00:00:00.000Z',
   },
   {
-    id: "33333333-3333-4333-8333-333333333333",
-    requester_actor_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa3",
-    requested_capability: "workspace.admin",
+    id: '33333333-3333-4333-8333-333333333333',
+    requester_actor_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa3',
+    requested_capability: 'workspace.admin',
     requested_managed_system_id: null,
     requested_expiration: null,
     revision: 7,
-    reason: "done",
-    status: "approved",
-    created_at: "2026-07-15T00:00:00.000Z",
+    reason: 'done',
+    status: 'approved',
+    created_at: '2026-07-15T00:00:00.000Z',
   },
   {
-    id: "44444444-4444-4444-8444-444444444444",
-    requester_actor_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa4",
-    requested_capability: "workspace.delete",
+    id: '44444444-4444-4444-8444-444444444444',
+    requester_actor_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa4',
+    requested_capability: 'workspace.delete',
     requested_managed_system_id: null,
     requested_expiration: null,
     revision: 7,
-    reason: "no",
-    status: "rejected",
-    created_at: "2026-07-14T00:00:00.000Z",
+    reason: 'no',
+    status: 'rejected',
+    created_at: '2026-07-14T00:00:00.000Z',
   },
 ] as const;
 
@@ -119,7 +114,7 @@ const RISK_INDICATORS: PermissionRiskIndicator[] = [
 function response(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "content-type": "application/json" },
+    headers: { 'content-type': 'application/json' },
   });
 }
 
@@ -127,13 +122,13 @@ function buildHarness() {
   const rootRoute = createRootRoute({ component: () => <Outlet /> });
   const route = createRoute({
     getParentRoute: () => rootRoute,
-    path: "/admin/permissions/requests",
+    path: '/admin/permissions/requests',
     component: PermissionRequestsConsolePage,
   });
   const router = createRouter({
     routeTree: rootRoute.addChildren([route]),
     history: createMemoryHistory({
-      initialEntries: ["/admin/permissions/requests"],
+      initialEntries: ['/admin/permissions/requests'],
     }),
   });
   const queryClient = new QueryClient({
@@ -149,58 +144,63 @@ function installFetch(
     requests?: readonly AdminPermissionRequestRow[];
     actorId?: string;
     detail?: (row: AdminPermissionRequestRow) => unknown;
-    selfApprovalPolicy?: "allowed" | "forbidden" | "error" | "pending";
+    selfApprovalPolicy?: 'allowed' | 'forbidden' | 'error' | 'pending';
   } = {},
 ) {
   const requests = options.requests ?? REQUESTS;
-  globalThis.fetch = vi.fn(
-    async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url = String(input);
-      if (url.startsWith("/me/permissions/check"))
-        return response({ state: "approved", decision: { allow: true } });
-      if (url === "/me")
-        return response({
-          actor: {
-            id: options.actorId ?? "another-admin",
-            external_id: "admin",
-            email: "admin@example.test",
-            display_name: "Admin",
-            role_level: "admin",
-          },
-          workspace_id: "workspace-1",
-        });
-      if (url === "/workspace/settings") {
-        if (options.selfApprovalPolicy === "error")
-          return response({ code: "internal.unexpected", message: "settings unavailable" }, 500);
-        if (options.selfApprovalPolicy === "pending") return new Promise<Response>(() => {});
-        return response({
-          permission_self_approval: options.selfApprovalPolicy ?? "allowed",
-          survey_anonymity_threshold: 5,
-        });
-      }
-      if (
-        url === "/permissions/requests?status=all" &&
-        (!init?.method || init.method === "GET")
-      ) {
-        options.onList?.();
-        return response({ requests, count: requests.length });
-      }
-      if (/^\/permissions\/requests\/[^/]+$/.test(url)) {
-        const row = requests.find((candidate) => url.endsWith(candidate.id));
-        if (row) return response(options.detail?.(row) ?? adminDetailFixture(row, row.requester_actor_id === options.actorId, options.selfApprovalPolicy === 'forbidden' ? 'forbidden' : 'allowed'));
-      }
-      if (url.includes("/permissions/requests/") && init?.method === "POST") {
+  globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    if (url.startsWith('/me/permissions/check'))
+      return response({ state: 'approved', decision: { allow: true } });
+    if (url === '/me')
+      return response({
+        actor: {
+          id: options.actorId ?? 'another-admin',
+          external_id: 'admin',
+          email: 'admin@example.test',
+          display_name: 'Admin',
+          role_level: 'admin',
+        },
+        workspace_id: 'workspace-1',
+      });
+    if (url === '/workspace/settings') {
+      if (options.selfApprovalPolicy === 'error')
+        return response({ code: 'internal.unexpected', message: 'settings unavailable' }, 500);
+      if (options.selfApprovalPolicy === 'pending') return new Promise<Response>(() => {});
+      return response({
+        permission_self_approval: options.selfApprovalPolicy ?? 'allowed',
+        survey_anonymity_threshold: 5,
+      });
+    }
+    if (url === '/permissions/requests?status=all' && (!init?.method || init.method === 'GET')) {
+      options.onList?.();
+      return response({ requests, count: requests.length });
+    }
+    if (/^\/permissions\/requests\/[^/]+$/.test(url)) {
+      const row = requests.find((candidate) => url.endsWith(candidate.id));
+      if (row)
         return response(
-          options.decision?.body ?? { id: requests[0].id, revision: 8, updated_at: "2026-10-13T00:00:00.000Z", status: "approved" },
-          options.decision?.status ?? 200,
+          options.detail?.(row) ??
+            adminDetailFixture(
+              row,
+              row.requester_actor_id === options.actorId,
+              options.selfApprovalPolicy === 'forbidden' ? 'forbidden' : 'allowed',
+            ),
         );
-      }
+    }
+    if (url.includes('/permissions/requests/') && init?.method === 'POST') {
       return response(
-        { code: "internal.unexpected", message: "unmocked" },
-        500,
+        options.decision?.body ?? {
+          id: requests[0].id,
+          revision: 8,
+          updated_at: '2026-10-13T00:00:00.000Z',
+          status: 'approved',
+        },
+        options.decision?.status ?? 200,
       );
-    },
-  ) as typeof globalThis.fetch;
+    }
+    return response({ code: 'internal.unexpected', message: 'unmocked' }, 500);
+  }) as typeof globalThis.fetch;
 }
 
 function renderRoute() {
@@ -214,11 +214,11 @@ function renderRoute() {
 
 function decisionPosts() {
   return (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.filter(
-    ([, init]) => init?.method === "POST",
+    ([, init]) => init?.method === 'POST',
   );
 }
 
-describe("/admin/permissions/requests", () => {
+describe('/admin/permissions/requests', () => {
   const originalFetch = globalThis.fetch;
   afterEach(() => {
     globalThis.fetch = originalFetch;
@@ -562,9 +562,7 @@ describe("/admin/permissions/requests", () => {
         queryKey: ['permission-requests', 'admin-detail', REQUESTS[0].id],
       });
     });
-    await waitFor(() =>
-      expect(screen.getByLabelText(/^사유/)).toHaveValue('kept review'),
-    );
+    await waitFor(() => expect(screen.getByLabelText(/^사유/)).toHaveValue('kept review'));
     expect(screen.getByRole('button', { name: '승인' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByTestId('permission-decision-submit')).toBeEnabled();
     fireEvent.click(screen.getByTestId('permission-decision-submit'));
@@ -694,9 +692,7 @@ describe("/admin/permissions/requests", () => {
         queryKey: ['permission-requests', 'admin-detail', REQUESTS[0].id],
       });
     });
-    await waitFor(() =>
-      expect(screen.getByTestId('permission-decision-submit')).toBeEnabled(),
-    );
+    await waitFor(() => expect(screen.getByTestId('permission-decision-submit')).toBeEnabled());
     fireEvent.click(screen.getByTestId('permission-decision-submit'));
     await waitFor(() => expect(decisionPosts()).toHaveLength(2));
     expect(new Headers(decisionPosts()[1]![1].headers).get('Idempotency-Key')).toBe(
@@ -920,197 +916,169 @@ describe("/admin/permissions/requests", () => {
     expect(screen.getAllByRole('tab')).toHaveLength(5);
   });
 
-  test("renders five client tabs and filters mixed request statuses", async () => {
+  test('renders five client tabs and filters mixed request statuses', async () => {
     installFetch();
     renderRoute();
     await waitFor(() =>
-      expect(
-        screen.getByRole("tab", { name: /^대기 중\s*,\s*1$/ }),
-      ).toBeInTheDocument(),
+      expect(screen.getByRole('tab', { name: /^대기 중\s*,\s*1$/ })).toBeInTheDocument(),
     );
-    expect(screen.getAllByRole("tab")).toHaveLength(5);
+    expect(screen.getAllByRole('tab')).toHaveLength(5);
     expect(
-      within(screen.getByTestId("permission-requests-list")).getByText("워크스페이스 전체 읽기", {
+      within(screen.getByTestId('permission-requests-list')).getByText('워크스페이스 전체 읽기', {
         exact: false,
       }),
     ).toBeInTheDocument();
-    fireEvent.mouseDown(screen.getByRole("tab", { name: /^승인됨\s*,\s*1$/ }));
+    fireEvent.mouseDown(screen.getByRole('tab', { name: /^승인됨\s*,\s*1$/ }));
     await waitFor(() =>
       expect(
-        within(screen.getByTestId("permission-requests-list")).getByText("워크스페이스 관리자 권한", {
-          exact: false,
-        }),
+        within(screen.getByTestId('permission-requests-list')).getByText(
+          '워크스페이스 관리자 권한',
+          {
+            exact: false,
+          },
+        ),
       ).toBeInTheDocument(),
     );
     expect(
-      within(screen.getByTestId("permission-requests-list")).queryByText("워크스페이스 전체 읽기", {
+      within(screen.getByTestId('permission-requests-list')).queryByText('워크스페이스 전체 읽기', {
         exact: false,
       }),
     ).not.toBeInTheDocument();
   });
 
-  test("keeps the detail panel closed until a row is selected or the tab changes", async () => {
+  test('keeps the detail panel closed until a row is selected or the tab changes', async () => {
     installFetch();
     renderRoute();
     await waitFor(() =>
-      expect(
-        screen.getByTestId("permission-request-detail-panel"),
-      ).toBeInTheDocument(),
+      expect(screen.getByTestId('permission-request-detail-panel')).toBeInTheDocument(),
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "패널 닫기" }));
+    fireEvent.click(screen.getByRole('button', { name: '패널 닫기' }));
     await waitFor(() =>
-      expect(
-        screen.queryByTestId("permission-request-detail-panel"),
-      ).not.toBeInTheDocument(),
+      expect(screen.queryByTestId('permission-request-detail-panel')).not.toBeInTheDocument(),
     );
 
-    fireEvent.mouseDown(screen.getByRole("tab", { name: /^추가 정보 필요\s*,\s*1$/ }));
+    fireEvent.mouseDown(screen.getByRole('tab', { name: /^추가 정보 필요\s*,\s*1$/ }));
     await waitFor(() =>
-      expect(
-        screen.getByTestId("permission-request-detail-panel"),
-      ).toBeInTheDocument(),
+      expect(screen.getByTestId('permission-request-detail-panel')).toBeInTheDocument(),
     );
   });
 
-  test("selects the first visible request when a selected request drops out on tab change", async () => {
+  test('selects the first visible request when a selected request drops out on tab change', async () => {
     installFetch();
     renderRoute();
     await waitFor(() =>
-      expect(
-        screen.getByTestId("permission-request-detail-panel"),
-      ).toBeInTheDocument(),
+      expect(screen.getByTestId('permission-request-detail-panel')).toBeInTheDocument(),
     );
 
-    fireEvent.mouseDown(screen.getByRole("tab", { name: /^승인됨\s*,\s*1$/ }));
+    fireEvent.mouseDown(screen.getByRole('tab', { name: /^승인됨\s*,\s*1$/ }));
 
     await waitFor(() =>
-      expect(
-        screen.getByTestId("permission-request-detail-panel"),
-      ).toHaveTextContent("워크스페이스 관리자 권한"),
+      expect(screen.getByTestId('permission-request-detail-panel')).toHaveTextContent(
+        '워크스페이스 관리자 권한',
+      ),
     );
   });
 
   test.each([
-    ["승인", "/approve", "승인 사유", { reason: "승인 사유" }],
-    [
-      "추가 정보 요청",
-      "/need-more-info",
-      "추가 정보 사유",
-      { note: "추가 정보 사유" },
-    ],
-    ["거절", "/reject", "정책 사유", { reason: "정책 사유" }],
-    [
-      "명시적 거부",
-      "/deny",
-      "명시적 거부 사유",
-      { reason: "명시적 거부 사유" },
-    ],
+    ['승인', '/approve', '승인 사유', { reason: '승인 사유' }],
+    ['추가 정보 요청', '/need-more-info', '추가 정보 사유', { note: '추가 정보 사유' }],
+    ['거절', '/reject', '정책 사유', { reason: '정책 사유' }],
+    ['명시적 거부', '/deny', '명시적 거부 사유', { reason: '명시적 거부 사유' }],
   ])(
-    "posts %s to %s with its exact decision body and an Idempotency-Key",
+    'posts %s to %s with its exact decision body and an Idempotency-Key',
     async (action, suffix, reason, expectedBody) => {
       installFetch();
       renderRoute();
       await waitFor(() =>
-        expect(
-          screen.getByTestId("permission-decision-section"),
-        ).toBeInTheDocument(),
+        expect(screen.getByTestId('permission-decision-section')).toBeInTheDocument(),
       );
-      fireEvent.click(screen.getByRole("button", { name: action }));
+      fireEvent.click(screen.getByRole('button', { name: action }));
       if (reason)
         fireEvent.change(screen.getByLabelText(/사유/), {
           target: { value: reason },
         });
-      fireEvent.click(screen.getByTestId("permission-decision-submit"));
+      fireEvent.click(screen.getByTestId('permission-decision-submit'));
       await waitFor(() => {
-        const posts = (
-          globalThis.fetch as ReturnType<typeof vi.fn>
-        ).mock.calls.filter(([, init]) => init?.method === "POST");
+        const posts = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.filter(
+          ([, init]) => init?.method === 'POST',
+        );
         expect(posts).toHaveLength(1);
       });
       const post = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.find(
-        ([, candidate]) => candidate?.method === "POST",
+        ([, candidate]) => candidate?.method === 'POST',
       );
-      if (!post) throw new Error("Expected a decision POST request");
+      if (!post) throw new Error('Expected a decision POST request');
       const [url, init] = post;
       expect(url).toBe(`/permissions/requests/${REQUESTS[0].id}${suffix}`);
-      expect(new Headers(init.headers).get("Idempotency-Key")).toMatch(
-        /^[0-9a-f-]{36}$/i,
-      );
+      expect(new Headers(init.headers).get('Idempotency-Key')).toMatch(/^[0-9a-f-]{36}$/i);
       expect(JSON.parse(init.body as string)).toEqual({ ...expectedBody, expected_revision: 7 });
     },
   );
 
   test.each([
-    ["mouse", ""],
-    ["mouse", "   "],
-    ["keyboard", ""],
-    ["keyboard", "   "],
+    ['mouse', ''],
+    ['mouse', '   '],
+    ['keyboard', ''],
+    ['keyboard', '   '],
   ])(
-    "#1184 U3-4 %s reject with reason %j shows the inline error, focuses the reason and sends nothing",
+    '#1184 U3-4 %s reject with reason %j shows the inline error, focuses the reason and sends nothing',
     async (input, reason) => {
       installFetch();
       renderRoute();
       await waitFor(() =>
-        expect(screen.getByTestId("permission-decision-section")).toBeInTheDocument(),
+        expect(screen.getByTestId('permission-decision-section')).toBeInTheDocument(),
       );
-      fireEvent.click(screen.getByRole("button", { name: "거절" }));
+      fireEvent.click(screen.getByRole('button', { name: '거절' }));
       const field = screen.getByLabelText(/사유/);
       if (reason) fireEvent.change(field, { target: { value: reason } });
-      const submit = screen.getByTestId("permission-decision-submit");
-      if (input === "mouse") {
+      const submit = screen.getByTestId('permission-decision-submit');
+      if (input === 'mouse') {
         fireEvent.click(submit);
       } else {
         submit.focus();
-        await userEvent.keyboard("{Enter}");
+        await userEvent.keyboard('{Enter}');
       }
 
-      const alert = await screen.findByRole("alert");
-      expect(alert).toHaveTextContent("거절 사유를 입력해 주세요.");
+      const alert = await screen.findByRole('alert');
+      expect(alert).toHaveTextContent('거절 사유를 입력해 주세요.');
       expect(field).toHaveFocus();
-      expect(field).toHaveAttribute("aria-invalid", "true");
-      expect(field).toHaveAttribute("aria-describedby", alert.id);
+      expect(field).toHaveAttribute('aria-invalid', 'true');
+      expect(field).toHaveAttribute('aria-describedby', alert.id);
       await act(async () => {
         await Promise.resolve();
       });
       const posts = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.filter(
-        ([, init]) => init?.method === "POST",
+        ([, init]) => init?.method === 'POST',
       );
       expect(posts).toHaveLength(0);
 
-      fireEvent.change(field, { target: { value: "사유" } });
-      expect(screen.queryByText("거절 사유를 입력해 주세요.")).not.toBeInTheDocument();
+      fireEvent.change(field, { target: { value: '사유' } });
+      expect(screen.queryByText('거절 사유를 입력해 주세요.')).not.toBeInTheDocument();
     },
   );
 
-  test("#524 no decision is pre-selected on entry, and submit stays disabled until one is chosen explicitly", async () => {
+  test('#524 no decision is pre-selected on entry, and submit stays disabled until one is chosen explicitly', async () => {
     installFetch();
     renderRoute();
     await waitFor(() =>
-      expect(
-        screen.getByTestId("permission-decision-section"),
-      ).toBeInTheDocument(),
+      expect(screen.getByTestId('permission-decision-section')).toBeInTheDocument(),
     );
 
-    for (const label of ["승인", "추가 정보 요청", "거절", "명시적 거부"]) {
-      expect(screen.getByRole("button", { name: label })).toHaveAttribute(
-        "aria-pressed",
-        "false",
-      );
+    for (const label of ['승인', '추가 정보 요청', '거절', '명시적 거부']) {
+      expect(screen.getByRole('button', { name: label })).toHaveAttribute('aria-pressed', 'false');
     }
-    expect(screen.getByTestId("permission-decision-submit")).toBeDisabled();
-    fireEvent.click(screen.getByTestId("permission-decision-submit"));
+    expect(screen.getByTestId('permission-decision-submit')).toBeDisabled();
+    fireEvent.click(screen.getByTestId('permission-decision-submit'));
     expect(
       (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.some(
-        ([, init]) => init?.method === "POST",
+        ([, init]) => init?.method === 'POST',
       ),
     ).toBe(false);
 
-    fireEvent.click(screen.getByRole("button", { name: "승인" }));
-    expect(
-      screen.getByRole("button", { name: "승인" }),
-    ).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByTestId("permission-decision-submit")).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: '승인' }));
+    expect(screen.getByRole('button', { name: '승인' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('permission-decision-submit')).toBeEnabled();
   });
 
   test('the self-approval audit preview names both actors in plain Korean without debug keys', async () => {
@@ -1127,69 +1095,63 @@ describe("/admin/permissions/requests", () => {
 
     const capture = screen.getByTestId('self-approval-audit-capture');
     expect(capture).toHaveTextContent('감사 로그에 본인 승인으로 기록됩니다');
-    await waitFor(() =>
-      expect(capture).toHaveTextContent('승인자: Admin · 요청자: 김하나'),
-    );
+    await waitFor(() => expect(capture).toHaveTextContent('승인자: Admin · 요청자: 김하나'));
     expect(capture.textContent).not.toMatch(
       /SELF_APPROVAL|label:|actor:|subject:|policy_citation|no_peer_reviewer|aaaaaaaa/,
     );
   });
 
   test("AC-4 shows audit capture only for this Admin's approve action, not another request or another action", async () => {
-    installFetch({ actorId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1" });
+    installFetch({ actorId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1' });
     renderRoute();
 
     await waitFor(() =>
-      expect(
-        screen.getByTestId("permission-decision-section"),
-      ).toBeInTheDocument(),
+      expect(screen.getByTestId('permission-decision-section')).toBeInTheDocument(),
     );
-    expect(screen.queryByTestId("self-approval-audit-capture")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "승인" }));
-    expect(screen.getByTestId("self-approval-audit-capture")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "거절" }));
-    expect(screen.queryByTestId("self-approval-audit-capture")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "승인" }));
-    expect(screen.getByTestId("self-approval-audit-capture")).toBeInTheDocument();
+    expect(screen.queryByTestId('self-approval-audit-capture')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '승인' }));
+    expect(screen.getByTestId('self-approval-audit-capture')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '거절' }));
+    expect(screen.queryByTestId('self-approval-audit-capture')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '승인' }));
+    expect(screen.getByTestId('self-approval-audit-capture')).toBeInTheDocument();
 
-    fireEvent.mouseDown(screen.getByRole("tab", { name: /^추가 정보 필요\s*,\s*1$/ }));
+    fireEvent.mouseDown(screen.getByRole('tab', { name: /^추가 정보 필요\s*,\s*1$/ }));
     await waitFor(() =>
-      expect(screen.queryByTestId("self-approval-audit-capture")).not.toBeInTheDocument(),
+      expect(screen.queryByTestId('self-approval-audit-capture')).not.toBeInTheDocument(),
     );
   });
 
-  test("AC-5 requires two trimmed eight-character audit fields and posts their exact envelope", async () => {
-    installFetch({ actorId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1" });
+  test('AC-5 requires two trimmed eight-character audit fields and posts their exact envelope', async () => {
+    installFetch({ actorId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1' });
     renderRoute();
     await waitFor(() =>
-      expect(
-        screen.getByTestId("permission-decision-section"),
-      ).toBeInTheDocument(),
+      expect(screen.getByTestId('permission-decision-section')).toBeInTheDocument(),
     );
-    fireEvent.click(screen.getByRole("button", { name: "승인" }));
+    fireEvent.click(screen.getByRole('button', { name: '승인' }));
     await waitFor(() =>
-      expect(screen.getByTestId("self-approval-audit-capture")).toBeInTheDocument(),
+      expect(screen.getByTestId('self-approval-audit-capture')).toBeInTheDocument(),
     );
 
-    const submit = screen.getByTestId("permission-decision-submit");
+    const submit = screen.getByTestId('permission-decision-submit');
     expect(submit).toBeDisabled();
     fireEvent.change(screen.getByLabelText(/정책 근거/), {
-      target: { value: "  policy7  " },
+      target: { value: '  policy7  ' },
     });
     fireEvent.change(screen.getByLabelText(/동료 검토자 부재 사유/), {
-      target: { value: "  reviewer absence  " },
+      target: { value: '  reviewer absence  ' },
     });
     expect(submit).toBeDisabled();
     fireEvent.change(screen.getByLabelText(/정책 근거/), {
-      target: { value: "  policy-8  " },
+      target: { value: '  policy-8  ' },
     });
     expect(submit).toBeEnabled();
     fireEvent.change(screen.getByLabelText(/동료 검토자 부재 사유/), {
-      target: { value: "  absence  " },
+      target: { value: '  absence  ' },
     });
     expect(submit).toBeDisabled();
     fireEvent.change(screen.getByLabelText(/동료 검토자 부재 사유/), {
-      target: { value: "  reviewer  " },
+      target: { value: '  reviewer  ' },
     });
     expect(submit).toBeEnabled();
     fireEvent.click(submit);
@@ -1199,111 +1161,107 @@ describe("/admin/permissions/requests", () => {
     expect(JSON.parse(init.body as string)).toEqual({
       expected_revision: 7,
       self_approval: {
-        policy_citation: "policy-8",
-        peer_reviewer_absence: "reviewer",
+        policy_citation: 'policy-8',
+        peer_reviewer_absence: 'reviewer',
       },
     });
   });
 
-  test("AC-6 disables self-approval under forbidden workspace policy without posting", async () => {
-    installFetch({ actorId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1", selfApprovalPolicy: "forbidden" });
+  test('AC-6 disables self-approval under forbidden workspace policy without posting', async () => {
+    installFetch({
+      actorId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1',
+      selfApprovalPolicy: 'forbidden',
+    });
     renderRoute();
     await waitFor(() =>
       expect(screen.getByText(/워크스페이스 정책에서 직접 승인을 금지합니다/)).toBeInTheDocument(),
     );
-    expect(screen.getByRole("button", { name: "승인" })).toBeDisabled();
-    expect(screen.getByTestId("permission-decision-submit")).toBeDisabled();
-    fireEvent.click(screen.getByTestId("permission-decision-submit"));
+    expect(screen.getByRole('button', { name: '승인' })).toBeDisabled();
+    expect(screen.getByTestId('permission-decision-submit')).toBeDisabled();
+    fireEvent.click(screen.getByTestId('permission-decision-submit'));
     expect(decisionPosts()).toHaveLength(0);
   });
 
-  test("AC-7 keeps self-approval enabled and handles a backend denial while workspace settings fail or remain unresolved", async () => {
-    for (const selfApprovalPolicy of ["error", "pending"] as const) {
+  test('AC-7 keeps self-approval enabled and handles a backend denial while workspace settings fail or remain unresolved', async () => {
+    for (const selfApprovalPolicy of ['error', 'pending'] as const) {
       installFetch({
-        actorId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1",
+        actorId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1',
         selfApprovalPolicy,
         decision: {
           status: 403,
-          body: { code: "permission.denied", message: "self-approval denied" },
+          body: { code: 'permission.denied', message: 'self-approval denied' },
         },
       });
       renderRoute();
       await waitFor(() =>
-        expect(
-          screen.getByTestId("permission-decision-section"),
-        ).toBeInTheDocument(),
+        expect(screen.getByTestId('permission-decision-section')).toBeInTheDocument(),
       );
-      expect(screen.getByRole("button", { name: "승인" })).toBeEnabled();
-      fireEvent.click(screen.getByRole("button", { name: "승인" }));
+      expect(screen.getByRole('button', { name: '승인' })).toBeEnabled();
+      fireEvent.click(screen.getByRole('button', { name: '승인' }));
       await waitFor(() =>
-        expect(screen.getByTestId("self-approval-audit-capture")).toBeInTheDocument(),
+        expect(screen.getByTestId('self-approval-audit-capture')).toBeInTheDocument(),
       );
       fireEvent.change(screen.getByLabelText(/정책 근거/), {
-        target: { value: "policy-8" },
+        target: { value: 'policy-8' },
       });
       fireEvent.change(screen.getByLabelText(/동료 검토자 부재 사유/), {
-        target: { value: "reviewer absence" },
+        target: { value: 'reviewer absence' },
       });
-      fireEvent.click(screen.getByTestId("permission-decision-submit"));
+      fireEvent.click(screen.getByTestId('permission-decision-submit'));
 
       await waitFor(() => expect(decisionPosts()).toHaveLength(1));
       const [, init] = decisionPosts()[0]!;
       expect(JSON.parse(init.body as string)).toEqual({
         expected_revision: 7,
         self_approval: {
-          policy_citation: "policy-8",
-          peer_reviewer_absence: "reviewer absence",
+          policy_citation: 'policy-8',
+          peer_reviewer_absence: 'reviewer absence',
         },
       });
-      await waitFor(() => expect(toast.error).toHaveBeenCalledWith("권한이 없습니다."));
+      await waitFor(() => expect(toast.error).toHaveBeenCalledWith('권한이 없습니다.'));
       cleanup();
     }
   });
 
-  test("re-mints the Idempotency-Key after a successful decision", async () => {
+  test('re-mints the Idempotency-Key after a successful decision', async () => {
     installFetch();
     renderRoute();
     await waitFor(() =>
-      expect(
-        screen.getByTestId("permission-decision-section"),
-      ).toBeInTheDocument(),
+      expect(screen.getByTestId('permission-decision-section')).toBeInTheDocument(),
     );
-    fireEvent.click(screen.getByRole("button", { name: "승인" }));
+    fireEvent.click(screen.getByRole('button', { name: '승인' }));
 
-    fireEvent.click(screen.getByTestId("permission-decision-submit"));
+    fireEvent.click(screen.getByTestId('permission-decision-submit'));
     await waitFor(() =>
       expect(
         (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.filter(
-          ([, init]) => init?.method === "POST",
+          ([, init]) => init?.method === 'POST',
         ),
       ).toHaveLength(1),
     );
-    await waitFor(() =>
-      expect(toast.success).toHaveBeenCalledWith("권한 요청이 처리되었습니다."),
-    );
-    await waitFor(() => expect(screen.getByTestId("permission-decision-submit")).toBeDisabled());
-    fireEvent.click(screen.getByRole("button", { name: "승인" }));
-    fireEvent.click(screen.getByTestId("permission-decision-submit"));
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('권한 요청이 처리되었습니다.'));
+    await waitFor(() => expect(screen.getByTestId('permission-decision-submit')).toBeDisabled());
+    fireEvent.click(screen.getByRole('button', { name: '승인' }));
+    fireEvent.click(screen.getByTestId('permission-decision-submit'));
     await waitFor(() =>
       expect(
         (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.filter(
-          ([, init]) => init?.method === "POST",
+          ([, init]) => init?.method === 'POST',
         ),
       ).toHaveLength(2),
     );
 
     const posts = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.filter(
-      ([, init]) => init?.method === "POST",
+      ([, init]) => init?.method === 'POST',
     );
     const [firstPost, secondPost] = posts;
-    if (!firstPost || !secondPost)
-      throw new Error("Expected two decision POST requests");
-    expect(new Headers(secondPost[1].headers).get("Idempotency-Key")).not.toBe(
-      new Headers(firstPost[1].headers).get("Idempotency-Key"),
+    if (!firstPost || !secondPost) throw new Error('Expected two decision POST requests');
+    expect(new Headers(secondPost[1].headers).get('Idempotency-Key')).not.toBe(
+      new Headers(firstPost[1].headers).get('Idempotency-Key'),
     );
   });
 
-  test("blocks an empty reject reason, allows empty approve, refetches after success and stale write", async () => {
+  test('blocks an empty reject reason, allows empty approve, refetches after success and stale write', async () => {
     let listCalls = 0;
     installFetch({
       onList: () => {
@@ -1312,157 +1270,143 @@ describe("/admin/permissions/requests", () => {
     });
     renderRoute();
     await waitFor(() =>
-      expect(
-        screen.getByTestId("permission-decision-section"),
-      ).toBeInTheDocument(),
+      expect(screen.getByTestId('permission-decision-section')).toBeInTheDocument(),
     );
-    fireEvent.click(screen.getByRole("button", { name: "거절" }));
-    fireEvent.click(screen.getByTestId("permission-decision-submit"));
+    fireEvent.click(screen.getByRole('button', { name: '거절' }));
+    fireEvent.click(screen.getByTestId('permission-decision-submit'));
     expect(
       (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.some(
-        ([, init]) => init?.method === "POST",
+        ([, init]) => init?.method === 'POST',
       ),
     ).toBe(false);
     fireEvent.change(screen.getByLabelText(/사유/), {
-      target: { value: "   " },
+      target: { value: '   ' },
     });
-    fireEvent.click(screen.getByTestId("permission-decision-submit"));
+    fireEvent.click(screen.getByTestId('permission-decision-submit'));
     expect(
       (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.some(
-        ([, init]) => init?.method === "POST",
+        ([, init]) => init?.method === 'POST',
       ),
     ).toBe(false);
-    fireEvent.click(screen.getByRole("button", { name: "승인" }));
-    fireEvent.click(screen.getByTestId("permission-decision-submit"));
+    fireEvent.click(screen.getByRole('button', { name: '승인' }));
+    fireEvent.click(screen.getByTestId('permission-decision-submit'));
     await waitFor(() => expect(listCalls).toBeGreaterThanOrEqual(2));
 
     installFetch({
       decision: {
         status: 409,
-        body: { code: "conflict.stale_write", message: "stale", detail: { current_revision: 8 } },
+        body: { code: 'conflict.stale_write', message: 'stale', detail: { current_revision: 8 } },
       },
       onList: () => {
         listCalls += 1;
       },
     });
-    await waitFor(() => expect(screen.getByTestId("permission-decision-submit")).toBeDisabled());
-    fireEvent.click(screen.getByRole("button", { name: "승인" }));
-    fireEvent.click(screen.getByTestId("permission-decision-submit"));
+    await waitFor(() => expect(screen.getByTestId('permission-decision-submit')).toBeDisabled());
+    fireEvent.click(screen.getByRole('button', { name: '승인' }));
+    fireEvent.click(screen.getByTestId('permission-decision-submit'));
     await waitFor(() =>
-      expect(toast.error).toHaveBeenCalledWith("요청 내용이 변경되었습니다. 최신 요청을 확인한 후 다시 시도해 주세요."),
+      expect(toast.error).toHaveBeenCalledWith(
+        '요청 내용이 변경되었습니다. 최신 요청을 확인한 후 다시 시도해 주세요.',
+      ),
     );
     await waitFor(() => expect(listCalls).toBeGreaterThanOrEqual(3));
   });
 
-  test("blocks a whitespace-only deny reason", async () => {
+  test('blocks a whitespace-only deny reason', async () => {
     installFetch();
     renderRoute();
     await waitFor(() =>
-      expect(
-        screen.getByTestId("permission-decision-section"),
-      ).toBeInTheDocument(),
+      expect(screen.getByTestId('permission-decision-section')).toBeInTheDocument(),
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "명시적 거부" }));
+    fireEvent.click(screen.getByRole('button', { name: '명시적 거부' }));
     fireEvent.change(screen.getByLabelText(/사유/), {
-      target: { value: "   " },
+      target: { value: '   ' },
     });
-    fireEvent.click(screen.getByTestId("permission-decision-submit"));
+    fireEvent.click(screen.getByTestId('permission-decision-submit'));
 
     expect(
       (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.some(
-        ([, init]) => init?.method === "POST",
+        ([, init]) => init?.method === 'POST',
       ),
     ).toBe(false);
   });
 
-  test("blocks an empty or whitespace-only need-more-info note", async () => {
+  test('blocks an empty or whitespace-only need-more-info note', async () => {
     installFetch();
     renderRoute();
     await waitFor(() =>
-      expect(
-        screen.getByTestId("permission-decision-section"),
-      ).toBeInTheDocument(),
+      expect(screen.getByTestId('permission-decision-section')).toBeInTheDocument(),
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "추가 정보 요청" }));
-    expect(screen.getByLabelText("사유 · 필수")).toBeInTheDocument();
-    fireEvent.click(screen.getByTestId("permission-decision-submit"));
+    fireEvent.click(screen.getByRole('button', { name: '추가 정보 요청' }));
+    expect(screen.getByLabelText('사유 · 필수')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('permission-decision-submit'));
     fireEvent.change(screen.getByLabelText(/사유/), {
-      target: { value: "   " },
+      target: { value: '   ' },
     });
-    fireEvent.click(screen.getByTestId("permission-decision-submit"));
+    fireEvent.click(screen.getByTestId('permission-decision-submit'));
 
     expect(
       (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.some(
-        ([, init]) => init?.method === "POST",
+        ([, init]) => init?.method === 'POST',
       ),
     ).toBe(false);
   });
 
-  test("blocks an empty approve reason for a sensitive capability", async () => {
+  test('blocks an empty approve reason for a sensitive capability', async () => {
     installFetch({
-      requests: [
-        { ...REQUESTS[0], requested_capability: "workspace.admin" },
-      ],
+      requests: [{ ...REQUESTS[0], requested_capability: 'workspace.admin' }],
     });
     renderRoute();
     await waitFor(() =>
-      expect(
-        screen.getByTestId("permission-decision-section"),
-      ).toBeInTheDocument(),
+      expect(screen.getByTestId('permission-decision-section')).toBeInTheDocument(),
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "승인" }));
-    expect(screen.getByLabelText("사유 · 필수")).toBeInTheDocument();
-    fireEvent.click(screen.getByTestId("permission-decision-submit"));
+    fireEvent.click(screen.getByRole('button', { name: '승인' }));
+    expect(screen.getByLabelText('사유 · 필수')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('permission-decision-submit'));
 
     expect(
       (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.some(
-        ([, init]) => init?.method === "POST",
+        ([, init]) => init?.method === 'POST',
       ),
     ).toBe(false);
   });
 
-  test("allows an empty approve reason for a non-sensitive capability", async () => {
+  test('allows an empty approve reason for a non-sensitive capability', async () => {
     installFetch();
     renderRoute();
     await waitFor(() =>
-      expect(
-        screen.getByTestId("permission-decision-section"),
-      ).toBeInTheDocument(),
+      expect(screen.getByTestId('permission-decision-section')).toBeInTheDocument(),
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "승인" }));
-    expect(screen.getByLabelText("사유 · 선택")).toBeInTheDocument();
-    fireEvent.click(screen.getByTestId("permission-decision-submit"));
+    fireEvent.click(screen.getByRole('button', { name: '승인' }));
+    expect(screen.getByLabelText('사유 · 선택')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('permission-decision-submit'));
 
     await waitFor(() =>
       expect(
         (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.some(
-          ([, init]) => init?.method === "POST",
+          ([, init]) => init?.method === 'POST',
         ),
       ).toBe(true),
     );
   });
 
-  test("shows the errorMapper validation message for a sensitive decision", async () => {
+  test('shows the errorMapper validation message for a sensitive decision', async () => {
     const envelope = {
-      code: "validation.sensitive_reason_required",
-      message: "reason required",
+      code: 'validation.sensitive_reason_required',
+      message: 'reason required',
     } as const;
     installFetch({ decision: { status: 422, body: envelope } });
     renderRoute();
     await waitFor(() =>
-      expect(
-        screen.getByTestId("permission-decision-section"),
-      ).toBeInTheDocument(),
+      expect(screen.getByTestId('permission-decision-section')).toBeInTheDocument(),
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "승인" }));
-    fireEvent.click(screen.getByTestId("permission-decision-submit"));
-    await waitFor(() =>
-      expect(toast.error).toHaveBeenCalledWith(errorMapper(envelope).message),
-    );
+    fireEvent.click(screen.getByRole('button', { name: '승인' }));
+    fireEvent.click(screen.getByTestId('permission-decision-submit'));
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(errorMapper(envelope).message));
   });
 });

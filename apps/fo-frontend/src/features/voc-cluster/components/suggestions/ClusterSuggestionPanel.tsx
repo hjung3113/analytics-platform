@@ -1,14 +1,14 @@
 import { ATTACHMENT_FALLBACK_LABEL } from '@/lib/copy/attachments';
 import { CLUSTER_SUGGESTION_COPY as COPY } from '@/lib/copy/voc-cluster';
 import { HostLink } from '@/lib/host/host-seam';
-import { type VocClusterSuggestionItem, isTipTapDocStructurallyEmpty } from '@fops/shared';
 import {
   Button,
   DetailPanelHeader,
   PanelSectionTitle,
   RichContentRenderer,
   type TipTapDoc,
-} from '@fops/ui';
+} from '@ap/ui';
+import { type VocClusterSuggestionItem, isTipTapDocStructurallyEmpty } from '@fops/shared';
 import { type RefObject, useEffect, useRef } from 'react';
 
 export function ClusterSuggestionPanel({

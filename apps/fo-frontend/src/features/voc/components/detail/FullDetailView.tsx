@@ -1,5 +1,5 @@
+import type { PanelSection } from '@ap/ui';
 import type { VocDetailEnvelope } from '@fops/shared';
-import type { PanelSection } from '@fops/ui';
 import type * as React from 'react';
 
 import { VOC_DETAIL_BODY_LABEL } from '@/lib/copy/voc';

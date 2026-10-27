@@ -1,7 +1,5 @@
-/// <reference types="@testing-library/jest-dom" />
-import * as React from 'react';
+import { NestedTextBlock } from '@ap/ui';
 import { render, screen } from '@testing-library/react';
-import { NestedTextBlock } from '../NestedTextBlock.js';
 
 describe('NestedTextBlock', () => {
   it('renders children content', () => {
@@ -20,9 +18,7 @@ describe('NestedTextBlock', () => {
   });
 
   it('applies custom className', () => {
-    const { container } = render(
-      <NestedTextBlock className="extra-class">내용</NestedTextBlock>,
-    );
+    const { container } = render(<NestedTextBlock className="extra-class">내용</NestedTextBlock>);
     expect(container.firstElementChild).toHaveClass('extra-class');
   });
 

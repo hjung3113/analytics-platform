@@ -1,5 +1,5 @@
+import { ToolbarKicker } from '@ap/ui';
 import { render, screen } from '@testing-library/react';
-import { ToolbarKicker } from '../ToolbarKicker.js';
 
 describe('ToolbarKicker', () => {
   it('renders the route label, name, and decorative separator', () => {

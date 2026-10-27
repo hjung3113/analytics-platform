@@ -1,10 +1,6 @@
+import { type SeverityEnum, SeverityIndicator, StatusBadgeFrame } from '@ap/ui';
 import type * as React from 'react';
-import {
-  SEVERITY_LABELS,
-  type SeverityEnum,
-  SeverityIndicator,
-} from '../indicators/SeverityIndicator.js';
-import { StatusBadgeFrame } from './StatusBadgeFrame.js';
+import { SEVERITY_LABELS } from '../indicators/SeverityIndicator.js';
 
 export interface SeverityBadgeProps {
   severity: SeverityEnum;

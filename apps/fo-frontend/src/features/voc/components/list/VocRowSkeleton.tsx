@@ -1,6 +1,4 @@
-import * as React from 'react';
-import { Skeleton } from '@fops/ui';
-import { cn } from '@fops/ui';
+import { Skeleton, cn } from '@ap/ui';
 
 export interface VocRowSkeletonProps {
   className?: string;

@@ -3,7 +3,6 @@
 // while the dialog is open: any exit unmounts it, and a POST that settles afterwards writes into
 // the dead session, never a later one.
 
-import type { SameManagedSystemCandidatePeerDto } from '@fops/shared';
 import {
   Button,
   Dialog,
@@ -11,10 +10,11 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  SEVERITY_LABELS,
   SearchInput,
   Skeleton,
-} from '@fops/ui';
+} from '@ap/ui';
+import type { SameManagedSystemCandidatePeerDto } from '@fops/shared';
+import { SEVERITY_LABELS } from '@fops/ui';
 import type * as React from 'react';
 import { useEffect, useRef, useState } from 'react';
 

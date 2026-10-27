@@ -1,5 +1,5 @@
+import { Combobox } from '@ap/ui';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { Combobox } from '../combobox.js';
 
 describe('Combobox accessible labels', () => {
   it('uses its configured listbox label and empty text', () => {

@@ -10,8 +10,8 @@ vi.mock('@/lib/api/me', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api/me')>()),
   useMeBridge: vi.fn(),
 }));
-vi.mock('@fops/ui', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@fops/ui')>();
+vi.mock('@ap/ui', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@ap/ui')>();
   return {
     ...actual,
     RichContentRenderer: () => <div data-testid="rce" />,

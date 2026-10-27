@@ -82,11 +82,11 @@ function Controlled({
   children,
 }: {
   children: (props: {
-    draftDoc: import('@fops/ui').TipTapDoc | null;
-    onDraftChange: (doc: import('@fops/ui').TipTapDoc | null) => void;
+    draftDoc: import('@ap/ui').TipTapDoc | null;
+    onDraftChange: (doc: import('@ap/ui').TipTapDoc | null) => void;
   }) => React.ReactElement;
 }): React.ReactElement {
-  const [doc, setDoc] = React.useState<import('@fops/ui').TipTapDoc | null>(null);
+  const [doc, setDoc] = React.useState<import('@ap/ui').TipTapDoc | null>(null);
   return children({ draftDoc: doc, onDraftChange: setDoc });
 }
 

@@ -2,7 +2,7 @@
 // Owns: search param forwarding, dirty-block guard, DirtyConfirmation dialog mount.
 // C6 of Slice 3 #19.
 
-import { DirtyConfirmation } from '@fops/ui';
+import { DirtyConfirmation } from '@ap/ui';
 import { useBlocker, useNavigate, useSearch } from '@tanstack/react-router';
 import * as React from 'react';
 import { VocCreateScreen } from '../components/create/VocCreateScreen';

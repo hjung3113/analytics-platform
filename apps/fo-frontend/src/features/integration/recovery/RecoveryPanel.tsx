@@ -6,17 +6,17 @@ import { RECOVERY_COPY as COPY } from '@/lib/copy/recovery';
 import type { ClosableDetailParts } from '@/lib/host/detail-parts';
 import { HostLink, useHostSeam } from '@/lib/host/host-seam';
 import { invalidateRecovery, invalidateRecoverySource } from '@/lib/query/recovery';
-import type { RecoveryAction, RecoveryDetail, RecoveryPresentationPatch } from '@fops/shared';
 import {
   Button,
   DetailPanelFullscreenContext,
   DetailPanelFullscreenToggle,
   DetailPanelHeader,
   FieldRow,
-  OutlineBadge,
   PermissionBlockedPanel,
   Skeleton,
-} from '@fops/ui';
+} from '@ap/ui';
+import type { RecoveryAction, RecoveryDetail, RecoveryPresentationPatch } from '@fops/shared';
+import { OutlineBadge } from '@fops/ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { type ReactNode, useContext, useEffect } from 'react';
 import { RecoveryFreshness, formatRecoveryTime } from './RecoveryFreshness';

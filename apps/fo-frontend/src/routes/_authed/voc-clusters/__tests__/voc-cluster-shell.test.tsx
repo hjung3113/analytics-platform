@@ -93,8 +93,8 @@ vi.mock('@tanstack/react-query', () => ({
   }),
 }));
 
-vi.mock('@fops/ui', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@fops/ui')>();
+vi.mock('@ap/ui', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@ap/ui')>();
   return {
     ...actual,
     cn: (...classes: Array<string | false | null | undefined>) => classes.filter(Boolean).join(' '),
@@ -168,9 +168,6 @@ vi.mock('@fops/ui', async (importOriginal) => {
         <aside data-testid="list-shell-detail-slot">{detailPanel}</aside>
       </div>
     ),
-    ManagedSystemPill: ({ name }: { name: string }) => (
-      <span data-testid="managed-system-pill">{name}</span>
-    ),
     ObjectRow: ({
       id,
       title,
@@ -198,19 +195,28 @@ vi.mock('@fops/ui', async (importOriginal) => {
         <span>{meta}</span>
       </button>
     ),
-    OutlineBadge: ({ children, ...props }: { children: React.ReactNode }) => (
-      <span {...props}>{children}</span>
-    ),
     PanelSectionTitle: ({ children }: { children: React.ReactNode }) => <h3>{children}</h3>,
-    ReporterStatusBadge: ({ status }: { status: string }) => (
-      <span data-testid={`reporter-status-${status}`}>{status}</span>
-    ),
-    SeverityBadge: ({ severity }: { severity: string }) => <span>{severity}</span>,
     PageShell: ({ children }: { children: React.ReactNode }) => (
       <div data-shell="page">{children}</div>
     ),
     Skeleton: (props: React.HTMLAttributes<HTMLDivElement>) => <div {...props} />,
     Textarea: (props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) => <textarea {...props} />,
+  };
+});
+vi.mock('@fops/ui', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@fops/ui')>();
+  return {
+    ...actual,
+    ManagedSystemPill: ({ name }: { name: string }) => (
+      <span data-testid="managed-system-pill">{name}</span>
+    ),
+    OutlineBadge: ({ children, ...props }: { children: React.ReactNode }) => (
+      <span {...props}>{children}</span>
+    ),
+    ReporterStatusBadge: ({ status }: { status: string }) => (
+      <span data-testid={`reporter-status-${status}`}>{status}</span>
+    ),
+    SeverityBadge: ({ severity }: { severity: string }) => <span>{severity}</span>,
   };
 });
 

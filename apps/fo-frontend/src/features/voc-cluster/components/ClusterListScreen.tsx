@@ -10,7 +10,7 @@ import { useMeBridge } from '@/lib/api/me';
 import { useHostNavigate, useHostSearch } from '@/lib/host/host-seam';
 import { searchHref } from '@/lib/host/search';
 import { parseRouteSearch } from '@/lib/host/search-fields';
-import { Button } from '@fops/ui';
+import { Button } from '@ap/ui';
 import { Plus } from 'lucide-react';
 import * as React from 'react';
 import { useState } from 'react';

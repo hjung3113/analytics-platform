@@ -20,9 +20,9 @@
  *   bg-accent-primary is only used on the "Triage 확정" CTA. ✓
  */
 
-import { cn } from '@fops/ui';
+import { cn } from '@ap/ui';
 import { BookOpen, Check, ChevronRight } from 'lucide-react';
-import * as React from 'react';
+import type * as React from 'react';
 
 export interface TriageActionsProps {
   /** A field changed, or the VOC is not triaged yet; the panel also folds in its lock. */

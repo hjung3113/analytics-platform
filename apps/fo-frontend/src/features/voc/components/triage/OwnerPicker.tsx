@@ -16,7 +16,7 @@
  */
 
 import { MANAGED_SYSTEM_COPY } from '@/lib/copy/managed-systems';
-import { Combobox, UserAvatar, cn } from '@fops/ui';
+import { Combobox, UserAvatar, cn } from '@ap/ui';
 import { Check } from 'lucide-react';
 import type * as React from 'react';
 import { PickerOptionGrid } from './PickerOptionGrid';

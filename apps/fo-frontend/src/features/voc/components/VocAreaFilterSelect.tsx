@@ -3,14 +3,7 @@ import { fetchCapabilityScopeViaClient } from '@/lib/api/permission-reads';
 import { fetchManagedSystems } from '@/lib/api/registry-reads';
 import { AREA_REPORT_COPY as AREA_COPY } from '@/lib/copy/area-report';
 import { analyticsAreasCatalogQuery } from '@/lib/cross-system/analyticsAreasCatalog';
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@fops/ui';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@ap/ui';
 import { useQuery } from '@tanstack/react-query';
 
 const ALL = 'all';

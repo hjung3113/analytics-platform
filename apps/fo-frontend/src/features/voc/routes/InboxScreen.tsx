@@ -21,7 +21,7 @@ import {
   ListToolbar,
   PermissionBlockedPanel,
   SearchInput,
-} from '@fops/ui';
+} from '@ap/ui';
 import { Plus } from 'lucide-react';
 import type * as React from 'react';
 import { VocAreaFilterSelect } from '../components/VocAreaFilterSelect';

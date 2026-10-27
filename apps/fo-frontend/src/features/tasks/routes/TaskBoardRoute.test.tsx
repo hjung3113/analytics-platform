@@ -141,17 +141,11 @@ const detailSlot = vi.hoisted(() => {
     snapshot: () => node,
   };
 });
-vi.mock('@fops/ui', async () => {
-  const actual = await vi.importActual<typeof import('@fops/ui')>('@fops/ui');
+vi.mock('@ap/ui', async () => {
+  const actual = await vi.importActual<typeof import('@ap/ui')>('@ap/ui');
   const react = await vi.importActual<typeof import('react')>('react');
   return {
     ...actual,
-    useDetailPanelSlot: (node: unknown) => {
-      react.useLayoutEffect(() => {
-        detailSlot.publish(node);
-      });
-      react.useLayoutEffect(() => () => detailSlot.publish(undefined), []);
-    },
     WorkbenchShell: ({
       toolbar,
       children,
@@ -175,6 +169,19 @@ vi.mock('@fops/ui', async () => {
     ),
   };
 });
+vi.mock('@fops/ui', async () => {
+  const actual = await vi.importActual<typeof import('@fops/ui')>('@fops/ui');
+  const react = await vi.importActual<typeof import('react')>('react');
+  return {
+    ...actual,
+    useDetailPanelSlot: (node: unknown) => {
+      react.useLayoutEffect(() => {
+        detailSlot.publish(node);
+      });
+      react.useLayoutEffect(() => () => detailSlot.publish(undefined), []);
+    },
+  };
+});
 vi.mock('@/lib/cross-system/useWorkspaceActors', () => ({
   useWorkspaceActors: () => ({ actors: [] }),
 }));
@@ -192,7 +199,10 @@ vi.mock('./TaskListRoute', async () => {
 vi.mock('./TaskRequestsRoute', () => ({
   TaskRequestsRoute: () => <div>task requests unchanged</div>,
 }));
-vi.mock('sonner', () => ({ toast: { error: vi.fn(), warning: vi.fn() } }));
+vi.mock('sonner', () => ({
+  Toaster: () => null,
+  toast: { error: vi.fn(), warning: vi.fn() },
+}));
 
 function renderBoard(selectedParam?: string, managedSystem?: string) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });

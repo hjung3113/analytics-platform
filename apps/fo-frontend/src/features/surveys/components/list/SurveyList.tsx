@@ -15,7 +15,7 @@ import {
   type ListToolbarTab,
   SkeletonRows,
   UserAvatar,
-} from '@fops/ui';
+} from '@ap/ui';
 import { Grid2X2, List, Plus } from 'lucide-react';
 import * as React from 'react';
 import type { Survey, SurveyStatus } from '../../types';

@@ -1,6 +1,6 @@
+import { Button } from '@ap/ui';
 /// <reference types="@testing-library/jest-dom" />
 import { render, screen } from '@testing-library/react';
-import { Button } from '../Button.js';
 
 describe('Button component variants', () => {
   it.each([

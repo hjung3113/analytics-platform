@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-import { Button, EmptyState } from '@fops/ui';
+import { Button, EmptyState } from '@ap/ui';
 
 export type ListStateVariant = 'empty' | 'filtered' | 'error';
 

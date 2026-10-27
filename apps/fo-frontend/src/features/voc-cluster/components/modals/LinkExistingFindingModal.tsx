@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
   Skeleton,
-} from '@fops/ui';
+} from '@ap/ui';
 import type * as React from 'react';
 import { useState } from 'react';
 

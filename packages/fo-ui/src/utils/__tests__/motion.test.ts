@@ -1,4 +1,3 @@
-import { afterEach, expect, it, vi } from 'vitest';
 import {
   DIALOG_CONTENT_MOTION,
   POPPER_CONTENT_MOTION,
@@ -7,7 +6,8 @@ import {
   SHEET_CONTENT_MOTION,
   prefersReducedMotion,
   readMotionTiming,
-} from '../motion.js';
+} from '@ap/ui';
+import { afterEach, expect, it, vi } from 'vitest';
 
 afterEach(() => vi.unstubAllGlobals());
 

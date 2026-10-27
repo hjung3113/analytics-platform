@@ -8,8 +8,8 @@ import {
 } from '@/features/surveys/routes/SurveyPermissionGate';
 import { SURVEY_REPORT_FILTER_COPY as FILTER_COPY } from '@/lib/copy/surveys';
 import { useAnalyticsAreaFilterLabel } from '@/lib/useAnalyticsAreaFilterLabel';
+import { ListShell } from '@ap/ui';
 import type { ListSurveysQuery } from '@fops/shared';
-import { ListShell } from '@fops/ui';
 import * as React from 'react';
 
 const FILTER_KEYS = ['filter.analytics_area', 'status', 'follow_up'] as const;

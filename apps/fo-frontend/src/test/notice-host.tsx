@@ -1,4 +1,4 @@
-import { UndoToast } from '@fops/ui';
+import { UndoToast } from '@ap/ui';
 import type { ReactNode } from 'react';
 import { vi } from 'vitest';
 

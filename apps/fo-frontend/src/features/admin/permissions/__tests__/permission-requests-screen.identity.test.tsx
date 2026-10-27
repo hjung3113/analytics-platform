@@ -32,8 +32,8 @@ const consoleState = vi.hoisted(() => ({
 }));
 consoleState.visibleRequests = consoleState.allRequests;
 
-vi.mock('@fops/ui', async () => {
-  const actual = await vi.importActual<typeof import('@fops/ui')>('@fops/ui');
+vi.mock('@ap/ui', async () => {
+  const actual = await vi.importActual<typeof import('@ap/ui')>('@ap/ui');
   return {
     ...actual,
     ListShell: ({ list }: { list: ReactNode }) => <main>{list}</main>,

@@ -1,8 +1,8 @@
 import { RequestAccessButton } from '@/features/admin/public';
 import { FindingRequestTaskDraftHost, useFindingDetail } from '@/features/findings/public';
 import { RATING_BAND_LABELS, SURVEY_RESULT_KIND_LABELS } from '@/lib/copy/enum-labels';
+import { Button, EmptyState } from '@ap/ui';
 import type { OutcomeFollowUpReadDto, SurveyResultDto } from '@fops/shared';
-import { Button, EmptyState } from '@fops/ui';
 import { Link } from '@tanstack/react-router';
 import { FilePlus } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';

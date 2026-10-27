@@ -1,14 +1,8 @@
+import { Dialog, DialogContent, DialogDescription, DialogTitle, SearchInput } from '@ap/ui';
 /// <reference types="@testing-library/jest-dom" />
 import { createEvent, fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-} from '../../components/shadcn/dialog.js';
-import { SearchInput } from '../SearchInput.js';
 
 describe('SearchInput', () => {
   it('renders an input element', () => {

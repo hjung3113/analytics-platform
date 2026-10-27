@@ -38,13 +38,16 @@ const workspaceActorsMock = vi.hoisted(() => ({
   }> | null,
 }));
 
-vi.mock('sonner', () => ({ toast }));
+vi.mock('sonner', () => ({
+  Toaster: () => null,
+  toast,
+}));
 vi.mock('@/lib/auth/useMe', () => ({ useMe: useMeMock }));
 vi.mock('../settings/use-workspace-settings.js', () => ({
   useWorkspaceSettings: useWorkspaceSettingsMock,
 }));
-vi.mock('@fops/ui', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@fops/ui')>();
+vi.mock('@ap/ui', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@ap/ui')>();
   return {
     ...actual,
     ListShell: ({

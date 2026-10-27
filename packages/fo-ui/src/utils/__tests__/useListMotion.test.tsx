@@ -14,7 +14,7 @@ it.each([
   ['missing tokens', false, false, false],
 ] as const)('animates child mutations only when %s', async (_, reduced, tokens, enabled) => {
   environment = installListMotionEnvironment(reduced, tokens);
-  const { useListMotion } = await import('../useListMotion');
+  const { useListMotion } = await import('@ap/ui');
   function List({ ids }: { ids: string[] }) {
     const ref = useListMotion();
     return (
@@ -56,7 +56,7 @@ it.each([100, 2500])(
     vi.useFakeTimers();
     vi.spyOn(Math, 'random').mockReturnValue(0.5);
     environment = installListMotionEnvironment();
-    const { useListMotion } = await import('../useListMotion');
+    const { useListMotion } = await import('@ap/ui');
     function List({ context }: { context: string }) {
       const ref = useListMotion();
       return (
@@ -93,7 +93,7 @@ it('stops polling a removed row after its exit animation finishes', async () => 
   vi.useFakeTimers();
   vi.spyOn(Math, 'random').mockReturnValue(0.5);
   environment = installListMotionEnvironment();
-  const { useListMotion } = await import('../useListMotion');
+  const { useListMotion } = await import('@ap/ui');
   function List({ ids }: { ids: string[] }) {
     const ref = useListMotion();
     return (

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-import { PermissionBlockedPanel } from '@fops/ui';
+import { PermissionBlockedPanel } from '@ap/ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';

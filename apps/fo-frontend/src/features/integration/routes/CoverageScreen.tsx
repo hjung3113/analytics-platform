@@ -1,12 +1,6 @@
 import { AREA_REPORT_COPY as AREA_COPY } from '@/lib/copy/area-report';
 import { useAnalyticsAreaFilterLabel } from '@/lib/useAnalyticsAreaFilterLabel';
 import {
-  DASHBOARD_HOP_ROUTES,
-  type DashboardActionQueueId,
-  type DashboardCoverageId,
-  type DashboardSummary,
-} from '@fops/shared';
-import {
   ActiveFilterBar,
   Button,
   Label,
@@ -25,9 +19,14 @@ import {
   SkeletonRows,
   Tabs,
   TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@fops/ui';
+} from '@ap/ui';
+import {
+  DASHBOARD_HOP_ROUTES,
+  type DashboardActionQueueId,
+  type DashboardCoverageId,
+  type DashboardSummary,
+} from '@fops/shared';
+import { TabsList, TabsTrigger } from '@fops/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Activity, AlertTriangle, Filter, RefreshCw, Shield } from 'lucide-react';
 import * as React from 'react';

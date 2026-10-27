@@ -2,7 +2,7 @@ import { surveyKeys } from '@/features/surveys/hooks/useSurveys';
 import { registerSurveyQueryDefaults } from '@/features/surveys/policy/resultsReadDenial';
 import { ApiError } from '@/lib/api/types';
 import { routeTree } from '@/routeTree.gen';
-import type { PermissionBlockedPanelProps } from '@fops/ui';
+import type { PermissionBlockedPanelProps } from '@ap/ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
@@ -69,7 +69,7 @@ vi.mock('@/lib/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api')>()),
   fetchMe: vi.fn().mockResolvedValue({}),
 }));
-vi.mock('@fops/ui', async (importOriginal) => {
+vi.mock('@ap/ui', async (importOriginal) => {
   const actual = (await importOriginal()) as {
     PermissionBlockedPanel: (props: PermissionBlockedPanelProps) => ReactNode;
   };

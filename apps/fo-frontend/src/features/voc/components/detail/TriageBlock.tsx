@@ -2,15 +2,9 @@
 
 import { TRIAGE_STATE_LABELS } from '@/lib/copy/enum-labels';
 import { GLOSSARY } from '@/lib/copy/glossary';
+import { Button, FieldRow, PanelSectionTitle, UserChip } from '@ap/ui';
 import type { VocDetailEnvelope } from '@fops/shared';
-import {
-  Button,
-  FieldRow,
-  PanelSectionTitle,
-  SeverityBadge,
-  UnassignedBadge,
-  UserChip,
-} from '@fops/ui';
+import { SeverityBadge, UnassignedBadge } from '@fops/ui';
 import type * as React from 'react';
 
 export interface TriageBlockProps {

@@ -3,7 +3,7 @@ import { listMilestones } from '@/lib/api/milestones';
 import { ApiError, isPermissionDenied } from '@/lib/api/types';
 import { TASK_MILESTONE_COPY } from '@/lib/copy/tasks';
 import { useHostSeam } from '@/lib/host/host-seam';
-import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@fops/ui';
+import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ap/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { MILESTONE_STATUS_LABELS } from './MilestoneStatusBadge';

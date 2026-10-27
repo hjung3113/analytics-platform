@@ -12,9 +12,10 @@
 
 import { ATTACHMENT_FALLBACK_LABEL } from '@/lib/copy/attachments';
 import { formatShortDateTime } from '@/lib/format/datetime';
+import { RichContentRenderer, type TipTapDoc, UserChip } from '@ap/ui';
 import { isTipTapDocBlank } from '@fops/shared';
 import type { FindingStatus, TaskStatus } from '@fops/shared';
-import { OutlineBadge, RichContentRenderer, type TipTapDoc, UserChip } from '@fops/ui';
+import { OutlineBadge } from '@fops/ui';
 import type * as React from 'react';
 import type { ProgressNoteDto } from './useProgressNotes';
 

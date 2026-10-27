@@ -1,5 +1,5 @@
 import { SURVEY_BUILDER_COPY } from '@/lib/copy/survey-builder';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@fops/ui';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ap/ui';
 import type { SurveyQuestion } from '../../types';
 
 const NO_BRANCH = '__no_branch__';

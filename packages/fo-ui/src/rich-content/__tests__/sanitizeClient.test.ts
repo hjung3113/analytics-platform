@@ -9,11 +9,11 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { sanitizeClient, type ClientSanitizeSurface } from '../sanitizeClient';
-import type { TipTapDoc } from '../RichEditor';
+import type { TipTapDoc } from '@ap/ui';
+import { type ClientSanitizeSurface, sanitizeClient } from '../sanitizeClient';
 
 const wrap = (...content: unknown[]): TipTapDoc =>
-  ({ type: 'doc', content } as unknown as TipTapDoc);
+  ({ type: 'doc', content }) as unknown as TipTapDoc;
 
 const text = (t: string, marks?: unknown[]) =>
   marks ? { type: 'text', text: t, marks } : { type: 'text', text: t };
@@ -21,7 +21,12 @@ const text = (t: string, marks?: unknown[]) =>
 const para = (...content: unknown[]) => ({ type: 'paragraph', content });
 
 describe('sanitizeClient', () => {
-  const surfaces: ClientSanitizeSurface[] = ['internal-comment', 'voc-description', 'reporter-reply', 'public-update'];
+  const surfaces: ClientSanitizeSurface[] = [
+    'internal-comment',
+    'voc-description',
+    'reporter-reply',
+    'public-update',
+  ];
 
   it('strips a script node', () => {
     const doc = wrap(para({ type: 'script', text: 'alert(1)' } as unknown), para(text('safe')));
@@ -32,7 +37,9 @@ describe('sanitizeClient', () => {
   });
 
   it('rewrites javascript: href to empty string', () => {
-    const doc = wrap(para(text('click', [{ type: 'link', attrs: { href: 'javascript:alert(1)' } }])));
+    const doc = wrap(
+      para(text('click', [{ type: 'link', attrs: { href: 'javascript:alert(1)' } }])),
+    );
     const out = sanitizeClient(doc, 'internal-comment');
     const flat = JSON.stringify(out);
     expect(flat).not.toContain('javascript:');
@@ -46,7 +53,9 @@ describe('sanitizeClient', () => {
   });
 
   it('strips data: href (not allowed on link surfaces)', () => {
-    const doc = wrap(para(text('x', [{ type: 'link', attrs: { href: 'data:text/html,<script>1</script>' } }])));
+    const doc = wrap(
+      para(text('x', [{ type: 'link', attrs: { href: 'data:text/html,<script>1</script>' } }])),
+    );
     const flat = JSON.stringify(sanitizeClient(doc, 'internal-comment'));
     expect(flat).not.toContain('data:');
   });
@@ -62,10 +71,10 @@ describe('sanitizeClient', () => {
   });
 
   it('preserves valid headings, paragraphs, marks, and attachmentRef nodes', () => {
-    const doc = wrap(
-      para(text('hello', [{ type: 'bold' }])),
-      { type: 'attachmentRef', attrs: { id: '11111111-1111-1111-1111-111111111111' } },
-    );
+    const doc = wrap(para(text('hello', [{ type: 'bold' }])), {
+      type: 'attachmentRef',
+      attrs: { id: '11111111-1111-1111-1111-111111111111' },
+    });
     const out = sanitizeClient(doc, 'voc-description') as unknown as { content: unknown[] };
     expect(out.content).toHaveLength(2);
     expect(JSON.stringify(out)).toContain('attachmentRef');

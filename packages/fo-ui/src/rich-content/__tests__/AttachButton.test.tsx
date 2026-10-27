@@ -10,9 +10,9 @@
 //   - disabled prop blocks both click and keyboard activation
 //   - focus-visible ring on tab-in (a11y)
 
+import { AttachButton } from '@ap/ui';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { AttachButton } from '../toolbar/AttachButton';
 
 function pickFile(input: HTMLInputElement, file: File): void {
   Object.defineProperty(input, 'files', {
@@ -104,13 +104,8 @@ describe('AttachButton', () => {
   });
 
   it('forwards `accept` to the file input as a MIME hint', () => {
-    render(
-      <AttachButton onPick={vi.fn()} accept="image/png,image/jpeg" data-testid="attach" />,
-    );
-    expect(screen.getByTestId('attach-input')).toHaveAttribute(
-      'accept',
-      'image/png,image/jpeg',
-    );
+    render(<AttachButton onPick={vi.fn()} accept="image/png,image/jpeg" data-testid="attach" />);
+    expect(screen.getByTestId('attach-input')).toHaveAttribute('accept', 'image/png,image/jpeg');
   });
 
   it('a11y: button role and focus-visible ring class present', () => {

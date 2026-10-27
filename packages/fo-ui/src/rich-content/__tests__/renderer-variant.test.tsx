@@ -1,7 +1,7 @@
+import { RichContentRenderer } from '@ap/ui';
+import type { TipTapDoc } from '@ap/ui';
 /// <reference types="@testing-library/jest-dom" />
 import { render } from '@testing-library/react';
-import { RichContentRenderer } from '../RichContentRenderer.js';
-import type { TipTapDoc } from '../RichEditor.js';
 
 const emptyDoc: TipTapDoc = { type: 'doc', content: [] };
 

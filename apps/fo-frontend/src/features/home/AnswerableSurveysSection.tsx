@@ -3,7 +3,7 @@ import { useAnswerableSurveys } from '@/features/surveys/hooks/useSurveys';
 import { SURVEY_TYPE_LABELS } from '@/lib/copy/enum-labels';
 import { SURVEY_PARTICIPATION_COPY } from '@/lib/copy/survey-participation';
 import { formatDate } from '@/lib/format/datetime';
-import { Button, SkeletonRows } from '@fops/ui';
+import { Button, SkeletonRows } from '@ap/ui';
 import { ArrowRight } from 'lucide-react';
 import type { ComponentType, ReactNode } from 'react';
 

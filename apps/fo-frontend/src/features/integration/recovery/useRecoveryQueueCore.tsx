@@ -10,7 +10,6 @@ import type { HostSearch } from '@/lib/host/search';
 import { type RecoverySearch, safeRecoveryReturnTo } from '@/lib/host/search-fields';
 import { useHostSearchWriter } from '@/lib/host/useHostSearchWriter';
 import { RECOVERY_QUERY_KEY, invalidateRecovery } from '@/lib/query/recovery';
-import { type DashboardSummary, RECOVERY_CATEGORIES, type RecoveryCategory } from '@fops/shared';
 import {
   Button,
   ListToolbar,
@@ -23,7 +22,8 @@ import {
   SelectTrigger,
   SelectValue,
   Skeleton,
-} from '@fops/ui';
+} from '@ap/ui';
+import { type DashboardSummary, RECOVERY_CATEGORIES, type RecoveryCategory } from '@fops/shared';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { validateIntegrationDashboardSearch } from '../routes/integration-search';

@@ -10,8 +10,8 @@
 // Spec: PLAN-21-SUBCHUNKS.md C5.1
 // Prototype ref: docs/feedbackops/design-prototype/screen-voc.jsx:400-470
 
-import { useReducer, useCallback } from 'react';
-import type { TipTapDoc } from '@fops/ui';
+import type { TipTapDoc } from '@ap/ui';
+import { useCallback, useReducer } from 'react';
 
 export type ComposerSurface = 'public' | 'reply' | 'internal';
 
@@ -84,12 +84,9 @@ export function useComposerDraft(vocId: string): ComposerDraftHandle {
     [effective],
   );
 
-  const setDraft = useCallback(
-    (surface: ComposerSurface, value: TipTapDoc | null) => {
-      dispatch({ type: 'SET', surface, value });
-    },
-    [],
-  );
+  const setDraft = useCallback((surface: ComposerSurface, value: TipTapDoc | null) => {
+    dispatch({ type: 'SET', surface, value });
+  }, []);
 
   const clearDraft = useCallback((surface: ComposerSurface) => {
     dispatch({ type: 'CLEAR', surface });

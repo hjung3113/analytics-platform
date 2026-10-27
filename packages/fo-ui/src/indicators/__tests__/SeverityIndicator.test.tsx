@@ -1,5 +1,5 @@
+import { type SeverityEnum, SeverityIndicator } from '@ap/ui';
 import { render, screen } from '@testing-library/react';
-import { type SeverityEnum, SeverityIndicator } from '../SeverityIndicator.js';
 
 const severities: Array<{ severity: SeverityEnum; expectedFilled: number }> = [
   { severity: 'low', expectedFilled: 1 },

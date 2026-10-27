@@ -1,6 +1,5 @@
-import * as React from 'react';
-import { Badge } from '../components/shadcn/badge.js';
-import { cn } from '../utils/cn.js';
+import { Badge, cn } from '@ap/ui';
+import type * as React from 'react';
 
 export interface OutlineBadgeProps
   extends Omit<React.ComponentPropsWithoutRef<typeof Badge>, 'variant'> {

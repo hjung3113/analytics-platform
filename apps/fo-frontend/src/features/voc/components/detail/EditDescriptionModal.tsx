@@ -16,12 +16,6 @@ import * as React from 'react';
 import { Controller, useForm } from 'react-hook-form';
 
 import {
-  type EditDescriptionRequest,
-  type ErrorEnvelope,
-  type LinkedAttachment,
-  editDescriptionRequestSchema,
-} from '@fops/shared';
-import {
   Button,
   Dialog,
   DialogContent,
@@ -33,7 +27,13 @@ import {
   Input,
   RichEditor,
   type TipTapDoc,
-} from '@fops/ui';
+} from '@ap/ui';
+import {
+  type EditDescriptionRequest,
+  type ErrorEnvelope,
+  type LinkedAttachment,
+  editDescriptionRequestSchema,
+} from '@fops/shared';
 
 import { errorMapper } from '@/lib/api/errorMapper';
 import type { ApiError } from '@/lib/api/types';

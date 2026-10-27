@@ -1,5 +1,5 @@
+import { StatusBadgeFrame } from '@ap/ui';
 import type * as React from 'react';
-import { StatusBadgeFrame } from './StatusBadgeFrame.js';
 
 /**
  * Reporter-facing VOC status enum — mirrors `reporterFacingStatusEnumSchema`

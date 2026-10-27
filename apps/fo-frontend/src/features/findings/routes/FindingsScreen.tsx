@@ -32,14 +32,12 @@ import { useHostSeam } from '@/lib/host/host-seam';
 import { useHostSearchWriter } from '@/lib/host/useHostSearchWriter';
 import { useAnalyticsAreaFilterLabel } from '@/lib/useAnalyticsAreaFilterLabel';
 import { useCommittedSearchDraft } from '@/lib/useCommittedSearchDraft';
-import type { FindingDto } from '@fops/shared';
 import {
   ActiveFilterBar,
   type AvatarUser,
   Checkbox,
   ListShell,
   ObjectRow,
-  OutlineBadge,
   PermissionBlockedPanel,
   SearchInput,
   Select,
@@ -49,7 +47,9 @@ import {
   SelectValue,
   SkeletonRows,
   UserAvatar,
-} from '@fops/ui';
+} from '@ap/ui';
+import type { FindingDto } from '@fops/shared';
+import { OutlineBadge } from '@fops/ui';
 import { useQuery } from '@tanstack/react-query';
 import * as React from 'react';
 

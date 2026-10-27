@@ -3,16 +3,14 @@
 import { ATTACHMENT_FALLBACK_LABEL } from '@/lib/copy/attachments';
 import { GLOSSARY } from '@/lib/copy/glossary';
 import { formatRelativeTime } from '@/lib/format/datetime';
-import type { ConversationEntry } from '@fops/shared';
 import {
-  OutlineBadge,
-  type ReporterFacingStatusEnum,
-  ReporterStatusBadge,
   RichContentRenderer,
   type RichContentRendererProps,
   type TipTapDoc,
   UserChip,
-} from '@fops/ui';
+} from '@ap/ui';
+import type { ConversationEntry } from '@fops/shared';
+import { OutlineBadge, type ReporterFacingStatusEnum, ReporterStatusBadge } from '@fops/ui';
 import type * as React from 'react';
 import { AttachmentChipList } from './AttachmentChip';
 

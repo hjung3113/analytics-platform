@@ -1,5 +1,5 @@
 import { parseAppSearch, stringifyAppSearch } from '@/lib/router/search-serialization';
-import { DetailPanelSlotProvider } from '@fops/ui';
+import { DetailPanelSlotProvider } from '@ap/ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   Outlet,

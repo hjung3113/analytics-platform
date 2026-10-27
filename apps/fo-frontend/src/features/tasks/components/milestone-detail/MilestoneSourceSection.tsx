@@ -1,7 +1,7 @@
 import { GLOSSARY } from '@/lib/copy/glossary';
 import { useHostNavigate, useHostSeam } from '@/lib/host/host-seam';
+import { Button, DirtyConfirmation } from '@ap/ui';
 import type { MilestoneDetailDto } from '@fops/shared';
-import { Button, DirtyConfirmation } from '@fops/ui';
 import { ArrowRight } from 'lucide-react';
 import * as React from 'react';
 import { MilestoneOutlineBadge, MilestonePanelSectionTitle } from '../MilestoneIdentity';

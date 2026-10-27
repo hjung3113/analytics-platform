@@ -1,5 +1,5 @@
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@ap/ui';
 import { act, fireEvent, render, screen } from '@testing-library/react';
-import { Sheet, SheetContent, SheetDescription, SheetTitle } from '../sheet.js';
 
 describe('SheetContent accessible labels', () => {
   it('uses its configured close label', () => {

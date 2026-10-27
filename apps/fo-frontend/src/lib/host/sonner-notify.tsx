@@ -1,4 +1,4 @@
-import { UndoToast } from '@fops/ui';
+import { UndoToast } from '@ap/ui';
 import { toast } from 'sonner';
 
 import type { HostNotice } from './host-seam';

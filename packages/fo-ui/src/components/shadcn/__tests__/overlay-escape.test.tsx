@@ -1,8 +1,8 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { useState } from 'react';
-import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from '../dialog.js';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -10,9 +10,17 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
-} from '../dropdown-menu.js';
-import { Popover, PopoverContent, PopoverTrigger } from '../popover.js';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../tooltip.js';
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@ap/ui';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { useState } from 'react';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
 beforeEach(() => {
   const getStyles = window.getComputedStyle.bind(window);

@@ -1,7 +1,5 @@
-/// <reference types="@testing-library/jest-dom" />
-import * as React from 'react';
+import { EmptyState } from '@ap/ui';
 import { render, screen } from '@testing-library/react';
-import { EmptyState } from '../EmptyState.js';
 
 describe('EmptyState — required title', () => {
   it('renders title text', () => {
@@ -31,9 +29,7 @@ describe('EmptyState — optional body', () => {
 
 describe('EmptyState — optional icon', () => {
   it('renders icon slot when provided', () => {
-    render(
-      <EmptyState title="Empty" icon={<span data-testid="icon">📭</span>} />,
-    );
+    render(<EmptyState title="Empty" icon={<span data-testid="icon">📭</span>} />);
     expect(screen.getByTestId('icon')).toBeInTheDocument();
   });
 
@@ -47,9 +43,7 @@ describe('EmptyState — optional icon', () => {
 
 describe('EmptyState — optional action', () => {
   it('renders action when provided', () => {
-    render(
-      <EmptyState title="Empty" action={<button>VOC 만들기</button>} />,
-    );
+    render(<EmptyState title="Empty" action={<button>VOC 만들기</button>} />);
     expect(screen.getByRole('button', { name: 'VOC 만들기' })).toBeInTheDocument();
   });
 
@@ -70,7 +64,12 @@ describe('EmptyState — size variants', () => {
   });
 
   it.each([
-    ['compact small state', 'py-3 gap-0 text-xs', { size: 'sm' }, { size: 'sm', density: 'compact' }],
+    [
+      'compact small state',
+      'py-3 gap-0 text-xs',
+      { size: 'sm' },
+      { size: 'sm', density: 'compact' },
+    ],
     ['wide horizontal padding', 'px-6', {}, { padding: 'wide' }],
   ] as const)('preserves legacy classes for %s', (_name, oldClassName, oldProps, variantProps) => {
     const before = render(<EmptyState title="Empty" {...oldProps} className={oldClassName} />);

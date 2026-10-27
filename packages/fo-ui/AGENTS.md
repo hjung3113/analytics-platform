@@ -19,45 +19,39 @@
 ## Design Rules
 
 - Use semantic tokens, not raw hex values, outside token implementation files.
-- Bundle 1 (tokens, motion utilities, and shadcn primitives) is sourced from
-  the workspace `@ap/ui` (`packages/ui`, `workspace:*` since #642). The local `src/index.ts` preserves the
-  `@fops/ui` API; `src/components/shadcn/*` and selected `src/utils/*`
-  files are compatibility re-exports only. Do not add implementation there.
-- Bundle 2a (panel, toolbar, forms, and feedback components) is sourced from
-  the workspace `@ap/ui`. The matching files under `src/{panel,toolbar,forms,
-  feedback}` and their entries in `src/index.ts` are compatibility re-exports;
-  keep the FeedbackOps tests local. `src/panel/useJumpGuard.ts` remains local
-  because the SDK does not export that private helper, and its existing test
-  imports the helper directly.
-- Bundle 2b (layout shells and the detail slot) is sourced from the workspace
-  `@ap/ui`. `src/layout/*` are compatibility re-exports. `useDetailPanelSlot(node)`
-  is `@ap/ui`'s `useDetailPanelContent` under the FeedbackOps name (`undefined`
-  clears, `null` registers a closed registrant). `DetailPanelSlotContext` is gone:
-  `AppFrame` wraps its frame in `DetailPanelSlotProvider` and renders the host
-  through `useDetailPanelSlotHost()`, and the provider owns the expanded state
-  (toggle, Esc, reset on key change) and `DetailPanelFullscreenContext`. Tests that
-  render a shell with `detailPanel` mount `DetailPanelSlotProvider` plus a host div.
-  Overlapping registrants log the SDK's `[DetailPanelSlot] Multiple registrants; the last registrant wins.`
-- Bundle 3a (`ObjectRow`, `UserAvatar`, `UserChip`, `ProgressMeter`,
-  `SeverityIndicator`, `PermissionBlockedPanel`, and `StatusBadgeFrame`) is sourced
-  from the workspace `@ap/ui`, per the SDK ownership decisions in upstream ADR-0050 and ADR-0052.
-  Their matching files under `src/{data,identity,indicators,permissions,badges}` are
-  compatibility re-exports. Keep FeedbackOps tests local. `SEVERITY_LABELS` stays
-  in the local `SeverityIndicator` module because `@ap/ui` does not expose that
-  value from its package entry and the local `SeverityBadge` uses it.
-- FeedbackOps-owned product/domain components remain local under
-  `src/{badges,data,entity,identity,indicators,permissions}`.
-  `src/internal/useHorizontalOverflow.ts` also remains local. Rich-content uses
-  TipTap per ADR-0011; its editor, renderer, attach button, and extensions are
-  sourced from the workspace `@ap/ui` per upstream ADR-0052. `RichEditor.tsx`,
-  `RichContentRenderer.tsx`, `toolbar/AttachButton.tsx`,
-  `extensions/attachmentRef.ts`, and `extensions/mention.ts` under
-  `src/rich-content/` are compatibility re-exports; keep FeedbackOps tests local.
-  The allowlist original stays in `packages/fo-shared`. The local
-  `allowlist-local.ts`, `sanitizeClient.ts`, and `fixtures-local.ts` stay as the
-  drift anchor. The ADR-0016 package boundary still keeps `@fops/ui` from
-  importing `@fops/shared`.
-  Keep `DetailPanelFullscreenContext` sourced from `@ap/ui` for all consumers.
+- SDK-owned parts are imported from the workspace `@ap/ui` (`packages/ui`, `workspace:*` since #642) directly,
+  not through `@fops/ui` (#713q, ADR-0090). That covers the shadcn primitives, tokens and motion
+  utilities (`cn`, `prefersReducedMotion`, ...), the panel, toolbar, forms, feedback and layout
+  shells, the detail slot (`DetailPanelSlotProvider`, `useDetailPanelSlotHost`,
+  `DetailPanelFullscreenContext`), `ObjectRow`, `UserAvatar`, `UserChip`, `ProgressMeter`,
+  `SeverityIndicator`, `PermissionBlockedPanel`, `StatusBadgeFrame`, and the rich-content editor,
+  renderer, attach button and extensions (upstream ADR-0050, ADR-0052). The compatibility re-export
+  files that Bundles 1, 2a, 2b and 3a once kept here were removed: `src/index.ts` exports only the
+  FeedbackOps-owned names below, and `@fops/ui` must not re-export an `@ap/ui` name again. Import a
+  shared component from `@ap/ui` and a FeedbackOps component from `@fops/ui`; one import
+  statement never mixes the two. A test that replaces a shared component (`ListShell`,
+  `RichEditor`, ...) mocks `@ap/ui`; a test that replaces a FeedbackOps name mocks `@fops/ui`. A
+  `@ap/ui` mock that spreads the real module reads every export, so a test that also mocks
+  `sonner` must give that mock a `Toaster`.
+- What `@fops/ui` still exports: the FeedbackOps badges (`SeverityBadge`, `ReporterStatusBadge`,
+  `InternalTaskBadge`, `UnassignedBadge`, `ManagedSystem*`, `OutlineBadge`, `EntityIconBadge`),
+  `LinkedEntityTrail`, the pickers (`ManagedSystemPicker`, `AnalyticsAreaPicker`), `SEVERITY_LABELS`,
+  and the FeedbackOps-named aliases of `@ap/ui` parts: `useDetailPanelSlot(node)` is `@ap/ui`'s
+  `useDetailPanelContent` under the FeedbackOps name (`undefined` clears, `null` registers a closed
+  registrant), `TabsList`/`TabsTrigger` are `@ap/ui`'s unwrapped `TabsListBase`/`TabsTriggerBase`,
+  and `TipTapEditor` is the TipTap `Editor` type. `SEVERITY_LABELS` stays in the local
+  `SeverityIndicator` module because `@ap/ui` does not expose that value and the local
+  `SeverityBadge` uses it. `src/panel/useJumpGuard.ts` stays local because the SDK does not export
+  that private helper.
+- The detail slot is `@ap/ui`'s: `AppFrame` wraps its frame in `DetailPanelSlotProvider` and renders
+  the host through `useDetailPanelSlotHost()`, and the provider owns the expanded state (toggle, Esc,
+  reset on key change) and `DetailPanelFullscreenContext`. Tests that render a shell with
+  `detailPanel` mount `DetailPanelSlotProvider` plus a host div. Overlapping registrants log the
+  SDK's `[DetailPanelSlot] Multiple registrants; the last registrant wins.`
+- `src/internal/useHorizontalOverflow.ts` and the rich-content drift anchors stay local. Rich-content
+  uses TipTap per ADR-0011. The allowlist original stays in `packages/fo-shared`; the local
+  `allowlist-local.ts`, `sanitizeClient.ts`, and `fixtures-local.ts` stay as the drift anchor. The
+  ADR-0016 package boundary still keeps `@fops/ui` from importing `@fops/shared`.
 - The frontend declares `@ap/ui` (`workspace:*`) directly so its stylesheet
   resolver can reach bundle-1 CSS. It imports
   `@ap/ui/styles/{tokens,semantic,theme,compat}.css` in that order, then
@@ -66,8 +60,8 @@
   `@ap/ui/styles.css`, which adds the platform extension layer.
 - `@ap/ui` is the workspace package (`workspace:*` in `packages/ui/package.json` and
   `apps/fo-frontend/package.json`, #642): a change under the repository's `packages/ui`
-  reaches FeedbackOps at once and runs the FeedbackOps CI. Keep index export parity
-  and the consumer CSS contract when either side changes. Keep TipTap at 3.23.5 and
+  reaches FeedbackOps at once and runs the FeedbackOps CI. Keep the consumer CSS contract
+  when either side changes. Keep TipTap at 3.23.5 and
   `@formkit/auto-animate@0.10.0` with its root workspace patch unless a separate
   decision changes those constraints.
 - A new Tailwind theme key must also be registered in the `@ap/ui` theme and

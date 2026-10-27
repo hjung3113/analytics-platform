@@ -2,7 +2,7 @@
 // (#761 i, F2): the fold lives until the host reports any navigation, then writes build on the host search.
 
 import { type HostSeam, HostSeamProvider } from '@/lib/host/host-seam';
-import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@fops/ui';
+import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import * as React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';

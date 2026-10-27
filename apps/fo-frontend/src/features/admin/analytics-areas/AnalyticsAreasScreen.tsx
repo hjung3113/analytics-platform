@@ -17,7 +17,7 @@
 //      built. The section shells render as empty "—" placeholders with a
 //      defer-with-issue note; no invented counts (locked decision).
 
-import { Button, PageShell } from '@fops/ui';
+import { Button, PageShell } from '@ap/ui';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { Plus } from 'lucide-react';
 import { useState } from 'react';

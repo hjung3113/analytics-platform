@@ -1,5 +1,5 @@
 import { SurveyFollowUpRouteView } from '@/features/surveys/routes/SurveyFollowUpRoute';
-import { WorkbenchShell } from '@fops/ui';
+import { WorkbenchShell } from '@ap/ui';
 import { createFileRoute } from '@tanstack/react-router';
 
 export const Route = createFileRoute('/_authed/surveys/$surveyId/follow-up')({

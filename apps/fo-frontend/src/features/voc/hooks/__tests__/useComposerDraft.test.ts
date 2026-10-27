@@ -6,10 +6,10 @@
 //   3. switch voc clears all surfaces
 //   4. reducer actions (setDraft, clearDraft, clearAll)
 
-import { describe, it, expect } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
-import { useComposerDraft, type ComposerSurface } from '../useComposerDraft';
-import type { TipTapDoc } from '@fops/ui';
+import type { TipTapDoc } from '@ap/ui';
+import { act, renderHook } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
+import { type ComposerSurface, useComposerDraft } from '../useComposerDraft';
 
 const VOC_A = 'voc-aaa';
 const VOC_B = 'voc-bbb';

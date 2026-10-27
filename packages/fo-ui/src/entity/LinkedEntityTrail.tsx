@@ -1,5 +1,5 @@
+import { cn } from '@ap/ui';
 import * as React from 'react';
-import { cn } from '../utils/cn.js';
 import { EntityIconBadge } from '../badges/EntityIconBadge.js';
 import type { EntityIconType } from '../badges/EntityIconBadge.js';
 
@@ -94,9 +94,7 @@ export function LinkedEntityTrail({
                   {label}
                 </span>
                 {node.meta && (
-                  <span className="max-w-48 truncate text-tiny text-text-muted">
-                    {node.meta}
-                  </span>
+                  <span className="max-w-48 truncate text-tiny text-text-muted">{node.meta}</span>
                 )}
               </span>
             )}

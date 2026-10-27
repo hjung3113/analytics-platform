@@ -11,11 +11,11 @@
 // fresh empty state synchronously. The stored reducer state catches up on
 // the same render via a self-dispatched RESET; subsequent renders are stable.
 
-import { describe, it, expect } from 'vitest';
-import { renderHook, render, act } from '@testing-library/react';
+import type { TipTapDoc } from '@ap/ui';
+import { act, render, renderHook } from '@testing-library/react';
 import * as React from 'react';
+import { describe, expect, it } from 'vitest';
 import { useComposerDraft } from '../useComposerDraft';
-import type { TipTapDoc } from '@fops/ui';
 
 const VOC_A = 'voc-aaa';
 const VOC_B = 'voc-bbb';
