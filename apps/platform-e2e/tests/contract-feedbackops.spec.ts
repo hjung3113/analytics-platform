@@ -47,7 +47,7 @@ async function managedSystemOf(page: Page, space: string) {
 
 /** `FeedbackOps 전체` lives in the user menu (ADR-0070): opens `사용자 메뉴` and returns the menu item. */
 async function feedbackOpsOverallLink(page: Page) {
-  await page.getByRole('navigation', { name: '앱 레일' }).getByRole('button', { name: '사용자 메뉴' }).click();
+  await page.getByRole('navigation', { name: '시스템 레일' }).getByRole('button', { name: '사용자 메뉴' }).click();
   return page.getByRole('menuitem', { name: 'FeedbackOps 전체 — 새 탭' });
 }
 
@@ -79,7 +79,7 @@ test.describe('FeedbackOps 공간별 진입(#251)', () => {
   test('사용자 메뉴의 FeedbackOps 전체 링크는 admin에게 보이고 /home을 새 탭으로 연다', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
     await page.goto(PRODUCTIVITY);
-    await expect(page.getByRole('navigation', { name: '앱 레일' }).getByRole('link', { name: /FeedbackOps 전체/ })).toHaveCount(0);
+    await expect(page.getByRole('navigation', { name: '시스템 레일' }).getByRole('link', { name: /FeedbackOps 전체/ })).toHaveCount(0);
     const overall = await feedbackOpsOverallLink(page);
     await expect(overall).toHaveAttribute('href', `${ORIGIN}/home`);
     await expect(overall).toHaveAttribute('target', '_blank');
@@ -92,7 +92,7 @@ test.describe('FeedbackOps 공간별 진입(#251)', () => {
     test(`사용자 메뉴의 FeedbackOps 전체 링크는 ${role}에게 보이지 않는다`, async ({ page }) => {
       await signInAs(page, role);
       await page.goto('/bravo/metric-catalog');
-      await expect(page.getByRole('navigation', { name: '앱 레일' })).toBeVisible();
+      await expect(page.getByRole('navigation', { name: '시스템 레일' })).toBeVisible();
       await expect(await feedbackOpsOverallLink(page)).toHaveCount(0);
       await page.keyboard.press('Escape');
     });
@@ -188,7 +188,7 @@ test.describe('FeedbackOps 진입 링크 회귀(#451, 06 §22)', () => {
 
     // Space denial draws no block either.
     await page.goto('/operations/admin-roles?v=1');
-    await expect(page.getByRole('status').filter({ hasText: '이 공간에 들어갈 수 없습니다' })).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: '이 업무 시스템에 들어갈 수 없습니다' })).toBeVisible();
     await expect(page.getByRole('navigation', { name: /^FeedbackOps/ })).toHaveCount(0);
 
     await page.goto('/nope-451');

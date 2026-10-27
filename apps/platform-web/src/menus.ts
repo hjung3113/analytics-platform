@@ -44,7 +44,7 @@ export const PERMISSIONS = [menuPermission('equipment:view'), menuPermission('ma
 export const GROUPS: GroupDef[] = [
   { id: groupId('overview'), label: { ko: '운영 개요', en: 'Overview' }, icon: LayoutDashboard, space: null, hideLabelWhenSingle: true },
   { id: groupId('myActivity'), label: { ko: '내 활동', en: 'My activity' }, icon: UserRound, space: null },
-  { id: groupId('noticeVoc'), label: { ko: '공지·VOC', en: 'Notice & VOC' }, icon: Megaphone, space: null },
+  { id: groupId('noticeVoc'), label: { ko: '공지', en: 'Notice' }, icon: Megaphone, space: null },
   { id: groupId('analytics'), label: { ko: '생산성 분석', en: 'Analytics' }, icon: BarChart3, space: spaceId('mars') },
   { id: groupId('equipment'), label: { ko: '설비관리', en: 'Equipment' }, icon: Cpu, space: spaceId('mars') },
   { id: groupId('masterData'), label: { ko: '기준정보관리', en: 'Master Data' }, icon: Database, space: spaceId('mars') },
@@ -54,7 +54,7 @@ export const GROUPS: GroupDef[] = [
   { id: groupId('wpt'), label: { ko: 'WPT', en: 'WPT' }, icon: Waves, space: spaceId('mars') },
   { id: groupId('configuration'), label: { ko: 'Configuration', en: 'Configuration' }, icon: Settings, space: spaceId('mars') },
   { id: groupId('metrics'), label: { ko: '지표관리', en: 'Metrics' }, icon: Gauge, space: spaceId('bravo') },
-  { id: groupId('clas'), label: { ko: '설비 동작 분석', en: 'Equipment operation' }, icon: LineChart, space: spaceId('clas') },
+  { id: groupId('clas'), label: { ko: 'CLAS', en: 'CLAS' }, icon: LineChart, space: spaceId('clas') },
   { id: groupId('admin'), label: { ko: '관리·감사', en: 'Administration' }, icon: ShieldCheck, space: spaceId('operations') },
   { id: groupId('logMyWork'), label: { ko: '내 작업', en: 'My work' }, icon: Inbox, space: spaceId('log-dev') },
   { id: groupId('logModels'), label: { ko: '모델', en: 'Models' }, icon: Cpu, space: spaceId('log-dev') },

@@ -378,7 +378,7 @@ export const CONTEXT_LABELS: Record<ContextKey, Text> = {
   roomNames: { ko: 'room_name', en: 'room_name' },
   line: { ko: 'Line', en: 'Line' },
   prcGroup: { ko: 'PRC 그룹', en: 'PRC group' },
-  condition: { ko: '그룹 조건', en: 'Group condition' },
+  condition: { ko: '설비 그룹 조건', en: 'Group condition' },
   selection: { ko: '설비 선택', en: 'Equipment selection' },
   lot: { ko: 'Lot', en: 'Lot' },
   ppid: { ko: 'PPID', en: 'PPID' },

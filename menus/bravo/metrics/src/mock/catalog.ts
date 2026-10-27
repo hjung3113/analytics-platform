@@ -75,7 +75,7 @@ export const METRICS: MetricDef[] = [
       }),
       quantile({
         version: '2', state: 'published', unit: 's', grain: { ko: 'Job 실행', en: 'Job execution' },
-        formula: { ko: 'v1과 같은 분포. 폐기된 v1을 대체하지 않는 별도 게시본.', en: 'Same distribution as v1. A separate publication; it does not replace deprecated v1 references.' },
+        formula: { ko: 'v1과 같은 분포. 폐기된 v1을 대체하지 않는 별도 발행본.', en: 'Same distribution as v1. A separate release; it does not replace deprecated v1 references.' },
         filters: [{ ko: '완료 Job', en: 'Completed jobs' }], sourceContractRef: 'cycle-time-basis-v1', coverage: JOB_COV,
         changeReason: { ko: '계약 참조만 명시', en: 'Contract reference made explicit' }, registeredAt: '2026-07-01T09:00:00', publishedAt: '2026-07-02T09:00:00', deprecatedAt: null, updatedAt: '2026-07-02T09:00:00', updatedBy: 'kim.hana',
       }),
@@ -87,15 +87,15 @@ export const METRICS: MetricDef[] = [
       }),
       quantile({
         version: '4', state: 'published', unit: 's', grain: { ko: 'Job 실행', en: 'Job execution' },
-        formula: { ko: '분포 재계산. 공정 구간만. averageOfQuantilesAllowed=false.', en: 'Recompute from the distribution, process interval only. averageOfQuantilesAllowed=false.' },
-        filters: [{ ko: '완료 Job', en: 'Completed jobs' }, { ko: '공정 구간', en: 'Process interval' }], sourceContractRef: 'cycle-time-basis-v3', coverage: JOB_COV,
-        changeReason: { ko: '공정 구간으로 grain 설명 수정. 게시 포인터.', en: 'Process-interval wording. Published pointer.' }, registeredAt: '2026-09-18T09:00:00', publishedAt: '2026-09-20T11:00:00', deprecatedAt: null, updatedAt: '2026-09-20T11:00:00', updatedBy: 'park.seo',
+        formula: { ko: '분포 재계산. PRC 구간만. averageOfQuantilesAllowed=false.', en: 'Recompute from the distribution, process interval only. averageOfQuantilesAllowed=false.' },
+        filters: [{ ko: '완료 Job', en: 'Completed jobs' }, { ko: 'PRC 구간', en: 'Process interval' }], sourceContractRef: 'cycle-time-basis-v3', coverage: JOB_COV,
+        changeReason: { ko: 'PRC 구간으로 grain 설명 수정. 발행 포인터.', en: 'Process-interval wording. Released pointer.' }, registeredAt: '2026-09-18T09:00:00', publishedAt: '2026-09-20T11:00:00', deprecatedAt: null, updatedAt: '2026-09-20T11:00:00', updatedBy: 'park.seo',
       }),
       quantile({
         version: '5', state: 'draft', unit: 's', grain: { ko: 'Job 실행', en: 'Job execution' },
         formula: { ko: 'v4 복사. 필터 문구만 초안. 분석 기본 버전이 아닙니다.', en: 'Copy of v4. Filter wording only. Not an analysis default.' },
         filters: [{ ko: '완료 Job (초안 문구)', en: 'Completed jobs (draft wording)' }], sourceContractRef: 'cycle-time-basis-v3', coverage: JOB_COV,
-        changeReason: { ko: '필터 문구 초안. 게시 아님.', en: 'Draft filter wording. Not published.' }, registeredAt: '2026-09-24T09:00:00', publishedAt: null, deprecatedAt: null, updatedAt: '2026-09-24T09:00:00', updatedBy: 'park.seo',
+        changeReason: { ko: '필터 문구 초안. 발행 아님.', en: 'Draft filter wording. Not released.' }, registeredAt: '2026-09-24T09:00:00', publishedAt: null, deprecatedAt: null, updatedAt: '2026-09-24T09:00:00', updatedBy: 'park.seo',
       }),
     ],
   },
@@ -109,7 +109,7 @@ export const METRICS: MetricDef[] = [
         version: '1', state: 'published', unit: '%', grain: { ko: 'EquipmentID × 기간', en: 'EquipmentID × period' },
         formula: { ko: 'occupied_duration 합 / eligible_duration 합.', en: 'Sum of occupied_duration / sum of eligible_duration.' },
         numerator: 'occupied_duration', denominator: 'eligible_duration', filters: [{ ko: '유효 관측', en: 'Valid observation' }],
-        sourceContractRef: 'occupancy-basis-v1', coverage: OCC_COV, changeReason: { ko: '최초 게시', en: 'Initial publication' },
+        sourceContractRef: 'occupancy-basis-v1', coverage: OCC_COV, changeReason: { ko: '최초 발행', en: 'Initial release' },
         registeredAt: '2026-05-04T09:00:00', publishedAt: '2026-05-06T09:00:00', deprecatedAt: null, updatedAt: '2026-05-06T09:00:00', updatedBy: 'kim.hana',
       }),
       ratio({
@@ -121,7 +121,7 @@ export const METRICS: MetricDef[] = [
       }),
       ratio({
         version: '3', state: 'published', unit: '%', grain: { ko: 'EquipmentID × 기간', en: 'EquipmentID × period' },
-        formula: { ko: 'ratioOfSums. averageOfRatiosAllowed=false. 게시 포인터.', en: 'ratioOfSums. averageOfRatiosAllowed=false. Published pointer.' },
+        formula: { ko: 'ratioOfSums. averageOfRatiosAllowed=false. 발행 포인터.', en: 'ratioOfSums. averageOfRatiosAllowed=false. Released pointer.' },
         numerator: 'occupied_duration', denominator: 'eligible_duration',
         filters: [{ ko: '유효 관측', en: 'Valid observation' }, { ko: '미확인 구간 제외', en: 'Exclude unconfirmed intervals' }],
         sourceContractRef: 'occupancy-basis-v3', coverage: OCC_COV, changeReason: { ko: '제외 기준을 정의에 기록', en: 'Exclusion basis recorded on the definition' },
@@ -146,13 +146,13 @@ export const METRICS: MetricDef[] = [
         version: '1', state: 'published', unit: 's', rule: 'sum', grain: { ko: 'Job 실행', en: 'Job execution' },
         formula: { ko: 'non_process_dwell_duration 합.', en: 'Sum of non_process_dwell_duration.' }, numerator: 'non_process_dwell_duration',
         filters: [{ ko: '완료 Job', en: 'Completed jobs' }], sourceContractRef: 'dwell-basis-v1', coverage: JOB_COV,
-        changeReason: { ko: '최초 게시', en: 'Initial publication' }, registeredAt: '2026-06-20T09:00:00', publishedAt: '2026-06-21T09:00:00', deprecatedAt: null, updatedAt: '2026-06-21T09:00:00', updatedBy: 'park.seo',
+        changeReason: { ko: '최초 발행', en: 'Initial release' }, registeredAt: '2026-06-20T09:00:00', publishedAt: '2026-06-21T09:00:00', deprecatedAt: null, updatedAt: '2026-06-21T09:00:00', updatedBy: 'park.seo',
       }),
       additive({
         version: '2', state: 'published', unit: 's', rule: 'sum', grain: { ko: 'Job 실행', en: 'Job execution' },
-        formula: { ko: '체류 합. 사이클 분위수와 섞지 않음. 게시 포인터.', en: 'Sum of dwell. Not mixed into cycle quantiles. Published pointer.' }, numerator: 'non_process_dwell_duration',
-        filters: [{ ko: '완료 Job', en: 'Completed jobs' }, { ko: '공정 구간 제외', en: 'Exclude the process interval' }], sourceContractRef: 'dwell-basis-v2', coverage: JOB_COV,
-        changeReason: { ko: '공정 구간 제외를 필터에 명시', en: 'Process-interval exclusion added to filters' }, registeredAt: '2026-09-11T09:00:00', publishedAt: '2026-09-12T10:00:00', deprecatedAt: null, updatedAt: '2026-09-12T10:00:00', updatedBy: 'park.seo',
+        formula: { ko: '체류 합. 사이클 분위수와 섞지 않음. 발행 포인터.', en: 'Sum of dwell. Not mixed into cycle quantiles. Released pointer.' }, numerator: 'non_process_dwell_duration',
+        filters: [{ ko: '완료 Job', en: 'Completed jobs' }, { ko: 'PRC 구간 제외', en: 'Exclude the process interval' }], sourceContractRef: 'dwell-basis-v2', coverage: JOB_COV,
+        changeReason: { ko: 'PRC 구간 제외를 필터에 명시', en: 'Process-interval exclusion added to filters' }, registeredAt: '2026-09-11T09:00:00', publishedAt: '2026-09-12T10:00:00', deprecatedAt: null, updatedAt: '2026-09-12T10:00:00', updatedBy: 'park.seo',
       }),
     ],
   },
@@ -166,7 +166,7 @@ export const METRICS: MetricDef[] = [
         version: '1', state: 'published', unit: 'job', rule: 'sum', grain: { ko: 'EquipmentID × 기간', en: 'EquipmentID × period' },
         formula: { ko: 'completed_job_count 합.', en: 'Sum of completed_job_count.' }, numerator: 'completed_job_count',
         filters: [{ ko: '완료 Job', en: 'Completed jobs' }], sourceContractRef: 'throughput-basis-v1', coverage: COUNT_COV,
-        changeReason: { ko: '최초 게시. 게시 포인터.', en: 'Initial publication. Published pointer.' }, registeredAt: '2026-08-01T09:00:00', publishedAt: '2026-08-02T09:00:00', deprecatedAt: null, updatedAt: '2026-08-02T09:00:00', updatedBy: 'kim.hana',
+        changeReason: { ko: '최초 발행. 발행 포인터.', en: 'Initial release. Released pointer.' }, registeredAt: '2026-08-01T09:00:00', publishedAt: '2026-08-02T09:00:00', deprecatedAt: null, updatedAt: '2026-08-02T09:00:00', updatedBy: 'kim.hana',
       }),
     ],
   },
@@ -180,11 +180,11 @@ export const METRICS: MetricDef[] = [
         version: '1', state: 'deprecated', unit: 'wafer', rule: 'sum', grain: { ko: '이송 이벤트', en: 'Move event' },
         formula: { ko: 'move_event_count 합.', en: 'Sum of move_event_count.' }, numerator: 'move_event_count',
         filters: [{ ko: '이송 이벤트', en: 'Move events' }], sourceContractRef: 'move-basis-v1', coverage: COUNT_COV,
-        changeReason: { ko: '최초 게시 후 폐기', en: 'Published, then deprecated' }, registeredAt: '2026-04-01T09:00:00', publishedAt: '2026-04-02T09:00:00', deprecatedAt: '2026-09-05T09:00:00', updatedAt: '2026-09-05T09:00:00', updatedBy: 'choi.min',
+        changeReason: { ko: '최초 발행 후 폐기', en: 'Released, then deprecated' }, registeredAt: '2026-04-01T09:00:00', publishedAt: '2026-04-02T09:00:00', deprecatedAt: '2026-09-05T09:00:00', updatedAt: '2026-09-05T09:00:00', updatedBy: 'choi.min',
       }),
       additive({
         version: '2', state: 'published', unit: 'wafer', rule: 'sum', grain: { ko: '이송 이벤트', en: 'Move event' },
-        formula: { ko: '설비 경계 안의 이송만 합산. 게시 포인터.', en: 'Sum moves inside the equipment boundary. Published pointer.' }, numerator: 'move_event_count',
+        formula: { ko: '설비 경계 안의 이송만 합산. 발행 포인터.', en: 'Sum moves inside the equipment boundary. Released pointer.' }, numerator: 'move_event_count',
         filters: [{ ko: '설비 경계 안 이송', en: 'Moves inside the equipment boundary' }], sourceContractRef: 'move-basis-v2', coverage: COUNT_COV,
         changeReason: { ko: '경계 조건 추가', en: 'Boundary condition added' }, registeredAt: '2026-09-04T09:00:00', publishedAt: '2026-09-05T09:00:00', deprecatedAt: null, updatedAt: '2026-09-05T09:00:00', updatedBy: 'choi.min',
       }),
@@ -192,15 +192,15 @@ export const METRICS: MetricDef[] = [
   },
   {
     metricId: 'queue_time', name: { ko: '대기 시간', en: 'Queue time' }, domain: 'time', kind: 'duration',
-    description: { ko: '초안만 있습니다. 게시 포인터가 없습니다.', en: 'Draft only. No published pointer.' },
+    description: { ko: '초안만 있습니다. 발행 포인터가 없습니다.', en: 'Draft only. No released pointer.' },
     ...OWN.time, publishedPointer: null, catalogVersion: '1', draftVersion: '1', catalogStatus: 'draft', populationRule: 'etch', updatedAt: '2026-09-22T09:00:00',
     usage: [],
     versions: [
       additive({
         version: '1', state: 'draft', unit: 's', rule: 'sum', grain: { ko: 'Job 실행', en: 'Job execution' },
-        formula: { ko: 'queue_duration 합. 초안이며 게시 초기화 후보가 아닙니다.', en: 'Sum of queue_duration. A draft, not a publication-initialization candidate.' }, numerator: 'queue_duration',
+        formula: { ko: 'queue_duration 합. 초안이며 발행 초기화 후보가 아닙니다.', en: 'Sum of queue_duration. A draft, not a release-initialization candidate.' }, numerator: 'queue_duration',
         filters: [{ ko: '대기 구간', en: 'Queue interval' }], sourceContractRef: 'queue-basis-draft', coverage: JOB_COV,
-        changeReason: { ko: '초안 등록. 게시하지 않음.', en: 'Draft registered. Not published.' }, registeredAt: '2026-09-22T09:00:00', publishedAt: null, deprecatedAt: null, updatedAt: '2026-09-22T09:00:00', updatedBy: 'park.seo',
+        changeReason: { ko: '초안 등록. 발행하지 않음.', en: 'Draft registered. Not released.' }, registeredAt: '2026-09-22T09:00:00', publishedAt: null, deprecatedAt: null, updatedAt: '2026-09-22T09:00:00', updatedBy: 'park.seo',
       }),
     ],
   },
@@ -219,7 +219,7 @@ export const METRICS: MetricDef[] = [
       }),
       ratio({
         version: '2', state: 'published', unit: '%', grain: { ko: 'EquipmentID × 기간', en: 'EquipmentID × period' },
-        formula: { ko: 'ratioOfSums. 보전 창은 분모에 포함. 게시 포인터.', en: 'ratioOfSums. Maintenance windows stay in the denominator. Published pointer.' },
+        formula: { ko: 'ratioOfSums. 보전 창은 분모에 포함. 발행 포인터.', en: 'ratioOfSums. Maintenance windows stay in the denominator. Released pointer.' },
         numerator: 'available_duration', denominator: 'scheduled_duration', filters: [{ ko: '계획 구간', en: 'Scheduled interval' }],
         sourceContractRef: 'availability-basis-v2', coverage: OCC_COV, changeReason: { ko: '보전 창을 분모에 유지', en: 'Maintenance windows kept in the denominator' },
         registeredAt: '2026-08-18T09:00:00', publishedAt: '2026-08-19T09:00:00', deprecatedAt: null, updatedAt: '2026-08-19T09:00:00', updatedBy: 'kim.hana',
@@ -234,9 +234,9 @@ export const METRICS: MetricDef[] = [
     versions: [
       additive({
         version: '1', state: 'published', unit: 'alarm', rule: 'sum', grain: { ko: 'EquipmentID × 기간', en: 'EquipmentID × period' },
-        formula: { ko: 'confirmed_alarm_count 합. 게시 포인터.', en: 'Sum of confirmed_alarm_count. Published pointer.' }, numerator: 'confirmed_alarm_count',
+        formula: { ko: 'confirmed_alarm_count 합. 발행 포인터.', en: 'Sum of confirmed_alarm_count. Released pointer.' }, numerator: 'confirmed_alarm_count',
         filters: [{ ko: '확인된 알람', en: 'Confirmed alarms' }], sourceContractRef: 'alarm-basis-v1', coverage: COUNT_COV,
-        changeReason: { ko: '최초 게시', en: 'Initial publication' }, registeredAt: '2026-07-14T09:00:00', publishedAt: '2026-07-15T09:00:00', deprecatedAt: null, updatedAt: '2026-07-15T09:00:00', updatedBy: 'lee.jun',
+        changeReason: { ko: '최초 발행', en: 'Initial release' }, registeredAt: '2026-07-14T09:00:00', publishedAt: '2026-07-15T09:00:00', deprecatedAt: null, updatedAt: '2026-07-15T09:00:00', updatedBy: 'lee.jun',
       }),
     ],
   },
@@ -248,9 +248,9 @@ export const METRICS: MetricDef[] = [
     versions: [
       additive({
         version: '1', state: 'published', unit: 's', rule: 'sum', grain: { ko: '전환 이벤트', en: 'Changeover event' },
-        formula: { ko: 'changeover_duration 합. 게시 포인터.', en: 'Sum of changeover_duration. Published pointer.' }, numerator: 'changeover_duration',
+        formula: { ko: 'changeover_duration 합. 발행 포인터.', en: 'Sum of changeover_duration. Released pointer.' }, numerator: 'changeover_duration',
         filters: [{ ko: '레시피 변경이 있는 이벤트', en: 'Events with a recipe change' }], sourceContractRef: 'changeover-basis-v1', coverage: COUNT_COV,
-        changeReason: { ko: '최초 게시', en: 'Initial publication' }, registeredAt: '2026-08-08T09:00:00', publishedAt: '2026-08-09T09:00:00', deprecatedAt: null, updatedAt: '2026-08-09T09:00:00', updatedBy: 'park.seo',
+        changeReason: { ko: '최초 발행', en: 'Initial release' }, registeredAt: '2026-08-08T09:00:00', publishedAt: '2026-08-09T09:00:00', deprecatedAt: null, updatedAt: '2026-08-09T09:00:00', updatedBy: 'park.seo',
       }),
       additive({
         version: '2', state: 'draft', unit: 's', rule: 'sum', grain: { ko: '전환 이벤트', en: 'Changeover event' },
@@ -280,7 +280,7 @@ export const METRICS: MetricDef[] = [
       }),
       additive({
         version: '3', state: 'published', unit: 's', rule: 'sum', grain: { ko: 'Lot 보류 구간', en: 'Lot hold interval' },
-        formula: { ko: '보류 합. 게시 포인터. 엔지니어 해제 전만.', en: 'Sum of hold. Published pointer. Only until an engineer releases it.' }, numerator: 'hold_duration',
+        formula: { ko: '보류 합. 발행 포인터. 엔지니어 해제 전만.', en: 'Sum of hold. Released pointer. Only until an engineer releases it.' }, numerator: 'hold_duration',
         filters: [{ ko: '해제 전 보류', en: 'Hold before release' }], sourceContractRef: 'hold-basis-v3', coverage: JOB_COV,
         changeReason: { ko: '해제 시점 필터', en: 'Release-time filter' }, registeredAt: '2026-09-07T09:00:00', publishedAt: '2026-09-08T09:00:00', deprecatedAt: null, updatedAt: '2026-09-08T09:00:00', updatedBy: 'park.seo',
       }),
@@ -294,9 +294,9 @@ export const METRICS: MetricDef[] = [
     versions: [
       ratio({
         version: '1', state: 'published', unit: '%', grain: { ko: 'Chamber × 기간', en: 'Chamber × period' },
-        formula: { ko: 'chamber_occupied_duration 합 / chamber_eligible_duration 합. 게시 포인터.', en: 'Sum of chamber_occupied_duration / sum of chamber_eligible_duration. Published pointer.' },
+        formula: { ko: 'chamber_occupied_duration 합 / chamber_eligible_duration 합. 발행 포인터.', en: 'Sum of chamber_occupied_duration / sum of chamber_eligible_duration. Released pointer.' },
         numerator: 'chamber_occupied_duration', denominator: 'chamber_eligible_duration', filters: [{ ko: '챔버 관측', en: 'Chamber observations' }],
-        sourceContractRef: 'chamber-basis-v1', coverage: OCC_COV, changeReason: { ko: '최초 게시', en: 'Initial publication' },
+        sourceContractRef: 'chamber-basis-v1', coverage: OCC_COV, changeReason: { ko: '최초 발행', en: 'Initial release' },
         registeredAt: '2026-09-01T09:00:00', publishedAt: '2026-09-02T09:00:00', deprecatedAt: null, updatedAt: '2026-09-02T09:00:00', updatedBy: 'kim.hana',
       }),
     ],
@@ -311,12 +311,12 @@ export const METRICS: MetricDef[] = [
         version: '1', state: 'published', unit: '%', grain: { ko: 'Lot × 기간', en: 'Lot × period' },
         formula: { ko: 'rework_wafer_count 합 / completed_wafer_count 합.', en: 'Sum of rework_wafer_count / sum of completed_wafer_count.' },
         numerator: 'rework_wafer_count', denominator: 'completed_wafer_count', filters: [{ ko: '완료 Lot', en: 'Completed lots' }],
-        sourceContractRef: 'rework-basis-v1', coverage: COUNT_COV, changeReason: { ko: '최초 게시', en: 'Initial publication' },
+        sourceContractRef: 'rework-basis-v1', coverage: COUNT_COV, changeReason: { ko: '최초 발행', en: 'Initial release' },
         registeredAt: '2026-07-20T09:00:00', publishedAt: '2026-07-21T09:00:00', deprecatedAt: null, updatedAt: '2026-07-21T09:00:00', updatedBy: 'lee.jun',
       }),
       ratio({
         version: '2', state: 'published', unit: '%', grain: { ko: 'Lot × 기간', en: 'Lot × period' },
-        formula: { ko: 'ratioOfSums. 부분 재작업 포함. 게시 포인터.', en: 'ratioOfSums. Partial rework included. Published pointer.' },
+        formula: { ko: 'ratioOfSums. 부분 재작업 포함. 발행 포인터.', en: 'ratioOfSums. Partial rework included. Released pointer.' },
         numerator: 'rework_wafer_count', denominator: 'completed_wafer_count', filters: [{ ko: '완료 Lot', en: 'Completed lots' }, { ko: '부분 재작업 포함', en: 'Include partial rework' }],
         sourceContractRef: 'rework-basis-v2', coverage: COUNT_COV, changeReason: { ko: '부분 재작업 포함', en: 'Partial rework included' },
         registeredAt: '2026-09-14T09:00:00', publishedAt: '2026-09-15T09:00:00', deprecatedAt: null, updatedAt: '2026-09-15T09:00:00', updatedBy: 'lee.jun',
@@ -331,16 +331,16 @@ export const METRICS: MetricDef[] = [
     versions: [
       ratio({
         version: '1', state: 'published', unit: 'kWh/wafer', grain: { ko: 'EquipmentID × 기간', en: 'EquipmentID × period' },
-        formula: { ko: 'energy_kwh 합 / wafer_count 합. 게시 포인터.', en: 'Sum of energy_kwh / sum of wafer_count. Published pointer.' },
+        formula: { ko: 'energy_kwh 합 / wafer_count 합. 발행 포인터.', en: 'Sum of energy_kwh / sum of wafer_count. Released pointer.' },
         numerator: 'energy_kwh', denominator: 'wafer_count', filters: [{ ko: '계측이 확인된 구간', en: 'Intervals with a confirmed meter reading' }],
-        sourceContractRef: 'energy-basis-v1', coverage: COUNT_COV, changeReason: { ko: '최초 게시', en: 'Initial publication' },
+        sourceContractRef: 'energy-basis-v1', coverage: COUNT_COV, changeReason: { ko: '최초 발행', en: 'Initial release' },
         registeredAt: '2026-09-02T09:00:00', publishedAt: '2026-09-03T09:00:00', deprecatedAt: null, updatedAt: '2026-09-03T09:00:00', updatedBy: 'han.yuri',
       }),
     ],
   },
   {
     metricId: 'setup_time', name: { ko: '셋업 시간', en: 'Setup time' }, domain: 'maintenance', kind: 'duration',
-    description: { ko: '게시본이 없습니다. 폐기 버전만 남아 있습니다.', en: 'No publication. Only a deprecated version remains.' },
+    description: { ko: '발행본이 없습니다. 폐기 버전만 남아 있습니다.', en: 'No release. Only a deprecated version remains.' },
     ...OWN.maint, publishedPointer: null, catalogVersion: '1', draftVersion: null, catalogStatus: 'deprecated', populationRule: 'maintenance-or-active', updatedAt: '2026-09-01T09:00:00',
     usage: [],
     versions: [
@@ -348,7 +348,7 @@ export const METRICS: MetricDef[] = [
         version: '1', state: 'deprecated', unit: 's', rule: 'sum', grain: { ko: '셋업 이벤트', en: 'Setup event' },
         formula: { ko: 'setup_duration 합. 폐기. 최신 대체 없음.', en: 'Sum of setup_duration. Deprecated. No substitution with a latest version.' }, numerator: 'setup_duration',
         filters: [{ ko: '셋업 이벤트', en: 'Setup events' }], sourceContractRef: 'setup-basis-v1', coverage: COUNT_COV,
-        changeReason: { ko: '정의 폐기. 후속 게시 없음.', en: 'Definition deprecated. No successor publication.' }, registeredAt: '2026-01-10T09:00:00', publishedAt: '2026-01-11T09:00:00', deprecatedAt: '2026-09-01T09:00:00', updatedAt: '2026-09-01T09:00:00', updatedBy: 'han.yuri',
+        changeReason: { ko: '정의 폐기. 후속 발행 없음.', en: 'Definition deprecated. No successor release.' }, registeredAt: '2026-01-10T09:00:00', publishedAt: '2026-01-11T09:00:00', deprecatedAt: '2026-09-01T09:00:00', updatedAt: '2026-09-01T09:00:00', updatedBy: 'han.yuri',
       }),
     ],
   },
@@ -451,7 +451,7 @@ function metricAuditEvents(metric: MetricDef): AuditEvent[] {
         action: 'update',
         source: 'user',
         target,
-        reason: '게시 확정. mart 재계산 완료가 아닙니다.',
+        reason: '발행 확정. mart 재계산 완료가 아닙니다.',
         changes: { metricVersion: [v.version, v.version], publicationState: ['draft', 'published'] },
       });
     }

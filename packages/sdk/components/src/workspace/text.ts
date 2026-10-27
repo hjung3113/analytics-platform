@@ -2,7 +2,7 @@ import type { Text } from '@ap/kernel';
 
 /** The workspace's own copy (Korean first); panel titles and preset labels come from the menu. */
 export const workspaceText = {
-  region: { ko: '패널 작업 공간', en: 'Panel workspace' },
+  region: { ko: '작업 영역', en: 'Panel workspace' },
   layout: { ko: '배치', en: 'Layout' },
   hiddenPanels: (count: number): Text => ({ ko: `숨긴 패널 ${count}`, en: `Hidden panels ${count}` }),
   hiddenPanelsList: { ko: '숨긴 패널', en: 'Hidden panels' },

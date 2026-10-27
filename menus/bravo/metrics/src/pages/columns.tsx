@@ -45,7 +45,7 @@ export function catalogColumns({ lang, linkTo, tx }: Deps): PlatformColumn<Catal
       cell: row => <span className="t-mono">{row.denominator}</span>,
     },
     {
-      id: 'publishedPointer', header: lang === 'ko' ? '게시 포인터' : 'Published pointer', size: 130, align: 'right',
+      id: 'publishedPointer', header: lang === 'ko' ? '발행 포인터' : 'Released pointer', size: 130, align: 'right',
       cell: row => row.publishedPointer ? <span className="tabular">v{row.publishedPointer}</span> : <span className="text-text-muted">{lang === 'ko' ? '없음' : 'None'}</span>,
       // Export shows the same `v3` pointer text; no pointer exports an empty cell (the muted "None" is screen-only).
       exportValue: row => (row.publishedPointer === null ? null : `v${row.publishedPointer}`),

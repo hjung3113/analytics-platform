@@ -1150,7 +1150,7 @@ describe('PlatformDataTable table-owned export (#173)', () => {
     const sortedSelection = [...initial.selection].sort();
     expect(rows).toMatchObject({
       검색어: 'etch', 상태: '사용중', Maker: 'ACME',
-      room_name: sortedRooms.join(', '), '그룹 조건': 'StGroup: Etch-A',
+      room_name: sortedRooms.join(', '), '설비 그룹 조건': 'StGroup: Etch-A',
       '설비 선택': `12개: ${sortedSelection.slice(0, 10).join(', ')} …`, // ids, not exported rows (N-P3-6)
       Lot: '1개: LOT-1', PPID: 'PP-9', Recipe: '1개: RCP-1', '지표·버전': 'cycle_time v4',
     });

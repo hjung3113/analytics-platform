@@ -179,7 +179,7 @@ test.describe('분석 보드 계약 (16 §4–§7, ADR-0049·0051)', () => {
     await page.goto(PRODUCTIVITY);
     await expect(mainHeading(page)).toHaveText('생산성 개요');
     const originalMainUrl = page.url();
-    const rail = page.getByRole('navigation', { name: '앱 레일' });
+    const rail = page.getByRole('navigation', { name: '시스템 레일' });
     await rail.getByRole('button', { name: '분석 보드' }).click();
     await expect(page.getByRole('heading', { name: '분석 보드' })).toBeVisible();
 
@@ -281,7 +281,7 @@ test.describe('분석 보드 계약 (16 §4–§7, ADR-0049·0051)', () => {
     await expect(boardPaneHead(page, 1).locator('[data-pane-system]')).toHaveText('MARS');
     await expect(boardPaneHead(page, 2).locator('[data-pane-system]')).toHaveText('CLAS');
     await expect(boardPaneHead(page, 3).locator('[data-pane-system]')).toHaveText('BRAVO');
-    await expect(boardPaneHead(page, 2)).toContainText('설비 동작시간');
+    await expect(boardPaneHead(page, 2)).toContainText('CLAS');
     await expect(boardPaneHead(page, 3)).toContainText('지표 카탈로그');
     await evidence(page, testInfo, 'board-mixed-systems');
   });
@@ -311,7 +311,7 @@ test.describe('분석 보드 계약 (16 §4–§7, ADR-0049·0051)', () => {
     await expect(pane.getByRole('row')).toHaveCount(0);
     await expect(page.getByRole('status').filter({ hasText: '이 메뉴에 대한 권한이 없습니다' })).toHaveCount(1);
     // viewer holds metrics:view, so the BRAVO metric catalog is a placeable menu and the rail entry stays (16 §6).
-    await expect(page.getByRole('navigation', { name: '앱 레일' }).getByRole('button', { name: '분석 보드' })).toHaveCount(1);
+    await expect(page.getByRole('navigation', { name: '시스템 레일' }).getByRole('button', { name: '분석 보드' })).toHaveCount(1);
     await evidence(page, testInfo, 'board-denied-pane');
   });
 
@@ -1761,7 +1761,7 @@ test.describe('분석 보드 최소화·복원 (#893 893c)', () => {
     await chooseSystem(page, 'MARS');
     await expect(page).not.toHaveURL(/\/board/);
     await expect(chip(page)).toBeVisible();
-    await expect(page.getByRole('navigation', { name: '앱 레일' }).getByRole('button', { name: '분석 보드(최소화됨, 눌러 복원)' })).toBeVisible();
+    await expect(page.getByRole('navigation', { name: '시스템 레일' }).getByRole('button', { name: '분석 보드(최소화됨, 눌러 복원)' })).toBeVisible();
     await chip(page).click();
     await expect(page).toHaveURL(/\/board\?sheet=dock/);
     await expect(page.getByRole('dialog')).toHaveCount(0);
@@ -1850,7 +1850,7 @@ test.describe('분석 보드 최소화·복원 (#893 893c)', () => {
     await page.goto('/mars/equipment-master?v=1&scopeId=MEM&focus=MEM-PHOTO-0104');
     await expect(slot).toBeVisible();
     await expect(slot).toContainText('MEM-PHOTO-0104');
-    await page.getByRole('navigation', { name: '앱 레일' }).getByRole('button', { name: '분석 보드' }).click();
+    await page.getByRole('navigation', { name: '시스템 레일' }).getByRole('button', { name: '분석 보드' }).click();
     await expect(page).toHaveURL(/\/board\?sheet=dock/);
     await expect(slot).toContainText('MEM-PHOTO-0103');
     await page.getByRole('button', { name: '최소화' }).click();
@@ -1869,14 +1869,14 @@ test.describe('분석 보드 최소화·복원 (#893 893c)', () => {
     await expect(page).not.toHaveURL(/\/board/);
     await expect(chip(page)).toHaveCount(0);
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem('platform:board:v2:engineer') ?? localStorage.getItem('platform:board:engineer') ?? 'null')?.sheets?.length)).toBe(1);
-    await page.getByRole('navigation', { name: '앱 레일' }).getByRole('button', { name: '분석 보드' }).click();
+    await page.getByRole('navigation', { name: '시스템 레일' }).getByRole('button', { name: '분석 보드' }).click();
     await expect(page).toHaveURL(/\/board\?sheet=dock/);
   });
 });
 
 test.describe('분석 보드 창 (#893 893d)', () => {
   const screenOf = (roomNames: string) => ({ menuId: 'productivity-overview', params: {}, query: `?v=1&scopeId=MEM&${PERIOD}&roomNames=${roomNames}` });
-  const rail = (page: Page) => page.getByRole('navigation', { name: '앱 레일' });
+  const rail = (page: Page) => page.getByRole('navigation', { name: '시스템 레일' });
   const chip = (page: Page) => page.getByRole('button', { name: '분석 보드 · 도킹' });
   const windowFrame = (page: Page) => page.locator('[data-floating-mode="window"]');
   const titleBar = (page: Page) => page.getByRole('group', { name: /분석 보드 창 제목줄/ });

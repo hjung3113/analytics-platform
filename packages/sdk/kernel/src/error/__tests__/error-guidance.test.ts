@@ -38,7 +38,7 @@ describe('contract error copy (#304)', () => {
   it('names the recipient of the Correlation ID for the general error action, ko and en (UX-304-02)', () => {
     const action = userFacingEntries().find(entry => entry.key === 'stateErrorAction');
     expect(action?.ko).toContain('다시 시도하세요');
-    expect(action?.ko).toContain('시스템 담당자에게');
+    expect(action?.ko).toContain('관리자에게');
     expect(action?.ko).toContain('Correlation ID');
     expect(action?.en).toContain('system administrator');
     expect(action?.en).toContain('Correlation ID');

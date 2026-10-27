@@ -52,9 +52,9 @@ describe('AuditTimeline (§6.3: at is a real instant)', () => {
     expect(screen.getByText('ET-B')).toBeInTheDocument();
   });
 
-  it('translates the source badge like the audit table (ko 시스템/사용자)', () => {
+  it('translates the source badge like the audit table (ko 연동/사용자)', () => {
     render(<Timeline />);
-    expect(screen.getAllByText('시스템')).toHaveLength(2);
+    expect(screen.getAllByText('연동')).toHaveLength(2);
     expect(screen.getAllByText('사용자')).toHaveLength(2);
     expect(screen.queryByText('system')).not.toBeInTheDocument();
   });

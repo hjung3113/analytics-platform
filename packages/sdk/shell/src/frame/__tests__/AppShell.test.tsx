@@ -82,7 +82,7 @@ function openSwitcher() {
 }
 
 async function openUserMenu() {
-  await userEvent.setup().click(within(screen.getByRole('navigation', { name: '앱 레일' })).getByRole('button', { name: '사용자 메뉴' }));
+  await userEvent.setup().click(within(screen.getByRole('navigation', { name: '시스템 레일' })).getByRole('button', { name: '사용자 메뉴' }));
   return screen.getByRole('menu');
 }
 const overallItem = () => screen.queryByRole('menuitem', { name: 'FeedbackOps 전체 — 새 탭' });
@@ -91,7 +91,7 @@ describe('rail space navigation', () => {
   it('omits all space buttons with only one accessible space and keeps global tools', () => {
     mount();
     expect(screen.queryByRole('button', { name: /^공간:/ })).toBeNull();
-    const rail = screen.getByRole('navigation', { name: '앱 레일' });
+    const rail = screen.getByRole('navigation', { name: '시스템 레일' });
     expect(within(rail).getByRole('button', { name: '시스템 및 플랫폼 메뉴 · 현재: 분석' })).toBeTruthy();
     expect(within(rail).getByRole('button', { name: '메뉴 검색…' })).toBeTruthy();
     expect(within(rail).getByRole('button', { name: 'injected tool' })).toBeTruthy();
@@ -112,7 +112,7 @@ describe('rail space navigation', () => {
     expect(push).toHaveBeenCalledTimes(1);
     // pathname changes at pushState, before React re-renders the switcher label: wait for the DOM, not the URL.
     expect(await screen.findByRole('button', { name: '시스템 및 플랫폼 메뉴 · 현재: 운영 콘솔' })).toBeTruthy();
-    const rail = screen.getByRole('navigation', { name: '앱 레일' });
+    const rail = screen.getByRole('navigation', { name: '시스템 레일' });
     expect(within(rail).getByRole('button', { name: '관리' }).getAttribute('aria-current')).toBe('true');
     const nav = screen.getByRole('navigation', { name: '주 메뉴' });
     expect(within(nav).queryByRole('link', { name: '홈' })).toBeNull();
@@ -245,7 +245,7 @@ describe('shell accessibility (#194 FIX2)', () => {
 
   it('moves the language toggle into the user menu, which stays open after switching', async () => {
     mount();
-    expect(within(screen.getByRole('navigation', { name: '앱 레일' })).queryByRole('button', { name: /언어|Language/ })).toBeNull();
+    expect(within(screen.getByRole('navigation', { name: '시스템 레일' })).queryByRole('button', { name: /언어|Language/ })).toBeNull();
     const menu = await openUserMenu();
     const user = userEvent.setup();
     await user.click(within(menu).getByRole('menuitem', { name: /^언어/ }));
@@ -263,15 +263,15 @@ describe('shell accessibility (#194 FIX2)', () => {
     expect(within(primary).getByText('예정')).toHaveClass('text-text-secondary');
     expect(within(primary).queryByRole('region')).toBeNull();
     expect(within(primary).queryByRole('heading')).toBeNull();
-    const rail = screen.getByRole('navigation', { name: '앱 레일' });
+    const rail = screen.getByRole('navigation', { name: '시스템 레일' });
     // aria-current="page" is the current menu only; the section button says "true" (06 §26).
     expect(home.getAttribute('aria-current')).toBe('page');
     expect(within(rail).getByRole('button', { name: '개요' }).getAttribute('aria-current')).toBe('true');
     expect(within(rail).getByRole('button', { name: '개요' }).querySelector('[data-current-marker]')).toHaveClass('w-0.5');
     expect(within(rail).queryByRole('button', { name: '관리' })).toBeNull();
     fireEvent.click(within(openSwitcher()).getByRole('button', { name: /운영 콘솔/ }));
-    await waitFor(() => expect(within(screen.getByRole('navigation', { name: '앱 레일' })).getByRole('button', { name: '관리' }).querySelector('[data-current-marker]')).toBeTruthy());
-    expect(within(screen.getByRole('navigation', { name: '앱 레일' })).queryByRole('button', { name: '개요' })).toBeNull();
+    await waitFor(() => expect(within(screen.getByRole('navigation', { name: '시스템 레일' })).getByRole('button', { name: '관리' }).querySelector('[data-current-marker]')).toBeTruthy());
+    expect(within(screen.getByRole('navigation', { name: '시스템 레일' })).queryByRole('button', { name: '개요' })).toBeNull();
     expect(within(screen.getByRole('navigation', { name: '주 메뉴' })).getByRole('link', { name: '운영 홈' }).querySelector('[data-current-marker]')).toBeTruthy();
   });
 });
@@ -410,7 +410,7 @@ function logoRegistry() {
 describe('workspace shell layout (15 §3.1)', () => {
   it('offers the platform home inside the switcher, not as a rail logo link, and shows a plain mark when / is unregistered', () => {
     mount(['platform:view'], true, logoRegistry());
-    const rail = screen.getByRole('navigation', { name: '앱 레일' });
+    const rail = screen.getByRole('navigation', { name: '시스템 레일' });
     expect(within(rail).queryByRole('link', { name: '플랫폼 홈' })).toBeNull();
     const home = within(within(openSwitcher()).getByRole('navigation', { name: '플랫폼 메뉴' })).getByRole('link', { name: '홈' });
     expect(home.getAttribute('href')).toMatch(/^\//);
@@ -438,7 +438,7 @@ describe('workspace shell layout (15 §3.1)', () => {
   ])('names the switcher by the current system only inside a space (%s)', (_label, url, name) => {
     window.history.replaceState(null, '', url);
     mount(['platform:view', 'notice:view'], true, logoRegistry());
-    const rail = screen.getByRole('navigation', { name: '앱 레일' });
+    const rail = screen.getByRole('navigation', { name: '시스템 레일' });
     expect(within(rail).getByRole('button', { name })).toBeTruthy();
     expect(within(rail).queryByRole('link', { name: '플랫폼 홈' })).toBeNull();
     expect(rail.querySelector('a[aria-current]')).toBeNull();
@@ -476,7 +476,7 @@ describe('workspace shell layout (15 §3.1)', () => {
     expect(within(block).getByText('외부 링크 표시는 새 탭에서 열립니다')).toBeTruthy();
     expect(within(block).getByText('표시는 새 탭에서 열립니다').querySelector('svg')).toBeTruthy();
     expect(within(block).queryByText('FeedbackOps로 이동합니다')).toBeNull();
-    const rail = screen.getByRole('navigation', { name: '앱 레일' });
+    const rail = screen.getByRole('navigation', { name: '시스템 레일' });
     expect(within(rail).queryByRole('link', { name: /FeedbackOps 전체/ })).toBeNull();
     await openUserMenu();
     const overall = overallItem()!;
@@ -565,7 +565,7 @@ describe('workspace shell layout (15 §3.1)', () => {
   ])('omits the block when entriesFor returns %s', (_label, entries) => {
     mount(['platform:view'], true, registry, { feedbackOps: { entriesFor: () => entries, overall: null } });
     expect(screen.queryByRole('navigation', { name: /^FeedbackOps/ })).toBeNull();
-    expect(within(screen.getByRole('navigation', { name: '앱 레일' })).queryByRole('link', { name: /FeedbackOps 전체/ })).toBeNull();
+    expect(within(screen.getByRole('navigation', { name: '시스템 레일' })).queryByRole('link', { name: /FeedbackOps 전체/ })).toBeNull();
   });
 
   it('keeps the overall user-menu link when the block is empty', async () => {
@@ -581,7 +581,7 @@ describe('workspace shell layout (15 §3.1)', () => {
     ['slot overall null', ['platform:view', 'feedbackops:access'] as Permission[], { entriesFor: () => [], overall: null } as FeedbackOpsSlot, false],
   ])('shows FeedbackOps 전체 only in the user menu and only when the permission is held (%s)', async (_label, permissions, slot, shown) => {
     mount(permissions, true, registry, { feedbackOps: slot });
-    expect(within(screen.getByRole('navigation', { name: '앱 레일' })).queryByRole('link', { name: /FeedbackOps 전체/ })).toBeNull();
+    expect(within(screen.getByRole('navigation', { name: '시스템 레일' })).queryByRole('link', { name: /FeedbackOps 전체/ })).toBeNull();
     await openUserMenu();
     if (shown) expect(overallItem()).toHaveAttribute('href', 'https://example.test/all');
     else expect(overallItem()).toBeNull();

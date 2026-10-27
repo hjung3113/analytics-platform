@@ -13,7 +13,7 @@ import { operationTimeEndpoint, type OperationTimeData } from '../endpoints';
 const none = contextCapabilities();
 const menu: MenuMeta = {
   id: 'operation-time', group: groupId('clas'),
-  label: { ko: '설비 동작시간', en: 'Equipment operation time' }, description: { ko: '', en: '' },
+  label: { ko: 'CLAS', en: 'CLAS' }, description: { ko: '', en: '' },
   path: '/clas/operation-time', permission: menuPermission('analytics:view'), requiresScope: true,
   context: { ...none, time: 'apply', roomNames: 'apply' }, pageType: 'analysis',
   features: NO_FEATURES, pageKeys: ['eqp'],

@@ -53,14 +53,14 @@ describe('metric catalog count under a failed list query (UXA-4)', () => {
     const { adapter, release } = deferredFixture();
     render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><MetricCatalogPage params={{}} /></PlatformProvider></I18nProvider>);
     // No response yet: the count stays pending, it is neither a number nor a failure statement.
-    const pending = await screen.findByText(/게시 포인터는 레코드에 저장된 값/);
+    const pending = await screen.findByText(/발행 포인터는 레코드에 저장된 값/);
     expect(pending.textContent).toContain('합성 …건');
     expect(pending.textContent).not.toContain('합성 지표입니다');
     await act(async () => {
       release({ outcome: 'error', data: null, message: 'catalog unavailable', assessments: [], trust: null, correlationId: 'fixture' });
     });
     expect(await screen.findByText(/합성 지표입니다/)).toBeTruthy();
-    expect(screen.getByText(/게시 포인터는 레코드에 저장된 값/).textContent).not.toContain('…');
+    expect(screen.getByText(/발행 포인터는 레코드에 저장된 값/).textContent).not.toContain('…');
   });
 
   it('drops the numeric count (no …) once the count query failed', async () => {
@@ -68,7 +68,7 @@ describe('metric catalog count under a failed list query (UXA-4)', () => {
     render(<I18nProvider><PlatformProvider adapter={fixture()} registry={registry}><MetricCatalogPage params={{}} /></PlatformProvider></I18nProvider>);
     // The count line first paints as pending (…) — wait for the failure itself, not the first paint.
     await screen.findByText(/합성 지표입니다/);
-    const subtitle = screen.getByText(/게시 포인터는 레코드에 저장된 값/);
+    const subtitle = screen.getByText(/발행 포인터는 레코드에 저장된 값/);
     expect(subtitle.textContent).toContain('합성 지표입니다');
     expect(subtitle.textContent).not.toContain('…');
   });
@@ -80,7 +80,7 @@ describe('invalid URL value warnings keep field name and raw value (#304 FIX1)',
   it('the footer caption names the Context keys by their user labels (U-5)', () => {
     window.history.replaceState(null, '', '/metrics?v=1&scopeId=MEM');
     render(<I18nProvider><PlatformProvider adapter={fixture()} registry={registry}><MetricCatalogPage params={{}} /></PlatformProvider></I18nProvider>);
-    expect(screen.getByText(/이 목록의 필터가 아닙니다/).textContent).toContain('기간·Lot·room_name·그룹 조건·설비 선택은 이 목록의 필터가 아닙니다.');
+    expect(screen.getByText(/이 목록의 필터가 아닙니다/).textContent).toContain('기간·Lot·room_name·설비 그룹 조건·설비 선택은 이 목록의 필터가 아닙니다.');
   });
 
   it('domain=bogus names the 도메인 field and the entered value, without key=value', async () => {

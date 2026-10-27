@@ -13,7 +13,7 @@ export const DOMAIN_LABEL: Record<Domain, Text> = {
 
 export const STATUS_LABEL: Record<PublicationState, Text> = {
   draft: { ko: '초안', en: 'Draft' },
-  published: { ko: '게시', en: 'Published' },
+  published: { ko: '발행', en: 'Released' },
   deprecated: { ko: '폐기', en: 'Deprecated' },
 };
 
