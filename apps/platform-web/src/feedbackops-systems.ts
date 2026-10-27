@@ -1,5 +1,5 @@
 import { ClipboardList, ListTodo, MessagesSquare } from 'lucide-react';
-import { buildFeedbackOpsLink, ContractError, type FeedbackOpsTarget, type SpaceId } from '@ap/contracts';
+import type { SpaceId } from '@ap/contracts';
 import { isUuid } from '@ap/fo-bridge';
 import type { FeedbackOpsEntry, FeedbackOpsSlot } from '@ap/kernel';
 import type { SPACES } from './menus';
@@ -24,34 +24,21 @@ export function managedSystemFor(spaceId: string | null): string | null {
   return managedSystemId !== undefined && isUuid(managedSystemId) ? managedSystemId : null;
 }
 
-type Back = { platformReturn?: string };
-/** One bottom-block entry: either an in-shell menu (`menuId`, opened with the space's Managed System) or a FeedbackOps new-tab `target`. */
-type Row = Pick<FeedbackOpsEntry, 'key' | 'label' | 'icon'> & ({ menuId: string } | { target: (managedSystemId: string, back: Back) => FeedbackOpsTarget });
+/** One bottom-block entry: an in-shell menu opened with the space's Managed System. */
+type Row = Pick<FeedbackOpsEntry, 'key' | 'label' | 'icon'> & { menuId: string };
 const ENTRIES: readonly Row[] = [
   { key: 'voc', icon: MessagesSquare, label: { ko: 'VOC', en: 'VOC' }, menuId: 'fo-inbox' },
   { key: 'task', icon: ListTodo, label: { ko: 'Task', en: 'Tasks' }, menuId: 'fo-task-list' },
   { key: 'survey', icon: ClipboardList, label: { ko: '설문', en: 'Surveys' }, menuId: 'fo-surveys' },
 ];
 
-/** href for one entry; a missing or non-canonical origin yields null (the shell draws the entry disabled, 15 §8). */
-function hrefOrNull(origin: string | null, target: FeedbackOpsTarget): string | null {
-  if (origin === null) return null;
-  try { return buildFeedbackOpsLink({ origin, target }); } catch (error) {
-    if (error instanceof ContractError && error.code === 'feedbackops_origin') return null;
-    throw error;
-  }
-}
-
-/** The FeedbackOps slot for the app. Entries come only from the mapping above; new-tab links come only from `buildFeedbackOpsLink`. VOC (#760), Task (#763) and 설문 (#764) open in the shell; a `target` row would be a new-tab link. */
-export function feedbackOpsSlot(origin: string | null): FeedbackOpsSlot {
+/** The FeedbackOps slot for the app; all entries open in the shell. */
+export function feedbackOpsSlot(): FeedbackOpsSlot {
   return {
-    entriesFor: (spaceId, platformReturn) => {
+    entriesFor: (spaceId) => {
       const managedSystemId = managedSystemFor(spaceId);
       if (managedSystemId === null) return null;
-      const back: Back = platformReturn === undefined ? {} : { platformReturn };
-      return ENTRIES.map((row): FeedbackOpsEntry => 'menuId' in row
-        ? { key: row.key, label: row.label, icon: row.icon, menuId: row.menuId, page: { managedSystem: managedSystemId } }
-        : { key: row.key, label: row.label, icon: row.icon, href: hrefOrNull(origin, row.target(managedSystemId, back)) });
+      return ENTRIES.map((row): FeedbackOpsEntry => ({ key: row.key, label: row.label, icon: row.icon, menuId: row.menuId, page: { managedSystem: managedSystemId } }));
     },
     permission: 'feedbackops:access',
     // No `FeedbackOps 전체` user-menu link any more (#764 p2, ADR-0081 decision 6): every FeedbackOps screen is a platform menu. The SDK slot keeps the field for other apps.

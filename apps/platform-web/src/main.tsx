@@ -13,7 +13,6 @@ import { savedViewsSlot } from '@ap/fo-bridge/saved-views';
 import { scopeControlSlot } from '@ap/fo-bridge/scope-control';
 import { vocComposeSlot } from '@ap/fo-bridge/voc-compose-slot';
 import { createAssembly } from '#platform-assembly';
-import { readFeedbackOpsOrigin } from './feedbackops-origin';
 import { managedSystemFor } from './feedbackops-systems';
 import { createLocalQueryHistoryStore } from './query-history-store';
 import { EQUIPMENT_AXES } from './equipmentAxes';
@@ -22,9 +21,6 @@ import { appSlots } from './slots';
 import { startOrFail } from './startup-failure';
 import { AppShell, RouteOutlet } from '@ap/shell';
 
-// Composition root owns the FeedbackOps origin (issue #60 §4): menus never read the env, the adapter
-// never carries it. Missing env → null → the space entries render disabled and the data still loads.
-const feedbackOpsOrigin = readFeedbackOpsOrigin(import.meta.env.VITE_FEEDBACKOPS_ORIGIN);
 
 // The build picks the assembly (#153, ADR-0009): mock + DevTools in dev/--mode mock, the real adapter in production.
 // It may be asynchronous (the real assembly awaits the bootstrap, #154), so the tree mounts after it answers; it can
@@ -50,7 +46,7 @@ void startOrFail(root, async () => {
   root.render(
     <StrictMode>
       <I18nProvider>
-        <PlatformProvider spaceIdMigrations={SPACE_ID_MIGRATIONS} queryHistory={queryHistory} savedViews={assembly.savedViews} equipmentAxes={EQUIPMENT_AXES} adapter={assembly.adapter} registry={registry} location={location} slots={appSlots(assembly, feedbackOpsOrigin, notificationsSlot, vocCompose, homeTodoSlot, scopeControlSlot, navCountsSlot, savedViewsSlot)}>
+        <PlatformProvider spaceIdMigrations={SPACE_ID_MIGRATIONS} queryHistory={queryHistory} savedViews={assembly.savedViews} equipmentAxes={EQUIPMENT_AXES} adapter={assembly.adapter} registry={registry} location={location} slots={appSlots(assembly, notificationsSlot, vocCompose, homeTodoSlot, scopeControlSlot, navCountsSlot, savedViewsSlot)}>
           <AppShell><RouteOutlet /></AppShell>
         </PlatformProvider>
       </I18nProvider>

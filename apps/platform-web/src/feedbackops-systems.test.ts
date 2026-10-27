@@ -1,11 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { feedbackOpsSlot, FEEDBACKOPS_MANAGED_SYSTEMS, managedSystemFor } from './feedbackops-systems';
 import { SPACES } from './menus';
-import type { FeedbackOpsEntry } from '@ap/kernel';
 import { spaceId } from '@ap/contracts';
 
-const F = 'https://feedbackops.example';
-const hrefOf = (entry: FeedbackOpsEntry) => 'href' in entry ? entry.href : undefined;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 afterEach(() => { vi.restoreAllMocks(); });
@@ -26,7 +23,7 @@ describe('FEEDBACKOPS_MANAGED_SYSTEMS (ADR-0045)', () => {
   });
 
   it('gives every entry the icon the app supplies', () => {
-    for (const entry of feedbackOpsSlot(F).entriesFor(spaceId('mars'))!) expect(entry.icon).toBeDefined();
+    for (const entry of feedbackOpsSlot().entriesFor(spaceId('mars'))!) expect(entry.icon).toBeDefined();
   });
 });
 
@@ -48,7 +45,7 @@ describe('managedSystemFor', () => {
 
 describe('feedbackOpsSlot', () => {
   it.each(['mars', 'bravo'] as const)('draws three entries for %s, in order, scoped to that space only: VOC, Task and 설문 all in the shell', space => {
-    const entries = feedbackOpsSlot(F).entriesFor(spaceId(space))!;
+    const entries = feedbackOpsSlot().entriesFor(spaceId(space))!;
     const uuid = FEEDBACKOPS_MANAGED_SYSTEMS[space]!;
     expect(entries.map(entry => entry.key)).toEqual(['voc', 'task', 'survey']);
     expect(entries.map(entry => entry.label)).toEqual([
@@ -62,40 +59,21 @@ describe('feedbackOpsSlot', () => {
 
   it('draws no platformReturn new-tab entry any more, and no overall link', () => {
     const back = 'https://platform.example/analytics/cycle-time?v=1&scopeId=MEM';
-    const entries = feedbackOpsSlot(F).entriesFor(spaceId('mars'), back)!;
+    const entries = feedbackOpsSlot().entriesFor(spaceId('mars'), back)!;
     expect(entries.some(entry => 'href' in entry)).toBe(false);
-    expect(feedbackOpsSlot(F).overall).toBeNull();
+    expect(feedbackOpsSlot().overall).toBeNull();
   });
 
   it('gates the whole block on feedbackops:access', () => {
-    expect(feedbackOpsSlot(F).permission).toBe('feedbackops:access');
+    expect(feedbackOpsSlot().permission).toBe('feedbackops:access');
   });
 
   it('gives a space without a mapping row no block', () => {
-    expect(feedbackOpsSlot(F).entriesFor(spaceId('operations'))).toBeNull();
+    expect(feedbackOpsSlot().entriesFor(spaceId('operations'))).toBeNull();
   });
 
   it('gives a space no block when its mapped value is not a uuid', () => {
     vi.spyOn(FEEDBACKOPS_MANAGED_SYSTEMS as Record<string, string>, 'mars', 'get').mockReturnValue('MEM');
-    expect(feedbackOpsSlot(F).entriesFor(spaceId('mars'))).toBeNull();
-  });
-
-  it.each([
-    ['absent', null],
-    ['non-https non-loopback', 'http://example.com'],
-    ['with a path', 'https://feedbackops.example/app'],
-  ])('keeps the three mapped in-shell entries when the origin is %s', (_name, origin) => {
-    const slot = feedbackOpsSlot(origin);
-    // VOC, Task and 설문 are in-shell and need no FeedbackOps address.
-    const entries = slot.entriesFor(spaceId('mars'))!;
-    expect(entries.map(hrefOf)).toEqual([undefined, undefined, undefined]);
-    expect(entries[0]).toMatchObject({ menuId: 'fo-inbox' });
-    expect(entries[1]).toMatchObject({ menuId: 'fo-task-list', page: { managedSystem: FEEDBACKOPS_MANAGED_SYSTEMS.mars } });
-    expect(slot.entriesFor(spaceId('operations'))).toBeNull();
-    expect(slot.overall).toBeNull();
-  });
-
-  it.each([[F], ['http://localhost:5173'], [null]])('draws no FeedbackOps 전체 link for origin %s (#764 p2, ADR-0081 decision 6)', origin => {
-    expect(feedbackOpsSlot(origin).overall).toBeNull();
+    expect(feedbackOpsSlot().entriesFor(spaceId('mars'))).toBeNull();
   });
 });

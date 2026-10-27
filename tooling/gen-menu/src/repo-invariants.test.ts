@@ -229,7 +229,7 @@ describe('menu version metadata', () => {
     keep.push(root);
     const dir = join(root, 'menus/mars/example');
     mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, 'package.json'), JSON.stringify({ version: '0.1.0', ap: { sdk: '>=0.17.0 <0.18.0' } }));
+    writeFileSync(join(dir, 'package.json'), JSON.stringify({ version: '0.1.0', ap: { sdk: '>=0.19.0 <0.20.0' } }));
     writeFileSync(join(dir, 'CHANGELOG.md'), '# 기록\n\n## 0.1.0 — 2026-10-27\n');
     return root;
   };
