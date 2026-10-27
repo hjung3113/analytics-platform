@@ -11,3 +11,5 @@ export const manifests: MenuEntry[] = [
     context: contextCapabilities(), features: NO_FEATURES, pageKeys: [],
   },
 ];
+
+// ci probe: menu change
