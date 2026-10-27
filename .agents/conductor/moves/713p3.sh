@@ -152,10 +152,11 @@ echo "713p3: substituted"
 # 두 워크플로, 링크 검사기, hookify 규칙, 두 conductor.json, 루트·docs 문서 문장 …). 이미 적용돼 있으면(역방향 적용이 되면) 건너뛴다.
 PATCH=.agents/conductor/moves/713p3-config.patch
 if [ -f "$PATCH" ]; then
-  if patch -p1 -R --dry-run --silent <"$PATCH" >/dev/null 2>&1; then
+  # git apply (not BSD patch: its -R dry run answers "ignore -R? y" without a tty and reports success on an unpatched tree)
+  if git apply -R --check "$PATCH" >/dev/null 2>&1; then
     echo "713p3: config patch already applied"
   else
-    patch -p1 -N --no-backup-if-mismatch <"$PATCH"
+    git apply "$PATCH"
     echo "713p3: config patch applied"
   fi
 fi
