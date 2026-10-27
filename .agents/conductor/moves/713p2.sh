@@ -122,7 +122,7 @@ perl -pi \
   -e 's#`products/feedbackops/\*\*`, `ops/feedbackops/\*\*`, `packages/\{ui,#`products/feedbackops/**`, `apps/fo-*/**`, `packages/fo-*/**`, `ops/feedbackops/**`, `packages/{ui,#;' \
   -e 's#`flags.submodule`\(`products/feedbackops/`·`ops/feedbackops/` 변경\)#`flags.submodule`(`products/feedbackops/`·`apps/fo-*`·`packages/fo-*`·`ops/feedbackops/` 변경)#;' \
   -e 's#FeedbackOps 화면\(`products/feedbackops/\*\*`\)#FeedbackOps 화면(`apps/fo-frontend/**`)#;' \
-  -e 's#products/feedbackops/node_modules apps/\*/node_modules products/feedbackops/packages/\*/node_modules#products/feedbackops/node_modules apps/fo-*/node_modules packages/fo-*/node_modules#;' \
+  -e 's#products/feedbackops/node_modules apps/fo-\*/node_modules products/feedbackops/packages/\*/node_modules#products/feedbackops/node_modules apps/fo-*/node_modules packages/fo-*/node_modules#;' \
   -e 's#`products/feedbackops/\*\*`의 관련 없는 파일#`products/feedbackops/**`·`apps/fo-*`의 관련 없는 파일#;' .agents/conductor/PROFILE.md
 perl -pi \
   -e 's#FeedbackOps is `products/feedbackops/` \(apps, packages, docs\)#FeedbackOps is `apps/fo-backend`, `apps/fo-frontend`, `packages/fo-shared`, `packages/fo-ui` (apps, packages) and `products/feedbackops/` (docs)#;' \
@@ -168,28 +168,34 @@ if ! grep -q '^# FeedbackOps (713p2)' .gitignore; then
   cat >> .gitignore <<'GI'
 
 # FeedbackOps (713p2): products/feedbackops/.gitignore의 경로 고정 항목 (앱이 apps/fo-*로 이동)
-# The bridge entry `@fops/frontend/operator-screens/coverage` (#762 c) is source, not a test-coverage report.
-!apps/fo-frontend/src/operator-screens/coverage/
 # TanStack Router generated route tree
 apps/fo-frontend/src/routeTree.gen.ts
 # Pre-bundled Drizzle schema consumed by drizzle-kit (apps/fo-backend/scripts/bundle-schema.mjs)
 apps/fo-backend/.drizzle-schema/
-# Unanchored entries of the old file, kept for the FO apps and packages only (the platform has its own rules)
+# Unanchored entries of the old file, kept at every depth under the FO apps and packages (the platform has its own rules)
 apps/fo-*/**/.vite
 apps/fo-*/**/report/
+apps/fo-*/**/coverage
+apps/fo-*/**/build
 apps/fo-*/**/*.log
 apps/fo-*/**/smoke-*.png
 apps/fo-*/**/visual-*.png
+packages/fo-*/**/.vite
+packages/fo-*/**/report/
+packages/fo-*/**/coverage
+packages/fo-*/**/build
 packages/fo-*/**/*.log
-# .env files of the old file, anchored to the FO apps and packages (.env.example stays tracked)
-apps/fo-*/.env
-apps/fo-*/.env.local
-apps/fo-*/.env.*.local
-apps/fo-*/.env.release
-packages/fo-*/.env
-packages/fo-*/.env.local
-packages/fo-*/.env.*.local
-packages/fo-*/.env.release
+# The bridge entry `@fops/frontend/operator-screens/coverage` (#762 c) is source, not a test-coverage report.
+!apps/fo-frontend/src/operator-screens/coverage/
+# .env files of the old file, at every depth under the FO apps and packages (.env.example stays tracked)
+apps/fo-*/**/.env
+apps/fo-*/**/.env.local
+apps/fo-*/**/.env.*.local
+apps/fo-*/**/.env.release
+packages/fo-*/**/.env
+packages/fo-*/**/.env.local
+packages/fo-*/**/.env.*.local
+packages/fo-*/**/.env.release
 GI
 fi
 
@@ -204,3 +210,9 @@ perl -pi -e 's#FO `apps/frontend/package\.json`#FO `apps/fo-frontend/package.jso
 perl -pi -e 's#(?<![\w/.-])apps/backend\b#apps/fo-backend#g' .agents/conductor/addenda/impl-rules-fo.md ops/feedbackops/scripts/db/init.sql ops/feedbackops/scripts/gates/db-migration-drift-gate.mjs
 # products/feedbackops/.gitignore: 루트 .gitignore로 옮긴 경로 고정 항목을 지운다(나머지는 p3).
 perl -ni -e 'print unless m{^(!apps/frontend/src/operator-screens/coverage/|apps/frontend/src/routeTree\.gen\.ts|apps/backend/\.drizzle-schema/)$} || m{^# (The bridge entry `\@fops/frontend/operator-screens/coverage`|TanStack Router generated route tree|Pre-bundled Drizzle schema consumed by drizzle-kit)}' products/feedbackops/.gitignore
+
+# check-boundaries.mjs: 앱 간 import 규칙이 형제 앱 폴더 이름을 경로 지도에서 읽게 한다(멱등: siblingImport 유무로 판단).
+CB=ops/feedbackops/scripts/check-boundaries.mjs
+if ! grep -q 'const siblingImport' "$CB"; then
+  perl -0pi -e 's#(const BACKEND_MODULES = [^\n]*\n)#$1// An app reaches its sibling app as `../../<folder>/…` (both live under apps/), so the pattern names the sibling by its\n// folder in the path map.\nconst siblingImport = (dir) => new RegExp(`from\\\\s+[\x27"]\\\\.\\\\./\\\\.\\\\./\${basename(dir)}/`);\n#; s#/from\\s\+\[\x27"\]\\\.\\\.\\/\\\.\\\.\\/backend\\/\/#siblingImport(FO_BACKEND)#; s#/from\\s\+\[\x27"\]\\\.\\\.\\/\\\.\\\.\\/frontend\\/\/#siblingImport(FO_FRONTEND)#; s#must not import apps/backend\x27#must not import apps/fo-backend\x27#; s#must not import \@fops/ui or apps/frontend\x27#must not import \@fops/ui or apps/fo-frontend\x27#' "$CB"
+fi

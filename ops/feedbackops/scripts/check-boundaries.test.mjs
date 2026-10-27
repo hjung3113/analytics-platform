@@ -404,6 +404,26 @@ runCase(
   ],
 );
 
+runCase(
+  'frontend importing the sibling backend app fails',
+  {
+    ...zero,
+    [join(FO_FRONTEND, 'src', 'probe.ts')]: "import x from '../../fo-backend/src/server.js';\n",
+  },
+  false,
+  [`${FO_FRONTEND}/src/probe.ts:`, 'must not import apps/fo-backend'],
+);
+
+runCase(
+  'backend importing the sibling frontend app fails',
+  {
+    ...zero,
+    [join(FO_BACKEND, 'src', 'probe.ts')]: "import x from '../../fo-frontend/src/main.js';\n",
+  },
+  false,
+  [`${FO_BACKEND}/src/probe.ts:`, 'apps/fo-frontend'],
+);
+
 if (failures > 0) {
   console.error(`\n${failures} test case(s) failed`);
   process.exit(1);
