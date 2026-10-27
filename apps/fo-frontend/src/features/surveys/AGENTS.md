@@ -46,6 +46,7 @@ It does not own VOC creation, Finding persistence, Task mutation, or permission 
 - `apps/fo-frontend/src/features/surveys/components/list/SurveyList.tsx` — Survey list rows and list states.
 - `apps/fo-frontend/src/features/surveys/components/detail/SurveyDetail.tsx` — standalone Survey detail aside; frames the pieces of `SurveyDetailParts.tsx`.
 - `apps/fo-frontend/src/features/surveys/components/detail/SurveyDetailParts.tsx` — Survey detail as `DetailParts` (`useSurveyDetailParts`: loading / not-found / blocked / error / full) plus the shared pieces; entry `operator-screens/survey-detail`.
+- `apps/fo-frontend/src/features/surveys/routes/SurveyBuilderScreen.tsx` — bridge-safe Survey builder screen (data states, manage gate, Back with a dirty draft confirmed by the screen) over the host seam; the host owns `onBack`. Entry `operator-screens/survey-builder`. The standalone route adds the router blocker over `leaveGuard`; the bridge accepts draft loss on menu switch.
 - `apps/fo-frontend/src/features/surveys/components/builder/SurveyBuilder.tsx` — Survey builder composition.
 - `apps/fo-frontend/src/features/surveys/components/SurveyStatusBadge.tsx` — Survey status labels and badge styles.
 - `apps/fo-frontend/src/features/surveys/components/results/SurveyResultsSummary.tsx` — result summary and follow-up actions.

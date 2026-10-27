@@ -1102,6 +1102,31 @@ describe('Survey screens', () => {
     },
   );
 
+  it.each(['back button', 'router navigation'] as const)(
+    'shows exactly one leave dialog for a dirty Survey builder through %s, and none after confirming',
+    async (departure) => {
+      const { router } = renderBuilderRouteWithRouter();
+      await screen.findByTestId('survey-builder');
+      fireEvent.change(screen.getByRole('textbox', { name: 'Survey 제목' }), {
+        target: { value: '수정한 제목' },
+      });
+      if (departure === 'back button') {
+        fireEvent.click(screen.getByRole('button', { name: '뒤로' }));
+      } else {
+        await act(async () => {
+          void router.navigate({ to: '/away' as never });
+          await Promise.resolve();
+        });
+      }
+      await screen.findByText('변경사항이 저장되지 않았습니다');
+      expect(screen.getAllByText('변경사항이 저장되지 않았습니다')).toHaveLength(1);
+      expect(screen.getAllByRole('button', { name: '이동' })).toHaveLength(1);
+      fireEvent.click(screen.getByRole('button', { name: '이동' }));
+      expect(await screen.findByTestId('survey-builder-away')).toBeInTheDocument();
+      expect(screen.queryByText('변경사항이 저장되지 않았습니다')).toBeNull();
+    },
+  );
+
   it.each([
     ['clean', false],
     ['dirty', true],
