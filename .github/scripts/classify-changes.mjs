@@ -15,7 +15,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const DOCS_ONLY = /(\.md$|^\.agents\/)/;
+export const DOCS_ONLY = /(\.md$|^\.agents\/)/;
 // FeedbackOps frontend sources are bundled into the demo through the `@` alias; GLOSSARY.md feeds the site's banned-term check.
 const SITE_DIRS = /^(menus|packages|apps\/fo-frontend|apps\/platform-web|site|tooling|patches)\//;
 const SITE_FILES = /^(package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|GLOSSARY\.md|apps\/platform-e2e\/package\.json|\.github\/workflows\/(ci|pages)\.yml)$/;
