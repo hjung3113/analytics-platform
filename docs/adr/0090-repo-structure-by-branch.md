@@ -35,7 +35,7 @@
 | `menus/analytics/*`, `menus/metrics/*` | `menus/mars/*`, `menus/bravo/*` (공간 id도 `mars`·`bravo`; 그룹 id 불변) |
 | `prototypes/*` | `archive/*` (CI 작업은 유지하고 경로만 바꾼다) |
 | `docs/NN_*.md` (17개) | 종류별 폴더 5+1개(713j): `docs/overview/`(00 개요, 05 결정 상태), `docs/product/`(17 요구사항, 02 도메인), `docs/architecture/`(01 아키텍처·데이터 계약, 03 백엔드, 04 프론트), `docs/contract/`(06), `docs/wireframes/`(07–09·11–13), `docs/design/`(14 드릴다운, 15 다중 워크스페이스, 16 분석 보드). 파일명에서 번호를 뗀다. 번호 약칭("06 §4")은 본문에서 그대로 쓰고 `docs/INDEX.md`의 대응표가 약칭을 파일로 잇는다 |
-| `docs/contract/platform-ui-contract.md`(06) | `docs/contract/` 아래 갈래별 문서(Kernel, 공통 컴포넌트, 차트, 레이아웃, 메뉴 간 연결 + 색인; 분할은 713k, 713j는 한 파일 그대로 옮긴다). 06의 `§N` 번호는 분할 문서 안에서 그대로 유지한다(번호 재부여 없음) |
+| `docs/contract/platform-ui-contract.md`(06) | `docs/contract/` 아래 갈래별 문서(`kernel.md`·`components.md`·`chart.md`·`layout.md`·`cross-menu-links.md` + 색인 `platform-ui-contract.md`; 분할은 713k, 713j는 한 파일 그대로 옮긴다). 06의 `§N` 번호는 분할 문서 안에서 그대로 유지한다(번호 재부여 없음) |
 | `tooling/` 비패키지(`scripts`, `sdk-api`) | 713l 브리프가 정한다(경로가 정해지면 이 표에 한 줄 추가) |
 | `tooling/` 결과(713l) | SDK 도구 `tooling/scripts/sdk-*`·스냅샷 `tooling/sdk-api` → `tooling/sdk/`(713l) |
 

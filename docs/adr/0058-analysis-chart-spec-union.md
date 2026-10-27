@@ -25,4 +25,4 @@
 
 ## 결과
 
-`@ap/components`가 `AnalysisChart`, `ChartSpec`, `HeatmapSpec`, `HeatmapCell`, `DonutSpec`, `DonutSlice`, `AnalysisChartProps`, `ScatterPoint`, `ScatterSpec`, `BoxStats`, `BoxPlotSpec`, `ParetoSpec`를 추가로 공개한다. #546에서 scatter·boxPlot·pareto를 추가하며 표·CSV·명시적 상세·로컬 선택 계약을 함께 적용한다. 상호작용의 소유 계약은 [06 §16](../contract/platform-ui-contract.md#16-analysis-chart-contract)이며 크기·레이아웃 확장은 #547에서 다룬다.
+`@ap/components`가 `AnalysisChart`, `ChartSpec`, `HeatmapSpec`, `HeatmapCell`, `DonutSpec`, `DonutSlice`, `AnalysisChartProps`, `ScatterPoint`, `ScatterSpec`, `BoxStats`, `BoxPlotSpec`, `ParetoSpec`를 추가로 공개한다. #546에서 scatter·boxPlot·pareto를 추가하며 표·CSV·명시적 상세·로컬 선택 계약을 함께 적용한다. 상호작용의 소유 계약은 [06 §16](../contract/chart.md#16-analysis-chart-contract)이며 크기·레이아웃 확장은 #547에서 다룬다.

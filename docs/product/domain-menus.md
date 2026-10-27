@@ -8,11 +8,11 @@
 
 - **메뉴 레지스트리**: 메뉴를 선언적으로 등록해 신규 메뉴 추가 시 셸 코드 수정 없이 확장 — 배포 없이 설치하는 외부 플러그인은 별개 요구로, 초기에는 코드 내 선언만으로 충분
 - **전역 필터 컨텍스트**: 기간/room_name/설비/Equipment Group Condition·Selection/Lot/PPID/Recipe 등 공통 필터를 메뉴 간 유지되는 상태로 관리
-- **필터 포워딩(딥링크) 프로토콜**: URL query param 계약을 전역 필터 컨텍스트와 동일한 상태로 설계 — 다른 기능보다 먼저 계약을 고정해야 이후 메뉴가 늘어도 재작업이 없다. 상세는 `../contract/platform-ui-contract.md` §6
+- **필터 포워딩(딥링크) 프로토콜**: URL query param 계약을 전역 필터 컨텍스트와 동일한 상태로 설계 — 다른 기능보다 먼저 계약을 고정해야 이후 메뉴가 늘어도 재작업이 없다. 상세는 `../contract/kernel.md` §6
 - **공통 위젯/대시보드 프레임워크**: 차트/표/도식 배치 레이아웃 엔진 — 실제 분석 화면 2~3개에서 반복되는 책임을 먼저 확인한 뒤 추출(후순위)
 - **지표 정의 관리**: 계산식뿐 아니라 grain/분자·분모/기간/버전·발행이력/커버리지까지 데이터로 관리해 여러 분석 메뉴가 같은 정의를 참조
 - **데이터 최신성/커버리지 표시 + 재집계(지연 완료) 정책**: 열린 occurrence는 결과 테이블에 없고, 늦게 완료되면 과거 구간 집계가 다시 바뀔 수 있다 — "확정/미확정" 개념과 캐시 무효화 모델이 필요(재계산 트리거는 지연 완료뿐 아니라 마스터 소급 정정·설비 재분류·지표 정의 변경도 포함, 상세는 [01 재계산 트리거](../architecture/architecture-and-data-contract.md#mart-재계산-트리거)와 [R/H 정책](../architecture/architecture-and-data-contract.md#late-arrival-policy))
-- **권한/역할 관리**: 메뉴 단위 + [06 §6.2의 Site·room_name 기준 Scope](../contract/platform-ui-contract.md#62-scope와-권한-decided--open) 접근 제어(Site→room_name→StGroup→Equipment 관계, Line은 독립 축), 캐시·내보내기·저장된 뷰·공유 링크에도 동일하게 적용
+- **권한/역할 관리**: 메뉴 단위 + [06 §6.2의 Site·room_name 기준 Scope](../contract/kernel.md#62-scope와-권한-decided--open) 접근 제어(Site→room_name→StGroup→Equipment 관계, Line은 독립 축), 캐시·내보내기·저장된 뷰·공유 링크에도 동일하게 적용
 - **변경 감사(Audit Trail)**: 마스터/기준정보/지표 정의 변경의 who/when/before-after 기록 — 유효기간 이력과는 별개 기능(언제 바뀌었는지 계산 vs 누가 바꿨는지 기록)
 - **저장된 조회조건/즐겨찾기, 최근 조회 이력**
 
@@ -29,4 +29,4 @@
 
 ### 정보구조 그룹과의 관계
 
-이 표는 6개 도메인 capability를 분류한다. navigation IA의 단일 기준은 `../contract/platform-ui-contract.md` §9다. 공지와 VOC는 별개 도메인이지만 하나의 내비게이션 그룹을 공유하며, 운영 개요·관리·감사는 플랫폼 기능 그룹이다. 도메인 표와 navigation IA를 동일한 목록으로 맞추지 않는다.
+이 표는 6개 도메인 capability를 분류한다. navigation IA의 단일 기준은 `../contract/kernel.md` §9다. 공지와 VOC는 별개 도메인이지만 하나의 내비게이션 그룹을 공유하며, 운영 개요·관리·감사는 플랫폼 기능 그룹이다. 도메인 표와 navigation IA를 동일한 목록으로 맞추지 않는다.

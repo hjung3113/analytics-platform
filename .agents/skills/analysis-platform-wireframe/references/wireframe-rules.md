@@ -18,7 +18,7 @@ Loaded by `analysis-platform-wireframe` before Step 2 of the pipeline. This file
 
 Global navigation → workspace hierarchy → pages → sub-pages → entity/detail relationships → cross-page navigation. No JSX/HTML yet — produce a short tree.
 
-Use `docs/contract/platform-ui-contract.md` §9 as the sole navigation IA source. `docs/product/domain-menus.md` is a domain capability catalog, not a competing navigation tree. `docs/wireframes/app-shell.md` illustrates the contract; this skill must not redefine or approve IA.
+Use `docs/contract/kernel.md` §9 as the sole navigation IA source. `docs/product/domain-menus.md` is a domain capability catalog, not a competing navigation tree. `docs/wireframes/app-shell.md` illustrates the contract; this skill must not redefine or approve IA.
 
 ## Step 3 — Screen Specification
 

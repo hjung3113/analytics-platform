@@ -4,7 +4,7 @@
 
 ## 소유권
 
-- `contract/platform-ui-contract.md` — 전역 계약과 navigation IA. 다른 문서는 이를 소비한다.
+- `contract/platform-ui-contract.md`(색인·전 갈래에 걸친 원칙·거버넌스·완료 정의와 「절 → 문서」 대응표)와 갈래별 `contract/{kernel,components,chart,layout,cross-menu-links}.md` — 전역 계약과 navigation IA. §번호는 문서가 나뉘어도 하나의 번호 체계이고, 다른 문서는 이를 소비한다.
 - `architecture/` — `01` 데이터 계약·운영 정책, `03` 백엔드, `04` 프론트 기술 스택·검토. `product/` — `02` 도메인 catalog, `17` 플랫폼 요구사항. `overview/` — `00` 개요, `05` ADR 없는 계약 결정 목록. `wireframes/` — `07`–`13` 화면 설계(셸과 견본 메뉴의 계약 메모). `design/` — `14`–`16` 드릴다운·다중 워크스페이스·분석 보드 설계. 번호 약칭과 파일의 대응은 [INDEX.md](INDEX.md).
 - `adr/` — 실제 대안 중에서 고른 결정과 그 이유. 목록·형식은 [adr/README.md](adr/README.md). 세부 규칙은 소유 문서에 두고 ADR은 링크한다.
 - 플랫폼 ADR은 `ADR-NNNN`, FeedbackOps ADR(`docs/feedbackops/adr/`)은 `FO ADR-NNNN`으로 쓴다. 두 번호 공간이 겹치므로 플랫폼 문서와 코드 주석에서 FeedbackOps ADR을 접두 없이 부르지 않는다.

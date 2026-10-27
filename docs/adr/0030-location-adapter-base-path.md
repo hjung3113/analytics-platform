@@ -3,7 +3,7 @@
 상태: **Decided (2026-10-13)**.
 - 결정자: 사용자 kimhyojung (2026-10-13).
 
-소개 사이트의 mock 데모(#317)는 `/analytics-platform/demo/`에 배포되며 사내 앱도 프록시 하위 경로에 배포될 수 있다(#151). 기존 기능의 영향을 최소화하면서 브라우저 주소와 앱 내부 경로를 연결해야 한다(#318). URL 계약 원본은 [06 §6.4](../contract/platform-ui-contract.md#64-url-계약-decided-필드명enum-문자열은-candidate)이다.
+소개 사이트의 mock 데모(#317)는 `/analytics-platform/demo/`에 배포되며 사내 앱도 프록시 하위 경로에 배포될 수 있다(#151). 기존 기능의 영향을 최소화하면서 브라우저 주소와 앱 내부 경로를 연결해야 한다(#318). URL 계약 원본은 [06 §6.4](../contract/kernel.md#64-url-계약-decided-필드명enum-문자열은-candidate)이다.
 
 ## 결정
 

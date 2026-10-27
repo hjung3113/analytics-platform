@@ -21,7 +21,7 @@
 | 백엔드·인프라 | [01 아키텍처·데이터 계약](architecture/architecture-and-data-contract.md) | [03 백엔드](architecture/backend-stack.md), [실서버 연결 체크리스트](integration/real-server-checklist.md) |
 | 플랫폼·프론트엔드 | [06 플랫폼 계약](contract/platform-ui-contract.md) | [04 프론트 기술 스택](architecture/frontend-ui-ux.md), [07 셸](wireframes/app-shell.md) |
 | 사내 적용(백엔드·인프라·사내 메뉴 개발자) | [사내 적용 가이드](integration/in-house-rollout.md) | [실서버 연결 체크리스트](integration/real-server-checklist.md), [전송 형식](integration/http-adapter-contract.md) |
-| 시간·기간·지연 완료 계약 변경 | [06 시간 계약](contract/platform-ui-contract.md#ctx-time) | [01 R/H 정책 원본](architecture/architecture-and-data-contract.md#late-arrival-policy) |
+| 시간·기간·지연 완료 계약 변경 | [06 시간 계약](contract/kernel.md#ctx-time) | [01 R/H 정책 원본](architecture/architecture-and-data-contract.md#late-arrival-policy) |
 
 새 메뉴는 06 계약부터 읽고 Platform Done(§29)을 먼저 확인한다. 화면 설계 절차는 [설계 스킬](../.agents/skills/analysis-platform-wireframe/SKILL.md).
 
@@ -36,7 +36,7 @@
 | 서버 계약·어댑터(실서버 전환 포함) | [사내 적용 가이드](integration/in-house-rollout.md)(순서) → [실서버 연결 체크리스트](integration/real-server-checklist.md)(규칙) → [전송 형식](integration/http-adapter-contract.md)(HTTP 경계), [ADR-0019](adr/0019-menu-query-endpoint-declaration.md), 06 §18–19 | [contracts](../packages/contracts/AGENTS.md) → [mock-server](../packages/mock-server/AGENTS.md) → [server-conformance](../packages/server-conformance/AGENTS.md) → [apps/platform-web](../apps/platform-web/AGENTS.md)(주입·dev 도구) | `packages/contracts/src/adapter/adapter.ts`·`menu-query.ts` → `packages/mock-server/src/adapter.ts` |
 | 공통 컴포넌트·차트·상태 화면 | 06 §13·§15·§16·§18–19·§24 | [packages](../packages/AGENTS.md) → [components](../packages/components/AGENTS.md) → primitive가 필요하면 [ui](../packages/ui/AGENTS.md) | `packages/components/src/` → 소비 화면(`menus/*/*/src/pages`) |
 | 셸(레일·사이드바·페이지 머리·Context 바·상세 슬롯·라우트 상태·공간) | [07 셸](wireframes/app-shell.md), 06 §7–9 | [shell](../packages/shell/AGENTS.md) → 슬롯·Registry는 [kernel](../packages/kernel/AGENTS.md) | `packages/shell/src/` → 앱 `src/main.tsx`(조립) |
-| 디자인 토큰·시각 규칙 | [DESIGN](../DESIGN.md), [ADR-0043](adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md)(원본 소유는 플랫폼, 토큰·유틸·primitive 코드는 #441에서 이전, [ADR-0046](adr/0046-design-system-source-moves-to-platform-whole-package.md)), [ADR-0011](adr/0011-design-direction-feedbackops-shell.md) → [FO ADR-0058](feedbackops/adr/0058-tailwind-v4-css-first-theme.md), [06 §23](contract/platform-ui-contract.md#23-design-tokens) | [ui](../packages/ui/AGENTS.md) | `packages/ui/src/styles/` |
+| 디자인 토큰·시각 규칙 | [DESIGN](../DESIGN.md), [ADR-0043](adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md)(원본 소유는 플랫폼, 토큰·유틸·primitive 코드는 #441에서 이전, [ADR-0046](adr/0046-design-system-source-moves-to-platform-whole-package.md)), [ADR-0011](adr/0011-design-direction-feedbackops-shell.md) → [FO ADR-0058](feedbackops/adr/0058-tailwind-v4-css-first-theme.md), [06 §23](contract/components.md#23-design-tokens) | [ui](../packages/ui/AGENTS.md) | `packages/ui/src/styles/` |
 | 플랫폼 계약 자동 검사(E2E) | 06 §6·§11·§17·§19·§22 | [apps/platform-e2e](../apps/platform-e2e/AGENTS.md) | `apps/platform-e2e/tests/contract-*.spec.ts` → `contract-helpers.ts`·`support.ts` → 보고 `contract-reporter.ts` |
 | 모노레포 구조·빌드·CI·접두사 변경 | [패키지 경계](integration/platform-packages.md), [저장소 구조](integration/repository-layout.md) | [tooling](../tooling/AGENTS.md) → [packages](../packages/AGENTS.md) | 루트 `package.json`·`pnpm-workspace.yaml`·`turbo.json` → `.github/workflows/ci.yml` |
 | 설계 문서·결정 갱신 | 해당 소유 문서 → [ADR 목록](adr/README.md) 또는 [05](overview/roadmap-and-open-questions.md) | [docs](AGENTS.md) | 바꾼 뒤 `pnpm docs:links` |
@@ -56,7 +56,7 @@
 | 03 | [architecture/backend-stack.md](architecture/backend-stack.md) |
 | 04 | [architecture/frontend-ui-ux.md](architecture/frontend-ui-ux.md) |
 | 05 | [overview/roadmap-and-open-questions.md](overview/roadmap-and-open-questions.md) |
-| 06 | [contract/platform-ui-contract.md](contract/platform-ui-contract.md) |
+| 06 | [contract/platform-ui-contract.md](contract/platform-ui-contract.md)(색인, 「절 → 문서」 대응표) → 갈래별 문서 [kernel](contract/kernel.md)(§4–6·§9–11·§17·§21)·[components](contract/components.md)(§13–15·§18–20·§23)·[chart](contract/chart.md)(§16)·[layout](contract/layout.md)(§7·§8·§12·§25)·[cross-menu-links](contract/cross-menu-links.md)(§22) |
 | 07 | [wireframes/app-shell.md](wireframes/app-shell.md) |
 | 08 | [wireframes/operations-overview.md](wireframes/operations-overview.md) |
 | 09 | [wireframes/equipment-master.md](wireframes/equipment-master.md) |
@@ -79,7 +79,7 @@
 - [04 프론트 기술 스택](architecture/frontend-ui-ux.md) — 라이브러리 결정과 코드 현황, 그리드·차트·데이터 도구 검토, 페이지별 UI 패턴.
 - [05 결정 상태](overview/roadmap-and-open-questions.md) — ADR 없는 계약 결정 목록, MVP 지원 환경, 메뉴 활용률 계측 정책.
 - [17 플랫폼 요구사항](product/platform-requirements.md) — 플랫폼이 제공해야 하는 기능 전체(된 것·만들 것)를 사용자·운영자·개발자 언어로 모은 요구 목록과 상태. 소개 사이트(#468)의 근거. Candidate.
-- [06 플랫폼 UI 계약](contract/platform-ui-contract.md) — Platform Kernel, Menu Registry, Context Capability, Shell Slot, Page Archetype, 공통 컴포넌트 승격 기준, Data Trust·권한·상태 UX, navigation IA. **전역 계약의 원본.**
+- [06 플랫폼 UI 계약](contract/platform-ui-contract.md)(색인; 절은 갈래별 문서에 있고 §번호는 그대로) — Platform Kernel, Menu Registry, Context Capability, Shell Slot, Page Archetype, 공통 컴포넌트 승격 기준, Data Trust·권한·상태 UX, navigation IA. **전역 계약의 원본.**
 - [07 App Shell](wireframes/app-shell.md) — 셸 구조(ADR-0011·0013·0015로 Decided)와 IA.
 - 견본 메뉴 화면의 계약 메모(사내에서 새로 만들 메뉴라 계약에 닿는 부분만 둔다): [08 운영 개요](wireframes/operations-overview.md), [09 설비 마스터](wireframes/equipment-master.md), [11 생산성 개요](wireframes/productivity-overview.md), [12 사이클타임 드릴다운](wireframes/cycle-time-drilldown.md)(대표 드릴다운 왕복 계약), [13 지표 카탈로그](wireframes/metric-catalog.md)(`metricId`+`metricVersion` 쌍의 원본). 드릴다운 플랫폼 기능: [14 드릴다운 — 플랫폼 기능과 레이아웃](design/drilldown-platform.md)(#225, ADR-0025). 업무 시스템별 공간과 FeedbackOps 협업 진입: [15 멀티 워크스페이스](design/multi-workspace-ui.md)(#249, ADR-0026). 여러 화면을 한 화면에 나란히 보는 작업대: [16 분석 보드](design/analysis-board.md)(#421, 1차 동작 Decided·화면 모양 Candidate, ADR-0049).
 

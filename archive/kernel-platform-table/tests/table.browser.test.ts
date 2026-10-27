@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 const dataRows = '[data-testid=data-row]';
 test.beforeEach(async ({ page }) => { await page.goto('/'); await expect(page.locator(dataRows).first()).toBeVisible(); });
 test('contract baseline is applied in real Chromium layout', async ({ page }) => {
-  const contract = readFileSync('../../docs/contract/platform-ui-contract.md', 'utf8');
+  const contract = readFileSync('../../docs/contract/components.md', 'utf8');
   const design = readFileSync('../../DESIGN.md', 'utf8');
   expect(contract).toContain('Row height       32px'); expect(contract).toContain('Header height    32px'); expect(contract).toContain('Cell padding     4px 12px');
   expect(design).toContain('rowMinHeight: 32px'); expect(design).toContain('headerMinHeight: 32px'); expect(design).toContain('cellPadding: 4px 12px');

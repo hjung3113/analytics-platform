@@ -19,12 +19,12 @@
 
 ## 재현성 계약
 
-지표 버전을 고정해도 늦게 완료된 occurrence, 마스터 이력 정정, `module_class_map` 재분류로 같은 URL의 숫자는 바뀔 수 있다. 딥링크는 "조회조건과 지표 버전의 재현"만 보장하고 "같은 숫자의 재현"은 보장하지 않는다 — 결과 화면에는 계산 기준시각을 표시한다. 상세는 `../contract/platform-ui-contract.md` §6.1(Decided).
+지표 버전을 고정해도 늦게 완료된 occurrence, 마스터 이력 정정, `module_class_map` 재분류로 같은 URL의 숫자는 바뀔 수 있다. 딥링크는 "조회조건과 지표 버전의 재현"만 보장하고 "같은 숫자의 재현"은 보장하지 않는다 — 결과 화면에는 계산 기준시각을 표시한다. 상세는 `../contract/kernel.md` §6.1(Decided).
 
 <a id="시간-계약-중요--2차-리뷰에서-발견된-실수"></a>
 ## 시간 계약
 
-파서의 업무 시각은 **시간대 없는 설비 wall-clock**이다(`context_recognized_parser` 원칙). 소비 계층이 이를 UTC로 임의 변환하면 조회 구간과 마스터 귀속이 틀어진다. 원천 의미는 이 절이 소유하고, 전역 Context·URL의 시간 메커니즘은 [06 전역 계약](../contract/platform-ui-contract.md) §6.3을 따른다.
+파서의 업무 시각은 **시간대 없는 설비 wall-clock**이다(`context_recognized_parser` 원칙). 소비 계층이 이를 UTC로 임의 변환하면 조회 구간과 마스터 귀속이 틀어진다. 원천 의미는 이 절이 소유하고, 전역 Context·URL의 시간 메커니즘은 [06 전역 계약](../contract/kernel.md) §6.3을 따른다.
 
 - **Decided — 메커니즘:** half-open `[from, to)`, v1의 초 단위 naive URL, 날짜-only 입력 변환과 URL 형식 구분, TZ 미확인 fallback, 서버 assertion에 의한 복수 설비 시간축 병합 가드, `defaultRangeTo` 물질화는 06 §6.3에 정의돼 있다. 공개 필드명·구현 산출물 형식은 원본의 Candidate 상태를 따른다.
 - **Decided — 초기 TZ:** 한국(Asia/Seoul) 단일값으로 우선 시작한다([05 결정 상태](../overview/roadmap-and-open-questions.md), 2026-09-22). 중국 시안·미국 오스틴으로의 확장 여지는 배제하지 않으며, 이 초기값이 시간역 병합 assertion을 대신하지 않는다.

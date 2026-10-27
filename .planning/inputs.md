@@ -18,10 +18,10 @@
 번호는 옛 `PLATFORM_REQUIREMENTS.md` Open Questions 번호를 유지한다(화면 설계 문서가 이 번호로 인용한다). 1·10·14번은 결정이 끝나 지웠다.
 
 <a id="q2"></a>
-**2. Scope 상속 세부** — 관계(Site → room_name → StGroup → Equipment, Line 독립 축)와 room_name 기준 권한은 Decided(ADR-0004·0005). v1 Scope 단일 선택도 Decided(06 §6.2, 05)다. 부모·자식 권한 상속과 조회 필터 자동 포함(행 스코핑) 세부만 Open([06 §6.2](../docs/contract/platform-ui-contract.md#62-scope와-권한-decided--open)).
+**2. Scope 상속 세부** — 관계(Site → room_name → StGroup → Equipment, Line 독립 축)와 room_name 기준 권한은 Decided(ADR-0004·0005). v1 Scope 단일 선택도 Decided(06 §6.2, 05)다. 부모·자식 권한 상속과 조회 필터 자동 포함(행 스코핑) 세부만 Open([06 §6.2](../docs/contract/kernel.md#62-scope와-권한-decided--open)).
 
 <a id="q3"></a>
-**3. 시간 의미** — TZ는 Asia/Seoul 단일값으로 시작(Decided). timeDomain assertion 공급자, 교대일/영업일, 다중 Site의 "같은 날짜"는 Open. assertion 공급 근거는 복수 시간축 병합을 제공하기 전에 필요하다([06 시간 계약](../docs/contract/platform-ui-contract.md#ctx-time)).
+**3. 시간 의미** — TZ는 Asia/Seoul 단일값으로 시작(Decided). timeDomain assertion 공급자, 교대일/영업일, 다중 Site의 "같은 날짜"는 Open. assertion 공급 근거는 복수 시간축 병합을 제공하기 전에 필요하다([06 시간 계약](../docs/contract/kernel.md#ctx-time)).
 
 <a id="q4"></a>
 **4. 운영 수치** — `defaultRangeTo` 기본 길이, 실제 데이터 볼륨·조회 패턴, 최대 조회량·timeout, 폴링 중단 조건·워커 감지 주기. (`H`=1시간, 폴링 5분은 Decided.)

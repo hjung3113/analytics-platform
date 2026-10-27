@@ -6,7 +6,7 @@
 
 ## 맥락
 
-첫 `AnalysisChart` 메뉴 소비자는 [06 §16](../contract/platform-ui-contract.md#16-analysis-chart-contract)의 종류별 상호작용을 실제 데이터 조회·Scope·Context와 함께 검증한다. 작은 차트를 일곱 개 동시에 압축하기보다 선택한 한 차트의 축·단위·선택 요약·Trust를 읽을 공간이 필요하다. 공개 사례와 초기 A/B/C 대안은 [표현 패턴 조사](../research/2026-10-21-chart-catalog-page-patterns.md)에 있다.
+첫 `AnalysisChart` 메뉴 소비자는 [06 §16](../contract/chart.md#16-analysis-chart-contract)의 종류별 상호작용을 실제 데이터 조회·Scope·Context와 함께 검증한다. 작은 차트를 일곱 개 동시에 압축하기보다 선택한 한 차트의 축·단위·선택 요약·Trust를 읽을 공간이 필요하다. 공개 사례와 초기 A/B/C 대안은 [표현 패턴 조사](../research/2026-10-21-chart-catalog-page-patterns.md)에 있다.
 
 ## 결정
 

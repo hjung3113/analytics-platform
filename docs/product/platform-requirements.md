@@ -90,34 +90,34 @@
 
 | ID | 요구 | 없으면 | 플랫폼이 보장하는 것 | 상태 | 근거 |
 | --- | --- | --- | --- | --- | --- |
-| R1.1 | 조건을 한 번만 고른다 | 화면을 옮길 때마다 사이트·기간·공정·설비를 다시 고른다 | 분석 조건이 화면과 업무 시스템을 넘어 유지된다. 옮겨 간 화면이 쓰지 않는 조건은 지우지 않고 "이 화면에서 안 씀"으로 보인다. 조회 범위가 바뀌어 맞지 않게 된 값은 지우고 무엇을 지웠는지 알린다 | 동작 | [06 §6](../contract/platform-ui-contract.md#6-context-capability-contract)·[§11](../contract/platform-ui-contract.md#11-global-context-bar) |
-| R1.2 | 본 화면을 그대로 넘긴다 | 캡처를 붙이고 "기간은 이렇게, 필터는…"을 설명한다 | 주소가 곧 화면이다. 조건·정렬·쪽·탭·드릴 단계가 주소에 있어서 링크 복사·새로고침·뒤로/앞으로에 같은 화면이 나온다. 받는 사람의 권한으로 서버가 다시 확인한다(링크가 권한을 주지 않는다) | 동작 | [06 §6.1](../contract/platform-ui-contract.md#61-식별자와-url-소유-상태-decided)·[§6.4](../contract/platform-ui-contract.md#64-url-계약-decided-필드명enum-문자열은-candidate) |
-| R1.3 | 원인까지 내려갔다 돌아온다 | 지표 화면과 설비 화면이 따로 놀아 원인을 손으로 맞추고, 돌아오면 처음 조건이 없다 | 공정 → 설비 그룹 → 설비 드릴다운, 지표 → 느린 실행 → 설비 상세 이동. 지금 어디까지 내려왔는지 경로가 보이고, 돌아가기는 출발 화면과 조건을 되살리며 바뀐 조건을 알린다 | 동작 | [14](../design/drilldown-platform.md), [ADR-0025](../adr/0025-drilldown-level-page-keys-path-bar-layout.md), [06 §22](../contract/platform-ui-contract.md#22-cross-menu-context-link) |
-| R1.4 | 다른 업무 화면으로 바로 잇는다 | 다른 화면에서 같은 설비를 다시 검색한다 | 화면 사이 링크가 "열 대상(설비 ID 등)"과 "분석 조건"을 따로 넘긴다. 열 수 없는 목적지는 다음으로 열 수 있는 곳으로 가고, 숨겨진 화면 이름을 드러내지 않는다 | 동작 | [06 §22](../contract/platform-ui-contract.md#22-cross-menu-context-link) |
-| R1.5 | 원하는 화면에 바로 간다 | 메뉴 트리를 뒤진다 | 업무 시스템 전환기, Ctrl+K 검색(화면·최근·즐겨찾기), 시스템마다 마지막에 보던 화면 복원 | 동작(즐겨찾기·최근은 이 브라우저에만 저장) | [ADR-0042](../adr/0042-system-switcher-and-system-owned-rail.md), [06 §10](../contract/platform-ui-contract.md#10-command-palette-as-platform-navigation), 저장 위치는 결정 대기([보드](../../.planning/README.md)) |
-| R1.6 | 시간이 헷갈리지 않는다 | 설비 현지 시각과 보는 사람 시각이 섞여 같은 날짜가 다른 구간이 된다 | 기간 경계·날짜 단위·시간대 규칙이 플랫폼 하나다. 실제 시점은 보는 사람 시간대로, 설비 시각은 설비 시각으로 표시한다. 여러 설비를 합칠 때 시간 기준이 다르면 막는다 | 동작 | [06 §6.3](../contract/platform-ui-contract.md#ctx-time) |
+| R1.1 | 조건을 한 번만 고른다 | 화면을 옮길 때마다 사이트·기간·공정·설비를 다시 고른다 | 분석 조건이 화면과 업무 시스템을 넘어 유지된다. 옮겨 간 화면이 쓰지 않는 조건은 지우지 않고 "이 화면에서 안 씀"으로 보인다. 조회 범위가 바뀌어 맞지 않게 된 값은 지우고 무엇을 지웠는지 알린다 | 동작 | [06 §6](../contract/kernel.md#6-context-capability-contract)·[§11](../contract/kernel.md#11-global-context-bar) |
+| R1.2 | 본 화면을 그대로 넘긴다 | 캡처를 붙이고 "기간은 이렇게, 필터는…"을 설명한다 | 주소가 곧 화면이다. 조건·정렬·쪽·탭·드릴 단계가 주소에 있어서 링크 복사·새로고침·뒤로/앞으로에 같은 화면이 나온다. 받는 사람의 권한으로 서버가 다시 확인한다(링크가 권한을 주지 않는다) | 동작 | [06 §6.1](../contract/kernel.md#61-식별자와-url-소유-상태-decided)·[§6.4](../contract/kernel.md#64-url-계약-decided-필드명enum-문자열은-candidate) |
+| R1.3 | 원인까지 내려갔다 돌아온다 | 지표 화면과 설비 화면이 따로 놀아 원인을 손으로 맞추고, 돌아오면 처음 조건이 없다 | 공정 → 설비 그룹 → 설비 드릴다운, 지표 → 느린 실행 → 설비 상세 이동. 지금 어디까지 내려왔는지 경로가 보이고, 돌아가기는 출발 화면과 조건을 되살리며 바뀐 조건을 알린다 | 동작 | [14](../design/drilldown-platform.md), [ADR-0025](../adr/0025-drilldown-level-page-keys-path-bar-layout.md), [06 §22](../contract/cross-menu-links.md#22-cross-menu-context-link) |
+| R1.4 | 다른 업무 화면으로 바로 잇는다 | 다른 화면에서 같은 설비를 다시 검색한다 | 화면 사이 링크가 "열 대상(설비 ID 등)"과 "분석 조건"을 따로 넘긴다. 열 수 없는 목적지는 다음으로 열 수 있는 곳으로 가고, 숨겨진 화면 이름을 드러내지 않는다 | 동작 | [06 §22](../contract/cross-menu-links.md#22-cross-menu-context-link) |
+| R1.5 | 원하는 화면에 바로 간다 | 메뉴 트리를 뒤진다 | 업무 시스템 전환기, Ctrl+K 검색(화면·최근·즐겨찾기), 시스템마다 마지막에 보던 화면 복원 | 동작(즐겨찾기·최근은 이 브라우저에만 저장) | [ADR-0042](../adr/0042-system-switcher-and-system-owned-rail.md), [06 §10](../contract/kernel.md#10-command-palette-as-platform-navigation), 저장 위치는 결정 대기([보드](../../.planning/README.md)) |
+| R1.6 | 시간이 헷갈리지 않는다 | 설비 현지 시각과 보는 사람 시각이 섞여 같은 날짜가 다른 구간이 된다 | 기간 경계·날짜 단위·시간대 규칙이 플랫폼 하나다. 실제 시점은 보는 사람 시간대로, 설비 시각은 설비 시각으로 표시한다. 여러 설비를 합칠 때 시간 기준이 다르면 막는다 | 동작 | [06 §6.3](../contract/kernel.md#ctx-time) |
 
 ### 3.2 숫자를 믿을 수 있는지 안다
 
 | ID | 요구 | 없으면 | 플랫폼이 보장하는 것 | 상태 | 근거 |
 | --- | --- | --- | --- | --- | --- |
-| R2.1 | 이 숫자가 어떤 상태인지 안다 | 숫자만 보고 판단했는데 아직 데이터가 다 안 들어온 구간이었다 | 데이터 신뢰 표시가 모든 화면에서 같은 말로 나온다: 갱신 시각, 데이터 기준 시각, 채워진 비율(coverage), 잠정 여부, 지표 버전, 원천. 모르면 "모름"이라고 하고 정상이나 0으로 바꾸지 않는다 | 동작(값 계산은 서버, §7) | [06 §18](../contract/platform-ui-contract.md#18-data-trust-contract) |
-| R2.2 | 0건과 실패를 구분한다 | 빈 표가 "결과 없음"인지 "조회 실패"인지 "권한 없음"인지 모른다 | 불러오는 중·0건·권한 없음·범위가 너무 큼·시간 초과·오류를 다른 모양과 다른 문장으로 보인다. 위젯 하나가 실패해도 나머지는 보이고, 어느 위젯이 실패했는지 보인다 | 동작 | [06 §19](../contract/platform-ui-contract.md#19-loading--empty--error-taxonomy), [ADR-0017](../adr/0017-shared-outcome-banner.md) |
+| R2.1 | 이 숫자가 어떤 상태인지 안다 | 숫자만 보고 판단했는데 아직 데이터가 다 안 들어온 구간이었다 | 데이터 신뢰 표시가 모든 화면에서 같은 말로 나온다: 갱신 시각, 데이터 기준 시각, 채워진 비율(coverage), 잠정 여부, 지표 버전, 원천. 모르면 "모름"이라고 하고 정상이나 0으로 바꾸지 않는다 | 동작(값 계산은 서버, §7) | [06 §18](../contract/components.md#18-data-trust-contract) |
+| R2.2 | 0건과 실패를 구분한다 | 빈 표가 "결과 없음"인지 "조회 실패"인지 "권한 없음"인지 모른다 | 불러오는 중·0건·권한 없음·범위가 너무 큼·시간 초과·오류를 다른 모양과 다른 문장으로 보인다. 위젯 하나가 실패해도 나머지는 보이고, 어느 위젯이 실패했는지 보인다 | 동작 | [06 §19](../contract/components.md#19-loading--empty--error-taxonomy), [ADR-0017](../adr/0017-shared-outcome-banner.md) |
 | R2.3 | 늦게 들어온 데이터가 숫자를 조용히 바꾸지 않는다 | 어제 본 숫자와 오늘 본 숫자가 다른데 이유를 모른다 | 아직 끝나지 않은 실행이 있는 구간은 잠정으로 표시한다. 늦게 끝난 실행은 정해진 창(1시간) 안에서 자동 재집계하고, 창 밖은 정정 후보로 남긴다 | 표시는 동작. 재집계는 사내 서버 일(§7) | [01 지연 완료](../architecture/architecture-and-data-contract.md#late-arrival-policy) |
 | R2.4 | 지표 정의가 하나다 | 같은 이름의 지표를 팀마다 다르게 계산한다. 설비별 P95를 평균해 전체 P95라고 부른다 | 지표관리(BRAVO)에서 지표마다 단위(grain)·분자·분모·기간·버전·발행 이력을 관리하고, 다른 화면은 지표 ID와 버전 쌍으로 같은 정의를 가리킨다. 합산 규칙(분자·분모를 따로 합한다)을 정의에 둔다 | 카탈로그·상세·이력 동작. 발행 쓰기는 사내 서버 뒤 | [13](../wireframes/metric-catalog.md), [02](domain-menus.md) |
-| R2.5 | 잘못된 조건이 조용히 바뀌지 않는다 | 주소에 오타가 있으면 아무 조건으로 조회된다 | 쓸 수 없는 값은 조회하지 않고 "어느 필드의 어떤 값이 왜 안 되는지"를 알린다. 서버 내부 문구 대신 사용자 문장을 보인다 | 동작 | [06 §6.4](../contract/platform-ui-contract.md#64-url-계약-decided-필드명enum-문자열은-candidate), [ADR-0034](../adr/0034-user-facing-copy-no-contract-vocabulary.md) |
-| R2.6 | 같은 조건이면 차트·표·내보내기가 같은 숫자다 | 차트와 엑셀 숫자가 달라 어느 쪽이 맞는지 다툰다 | 차트의 "데이터 표 보기"와 내보내기가 차트와 같은 응답을 쓴다. 조건이 바뀌면 이전 결과를 새 조건의 결과처럼 보이지 않는다 | 동작 | [06 §16](../contract/platform-ui-contract.md#16-analysis-chart-contract), [06 §11](../contract/platform-ui-contract.md#11-global-context-bar) |
+| R2.5 | 잘못된 조건이 조용히 바뀌지 않는다 | 주소에 오타가 있으면 아무 조건으로 조회된다 | 쓸 수 없는 값은 조회하지 않고 "어느 필드의 어떤 값이 왜 안 되는지"를 알린다. 서버 내부 문구 대신 사용자 문장을 보인다 | 동작 | [06 §6.4](../contract/kernel.md#64-url-계약-decided-필드명enum-문자열은-candidate), [ADR-0034](../adr/0034-user-facing-copy-no-contract-vocabulary.md) |
+| R2.6 | 같은 조건이면 차트·표·내보내기가 같은 숫자다 | 차트와 엑셀 숫자가 달라 어느 쪽이 맞는지 다툰다 | 차트의 "데이터 표 보기"와 내보내기가 차트와 같은 응답을 쓴다. 조건이 바뀌면 이전 결과를 새 조건의 결과처럼 보이지 않는다 | 동작 | [06 §16](../contract/chart.md#16-analysis-chart-contract), [06 §11](../contract/kernel.md#11-global-context-bar) |
 | R2.7 | 데이터가 최신으로 따라온다 | 열어 둔 화면이 오래된 숫자를 보인다 | 5분마다 확인하고, 서버의 계산이 새로 끝났을 때만 다시 불러온다 | 계획 — 사내 서버의 계산 세대 신호 필요 | [01 실시간성](../architecture/architecture-and-data-contract.md#데이터-운영-정책), #165 |
 
 ### 3.3 어느 화면이든 같은 분석 도구
 
 | ID | 요구 | 없으면 | 플랫폼이 보장하는 것 | 상태 | 근거 |
 | --- | --- | --- | --- | --- | --- |
-| R3.1 | 표는 어디서나 같은 손버릇 | 화면마다 정렬·열 설정·복사·내보내기 방법이 다르다 | 서버 쪽 정렬·쪽 넘김, 열 너비·보이기·고정, 행 선택·복사, CSV·엑셀 내보내기가 모든 표에 같다. 열 설정은 화면마다 기억한다 | 동작 | [06 §15](../contract/platform-ui-contract.md#15-platform-data-table-contract), [ADR-0024](../adr/0024-table-column-controls-drag-width-pin-in-list.md), [ADR-0008](../adr/0008-table-owned-export-fixed-toolbar.md) |
-| R3.2 | 차트는 어디서나 같은 분석 동작 | 차트마다 확대·구간 선택·비교 방법이 다르거나 없다 | 확대, 구간 선택(키보드 포함), 초기화, 이전 기간 비교, 주석, 내보내기, 같은 데이터를 표로 보기. 차트에서 고른 구간은 확인한 뒤에만 분석 조건의 기간이 된다 | 동작 | [06 §16](../contract/platform-ui-contract.md#16-analysis-chart-contract), [ADR-0036](../adr/0036-chart-range-keyboard-snap-compare-clip.md) |
-| R3.3 | 목록에서 상세로, 같은 자리에서 | 상세를 볼 때마다 새 페이지로 가서 목록 위치를 잃는다 | 오른쪽 상세 패널이 모든 업무 시스템에서 같은 자리·같은 동작이다. 전체 화면으로 펼치거나 링크로 넘길 수 있다 | 동작 | [ADR-0013](../adr/0013-detail-panel-shell-docked-slot.md), [06 §20](../contract/platform-ui-contract.md#20-detail-surface-contract) |
+| R3.1 | 표는 어디서나 같은 손버릇 | 화면마다 정렬·열 설정·복사·내보내기 방법이 다르다 | 서버 쪽 정렬·쪽 넘김, 열 너비·보이기·고정, 행 선택·복사, CSV·엑셀 내보내기가 모든 표에 같다. 열 설정은 화면마다 기억한다 | 동작 | [06 §15](../contract/components.md#15-platform-data-table-contract), [ADR-0024](../adr/0024-table-column-controls-drag-width-pin-in-list.md), [ADR-0008](../adr/0008-table-owned-export-fixed-toolbar.md) |
+| R3.2 | 차트는 어디서나 같은 분석 동작 | 차트마다 확대·구간 선택·비교 방법이 다르거나 없다 | 확대, 구간 선택(키보드 포함), 초기화, 이전 기간 비교, 주석, 내보내기, 같은 데이터를 표로 보기. 차트에서 고른 구간은 확인한 뒤에만 분석 조건의 기간이 된다 | 동작 | [06 §16](../contract/chart.md#16-analysis-chart-contract), [ADR-0036](../adr/0036-chart-range-keyboard-snap-compare-clip.md) |
+| R3.3 | 목록에서 상세로, 같은 자리에서 | 상세를 볼 때마다 새 페이지로 가서 목록 위치를 잃는다 | 오른쪽 상세 패널이 모든 업무 시스템에서 같은 자리·같은 동작이다. 전체 화면으로 펼치거나 링크로 넘길 수 있다 | 동작 | [ADR-0013](../adr/0013-detail-panel-shell-docked-slot.md), [06 §20](../contract/components.md#20-detail-surface-contract) |
 | R3.4 | 해석을 남긴다 | 차트 위 판단이 대화방에 흩어진다 | 차트 주석은 차트·조회 범위에 붙어 다른 사람에게도 보인다. 작성자만 지우고, 지운 것도 감사에 남는다 | 동작 | [ADR-0041](../adr/0041-annotation-author-delete-audit.md) |
-| R3.5 | 필터는 한 줄, 화면 모양은 일정 | 화면마다 필터 위치와 적용 방식이 다르다 | 화면 필터는 같은 줄 모양이고, 접으면 고른 값을 생략 없이 요약한다. 관리 화면·분석 화면·개요·카탈로그·업무 흐름 다섯 가지 화면 모양이 정해져 있다 | 동작 | [ADR-0016](../adr/0016-page-filter-bar.md), [ADR-0029](../adr/0029-page-filter-bar-collapse-summary.md), [06 §12](../contract/platform-ui-contract.md#12-canonical-page-archetypes) |
+| R3.5 | 필터는 한 줄, 화면 모양은 일정 | 화면마다 필터 위치와 적용 방식이 다르다 | 화면 필터는 같은 줄 모양이고, 접으면 고른 값을 생략 없이 요약한다. 관리 화면·분석 화면·개요·카탈로그·업무 흐름 다섯 가지 화면 모양이 정해져 있다 | 동작 | [ADR-0016](../adr/0016-page-filter-bar.md), [ADR-0029](../adr/0029-page-filter-bar-collapse-summary.md), [06 §12](../contract/layout.md#12-canonical-page-archetypes) |
 | R3.6 | 설비를 그림으로 본다 | 설비 구조와 실행 재생을 다른 도구에서 따로 본다 | 설비 Top View·재생 화면을 업무 화면으로 올리고, 같은 분석 조건·권한·딥링크를 따른다 | 계획 — 저장소 편입 결정 대기 | #332, #333, [ADR-0039](../adr/0039-equipment-visualization-platform-first-host-contract.md)(Proposed) |
 
 ### 3.4 여러 화면을 함께 보고, 남기고, 직접 조합한다
@@ -125,10 +125,10 @@
 | ID | 요구 | 없으면 | 플랫폼이 보장하는 것 | 상태 | 근거 |
 | --- | --- | --- | --- | --- | --- |
 | R4.1 | 여러 분석을 한 작업대에서 | 비교할 때마다 브라우저 창을 새로 열고, 다음 날 같은 비교를 다시 만든다 | 분석 보드: 화면 아래 시트 탭, 시트마다 1×1·1×2·2×1·2×2 칸, 칸마다 화면 하나와 자기 조건. 칸끼리 다른 조건만 강조하고, 한 칸의 조건을 시트 전체에 적용할 수 있다. 위젯을 새로 그리는 도구가 아니라 이미 있는 화면을 칸에 담는다 | 완료(v0.14.0) — 칸 Context(#496), 보드 화면(#497), 생산성 개요·사이클타임 상세·설비 마스터 보드 지원(#498). 저장은 이 브라우저에만, 서버 저장·공유는 보류(16 §10). 첫 사용 다듬기(#526: 칸 크기·접기·최대화 ADR-0060, 빈 화면 안내, 상세 닫기)는 v0.15.0에서 완료 | [16](../design/analysis-board.md), [ADR-0049](../adr/0049-analysis-context-belongs-to-a-pane.md), [ADR-0051](../adr/0051-analysis-board-pane-header-signal-chips-numbered-selection.md), #421 |
-| R4.2 | 자주 보는 조건을 저장한다 | 매번 같은 조건을 다시 만든다 | 저장된 뷰: 화면·조건·필터·표 열 상태를 이름 붙여 저장하고, 열 때 권한을 다시 확인한다 | 보류 — 사용자 조합 분석(R4.3)과 같이 정한다 | [06 §21](../contract/platform-ui-contract.md#21-saved-view-contract), #294 |
+| R4.2 | 자주 보는 조건을 저장한다 | 매번 같은 조건을 다시 만든다 | 저장된 뷰: 화면·조건·필터·표 열 상태를 이름 붙여 저장하고, 열 때 권한을 다시 확인한다 | 보류 — 사용자 조합 분석(R4.3)과 같이 정한다 | [06 §21](../contract/kernel.md#21-saved-view-contract), #294 |
 | R4.3 | 내가 직접 분석 화면을 조합한다 | 개발자에게 요청하고 기다리거나 엑셀로 내려받는다 | 개발자가 준 시각화·피벗을 사용자가 축·필터·차트 종류로 바꾸고, 저장·공유한다. 공식 지표와 탐색용 집계를 섞지 않는다 | 결정 대기 — 범위·저장·공유 질문이 열려 있다 | #294, #291 |
 | R4.4 | 자유 피벗·엑셀식 편집 | 큰 결과를 엑셀로 내려 피벗한다 | 브라우저 안에서만 도는 자유 피벗, 셀 범위 복사·채우기 | 보류 — 업무 필수로 확인될 때 | #163, #164, [ADR-0007](../adr/0007-perspective-browser-engine-only.md) |
-| R4.5 | 내 설정이 기기를 따라온다 | 다른 PC에서 즐겨찾기·열 설정이 없다 | 사용자 설정을 서버에 보존 | 결정 대기 — 지금은 브라우저 저장 | [06 §4](../contract/platform-ui-contract.md#4-platform-kernel-responsibilities), [보드](../../.planning/README.md) |
+| R4.5 | 내 설정이 기기를 따라온다 | 다른 PC에서 즐겨찾기·열 설정이 없다 | 사용자 설정을 서버에 보존 | 결정 대기 — 지금은 브라우저 저장 | [06 §4](../contract/kernel.md#4-platform-kernel-responsibilities), [보드](../../.planning/README.md) |
 
 ### 3.5 본 자리에서 알리고, 고쳐졌는지 확인한다
 
@@ -144,13 +144,13 @@
 
 | ID | 요구 | 없으면 | 플랫폼이 보장하는 것 | 상태 | 근거 |
 | --- | --- | --- | --- | --- | --- |
-| R6.1 | 권한은 한 곳에서 | 화면마다 권한이 따로 있어 회수·점검을 화면 수만큼 한다 | 업무 시스템 진입, 화면 열기, 조회 범위(사이트·공정)를 한 규칙으로 판정하고, 서버가 조회마다 다시 확인한다. 다른 범위 데이터가 보이는 것은 최우선 결함이다 | 동작(mock 세션) | [06 §6.2](../contract/platform-ui-contract.md#62-scope와-권한-decided--open)·[§17](../contract/platform-ui-contract.md#17-permission-aware-ux-contract), [ADR-0026](../adr/0026-multi-workspace-app-boundaries-and-feedbackops-scoping.md) |
+| R6.1 | 권한은 한 곳에서 | 화면마다 권한이 따로 있어 회수·점검을 화면 수만큼 한다 | 업무 시스템 진입, 화면 열기, 조회 범위(사이트·공정)를 한 규칙으로 판정하고, 서버가 조회마다 다시 확인한다. 다른 범위 데이터가 보이는 것은 최우선 결함이다 | 동작(mock 세션) | [06 §6.2](../contract/kernel.md#62-scope와-권한-decided--open)·[§17](../contract/kernel.md#17-permission-aware-ux-contract), [ADR-0026](../adr/0026-multi-workspace-app-boundaries-and-feedbackops-scoping.md) |
 | R6.2 | 누가 무엇을 바꿨나 | 변경 이력이 화면마다 다르거나 없다 | 설비·지표·차트 주석 변경이 공용 감사 저장소 하나에 남고, 변경 감사 화면 하나에서 조회한다(누가·언제·전후 값) | 동작 | [ADR-0048](../adr/0048-menu-audit-seeds-join-shared-mock-audit-store.md), [ADR-0033](../adr/0033-audit-window-open-ended-viewer-time-input.md) |
 | R6.3 | 무엇이 실제로 쓰이나 | 화면 정리·투자를 감으로 정한다 | 화면 활용률을 플랫폼이 모든 화면에 같은 방법으로 잰다. 조회 조건 값은 기록하지 않는다 | 동작 | [ADR-0020](../adr/0020-usage-events-identity-fields-only.md) |
-| R6.4 | 등록된 화면을 한눈에 | 어느 화면이 어떤 권한으로 열리는지 문서로 쫓는다 | 운영 콘솔의 메뉴 레지스트리 화면(화면·화면 모양·필요 권한·지원 조건) | 동작 | [06 §5](../contract/platform-ui-contract.md#5-menu-extension-contract) |
+| R6.4 | 등록된 화면을 한눈에 | 어느 화면이 어떤 권한으로 열리는지 문서로 쫓는다 | 운영 콘솔의 메뉴 레지스트리 화면(화면·화면 모양·필요 권한·지원 조건) | 동작 | [06 §5](../contract/kernel.md#5-menu-extension-contract) |
 | R6.5 | 권한을 화면에서 주고 회수한다 | 권한 요청을 메일로 받아 DB를 고친다 | 권한·역할 조회 화면은 있다. 부여·회수 쓰기는 원천(사내 계정 그룹)이 정해진 뒤 | 조회 동작. 쓰기는 결정 대기 | #98, #150 |
 | R6.6 | 데이터가 지금 제대로 들어오고 있나 | 적재가 멈춘 걸 사용자 문의로 안다 | 적재·가공 상태를 원천이 보고한 그대로 보이고, 개발자용 트레이스로 따라간다 | 계획 — 상태 스키마 확정(2026-10-26), #51 화면 설계 대기 | #37, #51, [01 가공 상태](../architecture/architecture-and-data-contract.md#processing-status-report) |
-| R6.7 | 화면이 깨져도 나머지는 산다 | 화면 하나의 오류로 앱 전체가 하얗게 된다 | 화면 오류를 그 화면 안에 가두고 추적 번호(Correlation ID)를 보인다. 보고에는 식별 정보만 보낸다 | 동작 | [06 §4](../contract/platform-ui-contract.md#4-platform-kernel-responsibilities) |
+| R6.7 | 화면이 깨져도 나머지는 산다 | 화면 하나의 오류로 앱 전체가 하얗게 된다 | 화면 오류를 그 화면 안에 가두고 추적 번호(Correlation ID)를 보인다. 보고에는 식별 정보만 보낸다 | 동작 | [06 §4](../contract/kernel.md#4-platform-kernel-responsibilities) |
 
 ### 3.7 업무 시스템을 한 곳에
 
@@ -160,7 +160,7 @@
 | R7.2 | 기존 시스템을 옮겨 온다 | 기존 시스템(CLAS 등)이 따로 남아 사용자가 두 곳을 오간다 | CLAS를 업무 시스템으로 열어 두고(견본 메뉴 설비 동작시간), 기존 화면을 플랫폼 화면으로 옮긴다(§5) | CLAS 공간은 동작(#590), 기존 화면 이전은 계획 | #472, #590, §5 |
 | R7.3 | 새 업무 시스템을 붙인다 | 새 업무가 생기면 분석 시스템 안에 메뉴를 계속 끼워 넣는다 | 표준 로그 개발·개선 실행을 자기 메뉴를 가진 업무 시스템으로 둔다. 도메인 백엔드는 합치지 않는다 | 계획 — 도메인 소유자 합의 대기 | #252, #249 |
 | R7.4 | 다른 팀이 만든 화면을 기존 시스템에 더한다 | 시스템 소유 팀만 메뉴를 더할 수 있다 | 외부 패키지가 새 업무 시스템을 등록하거나, 기존 시스템의 허용된 자리에 화면을 기여한다 | 보류(요구 후보) | #428 |
-| R7.5 | 아직 없는 화면도 자리는 보인다 | 계획된 화면이 있는지 모른다 | 화면 없이 등록만 한 메뉴는 "예정"으로 보이고, 이동·조건 전달·권한 확인은 그대로 동작한다 | 동작 | [06 §5](../contract/platform-ui-contract.md#5-menu-extension-contract) |
+| R7.5 | 아직 없는 화면도 자리는 보인다 | 계획된 화면이 있는지 모른다 | 화면 없이 등록만 한 메뉴는 "예정"으로 보이고, 이동·조건 전달·권한 확인은 그대로 동작한다 | 동작 | [06 §5](../contract/kernel.md#5-menu-extension-contract) |
 
 ### 3.8 화면을 만드는 사람에게 (개발자)
 
@@ -168,8 +168,8 @@
 
 | ID | 요구 | 없으면 | 플랫폼이 보장하는 것 | 상태 | 근거 |
 | --- | --- | --- | --- | --- | --- |
-| R8.1 | 화면은 선언으로 등록한다 | 메뉴를 하나 더할 때마다 사이드바·경로·권한 코드를 고친다 | 화면 manifest(이름·경로·권한·지원 조건·화면 모양)를 선언하면 사이드바·Ctrl+K·breadcrumb·권한 게이트가 따라온다. 시작할 때 중복·경로 충돌·규칙 위반을 검사한다 | 동작 | [06 §5](../contract/platform-ui-contract.md#5-menu-extension-contract), [패키지 경계](../integration/platform-packages.md) |
-| R8.2 | 새 화면이 처음부터 받는 것 | 표·차트·상태 화면·필터를 화면마다 새로 만든다 | 공통 부품(표, 차트 틀, 상세 패널, 감사 타임라인, 신뢰 표시, 상태 화면, 필터 줄, 레이아웃 5종, 드릴 경로)과 디자인 시스템 | 동작 | [06 §13](../contract/platform-ui-contract.md#13-shared-component-layers), [components](../../packages/components/AGENTS.md) |
+| R8.1 | 화면은 선언으로 등록한다 | 메뉴를 하나 더할 때마다 사이드바·경로·권한 코드를 고친다 | 화면 manifest(이름·경로·권한·지원 조건·화면 모양)를 선언하면 사이드바·Ctrl+K·breadcrumb·권한 게이트가 따라온다. 시작할 때 중복·경로 충돌·규칙 위반을 검사한다 | 동작 | [06 §5](../contract/kernel.md#5-menu-extension-contract), [패키지 경계](../integration/platform-packages.md) |
+| R8.2 | 새 화면이 처음부터 받는 것 | 표·차트·상태 화면·필터를 화면마다 새로 만든다 | 공통 부품(표, 차트 틀, 상세 패널, 감사 타임라인, 신뢰 표시, 상태 화면, 필터 줄, 레이아웃 5종, 드릴 경로)과 디자인 시스템 | 동작 | [06 §13](../contract/components.md#13-shared-component-layers), [components](../../packages/components/AGENTS.md) |
 | R8.3 | 서버 조회는 선언하고 플랫폼이 지킨다 | 화면마다 권한·조회 한도·조건 적용을 따로 구현하고 빠뜨린다 | 화면이 조회 엔드포인트(입력·권한·조회 범위·한도)를 선언하면, 요청 모양 검사와 상태 분류를 플랫폼이 하고 서버는 자기 선언 사본으로 판정한다 | 동작(mock 서버) | [ADR-0019](../adr/0019-menu-query-endpoint-declaration.md), [실서버 체크리스트](../integration/real-server-checklist.md) |
 | R8.4 | 계약을 자동으로 검사한다 | 새 화면이 주소·권한·상태 규칙을 어겨도 사용자가 발견한다 | 플랫폼 계약 E2E가 새 화면에도 같은 기준을 건다. 서버 적합성 묶음이 실서버가 같은 계약을 지키는지 검사한다 | 동작 | [platform-e2e](../../apps/platform-e2e/AGENTS.md), [server-conformance](../../packages/server-conformance/AGENTS.md) |
 | R8.5 | 구조와 디자인 규칙을 기계가 지킨다 | 리뷰어가 매번 같은 지적을 한다 | 의존 방향 경계 lint, 디자인 시스템 lint(대신 쓸 토큰·부품을 알려 준다), 운영 빌드에 mock이 섞이지 않았는지 CI 확인 | 동작 | [tooling](../../tooling/AGENTS.md), [ADR-0009](../adr/0009-production-assembly-injection.md) |
@@ -245,7 +245,7 @@ FeedbackOps는 플랫폼에 합친다 — 모두가 쓰는 기능은 플랫폼 �
 | R10.5 | 동시 사용자 약 100명, 데이터 보존 무제한, 사이트 하나로 시작해 늘린다 | Decided(조직 요구값) | [03](../architecture/backend-stack.md), [05](../overview/roadmap-and-open-questions.md) |
 | R10.6 | 접근성 하한(키보드, 색만으로 상태를 나타내지 않음, 대비)과 성능 하한 | 동작(lint·E2E가 일부 검사) | [06 §26](../contract/platform-ui-contract.md#26-accessibility-baseline)·[§27](../contract/platform-ui-contract.md#27-performance-ux-baseline) |
 | R10.7 | 한국어·영어 화면 | 동작 | Kernel i18n |
-| R10.8 | 1280px 이상 데스크톱, 좁으면 정해진 순서로 양보 | 동작 | [06 §25](../contract/platform-ui-contract.md#25-responsive-strategy), [ADR-0035](../adr/0035-page-header-yield-order.md) |
+| R10.8 | 1280px 이상 데스크톱, 좁으면 정해진 순서로 양보 | 동작 | [06 §25](../contract/layout.md#25-responsive-strategy), [ADR-0035](../adr/0035-page-header-yield-order.md) |
 
 ## 8. 하지 않는 것
 
@@ -255,8 +255,8 @@ FeedbackOps는 플랫폼에 합친다 — 모두가 쓰는 기능은 플랫폼 �
 - **범용 알림 규칙 엔진** — 적재 중단·집계 실패 같은 운영 알림부터. 공정 이상 알림은 지표·임계값이 검증된 뒤([00](../overview/overview.md)).
 - **스케줄 리포트, 외부 BI 연동** — mart·view를 SQL로 질의할 수 있게 문서화하면 나중에 붙이기 쉽다([00](../overview/overview.md)).
 - **자유 SQL·코드를 받는 지표 식** — 감사할 수 없고 주입 위험이 있다. 제약된 식부터([00](../overview/overview.md)).
-- **자유 배치 위젯 빌더·대시보드 빌더** — 분석 보드(R4.1)는 위젯 빌더가 아니라 기존 화면을 칸에 담는다. 위젯 빌더는 실제 화면 2–3곳에서 반복이 확인될 때([06 §14](../contract/platform-ui-contract.md#14-platform-component-promotion-rule)).
-- **운영 중 설치·원격 로딩 플러그인** — 코드 안 선언형 등록부터([06 §5](../contract/platform-ui-contract.md#5-menu-extension-contract), R7.4).
+- **자유 배치 위젯 빌더·대시보드 빌더** — 분석 보드(R4.1)는 위젯 빌더가 아니라 기존 화면을 칸에 담는다. 위젯 빌더는 실제 화면 2–3곳에서 반복이 확인될 때([06 §14](../contract/components.md#14-platform-component-promotion-rule)).
+- **운영 중 설치·원격 로딩 플러그인** — 코드 안 선언형 등록부터([06 §5](../contract/kernel.md#5-menu-extension-contract), R7.4).
 - **원문 로그·설정 파일 drill-through** — 파서 view/mart 조회로 충분하다. 내부 개발자 메뉴가 필요해지면 다시 본다([05](../overview/roadmap-and-open-questions.md)).
 - **칸끼리 값을 합치는 교차 계산** — 서로 다른 시스템의 데이터를 합치는 분석이라 별도 결정이다([16 §2](../design/analysis-board.md#2-범위)).
 - **앱을 플랫폼 밖에서 따로 돌리는 호스트** — 각 제품의 책임이다([ADR-0043](../adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md)).

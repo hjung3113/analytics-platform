@@ -2,7 +2,7 @@
 
 상태: **Decided(2026-10-26) — 파서·워커 담당의 사내 조사 답변으로 §7 Q1–Q7을 닫았다.** 구조와 규칙, 보존 기간 숫자는 확정이다. 테이블·필드·코드 **이름만 Candidate**로 둔다(구현이 시작되면 이름을 확정한다). 작업 이슈: #37. 소비 화면: 운영 콘솔 모니터링·트레이스(#51), 분석 공간 가공 상태 조회.
 
-이 문서는 적재 워커 기록의 **모양과, 그것을 06 §19 평가로 줄이는 규칙**만 다룬다. 원천·최소 기록 항목·노출 수준은 [01 가공 상태 보고](../architecture/architecture-and-data-contract.md#processing-status-report)가, 응답 모양(`outcome`/`assessments[]`, 가짜 `clear` 금지)과 표시 상태는 [06 §19](../contract/platform-ui-contract.md#19-loading--empty--error-taxonomy)가 원본이다.
+이 문서는 적재 워커 기록의 **모양과, 그것을 06 §19 평가로 줄이는 규칙**만 다룬다. 원천·최소 기록 항목·노출 수준은 [01 가공 상태 보고](../architecture/architecture-and-data-contract.md#processing-status-report)가, 응답 모양(`outcome`/`assessments[]`, 가짜 `clear` 금지)과 표시 상태는 [06 §19](../contract/components.md#19-loading--empty--error-taxonomy)가 원본이다.
 
 관찰 기준: `context_recognized_parser` `main` `d84fab1`(2026-09-28). 파서 쪽 사실은 그 저장소 `docs/11`·`docs/16`·`docs/22`와 `src/`에서 확인했다.
 

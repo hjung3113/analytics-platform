@@ -2,7 +2,7 @@
 
 - Status: Decided (2026-10-25)
 - Decider: 코디네이터(사용자 위임, Opus xhigh 리뷰 반영), 되돌릴 수 있다.
-- Scope: [#580](https://github.com/hjung3113/analytics-platform/issues/580) 노드 580e. 관련: [ADR-0057](0057-legend-tree-arrow-key-row-navigation.md), [docs/06 §16](../contract/platform-ui-contract.md#16-analysis-chart-contract).
+- Scope: [#580](https://github.com/hjung3113/analytics-platform/issues/580) 노드 580e. 관련: [ADR-0057](0057-legend-tree-arrow-key-row-navigation.md), [docs/06 §16](../contract/chart.md#16-analysis-chart-contract).
 
 ## 맥락
 

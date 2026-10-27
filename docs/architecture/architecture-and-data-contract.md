@@ -15,7 +15,7 @@ flowchart TD
     E --> I["메뉴: 지표관리"]
 ```
 
-위 다이어그램은 데이터 흐름의 예시다. 메뉴 그룹과 공간 전체(공지·VOC, 운영 콘솔, FeedbackOps 협업 진입 포함)는 [06 §9](../contract/platform-ui-contract.md#9-information-architecture)가 소유한다.
+위 다이어그램은 데이터 흐름의 예시다. 메뉴 그룹과 공간 전체(공지·VOC, 운영 콘솔, FeedbackOps 협업 진입 포함)는 [06 §9](../contract/kernel.md#9-information-architecture)가 소유한다.
 
 API가 파서 원본 테이블을 직접 참조하지 않고 소비 계층(view/mart)을 거치는 이유는 단순히 컬럼명 변경 흡수만이 아니다. 이 계층은 두 종류로 나눠야 한다:
 
@@ -53,7 +53,7 @@ API가 파서 원본 테이블을 직접 참조하지 않고 소비 계층(view/
 
 여러 mart를 읽는 화면의 차트·표·CSV가 서로 다른 갱신 세대를 섞지 않도록 계산 기준시각을 함께 관리해야 한다. `pg_cron`은 실행 스케줄일 뿐 이 정합성을 대신 보장하지 않는다 — watermark 감지(열린 anchor 해소 감지) → 대상 구간 재집계 메커니즘이 별도로 필요하다.
 
-**CFG 관련 Open / 경계(2026-09-24):** CFG는 설비 단위 기록이며 Module 대상은 값 내부 속성이지 CFG 테이블의 분할 키가 아니다. 분석에 필요한 유효값은 Job 시작 시점 값으로 충분하다([GLOSSARY](../../GLOSSARY.md)). CFG 의존 지표가 정해지면 설정 변경/정정이 어떤 mart 재계산을 요구하는지 별도로 명세한다. 이번 결정으로 새 자동 재계산 트리거를 채택하지 않으며, CFG cross-menu 연계는 [06 §22](../contract/platform-ui-contract.md#22-cross-menu-context-link)의 Deferred를 유지한다.
+**CFG 관련 Open / 경계(2026-09-24):** CFG는 설비 단위 기록이며 Module 대상은 값 내부 속성이지 CFG 테이블의 분할 키가 아니다. 분석에 필요한 유효값은 Job 시작 시점 값으로 충분하다([GLOSSARY](../../GLOSSARY.md)). CFG 의존 지표가 정해지면 설정 변경/정정이 어떤 mart 재계산을 요구하는지 별도로 명세한다. 이번 결정으로 새 자동 재계산 트리거를 채택하지 않으며, CFG cross-menu 연계는 [06 §22](../contract/cross-menu-links.md#22-cross-menu-context-link)의 Deferred를 유지한다.
 
 ### 집계 가능성 계약
 
@@ -82,7 +82,7 @@ API가 파서 원본 테이블을 직접 참조하지 않고 소비 계층(view/
 <a id="late-arrival-policy"></a>
 ### 지연 완료 허용 시간 (Decided — 정책 메커니즘 + 구체 숫자)
 
-> **원본·변경 영향:** 이 절이 R/H·지연완료 자동 재집계 정책을 소유한다. [06 시간 계약](../contract/platform-ui-contract.md#ctx-time)은 기본 조회 상한과 R을 대조한다. 이 문서의 [mart 재계산 트리거](#mart-재계산-트리거)·[실시간성](#refresh-policy), [03 시간 요약](backend-stack.md), [02 소비 기능](../product/domain-menus.md)을 함께 검토한다. 조회 기간·표시가 바뀌면 06의 소비자 경로까지 따른다. `lateArrivalAutoHorizon`, `autoRefreshClosed`, 원천 진행 경계/자동 창을 검색해 추가 영향을 작업 기록에 남긴다.
+> **원본·변경 영향:** 이 절이 R/H·지연완료 자동 재집계 정책을 소유한다. [06 시간 계약](../contract/kernel.md#ctx-time)은 기본 조회 상한과 R을 대조한다. 이 문서의 [mart 재계산 트리거](#mart-재계산-트리거)·[실시간성](#refresh-policy), [03 시간 요약](backend-stack.md), [02 소비 기능](../product/domain-menus.md)을 함께 검토한다. 조회 기간·표시가 바뀌면 06의 소비자 경로까지 따른다. `lateArrivalAutoHorizon`, `autoRefreshClosed`, 원천 진행 경계/자동 창을 검색해 추가 영향을 작업 기록에 남긴다.
 
 필수 운영 설정 `lateArrivalAutoHorizon`(Candidate 이름) 없이는 자동 재집계를 시작하지 않는다(0이나 무한을 암묵값으로 넣지 않고, 숫자 미정이면 "설정 미충족"으로 보고한다). 창 **안**의 지연완료는 자동 재집계하고, 창 **밖**은 자동 재개방하지도 조용히 버리지도 않으며 식별·조회 가능한 정정/backfill 후보로 남겨 운영자가 명시적으로 실행한다(새 승인 워크플로 UI는 이번에 만들지 않음; 기존 플랫폼 권한·감사를 적용). `autoRefreshClosed`는 자동 창이 닫혔다는 뜻일 뿐 데이터가 완전/불변이라는 뜻이 아니다. 마스터 소급·재분류·지표 정의 변경은 이 창과 다른 트리거다.
 
@@ -101,6 +101,6 @@ API가 파서 원본 테이블을 직접 참조하지 않고 소비 계층(view/
 
 ## 멀티테넌시/확장성
 
-초기 1개 Site/Line 운영 범위에서 시작하되 확장 가능한 구조를 유지한다([05 결정 상태](../overview/roadmap-and-open-questions.md#결정-상태)). 권한·조회 범위는 Site→room_name→StGroup→Equipment 관계이고 Line은 독립 축이며, Factory/plant는 별도 Scope로 두지 않는다. v1은 단일 Scope 선택, 상속 세부는 Open이다([06 §6.2](../contract/platform-ui-contract.md#62-scope와-권한-decided--open), [ADR-0005](../adr/0005-scope-room-name-line-independent.md)). Site별 물리 DB 분리는 현행 사실이며 Site 컬럼 필터가 아니다([ADR-0004](../adr/0004-site-is-db-partition-not-column.md)). 구체 행 스코핑 구현과 RLS 도입 여부는 별도 검토한다.
+초기 1개 Site/Line 운영 범위에서 시작하되 확장 가능한 구조를 유지한다([05 결정 상태](../overview/roadmap-and-open-questions.md#결정-상태)). 권한·조회 범위는 Site→room_name→StGroup→Equipment 관계이고 Line은 독립 축이며, Factory/plant는 별도 Scope로 두지 않는다. v1은 단일 Scope 선택, 상속 세부는 Open이다([06 §6.2](../contract/kernel.md#62-scope와-권한-decided--open), [ADR-0005](../adr/0005-scope-room-name-line-independent.md)). Site별 물리 DB 분리는 현행 사실이며 Site 컬럼 필터가 아니다([ADR-0004](../adr/0004-site-is-db-partition-not-column.md)). 구체 행 스코핑 구현과 RLS 도입 여부는 별도 검토한다.
 
 확장성에서는 프레임워크보다 한 요청이 읽는 행 수와 반환하는 점 수가 중요하다. 초기 설계에 조회 기간·반환량 제한, SQL timeout, 장기 작업의 비동기 실행, 서버 집계·다운샘플링을 포함할 것.

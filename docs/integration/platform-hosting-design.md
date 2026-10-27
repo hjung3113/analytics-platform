@@ -36,7 +36,7 @@
 
 ### 2.1 모듈이 선언하는 것 — 화면 manifest
 
-지금 메뉴는 `MenuEntry = MenuMeta + icon + component`를 그룹 패키지에서 내고 앱이 `createRegistry`로 검증한다([06 §5](../contract/platform-ui-contract.md#5-menu-extension-contract), [패키지 경계 §5](platform-packages.md#5-메뉴-패키지-계약과-템플릿)). 모듈 manifest는 이 선언을 **모듈 단위로 묶고 호스트가 정할 것을 뺀** 모양이다.
+지금 메뉴는 `MenuEntry = MenuMeta + icon + component`를 그룹 패키지에서 내고 앱이 `createRegistry`로 검증한다([06 §5](../contract/kernel.md#5-menu-extension-contract), [패키지 경계 §5](platform-packages.md#5-메뉴-패키지-계약과-템플릿)). 모듈 manifest는 이 선언을 **모듈 단위로 묶고 호스트가 정할 것을 뺀** 모양이다.
 
 | 선언 | 모듈이 정함 | 호스트(조립)가 정함 | 현재 타입 | EV 예 | FeedbackOps 예 |
 | --- | --- | --- | --- | --- | --- |
