@@ -219,6 +219,15 @@ describe('review round: shared-with names and saved contents', () => {
     expect(within(screen.getByRole('region', { name: '뷰 y' })).getByText('패널 조건 y')).toBeInTheDocument();
   });
 
+  it('a stored date-only period renders its endpoints as written instead of throwing', async () => {
+    const view = entry('d', 'none');
+    view.view.context = { from: '2026-10-01', to: '2026-10-07' } as never;
+    render(<Host entries={[view]} />);
+    await open();
+    await userEvent.click(screen.getByRole('button', { name: /뷰 d/ }));
+    expect(within(screen.getByRole('region', { name: '뷰 d' })).getByText('고정 기간 2026-10-01 → 2026-10-07')).toBeInTheDocument();
+  });
+
   it.each([
     ['24 hours', '2026-09-25T09:00:00', '2026-09-26T09:00:00', '09-25 09:00 → 09-26 09:00 (24h)'],
     ['7 days', '2026-09-25T00:00:00', '2026-10-02T00:00:00', '09-25 00:00 → 10-02 00:00 (7일)'],

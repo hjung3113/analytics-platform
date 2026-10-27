@@ -113,6 +113,11 @@ export function visibilityShort(visibility: ViewVisibility, lang: Lang, groupNam
   return lang === 'ko' ? `${name} 외 ${rest}` : `${name} +${rest}`;
 }
 
+/** A fixed period reads by the common rule; a stored value that is not a valid wall-clock time is shown as written. */
+function fixedPeriod(from: string | null | undefined, to: string | null | undefined, lang: Lang): string {
+  try { return formatPeriod(from ?? null, to ?? null, lang); } catch { return `${from ?? '—'} → ${to ?? '—'}`; }
+}
+
 /**
  * What a saved context holds, as user wording. A relative period (hours back from the server anchor) and a fixed
  * period are told apart; the room axis is shown as `공정` (GLOSSARY).
@@ -120,7 +125,7 @@ export function visibilityShort(visibility: ViewVisibility, lang: Lang, groupNam
 export function summarizeContext(context: SavedViewContext, lang: Lang): string[] {
   const out: string[] = [];
   if (context.relativePeriod) out.push(lang === 'ko' ? `최근 ${periodSpan(context.relativePeriod.hours, lang)} (상대 기간)` : `Last ${periodSpan(context.relativePeriod.hours, lang)} (relative)`);
-  else if (context.from != null || context.to != null) out.push(`${lang === 'ko' ? '고정 기간' : 'Fixed period'} ${formatPeriod(context.from ?? null, context.to ?? null, lang)}`);
+  else if (context.from != null || context.to != null) out.push(`${lang === 'ko' ? '고정 기간' : 'Fixed period'} ${fixedPeriod(context.from, context.to, lang)}`);
   if (context.roomNames?.length) out.push(count(context.roomNames.length, '공정', 'Rooms', lang));
   if (context.lineNames?.length) out.push(count(context.lineNames.length, 'Line', 'Lines', lang));
   if (context.prcGroups?.length) out.push(count(context.prcGroups.length, 'PRC 그룹', 'PRC groups', lang));
@@ -158,10 +163,10 @@ export function contentLines(view: SavedView, tx: (text: Text) => string, lang: 
 }
 
 const FAILURE_TEXT: Record<Extract<Result<unknown>, { ok: false }>['reason'], Text> = {
-  conflict: { ko: '다른 곳에서 먼저 바뀌었습니다.', en: 'Another change was saved elsewhere first.' },
-  forbidden: { ko: '저장할 권한이 없습니다.', en: 'You do not have permission to save.' },
-  unavailable: { ko: '지금은 저장할 수 없습니다.', en: 'Saving is unavailable right now.' },
-  invalid: { ko: '저장할 수 없는 내용입니다.', en: 'This content cannot be saved.' },
+  conflict: { ko: '다른 곳에서 먼저 바뀌었습니다. 입력은 그대로입니다. 새로 고친 뒤 다시 저장하세요.', en: 'It changed elsewhere first. Your input is kept; refresh and save again.' },
+  forbidden: { ko: '저장할 권한이 없습니다. 입력은 그대로입니다.', en: 'You cannot save this. Your input is kept.' },
+  unavailable: { ko: '지금은 저장할 수 없습니다. 입력은 그대로이니 다시 시도하세요.', en: 'Saving is unavailable now. Your input is kept; try again.' },
+  invalid: { ko: '저장할 수 없는 내용입니다. 입력은 그대로입니다.', en: 'This content cannot be saved. Your input is kept.' },
 };
 
 export const failureText = (outcome: Extract<Result<unknown>, { ok: false }>, tx: (text: Text) => string): string => tx(FAILURE_TEXT[outcome.reason]);
