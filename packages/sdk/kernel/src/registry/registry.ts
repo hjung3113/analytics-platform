@@ -84,8 +84,8 @@ const isIdShape = (id: unknown): id is string => typeof id === 'string' && /^[^\
 /** `<namespace>:<action>`, each part an id shape without `:`. */
 const isPermissionShape = (value: unknown): value is string => typeof value === 'string' && /^[^\s:?#&/]+:[^\s:?#&/]+$/.test(value);
 
-/** Roots the platform itself serves; a space id may not take one (ADR-0093). */
-export const RESERVED_PLATFORM_ROOTS: readonly string[] = ['home', 'survey', 'voc', 'notifications', 'notices', 'permission-requests', 'board', 'api', 'auth'];
+/** Roots the platform itself serves; a space id may not take one (ADR-0093). The app adds its own menu roots through `createRegistry`'s `reservedRoots`. */
+const RESERVED_PLATFORM_ROOTS: readonly string[] = ['board', 'api', 'auth'];
 /** Path segment derived from a menu id: `:` → `-`, camelCase → kebab-case, lower-case. */
 export const menuSlug = (id: string) => id.replace(/:/g, '-').replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
 
@@ -101,10 +101,11 @@ export const isBoardPath = (pathname: string) => pathname.replace(/\/+$/, '') ==
  * Validates the declared IA once and returns the lookup functions the kernel and shell use
  * (docs/integration/platform-packages.md §5). Throws RegistryError on any violation.
  */
-export function createRegistry({ spaces, groups, menus: menusIn, permissions: declared = [], platformHomeMenuId }: { spaces: readonly SpaceDef[]; groups: readonly GroupDef[]; menus: readonly MenuEntry[]; /** The app's menu permissions. Omit when the menus use only kernel permissions. */ permissions?: readonly MenuPermission[]; /** Id of the menu at the platform home path. Required when a space-less menu declares `/`. */ platformHomeMenuId?: string }): Registry {
+export function createRegistry({ spaces, groups, menus: menusIn, permissions: declared = [], platformHomeMenuId, reservedRoots = [] }: { spaces: readonly SpaceDef[]; groups: readonly GroupDef[]; menus: readonly MenuEntry[]; /** The app's menu permissions. Omit when the menus use only kernel permissions. */ permissions?: readonly MenuPermission[]; /** Id of the menu at the platform home path. Required when a space-less menu declares `/`. */ platformHomeMenuId?: string; /** Roots the app serves outside the Registry (its menu roots, e.g. `voc`); a space id may not take one. Added to the platform's own `board`, `api` and `auth`. */ reservedRoots?: readonly string[] }): Registry {
   const fail = (message: string): never => { throw new RegistryError(message); };
   // Runtime config can hold non-strings the brand does not stop: check the shape before the namespace is taken.
   for (const p of declared) if (!isPermissionShape(p)) fail(`Declared permission "${String(p)}" must be "<namespace>:<action>" without whitespace or ? # & /`);
+  for (const root of reservedRoots) if (!isIdShape(root)) fail(`Reserved root "${String(root)}" must be non-empty without whitespace or ? # & /`);
   const permissions: readonly Permission[] = [...KERNEL_PERMISSIONS, ...declared];
   const reserved = new Set<string>(permissions.map(namespaceOf));
   const isPlatformPermission = (value: string) => (permissions as readonly string[]).includes(value);
@@ -117,7 +118,7 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
   const spaceByIdMap = new Map<SpaceId, SpaceDef>();
   for (const s of spaces) {
     if (!isIdShape(s.id)) fail(`Space id "${String(s.id)}" must be non-empty without whitespace or ? # & /`);
-    if (RESERVED_PLATFORM_ROOTS.includes(s.id)) fail(`Space id "${s.id}" is a reserved platform root`);
+    if (RESERVED_PLATFORM_ROOTS.includes(s.id) || reservedRoots.includes(s.id)) fail(`Space id "${s.id}" is a reserved platform root`);
     if (s.permission !== undefined && !isPlatformPermission(s.permission)) fail(`Space "${s.id}" permission "${s.permission}" is not a platform permission (kernel or declared)`);
     if (spaceByIdMap.has(s.id)) fail(`Duplicate space id "${s.id}"`);
     spaceByIdMap.set(s.id, s);

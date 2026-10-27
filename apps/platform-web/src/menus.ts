@@ -117,5 +117,8 @@ export const MENUS: MenuEntry[] = [
   // </gen:menu-spreads>
 ];
 
+/** Roots the app's own screens and FeedbackOps serve outside the Registry; no space may take one (ADR-0093). The Kernel reserves only its own `board`, `api` and `auth`. */
+export const APP_RESERVED_ROOTS = ['home', 'survey', 'voc', 'notifications', 'notices', 'permission-requests'];
+
 /** External host modules (src/modules.ts) join at the registry call only; GROUPS and MENUS stay the platform's own. */
-export const registry = createRegistry({ spaces: SPACES, groups: [...GROUPS, ...EQV_MODULE.groups], menus: [...MENUS, ...EQV_MODULE.menus], permissions: PERMISSIONS, platformHomeMenuId: 'home' });
+export const registry = createRegistry({ spaces: SPACES, groups: [...GROUPS, ...EQV_MODULE.groups], menus: [...MENUS, ...EQV_MODULE.menus], permissions: PERMISSIONS, platformHomeMenuId: 'home', reservedRoots: APP_RESERVED_ROOTS });

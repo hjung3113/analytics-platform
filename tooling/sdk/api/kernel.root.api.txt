@@ -78,7 +78,7 @@ classifyMetricInit | function | function classifyMetricInit(published: readonly 
 contractErrorSentence | function | function contractErrorSentence(lang: @ap/kernel#Lang, error: { code: string; field?: string; raw?: string; }): string
 createBasePathLocation | function | function createBasePathLocation(basePath: string): @ap/kernel#PlatformLocation
 createBrowserLocation | function | function createBrowserLocation(): @ap/kernel#PlatformLocation
-createRegistry | function | function createRegistry({ spaces, groups, menus: menusIn, permissions: declared, platformHomeMenuId }: { groups: readonly @ap/kernel#GroupDef[]; menus: readonly @ap/kernel#MenuEntry[]; permissions?: readonly @ap/contracts#MenuPermission[]; platformHomeMenuId?: string; spaces: readonly @ap/contracts#SpaceDef[]; }): @ap/kernel#Registry
+createRegistry | function | function createRegistry({ spaces, groups, menus: menusIn, permissions: declared, platformHomeMenuId, reservedRoots }: { groups: readonly @ap/kernel#GroupDef[]; menus: readonly @ap/kernel#MenuEntry[]; permissions?: readonly @ap/contracts#MenuPermission[]; platformHomeMenuId?: string; reservedRoots?: readonly string[]; spaces: readonly @ap/contracts#SpaceDef[]; }): @ap/kernel#Registry
 diagnoseSavedView | function | function diagnoseSavedView(view: @ap/contracts#SavedView, support: @ap/contracts#SavedViewSupport, ctx: @ap/kernel#DiagnoseContext): @ap/kernel#SavedViewDiagnosis
 errorGuidance | function | function errorGuidance(message: string | undefined): @ap/kernel#ErrorGuidance
 invalidValueSentence | function | function invalidValueSentence(lang: @ap/kernel#Lang, kind: 'drillGap' | 'filter' | 'plain' | 'value', field: @ap/contracts#Text, raw: string): string
