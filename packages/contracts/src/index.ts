@@ -22,3 +22,5 @@ export { PortError, PORT_ERROR_CODES, isPortError } from './adapter/selection-po
 export type { PortErrorCode, MembershipPeriod, AxisOptionsInput, AxisOption, AxisOptionsPage, EquipmentSummary, EquipmentSearchInput, EquipmentSearchPage, SelectionResolveInput, SelectionResolution, SelectionResolveResult } from './adapter/selection-ports.js';
 export { compareHistoryText, compareQueryHistory, queryHistoryId } from './links/query-history.js';
 export type { QueryHistoryKey, QueryHistoryEntry, QueryHistoryStore } from './links/query-history.js';
+export { APPROVAL_TRANSITIONS, canTransition, isForbiddenSavedViewKey, validateSavedView } from './links/saved-view.js';
+export type { ApprovalAction, ChangeLine, ConditionSetDraft, ConditionSetView, DeniedSavedView, ExpectedVersion, GroupCapabilities, GroupMember, JsonValue, MenuView, MenuViewDraft, MigrateResult, Result, SavedView, SavedViewBase, SavedViewContext, SavedViewDraft, SavedViewEntry, SavedViewKey, SavedViewKind, SavedViewListItem, SavedViewPatch, SavedViewStore, SavedViewSupport, ViewApproval, ViewCapabilities, ViewGroup, ViewGroupEntry, ViewSharing, ViewVisibility } from './links/saved-view.js';

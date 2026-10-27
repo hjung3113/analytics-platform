@@ -1,3 +1,4 @@
+APPROVAL_TRANSITIONS | const | const APPROVAL_TRANSITIONS: Readonly<Record<@ap/contracts#ApprovalAction, { from: readonly @ap/contracts#ViewApproval[]; to: @ap/contracts#ViewApproval; }>>
 AUDIT_ACTIONS | const | const AUDIT_ACTIONS: readonly [ "create", "update", "retire", "sync", "delete" ]
 AccessDirectoryPage | type | type AccessDirectoryPage = { items: readonly @ap/contracts#AccessPrincipal[]; total: number; }
 AccessDirectoryQuery | type | type AccessDirectoryQuery = { page?: number; pageSize?: number; permission?: @ap/contracts#Permission; role?: string; sort?: { desc: boolean; field: @ap/contracts#AccessSortField; }; }
@@ -12,6 +13,7 @@ AnnotationRef | type | type AnnotationRef = { chartId: string; scopeId: null | s
 AnyActionSpec | type | type AnyActionSpec = @ap/contracts#ActionSpec<any, unknown>
 AnyEndpointSpec | type | type AnyEndpointSpec = @ap/contracts#EndpointSpec<any, unknown>
 ApiResponse | type | type ApiResponse<T> = { assessments: @ap/contracts#Assessment[]; correlationId: string; data: T | null; message?: string; outcome: @ap/contracts#Outcome; trust: @ap/contracts#Trust | null; }
+ApprovalAction | type | type ApprovalAction = 'approve' | 'reject' | 'request' | 'revoke'
 Assessment | type | type Assessment = { detail?: string; explainsEmpty?: boolean; kind: @ap/contracts#AssessmentKind; observedAt?: string; reason?: 'check_failed' | 'source_unavailable'; state: 'clear' | 'confirmed' | 'unknown'; statusSource?: string; }
 AssessmentKind | type | type AssessmentKind = 'collection' | 'coverage' | 'processing_delay' | 'respondent_history' | 'time_domain'
 AuditAction | type | type AuditAction = (typeof @ap/contracts#AUDIT_ACTIONS)[number]
@@ -26,13 +28,17 @@ AxisOptionsInput | type | type AxisOptionsInput = { axisId: string; cursor?: nul
 AxisOptionsPage | type | type AxisOptionsPage = { items: @ap/contracts#AxisOption[]; nextCursor: null | string; }
 CONTEXT_FIELDS | const | const CONTEXT_FIELDS: Readonly<Record<@ap/contracts#ContextKey, readonly (keyof @ap/contracts#GlobalContext)[]>>
 Capability | type | type Capability = 'apply' | 'reference' | 'unsupported'
+ChangeLine | type | type ChangeLine = { after: @ap/contracts#JsonValue; before: @ap/contracts#JsonValue; key: string; note?: string; }
 ChartAnnotation | type | type ChartAnnotation = { at: string; chartId: string; from: string; id: string; mine: boolean; scopeId: string; text: string; to: string; }
 ClientErrorReport | type | type ClientErrorReport = { correlationId: string; menuId: string; name: string; path: string; spaceId: @ap/contracts#SpaceId | null; }
 Condition | type | type Condition = Readonly<Record<string, readonly string[]>>
 ConditionOptions | type | type ConditionOptions = { makerModel: { maker: string; model: string; }[]; stgroup: string[]; team: string[]; }
 ConditionPreset | type | type ConditionPreset = { axes: readonly string[]; id: string; label: @ap/contracts#Text; }
+ConditionSetDraft | type | type ConditionSetDraft = { context: @ap/contracts#SavedViewContext; kind: 'condition-set'; name: string; schemaVersion: 1; }
+ConditionSetView | type | type ConditionSetView = @ap/contracts#SavedViewBase & { context: @ap/contracts#SavedViewContext; kind: 'condition-set'; }
 ContextKey | type | type ContextKey = 'condition' | 'line' | 'lot' | 'metric' | 'ppid' | 'prcGroup' | 'recipe' | 'roomNames' | 'selection' | 'time'
 ContractError | class | class ContractError extends Error { code: string; field?: string | undefined; raw?: string | undefined; constructor(code: string, message: string, field?: string | undefined, raw?: string | undefined); }
+DeniedSavedView | type | type DeniedSavedView = { denied: true; id: string; reason: string; }
 DrillLevel | type | type DrillLevel = { key: string; label: @ap/contracts#Text; }
 ENTITY_AUDIT_PAGE_MAX | const | const ENTITY_AUDIT_PAGE_MAX: 50
 EndpointSpec | type | type EndpointSpec<P, T> = { readonly _types?: { data: T; params: P; }; context: Partial<Record<@ap/contracts#ContextKey, Exclude<@ap/contracts#Capability, 'unsupported'>>>; id: string; kinds: readonly @ap/contracts#AssessmentKind[]; limits?: { maxHours?: number; maxRows?: number; }; menuId: string; mergeTimeDomain: boolean; paramKeys: Readonly<Record<keyof P & string, true>>; permission: @ap/contracts#Permission; requiredContext?: readonly @ap/contracts#ContextKey[]; requiresScope: boolean; }
@@ -44,16 +50,20 @@ EquipmentOption | type | type EquipmentOption = { equipmentId: string; model: st
 EquipmentSearchInput | type | type EquipmentSearchInput = { condition: @ap/contracts#Condition | null; cursor?: null | string; limit: number; lineNames: @ap/contracts#IdSet; membershipBasis: 'asOf' | null; period?: @ap/contracts#MembershipPeriod | null; prcGroups: @ap/contracts#IdSet; query?: string; roomNames: @ap/contracts#IdSet; scopeId: string; }
 EquipmentSearchPage | type | type EquipmentSearchPage = { items: @ap/contracts#EquipmentSummary[]; nextCursor: null | string; total?: number; }
 EquipmentSummary | type | type EquipmentSummary = { axes: Readonly<Record<string, readonly string[]>>; equipmentId: string; room: string; }
+ExpectedVersion | type | type ExpectedVersion = { expectedVersion: number; }
 FeedbackOpsTarget | type | type FeedbackOpsTarget = { kind: 'overall'; } | { kind: 'survey-detail'; platformReturn?: string; surveyId: string; } | { kind: 'survey-list'; managedSystemId: string; platformReturn?: string; } | { kind: 'task-list'; managedSystemId: string; platformReturn?: string; } | { kind: 'voc-create'; managedSystemId?: string; platformReturn?: string; } | { kind: 'voc-detail'; managedSystemId?: string; platformReturn?: string; vocId: string; } | { kind: 'voc-list'; managedSystemId: string; platformReturn?: string; }
 FieldError | type | type FieldError = { code: string; path: readonly string[]; }
 GLOBAL_KEYS | const | const GLOBAL_KEYS: Set<string>
 GlobalContext | type | type GlobalContext = { condition: @ap/contracts#Condition | null; from: null | string; lineNames: @ap/contracts#IdSet; lotIds: @ap/contracts#IdSet; membershipBasis: 'asOf' | null; metricId: null | string; metricVersion: null | string; ppid: null | string; prcGroups: @ap/contracts#IdSet; recipeIds: @ap/contracts#IdSet; roomNames: @ap/contracts#IdSet; scopeId: null | string; selection: @ap/contracts#IdSet; to: null | string; }
 Grain | type | type Grain = 'day' | 'hour' | 'week'
+GroupCapabilities | type | type GroupCapabilities = { canDelete: boolean; canEditMembers: boolean; canRename: boolean; canView: boolean; }
 GroupId | type | type GroupId = Brand<'GroupId'>
+GroupMember | type | type GroupMember = { affiliation: string; displayName: string; userId: string; }
 HOST_CONTRACTS | const | const HOST_CONTRACTS: readonly [ 1 ]
 HostContract | type | type HostContract = 1
 HostFeature | type | type HostFeature = 'detailSlot' | 'query' | 'write'
 IdSet | type | type IdSet = null | string[]
+JsonValue | type | type JsonValue = @ap/contracts#JsonValue[] | boolean | null | number | string | { [key: string]: @ap/contracts#JsonValue; }
 KERNEL_PERMISSIONS | const | const KERNEL_PERMISSIONS: readonly [ "platform:view", "notice:view", "voc:view", "console:access", "feedbackops:access" ]
 KernelPermission | type | type KernelPermission = (typeof @ap/contracts#KERNEL_PERMISSIONS)[number]
 MeasureMeta | type | type MeasureMeta = { metricVersion?: string; reaggregation: @ap/contracts#Reaggregation; unit: string; }
@@ -63,6 +73,9 @@ MenuMeta | type | type MenuMeta = { conditionPreset?: { default: string; key: st
 MenuPermission | type | type MenuPermission = Brand<'MenuPermission'>
 MenuQuery | type | type MenuQuery<P = unknown> = { context: @ap/contracts#MenuQueryContext; endpoint: string; params: P; }
 MenuQueryContext | type | type MenuQueryContext = Partial<@ap/contracts#GlobalContext>
+MenuView | type | type MenuView = @ap/contracts#SavedViewBase & { chartOptions: Record<string, @ap/contracts#JsonValue>; context: @ap/contracts#SavedViewContext; kind: 'menu-view'; layout: @ap/contracts#JsonValue; menuId: string; menuSchemaVersion: number; page: @ap/contracts#Pair[] | Record<string, string[]>; panels: unknown; }
+MenuViewDraft | type | type MenuViewDraft = Omit<@ap/contracts#MenuView, 'id' | 'ownerId' | 'updatedAt' | 'version'>
+MigrateResult | type | type MigrateResult = { ok: false; reason: string; } | { ok: true; preview: @ap/contracts#ChangeLine[]; view: @ap/contracts#MenuViewDraft; }
 ModuleHost | type | type ModuleHost = { act?<I, T>(spec: @ap/contracts#ActionSpec<I, T>, input: I, options?: { expectedVersion?: string; }): Promise<@ap/contracts#ActionResult<T>>; can(permission: string): boolean; config(key: string): null | string; context(): { unsupported: readonly @ap/contracts#ContextKey[]; values: Partial<@ap/contracts#GlobalContext>; }; contract: @ap/contracts#HostContract; detail?: { clear(): void; show(node: unknown, label: string): void; }; focusTarget(el: unknown): void; href(target: @ap/contracts#ModuleTarget): null | { allowed: boolean; href: string; }; lang(): 'en' | 'ko'; navigate(target: @ap/contracts#ModuleTarget, options?: { replace?: boolean; }): boolean; notify(text: string, tone?: 'danger' | 'info' | 'warning'): void; page(key: string): null | string; params(): Readonly<Record<string, string>>; query?<P, T>(spec: @ap/contracts#EndpointSpec<P, T>, params: P, signal?: AbortSignal): Promise<@ap/contracts#ApiResponse<T>>; reportError(error: unknown): string; returnTarget(): string; session(): { generation: number; user: null | { id: string; name: string; }; }; setPage(patch: Record<string, null | string>, options?: { replace?: boolean; }): void; signal: AbortSignal; status(next: @ap/contracts#ModuleStatus): void; subscribe(onChange: () => void): () => void; }
 ModuleManifest | type | type ModuleManifest = { config?: readonly string[]; groups: readonly { id: @ap/contracts#ModuleScopedId; label: @ap/contracts#Text; }[]; module: { contract: @ap/contracts#HostContract; id: string; label: @ap/contracts#Text; languages: readonly ('en' | 'ko')[]; }; optional?: readonly @ap/contracts#HostFeature[]; requires: readonly @ap/contracts#HostFeature[]; screens: readonly @ap/contracts#ModuleScreenMeta[]; }
 ModuleScopedId | type | type ModuleScopedId = `${string}:${string}`
@@ -93,6 +106,18 @@ QueryHistoryKey | type | type QueryHistoryKey = { menuId: string; scopeId: null 
 QueryHistoryStore | type | type QueryHistoryStore = { clear(key: @ap/contracts#QueryHistoryKey): Promise<void>; list(key: @ap/contracts#QueryHistoryKey): Promise<readonly @ap/contracts#QueryHistoryEntry[]>; record(key: @ap/contracts#QueryHistoryKey, entry: @ap/contracts#QueryHistoryEntry): Promise<void>; remove(key: @ap/contracts#QueryHistoryKey, id: string): Promise<void>; }
 RETURN_TO_KEY | const | const RETURN_TO_KEY: "returnTo"
 Reaggregation | type | type Reaggregation = 'none' | 'ratioOfSums' | 'recomputeFromDistribution' | 'sum'
+Result | type | type Result<T> = { detail?: string; ok: false; reason: 'conflict' | 'forbidden' | 'invalid' | 'unavailable'; } | { ok: true; value: T; }
+SavedView | type | type SavedView = (@ap/contracts#ConditionSetView | @ap/contracts#MenuView) & @ap/contracts#ViewSharing
+SavedViewBase | type | type SavedViewBase = { id: string; kind: @ap/contracts#SavedViewKind; name: string; ownerId: string; schemaVersion: 1; updatedAt: number; version: number; }
+SavedViewContext | type | type SavedViewContext = Partial<Pick<@ap/contracts#GlobalContext, 'condition' | 'from' | 'lineNames' | 'membershipBasis' | 'prcGroups' | 'roomNames' | 'selection' | 'to'>> & { relativePeriod?: { hours: number; }; }
+SavedViewDraft | type | type SavedViewDraft = @ap/contracts#ConditionSetDraft | @ap/contracts#MenuViewDraft
+SavedViewEntry | type | type SavedViewEntry = { capabilities: @ap/contracts#ViewCapabilities; denied?: false; view: @ap/contracts#SavedView; }
+SavedViewKey | type | type SavedViewKey = { menuId: null | string; userId: string; }
+SavedViewKind | type | type SavedViewKind = 'condition-set' | 'menu-view'
+SavedViewListItem | type | type SavedViewListItem = @ap/contracts#DeniedSavedView | @ap/contracts#SavedViewEntry
+SavedViewPatch | type | type SavedViewPatch = { chartOptions?: @ap/contracts#MenuView['chartOptions']; context?: @ap/contracts#SavedViewContext; layout?: @ap/contracts#JsonValue; name?: string; page?: @ap/contracts#MenuView['page']; panels?: unknown; }
+SavedViewStore | type | type SavedViewStore = { createGroup(input: { memberIds: string[]; name: string; }): Promise<@ap/contracts#Result<@ap/contracts#ViewGroupEntry>>; decide(id: string, decision: 'approve' | 'reject', note: string | undefined, opts: @ap/contracts#ExpectedVersion): Promise<@ap/contracts#Result<@ap/contracts#SavedViewEntry>>; get(id: string): Promise<@ap/contracts#SavedViewListItem | null>; getDefaultId(key: @ap/contracts#SavedViewKey): Promise<null | string>; list(key: @ap/contracts#SavedViewKey): Promise<readonly @ap/contracts#SavedViewListItem[]>; listGroups(): Promise<readonly @ap/contracts#ViewGroupEntry[]>; remove(id: string): Promise<@ap/contracts#Result<null>>; requestOfficial(id: string, opts: @ap/contracts#ExpectedVersion): Promise<@ap/contracts#Result<@ap/contracts#SavedViewEntry>>; revoke(id: string, opts: @ap/contracts#ExpectedVersion): Promise<@ap/contracts#Result<@ap/contracts#SavedViewEntry>>; save(input: @ap/contracts#SavedViewDraft): Promise<@ap/contracts#Result<@ap/contracts#SavedViewEntry>>; searchPeople(query: string, signal: AbortSignal): Promise<readonly @ap/contracts#GroupMember[]>; setDefault(key: @ap/contracts#SavedViewKey, id: null | string): Promise<@ap/contracts#Result<null>>; setVisibility(id: string, visibility: @ap/contracts#ViewVisibility, opts: @ap/contracts#ExpectedVersion): Promise<@ap/contracts#Result<@ap/contracts#SavedViewEntry>>; update(id: string, patch: @ap/contracts#SavedViewPatch, opts: @ap/contracts#ExpectedVersion): Promise<@ap/contracts#Result<@ap/contracts#SavedViewEntry>>; updateGroup(id: string, patch: { addMembers?: string[]; name?: string; removeMembers?: string[]; }): Promise<@ap/contracts#Result<@ap/contracts#ViewGroupEntry>>; }
+SavedViewSupport | type | type SavedViewSupport = { contextKeys: readonly string[]; menuId: string; menuSchemaVersion: number; migrate?(from: number, view: @ap/contracts#MenuViewDraft): @ap/contracts#MigrateResult; pageKeys: readonly string[]; serialize?(page: Record<string, unknown>): Record<string, @ap/contracts#JsonValue>; }
 ScopeCheck | type | type ScopeCheck = { grantedRooms: string[]; status: 'forbidden' | 'unknown_scope' | 'valid'; }
 ScopeOption | type | type ScopeOption = { grantedRooms: number; id: string; label: string; totalRooms: number; }
 SelectionEvaluation | type | type SelectionEvaluation = { inCondition: @ap/contracts#EquipmentOption[]; outOfCondition: string[]; }
@@ -115,11 +140,18 @@ UsageRange | type | type UsageRange = { from: number; to: number; } | { preset: 
 UsageSource | type | type UsageSource = 'board' | 'main'
 UsageSummary | type | type UsageSummary = { menus: @ap/contracts#UsageMenuSummary[]; preset: 'all' | 'range'; }
 UsageVia | type | type UsageVia = (typeof @ap/contracts#USAGE_VIAS)[number]
+ViewApproval | type | type ViewApproval = 'approved' | 'none' | 'pending' | 'rejected'
+ViewCapabilities | type | type ViewCapabilities = { canApprove: boolean; canCopy: boolean; canEdit: boolean; canRevoke: boolean; canShare: boolean; canView: boolean; reason?: string; }
+ViewGroup | type | type ViewGroup = { id: string; kind: 'custom' | 'org-team'; managerIds?: string[]; memberCount: number; name: string; }
+ViewGroupEntry | type | type ViewGroupEntry = { capabilities: @ap/contracts#GroupCapabilities; group: @ap/contracts#ViewGroup; members: readonly @ap/contracts#GroupMember[]; }
+ViewSharing | type | type ViewSharing = { approval: @ap/contracts#ViewApproval; approvalNote?: string; visibility: @ap/contracts#ViewVisibility; }
+ViewVisibility | type | type ViewVisibility = { groupIds: string[]; kind: 'groups'; } | { kind: 'official'; } | { kind: 'people'; userIds: string[]; } | { kind: 'private'; }
 bucketStart | function | function bucketStart(instant: string, grain: @ap/contracts#Grain): string
 buildFeedbackOpsLink | function | function buildFeedbackOpsLink(input: { origin: string; target: @ap/contracts#FeedbackOpsTarget; }): string
 buildPlatformInboundLink | function | function buildPlatformInboundLink(input: { context: @ap/contracts#GlobalContext; hop: @ap/contracts#PlatformHop; origin: string; returnTo?: string; }): string
 buildQuery | function | function buildQuery(g: @ap/contracts#GlobalContext, page?: @ap/contracts#Pair[], extras?: @ap/contracts#Pair[]): string
 canClientSum | function | function canClientSum(measure: Pick<@ap/contracts#MeasureMeta, 'reaggregation'>): boolean
+canTransition | function | function canTransition(approval: @ap/contracts#ViewApproval, action: @ap/contracts#ApprovalAction): boolean
 carriesReturnTo | function | function carriesReturnTo(space: Pick<@ap/contracts#SpaceDef, 'carriedPageKeys'> | null | undefined): boolean
 clientCorrelationId | function | function clientCorrelationId(): string
 compareAuditEvents | function | function compareAuditEvents(a: @ap/contracts#AuditEvent, b: @ap/contracts#AuditEvent): number
@@ -138,6 +170,7 @@ groupId | const | const groupId: <const S extends string>(id: S) => S & @ap/cont
 incompleteMetricPair | function | function incompleteMetricPair(menu: null | { initializesMetric?: boolean; }, metricId: null | string, metricVersion: null | string): @ap/contracts#ContractError | null
 instantEpochMs | function | function instantEpochMs(instant: string): number
 isAppRelativePath | function | function isAppRelativePath(value: string): boolean
+isForbiddenSavedViewKey | const | const isForbiddenSavedViewKey: (key: string) => boolean
 isPortError | function | function isPortError(e: unknown): e is @ap/contracts#PortError
 isRecord | const | const isRecord: (value: unknown) => value is Record<string, unknown>
 menuPermission | const | const menuPermission: <const S extends string>(id: S) => S & @ap/contracts#MenuPermission
@@ -161,6 +194,7 @@ shift | function | function shift(value: string, hours: number): string
 sortAndPage | function | function sortAndPage<T>(rows: T[], q: @ap/contracts#PageQuery): @ap/contracts#PageResult<T>
 sortRows | function | function sortRows<T>(rows: readonly T[], sorting: @ap/contracts#PageSort[]): T[]
 spaceId | const | const spaceId: <const S extends string>(id: S) => S & @ap/contracts#SpaceId
+validateSavedView | function | function validateSavedView(input: unknown): @ap/contracts#Result<@ap/contracts#SavedViewDraft>
 withoutReturnTo | function | function withoutReturnTo(pairs: readonly @ap/contracts#Pair[]): @ap/contracts#Pair[]
 # reachable types
 Brand | type | type Brand<Name extends string> = string & { readonly [brand]: Name; }
