@@ -30,7 +30,8 @@ It does not own VOC creation, Finding persistence, Task mutation, or permission 
 ## Key files
 
 - `apps/fo-frontend/src/features/surveys/routes/surveys-search.ts` — router-free list and detail search schemas + validators (`isSurveysSearchValueValid`, `isSurveyDetailSearchValueValid`); the two route files re-export them, and the bridge reads them through `operator-screens/surveys-search`.
-- `apps/fo-frontend/src/routes/_authed/surveys/index.tsx` — Survey list route adapter (search, selection, document title) over `SurveyListScreen`.
+- `apps/fo-frontend/src/features/surveys/routes/SurveysScreen.tsx` — bridge-safe Survey list screen (list context, URL selection, stale-drop, create) over the host seam; the host's `renderDetail(selectedId, slot)` is the detail slot. Entry `operator-screens/surveys`, which never reaches the detail tree.
+- `apps/fo-frontend/src/routes/_authed/surveys/index.tsx` — Survey list route adapter: composes `SurveysScreen` with the `SurveyDetail` aside through a route-local seam (TanStack search/navigate).
 - `apps/fo-frontend/src/routes/_authed/surveys/$surveyId.tsx` — Survey builder and detail route; the non-builder branch uses `SurveyListScreen`.
 - `apps/fo-frontend/src/features/surveys/components/list/SurveyListScreen.tsx` — shared Survey list composition (toolbar, filters, create, detail slot) for the index and detail routes.
 - `apps/fo-frontend/src/routes/_authed/surveys/$surveyId.results.tsx` — Survey results presentation and outer metadata states.
@@ -43,7 +44,8 @@ It does not own VOC creation, Finding persistence, Task mutation, or permission 
 - `apps/fo-frontend/src/features/surveys/routes/SurveyParticipationPage.tsx` — standalone wrappers: TanStack host seam and document title around the screens.
 - `apps/fo-frontend/src/features/surveys/components/respond/` — shared preview and respondent question rendering/branching.
 - `apps/fo-frontend/src/features/surveys/components/list/SurveyList.tsx` — Survey list rows and list states.
-- `apps/fo-frontend/src/features/surveys/components/detail/SurveyDetail.tsx` — Survey detail fields and actions.
+- `apps/fo-frontend/src/features/surveys/components/detail/SurveyDetail.tsx` — standalone Survey detail aside; frames the pieces of `SurveyDetailParts.tsx`.
+- `apps/fo-frontend/src/features/surveys/components/detail/SurveyDetailParts.tsx` — Survey detail as `DetailParts` (`useSurveyDetailParts`: loading / not-found / blocked / error / full) plus the shared pieces; entry `operator-screens/survey-detail`.
 - `apps/fo-frontend/src/features/surveys/components/builder/SurveyBuilder.tsx` — Survey builder composition.
 - `apps/fo-frontend/src/features/surveys/components/SurveyStatusBadge.tsx` — Survey status labels and badge styles.
 - `apps/fo-frontend/src/features/surveys/components/results/SurveyResultsSummary.tsx` — result summary and follow-up actions.
