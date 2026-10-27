@@ -83,7 +83,11 @@ export function tabFloors(strip: HTMLElement | null): TabFloor[] {
     const name = tab.querySelector('[data-dock-tab-shrinkable]');
     const nameWidth = name ? width(name) : 0;
     if (name && nameWidth <= 0) return { full: remembered(), badge: badgeFloor, active };
-    const full = own - Math.max(0, nameWidth - TAB_NAME_MIN);
+    // The name never goes under its own 64px (min-w-16), so a crushed tab shows as its content overflowing the box that holds it: the tab's need is its
+    // width plus what the content overflows by, never the squeezed width alone.
+    const content = name?.parentElement;
+    const overflow = content ? Math.max(0, content.scrollWidth - content.clientWidth) : 0;
+    const full = own - Math.max(0, nameWidth - TAB_NAME_MIN) + overflow;
     measuredFull.set(tab, { title, full });
     return { full, badge: badgeFloor, active };
   });

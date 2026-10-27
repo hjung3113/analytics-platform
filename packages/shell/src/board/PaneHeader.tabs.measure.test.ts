@@ -57,4 +57,19 @@ describe('tabFloors keeps the full floors measured while expanded (docs/16 ยง4 โ
     second.querySelector('[data-dock-tab-shrinkable]')!.textContent = 'renamed';
     expect(tabFloors(strip)[1]!.full).toBe(136);
   });
+
+  it('does not let a crushed tab shrink its floor', () => {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      if (this.classList.contains('dv-tab')) return rect(32);
+      if (this.hasAttribute('data-dock-tab-shrinkable')) return rect(64);
+      if (this.hasAttribute('data-pane-badge')) return rect(20);
+      return rect(0);
+    });
+    // The box around the name is 16px wide but its content wants 122px: the tab is crushed, its need is 32 + 106.
+    const box = { clientWidth: 16, scrollWidth: 122 };
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (this: HTMLElement) { return this.hasAttribute('data-dock-tab-shrinkable') ? 64 : box.clientWidth; });
+    vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockImplementation(function (this: HTMLElement) { return this.hasAttribute('data-dock-tab-shrinkable') ? 64 : box.scrollWidth; });
+    const strip = build(3);
+    expect(tabFloors(strip).map(tab => tab.full)).toEqual([138, 138, 138, 138]);
+  });
 });

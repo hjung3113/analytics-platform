@@ -896,28 +896,34 @@ test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
       compact: tab.hasAttribute('data-dock-tab-compact'), active: tab.classList.contains('dv-active-tab'),
     })));
     const compactCount = async () => (await marks()).filter(tab => tab.compact).length;
-    // The widths that squeeze depend on the fixture's content: start at the widest single-group width (680px, wider splits the groups) and step down until the first background tab shrinks.
-    const seen: string[] = [];
-    let found = 0;
-    for (let width = 680; width >= 360; width -= 20) {
+    // Step the viewport down in 8px steps; the counts must never decrease while narrowing, .
+    const seen: number[] = [];
+    const log: string[] = [];
+    for (let width = 680; width >= 360; width -= 8) {
       await page.setViewportSize({ width, height: 900 });
       await expect(groups(page)).toHaveCount(1);
-      await page.waitForTimeout(150);
+      await page.waitForTimeout(120);
       const count = await compactCount();
-      seen.push(`${width}px: ${count}`);
-      if (count > 0) { found = width; break; }
+      seen.push(count);
+      log.push(`${width}px: ${count}`);
     }
-    expect(found, `no width produced a compact tab; compact counts seen: ${seen.join(', ')}`).toBeGreaterThan(0);
-    await expect.poll(compactCount).toBeGreaterThan(0);
+    const report = `compact counts seen: ${log.join(', ')}`;
+    const background = (await marks()).filter(tab => !tab.active).length;
+    expect(seen.every((count, n) => n === 0 || count >= seen[n - 1]!), report).toBe(true);
+    // The 4-tab fixture has no partial width: a strip under 692px is ~600px wide, one background tab shrunk still needs ~730px, so the count goes 0 → all at
+    // the pure-function level (PaneHeader.tabs*.test.ts pins 0 → 1 → 2 → 3). Here: compacting is never undone by narrowing, and it has happened by 680px.
+    expect(seen.at(-1)!, report).toBe(background);
+    expect(seen.every(count => count === 0 || count <= background), report).toBe(true);
+    await page.setViewportSize({ width: 688, height: 900 });
+    await expect.poll(compactCount).toBeLessThanOrEqual(seen[0]!);
+    await page.setViewportSize({ width: 360, height: 900 });
+    await expect.poll(compactCount).toBe(background);
     const state = await marks();
-    const background = state.filter(tab => !tab.active);
-    const shrunk = background.filter(tab => tab.compact).length;
-    // Partial: some, not all, background tabs shrink at the first width where any does.
-    expect(shrunk, `compact counts seen: ${seen.join(', ')}`).toBeGreaterThan(0);
-    expect(shrunk, `compact counts seen: ${seen.join(', ')}`).toBeLessThan(background.length);
+    const shrunk = state.filter(tab => tab.compact).length;
     // The active tab never shrinks; the shrunk background tabs are the last ones, as a block.
     expect(state.filter(tab => tab.active && tab.compact)).toHaveLength(0);
-    expect(background.map(tab => tab.compact)).toEqual(background.map((_, n) => n >= background.length - shrunk));
+    const bg = state.filter(tab => !tab.active);
+    expect(bg.map(tab => tab.compact)).toEqual(bg.map((_, n) => n >= bg.length - shrunk));
     // Rendered, not only marked: a compact tab's name takes no width, the active tab's name shows, and every tab keeps its accessible name.
     for (let n = 0; n < state.length; n++) {
       const tab = tabs.nth(n);
@@ -925,9 +931,6 @@ test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
       if (state[n]!.compact) await expect(name).toBeHidden(); else if (state[n]!.active) await expect(name).toBeVisible();
       await expect(paneTabs(page).nth(n), `tab ${n + 1} keeps an accessible name`).toHaveAccessibleName(/칸 \d+/);
     }
-    // Widen by 40px: strictly fewer shrink.
-    await page.setViewportSize({ width: Math.min(found + 40, 688), height: 900 });
-    await expect.poll(compactCount).toBeLessThan(shrunk);
   });
   test('4개 영역일 때 탭을 다른 영역 가장자리에 끌면 분할 미리보기가 없고 가운데에는 있다 (#978 UX-2)', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
