@@ -887,7 +887,7 @@ test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
     await signInWithDockBoard(page, [populated('dock', '2x2', 4)]);
     await dockReady(page, 4);
     // Below 692px every pane is one tab group; its strip is as wide as the viewport lets it be.
-    await page.setViewportSize({ width: 640, height: 900 });
+    await page.setViewportSize({ width: 420, height: 900 });
     await expect(groups(page)).toHaveCount(1);
     const tabs = page.locator('[data-dock-layout] .dv-tab');
     await expect(tabs).toHaveCount(4);
@@ -900,7 +900,7 @@ test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
     const shrunk = background.filter(Boolean).length;
     expect(background).toEqual(background.map((_, n) => n >= background.length - shrunk));
     // Not every background tab shrinks when the strip has room for a name beside the badge of the others: widen it and fewer shrink.
-    await page.setViewportSize({ width: 690, height: 900 });
+    await page.setViewportSize({ width: 560, height: 900 });
     await expect.poll(async () => (await marks()).filter(tab => tab.compact).length).toBeLessThanOrEqual(shrunk);
   });
   test('4개 영역일 때 탭을 다른 영역 가장자리에 끌면 분할 미리보기가 없고 가운데에는 있다 (#978 UX-2)', async ({ page }) => {
