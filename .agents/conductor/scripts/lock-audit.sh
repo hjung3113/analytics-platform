@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Find locks that remain after work is done ("30-minute lock audit", LANES §Stale lock check). This script does not release locks —
-# the release order is LANES ② (notify the owner → lead after 10 minutes). macOS only (`date -j`).
+# Find locks that remain after work is done (LANES §Machine resources, "Stale locks"). This script does not release locks —
+# the release order is in that row (notify the owner → lead after 10 minutes). macOS only (`date -j`).
 #
 # This script does not read the token file in a lock directory (the value with-lock.sh checks with owner when releasing).
 # Targets: $AP_MAIN/.review/{heavy.lock,browser.lock,merge.lock,worker-slot-*}. One line per lock:
 #   <lock> owner=<handle> since=<ISO> age=<minutes> verdict=<...> why=<evidence>
 # verdict:
 #   held                   the owner is alive and there is no evidence the work finished (or minimum age has not passed)
-#   owner-gone             the owner file has been absent for more than 5 minutes or the handle is not in orca terminal list (LANES ①)
+#   owner-gone             the owner file has been absent for more than 5 minutes or the handle is not in orca terminal list
 #   done-pr-merged/closed  the PR in purpose (#n or PR n) was merged/closed
 #   done-pid-dead          the purpose PID (with-lock.sh appends `, pid <wrapper PID>, pgid <child group>`; if any process remains in the pgid group, the result is held even if the wrapper is dead; otherwise this checks the worker-state JSON PID for worker-slot-* and heavy.lock, except for foreground and terminal purposes, and returns this result only when all candidates are dead) is absent or belongs to another process (PID reuse)
 #   done-ship-not-running  purpose includes ship and no ship-pr process exists

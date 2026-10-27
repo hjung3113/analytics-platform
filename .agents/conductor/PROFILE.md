@@ -1,6 +1,6 @@
 # Conductor profile — analytics-platform
 
-Repository-specific settings for the global `issue-wave-conductor` skill. Shared procedure lives in the skill. Work rules live in root `AGENTS.md`, which wins on conflict. `$CONDUCTOR` = this folder. `$ENGINE` = `~/.agents/skills/issue-wave-conductor/scripts`. Settings: [`conductor.json`](conductor.json). Multi-session rules: [`LANES.md`](LANES.md). Brief and worker traps: [`addenda/traps.md`](addenda/traps.md) — read it when writing a brief.
+Repository-specific settings for the global `issue-wave-conductor` skill. Shared procedure lives in the skill. Work rules live in root `AGENTS.md`, which wins on conflict. `$CONDUCTOR` = this folder. `$ENGINE` = `~/.agents/skills/issue-wave-conductor/scripts`. Settings: [`conductor.json`](conductor.json). Multi-session rules: [`LANES.md`](LANES.md). Brief and worker traps: §Traps.
 
 There is no database or login (mock adapter). Evidence comes from Playwright E2E (`apps/platform-e2e`) and the mock preview.
 
@@ -13,22 +13,25 @@ There is no database or login (mock adapter). Evidence comes from Playwright E2E
 
 ## Size and path (#1040)
 
-Run `bash .agents/conductor/scripts/tier.sh origin/main <branch>` on the planned or actual diff. The same diff always gives the same answer.
+The lead writes the planned tier in the assignment comment (`tier=full|light`). Before ship, the lane runs `bash .agents/conductor/scripts/tier.sh origin/main HEAD` on the committed branch. The same diff always gives the same answer. If it says `tier=full` but the issue was planned light, run one `review-final` before merge.
 
-| tier | When | Workers | Review | Fix rounds |
+| tier | When (any of) | Workers | Review | Fix rounds |
 | --- | --- | --- | --- | --- |
-| **full** | Non-test source under `packages/sdk/{kernel,components,shell,ui,contracts}`, `packages/adapters/*`, `apps/platform-web`, `apps/fo-backend`, `packages/fo-shared` — or the issue is `impl-complex` (below) | implementer + 1 `review-final` (+ `review-ux` if screens change) | 1 | ≤ 1. Re-review only after a permission or data-leak fix. |
-| **light** | Everything else, plus pure renames (R100), moves, copy, docs, generator output, sample-menu changes | none — the lane edits directly | none — the host reads the diff and records `tier=light` plus `git diff --numstat` in VERIFY | — |
+| **full** | non-test, non-`.md` source under `packages/sdk/{kernel,components,shell,ui,contracts}`, `packages/adapters/*`, `apps/platform-web`, `apps/fo-backend`, `apps/fo-frontend`, `packages/fo-shared` (either side of a rename); `review-plan.py` `flags.permission`; `ux=required`; the issue is `impl-complex` | ≤ 3 per PR: implementer + `review-final` (+ `review-ux` when screens change) + one fix | 1 | 1. If a blocker or major is still open after it, a second round goes to `impl-complex` and gets a fix-diff check. Re-review only after a permission or data-leak fix. |
+| **light** | everything else: pure renames (R100), moves, docs, copy, generator output, sample-menu changes without permission or URL/Context logic | none — the lane edits directly | none — the host reads the diff and records `tier=light` plus `git diff --numstat` in VERIFY | — |
 
+- **Measured (heuristic, PR #1041 review):** the paths-only first draft was replayed on the last 250 merges with archived reviews. 19 of 50 "light" merges had a blocker or major. Most were in `apps/fo-frontend` or hit `flags.permission`, and both are now full. The current rule has not been re-measured, so do not widen light without new data.
 - **PR count:** at most 3 PRs per issue. Bundle mechanical work into one PR. Split only where a full-tier review needs isolation.
-- **Copy-only edits under full paths:** the lead may mark the PR light with a numstat line ("copy only").
-- **Brief check:** only for `impl-complex` briefs, plus a `review-quality` plan review when a brief changes 06 contracts, package boundaries or `sdk:api`. Do not add intermediate checks, fix-diff checks or separate doc-sync workers. The implementer updates the owning docs in the same PR ([`docs/AGENTS.md`](../../docs/AGENTS.md)).
+- **Copy-only edits under full paths:** the lead may mark the PR light with a numstat line ("copy only"), unless `flags.permission` fires.
+- **Brief check:** only for `impl-complex` briefs, plus a `review-quality` plan review when a brief changes 06 contracts, package boundaries or `sdk:api`. No other intermediate checks and no separate doc-sync workers. The implementer updates the owning docs in the same PR ([`docs/AGENTS.md`](../../docs/AGENTS.md)).
 - **Review findings:**
-  - blocker or major → one fix round.
-  - minor or nit → fix inline before merge if trivial, otherwise drop with one backlog line. Never open a follow-up PR just for minors.
+  - blocker or major → the fix round.
+  - minor or nit → fixed inline before merge if trivial, otherwise one backlog line. No follow-up PR only for minors.
 - **Keep review reports:** `ship-pr.sh --archive-review` writes them to `$WAVE_BRIEFS/<n>/`, where the lead measures review hit rate per release.
 
-`impl-complex` (route to that role) if any of these hold:
+## Complexity
+
+Route to `impl-complex` (always full) if any of these hold:
 - A Kernel contract and its consumers change together, or 3+ packages change.
 - Permissions, Scope, URL security boundaries (`safeReturnTo`, destination ID vs Context), or data-leak rules change.
 - State or ordering logic changes: query lifecycle (cancel, generation, `ready` gate), history push/replace, page-key cleanup on Context change.
@@ -42,8 +45,9 @@ Run `bash .agents/conductor/scripts/tier.sh origin/main <branch>` on the planned
 - FeedbackOps issues: `launch-worker.py <n> <slug> fo`.
   - `scripts/fo-prepare.sh` fills `.env` and creates the issue DB on 5439 (`verify-db.sh create <n>`).
   - Rules: `addenda/impl-rules-fo.md`.
-  - Run `verify-db.sh up` once beforehand. Never use 5434.
-  - After merge, run `verify-db.sh drop <n>`.
+  - Run `verify-db.sh up` once beforehand (in that checkout, `cp ops/feedbackops/.env.example ops/feedbackops/.env` first if `.env` is missing). Never use 5434.
+  - A branch that adds a migration: `verify-db.sh drop <n>` → `verify-db.sh create <n> --migrate-from <worktree>` before integration tests (the worker brief says the conductor does this).
+  - After merge, run `verify-db.sh drop <n>`. At wave end, run `verify-db.sh down`.
 
 ## Verify
 
@@ -52,7 +56,7 @@ Every step must exit 0 before commit.
 1. Changed-package checks.
 2. Root checks:
    - `verify=full`: run `bash .agents/conductor/scripts/verify-root.sh <log-dir>` (lint → typecheck → test+build under `heavy.lock`; exits 3 if capacity says `start=no`).
-   - `verify=light`: run `verify-root.sh --light <log-dir>` (lint + typecheck). Test and build are left to PR CI.
+   - `verify=light`: run `verify-root.sh --light <log-dir>` (lint + typecheck). Test and build are left to PR CI. `tier.sh` gives `verify=full` for any change under the full paths, tests included (root `AGENTS.md` §검증).
    - Never use `--force` or diff filters. The turbo cache decides what reruns.
 3. E2E, only when Kernel, shell, shared components or the mock server change. Run the new describe first, then the brief's "Impact" describes with `-g "A|B"`. Never run full `pnpm e2e` locally, except to reproduce a CI failure.
 4. If menu manifests, `menus.ts`, contract menu types or `tooling/gen-menu` change: run `node tooling/gen-menu/scripts/probe.ts`, never in a worktree with a live preview.
@@ -80,7 +84,7 @@ Fix design-lint errors with the token, variant or component the message names.
 
 ## Review
 
-- Plan: `python3 $ENGINE/review-plan.py <checkout> [--base origin/main]` (rules in `conductor.json` `review_plan`). The tier table above caps what it returns.
+- Plan: `python3 $ENGINE/review-plan.py <checkout> [--base origin/main]` (rules in `conductor.json` `review_plan`). For light tier, it sets no reviewers. `flags.permission` and `ux=required` always make the PR full.
 - Flags:
   - `permission` / `instructions` → global skill 7a.
   - `e2e` → confirm Verify step 3.
@@ -154,3 +158,7 @@ Shared assets come from conductor-engine `install.sh`. Run `install.sh --check` 
 | `scripts/with-lock.sh <lock> "<purpose>" -- <cmd>` | Take a lock or slot for the command's lifetime |
 | `scripts/verify-root.sh [--light] <log-dir>` | Verify step 2 |
 | `scripts/lock-audit.sh` | Find locks left by finished work |
+
+## Traps
+
+The list is in [`addenda/traps.md`](addenda/traps.md). Read it when you write a brief and when its topic comes up. Append new traps there, one bullet each.
