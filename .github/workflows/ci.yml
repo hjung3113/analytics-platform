@@ -48,7 +48,7 @@ jobs:
             files="$(git diff --name-only --no-renames "$BASE...$HEAD")"
             if [ -n "$files" ] && ! printf '%s\n' "$files" | grep -qv '\.md$'; then code=false; fi
             # FeedbackOps frontend sources are bundled into the demo through the `@` alias; GLOSSARY.md feeds the site's banned-term check.
-            site_dirs='^(menus|packages|apps/platform-web|site|tooling|patches|products/feedbackops)/'
+            site_dirs='^(menus|packages|apps/fo-frontend|apps/platform-web|site|tooling|patches|products/feedbackops)/'
             site_files='^(package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|GLOSSARY\.md|apps/platform-e2e/package\.json|\.github/workflows/(ci|pages)\.yml)$'
             if [ -n "$files" ] && ! { printf '%s\n' "$files" | grep -v '\.md$' | grep -E "$site_dirs" >/dev/null || printf '%s\n' "$files" | grep -E "$site_files" >/dev/null; }; then site=false; fi
             printf 'changed files:\n%s\n' "$files"

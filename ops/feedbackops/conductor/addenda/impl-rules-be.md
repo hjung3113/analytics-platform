@@ -1,11 +1,11 @@
 # Backend addendum to 00-IMPL-RULES.md (read both)
 
-1. Read `apps/backend/AGENTS.md` and every module `AGENTS.md` you touch, plus
+1. Read `apps/fo-backend/AGENTS.md` and every module `AGENTS.md` you touch, plus
    `docs/implementation/02-domain-module-boundaries.md` §Approved cross-module surfaces.
 2. Backend integration suites are env-gated: they skip without a DB. Your task names **your own throwaway issue
    database** (port 5439) and the exact command:
    `FEEDBACKOPS_ENV_FILE=<abs worktree>/.review/env.verify pnpm --filter @fops/backend test:integration <files>`
-   (paths relative to `apps/backend`). Run **only the integration files you added or touched**, never the full
+   (paths relative to `apps/fo-backend`). Run **only the integration files you added or touched**, never the full
    suite, never another env file, never `.env`; the runner refuses port 5434 (the dev database). Each run
    truncates and re-seeds that database, which is expected. The suites run as the low-priv `fops_app` role: write
    the tests so they pass under it. Report the command and its result. If your task adds a migration, the issue
@@ -16,7 +16,7 @@
    the report instead.
 4. Behaviour-preserving refactor: every existing test keeps its setup, fixtures and assertions. The error code, HTTP
    status and `fields[].path`/`code` of every existing failure path stay byte-identical.
-5. Shared seed helpers live in `apps/backend/src/test-support/`; reuse them instead of new ad-hoc seeds.
+5. Shared seed helpers live in `apps/fo-backend/src/test-support/`; reuse them instead of new ad-hoc seeds.
 6. You may run `pnpm --filter @fops/backend exec tsc --noEmit`, unit tests that need no DB, and rule 2's
    integration files; never `git`, DB commands (`db:migrate`, `db:seed`, `psql`) or the full integration suite (the
    conductor runs that).

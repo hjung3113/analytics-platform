@@ -1,14 +1,14 @@
 ---
 paths:
-  - "products/feedbackops/apps/frontend/src/**/*.test.{ts,tsx}"
-  - "products/feedbackops/apps/frontend/src/**/__tests__/**"
-  - "products/feedbackops/apps/frontend/src/test/**"
-  - "products/feedbackops/packages/ui/src/**/*.test.{ts,tsx}"
+  - "apps/fo-frontend/src/**/*.test.{ts,tsx}"
+  - "apps/fo-frontend/src/**/__tests__/**"
+  - "apps/fo-frontend/src/test/**"
+  - "packages/fo-ui/src/**/*.test.{ts,tsx}"
 ---
 
 # Frontend test traps (vitest + jsdom)
 
-Paths below are relative to `products/feedbackops/` (moved from the frozen FeedbackOps repo, ADR-0072).
+Paths below are relative to the repository root (FeedbackOps moved from the frozen FeedbackOps repo, ADR-0072).
 
 Each item is an independent, measured trap. Check this list before blaming a selector for "element not found".
 
@@ -19,7 +19,7 @@ Each item is an independent, measured trap. Check this list before blaming a sel
 - `ChipPicker`, `ManagedSystemPicker`, and `AnalyticsAreaPicker` are single-select `ToggleGroup`s: items are `role="radio"` inside a `radiogroup`, not `role="button"`.
 - `DialogContent` renders a built-in sr-only close button named by the Korean `closeLabel` default (overridable per call). Close a dialog with `fireEvent.keyDown(document.body, { key: 'Escape' })`, and target buttons inside a dialog by `data-testid` rather than by name.
 - TipTap/ProseMirror accepts no text in jsdom. When a test needs body text, replace `RichEditor` with a textarea stand-in in that file only (`vi.mock('@fops/ui', importOriginal)`).
-- jsdom has no `document.execCommand` (stub it) and no `Element.prototype.scrollIntoView` (polyfilled in `apps/frontend/src/test/setup.ts`; without it Radix Select crashes and unmounts the tree).
+- jsdom has no `document.execCommand` (stub it) and no `Element.prototype.scrollIntoView` (polyfilled in `apps/fo-frontend/src/test/setup.ts`; without it Radix Select crashes and unmounts the tree).
 - `userEvent.setup()` installs its own `navigator.clipboard`. Install a clipboard stub after calling it, via `Object.defineProperty(navigator, 'clipboard', { value, configurable: true })`, and delete it in `afterEach`. `vi.stubGlobal('navigator', …)` does not work in jsdom.
 - Tab accessible names include count badges (`Pending 1`); match by prefix (`/^Pending/`).
 
@@ -31,10 +31,10 @@ Each item is an independent, measured trap. Check this list before blaming a sel
 - A partial `vi.mock('@/lib/api', () => ({ … }))` drops `ApiParseError`, and hooks whose `retry` predicate uses `instanceof ApiParseError` then never settle. Spread the original: `vi.mock('@/lib/api', async (importOriginal) => ({ ...(await importOriginal()), … }))`.
 - Hooks with `retry: 1` take about 1 s to reach `isError`, beyond the default `findBy` timeout. Use a longer `waitFor` or a no-retry client.
 - With `exactOptionalPropertyTypes`, passing an explicit `undefined` to an optional prop is a type error; omit the prop.
-- jsdom has no layout engine, so a grid/flex placement regression passes every unit test. Check layout in the visual harness (`apps/frontend/tests/visual/AGENTS.md`).
+- jsdom has no layout engine, so a grid/flex placement regression passes every unit test. Check layout in the visual harness (`apps/fo-frontend/tests/visual/AGENTS.md`).
 
 ## Environment
 
-- "No registered route" usually means a stale generated `apps/frontend/src/routeTree.gen.ts` (gitignored). It is missing in a fresh worktree and stale after adding a route or rebasing. Check `grep -c <route symbol> apps/frontend/src/routeTree.gen.ts`; regenerate with `pnpm gen:routes`.
+- "No registered route" usually means a stale generated `apps/fo-frontend/src/routeTree.gen.ts` (gitignored). It is missing in a fresh worktree and stale after adding a route or rebasing. Check `grep -c <route symbol> apps/fo-frontend/src/routeTree.gen.ts`; regenerate with `pnpm gen:routes`.
 - Frontend vitest runs on Node 26.7 with `--no-experimental-webstorage` in the worker (`vitest.config.ts`): Node's built-in `localStorage` otherwise shadows jsdom's (#642).
 - Outside a secure context (http on a non-localhost origin) browsers drop `crypto.randomUUID` and `navigator.clipboard`. Test fallback paths as primary paths (stub `crypto` both with only `getRandomValues` and as `undefined`), copy the backend's validation regex into the test oracle, and branch success messages on the actual result.

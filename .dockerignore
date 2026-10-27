@@ -9,7 +9,10 @@
 !tooling/eslint/package.json
 !tooling/tsconfig/package.json
 !tooling/tsconfig/base.json
-!products/feedbackops
+!apps/fo-backend
+!apps/fo-frontend
+!packages/fo-shared
+!packages/fo-ui
 !ops/feedbackops/package.json
 !ops/feedbackops/tsconfig.base.json
 
@@ -21,7 +24,4 @@
 **/.turbo
 **/.env*
 !**/.env.example
-products/feedbackops/.review
-products/feedbackops/.claude
-products/feedbackops/docs
-products/feedbackops/apps/frontend/tests/visual/baselines
+apps/fo-frontend/tests/visual/baselines

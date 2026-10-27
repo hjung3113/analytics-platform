@@ -1,6 +1,6 @@
 #!/bin/bash
 [ -n "${BASH_VERSION:-}" ] || exec bash "$0" "$@"  # zsh-invoked runs lost BASH_SOURCE (s61, s70)
-# verify-fe.sh <worktree> — FE host checks (<worktree> is the repository checkout root) (Node 22): full vitest (+packages/ui if touched), FE typecheck gate, root typecheck,
+# verify-fe.sh <worktree> — FE host checks (<worktree> is the repository checkout root) (Node 22): full vitest (+packages/fo-ui if touched), FE typecheck gate, root typecheck,
 # boundaries + fixture test, design-system lint cap, backend tsc, FE→BE route drift, worker hygiene (no new biome-ignore). Logs in $WAVE_STATE/verify-<basename>/. Prints a summary.
 here=$(cd "$(dirname "$0")" && pwd)
 # FeedbackOps path map (FO_OPS, FO_FRONTEND, FO_UI); `fo` runs a script of the @fops/ops tool package (ops/feedbackops).
@@ -31,7 +31,7 @@ run_check vitest "$log/vitest.log" run_vitest "$FO_FRONTEND"
 if { git diff --name-only origin/develop...HEAD; git status --porcelain; } | grep -q "$FO_UI"; then
   run_check ui-vitest "$log/ui-vitest.log" run_vitest "$FO_UI"; fi
 run_check fe-typecheck "$log/fe-typecheck.log" fo gate:fe-typecheck
-# Root typecheck also builds packages/ui with its tests (gate:fe-typecheck covers only the frontend; #661).
+# Root typecheck also builds packages/fo-ui with its tests (gate:fe-typecheck covers only the frontend; #661).
 run_check root-typecheck "$log/root-typecheck.log" fo typecheck
 run_check boundaries "$log/boundaries.log" node "$FO_OPS/scripts/check-boundaries.mjs"
 run_check design-lint "$log/design-lint.log" fo lint:design

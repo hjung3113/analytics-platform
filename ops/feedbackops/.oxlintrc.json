@@ -7,7 +7,7 @@
   "settings": {
     "shadcn": {
       "ui": "@fops/ui",
-      "note": "New tokens go in packages/ui/src/styles/theme.css + tokens.css (ADR-0058)."
+      "note": "New tokens go in packages/fo-ui/src/styles/theme.css + tokens.css (ADR-0058)."
     }
   },
   "rules": {
@@ -43,7 +43,7 @@
   },
   "overrides": [
     {
-      "files": ["**/packages/ui/src/**"],
+      "files": ["**/packages/fo-ui/src/**"],
       "rules": {
         "shadcn/no-restyle": "off",
         "shadcn/no-arbitrary-values": ["error", { "allow": ["layout"], "scanAllStrings": true }],

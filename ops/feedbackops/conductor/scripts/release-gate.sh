@@ -103,9 +103,9 @@ main() {
   run_check 'verify-db drop release' "$logdir/db-drop.log" env VERIFY_DB_ROOT="$checkout" "$SCRIPT_DIR/verify-db.sh" drop release
   run_check 'verify-db create release' "$logdir/db-create.log" env VERIFY_DB_ROOT="$checkout" "$SCRIPT_DIR/verify-db.sh" create release --migrate-from "$checkout"
   run_check 'verify-be release' "$logdir/verify-be.log" "$SCRIPT_DIR/verify-be.sh" "$checkout" release
-  run_check 'packages/shared vitest' "$logdir/shared-vitest.log" bash -c 'cd "$1" && pnpm --filter @fops/shared exec vitest run' bash "$checkout"
+  run_check 'packages/fo-shared vitest' "$logdir/shared-vitest.log" bash -c 'cd "$1" && pnpm --filter @fops/shared exec vitest run' bash "$checkout"
   run_check 'verify-fe' "$logdir/verify-fe.log" "$SCRIPT_DIR/verify-fe.sh" "$checkout"
-  run_check 'packages/ui vitest' "$logdir/ui-vitest.log" bash -c 'cd "$1" && pnpm --filter @fops/ui exec vitest run' bash "$checkout"
+  run_check 'packages/fo-ui vitest' "$logdir/ui-vitest.log" bash -c 'cd "$1" && pnpm --filter @fops/ui exec vitest run' bash "$checkout"
   run_check 'gate:fe-lint --base origin/main' "$logdir/fe-lint.log" bash -c 'cd "$1" && pnpm -s --filter @fops/ops run gate:fe-lint --base origin/main' bash "$checkout"
   run_check 'visual harness' "$logdir/visual.log" env VISUAL_ROOT="$checkout" "$SCRIPT_DIR/visual.sh" run
 

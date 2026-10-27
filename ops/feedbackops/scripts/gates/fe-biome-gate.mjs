@@ -116,7 +116,7 @@ const warnings = new Map();
 for (const diagnostic of report.diagnostics ?? []) {
   if (diagnostic.severity !== 'error' && diagnostic.severity !== 'warning') continue;
   const file = diagnostic.location?.path?.file ?? '(unknown)';
-  // Allowlist lines name files relative to the old FeedbackOps root; 713p2 moves that prefix with the files.
+  // Allowlist lines name apps and packages by repository path and docs relative to the old FeedbackOps root (713p3 moves the docs).
   const repoRelative = relative(repoRoot, resolve(OPS_ROOT, file)).split('\\').join('/');
   const named = repoRelative.startsWith(FO_ALLOWLIST_PREFIX)
     ? repoRelative.slice(FO_ALLOWLIST_PREFIX.length)

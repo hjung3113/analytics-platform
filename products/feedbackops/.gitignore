@@ -3,8 +3,6 @@ dist
 build
 .turbo
 coverage
-# The bridge entry `@fops/frontend/operator-screens/coverage` (#762 c) is source, not a test-coverage report.
-!apps/frontend/src/operator-screens/coverage/
 .env
 .env.local
 .env.*.local
@@ -12,8 +10,6 @@ coverage
 *.log
 .DS_Store
 .vite
-# TanStack Router generated route tree
-apps/frontend/src/routeTree.gen.ts
 playwright-report
 test-results
 
@@ -24,8 +20,6 @@ report/
 # MinIO local data volume (docker-compose.dev.yml)
 minio_data/
 
-# Pre-bundled Drizzle schema consumed by drizzle-kit (apps/backend/scripts/bundle-schema.mjs)
-apps/backend/.drizzle-schema/
 
 # CodeGraph local index (per-developer)
 .codegraph/

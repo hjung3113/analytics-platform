@@ -148,7 +148,7 @@ function checkSchemaDrift() {
         DATABASE_URL_MIGRATE: safeMigrateUrl,
         // drizzle-kit resolves a config-supplied `out` against the config
         // dir and mangles absolute paths ("./" + path), so hand it a
-        // "./"-relative path from apps/backend into the throwaway copy.
+        // "./"-relative path from apps/fo-backend into the throwaway copy.
         DRIZZLE_OUT: `./${relative(backendDir, scratchOut)}`,
       },
     });

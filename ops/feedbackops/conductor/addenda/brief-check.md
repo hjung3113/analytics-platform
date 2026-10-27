@@ -4,7 +4,7 @@ Examples and paths for the shared items (each cost a review round in sessions 63
 
 - Items 13–16 were added after FeedbackOps s81, where together they cost five fix rounds.
 - Item 1: a brief that said "parse with the shared schema" made a worker invent one (#813). Named things include
-  copy keys (`apps/frontend/src/lib/copy/*`).
+  copy keys (`apps/fo-frontend/src/lib/copy/*`).
 - Item 2: cardinality and validation rules match the backend validator (`routes.ts`, `authoring.ts`, service code),
   not the issue text (#827).
 - Item 3: a sequence that cannot hit the race passes before the fix (#891).

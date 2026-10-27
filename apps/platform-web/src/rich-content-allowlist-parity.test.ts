@@ -8,12 +8,12 @@ import { describe, expect, it } from 'vitest';
 
 const UI_ALLOWLIST_SOURCE = new URL('../../../packages/ui/src/rich-content/allowlist-local.ts', import.meta.url);
 const FEEDBACKOPS_ALLOWLIST_SOURCE = new URL(
-  '../../../products/feedbackops/packages/shared/src/rich-content/allowlist.ts',
+  '../../../packages/fo-shared/src/rich-content/allowlist.ts',
   import.meta.url,
 );
 const UI_FIXTURES_SOURCE = new URL('../../../packages/ui/src/rich-content/fixtures-local.ts', import.meta.url);
 const FEEDBACKOPS_FIXTURES_SOURCE = new URL(
-  '../../../products/feedbackops/packages/shared/src/rich-content/fixtures.ts',
+  '../../../packages/fo-shared/src/rich-content/fixtures.ts',
   import.meta.url,
 );
 

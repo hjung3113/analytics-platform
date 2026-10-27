@@ -1,7 +1,7 @@
 #!/bin/bash
 [ -n "${BASH_VERSION:-}" ] || exec bash "$0" "$@"  # zsh-invoked runs lost BASH_SOURCE (s61, s70)
 # verify-be.sh <worktree> <issue> [module-filter...] — BE host checks (<worktree> is the repository checkout root): backend tsc, root typecheck, boundaries +
-# fixture test, migration drift, packages/shared vitest when touched, then backend integration on the throwaway DB
+# fixture test, migration drift, packages/fo-shared vitest when touched, then backend integration on the throwaway DB
 # described by $WAVE_STATE/env.verify.<issue> (fops_app role). Filters narrow the integration run (touched modules).
 : "${WAVE_STATE:?set WAVE_STATE}"; W=$1; N=$2; shift 2
 here=$(cd "$(dirname "$0")" && pwd)

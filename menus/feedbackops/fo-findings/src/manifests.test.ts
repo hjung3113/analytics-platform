@@ -5,9 +5,9 @@ import { describe, expect, it } from 'vitest';
 import { findingsRoute } from '@ap/fo-bridge';
 import { manifests } from './index';
 
-const AUTHED = fileURLToPath(new URL('../../../../products/feedbackops/apps/frontend/src/routes/_authed.tsx', import.meta.url));
+const AUTHED = fileURLToPath(new URL('../../../../apps/fo-frontend/src/routes/_authed.tsx', import.meta.url));
 const NAV_TREE = readFileSync(AUTHED, 'utf8');
-const GLOSSARY = readFileSync(fileURLToPath(new URL('../../../../products/feedbackops/apps/frontend/src/lib/copy/glossary.ts', import.meta.url)), 'utf8');
+const GLOSSARY = readFileSync(fileURLToPath(new URL('../../../../apps/fo-frontend/src/lib/copy/glossary.ts', import.meta.url)), 'utf8');
 /** The `NAV_TREE.findings` entry with this `href` labels itself `GLOSSARY.<key>`; resolves that key to its text. */
 const navLabel = (href: string) => {
   const at = NAV_TREE.indexOf(`href: '${href}'`);

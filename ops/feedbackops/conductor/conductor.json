@@ -2,11 +2,11 @@
   "review_plan": {
     "base": "origin/develop",
     "test": {
-      "regex": "(__tests__/|\\.test\\.|\\.spec\\.|^apps/frontend/tests/|test-support/)"
+      "regex": "(__tests__/|\\.test\\.|\\.spec\\.|^apps/fo-frontend/tests/|test-support/)"
     },
     "baseline": {
       "prefix": [
-        "apps/frontend/tests/visual/baselines/"
+        "apps/fo-frontend/tests/visual/baselines/"
       ]
     },
     "docs_only": {
@@ -20,7 +20,7 @@
           {
             "prefix": [
               "docs/",
-              "apps/frontend/src/lib/copy/"
+              "apps/fo-frontend/src/lib/copy/"
             ]
           }
         ]
@@ -44,15 +44,15 @@
           "match": {
             "any": [
               {
-                "regex": "^apps/frontend/src/(features|routes|lib/layout)/.*\\.tsx$"
+                "regex": "^apps/fo-frontend/src/(features|routes|lib/layout)/.*\\.tsx$"
               },
               {
                 "prefix": [
-                  "packages/ui/src/"
+                  "packages/fo-ui/src/"
                 ]
               },
               {
-                "regex": "^apps/frontend/src/.*\\.css$"
+                "regex": "^apps/fo-frontend/src/.*\\.css$"
               }
             ]
           }
@@ -61,12 +61,12 @@
       "optional": [
         {
           "prefix": [
-            "apps/frontend/src/",
-            "packages/shared/src/"
+            "apps/fo-frontend/src/",
+            "packages/fo-shared/src/"
           ]
         },
         {
-          "regex": "^apps/backend/src/modules/.*(routes?|controller|validation|polic|permission)"
+          "regex": "^apps/fo-backend/src/modules/.*(routes?|controller|validation|polic|permission)"
         }
       ]
     },
@@ -76,12 +76,12 @@
           "match": {
             "any": [
               {
-                "regex": "^apps/frontend/src/(routes|lib/router|lib/api|lib/layout|lib/query|lib/cross-system|lib/auth)/"
+                "regex": "^apps/fo-frontend/src/(routes|lib/router|lib/api|lib/layout|lib/query|lib/cross-system|lib/auth)/"
               },
               {
                 "prefix": [
-                  "apps/frontend/",
-                  "packages/ui/"
+                  "apps/fo-frontend/",
+                  "packages/fo-ui/"
                 ],
                 "regex": "(^|/)use[A-Z\\-][\\w-]*\\.tsx?$|InternalLink"
               }
@@ -91,7 +91,7 @@
         },
         {
           "match": {
-            "regex": "^(apps/frontend|packages/ui)/package\\.json$"
+            "regex": "^(apps/fo-frontend|packages/fo-ui)/package\\.json$"
           },
           "reason": "dependency change: {file}"
         }
@@ -100,8 +100,8 @@
         {
           "file": {
             "prefix": [
-              "apps/frontend/",
-              "packages/ui/"
+              "apps/fo-frontend/",
+              "packages/fo-ui/"
             ]
           },
           "regex": "\\b(useQuery|useInfiniteQuery|queryKey|staleTime|refetchInterval|invalidateQueries|apiRequest|apiClient)\\b|\\benabled\\s*:|\\bfetch\\(",
@@ -110,13 +110,13 @@
         {
           "file": {
             "prefix": [
-              "apps/backend/src/modules/"
+              "apps/fo-backend/src/modules/"
             ]
           },
           "patterns": [
             {
               "file": {
-                "regex": "^apps/backend/src/modules/.*/(read/|repository|repo\\.ts$|repo-)"
+                "regex": "^apps/fo-backend/src/modules/.*/(read/|repository|repo\\.ts$|repo-)"
               },
               "regex": "\\b(ILIKE|LIKE|ORDER BY|LIMIT|OFFSET)\\b|\\.orderBy\\(|\\.limit\\(|\\.offset\\(|\\bilike\\(|\\blike\\(|\\.from\\("
             },
@@ -133,8 +133,8 @@
         "name": "backend",
         "match": {
           "prefix": [
-            "apps/backend/",
-            "packages/shared/"
+            "apps/fo-backend/",
+            "packages/fo-shared/"
           ]
         }
       },
@@ -142,7 +142,7 @@
         "name": "migration",
         "match": {
           "prefix": [
-            "apps/backend/migrations/"
+            "apps/fo-backend/migrations/"
           ]
         }
       },
@@ -217,7 +217,7 @@
           "type": "file"
         },
         {
-          "path": "apps/frontend/node_modules",
+          "path": "apps/fo-frontend/node_modules",
           "type": "dir"
         }
       ],
@@ -284,7 +284,7 @@
         "copy_to": ".review/env.verify",
         "task_lines": [
           "Your own throwaway database (port 5439, never 5434): run only the integration files you added or touched, from the repo root, with",
-          "`FEEDBACKOPS_ENV_FILE={worktree}/.review/env.verify pnpm --filter backend test:integration <paths relative to apps/backend>`."
+          "`FEEDBACKOPS_ENV_FILE={worktree}/.review/env.verify pnpm --filter backend test:integration <paths relative to apps/fo-backend>`."
         ]
       }
     }

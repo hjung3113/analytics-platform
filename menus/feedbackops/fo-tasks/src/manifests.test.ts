@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { milestonesRoute, myTasksRoute, taskBoardRoute, taskListRoute, taskRequestsRoute } from '@ap/fo-bridge';
 import { manifests } from './index';
 
-const AUTHED = fileURLToPath(new URL('../../../../products/feedbackops/apps/frontend/src/routes/_authed.tsx', import.meta.url));
+const AUTHED = fileURLToPath(new URL('../../../../apps/fo-frontend/src/routes/_authed.tsx', import.meta.url));
 const NAV_TREE = readFileSync(AUTHED, 'utf8');
 const ROUTES = { 'fo-task-requests': taskRequestsRoute, 'fo-tasks': taskBoardRoute, 'fo-my-tasks': myTasksRoute, 'fo-milestones': milestonesRoute, 'fo-task-list': taskListRoute };
 /** The `NAV_TREE.tasks` label of the entry with this `href`. */

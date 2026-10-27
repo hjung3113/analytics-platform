@@ -31,7 +31,7 @@ services:
     image: feedbackops-release-1060-migrate:local
     build:
       context: ../..
-      dockerfile: products/feedbackops/apps/backend/Dockerfile
+      dockerfile: apps/fo-backend/Dockerfile
       target: migrate
     command: ["node_modules/.bin/drizzle-kit", "migrate"]
     environment:
@@ -78,7 +78,7 @@ services:
     image: feedbackops-release-1060-backend:local
     build:
       context: ../..
-      dockerfile: products/feedbackops/apps/backend/Dockerfile
+      dockerfile: apps/fo-backend/Dockerfile
     network_mode: service:oidc
     environment:
       NODE_ENV: development
@@ -123,7 +123,7 @@ services:
     image: feedbackops-release-1060-frontend:local
     build:
       context: ../..
-      dockerfile: products/feedbackops/apps/frontend/Dockerfile
+      dockerfile: apps/fo-frontend/Dockerfile
     environment:
       BACKEND_URL: http://oidc:3001
     ports:

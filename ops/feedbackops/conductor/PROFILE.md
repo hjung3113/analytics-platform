@@ -60,10 +60,10 @@ visual, nav-perf) still apply.
 
 Host checks in order; each must exit 0 before a commit. Every background verify command exports `WAVE_STATE` first.
 
-- **FE:** `scripts/verify-fe.sh <worktree>` (full vitest, `packages/ui` vitest when touched, `gate:fe-typecheck`,
+- **FE:** `scripts/verify-fe.sh <worktree>` (full vitest, `packages/fo-ui` vitest when touched, `gate:fe-typecheck`,
   root typecheck, boundaries and their fixture test, design lint, backend tsc, FE→BE route drift, worker hygiene).
 - **Visual:** from the worktree root, `"$CONDUCTOR/scripts/visual.sh" run [filter...]` (Node 22 and a free
-  `PW_PORT` are set for you); the full harness when `packages/ui` changed.
+  `PW_PORT` are set for you); the full harness when `packages/fo-ui` changed.
 - **BE:** the shared throwaway Postgres: a `pgvector/pgvector:pg16` container on **5439** with
   `ops/feedbackops/scripts/db/init.sql`, capped at 2 GB (`VERIFY_DB_MEMORY` overrides; the cap applies when `up` creates the
   container, so `down` then `up` to change it). `verify-db.sh up` migrates the template; each issue DB clones it and
@@ -78,14 +78,14 @@ Host checks in order; each must exit 0 before a commit. Every background verify 
   pre-existing → allowlist in `ops/feedbackops/scripts/gates/frontend-biome-allowlist.txt`).
 - Known FE load flakes (#634) pass when rerun alone; anything else is real.
 - **Final head (after the last fix round):** only what CI does not run: the mutation check on the fix (and the
-  fix-diff check when required), `visual.sh run <touched specs>` (full when `packages/ui` changed),
+  fix-diff check when required), `visual.sh run <touched specs>` (full when `packages/fo-ui` changed),
   `python3 "$ENGINE/worker-hygiene.py" <worktree>` and `pnpm --filter @fops/ops gate:fe-lint --base origin/develop`. CI
   (`ops/feedbackops/scripts/ci/gate.sh` static, unit, integration) is the gate of record for the rebased head; no full
   `verify-fe.sh`/`verify-be.sh` rerun after a fix or a rebase.
 - **Visual baselines.** Sub-threshold changes pass against stale baselines: regenerate deliberately with
-  `visual.sh update <filter...>`, which runs `$ENGINE/baseline-keep.py --prefix apps/frontend/` in report mode and
+  `visual.sh update <filter...>`, which runs `$ENGINE/baseline-keep.py --prefix apps/fo-frontend/` in report mode and
   writes before/after crops under `.review/baseline-keep-crops/`; inspect the changed PNGs and crops first.
-  `python3 "$ENGINE/baseline-keep.py" --prefix apps/frontend/ --root <worktree> --revert '<regex>'` restores selected files; `--keep '<regex>'` keeps only those and restores the rest (`--region`,
+  `python3 "$ENGINE/baseline-keep.py" --prefix apps/fo-frontend/ --root <worktree> --revert '<regex>'` restores selected files; `--keep '<regex>'` keeps only those and restores the rest (`--region`,
   e.g. sidebar-only `0,0,300,960`, and `--name` qualify `--keep`). Pixel count alone never decides. Finish with
   `visual.sh stable <filter...> --runs 3`. On a PNG rebase conflict take develop's file and regenerate.
 - Drop the issue DB and its env file (`verify-db.sh drop <n>`) after the merge; `verify-db.sh down` at wave end.
@@ -106,7 +106,7 @@ Host checks in order; each must exit 0 before a commit. Every background verify 
   - `scripts/app-preview.py start <worktree> --backend --env "$WAVE_STATE/env.verify.<n>" --name <n>-branch`.
   `--seed` only on a fresh issue DB; omit it to restart on a seeded one (the personas seed then fails on the
   `[preview]` Cluster's member FK). For 5k data run `SEED_MODE=scale npx tsx src/seed/index.ts` from
-  `apps/backend` with the issue env after `--seed`.
+  `apps/fo-backend` with the issue env after `--seed`.
 - Stop previews (`app-preview.py stop <label>`) as soon as UX and perf are done.
 - **`ux-prep.sh <n> <worktree> [--scale] [--targets <hrefs>] [--no-perf]`** (§Tools) runs the whole lane in the
   background. Rebase the worktree onto `origin/develop` and refresh `$WAVE_STATE/baseline` (skill step 7c) first,
@@ -156,7 +156,7 @@ Read first by the global `review-ux` persona. Report in English.
 - **Authority:**
   - root `AGENTS.md` → UI Authority (ADR-0060): the shipped UI is the authority, so extend the current pattern;
     Korean UI chrome, domain nouns (`VOC`, `Finding`, `Task`, …) stay English; three shells only (ADR-0020);
-  - `apps/frontend/AGENTS.md` and `PRODUCT.md` (Operate register: dense, list-first, restrained, one primary action
+  - `apps/fo-frontend/AGENTS.md` and `PRODUCT.md` (Operate register: dense, list-first, restrained, one primary action
     per toolbar or panel);
   - `docs/frontend/ui-design-system.md`, `docs/frontend/component-inventory.md`, and the spec under
     `docs/frontend/specs/` for the touched surface;
@@ -177,18 +177,18 @@ Read first by the global `review-quality` persona. Report in English.
 - **Range:** normally `origin/main...origin/develop`, in a disposable worktree detached at `origin/develop`.
 - **Authority:** root `AGENTS.md` (Monorepo Boundaries, Implementation Boundaries, Product Invariants, and Test
   Discipline: test behaviour not implementation, one concept per test, no duplicate coverage at a lower level, no
-  trivial passthrough tests); `docs/implementation/02-domain-module-boundaries.md`; `apps/backend/AGENTS.md`,
-  `apps/frontend/AGENTS.md` and the nested `AGENTS.md` files on touched paths.
-- **Boundary leaks:** a repository writing another module's table; a controller doing service work; `packages/ui`
-  calling APIs or owning domain logic; `packages/shared` importing an app; frontend code enforcing permissions as
+  trivial passthrough tests); `docs/implementation/02-domain-module-boundaries.md`; `apps/fo-backend/AGENTS.md`,
+  `apps/fo-frontend/AGENTS.md` and the nested `AGENTS.md` files on touched paths.
+- **Boundary leaks:** a repository writing another module's table; a controller doing service work; `packages/fo-ui`
+  calling APIs or owning domain logic; `packages/fo-shared` importing an app; frontend code enforcing permissions as
   truth.
 - **release-blocker:** only a product-invariant or ownership-boundary violation that would ship wrong behaviour or
   data.
 
 ## Fold scope
 
-Besides the issue's diff: the feature folder of a route that diff changes (`apps/frontend/src/features/<f>/`,
-`apps/backend/src/modules/<m>/`) and `apps/frontend/src/lib/copy/*`. Never `packages/ui`, `packages/shared`,
+Besides the issue's diff: the feature folder of a route that diff changes (`apps/fo-frontend/src/features/<f>/`,
+`apps/fo-backend/src/modules/<m>/`) and `apps/fo-frontend/src/lib/copy/*`. Never `packages/fo-ui`, `packages/fo-shared`,
 `lib/layout` or another feature. React Query `placeholderData`/`keepPreviousData`, query keys,
 `staleTime`/`gcTime`, optimistic overlays and retained selection are state code: file such a finding unless the
 issue is about that behaviour.
@@ -226,7 +226,7 @@ issue is about that behaviour.
 | `scripts/verify-fe.sh <worktree>` / `verify-be.sh <worktree> <n> [filters]` | §Verify; logs in `$WAVE_STATE/verify-<wt>/` and `$WAVE_STATE/vbe-<n>/` | – |
 | `scripts/verify-db.sh up` / `create <n> [--migrate-from <checkout>]` / `drop <n>` / `reset-rate-limits <n>` / `has-preview-fixtures <n>` / `down` | throwaway Postgres on 5439; `drop` removes the env file; `has-preview-fixtures` reports the `[preview]` fixture cluster | – |
 | `scripts/visual.sh run` / `update` / `stable` / `capture` | visual harness; picks the checkout from the cwd (or `VISUAL_ROOT`); `capture --clean` trashes its spec | – |
-| `python3 "$ENGINE/baseline-keep.py" --prefix apps/frontend/` | baseline keep/revert with crops | engine repo tests |
+| `python3 "$ENGINE/baseline-keep.py" --prefix apps/fo-frontend/` | baseline keep/revert with crops | engine repo tests |
 | `python3 "$ENGINE/biome-cmp.py" <worktree> <file>...` | biome error categories on develop vs branch (`introduced` per file; last line JSON) | engine repo tests |
 | `python3 "$ENGINE/worker-hygiene.py" <worktree>` | fails on a new `biome-ignore`; reports whitespace-only churn | engine repo tests |
 | `python3 "$ENGINE/review-plan.py" <worktree>` | §Review plan; refuses uncommitted changes | engine repo tests |
@@ -259,7 +259,7 @@ addenda, not engine forks or their tests.
 - TanStack Router merges the root's raw search into child matches; dropped keys must be overwritten with `undefined`.
 - A route added under an existing `$param.tsx` becomes its child and renders only through the parent's `<Outlet/>`;
   require a real route-tree test and un-nest with a trailing underscore (`$surveyId_.respond.tsx`).
-- `gate:fe-typecheck` checks only the frontend; `pnpm --filter @fops/ops typecheck` also builds `packages/ui` with its tests
+- `gate:fe-typecheck` checks only the frontend; `pnpm --filter @fops/ops typecheck` also builds `packages/fo-ui` with its tests
   (#661). `verify-fe.sh` runs both.
 - Rebase conflicts also hit the biome allowlist: keep both sides.
 - A merge that adds dependencies makes the Playwright webServer report only "was not able to start" in other

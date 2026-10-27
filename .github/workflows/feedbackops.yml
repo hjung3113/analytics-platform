@@ -10,6 +10,8 @@ on:
   pull_request:
     paths:
       - 'products/feedbackops/**'
+      - 'apps/fo-*/**'
+      - 'packages/fo-*/**'
       - 'ops/feedbackops/**'
       - 'packages/ui/**'
       # Backend tests read @ap/contracts/vocab.json and run @ap/server-conformance through @ap/http-adapter (#674).
@@ -25,6 +27,8 @@ on:
     branches: [main]
     paths:
       - 'products/feedbackops/**'
+      - 'apps/fo-*/**'
+      - 'packages/fo-*/**'
       - 'ops/feedbackops/**'
       - 'packages/ui/**'
       # Backend tests read @ap/contracts/vocab.json and run @ap/server-conformance through @ap/http-adapter (#674).

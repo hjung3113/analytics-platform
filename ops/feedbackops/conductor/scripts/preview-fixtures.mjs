@@ -8,7 +8,7 @@
 // starts with "[preview]". The matching list is read before every create.
 //
 // Mutations share a 10/minute actor bucket
-// (apps/backend/src/lib/rate-limit-tiers.ts). Writes are split across personas
+// (apps/fo-backend/src/lib/rate-limit-tiers.ts). Writes are split across personas
 // so one fresh start stays under that cap. A permission-request approve uses the
 // separate sensitive bucket.
 //
@@ -27,7 +27,7 @@
 // The outcome follow-up review renders a row only when the survey is closed,
 // the response count meets the anonymity threshold (minimum 5, core.md), and
 // the reader holds survey.read_personal_responses. Admin does not bypass that
-// capability (packages/shared/src/enums/capabilities.ts).
+// capability (packages/fo-shared/src/enums/capabilities.ts).
 
 import { randomUUID } from 'node:crypto';
 

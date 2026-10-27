@@ -1,13 +1,13 @@
 @source "./";
-@source "../../../products/feedbackops/apps/frontend/src/global-screens";
-@source "../../../products/feedbackops/apps/frontend/src/features/home";
-@source "../../../products/feedbackops/apps/frontend/src/features/surveys";
-@source "../../../products/feedbackops/apps/frontend/src/features/voc";
-@source "../../../products/feedbackops/apps/frontend/src/components";
-@source "../../../products/feedbackops/apps/frontend/src/lib";
-@source "../../../products/feedbackops/packages/ui/src";
-@source "../../../products/feedbackops/apps/frontend/src/operator-screens";
-@source "../../../products/feedbackops/apps/frontend/src/features/integration/recovery";
+@source "../../../apps/fo-frontend/src/global-screens";
+@source "../../../apps/fo-frontend/src/features/home";
+@source "../../../apps/fo-frontend/src/features/surveys";
+@source "../../../apps/fo-frontend/src/features/voc";
+@source "../../../apps/fo-frontend/src/components";
+@source "../../../apps/fo-frontend/src/lib";
+@source "../../../packages/fo-ui/src";
+@source "../../../apps/fo-frontend/src/operator-screens";
+@source "../../../apps/fo-frontend/src/features/integration/recovery";
 
 /*
  * A FeedbackOps detail body (`FoDetailDrawer`) brings its own sticky section tabs, scroll area and bottom bar (it fills a flex column, as in the standalone panel).
