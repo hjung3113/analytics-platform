@@ -228,9 +228,9 @@ function GroupCard({
         areas.map((a, i) => {
           const lead = teamName(a, resolved);
           return (
-            // biome-ignore lint/a11y/useKeyWithClickEvents: row is a real <div> with a nested <button> affordance; click anywhere opens the detail.
             <div
               key={a.id}
+              // biome-ignore lint/a11y/useSemanticElements: the row holds a nested <button>; a <button> row would nest interactive content.
               role="button"
               tabIndex={0}
               data-testid={`aa-row-${a.slug}`}

@@ -19,7 +19,13 @@ it('toggles Cluster suggestions and saves only the boolean while preserving othe
       if (_path === '/me')
         return new Response(
           JSON.stringify({
-            actor: { id: 'admin', role_level: 'admin' },
+            actor: {
+              id: 'admin',
+              external_id: 'admin',
+              email: 'admin@example.test',
+              display_name: 'Admin',
+              role_level: 'admin',
+            },
             workspace_id: 'workspace',
           }),
           { status: 200 },
@@ -57,7 +63,13 @@ it('omits the opt-in for unavailable embeddings and never patches an untouched s
       if (_path === '/me')
         return new Response(
           JSON.stringify({
-            actor: { id: 'admin', role_level: 'admin' },
+            actor: {
+              id: 'admin',
+              external_id: 'admin',
+              email: 'admin@example.test',
+              display_name: 'Admin',
+              role_level: 'admin',
+            },
             workspace_id: 'workspace',
           }),
           { status: 200 },
@@ -110,7 +122,16 @@ it('names the edited suggestion row in the save bar', async () => {
         new Response(
           JSON.stringify(
             path === '/me'
-              ? { actor: { id: 'admin', role_level: 'admin' }, workspace_id: 'workspace' }
+              ? {
+                  actor: {
+                    id: 'admin',
+                    external_id: 'admin',
+                    email: 'admin@example.test',
+                    display_name: 'Admin',
+                    role_level: 'admin',
+                  },
+                  workspace_id: 'workspace',
+                }
               : { available: true, items: [] },
           ),
           { status: 200 },
