@@ -3,7 +3,10 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFil
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { gitPorcelain, insertGroupsRow, preflightReservedPaths, runRevert, type RevertSteps } from './probe-support.ts';
+import {
+  gitPorcelain, insertGroupsRow, preflightReservedPaths, PROBE_FOLDER, PROBE_SPACE, PROBE_TEST_REL,
+  runRevert, writeRegistryTest, type RevertSteps,
+} from './probe-support.ts';
 import { fixtureMenusTs, FIXTURE_GROUP } from './fixture.ts';
 import { groupSpaces } from './menu-layout.ts';
 
@@ -19,6 +22,15 @@ describe('probe support helpers (F8)', () => {
     expect(text).toContain(`id: groupId('${FIXTURE_GROUP}')`);
     expect(groupSpaces(text).get(FIXTURE_GROUP)).toBe('mars');
     expect(existsSync(join(root, 'packages/sdk/contracts'))).toBe(false);
+  });
+
+  it('writeRegistryTest expects the canonical path derived from the probe space and folder', () => {
+    const root = mkdtempSync(join(tmpdir(), 'gen-menu-registry-test-'));
+    mkdirSync(join(root, 'apps/platform-web/src'), { recursive: true });
+    writeRegistryTest(root);
+    const source = readFileSync(join(root, PROBE_TEST_REL), 'utf8');
+    expect(source).toContain(`const menu = registry.menuById('${PROBE_FOLDER}');`);
+    expect(source).toContain(`expect(menu.path).toBe('/${PROBE_SPACE}/${PROBE_FOLDER}');`);
   });
 
   it('gitPorcelain throws when git cannot run (bad cwd)', () => {
