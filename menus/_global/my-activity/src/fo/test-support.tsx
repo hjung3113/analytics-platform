@@ -13,10 +13,10 @@ import { groupId, spaceId, type Permission } from '@ap/contracts';
 // The real manifests in their global group; a space needs one menu of its own, so a filler stands in for it.
 const filler = { ...manifests.find(m => m.id === 'surveys')!, primary: true, id: 'filler', group: 'noticeVoc', path: '/filler' } as MenuEntry;
 export const registry = createRegistry({
-  spaces: [{ id: spaceId('analytics'), label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'filler' }],
+  spaces: [{ id: spaceId('mars'), label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'filler' }],
   groups: [
     { id: groupId('myActivity'), label: { ko: '내 활동', en: 'My activity' }, icon: UserRound, space: null },
-    { id: groupId('noticeVoc'), label: { ko: '공지·VOC', en: 'Notice·VOC' }, icon: UserRound, space: spaceId('analytics') },
+    { id: groupId('noticeVoc'), label: { ko: '공지·VOC', en: 'Notice·VOC' }, icon: UserRound, space: spaceId('mars') },
   ],
   menus: [...manifests, filler],
 });

@@ -15,7 +15,7 @@ export function ChangeContext() {
 }
 export function mount(spec: ChartSpec, canExport = false, hasRoute = true, controls = true, interactions = true) {
   window.history.replaceState(null, '', hasRoute ? '/?v=1&scopeId=MEM' : '/missing?v=1&scopeId=MEM');
-  const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: { ko: 'G', en: 'G' }, icon: House, space: spaceId('analytics') }], menus: [{ id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features: { export: canExport, compare: interactions, annotate: interactions, savedView: false }, pageKeys: [] }] });
+  const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: { ko: 'G', en: 'G' }, icon: House, space: spaceId('mars') }], menus: [{ id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features: { export: canExport, compare: interactions, annotate: interactions, savedView: false }, pageKeys: [] }] });
   const session = testSession(['platform:view']);
   const adapter = testAdapter({ session: () => session });
   const wrap = (next: ChartSpec) => createElement(I18nProvider, null,

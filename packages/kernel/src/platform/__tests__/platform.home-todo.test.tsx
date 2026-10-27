@@ -11,7 +11,7 @@ const noFeatures = { export: false, savedView: false, annotate: false, compare: 
 const registry = createRegistry({
   permissions: [menuPermission('analytics:view')],
   spaces: [testSpace({ homeMenuId: 'source' })],
-  groups: [{ id: groupId('equipment'), label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: spaceId('analytics') }],
+  groups: [{ id: groupId('equipment'), label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: spaceId('mars') }],
   menus: [{
     id: 'source', group: groupId('equipment'), label: { ko: 'source', en: 'source' }, description: { ko: '', en: '' }, path: '/source', icon: House, permission: 'platform:view',
     requiresScope: false, context: noContext, pageType: 'analysis' as const, features: noFeatures, pageKeys: [], primary: true,

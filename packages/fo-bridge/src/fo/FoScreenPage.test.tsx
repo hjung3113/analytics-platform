@@ -17,7 +17,7 @@ const useHere = routeHere(route);
 const space = testSpace({ homeMenuId: 'fo-inbox', carriedPageKeys: ['managedSystem'] });
 const registry = createRegistry({
   spaces: [space],
-  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
+  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
   menus: [{
     id: 'fo-inbox', group: groupId('overview'), primary: true, label: { ko: 'inbox', en: 'inbox' }, description: { ko: '', en: '' }, path: '/inbox', icon: House,
     permission: 'platform:view' as const, requiresScope: false, context: noContext, pageType: 'overview' as const,

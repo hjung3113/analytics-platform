@@ -37,8 +37,12 @@ export function spaceLastKey(userId: string) {
   return `platform:space-last:${userId}`;
 }
 
-/** String entries only. Bad JSON or a non-object starts from {}. Never throws. */
-export function readSpaceLast(userId: string): Record<string, string> {
+/**
+ * String entries only. Bad JSON or a non-object starts from {}. Never throws.
+ * `migrations` maps a former space id to its current one (the app declares it, ADR-0072): an entry under a former id moves
+ * to the current id once, here, unless the current id already has one (that one wins), and the former key is removed.
+ */
+export function readSpaceLast(userId: string, migrations?: Readonly<Record<string, string>>): Record<string, string> {
   try {
     const raw = sessionStorage.getItem(spaceLastKey(userId));
     if (!raw) return {};
@@ -48,6 +52,15 @@ export function readSpaceLast(userId: string): Record<string, string> {
     for (const [key, value] of Object.entries(parsed)) {
       if (typeof value === 'string') out[key] = value;
     }
+    if (migrations === undefined) return out;
+    let moved = false;
+    for (const [former, current] of Object.entries(migrations)) {
+      if (former === current || !(former in parsed)) continue;
+      if (typeof out[former] === 'string' && !(current in out)) out[current] = out[former];
+      delete out[former];
+      moved = true;
+    }
+    if (moved) sessionStorage.setItem(spaceLastKey(userId), JSON.stringify(out));
     return out;
   } catch {
     return {};
@@ -59,9 +72,9 @@ export function sameParams(a: Record<string, string>, b: Record<string, string>)
   return keys.length === Object.keys(b).length && keys.every(key => a[key] === b[key]);
 }
 
-export function writeSpaceLast(userId: string, spaceId: string, url: string) {
+export function writeSpaceLast(userId: string, spaceId: string, url: string, migrations?: Readonly<Record<string, string>>) {
   try {
-    const next = readSpaceLast(userId);
+    const next = readSpaceLast(userId, migrations);
     next[spaceId] = stripReturnToFromUrl(url);
     sessionStorage.setItem(spaceLastKey(userId), JSON.stringify(next));
   } catch { /* memory-only */ }

@@ -17,7 +17,7 @@ import { readFeedbackOpsOrigin } from './feedbackops-origin';
 import { managedSystemFor } from './feedbackops-systems';
 import { createLocalQueryHistoryStore } from './query-history-store';
 import { EQUIPMENT_AXES } from './equipmentAxes';
-import { registry } from './menus';
+import { registry, SPACE_ID_MIGRATIONS } from './menus';
 import { appSlots } from './slots';
 import { startOrFail } from './startup-failure';
 import { AppShell, RouteOutlet } from '@ap/shell';
@@ -50,7 +50,7 @@ void startOrFail(root, async () => {
   root.render(
     <StrictMode>
       <I18nProvider>
-        <PlatformProvider queryHistory={queryHistory} equipmentAxes={EQUIPMENT_AXES} adapter={assembly.adapter} registry={registry} location={location} slots={appSlots(assembly, feedbackOpsOrigin, notificationsSlot, vocCompose, homeTodoSlot, scopeControlSlot, navCountsSlot, savedViewsSlot)}>
+        <PlatformProvider spaceIdMigrations={SPACE_ID_MIGRATIONS} queryHistory={queryHistory} equipmentAxes={EQUIPMENT_AXES} adapter={assembly.adapter} registry={registry} location={location} slots={appSlots(assembly, feedbackOpsOrigin, notificationsSlot, vocCompose, homeTodoSlot, scopeControlSlot, navCountsSlot, savedViewsSlot)}>
           <AppShell><RouteOutlet /></AppShell>
         </PlatformProvider>
       </I18nProvider>

@@ -21,7 +21,7 @@ describe('validation refusals (exit 1, nothing written)', () => {
     expect(res.status, res.stderr).toBe(1);
     expect(res.stderr).toMatch(pattern);
     expect(appSnapshot(root)).toEqual(snapshot);
-    expect(menusTree(root)).toEqual(['menus/analytics/metric-catalog/src/index.ts']);
+    expect(menusTree(root)).toEqual(['menus/mars/metric-catalog/src/index.ts']);
   };
 
   it('rejects a group the app does not declare in GROUPS', () => {
@@ -57,20 +57,20 @@ describe('validation refusals (exit 1, nothing written)', () => {
 
   it('rejects an existing folder', () => {
     const root = refix();
-    mkdirSync(join(root, 'menus', 'analytics', FIXTURE_FOLDER), { recursive: true });
+    mkdirSync(join(root, 'menus', 'mars', FIXTURE_FOLDER), { recursive: true });
     expectRefused(root, [FIXTURE_GROUP, ...GEN_ARGS], /already exists/);
   });
 
   it('rejects an owned group', () => {
-    expectRefused(refix(), ['metrics', ...GEN_ARGS], /already owned by menus\/analytics\/metric-catalog/);
+    expectRefused(refix(), ['metrics', ...GEN_ARGS], /already owned by menus\/mars\/metric-catalog/);
   });
 
   it('rejects a taken menu id', () => {
-    expectRefused(refix(), [FIXTURE_GROUP, ...GEN_ARGS, '--menu', 'metric-catalog'], /already used by menus\/analytics\/metric-catalog/);
+    expectRefused(refix(), [FIXTURE_GROUP, ...GEN_ARGS, '--menu', 'metric-catalog'], /already used by menus\/mars\/metric-catalog/);
   });
 
   it('rejects a path-shape collision naming the other menu', () => {
-    expectRefused(refix(), [FIXTURE_GROUP, ...GEN_ARGS, '--path', '/metrics/:equipmentId'], /collides with menus\/analytics\/metric-catalog/);
+    expectRefused(refix(), [FIXTURE_GROUP, ...GEN_ARGS, '--path', '/metrics/:equipmentId'], /collides with menus\/mars\/metric-catalog/);
   });
 
   it('rejects a missing marker', () => {
@@ -102,12 +102,12 @@ import { manifests as ${FIXTURE_GROUP} } from '${PACKAGE_PREFIX}menu-${FIXTURE_F
 // </gen:menu-imports>
 
 export const GROUPS: GroupDef[] = [
-  { id: 'metrics', label: { ko: '지표관리', en: 'Metrics' }, icon: Gauge, space: 'analytics' },
-  { id: '${FIXTURE_GROUP}', label: { ko: '생성 확인', en: 'Gen probe' }, icon: LayoutDashboard, space: 'analytics' },
+  { id: 'metrics', label: { ko: '지표관리', en: 'Metrics' }, icon: Gauge, space: 'mars' },
+  { id: '${FIXTURE_GROUP}', label: { ko: '생성 확인', en: 'Gen probe' }, icon: LayoutDashboard, space: 'mars' },
   // </gen:menu-groups>
 ];
 
-export const SPACES: SpaceDef[] = [{ id: 'analytics' }];
+export const SPACES: SpaceDef[] = [{ id: 'mars' }];
 
 export const MENUS: MenuEntry[] = [
   // <gen:menu-spreads>

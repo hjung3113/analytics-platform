@@ -21,9 +21,9 @@ const MS_ROW = { id: MS, workspace_id: 'w', slug: 'analytics', name: 'Analytics 
 
 const CONTEXT: VocComposeContext = {
   items: [{ id: 'menu', label: '메뉴', value: '생산성 분석' }, { id: 'period', label: '기간', value: '2026-10-01 ~ 2026-10-07' }],
-  href: 'https://platform.example/analytics/productivity?period=7d', spaceId: 'analytics' as VocComposeContext['spaceId'], menuId: 'productivity', carried: {},
+  href: 'https://platform.example/analytics/productivity?period=7d', spaceId: 'mars' as VocComposeContext['spaceId'], menuId: 'productivity', carried: {},
 };
-const managedSystemFor = (spaceId: string | null) => (spaceId === 'analytics' ? MS : null);
+const managedSystemFor = (spaceId: string | null) => (spaceId === 'mars' ? MS : null);
 
 function handle(over: { managedSystems?: () => Response; post?: () => Response } = {}) {
   return (path: string, method: string) => {

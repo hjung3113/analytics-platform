@@ -14,7 +14,7 @@ describe('scopeControlSlot', () => {
     const first = scopeControlSlot.For(spaceId('feedbackops'));
     expect(first).not.toBeNull();
     expect(scopeControlSlot.For(spaceId('feedbackops'))).toBe(first);
-    expect(scopeControlSlot.For(spaceId('metrics'))).toBeNull();
+    expect(scopeControlSlot.For(spaceId('bravo'))).toBeNull();
   });
 
   it('in the mock preview draws the 목록 범위 label and a disabled 전체 button titled 실서버 필요', () => {

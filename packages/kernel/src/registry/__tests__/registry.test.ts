@@ -12,8 +12,8 @@ import { groupId, KERNEL_PERMISSIONS, menuPermission, spaceId, type SpaceDef } f
 /** The fixtures' menus use `metrics:view`, which the app (here: the test) declares. */
 const createRegistry = (input: Parameters<typeof create>[0]) => create({ permissions: [menuPermission('metrics:view')], ...input });
 const none = { time: 'unsupported', roomNames: 'unsupported', line: 'unsupported', prcGroup: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
-const groups: GroupDef[] = [{ id: groupId('metrics'), label: { ko: '지표', en: 'Metrics' }, icon: House, space: spaceId('analytics') }];
-const analyticsSpace: SpaceDef = { id: spaceId('analytics'), label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'catalog' };
+const groups: GroupDef[] = [{ id: groupId('metrics'), label: { ko: '지표', en: 'Metrics' }, icon: House, space: spaceId('mars') }];
+const analyticsSpace: SpaceDef = { id: spaceId('mars'), label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'catalog' };
 const spaces: SpaceDef[] = [analyticsSpace];
 const homeA: SpaceDef[] = [{ ...analyticsSpace, homeMenuId: 'a' }];
 const menu = (id: string, path: string, extra: Partial<PlatformMenuEntry> = {}): MenuEntry => ({
@@ -134,8 +134,8 @@ describe('space carriedPageKeys (ADR-0081 decision 4)', () => {
   });
   it.each([
     { name: 'a carried key equal to a global key', spaces: [{ ...analyticsSpace, homeMenuId: 'a', carriedPageKeys: ['scopeId'] }], menus: [menu('a', '/a', { primary: true })], error: /carried page key "scopeId" collides with a global/ },
-    { name: 'a carried key declared twice', spaces: [{ ...analyticsSpace, homeMenuId: 'a', carriedPageKeys: ['k', 'k'] }], menus: [menu('a', '/a', { primary: true, pageKeys: ['k'] })], error: /Space "analytics" carried page key "k" is declared twice/ },
-    { name: 'a member menu missing the carried key', spaces: carrying, menus: [menu('a', '/a', { primary: true, pageKeys: ['k'] }), menu('c', '/c')], error: /Menu "c" does not declare space "analytics" carried page key "k"/ },
+    { name: 'a carried key declared twice', spaces: [{ ...analyticsSpace, homeMenuId: 'a', carriedPageKeys: ['k', 'k'] }], menus: [menu('a', '/a', { primary: true, pageKeys: ['k'] })], error: /Space "mars" carried page key "k" is declared twice/ },
+    { name: 'a member menu missing the carried key', spaces: carrying, menus: [menu('a', '/a', { primary: true, pageKeys: ['k'] }), menu('c', '/c')], error: /Menu "c" does not declare space "mars" carried page key "k"/ },
   ])('rejects $name', ({ spaces: s, menus, error }) => {
     expect(() => createRegistry({ spaces: s, groups, menus })).toThrow(error);
   });
@@ -175,7 +175,7 @@ describe('spaces (06 §9.1)', () => {
   });
 
   it('rejects groups whose space is not declared', () => {
-    expect(() => createRegistry({ spaces: [analyticsSpace], groups: [...groups, { ...adminGroups[0], space: spaceId('metrics') }], menus: [roles] })).toThrow(/Group "admin" uses undeclared space "metrics"/);
+    expect(() => createRegistry({ spaces: [analyticsSpace], groups: [...groups, { ...adminGroups[0], space: spaceId('bravo') }], menus: [roles] })).toThrow(/Group "admin" uses undeclared space "bravo"/);
   });
 
   it('rejects an unknown home menu id', () => {
@@ -188,14 +188,14 @@ describe('spaces (06 §9.1)', () => {
 
   it('rejects a home route that needs parameters', () => {
     const detail = menu('detail', '/metrics/:metricId', { parent: 'catalog' });
-    expect(() => createRegistry({ spaces: [{ ...analyticsSpace, homeMenuId: 'detail' }], groups, menus: [catalog, detail] })).toThrow(/Space "analytics" homeMenuId "detail" home route must not need parameters/);
+    expect(() => createRegistry({ spaces: [{ ...analyticsSpace, homeMenuId: 'detail' }], groups, menus: [catalog, detail] })).toThrow(/Space "mars" homeMenuId "detail" home route must not need parameters/);
   });
 
   it.each([
     { ko: '', en: 'Purpose' },
     { ko: '목적', en: '   ' },
   ])('rejects an empty space description (%j)', description => {
-    expect(() => createRegistry({ spaces: [{ ...analyticsSpace, description }], groups, menus: [catalog] })).toThrow(/Space "analytics" description must not be empty/);
+    expect(() => createRegistry({ spaces: [{ ...analyticsSpace, description }], groups, menus: [catalog] })).toThrow(/Space "mars" description must not be empty/);
   });
 
   it.each([
@@ -212,7 +212,7 @@ describe('spaces (06 §9.1)', () => {
     { ko: '   ', en: 'Productivity analysis' },
     { ko: '생산성 분석', en: '   ' },
   ])('rejects a blank space subtitle (%j)', subtitle => {
-    expect(() => createRegistry({ spaces: [{ ...analyticsSpace, subtitle }], groups, menus: [catalog] })).toThrow(/Space "analytics" subtitle must not be empty/);
+    expect(() => createRegistry({ spaces: [{ ...analyticsSpace, subtitle }], groups, menus: [catalog] })).toThrow(/Space "mars" subtitle must not be empty/);
   });
 
   it('rejects a home menu whose permission differs from the space permission', () => {
@@ -240,7 +240,7 @@ describe('spaces (06 §9.1)', () => {
     const registry = createRegistry({ spaces, groups: [...groups, notice, overview], menus: [catalog, notices, home, detail] });
     expect(registry.spaceOf(notices)).toBeNull();
     expect(registry.spaceOf(home)).toBeNull();
-    expect(registry.spaceOf(catalog)?.id).toBe('analytics');
+    expect(registry.spaceOf(catalog)?.id).toBe('mars');
   });
 
   it('rejects a space whose home menu is a global utility', () => {
@@ -250,7 +250,7 @@ describe('spaces (06 §9.1)', () => {
       spaces: [{ ...analyticsSpace, homeMenuId: 'notices' }],
       groups: [...groups, notice],
       menus: [catalog, notices],
-    })).toThrow(/Space "analytics" homeMenuId "notices" is not in that space/);
+    })).toThrow(/Space "mars" homeMenuId "notices" is not in that space/);
   });
 
   it.each(['global-of-space', 'space-of-global'] as const)('rejects a parent across a global group and a space (%s)', direction => {
@@ -273,8 +273,8 @@ describe('spaces (06 §9.1)', () => {
   it('allows eight groups in one space (no per-space group cap)', () => {
     // The platform vocabulary is closed at runtime, so the eighth group is a module group.
     const ids = ['overview', 'equipment', 'masterData', 'analytics', 'metrics', 'noticeVoc', 'admin'] as const;
-    const platform: GroupDef[] = ids.map(id => ({ id: groupId(id), label: { ko: id, en: id }, icon: House, space: spaceId('analytics') }));
-    const probe: GroupDef = { id: 'probe:main', module: 'probe', label: { ko: 'p', en: 'p' }, icon: House, space: spaceId('analytics') };
+    const platform: GroupDef[] = ids.map(id => ({ id: groupId(id), label: { ko: id, en: id }, icon: House, space: spaceId('mars') }));
+    const probe: GroupDef = { id: 'probe:main', module: 'probe', label: { ko: 'p', en: 'p' }, icon: House, space: spaceId('mars') };
     const eight = [...platform, probe];
     const eightMenus: MenuEntry[] = [
       ...ids.map((id, i) => menu(`m${i}`, `/m${i}`, { group: groupId(id), primary: true })),
@@ -297,7 +297,7 @@ describe('matchRoute: static segments win, whatever the declaration order', () =
 });
 
 describe('open vocabulary (ADR-0053)', () => {
-  const modGroup: GroupDef = { id: 'fx:main', module: 'fx', label: { ko: '모', en: 'M' }, icon: House, space: spaceId('analytics') };
+  const modGroup: GroupDef = { id: 'fx:main', module: 'fx', label: { ko: '모', en: 'M' }, icon: House, space: spaceId('mars') };
   const modMenu = (over: Partial<ModuleMenuEntry> = {}): ModuleMenuEntry => ({
     id: 'fx-home', module: 'fx', group: 'fx:main', permission: 'fx:view', label: { ko: 'f', en: 'f' }, description: { ko: '', en: '' }, path: '/fx', icon: House,
     requiresScope: false, context: none, pageType: 'catalog', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [], primary: true,
@@ -391,7 +391,7 @@ it.each(['', 'a\nb'])('keeps the quoted key in the required Context error for un
 describe('app-declared vocabulary (ADR-0072)', () => {
   const declared = [menuPermission('metrics:view')];
   const base = { spaces, groups, menus: [catalog] };
-  const modGroup: GroupDef = { id: 'fx:main', module: 'fx', label: { ko: '모', en: 'M' }, icon: House, space: spaceId('analytics') };
+  const modGroup: GroupDef = { id: 'fx:main', module: 'fx', label: { ko: '모', en: 'M' }, icon: House, space: spaceId('mars') };
   const modMenu = (over: Partial<ModuleMenuEntry> = {}): ModuleMenuEntry => ({
     id: 'fx-home', module: 'fx', group: 'fx:main', permission: 'fx:view', label: { ko: 'f', en: 'f' }, description: { ko: '', en: '' }, path: '/fx', icon: House,
     requiresScope: false, context: none, pageType: 'catalog', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [], primary: true,
@@ -415,7 +415,7 @@ describe('app-declared vocabulary (ADR-0072)', () => {
     ['a menu group nobody declared', { ...base, menus: [catalog, menu('a', '/a', { group: groupId('ghost') })], permissions: declared }, /undeclared group/],
     ['a group in a space nobody declared', { ...base, groups: [{ ...groups[0], space: spaceId('ghost') }], permissions: declared }, /undeclared space "ghost"/],
     ['a menu permission nobody declared', { ...base }, /permission "metrics:view" is not a platform permission/],
-    ['a space permission nobody declared', { ...base, spaces: [{ ...analyticsSpace, permission: menuPermission('ghost:view') }], permissions: declared }, /Space "analytics" permission "ghost:view"/],
+    ['a space permission nobody declared', { ...base, spaces: [{ ...analyticsSpace, permission: menuPermission('ghost:view') }], permissions: declared }, /Space "mars" permission "ghost:view"/],
     ['a declared permission that repeats a kernel one', { ...base, permissions: [...declared, menuPermission('console:access')] }, /duplicates a kernel permission/],
     ['a declared permission listed twice', { ...base, permissions: [...declared, menuPermission('metrics:view')] }, /Duplicate declared permission/],
     ['a declared permission without an action', { ...base, permissions: [menuPermission('metrics')] }, /must be "<namespace>:<action>"/],

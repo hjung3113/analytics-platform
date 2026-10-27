@@ -8,7 +8,7 @@ import { groupId, spaceId } from '@ap/contracts';
 
 const registry = createRegistry({
   spaces: [testSpace()],
-  groups: [{ id: groupId('overview'), label: { ko: '홈', en: 'Home' }, icon: House, space: spaceId('analytics') }],
+  groups: [{ id: groupId('overview'), label: { ko: '홈', en: 'Home' }, icon: House, space: spaceId('mars') }],
   menus: [{ id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'management', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: ['tab'] }],
 });
 const session = testSession(['platform:view']);
@@ -60,7 +60,7 @@ describe('location boundary (06 §6.4)', () => {
     fireEvent.click(screen.getByRole('link'));
     expect(platform.url).toBe('/?v=1&tab=next');
     expect(window.location.pathname).toBe(prefix + '/');
-    expect(JSON.parse(sessionStorage.getItem('platform:space-last:u1')!)).toEqual({ analytics: '/?v=1&tab=next' });
+    expect(JSON.parse(sessionStorage.getItem('platform:space-last:u1')!)).toEqual({ mars: '/?v=1&tab=next' });
     act(() => { platform.navigate('/?v=1&tab=replaced', { replace: true }); });
     expect(window.location.search).toBe('?v=1&tab=replaced');
     act(() => { window.history.replaceState(null, '', prefix + '/?v=1&tab=pop'); window.dispatchEvent(new PopStateEvent('popstate')); });

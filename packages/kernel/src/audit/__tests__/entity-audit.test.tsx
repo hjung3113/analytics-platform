@@ -11,7 +11,7 @@ import { memoryStorage, settleQueries, testAdapter, testSession, testSpace } fro
 
 const registry = createRegistry({
   spaces: [testSpace()],
-  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
+  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
   menus: [{
     id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' },
     path: '/', icon: House, permission: 'platform:view', requiresScope: false,

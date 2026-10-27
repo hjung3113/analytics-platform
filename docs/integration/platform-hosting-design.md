@@ -237,7 +237,7 @@ flowchart BT
 | --- | --- | --- |
 | 모듈 코드 위치 | 제품 저장소. FO는 새 화면 모듈 패키지(이름 Candidate, 예 `@fops/workspace`), EV는 `packages/platform-adapter` | 원본 하나(ADR-0027의 이유, EV ADR-0001). 플랫폼에는 화면 코드가 없다 |
 | 플랫폼의 소비 | (EV는 2026-10-25 개정: 릴리스 tarball 의존, 13행 배너) 서브모듈 고정 + 지정 패키지만 workspace 포함(FO: `ui`·`shared` + 화면 모듈, EV: `@eqv/*`에서 Studio 제외). gitlink를 올리면 lockfile을 같은 PR에서 갱신 | [저장소 구조](repository-layout.md) 절차, #332 결정 |
-| 연결 패키지 | `menus/<space>/<group>/`에 화면 없는 연결 패키지(manifest 접두사·공간·아이콘·config, mock 조립). 예 `menus/collab/feedbackops`, EV는 기존 `menus/analytics/equipment`에 합침 | ADR-0031 폴더 = 공간/그룹, `repo-invariants` 검사 유지 |
+| 연결 패키지 | `menus/<space>/<group>/`에 화면 없는 연결 패키지(manifest 접두사·공간·아이콘·config, mock 조립). 예 `menus/collab/feedbackops`, EV는 기존 `menus/mars/equipment`에 합침 | ADR-0031 폴더 = 공간/그룹, `repo-invariants` 검사 유지 |
 | 의존 방향 | 모듈 패키지 → `@ap/contracts`만. `@ap/kernel`·`components`·`shell`·`ui` import 금지. 연결 패키지 → 모듈 + `@ap/kernel`. Kernel·셸은 모듈을 모른다 | 모듈 패키지가 플랫폼 workspace 밖(제품 독립 CI)에서도 풀려야 한다. `contracts`만 배포 대상으로 작게 유지 |
 | 경계 lint | 플랫폼: 새 `module-glue` 프리셋(연결 패키지는 모듈 공개 진입점만, 모듈 패키지에서 `@ap/*` 중 `contracts` 외 금지). FO: "화면 모듈 패키지만 `@ap/contracts` import, 앱·백엔드·`shared`는 금지". EV: 기존 규칙(`platform-adapter`만 `@ap/*`) + `@ap/contracts` 외 금지 | 패키지 경계 §3 규칙 4·7, EV `eslint.config.js` |
 | 저장소 순환 | 플랫폼은 FO를 서브모듈로 갖고, FO 화면 모듈은 `@ap/contracts`가 필요하다. FO가 플랫폼을 서브모듈로 갖는 것은 순환이라 쓰지 않는다. **`@ap/contracts`를 먼저 배포**(dist: ESM + d.ts)하고 모듈 패키지는 peer로 의존. EV `platform-adapter`는 배포 전까지 EV CI에서 빼고 플랫폼 CI가 검사 | 패키지 수준은 비순환(`@ap/contracts`는 의존 없음, `@fops/ui`는 `@ap/*` 의존 없음). 배포 대안: git 고정 의존(pnpm git 하위 경로 — **추정**, 확인 필요), FO 소유 포트 타입(통합 계획 Q4 (b) — 사용자가 EV에서 기각) |

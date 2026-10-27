@@ -120,7 +120,7 @@ afterEach(() => {
 
 describe('savedViewsSlot', () => {
   it('is the FeedbackOps section with one module-level Body', () => {
-    expect(savedViewsSlot.For(spaceId('metrics'))).toBeNull();
+    expect(savedViewsSlot.For(spaceId('bravo'))).toBeNull();
     expect(section.label).toEqual({ ko: '저장된 보기', en: 'Saved views' });
     expect(savedViewsSlot.For(SPACE)!.Body).toBe(Body);
   });

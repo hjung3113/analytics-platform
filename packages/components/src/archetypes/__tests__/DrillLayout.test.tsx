@@ -22,7 +22,7 @@ function entry(partial: Pick<PlatformMenuEntry, 'id' | 'path'> & Partial<Platfor
 
 const registry = createRegistry({
   spaces: [testSpace()],
-  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
+  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
   menus: [
     entry({ id: 'home', path: '/', primary: true, label: { ko: '홈', en: 'Home' } }),
     entry({
@@ -373,7 +373,7 @@ it.each(['preset', 'reset', 'history', 'setPage', 'navigate'])('preserves Contex
 it.each(['defaults', 'metric defaults', 'other navigation', 'history', 'denied'])('binds cold ReturnLink focus to its navigation with %s', async action => {
   const coldRegistry = createRegistry({
     spaces: [testSpace()],
-    groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
+    groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
     menus: [
       entry({ id: 'home', path: '/', primary: true }),
       entry({ id: 'source', path: '/source', context: { ...noContext, time: 'apply' }, initializesMetric: action === 'metric defaults' }),
@@ -462,7 +462,7 @@ describe('unbounded drill path (#541)', () => {
     const deepKeys = ['a', 'b', 'c', 'd', 'e', 'f'];
     const deepRegistry = createRegistry({
       spaces: [testSpace()],
-      groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
+      groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
       menus: [entry({ id: 'home', path: '/', primary: true, pageKeys: deepKeys, contextResetKeys: deepKeys, drill: { levels: deepKeys.map(key => level(key, key, key)) } })],
     });
     window.history.replaceState(null, '', '/?v=1&a=1&b=2&c=3&d=4&e=5&f=6');

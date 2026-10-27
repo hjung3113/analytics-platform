@@ -25,7 +25,7 @@ const features = { export: false, savedView: false, annotate: false, compare: fa
 const menu = (id: string, path: string) => ({ id, group: groupId('overview'), primary: id === 'home', label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House, permission: 'platform:view' as const, requiresScope: false, context: { ...noContext, time: 'apply' as const }, pageType: 'analysis' as const, features, pageKeys: [] });
 const registry = createRegistry({
   spaces: [testSpace()],
-  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
+  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
   menus: [menu('home', '/'), menu('other', '/other')],
 });
 /** The Inspector inside a platform: `user` and the URL path (`/` = menu home, `/other` = menu other) decide the storage scope. */

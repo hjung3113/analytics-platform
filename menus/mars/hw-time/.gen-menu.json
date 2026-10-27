@@ -1,0 +1,12 @@
+{
+  "group": "hwTime",
+  "folder": "hw-time",
+  "space": "mars",
+  "menuId": "hw-time-steps",
+  "page": "HwTime",
+  "path": "/hw-time/steps",
+  "pageType": "analysis",
+  "labelKo": "HW Time 단계별",
+  "labelEn": "HW Time by level",
+  "binding": "hwTime"
+}

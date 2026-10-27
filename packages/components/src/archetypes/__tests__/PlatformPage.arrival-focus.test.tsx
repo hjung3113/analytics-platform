@@ -21,7 +21,7 @@ function entry(partial: Pick<PlatformMenuEntry, 'id' | 'path'> & Partial<Platfor
 
 const registry = createRegistry({
   spaces: [testSpace()],
-  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
+  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
   menus: [
     entry({ id: 'home', path: '/', primary: true, label: { ko: '홈', en: 'Home' } }),
     entry({ id: 'equipment', path: '/equipment', label: { ko: '설비 마스터', en: 'Equipment master' }, pageKeys: ['focus'] }),

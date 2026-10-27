@@ -19,7 +19,7 @@ const menu = (id: string, path: string, over: object = {}) => ({
 function Crash(): never { throw new Error('boom'); }
 
 const { menus: moduleMenus, groups: moduleGroups } = mountModule(manifest, { list: (props: ModuleScreenProps) => <ProbeList {...props} />, item: ItemScreen }, {
-  prefix: '/fixture', groupSpace: { 'fixture:main': spaceId('analytics') }, config: { apiBase: 'https://api.example' },
+  prefix: '/fixture', groupSpace: { 'fixture:main': spaceId('mars') }, config: { apiBase: 'https://api.example' },
   icons: { groups: { 'fixture:main': House }, screens: { list: House, item: House } },
 });
 const registry = createRegistry({
@@ -28,7 +28,7 @@ const registry = createRegistry({
     testSpace({ id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations' }, permission: 'console:access', homeMenuId: 'ops' }),
   ],
   groups: [
-    { id: groupId('equipment'), label: { ko: '설비', en: 'Equipment' }, icon: House, space: spaceId('analytics') },
+    { id: groupId('equipment'), label: { ko: '설비', en: 'Equipment' }, icon: House, space: spaceId('mars') },
     { id: groupId('admin'), label: { ko: '관리', en: 'Admin' }, icon: House, space: spaceId('operations') },
     ...moduleGroups,
   ],

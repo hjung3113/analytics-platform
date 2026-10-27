@@ -10,7 +10,7 @@ import { groupId, spaceId, type ClientErrorReport, type Session, type SpaceDef, 
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
 
 const spaces: SpaceDef[] = [
-  testSpace({ id: spaceId('analytics'), homeMenuId: 'equipment' }),
+  testSpace({ id: spaceId('mars'), homeMenuId: 'equipment' }),
   testSpace({ id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations console' }, permission: 'console:access', homeMenuId: 'admin-roles' }),
 ];
 
@@ -24,7 +24,7 @@ function menu(over: Partial<PlatformMenuEntry> & Pick<PlatformMenuEntry, 'id' | 
 const registry = createRegistry({
   spaces,
   groups: [
-    { id: groupId('equipment'), label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: spaceId('analytics') },
+    { id: groupId('equipment'), label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: spaceId('mars') },
     { id: groupId('admin'), label: { ko: '관리·감사', en: 'Administration' }, icon: House, space: spaceId('operations') },
     { id: groupId('noticeVoc'), label: { ko: '공지·VOC', en: 'Notice & VOC' }, icon: House, space: null },
   ],
@@ -91,10 +91,10 @@ describe('global utility menus (06 §9.1)', () => {
     expect(screen.getByTestId('current').textContent).toBe('null');
     expect(screen.getByTestId('notices-allowed').textContent).toBe('true');
     expect(screen.getByTestId('child-allowed').textContent).toBe('false');
-    expect(screen.getByTestId('accessible').textContent).toBe('analytics');
+    expect(screen.getByTestId('accessible').textContent).toBe('mars');
     expect(screen.getByTestId('visible').textContent).toBe('equipment');
     expect(screen.getByTestId('global').textContent).toBe('notices,notices-detail');
-    expect(screen.getByTestId('sidebar').textContent).toBe('analytics');
+    expect(screen.getByTestId('sidebar').textContent).toBe('mars');
     expect(screen.getByTestId('recent').textContent).toBe('notices');
     expect(JSON.parse(localStorage.getItem('platform:recent:u1') ?? 'null')).toEqual([
       { menuId: 'notices', url: '/notices?v=1', at: expect.any(Number) },

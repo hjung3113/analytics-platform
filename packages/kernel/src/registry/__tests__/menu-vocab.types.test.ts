@@ -24,7 +24,7 @@ describe('brand ids (ADR-0072)', () => {
     // @ts-expect-error a plain string is not a GroupId
     const group: GroupDef['id'] = 'equipment';
     // @ts-expect-error a SpaceId is not a GroupId
-    const crossed: GroupDef['id'] = spaceId('analytics');
+    const crossed: GroupDef['id'] = spaceId('mars');
     // @ts-expect-error a plain string is not a menu permission
     const permission: PlatformMenuEntry['permission'] = 'equipment:view';
     void group; void crossed; void permission;

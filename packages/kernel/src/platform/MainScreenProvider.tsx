@@ -10,7 +10,7 @@ import { useScreenState } from './useScreenState';
 /** The main screen: the browser URL, history, and the shell navigation that follows it. */
 export const MainScreenProvider = memo(function MainScreenProvider({ app, children }: { app: AppValue; children: ReactNode }) {
   const { location, registry, can, canOpen, accessibleSpaces, menusInSpace, user } = app.pub;
-  const { enters, mainNavigation: pageNavigation, initialUrl, recordVisit, rememberScope } = app.internal;
+  const { enters, mainNavigation: pageNavigation, initialUrl, recordVisit, rememberScope, spaceIdMigrations } = app.internal;
   const { matchRoute } = registry;
   const userId = user.id;
   const [url, setUrl] = useState(initialUrl);
@@ -48,14 +48,14 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
     if (!route || contractError || !can(route.menu.permission)) return;
     if (!enters(route.menu)) return;
     const space = registry.spaceOf(route.menu);
-    if (space !== null) writeSpaceLast(userId, space.id, url);
+    if (space !== null) writeSpaceLast(userId, space.id, url, spaceIdMigrations);
     recordVisit(route.menu.id, url);
-  }, [url, route, contractError, userId, can, enters, registry, recordVisit]);
+  }, [url, route, contractError, userId, can, enters, registry, recordVisit, spaceIdMigrations]);
 
   const visibleMenus = useMemo(() => (sidebarSpace === null ? [] : menusInSpace(sidebarSpace.id)), [menusInSpace, sidebarSpace]);
   // Read at call time. Stored globals are not restored: resolveLink carries the current global and the menu's page keys only.
   const spaceResume = useCallback((spaceId: SpaceId): { menuId: string; href: string } | null => {
-    const stored = readSpaceLast(userId)[spaceId];
+    const stored = readSpaceLast(userId, spaceIdMigrations)[spaceId];
     if (typeof stored !== 'string' || !isAppRelativePath(stored)) return null;
     const q = stored.indexOf('?');
     const path = q === -1 ? stored : stored.slice(0, q);
@@ -77,7 +77,7 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
     const again = matchRoute(normalized);
     if (!again || again.menu.id !== matched.menu.id || !sameParams(again.params, matched.params)) return null;
     return { menuId: matched.menu.id, href };
-  }, [userId, matchRoute, registry, canOpen, resolveLink]);
+  }, [userId, matchRoute, registry, canOpen, resolveLink, spaceIdMigrations]);
   const spaceEntry = useCallback((spaceId: SpaceId): { menuId: string; href: string; resumed: boolean } | null => {
     const space = accessibleSpaces.find(s => s.id === spaceId);
     if (!space) return null;

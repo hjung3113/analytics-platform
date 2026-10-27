@@ -11,15 +11,15 @@ function menu(id: string, group: GroupId, path: string, label: string, over: obj
 }
 const registry = createRegistry({
   spaces: [
-    testSpace({ id: spaceId('analytics'), label: { ko: 'MARS', en: 'MARS' }, subtitle: { ko: '생산성 분석', en: 'Productivity analysis' }, homeMenuId: 'cycle-list' }),
-    testSpace({ id: spaceId('metrics'), label: { ko: 'BRAVO', en: 'BRAVO' }, subtitle: { ko: '지표관리', en: 'Metrics' }, homeMenuId: 'catalog' }),
+    testSpace({ id: spaceId('mars'), label: { ko: 'MARS', en: 'MARS' }, subtitle: { ko: '생산성 분석', en: 'Productivity analysis' }, homeMenuId: 'cycle-list' }),
+    testSpace({ id: spaceId('bravo'), label: { ko: 'BRAVO', en: 'BRAVO' }, subtitle: { ko: '지표관리', en: 'Metrics' }, homeMenuId: 'catalog' }),
     testSpace({ id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations' }, homeMenuId: 'roles', permission: 'console:access' }),
   ],
   groups: [
     { id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: null },
-    { id: groupId('analytics'), label: { ko: '사이클', en: 'Cycle' }, icon: Boxes, space: spaceId('analytics') },
-    { id: groupId('equipment'), label: { ko: '설비', en: 'Equipment' }, icon: Wrench, space: spaceId('analytics') },
-    { id: groupId('metrics'), label: { ko: '지표관리', en: 'Metrics' }, icon: House, space: spaceId('metrics') },
+    { id: groupId('analytics'), label: { ko: '사이클', en: 'Cycle' }, icon: Boxes, space: spaceId('mars') },
+    { id: groupId('equipment'), label: { ko: '설비', en: 'Equipment' }, icon: Wrench, space: spaceId('mars') },
+    { id: groupId('metrics'), label: { ko: '지표관리', en: 'Metrics' }, icon: House, space: spaceId('bravo') },
     { id: groupId('admin'), label: { ko: '관리', en: 'Admin' }, icon: Wrench, space: spaceId('operations') },
   ],
   menus: [
@@ -136,8 +136,8 @@ describe('sidebar of the current section (15 §3.2)', () => {
 
   it('omits the second line when the section is named like the system', () => {
     const equalLabels = createRegistry({
-      spaces: [testSpace({ id: spaceId('metrics'), label: { ko: '지표관리', en: 'Metrics' }, subtitle: { ko: '부제', en: 'Subtitle' }, homeMenuId: 'catalog' })],
-      groups: [{ id: groupId('metrics'), label: { ko: '지표관리', en: 'Metrics' }, icon: House, space: spaceId('metrics') }],
+      spaces: [testSpace({ id: spaceId('bravo'), label: { ko: '지표관리', en: 'Metrics' }, subtitle: { ko: '부제', en: 'Subtitle' }, homeMenuId: 'catalog' })],
+      groups: [{ id: groupId('metrics'), label: { ko: '지표관리', en: 'Metrics' }, icon: House, space: spaceId('bravo') }],
       menus: [menu('catalog', groupId('metrics'), '/metrics', '지표 카탈로그', { primary: true })],
     });
     const view = mount('/metrics?v=1', ['platform:view'], equalLabels);
@@ -196,7 +196,7 @@ describe('space scope control slot (ADR-0081 decision 4)', () => {
   const Own = ({ collapsed }: { collapsed: boolean }) => <div data-testid="own-scope" data-collapsed={String(collapsed)} />;
 
   it('S1 renders the space control instead of ScopeSelector, and ScopeSelector elsewhere or without the slot', () => {
-    const For = (id: string) => (id === 'metrics' ? Own : null);
+    const For = (id: string) => (id === 'bravo' ? Own : null);
     mountWith({ scopeControl: { For } }, '/metrics?v=1');
     expect(screen.getByTestId('own-scope')).toHaveAttribute('data-collapsed', 'false');
     expect(screen.queryByRole('button', { name: /^Scope:/ })).toBeNull();

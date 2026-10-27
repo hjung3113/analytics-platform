@@ -1,6 +1,6 @@
 # 12. 생산성 분석 — 사이클타임 상세 → 느린 실행 목록 → occurrence 상세
 
-상태: 화면 계약 노트. 구현은 `menus/analytics/analytics`의 `cycle-time`·`execution-detail`(합성 데이터)이고 배치·시각은 구현과 [DESIGN](../../DESIGN.md)이 기준이다. 전역 결정의 원본은 [06](../contract/platform-ui-contract.md), 데이터 원본은 [01](../architecture/architecture-and-data-contract.md), 용어는 [GLOSSARY](../../GLOSSARY.md)다. 이 문서는 식별자·왕복 계약, Context 선언, 소유 경계, 남은 결정만 소유한다.
+상태: 화면 계약 노트. 구현은 `menus/mars/analytics`의 `cycle-time`·`execution-detail`(합성 데이터)이고 배치·시각은 구현과 [DESIGN](../../DESIGN.md)이 기준이다. 전역 결정의 원본은 [06](../contract/platform-ui-contract.md), 데이터 원본은 [01](../architecture/architecture-and-data-contract.md), 용어는 [GLOSSARY](../../GLOSSARY.md)다. 이 문서는 식별자·왕복 계약, Context 선언, 소유 경계, 남은 결정만 소유한다.
 
 ## 1. USER TASK
 
@@ -89,7 +89,7 @@ KPI는 전체 기간 통계, 일별 값은 각 bucket 통계로 서로 단순 �
 
 ## 4. LAYOUT BOUNDARY
 
-배치는 구현(`menus/analytics/analytics/src/pages`)이 기준이다. 셸 구조·치수는 [06 §7](../contract/layout.md#7-application-shell)/[07](app-shell.md), 공유 표면·폰트는 FeedbackOps 원본, 수치 alignment·표 밀도·pairing은 [DESIGN](../../DESIGN.md#tables)이 소유한다. 차트 데이터 표는 접근성 대체 표현이며 Breakdown Table과 다른 표다.
+배치는 구현(`menus/mars/analytics/src/pages`)이 기준이다. 셸 구조·치수는 [06 §7](../contract/layout.md#7-application-shell)/[07](app-shell.md), 공유 표면·폰트는 FeedbackOps 원본, 수치 alignment·표 밀도·pairing은 [DESIGN](../../DESIGN.md#tables)이 소유한다. 차트 데이터 표는 접근성 대체 표현이며 Breakdown Table과 다른 표다.
 
 ## 5. CONCEPTUAL COMPONENT MAP
 

@@ -21,8 +21,8 @@ describe('physical workspace boundary (F9)', () => {
     const res = runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
     expect(res.status).toBe(1);
     expect(res.stderr).toMatch(/outside the workspace root/);
-    expect(existsSync(join(outside, 'analytics', 'gen-probe'))).toBe(false);
-    expect(readdirSync(outside).sort()).toEqual(['analytics']);
+    expect(existsSync(join(outside, 'mars', 'gen-probe'))).toBe(false);
+    expect(readdirSync(outside).sort()).toEqual(['mars']);
     expect(appSnapshot(root)).toEqual(before);
     expect(dirname(outside)).toBe(outsideBase);
   });
@@ -30,13 +30,13 @@ describe('physical workspace boundary (F9)', () => {
     const root = fresh();
     const outside = mkdtempSync(join(tmpdir(), 'gen-menu-space-outside-'));
     keep.push(outside);
-    renameSync(join(root, 'menus/analytics'), join(outside, 'analytics'));
-    symlinkSync(join(outside, 'analytics'), join(root, 'menus/analytics'), 'dir');
+    renameSync(join(root, 'menus/mars'), join(outside, 'mars'));
+    symlinkSync(join(outside, 'mars'), join(root, 'menus/mars'), 'dir');
     const before = appSnapshot(root);
     const res = runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
     expect(res.status).toBe(1);
     expect(res.stderr).toMatch(/outside the workspace root/);
-    expect(existsSync(join(outside, 'analytics/gen-probe'))).toBe(false);
+    expect(existsSync(join(outside, 'mars/gen-probe'))).toBe(false);
     expect(appSnapshot(root)).toEqual(before);
   });
 });

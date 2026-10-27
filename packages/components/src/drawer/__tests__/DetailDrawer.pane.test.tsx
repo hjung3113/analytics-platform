@@ -16,7 +16,7 @@ const menu = (id: string, path: string, over: Record<string, unknown> = {}) => (
 });
 const registry = createRegistry({
   spaces: [testSpace({ homeMenuId: 'home' })],
-  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
+  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
   menus: [{ ...menu('home', '/'), primary: true }, menu('other', '/other'), menu('item', '/item/:id', { navHidden: true })],
 });
 

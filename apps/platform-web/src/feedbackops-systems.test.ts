@@ -11,8 +11,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{1
 afterEach(() => { vi.restoreAllMocks(); });
 
 describe('FEEDBACKOPS_MANAGED_SYSTEMS (ADR-0045)', () => {
-  it('maps analytics and metrics to distinct v4 uuids and leaves operations without a row', () => {
-    expect(Object.keys(FEEDBACKOPS_MANAGED_SYSTEMS).sort()).toEqual(['analytics', 'metrics']);
+  it('maps mars and bravo to distinct v4 uuids and leaves operations without a row', () => {
+    expect(Object.keys(FEEDBACKOPS_MANAGED_SYSTEMS).sort()).toEqual(['bravo', 'mars']);
     const values = Object.values(FEEDBACKOPS_MANAGED_SYSTEMS);
     for (const value of values) expect(value).toMatch(UUID);
     expect(new Set(values).size).toBe(values.length);
@@ -26,13 +26,13 @@ describe('FEEDBACKOPS_MANAGED_SYSTEMS (ADR-0045)', () => {
   });
 
   it('gives every entry the icon the app supplies', () => {
-    for (const entry of feedbackOpsSlot(F).entriesFor(spaceId('analytics'))!) expect(entry.icon).toBeDefined();
+    for (const entry of feedbackOpsSlot(F).entriesFor(spaceId('mars'))!) expect(entry.icon).toBeDefined();
   });
 });
 
 describe('managedSystemFor', () => {
   it.each([
-    ['a mapped space', 'analytics', FEEDBACKOPS_MANAGED_SYSTEMS.analytics],
+    ['a mapped space', 'mars', FEEDBACKOPS_MANAGED_SYSTEMS.mars],
     ['a space without a row', 'operations', null],
     ['an unknown space', 'nowhere', null],
     ['no space', null, null],
@@ -41,13 +41,13 @@ describe('managedSystemFor', () => {
   });
 
   it('returns null for a mapped value that is not a uuid', () => {
-    vi.spyOn(FEEDBACKOPS_MANAGED_SYSTEMS as Record<string, string>, 'analytics', 'get').mockReturnValue('MEM');
-    expect(managedSystemFor('analytics')).toBeNull();
+    vi.spyOn(FEEDBACKOPS_MANAGED_SYSTEMS as Record<string, string>, 'mars', 'get').mockReturnValue('MEM');
+    expect(managedSystemFor('mars')).toBeNull();
   });
 });
 
 describe('feedbackOpsSlot', () => {
-  it.each(['analytics', 'metrics'] as const)('draws three entries for %s, in order, scoped to that space only: VOC and Task in the shell, only 설문 as a new-tab link', space => {
+  it.each(['mars', 'bravo'] as const)('draws three entries for %s, in order, scoped to that space only: VOC and Task in the shell, only 설문 as a new-tab link', space => {
     const entries = feedbackOpsSlot(F).entriesFor(spaceId(space))!;
     const uuid = FEEDBACKOPS_MANAGED_SYSTEMS[space]!;
     expect(entries.map(entry => entry.key)).toEqual(['voc', 'task', 'survey']);
@@ -66,7 +66,7 @@ describe('feedbackOpsSlot', () => {
 
   it('carries the page it was drawn on as platformReturn on the new-tab entry (FO ADR-0071)', () => {
     const back = 'https://platform.example/analytics/cycle-time?v=1&scopeId=MEM';
-    const entries = feedbackOpsSlot(F).entriesFor(spaceId('analytics'), back)!;
+    const entries = feedbackOpsSlot(F).entriesFor(spaceId('mars'), back)!;
     for (const entry of entries.slice(2)) expect(new URL(hrefOf(entry)!).searchParams.getAll('platformReturn')).toEqual([back]);
     expect(feedbackOpsSlot(F).overall!.href).toBe(`${F}/home`);
   });
@@ -80,8 +80,8 @@ describe('feedbackOpsSlot', () => {
   });
 
   it('gives a space no block when its mapped value is not a uuid', () => {
-    vi.spyOn(FEEDBACKOPS_MANAGED_SYSTEMS as Record<string, string>, 'analytics', 'get').mockReturnValue('MEM');
-    expect(feedbackOpsSlot(F).entriesFor(spaceId('analytics'))).toBeNull();
+    vi.spyOn(FEEDBACKOPS_MANAGED_SYSTEMS as Record<string, string>, 'mars', 'get').mockReturnValue('MEM');
+    expect(feedbackOpsSlot(F).entriesFor(spaceId('mars'))).toBeNull();
   });
 
   it.each([
@@ -91,10 +91,10 @@ describe('feedbackOpsSlot', () => {
   ])('keeps the three mapped entries, the new-tab one disabled (href null), and hides overall when the origin is %s', (_name, origin) => {
     const slot = feedbackOpsSlot(origin);
     // VOC and Task are in-shell and need no FeedbackOps address; 설문 is disabled.
-    const entries = slot.entriesFor(spaceId('analytics'))!;
+    const entries = slot.entriesFor(spaceId('mars'))!;
     expect(entries.map(hrefOf)).toEqual([undefined, undefined, null]);
     expect(entries[0]).toMatchObject({ menuId: 'fo-inbox' });
-    expect(entries[1]).toMatchObject({ menuId: 'fo-task-list', page: { managedSystem: FEEDBACKOPS_MANAGED_SYSTEMS.analytics } });
+    expect(entries[1]).toMatchObject({ menuId: 'fo-task-list', page: { managedSystem: FEEDBACKOPS_MANAGED_SYSTEMS.mars } });
     expect(slot.entriesFor(spaceId('operations'))).toBeNull();
     expect(slot.overall).toBeNull();
   });

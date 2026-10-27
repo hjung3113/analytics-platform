@@ -10,7 +10,7 @@ import { createRegistry } from '../../registry/registry';
 import { noContext, testAdapter, testSession, testSpace } from '../../testing';
 import { I18nProvider } from '../../i18n';
 const menu = { id: 'home', group: groupId('overview'), primary: true, path: '/', icon: House, label: { ko: '조회', en: 'Query' }, description: { ko: '', en: '' }, permission: 'platform:view' as const, requiresScope: false, context: { ...noContext, time: 'apply' as const }, pageType: 'analysis' as const, features: { export: false, savedView: false, annotate: false, compare: false, board: true }, pageKeys: ['filter', 'page'], contextResetKeys: ['page'], query: { mode: 'apply' as const } };
-const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: menu.label, icon: House, space: spaceId('analytics') }], menus: [menu] });
+const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: menu.label, icon: House, space: spaceId('mars') }], menus: [menu] });
 const global = { ...emptyGlobal, from: '2026-09-01T00:00:00', to: '2026-09-02T00:00:00' };
 const entry = (query = buildQuery(global, [['filter', 'old']])): QueryHistoryEntry => ({ id: 'one', query, schemaVersion: 1, count: 1, lastAppliedAt: 1 });
 const endpoint = defineEndpoint<{}, null>({ id: 'fixture.history', menuId: 'home', permission: 'platform:view', requiresScope: false, context: { time: 'apply' }, paramKeys: {}, kinds: [], mergeTimeDomain: false });

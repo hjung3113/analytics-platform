@@ -15,8 +15,8 @@ let host: ReturnType<typeof useHostPlatform>;
 function Page() { usePlatform(); pageRenders++; return <p>menu page</p>; }
 function Controls() { host = useHostPlatform(); return null; }
 const registry = createRegistry({
-  spaces: [testSpace({ id: spaceId('analytics'), homeMenuId: 'home' })],
-  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
+  spaces: [testSpace({ id: spaceId('mars'), homeMenuId: 'home' })],
+  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
   menus: [{
     id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view',
     requiresScope: false, context: noContext, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [], ...{ component: Page } as Record<string, unknown>,

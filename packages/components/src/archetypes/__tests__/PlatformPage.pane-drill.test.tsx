@@ -13,7 +13,7 @@ const features = { export: false, savedView: false, annotate: false, compare: fa
 const keys = ['drillRoom', 'drillStgroup'] as const;
 const registry = createRegistry({
   spaces: [testSpace({ homeMenuId: 'source' })],
-  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
+  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
   menus: [{
     id: 'source', group: groupId('overview'), primary: true, label: { ko: '생산성 개요', en: 'Productivity overview' }, description: { ko: '', en: '' }, path: '/source',
     icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'overview', features, pageKeys: [...keys], contextResetKeys: [...keys],
@@ -85,7 +85,7 @@ describe('explicit drill focus inside board panes (ADR-0049)', () => {
 const deepKeys = ['drillA', 'drillB', 'drillC', 'drillD'] as const;
 const deepRegistry = createRegistry({
   spaces: [testSpace({ homeMenuId: 'deep' })],
-  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
+  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
   menus: [{
     id: 'deep', group: groupId('overview'), primary: true, label: { ko: '깊은 드릴', en: 'Deep drill' }, description: { ko: '', en: '' }, path: '/deep',
     icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'overview', features, pageKeys: [...deepKeys], contextResetKeys: [...deepKeys],
@@ -125,7 +125,7 @@ describe('collapsed middle dropdown inside a board pane (#497 D1)', () => {
 describe('ReturnLink inside a board pane (#497)', () => {
   const returnRegistry = createRegistry({
     spaces: [testSpace({ homeMenuId: 'source' })],
-    groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
+    groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
     menus: [
       { id: 'source', group: groupId('overview'), primary: true, label: { ko: '출발 화면', en: 'Source' }, description: { ko: '', en: '' }, path: '/source',
         icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'overview', features, pageKeys: [] },

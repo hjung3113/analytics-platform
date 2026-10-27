@@ -16,16 +16,16 @@ function buildRegistry(opts: { startOpen?: boolean } = {}) {
   return createRegistry({
     permissions: [menuPermission('equipment:view'), menuPermission('metrics:view')],
     spaces: [
-      testSpace({ id: spaceId('analytics'), label: { ko: 'MARS', en: 'MARS' }, subtitle: { ko: '생산성 분석', en: 'Productivity analysis' }, homeMenuId: 'cycle' }),
-      testSpace({ id: spaceId('metrics'), label: { ko: 'BRAVO', en: 'BRAVO' }, subtitle: { ko: '지표관리', en: 'Metrics' }, homeMenuId: 'catalog', permission: menuPermission('metrics:view') }),
+      testSpace({ id: spaceId('mars'), label: { ko: 'MARS', en: 'MARS' }, subtitle: { ko: '생산성 분석', en: 'Productivity analysis' }, homeMenuId: 'cycle' }),
+      testSpace({ id: spaceId('bravo'), label: { ko: 'BRAVO', en: 'BRAVO' }, subtitle: { ko: '지표관리', en: 'Metrics' }, homeMenuId: 'catalog', permission: menuPermission('metrics:view') }),
       testSpace({ id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations' }, homeMenuId: 'roles', permission: 'console:access' }),
     ],
     groups: [
       { id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: null },
       { id: groupId('myActivity'), label: { ko: '내 활동', en: 'My activity' }, icon: House, space: null },
       { id: groupId('noticeVoc'), label: { ko: '공지', en: 'Notices' }, icon: House, space: null },
-      { id: groupId('analytics'), label: { ko: '사이클', en: 'Cycle' }, icon: House, space: spaceId('analytics') },
-      { id: groupId('metrics'), label: { ko: '지표', en: 'Metric' }, icon: Boxes, space: spaceId('metrics') },
+      { id: groupId('analytics'), label: { ko: '사이클', en: 'Cycle' }, icon: House, space: spaceId('mars') },
+      { id: groupId('metrics'), label: { ko: '지표', en: 'Metric' }, icon: Boxes, space: spaceId('bravo') },
       { id: groupId('admin'), label: { ko: '관리', en: 'Admin' }, icon: Wrench, space: spaceId('operations') },
     ],
     menus: [
@@ -128,7 +128,7 @@ describe('SystemSwitcher popover', () => {
   });
 
   it('writes 시작 for a system without a restored screen and 이어서 for one with', () => {
-    sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ metrics: '/metrics/definitions?v=1' }));
+    sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ bravo: '/metrics/definitions?v=1' }));
     mount();
     open();
     expect(within(cardOf('MARS')).getByText('이어서: 사이클')).toBeTruthy();
@@ -341,7 +341,7 @@ describe('SystemSwitcher keyboard and focus (06 §26, ADR-0032)', () => {
   });
 
   it('does not steal the title from a restored focus= detail that opens late, and leaves no tooltip', async () => {
-    sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ metrics: '/metrics?v=1&focus=entity' }));
+    sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ bravo: '/metrics?v=1&focus=entity' }));
     mount();
     open();
     fireEvent.click(cardOf('BRAVO'));

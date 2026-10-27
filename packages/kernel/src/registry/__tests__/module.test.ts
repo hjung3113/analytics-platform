@@ -17,7 +17,7 @@ const manifest = (over: Partial<ModuleManifest> = {}): ModuleManifest => ({
 const Screen = () => null;
 const screens = { list: Screen, item: Screen };
 const options = (over: Partial<MountOptions> = {}): MountOptions => ({
-  prefix: '/collab', groupSpace: { 'fx:main': spaceId('analytics') }, config: { apiBase: 'https://x' },
+  prefix: '/collab', groupSpace: { 'fx:main': spaceId('mars') }, config: { apiBase: 'https://x' },
   icons: { groups: { 'fx:main': House }, screens: { list: House, item: House } }, ...over,
 });
 const mount = (m = manifest(), s: Record<string, typeof Screen> = screens, o = options()) => mountModule(m, s, o);
@@ -28,13 +28,13 @@ describe('mountModule (ADR-0053)', () => {
 
     expect(menus.map(m => [m.id, m.path, m.module, m.moduleScreen === Screen])).toEqual([['fx:list', '/collab', 'fx', true], ['fx:item', '/collab/items/:id', 'fx', true]]);
     expect(menus.map(m => m.parent)).toEqual([undefined, 'fx:list']);
-    expect(groups).toMatchObject([{ id: 'fx:main', module: 'fx', space: 'analytics' }]);
+    expect(groups).toMatchObject([{ id: 'fx:main', module: 'fx', space: 'mars' }]);
     expect(menus.every(m => m.component === undefined)).toBe(true);
   });
 
   it('registers through createRegistry and matches the param route', () => {
     const { menus, groups } = mount();
-    const space: SpaceDef = { id: spaceId('analytics'), label: { ko: '분석', en: 'A' }, description: { ko: '목적', en: 'P' }, homeMenuId: 'fx:list' };
+    const space: SpaceDef = { id: spaceId('mars'), label: { ko: '분석', en: 'A' }, description: { ko: '목적', en: 'P' }, homeMenuId: 'fx:list' };
     const registry = createRegistry({ spaces: [space], groups, menus });
 
     expect(registry.matchRoute('/collab/items/7')?.params).toEqual({ id: '7' });
@@ -42,9 +42,9 @@ describe('mountModule (ADR-0053)', () => {
 
   it('namespaces screen ids so two modules can both declare "list"', () => {
     const other = mount(manifest({ module: { ...manifest().module, id: 'gx' }, groups: [{ id: 'gx:main', label: { ko: 'g', en: 'g' } }], screens: [screen('list', '', { primary: true, group: 'gx:main', permission: 'gx:view' })] }), { list: Screen },
-      options({ prefix: '/other', groupSpace: { 'gx:main': spaceId('analytics') }, icons: { groups: { 'gx:main': House }, screens: { list: House } } }));
+      options({ prefix: '/other', groupSpace: { 'gx:main': spaceId('mars') }, icons: { groups: { 'gx:main': House }, screens: { list: House } } }));
     const first = mount();
-    const space: SpaceDef = { id: spaceId('analytics'), label: { ko: '분석', en: 'A' }, description: { ko: '목적', en: 'P' }, homeMenuId: 'fx:list' };
+    const space: SpaceDef = { id: spaceId('mars'), label: { ko: '분석', en: 'A' }, description: { ko: '목적', en: 'P' }, homeMenuId: 'fx:list' };
 
     expect(() => createRegistry({ spaces: [space], groups: [...first.groups, ...other.groups], menus: [...first.menus, ...other.menus] })).not.toThrow();
   });
@@ -59,9 +59,9 @@ describe('mountModule (ADR-0053)', () => {
       id: 'plat', group: groupId('metrics'), label: { ko: 'p', en: 'p' }, description: { ko: '', en: '' }, path: '/collab', icon: House, permission: menuPermission('metrics:view'), requiresScope: false,
       context: none, pageType: 'catalog', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [], primary: true,
     };
-    const space: SpaceDef = { id: spaceId('analytics'), label: { ko: '분석', en: 'A' }, description: { ko: '목적', en: 'P' }, homeMenuId: 'plat' };
+    const space: SpaceDef = { id: spaceId('mars'), label: { ko: '분석', en: 'A' }, description: { ko: '목적', en: 'P' }, homeMenuId: 'plat' };
 
-    expect(() => createRegistry({ permissions: [menuPermission('metrics:view')], spaces: [space], groups: [...groups, { id: groupId('metrics'), label: { ko: '지표', en: 'M' }, icon: House, space: spaceId('analytics') }], menus: [...menus, platform] })).toThrow(/same route shape/);
+    expect(() => createRegistry({ permissions: [menuPermission('metrics:view')], spaces: [space], groups: [...groups, { id: groupId('metrics'), label: { ko: '지표', en: 'M' }, icon: House, space: spaceId('mars') }], menus: [...menus, platform] })).toThrow(/same route shape/);
   });
 
   it.each<[string, () => unknown, RegExp]>([

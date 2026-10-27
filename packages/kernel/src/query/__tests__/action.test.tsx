@@ -26,7 +26,7 @@ const scoped = action({ id: 'fx.save-s', requiresScope: true });
 const meta = { description: { ko: '', en: '' }, icon: House, permission: 'platform:view' as const, requiresScope: false, context: noContext, pageType: 'analysis' as const, pageKeys: [] };
 const registry = createRegistry({
   spaces: [testSpace()],
-  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
+  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
   menus: [{ ...meta, id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, path: '/', features: { export: false, savedView: false, annotate: false, compare: false, board: true } }],
 });
 

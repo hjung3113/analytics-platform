@@ -52,7 +52,7 @@ const baseMenu = {
 };
 const registryFor = (menu: Record<string, unknown>) => createRegistry({
   spaces: [testSpace()],
-  groups: [{ id: groupId('overview'), label: baseMenu.label, icon: House, space: spaceId('analytics') }],
+  groups: [{ id: groupId('overview'), label: baseMenu.label, icon: House, space: spaceId('mars') }],
   menus: [{ ...baseMenu, ...menu } as never],
 });
 const liveRegistry = registryFor({ context: { ...noContext, condition: 'apply' as const } });

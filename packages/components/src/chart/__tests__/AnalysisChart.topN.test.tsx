@@ -116,7 +116,7 @@ it('grows for explicit N and applies the minimum height for a single zero-valued
 });
 
 it('gives an explicit AnalysisChart height precedence over the TopN row height', async () => {
-  render(<I18nProvider><PlatformProvider adapter={testAdapter()} registry={createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: { ko: 'G', en: 'G' }, icon: House, space: spaceId('analytics') }], menus: [{ id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features: { export: false, compare: false, annotate: false, savedView: false }, pageKeys: [] }] })}>
+  render(<I18nProvider><PlatformProvider adapter={testAdapter()} registry={createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: { ko: 'G', en: 'G' }, icon: House, space: spaceId('mars') }], menus: [{ id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features: { export: false, compare: false, annotate: false, savedView: false }, pageKeys: [] }] })}>
     <AnalysisChart chartId="height" title="Height" unit="ea" height={444} spec={{ kind: 'topNBar', items, defaultExpanded: true }} />
   </PlatformProvider></I18nProvider>);
   await screen.findByRole('img'); expect(plot.height).toBe(444);

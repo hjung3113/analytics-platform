@@ -14,13 +14,13 @@ const noFeatures = { export: false, savedView: false, annotate: false, compare: 
 // admin-child is a non-home console menu whose permission ('platform:view') is weaker than its space's
 // gate ('console:access') — so a space denial on it cannot be masked by the menu-permission guard.
 const spaces: SpaceDef[] = [
-  testSpace({ id: spaceId('analytics'), homeMenuId: 'equipment' }),
+  testSpace({ id: spaceId('mars'), homeMenuId: 'equipment' }),
   testSpace({ id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations console' }, permission: 'console:access', homeMenuId: 'admin-roles' }),
 ];
 const registry = createRegistry({
   spaces,
   groups: [
-    { id: groupId('equipment'), label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: spaceId('analytics') },
+    { id: groupId('equipment'), label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: spaceId('mars') },
     { id: groupId('admin'), label: { ko: '관리·감사', en: 'Administration' }, icon: House, space: spaceId('operations') },
   ],
   menus: [
@@ -46,13 +46,13 @@ function SpaceProbe() {
   const recent = useRecentVisits();
   return <div>
     <button type="button" data-testid="to-operations" onClick={() => switchSpace(spaceId('operations'))}>ops</button>
-    <button type="button" data-testid="to-analytics" onClick={() => switchSpace(spaceId('analytics'))}>ana</button>
+    <button type="button" data-testid="to-analytics" onClick={() => switchSpace(spaceId('mars'))}>ana</button>
     <p data-testid="pathname">{pathname}</p>
     <p data-testid="current">{currentSpace?.id ?? '-'}</p>
     <p data-testid="sidebar">{sidebarSpace?.id}</p>
     <p data-testid="accessible">{accessibleSpaces.map(s => s.id).join(',')}</p>
     <p data-testid="visible">{visibleMenus.map(m => m.id).join(',')}</p>
-    <p data-testid="ana-menus">{menusInSpace(spaceId('analytics')).map(m => m.id).join(',')}</p>
+    <p data-testid="ana-menus">{menusInSpace(spaceId('mars')).map(m => m.id).join(',')}</p>
     <p data-testid="ops-menus">{menusInSpace(spaceId('operations')).map(m => m.id).join(',')}</p>
     <p data-testid="recent">{recent.map(r => r.menuId).join(',')}</p>
   </div>;
@@ -75,7 +75,7 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 describe('spaces on Platform (06 §9.1)', () => {
   it('switchSpace pushes to the space home keeping globals and dropping page keys', () => {
     mountAt(EQUIPMENT_URL, ADMIN);
-    expect(screen.getByTestId('current').textContent).toBe('analytics');
+    expect(screen.getByTestId('current').textContent).toBe('mars');
     expect(screen.getByTestId('visible').textContent).toBe('equipment');
 
     act(() => screen.getByTestId('to-operations').click());
@@ -115,10 +115,10 @@ describe('spaces on Platform (06 §9.1)', () => {
 
   it('without console:access operations is not accessible: currentSpace still reports it, sidebar falls back, switch is a no-op', () => {
     mountAt(EQUIPMENT_URL.replace('/equipment', '/admin/roles'), ANALYST);
-    expect(screen.getByTestId('accessible').textContent).toBe('analytics');
+    expect(screen.getByTestId('accessible').textContent).toBe('mars');
     // The matched route's space is reported even though entry is denied.
     expect(screen.getByTestId('current').textContent).toBe('operations');
-    expect(screen.getByTestId('sidebar').textContent).toBe('analytics');
+    expect(screen.getByTestId('sidebar').textContent).toBe('mars');
     expect(screen.getByTestId('ops-menus').textContent).toBe('');
 
     const before = window.location.href;

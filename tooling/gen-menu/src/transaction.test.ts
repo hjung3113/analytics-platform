@@ -23,7 +23,7 @@ describe('generate rollback on write faults (F3)', () => {
     const res = runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
     expect(res.status).toBe(1);
     expect(appSnapshot(root)).toEqual(before);
-    expect(existsSync(join(root, 'menus', 'analytics', 'gen-probe'))).toBe(false);
+    expect(existsSync(join(root, 'menus', 'mars', 'gen-probe'))).toBe(false);
     expect(menusHasOnlyCatalog(root)).toBe(true);
   });
 
@@ -38,7 +38,7 @@ describe('generate rollback on write faults (F3)', () => {
       const res = runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
       expect(res.status).toBe(1);
       expect(appSnapshot(root)).toEqual(before);
-      expect(existsSync(join(root, 'menus', 'analytics', 'gen-probe'))).toBe(false);
+      expect(existsSync(join(root, 'menus', 'mars', 'gen-probe'))).toBe(false);
     } finally {
       closer();
     }
@@ -46,5 +46,5 @@ describe('generate rollback on write faults (F3)', () => {
 });
 
 function menusHasOnlyCatalog(root: string): boolean {
-  return readFileSync(join(root, 'menus/analytics/metric-catalog/src/index.ts'), 'utf8').includes('metric-catalog');
+  return readFileSync(join(root, 'menus/mars/metric-catalog/src/index.ts'), 'utf8').includes('metric-catalog');
 }

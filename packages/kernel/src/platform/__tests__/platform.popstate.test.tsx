@@ -15,7 +15,7 @@ const entry = (partial: { id: string; path: string; pageKeys: string[]; primary?
 
 const registry = createRegistry({
   spaces: [testSpace({ homeMenuId: 'equipment' })],
-  groups: [{ id: groupId('equipment'), label: { ko: '설비', en: 'Equipment' }, icon: House, space: spaceId('analytics') }],
+  groups: [{ id: groupId('equipment'), label: { ko: '설비', en: 'Equipment' }, icon: House, space: spaceId('mars') }],
   menus: [
     entry({ id: 'equipment', path: '/equipment', pageKeys: ['focus'], primary: true }),
     entry({ id: 'detail', path: '/detail', pageKeys: ['returnTo'], parent: 'equipment', navHidden: true }),

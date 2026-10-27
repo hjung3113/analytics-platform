@@ -32,8 +32,8 @@ const lazyMissing = lazy(() => Promise.reject(new TypeError('Failed to fetch dyn
 function Flaky() { if (broken) throw new TypeError('flaky'); return <p>flaky ok</p>; }
 
 const registry = createRegistry({
-  spaces: [testSpace({ id: spaceId('analytics') })],
-  groups: [{ id: groupId('equipment'), label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: spaceId('analytics') }],
+  spaces: [testSpace({ id: spaceId('mars') })],
+  groups: [{ id: groupId('equipment'), label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: spaceId('mars') }],
   menus: [
     menu('home', '/home', { primary: true, component: () => <p>home page</p> }),
     menu('metricpage', '/metricpage', { component: () => <p>metric page</p>, initializesMetric: true, pageKeys: [], context: { ...noContext, metric: 'apply' as const } }),
@@ -80,7 +80,7 @@ describe('RouteOutlet error boundary (06 §4)', () => {
     expect(await screen.findByText('이 화면에서 오류가 발생했습니다')).toBeTruthy();
     expect(reports).toHaveLength(1);
     expect(reports[0]).toEqual({
-      correlationId: expect.stringMatching(/^client-/), menuId: 'crash', spaceId: 'analytics', path: '/crash', name: 'Error',
+      correlationId: expect.stringMatching(/^client-/), menuId: 'crash', spaceId: 'mars', path: '/crash', name: 'Error',
     });
     expect(screen.getByText(new RegExp(reports[0].correlationId))).toBeTruthy();
     // The shell sibling still works and leaves the failed screen.
@@ -309,8 +309,8 @@ describe('global query admission under RouteOutlet (06 §9.1)', () => {
 describe('planned menu without a context bar (#304)', () => {
   it('does not mention the context bar or show id, path, or permission', async () => {
     const planned = createRegistry({
-      spaces: [testSpace({ id: spaceId('analytics'), homeMenuId: 'planned' })],
-      groups: [{ id: groupId('equipment'), label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: spaceId('analytics') }],
+      spaces: [testSpace({ id: spaceId('mars'), homeMenuId: 'planned' })],
+      groups: [{ id: groupId('equipment'), label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: spaceId('mars') }],
       menus: [menu('planned', '/planned', { primary: true, label: { ko: '예정 메뉴', en: 'Planned menu' } })],
     });
     const session = testSession(['platform:view']);

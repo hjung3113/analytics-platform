@@ -48,7 +48,7 @@ E2E는 `E2E_PORT=<포트>`로, base-path E2E는 `E2E_BASE_PATH_PORT=<포트 + 1>
 - `apps/platform-e2e`(spec, `contract-report`) — 어느 흐름도 소유하지 않는다
 - `docs/integration/sdk-git-tag-consumption.md`의 "다음 릴리스" 행, `docs/adr/README.md` 표, ADR 번호(#598에 예약 코멘트, PROFILE §Traps)
 - `.agents/conductor/PROFILE.md` §Traps, `docs/agents/operations.md` — 흐름마다 맨 끝에 덧붙인다
-- FeedbackOps 다리 entry 목록 네 곳(FO `apps/fo-frontend/package.json` `exports`, `tooling/eslint/src/index.js` `FO_BRIDGE_ENTRIES`, `tooling/eslint/src/boundaries.test.ts` entry 배열, `packages/fo-bridge/src/fo-entry-graph.test.ts` describe — fo가 고치고 eslint 쪽은 arch가 소유, 합치는 법은 PROFILE §Traps), `menus/analytics/hw-time`(M7은 sdk가 고치고 platform이 소유)
+- FeedbackOps 다리 entry 목록 네 곳(FO `apps/fo-frontend/package.json` `exports`, `tooling/eslint/src/index.js` `FO_BRIDGE_ENTRIES`, `tooling/eslint/src/boundaries.test.ts` entry 배열, `packages/fo-bridge/src/fo-entry-graph.test.ts` describe — fo가 고치고 eslint 쪽은 arch가 소유, 합치는 법은 PROFILE §Traps), `menus/mars/hw-time`(M7은 sdk가 고치고 platform이 소유)
 - `.planning/README.md`: 흐름 세션은 자기 이슈 줄만 고친다. 줄 순서·구성은 팀장이 바꾼다.
 
 ## 기계 자원(16GB)

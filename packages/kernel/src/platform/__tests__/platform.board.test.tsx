@@ -10,7 +10,7 @@ import { groupId, spaceId, type UsageEvent } from '@ap/contracts';
 const features = { export: false, savedView: false, annotate: false, compare: false, board: true };
 const registry = createRegistry({
   spaces: [testSpace({ homeMenuId: 'main' })],
-  groups: [{ id: groupId('equipment'), label: { ko: '그룹', en: 'Group' }, icon: House, space: spaceId('analytics') }],
+  groups: [{ id: groupId('equipment'), label: { ko: '그룹', en: 'Group' }, icon: House, space: spaceId('mars') }],
   menus: [
     { id: 'main', group: groupId('equipment'), primary: true, label: { ko: '본', en: 'Main' }, description: { ko: '', en: '' }, path: '/main', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features, pageKeys: [] },
     { id: 'boards', group: groupId('equipment'), label: { ko: '보드들', en: 'Boards' }, description: { ko: '', en: '' }, path: '/boards', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features, pageKeys: [] },
