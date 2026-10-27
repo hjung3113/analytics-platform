@@ -81,8 +81,33 @@ describe('resizeGeometry', () => {
     expect(resizeGeometry('nw', g, 500, 500, area, min)).toEqual({ x: 160, y: 160, width: 640, height: 420 });
     expect(resizeGeometry('nw', g, -9999, -9999, area, min)).toEqual({ x: 0, y: 0, width: 800, height: 580 });
   });
-  it.each(['n', 's', 'e', 'w'] as const)('edge handle %s changes one axis only', (h) => {
-    const next = resizeGeometry(h, g, 20, 20, area, min);
-    expect((next.width !== g.width) !== (next.height !== g.height)).toBe(true);
+  it.each([
+    ['e', 20, 20, { x: 100, y: 80, width: 720, height: 500 }], ['e', -9999, 0, { x: 100, y: 80, width: 640, height: 500 }], ['e', 9999, 0, { x: 100, y: 80, width: 1100, height: 500 }],
+    ['s', 20, 20, { x: 100, y: 80, width: 700, height: 520 }], ['s', 0, -9999, { x: 100, y: 80, width: 700, height: 420 }], ['s', 0, 9999, { x: 100, y: 80, width: 700, height: 720 }],
+    ['w', 20, 20, { x: 120, y: 80, width: 680, height: 500 }], ['w', 9999, 0, { x: 160, y: 80, width: 640, height: 500 }], ['w', -9999, 0, { x: 0, y: 80, width: 800, height: 500 }],
+    ['n', 20, 20, { x: 100, y: 100, width: 700, height: 480 }], ['n', 0, 9999, { x: 100, y: 160, width: 700, height: 420 }], ['n', 0, -9999, { x: 100, y: 0, width: 700, height: 580 }],
+    ['ne', 20, 20, { x: 100, y: 100, width: 720, height: 480 }], ['sw', 20, 20, { x: 120, y: 80, width: 680, height: 520 }],
+  ] as const)('edge handle %s by (%i,%i) moves only its own edges', (h, dx, dy, wanted) => {
+    expect(resizeGeometry(h, g, dx, dy, area, min)).toEqual(wanted);
+  });
+  it('normalizes a start outside the area or below the minimum before applying the delta', () => {
+    const small = { left: 0, top: 0, width: 500, height: 300 };
+    const out = resizeGeometry('e', { x: 100, y: 80, width: 700, height: 500 }, 20, 0, small, min);
+    expect(out).toEqual({ x: 0, y: 0, width: 500, height: 300 });
+    const negative = resizeGeometry('e', { x: 100, y: 80, width: 700, height: -40 }, 20, 0, area, min);
+    expect(negative).toEqual({ x: 100, y: 80, width: 720, height: 420 });
+    expect(resizeGeometry('nw', { x: -50, y: 80, width: 700, height: 500 }, 10, 0, area, min)).toEqual({ x: 10, y: 80, width: 690, height: 500 });
+  });
+  it('never emits geometry outside the area for any handle when the area is smaller than the minimum', () => {
+    const tiny = { left: 0, top: 0, width: 500, height: 300 };
+    for (const h of ['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw'] as const) {
+      const r = resizeGeometry(h, g, 20, -30, tiny, min);
+      expect(r.x).toBeGreaterThanOrEqual(0);
+      expect(r.y).toBeGreaterThanOrEqual(0);
+      expect(r.x + r.width).toBeLessThanOrEqual(500);
+      expect(r.y + r.height).toBeLessThanOrEqual(300);
+      expect(r.width).toBeGreaterThan(0);
+      expect(r.height).toBeGreaterThan(0);
+    }
   });
 });

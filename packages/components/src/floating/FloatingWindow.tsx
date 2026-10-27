@@ -54,13 +54,13 @@ const SIZES: FloatingSizePreset[] = ['small', 'medium', 'large'];
 const ARROWS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']);
 const ANNOUNCE_DELAY_MS = 300;
 
-type Gesture = { kind: 'move' | FloatingHandle; startX: number; startY: number; start: FloatingGeometry; last: FloatingGeometry };
+type Gesture = { pointerId: number; kind: 'move' | FloatingHandle; startX: number; startY: number; start: FloatingGeometry; last: FloatingGeometry };
 
 /**
  * A non-modal window frame (06 §13): no backdrop, no focus trap, no outside-click close. Drawn `absolute` inside the caller's positioned container.
  * Pointer drags keep their coordinates in local state and report once on release; keys and the `⋯` menu report immediately (WCAG 2.5.7: every drag has a button/key path).
  */
-export const FloatingWindow = forwardRef<FloatingWindowHandle, FloatingWindowProps>(function FloatingWindow(props, ref) {
+export const FloatingWindow = /*#__PURE__*/ forwardRef<FloatingWindowHandle, FloatingWindowProps>(function FloatingWindow(props, ref) {
   const { area, geometry, onGeometryChange, mode, title, titleId, actions, menuExtra, labels, children } = props;
   const minSize = props.minSize ?? FLOATING_MIN_SIZE;
   const [live, setLive] = useState<FloatingGeometry | null>(null);
@@ -70,6 +70,9 @@ export const FloatingWindow = forwardRef<FloatingWindowHandle, FloatingWindowPro
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useImperativeHandle(ref, () => ({ focusTitleBar: () => { titleBar.current?.focus(); } }), []);
   useEffect(() => () => { clearTimeout(timer.current); }, []);
+  // A gesture belongs to the window frame; leaving `window` mode drops it so a stale draft never masks the controlled geometry.
+  if (mode !== 'window' && live) setLive(null);
+  useEffect(() => { if (mode !== 'window') gesture.current = null; }, [mode]);
 
   const shown = clampGeometry(live ?? geometry, area, minSize);
   const announce = (from: FloatingGeometry, to: FloatingGeometry) => {
@@ -86,11 +89,11 @@ export const FloatingWindow = forwardRef<FloatingWindowHandle, FloatingWindowPro
   const begin = (kind: Gesture['kind']) => (event: PointerEvent<HTMLElement>) => {
     if (event.button !== 0 || (event.target as HTMLElement).closest('button, [role="menuitem"]')) return;
     event.currentTarget.setPointerCapture?.(event.pointerId);
-    gesture.current = { kind, startX: event.clientX, startY: event.clientY, start: shown, last: shown };
+    gesture.current = { pointerId: event.pointerId, kind, startX: event.clientX, startY: event.clientY, start: shown, last: shown };
   };
   const drag = (event: PointerEvent<HTMLElement>) => {
     const g = gesture.current;
-    if (!g) return;
+    if (!g || g.pointerId !== event.pointerId) return;
     const dx = event.clientX - g.startX;
     const dy = event.clientY - g.startY;
     g.last = g.kind === 'move' ? clampGeometry({ ...g.start, x: g.start.x + dx, y: g.start.y + dy }, area, minSize) : resizeGeometry(g.kind, g.start, dx, dy, area, minSize);
@@ -98,18 +101,21 @@ export const FloatingWindow = forwardRef<FloatingWindowHandle, FloatingWindowPro
   };
   const end = (event: PointerEvent<HTMLElement>, apply: boolean) => {
     const g = gesture.current;
+    if (g && g.pointerId !== event.pointerId) return;
     gesture.current = null;
     event.currentTarget.releasePointerCapture?.(event.pointerId);
     setLive(null);
     if (g && apply) {
-      const moved = g.last.x !== g.start.x || g.last.y !== g.start.y || g.last.width !== g.start.width || g.last.height !== g.start.height;
-      if (moved) { onGeometryChange(g.last); announce(g.start, g.last); }
+      const last = clampGeometry(g.last, area, minSize);
+      const moved = last.x !== g.start.x || last.y !== g.start.y || last.width !== g.start.width || last.height !== g.start.height;
+      if (moved) { onGeometryChange(last); announce(g.start, last); }
     }
   };
   const pointerProps = (kind: Gesture['kind']) => ({
     onPointerDown: begin(kind), onPointerMove: drag,
     onPointerUp: (event: PointerEvent<HTMLElement>) => { end(event, true); },
     onPointerCancel: (event: PointerEvent<HTMLElement>) => { end(event, false); },
+    onLostPointerCapture: (event: PointerEvent<HTMLElement>) => { end(event, false); },
   });
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {

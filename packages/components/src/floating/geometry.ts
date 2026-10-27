@@ -51,14 +51,15 @@ export function stepGeometry(geometry: FloatingGeometry, key: 'ArrowLeft' | 'Arr
   return resize ? resizeGeometry('se', g, dx, dy, area, minSize) : clampGeometry({ ...g, x: g.x + dx, y: g.y + dy }, area, minSize);
 }
 
-/** Pointer resize from `start` by a pixel delta; the opposite edge stays put, and the window never leaves the area or shrinks below `minSize`. */
+/** Pointer resize from `start` (first normalized by `clampGeometry`) by a pixel delta; the opposite edge stays put, and the window never leaves the area or shrinks below `minSize`. */
 export function resizeGeometry(handle: FloatingHandle, start: FloatingGeometry, dx: number, dy: number, area: FloatingArea, minSize: FloatingSize): FloatingGeometry {
+  const from = clampGeometry(start, area, minSize);
   const minW = Math.min(minSize.width, area.width);
   const minH = Math.min(minSize.height, area.height);
-  let { x, y, width, height } = start;
-  if (handle.includes('e')) width = clamp(start.width + dx, minW, area.width - start.x);
-  if (handle.includes('s')) height = clamp(start.height + dy, minH, area.height - start.y);
-  if (handle.includes('w')) { width = clamp(start.width - dx, minW, start.x + start.width); x = start.x + start.width - width; }
-  if (handle.includes('n')) { height = clamp(start.height - dy, minH, start.y + start.height); y = start.y + start.height - height; }
+  let { x, y, width, height } = from;
+  if (handle.includes('e')) width = clamp(from.width + dx, minW, area.width - from.x);
+  if (handle.includes('s')) height = clamp(from.height + dy, minH, area.height - from.y);
+  if (handle.includes('w')) { width = clamp(from.width - dx, minW, from.x + from.width); x = from.x + from.width - width; }
+  if (handle.includes('n')) { height = clamp(from.height - dy, minH, from.y + from.height); y = from.y + from.height - height; }
   return { x, y, width, height };
 }

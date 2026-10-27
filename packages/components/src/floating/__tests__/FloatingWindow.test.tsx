@@ -235,11 +235,70 @@ describe('FloatingWindow modes', () => {
     expect(container.querySelector('[data-floating-mode="off"]')?.className).toBe('contents');
   });
 
-  it('shows the clamped geometry without rewriting the stored one when the area shrinks', () => {
+  it('shows the clamped geometry and restores the stored one on expansion, without ever calling onGeometryChange', () => {
     const onChange = vi.fn();
     const small: FloatingArea = { left: 0, top: 0, width: 700, height: 450 };
-    render(<Harness onChange={onChange} areaIn={small} />);
+    const { rerender } = render(<Harness onChange={onChange} />);
+    expect(win()).toHaveStyle({ '--fw-left': '110px', '--fw-top': '100px', '--fw-width': '700px', '--fw-height': '500px' });
+    rerender(<Harness onChange={onChange} areaIn={small} />);
     expect(win()).toHaveStyle({ '--fw-left': '0px', '--fw-top': '0px', '--fw-width': '700px', '--fw-height': '450px' });
+    rerender(<Harness onChange={onChange} />);
+    expect(win()).toHaveStyle({ '--fw-left': '110px', '--fw-top': '100px', '--fw-width': '700px', '--fw-height': '500px' });
     expect(onChange).not.toHaveBeenCalled();
+  });
+});
+
+describe('FloatingWindow gesture lifecycle', () => {
+  const Probe = () => { useState(() => { mounts(); return 0; }); return <span>probe</span>; };
+  const mounts = vi.fn();
+  const view = (mode: FloatingWindowMode, geometry: FloatingGeometry, a: FloatingArea = area, onChange: (g: FloatingGeometry) => void = () => undefined) => (
+    <FloatingWindow area={a} geometry={geometry} mode={mode} title="Board" titleId="t" labels={labels} onGeometryChange={onChange}><Probe /></FloatingWindow>
+  );
+
+  it('drops a drag interrupted by fill/off: controlled geometry wins and a bare move does nothing', () => {
+    mounts.mockClear();
+    const onChange = vi.fn();
+    const { rerender } = render(view('window', start, area, onChange));
+    fireEvent.pointerDown(bar(), { button: 0, clientX: 300, clientY: 300, pointerId: 1 });
+    fireEvent.pointerMove(bar(), { clientX: 400, clientY: 400, pointerId: 1 });
+    expect(win()).toHaveStyle({ '--fw-left': '210px' });
+    rerender(view('fill', start, area, onChange));
+    rerender(view('window', { ...start, x: 50 }, area, onChange));
+    expect(win()).toHaveStyle({ '--fw-left': '60px', '--fw-top': '100px' });
+    fireEvent.pointerMove(bar(), { clientX: 700, clientY: 700, pointerId: 1 });
+    fireEvent.pointerUp(bar(), { pointerId: 1 });
+    expect(win()).toHaveStyle({ '--fw-left': '60px', '--fw-top': '100px' });
+    expect(onChange).not.toHaveBeenCalled();
+    expect(mounts).toHaveBeenCalledTimes(1);
+  });
+
+  it('cancels on lost pointer capture and ignores other pointers', () => {
+    const onChange = vi.fn();
+    render(view('window', start, area, onChange));
+    fireEvent.pointerDown(bar(), { button: 0, clientX: 300, clientY: 300, pointerId: 1 });
+    fireEvent.pointerMove(bar(), { clientX: 500, clientY: 500, pointerId: 2 });
+    fireEvent.pointerUp(bar(), { pointerId: 2 });
+    expect(win()).toHaveStyle({ '--fw-left': '110px' });
+    fireEvent.pointerMove(bar(), { clientX: 340, clientY: 300, pointerId: 1 });
+    expect(win()).toHaveStyle({ '--fw-left': '150px' });
+    fireEvent(bar(), new PointerEvent('lostpointercapture', { bubbles: true, pointerId: 1 }));
+    expect(win()).toHaveStyle({ '--fw-left': '110px' });
+    fireEvent.pointerMove(bar(), { clientX: 600, clientY: 600, pointerId: 1 });
+    expect(win()).toHaveStyle({ '--fw-left': '110px' });
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('clamps the committed resize to the area at pointer-up when the area shrank mid-gesture', () => {
+    const onChange = vi.fn();
+    const small: FloatingArea = { left: 0, top: 0, width: 500, height: 300 };
+    const { rerender } = render(view('window', start, area, onChange));
+    const se = () => win().querySelector('[data-resize="se"]')!;
+    fireEvent.pointerDown(se(), { button: 0, clientX: 500, clientY: 500, pointerId: 1 });
+    fireEvent.pointerMove(se(), { clientX: 520, clientY: 500, pointerId: 1 });
+    rerender(view('window', start, small, onChange));
+    fireEvent.pointerMove(se(), { clientX: 520, clientY: 500, pointerId: 1 });
+    fireEvent.pointerUp(se(), { pointerId: 1 });
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith({ x: 0, y: 0, width: 500, height: 300 });
   });
 });
