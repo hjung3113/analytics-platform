@@ -93,4 +93,31 @@ describe('FieldRow', () => {
     expect(container.querySelector('dt, dd, dl')).toBeNull();
     expect(container.querySelector('span')).toHaveTextContent('담당자');
   });
+
+  it('detail layout draws the 9rem label column, divided rows and tabular value inside a FieldList (#891)', () => {
+    const { container } = render(<FieldList><FieldRow layout="detail" label="단위">min</FieldRow></FieldList>);
+    const row = container.querySelector('dl > div');
+    expect(row).toHaveClass('grid', 'grid-cols-[9rem_1fr]', 'gap-3', 'border-b', 'border-border-subtle', 'py-1.5', 'text-sm', 'last:border-0');
+    expect(container.querySelector('dt')).toHaveClass('min-w-0', 'break-words', 'text-text-muted');
+    expect(container.querySelector('dd')).toHaveClass('tabular');
+  });
+
+  it('detail layout renders the value in mono when asked', () => {
+    const { container } = render(<FieldList><FieldRow layout="detail" label="id" mono>x</FieldRow></FieldList>);
+    expect(container.querySelector('dd')).toHaveClass('t-mono');
+    expect(container.querySelector('dd')).not.toHaveClass('tabular');
+  });
+
+  it('detail layout folds a camelCase string label with <wbr> and keeps its text', () => {
+    const { container } = render(<FieldList><FieldRow layout="detail" label="averageOfRatiosAllowed">true</FieldRow></FieldList>);
+    const dt = container.querySelector('dt');
+    expect(dt?.querySelectorAll('wbr')).toHaveLength(3);
+    expect(dt).toHaveTextContent('averageOfRatiosAllowed');
+  });
+
+  it('detail layout leaves an element label as-is', () => {
+    const { container } = render(<FieldList><FieldRow layout="detail" label={<span>소유 조직</span>}>MEM</FieldRow></FieldList>);
+    expect(container.querySelector('dt')?.querySelector('wbr')).toBeNull();
+    expect(container.querySelector('dt')).toHaveTextContent('소유 조직');
+  });
 });

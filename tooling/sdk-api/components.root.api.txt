@@ -26,7 +26,6 @@ DrillSiblings | type | type DrillSiblings = Readonly<Record<string, readonly @ap
 EChart | function | function EChart({ option, height, onEvents, onReady, onResize, ariaLabel, className }: @ap/components#EChartProps): import("react").JSX.Element
 EChartProps | type | type EChartProps = { ariaLabel: string; className?: string; height?: number; onEvents?: Record<string, (params: any, chart: ECharts) => void>; onReady?: (chart: ECharts) => void; onResize?: (width: number) => void; option: EChartsCoreOption; }
 FLOATING_MIN_SIZE | const | const FLOATING_MIN_SIZE: @ap/components#FloatingSize
-Field | function | function Field({ label, children, mono }: { children: ReactNode; label: ReactNode; mono?: boolean; }): import("react").JSX.Element
 FilterDraft | type | type FilterDraft<K extends string> = { changedCount: number; patch: () => Record<K, null | string>; reset: (next?: Partial<Record<K, string>>) => void; set: (key: K, value: string) => void; values: Record<K, string>; }
 FilterUrlWarning | function | function FilterUrlWarning({ sentences, filters, recover }: { filters?: ReactNode; recover: ReactNode; sentences: readonly string[]; }): import("react").JSX.Element
 FloatingArea | type | type FloatingArea = { height: number; left: number; top: number; width: number; }

@@ -1,7 +1,7 @@
 import { detailFocusFallback, paneRootById } from '../state/pageFocus';
 import { OutcomeBanners, OutcomeScope } from '../filters/OutcomeScope';
 import { X } from 'lucide-react';
-import { Fragment, useEffect, useId, useInsertionEffect, useLayoutEffect, useRef, type MutableRefObject, type ReactNode } from 'react';
+import { useEffect, useId, useInsertionEffect, useLayoutEffect, useRef, type MutableRefObject, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { buildQuery } from '@ap/contracts';
 import { useI18n } from '@ap/kernel';
@@ -146,24 +146,4 @@ function DetailContent({ superseded, title, subtitle, headerActions, context, ta
         ))}
       </Tabs>}
     </div>;
-}
-
-// B-12 follow-up: a long technical key folds at camelCase word boundaries instead of dropping its
-// last character. <wbr> is a break opportunity only — textContent and the accessible name stay the
-// original string. Labels that are not plain strings render as-is.
-function foldedLabel(label: string): ReactNode {
-  return label.split(/(?<=[a-z])(?=[A-Z])/).map((part, i) => (
-    <Fragment key={i}>{i > 0 && <wbr />}{part}</Fragment>
-  ));
-}
-
-/**
- * @deprecated since the next SDK release (#891): use `FieldRow layout="detail"` from `@ap/ui` inside a `FieldList` instead of
- * `Field` inside a `<dl>` — the rows draw the same. Removed one release later (ADR-0044).
- */
-export function Field({ label, children, mono }: { label: ReactNode; children: ReactNode; mono?: boolean }) {
-  return <div className="grid grid-cols-[9rem_1fr] gap-3 border-b border-border-subtle py-1.5 text-sm last:border-0">
-    <dt className="min-w-0 break-words text-text-muted">{typeof label === 'string' ? foldedLabel(label) : label}</dt>
-    <dd className={mono ? 't-mono' : 'tabular'}>{children}</dd>
-  </div>;
 }
