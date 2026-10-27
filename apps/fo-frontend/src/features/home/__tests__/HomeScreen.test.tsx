@@ -19,13 +19,14 @@ import {
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import * as React from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 vi.mock('sonner', () => ({ toast }));
 
 import { COVERAGE_METRIC_IDS, COVERAGE_METRIC_LABELS } from '@/lib/copy/coverage';
 import { HOME_QUEUE_COPY } from '@/lib/copy/home';
+import { registerDefaultHost } from '@/lib/host/host-seam';
 import { AppSidebar } from '@/lib/layout/AppSidebar';
 import { HomeRoute } from '@/routes/_authed/home';
 import { HomeScreen } from '../HomeScreen';
@@ -192,6 +193,11 @@ function ScopeHarness(): React.ReactElement {
 
 describe('HomeScreen route content', () => {
   const originalFetch = globalThis.fetch;
+  // PermissionGate reads the host's current location; this file renders it without a router.
+  beforeAll(async () => {
+    const { tanstackHost } = await import('@/lib/host/tanstack-host');
+    registerDefaultHost({ ...tanstackHost, useHere: () => '/home' });
+  });
   afterEach(() => {
     globalThis.fetch = originalFetch;
     vi.restoreAllMocks();
