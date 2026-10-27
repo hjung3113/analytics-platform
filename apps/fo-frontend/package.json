@@ -14,6 +14,8 @@
     "./operator-screens/task-detail": "./src/operator-screens/task-detail/index.ts",
     "./operator-screens/finding-detail": "./src/operator-screens/finding-detail/index.ts",
     "./operator-screens/survey-detail": "./src/operator-screens/survey-detail/index.ts",
+    "./operator-screens/survey-follow-up": "./src/operator-screens/survey-follow-up/index.ts",
+    "./operator-screens/survey-results": "./src/operator-screens/survey-results/index.ts",
     "./operator-screens/surveys": "./src/operator-screens/surveys/index.ts",
     "./operator-screens/survey-builder": "./src/operator-screens/survey-builder/index.ts",
     "./operator-screens/task-list": "./src/operator-screens/task-list/index.ts",

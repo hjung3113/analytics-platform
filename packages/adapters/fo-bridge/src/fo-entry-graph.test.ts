@@ -779,6 +779,58 @@ describe('FeedbackOps operator Survey detail entry graph (ADR-0071)', () => {
   });
 });
 
+describe('FeedbackOps operator Survey results entry graph (ADR-0071)', () => {
+  const surveyResults = walk([join(FRONTEND_SRC, 'operator-screens/survey-results/index.ts')]);
+  const surveyResultsReached = [...surveyResults.files.keys()].map(file => relative(FRONTEND_SRC, file));
+
+  it('reaches the screen and the host seam, not the findings barrel, the standalone routes or anything under routes/', () => {
+    expect(surveyResultsReached).toEqual(expect.arrayContaining(['features/surveys/routes/SurveyResultsScreen.tsx', 'features/surveys/components/results/SurveyResultsSummary.tsx', 'lib/host/host-seam.tsx']));
+    expect(surveyResultsReached).not.toContain('features/findings/public.ts');
+    expect(surveyResultsReached.filter(file => /^(?:features\/surveys\/)?routes\//.test(file) && file !== 'features/surveys/routes/SurveyPermissionGate.ts' && file !== 'features/surveys/routes/SurveyResultsScreen.tsx')).toEqual([]);
+    expect(surveyResults.unresolved).toEqual([]);
+  });
+
+  it('imports no router and no toast library', () => {
+    expect([...surveyResults.specifiers].filter(specifier => /^@tanstack\/(react-)?router|^sonner$/.test(specifier))).toEqual([]);
+  });
+
+  it('reaches no route, router, layout or auth source, the auth module, the api barrel, the permissions or managed-systems api, the standalone permission check or the findings barrel', () => {
+    const banned = /^(?:routes|lib\/router|lib\/layout|lib\/auth)\/|^lib\/api\/(?:auth|index|permissions|managed-systems)\.ts$|^lib\/cross-system\/usePermissionCheck\.ts$|^features\/findings\/public\.ts$/;
+    expect(surveyResultsReached.filter(file => banned.test(file))).toEqual([]);
+  });
+
+  it('calls fetch only in lib/api/client.ts', () => {
+    const callers = [...surveyResults.files].filter(([, text]) => /(?<![\w.])fetch\(/.test(text)).map(([file]) => relative(FRONTEND_SRC, file));
+    expect(callers).toEqual(['lib/api/client.ts']);
+  });
+});
+
+describe('FeedbackOps operator Survey follow-up entry graph (ADR-0071)', () => {
+  const surveyFollowUp = walk([join(FRONTEND_SRC, 'operator-screens/survey-follow-up/index.ts')]);
+  const surveyFollowUpReached = [...surveyFollowUp.files.keys()].map(file => relative(FRONTEND_SRC, file));
+
+  it('reaches the screen and the host seam, not the findings barrel, the standalone routes or anything under routes/', () => {
+    expect(surveyFollowUpReached).toEqual(expect.arrayContaining(['features/surveys/routes/SurveyFollowUpScreen.tsx', 'features/surveys/components/results/OutcomeFollowUpReview.tsx', 'lib/host/host-seam.tsx']));
+    expect(surveyFollowUpReached).not.toContain('features/findings/public.ts');
+    expect(surveyFollowUpReached.filter(file => /^(?:features\/surveys\/)?routes\//.test(file) && file !== 'features/surveys/routes/SurveyPermissionGate.ts' && file !== 'features/surveys/routes/SurveyFollowUpScreen.tsx')).toEqual([]);
+    expect(surveyFollowUp.unresolved).toEqual([]);
+  });
+
+  it('imports no router and no toast library', () => {
+    expect([...surveyFollowUp.specifiers].filter(specifier => /^@tanstack\/(react-)?router|^sonner$/.test(specifier))).toEqual([]);
+  });
+
+  it('reaches no route, router, layout or auth source, the auth module, the api barrel, the permissions or managed-systems api, the standalone permission check or the findings barrel', () => {
+    const banned = /^(?:routes|lib\/router|lib\/layout|lib\/auth)\/|^lib\/api\/(?:auth|index|permissions|managed-systems)\.ts$|^lib\/cross-system\/usePermissionCheck\.ts$|^features\/findings\/public\.ts$/;
+    expect(surveyFollowUpReached.filter(file => banned.test(file))).toEqual([]);
+  });
+
+  it('calls fetch only in lib/api/client.ts', () => {
+    const callers = [...surveyFollowUp.files].filter(([, text]) => /(?<![\w.])fetch\(/.test(text)).map(([file]) => relative(FRONTEND_SRC, file));
+    expect(callers).toEqual(['lib/api/client.ts']);
+  });
+});
+
 describe('FeedbackOps operator integration dashboard entry graph (ADR-0071)', () => {
   const integrationDashboard = walk([join(FRONTEND_SRC, 'operator-screens/integration-dashboard/index.ts')]);
   const integrationDashboardReached = [...integrationDashboard.files.keys()].map(file => relative(FRONTEND_SRC, file));

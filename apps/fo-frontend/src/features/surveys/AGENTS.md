@@ -23,7 +23,7 @@ It does not own VOC creation, Finding persistence, Task mutation, or permission 
 
 - Keep builder and result views simple for MVP.
 - Result summaries should expose Create Finding and Request Task where permitted; Link Finding is deferred out of MVP scope (ADR-0037).
-- Selected-Finding load/ready/error orchestration stays in Survey; source reads and the Finding-owned Request Task draft host come through `features/findings/public.ts`.
+- Selected-Finding load/ready/error orchestration stays in Survey; source reads and the Finding-owned Request Task draft host come from `useFindingDetail` and `FindingRequestTaskDraftHost`, imported by their own modules (never `features/findings/public.ts`, which entry graphs ban).
 - Permission-limited responses must show approved summaries or request-access paths.
 - Preserve Survey context during linked object creation.
 
@@ -34,10 +34,12 @@ It does not own VOC creation, Finding persistence, Task mutation, or permission 
 - `apps/fo-frontend/src/routes/_authed/surveys/index.tsx` — Survey list route adapter: composes `SurveysScreen` with the `SurveyDetail` aside through a route-local seam (TanStack search/navigate).
 - `apps/fo-frontend/src/routes/_authed/surveys/$surveyId.tsx` — Survey builder and detail route; the non-builder branch uses `SurveyListScreen`.
 - `apps/fo-frontend/src/features/surveys/components/list/SurveyListScreen.tsx` — shared Survey list composition (toolbar, filters, create, detail slot) for the index and detail routes.
-- `apps/fo-frontend/src/routes/_authed/surveys/$surveyId.results.tsx` — Survey results presentation and outer metadata states.
+- `apps/fo-frontend/src/features/surveys/routes/SurveyResultsScreen.tsx` — bridge-safe Survey results screen (outer metadata states, header, summary) over the host seam. Entry `operator-screens/survey-results`; never imports `features/findings/public.ts` (the summary reaches `FindingRequestTaskDraftHost` and `useFindingDetail` by their own modules).
+- `apps/fo-frontend/src/routes/_authed/surveys/$surveyId.results.tsx` — results route adapter: `Route.useParams()` → `SurveyResultsScreen`.
 - `apps/fo-frontend/src/features/surveys/hooks/useSurveyResultsController.ts` — metadata/results/Follow-up reads, capability readiness, denial persistence, safe content selection, and document title.
 - `apps/fo-frontend/src/features/surveys/policy/resultsReadDenial.ts` — sticky denial key/default registration, denial merge, and results-read projection.
-- `apps/fo-frontend/src/routes/_authed/surveys/$surveyId.follow-up.tsx` — Survey follow-up route.
+- `apps/fo-frontend/src/features/surveys/routes/SurveyFollowUpScreen.tsx` — bridge-safe follow-up screen. `selection` (host-owned, controlled: no auto-select, a filter switch or a stale id goes through `onSelect(null)`) and `renderDetail(parts)` (the host places the detail parts in place); absent = the review's own selection with first-open auto-select and the standalone aside. Entry `operator-screens/survey-follow-up`.
+- `apps/fo-frontend/src/routes/_authed/surveys/$surveyId.follow-up.tsx` — Survey follow-up route adapter composing `SurveyFollowUpScreen` in `WorkbenchShell`.
 - `apps/fo-frontend/src/routes/_authed/surveys/participate.tsx` — answerable Surveys and response history.
 - `apps/fo-frontend/src/routes/_authed/surveys/$surveyId_.respond.tsx` — respondent form deep link.
 - `apps/fo-frontend/src/features/surveys/components/participation/SurveyParticipationScreens.tsx` — bridge-safe participation list and respondent form screens, used by the standalone routes (through `SurveyParticipationPage.tsx`) and the platform bridge (platform ADR-0071). Use `variant="embedded"` only in the platform.
@@ -50,9 +52,8 @@ It does not own VOC creation, Finding persistence, Task mutation, or permission 
 - `apps/fo-frontend/src/features/surveys/components/builder/SurveyBuilder.tsx` — Survey builder composition.
 - `apps/fo-frontend/src/features/surveys/components/SurveyStatusBadge.tsx` — Survey status labels and badge styles.
 - `apps/fo-frontend/src/features/surveys/components/results/SurveyResultsSummary.tsx` — result summary and follow-up actions.
-- `apps/fo-frontend/src/features/findings/public.ts` — supported Finding source-read and Request Task host edge used by Survey results.
+- `apps/fo-frontend/src/features/findings/hooks/useFindingDetail.ts`, `.../components/FindingDetail/FindingRequestTaskDraftHost.tsx` — Finding source-read and Request Task host pieces used by Survey results, imported by module path.
 - `apps/fo-frontend/src/features/surveys/components/results/CreateFindingDraftPanel.tsx` — Finding draft from response excerpts.
-- `apps/fo-frontend/src/features/surveys/routes/SurveyFollowUpRoute.tsx` — follow-up decisions view.
 - `apps/fo-frontend/src/features/surveys/hooks/useSurveys.ts` — Survey, result, and mutation queries.
 
 ## Verification

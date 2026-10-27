@@ -75,6 +75,11 @@ const HOST_RETURN_INTENT_SEAM: HostSeam = {
   useHere: () => '/host/permission-state?selected=host-seam',
 };
 
+const SURVEY_RESULTS_SEAM: HostSeam = {
+  ...PERMISSION_GATE_SEAM,
+  useHere: () => `/surveys/${SURVEY_ID}/results`,
+};
+
 function InboxHarness() {
   return (
     <HostSeamProvider value={INBOX_SEAM}>
@@ -126,39 +131,41 @@ describe('permission request return routes', () => {
 
     render(
       withClient(
-        <SurveyResultsSummary
-          survey={
-            {
-              id: SURVEY_ID,
-              display_id: 'SRV-D8E',
-              title: 'Distinct survey fixture',
-              type: 'outcome',
-              status: 'closed',
-              questions: [],
-            } as never
-          }
-          results={
-            {
-              survey_id: SURVEY_ID,
-              status: 'closed',
-              identity_protected: true,
-              response_state: 'visible',
-              anonymity_threshold: 5,
-              questions: [],
-              next_actions: [
-                {
-                  id: 'create_finding',
-                  availability: 'blocked_requestable',
-                  intent: 'open_finding_draft',
-                  requestable_permission: {
-                    permission: 'finding.manage.fixture',
-                    managed_system_id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+        <HostSeamProvider value={SURVEY_RESULTS_SEAM}>
+          <SurveyResultsSummary
+            survey={
+              {
+                id: SURVEY_ID,
+                display_id: 'SRV-D8E',
+                title: 'Distinct survey fixture',
+                type: 'outcome',
+                status: 'closed',
+                questions: [],
+              } as never
+            }
+            results={
+              {
+                survey_id: SURVEY_ID,
+                status: 'closed',
+                identity_protected: true,
+                response_state: 'visible',
+                anonymity_threshold: 5,
+                questions: [],
+                next_actions: [
+                  {
+                    id: 'create_finding',
+                    availability: 'blocked_requestable',
+                    intent: 'open_finding_draft',
+                    requestable_permission: {
+                      permission: 'finding.manage.fixture',
+                      managed_system_id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+                    },
                   },
-                },
-              ],
-            } as never
-          }
-        />,
+                ],
+              } as never
+            }
+          />
+        </HostSeamProvider>,
       ),
     );
     expect(screen.getByTestId('request-access-finding.manage.fixture')).toBeInTheDocument();
