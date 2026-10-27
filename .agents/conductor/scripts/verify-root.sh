@@ -54,7 +54,7 @@ test_build() { # test → build를 한 잠금 안에서 이어 돌린다. 요약
 export logdir
 bash "$here/with-lock.sh" heavy.lock "verify-root foreground" -- bash -c "$(declare -f test_build); test_build"
 rc=$?
-summary="${summary}$(cat "$logdir/.tb-summary")
+[ -s "$logdir/.tb-summary" ] && summary="${summary}$(cat "$logdir/.tb-summary")
 "
 [ "$rc" -eq 75 ] && echo "verify-root: heavy.lock이 이미 잡혀 있다" >&2
 finish $rc

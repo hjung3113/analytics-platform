@@ -13,6 +13,7 @@ Closes #
 ## 검증
 
 - [ ] Kernel·셸·공통 컴포넌트·mock 서버·`apps/platform-web` 조립을 건드렸으면 `verify-root.sh`(`pnpm lint && pnpm typecheck && pnpm test && pnpm build`), 아니면 `lint`·`typecheck`(와 바뀐 패키지 검사)만 — test·build는 PR CI. 문서만 바꿨으면 `pnpm docs:links` ([PROFILE §Verify](../.agents/conductor/PROFILE.md))
+- [ ] 공유 경로 PR(다섯 갈래: 공개 API·루트 `package.json`/lockfile/`turbo.json`·`.github/workflows`·`apps/platform-e2e`)은 경로와 관계없이 `verify-root.sh` 전체
 - 브라우저/E2E:
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)

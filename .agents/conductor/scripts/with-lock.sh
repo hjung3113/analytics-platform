@@ -3,7 +3,7 @@
 # 잠금 규약은 그대로다: $AP_MAIN/.review/<잠금> 디렉터리를 mkdir로 잡고 owner·since·purpose를 쓰며,
 # 풀 때는 owner가 자기 것일 때만 mv + trash로 푼다(rm 금지). 이 스크립트는 그 규약의 구현이고, 직접 mkdir로 잡는 방식도 여전히 유효하다.
 # 추가로 `token` 파일($$-<epoch>-$RANDOM)을 쓴다. 풀 때 owner와 token이 모두 같아야 푼다 — 같은 handle끼리(같은 터미널의 서브에이전트·배경 명령)도
-# 남이 새로 잡은 잠금을 풀지 않는다. purpose 끝에는 `, pid <래퍼 PID>`가 붙어, SIGKILL로 남은 잠금도 lock-audit.sh가 PID 사망으로 찾는다.
+# 남이 새로 잡은 잠금을 풀지 않는다. purpose 끝에는 `, pid <래퍼 PID>, pgid <자식 그룹>`이 붙어, SIGKILL로 남은 잠금도 lock-audit.sh가 PID 사망으로 찾는다(자식 그룹이 살아 있으면 held).
 #
 # 사용: with-lock.sh <heavy.lock|browser.lock|merge.lock|worker-slot-N> <purpose> -- <command...>
 # 종료 코드: 자식의 종료 코드 그대로. 이미 잡혀 있으면(같은 잠금을 중첩해 잡는 경우 포함, 교착 없이 즉시) 명령을 돌리지 않고 75(한 줄: with-lock: <잠금> held by …).
@@ -89,6 +89,7 @@ set -m # 자식을 새 프로세스 그룹에서 띄운다(pgid = 자식 PID)
 "$@" <&0 &  # 백그라운드로 돌려도 stdin을 그대로 넘긴다
 child=$!
 set +m
+printf '%s, pid %s, pgid %s\n' "$purpose" "$$" "$child" >"$lock/purpose"  # 래퍼만 SIGKILL이어도 자식 그룹 생존을 lock-audit.sh가 본다
 wait "$child"
 rc=$?
 child=0
