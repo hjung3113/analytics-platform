@@ -3,7 +3,7 @@ import { emptyGlobal, type SavedViewSupport } from '@ap/contracts';
 import { captureApplied, viewState } from '../capture';
 import { hasExplicitContext, restoreSavedView, unsupportedOf } from '../restore';
 import { createSupportRegistry } from '../useSavedViewSupport';
-import { viewOf } from './fake-store';
+import { testSavedView as viewOf } from '../../testing';
 
 const support: SavedViewSupport = { menuId: 'home', menuSchemaVersion: 2, contextKeys: ['time', 'line'], pageKeys: ['filter', 'sort'] };
 const anchor = '2026-09-02T00:00:00';

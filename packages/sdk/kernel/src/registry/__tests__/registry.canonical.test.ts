@@ -107,9 +107,23 @@ describe('canonical path validation', () => {
     expect(() => createRegistry({ ...base, menus: [catalog, menu('a', '/p/:x'), menu('b', '/p/:y')] })).toThrow(/same route shape \/p\/:/);
   });
 
-  it.each(['home', 'survey', 'voc', 'notifications', 'notices', 'permission-requests', 'board', 'api', 'auth'])('rejects the reserved platform root "%s" as a space id', root => {
+  it.each(['board', 'api', 'auth'])('rejects the platform root "%s" as a space id without any app declaration', root => {
     const reserved = space(root, 'catalog');
     expect(() => createRegistry({ spaces: [reserved], groups: [{ ...marsGroup, space: reserved.id }], menus: [catalog] })).toThrow(/reserved platform root/);
+  });
+
+  it('does not reserve an app menu root the app did not declare', () => {
+    const voc = space('voc', 'catalog');
+    expect(() => createRegistry({ spaces: [voc], groups: [{ ...marsGroup, space: voc.id }], menus: [catalog] })).not.toThrow();
+  });
+
+  it.each(['home', 'survey', 'voc', 'notifications', 'notices', 'permission-requests'])('rejects the app-declared root "%s" as a space id', root => {
+    const reserved = space(root, 'catalog');
+    expect(() => createRegistry({ spaces: [reserved], groups: [{ ...marsGroup, space: reserved.id }], menus: [catalog], reservedRoots: ['home', 'survey', 'voc', 'notifications', 'notices', 'permission-requests'] })).toThrow(/reserved platform root/);
+  });
+
+  it.each(['', 'a b', 'a/b', 'a?b', 'a#b', 'a&b'])('rejects a reservedRoots entry with a bad shape (%j)', root => {
+    expect(() => createRegistry({ ...base, menus: [catalog], reservedRoots: [root] })).toThrow(/reserved root/i);
   });
 
   it('rejects a space-less path or alias whose first segment is a space id', () => {

@@ -1,9 +1,13 @@
+FakeSavedViewStore | type | type FakeSavedViewStore = @ap/contracts#SavedViewStore & { calls: string[]; caps: Map<string, @ap/contracts#ViewCapabilities>; defaults: Map<string, string>; denied: Set<string>; failGet: boolean; failSave: boolean; failShare: boolean; getHold: Map<string, Promise<void>>; groups: @ap/contracts#ViewGroupEntry[]; listHold: Promise<void> | null; reads: string[]; removeHold: Promise<void> | null; requests: @ap/contracts#ApprovalRequestInfo[]; rows: Map<string, @ap/contracts#SavedView>; saveHold: Promise<void> | null; }
 ToastProbe | function | function ToastProbe(): ReactElement
+createFakeSavedViewStore | function | function createFakeSavedViewStore(seed?: @ap/contracts#SavedView[], defaults?: Record<string, string>): @ap/kernel/testing#FakeSavedViewStore
 memoryStorage | function | function memoryStorage(): Storage
 noContext | const | const noContext: Record<@ap/contracts#ContextKey, @ap/contracts#Capability>
 settleQueries | function | function settleQueries(): Promise<void>
 testAdapter | function | function testAdapter(over?: Partial<@ap/contracts#PlatformAdapter>): @ap/contracts#PlatformAdapter
+testSavedView | function | function testSavedView(over: Partial<@ap/contracts#SavedView> & { context?: @ap/contracts#SavedView['context']; id: string; }): @ap/contracts#SavedView
 testSession | function | function testSession(permissions: readonly (@ap/contracts#ModuleScopedId | @ap/contracts#Permission)[], over?: { scopes?: readonly @ap/contracts#ScopeOption[]; user?: Partial<@ap/contracts#SessionUser>; }): @ap/contracts#Session
 testSpace | function | function testSpace(over?: Partial<@ap/contracts#SpaceDef>): @ap/contracts#SpaceDef
+testViewCapabilities | const | const testViewCapabilities: @ap/contracts#ViewCapabilities
 useToastsForTest | function | function useToastsForTest(): readonly @ap/kernel#Toast[]
 # reachable types

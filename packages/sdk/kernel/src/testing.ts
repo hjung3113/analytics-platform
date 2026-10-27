@@ -97,3 +97,5 @@ export async function settleQueries(): Promise<void> {
     scope.IS_REACT_ACT_ENVIRONMENT = previous;
   }
 }
+
+export { createFakeSavedViewStore, testSavedView, testViewCapabilities, type FakeSavedViewStore } from './saved-view/fake-store';

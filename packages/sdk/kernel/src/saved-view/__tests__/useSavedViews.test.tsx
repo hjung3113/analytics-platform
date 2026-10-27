@@ -4,8 +4,13 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { buildQuery, emptyGlobal, groupId, spaceId, type SavedViewSupport } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, useSavedViewSupport, usePlatform, type MenuPlatform } from '../../index';
 import { useHostPlatform, useSavedViews, type SavedViews } from '../../host';
-import { noContext, testAdapter, testSession, testSpace } from '../../testing';
-import { createFakeStore, deferred, viewOf, type FakeStore } from './fake-store';
+import { createFakeSavedViewStore as createFakeStore, noContext, testAdapter, testSavedView as viewOf, testSession, testSpace, type FakeSavedViewStore as FakeStore } from '../../testing';
+/** A promise the test resolves by hand, to finish a store call out of order. */
+function deferred(): { promise: Promise<void>; release: () => void } {
+  let release = () => {};
+  const promise = new Promise<void>(resolve => { release = resolve; });
+  return { promise, release };
+}
 
 const support: SavedViewSupport = { menuId: 'home', menuSchemaVersion: 1, contextKeys: ['time', 'line'], pageKeys: ['filter'] };
 const base = { group: groupId('overview'), primary: true, icon: House, label: { ko: '조회', en: 'Query' }, description: { ko: '', en: '' }, permission: 'platform:view' as const, requiresScope: false, context: { ...noContext, time: 'apply' as const }, pageType: 'analysis' as const, pageKeys: ['filter'], contextResetKeys: ['filter'], query: { mode: 'apply' as const } };
@@ -42,6 +47,7 @@ it('stays inactive for a menu that does not declare features.savedView', async (
   await act(async () => {});
   expect(views.status).toBe('disabled');
   expect(store.calls).toEqual([]);
+  expect(store.reads).toEqual([]);
 });
 
 it('applies the personal default to a bare route with one replace that Back cannot return to', async () => {
@@ -486,7 +492,7 @@ it('a personal default whose read is overtaken by a permission notification is a
   const slow = deferred();
   store.getHold.set('l1', slow.promise);
   const live = mountLive(store);
-  await waitFor(() => expect(store.calls).toContain('get'));
+  await waitFor(() => expect(store.reads).toContain('get'));
   live.notify();
   await waitFor(() => expect(views.status).toBe('ready'));
   store.getHold.delete('l1');
@@ -499,7 +505,7 @@ it('a personal default whose read is overtaken by an address change is applied o
   const slow = deferred();
   store.getHold.set('l1', slow.promise);
   mount(store);
-  await waitFor(() => expect(store.calls).toContain('get'));
+  await waitFor(() => expect(store.reads).toContain('get'));
   store.getHold.delete('l1');
   await act(async () => { host.navigate('/?v=1'); });
   await act(async () => { slow.release(); });
@@ -511,7 +517,7 @@ it('a personal default overtaken by the user\'s own pick is not applied again', 
   const slow = deferred();
   store.getHold.set('l1', slow.promise);
   const live = mountLive(store);
-  await waitFor(() => expect(store.calls).toContain('get'));
+  await waitFor(() => expect(store.reads).toContain('get'));
   await act(async () => { await views.select('l2'); });
   live.notify();
   await waitFor(() => expect(views.status).toBe('ready'));

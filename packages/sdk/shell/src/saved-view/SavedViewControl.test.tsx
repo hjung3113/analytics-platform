@@ -5,9 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { groupId, spaceId, type SavedViewSupport } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, useSavedViewSupport } from '@ap/kernel';
 import { PaneQueryDraftProvider, PaneScreenProvider, useHostPlatform } from '@ap/kernel/host';
-import { ToastProbe, memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { ToastProbe, createFakeSavedViewStore as createFakeViewStore, memoryStorage, noContext, testAdapter, testSavedView as viewOf, testSession, testSpace, testViewCapabilities as ALL, type FakeSavedViewStore as FakeViewStore } from '@ap/kernel/testing';
 import { GlobalContextBar } from '../context/GlobalContextBar';
-import { ALL, createFakeViewStore, viewOf, type FakeViewStore } from '../__fixtures__/saved-view-store';
 
 // One declaration of menu keys: capture, restore and diagnose all read it the same way.
 const baseSupport: SavedViewSupport = { menuId: 'home', menuSchemaVersion: 1, contextKeys: ['time', 'roomNames'], pageKeys: [] };
