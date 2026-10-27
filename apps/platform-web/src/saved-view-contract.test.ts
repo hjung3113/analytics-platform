@@ -62,6 +62,12 @@ describe('validateSavedView (21.1 두 저장 단위)', () => {
     },
   );
 
+  it('도킹 엔진 접두 키를 거부한다', () => {
+    for (const key of ['dockLayout', 'dock_state', 'DockLayout']) {
+      expect(validateSavedView({ ...menuView, chartOptions: { [key]: 1 } }).ok).toBe(false);
+    }
+  });
+
   const cycle: Record<string, unknown> = {};
   cycle.self = cycle;
   it.each([
