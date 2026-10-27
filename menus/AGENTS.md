@@ -30,6 +30,20 @@ Registry 그룹마다 하나의 패키지(`@ap/menu-<group>`)다. 메뉴가 `man
 | `@ap/menu-log-my-work`·`-log-models`·`-log-cross`·`-log-rules` | `menus/log-dev/*` | `logMyWork`·`logModels`·`logCross`·`logRules` | 없음(계획 메뉴 manifest만, ADR-0065) |
 | `@ap/menu-imp-my-work`·`-imp-tasks`·`-imp-reports` | `menus/improvement/*` | `impMyWork`·`impTasks`·`impReports` | 없음(계획 메뉴 manifest만, ADR-0065) |
 
+**FeedbackOps 메뉴의 정규 URL.** 위 표의 `/feedbackops/…` 주소는 매니페스트 `path`, 곧 옛 주소(별칭)이고, Registry가 여는 정규 URL은 `/feedbackops/<메뉴 id>`다(ADR-0093, 규칙 원본 `docs/contract/kernel.md`의 「메뉴 경로: 정규 경로와 옛 별칭」; 값은 `apps/platform-web/src/canonical-paths.test.ts`와 Registry에서 확인). Survey·관리자 메뉴:
+
+| 화면 | 정규 URL | manifest `path`(별칭) |
+| --- | --- | --- |
+| Survey 관리 | `/feedbackops/fo-surveys` | `/feedbackops/surveys` |
+| Survey 빌더 | `/feedbackops/fo-survey-builder/:surveyId` | `/feedbackops/surveys/:surveyId/builder` |
+| Survey 결과 | `/feedbackops/fo-survey-results/:surveyId` | `/feedbackops/surveys/:surveyId/results` |
+| Survey 후속 조치 | `/feedbackops/fo-survey-follow-up/:surveyId` | `/feedbackops/surveys/:surveyId/follow-up` |
+| Managed System | `/feedbackops/fo-managed-systems` | `/feedbackops/managed-systems` |
+| Analytics Area | `/feedbackops/fo-analytics-areas` | `/feedbackops/analytics-areas` |
+| 권한 요청 검토 | `/feedbackops/fo-permission-requests` | `/feedbackops/permission-requests` |
+| 부여 목록 | `/feedbackops/fo-permission-grants` | `/feedbackops/permission-grants` |
+| FeedbackOps 설정 | `/feedbackops/fo-settings` | `/feedbackops/settings` |
+
 ## 규칙
 
 - 메뉴 동작·화면이 바뀌면 내부 버전의 minor 또는 patch를 올리고 같은 PR의 CHANGELOG에 한 줄을 기록한다. 발행·태그는 하지 않으며 기대 SDK 태그 범위는 package.json `ap.sdk`에 둔다. SDK 태그를 올릴 때 메뉴들의 `ap.sdk`와 생성기 `SDK_RANGE`를 함께 갱신한다.
