@@ -24,7 +24,7 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
   - 전역 `impl-rules.md`·`review-rules.md`에 [`addenda/`](addenda/)를 붙여 worktree `.review/00-IMPL-RULES.md`·`00-REVIEW-RULES.md`로 쓰고, `.review/W-<n>-TASK.md` 맨 앞 줄은 그 구현 규칙 포인터다.
   - 공유 실행기를 부른다.
 - 필요한 환경 변수: `WAVE_STATE`·`WAVE_BRIEFS`·`AP_MAIN`. 역할은 `WORKER_ROLE`, 덮어쓰기는 `WORKER_MODEL`·`WORKER_EFFORT`로 준다.
-- 16GB 머신이라 동시 작업자 수는 `scripts/capacity.sh`가 정한다(1–3개, 첫 값은 yellow=2개). 파일이 겹치지 않는 이슈만 병렬로 돌린다(메모리 기록은 `docs/agents/operations.md`). 이 수는 기계 전체 한도이고, 자리·무거운 단계는 [`LANES.md`](LANES.md) §기계 자원의 잠금을 따른다.
+- 16GB 머신이라 동시 작업자 수는 `scripts/capacity.sh`가 정한다(1–7개: green 7·yellow 3·red 1, 단계는 LANES §기계 자원). 파일이 겹치지 않는 이슈만 병렬로 돌린다(메모리 기록은 `docs/agents/operations.md`). 이 수는 기계 전체 한도이고, 자리·무거운 단계는 [`LANES.md`](LANES.md) §기계 자원의 잠금을 따른다.
 - **FeedbackOps 이슈는 모드 `fo`로 띄운다:** `python3 $ENGINE/launch-worker.py <n> <slug> fo`.
   - FeedbackOps(앱·패키지 `apps/fo-*`·`packages/fo-*`, 도구 `ops/feedbackops/` = `@fops/ops`)는 루트 workspace의 일부이고 Node 26.7·pnpm 11을 루트와 같이 쓴다. 설치는 런처의 루트 설치가 끝낸다(#642).
   - 모드 훅 `scripts/fo-prepare.sh`는 설치하지 않고, `.env`를 채운 뒤 FeedbackOps `verify-db.sh create <n>`으로 이슈 DB(5439)를 만든다.
@@ -46,7 +46,12 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
 검사는 순서대로 돌리고, 모두 0이어야 커밋한다.
 
 1. 바뀐 패키지 검사.
-2. 루트 `pnpm lint && pnpm typecheck && pnpm test --concurrency=2 && pnpm build`를 순서대로 한 번 돌린다. test의 패키지 동시 실행 상한은 루트 `turbo.json` `concurrency`가 정하고 CI도 같다([operations.md](../../docs/agents/operations.md)). turbo 캐시는 worktree끼리 공유되니 `--force`·`--affected`·`...[ref]` 같은 git diff 필터를 쓰지 않는다 — 해시 입력이 바뀐 패키지와 그 의존자만 다시 돌고, diff 필터는 입력이 아닌 파일 목록으로 범위를 정해 더 위험하다(메뉴만 바꿨는데 gen-menu test가 빠진 일이 있었다). 필터는 루트 스크립트와 같은 `--filter='!@fops/*'`만 쓴다(FeedbackOps 루트 도구 `@fops/ops`가 빠지지 않으면 그 lint가 플랫폼 biome 설정으로 돌아 1000건 넘게 실패한다). 패키지 밖 파일을 읽는 테스트는 `turbo.json`에 `$TURBO_ROOT$` inputs를 선언해야 이 캐시가 믿을 만하다.
+2. 루트 검사는 `bash .agents/conductor/scripts/verify-root.sh <log-dir>`로 한 번 돌린다(#1018). `pnpm lint` → `pnpm typecheck`(잠금 없이) → `pnpm test` → `pnpm build` 순서이고, test·build는 `heavy.lock` 아래에서 한 번에 묶어 돈다. 시작 전 `capacity.sh`가 `start=no`이면 잠금을 잡지 않고 종료 코드 3으로 끝난다. 단계마다 `<log-dir>/<step>.log`(마지막 줄 `exit=<코드>`)를 남기고, 첫 실패에서 멈춰 그 단계의 코드를 돌려주며, 끝에 `step=<name> exit=<n> seconds=<s>` 요약을 낸다. test의 패키지 동시 실행 상한은 루트 `turbo.json` `concurrency`가 정하고 CI도 같다([operations.md](../../docs/agents/operations.md)) — 스크립트에도 `--concurrency`·워커 수 플래그를 넣지 않는다. turbo 캐시는 worktree끼리 공유되니 `--force`·`--affected`·`...[ref]` 같은 git diff 필터를 쓰지 않는다 — 해시 입력이 바뀐 패키지와 그 의존자만 다시 돌고, diff 필터는 입력이 아닌 파일 목록으로 범위를 정해 더 위험하다(메뉴만 바꿨는데 gen-menu test가 빠진 일이 있었다). `--filter='!@fops/*'`는 루트 `package.json` 스크립트(`lint`·`typecheck`·`test`·`build`)가 이미 갖고 있어 스크립트가 따로 넣지 않는다(FeedbackOps 루트 도구 `@fops/ops`가 빠지지 않으면 그 lint가 플랫폼 biome 설정으로 돌아 1000건 넘게 실패한다). 패키지 밖 파일을 읽는 테스트는 `turbo.json`에 `$TURBO_ROOT$` inputs를 선언해야 이 캐시가 믿을 만하다.
+   - **가벼운 노드(O2, 사용자 2026-10-27):** 그 노드의 diff가 Kernel·셸·공통 컴포넌트(`packages/{kernel,components,shell,ui,contracts}`)·mock 서버·`apps/platform-web` 조립을 건드리지 **않으면**(메뉴·문서·도구·스크립트·이동) 로컬에서는 바뀐 패키지 검사와 `verify-root.sh --light <log-dir>`(lint·typecheck만, `heavy.lock`을 잡지 않는다)만 돌리고 `test`·`build`는 PR CI에 맡긴다. 건드리는 노드는 위 전체다. 기준은 그 노드 diff의 경로로 판정하고 VERIFY에 한 줄 적는다("가벼운 노드: 경로 …, test·build는 CI").
+7. 입력이 바뀐 경우만, 루트 4종에 없고 CI만 도는 검사를 로컬에서 돌린다(#1018, 아래 §Traps의 증거 문장이 근거):
+   1. `packages/contracts`·SDK 패키지의 공개 타입을 바꿨으면 `pnpm sdk:api`. 의도한 변경이면 `--update`와 `docs/integration/sdk-git-tag-consumption.md` 변경 기록 한 줄.
+   2. SDK 패키지(`packages/{contracts,ui,kernel,components,shell}`)의 파일을 옮기거나 이름을 바꿨으면 `pnpm sdk:pack --out <dir> && pnpm sdk:consumer-check <dir>`.
+   3. CSS 규칙을 지우는 diff면 PR을 만든 뒤 ship 전에 `css-removal-ok` 라벨을 먼저 달고 `gh pr checks <n> --watch`로 재실행이 끝나기를 기다린 다음 ship한다.
 3. Kernel·셸·공통 컴포넌트·mock 서버가 바뀌었으면 E2E를 돌린다. 새 describe만 먼저(`cd apps/platform-e2e && pnpm exec playwright test -g "<describe>"`), 그다음 브리프 「영향 범위」 절이 적은 describe만 `-g "A|B"`로 돌린다. 로컬에서 전체 `pnpm e2e`는 돌리지 않는다. 전체는 PR CI가 돌고, 로컬 전체 실행은 CI 실패를 재현할 때만 쓴다(사용자 2026-10-26, #959).
 5. **FeedbackOps 단계는 `.github/workflows/feedbackops.yml`의 `paths`에 닿았을 때만 돌린다**(경로 목록의 원본은 그 워크플로 파일이다: `docs/feedbackops/**`, `apps/fo-*/**`, `packages/fo-*/**`, `ops/feedbackops/**`, `packages/{ui,contracts,http-adapter,server-conformance}/**`, 루트 manifest·lockfile·`.nvmrc` 등). 닿았으면 저장소 루트에서 `bash ops/feedbackops/scripts/ci/gate.sh static --base origin/main`, `unit`, 그리고 integration을 모두 돌린다. integration은 `gate.sh integration`으로 돌리지 않는다: 그 단계는 `CI_PG_ADMIN_URL` 서버의 `feedbackops` DB를 migrate·truncate하는데, verify 컨테이너(5439)에서는 그것이 이슈 DB를 복제하는 원본이다. 대신 이슈 DB에서 `FEEDBACKOPS_ENV_FILE=$WAVE_STATE/env.verify.<n> pnpm --filter @fops/backend test:integration`(전체)을 돌린다. 브랜치가 migration을 더했으면 먼저 `verify-db.sh drop <n>` → `create <n> --migrate-from <worktree>`(저장소 루트 checkout)로 다시 만든다(#621). 5434는 쓰지 않는다. 플랫폼 루트 검사는 FeedbackOps를 보지 않는다. 한 단계라도 빼면 CI가 대신 잡는다(#620: unit을 빼서 proxy 완전성 테스트 실패를 CI에서야 봤다). 새 파일은 커밋 전에 `ops/feedbackops/node_modules/.bin/biome format --config-path=ops/feedbackops --write <파일>`을 돌린다(#603·#620에서 포맷만으로 static 실패).
 4. 메뉴 manifest·`menus.ts`·contracts 메뉴 타입·`tooling/gen-menu`를 바꿨으면 `node tooling/gen-menu/scripts/probe.ts`(생성 → 전체 검사 → 되돌리기)를 돌린다. 루트 4종과 CI에 없어서, #671 B9에서 probe 템플릿의 타입 오류를 이 단계가 처음 잡았다. 미리보기가 떠 있는 worktree에서는 돌리지 않는다(아래 §Traps).
@@ -56,7 +61,7 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
 
 ### 수정 라운드 (Fix round)
 
-리뷰 지적이나 호스트 실패를 고친 라운드는 위 전부를 다시 돌리지 않는다. 바뀐 패키지 검사, 루트 `lint`·`typecheck`·`test`(캐시 사용), 닿은 describe만 `-g`로 E2E, 닿은 FeedbackOps 단계, hygiene(6)만 돌린다. `build`·전체 E2E·`probe.ts`는 돌리지 않는다 — 그 라운드가 build 입력(설정, 공개 export, `tooling/gen-menu`)을 바꾼 경우만 예외다. 전체는 PR CI가 한 번 다시 돈다(#945).
+리뷰 지적이나 호스트 실패를 고친 라운드는 위 전부를 다시 돌리지 않는다. 바뀐 패키지 검사, 루트 `lint`·`typecheck`·`test`(캐시 사용; 가벼운 노드(2단계)는 `lint`·`typecheck`만), 닿은 describe만 `-g`로 E2E, 닿은 FeedbackOps 단계, hygiene(6)만 돌린다. 그 라운드가 7단계의 입력(공개 타입, SDK 파일 이동·이름 변경, CSS 규칙 삭제)을 바꿨으면 7단계도 돈다. `build`·전체 E2E·`probe.ts`는 돌리지 않는다 — 그 라운드가 build 입력(설정, 공개 export, `tooling/gen-menu`)을 바꾼 경우만 예외다. 전체는 PR CI가 한 번 다시 돈다(#945).
 
 ### Final head (ship 직전)
 
@@ -80,6 +85,9 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
 - 리뷰어 규칙:
   - 코드 리뷰어는 전역 `templates/review-rules.md` + [`addenda/review-rules.md`](addenda/review-rules.md)(작업자 worktree에서는 `.review/00-REVIEW-RULES.md`로 합쳐져 있다). 브리프 사전 점검은 전역 `templates/brief-check.md` + [`addenda/brief-check.md`](addenda/brief-check.md).
   - UX 리뷰어와 품질 리뷰어는 전역 `~/.agents/agents/review-ux.md`·`review-quality.md`이고, 이 레포의 기준은 아래 `Review lens` 두 절이다.
+- **리뷰를 줄이는 경우(#1018 C6·O5, 사용자 2026-10-27):** 한곳에 모은다.
+  - 기계적·문구 전용 diff(이동·이름 바꾸기·생성기 출력·문구만 바뀜)는 VERIFY에 `git diff --numstat` 근거 한 줄과 "기계적 diff, review-final 생략"을 적으면 `review-final`을 건너뛸 수 있다(전역 스킬 7g가 이미 허용한다; 팀장 점검은 [`LANES.md`](LANES.md) §팀장 「흐름 점검」).
+  - 리뷰 결과에 blocker·major가 없고 minor·nit뿐이며 diff가 작으면(≲150 변경 줄, 기계적·문구 diff 포함) 병합 전 수정 라운드를 열지 않고 병합한다. 지적은 다음 PR에 묶거나 `.planning/backlog.md`에 남긴다(Deferrals 규칙). 전역 스킬 7f의 minor·nit 처리보다 이 프로필이 우선한다. blocker·major가 하나라도 있으면 지금 규칙 그대로다.
 - 성능: 측정 도구가 없다. 회귀를 실제로 재었을 때만 `review-perf`를 띄우고, 그 밖에는 코드 리뷰어 작업에 성능 관점을 넣는다.
 - 충돌을 정하는 순서의 맨 앞: 권한·데이터 누출 규칙 → ADR·06 계약·기록된 사용자 결정.
 - 과거 병합으로 맞춰 본 결과: #247(드릴다운) → code+ux+perf, permission·e2e·contract / #246(표 컬럼) → code+ux, e2e / #248·#253(문서) → 리뷰 없음.
@@ -177,7 +185,7 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
 - E2E는 vite dev 서버 위에서 돈다. 호스트 검사(루트 test·E2E)가 도는 worktree의 소스를 고치지 않는다 — HMR이 화면을 다시 그려 우연한 E2E 실패가 난다(#403: 검사 중 `module.ts` 수정 → Scope 메뉴 항목 detached). 고칠 것이 생기면 검사가 끝난 뒤 고치고 다시 돌린다.
 - E2E 포트는 기본 4190(`E2E_PORT`, base-path는 `E2E_BASE_PATH_PORT` 기본 4191, #809)이고 `--strictPort`다. 다른 세션이 같은 포트로 E2E를 돌리면 `is already used`로 바로 실패하니, [`LANES.md`](LANES.md)의 흐름별 포트로 돌린다. 남의 프로세스는 건드리지 않는다(`lsof -nP -iTCP:<port> -sTCP:LISTEN`으로 PID를 찾고 `lsof -a -p <PID> -d cwd`로 cwd 확인). 전체 E2E를 누구에게 알리는지는 LANES.md다.
 - `ship-pr.sh --issue`가 PR 본문의 `Closes #n`으로 이미 닫힌 이슈를 다시 닫으려다 `Could not close the issue`로 끝나면 머지는 됐어도 `--worktree` 정리와 `--archive-review`가 돌지 않고 JSON에 `merged`가 빠진다([conductor-engine#58](https://github.com/hjung3113/conductor-engine/issues/58)). 그때는 `gh pr list --head <branch> --state all`로 병합을 확인하고, worktree의 `.review/`를 손으로 보관한 뒤 worktree를 지운다(#546).
-- PR에 `css-removal-ok` 라벨을 붙인 직후 `ship-pr.sh`를 다시 돌리면 css-selectors 재실행이 시작되기 전이라 이전 실패 실행으로 판정한다. 라벨을 붙인 뒤 `gh pr checks <n> --watch`로 재실행이 끝나기를 기다린 다음 ship한다(슬라이스 17). `gh pr checks <n> --watch`가 끝난 뒤에도 `ship-pr.sh --ci`가 같은 head의 이전 실패 실행을 보고 `ci_failed`(exit 21)를 낼 수 있다(2026-10-27 #997에서 세 번 연속). 모든 점검이 pass인 것을 `gh pr checks <n> --json name,bucket`으로 확인하고 `merge.lock` 아래에서 `gh pr merge <n> --squash`로 병합한다. [conductor-engine#144](https://github.com/hjung3113/conductor-engine/issues/144)
+- PR에 `css-removal-ok` 라벨을 붙인 직후 `ship-pr.sh`를 다시 돌리면 css-selectors 재실행이 시작되기 전이라 이전 실패 실행으로 판정한다. 라벨을 붙인 뒤 `gh pr checks <n> --watch`로 재실행이 끝나기를 기다린 다음 ship한다(슬라이스 17). `gh pr checks <n> --watch`가 끝난 뒤에도 `ship-pr.sh --ci`가 같은 head의 이전 실패 실행을 보고 `ci_failed`(exit 21)를 낼 수 있다(2026-10-27 #997에서 세 번 연속). 모든 점검이 pass인 것을 `gh pr checks <n> --json name,bucket`으로 확인하고 `merge.lock` 아래에서 `gh pr merge <n> --squash`로 병합한다. [conductor-engine#144](https://github.com/hjung3113/conductor-engine/issues/144) → §Verify 7단계가 정식 규칙
 - 리뷰어가 쓰는 미리보기의 worktree에서 메뉴 생성기 probe(`node tooling/gen-menu/scripts/probe.ts`)처럼 파일을 쓰는 명령을 돌리지 않는다 — 파일이 생겼다 지워지는 사이 vite가 import 오류 화면을 띄워 UX 리뷰가 멈췄다(#552, 2026-10-21). probe는 미리보기를 멈춘 뒤 돌린다.
 - UX 리뷰 작업서 첫 줄 근처에 "클립보드를 읽지 않는다"를 적는다. `navigator.clipboard.readText()`는 Ego Lite task space 제어권을 사용자에게 넘겨 리뷰가 멈춘다(#552). 링크 복사는 성공 토스트와 주소창으로 판단한다.
 - 브리프 사전 점검 패치에 "코디네이터가 착수 전 결정"이라고 남은 항목은 착수 전에 브리프에 결정을 적는다. 비워 두면 작업자가 정책 공백으로 멈춘다(#552 2부, 2026-10-21).
@@ -189,7 +197,7 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
 - 커밋은 검사의 종료 코드로만 건다. `vitest … | grep 'Tests ' && git commit`은 grep이 성공하면 실패한 테스트 위에도 커밋한다(#576 FIX1 문구 수정, 2026-10-21).
 - IA·메뉴 구성 시안 캡처는 공간의 레일 섹션마다 찍는다. 셸은 그룹을 레일 섹션으로 그리고 사이드바에는 고른 섹션의 메뉴만 보여, 첫 화면 캡처만으로는 메뉴 트리가 안 보인다. 안을 바꿔 가며 찍으면 최근 방문이 섞이니 캡처마다 origin의 localStorage·sessionStorage를 비운다(#252, 2026-10-21).
 - 팝오버·메뉴는 열릴 때 200ms 동안 투명에서 서서히 나타난다. 캡처와 시각 판정은 애니메이션이 끝난 뒤에 한다. 중간 캡처를 "배경이 비친다"는 결함으로 잘못 보고했다(Sol 확인 결과 재현 안 됨, 2026-10-21).
-- `@ap/contracts`·SDK 패키지의 공개 타입(union 확장 포함)을 바꾸면 루트 검사 뒤 `pnpm sdk:api`도 돌린다. 루트 4종 검사에는 없고 CI만 돌려서, 로컬이 초록이어도 CI가 깨진다. 의도한 변경이면 `--update`와 `docs/integration/sdk-git-tag-consumption.md` 변경 기록 한 줄(#252, 2026-10-21).
+- `@ap/contracts`·SDK 패키지의 공개 타입(union 확장 포함)을 바꾸면 루트 검사 뒤 `pnpm sdk:api`도 돌린다. 루트 4종 검사에는 없고 CI만 돌려서, 로컬이 초록이어도 CI가 깨진다. 의도한 변경이면 `--update`와 `docs/integration/sdk-git-tag-consumption.md` 변경 기록 한 줄(#252, 2026-10-21). → §Verify 7단계가 정식 규칙
 - #592(FeedbackOps 서브모듈 → 디렉터리) 이전에 만든 worktree는 `products/feedbackops/` 서브모듈 checkout이 새 트리의 추적 파일과 겹쳐 `git checkout origin/main`이 "untracked … would be overwritten"으로 멈춘다. 서브모듈에 변경이 없는지 보고 `git submodule deinit -f products/feedbackops` → `trash products/feedbackops` → checkout(2026-10-22).
 - 슬라이스·웨이브 Epic(예: #557 MARS 이관)은 릴리스로 닫지 않는다. 릴리스 정리 명령에서 Epic을 잘못 닫았다가 다시 열었다(2026-10-21). 닫는 것은 PR 본문 `Closes`가 가리키는 이슈만.
 - `launch-worker.py <n>`은 브리프의 report·sentinel이 `.review/W-<n>-REPORT.md`·`<!-- W-<n>-DONE -->`이어야 띄운다. 같은 이슈의 두 번째 단계도 새 worktree면 같은 이름을 쓴다(`-STEP1-DONE` 같은 이름은 거부, #575 1단계).
@@ -212,4 +220,4 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
 - `dev:real`에서 다른 페르소나를 리뷰어와 동시에 보려면 같은 vite를 다른 origin으로 연다: `http://[::1]:5186`(vite가 `localhost`에만 묶여 `127.0.0.1`은 연결 거부). 쿠키는 호스트별이라 `localhost`에서 돌고 있는 UX 리뷰어의 로그인 세션을 바꾸지 않는다(#763 p1 403 확인, 2026-10-26).
 - 작업자 결과를 받으면 `git status --short | wc -l`을 보고서의 바뀐 파일 수와 먼저 맞춘다. #774 묶음에서 작업자가 `biome check --write`를 바꾼 파일이 아니라 넓은 범위로 돌려 `products/feedbackops/**`·`apps/fo-*`의 관련 없는 파일 229개(import 순서·배열 줄바꿈, `.mcp.json`·백엔드 `db/tx.ts` 등)를 다시 썼다. 보고서는 13개만 적었다. 콘덕터가 그 13개를 따로 보관하고 나머지를 `git checkout --`로 되돌렸다. 브리프와 수정 작업서에는 "`biome check --write <바꾼 파일 경로들>` — 디렉터리나 `.`을 넘기지 않는다"를 적는다(2026-10-26).
 - FeedbackOps visual harness(`apps/fo-frontend/tests/visual`)는 darwin 전용이라 CI에도 `gate.sh`에도 없다. FO 화면이나 `packages/{ui,shell,kernel,components}` 공용 부품을 바꾸는 이슈는 병합 전에 호스트에서 저장소 루트의 `bash ops/feedbackops/conductor/scripts/visual.sh run <filter>`를 돌린다. 안 돌려서 기준 화면 29개가 낡았다(#954, 2026-10-27). 작업자 샌드박스는 Chromium을 못 띄우므로(142건 실행 오류) 코디네이터가 호스트에서 돌리고, 실패는 diff 이미지로 의도/회귀/flake를 가른 뒤 의도한 것만 `update`한다.
-- SDK 패키지(`packages/{contracts,ui,kernel,components,shell}`)의 파일을 옮기거나 이름을 바꾸는 노드는 루트 4종에 더해 `pnpm sdk:pack --out <dir> && pnpm sdk:consumer-check <dir>`를 호스트에서 돌린다. 루트 검사에 없고 CI만 돌리는데, dist JS 파일 순서가 바뀌면 `sdk:consumer-check`가 고르는 패키지 전용 클래스가 달라져 숨은 결함이 드러난다: #713 713f에서 `hasCssSelector`의 lookahead가 `.space-y-4>:not(:last-child)`(`>` 바로 뒤)를 못 잡아 CI만 실패했다(호스트 4종은 초록, 2026-10-27, `tooling/sdk/sdk-css-probes.mjs` 수정).
+- SDK 패키지(`packages/{contracts,ui,kernel,components,shell}`)의 파일을 옮기거나 이름을 바꾸는 노드는 루트 4종에 더해 `pnpm sdk:pack --out <dir> && pnpm sdk:consumer-check <dir>`를 호스트에서 돌린다. 루트 검사에 없고 CI만 돌리는데, dist JS 파일 순서가 바뀌면 `sdk:consumer-check`가 고르는 패키지 전용 클래스가 달라져 숨은 결함이 드러난다: #713 713f에서 `hasCssSelector`의 lookahead가 `.space-y-4>:not(:last-child)`(`>` 바로 뒤)를 못 잡아 CI만 실패했다(호스트 4종은 초록, 2026-10-27, `tooling/sdk/sdk-css-probes.mjs` 수정). → §Verify 7단계가 정식 규칙

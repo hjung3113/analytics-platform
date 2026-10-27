@@ -43,7 +43,7 @@
 
 ## 검증
 
-- 이슈의 첫 구현 커밋 전에는 `pnpm lint && pnpm typecheck && pnpm test && pnpm build`가 모두 0으로 끝나야 한다. 수정 라운드와 ship 직전은 아래 PROFILE 규칙을 따르며 `build`를 다시 돌리지 않을 수 있다. `--force` 없이 worktree 공용 turbo 캐시를 써서 바뀐 패키지와 그 의존자만 다시 돌게 한다. 작업 중에는 `pnpm --filter <pkg> …`로 충분하다.
+- 이슈의 첫 구현 커밋 전에는 Kernel·셸·공통 컴포넌트(`packages/{kernel,components,shell,ui,contracts}`)·mock 서버·`apps/platform-web` 조립을 건드리는 노드만 `pnpm lint && pnpm typecheck && pnpm test && pnpm build`가 모두 0으로 끝나야 한다(`verify-root.sh`). 건드리지 않는 노드(메뉴·문서·도구·스크립트·이동)는 `lint`·`typecheck`(와 바뀐 패키지 검사)만 돌리고 `test`·`build`는 PR CI에 맡긴다. 기준은 그 노드 diff의 경로이고 VERIFY에 한 줄 적는다([`PROFILE.md`](.agents/conductor/PROFILE.md) §Verify). 수정 라운드와 ship 직전은 아래 PROFILE 규칙을 따르며 `build`를 다시 돌리지 않을 수 있다. `--force` 없이 worktree 공용 turbo 캐시를 써서 바뀐 패키지와 그 의존자만 다시 돌게 한다. 작업 중에는 `pnpm --filter <pkg> …`로 충분하다.
 - 전체 검사의 기록은 PR CI다(CI는 범위를 줄이지 않고 cold로 전체를 돈다). 수정 라운드와 ship 직전에 로컬에서 무엇을 다시 돌리는지는 [`PROFILE.md`](.agents/conductor/PROFILE.md) §Verify의 「수정 라운드」·「Final head」를 따른다(#945).
 - 화면이 바뀌면 브라우저로 확인한다. Kernel·셸·공통 컴포넌트·mock 서버를 바꾸면 관련 E2E만 `apps/platform-e2e`에서 `pnpm exec playwright test -g "<describe>"`로 돌린다. 로컬에서 전체 `pnpm e2e`는 돌리지 않는다(CI 실패 재현 때만). 새 describe와 브리프 「영향 범위」가 적은 describe만 `-g`로 돌린다. CI가 전체 E2E를 다시 돌리고 항목별 보고(`apps/platform-e2e/contract-report/`)를 남긴다.
 - `main`은 ruleset `main: required CI`(2026-10-23, #670 D2)로 보호한다. `Platform workspace (pnpm monorepo)`·`Platform contracts (E2E)` 두 검사가 통과해야 병합되고, force push와 삭제는 막힌다. 브랜치가 최신일 필요는 없다(strict 아님).
@@ -54,7 +54,7 @@
 ## 작업 흐름
 
 - 기능·버그 작업은 GitHub 이슈에서 시작하고 PR 본문에 `Closes #n`을 적는다. 오타·문서 정리·작은 수정은 이슈 없이 해도 된다. 작업 중 발견한 별개의 일은 `issue-wave-conductor`의 fold·file·note 규칙을 따른다 — fold 조건(이슈 diff와 같은 메뉴 폴더, 30줄·3건 이하의 결함·문구 수정)이면 그 PR에서 같이 고치고, 나머지는 이슈로 남기거나 PR 본문 `Noted, not filed`에 한 줄 적는다.
-- PR은 하나씩 병합한다. 동작 버그를 고칠 때는 고치기 전에 실패하는 회귀 테스트를 함께 넣는다.
+- 병합은 하나씩, CI는 동시에 돈다. 공유 경로(LANES §함께 쓰는 경로: 공개 API·루트 manifest·lockfile·`.github/workflows`·`apps/platform-e2e`)를 건드리는 PR만 CI가 끝나 병합할 때까지 `merge.lock`을 쥐고, 나머지는 병합 직전 구간만 잠근다([`LANES.md`](.agents/conductor/LANES.md) §흐름 세션 「병합」). 동시에 CI를 통과한 두 PR의 의미 충돌이 `main`에서 터지면 push CI가 잡고 LANES 「main 깨짐」 절차를 탄다. 동작 버그를 고칠 때는 고치기 전에 실패하는 회귀 테스트를 함께 넣는다.
 - 작업자에게 맡기는 이슈는 전역 `issue-wave-conductor` 스킬 절차를 따르고, 이 레포의 부분은 [`.agents/conductor/PROFILE.md`](.agents/conductor/PROFILE.md)다(작업자 구현, 코디네이터 호스트 검증, diff에 따라 고르는 역할별 리뷰).
 - 이슈별로 알려진 수정을 모두 반영한 뒤 최종 리뷰를 한 번 한다. 리뷰 지적과 코디네이터의 자체 관찰은 모두 모아 한 수정 라운드로 처리한다.
 - 재리뷰는 blocker 또는 major 동작 수정(특히 권한·데이터 누출 수정) 뒤에만 한다. 문구만 바꾸거나 기계적으로 수정한 뒤에는 리뷰를 추가하지 않는다. 단, `impl-complex` 이슈의 FIX1은 수정 diff 점검 한 번(issue-wave-conductor)을 받는다.

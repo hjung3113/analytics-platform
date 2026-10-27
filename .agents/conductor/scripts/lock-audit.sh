@@ -8,7 +8,7 @@
 #   held                   주인이 살아 있고 끝났다는 증거가 없다(또는 아직 min age 전)
 #   owner-gone             owner 파일이 5분 넘게 없거나 handle이 orca terminal list에 없다 (LANES ①)
 #   done-pr-merged/closed  purpose의 PR(#n·PR n)이 병합/닫힘
-#   done-pid-dead          purpose의 pid가 없거나 다른 프로세스(PID 재사용)다
+#   done-pid-dead          purpose의 pid(없으면 worker-slot-*·heavy.lock의 작업자 상태 JSON pid)가 없거나 다른 프로세스(PID 재사용)다
 #   done-ship-not-running  purpose에 ship이 있는데 ship-pr 프로세스가 없다
 #   unknown                since·purpose가 없어 판정 근거가 없다
 # done-*는 age가 LOCK_AUDIT_MIN_AGE_MIN(기본 30)분 이상일 때만 낸다. 종료 코드: done-*/owner-gone이 하나라도 있으면 10, 아니면 0.
@@ -60,7 +60,33 @@ for lock in "$AP_MAIN"/.review/heavy.lock "$AP_MAIN"/.review/browser.lock "$AP_M
     verdict=held; why="끝났다는 증거 없음"
     pr=$(printf '%s' "$purpose" | sed -nE 's/.*(#|PR[ #]*)([0-9]+).*/\2/p' | head -1)
     pid=$(printf '%s' "$purpose" | sed -nE 's/.*[Pp][Ii][Dd][ =:]*([0-9]+).*/\1/p' | head -1)
-    done_v=""; done_w=""
+    done_v=""; done_w=""; pid_src=""
+    # purpose에 PID·PR이 없어도 worker-slot-*·heavy.lock은 purpose의 첫 토큰(이슈·노드 이름, 예: `1011b FIX2`, `961a impl`)으로
+    # 작업자 상태 JSON($AP_MAIN/.review/wave/state-*/W-<이름>.json 또는 W-<이름>-*.json)을 찾아 그 pid를 쓴다.
+    # 두 번째 토큰(FIX2 등)으로 W-<이름>-<토큰>*.json이 있으면 그쪽으로 좁힌다. 여럿이면 started_at이 가장 큰 것 하나만 본다.
+    # `W-1011b*`처럼 접두어로만 찾으면 1011b2가 섞이니 이름 뒤는 `.json` 또는 `-`로 한정한다.
+    case "$name" in worker-slot-*|heavy.lock)
+      if [ -z "$pr" ] && [ -z "$pid" ]; then
+        tok1=$(printf '%s' "$purpose" | awk '{print $1}'); tok2=$(printf '%s' "$purpose" | awk '{print $2}')
+        printf '%s' "$tok1" | grep -qE '^[0-9][A-Za-z0-9]*$' || tok1=""
+        printf '%s' "$tok2" | grep -qE '^[A-Za-z0-9]+$' || tok2=""
+        if [ -n "$tok1" ]; then
+          cand=""
+          # nullglob이 켜져 있어 ls를 쓰지 않는다(맞는 파일이 없으면 인자 없는 ls가 된다)
+          if [ -n "$tok2" ]; then for f in "$AP_MAIN"/.review/wave/state-*/W-"$tok1"-"$tok2"*.json; do cand="$cand $f"; done; fi
+          if [ -z "$cand" ]; then for f in "$AP_MAIN"/.review/wave/state-*/W-"$tok1".json "$AP_MAIN"/.review/wave/state-*/W-"$tok1"-*.json; do cand="$cand $f"; done; fi
+          best=""; best_t=-1
+          for f in $cand; do
+            t=$(sed -nE 's/.*"started_at": *([0-9]+).*/\1/p' "$f" | head -1)
+            [ -n "$t" ] && [ "$t" -gt "$best_t" ] && { best_t=$t; best=$f; }
+          done
+          if [ -n "$best" ]; then
+            jpid=$(sed -nE 's/.*"pid": *([0-9]+).*/\1/p' "$best" | head -1)
+            if [ -n "$jpid" ]; then pid=$jpid; pid_src="상태 JSON $(basename "$(dirname "$best")")/$(basename "$best")의 "; fi
+          fi
+        fi
+      fi ;;
+    esac
     if [ -n "$pr" ]; then
       st=$(gh pr view "$pr" --json state -q .state 2>/dev/null)
       case "$st" in
@@ -70,10 +96,10 @@ for lock in "$AP_MAIN"/.review/heavy.lock "$AP_MAIN"/.review/browser.lock "$AP_M
     fi
     if [ -z "$done_v" ] && [ -n "$pid" ]; then
       cmd=$(ps -o command= -p "$pid" 2>/dev/null)
-      if [ -z "$cmd" ]; then done_v=done-pid-dead; done_w="pid $pid 없음"
+      if [ -z "$cmd" ]; then done_v=done-pid-dead; done_w="${pid_src}pid $pid 없음"
       elif ! printf '%s' "$cmd" | grep -qE 'claude|codex|node|vite|pnpm|turbo|playwright|vitest|omp|grok|agy|ship-pr|python|bash'; then
-        done_v=done-pid-dead; done_w="pid ${pid}가 다른 프로세스(${cmd%% *})"
-      else why="pid $pid 살아 있음(${cmd%% *})"; fi
+        done_v=done-pid-dead; done_w="${pid_src}pid ${pid}가 다른 프로세스(${cmd%% *})"
+      else why="${pid_src}pid $pid 살아 있음(${cmd%% *})"; fi
     fi
     if [ -z "$done_v" ] && [ -z "$pid" ] && printf '%s' "$purpose" | grep -qi 'ship'; then
       if ! pgrep -f ship-pr >/dev/null 2>&1; then done_v=done-ship-not-running; done_w="ship-pr 프로세스 없음"; else why="ship-pr 실행 중"; fi

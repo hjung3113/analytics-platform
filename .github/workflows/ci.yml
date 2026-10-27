@@ -15,7 +15,7 @@ concurrency:
   # Superseded PR runs are cancelled; every push to main runs to the end so a red main is never hidden.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-# 워크플로 수준 경로 필터는 쓰지 않는다: 필수 검사가 아예 안 뜨면 병합이 Pending으로 막힌다. `changes` Job이 Markdown만 바뀐 PR을 가려
+# 워크플로 수준 경로 필터는 쓰지 않는다: 필수 검사가 아예 안 뜨면 병합이 Pending으로 막힌다. `changes` Job이 Markdown과 `.agents/` 아래만 바뀐 PR(#1018)을 가려
 # `code=false`를 내면, 필수 Job 둘(workspace·E2E 병합)은 그대로 돌되 무거운 단계만 건너뛴다(#671 B6, D2). 필수 Job을 Job 수준 `if`로
 # 건너뛰면 Success로 보고되어, `changes`가 실패해도 필수 검사가 통과해 버린다 — 그래서 쓰지 않는다. 판정은 fail-safe다: `code`가
 # 정확히 'false'일 때만 건너뛰고, `changes`가 실패하면(출력 없음) 전부 돈다. main push는 늘 전체. 프로토타입 4개 Job은 늘 돈다(Unit C는 docs/06을 읽는다).
@@ -34,7 +34,8 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      # code=false only for a PR whose every changed file is Markdown. Anything else, and every push to main, runs everything.
+      # code=false only for a PR whose every changed file is Markdown or under .agents/ (agent assets: conductor scripts/config, skills; nothing in the
+      # workspace, CI or tests reads them, and the doc-link check runs regardless of `code`). Anything else, and every push to main, runs everything.
       # site=false only for a PR with a non-empty diff that touches nothing the intro-site captures depend on (#608).
       - id: classify
         env:
@@ -46,7 +47,7 @@ jobs:
           site=true
           if [ "$EVENT" = pull_request ]; then
             files="$(git diff --name-only --no-renames "$BASE...$HEAD")"
-            if [ -n "$files" ] && ! printf '%s\n' "$files" | grep -qv '\.md$'; then code=false; fi
+            if [ -n "$files" ] && ! printf '%s\n' "$files" | grep -qvE '(\.md$|^\.agents/)'; then code=false; fi
             # FeedbackOps frontend sources are bundled into the demo through the `@` alias; GLOSSARY.md feeds the site's banned-term check.
             site_dirs='^(menus|packages|apps/fo-frontend|apps/platform-web|site|tooling|patches)/'
             site_files='^(package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|GLOSSARY\.md|apps/platform-e2e/package\.json|\.github/workflows/(ci|pages)\.yml)$'
