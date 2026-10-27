@@ -362,6 +362,9 @@ export default function DockEngine({
     if (released.current) endDrag();
     applying.current = true;
     try {
+      // `fromJSON` ends with a forced relayout at the size the engine had when it started, which would scale every row of the new layout to the
+      // old height until the ResizeObserver tells the engine the new one. Put the engine on the new height first, so that size is the new one.
+      if (total !== undefined && target.height !== total) target.layout(target.width, total);
       target.fromJSON(toEngineLayout(wanted, wantedPanels, minimum, { width: target.width, height: total ?? target.height }) as unknown as SerializedLayout, { reuseExistingPanels: true });
     } finally {
       applying.current = false;

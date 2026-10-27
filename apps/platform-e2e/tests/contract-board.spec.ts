@@ -1428,10 +1428,15 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
     await page.mouse.down();
     // Every pointer step, not only the release: the rows the user did not touch never dip while the engine catches up (no 6–9 px wobble). The
     // rendered `.dv-groupview` heights are sampled, not only the separators' px: the engine's own gap between rows once moved them by 2–5 px (UX-2).
+    // Failures name the step, the baseline and every sample so far (#723): a flake here shows the heights instead of `expected true`.
+    const samples: { step: number; heights: number[] }[] = [];
     for (let step = 1; step <= 12; step++) {
       await page.mouse.move(x, y + step * 10);
       const heights = await Promise.all(lower.map(heightOf));
-      heights.forEach((height, index) => { expect(near(height, lowerBefore[index]!, 1)).toBe(true); });
+      samples.push({ step, heights });
+      heights.forEach((height, index) => {
+        expect(near(height, lowerBefore[index]!, 1), `step ${step} index ${index}: ${height} vs ${lowerBefore[index]} (baseline ${JSON.stringify(lowerBefore)}, samples ${JSON.stringify(samples)})`).toBe(true);
+      });
     }
     await page.mouse.up();
     await expect.poll(async () => (await rowPx(page))[0]).toBeGreaterThan(before[0]! + 100);
