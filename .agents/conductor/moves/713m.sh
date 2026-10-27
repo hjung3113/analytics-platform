@@ -44,3 +44,15 @@ for f in $DOCS; do
   [ -f "$f" ] && [ ! -L "$f" ] || continue
   perl -pi -e 's{menus/analytics/(analytics|equipment|hw-time|master-data)\b}{menus/mars/$1}g; s{menus/metrics/metrics\b}{menus/bravo/metrics}g' "$f"
 done
+
+# 손 편집(커널 이행 코드·테스트, 문맥 치환이 안 되는 테스트, 문서 줄, API 스냅샷): 위 규칙의 결과와 검토된 결과의 차이를 patch로 둔다.
+# git apply(BSD patch 아님: -R dry run이 tty 없이 미적용 트리를 '이미 적용'으로 오판한다). pnpm-lock.yaml은 pnpm install이 다시 쓴다(EV integrity 해시 6개는 origin/main 값으로 복원).
+PATCH=.agents/conductor/moves/713m-config.patch
+if [ -f "$PATCH" ]; then
+  if git apply -p1 -R --check "$PATCH" >/dev/null 2>&1; then
+    echo "713m: config patch already applied"
+  else
+    git apply -p1 --whitespace=nowarn "$PATCH"
+    echo "713m: config patch applied"
+  fi
+fi
