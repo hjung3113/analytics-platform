@@ -1,3 +1,4 @@
+import { groupId } from '@ap/contracts';
 import { usePlatform } from '@ap/kernel';
 import { FoScreenRoot, type HostSeam, scopeSwitchClears } from '@fops/frontend/global-screens/core';
 import { ManagedSystemScopeControl } from '@fops/frontend/operator-screens/scope-picker';
@@ -29,7 +30,9 @@ export default function ScopeControl({ collapsed }: { collapsed: boolean }) {
     if (clears.cursor) patch['cursor'] = null;
     setPage(patch, { replace: true });
   };
+  // ADR-0081 d4: the `관리자` group's screens are not scoped by Managed System. The picker shows its disabled `워크스페이스 전체` and FO's explanation; the carried `managedSystem` stays in the URL, untouched.
+  const off = route?.menu.group === groupId('foAdmin');
   return <FoScreenRoot client={foQueryClient} host={SEAM} key={session.status === 'ready' ? session.epoch : 0}>
-    <ManagedSystemScopeControl {...(value !== undefined ? { value } : {})} collapsed={collapsed} onChange={onChange} />
+    <ManagedSystemScopeControl {...(value !== undefined ? { value } : {})} collapsed={collapsed} onChange={onChange} {...(off ? { disabled: true } : {})} />
   </FoScreenRoot>;
 }
