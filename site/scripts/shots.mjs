@@ -1057,8 +1057,8 @@ try {
       await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
     },
     async () => {
-      // 아래 경계는 `기간과 조회 범위` 묶음의 끝이다. 설비 조건 줄이 가운데서 잘리지 않게 그 줄은 통째로 뺀다.
-      const group = page.locator("fieldset").filter({ hasText: "기간과 조회 범위" }).first();
+      // 아래 경계는 `기간과 Scope` 묶음의 끝이다. 설비 조건 줄이 가운데서 잘리지 않게 그 줄은 통째로 뺀다.
+      const group = page.locator("fieldset").filter({ hasText: "기간과 Scope" }).first();
       await expect(group).toBeVisible();
       const clip = await mainClip();
       const box = await group.boundingBox();
