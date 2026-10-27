@@ -20,6 +20,18 @@ const INPUTS: MenuInputs = {
   binding: FIXTURE_GROUP,
 };
 
+describe('canonical path in generated manifest tests (#1073)', () => {
+  it.each([
+    { space: 'mars' as const, expectedPath: '/mars/gen-probe' },
+    { space: null, expectedPath: '/gen-probe' },
+  ])('expects $expectedPath for space $space', ({ space, expectedPath }) => {
+    const source = renderFiles({ ...INPUTS, space }).find(f => f.relPath === 'src/manifest.test.ts')!.content;
+    expect(source).toContain(
+      "expect(registry.menuById('" + INPUTS.menuId + "').path).toBe('" + expectedPath + "');",
+    );
+  });
+});
+
 describe('scaffold permission (#47)', () => {
   it('the sample endpoint ACL uses the permission its manifest declares', () => {
     const files = renderFiles(INPUTS);

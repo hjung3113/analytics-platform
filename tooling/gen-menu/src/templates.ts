@@ -289,9 +289,22 @@ ${slotsMarkup}
 `;
 }
 
+/** Mirrors menuSlug in packages/sdk/kernel/src/registry/registry.ts. */
+function menuSlug(id: string): string {
+  return id.replace(/:/g, '-').replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
+}
+
+/** Mirrors createRegistry's canonical path rule in packages/sdk/kernel/src/registry/registry.ts. */
+function registryPath(i: MenuInputs): string {
+  if (i.space === null) return i.path;
+  const params = i.path.split('/').filter(segment => segment.startsWith(':'));
+  return '/' + [i.space, menuSlug(i.menuId), ...params].join('/');
+}
+
 function manifestTest(i: MenuInputs): string {
   // The group's real space from GROUPS (#548): null is a global utility with no space to declare.
   const space = i.space === null ? 'null' : `spaceId('${i.space}')`;
+  const expectedPath = registryPath(i);
   const spaces = i.space === null
     ? '[]'
     : `[{ id: spaceId('${i.space}'), label: { ko: '공간', en: 'Space' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: menu.id }]`;
@@ -315,7 +328,7 @@ describe('manifest', () => {
     const spaces: SpaceDef[] = ${spaces};
     const groups: GroupDef[] = [{ id: menu.group, label: { ko: 'g', en: 'g' }, icon: menu.icon, space: ${space} }];
     const registry = createRegistry({ spaces, groups, menus: manifests });
-    expect(registry.menuById('${i.menuId}').path).toBe('${i.path}');
+    expect(registry.menuById('${i.menuId}').path).toBe('${expectedPath}');
     ${spaceExpect}
   });
 
