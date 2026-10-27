@@ -1,4 +1,4 @@
-import type { ApiError } from '@/lib/api';
+import type { ApiError } from '@/lib/api/types';
 import { Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@ap/ui';
 
 function messageFor(error: ApiError | null, target: 'open' | 'close') {

@@ -1,7 +1,10 @@
 import { RequestAccessButton } from '@/features/admin/public';
-import { ApiError, errorMapper, useIdempotencyKey } from '@/lib/api';
+import { errorMapper } from '@/lib/api/errorMapper';
+import { ApiError } from '@/lib/api/types';
+import { useIdempotencyKey } from '@/lib/api/useIdempotencyKey';
 import { SURVEY_QUESTION_KIND_LABELS } from '@/lib/copy/enum-labels';
 import { formatShortDate } from '@/lib/format/datetime';
+import { HostLink, useHostNotice, useHostSeam } from '@/lib/host/host-seam';
 import {
   Button,
   DetailPanelHeader,
@@ -17,9 +20,7 @@ import {
 } from '@ap/ui';
 import type { OutcomeFollowUpItem, OutcomeFollowUpReadDto, SurveyResultDto } from '@fops/shared';
 import { useQueryClient } from '@tanstack/react-query';
-import { Link } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
-import { toast } from 'sonner';
 import {
   invalidateOutcomeFollowUpAfterConflict,
   useMarkOutcomeFollowUpNoAction,
@@ -145,6 +146,7 @@ function OutcomeFollowUpDetailPanel({
   onClose: (responseId: string) => void;
   setDecisionNotice: (notice: string | null) => void;
 }) {
+  const { notify } = useHostNotice();
   const queryClient = useQueryClient();
   const { key: idempotencyKey, markConsumed } = useIdempotencyKey();
   const mark = useMarkOutcomeFollowUpNoAction(survey.id);
@@ -174,11 +176,13 @@ function OutcomeFollowUpDetailPanel({
       markConsumed();
       setDialogAction(null);
       setReason('');
-      toast.success(
-        dialogAction === 'mark'
-          ? '후속 조치 없음으로 기록했습니다.'
-          : '후속 조치를 다시 열었습니다.',
-      );
+      notify({
+        tone: 'success',
+        message:
+          dialogAction === 'mark'
+            ? '후속 조치 없음으로 기록했습니다.'
+            : '후속 조치를 다시 열었습니다.',
+      });
       onClose(submittedResponseId);
     } catch (error) {
       if (error instanceof ApiError && error.status === 409) {
@@ -311,7 +315,10 @@ function OutcomeFollowUpDetailPanel({
                   <CreateFindingDraftPanel
                     groups={responseExcerpts.length > 0 ? [responseExcerpts] : []}
                     onCreated={(finding, responseId) => {
-                      toast.success(`Finding 생성 완료: ${finding.display_id}`);
+                      notify({
+                        tone: 'success',
+                        message: `Finding 생성 완료: ${finding.display_id}`,
+                      });
                       setDecisionNotice(null);
                       onClose(responseId);
                     }}
@@ -382,19 +389,22 @@ function EmptyReviewPage({
   followUpRead?: OutcomeFollowUpReadDto | null | undefined;
   notice: string | null;
 }) {
+  const { canLink } = useHostSeam();
+  const resultsHref = `/surveys/${survey.id}/results`;
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <SurveyResultHeader activeTab="follow-up" followUpRead={followUpRead} survey={survey} />
       <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col items-center justify-center p-6">
         {notice && <DecisionNotice message={notice} />}
         <EmptyState body={body} title={title} />
-        <Link
-          className="mt-3 text-sm font-medium text-accent-primary underline-offset-2 hover:underline"
-          params={{ surveyId: survey.id }}
-          to="/surveys/$surveyId/results"
-        >
-          결과로 돌아가기
-        </Link>
+        {canLink(resultsHref) && (
+          <HostLink
+            className="mt-3 text-sm font-medium text-accent-primary underline-offset-2 hover:underline"
+            to={resultsHref}
+          >
+            결과로 돌아가기
+          </HostLink>
+        )}
       </div>
     </div>
   );

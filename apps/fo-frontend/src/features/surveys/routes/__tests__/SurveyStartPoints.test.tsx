@@ -15,6 +15,10 @@ import { SurveyBuilder } from '../../components/builder/SurveyBuilder';
 import { SurveyList } from '../../components/list/SurveyList';
 import { useSurvey } from '../../hooks/useSurveys';
 
+const fetchCapabilityScopeMock = vi.hoisted(() =>
+  vi.fn(async () => ({ scope: { kind: 'all' as const } })),
+);
+
 vi.mock('@/lib/api', async (original) => ({
   ...(await original<typeof import('@/lib/api')>()),
   fetchManagedSystems: async () => ({
@@ -27,8 +31,25 @@ vi.mock('@/lib/api', async (original) => ({
       { id: '99999999-9999-4999-8999-999999999999', name: 'Another System', archived_at: null },
     ],
   }),
-  fetchCapabilityScope: vi.fn(async () => ({ scope: { kind: 'all' } })),
+  fetchCapabilityScope: fetchCapabilityScopeMock,
   fetchAnalyticsAreas: async () => ({ items: [] }),
+}));
+vi.mock('@/lib/api/permission-reads', async (original) => ({
+  ...(await original<typeof import('@/lib/api/permission-reads')>()),
+  fetchCapabilityScopeViaClient: fetchCapabilityScopeMock,
+}));
+vi.mock('@/lib/api/registry-reads', async (original) => ({
+  ...(await original<typeof import('@/lib/api/registry-reads')>()),
+  fetchManagedSystems: async () => ({
+    items: [
+      {
+        id: surveyVisualFixture.primary_managed_system_id,
+        name: 'Revenue Analytics',
+        archived_at: null,
+      },
+      { id: '99999999-9999-4999-8999-999999999999', name: 'Another System', archived_at: null },
+    ],
+  }),
 }));
 afterEach(() => {
   vi.useRealTimers();

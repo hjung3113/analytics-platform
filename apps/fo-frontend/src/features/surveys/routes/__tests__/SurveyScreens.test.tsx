@@ -2,6 +2,7 @@ import { SURVEY_QUESTION_KIND_LABELS } from '@/lib/copy/enum-labels';
 import { SURVEY_BUILDER_COPY } from '@/lib/copy/survey-builder';
 import { SurveyDetailRoute } from '@/routes/_authed/surveys/$surveyId';
 import { CreateSurveyDialog, SurveysIndexRoute } from '@/routes/_authed/surveys/index';
+import { registerAnchorLinkHost } from '@/test/anchor-link-host';
 import { surveyQuestionKindSchema } from '@fops/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
@@ -16,7 +17,7 @@ import {
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import * as React from 'react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { SurveyStatusBadge } from '../../components/SurveyStatusBadge';
 import { SurveyBuilder } from '../../components/builder/SurveyBuilder';
@@ -63,6 +64,14 @@ vi.mock('@/lib/api/client', async (importOriginal) => ({
   apiClient,
   apiRequest,
 }));
+vi.mock('@/lib/api/permission-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/permission-reads')>()),
+  fetchCapabilityScopeViaClient: fetchCapabilityScope,
+}));
+vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/registry-reads')>()),
+  fetchManagedSystems,
+}));
 vi.mock('@/features/surveys/hooks/useSurveys', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/features/surveys/hooks/useSurveys')>();
   return {
@@ -99,6 +108,8 @@ vi.mock('@tanstack/react-router', async (importOriginal) => ({
   useMatchRoute: () => () => false,
   useNavigate: () => routeQueryStubs.navigate ?? (() => Promise.resolve()),
 }));
+
+beforeAll(registerAnchorLinkHost);
 
 const MANAGED_SYSTEM_ID = '11111111-1111-4111-8111-111111111111';
 

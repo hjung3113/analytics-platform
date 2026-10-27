@@ -1,8 +1,8 @@
 import { SURVEY_TYPE_LABELS } from '@/lib/copy/enum-labels';
 import { GLOSSARY } from '@/lib/copy/glossary';
 import { SURVEY_PARTICIPATION_COPY } from '@/lib/copy/survey-participation';
+import { HostLink, useHostSeam } from '@/lib/host/host-seam';
 import { Button, DetailPanelHeader, EmptyState, PanelTitleBlock } from '@ap/ui';
-import { Link } from '@tanstack/react-router';
 import { ArrowRight } from 'lucide-react';
 import * as React from 'react';
 import { useCloseSurvey } from '../../hooks/useSurveys';
@@ -24,6 +24,7 @@ export function SurveyDetail({
   managedSystemNamesById?: ReadonlyMap<string, string> | undefined;
   actorNamesById?: ReadonlyMap<string, string> | undefined;
 }) {
+  const { canLink } = useHostSeam();
   const questions = survey.questions ?? [];
   const [closeOpen, setCloseOpen] = React.useState(false);
   const closeSurvey = useCloseSurvey(survey.id);
@@ -33,13 +34,14 @@ export function SurveyDetail({
       : (actorNamesById.get(survey.operator_actor_id) ?? GLOSSARY.unknownUser)
     : '담당자 미지정';
   const canEditQuestions = canManage && survey.status === 'draft';
-  const builderAction = canEditQuestions ? (
-    <Button asChild variant="primary" size="sm">
-      <Link to="/surveys/$surveyId" params={{ surveyId: survey.id }} search={{ builder: true }}>
-        {SURVEY_PARTICIPATION_COPY.editQuestions}
-      </Link>
-    </Button>
-  ) : undefined;
+  const builderHref = `/surveys/${survey.id}?builder=true`;
+  const resultsHref = `/surveys/${survey.id}/results`;
+  const builderAction =
+    canEditQuestions && canLink(builderHref) ? (
+      <Button asChild variant="primary" size="sm">
+        <HostLink to={builderHref}>{SURVEY_PARTICIPATION_COPY.editQuestions}</HostLink>
+      </Button>
+    ) : undefined;
   return (
     <aside
       className="flex h-full flex-col border-l border-border-subtle bg-surface-detail"
@@ -84,12 +86,12 @@ export function SurveyDetail({
         <section className="mt-6 px-5">
           <div className="mb-2 flex items-center justify-between gap-2">
             <h2 className="text-sm font-medium">결과 요약</h2>
-            {(survey.status === 'open' || survey.status === 'closed') && (
+            {(survey.status === 'open' || survey.status === 'closed') && canLink(resultsHref) && (
               <Button asChild variant="subtle" size="sm">
-                <Link to="/surveys/$surveyId/results" params={{ surveyId: survey.id }}>
+                <HostLink to={resultsHref}>
                   <ArrowRight className="h-4 w-4" aria-hidden />
                   결과 요약 보기
-                </Link>
+                </HostLink>
               </Button>
             )}
           </div>
@@ -121,17 +123,13 @@ export function SurveyDetail({
             <EmptyState
               size="sm"
               title="질문이 없습니다."
-              {...(canEditQuestions
+              {...(canEditQuestions && canLink(builderHref)
                 ? {
                     action: (
                       <Button asChild size="sm">
-                        <Link
-                          to="/surveys/$surveyId"
-                          params={{ surveyId: survey.id }}
-                          search={{ builder: true }}
-                        >
+                        <HostLink to={builderHref}>
                           {SURVEY_PARTICIPATION_COPY.addFirstQuestion}
-                        </Link>
+                        </HostLink>
                       </Button>
                     ),
                   }

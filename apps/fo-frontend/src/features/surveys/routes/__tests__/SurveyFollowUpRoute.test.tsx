@@ -1,3 +1,5 @@
+import { type HostNotice, HostSeamProvider } from '@/lib/host/host-seam';
+import { tanstackHost } from '@/lib/host/tanstack-host';
 import { routeTree } from '@/routeTree.gen';
 import { outcomeFollowUpMarkedResultSchema } from '@fops/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -65,6 +67,29 @@ vi.mock('@/lib/api', async (importOriginal) => ({
   apiClient,
   fetchMe: vi.fn().mockResolvedValue({}),
   apiRequest,
+  useIdempotencyKey: () => ({
+    key:
+      idempotencyKeyState.values[idempotencyKeyState.index] ?? idempotencyKeyState.values[0] ?? '',
+    markConsumed: () => {
+      markConsumed();
+      idempotencyKeyState.index += 1;
+    },
+  }),
+}));
+vi.mock('@/lib/api/client', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/api/client')>();
+  return {
+    ...actual,
+    apiClient,
+    apiRequest: (...args: Parameters<typeof actual.apiRequest>) => {
+      const [method, path] = args;
+      return method === 'POST' && path.startsWith('/survey-responses/')
+        ? apiRequest(...args)
+        : actual.apiRequest(...args);
+    },
+  };
+});
+vi.mock('@/lib/api/useIdempotencyKey', () => ({
   useIdempotencyKey: () => ({
     key:
       idempotencyKeyState.values[idempotencyKeyState.index] ?? idempotencyKeyState.values[0] ?? '',
@@ -217,10 +242,19 @@ function renderSurveyRoute(read: unknown = holderRead, resultData: unknown = res
     history: createMemoryHistory({ initialEntries: [`/surveys/${surveyId}/follow-up`] }),
   });
   const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
+  const host = {
+    ...tanstackHost,
+    notify: (notice: HostNotice) => {
+      if (notice.tone === 'success') toastSuccess(notice.message);
+      return 'test-notice';
+    },
+  };
   const tree = (
-    <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
-    </QueryClientProvider>
+    <HostSeamProvider value={host}>
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>
+    </HostSeamProvider>
   );
   render(tree);
   return {

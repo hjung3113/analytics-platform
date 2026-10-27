@@ -1,4 +1,5 @@
-import { type ApiError, apiRequest } from '@/lib/api';
+import { apiRequest } from '@/lib/api/client';
+import type { ApiError } from '@/lib/api/types';
 import { invalidateRecovery } from '@/lib/query/recovery';
 import {
   type OutcomeFollowUpMarkedResult,

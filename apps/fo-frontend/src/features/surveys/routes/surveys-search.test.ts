@@ -64,4 +64,15 @@ describe('validators', () => {
     expect(validateSurveyDetailSearch({ builder: true }).builder).toBe(true);
     expect(validateSurveyDetailSearch({ builder: 'yes' }).builder).toBeUndefined();
   });
+
+  it.each([
+    [true, true],
+    ['true', true],
+    ['false', undefined],
+    ['1', undefined],
+    [false, false],
+    ['yes', undefined],
+  ])('builder %j → %j', (value, expected) => {
+    expect(validateSurveyDetailSearch({ builder: value }).builder).toBe(expected);
+  });
 });

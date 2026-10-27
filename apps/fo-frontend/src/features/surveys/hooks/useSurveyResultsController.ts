@@ -7,7 +7,8 @@ import {
   projectSurveyResultsRead,
 } from '@/features/surveys/policy/resultsReadDenial';
 import { useSurveyReadGate } from '@/features/surveys/routes/SurveyPermissionGate';
-import { formatRecordDocumentTitle, useDocumentTitle } from '@/lib/router/document-title';
+import { formatRecordDocumentTitle } from '@/lib/host/document-title-format';
+import { useHostTitle } from '@/lib/host/host-seam';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 
@@ -20,7 +21,7 @@ export function useSurveyResultsController(surveyId: string) {
     surveyId,
     gate.canRead && survey.data?.type === 'outcome',
   );
-  useDocumentTitle(
+  useHostTitle(
     survey.isSuccess && !survey.isFetching && gate.canRead
       ? formatRecordDocumentTitle({
           displayId: survey.data.display_id,

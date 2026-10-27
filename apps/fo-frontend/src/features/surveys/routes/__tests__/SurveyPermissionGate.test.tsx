@@ -9,9 +9,17 @@ const { fetchCapabilityScope, useMe, usePermissionCheck } = vi.hoisted(() => ({
 }));
 
 vi.mock('@/lib/api', () => ({ fetchCapabilityScope }));
+vi.mock('@/lib/api/permission-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/permission-reads')>()),
+  fetchCapabilityScopeViaClient: fetchCapabilityScope,
+}));
 vi.mock('@/lib/auth/useMe', () => ({ useMe }));
 vi.mock('@/lib/cross-system/usePermissionCheck', () => ({
   usePermissionCheck,
+}));
+vi.mock('@/lib/api/me', () => ({ useMeBridge: useMe }));
+vi.mock('@/lib/cross-system/usePermissionCheckBridge', () => ({
+  usePermissionCheckBridge: usePermissionCheck,
 }));
 
 import { useSurveyManageAnySystemGate, useSurveyManageGate } from '../SurveyPermissionGate';

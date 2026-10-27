@@ -1,11 +1,11 @@
 import { ListStateMessage } from '@/components/ListStateMessage';
 import { RequestAccessButton } from '@/features/admin/public';
-import type { FrontendPermissionState } from '@/lib/api';
+import type { FrontendPermissionState } from '@/lib/api/permission-reads';
 import { SURVEY_STATUS_LABELS, SURVEY_TYPE_LABELS } from '@/lib/copy/enum-labels';
 import { GLOSSARY } from '@/lib/copy/glossary';
 import { SURVEY_PARTICIPATION_COPY } from '@/lib/copy/survey-participation';
 import { SURVEY_LIST_COPY } from '@/lib/copy/surveys';
-import { InternalLink } from '@/lib/router/InternalLink';
+import { HostLink, useHostSeam } from '@/lib/host/host-seam';
 import {
   ActiveFilterBar,
   type ActiveFilterBarProps,
@@ -60,6 +60,7 @@ export function SurveyList({
   managedSystemNamesById,
   actorNamesById,
 }: SurveyListProps) {
+  const { canLink } = useHostSeam();
   const [status, setStatus] = React.useState<SurveyStatus | 'all'>('all');
   const [search, setSearch] = React.useState('');
   const [viewMode, setViewMode] = React.useState<'list' | 'card'>('list');
@@ -207,12 +208,14 @@ export function SurveyList({
                   )
                 ) : (
                   <div className="flex flex-col items-center gap-2">
-                    <InternalLink
-                      href="/surveys/participate"
-                      className="text-sm font-medium text-accent-primary underline"
-                    >
-                      {SURVEY_PARTICIPATION_COPY.participate}
-                    </InternalLink>
+                    {canLink('/surveys/participate') && (
+                      <HostLink
+                        to="/surveys/participate"
+                        className="text-sm font-medium text-accent-primary underline"
+                      >
+                        {SURVEY_PARTICIPATION_COPY.participate}
+                      </HostLink>
+                    )}
                     {permissionState === 'request_access' ? (
                       <RequestAccessButton
                         capability="survey.manage"
