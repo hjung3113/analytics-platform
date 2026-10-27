@@ -144,7 +144,7 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
     if (event.key === 'Escape' && !event.defaultPrevented) { event.preventDefault(); toggle(false); }
   }}>
     <fieldset className="min-w-0 rounded-md border border-border-subtle p-2">
-      <legend className="px-1 text-xs font-medium text-text-secondary">{ko ? '기간과 조회 범위' : 'Period and query scope'}</legend>
+      <legend className="px-1 text-xs font-medium text-text-secondary">{ko ? '기간과 Scope' : 'Period and query scope'}</legend>
       <div className="flex flex-wrap items-start gap-3">
         {cap.time === 'apply' && <PeriodFields global={g} range={range} setRange={setRange} write={patch => { setRange({ from: patch.from ?? '', to: patch.to ?? '' }); setPeriodEditor(previous => ({ ...previous, reference: (patch.from ?? platform.defaultRangeTo).slice(0, 10), invalidReference: false })); write(patch); }} periodEditor={periodEditor} setPeriodEditor={setPeriodEditor} invalid={invalid('time') || periodInputInvalid} reasonId={reasonId} reportInvalid={() => setEditError(ko ? '유효한 시작·종료 시각을 입력하세요.' : 'Enter valid start and end times.')} />}
         {cap.roomNames === 'apply' && <SetField name={ko ? '공정' : 'Process'} values={g.roomNames} options={scope.status === 'valid' && scope.validatedFor === session ? scope.grantedRooms.map(value => ({ value, label: value })) : []} onChange={roomNames => write({ roomNames })} invalid={invalid('roomNames')} reasonId={reasonId} />}

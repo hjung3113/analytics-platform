@@ -38,7 +38,7 @@ describe('freezeVocContext (ADR-0070 decision 5)', () => {
       'page:q': ['q', 'x'],
       period: ['기간', '2026-10-20 09:00 – 2026-10-23 18:00'],
       'global:lineNames': ['Line', 'L1'],
-      'global:condition': ['그룹 조건', 'area: A, B · 그 시점 소속'],
+      'global:condition': ['설비 그룹 조건', 'area: A, B · 그 시점 소속'],
       'global:selection': ['설비 선택', 'e1, e2, e3, e4, e5 외 2개'],
       'global:metricId': ['지표·버전', 'oee v3'],
       'global:scopeId': ['Scope', 'MEM'],

@@ -146,8 +146,8 @@ export default function MetricDetailPage({ params }: PageProps) {
             {data.problem === 'need-version' && <StateMessage icon={<span className="t-mono">v?</span>}
               title={lang === 'ko' ? '버전을 선택하세요' : 'Select a version'}
               body={data.metric.publishedPointer
-                ? (lang === 'ko' ? `게시 포인터는 v${data.metric.publishedPointer} 입니다. 아래에서 버전을 고르세요.` : `The published pointer is v${data.metric.publishedPointer}. Pick a version below.`)
-                : (lang === 'ko' ? '게시된 버전이 없습니다. 초안·폐기 버전을 직접 고르세요. 초안은 분석 기본값이 아닙니다.' : 'There is no published version. Choose a draft or deprecated version explicitly. Drafts are not analysis defaults.')} />}
+                ? (lang === 'ko' ? `발행 포인터는 v${data.metric.publishedPointer} 입니다. 아래에서 버전을 고르세요.` : `The released pointer is v${data.metric.publishedPointer}. Pick a version below.`)
+                : (lang === 'ko' ? '발행된 버전이 없습니다. 초안·폐기 버전을 직접 고르세요. 초안은 분석 기본값이 아닙니다.' : 'There is no released version. Choose a draft or deprecated version explicitly. Drafts are not analysis defaults.')} />}
             <div className="grid items-start gap-3 lg:grid-cols-[18rem_minmax(0,1fr)]">
               <div className="space-y-3">
                 <VersionSection metric={data.metric} selected={data.version} onSelect={version => setPage({ version })} />
@@ -170,7 +170,7 @@ export default function MetricDetailPage({ params }: PageProps) {
         {versionParam ? <QueryView widgetName={lang === 'ko' ? '사용처 / 의존성' : 'Usage / dependency'} hideWidgetName query={usage} compact skeletonRows={3}>
           {data => data.problem ? (
             <StateMessage tone="danger" icon={<span className="t-mono">!</span>} title={lang === 'ko' ? '이 버전의 사용처를 조회하지 않습니다' : 'Usage was not queried for this version'}
-              body={lang === 'ko' ? '소속되지 않은 버전을 최신 게시 쌍으로 바꿔 사용처를 채우지 않습니다.' : 'A version that does not belong here is not rewritten to the latest published pair.'} />
+              body={lang === 'ko' ? '소속되지 않은 버전을 최신 발행 쌍으로 바꿔 사용처를 채우지 않습니다.' : 'A version that does not belong here is not rewritten to the latest released pair.'} />
           ) : (
             <table className="w-full text-sm">
               <thead><tr className="t-table-header text-left text-text-muted">
@@ -197,7 +197,7 @@ export default function MetricDetailPage({ params }: PageProps) {
         </QueryView> : null}
       </Panel>
 
-      <Panel id={sectionId('history')} title={lang === 'ko' ? '변경 이력' : 'Change history'} subtitle={lang === 'ko' ? '정의의 등록·게시·폐기입니다. mart 계산 세대가 아닙니다.' : 'Registration, publication and deprecation of the definition. Not a mart generation.'}>
+      <Panel id={sectionId('history')} title={lang === 'ko' ? '변경 이력' : 'Change history'} subtitle={lang === 'ko' ? '정의의 등록·발행·폐기입니다. mart 계산 세대가 아닙니다.' : 'Registration, release and deprecation of the definition. Not a mart generation.'}>
         <QueryView widgetName={lang === 'ko' ? '변경 이력' : 'Change history'} hideWidgetName query={history.query} compact skeletonRows={4}>
           {() => <AuditTimeline {...history.timeline} />}
         </QueryView>
@@ -215,7 +215,7 @@ function VersionSection({ metric, selected, onSelect }: { metric: MetricDef; sel
   const { lang, tx } = useI18n();
   const previous = selected ? metric.versions[metric.versions.findIndex(v => v.version === selected.version) - 1] ?? null : null;
   const diff = selected ? versionDiff(selected, previous, lang) : [];
-  return <Panel id={sectionId('version')} title={lang === 'ko' ? '버전' : 'Version'} subtitle={metric.publishedPointer ? (lang === 'ko' ? `게시 포인터 v${metric.publishedPointer}` : `Published pointer v${metric.publishedPointer}`) : (lang === 'ko' ? '게시 포인터 없음' : 'No published pointer')}>
+  return <Panel id={sectionId('version')} title={lang === 'ko' ? '버전' : 'Version'} subtitle={metric.publishedPointer ? (lang === 'ko' ? `발행 포인터 v${metric.publishedPointer}` : `Released pointer v${metric.publishedPointer}`) : (lang === 'ko' ? '발행 포인터 없음' : 'No released pointer')}>
     <ul className="space-y-1">
       {metric.versions.map(v => {
         const on = selected?.version === v.version;

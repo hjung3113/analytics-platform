@@ -193,7 +193,7 @@ test.describe('권한 — 메뉴 비노출·직접 URL 거부 (06 §6.2, §17)',
     await expect(page.getByRole('status').filter({ hasText: '이 메뉴에 대한 권한이 없습니다' })).toBeVisible();
     await expect(page.getByText('permission=equipment:view')).toHaveCount(0);
     await expect(page.getByText('설비 마스터')).toBeVisible();
-    await expect(page.getByText('권한 담당자에게 요청하세요')).toBeVisible();
+    await expect(page.getByText('관리자에게 요청하세요')).toBeVisible();
     await expect(page.getByRole('table')).toHaveCount(0);
     await evidence(page, testInfo, 'viewer-direct-url');
   });

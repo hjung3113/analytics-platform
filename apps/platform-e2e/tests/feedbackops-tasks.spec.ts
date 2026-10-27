@@ -11,7 +11,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const sidebar = (page: Page) => page.getByRole('navigation', { name: '주 메뉴' });
 /** Rail section buttons of the current system (15 §3.2). */
 function railSection(page: Page, name: string) {
-  return page.getByRole('navigation', { name: '앱 레일' }).getByRole('group', { name: '시스템 섹션' }).getByRole('button', { name, exact: true });
+  return page.getByRole('navigation', { name: '시스템 레일' }).getByRole('group', { name: '시스템 섹션' }).getByRole('button', { name, exact: true });
 }
 
 test.describe('FeedbackOps Tasks 그룹(#763)', () => {

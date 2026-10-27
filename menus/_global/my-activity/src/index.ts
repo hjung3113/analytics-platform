@@ -12,7 +12,7 @@ const GROUP = groupId('myActivity');
 export const manifests: MenuEntry[] = [
   {
     id: 'notifications', primary: true, group: GROUP, label: { ko: '알림', en: 'Notifications' },
-    description: { ko: 'VOC 상태 변경·권한 결정·설문 요청 알림', en: 'Notifications for VOC status, permission decisions and survey requests' },
+    description: { ko: 'VOC 답변·배정, Task 요청 결정, 권한 결정 알림', en: 'Notifications for VOC replies and assignments, Task request decisions and permission decisions' },
     path: '/notifications', icon: Bell, permission: 'platform:view', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES, pageKeys: [],
     component: lazy(() => import('./pages/Notifications')),
@@ -20,7 +20,7 @@ export const manifests: MenuEntry[] = [
   {
     // The Kernel permission literal `voc:view` (ADR-0069 maps it to every signed-in actor): a menu move does not change it.
     id: 'voc', group: GROUP, label: { ko: '내 VOC', en: 'My VOC' },
-    description: { ko: '내가 접수한 VOC와 처리 상태·담당자 답변', en: 'VOCs you filed, their status and replies' },
+    description: { ko: '내가 등록한 VOC와 처리 상태·담당자 답변', en: 'VOCs you registered, their status and replies' },
     path: '/voc', icon: MessageSquareWarning, permission: 'voc:view', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES, pageKeys: ['q', 'status', 'sort', 'focus'],
     component: lazy(() => import('./pages/MyVoc')),

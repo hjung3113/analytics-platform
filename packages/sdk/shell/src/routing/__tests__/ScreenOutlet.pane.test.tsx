@@ -148,13 +148,13 @@ describe('ScreenOutlet renders the pane screen with the same gates (ADR-0049)', 
     const { adapter } = fixtureAdapter(ANALYST);
     const denied = mount('/', [{ id: 'ops', screen: paneOf('ops-child') }], adapter);
     await flush();
-    expect(denied.pane('ops').getByText('이 공간에 들어갈 수 없습니다')).toBeTruthy();
+    expect(denied.pane('ops').getByText('이 업무 시스템에 들어갈 수 없습니다')).toBeTruthy();
     expect(denied.pane('ops').queryByText('ops child page')).toBeNull();
     expect(screen.getByTestId('main').textContent).toContain('home page');
     cleanup();
     const reverse = mount('/ops/child', [{ id: 'ok', screen: paneOf('plain') }], adapter);
     await flush();
-    expect(within(screen.getByTestId('main')).getByText('이 공간에 들어갈 수 없습니다')).toBeTruthy();
+    expect(within(screen.getByTestId('main')).getByText('이 업무 시스템에 들어갈 수 없습니다')).toBeTruthy();
     expect(reverse.pane('ok').getByText('plain page')).toBeTruthy();
   });
 

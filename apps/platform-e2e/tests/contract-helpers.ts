@@ -6,10 +6,10 @@ export const PRODUCTIVITY = `/mars/productivity-overview?v=1&scopeId=MEM&${PERIO
 
 /** Rail section buttons of the current system (15 §3.2). `exact` keeps '생산성 분석' apart from the switcher's '… 현재: MARS'. */
 export function railSection(page: Page, name: string) {
-  return page.getByRole('navigation', { name: '앱 레일' }).getByRole('group', { name: '시스템 섹션' }).getByRole('button', { name, exact: true });
+  return page.getByRole('navigation', { name: '시스템 레일' }).getByRole('group', { name: '시스템 섹션' }).getByRole('button', { name, exact: true });
 }
 export function systemSwitcher(page: Page) {
-  return page.getByRole('navigation', { name: '앱 레일' }).getByRole('button', { name: /^시스템 및 플랫폼 메뉴/ });
+  return page.getByRole('navigation', { name: '시스템 레일' }).getByRole('button', { name: /^시스템 및 플랫폼 메뉴/ });
 }
 /** Opens the switcher and returns its popover. */
 export async function openSwitcher(page: Page) {

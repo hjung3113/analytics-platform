@@ -72,9 +72,9 @@ function version(pick: {
 
 const QUEUE_TIME_V1 = version({
   version: '1', state: 'draft', unit: 's', numerator: 'queue_duration',
-  formula: { ko: 'queue_duration 합. 초안이며 게시 초기화 후보가 아닙니다.', en: 'Sum of queue_duration. A draft, not a publication-initialization candidate.' },
+  formula: { ko: 'queue_duration 합. 초안이며 발행 초기화 후보가 아닙니다.', en: 'Sum of queue_duration. A draft, not a release-initialization candidate.' },
   filters: [{ ko: '대기 구간', en: 'Queue interval' }], sourceContractRef: 'queue-basis-draft',
-  changeReason: { ko: '초안 등록. 게시하지 않음.', en: 'Draft registered. Not published.' },
+  changeReason: { ko: '초안 등록. 발행하지 않음.', en: 'Draft registered. Not released.' },
   registeredAt: '2026-09-22T09:00:00', publishedAt: null, updatedAt: '2026-09-22T09:00:00', updatedBy: 'park.seo',
 });
 
@@ -97,16 +97,16 @@ const CYCLE_TIME: MetricDef = {
     }),
     version({
       version: '4', state: 'published', unit: 's', numerator: null,
-      formula: { ko: '분포 재계산. 공정 구간만. averageOfQuantilesAllowed=false.', en: 'Recompute from the distribution, process interval only. averageOfQuantilesAllowed=false.' },
-      filters: [{ ko: '완료 Job', en: 'Completed jobs' }, { ko: '공정 구간', en: 'Process interval' }], sourceContractRef: 'cycle-time-basis-v3',
-      changeReason: { ko: '공정 구간으로 grain 설명 수정. 게시 포인터.', en: 'Process-interval wording. Published pointer.' },
+      formula: { ko: '분포 재계산. PRC 구간만. averageOfQuantilesAllowed=false.', en: 'Recompute from the distribution, process interval only. averageOfQuantilesAllowed=false.' },
+      filters: [{ ko: '완료 Job', en: 'Completed jobs' }, { ko: 'PRC 구간', en: 'Process interval' }], sourceContractRef: 'cycle-time-basis-v3',
+      changeReason: { ko: 'PRC 구간으로 grain 설명 수정. 발행 포인터.', en: 'Process-interval wording. Released pointer.' },
       registeredAt: '2026-09-18T09:00:00', publishedAt: '2026-09-20T11:00:00', updatedAt: '2026-09-20T11:00:00', updatedBy: 'park.seo',
     }),
     version({
       version: '5', state: 'draft', unit: 's', numerator: null,
       formula: { ko: 'v4 복사. 필터 문구만 초안. 분석 기본 버전이 아닙니다.', en: 'Copy of v4. Filter wording only. Not an analysis default.' },
       filters: [{ ko: '완료 Job (초안 문구)', en: 'Completed jobs (draft wording)' }], sourceContractRef: 'cycle-time-basis-v3',
-      changeReason: { ko: '필터 문구 초안. 게시 아님.', en: 'Draft filter wording. Not published.' },
+      changeReason: { ko: '필터 문구 초안. 발행 아님.', en: 'Draft filter wording. Not released.' },
       registeredAt: '2026-09-24T09:00:00', publishedAt: null, updatedAt: '2026-09-24T09:00:00', updatedBy: 'park.seo',
     }),
   ],
@@ -114,7 +114,7 @@ const CYCLE_TIME: MetricDef = {
 
 const QUEUE_TIME: MetricDef = {
   ...CYCLE_TIME, metricId: 'queue_time', name: { ko: '대기 시간', en: 'Queue time' }, kind: 'duration',
-  description: { ko: '초안만 있습니다. 게시 포인터가 없습니다.', en: 'Draft only. No published pointer.' },
+  description: { ko: '초안만 있습니다. 발행 포인터가 없습니다.', en: 'Draft only. No released pointer.' },
   publishedPointer: null, catalogVersion: '1', draftVersion: '1', catalogStatus: 'draft', updatedAt: '2026-09-22T09:00:00',
   usage: [], versions: [QUEUE_TIME_V1],
 };
@@ -216,7 +216,7 @@ describe('MetricDetail change history reads the shared audit store (#90, ADR-004
     const endpoints: string[] = [];
     const recorded: AuditEvent = {
       id: 'cycle_time-v4-publish', at: '2026-09-20T02:00:00.000Z', actor: 'park.seo', action: 'update', source: 'user',
-      target: { type: 'metric', id: 'cycle_time', scopeId: null }, reason: '게시 확정. mart 재계산 완료가 아닙니다.',
+      target: { type: 'metric', id: 'cycle_time', scopeId: null }, reason: '발행 확정. mart 재계산 완료가 아닙니다.',
       changes: { publicationState: ['draft', 'published'] },
     };
     const base = fixtureAdapter();
@@ -226,7 +226,7 @@ describe('MetricDetail change history reads the shared audit store (#90, ADR-004
       entityAudit: async ref => { refs.push(ref); return { outcome: 'ok', data: { events: [recorded] }, assessments: [], trust: null, correlationId: 'corr-audit' }; },
     };
     renderDetail('/metrics/cycle_time?version=4', 'cycle_time', adapter);
-    expect(await screen.findByText('게시 확정. mart 재계산 완료가 아닙니다.')).toBeTruthy();
+    expect(await screen.findByText('발행 확정. mart 재계산 완료가 아닙니다.')).toBeTruthy();
     expect(screen.getAllByText('Change history').length).toBeGreaterThan(0); // the screen is English; the record is not translated
     expect(refs).toEqual([{ type: 'metric', id: 'cycle_time', scopeId: null }]);
     expect(endpoints).not.toContain('metrics.history');
@@ -283,9 +283,9 @@ describe('MetricDetail change history pages (ADR-0085)', () => {
 
 describe('MetricDetail definition draws no Data Trust (#299 B-10, 06 §18)', () => {
   it.each([
-    ['queue_time@1 (draft, no published pointer)', '/metrics/queue_time?v=1&version=1', 'queue_time', '초안'],
+    ['queue_time@1 (draft, no released pointer)', '/metrics/queue_time?v=1&version=1', 'queue_time', '초안'],
     ['cycle_time@5 (draft beside a published v4)', '/metrics/cycle_time?v=1&version=5', 'cycle_time', '초안'],
-    ['cycle_time@4 (published)', '/metrics/cycle_time?v=1&version=4', 'cycle_time', '게시'],
+    ['cycle_time@4 (published)', '/metrics/cycle_time?v=1&version=4', 'cycle_time', '발행'],
     ['cycle_time@1 (deprecated)', '/metrics/cycle_time?v=1&version=1', 'cycle_time', '폐기'],
   ])('%s', async (_name, path, metricId, badge) => {
     await expectNoDefinitionTrust(path, metricId, badge);
@@ -373,7 +373,7 @@ describe('MetricDetail tab anchor scroll timing (#325-2)', () => {
 
   it('b. does not scroll again when the same queries answer after a refetch', async () => {
     renderDetail('/metrics/cycle_time?version=4&tab=history', 'cycle_time');
-    await screen.findAllByText('게시'); // the definition response arrived
+    await screen.findAllByText('발행'); // the definition response arrived
     await settle(); // passive effects (the one anchor scroll) flushed
     expect(scrollTargets()).toEqual(['metric-section-history']);
     fireEvent.click(screen.getByRole('button', { name: /v5/ })); // re-query: version=5 refetches the definition
@@ -384,7 +384,7 @@ describe('MetricDetail tab anchor scroll timing (#325-2)', () => {
 
   it('c. keeps the immediate section-chip scroll on 버전', async () => {
     renderDetail('/metrics/cycle_time?version=4', 'cycle_time');
-    await screen.findAllByText('게시');
+    await screen.findAllByText('발행');
     await settle();
     expect(scrollTargets()).toEqual([]); // no tab param — no anchor scroll on arrival
     fireEvent.click(screen.getByRole('button', { name: '버전' }));
@@ -394,7 +394,7 @@ describe('MetricDetail tab anchor scroll timing (#325-2)', () => {
   it('d. holds the history scroll while the pair banner above every anchor is still loading', async () => {
     const pair = deferred<ApiResponse<never>>();
     renderDetail('/metrics/cycle_time?version=4&tab=history', 'cycle_time', delayedPairAdapter(pair.promise));
-    await screen.findAllByText('게시'); // definition answered; usage·history answer in the same flush
+    await screen.findAllByText('발행'); // definition answered; usage·history answer in the same flush
     await settle();
     expect(scrollTargets()).toEqual([]); // the pair skeleton still sits above the anchor — no scroll yet
     await act(async () => { pair.resolve(pairAbsent); });
@@ -410,7 +410,7 @@ describe('MetricDetail tab anchor scroll timing (#325-2)', () => {
   it('e. scrolls to an upper section without waiting for the usage query below it', async () => {
     const usage = deferred<ApiResponse<never>>();
     renderDetail('/metrics/cycle_time?version=4&tab=version', 'cycle_time', delayedUsageAdapter(usage.promise));
-    await screen.findAllByText('게시'); // definition + pair answered; usage is held below the target
+    await screen.findAllByText('발행'); // definition + pair answered; usage is held below the target
     await settle();
     expect(scrollTargets()).toEqual(['metric-section-version']); // an upper target never waits for usage
     await act(async () => { usage.resolve(asFixtureResponse(usageResponse({ problem: null, rows: [] }))); });
@@ -420,7 +420,7 @@ describe('MetricDetail tab anchor scroll timing (#325-2)', () => {
 
   it('f. scrolls again when history traversal re-enters the same tab', async () => {
     renderDetail('/metrics/cycle_time?version=4&tab=history', 'cycle_time');
-    await screen.findAllByText('게시');
+    await screen.findAllByText('발행');
     await settle();
     expect(scrollTargets()).toEqual(['metric-section-history']); // arrival 1
     await act(async () => {
@@ -458,7 +458,7 @@ describe('MetricDetail tab anchor scroll timing (#325-2)', () => {
     // honest outcome:'error' reply — not with an ok envelope the Kernel rewrites into an error (W-s9 F1).
     const pair = deferred<ApiResponse<never>>();
     renderDetail('/metrics/cycle_time?version=4&tab=history', 'cycle_time', delayedPairAdapter(pair.promise));
-    await screen.findAllByText('게시'); // definition answered; usage·history answer in the same flush
+    await screen.findAllByText('발행'); // definition answered; usage·history answer in the same flush
     await settle();
     expect(scrollTargets()).toEqual([]);
     const pairError: ApiResponse<never> = { outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'corr-fixture', message: 'Upstream mart query failed' };

@@ -46,11 +46,11 @@ export function ScreenOutlet() {
   if (contractError) return <ContractErrorView />;
   // Space entry is checked before the menu permission (06 §9.1/§2): the route still matches, but the page never mounts and nothing redirects.
   if (currentSpace !== null && currentSpace.permission !== undefined && !can(currentSpace.permission)) {
-    return <KernelMessage tone="warning" icon={<Ban className="size-4" aria-hidden />} title={lang === 'ko' ? '이 공간에 들어갈 수 없습니다' : 'You cannot enter this space'}
+    return <KernelMessage tone="warning" icon={<Ban className="size-4" aria-hidden />} title={lang === 'ko' ? '이 업무 시스템에 들어갈 수 없습니다' : 'You cannot enter this business system'}
       body={<>{tx(currentSpace.label)}. {t('askAccessOwner')}</>} />;
   }
   if (metricInit.phase === 'confirm') {
-    return <KernelMessage icon={<Link2Off className="size-4" aria-hidden />} title={lang === 'ko' ? '게시 버전 확인 중' : 'Confirming the published version'}
+    return <KernelMessage icon={<Link2Off className="size-4" aria-hidden />} title={lang === 'ko' ? '발행 버전 확인 중' : 'Confirming the released version'}
       body={lang === 'ko' ? '서버가 확인한 버전을 URL에 기록하기 전에는 조회하지 않습니다.' : 'Nothing is queried until the server-confirmed version is written into the URL.'} />;
   }
   if (metricInit.phase === 'blocked') {
@@ -59,11 +59,11 @@ export function ScreenOutlet() {
       ? (id
         ? (lang === 'ko' ? `${id} 지표를 열 수 없습니다. 지우고 다시 고르세요.` : `${id} cannot be opened. Clear it and choose again.`)
         : (lang === 'ko' ? '이 지표를 열 수 없습니다. 지우고 다시 고르세요.' : 'This metric cannot be opened. Clear it and choose again.'))
-      : (lang === 'ko' ? '게시된 버전이 없습니다. 다른 지표를 고르세요.' : 'There is no published version. Choose another metric.');
+      : (lang === 'ko' ? '발행된 버전이 없습니다. 다른 지표를 고르세요.' : 'There is no released version. Choose another metric.');
     return <div className="p-6"><StateMessage tone="warning" icon={<Link2Off className="size-4" aria-hidden />}
       title={metricInit.reason === 'unknown_metric'
         ? (lang === 'ko' ? '지표를 확인하지 못했습니다' : 'The metric could not be confirmed')
-        : (lang === 'ko' ? '게시 버전이 없습니다' : 'No published version')}
+        : (lang === 'ko' ? '발행 버전이 없습니다' : 'No released version')}
       body={blockedBody}
       action={<Button size="sm" variant="secondary" onClick={event => { focusPageFallback(event.currentTarget); setGlobal({ metricId: null, metricVersion: null }, { replace: true }); }}>{lang === 'ko' ? '이 지표 쌍 지우기' : 'Clear this metric pair'}</Button>} /></div>;
   }

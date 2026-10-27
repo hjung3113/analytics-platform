@@ -50,7 +50,7 @@ function mount(url: string, permissions: Permission[] = ['platform:view', 'conso
     <AppShell><PlatformLink href="/cycle?v=1">back to cycle</PlatformLink></AppShell>
   </PlatformProvider></I18nProvider>);
 }
-const rail = () => screen.getByRole('navigation', { name: '앱 레일' });
+const rail = () => screen.getByRole('navigation', { name: '시스템 레일' });
 const sections = () => within(rail()).queryByRole('group', { name: '시스템 섹션' });
 
 describe('rail sections (15 §3.2)', () => {

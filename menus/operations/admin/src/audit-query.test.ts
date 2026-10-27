@@ -88,7 +88,7 @@ describe('ACTION_LABEL', () => {
     expect(ACTION_LABEL).toEqual({
       create: { ko: '생성', en: 'Created' },
       update: { ko: '변경', en: 'Updated' },
-      retire: { ko: '유효 종료', en: 'Retired' },
+      retire: { ko: '사용중지', en: 'Retired' },
       sync: { ko: '동기화', en: 'Synced' },
       delete: { ko: '삭제', en: 'Deleted' },
     });

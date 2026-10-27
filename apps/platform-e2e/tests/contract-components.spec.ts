@@ -152,14 +152,14 @@ test.describe('PageFilterBar page-key 계약 (#54)', () => {
     await page.locator('label').filter({ hasText: '상태' }).click();
     await expect(status).toBeFocused();
     await page.keyboard.press('ArrowDown');
-    await expect(page.getByRole('option', { name: '게시', exact: true })).toBeVisible();
+    await expect(page.getByRole('option', { name: '발행', exact: true })).toBeVisible();
     await page.keyboard.press('Escape');
     await search.fill('yield');
     await expect.poll(() => query(page).get('q')).toBe('yield');
     await expect.poll(() => query(page).has('page')).toBe(false);
 
     await page.goto('/bravo/metric-catalog?v=1&scopeId=MEM&page=2');
-    await chooseFilterOption(page, '상태', '게시');
+    await chooseFilterOption(page, '상태', '발행');
     await expect.poll(() => query(page).get('status')).toBe('published');
     await expect.poll(() => query(page).has('page')).toBe(false);
 

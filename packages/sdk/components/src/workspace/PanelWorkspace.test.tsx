@@ -61,7 +61,7 @@ const PRESETS: PanelWorkspaceProps['presets'] = [
   { id: 'focus', label: { ko: '집중', en: 'Focus' }, layout: { type: 'branch', dir: 'row', sizes: [7, 3], children: [group(['trend']), group(['selector', 'detail', 'kpi'])] } },
   { id: 'stack', label: { ko: '쌓기', en: 'Stack' }, layout: group(['trend', 'kpi', 'selector', 'detail'], 'detail') },
 ];
-const BASE: PanelWorkspaceProps = { panels: PANELS, presets: PRESETS, initialPreset: 'balanced', persistKey: 'main', label: { ko: '분석 패널', en: 'Analysis panels' } };
+const BASE: PanelWorkspaceProps = { panels: PANELS, presets: PRESETS, initialPreset: 'balanced', persistKey: 'main', label: { ko: '작업 영역 패널', en: 'Analysis panels' } };
 const KEY = (persistKey = 'main') => `platform:workspace:v1:u1:home:${persistKey}`;
 
 let storage: Storage;
@@ -111,7 +111,7 @@ describe('PanelWorkspace: remount 0, query 0', () => {
     mountWorkspace();
     await ready();
     expect(groups()).toEqual([['selector'], ['kpi'], ['trend'], ['detail']].map(panels => [...panels].sort()));
-    expect(screen.getByRole('region', { name: '분석 패널' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: '작업 영역 패널' })).toBeInTheDocument();
   });
 
   it('preset switch, 기본 배치, tab activation, maximize and a move leave every panel mounted and every query uncalled', async () => {

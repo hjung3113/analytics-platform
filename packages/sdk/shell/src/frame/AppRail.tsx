@@ -27,7 +27,7 @@ export function AppRail() {
   const boardLabel = board.maximized ? boardCopy.railOpen : board.floating ? (board.windowFill ? boardCopy.railOpen : boardCopy.railFloating) : board.minimized ? boardCopy.railMinimized : boardCopy.railClosed;
   const vocLabel = lang === 'ko' ? 'VOC 등록' : 'File a VOC';
   return <TooltipProvider delayDuration={200}>
-    <nav aria-label={lang === 'ko' ? '앱 레일' : 'App rail'} className="flex h-full w-(--rail-width) shrink-0 flex-col items-center gap-1.5 overflow-y-auto border-r border-border-subtle bg-surface-sidebar pb-3">
+    <nav aria-label={lang === 'ko' ? '시스템 레일' : 'System rail'} className="flex h-full w-(--rail-width) shrink-0 flex-col items-center gap-1.5 overflow-y-auto border-r border-border-subtle bg-surface-sidebar pb-3">
       <SystemSwitcher />
       <div className="mb-1 w-6 shrink-0 border-t border-border-subtle" aria-hidden />
       {systems !== null && systems.sections.length > 0 && <div role="group" aria-label={t('railSections')} className="flex min-h-8 shrink flex-col items-center gap-1.5 overflow-y-auto">

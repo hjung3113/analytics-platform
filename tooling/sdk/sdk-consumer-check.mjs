@@ -227,7 +227,7 @@ it('renders the shell, a components widget and a kernel hook under one PlatformP
   expect(Number(probe.getAttribute('data-permissions'))).toBeGreaterThan(0);
   expect(screen.getByText('consumer button')).toBeTruthy();
   expect(screen.getByText('변경 이력이 없습니다.')).toBeTruthy();
-  expect(screen.getByRole('navigation', { name: '앱 레일' })).toBeTruthy();
+  expect(screen.getByRole('navigation', { name: '시스템 레일' })).toBeTruthy();
 });
 `,
 };

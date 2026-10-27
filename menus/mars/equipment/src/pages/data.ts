@@ -2,7 +2,7 @@ import type { Equipment, EquipmentExportFilter, EquipmentFilter } from '../endpo
 import { parseDateTime, shift, type PageSort } from '@ap/contracts';
 export const statusText = {
   active: { ko: '사용중', en: 'Active' }, idle: { ko: '대기', en: 'Idle' },
-  maintenance: { ko: '정비', en: 'Maintenance' }, retired: { ko: '유효 종료', en: 'Retired' },
+  maintenance: { ko: '정비', en: 'Maintenance' }, retired: { ko: '사용중지', en: 'Retired' },
 };
 export const statusTone = { active: 'success', idle: 'neutral', maintenance: 'warning', retired: 'neutral' } as const;
 export const fields: { key: keyof Equipment; ko: string; en: string }[] = [
@@ -11,7 +11,7 @@ export const fields: { key: keyof Equipment; ko: string; en: string }[] = [
   { key: 'stgroup', ko: 'StGroup', en: 'StGroup' }, { key: 'team', ko: '분임조', en: 'Team' },
   { key: 'maker', ko: 'Maker', en: 'Maker' }, { key: 'model', ko: 'Model', en: 'Model' },
   { key: 'chamberType', ko: '챔버 유형', en: 'Chamber type' }, { key: 'status', ko: '상태', en: 'Status' },
-  { key: 'validFrom', ko: '유효 시작', en: 'Valid from' }, { key: 'validTo', ko: '유효 종료', en: 'Valid to' },
+  { key: 'validFrom', ko: '유효 시작', en: 'Valid from' }, { key: 'validTo', ko: '유효 종료일', en: 'Valid to' },
   { key: 'updatedAt', ko: '변경 시각', en: 'Updated at' }, { key: 'updatedBy', ko: '변경자', en: 'Updated by' },
 ];
 /** §6.1: sortable columns are exactly the data fields; the synthetic _select/_action columns never join the allow-list. */

@@ -52,7 +52,7 @@ export function formatQuerySummary(global: GlobalContext, page: readonly Pair[],
   const active = preset?.presets.find(item => item.id === preset.id);
   // Values the preset leaves out of the request are not part of the query this line describes; the QueryBar still lists them as carried.
   const outside = preset ? presetOutsideAxes(global, preset).map(axis => `condition:${axis}`) : [];
-  const values = querySummaryItems(global, options).filter(item => !outside.includes(item.key)).map(item => `${item.label} ${item.value}${item.capability === 'reference' ? (ko ? ' (참조만)' : ' (Reference only)') : item.capability === 'unsupported' ? (ko ? ' (이 화면에서 미사용)' : ' (Not used on this page)') : ''}`);
+  const values = querySummaryItems(global, options).filter(item => !outside.includes(item.key)).map(item => `${item.label} ${item.value}${item.capability === 'reference' ? (ko ? ' (참조만)' : ' (Reference only)') : item.capability === 'unsupported' ? (ko ? ' (이 화면에서 미사용)' : ' (Not used on this screen)') : ''}`);
   const labels = new Map(options.pageSummary?.map(item => [item.key, item]));
   for (const item of labels.values()) values.push(`${item.label} ${item.value}`);
   if (preset && active) values.push(`${ko ? '조건 묶음' : 'Condition set'} ${active.label[options.lang]}`);

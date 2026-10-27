@@ -502,10 +502,10 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     for (const role of ['engineer', 'viewer'] as const) {
       await signInAs(page, role);
       await page.goto(ADMIN_URL);
-      await expect(page.getByRole('status').filter({ hasText: '이 공간에 들어갈 수 없습니다' })).toBeVisible();
+      await expect(page.getByRole('status').filter({ hasText: '이 업무 시스템에 들어갈 수 없습니다' })).toBeVisible();
       // 본문은 Registry 공간 라벨과 요청 문장이다. 레일에는 이 공간이 없다.
       await expect(page.getByRole('main')).toContainText('운영 콘솔');
-      await expect(page.getByRole('main')).toContainText('권한 담당자에게 요청하세요');
+      await expect(page.getByRole('main')).toContainText('관리자에게 요청하세요');
       await expect(page.getByRole('heading', { name: '권한/역할 관리' })).toHaveCount(0);
       // Denial never rewrites the address: pathname and the four global keys stay exactly as entered.
       expect(new URL(page.url()).pathname).toBe('/operations/admin-roles');
@@ -676,7 +676,7 @@ test.describe('전역 기능 자리 (ADR-0070, 06 §9.1·§10)', () => {
   test('레일 알림 종은 mock에서 배지 없이 보이고 키보드로 팝오버를 열고 모두 보기로 알림 화면에 간다 (#652)', async ({ page }) => {
     await signInAs(page, 'viewer');
     await page.goto('/bravo/metric-catalog');
-    const rail = page.getByRole('navigation', { name: '앱 레일' });
+    const rail = page.getByRole('navigation', { name: '시스템 레일' });
     const bell = rail.getByRole('button', { name: /^알림/ });
     await expect(bell).toHaveAccessibleName('알림');
     await expect(bell).not.toHaveText(/\d/);
@@ -789,7 +789,7 @@ test.describe('전역 기능 자리 (ADR-0070, 06 §9.1·§10)', () => {
   test('사용자 메뉴의 언어 항목이 화면 언어를 바꾼다', async ({ page }) => {
     await signInAs(page, 'viewer');
     await page.goto('/home');
-    const rail = page.getByRole('navigation', { name: '앱 레일' });
+    const rail = page.getByRole('navigation', { name: '시스템 레일' });
     await rail.getByRole('button', { name: '사용자 메뉴' }).click();
     await page.getByRole('menuitem', { name: /^언어/ }).click();
     await expect(page.locator('html')).toHaveAttribute('lang', 'en');
@@ -867,9 +867,9 @@ test.describe('메뉴 활용률 (06 §4, docs/05 — kernel이 recordUsage로 �
 
     await page.goto(DIRECT_URL);
     const main = page.getByRole('main');
-    await expect(main).toContainText('이 공간에 들어갈 수 없습니다');
+    await expect(main).toContainText('이 업무 시스템에 들어갈 수 없습니다');
     await expect(main).toContainText('운영 콘솔');
-    await expect(main).toContainText('권한 담당자에게 요청하세요');
+    await expect(main).toContainText('관리자에게 요청하세요');
     // The client gate refuses without redirecting: the URL the user typed stays exact.
     expect(page.url().replace(/^https?:\/\/[^/]+/, '')).toBe(DIRECT_URL);
     await evidence(page, testInfo, 'usage-engineer-space-denied');
@@ -884,9 +884,9 @@ test.describe('메뉴 활용률 (06 §4, docs/05 — kernel이 recordUsage로 �
 
     await page.goto(DIRECT_URL);
     const main = page.getByRole('main');
-    await expect(main).toContainText('이 공간에 들어갈 수 없습니다');
+    await expect(main).toContainText('이 업무 시스템에 들어갈 수 없습니다');
     await expect(main).toContainText('운영 콘솔');
-    await expect(main).toContainText('권한 담당자에게 요청하세요');
+    await expect(main).toContainText('관리자에게 요청하세요');
     expect(page.url().replace(/^https?:\/\/[^/]+/, '')).toBe(DIRECT_URL);
     await evidence(page, testInfo, 'usage-viewer-space-denied');
   });
@@ -977,9 +977,9 @@ test.describe('메뉴 레지스트리 (06 §9.1 — console declarations read ba
 
     await page.goto(DIRECT_FOCUS_URL);
     const main = page.getByRole('main');
-    await expect(main).toContainText('이 공간에 들어갈 수 없습니다');
+    await expect(main).toContainText('이 업무 시스템에 들어갈 수 없습니다');
     await expect(main).toContainText('운영 콘솔');
-    await expect(main).toContainText('권한 담당자에게 요청하세요');
+    await expect(main).toContainText('관리자에게 요청하세요');
     // The space gate replaces the page: no registry table and no declaration drawer/dialog content.
     await expect(main.getByRole('table')).toHaveCount(0);
     await expect(main.getByText('requiresScope')).toHaveCount(0);
@@ -1012,9 +1012,9 @@ test.describe('메뉴 레지스트리 (06 §9.1 — console declarations read ba
 
     await page.goto(DIRECT_FOCUS_URL);
     const main = page.getByRole('main');
-    await expect(main).toContainText('이 공간에 들어갈 수 없습니다');
+    await expect(main).toContainText('이 업무 시스템에 들어갈 수 없습니다');
     await expect(main).toContainText('운영 콘솔');
-    await expect(main).toContainText('권한 담당자에게 요청하세요');
+    await expect(main).toContainText('관리자에게 요청하세요');
     await expect(main.getByRole('table')).toHaveCount(0);
     await expect(main.getByText('requiresScope')).toHaveCount(0);
     await expect(page.getByRole('dialog')).toHaveCount(0);
@@ -1065,9 +1065,9 @@ test.describe('권한/역할 (06 §9.1, §17 — console access directory, read-
 
     await page.goto(directUrl);
     const main = page.getByRole('main');
-    await expect(main).toContainText('이 공간에 들어갈 수 없습니다');
+    await expect(main).toContainText('이 업무 시스템에 들어갈 수 없습니다');
     await expect(main).toContainText('운영 콘솔');
-    await expect(main).toContainText('권한 담당자에게 요청하세요');
+    await expect(main).toContainText('관리자에게 요청하세요');
     await expect(main.getByRole('table')).toHaveCount(0);
     await expect(page.getByRole('dialog')).toHaveCount(0);
     expect(page.url().replace(/^https?:\/\/[^/]+/, '')).toBe(directUrl);

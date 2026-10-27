@@ -72,7 +72,7 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
-const rail = () => within(screen.getByRole('navigation', { name: '앱 레일' }));
+const rail = () => within(screen.getByRole('navigation', { name: '시스템 레일' }));
 const railButton = () => rail().getByRole('button', { name: /^VOC 등록/ });
 const drawer = () => document.querySelector<HTMLElement>('aside[aria-label="VOC 등록"]')!;
 const detailAside = () => document.querySelector<HTMLElement>('aside[aria-label="상세 패널"]')!;

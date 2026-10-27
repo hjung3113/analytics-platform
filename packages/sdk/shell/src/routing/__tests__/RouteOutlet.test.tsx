@@ -194,7 +194,7 @@ describe('global utility routes and the null-sidebar home link (06 §9.1)', () =
   it('renders a global menu without the space-denial screen', async () => {
     mountGlobal('/notices', true);
     expect(await screen.findByText('notice page')).toBeTruthy();
-    expect(screen.queryByText('이 공간에 들어갈 수 없습니다')).toBeNull();
+    expect(screen.queryByText('이 업무 시스템에 들어갈 수 없습니다')).toBeNull();
   });
 
   it('still denies a global menu the user has no permission for', async () => {
@@ -203,9 +203,9 @@ describe('global utility routes and the null-sidebar home link (06 §9.1)', () =
     expect(screen.queryByText(/permission=/)).toBeNull();
     expect(screen.getByText(/secret/)).toBeTruthy();
     // Label and sentence are sibling text nodes inside one body, so no element’s text is the sentence alone.
-    expect(screen.getByText((_, node) => hasTextWithoutChild(node, '권한 담당자에게 요청하세요.'))).toBeTruthy();
+    expect(screen.getByText((_, node) => hasTextWithoutChild(node, '관리자에게 요청하세요.'))).toBeTruthy();
     expect(screen.getByRole('link', { name: '홈' })).toBeTruthy();
-    expect(screen.queryByText('이 공간에 들어갈 수 없습니다')).toBeNull();
+    expect(screen.queryByText('이 업무 시스템에 들어갈 수 없습니다')).toBeNull();
   });
 
   it('links home to the menu at / when the sidebar space is null', async () => {
@@ -281,16 +281,16 @@ describe('global query admission under RouteOutlet (06 §9.1)', () => {
     expect(await screen.findByText('notice page')).toBeTruthy();
     await settled();
     expect(menuQuery.mock.calls.length).toBeGreaterThanOrEqual(1);
-    expect(screen.queryByText('이 공간에 들어갈 수 없습니다')).toBeNull();
+    expect(screen.queryByText('이 업무 시스템에 들어갈 수 없습니다')).toBeNull();
   });
 
   it('does not query a space menu when space entry is denied', async () => {
     const menuQuery = mountQuery('/admin/child');
-    expect(await screen.findByText('이 공간에 들어갈 수 없습니다')).toBeTruthy();
-    const denialBody = screen.getByText('운영 콘솔. 권한 담당자에게 요청하세요.');
+    expect(await screen.findByText('이 업무 시스템에 들어갈 수 없습니다')).toBeTruthy();
+    const denialBody = screen.getByText('운영 콘솔. 관리자에게 요청하세요.');
     expect(denialBody).toBeTruthy();
     expect(denialBody.textContent).not.toContain(deniedSpaceSubtitle);
-    expect(screen.getByText((_, node) => hasTextWithoutChild(node, '권한 담당자에게 요청하세요.'))).toBeTruthy();
+    expect(screen.getByText((_, node) => hasTextWithoutChild(node, '관리자에게 요청하세요.'))).toBeTruthy();
     expect(screen.queryByText(/space=/)).toBeNull();
     await settled();
     expect(menuQuery).not.toHaveBeenCalled();
@@ -303,7 +303,7 @@ describe('global query admission under RouteOutlet (06 §9.1)', () => {
     await settled();
     expect(menuQuery).not.toHaveBeenCalled();
     expect(screen.queryByText('secret page')).toBeNull();
-    expect(screen.queryByText('이 공간에 들어갈 수 없습니다')).toBeNull();
+    expect(screen.queryByText('이 업무 시스템에 들어갈 수 없습니다')).toBeNull();
   });
 });
 

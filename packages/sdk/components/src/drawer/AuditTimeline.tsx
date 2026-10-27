@@ -6,10 +6,10 @@ import { compareAuditEvents, formatInstant, type AuditEvent } from '@ap/contract
 
 const ICONS = { create: FilePlus2, update: FilePen, retire: FileX2, sync: RefreshCw, delete: Trash2 };
 const LABEL = {
-  create: { ko: '생성', en: 'Created' }, update: { ko: '변경', en: 'Updated' }, retire: { ko: '유효 종료', en: 'Retired' }, sync: { ko: '동기화', en: 'Synced' }, delete: { ko: '삭제', en: 'Deleted' },
+  create: { ko: '생성', en: 'Created' }, update: { ko: '변경', en: 'Updated' }, retire: { ko: '사용중지', en: 'Retired' }, sync: { ko: '동기화', en: 'Synced' }, delete: { ko: '삭제', en: 'Deleted' },
 };
 // Same words as the admin audit table's source column (W-336 F3); kept local — components never import menu helpers.
-const SOURCE = { user: { ko: '사용자', en: 'User' }, system: { ko: '시스템', en: 'System' } };
+const SOURCE = { user: { ko: '사용자', en: 'User' }, system: { ko: '연동', en: 'System' } };
 
 /** Platform AuditTimeline (§13): who/when/what changed with before→after, newest first. Domain supplies events.
  *  `at` is a real instant (§6.3): sorted by instantEpochMs desc (string compare is wrong once `Z` and `+09:00`

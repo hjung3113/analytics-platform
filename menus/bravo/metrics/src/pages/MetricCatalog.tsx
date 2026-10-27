@@ -108,8 +108,8 @@ export default function MetricCatalogPage(_: PageProps) {
 
   return <PlatformPage
     description={lang === 'ko'
-      ? '정의·grain·분자/분모·게시 포인터를 탐색합니다. 초안은 분석 기본 버전이 아닙니다.'
-      : 'Browse definitions, grain, numerator/denominator and the published pointer. Drafts are not analysis defaults.'}
+      ? '정의·grain·분자/분모·발행 포인터를 탐색합니다. 초안은 분석 기본 버전이 아닙니다.'
+      : 'Browse definitions, grain, numerator/denominator and the released pointer. Drafts are not analysis defaults.'}
     contextExtension={<PageFilterBar label={t('pageFilter')} fields={metricCatalogPageFilterFields({ q, status, domain, lang, tx, setPage })} actions={metricCatalogHasActiveFilters(q, status, domain) ? <Button type="button" variant="secondary" size="sm" onClick={() => resetMetricCatalogPageFilters(setPage)}>{t('clearFilters')}</Button> : undefined} />}
   >
     <div className="space-y-3">
@@ -123,8 +123,8 @@ export default function MetricCatalogPage(_: PageProps) {
       {tableInvalid ? <TableUrlWarning sentences={invalidTableSentences} /> : <PlatformDataTable
         title={lang === 'ko' ? '지표 카탈로그' : 'Metric catalog'}
         subtitle={lang === 'ko'
-          ? `${metricCountText}. 게시 포인터는 레코드에 저장된 값이며 최대 버전 번호가 아닙니다. 초안 열기는 동작 열.`
-          : `${metricCountText}. The published pointer is stored on the record, not max(version). Open a draft from the action column.`}
+          ? `${metricCountText}. 발행 포인터는 레코드에 저장된 값이며 최대 버전 번호가 아닙니다. 초안 열기는 동작 열.`
+          : `${metricCountText}. The released pointer is stored on the record, not max(version). Open a draft from the action column.`}
         ariaLabel={lang === 'ko' ? '지표 카탈로그' : 'Metric catalog'}
         preferenceKey="platform:table:metric-catalog"
         columns={columns}
