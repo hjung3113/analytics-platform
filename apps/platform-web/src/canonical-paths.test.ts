@@ -82,4 +82,11 @@ describe('assembled registry: canonical paths and legacy aliases', () => {
     expect(registry.matchRoute('/surveys')).toMatchObject({ menu: { id: 'surveys' }, viaAlias: true });
     expect(registry.matchRoute('/surveys/x1/respond')).toMatchObject({ menu: { id: 'survey-respond' }, viaAlias: true });
   });
+
+  it('puts the 관리자 menus under /feedbackops and aliases none of them to the operations /admin paths (#764 p2)', () => {
+    const admin = ['fo-managed-systems', 'fo-analytics-areas', 'fo-permission-requests', 'fo-permission-grants', 'fo-settings'].map(id => registry.menuById(id));
+    expect(admin.map(menu => menu.path)).toEqual(admin.map(menu => `/feedbackops/${menu.id}`));
+    for (const menu of admin) expect((menu.aliases ?? []).some(alias => /^\/admin(\/|$)/.test(alias))).toBe(false);
+    expect(registry.matchRoute('/admin/roles')).toMatchObject({ menu: { id: 'admin-roles' } });
+  });
 });

@@ -94,6 +94,7 @@ describe('연동 tables', () => {
     expect(targetOf(`/integration/evidence?selected=${EVIDENCE}`)).toEqual({ menuId: 'fo-evidence', page: { focus: EVIDENCE } });
     expect(targetOf('/integration/coverage?view=areas')).toEqual({ menuId: 'fo-coverage', page: { view: 'areas' } });
     expect(targetOf('/integration/coverage?returnTo=%2Fhome')).toBeNull();
-    expect(targetOf('/admin/settings#coverage')).toBeNull();
+    // Wired by #764 p2: the Coverage 설정 hop opens the FeedbackOps 설정 menu at its coverage section.
+    expect(targetOf('/admin/settings#coverage')).toEqual({ menuId: 'fo-settings', page: { section: 'coverage' } });
   });
 });

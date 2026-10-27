@@ -6,7 +6,6 @@ import { evidence, mainHeading, query, signInAs, switchScope } from './support';
  * Platform contract checks (#44). Each `describe` is one contract area of docs/06; each test is one reported check.
  * Menu screens are only the consumers the contract is observed through — assertions target kernel/shell behavior.
  */
-const ORIGIN = 'https://feedbackops.example';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** The three space entries: VOC (#760), Task (#763) and 설문 (#764 p1) open in this tab inside the shell. All three are scoped to exactly one Managed System uuid. */
@@ -32,10 +31,10 @@ async function managedSystemOf(page: Page, space: string) {
   return [...found][0];
 }
 
-/** `FeedbackOps 전체` lives in the user menu (ADR-0070): opens `사용자 메뉴` and returns the menu item. */
+/** `FeedbackOps 전체` was a user-menu item (ADR-0070) and is gone (#764 p2, ADR-0081 decision 6): opens `사용자 메뉴` and returns the item the menu must not have. */
 async function feedbackOpsOverallLink(page: Page) {
   await page.getByRole('navigation', { name: '시스템 레일' }).getByRole('button', { name: '사용자 메뉴' }).click();
-  return page.getByRole('menuitem', { name: 'FeedbackOps 전체 — 새 탭' });
+  return page.getByRole('menuitem', { name: /FeedbackOps 전체/ });
 }
 
 function expectExactQueryKeys(url: URL, keys: string[]) {
@@ -63,24 +62,14 @@ test.describe('FeedbackOps 공간별 진입(#251)', () => {
     await expect(page.getByRole('navigation', { name: /^FeedbackOps/ })).toHaveCount(0);
   });
 
-  test('사용자 메뉴의 FeedbackOps 전체 링크는 admin에게 보이고 /home을 새 탭으로 연다', async ({ page }, testInfo) => {
-    await signInAs(page, 'admin');
-    await page.goto(PRODUCTIVITY);
-    await expect(page.getByRole('navigation', { name: '시스템 레일' }).getByRole('link', { name: /FeedbackOps 전체/ })).toHaveCount(0);
-    const overall = await feedbackOpsOverallLink(page);
-    await expect(overall).toHaveAttribute('href', `${ORIGIN}/home`);
-    await expect(overall).toHaveAttribute('target', '_blank');
-    await expect(overall).toHaveAttribute('rel', /noopener/);
-    await expect(overall).toHaveAttribute('rel', /noreferrer/);
-    await evidence(page, testInfo, 'feedbackops-overall-admin');
-  });
-
-  for (const role of ['engineer', 'viewer'] as const) {
-    test(`사용자 메뉴의 FeedbackOps 전체 링크는 ${role}에게 보이지 않는다`, async ({ page }) => {
+  for (const role of ['admin', 'engineer', 'viewer'] as const) {
+    test(`사용자 메뉴에 FeedbackOps 전체 링크가 ${role}에게도 없다`, async ({ page }, testInfo) => {
       await signInAs(page, role);
-      await page.goto('/bravo/metric-catalog');
-      await expect(page.getByRole('navigation', { name: '시스템 레일' })).toBeVisible();
+      await page.goto(role === 'admin' ? PRODUCTIVITY : '/bravo/metric-catalog');
+      await expect(page.getByRole('navigation', { name: '시스템 레일' }).getByRole('link', { name: /FeedbackOps 전체/ })).toHaveCount(0);
+      await expect(page.getByRole('navigation', { name: '시스템 레일' }).getByRole('button', { name: '사용자 메뉴' })).toBeVisible();
       await expect(await feedbackOpsOverallLink(page)).toHaveCount(0);
+      if (role === 'admin') await evidence(page, testInfo, 'feedbackops-overall-removed');
       await page.keyboard.press('Escape');
     });
   }
@@ -221,7 +210,7 @@ test.describe('FeedbackOps 진입 링크 회귀(#451, 06 §22)', () => {
     await page.keyboard.press('Escape');
   });
 
-  test('공간 셋(admin)은 두 공간 블록, 운영 콘솔 블록 없음, 전체 링크 있음', async ({ page }, testInfo) => {
+  test('공간 셋(admin)은 두 공간 블록, 운영 콘솔 블록 없음, 전체 링크 없음', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
     await expectNoBlockOnGlobalScreens(page);
     await page.goto(PRODUCTIVITY);
@@ -232,7 +221,7 @@ test.describe('FeedbackOps 진입 링크 회귀(#451, 06 §22)', () => {
     await chooseSystem(page, '운영 콘솔');
     await expect.poll(() => new URL(page.url()).pathname).toBe('/operations/admin-roles');
     await expect(page.getByRole('navigation', { name: /^FeedbackOps/ })).toHaveCount(0);
-    await expect(await feedbackOpsOverallLink(page)).toBeVisible();
+    await expect(await feedbackOpsOverallLink(page)).toHaveCount(0);
     await evidence(page, testInfo, 'feedbackops-space-count-admin');
   });
 });

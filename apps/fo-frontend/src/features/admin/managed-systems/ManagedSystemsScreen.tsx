@@ -49,13 +49,13 @@ const SUBTITLE =
   'Managed System은 권한과 집계의 기준 단위입니다. 기본 담당자·검토자, Analytics Area 매핑, 활성 상태를 관리합니다.';
 
 export function ManagedSystemsAdminPage() {
+  const { hostOwnsTitle } = useHostSeam();
   const [registerOpen, setRegisterOpen] = useState(false);
   const [includeArchived, setIncludeArchived] = useState(false);
   return (
     <PageShell
       header={{
-        title: 'Managed System',
-        subtitle: SUBTITLE,
+        ...(hostOwnsTitle ? {} : { title: 'Managed System', subtitle: SUBTITLE }),
         actions: (
           <PermissionGate capability="workspace.admin" fallback={null} loading={null}>
             <ManagedSystemsFilter

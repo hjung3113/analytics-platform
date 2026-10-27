@@ -24,6 +24,7 @@ import { useState } from 'react';
 
 import { createLabel } from '@/lib/copy/glossary';
 import type { ClosableDetailParts } from '@/lib/host/detail-parts';
+import { useHostSeam } from '@/lib/host/host-seam';
 import { useHostSearchWriter } from '@/lib/host/useHostSearchWriter';
 import { PermissionGate } from '../permissions/permission-gate.js';
 import { AnalyticsAreasBody } from './AnalyticsAreasContainer.js';
@@ -41,6 +42,7 @@ export type AnalyticsAreasScreenProps = {
 };
 
 export function AnalyticsAreasAdminPage({ renderDetail }: AnalyticsAreasScreenProps = {}) {
+  const { hostOwnsTitle } = useHostSeam();
   const { search, write } = useHostSearchWriter(
     '/admin/analytics-areas',
     validateAnalyticsAreasSearch,
@@ -91,8 +93,7 @@ export function AnalyticsAreasAdminPage({ renderDetail }: AnalyticsAreasScreenPr
   return (
     <PageShell
       header={{
-        title: 'Analytics Area',
-        subtitle: SUBTITLE,
+        ...(hostOwnsTitle ? {} : { title: 'Analytics Area', subtitle: SUBTITLE }),
         actions: (
           <PermissionGate capability="workspace.admin" fallback={null} loading={null}>
             <AnalyticsAreasFilter

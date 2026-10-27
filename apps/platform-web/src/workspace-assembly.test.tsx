@@ -105,6 +105,7 @@ describe('workspace assembly (#260)', () => {
       ['foTasks', 'feedbackops'],
       ['foIntegration', 'feedbackops'],
       ['foSurveys', 'feedbackops'],
+      ['foAdmin', 'feedbackops'],
     ]);
     expect(SPACES.map(space => space.id)).toEqual(['mars', 'bravo', 'clas', 'tools', 'log-dev', 'improvement', 'operations', 'feedbackops']);
     expect(SPACES[0]).toMatchObject({
@@ -186,6 +187,15 @@ describe('workspace assembly (#260)', () => {
       expect(registry.menuById(id).pageKeys).toEqual(expect.arrayContaining(['managedSystem', 'returnTo']));
       expect(registry.spaceOf(registry.menuById(id))?.id).toBe('feedbackops');
     }
+    // #764 p2: the 관리자 group follows Surveys; every screen needs console:access (the workspace-admin rule), not just feedbackops:access.
+    const adminIds = ['fo-managed-systems', 'fo-analytics-areas', 'fo-permission-requests', 'fo-permission-grants', 'fo-settings'];
+    expect(registry.menus.filter(menu => menu.group === 'foAdmin').map(menu => menu.id)).toEqual(adminIds);
+    expect(registry.menuById('fo-managed-systems')).toMatchObject({ path: '/feedbackops/fo-managed-systems', primary: true });
+    for (const id of adminIds) {
+      expect(registry.menuById(id)).toMatchObject({ permission: 'console:access', requiresScope: false, pageType: 'management' });
+      expect(registry.menuById(id).pageKeys).toEqual(expect.arrayContaining(['managedSystem', 'returnTo']));
+      expect(registry.spaceOf(registry.menuById(id))?.id).toBe('feedbackops');
+    }
     // #252 (ADR-0065): work-queue first; every menu is planned and open to every signed-in user for now.
     expect(SPACES[4]).toMatchObject({ label: { ko: '표준 로그 개발', en: 'Standard log development' }, homeMenuId: 'log-my-queue' });
     expect(SPACES[5]).toMatchObject({ label: { ko: '개선 실행', en: 'Improvement execution' }, homeMenuId: 'imp-my-tasks' });
@@ -217,6 +227,7 @@ describe('workspace assembly (#260)', () => {
     expect(slots.feedbackOps?.entriesFor(spaceId('bravo'))?.map(entry => [entry.key, 'href' in entry ? entry.href : undefined])).toEqual([['voc', undefined], ['task', undefined], ['survey', undefined]]);
     expect(slots.feedbackOps?.entriesFor(spaceId('operations'))).toBeNull();
     expect(slots.feedbackOps?.overall).toBeNull();
+    expect(appSlots(assembly, 'https://feedbackops.example', fakeSlot, fakeVocCompose, fakeHomeTodo, fakeScopeControl, fakeNavCounts, fakeSection).feedbackOps?.overall).toBeNull();
     expect(appSlots(assembly, 'https://feedbackops.example', fakeSlot, fakeVocCompose, fakeHomeTodo, fakeScopeControl, fakeNavCounts, fakeSection).feedbackOps?.entriesFor(spaceId('bravo'))?.filter(entry => 'href' in entry).every(entry => 'href' in entry && entry.href?.startsWith('https://feedbackops.example/'))).toBe(true);
     expect(Object.keys(slots)).toEqual(['contextBar', 'topBarTools', 'feedbackOps', 'plannedSpaces', 'boardEntry', 'notifications', 'vocCompose', 'homeTodo', 'scopeControl', 'navCounts', 'spaceNavSection']);
     expect(slots.notifications).toBe(fakeSlot);

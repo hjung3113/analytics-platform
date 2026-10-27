@@ -51,6 +51,7 @@ The canonical term is "Analytics Area" (per `docs/feedbackops/design/03-core-pla
 
 ## Verification
 
+- Under the platform bridge (`useHostSeam().hostOwnsTitle`), the five admin screens (Managed System, Analytics Area, permission requests, permission grants, workspace settings) draw no title/subtitle of their own — the platform page head is the title (#764 p2); header actions (filters, register and grant buttons) stay. Standalone keeps every title. `admin/__tests__/admin-host-title.test.tsx` and `permission-screens.host.test.tsx` pin both.
 - Test Analytics Area tree restore, Managed System default editing, permission approval/rejection/revocation states, explicit deny display, and blocked-state return paths when touched.
 
 ## Permission close-out contract

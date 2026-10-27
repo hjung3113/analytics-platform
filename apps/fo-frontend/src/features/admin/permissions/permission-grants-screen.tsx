@@ -9,6 +9,7 @@ import { GLOSSARY } from '@/lib/copy/glossary';
 import { SCOPE_SELECTOR_COPY } from '@/lib/copy/managed-system-scope';
 import { formatDateOnly, formatDateTime } from '@/lib/format/datetime';
 import type { ClosableDetailParts } from '@/lib/host/detail-parts';
+import { useHostSeam } from '@/lib/host/host-seam';
 import { shortId } from '@/lib/identity';
 
 import {
@@ -36,6 +37,7 @@ export function PermissionGrantsScreen({
   autoSelect = true,
   renderDetail,
 }: PermissionGrantsScreenProps = {}) {
+  const { hostOwnsTitle } = useHostSeam();
   const {
     grants,
     denies,
@@ -161,8 +163,12 @@ export function PermissionGrantsScreen({
   const shell = (
     <ListShell
       toolbar={{
-        title: ADMIN_PERMISSIONS_COPY.activeTitle,
-        subtitle: ADMIN_PERMISSIONS_COPY.listSubtitle,
+        ...(hostOwnsTitle
+          ? {}
+          : {
+              title: ADMIN_PERMISSIONS_COPY.activeTitle,
+              subtitle: ADMIN_PERMISSIONS_COPY.listSubtitle,
+            }),
         actions: (
           <>
             <Button

@@ -52,13 +52,15 @@ describe('Admin tables', () => {
     expect(route.target(to)).toBeNull();
   });
 
-  it('exports the five targets and none is in operatorHostLinks yet (764p1)', () => {
+  it('exports the five targets, all wired into operatorHostLinks after the survey targets (764p2); an unmapped /admin path stays unlinked', () => {
     expect(adminOperatorTargets).toHaveLength(5);
-    expect(operatorHostLinks.canLink('/admin/managed-systems')).toBe(false);
-    expect(operatorHostLinks.canLink('/admin/analytics-areas')).toBe(false);
-    expect(operatorHostLinks.canLink('/admin/permissions/requests')).toBe(false);
-    expect(operatorHostLinks.canLink('/admin/permissions/grants')).toBe(false);
-    expect(operatorHostLinks.canLink('/admin/settings')).toBe(false);
-    expect(operatorHostLinks.canLink('/admin/settings#coverage')).toBe(false);
+    for (const to of [
+      '/admin/managed-systems', `/admin/analytics-areas?managedSystem=${SYSTEM}&includeArchived=true`, `/admin/permissions/requests?tab=approved&selected=${ROW}`,
+      `/admin/permissions/grants?tab=denies&selected=${ROW}`, '/admin/settings', '/admin/settings#coverage',
+    ]) expect(operatorHostLinks.canLink(to)).toBe(true);
+    expect(operatorHostLinks.targetOf('/admin/settings#coverage')).toEqual({ menuId: 'fo-settings', page: { section: 'coverage' } });
+    expect(operatorHostLinks.canLink('/admin/foo')).toBe(false);
+    expect(operatorHostLinks.canLink('/admin/settings#other')).toBe(false);
+    expect(operatorHostLinks.targetOf('/surveys')?.menuId).toBe('fo-surveys');
   });
 });

@@ -20,7 +20,7 @@ Base는 인자 `origin`이다. 정규형은 정규식이 아니라 URL 표준 �
 | `voc-list` | `{origin}/vocs?view=inbox&managedSystem={uuid}` | `/vocs`의 `view`(inbox\|my\|triage)·`managedSystem`(`apps/frontend/src/features/voc/routes/voc-search.ts`, `dc7638f`). `selected` 없음 |
 | `task-list` | `{origin}/tasks?managedSystem={uuid}` | `/tasks`의 `managedSystem`(uuid \| `all`, `apps/frontend/src/routes/_authed/tasks.tsx`, `dc7638f`). 생성기는 uuid만 낸다 |
 | `survey-list` | `{origin}/surveys?managedSystem={uuid}` | `/surveys`의 `managedSystem`(uuid \| `all`)·`selected` 둘뿐(`apps/frontend/src/routes/_authed/surveys/index.tsx`, `dc7638f`). 생성기는 `managedSystem` 하나만 낸다 |
-| `overall` | `{origin}/home` | `/home`의 `managedSystem`(uuid, optional, `apps/frontend/src/routes/_authed/home.tsx`, `dc7638f`). 쿼리를 붙이지 않는다 — 시스템 범위 없는 허브 |
+| `overall` | `{origin}/home` | `/home`의 `managedSystem`(uuid, optional, `apps/frontend/src/routes/_authed/home.tsx`, `dc7638f`). 쿼리를 붙이지 않는다 — 시스템 범위 없는 허브. 유효한 대상으로 남지만 이 플랫폼 앱은 더 이상 그리지 않는다(사용자 메뉴 `FeedbackOps 전체` 제거, ADR-0081 결정 6, #764 p2) |
 
 `overall`을 뺀 여섯 대상은 위 URL 끝에 선택 키 `platformReturn` 하나를 더 붙일 수 있다(contract 2, 아래 "복귀"). 표의 "하나만"·"query 없음"은 그 키를 뺀 나머지 키를 말한다.
 

@@ -7,6 +7,7 @@ import type { AdminPermissionRequestRow } from '@/lib/api/permission-reads';
 import { getCapabilityDisplayLabel } from '@/lib/copy/capabilities';
 import { formatDateOnly, formatDateTime } from '@/lib/format/datetime';
 import type { ClosableDetailParts } from '@/lib/host/detail-parts';
+import { useHostSeam } from '@/lib/host/host-seam';
 import { shortId } from '@/lib/identity';
 
 import {
@@ -29,6 +30,7 @@ export function PermissionRequestsScreen({
   autoSelect = true,
   renderDetail,
 }: PermissionRequestsScreenProps = {}) {
+  const { hostOwnsTitle } = useHostSeam();
   const {
     allRequests,
     visibleRequests,
@@ -75,10 +77,14 @@ export function PermissionRequestsScreen({
 
   const shell = (
     <ListShell
-      toolbar={{
-        title: '권한 요청 검토',
-        subtitle: '워크스페이스 권한 요청을 검토하고 결정합니다.',
-      }}
+      {...(hostOwnsTitle
+        ? {}
+        : {
+            toolbar: {
+              title: '권한 요청 검토',
+              subtitle: '워크스페이스 권한 요청을 검토하고 결정합니다.',
+            },
+          })}
       tabs={
         <ListTabs
           tabs={tabs}
