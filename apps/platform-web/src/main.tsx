@@ -16,7 +16,6 @@ import { createAssembly } from '#platform-assembly';
 import { readFeedbackOpsOrigin } from './feedbackops-origin';
 import { managedSystemFor } from './feedbackops-systems';
 import { createLocalQueryHistoryStore } from './query-history-store';
-import { createLocalSavedViewStore } from './saved-view-store';
 import { EQUIPMENT_AXES } from './equipmentAxes';
 import { registry, SPACE_ID_MIGRATIONS } from './menus';
 import { appSlots } from './slots';
@@ -31,9 +30,6 @@ const feedbackOpsOrigin = readFeedbackOpsOrigin(import.meta.env.VITE_FEEDBACKOPS
 // It may be asynchronous (the real assembly awaits the bootstrap, #154), so the tree mounts after it answers; it can
 // also ask for a redirect (login) or a replacement screen (server unavailable) instead of the app.
 const queryHistory = createLocalQueryHistoryStore();
-// The store judges menu permission by the session's own permissions, read once the assembly exists.
-let sessionPermissions: (() => readonly string[]) | undefined;
-const savedViews = createLocalSavedViewStore(undefined, undefined, undefined, undefined, menuId => { try { return registry.menuById(menuId).permission; } catch { return undefined; } }, () => sessionPermissions?.());
 // One slot object for the page's lifetime: its `Compose` component must keep its identity so a held draft does not remount.
 const vocCompose = vocComposeSlot(managedSystemFor);
 const location = import.meta.env.BASE_URL === '/' ? undefined : createBasePathLocation(import.meta.env.BASE_URL);
@@ -49,13 +45,12 @@ void startOrFail(root, async () => {
     root.render(<StrictMode>{assembly.screen}</StrictMode>);
     return;
   }
-  sessionPermissions = () => assembly.adapter.session().user.permissions;
   // The bridge screens' FeedbackOps API comes from the assembly (ADR-0071); mock builds have none → "실서버 필요".
   setFoApi(assembly.feedbackOpsApi ?? null);
   root.render(
     <StrictMode>
       <I18nProvider>
-        <PlatformProvider spaceIdMigrations={SPACE_ID_MIGRATIONS} queryHistory={queryHistory} savedViews={savedViews} equipmentAxes={EQUIPMENT_AXES} adapter={assembly.adapter} registry={registry} location={location} slots={appSlots(assembly, feedbackOpsOrigin, notificationsSlot, vocCompose, homeTodoSlot, scopeControlSlot, navCountsSlot, savedViewsSlot)}>
+        <PlatformProvider spaceIdMigrations={SPACE_ID_MIGRATIONS} queryHistory={queryHistory} savedViews={assembly.savedViews} equipmentAxes={EQUIPMENT_AXES} adapter={assembly.adapter} registry={registry} location={location} slots={appSlots(assembly, feedbackOpsOrigin, notificationsSlot, vocCompose, homeTodoSlot, scopeControlSlot, navCountsSlot, savedViewsSlot)}>
           <AppShell><RouteOutlet /></AppShell>
         </PlatformProvider>
       </I18nProvider>

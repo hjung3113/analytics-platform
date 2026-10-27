@@ -144,6 +144,7 @@ checkWorkbook | function | function checkWorkbook(sheets: readonly @ap/component
 clampGeometry | function | function clampGeometry(geometry: @ap/components#FloatingGeometry, area: @ap/components#FloatingArea, minSize: @ap/components#FloatingSize): @ap/components#FloatingGeometry
 copyText | function | function copyText(text: string): Promise<boolean>
 encodeTableSort | function | function encodeTableSort(sorting: @ap/contracts#PageSort[]): null | string
+failureText | const | const failureText: (outcome: Extract<@ap/contracts#Result<unknown>, { ok: false; }>, tx: (text: @ap/contracts#Text) => string) => string
 fitsArea | function | function fitsArea(area: @ap/components#FloatingArea, minSize: @ap/components#FloatingSize, narrowBelow?: number): boolean
 focusPageFallback | function | function focusPageFallback(source: HTMLElement | null): void
 formatQuerySummary | function | function formatQuerySummary(global: @ap/contracts#GlobalContext, page: readonly @ap/contracts#Pair[], options: @ap/components#QuerySummaryOptions): string

@@ -1,4 +1,5 @@
-import { formatPeriod, periodSpan, type SavedView, type SavedViewContext, type ViewApproval, type ViewVisibility } from '@ap/contracts';
+import { formatPeriod, periodSpan, type Result, type SavedView, type SavedViewContext, type ViewApproval, type ViewVisibility } from '@ap/contracts';
+import type { DiagnoseReason, Text } from '@ap/kernel';
 
 type Lang = 'ko' | 'en';
 type Pair = { ko: string; en: string };
@@ -78,10 +79,6 @@ const WORDS = {
   visibilityHint: { ko: '저장 버튼을 눌러야 정해집니다.', en: 'Decided only when you press Save.' },
   submit: { ko: '저장', en: 'Save' },
   saving: { ko: '저장 중', en: 'Saving' },
-  failConflict: { ko: '다른 곳에서 먼저 바뀌었습니다. 입력은 그대로입니다. 새로 고친 뒤 다시 저장하세요.', en: 'It changed elsewhere first. Your input is kept; refresh and save again.' },
-  failForbidden: { ko: '저장할 권한이 없습니다. 입력은 그대로입니다.', en: 'You cannot save this. Your input is kept.' },
-  failUnavailable: { ko: '지금은 저장할 수 없습니다. 입력은 그대로이니 다시 시도하세요.', en: 'Saving is unavailable now. Your input is kept; try again.' },
-  failInvalid: { ko: '저장할 수 없는 내용입니다. 입력은 그대로입니다.', en: 'This content cannot be saved. Your input is kept.' },
 } satisfies Record<string, Pair>;
 
 export type WordKey = keyof typeof WORDS;
@@ -132,3 +129,39 @@ export function summarizeContext(context: SavedViewContext, lang: Lang): string[
   if (context.membershipBasis === 'asOf') out.push(lang === 'ko' ? '그 시점 소속 기준' : 'Membership as of then');
   return out;
 }
+
+/** The user-facing sentence for one Kernel reason; `denied` carries the store's own wording, and a key is data shown as is. */
+export function reasonText(reason: DiagnoseReason | string, tx: (text: Text) => string): string {
+  if (typeof reason === 'string') return reason;
+  const key = reason.key ?? '';
+  switch (reason.code) {
+    case 'denied': return reason.message ?? tx({ ko: '이 뷰를 볼 권한이 없습니다.', en: 'You cannot view this.' });
+    case 'menu-mismatch': return tx({ ko: `다른 메뉴(${key})에서 저장한 뷰입니다.`, en: `Saved in another menu (${key}).` });
+    case 'stale-context-key': return tx({ ko: `더 이상 지원하지 않는 조건이 저장되어 있습니다: ${key}`, en: `A condition that is no longer supported was saved: ${key}` });
+    case 'stale-page-key': return tx({ ko: `더 이상 지원하지 않는 화면 설정이 저장되어 있습니다: ${key}`, en: `A page setting that is no longer supported was saved: ${key}` });
+    case 'menu-schema-version': return tx({ ko: '메뉴 화면 버전이 올라갔습니다.', en: 'The menu view version has moved on.' });
+    case 'metric-version': return tx({ ko: '지표 버전이 올라갔습니다.', en: 'The metric version has moved on.' });
+    case 'unknown-axis': return tx({ ko: `없어진 조건 축이 저장되어 있습니다: ${key}`, en: `A condition axis that no longer exists was saved: ${key}` });
+    case 'invalid-selection': return tx({ ko: `더 이상 찾을 수 없는 선택이 있습니다: ${key}`, en: `A selection that can no longer be found: ${key}` });
+    case 'migration-unavailable': return tx({ ko: '자동으로 옮길 방법이 없습니다.', en: 'There is no automatic way to move it.' });
+  }
+}
+
+/** One short line per saved part; uses the same context wording as the view picker. Never lists master values. */
+export function contentLines(view: SavedView, tx: (text: Text) => string, lang: Lang): string[] {
+  const lines = [tx(view.kind === 'menu-view' ? { ko: '메뉴 뷰', en: 'Menu view' } : { ko: '조회 조건', en: 'Query condition' }), ...summarizeContext(view.context, lang)];
+  if (view.kind === 'menu-view') {
+    const pageKeys = Array.isArray(view.page) ? new Set(view.page.map(([key]) => key)).size : Object.keys(view.page).length;
+    if (pageKeys > 0) lines.push(tx({ ko: `화면 설정 ${pageKeys}개`, en: `${pageKeys} page settings` }));
+  }
+  return lines;
+}
+
+const FAILURE_TEXT: Record<Extract<Result<unknown>, { ok: false }>['reason'], Text> = {
+  conflict: { ko: '다른 곳에서 먼저 바뀌었습니다.', en: 'Another change was saved elsewhere first.' },
+  forbidden: { ko: '저장할 권한이 없습니다.', en: 'You do not have permission to save.' },
+  unavailable: { ko: '지금은 저장할 수 없습니다.', en: 'Saving is unavailable right now.' },
+  invalid: { ko: '저장할 수 없는 내용입니다.', en: 'This content cannot be saved.' },
+};
+
+export const failureText = (outcome: Extract<Result<unknown>, { ok: false }>, tx: (text: Text) => string): string => tx(FAILURE_TEXT[outcome.reason]);

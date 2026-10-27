@@ -27,12 +27,6 @@ export const DIRECTORY: readonly DirectoryPerson[] = [
   { userId: 'u-kimminjun-b', displayName: '김민준', affiliation: '설비기술팀' },
 ];
 
-/** Menu permission per menu id; a menu absent here needs none. */
-export const MENU_PERMISSIONS: Readonly<Record<string, string>> = {
-  'productivity-overview': 'analytics:view',
-  'cycle-time': 'analytics:view',
-  'execution-detail': 'analytics:view',
-};
 /** The menu schema the seed treats as current; the stale seed view is saved one version earlier. */
 const CURRENT_SCHEMA = 2;
 const SEED_TIME = Date.UTC(2026, 9, 20);

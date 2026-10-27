@@ -2,17 +2,14 @@ import { useEffect, useId, useRef, useState, type RefObject, type Ref } from 're
 import { canTransition, type DeniedSavedView, type SavedView, type SavedViewEntry, type SavedViewListItem } from '@ap/contracts';
 import { useI18n, type Text } from '@ap/kernel';
 import { Button, StatusBadge, Textarea } from '@ap/ui';
-import {
-  APPROVAL_LABEL, APPROVAL_TONE, contentLines, failureText, reasonText, visibilityText,
-  type ApprovalRequestInfo, type ViewActionOutcome, type ViewDecideHandler, type ViewDiagnosis, type ViewRevokeHandler,
-} from './viewInfo';
+import { approvalText, contentLines, failureText, reasonText, visibilityText } from './text';
+import { APPROVAL_TONE, type ApprovalRequestInfo, type ViewActionOutcome, type ViewDecideHandler, type ViewDiagnosis, type ViewRevokeHandler } from './viewInfo';
 
 const L = {
   owner: { ko: '소유자', en: 'Owner' },
   updated: { ko: '갱신 시각', en: 'Updated' },
   contents: { ko: '저장 내용', en: 'Saved contents' },
   audience: { ko: '공개 대상', en: 'Shared with' },
-  groups: { ko: '그룹', en: 'Groups' },
   people: { ko: '사람', en: 'People' },
   state: { ko: '승인 상태', en: 'Approval' },
   target: { ko: '승인 대상 버전', en: 'Version to approve' },
@@ -66,7 +63,7 @@ export function ViewRow({ entry, selected, diagnosis, reasonsOpen, onSelect, onT
   formatTime: (ms: number) => string;
   meta?: string;
 }) {
-  const { tx } = useI18n();
+  const { tx, lang } = useI18n();
   const panelId = useId();
   const denied = 'denied' in entry && entry.denied === true;
   const hasReason = denied || (diagnosis !== undefined && diagnosis.status !== 'ok');
@@ -79,7 +76,7 @@ export function ViewRow({ entry, selected, diagnosis, reasonsOpen, onSelect, onT
           className="min-w-0 flex-1 rounded-md px-2 py-1 text-left hover:bg-surface-raised focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring">
           <span className="flex items-center gap-2">
             <span className="min-w-0 truncate text-sm font-semibold text-text-primary">{(entry as SavedViewEntry).view.name}</span>
-            <StatusBadge tone={APPROVAL_TONE[(entry as SavedViewEntry).view.approval]}>{tx(APPROVAL_LABEL[(entry as SavedViewEntry).view.approval])}</StatusBadge>
+            <StatusBadge tone={APPROVAL_TONE[(entry as SavedViewEntry).view.approval]}>{approvalText((entry as SavedViewEntry).view.approval, lang)}</StatusBadge>
             {diagnosis?.status === 'stale' && <StatusBadge tone="warning">{tx(L.stale)}</StatusBadge>}
           </span>
           <span className="block truncate text-xs text-text-muted">
@@ -119,6 +116,7 @@ export function ViewDetail({ entry, request, diagnosis, personName, groupName, d
   const noteId = useId();
   const canDecide = view.approval === 'pending' && capabilities.canApprove && canTransition(view.approval, 'approve') && onDecide !== undefined;
   const canRevoke = view.approval === 'approved' && capabilities.canRevoke && canTransition(view.approval, 'revoke') && onRevoke !== undefined;
+  const groupNames = view.visibility.kind === 'groups' ? Object.fromEntries(view.visibility.groupIds.map(id => [id, groupName(id)])) : {};
 
   const run = async (kind: 'approve' | 'reject' | 'revoke', call: () => Promise<ViewActionOutcome>) => {
     if (busy) return;
@@ -135,7 +133,7 @@ export function ViewDetail({ entry, request, diagnosis, personName, groupName, d
   const rows: [Text, string][] = [
     [L.owner, personName(view.ownerId)],
     [L.updated, formatTime(view.updatedAt)],
-    [L.state, tx(APPROVAL_LABEL[view.approval])],
+    [L.state, approvalText(view.approval, lang)],
   ];
   return <section role="region" aria-label={view.name} className="space-y-3 rounded-md border border-border-subtle p-3">
     <div className="flex items-center justify-between gap-2">
@@ -146,8 +144,7 @@ export function ViewDetail({ entry, request, diagnosis, personName, groupName, d
       {rows.map(([label, value]) => <div key={label.en} className="contents"><dt className="text-text-muted">{tx(label)}</dt><dd>{value}</dd></div>)}
       <dt className="text-text-muted">{tx(L.audience)}</dt>
       <dd>
-        <p>{visibilityText(view.visibility, tx)}</p>
-        {view.visibility.kind === 'groups' && <ul aria-label={tx(L.groups)} className="break-words">{view.visibility.groupIds.map(id => <li key={id}>{groupName(id)}</li>)}</ul>}
+        <p>{visibilityText(view.visibility, lang, groupNames)}</p>
         {view.visibility.kind === 'people' && <ul aria-label={tx(L.people)} className="break-words">{view.visibility.userIds.map(id => <li key={id}>{personName(id)}</li>)}</ul>}
       </dd>
       <dt className="text-text-muted">{tx(L.contents)}</dt>

@@ -2,7 +2,7 @@ import { useRef, useState, type RefObject } from 'react';
 import type { Result, SavedViewContext, SavedViewKind } from '@ap/contracts';
 import { useI18n } from '@ap/kernel';
 import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Label, RadioGroup, RadioGroupItem } from '@ap/ui';
-import { panelBadgeText, summarizeContext, word } from './text';
+import { failureText, panelBadgeText, summarizeContext, word } from './text';
 
 export type SaveViewSubmit = { mode: 'new' | 'update'; unit: SavedViewKind; name: string; visibility: string };
 export type SaveViewDialogProps = {
@@ -26,8 +26,6 @@ export type SaveViewDialogProps = {
   returnFocusRef?: RefObject<HTMLElement | null>;
   onSubmit: (input: SaveViewSubmit) => Promise<Result<unknown>>;
 };
-
-const FAIL = { conflict: 'failConflict', forbidden: 'failForbidden', unavailable: 'failUnavailable', invalid: 'failInvalid' } as const;
 
 export function SaveViewDialog(props: SaveViewDialogProps) {
   const { lang } = useI18n();
@@ -60,7 +58,7 @@ function DialogBody({ units, updatable, initialMode, initialName = '', context, 
     const result = await onSubmit({ mode, unit, name: updating ? updatable?.name ?? name : name.trim(), visibility });
     setBusy(false);
     if (result.ok) onOpenChange(false);
-    else setFailure(word(FAIL[result.reason], lang) + (result.detail ? ` (${result.detail})` : ''));
+    else setFailure(failureText(result, text => text[lang]) + (result.detail ? ` (${result.detail})` : ''));
   };
 
   return (

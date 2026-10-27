@@ -11,7 +11,7 @@ afterEach(cleanup);
 
 const CAPS: ViewCapabilities = { canView: true, canCopy: true, canEdit: false, canShare: false, canApprove: false, canRevoke: false };
 const entry = (id: string, approval: ViewApproval, caps: Partial<ViewCapabilities> = {}, name = `뷰 ${id}`): SavedViewEntry => ({
-  view: { id, schemaVersion: 1, kind: 'condition-set', name, ownerId: 'owner', version: 2, updatedAt: Date.UTC(2026, 9, 20), context: { from: '2026-10-01', to: '2026-10-07' }, visibility: { kind: 'private' }, approval },
+  view: { id, schemaVersion: 1, kind: 'condition-set', name, ownerId: 'owner', version: 2, updatedAt: Date.UTC(2026, 9, 20), context: { from: '2026-10-01T00:00:00', to: '2026-10-07T00:00:00' }, visibility: { kind: 'private' }, approval },
   capabilities: { ...CAPS, ...caps },
 });
 const denied = { id: 'hidden', denied: true as const, reason: '이 Scope를 볼 권한이 없습니다' };
@@ -199,8 +199,7 @@ describe('review round: shared-with names and saved contents', () => {
     await open();
     await userEvent.click(screen.getByRole('button', { name: /뷰 g/ }));
     const region = screen.getByRole('region', { name: '뷰 g' });
-    expect(within(region).getByText('그룹:g1')).toBeInTheDocument();
-    expect(within(region).getByText('그룹:g2')).toBeInTheDocument();
+    expect(within(region).getByText('그룹:g1, 그룹:g2')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: /뷰 h/ }));
     const second = screen.getByRole('region', { name: '뷰 h' });
     expect(within(second).getByText('이름:u1')).toBeInTheDocument();
@@ -230,7 +229,7 @@ describe('review round: shared-with names and saved contents', () => {
     render(<Host entries={[view]} />);
     await open();
     await userEvent.click(screen.getByRole('button', { name: /뷰 f/ }));
-    expect(within(screen.getByRole('region', { name: '뷰 f' })).getByText(`기간 ${text}`)).toBeInTheDocument();
+    expect(within(screen.getByRole('region', { name: '뷰 f' })).getByText(`고정 기간 ${text}`)).toBeInTheDocument();
   });
 });
 

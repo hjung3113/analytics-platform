@@ -15,6 +15,7 @@ import { createMockAdapter, storedUsage, type AnyMockEndpoint } from '@ap/mock-s
 import { DevTools } from './DevTools';
 import { eqvMock } from './eqv-mock';
 import { modulePermissions } from '../modules';
+import { createLocalSavedViewStore } from '../saved-view-store';
 
 /**
  * Every menu mock endpoint the app registers — the one list (#153): the mock adapter below and the server
@@ -49,6 +50,10 @@ export const MOCK_AUDIT_EVENTS: readonly AuditEvent[] = [...metricsAuditEvents];
  */
 export const createAssembly: CreateAssembly = ({ registry }) => {
   const adapter = createMockAdapter({ equipmentAxes: EQUIPMENT_AXES, endpoints: [...MOCK_ENDPOINTS, ...MODULE_MOCK_ENDPOINTS], registry, permissions: [...registry.permissions, ...modulePermissions(registry)], auditEvents: MOCK_AUDIT_EVENTS });
+  const savedViews = createLocalSavedViewStore({
+    menuPermissionOf: menuId => { try { return registry.menuById(menuId).permission; } catch { return undefined; } },
+    sessionPermissions: () => adapter.session().user.permissions,
+  });
   // Dev server only: the black-box E2E reads the raw usage rows (not exposed by any adapter port) to check the entry's
   // `via`/`fromMenuId` (#605). `NODE_ENV` is `development` only on the dev server (vitest and `--mode mock` builds differ), so never in a `--mode mock` build and never in a production graph.
   if (process.env.NODE_ENV === 'development') (window as unknown as { __apUsageEvents?: () => unknown }).__apUsageEvents = () => storedUsage().map(row => ({ ...row }));
@@ -60,5 +65,6 @@ export const createAssembly: CreateAssembly = ({ registry }) => {
       return adapter.menuQuery(request, signal);
     } },
     topBarTools: <DevTools />,
+    savedViews,
   };
 };

@@ -6,13 +6,14 @@ import { createLocalSavedViewStore, savedViewDefaultStorageKey, savedViewGroupsS
 const MENU = 'productivity-overview';
 const storage = memoryStorage();
 const as = (role: 'engineer' | 'admin' | 'viewer') => storage.setItem('platform:role', JSON.stringify(role));
+const permissionOf = (id: string) => ({ 'productivity-overview': 'analytics:view', 'equipment-master': 'equipment:view' } as Record<string, string>)[id];
 beforeEach(() => { storage.clear(); as('engineer'); });
 // Emulates the origin lock: requests serialize across independent store instances.
 let tail = Promise.resolve();
 const locks = { request: async <T,>(_name: string, callback: () => T | Promise<T>): Promise<T> => {
   const result = tail.then(callback); tail = result.then(() => undefined, () => undefined); return result;
 } };
-const store = (): SavedViewStore => createLocalSavedViewStore(() => storage, locks, () => 5);
+const store = (): SavedViewStore => createLocalSavedViewStore({ getStorage: () => storage, locks, now: () => 5, menuPermissionOf: permissionOf });
 const key = (userId: string, menuId: string | null = MENU) => ({ userId, menuId });
 const ENG = 'engineer'; const ADMIN = 'admin';
 const draft = (name = '새 뷰'): SavedViewDraft => ({ schemaVersion: 1, kind: 'menu-view', name, menuId: MENU, menuSchemaVersion: 2, context: { relativePeriod: { hours: 24 } }, page: { grain: ['hour'] }, chartOptions: {}, layout: null, panels: null });
@@ -160,7 +161,7 @@ it('concurrent writes from independent instances are serialized by the lock; wit
   expect(results.every(r => r.ok)).toBe(true);
   expect(new Set(visible(await a.list(key(ENG))).map(i => i.view.id)).size).toBe(visible(await a.list(key(ENG))).length);
   expect(visible(await a.list(key(ENG))).map(i => i.view.name)).toEqual(expect.arrayContaining(['x', 'y', 'z']));
-  const closed = createLocalSavedViewStore(() => storage, undefined, () => 5);
+  const closed = createLocalSavedViewStore({ getStorage: () => storage, locks: undefined, now: () => 5, menuPermissionOf: permissionOf });
   const snapshot = storage.getItem(savedViewsStorageKey(ENG, MENU));
   expect(await closed.save(draft('n'))).toMatchObject({ ok: false, reason: 'unavailable' });
   expect(storage.getItem(savedViewsStorageKey(ENG, MENU))).toBe(snapshot);
@@ -193,8 +194,7 @@ it('searchPeople separates same-named people by affiliation and honors an aborte
   expect(await s.searchPeople('김민준', aborted.signal)).toEqual([]);
 });
 
-const permissionOf = (id: string) => ({ 'productivity-overview': 'analytics:view', 'equipment-master': 'equipment:view' } as Record<string, string>)[id];
-const withRegistry = (): SavedViewStore => createLocalSavedViewStore(() => storage, locks, () => 5, undefined, permissionOf);
+const withRegistry = (): SavedViewStore => createLocalSavedViewStore({ getStorage: () => storage, locks, now: () => 5, menuPermissionOf: permissionOf });
 
 it('C2: a menu outside the seed table is judged by the registry permission; unknown menus are rejected; denied is exactly {id, denied, reason}', async () => {
   const s = withRegistry();
@@ -214,7 +214,7 @@ it('C3: editing an official copy keeps readers on the approved content until re-
   const official = { ...byName(await s.list(key(ENG)), '공식 생산성 일일 점검').view, ownerId: ENG, id: `${ENG}|${MENU}|9` };
   storage.setItem(savedViewsStorageKey(ENG, MENU), JSON.stringify({ schemaVersion: 1, views: [official] }));
   ok(await s.update(official.id, { name: '공식 (수정)' }, { expectedVersion: official.version }));
-  const reader = createLocalSavedViewStore(() => storage, locks, () => 5, () => ({ userId: 'viewer', admin: false, permissions: ['analytics:view'], rooms: ['PHOTO'] }), permissionOf);
+  const reader = createLocalSavedViewStore({ getStorage: () => storage, locks, now: () => 5, getActor: () => ({ userId: 'viewer', admin: false, permissions: ['analytics:view'], rooms: ['PHOTO'] }), menuPermissionOf: permissionOf });
   const asViewer = await reader.get(official.id);
   expect(asViewer).toMatchObject({ view: { name: official.name, approval: 'approved', visibility: { kind: 'official' } } });
   as('admin');

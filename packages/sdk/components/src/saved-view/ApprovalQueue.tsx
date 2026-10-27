@@ -4,10 +4,8 @@ import { useI18n, type Text } from '@ap/kernel';
 import { Input } from '@ap/ui';
 import { SegmentedRadio } from '../RadioGroup';
 import { ViewDetail, ViewRow, rowHasReason, useRowElements, useVanishedLayers } from './ViewParts';
-import {
-  APPROVAL_LABEL, formatKst,
-  type ApprovalRequestInfo, type ViewDecideHandler, type ViewDiagnosis, type ViewRevokeHandler,
-} from './viewInfo';
+import { approvalText } from './text';
+import { formatKst, type ApprovalRequestInfo, type ViewDecideHandler, type ViewDiagnosis, type ViewRevokeHandler } from './viewInfo';
 
 export type ApprovalQueueStatus = 'pending' | 'approved' | 'rejected' | 'all';
 
@@ -63,7 +61,7 @@ export function ApprovalQueue(props: ApprovalQueueProps) {
 }
 
 export function QueuePanel({ items, requests, diagnoses, currentUserId, defaultStatus = 'pending', selectedId: controlledId, onSelectedChange, reasonsId: controlledReasons, onReasonsChange, elements, onDecide, onRevoke, onMigrate, personName = id => id, groupName = id => id, describeView, formatTime = formatKst, onDone }: QueuePanelProps) {
-  const { tx } = useI18n();
+  const { tx, lang } = useI18n();
   const [status, setStatus] = useState<ApprovalQueueStatus>(defaultStatus);
   const [query, setQuery] = useState('');
   const [ownId, setOwnId] = useState<string | null>(null);
@@ -115,7 +113,7 @@ export function QueuePanel({ items, requests, diagnoses, currentUserId, defaultS
         label={tx(L.status)} value={status} onChange={setStatus}
         options={[
           { value: 'pending', label: tx(L.pending) },
-          ...(['approved', 'rejected'] as ViewApproval[]).map(value => ({ value: value as ApprovalQueueStatus, label: tx(APPROVAL_LABEL[value]) })),
+          ...(['approved', 'rejected'] as ViewApproval[]).map(value => ({ value: value as ApprovalQueueStatus, label: approvalText(value, lang) })),
           { value: 'all', label: tx(L.all) },
         ]} />
       <p role="status" className="text-xs text-text-muted">{tx(L.count(visible.length))}</p>
