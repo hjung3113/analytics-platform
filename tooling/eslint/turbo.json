@@ -2,6 +2,17 @@
   "$schema": "../../node_modules/turbo/schema.json",
   "extends": ["//"],
   "tasks": {
+    "test": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/*/package.json",
+        "$TURBO_ROOT$/packages/*/tsconfig*.json",
+        "$TURBO_ROOT$/packages/shell/src/__fixtures__/**",
+        "$TURBO_ROOT$/menus/*/*/package.json",
+        "$TURBO_ROOT$/menus/*/*/tsconfig*.json",
+        "$TURBO_ROOT$/apps/platform-web/tsconfig*.json"
+      ]
+    },
     "transit": {
       "inputs": ["package.json"]
     }

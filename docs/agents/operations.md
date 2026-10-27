@@ -46,6 +46,7 @@
 
 - 강제 push는 훅이 막는다. 이미 push한 브랜치가 main과 충돌하면 rebase 대신 `git merge origin/main`(rebase는 첫 push 전에만).
 - 병렬 PR은 `05`·`06`·`DESIGN.md`·i18n 사전·E2E helper에서 자주 충돌한다 — 하나씩 병합하며 푼다.
+- CI turbo 캐시(#1019): workspace 검사는 `.turbo/cache`(키 `turbo-<os>-node26.7.0-<static|test>-<sha>`)를 복원해 바뀐 패키지와 그 의존자만 돈다. 저장은 main push만 하고 PR은 복원만 한다. 패키지 밖 파일을 읽는 task는 `turbo.json`에 `$TURBO_ROOT$` inputs를 선언하지 않으면 캐시가 낡은 초록을 돌려준다. 캐시를 믿지 못할 때는 `ci.yml`을 `workflow_dispatch full=true`로 돌린다(캐시 복원 없이 `TURBO_FORCE=true`). 로컬은 worktree끼리 메인 체크아웃의 `.turbo/cache`를 함께 쓴다.
 - CSS selector CI: 의도한 클래스 제거는 PR에 `css-removal-ok` 라벨 + 이유 코멘트(라벨만 달아도 재평가된다).
 - 앱 `src/style.css`의 `@import "tailwindcss"`는 소스를 지정하지 않아 Tailwind가 `apps/platform-web/` 아래 Markdown까지 훑는다. 문서에 `z-30`·`wide:pr-[32rem]` 같은 글자가 있으면 CSS가 생기므로, 그런 문서를 지우거나 고치면 CSS selector 비교가 "제거"로 실패할 수 있다(#220). 소스 코드에 그 클래스가 없는지 `git grep`으로 확인하고 `css-removal-ok`.
 - 브랜치를 한 커밋으로 합칠 때는 `git reset --soft $(git merge-base HEAD origin/main)`을 쓴다. worktree들은 `origin/*`를 함께 쓰므로, 다른 worktree의 fetch로 `origin/main`이 앞서 있으면 `reset --soft origin/main`이 그 사이 병합된 PR을 되돌리는 커밋을 만든다(2026-10-23 #676이 #664를 되돌릴 뻔함, CSS selector 비교가 잡음). 커밋 뒤 `git diff origin/main --stat`이 이 PR의 파일만 보이는지 확인한다.

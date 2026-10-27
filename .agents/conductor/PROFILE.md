@@ -61,11 +61,11 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
 
 ### 수정 라운드 (Fix round)
 
-리뷰 지적이나 호스트 실패를 고친 라운드는 위 전부를 다시 돌리지 않는다. 바뀐 패키지 검사, 루트 `lint`·`typecheck`·`test`(캐시 사용; 가벼운 노드(2단계)는 `lint`·`typecheck`만), 닿은 describe만 `-g`로 E2E, 닿은 FeedbackOps 단계, hygiene(6)만 돌린다. 그 라운드가 7단계의 입력(공개 타입, SDK 파일 이동·이름 변경, CSS 규칙 삭제)을 바꿨으면 7단계도 돈다. `build`·전체 E2E·`probe.ts`는 돌리지 않는다 — 그 라운드가 build 입력(설정, 공개 export, `tooling/gen-menu`)을 바꾼 경우만 예외다. 전체는 PR CI가 한 번 다시 돈다(#945).
+리뷰 지적이나 호스트 실패를 고친 라운드는 위 전부를 다시 돌리지 않는다. 바뀐 패키지 검사, 루트 `lint`·`typecheck`·`test`(캐시 사용; 가벼운 노드(2단계)는 `lint`·`typecheck`만), 닿은 describe만 `-g`로 E2E, 닿은 FeedbackOps 단계, hygiene(6)만 돌린다. 그 라운드가 7단계의 입력(공개 타입, SDK 파일 이동·이름 변경, CSS 규칙 삭제)을 바꿨으면 7단계도 돈다. `build`·전체 E2E·`probe.ts`는 돌리지 않는다 — 그 라운드가 build 입력(설정, 공개 export, `tooling/gen-menu`)을 바꾼 경우만 예외다. 전체는 PR CI가 한 번 다시 돈다(#945; workspace 검사는 turbo 캐시로 바뀐 부분만 — #1019).
 
 ### Final head (ship 직전)
 
-마지막 수정 라운드 뒤 ship 전에는 hygiene(6)만 돌린다. `ship-pr.sh`의 rebase가 충돌했을 때만 위 「수정 라운드」 검사를 돌린다. 충돌이 없으면 CI가 최종 head의 기록이다. 릴리스 태그는 `main` CI가 초록인 SHA에 단다.
+마지막 수정 라운드 뒤 ship 전에는 hygiene(6)만 돌린다. `ship-pr.sh`의 rebase가 충돌했을 때만 위 「수정 라운드」 검사를 돌린다. 충돌이 없으면 CI가 최종 head의 기록이다(turbo 캐시 범위 — 바뀐 패키지와 그 의존자의 기록). 전체·cold 기록은 릴리스 태그 전 `ci.yml`의 `workflow_dispatch full=true` 실행이다. 릴리스 태그는 `main` CI가 초록이고 그 SHA의 `full=true` 실행이 초록인 SHA에 단다.
 
 ## Browser evidence
 
@@ -144,6 +144,7 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
 
 - 품질 리뷰 범위는 `<직전 태그>...origin/main`이다.
 - 화면이 바뀐 슬라이스면 `origin/main` 미리보기로 사용자 흐름을 `review-ux`로 본다.
+- 태그 전 단계: 태그할 SHA의 `gh workflow run ci.yml --ref main -f full=true`(전체 CI)가 초록이어야 한다. 확인은 `gh run list --workflow ci.yml --event workflow_dispatch --json headSha,conclusion,status,databaseId --limit 5`에서 `headSha`가 그 SHA이고 `conclusion == success`인 실행이 있는지(가장 최근 한 건만 보지 않는다, #1019).
 - 그다음 순서(문서 점검·소개 사이트 갱신 포함)는 [`LANES.md`](LANES.md) §팀장 릴리스가 원본이다. 끝나면 다음 슬라이스를 사용자에게 묻는다. 릴리스 명령은 `SHA=$(git rev-parse origin/main)`로 시작해 `gh release create --target "$SHA"`에 전체 SHA를 준다(짧은 SHA는 `target_commitish is invalid`).
 - 인계 전 `$ENGINE/app-preview.py status`에 추적 중인 미리보기가 없어야 한다.
 

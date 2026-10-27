@@ -126,6 +126,7 @@ E2E는 `E2E_PORT=<포트>`로, base-path E2E는 `E2E_BASE_PATH_PORT=<포트 + 1>
 - **정기 점검과 보고(사용자 2026-10-26: 2시간):** 팀장 세션에서 2시간 주기 점검을 건다(`CronCreate`, 세션 안 예약이라 팀장 세션이 바뀌면 다시 건다). 흐름 세션은 heartbeat가 없으니 점검마다 본다: `gh issue list --label lane:<x>`, `gh pr list`, `orca worktree ps`, `orchestration run-list`의 coordinator가 팀장 handle인지, 흐름 터미널마다 `orca terminal read --screen`(멈춘 권한 창·오류), 잠금 셋(위 「stale 잠금 점검」). 보고에는 흐름별 병합·진행·막힘, 모아 둔 결정 질문(추천안 포함), 릴리스 후보를 한 번에 담는다. 흐름 하나를 통째로 막는 질문만 받는 즉시 묻는다. 보고는 작업판 차이(끝난·진행·남은 줄)로 한다.
 - **릴리스:** 흐름 세션은 SDK 공개 변경마다 [`sdk-git-tag-consumption.md`](../../docs/integration/sdk-git-tag-consumption.md)에 "다음 릴리스" 행만 남긴다. 팀장은 정기 점검 때 "다음 릴리스" 행이 있고 `main` CI가 초록이면 SDK를 낸다. 그 SDK를 기다리는 흐름이 있으면 바로 낸다. 릴리스 순서의 원본은 이 줄이다(PROFILE §Slice close는 여기를 가리킨다):
   1. 슬라이스 마감 `review-quality`(화면이 바뀐 슬라이스는 `review-ux` 둘러보기도, PROFILE §Slice close). fix-in-slice는 이슈 하나로 고쳐 병합한다.
+  1a. **태그 전 전체 CI(#1019):** PR·main push CI는 turbo 캐시로 바뀐 부분만 돈다. 태그를 달 SHA에서 `gh workflow run ci.yml --ref main -f full=true`로 전체·cold(캐시 복원 없음, `TURBO_FORCE=true`) 실행을 한 번 돌려 초록이어야 한다. 확인은 가장 최근 한 건이 아니라 `gh run list --workflow ci.yml --event workflow_dispatch --json headSha,conclusion,status,databaseId --limit 5`에서 `headSha`가 태그할 SHA와 같고 `conclusion`이 `success`인 실행이 있는지다.
   2. 릴리스 문서 PR 초안: 변경 기록 버전, 보드 릴리스 줄. 앱 `v0.x` 릴리스면 site 흐름이 같은 시기에 사이트 갱신 PR을 연다(아래 소개 사이트 담당).
   3. **문서 점검**(아래). 2의 초안까지 본다. 지적은 팀장이 2의 릴리스 문서 PR에 넣어 고친다(사이트 지적은 site PR).
   4. 문서 PR(과 사이트 PR)을 병합한 뒤, SDK는 `sdk-v*` 태그·tarball·GitHub Release를 내고 보고한다. 앱 `v0.x`는 태그 전에 사용자에게 묻는다(사용자 2026-10-26).

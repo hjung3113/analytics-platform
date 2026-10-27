@@ -9,10 +9,20 @@
       "inputs": [
         "$TURBO_DEFAULT$",
         "../../packages/ui/src/rich-content/**",
-        "../../packages/fo-shared/src/rich-content/**"
+        "../../packages/fo-shared/src/rich-content/**",
+        "$TURBO_ROOT$/packages/*/src/**",
+        "$TURBO_ROOT$/packages/*/package.json"
       ]
     },
     "build": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/tooling/sdk/sdk-finalize-dist.mjs",
+        "$TURBO_ROOT$/apps/fo-frontend/src/**",
+        "$TURBO_ROOT$/apps/fo-frontend/package.json",
+        "$TURBO_ROOT$/packages/fo-shared/src/**",
+        "$TURBO_ROOT$/packages/fo-ui/src/**"
+      ],
       "env": [
         "AP_BACKEND_ORIGIN",
         "AP_BASE_PATH",

@@ -1,13 +1,14 @@
 {
   "$schema": "./node_modules/turbo/schema.json",
   "concurrency": "2",
+  "globalDependencies": ["package.json", "pnpm-workspace.yaml", ".nvmrc"],
   "globalPassThroughEnv": ["VITEST_MAX_WORKERS", "VITEST_MAX_FORKS", "VITEST_MAX_THREADS", "VITEST_MIN_FORKS", "VITEST_MIN_THREADS"],
   "tasks": {
     "transit": { "dependsOn": ["^transit"] },
     "typecheck": { "dependsOn": ["transit"] },
     "lint": {
       "dependsOn": ["transit"],
-      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/components.json", "$TURBO_ROOT$/apps/platform-web/src/style.css", "$TURBO_ROOT$/tooling/eslint/src/**"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/components.json", "$TURBO_ROOT$/apps/platform-web/src/style.css", "$TURBO_ROOT$/tooling/eslint/src/**", "$TURBO_ROOT$/packages/*/package.json", "$TURBO_ROOT$/menus/*/*/package.json"],
       "outputs": []
     },
     "test": { "dependsOn": ["transit"] },
