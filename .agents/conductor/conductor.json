@@ -121,12 +121,8 @@
         "match": {
           "any": [
             {
-              "exact": [
-                "docs/contract/platform-ui-contract.md"
-              ]
-            },
-            {
               "prefix": [
+                "docs/contract/",
                 "docs/adr/",
                 "packages/contracts/"
               ]
