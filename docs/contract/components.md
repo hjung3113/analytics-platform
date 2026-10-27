@@ -253,9 +253,12 @@ Status        Provisional
 - coverage
 - completeness / provisional state
 - metric version
+- source logic versions
 - source / lineage entry
 
 실제 값의 계산 책임은 Backend/Data layer에 있고 UI는 이를 표준적으로 표현한다.
+
+**원천 로직 버전(`Trust.sourceLogicVersions`, Candidate — 사용자 결정 2026-10-27, #1008):** 조회 구간에 쓰인 파서 로직 버전의 목록이다. 파서는 insert-only라 로직이 바뀌기 전에 쓴 행을 다시 채우지 않으므로 한 구간에 여러 버전이 섞일 수 있다. 값은 서버가 주는 불투명 표시 문자열이고(semver로 해석하지 않음) 배열 순서는 의미가 없다 — 클라이언트는 정렬하거나 "최신"을 추정하지 않는다. 있으면 비어 있지 않은 배열이고 항목은 서로 다른 비어 있지 않은 문자열이다. 서버가 모르면 **필드를 생략**하고 `[]`로 보내지 않는다(적합성 검사가 `[]`를 위반으로 본다). 표시 규칙: 둘 이상이면 지표에 "원천 로직 버전 혼재"를 드러내고, 하나면 Trust 상세에만 보이며, 필드가 없으면 아무것도 보이지 않는다 — "모두 같은 버전"이라는 가짜 판정을 만들지 않는다(가짜 정상 금지와 같은 원칙, §19). 보이는 형태는 프로토타입을 사용자가 컨펌하기 전까지 Candidate이고 지금은 계약(타입·검사)만 있으며 `DataTrustIndicator`는 이 필드를 그리지 않는다.
 
 ---
 

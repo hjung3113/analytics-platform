@@ -117,6 +117,8 @@ export type ServeOptions<T> = {
   metricVersion?: string;
   /** @internal Engine-only; menu handlers declare metricVersion on their endpoint instead. */
   metricVersionOf?: () => string | undefined;
+  /** @internal Engine-only; menu handlers declare sourceLogicVersions on their endpoint instead. */
+  sourceLogicVersionsOf?: () => string[] | undefined;
   /** Logical source shown in Data Trust (e.g. 'master.equipment'); defaults to the productivity mart. */
   source?: string;
   /**
@@ -197,6 +199,7 @@ function finish<T>(args: {
   verifiedDomain?: string | null;
   kinds?: AssessmentKind[];
   metricVersion?: string;
+  sourceLogicVersions?: string[];
   source?: string;
   provisional: boolean;
   /** False: not mart data, so no Data Trust (see ServeOptions.mart). */
@@ -218,6 +221,7 @@ function finish<T>(args: {
     trust: args.mart === false ? null : {
       updatedAt: '2026-09-26T09:02:00', dataThrough: '2026-09-26T08:00:00', coverage: args.scenario === 'unknown_status' ? null : 0.987,
       metricVersion: args.metricVersion, provisional: args.provisional, source: args.source ?? 'mart.productivity_hourly',
+      ...(args.sourceLogicVersions ? { sourceLogicVersions: args.sourceLogicVersions } : {}),
     },
   };
 }
@@ -286,6 +290,7 @@ export async function serve<T>(o: ServeOptions<T>): Promise<ApiResponse<T>> {
     verifiedDomain,
     kinds: o.kinds,
     metricVersion,
+    sourceLogicVersions: mart && !empty && s !== 'malformed' ? o.sourceLogicVersionsOf?.() : undefined,
     source: o.source,
     provisional: mart && !empty && s !== 'malformed' && o.provisionalOf
       ? o.provisionalOf(data)

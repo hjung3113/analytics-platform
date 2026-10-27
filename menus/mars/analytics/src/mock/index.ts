@@ -10,7 +10,7 @@ import {
   METRIC_VERSIONS, attentionEndpoint, breakdownEndpoint, drillEndpoint, kpisEndpoint, trendEndpoint,
   type DrillData, type KpisData, type TrendData,
 } from '../endpoints';
-import { attentionRows, computeKpis, drillEquipmentRows, drillStgroupRows, occupancyBreakdown, trendBuckets } from './productivity';
+import { attentionRows, sourceLogicVersionsFor, computeKpis, drillEquipmentRows, drillStgroupRows, occupancyBreakdown, trendBuckets } from './productivity';
 import { executionOccurrence } from './execution';
 import { cycleMock } from './cycle';
 import { chartCatalogMock } from './chart-catalog';
@@ -34,6 +34,7 @@ export const analyticsMock: readonly AnyMockEndpoint[] = [
     },
     isEmpty: d => d.current.equipmentCount === 0 || d.current.knownBuckets === 0,
     metricVersion: () => `occupancy v${METRIC_VERSIONS.occupancy} · dwell v${METRIC_VERSIONS.dwell} · cycleTime v${METRIC_VERSIONS.cycleTime} · throughput v${METRIC_VERSIONS.throughput}`,
+    sourceLogicVersions: ({ context }) => sourceLogicVersionsFor(context),
   }),
   defineMockEndpoint(trendEndpoint, {
     handle: ({ equipment, context, params }): TrendData => {

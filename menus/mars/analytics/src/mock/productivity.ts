@@ -14,6 +14,18 @@ import type { AttentionRow, BreakdownRow, DrillEquipmentRow, DrillStgroupRow, Gr
 
 const HOUR = 3_600_000;
 
+/** Mock parser-logic cutover (wall-clock). Rows before it carry logic v1.2, rows from it on v1.3 — insert-only, no back-fill. */
+export const LOGIC_CUTOVER = '2026-09-25T12:00:00';
+
+/** Trust.sourceLogicVersions for `[from,to)`: before the cutover → v1.2, from it on → v1.3, spanning → both. No range → unknown (undefined). */
+export function sourceLogicVersionsFor(context: { from: string | null; to: string | null }): string[] | undefined {
+  const { from, to } = context;
+  if (from === null || to === null) return undefined;
+  if (to <= LOGIC_CUTOVER) return ['v1.2'];
+  if (from >= LOGIC_CUTOVER) return ['v1.3'];
+  return ['v1.2', 'v1.3'];
+}
+
 function fnv(s: string): number {
   let h = 0x811c9dc5;
   for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }

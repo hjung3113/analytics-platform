@@ -65,6 +65,13 @@ export function trustProblem(trust: Trust | null): string | null {
   if (typeof trust.provisional !== 'boolean') return 'trust.provisional is not a boolean (06 §18)';
   if (typeof trust.source !== 'string') return 'trust.source is not a string (06 §18)';
   if (trust.metricVersion !== undefined && typeof trust.metricVersion !== 'string') return 'trust.metricVersion is neither absent nor a string (06 §18)';
+  const versions: unknown = trust.sourceLogicVersions;
+  if (versions !== undefined) {
+    if (!Array.isArray(versions)) return 'trust.sourceLogicVersions is neither absent nor an array (06 §18)';
+    if (versions.length === 0) return 'trust.sourceLogicVersions is empty — omit the field when unknown (06 §18)';
+    if (versions.some(v => typeof v !== 'string' || v === '')) return 'trust.sourceLogicVersions has an entry that is not a non-empty string (06 §18)';
+    if (new Set(versions).size !== versions.length) return 'trust.sourceLogicVersions has duplicate entries (06 §18)';
+  }
   return null;
 }
 

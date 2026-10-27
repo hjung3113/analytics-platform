@@ -1,11 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { createMockAdapter, getRole, setRole, type AnyMockEndpoint } from '@ap/mock-server';
+import { createMockAdapter, getRole, setRole, setScenario, type AnyMockEndpoint } from '@ap/mock-server';
 import { analyticsMock } from './index';
+import { LOGIC_CUTOVER, sourceLogicVersionsFor } from './productivity';
+import { cycleKpiEndpoint } from '../endpoints';
 import {
   METRIC_VERSIONS, attentionEndpoint, breakdownEndpoint, drillEndpoint, kpisEndpoint, trendEndpoint,
   type AttentionRow, type BreakdownRow, type DrillData, type KpisData, type TrendData,
 } from '../endpoints';
-import { groupId, menuPermission, type ApiResponse, type Capability, type ContextKey, type MenuMeta } from '@ap/contracts';
+import { shift, groupId, menuPermission, type ApiResponse, type Capability, type ContextKey, type MenuMeta } from '@ap/contracts';
 
 /**
  * Minimal inline MenuMeta mirroring the `productivity-overview` manifest in `src/index.ts`
@@ -219,6 +221,54 @@ describe('productivity-overview endpoint smoke', () => {
       const result = await adapter.menuQuery({ endpoint: trendEndpoint.id, context, params: { kpi, granularity: 'hour' } });
       expect(result.outcome).toBe('ok');
       expect(result.trust?.metricVersion).toBe(version);
+    }
+  });
+});
+
+describe('Trust.sourceLogicVersions fixture (parser logic cutover)', () => {
+  const cutover = LOGIC_CUTOVER;
+  const before = shift(cutover, -6);
+  const after = shift(cutover, 6);
+  /** The cycle menu applies more context keys than the overview; the engine rejects a request that omits them. */
+  const cycleContext = { lineNames: null, prcGroups: null, lotIds: null, metricId: null, metricVersion: null };
+  const versionsOf = async (endpoint: string, from: string, to: string) => {
+    const extra = endpoint === cycleKpiEndpoint.id ? cycleContext : {};
+    const response = await adapter.menuQuery({ endpoint, context: { ...context, ...extra, from, to }, params: {} });
+    expect(response.outcome).toBe('ok');
+    return response.trust?.sourceLogicVersions;
+  };
+
+  it.each([
+    ['productivity overview', kpisEndpoint.id],
+    ['cycle KPI', cycleKpiEndpoint.id],
+  ])('%s: before / after / spanning the cutover, with boundary instants', async (_name, endpoint) => {
+    expect(await versionsOf(endpoint, before, after)).toEqual(['v1.2', 'v1.3']);
+    expect(await versionsOf(endpoint, shift(cutover, -3), cutover)).toEqual(['v1.2']); // to === cutover: before
+    expect(await versionsOf(endpoint, cutover, shift(cutover, 3))).toEqual(['v1.3']); // from === cutover: after
+    expect(await versionsOf(endpoint, shift(cutover, -24), shift(cutover, -12))).toEqual(['v1.2']);
+    expect(await versionsOf(endpoint, shift(cutover, 12), shift(cutover, 24))).toEqual(['v1.3']);
+  });
+
+  it('is undefined without a period', () => {
+    expect(sourceLogicVersionsFor({ from: null, to: null })).toBeUndefined();
+    expect(sourceLogicVersionsFor({ from: before, to: null })).toBeUndefined();
+  });
+
+  it('other endpoints carry no field', async () => {
+    const response = await adapter.menuQuery({ endpoint: trendEndpoint.id, context: { ...context, from: before, to: after }, params: { kpi: 'occupancy', granularity: 'hour' } });
+    expect(response.outcome).toBe('ok');
+    expect(response.trust).not.toBeNull();
+    expect(response.trust).not.toHaveProperty('sourceLogicVersions');
+  });
+
+  it('an empty (0-row) answer carries no field', async () => {
+    setScenario('empty');
+    try {
+      const response = await adapter.menuQuery({ endpoint: kpisEndpoint.id, context: { ...context, from: before, to: after }, params: {} });
+      expect(response.outcome).toBe('empty');
+      expect(response.trust).not.toHaveProperty('sourceLogicVersions');
+    } finally {
+      setScenario('normal');
     }
   });
 });

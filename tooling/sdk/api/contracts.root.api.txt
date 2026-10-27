@@ -132,7 +132,7 @@ SiteGrant | type | type SiteGrant = { grantedRooms: readonly string[]; id: strin
 SpaceDef | type | type SpaceDef = { carriedPageKeys?: readonly string[]; description: @ap/contracts#Text; homeMenuId: string; id: @ap/contracts#SpaceId; label: @ap/contracts#Text; permission?: @ap/contracts#Permission; subtitle?: @ap/contracts#Text; }
 SpaceId | type | type SpaceId = Brand<'SpaceId'>
 Text | type | type Text = { en: string; ko: string; }
-Trust | type | type Trust = { coverage: null | number; dataThrough: null | string; metricVersion?: string; provisional: boolean; source: string; updatedAt: string; }
+Trust | type | type Trust = { coverage: null | number; dataThrough: null | string; metricVersion?: string; provisional: boolean; source: string; sourceLogicVersions?: string[]; updatedAt: string; }
 USAGE_VIAS | const | const USAGE_VIAS: readonly [ "sidebar", "switcher", "palette", "board", "return", "crossLink", "drill", "history", "direct", "link" ]
 UsageEvent | type | type UsageEvent = { at: number; dwellMs?: number; enteredAt?: number; fromMenuId?: null | string; menuId: string; name: @ap/contracts#UsageEventName; path: string; sessionId: string; source?: @ap/contracts#UsageSource; spaceId: @ap/contracts#SpaceId | null; stayId?: string; via?: @ap/contracts#UsageVia; }
 UsageEventName | type | type UsageEventName = 'dwell' | 'entry'
