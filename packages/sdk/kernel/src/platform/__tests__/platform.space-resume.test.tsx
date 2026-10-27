@@ -73,7 +73,7 @@ describe('spaceResume (06 §9.1)', () => {
     sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ mars: STORED }));
     mountAt('/notices?v=1&scopeId=MEM', ADMIN);
     const href = screen.getByTestId('ana').textContent ?? '';
-    expect(href.startsWith('equipment|/equipment?')).toBe(true);
+    expect(href.startsWith('equipment|/mars/equipment?')).toBe(true);
     const params = new URLSearchParams(href.slice(href.indexOf('?')));
     expect(params.get('page')).toBe('2');
     expect(params.get('scopeId')).toBe('MEM');
@@ -83,17 +83,17 @@ describe('spaceResume (06 §9.1)', () => {
   });
 
   it('does not record a global menu and does not overwrite another space', () => {
-    mountAt('/equipment?v=1&scopeId=MEM&page=2', ADMIN);
-    expect(JSON.parse(sessionStorage.getItem('platform:space-last:u1') ?? 'null')).toEqual({ mars: '/equipment?v=1&scopeId=MEM&page=2' });
+    mountAt('/mars/equipment?v=1&scopeId=MEM&page=2', ADMIN);
+    expect(JSON.parse(sessionStorage.getItem('platform:space-last:u1') ?? 'null')).toEqual({ mars: '/mars/equipment?v=1&scopeId=MEM&page=2' });
     act(() => screen.getByTestId('to-ops').click());
-    expect(screen.getByTestId('path').textContent).toBe('/admin/roles');
+    expect(screen.getByTestId('path').textContent).toBe('/operations/admin-roles');
     const both = JSON.parse(sessionStorage.getItem('platform:space-last:u1') ?? 'null') as Record<string, string>;
-    expect(both.mars).toBe('/equipment?v=1&scopeId=MEM&page=2');
-    expect(both.operations.startsWith('/admin/roles?')).toBe(true);
+    expect(both.mars).toBe('/mars/equipment?v=1&scopeId=MEM&page=2');
+    expect(both.operations.startsWith('/operations/admin-roles?')).toBe(true);
     act(() => screen.getByTestId('to-notices').click());
     const after = JSON.parse(sessionStorage.getItem('platform:space-last:u1') ?? 'null') as Record<string, string>;
     expect(Object.keys(after).sort()).toEqual(['mars', 'operations']);
-    expect(after.mars).toBe('/equipment?v=1&scopeId=MEM&page=2');
+    expect(after.mars).toBe('/mars/equipment?v=1&scopeId=MEM&page=2');
   });
 
   it('does not record a contract error and replaces a broken document on the next write', () => {
@@ -101,8 +101,8 @@ describe('spaceResume (06 §9.1)', () => {
     expect(sessionStorage.getItem('platform:space-last:u1')).toBeNull();
     cleanup();
     sessionStorage.setItem('platform:space-last:u1', '{');
-    mountAt('/equipment?v=1&scopeId=MEM', ADMIN);
-    expect(JSON.parse(sessionStorage.getItem('platform:space-last:u1') ?? 'null')).toEqual({ mars: '/equipment?v=1&scopeId=MEM' });
+    mountAt('/mars/equipment?v=1&scopeId=MEM', ADMIN);
+    expect(JSON.parse(sessionStorage.getItem('platform:space-last:u1') ?? 'null')).toEqual({ mars: '/mars/equipment?v=1&scopeId=MEM' });
   });
 
   it.each([
@@ -121,9 +121,9 @@ describe('spaceResume (06 §9.1)', () => {
   });
 
   it.each([
-    ['a plain id', '/equipment/MEM-PHOTO-0103', 'equipment-detail|/equipment/MEM-PHOTO-0103?v=1&scopeId=MEM'],
-    ['an encoded ordinary id', '/equipment/MEM%2DPHOTO%2D0103', 'equipment-detail|/equipment/MEM-PHOTO-0103?v=1&scopeId=MEM'],
-    ['an id with an encoded space', '/equipment/MEM%20PHOTO', 'equipment-detail|/equipment/MEM%20PHOTO?v=1&scopeId=MEM'],
+    ['a plain id', '/equipment/MEM-PHOTO-0103', 'equipment-detail|/mars/equipment-detail/MEM-PHOTO-0103?v=1&scopeId=MEM'],
+    ['an encoded ordinary id', '/equipment/MEM%2DPHOTO%2D0103', 'equipment-detail|/mars/equipment-detail/MEM-PHOTO-0103?v=1&scopeId=MEM'],
+    ['an id with an encoded space', '/equipment/MEM%20PHOTO', 'equipment-detail|/mars/equipment-detail/MEM%20PHOTO?v=1&scopeId=MEM'],
   ])('restores %s', (_label, stored, expected) => {
     sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ mars: stored }));
     mountAt('/notices?v=1&scopeId=MEM', ADMIN);
@@ -152,7 +152,7 @@ describe('spaceResume (06 §9.1)', () => {
       sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ analytics: STORED }));
       mountAt('/notices?v=1&scopeId=MEM', ADMIN, RENAMED);
       const href = screen.getByTestId('ana').textContent ?? '';
-      expect(href.startsWith('equipment|/equipment?')).toBe(true);
+      expect(href.startsWith('equipment|/mars/equipment?')).toBe(true);
       expect(new URLSearchParams(href.slice(href.indexOf('?'))).get('page')).toBe('2');
       expect(read()).toEqual({ mars: STORED });
     });
@@ -167,7 +167,7 @@ describe('spaceResume (06 §9.1)', () => {
     it('keeps an unmapped key as it is and writes only the new id', () => {
       sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ operations: '/admin/child?v=1', legacy: '/x?v=1' }));
       mountAt('/equipment?v=1&scopeId=MEM', ADMIN, RENAMED);
-      expect(read()).toEqual({ operations: '/admin/child?v=1', legacy: '/x?v=1', mars: '/equipment?v=1&scopeId=MEM' });
+      expect(read()).toEqual({ operations: '/admin/child?v=1', legacy: '/x?v=1', mars: '/mars/equipment?v=1&scopeId=MEM' });
     });
 
     it('returns the migrated map and keeps unrelated entries when persisting the migration throws', () => {
@@ -205,7 +205,7 @@ describe('spaceResume (06 §9.1)', () => {
     sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ operations: '/admin/child?v=1&scopeId=OLD' }));
     mountAt('/equipment?v=1&scopeId=MEM', ADMIN);
     act(() => screen.getByTestId('to-ops').click());
-    expect(screen.getByTestId('path').textContent).toBe('/admin/child');
+    expect(screen.getByTestId('path').textContent).toBe('/operations/admin-child');
     expect(new URLSearchParams(window.location.search).get('scopeId')).toBe('MEM');
     const before = window.location.href;
     act(() => screen.getByTestId('to-ops').click());
@@ -214,7 +214,7 @@ describe('spaceResume (06 §9.1)', () => {
     sessionStorage.removeItem('platform:space-last:u1');
     mountAt('/equipment?v=1&scopeId=MEM', ADMIN);
     act(() => screen.getByTestId('to-ops').click());
-    expect(screen.getByTestId('path').textContent).toBe('/admin/roles');
+    expect(screen.getByTestId('path').textContent).toBe('/operations/admin-roles');
   });
 });
 
@@ -225,13 +225,13 @@ const entryRegistry = createRegistry({
   groups: [...registry.groups, { id: groupId('analytics'), label: { ko: '분석', en: 'Analysis' }, icon: House, space: spaceId('mars') }],
   menus: [
     registry.menuById('admin-roles'),
-    { ...(registry.menuById('admin-child') as PlatformMenuEntry), id: 'later-group', group: groupId('analytics'), primary: true, path: '/analysis/later' },
+    { ...(registry.menuById('admin-child') as PlatformMenuEntry), id: 'later-group', group: groupId('analytics'), primary: true, path: '/analysis/later', aliases: undefined },
     registry.menuById('admin-child'),
     { ...registry.menuById('equipment'), permission: menuPermission('analytics:view') },
     { ...registry.menuById('equipment-detail'), navHidden: false },
-    { ...registry.menuById('equipment'), id: 'hidden', primary: false, path: '/hidden', navHidden: true },
-    { ...registry.menuById('equipment'), id: 'first', primary: false, path: '/first' },
-    { ...registry.menuById('equipment'), id: 'second', primary: false, path: '/second' },
+    { ...registry.menuById('equipment'), id: 'hidden', primary: false, path: '/hidden', aliases: undefined, navHidden: true },
+    { ...registry.menuById('equipment'), id: 'first', primary: false, path: '/first', aliases: undefined },
+    { ...registry.menuById('equipment'), id: 'second', primary: false, path: '/second', aliases: undefined },
     registry.menuById('notices'),
   ],
 });
@@ -247,10 +247,10 @@ function mountEntry(permissions: Session['user']['permissions']) {
 
 describe('spaceEntry and canOpen (#264)', () => {
   it.each([
-    ['partial permission', ANALYST, null, { menuId: 'first', href: '/first?v=1&scopeId=MEM', resumed: false }],
-    ['openable home', [...ANALYST, 'analytics:view'] as Session['user']['permissions'], null, { menuId: 'equipment', href: '/equipment?v=1&scopeId=MEM', resumed: false }],
-    ['last screen before home', [...ANALYST, 'analytics:view'] as Session['user']['permissions'], '/second?v=1&page=2', { menuId: 'second', href: '/second?v=1&scopeId=MEM&page=2', resumed: true }],
-    ['rejected last screen', ANALYST, '/equipment?v=1', { menuId: 'first', href: '/first?v=1&scopeId=MEM', resumed: false }],
+    ['partial permission', ANALYST, null, { menuId: 'first', href: '/mars/first?v=1&scopeId=MEM', resumed: false }],
+    ['openable home', [...ANALYST, 'analytics:view'] as Session['user']['permissions'], null, { menuId: 'equipment', href: '/mars/equipment?v=1&scopeId=MEM', resumed: false }],
+    ['last screen before home', [...ANALYST, 'analytics:view'] as Session['user']['permissions'], '/second?v=1&page=2', { menuId: 'second', href: '/mars/second?v=1&scopeId=MEM&page=2', resumed: true }],
+    ['rejected last screen', ANALYST, '/equipment?v=1', { menuId: 'first', href: '/mars/first?v=1&scopeId=MEM', resumed: false }],
     ['no openable menu', NOTICES_ONLY, null, null],
   ])('chooses %s', (_label, permissions, stored, expected) => {
     if (stored) sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ mars: stored }));
@@ -262,7 +262,7 @@ describe('spaceEntry and canOpen (#264)', () => {
     mountEntry(ANALYST);
     const push = vi.spyOn(window.history, 'pushState');
     act(() => entryPlatform.switchSpace(spaceId('mars')));
-    expect(push).toHaveBeenCalledWith(null, '', '/first?v=1&scopeId=MEM');
+    expect(push).toHaveBeenCalledWith(null, '', '/mars/first?v=1&scopeId=MEM');
     act(() => entryPlatform.switchSpace(spaceId('mars')));
     act(() => entryPlatform.switchSpace(spaceId('operations')));
     expect(push).toHaveBeenCalledTimes(1);

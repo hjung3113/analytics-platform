@@ -102,7 +102,7 @@ describe.each(PAGES)('%s without a FeedbackOps API (mock preview)', (_name, path
   });
 });
 
-describe.each([['내 Task', '/feedbackops/my-tasks', 'my'], ['Task 목록', '/feedbackops/tasks/list', 'backlog']] as const)('%s through the FeedbackOps bridge', (_name, path, view) => {
+describe.each([['내 Task', '/feedbackops/fo-my-tasks', 'my'], ['Task 목록', '/feedbackops/fo-task-list', 'backlog']] as const)('%s through the FeedbackOps bridge', (_name, path, view) => {
   beforeEach(() => { setFoApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
 
   it(`mounts the list with view ${view}, no auto-select and no detail node for FO's ListShell`, async () => {

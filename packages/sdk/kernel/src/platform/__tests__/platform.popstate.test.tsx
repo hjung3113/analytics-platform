@@ -17,8 +17,8 @@ const registry = createRegistry({
   spaces: [testSpace({ homeMenuId: 'equipment' })],
   groups: [{ id: groupId('equipment'), label: { ko: '설비', en: 'Equipment' }, icon: House, space: spaceId('mars') }],
   menus: [
-    entry({ id: 'equipment', path: '/equipment', pageKeys: ['focus'], primary: true }),
-    entry({ id: 'detail', path: '/detail', pageKeys: ['returnTo'], parent: 'equipment', navHidden: true }),
+    entry({ id: 'equipment', path: '/mars/equipment', pageKeys: ['focus'], primary: true }),
+    entry({ id: 'detail', path: '/mars/detail', pageKeys: ['returnTo'], parent: 'equipment', navHidden: true }),
   ],
 });
 
@@ -39,24 +39,24 @@ afterEach(() => { cleanup(); window.history.replaceState(null, '', '/'); });
 
 describe('Back/Forward arrival focus (#356 FIX1)', () => {
   it('treats a popstate across menus as a menu arrival: the title claims focus, focus= does not', () => {
-    mount('/detail?v=1&returnTo=%2Fequipment%3Fv%3D1');
+    mount('/mars/detail?v=1&returnTo=%2Fmars%2Fequipment%3Fv%3D1');
     act(() => {
-      window.history.replaceState(null, '', '/equipment?v=1&focus=EQ-1');
+      window.history.replaceState(null, '', '/mars/equipment?v=1&focus=EQ-1');
       window.dispatchEvent(new PopStateEvent('popstate'));
     });
     expect(platform.route?.menu.id).toBe('equipment');
     expect(platform.pageNavigation.claimsDetailFocus()).toBe(false);
-    expect(platform.pageNavigation.consume('/equipment')).toBe('page');
+    expect(platform.pageNavigation.consume('/mars/equipment')).toBe('page');
   });
 
   it('keeps the same-screen history rule: a focus change claims the close button, without a request', () => {
-    mount('/equipment?v=1');
+    mount('/mars/equipment?v=1');
     act(() => {
-      window.history.replaceState(null, '', '/equipment?v=1&focus=EQ-1');
+      window.history.replaceState(null, '', '/mars/equipment?v=1&focus=EQ-1');
       window.dispatchEvent(new PopStateEvent('popstate'));
     });
     expect(platform.route?.menu.id).toBe('equipment');
     expect(platform.pageNavigation.claimsDetailFocus()).toBe(true);
-    expect(platform.pageNavigation.consume('/equipment')).toBeNull();
+    expect(platform.pageNavigation.consume('/mars/equipment')).toBeNull();
   });
 });

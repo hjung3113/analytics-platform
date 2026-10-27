@@ -13,7 +13,7 @@ async function chooseFilterOption(page: Page, field: string, option: string) {
 
 test.describe('토큰 소비 계약 (06 §23, ADR-0011/ADR-0058)', () => {
   test('FeedbackOps base 값이 theme보다 우선하고 플랫폼 control 경계는 label 대비를 유지한다', async ({ page }, testInfo) => {
-    await page.goto('/metrics?v=1&scopeId=MEM');
+    await page.goto('/bravo/metric-catalog?v=1&scopeId=MEM');
     await expect(page.getByTestId('page-filter-bar')).toBeVisible();
     const search = page.getByTestId('metric-search');
     await expect(search).toBeVisible();
@@ -32,7 +32,7 @@ test.describe('토큰 소비 계약 (06 §23, ADR-0011/ADR-0058)', () => {
 test.describe('관리 레이아웃 필터 레일 (06 §12.6, ADR-0022)', () => {
   test('1440 설비 마스터는 접기 기억과 펼치기 포커스를 제공한다', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto('/equipment?v=1&scopeId=MEM');
+    await page.goto('/mars/equipment-master?v=1&scopeId=MEM');
     const rail = page.getByRole('region', { name: '필터', exact: true });
     const tableCard = page.getByRole('region', { name: '설비 마스터 목록' });
     await expect(rail.getByRole('heading', { name: '필터', exact: true })).toBeVisible();
@@ -56,7 +56,7 @@ test.describe('관리 레이아웃 필터 레일 (06 §12.6, ADR-0022)', () => {
 
   test('1280 상세 슬롯은 자기 폭에 맞춰 필터 팝오버로 전환하고 URL 필터를 편집한다', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1280, height: 900 });
-    await page.goto('/equipment?v=1&scopeId=MEM&focus=MEM-PHOTO-0103');
+    await page.goto('/mars/equipment-master?v=1&scopeId=MEM&focus=MEM-PHOTO-0103');
     await expect(page.getByRole('complementary', { name: '상세 패널' }).getByRole('dialog')).toBeVisible();
     await expect(page.getByRole('region', { name: '필터', exact: true })).toHaveCount(0);
     const button = page.getByRole('region', { name: '설비 마스터 목록' }).getByRole('button', { name: /^필터(?: · \d+)?$/ });
@@ -81,7 +81,7 @@ test.describe('관리 레이아웃 필터 레일 (06 §12.6, ADR-0022)', () => {
   test('1440 관리자 감사 레일은 일곱 필드와 초안 적용을 제공한다', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto('/admin/audit?v=1');
+    await page.goto('/operations/admin-audit?v=1');
     const rail = page.getByRole('region', { name: '필터', exact: true });
     await expect(rail.getByRole('button', { name: '필터 접기' })).toBeVisible();
     await expect(rail.getByRole('combobox')).toHaveCount(3);
@@ -101,7 +101,7 @@ test.describe('관리 레이아웃 필터 레일 (06 §12.6, ADR-0022)', () => {
 
 test.describe('PageFilterBar page-key 계약 (#54)', () => {
   test('설비 q/status/maker는 동일한 page key를 쓰고 page와 전체 필터를 초기화한다', async ({ page }, testInfo) => {
-    await page.goto('/equipment?v=1&scopeId=MEM&page=2');
+    await page.goto('/mars/equipment-master?v=1&scopeId=MEM&page=2');
     // ADR-0037: drafts until 적용 (Enter in the search field submits), then one navigation that drops page.
     await expect(page.getByRole('button', { name: '필터 초기화' })).toHaveCount(0);
     const search = page.getByRole('searchbox', { name: '설비 ID 검색' });
@@ -113,7 +113,7 @@ test.describe('PageFilterBar page-key 계약 (#54)', () => {
     await expect.poll(() => query(page).has('page')).toBe(false);
     await expect(search).toBeFocused();
 
-    await page.goto('/equipment?v=1&scopeId=MEM&page=2');
+    await page.goto('/mars/equipment-master?v=1&scopeId=MEM&page=2');
     await chooseFilterOption(page, '상태', '정비');
     expect(query(page).has('status')).toBe(false);
     await page.getByRole('button', { name: '적용 (1)', exact: true }).click();
@@ -124,7 +124,7 @@ test.describe('PageFilterBar page-key 계약 (#54)', () => {
     await page.getByRole('button', { name: '적용 (1)', exact: true }).click();
     await expect.poll(() => query(page).has('status')).toBe(false);
 
-    await page.goto('/equipment?v=1&scopeId=MEM&maker=ZZZ&page=2');
+    await page.goto('/mars/equipment-master?v=1&scopeId=MEM&maker=ZZZ&page=2');
     const maker = page.getByRole('combobox', { name: 'Maker' });
     await expect(maker).toHaveText('ZZZ');
     await chooseFilterOption(page, 'Maker', 'TEL');
@@ -133,7 +133,7 @@ test.describe('PageFilterBar page-key 계약 (#54)', () => {
     await expect.poll(() => query(page).get('maker')).toBe('TEL');
     await expect.poll(() => query(page).has('page')).toBe(false);
 
-    await page.goto('/equipment?v=1&scopeId=MEM&q=PHOTO&status=maintenance&maker=ZZZ&page=2');
+    await page.goto('/mars/equipment-master?v=1&scopeId=MEM&q=PHOTO&status=maintenance&maker=ZZZ&page=2');
     // Scoped to the bar: once the list answers, its empty state shows a second 필터 초기화 (the old 450 ms read hid it, #917).
     await page.getByTestId('page-filter-bar').getByRole('button', { name: '필터 초기화' }).click();
     await expect.poll(() => query(page).has('q')).toBe(false);
@@ -144,7 +144,7 @@ test.describe('PageFilterBar page-key 계약 (#54)', () => {
   });
 
   test('지표 q/status/domain은 동일한 page key를 쓰고 unknown domain을 표시하며 전체 필터를 초기화한다', async ({ page }, testInfo) => {
-    await page.goto('/metrics?v=1&scopeId=MEM&page=2');
+    await page.goto('/bravo/metric-catalog?v=1&scopeId=MEM&page=2');
     const search = page.getByRole('searchbox', { name: '이름 또는 지표 ID' });
     await page.locator('label').filter({ hasText: '이름 또는 지표 ID' }).click();
     await expect(search).toBeFocused();
@@ -158,24 +158,24 @@ test.describe('PageFilterBar page-key 계약 (#54)', () => {
     await expect.poll(() => query(page).get('q')).toBe('yield');
     await expect.poll(() => query(page).has('page')).toBe(false);
 
-    await page.goto('/metrics?v=1&scopeId=MEM&page=2');
+    await page.goto('/bravo/metric-catalog?v=1&scopeId=MEM&page=2');
     await chooseFilterOption(page, '상태', '게시');
     await expect.poll(() => query(page).get('status')).toBe('published');
     await expect.poll(() => query(page).has('page')).toBe(false);
 
-    await page.goto('/metrics?v=1&scopeId=MEM&page=2');
+    await page.goto('/bravo/metric-catalog?v=1&scopeId=MEM&page=2');
     await chooseFilterOption(page, '도메인', '품질');
     await expect.poll(() => query(page).get('domain')).toBe('quality');
     await expect.poll(() => query(page).has('page')).toBe(false);
 
-    await page.goto('/metrics?v=1&scopeId=MEM&domain=bogus');
+    await page.goto('/bravo/metric-catalog?v=1&scopeId=MEM&domain=bogus');
     // #304 FIX1: the alert keeps the field's user name and the raw value as entered — never `key=value`.
     await expect(page.getByRole('alert')).toContainText('도메인');
     await expect(page.getByRole('alert')).toContainText('bogus');
     await expect(page.getByRole('alert')).not.toContainText('domain=');
     await expect(page.getByRole('combobox', { name: '도메인' })).toHaveText('bogus');
 
-    await page.goto('/metrics?v=1&scopeId=MEM&q=yield&status=draft&domain=quality&page=2');
+    await page.goto('/bravo/metric-catalog?v=1&scopeId=MEM&q=yield&status=draft&domain=quality&page=2');
     await page.getByRole('button', { name: '필터 초기화' }).click();
     await expect.poll(() => query(page).has('q')).toBe(false);
     expect(query(page).has('status')).toBe(false);
@@ -190,7 +190,7 @@ test.describe('PageFilterBar 접힘 요약 (ADR-0029)', () => {
   test('접힌 요약은 조건을 자르지 않고 항목 단위로 왼쪽 정렬 줄바꿈하며 Enter로 펼친다', async ({ page }, testInfo) => {
     const longRaw = 'x'.repeat(60);
     await page.setViewportSize({ width: 1024, height: 900 });
-    await page.goto(`/analytics/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}&percentile=${longRaw}&sort=equipmentId:asc`);
+    await page.goto(`/mars/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}&percentile=${longRaw}&sort=equipmentId:asc`);
     await expandPageHead(page);
     const bar = page.getByTestId('page-filter-bar');
     await expect(bar).toBeVisible();
@@ -336,7 +336,7 @@ test.describe('PageFilterBar 접힘 요약 (ADR-0029)', () => {
 });
 
 test.describe('공통 상태 화면 (06 §19)', () => {
-  const EQUIPMENT = '/equipment?v=1&scopeId=MEM';
+  const EQUIPMENT = '/mars/equipment-master?v=1&scopeId=MEM';
   for (const { scenario, title, retry } of [
     { scenario: '서버 오류 (error)', title: '데이터를 불러오지 못했습니다', retry: true },
     { scenario: '시간 초과 (timeout)', title: '조회 시간이 초과되었습니다', retry: true },
@@ -358,7 +358,7 @@ test.describe('공통 상태 화면 (06 §19)', () => {
 
 test.describe('공유 위젯 응답 (06 §19, #55)', () => {
   test('생산성의 같은 오류 네 개는 배너 하나와 이름 있는 간결 상태 네 개로 표시한다', async ({ page }, testInfo) => {
-    await page.goto('/analytics/productivity?v=1&scopeId=MEM');
+    await page.goto('/mars/productivity-overview?v=1&scopeId=MEM');
     await expect(page.getByRole('heading', { name: '네 지표 요약' })).toBeVisible();
     await setScenario(page, '서버 오류 (error)');
     const main = page.getByRole('main');
@@ -385,7 +385,7 @@ test.describe('공유 위젯 응답 (06 §19, #55)', () => {
   test('일부 위젯 실패에서 단일 실패는 배너 없이 전체 상태를 유지한다', async ({ page }, testInfo) => {
     // The scenario fails every other query. Equipment detail has two queries;
     // productivity has four and therefore intentionally groups its two equal failures.
-    await page.goto('/equipment/MEM-PHOTO-0103?v=1&scopeId=MEM');
+    await page.goto('/mars/equipment-detail/MEM-PHOTO-0103?v=1&scopeId=MEM');
     const loadedHeader = page.getByRole('main').locator('[data-platform-page-content] > [aria-busy]');
     const loadedPanel = page.getByRole('tabpanel');
     await expect(loadedHeader.getByText('MEM-PHOTO-0103')).toBeVisible();
@@ -446,7 +446,7 @@ test.describe('분석 레이아웃 접기 (06 §12.6, ADR-0022)', () => {
 test.describe('키보드 상세 포커스 복귀 (06 §13·§26)', () => {
   test('권한 목록에서 키보드로 상세를 닫으면 같은 행의 보기로 돌아온다', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
-    await page.goto('/admin/roles?v=1');
+    await page.goto('/operations/admin-roles?v=1');
     try {
       const opener = page.getByRole('row').filter({ has: page.getByRole('button', { name: /보기$/ }) }).first().getByRole('button', { name: /보기$/ });
       await expect(opener).toBeVisible();
@@ -502,7 +502,7 @@ test.describe('키보드 상세 포커스 복귀 (06 §13·§26)', () => {
   for (const [overlay, close] of Object.entries(closeOverlay)) {
     test(`${overlay} 닫힌 직후의 Escape도 상세를 닫는다`, async ({ page }) => {
       await signInAs(page, 'admin');
-      await page.goto('/admin/roles?v=1');
+      await page.goto('/operations/admin-roles?v=1');
       const opener = page.getByRole('row').filter({ has: page.getByRole('button', { name: /보기$/ }) }).first().getByRole('button', { name: /보기$/ });
       await expect(opener).toBeVisible();
       await close(page);
@@ -522,7 +522,7 @@ test.describe('키보드 상세 포커스 복귀 (06 §13·§26)', () => {
 test.describe('표 쪽 이동 포커스 (06 §26)', () => {
   test('범위 밖 page 딥링크는 마지막 쪽으로 맞추고 히스토리를 늘리지 않는다 (06 §15, #314)', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
-    await page.goto('/equipment?v=1&scopeId=MEM&sort=status:desc&page=9');
+    await page.goto('/mars/equipment-master?v=1&scopeId=MEM&sort=status:desc&page=9');
     await expect.poll(() => query(page).get('page')).toBe('3');
     expect(query(page).get('sort')).toBe('status:desc');
     await expect(tableStatusLine(page)).toContainText('54건 · 3/3 페이지');
@@ -535,7 +535,7 @@ test.describe('표 쪽 이동 포커스 (06 §26)', () => {
 
   test('마지막 쪽과 첫 쪽에 도달하면 반대쪽 버튼으로 포커스를 옮긴다', async ({ page }, testInfo) => {
     await signInAs(page, 'engineer');
-    await page.goto('/equipment?v=1&scopeId=MEM');
+    await page.goto('/mars/equipment-master?v=1&scopeId=MEM');
     await expect(page.getByText(/1\/2 페이지/)).toBeVisible();
     const next = page.getByRole('button', { name: '다음', exact: true });
     const previous = page.getByRole('button', { name: '이전', exact: true });
@@ -555,7 +555,7 @@ test.describe('표 높이·고정 동작 열 (06 §15, ADR-0037)', () => {
   // #654: the old subject (`/voc` MyVocHistory table) moved to FeedbackOps; the short-result case now uses a narrowed equipment table.
   test('짧은 설비 결과는 240px보다 작고 행 영역에 빈 스크롤이 없다', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto('/equipment?v=1&scopeId=MEM&q=PHOTO-0103');
+    await page.goto('/mars/equipment-master?v=1&scopeId=MEM&q=PHOTO-0103');
     const rows = page.getByLabel('스크롤 가능한 행 영역', { exact: true });
     await expect(rows.getByRole('button', { name: /보기$/ }).first()).toBeVisible();
     await expect.poll(() => rows.evaluate(el => el.clientHeight)).toBeGreaterThan(0);
@@ -566,7 +566,7 @@ test.describe('표 높이·고정 동작 열 (06 §15, ADR-0037)', () => {
 
   test('긴 설비 결과는 안쪽에서 스크롤하고 쪽 넘김은 화면 안에 있다', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto('/equipment?v=1&scopeId=MEM');
+    await page.goto('/mars/equipment-master?v=1&scopeId=MEM');
     const rows = page.getByLabel('스크롤 가능한 행 영역', { exact: true });
     await expect(rows.getByRole('button', { name: /보기$/ }).first()).toBeVisible();
     await expect.poll(() => rows.evaluate(el => el.scrollHeight - el.clientHeight)).toBeGreaterThan(0);
@@ -580,7 +580,7 @@ test.describe('표 높이·고정 동작 열 (06 §15, ADR-0037)', () => {
 
   test('1280px에서 상세를 열어도 본문은 넘치지 않고 건수는 한 줄이다', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1280, height: 900 });
-    await page.goto('/equipment?v=1&scopeId=MEM');
+    await page.goto('/mars/equipment-master?v=1&scopeId=MEM');
     const rows = page.getByLabel('스크롤 가능한 행 영역', { exact: true });
     await rows.getByRole('button', { name: /보기$/ }).first().click();
     await expect(page.getByRole('button', { name: '상세 닫기', exact: true })).toBeVisible();
@@ -597,7 +597,7 @@ test.describe('표 높이·고정 동작 열 (06 §15, ADR-0037)', () => {
   test('감사 표는 선택 열 없이 양쪽 스크롤 끝에서도 첫 상세 링크가 보인다', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await signInAs(page, 'admin');
-    await page.goto('/admin/audit?v=1');
+    await page.goto('/operations/admin-audit?v=1');
     const rows = page.getByLabel('스크롤 가능한 행 영역', { exact: true });
     const table = rows.getByRole('table');
     const detail = table.getByRole('row').filter({ has: page.getByRole('link', { name: /상세$/ }) }).first().getByRole('link', { name: /상세$/ });
@@ -626,13 +626,13 @@ test.describe('표 높이·고정 동작 열 (06 §15, ADR-0037)', () => {
     await page.setViewportSize({ width: 1024, height: 900 });
     await signInAs(page, 'admin');
     await page.addInitScript(() => localStorage.setItem('platform:sidebar-collapsed', '0'));
-    await page.goto('/admin/roles?v=1');
+    await page.goto('/operations/admin-roles?v=1');
     await expect(page.getByRole('button', { name: '사이드바 접기' })).toBeVisible();
     const rows = page.getByLabel('스크롤 가능한 행 영역', { exact: true });
     const firstOpen = rows.getByRole('button', { name: / 보기$/ }).first();
     await expect(firstOpen).toBeVisible();
     const id = (await firstOpen.getAttribute('aria-label'))!.replace(/ 보기$/, '');
-    await page.goto(`/admin/roles?v=1&focus=${encodeURIComponent(id)}`);
+    await page.goto(`/operations/admin-roles?v=1&focus=${encodeURIComponent(id)}`);
     await expect(page.getByRole('button', { name: '상세 닫기', exact: true })).toBeVisible();
     const open = rows.getByRole('button', { name: `${id} 보기`, exact: true });
     await expect(open).toBeVisible();
@@ -663,7 +663,7 @@ test.describe('표 높이·고정 동작 열 (06 §15, ADR-0037)', () => {
 
 // #680 (ADR-0075): a fill page's head (notes + page filter + chips) folds to one line; shared responses become a thin strip.
 test.describe('페이지 머리 접기 (#680)', () => {
-  const CYCLE = `/analytics/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}`;
+  const CYCLE = `/mars/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}`;
   const HEAD_KEY = 'platform:page-head-collapsed:cycle-time';
   /** Upper bound of the workspace top (px) at 1440×900 with the query bar and the page head collapsed: measured 230.8 (315 before #680), plus 9px for font metrics on CI. */
   const COLLAPSED_WORKSPACE_TOP_MAX = 240;

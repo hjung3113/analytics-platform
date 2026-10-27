@@ -18,7 +18,7 @@ export default function OperationsHome() {
   const voc = resolveLink('voc');
   const noticesLink = resolveLink('notices');
   const permissionRequests = resolveLink('permission-requests');
-  const homeId = registry.matchRoute('/')?.menu.id;
+  const homeId = registry.platformHome?.id;
 
   const favoriteMenus = favorites.map(id => registry.menus.find(menu => menu.id === id)).filter((menu): menu is MenuEntry => !!menu && canOpen(menu.id));
   const recentRows = recent.filter(row => row.menuId !== homeId).map(row => {

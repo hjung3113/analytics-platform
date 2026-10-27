@@ -230,7 +230,7 @@ describe('a module screen mounted in a pane (ADR-0053 host over a pane)', () => 
     expect(screen.getByTestId('main').textContent).toContain('home page');
     const host = state.hosts.at(-1)!;
     expect(host.page('page')).toBe('2');
-    expect(host.href({ screen: 'item', params: { id: 'a1' }, page: { tab: 'info' } })?.href).toContain('/fixture/items/a1');
+    expect(host.href({ screen: 'item', params: { id: 'a1' }, page: { tab: 'info' } })?.href).toContain('/mars/fixture-item/a1');
     const subscribedBefore = state.changes;
     fireEvent.click(view.pane('m').getByRole('button', { name: 'next page' }));
     const [written, how] = view.changes.m!.mock.calls.at(-1)!;

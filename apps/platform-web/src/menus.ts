@@ -118,4 +118,4 @@ export const MENUS: MenuEntry[] = [
 ];
 
 /** External host modules (src/modules.ts) join at the registry call only; GROUPS and MENUS stay the platform's own. */
-export const registry = createRegistry({ spaces: SPACES, groups: [...GROUPS, ...EQV_MODULE.groups], menus: [...MENUS, ...EQV_MODULE.menus], permissions: PERMISSIONS });
+export const registry = createRegistry({ spaces: SPACES, groups: [...GROUPS, ...EQV_MODULE.groups], menus: [...MENUS, ...EQV_MODULE.menus], permissions: PERMISSIONS, platformHomeMenuId: 'home' });

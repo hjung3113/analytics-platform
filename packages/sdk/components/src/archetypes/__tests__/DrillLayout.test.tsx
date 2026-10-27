@@ -67,18 +67,18 @@ const siblings = {
 
 describe('DrillLayout (06 §12.7, ADR-0025)', () => {
   it('hides the path at depth 0 and shows the body', () => {
-    mount('/source?v=1', <DrillLayout><p>본문</p></DrillLayout>);
+    mount('/mars/source?v=1', <DrillLayout><p>본문</p></DrillLayout>);
     expect(screen.queryByRole('navigation', { name: '드릴 경로' })).toBeNull();
     expect(screen.getByText('본문')).toBeTruthy();
   });
 
   it('without fill the output is the plain space-y-4 column; fill makes a bounded flex column with a growing body', () => {
-    const view = mount('/source?v=1&drillRoom=PHOTO', <DrillLayout><p>본문</p></DrillLayout>);
+    const view = mount('/mars/source?v=1&drillRoom=PHOTO', <DrillLayout><p>본문</p></DrillLayout>);
     const plain = view.container.innerHTML;
     expect(view.container.firstElementChild?.className).toBe('space-y-4');
     expect(view.container.firstElementChild?.lastElementChild?.tagName).toBe('P');
     view.unmount();
-    const filled = mount('/source?v=1&drillRoom=PHOTO', <DrillLayout fill><p>본문</p></DrillLayout>);
+    const filled = mount('/mars/source?v=1&drillRoom=PHOTO', <DrillLayout fill><p>본문</p></DrillLayout>);
     const root = filled.container.firstElementChild!;
     expect(root.className).toBe('flex min-h-0 flex-1 flex-col gap-2');
     expect(root.lastElementChild?.className).toBe('flex min-h-0 flex-1 flex-col');
@@ -88,7 +88,7 @@ describe('DrillLayout (06 §12.7, ADR-0025)', () => {
 
   it('renders the summary beside the path bar, outside the nav, with the full text as title', () => {
     const text = '공정 PHOTO · StGroup A · 매우 긴 요약 문장이 한 줄 안에서 말줄임표로 잘린다';
-    mount('/source?v=1&drillRoom=PHOTO&drillStgroup=A', <DrillLayout summary={text}><p>본문</p></DrillLayout>);
+    mount('/mars/source?v=1&drillRoom=PHOTO&drillStgroup=A', <DrillLayout summary={text}><p>본문</p></DrillLayout>);
     const summary = screen.getByText(text);
     expect(summary.getAttribute('title')).toBe(text);
     expect(summary.className).toContain('truncate');
@@ -97,7 +97,7 @@ describe('DrillLayout (06 §12.7, ADR-0025)', () => {
   });
 
   it('keeps a width share for the summary when the path bar wraps', () => {
-    mount('/source?v=1&drillRoom=PHOTO', <DrillLayout summary="요약"><p>본문</p></DrillLayout>);
+    mount('/mars/source?v=1&drillRoom=PHOTO', <DrillLayout summary="요약"><p>본문</p></DrillLayout>);
     const summary = screen.getByText('요약');
     const nav = screen.getByRole('navigation', { name: '드릴 경로' });
     expect(summary.className).toEqual(expect.stringContaining('basis-48'));
@@ -108,13 +108,13 @@ describe('DrillLayout (06 §12.7, ADR-0025)', () => {
   });
 
   it('keeps the bare path bar classes when there is no summary', () => {
-    mount('/source?v=1&drillRoom=PHOTO', <DrillLayout><p>본문</p></DrillLayout>);
+    mount('/mars/source?v=1&drillRoom=PHOTO', <DrillLayout><p>본문</p></DrillLayout>);
     expect(screen.getByRole('navigation', { name: '드릴 경로' }).className).toBe('flex flex-wrap items-center gap-1 text-xs');
   });
 
   it('keeps the same nav and focused chip when a summary arrives after the first render', () => {
     const tree = (summary: string | null) => <I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DrillLayout summary={summary}><p>본문</p></DrillLayout></PlatformProvider></I18nProvider>;
-    window.history.replaceState(null, '', '/source?v=1&drillRoom=PHOTO');
+    window.history.replaceState(null, '', '/mars/source?v=1&drillRoom=PHOTO');
     const view = render(tree(null));
     const chip = screen.getByRole('button', { name: '공정: PHOTO' });
     const nav = screen.getByRole('navigation', { name: '드릴 경로' });
@@ -128,19 +128,19 @@ describe('DrillLayout (06 §12.7, ADR-0025)', () => {
   });
 
   it('hides the summary at depth 0 like the path bar', () => {
-    mount('/source?v=1', <DrillLayout summary="요약"><p>본문</p></DrillLayout>);
+    mount('/mars/source?v=1', <DrillLayout summary="요약"><p>본문</p></DrillLayout>);
     expect(screen.queryByText('요약')).toBeNull();
   });
 
   it('leaves a ReactNode summary to carry its own title', () => {
-    mount('/source?v=1&drillRoom=PHOTO', <DrillLayout summary={<span data-testid="node">노드</span>}><p>본문</p></DrillLayout>);
+    mount('/mars/source?v=1&drillRoom=PHOTO', <DrillLayout summary={<span data-testid="node">노드</span>}><p>본문</p></DrillLayout>);
     const node = screen.getByTestId('node');
     expect(node.getAttribute('title')).toBeNull();
     expect(node.parentElement?.getAttribute('title')).toBeNull();
   });
 
   it('moves up from a chip and marks the last chip as the current step', () => {
-    mount('/source?v=1&drillRoom=PHOTO&drillStgroup=A', <DrillLayout siblings={siblings}><p>본문</p></DrillLayout>);
+    mount('/mars/source?v=1&drillRoom=PHOTO&drillStgroup=A', <DrillLayout siblings={siblings}><p>본문</p></DrillLayout>);
     expect(screen.getByRole('navigation', { name: '드릴 경로' })).toBeTruthy();
     const current = screen.getByRole('button', { name: 'StGroup: A' });
     expect(current.getAttribute('aria-current')).toBe('step');
@@ -152,7 +152,7 @@ describe('DrillLayout (06 §12.7, ADR-0025)', () => {
   });
 
   it('switches a sibling from the menu and clears later steps', async () => {
-    mount('/source?v=1&drillRoom=PHOTO&drillStgroup=A', <DrillLayout siblings={siblings}><p>본문</p></DrillLayout>);
+    mount('/mars/source?v=1&drillRoom=PHOTO&drillStgroup=A', <DrillLayout siblings={siblings}><p>본문</p></DrillLayout>);
     openMenu('공정 바꾸기');
     expect((await screen.findByRole('menuitemradio', { name: /PHOTO/ })).getAttribute('aria-checked')).toBe('true');
     fireEvent.click(screen.getByRole('menuitemradio', { name: /ETCH/ }));
@@ -160,7 +160,7 @@ describe('DrillLayout (06 §12.7, ADR-0025)', () => {
   });
 
   it('collapses depth 4 to All, a middle menu and the last two chips', async () => {
-    mount('/source?v=1&drillRoom=PHOTO&drillStgroup=A&drillLine=L1&drillEquipment=E1', <DrillLayout><p>본문</p></DrillLayout>);
+    mount('/mars/source?v=1&drillRoom=PHOTO&drillStgroup=A&drillLine=L1&drillEquipment=E1', <DrillLayout><p>본문</p></DrillLayout>);
     expect(screen.queryByRole('button', { name: '공정: PHOTO' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'StGroup: A' })).toBeNull();
     expect(screen.getByRole('button', { name: '라인: L1' }).getAttribute('aria-current')).toBeNull();
@@ -171,7 +171,7 @@ describe('DrillLayout (06 §12.7, ADR-0025)', () => {
   });
 
   it('replaces the body on a format error and does not substitute a value', () => {
-    mount('/source?v=1&drillStgroup=LATE', <DrillLayout notFound={{ key: 'drillRoom', value: 'NOPE' }}><p>본문</p></DrillLayout>);
+    mount('/mars/source?v=1&drillStgroup=LATE', <DrillLayout notFound={{ key: 'drillRoom', value: 'NOPE' }}><p>본문</p></DrillLayout>);
     const alert = screen.getByRole('alert');
     expect(alert.textContent).toContain('StGroup “LATE”는 앞 단계 없이 쓸 수 없습니다.');
     expect(alert.textContent).not.toContain('drillStgroup=');
@@ -181,7 +181,7 @@ describe('DrillLayout (06 §12.7, ADR-0025)', () => {
   });
 
   it('format error: the clear button removes the invalid step and focus goes to the title at depth 0', () => {
-    mount('/source?v=1&drillStgroup=LATE', <PlatformPage><DrillLayout><p>본문</p></DrillLayout></PlatformPage>);
+    mount('/mars/source?v=1&drillStgroup=LATE', <PlatformPage><DrillLayout><p>본문</p></DrillLayout></PlatformPage>);
     fireEvent.click(screen.getByRole('button', { name: '잘못된 단계 지우기' }));
     expect(new URLSearchParams(window.location.search).has('drillStgroup')).toBe(false);
     expect(screen.getByText('본문')).toBeTruthy();
@@ -190,7 +190,7 @@ describe('DrillLayout (06 §12.7, ADR-0025)', () => {
   });
 
   it('format error at depth 1: the clear button keeps the valid trail and focuses its step chip', () => {
-    mount('/source?v=1&drillRoom=PHOTO&drillLine=L1', <PlatformPage><DrillLayout><p>본문</p></DrillLayout></PlatformPage>);
+    mount('/mars/source?v=1&drillRoom=PHOTO&drillLine=L1', <PlatformPage><DrillLayout><p>본문</p></DrillLayout></PlatformPage>);
     fireEvent.click(screen.getByRole('button', { name: '잘못된 단계 지우기' }));
     const params = new URLSearchParams(window.location.search);
     expect(params.get('drillRoom')).toBe('PHOTO');
@@ -199,7 +199,7 @@ describe('DrillLayout (06 §12.7, ADR-0025)', () => {
   });
 
   it('replaces the body when the step value is missing', () => {
-    mount('/source?v=1&drillRoom=PHOTO', <DrillLayout notFound={{ key: 'drillRoom', value: 'NOPE' }}><p>본문</p></DrillLayout>);
+    mount('/mars/source?v=1&drillRoom=PHOTO', <DrillLayout notFound={{ key: 'drillRoom', value: 'NOPE' }}><p>본문</p></DrillLayout>);
     const status = screen.getByRole('status');
     expect(status.textContent).toContain('이 조건에서 없는 값: NOPE');
     expect(screen.queryByText('본문')).toBeNull();
@@ -207,7 +207,7 @@ describe('DrillLayout (06 §12.7, ADR-0025)', () => {
 
   it('names the path and the sibling control in English', () => {
     storage.setItem('platform:lang', 'en');
-    mount('/source?v=1&drillRoom=PHOTO', <DrillLayout siblings={siblings}><p>Body</p></DrillLayout>);
+    mount('/mars/source?v=1&drillRoom=PHOTO', <DrillLayout siblings={siblings}><p>Body</p></DrillLayout>);
     expect(screen.getByRole('navigation', { name: 'Drill path' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Change Process' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'All' })).toBeTruthy();
@@ -226,7 +226,7 @@ describe('DrillLayout keeps a body child across drill steps (06 §12.7, #912)', 
       const drill = useDrill();
       return <DrillLayout><Panel /><button onClick={() => drill.enter('drillStgroup', 'A')}>step</button></DrillLayout>;
     }
-    mount('/source?v=1&drillRoom=PHOTO', <Page />);
+    mount('/mars/source?v=1&drillRoom=PHOTO', <Page />);
     const input = screen.getByRole('textbox', { name: '메모' });
     fireEvent.change(input, { target: { value: '남는다' } });
     fireEvent.click(screen.getByRole('button', { name: 'step' }));
@@ -239,16 +239,16 @@ describe('DrillLayout keeps a body child across drill steps (06 §12.7, #912)', 
 
 describe('ReturnLink (06 §22, ADR-0025)', () => {
   it('names the origin menu and its drill trail', () => {
-    const accepted = '/source?v=1&drillRoom=PHOTO&drillStgroup=A&drillLine=L1&drillEquipment=E';
-    mount(`/detail?v=1&returnTo=${encodeURIComponent(accepted)}`, <ReturnLink />);
+    const accepted = '/mars/source?v=1&drillRoom=PHOTO&drillStgroup=A&drillLine=L1&drillEquipment=E';
+    mount(`/mars/detail?v=1&returnTo=${encodeURIComponent(accepted)}`, <ReturnLink />);
     const link = screen.getByRole('link', { name: '← 생산성 개요 (PHOTO › A › L1 › E)' });
     expect(link.getAttribute('href')).toBe(accepted);
   });
 
   it('names the parent menu when returnTo is absent', () => {
-    mount('/detail?v=1', <ReturnLink />);
+    mount('/mars/detail?v=1', <ReturnLink />);
     const link = screen.getByRole('link', { name: '← 생산성 개요' });
-    expect(link.getAttribute('href')).toBe('/source?v=1');
+    expect(link.getAttribute('href')).toBe('/mars/source?v=1');
     expect(link.textContent).not.toContain('›');
   });
 });
@@ -262,9 +262,9 @@ function FocusFixture() {
   </DrillLayout></PlatformPage>;
 }
 it.each(['enter', 'parent', 'all', 'sibling', 'middle'])('focuses the exact drill destination after %s', async action => {
-  const url = action === 'enter' ? '/source?v=1' : action === 'middle'
-    ? '/source?v=1&drillRoom=PHOTO&drillStgroup=A&drillLine=L1&drillEquipment=E1'
-    : '/source?v=1&drillRoom=PHOTO&drillStgroup=A';
+  const url = action === 'enter' ? '/mars/source?v=1' : action === 'middle'
+    ? '/mars/source?v=1&drillRoom=PHOTO&drillStgroup=A&drillLine=L1&drillEquipment=E1'
+    : '/mars/source?v=1&drillRoom=PHOTO&drillStgroup=A';
   mount(url, <FocusFixture />);
   if (action === 'enter') fireEvent.click(screen.getByRole('button', { name: 'enter' }));
   if (action === 'parent') fireEvent.click(screen.getByRole('button', { name: '공정: PHOTO' }));
@@ -287,7 +287,7 @@ it('focuses the destination page title when ReturnLink unmounts on navigation', 
       ? <PlatformPage key="detail"><ReturnLink /></PlatformPage>
       : <PlatformPage key="source"><p>destination</p></PlatformPage>;
   }
-  mount('/detail?v=1', <Routes />);
+  mount('/mars/detail?v=1', <Routes />);
   const link = screen.getByRole('link', { name: '← 생산성 개요' });
   link.focus();
   fireEvent.click(link);
@@ -303,7 +303,7 @@ it.each(['loading', 'failure'])('uses the persistent page title when the drill b
       ? <button onClick={() => drill.enter('drillRoom', 'PHOTO')}>enter</button>
       : <p role="status">{state}</p>}</PlatformPage>;
   }
-  mount('/source?v=1', <Fixture />);
+  mount('/mars/source?v=1', <Fixture />);
   screen.getByRole('button', { name: 'enter' }).focus();
   fireEvent.click(screen.getByRole('button', { name: 'enter' }));
   await settleFocus();
@@ -331,7 +331,7 @@ it.each(['drill', 'return'])('preserves pending %s focus across a same-user sess
       </PlatformPage>}
     </>;
   }
-  window.history.replaceState(null, '', kind === 'return' ? '/detail?v=1' : '/source?v=1');
+  window.history.replaceState(null, '', kind === 'return' ? '/mars/detail?v=1' : '/mars/source?v=1');
   render(<I18nProvider><PlatformProvider adapter={refreshAdapter} registry={registry}><Routes /></PlatformProvider></I18nProvider>);
   fireEvent.click(screen.getByRole(kind === 'return' ? 'link' : 'button', { name: kind === 'return' ? '← 생산성 개요' : 'pending drill' }));
   act(() => {
@@ -352,14 +352,14 @@ it.each(['preset', 'reset', 'history', 'setPage', 'navigate'])('preserves Contex
       if (action === 'preset') setGlobal({ from: '2026-10-01T00:00:00', to: '2026-10-08T00:00:00' });
       if (action === 'reset') resetContext();
       if (action === 'setPage') setPage({ drillRoom: null, drillStgroup: null });
-      if (action === 'navigate') navigate('/source?v=1');
+      if (action === 'navigate') navigate('/mars/source?v=1');
       if (action === 'history') {
-        window.history.replaceState(null, '', '/source?v=1&drillRoom=ETCH');
+        window.history.replaceState(null, '', '/mars/source?v=1&drillRoom=ETCH');
         window.dispatchEvent(new PopStateEvent('popstate'));
       }
     }}>7일</button>;
   }
-  window.history.replaceState(null, '', '/source?v=1&drillRoom=PHOTO&drillStgroup=A&from=2026-09-01T00:00:00&to=2026-09-08T00:00:00');
+  window.history.replaceState(null, '', '/mars/source?v=1&drillRoom=PHOTO&drillStgroup=A&from=2026-09-01T00:00:00&to=2026-09-08T00:00:00');
   render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry} slots={{ contextBar: <ContextControls /> }}><PlatformPage><DrillLayout /></PlatformPage></PlatformProvider></I18nProvider>);
   const preset = screen.getByRole('button', { name: '7일' });
   preset.focus();
@@ -381,12 +381,12 @@ it.each(['defaults', 'metric defaults', 'other navigation', 'history', 'denied']
       entry({ id: 'detail', path: '/detail', parent: 'source', navHidden: true, pageKeys: ['returnTo'] }),
     ],
   });
-  const target = action === 'metric defaults' ? '/source?v=1&metricId=CT' : action === 'defaults' ? '/source?v=1' : '/source?v=1&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00';
+  const target = action === 'metric defaults' ? '/mars/source?v=1&metricId=CT' : action === 'defaults' ? '/mars/source?v=1' : '/mars/source?v=1&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00';
   function Routes() {
     const { route, navigate, can } = usePlatform();
     const [ready, setReady] = useState(false);
     return <><button onClick={() => setReady(true)}>resolve destination</button>
-      <button onClick={() => navigate('/plain?v=1')}>other navigation</button>
+      <button onClick={() => navigate('/mars/plain?v=1')}>other navigation</button>
       <button onClick={() => navigate(target)}>revisit</button>
       {route?.menu.id === 'detail' ? <PlatformPage key="detail"><ReturnLink /></PlatformPage>
         : ready && can(route!.menu.permission) ? <PlatformPage key={route!.menu.id}>destination</PlatformPage> : null}</>;
@@ -396,12 +396,12 @@ it.each(['defaults', 'metric defaults', 'other navigation', 'history', 'denied']
   let denied = action === 'denied';
   const listeners = new Set<() => void>();
   const coldAdapter = testAdapter({ publishedMetrics: () => [{ metricId: 'CT', publishedVersion: '7' }], session: () => denied ? deniedSession : session, subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener); } });
-  window.history.replaceState(null, '', `/detail?v=1&returnTo=${encodeURIComponent(target)}`);
+  window.history.replaceState(null, '', `/mars/detail?v=1&returnTo=${encodeURIComponent(target)}`);
   render(<I18nProvider><PlatformProvider adapter={coldAdapter} registry={coldRegistry}><Routes /></PlatformProvider></I18nProvider>);
   const link = screen.getByRole('link', { name: /^←/ });
   link.focus();
   fireEvent.click(link);
-  expect(window.location.pathname).toBe(action === 'denied' ? '/' : '/source');
+  expect(window.location.pathname).toBe(action === 'denied' ? '/mars/home' : '/mars/source');
   if (action !== 'denied') expect(new URLSearchParams(window.location.search).get('from')).not.toBeNull();
   if (action === 'other navigation') {
     fireEvent.click(screen.getByRole('button', { name: 'other navigation' }));
@@ -430,8 +430,8 @@ it.each([true, false])('announces reverted Context exactly once after return: %s
     const toasts = useToastsForTest();
     return <><ReturnLink /><output>{JSON.stringify({ toasts, url })}</output></>;
   }
-  const origin = '/source?v=1';
-  mount(`/detail?v=1${changed ? '&metricId=cycle_time&metricVersion=4' : ''}&returnTo=${encodeURIComponent(origin)}`, <Fixture />);
+  const origin = '/mars/source?v=1';
+  mount(`/mars/detail?v=1${changed ? '&metricId=cycle_time&metricVersion=4' : ''}&returnTo=${encodeURIComponent(origin)}`, <Fixture />);
   expect(JSON.parse(screen.getByRole('status').textContent!).toasts).toHaveLength(0);
   fireEvent.click(screen.getByRole('link', { name: '← 생산성 개요' }));
   const result = JSON.parse(screen.getByRole('status').textContent!);
@@ -446,8 +446,8 @@ it('announces reverted Scope exactly once after return', () => {
     const toasts = useToastsForTest();
     return <><ReturnLink /><output>{JSON.stringify({ toasts, url })}</output></>;
   }
-  const origin = '/source?v=1&scopeId=MEM';
-  mount(`/detail?v=1&scopeId=FDRY&returnTo=${encodeURIComponent(origin)}`, <Fixture />);
+  const origin = '/mars/source?v=1&scopeId=MEM';
+  mount(`/mars/detail?v=1&scopeId=FDRY&returnTo=${encodeURIComponent(origin)}`, <Fixture />);
   expect(JSON.parse(screen.getByRole('status').textContent!).toasts).toHaveLength(0);
   fireEvent.click(screen.getByRole('link', { name: '← 생산성 개요' }));
   const result = JSON.parse(screen.getByRole('status').textContent!);

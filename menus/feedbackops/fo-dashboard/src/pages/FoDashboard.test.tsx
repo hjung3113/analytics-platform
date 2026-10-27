@@ -94,7 +94,7 @@ describe('대시보드 host links', () => {
       <Link to="/tasks?view=board">보드</Link>
     </PlatformProvider></I18nProvider>);
     expect(screen.getByRole('link', { name: '참여' }).getAttribute('href')).toContain('/surveys');
-    expect(screen.getByRole('link', { name: '응답하기' }).getAttribute('href')).toContain(`/surveys/${SURVEY}/respond`);
+    expect(screen.getByRole('link', { name: '응답하기' }).getAttribute('href')).toContain(`/feedbackops/survey-respond/${SURVEY}`);
     expect(screen.getByRole('link', { name: '내 VOC' }).getAttribute('href')).toContain('/voc');
     expect(screen.queryByRole('link', { name: '보드' })).toBeNull();
     // `canLink` reads the route tables only (#763 p1); the link stays unrendered because this registry has no fo-tasks.
@@ -127,7 +127,7 @@ describe('대시보드 host links', () => {
       <Link to="/tasks?view=board">보드</Link>
     </PlatformProvider></I18nProvider>);
     const queue = new URL(screen.getByRole('link', { name: '미배정' }).getAttribute('href')!, 'http://x');
-    expect(queue.pathname).toBe('/feedbackops/vocs');
+    expect(queue.pathname).toBe('/feedbackops/fo-inbox');
     expect(queue.searchParams.get('tab')).toBe('unassigned');
     expect(queue.searchParams.get('managedSystem')).toBe(SYSTEM);
     expect(new URL(screen.getByRole('link', { name: '연결 없음' }).getAttribute('href')!, 'http://x').searchParams.get('tab')).toBe('high-no-link');
@@ -147,7 +147,7 @@ describe('대시보드 host links', () => {
     render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={live}>
       <Link to="/integration/coverage">커버리지</Link>
     </PlatformProvider></I18nProvider>);
-    expect(new URL(screen.getByRole('link', { name: '커버리지' }).getAttribute('href')!, 'http://x').pathname).toBe('/feedbackops/coverage');
+    expect(new URL(screen.getByRole('link', { name: '커버리지' }).getAttribute('href')!, 'http://x').pathname).toBe('/feedbackops/fo-coverage');
   });
 
   it('links 보드 to the Tasks board when the registry has fo-tasks (#763 p1)', () => {
@@ -161,6 +161,6 @@ describe('대시보드 host links', () => {
     render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={live}>
       <Link to="/tasks?view=board">보드</Link>
     </PlatformProvider></I18nProvider>);
-    expect(new URL(screen.getByRole('link', { name: '보드' }).getAttribute('href')!, 'http://x').pathname).toBe('/feedbackops/tasks');
+    expect(new URL(screen.getByRole('link', { name: '보드' }).getAttribute('href')!, 'http://x').pathname).toBe('/feedbackops/fo-tasks');
   });
 });

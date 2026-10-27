@@ -81,7 +81,7 @@ describe('hostLinks().useNavigate on a mounted platform', () => {
     const before = window.history.length;
     act(() => result.current.go('/vocs?view=inbox&filter.severity=high', { replace: true }));
     const params = new URLSearchParams(window.location.search);
-    expect(window.location.pathname).toBe('/inbox');
+    expect(window.location.pathname).toBe('/mars/fo-inbox');
     expect(params.get('severity')).toBe('high');
     expect(params.get('q')).toBeNull();
     expect(params.get('focus')).toBeNull();
@@ -93,7 +93,7 @@ describe('hostLinks().useNavigate on a mounted platform', () => {
     at('/inbox?v=1&managedSystem=ms1');
     const { result } = renderHook(() => useNavigate(), { wrapper });
     act(() => result.current('/vocs?view=triage&selected=x'));
-    expect(window.location.pathname).toBe('/triage');
+    expect(window.location.pathname).toBe('/mars/fo-triage');
     expect(new URLSearchParams(window.location.search).get('focus')).toBe('x');
   });
 
@@ -121,7 +121,7 @@ describe('a space that carries returnTo (#760)', () => {
     at('/inbox?v=1&managedSystem=ms1');
     const { result } = renderHook(() => useNavigate(), { wrapper: carryingWrapper });
     act(() => result.current('/vocs?view=triage&selected=x'));
-    expect(window.location.pathname).toBe('/triage');
+    expect(window.location.pathname).toBe('/mars/fo-triage');
     expect(new URLSearchParams(window.location.search).has('returnTo')).toBe(false);
   });
 
@@ -129,7 +129,7 @@ describe('a space that carries returnTo (#760)', () => {
     at('/inbox?v=1&managedSystem=ms1&returnTo=%2Fanalytics%3Fv%3D1');
     const { result } = renderHook(() => useNavigate(), { wrapper: carryingWrapper });
     act(() => result.current('/vocs?view=triage&selected=x'));
-    expect(window.location.pathname).toBe('/triage');
+    expect(window.location.pathname).toBe('/mars/fo-triage');
     expect(new URLSearchParams(window.location.search).getAll('returnTo')).toEqual(['/analytics?v=1']);
   });
 });
@@ -178,7 +178,7 @@ describe('a VOC detail cluster href', () => {
     const { result } = renderHook(() => clusterLinks.useNavigate(), { wrapper });
     expect(clusterLinks.canLink('/voc-clusters/c7')).toBe(true);
     act(() => result.current('/voc-clusters/c7'));
-    expect(window.location.pathname).toBe('/clusters');
+    expect(window.location.pathname).toBe('/mars/fo-clusters');
     expect(new URLSearchParams(window.location.search).get('focus')).toBe('c7');
   });
 });
@@ -390,7 +390,7 @@ describe('FoBridge absoluteHref', () => {
     const href = first.absoluteHref!('/vocs?view=triage&selected=x')!;
     const url = new URL(href);
     expect(url.origin).toBe(window.location.origin);
-    expect(url.pathname).toBe('/triage');
+    expect(url.pathname).toBe('/mars/fo-triage');
     expect(url.searchParams.get('focus')).toBe('x');
     expect(url.searchParams.get('managedSystem')).toBe('ms1');
     expect(url.searchParams.has('returnTo')).toBe(false);

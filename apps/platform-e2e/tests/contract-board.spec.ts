@@ -317,7 +317,7 @@ test.describe('분석 보드 계약 (16 §4–§7, ADR-0049·0051)', () => {
 
   test('분석 보드에 열기: 사이클타임 상세를 새 시트의 첫 칸으로 연다', async ({ page }, testInfo) => {
     await signInAs(page, 'engineer');
-    await page.goto(`/analytics/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}`);
+    await page.goto(`/mars/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}`);
     await expect(mainHeading(page)).toHaveText('사이클타임 상세');
     const actions = await headerMore(page);
     await actions.getByRole('button', { name: '분석 보드에 열기…' }).click();
@@ -1009,7 +1009,7 @@ test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
 
 test.describe('메뉴 작업 영역 (ADR-0067 3b)', () => {
   // 첫 소비자는 사이클타임 드릴다운(PanelWorkspace, persistKey `drilldown`, 프리셋 기본·집중). 각 검사는 자기 저장소로 혼자 선다.
-  const CYCLE = `/analytics/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}`;
+  const CYCLE = `/mars/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}`;
   const TITLES = { summary: '사이클타임 요약', trend: '사이클타임 추세', distribution: '사이클타임 분포', slow: '느린 실행' } as const;
 
   /** The dock region of the menu workspace; inside a board pane the board's own dock is the outer `[data-dock-layout]`. */
@@ -1312,7 +1312,7 @@ test.describe('메뉴 작업 영역 (ADR-0067 3b)', () => {
 // #686 (ADR-0077, 06 §12.8): the workspace's second height mode. Written by the worker, who cannot run E2E: the host runs it first and derives the
 // numeric tolerances from browser measurements (`ROUNDING` is a placeholder for the engine's pixel rounding, not a measurement).
 test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
-  const CYCLE = `/analytics/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}`;
+  const CYCLE = `/mars/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}`;
   const STORE = /^platform:workspace:v1:.+:cycle-time:drilldown$/;
   const TITLES = { summary: '사이클타임 요약', trend: '사이클타임 추세', distribution: '사이클타임 분포', slow: '느린 실행' } as const;
   const ROUNDING = 2;
@@ -1715,7 +1715,7 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
 test.describe('fill 페이지의 표 높이 (06 §12.8, #690k)', () => {
   test('1440×900 HW Time 표의 행 영역이 fill 슬롯 아래 끝에서 120px 안까지 닿는다', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
-    await page.goto('/hw-time/table?v=1&scopeId=MEM&drillModule=PM1');
+    await page.goto('/mars/hw-time-table?v=1&scopeId=MEM&drillModule=PM1');
     const rows = page.getByLabel('스크롤 가능한 행 영역');
     await expect(rows).toBeVisible();
     await expect(rows.getByRole('row').nth(2)).toBeVisible();
@@ -1847,7 +1847,7 @@ test.describe('분석 보드 최소화·복원 (#893 893c)', () => {
       sessionStorage.setItem(seeded, '1');
     }, { value: { v: 1, activeSheetId: 'dock', sheets: [{ id: 'dock', name: '도킹', layout: '1x1', selected: 0, panes: [equipment('MEM-PHOTO-0103')] }] } });
     const slot = page.getByRole('complementary', { name: '상세 패널' }).getByRole('dialog');
-    await page.goto('/equipment?v=1&scopeId=MEM&focus=MEM-PHOTO-0104');
+    await page.goto('/mars/equipment-master?v=1&scopeId=MEM&focus=MEM-PHOTO-0104');
     await expect(slot).toBeVisible();
     await expect(slot).toContainText('MEM-PHOTO-0104');
     await page.getByRole('navigation', { name: '앱 레일' }).getByRole('button', { name: '분석 보드' }).click();
@@ -1912,7 +1912,7 @@ test.describe('분석 보드 창 (#893 893d)', () => {
     const length = await page.evaluate(() => history.length);
     await page.getByRole('button', { name: '창으로 보기' }).click();
     await expect(windowFrame(page)).toBeVisible();
-    await expect(page).toHaveURL(/\/analytics\/productivity/);
+    await expect(page).toHaveURL(/\/mars\/productivity-overview/);
     expect(await page.evaluate(() => history.length)).toBe(length);
     // The pressed button is gone; focus is on the window's title bar, not `body` (UX-1), and its focus ring is drawn inside the window (UX-2).
     await expect(titleBar(page)).toBeFocused();
@@ -1925,7 +1925,7 @@ test.describe('분석 보드 창 (#893 893d)', () => {
     await expect(rail(page).getByRole('button', { name: '분석 보드(창으로 열림, 눌러 앞으로)' })).toHaveAttribute('data-board-state', 'floating');
     await expect(mainHeading(page)).toBeVisible();
     await page.getByRole('link', { name: '사이클타임 상세', exact: true }).click();
-    await expect(page).toHaveURL(/\/analytics\/cycle-time/);
+    await expect(page).toHaveURL(/\/mars\/cycle-time/);
     await expect(windowFrame(page)).toBeVisible();
     await expect(chip(page)).toHaveCount(0);
     await expect(marks(page)).toHaveCount(2);

@@ -11,7 +11,7 @@ import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { groupId, spaceId, type Permission } from '@ap/contracts';
 
 // The real manifests in their global group; a space needs one menu of its own, so a filler stands in for it.
-const filler = { ...manifests.find(m => m.id === 'surveys')!, primary: true, id: 'filler', group: 'noticeVoc', path: '/filler' } as MenuEntry;
+const filler = { ...manifests.find(m => m.id === 'surveys')!, primary: true, id: 'filler', group: 'noticeVoc', path: '/filler', aliases: undefined } as MenuEntry;
 export const registry = createRegistry({
   spaces: [{ id: spaceId('mars'), label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'filler' }],
   groups: [

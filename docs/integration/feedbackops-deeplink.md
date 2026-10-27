@@ -52,7 +52,7 @@ https://feedbackops.example/home
 
 ## 2. 방향 B — FeedbackOps → 플랫폼
 
-목적지 id는 path, 분석 Context는 query(06 §6.1, §22). Selection을 목적지 id로 바꾸지 않는다. phase-1 hop allowlist:
+목적지 id는 path, 분석 Context는 query(06 §6.1, §22). Selection을 목적지 id로 바꾸지 않는다. 아래는 `buildPlatformInboundLink`·`parsePlatformInboundLink`가 생성·수용하는 레거시 inbound codec 경로다. 플랫폼은 이를 Registry 정규 경로로 교체한다([06 §6.4](../contract/kernel.md#64-url-계약-decided-필드명enum-문자열은-candidate)). phase-1 hop allowlist:
 
 | hop | path | 받는 query |
 | --- | --- | --- |

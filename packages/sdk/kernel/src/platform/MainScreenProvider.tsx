@@ -16,10 +16,20 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
   const [url, setUrl] = useState(initialUrl);
 
   const commit = useCallback((next: string, how: 'push' | 'replace', options: CommitOptions = {}) => {
-    if (!isAppRelativePath(next) || next === (location.read() ?? '')) { if (!options.materialize) pageNavigation.cancel(); return false; }
-    if (options.materialize) pageNavigation.materialize(next);
+    if (options.redirect) { // a write that landed before this effect ran keeps its query: only the path is ours
+      const current = location.read() ?? '';
+      const q = current.indexOf('?');
+      next = next.split('?')[0] + (q === -1 ? '' : current.slice(q));
+    }
+    // A redirect destination was built by pathFor and checked by the caller (same menu, same params); its query is the address's own and already
+    // passed the URL reader, so the return-link guard (which also rejects a decoded `#` or `:`) does not apply to it.
+    const allowed = options.redirect ? next.startsWith('/') && !next.startsWith('//') && !/[#\\\u0000-\u001F\u007F]/.test(next.split('?')[0]) : isAppRelativePath(next);
+    if (!allowed || next === (location.read() ?? '')) { if (!options.materialize) pageNavigation.cancel(); return false; }
+    if (options.redirect) pageNavigation.redirect(next);
+    else if (options.materialize) pageNavigation.materialize(next);
     else pageNavigation.advance(next, options.focus);
-    if (how === 'replace') location.replace(next); else location.push(next);
+    // The URL state carries pathname + search only; a kernel rewrite of the same arrival keeps the fragment in the same history write.
+    if (how === 'replace') location.replace(next, { keepFragment: options.redirect || options.materialize }); else location.push(next);
     setUrl(location.read() ?? '');
     if (how === 'push') document.getElementById('platform-main')?.scrollTo({ top: 0 });
     return true;
@@ -45,7 +55,7 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
 
   // Recent visits (the main screen's own history; a pane never writes them).
   useEffect(() => {
-    if (!route || contractError || !can(route.menu.permission)) return;
+    if (!route || route.viaAlias || contractError || !can(route.menu.permission)) return;
     if (!enters(route.menu)) return;
     const space = registry.spaceOf(route.menu);
     if (space !== null) writeSpaceLast(userId, space.id, url, spaceIdMigrations);

@@ -127,13 +127,13 @@ describe('savedViewsSlot', () => {
 
   it('shows one muted 실서버 필요 line and requests nothing without a FeedbackOps API', async () => {
     setFoApi(null);
-    await mount('/feedbackops');
+    await mount('/feedbackops/fo-dashboard');
     expect(host!.textContent).toContain('실서버 필요');
     expect(calls).toEqual([]);
   });
 
   it('on the dashboard shows the guidance line, never an empty body', async () => {
-    await mount('/feedbackops');
+    await mount('/feedbackops/fo-dashboard');
     await settle();
     expect(host!.textContent).toContain('수신함이나 Triage에서 현재 필터를 저장할 수 있습니다.');
     expect(input()).toBeNull();
@@ -141,7 +141,7 @@ describe('savedViewsSlot', () => {
 
   it('on the dashboard lists the saved views', async () => {
     rows = [row('a', '높음 보기', { view: 'inbox', 'filter.severity': 'high' })];
-    await mount('/feedbackops');
+    await mount('/feedbackops/fo-dashboard');
     await settle();
     expect(applyButton('높음 보기')).toBeTruthy();
     expect(host!.textContent).not.toContain('수신함이나 Triage');
@@ -191,7 +191,7 @@ describe('apply', () => {
     await mount('/feedbackops/vocs?q=old&managedSystem=ms1&sort=-created&returnTo=%2Forigin%3Fv%3D1');
     await settle();
     await click('높음');
-    expect(window.location.pathname).toBe('/feedbackops/vocs');
+    expect(window.location.pathname).toBe('/feedbackops/fo-inbox');
     const search = new URLSearchParams(window.location.search);
     expect(search.get('severity')).toBe('high');
     expect([...search.keys()].filter(key => key !== 'severity' && key !== 'v')).toEqual([]);
@@ -200,18 +200,18 @@ describe('apply', () => {
 
   it('keeps the stored managedSystem and lands on Triage for a triage view from another menu', async () => {
     rows = [row('a', '트리아지', { view: 'triage', tab: 'high', managed_system_id: 'ms2' })];
-    await mount('/feedbackops');
+    await mount('/feedbackops/fo-dashboard');
     await settle();
     await click('트리아지');
-    expect(new URL(path(), 'http://x').pathname).toBe('/feedbackops/triage');
+    expect(new URL(path(), 'http://x').pathname).toBe('/feedbackops/fo-triage');
     const search = new URLSearchParams(window.location.search);
     expect(search.get('tab')).toBe('high');
     expect(search.get('managedSystem')).toBe('ms2');
   });
 
   it.each([
-    ['inbox', '/feedbackops/vocs?managedSystem=ms1', '/feedbackops/vocs'],
-    ['triage', '/feedbackops/triage?managedSystem=ms1', '/feedbackops/triage'],
+    ['inbox', '/feedbackops/vocs?managedSystem=ms1', '/feedbackops/fo-inbox'],
+    ['triage', '/feedbackops/triage?managedSystem=ms1', '/feedbackops/fo-triage'],
   ])('applies a stored managed_system_id all as a cleared scope for a %s view', async (view, start, pathname) => {
     rows = [row('a', '전체', { view, managed_system_id: 'all' })];
     await mount(start);
@@ -224,10 +224,10 @@ describe('apply', () => {
 
   it('leaves a stored view no table maps inert', async () => {
     rows = [row('a', '이상함', { view: 'mystery' })];
-    await mount('/feedbackops');
+    await mount('/feedbackops/fo-dashboard');
     await settle();
     await click('이상함');
-    expect(path()).toBe('/feedbackops');
+    expect(path()).toBe('/feedbackops/fo-dashboard');
   });
 });
 
@@ -235,7 +235,7 @@ describe('session states', () => {
   it('shows a loading line, not 실서버 필요, while the list loads', async () => {
     let release!: () => void;
     getGate = new Promise<void>(resolve => { release = resolve; });
-    await mount('/feedbackops');
+    await mount('/feedbackops/fo-dashboard');
     await settle();
     expect(host!.textContent).toContain('불러오는 중…');
     expect(host!.textContent).not.toContain('실서버 필요');
@@ -247,7 +247,7 @@ describe('session states', () => {
 
   it('shows the session-lost wording once the session is retired', async () => {
     unauthorized = true;
-    await mount('/feedbackops');
+    await mount('/feedbackops/fo-dashboard');
     await settle();
     expect(host!.textContent).toContain('세션이 만료되었습니다');
     expect(host!.textContent).not.toContain('실서버 필요');
@@ -263,7 +263,7 @@ describe('delete and focus recovery', () => {
 
   it('focuses the next surviving row', async () => {
     rows = three();
-    await mount('/feedbackops');
+    await mount('/feedbackops/fo-dashboard');
     await settle();
     await del('B');
     expect(document.activeElement).toBe(applyButton('C'));
@@ -271,7 +271,7 @@ describe('delete and focus recovery', () => {
 
   it('focuses the previous row when the last one is deleted', async () => {
     rows = three();
-    await mount('/feedbackops');
+    await mount('/feedbackops/fo-dashboard');
     await settle();
     await del('C');
     expect(document.activeElement).toBe(applyButton('B'));
@@ -288,7 +288,7 @@ describe('delete and focus recovery', () => {
   it('keeps focus and reports a rejected delete through the toast', async () => {
     rows = three();
     failDelete = true;
-    await mount('/feedbackops');
+    await mount('/feedbackops/fo-dashboard');
     await settle();
     const button = host!.querySelector<HTMLButtonElement>('button[aria-label="저장된 보기 B 삭제"]')!;
     button.focus();
@@ -334,7 +334,7 @@ describe('delete and focus recovery', () => {
     rows = three();
     let release!: () => void;
     deleteGate = new Promise<void>(resolve => { release = resolve; });
-    await mount('/feedbackops');
+    await mount('/feedbackops/fo-dashboard');
     await settle();
     await act(async () => { host!.querySelector<HTMLButtonElement>('button[aria-label="저장된 보기 B 삭제"]')!.click(); });
     await act(async () => { release(); });

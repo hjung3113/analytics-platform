@@ -4,6 +4,8 @@ import { classifyMetricInit, sameMetricInit } from '../registry/metric-init';
 import { sameItems, useStable } from '../stable';
 import { isBoardPath, pathFor, type MenuEntry } from '../registry/registry';
 import { useI18n } from '../i18n';
+import { hasDotSegment } from '../context/location';
+import { sameParams } from './preferences';
 import { dropResetKeys } from '../context/paneContext';
 import { dropDrillResetKeys } from '../context/drillReset';
 import { appliedQueryPolicy, useScreenDraft } from '../query/draft-state';
@@ -51,7 +53,16 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   const outsideDeployment = url === '';
 
   const platformScreen = mode === 'main' && !outsideDeployment && isBoardPath(pathname) ? 'board' : null;
-  const route = useMemo(() => outsideDeployment || platformScreen !== null ? null : matchRoute(pathname), [matchRoute, pathname, outsideDeployment, platformScreen]);
+  const route = useMemo(() => {
+    if (outsideDeployment || platformScreen !== null) return null;
+    const matched = matchRoute(pathname);
+    if (!matched?.viaAlias) return matched;
+    // The redirect destination must open the same menu with the same decoded params (a dot segment or an empty value would not): otherwise the alias is not a route.
+    const destination = pathFor(matched.menu, matched.params);
+    if (hasDotSegment(destination)) return null;
+    const back = matchRoute(destination);
+    return back && !back.viaAlias && back.menu.id === matched.menu.id && sameParams(back.params, matched.params) ? matched : null;
+  }, [matchRoute, pathname, outsideDeployment, platformScreen]);
   const { parsed, contractError } = useMemo((): { parsed: ParsedQuery | null; contractError: ContractError | null } => {
     // The board owns its own query (`?sheet=`), not the Context codec: the main Context there is empty.
     if (platformScreen !== null) return { parsed: null, contractError: null };
@@ -218,6 +229,9 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   // input (or nothing left to do) re-arms it.
   const proposed = useRef<string | null>(null);
   useEffect(() => {
+    // Alias entry (ADR-0093): one replace of the path alone — the search is the current address's, byte for byte. A default period
+    // or metric version is materialized afterwards on the canonical address, as for any visit, so no query runs on the alias.
+    if (mode === 'main' && route?.viaAlias) { commit(pathFor(route.menu, route.params) + search, 'replace', { redirect: true }); return; }
     if (!route || routeContractError) return;
     let next = global;
     if (route.menu.query?.mode !== 'apply' && route.menu.context.time === 'apply' && global.from === null) next = { ...next, from: shift(defaultRangeTo, -24), to: defaultRangeTo };
@@ -228,7 +242,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     if (proposed.current === key) return;
     proposed.current = key;
     commit(target, 'replace', { materialize: true });
-  }, [route, routeContractError, global, metricInit, page, extras, pathname, url, commit, defaultRangeTo]);
+  }, [mode, search, route, routeContractError, global, metricInit, page, extras, pathname, url, commit, defaultRangeTo]);
 
   useLayoutEffect(() => {
     // A platform screen takes its own arrival focus; "no route" must not cancel the request for it.
@@ -246,6 +260,8 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   const lastAdmitted = useRef<string | null>(null);
   const countsUsage = source.countsUsage !== false;
   useEffect(() => {
+    // An alias entry in the main screen is replaced by its canonical address next: it is not a stay, and it keeps the trail.
+    if (countsUsage && mode === 'main' && route?.viaAlias) return;
     if (!countsUsage || !route || routeContractError || !can(route.menu.permission) || !enters(route.menu)) {
       // The main screen is not a menu now (board, contract error, no access): the next entry's `fromMenuId` is null.
       if (mode === 'main' && countsUsage) usageNav.current.prev = null;
@@ -316,7 +332,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     if (route?.menu.parent && canOpen(route.menu.parent)) {
       return { href: linkTo(route.menu.parent), menuLabel: menuById(route.menu.parent).label, trail: [], revertedContext: [], accepted: false, spaceLabel: null };
     }
-    const platformHome = matchRoute('/')?.menu;
+    const platformHome = registry.platformHome;
     const spaceHome = sidebarSpace ? menuById(sidebarSpace.homeMenuId) : null;
     const home = platformHome && canOpen(platformHome.id) ? platformHome
       : spaceHome && canOpen(spaceHome.id) ? spaceHome : null;

@@ -10,6 +10,7 @@ function menu(id: string, group: GroupId, path: string, label: string, over: obj
   return { id, group, path, permission: 'platform:view' as const, primary: false, label: { ko: label, en: label }, description: { ko: '', en: '' }, icon: House, requiresScope: false, context: noContext, pageType: 'overview' as const, features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [], ...over };
 }
 const registry = createRegistry({
+  platformHomeMenuId: 'start',
   spaces: [
     testSpace({ id: spaceId('mars'), label: { ko: 'MARS', en: 'MARS' }, subtitle: { ko: '생산성 분석', en: 'Productivity analysis' }, homeMenuId: 'cycle-list' }),
     testSpace({ id: spaceId('bravo'), label: { ko: 'BRAVO', en: 'BRAVO' }, subtitle: { ko: '지표관리', en: 'Metrics' }, homeMenuId: 'catalog' }),
@@ -78,14 +79,14 @@ describe('rail sections (15 §3.2)', () => {
     fireEvent.click(within(sections()!).getByRole('button', { name: '사이클' }));
     expect(push).not.toHaveBeenCalled();
     expect(replace).not.toHaveBeenCalled();
-    expect(window.location.pathname).toBe('/cycle');
+    expect(window.location.pathname).toBe('/mars/cycle-list');
   });
 
   it('opens the first visible menu of another section through a Kernel link that keeps the global Context', async () => {
     mount('/cycle?v=1&scopeId=MEM&lotIds=kept');
     const push = vi.spyOn(window.history, 'pushState');
     fireEvent.click(within(sections()!).getByRole('button', { name: '설비' }));
-    await waitFor(() => expect(window.location.pathname).toBe('/equip'));
+    await waitFor(() => expect(window.location.pathname).toBe('/mars/equip-list'));
     expect(new URLSearchParams(window.location.search).get('scopeId')).toBe('MEM');
     expect(new URLSearchParams(window.location.search).get('lotIds')).toBe('kept');
     expect(push).toHaveBeenCalledTimes(1);

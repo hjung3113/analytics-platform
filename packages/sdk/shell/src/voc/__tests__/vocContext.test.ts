@@ -23,7 +23,7 @@ const GLOBAL: GlobalContext = {
   selection: ['e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7'], lineNames: ['L1'], metricId: 'oee', metricVersion: '3',
 };
 const input = (over: Partial<VocFreezeInput> = {}): VocFreezeInput => ({
-  route: { menu: registry.menus.find(entry => entry.path === '/p/:id')!, params: { id: '7' } }, platformScreen: null, global: GLOBAL,
+  route: { menu: registry.menus.find(entry => entry.path === '/mars/prod/:id')!, params: { id: '7' }, viaAlias: false }, platformScreen: null, global: GLOBAL,
   page: [['granularity', 'day'], ['focus', 'E-9'], ['q', 'x']], absoluteUrl, registry, lang: 'ko', axes: [], asOf: '그 시점 소속', ...over,
 });
 
@@ -48,7 +48,7 @@ describe('freezeVocContext (ADR-0070 decision 5)', () => {
 
   it('rebuilds the address from every kept key, as an absolute URL of the route path', () => {
     const url = new URL(freezeVocContext(input()).href!);
-    expect(url.origin + url.pathname).toBe('https://app.test/p/7');
+    expect(url.origin + url.pathname).toBe('https://app.test/mars/prod/7');
     const params = url.searchParams;
     expect([params.get('granularity'), params.get('focus'), params.get('q'), params.get('from'), params.get('to'), params.get('scopeId'), params.get('metricId'), params.get('metricVersion'), params.get('membershipBasis')])
       .toEqual(['day', 'E-9', 'x', '2026-10-20T09:00:00', '2026-10-23T18:00:00', 'MEM', 'oee', '3', 'asOf']);
@@ -69,7 +69,7 @@ describe('freezeVocContext (ADR-0070 decision 5)', () => {
       groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
       menus: [{ ...menu('home', '홈', '/'), pageKeys: ['q'] }, menu('prod', '생산성', '/p/:id')],
     });
-    const carried = (removed?: string[]) => freezeVocContext(input({ registry: carrying, route: { menu: carrying.menus.find(entry => entry.path === '/p/:id')!, params: { id: '7' } } }), new Set(removed)).carried;
+    const carried = (removed?: string[]) => freezeVocContext(input({ registry: carrying, route: { menu: carrying.menus.find(entry => entry.path === '/mars/prod/:id')!, params: { id: '7' }, viaAlias: false } }), new Set(removed)).carried;
     expect(carried()).toEqual({ q: 'x' });
     expect(carried(['page:q'])).toEqual({ q: 'x' });
     expect(freezeVocContext(input()).carried).toEqual({});
@@ -81,7 +81,7 @@ describe('freezeVocContext (ADR-0070 decision 5)', () => {
       groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
       menus: [{ ...menu('home', '홈', '/'), pageKeys: ['q', 'returnTo'] }, { ...menu('prod', '생산성', '/p/:id'), pageKeys: ['q', 'returnTo'] }],
     });
-    const context = freezeVocContext(input({ registry: carrying, page: [['q', 'x'], ['returnTo', '/origin?v=1']], route: { menu: carrying.menus.find(entry => entry.path === '/p/:id')!, params: { id: '7' } } }));
+    const context = freezeVocContext(input({ registry: carrying, page: [['q', 'x'], ['returnTo', '/origin?v=1']], route: { menu: carrying.menus.find(entry => entry.path === '/mars/prod/:id')!, params: { id: '7' }, viaAlias: false } }));
     expect(context.items.map(item => item.id)).not.toContain('page:returnTo');
     expect(new URL(context.href!).searchParams.has('returnTo')).toBe(false);
     expect(context.carried).toEqual({ q: 'x' });

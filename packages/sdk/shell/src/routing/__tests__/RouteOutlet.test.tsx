@@ -80,7 +80,7 @@ describe('RouteOutlet error boundary (06 §4)', () => {
     expect(await screen.findByText('이 화면에서 오류가 발생했습니다')).toBeTruthy();
     expect(reports).toHaveLength(1);
     expect(reports[0]).toEqual({
-      correlationId: expect.stringMatching(/^client-/), menuId: 'crash', spaceId: 'mars', path: '/crash', name: 'Error',
+      correlationId: expect.stringMatching(/^client-/), menuId: 'crash', spaceId: 'mars', path: '/mars/crash', name: 'Error',
     });
     expect(screen.getByText(new RegExp(reports[0].correlationId))).toBeTruthy();
     // The shell sibling still works and leaves the failed screen.
@@ -166,6 +166,7 @@ describe('global utility routes and the null-sidebar home link (06 §9.1)', () =
   });
   function globalRegistry(withRoot: boolean) {
     return createRegistry({
+      ...(withRoot ? { platformHomeMenuId: 'root' } : {}),
       spaces: [testSpace({ id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations console' }, subtitle: { ko: deniedSpaceSubtitle, en: 'Denial-only space subtitle' }, permission: 'console:access', homeMenuId: 'roles' })],
       groups: [
         { id: groupId('admin'), label: { ko: '관리', en: 'Admin' }, icon: House, space: spaceId('operations') },

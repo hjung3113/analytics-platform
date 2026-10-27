@@ -171,7 +171,7 @@ describe('page header width (#194 FIX2)', () => {
 
   it('keeps the actual parent link shrinkable and exposes its full label', async () => {
     const detailRegistry = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: [
-      ...registry.menus, { ...registry.menus[0], id: 'detail', path: '/detail', primary: false, navHidden: true, parent: 'home' },
+      ...registry.menus, { ...registry.menus[0], id: 'detail', path: '/detail', aliases: undefined, primary: false, navHidden: true, parent: 'home' },
     ] });
     window.history.replaceState(null, '', '/detail?v=1&scopeId=MEM');
     render(<I18nProvider><PlatformProvider adapter={adapterWith(async () => ({ status: 'valid', grantedRooms: [] }))} registry={detailRegistry}>

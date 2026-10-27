@@ -31,7 +31,7 @@ const registry = createRegistry({
 
 const session = testSession(['platform:view']);
 const adapter = testAdapter({ session: () => session });
-const RETURN_HREF = `/detail?v=1&returnTo=${encodeURIComponent('/equipment?v=1&focus=EQ-1')}`;
+const RETURN_HREF = `/mars/detail?v=1&returnTo=${encodeURIComponent('/mars/equipment?v=1&focus=EQ-1')}`;
 
 beforeEach(() => {
   Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value: vi.fn() });
@@ -55,7 +55,7 @@ function Routes({ ready, note }: { ready: boolean; note: string }) {
     setPage({ note });
   }, [note, setPage]);
   if (route?.menu.id === 'detail') return <PlatformPage title="설비 상세"><ReturnLink /></PlatformPage>;
-  if (route?.menu.id === 'home') return <PlatformPage title="홈"><PlatformLink href="/equipment?v=1&focus=EQ-1">설비로</PlatformLink></PlatformPage>;
+  if (route?.menu.id === 'home') return <PlatformPage title="홈"><PlatformLink href="/mars/equipment?v=1&focus=EQ-1">설비로</PlatformLink></PlatformPage>;
   return <PlatformPage title="설비 마스터">
     <button type="button" onClick={() => setPage({ focus: 'EQ-1' })}>보기</button>
     <PlatformLink href={RETURN_HREF}>전체 화면</PlatformLink>
@@ -99,37 +99,37 @@ describe('arrival focus wins over a restored detail panel (#356)', () => {
   });
 
   it('focuses 상세 닫기 when the panel is opened from the same screen', () => {
-    const view = mount('/equipment?v=1');
+    const view = mount('/mars/equipment?v=1');
     view.settlePanel();
     fireEvent.click(screen.getByRole('button', { name: '보기' }));
     expect(screen.getByRole('button', { name: '상세 닫기' })).toHaveFocus();
   });
 
   it('focuses 상세 닫기 when same-screen history creates focus=', () => {
-    const view = mount('/equipment?v=1');
+    const view = mount('/mars/equipment?v=1');
     view.settlePanel();
     fireEvent.click(screen.getByRole('button', { name: '보기' }));
     expect(screen.getByRole('button', { name: '상세 닫기' })).toHaveFocus();
     act(() => {
-      window.history.replaceState(null, '', '/equipment?v=1');
+      window.history.replaceState(null, '', '/mars/equipment?v=1');
       window.dispatchEvent(new PopStateEvent('popstate'));
     });
     expect(screen.queryByRole('dialog')).toBeNull();
     act(() => {
-      window.history.replaceState(null, '', '/equipment?v=1&focus=EQ-1');
+      window.history.replaceState(null, '', '/mars/equipment?v=1&focus=EQ-1');
       window.dispatchEvent(new PopStateEvent('popstate'));
     });
     expect(screen.getByRole('button', { name: '상세 닫기' })).toHaveFocus();
   });
 
   it('keeps the title when Back from another menu restores the panel on a later commit', () => {
-    const view = mount('/equipment?v=1');
+    const view = mount('/mars/equipment?v=1');
     fireEvent.click(screen.getByRole('button', { name: '보기' }));
     fireEvent.click(screen.getByRole('link', { name: '전체 화면' }));
     expect(screen.getByRole('heading', { name: '설비 상세' })).toHaveFocus();
     // Back across menus: real popstate traversal onto the panel's URL.
     act(() => {
-      window.history.replaceState(null, '', '/equipment?v=1&focus=EQ-1');
+      window.history.replaceState(null, '', '/mars/equipment?v=1&focus=EQ-1');
       window.dispatchEvent(new PopStateEvent('popstate'));
     });
     expect(screen.getByRole('heading', { name: '설비 마스터' })).toHaveFocus();

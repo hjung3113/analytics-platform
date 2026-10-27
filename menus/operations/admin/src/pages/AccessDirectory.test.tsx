@@ -260,7 +260,7 @@ describe('AccessDirectory (issue #49: /admin/roles)', () => {
       expect(element.classList.contains('text-text-muted')).toBe(false);
     };
     secondary(within(dialog).getByText('fixture-master'));
-    secondary(within(dialog).getByText('/admin/fixture-master'));
+    secondary(within(dialog).getByText('/operations/fixture-master'));
     fireEvent.mouseDown(within(dialog).getByRole('tab', { name: /사이트 범위|Site scope/ }));
     secondary(within(dialog).getByText(/부여 없음|No rooms granted/));
   });

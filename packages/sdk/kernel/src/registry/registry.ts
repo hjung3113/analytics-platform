@@ -46,7 +46,8 @@ export type PlatformGroupDef = GroupBase & { id: GroupId; module?: undefined };
 export type ModuleGroupDef = GroupBase & { id: ModuleScopedId; module: string };
 export type GroupDef = PlatformGroupDef | ModuleGroupDef;
 
-export type RouteMatch = { menu: MenuEntry; params: Record<string, string> };
+/** `viaAlias` is true when the pathname matched a legacy alias instead of the menu's canonical path (ADR-0093). `params` always use the canonical path's parameter names. */
+export type RouteMatch = { menu: MenuEntry; params: Record<string, string>; viaAlias: boolean };
 
 export type Registry = {
   groups: readonly GroupDef[];
@@ -59,7 +60,11 @@ export type Registry = {
   /** Space of the menu's group — membership lives on the group, never on the menu. Null when the group is a global utility (06 §9.1). */
   spaceOf: (menu: MenuEntry) => SpaceDef | null;
   menuById: (id: string) => MenuEntry;
+  /** The menu at the platform home path, declared by `platformHomeMenuId`. Null when the app has no space-less `/` menu. */
+  platformHome: MenuEntry | null;
   matchRoute: (pathname: string) => RouteMatch | null;
+  /** The href in canonical path form (ADR-0093): a legacy alias path becomes the menu's canonical path; search is kept byte for byte. Anything else is returned as is. */
+  canonicalHref: (href: string) => string;
   /**
    * Registry-dependent half of the URL contract (kept out of @ap/contracts — it needs the Registry; platform-packages.md §3).
    * Entry URL for “back”, or null. Registered non-detail menu, query parses for that menu.
@@ -79,6 +84,11 @@ const isIdShape = (id: unknown): id is string => typeof id === 'string' && /^[^\
 /** `<namespace>:<action>`, each part an id shape without `:`. */
 const isPermissionShape = (value: unknown): value is string => typeof value === 'string' && /^[^\s:?#&/]+:[^\s:?#&/]+$/.test(value);
 
+/** Roots the platform itself serves; a space id may not take one (ADR-0093). */
+export const RESERVED_PLATFORM_ROOTS: readonly string[] = ['home', 'survey', 'voc', 'notifications', 'notices', 'permission-requests', 'board', 'api', 'auth'];
+/** Path segment derived from a menu id: `:` → `-`, camelCase → kebab-case, lower-case. */
+export const menuSlug = (id: string) => id.replace(/:/g, '-').replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
+
 const segments = (path: string) => path.split('/').filter(Boolean);
 const isParam = (seg: string) => seg.startsWith(':');
 
@@ -91,7 +101,7 @@ export const isBoardPath = (pathname: string) => pathname.replace(/\/+$/, '') ==
  * Validates the declared IA once and returns the lookup functions the kernel and shell use
  * (docs/integration/platform-packages.md §5). Throws RegistryError on any violation.
  */
-export function createRegistry({ spaces, groups, menus, permissions: declared = [] }: { spaces: readonly SpaceDef[]; groups: readonly GroupDef[]; menus: readonly MenuEntry[]; /** The app's menu permissions. Omit when the menus use only kernel permissions. */ permissions?: readonly MenuPermission[] }): Registry {
+export function createRegistry({ spaces, groups, menus: menusIn, permissions: declared = [], platformHomeMenuId }: { spaces: readonly SpaceDef[]; groups: readonly GroupDef[]; menus: readonly MenuEntry[]; /** The app's menu permissions. Omit when the menus use only kernel permissions. */ permissions?: readonly MenuPermission[]; /** Id of the menu at the platform home path. Required when a space-less menu declares `/`. */ platformHomeMenuId?: string }): Registry {
   const fail = (message: string): never => { throw new RegistryError(message); };
   // Runtime config can hold non-strings the brand does not stop: check the shape before the namespace is taken.
   for (const p of declared) if (!isPermissionShape(p)) fail(`Declared permission "${String(p)}" must be "<namespace>:<action>" without whitespace or ? # & /`);
@@ -107,6 +117,7 @@ export function createRegistry({ spaces, groups, menus, permissions: declared = 
   const spaceByIdMap = new Map<SpaceId, SpaceDef>();
   for (const s of spaces) {
     if (!isIdShape(s.id)) fail(`Space id "${String(s.id)}" must be non-empty without whitespace or ? # & /`);
+    if (RESERVED_PLATFORM_ROOTS.includes(s.id)) fail(`Space id "${s.id}" is a reserved platform root`);
     if (s.permission !== undefined && !isPlatformPermission(s.permission)) fail(`Space "${s.id}" permission "${s.permission}" is not a platform permission (kernel or declared)`);
     if (spaceByIdMap.has(s.id)) fail(`Duplicate space id "${s.id}"`);
     spaceByIdMap.set(s.id, s);
@@ -118,7 +129,7 @@ export function createRegistry({ spaces, groups, menus, permissions: declared = 
     }
   }
   const byId = new Map<string, MenuEntry>();
-  for (const m of menus) {
+  for (const m of menusIn) {
     if (byId.has(m.id)) fail(`Duplicate menu id "${m.id}"`);
     byId.set(m.id, m);
   }
@@ -139,9 +150,34 @@ export function createRegistry({ spaces, groups, menus, permissions: declared = 
     groupSpace.set(g.id, g.space);
     groupOwner.set(g.id, g.module);
   }
+  // Canonical paths (ADR-0093): a menu in a space lives at /{space}/{menu-slug} + its manifest's :param segments; the manifest path becomes a legacy alias.
+  const slugs = new Map<string, string>();
+  const menus: MenuEntry[] = menusIn.map(m => {
+    const space = groupSpace.get(m.group) ?? null;
+    const declaredAliases = m.aliases ?? [];
+    const own = [m.path, ...declaredAliases];
+    for (const path of own) if (segments(path)[0] === BOARD_PATH.slice(1)) fail(`Menu "${m.id}" path "${path}" is reserved for the analysis board (${BOARD_PATH})`);
+    const params = segments(m.path).filter(isParam);
+    for (const path of declaredAliases) if (segments(path).filter(isParam).length !== params.length) fail(`Menu "${m.id}" alias "${path}" must have the same parameters as its path`);
+    if (space === null) {
+      const clash = own.find(path => spaceByIdMap.has(segments(path)[0] as SpaceId));
+      if (clash !== undefined) fail(`Menu "${m.id}" path "${clash}" starts with a space id; space-less paths may not use a space's root`);
+      return m;
+    }
+    const slug = menuSlug(m.id);
+    if (!isIdShape(slug)) fail(`Menu "${m.id}" slug "${slug}" must be non-empty without whitespace or ? # & /`);
+    const slugKey = `${space}/${slug}`;
+    const sameSlug = slugs.get(slugKey);
+    if (sameSlug !== undefined) fail(`Menus "${sameSlug}" and "${m.id}" in space "${space}" have the same slug "${slug}"`);
+    slugs.set(slugKey, m.id);
+    const canonical = '/' + [space, slug, ...params].join('/');
+    const aliases = [...declaredAliases, ...(m.path === canonical ? [] : [m.path])];
+    return { ...m, path: canonical, ...(aliases.length > 0 ? { aliases } : {}) } as MenuEntry;
+  });
+  byId.clear();
+  for (const m of menus) byId.set(m.id, m);
   const shapes = new Map<string, string>();
   for (const m of menus) {
-    if (segments(m.path)[0] === BOARD_PATH.slice(1)) fail(`Menu "${m.id}" path "${m.path}" is reserved for the analysis board (${BOARD_PATH})`);
     if (!groupIds.has(m.group)) fail(`Menu "${m.id}" uses undeclared group "${m.group}"`);
     if (m.module === undefined) {
       if (!isPlatformPermission(m.permission)) fail(`Menu "${m.id}" has no module and permission "${m.permission}" is not a platform permission (kernel or declared)`);
@@ -238,11 +274,21 @@ export function createRegistry({ spaces, groups, menus, permissions: declared = 
       }
     }
     // Same shape once parameter names are erased (/a/:x vs /a/:y) is ambiguous; static-vs-param overlaps are resolved below.
-    const shape = '/' + segments(m.path).map(s => (isParam(s) ? ':' : s)).join('/');
-    const other = shapes.get(shape);
-    if (other) fail(`Menus "${other}" and "${m.id}" declare the same route shape ${shape}`);
-    shapes.set(shape, m.id);
+    for (const path of [m.path, ...(m.aliases ?? [])]) {
+      const shape = '/' + segments(path).map(s => (isParam(s) ? ':' : s)).join('/');
+      const other = shapes.get(shape);
+      if (other === m.id) fail(`Menu "${m.id}" declares the route shape ${shape} more than once`);
+      if (other) fail(`Menus "${other}" and "${m.id}" declare the same route shape ${shape}`);
+      shapes.set(shape, m.id);
+    }
   }
+  const homeMenus = menus.filter(m => groupSpace.get(m.group) === null && [m.path, ...(m.aliases ?? [])].some(path => segments(path).length === 0));
+  let platformHome: MenuEntry | null = null;
+  if (platformHomeMenuId !== undefined) {
+    platformHome = byId.get(platformHomeMenuId) ?? fail(`platformHomeMenuId "${platformHomeMenuId}" is unknown`);
+    if (groupSpace.get(platformHome.group) !== null) fail(`platformHomeMenuId "${platformHomeMenuId}" must be a menu outside every space`);
+    if (segments(platformHome.path).some(isParam)) fail(`platformHomeMenuId "${platformHomeMenuId}" route must not need parameters`);
+  } else if (homeMenus.length > 0) fail(`Menu "${homeMenus[0].id}" declares the platform home path "/": pass platformHomeMenuId`);
   for (const g of groups) {
     const primaries = menus.filter(m => m.group === g.id && m.primary).length;
     if (primaries !== 1) fail(`Group "${g.id}" needs exactly one primary menu, found ${primaries}`);
@@ -267,24 +313,40 @@ export function createRegistry({ spaces, groups, menus, permissions: declared = 
   const menuById = (id: string) => byId.get(id) ?? fail(`Unknown menu ${id}`);
 
   // Static segments win over parameters, compared left to right, whatever the declaration order.
-  const compiled = menus.map(menu => ({ menu, pattern: segments(menu.path) }));
+  const compiled = menus.flatMap(menu => [{ menu, pattern: segments(menu.path), canonical: segments(menu.path), viaAlias: false }, ...(menu.aliases ?? []).map(alias => ({ menu, pattern: segments(alias), canonical: segments(menu.path), viaAlias: true }))]);
   const specificity = (pattern: string[]) => pattern.map(s => (isParam(s) ? '0' : '1')).join('');
   compiled.sort((a, b) => (specificity(a.pattern) < specificity(b.pattern) ? 1 : specificity(a.pattern) > specificity(b.pattern) ? -1 : 0));
+  // A pattern that wins over another menu's canonical pattern captures URLs that menu's pathFor builds (a param value equal to the static
+  // segment): the redirect or the direct open would land on the wrong menu and permission. Static-over-param stays for legacy aliases only.
+  const overlaps = (a: string[], b: string[]) => a.length === b.length && a.every((segment, i) => isParam(segment) || isParam(b[i]) || segment === b[i]);
+  compiled.forEach((winner, i) => {
+    for (const loser of compiled.slice(i + 1)) {
+      if (loser.viaAlias || loser.menu.id === winner.menu.id || !overlaps(winner.pattern, loser.pattern)) continue;
+      fail(`Menu "${winner.menu.id}" ${winner.viaAlias ? 'alias' : 'path'} "/${winner.pattern.join('/')}" captures canonical paths of menu "${loser.menu.id}" ("/${loser.pattern.join('/')}")`);
+    }
+  });
 
   const matchRoute = (pathname: string): RouteMatch | null => {
     const parts = segments(pathname.replace(/\/+$/, ''));
-    for (const { menu, pattern } of compiled) {
+    for (const { menu, pattern, canonical, viaAlias } of compiled) {
       if (pattern.length !== parts.length) continue;
       const params: Record<string, string> = {};
       let ok = true;
+      let paramIndex = 0;
       for (let i = 0; i < pattern.length; i++) {
         if (isParam(pattern[i])) {
-          try { params[pattern[i].slice(1)] = decodeURIComponent(parts[i]); } catch { ok = false; break; }
+          try { params[canonical.filter(isParam)[paramIndex++].slice(1)] = decodeURIComponent(parts[i]); } catch { ok = false; break; }
         } else if (pattern[i] !== parts[i]) { ok = false; break; }
       }
-      if (ok) return { menu, params };
+      if (ok) return { menu, params, viaAlias };
     }
     return null;
+  };
+
+  const canonicalHref = (href: string): string => {
+    const q = href.indexOf('?');
+    const route = matchRoute(q === -1 ? href : href.slice(0, q));
+    return route?.viaAlias ? pathFor(route.menu, route.params) + (q === -1 ? '' : href.slice(q)) : href;
   };
 
   const safeReturnTo = (value: string | null): string | null => {
@@ -298,7 +360,7 @@ export function createRegistry({ spaces, groups, menus, permissions: declared = 
     return value;
   };
 
-  return { groups, menus, spaces, permissions, groupById, spaceById, spaceOf, menuById, matchRoute, safeReturnTo };
+  return { groups, menus, spaces, permissions, groupById, spaceById, spaceOf, menuById, platformHome, matchRoute, canonicalHref, safeReturnTo };
 }
 
 /** Parameter names declared by route segments, in route order. */

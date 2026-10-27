@@ -16,7 +16,7 @@
 
 [06](../contract/platform-ui-contract.md) §9의 생산성 분석 그룹. **Overview (§12.1)**를 선택한다.
 
-- 개요 `/analytics/productivity`(그룹의 대표 목적지): 네 지표 요약(KPI 카드), 선택 지표의 추세(기본은 Job 처리량), 점유 구성(차트와 표), 확인할 항목(Attention List), Data Trust 요약
+- 개요 `/mars/productivity-overview`(그룹의 대표 목적지): 네 지표 요약(KPI 카드), 선택 지표의 추세(기본은 Job 처리량), 점유 구성(차트와 표), 확인할 항목(Attention List), Data Trust 요약
 - 사이클타임 상세 → 느린 실행 → occurrence 상세: [12](cycle-time-drilldown.md) 소유. 여기서는 진입점만 둔다
 
 조건→선택→드릴다운→상세의 Analysis Workspace(§12.2)는 다음 화면 소유다. 여기에는 brush·annotation·실행 breakdown table·detail drawer를 두지 않는다. 차트의 데이터 표는 접근성 대체 표현이며 실행 탐색 테이블이 아니다.

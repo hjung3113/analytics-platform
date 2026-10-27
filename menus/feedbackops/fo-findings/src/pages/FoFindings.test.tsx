@@ -32,7 +32,7 @@ vi.mock('@fops/frontend/operator-screens/finding-detail', async () => {
 const SYSTEM = '33333333-3333-4333-8333-333333333333';
 const FINDING_A = '99999999-9999-4999-8999-99999999999a';
 const FINDING_B = '99999999-9999-4999-8999-99999999999b';
-const PATH = '/feedbackops/findings';
+const PATH = '/feedbackops/fo-findings';
 const request = vi.fn();
 
 beforeAll(warmPages, 60_000);

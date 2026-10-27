@@ -295,7 +295,7 @@ describe('page header yield order (#303)', () => {
     headerWidths();
     window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
     const navigationRegistry = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: [
-      ...registry.menus, { ...registry.menus[0], id: 'destination', path: '/destination', primary: false, navHidden: true },
+      ...registry.menus, { ...registry.menus[0], id: 'destination', path: '/destination', aliases: undefined, primary: false, navHidden: true },
     ] });
     function Pages() {
       const { pathname } = usePlatform();

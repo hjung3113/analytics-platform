@@ -225,12 +225,12 @@ describe('PaneScreenProvider — navigation and links', () => {
     mount(<Pane id="p" initial={screenA(`?scopeId=S1&${window1}`)} spies={p} />, fixture().adapter);
     await flush();
     const link = at('p').resolveLink('board-b', { returnTo: true, page: { tab: 'z' } });
-    expect(link.href.startsWith('/b?')).toBe(true);
+    expect(link.href.startsWith('/mars/board-b?')).toBe(true);
     expect(new URLSearchParams(link.href.split('?')[1]).get('scopeId')).toBe('S1');
     expect(link.allowed).toBe(true);
     expect(link.droppedPageKeys).toEqual([]);
     const target = at('p').resolveLink('board-a', { returnTo: true });
-    expect(new URLSearchParams(target.href.split('?')[1]).get('returnTo')).toBe(`/a?scopeId=S1&${window1}`);
+    expect(new URLSearchParams(target.href.split('?')[1]).get('returnTo')).toBe(`/mars/board-a?scopeId=S1&${window1}`);
     expect(p.onChange).not.toHaveBeenCalled();
     expect(p.onLeave).not.toHaveBeenCalled();
   });
@@ -259,7 +259,7 @@ describe('PaneScreenProvider — navigation and links', () => {
     const r = spies();
     mount(<Pane id="r" initial={arrive('/locked')} spies={r} echo={false} />, fixture().adapter);
     await flush();
-    expect(at('r').returnOrigin().href.startsWith('/a')).toBe(true);
+    expect(at('r').returnOrigin().href.startsWith('/mars/board-a')).toBe(true);
     expect(at('r').returnOrigin().revertedContext).toEqual([]);
   });
 });
@@ -269,7 +269,7 @@ describe('PaneScreenProvider — app-only effects stay on the main screen', () =
     const { adapter } = fixture();
     const add = vi.spyOn(window, 'addEventListener');
     // Main on a menu that is not admitted (no permission) writes nothing itself, so any write is the pane's.
-    mount(<Pane id="p" initial={screenA(`?scopeId=S1&${window1}`)} spies={spies()} />, adapter, '/locked');
+    mount(<Pane id="p" initial={screenA(`?scopeId=S1&${window1}`)} spies={spies()} />, adapter, '/mars/locked');
     await flush();
     const popstates = add.mock.calls.filter(c => c[0] === 'popstate').length;
     expect(popstates).toBe(1); // the main screen's only
@@ -283,7 +283,7 @@ describe('PaneScreenProvider — usage', () => {
   it('a pane records entry and dwell for its menu with source board, two same-menu panes each count, main entry adds only via/fromMenuId (#605), pane entries stay pane-shaped', async () => {
     const { adapter, events } = fixture();
     const ui = (show: boolean) => <>{show && <><Pane id="a1" initial={screenA()} spies={spies()} /><Pane id="a2" initial={screenA()} spies={spies()} /></>}</>;
-    const view = mount(ui(true), adapter, '/plain');
+    const view = mount(ui(true), adapter, '/mars/plain');
     await flush();
     const entries = events.filter(e => e.name === 'entry');
     expect(entries).toHaveLength(3);
@@ -303,7 +303,7 @@ describe('PaneScreenProvider — usage', () => {
 
   it('a query-only change does not re-enter; leaving the menu sends the final dwell and a fresh stay on return; StrictMode emits one entry', async () => {
     const { adapter, events } = fixture();
-    mount(<Pane id="a" initial={screenA()} spies={spies()} />, adapter, '/plain', true);
+    mount(<Pane id="a" initial={screenA()} spies={spies()} />, adapter, '/mars/plain', true);
     await flush();
     expect(events.filter(e => e.source === 'board')).toHaveLength(1);
     act(() => { at('a').setPage({ page: '2' }); });
@@ -323,7 +323,7 @@ describe('PaneScreenProvider — usage', () => {
     const { adapter, events } = fixture();
     mount(<><Pane id="m" initial={{ menuId: 'locked', params: {}, query: '?' }} spies={spies()} />
       <Pane id="s" initial={{ menuId: 'ops-board', params: {}, query: '?' }} spies={spies()} />
-      <Pane id="c" initial={screenA('?from=nonsense&to=x')} spies={spies()} /></>, adapter, '/plain');
+      <Pane id="c" initial={screenA('?from=nonsense&to=x')} spies={spies()} /></>, adapter, '/mars/plain');
     await flush();
     expect(events.filter(e => e.source === 'board')).toEqual([]);
   });
@@ -333,7 +333,7 @@ describe('PaneScreenProvider — usage', () => {
     const sessions: Record<string, Session> = { u1: testSession(ANALYST, { user: { id: 'u1' } }), u2: testSession(ANALYST, { user: { id: 'u2' } }) };
     const listeners = new Set<() => void>();
     const { adapter, events } = fixture({ session: () => sessions[user]!, subscribe: l => { listeners.add(l); return () => { listeners.delete(l); }; } });
-    mount(<Pane id="a" initial={screenA()} spies={spies()} />, adapter, '/plain');
+    mount(<Pane id="a" initial={screenA()} spies={spies()} />, adapter, '/mars/plain');
     await flush();
     user = 'u2';
     await act(async () => { listeners.forEach(l => l()); });
@@ -367,7 +367,7 @@ describe('PaneScreenProvider — Scope and spaces', () => {
     act(() => { at('p').setGlobal({ roomNames: ['R9'] }); });
     expect(at('shell').global.scopeId).toBe('MEM');
     expect(at('shell').global.roomNames).toBeNull();
-    expect(at('shell').url.startsWith('/main')).toBe(true);
+    expect(at('shell').url.startsWith('/mars/main')).toBe(true);
     expect(at('shell').linkTo('board-b')).toContain('scopeId=MEM');
     expect(at('shell').spaceEntry(spaceId('mars'))?.href).toContain('scopeId=MEM');
     act(() => { at('shell').setGlobal({ roomNames: ['M1'] }); });
@@ -439,7 +439,7 @@ describe('PaneScreenProvider — controlled materialization', () => {
       </PaneScreenProvider>;
     }
     const { adapter: wrapped } = { adapter: Object.assign(Object.create(adapter) as PlatformAdapter, { menuQuery }) };
-    const view = mount(<Hold />, wrapped, '/plain', true);
+    const view = mount(<Hold />, wrapped, '/mars/plain', true);
     await flush();
     expect(s.onChange).toHaveBeenCalledTimes(1);
     const [proposal, how] = s.onChange.mock.calls[0]!;
@@ -451,7 +451,7 @@ describe('PaneScreenProvider — controlled materialization', () => {
     await flush();
     expect(s.onChange).toHaveBeenCalledTimes(1);
     expect(requests).toEqual([]);
-    expect(window.location.pathname).toBe('/plain');
+    expect(window.location.pathname).toBe('/mars/plain');
     expect(window.location.search).toBe('');
     await act(async () => { view.container.ownerDocument.querySelector<HTMLButtonElement>('[data-testid="accept"]')!.click(); });
     await flush();
@@ -465,7 +465,7 @@ describe('PaneScreenProvider — controlled materialization', () => {
   it('proposes again for a genuinely new input', async () => {
     const { adapter } = metricAdapter();
     const s = spies();
-    mount(<Pane id="m" initial={metricScreen} spies={s} />, adapter, '/plain');
+    mount(<Pane id="m" initial={metricScreen} spies={s} />, adapter, '/mars/plain');
     await flush();
     expect(s.onChange).toHaveBeenCalledTimes(1);
     act(() => { at('m').navigate('/metric?metricId=cycle&tab=2'); });
@@ -648,7 +648,7 @@ describe('PaneScreenProvider — Condition presets (ADR-0083)', () => {
     const plain = entry('plain', '/plain', { primary: true, context: { ...noContext, condition: 'apply' as const } });
     const mixed = createRegistry({ spaces: [testSpace({ homeMenuId: 'plain' })], groups: presetRegistry.groups, menus: [plain, { ...presetMenu, primary: false }] });
     const session = testSession(ANALYST);
-    window.history.replaceState(null, '', '/plain');
+    window.history.replaceState(null, '', '/mars/plain');
     const s = spies();
     render(<I18nProvider><PlatformProvider registry={mixed} equipmentAxes={axes} adapter={testAdapter({ session: () => session })}>
       <Pane id="pa" initial={{ menuId: 'presets', params: {}, query: query('a') }} spies={s}><Context id="pa" /></Pane>

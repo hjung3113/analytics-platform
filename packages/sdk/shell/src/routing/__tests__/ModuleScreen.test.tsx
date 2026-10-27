@@ -93,7 +93,9 @@ describe('ModuleScreen renders { params, host } (ADR-0053)', () => {
   });
 
   it('renders the list through host.query and moves the page with host.setPage', async () => {
-    const view = mount('/fixture?v=1');
+    const view = mount('/fixture?v=1'); // the legacy module path: the screen waits for the canonical address, so only one query goes out
+    expect(window.location.pathname).toBe('/mars/fixture-list');
+    expect(view.calls).toHaveLength(1);
     expect(JSON.parse(screen.getByTestId('params').textContent!)).toEqual({});
     expect(screen.getByTestId('rows').textContent).toBe('loading');
     await act(async () => view.calls[0].resolve([{ id: 'r1' }, { id: 'r2' }]));

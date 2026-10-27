@@ -97,10 +97,10 @@ describe('menu and pane consumers are not woken by shell-only state', () => {
 
   it('a main navigate in the same space renders the menu consumer once and the pane at most once', () => {
     mount();
-    const delta = measure(() => { expect(menu.navigate('/plain')).toBe(true); });
+    const delta = measure(() => { expect(menu.navigate('/mars/plain')).toBe(true); });
     expect(delta.menu).toBe(1);
     expect(delta.pane).toBeLessThanOrEqual(1);
-    expect(menu.pathname).toBe('/plain');
+    expect(menu.pathname).toBe('/mars/plain');
   });
 
   it('a main setPage renders the menu consumer once and the pane at most once', () => {
@@ -129,7 +129,7 @@ describe('each shell-only hook wakes only its own consumers', () => {
     expect(dismissed).toMatchObject({ toasts: 1, overlay: 0, recent: 0 });
     expect(toasts).toEqual([]);
     expect(measure(() => { hostSnapshot.setPaletteOpen(true); }).toasts).toBe(0);
-    expect(measure(() => { menu.navigate('/plain'); }).toasts).toBe(0);
+    expect(measure(() => { menu.navigate('/mars/plain'); }).toasts).toBe(0);
   });
 
   it('useOverlayState follows the palette and the switcher only', () => {
@@ -143,14 +143,14 @@ describe('each shell-only hook wakes only its own consumers', () => {
     expect(switched).toMatchObject({ overlay: 1, toasts: 0, recent: 0 });
     expect(overlay.switcherOpen).toBe(true);
     expect(measure(() => { menu.toast('x'); }).overlay).toBe(0);
-    expect(measure(() => { menu.navigate('/plain'); }).overlay).toBe(0);
+    expect(measure(() => { menu.navigate('/mars/plain'); }).overlay).toBe(0);
   });
 
   it('useRecentVisits follows the main screen visits only, and readRecent is current right after a navigation', () => {
     mount();
     expect(recent.map(r => r.menuId)).toEqual(['main']);
     let read: readonly { menuId: string }[] = [];
-    const moved = measure(() => { menu.navigate('/plain'); });
+    const moved = measure(() => { menu.navigate('/mars/plain'); });
     expect(moved.recent).toBeGreaterThanOrEqual(1);
     expect(recent.map(r => r.menuId)).toEqual(['plain', 'main']);
     act(() => { read = hostSnapshot.readRecent(); });
@@ -165,7 +165,7 @@ describe('each shell-only hook wakes only its own consumers', () => {
     act(() => { menu.toast('x'); });
     act(() => { hostSnapshot.setPaletteOpen(true); });
     act(() => { hostSnapshot.setSwitcherOpen(true); });
-    act(() => { menu.navigate('/plain'); });
+    act(() => { menu.navigate('/mars/plain'); });
     const later = stableFns();
     first.forEach((fn, i) => expect(later[i]).toBe(fn));
   });

@@ -15,6 +15,7 @@ function menu(id: string, group: 'overview' | 'equipment' | 'metrics' | 'noticeV
 }
 
 const registry = createRegistry({
+  platformHomeMenuId: 'home',
   permissions: [menuPermission('analytics:view'), menuPermission('equipment:view'), menuPermission('metrics:view')],
   spaces: [
     { id: spaceId('mars'), label: { ko: 'MARS', en: 'MARS' }, subtitle: { ko: '생산성 분석', en: 'Productivity analysis' }, description: { ko: '설비·기간별 생산성과 사이클타임을 분석합니다.', en: 'Analyze productivity and cycle time by equipment and period.' }, homeMenuId: 'equipment' },
@@ -96,6 +97,7 @@ describe('platform home launcher', () => {
 
   it('links a partial-permission space card to its first openable menu without a continue line', async () => {
     const partialRegistry = createRegistry({
+      platformHomeMenuId: 'home',
       permissions: [menuPermission('analytics:view'), menuPermission('equipment:view'), menuPermission('metrics:view')],
       spaces: registry.spaces,
       groups: registry.groups,
@@ -105,13 +107,13 @@ describe('platform home launcher', () => {
       ],
     });
     const partialSpaces = partialRegistry.spaces.map(space => space.id === 'mars' ? { ...space, homeMenuId: 'analysis-home' } : space);
-    const withDeniedHome = createRegistry({ permissions: [menuPermission('analytics:view'), menuPermission('equipment:view'), menuPermission('metrics:view')], spaces: partialSpaces, groups: partialRegistry.groups, menus: partialRegistry.menus });
+    const withDeniedHome = createRegistry({ platformHomeMenuId: 'home', permissions: [menuPermission('analytics:view'), menuPermission('equipment:view'), menuPermission('metrics:view')], spaces: partialSpaces, groups: partialRegistry.groups, menus: partialRegistry.menus });
     window.history.replaceState(null, '', '/?v=1&scopeId=MEM&page=9');
     render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter(['platform:view', 'equipment:view'])} registry={withDeniedHome}><OperationsHome /></PlatformProvider></I18nProvider>);
     await settled();
     const cards = within(screen.getByRole('region', { name: '업무 시스템' })).getAllByRole('link');
     expect(cards).toHaveLength(1);
-    expect(cards[0].getAttribute('href')).toBe('/equipment?v=1&scopeId=MEM');
+    expect(cards[0].getAttribute('href')).toBe('/mars/equipment?v=1&scopeId=MEM');
     expect(cards[0].textContent).not.toContain('이어서');
   });
 
@@ -133,7 +135,7 @@ describe('platform home launcher', () => {
     expect(cards[0].getAttribute('href')).not.toContain('page=2');
     expect(cards[1].textContent).toContain('이어서: 지표 카탈로그');
     const href = cards[1].getAttribute('href') ?? '';
-    expect(href).toContain('/metrics');
+    expect(href).toContain('/bravo/catalog');
     expect(href).toContain('page=2');
     expect(href).toContain('scopeId=MEM');
     expect(href).not.toContain('OLD');

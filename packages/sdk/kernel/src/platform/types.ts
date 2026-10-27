@@ -3,7 +3,7 @@ import type { ComponentType, ReactNode } from 'react';
 import type { PageFocus, PageNavigation } from '../context/pageNavigation';
 import type { PlatformLocation } from '../context/location';
 import type { MetricInit } from '../registry/metric-init';
-import { CONTEXT_LABELS, type MenuEntry, type Registry } from '../registry/registry';
+import { CONTEXT_LABELS, type MenuEntry, type Registry, type RouteMatch } from '../registry/registry';
 import type { QueryHistory } from '../query/query-history';
 import type { QueryDraft, QueryMissing } from '../query/query-draft';
 import type { RefreshEpochs } from '../query/refresh-epochs';
@@ -122,7 +122,7 @@ export type HostPlatform = {
   absoluteUrl: (url: string) => string;
   url: string;
   pathname: string;
-  route: { menu: MenuEntry; params: Record<string, string> } | null;
+  route: RouteMatch | null;
   /**
    * The platform-owned screen the main screen shows instead of a Registry route (`'board'` on `/board`, docs/16 §7), else null.
    * On it `route` and `contractError` are null, the main Context is empty, and nothing is recorded as a visit, a resume URL or a menu usage event. Read-only; always null in a pane.

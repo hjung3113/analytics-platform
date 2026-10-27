@@ -18,9 +18,9 @@
 
 `../contract/platform-ui-contract.md` §9 "설비관리" 그룹의 첫 화면. Management archetype(§12.3)을 그대로 쓴다.
 
-- 설비 마스터 목록 `/equipment`(그룹의 대표 목적지): 검색·필터 + `PlatformDataTable`. 행의 [보기]로 상세 Drawer를 연다(`focus` page key).
+- 설비 마스터 목록 `/mars/equipment-master`(그룹의 대표 목적지): 검색·필터 + `PlatformDataTable`. 행의 [보기]로 상세 Drawer를 연다(`focus` page key).
 - 상세 Drawer: 속성 · 유효구간 이력 · Audit 3탭(`tab`). 헤더의 [전체 화면]으로 이동한다.
-- 설비 상세 전체 화면 `/equipment/:equipmentId`(목록의 자식, 사이드바에 노출하지 않음): 같은 탭에 "관련 분석"이 더해지고 `returnTo`로 이전 화면에 복귀한다.
+- 설비 상세 전체 화면 `/mars/equipment-detail/:equipmentId`(목록의 자식, 사이드바에 노출하지 않음): 같은 탭에 "관련 분석"이 더해지고 `returnTo`로 이전 화면에 복귀한다.
 - 다른 화면에서 `equipment_id` 딥링크로 들어오면 목록을 거치지 않고 바로 상세 전체 화면이 열린다.
 
 다른 메뉴(생산성 분석의 occurrence 상세 등)에서 `equipment_id`로 들어오는 딥링크는 목적지 객체 ID이지 분석 Context가 아니다(`06` §6.1). 이 화면은 그 ID로 상세만 열며, 목록의 검색/필터 상태를 그 딥링크가 조용히 바꾸지 않는다. ID가 출발 선택 밖이어도 분석 복귀 시 진입 전 Context를 그대로 복원하며 Selection을 확장하거나 교체하지 않는다(`06` §6.4). 상세의 "관련 분석" 링크만 명시적으로 Selection을 이 설비 한 대로 교체한다.

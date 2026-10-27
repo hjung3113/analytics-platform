@@ -78,8 +78,8 @@ describe('returnTo in a space that carries it (#760, ADR-0081 UX-10)', () => {
   });
 
   it('(b) a caller outside the FO space keeps appending its own URL', () => {
-    const href = linkFrom('/origin?v=1', 'p-detail', { returnTo: true });
-    expect(query(href).getAll('returnTo')).toEqual(['/origin?v=1']);
+    const href = linkFrom('/plain/origin?v=1', 'p-detail', { returnTo: true });
+    expect(query(href).getAll('returnTo')).toEqual(['/plain/origin?v=1']);
   });
 
   it('(c) leaving the FO space drops returnTo', () => {
@@ -100,12 +100,12 @@ describe('returnTo in a space that carries it (#760, ADR-0081 UX-10)', () => {
     expect(origin.spaceLabel).toEqual(spaceLabel);
   });
 
-  it('(e) the last-screen and recents stores never keep returnTo', async () => {
+  it('(e) the last-screen and recents stores never keep returnTo, and keep the canonical address of an alias entry', async () => {
     mountAt(withOrigin('/fo/b?v=1&m=x'));
     await waitFor(() => expect(sessionStorage.getItem('platform:space-last:u1')).not.toBeNull());
-    expect(JSON.parse(sessionStorage.getItem('platform:space-last:u1')!)).toEqual({ fo: '/fo/b?v=1&m=x' });
+    expect(JSON.parse(sessionStorage.getItem('platform:space-last:u1')!)).toEqual({ fo: '/fo/fo-b?v=1&m=x' });
     await waitFor(() => expect(localStorage.getItem('platform:recent:u1')).not.toBeNull());
-    expect(JSON.parse(localStorage.getItem('platform:recent:u1')!).map((r: { url: string }) => r.url)).toEqual(['/fo/b?v=1&m=x']);
+    expect(JSON.parse(localStorage.getItem('platform:recent:u1')!).map((r: { url: string }) => r.url)).toEqual(['/fo/fo-b?v=1&m=x']);
   });
 });
 

@@ -138,7 +138,7 @@ describe('chips and the frozen Context (S2, S4)', () => {
     expect(items.some(item => removedIds.has(item.id))).toBe(false);
     const params = new URL(href!).searchParams;
     expect([params.has('focus'), params.has('q'), params.has('selectedEquipmentIds')]).toEqual([false, false, false]);
-    expect(new URL(href!).pathname).toBe('/');
+    expect(new URL(href!).pathname).toBe('/mars/home');
     expect([params.get('granularity'), params.get('scopeId')]).toEqual(['day', 'MEM']);
   });
 
@@ -162,12 +162,12 @@ describe('chips and the frozen Context (S2, S4)', () => {
     openDrawer();
     const frozen = last().context;
     fireEvent.click(screen.getByRole('button', { name: '다른 화면으로' }));
-    expect(window.location.pathname).toBe('/other');
+    expect(window.location.pathname).toBe('/mars/other');
     expect(last().context).toEqual(frozen);
     fireEvent.click(within(drawer()).getByRole('button', { name: '닫기' }));
     openDrawer();
     expect(last().context.items[0]).toEqual({ id: 'menu', label: '화면', value: '분석 · 다른 화면' });
-    expect(new URL(last().context.href!).pathname).toBe('/other');
+    expect(new URL(last().context.href!).pathname).toBe('/mars/other');
   });
 
   it('keeps one Compose instance and its Context while the detail takes the position and the drawer comes back', async () => {

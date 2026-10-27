@@ -11,7 +11,7 @@ export const manifests: MenuEntry[] = [
   {
     id: 'home', primary: true, group: groupId('overview'), label: { ko: '플랫폼 홈', en: 'Platform home' },
     description: { ko: '접근 가능한 메뉴, 즐겨찾기와 최근 방문으로 작업에 복귀합니다.', en: 'Return to work through accessible menus, favorites and recent pages.' },
-    path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: contextCapabilities(), pageType: 'overview', features: NO_FEATURES, pageKeys: [],
+    path: '/home', aliases: ['/'], icon: House, permission: 'platform:view', requiresScope: false, context: contextCapabilities(), pageType: 'overview', features: NO_FEATURES, pageKeys: [],
     component: lazy(() => import('./pages/OperationsHome')),
   },
 ];

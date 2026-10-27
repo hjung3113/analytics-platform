@@ -132,6 +132,7 @@ describe('CommandPalette space bundles (06 §9.1)', () => {
 
   // MENUS order (notices, permission-gated survey, alerts, home) differs from GROUPS order (overview, myActivity, noticeVoc).
   const globalOrderRegistry = createRegistry({
+    platformHomeMenuId: 'start',
     spaces: [testSpace({ id: spaceId('mars'), label: { ko: 'MARS', en: 'MARS' }, homeMenuId: 'equipment' })],
     groups: [
       { id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: null },
@@ -248,7 +249,7 @@ function Destination() {
   const { route } = useHostPlatform();
   const heading = useRef<HTMLHeadingElement>(null);
   useLayoutEffect(() => {
-    if (route?.menu.path !== '/home') return;
+    if (route?.menu.path !== '/mars/home') return;
     const timer = setTimeout(() => heading.current?.focus(), 0);
     return () => clearTimeout(timer);
   }, [route?.menu.path]);
@@ -264,7 +265,7 @@ it('does not restore the opener after Enter navigation', async () => {
   fireEvent.keyDown(screen.getByRole('combobox'), { key: 'ArrowDown' });
   fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Enter' });
   await waitForClose();
-  expect(window.location.pathname).toBe('/home');
+  expect(window.location.pathname).toBe('/mars/home');
   await waitFor(() => expect(opener).not.toHaveFocus());
   await waitFor(() => expect(screen.getByRole('heading', { name: 'destination title' })).toHaveFocus());
 });
@@ -296,7 +297,7 @@ it('restores the opener when the chosen result has the current URL', async () =>
   mount();
   fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' });
   await waitForClose();
-  window.history.replaceState(null, '', '/home?v=1');
+  window.history.replaceState(null, '', '/mars/home?v=1');
   act(() => window.dispatchEvent(new PopStateEvent('popstate')));
   const opener = screen.getByRole('button', { name: 'open palette' });
   opener.focus();
@@ -336,7 +337,7 @@ function mountNavigation({ delayed = false, denied = false, url = '/home?v=1', c
   window.history.replaceState(null, '', url);
   let resolvePage!: (value: { default: typeof NavigationPage }) => void;
   const DelayedPage = lazy(() => new Promise<{ default: typeof NavigationPage }>(resolve => { resolvePage = resolve; }));
-  const equipmentPath = '/equipment';
+  const equipmentPath = '/mars/equipment';
   const focusRegistry = createRegistry({
     spaces: registry.spaces, groups: registry.groups,
     menus: registry.menus.map(m => m.path === equipmentPath
@@ -494,7 +495,7 @@ describe('menu navigation page focus (06 §26)', () => {
   });
 
   it('keeps filter focus for setPage on the same pathname', async () => {
-    mountNavigation({ url: '/equipment?v=1' });
+    mountNavigation({ url: '/mars/equipment?v=1' });
     const input = screen.getByRole('textbox', { name: 'filter' });
     input.focus();
     fireEvent.change(input, { target: { value: 'changed' } });
@@ -504,7 +505,7 @@ describe('menu navigation page focus (06 §26)', () => {
   });
 
   it.each([false, true])('does not focus h1 for palette same pathname (same URL=%s)', async same => {
-    mountNavigation({ url: same ? '/equipment?v=1' : '/equipment?v=1&filter=old' });
+    mountNavigation({ url: same ? '/mars/equipment?v=1' : '/mars/equipment?v=1&filter=old' });
     const opener = screen.getByRole('button', { name: 'open palette' });
     opener.focus();
     selectEquipment();

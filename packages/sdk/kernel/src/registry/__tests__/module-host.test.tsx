@@ -170,16 +170,16 @@ describe('useModuleHost: reads', () => {
 
   it('href({ screen }) stays inside the module, drops undeclared page keys and returns null for an unknown target', () => {
     const { seen } = setup();
-    expect(seen.host.href({ screen: 'item', params: { id: '7' }, page: { tab: 'a', nope: 'x' } })?.href).toMatch(/^\/fx\/items\/7\?.*tab=a/);
+    expect(seen.host.href({ screen: 'item', params: { id: '7' }, page: { tab: 'a', nope: 'x' } })?.href).toMatch(/^\/mars\/fx-item\/7\?.*tab=a/);
     expect(seen.host.href({ screen: 'item', params: { id: '7' }, page: { nope: 'x' } })?.href).not.toContain('nope');
     expect(seen.host.href({ screen: 'missing' })).toBeNull();
     expect(seen.host.href({ screen: 'item' })).toBeNull();
-    expect(seen.host.href({ menuId: 'fx:list' })?.href).toMatch(/^\/fx\?/);
+    expect(seen.host.href({ menuId: 'fx:list' })?.href).toMatch(/^\/mars\/fx-list\?/);
     expect(seen.host.navigate({ screen: 'missing' })).toBe(false);
     let navigated = false;
     act(() => { navigated = seen.host.navigate({ screen: 'item', params: { id: '9' } }); });
     expect(navigated).toBe(true);
-    expect(window.location.pathname).toBe('/fx/items/9');
+    expect(window.location.pathname).toBe('/mars/fx-item/9');
   });
 
   it('href/navigate({ screen }) refuse an id that only looks like this module\'s screen (a nested module id, a platform menu)', () => {
@@ -190,8 +190,8 @@ describe('useModuleHost: reads', () => {
       expect(seen.host.href({ screen })).toBeNull();
       expect(seen.host.navigate({ screen })).toBe(false);
     }
-    expect(window.location.pathname).toBe('/fx');
-    expect(seen.host.href({ menuId: 'fx:nested:list' })?.href).toMatch(/^\/fxn/);
+    expect(window.location.pathname).toBe('/mars/fx-list');
+    expect(seen.host.href({ menuId: 'fx:nested:list' })?.href).toMatch(/^\/mars\/fx-nested-list/);
   });
 
   it('navigate requests arrival focus when the pathname changes and none for a same-screen move (06 §26)', () => {
@@ -200,8 +200,8 @@ describe('useModuleHost: reads', () => {
     expect(window.location.search).toContain('q=z');
     expect(seen.platform.pageNavigation.consume('/fx')).toBeNull();
     act(() => { seen.host.navigate({ screen: 'item', params: { id: '3' } }, { replace: true }); });
-    expect(window.location.pathname).toBe('/fx/items/3');
-    expect(seen.platform.pageNavigation.consume('/fx/items/3')).toBe('page');
+    expect(window.location.pathname).toBe('/mars/fx-item/3');
+    expect(seen.platform.pageNavigation.consume('/mars/fx-item/3')).toBe('page');
   });
 
   it('notify() raises a toast with the default tone for info', () => {

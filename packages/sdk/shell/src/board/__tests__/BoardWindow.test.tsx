@@ -125,7 +125,7 @@ describe('board window: transitions (893d2, issue §3.1/§4.2)', () => {
     const replace = vi.spyOn(window.history, 'replaceState');
     fireEvent.click(screen.getByRole('button', { name: 'go gamma' }));
     await settle();
-    expect(window.location.pathname).toBe('/gamma');
+    expect(window.location.pathname).toBe('/mars/gamma');
     expect(push.mock.calls.map(call => String(call[2]).split('?')[0])).toEqual(['/gamma']);
     expect(replace.mock.calls.filter(call => String(call[2]).startsWith('/board'))).toEqual([]);
     expect(mode()).toBe('window');
@@ -190,7 +190,7 @@ describe('board window: transitions (893d2, issue §3.1/§4.2)', () => {
     expect(path()).toBe('/board?sheet=a');
     fireEvent.click(screen.getByRole('button', { name: 'go gamma' }));
     await settle();
-    expect(window.location.pathname).toBe('/gamma');
+    expect(window.location.pathname).toBe('/mars/gamma');
     expect(chip()).not.toBeNull();
     fireEvent.click(chip()!);
     await settle();

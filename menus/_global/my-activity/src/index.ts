@@ -35,14 +35,14 @@ export const manifests: MenuEntry[] = [
   {
     id: 'surveys', group: GROUP, label: { ko: '설문', en: 'Surveys' },
     description: { ko: '응답할 설문과 응답 기록', en: 'Surveys to answer and your responses' },
-    path: '/surveys', icon: ClipboardList, permission: 'platform:view', requiresScope: false, pageType: 'management',
+    path: '/survey', aliases: ['/surveys'], icon: ClipboardList, permission: 'platform:view', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES, pageKeys: [],
     component: lazy(() => import('./pages/Surveys')),
   },
   {
     id: 'survey-respond', group: GROUP, parent: 'surveys', navHidden: true, label: { ko: '설문 응답', en: 'Survey response' },
     description: { ko: '설문 하나에 응답합니다.', en: 'Answer one survey.' },
-    path: '/surveys/:surveyId/respond', icon: ClipboardList, permission: 'platform:view', requiresScope: false, pageType: 'management',
+    path: '/survey/:surveyId/respond', aliases: ['/surveys/:surveyId/respond'], icon: ClipboardList, permission: 'platform:view', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES, pageKeys: ['returnTo'],
     component: lazy(() => import('./pages/SurveyRespond')),
   },
