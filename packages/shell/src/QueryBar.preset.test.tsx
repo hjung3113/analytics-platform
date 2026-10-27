@@ -144,7 +144,7 @@ const notice = '조건 묶음: 조직 기준. 1개 조건은 이 보기에서 �
 it('page: Revert and Reset empty the status, so the same switch updates the live region again', async () => {
   mount(period + groupParam(condition));
   await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
-  for (const restore of ['되돌리기', '초기화']) {
+  for (const restore of ['초안 되돌리기', '조건 초기화']) {
     const status = screen.getByRole('radiogroup', { name: '조건 묶음' }).parentElement!.querySelector('[role="status"]')!;
     fireEvent.click(screen.getByRole('radio', { name: '조직 기준' }));
     expect(status).toHaveTextContent(notice);
@@ -166,7 +166,7 @@ it('board pane: Revert empties the status before the same switch sets it again',
   const status = switcher.parentElement!.querySelector('[role="status"]')!;
   fireEvent.click(within(switcher).getByRole('radio', { name: '조직 기준' }));
   expect(status).toHaveTextContent(notice);
-  fireEvent.click(screen.getByRole('button', { name: '되돌리기' }));
+  fireEvent.click(screen.getByRole('button', { name: '초안 되돌리기' }));
   expect(within(switcher).getByRole('radio', { name: '설비 기준' })).toBeChecked();
   expect(status).toBeEmptyDOMElement();
   fireEvent.click(within(switcher).getByRole('radio', { name: '조직 기준' }));

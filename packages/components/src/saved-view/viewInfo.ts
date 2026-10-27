@@ -1,4 +1,4 @@
-import { formatPeriod, type ChangeLine, type Result, type SavedView, type ViewApproval, type ViewVisibility } from '@ap/contracts';
+import { formatPeriod, type ApprovalRequestInfo as StoredApprovalRequest, type ChangeLine, type Result, type SavedView, type ViewApproval, type ViewVisibility } from '@ap/contracts';
 import type { DiagnoseReason, Text } from '@ap/kernel';
 
 /** What `diagnoseSavedView` found for one entry; its result is passed in as it is. A plain string is shown as written. */
@@ -9,14 +9,8 @@ export type ViewDiagnosis = {
   migration?: { preview: readonly ChangeLine[] };
 };
 
-/** The pending application behind an approval state; the store knows it, the view itself does not. */
-export type ApprovalRequestInfo = {
-  requestedBy: string;
-  requestedAt: number;
-  /** The view version the approval would publish. */
-  targetVersion: number;
-  changes: readonly string[];
-};
+/** The pending application behind an approval state (the contract's request without its view id, which the caller keys by). */
+export type ApprovalRequestInfo = Omit<StoredApprovalRequest, 'viewId'>;
 
 export type ViewActionOutcome = Result<unknown>;
 export type ViewDecideHandler = (id: string, decision: 'approve' | 'reject', note: string | undefined, expectedVersion: number) => Promise<ViewActionOutcome>;

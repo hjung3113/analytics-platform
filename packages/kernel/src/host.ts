@@ -10,4 +10,5 @@ export { BOARD_PATH } from './registry/registry';
 export { hasDotSegment } from './context/location';
 export { paneHref, withPaneContext } from './context/paneContext';
 export { useQueryHistory, type QueryHistory, type QueryHistoryRow } from './query/query-history';
+export { captureApplied } from './saved-view/capture';
 export { useSavedViews, type SaveInput, type SavedViews, type SelectOutcome, type Unsupported, type ViewState } from './saved-view';

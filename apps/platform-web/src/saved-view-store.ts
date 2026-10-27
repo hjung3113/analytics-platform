@@ -1,6 +1,6 @@
 import {
   canTransition, validateSavedView,
-  type GroupCapabilities, type GroupMember, type Result, type SavedView, type SavedViewDraft, type SavedViewEntry, type SavedViewKey,
+  type ApprovalRequestInfo, type GroupCapabilities, type GroupMember, type Result, type SavedView, type SavedViewDraft, type SavedViewEntry, type SavedViewKey,
   type SavedViewListItem, type SavedViewPatch, type SavedViewStore, type ViewCapabilities, type ViewGroupEntry, type ViewVisibility,
 } from '@ap/contracts';
 import { ACTORS, DIRECTORY, MENU_PERMISSIONS, ROLE_KEY, seedGroups, seedViews, type Actor, type GroupRecord } from './saved-view-seed';
@@ -113,6 +113,24 @@ function evaluate(stored: Stored, a: Actor, groups: readonly GroupRecord[], perm
   return { view: shown, capabilities };
 }
 
+/** Plain lines for what an approval would publish: the fields a pending edit changes, or the plain request for a first publication. */
+function proposalChanges(stored: Stored): string[] {
+  const { pending, ...published } = stored;
+  if (!pending) return [`공식 게시 신청: "${published.name}"`];
+  const lines: string[] = [];
+  const differs = (x: unknown, y: unknown) => JSON.stringify(x) !== JSON.stringify(y);
+  if (pending.name !== published.name) lines.push(`이름 "${published.name}" → "${pending.name}"`);
+  if (differs(pending.context, published.context)) lines.push('조회 조건 변경');
+  if (pending.kind === 'menu-view' && published.kind === 'menu-view') {
+    if (pending.menuSchemaVersion !== published.menuSchemaVersion) lines.push(`메뉴 화면 버전 ${published.menuSchemaVersion} → ${pending.menuSchemaVersion}`);
+    if (differs(pending.page, published.page)) lines.push('화면 키 변경');
+    if (differs(pending.chartOptions, published.chartOptions)) lines.push('차트 옵션 변경');
+    if (differs(pending.layout, published.layout)) lines.push('레이아웃 변경');
+    if (differs(pending.panels, published.panels)) lines.push('패널 변경');
+  }
+  return lines.length > 0 ? lines : ['내용 변경 없이 재승인 요청'];
+}
+
 type Tx = { buckets: Map<string, { ownerId: string; menuId: string | null; views: Stored[] }>; groups: GroupRecord[] | null; defaults: Map<string, string | null> };
 
 /** Browser-local simulation of a server ACL behind the SavedViewStore port. Mutations need the origin lock and fail closed without it. */
@@ -211,7 +229,7 @@ export function createLocalSavedViewStore(getStorage: () => StoragePort = () => 
       const t = target(c, id, expectedVersion, e => e.capabilities.canEdit || (e.view.ownerId === c.actor.userId && isOfficial(e.view)));
       if (!t.ok) return t;
       const stored = t.value; const view = shownTo(stored, c.actor, stored.ownerId === c.actor.userId);
-      if (view.kind === 'condition-set' && ('page' in patch || 'chartOptions' in patch || 'layout' in patch || 'panels' in patch)) return fail('invalid', 'a condition set has no page');
+      if (view.kind === 'condition-set' && ('menuSchemaVersion' in patch || 'page' in patch || 'chartOptions' in patch || 'layout' in patch || 'panels' in patch)) return fail('invalid', 'a condition set has no page');
       const { id: _id, ownerId: _o, version: _v, updatedAt: _u, visibility, approval, approvalNote, ...content } = view;
       void [_id, _o, _v, _u];
       const merged = { ...content, ...patch };
@@ -283,6 +301,20 @@ export function createLocalSavedViewStore(getStorage: () => StoragePort = () => 
       const t = target(c, id, expectedVersion, e => e.capabilities.canRevoke); if (!t.ok) return t;
       return commit(c, { ...(({ pending: _drop, ...rest }) => (void _drop, rest))(t.value), approval: 'none', visibility: { kind: 'private' }, approvalNote: REVOKE_NOTE } as SavedView, c.actor, c.groups);
     }),
+    listApprovalRequests: async key => {
+      const storage = getStorage(); const a = actorNow(); if (key.userId !== a.userId) return [];
+      const groups = readGroups(storage).groups;
+      return DIRECTORY.flatMap(p => readBucket(storage, p.userId, key.menuId).views.flatMap((stored: Stored): ApprovalRequestInfo[] => {
+        const proposal = stored.pending ?? stored;
+        if (proposal.approval !== 'pending' && proposal.approval !== 'rejected') return [];
+        const item = ev(stored, a, groups);
+        if (!item || item.denied || !(stored.ownerId === a.userId || item.capabilities.canApprove || item.capabilities.canRevoke)) return [];
+        return [{
+          viewId: stored.id, requestedBy: stored.ownerId, requestedAt: proposal.updatedAt, targetVersion: proposal.version, changes: proposalChanges(stored),
+          ...(proposal.approval === 'rejected' && proposal.approvalNote ? { rejectReason: proposal.approvalNote } : {}),
+        }];
+      }));
+    },
     listGroups: async () => { const a = actorNow(); return readGroups(getStorage()).groups.filter(g => groupCapabilities(g, a).canView).map(g => groupEntry(g, a)); },
     createGroup: ({ name, memberIds }) => run(c => {
       const trimmed = name.trim();

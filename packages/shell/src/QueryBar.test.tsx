@@ -72,14 +72,14 @@ it('does not count the seeded default period as a change, before or after Revert
   expect(screen.queryByText(/적용 안 된 변경/)).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: '최근 7일' }));
   expect(screen.getByText('적용 안 된 변경 1개')).toBeTruthy();
-  fireEvent.click(screen.getByRole('button', { name: '되돌리기' }));
+  fireEvent.click(screen.getByRole('button', { name: '초안 되돌리기' }));
   expect(screen.queryByText(/적용 안 된 변경/)).toBeNull();
   expect(screen.queryByText(/기간을 선택하세요/)).toBeNull();
   expect(screen.getByRole('group', { name: '기간' })).toHaveTextContent('12-31 09:31 → 01-01 09:31 (24h)');
   // `오늘` moves both ends of the period: still one change (#913 UX-2).
   fireEvent.click(screen.getByRole('button', { name: '오늘' }));
   expect(screen.getByText('적용 안 된 변경 1개')).toBeTruthy();
-  fireEvent.click(screen.getByRole('button', { name: '되돌리기' }));
+  fireEvent.click(screen.getByRole('button', { name: '초안 되돌리기' }));
   // Not counted, yet not applied: the collapsed summary still says the period is being edited until Apply.
   fireEvent.click(screen.getByRole('button', { name: '조회 조건 접기' }));
   expect(screen.getByRole('region', { name: '조회 조건' }).querySelector('summary')?.textContent).toMatch(/^편집 중 · /);

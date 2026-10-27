@@ -14,6 +14,7 @@ SavedViews | type | type SavedViews = { clearSelection: () => void; conditionSet
 SelectOutcome | type | type SelectOutcome = { ok: false; reason: 'denied' | 'unavailable' | RestoreFailure; } | { ok: true; unsupported: readonly @ap/kernel/host#Unsupported[]; }
 Unsupported | type | type Unsupported = { key: string; kind: 'context' | 'page'; }
 ViewState | type | type ViewState = { modified: boolean; unapplied: boolean; unsaved: boolean; }
+captureApplied | function | function captureApplied(applied: Applied, support: SupportedKeys): SavedState
 hasDotSegment | function | function hasDotSegment(pathname: string): boolean
 paneHref | function | function paneHref(registry: @ap/kernel#Registry, screen: @ap/kernel/host#PaneScreen): string
 useAdapterRequest | function | function useAdapterRequest<T>(run: (signal: AbortSignal) => Promise<T>, key: unknown, enabled?: boolean): @ap/kernel#RequestState<T>
@@ -26,7 +27,10 @@ useSavedViews | function | function useSavedViews(): @ap/kernel/host#SavedViews
 useToastList | function | function useToastList(): readonly @ap/kernel#Toast[]
 withPaneContext | function | function withPaneContext(menu: Pick<@ap/kernel#MenuEntry, 'contextResetKeys' | 'pageKeys'>, query: string, global: @ap/contracts#GlobalContext): string
 # reachable types
+Applied | type | type Applied = { global: @ap/contracts#GlobalContext; page: @ap/contracts#Pair[]; }
 PaletteSession | type | type PaletteSession = { claim: (owner: symbol) => void; isCurrent: () => boolean; isSelecting: () => boolean; opener: HTMLElement | null; release: (owner: symbol) => void; select: () => void; }
 RefreshEpochs | type | type RefreshEpochs = { bump: (endpointIds: readonly string[]) => void; get: (endpointId: string) => number; subscribe: (listener: () => void) => () => void; total: () => number; }
 RestoreFailure | type | type RestoreFailure = 'stale-schema' | 'wrong-menu'
+SavedState | type | type SavedState = { context: @ap/contracts#SavedViewContext; page: @ap/contracts#Pair[]; }
+SupportedKeys | type | type SupportedKeys = Pick<@ap/contracts#SavedViewSupport, 'contextKeys' | 'pageKeys'>
 createPageNavigation | function | function createPageNavigation(initialUrl: string, isBlocked?: () => boolean): { advance(next: string, focus?: @ap/kernel/host#PageFocus): void; cancel(): void; claimsDetailFocus(): boolean; consume(path: string): @ap/kernel/host#PageFocus | null; materialize(next: string): void; notify(): void; requestReturn(href: string): void; subscribe(listener: () => void): () => void; }

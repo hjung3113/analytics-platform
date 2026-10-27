@@ -267,3 +267,41 @@ it('C7: a new group has only the explicitly chosen members; the creator manages 
   expect(g.capabilities.canEditMembers).toBe(true);
   expect(ok(await s.createGroup({ name: '둘', memberIds: ['u-kangminseo'] })).members.map(m => m.userId)).toEqual(['u-kangminseo']);
 });
+
+it('update carries menuSchemaVersion of a menu view and refuses it on a condition set', async () => {
+  const s = store();
+  const old = byName(await s.list(key(ENG)), 'LOT 추이 (이전 형식)').view;
+  expect(old).toMatchObject({ menuSchemaVersion: 1 });
+  const next = ok(await s.update(old.id, { menuSchemaVersion: 2, page: { grain: ['day'] } }, { expectedVersion: old.version }));
+  expect(next.view).toMatchObject({ menuSchemaVersion: 2, version: old.version + 1 });
+  expect(byName(await s.list(key(ENG)), 'LOT 추이 (이전 형식)').view).toMatchObject({ menuSchemaVersion: 2 });
+  const set = byName(await s.list(key(ENG, null)), '야간 A동').view;
+  expect(await s.update(set.id, { menuSchemaVersion: 2 }, { expectedVersion: set.version })).toMatchObject({ ok: false, reason: 'invalid' });
+});
+
+it('listApprovalRequests tells the requester and the approver what is waiting, and nobody else', async () => {
+  const mine = await store().listApprovalRequests(key(ENG));
+  expect(mine).toHaveLength(1);
+  expect(mine[0]).toMatchObject({ requestedBy: ENG, targetVersion: 1, changes: expect.any(Array) });
+  expect(byName(await store().list(key(ENG)), '일일 점검 (승인 대기)').view.id).toBe(mine[0].viewId);
+  as('viewer');
+  expect(await store().listApprovalRequests(key('viewer'))).toEqual([]);
+  as('admin');
+  const forAdmin = await store().listApprovalRequests(key(ADMIN));
+  expect(forAdmin.map(r => r.requestedBy)).toContain('u-yoondohyun');
+  expect(forAdmin.every(r => r.viewId.length > 0)).toBe(true);
+  expect(await store().listApprovalRequests(key('someone-else'))).toEqual([]);
+});
+
+it('an edit of an official copy lists what the proposal changes and a rejection keeps its reason', async () => {
+  const s = store();
+  const official = { ...byName(await s.list(key(ENG)), '공식 생산성 일일 점검').view, ownerId: ENG, id: `${ENG}|${MENU}|9` };
+  storage.setItem(savedViewsStorageKey(ENG, MENU), JSON.stringify({ schemaVersion: 1, views: [official] }));
+  const edited = ok(await s.update(official.id, { name: '공식 (수정)' }, { expectedVersion: official.version }));
+  const [request] = await s.listApprovalRequests(key(ENG));
+  expect(request.changes.join(' ')).toContain('공식 (수정)');
+  as('admin');
+  ok(await store().decide(official.id, 'reject', '근거 부족', { expectedVersion: edited.view.version }));
+  as('engineer');
+  expect((await store().listApprovalRequests(key(ENG)))[0]).toMatchObject({ rejectReason: '근거 부족' });
+});

@@ -23,7 +23,9 @@ export type ShareTargetPickerProps = {
   onCreateGroup: (input: { name: string; memberIds: string[] }) => Promise<Result<ViewGroupEntry>>;
   onUpdateGroup: (id: string, patch: { name?: string; addMembers?: string[]; removeMembers?: string[] }) => Promise<Result<ViewGroupEntry>>;
   /** The only place sharing is decided; creating or saving a group never calls this. */
-  onConfirm: (draft: ShareTargetDraft) => void;
+  onConfirm: (draft: ShareTargetDraft) => void | boolean | Promise<boolean | void>;
+  /** Why the last confirm did not go through; shown in the picker, which stays open with the draft. */
+  confirmError?: string | null;
 };
 
 const MODES = [
@@ -39,7 +41,8 @@ export function ShareTargetPicker(props: ShareTargetPickerProps) {
 
 type EditorState = { kind: 'create'; members: readonly GroupMember[] } | { kind: 'edit'; id: string } | null;
 
-function PickerBody({ onOpenChange, value, groups, currentUserId, searchPeople, onCreateGroup, onUpdateGroup, onConfirm }: ShareTargetPickerProps) {
+function PickerBody({ onOpenChange, value, groups, currentUserId, searchPeople, onCreateGroup, onUpdateGroup, onConfirm, confirmError }: ShareTargetPickerProps) {
+  const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState<ShareTargetDraft>(value);
   const [groupQuery, setGroupQuery] = useState('');
   const [peopleQuery, setPeopleQuery] = useState('');
@@ -56,6 +59,15 @@ function PickerBody({ onOpenChange, value, groups, currentUserId, searchPeople, 
   const lastMade = useRef<string | null>(null);
   const openEditor = (next: EditorState) => { opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; setEditor(next); };
   const people = usePeopleSearch(searchPeople, peopleQuery);
+  // A caller that answers with a promise decides when the picker closes: `false` (or a throw) keeps it open with the draft and the choice.
+  const confirm = async () => {
+    const result = onConfirm(draft);
+    if (!(result instanceof Promise)) { if (result !== false) onOpenChange(false); return; }
+    setBusy(true);
+    const done = await result.then(value => value !== false, () => false);
+    setBusy(false);
+    if (done) onOpenChange(false);
+  };
 
   const entries = [...made.filter(m => !groups.entries.some(e => e.group.id === m.group.id)), ...groups.entries].map(e => made.find(m => m.group.id === e.group.id) ?? e);
   // While the host's list is loading or failed, only groups made here are known; they must still show up.
@@ -170,9 +182,11 @@ function PickerBody({ onOpenChange, value, groups, currentUserId, searchPeople, 
     <p role="status" aria-label="선택 요약" className="text-sm">{summary}</p>
     {notice && <p role="status" className="text-xs text-text-secondary">{notice}</p>}
 
+    {confirmError && <p role="alert" className="text-xs text-text-danger-label">{confirmError}</p>}
+
     <DialogFooter>
       <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>취소</Button>
-      <Button type="button" disabled={incomplete} onClick={() => { onConfirm(draft); onOpenChange(false); }}>공유 대상 저장</Button>
+      <Button type="button" disabled={incomplete || busy} onClick={() => { void confirm(); }}>공유 대상 저장</Button>
     </DialogFooter>
 
     <GroupEditor
