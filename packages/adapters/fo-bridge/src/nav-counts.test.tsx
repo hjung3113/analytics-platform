@@ -81,4 +81,23 @@ describe('navCounts slot with an active FeedbackOps observer on the same key', (
     expect(seen.filter(counts => counts === null)).toEqual([]);
     expect(calls).toEqual(['/api/fo/nav/counts', '/api/fo/nav/counts']);
   });
+
+  it('maps surveys.all to the Survey 관리 menu (fo-surveys), next to findings.all', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ counts: { 'findings.all': 3, 'surveys.all': 7 } }), { status: 200, headers: { 'content-type': 'application/json' } })));
+    window.history.replaceState(null, '', '/feedbackops/vocs');
+    const session = testSession(['platform:view', 'feedbackops:access'], { user: { id: 'admin', name: 'admin', title: { ko: 'admin', en: 'admin' } } });
+    host = document.createElement('div');
+    document.body.append(host);
+    root = createRoot(host);
+    await act(async () => {
+      root!.render(
+        <I18nProvider>
+          <PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}>
+            <Counts>{counts => <p data-testid="counts">{JSON.stringify(counts)}</p>}</Counts>
+          </PlatformProvider>
+        </I18nProvider>,
+      );
+    });
+    await act(async () => { await vi.waitFor(() => expect(host!.querySelector('[data-testid="counts"]')!.textContent).toBe('{"fo-findings":3,"fo-surveys":7}')); });
+  });
 });

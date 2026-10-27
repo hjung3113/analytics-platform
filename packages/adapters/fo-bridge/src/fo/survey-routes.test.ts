@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { hostLinks } from './links';
+import { UUID_PATTERN } from './uuid';
 import { operatorHostLinks } from './operator-links';
-import { surveyChildTarget, surveyOperatorTargets, surveysRoute } from './survey-routes';
+import { surveyBuilderRoute, surveyChildTarget, surveyFollowUpRoute, surveyOperatorTargets, surveyResultsRoute, surveysRoute } from './survey-routes';
 
 const SYSTEM = '33333333-3333-4333-8333-333333333333';
 const AREA = '55555555-5555-4555-8555-555555555555';
@@ -101,9 +102,50 @@ describe('surveyOperatorTargets', () => {
     expect(targetOf('/surveys?follow_up=needed')).toEqual({ menuId: 'fo-surveys', page: { follow_up: 'needed' } });
   });
 
-  it('is not wired into operatorHostLinks yet (764p1)', () => {
-    expect(operatorHostLinks.canLink('/surveys')).toBe(false);
-    expect(operatorHostLinks.canLink(`/surveys/${SURVEY}?builder=true`)).toBe(false);
-    expect(operatorHostLinks.canLink(`/surveys/${SURVEY}/results`)).toBe(false);
+  it.each([
+    '/surveys', '/surveys?managedSystem=all', `/surveys/${SURVEY}`, `/surveys/${SURVEY}?builder=true`, `/surveys/${SURVEY}/results`, `/surveys/${SURVEY}/follow-up`,
+    `/surveys?filter.analytics_area=${AREA}&status=open&follow_up=needed`, `/surveys/${SURVEY}/results?managedSystem=${SYSTEM}&status=open`,
+    '/surveys/participate', `/surveys/${SURVEY}/respond`,
+  ])('operatorHostLinks links %s', to => {
+    expect(operatorHostLinks.canLink(to)).toBe(true);
+  });
+
+  it.each(['/admin/managed-systems', '/admin/settings#coverage', '/surveys/not-a-uuid', `/surveys/${SURVEY}/results?returnTo=%2Fhome`])('operatorHostLinks leaves %s unlinked', to => {
+    expect(operatorHostLinks.canLink(to)).toBe(false);
+  });
+});
+
+describe('survey child route tables', () => {
+  // A stand-in for FeedbackOps' detail search schema (the menu page tests run the real one): `status` accepts `open` only, `managedSystem` a UUID or `all`.
+  const accepts = (foKey: string, value: string) => foKey === 'status' ? value === 'open' : foKey === 'managedSystem' ? value === 'all' || UUID_PATTERN.test(value) : true;
+  const rejected = (route: typeof surveyBuilderRoute, params: Record<string, string>) => route.rejectedKey(key => params[key] ?? null, accepts);
+
+  it('maps the child page keys to the FO search both ways, builder fixed to true', () => {
+    const page = { managedSystem: SYSTEM, area: AREA, status: 'open', follow_up: 'needed', focus: SURVEY };
+    expect(surveyBuilderRoute.toFoSearch(page)).toEqual({ builder: 'true', managedSystem: SYSTEM, 'filter.analytics_area': AREA, status: 'open', follow_up: 'needed' });
+    expect(surveyResultsRoute.toFoSearch(page)).toEqual({ managedSystem: SYSTEM, 'filter.analytics_area': AREA, status: 'open', follow_up: 'needed' });
+    expect(surveyFollowUpRoute.toFoSearch(page)).toEqual({ managedSystem: SYSTEM, 'filter.analytics_area': AREA, status: 'open', follow_up: 'needed' });
+    expect(surveyResultsRoute.preset({ 'filter.analytics_area': AREA, builder: 'true' })).toEqual({ area: AREA });
+  });
+
+  it('lists the table page keys: the scope on every child, plus focus on follow-up only', () => {
+    expect([...surveyBuilderRoute.pageKeys].sort()).toEqual(['area', 'follow_up', 'managedSystem', 'status']);
+    expect([...surveyResultsRoute.pageKeys].sort()).toEqual(['area', 'follow_up', 'managedSystem', 'status']);
+    expect([...surveyFollowUpRoute.pageKeys].sort()).toEqual(['area', 'focus', 'follow_up', 'managedSystem', 'status']);
+  });
+
+  it('each table targets only its own menu', () => {
+    expect(surveyBuilderRoute.target(`/surveys/${SURVEY}?builder=true`)?.menuId).toBe('fo-survey-builder');
+    expect(surveyBuilderRoute.target(`/surveys/${SURVEY}/results`)).toBeNull();
+    expect(surveyResultsRoute.target(`/surveys/${SURVEY}/results`)?.menuId).toBe('fo-survey-results');
+    expect(surveyFollowUpRoute.target(`/surveys/${SURVEY}/results`)).toBeNull();
+  });
+
+  it('rejects a list-context value FeedbackOps refuses, and a focus that is not a UUID (follow-up only)', () => {
+    expect(rejected(surveyResultsRoute, { status: 'closed' })).toEqual({ key: 'status', value: 'closed' });
+    expect(rejected(surveyBuilderRoute, { managedSystem: 'x' })).toEqual({ key: 'managedSystem', value: 'x' });
+    expect(rejected(surveyFollowUpRoute, { focus: 'x' })).toEqual({ key: 'focus', value: 'x' });
+    expect(rejected(surveyFollowUpRoute, { focus: SURVEY, status: 'open', managedSystem: 'all' })).toBeNull();
+    expect(rejected(surveyResultsRoute, { focus: 'x' })).toBeNull();
   });
 });

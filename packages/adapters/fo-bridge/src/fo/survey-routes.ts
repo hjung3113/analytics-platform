@@ -1,4 +1,5 @@
-import { operatorRoute, routeHere, routeSearch } from './operator-route';
+import { usePlatform } from '@ap/kernel';
+import { operatorRoute, routeHere, routeSearch, type OperatorRoute } from './operator-route';
 import type { PlatformTarget, TargetOf } from './links';
 import { surveyTarget } from './survey-links';
 import { UUID_PATTERN } from './uuid';
@@ -7,7 +8,7 @@ import { UUID_PATTERN } from './uuid';
  * Surveys route table (#764 s, #595 4f): FeedbackOps' `/surveys…` → the platform Surveys-management menu and back. `selected` is the platform `focus`
  * (06 §13), and FO's `/surveys/<id>` detail href reads as `selected=<id>`; `managedSystem=all` is FO's "no scope", so it maps to an explicit clear.
  * `returnTo` and `platformReturn` are never mapped (the platform carries `returnTo` itself), so a link carrying either stays unlinked.
- * Not in `operatorHostLinks` (`operator-links.ts`) yet: 764p1 wires `surveyOperatorTargets`.
+ * `operatorHostLinks` (`operator-links.ts`) composes `surveyOperatorTargets` (the reporter targets first).
  */
 export const surveysRoute = operatorRoute({
   foPath: '/surveys',
@@ -67,5 +68,77 @@ export const surveyChildTarget: TargetOf = (to): PlatformTarget | null => {
   return { menuId: CHILD_MENU[child]!, params: { surveyId }, page };
 };
 
-/** The Surveys targets in the order `operatorHostLinks` must try them (764p1 spreads this; not wired yet): the reporter `/surveys/participate` and `/respond` first, then the child screens, then the list. */
+/** The Surveys targets in the order `operatorHostLinks` must try them (it spreads this): the reporter `/surveys/participate` and `/respond` first, then the child screens, then the list. */
 export const surveyOperatorTargets: TargetOf[] = [surveyTarget, surveyChildTarget, surveysRoute.target];
+
+type ChildSpec = { menuId: string; suffix: string; builder: boolean; focus: boolean };
+const CHILD_SPECS: Readonly<Record<'builder' | 'results' | 'followUp', ChildSpec>> = {
+  builder: { menuId: 'fo-survey-builder', suffix: '', builder: true, focus: false },
+  results: { menuId: 'fo-survey-results', suffix: '/results', builder: false, focus: false },
+  followUp: { menuId: 'fo-survey-follow-up', suffix: '/follow-up', builder: false, focus: true },
+};
+const PAGE_TO_FO = Object.fromEntries(Object.entries(CHILD_KEYS).map(([foKey, pageKey]) => [pageKey, foKey])) as Readonly<Record<string, string>>;
+
+/**
+ * The route table of one hidden survey child screen (`/surveys/:surveyId[/results|/follow-up]`, `?builder=true` for the builder). The survey id is a path param, so it is
+ * not a page key; the list scope rides on the page keys and reads back as the FO search. The follow-up screen also owns `focus` (the selected response, a UUID) — the screen keeps it in
+ * its own state in FO, so it is a page key only and never an FO search key. `foPath` is descriptive (`:surveyId` stands for the path param).
+ */
+function surveyChildRoute({ menuId, suffix, builder, focus }: ChildSpec): OperatorRoute {
+  const pageKeys = [...Object.values(CHILD_KEYS), ...(focus ? ['focus'] : [])];
+  return {
+    foPath: `/surveys/:surveyId${suffix}`,
+    pageKeys,
+    target: to => {
+      const target = surveyChildTarget(to);
+      return target !== null && target.menuId === menuId ? target : null;
+    },
+    toFoSearch(page) {
+      const search: Record<string, string> = builder ? { builder: 'true' } : {};
+      for (const [foKey, pageKey] of Object.entries(CHILD_KEYS)) {
+        const value = page[pageKey];
+        if (value !== undefined && value !== null && value !== '') search[foKey] = value;
+      }
+      return search;
+    },
+    toFoHash: () => '',
+    preset(foSearch) {
+      const page: Record<string, string> = {};
+      for (const [foKey, value] of Object.entries(foSearch)) if (Object.hasOwn(CHILD_KEYS, foKey)) page[CHILD_KEYS[foKey]!] = value;
+      return page;
+    },
+    rejectedKey(pageParam, accepts) {
+      for (const pageKey of pageKeys) {
+        const value = pageParam(pageKey);
+        if (value === null) continue;
+        if (!(pageKey === 'focus' ? UUID_PATTERN.test(value) : accepts(PAGE_TO_FO[pageKey]!, value))) return { key: pageKey, value };
+      }
+      return null;
+    },
+  };
+}
+
+export const surveyBuilderRoute = surveyChildRoute(CHILD_SPECS.builder);
+export const surveyResultsRoute = surveyChildRoute(CHILD_SPECS.results);
+export const surveyFollowUpRoute = surveyChildRoute(CHILD_SPECS.followUp);
+
+/** The current child page as the FeedbackOps path+query: the survey id comes from the matched route's `:surveyId`. */
+function childHere(route: OperatorRoute, suffix: string) {
+  const useRouteSearch = routeSearch(route);
+  return function useChildHere(): string {
+    const search = useRouteSearch();
+    const { route: match } = usePlatform();
+    const query = new URLSearchParams(search);
+    const text = query.toString();
+    const path = `/surveys/${match?.params.surveyId ?? ''}${suffix}`;
+    return text === '' ? path : `${path}?${text}`;
+  };
+}
+
+/** Module-level hooks: `FoBridge` memoizes its seam on their identities. */
+export const useSurveyBuilderSearch = routeSearch(surveyBuilderRoute);
+export const useSurveyBuilderHere = childHere(surveyBuilderRoute, CHILD_SPECS.builder.suffix);
+export const useSurveyResultsSearch = routeSearch(surveyResultsRoute);
+export const useSurveyResultsHere = childHere(surveyResultsRoute, CHILD_SPECS.results.suffix);
+export const useSurveyFollowUpSearch = routeSearch(surveyFollowUpRoute);
+export const useSurveyFollowUpHere = childHere(surveyFollowUpRoute, CHILD_SPECS.followUp.suffix);

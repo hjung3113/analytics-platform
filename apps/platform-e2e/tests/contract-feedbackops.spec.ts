@@ -9,14 +9,14 @@ import { evidence, mainHeading, query, signInAs, switchScope } from './support';
 const ORIGIN = 'https://feedbackops.example';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** The three space entries: VOC (#760) and Task (#763) open in this tab inside the shell, only 설문 is a new-tab link. All three are scoped to exactly one Managed System uuid. */
+/** The three space entries: VOC (#760), Task (#763) and 설문 (#764 p1) open in this tab inside the shell. All three are scoped to exactly one Managed System uuid. */
 async function managedSystemOf(page: Page, space: string) {
   const block = page.getByRole('navigation', { name: `FeedbackOps · ${space}` });
   await expect(block).toBeVisible();
   const links = block.getByRole('link');
   await expect(links).toHaveCount(3);
   const found = new Set<string>();
-  const inShell = [['VOC', '/feedbackops/fo-inbox'], ['Task', '/feedbackops/fo-task-list']] as const;
+  const inShell = [['VOC', '/feedbackops/fo-inbox'], ['Task', '/feedbackops/fo-task-list'], ['설문', '/feedbackops/fo-surveys']] as const;
   for (const [index, [name, pathname]] of inShell.entries()) {
     const link = links.nth(index);
     await expect(link).toHaveAccessibleName(`${name} — ${space}, FeedbackOps`);
@@ -26,19 +26,6 @@ async function managedSystemOf(page: Page, space: string) {
     expect(url.searchParams.getAll('managedSystem')).toHaveLength(1);
     found.add(url.searchParams.get('managedSystem')!);
   }
-  const survey = links.nth(2);
-  await expect(survey).toHaveAttribute('target', '_blank');
-  await expect(survey).toHaveAttribute('rel', /noopener/);
-  await expect(survey).toHaveAttribute('rel', /noreferrer/);
-  const url = new URL((await survey.getAttribute('href'))!);
-  expect(url.origin).toBe(ORIGIN);
-  const values = url.searchParams.getAll('managedSystem');
-  expect(values).toHaveLength(1);
-  expect(values[0]).toMatch(UUID);
-  expect(values[0]).not.toBe('all');
-  // FeedbackOps links back to the page the link was drawn on (FO ADR-0071, #448).
-  expect(url.searchParams.getAll('platformReturn')).toEqual([page.url()]);
-  found.add(values[0]);
   expect(found.size).toBe(1);
   expect([...found][0]).toMatch(UUID);
   expect([...found][0]).not.toBe('all');
@@ -63,7 +50,7 @@ async function linkUrl(link: Locator) {
 
 
 test.describe('FeedbackOps 공간별 진입(#251)', () => {
-  test('admin의 MARS·BRAVO 사이드바 블록은 그 공간의 managedSystem만 담은 링크 셋(VOC·Task 셸 안, 설문 새 탭)이고, 운영 콘솔에는 블록이 없다', async ({ page }, testInfo) => {
+  test('admin의 MARS·BRAVO 사이드바 블록은 그 공간의 managedSystem만 담은 링크 셋(VOC·Task·설문 모두 셸 안)이고, 운영 콘솔에는 블록이 없다', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
     await page.goto(PRODUCTIVITY);
     const analytics = await managedSystemOf(page, 'MARS');
@@ -166,8 +153,8 @@ test.describe('FeedbackOps 진입 링크 회귀(#451, 06 §22)', () => {
         } else if (href.pathname === '/feedbackops/fo-task-list') {
           expectExactQueryKeys(href, ['v', 'managedSystem', 'returnTo']);
           destinations.push('tasks');
-        } else if (href.pathname === '/surveys') {
-          expectExactQueryKeys(href, ['managedSystem', 'platformReturn']);
+        } else if (href.pathname === '/feedbackops/fo-surveys') {
+          expectExactQueryKeys(href, ['v', 'managedSystem', 'returnTo']);
           destinations.push('surveys');
         } else {
           throw new Error(`Unexpected FeedbackOps destination: ${href.pathname}`);

@@ -28,6 +28,7 @@
     "@ap/menu-fo-dashboard": "workspace:*",
     "@ap/menu-fo-findings": "workspace:*",
     "@ap/menu-fo-integration": "workspace:*",
+    "@ap/menu-fo-surveys": "workspace:*",
     "@ap/menu-fo-tasks": "workspace:*",
     "@ap/menu-fo-voc": "workspace:*",
     "@ap/menu-home": "workspace:*",
