@@ -32,3 +32,5 @@ export { formatQuerySummary, presetOutsideAxes, querySummaryItems, summaryPreset
 export { QueryBarExtensionContext, QueryBarExtensionsProvider, useQueryBarExtension, type QueryBarExtension } from './filters/QueryBarExtension';
 export { LaneTimeline, type LaneTimelineProps, type LaneTimelineHandle, type TimelineLane, type TimelineSegment } from './chart/LaneTimeline';
 export { Inspector, type InspectorProps, type InspectorSection } from './inspector/Inspector';
+
+export * from './floating';

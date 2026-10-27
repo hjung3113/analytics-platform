@@ -27,6 +27,7 @@
 
 | 버전 | 패키지 | 바뀐 공개 API | 이전 방법 |
 | --- | --- | --- | --- |
+| 다음 릴리스 | components | 추가(#893 893d1) — 비모달 창 틀 `FloatingWindow`(+ `FloatingWindowHandle`·`FloatingWindowLabels`·`FloatingWindowMode`·`FloatingWindowProps`)와 순수 함수 `clampGeometry`·`fitsArea`·`placeGeometry`·`sizeGeometry`·`stepGeometry`·`resizeGeometry`, 타입 `FloatingArea`·`FloatingGeometry`·`FloatingSize`·`FloatingHandle`·`FloatingPlacePreset`·`FloatingSizePreset`, 상수 `FLOATING_MIN_SIZE`. 루트 진입점(`@ap/components`)에서 export | 없음 — 추가만이다 |
 | 다음 릴리스 | shell | 동작 바뀜(#893 893e, ADR-0089) — 분석 보드 시트는 칸(탭) 합계 8개·표시 영역 4개로 나뉜다(이전 합계 4). 5칸 이상 보드는 저장 `v:3`이고 격자 설정이어도 dock으로 열린다. `MAX_TABS`·`MAX_GROUPS`·`boardVersionFor`가 보드 모델에 추가됐다. 4개 영역에서 `칸 추가`는 선택한 칸의 영역에 탭으로 들어가고, 드롭·분할로 5번째 영역은 만들 수 없다 | `v:3` 보드를 이전 SDK 빌드가 읽으면 읽기 전용 `newer`로 열린다(덮어쓰지 않음). 소비자 보드 저장 코드는 없다 — 업그레이드만 하면 된다 |
 | 다음 릴리스 | components | 동작 수정(#964, #967) — `PanelWorkspace`·`DockLayout`의 숨은 패널 안 중첩 dock가 최대화한 패널 위에 그려지던 문제(`.ap-dock .dv-view`가 `visibility`를 상속), 최대화 중 폭이 바뀌었다 돌아온 뒤 `원래 크기로`가 분할 비율을 틀어지게 하던 문제(해제 때 항상 저장된 분할을 다시 적용) | 없음 — 소비자 코드 변경 불필요 |
 | 다음 릴리스 | kernel·components·shell | 추가·동작 바뀜(#952) — `@ap/kernel`의 `objectParticle(name)`(→ `을`/`를`)과 `queryMissingSentence(lang, label)`. 조회 전(idle) 안내의 `…을(를) 선택하세요`는 받침에 맞는 조사로 나오고, `QueryView`(결과 영역)와 `QueryBar`가 같은 문장을 쓴다. 누락된 `roomNames` 항목의 라벨은 `room_name`이 아니라 `공정`(`Process`)이다(`CONTEXT_LABELS`는 그대로) | 없음 — `기간을(를) 선택하세요`·`room_name을(를) 선택하세요`를 고정한 테스트는 `기간을 선택하세요`·`공정을 선택하세요`로 바꾼다 |

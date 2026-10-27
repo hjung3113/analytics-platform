@@ -25,9 +25,21 @@ DrillSibling | type | type DrillSibling = { hint?: string; value: string; }
 DrillSiblings | type | type DrillSiblings = Readonly<Record<string, readonly @ap/components#DrillSibling[]>>
 EChart | function | function EChart({ option, height, onEvents, onReady, onResize, ariaLabel, className }: @ap/components#EChartProps): import("react").JSX.Element
 EChartProps | type | type EChartProps = { ariaLabel: string; className?: string; height?: number; onEvents?: Record<string, (params: any, chart: ECharts) => void>; onReady?: (chart: ECharts) => void; onResize?: (width: number) => void; option: EChartsCoreOption; }
+FLOATING_MIN_SIZE | const | const FLOATING_MIN_SIZE: @ap/components#FloatingSize
 Field | function | function Field({ label, children, mono }: { children: ReactNode; label: ReactNode; mono?: boolean; }): import("react").JSX.Element
 FilterDraft | type | type FilterDraft<K extends string> = { changedCount: number; patch: () => Record<K, null | string>; reset: (next?: Partial<Record<K, string>>) => void; set: (key: K, value: string) => void; values: Record<K, string>; }
 FilterUrlWarning | function | function FilterUrlWarning({ sentences, filters, recover }: { filters?: ReactNode; recover: ReactNode; sentences: readonly string[]; }): import("react").JSX.Element
+FloatingArea | type | type FloatingArea = { height: number; left: number; top: number; width: number; }
+FloatingGeometry | type | type FloatingGeometry = { height: number; width: number; x: number; y: number; }
+FloatingHandle | type | type FloatingHandle = 'e' | 'n' | 'ne' | 'nw' | 's' | 'se' | 'sw' | 'w'
+FloatingPlacePreset | type | type FloatingPlacePreset = 'bottom-left' | 'bottom-right' | 'center' | 'top-left' | 'top-right'
+FloatingSize | type | type FloatingSize = { height: number; width: number; }
+FloatingSizePreset | type | type FloatingSizePreset = 'large' | 'medium' | 'small'
+FloatingWindow | const | const FloatingWindow: import("react").ForwardRefExoticComponent<@ap/components#FloatingWindowProps & import("react").RefAttributes<@ap/components#FloatingWindowHandle>>
+FloatingWindowHandle | type | type FloatingWindowHandle = { focusTitleBar: () => void; }
+FloatingWindowLabels | type | type FloatingWindowLabels = { handle: Record<@ap/components#FloatingHandle, string>; menu: string; moved: (x: number, y: number) => string; place: Record<@ap/components#FloatingPlacePreset, string>; positionGroup: string; resized: (width: number, height: number) => string; size: Record<@ap/components#FloatingSizePreset, string>; sizeGroup: string; titleBar: string; }
+FloatingWindowMode | type | type FloatingWindowMode = 'fill' | 'off' | 'window'
+FloatingWindowProps | type | type FloatingWindowProps = { actions?: ReactNode; area: @ap/components#FloatingArea; children: ReactNode; geometry: @ap/components#FloatingGeometry; labels: @ap/components#FloatingWindowLabels; menuExtra?: ReactNode; minSize?: @ap/components#FloatingSize; mode: @ap/components#FloatingWindowMode; onGeometryChange: (next: @ap/components#FloatingGeometry) => void; title: ReactNode; titleId: string; }
 HeaderOverflowDialogControl | type | type HeaderOverflowDialogControl = { close: () => void; onCloseAutoFocus: (event: Event) => void; }
 HeatmapCell | type | type HeatmapCell = { value: null | number; x: string; y: string; }
 HeatmapSpec | type | type HeatmapSpec = { cells: @ap/components#HeatmapCell[]; kind: 'heatmap'; onCellClick?: (x: string, y: string) => void; scale?: { breaks: [ number, number ]; labels: [ string, string, string ]; type: 'threshold'; } | { domain?: [ number, number ]; lowerIsBetter?: boolean; pivot: number; type: 'diverging'; } | { domain?: [ number, number ]; type: 'sequential'; }; valueFormat?: (v: number) => string; xLabels: string[]; yLabels: string[]; }
@@ -103,15 +115,21 @@ WorkbookSheet | type | type WorkbookSheet = { header?: readonly string[]; name: 
 badgeCountText | const | const badgeCountText: (count: number) => string
 chartTheme | function | function chartTheme(): { readonly axisLabel: { readonly color: string; }; readonly axisLine: { readonly lineStyle: { readonly color: string; }; }; readonly referenceLine: { readonly label: { readonly color: string; readonly fontSize: 10; readonly formatter: "{b}"; readonly position: "insideEndTop"; }; readonly lineStyle: { readonly color: string; readonly type: "dashed"; }; readonly silent: true; readonly symbol: "none"; }; readonly splitLine: { readonly lineStyle: { readonly color: string; }; }; readonly tooltip: { readonly backgroundColor: string; readonly borderColor: string; readonly textStyle: { readonly color: string; }; }; }
 checkWorkbook | function | function checkWorkbook(sheets: readonly @ap/components#WorkbookSheet[]): void
+clampGeometry | function | function clampGeometry(geometry: @ap/components#FloatingGeometry, area: @ap/components#FloatingArea, minSize: @ap/components#FloatingSize): @ap/components#FloatingGeometry
 copyText | function | function copyText(text: string): Promise<boolean>
 encodeTableSort | function | function encodeTableSort(sorting: @ap/contracts#PageSort[]): null | string
+fitsArea | function | function fitsArea(area: @ap/components#FloatingArea, minSize: @ap/components#FloatingSize, narrowBelow?: number): boolean
 focusPageFallback | function | function focusPageFallback(source: HTMLElement | null): void
 formatQuerySummary | function | function formatQuerySummary(global: @ap/contracts#GlobalContext, page: readonly @ap/contracts#Pair[], options: @ap/components#QuerySummaryOptions): string
 parsePageIndex | function | function parsePageIndex(raw: null | string): { ok: false; } | { ok: true; page: number; }
 parseTableSort | function | function parseTableSort(raw: null | string, allowed: readonly string[]): { ok: false; } | { ok: true; sorting: @ap/contracts#PageSort[]; }
+placeGeometry | function | function placeGeometry(preset: @ap/components#FloatingPlacePreset, geometry: @ap/components#FloatingGeometry, area: @ap/components#FloatingArea, minSize: @ap/components#FloatingSize): @ap/components#FloatingGeometry
 presetOutsideAxes | function | function presetOutsideAxes(global: @ap/contracts#GlobalContext, preset: @ap/components#SummaryPreset): string[]
 querySummaryItems | function | function querySummaryItems(g: @ap/contracts#GlobalContext, options: @ap/components#QuerySummaryOptions): @ap/components#QuerySummaryItem[]
+resizeGeometry | function | function resizeGeometry(handle: @ap/components#FloatingHandle, start: @ap/components#FloatingGeometry, dx: number, dy: number, area: @ap/components#FloatingArea, minSize: @ap/components#FloatingSize): @ap/components#FloatingGeometry
+sizeGeometry | function | function sizeGeometry(preset: @ap/components#FloatingSizePreset, geometry: @ap/components#FloatingGeometry, area: @ap/components#FloatingArea, minSize: @ap/components#FloatingSize): @ap/components#FloatingGeometry
 sortAndPage | function | function sortAndPage<T>(rows: T[], q: @ap/contracts#PageQuery): @ap/contracts#PageResult<T>
+stepGeometry | function | function stepGeometry(geometry: @ap/components#FloatingGeometry, key: 'ArrowDown' | 'ArrowLeft' | 'ArrowRight' | 'ArrowUp', far: boolean, resize: boolean, area: @ap/components#FloatingArea, minSize: @ap/components#FloatingSize): @ap/components#FloatingGeometry
 summaryPreset | function | function summaryPreset(view: null | { activeId: string; appliedId: string; key: string; presets: readonly @ap/contracts#ConditionPreset[]; }, which: 'applied' | 'draft'): @ap/components#SummaryPreset | undefined
 toWorkbookXlsx | function | function toWorkbookXlsx(sheets: readonly @ap/components#WorkbookSheet[], signal?: AbortSignal): Promise<Blob>
 token | function | function token(name: @ap/ui/theme#ThemeColorToken): string
