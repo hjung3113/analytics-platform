@@ -9,7 +9,9 @@
         "$TURBO_ROOT$/apps/fo-frontend/src/**",
         "$TURBO_ROOT$/apps/fo-frontend/package.json",
         "$TURBO_ROOT$/packages/fo-shared/src/**",
-        "$TURBO_ROOT$/packages/fo-ui/src/**"
+        "$TURBO_ROOT$/packages/fo-shared/package.json",
+        "$TURBO_ROOT$/packages/fo-ui/src/**",
+        "$TURBO_ROOT$/packages/fo-ui/package.json"
       ]
     },
     "build": {
