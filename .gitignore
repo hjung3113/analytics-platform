@@ -31,3 +31,12 @@ apps/fo-*/**/*.log
 apps/fo-*/**/smoke-*.png
 apps/fo-*/**/visual-*.png
 packages/fo-*/**/*.log
+# .env files of the old file, anchored to the FO apps and packages (.env.example stays tracked)
+apps/fo-*/.env
+apps/fo-*/.env.local
+apps/fo-*/.env.*.local
+apps/fo-*/.env.release
+packages/fo-*/.env
+packages/fo-*/.env.local
+packages/fo-*/.env.*.local
+packages/fo-*/.env.release

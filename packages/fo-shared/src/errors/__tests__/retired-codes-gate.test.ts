@@ -1,6 +1,6 @@
 // PLAN-22 C7b gate test — `attachment.unsupported_pending_storage_slice` is
 // retired from the catalog. This guard fails fast if the string string-literal
-// resurfaces anywhere in production source (apps/*/src + packages/*/src),
+// resurfaces anywhere in production source (apps/fo-*/src + packages/fo-*/src),
 // catching regressions before they ship.
 //
 // Test-file mentions are allowed — they exist to lock in the retirement.
@@ -11,7 +11,7 @@ import { describe, expect, it } from 'vitest';
 
 const RETIRED_CODE = 'attachment.unsupported_pending_storage_slice';
 
-const REPO_ROOT = join(__dirname, '..', '..', '..', '..');
+const REPO_ROOT = join(__dirname, '..', '..', '..', '..', '..');
 const SCAN_ROOTS = [
   join(REPO_ROOT, 'apps', 'fo-backend', 'src'),
   join(REPO_ROOT, 'apps', 'fo-frontend', 'src'),
@@ -47,6 +47,12 @@ function* walk(dir: string): Generator<string> {
 }
 
 describe('PLAN-22 C7b retired error-code gate', () => {
+  it('scans existing source roots (a wrong REPO_ROOT must not pass vacuously)', () => {
+    for (const root of SCAN_ROOTS) {
+      expect(statSync(root).isDirectory(), root).toBe(true);
+    }
+  });
+
   it(`'${RETIRED_CODE}' has zero references in production source`, () => {
     const hits: string[] = [];
     for (const root of SCAN_ROOTS) {

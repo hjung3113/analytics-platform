@@ -36,7 +36,7 @@ subst_full() { # <file…>
     -e 's#products/feedbackops/apps/frontend#apps/fo-frontend#g;' \
     -e 's#products/feedbackops/packages/shared#packages/fo-shared#g;' \
     -e 's#products/feedbackops/packages/ui#packages/fo-ui#g;' \
-    -e 's#products/feedbackops/apps/\*#apps/*#g;' "$@"
+    -e 's#products/feedbackops/apps/\*#apps/fo-*#g;' "$@"
 }
 FILES=$(git grep --untracked -lE 'products/feedbackops/(apps|packages)' -- . \
   ':!pnpm-lock.yaml' ':!*.md' ':!site' ':!archive' ':!docs' ':!.planning' ':!products/feedbackops/docs' ':!.agents/conductor/moves' ':!pnpm-workspace.yaml' \
@@ -73,9 +73,8 @@ perl -pi -e 's#"rootDir": "\.\./\.\./\.\./\.\."#"rootDir": "../.."#' apps/fo-bac
 perl -pi -e 's#\.\./\.\./\.\./\.\./ops/feedbackops/scripts#../../ops/feedbackops/scripts#' apps/fo-backend/package.json apps/fo-frontend/package.json
 perl -pi -e "s#'\.\./\.\./\.\./\.\./\.\./\.\./ops/feedbackops/\.env\.example'#'../../../../ops/feedbackops/.env.example'#" \
   apps/fo-backend/src/__tests__/env-example-loads.test.ts apps/fo-backend/src/__tests__/env-example-completeness.test.ts
-# 테스트들의 REPO_ROOT는 이제 저장소 루트다(깊이 그대로). shared의 retired-codes gate만 한 단계 줄고 `join(…, 'apps', 'backend')`형을 고친다.
+# 테스트들의 REPO_ROOT는 이제 저장소 루트다(깊이 그대로, retired-codes gate도 5단계 그대로). `join(…, 'apps', 'backend')`형을 고친다.
 perl -pi \
-  -e "s#join\(__dirname, '\.\.', '\.\.', '\.\.', '\.\.', '\.\.'\)#join(__dirname, '..', '..', '..', '..')#;" \
   -e "s#'apps', 'backend'#'apps', 'fo-backend'#; s#'apps', 'frontend'#'apps', 'fo-frontend'#;" \
   -e "s#'packages', 'shared'#'packages', 'fo-shared'#; s#'packages', 'ui'#'packages', 'fo-ui'#;" \
   packages/fo-shared/src/errors/__tests__/retired-codes-gate.test.ts
@@ -123,7 +122,7 @@ perl -pi \
   -e 's#`products/feedbackops/\*\*`, `ops/feedbackops/\*\*`, `packages/\{ui,#`products/feedbackops/**`, `apps/fo-*/**`, `packages/fo-*/**`, `ops/feedbackops/**`, `packages/{ui,#;' \
   -e 's#`flags.submodule`\(`products/feedbackops/`·`ops/feedbackops/` 변경\)#`flags.submodule`(`products/feedbackops/`·`apps/fo-*`·`packages/fo-*`·`ops/feedbackops/` 변경)#;' \
   -e 's#FeedbackOps 화면\(`products/feedbackops/\*\*`\)#FeedbackOps 화면(`apps/fo-frontend/**`)#;' \
-  -e 's#products/feedbackops/node_modules apps/\*/node_modules products/feedbackops/packages/\*/node_modules#products/feedbackops/node_modules apps/*/node_modules packages/fo-*/node_modules#;' \
+  -e 's#products/feedbackops/node_modules apps/\*/node_modules products/feedbackops/packages/\*/node_modules#products/feedbackops/node_modules apps/fo-*/node_modules packages/fo-*/node_modules#;' \
   -e 's#`products/feedbackops/\*\*`의 관련 없는 파일#`products/feedbackops/**`·`apps/fo-*`의 관련 없는 파일#;' .agents/conductor/PROFILE.md
 perl -pi \
   -e 's#FeedbackOps is `products/feedbackops/` \(apps, packages, docs\)#FeedbackOps is `apps/fo-backend`, `apps/fo-frontend`, `packages/fo-shared`, `packages/fo-ui` (apps, packages) and `products/feedbackops/` (docs)#;' \
@@ -182,6 +181,15 @@ apps/fo-*/**/*.log
 apps/fo-*/**/smoke-*.png
 apps/fo-*/**/visual-*.png
 packages/fo-*/**/*.log
+# .env files of the old file, anchored to the FO apps and packages (.env.example stays tracked)
+apps/fo-*/.env
+apps/fo-*/.env.local
+apps/fo-*/.env.*.local
+apps/fo-*/.env.release
+packages/fo-*/.env
+packages/fo-*/.env.local
+packages/fo-*/.env.*.local
+packages/fo-*/.env.release
 GI
 fi
 
