@@ -12,6 +12,7 @@
 //   Markdown or .agents/ (the same set classify-changes.mjs treats as docs)  → needs nothing
 //   apps/platform-e2e/tests/<x>.spec.ts that still exists                      → that spec (base-path.spec.ts → base-path run)
 //   a deleted or renamed spec                                                  → needs nothing
+//   a spec file name outside [A-Za-z0-9_.-] (it would become a regex filter)    → all
 //   everything else → all: packages/**, apps/**, menus/** (the contract-*.spec.ts files read many menus, so there is no menu→spec table), tooling/**, patches/**,
 //   ops/**, root manifests, .github/**, the e2e helpers/configs (contract-helpers.ts, support.ts, playwright*.config.ts, contract-reporter.ts, package.json), style.css,
 //   and any path no rule knows.
@@ -32,6 +33,9 @@ import { changedFiles, DOCS_ONLY } from './classify-changes.mjs';
 const SPEC_DIR = 'apps/platform-e2e/tests';
 const SPEC = /^apps\/platform-e2e\/tests\/([^/]+\.spec\.ts)$/;
 const BASE_PATH_SPEC = 'base-path.spec.ts';
+// Playwright reads positional arguments as regular expressions, so a name goes out only if it is plain: letters, digits, `_`, `-`, `.`, starting with a letter or digit.
+// `.` only over-matches (an extra spec may run); every other regex, glob, shell or line-break character could miss the file or inject output lines.
+const SAFE_NAME = /^[A-Za-z0-9][A-Za-z0-9_.-]*\.spec\.ts$/;
 
 const ALL = Object.freeze({ e2e: 'all', e2e_base_path: 'true', e2e_shards: '[1,2,3,4]', e2e_total: '4' });
 const NONE = Object.freeze({ e2e: 'none', e2e_base_path: 'false', e2e_shards: '[1]', e2e_total: '1' });
@@ -50,7 +54,7 @@ export function select({ event, files, fullInput, exists }) {
   for (const f of list) {
     if (DOCS_ONLY.test(f)) continue;
     const m = SPEC.exec(f);
-    if (!m) return { ...ALL };
+    if (!m || !SAFE_NAME.test(m[1])) return { ...ALL };
     if (!exists(m[1])) continue;
     if (m[1] === BASE_PATH_SPEC) basePath = true;
     else specs.add(m[1]);
@@ -125,6 +129,19 @@ function selfTest() {
   check('spec: base-path spec + docs', pr([`${T}base-path.spec.ts`, 'a.md']), out('base-path-only', 'true', '[1]', '1'));
   check('spec: nested spec dir is not a spec rule → all', pr([`${T}sub/x.spec.ts`]), ALLV);
   check('spec: non-spec file in tests/ → all', pr([`${T}fixture.json`]), ALLV);
+  // Names become regular-expression filters in Playwright: anything outside [A-Za-z0-9_.-] → all.
+  check('name: new plain spec', pr([`${T}my-new.spec.ts`], { exists: () => true }), sub('my-new.spec.ts'));
+  const unsafe = (name) => pr([`${T}${name}`], { exists: () => true });
+  check('name: parentheses → all', select({ event: 'pull_request', files: [`${T}contract-(shell).spec.ts`], exists: () => true }), ALLV);
+  check('name: space → all', unsafe('my spec.spec.ts'), ALLV);
+  check('name: plus → all', unsafe('a+b.spec.ts'), ALLV);
+  check('name: equals → all', unsafe('a=b.spec.ts'), ALLV);
+  check('name: newline → all', unsafe('a\nb.spec.ts'), ALLV);
+  check('name: newline + output injection → all', unsafe('a\ne2e=none.spec.ts'), ALLV);
+  check('name: non-ASCII → all', unsafe('한글.spec.ts'), ALLV);
+  check('name: leading dot → all', unsafe('.hidden.spec.ts'), ALLV);
+  check('name: quoted git output → all', pr([`"${T}a\\nb.spec.ts"`]), ALLV);
+  check('name: one safe + one unsafe → all', select({ event: 'pull_request', files: [`${T}hw-time.spec.ts`, `${T}a+b.spec.ts`], exists: () => true }), ALLV);
   // The e2e app's shared files → all.
   for (const f of ['contract-helpers.ts', 'support.ts']) check(`e2e: ${f} → all`, pr([`${T}${f}`]), ALLV);
   for (const f of ['playwright.config.ts', 'playwright.base-path.config.ts', 'playwright.merge.config.ts', 'contract-reporter.ts', 'package.json', 'tsconfig.json']) check(`e2e: ${f} → all`, pr([`apps/platform-e2e/${f}`]), ALLV);
@@ -188,6 +205,8 @@ function selfTest() {
     check('git push: missing baseline → all', r({ EVENT: 'push', SHA: code }), ALLV);
     check('git push: unreachable baseline → all', r({ EVENT: 'push', BASELINE: 'abc123'.repeat(6), SHA: code }), ALLV);
     check('git push: baseline == sha (empty diff) → all', r({ EVENT: 'push', BASELINE: code, SHA: code }), ALLV);
+    const odd = commit('odd', [`${T}a\nb.spec.ts`, `${T}x y.spec.ts`]);
+    check('git pr: newline/space spec names (git quotes them) → all', r({ EVENT: 'pull_request', BASE: del, HEAD: odd }), ALLV);
     check('git dispatch: needs no git', run({ EVENT: 'workflow_dispatch', FULL_INPUT: 'true' }, join(dir, 'does-not-exist')).result, ALLV);
     check('git pr: not a repository → all', run({ EVENT: 'pull_request', BASE: base, HEAD: spec }, tmpdir()).result, ALLV);
   } finally {

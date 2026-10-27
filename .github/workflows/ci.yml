@@ -403,10 +403,11 @@ jobs:
     needs: [changes, platform-contracts-e2e-shard]
     # Required check: always runs, never Skipped. A Markdown-only run or a run with no affected spec (e2e == 'none') only runs the verdict and passes;
     # otherwise it also runs when a shard failed. MERGE_REPORT is 'false' only when there are no blobs to merge (nothing selected, or the base-path run alone);
-    # empty outputs (`changes` failed) → 'true', the whole run.
+    # BASE_ONLY is the base-path run alone: no pnpm, only the base-path report is downloaded, summarised in one line and published. Empty outputs (`changes` failed) → the whole run.
     if: ${{ !cancelled() }}
     env:
       MERGE_REPORT: ${{ needs.changes.outputs.code != 'false' && needs.changes.outputs.e2e != 'none' && needs.changes.outputs.e2e != 'base-path-only' }}
+      BASE_ONLY: ${{ needs.changes.outputs.code != 'false' && needs.changes.outputs.e2e == 'base-path-only' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -440,6 +441,24 @@ jobs:
         with:
           name: platform-e2e-base-path-report
           path: apps/platform-e2e/contract-report/base-path
+      # Base-path run alone: nothing to merge, but its report is still published (same artifact name as the merged run).
+      - uses: actions/download-artifact@v4
+        if: ${{ env.BASE_ONLY == 'true' && !cancelled() }}
+        continue-on-error: true
+        with:
+          name: platform-e2e-base-path-report
+          path: apps/platform-e2e/contract-report/base-path
+      - name: Base-path report → job summary
+        if: ${{ env.BASE_ONLY == 'true' && !cancelled() }}
+        run: |
+          echo "Contract report - base-path run only (main-config specs not selected); the report is in the platform-contract-report artifact." >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: ${{ env.BASE_ONLY == 'true' && !cancelled() }}
+        with:
+          name: platform-contract-report
+          path: apps/platform-e2e/contract-report/
+          retention-days: 14
+          if-no-files-found: warn
       # 항목별 통과/실패 표를 Job 요약에 싣고, 증거 스크린샷은 아티팩트로 남긴다(#44). 실패해도 보고는 남긴다.
       - name: Contract report → job summary
         if: ${{ env.MERGE_REPORT == 'true' && !cancelled() }}
