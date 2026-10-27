@@ -17,7 +17,7 @@
 - `pnpm --filter @fops/ops lint:design` (`@shadcn/lint`, ADR-0062) checks restyled `@ap/ui` and `@fops/ui` components, raw colors, arbitrary values, and inline styles. Do not add findings; its messages suggest a variant or token, which you verify before applying. When the same override or hard-coded value repeats, add a shared token, variant, or component instead of repeating it. Mechanics: `ops/feedbackops/scripts/gates/AGENTS.md`.
 - Keep the visual model light, compact, and list-first. Avoid decorative cards, broad gradients, oversized hero sections, and empty whitespace.
 - Use one primary action per toolbar or panel. Secondary actions belong in subtle buttons, menus, or contextual rows.
-- Reuse `ObjectRow`, `DetailPanelHeader`, `ReporterStatusBadge`, `InternalTaskBadge`, `SeverityBadge`, `PermissionBlockedPanel`, `RichEditor`, and `LinkedEntityTrail` (full list: `packages/fo-ui/src/index.ts`) before making a screen-specific variant.
+- Reuse `ObjectRow`, `DetailPanelHeader`, `ReporterStatusBadge`, `InternalTaskBadge`, `SeverityBadge`, `PermissionBlockedPanel`, `RichEditor`, and `LinkedEntityTrail` (`ObjectRow`, `DetailPanelHeader`, `PermissionBlockedPanel`, `RichEditor` come from `@ap/ui`; the FeedbackOps-owned list is `packages/fo-ui/src/index.ts`) before making a screen-specific variant.
 - Keep components feature-local until a second real feature needs the same behavior; then promote stable reusable components to `packages/fo-ui`.
 - Separate reporter-facing status from internal workflow status visually and structurally.
 - Keep row click, inline controls, keyboard focus, hover, selected, active, disabled, loading, error, and permission-limited states distinct.

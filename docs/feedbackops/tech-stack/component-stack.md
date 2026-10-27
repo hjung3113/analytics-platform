@@ -78,9 +78,9 @@ packages/fo-ui/src/{badges,data,entity,feedback,forms,identity,indicators,layout
 `ObjectRow`, `UserAvatar`, `UserChip`, `ProgressMeter`,
 `SeverityIndicator`, `PermissionBlockedPanel`, and `StatusBadgeFrame` are imported from `@ap/ui`.
 FeedbackOps-owned badges, `LinkedEntityTrail`,
-pickers, and rich-content remain local for now. The SDK also carries a
-rich-content copy (restored in `sdk-v0.5.0`, upstream ADR-0052); switching to it
-is a later bundle. `allowlist-local.ts` is the UI copy of the canonical shared
+and pickers remain local. Rich content (`RichEditor`, `RichContentRenderer`) is
+consumed from `@ap/ui` (upstream ADR-0052); `packages/fo-ui/src/rich-content/`
+keeps only drift/sanitization helpers. `allowlist-local.ts` is the UI copy of the canonical shared
 contract and remains drift-tested.
 
 The shadcn primitives are not wrapped in `packages/fo-ui`; the `@fops/ui` public API (FeedbackOps-owned
@@ -246,7 +246,7 @@ TipTap (ADR-0011)
 Use:
 
 ```text
-- one shared WYSIWYG-first editor foundation in packages/fo-ui/src/rich-content/ (RichEditor for authoring, RichContentRenderer for read-only rendering)
+- one shared WYSIWYG-first editor foundation in packages/ui/src/rich-content/, consumed from `@ap/ui` (RichEditor for authoring, RichContentRenderer for read-only rendering)
 - VOC description
 - Reporter Reply
 - Public Update
