@@ -89,7 +89,7 @@ Scope의 포함 관계는 Site→room_name→StGroup→Equipment이며 실무 �
 - 메뉴 레지스트리에서 표시명·그룹·목적지·필요 권한·지원 Context를 읽는다(전역 계약 §5).
 - 요청 Scope, 현재 검증 상태, 사용자가 접근 가능한 Scope 선택 항목을 읽는다(§6.2). room_name 기준 Scope·v1 단일 선택은 Decided이며 부모·자식 상속은 Open이다. 선택기 API 구현을 확정한 것은 아니다.
 - URL에서 복원된 요청 Context와 목적지 객체 ID를 구분해 표시한다(§6.1). 직렬화·충돌 메커니즘은 §6.1/§6.4의 Decided 계약을 소비하며, 공개 필드명·enum·산출물 형식은 원본의 Candidate 상태를 따른다.
-- 즐겨찾기/최근방문은 사용자별 목적지를 표시한다. **즐겨찾기는 목적지 ID만 저장한다(Decided, 2026-09-24 — [08 §6](operations-overview.md#6-data-requirements))**: 마지막 조회 Context는 저장하지 않으며, 클릭 시 그 화면의 기본 상태로 진입하고 §6.2의 재검증을 그대로 따른다. 최근방문은 최대 12건을 저장하고 사이드바에 5건을 표시한다.
+- 즐겨찾기/최근방문은 사용자별 목적지를 표시한다. **즐겨찾기는 목적지 화면의 ID만 저장한다(Decided, 2026-09-24 — [08 §6](operations-overview.md#6-data-requirements))**: 마지막 조회 Context는 저장하지 않으며, 클릭 시 그 화면의 기본 상태로 진입하고 §6.2의 재검증을 그대로 따른다. 최근방문은 최대 12건을 저장하고 사이드바에 5건을 표시한다.
 - 시간 표시/입력은 §6.3의 Decided 경계·fallback·병합 가드·기본 구간 물질화를 따른다. 초기 TZ는 한국(Asia/Seoul) 우선으로 Decided이며 다중 사업장 같은 날짜·교대일/영업일 의미는 Open이다. 이 화면에서 시간 계약을 재정의하지 않는다.
 
 ## 7. INTERACTION / DOCUMENT REVIEW SCENARIOS

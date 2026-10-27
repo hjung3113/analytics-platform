@@ -27,7 +27,7 @@
 | --- | --- |
 | **모듈** | 다른 저장소가 소유하는 업무 화면 묶음. 화면 manifest + 화면 컴포넌트 + 자기 도메인 코드. 예: EV Top View 뷰어·재생, FeedbackOps VOC·Task·설문 화면 |
 | **호스트** | 한 브라우저 실행 트리에서 history·세션·전역 Context·알림·상세 슬롯을 소유하고 모듈 화면을 조립하는 앱. 플랫폼 셸(`apps/platform-web`), FeedbackOps 독립 앱, EV Studio |
-| **호스트 포트** | 호스트가 화면에 주는 React 무의존 객체(`ModuleHost`, Candidate). 서버 포트 `PlatformAdapter`와 다른 층이다 — `PlatformAdapter`는 Kernel → 플랫폼 서버, 호스트 포트는 호스트 → 모듈 화면 |
+| **호스트 포트** | 호스트가 화면에 주는 React 무의존 객체(`ModuleHost`, Candidate). 서버 어댑터 `PlatformAdapter`와 다른 층이다 — `PlatformAdapter`는 Kernel → 플랫폼 서버, 호스트 포트는 호스트 → 모듈 화면 |
 | **연결 패키지** | 플랫폼 쪽에서 모듈 manifest를 Registry에 이어 붙이고 공간·그룹·설정값을 정하는 얇은 패키지(화면 코드 없음) |
 
 범위 밖: 운영 중 원격 로딩·플러그인 설치(06 §14 Deferred, #396 §1), 신뢰되지 않는 코드 격리(#396 §7 — 같은 JS 실행 환경의 모듈은 신뢰된 코드), 백엔드 통합(제품 서버는 각자 소유).

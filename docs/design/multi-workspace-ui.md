@@ -2,7 +2,7 @@
 
 상태: **Decided — UX 구성 원칙(2026-10-08 사용자 승인). 공간 마지막 화면 복원은 사용자+공간별 탭 세션([ADR-0028](../adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md), [06 §9.1](../contract/kernel.md#91-업무-시스템-decided-2026-09-26))** / **Candidate — 표 열 등 다른 사용자 설정 저장** / **Decided — 표준 로그 개발·개선 실행 메뉴 구성([ADR-0065](../adr/0065-log-dev-and-improvement-spaces-work-queue-first.md), 2026-10-21, 화면은 예정)** / **Decided — Managed System 매핑(앱 정적 표, 공간당 하나, [ADR-0045](../adr/0045-feedbackops-entry-link-mapping-and-scope.md), 2026-10-19)** / **Open — 인증**. FeedbackOps는 플랫폼에 합류한다([ADR-0066](../adr/0066-feedbackops-merges-into-platform.md)). **Decided(방향, 2026-10-18) — 시스템 전환기 + 시스템별 레일([ADR-0042](../adr/0042-system-switcher-and-system-owned-rail.md)); 화면 사양 §3.2 Decided(2026-10-19, 전환기 A안).**
 
-> 이 문서는 **업무 시스템별 독립 워크스페이스**의 화면 설계·도입 계획이다. 플랫폼 전체 Navigation/Context/Permission의 단일 계약은 [06 §9·9.1](../contract/kernel.md#9-information-architecture)이고, 이 문서는 이를 소비하는 상세 설계다. 기존 백엔드/DB의 소유권이나 구현 완료를 선언하지 않는다.
+> 이 문서는 **업무 시스템별 화면**의 화면 설계·도입 계획이다. 플랫폼 전체 Navigation/Context/Permission의 단일 계약은 [06 §9·9.1](../contract/kernel.md#9-information-architecture)이고, 이 문서는 이를 소비하는 상세 설계다. 기존 백엔드/DB의 소유권이나 구현 완료를 선언하지 않는다.
 
 - [승인된 클릭형 v2 프로토타입](../prototypes/multi-workspace-v2/index.html)
 - [프로토타입 사용법 및 구현 차이](../prototypes/multi-workspace-v2/README.md)
@@ -107,7 +107,7 @@ Equipment Platform
 
 **최근·즐겨찾기·복원 표시**: 저장값이 있다는 것만으로 보이지 않는다. 지금 들어갈 수 있는 공간·메뉴인지 확인한 뒤 보인다.
 
-**접근성**: 레일 공간·주 메뉴·FeedbackOps 블록은 고유 이름의 `nav`. 레일을 toolbar로 만들지 않는다(Tab 이동). 현재 메뉴만 `aria-current="page"`. 팔레트 입력은 접근 이름 `메뉴 검색`, 공간 묶음은 `role="group"` + 레이블, 방향키로 고른 항목은 늘 보이게 스크롤한다.
+**접근성**: 레일 업무 시스템·주 메뉴·FeedbackOps 블록은 고유 이름의 `nav`. 레일을 toolbar로 만들지 않는다(Tab 이동). 현재 메뉴만 `aria-current="page"`. 팔레트 입력은 접근 이름 `메뉴 검색`, 업무 시스템별 묶음은 `role="group"` + 레이블, 방향키로 고른 항목은 늘 보이게 스크롤한다.
 
 ### 3.2 시스템별 레일 (Decided, 2026-10-19, ADR-0042)
 
