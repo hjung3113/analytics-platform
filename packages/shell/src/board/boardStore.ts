@@ -1,6 +1,6 @@
 import { isRecord } from '@ap/contracts';
 import { migrateV1 } from './boardMigrate';
-import { atFirstPanes, boardVersionFor, freshBoard, parseBoard, type Board } from './boardModel';
+import { asStored, boardVersionFor, freshBoard, parseBoard, type Board } from './boardModel';
 
 const v2Key = (userId: string) => `platform:board:v2:${userId}`;
 const v1Key = (userId: string) => `platform:board:${userId}`;
@@ -31,9 +31,9 @@ function quarantine(storage: KeyValueStore, key: string, raw: string) {
 /**
  * Reads the signed-in user's board: the V2 key, else the V1 key migrated in memory (nothing is written until the first edit; the V1 key is
  * never written or deleted). A corrupt value is copied to its backup key and reading falls through; a value from a newer build opens a fresh
- * board that this session never writes. `enter` is the first-entry normalization (every sheet's first pane selected); a refresh of a live board passes its own.
+ * board that this session never writes. `enter` is the first-entry normalization (the stored selection and active tabs are kept; a selection that disagrees with its group's active tab follows the tab); a refresh of a live board passes its own.
  */
-export function loadBoard(storage: KeyValueStore, userId: string, prefix: string, enter: (board: Board) => Board = atFirstPanes): LoadedBoard {
+export function loadBoard(storage: KeyValueStore, userId: string, prefix: string, enter: (board: Board) => Board = asStored): LoadedBoard {
   let notice: StorageNotice | null = null;
   try {
     const rawV2 = storage.getItem(v2Key(userId));

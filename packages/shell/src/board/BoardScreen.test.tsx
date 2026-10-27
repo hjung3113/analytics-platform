@@ -276,13 +276,13 @@ describe('panes', () => {
     expect(stored().sheets[0].panes[3]).toBeNull();
   });
 
-  it('opens on the first pane of the shown sheet even when another pane was selected when the board was left (docs/16 §4)', async () => {
+  it('opens on the pane that was selected when the board was last stored (refresh / new tab, docs/design/analysis-board.md)', async () => {
     seed(boardOf([sheet('a', { layout: '2x2', selected: 3, panes: [alpha(w1), alpha(w1), alpha(w1), alpha(w1)] })]));
     mount();
     await settle();
-    expect(within(paneGroup(1)).getByRole('button', { name: '칸 1 선택' })).toHaveAttribute('aria-pressed', 'true');
-    expect(within(paneGroup(4)).getByRole('button', { name: '칸 4 선택' })).toHaveAttribute('aria-pressed', 'false');
-    expect(screen.getByRole('region', { name: '칸 1 · 분석 Context' })).toBeInTheDocument();
+    expect(within(paneGroup(4)).getByRole('button', { name: '칸 4 선택' })).toHaveAttribute('aria-pressed', 'true');
+    expect(within(paneGroup(1)).getByRole('button', { name: '칸 1 선택' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('region', { name: '칸 4 · 분석 Context' })).toBeInTheDocument();
   });
 
   it('shows the disabled 48px bar and makes no Context request for a selected pane whose menu the role cannot open', async () => {

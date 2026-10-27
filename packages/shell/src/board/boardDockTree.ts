@@ -47,7 +47,7 @@ export function activateInTree(tree: LayoutNode, paneId: string): LayoutNode {
   return walk(tree);
 }
 
-/** The layout the dock renderer shows: the stored tree with the selected pane in front of its group (a board is opened with its first pane selected, whatever the stored active tab). */
+/** The layout the dock renderer shows: the stored tree with the selected pane in front of its group (the stored selection is restored on opening, so the selected pane is its group's stored active tab). */
 export const effectiveTree = (sheet: Sheet): LayoutNode => activateInTree(sheet.tree, sheet.selectedPaneId);
 
 /**
