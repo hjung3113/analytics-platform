@@ -7,7 +7,7 @@ import {
   createRoute,
   createRouter,
 } from '@tanstack/react-router';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, test, vi } from 'vitest';
 
 import {
@@ -247,10 +247,19 @@ describe('WorkspaceSettingsForm Coverage bands (#1088)', () => {
   });
 
   test('waits for settings data, then follows only coverage section changes', async () => {
-    const scrollSpy = vi.spyOn(Element.prototype, 'scrollIntoView');
+    const scrollTargets: Element[] = [];
+    const scrollSpy = vi.spyOn(Element.prototype, 'scrollIntoView').mockImplementation(function (
+      this: Element,
+    ) {
+      scrollTargets.push(this);
+    });
     const originalHash = window.location.hash;
     window.location.hash = '';
-    apiClientMock.mockReset().mockResolvedValue(patchResponse(settingsWith()));
+    let resolveSettings!: (response: ReturnType<typeof patchResponse>) => void;
+    const pendingSettings = new Promise<ReturnType<typeof patchResponse>>((resolve) => {
+      resolveSettings = resolve;
+    });
+    apiClientMock.mockReset().mockReturnValue(pendingSettings);
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const screenFor = (section: string | null | undefined) => (
       <QueryClientProvider client={queryClient}>
@@ -259,12 +268,22 @@ describe('WorkspaceSettingsForm Coverage bands (#1088)', () => {
     );
 
     try {
-      const view = render(screenFor('other'));
-      await screen.findByTestId('coverage-band-value-voc-task');
+      const view = render(screenFor('coverage'));
+      expect(screen.getByTestId('workspace-settings-loading')).toBeInTheDocument();
       expect(scrollSpy).not.toHaveBeenCalled();
+
+      await act(async () => {
+        resolveSettings(patchResponse(settingsWith()));
+      });
+      await screen.findByTestId('coverage-band-value-voc-task');
+      const coverageSection = document.getElementById('coverage');
+      expect(coverageSection).not.toBeNull();
+      expect(scrollSpy).toHaveBeenCalledTimes(1);
+      expect(scrollTargets).toEqual([coverageSection]);
 
       view.rerender(screenFor('coverage'));
       expect(scrollSpy).toHaveBeenCalledTimes(1);
+      expect(scrollTargets).toEqual([coverageSection]);
 
       view.rerender(screenFor('other'));
       expect(scrollSpy).toHaveBeenCalledTimes(1);
