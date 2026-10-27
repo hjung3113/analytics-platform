@@ -113,8 +113,9 @@ export function canTransition(approval: ViewApproval, action: ApprovalAction): b
 
 /** Transient UI state and raw data/engine dumps that must never be saved (21.1). Matched by key name at any depth outside `panels`. */
 const TRANSIENT_KEY = /^(hover|zoom|modal|openModal|draft)/i;
-const RAW_KEYS: ReadonlySet<string> = new Set(['rows', 'rawData', 'dockview', 'engineState']);
-export const isForbiddenSavedViewKey = (key: string): boolean => TRANSIENT_KEY.test(key) || RAW_KEYS.has(key);
+const RAW_KEYS: ReadonlySet<string> = new Set(['rows', 'rawData', 'engineState']);
+const DOCK_KEY = /^dock/i;
+export const isForbiddenSavedViewKey = (key: string): boolean => TRANSIENT_KEY.test(key) || RAW_KEYS.has(key) || DOCK_KEY.test(key);
 
 const invalid = (detail: string): Result<never> => ({ ok: false, reason: 'invalid', detail });
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
