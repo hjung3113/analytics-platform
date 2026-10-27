@@ -864,3 +864,69 @@ describe('FeedbackOps operator integration dashboard entry graph (ADR-0071)', ()
     expect(callers).toEqual(['lib/api/client.ts']);
   });
 });
+
+describe('FeedbackOps operator permission request review entry graph (ADR-0071)', () => {
+  const entry = walk([join(FRONTEND_SRC, 'operator-screens/permission-requests/index.ts')]);
+  const reachedFiles = [...entry.files.keys()].map(file => relative(FRONTEND_SRC, file));
+
+  it('reaches the screen, its console hook, the detail and the host seam, and not the admin gate or anything under routes/', () => {
+    expect(reachedFiles).toEqual(
+      expect.arrayContaining([
+        'features/admin/permissions/permission-requests-screen.tsx',
+        'features/admin/permissions/use-permission-requests-console.ts',
+        'lib/host/host-seam.tsx',
+        'lib/host/useHostSearchWriter.ts',
+      ]),
+    );
+    expect(reachedFiles).not.toContain('features/admin/permissions/permission-gate.tsx');
+    expect(reachedFiles.filter(file => /^routes\//.test(file))).toEqual([]);
+    expect(entry.unresolved).toEqual([]);
+  });
+
+  it('imports no router and no toast library', () => {
+    expect([...entry.specifiers].filter(specifier => /^@tanstack\/(react-)?router|^sonner$/.test(specifier))).toEqual([]);
+  });
+
+  it('reaches no route, router, layout or auth source, the auth module, the api barrel, the permissions or managed-systems api or the standalone permission check', () => {
+    const banned = /^(?:routes|lib\/router|lib\/layout|lib\/auth)\/|^lib\/api\/(?:auth|index|permissions|managed-systems)\.ts$|^lib\/cross-system\/usePermissionCheck\.ts$/;
+    expect(reachedFiles.filter(file => banned.test(file))).toEqual([]);
+  });
+
+  it('calls fetch only in lib/api/client.ts', () => {
+    const callers = [...entry.files].filter(([, text]) => /(?<![\w.])fetch\(/.test(text)).map(([file]) => relative(FRONTEND_SRC, file));
+    expect(callers).toEqual(['lib/api/client.ts']);
+  });
+});
+
+describe('FeedbackOps operator permission grants list entry graph (ADR-0071)', () => {
+  const entry = walk([join(FRONTEND_SRC, 'operator-screens/permission-grants/index.ts')]);
+  const reachedFiles = [...entry.files.keys()].map(file => relative(FRONTEND_SRC, file));
+
+  it('reaches the screen, its console hook, the detail and the host seam, and not the admin gate or anything under routes/', () => {
+    expect(reachedFiles).toEqual(
+      expect.arrayContaining([
+        'features/admin/permissions/permission-grants-screen.tsx',
+        'features/admin/permissions/use-permission-grants-console.ts',
+        'lib/host/host-seam.tsx',
+        'lib/host/useHostSearchWriter.ts',
+      ]),
+    );
+    expect(reachedFiles).not.toContain('features/admin/permissions/permission-gate.tsx');
+    expect(reachedFiles.filter(file => /^routes\//.test(file))).toEqual([]);
+    expect(entry.unresolved).toEqual([]);
+  });
+
+  it('imports no router and no toast library', () => {
+    expect([...entry.specifiers].filter(specifier => /^@tanstack\/(react-)?router|^sonner$/.test(specifier))).toEqual([]);
+  });
+
+  it('reaches no route, router, layout or auth source, the auth module, the api barrel, the permissions or managed-systems api or the standalone permission check', () => {
+    const banned = /^(?:routes|lib\/router|lib\/layout|lib\/auth)\/|^lib\/api\/(?:auth|index|permissions|managed-systems)\.ts$|^lib\/cross-system\/usePermissionCheck\.ts$/;
+    expect(reachedFiles.filter(file => banned.test(file))).toEqual([]);
+  });
+
+  it('calls fetch only in lib/api/client.ts', () => {
+    const callers = [...entry.files].filter(([, text]) => /(?<![\w.])fetch\(/.test(text)).map(([file]) => relative(FRONTEND_SRC, file));
+    expect(callers).toEqual(['lib/api/client.ts']);
+  });
+});

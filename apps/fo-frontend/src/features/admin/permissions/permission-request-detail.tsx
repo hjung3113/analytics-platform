@@ -8,6 +8,7 @@ import * as React from 'react';
 import { ADMIN_PERMISSIONS_COPY } from '@/lib/copy/admin-permissions';
 import { getCapabilityDisplayLabel } from '@/lib/copy/capabilities';
 import { formatDateOnly, formatDateTime } from '@/lib/format/datetime';
+import type { ClosableDetailParts } from '@/lib/host/detail-parts';
 import { shortId } from '@/lib/identity';
 import type { PermissionRequestAdminDetail } from '@fops/shared';
 
@@ -26,6 +27,7 @@ export function PermissionRequestDetail({
   onDecisionSucceeded,
   onActionPicked,
   onClose,
+  renderDetail,
 }: {
   request: PermissionRequestAdminDetail;
   actorName?: string | undefined;
@@ -38,6 +40,8 @@ export function PermissionRequestDetail({
   onDecisionSucceeded?: (result: { id: string; revision: number }) => void;
   onActionPicked?: () => void;
   onClose: () => void;
+  /** Absent = the standalone panel. Present = the host draws the parts (its own header, close and fullscreen). */
+  renderDetail?: (parts: ClosableDetailParts) => React.ReactNode;
 }) {
   const resolvedManagedSystemNames = managedSystemNames ?? {};
   const staleAlertRef = React.useRef<HTMLParagraphElement>(null);
@@ -51,6 +55,97 @@ export function PermissionRequestDetail({
   React.useEffect(() => {
     if (staleNotice) staleAlertRef.current?.focus();
   }, [staleNotice]);
+  const body = (
+    <div className="flex flex-col gap-5">
+      {staleNotice ? (
+        <p
+          ref={staleAlertRef}
+          role="alert"
+          tabIndex={-1}
+          className="text-sm text-accent-danger outline-hidden"
+          data-testid="permission-request-stale-alert"
+        >
+          {ADMIN_PERMISSIONS_COPY.reviewAgain}
+        </p>
+      ) : null}
+      <PermissionRequestRiskReview
+        request={request}
+        managedSystemNames={resolvedManagedSystemNames}
+      />
+      <section className="flex flex-col gap-2">
+        <PanelSectionTitle>요청 정보</PanelSectionTitle>
+        <FieldRow label="요청자" inset="none">
+          <span className="flex flex-col gap-0.5">
+            <span>{actorName ?? GLOSSARY.unknownUser}</span>
+            {actorName ? null : (
+              <span className="font-mono text-xs text-text-muted">
+                {shortId(request.requester_actor_id)}
+              </span>
+            )}
+          </span>
+        </FieldRow>
+        <FieldRow label="요청 ID" inset="none">
+          <span className="font-mono text-xs text-text-muted">{shortId(request.id)}</span>
+        </FieldRow>
+        <FieldRow label="요청 권한" inset="none">
+          <span>{getCapabilityDisplayLabel(request.requested_capability)}</span>
+        </FieldRow>
+        <FieldRow label="범위" inset="none">
+          <span className="flex flex-col gap-0.5">
+            <span>
+              {request.requested_managed_system_id
+                ? (managedSystemName ?? 'Managed System')
+                : '워크스페이스 전체'}
+            </span>
+            {request.requested_managed_system_id && !managedSystemName && (
+              <span className="font-mono text-xs text-text-muted">
+                {shortId(request.requested_managed_system_id)}
+              </span>
+            )}
+          </span>
+        </FieldRow>
+        <FieldRow label="요청 만료일" inset="none">
+          <span>
+            {request.requested_expiration
+              ? formatDateOnly(request.requested_expiration.slice(0, 10))
+              : '만료 없음'}
+          </span>
+        </FieldRow>
+        <FieldRow label="요청 일시" inset="none">
+          <span>{formatDateTime(request.created_at)}</span>
+        </FieldRow>
+      </section>
+      <section className="flex flex-col gap-2">
+        <PanelSectionTitle>요청 사유</PanelSectionTitle>
+        <p className="whitespace-pre-wrap text-sm text-text-primary">{request.reason}</p>
+      </section>
+      <PermissionRequestDecisionForm
+        key={`${request.id}:${request.revision}:${reviewEpoch}`}
+        request={request}
+        actorName={actorName}
+        managedSystemName={managedSystemName}
+        {...(staleNotice ? { staleNoticeShown: true } : {})}
+        {...(discardedReason !== undefined ? { discardedReason } : {})}
+        {...(onDraftChanged ? { onDraftChanged } : {})}
+        {...(onStaleConflict ? { onStaleConflict } : {})}
+        {...(onDecisionSucceeded ? { onDecisionSucceeded } : {})}
+        {...(onActionPicked ? { onActionPicked } : {})}
+        onReviewCompleted={() => setReviewEpoch((epoch) => epoch + 1)}
+      />
+    </div>
+  );
+  const title = `${actorName ?? GLOSSARY.unknownUser} · ${getCapabilityDisplayLabel(request.requested_capability)}`;
+
+  if (renderDetail) {
+    return renderDetail({
+      title,
+      subtitle: '권한 요청',
+      headerActions: <OutlineBadge>{permissionRequestStatusLabel[request.status]}</OutlineBadge>,
+      body,
+      requestClose: onClose,
+    });
+  }
+
   return (
     <aside
       className="flex h-full min-h-0 flex-col bg-surface-detail"
@@ -73,85 +168,7 @@ export function PermissionRequestDetail({
           </Button>
         </div>
       </header>
-      <div className="min-h-0 flex-1 overflow-y-auto p-6">
-        <div className="flex flex-col gap-5">
-          {staleNotice ? (
-            <p
-              ref={staleAlertRef}
-              role="alert"
-              tabIndex={-1}
-              className="text-sm text-accent-danger outline-hidden"
-              data-testid="permission-request-stale-alert"
-            >
-              {ADMIN_PERMISSIONS_COPY.reviewAgain}
-            </p>
-          ) : null}
-          <PermissionRequestRiskReview
-            request={request}
-            managedSystemNames={resolvedManagedSystemNames}
-          />
-          <section className="flex flex-col gap-2">
-            <PanelSectionTitle>요청 정보</PanelSectionTitle>
-            <FieldRow label="요청자" inset="none">
-              <span className="flex flex-col gap-0.5">
-                <span>{actorName ?? GLOSSARY.unknownUser}</span>
-                {actorName ? null : (
-                  <span className="font-mono text-xs text-text-muted">
-                    {shortId(request.requester_actor_id)}
-                  </span>
-                )}
-              </span>
-            </FieldRow>
-            <FieldRow label="요청 ID" inset="none">
-              <span className="font-mono text-xs text-text-muted">{shortId(request.id)}</span>
-            </FieldRow>
-            <FieldRow label="요청 권한" inset="none">
-              <span>{getCapabilityDisplayLabel(request.requested_capability)}</span>
-            </FieldRow>
-            <FieldRow label="범위" inset="none">
-              <span className="flex flex-col gap-0.5">
-                <span>
-                  {request.requested_managed_system_id
-                    ? (managedSystemName ?? 'Managed System')
-                    : '워크스페이스 전체'}
-                </span>
-                {request.requested_managed_system_id && !managedSystemName && (
-                  <span className="font-mono text-xs text-text-muted">
-                    {shortId(request.requested_managed_system_id)}
-                  </span>
-                )}
-              </span>
-            </FieldRow>
-            <FieldRow label="요청 만료일" inset="none">
-              <span>
-                {request.requested_expiration
-                  ? formatDateOnly(request.requested_expiration.slice(0, 10))
-                  : '만료 없음'}
-              </span>
-            </FieldRow>
-            <FieldRow label="요청 일시" inset="none">
-              <span>{formatDateTime(request.created_at)}</span>
-            </FieldRow>
-          </section>
-          <section className="flex flex-col gap-2">
-            <PanelSectionTitle>요청 사유</PanelSectionTitle>
-            <p className="whitespace-pre-wrap text-sm text-text-primary">{request.reason}</p>
-          </section>
-          <PermissionRequestDecisionForm
-            key={`${request.id}:${request.revision}:${reviewEpoch}`}
-            request={request}
-            actorName={actorName}
-            managedSystemName={managedSystemName}
-            {...(staleNotice ? { staleNoticeShown: true } : {})}
-            {...(discardedReason !== undefined ? { discardedReason } : {})}
-            {...(onDraftChanged ? { onDraftChanged } : {})}
-            {...(onStaleConflict ? { onStaleConflict } : {})}
-            {...(onDecisionSucceeded ? { onDecisionSucceeded } : {})}
-            {...(onActionPicked ? { onActionPicked } : {})}
-            onReviewCompleted={() => setReviewEpoch((epoch) => epoch + 1)}
-          />
-        </div>
-      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto p-6">{body}</div>
     </aside>
   );
 }

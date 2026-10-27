@@ -5,11 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 // Temporary until fo-entry-graph.test.ts describes cover these same admin files (764g/m/y).
 const adminRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const routerSearchFiles = new Set([
-  'analytics-areas/search.ts',
-  'permissions/permission-grants-search.ts',
-  'permissions/permission-requests-search.ts',
-]);
+const routerSearchFiles = new Set(['analytics-areas/search.ts']);
 
 function sourceFilesIn(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {

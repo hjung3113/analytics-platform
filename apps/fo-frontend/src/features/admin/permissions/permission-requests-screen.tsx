@@ -1,10 +1,12 @@
 import { ListStateMessage } from '@/components/ListStateMessage';
 import { ListShell, ListTabs, type ListToolbarTab, ObjectRow } from '@ap/ui';
 import { OutlineBadge } from '@fops/ui';
+import type { ReactNode } from 'react';
 
 import type { AdminPermissionRequestRow } from '@/lib/api/permission-reads';
 import { getCapabilityDisplayLabel } from '@/lib/copy/capabilities';
 import { formatDateOnly, formatDateTime } from '@/lib/format/datetime';
+import type { ClosableDetailParts } from '@/lib/host/detail-parts';
 import { shortId } from '@/lib/identity';
 
 import {
@@ -16,7 +18,17 @@ import { usePermissionRequestsConsole } from './use-permission-requests-console.
 
 const PERMISSION_REQUESTS_PANEL_ID = 'permission-requests-list-panel';
 
-export function PermissionRequestsScreen() {
+export type PermissionRequestsScreenProps = {
+  /** `false` = no first-visible selection (on load or on a tab change); selection comes from the URL only. Default `true`. */
+  autoSelect?: boolean;
+  /** Absent = the detail fills `ListShell.detailPanel` (standalone). Present = the screen hands its parts here and renders the result in place. */
+  renderDetail?: (parts: ClosableDetailParts) => ReactNode;
+};
+
+export function PermissionRequestsScreen({
+  autoSelect = true,
+  renderDetail,
+}: PermissionRequestsScreenProps = {}) {
   const {
     allRequests,
     visibleRequests,
@@ -30,7 +42,7 @@ export function PermissionRequestsScreen() {
     handleTabChange,
     handleSelect,
     handleClose,
-  } = usePermissionRequestsConsole();
+  } = usePermissionRequestsConsole({ autoSelect });
   // #706 — counts are unknown until the requests read succeeds (covers
   // pending, error, and refetch-after-error without data); unknown must never
   // render as 0 (ListTabs renders badgeCount only when set).
@@ -50,7 +62,18 @@ export function PermissionRequestsScreen() {
       : {}),
   }));
 
-  return (
+  const detail = selected ? (
+    <SelectedPermissionRequestDetail
+      key={selected.id}
+      id={selected.id}
+      actorNames={actorNames}
+      managedSystemNames={managedSystemNames}
+      onClose={handleClose}
+      {...(renderDetail ? { renderDetail } : {})}
+    />
+  ) : undefined;
+
+  const shell = (
     <ListShell
       toolbar={{
         title: '권한 요청 검토',
@@ -96,18 +119,17 @@ export function PermissionRequestsScreen() {
           ))}
         </section>
       }
-      detailPanel={
-        selected ? (
-          <SelectedPermissionRequestDetail
-            key={selected.id}
-            id={selected.id}
-            actorNames={actorNames}
-            managedSystemNames={managedSystemNames}
-            onClose={handleClose}
-          />
-        ) : undefined
-      }
+      {...(renderDetail ? {} : { detailPanel: detail })}
     />
+  );
+
+  return renderDetail ? (
+    <>
+      {shell}
+      {detail}
+    </>
+  ) : (
+    shell
   );
 }
 

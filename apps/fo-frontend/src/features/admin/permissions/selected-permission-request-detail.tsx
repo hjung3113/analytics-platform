@@ -5,6 +5,7 @@ import * as React from 'react';
 import { fetchPermissionRequestAdminDetail } from '@/lib/api/permission-admin';
 import { permissionRequestAdminDetailKey } from '@/lib/api/permission-requests';
 import { ADMIN_PERMISSIONS_COPY } from '@/lib/copy/admin-permissions';
+import type { ClosableDetailParts } from '@/lib/host/detail-parts';
 import { PermissionRequestDetail } from './permission-request-detail';
 
 export function SelectedPermissionRequestDetail({
@@ -12,11 +13,14 @@ export function SelectedPermissionRequestDetail({
   actorNames,
   managedSystemNames,
   onClose,
+  renderDetail,
 }: {
   id: string;
   actorNames: Record<string, string>;
   managedSystemNames: Record<string, string>;
   onClose: () => void;
+  /** Absent = the standalone panel. Present = the host draws the parts in place (the screen stays mounted, so the draft survives). */
+  renderDetail?: (parts: ClosableDetailParts) => React.ReactNode;
 }) {
   const query = useQuery({
     queryKey: permissionRequestAdminDetailKey(id),
@@ -53,7 +57,25 @@ export function SelectedPermissionRequestDetail({
     if (draft.nonEmpty && !ownRevision) setDiscardedReason(draft.reason);
     setDraft(null);
   }
-  if (query.isError || !detail || !query.isFetchedAfterMount)
+  if (query.isError || !detail || !query.isFetchedAfterMount) {
+    if (renderDetail) {
+      return renderDetail({
+        title: '권한 요청',
+        body: (
+          <div className="flex flex-col gap-3" data-testid="permission-request-detail-panel">
+            <p role={query.isError ? 'alert' : 'status'}>
+              {query.isError
+                ? ADMIN_PERMISSIONS_COPY.detailError
+                : ADMIN_PERMISSIONS_COPY.detailLoading}
+            </p>
+            {query.isError ? (
+              <Button onClick={() => void query.refetch()}>{ADMIN_PERMISSIONS_COPY.retry}</Button>
+            ) : null}
+          </div>
+        ),
+        requestClose: onClose,
+      });
+    }
     return (
       <aside className="flex flex-col gap-3 p-5" data-testid="permission-request-detail-panel">
         <Button variant="ghost" aria-label="패널 닫기" onClick={onClose}>
@@ -69,6 +91,7 @@ export function SelectedPermissionRequestDetail({
         ) : null}
       </aside>
     );
+  }
   return (
     <PermissionRequestDetail
       key={`${id}:${detail.revision}`}
@@ -90,6 +113,7 @@ export function SelectedPermissionRequestDetail({
         setDiscardedReason(null);
       }}
       onClose={onClose}
+      {...(renderDetail ? { renderDetail } : {})}
     />
   );
 }

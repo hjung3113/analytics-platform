@@ -1,10 +1,12 @@
 import { Button, DetailPanelFullscreenToggle, FieldRow, PanelSectionTitle } from '@ap/ui';
+import type { ReactNode } from 'react';
 
 import { ADMIN_PERMISSIONS_COPY } from '@/lib/copy/admin-permissions';
 import { getCapabilityDisplayLabel } from '@/lib/copy/capabilities';
 import { GLOSSARY } from '@/lib/copy/glossary';
 import { SCOPE_SELECTOR_COPY } from '@/lib/copy/managed-system-scope';
 import { formatDateOnly, formatDateTime } from '@/lib/format/datetime';
+import type { ClosableDetailParts } from '@/lib/host/detail-parts';
 import { shortId } from '@/lib/identity';
 import type { PermissionDenyAdminItem, PermissionGrantAdminItem } from '@fops/shared';
 
@@ -19,6 +21,7 @@ export function PermissionGrantDetail({
   onGrantRevoked,
   onSuccess,
   onGrantReadFollowUp,
+  renderDetail,
 }: {
   permission: ActivePermission;
   actorNames: Record<string, string>;
@@ -27,9 +30,67 @@ export function PermissionGrantDetail({
   onGrantRevoked: (id: string) => void;
   onSuccess: () => void;
   onGrantReadFollowUp?: () => void;
+  /** Absent = the standalone panel. Present = the host draws the parts (its own header, close and fullscreen). */
+  renderDetail?: (parts: ClosableDetailParts) => ReactNode;
 }) {
   const { kind, item } = permission;
   const actorName = actorNames[item.actor_id] ?? GLOSSARY.unknownUser;
+
+  const body = (
+    <div className="flex flex-col gap-5">
+      <section className="flex flex-col gap-2">
+        <PanelSectionTitle>
+          {kind === 'grants' ? ADMIN_PERMISSIONS_COPY.grantInfo : ADMIN_PERMISSIONS_COPY.denyInfo}
+        </PanelSectionTitle>
+        <FieldRow label={ADMIN_PERMISSIONS_COPY.target} inset="none">
+          <span className="flex flex-col gap-0.5">
+            <span>{actorName}</span>
+            <span className="font-mono text-xs text-text-muted">{shortId(item.actor_id)}</span>
+          </span>
+        </FieldRow>
+        <FieldRow label={ADMIN_PERMISSIONS_COPY.permission} inset="none">
+          <span className="flex flex-col gap-0.5">
+            <span>{getCapabilityDisplayLabel(item.capability)}</span>
+            <span className="font-mono text-xs text-text-muted">{item.capability}</span>
+          </span>
+        </FieldRow>
+        <FieldRow label={ADMIN_PERMISSIONS_COPY.scope} inset="none">
+          <PermissionScope
+            id={item.managed_system_id}
+            name={item.managed_system_id ? managedSystemNames[item.managed_system_id] : undefined}
+          />
+        </FieldRow>
+        {kind === 'grants' ? (
+          <GrantFields item={item} actorNames={actorNames} />
+        ) : (
+          <DenyFields item={item} actorNames={actorNames} />
+        )}
+        <FieldRow label={ADMIN_PERMISSIONS_COPY.id} inset="none">
+          <span className="font-mono text-xs text-text-muted">{shortId(item.id)}</span>
+        </FieldRow>
+      </section>
+      {kind === 'grants' && onGrantReadFollowUp ? (
+        <Button type="button" variant="secondary" onClick={onGrantReadFollowUp}>
+          {ADMIN_PERMISSIONS_COPY.directGrant.grantReadFollowUp}
+        </Button>
+      ) : null}
+      <PermissionGrantActionForm
+        key={`${kind}:${item.id}`}
+        kind={kind}
+        id={item.id}
+        actorId={item.actor_id}
+        onGrantRevoked={onGrantRevoked}
+        onSuccess={onSuccess}
+      />
+    </div>
+  );
+  const heading =
+    kind === 'grants' ? ADMIN_PERMISSIONS_COPY.activeTitle : ADMIN_PERMISSIONS_COPY.deniesTab;
+  const title = `${actorName} · ${getCapabilityDisplayLabel(item.capability)}`;
+
+  if (renderDetail) {
+    return renderDetail({ title, subtitle: heading, body, requestClose: onClose });
+  }
 
   return (
     <aside
@@ -38,11 +99,7 @@ export function PermissionGrantDetail({
     >
       <header className="flex h-toolbar items-center gap-3 border-b border-border-subtle px-6">
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-medium text-text-muted">
-            {kind === 'grants'
-              ? ADMIN_PERMISSIONS_COPY.activeTitle
-              : ADMIN_PERMISSIONS_COPY.deniesTab}
-          </p>
+          <p className="text-xs font-medium text-text-muted">{heading}</p>
           <p className="truncate text-sm font-medium text-text-primary">
             {actorName} · {getCapabilityDisplayLabel(item.capability)}
           </p>
@@ -60,58 +117,7 @@ export function PermissionGrantDetail({
           </Button>
         </div>
       </header>
-      <div className="min-h-0 flex-1 overflow-y-auto p-6">
-        <div className="flex flex-col gap-5">
-          <section className="flex flex-col gap-2">
-            <PanelSectionTitle>
-              {kind === 'grants'
-                ? ADMIN_PERMISSIONS_COPY.grantInfo
-                : ADMIN_PERMISSIONS_COPY.denyInfo}
-            </PanelSectionTitle>
-            <FieldRow label={ADMIN_PERMISSIONS_COPY.target} inset="none">
-              <span className="flex flex-col gap-0.5">
-                <span>{actorName}</span>
-                <span className="font-mono text-xs text-text-muted">{shortId(item.actor_id)}</span>
-              </span>
-            </FieldRow>
-            <FieldRow label={ADMIN_PERMISSIONS_COPY.permission} inset="none">
-              <span className="flex flex-col gap-0.5">
-                <span>{getCapabilityDisplayLabel(item.capability)}</span>
-                <span className="font-mono text-xs text-text-muted">{item.capability}</span>
-              </span>
-            </FieldRow>
-            <FieldRow label={ADMIN_PERMISSIONS_COPY.scope} inset="none">
-              <PermissionScope
-                id={item.managed_system_id}
-                name={
-                  item.managed_system_id ? managedSystemNames[item.managed_system_id] : undefined
-                }
-              />
-            </FieldRow>
-            {kind === 'grants' ? (
-              <GrantFields item={item} actorNames={actorNames} />
-            ) : (
-              <DenyFields item={item} actorNames={actorNames} />
-            )}
-            <FieldRow label={ADMIN_PERMISSIONS_COPY.id} inset="none">
-              <span className="font-mono text-xs text-text-muted">{shortId(item.id)}</span>
-            </FieldRow>
-          </section>
-          {kind === 'grants' && onGrantReadFollowUp ? (
-            <Button type="button" variant="secondary" onClick={onGrantReadFollowUp}>
-              {ADMIN_PERMISSIONS_COPY.directGrant.grantReadFollowUp}
-            </Button>
-          ) : null}
-          <PermissionGrantActionForm
-            key={`${kind}:${item.id}`}
-            kind={kind}
-            id={item.id}
-            actorId={item.actor_id}
-            onGrantRevoked={onGrantRevoked}
-            onSuccess={onSuccess}
-          />
-        </div>
-      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto p-6">{body}</div>
     </aside>
   );
 }
