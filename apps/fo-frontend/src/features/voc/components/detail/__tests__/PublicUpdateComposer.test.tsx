@@ -6,7 +6,7 @@
 //   3. Publish disabled when gate blocks the staged next status
 //
 // C5.2 of slice3 #21.
-// Prototype ref: docs/design-prototype/screen-voc.jsx:415-468
+// Prototype ref: docs/feedbackops/design-prototype/screen-voc.jsx:415-468
 
 import type { PublicUpdateSuccess } from '@/features/voc/hooks/useVocPublicUpdateMutation';
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';

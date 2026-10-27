@@ -2,7 +2,7 @@
 //
 // C5.2 (slice3 #21)
 // Spec: PLAN-21-SUBCHUNKS.md C5.2
-// Prototype ref: docs/design-prototype/screen-voc.jsx:415-468
+// Prototype ref: docs/feedbackops/design-prototype/screen-voc.jsx:415-468
 //
 // Allowed marks: Bold, Italic, BulletList. Link is intentionally excluded.
 // Attach: the public-update editor registers no `attachmentRef` node (its allowlist has none), so

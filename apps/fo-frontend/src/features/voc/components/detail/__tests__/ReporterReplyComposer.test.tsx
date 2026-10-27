@@ -4,7 +4,7 @@
 //   2. reporter visibility: only reporter sees this composer per useComposerVisibility
 //
 // C5.3 of slice3 #21.
-// Prototype ref: docs/design-prototype/screen-voc.jsx:415-468
+// Prototype ref: docs/feedbackops/design-prototype/screen-voc.jsx:415-468
 //   Reply variant is the same shell minus ReporterStatusChangeBlock.
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';

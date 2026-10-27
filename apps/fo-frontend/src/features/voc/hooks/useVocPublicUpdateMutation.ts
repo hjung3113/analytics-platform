@@ -3,7 +3,7 @@ import { invalidateRecovery } from '@/lib/query/recovery';
 //
 // C5.2 (slice3 #21)
 // Spec: PLAN-21-SUBCHUNKS.md C5.2
-// Prototype ref: docs/design-prototype/screen-voc.jsx:415-468 (footer submit)
+// Prototype ref: docs/feedbackops/design-prototype/screen-voc.jsx:415-468 (footer submit)
 //
 // Two paths:
 //   body-only:   next_reporter_facing_status === voc.reporter_facing_status → status unchanged

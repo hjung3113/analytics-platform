@@ -17,7 +17,7 @@ import { createFileRoute, useNavigate, useSearch } from '@tanstack/react-router'
 import * as React from 'react';
 import { z } from 'zod';
 
-// Selection + Managed System scope are URL state (docs/frontend/routes-and-layout.md
+// Selection + Managed System scope are URL state (docs/feedbackops/frontend/routes-and-layout.md
 // §URL State Rules): /surveys?managedSystem=:managedSystemId|all&selected=:surveyId.
 // Defaults (scope union / nothing selected) are omitted from the URL. `all` and an
 // absent managedSystem both query WITHOUT managed_system_id (the backend applies the

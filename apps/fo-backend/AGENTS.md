@@ -2,12 +2,12 @@
 
 ## Required Docs
 
-- Read `docs/implementation/README.md` before backend changes.
-- Use `docs/implementation/03-api-contracts.md` and `docs/implementation/api/` for endpoint behavior.
-- Use `docs/implementation/04-database-and-migrations.md` for storage.
-- Use `docs/implementation/05-permission-policy.md` for access control.
-- Use `docs/implementation/06-entity-linking-contract.md` for links.
-- Use `docs/implementation/02-domain-module-boundaries.md` before adding or moving modules.
+- Read `docs/feedbackops/implementation/README.md` before backend changes.
+- Use `docs/feedbackops/implementation/03-api-contracts.md` and `docs/feedbackops/implementation/api/` for endpoint behavior.
+- Use `docs/feedbackops/implementation/04-database-and-migrations.md` for storage.
+- Use `docs/feedbackops/implementation/05-permission-policy.md` for access control.
+- Use `docs/feedbackops/implementation/06-entity-linking-contract.md` for links.
+- Use `docs/feedbackops/implementation/02-domain-module-boundaries.md` before adding or moving modules.
 
 ## Layer Rules
 
@@ -25,7 +25,7 @@ Backend-specific additions beyond root:
 
 Every cross-system command must validate workspace ownership, check permissions, write the target object, write required `entity_links`, append required audit events, and return data suitable for pending or optimistic UI states.
 
-Source-shaped routes may host request parsing, but target object writes must use the target module's application command or an orchestration service documented in `docs/implementation/02-domain-module-boundaries.md`.
+Source-shaped routes may host request parsing, but target object writes must use the target module's application command or an orchestration service documented in `docs/feedbackops/implementation/02-domain-module-boundaries.md`.
 
 Backend-specific additions to root's Managed System invariant: Analytics Area is business
 context inside one Managed System, not an MVP permission boundary. Project or

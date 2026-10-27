@@ -1,6 +1,6 @@
 # 문서 인덱스
 
-이 레포는 `context_recognized_parser`(별도 레포)가 적재한 데이터를 소비하는 분석 플랫폼의 설계와 프론트엔드 플랫폼 코드를 담는다. 코드는 루트 pnpm workspace(`packages/*` 플랫폼 패키지, `menus/*/*` 견본 메뉴, `apps/platform-web` 조립 앱, 서버는 mock 또는 `@ap/http-adapter` 실어댑터)이고, FeedbackOps는 `products/feedbackops/` 디렉터리에 있다(서브모듈 아님, ADR-0066).
+이 레포는 `context_recognized_parser`(별도 레포)가 적재한 데이터를 소비하는 분석 플랫폼의 설계와 프론트엔드 플랫폼 코드를 담는다. 코드는 루트 pnpm workspace(`packages/*` 플랫폼 패키지, `menus/*/*` 견본 메뉴, `apps/platform-web` 조립 앱, 서버는 mock 또는 `@ap/http-adapter` 실어댑터)이고, FeedbackOps는 `apps/fo-*`·`packages/fo-*`·`docs/feedbackops/`에 있다(서브모듈 아님, ADR-0066·ADR-0090).
 
 | 알고 싶은 것 | 어디 |
 | --- | --- |
@@ -36,12 +36,12 @@
 | 서버 계약·어댑터(실서버 전환 포함) | [사내 적용 가이드](integration/in-house-rollout.md)(순서) → [실서버 연결 체크리스트](integration/real-server-checklist.md)(규칙) → [전송 형식](integration/http-adapter-contract.md)(HTTP 경계), [ADR-0019](adr/0019-menu-query-endpoint-declaration.md), 06 §18–19 | [contracts](../packages/contracts/AGENTS.md) → [mock-server](../packages/mock-server/AGENTS.md) → [server-conformance](../packages/server-conformance/AGENTS.md) → [apps/platform-web](../apps/platform-web/AGENTS.md)(주입·dev 도구) | `packages/contracts/src/adapter/adapter.ts`·`menu-query.ts` → `packages/mock-server/src/adapter.ts` |
 | 공통 컴포넌트·차트·상태 화면 | 06 §13·§15·§16·§18–19·§24 | [packages](../packages/AGENTS.md) → [components](../packages/components/AGENTS.md) → primitive가 필요하면 [ui](../packages/ui/AGENTS.md) | `packages/components/src/` → 소비 화면(`menus/*/*/src/pages`) |
 | 셸(레일·사이드바·페이지 머리·Context 바·상세 슬롯·라우트 상태·공간) | [07 셸](wireframes/app-shell.md), 06 §7–9 | [shell](../packages/shell/AGENTS.md) → 슬롯·Registry는 [kernel](../packages/kernel/AGENTS.md) | `packages/shell/src/` → 앱 `src/main.tsx`(조립) |
-| 디자인 토큰·시각 규칙 | [DESIGN](../DESIGN.md), [ADR-0043](adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md)(원본 소유는 플랫폼, 토큰·유틸·primitive 코드는 #441에서 이전, [ADR-0046](adr/0046-design-system-source-moves-to-platform-whole-package.md)), [ADR-0011](adr/0011-design-direction-feedbackops-shell.md) → [FO ADR-0058](../products/feedbackops/docs/adr/0058-tailwind-v4-css-first-theme.md), [06 §23](contract/platform-ui-contract.md#23-design-tokens) | [ui](../packages/ui/AGENTS.md) | `packages/ui/src/styles/` |
+| 디자인 토큰·시각 규칙 | [DESIGN](../DESIGN.md), [ADR-0043](adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md)(원본 소유는 플랫폼, 토큰·유틸·primitive 코드는 #441에서 이전, [ADR-0046](adr/0046-design-system-source-moves-to-platform-whole-package.md)), [ADR-0011](adr/0011-design-direction-feedbackops-shell.md) → [FO ADR-0058](feedbackops/adr/0058-tailwind-v4-css-first-theme.md), [06 §23](contract/platform-ui-contract.md#23-design-tokens) | [ui](../packages/ui/AGENTS.md) | `packages/ui/src/styles/` |
 | 플랫폼 계약 자동 검사(E2E) | 06 §6·§11·§17·§19·§22 | [apps/platform-e2e](../apps/platform-e2e/AGENTS.md) | `apps/platform-e2e/tests/contract-*.spec.ts` → `contract-helpers.ts`·`support.ts` → 보고 `contract-reporter.ts` |
 | 모노레포 구조·빌드·CI·접두사 변경 | [패키지 경계](integration/platform-packages.md), [저장소 구조](integration/repository-layout.md) | [tooling](../tooling/AGENTS.md) → [packages](../packages/AGENTS.md) | 루트 `package.json`·`pnpm-workspace.yaml`·`turbo.json` → `.github/workflows/ci.yml` |
 | 설계 문서·결정 갱신 | 해당 소유 문서 → [ADR 목록](adr/README.md) 또는 [05](overview/roadmap-and-open-questions.md) | [docs](AGENTS.md) | 바꾼 뒤 `pnpm docs:links` |
 | 적재 워커 상태·가공 상태 조회·운영 콘솔 모니터링 | [01 가공 상태 보고](architecture/architecture-and-data-contract.md#processing-status-report), 06 §19, [상태 기록 스키마](integration/ingest-status-schema.md) | [docs](AGENTS.md) | 파서 저장소 `context_recognized_parser` |
-| FeedbackOps 연결 | [저장소 구조](integration/repository-layout.md), [딥링크 계약](integration/feedbackops-deeplink.md), [ADR-0066](adr/0066-feedbackops-merges-into-platform.md) 합류, [합류 설계](integration/feedbackops-merge-design.md) | [products/feedbackops](../products/feedbackops/AGENTS.md) | 그 디렉터리 하위 `AGENTS.md` |
+| FeedbackOps 연결 | [저장소 구조](integration/repository-layout.md), [딥링크 계약](integration/feedbackops-deeplink.md), [ADR-0066](adr/0066-feedbackops-merges-into-platform.md) 합류, [합류 설계](integration/feedbackops-merge-design.md) | [docs/feedbackops](feedbackops/AGENTS.md) | 그 디렉터리 하위 `AGENTS.md` |
 | 통합 전 단위 프로토타입 | — | [prototypes](../archive/AGENTS.md) | 각 프로토타입 README |
 
 ## 번호 약칭 → 파일

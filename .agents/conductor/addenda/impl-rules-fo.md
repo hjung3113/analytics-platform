@@ -1,11 +1,11 @@
 # FeedbackOps addendum to 00-IMPL-RULES.md (read both) — launch mode `fo`
 
-FeedbackOps is `apps/fo-backend`, `apps/fo-frontend`, `packages/fo-shared`, `packages/fo-ui` (apps, packages) and `products/feedbackops/` (docs) with its tools in `ops/feedbackops/` (workspace package `@fops/ops`), part of the root pnpm workspace (root Node 26.7, pnpm 11 and lockfile; Biome
+FeedbackOps is `apps/fo-backend`, `apps/fo-frontend`, `packages/fo-shared`, `packages/fo-ui` (apps, packages) and `docs/feedbackops/` (docs) with its tools in `ops/feedbackops/` (workspace package `@fops/ops`), part of the root pnpm workspace (root Node 26.7, pnpm 11 and lockfile; Biome
 for its own lint; ADR-0066, #642). The launcher's root install already covers it. Run every FeedbackOps command **from the repository root**; its root scripts run as `pnpm --filter @fops/ops <script>`; never run the root
 platform install, lint or test for FeedbackOps work.
 
-1. Read `products/feedbackops/AGENTS.md`, `apps/fo-backend/AGENTS.md` and every module `AGENTS.md`
-   you touch, plus `products/feedbackops/docs/implementation/02-domain-module-boundaries.md` §Approved cross-module
+1. Read `docs/feedbackops/AGENTS.md`, `apps/fo-backend/AGENTS.md` and every module `AGENTS.md`
+   you touch, plus `docs/feedbackops/implementation/02-domain-module-boundaries.md` §Approved cross-module
    surfaces.
 2. Backend integration suites are env-gated: they skip without a DB. Your task names **your own throwaway issue
    database** (port 5439) and the exact command, run from the repository root:
@@ -33,6 +33,6 @@ platform install, lint or test for FeedbackOps work.
    assert `body.detail.fields`, not `body.fields`. Routes under `/api/v1/platform` follow ADR-0069 instead.
 9. **Rate-limit keys** are `<workspace_id>:<actor_id>`.
 10. Before finishing, run `ops/feedbackops/node_modules/.bin/biome check --config-path=ops/feedbackops --write <file> …` with the explicit path of every file you created
-    or changed under `apps/fo-*`, `packages/fo-*` or `products/feedbackops/` (format and import order — the FE Biome gate fails on either: #603,
+    or changed under `apps/fo-*`, `packages/fo-*` or `docs/feedbackops/` (format and import order — the FE Biome gate fails on either: #603,
     #620, #621). Never pass a directory: `biome format --write apps/fo-backend/src` rewrote 51 files the task did not
     own (#621).

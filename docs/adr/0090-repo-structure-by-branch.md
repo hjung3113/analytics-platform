@@ -31,7 +31,7 @@
 | `products/feedbackops/apps/{backend,frontend}` | `apps/fo-backend`, `apps/fo-frontend` |
 | `products/feedbackops/packages/shared` | `packages/fo-shared` |
 | `products/feedbackops/packages/ui` (`@fops/ui`) | `packages/fo-ui` (이름 `@fops/ui` 유지) |
-| `products/feedbackops/{DESIGN,GLOSSARY,PRODUCT}.md`, `docs/` | `docs/feedbackops/` (폴더 `AGENTS.md`는 `apps/fo-*`에 둔다) |
+| `products/feedbackops/{AGENTS,CLAUDE,DESIGN,GLOSSARY,PRODUCT,README}.md`, `docs/` | `docs/feedbackops/` (`docs/`의 색인 `README.md`는 `INDEX.md`로; 713p3에서 폴더 `AGENTS.md`도 `docs/feedbackops/AGENTS.md`로 정했다 — 713 계획의 결정, 앱·패키지별 `AGENTS.md`는 `apps/fo-*`·`packages/fo-*`에 그대로) |
 | `menus/analytics/*`, `menus/metrics/*` | `menus/mars/*`, `menus/bravo/*` (공간 id도 `mars`·`bravo`; 그룹 id 불변) |
 | `prototypes/*` | `archive/*` (CI 작업은 유지하고 경로만 바꾼다) |
 | `docs/NN_*.md` (17개) | 종류별 폴더 5+1개(713j): `docs/overview/`(00 개요, 05 결정 상태), `docs/product/`(17 요구사항, 02 도메인), `docs/architecture/`(01 아키텍처·데이터 계약, 03 백엔드, 04 프론트), `docs/contract/`(06), `docs/wireframes/`(07–09·11–13), `docs/design/`(14 드릴다운, 15 다중 워크스페이스, 16 분석 보드). 파일명에서 번호를 뗀다. 번호 약칭("06 §4")은 본문에서 그대로 쓰고 `docs/INDEX.md`의 대응표가 약칭을 파일로 잇는다 |

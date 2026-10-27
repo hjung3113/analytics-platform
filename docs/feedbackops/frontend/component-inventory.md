@@ -1,0 +1,275 @@
+# Frontend Component Inventory
+
+## Purpose
+
+This inventory defines the reusable components that should exist before domain screens are built. The complete shipped `@fops/ui` export inventory is `packages/fo-ui/src/index.ts`; this document describes reusable component contracts and required states.
+
+Component ownership paths live in `docs/tech-stack/component-stack.md`.
+Screen mapping lives in `docs/frontend/ui-design-system.md`.
+
+## Token Governance
+
+```text
+- docs/frontend/tokens.md provides raw visual token seed.
+- Frontend components consume semantic tokens from the design system layer.
+- Screen code must not hard-code colors, radii, or shadows.
+- New tokens require updating this document or docs/frontend/ui-design-system.md.
+```
+
+## Primitive Components
+
+| Component | Variants | Required States | Accessibility Contract |
+| --- | --- | --- | --- |
+| Button | primary, secondary, subtle, destructive; `size=toolbar`, `icon-sm`, `icon-xs`; `spacing=compact`; `padding=compact`; `wrapText` (size `sm` only) | hover, pressed, focus-visible, disabled, loading | label required |
+| FieldLabel | `appearance=section`, `tone=secondary` | default, required, help tip | associated control; the required `*` is `aria-hidden`; the help tip trigger has an accessible name |
+| FieldRow | `inset=none`, `layout=property` | default, detail property | label and value remain readable |
+| Card / CardContent | `Card padding=compact`; `CardContent padding=none` | default | presentational container |
+| EmptyState | `density=compact`, `padding=wide` | title, optional body, icon, action | useful text; action is keyboard reachable |
+| IconButton | subtle, selected, destructive | hover, pressed, focus-visible, disabled | aria-label and tooltip required |
+| Badge | status, signal, visibility, permission | default, muted, urgent, blocked | text label required |
+| TextInput | default, search, invalid | focus, disabled, invalid, loading | associated label and error |
+| Textarea | default, public-update, internal-note | focus, disabled, invalid | associated label and error |
+| RichEditor (+ RichContentRenderer for read) | voc-description, reporter-reply, public-update, internal-comment; `RichContentRenderer size=sm` | focus, disabled, invalid, uploading, readonly | label, toolbar, and editor region required |
+| Select | single, multi; `SelectTrigger appearance=canvas`, `appearance=field`, `density=compact` | focus, disabled, invalid, loading | keyboard navigable |
+| DatePicker | typed date, calendar; `appearance=detail` | focus, disabled, invalid, min/max, clear, keyboard navigation | associated label; live validity for submit gating; error appears after blur or submit; calendar is keyboard accessible |
+| Combobox | user, analytics-area, entity | focus, empty, loading, error, disabled option | keyboard navigable; disabled options are labelled, `aria-disabled`, skipped by keyboard and cannot be selected |
+| Checkbox | default, indeterminate | focus, checked, disabled | label required |
+| RadioGroup | default, segmented; `spacing=compact` | focus, selected, disabled | group label required |
+| TabsList / TabsTrigger | default | focus, selected, disabled | keyboard navigable; Tabs semantics preserved |
+| ToggleGroup | `appearance=filter` | selected, unselected, disabled | group semantics preserved |
+| Tooltip | text, shortcut; `TooltipContent size=sm` | open, closed | not sole source of critical info |
+| Popover | menu, info, picker; `PopoverContent padding=compact`, `none` | open, focus-trapped when interactive | escape closes |
+| Dialog | confirmation, destructive; `DialogFooter spacing=compact` | open, loading, error | focus trap |
+| Drawer | create, detail, multi-step | open, dirty, loading, error | focus management |
+| Toast | success, error, warning, info | visible, dismissed | non-blocking |
+| Skeleton | row, panel, card; `shape=rounded` | loading | reduced motion safe |
+| `SkeletonRows` | `size=compact` (`h-12`), `regular` (`h-14`); caller-owned count | loading | decorative placeholders |
+| `SkeletonBlocks` | `line`, `title`, `body`, `badge` detail presets | loading | decorative placeholders |
+| `ProgressMeter` | `size=thin` (4px), `normal` (6px); `clip` (clip the fill to the rounded track; off by default); primary, success, warning, danger tones; unannotated by default, decorative, or labeled meter/progressbar semantics | current value | caller preserves its prior accessibility mode; decorative parts are hidden |
+| `StatusBadgeFrame` | reporter, task, severity, compact, compact-identity, compact-outline, link geometry; shared semantic tones | caller-owned state-to-tone map | text label required; indicator optional |
+| `ManagedSystemMark` | 16, 18, 22, 28px square marks | known and fallback color | decorative; adjacent system name supplies identity |
+| `KeyboardShortcut` | compact keyboard hint | platform-specific label | hint text remains readable |
+| `ToolbarKicker` | label, divider, route name | workbench toolbar identity | route name and label remain text |
+| ToggleGroupItem | `appearance=selected-filter` | selected, unselected, disabled | keyboard navigable |
+| Avatar | user, team | default, missing image | text fallback |
+| Table | data, comparison | loading, empty, selected | keyboard row navigation |
+| ListRow | object, action-queue | hover, selected, active, permission-limited | row action is keyboard reachable |
+| Panel | detail, blocked, create | loading, dirty, error | close is keyboard reachable |
+| DetailPanelHeader | VOC, Finding, Task Request, Task, Milestone, Survey, Cluster | record id available or omitted | kind chip uses its accent and dot; non-Milestone headers retain the accent stripe; fullscreen toggle sits before close inside the detail slot |
+| DetailPanelReadingColumn | detail slot, Triage | expanded, collapsed, no fullscreen context | expanded: centred 60rem column with bordered gutters; otherwise `contents`, so the panel stays mounted across the toggle |
+| UnassignedBadge | owner, reviewer | assigned value or missing | default label is `담당자 없음`; reviewer uses `검토자 없음`; danger tone (default) includes text; `tone="neutral"` only inside unassigned views (Inbox `tab=unassigned`, Triage unassigned) |
+| Toolbar | view, action, bulk | default, selection-active | one primary action maximum |
+
+## Composed Components
+
+This list is the original prescriptive inventory and several entries were never built under these names, or at all. The shell shipped as `AppFrame` / `AppRail` / `AppSidebar` (`apps/fo-frontend/src/lib/layout/`), governed by ADR-0020, which supersedes the `AppShell` / `RoleLevelAwareSidebar` naming below. Route shells (`ListShell`, `PageShell`) and `ObjectRow` live in `@fops/ui`. Treat the code and ADR-0020 as authoritative when they disagree with a name here. The Built Mapping section below maps design-time names to what shipped.
+
+```text
+AppShell (built as AppFrame)
+RoleLevelAwareSidebar (built as AppRail + AppSidebar)
+ManagedSystemScopeSwitcher (built as the AppSidebar scope control, #143)
+ScopeFilterBar
+ObjectList
+InboxList
+DataTable
+DetailPanel
+LinkedEntityTrail
+EvidenceHighlight
+StatusBadge
+SignalBadge
+PublicUpdateComposer
+ConversationComposer
+ReporterSummaryBlock
+ActionQueueRow
+PermissionBlockedPanel
+CommandMenu
+ActionToolbar
+ManagedSystemPicker
+AnalyticsAreaPicker
+ReviewerPicker
+UserPicker
+AuditTimeline
+```
+
+## Built Mapping
+
+Names in the primitive table and the composed list above are design-time names. This table maps them to what shipped; `packages/fo-ui/src/index.ts` remains the export inventory.
+
+| Design-time name | Shipped as | Path |
+| --- | --- | --- |
+| AppShell | `AppFrame` | `apps/fo-frontend/src/lib/layout/AppFrame.tsx` |
+| RoleLevelAwareSidebar | `AppRail` + `AppSidebar` | `apps/fo-frontend/src/lib/layout/` |
+| ManagedSystemScopeSwitcher | scope selector (`ManagedSystemScopeOption`), rendered by `AppSidebar` and the platform `목록 범위` | `apps/fo-frontend/src/operator-screens/scope-picker/ManagedSystemScopePicker.tsx` |
+| ObjectList, ListRow | `ObjectRow` + `ListToolbar` / `ListTabs` + `ListStateMessage` | `packages/fo-ui/src/data/ObjectRow.tsx` (compatibility re-export of `@ap/ui`), `packages/fo-ui/src/toolbar/`, `apps/fo-frontend/src/components/ListStateMessage.tsx` |
+| Active filters | `ActiveFilterBar` — presentational chips with visible labels, tooltip-backed remove buttons, and one clear-all control; empty items render nothing | `packages/fo-ui/src/toolbar/ActiveFilterBar.tsx` |
+| FilterViewTabs, Toolbar | `ListTabs` composed by `ListToolbar`, with `ListFilterButton` and `ListSortButton` | `packages/fo-ui/src/toolbar/` |
+| LoadingState, ErrorState | `Skeleton` rows; `ListStateMessage` `error` variant | `@ap/ui`, `apps/fo-frontend/src/components/ListStateMessage.tsx` |
+| BulkActionBar | internal `BulkActionBar` of the VOC list (actions disabled by design) | `apps/fo-frontend/src/features/voc/components/list/VocList.tsx` |
+| DetailPanel, Panel | `DetailPanelHeader`, `DetailPanelReadingColumn`, `DetailPanelSectionNav` (mount the nav as a sibling above the scroll root; the cover is then the strip's overlap with the root), `PanelTitleBlock` (`inset=none`), `PanelSectionTitle` (`inset=panel`, `size=tiny`), `FieldRow`, `NestedTextBlock`, `Callout` | `packages/fo-ui/src/panel/` |
+| StatusBadge | shared `ReporterStatusBadge`, `InternalTaskBadge`; feature-local `SurveyStatusBadge`, `LinkStatusBadge`, `MilestoneStatusBadge` | `packages/fo-ui/src/badges/`, `apps/fo-frontend/src/features/surveys/components/`, `apps/fo-frontend/src/features/integration/components/`, `apps/fo-frontend/src/features/tasks/components/` |
+| SignalBadge | `SeverityBadge` (default accessible prefix `심각도`; full `ariaLabel` override for Task `우선순위`), `SeverityIndicator` (full `label` override; compatibility re-export of `@ap/ui`), `UnassignedBadge`, `ManagedSystemPill`, `EntityIconBadge`, generic `OutlineBadge` | `packages/fo-ui/src/badges/`, `packages/fo-ui/src/indicators/` |
+| RichContentEditor | `RichEditor` + `RichContentRenderer` | `packages/fo-ui/src/rich-content/` |
+| PublicUpdateComposer | feature-local `PublicUpdateComposer` | `apps/fo-frontend/src/features/voc/components/detail/` |
+| ConversationComposer | feature-local `ComposerSection` + `ComposerTabs` hosting `PublicUpdateComposer`, `ReporterReplyComposer`, `InternalCommentComposer` | `apps/fo-frontend/src/features/voc/components/detail/` |
+| Evidence inventory | feature-local `EvidenceContent`, `EvidenceMetadata`, `EvidenceRow`, `EvidencePanel` | `apps/fo-frontend/src/features/integration/components/` |
+| EvidenceHighlight | feature-local `EvidenceHighlights` | `apps/fo-frontend/src/features/findings/components/FindingDetail/` |
+| Integration destination card | feature-local `IntegrationJumpCard`; optional secondary link is a sibling of the primary anchor (Coverage Area tab) | `apps/fo-frontend/src/features/integration/components/IntegrationDashboardCards.tsx` |
+| ActionQueueRow | feature-local `ActionQueueRow` (Home); `IntegrationDashboardCards` (Integration) | `apps/fo-frontend/src/features/home/HomeScreen.tsx`, `apps/fo-frontend/src/features/integration/components/IntegrationDashboardCards.tsx` |
+| CommandMenu | `CommandPalette` with local `CommandPaletteItemIcon` | `apps/fo-frontend/src/lib/layout/command-palette/` |
+| UserPicker | feature-local `OwnerPicker` (VOC Triage owner) | `apps/fo-frontend/src/features/voc/components/triage/OwnerPicker.tsx` |
+| Drawer | `Sheet` | `@ap/ui` |
+| Toast | `sonner` `Toaster` mounted in the root route; `UndoToast` | `apps/fo-frontend/src/routes/__root.tsx`, `packages/fo-ui/src/feedback/UndoToast.tsx` |
+| Avatar | `Avatar`, `UserAvatar`, `UserChip` | `@ap/ui`, `packages/fo-ui/src/identity/` (compatibility re-exports) |
+| TextInput | `Input` | `@ap/ui` |
+| Progress indicator | `ProgressMeter` | `packages/fo-ui/src/indicators/ProgressMeter.tsx` (compatibility re-export of `@ap/ui`) |
+| Status badge frame | `StatusBadgeFrame` | `packages/fo-ui/src/badges/StatusBadgeFrame.tsx` (compatibility re-export of `@ap/ui`) |
+| Managed System square mark | `ManagedSystemMark` | `packages/fo-ui/src/badges/ManagedSystemMark.tsx` |
+| Loading rows and panel blocks | `SkeletonRows`, `SkeletonBlocks` | `@ap/ui` |
+| Keyboard shortcut hint | `KeyboardShortcut` | `@ap/ui` |
+| Workbench toolbar kicker | `ToolbarKicker` | `packages/fo-ui/src/layout/ToolbarKicker.tsx` |
+| Picker option grid | `PickerOptionGrid` (VOC triage) | `apps/fo-frontend/src/features/voc/components/triage/PickerOptionGrid.tsx` |
+
+Built under the same name: `LinkedEntityTrail`, `ManagedSystemPicker`, and `AnalyticsAreaPicker`. `PermissionBlockedPanel` is forwarded from `@ap/ui` through its local compatibility module.
+
+Never built: `IconButton`, `Table` / `DataTable`, `InboxList`, `ScopeFilterBar`, `ReporterSummaryBlock`, `ActionToolbar`, `ReviewerPicker`, `AuditTimeline`.
+
+## Implemented Shared Flow Components
+
+- `CommandPalette` (`apps/fo-frontend/src/lib/layout/command-palette/`) — the inventory's `CommandMenu`, built in #611: cmdk `Command` composed inside `@fops/ui` Radix dialog primitives (`Dialog` + `DialogPortal` + `DialogOverlay` + `DialogContentBare`; the palette scrim/panel is the `variant="palette"` treatment owned by `packages/fo-ui`, not app-side classes), hosted by `AppFrame`; #1050 replaced `Command.Dialog` so undo-toast clicks don't dismiss the palette. Shortcut + sidebar-row entry per `docs/frontend/routes-and-layout.md` → Global command palette (#611).
+- `apps/fo-frontend/src/features/cross-system/request-task/TaskRequestDraftCard.tsx` — neutral inline source request form and pending-source read presentation with the contract fields Evidence Summary and Requested Outcome; source mutations stay in their owning features.
+- `ListTabs` — reusable 28px list tab strip with optional bare counts, icons, native title tips, and overflow controls; composed by `ListToolbar`.
+- Internal `useHorizontalOverflow` — shared 1px scroll-edge state, resize observation, direct-child rebinding, and cleanup for `ListTabs` and `DetailPanelSectionNav`. Each consumer retains its active-item reveal, fade or scrollspy behavior, and component-specific layout rules.
+
+## Status And Signal Catalog
+
+```text
+VOC Row Status Signals:
+- Reporter-facing VOC Status: public progress shown to Reporter.
+- VOC Triage State: internal workflow state for classification and follow-up decisions.
+- Ownership State: unassigned, assigned user, or assigned team.
+- Linked Execution Signal: linked Finding, Task Request, Task, or explicit no-follow-up-needed decision.
+- These signals may appear in one row, but Reporter-facing VOC Status and VOC Triage State must be visually distinct and must not collapse into one generic status badge.
+
+Reporter-facing VOC Status:
+- 접수됨
+- 검토 중
+- 담당자 배정됨
+- 처리 중
+- 해결 준비 중
+- 해결됨
+- 다시 처리 중
+- 종료됨
+
+Task Status:
+- Backlog
+- Todo
+- Doing
+- Review
+- Done
+- Released
+- Reopened
+
+Task Request Status:
+- pending_review
+- approved
+- rejected
+- needs_more_evidence
+- converted
+
+Milestone Detail:
+- Header with title, Primary Managed System, Analytics Area, owner, status, due date, and actions
+- Overview section for why the milestone exists and source context
+- Tasks section with child Task list
+- Evidence section with linked Evidence Highlights and source objects
+- Activity section with decisions, audit events, and updates
+
+Milestone List Row:
+- Title and source context
+- Managed System and Analytics Area
+- Owner, status, due date, and progress
+
+Finding Status:
+- draft
+- active
+- not_actionable
+- converted
+- archived
+
+Permission Request Status:
+- pending
+- needs_more_info
+- approved
+- rejected
+- expired
+- revoked
+
+Visibility:
+- internal_only
+- summary_visible
+- visible_to_reporter
+- admin_only
+```
+
+Rich content surfaces:
+
+```text
+- voc-description
+- reporter-reply
+- public-update
+- internal-comment
+```
+
+Rich content constraints:
+
+```text
+- One shared WYSIWYG-first editor foundation across all rich-content surfaces.
+- Surface-specific toolbar and rendering restrictions are required.
+- Inline images are uploaded/stored as attachments and referenced from rich content.
+- External image URLs and base64 body images are not allowed for inline rendering in MVP.
+- Rich tables are editor nodes; large spreadsheets are file attachments.
+```
+
+## Visual State Requirements
+
+```text
+- Focus-visible must be visible on every surface (light canvas, tinted selected rows, cards).
+- Selected row and hover row must be distinguishable.
+- Disabled content must remain readable enough to explain why action is blocked.
+- Invalid fields must show text and border/ring state, not color alone.
+- Destructive actions must use destructive label and confirmation when irreversible.
+- Loading and optimistic states must not erase user input.
+- Permission-limited states must show PermissionBlockedPanel or summary-visible content.
+```
+
+### ListLoadMore (application list composition)
+
+`apps/fo-frontend/src/components/ListLoadMore.tsx` composes the existing ghost,
+small Button with the Entity Link inventory's centred footer placement. Finding,
+Task list and Task Request queue consume it. It is absent without another page,
+disabled while loading, and offers retry after a next-page failure without
+replacing loaded rows or counts. Copy reuses `HOME_INBOX_COPY`'s load-more,
+loading and retry strings. Ordinary Button keyboard focus remains available;
+permission-blocked and initial-error screens do not render the control.
+
+
+### MyVocsRecoveryLink (blocked-state recovery link)
+
+`apps/fo-frontend/src/components/MyVocsRecoveryLink.tsx` is the single blocked-state
+detour to 내 VOC (#1264): a secondary compact `Button` wrapping the
+`/vocs?view=my` link with the `GLOSSARY.myVocs` label and a trailing arrow.
+Task list, Task board, VOC Inbox, VOC Triage, Findings list and the Home
+reporter layout consume it instead of per-screen links. A screen renders it
+only in the permission-blocked states that already offered the detour.
+
+### Recovery composition (Integration-owned, ADR-0067)
+
+| Component/seam | Location | Contract |
+| --- | --- | --- |
+| `useRecoveryQueue` | `apps/fo-frontend/src/features/integration/recovery/useRecoveryQueue.tsx` | ObjectRow/ListToolbar/ListLoadMore composition; bounded operational/actionable reads, hidden/history tabs and URL selection. |
+| `RecoveryPanel` | `apps/fo-frontend/src/features/integration/recovery/RecoveryPanel.tsx` | Existing PageShell detail slot; backend safe summaries/actions, personal presentation, independent loading/error/resolved states and keyboard close/focus. |
+| `RecoveryFreshness` | `apps/fo-frontend/src/features/integration/recovery/RecoveryFreshness.tsx` | One line for server computation time, last successful refresh and stale marker; queue/detail suppress matching page timestamps unless stale. `formatRecoveryTime` also formats resolution and snooze timestamps. Shared by Home, Integration and Coverage. |
+| Integration public seam | `apps/fo-frontend/src/features/integration/public.ts` | Home consumes recovery composition/freshness only through this module; Home/Integration routes inject `RenderRecoveryAccess` so Integration internals remain Admin-free. |
+| Recovery invalidation | `apps/fo-frontend/src/lib/query/recovery.ts` | Neutral recovery/summary query prefixes; presentation also refreshes owning source caches. Source mutation hooks own their source invalidation. |
+
+The host retains PageShell ownership. Inbox unregisters Home's slot, resolved selections
+stay readable, and late personal PATCH completion cannot close a newer selection.

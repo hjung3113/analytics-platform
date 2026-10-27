@@ -297,7 +297,7 @@ FeedbackOps 라우트(서브모듈 `dc7638f`의 `apps/frontend/src/routes/_authe
 6. 앱 루트가 주던 것을 모듈 루트 또는 포트로: 전역 sonner `Toaster`(→ `host.notify`), `DocumentTitleProvider`·`document.title`(→ 호스트 소유, G11), `DetailPanelSlotContext`(→ `host.detail`, G10), `/_authed` 가드의 `/me` 확인과 401 처리(→ `host.status('auth_required')`), `CommandPaletteProvider`·`AppFrame`·`AppSidebar`(독립 호스트에만). `localStorage`·`window` 단축키 리스너(⌘K 등)는 독립 호스트에만 둔다.
 7. 독립 앱 `apps/frontend`를 포트의 첫 구현으로: 라우트 파일 = 포트 래퍼, `AppFrame`이 독립 호스트 셸.
 
-FeedbackOps 저장소 일은 FeedbackOps PR로만 한다(딥링크 계약 §3, 루트 AGENTS "FeedbackOps (`products/feedbackops/`)").
+FeedbackOps 저장소 일은 FeedbackOps PR로만 한다(딥링크 계약 §3, 루트 AGENTS "FeedbackOps" 절).
 
 ### 5.7 ADR-0027
 

@@ -81,7 +81,7 @@ const RICH_EMPTY = { type: 'doc', content: [] } as const;
 
 // Natural predecessor for each status, used to seed realistic transitions.
 // 'received' maps to itself (no prior state). Sourced from
-// docs/design-prototype/data.js · REPORTER_STATUS_TRANSITIONS.
+// docs/feedbackops/design-prototype/data.js · REPORTER_STATUS_TRANSITIONS.
 const PRIOR_STATUS: Record<string, string> = {
   received: 'received',
   reviewing: 'received',

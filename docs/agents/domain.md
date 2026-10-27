@@ -13,7 +13,7 @@ If any of these files don't exist, proceed silently.
 
 ## Precedence
 
-Root `AGENTS.md` → `docs/contract/platform-ui-contract.md` → per-folder `AGENTS.md`. A Decided item in `docs/overview/roadmap-and-open-questions.md` or an ADR beats older prose; fix stale docs in the same change. `products/feedbackops/` follows its own `AGENTS.md` and is not reinterpreted by these rules.
+Root `AGENTS.md` → `docs/contract/platform-ui-contract.md` → per-folder `AGENTS.md`. A Decided item in `docs/overview/roadmap-and-open-questions.md` or an ADR beats older prose; fix stale docs in the same change. `docs/feedbackops/` and the FeedbackOps apps and packages (`apps/fo-*`, `packages/fo-*`) follow their own `AGENTS.md` files and is not reinterpreted by these rules.
 
 ## Changing the glossary
 

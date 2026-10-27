@@ -1,0 +1,350 @@
+# Entity Linking Contract
+
+## Purpose
+
+Entity Links are the canonical cross-system relationship layer.
+
+See [ADR-0047](../adr/0047-entity-link-voc-read-required-not-triage.md) for the accepted VOC entity-link visibility rule: `voc.read`, not `voc.triage`.
+
+## Ownership
+
+Entity Linking owns:
+
+```text
+- relation_type registry
+- link creation validation
+- workspace matching
+- visibility enforcement
+- summary-visible dispatch
+```
+
+It does not own source object lifecycle.
+
+## Relation Types
+
+Relation type meaning is owned by this contract, not by
+`docs/design/11-entity-linking.md`.
+
+Allowed `relation_type` values and registered source/target pairs are the
+runtime registry: `entityLinkRelationTypeSchema` and
+`registeredEntityLinkPairs` in `packages/fo-shared/src/entity-links.ts`.
+
+Forbidden:
+
+```text
+generated_voc
+```
+
+## Link Creation Validation
+
+Every new entity link must validate:
+
+```text
+- source entity type is registered
+- target entity type is registered
+- source exists in workspace
+- target exists in workspace
+- source and target are in the same workspace
+- source and target Managed System scope is compatible when both records are MVP-scoped
+- relation_type is allowed for the entity pair
+- actor has permission to create the link
+- visibility is allowed for the relation and actor
+```
+
+Managed System compatibility (#388) is enforced as equality: the source and
+target endpoints must resolve to the same `managed_system_id`. The single
+authoritative seam is `assertLinkManagedSystemCompatibility` in the backend
+entity-links service, invoked by `createLink` (generic `POST /entity-links`,
+Finding `link-evidence`) and by the domain creation paths that insert links
+directly (`POST /vocs/:id/create-finding`, `POST /voc-clusters/:id/create-finding`,
+`POST /voc-clusters/:id/link-finding`). A mismatch is rejected with
+`validation.failed` (`managed_system_mismatch`) before any insert or audit
+row. Task Request/Task conversion paths already constrain both endpoints to
+one Managed System by construction or explicit equality guards.
+
+Survey-response tuples are exempt: `survey_response` endpoints are
+command-only and opaque in the provider registry (no resolvable Managed
+System scope), and `POST /survey-responses/:id/create-finding` intentionally
+lets an operator derive the Finding into a chosen Managed System under dual
+authorization (survey read capability plus `finding.manage` on the target).
+
+No DB-level constraint enforces this: `core.entity_links` is polymorphic
+(`source_id`/`target_id` are bare uuids; the owning table — and therefore the
+authoritative `managed_system_id` — depends on `source_type`/`target_type`).
+A CHECK constraint cannot contain subqueries and a composite FK has no single
+column to reference; per-type triggers would re-implement endpoint resolution
+and authorization rules in SQL, duplicating the application seam. Application
+enforcement is therefore authoritative (#388, D-388-3).
+
+## Provider Interface
+
+Each linkable module registers:
+
+```text
+entityType
+assertExists(db, workspaceId, id)
+getPermissionSubject(db, workspaceId, id)
+canRead(deps, actor, subject)                 # read visibility gate (required)
+canCreateTarget?(deps, actor, subject)        # creatable target gate (optional)
+getReporterSummary(db, workspaceId, id)       # single-id form; required
+getReporterSummaries?(db, workspaceId, ids)   # optional batch form; the runtime reporter-summary path uses it
+getInternalSummary(db, workspaceId, id)
+listExpectedLinks(id)                         # reserved: every provider stubs it to [], no caller
+```
+
+The contract is `EntityLinkProvider` in `apps/fo-backend/src/modules/entity-links/provider-types.ts`. Only the Task provider returns a reporter summary (`getReporterSummary` / `getReporterSummaries`, ADR-0032); the others return `{ available: false }`. Dashboard missing-link queries are SQL read models, not provider calls.
+
+Slice 4.1 tracer registry (#112):
+
+```text
+voc -> voc
+- relation_type: related_to
+- resolver: voc.vocs(id, workspace_id, primary_managed_system_id)
+- create authz: actor must have voc.read on both source and target Managed Systems
+- read authz: focused endpoint must be readable; the opposite endpoint is emitted
+  as visibility_state=allowed when readable and visibility_state=hidden when not
+```
+
+Slice 4.3 workspace inventory (#114):
+
+```text
+GET /entity-links?scope=workspace
+- default inventory mode is also used when no source or target endpoint is
+  supplied.
+- endpoint mode and workspace inventory mode are mutually exclusive.
+- optional filters: status=active|stale|detached|revoked, relation_type=related_to,
+  managed_system_id=<uuid>
+- cursor pagination: limit defaults to 50 and is capped at 100; cursor is opaque
+  and continues the created_at DESC, id DESC order.
+- order: created_at DESC, id DESC
+- response: { items: EntityLinkDto[], page: { has_more: boolean, cursor?: string, status_counts?: { active, stale, detached, revoked } } }; first page without a status filter includes counts across its other filters.
+- endpoint relation reads keep their { items: EntityLinkDto[] } response.
+- authz: every row checks voc.read on both endpoints' Managed Systems.
+  Rows are visibility_state=allowed only when both endpoints are readable;
+  otherwise they are visibility_state=hidden.
+- hidden inventory rows expose audit metadata but never source_id, target_id, or
+  synthesized endpoint summaries.
+- allowed rows may include optional provider-backed source_summary and
+  target_summary fields; neither summary is resolved for hidden or denied rows.
+- summary_visible rows expose only the reporter-safe summary contract.
+```
+
+Slice 5 provider registry (Finding From VOC, ADR-0024):
+
+```text
+finding -> registered as a link TARGET type
+- relation_type: created_finding   (voc -> finding), created by POST /vocs/:id/create-finding
+- resolver: finding.findings(id, workspace_id, primary_managed_system_id)
+- create authz: actor needs voc.read on the source VOC's MS AND finding.manage
+  on the target Finding's MS; both checked in one transaction before insert
+- read authz: finding endpoint readable by Admin, or Developer with finding.read
+  on the finding's primary_managed_system_id; User/Reporter never
+- getReporterSummary(finding): returns UNAVAILABLE (Finding has no reporter
+  summary — ADR-0024 §E); summary_visible therefore unreachable for a finding target
+- getInternalSummary(finding): Finding internal read model
+- the #112 hard-coded VOC resolution is refactored into this registry; VOC↔VOC
+  related_to behavior (#112-#115) is preserved unchanged
+```
+
+Link creation endpoints map to registered pairs:
+
+```text
+POST /vocs/:id/create-finding          -> (voc, finding, created_finding)            [#122]
+POST /voc-clusters/:id/create-finding  -> (voc_cluster, finding, created_finding)    [#126]
+POST /voc-clusters/:id/link-finding    -> (voc_cluster, finding, evidence_of)        [#127]
+POST /findings/:id/request-task        -> (finding, task_request, requested_task)    [#132]
+POST /vocs/:id/request-task            -> (voc, task_request, requested_task)        [#136]
+POST /voc-clusters/:id/request-task    -> (voc_cluster, task_request, requested_task) [#136]
+POST /survey-responses/:id/create-finding -> (survey_response, finding, generated_finding)
+```
+
+Direct `POST /entity-links` creation is narrower than the registered/DB tuple
+set. As of #134, direct creation is allowed for these tuples:
+
+```text
+(voc, voc, related_to)
+(voc, finding, created_finding)
+(voc, finding, evidence_of)
+(voc_cluster, finding, created_finding)
+(finding, task_request, requested_task)
+(task_request, task, converted_to)
+(finding, task, requested_task)
+(voc, task, evidence_of)
+```
+
+As of #136, the registered/DB allowlist also includes source-conversion tuples
+created by routes:
+
+```text
+(voc, task_request, requested_task)
+(voc_cluster, task_request, requested_task)
+```
+
+Generic `POST /entity-links` rejects these tuples, and generic `PATCH
+/entity-links/:id` detach returns the same non-disclosing 404 envelope as an
+absent link. Generic endpoint and workspace listings continue to include their
+rows. Only `POST /vocs/:id/request-task` and
+`POST /voc-clusters/:id/request-task` create them.
+
+Task Request conversion propagates a `(finding, task_request, requested_task)` link
+only when its Finding ID matches the request's own source (#768). Other Finding
+links on the request stay record-only.
+
+`(voc_cluster, finding, evidence_of)` is registered for DB validation and is
+created only by `POST /voc-clusters/:id/link-finding`. Generic
+`POST /entity-links`, generic link listings, and generic `PATCH /entity-links/:id`
+detach are prohibited categorically; PATCH/detach returns the same
+non-disclosing 404 envelope as an absent link. Domain unlink is permitted only
+through `POST /voc-clusters/:id/unlink-finding`, which soft-detaches the exact
+active tuple.
+
+Every `survey_response`-source tuple, `(survey_response, finding, generated_finding)`
+and `(survey_response, finding, evidence_of)`, is command-only: it is registered
+for DB validation and currently created by `POST /survey-responses/:id/create-finding`
+(which creates highlights per excerpt, with one active `evidence_of` link per
+response/Finding pair). ADR-0064 also accepts the
+`POST /findings/:id/survey-evidence` for approval-selection attachment: it writes
+`evidence_of` only, never `generated_finding`. Generic
+`POST /entity-links` and generic link listings exclude every `survey_response`
+source (`genericEntityLinkPairs` in the backend entity-links service).
+
+Independent value CHECKs are forbidden because they would admit invalid tuples.
+Creatable visibility stays `internal_only`.
+
+Slice 6 tracer (#132):
+
+```text
+task_request -> registered as a link TARGET type
+- relation_type: requested_task (finding -> task_request), created by
+  POST /findings/:id/request-task
+- resolver: task_request.task_requests(id, workspace_id, primary_managed_system_id)
+- create authz: source Finding must exist/read through the Finding lock path,
+  and actor needs finding.manage on the Finding's primary_managed_system_id
+- read authz: Task Request endpoint uses the same Admin or same-scope Developer
+  finding.read convention until the full Task backstage capability lands
+- getReporterSummary(task_request): returns UNAVAILABLE
+- getInternalSummary(task_request): Task Request internal read model
+```
+
+The Slice 6 #132 tracer baseline included:
+
+```text
+(finding, task_request, requested_task)
+```
+
+## Link Detach Validation
+
+Slice 4.2 detach lifecycle (#113):
+
+```text
+PATCH /entity-links/:id
+- request body: { reason: string } where reason is required, trimmed, and non-empty
+- supported transition: active -> detached only
+- authz: both endpoints must be readable through their providers, and detach
+  requires the same mutation capability as creation for the generic tuple:
+  target canCreateTarget when defined, otherwise target read; source read
+- command-only tuples remain excluded from generic detach
+- not found / cross-workspace / unreadable endpoint / missing creation capability /
+  command-only tuple: the same non-disclosing 404 not_found.record
+- already detached, revoked, stale, or lost update race: 409
+- side effects in one transaction: update status/detach metadata and append
+  audit_log event_type entity_link.detached; detaching finding -> task requested_task
+  calls the Findings-owned execution projection seam in that transaction to clear
+  linked_task_id when no active requested_task link to a Task remains
+- hard delete is forbidden; after ADR-0064 cutover fops_app UPDATE uses the filtered
+  canonical-link view, not the raw core.entity_links table; no DELETE
+```
+
+Because the active uniqueness constraint is partial (`WHERE status='active'`),
+detaching a link intentionally frees the same VOC pair to be linked again later.
+
+## Visibility Enforcement
+
+ADR-0023 (Slice 4.4 #115) locks the per-(stored visibility × actor) decision
+table, the `hidden`/`denied` boundary, both-side enforcement, the `request_access`
+deferral for VOC↔VOC, and the canonical summary/forbidden-field lists. The
+`evaluateLinkVisibility` pure function in the backend entity-links module is the
+single decision point; the read DTO gains `summary_visible` and `denied` variants
+(not `request_access`).
+
+```text
+internal_only
+- hidden from Reporter and User unless separately authorized.
+
+summary_visible
+- exposes only backend-provided summary contract.
+- Reporter summaries expose only public_title, reporter_facing_status,
+  owning_team_public_name, expected_resolution_date, last_public_update_at,
+  and public_update_excerpt.
+
+visible_to_reporter
+- visible to reporter when source and target permissions allow.
+
+admin_only
+- visible to Admin only.
+```
+
+Both source and target permissions are checked on read. Reporter-visible
+summaries must not expose raw Task Status, priority, internal comments,
+individual Developer names, internal due dates, root-cause detail, severity,
+confidence, or private notes.
+
+## Dashboard Missing-Link Queries
+
+Dashboard may query entity links to detect records missing relation types expected by workspace policy, Managed System policy, severity rules, or explicit workflow configuration:
+
+```text
+- Unassigned VOC in configured Managed System scope
+- High Severity VOC eligible for follow-up and currently lacks a Finding, Task Request, Task link, or authorized no-follow-up-needed decision
+- VOC Cluster marked "needs synthesis" without Finding
+- Finding marked actionable without Task Request, Task, linked existing Task, or not_actionable decision
+- Released Task with unresolved reporter-facing VOC status
+- Bad Outcome Survey response without the qualifying Finding or current no-follow-up decision (ADR-0055); Task Request links do not clear the response classifier
+```
+
+Dashboard must not treat every unlinked record as incomplete. Dashboard must deep-link users to owning module actions and must not mutate source lifecycle state directly.
+
+### Analytics Area report relation attribution (ADR-0069; implemented #1077–#1079)
+
+Report source membership/counts use canonical active links and approved owner read projections,
+with Entity Linking visibility semantics. Finding handoff recognizes `requested_task` to Task Request
+or Task, not convenience columns; direct VOC→Task coverage uses an active direct link. Cross-Area
+links within the allowed Managed System do not change source attribution or multiply source counts.
+If required linked facts are unavailable, omit the cross-source metric instead of treating hidden
+links as absent. Survey's safe aggregate classifier retains ADR-0055's approved resolution semantics
+without exposing linked Finding metadata or response-grain facts on the report.
+
+## ADR-0064 Survey boundary (accepted; implemented #739/#740)
+
+Canonical `core.entity_links` retains original endpoints, all statuses, active
+uniqueness and detach history. A column-listed owner-backed
+`security_barrier` updatable view with `WITH CHECK OPTION` excludes either
+`survey_response` endpoint in every status. Ordinary app SELECT/INSERT/UPDATE
+uses this view, no DELETE; raw table and surviving column ACLs are revoked.
+All generic inventory counts/cursors/status filters and detach exclude Survey
+response tuples, not merely their endpoint IDs. Survey mutations are narrow
+Entity Links-owned definers returning local link ID/inserted state only.
+
+The Survey command-only Managed System exception above is explicit: source
+Survey and target Finding may differ in Managed System, but both must be
+independently authorized in the same workspace. The old universal-equality
+module guide is superseded on this exception by ADR-0064.
+
+Results uses a Survey-owned workspace+Survey-ID reader returning
+candidate Finding IDs/target scope, not response UUIDs; the application applies
+source read/privacy and target Finding read. No personal grant is required just
+to discover accessible derived Findings. Generic Finding summaries remain
+metadata-only for Survey-derived records; excerpt text uses fresh exact-active
+approval/source/target checks. Raw audit reads are removed per ADR-0008's
+ADR-0064 amendment, preserving controlled operator history. Cutover must prove
+ordinary view conflict/RETURNING paths and concurrency before revoking grants;
+unsupported operations block rollout rather than justify restoring raw access.
+
+## Assistance is not a link endpoint (ADR-0068; implemented #1097)
+
+VOC Cluster Suggestions and Draft Similar-VOC Preview are outside the registered
+entity-type/tuple vocabulary. Do not register suggestion or unsaved-draft providers,
+accept their UUIDs as Cluster sources, create convenience Entity Links, or count
+them in expected-link/coverage/recovery queries. Only authorized human suggestion
+confirmation creates a real Cluster; its later commands/providers use existing
+Cluster contracts. No auto-origin or pre-accept domain Cluster guard is needed.

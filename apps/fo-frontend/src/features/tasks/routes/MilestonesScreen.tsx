@@ -37,7 +37,7 @@ import { validateTasksSearch } from './task-search';
 // #514 B2c — /tasks?view=milestones list screen: toolbar (status tabs All /
 // In progress / Planning / Released, local search, inert Filter), summary
 // strip, and MilestoneRow rows, mirroring
-// docs/design-prototype/screen-milestones.jsx MilestonesScreen. The detail
+// docs/feedbackops/design-prototype/screen-milestones.jsx MilestonesScreen. The detail
 // panel is B2d; B2e wires New milestone to the same property block in a
 // create state — no separate create screen. Slice C (per-row mini timeline,
 // Gantt) is out of this slice, so the summary strip uses supported KPIs only.

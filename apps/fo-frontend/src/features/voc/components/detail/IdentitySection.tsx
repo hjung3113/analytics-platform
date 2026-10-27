@@ -1,6 +1,6 @@
 // IdentitySection — shared title block + status pill + reporter/time meta line.
 // Managed System and source context live in the compact strip below the body.
-// Reference: docs/design-prototype/screen-voc.jsx overview panel title.
+// Reference: docs/feedbackops/design-prototype/screen-voc.jsx overview panel title.
 
 import { useMeBridge } from '@/lib/api/me';
 import { GLOSSARY } from '@/lib/copy/glossary';

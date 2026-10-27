@@ -20,7 +20,7 @@ concurrency:
 # 건너뛰면 Success로 보고되어, `changes`가 실패해도 필수 검사가 통과해 버린다 — 그래서 쓰지 않는다. 판정은 fail-safe다: `code`가
 # 정확히 'false'일 때만 건너뛰고, `changes`가 실패하면(출력 없음) 전부 돈다. main push는 늘 전체. 프로토타입 4개 Job은 늘 돈다(Unit C는 docs/06을 읽는다).
 # E2E는 shard 3개 Job + 병합 Job(#666)이다.
-# FeedbackOps는 서브모듈이 아니라 products/feedbackops/ 디렉터리라 checkout 옵션이 따로 없다(FeedbackOps CI는 feedbackops.yml). 프로토타입 4개 Job은 submodules: false를 명시한다.
+# FeedbackOps는 서브모듈이 아니라 일반 디렉터리(apps/fo-*·packages/fo-*·docs/feedbackops)라 checkout 옵션이 따로 없다(FeedbackOps CI는 feedbackops.yml). 프로토타입 4개 Job은 submodules: false를 명시한다.
 
 jobs:
   changes:
@@ -48,7 +48,7 @@ jobs:
             files="$(git diff --name-only --no-renames "$BASE...$HEAD")"
             if [ -n "$files" ] && ! printf '%s\n' "$files" | grep -qv '\.md$'; then code=false; fi
             # FeedbackOps frontend sources are bundled into the demo through the `@` alias; GLOSSARY.md feeds the site's banned-term check.
-            site_dirs='^(menus|packages|apps/fo-frontend|apps/platform-web|site|tooling|patches|products/feedbackops)/'
+            site_dirs='^(menus|packages|apps/fo-frontend|apps/platform-web|site|tooling|patches)/'
             site_files='^(package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|GLOSSARY\.md|apps/platform-e2e/package\.json|\.github/workflows/(ci|pages)\.yml)$'
             if [ -n "$files" ] && ! { printf '%s\n' "$files" | grep -v '\.md$' | grep -E "$site_dirs" >/dev/null || printf '%s\n' "$files" | grep -E "$site_files" >/dev/null; }; then site=false; fi
             printf 'changed files:\n%s\n' "$files"

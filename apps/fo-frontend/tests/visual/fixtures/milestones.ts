@@ -1,6 +1,6 @@
 // Milestone visual fixtures (#514 B2a).
 //
-// Data mirrors docs/design-prototype/screen-milestones.jsx `Milestones` —
+// Data mirrors docs/feedbackops/design-prototype/screen-milestones.jsx `Milestones` —
 // title, status, source finding, Managed System, Analytics Area, owner,
 // start/target dates — expressed as @fops/shared MilestoneDto shapes
 // (progress is the B1c bucket shape). Display ids use the MLS- prefix the

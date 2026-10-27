@@ -1,7 +1,7 @@
 /// <reference types="@testing-library/jest-dom" />
 // UndoToast.test.tsx — RED tests for the UndoToast primitive.
 // TDD RED: these tests are written before the implementation file exists.
-// Prototype ref: docs/design-prototype/screen-voc-create.jsx:699-730
+// Prototype ref: docs/feedbackops/design-prototype/screen-voc-create.jsx:699-730
 
 import * as React from 'react';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';

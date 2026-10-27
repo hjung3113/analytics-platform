@@ -2,8 +2,8 @@
 // Reads voc.next_reporter_states + voc.reporter_status_gate.
 //
 // C4.1 (slice3 #21)
-// Spec: docs/frontend/specs/voc.md §5.10
-// Prototype ref: docs/design-prototype/screen-voc.jsx:522-534
+// Spec: docs/feedbackops/frontend/specs/voc.md §5.10
+// Prototype ref: docs/feedbackops/design-prototype/screen-voc.jsx:522-534
 
 import type { ReporterFacingStatusEnum, VocDetailEnvelope } from '@fops/shared';
 

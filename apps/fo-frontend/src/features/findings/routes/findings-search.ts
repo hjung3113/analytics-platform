@@ -6,7 +6,7 @@ import { isSearchFieldValueValid, parseRouteSearch } from '@/lib/host/search-fie
 import { listFindingsQuerySchema } from '@fops/shared';
 import { z } from 'zod';
 
-// Selection + Managed System scope are URL state (docs/frontend/routes-and-layout.md
+// Selection + Managed System scope are URL state (docs/feedbackops/frontend/routes-and-layout.md
 // §URL State Rules): /findings?managedSystem=:managedSystemId|all&selected=:findingId.
 // Defaults (scope union / nothing selected) are omitted from the URL. `all` and an
 // absent managedSystem both query WITHOUT managed_system_id (the backend applies the

@@ -46,3 +46,7 @@ packages/fo-*/**/.env
 packages/fo-*/**/.env.local
 packages/fo-*/**/.env.*.local
 packages/fo-*/**/.env.release
+
+# FeedbackOps docs (713p3): products/feedbackops/.gitignore의 남은 항목 중 docs/.llmwiki/만 새 경로로 옮겼다.
+# 나머지(.claude/settings.json·.codegraph/·.playwright-mcp/·agent-workflow 심볼릭 링크·minio_data/)는 그 폴더 안에서만 뜻이 있었다.
+docs/feedbackops/.llmwiki/

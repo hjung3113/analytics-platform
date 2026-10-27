@@ -17,7 +17,7 @@ UI Primitive 층(06 §13)과 디자인 시스템 CSS. 플랫폼 개념(Context, 
 
 - 디자인 시스템 원본은 이 패키지다(플랫폼/SDK 소유, [ADR-0043](../../docs/adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md)·[ADR-0046](../../docs/adr/0046-design-system-source-moves-to-platform-whole-package.md)). 토큰·유틸·primitive 묶음은 #441에서 FeedbackOps `a8d768b8` 값 그대로 옮겼고(이전 기록: [저장소 구조](../../docs/integration/repository-layout.md)), FeedbackOps `@fops/ui`는 FeedbackOps에 그대로 남는 별개의 사본이다. 이전된 묶음의 모양 변경은 여기서 먼저 한다.
 - import 가능: 외부 라이브러리만. `@fops/*`와 `@ap/*`는 어떤 패키지에서도 import하지 않는다(경계 lint가 강제).
-- 공유 토큰·폰트·반경·본문 값의 원본은 [tokens.css](src/styles/tokens.css)·[semantic.css](src/styles/semantic.css)이고 소비 계약은 [FO ADR-0058](../../products/feedbackops/docs/adr/0058-tailwind-v4-css-first-theme.md)의 기록을 따른다(플랫폼 결정: [ADR-0011](../../docs/adr/0011-design-direction-feedbackops-shell.md)). 플랫폼 확장의 설계 원본은 [DESIGN.md](../../DESIGN.md#platform-extension-layer)이며 이 패키지는 구현을 소유한다. 토큰 파일 밖에서 hex 값 금지.
+- 공유 토큰·폰트·반경·본문 값의 원본은 [tokens.css](src/styles/tokens.css)·[semantic.css](src/styles/semantic.css)이고 소비 계약은 [FO ADR-0058](../../docs/feedbackops/adr/0058-tailwind-v4-css-first-theme.md)의 기록을 따른다(플랫폼 결정: [ADR-0011](../../docs/adr/0011-design-direction-feedbackops-shell.md)). 플랫폼 확장의 설계 원본은 [DESIGN.md](../../DESIGN.md#platform-extension-layer)이며 이 패키지는 구현을 소유한다. 토큰 파일 밖에서 hex 값 금지.
 - 앱은 Tailwind → `@ap/ui/styles.css` 순서로 import한다. 이 진입점은 tokens·semantic(`layer(base)`) → theme → compat → `platform-tokens.css`(`layer(base)`) → `@source` 순서를 유지한다(캐스케이드 순서 변경 금지). 폰트는 앱에서 레이어 없이 import한다.
 - label·vivid accent·control 경계의 역할과 허용 표면은 [DESIGN 접근성 pairing](../../DESIGN.md#accessibility-pairing-rules)을 따른다. 새 소비자도 이 조합을 확인한다.
 - `DialogContent`·`SheetContent`를 플랫폼에서 렌더링하면 `closeLabel`, `Combobox`를 렌더링하면 `listboxLabel`·`emptyText`를 i18n에서 전달한다(FeedbackOps#749).
@@ -33,5 +33,5 @@ UI Primitive 층(06 §13)과 디자인 시스템 CSS. 플랫폼 개념(Context, 
 ## 검증
 
 `pnpm --filter @ap/ui test`로 좁혀 본 뒤 루트 검사(루트 `AGENTS.md`). 토큰·스타일 변경은 `pnpm dev`로 화면을 직접 확인한다.
-- 이 패키지를 바꾸면 `pnpm -C products/feedbackops typecheck`도 돌린다. FeedbackOps가 workspace의 `@ap/ui`를 바로 쓰는데 루트 `pnpm typecheck|test`는 `@fops/*`를 빼므로, 깨지는 변경이 루트 검사를 통과하고 CI(`feedbackops.yml`)에서야 드러난다. FeedbackOps `packages/ui`에는 `@ap/ui` 부품의 테스트 사본도 있어(예: `DetailPanelHeaderActions.test.tsx`) 동작을 바꾸면 그 디렉터리에서 `npx vitest run`과 `pnpm -s gate:fe-lint --base origin/main`(Biome)도 돌린다(#676).
+- 이 패키지를 바꾸면 저장소 루트에서 `pnpm --filter @fops/ops typecheck`도 돌린다. FeedbackOps가 workspace의 `@ap/ui`를 바로 쓰는데 루트 `pnpm typecheck|test`는 `@fops/*`를 빼므로, 깨지는 변경이 루트 검사를 통과하고 CI(`feedbackops.yml`)에서야 드러난다. FeedbackOps `packages/fo-ui`에는 `@ap/ui` 부품의 테스트 사본도 있어(예: `DetailPanelHeaderActions.test.tsx`) 동작을 바꾸면 `pnpm --filter @fops/ui exec vitest run`과 `pnpm --filter @fops/ops gate:fe-lint --base origin/main`(Biome)도 돌린다(#676).
 - `@formkit/auto-animate@0.10.0` 패치는 `useListMotion`이 남아 있는 동안 유지한다(`patches/@formkit__auto-animate@0.10.0.patch`, 루트 `pnpm-workspace.yaml`의 `patchedDependencies`). 패치가 없으면 `useListMotion` 테스트 2건(destroy 뒤 polling 타이머)이 실패한다. 패치 변경 후에는 `pnpm install` 결과와 workspace state를 확인한다.

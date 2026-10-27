@@ -58,7 +58,7 @@ services:
       retries: 20
 
   # Keycloak as the interim OIDC IdP (#603). Opt in with `--profile auth`; the default
-  # `docker compose up` does not start it. Runbook: docs/implementation/release/keycloak-interim-idp.md
+  # `docker compose up` does not start it. Runbook: docs/feedbackops/implementation/release/keycloak-interim-idp.md
   keycloak:
     profiles: ['auth']
     image: quay.io/keycloak/keycloak:26.7.5

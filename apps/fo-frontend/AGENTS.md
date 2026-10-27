@@ -2,11 +2,11 @@
 
 ## Required Docs
 
-- Read `docs/frontend/README.md` before frontend changes.
-- Use `docs/frontend/ui-design-system.md` for component behavior and layout contracts.
-- Use `docs/frontend/component-inventory.md` before creating a new shared component.
-- Use `docs/frontend/routes-and-layout.md` for URL state, list/detail behavior, and responsive navigation.
-- Use `docs/frontend/tokens.md` only as the raw token seed.
+- Read `docs/feedbackops/frontend/README.md` before frontend changes.
+- Use `docs/feedbackops/frontend/ui-design-system.md` for component behavior and layout contracts.
+- Use `docs/feedbackops/frontend/component-inventory.md` before creating a new shared component.
+- Use `docs/feedbackops/frontend/routes-and-layout.md` for URL state, list/detail behavior, and responsive navigation.
+- Use `docs/feedbackops/frontend/tokens.md` only as the raw token seed.
 - Use `apps/fo-frontend/src/features/*/AGENTS.md` for route-specific ownership before adding screens.
 - New endpoints must use `apiRequest(method, path, parser, opts)` with a response schema from `@fops/shared`; legacy unparsed calls are tracked in `apps/fo-frontend/src/lib/api/api-unparsed-allowlist.txt`.
 
@@ -32,7 +32,7 @@
 ## Component Intake
 
 - Do not build repeated UI patterns directly inside screens. Create or reuse a feature-local component first, then compose it in the screen.
-- Before creating a new component, check `packages/fo-ui`, the feature's existing components, and `docs/frontend/component-inventory.md`.
+- Before creating a new component, check `packages/fo-ui`, the feature's existing components, and `docs/feedbackops/frontend/component-inventory.md`.
 - Use existing wrappers from `@fops/ui` before importing shadcn/Radix primitives directly. Bundle-1 token and primitive implementations come from the pinned `@ap/ui` dependency; local compatibility files under `packages/fo-ui/src/components/shadcn` only re-export them.
 - The detail slot is `@ap/ui`'s (bundle 2b): `AppFrame` wraps its frame in `DetailPanelSlotProvider` and hosts the panel through `useDetailPanelSlotHost()`; shells forward `detailPanel` with `useDetailPanelSlot(node)`, which is `@ap/ui`'s `useDetailPanelContent` (`undefined` clears, `null` closes). There is no `DetailPanelSlotContext`; tests that render a shell with `detailPanel` mount `DetailPanelSlotProvider` plus a host element.
 - Never import `@radix-ui/*` in `apps/fo-frontend` (enforced by `pnpm --filter @fops/ops check:boundaries`); use the `@fops/ui` wrappers.
@@ -47,9 +47,9 @@
 
 ## New Surfaces And Gaps
 
-The shipped UI is the authority for existing screens (root `AGENTS.md` → UI Authority, ADR-0060). For a new surface, start from the closest shipped screen; if `docs/design-prototype/` drew that surface, use it as a reference.
+The shipped UI is the authority for existing screens (root `AGENTS.md` → UI Authority, ADR-0060). For a new surface, start from the closest shipped screen; if `docs/feedbackops/design-prototype/` drew that surface, use it as a reference.
 
-- If neither the shipped UI nor the specs decide a behavior or visual question, check `docs/frontend/specs/`, `docs/design/`, and the ADRs. If all are silent, ask; do not fill the gap with framework defaults or personal taste. Record the resolution in the PR body.
+- If neither the shipped UI nor the specs decide a behavior or visual question, check `docs/feedbackops/frontend/specs/`, `docs/feedbackops/design/`, and the ADRs. If all are silent, ask; do not fill the gap with framework defaults or personal taste. Record the resolution in the PR body.
 - For a layout-changing screen change, capture the page at desktop 1440 (the committed visual harness, or a temporary `tests/visual/zz-*.visual.spec.ts` capture spec deleted afterwards) and put the before/after in the PR body.
 
 ## Visual Baselines

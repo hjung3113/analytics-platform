@@ -21,7 +21,7 @@ const MS_A = '77777777-0000-0000-0000-0000000000a1';
 const MS_B = '77777777-0000-0000-0000-0000000000b2';
 const AREA_A = '88888888-0000-0000-0000-0000000000a1';
 
-// Absence versus zero, per docs/implementation/api/dashboard.md: a missing key
+// Absence versus zero, per docs/feedbackops/implementation/api/dashboard.md: a missing key
 // renders an em dash (MS_B finding-execution, MS_A actionable queue, the area
 // row's high-severity queue); a permitted empty result renders the digit 0
 // (MS_A finding-execution 0/4, MS_A unassigned-voc 0, MS_B bad-outcome 0).

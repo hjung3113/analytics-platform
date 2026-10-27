@@ -14,7 +14,7 @@ FeedbackOps를 플랫폼 앱 하나·서버 하나·저장소 하나로 합친�
 
 1. **화면은 보는 사람 기준으로 나누고, 데이터 주인은 나누지 않는다.** 전역 기능 화면도 FeedbackOps 도메인 API를 쓴다. 플랫폼이 VOC·설문 응답을 따로 저장하지 않는다.
 2. **화면은 옮기고 다시 쓰지 않는다.** FeedbackOps 화면 코드를 Kernel 라우팅·Registry에 맞춰 옮긴다. 화면 단위 동작·문구·권한 표시는 FeedbackOps 기준을 유지한다.
-3. **FeedbackOps 도메인 불변식은 그대로 간다**(원본: `products/feedbackops/GLOSSARY.md`, 합류 뒤에는 옮긴 위치):
+3. **FeedbackOps 도메인 불변식은 그대로 간다**(원본: `docs/feedbackops/GLOSSARY.md`, 합류 뒤에는 옮긴 위치):
    - VOC는 인증된 사내 사용자가 남긴 목소리다. 설문 응답에서 VOC를 만들지 않는다.
    - Triage·신고자 표시·Task 상태 기계 셋은 서로 자동 매핑하지 않는다(FO ADR-0005).
    - 시스템 간 이력의 원본은 `entity_links`다.
@@ -66,7 +66,7 @@ FeedbackOps를 플랫폼 앱 하나·서버 하나·저장소 하나로 합친�
 
 플랫폼 앱은 서버를 `PlatformAdapter` 하나로 만난다([실서버 체크리스트](real-server-checklist.md) §1). 실어댑터 조립(#154)이 FeedbackOps 백엔드를 가리키게 하고, 백엔드가 [HTTP 어댑터 계약](http-adapter-contract.md)의 공통 부분을 구현한다. 이슈 [#593](https://github.com/hjung3113/analytics-platform/issues/593).
 
-아래 차이표는 FeedbackOps `develop` `c73c55c5`와 플랫폼 `main` `5b92ab8`를 읽고 만들었다(2026-10-21, 코드는 실행하지 않음). FeedbackOps 경로는 `apps/backend/src/` 기준이다. #592 뒤에는 `products/feedbackops/` 아래에 있다. 줄 번호는 그 커밋 기준이다.
+아래 차이표는 FeedbackOps `develop` `c73c55c5`와 플랫폼 `main` `5b92ab8`를 읽고 만들었다(2026-10-21, 코드는 실행하지 않음). FeedbackOps 경로는 `apps/backend/src/` 기준이다. 지금은 `apps/fo-backend/src/`처럼 `apps/fo-*`·`packages/fo-*` 아래에 있다. 줄 번호는 그 커밋 기준이다.
 
 **요약**
 
