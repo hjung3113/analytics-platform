@@ -1,0 +1,42 @@
+# Group ownership by system and group; change individual entries when owners differ.
+# Code owner review is not required by the main ruleset while there is one developer.
+# Decision: docs/adr/0090-repo-structure-by-branch.md (D4).
+# Explicit group entries allow changing one line when group ownership diverges.
+
+/menus/_global/ @hjung3113
+/menus/_global/home/ @hjung3113
+/menus/_global/my-activity/ @hjung3113
+/menus/_global/notice-voc/ @hjung3113
+
+/menus/bravo/ @hjung3113
+/menus/bravo/metrics/ @hjung3113
+
+/menus/clas/ @hjung3113
+/menus/clas/clas/ @hjung3113
+
+/menus/feedbackops/ @hjung3113
+/menus/feedbackops/fo-dashboard/ @hjung3113
+/menus/feedbackops/fo-findings/ @hjung3113
+/menus/feedbackops/fo-integration/ @hjung3113
+/menus/feedbackops/fo-tasks/ @hjung3113
+/menus/feedbackops/fo-voc/ @hjung3113
+
+/menus/improvement/ @hjung3113
+/menus/improvement/imp-my-work/ @hjung3113
+/menus/improvement/imp-reports/ @hjung3113
+/menus/improvement/imp-tasks/ @hjung3113
+
+/menus/log-dev/ @hjung3113
+/menus/log-dev/log-cross/ @hjung3113
+/menus/log-dev/log-models/ @hjung3113
+/menus/log-dev/log-my-work/ @hjung3113
+/menus/log-dev/log-rules/ @hjung3113
+
+/menus/mars/ @hjung3113
+/menus/mars/analytics/ @hjung3113
+/menus/mars/equipment/ @hjung3113
+/menus/mars/hw-time/ @hjung3113
+/menus/mars/master-data/ @hjung3113
+
+/menus/operations/ @hjung3113
+/menus/operations/admin/ @hjung3113

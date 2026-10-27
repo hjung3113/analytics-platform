@@ -2,6 +2,8 @@
 
 Registry 그룹마다 하나의 패키지(`@ap/menu-<group>`)다. 메뉴가 `manifests`를 선언하고, 앱(`apps/platform-web/src/menus.ts`)이 이어 붙여 Kernel에 등록한다. 메뉴 화면은 플랫폼 다섯 갈래(루트 `AGENTS.md`)를 검증하는 Consumer다.
 
+그룹 단위 소유는 `.github/CODEOWNERS`에 시스템·그룹 폴더로 기록하며 새 그룹 폴더를 만들면 해당 줄을 추가한다(ADR-0090 D4).
+
 | 패키지 | 폴더 | 그룹 | 화면 |
 | --- | --- | --- | --- |
 | `@ap/menu-home` | `menus/_global/home` | `overview` | OperationsHome(홈 `내 할 일`은 Kernel 슬롯 `homeTodo`로만 온다 — 홈은 `@fops/*`도 다른 메뉴도 import하지 않는다, #657) |

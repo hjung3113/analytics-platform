@@ -4,7 +4,21 @@ import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { PACKAGE_PREFIX } from './prefix.ts';
 import { removeFixture } from './fixture.ts';
-import { checkGroups, checkMarkers, checkNoProbe, checkWiring, loadShape, type RepoShape } from './repo-invariants.ts';
+import { checkCodeowners, checkGroups, checkMarkers, checkNoProbe, checkWiring, loadShape, type RepoShape } from './repo-invariants.ts';
+
+describe('CODEOWNERS menu folders', () => {
+  const folders = ['mars/analytics', 'mars/equipment'];
+  const owners = '# comment\n\n/menus/mars/ @hjung3113\n/menus/mars/analytics/ @hjung3113\n/menus/mars/equipment/ @hjung3113\n';
+
+  it('requires an explicit entry for each group even when the system is covered', () => {
+    expect(() => checkCodeowners(folders, owners)).not.toThrow();
+    expect(() => checkCodeowners(folders, owners.replace('/menus/mars/analytics/ @hjung3113\n', '# /menus/mars/analytics/ @hjung3113\n'))).toThrow(/menus\/mars\/analytics/);
+  });
+
+  it.each(['/menus/mars/missing/', '/menus/missing/'])('rejects a nonexistent menu folder %s', path => {
+    expect(() => checkCodeowners(folders, `${owners}${path} @hjung3113\n`)).toThrow(/nonexistent/);
+  });
+});
 
 /** folder ↔ GroupId of the seven real packages plus an eighth wired one. */
 const GROUPS: { folder: string; group: string }[] = [

@@ -17,6 +17,7 @@
 - **D3 공간 id.** A 유지 / **B `analytics`→`mars`, `metrics`→`bravo`, 그룹 id 유지, 저장된 공간 재개 키 이행 포함(선택)** / C 그룹 id까지 변경.
   - 결과(713m): 공간 id가 `mars`·`bravo`로 확정됐다. 앱이 `SPACE_ID_MIGRATIONS`를 `PlatformProvider.spaceIdMigrations`로 넘겨 탭의 옛 재개 키를 한 번 새 키로 옮기고, 이미 쌓인 사용 기록은 옛 id로 남는다.
 - **D4 소유.** **A 그룹 단위 소유 + 시스템·그룹 폴더 `CODEOWNERS`(선택)** / B 시스템 단위 소유 / C 메뉴 단위 소유.
+  - 결과(713n): `.github/CODEOWNERS`에 시스템·그룹 폴더를 기록하고 `repo-invariants`가 그룹 누락과 없는 폴더 참조를 검사한다.
 - **D5 메뉴 버전.** A 단일 버전 / B 메뉴 패키지별 발행 / **C 메뉴 패키지별 내부 버전 + CHANGELOG(발행 없음) + 기대는 SDK 버전 범위(선택)**.
 
 ## 결정
