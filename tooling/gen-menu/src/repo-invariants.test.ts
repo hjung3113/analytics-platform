@@ -41,7 +41,7 @@ function makeWiredRepo(): string {
   mkdirSync(join(root, 'apps/platform-web/src/dev'), { recursive: true });
 
   const imports = GROUPS.map(g => `import { manifests as ${binding(g.folder)} } from '${PACKAGE_PREFIX}menu-${g.folder}';`).join('\n');
-  const rows = GROUPS.map(g => `  { id: '${g.group}', label: { ko: 'g', en: 'g' }, icon: I, space: ${g.folder === 'home' ? 'null' : "'analytics'"} },`).join('\n');
+  const rows = GROUPS.map(g => `  { id: '${g.group}', label: { ko: 'g', en: 'g' }, icon: I, space: ${g.folder === 'home' ? 'null' : "'mars'"} },`).join('\n');
   const spreads = GROUPS.map(g => `  ...${binding(g.folder)},`).join('\n');
   writeFileSync(join(root, 'apps/platform-web/src/menus.ts'), `// <gen:menu-imports>
 ${imports}
@@ -53,7 +53,7 @@ ${rows}
 ];
 
 export const SPACES: SpaceDef[] = [
-  { id: 'analytics', label: { ko: 'a', en: 'a' } },
+  { id: 'mars', label: { ko: 'a', en: 'a' } },
 ];
 
 export const MENUS: MenuEntry[] = [
@@ -83,14 +83,14 @@ ${cssImports}
 `);
   writeFileSync(join(root, 'apps/platform-web/package.json'), wiredAppPkg());
   for (const g of GROUPS) {
-    mkdirSync(join(root, 'menus', g.folder === 'home' ? '_global' : 'analytics', g.folder, 'src'), { recursive: true });
-    writeFileSync(join(root, 'menus', g.folder === 'home' ? '_global' : 'analytics', g.folder, 'src/index.ts'), `export const manifests = [{ id: '${g.folder}-x', group: '${g.group}', path: '/${g.folder}' }];\n`);
-    writeFileSync(join(root, 'menus', g.folder === 'home' ? '_global' : 'analytics', g.folder, 'src/styles.css'), '@source "./";\n');
+    mkdirSync(join(root, 'menus', g.folder === 'home' ? '_global' : 'mars', g.folder, 'src'), { recursive: true });
+    writeFileSync(join(root, 'menus', g.folder === 'home' ? '_global' : 'mars', g.folder, 'src/index.ts'), `export const manifests = [{ id: '${g.folder}-x', group: '${g.group}', path: '/${g.folder}' }];\n`);
+    writeFileSync(join(root, 'menus', g.folder === 'home' ? '_global' : 'mars', g.folder, 'src/styles.css'), '@source "./";\n');
   }
   // Only analytics and quality ship a mock half; the other folders must not need registration.
   for (const folder of ['analytics', 'quality']) {
-    mkdirSync(join(root, 'menus', 'analytics', folder, 'src/mock'), { recursive: true });
-    writeFileSync(join(root, 'menus', 'analytics', folder, 'src/mock/index.ts'), `export const ${binding(folder)}Mock = [];\n`);
+    mkdirSync(join(root, 'menus', 'mars', folder, 'src/mock'), { recursive: true });
+    writeFileSync(join(root, 'menus', 'mars', folder, 'src/mock/index.ts'), `export const ${binding(folder)}Mock = [];\n`);
   }
   return root;
 }
@@ -106,7 +106,7 @@ describe('wiring invariants against a fixture repo', () => {
     mkdirSync(join(root, 'menus/_global/home/src/mock'), { recursive: true });
     writeFileSync(join(root, 'menus/_global/home/src/mock/index.ts'), 'export const homeMock = [];');
     const shape = loadShape(root);
-    for (const folder of ['_global/home', 'analytics/analytics']) {
+    for (const folder of ['_global/home', 'mars/analytics']) {
       expect(shape.folders).toContain(folder);
       expect(shape.indexes[folder]).toContain('export const manifests');
       expect(shape.cssFolders).toContain(folder);
@@ -116,22 +116,22 @@ describe('wiring invariants against a fixture repo', () => {
 
   it('rejects only the space mismatch when a valid owner moves to another registered space', () => {
     const shape = loadShape(fresh());
-    shape.menusTs = shape.menusTs.replace("{ id: 'analytics', label: { ko: 'a', en: 'a' } },", "{ id: 'analytics', label: { ko: 'a', en: 'a' } },\n  { id: 'other', label: { ko: 'o', en: 'o' } },");
+    shape.menusTs = shape.menusTs.replace("{ id: 'mars', label: { ko: 'a', en: 'a' } },", "{ id: 'mars', label: { ko: 'a', en: 'a' } },\n  { id: 'other', label: { ko: 'o', en: 'o' } },");
     expect(() => checkGroups(shape)).not.toThrow();
-    shape.folders = shape.folders.map(f => f === 'analytics/quality' ? 'other/quality' : f);
-    shape.indexes['other/quality'] = shape.indexes['analytics/quality'];
-    delete shape.indexes['analytics/quality'];
+    shape.folders = shape.folders.map(f => f === 'mars/quality' ? 'other/quality' : f);
+    shape.indexes['other/quality'] = shape.indexes['mars/quality'];
+    delete shape.indexes['mars/quality'];
     expect(() => checkMarkers(shape)).not.toThrow();
     expect(() => checkWiring(shape)).not.toThrow();
     expect(() => checkGroups(shape)).toThrow(/space mismatch/);
     // Change only this row's space: every other ownership/wiring condition stays identical.
-    shape.menusTs = shape.menusTs.replace("{ id: 'quality', label: { ko: 'g', en: 'g' }, icon: I, space: 'analytics'", "{ id: 'quality', label: { ko: 'g', en: 'g' }, icon: I, space: 'other'");
+    shape.menusTs = shape.menusTs.replace("{ id: 'quality', label: { ko: 'g', en: 'g' }, icon: I, space: 'mars'", "{ id: 'quality', label: { ko: 'g', en: 'g' }, icon: I, space: 'other'");
     expect(() => checkGroups(shape)).not.toThrow();
   });
 
   it('rejects a package without a manifest owner', () => {
     const shape = loadShape(fresh());
-    delete shape.indexes['analytics/quality'];
+    delete shape.indexes['mars/quality'];
     expect(() => checkGroups(shape)).toThrow(/missing manifest/);
   });
 
@@ -143,14 +143,14 @@ describe('wiring invariants against a fixture repo', () => {
   });
 
   it.each([
-    ['unregistered space', "space: 'analytics'", "space: 'unknown'", /unregistered space/],
-    ['missing space', ", space: 'analytics'", '', /space/],
-    ['unreadable space', "space: 'analytics'", 'space: selected', /space/],
-    ['spread can override space', "space: 'analytics'", "space: 'analytics', ...override", /GROUPS/],
-    ['computed space field', "space: 'analytics'", "['space']: 'analytics'", /GROUPS/],
-    ['duplicate space field', "space: 'analytics'", "space: 'analytics', space: null", /space/],
-    ['duplicate GROUPS row', "  { id: 'quality',", "  { id: 'quality', space: 'analytics' },\n  { id: 'quality',", /GROUPS/],
-    ['duplicate SPACES id', "  { id: 'analytics', label: { ko: 'a', en: 'a' } },", "  { id: 'analytics' },\n  { id: 'analytics' },", /SPACES/],
+    ['unregistered space', "space: 'mars'", "space: 'unknown'", /unregistered space/],
+    ['missing space', ", space: 'mars'", '', /space/],
+    ['unreadable space', "space: 'mars'", 'space: selected', /space/],
+    ['spread can override space', "space: 'mars'", "space: 'mars', ...override", /GROUPS/],
+    ['computed space field', "space: 'mars'", "['space']: 'mars'", /GROUPS/],
+    ['duplicate space field', "space: 'mars'", "space: 'mars', space: null", /space/],
+    ['duplicate GROUPS row', "  { id: 'quality',", "  { id: 'quality', space: 'mars' },\n  { id: 'quality',", /GROUPS/],
+    ['duplicate SPACES id', "  { id: 'mars', label: { ko: 'a', en: 'a' } },", "  { id: 'mars' },\n  { id: 'mars' },", /SPACES/],
   ])('rejects %s without guessing', (_label, from, to, error) => {
     const shape = loadShape(fresh());
     shape.menusTs = shape.menusTs.replace(from, to);

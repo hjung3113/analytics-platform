@@ -30,6 +30,8 @@ export type AppInternal = {
   initialUrl: string;
   recordVisit: (menuId: string, url: string) => void;
   rememberScope: (scopeId: string) => void;
+  /** Former space id → current id for the per-space resume store (`PlatformProvider.spaceIdMigrations`). */
+  spaceIdMigrations: Readonly<Record<string, string>> | undefined;
 };
 export type UsageNavTrail = { user: string; via: UsageVia | null; seen: boolean; prev: string | null };
 export type AppValue = { pub: AppState; internal: AppInternal };

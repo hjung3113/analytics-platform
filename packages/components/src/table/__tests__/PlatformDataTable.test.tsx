@@ -22,7 +22,7 @@ const unstubbedOffsetWidth = document.createElement('div').offsetWidth;
 
 const registry = createRegistry({
   spaces: [testSpace()],
-  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
+  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
   menus: [{ id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] }],
 });
 
@@ -671,14 +671,14 @@ describe('jsdom layout stub stays scoped to the #160 block (review P3-3)', () =>
 
 const exportRegistry = createRegistry({
   spaces: [testSpace({ homeMenuId: 'export-menu' })],
-  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
+  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
   menus: [{ id: 'export-menu', group: groupId('overview'), primary: true, label: { ko: '내보내기', en: 'Export' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'management', features: { export: true, savedView: false, annotate: false, compare: false }, pageKeys: [] }],
 });
 
 /** 조회 정보 global rows (#173 P2-3): same menu shape, but it applies every Context key the sheet must render. */
 const contextRegistry = createRegistry({
   spaces: [testSpace({ homeMenuId: 'export-menu' })],
-  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
+  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
   menus: [{ id: 'export-menu', group: groupId('overview'), primary: true, label: { ko: '내보내기', en: 'Export' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false,
     context: { ...noContext, roomNames: 'apply', condition: 'apply', selection: 'apply', lot: 'apply', ppid: 'apply', recipe: 'apply', metric: 'apply' },
     pageType: 'management', features: { export: true, savedView: false, annotate: false, compare: false }, pageKeys: [] }],
@@ -687,7 +687,7 @@ const contextRegistry = createRegistry({
 /** 기간/Scope gate (#173 review N-P2-1): time referenced only vs time applied + Scope required. */
 const gateRegistry = (time: 'reference' | 'apply', requiresScope: boolean) => createRegistry({
   spaces: [testSpace({ homeMenuId: 'export-menu' })],
-  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
+  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
   menus: [{ id: 'export-menu', group: groupId('overview'), primary: true, label: { ko: '내보내기', en: 'Export' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope,
     context: { ...noContext, time }, pageType: 'management', features: { export: true, savedView: false, annotate: false, compare: false }, pageKeys: [] }],
 });
@@ -697,7 +697,7 @@ const timeApplyRegistry = gateRegistry('apply', true);
 /** File-name sanitize (#173 P3-12): a menu id with a space and a dot must become a safe file name base. */
 const dirtyMenuRegistry = createRegistry({
   spaces: [testSpace({ homeMenuId: 'ex port.menu' })],
-  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
+  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
   menus: [{ id: 'ex port.menu', group: groupId('overview'), primary: true, label: { ko: '내보내기', en: 'Export' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'management', features: { export: true, savedView: false, annotate: false, compare: false }, pageKeys: [] }],
 });
 

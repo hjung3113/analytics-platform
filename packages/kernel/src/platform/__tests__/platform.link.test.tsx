@@ -21,7 +21,7 @@ const registry = createRegistry({
   permissions: [menuPermission('analytics:view')],
   spaces,
   groups: [
-    { id: groupId('equipment'), label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: spaceId('analytics') },
+    { id: groupId('equipment'), label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: spaceId('mars') },
     { id: groupId('admin'), label: { ko: '관리·감사', en: 'Administration' }, icon: House, space: spaceId('operations') },
   ],
   menus: [

@@ -25,7 +25,7 @@ const entry = (id: string, path: string, over: Record<string, unknown> = {}) => 
 const withPage = (id: string, path: string, over: Record<string, unknown> = {}) => entry(id, path, { component: Page, ...over });
 const registry = createRegistry({
   spaces: [testSpace({ homeMenuId: 'home' })],
-  groups: [{ id: groupId('equipment'), label: { ko: '그룹', en: 'Group' }, icon: House, space: spaceId('analytics') }],
+  groups: [{ id: groupId('equipment'), label: { ko: '그룹', en: 'Group' }, icon: House, space: spaceId('mars') }],
   menus: [
     { ...withPage('home', '/', { features: { ...features, board: false } }), primary: true },
     withPage('alpha', '/alpha', { label: { ko: '알파', en: 'Alpha' } }),

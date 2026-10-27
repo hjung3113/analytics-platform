@@ -17,7 +17,7 @@ const presetFields = {
   conditionPreset: { key: 'view', default: 'eqp' },
 };
 const menuOf = (withPresets: boolean) => ({ id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view' as const, requiresScope: false, context: { ...noContext, time: 'apply' as const, condition: 'apply' as const }, query: { mode: 'apply' as const, required: { context: ['time' as const] } }, pageKeys: withPresets ? ['view'] : [], pageType: 'analysis' as const, features: { export: false, savedView: false, annotate: false, compare: false }, ...(withPresets ? presetFields : {}) });
-const registryOf = (withPresets = true) => createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }], menus: [menuOf(withPresets)] });
+const registryOf = (withPresets = true) => createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }], menus: [menuOf(withPresets)] });
 const endpoint = defineEndpoint<null, unknown>({ id: 'fixture.preset-bar', menuId: 'home', paramKeys: {}, permission: 'platform:view', requiresScope: false, context: { time: 'apply', condition: 'apply' }, requiredContext: ['time'], kinds: ['collection'], mergeTimeDomain: false });
 const send = vi.fn(async (_request: { context: { condition?: unknown } }) => ({ outcome: 'empty' as const, data: null, assessments: [], trust: null, correlationId: 'test' }));
 let draft: ReturnType<typeof useQueryDraft>;

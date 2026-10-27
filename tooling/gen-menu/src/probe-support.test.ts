@@ -17,7 +17,7 @@ describe('probe support helpers (F8)', () => {
     insertGroupsRow(root);
     const text = readFileSync(path, 'utf8');
     expect(text).toContain(`id: groupId('${FIXTURE_GROUP}')`);
-    expect(groupSpaces(text).get(FIXTURE_GROUP)).toBe('analytics');
+    expect(groupSpaces(text).get(FIXTURE_GROUP)).toBe('mars');
     expect(existsSync(join(root, 'packages/contracts'))).toBe(false);
   });
 
@@ -57,10 +57,10 @@ describe('probe support helpers (F8)', () => {
 
   it('preflight counts a dangling package-dir symlink as present (R5)', () => {
     const root = mkdtempSync(join(tmpdir(), 'gen-menu-preflight-'));
-    mkdirSync(join(root, 'menus', 'analytics'), { recursive: true });
+    mkdirSync(join(root, 'menus', 'mars'), { recursive: true });
     const outsideBase = mkdtempSync(join(tmpdir(), 'gen-menu-preflight-out-'));
     const target = join(outsideBase, 'menus-dir');
-    symlinkSync(target, join(root, 'menus', 'analytics', 'gen-probe'), 'dir');
+    symlinkSync(target, join(root, 'menus', 'mars', 'gen-probe'), 'dir');
     expect(() => preflightReservedPaths(root)).toThrow(/gen-probe/);
     expect(existsSync(target)).toBe(false);
   });

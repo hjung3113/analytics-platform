@@ -40,7 +40,7 @@ afterEach(() => { cleanup(); setFoApi(null); vi.unstubAllGlobals(); window.histo
 describe('navCounts slot', () => {
   it('serves only the FeedbackOps space', () => {
     expect(navCountsSlot.For(spaceId('feedbackops'))).not.toBeNull();
-    expect(navCountsSlot.For(spaceId('metrics'))).toBeNull();
+    expect(navCountsSlot.For(spaceId('bravo'))).toBeNull();
     expect(navCountsSlot.For(spaceId('feedbackops'))).toBe(navCountsSlot.For(spaceId('feedbackops')));
   });
 

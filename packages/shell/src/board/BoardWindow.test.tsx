@@ -32,7 +32,7 @@ const entry = (id: string, path: string, over: Record<string, unknown> = {}) => 
 });
 const registry = createRegistry({
   spaces: [testSpace({ homeMenuId: 'home' })],
-  groups: [{ id: groupId('equipment'), label: { ko: '그룹', en: 'Group' }, icon: House, space: spaceId('analytics') }],
+  groups: [{ id: groupId('equipment'), label: { ko: '그룹', en: 'Group' }, icon: House, space: spaceId('mars') }],
   menus: [
     { ...entry('home', '/', { component: Plain, features: { ...features, board: false } }), primary: true },
     entry('counted', '/counted', { component: Counted, requiresScope: true, label: { ko: '집계', en: 'Counted' } }),

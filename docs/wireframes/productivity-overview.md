@@ -1,6 +1,6 @@
 # 11. 생산성 분석 — 개요 요구사항·와이어프레임
 
-상태: 화면 계약 노트. 구현은 `menus/analytics/analytics`(합성 데이터)이고 지표 정의는 승인되지 않았다. 원본의 Decided를 소비하며 새 공개 키는 Candidate다. 배치·시각은 구현과 [DESIGN](../../DESIGN.md)이 기준이다.
+상태: 화면 계약 노트. 구현은 `menus/mars/analytics`(합성 데이터)이고 지표 정의는 승인되지 않았다. 원본의 Decided를 소비하며 새 공개 키는 Candidate다. 배치·시각은 구현과 [DESIGN](../../DESIGN.md)이 기준이다.
 
 소유 범위는 [07](app-shell.md)의 content slot이다. [02](../product/domain-menus.md)의 생산성 분석을 구체화한 대표 분석 Consumer다.
 
@@ -42,7 +42,7 @@
 
 ## 4. LAYOUT BOUNDARY
 
-배치는 구현(`menus/analytics/analytics/src/pages/ProductivityOverview.tsx`)이 기준이다. Overview archetype(`06` §12.1) 순서로 KPI 요약, 추세, 구성, Attention을 두고 Data Trust 요약은 페이지 머리 슬롯에 둔다. 위젯마다 자체 조회를 가져 부분 실패가 그 위젯에 머문다. 셸 구조·치수는 [06 §7](../contract/layout.md#7-application-shell)/[07](app-shell.md), 공유 색·폰트·primitive는 FeedbackOps 원본, 플랫폼 시각 확장은 [DESIGN](../../DESIGN.md)이 소유한다.
+배치는 구현(`menus/mars/analytics/src/pages/ProductivityOverview.tsx`)이 기준이다. Overview archetype(`06` §12.1) 순서로 KPI 요약, 추세, 구성, Attention을 두고 Data Trust 요약은 페이지 머리 슬롯에 둔다. 위젯마다 자체 조회를 가져 부분 실패가 그 위젯에 머문다. 셸 구조·치수는 [06 §7](../contract/layout.md#7-application-shell)/[07](app-shell.md), 공유 색·폰트·primitive는 FeedbackOps 원본, 플랫폼 시각 확장은 [DESIGN](../../DESIGN.md)이 소유한다.
 
 ## 5. OWNERSHIP
 

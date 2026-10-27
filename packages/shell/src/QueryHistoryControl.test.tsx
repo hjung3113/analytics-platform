@@ -6,7 +6,7 @@ import { createRegistry, I18nProvider, PlatformProvider, useQueryDraft } from '@
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { GlobalContextBar } from './GlobalContextBar';
 const menu = { id: 'home', group: groupId('overview'), primary: true, path: '/', icon: House, label: { ko: '조회', en: 'Query' }, description: { ko: '', en: '' }, permission: 'platform:view' as const, requiresScope: false, context: { ...noContext, time: 'apply' as const }, pageType: 'analysis' as const, features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: ['filter'], query: { mode: 'apply' as const } };
-const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: menu.label, icon: House, space: spaceId('analytics') }], menus: [menu] });
+const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: menu.label, icon: House, space: spaceId('mars') }], menus: [menu] });
 const global = { ...emptyGlobal, from: '2026-09-01T00:00:00', to: '2026-09-02T00:00:00' };
 let draft: ReturnType<typeof useQueryDraft>;
 function Probe() { draft = useQueryDraft(); return null; }

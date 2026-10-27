@@ -17,14 +17,14 @@ function menu(id: string, group: 'overview' | 'equipment' | 'metrics' | 'noticeV
 const registry = createRegistry({
   permissions: [menuPermission('analytics:view'), menuPermission('equipment:view'), menuPermission('metrics:view')],
   spaces: [
-    { id: spaceId('analytics'), label: { ko: 'MARS', en: 'MARS' }, subtitle: { ko: '생산성 분석', en: 'Productivity analysis' }, description: { ko: '설비·기간별 생산성과 사이클타임을 분석합니다.', en: 'Analyze productivity and cycle time by equipment and period.' }, homeMenuId: 'equipment' },
-    { id: spaceId('metrics'), label: { ko: 'BRAVO', en: 'BRAVO' }, subtitle: { ko: '지표관리', en: 'Metrics' }, description: { ko: '지표 정의·버전·발행을 관리합니다.', en: 'Manage metric definitions, versions, and releases.' }, homeMenuId: 'catalog' },
+    { id: spaceId('mars'), label: { ko: 'MARS', en: 'MARS' }, subtitle: { ko: '생산성 분석', en: 'Productivity analysis' }, description: { ko: '설비·기간별 생산성과 사이클타임을 분석합니다.', en: 'Analyze productivity and cycle time by equipment and period.' }, homeMenuId: 'equipment' },
+    { id: spaceId('bravo'), label: { ko: 'BRAVO', en: 'BRAVO' }, subtitle: { ko: '지표관리', en: 'Metrics' }, description: { ko: '지표 정의·버전·발행을 관리합니다.', en: 'Manage metric definitions, versions, and releases.' }, homeMenuId: 'catalog' },
     { id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations console' }, description: purpose, permission: 'console:access', homeMenuId: 'admin-roles' },
   ],
   groups: [
     { id: groupId('overview'), label: { ko: '운영 개요', en: 'Overview' }, icon: House, space: null },
-    { id: groupId('equipment'), label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: spaceId('analytics') },
-    { id: groupId('metrics'), label: { ko: '지표관리', en: 'Metrics' }, icon: House, space: spaceId('metrics') },
+    { id: groupId('equipment'), label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: spaceId('mars') },
+    { id: groupId('metrics'), label: { ko: '지표관리', en: 'Metrics' }, icon: House, space: spaceId('bravo') },
     { id: groupId('noticeVoc'), label: { ko: '공지·VOC', en: 'Notice & VOC' }, icon: House, space: null },
     { id: groupId('admin'), label: { ko: '관리·감사', en: 'Administration' }, icon: House, space: spaceId('operations') },
   ],
@@ -54,9 +54,9 @@ function adapter(permissions: Session['user']['permissions']): PlatformAdapter {
   });
 }
 
-function mount(permissions: Session['user']['permissions'], url = '/?v=1&scopeId=MEM', slots?: PlatformSlots) {
+function mount(permissions: Session['user']['permissions'], url = '/?v=1&scopeId=MEM', slots?: PlatformSlots, spaceIdMigrations?: Readonly<Record<string, string>>) {
   window.history.replaceState(null, '', url);
-  render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter(permissions)} registry={registry} slots={slots}><OperationsHome /></PlatformProvider></I18nProvider>);
+  render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter(permissions)} registry={registry} slots={slots} spaceIdMigrations={spaceIdMigrations}><OperationsHome /></PlatformProvider></I18nProvider>);
 }
 
 async function settled() {
@@ -104,7 +104,7 @@ describe('platform home launcher', () => {
         menu('analysis-home', 'equipment', '/analysis-home', menuPermission('analytics:view'), { ko: '분석 홈', en: 'Analysis home' }),
       ],
     });
-    const partialSpaces = partialRegistry.spaces.map(space => space.id === 'analytics' ? { ...space, homeMenuId: 'analysis-home' } : space);
+    const partialSpaces = partialRegistry.spaces.map(space => space.id === 'mars' ? { ...space, homeMenuId: 'analysis-home' } : space);
     const withDeniedHome = createRegistry({ permissions: [menuPermission('analytics:view'), menuPermission('equipment:view'), menuPermission('metrics:view')], spaces: partialSpaces, groups: partialRegistry.groups, menus: partialRegistry.menus });
     window.history.replaceState(null, '', '/?v=1&scopeId=MEM&page=9');
     render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter(['platform:view', 'equipment:view'])} registry={withDeniedHome}><OperationsHome /></PlatformProvider></I18nProvider>);
@@ -116,7 +116,7 @@ describe('platform home launcher', () => {
   });
 
   it('lists accessible spaces in registration order and continues a stored screen', async () => {
-    tabStore.setItem('platform:space-last:u1', JSON.stringify({ metrics: '/metrics?v=1&scopeId=OLD&page=2&extra=1' }));
+    tabStore.setItem('platform:space-last:u1', JSON.stringify({ bravo: '/metrics?v=1&scopeId=OLD&page=2&extra=1' }));
     mount(BOTH);
     await settled();
     const section = screen.getByRole('region', { name: '업무 시스템' });
@@ -139,6 +139,19 @@ describe('platform home launcher', () => {
     expect(href).not.toContain('OLD');
     expect(href).not.toContain('extra=1');
     expect(tabStore.getItem('platform:space-last:u1')).toContain('page=2');
+  });
+
+  it('continues a screen stored under the former space id after the rename, and rewrites the store under the new id', async () => {
+    tabStore.setItem('platform:space-last:u1', JSON.stringify({ metrics: '/metrics?v=1&scopeId=OLD&page=2&extra=1' }));
+    mount(BOTH, undefined, undefined, { analytics: 'mars', metrics: 'bravo' });
+    await settled();
+    const cards = within(screen.getByRole('region', { name: '업무 시스템' })).getAllByRole('link');
+    expect(cards[1].textContent).toContain('이어서: 지표 카탈로그');
+    const href = cards[1].getAttribute('href') ?? '';
+    expect(href).toContain('page=2');
+    expect(href).toContain('scopeId=MEM');
+    expect(href).not.toContain('extra=1');
+    expect(Object.keys(JSON.parse(tabStore.getItem('platform:space-last:u1') ?? '{}'))).toEqual(['bravo']);
   });
 
   it('shows only the metrics card for a viewer', async () => {

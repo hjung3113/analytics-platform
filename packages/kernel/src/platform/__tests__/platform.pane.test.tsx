@@ -20,7 +20,7 @@ const entry = (id: string, path: string, over: Record<string, unknown> = {}) => 
 const registry = createRegistry({
   spaces: [testSpace({ homeMenuId: 'main' }), testSpace({ id: spaceId('operations'), label: { ko: '운영', en: 'Ops' }, permission: 'console:access', homeMenuId: 'ops' })],
   groups: [
-    { id: groupId('equipment'), label: { ko: '그룹', en: 'Group' }, icon: House, space: spaceId('analytics') },
+    { id: groupId('equipment'), label: { ko: '그룹', en: 'Group' }, icon: House, space: spaceId('mars') },
     { id: groupId('admin'), label: { ko: '운영', en: 'Ops' }, icon: House, space: spaceId('operations') },
   ],
   menus: [
@@ -354,8 +354,8 @@ describe('PaneScreenProvider — Scope and spaces', () => {
     mount(<><Probe id="main" /><Pane id="ops" initial={{ menuId: 'ops-board', params: {}, query: '?' }} spies={spies()} /></>, fixture({}, ['platform:view']).adapter);
     await flush();
     expect(at('ops').currentSpace?.id).toBe('operations');
-    expect(at('main').currentSpace?.id).toBe('analytics');
-    expect(at('ops').sidebarSpace?.id).toBe('analytics');
+    expect(at('main').currentSpace?.id).toBe('mars');
+    expect(at('ops').sidebarSpace?.id).toBe('mars');
     expect(at('ops').spaceEntry).toBe(at('main').spaceEntry);
     expect(at('ops').visibleMenus).toEqual(at('main').visibleMenus);
   });
@@ -369,7 +369,7 @@ describe('PaneScreenProvider — Scope and spaces', () => {
     expect(at('shell').global.roomNames).toBeNull();
     expect(at('shell').url.startsWith('/main')).toBe(true);
     expect(at('shell').linkTo('board-b')).toContain('scopeId=MEM');
-    expect(at('shell').spaceEntry(spaceId('analytics'))?.href).toContain('scopeId=MEM');
+    expect(at('shell').spaceEntry(spaceId('mars'))?.href).toContain('scopeId=MEM');
     act(() => { at('shell').setGlobal({ roomNames: ['M1'] }); });
     expect(at('shell').global.roomNames).toEqual(['M1']);
     expect(at('p').global.roomNames).toEqual(['R9']);
@@ -618,7 +618,7 @@ describe('PaneScreenProvider — Condition presets (ADR-0083)', () => {
     conditionPresets: [{ id: 'a', label: { ko: 'A', en: 'A' }, axes: ['stgroup', 'team'] }, { id: 'b', label: { ko: 'B', en: 'B' }, axes: ['maker', 'model'] }],
     conditionPreset: { key: 'view', default: 'a' },
   });
-  const presetRegistry = createRegistry({ spaces: [testSpace({ homeMenuId: 'presets' })], groups: [{ id: groupId('equipment'), label: { ko: '그룹', en: 'Group' }, icon: House, space: spaceId('analytics') }], menus: [presetMenu] });
+  const presetRegistry = createRegistry({ spaces: [testSpace({ homeMenuId: 'presets' })], groups: [{ id: groupId('equipment'), label: { ko: '그룹', en: 'Group' }, icon: House, space: spaceId('mars') }], menus: [presetMenu] });
   const spec = defineEndpoint<{ pane: string }, unknown>({ id: 'fx.presets', menuId: 'presets', paramKeys: { pane: true }, permission: 'platform:view', requiresScope: false, context: { condition: 'apply' }, kinds: [], mergeTimeDomain: false });
   const condition = { stgroup: ['S1'], team: ['T1'], maker: ['M1'], model: ['X1'] };
   const query = (view: string) => `?v=1&equipmentGroup=${encodeURIComponent(JSON.stringify(condition))}&view=${view}`;

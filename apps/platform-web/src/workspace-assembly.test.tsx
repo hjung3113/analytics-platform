@@ -8,7 +8,7 @@ import { appSlots } from './slots';
 import { spaceId, type PlatformAdapter } from '@ap/contracts';
 import { EQUIPMENT_AXES } from './equipmentAxes';
 
-// The gen-menu probe (tooling/gen-menu/scripts/probe.ts) adds a `genProbe` group in the analytics space and runs the
+// The gen-menu probe (tooling/gen-menu/scripts/probe.ts) adds a `genProbe` group in the mars space and runs the
 // whole suite with GEN_MENU_PROBE=1; the two tests that pin the exact decided IA skip during that run only.
 const probeRun = process.env.GEN_MENU_PROBE === '1';
 
@@ -19,7 +19,7 @@ describe('workspace assembly (#260)', () => {
     const adapter: PlatformAdapter = { ...assembly.adapter, session: () => session };
     function Probe() {
       const { spaceEntry } = usePlatform();
-      return <p data-testid="entry">{JSON.stringify(spaceEntry(spaceId('analytics')))}</p>;
+      return <p data-testid="entry">{JSON.stringify(spaceEntry(spaceId('mars')))}</p>;
     }
     vi.stubGlobal('localStorage', { getItem: () => null, setItem: () => {} });
     vi.stubGlobal('sessionStorage', { getItem: () => null, setItem: () => {} });
@@ -66,11 +66,11 @@ describe('workspace assembly (#260)', () => {
       ['overview', null],
       ['myActivity', null],
       ['noticeVoc', null],
-      ['analytics', 'analytics'],
-      ['equipment', 'analytics'],
-      ['masterData', 'analytics'],
-      ['hwTime', 'analytics'],
-      ['metrics', 'metrics'],
+      ['analytics', 'mars'],
+      ['equipment', 'mars'],
+      ['masterData', 'mars'],
+      ['hwTime', 'mars'],
+      ['metrics', 'bravo'],
       ['clas', 'clas'],
       ['admin', 'operations'],
       ['logMyWork', 'log-dev'],
@@ -86,7 +86,7 @@ describe('workspace assembly (#260)', () => {
       ['foTasks', 'feedbackops'],
       ['foIntegration', 'feedbackops'],
     ]);
-    expect(SPACES.map(space => space.id)).toEqual(['analytics', 'metrics', 'clas', 'tools', 'log-dev', 'improvement', 'operations', 'feedbackops']);
+    expect(SPACES.map(space => space.id)).toEqual(['mars', 'bravo', 'clas', 'tools', 'log-dev', 'improvement', 'operations', 'feedbackops']);
     expect(SPACES[0]).toMatchObject({
       label: { ko: 'MARS', en: 'MARS' },
       subtitle: { ko: '생산성 분석', en: 'Productivity analysis' },
@@ -183,10 +183,10 @@ describe('workspace assembly (#260)', () => {
     const slots = appSlots(assembly, null, fakeSlot, fakeVocCompose, fakeHomeTodo, fakeScopeControl, fakeNavCounts, fakeSection);
     expect(slots.topBarTools).toBe(assembly.topBarTools);
     // The real composition (#251): mapped spaces get three entries, only 설문 disabled while the origin is absent (VOC and Task are in-shell); operations has no row.
-    expect(slots.feedbackOps?.entriesFor(spaceId('metrics'))?.map(entry => [entry.key, 'href' in entry ? entry.href : undefined])).toEqual([['voc', undefined], ['task', undefined], ['survey', null]]);
+    expect(slots.feedbackOps?.entriesFor(spaceId('bravo'))?.map(entry => [entry.key, 'href' in entry ? entry.href : undefined])).toEqual([['voc', undefined], ['task', undefined], ['survey', null]]);
     expect(slots.feedbackOps?.entriesFor(spaceId('operations'))).toBeNull();
     expect(slots.feedbackOps?.overall).toBeNull();
-    expect(appSlots(assembly, 'https://feedbackops.example', fakeSlot, fakeVocCompose, fakeHomeTodo, fakeScopeControl, fakeNavCounts, fakeSection).feedbackOps?.entriesFor(spaceId('metrics'))?.filter(entry => 'href' in entry).every(entry => 'href' in entry && entry.href?.startsWith('https://feedbackops.example/'))).toBe(true);
+    expect(appSlots(assembly, 'https://feedbackops.example', fakeSlot, fakeVocCompose, fakeHomeTodo, fakeScopeControl, fakeNavCounts, fakeSection).feedbackOps?.entriesFor(spaceId('bravo'))?.filter(entry => 'href' in entry).every(entry => 'href' in entry && entry.href?.startsWith('https://feedbackops.example/'))).toBe(true);
     expect(Object.keys(slots)).toEqual(['contextBar', 'topBarTools', 'feedbackOps', 'plannedSpaces', 'boardEntry', 'notifications', 'vocCompose', 'homeTodo', 'scopeControl', 'navCounts', 'spaceNavSection']);
     expect(slots.notifications).toBe(fakeSlot);
     expect(slots.vocCompose).toBe(fakeVocCompose);
@@ -213,7 +213,7 @@ describe('workspace assembly (#260)', () => {
     vi.stubGlobal('sessionStorage', { getItem: () => null, setItem: () => {}, removeItem: () => {}, clear: () => {} });
     window.history.replaceState(null, '', '/');
     render(<I18nProvider><PlatformProvider equipmentAxes={EQUIPMENT_AXES} adapter={adapter} registry={registry} slots={slots}><Probe /></PlatformProvider></I18nProvider>);
-    expect(screen.getByTestId('spaces').textContent).toBe('metrics:BRAVO,log-dev:표준 로그 개발,improvement:개선 실행');
+    expect(screen.getByTestId('spaces').textContent).toBe('bravo:BRAVO,log-dev:표준 로그 개발,improvement:개선 실행');
     expect(screen.getByTestId('allowed').textContent).toBe('home:true,notices:true,voc:true');
     cleanup();
     vi.unstubAllGlobals();

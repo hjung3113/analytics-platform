@@ -10,8 +10,8 @@ const menu = (id: string, label: string, path: string) => ({
   requiresScope: false, context: noContext, pageType: 'overview' as const, features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: ['granularity', 'focus', 'q'],
 });
 const registry = createRegistry({
-  spaces: [testSpace({ id: spaceId('analytics'), label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'home' })],
-  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
+  spaces: [testSpace({ id: spaceId('mars'), label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'home' })],
+  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
   menus: [
     { ...menu('home', '홈', '/'), pageKeys: [] },
     menu('prod', '생산성', '/p/:id'),
@@ -43,7 +43,7 @@ describe('freezeVocContext (ADR-0070 decision 5)', () => {
       'global:metricId': ['지표·버전', 'oee v3'],
       'global:scopeId': ['Scope', 'MEM'],
     });
-    expect([context.spaceId, context.menuId]).toEqual(['analytics', 'prod']);
+    expect([context.spaceId, context.menuId]).toEqual(['mars', 'prod']);
   });
 
   it('rebuilds the address from every kept key, as an absolute URL of the route path', () => {
@@ -65,8 +65,8 @@ describe('freezeVocContext (ADR-0070 decision 5)', () => {
 
   it('carries the frozen values of the space carriedPageKeys, including a removed chip, and none when the space has none', () => {
     const carrying = createRegistry({
-      spaces: [testSpace({ id: spaceId('analytics'), label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'home', carriedPageKeys: ['q'] })],
-      groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
+      spaces: [testSpace({ id: spaceId('mars'), label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'home', carriedPageKeys: ['q'] })],
+      groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
       menus: [{ ...menu('home', '홈', '/'), pageKeys: ['q'] }, menu('prod', '생산성', '/p/:id')],
     });
     const carried = (removed?: string[]) => freezeVocContext(input({ registry: carrying, route: { menu: carrying.menus.find(entry => entry.path === '/p/:id')!, params: { id: '7' } } }), new Set(removed)).carried;
@@ -77,8 +77,8 @@ describe('freezeVocContext (ADR-0070 decision 5)', () => {
 
   it('drops returnTo: no chip, not in the address, not in carried (navigation state, #760)', () => {
     const carrying = createRegistry({
-      spaces: [testSpace({ id: spaceId('analytics'), label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'home', carriedPageKeys: ['q', 'returnTo'] })],
-      groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
+      spaces: [testSpace({ id: spaceId('mars'), label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'home', carriedPageKeys: ['q', 'returnTo'] })],
+      groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
       menus: [{ ...menu('home', '홈', '/'), pageKeys: ['q', 'returnTo'] }, { ...menu('prod', '생산성', '/p/:id'), pageKeys: ['q', 'returnTo'] }],
     });
     const context = freezeVocContext(input({ registry: carrying, page: [['q', 'x'], ['returnTo', '/origin?v=1']], route: { menu: carrying.menus.find(entry => entry.path === '/p/:id')!, params: { id: '7' } } }));
@@ -101,7 +101,7 @@ describe('freezeVocContext (ADR-0070 decision 5)', () => {
   });
 
   it('removing the menu chip drops the address but keeps the defaults-only space and menu ids', () => {
-    expect(freezeVocContext(input(), new Set(['menu']))).toMatchObject({ href: null, spaceId: 'analytics', menuId: 'prod' });
+    expect(freezeVocContext(input(), new Set(['menu']))).toMatchObject({ href: null, spaceId: 'mars', menuId: 'prod' });
   });
 
   it('keeps the membership basis with the PRC groups when there is no Condition', () => {

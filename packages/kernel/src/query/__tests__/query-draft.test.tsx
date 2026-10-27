@@ -17,7 +17,7 @@ const menu = { id: 'home', group: groupId('overview'), primary: true, path: '/',
   requiresScope: false, context: { ...noContext, time: 'apply' as const }, pageType: 'analysis' as const,
   features: { export: false, savedView: false, annotate: false, compare: false, board: true },
   pageKeys: ['filter', 'page'], contextResetKeys: ['page'], query: { mode: 'apply' as const } };
-const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: menu.label, icon: House, space: spaceId('analytics') }], menus: [menu] });
+const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: menu.label, icon: House, space: spaceId('mars') }], menus: [menu] });
 const endpoint = defineEndpoint<{}, number>({ id: 'fixture.query', menuId: 'home', permission: 'platform:view', requiresScope: false, context: { time: 'apply' }, paramKeys: {}, kinds: [], mergeTimeDomain: false });
 let draft: ReturnType<typeof useQueryDraft>;
 let platform: ReturnType<typeof useHostPlatform>;

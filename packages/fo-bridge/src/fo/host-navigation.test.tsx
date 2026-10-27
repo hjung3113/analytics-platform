@@ -21,7 +21,7 @@ const menu = (id: string, path: string, pageKeys: string[], primary = false) => 
 });
 const registry = createRegistry({
   spaces: [space],
-  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
+  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
   menus: [menu('fo-inbox', '/inbox', ['focus', 'q', 'severity', 'managedSystem', 'returnTo'], true), menu('fo-triage', '/triage', ['focus', 'managedSystem']), menu('fo-clusters', '/clusters', ['focus', 'managedSystem'])],
 });
 
@@ -112,7 +112,7 @@ describe('hostLinks().useNavigate on a mounted platform', () => {
 describe('a space that carries returnTo (#760)', () => {
   const carrying = createRegistry({
     spaces: [testSpace({ homeMenuId: 'fo-inbox', carriedPageKeys: ['managedSystem', 'returnTo'] })],
-    groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
+    groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
     menus: [menu('fo-inbox', '/inbox', ['focus', 'q', 'severity', 'managedSystem', 'returnTo'], true), menu('fo-triage', '/triage', ['focus', 'managedSystem', 'returnTo'])],
   });
   const carryingWrapper = ({ children }: { children: ReactNode }) => <I18nProvider><PlatformProvider adapter={adapter} registry={carrying}>{children}</PlatformProvider></I18nProvider>;
@@ -343,7 +343,7 @@ describe('routeSearch', () => {
 describe('a target whose menu is not in the registry', () => {
   const lone = createRegistry({
     spaces: [space],
-    groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
+    groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
     menus: [menu('fo-inbox', '/inbox', ['focus', 'q', 'severity', 'managedSystem', 'returnTo'], true)],
   });
   const loneWrapper = ({ children }: { children: ReactNode }) => <I18nProvider><PlatformProvider adapter={adapter} registry={lone}>{children}</PlatformProvider></I18nProvider>;

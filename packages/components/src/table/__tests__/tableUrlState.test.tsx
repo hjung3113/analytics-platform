@@ -15,7 +15,7 @@ const menu: MenuEntry = {
   permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'management',
   features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: ['sort', 'page', 'q', 'focus'],
 };
-const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }], menus: [menu] });
+const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }], menus: [menu] });
 const session = testSession(['platform:view']);
 
 let latest: ReturnType<typeof useTableUrlState> | null = null;

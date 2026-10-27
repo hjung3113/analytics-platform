@@ -29,7 +29,7 @@ function Ready() {
 const Loading = lazy(() => new Promise<{ default: ComponentType }>(() => {}));
 const registry = createRegistry({
   spaces: [testSpace({ homeMenuId: 'ready' })],
-  groups: [{ id: groupId('equipment'), label: { ko: '그룹', en: 'Group' }, icon: House, space: spaceId('analytics') }],
+  groups: [{ id: groupId('equipment'), label: { ko: '그룹', en: 'Group' }, icon: House, space: spaceId('mars') }],
   menus: [{ ...entry('ready', '/ready', { component: Ready }), primary: true }, entry('loading', '/loading', { component: Loading })],
 });
 const period = 'from=2026-09-01T00:00:00&to=2026-09-02T00:00:00';

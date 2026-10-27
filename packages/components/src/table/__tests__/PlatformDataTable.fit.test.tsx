@@ -17,7 +17,7 @@ afterEach(cleanup);
 
 const registryWith = (exportFeature: boolean) => createRegistry({
   spaces: [testSpace({ homeMenuId: 'fit-menu' })],
-  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
+  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
   menus: [{ id: 'fit-menu', group: groupId('overview'), primary: true, label: { ko: '맞춤', en: 'Fit' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'management', features: { export: exportFeature, savedView: false, annotate: false, compare: false }, pageKeys: [] }],
 });
 const session = testSession(['platform:view'], { user: { id: 'user-a' } });

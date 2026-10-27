@@ -7,18 +7,18 @@ describe('findForbiddenModules (#153)', () => {
       '/repo/apps/platform-web/src/main.tsx',
       '/repo/apps/platform-web/src/menus.ts',
       '/repo/packages/kernel/src/index.ts',
-      '/repo/menus/analytics/equipment/src/index.ts',
-      '/repo/menus/analytics/equipment/src/mockups.ts',
+      '/repo/menus/mars/equipment/src/index.ts',
+      '/repo/menus/mars/equipment/src/mockups.ts',
       '/repo/packages/mock-server/src/adapter.ts',
       '/repo/node_modules/@ap/mock-server/src/index.ts',
-      '/repo/menus/analytics/equipment/src/mock/index.ts',
+      '/repo/menus/mars/equipment/src/mock/index.ts',
       '/repo/apps/platform-web/src/dev/DevTools.tsx',
       'C:\\repo\\menus\\_global\\home\\src\\mock\\data.ts',
     ];
     expect(findForbiddenModules(ids)).toEqual([
       { id: '/repo/packages/mock-server/src/adapter.ts', rule: 'packages/mock-server/' },
       { id: '/repo/node_modules/@ap/mock-server/src/index.ts', rule: '@ap/mock-server' },
-      { id: '/repo/menus/analytics/equipment/src/mock/index.ts', rule: 'menus/*/*/src/mock/' },
+      { id: '/repo/menus/mars/equipment/src/mock/index.ts', rule: 'menus/*/*/src/mock/' },
       { id: '/repo/apps/platform-web/src/dev/DevTools.tsx', rule: 'apps/platform-web/src/dev/' },
       { id: 'C:\\repo\\menus\\_global\\home\\src\\mock\\data.ts', rule: 'menus/*/*/src/mock/' },
     ]);

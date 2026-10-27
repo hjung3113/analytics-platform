@@ -24,8 +24,8 @@ function menu(id: string, group: GroupId, path: string, label: string) {
   return { id, group, path, permission: 'platform:view' as const, primary: id.endsWith('-home'), label: { ko: label, en: label }, description: { ko: '', en: '' }, icon: House, requiresScope: false, context: noContext, pageType: 'overview' as const, features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] };
 }
 const registry = createRegistry({
-  spaces: [testSpace({ id: spaceId('analytics'), label: { ko: '분석', en: 'A' }, homeMenuId: 'a-home' }), testSpace({ id: spaceId('metrics'), label: { ko: '지표', en: 'M' }, homeMenuId: 'm-home' }), testSpace({ id: spaceId('operations'), label: { ko: '운영', en: 'O' }, homeMenuId: 'o-home' })],
-  groups: [{ id: groupId('analytics'), label: { ko: 'ga', en: 'ga' }, icon: House, space: spaceId('analytics') }, { id: groupId('metrics'), label: { ko: 'gm', en: 'gm' }, icon: House, space: spaceId('metrics') }, { id: groupId('admin'), label: { ko: 'go', en: 'go' }, icon: House, space: spaceId('operations') }],
+  spaces: [testSpace({ id: spaceId('mars'), label: { ko: '분석', en: 'A' }, homeMenuId: 'a-home' }), testSpace({ id: spaceId('bravo'), label: { ko: '지표', en: 'M' }, homeMenuId: 'm-home' }), testSpace({ id: spaceId('operations'), label: { ko: '운영', en: 'O' }, homeMenuId: 'o-home' })],
+  groups: [{ id: groupId('analytics'), label: { ko: 'ga', en: 'ga' }, icon: House, space: spaceId('mars') }, { id: groupId('metrics'), label: { ko: 'gm', en: 'gm' }, icon: House, space: spaceId('bravo') }, { id: groupId('admin'), label: { ko: 'go', en: 'go' }, icon: House, space: spaceId('operations') }],
   menus: [menu('a-home', groupId('analytics'), '/a', '분석 홈'), menu('m-home', groupId('metrics'), '/m', '지표 홈'), menu('m-second', groupId('metrics'), '/m/second', '지표 둘째'), menu('o-home', groupId('admin'), '/o', '운영 홈')],
 });
 
@@ -44,7 +44,7 @@ function open() {
 
 describe('SystemSwitcher space entry (B6)', () => {
   it('names the start menu from entry.menuId, not the home menu, and picks 이어서/시작 from resumed', () => {
-    override = (spaceId, real) => spaceId === 'metrics' && real ? { menuId: 'm-second', href: '/m/second?v=1', resumed: true } : real;
+    override = (spaceId, real) => spaceId === 'bravo' && real ? { menuId: 'm-second', href: '/m/second?v=1', resumed: true } : real;
     const dialog = open();
     expect(within(dialog).getByText('이어서: 지표 둘째')).toBeTruthy();
     // The current screen is admitted and remembered, so its own system reads as resumed.
@@ -53,12 +53,12 @@ describe('SystemSwitcher space entry (B6)', () => {
   });
 
   it('shows a first-menu fallback entry as 시작 with that menu', () => {
-    override = (spaceId, real) => spaceId === 'metrics' && real ? { menuId: 'm-second', href: '/m/second?v=1', resumed: false } : real;
+    override = (spaceId, real) => spaceId === 'bravo' && real ? { menuId: 'm-second', href: '/m/second?v=1', resumed: false } : real;
     expect(within(open()).getByText('시작: 지표 둘째')).toBeTruthy();
   });
 
   it('omits a card whose entry is null, keeps the others in order, and focuses the first remaining card', () => {
-    override = (spaceId, real) => spaceId === 'analytics' ? null : real;
+    override = (spaceId, real) => spaceId === 'mars' ? null : real;
     const dialog = open();
     expect(within(dialog).queryByRole('button', { name: /^분석/ })).toBeNull();
     const cards = within(dialog).getAllByRole('button').filter(button => button.hasAttribute('data-switcher-card'));

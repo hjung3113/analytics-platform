@@ -5,10 +5,10 @@ import { PACKAGE_PREFIX } from './prefix.ts';
 import { GROUPS_END, MOCK_ASSEMBLY_TSX, MENUS_TS, GenMenuError, checkInsideRoot, splitLines } from './generate.ts';
 
 export const PROBE_FOLDER = 'gen-probe';
-export const PROBE_SPACE = 'analytics';
+export const PROBE_SPACE = 'mars';
 export const PROBE_PACKAGE_REL = `menus/${PROBE_SPACE}/${PROBE_FOLDER}`;
 export const PROBE_TEST_REL = 'apps/platform-web/src/gen-probe.test.ts';
-export const PROBE_GROUPS_ROW = `  { id: groupId('genProbe'), label: { ko: '생성 확인', en: 'Gen probe' }, icon: LayoutDashboard, space: spaceId('analytics') },`;
+export const PROBE_GROUPS_ROW = `  { id: groupId('genProbe'), label: { ko: '생성 확인', en: 'Gen probe' }, icon: LayoutDashboard, space: spaceId('mars') },`;
 
 /** Fail-closed `git status --porcelain --untracked-files=all` (F8): any git failure throws. */
 export function gitPorcelain(root: string): string {

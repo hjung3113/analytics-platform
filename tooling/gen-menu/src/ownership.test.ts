@@ -36,7 +36,7 @@ describe('remove ownership is bounded to the marker region (F4)', () => {
     const after = appSnapshot(root);
     expect(after['apps/platform-web/src/menus.ts']).toBe(pristine['apps/platform-web/src/menus.ts']);
     expect(after['apps/platform-web/package.json']).toBe(pristine['apps/platform-web/package.json']);
-    expect(existsSync(join(root, 'menus', 'analytics', FIXTURE_FOLDER))).toBe(false);
+    expect(existsSync(join(root, 'menus', 'mars', FIXTURE_FOLDER))).toBe(false);
   });
 
   it('refuses an indented in-region line even when an exact copy exists outside', () => {
@@ -50,7 +50,7 @@ describe('remove ownership is bounded to the marker region (F4)', () => {
     expect(res.status).toBe(1);
     expect(res.stderr).toMatch(/not present inside its owned region/);
     expect(appSnapshot(root)).toEqual(tampered);
-    expect(existsSync(join(root, 'menus', 'analytics', FIXTURE_FOLDER))).toBe(true);
+    expect(existsSync(join(root, 'menus', 'mars', FIXTURE_FOLDER))).toBe(true);
   });
 
   it('refuses when the generated line appears twice inside the region', () => {
@@ -62,7 +62,7 @@ describe('remove ownership is bounded to the marker region (F4)', () => {
     expect(res.status).toBe(1);
     expect(res.stderr).toMatch(/appears 2 times inside its owned region/);
     expect(appSnapshot(root)).toEqual(tampered);
-    expect(existsSync(join(root, 'menus', 'analytics', FIXTURE_FOLDER))).toBe(true);
+    expect(existsSync(join(root, 'menus', 'mars', FIXTURE_FOLDER))).toBe(true);
   });
 
   it('refuses when the generated mock-assembly.tsx mock spread line appears twice inside its region', () => {
@@ -77,7 +77,7 @@ describe('remove ownership is bounded to the marker region (F4)', () => {
     expect(res.status).toBe(1);
     expect(res.stderr).toMatch(/appears 2 times inside its owned region/);
     expect(appSnapshot(root)).toEqual(tampered);
-    expect(existsSync(join(root, 'menus', 'analytics', FIXTURE_FOLDER))).toBe(true);
+    expect(existsSync(join(root, 'menus', 'mars', FIXTURE_FOLDER))).toBe(true);
   });
 
   it('removes the in-region mock import and leaves an identical copy outside the region untouched', () => {
@@ -94,6 +94,6 @@ describe('remove ownership is bounded to the marker region (F4)', () => {
     expect(after['apps/platform-web/src/menus.ts']).toBe(pristine['apps/platform-web/src/menus.ts']);
     expect(after['apps/platform-web/src/style.css']).toBe(pristine['apps/platform-web/src/style.css']);
     expect(after['apps/platform-web/package.json']).toBe(pristine['apps/platform-web/package.json']);
-    expect(existsSync(join(root, 'menus', 'analytics', FIXTURE_FOLDER))).toBe(false);
+    expect(existsSync(join(root, 'menus', 'mars', FIXTURE_FOLDER))).toBe(false);
   });
 });

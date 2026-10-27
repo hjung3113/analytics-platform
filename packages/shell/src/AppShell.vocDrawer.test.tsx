@@ -17,8 +17,8 @@ const menu = (id: string, label: string, path: string, pageKeys: string[]) => ({
   requiresScope: false, context: noContext, pageType: 'overview' as const, features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys,
 });
 const registry = createRegistry({
-  spaces: [testSpace({ id: spaceId('analytics'), label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'home' })],
-  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
+  spaces: [testSpace({ id: spaceId('mars'), label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'home' })],
+  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
   menus: [menu('home', '홈', '/', ['focus', 'granularity', 'q']), menu('other', '다른 화면', '/other', [])],
 });
 
@@ -92,8 +92,8 @@ describe('rail button (S3)', () => {
   it('sits between the analysis board and the bell in DOM order and toggles aria-expanded', () => {
     const boardMenu = { ...menu('home', '홈', '/', ['focus', 'granularity', 'q']), features: { export: false, savedView: false, annotate: false, compare: false, board: true } };
     const withBell = createRegistry({
-      spaces: [testSpace({ id: spaceId('analytics'), label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'home' })],
-      groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
+      spaces: [testSpace({ id: spaceId('mars'), label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'home' })],
+      groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
       menus: [boardMenu, menu('alerts', '알림', '/alerts', [])],
     });
     mount('/?v=1', { ...SLOTS, notifications: { menuId: 'alerts', UnreadCount: ({ children }) => <>{children(0)}</>, Recent: () => <p>recent body</p> } }, withBell);

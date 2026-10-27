@@ -9,7 +9,7 @@ import { useAxisOptions, useEquipmentSearch, useResolvedSelection } from '../sel
 import { groupId, spaceId, type PlatformAdapter } from '@ap/contracts';
 
 const axes = [{ id: 'a', label: { ko: 'A', en: 'A' }, membershipHistory: true }];
-const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: { ko: 'G', en: 'G' }, icon: House, space: spaceId('analytics') }], menus: [{ id: 'home', group: groupId('overview'), primary: true, label: { ko: 'H', en: 'H' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: true, context: noContext, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] }] });
+const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: { ko: 'G', en: 'G' }, icon: House, space: spaceId('mars') }], menus: [{ id: 'home', group: groupId('overview'), primary: true, label: { ko: 'H', en: 'H' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: true, context: noContext, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] }] });
 beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); window.history.replaceState(null, '', '/?scopeId=S'); });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 function fixture(over: Partial<PlatformAdapter>) {

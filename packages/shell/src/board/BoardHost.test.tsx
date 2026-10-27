@@ -26,7 +26,7 @@ const entry = (id: string, path: string, over: Record<string, unknown> = {}) => 
 });
 const registry = createRegistry({
   spaces: [testSpace({ homeMenuId: 'home' })],
-  groups: [{ id: groupId('equipment'), label: { ko: '그룹', en: 'Group' }, icon: House, space: spaceId('analytics') }],
+  groups: [{ id: groupId('equipment'), label: { ko: '그룹', en: 'Group' }, icon: House, space: spaceId('mars') }],
   menus: [
     { ...entry('home', '/', { component: Page, features: { ...features, board: false } }), primary: true },
     entry('alpha', '/alpha', { component: Page, label: { ko: '알파', en: 'Alpha' } }),

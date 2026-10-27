@@ -6,7 +6,7 @@ import { repoRoot } from './fixture.ts';
 
 /**
  * #548: the generated package must typecheck against the real kernel and contracts sources,
- * and its manifest test must build the Registry with the group's real space (not a fixed 'analytics').
+ * and its manifest test must build the Registry with the group's real space (not a fixed 'mars').
  * The files are served virtually from inside apps/platform-web/src so module resolution finds the
  * app's workspace links and React/Vitest types; nothing is written to the repo.
  * #771: one program for all cases, built once. The build is synchronous, and four builds in a row kept the worker's event loop
@@ -17,8 +17,8 @@ const VIRTUAL_DIR = join(ROOT, 'apps/platform-web/src/__gen-menu-typecheck__');
 
 /** One real platform group per space case, so no GroupId edit is needed. */
 const CASES: { space: string | null; group: string }[] = [
-  { space: 'analytics', group: 'analytics' },
-  { space: 'metrics', group: 'metrics' },
+  { space: 'mars', group: 'analytics' },
+  { space: 'bravo', group: 'metrics' },
   { space: 'operations', group: 'admin' },
   { space: null, group: 'noticeVoc' },
 ];
@@ -80,6 +80,6 @@ describe('generated manifest test uses the real space (#548)', () => {
       expect(test).toContain(`space: spaceId('${c.space}') }`);
       expect(test).toContain(`expect(registry.spaceOf(menu)?.id).toBe('${c.space}');`);
     }
-    if (c.space !== 'analytics') expect(test).not.toContain("'analytics'");
+    if (c.space !== 'mars') expect(test).not.toContain("'mars'");
   });
 });

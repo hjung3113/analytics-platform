@@ -13,8 +13,8 @@ type AppSpaceId = (typeof SPACES)[number]['id'] extends infer Id ? Id extends in
  */
 export const FEEDBACKOPS_MANAGED_SYSTEMS: Readonly<Partial<Record<AppSpaceId, string>>> = {
   // mock 합성 값, 실제 배포는 조립 계층이 교체
-  analytics: '4f1b2c3d-5e6f-4a7b-8c9d-0e1f2a3b4c5d',
-  metrics: '7a8b9c0d-1e2f-4a3b-9c4d-5e6f7a8b9c0d',
+  mars: '4f1b2c3d-5e6f-4a7b-8c9d-0e1f2a3b4c5d',
+  bravo: '7a8b9c0d-1e2f-4a3b-9c4d-5e6f7a8b9c0d',
 };
 
 /** The Managed System id of a space (ADR-0045), or null when it has no row or the id is not a UUID. The one lookup for the sidebar entries and the VOC 등록 form's default. */

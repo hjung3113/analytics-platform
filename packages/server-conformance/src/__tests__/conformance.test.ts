@@ -572,8 +572,8 @@ const PORTS: PortSamples = {
     ungrantedRoomRef: { type: 'equipment', id: 'MEM-DIFF-0176', scopeId: 'MEM' },
   },
   annotation: { chartId: 'fixture-chart', from: '2026-09-25T10:00:00', to: '2026-09-25T11:00:00', permission: menuPermission('analytics:view') },
-  usage: { name: 'entry', menuId: 'fixture', spaceId: spaceId('analytics'), path: '/fixture', at: 0, sessionId: 'tab' },
-  clientError: { correlationId: 'client-ref', menuId: 'fixture', spaceId: spaceId('analytics'), path: '/fixture', name: 'Error' },
+  usage: { name: 'entry', menuId: 'fixture', spaceId: spaceId('mars'), path: '/fixture', at: 0, sessionId: 'tab' },
+  clientError: { correlationId: 'client-ref', menuId: 'fixture', spaceId: spaceId('mars'), path: '/fixture', name: 'Error' },
   otherGrantedScopeId: 'FDRY',
 };
 
@@ -1023,7 +1023,7 @@ describe('server conformance kit (#145)', () => {
   it('passes every check when ports.usage is a dwell-shaped sample', async () => {
     const h = harness();
     const usage = {
-      name: 'dwell' as const, menuId: 'fixture', spaceId: spaceId('analytics'), path: '/fixture',
+      name: 'dwell' as const, menuId: 'fixture', spaceId: spaceId('mars'), path: '/fixture',
       at: 1_000, sessionId: 'tab', dwellMs: 1200, enteredAt: 500,
     };
     const results = await runServerConformance({ ...h, ports: { ...h.ports, usage } });

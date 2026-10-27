@@ -1,6 +1,6 @@
 # 09. 설비관리 — 설비 마스터 목록/상세 요구사항·와이어프레임
 
-상태: 화면 계약 노트. 구현은 `menus/analytics/equipment`(조회 전용)이고 배치·시각은 구현과 [DESIGN](../../DESIGN.md)이 기준이다. 이 문서는 아래 계약·소유 경계·결정 상태만 소유한다.
+상태: 화면 계약 노트. 구현은 `menus/mars/equipment`(조회 전용)이고 배치·시각은 구현과 [DESIGN](../../DESIGN.md)이 기준이다. 이 문서는 아래 계약·소유 경계·결정 상태만 소유한다.
 
 이 문서는 `../contract/kernel.md` §9 "설비관리" 그룹의 첫 화면 — 설비 마스터 목록 + 상세 — 를 소유한다. App Shell(헤더·사이드바·Breadcrumb·전역 Context Bar)은 `app-shell.md`의 범위이며 여기서 재정의하지 않는다. 이 화면은 첫 Consumer 후보다 — 계산 로직 없는 순수 CRUD+이력 화면이라 Kernel 계약(Menu Registry·Permission·Data Table·Detail Drawer·Audit)을 가장 적은 변수로 검증할 수 있다.
 
@@ -31,7 +31,7 @@
 
 ## 4. LAYOUT BOUNDARY
 
-배치는 구현(`menus/analytics/equipment/src/pages`)이 기준이고 Management archetype(§12.3: Page Header / Search+Filter / Data Table / Selection Actions / Detail Drawer / History-Audit) 순서를 따른다. 전역 Context 행은 이 화면이 선언한 지원 여부(§6)를 그대로 보여 주는 것이며 이 문서가 새로 정의하지 않는다.
+배치는 구현(`menus/mars/equipment/src/pages`)이 기준이고 Management archetype(§12.3: Page Header / Search+Filter / Data Table / Selection Actions / Detail Drawer / History-Audit) 순서를 따른다. 전역 Context 행은 이 화면이 선언한 지원 여부(§6)를 그대로 보여 주는 것이며 이 문서가 새로 정의하지 않는다.
 
 - room_name과 Equipment Group은 **Global Context**다. 그룹 조건은 StGroup / 분임조 / Maker+Model 중 한 축을 배타적으로 고르고 현재 결과를 조회한다. 그 결과에서 분석 대상으로 명시 선택한 설비는 `selectedEquipmentIds`에 고정한다(`equipmentIds`와 같은 ID 집합 개념, `06` §6.1/§6.4). 검색·상태·제조사만 Page Filter다.
 - CSV용 행 체크와 분석 대상 선택은 사용 목적을 구분하며, 단순 상세 열기로 전역 Selection을 바꾸지 않는다. 분석으로 보내는 동작("선택 설비로 분석", 상세의 "관련 분석")만 Selection을 명시적으로 교체한다.
@@ -50,7 +50,7 @@ React 컴포넌트 이름이나 API 선언이 아니다. Platform/Domain 경계�
 ## 6. DATA REQUIREMENTS
 
 - **식별자**: 목록·상세의 설비 키는 `equipment_id` 하나이며 모든 Site에서 유일하다. Site는 활성 Scope에서 이미 확립돼 있어야 하고 ID로 DB를 역조회하지 않는다([ADR-0004](../adr/0004-site-is-db-partition-not-column.md)). 상세 목적지 `equipment_id`와 목록의 `equipmentIds`/`selectedEquipmentIds`는 같은 식별자를 단일/집합으로 쓰며, 상세 열기에 occurrence anchor는 필요 없다.
-- **Context capability 선언(매니페스트 `menus/analytics/equipment`)**: 둘 다 `requiresScope: true`, `pageType: management`, 권한 `equipment:view`이다. 목록(`equipment-master`)은 Time `reference`, room_name·Equipment Group Condition·Selection `apply`, Lot·PPID·Recipe·metric `unsupported`다. 상세(`equipment-detail`)는 Time·room_name·Condition·Selection을 모두 `reference`로 두어 출발 Context를 보존만 하고 목적지 ID와 역할을 구분한다. Scope는 항상 적용·재검증된다.
+- **Context capability 선언(매니페스트 `menus/mars/equipment`)**: 둘 다 `requiresScope: true`, `pageType: management`, 권한 `equipment:view`이다. 목록(`equipment-master`)은 Time `reference`, room_name·Equipment Group Condition·Selection `apply`, Lot·PPID·Recipe·metric `unsupported`다. 상세(`equipment-detail`)는 Time·room_name·Condition·Selection을 모두 `reference`로 두어 출발 Context를 보존만 하고 목적지 ID와 역할을 구분한다. Scope는 항상 적용·재검증된다.
 - **page-owned 키(등록: `06` §6.1 page-key registration)**: 목록 `q`(검색어)·`status`·`maker`·`focus`(열린 Drawer의 설비 ID)·`sort`·`page`·`tab`. Global Context가 바뀌면 `page`를 지운다(`contextResetKeys`). 상세 전체 화면은 `tab`·`returnTo`. room_name(`roomNames`)·Equipment Group Condition(`equipmentGroup`)·Selection(`selectedEquipmentIds`, 기존 `equipmentIds` 대응)은 `06` §6.1의 전역 키를 소비한다. 조건 축을 조합하거나 별도 page-owned 그룹 키를 만들지 않는다. 정렬 허용 열은 데이터 필드뿐이며 미등록 값은 다른 값으로 바꾸지 않고 오류로 보인다.
 - **Scope 필터링**: 목록은 현재 요청 `scopeId`(Site 내 room_name 기준 단일 Scope, v1)에 속한 설비만 반환한다. Scope 선택지 조회와 데이터 조회는 구분한다(`06` §6.2).
 - **room_name/StGroup의 성격 차이**: room_name(PHOTO·ETCH 같은 공정명)은 보통 등록 후 유지되지만 드물게 바뀔 수 있고 같은 EquipmentID를 유지한다. 설비를 가리키는 키는 EquipmentID 하나이며 별도 설비명은 없다. StGroup·분임조 소속은 외부 공급값이며 StGroup v1 조회는 현재 소속 기준이다. 현재 소속을 유효구간의 과거 값으로 투영하지 않는다([GLOSSARY](../../GLOSSARY.md)).
@@ -79,7 +79,7 @@ React 컴포넌트 이름이나 API 선언이 아니다. Platform/Domain 경계�
 | Decided | Management archetype(Page Header/Search+Filter/Data Table/Selection Actions/Detail Drawer/History-Audit) 사용 | `06` §12.3 |
 | Decided | 목록·상세 조인 키는 `equipment_id` 하나 | `06` §6.1, `../product/domain-menus.md` |
 | Decided | 사용중지는 물리 삭제가 아니라 유효기간 종료 | `../product/domain-menus.md` |
-| Decided | 전역 Context 지원: 목록은 Time `reference` / room_name·Condition·Selection `apply` / Lot·PPID·Recipe·metric `unsupported` | 이 문서 §6, `menus/analytics/equipment` 매니페스트 |
+| Decided | 전역 Context 지원: 목록은 Time `reference` / room_name·Condition·Selection `apply` / Lot·PPID·Recipe·metric `unsupported` | 이 문서 §6, `menus/mars/equipment` 매니페스트 |
 | Decided | 목록의 `q`·`status`·`maker`·`focus`·`sort`·`page`·`tab`은 page-owned URL 키로 등록한다 | `06` §6.1 |
 | Decided | room_name은 공정명(PHOTO·ETCH 등)이며 드물게 변경 가능·ID 유지. 설비 키는 EquipmentID 하나(별도 설비명 없음, 2026-10-07 사용자). StGroup은 현재 외부 소속 사용 | `GLOSSARY.md` |
 | Open | StGroup·분임조 소속을 제외한 미배정 필드별 원천 소유자 배정. 속성 편집·사용중지/복원 쓰기 구현의 선행 조건 | `../architecture/architecture-and-data-contract.md` 「마스터 데이터 수정 권한의 원천」 |

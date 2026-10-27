@@ -4,7 +4,7 @@ import type { RoleId } from '../world';
 import { spaceId, type ClientErrorReport } from '@ap/contracts';
 
 const report = (over: Partial<ClientErrorReport> = {}): ClientErrorReport => ({
-  correlationId: 'client-1a2b-c3d4', menuId: 'equipment-master', spaceId: spaceId('analytics'), path: '/equipment', name: 'TypeError', ...over,
+  correlationId: 'client-1a2b-c3d4', menuId: 'equipment-master', spaceId: spaceId('mars'), path: '/equipment', name: 'TypeError', ...over,
 });
 
 let previousRole: RoleId = getRole();
@@ -33,10 +33,10 @@ describe('client error reports (issue #101)', () => {
     expect(storedClientErrors()[0].spaceId).toBeNull();
   });
 
-  it('accepts metrics and rejects a malformed space id', async () => {
-    expect(await reportClientError(report({ spaceId: spaceId('metrics') }))).toEqual({ accepted: true });
+  it('accepts bravo and rejects a malformed space id', async () => {
+    expect(await reportClientError(report({ spaceId: spaceId('bravo') }))).toEqual({ accepted: true });
     expect(await reportClientError(report({ correlationId: 'client-feedback', spaceId: 'a b' as never }))).toEqual({ accepted: false });
-    expect(storedClientErrors().map(row => row.spaceId)).toEqual(['metrics']);
+    expect(storedClientErrors().map(row => row.spaceId)).toEqual(['bravo']);
   });
 
   it.each([

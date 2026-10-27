@@ -13,7 +13,7 @@ const entry = (id: string, path: string, label: string): PlatformMenuEntry => ({
 });
 const registry = createRegistry({
   spaces: [testSpace()],
-  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
+  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
   menus: [entry('home', '/', '홈'), entry('target', '/target', '대상')],
 });
 

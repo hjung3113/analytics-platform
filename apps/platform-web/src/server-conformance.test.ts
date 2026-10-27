@@ -115,8 +115,8 @@ describeServerConformance('server boundary conformance — mock adapter', {
       ungrantedRoomRef: { type: 'equipment', id: 'MEM-DIFF-0176', scopeId: 'MEM' },
     },
     annotation: { chartId: 'cycle-time-trend', from: '2026-09-25T10:00:00', to: '2026-09-25T11:00:00', permission: menuPermission('analytics:view') },
-    usage: { name: 'entry', menuId: 'equipment', spaceId: spaceId('analytics'), path: '/equipment', at: Date.now(), sessionId: 'conformance-tab' },
-    clientError: { correlationId: 'client-conformance', menuId: 'equipment', spaceId: spaceId('analytics'), path: '/equipment', name: 'TypeError' },
+    usage: { name: 'entry', menuId: 'equipment', spaceId: spaceId('mars'), path: '/equipment', at: Date.now(), sessionId: 'conformance-tab' },
+    clientError: { correlationId: 'client-conformance', menuId: 'equipment', spaceId: spaceId('mars'), path: '/equipment', name: 'TypeError' },
     otherGrantedScopeId: 'FDRY',
   },
   asGranted: async fn => {

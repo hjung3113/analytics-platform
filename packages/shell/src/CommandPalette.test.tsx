@@ -18,12 +18,12 @@ const menu = (id: string, group: GroupId, path: string, label: { ko: string; en:
 
 const registry = createRegistry({
   spaces: [
-    testSpace({ id: spaceId('analytics'), label: { ko: 'MARS', en: 'MARS' }, subtitle: { ko: '생산성 분석', en: 'Productivity analysis' }, homeMenuId: 'home' }),
+    testSpace({ id: spaceId('mars'), label: { ko: 'MARS', en: 'MARS' }, subtitle: { ko: '생산성 분석', en: 'Productivity analysis' }, homeMenuId: 'home' }),
     testSpace({ id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations console' }, permission: 'console:access', homeMenuId: 'roles' }),
   ],
   groups: [
-    { id: groupId('overview'), label: { ko: '분석', en: 'Analytics' }, icon: House, space: spaceId('analytics') },
-    { id: groupId('equipment'), label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: spaceId('analytics') },
+    { id: groupId('overview'), label: { ko: '분석', en: 'Analytics' }, icon: House, space: spaceId('mars') },
+    { id: groupId('equipment'), label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: spaceId('mars') },
     { id: groupId('admin'), label: { ko: '관리·감사', en: 'Administration' }, icon: House, space: spaceId('operations') },
     { id: groupId('noticeVoc'), label: { ko: '공지·VOC', en: 'Notice & VOC' }, icon: House, space: null },
   ],
@@ -115,13 +115,13 @@ describe('CommandPalette space bundles (06 §9.1)', () => {
     expect(screen.getAllByRole('option').map(option => option.id)).toEqual([
       'palette-equipment', 'palette-home', 'palette-roles', 'palette-notices',
     ]);
-    expect(screen.getByRole('group', { name: 'MARS' })).toHaveAttribute('aria-labelledby', 'palette-heading-analytics');
+    expect(screen.getByRole('group', { name: 'MARS' })).toHaveAttribute('aria-labelledby', 'palette-heading-mars');
     expect(screen.getByRole('group', { name: '운영 콘솔' })).toHaveAttribute('aria-labelledby', 'palette-heading-operations');
     expect(screen.getByRole('group', { name: '플랫폼' })).toHaveAttribute('aria-labelledby', 'palette-heading-platform');
-    expect(document.getElementById('palette-heading-analytics')).toHaveTextContent('MARS');
+    expect(document.getElementById('palette-heading-mars')).toHaveTextContent('MARS');
     expect(subtitle('palette-home')).toBe('MARS › 분석 › 홈');
     expect(subtitle('palette-equipment')).toBe('MARS › 설비관리 › 설비');
-    expect(document.getElementById('palette-heading-analytics')).not.toHaveTextContent('생산성 분석');
+    expect(document.getElementById('palette-heading-mars')).not.toHaveTextContent('생산성 분석');
     expect(screen.getByRole('listbox').textContent).not.toContain('생산성 분석');
     expect(subtitle('palette-roles')).toBe('운영 콘솔 › 관리·감사 › 권한');
     expect(subtitle('palette-notices')).toBe('플랫폼 › 공지·VOC › 공지 · 예정');
@@ -132,12 +132,12 @@ describe('CommandPalette space bundles (06 §9.1)', () => {
 
   // MENUS order (notices, permission-gated survey, alerts, home) differs from GROUPS order (overview, myActivity, noticeVoc).
   const globalOrderRegistry = createRegistry({
-    spaces: [testSpace({ id: spaceId('analytics'), label: { ko: 'MARS', en: 'MARS' }, homeMenuId: 'equipment' })],
+    spaces: [testSpace({ id: spaceId('mars'), label: { ko: 'MARS', en: 'MARS' }, homeMenuId: 'equipment' })],
     groups: [
       { id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: null },
       { id: groupId('myActivity'), label: { ko: '내 활동', en: 'My activity' }, icon: House, space: null },
       { id: groupId('noticeVoc'), label: { ko: '공지·VOC', en: 'Notice & VOC' }, icon: House, space: null },
-      { id: groupId('equipment'), label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: spaceId('analytics') },
+      { id: groupId('equipment'), label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: spaceId('mars') },
     ],
     menus: [
       menu('notices', groupId('noticeVoc'), '/notices', { ko: '공지', en: 'Notices' }, { primary: true, permission: 'notice:view', component: page }),
@@ -185,7 +185,7 @@ describe('CommandPalette space bundles (06 §9.1)', () => {
       expect(group?.role).toBe('group');
       expect(group && nearestRole(group.el)?.role).toBe('listbox');
     }
-    const heading = document.getElementById('palette-heading-analytics');
+    const heading = document.getElementById('palette-heading-mars');
     expect(heading).toBeTruthy();
     expect(ariaRole(heading!)).toBeNull();
     expect(heading!.closest('[role="option"]')).toBeNull();
@@ -367,7 +367,7 @@ function mountNavigation({ delayed = false, denied = false, url = '/home?v=1', c
       <PlatformLink href={cold ? '/equipment?v=1&metricId=CT' : '/equipment?v=1'}>equipment link</PlatformLink>
       <PlatformLink href="/admin/roles?v=1">denied link</PlatformLink>
       <button onClick={() => switchSpace(spaceId('operations'))}>switch operations</button>
-      <button onClick={() => switchSpace(spaceId('analytics'))}>switch analytics</button>
+      <button onClick={() => switchSpace(spaceId('mars'))}>switch analytics</button>
       <button onClick={() => navigate('/home?v=1')}>another navigation</button>
       <button onClick={() => navigate('/equipment?v=1', { replace: true })}>replace navigation</button>
       <button onClick={() => setPaletteOpen(true)}>reopen palette</button>
@@ -479,7 +479,7 @@ describe('menu navigation page focus (06 §26)', () => {
 
   it.each([false, true])('focuses space entry h1 (saved last screen=%s)', async saved => {
     mountNavigation();
-    if (saved) sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ operations: '/admin/roles?v=1', analytics: '/equipment?v=1&filter=stored' }));
+    if (saved) sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ operations: '/admin/roles?v=1', mars: '/equipment?v=1&filter=stored' }));
     fireEvent.click(screen.getByRole('button', { name: 'switch operations' }));
     await waitForClose();
     await waitFor(() => expect(screen.getByRole('heading', { name: '권한' })).toHaveFocus());

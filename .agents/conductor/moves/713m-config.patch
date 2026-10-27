@@ -1,0 +1,1157 @@
+diff --color --no-dereference -ruN -x .git -x node_modules -x pnpm-lock.yaml -x moves pa/apps/platform-web/src/feedbackops-systems.test.ts pb/apps/platform-web/src/feedbackops-systems.test.ts
+--- pa/apps/platform-web/src/feedbackops-systems.test.ts	2026-10-27 14:03:11
++++ pb/apps/platform-web/src/feedbackops-systems.test.ts	2026-10-27 14:02:53
+@@ -11,8 +11,8 @@
+ afterEach(() => { vi.restoreAllMocks(); });
+ 
+ describe('FEEDBACKOPS_MANAGED_SYSTEMS (ADR-0045)', () => {
+-  it('maps analytics and metrics to distinct v4 uuids and leaves operations without a row', () => {
+-    expect(Object.keys(FEEDBACKOPS_MANAGED_SYSTEMS).sort()).toEqual(['analytics', 'metrics']);
++  it('maps mars and bravo to distinct v4 uuids and leaves operations without a row', () => {
++    expect(Object.keys(FEEDBACKOPS_MANAGED_SYSTEMS).sort()).toEqual(['bravo', 'mars']);
+     const values = Object.values(FEEDBACKOPS_MANAGED_SYSTEMS);
+     for (const value of values) expect(value).toMatch(UUID);
+     expect(new Set(values).size).toBe(values.length);
+@@ -32,7 +32,7 @@
+ 
+ describe('managedSystemFor', () => {
+   it.each([
+-    ['a mapped space', 'analytics', FEEDBACKOPS_MANAGED_SYSTEMS.analytics],
++    ['a mapped space', 'mars', FEEDBACKOPS_MANAGED_SYSTEMS.mars],
+     ['a space without a row', 'operations', null],
+     ['an unknown space', 'nowhere', null],
+     ['no space', null, null],
+@@ -41,13 +41,13 @@
+   });
+ 
+   it('returns null for a mapped value that is not a uuid', () => {
+-    vi.spyOn(FEEDBACKOPS_MANAGED_SYSTEMS as Record<string, string>, 'analytics', 'get').mockReturnValue('MEM');
+-    expect(managedSystemFor('analytics')).toBeNull();
++    vi.spyOn(FEEDBACKOPS_MANAGED_SYSTEMS as Record<string, string>, 'mars', 'get').mockReturnValue('MEM');
++    expect(managedSystemFor('mars')).toBeNull();
+   });
+ });
+ 
+ describe('feedbackOpsSlot', () => {
+-  it.each(['analytics', 'metrics'] as const)('draws three entries for %s, in order, scoped to that space only: VOC and Task in the shell, only 설문 as a new-tab link', space => {
++  it.each(['mars', 'bravo'] as const)('draws three entries for %s, in order, scoped to that space only: VOC and Task in the shell, only 설문 as a new-tab link', space => {
+     const entries = feedbackOpsSlot(F).entriesFor(spaceId(space))!;
+     const uuid = FEEDBACKOPS_MANAGED_SYSTEMS[space]!;
+     expect(entries.map(entry => entry.key)).toEqual(['voc', 'task', 'survey']);
+@@ -80,7 +80,7 @@
+   });
+ 
+   it('gives a space no block when its mapped value is not a uuid', () => {
+-    vi.spyOn(FEEDBACKOPS_MANAGED_SYSTEMS as Record<string, string>, 'analytics', 'get').mockReturnValue('MEM');
++    vi.spyOn(FEEDBACKOPS_MANAGED_SYSTEMS as Record<string, string>, 'mars', 'get').mockReturnValue('MEM');
+     expect(feedbackOpsSlot(F).entriesFor(spaceId('mars'))).toBeNull();
+   });
+ 
+@@ -94,7 +94,7 @@
+     const entries = slot.entriesFor(spaceId('mars'))!;
+     expect(entries.map(hrefOf)).toEqual([undefined, undefined, null]);
+     expect(entries[0]).toMatchObject({ menuId: 'fo-inbox' });
+-    expect(entries[1]).toMatchObject({ menuId: 'fo-task-list', page: { managedSystem: FEEDBACKOPS_MANAGED_SYSTEMS.analytics } });
++    expect(entries[1]).toMatchObject({ menuId: 'fo-task-list', page: { managedSystem: FEEDBACKOPS_MANAGED_SYSTEMS.mars } });
+     expect(slot.entriesFor(spaceId('operations'))).toBeNull();
+     expect(slot.overall).toBeNull();
+   });
+diff --color --no-dereference -ruN -x .git -x node_modules -x pnpm-lock.yaml -x moves pa/apps/platform-web/src/main.tsx pb/apps/platform-web/src/main.tsx
+--- pa/apps/platform-web/src/main.tsx	2026-10-27 14:03:11
++++ pb/apps/platform-web/src/main.tsx	2026-10-27 14:02:53
+@@ -17,7 +17,7 @@
+ import { managedSystemFor } from './feedbackops-systems';
+ import { createLocalQueryHistoryStore } from './query-history-store';
+ import { EQUIPMENT_AXES } from './equipmentAxes';
+-import { registry } from './menus';
++import { registry, SPACE_ID_MIGRATIONS } from './menus';
+ import { appSlots } from './slots';
+ import { startOrFail } from './startup-failure';
+ import { AppShell, RouteOutlet } from '@ap/shell';
+@@ -50,7 +50,7 @@
+   root.render(
+     <StrictMode>
+       <I18nProvider>
+-        <PlatformProvider queryHistory={queryHistory} equipmentAxes={EQUIPMENT_AXES} adapter={assembly.adapter} registry={registry} location={location} slots={appSlots(assembly, feedbackOpsOrigin, notificationsSlot, vocCompose, homeTodoSlot, scopeControlSlot, navCountsSlot, savedViewsSlot)}>
++        <PlatformProvider spaceIdMigrations={SPACE_ID_MIGRATIONS} queryHistory={queryHistory} equipmentAxes={EQUIPMENT_AXES} adapter={assembly.adapter} registry={registry} location={location} slots={appSlots(assembly, feedbackOpsOrigin, notificationsSlot, vocCompose, homeTodoSlot, scopeControlSlot, navCountsSlot, savedViewsSlot)}>
+           <AppShell><RouteOutlet /></AppShell>
+         </PlatformProvider>
+       </I18nProvider>
+diff --color --no-dereference -ruN -x .git -x node_modules -x pnpm-lock.yaml -x moves pa/apps/platform-web/src/menus.ts pb/apps/platform-web/src/menus.ts
+--- pa/apps/platform-web/src/menus.ts	2026-10-27 14:03:11
++++ pb/apps/platform-web/src/menus.ts	2026-10-27 14:02:53
+@@ -63,6 +63,9 @@
+   // </gen:menu-groups>
+ ];
+ 
++/** Former space id → current id (ADR-0090 D3, 713m). The kernel moves a tab's per-space resume entry once; usage records already stored keep the former id. */
++export const SPACE_ID_MIGRATIONS: Readonly<Record<string, string>> = { analytics: 'mars', metrics: 'bravo' };
++
+ /** SPACES stays separate from GROUPS so the folder-space invariant reads each declaration independently. */
+ export const SPACES = [
+   { id: spaceId('mars'), label: { ko: 'MARS', en: 'MARS' }, subtitle: { ko: '생산성 분석', en: 'Productivity analysis' }, description: { ko: '설비·기간별 생산성과 사이클타임을 분석합니다.', en: 'Analyze productivity and cycle time by equipment and period.' }, homeMenuId: 'productivity-overview' },
+diff --color --no-dereference -ruN -x .git -x node_modules -x pnpm-lock.yaml -x moves pa/apps/platform-web/src/workspace-assembly.test.tsx pb/apps/platform-web/src/workspace-assembly.test.tsx
+--- pa/apps/platform-web/src/workspace-assembly.test.tsx	2026-10-27 14:03:11
++++ pb/apps/platform-web/src/workspace-assembly.test.tsx	2026-10-27 14:02:53
+@@ -8,7 +8,7 @@
+ import { spaceId, type PlatformAdapter } from '@ap/contracts';
+ import { EQUIPMENT_AXES } from './equipmentAxes';
+ 
+-// The gen-menu probe (tooling/gen-menu/scripts/probe.ts) adds a `genProbe` group in the analytics space and runs the
++// The gen-menu probe (tooling/gen-menu/scripts/probe.ts) adds a `genProbe` group in the mars space and runs the
+ // whole suite with GEN_MENU_PROBE=1; the two tests that pin the exact decided IA skip during that run only.
+ const probeRun = process.env.GEN_MENU_PROBE === '1';
+ 
+@@ -66,11 +66,11 @@
+       ['overview', null],
+       ['myActivity', null],
+       ['noticeVoc', null],
+-      ['analytics', 'analytics'],
+-      ['equipment', 'analytics'],
+-      ['masterData', 'analytics'],
+-      ['hwTime', 'analytics'],
+-      ['metrics', 'metrics'],
++      ['analytics', 'mars'],
++      ['equipment', 'mars'],
++      ['masterData', 'mars'],
++      ['hwTime', 'mars'],
++      ['metrics', 'bravo'],
+       ['clas', 'clas'],
+       ['admin', 'operations'],
+       ['logMyWork', 'log-dev'],
+@@ -86,7 +86,7 @@
+       ['foTasks', 'feedbackops'],
+       ['foIntegration', 'feedbackops'],
+     ]);
+-    expect(SPACES.map(space => space.id)).toEqual(['analytics', 'metrics', 'clas', 'tools', 'log-dev', 'improvement', 'operations', 'feedbackops']);
++    expect(SPACES.map(space => space.id)).toEqual(['mars', 'bravo', 'clas', 'tools', 'log-dev', 'improvement', 'operations', 'feedbackops']);
+     expect(SPACES[0]).toMatchObject({
+       label: { ko: 'MARS', en: 'MARS' },
+       subtitle: { ko: '생산성 분석', en: 'Productivity analysis' },
+@@ -213,7 +213,7 @@
+     vi.stubGlobal('sessionStorage', { getItem: () => null, setItem: () => {}, removeItem: () => {}, clear: () => {} });
+     window.history.replaceState(null, '', '/');
+     render(<I18nProvider><PlatformProvider equipmentAxes={EQUIPMENT_AXES} adapter={adapter} registry={registry} slots={slots}><Probe /></PlatformProvider></I18nProvider>);
+-    expect(screen.getByTestId('spaces').textContent).toBe('metrics:BRAVO,log-dev:표준 로그 개발,improvement:개선 실행');
++    expect(screen.getByTestId('spaces').textContent).toBe('bravo:BRAVO,log-dev:표준 로그 개발,improvement:개선 실행');
+     expect(screen.getByTestId('allowed').textContent).toBe('home:true,notices:true,voc:true');
+     cleanup();
+     vi.unstubAllGlobals();
+diff --color --no-dereference -ruN -x .git -x node_modules -x pnpm-lock.yaml -x moves pa/docs/adr/0090-repo-structure-by-branch.md pb/docs/adr/0090-repo-structure-by-branch.md
+--- pa/docs/adr/0090-repo-structure-by-branch.md	2026-10-27 13:50:03
++++ pb/docs/adr/0090-repo-structure-by-branch.md	2026-10-27 14:02:53
+@@ -15,6 +15,7 @@
+ - **D1 FeedbackOps 위치.** A `products/feedbackops/` 유지 / **B 루트 `apps/`·`packages/`로 펼침(선택)** / C 별도 저장소 분리.
+ - **D2 메뉴 폴더 깊이.** A 한 단계로 평탄화 / B `menus/<그룹>`만 / **C `menus/<시스템>/<그룹>` 두 단계 유지 + D3으로 이름 반복 해소(선택)**.
+ - **D3 공간 id.** A 유지 / **B `analytics`→`mars`, `metrics`→`bravo`, 그룹 id 유지, 저장된 공간 재개 키 이행 포함(선택)** / C 그룹 id까지 변경.
++  - 결과(713m): 공간 id가 `mars`·`bravo`로 확정됐다. 앱이 `SPACE_ID_MIGRATIONS`를 `PlatformProvider.spaceIdMigrations`로 넘겨 탭의 옛 재개 키를 한 번 새 키로 옮기고, 이미 쌓인 사용 기록은 옛 id로 남는다.
+ - **D4 소유.** **A 그룹 단위 소유 + 시스템·그룹 폴더 `CODEOWNERS`(선택)** / B 시스템 단위 소유 / C 메뉴 단위 소유.
+ - **D5 메뉴 버전.** A 단일 버전 / B 메뉴 패키지별 발행 / **C 메뉴 패키지별 내부 버전 + CHANGELOG(발행 없음) + 기대는 SDK 버전 범위(선택)**.
+ 
+diff --color --no-dereference -ruN -x .git -x node_modules -x pnpm-lock.yaml -x moves pa/docs/contract/kernel.md pb/docs/contract/kernel.md
+--- pa/docs/contract/kernel.md	2026-10-27 14:03:12
++++ pb/docs/contract/kernel.md	2026-10-27 14:02:53
+@@ -315,7 +315,7 @@
+ - **전역 유틸리티 메뉴(Decided, 2026-10-09, [ADR-0028](../adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md)):** 플랫폼 홈·공지·내 VOC는 어떤 공간에도 속하지 않는다. 자기 메뉴 권한(`platform:view`·`notice:view`·`voc:view`)으로만 판정하고 공간 진입 권한을 거치지 않으며, 접근 가능한 공간 수에 들지 않는다. 이 화면에서는 업무 공간 사이드바를 붙이지 않고 레일의 공간 표식도 끈다. 명령 팔레트에서는 공간이 아닌 별도 묶음(플랫폼)으로 보인다. Registry 표현: `GroupDef.space: null`(명시 필수). 다른 메뉴를 전역으로 올리려면 이 규칙을 개정한다. **개정(Decided, 2026-10-22, [ADR-0070](../adr/0070-global-features-platform-menu-and-voc-drawer.md)):** 전역 메뉴에 알림·설문·권한 요청을 더한다(각자 자기 메뉴 권한, 알림·설문·권한 요청은 #594의 뒤 PR이 자기 권한을 정하기 전까지 `platform:view`를 쓴다 — `PERMISSIONS`는 서버 읽기와 함께 추가한다, ADR-0068). 권한 요청은 `platform:view`를 그대로 둔다 — 로그인한 모두가 요청할 수 있고 요청별 판정은 FeedbackOps 서버가 한다(#657 결정, 2026-10-24). 전역 화면에는 업무 공간 사이드바 대신 플랫폼 사이드바(`홈` / `내 활동` / `공지`)를 붙인다. 업무 공간 안에서는 전환기 팝오버의 `플랫폼 메뉴` 구역이 같은 목적지를 연다. `플랫폼`을 공간으로 만들지 않는다(15 §3.2).
+ - **FeedbackOps(협업):** 별도 공간이 아니고, 화면을 플랫폼으로 옮기지도 않는다([ADR-0027](../adr/0027-feedbackops-stays-standalone-entry-links.md)). 각 공간 사이드바에 그 시스템의 Managed System으로 좁힌 FeedbackOps 진입(VOC·Task·설문)을 두고 새 탭으로 연다(#595 구현 때 ADR-0081로 바뀐다, 구현 안 함). 공간에 대응하는 매핑이 없으면 진입을 그리지 않는다. 전체 협업 허브는 FeedbackOps 자체 화면이며 플랫폼은 시스템 범위 없는 진입 링크만 둔다(링크 노출 권한은 Candidate, 내용 판정은 FeedbackOps). 진입은 사이드바 바닥 고정 블록이고, 전체 링크는 레일 하단 도구 영역 맨 위다([ADR-0028](../adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md), 15 §3.1). (ADR-0070: 블록의 `VOC 등록`은 레일로 옮기고, 전체 링크는 #595 전까지 사용자 메뉴에 둔다)
+ - **기존 메뉴 귀속(Decided, 2026-10-09, [ADR-0028](../adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md)):** 운영 개요(플랫폼 현황)는 홈 런처에 합친다. 설비관리·기준정보관리는 생산성 분석 공간(분석 그룹 다음), 관리·감사는 운영 콘솔, 공지·내 VOC는 전역 유틸리티다. 경로와 메뉴 권한은 바꾸지 않는다. 가공 상태 조회처럼 아직 없는 메뉴는 만들 때 정한다. 사용자용 VOC·설문의 1단계 읽기·원본 화면 쓰기 규칙은 [저장소 연결 문서](../integration/repository-layout.md#feedbackops-통합-방식-decided-2026-09-26)를 따른다.
+-- **공간별 마지막 화면 복원(Decided, 2026-10-09, [ADR-0028](../adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md)):** 레일·홈 카드로 공간에 들어가면 그 공간의 마지막 화면으로 간다. 사용자+공간별로 탭 세션 범위에 저장하고(기기·세션 간 동기화 없음), 가기 전에 경로·메뉴 권한·공간 진입·등록 page key를 다시 확인한다. 실패하면 공간 홈, 공간 홈을 열 수 없으면 그 공간에서 열 수 있는 첫 메뉴(사이드바 순서)로 간다. 현재 공간을 다시 누르면 아무 일도 하지 않는다. 전역 Context는 지금 값을 쓰고 공간마다 과거 값을 되살리지 않는다.
++- **공간별 마지막 화면 복원(Decided, 2026-10-09, [ADR-0028](../adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md)):** 레일·홈 카드로 공간에 들어가면 그 공간의 마지막 화면으로 간다. 사용자+공간별로 탭 세션 범위에 저장하고(기기·세션 간 동기화 없음), 가기 전에 경로·메뉴 권한·공간 진입·등록 page key를 다시 확인한다. 실패하면 공간 홈, 공간 홈을 열 수 없으면 그 공간에서 열 수 있는 첫 메뉴(사이드바 순서)로 간다. 현재 공간을 다시 누르면 아무 일도 하지 않는다. 전역 Context는 지금 값을 쓰고 공간마다 과거 값을 되살리지 않는다. 앱이 공간 id를 바꿀 때를 위해 `PlatformProvider`가 선택 prop `spaceIdMigrations`(옛 id → 새 id)를 받아 옛 키로 저장된 마지막 주소를 읽을 때 새 id로 옮긴다(새 키가 있으면 새 키 우선, 쓰기는 새 id만; 2026-10-27, 713m D3, [ADR-0090](../adr/0090-repo-structure-by-branch.md)).
+ 
+ - **노출:** 공간 전환은 레일 맨 위 업무 시스템 전환기(팝오버 카드, 15 §3.2·ADR-0042, 2026-10-19)로 한다. 카드를 고르면 사이드바와 레일 섹션이 대상 공간 것으로 바뀌고 포털 재진입을 강제하지 않는다. 카드는 `accessibleSpaces` 중 `spaceEntry`가 있는 것만 레지스트리 순서로 그리고, 보조 문구는 `이어서: <메뉴>`(검증된 마지막 화면) 또는 `시작: <메뉴>`다. 현재 공간 카드를 다시 고르면 이동 없이 닫고 전환기 버튼으로 포커스를 돌린다. 전환기는 레일 하나에만 둔다 — 사이드바 머리 전환기나 사이드바 탭을 두지 않는다(ADR-0028). 접근 가능한 공간이 하나여도, 공간 밖 화면에서도 전환기는 있다(공간 밖에서는 현재 표식이 없다). 공간이 하나뿐인 사용자는 카드 하나와 `플랫폼 홈`을 본다. 공간 안에서는 레일 섹션 버튼(그룹 단위)이 같은 공간의 다른 섹션으로 보내며 현재 섹션을 누르면 아무 일도 없다. 현재 섹션은 `aria-current="true"`다(`page`는 현재 메뉴만). 공간 진입 권한도 §17 규칙을 따른다(비노출 + 직접 URL은 서버 검증).
+ - **Context:** 공간 전환은 §6.4의 셸 내비게이션과 같은 규칙을 따른다. 등록된 전역 Context(Scope·기간·설비 선택 등)는 전부 보존하고, 대상 화면이 지원·검증한 값만 적용한다. 예: 사용자용 가공 상태 조회에서 본 설비·기간으로 개발자용 트레이스를 바로 연다.
+diff --color --no-dereference -ruN -x .git -x node_modules -x pnpm-lock.yaml -x moves pa/docs/integration/sdk-git-tag-consumption.md pb/docs/integration/sdk-git-tag-consumption.md
+--- pa/docs/integration/sdk-git-tag-consumption.md	2026-10-27 14:03:12
++++ pb/docs/integration/sdk-git-tag-consumption.md	2026-10-27 14:02:53
+@@ -34,6 +34,7 @@
+ | 다음 릴리스 | components | 동작 수정(#964, #967) — `PanelWorkspace`·`DockLayout`의 숨은 패널 안 중첩 dock가 최대화한 패널 위에 그려지던 문제(`.ap-dock .dv-view`가 `visibility`를 상속), 최대화 중 폭이 바뀌었다 돌아온 뒤 `원래 크기로`가 분할 비율을 틀어지게 하던 문제(해제 때 항상 저장된 분할을 다시 적용) | 없음 — 소비자 코드 변경 불필요 |
+ | 다음 릴리스 | kernel·components·shell | 추가·동작 바뀜(#952) — `@ap/kernel`의 `objectParticle(name)`(→ `을`/`를`)과 `queryMissingSentence(lang, label)`. 조회 전(idle) 안내의 `…을(를) 선택하세요`는 받침에 맞는 조사로 나오고, `QueryView`(결과 영역)와 `QueryBar`가 같은 문장을 쓴다. 누락된 `roomNames` 항목의 라벨은 `room_name`이 아니라 `공정`(`Process`)이다(`CONTEXT_LABELS`는 그대로) | 없음 — `기간을(를) 선택하세요`·`room_name을(를) 선택하세요`를 고정한 테스트는 `기간을 선택하세요`·`공정을 선택하세요`로 바꾼다 |
+ | 다음 릴리스 | components·shell | 추가·동작 바뀜(#978 UX-2) — `@ap/components/dock`의 `DockLayout`에 선택 prop `canDropAt(drop)`과 타입 `DockDrop`. 거짓이면 그 자리에 드롭 미리보기를 그리지 않고 드롭을 거절한다(prop이 없으면 지금과 같다). 분석 보드는 표시 영역이 4개일 때 다른 영역 가장자리의 분할 미리보기를 그리지 않는다 | 없음 — 소비자 코드 변경 불필요 |
++| 다음 릴리스 | kernel | 추가(#713 713m, D3) — `PlatformProvider`가 선택 prop `spaceIdMigrations`를 받는다(`Readonly<Record<string, string>>`: 옛 공간 id → 새 공간 id). 옛 id로 저장된 공간별 마지막 주소(`platform:space-last:<userId>`)를 새 id로 이어 준다. | 소비자 할 일 없음(prop을 안 넘기면 동작 그대로). 공간 id를 바꾼 앱만 넘긴다 |
+ | `sdk-v0.17.0` | kernel·shell·fo-bridge | 추가(#946 Q8) — `@ap/kernel`의 `UNDO_WINDOW_MS`(8000). 되돌리기 창은 이 값 하나이고 보드 되돌리기와 FeedbackOps 다리가 같이 쓴다. 액션 토스트는 `durationMs`가 없으면 닫을 때까지 남으므로(#946) 되돌리기는 `durationMs: UNDO_WINDOW_MS`를 준다 | 자체 되돌리기 토스트를 띄우는 소비자는 `durationMs: UNDO_WINDOW_MS`를 쓴다 |
+ | `sdk-v0.17.0` | ui | 동작 바뀜(#946 Q9) — `ListToolbar`가 `data-toolbar-height`를 더 내보내지 않고(두 줄이면 고정 `50`이 거짓이고 측정값을 읽는 곳도 없음) 고정 표지 `data-list-toolbar`를 둔다. `ListShell`·`ShellHeader`의 `data-toolbar-height="50"`은 그대로 | `ListToolbar`를 `[data-toolbar-height]`로 찾던 테스트는 `[data-list-toolbar]`로 |
+ | `sdk-v0.17.0` | shell | 동작 바뀜(#956 UX-1·UX-3) — 분석 보드 칸의 기간 칩과 칸 비교 값이 `formatPeriod` 표기(`09-25 09:00 → 09-26 09:00 (24h)`)다(이전 `2026-09-25 09:00 ~ 2026-09-26 09:00`). 칸이 연도만 다른 기간이면 표기에 연도가 없어도 '다르다'로 센다. `칸 N을/를 비웠습니다` 조사가 숫자 읽기의 받침을 따른다(10은 `을`). 공개 API는 그대로 | 보드 칸 기간 칩 글자를 단언하던 테스트는 새 표기로 바꾼다 |
+diff --color --no-dereference -ruN -x .git -x node_modules -x pnpm-lock.yaml -x moves pa/menus/_global/home/src/pages/OperationsHome.test.tsx pb/menus/_global/home/src/pages/OperationsHome.test.tsx
+--- pa/menus/_global/home/src/pages/OperationsHome.test.tsx	2026-10-27 14:03:12
++++ pb/menus/_global/home/src/pages/OperationsHome.test.tsx	2026-10-27 14:02:53
+@@ -54,9 +54,9 @@
+   });
+ }
+ 
+-function mount(permissions: Session['user']['permissions'], url = '/?v=1&scopeId=MEM', slots?: PlatformSlots) {
++function mount(permissions: Session['user']['permissions'], url = '/?v=1&scopeId=MEM', slots?: PlatformSlots, spaceIdMigrations?: Readonly<Record<string, string>>) {
+   window.history.replaceState(null, '', url);
+-  render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter(permissions)} registry={registry} slots={slots}><OperationsHome /></PlatformProvider></I18nProvider>);
++  render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter(permissions)} registry={registry} slots={slots} spaceIdMigrations={spaceIdMigrations}><OperationsHome /></PlatformProvider></I18nProvider>);
+ }
+ 
+ async function settled() {
+@@ -104,7 +104,7 @@
+         menu('analysis-home', 'equipment', '/analysis-home', menuPermission('analytics:view'), { ko: '분석 홈', en: 'Analysis home' }),
+       ],
+     });
+-    const partialSpaces = partialRegistry.spaces.map(space => space.id === 'analytics' ? { ...space, homeMenuId: 'analysis-home' } : space);
++    const partialSpaces = partialRegistry.spaces.map(space => space.id === 'mars' ? { ...space, homeMenuId: 'analysis-home' } : space);
+     const withDeniedHome = createRegistry({ permissions: [menuPermission('analytics:view'), menuPermission('equipment:view'), menuPermission('metrics:view')], spaces: partialSpaces, groups: partialRegistry.groups, menus: partialRegistry.menus });
+     window.history.replaceState(null, '', '/?v=1&scopeId=MEM&page=9');
+     render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter(['platform:view', 'equipment:view'])} registry={withDeniedHome}><OperationsHome /></PlatformProvider></I18nProvider>);
+@@ -116,7 +116,7 @@
+   });
+ 
+   it('lists accessible spaces in registration order and continues a stored screen', async () => {
+-    tabStore.setItem('platform:space-last:u1', JSON.stringify({ metrics: '/metrics?v=1&scopeId=OLD&page=2&extra=1' }));
++    tabStore.setItem('platform:space-last:u1', JSON.stringify({ bravo: '/metrics?v=1&scopeId=OLD&page=2&extra=1' }));
+     mount(BOTH);
+     await settled();
+     const section = screen.getByRole('region', { name: '업무 시스템' });
+@@ -139,6 +139,19 @@
+     expect(href).not.toContain('OLD');
+     expect(href).not.toContain('extra=1');
+     expect(tabStore.getItem('platform:space-last:u1')).toContain('page=2');
++  });
++
++  it('continues a screen stored under the former space id after the rename, and rewrites the store under the new id', async () => {
++    tabStore.setItem('platform:space-last:u1', JSON.stringify({ metrics: '/metrics?v=1&scopeId=OLD&page=2&extra=1' }));
++    mount(BOTH, undefined, undefined, { analytics: 'mars', metrics: 'bravo' });
++    await settled();
++    const cards = within(screen.getByRole('region', { name: '업무 시스템' })).getAllByRole('link');
++    expect(cards[1].textContent).toContain('이어서: 지표 카탈로그');
++    const href = cards[1].getAttribute('href') ?? '';
++    expect(href).toContain('page=2');
++    expect(href).toContain('scopeId=MEM');
++    expect(href).not.toContain('extra=1');
++    expect(Object.keys(JSON.parse(tabStore.getItem('platform:space-last:u1') ?? '{}'))).toEqual(['bravo']);
+   });
+ 
+   it('shows only the metrics card for a viewer', async () => {
+diff --color --no-dereference -ruN -x .git -x node_modules -x pnpm-lock.yaml -x moves pa/menus/_global/my-activity/src/pages/VocCompose.test.tsx pb/menus/_global/my-activity/src/pages/VocCompose.test.tsx
+--- pa/menus/_global/my-activity/src/pages/VocCompose.test.tsx	2026-10-27 14:03:12
++++ pb/menus/_global/my-activity/src/pages/VocCompose.test.tsx	2026-10-27 14:02:53
+@@ -21,9 +21,9 @@
+ 
+ const CONTEXT: VocComposeContext = {
+   items: [{ id: 'menu', label: '메뉴', value: '생산성 분석' }, { id: 'period', label: '기간', value: '2026-10-01 ~ 2026-10-07' }],
+-  href: 'https://platform.example/analytics/productivity?period=7d', spaceId: 'analytics' as VocComposeContext['spaceId'], menuId: 'productivity', carried: {},
++  href: 'https://platform.example/analytics/productivity?period=7d', spaceId: 'mars' as VocComposeContext['spaceId'], menuId: 'productivity', carried: {},
+ };
+-const managedSystemFor = (spaceId: string | null) => (spaceId === 'analytics' ? MS : null);
++const managedSystemFor = (spaceId: string | null) => (spaceId === 'mars' ? MS : null);
+ 
+ function handle(over: { managedSystems?: () => Response; post?: () => Response } = {}) {
+   return (path: string, method: string) => {
+diff --color --no-dereference -ruN -x .git -x node_modules -x pnpm-lock.yaml -x moves pa/menus/mars/hw-time/src/manifest.test.ts pb/menus/mars/hw-time/src/manifest.test.ts
+--- pa/menus/mars/hw-time/src/manifest.test.ts	2026-10-27 14:03:13
++++ pb/menus/mars/hw-time/src/manifest.test.ts	2026-10-27 14:02:53
+@@ -23,7 +23,7 @@
+     const groups: GroupDef[] = [{ id: groupId('hwTime'), label: { ko: 'g', en: 'g' }, icon: menu.icon, space: spaceId('mars') }];
+     const registry = createRegistry({ spaces, groups, menus: manifests, permissions: [menuPermission('analytics:view')] });
+     expect(registry.menuById('hw-time-steps').path).toBe('/hw-time/steps');
+-    expect(registry.spaceOf(menu)?.id).toBe('analytics');
++    expect(registry.spaceOf(menu)?.id).toBe('mars');
+   });
+ 
+   it('declares every endpoint against the steps menu and the analytics Context', () => {
+diff --color --no-dereference -ruN -x .git -x node_modules -x pnpm-lock.yaml -x moves pa/packages/kernel/src/context/__tests__/location.test.tsx pb/packages/kernel/src/context/__tests__/location.test.tsx
+--- pa/packages/kernel/src/context/__tests__/location.test.tsx	2026-10-27 14:03:15
++++ pb/packages/kernel/src/context/__tests__/location.test.tsx	2026-10-27 14:02:53
+@@ -60,7 +60,7 @@
+     fireEvent.click(screen.getByRole('link'));
+     expect(platform.url).toBe('/?v=1&tab=next');
+     expect(window.location.pathname).toBe(prefix + '/');
+-    expect(JSON.parse(sessionStorage.getItem('platform:space-last:u1')!)).toEqual({ analytics: '/?v=1&tab=next' });
++    expect(JSON.parse(sessionStorage.getItem('platform:space-last:u1')!)).toEqual({ mars: '/?v=1&tab=next' });
+     act(() => { platform.navigate('/?v=1&tab=replaced', { replace: true }); });
+     expect(window.location.search).toBe('?v=1&tab=replaced');
+     act(() => { window.history.replaceState(null, '', prefix + '/?v=1&tab=pop'); window.dispatchEvent(new PopStateEvent('popstate')); });
+diff --color --no-dereference -ruN -x .git -x node_modules -x pnpm-lock.yaml -x moves pa/packages/kernel/src/platform/MainScreenProvider.tsx pb/packages/kernel/src/platform/MainScreenProvider.tsx
+--- pa/packages/kernel/src/platform/MainScreenProvider.tsx	2026-10-27 14:03:15
++++ pb/packages/kernel/src/platform/MainScreenProvider.tsx	2026-10-27 14:02:53
+@@ -10,7 +10,7 @@
+ /** The main screen: the browser URL, history, and the shell navigation that follows it. */
+ export const MainScreenProvider = memo(function MainScreenProvider({ app, children }: { app: AppValue; children: ReactNode }) {
+   const { location, registry, can, canOpen, accessibleSpaces, menusInSpace, user } = app.pub;
+-  const { enters, mainNavigation: pageNavigation, initialUrl, recordVisit, rememberScope } = app.internal;
++  const { enters, mainNavigation: pageNavigation, initialUrl, recordVisit, rememberScope, spaceIdMigrations } = app.internal;
+   const { matchRoute } = registry;
+   const userId = user.id;
+   const [url, setUrl] = useState(initialUrl);
+@@ -48,14 +48,14 @@
+     if (!route || contractError || !can(route.menu.permission)) return;
+     if (!enters(route.menu)) return;
+     const space = registry.spaceOf(route.menu);
+-    if (space !== null) writeSpaceLast(userId, space.id, url);
++    if (space !== null) writeSpaceLast(userId, space.id, url, spaceIdMigrations);
+     recordVisit(route.menu.id, url);
+-  }, [url, route, contractError, userId, can, enters, registry, recordVisit]);
++  }, [url, route, contractError, userId, can, enters, registry, recordVisit, spaceIdMigrations]);
+ 
+   const visibleMenus = useMemo(() => (sidebarSpace === null ? [] : menusInSpace(sidebarSpace.id)), [menusInSpace, sidebarSpace]);
+   // Read at call time. Stored globals are not restored: resolveLink carries the current global and the menu's page keys only.
+   const spaceResume = useCallback((spaceId: SpaceId): { menuId: string; href: string } | null => {
+-    const stored = readSpaceLast(userId)[spaceId];
++    const stored = readSpaceLast(userId, spaceIdMigrations)[spaceId];
+     if (typeof stored !== 'string' || !isAppRelativePath(stored)) return null;
+     const q = stored.indexOf('?');
+     const path = q === -1 ? stored : stored.slice(0, q);
+@@ -77,7 +77,7 @@
+     const again = matchRoute(normalized);
+     if (!again || again.menu.id !== matched.menu.id || !sameParams(again.params, matched.params)) return null;
+     return { menuId: matched.menu.id, href };
+-  }, [userId, matchRoute, registry, canOpen, resolveLink]);
++  }, [userId, matchRoute, registry, canOpen, resolveLink, spaceIdMigrations]);
+   const spaceEntry = useCallback((spaceId: SpaceId): { menuId: string; href: string; resumed: boolean } | null => {
+     const space = accessibleSpaces.find(s => s.id === spaceId);
+     if (!space) return null;
+diff --color --no-dereference -ruN -x .git -x node_modules -x pnpm-lock.yaml -x moves pa/packages/kernel/src/platform/PlatformProvider.tsx pb/packages/kernel/src/platform/PlatformProvider.tsx
+--- pa/packages/kernel/src/platform/PlatformProvider.tsx	2026-10-27 14:03:15
++++ pb/packages/kernel/src/platform/PlatformProvider.tsx	2026-10-27 14:02:53
+@@ -24,7 +24,7 @@
+ 
+ /** Fallback tab-session id when sessionStorage is unavailable (privacy mode, tests). One per JS runtime. */
+ let fallbackUsageSession: string | null = null;
+-export function PlatformProvider({ adapter, registry, location = browserLocation, slots = NO_SLOTS, equipmentAxes = NO_EQUIPMENT_AXES, queryHistory, children }: { queryHistory?: QueryHistoryStore; equipmentAxes?: readonly EquipmentAxisDescriptor[]; location?: PlatformLocation; adapter: PlatformAdapter; registry: Registry; slots?: PlatformSlots; children: ReactNode }) {
++export function PlatformProvider({ adapter, registry, location = browserLocation, slots = NO_SLOTS, equipmentAxes = NO_EQUIPMENT_AXES, queryHistory, spaceIdMigrations, children }: { spaceIdMigrations?: Readonly<Record<string, string>>; queryHistory?: QueryHistoryStore; equipmentAxes?: readonly EquipmentAxisDescriptor[]; location?: PlatformLocation; adapter: PlatformAdapter; registry: Registry; slots?: PlatformSlots; children: ReactNode }) {
+   const { menuById } = registry;
+   // The Registry never sees `equipmentAxes`, so a Condition preset naming an unknown axis surfaces here (06 §6.4, ADR-0083).
+   for (const menu of registry.menus) {
+@@ -219,9 +219,9 @@
+       session, user, revision, refreshEpochs, can, canOpen, globalMenus, menusInSpace, accessibleSpaces, lastScope, favorites, toggleFavorite, readRecent,
+       toast, dismissToast, holdToast, defaultRangeTo, slots, homeTodo, setPaletteOpen, setSwitcherOpen,
+     },
+-    internal: { currentRevision: revisions.get, selectionPortCache, queryEngine, enters, usageSessionId, userIdRef, usageNav, mainNavigation: pageNavigation, initialUrl, recordVisit, rememberScope },
++    internal: { currentRevision: revisions.get, selectionPortCache, queryEngine, enters, usageSessionId, userIdRef, usageNav, mainNavigation: pageNavigation, initialUrl, recordVisit, rememberScope, spaceIdMigrations },
+   }), [registry, adapter, location, absoluteUrl, equipmentAxes, queryHistory, session, user, revision, refreshEpochs, can, canOpen, globalMenus, menusInSpace, accessibleSpaces, lastScope, favorites, toggleFavorite, readRecent,
+-    toast, dismissToast, holdToast, defaultRangeTo, slots, homeTodo, setPaletteOpen, setSwitcherOpen, revisions, selectionPortCache, queryEngine, enters, usageSessionId, userIdRef, usageNav, pageNavigation, initialUrl, recordVisit, rememberScope]);
++    toast, dismissToast, holdToast, defaultRangeTo, slots, homeTodo, setPaletteOpen, setSwitcherOpen, revisions, selectionPortCache, queryEngine, enters, usageSessionId, userIdRef, usageNav, pageNavigation, initialUrl, recordVisit, rememberScope, spaceIdMigrations]);
+   const overlay = useMemo((): OverlayState => ({ paletteOpen, paletteSession, switcherOpen, switcherSession }), [paletteOpen, paletteSession, switcherOpen, switcherSession]);
+   return (
+     <AppContext.Provider value={value}>
+diff --color --no-dereference -ruN -x .git -x node_modules -x pnpm-lock.yaml -x moves pa/packages/kernel/src/platform/__tests__/platform.global.test.tsx pb/packages/kernel/src/platform/__tests__/platform.global.test.tsx
+--- pa/packages/kernel/src/platform/__tests__/platform.global.test.tsx	2026-10-27 14:03:15
++++ pb/packages/kernel/src/platform/__tests__/platform.global.test.tsx	2026-10-27 14:02:53
+@@ -91,10 +91,10 @@
+     expect(screen.getByTestId('current').textContent).toBe('null');
+     expect(screen.getByTestId('notices-allowed').textContent).toBe('true');
+     expect(screen.getByTestId('child-allowed').textContent).toBe('false');
+-    expect(screen.getByTestId('accessible').textContent).toBe('analytics');
++    expect(screen.getByTestId('accessible').textContent).toBe('mars');
+     expect(screen.getByTestId('visible').textContent).toBe('equipment');
+     expect(screen.getByTestId('global').textContent).toBe('notices,notices-detail');
+-    expect(screen.getByTestId('sidebar').textContent).toBe('analytics');
++    expect(screen.getByTestId('sidebar').textContent).toBe('mars');
+     expect(screen.getByTestId('recent').textContent).toBe('notices');
+     expect(JSON.parse(localStorage.getItem('platform:recent:u1') ?? 'null')).toEqual([
+       { menuId: 'notices', url: '/notices?v=1', at: expect.any(Number) },
+diff --color --no-dereference -ruN -x .git -x node_modules -x pnpm-lock.yaml -x moves pa/packages/kernel/src/platform/__tests__/platform.pane.test.tsx pb/packages/kernel/src/platform/__tests__/platform.pane.test.tsx
+--- pa/packages/kernel/src/platform/__tests__/platform.pane.test.tsx	2026-10-27 14:03:15
++++ pb/packages/kernel/src/platform/__tests__/platform.pane.test.tsx	2026-10-27 14:02:53
+@@ -354,8 +354,8 @@
+     mount(<><Probe id="main" /><Pane id="ops" initial={{ menuId: 'ops-board', params: {}, query: '?' }} spies={spies()} /></>, fixture({}, ['platform:view']).adapter);
+     await flush();
+     expect(at('ops').currentSpace?.id).toBe('operations');
+-    expect(at('main').currentSpace?.id).toBe('analytics');
+-    expect(at('ops').sidebarSpace?.id).toBe('analytics');
++    expect(at('main').currentSpace?.id).toBe('mars');
++    expect(at('ops').sidebarSpace?.id).toBe('mars');
+     expect(at('ops').spaceEntry).toBe(at('main').spaceEntry);
+     expect(at('ops').visibleMenus).toEqual(at('main').visibleMenus);
+   });
+diff --color --no-dereference -ruN -x .git -x node_modules -x pnpm-lock.yaml -x moves pa/packages/kernel/src/platform/__tests__/platform.space-resume.test.tsx pb/packages/kernel/src/platform/__tests__/platform.space-resume.test.tsx
+--- pa/packages/kernel/src/platform/__tests__/platform.space-resume.test.tsx	2026-10-27 14:03:15
++++ pb/packages/kernel/src/platform/__tests__/platform.space-resume.test.tsx	2026-10-27 14:02:53
+@@ -3,6 +3,7 @@
+ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+ import { I18nProvider } from '../../i18n';
+ import { PlatformProvider, useHostPlatform } from '../platform';
++import { readSpaceLast, writeSpaceLast } from '../preferences';
+ import { createRegistry, type PlatformMenuEntry } from '../../registry/registry';
+ import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '../../testing';
+ import { groupId, spaceId, menuPermission, type Session, type SpaceDef } from '@ap/contracts';
+@@ -42,12 +43,12 @@
+ 
+ function Probe() {
+   const { pathname, spaceResume, switchSpace, navigate } = useHostPlatform();
+-  const show = (id: 'analytics' | 'operations') => {
++  const show = (id: 'mars' | 'operations') => {
+     const resume = spaceResume(spaceId(id));
+     return resume ? `${resume.menuId}|${resume.href}` : 'null';
+   };
+   return <div>
+-    <p data-testid="ana">{show('analytics')}</p>
++    <p data-testid="ana">{show('mars')}</p>
+     <p data-testid="ops">{show('operations')}</p>
+     <p data-testid="path">{pathname}</p>
+     <button type="button" data-testid="to-ops" onClick={() => switchSpace(spaceId('operations'))}>ops</button>
+@@ -56,9 +57,9 @@
+   </div>;
+ }
+ 
+-function mountAt(url: string, permissions: Session['user']['permissions']) {
++function mountAt(url: string, permissions: Session['user']['permissions'], spaceIdMigrations?: Readonly<Record<string, string>>) {
+   window.history.replaceState(null, '', url);
+-  render(<I18nProvider><PlatformProvider adapter={fixture(permissions)} registry={registry}><Probe /></PlatformProvider></I18nProvider>);
++  render(<I18nProvider><PlatformProvider adapter={fixture(permissions)} registry={registry} spaceIdMigrations={spaceIdMigrations}><Probe /></PlatformProvider></I18nProvider>);
+ }
+ 
+ beforeEach(() => {
+@@ -69,7 +70,7 @@
+ 
+ describe('spaceResume (06 §9.1)', () => {
+   it('records an admitted space menu and restores its page keys with the current global', () => {
+-    sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ analytics: STORED }));
++    sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ mars: STORED }));
+     mountAt('/notices?v=1&scopeId=MEM', ADMIN);
+     const href = screen.getByTestId('ana').textContent ?? '';
+     expect(href.startsWith('equipment|/equipment?')).toBe(true);
+@@ -83,16 +84,16 @@
+ 
+   it('does not record a global menu and does not overwrite another space', () => {
+     mountAt('/equipment?v=1&scopeId=MEM&page=2', ADMIN);
+-    expect(JSON.parse(sessionStorage.getItem('platform:space-last:u1') ?? 'null')).toEqual({ analytics: '/equipment?v=1&scopeId=MEM&page=2' });
++    expect(JSON.parse(sessionStorage.getItem('platform:space-last:u1') ?? 'null')).toEqual({ mars: '/equipment?v=1&scopeId=MEM&page=2' });
+     act(() => screen.getByTestId('to-ops').click());
+     expect(screen.getByTestId('path').textContent).toBe('/admin/roles');
+     const both = JSON.parse(sessionStorage.getItem('platform:space-last:u1') ?? 'null') as Record<string, string>;
+-    expect(both.analytics).toBe('/equipment?v=1&scopeId=MEM&page=2');
++    expect(both.mars).toBe('/equipment?v=1&scopeId=MEM&page=2');
+     expect(both.operations.startsWith('/admin/roles?')).toBe(true);
+     act(() => screen.getByTestId('to-notices').click());
+     const after = JSON.parse(sessionStorage.getItem('platform:space-last:u1') ?? 'null') as Record<string, string>;
+-    expect(Object.keys(after).sort()).toEqual(['analytics', 'operations']);
+-    expect(after.analytics).toBe('/equipment?v=1&scopeId=MEM&page=2');
++    expect(Object.keys(after).sort()).toEqual(['mars', 'operations']);
++    expect(after.mars).toBe('/equipment?v=1&scopeId=MEM&page=2');
+   });
+ 
+   it('does not record a contract error and replaces a broken document on the next write', () => {
+@@ -101,18 +102,18 @@
+     cleanup();
+     sessionStorage.setItem('platform:space-last:u1', '{');
+     mountAt('/equipment?v=1&scopeId=MEM', ADMIN);
+-    expect(JSON.parse(sessionStorage.getItem('platform:space-last:u1') ?? 'null')).toEqual({ analytics: '/equipment?v=1&scopeId=MEM' });
++    expect(JSON.parse(sessionStorage.getItem('platform:space-last:u1') ?? 'null')).toEqual({ mars: '/equipment?v=1&scopeId=MEM' });
+   });
+ 
+   it.each([
+-    ['another space menu', JSON.stringify({ analytics: '/admin/roles?v=1' })],
+-    ['an unregistered path', JSON.stringify({ analytics: '/missing?v=1' })],
+-    ['a contract error', JSON.stringify({ analytics: '/equipment?from=only' })],
+-    ['an incomplete metric pair', JSON.stringify({ analytics: '/equipment?v=1&metricId=M1' })],
++    ['another space menu', JSON.stringify({ mars: '/admin/roles?v=1' })],
++    ['an unregistered path', JSON.stringify({ mars: '/missing?v=1' })],
++    ['a contract error', JSON.stringify({ mars: '/equipment?from=only' })],
++    ['an incomplete metric pair', JSON.stringify({ mars: '/equipment?v=1&metricId=M1' })],
+     ['broken JSON', '{'],
+     ['an array', '[]'],
+     ['null', 'null'],
+-    ['a non-string value', JSON.stringify({ analytics: 2 })],
++    ['a non-string value', JSON.stringify({ mars: 2 })],
+   ])('returns null for %s', (_label, raw) => {
+     sessionStorage.setItem('platform:space-last:u1', raw);
+     mountAt('/notices?v=1', ADMIN);
+@@ -124,7 +125,7 @@
+     ['an encoded ordinary id', '/equipment/MEM%2DPHOTO%2D0103', 'equipment-detail|/equipment/MEM-PHOTO-0103?v=1&scopeId=MEM'],
+     ['an id with an encoded space', '/equipment/MEM%20PHOTO', 'equipment-detail|/equipment/MEM%20PHOTO?v=1&scopeId=MEM'],
+   ])('restores %s', (_label, stored, expected) => {
+-    sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ analytics: stored }));
++    sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ mars: stored }));
+     mountAt('/notices?v=1&scopeId=MEM', ADMIN);
+     expect(screen.getByTestId('ana').textContent).toBe(expected);
+   });
+@@ -138,13 +139,55 @@
+     ['an invalid percent escape', '/equipment/%E0%A4%A'],
+     ['a double slash', '/equipment//MEM-PHOTO-0103'],
+   ])('returns null for %s', (_label, stored) => {
+-    sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ analytics: stored }));
++    sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ mars: stored }));
+     mountAt('/notices?v=1&scopeId=MEM', ADMIN);
+     expect(screen.getByTestId('ana').textContent).toBe('null');
+   });
+ 
++  describe('spaceIdMigrations (a renamed space id, #713m)', () => {
++    const RENAMED = { analytics: 'mars' };
++    const read = () => JSON.parse(sessionStorage.getItem('platform:space-last:u1') ?? 'null') as Record<string, string>;
++
++    it('resumes from an entry stored under the former id, moves it to the new id and drops the old key', () => {
++      sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ analytics: STORED }));
++      mountAt('/notices?v=1&scopeId=MEM', ADMIN, RENAMED);
++      const href = screen.getByTestId('ana').textContent ?? '';
++      expect(href.startsWith('equipment|/equipment?')).toBe(true);
++      expect(new URLSearchParams(href.slice(href.indexOf('?'))).get('page')).toBe('2');
++      expect(read()).toEqual({ mars: STORED });
++    });
++
++    it('prefers the entry under the new id when both are stored, and still drops the old key', () => {
++      sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ analytics: '/equipment?v=1&page=7', mars: '/equipment?v=1&page=3' }));
++      mountAt('/notices?v=1&scopeId=MEM', ADMIN, RENAMED);
++      expect(screen.getByTestId('ana').textContent).toContain('page=3');
++      expect(read()).toEqual({ mars: '/equipment?v=1&page=3' });
++    });
++
++    it('keeps an unmapped key as it is and writes only the new id', () => {
++      sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ operations: '/admin/child?v=1', legacy: '/x?v=1' }));
++      mountAt('/equipment?v=1&scopeId=MEM', ADMIN, RENAMED);
++      expect(read()).toEqual({ operations: '/admin/child?v=1', legacy: '/x?v=1', mars: '/equipment?v=1&scopeId=MEM' });
++    });
++
++    it('returns the migrated map and keeps unrelated entries when persisting the migration throws', () => {
++      sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ analytics: STORED, operations: '/admin/child?v=1', legacy: '/x?v=1' }));
++      const setItem = vi.spyOn(sessionStorage, 'setItem').mockImplementationOnce(() => { throw new Error('quota'); });
++      expect(readSpaceLast('u1', RENAMED)).toEqual({ mars: STORED, operations: '/admin/child?v=1', legacy: '/x?v=1' });
++      expect(setItem).toHaveBeenCalledTimes(1);
++      writeSpaceLast('u1', 'mars', '/equipment?v=1&page=9', RENAMED);
++      expect(read()).toEqual({ mars: '/equipment?v=1&page=9', operations: '/admin/child?v=1', legacy: '/x?v=1' });
++    });
++
++    it('does not read the former id without a migration table', () => {
++      sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ analytics: STORED }));
++      mountAt('/notices?v=1&scopeId=MEM', ADMIN);
++      expect(screen.getByTestId('ana').textContent).toBe('null');
++    });
++  });
++
+   it('returns null when the menu permission or space entry no longer holds, and ignores another user key', () => {
+-    sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ analytics: '/equipment?v=1' }));
++    sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ mars: '/equipment?v=1' }));
+     mountAt('/notices?v=1', NOTICES_ONLY);
+     expect(screen.getByTestId('ana').textContent).toBe('null');
+     cleanup();
+@@ -153,7 +196,7 @@
+     expect(screen.getByTestId('ops').textContent).toBe('null');
+     cleanup();
+     sessionStorage.clear();
+-    sessionStorage.setItem('platform:space-last:other', JSON.stringify({ analytics: '/equipment?v=1&page=2' }));
++    sessionStorage.setItem('platform:space-last:other', JSON.stringify({ mars: '/equipment?v=1&page=2' }));
+     mountAt('/notices?v=1', ADMIN);
+     expect(screen.getByTestId('ana').textContent).toBe('null');
+   });
+@@ -210,7 +253,7 @@
+     ['rejected last screen', ANALYST, '/equipment?v=1', { menuId: 'first', href: '/first?v=1&scopeId=MEM', resumed: false }],
+     ['no openable menu', NOTICES_ONLY, null, null],
+   ])('chooses %s', (_label, permissions, stored, expected) => {
+-    if (stored) sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ analytics: stored }));
++    if (stored) sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ mars: stored }));
+     mountEntry(permissions);
+     expect(entryPlatform.spaceEntry(spaceId('mars'))).toEqual(expected);
+   });
+diff --color --no-dereference -ruN -x .git -x node_modules -x pnpm-lock.yaml -x moves pa/packages/kernel/src/platform/__tests__/platform.space.test.tsx pb/packages/kernel/src/platform/__tests__/platform.space.test.tsx
+--- pa/packages/kernel/src/platform/__tests__/platform.space.test.tsx	2026-10-27 14:03:15
++++ pb/packages/kernel/src/platform/__tests__/platform.space.test.tsx	2026-10-27 14:02:53
+@@ -75,7 +75,7 @@
+ describe('spaces on Platform (06 §9.1)', () => {
+   it('switchSpace pushes to the space home keeping globals and dropping page keys', () => {
+     mountAt(EQUIPMENT_URL, ADMIN);
+-    expect(screen.getByTestId('current').textContent).toBe('analytics');
++    expect(screen.getByTestId('current').textContent).toBe('mars');
+     expect(screen.getByTestId('visible').textContent).toBe('equipment');
+ 
+     act(() => screen.getByTestId('to-operations').click());
+@@ -115,10 +115,10 @@
+ 
+   it('without console:access operations is not accessible: currentSpace still reports it, sidebar falls back, switch is a no-op', () => {
+     mountAt(EQUIPMENT_URL.replace('/equipment', '/admin/roles'), ANALYST);
+-    expect(screen.getByTestId('accessible').textContent).toBe('analytics');
++    expect(screen.getByTestId('accessible').textContent).toBe('mars');
+     // The matched route's space is reported even though entry is denied.
+     expect(screen.getByTestId('current').textContent).toBe('operations');
+-    expect(screen.getByTestId('sidebar').textContent).toBe('analytics');
++    expect(screen.getByTestId('sidebar').textContent).toBe('mars');
+     expect(screen.getByTestId('ops-menus').textContent).toBe('');
+ 
+     const before = window.location.href;
+diff --color --no-dereference -ruN -x .git -x node_modules -x pnpm-lock.yaml -x moves pa/packages/kernel/src/platform/__tests__/platform.usage.test.tsx pb/packages/kernel/src/platform/__tests__/platform.usage.test.tsx
+--- pa/packages/kernel/src/platform/__tests__/platform.usage.test.tsx	2026-10-27 14:03:15
++++ pb/packages/kernel/src/platform/__tests__/platform.usage.test.tsx	2026-10-27 14:02:53
+@@ -101,7 +101,7 @@
+     expect(events).toHaveLength(1);
+     expect(events[0].name).toBe('entry');
+     expect(events[0].menuId).toBe('equipment-detail');
+-    expect(events[0].spaceId).toBe('analytics');
++    expect(events[0].spaceId).toBe('mars');
+     expect(events[0].path).toBe('/equipment/:equipmentId');
+     expect(events[0].sessionId).toEqual(expect.any(String));
+     // No concrete id, no Context value, no search in the wire format.
+diff --color --no-dereference -ruN -x .git -x node_modules -x pnpm-lock.yaml -x moves pa/packages/kernel/src/platform/contexts.ts pb/packages/kernel/src/platform/contexts.ts
+--- pa/packages/kernel/src/platform/contexts.ts	2026-10-27 14:03:15
++++ pb/packages/kernel/src/platform/contexts.ts	2026-10-27 14:02:53
+@@ -30,6 +30,8 @@
+   initialUrl: string;
+   recordVisit: (menuId: string, url: string) => void;
+   rememberScope: (scopeId: string) => void;
++  /** Former space id → current id for the per-space resume store (`PlatformProvider.spaceIdMigrations`). */
++  spaceIdMigrations: Readonly<Record<string, string>> | undefined;
+ };
+ export type UsageNavTrail = { user: string; via: UsageVia | null; seen: boolean; prev: string | null };
+ export type AppValue = { pub: AppState; internal: AppInternal };
+diff --color --no-dereference -ruN -x .git -x node_modules -x pnpm-lock.yaml -x moves pa/packages/kernel/src/platform/preferences.ts pb/packages/kernel/src/platform/preferences.ts
+--- pa/packages/kernel/src/platform/preferences.ts	2026-10-27 14:03:15
++++ pb/packages/kernel/src/platform/preferences.ts	2026-10-27 14:02:53
+@@ -37,8 +37,12 @@
+   return `platform:space-last:${userId}`;
+ }
+ 
+-/** String entries only. Bad JSON or a non-object starts from {}. Never throws. */
+-export function readSpaceLast(userId: string): Record<string, string> {
++/**
++ * String entries only. Bad JSON or a non-object starts from {}. Never throws.
++ * `migrations` maps a former space id to its current one (the app declares it, ADR-0072): an entry under a former id moves
++ * to the current id once, here, unless the current id already has one (that one wins), and the former key is removed.
++ */
++export function readSpaceLast(userId: string, migrations?: Readonly<Record<string, string>>): Record<string, string> {
+   try {
+     const raw = sessionStorage.getItem(spaceLastKey(userId));
+     if (!raw) return {};
+@@ -48,6 +52,17 @@
+     for (const [key, value] of Object.entries(parsed)) {
+       if (typeof value === 'string') out[key] = value;
+     }
++    if (migrations === undefined) return out;
++    let moved = false;
++    for (const [former, current] of Object.entries(migrations)) {
++      if (former === current || !(former in parsed)) continue;
++      if (typeof out[former] === 'string' && !(current in out)) out[current] = out[former];
++      delete out[former];
++      moved = true;
++    }
++    if (moved) {
++      try { sessionStorage.setItem(spaceLastKey(userId), JSON.stringify(out)); } catch { /* memory-only: the migrated map is still returned */ }
++    }
+     return out;
+   } catch {
+     return {};
+@@ -59,9 +74,9 @@
+   return keys.length === Object.keys(b).length && keys.every(key => a[key] === b[key]);
+ }
+ 
+-export function writeSpaceLast(userId: string, spaceId: string, url: string) {
++export function writeSpaceLast(userId: string, spaceId: string, url: string, migrations?: Readonly<Record<string, string>>) {
+   try {
+-    const next = readSpaceLast(userId);
++    const next = readSpaceLast(userId, migrations);
+     next[spaceId] = stripReturnToFromUrl(url);
+     sessionStorage.setItem(spaceLastKey(userId), JSON.stringify(next));
+   } catch { /* memory-only */ }
+diff --color --no-dereference -ruN -x .git -x node_modules -x pnpm-lock.yaml -x moves pa/packages/kernel/src/registry/__tests__/registry.test.ts pb/packages/kernel/src/registry/__tests__/registry.test.ts
+--- pa/packages/kernel/src/registry/__tests__/registry.test.ts	2026-10-27 14:03:15
++++ pb/packages/kernel/src/registry/__tests__/registry.test.ts	2026-10-27 14:02:53
+@@ -134,8 +134,8 @@
+   });
+   it.each([
+     { name: 'a carried key equal to a global key', spaces: [{ ...analyticsSpace, homeMenuId: 'a', carriedPageKeys: ['scopeId'] }], menus: [menu('a', '/a', { primary: true })], error: /carried page key "scopeId" collides with a global/ },
+-    { name: 'a carried key declared twice', spaces: [{ ...analyticsSpace, homeMenuId: 'a', carriedPageKeys: ['k', 'k'] }], menus: [menu('a', '/a', { primary: true, pageKeys: ['k'] })], error: /Space "analytics" carried page key "k" is declared twice/ },
+-    { name: 'a member menu missing the carried key', spaces: carrying, menus: [menu('a', '/a', { primary: true, pageKeys: ['k'] }), menu('c', '/c')], error: /Menu "c" does not declare space "analytics" carried page key "k"/ },
++    { name: 'a carried key declared twice', spaces: [{ ...analyticsSpace, homeMenuId: 'a', carriedPageKeys: ['k', 'k'] }], menus: [menu('a', '/a', { primary: true, pageKeys: ['k'] })], error: /Space "mars" carried page key "k" is declared twice/ },
++    { name: 'a member menu missing the carried key', spaces: carrying, menus: [menu('a', '/a', { primary: true, pageKeys: ['k'] }), menu('c', '/c')], error: /Menu "c" does not declare space "mars" carried page key "k"/ },
+   ])('rejects $name', ({ spaces: s, menus, error }) => {
+     expect(() => createRegistry({ spaces: s, groups, menus })).toThrow(error);
+   });
+@@ -175,7 +175,7 @@
+   });
+ 
+   it('rejects groups whose space is not declared', () => {
+-    expect(() => createRegistry({ spaces: [analyticsSpace], groups: [...groups, { ...adminGroups[0], space: spaceId('bravo') }], menus: [roles] })).toThrow(/Group "admin" uses undeclared space "metrics"/);
++    expect(() => createRegistry({ spaces: [analyticsSpace], groups: [...groups, { ...adminGroups[0], space: spaceId('bravo') }], menus: [roles] })).toThrow(/Group "admin" uses undeclared space "bravo"/);
+   });
+ 
+   it('rejects an unknown home menu id', () => {
+@@ -188,14 +188,14 @@
+ 
+   it('rejects a home route that needs parameters', () => {
+     const detail = menu('detail', '/metrics/:metricId', { parent: 'catalog' });
+-    expect(() => createRegistry({ spaces: [{ ...analyticsSpace, homeMenuId: 'detail' }], groups, menus: [catalog, detail] })).toThrow(/Space "analytics" homeMenuId "detail" home route must not need parameters/);
++    expect(() => createRegistry({ spaces: [{ ...analyticsSpace, homeMenuId: 'detail' }], groups, menus: [catalog, detail] })).toThrow(/Space "mars" homeMenuId "detail" home route must not need parameters/);
+   });
+ 
+   it.each([
+     { ko: '', en: 'Purpose' },
+     { ko: '목적', en: '   ' },
+   ])('rejects an empty space description (%j)', description => {
+-    expect(() => createRegistry({ spaces: [{ ...analyticsSpace, description }], groups, menus: [catalog] })).toThrow(/Space "analytics" description must not be empty/);
++    expect(() => createRegistry({ spaces: [{ ...analyticsSpace, description }], groups, menus: [catalog] })).toThrow(/Space "mars" description must not be empty/);
+   });
+ 
+   it.each([
+@@ -212,7 +212,7 @@
+     { ko: '   ', en: 'Productivity analysis' },
+     { ko: '생산성 분석', en: '   ' },
+   ])('rejects a blank space subtitle (%j)', subtitle => {
+-    expect(() => createRegistry({ spaces: [{ ...analyticsSpace, subtitle }], groups, menus: [catalog] })).toThrow(/Space "analytics" subtitle must not be empty/);
++    expect(() => createRegistry({ spaces: [{ ...analyticsSpace, subtitle }], groups, menus: [catalog] })).toThrow(/Space "mars" subtitle must not be empty/);
+   });
+ 
+   it('rejects a home menu whose permission differs from the space permission', () => {
+@@ -240,7 +240,7 @@
+     const registry = createRegistry({ spaces, groups: [...groups, notice, overview], menus: [catalog, notices, home, detail] });
+     expect(registry.spaceOf(notices)).toBeNull();
+     expect(registry.spaceOf(home)).toBeNull();
+-    expect(registry.spaceOf(catalog)?.id).toBe('analytics');
++    expect(registry.spaceOf(catalog)?.id).toBe('mars');
+   });
+ 
+   it('rejects a space whose home menu is a global utility', () => {
+@@ -250,7 +250,7 @@
+       spaces: [{ ...analyticsSpace, homeMenuId: 'notices' }],
+       groups: [...groups, notice],
+       menus: [catalog, notices],
+-    })).toThrow(/Space "analytics" homeMenuId "notices" is not in that space/);
++    })).toThrow(/Space "mars" homeMenuId "notices" is not in that space/);
+   });
+ 
+   it.each(['global-of-space', 'space-of-global'] as const)('rejects a parent across a global group and a space (%s)', direction => {
+@@ -415,7 +415,7 @@
+     ['a menu group nobody declared', { ...base, menus: [catalog, menu('a', '/a', { group: groupId('ghost') })], permissions: declared }, /undeclared group/],
+     ['a group in a space nobody declared', { ...base, groups: [{ ...groups[0], space: spaceId('ghost') }], permissions: declared }, /undeclared space "ghost"/],
+     ['a menu permission nobody declared', { ...base }, /permission "metrics:view" is not a platform permission/],
+-    ['a space permission nobody declared', { ...base, spaces: [{ ...analyticsSpace, permission: menuPermission('ghost:view') }], permissions: declared }, /Space "analytics" permission "ghost:view"/],
++    ['a space permission nobody declared', { ...base, spaces: [{ ...analyticsSpace, permission: menuPermission('ghost:view') }], permissions: declared }, /Space "mars" permission "ghost:view"/],
+     ['a declared permission that repeats a kernel one', { ...base, permissions: [...declared, menuPermission('console:access')] }, /duplicates a kernel permission/],
+     ['a declared permission listed twice', { ...base, permissions: [...declared, menuPermission('metrics:view')] }, /Duplicate declared permission/],
+     ['a declared permission without an action', { ...base, permissions: [menuPermission('metrics')] }, /must be "<namespace>:<action>"/],
+diff --color --no-dereference -ruN -x .git -x node_modules -x pnpm-lock.yaml -x moves pa/packages/mock-server/src/__tests__/client-error.test.ts pb/packages/mock-server/src/__tests__/client-error.test.ts
+--- pa/packages/mock-server/src/__tests__/client-error.test.ts	2026-10-27 14:03:15
++++ pb/packages/mock-server/src/__tests__/client-error.test.ts	2026-10-27 14:02:53
+@@ -33,10 +33,10 @@
+     expect(storedClientErrors()[0].spaceId).toBeNull();
+   });
+ 
+-  it('accepts metrics and rejects a malformed space id', async () => {
++  it('accepts bravo and rejects a malformed space id', async () => {
+     expect(await reportClientError(report({ spaceId: spaceId('bravo') }))).toEqual({ accepted: true });
+     expect(await reportClientError(report({ correlationId: 'client-feedback', spaceId: 'a b' as never }))).toEqual({ accepted: false });
+-    expect(storedClientErrors().map(row => row.spaceId)).toEqual(['metrics']);
++    expect(storedClientErrors().map(row => row.spaceId)).toEqual(['bravo']);
+   });
+ 
+   it.each([
+diff --color --no-dereference -ruN -x .git -x node_modules -x pnpm-lock.yaml -x moves pa/packages/mock-server/src/__tests__/usage.test.ts pb/packages/mock-server/src/__tests__/usage.test.ts
+--- pa/packages/mock-server/src/__tests__/usage.test.ts	2026-10-27 14:03:15
++++ pb/packages/mock-server/src/__tests__/usage.test.ts	2026-10-27 14:02:53
+@@ -118,9 +118,9 @@
+     expect(storedUsage()[0].spaceId).toBeNull();
+   });
+ 
+-  it('accepts the metrics space id', async () => {
++  it('accepts the bravo space id', async () => {
+     expect((await recordUsage([entry({ spaceId: spaceId('bravo') })])).accepted).toBe(1);
+-    expect(storedUsage()[0].spaceId).toBe('metrics');
++    expect(storedUsage()[0].spaceId).toBe('bravo');
+   });
+ 
+   it('accepts the clas space id (#590)', async () => {
+diff --color --no-dereference -ruN -x .git -x node_modules -x pnpm-lock.yaml -x moves pa/packages/shell/src/AppShell.systems.test.tsx pb/packages/shell/src/AppShell.systems.test.tsx
+--- pa/packages/shell/src/AppShell.systems.test.tsx	2026-10-27 14:03:15
++++ pb/packages/shell/src/AppShell.systems.test.tsx	2026-10-27 14:02:53
+@@ -196,7 +196,7 @@
+   const Own = ({ collapsed }: { collapsed: boolean }) => <div data-testid="own-scope" data-collapsed={String(collapsed)} />;
+ 
+   it('S1 renders the space control instead of ScopeSelector, and ScopeSelector elsewhere or without the slot', () => {
+-    const For = (id: string) => (id === 'metrics' ? Own : null);
++    const For = (id: string) => (id === 'bravo' ? Own : null);
+     mountWith({ scopeControl: { For } }, '/metrics?v=1');
+     expect(screen.getByTestId('own-scope')).toHaveAttribute('data-collapsed', 'false');
+     expect(screen.queryByRole('button', { name: /^Scope:/ })).toBeNull();
+diff --color --no-dereference -ruN -x .git -x node_modules -x pnpm-lock.yaml -x moves pa/packages/shell/src/AppShell.test.tsx pb/packages/shell/src/AppShell.test.tsx
+--- pa/packages/shell/src/AppShell.test.tsx	2026-10-27 14:03:15
++++ pb/packages/shell/src/AppShell.test.tsx	2026-10-27 14:02:53
+@@ -361,7 +361,7 @@
+ });
+ 
+ const feedbackSlot: FeedbackOpsSlot = {
+-  entriesFor: spaceId => spaceId === 'analytics' ? [
++  entriesFor: spaceId => spaceId === 'mars' ? [
+     { key: 'task', icon: ListTodo, label: { ko: 'Task', en: 'Task' }, href: 'https://example.test/task' },
+     { key: 'voc-create', icon: MessageSquarePlus, label: { ko: 'VOC 등록', en: 'File a VOC' }, href: 'https://example.test/new' },
+   ] : spaceId === 'operations' ? [] : null,
+@@ -443,7 +443,7 @@
+   });
+ 
+   it('draws each FeedbackOps entry with the icon the slot passes, whatever its key (ADR-0072)', () => {
+-    mount(['platform:view'], true, registry, { feedbackOps: { entriesFor: id => id === 'analytics' ? [
++    mount(['platform:view'], true, registry, { feedbackOps: { entriesFor: id => id === 'mars' ? [
+       { key: 'first', icon: Star, label: { ko: '첫째', en: 'First' }, href: 'https://example.test/a' },
+       { key: 'task', icon: Rocket, label: { ko: '둘째', en: 'Second' }, href: null },
+     ] : null, overall: null } });
+@@ -507,7 +507,7 @@
+     const SYSTEM = '4f1b2c3d-5e6f-4a7b-8c9d-0e1f2a3b4c5d';
+     const vocEntry = { key: 'voc', icon: MessagesSquare, label: { ko: 'VOC', en: 'VOC' }, menuId: 'fo-inbox', page: { managedSystem: SYSTEM } };
+     const taskEntry = { key: 'task', icon: ListTodo, label: { ko: 'Task', en: 'Task' }, href: 'https://example.test/task' };
+-    const slotOf = (entries: FeedbackOpsSlot['entriesFor'] extends (...args: never[]) => infer R ? R : never, permission?: Permission): FeedbackOpsSlot => ({ entriesFor: id => id === 'analytics' ? entries : null, overall: null, ...(permission ? { permission } : {}) });
++    const slotOf = (entries: FeedbackOpsSlot['entriesFor'] extends (...args: never[]) => infer R ? R : never, permission?: Permission): FeedbackOpsSlot => ({ entriesFor: id => id === 'mars' ? entries : null, overall: null, ...(permission ? { permission } : {}) });
+ 
+     it('opens VOC in the same tab with only v, managedSystem and returnTo; Task stays a new-tab link; both captions show', () => {
+       window.history.replaceState(null, '', '/?v=1&from=2026-10-01T00:00:00&to=2026-10-02T00:00:00&scopeId=MEM');
+@@ -590,7 +590,7 @@
+     ['en', 'FeedbackOps address is not configured'],
+   ])('draws an entry with a null href as a focusable disabled link (%s)', (lang, reason) => {
+     localStorage.setItem('platform:lang', lang);
+-    mount(['platform:view'], true, registry, { feedbackOps: { entriesFor: id => id === 'analytics' ? [
++    mount(['platform:view'], true, registry, { feedbackOps: { entriesFor: id => id === 'mars' ? [
+       { key: 'task', icon: ListTodo, label: { ko: 'Task', en: 'Task' }, href: null },
+       { key: 'voc-create', icon: MessageSquarePlus, label: { ko: 'VOC 등록', en: 'File a VOC' }, href: 'https://example.test/new' },
+     ] : null, overall: null } });
+@@ -608,7 +608,7 @@
+ 
+   it('drops the new-tab caption when every entry is disabled (UX-1)', () => {
+     localStorage.setItem('platform:sidebar-collapsed', '0');
+-    mount(['platform:view'], true, registry, { feedbackOps: { entriesFor: id => id === 'analytics' ? [
++    mount(['platform:view'], true, registry, { feedbackOps: { entriesFor: id => id === 'mars' ? [
+       { key: 'voc-create', icon: MessageSquarePlus, label: { ko: 'VOC 등록', en: 'File a VOC' }, href: null },
+       { key: 'task', icon: ListTodo, label: { ko: 'Task', en: 'Task' }, href: null },
+     ] : null, overall: null } });
+@@ -1031,8 +1031,8 @@
+   it('switches space without a hook-order error when the next space has no counts or section', async () => {
+     window.history.replaceState(null, '', '/other?v=1');
+     const slots: PlatformSlots = {
+-      navCounts: { For: id => (id === 'analytics' ? CountsA : null) },
+-      spaceNavSection: { For: id => (id === 'analytics' ? { label: { ko: '저장된 보기', en: 'Saved' }, Body: SectionBody } : null) },
++      navCounts: { For: id => (id === 'mars' ? CountsA : null) },
++      spaceNavSection: { For: id => (id === 'mars' ? { label: { ko: '저장된 보기', en: 'Saved' }, Body: SectionBody } : null) },
+     };
+     const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+     mount(['platform:view', 'console:access'], true, navViewsRegistry(true), slots);
+diff --color --no-dereference -ruN -x .git -x node_modules -x pnpm-lock.yaml -x moves pa/packages/shell/src/CommandPalette.test.tsx pb/packages/shell/src/CommandPalette.test.tsx
+--- pa/packages/shell/src/CommandPalette.test.tsx	2026-10-27 14:03:15
++++ pb/packages/shell/src/CommandPalette.test.tsx	2026-10-27 14:02:53
+@@ -115,13 +115,13 @@
+     expect(screen.getAllByRole('option').map(option => option.id)).toEqual([
+       'palette-equipment', 'palette-home', 'palette-roles', 'palette-notices',
+     ]);
+-    expect(screen.getByRole('group', { name: 'MARS' })).toHaveAttribute('aria-labelledby', 'palette-heading-analytics');
++    expect(screen.getByRole('group', { name: 'MARS' })).toHaveAttribute('aria-labelledby', 'palette-heading-mars');
+     expect(screen.getByRole('group', { name: '운영 콘솔' })).toHaveAttribute('aria-labelledby', 'palette-heading-operations');
+     expect(screen.getByRole('group', { name: '플랫폼' })).toHaveAttribute('aria-labelledby', 'palette-heading-platform');
+-    expect(document.getElementById('palette-heading-analytics')).toHaveTextContent('MARS');
++    expect(document.getElementById('palette-heading-mars')).toHaveTextContent('MARS');
+     expect(subtitle('palette-home')).toBe('MARS › 분석 › 홈');
+     expect(subtitle('palette-equipment')).toBe('MARS › 설비관리 › 설비');
+-    expect(document.getElementById('palette-heading-analytics')).not.toHaveTextContent('생산성 분석');
++    expect(document.getElementById('palette-heading-mars')).not.toHaveTextContent('생산성 분석');
+     expect(screen.getByRole('listbox').textContent).not.toContain('생산성 분석');
+     expect(subtitle('palette-roles')).toBe('운영 콘솔 › 관리·감사 › 권한');
+     expect(subtitle('palette-notices')).toBe('플랫폼 › 공지·VOC › 공지 · 예정');
+@@ -185,7 +185,7 @@
+       expect(group?.role).toBe('group');
+       expect(group && nearestRole(group.el)?.role).toBe('listbox');
+     }
+-    const heading = document.getElementById('palette-heading-analytics');
++    const heading = document.getElementById('palette-heading-mars');
+     expect(heading).toBeTruthy();
+     expect(ariaRole(heading!)).toBeNull();
+     expect(heading!.closest('[role="option"]')).toBeNull();
+@@ -479,7 +479,7 @@
+ 
+   it.each([false, true])('focuses space entry h1 (saved last screen=%s)', async saved => {
+     mountNavigation();
+-    if (saved) sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ operations: '/admin/roles?v=1', analytics: '/equipment?v=1&filter=stored' }));
++    if (saved) sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ operations: '/admin/roles?v=1', mars: '/equipment?v=1&filter=stored' }));
+     fireEvent.click(screen.getByRole('button', { name: 'switch operations' }));
+     await waitForClose();
+     await waitFor(() => expect(screen.getByRole('heading', { name: '권한' })).toHaveFocus());
+diff --color --no-dereference -ruN -x .git -x node_modules -x pnpm-lock.yaml -x moves pa/packages/shell/src/RouteOutlet.test.tsx pb/packages/shell/src/RouteOutlet.test.tsx
+--- pa/packages/shell/src/RouteOutlet.test.tsx	2026-10-27 14:03:15
++++ pb/packages/shell/src/RouteOutlet.test.tsx	2026-10-27 14:02:53
+@@ -80,7 +80,7 @@
+     expect(await screen.findByText('이 화면에서 오류가 발생했습니다')).toBeTruthy();
+     expect(reports).toHaveLength(1);
+     expect(reports[0]).toEqual({
+-      correlationId: expect.stringMatching(/^client-/), menuId: 'crash', spaceId: 'analytics', path: '/crash', name: 'Error',
++      correlationId: expect.stringMatching(/^client-/), menuId: 'crash', spaceId: 'mars', path: '/crash', name: 'Error',
+     });
+     expect(screen.getByText(new RegExp(reports[0].correlationId))).toBeTruthy();
+     // The shell sibling still works and leaves the failed screen.
+diff --color --no-dereference -ruN -x .git -x node_modules -x pnpm-lock.yaml -x moves pa/packages/shell/src/SystemSwitcher.entry.test.tsx pb/packages/shell/src/SystemSwitcher.entry.test.tsx
+--- pa/packages/shell/src/SystemSwitcher.entry.test.tsx	2026-10-27 14:03:15
++++ pb/packages/shell/src/SystemSwitcher.entry.test.tsx	2026-10-27 14:02:53
+@@ -44,7 +44,7 @@
+ 
+ describe('SystemSwitcher space entry (B6)', () => {
+   it('names the start menu from entry.menuId, not the home menu, and picks 이어서/시작 from resumed', () => {
+-    override = (spaceId, real) => spaceId === 'metrics' && real ? { menuId: 'm-second', href: '/m/second?v=1', resumed: true } : real;
++    override = (spaceId, real) => spaceId === 'bravo' && real ? { menuId: 'm-second', href: '/m/second?v=1', resumed: true } : real;
+     const dialog = open();
+     expect(within(dialog).getByText('이어서: 지표 둘째')).toBeTruthy();
+     // The current screen is admitted and remembered, so its own system reads as resumed.
+@@ -53,12 +53,12 @@
+   });
+ 
+   it('shows a first-menu fallback entry as 시작 with that menu', () => {
+-    override = (spaceId, real) => spaceId === 'metrics' && real ? { menuId: 'm-second', href: '/m/second?v=1', resumed: false } : real;
++    override = (spaceId, real) => spaceId === 'bravo' && real ? { menuId: 'm-second', href: '/m/second?v=1', resumed: false } : real;
+     expect(within(open()).getByText('시작: 지표 둘째')).toBeTruthy();
+   });
+ 
+   it('omits a card whose entry is null, keeps the others in order, and focuses the first remaining card', () => {
+-    override = (spaceId, real) => spaceId === 'analytics' ? null : real;
++    override = (spaceId, real) => spaceId === 'mars' ? null : real;
+     const dialog = open();
+     expect(within(dialog).queryByRole('button', { name: /^분석/ })).toBeNull();
+     const cards = within(dialog).getAllByRole('button').filter(button => button.hasAttribute('data-switcher-card'));
+diff --color --no-dereference -ruN -x .git -x node_modules -x pnpm-lock.yaml -x moves pa/packages/shell/src/SystemSwitcher.test.tsx pb/packages/shell/src/SystemSwitcher.test.tsx
+--- pa/packages/shell/src/SystemSwitcher.test.tsx	2026-10-27 14:03:15
++++ pb/packages/shell/src/SystemSwitcher.test.tsx	2026-10-27 14:02:53
+@@ -128,7 +128,7 @@
+   });
+ 
+   it('writes 시작 for a system without a restored screen and 이어서 for one with', () => {
+-    sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ metrics: '/metrics/definitions?v=1' }));
++    sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ bravo: '/metrics/definitions?v=1' }));
+     mount();
+     open();
+     expect(within(cardOf('MARS')).getByText('이어서: 사이클')).toBeTruthy();
+@@ -341,7 +341,7 @@
+   });
+ 
+   it('does not steal the title from a restored focus= detail that opens late, and leaves no tooltip', async () => {
+-    sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ metrics: '/metrics?v=1&focus=entity' }));
++    sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ bravo: '/metrics?v=1&focus=entity' }));
+     mount();
+     open();
+     fireEvent.click(cardOf('BRAVO'));
+diff --color --no-dereference -ruN -x .git -x node_modules -x pnpm-lock.yaml -x moves pa/packages/shell/src/board/BoardScreen.test.tsx pb/packages/shell/src/board/BoardScreen.test.tsx
+--- pa/packages/shell/src/board/BoardScreen.test.tsx	2026-10-27 14:03:15
++++ pb/packages/shell/src/board/BoardScreen.test.tsx	2026-10-27 14:02:53
+@@ -740,8 +740,8 @@
+     expect(window.location.pathname).toBe('/board');
+     expect(seenRecent).toEqual(['beta']);
+     const last = JSON.parse(sessionStorage.getItem('platform:space-last:u1')!) as Record<string, string>;
+-    expect(Object.keys(last)).toEqual(['analytics']);
+-    expect(last.analytics.startsWith('/beta?')).toBe(true);
++    expect(Object.keys(last)).toEqual(['mars']);
++    expect(last.mars.startsWith('/beta?')).toBe(true);
+   });
+ });
+ 
+diff --color --no-dereference -ruN -x .git -x node_modules -x pnpm-lock.yaml -x moves pa/packages/shell/src/vocContext.test.ts pb/packages/shell/src/vocContext.test.ts
+--- pa/packages/shell/src/vocContext.test.ts	2026-10-27 14:03:16
++++ pb/packages/shell/src/vocContext.test.ts	2026-10-27 14:02:53
+@@ -43,7 +43,7 @@
+       'global:metricId': ['지표·버전', 'oee v3'],
+       'global:scopeId': ['Scope', 'MEM'],
+     });
+-    expect([context.spaceId, context.menuId]).toEqual(['analytics', 'prod']);
++    expect([context.spaceId, context.menuId]).toEqual(['mars', 'prod']);
+   });
+ 
+   it('rebuilds the address from every kept key, as an absolute URL of the route path', () => {
+@@ -101,7 +101,7 @@
+   });
+ 
+   it('removing the menu chip drops the address but keeps the defaults-only space and menu ids', () => {
+-    expect(freezeVocContext(input(), new Set(['menu']))).toMatchObject({ href: null, spaceId: 'analytics', menuId: 'prod' });
++    expect(freezeVocContext(input(), new Set(['menu']))).toMatchObject({ href: null, spaceId: 'mars', menuId: 'prod' });
+   });
+ 
+   it('keeps the membership basis with the PRC groups when there is no Condition', () => {
+diff --color --no-dereference -ruN -x .git -x node_modules -x pnpm-lock.yaml -x moves pa/tooling/gen-menu/src/boundary.test.ts pb/tooling/gen-menu/src/boundary.test.ts
+--- pa/tooling/gen-menu/src/boundary.test.ts	2026-10-27 14:03:16
++++ pb/tooling/gen-menu/src/boundary.test.ts	2026-10-27 14:02:53
+@@ -21,8 +21,8 @@
+     const res = runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
+     expect(res.status).toBe(1);
+     expect(res.stderr).toMatch(/outside the workspace root/);
+-    expect(existsSync(join(outside, 'analytics', 'gen-probe'))).toBe(false);
+-    expect(readdirSync(outside).sort()).toEqual(['analytics']);
++    expect(existsSync(join(outside, 'mars', 'gen-probe'))).toBe(false);
++    expect(readdirSync(outside).sort()).toEqual(['mars']);
+     expect(appSnapshot(root)).toEqual(before);
+     expect(dirname(outside)).toBe(outsideBase);
+   });
+@@ -30,13 +30,13 @@
+     const root = fresh();
+     const outside = mkdtempSync(join(tmpdir(), 'gen-menu-space-outside-'));
+     keep.push(outside);
+-    renameSync(join(root, 'menus/analytics'), join(outside, 'analytics'));
+-    symlinkSync(join(outside, 'analytics'), join(root, 'menus/analytics'), 'dir');
++    renameSync(join(root, 'menus/mars'), join(outside, 'mars'));
++    symlinkSync(join(outside, 'mars'), join(root, 'menus/mars'), 'dir');
+     const before = appSnapshot(root);
+     const res = runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
+     expect(res.status).toBe(1);
+     expect(res.stderr).toMatch(/outside the workspace root/);
+-    expect(existsSync(join(outside, 'analytics/gen-probe'))).toBe(false);
++    expect(existsSync(join(outside, 'mars/gen-probe'))).toBe(false);
+     expect(appSnapshot(root)).toEqual(before);
+   });
+ });
+diff --color --no-dereference -ruN -x .git -x node_modules -x pnpm-lock.yaml -x moves pa/tooling/gen-menu/src/generate.test.ts pb/tooling/gen-menu/src/generate.test.ts
+--- pa/tooling/gen-menu/src/generate.test.ts	2026-10-27 14:03:16
++++ pb/tooling/gen-menu/src/generate.test.ts	2026-10-27 14:02:53
+@@ -210,7 +210,7 @@
+   const keep: string[] = [];
+   afterAll(() => { for (const root of keep) removeFixture(root); });
+ 
+-  it.each([null, 'analytics'])('creates a package in the declared space %s', space => {
++  it.each([null, 'mars'])('creates a package in the declared space %s', space => {
+     const root = makeFixture();
+     keep.push(root);
+     const path = join(root, MENUS_TS);
+diff --color --no-dereference -ruN -x .git -x node_modules -x pnpm-lock.yaml -x moves pa/tooling/gen-menu/src/generated-typecheck.test.ts pb/tooling/gen-menu/src/generated-typecheck.test.ts
+--- pa/tooling/gen-menu/src/generated-typecheck.test.ts	2026-10-27 14:03:16
++++ pb/tooling/gen-menu/src/generated-typecheck.test.ts	2026-10-27 14:02:53
+@@ -6,7 +6,7 @@
+ 
+ /**
+  * #548: the generated package must typecheck against the real kernel and contracts sources,
+- * and its manifest test must build the Registry with the group's real space (not a fixed 'analytics').
++ * and its manifest test must build the Registry with the group's real space (not a fixed 'mars').
+  * The files are served virtually from inside apps/platform-web/src so module resolution finds the
+  * app's workspace links and React/Vitest types; nothing is written to the repo.
+  * #771: one program for all cases, built once. The build is synchronous, and four builds in a row kept the worker's event loop
+@@ -80,6 +80,6 @@
+       expect(test).toContain(`space: spaceId('${c.space}') }`);
+       expect(test).toContain(`expect(registry.spaceOf(menu)?.id).toBe('${c.space}');`);
+     }
+-    if (c.space !== 'analytics') expect(test).not.toContain("'analytics'");
++    if (c.space !== 'mars') expect(test).not.toContain("'mars'");
+   });
+ });
+diff --color --no-dereference -ruN -x .git -x node_modules -x pnpm-lock.yaml -x moves pa/tooling/gen-menu/src/probe-support.test.ts pb/tooling/gen-menu/src/probe-support.test.ts
+--- pa/tooling/gen-menu/src/probe-support.test.ts	2026-10-27 14:03:16
++++ pb/tooling/gen-menu/src/probe-support.test.ts	2026-10-27 14:02:53
+@@ -17,7 +17,7 @@
+     insertGroupsRow(root);
+     const text = readFileSync(path, 'utf8');
+     expect(text).toContain(`id: groupId('${FIXTURE_GROUP}')`);
+-    expect(groupSpaces(text).get(FIXTURE_GROUP)).toBe('analytics');
++    expect(groupSpaces(text).get(FIXTURE_GROUP)).toBe('mars');
+     expect(existsSync(join(root, 'packages/contracts'))).toBe(false);
+   });
+ 
+diff --color --no-dereference -ruN -x .git -x node_modules -x pnpm-lock.yaml -x moves pa/tooling/gen-menu/src/probe-support.ts pb/tooling/gen-menu/src/probe-support.ts
+--- pa/tooling/gen-menu/src/probe-support.ts	2026-10-27 14:03:16
++++ pb/tooling/gen-menu/src/probe-support.ts	2026-10-27 14:02:53
+@@ -5,7 +5,7 @@
+ import { GROUPS_END, MOCK_ASSEMBLY_TSX, MENUS_TS, GenMenuError, checkInsideRoot, splitLines } from './generate.ts';
+ 
+ export const PROBE_FOLDER = 'gen-probe';
+-export const PROBE_SPACE = 'analytics';
++export const PROBE_SPACE = 'mars';
+ export const PROBE_PACKAGE_REL = `menus/${PROBE_SPACE}/${PROBE_FOLDER}`;
+ export const PROBE_TEST_REL = 'apps/platform-web/src/gen-probe.test.ts';
+ export const PROBE_GROUPS_ROW = `  { id: groupId('genProbe'), label: { ko: '생성 확인', en: 'Gen probe' }, icon: LayoutDashboard, space: spaceId('mars') },`;
+diff --color --no-dereference -ruN -x .git -x node_modules -x pnpm-lock.yaml -x moves pa/tooling/gen-menu/src/remove.test.ts pb/tooling/gen-menu/src/remove.test.ts
+--- pa/tooling/gen-menu/src/remove.test.ts	2026-10-27 14:03:16
++++ pb/tooling/gen-menu/src/remove.test.ts	2026-10-27 14:02:53
+@@ -12,7 +12,7 @@
+     expect(runCli([FIXTURE_GROUP, ...GEN_ARGS], root).status).toBe(0);
+   };
+ 
+-  it.each([null, 'analytics'])('generates and removes in space %s while preserving siblings and files', space => {
++  it.each([null, 'mars'])('generates and removes in space %s while preserving siblings and files', space => {
+     const root = fresh();
+     const menusPath = join(root, 'apps/platform-web/src/menus.ts');
+     const text = readFileSync(menusPath, 'utf8');
+@@ -45,7 +45,7 @@
+   it.each(['duplicate', 'space', 'folder'])('refuses %s metadata ownership without writes', mode => {
+     const root = fresh();
+     generate(root);
+-    const pkg = join(root, 'menus/analytics', FIXTURE_FOLDER);
++    const pkg = join(root, 'menus/mars', FIXTURE_FOLDER);
+     const metaPath = join(pkg, '.gen-menu.json');
+     if (mode === 'duplicate') {
+       cpSync(pkg, join(root, 'menus/_global', FIXTURE_FOLDER), { recursive: true });
+diff --color --no-dereference -ruN -x .git -x node_modules -x pnpm-lock.yaml -x moves pa/tooling/gen-menu/src/repo-invariants.test.ts pb/tooling/gen-menu/src/repo-invariants.test.ts
+--- pa/tooling/gen-menu/src/repo-invariants.test.ts	2026-10-27 14:03:16
++++ pb/tooling/gen-menu/src/repo-invariants.test.ts	2026-10-27 14:02:53
+@@ -41,7 +41,7 @@
+   mkdirSync(join(root, 'apps/platform-web/src/dev'), { recursive: true });
+ 
+   const imports = GROUPS.map(g => `import { manifests as ${binding(g.folder)} } from '${PACKAGE_PREFIX}menu-${g.folder}';`).join('\n');
+-  const rows = GROUPS.map(g => `  { id: '${g.group}', label: { ko: 'g', en: 'g' }, icon: I, space: ${g.folder === 'home' ? 'null' : "'analytics'"} },`).join('\n');
++  const rows = GROUPS.map(g => `  { id: '${g.group}', label: { ko: 'g', en: 'g' }, icon: I, space: ${g.folder === 'home' ? 'null' : "'mars'"} },`).join('\n');
+   const spreads = GROUPS.map(g => `  ...${binding(g.folder)},`).join('\n');
+   writeFileSync(join(root, 'apps/platform-web/src/menus.ts'), `// <gen:menu-imports>
+ ${imports}
+@@ -53,7 +53,7 @@
+ ];
+ 
+ export const SPACES: SpaceDef[] = [
+-  { id: 'analytics', label: { ko: 'a', en: 'a' } },
++  { id: 'mars', label: { ko: 'a', en: 'a' } },
+ ];
+ 
+ export const MENUS: MenuEntry[] = [
+@@ -83,9 +83,9 @@
+ `);
+   writeFileSync(join(root, 'apps/platform-web/package.json'), wiredAppPkg());
+   for (const g of GROUPS) {
+-    mkdirSync(join(root, 'menus', g.folder === 'home' ? '_global' : 'analytics', g.folder, 'src'), { recursive: true });
+-    writeFileSync(join(root, 'menus', g.folder === 'home' ? '_global' : 'analytics', g.folder, 'src/index.ts'), `export const manifests = [{ id: '${g.folder}-x', group: '${g.group}', path: '/${g.folder}' }];\n`);
+-    writeFileSync(join(root, 'menus', g.folder === 'home' ? '_global' : 'analytics', g.folder, 'src/styles.css'), '@source "./";\n');
++    mkdirSync(join(root, 'menus', g.folder === 'home' ? '_global' : 'mars', g.folder, 'src'), { recursive: true });
++    writeFileSync(join(root, 'menus', g.folder === 'home' ? '_global' : 'mars', g.folder, 'src/index.ts'), `export const manifests = [{ id: '${g.folder}-x', group: '${g.group}', path: '/${g.folder}' }];\n`);
++    writeFileSync(join(root, 'menus', g.folder === 'home' ? '_global' : 'mars', g.folder, 'src/styles.css'), '@source "./";\n');
+   }
+   // Only analytics and quality ship a mock half; the other folders must not need registration.
+   for (const folder of ['analytics', 'quality']) {
+@@ -106,7 +106,7 @@
+     mkdirSync(join(root, 'menus/_global/home/src/mock'), { recursive: true });
+     writeFileSync(join(root, 'menus/_global/home/src/mock/index.ts'), 'export const homeMock = [];');
+     const shape = loadShape(root);
+-    for (const folder of ['_global/home', 'analytics/analytics']) {
++    for (const folder of ['_global/home', 'mars/analytics']) {
+       expect(shape.folders).toContain(folder);
+       expect(shape.indexes[folder]).toContain('export const manifests');
+       expect(shape.cssFolders).toContain(folder);
+@@ -116,11 +116,11 @@
+ 
+   it('rejects only the space mismatch when a valid owner moves to another registered space', () => {
+     const shape = loadShape(fresh());
+-    shape.menusTs = shape.menusTs.replace("{ id: 'analytics', label: { ko: 'a', en: 'a' } },", "{ id: 'analytics', label: { ko: 'a', en: 'a' } },\n  { id: 'other', label: { ko: 'o', en: 'o' } },");
++    shape.menusTs = shape.menusTs.replace("{ id: 'mars', label: { ko: 'a', en: 'a' } },", "{ id: 'mars', label: { ko: 'a', en: 'a' } },\n  { id: 'other', label: { ko: 'o', en: 'o' } },");
+     expect(() => checkGroups(shape)).not.toThrow();
+-    shape.folders = shape.folders.map(f => f === 'analytics/quality' ? 'other/quality' : f);
+-    shape.indexes['other/quality'] = shape.indexes['analytics/quality'];
+-    delete shape.indexes['analytics/quality'];
++    shape.folders = shape.folders.map(f => f === 'mars/quality' ? 'other/quality' : f);
++    shape.indexes['other/quality'] = shape.indexes['mars/quality'];
++    delete shape.indexes['mars/quality'];
+     expect(() => checkMarkers(shape)).not.toThrow();
+     expect(() => checkWiring(shape)).not.toThrow();
+     expect(() => checkGroups(shape)).toThrow(/space mismatch/);
+@@ -131,7 +131,7 @@
+ 
+   it('rejects a package without a manifest owner', () => {
+     const shape = loadShape(fresh());
+-    delete shape.indexes['analytics/quality'];
++    delete shape.indexes['mars/quality'];
+     expect(() => checkGroups(shape)).toThrow(/missing manifest/);
+   });
+ 
+@@ -147,10 +147,10 @@
+     ['missing space', ", space: 'mars'", '', /space/],
+     ['unreadable space', "space: 'mars'", 'space: selected', /space/],
+     ['spread can override space', "space: 'mars'", "space: 'mars', ...override", /GROUPS/],
+-    ['computed space field', "space: 'mars'", "['space']: 'analytics'", /GROUPS/],
++    ['computed space field', "space: 'mars'", "['space']: 'mars'", /GROUPS/],
+     ['duplicate space field', "space: 'mars'", "space: 'mars', space: null", /space/],
+     ['duplicate GROUPS row', "  { id: 'quality',", "  { id: 'quality', space: 'mars' },\n  { id: 'quality',", /GROUPS/],
+-    ['duplicate SPACES id', "  { id: 'analytics', label: { ko: 'a', en: 'a' } },", "  { id: 'analytics' },\n  { id: 'analytics' },", /SPACES/],
++    ['duplicate SPACES id', "  { id: 'mars', label: { ko: 'a', en: 'a' } },", "  { id: 'mars' },\n  { id: 'mars' },", /SPACES/],
+   ])('rejects %s without guessing', (_label, from, to, error) => {
+     const shape = loadShape(fresh());
+     shape.menusTs = shape.menusTs.replace(from, to);
+diff --color --no-dereference -ruN -x .git -x node_modules -x pnpm-lock.yaml -x moves pa/tooling/gen-menu/src/validate.test.ts pb/tooling/gen-menu/src/validate.test.ts
+--- pa/tooling/gen-menu/src/validate.test.ts	2026-10-27 14:03:16
++++ pb/tooling/gen-menu/src/validate.test.ts	2026-10-27 14:02:53
+@@ -107,7 +107,7 @@
+   // </gen:menu-groups>
+ ];
+ 
+-export const SPACES: SpaceDef[] = [{ id: 'analytics' }];
++export const SPACES: SpaceDef[] = [{ id: 'mars' }];
+ 
+ export const MENUS: MenuEntry[] = [
+   // <gen:menu-spreads>
+diff --color --no-dereference -ruN -x .git -x node_modules -x pnpm-lock.yaml -x moves pa/tooling/sdk/api/kernel.root.api.txt pb/tooling/sdk/api/kernel.root.api.txt
+--- pa/tooling/sdk/api/kernel.root.api.txt	2026-10-27 13:50:03
++++ pb/tooling/sdk/api/kernel.root.api.txt	2026-10-27 14:02:53
+@@ -38,7 +38,7 @@
+ PlatformLink | function | function PlatformLink({ href, children, className, onNavigate, via, ...rest }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string; onNavigate?: () => void; via?: @ap/contracts#UsageVia; }): import("react").JSX.Element
+ PlatformLocation | type | type PlatformLocation = { absoluteUrl: (url: string) => string; href: (url: string) => string; push: (url: string) => void; read: () => null | string; replace: (url: string) => void; }
+ PlatformMenuEntry | type | type PlatformMenuEntry = @ap/contracts#MenuMeta & { component?: LazyExoticComponent<ComponentType<@ap/kernel#PageProps>>; icon: LucideIcon; module?: undefined; moduleScreen?: undefined; }
+-PlatformProvider | function | function PlatformProvider({ adapter, registry, location, slots, equipmentAxes, queryHistory, children }: { adapter: @ap/contracts#PlatformAdapter; children: ReactNode; equipmentAxes?: readonly @ap/contracts#EquipmentAxisDescriptor[]; location?: @ap/kernel#PlatformLocation; queryHistory?: @ap/contracts#QueryHistoryStore; registry: @ap/kernel#Registry; slots?: @ap/kernel#PlatformSlots; }): import("react").JSX.Element
++PlatformProvider | function | function PlatformProvider({ adapter, registry, location, slots, equipmentAxes, queryHistory, spaceIdMigrations, children }: { adapter: @ap/contracts#PlatformAdapter; children: ReactNode; equipmentAxes?: readonly @ap/contracts#EquipmentAxisDescriptor[]; location?: @ap/kernel#PlatformLocation; queryHistory?: @ap/contracts#QueryHistoryStore; registry: @ap/kernel#Registry; slots?: @ap/kernel#PlatformSlots; spaceIdMigrations?: Readonly<Record<string, string>>; }): import("react").JSX.Element
+ PlatformSlots | type | type PlatformSlots = { boardEntry?: ReactNode; contextBar?: ReactNode; feedbackOps?: @ap/kernel#FeedbackOpsSlot; homeTodo?: @ap/kernel#HomeTodoSlot; navCounts?: @ap/kernel#NavCountsSlot; notifications?: @ap/kernel#NotificationsSlot; plannedSpaces?: readonly @ap/kernel#PlannedSpace[]; scopeControl?: @ap/kernel#ScopeControlSlot; spaceNavSection?: @ap/kernel#SpaceNavSectionSlot; topBarTools?: ReactNode; vocCompose?: @ap/kernel#VocComposeSlot; }
+ PortContext | type | type PortContext = { condition: @ap/contracts#Condition | null; lineNames: @ap/contracts#IdSet; membershipBasis: 'asOf' | null; period: @ap/contracts#MembershipPeriod | null; prcGroups: @ap/contracts#IdSet; roomNames: @ap/contracts#IdSet; scopeId: string; }
+ PortFailure | type | type PortFailure = { code: @ap/contracts#PortErrorCode | null; message: string; retryable: boolean; }

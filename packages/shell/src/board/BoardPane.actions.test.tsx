@@ -37,7 +37,7 @@ function DrawerBody() {
 }
 const registry = createRegistry({
   spaces: [testSpace({ homeMenuId: 'home' })],
-  groups: [{ id: groupId('equipment'), label: { ko: '그룹', en: 'Group' }, icon: House, space: spaceId('analytics') }],
+  groups: [{ id: groupId('equipment'), label: { ko: '그룹', en: 'Group' }, icon: House, space: spaceId('mars') }],
   menus: [
     { ...entry('home', '/', { component: Body, features: { ...features, board: false } }), primary: true },
     entry('alpha', '/alpha', { component: Body, label: { ko: '알파', en: 'Alpha' } }),

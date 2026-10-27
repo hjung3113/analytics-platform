@@ -70,7 +70,7 @@ export const renderFiles = (i: MenuInputs): { relPath: string; content: string }
 ];
 
 const SAMPLE_PAGE_INPUTS: MenuInputs = {
-  group: 'sample', folder: 'sample', space: 'analytics', menuId: 'sample', page: 'Sample',
+  group: 'sample', folder: 'sample', space: 'mars', menuId: 'sample', page: 'Sample',
   path: '/sample', pageType: 'overview', labelKo: 'x', labelEn: 'x', binding: 'sample',
 };
 

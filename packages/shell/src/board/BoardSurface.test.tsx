@@ -20,7 +20,7 @@ const features = { export: false, savedView: false, annotate: false, compare: fa
 const Page = () => <PlatformPage><p>page body</p></PlatformPage>;
 const registry = createRegistry({
   spaces: [testSpace({ homeMenuId: 'home' })],
-  groups: [{ id: groupId('equipment'), label: { ko: '그룹', en: 'Group' }, icon: House, space: spaceId('analytics') }],
+  groups: [{ id: groupId('equipment'), label: { ko: '그룹', en: 'Group' }, icon: House, space: spaceId('mars') }],
   menus: [
     { id: 'home', group: groupId('equipment'), label: { ko: 'home', en: 'home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view' as const, requiresScope: false, context: { ...noContext, time: 'apply' as const }, pageType: 'analysis' as const, features: { ...features, board: false }, pageKeys: [], ...({ component: Page } as Record<string, unknown>), primary: true },
     { id: 'alpha', group: groupId('equipment'), label: { ko: '알파', en: 'Alpha' }, description: { ko: '', en: '' }, path: '/alpha', icon: House, permission: 'platform:view' as const, requiresScope: false, context: { ...noContext, time: 'apply' as const }, pageType: 'analysis' as const, features, pageKeys: [], ...({ component: Page } as Record<string, unknown>) },

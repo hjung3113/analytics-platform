@@ -56,7 +56,7 @@ export const FIXTURE_GROUP = 'genProbe';
 export const FIXTURE_FOLDER = 'gen-probe';
 
 function fixtureMenusTsText(extra: string[]): string {
-  const extraRows = extra.map(g => `  { id: groupId('${g}'), label: { ko: 'g', en: 'g' }, icon: I, space: spaceId('analytics') },`).join('\n');
+  const extraRows = extra.map(g => `  { id: groupId('${g}'), label: { ko: 'g', en: 'g' }, icon: I, space: spaceId('mars') },`).join('\n');
   return `import { Gauge, LayoutDashboard } from 'lucide-react';
 import { groupId, spaceId, type SpaceDef } from '${PACKAGE_PREFIX}contracts';
 import { createRegistry, type GroupDef, type MenuEntry } from '${PACKAGE_PREFIX}kernel';
@@ -65,15 +65,15 @@ import { manifests as home } from '${PACKAGE_PREFIX}menu-home';
 // </gen:menu-imports>
 
 export const GROUPS: GroupDef[] = [
-  { id: groupId('metrics'), label: { ko: '지표관리', en: 'Metrics' }, icon: Gauge, space: spaceId('analytics') },
-  { id: groupId('${FIXTURE_GROUP}'), label: { ko: '생성 확인', en: 'Gen probe' }, icon: LayoutDashboard, space: spaceId('analytics') },
+  { id: groupId('metrics'), label: { ko: '지표관리', en: 'Metrics' }, icon: Gauge, space: spaceId('mars') },
+  { id: groupId('${FIXTURE_GROUP}'), label: { ko: '생성 확인', en: 'Gen probe' }, icon: LayoutDashboard, space: spaceId('mars') },
 ${extraRows}
   // </gen:menu-groups>
 ];
 
 /** The folder-space invariant reads GROUPS and SPACES independently. */
 export const SPACES: SpaceDef[] = [
-  { id: spaceId('analytics'), label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'home' },
+  { id: spaceId('mars'), label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'home' },
 ];
 
 export const MENUS: MenuEntry[] = [
@@ -134,8 +134,8 @@ export function makeFixture(variants: { menusTs?: string; appPkg?: string; extra
   writeFileSync(join(root, 'apps/platform-web/src/dev/mock-assembly.tsx'), variants.mockAssemblyTsx ?? mockAssemblyTsx);
   writeFileSync(join(root, 'apps/platform-web/src/style.css'), styleCss);
   writeFileSync(join(root, 'apps/platform-web/package.json'), variants.appPkg ?? appPkg);
-  mkdirSync(join(root, 'menus/analytics/metric-catalog/src'), { recursive: true });
-  writeFileSync(join(root, 'menus/analytics/metric-catalog/src/index.ts'), variants.existingMenuIndex ?? existingMenuIndex);
+  mkdirSync(join(root, 'menus/mars/metric-catalog/src'), { recursive: true });
+  writeFileSync(join(root, 'menus/mars/metric-catalog/src/index.ts'), variants.existingMenuIndex ?? existingMenuIndex);
   return root;
 }
 

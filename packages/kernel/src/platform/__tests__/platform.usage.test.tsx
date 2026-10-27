@@ -11,13 +11,13 @@ import { groupId, spaceId, type PlatformAdapter, type Session, type SpaceDef, ty
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
 
 const spaces: SpaceDef[] = [
-  testSpace({ id: spaceId('analytics'), homeMenuId: 'equipment' }),
+  testSpace({ id: spaceId('mars'), homeMenuId: 'equipment' }),
   testSpace({ id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations console' }, permission: 'console:access', homeMenuId: 'admin-roles' }),
 ];
 const registry = createRegistry({
   spaces,
   groups: [
-    { id: groupId('equipment'), label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: spaceId('analytics') },
+    { id: groupId('equipment'), label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: spaceId('mars') },
     { id: groupId('admin'), label: { ko: '관리·감사', en: 'Administration' }, icon: House, space: spaceId('operations') },
   ],
   menus: [
@@ -101,7 +101,7 @@ describe('usage events (docs/05 메뉴 활용률 계측)', () => {
     expect(events).toHaveLength(1);
     expect(events[0].name).toBe('entry');
     expect(events[0].menuId).toBe('equipment-detail');
-    expect(events[0].spaceId).toBe('analytics');
+    expect(events[0].spaceId).toBe('mars');
     expect(events[0].path).toBe('/equipment/:equipmentId');
     expect(events[0].sessionId).toEqual(expect.any(String));
     // No concrete id, no Context value, no search in the wire format.
@@ -247,7 +247,7 @@ describe('usage events (docs/05 메뉴 활용률 계측)', () => {
 // Navigation path (#605): `via` + `fromMenuId` on main-screen entries only.
 const navRegistry = createRegistry({
   spaces: [spaces[0]!],
-  groups: [{ id: groupId('equipment'), label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: spaceId('analytics') }],
+  groups: [{ id: groupId('equipment'), label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: spaceId('mars') }],
   menus: [
     { id: 'home', group: groupId('equipment'), label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features: noFeatures, pageKeys: ['page'] },
     { id: 'equipment', group: groupId('equipment'), primary: true, label: { ko: '설비', en: 'Equipment' }, description: { ko: '', en: '' }, path: '/equipment', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features: noFeatures, pageKeys: ['page'] },

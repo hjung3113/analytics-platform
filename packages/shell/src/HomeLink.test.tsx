@@ -19,7 +19,7 @@ function withPlatformHome(homePermission: Permission) {
     spaces: [testSpace({ homeMenuId: 'overview' })],
     groups: [
       { id: groupId('overview'), label: { ko: '플랫폼', en: 'Platform' }, icon: House, space: null },
-      { id: groupId('equipment'), label: { ko: '업무', en: 'Work' }, icon: House, space: spaceId('analytics') },
+      { id: groupId('equipment'), label: { ko: '업무', en: 'Work' }, icon: House, space: spaceId('mars') },
     ],
     menus: [
       menu('launcher', groupId('overview'), '/', homePermission, true),
@@ -31,7 +31,7 @@ function withPlatformHome(homePermission: Permission) {
 const spaceOnly = createRegistry({
   permissions: [menuPermission('equipment:view')],
   spaces: [testSpace({ homeMenuId: 'overview' })],
-  groups: [{ id: groupId('equipment'), label: { ko: '업무', en: 'Work' }, icon: House, space: spaceId('analytics') }],
+  groups: [{ id: groupId('equipment'), label: { ko: '업무', en: 'Work' }, icon: House, space: spaceId('mars') }],
   menus: [menu('overview', groupId('equipment'), '/overview', 'platform:view', true)],
 });
 
@@ -41,7 +41,7 @@ const spaceWithoutHome = createRegistry({
   spaces: [testSpace({ homeMenuId: 'equipment' })],
   groups: [
     { id: groupId('overview'), label: { ko: '플랫폼', en: 'Platform' }, icon: House, space: null },
-    { id: groupId('equipment'), label: { ko: '업무', en: 'Work' }, icon: House, space: spaceId('analytics') },
+    { id: groupId('equipment'), label: { ko: '업무', en: 'Work' }, icon: House, space: spaceId('mars') },
   ],
   menus: [
     menu('launcher', groupId('overview'), '/', 'notice:view', true),
@@ -56,7 +56,7 @@ const neither = createRegistry({
   spaces: [testSpace({ permission: 'console:access', homeMenuId: 'overview' })],
   groups: [
     { id: groupId('overview'), label: { ko: '플랫폼', en: 'Platform' }, icon: House, space: null },
-    { id: groupId('equipment'), label: { ko: '업무', en: 'Work' }, icon: House, space: spaceId('analytics') },
+    { id: groupId('equipment'), label: { ko: '업무', en: 'Work' }, icon: House, space: spaceId('mars') },
   ],
   menus: [
     menu('launcher', groupId('overview'), '/', 'notice:view', true),

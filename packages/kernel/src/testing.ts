@@ -10,7 +10,7 @@ export const noContext: Record<ContextKey, Capability> = contextCapabilities();
 
 /** analytics space fixture. Pass the fields the test means (id · homeMenuId · permission · label); the rest are filler. */
 export function testSpace(over: Partial<SpaceDef> = {}): SpaceDef {
-  return { id: spaceId('analytics'), label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'home', ...over };
+  return { id: spaceId('mars'), label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'home', ...over };
 }
 
 /** Session fixture with the given permissions; override the user fields or scopes the test means. */

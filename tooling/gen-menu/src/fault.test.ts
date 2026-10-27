@@ -62,7 +62,7 @@ describe('partial-write faults restore every snapshot (R1)', () => {
       const res = runFaulty(root, join(root, rel), [FIXTURE_GROUP, ...GEN_ARGS]);
       expect(res.status, res.stderr).toBe(1);
       expect(appSnapshot(root), label).toEqual(pristine);
-      expect(existsSync(join(root, 'menus', 'analytics', 'gen-probe'))).toBe(false);
+      expect(existsSync(join(root, 'menus', 'mars', 'gen-probe'))).toBe(false);
     });
 
     it(`remove: partial write of ${label} is restored and the package is kept`, () => {
@@ -72,7 +72,7 @@ describe('partial-write faults restore every snapshot (R1)', () => {
       const res = runFaulty(root, join(root, rel), ['--remove', FIXTURE_GROUP]);
       expect(res.status, res.stderr).toBe(1);
       expect(appSnapshot(root), label).toEqual(wired);
-      expect(existsSync(join(root, 'menus', 'analytics', 'gen-probe'))).toBe(true);
+      expect(existsSync(join(root, 'menus', 'mars', 'gen-probe'))).toBe(true);
     });
   }
 });

@@ -34,7 +34,7 @@ function makeRegistry(over: { board?: boolean } = {}) {
   return createRegistry({
     spaces: [testSpace({ homeMenuId: 'home' }), testSpace({ id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Ops' }, permission: 'console:access', homeMenuId: 'ops' })],
     groups: [
-      { id: groupId('equipment'), label: { ko: '그룹', en: 'Group' }, icon: House, space: spaceId('analytics') },
+      { id: groupId('equipment'), label: { ko: '그룹', en: 'Group' }, icon: House, space: spaceId('mars') },
       { id: groupId('admin'), label: { ko: '관리', en: 'Admin' }, icon: House, space: spaceId('operations') },
     ],
     menus: [
@@ -740,8 +740,8 @@ describe('shell entry (docs/16 §4, §8)', () => {
     expect(window.location.pathname).toBe('/board');
     expect(seenRecent).toEqual(['beta']);
     const last = JSON.parse(sessionStorage.getItem('platform:space-last:u1')!) as Record<string, string>;
-    expect(Object.keys(last)).toEqual(['analytics']);
-    expect(last.analytics.startsWith('/beta?')).toBe(true);
+    expect(Object.keys(last)).toEqual(['mars']);
+    expect(last.mars.startsWith('/beta?')).toBe(true);
   });
 });
 
@@ -884,7 +884,7 @@ describe('shell-only state does not wake a pane (#824)', () => {
   function Controls() { host = useHostPlatform(); return null; }
   const probeRegistry = () => createRegistry({
     spaces: [testSpace({ homeMenuId: 'beta' })],
-    groups: [{ id: groupId('equipment'), label: { ko: '그룹', en: 'Group' }, icon: House, space: spaceId('analytics') }],
+    groups: [{ id: groupId('equipment'), label: { ko: '그룹', en: 'Group' }, icon: House, space: spaceId('mars') }],
     menus: [
       { ...entry('beta', '/beta', { component: () => null, label: { ko: '베타', en: 'Beta' } }), primary: true },
       entry('alpha', '/alpha', { component: PaneProbe, label: { ko: '알파', en: 'Alpha' } }),

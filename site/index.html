@@ -2042,8 +2042,8 @@
             </div>
             <p class="caption">
               견본 메뉴의 manifest 예시입니다(실제 메뉴는 사내에서 설계). 원본:
-              <a href="https://github.com/hjung3113/analytics-platform/blob/main/menus/metrics/metrics/src/index.ts"
-                >menus/metrics/metrics/src/index.ts</a
+              <a href="https://github.com/hjung3113/analytics-platform/blob/main/menus/bravo/metrics/src/index.ts"
+                >menus/bravo/metrics/src/index.ts</a
               >:13–21 · 화면 폭에 맞춰 줄바꿈했습니다(원본은 한 줄).
             </p>
           </div>
@@ -3227,11 +3227,11 @@ export type ModuleHost = {
           </div>
           <div id="source-L18">
             <h3>L18</h3>
-            <a href="https://github.com/hjung3113/analytics-platform/blob/main/menus/analytics/analytics/src/index.ts"
+            <a href="https://github.com/hjung3113/analytics-platform/blob/main/menus/mars/analytics/src/index.ts"
               >공개 원본 보기</a
             >
             <p>드릴 단계 공정 → StGroup → 설비, 단계마다 page key, 경로 칩, 복귀</p>
-            <p class="caption"><code>menus/analytics/analytics/src/index.ts:22-27</code>, <code>.planning</code> v0.4.0 · —</p>
+            <p class="caption"><code>menus/mars/analytics/src/index.ts:22-27</code>, <code>.planning</code> v0.4.0 · —</p>
           </div>
           <div id="source-L19">
             <h3>L19</h3>
@@ -3273,11 +3273,11 @@ export type ModuleHost = {
           <div id="source-L22">
             <h3>L22</h3>
             <a
-              href="https://github.com/hjung3113/analytics-platform/blob/main/menus/analytics/equipment/src/pages/EquipmentMaster.tsx"
+              href="https://github.com/hjung3113/analytics-platform/blob/main/menus/mars/equipment/src/pages/EquipmentMaster.tsx"
               >공개 원본 보기</a
             >
             <p>(사이트에서 뺌, 2026-10-20 FIX4) 설비 마스터의 '선택 설비로 분석' 버튼 코드 — 메뉴 특화 코드 발췌라서 부록 C에서 뺐다. 본문·부록 어디에서도 이 주장을 쓰지 않는다</p>
-            <p class="caption"><code>menus/analytics/equipment/src/pages/EquipmentMaster.tsx:63</code> · —</p>
+            <p class="caption"><code>menus/mars/equipment/src/pages/EquipmentMaster.tsx:63</code> · —</p>
           </div>
           <div id="source-L23">
             <h3>L23</h3>
@@ -3419,7 +3419,7 @@ export type ModuleHost = {
           </div>
           <div id="source-L35">
             <h3>L35</h3>
-            <a href="https://github.com/hjung3113/analytics-platform/blob/main/menus/metrics/metrics/src/index.ts"
+            <a href="https://github.com/hjung3113/analytics-platform/blob/main/menus/bravo/metrics/src/index.ts"
               >공개 원본 보기</a
             >
             <p>(사이트에서 뺌, 2026-10-20 FIX4) metrics 메뉴: git 추적 파일 23개·1,966줄, 화면 154줄+257줄, manifest 28줄 — 메뉴 특화 사례라서 부록 C에서 뺐다. 본문·부록 어디에서도 이 숫자를 쓰지 않는다</p>
@@ -3567,7 +3567,7 @@ export type ModuleHost = {
           </div>
           <div id="source-L51">
             <h3>L51</h3>
-            <a href="https://github.com/hjung3113/analytics-platform/blob/main/menus/analytics/analytics/src/index.ts"
+            <a href="https://github.com/hjung3113/analytics-platform/blob/main/menus/mars/analytics/src/index.ts"
               >공개 원본 보기</a
             >
             <p>
@@ -3732,13 +3732,13 @@ export type ModuleHost = {
           <div id="source-L120"><h3>L120</h3><p>오류 보고는 correlationId·menuId·spaceId·앱 상대 경로 패턴 path·식별자 형식의 예외 name만 담는다. 오류 메시지·전체 URL·Context 값·stack은 제외한다. mock 서버는 사용자 ID와 수신 시각을 덧붙여 메모리에 기록하며 오류 기록 조회 API는 없다.</p><p class="caption">packages/contracts/src/adapter.ts · packages/kernel/src/platform.tsx · packages/mock-server/src/server.ts · packages/shell/src/RouteErrorBoundary.tsx</p></div>
           <div id="source-L121"><h3>L121</h3><p>메뉴 작업 영역과 보드 도킹 배치는 구현돼 있다(L128·L129). 배치는 사용자·메뉴별로 이 브라우저에 저장하고 서버 저장 범위는 저장된 뷰 결정(#294)을 거친다. 2026-10-23 갱신: 이전의 구현 전 시안 5장(<code>site/assets/proto/</code>)은 삭제했다</p><p class="caption">ADR-0067 §20 · GitHub issue #575(두 번째 소비자 #586과 격자 경로 정리가 남아 열려 있음)</p></div>
           <div id="source-L122"><h3>L122</h3><p>데이터 자산 허브 #540은 엑셀 표 작성·검증·버전·권한별 게시와 읽기 API 재사용을 설계한다. 셀 선택·붙여넣기·채우기·되돌리기를 다루며 특정 후보 엔진이나 라이선스는 정하지 않았다.</p><p class="caption">GitHub issue #540 본문</p></div>
-          <div id="source-L123"><h3>L123</h3><p>현재 분석 보드는 메뉴 manifest의 features.board 지원 선언을 기준으로 칸에 메뉴를 넣는다. 구현된 선언은 MARS(analytics/equipment), CLAS(operation-time), BRAVO(metric-catalog) 메뉴에 있다. 칸 머리에는 메뉴가 속한 업무 시스템 이름이 붙는다.</p><p class="caption">packages/shell/src/board/boardMenus.ts · menus/analytics/analytics/src/index.ts · menus/analytics/equipment/src/index.ts · menus/clas/clas/src/index.ts · menus/metrics/metrics/src/index.ts</p></div>
+          <div id="source-L123"><h3>L123</h3><p>현재 분석 보드는 메뉴 manifest의 features.board 지원 선언을 기준으로 칸에 메뉴를 넣는다. 구현된 선언은 MARS(analytics/equipment), CLAS(operation-time), BRAVO(metric-catalog) 메뉴에 있다. 칸 머리에는 메뉴가 속한 업무 시스템 이름이 붙는다.</p><p class="caption">packages/shell/src/board/boardMenus.ts · menus/mars/analytics/src/index.ts · menus/mars/equipment/src/index.ts · menus/clas/clas/src/index.ts · menus/bravo/metrics/src/index.ts</p></div>
           <div id="source-L124"><h3>L124</h3><p>업무 시스템 전환기로 업무 시스템에 들어가면 그 업무 시스템의 마지막 화면으로 간다. 사용자+업무 시스템별로 탭 세션 범위에 저장하고, 가기 전에 경로·메뉴 권한·업무 시스템 진입·등록 page key를 다시 확인한다. 실패하면 업무 시스템 홈, 업무 시스템 홈을 열 수 없으면 사이드바 첫 메뉴로 간다. 전역 Context는 지금 값을 쓰고 업무 시스템마다 과거 값을 되살리지 않으며, 화면이 쓰지 않는 조건은 ‘미사용’으로 둔다. 드릴 복귀 대상을 열 수 없으면 상위 메뉴, 그것도 안 되면 열 수 있는 홈으로 간다</p><p class="caption">docs/contract/kernel.md §9.1·복귀 버튼 · ADR-0028 · ADR-0025 · L10</p></div>
-          <div id="source-L125"><h3>L125</h3><p>딥링크 주소의 키: 경로는 메뉴, v는 주소 판, scopeId는 Scope(Site), from·to는 기간, roomNames는 공정, 설비 목록 메뉴의 focus는 열린 상세, tab은 상세 탭이다. 차트 확대 구간과 분석 보드 칸은 주소에 담기지 않는다. 도식의 값은 예시다</p><p class="caption">docs/contract/kernel.md §6.1·§6.4 · menus/analytics/equipment/src/index.ts(pageKeys) · site/scripts/shots.mjs의 period 링크</p></div>
+          <div id="source-L125"><h3>L125</h3><p>딥링크 주소의 키: 경로는 메뉴, v는 주소 판, scopeId는 Scope(Site), from·to는 기간, roomNames는 공정, 설비 목록 메뉴의 focus는 열린 상세, tab은 상세 탭이다. 차트 확대 구간과 분석 보드 칸은 주소에 담기지 않는다. 도식의 값은 예시다</p><p class="caption">docs/contract/kernel.md §6.1·§6.4 · menus/mars/equipment/src/index.ts(pageKeys) · site/scripts/shots.mjs의 period 링크</p></div>
           <div id="source-L126"><h3>L126</h3><p>분석 보드의 시트는 보드당 최대 20장, 시트마다 1×1·1×2·2×1·2×2 배치로 칸은 최대 4개다. 칸은 메뉴 화면 하나와 자기 분석 Context·page 상태를 가지며, 새 칸은 기본 조건을 한 번 복사해 시작하고 그 뒤 본 화면과 연결이 없다. 분석 보드는 업무 시스템에 속하지 않는다</p><p class="caption">docs/design/analysis-board.md §4–5·§10 · ADR-0049 · packages/shell/src/board/boardModel.ts(MAX_SHEETS)</p></div>
           <div id="source-L127"><h3>L127</h3><p>본문 도식과 근거 행의 대응: 상태 화면 구분 L16 · 드릴다운과 복귀 L10·L21 · 업무 시스템 전환 L124·L10 · 링크 구성 L10·L125 · 받는 사람 확인 L11·L12 · VOC 왕복 L23·L24·L102 · 권한 판정 L11 · 같은 검사 L37·L13 · 한 곳의 권한·감사·활용률 L30·L46 · 오류 한 건의 경로 L117·L120 · 오류 보고와 VOC 링크 L24·L120 · 분석 보드의 구성 L70·L123·L126 · 데이터 자산 허브 L122 · 메뉴 선언과 SDK 조립 L119</p><p class="caption">본문 각 도식의 캡션이 같은 행을 링크한다. 모든 도식은 설명용이며 값은 예시다</p></div>
           <div id="source-L128"><h3>L128</h3><p>분석 보드의 기본 렌더러는 도킹 배치다. 묶음마다 한 줄 칸 머리(탭·업무 시스템 이름·선택 표시·<code>⋯</code> 메뉴·최대화 버튼)가 있고, 탭 겹치기·끌어 나누기·경계 크기 조절·칸 더하기와 닫기·읽는 순서 키보드 이동을 한다(PR #646·PR #647·PR #648). 1×1·1×2·2×1·2×2 격자는 대체 렌더러다. 캡처 <code>board-dock-tabs</code>(오른쪽 칸은 CLAS 동작시간·MARS 설비 마스터)·<code>board-dock-maximized</code>·<code>board-pane-menu</code>는 <code>site/scripts/shots.mjs</code>가 v2 저장 모양을 심어 mock 데모에서 찍는다(예시 데이터). 남은 것: 작업 영역 두 번째 소비자 #586, 격자 경로 정리(#575는 열려 있음)</p><p class="caption">ADR-0067, ADR-0049, GitHub #575·PR #646·PR #647·PR #648·#586, <code>packages/shell/src/board/</code>, <code>site/scripts/shots.mjs</code> · 2026-10-23 추가. 시안 5장(<code>assets/proto/</code>)은 삭제</p></div>
-          <div id="source-L129"><h3>L129</h3><p>메뉴 작업 영역 <code>PanelWorkspace</code>는 프리셋 선택·패널 숨기기·기본 배치·로컬 선호 저장·명령 호스트(<code>WorkspaceCommandsHost</code>)·좁은 화면(compact)·높이 채움(fill)을 제공한다(PR #664). 메뉴는 패널·프리셋·기본 패널만 선언하고 조작은 플랫폼이 맡는다. 첫 소비자는 사이클타임 상세(PR #684, 프리셋 기본·집중·세로, <code>menus/analytics/analytics/src/pages/CycleTimeDrilldown.tsx</code>의 <code>presets</code>)이고 보드 칸 <code>⋯</code> 메뉴에 <code>화면 배치</code> 명령이 있다. 캡처 <code>cycle-workspace</code>(mock 데모, 예시 데이터)</p><p class="caption">ADR-0067, GitHub PR #664·PR #684, <code>packages/components/src/</code>(<code>PanelWorkspace</code>), <code>tooling/sdk/api/components.root.api.txt</code>, <code>apps/platform-e2e/tests/contracts.spec.ts</code>(메뉴 작업 영역) · 2026-10-23 추가</p></div>
+          <div id="source-L129"><h3>L129</h3><p>메뉴 작업 영역 <code>PanelWorkspace</code>는 프리셋 선택·패널 숨기기·기본 배치·로컬 선호 저장·명령 호스트(<code>WorkspaceCommandsHost</code>)·좁은 화면(compact)·높이 채움(fill)을 제공한다(PR #664). 메뉴는 패널·프리셋·기본 패널만 선언하고 조작은 플랫폼이 맡는다. 첫 소비자는 사이클타임 상세(PR #684, 프리셋 기본·집중·세로, <code>menus/mars/analytics/src/pages/CycleTimeDrilldown.tsx</code>의 <code>presets</code>)이고 보드 칸 <code>⋯</code> 메뉴에 <code>화면 배치</code> 명령이 있다. 캡처 <code>cycle-workspace</code>(mock 데모, 예시 데이터)</p><p class="caption">ADR-0067, GitHub PR #664·PR #684, <code>packages/components/src/</code>(<code>PanelWorkspace</code>), <code>tooling/sdk/api/components.root.api.txt</code>, <code>apps/platform-e2e/tests/contracts.spec.ts</code>(메뉴 작업 영역) · 2026-10-23 추가</p></div>
           <div id="source-L130"><h3>L130</h3><p>작업 영역의 높이 방식은 <code>화면 맞춤</code>(기본, 보이는 높이를 나눠 쓰고 경계 하나를 옮기면 이웃이 함께 변함)과 <code>아래로 쌓기</code>(줄마다 자기 px 높이, 페이지가 스크롤, 경계는 위 줄만 바꿈)다(#686·PR #721, ADR-0077). 높이를 채우는 화면에서는 페이지 머리가 한 줄로 접히고 얇은 결과 띠가 붙는다(#680, ADR-0075). 차트·탭 머리·작업 영역 표 위에서 휠이 바깥 스크롤을 막지 않는다(PR #707). 캡처 <code>cycle-workspace-stack</code>·<code>cycle-head-fold</code>·<code>cycle-head-open</code>(mock 데모, 예시 데이터). 아래로 쌓기에서는 줄 높이가 px로 고정돼 패널 안 내용이 넘치면 패널 안에서 스크롤된다</p><p class="caption">ADR-0075, ADR-0077, GitHub #680·#686·PR #707·PR #721, <code>GLOSSARY.md</code> 높이 방식·페이지 머리 · 2026-10-23 추가</p></div>
           <div id="source-L131"><h3>L131</h3><p>플랫폼 메뉴 화면: 전환기에 <code>플랫폼 메뉴</code> 구역이 있고 전역 화면에는 플랫폼 사이드바가 열리며 언어 선택과 <code>FeedbackOps 전체</code>는 사용자 메뉴에 있다(PR #658). 시스템 레일의 알림 종과 팝오버, 플랫폼 메뉴의 읽지 않은 알림 배지(#652), 알림 페이지(#651), 설문 전체 화면(#653), 내 VOC와 신고자 VOC 상세(#654). FeedbackOps 화면을 플랫폼에 이은 것(<code>menus/_global/my-activity</code>)이고 데이터는 <code>/api/fo</code>의 FeedbackOps 백엔드에서 온다. mock 정책(ADR-0071 결정 7): mock 데모에서는 이 화면들이 <code>실서버 필요</code>를 보이고 종은 배지 없이 보이며 팝오버 본문도 <code>실서버 필요</code>다</p><p class="caption">ADR-0070, ADR-0071(결정 7), GitHub #651·#652·#653·#654·PR #658, <code>menus/_global/my-activity</code> · 2026-10-23 추가. 본문 기능 7</p></div>
           <div id="source-L132"><h3>L132</h3><p>아직 안 된 것: 오류 화면에서 추적 번호를 담는 VOC 등록은 #606(열림), <code>#594</code>(모든 화면의 VOC 진입)는 드로어(PR #727)로 본문에서 뺐고 남은 것은 #606뿐이다. 홈의 공지 칸은 지금 Site의 공지를 한 줄씩 보이고 세션 동안 닫을 수 있다(mock 예시 2건, MEM·FDRY; <code>OperationsHome.tsx</code>). 실서버 모드에서는 메뉴 데이터 조회가 서버에 닿지 않아(<code>http_404</code>; FeedbackOps 백엔드가 메뉴 조회 포트를 구현하지 않음, ADR-0069) 홈 공지 칸이 오류를 보이고, 사내 서버 연결(#154, 열림) 때 함께 풀린다(#708은 고치지 않고 닫음, <code>.planning/backlog.md</code>). 권한 요청(<code>/permission-requests</code>)은 FeedbackOps 요청자 화면을 다리로 잇는 동작 화면이고(요청·내 요청 상태·철회; 승인은 FeedbackOps 관리자 화면에 남음), 홈 <code>내 할 일</code>(설문·바뀐 내 VOC·권한 요청)은 FeedbackOps 세션이 준비됐을 때만 보이고 mock에서는 아무것도 그리지 않는다(#657 닫힘, PR #729·#730, ADR-0070 결정 8, ADR-0076; <code>home-todo-slot.tsx</code>). <code>공지 목록</code>(<code>/notices</code>) 화면은 선언만 있고 부품이 없으며 맡은 이슈가 없다(조정자 결정 2026-10-24, <code>.planning/backlog.md</code>에 기록). VOC 등록 드로어는 앱에 연결됐다(#656 닫힘, PR #727, L141)</p><p class="caption">ADR-0070 결정 5, GitHub #594·#606·#656·#657·PR #727, 실서버 모드 캡처(<code>real-voc-detail</code>·<code>real-switcher</code>) · 2026-10-23 추가, 같은 날 드로어 연결(PR #727)로 갱신. 상태는 조정자가 2026-10-23에 확인해 전달한 값</p></div>

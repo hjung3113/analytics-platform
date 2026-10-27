@@ -171,8 +171,8 @@ import { DockLayout, normalizeDockTree } from '@ap/components/dock';
 import { AppShell } from '@ap/shell';
 
 const registry = createRegistry({
-  spaces: [testSpace({ id: spaceId('analytics'), homeMenuId: 'home' })],
-  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics'), hideLabelWhenSingle: true }],
+  spaces: [testSpace({ id: spaceId('mars'), homeMenuId: 'home' })],
+  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars'), hideLabelWhenSingle: true }],
   menus: [{
     id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/',
     icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'overview',

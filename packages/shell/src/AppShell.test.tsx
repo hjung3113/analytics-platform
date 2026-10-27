@@ -18,8 +18,8 @@ function menu(id: string, group: GroupId, path: string, permission: Permission) 
 }
 const registry = createRegistry({
   permissions: [menuPermission('equipment:view')],
-  spaces: [testSpace({ id: spaceId('analytics'), label: { ko: '분석', en: 'Analytics' }, subtitle: { ko: 'FeedbackOps 검사 전용 시스템 부제', en: 'FeedbackOps fixture system subtitle' }, homeMenuId: 'home' }), testSpace({ id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations' }, homeMenuId: 'ops', permission: 'console:access' })],
-  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics'), hideLabelWhenSingle: true }, { id: groupId('admin'), label: { ko: '관리', en: 'Admin' }, icon: House, space: spaceId('operations') }],
+  spaces: [testSpace({ id: spaceId('mars'), label: { ko: '분석', en: 'Analytics' }, subtitle: { ko: 'FeedbackOps 검사 전용 시스템 부제', en: 'FeedbackOps fixture system subtitle' }, homeMenuId: 'home' }), testSpace({ id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations' }, homeMenuId: 'ops', permission: 'console:access' })],
+  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars'), hideLabelWhenSingle: true }, { id: groupId('admin'), label: { ko: '관리', en: 'Admin' }, icon: House, space: spaceId('operations') }],
   menus: [menu('ops', groupId('admin'), '/ops', 'console:access'), { id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: ['focus', 'tab'] }],
 });
 
@@ -46,7 +46,7 @@ function sidebarRegistry(groupId: GroupId, groupLabel: string, menuIds: string[]
       id: groupId,
       label: { ko: groupLabel, en: groupLabel },
       icon: House,
-      space: spaceId('analytics'),
+      space: spaceId('mars'),
       ...(hideLabelWhenSingle ? { hideLabelWhenSingle: true } : {}),
     }],
     menus,
@@ -361,7 +361,7 @@ it('opens the named slot and selected tab from URL focus/tab and clears focus on
 });
 
 const feedbackSlot: FeedbackOpsSlot = {
-  entriesFor: spaceId => spaceId === 'analytics' ? [
+  entriesFor: spaceId => spaceId === 'mars' ? [
     { key: 'task', icon: ListTodo, label: { ko: 'Task', en: 'Task' }, href: 'https://example.test/task' },
     { key: 'voc-create', icon: MessageSquarePlus, label: { ko: 'VOC 등록', en: 'File a VOC' }, href: 'https://example.test/new' },
   ] : spaceId === 'operations' ? [] : null,
@@ -372,12 +372,12 @@ function globalShellRegistry(equipmentPermission: Permission = 'platform:view') 
   return createRegistry({
     permissions: [menuPermission('equipment:view')],
     spaces: [
-      testSpace({ id: spaceId('analytics'), label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'equipment' }),
+      testSpace({ id: spaceId('mars'), label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'equipment' }),
       testSpace({ id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations' }, homeMenuId: 'ops', permission: 'console:access' }),
     ],
     groups: [
       { id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: null },
-      { id: groupId('equipment'), label: { ko: '설비', en: 'Equipment' }, icon: House, space: spaceId('analytics') },
+      { id: groupId('equipment'), label: { ko: '설비', en: 'Equipment' }, icon: House, space: spaceId('mars') },
       { id: groupId('admin'), label: { ko: '관리', en: 'Admin' }, icon: House, space: spaceId('operations') },
     ],
     menus: [
@@ -395,7 +395,7 @@ function logoRegistry() {
     groups: [
       { id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: null },
       { id: groupId('noticeVoc'), label: { ko: '공지', en: 'Notices' }, icon: House, space: null },
-      { id: groupId('equipment'), label: { ko: '설비', en: 'Equipment' }, icon: House, space: spaceId('analytics') },
+      { id: groupId('equipment'), label: { ko: '설비', en: 'Equipment' }, icon: House, space: spaceId('mars') },
     ],
     menus: [
       { id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] },
@@ -443,7 +443,7 @@ describe('workspace shell layout (15 §3.1)', () => {
   });
 
   it('draws each FeedbackOps entry with the icon the slot passes, whatever its key (ADR-0072)', () => {
-    mount(['platform:view'], true, registry, { feedbackOps: { entriesFor: id => id === 'analytics' ? [
+    mount(['platform:view'], true, registry, { feedbackOps: { entriesFor: id => id === 'mars' ? [
       { key: 'first', icon: Star, label: { ko: '첫째', en: 'First' }, href: 'https://example.test/a' },
       { key: 'task', icon: Rocket, label: { ko: '둘째', en: 'Second' }, href: null },
     ] : null, overall: null } });
@@ -507,7 +507,7 @@ describe('workspace shell layout (15 §3.1)', () => {
     const SYSTEM = '4f1b2c3d-5e6f-4a7b-8c9d-0e1f2a3b4c5d';
     const vocEntry = { key: 'voc', icon: MessagesSquare, label: { ko: 'VOC', en: 'VOC' }, menuId: 'fo-inbox', page: { managedSystem: SYSTEM } };
     const taskEntry = { key: 'task', icon: ListTodo, label: { ko: 'Task', en: 'Task' }, href: 'https://example.test/task' };
-    const slotOf = (entries: FeedbackOpsSlot['entriesFor'] extends (...args: never[]) => infer R ? R : never, permission?: Permission): FeedbackOpsSlot => ({ entriesFor: id => id === 'analytics' ? entries : null, overall: null, ...(permission ? { permission } : {}) });
+    const slotOf = (entries: FeedbackOpsSlot['entriesFor'] extends (...args: never[]) => infer R ? R : never, permission?: Permission): FeedbackOpsSlot => ({ entriesFor: id => id === 'mars' ? entries : null, overall: null, ...(permission ? { permission } : {}) });
 
     it('opens VOC in the same tab with only v, managedSystem and returnTo; Task stays a new-tab link; both captions show', () => {
       window.history.replaceState(null, '', '/?v=1&from=2026-10-01T00:00:00&to=2026-10-02T00:00:00&scopeId=MEM');
@@ -590,7 +590,7 @@ describe('workspace shell layout (15 §3.1)', () => {
     ['en', 'FeedbackOps address is not configured'],
   ])('draws an entry with a null href as a focusable disabled link (%s)', (lang, reason) => {
     localStorage.setItem('platform:lang', lang);
-    mount(['platform:view'], true, registry, { feedbackOps: { entriesFor: id => id === 'analytics' ? [
+    mount(['platform:view'], true, registry, { feedbackOps: { entriesFor: id => id === 'mars' ? [
       { key: 'task', icon: ListTodo, label: { ko: 'Task', en: 'Task' }, href: null },
       { key: 'voc-create', icon: MessageSquarePlus, label: { ko: 'VOC 등록', en: 'File a VOC' }, href: 'https://example.test/new' },
     ] : null, overall: null } });
@@ -608,7 +608,7 @@ describe('workspace shell layout (15 §3.1)', () => {
 
   it('drops the new-tab caption when every entry is disabled (UX-1)', () => {
     localStorage.setItem('platform:sidebar-collapsed', '0');
-    mount(['platform:view'], true, registry, { feedbackOps: { entriesFor: id => id === 'analytics' ? [
+    mount(['platform:view'], true, registry, { feedbackOps: { entriesFor: id => id === 'mars' ? [
       { key: 'voc-create', icon: MessageSquarePlus, label: { ko: 'VOC 등록', en: 'File a VOC' }, href: null },
       { key: 'task', icon: ListTodo, label: { ko: 'Task', en: 'Task' }, href: null },
     ] : null, overall: null } });
@@ -880,7 +880,7 @@ function platformSidebarRegistry() {
       { id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: null, hideLabelWhenSingle: true },
       { id: groupId('myActivity'), label: { ko: '내 활동', en: 'My activity' }, icon: House, space: null },
       { id: groupId('noticeVoc'), label: { ko: '공지', en: 'Notices' }, icon: House, space: null, hideLabelWhenSingle: true },
-      { id: groupId('equipment'), label: { ko: '설비', en: 'Equipment' }, icon: House, space: spaceId('analytics') },
+      { id: groupId('equipment'), label: { ko: '설비', en: 'Equipment' }, icon: House, space: spaceId('mars') },
     ],
     menus: [
       entry('notices', groupId('noticeVoc'), '/notices', '공지', 'notice:view', true),
@@ -953,8 +953,8 @@ describe('platform sidebar (ADR-0070)', () => {
 function navViewsRegistry(second?: boolean) {
   const base = (id: string, path: string, over: object = {}) => ({ ...menu(id, groupId('overview'), path, 'platform:view'), label: { ko: id === 'inbox' ? '수신함' : '다른 메뉴', en: id === 'inbox' ? 'Inbox' : 'Other' }, primary: id === 'inbox', ...over });
   return createRegistry({
-    spaces: [testSpace({ id: spaceId('analytics'), homeMenuId: 'inbox' }), ...(second ? [testSpace({ id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations' }, homeMenuId: 'ops', permission: 'console:access' })] : [])],
-    groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }, ...(second ? [{ id: groupId('admin'), label: { ko: '관리', en: 'Admin' }, icon: House, space: spaceId('operations') }] : [])],
+    spaces: [testSpace({ id: spaceId('mars'), homeMenuId: 'inbox' }), ...(second ? [testSpace({ id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations' }, homeMenuId: 'ops', permission: 'console:access' })] : [])],
+    groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }, ...(second ? [{ id: groupId('admin'), label: { ko: '관리', en: 'Admin' }, icon: House, space: spaceId('operations') }] : [])],
     menus: [
       base('inbox', '/inbox', { pageKeys: ['tab'], navViews: [{ id: 'mine', label: { ko: '내 것', en: 'Mine' }, page: { tab: 'mine' } }, { id: 'all', label: { ko: '전체', en: 'All' }, page: { tab: 'all' } }] }),
       base('other', '/other'),
@@ -1031,8 +1031,8 @@ describe('sidebar navViews, navCounts and spaceNavSection (#761)', () => {
   it('switches space without a hook-order error when the next space has no counts or section', async () => {
     window.history.replaceState(null, '', '/other?v=1');
     const slots: PlatformSlots = {
-      navCounts: { For: id => (id === 'analytics' ? CountsA : null) },
-      spaceNavSection: { For: id => (id === 'analytics' ? { label: { ko: '저장된 보기', en: 'Saved' }, Body: SectionBody } : null) },
+      navCounts: { For: id => (id === 'mars' ? CountsA : null) },
+      spaceNavSection: { For: id => (id === 'mars' ? { label: { ko: '저장된 보기', en: 'Saved' }, Body: SectionBody } : null) },
     };
     const error = vi.spyOn(console, 'error').mockImplementation(() => {});
     mount(['platform:view', 'console:access'], true, navViewsRegistry(true), slots);
@@ -1070,8 +1070,8 @@ describe('sidebar navViews, navCounts and spaceNavSection (#761)', () => {
       const m = (id: string, path: string, over: object = {}) => ({ ...menu(id, groupId('overview'), path, 'platform:view'), label: { ko: id, en: id }, primary: id === 'a', ...over });
       const v = (id: string, page: Record<string, string>) => ({ id, label: { ko: `v-${id}`, en: id }, page });
       return createRegistry({
-        spaces: [testSpace({ id: spaceId('analytics'), homeMenuId: 'a' })],
-        groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('analytics') }],
+        spaces: [testSpace({ id: spaceId('mars'), homeMenuId: 'a' })],
+        groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
         menus: [
           m('a', '/a', { pageKeys: ['tab', 'sub'], navViews: [v('broad', { tab: 'mine' }), v('narrow', { tab: 'mine', sub: 'x' })] }),
           m('b', '/b', { pageKeys: ['tab'], navViews: [v('b-mine', { tab: 'mine' })] }),

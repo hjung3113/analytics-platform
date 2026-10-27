@@ -41,11 +41,11 @@ export const GROUPS: GroupDef[] = [
   { id: groupId('overview'), label: { ko: '운영 개요', en: 'Overview' }, icon: LayoutDashboard, space: null, hideLabelWhenSingle: true },
   { id: groupId('myActivity'), label: { ko: '내 활동', en: 'My activity' }, icon: UserRound, space: null },
   { id: groupId('noticeVoc'), label: { ko: '공지·VOC', en: 'Notice & VOC' }, icon: Megaphone, space: null },
-  { id: groupId('analytics'), label: { ko: '생산성 분석', en: 'Analytics' }, icon: BarChart3, space: spaceId('analytics') },
-  { id: groupId('equipment'), label: { ko: '설비관리', en: 'Equipment' }, icon: Cpu, space: spaceId('analytics') },
-  { id: groupId('masterData'), label: { ko: '기준정보관리', en: 'Master Data' }, icon: Database, space: spaceId('analytics') },
-  { id: groupId('hwTime'), label: { ko: '동작시간분석', en: 'Operation time analysis' }, icon: Timer, space: spaceId('analytics') },
-  { id: groupId('metrics'), label: { ko: '지표관리', en: 'Metrics' }, icon: Gauge, space: spaceId('metrics') },
+  { id: groupId('analytics'), label: { ko: '생산성 분석', en: 'Analytics' }, icon: BarChart3, space: spaceId('mars') },
+  { id: groupId('equipment'), label: { ko: '설비관리', en: 'Equipment' }, icon: Cpu, space: spaceId('mars') },
+  { id: groupId('masterData'), label: { ko: '기준정보관리', en: 'Master Data' }, icon: Database, space: spaceId('mars') },
+  { id: groupId('hwTime'), label: { ko: '동작시간분석', en: 'Operation time analysis' }, icon: Timer, space: spaceId('mars') },
+  { id: groupId('metrics'), label: { ko: '지표관리', en: 'Metrics' }, icon: Gauge, space: spaceId('bravo') },
   { id: groupId('clas'), label: { ko: '설비 동작 분석', en: 'Equipment operation' }, icon: LineChart, space: spaceId('clas') },
   { id: groupId('admin'), label: { ko: '관리·감사', en: 'Administration' }, icon: ShieldCheck, space: spaceId('operations') },
   { id: groupId('logMyWork'), label: { ko: '내 작업', en: 'My work' }, icon: Inbox, space: spaceId('log-dev') },
@@ -63,10 +63,13 @@ export const GROUPS: GroupDef[] = [
   // </gen:menu-groups>
 ];
 
+/** Former space id → current id (ADR-0090 D3, 713m). The kernel moves a tab's per-space resume entry once; usage records already stored keep the former id. */
+export const SPACE_ID_MIGRATIONS: Readonly<Record<string, string>> = { analytics: 'mars', metrics: 'bravo' };
+
 /** SPACES stays separate from GROUPS so the folder-space invariant reads each declaration independently. */
 export const SPACES = [
-  { id: spaceId('analytics'), label: { ko: 'MARS', en: 'MARS' }, subtitle: { ko: '생산성 분석', en: 'Productivity analysis' }, description: { ko: '설비·기간별 생산성과 사이클타임을 분석합니다.', en: 'Analyze productivity and cycle time by equipment and period.' }, homeMenuId: 'productivity-overview' },
-  { id: spaceId('metrics'), label: { ko: 'BRAVO', en: 'BRAVO' }, subtitle: { ko: '지표관리', en: 'Metrics' }, description: { ko: '지표 정의·버전·발행을 관리합니다.', en: 'Manage metric definitions, versions, and releases.' }, homeMenuId: 'metric-catalog' },
+  { id: spaceId('mars'), label: { ko: 'MARS', en: 'MARS' }, subtitle: { ko: '생산성 분석', en: 'Productivity analysis' }, description: { ko: '설비·기간별 생산성과 사이클타임을 분석합니다.', en: 'Analyze productivity and cycle time by equipment and period.' }, homeMenuId: 'productivity-overview' },
+  { id: spaceId('bravo'), label: { ko: 'BRAVO', en: 'BRAVO' }, subtitle: { ko: '지표관리', en: 'Metrics' }, description: { ko: '지표 정의·버전·발행을 관리합니다.', en: 'Manage metric definitions, versions, and releases.' }, homeMenuId: 'metric-catalog' },
   { id: spaceId('clas'), label: { ko: 'CLAS', en: 'CLAS' }, subtitle: { ko: '생산성 분석', en: 'Productivity analysis' }, description: { ko: '설비별 동작시간과 동작 흐름을 분석합니다.', en: 'Analyze operation time and operation flow by equipment.' }, homeMenuId: 'operation-time' },
   { id: spaceId('tools'), label: { ko: '도구', en: 'Tools' }, subtitle: { ko: '설비 Top View', en: 'Equipment Top View' }, description: { ko: '설비 레이아웃을 Top View로 보고 로그를 재생합니다.', en: 'View equipment layouts as a Top View and replay their logs.' }, homeMenuId: 'eqv:topview' },
   { id: spaceId('log-dev'), label: { ko: '표준 로그 개발', en: 'Standard log development' }, description: { ko: '설비 모델별 로그 개발 단계와 검증을 관리합니다.', en: 'Manage log development stages and validation per equipment model.' }, homeMenuId: 'log-my-queue' },
