@@ -57,26 +57,35 @@ export type DockStrip = { width: number; tabs: number };
 /** What one tab needs at the least: `full` (badge, action, name down to 64px) and, as a background tab, `badge` (badge and padding only). */
 export type TabFloor = { full: number; badge: number; active: boolean };
 
+/** The last full floor measured on each tab while it was expanded, with the title it was measured for. A compact tab's name has no width, so its full floor comes from here. */
+const measuredFull = new WeakMap<HTMLElement, { title: string; full: number }>();
+
 /**
  * What the strip's tabs need at the least, measured on the tabs themselves (the constants above are the spec's, used where the DOM has no size):
  * a tab keeps its badge, its action and its name down to 64px; a background tab that is compact keeps its badge and padding only. A tab whose name is
- * hidden (it is compact now) says nothing about its full floor, so the constant stands in.
+ * hidden (it is compact now) says nothing new about its full floor, so the one last measured while it was expanded stands in (the constant when it
+ * never was, or when its title changed since). The decision is thus a function of the expanded measurements, not of the previous marks.
  */
-function tabFloors(strip: HTMLElement | null): TabFloor[] {
+export function tabFloors(strip: HTMLElement | null): TabFloor[] {
   const width = (item: Element) => item.getBoundingClientRect().width;
   return Array.from(strip?.querySelectorAll<HTMLElement>('.dv-tab') ?? []).map(tab => {
     const active = tab.classList.contains('dv-active-tab');
     const compact = tab.hasAttribute(COMPACT_TAB) && !active;
+    const title = tab.textContent ?? '';
+    const remembered = () => { const known = measuredFull.get(tab); return known && known.title === title ? known.full : TAB_FLOOR; };
     const own = width(tab);
-    if (own <= 0) return { full: TAB_FLOOR, badge: TAB_FLOOR_COMPACT, active };
+    if (own <= 0) return { full: remembered(), badge: TAB_FLOOR_COMPACT, active };
     const badge = tab.querySelector('[data-pane-badge]');
     const style = getComputedStyle(tab);
     const padding = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
     const badgeFloor = badge && width(badge) > 0 && padding > 0 ? width(badge) + padding : TAB_FLOOR_COMPACT;
-    if (compact) return { full: TAB_FLOOR, badge: badgeFloor, active };
+    if (compact) return { full: remembered(), badge: badgeFloor, active };
     const name = tab.querySelector('[data-dock-tab-shrinkable]');
     const nameWidth = name ? width(name) : 0;
-    return { full: name && nameWidth <= 0 ? TAB_FLOOR : own - Math.max(0, nameWidth - TAB_NAME_MIN), badge: badgeFloor, active };
+    if (name && nameWidth <= 0) return { full: remembered(), badge: badgeFloor, active };
+    const full = own - Math.max(0, nameWidth - TAB_NAME_MIN);
+    measuredFull.set(tab, { title, full });
+    return { full, badge: badgeFloor, active };
   });
 }
 
@@ -103,7 +112,7 @@ export function compactTabCount(floors: readonly TabFloor[], width: number, fits
 }
 
 /** Which tab elements are compact: the last `count` background tabs of the strip (set on the tab, read by dock.css). */
-function markCompactTabs(strip: HTMLElement | null, count: number) {
+export function markCompactTabs(strip: HTMLElement | null, count: number) {
   let left = count;
   const tabs = Array.from(strip?.querySelectorAll<HTMLElement>('.dv-tab') ?? []);
   for (let i = tabs.length - 1; i >= 0; i--) {

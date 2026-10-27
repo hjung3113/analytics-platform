@@ -886,22 +886,50 @@ test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await signInWithDockBoard(page, [populated('dock', '2x2', 4)]);
     await dockReady(page, 4);
-    // Below 692px every pane is one tab group; its strip is as wide as the viewport lets it be.
-    await page.setViewportSize({ width: 420, height: 900 });
+    // Below 692px every pane is one tab group; add a fifth tab to it (the group `+`, the 893e cap allows 8).
+    await page.setViewportSize({ width: 600, height: 900 });
     await expect(groups(page)).toHaveCount(1);
+    await page.locator('[data-group-add]').first().click();
+    await page.getByRole('dialog').getByRole('button').first().click();
     const tabs = page.locator('[data-dock-layout] .dv-tab');
-    await expect(tabs).toHaveCount(4);
-    const marks = async () => tabs.evaluateAll(list => list.map(tab => ({ compact: tab.hasAttribute('data-dock-tab-compact'), active: tab.classList.contains('dv-active-tab') })));
-    await expect.poll(async () => (await marks()).some(tab => tab.compact)).toBe(true);
+    await expect(tabs).toHaveCount(5);
+    await expect(page.locator('[data-dock-layout] [data-pane-body] [role="status"][aria-busy]')).toHaveCount(0);
+    const marks = async () => tabs.evaluateAll(list => list.map(tab => ({
+      compact: tab.hasAttribute('data-dock-tab-compact'), active: tab.classList.contains('dv-active-tab'),
+    })));
+    const compactCount = async () => (await marks()).filter(tab => tab.compact).length;
+    // The widths that squeeze depend on the fixture's content: start at the widest single-group width (680px, wider splits the groups) and step down until the first background tab shrinks.
+    const seen: string[] = [];
+    let found = 0;
+    for (let width = 680; width >= 360; width -= 20) {
+      await page.setViewportSize({ width, height: 900 });
+      await expect(groups(page)).toHaveCount(1);
+      await page.waitForTimeout(150);
+      const count = await compactCount();
+      seen.push(`${width}px: ${count}`);
+      if (count > 0) { found = width; break; }
+    }
+    expect(found, `no width produced a compact tab; compact counts seen: ${seen.join(', ')}`).toBeGreaterThan(0);
+    await expect.poll(compactCount).toBeGreaterThan(0);
     const state = await marks();
+    const background = state.filter(tab => !tab.active);
+    const shrunk = background.filter(tab => tab.compact).length;
+    // Partial: some, not all, background tabs shrink at the first width where any does.
+    expect(shrunk, `compact counts seen: ${seen.join(', ')}`).toBeGreaterThan(0);
+    expect(shrunk, `compact counts seen: ${seen.join(', ')}`).toBeLessThan(background.length);
     // The active tab never shrinks; the shrunk background tabs are the last ones, as a block.
     expect(state.filter(tab => tab.active && tab.compact)).toHaveLength(0);
-    const background = state.filter(tab => !tab.active).map(tab => tab.compact);
-    const shrunk = background.filter(Boolean).length;
-    expect(background).toEqual(background.map((_, n) => n >= background.length - shrunk));
-    // Not every background tab shrinks when the strip has room for a name beside the badge of the others: widen it and fewer shrink.
-    await page.setViewportSize({ width: 560, height: 900 });
-    await expect.poll(async () => (await marks()).filter(tab => tab.compact).length).toBeLessThanOrEqual(shrunk);
+    expect(background.map(tab => tab.compact)).toEqual(background.map((_, n) => n >= background.length - shrunk));
+    // Rendered, not only marked: a compact tab's name takes no width, the active tab's name shows, and every tab keeps its accessible name.
+    for (let n = 0; n < state.length; n++) {
+      const tab = tabs.nth(n);
+      const name = tab.locator('[data-dock-tab-shrinkable]');
+      if (state[n]!.compact) await expect(name).toBeHidden(); else if (state[n]!.active) await expect(name).toBeVisible();
+      await expect(paneTabs(page).nth(n), `tab ${n + 1} keeps an accessible name`).toHaveAccessibleName(/칸 \d+/);
+    }
+    // Widen by 40px: strictly fewer shrink.
+    await page.setViewportSize({ width: Math.min(found + 40, 688), height: 900 });
+    await expect.poll(compactCount).toBeLessThan(shrunk);
   });
   test('4개 영역일 때 탭을 다른 영역 가장자리에 끌면 분할 미리보기가 없고 가운데에는 있다 (#978 UX-2)', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
