@@ -568,7 +568,7 @@ rows.push(
 );
 // The operator VOC entries (#761): the FeedbackOps VOC bridge menu may import them (static and dynamic); a non-bridge menu and the fo-bridge runtime's eager code may not.
 const FO_VOC = 'menus/feedbackops/fo-voc/src/pages/x.tsx';
-for (const entry of ['milestones', 'task-detail', 'tasks-search', 'voc-clusters', 'voc-detail', 'voc-inbox', 'voc-search', 'voc-triage', 'task-list', 'task-board', 'task-requests', 'findings-search', 'surveys-search', 'admin-search', 'integration-search', 'findings', 'finding-detail', 'evidence', 'integration-dashboard', 'coverage', 'entity-links']) {
+for (const entry of ['milestones', 'task-detail', 'tasks-search', 'voc-clusters', 'voc-detail', 'voc-inbox', 'voc-search', 'voc-triage', 'task-list', 'task-board', 'task-requests', 'findings-search', 'surveys-search', 'admin-search', 'integration-search', 'findings', 'finding-detail', 'surveys', 'survey-detail', 'evidence', 'integration-dashboard', 'coverage', 'entity-links']) {
   const source = `@fops/frontend/operator-screens/${entry}`;
   rows.push(
     { file: FO_VOC, code: `import { x } from '${source}';`, rule: '' },

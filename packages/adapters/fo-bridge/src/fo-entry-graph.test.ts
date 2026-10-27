@@ -701,6 +701,58 @@ describe('FeedbackOps operator Findings list entry graph (ADR-0071)', () => {
   });
 });
 
+describe('FeedbackOps operator Surveys list entry graph (ADR-0071)', () => {
+  const surveys = walk([join(FRONTEND_SRC, 'operator-screens/surveys/index.ts')]);
+  const surveysReached = [...surveys.files.keys()].map(file => relative(FRONTEND_SRC, file));
+
+  it('reaches the screen, the list component and the host seam, and not the Survey detail tree or anything under routes/', () => {
+    expect(surveysReached).toEqual(expect.arrayContaining(['features/surveys/routes/SurveysScreen.tsx', 'features/surveys/components/list/SurveyListScreen.tsx', 'lib/host/host-seam.tsx']));
+    expect(surveysReached.filter(file => file.startsWith('features/surveys/components/detail/'))).toEqual([]);
+    expect(surveysReached.filter(file => /^routes\//.test(file))).toEqual([]);
+    expect(surveys.unresolved).toEqual([]);
+  });
+
+  it('imports no router and no toast library', () => {
+    expect([...surveys.specifiers].filter(specifier => /^@tanstack\/(react-)?router|^sonner$/.test(specifier))).toEqual([]);
+  });
+
+  it('reaches no route, router, layout or auth source, the auth module, the api barrel, the permissions or managed-systems api or the standalone permission check', () => {
+    const banned = /^(?:routes|lib\/router|lib\/layout|lib\/auth)\/|^lib\/api\/(?:auth|index|permissions|managed-systems)\.ts$|^lib\/cross-system\/usePermissionCheck\.ts$/;
+    expect(surveysReached.filter(file => banned.test(file))).toEqual([]);
+  });
+
+  it('calls fetch only in lib/api/client.ts', () => {
+    const callers = [...surveys.files].filter(([, text]) => /(?<![\w.])fetch\(/.test(text)).map(([file]) => relative(FRONTEND_SRC, file));
+    expect(callers).toEqual(['lib/api/client.ts']);
+  });
+});
+
+describe('FeedbackOps operator Survey detail entry graph (ADR-0071)', () => {
+  const detail = walk([join(FRONTEND_SRC, 'operator-screens/survey-detail/index.ts')]);
+  const detailReached = [...detail.files.keys()].map(file => relative(FRONTEND_SRC, file));
+
+  it('reaches the detail parts hook and the host seam, not the standalone aside or the routes', () => {
+    expect(detailReached).toEqual(expect.arrayContaining(['features/surveys/components/detail/SurveyDetailParts.tsx', 'lib/host/host-seam.tsx']));
+    expect(detailReached).not.toContain('features/surveys/components/detail/SurveyDetail.tsx');
+    expect(detailReached.filter(file => /^(?:features\/surveys\/)?routes\//.test(file) && file !== 'features/surveys/routes/SurveyPermissionGate.ts')).toEqual([]);
+    expect(detail.unresolved).toEqual([]);
+  });
+
+  it('imports no router and no toast library', () => {
+    expect([...detail.specifiers].filter(specifier => /^@tanstack\/(react-)?router|^sonner$/.test(specifier))).toEqual([]);
+  });
+
+  it('reaches no route, router, layout or auth source, the auth module, the api barrel, the permissions or managed-systems api or the standalone permission check', () => {
+    const banned = /^(?:routes|lib\/router|lib\/layout|lib\/auth)\/|^lib\/api\/(?:auth|index|permissions|managed-systems)\.ts$|^lib\/cross-system\/usePermissionCheck\.ts$/;
+    expect(detailReached.filter(file => banned.test(file))).toEqual([]);
+  });
+
+  it('calls fetch only in lib/api/client.ts', () => {
+    const callers = [...detail.files].filter(([, text]) => /(?<![\w.])fetch\(/.test(text)).map(([file]) => relative(FRONTEND_SRC, file));
+    expect(callers).toEqual(['lib/api/client.ts']);
+  });
+});
+
 describe('FeedbackOps operator integration dashboard entry graph (ADR-0071)', () => {
   const integrationDashboard = walk([join(FRONTEND_SRC, 'operator-screens/integration-dashboard/index.ts')]);
   const integrationDashboardReached = [...integrationDashboard.files.keys()].map(file => relative(FRONTEND_SRC, file));

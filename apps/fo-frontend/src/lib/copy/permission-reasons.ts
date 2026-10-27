@@ -22,6 +22,7 @@ export const PERMISSION_BLOCKED_REASONS = {
     '이 Finding을 볼 권한이 없습니다. 해당 Managed System의 개발자 이상 권한이 필요합니다.',
   surveyResult: 'Survey 결과를 볼 권한이 없습니다.',
   surveyBuilder: 'Survey 관리 권한이 없습니다.',
+  surveyDetail: '이 Survey를 볼 권한이 없습니다.',
 } as const;
 
 export const VOC_READ_PERMISSION_REASONS: Readonly<Record<string, string>> = {

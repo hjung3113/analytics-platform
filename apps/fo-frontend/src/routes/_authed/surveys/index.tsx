@@ -1,21 +1,14 @@
+// /surveys — the list is `SurveysScreen` (bridge-safe, entry `operator-screens/surveys`); this route composes it with the Survey
+// detail aside through a route-local seam.
+
 import { SurveyDetail } from '@/features/surveys/components/detail/SurveyDetail';
+import { SurveysScreen, type SurveysScreenProps } from '@/features/surveys/routes/SurveysScreen';
 import {
-  type SurveyListFilterKey,
-  SurveyListScreen,
-  surveyListContextFromSearch,
-  surveyListQueryArgs,
-} from '@/features/surveys/components/list/SurveyListScreen';
-import { useSurvey, useSurveys } from '@/features/surveys/hooks/useSurveys';
-import { useSurveyManageGate } from '@/features/surveys/routes/SurveyPermissionGate';
-import {
-  type SurveysSearch,
   surveysSearchSchema,
   validateSurveysSearch,
 } from '@/features/surveys/routes/surveys-search';
 export { CreateSurveyDialog } from '@/features/surveys/components/create/CreateSurveyDialog';
-import { useManagedSystemNamesResult } from '@/lib/cross-system/useManagedSystemNames';
-import { useWorkspaceActors } from '@/lib/cross-system/useWorkspaceActors';
-import { formatRecordDocumentTitle, useDocumentTitle } from '@/lib/router/document-title';
+import { type HostNavigate, HostSeamProvider, useHostSeam } from '@/lib/host/host-seam';
 import { createFileRoute, useNavigate, useSearch } from '@tanstack/react-router';
 import * as React from 'react';
 
@@ -31,104 +24,88 @@ export const Route = createFileRoute('/_authed/surveys/')({
   component: SurveysIndexRouteSplit,
 });
 
-export function SurveysIndexRoute() {
-  const search = useSearch({ strict: false }) as SurveysSearch;
-  const navigate = useNavigate({ from: '/surveys/' });
-  const context = surveyListContextFromSearch(search);
-  const { managedSystemId, filters } = surveyListQueryArgs(context);
-  // Same arguments as SurveyListScreen, so the stale-selection effect and the
-  // list share one query. Creation and filter chips live in the screen.
-  const query = useSurveys(managedSystemId, filters);
-  const removeFilters = (keys: readonly SurveyListFilterKey[]) => {
-    void navigate({
-      to: '/surveys',
-      search: (previous) => {
-        const next = { ...previous };
-        for (const key of keys) delete next[key];
-        return next;
-      },
-    });
-  };
-  const managedSystemNames = useManagedSystemNamesResult();
-  const managedSystemNamesById = managedSystemNames.isSuccess
-    ? managedSystemNames.namesById
-    : undefined;
-  const { actors, isSuccess: actorsResolved } = useWorkspaceActors();
-  const actorNamesById = React.useMemo(
-    () =>
-      actorsResolved
-        ? new Map((actors ?? []).map((actor) => [actor.id, actor.display_name]))
-        : undefined,
-    [actors, actorsResolved],
-  );
-  const selectedId = search.selected ?? null;
-  const selected = useSurvey(selectedId ?? '');
-  const selectedGate = useSurveyManageGate(selected.data?.primary_managed_system_id);
-  const surveys = query.data ?? [];
-  useDocumentTitle(
-    selected.isSuccess && !selected.isFetching && selected.data?.id === selectedId
-      ? formatRecordDocumentTitle({
-          displayId: selected.data.display_id,
-          title: selected.data.title,
-        })
-      : null,
-  );
+const SEARCH_KEYS = [
+  'platformReturn',
+  'managedSystem',
+  'selected',
+  'filter.analytics_area',
+  'status',
+  'follow_up',
+] as const;
 
-  const handleSelect = React.useCallback(
-    (id: string): void => {
-      void navigate({ to: '/surveys', search: (prev) => ({ ...prev, selected: id }) });
+/** TanStack's search for this route as the strings the screen reads (`undefined` dropped), a new object per router search object. */
+function useSurveysSearch(): Readonly<Record<string, string>> {
+  const search = useSearch({ strict: false }) as Record<string, unknown>;
+  return React.useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(search).flatMap(([key, value]) =>
+          value === undefined ? [] : [[key, String(value)]],
+        ),
+      ),
+    [search],
+  );
+}
+
+/**
+ * The standalone host's navigate: TanStack `useNavigate()` with a functional `search`, so the URL keeps the keys the
+ * screen does not own and the router's own handling of each write (push vs replace) is unchanged.
+ */
+function useSurveysNavigate(): HostNavigate {
+  const navigate = useNavigate();
+  return React.useCallback(
+    (href, options) => {
+      const location = new URL(href, 'http://feedbackops.local');
+      const replace = options?.replace === true;
+      if (location.pathname !== '/surveys') {
+        // The detail route's `builder` is a boolean in the router's search.
+        const search = Object.fromEntries(
+          [...location.searchParams].map(([key, value]) => [
+            key,
+            key === 'builder' && value === 'true' ? true : value,
+          ]),
+        );
+        void navigate({ to: location.pathname as never, search: search as never, replace });
+        return;
+      }
+      void navigate({
+        to: '/surveys',
+        replace,
+        search: ((previous: Record<string, unknown>) => {
+          const next = { ...previous };
+          for (const key of SEARCH_KEYS) delete next[key];
+          for (const [key, value] of location.searchParams) next[key] = value;
+          return next;
+        }) as never,
+      });
     },
     [navigate],
   );
+}
 
-  function handleClose(): void {
-    void navigate({
-      to: '/surveys',
-      search: ({ selected: _selected, ...rest }) => rest,
-    });
-  }
-
-  // Stale/invalid `selected` (deleted, or not in the caller's scope): once the
-  // list has loaded, replace-drop it so Back is not trapped in the invalid URL.
-  // While loading — or when the list failed — the deep-linked selection is kept.
-  React.useEffect(() => {
-    if (!query.isSuccess) return;
-    if (selectedId !== null && !surveys.some((survey) => survey.id === selectedId)) {
-      void navigate({
-        to: '/surveys',
-        replace: true,
-        search: ({ selected: _selected, ...rest }) => rest,
-      });
-    }
-  }, [navigate, query.isSuccess, selectedId, surveys]);
-
-  return (
-    <SurveyListScreen
-      context={context}
-      selectedId={selectedId}
-      onSelect={handleSelect}
-      onClose={handleClose}
-      onRemoveFilters={removeFilters}
-      onCreated={(surveyId) =>
-        void navigate({
-          to: '/surveys/$surveyId',
-          params: { surveyId },
-          search: { builder: true },
-        })
-      }
+const renderStandaloneDetail: SurveysScreenProps['renderDetail'] = (
+  _selectedId,
+  { close, survey, canManage, managedSystemNamesById, actorNamesById },
+) =>
+  survey ? (
+    <SurveyDetail
+      survey={survey}
+      canManage={canManage}
+      onClose={close}
       managedSystemNamesById={managedSystemNamesById}
       actorNamesById={actorNamesById}
-      renderDetail={(close) =>
-        selected.data ? (
-          <SurveyDetail
-            survey={selected.data}
-            canManage={selectedGate.canManage}
-            onClose={close}
-            managedSystemNamesById={managedSystemNamesById}
-            actorNamesById={actorNamesById}
-          />
-        ) : null
-      }
     />
+  ) : null;
+
+export function SurveysIndexRoute() {
+  const base = useHostSeam();
+  const seam = React.useMemo(
+    () => ({ ...base, useSearch: useSurveysSearch, useNavigate: useSurveysNavigate }),
+    [base],
+  );
+  return (
+    <HostSeamProvider value={seam}>
+      <SurveysScreen renderDetail={renderStandaloneDetail} />
+    </HostSeamProvider>
   );
 }
