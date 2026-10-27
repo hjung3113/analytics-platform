@@ -295,8 +295,8 @@ describe('FloatingWindow gesture lifecycle', () => {
     const se = () => win().querySelector('[data-resize="se"]')!;
     fireEvent.pointerDown(se(), { button: 0, clientX: 500, clientY: 500, pointerId: 1 });
     fireEvent.pointerMove(se(), { clientX: 520, clientY: 500, pointerId: 1 });
+    // Released right after the bounds change: only the final clamp can bring the committed geometry back inside the area.
     rerender(view('window', start, small, onChange));
-    fireEvent.pointerMove(se(), { clientX: 520, clientY: 500, pointerId: 1 });
     fireEvent.pointerUp(se(), { pointerId: 1 });
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange).toHaveBeenCalledWith({ x: 0, y: 0, width: 500, height: 300 });
