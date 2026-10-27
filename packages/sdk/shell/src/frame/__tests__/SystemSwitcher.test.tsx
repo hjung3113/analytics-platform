@@ -14,6 +14,7 @@ function menu(id: string, group: GroupId, path: string, label: string, over: obj
 }
 function buildRegistry(opts: { startOpen?: boolean } = {}) {
   return createRegistry({
+    platformHomeMenuId: 'start',
     permissions: [menuPermission('equipment:view'), menuPermission('metrics:view')],
     spaces: [
       testSpace({ id: spaceId('mars'), label: { ko: 'MARS', en: 'MARS' }, subtitle: { ko: '생산성 분석', en: 'Productivity analysis' }, homeMenuId: 'cycle' }),
@@ -275,7 +276,7 @@ describe('SystemSwitcher keyboard and focus (06 §26, ADR-0032)', () => {
     cardOf('BRAVO').focus();
     fireEvent.keyDown(document.activeElement!, { key });
     fireEvent.click(document.activeElement!);
-    await waitFor(() => expect(window.location.pathname).toBe('/metrics'));
+    await waitFor(() => expect(window.location.pathname).toBe('/bravo/catalog'));
     await waitFor(() => expect(screen.getByRole('heading', { name: '카탈로그' })).toHaveFocus());
     expect(screen.queryByRole('dialog', { name: '시스템 및 플랫폼 메뉴' })).toBeNull();
     expect(new URLSearchParams(window.location.search).get('scopeId')).toBe('MEM');
@@ -300,7 +301,7 @@ describe('SystemSwitcher keyboard and focus (06 §26, ADR-0032)', () => {
     await waitFor(() => expect(screen.queryByRole('dialog', { name: '시스템 및 플랫폼 메뉴' })).toBeNull());
     await waitFor(() => expect(trigger()).toHaveFocus());
     expect(push).not.toHaveBeenCalled();
-    expect(window.location.pathname).toBe('/cycle');
+    expect(window.location.pathname).toBe('/mars/cycle');
   });
 
   it('returns to the button on Escape, on an outside press and on pressing the button again', async () => {
@@ -329,7 +330,7 @@ describe('SystemSwitcher keyboard and focus (06 §26, ADR-0032)', () => {
     mount();
     open();
     fireEvent.click(cardOf('BRAVO'));
-    await waitFor(() => expect(window.location.pathname).toBe('/metrics'));
+    await waitFor(() => expect(window.location.pathname).toBe('/bravo/catalog'));
     await waitFor(() => expect(screen.getByRole('heading', { name: '카탈로그' })).toHaveFocus());
     const pushes = vi.spyOn(window.history, 'pushState');
     fireEvent.keyDown(open(), { key: 'Escape' });
@@ -345,7 +346,7 @@ describe('SystemSwitcher keyboard and focus (06 §26, ADR-0032)', () => {
     mount();
     open();
     fireEvent.click(cardOf('BRAVO'));
-    await waitFor(() => expect(window.location.pathname).toBe('/metrics'));
+    await waitFor(() => expect(window.location.pathname).toBe('/bravo/catalog'));
     const title = await screen.findByRole('heading', { name: '카탈로그' });
     await waitFor(() => expect(title).toHaveFocus());
     expect(await screen.findByRole('dialog', { name: 'Detail' })).toBeTruthy();
@@ -380,7 +381,7 @@ describe('SystemSwitcher focus ownership and lifecycle (ADR-0032)', () => {
     mount();
     open();
     fireEvent.click(cardOf('BRAVO'));
-    await waitFor(() => expect(window.location.pathname).toBe('/metrics'));
+    await waitFor(() => expect(window.location.pathname).toBe('/bravo/catalog'));
     open();
     expect(screen.queryByRole('heading', { name: '카탈로그', hidden: true })).toBeNull();
     act(() => resolveLazy());
@@ -397,7 +398,7 @@ describe('SystemSwitcher focus ownership and lifecycle (ADR-0032)', () => {
     const push = vi.spyOn(window.history, 'pushState');
     open();
     fireEvent.click(cardOf('BRAVO'));
-    await waitFor(() => expect(window.location.pathname).toBe('/metrics'));
+    await waitFor(() => expect(window.location.pathname).toBe('/bravo/catalog'));
     await act(async () => { await new Promise(resolve => setTimeout(resolve, 30)); });
     expect(push).toHaveBeenCalledTimes(1);
   });
@@ -410,7 +411,7 @@ describe('SystemSwitcher focus ownership and lifecycle (ADR-0032)', () => {
     view.unmount();
     await act(async () => { await new Promise(resolve => setTimeout(resolve, 30)); });
     expect(push).not.toHaveBeenCalled();
-    expect(window.location.pathname).toBe('/cycle');
+    expect(window.location.pathname).toBe('/mars/cycle');
   });
 
   it('drops a queued card choice when the Provider session is replaced before the close timers flush', async () => {
@@ -426,7 +427,7 @@ describe('SystemSwitcher focus ownership and lifecycle (ADR-0032)', () => {
     act(() => { listeners.forEach(listener => listener()); });
     await act(async () => { await new Promise(resolve => setTimeout(resolve, 30)); });
     expect(push).not.toHaveBeenCalled();
-    expect(window.location.pathname).toBe('/cycle');
+    expect(window.location.pathname).toBe('/mars/cycle');
   });
 });
 

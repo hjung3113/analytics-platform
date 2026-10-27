@@ -11,7 +11,7 @@ function focusKeyOf(href: string): string | null {
  * A page/return arrival (and the initial URL) that carries `focus=` does not claim the
  * detail close button. A same-screen open, drill, or history step that changes `focus` does.
  */
-export function createPageNavigation(initialUrl: string, isBlocked: () => boolean = () => false) {
+export function createPageNavigation(initialUrl: string, isBlocked: () => boolean = () => false, canonicalHref: (href: string) => string = href => href) {
   let generation = 0;
   let url = initialUrl;
   let pending: { generation: number; path: string; focus: PageFocus } | null = null;
@@ -38,9 +38,17 @@ export function createPageNavigation(initialUrl: string, isBlocked: () => boolea
       // A kernel rewrite is not the user opening the panel. Keep the claim, but see the new key.
       seenFocus = focusKeyOf(next);
     },
+    /** The alias entry was replaced by its canonical address (ADR-0093): same arrival, new path. Keeps a pending request. */
+    redirect(next: string) {
+      url = next;
+      if (pending) pending = { ...pending, path: pathOf(next) };
+      seenFocus = focusKeyOf(next);
+    },
     requestReturn(href: string) {
-      pending = href === url ? { generation, path: pathOf(href), focus: 'return' } : null;
-      if (href === url) claimsDetail = focusKeyOf(href) === null;
+      // A legacy-form `returnTo` still names the current page: compare in canonical form.
+      const target = canonicalHref(href);
+      pending = target === canonicalHref(url) ? { generation, path: pathOf(target), focus: 'return' } : null;
+      if (pending) claimsDetail = focusKeyOf(target) === null;
     },
     cancel() { pending = null; },
     notify() { listeners.forEach(listener => listener()); },

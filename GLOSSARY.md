@@ -154,7 +154,16 @@ _Avoid_: 워크스페이스, 공간, 앱, 모듈 — 워크스페이스는 Feedb
 _Avoid_: 그룹(단독) — 설비 그룹·PRC 그룹·StGroup·작업 영역의 묶음과 섞인다.
 
 **메뉴** (manifest, `MenuEntry`):
-Registry에 등록된 진입점 하나. 경로·권한·Context 지원 방식·페이지 유형을 선언하고 메뉴 화면 하나를 연다. 화면이 아직 없는 메뉴는 **예정 메뉴**로, 사이드바에 `예정`으로 보이고 열리지 않는다.
+Registry에 등록된 진입점 하나. manifest에서 경로·권한·Context 지원 방식·페이지 유형을 선언하고 메뉴 화면 하나를 연다. 공간 메뉴의 manifest 경로는 별칭이 될 수 있고 Registry의 `path`는 정규 경로다([06 §6.4](docs/contract/kernel.md#64-url-계약-decided-필드명enum-문자열은-candidate)). 화면이 아직 없는 메뉴는 **예정 메뉴**로, 사이드바에 `예정`으로 보이고 열리지 않는다.
+
+**정규 경로** (canonical path):
+Registry가 메뉴의 대표 주소로 제공하는 경로([06 §6.4](docs/contract/kernel.md#64-url-계약-decided-필드명enum-문자열은-candidate)).
+
+**별칭** (alias):
+같은 메뉴로 들어오는 이전 경로([06 §6.4](docs/contract/kernel.md#64-url-계약-decided-필드명enum-문자열은-candidate)).
+
+**플랫폼 홈** (platform home):
+앱이 Registry에 지정하는 공간 없는 홈 메뉴([06 §6.4](docs/contract/kernel.md#64-url-계약-decided-필드명enum-문자열은-candidate)).
 
 **Context 지원 방식** (`Capability`):
 메뉴가 분석 Context 키마다 선언하는 쓰임 — 적용(`apply`, 조회 조건으로 씀), 참조만(`reference`, 보이고 이어지지만 조회에 안 씀), 미사용(`unsupported`, 보존만 함).

@@ -7,7 +7,7 @@ import { contextBar, evidence, expectScopeValid, mainHeading, query, showSlowExe
  * Menu screens are only the consumers the contract is observed through — assertions target kernel/shell behavior.
  */
 test.describe('차트 계약 (06 §16 — Brush → 구간 적용 확인, 주석 Scope 격리, manifest features)', () => {
-  const CYCLE = `/analytics/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}`;
+  const CYCLE = `/mars/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}`;
   const trend = (page: Page) => page.getByRole('region', { name: '사이클타임 추세' });
 
   async function applyRoomInQueryBar(page: Page, room: string) {
@@ -274,7 +274,7 @@ test.describe('차트 계약 (06 §16 — Brush → 구간 적용 확인, 주석
 });
 
 test.describe('차트 카탈로그 — 종류별 상호작용 (06 §16, #530)', () => {
-  const catalog = `/analytics/chart-catalog?v=1&scopeId=MEM&${PERIOD}`;
+  const catalog = `/mars/chart-catalog?v=1&scopeId=MEM&${PERIOD}`;
   const kinds = [
     ['line', '선'], ['bar', '막대'], ['heatmap', '히트맵'], ['donut', '도넛'],
     ['scatter', '산점도'], ['boxPlot', '상자그림'], ['pareto', '파레토'],
@@ -388,7 +388,7 @@ test.describe('차트 카탈로그 — 종류별 상호작용 (06 §16, #530)', 
 
 test.describe('휠 스크롤 (#700, 06 §16·§15, 16 §4.1)', () => {
   // 워커가 쓰고 실행하지 못한 검사: 호스트가 처음 돌린다. #platform-main 에 높이를 주입해 스크롤 여유를 만든 뒤 휠을 돌린다.
-  const CYCLE = `/analytics/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}`;
+  const CYCLE = `/mars/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}`;
   const main = (page: Page) => page.locator('#platform-main');
   const trendPlot = (page: Page) => page.getByRole('img', { name: /^사이클타임 추세/ });
   const workspace = (page: Page) => page.getByRole('region', { name: '사이클타임 분석 영역', exact: true });

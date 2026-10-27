@@ -2,7 +2,7 @@ import { expect, type Page } from '@playwright/test';
 import { contextBar } from './support';
 
 export const PERIOD = 'from=2026-09-25T09:00:00&to=2026-09-26T09:00:00';
-export const PRODUCTIVITY = `/analytics/productivity?v=1&scopeId=MEM&${PERIOD}&roomNames=PHOTO`;
+export const PRODUCTIVITY = `/mars/productivity-overview?v=1&scopeId=MEM&${PERIOD}&roomNames=PHOTO`;
 
 /** Rail section buttons of the current system (15 §3.2). `exact` keeps '생산성 분석' apart from the switcher's '… 현재: MARS'. */
 export function railSection(page: Page, name: string) {

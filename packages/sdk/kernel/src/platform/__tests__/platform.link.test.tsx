@@ -9,7 +9,7 @@ import { noContext, testAdapter, testSession, testSpace } from '../../testing';
 import { groupId, spaceId, type Permission, menuPermission, type Session, type SpaceDef } from '@ap/contracts';
 
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
-const entry = (id: string, group: 'equipment' | 'admin', path: string, permission: Permission, pageKeys: string[]) => ({
+const entry = (id: string, group: 'equipment' | 'admin' | 'overview', path: string, permission: Permission, pageKeys: string[]) => ({
   id, group: groupId(group), label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House, permission, requiresScope: false, context: noContext, pageType: 'analysis' as const, features: noFeatures, pageKeys,
 });
 
@@ -33,6 +33,7 @@ const registry = createRegistry({
   ],
 });
 
+const overviewGroup = { id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: null };
 const URL_MEM = '/source?v=1&scopeId=MEM&roomNames=PHOTO&selectedEquipmentIds=E1&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00';
 const URL_FULL = URL_MEM + '&equipmentGroup=' + encodeURIComponent('{"axis":"team","id":"TEAM1"}') + '&lineNames=L1&prcGroups=P1&lotIds=L1&recipeIds=R1&ppid=P1';
 const SITE_BOUND = ['lineNames', 'prcGroups', 'roomNames', 'equipmentGroup', 'selectedEquipmentIds', 'lotIds', 'recipeIds', 'ppid'];
@@ -159,15 +160,16 @@ describe('return fallback without a fixed home ID (#298)', () => {
 
   it.each([
     { name: 'platform home first', url: '/analysis?v=1', root: true, permissions: ANALYST, id: 'platform-start', href: '/?v=1' },
-    { name: 'space home after denied platform home', url: '/analysis?v=1', root: true, permissions: VIEWER, id: 'source', href: '/source?v=1' },
-    { name: 'sidebar space home outside registered routes', url: '/outside?v=1', root: false, permissions: VIEWER, id: 'source', href: '/source?v=1' },
+    { name: 'space home after denied platform home', url: '/analysis?v=1', root: true, permissions: VIEWER, id: 'source', href: '/mars/source?v=1' },
+    { name: 'sidebar space home outside registered routes', url: '/outside?v=1', root: false, permissions: VIEWER, id: 'source', href: '/mars/source?v=1' },
     { name: 'exact emergency fallback when all homes denied', url: '/analysis?v=1', root: true, permissions: [] as Session['user']['permissions'], id: null, href: '/' },
     { name: 'emergency fallback with an accessible space but denied space home', url: '/analysis?v=1', root: false, permissions: ['analytics:view'] as Session['user']['permissions'], id: null, href: '/' },
-    { name: 'space home when platform home absent', url: '/analysis?v=1', root: false, permissions: VIEWER, id: 'source', href: '/source?v=1' },
+    { name: 'space home when platform home absent', url: '/analysis?v=1', root: false, permissions: VIEWER, id: 'source', href: '/mars/source?v=1' },
   ])('$name', ({ url, root, permissions, id, href }) => {
     const fallbackRegistry = createRegistry({ permissions: [menuPermission('analytics:view')],
-      spaces, groups: registry.groups,
-      menus: [...registry.menus, ...(root ? [entry('platform-start', 'equipment', '/', menuPermission('analytics:view'), [])] : [])],
+      spaces, groups: [...registry.groups, ...(root ? [overviewGroup] : [])],
+      ...(root ? { platformHomeMenuId: 'platform-start' } : {}),
+      menus: [...registry.menus, ...(root ? [{ ...entry('platform-start', 'overview', '/', menuPermission('analytics:view'), []), primary: true }] : [])],
     });
     window.history.replaceState(null, '', url);
     render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={fixture(permissions)} registry={fallbackRegistry}><ReturnProbe /></PlatformProvider></I18nProvider>);
@@ -186,9 +188,10 @@ describe('return permission and reverted Context (#298 FIX1)', () => {
   }
   function mountReturn(current: string, origin: string, permissions = VIEWER, parent = 'source') {
     const returnRegistry = createRegistry({ permissions: [menuPermission('analytics:view')],
-      spaces, groups: registry.groups,
+      spaces, groups: [...registry.groups, overviewGroup],
+      platformHomeMenuId: 'platform-start',
       menus: [...registry.menus,
-        entry('platform-start', 'equipment', '/', 'console:access', []),
+        { ...entry('platform-start', 'overview', '/', 'console:access', []), primary: true },
         { ...entry('detail', 'equipment', '/detail', 'platform:view', ['returnTo', 'version']), parent, navHidden: true },
       ],
     });
@@ -198,10 +201,10 @@ describe('return permission and reverted Context (#298 FIX1)', () => {
   }
 
   it.each([
-    { name: 'denied menu', origin: '/analysis?v=1', permissions: VIEWER, parent: 'source', id: 'source', href: '/source?v=1' },
-    { name: 'denied space with granted menu', origin: '/ops/child?v=1', permissions: VIEWER, parent: 'source', id: 'source', href: '/source?v=1' },
+    { name: 'denied menu', origin: '/analysis?v=1', permissions: VIEWER, parent: 'source', id: 'source', href: '/mars/source?v=1' },
+    { name: 'denied space with granted menu', origin: '/ops/child?v=1', permissions: VIEWER, parent: 'source', id: 'source', href: '/mars/source?v=1' },
     { name: 'denied parent then platform home', origin: '/analysis?v=1', permissions: [...VIEWER, 'console:access'] as Session['user']['permissions'], parent: 'analysis', id: 'platform-start', href: '/?v=1' },
-    { name: 'denied parent and platform home then space home', origin: '/ops?v=1', permissions: VIEWER, parent: 'analysis', id: 'source', href: '/source?v=1' },
+    { name: 'denied parent and platform home then space home', origin: '/ops?v=1', permissions: VIEWER, parent: 'analysis', id: 'source', href: '/mars/source?v=1' },
   ])('$name', ({ origin, permissions, parent, id, href }) => {
     expect(mountReturn('', origin, permissions, parent)).toEqual({
       target: href, origin: { href, menuLabel: { ko: id, en: id }, trail: [], revertedContext: [], accepted: false, spaceLabel: null },

@@ -22,7 +22,8 @@ describe('manifest', () => {
     const spaces: SpaceDef[] = [{ id: spaceId('mars'), label: { ko: '공간', en: 'Space' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: menu.id }];
     const groups: GroupDef[] = [{ id: groupId('hwTime'), label: { ko: 'g', en: 'g' }, icon: menu.icon, space: spaceId('mars') }];
     const registry = createRegistry({ spaces, groups, menus: manifests, permissions: [menuPermission('analytics:view')] });
-    expect(registry.menuById('hw-time-steps').path).toBe('/hw-time/steps');
+    expect(registry.menuById('hw-time-steps').path).toBe('/mars/hw-time-steps');
+    expect(registry.menuById('hw-time-steps').aliases).toEqual(['/hw-time/steps']);
     expect(registry.spaceOf(menu)?.id).toBe('mars');
   });
 

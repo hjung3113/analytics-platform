@@ -106,7 +106,7 @@ describe('rail space navigation', () => {
     expect(within(dialog).getByRole('button', { name: /분석/ }).getAttribute('aria-current')).toBe('true');
     expect(within(dialog).getByRole('button', { name: /운영 콘솔/ }).hasAttribute('aria-current')).toBe(false);
     fireEvent.click(within(dialog).getByRole('button', { name: /운영 콘솔/ }));
-    await waitFor(() => expect(window.location.pathname).toBe('/ops'));
+    await waitFor(() => expect(window.location.pathname).toBe('/operations/ops'));
     expect(new URLSearchParams(window.location.search).get('lotIds')).toBe('kept');
     expect(new URLSearchParams(window.location.search).get('scopeId')).toBe('MEM');
     expect(push).toHaveBeenCalledTimes(1);
@@ -370,6 +370,7 @@ const feedbackSlot: FeedbackOpsSlot = {
 
 function globalShellRegistry(equipmentPermission: Permission = 'platform:view') {
   return createRegistry({
+    platformHomeMenuId: 'home',
     permissions: [menuPermission('equipment:view')],
     spaces: [
       testSpace({ id: spaceId('mars'), label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'equipment' }),
@@ -390,6 +391,7 @@ function globalShellRegistry(equipmentPermission: Permission = 'platform:view') 
 
 function logoRegistry() {
   return createRegistry({
+    platformHomeMenuId: 'home',
     permissions: [menuPermission('equipment:view')],
     spaces: [testSpace({ homeMenuId: 'equipment' })],
     groups: [
@@ -510,7 +512,7 @@ describe('workspace shell layout (15 §3.1)', () => {
     const slotOf = (entries: FeedbackOpsSlot['entriesFor'] extends (...args: never[]) => infer R ? R : never, permission?: Permission): FeedbackOpsSlot => ({ entriesFor: id => id === 'mars' ? entries : null, overall: null, ...(permission ? { permission } : {}) });
 
     it('opens VOC in the same tab with only v, managedSystem and returnTo; Task stays a new-tab link; both captions show', () => {
-      window.history.replaceState(null, '', '/?v=1&from=2026-10-01T00:00:00&to=2026-10-02T00:00:00&scopeId=MEM');
+      window.history.replaceState(null, '', '/mars/home?v=1&from=2026-10-01T00:00:00&to=2026-10-02T00:00:00&scopeId=MEM');
       mount(['platform:view', 'feedbackops:access'], true, foRegistry, { feedbackOps: slotOf([vocEntry, taskEntry], 'feedbackops:access') });
       const block = screen.getByRole('navigation', { name: 'FeedbackOps · 분석' });
       const [voc, task] = within(block).getAllByRole('link');
@@ -518,10 +520,10 @@ describe('workspace shell layout (15 §3.1)', () => {
       expect(voc.hasAttribute('target')).toBe(false);
       expect(voc.querySelectorAll('svg')).toHaveLength(1);
       const href = new URL(voc.getAttribute('href')!, 'http://x');
-      expect(href.pathname).toBe('/feedbackops/vocs');
+      expect(href.pathname).toBe('/mars/fo-inbox');
       expect([...href.searchParams.keys()].sort()).toEqual(['managedSystem', 'returnTo', 'v']);
       expect(href.searchParams.get('managedSystem')).toBe(SYSTEM);
-      expect(href.searchParams.get('returnTo')).toBe('/?v=1&from=2026-10-01T00:00:00&to=2026-10-02T00:00:00&scopeId=MEM');
+      expect(href.searchParams.get('returnTo')).toBe('/mars/home?v=1&from=2026-10-01T00:00:00&to=2026-10-02T00:00:00&scopeId=MEM');
       expect(task.getAttribute('aria-label')).toBe('Task — 분석, FeedbackOps, 새 탭');
       expect(task).toHaveAttribute('target', '_blank');
       expect(within(block).getByText('FeedbackOps로 이동합니다')).toBeTruthy();
@@ -537,7 +539,7 @@ describe('workspace shell layout (15 §3.1)', () => {
       mount(['platform:view', 'feedbackops:access'], true, foRegistry, { feedbackOps: slotOf([vocEntry, { ...taskEntry, href: null }]) });
       block = screen.getByRole('navigation', { name: 'FeedbackOps · 분석' });
       expect(within(block).getAllByRole('link').map(link => link.getAttribute('aria-disabled'))).toEqual([null, 'true']);
-      expect(within(block).getByRole('link', { name: 'VOC — 분석, FeedbackOps' }).getAttribute('href')).toContain('/feedbackops/vocs');
+      expect(within(block).getByRole('link', { name: 'VOC — 분석, FeedbackOps' }).getAttribute('href')).toContain('/mars/fo-inbox');
     });
 
     it('draws no block at all without the slot permission, and keeps three icons with names when collapsed', () => {
@@ -874,6 +876,7 @@ describe('toast layer above palette scrim (#310)', () => {
 function platformSidebarRegistry() {
   const entry = (id: string, group: GroupId, path: string, label: string, permission: Permission, primary: boolean) => ({ ...menu(id, group, path, permission), label: { ko: label, en: label }, primary });
   return createRegistry({
+    platformHomeMenuId: 'home',
     permissions: [menuPermission('equipment:view')],
     spaces: [testSpace({ homeMenuId: 'equipment' })],
     groups: [

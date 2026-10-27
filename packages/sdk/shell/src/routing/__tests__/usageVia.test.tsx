@@ -77,7 +77,7 @@ describe('shell navigation marks the usage entry (#605)', () => {
     await settle();
     fireEvent.click(screen.getByRole('button', { name: /^시스템 및 플랫폼 메뉴/ }));
     fireEvent.click(within(screen.getByRole('dialog', { name: '시스템 및 플랫폼 메뉴' })).getByRole('button', { name: /운영 콘솔/ }));
-    await waitFor(() => expect(window.location.pathname).toBe('/ops'));
+    await waitFor(() => expect(window.location.pathname).toBe('/operations/ops'));
     await settle();
     expect(entries()).toEqual(['alpha:direct:null', 'ops:switcher:alpha']);
   });

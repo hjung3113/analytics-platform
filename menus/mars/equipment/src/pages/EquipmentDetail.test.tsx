@@ -80,7 +80,7 @@ describe('EquipmentDetail related analysis tab: Top View link', () => {
   it('links to the EV Top View with the equipment page key when the menu is registered and allowed', async () => {
     renderAnalysis(withTopView, ['equipment:view', 'eqv:view', 'platform:view']);
     const link = await screen.findByRole('link', { name: '이 설비 Top View' });
-    expect(link.getAttribute('href')).toContain('/tools/topview');
+    expect(link.getAttribute('href')).toContain('/mars/eqv-topview');
     expect(link.getAttribute('href')).toContain('equipment=EQ-1');
   });
 

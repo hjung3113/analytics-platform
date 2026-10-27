@@ -54,7 +54,7 @@ export function PaneScreenProvider({ paneId, paneLabel, screen, onChange, onLeav
   if (!app || !main) throw new Error('PaneScreenProvider outside PlatformProvider');
   const { registry, canOpen } = app.pub;
   const url = paneHref(registry, screen);
-  const [navigation] = useState(() => createPageNavigation(url));
+  const [navigation] = useState(() => createPageNavigation(url, undefined, registry.canonicalHref));
   const latest = useRef({ onChange, onLeave });
   useLayoutEffect(() => { latest.current = { onChange, onLeave }; });
   // Routing identity and current address come from the rendered screen, not from a layout-effect ref: a descendant layout

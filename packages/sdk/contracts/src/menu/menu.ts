@@ -68,8 +68,10 @@ export type MenuMeta = {
   group: GroupId;
   label: Text;
   description: Text;
-  /** Route pattern; `:name` segments become params. */
+  /** Route pattern; `:name` segments become params. A manifest declares its legacy path here; `createRegistry` hands out the canonical path (`/{space}/{menu-slug}` + the same `:param` segments, ADR-0093) and moves the legacy one to `aliases`. */
   path: string;
+  /** Extra route patterns that still open this menu (legacy paths, ADR-0093). Same `:param` count as `path`. Output of `createRegistry` holds the manifest path here when it differs from the canonical one. */
+  aliases?: readonly string[];
   permission: Permission;
   /** Scope must be selected and server-validated before this page queries data. */
   requiresScope: boolean;

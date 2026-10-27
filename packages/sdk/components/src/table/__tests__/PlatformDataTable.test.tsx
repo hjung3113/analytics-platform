@@ -696,9 +696,12 @@ const timeApplyRegistry = gateRegistry('apply', true);
 
 /** File-name sanitize (#173 P3-12): a menu id with a space and a dot must become a safe file name base. */
 const dirtyMenuRegistry = createRegistry({
-  spaces: [testSpace({ homeMenuId: 'ex port.menu' })],
-  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
-  menus: [{ id: 'ex port.menu', group: groupId('overview'), primary: true, label: { ko: '내보내기', en: 'Export' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'management', features: { export: true, savedView: false, annotate: false, compare: false }, pageKeys: [] }],
+  // Space-less: a space menu's canonical path is built from its id and rejects whitespace; a platform menu keeps its manifest path.
+  platformHomeMenuId: 'ex port.menu',
+  spaces: [testSpace({ homeMenuId: 'space-home' })],
+  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: null }, { id: groupId('equipment'), label: { ko: '설비', en: 'Equipment' }, icon: House, space: spaceId('mars') }],
+  menus: [{ id: 'space-home', group: groupId('equipment'), primary: true, label: { ko: '공간 홈', en: 'Space home' }, description: { ko: '', en: '' }, path: '/space-home', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'management', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] },
+    { id: 'ex port.menu', group: groupId('overview'), primary: true, label: { ko: '내보내기', en: 'Export' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'management', features: { export: true, savedView: false, annotate: false, compare: false }, pageKeys: [] }],
 });
 
 /** Sets the global Context once on mount (initial) and on click (context-change abort tests). */
@@ -820,7 +823,7 @@ describe('PlatformDataTable table-owned export (#173)', () => {
     URL.createObjectURL = originalCreateObjectURL;
     URL.revokeObjectURL = originalRevokeObjectURL;
   });
-  beforeEach(() => { downloads.length = 0; });
+  beforeEach(() => { downloads.length = 0; window.history.replaceState(null, '', '/'); }); // an alias entry redirects (ADR-0093): every test starts at the same address
   it('shows the button only when exportRows is given AND the manifest declares features.export', async () => {
     const loadPage = makeLoadPage(3);
     const { unmount } = render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter} registry={registry}>

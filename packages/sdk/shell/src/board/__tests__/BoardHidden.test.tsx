@@ -220,7 +220,7 @@ describe('the return address never reopens a general detail (893c2 UX-1)', () =>
     const detail = screen.getByRole('dialog', { name: 'owned detail' });
     fireEvent.click(screen.getByRole('button', { name: text.minimize }));
     await settle();
-    expect(window.location.pathname).toBe('/beta');
+    expect(window.location.pathname).toBe('/mars/beta');
     expect(new URLSearchParams(window.location.search).has('focus')).toBe(false);
     expect(new URLSearchParams(window.location.search).get('x')).toBe('1');
     expect(screen.queryByRole('dialog', { name: 'general detail' })).toBeNull();

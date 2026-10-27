@@ -15,6 +15,7 @@ function menu(id: string, group: GroupId, path: string, permission: Permission, 
 /** `/` is a global utility; the analytics home is a different menu, so the two destinations are distinguishable. */
 function withPlatformHome(homePermission: Permission) {
   return createRegistry({
+    platformHomeMenuId: 'launcher',
     permissions: [menuPermission('equipment:view')],
     spaces: [testSpace({ homeMenuId: 'overview' })],
     groups: [
@@ -37,6 +38,7 @@ const spaceOnly = createRegistry({
 
 /** The space stays reachable through another menu, but neither `/` nor the space home can be opened. */
 const spaceWithoutHome = createRegistry({
+  platformHomeMenuId: 'launcher',
   permissions: [menuPermission('equipment:view')],
   spaces: [testSpace({ homeMenuId: 'equipment' })],
   groups: [
@@ -52,6 +54,7 @@ const spaceWithoutHome = createRegistry({
 
 /** Neither `/` nor the space can be opened, so there is no sidebar home to fall back to. */
 const neither = createRegistry({
+  platformHomeMenuId: 'launcher',
   permissions: [menuPermission('equipment:view')],
   spaces: [testSpace({ permission: 'console:access', homeMenuId: 'overview' })],
   groups: [
@@ -102,7 +105,7 @@ describe('HomeLink (platform home, ADR-0028)', () => {
     ['not allowed', withPlatformHome('notice:view')],
   ])('falls back to the sidebar space home when the platform home is %s', (_label, registry) => {
     mount(registry, ['platform:view'], '/overview?v=1');
-    expect(homePath()).toBe('/overview');
+    expect(homePath()).toBe('/mars/overview');
   });
 
   it('draws nothing when the platform home cannot be opened and there is no sidebar home', () => {

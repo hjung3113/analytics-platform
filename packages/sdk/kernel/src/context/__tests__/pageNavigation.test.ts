@@ -67,3 +67,26 @@ describe('detail focus claim (#356)', () => {
     expect(navigation.consume('/equipment')).toBeNull();
   });
 });
+
+describe('return focus through a legacy-form returnTo (ADR-0093)', () => {
+  const canonicalHref = (href: string) => href.replace(/^\/source(?=[?]|$)/, '/mars/source');
+
+  it('requests the return focus when the legacy href names the current canonical address', () => {
+    const navigation = createPageNavigation('/mars/source?v=1', undefined, canonicalHref);
+    navigation.requestReturn('/source?v=1');
+    expect(navigation.consume('/mars/source')).toBe('return');
+  });
+
+  it('still ignores a href that is another page, legacy or canonical', () => {
+    const navigation = createPageNavigation('/mars/source?v=1', undefined, canonicalHref);
+    navigation.requestReturn('/other?v=1');
+    expect(navigation.consume('/mars/source')).toBeNull();
+  });
+
+  it('a redirect keeps a pending request and moves it to the canonical path', () => {
+    const navigation = createPageNavigation('/source?v=1', undefined, canonicalHref);
+    navigation.advance('/source?v=1&x=1', 'page');
+    navigation.redirect('/mars/source?v=1&x=1');
+    expect(navigation.consume('/mars/source')).toBe('page');
+  });
+});

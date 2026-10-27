@@ -7,7 +7,7 @@ import { foQueryClient } from '@ap/fo-bridge';
 import { ID_A, ID_B, json, mountAt, stubFetch, switchableAdapter, type Call } from '../fo/test-support';
 
 const origin = () => window.location.origin;
-const RESPOND = `/surveys/${ID_A}/respond`;
+const RESPOND = `/survey/${ID_A}/respond`;
 
 const survey = { id: ID_A, title: 'Q3 사용성 진단', type: 'discovery', identity_protected: true, description: null };
 const base = { is_required: false, rating_min: null, rating_max: null, rating_low_label: null, rating_high_label: null, options: null, branch_parent_question_id: null, branch_trigger_option_key: null };
@@ -59,7 +59,9 @@ afterEach(() => {
 
 describe('Surveys without a FeedbackOps API (mock preview) — S1', () => {
   it.each([
-    ['/surveys?v=1', '설문'],
+    ['/survey?v=1', '설문'],
+    ['/surveys?v=1', '설문'], // legacy alias
+    [`/surveys/${ID_A}/respond?v=1`, '설문 응답'], // legacy alias
     [`${RESPOND}?v=1`, '설문 응답'],
   ])('%s shows %s and 실서버 필요 and requests nothing', async (url, heading) => {
     setFoApi(null);
@@ -77,13 +79,13 @@ describe('Surveys through the FeedbackOps bridge', () => {
 
   it('S2: lists answerable surveys, links to the platform respond page with a returnTo, and opens the form', async () => {
     const calls = surveyFetch();
-    mountAt(switchableAdapter().adapter, '/surveys?v=1');
+    mountAt(switchableAdapter().adapter, '/survey?v=1');
     const link = (await screen.findByRole('link', { name: '응답하기' })) as HTMLAnchorElement;
     expect(calls.map(call => call.path)).toEqual(expect.arrayContaining(['/api/fo/me/answerable-surveys', '/api/fo/me/survey-responses']));
     expect(calls.every(call => call.credentials === 'include')).toBe(true);
     const href = new URL(link.getAttribute('href')!, origin());
     expect(href.pathname).toBe(RESPOND);
-    expect(new URL(href.searchParams.get('returnTo')!, origin()).pathname).toBe('/surveys');
+    expect(new URL(href.searchParams.get('returnTo')!, origin()).pathname).toBe('/survey');
 
     fireEvent.click(link);
     const heading = await screen.findByRole('heading', { name: '설문 응답' });
@@ -127,7 +129,7 @@ describe('Surveys through the FeedbackOps bridge', () => {
   it.each([
     ['an absolute URL', 'https://evil.example/x'],
     ['a protocol-relative URL', '//evil.example/x'],
-    ['a navHidden path', `/surveys/${ID_B}/respond?v=1`],
+    ['a navHidden path', `/survey/${ID_B}/respond?v=1`],
     ['no returnTo', undefined],
   ])('S5: %s never becomes a link outside the app or to a navHidden path', async (_name, returnTo) => {
     surveyFetch();
@@ -137,7 +139,7 @@ describe('Surveys through the FeedbackOps bridge', () => {
     for (const link of screen.queryAllByRole('link')) {
       const href = new URL(link.getAttribute('href')!, origin());
       expect(href.origin).toBe(origin());
-      expect(href.pathname).not.toBe(`/surveys/${ID_B}/respond`);
+      expect(href.pathname).not.toBe(`/survey/${ID_B}/respond`);
       expect(href.href).not.toContain('evil.example');
     }
     expect(window.location.origin).toBe(origin());
@@ -145,7 +147,7 @@ describe('Surveys through the FeedbackOps bridge', () => {
 
   it.each(['not-a-uuid', '..%2F..%2Fme'])('S6: the invalid survey ID %s is not found and requests nothing', async surveyId => {
     const calls = surveyFetch();
-    mountAt(switchableAdapter().adapter, `/surveys/${surveyId}/respond?v=1`);
+    mountAt(switchableAdapter().adapter, `/survey/${surveyId}/respond?v=1`);
     expect(await screen.findByRole('heading', { name: '설문 응답' })).toBeTruthy();
     expect(screen.getByText('설문을 찾을 수 없습니다')).toBeTruthy();
     expect(calls).toEqual([]);
@@ -167,7 +169,7 @@ describe('Surveys through the FeedbackOps bridge', () => {
     mountAt(switchableAdapter().adapter, respondUrl());
     expect(await screen.findByText('이 Survey에는 이미 응답을 제출했습니다.')).toBeTruthy();
     const back = screen.getByRole('link', { name: 'Survey 참여로 돌아가기' });
-    expect(new URL(back.getAttribute('href')!, origin()).pathname).toBe('/surveys');
+    expect(new URL(back.getAttribute('href')!, origin()).pathname).toBe('/survey');
     expect(screen.queryByTestId('survey-respondent-form')).toBeNull();
   });
 });

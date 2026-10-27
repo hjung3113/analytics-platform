@@ -8,10 +8,10 @@ import { evidence, expectScopeValid, query, signInAs } from './support';
  */
 type Entry = 'table' | 'chart';
 const MENUS: { id: string; label: string; path: string; entry: Entry }[] = [
-  { id: 'hw-time-steps', label: 'HW Time 단계별', path: '/hw-time/steps', entry: 'chart' },
-  { id: 'hw-time-compare', label: 'HW Time 비교', path: '/hw-time/compare', entry: 'chart' },
-  { id: 'hw-time-overview', label: 'HW Time 개요', path: '/hw-time/overview', entry: 'chart' },
-  { id: 'hw-time-table', label: 'HW Time 표', path: '/hw-time/table', entry: 'table' },
+  { id: 'hw-time-steps', label: 'HW Time 단계별', path: '/mars/hw-time-steps', entry: 'chart' },
+  { id: 'hw-time-compare', label: 'HW Time 비교', path: '/mars/hw-time-compare', entry: 'chart' },
+  { id: 'hw-time-overview', label: 'HW Time 개요', path: '/mars/hw-time-overview', entry: 'chart' },
+  { id: 'hw-time-table', label: 'HW Time 표', path: '/mars/hw-time-table', entry: 'table' },
 ];
 const MODULE = 'PM1';
 const MOTION = 'Chuck';
@@ -126,7 +126,7 @@ test.describe('HW Time 메뉴 4종 — 드릴 · 작업 영역 · 보드 (06 §1
   }
 
   test('HW Time 단계별: 잘못된 sort는 보정하지 않고 경고 — 초기화하면 차트가 돌아온다 (06 §6)', async ({ page }) => {
-    await page.goto('/hw-time/steps?v=1&scopeId=MEM&sort=bogus');
+    await page.goto('/mars/hw-time-steps?v=1&scopeId=MEM&sort=bogus');
     await expect(page.getByRole('main').getByRole('heading', { level: 1 })).toHaveText('HW Time 단계별');
     const warning = page.getByText('필터 값이 올바르지 않습니다');
     await expect(warning).toBeVisible();

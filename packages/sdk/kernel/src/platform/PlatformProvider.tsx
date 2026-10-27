@@ -64,7 +64,7 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
     const paletteFocus = createPaletteFocus({ cancel: () => pageNavigation.cancel(), notify: () => pageNavigation.notify() });
     // Reopening the switcher must not cancel an arrival that is still resolving: it keeps its title focus.
     const switcherFocus = createPaletteFocus({ cancel: () => {}, notify: () => pageNavigation.notify() });
-    const pageNavigation = createPageNavigation(initialUrl, () => paletteFocus.isBlocked() || switcherFocus.isBlocked());
+    const pageNavigation = createPageNavigation(initialUrl, () => paletteFocus.isBlocked() || switcherFocus.isBlocked(), registry.canonicalHref);
     return { pageNavigation, paletteFocus, switcherFocus };
   });
   const [favorites, setFavorites] = useState<string[]>(() => readPreference(`platform:favorites:${userId}`, decodeFavorites, []));

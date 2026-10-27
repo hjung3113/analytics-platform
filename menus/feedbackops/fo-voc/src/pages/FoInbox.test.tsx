@@ -83,7 +83,7 @@ describe('수신함 through the FeedbackOps bridge', () => {
     mountAt(`/feedbackops/vocs?managedSystem=${SYSTEM}`);
     const href = new URL((await screen.findByTestId('inbox')).getAttribute('data-href')!);
     expect(href.origin).toBe(window.location.origin);
-    expect(href.pathname).toBe('/feedbackops/vocs');
+    expect(href.pathname).toBe('/feedbackops/fo-inbox');
     expect(href.searchParams.get('focus')).toBe('abc');
     expect(href.searchParams.get('managedSystem')).toBe(SYSTEM);
   });

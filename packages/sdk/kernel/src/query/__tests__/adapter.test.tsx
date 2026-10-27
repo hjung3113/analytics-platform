@@ -102,12 +102,12 @@ describe('per-user kernel state', () => {
     const state = () => ({ favorites: platform!.favorites, recent: visits.map(r => `${r.menuId}@${r.url}`), lastScope: platform!.lastScope });
     render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={f.adapter} registry={registry}><State /></PlatformProvider></I18nProvider>);
     // The home route records a visit on mount: it must start from an empty list, not the stored number.
-    expect(state()).toEqual({ favorites: [], recent: ['home@/'], lastScope: null });
+    expect(state()).toEqual({ favorites: [], recent: ['home@/mars/home'], lastScope: null });
     act(() => platform!.toggleFavorite('home'));
     expect(state().favorites).toEqual(['home']);
     // Per entry: valid entries survive, malformed ones and an off-app URL are dropped; the visit to home still records.
     act(() => f.switchTo('b'));
-    expect(state()).toEqual({ favorites: ['m-b'], recent: ['home@/', 'm-b@/b'], lastScope: null });
+    expect(state()).toEqual({ favorites: ['m-b'], recent: ['home@/mars/home', 'm-b@/b'], lastScope: null });
   });
 });
 

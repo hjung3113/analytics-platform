@@ -44,7 +44,7 @@ afterEach(() => { cleanup(); setFoApi(null); window.history.replaceState(null, '
 
 describe('FoScreenPage', () => {
   it('draws RejectedPage for a refused value: nothing inside FoBridge mounts and the address is kept', async () => {
-    window.history.replaceState(null, '', '/inbox?v=1&focus=bad');
+    window.history.replaceState(null, '', '/mars/fo-inbox?v=1&focus=bad');
     const url = window.location.href;
     render(page(() => false, <Screen label="detail" />));
     expect(await screen.findByText('주소의 focus 값이 올바르지 않습니다')).toBeTruthy();

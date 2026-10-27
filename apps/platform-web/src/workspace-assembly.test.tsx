@@ -20,7 +20,7 @@ describe('workspace assembly (#260)', () => {
     ['configuration', 'Configuration', '파라미터 분석 (예정)', 'Parameter analysis (planned)'],
   ])('registers %s as a planned MARS menu', (id, label, ko, en) => {
     const entry = registry.menuById(id);
-    expect(entry).toMatchObject({ group: id, path: `/${id}`, label: { ko: label, en: label }, description: { ko, en }, permission: 'analytics:view', requiresScope: false, pageKeys: [] });
+    expect(entry).toMatchObject({ group: id, path: `/mars/${id}`, aliases: [`/${id}`], label: { ko: label, en: label }, description: { ko, en }, permission: 'analytics:view', requiresScope: false, pageKeys: [] });
     expect(entry.component).toBeUndefined();
     expect(entry.moduleScreen).toBeUndefined();
     expect(entry.features).toEqual(NO_FEATURES);
@@ -38,13 +38,13 @@ describe('workspace assembly (#260)', () => {
     vi.stubGlobal('sessionStorage', { getItem: () => null, setItem: () => {} });
     window.history.replaceState(null, '', '/?v=1');
     render(<I18nProvider><PlatformProvider equipmentAxes={EQUIPMENT_AXES} adapter={adapter} registry={registry}><Probe /></PlatformProvider></I18nProvider>);
-    expect(JSON.parse(screen.getByTestId('entry').textContent!)).toEqual({ menuId: 'equipment-master', href: '/equipment?v=1', resumed: false });
+    expect(JSON.parse(screen.getByTestId('entry').textContent!)).toEqual({ menuId: 'equipment-master', href: '/mars/equipment-master?v=1', resumed: false });
     cleanup();
     vi.unstubAllGlobals();
   });
 
   it('registers the 내 활동 menus as global menus behind platform:view; 알림, 설문 and 권한 요청 have screens (ADR-0070, ADR-0071)', () => {
-    for (const [id, path] of [['notifications', '/notifications'], ['surveys', '/surveys'], ['permission-requests', '/permission-requests']] as const) {
+    for (const [id, path] of [['notifications', '/notifications'], ['surveys', '/survey'], ['permission-requests', '/permission-requests']] as const) {
       const entry = registry.menuById(id);
       expect(entry).toMatchObject({ group: 'myActivity', path, permission: 'platform:view' });
       expect(registry.spaceOf(entry)).toBeNull();
@@ -55,10 +55,12 @@ describe('workspace assembly (#260)', () => {
 
   it('registers the survey response page as a navHidden child of 설문 with the survey ID as a path parameter (#653)', () => {
     const entry = registry.menuById('survey-respond');
-    expect(entry).toMatchObject({ group: 'myActivity', parent: 'surveys', navHidden: true, path: '/surveys/:surveyId/respond', permission: 'platform:view', pageKeys: ['returnTo'] });
+    expect(entry).toMatchObject({ group: 'myActivity', parent: 'surveys', navHidden: true, path: '/survey/:surveyId/respond', aliases: ['/surveys/:surveyId/respond'], permission: 'platform:view', pageKeys: ['returnTo'] });
     expect(entry.component).toBeDefined();
     expect(registry.spaceOf(entry)).toBeNull();
-    expect(registry.matchRoute('/surveys/11111111-1111-4111-8111-111111111111/respond')?.menu.id).toBe('survey-respond');
+    expect(registry.matchRoute('/survey/11111111-1111-4111-8111-111111111111/respond')).toMatchObject({ viaAlias: false, params: { surveyId: '11111111-1111-4111-8111-111111111111' } });
+    expect(registry.matchRoute('/surveys/11111111-1111-4111-8111-111111111111/respond')).toMatchObject({ viaAlias: true, menu: { id: 'survey-respond' }, params: { surveyId: '11111111-1111-4111-8111-111111111111' } });
+    expect(registry.matchRoute('/surveys')).toMatchObject({ viaAlias: true, menu: { id: 'surveys' } });
   });
 
   it('registers 내 VOC in 내 활동 behind voc:view with the reporter page keys, and its detail as a navHidden child with the VOC ID as a path parameter (#654)', () => {
@@ -141,34 +143,34 @@ describe('workspace assembly (#260)', () => {
       carriedPageKeys: ['managedSystem', 'returnTo'],
       homeMenuId: 'fo-dashboard',
     });
-    expect(registry.menuById('fo-dashboard')).toMatchObject({ group: 'foDashboard', path: '/feedbackops', permission: 'feedbackops:access', requiresScope: false, pageKeys: ['managedSystem', 'returnTo'] });
+    expect(registry.menuById('fo-dashboard')).toMatchObject({ group: 'foDashboard', path: '/feedbackops/fo-dashboard', aliases: ['/feedbackops'], permission: 'feedbackops:access', requiresScope: false, pageKeys: ['managedSystem', 'returnTo'] });
     // #761 p1: the VOC group sits after 대시보드 in the FeedbackOps space; every feedbackops menu declares managedSystem and the VOC menus a focus.
     expect(registry.menus.filter(menu => menu.group === 'foVoc').map(menu => menu.id)).toEqual(['fo-inbox', 'fo-triage', 'fo-clusters']);
-    expect(registry.menuById('fo-inbox')).toMatchObject({ path: '/feedbackops/vocs', permission: 'feedbackops:access', requiresScope: false });
-    expect(registry.menuById('fo-triage')).toMatchObject({ path: '/feedbackops/triage', permission: 'feedbackops:access', requiresScope: false });
-    expect(registry.menuById('fo-clusters')).toMatchObject({ path: '/feedbackops/clusters', permission: 'feedbackops:access', requiresScope: false });
+    expect(registry.menuById('fo-inbox')).toMatchObject({ path: '/feedbackops/fo-inbox', permission: 'feedbackops:access', requiresScope: false });
+    expect(registry.menuById('fo-triage')).toMatchObject({ path: '/feedbackops/fo-triage', permission: 'feedbackops:access', requiresScope: false });
+    expect(registry.menuById('fo-clusters')).toMatchObject({ path: '/feedbackops/fo-clusters', permission: 'feedbackops:access', requiresScope: false });
     for (const id of ['fo-inbox', 'fo-triage', 'fo-clusters']) expect(registry.menuById(id).pageKeys).toEqual(expect.arrayContaining(['managedSystem', 'focus', 'returnTo']));
     expect(registry.spaceOf(registry.menuById('fo-inbox'))?.id).toBe('feedbackops');
     // #762 p1: the Findings group sits between VOC and Tasks; its one menu declares managedSystem, returnTo and focus.
     expect(registry.menus.filter(menu => menu.group === 'foFindings').map(menu => menu.id)).toEqual(['fo-findings']);
-    expect(registry.menuById('fo-findings')).toMatchObject({ path: '/feedbackops/findings', primary: true, permission: 'feedbackops:access', requiresScope: false });
+    expect(registry.menuById('fo-findings')).toMatchObject({ path: '/feedbackops/fo-findings', primary: true, permission: 'feedbackops:access', requiresScope: false });
     expect(registry.menuById('fo-findings').pageKeys).toEqual(expect.arrayContaining(['managedSystem', 'focus', 'returnTo']));
     expect(registry.spaceOf(registry.menuById('fo-findings'))?.id).toBe('feedbackops');
     // #763: the Tasks group follows VOC (p2 adds Task Requests and Milestones); the Task list is hidden under Tasks (which the shell marks current for it), and every menu declares managedSystem, returnTo and focus.
     expect(registry.menus.filter(menu => menu.group === 'foTasks').map(menu => menu.id)).toEqual(['fo-task-requests', 'fo-tasks', 'fo-my-tasks', 'fo-milestones', 'fo-task-list']);
-    expect(registry.menuById('fo-tasks')).toMatchObject({ path: '/feedbackops/tasks', primary: true, permission: 'feedbackops:access', requiresScope: false });
-    expect(registry.menuById('fo-my-tasks')).toMatchObject({ path: '/feedbackops/my-tasks', permission: 'feedbackops:access', requiresScope: false });
-    expect(registry.menuById('fo-task-requests')).toMatchObject({ path: '/feedbackops/task-requests', permission: 'feedbackops:access', requiresScope: false });
-    expect(registry.menuById('fo-milestones')).toMatchObject({ path: '/feedbackops/milestones', permission: 'feedbackops:access', requiresScope: false });
-    expect(registry.menuById('fo-task-list')).toMatchObject({ path: '/feedbackops/tasks/list', navHidden: true, parent: 'fo-tasks' });
+    expect(registry.menuById('fo-tasks')).toMatchObject({ path: '/feedbackops/fo-tasks', primary: true, permission: 'feedbackops:access', requiresScope: false });
+    expect(registry.menuById('fo-my-tasks')).toMatchObject({ path: '/feedbackops/fo-my-tasks', permission: 'feedbackops:access', requiresScope: false });
+    expect(registry.menuById('fo-task-requests')).toMatchObject({ path: '/feedbackops/fo-task-requests', permission: 'feedbackops:access', requiresScope: false });
+    expect(registry.menuById('fo-milestones')).toMatchObject({ path: '/feedbackops/fo-milestones', permission: 'feedbackops:access', requiresScope: false });
+    expect(registry.menuById('fo-task-list')).toMatchObject({ path: '/feedbackops/fo-task-list', navHidden: true, parent: 'fo-tasks' });
     for (const id of ['fo-task-requests', 'fo-tasks', 'fo-my-tasks', 'fo-milestones', 'fo-task-list']) expect(registry.menuById(id).pageKeys).toEqual(expect.arrayContaining(['managedSystem', 'focus', 'returnTo']));
     expect(registry.spaceOf(registry.menuById('fo-task-list'))?.id).toBe('feedbackops');
     // #762 p2: the 연동 group closes the rail; four menus, no Findings row (ADR-0081 decision 3), every menu declares managedSystem and returnTo.
     expect(registry.menus.filter(menu => menu.group === 'foIntegration').map(menu => menu.id)).toEqual(['fo-integration', 'fo-evidence', 'fo-entity-links', 'fo-coverage']);
-    expect(registry.menuById('fo-integration')).toMatchObject({ path: '/feedbackops/integration', primary: true, permission: 'feedbackops:access', requiresScope: false });
-    expect(registry.menuById('fo-evidence')).toMatchObject({ path: '/feedbackops/evidence', permission: 'feedbackops:access', requiresScope: false });
-    expect(registry.menuById('fo-entity-links')).toMatchObject({ path: '/feedbackops/entity-links', permission: 'feedbackops:access', requiresScope: false });
-    expect(registry.menuById('fo-coverage')).toMatchObject({ path: '/feedbackops/coverage', permission: 'feedbackops:access', requiresScope: false });
+    expect(registry.menuById('fo-integration')).toMatchObject({ path: '/feedbackops/fo-integration', primary: true, permission: 'feedbackops:access', requiresScope: false });
+    expect(registry.menuById('fo-evidence')).toMatchObject({ path: '/feedbackops/fo-evidence', permission: 'feedbackops:access', requiresScope: false });
+    expect(registry.menuById('fo-entity-links')).toMatchObject({ path: '/feedbackops/fo-entity-links', permission: 'feedbackops:access', requiresScope: false });
+    expect(registry.menuById('fo-coverage')).toMatchObject({ path: '/feedbackops/fo-coverage', permission: 'feedbackops:access', requiresScope: false });
     for (const id of ['fo-integration', 'fo-evidence', 'fo-entity-links', 'fo-coverage']) {
       expect(registry.menuById(id).pageKeys).toEqual(expect.arrayContaining(['managedSystem', 'returnTo']));
       expect(registry.spaceOf(registry.menuById(id))?.id).toBe('feedbackops');
@@ -184,7 +186,8 @@ describe('workspace assembly (#260)', () => {
     ]);
     expect(planned.every(menu => !menu.component && menu.permission === 'platform:view')).toBe(true);
     expect(registry.menuById('home').label).toEqual({ ko: '플랫폼 홈', en: 'Platform home' });
-    expect(registry.menuById('equipment-master').path).toBe('/equipment');
+    expect(registry.menuById('equipment-master').path).toBe('/mars/equipment-master');
+    expect(registry.menuById('equipment-master').aliases).toEqual(['/equipment']);
     expect(registry.menuById('notices').path).toBe('/notices');
     expect(registry.menuById('voc').path).toBe('/voc');
   });

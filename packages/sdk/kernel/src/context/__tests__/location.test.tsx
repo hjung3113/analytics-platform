@@ -9,14 +9,14 @@ import { groupId, spaceId } from '@ap/contracts';
 const registry = createRegistry({
   spaces: [testSpace()],
   groups: [{ id: groupId('overview'), label: { ko: '홈', en: 'Home' }, icon: House, space: spaceId('mars') }],
-  menus: [{ id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'management', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: ['tab'] }],
+  menus: [{ id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/mars/home', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'management', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: ['tab'] }],
 });
 const session = testSession(['platform:view']);
 const adapter = testAdapter({ session: () => session });
 let platform: ReturnType<typeof usePlatform>;
 function Probe() {
   platform = usePlatform();
-  return <PlatformLink href="/?v=1&tab=next">next</PlatformLink>;
+  return <PlatformLink href="/mars/home?v=1&tab=next">next</PlatformLink>;
 }
 function mount(location?: PlatformLocation) {
   render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry} location={location}><Probe /></PlatformProvider></I18nProvider>);
@@ -25,46 +25,46 @@ afterEach(() => { cleanup(); sessionStorage.clear(); });
 
 describe('location boundary (06 §6.4)', () => {
   it('default reads and writes the exact existing bytes, ignoring hash', () => {
-    const url = '/?v=1&tab=a%20b&extra=%2f';
+    const url = '/mars/home?v=1&tab=a%20b&extra=%2f';
     window.history.replaceState(null, '', url + '#ignored');
     const location = createBrowserLocation();
     expect(location.read()).toBe(url);
     expect(location.href(url)).toBe(url);
     expect(location.absoluteUrl(url)).toBe(window.location.origin + url);
-    location.push('/?tab=%2F');
-    expect(location.read()).toBe('/?tab=%2F');
+    location.push('/mars/home?tab=%2F');
+    expect(location.read()).toBe('/mars/home?tab=%2F');
     location.replace(url);
     expect(location.read()).toBe(url);
     mount();
     expect(platform.url).toBe(url);
-    expect(screen.getByRole('link')).toHaveAttribute('href', '/?v=1&tab=next');
+    expect(screen.getByRole('link')).toHaveAttribute('href', '/mars/home?v=1&tab=next');
     fireEvent.click(screen.getByRole('link'));
-    expect(window.location.pathname + window.location.search).toBe('/?v=1&tab=next');
+    expect(window.location.pathname + window.location.search).toBe('/mars/home?v=1&tab=next');
   });
 
   it.each(['/analytics-platform/demo/', '/analytics-platform/demo'])('strips/adds normalized base %s only at the boundary', base => {
     const prefix = '/analytics-platform/demo';
-    window.history.replaceState(null, '', prefix + '/?v=1&scopeId=MEM&tab=a%20b');
+    window.history.replaceState(null, '', prefix + '/mars/home?v=1&scopeId=MEM&tab=a%20b');
     const location = createBasePathLocation(base);
-    expect(location.read()).toBe('/?v=1&scopeId=MEM&tab=a%20b');
-    location.push('/?v=1&tab=push');
-    expect(window.location.pathname + window.location.search).toBe(prefix + '/?v=1&tab=push');
-    location.replace('/?v=1&scopeId=MEM&tab=replace');
+    expect(location.read()).toBe('/mars/home?v=1&scopeId=MEM&tab=a%20b');
+    location.push('/mars/home?v=1&tab=push');
+    expect(window.location.pathname + window.location.search).toBe(prefix + '/mars/home?v=1&tab=push');
+    location.replace('/mars/home?v=1&scopeId=MEM&tab=replace');
     mount(location);
     expect(platform.route?.menu.id).toBe('home');
     expect(platform.global.scopeId).toBe('MEM');
-    expect(platform.absoluteUrl('/?tab=%2f')).toBe(window.location.origin + prefix + '/?tab=%2f');
-    expect(screen.getByRole('link')).toHaveAttribute('href', prefix + '/?v=1&tab=next');
+    expect(platform.absoluteUrl('/mars/home?tab=%2f')).toBe(window.location.origin + prefix + '/mars/home?tab=%2f');
+    expect(screen.getByRole('link')).toHaveAttribute('href', prefix + '/mars/home?v=1&tab=next');
     fireEvent.click(screen.getByRole('link'), { ctrlKey: true });
     expect(platform.pageParam('tab')).toBe('replace');
     fireEvent.click(screen.getByRole('link'));
-    expect(platform.url).toBe('/?v=1&tab=next');
-    expect(window.location.pathname).toBe(prefix + '/');
-    expect(JSON.parse(sessionStorage.getItem('platform:space-last:u1')!)).toEqual({ mars: '/?v=1&tab=next' });
-    act(() => { platform.navigate('/?v=1&tab=replaced', { replace: true }); });
+    expect(platform.url).toBe('/mars/home?v=1&tab=next');
+    expect(window.location.pathname).toBe(prefix + '/mars/home');
+    expect(JSON.parse(sessionStorage.getItem('platform:space-last:u1')!)).toEqual({ mars: '/mars/home?v=1&tab=next' });
+    act(() => { platform.navigate('/mars/home?v=1&tab=replaced', { replace: true }); });
     expect(window.location.search).toBe('?v=1&tab=replaced');
-    act(() => { window.history.replaceState(null, '', prefix + '/?v=1&tab=pop'); window.dispatchEvent(new PopStateEvent('popstate')); });
-    expect(platform.url).toBe('/?v=1&tab=pop');
+    act(() => { window.history.replaceState(null, '', prefix + '/mars/home?v=1&tab=pop'); window.dispatchEvent(new PopStateEvent('popstate')); });
+    expect(platform.url).toBe('/mars/home?v=1&tab=pop');
   });
 
   it.each(['/outside/', '/analytics-platform/democracy/', '/analytics-platform/demo'])('does not match paths outside the base: %s', pathname => {
@@ -99,10 +99,10 @@ describe('location boundary (06 §6.4)', () => {
   it('keeps Provider navigation with dot segments inside the base', () => {
     window.history.replaceState(null, '', '/analytics-platform/demo/inside?v=0');
     mount(createBasePathLocation('/analytics-platform/demo/'));
-    act(() => { platform.navigate('/../../?v=1'); });
-    expect(platform.url).toBe('/?v=1');
+    act(() => { platform.navigate('/../../mars/home?v=1'); });
+    expect(platform.url).toBe('/mars/home?v=1');
     expect(platform.route?.menu.id).toBe('home');
-    expect(window.location.pathname + window.location.search).toBe('/analytics-platform/demo/?v=1');
+    expect(window.location.pathname + window.location.search).toBe('/analytics-platform/demo/mars/home?v=1');
   });
 
   it('round-trips a unicode base through its encoded browser pathname', () => {

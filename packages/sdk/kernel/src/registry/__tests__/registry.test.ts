@@ -237,7 +237,7 @@ describe('spaces (06 §9.1)', () => {
     const notices = menu('notices', '/notices', { group: groupId('noticeVoc'), permission: 'notice:view', primary: true });
     const home = menu('home', '/', { group: groupId('overview'), permission: 'platform:view', primary: true });
     const detail = menu('notices-detail', '/notices/:id', { group: groupId('noticeVoc'), parent: 'home', permission: 'notice:view' });
-    const registry = createRegistry({ spaces, groups: [...groups, notice, overview], menus: [catalog, notices, home, detail] });
+    const registry = createRegistry({ spaces, groups: [...groups, notice, overview], menus: [catalog, notices, home, detail], platformHomeMenuId: 'home' });
     expect(registry.spaceOf(notices)).toBeNull();
     expect(registry.spaceOf(home)).toBeNull();
     expect(registry.spaceOf(catalog)?.id).toBe('mars');
@@ -367,7 +367,7 @@ describe('routeParamNames', () => {
 
 describe('paneHref', () => {
   const registry = createRegistry({ spaces, groups, menus: [catalog, menu('detail', '/metrics/:id')] });
-  it.each([['', '/metrics/a%2Fb'], ['a=1', '/metrics/a%2Fb?a=1'], ['?a=1', '/metrics/a%2Fb?a=1']])('builds a pane address with query %s', (query, href) => {
+  it.each([['', '/mars/detail/a%2Fb'], ['a=1', '/mars/detail/a%2Fb?a=1'], ['?a=1', '/mars/detail/a%2Fb?a=1']])('builds a pane address with query %s', (query, href) => {
     expect(paneHref(registry, { menuId: 'detail', params: { id: 'a/b' }, query })).toBe(href);
   });
 });

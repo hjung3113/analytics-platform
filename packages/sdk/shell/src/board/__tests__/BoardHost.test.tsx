@@ -82,12 +82,12 @@ describe('board host: minimize, restore, close (893c)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'go beta' }));
     await settle();
-    expect(window.location.pathname).toBe('/beta');
+    expect(window.location.pathname).toBe('/mars/beta');
     expect(host()).toHaveAttribute('hidden');
     expect(host()).toHaveAttribute('inert');
     expect(document.querySelector('[data-board]')).toBe(board);
     expect(chip()).toHaveTextContent('분석 보드 · b');
-    expect(window.location.pathname).toBe('/beta');
+    expect(window.location.pathname).toBe('/mars/beta');
 
     fireEvent.click(chip()!);
     await settle();
@@ -112,7 +112,7 @@ describe('board host: minimize, restore, close (893c)', () => {
       expect(window.location.pathname).toBe('/board');
       fireEvent.click(screen.getByRole('button', { name: '최소화' }));
       await settle();
-      expect(window.location.pathname).toBe('/alpha');
+      expect(window.location.pathname).toBe('/mars/alpha');
       expect(document.querySelectorAll('[data-board-host]')).toHaveLength(1);
     }
     expect(push).not.toHaveBeenCalled();
@@ -133,7 +133,7 @@ describe('board host: minimize, restore, close (893c)', () => {
     window.history.replaceState(null, '', '/alpha');
     act(() => { window.dispatchEvent(new PopStateEvent('popstate')); });
     await settle();
-    expect(window.location.pathname).toBe('/alpha');
+    expect(window.location.pathname).toBe('/mars/alpha');
     expect(chip()).not.toBeNull();
   });
 
@@ -146,7 +146,7 @@ describe('board host: minimize, restore, close (893c)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'go beta' }));
     await settle();
     await settle();
-    expect(window.location.pathname).toBe('/beta');
+    expect(window.location.pathname).toBe('/mars/beta');
   });
 
   it('C8: close ends the live board, keeps the stored sheets, leaves /board and does not reopen; no return path means home', async () => {
@@ -157,7 +157,7 @@ describe('board host: minimize, restore, close (893c)', () => {
     await settle();
     fireEvent.click(screen.getByRole('button', { name: '보드 닫기' }));
     await settle();
-    expect(window.location.pathname).toBe('/alpha');
+    expect(window.location.pathname).toBe('/mars/alpha');
     expect(host()).toBeNull();
     expect(chip()).toBeNull();
     expect(JSON.parse(localStorage.getItem(V1_KEY)!).sheets).toHaveLength(2);
@@ -168,7 +168,7 @@ describe('board host: minimize, restore, close (893c)', () => {
     await settle();
     fireEvent.click(screen.getByRole('button', { name: '보드 닫기' }));
     await settle();
-    expect(window.location.pathname).toBe('/');
+    expect(window.location.pathname).toBe('/mars/home');
     expect(host()).toBeNull();
   });
 

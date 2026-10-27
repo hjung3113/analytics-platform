@@ -8,5 +8,5 @@ QueryBar | function | function QueryBar(props: @ap/shell#QueryBarProps): import(
 QueryBarProps | type | type QueryBarProps = { historySlot?: ReactNode; label?: { region: string; visible: string; }; viewSlot?: ReactNode; }
 RouteOutlet | function | function RouteOutlet(): import("react").JSX.Element
 ScopeSelector | function | function ScopeSelector({ collapsed, layout }: { collapsed?: boolean; layout?: 'bar' | 'sidebar'; }): import("react").JSX.Element
-ScreenOutlet | function | function ScreenOutlet(): import("react").JSX.Element
+ScreenOutlet | function | function ScreenOutlet(): import("react").JSX.Element | null
 # reachable types

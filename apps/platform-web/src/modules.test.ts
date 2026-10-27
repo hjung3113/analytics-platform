@@ -18,8 +18,10 @@ function sourcesOutsideDev(dir: string): string[] {
 describe('EV host module mount (#801)', () => {
   it('registers its group and screens at the one placement', () => {
     expect(registry.groupById('eqv:equipment')?.space).toBe(EQV_SPACE);
-    expect(registry.menuById('eqv:topview')?.path).toBe(EQV_PREFIX);
-    expect(registry.menuById('eqv:focus')?.path).toBe(`${EQV_PREFIX}/focus`);
+    expect(registry.menuById('eqv:topview')?.path).toBe('/tools/eqv-topview');
+    expect(registry.menuById('eqv:topview')?.aliases).toEqual([EQV_PREFIX]);
+    expect(registry.menuById('eqv:focus')?.path).toBe('/tools/eqv-focus');
+    expect(registry.menuById('eqv:focus')?.aliases).toEqual([`${EQV_PREFIX}/focus`]);
     expect(EQV_MODULE.menus.map(menu => menu.id)).toEqual(['eqv:topview', 'eqv:focus']);
   });
 

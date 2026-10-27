@@ -2,11 +2,11 @@ import { PlatformLink, useI18n } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import { Button } from '@ap/ui';
 
-/** Where home is: the platform home (`/`) when that menu can be opened, else the sidebar space home when that menu can be opened, else null. */
+/** Where home is: the platform home (`registry.platformHome`) when that menu can be opened, else the sidebar space home when that menu can be opened, else null. */
 export function useHomeHref(): string | null {
   const { resolveLink, sidebarSpace, registry } = useHostPlatform();
-  const platformHome = registry.matchRoute('/')?.menu;
-  const opened = platformHome !== undefined ? resolveLink(platformHome.id) : null;
+  const platformHome = registry.platformHome;
+  const opened = platformHome !== null ? resolveLink(platformHome.id) : null;
   const fallbackId = opened?.allowed ? undefined : sidebarSpace?.homeMenuId;
   const fallback = fallbackId !== undefined ? resolveLink(fallbackId) : null;
   return opened?.allowed ? opened.href : fallback?.allowed ? fallback.href : null;

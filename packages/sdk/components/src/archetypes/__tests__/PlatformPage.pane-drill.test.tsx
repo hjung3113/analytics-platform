@@ -141,7 +141,23 @@ describe('ReturnLink inside a board pane (#497)', () => {
   }
 
   it('after the return the pane root takes the focus, not main or a sibling pane', async () => {
-    window.history.replaceState(null, '', '/source');
+    window.history.replaceState(null, '', '/mars/source');
+    const session = testSession(['platform:view']);
+    render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={returnRegistry}>
+      <main tabIndex={-1}><PlatformPage><span>main</span></PlatformPage>
+        <ReturnPane id="a" initial={{ menuId: 'target', params: {}, query: '?returnTo=%2Fmars%2Fsource' }} />
+        <ReturnPane id="b" initial={{ menuId: 'target', params: {}, query: '?returnTo=%2Fmars%2Fsource' }} />
+      </main></PlatformProvider></I18nProvider>);
+    const b = screen.getByTestId('b');
+    const link = within(b).getByRole('link', { name: '← 출발 화면' });
+    link.focus();
+    fireEvent.click(link);
+    await settle();
+    expect(b).toHaveFocus();
+  });
+
+  it('a legacy-form returnTo (an old bookmark) still restores the return focus (ADR-0093)', async () => {
+    window.history.replaceState(null, '', '/mars/source');
     const session = testSession(['platform:view']);
     render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={returnRegistry}>
       <main tabIndex={-1}><PlatformPage><span>main</span></PlatformPage>

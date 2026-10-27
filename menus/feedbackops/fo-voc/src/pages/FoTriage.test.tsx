@@ -48,7 +48,7 @@ describe('Triage through the FeedbackOps bridge', () => {
     mountAt('/feedbackops/triage?tab=unassigned');
     fireEvent.click(await screen.findByRole('button', { name: '선택' }));
     await waitFor(() => expect(window.location.search).toContain(`focus=${VOC}`));
-    expect(window.location.pathname).toBe('/feedbackops/triage');
+    expect(window.location.pathname).toBe('/feedbackops/fo-triage');
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 });

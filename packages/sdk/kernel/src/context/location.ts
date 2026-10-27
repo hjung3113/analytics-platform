@@ -3,7 +3,8 @@ export type PlatformLocation = {
   /** null means the browser pathname is outside this deployment. */
   read: () => string | null;
   push: (url: string) => void;
-  replace: (url: string) => void;
+  /** `keepFragment`: a kernel rewrite of the same arrival (alias redirect, default materialization) keeps the address-bar `#fragment`; the write stays one history call. */
+  replace: (url: string, options?: { keepFragment?: boolean }) => void;
   href: (url: string) => string;
   absoluteUrl: (url: string) => string;
 };
@@ -13,7 +14,7 @@ export function createBrowserLocation(): PlatformLocation {
   return {
     read: () => window.location.pathname + window.location.search,
     push: url => window.history.pushState(null, '', url),
-    replace: url => window.history.replaceState(null, '', url),
+    replace: (url, options) => window.history.replaceState(null, '', options?.keepFragment ? url + window.location.hash : url),
     href: url => url,
     absoluteUrl: url => window.location.origin + url,
   };
@@ -39,7 +40,7 @@ export function createBasePathLocation(basePath: string): PlatformLocation {
       ? '/' + window.location.pathname.slice(base.length) + window.location.search
       : null,
     push: url => window.history.pushState(null, '', href(url)),
-    replace: url => window.history.replaceState(null, '', href(url)),
+    replace: (url, options) => window.history.replaceState(null, '', href(url) + (options?.keepFragment ? window.location.hash : '')),
     href,
     absoluteUrl: url => window.location.origin + href(url),
   };

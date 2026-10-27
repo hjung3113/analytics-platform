@@ -418,7 +418,7 @@ describe('⋯ pane menu (docs/16 §4)', () => {
     await openActions(1);
     fireEvent.click(await item('본 화면에서 열기'));
     await settle();
-    expect(window.location.pathname).toBe('/alpha');
+    expect(window.location.pathname).toBe('/mars/alpha');
     expect(window.location.search).toBe(`?scopeId=S1&${w1}&tab=x`);
     expect(stored().sheets[0].panes[0]).toEqual(pane(`?scopeId=S1&${w1}&tab=x`));
   });

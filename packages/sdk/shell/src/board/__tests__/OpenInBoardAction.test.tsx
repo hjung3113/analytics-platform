@@ -76,7 +76,7 @@ describe('분석 보드에 열기… (docs/16 §6)', () => {
     expect(within(dialog).getByText('칸 1의 화면을 바꿉니다')).toBeInTheDocument();
     expect(JSON.parse(localStorage.getItem(KEY)!)).toEqual(boardOf([sheet('a', { panes: [beta] })]));
     expect(localStorage.getItem(V2_KEY)).toBeNull();
-    expect(window.location.pathname).toBe('/alpha');
+    expect(window.location.pathname).toBe('/mars/alpha');
   });
 
   it('새 시트: adds a 1×1 sheet holding this screen with its Context and page keys, then goes to /board?sheet=', async () => {
@@ -149,7 +149,7 @@ describe('분석 보드에 열기… (docs/16 §6)', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(localStorage.getItem(KEY)).toBeNull();
     expect(localStorage.getItem(V2_KEY)).toBeNull();
-    expect(window.location.pathname).toBe('/alpha');
+    expect(window.location.pathname).toBe('/mars/alpha');
     expect(screen.getByRole('button', { name: '더보기' })).toHaveFocus();
   });
 
@@ -170,7 +170,7 @@ describe('분석 보드에 열기… (docs/16 §6)', () => {
     expect(within(dialog).getByText(changed)).toBeInTheDocument();
     expect(stored()).toEqual(filled);
     expect(localStorage.getItem(V2_KEY)).toBeNull();
-    expect(window.location.pathname).toBe('/alpha');
+    expect(window.location.pathname).toBe('/mars/alpha');
     expect(screen.getByRole('dialog', { name: '분석 보드에 열기' })).toBeInTheDocument();
   });
 
@@ -188,7 +188,7 @@ describe('분석 보드에 열기… (docs/16 §6)', () => {
     expect(within(dialog).getByText('보드를 편집하는 중입니다. 편집을 마친 뒤 다시 시도하세요.')).toBeInTheDocument();
     expect(stored()).toEqual(other);
     expect(localStorage.getItem(V2_KEY)).toBeNull();
-    expect(window.location.pathname).toBe('/alpha');
+    expect(window.location.pathname).toBe('/mars/alpha');
     live.unmount();
   });
 
@@ -212,7 +212,7 @@ describe('분석 보드에 열기… (docs/16 §6)', () => {
     expect(within(dialog).getByText(changed)).toBeInTheDocument();
     expect(stored()).toEqual(after);
     expect(localStorage.getItem(V2_KEY)).toBeNull();
-    expect(window.location.pathname).toBe('/alpha');
+    expect(window.location.pathname).toBe('/mars/alpha');
   });
 
   it('shows only the signed-in user\'s sheets after the user changes with the dialog open', async () => {
@@ -282,7 +282,7 @@ describe('V1 storage (#575 D1)', () => {
     await settle();
     expect(within(dialog).getByRole('alert')).toHaveTextContent('더 새 버전에서 저장한 보드라 이 화면에서는 저장하지 않습니다.');
     expect(localStorage.getItem(V2_KEY)).toBe(newer);
-    expect(window.location.pathname).toBe('/alpha');
+    expect(window.location.pathname).toBe('/mars/alpha');
     expect(screen.getByRole('dialog', { name: '분석 보드에 열기' })).toBeInTheDocument();
   });
 });

@@ -25,7 +25,7 @@
 
 | Surface | 사이클타임 상세 | occurrence 상세 |
 | --- | --- | --- |
-| Route | `/analytics/cycle-time` | `/analytics/executions/:equipmentId` — 설비 ID만 경로 segment이고 `entityType`·`anchor`는 page key다 |
+| Route | `/mars/cycle-time` | `/mars/execution-detail/:equipmentId` — 설비 ID만 경로 segment이고 `entityType`·`anchor`는 page key다 |
 | page-owned 키 | `granularity`(`hour\|day\|week`, 미지정이면 조회 기간 48시간 이하는 `hour`, 아니면 `day`), `percentile`(`p95\|p50\|all`, 기본 `p95` — 느린 실행 기준), `sort`(`<열>:asc\|desc`, 기본 `cycleMin:desc`), `page`, `bucket`(집계 단위 경계에 정렬된 naive 시각), `bin`(분포 구간 ID 또는 `from..to`). Global Context가 바뀌면 `page`·`bucket`·`bin`을 지운다 | `entityType`, `anchor`, `returnTo` |
 | 등록 값 밖의 값 | 다른 값으로 바꾸지 않고 오류로 보인다 | 키가 없거나 `entityType`이 `job`이 아니거나 anchor 형식이 틀리면 조회하지 않고 이유를 보인다(Lot·가까운 시각으로 복원하지 않음) |
 
@@ -137,7 +137,7 @@ KPI는 전체 기간 통계, 일별 값은 각 bucket 통계로 서로 단순 �
 | --- | --- |
 | Decided 소비 | occurrence 3중 키, lot 검색 보조, 목적지/Context 분리, 명시적 범위 적용, 서버 권한, URL 복원, 상태/시간 계약 — 06 |
 | 지시된 범위 | Analysis Workspace와 그 Breakdown Table, 타임라인/품질 상세, VOC 왕복 진입점만 |
-| Decided | Context 선언과 page-owned 키는 §3·§3.1(매니페스트 기준). occurrence 상세는 Full Page `/analytics/executions/:equipmentId`이며 복귀는 `returnTo` |
+| Decided | Context 선언과 page-owned 키는 §3·§3.1(매니페스트 기준). occurrence 상세는 Full Page `/mars/execution-detail/:equipmentId`이며 복귀는 `returnTo` |
 | Candidate | P95 ≥ predicate, 메뉴별 Recipe 조인 범위, 선택 occurrence chip(미구현). Kernel 등록/검증 필요 |
 | Open — Domain/Data | Job 지표 세부/분위수·기간 귀속·버전 ID·timeline 관계·품질 원천/필드·coverage/assessment 공급자 |
 | Open — Domain/Data | `OccurrenceProcessTimeline`과 `06` §13/§22가 이미 나열한 `WaferJourneyTimeline`의 관계(같은 데이터의 다른 그레인 vs 완전 분리) |

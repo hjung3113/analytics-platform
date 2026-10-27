@@ -741,7 +741,7 @@ describe('shell entry (docs/16 §4, §8)', () => {
     expect(seenRecent).toEqual(['beta']);
     const last = JSON.parse(sessionStorage.getItem('platform:space-last:u1')!) as Record<string, string>;
     expect(Object.keys(last)).toEqual(['mars']);
-    expect(last.mars.startsWith('/beta?')).toBe(true);
+    expect(last.mars.startsWith('/mars/beta?')).toBe(true);
   });
 });
 

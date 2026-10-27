@@ -53,7 +53,8 @@ export const ToastsContext = createContext<readonly Toast[] | null>(null);
 export const OverlayContext = createContext<OverlayState | null>(null);
 export const RecentContext = createContext<readonly Recent[] | null>(null);
 
-export type CommitOptions = { focus?: PageFocus; materialize?: boolean };
+/** `redirect`: replace an alias address by its canonical one (ADR-0093) — the same arrival, so a pending focus request and the address-bar hash survive. */
+export type CommitOptions = { focus?: PageFocus; materialize?: boolean; redirect?: boolean };
 /** What the screen state hook needs from its owner: where the URL lives and how a write or a navigation lands. */
 export type ScreenSource = {
   draftStore?: DraftStore;

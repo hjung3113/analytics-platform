@@ -100,6 +100,7 @@
 | [0090](0090-repo-structure-by-branch.md) | 저장소는 갈래별 구조로 정리한다: FeedbackOps를 루트 `apps/`·`packages/`로 펼치고, `packages/`는 `sdk/`·`adapters/`로 묶고, 공간 id를 `mars`·`bravo`로 바꾸고, docs는 종류별 폴더 + 06 계약 분할(대안: #712 D1–D5의 A/B/C — D1 B, D2 C, D3 B, D4 A, D5 C 선택) | Decided(2026-10-27, 사용자, 최종 트리 표는 되돌릴 수 있다) — #713 |
 | [0091](0091-board-floating-window.md) | 분석 보드는 일반 화면 위에 뜨는 비모달 자유 창으로도 볼 수 있다. 표시 모드는 파생이고 창은 주소를 소유하지 않으며 위치는 실행 세션 동안만 기억한다(대안: A 자유 창 / B 모서리 고정 / C 측면 패널 — A 선택) | Decided(2026-10-27, 사용자, 되돌릴 수 있다) — #893 893d |
 | [0092](0092-saved-view-units-tiers-and-groups.md) | 저장된 뷰는 조건 세트 + 메뉴 뷰 두 단위, 소유는 개인 → 그룹(조직 팀 \| 커스텀) → 공식, 공유는 권한을 주지 않는다. UI는 조회 도구행의 현재 뷰 선택기 + 요청형 뷰 관리 표면(대안: A 탭 줄 / B 드롭다운 / C 상시 패널 — B 기본 + C 정보 구조) | Decided(2026-10-27, 사용자 + 시안 선택은 Astra 위임·코디네이터 기록, 되돌릴 수 있다) · #294 · 구현 #1011 |
+| [0093](0093-canonical-paths-from-space-and-menu-id.md) | 메뉴 정규 경로는 `/{공간 id}/{메뉴 id 슬러그}` + `:param`으로 유도하고 manifest 경로는 옛 별칭으로 둔다 (대안: manifest가 슬러그를 선언 — 유도 선택) | Decided(2026-10-27) |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 

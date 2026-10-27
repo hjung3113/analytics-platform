@@ -102,7 +102,7 @@ describe('usage events (docs/05 메뉴 활용률 계측)', () => {
     expect(events[0].name).toBe('entry');
     expect(events[0].menuId).toBe('equipment-detail');
     expect(events[0].spaceId).toBe('mars');
-    expect(events[0].path).toBe('/equipment/:equipmentId');
+    expect(events[0].path).toBe('/mars/equipment-detail/:equipmentId');
     expect(events[0].sessionId).toEqual(expect.any(String));
     // No concrete id, no Context value, no search in the wire format.
     expect(JSON.stringify(events)).not.toContain('E-123');
@@ -226,7 +226,7 @@ describe('usage events (docs/05 메뉴 활용률 계측)', () => {
       await settle();
       act(() => screen.getByTestId('leave').click());
       await settle();
-      expect(window.location.pathname).toBe('/admin/roles');
+      expect(window.location.pathname).toBe('/operations/admin-roles');
       await settle(); // one macrotask hop: the unhandled-rejection hook fires before this resolves
       expect(rejections).toEqual([]);
     } finally {
@@ -240,7 +240,7 @@ describe('usage events (docs/05 메뉴 활용률 계측)', () => {
     await settle();
     act(() => screen.getByTestId('leave').click());
     await settle();
-    expect(window.location.pathname).toBe('/admin/roles');
+    expect(window.location.pathname).toBe('/operations/admin-roles');
   });
 });
 
@@ -250,21 +250,21 @@ const navRegistry = createRegistry({
   groups: [{ id: groupId('equipment'), label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: spaceId('mars') }],
   menus: [
     { id: 'home', group: groupId('equipment'), label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features: noFeatures, pageKeys: ['page'] },
-    { id: 'equipment', group: groupId('equipment'), primary: true, label: { ko: '설비', en: 'Equipment' }, description: { ko: '', en: '' }, path: '/equipment', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features: noFeatures, pageKeys: ['page'] },
-    { id: 'lots', group: groupId('equipment'), label: { ko: 'Lot', en: 'Lots' }, description: { ko: '', en: '' }, path: '/lots', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features: noFeatures, pageKeys: [] },
+    { id: 'equipment', group: groupId('equipment'), primary: true, label: { ko: '설비', en: 'Equipment' }, description: { ko: '', en: '' }, path: '/mars/equipment', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features: noFeatures, pageKeys: ['page'] },
+    { id: 'lots', group: groupId('equipment'), label: { ko: 'Lot', en: 'Lots' }, description: { ko: '', en: '' }, path: '/mars/lots', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features: noFeatures, pageKeys: [] },
   ],
 });
 
 function NavProbe() {
   const { navigate, setPage } = usePlatform();
   return <div>
-    <button type="button" data-testid="sidebar" onClick={() => navigate('/lots', { via: 'sidebar' })}>sidebar</button>
-    <button type="button" data-testid="plain" onClick={() => navigate('/equipment')}>plain</button>
+    <button type="button" data-testid="sidebar" onClick={() => navigate('/mars/lots', { via: 'sidebar' })}>sidebar</button>
+    <button type="button" data-testid="plain" onClick={() => navigate('/mars/equipment')}>plain</button>
     <button type="button" data-testid="home" onClick={() => navigate('/')}>home</button>
     <button type="button" data-testid="board" onClick={() => navigate('/board')}>board</button>
-    <button type="button" data-testid="same-path" onClick={() => navigate('/equipment?page=9', { via: 'palette' })}>same</button>
+    <button type="button" data-testid="same-path" onClick={() => navigate('/mars/equipment?page=9', { via: 'palette' })}>same</button>
     <button type="button" data-testid="page" onClick={() => setPage({ page: '2' })}>page</button>
-    <PlatformLink data-testid="link" href="/lots" via="switcher">link</PlatformLink>
+    <PlatformLink data-testid="link" href="/mars/lots" via="switcher">link</PlatformLink>
   </div>;
 }
 
@@ -280,13 +280,13 @@ const entries = (events: UsageEvent[]) => events.filter(e => e.name === 'entry')
 
 describe('usage entry navigation path (#605)', () => {
   it('the tab\'s first entry is direct with no previous menu', async () => {
-    const { events } = mountNav('/equipment');
+    const { events } = mountNav('/mars/equipment');
     await settle();
     expect(events).toEqual([expect.objectContaining({ name: 'entry', via: 'direct', fromMenuId: null })]);
   });
 
   it('a marked navigate and a marked PlatformLink carry their via and the previous menu; an unmarked one is link', async () => {
-    const { events } = mountNav('/equipment');
+    const { events } = mountNav('/mars/equipment');
     await settle();
     await click('sidebar');
     await click('plain');
@@ -295,7 +295,7 @@ describe('usage entry navigation path (#605)', () => {
   });
 
   it('Back/Forward is history', async () => {
-    const { events } = mountNav('/equipment');
+    const { events } = mountNav('/mars/equipment');
     await settle();
     await click('sidebar');
     await act(async () => { window.history.back(); await new Promise(r => setTimeout(r, 30)); });
@@ -304,7 +304,7 @@ describe('usage entry navigation path (#605)', () => {
   });
 
   it('a screen without a menu (board) resets the previous menu to null; home is the menu home', async () => {
-    const { events } = mountNav('/equipment');
+    const { events } = mountNav('/mars/equipment');
     await settle();
     await click('board');
     await click('plain');
@@ -314,7 +314,7 @@ describe('usage entry navigation path (#605)', () => {
   });
 
   it('a query-only change and a same-path navigate never leak their via into a later unmarked move', async () => {
-    const { events } = mountNav('/equipment');
+    const { events } = mountNav('/mars/equipment');
     await settle();
     await click('same-path'); // marked palette, same pathname: no entry, mark stays pending
     await click('page');
@@ -346,14 +346,14 @@ describe('usage entry navigation path (#605)', () => {
   });
 
   it('StrictMode keeps the via of the real entry', async () => {
-    const { events } = mountNav('/equipment', true);
+    const { events } = mountNav('/mars/equipment', true);
     await settle();
     await click('sidebar');
     expect(entries(events)).toEqual(['equipment:direct:null', 'lots:sidebar:equipment']);
   });
 
   it('dwell events carry neither field', async () => {
-    const { events } = mountNav('/equipment');
+    const { events } = mountNav('/mars/equipment');
     await settle();
     await click('sidebar');
     const dwell = events.find(e => e.name === 'dwell');
@@ -363,7 +363,7 @@ describe('usage entry navigation path (#605)', () => {
   });
 
   it('a new session user starts the trail over', async () => {
-    const fixture = mountNav('/equipment');
+    const fixture = mountNav('/mars/equipment');
     await settle();
     await click('sidebar');
     act(() => fixture.setSessionUser('other'));
