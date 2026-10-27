@@ -5,7 +5,7 @@ export { defineMockEndpoint, MockRegistrationError, MockRequestError, type AnyMo
 export { bucketStart, periodHours, type Grain } from '@ap/contracts';
 export {
   DATA_THROUGH, cycleMinutes, jobPercentile,
-  jobsForEquipmentDay, jobsInPeriod, observableHours, type Job,
+  findJobByAnchor, jobsForEquipmentDay, jobsInPeriod, observableHours, type Job,
 } from './actions/jobs';
 
 export {

@@ -1,10 +1,10 @@
 /**
  * Mock server half of the cycle-time endpoints (#127) and the occurrence lookup shared with execution-detail.
  * Synthetic cycle-time executions seeded from EQUIPMENT. Not parser data. Percentile, bins, timeline and quality
- * are Candidate choices — see the page captions. Anchors stay second-precision strings.
+ * are Candidate choices — see the page captions. Start times stay second-precision strings; the anchor is an opaque sequence.
  */
 import { bucketStart, formatDateTime, parseDateTime, shift, sortAndPage, sortRows, type GlobalContext } from '@ap/contracts';
-import { cycleMinutes, defineMockEndpoint, EQUIPMENT, jobPercentile, jobsForEquipmentDay, jobsInPeriod, type AnyMockEndpoint, type Equipment, type Job } from '@ap/mock-server';
+import { cycleMinutes, defineMockEndpoint, EQUIPMENT, findJobByAnchor, jobPercentile, jobsInPeriod, type AnyMockEndpoint, type Equipment, type Job } from '@ap/mock-server';
 import {
   BINS, binIndex, bucketEnd, cycleDistEndpoint, cycleExportEndpoint, cycleKpiEndpoint, cycleSlowPageEndpoint, cycleTrendEndpoint,
   cycleVersionOf, executionKey, isAnchor, resolveMetric,
@@ -52,7 +52,7 @@ export function histogram(rows: Execution[]): { id: string; count: number }[] {
 export function trendOf(rows: Execution[], from: string, to: string, granularity: Granularity): CycleTrend {
   const buckets = enumerateBuckets(from, to, granularity);
   const grouped = new Map<string, number[]>(buckets.map(bucket => [bucket, []]));
-  for (const row of rows) grouped.get(bucketStart(row.anchor, granularity))?.push(row.cycleMin);
+  for (const row of rows) grouped.get(bucketStart(row.startedAt, granularity))?.push(row.cycleMin);
   return {
     p50: buckets.map(bucket => [bucket, percentile(grouped.get(bucket) ?? [], 0.5)]),
     p95: buckets.map(bucket => [bucket, percentile(grouped.get(bucket) ?? [], 0.95)]),
@@ -91,7 +91,7 @@ export function slowExecutions(
   const out: SlowRow[] = [];
   for (const row of rows) {
     if (threshold !== null && !(row.cycleMin >= threshold)) continue;
-    if (bucket && (row.anchor < bucket.from || row.anchor >= bucket.to)) continue;
+    if (bucket && (row.startedAt < bucket.from || row.startedAt >= bucket.to)) continue;
     if (binLo !== null && binHi !== null) {
       const index = binIndex(binIdFor(row.cycleMin));
       if (index < binLo || index > binHi) continue;
@@ -105,7 +105,7 @@ export function findExecution(equipmentId: string, anchor: string, version = '3'
   if (!isAnchor(anchor)) return null;
   const equipment = EQUIPMENT.find(item => item.equipmentId === equipmentId);
   if (!equipment) return null;
-  const job = jobsForEquipmentDay(equipment, anchor.slice(0, 10)).find(item => item.anchor === anchor);
+  const job = findJobByAnchor(equipment, anchor);
   return job ? executionFromJob(job, version) : null;
 }
 
@@ -128,9 +128,7 @@ export function lookupOccurrence(equipment: Equipment[], equipmentId: string, an
 /** Candidate timeline: one job split into XFR/FNC/PRC. Gaps are unclassified, not wait or scrap. */
 export function segmentsFor(execution: Execution): Segment[] {
   const equipment = EQUIPMENT.find(item => item.equipmentId === execution.equipmentId);
-  const job = equipment
-    ? jobsForEquipmentDay(equipment, execution.anchor.slice(0, 10)).find(item => item.anchor === execution.anchor)
-    : undefined;
+  const job = equipment ? findJobByAnchor(equipment, execution.anchor) : undefined;
   return job?.segments.map(segment => ({ ...segment })) ?? [];
 }
 
@@ -147,6 +145,7 @@ function executionFromJob(job: Job, version: string): Execution {
     lotId: job.lotId,
     ppid: job.ppid,
     anchor: job.anchor,
+    startedAt: job.startedAt,
     cycleMin: cycleMinutes(job, version),
     quality: job.quality,
   };

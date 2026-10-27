@@ -12,7 +12,7 @@ export const executionOccurrence: AnyMockEndpoint = defineMockEndpoint(occurrenc
     return lookupOccurrence(equipment, params.equipmentId, params.anchor, params.metricVersion);
   },
   isEmpty: data => data.access === 'missing',
-  provisional: ({ data }) => data.access === 'ok' && data.execution.anchor >= shift(DATA_THROUGH, -24),
+  provisional: ({ data }) => data.access === 'ok' && data.execution.startedAt >= shift(DATA_THROUGH, -24),
   metricVersion: ({ params }) => params.metricVersion,
   // 06 §6.1: the server checks the version belongs to the metric; an unknown one is an error, never a silent v3 (#123).
   validate: ({ params }) => (CYCLE_SERIES_VERSIONS.includes(params.metricVersion) ? null : `metricVersion ${params.metricVersion} is not a cycle_time version`),

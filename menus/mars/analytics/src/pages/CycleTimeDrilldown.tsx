@@ -29,8 +29,8 @@ function filterVocabulary(lang: 'ko' | 'en') {
       { value: 'cycleMin:desc', label: ko ? '사이클타임 내림차순' : 'Cycle time descending' },
       { value: 'cycleMin:asc', label: ko ? '사이클타임 오름차순' : 'Cycle time ascending' },
       { value: 'delta:desc', label: ko ? 'P95 대비 내림차순' : 'vs P95 descending' },
-      { value: 'anchor:desc', label: ko ? '시작 최신' : 'Start newest' },
-      { value: 'anchor:asc', label: ko ? '시작 오래된' : 'Start oldest' },
+      { value: 'startedAt:desc', label: ko ? '시작 최신' : 'Start newest' },
+      { value: 'startedAt:asc', label: ko ? '시작 오래된' : 'Start oldest' },
       { value: 'equipmentId:asc', label: 'Equipment A→Z' },
     ],
     unknownRaw: (value: string | null) => ko ? `이 화면에서 쓸 수 없는 값: ${value ?? ''}` : `Not a value this page can use: ${value ?? ''}`,
@@ -118,9 +118,9 @@ export default function CycleTimeDrilldown(_: PageProps) {
     { id: 'recipe', header: 'Recipe', cell: row => <span className="t-mono">{row.recipe}</span> },
     { id: 'lotId', header: 'Lot', cell: row => <span className="t-mono">{row.lotId}</span> },
     {
-      id: 'anchor', header: ko ? '시작' : 'Start', cell: row => <span className="t-mono tabular">{row.anchor.replace('T', ' ')}</span>,
-      // The cell shows the wall-clock anchor space-separated (§6.3); the export shows the same text.
-      exportValue: row => row.anchor.replace('T', ' '),
+      id: 'startedAt', header: ko ? '시작' : 'Start', cell: row => <span className="t-mono tabular">{row.startedAt.replace('T', ' ')}</span>,
+      // The cell shows the wall-clock start space-separated (§6.3); the export shows the same text.
+      exportValue: row => row.startedAt.replace('T', ' '),
     },
     {
       id: 'cycleMin', header: ko ? '사이클타임 (분)' : 'Cycle time (min)', align: 'right',
@@ -316,7 +316,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
               : undefined}
             rowAction={(row, { compact }) => {
               const href = linkTo('execution-detail', { params: { equipmentId: row.equipmentId }, page: { entityType: 'job', anchor: row.anchor }, returnTo: true });
-              const name = ko ? `${row.equipmentId} · ${row.anchor.replace('T', ' ')} 상세` : `Detail ${row.equipmentId} · ${row.anchor.replace('T', ' ')}`;
+              const name = ko ? `${row.equipmentId} · ${row.startedAt.replace('T', ' ')} 상세` : `Detail ${row.equipmentId} · ${row.startedAt.replace('T', ' ')}`;
               return <RowAction compact={compact} icon={ArrowRight} label={name} text={ko ? '상세' : 'Detail'} textLink="primary" link={<PlatformLink href={href} />} />;
             }}
             bulkActions={ids => <Button size="toolbar" onClick={() => {

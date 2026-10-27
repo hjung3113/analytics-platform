@@ -15,7 +15,10 @@ export type JobSegment = {
 export type Job = {
   equipmentId: string;
   room: string;
+  /** RecordSequence: opaque decimal string, unique per equipment, ascending with `startedAt`. Identity only. */
   anchor: string;
+  /** Wall-clock start (`YYYY-MM-DDTHH:mm:ss`). Display, bucketing and ordering read this, never `anchor`. */
+  startedAt: string;
   end: string;
   recipe: string;
   lotId: string;
@@ -94,15 +97,16 @@ export function jobsForEquipmentDay(equipment: Equipment, day: string): Job[] {
   for (let hour = 0; hour < 24; hour++) {
     for (let j = 0; j < perHour; j++) {
       const rnd = lcg(fnv(`${equipment.equipmentId}|${day}|${hour}|${j}`));
-      const anchor = `${day}T${pad(hour)}:${pad(Math.floor(rnd() * 60))}:${pad(Math.floor(rnd() * 60))}`;
+      const startedAt = `${day}T${pad(hour)}:${pad(Math.floor(rnd() * 60))}:${pad(Math.floor(rnd() * 60))}`;
       const queueMin = round1(2 + rnd() * 6);
       const processMin = round1(18 + rnd() * 30 + (rnd() < 0.08 ? 20 + rnd() * 30 : 0));
-      const segments = segmentsFor(anchor, processMin, equipment.equipmentId);
+      const segments = segmentsFor(startedAt, processMin, equipment.equipmentId);
       jobs.push({
         equipmentId: equipment.equipmentId,
         room: equipment.room,
-        anchor,
-        end: addSeconds(anchor, Math.round((processMin + queueMin) * 60)),
+        anchor: '',
+        startedAt,
+        end: addSeconds(startedAt, Math.round((processMin + queueMin) * 60)),
         recipe: RECIPES[Math.floor(rnd() * RECIPES.length)],
         lotId: `LOT-${day.replace(/-/g, '')}-${equipment.equipmentId}-${hour}-${j + 1}`,
         ppid: PPIDS[Math.floor(rnd() * PPIDS.length)],
@@ -116,8 +120,30 @@ export function jobsForEquipmentDay(equipment: Equipment, day: string): Job[] {
       });
     }
   }
+  // Sequence by start time on a sorted copy; the generated order and seeds stay as they were.
+  const base = dayNumber(day) * 1000;
+  [...jobs]
+    .sort((a, b) => (a.startedAt < b.startedAt ? -1 : a.startedAt > b.startedAt ? 1 : 0))
+    .forEach((job, index) => { job.anchor = String(base + index + 1); });
   dayCache.set(key, jobs);
   return jobs;
+}
+
+const SEQUENCE_EPOCH_MS = Date.UTC(2020, 0, 1);
+
+/** Whole days from the fixed epoch 2020-01-01. */
+function dayNumber(day: string): number {
+  const [y, m, d] = day.split('-').map(Number);
+  return Math.round((Date.UTC(y, m - 1, d) - SEQUENCE_EPOCH_MS) / 86_400_000);
+}
+
+/** The job of `equipment` with RecordSequence `anchor`, or null when none has it (also for non-sequence text). */
+export function findJobByAnchor(equipment: Equipment, anchor: string): Job | null {
+  if (!/^[1-9][0-9]{0,11}$/.test(anchor)) return null;
+  const value = Number(anchor) - 1;
+  const days = Math.floor(value / 1000);
+  const date = new Date(SEQUENCE_EPOCH_MS + days * 86_400_000).toISOString().slice(0, 10);
+  return jobsForEquipmentDay(equipment, date).find((job) => job.anchor === anchor) ?? null;
 }
 
 function eachDay(from: string, to: string): string[] {
@@ -132,13 +158,13 @@ function eachDay(from: string, to: string): string[] {
   return days;
 }
 
-/** Completed jobs in [from, to) whose anchor is before DATA_THROUGH. */
+/** Completed jobs in [from, to) whose start is before DATA_THROUGH. */
 export function jobsInPeriod(equipment: Equipment[], from: string, to: string): Job[] {
   const out: Job[] = [];
   for (const equipmentRow of equipment) {
     for (const day of eachDay(from, to)) {
       for (const job of jobsForEquipmentDay(equipmentRow, day)) {
-        if (job.anchor >= from && job.anchor < to && job.anchor < DATA_THROUGH) out.push(job);
+        if (job.startedAt >= from && job.startedAt < to && job.startedAt < DATA_THROUGH) out.push(job);
       }
     }
   }

@@ -449,7 +449,7 @@ test.describe('returnTo 복귀 (06 §22)', () => {
   test('사이클타임 bucket·bin·정렬을 returnTo에 그대로 남기고 복귀 후에도 유지한다', async ({ page }, testInfo) => {
     const base = '/mars/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00';
     // Read a bucket and bin that really contain the first slow execution, so the filter keeps a row (deterministic fixture).
-    await page.goto(`${base}&sort=anchor:asc`);
+    await page.goto(`${base}&sort=startedAt:asc`);
     await expandPageHead(page);
     await expect(page.getByTestId('page-filter-bar')).toBeVisible();
     await expect(page.getByRole('combobox', { name: '느린 실행 기준' })).toBeVisible();
@@ -472,7 +472,7 @@ test.describe('returnTo 복귀 (06 §22)', () => {
     });
     expect(outside, 'fixture needs an unfiltered row outside the chosen bucket/bin').toBe(true);
 
-    const origin = `${base}&sort=anchor:asc&bucket=${bucket}&bin=${bin}`;
+    const origin = `${base}&sort=startedAt:asc&bucket=${bucket}&bin=${bin}`;
 
     // Row-level contract: every displayed row sits in [bucket, bucket+1h), inside the bin range, ascending by 시작.
     const expectRowsFiltered = async () => {
@@ -484,7 +484,7 @@ test.describe('returnTo 복귀 (06 §22)', () => {
         expect(value >= bucket && value < bucketEnd, `row ${i} 시작 ${value} inside [${bucket}, ${bucketEnd})`).toBe(true);
         const min = Number(rows[i]['사이클타임 (분)'].replace(/,/g, ''));
         expect(min >= binMin && min < binMax, `row ${i} 사이클타임 ${min} inside bin ${bin}`).toBe(true);
-        if (i > 0) expect(value >= anchors[i - 1], `row ${i} ordered by 시작 ascending (sort=anchor:asc)`).toBe(true);
+        if (i > 0) expect(value >= anchors[i - 1], `row ${i} ordered by 시작 ascending (sort=startedAt:asc)`).toBe(true);
       }
       return rows.length;
     };
@@ -493,7 +493,7 @@ test.describe('returnTo 복귀 (06 §22)', () => {
     await expandPageHead(page);
     await expect(page.getByRole('button', { name: '버킷 필터 해제' })).toBeVisible();
     await expect(page.getByRole('button', { name: '분포 필터 해제' })).toBeVisible();
-    expect(query(page).get('sort')).toBe('anchor:asc');
+    expect(query(page).get('sort')).toBe('startedAt:asc');
     await expect(page.getByRole('combobox', { name: '정렬' })).toHaveText('시작 오래된');
     // The first unfiltered row is inside bucket+bin by construction, so the filter must still show a row.
     const filteredCount = await expectRowsFiltered();
@@ -511,7 +511,7 @@ test.describe('returnTo 복귀 (06 §22)', () => {
     await expandPageHead(page);
     await expect(page.getByRole('button', { name: '버킷 필터 해제' })).toBeVisible();
     await expect(page.getByRole('button', { name: '분포 필터 해제' })).toBeVisible();
-    expect(query(page).get('sort')).toBe('anchor:asc');
+    expect(query(page).get('sort')).toBe('startedAt:asc');
     await expect(page.getByRole('combobox', { name: '정렬' })).toHaveText('시작 오래된');
     expect(await expectRowsFiltered()).toBe(filteredCount);
     await evidence(page, testInfo, 'cycle-returned');

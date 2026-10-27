@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { NO_FEATURES, contextCapabilities, defineEndpoint, emptyGlobal, projectContext, shift, type GlobalContext, type MenuMeta, groupId, menuPermission } from '@ap/contracts';
-import { createMockAdapter, cycleMinutes, DATA_THROUGH, defineMockEndpoint, EQUIPMENT, getRole, jobsForEquipmentDay, setRole, type AnyMockEndpoint, type RoleId } from '@ap/mock-server';
+import { createMockAdapter, cycleMinutes, DATA_THROUGH, defineMockEndpoint, EQUIPMENT, findJobByAnchor, getRole, jobsForEquipmentDay, setRole, type AnyMockEndpoint, type RoleId } from '@ap/mock-server';
 import { executionOccurrence } from './execution';
 import { occurrenceEndpoint, type Execution, type OccurrenceParams, type OccurrenceResult } from '../endpoints';
 import { allExecutions } from './cycle';
@@ -38,7 +38,7 @@ function grantedExecution(before?: string): Execution {
     const equipment = EQUIPMENT.find(row => row.equipmentId === execution.equipmentId);
     return equipment?.site === 'MEM'
       && ['PHOTO', 'ETCH', 'CVD'].includes(equipment.room)
-      && (before === undefined || execution.anchor < before);
+      && (before === undefined || execution.startedAt < before);
   });
   if (!result) throw new Error('expected a seeded execution in an engineer-granted MEM room');
   return result;
@@ -156,7 +156,7 @@ describe('execution-detail occurrence endpoint behavior', () => {
     const execution = grantedExecution();
     const equipment = EQUIPMENT.find(row => row.equipmentId === execution.equipmentId);
     if (!equipment) throw new Error('expected seeded equipment for the granted execution');
-    const job = jobsForEquipmentDay(equipment, execution.anchor.slice(0, 10)).find(item => item.anchor === execution.anchor);
+    const job = findJobByAnchor(equipment, execution.anchor);
     if (!job) throw new Error('expected the seeded job behind the granted execution');
     expect(job.cycleMinV3).not.toBe(job.cycleMinV4);
 
@@ -206,14 +206,45 @@ describe('execution-detail occurrence endpoint behavior', () => {
     expect(nonJob.outcome).toBe('empty');
     expect((nonJob.data as OccurrenceResult | null)?.access).toBe('missing');
 
-    // Matches the YYYY-MM-DDTHH:mm:ss shape but is not a real calendar time.
-    const malformedAnchor = await adapter.menuQuery({
+    // The anchor is a RecordSequence: a time-shaped, signed, padded or non-numeric value is missing, never remapped.
+    for (const anchor of [execution.startedAt, '2026-09-25T10:00:00', '-1', '007', '1.5', 'abc', '']) {
+      const malformedAnchor = await adapter.menuQuery({
+        endpoint: occurrenceEndpoint.id,
+        context: { scopeId: 'MEM' },
+        params: occurrenceParams({ anchor }),
+      });
+      expect(malformedAnchor.outcome).toBe('empty');
+      expect((malformedAnchor.data as OccurrenceResult | null)?.access).toBe('missing');
+    }
+  });
+
+  it('returns missing for a well-formed sequence that no job has', async () => {
+    const response = await adapter.menuQuery({
       endpoint: occurrenceEndpoint.id,
       context: { scopeId: 'MEM' },
-      params: occurrenceParams({ anchor: '2026-13-40T25:61:61' }),
+      params: occurrenceParams({ anchor: '999999999' }),
     });
-    expect(malformedAnchor.outcome).toBe('empty');
-    expect((malformedAnchor.data as OccurrenceResult | null)?.access).toBe('missing');
+    expect((response.data as OccurrenceResult | null)?.access).toBe('missing');
+  });
+
+  it('identifies an occurrence per equipment: the same anchor under two equipmentIds is two executions', async () => {
+    const first = grantedExecution();
+    const other = seededExecutions.find(execution => {
+      const equipment = EQUIPMENT.find(row => row.equipmentId === execution.equipmentId);
+      return equipment?.site === 'MEM' && ['PHOTO', 'ETCH', 'CVD'].includes(equipment.room)
+        && execution.equipmentId !== first.equipmentId && execution.anchor === first.anchor;
+    });
+    if (!other) throw new Error('expected a second granted equipment with the same sequence value');
+    const fetch = async (equipmentId: string) => (await adapter.menuQuery({
+      endpoint: occurrenceEndpoint.id, context: { scopeId: 'MEM' },
+      params: occurrenceParams({ equipmentId, anchor: first.anchor }),
+    })).data as OccurrenceResult;
+    const a = await fetch(first.equipmentId);
+    const b = await fetch(other.equipmentId);
+    if (a.access !== 'ok' || b.access !== 'ok') throw new Error('expected both occurrences to open');
+    expect(a.execution.equipmentId).toBe(first.equipmentId);
+    expect(b.execution.equipmentId).toBe(other.equipmentId);
+    expect(a.execution.lotId).not.toBe(b.execution.lotId);
   });
 });
 
@@ -226,7 +257,7 @@ describe('execution occurrence provisional follows the object anchor', () => {
     const equipment = EQUIPMENT.find(row => row.site === 'MEM' && row.room === 'PHOTO');
     if (!equipment) throw new Error('expected engineer-granted equipment');
     const boundary = shift(DATA_THROUGH, -24);
-    const job = jobsForEquipmentDay(equipment, boundary.slice(0, 10)).find(row => recent ? row.anchor >= boundary : row.anchor < boundary);
+    const job = jobsForEquipmentDay(equipment, boundary.slice(0, 10)).find(row => recent ? row.startedAt >= boundary : row.startedAt < boundary);
     if (!job) throw new Error('expected job on the requested side of the provisional boundary');
     for (const period of [
       { from: shift(DATA_THROUGH, -1), to: DATA_THROUGH },
@@ -260,15 +291,15 @@ describe('execution occurrence provisional follows the object anchor', () => {
     const hook = executionOccurrence.provisional;
     if (!hook) throw new Error('expected executionOccurrence to declare a provisional hook');
     const boundary = shift(DATA_THROUGH, -24);
-    const anchor = new Date(Date.parse(`${boundary}Z`) + offsetSeconds * 1000).toISOString().slice(0, 19);
-    const data: OccurrenceResult = { access: 'ok', execution: { ...grantedExecution(boundary), anchor }, segments: [] };
-    expect(hook({ data, params: occurrenceParams({ anchor }), context: emptyGlobal })).toBe(expected);
+    const startedAt = new Date(Date.parse(`${boundary}Z`) + offsetSeconds * 1000).toISOString().slice(0, 19);
+    const data: OccurrenceResult = { access: 'ok', execution: { ...grantedExecution(boundary), startedAt }, segments: [] };
+    expect(hook({ data, params: occurrenceParams(), context: emptyGlobal })).toBe(expected);
   });
 
   it('returns false for a missing occurrence even with a recent identity anchor', async () => {
     const response = await adapter.menuQuery({
       endpoint: occurrenceEndpoint.id, context: { scopeId: 'MEM' },
-      params: occurrenceParams({ equipmentId: 'UNKNOWN-EQUIPMENT', anchor: DATA_THROUGH }),
+      params: occurrenceParams({ equipmentId: 'UNKNOWN-EQUIPMENT', anchor: '999999999' }),
     });
     expect(response.outcome).toBe('empty');
     expect(response.trust?.provisional).toBe(false);
