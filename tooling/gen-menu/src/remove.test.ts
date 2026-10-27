@@ -1,6 +1,7 @@
 import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
+import { checkMenuVersions } from './repo-invariants.ts';
 import { FIXTURE_FOLDER, FIXTURE_GROUP, GEN_ARGS, appSnapshot, makeFixture, menusTree, removeFixture, runCli } from './fixture.ts';
 
 describe('remove', () => {
@@ -25,6 +26,8 @@ describe('remove', () => {
     generate(root);
     const pkg = join(parent, FIXTURE_FOLDER);
     expect(existsSync(join(pkg, 'src/index.ts'))).toBe(true);
+    expect(existsSync(join(pkg, 'CHANGELOG.md'))).toBe(true);
+    expect(() => checkMenuVersions(root)).not.toThrow();
     expect(JSON.parse(readFileSync(join(pkg, '.gen-menu.json'), 'utf8')).space).toBe(space);
     expect(runCli(['--remove', FIXTURE_GROUP], root).status).toBe(0);
     expect(existsSync(pkg)).toBe(false);

@@ -3,7 +3,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { repoRoot } from './fixture.ts';
 import { checkAppMarkers } from './generate.ts';
-import { checkCodeowners, checkGroups, checkMarkers, checkNoProbe, checkWiring, loadShape } from './repo-invariants.ts';
+import { checkCodeowners, checkMenuVersions, checkGroups, checkMarkers, checkNoProbe, checkWiring, loadShape } from './repo-invariants.ts';
 
 /**
  * Extensible wiring locks read from the real repo: whatever the current union, groups and
@@ -40,6 +40,10 @@ describe('committed wiring locks (real repo, read-only)', () => {
 
   it('wires every menu dependency to import+spread and every styles.css to the style markers', () => {
     expect(() => checkWiring(shape)).not.toThrow();
+  });
+
+  it('records version metadata for every menu package', () => {
+    expect(() => checkMenuVersions(repoRoot())).not.toThrow();
   });
 
   it('has no probe leftovers (skipped while the probe menu exists)', () => {

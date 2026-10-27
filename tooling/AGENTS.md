@@ -4,6 +4,8 @@ workspace 패키지가 공유하는 설정 패키지. 런타임 코드는 두지
 
 ## 현재
 
+- SDK 태그를 올릴 때 메뉴들의 `ap.sdk`와 `gen-menu/src/templates.ts`의 `SDK_RANGE`를 함께 갱신한다.
+
 - `sdk/sdk-api-snapshot.mjs` (`pnpm sdk:api`) — 다섯 SDK 패키지의 빌드된 선언과 CSS/JSON export 경로를 스냅샷으로 관리한다(#520). 각 항목은 `name | kind | definition`을 적고(`kind`는 런타임 값에 대한 `export type`이면 `type-only <kind>`), 이어지는 `# reachable types`에는 시그니처가 참조하지만 export 항목은 없는 SDK 타입을 기록한다. SDK 참조는 `dist` 경로 대신 `@ap/<pkg>[/<entry>]#Name`으로 출력한다. `--update`는 스냅샷을 갱신하고 `--self-test`는 fixture를 검사한다.
 - `scripts/check-lazy-chunks.mjs` (`pnpm check:lazy-chunks`, `--self-test`) — 빌드된 `apps/platform-web/dist`에서 `index.html`의 진입 스크립트와 그 정적 import 폐쇄를 읽어, 지연 화면만 쓰는 무거운 엔진의 표식 문자열(`LAZY_ENGINES`: Dockview, 리치 텍스트 편집기 두 부품, echarts, tanstack virtual, 엑셀 내보내기, 분석 보드 화면, FeedbackOps 알림 패널 — #706·#821·#820)이 든 청크가 있으면 실패한다. 어느 청크에도 표식이 없으면 검사가 아무것도 증명하지 못하므로 그것도 실패다. 새 엔진은 `LAZY_ENGINES`에 더한다. CI `platform-workspace`가 `pnpm build` 바로 뒤, `sdk:pack`이 `dist`를 비우기 전에 돈다.
 - `tsconfig/` (`@ap/tsconfig`) — `base.json`. 모든 패키지·앱의 `tsconfig.json`이 `extends` 한다.

@@ -205,3 +205,26 @@ export function checkNoProbe(shape: RepoShape, skip: boolean): void {
     if (shape.folders.some(folder => folder.split('/').at(-1) === name)) throw new Error(`probe leftover: menus/${name} exists`);
   }
 }
+
+/** Each menu package records its internal version and expected SDK tag range. */
+export function checkMenuVersions(root: string): void {
+  for (const folder of menuFolders(root)) {
+    const dir = join(root, 'menus', folder);
+    const pkgPath = join(dir, 'package.json');
+    if (!existsSync(pkgPath)) continue;
+    const pkg = JSON.parse(readFileSync(pkgPath, 'utf8')) as { version?: unknown; ap?: { sdk?: unknown } };
+    if (typeof pkg.version !== 'string' || !pkg.version || pkg.version === '0.0.0') throw new Error(`${pkgPath}: invalid version`);
+    const sdk = pkg.ap?.sdk;
+    const range = typeof sdk === 'string' ? /^>=(\d+)\.(\d+)\.(\d+) <(\d+)\.(\d+)\.0$/.exec(sdk) : null;
+    const caret = typeof sdk === 'string' && /^\^\d+\.\d+\.\d+$/.test(sdk);
+    if (!caret && !(range && range[1] === range[4] && Number(range[5]) === Number(range[2]) + 1)) {
+      throw new Error(`${pkgPath}: invalid ap.sdk range`);
+    }
+    const changelog = join(dir, 'CHANGELOG.md');
+    if (!existsSync(changelog)) throw new Error(`${changelog}: missing CHANGELOG`);
+    const heading = /^## (.+)$/m.exec(readFileSync(changelog, 'utf8'))?.[1];
+    if (!heading || (heading !== pkg.version && !heading.startsWith(`${pkg.version} — `))) {
+      throw new Error(`${changelog}: first CHANGELOG version does not match package.json`);
+    }
+  }
+}

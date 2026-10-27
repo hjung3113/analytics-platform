@@ -26,6 +26,8 @@ Registry 그룹마다 하나의 패키지(`@ap/menu-<group>`)다. 메뉴가 `man
 
 ## 규칙
 
+- 메뉴 동작·화면이 바뀌면 내부 버전의 minor 또는 patch를 올리고 같은 PR의 CHANGELOG에 한 줄을 기록한다. 발행·태그는 하지 않으며 기대 SDK 태그 범위는 package.json `ap.sdk`에 둔다. SDK 태그를 올릴 때 메뉴들의 `ap.sdk`와 생성기 `SDK_RANGE`를 함께 갱신한다.
+
 - `src/index.ts`는 `manifests: MenuEntry[]`만 export한다. 페이지·집계(`METRICS`, `resolveMetric` 등)를 재export하지 않는다 — 앱이 `manifests`만 import해도 라우트 lazy가 깨지지 않아야 한다. 앱이 메뉴에 설정값을 넣어야 하면 index가 아니라 별도 서브패스로 내보낸다(예: `@ap/menu-<g>/mock`; origin 서브패스와 `@ap/fo-bridge`의 `fo-api`·`notifications-slot`·`voc-compose-slot`·`home-todo-slot`(다리를 import하는 Kernel 슬롯 값, #652·#655·#657) 서브패스는 앱 `main.tsx`만, `/mock`은 앱 mock 조립 `src/dev/mock-assembly.tsx`(`pnpm gen:menu`가 `MOCK_ENDPOINTS` 마커 영역에 등록)만 import 가능 — 서버 적합성 테스트는 그 `MOCK_ENDPOINTS`를 읽는다. lint가 강제, 운영 빌드에는 실리지 않는다.
 - `@ap/menu-*`끼리 서로 import하지 않는다. 교차 메뉴 이동은 `linkTo(menuId)`뿐이다(06 §22).
 - 표 엔진(`@tanstack/*` 4종)은 `@ap/components` 내부다. 메뉴는 `PlatformColumn<T>`·`PageSort[]`만 쓴다(lint `TABLE_ENGINE_PACKAGES`가 강제, `src/mock/**` 포함).
