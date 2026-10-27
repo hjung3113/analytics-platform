@@ -9,9 +9,9 @@ import { scopeControlSlot } from '@ap/fo-bridge/scope-control';
 import { manifests } from './index';
 import { mountAt } from './test-support';
 
-const picker = vi.hoisted(() => ({ props: [] as { value?: string; onChange: (id: string | undefined) => void }[] }));
+const picker = vi.hoisted(() => ({ props: [] as { value?: string; disabled?: boolean; onChange: (id: string | undefined) => void }[] }));
 vi.mock('@fops/frontend/operator-screens/scope-picker', () => ({
-  ManagedSystemScopeControl: (props: { value?: string; onChange: (id: string | undefined) => void }) => { picker.props.push(props); return <div data-testid="picker" />; },
+  ManagedSystemScopeControl: (props: { value?: string; disabled?: boolean; onChange: (id: string | undefined) => void }) => { picker.props.push(props); return <div data-testid="picker" />; },
 }));
 
 const SYSTEM = '33333333-3333-4333-8333-333333333333';
@@ -74,5 +74,33 @@ describe('scope change (FO parity, #762 k)', () => {
     const params = new URLSearchParams(window.location.search);
     params.delete('v');
     expect(params.toString()).toBe(`managedSystem=${S2}`);
+  });
+});
+
+describe('관리자 group turns 목록 범위 off (#764 k, ADR-0081 d4)', () => {
+  const S1 = '11111111-1111-4111-8111-111111111111';
+  const probe = (id: string, path: string, group: string) => ({ ...manifests[0]!, id, primary: true, path, group: groupId(group), pageKeys: ['focus', 'managedSystem', 'returnTo'] }) as (typeof manifests)[number];
+  const registry = createRegistry({
+    spaces: [{ id: spaceId('feedbackops'), label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'feedbackops:access', carriedPageKeys: ['managedSystem', 'returnTo'], homeMenuId: 'fo-dashboard' }],
+    groups: ['foDashboard', 'foAdmin', 'foVoc'].map(id => ({ id: groupId(id), label: { ko: id, en: id }, icon: ListTodo, space: spaceId('feedbackops') })),
+    menus: [...manifests, probe('probe-admin', '/feedbackops/probe-admin', 'foAdmin'), probe('probe-voc', '/feedbackops/probe-voc', 'foVoc')],
+  });
+  const session = testSession(['platform:view', 'feedbackops:access'], { user: { id: 'admin', name: 'admin', title: { ko: 'admin', en: 'admin' } } });
+  const Control = scopeControlSlot.For(spaceId('feedbackops'))!;
+  const mount = async (path: string) => {
+    window.history.replaceState(null, '', `${path}?managedSystem=${S1}`);
+    render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}><Control collapsed={false} /></PlatformProvider></I18nProvider>);
+    await screen.findByTestId('picker');
+  };
+
+  it('disables the picker on a foAdmin menu and keeps the carried value', async () => {
+    await mount('/feedbackops/probe-admin');
+    expect(picker.props.at(-1)?.disabled).toBe(true);
+    expect(picker.props.at(-1)?.value).toBe(S1);
+  });
+
+  it.each(['/feedbackops', '/feedbackops/probe-voc'])('leaves the picker enabled on %s', async path => {
+    await mount(path);
+    expect(picker.props.every(props => props.disabled === undefined)).toBe(true);
   });
 });
