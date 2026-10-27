@@ -23,7 +23,6 @@ import {
   UserChip,
 } from '@ap/ui';
 import { ManagedSystemMark, OutlineBadge } from '@fops/ui';
-import { Link } from '@tanstack/react-router';
 import { ArrowRight, Filter, Plus, Shield } from 'lucide-react';
 import type * as React from 'react';
 import { useRef, useState } from 'react';
@@ -31,6 +30,7 @@ import { useRef, useState } from 'react';
 import { GLOSSARY } from '@/lib/copy/glossary';
 import { MANAGED_SYSTEM_COPY } from '@/lib/copy/managed-systems';
 import { formatDateTime } from '@/lib/format/datetime';
+import { HostLink, useHostSeam } from '@/lib/host/host-seam';
 import type { ResolveActorsResponse } from '../../../lib/api/actors';
 import type { AnalyticsAreaDto, ManagedSystemDto } from '../../../lib/api/registry-reads';
 import { envelopeMessage } from '../lib/envelopeMessage.js';
@@ -95,6 +95,7 @@ function ManagedSystemsBody({
   registerOpen: boolean;
   setRegisterOpen: (v: boolean) => void;
 }) {
+  const { canLink } = useHostSeam();
   const [editTarget, setEditTarget] = useState<ManagedSystemDto | null>(null);
   // Row control that opened the settings dialog; focus returns here when it closes.
   const editTrigger = useRef<HTMLElement | null>(null);
@@ -247,12 +248,14 @@ function ManagedSystemsBody({
           <h3 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
             권한 요청
           </h3>
-          <Button variant="primary" size="sm" asChild>
-            <Link to="/admin/permissions/requests" data-testid="ms-open-review-console">
-              <ArrowRight className="h-3 w-3" />
-              검토 콘솔 열기
-            </Link>
-          </Button>
+          {canLink('/admin/permissions/requests') ? (
+            <Button variant="primary" size="sm" asChild>
+              <HostLink to="/admin/permissions/requests" data-testid="ms-open-review-console">
+                <ArrowRight className="h-3 w-3" />
+                검토 콘솔 열기
+              </HostLink>
+            </Button>
+          ) : null}
         </div>
         <div className="flex items-center gap-3.5 rounded-md border border-border-subtle bg-surface-card p-4">
           <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent-warn/10 text-accent-warn">

@@ -16,6 +16,8 @@ import {
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
+import { type HostSeam, HostSeamProvider } from '@/lib/host/host-seam';
+import { tanstackHost } from '@/lib/host/tanstack-host';
 import { ManagedSystemsAdminPage } from './managed-systems';
 
 function buildHarness({ initialPath }: { initialPath: string }) {
@@ -132,11 +134,17 @@ describe('/admin/managed-systems route', () => {
     vi.restoreAllMocks();
   });
 
-  function renderRoute() {
+  function renderRoute(host?: HostSeam) {
     const { router, qc } = buildHarness({ initialPath: '/admin/managed-systems' });
     render(
       <QueryClientProvider client={qc}>
-        <RouterProvider router={router} />
+        {host ? (
+          <HostSeamProvider value={host}>
+            <RouterProvider router={router} />
+          </HostSeamProvider>
+        ) : (
+          <RouterProvider router={router} />
+        )}
       </QueryClientProvider>,
     );
   }
@@ -186,6 +194,43 @@ describe('/admin/managed-systems route', () => {
     expect(reviewConsoleLinks[0]).toHaveTextContent('검토 콘솔 열기');
     expect(screen.getByTestId('ms-register-button')).toBeInTheDocument();
   });
+
+  test.each([
+    { label: 'mapped host route', available: true, visible: true },
+    { label: 'unmapped host route', available: false, visible: false },
+  ])(
+    'uses the host link only when the review route is available ($label)',
+    async ({ available, visible }) => {
+      const canLink = vi.fn((_to: string) => available);
+      const host: HostSeam = {
+        ...tanstackHost,
+        canLink,
+        Link: ({ to, children, ...props }) => (
+          <a href={to} {...props}>
+            {children}
+          </a>
+        ),
+        notifyError: () => undefined,
+        notifySuccess: () => undefined,
+      };
+      installFetch({ permissionState: 'approved', managedSystems: [TABLEAU] });
+
+      renderRoute(host);
+
+      await waitFor(() =>
+        expect(screen.getByTestId('managed-systems-registry')).toBeInTheDocument(),
+      );
+      expect(canLink).toHaveBeenCalledWith('/admin/permissions/requests');
+      if (visible) {
+        expect(screen.getByTestId('ms-open-review-console')).toHaveAttribute(
+          'href',
+          '/admin/permissions/requests',
+        );
+      } else {
+        expect(screen.queryByTestId('ms-open-review-console')).not.toBeInTheDocument();
+      }
+    },
+  );
 
   test('filters archived managed systems through the request and clears back to the active list', async () => {
     const requests: string[] = [];

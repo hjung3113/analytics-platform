@@ -7,7 +7,7 @@ import {
   createRoute,
   createRouter,
 } from '@tanstack/react-router';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, test, vi } from 'vitest';
 
 import {
@@ -22,7 +22,7 @@ import {
   IntegrationCoverageRouteShell,
   integrationCoverageSearchSchema,
 } from '../../../../routes/_authed/integration/coverage';
-import { WorkspaceSettingsForm } from '../WorkspaceSettingsScreen.js';
+import { WorkspaceSettingsForm, WorkspaceSettingsScreen } from '../WorkspaceSettingsScreen.js';
 import type { WorkspaceSettings } from '../use-workspace-settings.js';
 
 const apiClientMock = vi.hoisted(() => vi.fn());
@@ -240,6 +240,56 @@ describe('WorkspaceSettingsForm Coverage bands (#1088)', () => {
 
       expect(document.getElementById('coverage')).not.toBeNull();
       expect(scrollSpy).toHaveBeenCalled();
+    } finally {
+      window.location.hash = originalHash;
+      scrollSpy.mockRestore();
+    }
+  });
+
+  test('waits for settings data, then follows only coverage section changes', async () => {
+    const scrollTargets: Element[] = [];
+    const scrollSpy = vi.spyOn(Element.prototype, 'scrollIntoView').mockImplementation(function (
+      this: Element,
+    ) {
+      scrollTargets.push(this);
+    });
+    const originalHash = window.location.hash;
+    window.location.hash = '';
+    let resolveSettings!: (response: ReturnType<typeof patchResponse>) => void;
+    const pendingSettings = new Promise<ReturnType<typeof patchResponse>>((resolve) => {
+      resolveSettings = resolve;
+    });
+    apiClientMock.mockReset().mockReturnValue(pendingSettings);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const screenFor = (section: string | null | undefined) => (
+      <QueryClientProvider client={queryClient}>
+        <WorkspaceSettingsScreen {...(section === undefined ? {} : { section })} />
+      </QueryClientProvider>
+    );
+
+    try {
+      const view = render(screenFor('coverage'));
+      expect(screen.getByTestId('workspace-settings-loading')).toBeInTheDocument();
+      expect(scrollSpy).not.toHaveBeenCalled();
+
+      await act(async () => {
+        resolveSettings(patchResponse(settingsWith()));
+      });
+      await screen.findByTestId('coverage-band-value-voc-task');
+      const coverageSection = document.getElementById('coverage');
+      expect(coverageSection).not.toBeNull();
+      expect(scrollSpy).toHaveBeenCalledTimes(1);
+      expect(scrollTargets).toEqual([coverageSection]);
+
+      view.rerender(screenFor('coverage'));
+      expect(scrollSpy).toHaveBeenCalledTimes(1);
+      expect(scrollTargets).toEqual([coverageSection]);
+
+      view.rerender(screenFor('other'));
+      expect(scrollSpy).toHaveBeenCalledTimes(1);
+
+      view.rerender(screenFor('coverage'));
+      expect(scrollSpy).toHaveBeenCalledTimes(2);
     } finally {
       window.location.hash = originalHash;
       scrollSpy.mockRestore();

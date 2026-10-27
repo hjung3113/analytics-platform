@@ -173,7 +173,7 @@ function isCoveragePairValid(pair: CoverageThresholdPair): boolean {
   );
 }
 
-export function WorkspaceSettingsScreen() {
+export function WorkspaceSettingsScreen({ section }: { section?: string | null }) {
   const settingsQuery = useWorkspaceSettings();
 
   return (
@@ -197,13 +197,22 @@ export function WorkspaceSettingsScreen() {
           </Button>
         </div>
       ) : (
-        <WorkspaceSettingsForm initialSettings={settingsQuery.data} />
+        <WorkspaceSettingsForm
+          initialSettings={settingsQuery.data}
+          {...(section === undefined ? {} : { section })}
+        />
       )}
     </PageShell>
   );
 }
 
-export function WorkspaceSettingsForm({ initialSettings }: { initialSettings: WorkspaceSettings }) {
+export function WorkspaceSettingsForm({
+  initialSettings,
+  section,
+}: {
+  initialSettings: WorkspaceSettings;
+  section?: string | null;
+}) {
   const updateMutation = useUpdateWorkspaceSettings();
   const { data: me } = useMeBridge();
   const suggestionsQuery = useClusterSuggestions(
@@ -228,9 +237,14 @@ export function WorkspaceSettingsForm({ initialSettings }: { initialSettings: Wo
   // #1087 UX: 커버리지 기준 편집 links to /admin/settings#coverage; scroll the
   // section into view after the settings data renders it.
   useEffect(() => {
-    if (window.location.hash !== '#coverage') return;
+    if (
+      section !== 'coverage' &&
+      !(section === undefined && window.location.hash === '#coverage')
+    ) {
+      return;
+    }
     document.getElementById('coverage')?.scrollIntoView();
-  }, []);
+  }, [section]);
 
   const patch = changedFields(saved, draft);
   const dirtyKeys = Object.keys(patch) as EditableKey[];

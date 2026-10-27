@@ -36,6 +36,8 @@ The canonical term is "Analytics Area" (per `docs/feedbackops/design/03-core-pla
 - `apps/fo-frontend/src/routes/_authed/admin/permissions/requests.tsx` — mounts Permission Request review and validates URL state.
 - `apps/fo-frontend/src/routes/_authed/admin/permissions/grants.tsx` — mounts active grants and denies and validates URL state.
 - `apps/fo-frontend/src/routes/_authed/admin/settings.tsx` — mounts workspace settings.
+- `apps/fo-frontend/src/operator-screens/managed-systems/index.ts` — router-free bridge entry for the Managed System screen.
+- `apps/fo-frontend/src/operator-screens/settings/index.ts` — router-free bridge entry for workspace settings; the screen accepts the bridge `section` page key (`coverage`) and keeps the standalone `#coverage` hash fallback when the prop is `undefined`.
 - `apps/fo-frontend/src/features/admin/managed-systems/ManagedSystemsScreen.tsx` — registry list and defaults.
 - `apps/fo-frontend/src/features/admin/analytics-areas/AnalyticsAreasScreen.tsx` — Analytics Area page composition.
 - `apps/fo-frontend/src/features/admin/analytics-areas/AnalyticsAreasList.tsx` — Analytics Area tree list.

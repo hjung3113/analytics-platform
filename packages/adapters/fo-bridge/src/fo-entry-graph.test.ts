@@ -753,6 +753,54 @@ describe('FeedbackOps operator Survey builder entry graph (ADR-0071)', () => {
   });
 });
 
+describe('FeedbackOps operator Managed System entry graph (ADR-0071)', () => {
+  const managedSystems = walk([join(FRONTEND_SRC, 'operator-screens/managed-systems/index.ts')]);
+  const reached = [...managedSystems.files.keys()].map(file => relative(FRONTEND_SRC, file));
+
+  it('reaches the Managed System screen and no standalone route or route tree', () => {
+    expect(reached).toContain('features/admin/managed-systems/ManagedSystemsScreen.tsx');
+    expect(reached.filter(file => /^routes\//.test(file))).toEqual([]);
+    expect(managedSystems.unresolved).toEqual([]);
+  });
+
+  it('reaches no router, toast, route, auth or api barrel module', () => {
+    const banned = /^(?:routes|lib\/router|lib\/layout|lib\/auth)\/|^lib\/api\/(?:auth|index)\.ts$/;
+    expect(reached.filter(file => banned.test(file))).toEqual([]);
+    expect([...managedSystems.specifiers].filter(specifier => /^@tanstack\/(react-)?router|^sonner$/.test(specifier))).toEqual([]);
+  });
+
+  it('calls fetch only in lib/api/client.ts', () => {
+    const callers = [...managedSystems.files]
+      .filter(([, text]) => /(?<![\w.])fetch\(/.test(text))
+      .map(([file]) => relative(FRONTEND_SRC, file));
+    expect(callers).toEqual(['lib/api/client.ts']);
+  });
+});
+
+describe('FeedbackOps operator Settings entry graph (ADR-0071)', () => {
+  const settings = walk([join(FRONTEND_SRC, 'operator-screens/settings/index.ts')]);
+  const reached = [...settings.files.keys()].map(file => relative(FRONTEND_SRC, file));
+
+  it('reaches the workspace settings screen and no standalone route or route tree', () => {
+    expect(reached).toContain('features/admin/settings/WorkspaceSettingsScreen.tsx');
+    expect(reached.filter(file => /^routes\//.test(file))).toEqual([]);
+    expect(settings.unresolved).toEqual([]);
+  });
+
+  it('reaches no router, toast, route, auth or api barrel module', () => {
+    const banned = /^(?:routes|lib\/router|lib\/layout|lib\/auth)\/|^lib\/api\/(?:auth|index)\.ts$/;
+    expect(reached.filter(file => banned.test(file))).toEqual([]);
+    expect([...settings.specifiers].filter(specifier => /^@tanstack\/(react-)?router|^sonner$/.test(specifier))).toEqual([]);
+  });
+
+  it('calls fetch only in lib/api/client.ts', () => {
+    const callers = [...settings.files]
+      .filter(([, text]) => /(?<![\w.])fetch\(/.test(text))
+      .map(([file]) => relative(FRONTEND_SRC, file));
+    expect(callers).toEqual(['lib/api/client.ts']);
+  });
+});
+
 describe('FeedbackOps operator Survey detail entry graph (ADR-0071)', () => {
   const detail = walk([join(FRONTEND_SRC, 'operator-screens/survey-detail/index.ts')]);
   const detailReached = [...detail.files.keys()].map(file => relative(FRONTEND_SRC, file));
