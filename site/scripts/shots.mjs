@@ -973,7 +973,22 @@ try {
     await page.setViewportSize(vp);
     const chart = page.locator('[data-pane-index="0"]').getByRole("region", { name: "사이클타임 추세", exact: true });
     await expect(chart).toBeVisible();
-    await expect.poll(async () => (await chart.boundingBox())?.width ?? 0, { timeout: 15000 }).toBeGreaterThan(vp.width * 0.6);
+    try {
+      await expect.poll(async () => (await chart.boundingBox())?.width ?? 0, { timeout: 15000 }).toBeGreaterThan(vp.width * 0.6);
+    } catch (error) {
+      // 실패한 순간의 폭을 남긴다(칸·작업 영역·차트·뷰포트). 최대화는 창 크기가 바뀌어야 내용이 다시 배치되므로, 어느 폭에서 멈췄는지가 원인 단서다.
+      const state = await page
+        .evaluate(() => {
+          const pane = document.querySelector('[data-pane-index="0"]');
+          const workspace = pane?.querySelector("[data-panel-workspace]");
+          const width = (el) => (el ? Math.round(el.getBoundingClientRect().width) : null);
+          return { viewport: innerWidth, pane: width(pane), workspace: width(workspace), mode: workspace?.getAttribute("data-workspace-mode") ?? null };
+        })
+        .catch(() => null);
+      if (state) state.chart = Math.round((await chart.boundingBox().catch(() => null))?.width ?? 0) || null;
+      console.error(`최대화 칸 폭 진단: ${JSON.stringify(state)}`);
+      throw error;
+    }
     await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
   }
   await capture(
