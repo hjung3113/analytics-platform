@@ -25,15 +25,20 @@ export type SurveyBuilderScreenProps = {
   leaveGuard?: SurveyBuilderLeaveGuard;
 };
 
-export function SurveyBuilderScreen({
-  surveyId,
+export type SurveyBuilderViewProps = Omit<SurveyBuilderScreenProps, 'surveyId'> & {
+  /** The host's own read of the Survey. A host that already observes `useSurvey(surveyId)` passes it, so one key has one observer. */
+  surveyQuery: ReturnType<typeof useSurvey>;
+};
+
+/** The screen over a Survey read the caller owns; calls no `useSurvey`. */
+export function SurveyBuilderView({
+  surveyQuery: query,
   onBack,
   leaveGuard,
-}: SurveyBuilderScreenProps): React.ReactElement {
+}: SurveyBuilderViewProps): React.ReactElement {
   const ownGuard = useBuilderDirtyGuard();
   const { dirtyRef, setDirty } = leaveGuard ?? ownGuard;
   const [confirmOpen, setConfirmOpen] = React.useState(false);
-  const query = useSurvey(surveyId);
   const gate = useSurveyManageGate(query.data?.primary_managed_system_id);
   const managedSystemNames = useManagedSystemNamesResult();
   const managedSystemNamesById = managedSystemNames.isSuccess
@@ -92,4 +97,12 @@ export function SurveyBuilderScreen({
       />
     </>
   );
+}
+
+/** The bridge entry: a host that owns no Survey read gets the view over its own `useSurvey`. */
+export function SurveyBuilderScreen({
+  surveyId,
+  ...rest
+}: SurveyBuilderScreenProps): React.ReactElement {
+  return <SurveyBuilderView surveyQuery={useSurvey(surveyId)} {...rest} />;
 }

@@ -6,7 +6,7 @@ import {
   surveyListContextSearch,
 } from '@/features/surveys/components/list/SurveyListScreen';
 import { useSurvey } from '@/features/surveys/hooks/useSurveys';
-import { SurveyBuilderScreen } from '@/features/surveys/routes/SurveyBuilderScreen';
+import { SurveyBuilderView } from '@/features/surveys/routes/SurveyBuilderScreen';
 import { useSurveyManageGate } from '@/features/surveys/routes/SurveyPermissionGate';
 import { validateSurveyDetailSearch } from '@/features/surveys/routes/surveys-search';
 import { useManagedSystemNamesResult } from '@/lib/cross-system/useManagedSystemNames';
@@ -37,7 +37,10 @@ export const Route = createFileRoute('/_authed/surveys/$surveyId')({
 // The builder's screen owns the data states and its own Back confirmation; the router-only part stays here: a blocker (browser back,
 // sidebar navigation) and the unload prompt over the screen's guard. A dirty Back is confirmed by the screen before it navigates, with
 // the guard cleared first, so the blocker never opens a second dialog.
-function StandaloneSurveyBuilder({ surveyId, onBack }: { surveyId: string; onBack: () => void }) {
+function StandaloneSurveyBuilder({
+  surveyQuery,
+  onBack,
+}: { surveyQuery: ReturnType<typeof useSurvey>; onBack: () => void }) {
   const leaveGuard = useBuilderDirtyGuard();
   const { dirtyRef: builderDirtyRef, setDirty: handleBuilderDirtyChange } = leaveGuard;
   const [dirtyDialogOpen, setDirtyDialogOpen] = useState(false);
@@ -61,7 +64,7 @@ function StandaloneSurveyBuilder({ surveyId, onBack }: { surveyId: string; onBac
 
   return (
     <>
-      <SurveyBuilderScreen surveyId={surveyId} onBack={onBack} leaveGuard={leaveGuard} />
+      <SurveyBuilderView surveyQuery={surveyQuery} onBack={onBack} leaveGuard={leaveGuard} />
       <DirtyConfirmation
         open={dirtyDialogOpen}
         onConfirm={confirmLeaveBuilder}
@@ -115,7 +118,7 @@ export function SurveyDetailRoute() {
   if (search.builder)
     return (
       <StandaloneSurveyBuilder
-        surveyId={surveyId}
+        surveyQuery={query}
         onBack={() => void navigate({ to: '/surveys/$surveyId', params: { surveyId } })}
       />
     );

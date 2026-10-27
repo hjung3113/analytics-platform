@@ -6,4 +6,5 @@ export {
   SurveyBuilderScreen,
   type SurveyBuilderLeaveGuard,
   type SurveyBuilderScreenProps,
+  type SurveyBuilderViewProps,
 } from '@/features/surveys/routes/SurveyBuilderScreen';
