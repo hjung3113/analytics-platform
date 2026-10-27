@@ -6,6 +6,7 @@ import type { MenuEntry } from '../registry/registry';
 import type { DraftStore } from '../query/draft-state';
 import type { QueryEngine } from '../query/query-engine';
 import type { SpaceDef, UsageVia } from '@ap/contracts';
+import type { SupportRegistry } from '../saved-view/useSavedViewSupport';
 import type { HostPlatform, Recent, Toast } from './types';
 
 /** Fields of the screen state: what a menu page reads about the screen it is shown on (the main screen or one board pane). */
@@ -23,6 +24,8 @@ export type AppInternal = {
   currentRevision: () => number;
   enters: (menu: MenuEntry) => boolean;
   usageSessionId: string;
+  /** Saved View support the screens declare (`useSavedViewSupport`), read by the host hook `useSavedViews`. */
+  savedViewSupports: SupportRegistry;
   userIdRef: { readonly current: string };
   /** Main-screen navigation trail for usage `entry` (#605): the last navigation's `via` and the menu of the screen shown before. Never persisted. */
   usageNav: { current: UsageNavTrail };

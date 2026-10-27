@@ -7,7 +7,7 @@ import { CONTEXT_LABELS, type MenuEntry, type Registry } from '../registry/regis
 import type { QueryHistory } from '../query/query-history';
 import type { QueryDraft, QueryMissing } from '../query/query-draft';
 import type { RefreshEpochs } from '../query/refresh-epochs';
-import type { ContextKey, ContractError, EquipmentAxisDescriptor, GlobalContext, ModuleScopedId, Pair, Permission, PlatformAdapter, QueryHistoryStore, Session, SessionUser, SpaceDef, SpaceId, Text, UsageVia } from '@ap/contracts';
+import type { ContextKey, ContractError, EquipmentAxisDescriptor, GlobalContext, ModuleScopedId, Pair, Permission, PlatformAdapter, QueryHistoryStore, SavedViewStore, Session, SessionUser, SpaceDef, SpaceId, Text, UsageVia } from '@ap/contracts';
 
 export type ScopeState = { scopeId: string | null; status: 'none' | 'validating' | 'valid' | 'forbidden' | 'unknown_scope' | 'error'; validatedFor: Session | null; grantedRooms: string[] };
 export type Recent = { menuId: string; url: string; at: number };
@@ -111,6 +111,8 @@ export type HostPlatform = {
   queryDraft: QueryDraft;
   queryHistory: QueryHistory;
   queryHistoryStore?: QueryHistoryStore;
+  /** Host-only (never on `MenuPlatform`, ADR-0076). Not the FeedbackOps `savedViewsSlot` of the fo-bridge, which is a sidebar slot. */
+  savedViewStore?: SavedViewStore;
   queryPolicy: { ready: boolean; idle: boolean; missing: readonly QueryMissing[] };
   equipmentAxes: readonly EquipmentAxisDescriptor[];
   registry: Registry;
