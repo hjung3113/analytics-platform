@@ -808,9 +808,9 @@ test.describe('일괄 적용 조회 바 (06 §11·§19, ADR-0061)', () => {
     await page.getByRole('button', { name: '최근 7일', exact: true }).click();
     await page.getByRole('button', { name: '닫기', exact: true }).click();
     await page.getByRole('button', { name: '칸 2 선택' }).click();
-    await expect(page.getByRole('region', { name: '칸 2 · 분석 Context' })).not.toContainText('적용 안 된 변경');
+    await expect(page.getByRole('region', { name: '칸 2 · 분석 Context' })).not.toContainText('미적용 변경');
     await page.getByRole('button', { name: '칸 1 선택' }).click();
-    await expect(page.getByRole('region', { name: '칸 1 · 분석 Context' })).toContainText('적용 안 된 변경 1개');
+    await expect(page.getByRole('region', { name: '칸 1 · 분석 Context' })).toContainText('미적용 변경 1개 · 공유에서 제외');
   });
   test('최근 조건은 bare 재방문과 수동 선택에서 초안만 복원하고 적용 때 분석 요청을 한 번 보낸다', async ({ page }, testInfo) => {
     await signInAs(page, 'engineer');

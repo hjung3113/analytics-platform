@@ -4,6 +4,7 @@ import { createRegistry } from '@ap/kernel';
 import { noContext, testSpace } from '@ap/kernel/testing';
 import { emptyGlobal, groupId, spaceId, type GlobalContext } from '@ap/contracts';
 import { freezeVocContext, type VocFreezeInput } from '../vocContext';
+import { buildShareLink } from '../../context/shareLink';
 
 const menu = (id: string, label: string, path: string) => ({
   id, group: groupId('overview'), primary: id === 'home', label: { ko: label, en: label }, description: { ko: '', en: '' }, path, icon: House, permission: 'platform:view' as const,
@@ -117,5 +118,15 @@ describe('freezeVocContext (ADR-0070 decision 5)', () => {
     expect(chip({})).toBe('구역: A, B · 그 시점 소속');
     expect(chip({ global: { ...GLOBAL, membershipBasis: null } })).toBe('구역: A, B');
     expect(chips({ global: { ...GLOBAL, condition: null, prcGroups: ['G1'] } })['global:prcGroups']).toBe('G1 · 그 시점 소속');
+  });
+});
+
+describe('freezeVocContext repro link', () => {
+  it('is the shared conditions link of the kept state, not a separate serialization', () => {
+    const route = { menu: registry.menus.find(entry => entry.path === '/mars/prod/:id')!, params: { id: '7' }, viaAlias: false };
+    const page: [string, string][] = [['granularity', 'day'], ['returnTo', '/origin?v=1']];
+    const shared = buildShareLink({ kind: 'conditions', route, global: GLOBAL, page, absoluteUrl });
+    expect(shared.ok).toBe(true);
+    expect(freezeVocContext(input({ page })).href).toBe((shared as { href: string }).href);
   });
 });

@@ -1,6 +1,7 @@
-import { buildQuery, emptyGlobal, formatDateTime, formatMetricVersion, parseDateTime, withoutReturnTo, type ContextKey, type EquipmentAxisDescriptor, type GlobalContext, type Pair } from '@ap/contracts';
-import { CONTEXT_LABELS, labelledCondition, pathFor, RETURN_CONTEXT_LABELS, type Lang, type VocComposeContext, type VocComposeContextItem } from '@ap/kernel';
+import { emptyGlobal, formatDateTime, formatMetricVersion, parseDateTime, withoutReturnTo, type ContextKey, type EquipmentAxisDescriptor, type GlobalContext, type Pair } from '@ap/contracts';
+import { CONTEXT_LABELS, labelledCondition, RETURN_CONTEXT_LABELS, type Lang, type VocComposeContext, type VocComposeContextItem } from '@ap/kernel';
 import type { HostPlatform } from '@ap/kernel/host';
+import { buildShareLink } from '../context/shareLink';
 
 /** What the freeze reads from the host: the main screen's route, Context and page pairs at the moment the drawer opens; `axes` and `asOf` (the localized membership-as-of text) read the Condition like the board header. */
 export type VocFreezeInput = Pick<HostPlatform, 'route' | 'platformScreen' | 'global' | 'page' | 'absoluteUrl' | 'registry'> & { lang: Lang; axes: readonly EquipmentAxisDescriptor[]; asOf: string };
@@ -75,7 +76,9 @@ export function freezeVocContext(input: VocFreezeInput, removed: ReadonlySet<str
   keep('global:metricId', ['metricId', 'metricVersion'], () => global.metricId === null ? null : { id: 'global:metricId', label: CONTEXT_LABELS.metric[input.lang], value: global.metricVersion === null ? global.metricId : `${global.metricId} ${formatMetricVersion(global.metricVersion)}` });
   keep('global:scopeId', ['scopeId'], () => global.scopeId === null ? null : { id: 'global:scopeId', label: RETURN_CONTEXT_LABELS.scope[input.lang], value: global.scopeId });
 
-  const href = removed.has('menu') ? null : input.absoluteUrl(pathFor(route.menu, route.params) + buildQuery(kept, keptPage));
+  // The same serializer as the share control; a repro link has no length bound of its own.
+  const shared = removed.has('menu') ? null : buildShareLink({ kind: 'conditions', route, global: kept, page: keptPage, absoluteUrl: input.absoluteUrl, maxLength: Number.POSITIVE_INFINITY });
+  const href = shared?.ok ? shared.href : null;
   // The raw page pairs, not the kept list: a removed chip does not change which values the frozen screen carried.
   const carried: Record<string, string> = {};
   for (const key of space?.carriedPageKeys ?? []) {

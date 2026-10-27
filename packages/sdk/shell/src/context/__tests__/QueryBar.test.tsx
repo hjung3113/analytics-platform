@@ -36,7 +36,7 @@ it('edits a page/global draft without URL writes, counts raw keys, applies once 
   act(() => { draft.setDraftGlobal({ roomNames: ['PHOTO'] }); draft.setDraftPage({ grain: 'day' }); });
   expect(push).not.toHaveBeenCalled();
   expect(send).not.toHaveBeenCalled();
-  expect(screen.getByText(`적용 안 된 변경 ${draft.dirty.length}개`)).toBeTruthy();
+  expect(screen.getByText(`미적용 변경 ${draft.dirty.length}개 · 공유에서 제외`)).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: '적용' }));
   await waitFor(() => expect(push).toHaveBeenCalledTimes(1));
   fireEvent.click(screen.getByRole('button', { name: '적용' }));
@@ -69,16 +69,16 @@ it('shows the period as one readable range and no ISO interval (#913)', async ()
 it('does not count the seeded default period as a change, before or after Revert (#913)', async () => {
   mount();
   await waitFor(() => expect(platform.scope.status).toBe('valid'));
-  expect(screen.queryByText(/적용 안 된 변경/)).toBeNull();
+  expect(screen.queryByText(/미적용 변경/)).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: '최근 7일' }));
-  expect(screen.getByText('적용 안 된 변경 1개')).toBeTruthy();
+  expect(screen.getByText('미적용 변경 1개 · 공유에서 제외')).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: '초안 되돌리기' }));
-  expect(screen.queryByText(/적용 안 된 변경/)).toBeNull();
+  expect(screen.queryByText(/미적용 변경/)).toBeNull();
   expect(screen.queryByText(/기간을 선택하세요/)).toBeNull();
   expect(screen.getByRole('group', { name: '기간' })).toHaveTextContent('12-31 09:31 → 01-01 09:31 (24h)');
   // `오늘` moves both ends of the period: still one change (#913 UX-2).
   fireEvent.click(screen.getByRole('button', { name: '오늘' }));
-  expect(screen.getByText('적용 안 된 변경 1개')).toBeTruthy();
+  expect(screen.getByText('미적용 변경 1개 · 공유에서 제외')).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: '초안 되돌리기' }));
   // Not counted, yet not applied: the collapsed summary still says the period is being edited until Apply.
   fireEvent.click(screen.getByRole('button', { name: '조회 조건 접기' }));
@@ -172,11 +172,11 @@ it('keeps pane drafts independent and closes the anchored editor with focus rest
   expect(screen.getByRole('button', { name: '닫기' })).toBeTruthy();
   fireEvent.keyDown(screen.getByRole('button', { name: '최근 7일' }), { key: 'Escape' });
   await waitFor(() => expect(screen.getByRole('button', { name: '조회 조건 펼치기' })).toHaveFocus());
-  expect(screen.getByText('적용 안 된 변경 1개')).toBeTruthy();
+  expect(screen.getByText('미적용 변경 1개 · 공유에서 제외')).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'Pane two' }));
-  expect(screen.queryByText(/적용 안 된 변경/)).toBeNull();
+  expect(screen.queryByText(/미적용 변경/)).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Pane one' }));
-  expect(screen.getByText('적용 안 된 변경 1개')).toBeTruthy();
+  expect(screen.getByText('미적용 변경 1개 · 공유에서 제외')).toBeTruthy();
 });
 
 it('ignores unused history-incapable axes, then disables asOf when one becomes used', async () => {

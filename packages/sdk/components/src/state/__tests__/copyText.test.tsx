@@ -125,6 +125,8 @@ describe('copyText (#300)', () => {
 
 const SUCCESS = '이 버전의 링크를 복사했습니다.';
 const FAILURE = '링크를 복사하지 못했습니다. 주소창의 주소를 직접 복사하세요.';
+const INTENT_FAILURE = '현재 조건 링크를 복사하지 못했습니다.';
+let failedLink: string | null = null;
 
 function ToastProbe() {
   const toasts = useToastsForTest();
@@ -133,8 +135,10 @@ function ToastProbe() {
 
 function HookHarness() {
   const copy = useCopyLink(SUCCESS);
+  const custom = useCopyLink(SUCCESS, { absolute: true, failureText: INTENT_FAILURE, onFailure: link => { failedLink = link; } });
   return <>
     <button type="button" onClick={() => copy('/metrics/m1')}>copy-link</button>
+    <button type="button" onClick={() => void custom('https://app.test/m?v=1')}>copy-intent</button>
     <ToastProbe />
   </>;
 }
@@ -209,5 +213,21 @@ describe('useCopyLink (#300)', () => {
     render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry} location={createBasePathLocation('/analytics-platform/demo/')}><HookHarness /></PlatformProvider></I18nProvider>);
     fireEvent.click(screen.getByRole('button', { name: 'copy-link' }));
     await waitFor(() => expect(clipboard.writeText).toHaveBeenCalledWith(window.location.origin + '/analytics-platform/demo/metrics/m1'));
+  });
+});
+
+describe('useCopyLink options', () => {
+  afterEach(() => { cleanup(); failedLink = null; Reflect.deleteProperty(window, 'isSecureContext'); Reflect.deleteProperty(navigator, 'clipboard'); });
+
+  it('a failure uses the intent text, hands the exact absolute link to onFailure, and never the address-bar advice', async () => {
+    const writeText = vi.fn(async () => { throw new DOMException('denied', 'NotAllowedError'); });
+    Object.defineProperty(window, 'isSecureContext', { configurable: true, value: true });
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+    mountHook();
+    fireEvent.click(screen.getByRole('button', { name: 'copy-intent' }));
+    await waitFor(() => expect(screen.getByTestId('toast-probe')).toHaveTextContent(`warning:${INTENT_FAILURE}`));
+    expect(screen.getByTestId('toast-probe')).not.toHaveTextContent('주소창');
+    expect(writeText).toHaveBeenCalledWith('https://app.test/m?v=1');
+    expect(failedLink).toBe('https://app.test/m?v=1');
   });
 });

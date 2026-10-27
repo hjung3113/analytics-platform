@@ -4,9 +4,10 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 import { formatPeriod, parseDateTime, periodHours, shift, type GlobalContext, type IdSet } from '@ap/contracts';
 import { CONTEXT_LABELS, useAxisOptions, useConditionPreset, useEquipmentSearch, queryMissingSentence, useI18n, useQueryDraft, useResolvedSelection, type PortContext } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
-import { formatQuerySummary, presetOutsideAxes, querySummaryItems, SegmentedRadio, summaryPreset, useCopyLink, useQueryBarExtension } from '@ap/components';
+import { formatQuerySummary, presetOutsideAxes, querySummaryItems, SegmentedRadio, summaryPreset, useQueryBarExtension } from '@ap/components';
 import { Alert, AlertDescription, Button, Input, MultiCombobox, Popover, PopoverContent, PopoverTrigger, readLocalStorage, writeLocalStorage } from '@ap/ui';
 import { isTrailingPeriod } from '../frame/trailingPeriod';
+import { ShareControl } from './ShareControl';
 
 export type QueryBarProps = {
   label?: { visible: string; region: string };
@@ -37,7 +38,7 @@ function useStableSlot(slot: ReactNode) {
 function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
   const stableView = useStableSlot(viewSlot);
   const platform = useHostPlatform();
-  const { route, global, page, scope, screenMode, equipmentAxes, url, session } = platform;
+  const { route, global, page, scope, screenMode, equipmentAxes, session } = platform;
   const query = useQueryDraft();
   const { draft, dirty, missing, canApply, applying, setDraftGlobal, setDraftPage, apply, revert, reset } = query;
   const extension = useQueryBarExtension();
@@ -100,16 +101,17 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
   // The seeded default period is not a change (#913) but is not applied either: until Apply the summary still reads as the draft.
   // The period is one change however many of its ends moved (`오늘` moves both, `최근 7일` only `from`).
   const changes = new Set(dirty.map(key => key === 'from' || key === 'to' ? 'time' : key)).size;
+  const notApplied = global.from === null && g.from !== null;
   const editing = dirty.length > 0 || (global.from === null && g.from !== null);
   const summary = formatQuerySummary(g, draft.page, { ...summaryOptions, preset: summaryPreset(conditionPreset, 'draft') });
   const applied = formatQuerySummary(global, page, { ...summaryOptions, pageSummary: extension?.appliedPageSummary, preset: summaryPreset(conditionPreset, 'applied') });
-  const copy = useCopyLink(ko ? '현재 적용된 조건의 링크를 복사했습니다. 받는 사람의 권한으로 서버가 다시 검증합니다.' : 'Copied the applied link. The server re-validates for the recipient.');
   const invalid = (key: string) => missing.some(m => m.key === key);
   const issues = reasons.length
     ? <Alert id={reasonId} role="status"><AlertDescription>{reasons.map(r => <p key={r.key}>{r.reason}</p>)}</AlertDescription></Alert>
     : <span id={reasonId} className="sr-only" />;
   const actions = <div role="group" aria-label={ko ? '조회 조건 동작' : 'Query actions'} className={board ? 'flex shrink-0 items-center gap-2' : 'flex flex-wrap items-center gap-2'}>
-    {changes > 0 && <span className="text-xs text-text-secondary">{ko ? `적용 안 된 변경 ${changes}개` : `${changes} unapplied changes`}</span>}
+    {changes > 0 ? <span className="text-xs text-text-secondary">{ko ? `미적용 변경 ${changes}개 · 공유에서 제외` : `${changes} unapplied changes · excluded from sharing`}</span>
+      : notApplied && <span className="text-xs text-text-secondary">{ko ? '아직 조회 조건을 적용하지 않았습니다.' : 'No query conditions have been applied yet.'}</span>}
     <Button type="button" variant="ghost" size="toolbar" onClick={() => { revert(); setPeriodEditor({ mode: 'range', reference: (global.from ?? platform.defaultRangeTo).slice(0, 10), invalidReference: false }); setRangeSource('revert'); setEditError(null); }}>{ko ? '초안 되돌리기' : 'Revert draft'}</Button>
     <Button type="button" variant="ghost" size="toolbar" onClick={() => { reset(); setPeriodEditor({ mode: 'range', reference: platform.defaultRangeTo.slice(0, 10), invalidReference: false }); setRangeSource('reset'); setEditError(null); }}>{ko ? '조건 초기화' : 'Reset conditions'}</Button>
     <Button type="button" size="toolbar" disabled={!canApply || reasons.length > 0} aria-describedby={reasonId} onClick={apply}>{ko ? '적용' : 'Apply'}</Button>
@@ -190,7 +192,7 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
       {!board && !expanded && <details className="min-w-0 flex-1 text-xs"><summary className="cursor-pointer truncate list-none [&::-webkit-details-marker]:hidden">{editing ? (ko ? '편집 중' : 'Editing') : (ko ? '적용 조건' : 'Applied conditions')} · {summary}</summary><p className="whitespace-normal [overflow-wrap:anywhere]">{ko ? '편집 중 조건' : 'Editing conditions'} · {summary}</p><p className="whitespace-normal [overflow-wrap:anywhere]">{ko ? '적용 조건' : 'Applied conditions'} · {applied}</p></details>}
       {!expanded && actions}
       {board && !expanded && <span id={reasonId} className="max-w-56 truncate text-xs text-text-secondary">{reasons.map(r => r.reason).join(' · ')}</span>}
-      <Button type="button" variant="ghost" size="toolbar" onClick={() => copy(url)}>{ko ? '링크 복사' : 'Copy link'}</Button>
+      <ShareControl compact={false} align="start" />
     </div>
     {!board && expanded && <>{content}<div className="px-3 pb-2">{issues}</div><div className="px-3 pb-3">{actions}</div></>}
     {!board && !expanded && <div className="px-3 pb-2">{issues}</div>}
