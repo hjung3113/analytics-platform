@@ -506,6 +506,17 @@ export function OutcomeFollowUpReview({
   );
   const [decisionNotice, setDecisionNotice] = useState<string | null>(null);
   const allItems = followUpRead.personal_access ? followUpRead.items : [];
+  // Controlled (bridge): a focus that changed from outside (history Back/Forward) and names a response of another filter moves the review to that filter, so it is
+  // not dropped as stale below. A filter switch by the user leaves the focus as it was, so it never flips the filter back; an id absent from the list changes nothing.
+  const [seenSelectedId, setSeenSelectedId] = useState(selectedResponseId);
+  if (controlled && seenSelectedId !== selectedResponseId) {
+    setSeenSelectedId(selectedResponseId);
+    const restoredFilter = allItems.find(
+      (item) => item.response_id === selectedResponseId,
+    )?.resolution;
+    if (restoredFilter !== undefined && restoredFilter !== activeFilter)
+      setActiveFilter(restoredFilter);
+  }
   const visibleItems = allItems.filter((item) => item.resolution === activeFilter);
 
   useEffect(() => {

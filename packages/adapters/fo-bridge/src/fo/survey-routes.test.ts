@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { hostLinks } from './links';
 import { UUID_PATTERN } from './uuid';
 import { operatorHostLinks } from './operator-links';
-import { surveyBuilderRoute, surveyChildTarget, surveyFollowUpRoute, surveyOperatorTargets, surveyResultsRoute, surveysRoute } from './survey-routes';
+import { surveyBuilderRoute, surveyCarry, surveyChildTarget, surveyFollowUpRoute, surveyOperatorTargets, surveyResultsRoute, surveysRoute } from './survey-routes';
 
 const SYSTEM = '33333333-3333-4333-8333-333333333333';
 const AREA = '55555555-5555-4555-8555-555555555555';
@@ -147,5 +147,40 @@ describe('survey child route tables', () => {
     expect(rejected(surveyFollowUpRoute, { focus: 'x' })).toEqual({ key: 'focus', value: 'x' });
     expect(rejected(surveyFollowUpRoute, { focus: SURVEY, status: 'open', managedSystem: 'all' })).toBeNull();
     expect(rejected(surveyResultsRoute, { focus: 'x' })).toBeNull();
+  });
+});
+
+describe('surveyCarry', () => {
+  const here = (menuId: string | undefined, page: Record<string, string>, params: Record<string, string> = {}) => ({ menuId, params, pageParam: (key: string) => page[key] ?? null });
+  const CONTEXT = { area: AREA, status: 'open', follow_up: 'needed', returnTo: '/x', platformReturn: '/y' };
+
+  it('adds the validated list context the target does not name, never returnTo or platformReturn', () => {
+    expect(surveyCarry({ menuId: 'fo-survey-builder', params: { surveyId: SURVEY }, page: {} }, here('fo-surveys', CONTEXT)))
+      .toEqual({ menuId: 'fo-survey-builder', params: { surveyId: SURVEY }, page: { area: AREA, status: 'open', follow_up: 'needed' } });
+  });
+
+  it('lets a key the target names win, a clear included', () => {
+    expect(surveyCarry({ menuId: 'fo-survey-results', page: { area: 'unset', status: null } }, here('fo-survey-builder', CONTEXT)).page)
+      .toEqual({ area: 'unset', status: null, follow_up: 'needed' });
+  });
+
+  it('skips a value the schemas refuse', () => {
+    expect(surveyCarry({ menuId: 'fo-survey-results', page: {} }, here('fo-surveys', { area: 'nope', status: 'closed', follow_up: 'x' })).page).toEqual({});
+  });
+
+  it('restores focus on this Survey for a child-to-list link, unless the target names focus', () => {
+    const from = here('fo-survey-follow-up', { status: 'open', focus: '77777777-7777-4777-8777-777777777777' }, { surveyId: SURVEY });
+    expect(surveyCarry({ menuId: 'fo-surveys', page: {} }, from).page).toEqual({ status: 'open', focus: SURVEY });
+    expect(surveyCarry({ menuId: 'fo-surveys', page: { focus: AREA } }, from).page).toEqual({ status: 'open', focus: AREA });
+  });
+
+  it.each([
+    ['the same menu', 'fo-surveys', 'fo-surveys'],
+    ['a non-Survey source', 'fo-findings', 'fo-surveys'],
+    ['a non-Survey target', 'fo-surveys', 'fo-findings'],
+    ['no current menu', undefined, 'fo-surveys'],
+  ])('leaves the target alone for %s', (_name, from, to) => {
+    const target = { menuId: to, page: {} };
+    expect(surveyCarry(target, here(from, CONTEXT, { surveyId: SURVEY }))).toBe(target);
   });
 });

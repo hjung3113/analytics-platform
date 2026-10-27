@@ -1,6 +1,6 @@
 import { usePlatform } from '@ap/kernel';
 import { operatorRoute, routeHere, routeSearch, type OperatorRoute } from './operator-route';
-import type { PlatformTarget, TargetOf } from './links';
+import type { CarryTarget, PlatformTarget, TargetOf } from './links';
 import { surveyTarget } from './survey-links';
 import { UUID_PATTERN } from './uuid';
 
@@ -70,6 +70,33 @@ export const surveyChildTarget: TargetOf = (to): PlatformTarget | null => {
 
 /** The Surveys targets in the order `operatorHostLinks` must try them (it spreads this): the reporter `/surveys/participate` and `/respond` first, then the child screens, then the list. */
 export const surveyOperatorTargets: TargetOf[] = [surveyTarget, surveyChildTarget, surveysRoute.target];
+
+const SURVEY_MENUS: ReadonlySet<string> = new Set(['fo-surveys', ...Object.values(CHILD_MENU)]);
+const CHILD_MENUS: ReadonlySet<string> = new Set(Object.values(CHILD_MENU));
+/** The list-context page keys and the value shapes FeedbackOps' Surveys schemas accept for them (`status` and `follow_up` are single-valued, `area` a UUID or `unset`). */
+const CARRIED_VALUE: Readonly<Record<string, (value: string) => boolean>> = {
+  area: value => value === 'unset' || UUID_PATTERN.test(value),
+  status: value => value === 'open',
+  follow_up: value => value === 'needed',
+};
+
+/**
+ * The context the Survey screens' own links leave out (FeedbackOps' hrefs are bare: `/surveys/<id>?builder=true`, `/surveys/<id>/results`, `/surveys`). A link drawn on one Survey
+ * menu toward a different one gets the current page's `area`/`status`/`follow_up` when the target does not name that key, and a link from a child back to the list gets
+ * `focus` = this Survey. A key the target names (a clear, `null`, included) wins; `returnTo`/`platformReturn` are never carried (`managedSystem` and `returnTo` ride on the space).
+ * The current values already passed the screen's own search schema (`FoScreenPage` rejects the page before mounting), and the shapes are checked again here.
+ */
+export const surveyCarry: CarryTarget = (target, here) => {
+  if (here.menuId === undefined || here.menuId === target.menuId || !SURVEY_MENUS.has(here.menuId) || !SURVEY_MENUS.has(target.menuId)) return target;
+  const page: Record<string, string | null> = { ...target.page };
+  for (const [key, accepts] of Object.entries(CARRIED_VALUE)) {
+    const value = here.pageParam(key);
+    if (!Object.hasOwn(page, key) && value !== null && accepts(value)) page[key] = value;
+  }
+  const surveyId = here.params.surveyId;
+  if (target.menuId === 'fo-surveys' && CHILD_MENUS.has(here.menuId) && surveyId !== undefined && UUID_PATTERN.test(surveyId) && !Object.hasOwn(page, 'focus')) page.focus = surveyId;
+  return { ...target, page };
+};
 
 type ChildSpec = { menuId: string; suffix: string; builder: boolean; focus: boolean };
 const CHILD_SPECS: Readonly<Record<'builder' | 'results' | 'followUp', ChildSpec>> = {
