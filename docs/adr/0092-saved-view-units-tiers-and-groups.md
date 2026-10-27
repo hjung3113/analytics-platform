@@ -2,7 +2,7 @@
 
 - Status: Decided (2026-10-27)
 - Decider: 저장 단위·소유 단계·그룹 일반화·커스텀 그룹 첫 구현·사람 지정은 사용자(#294 코멘트, 2026-10-27). 시안 선택은 사용자가 Astra 리뷰어에게 위임했고(#294 코멘트) 코디네이터(사용자 위임)가 기록한다. 되돌릴 수 있다.
-- Scope: [#294](https://github.com/hjung3113/analytics-platform/issues/294) 결정, 구현은 [#1011](https://github.com/hjung3113/analytics-platform/issues/1011)(mock 범위). 관련: [ADR-0083](0083-condition-presets.md)(조건 프리셋 — 저장된 뷰가 아니다), [ADR-0059](0059-app-injected-equipment-axes-and-condition.md)(주입 축·Condition), [ADR-0061](0061-query-draft-applied-address-and-required-gate.md)(초안/적용 주소). 계약 본문은 `docs/contract/platform-ui-contract.md` §21.
+- Scope: [#294](https://github.com/hjung3113/analytics-platform/issues/294) 결정, 구현은 [#1011](https://github.com/hjung3113/analytics-platform/issues/1011)(mock 범위). 관련: [ADR-0083](0083-condition-presets.md)(조건 프리셋 — 저장된 뷰가 아니다), [ADR-0059](0059-app-injected-equipment-axes-and-condition.md)(주입 축·Condition), [ADR-0061](0061-query-draft-applied-address-and-required-gate.md)(초안/적용 주소). 계약 본문은 `docs/contract/kernel.md` §21.
 
 ## 맥락
 
