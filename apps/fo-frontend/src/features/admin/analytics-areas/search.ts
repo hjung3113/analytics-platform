@@ -1,3 +1,4 @@
+import type { HostSearch } from '@/lib/host/search';
 import { isSearchFieldValueValid, parseRouteSearch } from '@/lib/host/search-fields';
 import { z } from 'zod';
 
@@ -8,14 +9,55 @@ import { z } from 'zod';
 export const analyticsAreasSearchSchema = z
   .object({
     managedSystem: z.string().uuid().optional(),
-    includeArchived: z.boolean().optional(),
+    // TanStack decodes URL `true` as a boolean; the host seam supplies semantic URL values as strings.
+    includeArchived: z.preprocess(
+      (value) => (value === 'true' ? true : value),
+      z.boolean().optional(),
+    ),
     selected: z.string().uuid().optional(),
   })
   .strict();
+const analyticsAreasSearchKeys = new Set(Object.keys(analyticsAreasSearchSchema.shape));
 
 export type AnalyticsAreasSearch = z.infer<typeof analyticsAreasSearchSchema>;
+export type AnalyticsAreasHostSearch = Omit<AnalyticsAreasSearch, 'includeArchived'> & {
+  includeArchived?: string | undefined;
+} & Record<string, string | undefined>;
 
-export function validateAnalyticsAreasSearch(raw: unknown) {
+/** Host-facing validator: screen writes retain string-valued keys owned by other host layers. */
+export function validateAnalyticsAreasSearch(raw: HostSearch): AnalyticsAreasHostSearch {
+  const parsed = parseRouteSearch(analyticsAreasSearchSchema, raw);
+  // Host search values are strings; the shared schema validates `true` as a
+  // boolean first, then this host-facing validator restores its URL spelling.
+  // Preserve unrelated host URL state so a screen write cannot clear keys it
+  // does not own.
+  const extras = Object.fromEntries(
+    Object.entries(raw).filter(
+      ([key, value]) => !analyticsAreasSearchKeys.has(key) && value !== 'undefined',
+    ),
+  );
+  const known = Object.fromEntries(
+    Object.entries(parsed).filter(([key]) => analyticsAreasSearchKeys.has(key)),
+  ) as AnalyticsAreasSearch;
+  const { includeArchived, ...rest } = known;
+  // The host seam carries opaque URL strings. Preserve non-empty identifiers
+  // here so the screen can resolve them against its loaded lists (standalone
+  // test routers may supply non-UUID fixture IDs); the TanStack route validator
+  // below remains strict and enforces the UUID route contract.
+  const managedSystem =
+    raw.managedSystem && raw.managedSystem !== 'undefined' ? raw.managedSystem : rest.managedSystem;
+  const selected = raw.selected && raw.selected !== 'undefined' ? raw.selected : rest.selected;
+  return {
+    ...extras,
+    ...rest,
+    ...(managedSystem !== undefined ? { managedSystem } : {}),
+    ...(selected !== undefined ? { selected } : {}),
+    ...(includeArchived === true ? { includeArchived: 'true' } : {}),
+  };
+}
+
+/** TanStack route validator: unrecognized URL fields follow the route cleanup contract. */
+export function validateAnalyticsAreasRouteSearch(raw: unknown): AnalyticsAreasSearch {
   return parseRouteSearch(analyticsAreasSearchSchema, raw);
 }
 
