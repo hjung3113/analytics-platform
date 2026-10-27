@@ -42,7 +42,8 @@ export function isSurveysSearchValueValid(key: string, value: string): boolean {
 // `returnTo`.
 export const surveyDetailSearchSchema = z
   .object({
-    builder: z.boolean().optional(),
+    // The router decodes `?builder=true` to a boolean; the default host link hands the string 'true' (the app codec quotes it), so accept both.
+    builder: z.preprocess((value) => (value === 'true' ? true : value), z.boolean()).optional(),
     returnTo: recoverySearchFields.returnTo,
     platformReturn: platformReturnField,
     managedSystem: z.union([z.string().uuid(), z.literal('all')]).optional(),
