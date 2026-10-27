@@ -50,7 +50,7 @@ describe.each([
     ['info', toast, 'id-info'],
   ] as const)('shows a %s notice and returns the sonner id as a string', (tone, fn, id) => {
     expect(host.notify?.({ tone, message: '저장됨' })).toBe(id);
-    expect(fn).toHaveBeenCalledWith('저장됨', {});
+    expect(fn).toHaveBeenCalledWith('저장됨');
   });
 
   it('passes description, one action and the duration through', () => {
