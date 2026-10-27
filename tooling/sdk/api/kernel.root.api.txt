@@ -6,6 +6,9 @@ AuditMoreStatus | type | type AuditMoreStatus = CursorMoreStatus
 AxisOptionsParams | type | type AxisOptionsParams = { axisId: string; context?: @ap/kernel#PortContext; enabled?: boolean; pageSize?: number; parents?: @ap/contracts#AxisOptionsInput['parents']; query?: string; }
 CONTEXT_LABELS | const | const CONTEXT_LABELS: Record<@ap/contracts#ContextKey, @ap/contracts#Text>
 ConditionPresetView | type | type ConditionPresetView = { activeId: string; appliedId: string; key: string; outsideAxes: readonly string[]; presets: readonly @ap/contracts#ConditionPreset[]; }
+DiagnoseCode | type | type DiagnoseCode = 'denied' | 'invalid-selection' | 'menu-mismatch' | 'menu-schema-version' | 'metric-version' | 'migration-unavailable' | 'stale-context-key' | 'stale-page-key' | 'unknown-axis'
+DiagnoseContext | type | type DiagnoseContext = { capabilities: Pick<@ap/contracts#ViewCapabilities, 'canView' | 'reason'>; currentMetricVersion?: number; knownAxisIds: readonly string[]; knownSelectionIds?: readonly string[]; }
+DiagnoseReason | type | type DiagnoseReason = { code: @ap/kernel#DiagnoseCode; key?: string; message?: string; }
 DrillInvalid | type | type DrillInvalid = { key: string; label: @ap/contracts#Text; value: string; }
 DrillLevelState | type | type DrillLevelState = { key: string; label: @ap/contracts#Text; value: null | string; }
 DrillState | type | type DrillState = { depth: number; enter: (key: string, value: string) => void; goTo: (n: number) => void; invalid: @ap/kernel#DrillInvalid | null; levels: @ap/kernel#DrillLevelState[]; trail: @ap/kernel#DrillTrailStep[]; }
@@ -26,6 +29,7 @@ MenuEntry | type | type MenuEntry = @ap/kernel#ModuleMenuEntry | @ap/kernel#Plat
 MenuFetch | type | type MenuFetch<P, T> = { fetch: (params: P, signal?: AbortSignal) => Promise<@ap/contracts#ApiResponse<T>>; ready: boolean; }
 MenuPlatform | type | type MenuPlatform = Pick<@ap/kernel/host#HostPlatform, 'absoluteUrl' | 'accessibleSpaces' | 'adapter' | 'can' | 'canOpen' | 'dismissToast' | 'favorites' | 'global' | 'homeTodo' | 'linkTo' | 'location' | 'navigate' | 'page' | 'pageParam' | 'pathname' | 'registry' | 'resetContext' | 'resolveLink' | 'revision' | 'route' | 'scope' | 'session' | 'setGlobal' | 'setPage' | 'spaceEntry' | 'toast' | 'toggleFavorite' | 'url' | 'user'>
 MetricInit | type | type MetricInit = { metricVersion: string; phase: 'confirm'; } | { phase: 'blocked'; reason: 'unknown_metric' | 'unpublished'; } | { phase: 'skip'; }
+Migration | type | type Migration = { apply(): @ap/contracts#SavedView; preview: @ap/contracts#ChangeLine[]; }
 ModuleGroupDef | type | type ModuleGroupDef = GroupBase & { id: @ap/contracts#ModuleScopedId; module: string; }
 ModuleMenuEntry | type | type ModuleMenuEntry = Omit<@ap/contracts#MenuMeta, 'group' | 'permission'> & { component?: undefined; group: @ap/contracts#ModuleScopedId; icon: LucideIcon; module: string; moduleConfig?: Readonly<Record<string, string>>; moduleFeatures?: readonly @ap/contracts#HostFeature[]; moduleScreen: ComponentType<@ap/contracts#ModuleScreenProps>; permission: @ap/contracts#ModuleScopedId; }
 MountOptions | type | type MountOptions = { config: Readonly<Record<string, string>>; features?: readonly @ap/contracts#HostFeature[]; groupSpace: Readonly<Record<string, @ap/contracts#SpaceId | null>>; icons: { groups: Readonly<Record<string, LucideIcon>>; screens: Readonly<Record<string, LucideIcon>>; }; prefix: string; }
@@ -38,7 +42,7 @@ PlatformGroupDef | type | type PlatformGroupDef = GroupBase & { id: @ap/contract
 PlatformLink | function | function PlatformLink({ href, children, className, onNavigate, via, ...rest }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string; onNavigate?: () => void; via?: @ap/contracts#UsageVia; }): import("react").JSX.Element
 PlatformLocation | type | type PlatformLocation = { absoluteUrl: (url: string) => string; href: (url: string) => string; push: (url: string) => void; read: () => null | string; replace: (url: string) => void; }
 PlatformMenuEntry | type | type PlatformMenuEntry = @ap/contracts#MenuMeta & { component?: LazyExoticComponent<ComponentType<@ap/kernel#PageProps>>; icon: LucideIcon; module?: undefined; moduleScreen?: undefined; }
-PlatformProvider | function | function PlatformProvider({ adapter, registry, location, slots, equipmentAxes, queryHistory, spaceIdMigrations, children }: { adapter: @ap/contracts#PlatformAdapter; children: ReactNode; equipmentAxes?: readonly @ap/contracts#EquipmentAxisDescriptor[]; location?: @ap/kernel#PlatformLocation; queryHistory?: @ap/contracts#QueryHistoryStore; registry: @ap/kernel#Registry; slots?: @ap/kernel#PlatformSlots; spaceIdMigrations?: Readonly<Record<string, string>>; }): import("react").JSX.Element
+PlatformProvider | function | function PlatformProvider({ adapter, registry, location, slots, equipmentAxes, queryHistory, savedViews, spaceIdMigrations, children }: { adapter: @ap/contracts#PlatformAdapter; children: ReactNode; equipmentAxes?: readonly @ap/contracts#EquipmentAxisDescriptor[]; location?: @ap/kernel#PlatformLocation; queryHistory?: @ap/contracts#QueryHistoryStore; registry: @ap/kernel#Registry; savedViews?: @ap/contracts#SavedViewStore; slots?: @ap/kernel#PlatformSlots; spaceIdMigrations?: Readonly<Record<string, string>>; }): import("react").JSX.Element
 PlatformSlots | type | type PlatformSlots = { boardEntry?: ReactNode; contextBar?: ReactNode; feedbackOps?: @ap/kernel#FeedbackOpsSlot; homeTodo?: @ap/kernel#HomeTodoSlot; navCounts?: @ap/kernel#NavCountsSlot; notifications?: @ap/kernel#NotificationsSlot; plannedSpaces?: readonly @ap/kernel#PlannedSpace[]; scopeControl?: @ap/kernel#ScopeControlSlot; spaceNavSection?: @ap/kernel#SpaceNavSectionSlot; topBarTools?: ReactNode; vocCompose?: @ap/kernel#VocComposeSlot; }
 PortContext | type | type PortContext = { condition: @ap/contracts#Condition | null; lineNames: @ap/contracts#IdSet; membershipBasis: 'asOf' | null; period: @ap/contracts#MembershipPeriod | null; prcGroups: @ap/contracts#IdSet; roomNames: @ap/contracts#IdSet; scopeId: string; }
 PortFailure | type | type PortFailure = { code: @ap/contracts#PortErrorCode | null; message: string; retryable: boolean; }
@@ -57,6 +61,7 @@ ResolvedSelectionResult | type | type ResolvedSelectionResult = { byId: Readonly
 ReturnContextKey | type | type ReturnContextKey = 'scope' | @ap/contracts#ContextKey
 ReturnOrigin | type | type ReturnOrigin = { accepted: boolean; href: string; menuLabel: @ap/contracts#Text; revertedContext: @ap/kernel#ReturnContextKey[]; spaceLabel: @ap/contracts#Text | null; trail: { label: @ap/contracts#Text; value: string; }[]; }
 RouteMatch | type | type RouteMatch = { menu: @ap/kernel#MenuEntry; params: Record<string, string>; }
+SavedViewDiagnosis | type | type SavedViewDiagnosis = { migration?: @ap/kernel#Migration; reasons: @ap/kernel#DiagnoseReason[]; reselect?: { keep: @ap/contracts#SavedViewContext; }; status: 'stale'; } | { reasons: @ap/kernel#DiagnoseReason[]; status: 'denied'; } | { reasons: [ ]; status: 'ok'; }
 ScopeControlSlot | type | type ScopeControlSlot = { For: (spaceId: @ap/contracts#SpaceId) => ComponentType<{ collapsed: boolean; }> | null; }
 ScopeState | type | type ScopeState = { grantedRooms: string[]; scopeId: null | string; status: 'error' | 'forbidden' | 'none' | 'unknown_scope' | 'valid' | 'validating'; validatedFor: @ap/contracts#Session | null; }
 SpaceNavSectionSlot | type | type SpaceNavSectionSlot = { For: (spaceId: @ap/contracts#SpaceId) => null | { Body: ComponentType; label: @ap/contracts#Text; }; }
@@ -74,6 +79,7 @@ contractErrorSentence | function | function contractErrorSentence(lang: @ap/kern
 createBasePathLocation | function | function createBasePathLocation(basePath: string): @ap/kernel#PlatformLocation
 createBrowserLocation | function | function createBrowserLocation(): @ap/kernel#PlatformLocation
 createRegistry | function | function createRegistry({ spaces, groups, menus, permissions: declared }: { groups: readonly @ap/kernel#GroupDef[]; menus: readonly @ap/kernel#MenuEntry[]; permissions?: readonly @ap/contracts#MenuPermission[]; spaces: readonly @ap/contracts#SpaceDef[]; }): @ap/kernel#Registry
+diagnoseSavedView | function | function diagnoseSavedView(view: @ap/contracts#SavedView, support: @ap/contracts#SavedViewSupport, ctx: @ap/kernel#DiagnoseContext): @ap/kernel#SavedViewDiagnosis
 errorGuidance | function | function errorGuidance(message: string | undefined): @ap/kernel#ErrorGuidance
 invalidValueSentence | function | function invalidValueSentence(lang: @ap/kernel#Lang, kind: 'drillGap' | 'filter' | 'plain' | 'value', field: @ap/contracts#Text, raw: string): string
 isBoardPath | const | const isBoardPath: (pathname: string) => boolean
@@ -102,6 +108,7 @@ useQueryContext | function | function useQueryContext(): @ap/contracts#GlobalCon
 useQueryDraft | function | function useQueryDraft(): @ap/kernel#QueryDraft
 useRecentVisits | function | function useRecentVisits(): readonly @ap/kernel#Recent[]
 useResolvedSelection | function | function useResolvedSelection(ids: readonly string[], params?: @ap/kernel#ResolvedSelectionParams): @ap/kernel#ResolvedSelectionResult
+useSavedViewSupport | function | function useSavedViewSupport(support: @ap/contracts#SavedViewSupport): void
 # reachable types
 CursorMore | type | type CursorMore = { error: CursorMoreError | null; last: CursorMoreLast | null; load: () => void; status: CursorMoreStatus; }
 CursorMoreError | type | type CursorMoreError = { correlationId: string; message: string; outcome: Exclude<@ap/contracts#Outcome, 'empty' | 'ok'>; }

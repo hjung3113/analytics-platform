@@ -7,11 +7,12 @@ import type { MenuEntry, Registry } from '../registry/registry';
 import { stripReturnToFromUrl } from '../links/return-to';
 import { createRefreshEpochs } from '../query/refresh-epochs';
 import { createQueryClient, invalidateEndpoints, removeOtherGenerations, startQueryEngine, type QueryEngine } from '../query/query-engine';
-import type { EquipmentAxisDescriptor, ModuleScopedId, Permission, PlatformAdapter, QueryHistoryStore, SpaceDef, SpaceId } from '@ap/contracts';
+import type { EquipmentAxisDescriptor, ModuleScopedId, Permission, PlatformAdapter, QueryHistoryStore, SavedViewStore, SpaceDef, SpaceId } from '@ap/contracts';
 import type { PlatformSlots, Recent, Toast, ToastOptions } from './types';
 import { decodeFavorites, decodeRecent, decodeScopeId, readPreference, writePreference } from './preferences';
 import { AppContext, OverlayContext, RecentContext, ToastsContext, type AppValue, type OverlayState, type UsageNavTrail } from './contexts';
 import { MainScreenProvider } from './MainScreenProvider';
+import { createSupportRegistry } from '../saved-view/useSavedViewSupport';
 
 const NO_EQUIPMENT_AXES: readonly EquipmentAxisDescriptor[] = [];
 const NO_SLOTS: PlatformSlots = {};
@@ -24,7 +25,7 @@ function counterStore(adapter: PlatformAdapter) {
 
 /** Fallback tab-session id when sessionStorage is unavailable (privacy mode, tests). One per JS runtime. */
 let fallbackUsageSession: string | null = null;
-export function PlatformProvider({ adapter, registry, location = browserLocation, slots = NO_SLOTS, equipmentAxes = NO_EQUIPMENT_AXES, queryHistory, spaceIdMigrations, children }: { spaceIdMigrations?: Readonly<Record<string, string>>; queryHistory?: QueryHistoryStore; equipmentAxes?: readonly EquipmentAxisDescriptor[]; location?: PlatformLocation; adapter: PlatformAdapter; registry: Registry; slots?: PlatformSlots; children: ReactNode }) {
+export function PlatformProvider({ adapter, registry, location = browserLocation, slots = NO_SLOTS, equipmentAxes = NO_EQUIPMENT_AXES, queryHistory, savedViews, spaceIdMigrations, children }: { spaceIdMigrations?: Readonly<Record<string, string>>; queryHistory?: QueryHistoryStore; savedViews?: SavedViewStore; equipmentAxes?: readonly EquipmentAxisDescriptor[]; location?: PlatformLocation; adapter: PlatformAdapter; registry: Registry; slots?: PlatformSlots; children: ReactNode }) {
   const { menuById } = registry;
   // The Registry never sees `equipmentAxes`, so a Condition preset naming an unknown axis surfaces here (06 §6.4, ADR-0083).
   for (const menu of registry.menus) {
@@ -70,6 +71,7 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
   const [recent, setRecent] = useState<Recent[]>(() => readPreference(`platform:recent:${userId}`, decodeRecent, []));
   const [lastScope, setLastScope] = useState<string | null>(() => readPreference(`platform:lastScope:${userId}`, decodeScopeId, null));
   // Tab-scoped usage session id (docs/05): sessionStorage, never localStorage — tabs must not share it.
+  const [savedViewSupports] = useState(createSupportRegistry);
   const [usageSessionId] = useState(() => {
     try {
       const existing = sessionStorage.getItem('platform:usageSession');
@@ -215,13 +217,13 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
   const homeTodo = slots.homeTodo ?? null;
   const value = useMemo((): AppValue => ({
     pub: {
-      registry, adapter, location, absoluteUrl, equipmentAxes, queryHistoryStore: queryHistory,
+      registry, adapter, location, absoluteUrl, equipmentAxes, queryHistoryStore: queryHistory, savedViewStore: savedViews,
       session, user, revision, refreshEpochs, can, canOpen, globalMenus, menusInSpace, accessibleSpaces, lastScope, favorites, toggleFavorite, readRecent,
       toast, dismissToast, holdToast, defaultRangeTo, slots, homeTodo, setPaletteOpen, setSwitcherOpen,
     },
-    internal: { currentRevision: revisions.get, selectionPortCache, queryEngine, enters, usageSessionId, userIdRef, usageNav, mainNavigation: pageNavigation, initialUrl, recordVisit, rememberScope, spaceIdMigrations },
-  }), [registry, adapter, location, absoluteUrl, equipmentAxes, queryHistory, session, user, revision, refreshEpochs, can, canOpen, globalMenus, menusInSpace, accessibleSpaces, lastScope, favorites, toggleFavorite, readRecent,
-    toast, dismissToast, holdToast, defaultRangeTo, slots, homeTodo, setPaletteOpen, setSwitcherOpen, revisions, selectionPortCache, queryEngine, enters, usageSessionId, userIdRef, usageNav, pageNavigation, initialUrl, recordVisit, rememberScope, spaceIdMigrations]);
+    internal: { currentRevision: revisions.get, selectionPortCache, queryEngine, enters, usageSessionId, savedViewSupports, userIdRef, usageNav, mainNavigation: pageNavigation, initialUrl, recordVisit, rememberScope, spaceIdMigrations },
+  }), [registry, adapter, location, absoluteUrl, equipmentAxes, queryHistory, savedViews, session, user, revision, refreshEpochs, can, canOpen, globalMenus, menusInSpace, accessibleSpaces, lastScope, favorites, toggleFavorite, readRecent,
+    toast, dismissToast, holdToast, defaultRangeTo, slots, homeTodo, setPaletteOpen, setSwitcherOpen, revisions, selectionPortCache, queryEngine, enters, usageSessionId, savedViewSupports, userIdRef, usageNav, pageNavigation, initialUrl, recordVisit, rememberScope, spaceIdMigrations]);
   const overlay = useMemo((): OverlayState => ({ paletteOpen, paletteSession, switcherOpen, switcherSession }), [paletteOpen, paletteSession, switcherOpen, switcherSession]);
   return (
     <AppContext.Provider value={value}>

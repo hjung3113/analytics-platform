@@ -3,6 +3,8 @@ export { useDrill, type DrillInvalid, type DrillLevelState, type DrillState, typ
 export { contractErrorSentence, errorGuidance, I18nProvider, invalidValueSentence, objectParticle, queryMissingSentence, topicParticle, useI18n, type ErrorGuidance, type Key, type Lang, type Text } from './i18n';
 export { classifyMetricInit, type MetricInit } from './registry/metric-init';
 export { RETURN_CONTEXT_LABELS, PlatformLink, PlatformProvider, usePlatform, usePlatformOptional, useRecentVisits, type MenuPlatform, type FeedbackOpsEntry, type FeedbackOpsSlot, type HomeTodoSlot, type LinkOptions, type LinkResolution, type NavCountsSlot, type NotificationsSlot, type PlannedSpace, type PlatformSlots, type Recent, type ReturnContextKey, type ReturnOrigin, type ScopeControlSlot, type SpaceNavSectionSlot, type ScopeState, type Toast, type ToastAction, type ToastOptions, type VocComposeContext, type VocComposeContextItem, type VocComposeProps, type VocComposeSlot } from './platform/platform';
+export { useSavedViewSupport, diagnoseSavedView } from './saved-view';
+export type { DiagnoseCode, DiagnoseContext, DiagnoseReason, Migration, SavedViewDiagnosis } from './saved-view';
 export { useMenuAction, type MenuActionState } from './query/action';
 export { useEntityAudit, useEntityQuery, useMenuFetch, useMenuQuery, usePlatformQuery, type AuditMore, type AuditMoreError, type AuditMoreLast, type AuditMoreStatus, type MenuFetch, type QueryState, type RequestState } from './query/query';
 export {
