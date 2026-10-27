@@ -882,6 +882,56 @@ test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
     await expect(groups(page)).toHaveCount(4);
     await expect(paneTabs(page)).toHaveCount(5);
   });
+  test('좁은 띠에서 배경 탭은 뒤에서부터 하나씩 배지가 되고 활성 탭은 이름을 지킨다 (#978 UX-4, docs/16 §4 ②)', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await signInWithDockBoard(page, [populated('dock', '2x2', 4)]);
+    await dockReady(page, 4);
+    // Below 692px every pane is one tab group of four tabs (a fifth already needs every background tab shrunk at the widest single-group width).
+    await page.setViewportSize({ width: 680, height: 900 });
+    await expect(groups(page)).toHaveCount(1);
+    const tabs = page.locator('[data-dock-layout] .dv-tab');
+    await expect(tabs).toHaveCount(4);
+    await expect(page.locator('[data-dock-layout] [data-pane-body] [role="status"][aria-busy]')).toHaveCount(0);
+    const marks = async () => tabs.evaluateAll(list => list.map(tab => ({
+      compact: tab.hasAttribute('data-dock-tab-compact'), active: tab.classList.contains('dv-active-tab'),
+    })));
+    const compactCount = async () => (await marks()).filter(tab => tab.compact).length;
+    // Step the viewport down in 8px steps; the counts must never decrease while narrowing, .
+    const seen: number[] = [];
+    const log: string[] = [];
+    for (let width = 680; width >= 360; width -= 8) {
+      await page.setViewportSize({ width, height: 900 });
+      await expect(groups(page)).toHaveCount(1);
+      await page.waitForTimeout(120);
+      const count = await compactCount();
+      seen.push(count);
+      log.push(`${width}px: ${count}`);
+    }
+    const report = `compact counts seen: ${log.join(', ')}`;
+    const background = (await marks()).filter(tab => !tab.active).length;
+    expect(seen.every((count, n) => n === 0 || count >= seen[n - 1]!), report).toBe(true);
+    // The 4-tab fixture has no partial width: a strip under 692px is ~600px wide, one background tab shrunk still needs ~730px, so the count goes 0 → all at
+    // the pure-function level (PaneHeader.tabs*.test.ts pins 0 → 1 → 2 → 3). Here: compacting is never undone by narrowing, and it has happened by 680px.
+    expect(seen.at(-1)!, report).toBe(background);
+    expect(seen.every(count => count === 0 || count <= background), report).toBe(true);
+    await page.setViewportSize({ width: 688, height: 900 });
+    await expect.poll(compactCount).toBeLessThanOrEqual(seen[0]!);
+    await page.setViewportSize({ width: 360, height: 900 });
+    await expect.poll(compactCount).toBe(background);
+    const state = await marks();
+    const shrunk = state.filter(tab => tab.compact).length;
+    // The active tab never shrinks; the shrunk background tabs are the last ones, as a block.
+    expect(state.filter(tab => tab.active && tab.compact)).toHaveLength(0);
+    const bg = state.filter(tab => !tab.active);
+    expect(bg.map(tab => tab.compact)).toEqual(bg.map((_, n) => n >= bg.length - shrunk));
+    // Rendered, not only marked: a compact tab's name takes no width, the active tab's name shows, and every tab keeps its accessible name.
+    for (let n = 0; n < state.length; n++) {
+      const tab = tabs.nth(n);
+      const name = tab.locator('[data-dock-tab-shrinkable]');
+      if (state[n]!.compact) await expect(name).toBeHidden(); else if (state[n]!.active) await expect(name).toBeVisible();
+      await expect(paneTabs(page).nth(n), `tab ${n + 1} keeps an accessible name`).toHaveAccessibleName(/칸 \d+/);
+    }
+  });
   test('4개 영역일 때 탭을 다른 영역 가장자리에 끌면 분할 미리보기가 없고 가운데에는 있다 (#978 UX-2)', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await signInWithDockBoard(page, [populated('dock', '2x2', 4)]);

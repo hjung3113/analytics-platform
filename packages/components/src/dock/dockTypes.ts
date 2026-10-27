@@ -51,7 +51,7 @@ export type DockLayoutProps = {
    * carries `data-dock-group-menu`: Shift+F10, the ContextMenu key and a right-click on a tab activate that tab (through `onActivate`), then
    * open it with the keyboard, so its first item has focus (a `keydown` for Radix `DropdownMenuTrigger`, otherwise a `click`).
    *
-   * Hooks on the content (plain attributes, CSS only): `data-dock-compact` anywhere in the slot collapses the parts of background tabs marked
+   * Hooks on the content (plain attributes, CSS only): a tab element the host marks `data-dock-tab-compact` (background tabs only) collapses its parts marked
    * `data-dock-tab-shrinkable` (the action marked `data-dock-tab-action` shows on hover and focus only); `data-dock-wrap` moves the slot to its
    * own row under the tabs; `data-dock-selected` gives the whole strip the host's selection surface and bar.
    */

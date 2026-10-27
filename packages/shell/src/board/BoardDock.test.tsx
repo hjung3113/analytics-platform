@@ -977,6 +977,23 @@ describe('dock renderer: the head narrows against its tabs at 340px (docs/16 §4
     }
   });
 
+  it('#978e: with four tabs a narrow strip shrinks only as many background tabs as it must, from the back; the active tab keeps its name', async () => {
+    const id = seedGroup(4, 4);
+    measure(700);
+    mount(`/board?sheet=${id}`);
+    await ready();
+    const tabs = () => Array.from(document.querySelectorAll<HTMLElement>('.dv-tab'));
+    await waitFor(() => { expect([tabs().length, head().getAttribute('data-dock-compact'), tabs().filter(t => t.hasAttribute('data-dock-tab-compact')).length]).toEqual([4, '1', 1]); });
+    const marks = tabs().map(t => t.hasAttribute('data-dock-tab-compact'));
+    const shrunk = marks.filter(Boolean).length;
+    expect(shrunk).toBeLessThan(3);
+    // Taken from the back: the compact ones are the last background tabs, the first tab (active) is never one.
+    expect(marks).toEqual([false, ...Array.from({ length: 3 }, (_, n) => n >= 3 - shrunk)]);
+    expect(head().getAttribute('data-dock-compact')).toBe(String(shrunk));
+    expect(head().hasAttribute('data-dock-wrap')).toBe(false);
+    expect(tabs()[0]!.querySelector('[data-dock-tab-shrinkable]')?.textContent).toBeTruthy();
+  });
+
   it('U4: the head\'s icon buttons (maximize, ⋯) are 28px', async () => {
     const id = seedGroup(3, 1);
     mount(`/board?sheet=${id}`);

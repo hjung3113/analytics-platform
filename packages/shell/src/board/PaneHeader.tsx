@@ -48,41 +48,92 @@ const TAB_FLOOR = 136;
 const TAB_FLOOR_COMPACT = 46;
 const TAB_NAME_MIN = 64;
 const DOCK_PADDING = 4;
+/** Set on a background tab that shows its badge only (dock.css). */
+const COMPACT_TAB = 'data-dock-tab-compact';
 /** The strip's icon buttons are 28px (docs/16 §4.4); the grid head keeps `icon-sm`. */
 const DOCK_ICON = 'size-7';
 export type DockStrip = { width: number; tabs: number };
 
+/** What one tab needs at the least: `full` (badge, action, name down to 64px) and, as a background tab, `badge` (badge and padding only). */
+export type TabFloor = { full: number; badge: number; active: boolean };
+
+/** The last full floor measured on each tab while it was expanded, with the title it was measured for. A compact tab's name has no width, so its full floor comes from here. */
+const measuredFull = new WeakMap<HTMLElement, { title: string; full: number }>();
+
 /**
  * What the strip's tabs need at the least, measured on the tabs themselves (the constants above are the spec's, used where the DOM has no size):
- * a tab keeps its badge, its action and its name down to 64px; a background tab in `compact` keeps its badge and padding only. A tab whose name is
- * hidden (it is compact now) says nothing about its full floor, so the constant stands in.
+ * a tab keeps its badge, its action and its name down to 64px; a background tab that is compact keeps its badge and padding only. A tab whose name is
+ * hidden (it is compact now) says nothing new about its full floor, so the one last measured while it was expanded stands in (the constant when it
+ * never was, or when its title changed since). The decision is thus a function of the expanded measurements, not of the previous marks.
  */
-function tabFloors(strip: HTMLElement | null, compact: boolean): number[] {
+export function tabFloors(strip: HTMLElement | null): TabFloor[] {
   const width = (item: Element) => item.getBoundingClientRect().width;
   return Array.from(strip?.querySelectorAll<HTMLElement>('.dv-tab') ?? []).map(tab => {
     const active = tab.classList.contains('dv-active-tab');
-    const fallback = active || !compact ? TAB_FLOOR : TAB_FLOOR_COMPACT;
+    const compact = tab.hasAttribute(COMPACT_TAB) && !active;
+    const title = tab.textContent ?? '';
+    const remembered = () => { const known = measuredFull.get(tab); return known && known.title === title ? known.full : TAB_FLOOR; };
     const own = width(tab);
-    if (own <= 0) return fallback;
-    if (compact && !active) {
-      const badge = tab.querySelector('[data-pane-badge]');
-      const style = getComputedStyle(tab);
-      const padding = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
-      return badge && width(badge) > 0 && padding > 0 ? width(badge) + padding : fallback;
-    }
+    if (own <= 0) return { full: remembered(), badge: TAB_FLOOR_COMPACT, active };
+    const badge = tab.querySelector('[data-pane-badge]');
+    const style = getComputedStyle(tab);
+    const padding = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+    const badgeFloor = badge && width(badge) > 0 && padding > 0 ? width(badge) + padding : TAB_FLOOR_COMPACT;
+    if (compact) return { full: remembered(), badge: badgeFloor, active };
     const name = tab.querySelector('[data-dock-tab-shrinkable]');
     const nameWidth = name ? width(name) : 0;
-    return name && nameWidth <= 0 ? fallback : own - Math.max(0, nameWidth - TAB_NAME_MIN);
+    if (name && nameWidth <= 0) return { full: remembered(), badge: badgeFloor, active };
+    // The name never goes under its own 64px (min-w-16), so a crushed tab shows as its content overflowing the box that holds it: the tab's need is its
+    // width plus what the content overflows by, never the squeezed width alone.
+    const content = name?.parentElement;
+    const overflow = content ? Math.max(0, content.scrollWidth - content.clientWidth) : 0;
+    const full = own - Math.max(0, nameWidth - TAB_NAME_MIN) + overflow;
+    measuredFull.set(tab, { title, full });
+    return { full, badge: badgeFloor, active };
   });
+}
+
+/** The strip's width minus what its tabs need when the last `count` background tabs show their badge only. */
+export function tabRoom(floors: readonly TabFloor[], width: number, count: number): number {
+  let left = count;
+  let used = 0;
+  for (let i = floors.length - 1; i >= 0; i--) {
+    const tab = floors[i]!;
+    if (!tab.active && left > 0) { left--; used += tab.badge; } else used += tab.full;
+  }
+  return width - used;
+}
+
+/**
+ * How many background tabs go down to their badge, taken from the back one at a time (docs/16 §4 ②): the least `count` for which `fits` is true of
+ * the room the tabs leave, or all of them when none is enough (the next steps take over). The active tab never shrinks. Pure and monotone in
+ * `count`, so the same strip gives the same count however often it is measured.
+ */
+export function compactTabCount(floors: readonly TabFloor[], width: number, fits: (room: number) => boolean): number {
+  const background = floors.reduce((n, tab) => n + (tab.active ? 0 : 1), 0);
+  for (let count = 0; count < background; count++) if (fits(tabRoom(floors, width, count))) return count;
+  return background;
+}
+
+/** Which tab elements are compact: the last `count` background tabs of the strip (set on the tab, read by dock.css). */
+export function markCompactTabs(strip: HTMLElement | null, count: number) {
+  let left = count;
+  const tabs = Array.from(strip?.querySelectorAll<HTMLElement>('.dv-tab') ?? []);
+  for (let i = tabs.length - 1; i >= 0; i--) {
+    const tab = tabs[i]!;
+    const mark = !tab.classList.contains('dv-active-tab') && left > 0;
+    if (mark) left--;
+    tab.toggleAttribute(COMPACT_TAB, mark);
+  }
 }
 
 /**
  * How many difference chips fit in the head. Measurements happen after layout, and a zero-width first paint shows all chips. In the dock the
  * head is the active pane's slot in its group's strip, so the room is the strip minus what the tabs need, narrowed in the order of docs/16 §4:
- * tab names to their minimum (CSS), background tabs to their badge (`compact`), chips into `+N`, last the slot on a row of its own (`wrap`).
+ * tab names to their minimum (CSS), background tabs to their badge, from the back (`compactCount`), chips into `+N`, last the slot on a row of its own (`wrap`).
  */
 function useVisibleChips(head: RefObject<HTMLDivElement | null>, count: number, signature: string, sameCount: number, nameMin: number, nameMinSqueezed: number, strip: DockStrip | null) {
-  const [layout, setLayout] = useState({ visible: count, overflow: false, compact: false, wrap: false });
+  const [layout, setLayout] = useState({ visible: count, overflow: false, compactCount: 0, wrap: false });
   const inDock = strip !== null;
   const stripWidth = strip?.width ?? 0;
   const tabs = strip?.tabs ?? 0;
@@ -91,7 +142,7 @@ function useVisibleChips(head: RefObject<HTMLDivElement | null>, count: number, 
     if (!element) return;
     const measure = () => {
       const width = inDock ? stripWidth : element.getBoundingClientRect().width;
-      if (width <= 0 || (count === 0 && !inDock)) { setLayout({ visible: count, overflow: false, compact: false, wrap: false }); return; }
+      if (width <= 0 || (count === 0 && !inDock)) { setLayout({ visible: count, overflow: false, compactCount: 0, wrap: false }); return; }
       const widthOf = (selector: string) => Array.from(element.querySelectorAll<HTMLElement>(selector)).map(item => item.getBoundingClientRect().width);
       const fixed = widthOf('[data-head-fixed]').reduce((sum, w) => sum + w, 0);
       const [more = 0] = widthOf('[data-chip-measure="more"]');
@@ -99,26 +150,21 @@ function useVisibleChips(head: RefObject<HTMLDivElement | null>, count: number, 
       const input = { padding: inDock ? DOCK_PADDING : HEAD_PADDING, fixed, chips: widthOf('[data-chip-measure="chip"]'), more, same, sameCount, nameMin, nameMinSqueezed };
       if (!inDock) {
         const fit = fitChips({ ...input, width });
-        setLayout({ visible: fit.visible, overflow: fit.overflow, compact: false, wrap: false });
+        setLayout({ visible: fit.visible, overflow: fit.overflow, compactCount: 0, wrap: false });
         return;
       }
       const stripElement = element.closest<HTMLElement>('.dv-tabs-and-actions-container');
-      const roomFor = (compact: boolean) => {
-        const floors = tabFloors(stripElement, compact);
-        // The strip lists as many tabs as the group has; a count that disagrees (first paint) falls back to the spec's constants.
-        const used = floors.length === tabs ? floors.reduce((sum, w) => sum + w, 0)
-          : compact ? TAB_FLOOR + TAB_FLOOR_COMPACT * Math.max(0, tabs - 1) : TAB_FLOOR * tabs;
-        return width - used;
-      };
-      let compact = false;
+      const floors = tabFloors(stripElement);
+      // The strip lists as many tabs as the group has; a count that disagrees (first paint) falls back to the spec's constants.
+      const known: TabFloor[] = floors.length === tabs ? floors
+        : Array.from({ length: tabs }, (_, i) => ({ full: TAB_FLOOR, badge: TAB_FLOOR_COMPACT, active: i === 0 }));
+      const fitsAt = (room: number) => { const f = fitChips({ ...input, width: room }); return !f.overflow && !f.tight; };
+      const compactCount = compactTabCount(known, width, fitsAt);
       let wrap = false;
-      let fit = fitChips({ ...input, width: roomFor(false) });
-      if (fit.overflow || fit.tight) {
-        compact = tabs > 1;
-        fit = fitChips({ ...input, width: roomFor(true) });
-        if (fit.tight) { wrap = true; fit = fitChips({ ...input, width }); }
-      }
-      setLayout(previous => (previous.visible === fit.visible && previous.overflow === fit.overflow && previous.compact === compact && previous.wrap === wrap ? previous : { visible: fit.visible, overflow: fit.overflow, compact, wrap }));
+      let fit = fitChips({ ...input, width: tabRoom(known, width, compactCount) });
+      if (fit.tight) { wrap = true; fit = fitChips({ ...input, width }); }
+      markCompactTabs(stripElement, compactCount);
+      setLayout(previous => (previous.visible === fit.visible && previous.overflow === fit.overflow && previous.compactCount === compactCount && previous.wrap === wrap ? previous : { visible: fit.visible, overflow: fit.overflow, compactCount, wrap }));
     };
     measure();
     if (typeof ResizeObserver === 'undefined') return;
@@ -127,7 +173,7 @@ function useVisibleChips(head: RefObject<HTMLDivElement | null>, count: number, 
     for (const target of [element, ...element.querySelectorAll('[data-head-fixed], [data-chip-measure]'), ...(inDock ? element.closest('.dv-tabs-and-actions-container')?.querySelectorAll('.dv-tab') ?? [] : [])]) observer.observe(target);
     return () => observer.disconnect();
   }, [head, count, signature, sameCount, nameMin, nameMinSqueezed, inDock, stripWidth, tabs]);
-  return { visible: Math.min(layout.visible, count), overflow: count > 0 && layout.overflow, compact: layout.compact, wrap: layout.wrap };
+  return { visible: Math.min(layout.visible, count), overflow: count > 0 && layout.overflow, compactCount: layout.compactCount, wrap: layout.wrap };
 }
 
 export type PaneHeaderProps = {
@@ -216,7 +262,7 @@ export function PaneHeader(props: PaneHeaderProps) {
   const signature = chips.map(c => `${c.key}:${c.value}`).join('|');
   const sameCount = signal ? (signal.compared ? signal.same.length : signal.rows.length) : 0;
   // The dock fits the summary button whether or not there are differing chips; the grid only has one to fit next to chips.
-  const { visible: visibleCount, overflow, compact, wrap } = useVisibleChips(head, chips.length, signature, dock ? (active ? sameCount : 0) : signal?.compared ? signal.same.length : 0, dock ? 0 : MENU_NAME_MIN_WIDTH, dock ? 0 : MENU_NAME_MIN_WIDTH_SQUEEZED, dock ? props.strip ?? null : null);
+  const { visible: visibleCount, overflow, compactCount, wrap } = useVisibleChips(head, chips.length, signature, dock ? (active ? sameCount : 0) : signal?.compared ? signal.same.length : 0, dock ? 0 : MENU_NAME_MIN_WIDTH, dock ? 0 : MENU_NAME_MIN_WIDTH_SQUEEZED, dock ? props.strip ?? null : null);
   const shown = chips.slice(0, visibleCount);
   const hiddenDifferences = chips.length - shown.length;
   const hidden = overflow ? hiddenDifferences + (signal?.compared ? signal.same.length : 0) : 0;
@@ -225,7 +271,7 @@ export function PaneHeader(props: PaneHeaderProps) {
   const open = (event: { currentTarget: HTMLElement }) => { onSelect(); lastTrigger.current = event.currentTarget; setPopover(true); };
 
   const dockProps = dock ? {
-    role: 'group', 'aria-label': text.paneHead(number), 'data-dock-selected': selected ? '' : undefined, 'data-dock-compact': compact ? '' : undefined, 'data-dock-wrap': wrap ? '' : undefined,
+    role: 'group', 'aria-label': text.paneHead(number), 'data-dock-selected': selected ? '' : undefined, 'data-dock-compact': compactCount > 0 ? compactCount : undefined, 'data-dock-wrap': wrap ? '' : undefined,
   } : {};
   const hasContentMenu = active || props.onClosePane;
   // A menu workspace in this pane draws no toolbar and offers its commands here (ADR-0067 decision 3).
