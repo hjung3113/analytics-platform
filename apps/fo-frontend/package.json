@@ -32,6 +32,8 @@
     "./operator-screens/admin-search": "./src/operator-screens/admin-search/index.ts",
     "./operator-screens/permission-requests": "./src/operator-screens/permission-requests/index.ts",
     "./operator-screens/permission-grants": "./src/operator-screens/permission-grants/index.ts",
+    "./operator-screens/managed-systems": "./src/operator-screens/managed-systems/index.ts",
+    "./operator-screens/settings": "./src/operator-screens/settings/index.ts",
     "./operator-screens/integration-search": "./src/operator-screens/integration-search/index.ts",
     "./operator-screens/findings": "./src/operator-screens/findings/index.ts",
     "./operator-screens/voc-triage": "./src/operator-screens/voc-triage/index.ts",

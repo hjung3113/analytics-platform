@@ -22,7 +22,7 @@ import {
   IntegrationCoverageRouteShell,
   integrationCoverageSearchSchema,
 } from '../../../../routes/_authed/integration/coverage';
-import { WorkspaceSettingsForm } from '../WorkspaceSettingsScreen.js';
+import { WorkspaceSettingsForm, WorkspaceSettingsScreen } from '../WorkspaceSettingsScreen.js';
 import type { WorkspaceSettings } from '../use-workspace-settings.js';
 
 const apiClientMock = vi.hoisted(() => vi.fn());
@@ -240,6 +240,37 @@ describe('WorkspaceSettingsForm Coverage bands (#1088)', () => {
 
       expect(document.getElementById('coverage')).not.toBeNull();
       expect(scrollSpy).toHaveBeenCalled();
+    } finally {
+      window.location.hash = originalHash;
+      scrollSpy.mockRestore();
+    }
+  });
+
+  test('waits for settings data, then follows only coverage section changes', async () => {
+    const scrollSpy = vi.spyOn(Element.prototype, 'scrollIntoView');
+    const originalHash = window.location.hash;
+    window.location.hash = '';
+    apiClientMock.mockReset().mockResolvedValue(patchResponse(settingsWith()));
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const screenFor = (section: string | null | undefined) => (
+      <QueryClientProvider client={queryClient}>
+        <WorkspaceSettingsScreen {...(section === undefined ? {} : { section })} />
+      </QueryClientProvider>
+    );
+
+    try {
+      const view = render(screenFor('other'));
+      await screen.findByTestId('coverage-band-value-voc-task');
+      expect(scrollSpy).not.toHaveBeenCalled();
+
+      view.rerender(screenFor('coverage'));
+      expect(scrollSpy).toHaveBeenCalledTimes(1);
+
+      view.rerender(screenFor('other'));
+      expect(scrollSpy).toHaveBeenCalledTimes(1);
+
+      view.rerender(screenFor('coverage'));
+      expect(scrollSpy).toHaveBeenCalledTimes(2);
     } finally {
       window.location.hash = originalHash;
       scrollSpy.mockRestore();
