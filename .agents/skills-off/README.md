@@ -1,9 +1,10 @@
-# 꺼 둔 스킬
+# Disabled Skills
 
-여기 있는 스킬은 로딩 경로(`.agents/skills`, `.claude/skills` 심링크) 밖에 보관한다. 지우지 않았고, 다시 쓰려면 `git mv .agents/skills-off/<name> .agents/skills/`로 되돌린다.
+Keep the skills here outside the loading paths (`.agents/skills` and the `.claude/skills` symlink). They are not deleted; restore a skill with `git mv .agents/skills-off/<name> .agents/skills/`.
 
-근거: 2026-09-28..10-05 세션 분석에서 명시적 호출 0회(`.review/skill-candidates-sol.md`). 다른 스킬·문서가 호출하는 후보(`frontend-design`, `design-deslop`·`design-review` 명령)는 끄지 않았다. 2026-10-15에 `to-spec`·`to-tickets`·`triage`는 전역으로 옮기고 `ui-styling`은 지웠다.
+These copies remain available for conditional reactivation without loading by default. Keep candidates called by other skills or documents enabled (`frontend-design`, and the `design-deslop` and `design-review` commands).
 
-| 스킬 | 메모 |
+| Skill | Note |
 | --- | --- |
-| `fastapi`, `supabase-postgres-best-practices` | 외부 공식 사본(#162). **#155(사내 FastAPI 서버) 착수 때 다시 켠다.** |
+| `fastapi`, `supabase-postgres-best-practices` | External official copies (#162). **Re-enable when work on #155 (internal FastAPI server) begins.** |
+

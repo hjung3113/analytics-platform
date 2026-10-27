@@ -12,4 +12,4 @@ conditions:
     pattern: '[가-힣ᄀ-ᇿ㄰-㆏]'
 ---
 
-Write this file in English. Memory files, FeedbackOps AGENTS.md/CLAUDE.md and the fo-* rules are agent-facing docs and must be written in English regardless of the conversation language (user directive, 2026-09-27). Translate any quote (including an owner's Korean sentence) into English and retry the write to the same file; do not move the note to another file such as HANDOFF.md.
+Write this file in English. Memory files, FeedbackOps AGENTS.md/CLAUDE.md, and fo-* rules are agent-facing documents and must be written in English regardless of the conversation language. Translate all quoted text, including a Korean sentence from the owner, then retry writing the same file. Do not move the note to another file such as HANDOFF.md.

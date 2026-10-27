@@ -1,92 +1,92 @@
-# 에이전트 운영 메모
+# Agent Operations Reference
 
-여러 세션에서 실제로 부딪힌 함정과 우회법이다. 규칙이 아니라 참고다 — 작업 규칙은 루트 [`AGENTS.md`](../../AGENTS.md), 남은 일은 [`.planning/README.md`](../../.planning/README.md).
+This document records operational traps and workarounds from running sessions. These are reference notes, not rules. Work rules are in the root `AGENTS.md`; open work is in [`.planning/README.md`](../../.planning/README.md).
 
-## 작업자(codex) 샌드박스
+## Worker (Codex) Sandbox
 
-`codex … -s workspace-write`로 띄운 작업자는 다음을 못 한다. 코디네이터가 대신한다.
+Workers launched with `codex … -s workspace-write` cannot perform the following actions. The coordinator handles them.
 
-| 못 하는 것 | 대신 |
+| Worker cannot | Coordinator action |
 | --- | --- |
-| 네트워크(`gh`, 패키지 레지스트리) | 이슈 본문을 `.review/<n>-issue.md` 같은 파일로 넣어 준다. lockfile이 바뀌는 설치는 코디네이터가 먼저 한다 |
-| 워크트리 밖 `.git` 쓰기 → 커밋 | 코디네이터가 커밋한다 |
-| 포트 열기 → dev 서버·E2E·화면 캡처 | 코디네이터가 Playwright로 돌린다 |
-| `.agents/` 쓰기 | 코디네이터가 고친다 |
+| Use the network (`gh`, package registries) | Provide the issue body in a file such as `.review/<n>-issue.md`. The coordinator installs dependencies first when installation changes the lockfile. |
+| Write to `.git` outside the worktree → commit | The coordinator commits. |
+| Open ports → start dev servers, E2E, or capture screens | The coordinator runs Playwright. |
+| Write to `.agents/` | The coordinator edits these files. |
 
-- 작업자에게는 `pnpm --config.verify-deps-before-run=false --filter <pkg> run <script>`만 맡긴다. 작업자가 `.pnpm-store/`를 만들면 지운다.
-- 이슈 하나를 작업자에게 맡기는 전체 절차는 전역 `issue-wave-conductor` 스킬이고, 이 레포의 부분은 [conductor profile](../../.agents/conductor/PROFILE.md)과 설정 [`conductor.json`](../../.agents/conductor/conductor.json)이다. 공통 도구(`launch-worker`·`review-plan`·`worker-hygiene`·`wave-status`)와 구현 작업자·코드 리뷰어 규칙의 공통본은 전역 스킬(`~/.agents/skills/issue-wave-conductor/{scripts,templates}`)에 있고, 이 레포의 덧붙임은 [`.agents/conductor/addenda/`](../../.agents/conductor/addenda/)다(#394). 작업자에게는 둘을 합친 규칙이 worktree `.review/00-IMPL-RULES.md`로 간다.
-- 작업자가 쓴 E2E는 실행해 보지 못하고 쓴 것이라 첫 실행에서 자주 깨진다(mock에 없는 값, primitive 기본값 추정, Radix 동작). E2E는 `cd apps/platform-e2e && pnpm exec playwright test -g "<describe 이름>"`으로 새 테스트만 먼저 돌린다.
-- 테스트를 고치는 라운드에는 `pnpm --filter <pkg> typecheck`도 넣는다 — vitest는 타입을 보지 않는다.
-- 스펙에 ADR 형식을 그대로 적어 준다(영어 예시를 주면 그대로 베낀다). 형식은 [`docs/adr/README.md`](../adr/README.md).
-- 읽기 전용 리뷰어는 dispatch 없이 첫 프롬프트로 띄우는 게 간단하다: `orca terminal create --worktree path:<repo> --command "codex --model <m> -c model_reasoning_effort=<e> -s workspace-write -a never 'Read .review/<n>-review-spec.md and follow it exactly.'"` → 상태 표시줄에서 모델·effort 확인 → 보고서 파일의 끝 표시(sentinel)와 작업자 프로세스 종료를 함께 보는 `worker-wait.sh`를 백그라운드로 건다(sentinel만 기다리는 대기는 쓰지 않는다, LANES §기계 자원). GitHub 상태가 필요하면 `gh` 결과를 `.review/`에 스냅샷으로 넣어 준다(샌드박스는 네트워크 없음).
+- Assign workers only `pnpm --config.verify-deps-before-run=false --filter <pkg> run <script>`. Delete `.pnpm-store/` if a worker creates it.
+- Follow the global `issue-wave-conductor` skill for the full process of assigning an issue. This repository's part is in the [conductor profile](../../.agents/conductor/PROFILE.md) and [`conductor.json`](../../.agents/conductor/conductor.json). The shared tools (`launch-worker`, `review-plan`, `worker-hygiene`, `wave-status`) and shared implementation-worker and code-reviewer rules are in the global skill (`~/.agents/skills/issue-wave-conductor/{scripts,templates}`). Repository additions are in [`.agents/conductor/addenda/`](../../.agents/conductor/addenda/). The combined rules go to workers as `.review/00-IMPL-RULES.md` (#394).
+- Worker-authored E2E tests often fail on their first run because of missing mock values, assumptions about primitive defaults, or Radix behavior. Run only the new tests first: `cd apps/platform-e2e && pnpm exec playwright test -g "<describe name>"`.
+- In a test-fix round, also run `pnpm --filter <pkg> typecheck`; vitest does not check types.
+- Provide the ADR format in the specification (for example, give an English example to copy). The format is in [`docs/adr/README.md`](../adr/README.md).
+- Start a read-only reviewer with the first prompt and no dispatch: `orca terminal create --worktree path:<repo> --command "codex --model <m> -c model_reasoning_effort=<e> -s workspace-write -a never 'Read .review/<n>-review-spec.md and follow it exactly.'"`. Confirm the model and effort in the status bar. Run `worker-wait.sh` in the background to wait for both the report sentinel and worker-process exit; do not wait for the sentinel alone (LANES §Machine resources (16 GB)). If GitHub status is needed, provide a snapshot of the `gh` result in `.review/`; the sandbox has no network access.
 
-## 메모리(16GB 머신)
+## Memory (16 GB Machine)
 
-- vitest 워커 수는 환경 변수로 2개로 묶는다(`VITEST_MAX_WORKERS`·`VITEST_MAX_FORKS`·`VITEST_MAX_THREADS`=2, `VITEST_MIN_FORKS`·`VITEST_MIN_THREADS`=1 — 이 Mac은 `~/.zshenv`, 작업자 실행기는 `workerops.py`가 넣는다). 상한이 없으면 실행 하나가 CPU 수만큼(9개, 약 19GiB) jsdom 워커를 띄워 2026-10-14에 macOS가 프로세스를 강제 종료했다. 수를 바꾸려면 환경 변수를 준다 — 변수가 있으면 `--maxWorkers` 플래그는 무시되고, `pnpm run test -- --maxWorkers=2`처럼 `--` 뒤에 둔 플래그는 변수가 없어도 파일 필터가 되어 무시된다. 루트 `pnpm test`의 패키지 동시 실행은 루트 `turbo.json`의 `"concurrency": "2"`가 이미 2개로 묶는다(패키지 2개 × 워커 2) — 명령줄에 `--concurrency=2`를 따로 줄 필요가 없다(#166 이후 설정이 상한이고, 줘도 같은 값이라 무해하다, #945). turbo는 strict env 모드라 이 변수들을 `turbo.json` `globalPassThroughEnv`에 둔다(빠지면 루트 `pnpm test`에서 상한이 사라진다).
-- 작업자는 패키지 범위 검사만 한다. 루트 `pnpm test`/`build`/`e2e`는 코디네이터가 순서대로 한 번씩 돌린다.
-- 작업자가 죽거나 Orca 런타임이 재시작되면 남은 vitest(부모 PID 1)를 찾아 정리한다: `pgrep -fl vitest`, `lsof -a -p <pid> -d cwd`.
-- 자기 검사를 멈출 때는 자기 프로세스만 끝낸다: 백그라운드 작업 ID나 `$!`, 또는 cwd가 자기 worktree인 PID(`lsof -a -p <pid> -d cwd`)만 끝낸다. `pkill -f "turbo run"`처럼 명령 이름으로 끝내면 같은 기계에서 도는 다른 세션의 검사도 함께 죽는다(2026-10-26).
+- Limit Vitest to 2 workers with these environment variables: `VITEST_MAX_WORKERS=2`, `VITEST_MAX_FORKS=2`, `VITEST_MAX_THREADS=2`, `VITEST_MIN_FORKS=1`, and `VITEST_MIN_THREADS=1`. This protects a 16 GB machine from memory pressure: without a cap, a run can start 9 jsdom workers using about 19 GiB. The variables are set in `~/.zshenv` and by the worker runner `workerops.py`. Set the environment variables to change the count. When they are set, the `--maxWorkers` flag is ignored; without them, a flag after `--` is treated as a file filter and ignored, as in `pnpm run test -- --maxWorkers=2`.
+- Root `pnpm test` already runs two packages concurrently through `"concurrency": "2"` in the root `turbo.json` (2 packages × 2 workers). Do not add `--concurrency=2`; the configured cap is sufficient and repeating the same value is harmless (#166, #945). Turbo uses strict environment mode, so add these variables to `turbo.json` `globalPassThroughEnv`; otherwise the root `pnpm test` loses the cap.
+- Workers run package-scoped checks only. The coordinator runs root `pnpm test`, `build`, and `e2e` once each, in order.
+- If a worker exits or the Orca runtime restarts, find and clean up leftover vitest processes (parent PID 1): `pgrep -fl vitest`, `lsof -a -p <pid> -d cwd`.
+- Stop only your own checks: use the background job ID or `$!`, or a PID whose cwd is your worktree (`lsof -a -p <pid> -d cwd`). Do not stop by command name with `pkill -f "turbo run"`; that can also stop checks in other sessions on the same machine.
 
-## 새 worktree와 pnpm
+## New Worktrees and pnpm
 
-- `orca worktree create --setup run|skip`은 의존성을 설치하지 않는다 → `pnpm install --frozen-lockfile --config.optimistic-repeat-install=false`. 기본으로 생기는 셸 탭은 닫는다.
-- pnpm 11은 설정(`pnpm-workspace.yaml`)만 바뀌면 "Already up to date"로 건너뛴다 → `pnpm install --config.optimistic-repeat-install=false`.
-- FeedbackOps(`apps/fo-*`·`packages/fo-*`)는 루트 workspace의 일부다(ADR-0066, #642): 루트 `pnpm install` 한 번이 FeedbackOps도 설치하고 lockfile은 하나다. 루트 `lint|typecheck|test|build`는 `--filter='!@fops/*' --filter='!feedbackops'`로 FeedbackOps를 뺀다([저장소 구조](../integration/repository-layout.md)). 가드 `.github/scripts/check-platform-turbo-scope.mjs`는 `@fops/*` 패키지가 루트 작업 그래프에 들어오지 않았는지 확인한다. 의존 패키지 해시는 스크립트 없는 `transit` 태스크가 전파하고(#390), `--only`는 의존 해시까지 지워 로컬 캐시가 CI를 못 따라가게 하므로(#388) 쓰지 않는다.
+- `orca worktree create --setup run|skip` does not install dependencies → run `pnpm install --frozen-lockfile --config.optimistic-repeat-install=false`. Close the default shell tab.
+- With pnpm 11, changing only `pnpm-workspace.yaml` makes `pnpm install` skip with `Already up to date` → run `pnpm install --config.optimistic-repeat-install=false`.
+- FeedbackOps (`apps/fo-*`, `packages/fo-*`) is part of the root workspace (ADR-0066, #642): one root `pnpm install` also installs FeedbackOps, and there is one lockfile. Root `lint`, `typecheck`, `test`, and `build` exclude FeedbackOps with `--filter='!@fops/*' --filter='!feedbackops'` ([repository structure](../integration/repository-layout.md)). The guard `.github/scripts/check-platform-turbo-scope.mjs` checks that `@fops/*` packages are not in the root task graph. The script-free `transit` task propagates dependency hashes (#390). Do not use `--only`: it also clears dependency hashes, so the local cache cannot match CI (#388).
+- Run the documentation-link check directly with `node .github/scripts/check-doc-links.mjs` if needed (`products/` is excluded from the check).
 
-- 문서 링크 검사는 `node .github/scripts/check-doc-links.mjs`로 직접 돌려도 된다(`products/`는 검사에서 제외된다).
+## macOS Shell (zsh and BSD)
 
-## macOS 셸(zsh·BSD)
+The shared list is rule 8 in the global worker rules, `templates/impl-rules.md` (`sed -i ''`, no `\|`, no `head -n -N`, zsh `$pipestatus`, quote path variables, and use `<<'EOF'` for multiline or backtick text).
 
-공통 목록은 전역 작업자 규칙 `templates/impl-rules.md` 8번(`sed -i ''`, `\|` 없음, `head -n -N` 없음, zsh `$pipestatus`, 경로 변수 따옴표, 여러 줄·백틱 문구는 `<<'EOF'`)이다. 이 레포에서 따로 겪은 것:
+- zsh does not split an unquoted variable into words. `${T:+--terminal $T}` is passed as one word and causes `unrecognized arguments` → use `$( [ -n "$T" ] && echo --terminal "$T" )` or an array.
+- If a hook blocks one command in a multi-command call, the whole call does not run. Rerun the remaining commands.
 
-- zsh는 따옴표 없는 변수를 단어로 나누지 않는다. `${T:+--terminal $T}`는 한 단어로 넘어가 `unrecognized arguments`가 된다 → `$( [ -n "$T" ] && echo --terminal "$T" )` 또는 배열.
-- 한 호출 안의 명령 하나가 훅에 막히면 그 호출 전체가 실행되지 않는다. 남은 명령을 다시 돌린다.
+## Git and PRs
 
-## git·PR
+- A hook blocks force-pushes. If an already-pushed branch conflicts with main, use `git merge origin/main` instead of rebasing; rebase only before the first push.
+- Parallel PRs often conflict in `05`, `06`, `DESIGN.md`, the i18n dictionary, and E2E helpers. Merge them one at a time to resolve conflicts.
+- For CSS selector CI, removing an intended class requires the PR label `css-removal-ok` and a reason comment. Adding the label triggers reevaluation.
+- The app's `src/style.css` imports `tailwindcss` without specifying sources, so Tailwind scans Markdown under `apps/platform-web/`. Text such as `z-30` or `wide:pr-[32rem]` in a document can generate CSS. Deleting or editing such a document can make CSS selector comparison fail with "removed"; use `git grep` to confirm the class is absent from source code, then add `css-removal-ok` (#220).
+- When combining a branch into one commit, use `git reset --soft $(git merge-base HEAD origin/main)`. Worktrees share `origin/*`; if another worktree's fetch advances `origin/main`, `reset --soft origin/main` can create a commit that reverts PRs merged in the meantime. After committing, check that `git diff origin/main --stat` shows only this PR's files.
+- Tailwind also reads class-like strings in tests (for example, `'row-1'` becomes `.row-1`). Do not use Tailwind utility-shaped strings in test IDs or URL values; CSS selector comparison can fail with "added".
+- A comment line beginning with `// eslint-disable…` is parsed as a directive even if it contains an explanation, and errors when no rule name is present. Do not start a line with that text.
+- Immediately after creating a PR, `gh pr checks <n> --watch --required` can exit with "no required checks reported" (exit 1) because the required checks are not registered yet. Wait about 1 minute or check `gh pr checks <n> --required` after completion and confirm both required checks show `pass` before merging.
+- Wait for PR checks by CI completion and the time limit only. A review bot may not review a new commit again. If `Closes #n` does not close an issue promptly, check once after merge and close it manually.
 
-- 강제 push는 훅이 막는다. 이미 push한 브랜치가 main과 충돌하면 rebase 대신 `git merge origin/main`(rebase는 첫 push 전에만).
-- 병렬 PR은 `05`·`06`·`DESIGN.md`·i18n 사전·E2E helper에서 자주 충돌한다 — 하나씩 병합하며 푼다.
-- CI turbo 캐시(#1019): workspace 검사는 `.turbo/cache`(키 `turbo-<os>-node26.7.0-<static|test>-<sha>`)를 복원해 바뀐 패키지와 그 의존자만 돈다. 저장은 main push만 하고 PR은 복원만 한다. 패키지 밖 파일을 읽는 task는 `turbo.json`에 `$TURBO_ROOT$` inputs를 선언하지 않으면 캐시가 낡은 초록을 돌려준다. 캐시를 믿지 못할 때는 `ci.yml`을 `workflow_dispatch full=true`로 돌린다(캐시 복원 없이 `TURBO_FORCE=true`). 로컬은 worktree끼리 메인 체크아웃의 `.turbo/cache`를 함께 쓴다.
-- CSS selector CI: 의도한 클래스 제거는 PR에 `css-removal-ok` 라벨 + 이유 코멘트(라벨만 달아도 재평가된다).
-- 앱 `src/style.css`의 `@import "tailwindcss"`는 소스를 지정하지 않아 Tailwind가 `apps/platform-web/` 아래 Markdown까지 훑는다. 문서에 `z-30`·`wide:pr-[32rem]` 같은 글자가 있으면 CSS가 생기므로, 그런 문서를 지우거나 고치면 CSS selector 비교가 "제거"로 실패할 수 있다(#220). 소스 코드에 그 클래스가 없는지 `git grep`으로 확인하고 `css-removal-ok`.
-- 브랜치를 한 커밋으로 합칠 때는 `git reset --soft $(git merge-base HEAD origin/main)`을 쓴다. worktree들은 `origin/*`를 함께 쓰므로, 다른 worktree의 fetch로 `origin/main`이 앞서 있으면 `reset --soft origin/main`이 그 사이 병합된 PR을 되돌리는 커밋을 만든다(2026-10-23 #676이 #664를 되돌릴 뻔함, CSS selector 비교가 잡음). 커밋 뒤 `git diff origin/main --stat`이 이 PR의 파일만 보이는지 확인한다.
-- Tailwind는 테스트 파일의 문자열도 클래스로 읽는다(`'row-1'` → `.row-1`). 테스트 id·URL 값에 Tailwind 유틸리티 모양 문자열을 쓰지 않는다(CSS selector 비교가 "추가"로 실패).
-- 주석 줄이 `// eslint-disable…`로 시작하면 설명문이어도 지시어로 읽힌다(규칙 이름 없음 오류). 그 단어로 줄을 시작하지 않는다.
-- `gh pr checks <n> --watch --required`를 PR을 만든 직후에 돌리면 필수 검사가 아직 등록되지 않아 "no required checks reported"로 바로 끝난다(exit 1, 2026-10-23 #718). 1분쯤 뒤에 돌리거나, 끝난 뒤 `gh pr checks <n> --required` 출력에 필수 검사 두 개가 `pass`로 보이는지 확인하고 병합한다.
-- PR 대기는 CI 완료(+시간 상한)로만 한다. 리뷰 봇은 새 커밋을 다시 리뷰하지 않을 수 있다. `Closes #n` 자동 닫힘이 늦으면 병합 뒤 한 번 확인하고 직접 닫는다.
+## Browser Checks and Captures
 
-## 브라우저 확인과 캡처
+- Use `ego-browser` by default for browser checks. If it does not respond (`ego-browser nodejs -e 'console.log(1)'`), say that you are substituting `apps/platform-e2e` Playwright.
+- Put capture scripts under `apps/platform-e2e` and run them there so `@playwright/test` resolves; delete them when finished.
+- Use a different dev-server port per worktree: `pnpm exec vite --host 127.0.0.1 --port 517x --strictPort`. E2E defaults to 4190; change it with `E2E_PORT` when running concurrently.
+- Mock state is in memory, so select the DevTools response scenario again whenever you open a page. The role is `localStorage platform:role`.
+- In zsh, run a command list repeatedly with `eval "$c"` because variables are not split into words. Pass a function to Playwright `page.evaluate` as a string: `` `(${fn})()` ``.
 
-- 브라우저 확인은 `ego-browser`가 기본이다. 응답이 없으면(`ego-browser nodejs -e 'console.log(1)'`) `apps/platform-e2e`의 Playwright로 대체한다고 말한다.
-- 캡처 스크립트는 `apps/platform-e2e` 아래에 두고 실행해야 `@playwright/test`를 찾는다(끝나면 지운다).
-- dev 서버는 worktree마다 다른 포트: `pnpm exec vite --host 127.0.0.1 --port 517x --strictPort`. E2E는 기본 4190이고 동시에 돌릴 때는 `E2E_PORT`로 바꾼다(#809).
-- mock은 메모리 상태라 페이지를 새로 열 때마다 DevTools(응답 시나리오)를 다시 고른다. 역할은 localStorage `platform:role`.
-- zsh에서 명령 목록을 반복 실행할 때는 `eval "$c"`(변수 단어 분리가 안 된다). Playwright `page.evaluate`에 함수 문자열을 넘길 때는 `` `(${fn})()` ``.
+Frequent capture URLs:
 
-자주 쓰는 캡처 URL:
-
-| 보고 싶은 것 | URL·조건 |
+| What to inspect | URL or condition |
 | --- | --- |
-| 생산성 KPI | `kpi=cycleTime`(또는 `occupancy`·`dwell`·`throughput`) |
-| Compare | 사이클타임 상세(생산성 개요는 manifest에서 Compare가 꺼져 있다) |
-| 접근 디렉터리 | 관리자 역할로 `/admin/roles?v=1&focus=engineer` |
-| 상세 패널 | `/equipment?v=1&scopeId=MEM&focus=MEM-PHOTO-0103` |
-| 설비 Maker mock 값 | AMX / ASM / LRC / TEL |
+| Productivity KPI | `kpi=cycleTime` (or `occupancy`, `dwell`, `throughput`) |
+| Compare | Productivity cycle-time detail (Compare is disabled in the productivity overview manifest) |
+| Access directory | As an administrator, `/admin/roles?v=1&focus=engineer` |
+| Detail panel | `/equipment?v=1&scopeId=MEM&focus=MEM-PHOTO-0103` |
+| Equipment Maker mock values | AMX / ASM / LRC / TEL |
 
-## 생성기와 mock 등록
+## Generator and Mock Registration
 
-- 생성기(`tooling/gen-menu`)를 바꾸면 깨끗한 트리에서 `node tooling/gen-menu/scripts/probe.ts`.
-- mock 등록은 `apps/platform-web/src/dev/mock-assembly.tsx`의 `MOCK_ENDPOINTS` 하나다. params를 선언한 엔드포인트만 `src/server-conformance.test.ts`의 `PARAMS`에 표본을 넣는다(빠지면 테스트가 실패한다).
+- When changing the generator (`tooling/gen-menu`), run `node tooling/gen-menu/scripts/probe.ts` on a clean tree.
+- The mock registry is only `apps/platform-web/src/dev/mock-assembly.tsx` (`MOCK_ENDPOINTS`). Add sample values to `src/server-conformance.test.ts` `PARAMS` for each endpoint that declares params; tests fail if a sample is missing.
 
-## 부하에서만 실패하는 테스트
+## Tests That Fail Only Under Load
 
-- 루트 `pnpm test`(터보 병렬)에서만 `Unable to find role …`로 실패하고 그 파일 단독 실행은 통과하면 첫 `findBy*`의 기본 대기(1000ms)를 먼저 의심한다. 진단 루프: 해당 패키지에서 CPU 부하(`while :; do :; done`을 `ncpu×2`개 백그라운드)를 걸고 그 파일을 8–16회 반복해 실패 수를 센다. 고치기 전후와, 원래 코드(변경을 되돌린 것)를 같은 부하로 비교해 변경이 원인인지 가른다. 부하 프로세스는 반드시 `pkill`로 끝낸다. `*.compact-action.test.tsx`는 첫 `findByRole`에 `{ timeout: 8000 }`을 쓴다(#434·#437).
-- 한 파일을 고친 뒤 같은 구조의 형제 파일이 "안 깨진다"고 한 번 측정으로 단정하지 않는다. 형제마다 같은 부하 루프를 돈다(#437이 #434의 그 판단을 정정했다).
-- 터보 `test`는 첫 실패에서 나머지를 중단한다. 실패 하나로 끝난 루트 `pnpm test`는 나머지 패키지와 `build`를 검증하지 못한 것이므로, 고친 뒤 처음부터 다시 돌린다.
-- `node_modules`가 없는 worktree에서 `pnpm docs:links`는 의존성 확인에서 막힌다. `node .github/scripts/check-doc-links.mjs`를 직접 돌리면 같은 검사다(새 파일은 `git add -N`으로 추적에 올려야 "untracked" 오류가 사라진다).
+- If root `pnpm test` fails with `Unable to find role …` only under Turbo parallelism, but the file passes alone, first suspect the default 1000 ms wait of the first `findBy*`. In that package, apply CPU load with `while :; do :; done` in `ncpu×2` background processes, then run the file 8–16 times and count failures. Compare before and after the fix under the same load, and compare the original code (with the change reverted) under the same load to tell whether the change caused the result. Always stop load processes with `pkill`. For `*.compact-action.test.tsx`, use `{ timeout: 8000 }` on the first `findByRole` (#434, #437).
+- Do not conclude that a sibling file with the same structure is unaffected from one measurement. Run the same load loop for each sibling (#434, #437).
+- Turbo `test` stops the remaining tasks after the first failure. A root `pnpm test` run that ends on a failure has not checked the remaining packages or `build`; rerun from the beginning after the fix.
+- In a worktree without `node_modules`, `pnpm docs:links` fails during dependency checking. Running `node .github/scripts/check-doc-links.mjs` directly performs the same check. For a new file, use `git add -N` to avoid the "untracked" error.
 
-## E2E 포트와 코드 이전 PR (SDK 이전 슬라이스, 2026-10-19)
+## E2E Ports and Code Migration PRs
 
-- `pnpm e2e`의 서버는 기본 4190(`E2E_PORT`로 바꿈, base-path 설정은 `E2E_BASE_PATH_PORT` 기본 4191, #809)이고 `reuseExistingServer:false`다. 다른 세션의 E2E가 떠 있으면 `http://127.0.0.1:4190 is already used`로 바로 실패한다. 이 실패는 코드 문제가 아니다: `lsof -nP -iTCP:4190 -sTCP:LISTEN`으로 PID를 찾고 `lsof -a -p <PID> -d cwd`로 소유(cwd가 다른 checkout인지)를 확인하고, 남의 프로세스는 건드리지 말고 `E2E_PORT=4290 pnpm e2e`처럼 다른 포트로 돌린다.
-- 소스를 옮겨 `@source`가 훑는 범위가 줄면 CSS selector 검사가 "N selector(s) removed"로 실패한다. 플랫폼 코드가 쓰는 클래스가 아니라 옮겨 간 쪽 전용 클래스인지 확인한 뒤 PR에 `css-removal-ok` 라벨을 단다(#450). 라벨 뒤에 `ship-pr.sh`가 예전 실패 기록 때문에 "CI failed"로 멈추면 현재 head의 검사가 모두 통과인지 `gh pr view --json statusCheckRollup`으로 확인하고 `gh pr merge --squash --match-head-commit <sha>`로 병합한다(엔진 이슈 conductor-engine#25).
-- 옮기는 원본이 `patchedDependencies`나 floating 범위 의존을 쓰는지 먼저 본다. FeedbackOps `@formkit/auto-animate@0.10.0` 패치가 빠져 `useListMotion` 테스트가 실패했고(#450), `@tiptap/*` 하위 확장이 3.32.0으로 올라가 로드 오류가 났다(#455). 원본 락파일의 해석(`pnpm-lock.yaml`)과 맞춘다. pnpm 설정(`patchedDependencies`·`overrides`)을 바꾼 뒤 `pnpm install`이 `Already up to date`로 끝나면 `node_modules/.pnpm-workspace-state-v1.json`을 지우고 다시 설치한다.
+- `pnpm e2e` uses port 4190 by default (change it with `E2E_PORT`; the base-path port defaults to 4191 with `E2E_BASE_PATH_PORT`) and sets `reuseExistingServer:false`. If another session is running E2E, the command fails with `http://127.0.0.1:4190 is already used`. This is an environment conflict: find the PID with `lsof -nP -iTCP:4190 -sTCP:LISTEN` and check its owner with `lsof -a -p <PID> -d cwd`. Do not touch another session's process; choose another port, such as `E2E_PORT=4290 pnpm e2e`.
+- Moving source code can reduce the files scanned by `@source` and make CSS selector comparison fail with "N selector(s) removed". First confirm that these classes belong only to the moved code and are not used by platform code; then add the PR label `css-removal-ok` (#450). If `ship-pr.sh` stops at "CI failed" because of an older failure record, check whether all checks pass for the current head with `gh pr view --json statusCheckRollup`, then use `gh pr merge --squash --match-head-commit <sha>` (conductor-engine#25).
+- Before moving a package, check for `patchedDependencies` and floating-version dependencies. Keep dependency resolution aligned with `pnpm-lock.yaml`. If changing pnpm configuration (`patchedDependencies` or `overrides`) is followed by `pnpm install` reporting `Already up to date`, delete `node_modules/.pnpm-workspace-state-v1.json` and install again.
+- CI turbo cache (#1019): workspace checks restore `.turbo/cache` (key `turbo-<os>-node26.7.0-<static|test>-<sha>`), so only changed packages and their dependents run. Only `main` pushes save the cache; PRs only restore. A task that reads files outside its package must declare `$TURBO_ROOT$` inputs in `turbo.json`, otherwise a stale cache returns a false green.
