@@ -367,6 +367,18 @@ async function dragSashBy(page: Page, sash: Locator, dx: number) {
   await page.mouse.up();
   return x + dx;
 }
+/** Presses a sash and moves it by `dx` px in steps, then stops with the button still down (the caller releases or leaves). */
+async function holdSashBy(page: Page, sash: Locator, dx: number) {
+  await sash.scrollIntoViewIfNeeded();
+  const box = (await sash.boundingBox())!;
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x + dx, y, { steps: 20 });
+  await page.waitForTimeout(100);
+  return x + dx;
+}
 
 test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
   type DockPaneSeed = { menuId: string; params: Record<string, string>; query: string };
@@ -958,6 +970,40 @@ test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
     await expect(preview).toHaveCount(0);
     await page.mouse.up();
     await expect(groups(page)).toHaveCount(4);
+  });
+
+  test.describe('분석 보드 칸 경계 끌기는 놓을 때 한 번 저장한다 (#1013)', () => {
+    const boardKey = (page: Page) => page.evaluate(() => Object.entries(localStorage).filter(([key]) => key.startsWith('platform:board:v2:')).map(([, value]) => value).join('|'));
+
+    test('끌기 중에는 저장된 보드가 바뀌지 않고 놓은 뒤에 바뀐다', async ({ page }) => {
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await signInWithDockBoard(page, [populated('dock', '1x2', 2)]);
+      await dockReady(page, 2);
+      await panesLoaded(page, 2);
+      const { sash } = await verticalSash(page.locator('[data-dock-layout]').first());
+      const initial = await boardKey(page);
+      await holdSashBy(page, sash, 120);
+      await expect(page.locator('[data-dock-layout]').first()).toHaveAttribute('data-dock-resizing', '');
+      expect(await boardKey(page)).toBe(initial);
+      await page.mouse.up();
+      await expect.poll(() => boardKey(page)).not.toBe(initial);
+      await expect(page.locator('[data-dock-layout]').first()).not.toHaveAttribute('data-dock-resizing', '');
+    });
+
+    test('마우스를 누르고 이동한 채 새로고침하면 저장은 끌기 전 값이고 보드는 정상으로 열린다', async ({ page }) => {
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await signInWithDockBoard(page, [populated('dock', '1x2', 2)]);
+      await dockReady(page, 2);
+      await panesLoaded(page, 2);
+      const { sash } = await verticalSash(page.locator('[data-dock-layout]').first());
+      const initial = await boardKey(page);
+      await holdSashBy(page, sash, 120);
+      await page.reload();
+      await dockReady(page, 2);
+      await panesLoaded(page, 2);
+      expect(await boardKey(page)).toBe(initial);
+      await expect(page.locator('[data-dock-layout]').first()).not.toHaveAttribute('data-dock-resizing', '');
+    });
   });
 });
 

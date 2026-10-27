@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import userEvent from '@testing-library/user-event';
 import { House } from 'lucide-react';
 import { StrictMode } from 'react';
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { defineEndpoint, type PlatformAdapter, type Session, groupId, spaceId } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, useMenuQuery } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
@@ -21,6 +21,14 @@ const dockProbe = vi.hoisted(() => ({ latest: undefined as undefined | import('@
 vi.mock('@ap/components/dock', async importActual => {
   const actual = await importActual<typeof import('@ap/components/dock')>();
   return { ...actual, DockLayout: (props: import('@ap/components/dock').DockLayoutProps) => { dockProbe.latest = props; return <actual.DockLayout {...props} />; } };
+});
+
+// The engine's api, taken from its ready event: the shell has no dependency on the engine, so the test reaches it through the components package.
+type EngineApi = { panels: { api: { setSize: (size: { width: number }) => void } }[] };
+const engine = vi.hoisted(() => ({ api: undefined as undefined | EngineApi }));
+vi.mock('../../../components/node_modules/dockview-react', async importOriginal => {
+  const actual = await importOriginal<{ DockviewReact: React.ComponentType<{ onReady: (event: { api: EngineApi }) => void }> }>();
+  return { ...actual, DockviewReact: (props: { onReady: (event: { api: EngineApi }) => void }) => <actual.DockviewReact {...props} onReady={event => { engine.api = event.api; props.onReady(event); }} /> };
 });
 
 // jsdom has no ResizeObserver and no geometry: every observed element reports the shared size, and `resize` re-reports it.
@@ -388,6 +396,61 @@ describe('dock renderer: group commands', () => {
     await settle();
     expect(tree()).toMatchObject({ type: 'branch', dir: 'row', sizes: [62, 38] });
     expect(written.mock.calls.filter(([key]) => key === V2_KEY)).toHaveLength(1);
+  });
+
+  it('leaves the stored board as it was when the board unmounts with the pointer still down on a sash, and a fresh mount drags normally (#1013)', async () => {
+    seed(boardOf([sheet('a', { layout: '1x2', panes: [alpha(w1), beta(w2)] })]));
+    const sashEvent = (type: string, target: EventTarget, clientX: number) => {
+      const event = new Event(type, { bubbles: true, cancelable: true });
+      Object.assign(event, { clientX, clientY: 0, pointerId: 1 });
+      act(() => { target.dispatchEvent(event); });
+    };
+    const frames = async (from: number) => {
+      for (let i = 1; i <= 6; i += 1) {
+        sashEvent('pointermove', document, from + i * 10);
+        act(() => { engine.api!.panels[0]!.api.setSize({ width: from + i * 10 }); });
+        for (let j = 0; j < 8; j += 1) await Promise.resolve();
+      }
+    };
+    // jsdom has no layout parent, and the engine ignores a resize of an element without one.
+    Object.defineProperty(HTMLElement.prototype, 'offsetParent', { configurable: true, get() { return this.parentNode; } });
+    onTestFinished(() => { delete (HTMLElement.prototype as { offsetParent?: unknown }).offsetParent; });
+    const first = mount('/board?sheet=a');
+    await ready();
+    const written = vi.spyOn(localStorage, 'setItem');
+    const boardWrites = () => written.mock.calls.filter(([key]) => key === V2_KEY).length;
+    sashEvent('pointerdown', document.querySelector<HTMLElement>('.dv-sash')!, 350);
+    await frames(350);
+    expect(boardWrites()).toBe(0);
+    sashEvent('pointerup', document, 410);
+    await settle();
+    expect(boardWrites()).toBe(1);
+    written.mockClear();
+    const before = localStorage.getItem(V2_KEY);
+    // A second drag, then unmount with the pointer down: nothing more is written.
+    sashEvent('pointerdown', document.querySelector<HTMLElement>('.dv-sash')!, 510);
+    await frames(510);
+    first.unmount();
+    // The engine's own document listeners outlive the unmounted board; end its drag so it does not move the next mount's splitview.
+    sashEvent('pointerup', document, 0);
+    await settle();
+    expect(written.mock.calls.filter(([key]) => key === V2_KEY)).toHaveLength(0);
+    expect(localStorage.getItem(V2_KEY)).toBe(before);
+    cleanup();
+    mount('/board?sheet=a');
+    await ready();
+    expect(paneTabs().length).toBeGreaterThan(0);
+    written.mockClear();
+    sashEvent('pointerdown', document.querySelector<HTMLElement>('.dv-sash')!, 450);
+    await frames(450);
+    expect(boardWrites()).toBe(0);
+    sashEvent('pointerup', document, 510);
+    await settle();
+    expect(boardWrites()).toBe(1);
+    const props = dockProbe.latest!;
+    act(() => { props.onLayoutChange({ ...props.layout, sizes: [60, 40] } as typeof props.layout); });
+    await settle();
+    expect(tree()).toMatchObject({ type: 'branch', dir: 'row', sizes: [60, 40] });
   });
 
   it('offers split only for a group with two or more panes', async () => {
