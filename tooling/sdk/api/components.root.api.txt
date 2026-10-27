@@ -162,7 +162,7 @@ summaryPreset | function | function summaryPreset(view: null | { activeId: strin
 toWorkbookXlsx | function | function toWorkbookXlsx(sheets: readonly @ap/components#WorkbookSheet[], signal?: AbortSignal): Promise<Blob>
 toggleMember | function | function toggleMember(list: readonly @ap/contracts#GroupMember[], member: @ap/contracts#GroupMember): @ap/contracts#GroupMember[]
 token | function | function token(name: @ap/ui/theme#ThemeColorToken): string
-useCopyLink | function | function useCopyLink(successText: string): (url: string) => void
+useCopyLink | function | function useCopyLink(successText: string, options?: CopyLinkOptions): (url: string) => Promise<boolean>
 useHeaderOverflowDialog | function | function useHeaderOverflowDialog(): ShowHeaderDialog | null
 useManagementFilters | function | function useManagementFilters<K extends string>({ applied, identity, clearKeys, toPatch, onRebase }: @ap/components#ManagementFiltersOptions<K>): { barProps: { actions: import("react").JSX.Element; onApply: () => void; }; clear: () => void; clearButton: import("react").ReactElement<unknown, import("react").JSXElementConstructor<any> | string> | null; draft: @ap/components#FilterDraft<K>; layoutProps: { activeFilterCount: number; pendingFilterCount: number; }; recoverButton: import("react").ReactElement<unknown, import("react").JSXElementConstructor<any> | string>; }
 usePageKeyRules | function | function usePageKeyRules(rules: readonly @ap/components#PageKeyRule[]): { badKeys: string[]; invalid: boolean; recover: () => void; sentences: string[]; }
@@ -173,6 +173,7 @@ useTableUrlWarning | function | function useTableUrlWarning(allowedSort: readonl
 useWorkbookExport | function | function useWorkbookExport(): @ap/components#WorkbookExport
 # reachable types
 ChartSize | type | type ChartSize = 'compact' | 'fill' | 'hero' | 'regular'
+CopyLinkOptions | type | type CopyLinkOptions = { absolute?: boolean; failureText?: string; onFailure?: (link: string) => void; }
 Lang | type | type Lang = 'en' | 'ko'
 PageFilterBarShared | type | type PageFilterBarShared = { actions?: ReactNode; fields: readonly @ap/components#PageFilterField[]; label: string; mode?: 'draft'; onApply?: () => void; }
 PageFilterFieldBase | type | type PageFilterFieldBase = { key: string; label: string; testId?: string; }

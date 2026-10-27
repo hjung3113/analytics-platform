@@ -763,8 +763,8 @@ try {
   );
   await capture(
     "link-copy",
-    "GlobalContextBar · 링크 복사",
-    "현재 화면과 Context를 담은 링크를 복사하고 받는 사람의 권한으로 다시 확인한다는 알림을 봅니다.",
+    "GlobalContextBar · 현재 조건 공유",
+    "현재 적용된 조건만 담은 링크를 복사하고 복사됐다는 알림을 봅니다.",
     "shell",
     async () => {
       await go(productivity);
@@ -772,11 +772,11 @@ try {
       await expect(kpi.locator(".t-stat").first()).toContainText(/\d/);
       await expect(page.getByRole("main").locator('[role="status"][aria-busy]')).toHaveCount(0);
       await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin });
-      await button("링크 복사").click();
-      await expect(page.locator("[data-toast-item]").filter({ hasText: "현재 Context가 담긴 링크를 복사했습니다" })).toBeVisible();
+      await button("현재 조건 공유").click();
+      await expect(page.locator("[data-toast-item]").filter({ hasText: "현재 적용된 조건의 링크를 복사했습니다" })).toBeVisible();
     },
     () =>
-      elementClip(page.locator("[data-toast-item]").filter({ hasText: "현재 Context가 담긴 링크를 복사했습니다" }), 12).then((clip) => ({
+      elementClip(page.locator("[data-toast-item]").filter({ hasText: "현재 적용된 조건의 링크를 복사했습니다" }), 12).then((clip) => ({
         clip,
         cover: true,
         hideSticky: false,
@@ -1184,7 +1184,7 @@ try {
     },
     async () => {
       // 조건 바 왼쪽(기간·빠른 범위·room_name 칩)까지를 칩 경계에서 끊는다. 경계에 걸리는 오른쪽 데이터 신뢰 배지는 찍는 동안만 숨긴다.
-      const bar = page.getByRole("button", { name: "링크 복사", exact: true }).locator("xpath=ancestor::*[contains(concat(' ', normalize-space(@class), ' '), ' sticky ')][1]");
+      const bar = page.getByRole("button", { name: "현재 조건 공유", exact: true }).locator("xpath=ancestor::*[contains(concat(' ', normalize-space(@class), ' '), ' sticky ')][1]");
       const cutX = await bar.evaluate((el) => {
         const chip = [...el.querySelectorAll("button")].find((b) => /^room_name/.test(b.textContent.trim()));
         const right = chip.getBoundingClientRect().right + 4;

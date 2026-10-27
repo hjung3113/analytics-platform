@@ -24,7 +24,7 @@ test.describe('하위 경로 배포 (06 §6.4)', () => {
     await expect(catalog).toHaveAttribute('href', `${BASE}/bravo/metric-catalog?v=1`);
     await catalog.click();
     await expect(page).toHaveURL(new RegExp(`${BASE}/bravo/metric-catalog\\?v=1$`));
-    await contextBar(page).getByRole('button', { name: '링크 복사', exact: true }).click();
+    await contextBar(page).getByRole('button', { name: '현재 조건 공유', exact: true }).click();
     await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(page.url());
     await page.goBack();
     await expect(page).toHaveURL(new RegExp(`${BASE}/bravo/metric-detail/cycle_time\\?v=1&version=3$`));

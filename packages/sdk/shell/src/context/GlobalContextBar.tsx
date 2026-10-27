@@ -1,7 +1,7 @@
 import { QueryHistoryControl } from './QueryHistoryControl';
 import { SavedViewControl } from '../saved-view/SavedViewControl';
 import { QueryBar } from './QueryBar';
-import { CalendarDays, ChevronDown, Link2, RotateCcw, X } from 'lucide-react';
+import { CalendarDays, ChevronDown, RotateCcw, X } from 'lucide-react';
 import { useContext, type ReactNode } from 'react';
 import { ContextBarLayout, MeasuringContext, useContextEditorState, useContextEditorFocusRecovery } from './ContextBarLayout';
 import { CONTEXT_CHIP, CONTEXT_CHIP_TONE } from './contextChip';
@@ -9,7 +9,8 @@ import { CONTEXT_LABELS, labelledCondition, useEquipmentAxes, useI18n, type Requ
 import { useAdapterRequest, useHostPlatform } from '@ap/kernel/host';
 import { type Capability, type Condition, type ContextKey, formatDateTime, formatPeriod, periodShort, periodHours, periodSpan, type GlobalContext, type SelectionEvaluation, parseDateTime, shift } from '@ap/contracts';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger, RadioGroup, RadioGroupItem } from '@ap/ui';
-import { SegmentedRadio, useCopyLink } from '@ap/components';
+import { SegmentedRadio } from '@ap/components';
+import { ShareControl } from './ShareControl';
 import { isTrailingPeriod } from '../frame/trailingPeriod';
 
 const CONTEXT_KEYS: ContextKey[] = ['time', 'roomNames', 'line', 'prcGroup', 'condition', 'selection', 'lot', 'ppid', 'recipe', 'metric'];
@@ -38,11 +39,10 @@ export function GlobalContextBar({ label, whenEmpty = null }: {
 }
 
 function LiveContextBar({ label, whenEmpty }: { label?: { visible: string; region: string }; whenEmpty: ReactNode }) {
-  const { route, global, setGlobal, resetContext, url, scope, adapter } = useHostPlatform();
+  const { route, global, setGlobal, resetContext, scope, adapter } = useHostPlatform();
   const { t, lang } = useI18n();
   const axes = useEquipmentAxes();
   const basisText = global.membershipBasis === 'asOf' ? ` · ${t('membershipAsOf')}` : '';
-  const copyLink = useCopyLink(lang === 'ko' ? '현재 Context가 담긴 링크를 복사했습니다. 받는 사람의 권한으로 서버가 다시 검증합니다.' : 'Copied a link with the current context. The server re-validates for the recipient.');
   // Keep one request owner while the Selection editor moves between inline and overflow.
   const input = { scopeId: global.scopeId, roomNames: global.roomNames, lineNames: global.lineNames, prcGroups: global.prcGroups, membershipBasis: global.membershipBasis, condition: global.condition, selection: global.selection };
   const evaluation = useAdapterRequest(signal => adapter.evaluateSelection(input, signal), [input, scope.status],
@@ -67,9 +67,7 @@ function LiveContextBar({ label, whenEmpty }: { label?: { visible: string; regio
     ...(has.metric ? [{ key: 'metric' as const, applied: has.metric, node: <CarriedChip k="metric" cap={cap.metric} value={`${global.metricId}${global.metricVersion ? ` @ ${global.metricVersion}` : ` (${lang === 'ko' ? '버전 미정' : 'no version'})`}`} onRemove={() => setGlobal({ metricId: null, metricVersion: null })} /> }] : []),
   ];
   return <ContextBarLayout regionName={label?.region} controls={controls} revision={JSON.stringify([global, cap, lang, shown, evaluation.status, evaluation.data?.inCondition.length, label])} actions={compact => <span className="flex items-center gap-1">
-        <Button type="button" variant="ghost" size="toolbar" aria-label={lang === 'ko' ? '링크 복사' : 'Copy link'} title={lang === 'ko' ? '링크 복사' : 'Copy link'} onClick={() => copyLink(url)}>
-          <Link2 className="size-3.5" aria-hidden />{!compact && (lang === 'ko' ? '링크 복사' : 'Copy link')}
-        </Button>
+        <ShareControl compact={compact} align="end" />
         <Button type="button" variant="ghost" size="toolbar" aria-label={t('reset')} title={t('reset')} onClick={resetContext}>
           <RotateCcw className="size-3.5" aria-hidden />{!compact && t('reset')}
         </Button>

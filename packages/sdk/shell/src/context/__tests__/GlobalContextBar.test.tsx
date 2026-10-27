@@ -86,7 +86,7 @@ describe('Global Context priority overflow (#56)', () => {
     expect(screen.queryAllByText('전역 Context', { exact: true })).toHaveLength(0);
     expect(within(bar()).getByRole('radio', { name: '1일' })).toBeVisible();
     expect(inlineKeys()).toHaveLength(8);
-    for (const name of ['링크 복사', '초기화']) {
+    for (const name of ['현재 조건 공유', '초기화']) {
       expect(within(bar()).getByRole('button', { name }).textContent).toContain(name);
     }
 
@@ -125,11 +125,11 @@ describe('Global Context priority overflow (#56)', () => {
   it('omits a zero applied suffix, preserves icon names and title, and places presets in the period popover', () => {
     barWidth = 450; mount();
     expect(within(bar()).getByRole('button', { name: '조건 3개 더' })).toBeVisible();
-    for (const name of ['링크 복사', '초기화']) {
-      const button = within(bar()).getByRole('button', { name });
-      expect(button).toHaveAttribute('title', name);
-      expect(button.textContent).toBe('');
-    }
+    // The share label stays visible when compact (kernel.md §11); only the reset button collapses to its icon.
+    expect(within(bar()).getByRole('button', { name: '현재 조건 공유' }).textContent).toBe('현재 조건 공유');
+    const reset = within(bar()).getByRole('button', { name: '초기화' });
+    expect(reset).toHaveAttribute('title', '초기화');
+    expect(reset.textContent).toBe('');
     const period = within(bar()).getByRole('button', { name: /^기간:/ });
     expect(period).toHaveAttribute('title', '기간: 09-25 09:00 → 09-26 09:00 (24h)');
     expect(period).toHaveAccessibleName('기간: 09-25 09:00 → 09-26 09:00 (24h), 참조만');
@@ -277,9 +277,9 @@ describe('Global Context priority overflow (#56)', () => {
 
 });
 
-describe('링크 복사 reports success only after the clipboard write (#300)', () => {
-  const SUCCESS = '현재 Context가 담긴 링크를 복사했습니다. 받는 사람의 권한으로 서버가 다시 검증합니다.';
-  const FAILURE = '링크를 복사하지 못했습니다. 주소창의 주소를 직접 복사하세요.';
+describe('현재 조건 공유 reports success only after the clipboard write (#300)', () => {
+  const SUCCESS = '현재 적용된 조건의 링크를 복사했습니다. 편집 중인 변경은 제외됩니다.';
+  const FAILURE = '현재 조건 링크를 복사하지 못했습니다.';
 
   afterEach(() => {
     Reflect.deleteProperty(window, 'isSecureContext');
@@ -298,7 +298,7 @@ describe('링크 복사 reports success only after the clipboard write (#300)', 
     return render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter} registry={registry}><GlobalContextBar /><ToastProbe /></PlatformProvider></I18nProvider>);
   }
 
-  const copyLink = () => within(bar()).getByRole('button', { name: '링크 복사' });
+  const copyLink = () => within(bar()).getByRole('button', { name: '현재 조건 공유' });
   const toasts = () => screen.getByTestId('toast-probe').textContent ?? '';
 
   it('insecure environment (no clipboard, execCommand refuses): warning with cause and action, never the success toast', async () => {
