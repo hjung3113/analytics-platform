@@ -270,6 +270,7 @@ export default function DockEngine({
     root.removeAttribute('data-dock-resizing');
     root.dispatchEvent(new Event(RESIZE_END));
   }, [containerRef]);
+  // Clears the gesture without telling the parent: cancel (a caller-owned layout lands), dispose (unmount) and the tail of settling.
   const endDrag = useCallback(() => {
     clearTimeout(dragTimer.current);
     dragging.current = false;
@@ -333,7 +334,13 @@ export default function DockEngine({
       dragTimer.current = setTimeout(settle, 0);
     };
     const down = (event: Event) => {
-      if (event.target instanceof Element && event.target.closest('.dv-sash')) { endDrag(); dragging.current = true; freeze(); }
+      if (!(event.target instanceof Element && event.target.closest('.dv-sash'))) return;
+      // A press while the pointer of the running drag is still down is not a new drag: nothing is thawed or frozen again mid-gesture.
+      if (dragging.current && !released.current) return;
+      // A released drag still waiting for its timer is owed to the parent: settle it before the next one starts.
+      if (dragging.current) settle();
+      dragging.current = true;
+      freeze();
     };
     container?.addEventListener('pointerdown', down, true);
     window.addEventListener('pointerup', up, true);

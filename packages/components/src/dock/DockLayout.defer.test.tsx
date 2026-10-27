@@ -35,6 +35,7 @@ const withLayoutParent = async (run: () => Promise<void>) => {
   try { await run(); } finally { delete (HTMLElement.prototype as { offsetParent?: unknown }).offsetParent; }
 };
 const engineSized = () => waitFor(() => { expect(groupWidths().reduce((sum, width) => sum + width, 0)).toBeGreaterThan(850); });
+const ratio = () => { const [a = 0, b = 0] = groupWidths(); return (a / (a + b)) * 100; };
 const sizesOf = (node: DockNode | undefined) => (node?.type === 'branch' ? node.sizes : []);
 
 /** Content stand-in: counts its own renders per panel. */
@@ -43,11 +44,14 @@ function Probe({ id }: { id: string }) { renders[id] = (renders[id] ?? 0) + 1; r
 const inner = (id: string) => <Probe id={id} />;
 const MOVES = 12;
 /** A move, then the layout notification a browser sends on every frame of a drag (jsdom's engine sends none while the pointer moves). */
+const frameRatios: number[] = [];
 const moveAcross = async (from: number) => {
+  frameRatios.length = 0;
   for (let i = 1; i <= MOVES; i += 1) {
     pointer('pointermove', document, from + i * 10);
     act(() => { engine.api!.getPanel('a')!.api.setSize({ width: 450 + i * 10 }); });
     for (let j = 0; j < 8; j += 1) await Promise.resolve();
+    frameRatios.push(ratio());
   }
 };
 
@@ -72,6 +76,9 @@ describe('DockLayout defers a sash drag to its end (#1013)', () => {
       const [first, second] = sizesOf(calls.layout[0]);
       expect(first!).toBeGreaterThan(second!);
       expect(first! + second!).toBeCloseTo(100, 0);
+      // The tree is the engine's last size, not an earlier frame's.
+      expect(first!).toBeCloseTo(frameRatios[MOVES - 1]!, 0);
+      expect(Math.abs(first! - frameRatios[MOVES - 4]!)).toBeGreaterThan(1);
     });
   });
 
@@ -121,6 +128,64 @@ describe('DockLayout defers a sash drag to its end (#1013)', () => {
       expect(calls.layout).toHaveLength(1);
       const [first, second] = sizesOf(calls.layout[0]);
       expect(first!).toBeGreaterThan(second!);
+      expect(first!).toBeCloseTo(frameRatios[MOVES - 1]!, 0);
+      expect(Math.abs(first! - frameRatios[MOVES - 4]!)).toBeGreaterThan(1);
+    });
+  });
+
+  it('settles a released drag whose timer is still pending when the same sash is pressed again, and tells the parent once', async () => {
+    await withLayoutParent(async () => {
+      const { calls } = mountDock({ layout: row([50, 50], group(['a']), group(['b'])), ids: ['a', 'b'] });
+      await ready();
+      await engineSized();
+      const sash = document.querySelector<HTMLElement>('.dv-sash')!;
+      pointer('pointerdown', sash, 450);
+      await moveAcross(450);
+      pointer('pointerup', window, 570);
+      expect(calls.layout).toHaveLength(0);
+      pointer('pointerdown', sash, 570);
+      expect(calls.layout).toHaveLength(1);
+      const [first] = sizesOf(calls.layout[0]);
+      expect(first!).toBeCloseTo(frameRatios[MOVES - 1]!, 0);
+      pointer('pointerup', window, 570);
+      await flush();
+      expect(calls.layout).toHaveLength(1);
+    });
+  });
+
+  it('ignores a second press while the pointer of the running drag is still down', async () => {
+    await withLayoutParent(async () => {
+      Object.defineProperty(HTMLElement.prototype, 'clientWidth', { configurable: true, get() { return 300; } });
+      Object.defineProperty(HTMLElement.prototype, 'clientHeight', { configurable: true, get() { return 200; } });
+      try {
+        mountDock({ layout: row([50, 50], group(['a']), group(['b'])), ids: ['a', 'b'] });
+        await ready();
+        await engineSized();
+        const root = document.querySelector('[data-dock-layout]')!;
+        const host = document.querySelector<HTMLElement>('[data-dock-panel="a"]')!;
+        const content = host.querySelector<HTMLElement>('[data-dock-panel-content]')!;
+        const sash = document.querySelector<HTMLElement>('.dv-sash')!;
+        let ended = 0;
+        root.addEventListener('dock-resize-end', () => { ended += 1; });
+        pointer('pointerdown', sash, 450);
+        expect(content.style.width).toBe('300px');
+        expect(content.style.height).toBe('200px');
+        await moveAcross(450);
+        expect(content.style.width).toBe('300px');
+        pointer('pointerdown', sash, 570);
+        expect(host).toHaveAttribute('data-dock-frozen');
+        expect(root).toHaveAttribute('data-dock-resizing');
+        expect(content.style.width).toBe('300px');
+        expect(ended).toBe(0);
+        pointer('pointerup', window, 570);
+        await flush();
+        expect(content.style.width).toBe('');
+        expect(content.style.height).toBe('');
+        expect(host).not.toHaveAttribute('data-dock-frozen');
+      } finally {
+        delete (HTMLElement.prototype as { clientWidth?: unknown }).clientWidth;
+        delete (HTMLElement.prototype as { clientHeight?: unknown }).clientHeight;
+      }
     });
   });
 
