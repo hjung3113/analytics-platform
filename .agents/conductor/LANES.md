@@ -40,8 +40,8 @@ Any lane may edit these, but first it sends `<lane>: 착수 #n <paths>` to the l
 - Root `package.json`, `pnpm-lock.yaml`, `turbo.json`, `.github/workflows`
 - `apps/platform-e2e`
 - The "next release" row in `docs/integration/sdk-git-tag-consumption.md`, the `docs/adr/README.md` table, ADR numbers (reserve them on #598)
-- `PROFILE.md` §Traps, `docs/agents/operations.md` (append only)
-- The four FO bridge entry lists ([PROFILE §Traps](PROFILE.md))
+- `addenda/traps.md`, `docs/agents/operations.md` (append only)
+- The four FO bridge entry lists ([addenda/traps.md](addenda/traps.md))
 - `.planning/README.md`: lanes edit only their own issue rows. The lead owns order and layout.
 
 On a rebase, keep both sides of a conflicting table or list row.
