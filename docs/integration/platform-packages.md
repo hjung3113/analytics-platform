@@ -15,7 +15,7 @@
 
 ## 3. 패키지 구성
 
-> 목표 의존 방향은 SDK ← 제품 한 방향이다([ADR-0043](../adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md), 2026-10-19). 아래 `@ap/ui → @fops/ui` 간선(규칙 8)은 지금 구조이고, 토큰·primitive 코드를 SDK로 옮길 때 없앤다.
+> 의존 방향은 SDK ← 제품 한 방향이다([ADR-0043](../adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md)). `@fops/ui`는 `@ap/ui`에 의존한다([ADR-0046](../adr/0046-design-system-source-moves-to-platform-whole-package.md)).
 
 
 루트에 pnpm workspace를 두고 세 갈래로 나눈다: `packages/`(플랫폼: SDK 다섯은 `packages/sdk/`, 어댑터·소비자 쪽 넷은 `packages/adapters/`, FeedbackOps `fo-*`는 `packages/` 바로 아래), `menus/<space>/<group>/`(Consumer, `null` 소속은 `_global`), `apps/`(조립 지점). 이름 접두사는 Candidate `@ap/`.
@@ -38,13 +38,13 @@
 
 ### 의존 방향
 
-`@fops/ui`는 FeedbackOps에서 제공하는 외부 원본이며 `@ap/ui` 아래에 놓인다. primitive를 직접 import할 수 있는 곳은 `@ap/ui`뿐이다. 다른 플랫폼 패키지와 앱은 `@ap/ui`의 공개 export를 사용한다(ADR-0011).
+`@ap/ui`가 primitive를 소유하며 플랫폼 패키지와 앱은 그 공개 export를 사용한다. `@fops/ui`는 `@ap/ui`에 의존하고 호환 re-export를 제공하지 않는다(ADR-0046).
 
 ```text
                  contracts
         ┌──────────┼──────────────┐
         ▼          ▼              ▼
- (ui ◀ @fops/ui)  kernel        mock-server
+       ui        kernel        mock-server
         │   ┌──────┤              │
         ▼   ▼      │              │
      components    │              │
@@ -121,7 +121,7 @@ const registry = createRegistry({ spaces: SPACES, groups: GROUPS, menus: [...hom
 - **route 충돌 없음:** 파라미터 이름을 지운 정규형(`/metrics/:metricId` → `/metrics/:`)이 같은 두 패턴은 거부한다. 정적 세그먼트와 파라미터가 같은 위치에서 겹치는 경우(`/metrics/new` vs `/metrics/:metricId`)는 허용하되, `matchRoute`가 등록 순서가 아니라 **정적 세그먼트 우선**(앞 세그먼트부터 정적 > 파라미터)으로 고른다. 현재 `matchRoute`는 선언 순서 first-match라 메뉴 패키지로 나누면 등록 순서가 결과를 바꿀 수 있다
 - 그룹마다 `primary` 정확히 하나(06 §5)
 - `pageKeys`가 전역 Context 키와 겹치지 않음(06 §6.1)
-- **공간:** 검증 규칙은 [06 §9.1](../contract/kernel.md#91-워크스페이스-decided-2026-09-26)과 [`packages/sdk/kernel/src/registry/registry.ts`](../../packages/sdk/kernel/src/registry/registry.ts)가 소유한다. 전역 유틸리티 그룹은 `space: null`이고, 그 외에는 등록된 공간만 허용한다.
+- **공간:** 검증 규칙은 [06 §9.1](../contract/kernel.md#91-업무-시스템-decided-2026-09-26)과 [`packages/sdk/kernel/src/registry/registry.ts`](../../packages/sdk/kernel/src/registry/registry.ts)가 소유한다. 전역 유틸리티 그룹은 `space: null`이고, 그 외에는 등록된 공간만 허용한다.
 
 생성기는 manifest 뼈대, `pageType`별 06 §12 슬롯 뼈대(화면 슬롯은 12.6), 조회 선언·mock 핸들러, 테스트를 만들고 앱 등록 목록에 연결한다. 메뉴 템플릿이 Sidebar·Breadcrumb·권한 숨김을 직접 구현하지 못하게 하는 것은 06 §5 "금지" 목록을 lint로 옮겨 막는다(§6).
 

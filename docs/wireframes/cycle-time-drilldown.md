@@ -39,7 +39,7 @@
 | occurrence 상세 | reference | reference | reference | reference | reference | reference | reference | reference |
 | VOC 메뉴(`voc`) | unsupported | unsupported | unsupported | unsupported | unsupported | unsupported | unsupported | unsupported |
 
-두 분석 화면 모두 `requiresScope: true`, `pageType: analysis`다. 사이클타임 상세는 `initializesMetric: true`라 id만 있는 전역 metric 쌍을 게시 버전으로 완성할 수 있다. 전역 metric이 없으면 이 화면의 기본 지표 쌍(Candidate 상수)으로 계산하고, 같은 지표의 전역 쌍이면 그 버전을 적용하며, 다른 지표의 쌍은 보존·미적용 표시한다. VOC 메뉴에는 occurrence page key가 없어 전역 Context만 전달된다.
+두 분석 화면 모두 `requiresScope: true`, `pageType: analysis`다. 사이클타임 상세는 `initializesMetric: true`라 id만 있는 전역 metric 쌍을 발행 버전으로 완성할 수 있다. 전역 metric이 없으면 이 화면의 기본 지표 쌍(Candidate 상수)으로 계산하고, 같은 지표의 전역 쌍이면 그 버전을 적용하며, 다른 지표의 쌍은 보존·미적용 표시한다. VOC 메뉴에는 occurrence page key가 없어 전역 Context만 전달된다.
 
 Scope는 항상 단일 요청·권한 검증 대상이며 사이드바 머리에만 선택기가 있다(06 §7). Site→room_name→StGroup→Equipment 관계, 실무 room_name 권한 기준, 독립 Line 축을 따른다. 상속 세부는 Open이며 Maker→Model→ChamberType→EquipmentID 분류와는 구별한다([ADR-0005](../adr/0005-scope-room-name-line-independent.md)).
 

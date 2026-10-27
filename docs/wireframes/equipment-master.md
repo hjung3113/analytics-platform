@@ -10,7 +10,7 @@
 - 주 작업: 설비 목록에서 검색·필터로 대상을 좁히고, 행을 열어 속성·유효구간 이력·변경 감사를 확인한다.
 - 분석 대상 객체: `equipment_id`로 식별되는 설비 마스터 레코드(Maker→Model→ChamberType→EquipmentID 분류 + room_name/StGroup 범위 + 유효구간 이력).
 - 이 화면에서 내리는 결정: 어떤 설비를 볼지(검색/필터/딥링크), 무엇을 얼마나 신뢰할지(어떤 필드가 외부 동기화 값인지).
-- 데이터 규모: 현재 Scope(Site 내 room_name 기준 단일 Scope, v1)에 속한 설비 수 — 정확한 볼륨은 Open([열린 입력 질문 4](../../.planning/inputs.md#q4)). 대량이면 서버 페이지네이션·가상화 필요(§27 성능 UX Baseline).
+- 데이터 규모: 현재 Scope(Site 단위, Site 내 room_name 권한 적용, v1)에 속한 설비 수 — 정확한 볼륨은 Open([열린 입력 질문 4](../../.planning/inputs.md#q4)). 대량이면 서버 페이지네이션·가상화 필요(§27 성능 UX Baseline).
 - 이용 빈도: 반복 조회·드릴다운 대상 화면(설비 상세는 다른 화면에서도 딥링크로 진입).
 - Desktop-first(프로젝트 기본값).
 
@@ -52,7 +52,7 @@ React 컴포넌트 이름이나 API 선언이 아니다. Platform/Domain 경계�
 - **식별자**: 목록·상세의 설비 키는 `equipment_id` 하나이며 모든 Site에서 유일하다. Site는 활성 Scope에서 이미 확립돼 있어야 하고 ID로 DB를 역조회하지 않는다([ADR-0004](../adr/0004-site-is-db-partition-not-column.md)). 상세 목적지 `equipment_id`와 목록의 `equipmentIds`/`selectedEquipmentIds`는 같은 식별자를 단일/집합으로 쓰며, 상세 열기에 occurrence anchor는 필요 없다.
 - **Context capability 선언(매니페스트 `menus/mars/equipment`)**: 둘 다 `requiresScope: true`, `pageType: management`, 권한 `equipment:view`이다. 목록(`equipment-master`)은 Time `reference`, room_name·Equipment Group Condition·Selection `apply`, Lot·PPID·Recipe·metric `unsupported`다. 상세(`equipment-detail`)는 Time·room_name·Condition·Selection을 모두 `reference`로 두어 출발 Context를 보존만 하고 목적지 ID와 역할을 구분한다. Scope는 항상 적용·재검증된다.
 - **page-owned 키(등록: `06` §6.1 page-key registration)**: 목록 `q`(검색어)·`status`·`maker`·`focus`(열린 Drawer의 설비 ID)·`sort`·`page`·`tab`. Global Context가 바뀌면 `page`를 지운다(`contextResetKeys`). 상세 전체 화면은 `tab`·`returnTo`. room_name(`roomNames`)·Equipment Group Condition(`equipmentGroup`)·Selection(`selectedEquipmentIds`, 기존 `equipmentIds` 대응)은 `06` §6.1의 전역 키를 소비한다. 조건 축을 조합하거나 별도 page-owned 그룹 키를 만들지 않는다. 정렬 허용 열은 데이터 필드뿐이며 미등록 값은 다른 값으로 바꾸지 않고 오류로 보인다.
-- **Scope 필터링**: 목록은 현재 요청 `scopeId`(Site 내 room_name 기준 단일 Scope, v1)에 속한 설비만 반환한다. Scope 선택지 조회와 데이터 조회는 구분한다(`06` §6.2).
+- **Scope 필터링**: 목록은 현재 요청 `scopeId`(Site 단위, Site 내 room_name 권한 적용, v1)에 속한 설비만 반환한다. Scope 선택지 조회와 데이터 조회는 구분한다(`06` §6.2).
 - **room_name/StGroup의 성격 차이**: room_name(PHOTO·ETCH 같은 공정명)은 보통 등록 후 유지되지만 드물게 바뀔 수 있고 같은 EquipmentID를 유지한다. 설비를 가리키는 키는 EquipmentID 하나이며 별도 설비명은 없다. StGroup·분임조 소속은 외부 공급값이며 StGroup v1 조회는 현재 소속 기준이다. 현재 소속을 유효구간의 과거 값으로 투영하지 않는다([GLOSSARY](../../GLOSSARY.md)).
 - **필드 원천 소유권(Decided/Open)**: As-Is 설비 마스터는 외부/사내 DB에 존재하며 로그에서 발견하는 속성이 아니다. To-Be는 플랫폼의 설비 등록·관리 소유이며 필드별 전환 순서·동기화/수동 수정 경계는 Open이다([ADR-0003](../adr/0003-equipment-master-platform-owned-target.md), [01 마스터 데이터 수정 권한의 원천](../architecture/architecture-and-data-contract.md#마스터-데이터-수정-권한의-원천)). StGroup·분임조 소속은 외부 시스템에서 공급받아 소비하며 플랫폼 직접 편집 대상으로 표시하지 않는다. 나머지 속성의 편집 가능성은 실제 소유권에 따라 결정하며, 소유권이 정해지기 전에는 쓰기를 열지 않는다.
 - **사용중지/복원**: 물리 삭제가 아니라 유효기간 종료(`valid_to`)로 이력을 보존한다(`../product/domain-menus.md`). 사용중지된 ID는 이후 다른 용도로 재사용하지 않는다. 복원 허용 조건은 Open이다. room_name 변경은 사용중지의 사유가 아니다. 사용중지 액션은 확인 없이 즉시 실행하지 않는다(`06` §20 Modal 용도: Confirmation).

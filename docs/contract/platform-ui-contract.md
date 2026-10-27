@@ -108,7 +108,7 @@
 ┌───────────────────────────────────────────────────────────────┐
 │                     Platform Kernel                           │
 │                                                               │
-│  App Shell / Auth Context / Menu Registry / Route Contract   │
+│  Auth Context / Menu Registry / Route Contract               │
 │  Global Context / Permission Scope / Command Palette          │
 │  Saved View / Data Trust / Audit-aware UX                     │
 └───────────────────────────────────────────────────────────────┘
@@ -137,7 +137,7 @@
 └───────────────────────────────────────────────────────────────┘
 ```
 
-페이지는 App Shell을 직접 수정하지 않는다. 플랫폼 기능은 개별 메뉴 import 관계를 알지 못해야 한다.
+App Shell은 Kernel을 소비하는 별도 패키지다. 페이지는 App Shell을 직접 수정하지 않는다. 플랫폼 기능은 개별 메뉴 import 관계를 알지 못해야 한다.
 
 ---
 

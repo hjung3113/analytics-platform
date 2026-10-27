@@ -13,7 +13,7 @@
 
 ## 2. IA / SCREEN INVENTORY
 
-메뉴가 어느 공간에 속하는지는 [06 §9.1](../contract/kernel.md#91-워크스페이스-decided-2026-09-26)이 소유한다. 레일·사이드바·홈 배치는 [15 §3.1](../design/multi-workspace-ui.md#31-셸-배치-decided-2026-10-09)이 소유한다. 분석/운영/피드백 세 공간과 분석 공간 안 홈·지표·공지 트리는 ADR-0028로 대체됐다.
+메뉴가 어느 공간에 속하는지는 [06 §9.1](../contract/kernel.md#91-업무-시스템-decided-2026-09-26)이 소유한다. 레일·사이드바·홈 배치는 [15 §3.1](../design/multi-workspace-ui.md#31-셸-배치-decided-2026-10-09)이 소유한다. 분석/운영/피드백 세 공간과 분석 공간 안 홈·지표·공지 트리는 ADR-0028로 대체됐다.
 
 구현 상태는 `menus/*/*/src/index.ts`의 manifest와 `.planning/README.md`가 원본이다. 공지와 VOC는 별개 도메인이다.
 
@@ -70,7 +70,7 @@
 
 상세가 없으면 오른쪽 슬롯은 폭 0이다. 폭·등록·URL·포커스 원본은 06 §7·§13이며 1440/1280 데스크톱 모두 같은 고정 슬롯을 쓴다. 페이지 머리 아래에 뜨는 overlay나 scrim은 두지 않는다.
 
-구조는 FeedbackOps AppFrame(레일·밝은 사이드바·50px 머리)을 따른다(06 §7). 그룹 귀속은 [06 §9.1](../contract/kernel.md#91-워크스페이스-decided-2026-09-26), 배치는 [15 §3.1](../design/multi-workspace-ui.md#31-셸-배치-decided-2026-10-09)이 소유한다. 위 그림의 사이드바 메뉴 이름은 현재 트리가 아니다(ADR-0028로 대체). 레일 맨 위에는 업무 시스템 전환기가, 그 아래에는 현재 시스템의 섹션 버튼이 있다([15 §3.2](../design/multi-workspace-ui.md#32-시스템별-레일-decided-2026-10-19-adr-0042), 구현 #423). 메뉴 검색은 레일의 명령 팔레트로 한다.
+구조는 FeedbackOps AppFrame(레일·밝은 사이드바·50px 머리)을 따른다(06 §7). 그룹 귀속은 [06 §9.1](../contract/kernel.md#91-업무-시스템-decided-2026-09-26), 배치는 [15 §3.1](../design/multi-workspace-ui.md#31-셸-배치-decided-2026-10-09)이 소유한다. 위 그림의 사이드바 메뉴 이름은 현재 트리가 아니다(ADR-0028로 대체). 레일 맨 위에는 업무 시스템 전환기가, 그 아래에는 현재 시스템의 섹션 버튼이 있다([15 §3.2](../design/multi-workspace-ui.md#32-시스템별-레일-decided-2026-10-19-adr-0042), 구현 #423). 메뉴 검색은 레일의 명령 팔레트로 한다.
 
 50px 페이지 머리와 Context Bar는 main 스크롤 영역 안에서 하나의 sticky 래퍼로 유지한다(Context Bar는 독립 sticky 아님). 콘텐츠 여백은 FeedbackOps `PageShell` 기준이며 치수 원본은 06 §7 Baseline이다. 접힌 사이드바에서도 Scope 선택·검증 상태는 아이콘·접근성 텍스트로 유지한다.
 
@@ -89,7 +89,7 @@ Scope의 포함 관계는 Site→room_name→StGroup→Equipment이며 실무 �
 - 메뉴 레지스트리에서 표시명·그룹·목적지·필요 권한·지원 Context를 읽는다(전역 계약 §5).
 - 요청 Scope, 현재 검증 상태, 사용자가 접근 가능한 Scope 선택 항목을 읽는다(§6.2). room_name 기준 Scope·v1 단일 선택은 Decided이며 부모·자식 상속은 Open이다. 선택기 API 구현을 확정한 것은 아니다.
 - URL에서 복원된 요청 Context와 목적지 객체 ID를 구분해 표시한다(§6.1). 직렬화·충돌 메커니즘은 §6.1/§6.4의 Decided 계약을 소비하며, 공개 필드명·enum·산출물 형식은 원본의 Candidate 상태를 따른다.
-- 즐겨찾기/최근방문은 사용자별 목적지를 표시한다. **즐겨찾기는 목적지 ID만 저장한다(Decided, 2026-09-24 — [08 §6](operations-overview.md#6-data-requirements))**: 마지막 조회 Context는 저장하지 않으며, 클릭 시 그 화면의 기본 상태로 진입하고 §6.2의 재검증을 그대로 따른다. 최근방문은 최대 12건을 저장하고 사이드바에 5건을 표시한다.
+- 즐겨찾기/최근방문은 사용자별 목적지를 표시한다. **즐겨찾기는 목적지 화면의 ID만 저장한다(Decided, 2026-09-24 — [08 §6](operations-overview.md#6-data-requirements))**: 마지막 조회 Context는 저장하지 않으며, 클릭 시 그 화면의 기본 상태로 진입하고 §6.2의 재검증을 그대로 따른다. 최근방문은 최대 12건을 저장하고 사이드바에 5건을 표시한다.
 - 시간 표시/입력은 §6.3의 Decided 경계·fallback·병합 가드·기본 구간 물질화를 따른다. 초기 TZ는 한국(Asia/Seoul) 우선으로 Decided이며 다중 사업장 같은 날짜·교대일/영업일 의미는 Open이다. 이 화면에서 시간 계약을 재정의하지 않는다.
 
 ## 7. INTERACTION / DOCUMENT REVIEW SCENARIOS

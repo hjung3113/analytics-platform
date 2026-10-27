@@ -4,6 +4,8 @@
 
 ## Language
 
+견본 메뉴가 쓰는 지표·업무 용어의 정의는 **견본 정의**다. 사내 적용(M4) 때 도메인 담당이 준 정의로 바꾼다(사용자 2026-10-27). 실제 메뉴가 쓸 이름을 이 용어집에 미리 넣지 않는다.
+
 ### 물리 조직과 접근 범위
 
 **Site**:
@@ -30,7 +32,10 @@ _Avoid_: 벤더, Vendor
 
 **ChamberType**:
 Model보다 더 세부적으로 설비를 분류하는 값. 외부 시스템에서 공급되며, 이 플랫폼이 직접 산출하지 않는다.
-_Avoid_: 챔버(단독), Chamber — 분류값은 ChamberType으로 쓴다. 화면의 `챔버 유형`은 ChamberType의 한국어 이름이다.
+_Avoid_: 분류값을 `챔버`(단독)로 부르기 — 분류값은 ChamberType으로 쓴다. 화면의 `챔버 유형`은 ChamberType의 한국어 이름이다.
+
+**Chamber** (`챔버`):
+설비 안의 개별 챔버를 가리키는 말. 설비를 나누는 분류값인 ChamberType과 구별한다(ChamberType은 분류, Chamber는 개별 대상). Module/Slot과의 정확한 관계는 도메인 담당 확인 전이라 임시다(사용자 2026-10-27: 개별 챔버도 용어로 둔다. 화면 문구는 그대로).
 
 **EquipmentID**:
 실제 설비 한 대를 가리키는 식별자이자 사람이 부르는 이름이다. 모든 Site에 걸쳐 전역적으로 유일하며, 설비를 가리키는 키는 이것 하나다. Maker → Model → ChamberType → EquipmentID 설비 분류 계층의 최하위이며, 설비 내부 이벤트에는 이보다 세부적인 Module/Slot 단위가 있다.
@@ -46,8 +51,8 @@ _Avoid_: 설비명, EquipmentName — EquipmentID와 별개인 설비 이름은 
 
 **room_name** (`room`, URL 키 `roomNames`):
 설비가 속한 공정의 이름(예: PHOTO, ETCH)이자 Site 내 권한·조회 범위의 기준 축. 같은 room_name이 여러 Site에 있을 수 있으며 Site 안에서 구분된다. 하나의 room_name이 여러 Line에 걸칠 수 있으며 Maker/Model 계층과도 독립적이다. 보통 등록 시 정해진 값이 유지되지만 드물게 바뀔 수 있고, 이때도 같은 EquipmentID를 유지한다.
-화면 이름은 `공정`이다(사용자 2026-10-23).
-_Avoid_: Process, 공정 구역 — 코드·문서에서는 room_name으로 쓴다. "Process"는 이 프로젝트에서 여러 의미로 겹쳐 쓰인다. Job 안의 PRC 실행 시간대는 `공정 구간`이 아니라 `PRC 구간`이라 쓴다.
+화면 이름은 `공정`(en `Process`)이다(사용자 2026-10-23, 2026-10-27 확정). 코드·문서의 이름은 room_name이다.
+_Avoid_: 공정 구역 — `Process`는 room_name의 화면 영어 이름으로만 쓰고 다른 의미와 섞지 않는다. Job 안의 PRC 실행 시간대는 `공정 구간`이 아니라 `PRC 구간`이라 쓴다.
 
 **StGroup** (`stgroup`):
 하나의 Operation(제품 라우팅 작업 단위, 아래 참고)을 상호 대체 수행할 수 있는 **설비 단위**(Module/Slot 단위 아님) 묶음. 담당자·조직이 아닌 **공정 능력(capability) 단위**다. Site와 room_name 경계를 넘지 않으며, 여러 Line에 걸칠 수 있다. Maker/Model 분류와는 별개다. 소속은 가변적이고 외부 시스템에서 공급받는다. 사용자가 그 시점 소속 / 지금 소속을 골라 조회하며, 소속 이력이 없는 축은 지금 소속만 허용한다([ADR-0059](docs/adr/0059-app-injected-equipment-axes-and-condition.md)).
@@ -59,7 +64,7 @@ _Avoid_: 분임조 — 분임조는 StGroup과 별개의 값이다(아래 참고
 **분임조** (`team`):
 그 범위의 설비들을 관리하는 **엔지니어들의 묶음**(조직·담당자 단위). StGroup(공정 능력 단위)과 이름은 비슷하지만 완전히 다른 축이다 — 분임조는 사람을 묶고, StGroup은 설비의 공정 대체 가능성을 묶는다. 소속 정보는 외부 시스템에서 공급받는다.
 
-Line·PRC 그룹은 독립 전역 Context 집합이며 Condition 축이 아니다(2026-10-21 사용자 정정 — 소유자 #552·#513, [06 §6.1](docs/contract/kernel.md#61-식별자와-url-소유-상태-decided)).
+Line·PRC 그룹은 독립 전역 집합 키 `lineNames`·`prcGroups`이며 Condition 축이 아니다(2026-10-21 사용자 정정 — 소유자 #552·#513, [06 §6.1](docs/contract/kernel.md#61-식별자와-url-소유-상태-decided)).
 
 **Equipment Group Condition / Selection** (`equipmentGroup` / `selectedEquipmentIds`):
 Condition은 앱이 제공한 설비 묶음 축의 조건으로 선언한 소속 기준에 맞는 설비를 다시 찾는 질의이며, 여러 축은 AND·같은 축의 여러 값은 OR로 결합한다. Selection은 사용자가 명시적으로 고른 고정 EquipmentID 목록으로 Condition과 별개의 상태다([ADR-0059](docs/adr/0059-app-injected-equipment-axes-and-condition.md), [06 §6.1](docs/contract/kernel.md#61-식별자와-url-소유-상태-decided)).
@@ -141,7 +146,7 @@ _Avoid_: 플랫폼 — 플랫폼 전체와 섞인다.
 
 **업무 시스템** (코드 이름 `Space`):
 플랫폼 위에 올라가는 독립된 업무 단위. 자기 메뉴 그룹·메뉴·업무 객체와 진입 권한을 소유하고, 다른 시스템의 객체를 흡수하지 않는다. 지금 등록된 것은 MARS·CLAS(생산성 분석), BRAVO(지표관리), 표준 로그 개발, 개선 실행, 운영 콘솔이고, 피드백 운영은 계획이다.
-CLAS는 Cycle Loss Analysis System의 줄임이다. MARS와 CLAS는 메뉴가 달라 별도 시스템으로 둔다(이 플랫폼의 CLAS에는 견본 메뉴 하나가 있고, 기존 CLAS 화면 이전은 계획).
+CLAS는 약어 그대로 쓰고 영어 풀이 이름은 쓰지 않는다(어차피 바뀔 이름, 사용자 2026-10-27). 메뉴·설명에도 `Equipment operation`·`operation time` 같은 풀이를 두지 않는다. MARS와 CLAS는 메뉴가 달라 별도 시스템으로 둔다(이 플랫폼의 CLAS에는 견본 메뉴 하나가 있고, 기존 CLAS 화면 이전은 계획).
 _Avoid_: 워크스페이스, 공간, 앱, 모듈 — 워크스페이스는 FeedbackOps의 workspace(테넌트)·작업 영역과, 모듈은 호스트 모듈·설비 Module과 섞인다. 화면 문구는 `업무 시스템`(짧게 `시스템`)이고, `Space`는 코드 이름으로만 쓴다.
 
 **메뉴 그룹** (`GroupDef`):
@@ -209,9 +214,9 @@ _Avoid_: 이슈 — 시스템마다 뜻이 달라 단독으로 쓰지 않는다.
 **피드백 운영** (업무 시스템, 계획):
 FeedbackOps의 관리자·개발자 화면(수신함·Triage·Finding·Task·설문 관리·피드백 운영 설정 등)을 올릴 업무 시스템. 아직 등록되지 않았다. 모든 사용자가 쓰는 VOC 등록·내 VOC·설문 응답은 여기가 아니라 플랫폼 메뉴와 레일이다. 이름은 Candidate다([ADR-0066](docs/adr/0066-feedbackops-merges-into-platform.md), 배치는 [합류 설계](docs/integration/feedbackops-merge-design.md) §3.2).
 
-**발행** (지표 버전):
+**발행** (지표 버전, en `Released`):
 지표 버전 하나를 분석이 기본으로 쓰는 버전으로 공개하는 것. BRAVO가 소유한다.
-_Avoid_: 게시 — 같은 동작을 두 이름으로 부르지 않는다(사용자 2026-10-23).
+_Avoid_: 게시, Published — 같은 동작을 두 이름으로 부르지 않는다(사용자 2026-10-23, 2026-10-27 `발행`/`Released`로 통일).
 
 **VOC 등록** / **신고자**:
 VOC를 처음 쓰는 동작은 `등록`이고, 등록한 사람은 `신고자`(FeedbackOps Reporter)다. 신고자에게 보이는 담당자의 글은 `담당자 답변`이라 하며 FeedbackOps의 Public Update다. 신고자가 다시 쓰는 글은 `신고자 답글`(Reporter Reply)이다.
