@@ -4,7 +4,7 @@
  * live in their own menu package (docs/integration/platform-packages.md §5); the app concatenates them.
  */
 import {
-  BarChart3, Boxes, ClipboardList, Cpu, Database, FileSearch, Gauge, Inbox, LayoutDashboard, LineChart, ListChecks, ListTodo, Megaphone, Ruler, ShieldCheck, Timer, UserRound,
+  BarChart3, Boxes, ClipboardList, Cpu, Database, FileSearch, Gauge, Inbox, LayoutDashboard, LineChart, ListChecks, ListTodo, Megaphone, Ruler, Settings, ShieldCheck, Timer, UserRound, Waves, Workflow, CircleGauge,
 } from 'lucide-react';
 import { groupId, menuPermission, spaceId, type SpaceDef } from '@ap/contracts';
 import { createRegistry, type GroupDef, type MenuEntry } from '@ap/kernel';
@@ -32,6 +32,10 @@ import { manifests as foVoc } from '@ap/menu-fo-voc';
 import { manifests as foFindings } from '@ap/menu-fo-findings';
 import { manifests as foTasks } from '@ap/menu-fo-tasks';
 import { manifests as foIntegration } from '@ap/menu-fo-integration';
+import { manifests as rcc } from '@ap/menu-rcc';
+import { manifests as mcc } from '@ap/menu-mcc';
+import { manifests as wpt } from '@ap/menu-wpt';
+import { manifests as configuration } from '@ap/menu-configuration';
 // </gen:menu-imports>
 
 /** The menu permissions this app's menus use, on top of the kernel's (ADR-0072). Each menu package spells its own with `menuPermission`; `createRegistry` fails on one missing here. */
@@ -45,6 +49,10 @@ export const GROUPS: GroupDef[] = [
   { id: groupId('equipment'), label: { ko: '설비관리', en: 'Equipment' }, icon: Cpu, space: spaceId('mars') },
   { id: groupId('masterData'), label: { ko: '기준정보관리', en: 'Master Data' }, icon: Database, space: spaceId('mars') },
   { id: groupId('hwTime'), label: { ko: '동작시간분석', en: 'Operation time analysis' }, icon: Timer, space: spaceId('mars') },
+  { id: groupId('rcc'), label: { ko: 'RCC', en: 'RCC' }, icon: Workflow, space: spaceId('mars') },
+  { id: groupId('mcc'), label: { ko: 'MCC', en: 'MCC' }, icon: CircleGauge, space: spaceId('mars') },
+  { id: groupId('wpt'), label: { ko: 'WPT', en: 'WPT' }, icon: Waves, space: spaceId('mars') },
+  { id: groupId('configuration'), label: { ko: 'Configuration', en: 'Configuration' }, icon: Settings, space: spaceId('mars') },
   { id: groupId('metrics'), label: { ko: '지표관리', en: 'Metrics' }, icon: Gauge, space: spaceId('bravo') },
   { id: groupId('clas'), label: { ko: '설비 동작 분석', en: 'Equipment operation' }, icon: LineChart, space: spaceId('clas') },
   { id: groupId('admin'), label: { ko: '관리·감사', en: 'Administration' }, icon: ShieldCheck, space: spaceId('operations') },
@@ -102,6 +110,10 @@ export const MENUS: MenuEntry[] = [
   ...foFindings,
   ...foTasks,
   ...foIntegration,
+  ...rcc,
+  ...mcc,
+  ...wpt,
+  ...configuration,
   // </gen:menu-spreads>
 ];
 

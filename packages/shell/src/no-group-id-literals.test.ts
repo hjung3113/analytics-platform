@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 // vitest (package script and turbo) runs from the package root; import.meta.url is not a file path under jsdom.
 const here = join(process.cwd(), 'src');
 // The sample app's group ids (apps/platform-web/src/menus.ts). The list is the app's to declare (ADR-0072), so this test carries its own copy.
-const ids = ['overview', 'myActivity', 'equipment', 'masterData', 'analytics', 'metrics', 'noticeVoc', 'admin', 'clas', 'logMyWork', 'logModels', 'logCross', 'logRules', 'impMyWork', 'impTasks', 'impReports'];
+const ids = ['overview', 'myActivity', 'equipment', 'masterData', 'analytics', 'metrics', 'noticeVoc', 'admin', 'clas', 'logMyWork', 'logModels', 'logCross', 'logRules', 'impMyWork', 'impTasks', 'impReports', 'rcc', 'mcc', 'wpt', 'configuration'];
 
 function shellSources(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
