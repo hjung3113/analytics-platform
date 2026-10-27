@@ -1,5 +1,6 @@
+import { registerAnchorLinkHost } from '@/test/anchor-link-host';
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 const {
   useCloseSurvey,
@@ -43,6 +44,8 @@ vi.mock('@tanstack/react-router', async (importOriginal) => ({
 }));
 
 import { SurveysIndexRoute } from '@/routes/_authed/surveys/index';
+
+beforeAll(registerAnchorLinkHost);
 
 describe('/surveys route', () => {
   // #1075 moved the entry decision to the survey.manage capability scope; the

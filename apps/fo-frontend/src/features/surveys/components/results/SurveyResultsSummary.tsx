@@ -1,9 +1,9 @@
 import { RequestAccessButton } from '@/features/admin/public';
 import { FindingRequestTaskDraftHost, useFindingDetail } from '@/features/findings/public';
 import { RATING_BAND_LABELS, SURVEY_RESULT_KIND_LABELS } from '@/lib/copy/enum-labels';
+import { HostLink, useHostSeam } from '@/lib/host/host-seam';
 import { Button, EmptyState } from '@ap/ui';
 import type { OutcomeFollowUpReadDto, SurveyResultDto } from '@fops/shared';
-import { Link } from '@tanstack/react-router';
 import { FilePlus } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import type { Survey } from '../../types';
@@ -259,6 +259,7 @@ function NextActions({
 }
 
 export function SurveyResultsSummary({ survey, results, followUpRead }: SurveyResultsSummaryProps) {
+  const { canLink } = useHostSeam();
   // The aggregate DTO has no outcome score or poor-result flag. Keep this
   // annotation tied to backend-provided follow-up availability rather than
   // deriving a poor outcome from response distributions.
@@ -307,15 +308,15 @@ export function SurveyResultsSummary({ survey, results, followUpRead }: SurveyRe
                     </p>
                   )}
                 </div>
-                {followUpRead?.personal_access === true && (
-                  <Link
-                    className="shrink-0 font-medium text-accent-primary underline-offset-2 hover:underline"
-                    params={{ surveyId: survey.id }}
-                    to="/surveys/$surveyId/follow-up"
-                  >
-                    후속 조치 검토
-                  </Link>
-                )}
+                {followUpRead?.personal_access === true &&
+                  canLink(`/surveys/${survey.id}/follow-up`) && (
+                    <HostLink
+                      className="shrink-0 font-medium text-accent-primary underline-offset-2 hover:underline"
+                      to={`/surveys/${survey.id}/follow-up`}
+                    >
+                      후속 조치 검토
+                    </HostLink>
+                  )}
               </div>
             ))}
         </header>

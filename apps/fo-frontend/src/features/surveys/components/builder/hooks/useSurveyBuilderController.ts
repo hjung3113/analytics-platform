@@ -1,4 +1,4 @@
-import type { ApiError } from '@/lib/api';
+import type { ApiError } from '@/lib/api/types';
 import * as React from 'react';
 import { useOpenSurvey, useSurveyQuestionMutations } from '../../../hooks/useSurveys';
 import type { QuestionKind, Survey, SurveyQuestion } from '../../../types';

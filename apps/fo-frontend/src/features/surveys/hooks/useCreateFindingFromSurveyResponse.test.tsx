@@ -11,6 +11,10 @@ vi.mock('@/lib/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api')>()),
   apiClient,
 }));
+vi.mock('@/lib/api/client', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/client')>()),
+  apiClient,
+}));
 
 describe('useCreateFindingFromSurveyResponse', () => {
   beforeEach(() => {

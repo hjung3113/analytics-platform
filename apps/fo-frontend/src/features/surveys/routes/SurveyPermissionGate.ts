@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 
-import { fetchCapabilityScope } from '@/lib/api';
-import { useMe } from '@/lib/auth/useMe';
-import { usePermissionCheck } from '@/lib/cross-system/usePermissionCheck';
+import { useMeBridge } from '@/lib/api/me';
+import { fetchCapabilityScopeViaClient } from '@/lib/api/permission-reads';
+import { usePermissionCheckBridge } from '@/lib/cross-system/usePermissionCheckBridge';
 
 /** Capability decisions are authoritative; /me is only a fail-closed readiness gate. */
 export function useSurveyManageGate(managedSystemId?: string) {
@@ -23,7 +23,7 @@ export function useSurveyManageGate(managedSystemId?: string) {
 export function useSurveyManageAnySystemGate() {
   const scope = useQuery({
     queryKey: ['permission-scope', 'survey.manage'],
-    queryFn: ({ signal }) => fetchCapabilityScope('survey.manage', { signal }),
+    queryFn: ({ signal }) => fetchCapabilityScopeViaClient('survey.manage', { signal }),
     retry: false,
   });
   const scopedIds =
@@ -41,8 +41,8 @@ function useSurveyCapabilityGate(
   capability: 'survey.manage' | 'survey.read',
   managedSystemId?: string,
 ) {
-  const me = useMe();
-  const permission = usePermissionCheck({
+  const me = useMeBridge();
+  const permission = usePermissionCheckBridge({
     capability,
     ...(managedSystemId ? { managedSystemId } : {}),
   });

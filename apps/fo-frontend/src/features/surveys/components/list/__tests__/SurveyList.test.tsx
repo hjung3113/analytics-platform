@@ -1,9 +1,10 @@
 import type { FrontendPermissionState } from '@/lib/api';
 import { SURVEY_TYPE_LABELS } from '@/lib/copy/enum-labels';
+import { registerAnchorLinkHost } from '@/test/anchor-link-host';
 import { surveyTypeSchema } from '@fops/shared';
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/features/admin/permissions/request-access-button', () => ({
   RequestAccessButton: ({
@@ -25,6 +26,8 @@ vi.mock('@/features/admin/permissions/request-access-button', () => ({
 
 import type { Survey } from '../../../types';
 import { SurveyList } from '../SurveyList';
+
+beforeAll(registerAnchorLinkHost);
 
 const survey: Survey = {
   id: 'survey-1',

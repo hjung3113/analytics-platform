@@ -1,4 +1,5 @@
 import { SurveyBuilder } from '@/features/surveys/components/builder/SurveyBuilder';
+import { useBuilderDirtyGuard } from '@/features/surveys/components/builder/hooks/useBuilderDirtyGuard';
 import { SurveyDetail } from '@/features/surveys/components/detail/SurveyDetail';
 import {
   SurveyListScreen,
@@ -21,7 +22,7 @@ import {
   useMatchRoute,
   useNavigate,
 } from '@tanstack/react-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 export { validateSurveyDetailSearch };
 
@@ -48,11 +49,8 @@ function SurveyBuilderWithDirtyConfirmation({
   managedSystemNamesById: ReadonlyMap<string, string> | undefined;
   onBack: () => void;
 }) {
-  const builderDirtyRef = useRef(false);
+  const { dirtyRef: builderDirtyRef, setDirty: handleBuilderDirtyChange } = useBuilderDirtyGuard();
   const [dirtyDialogOpen, setDirtyDialogOpen] = useState(false);
-  const handleBuilderDirtyChange = useCallback((dirty: boolean) => {
-    builderDirtyRef.current = dirty;
-  }, []);
   const blocker = useBlocker({
     shouldBlockFn: () => builderDirtyRef.current,
     withResolver: true,

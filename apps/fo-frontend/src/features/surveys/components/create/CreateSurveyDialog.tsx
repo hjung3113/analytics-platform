@@ -1,4 +1,6 @@
-import { ApiError, fetchCapabilityScope, fetchManagedSystems } from '@/lib/api';
+import { fetchCapabilityScopeViaClient } from '@/lib/api/permission-reads';
+import { fetchManagedSystems } from '@/lib/api/registry-reads';
+import { ApiError } from '@/lib/api/types';
 import { SURVEY_STATUS_LABELS, SURVEY_TYPE_LABELS } from '@/lib/copy/enum-labels';
 import { SURVEY_START_COPY as COPY } from '@/lib/copy/survey-builder';
 import {
@@ -96,7 +98,7 @@ export function CreateSurveyDialog({
   });
   const scope = useQuery({
     queryKey: ['permission-scope', 'survey.manage'],
-    queryFn: ({ signal }) => fetchCapabilityScope('survey.manage', { signal }),
+    queryFn: ({ signal }) => fetchCapabilityScopeViaClient('survey.manage', { signal }),
     enabled: open,
     retry: false,
   });
