@@ -33,7 +33,7 @@ Take the first match:
 
 ## Shared paths
 
-Any lane may edit these, but first it sends `<lane>: 착수 #n <paths>` to the lead and posts the same line on the issue. The lead checks the paths against open PRs (`gh pr diff <n> --name-only`) and sets the order.
+Any lane may edit these, but first it sends `lane-send.sh 착수 <#n> "<paths>"` and posts the same line on the issue. The lead runs `shared-overlap.sh --paths <paths>` (open PR file lists) and sets the order.
 
 - Public API of `packages/sdk/{contracts,kernel,components,shell}`
 - `apps/platform-web/src/menus.ts`, 06 contract docs
@@ -61,19 +61,15 @@ On a rebase, keep both sides of a conflicting table or list row.
 
 ## Lane session
 
-1. **Start:** read your brief file. The merge grant is the one written in it. Never use `AskUserQuestion`, because nobody watches this terminal.
+1. **Start:** read your brief file (shape: [addenda/lane-brief.md](addenda/lane-brief.md)) and only the sections it names. The merge grant is the one written in it. Never use `AskUserQuestion`, because nobody watches this terminal.
 2. **Owner decisions** go to the lead as `<lane>: 질문 #n`. These are prototype confirmations, 06 contract changes, deleting tests, 3+ new menu screens, and global tool updates. Park that issue and continue with other work. Decide everything else yourself and record it.
-3. **Messages to the lead** (Run messages, send only — never use `run-use`, `check --wait` or `--ack`):
-   `orca orchestration send --run <run> --to run:<run> --from "$ORCA_TERMINAL_HANDLE" --type status --subject "<lane>: <병합|막힘|풀음|유지|질문|착수|대기|교대|main 깨짐|E2E> [#n]" --body "<≤3 sentences>"`
+3. **Messages to the lead:** `bash .agents/conductor/scripts/lane-send.sh <병합|막힘|풀음|유지|질문|착수|대기|교대|main 깨짐|E2E> <#n|-> "<≤3 sentences>"`. It fixes the subject and Run format and sends only. Never use `run-use`, `check --wait` or `--ack`.
 4. **Blocked** on a lock or slot for more than 5 minutes: send `<lane>: 막힘 #n <lock>, owner <owner>, since <t>, purpose <p>`.
 5. **Prerequisite PR:** wait on it yourself in the background with `timeout <cap> bash -c 'until s=$(gh pr view <n> --json state -q .state); [ "$s" != OPEN ]; do sleep 60; done; echo "$s"'`. On `MERGED`, start. On `CLOSED` or a timeout, ask the lead.
 6. **Between assignments:** start the next issue in the assignment comment's order. Run non-overlapping issues in parallel if capacity allows. When nothing is left, send `대기` and launch nothing.
-7. **Rotation:** after each assignment, read `ctx:` with `orca terminal read --terminal "$ORCA_TERMINAL_HANDLE" --screen | grep -o 'ctx:[0-9]*%'`.
-   - Above 60%: finish the current issue, then rotate.
-   - Above 75%: rotate now.
-   - To rotate, write `HANDOFF.md` (work in progress, held locks and slots, preview labels, worker names) and send `교대`.
+7. **Rotation:** after each assignment run `bash .agents/conductor/scripts/lane-rotate.sh`. On `rotate=after-issue`, finish the current issue, then rotate. On `rotate=now`, rotate now. To rotate, write `HANDOFF.md` (work in progress, held locks and slots, preview labels, worker names) and send `교대`.
 8. **Merge:** per [addenda/merge.md](addenda/merge.md). If main CI goes red after your merge, send `main 깨짐` and fix it. The lead pauses other lanes' merges until then.
-9. **Another lane's paths:** before editing a path another lane owns, send `<lane>: 착수 #n <paths>`. The lead sets the order.
+9. **Another lane's paths:** before editing a path another lane owns, send `착수` the same way. The lead sets the order.
 10. **Tier:** follow the `tier=` in the assignment comment, and confirm it with `tier.sh` before ship ([PROFILE §Size and path](PROFILE.md)).
 11. **New issue:** first run `gh issue list --state all --limit 20 --search "<keywords>"`. If the cause is the same, comment on the existing issue instead.
 
