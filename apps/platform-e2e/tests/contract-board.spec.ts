@@ -1846,7 +1846,7 @@ test.describe('분석 보드 창 (#893 893d)', () => {
       localStorage.setItem('platform:board:engineer', JSON.stringify(value));
       sessionStorage.setItem(seeded, '1');
     }, { value: { v: 1, activeSheetId: 'dock', sheets: [{ id: 'dock', name: '도킹', layout: '1x2', selected: 0, panes: [screenOf('PHOTO'), screenOf('ETCH')] }] } });
-    await page.goto('/productivity');
+    await page.goto(PRODUCTIVITY);
     await mainHeading(page).waitFor();
     await rail(page).getByRole('button', { name: '분석 보드' }).click();
     await expect(page).toHaveURL(/\/board\?sheet=dock/);
@@ -1866,12 +1866,12 @@ test.describe('분석 보드 창 (#893 893d)', () => {
     const length = await page.evaluate(() => history.length);
     await page.getByRole('button', { name: '창으로 보기' }).click();
     await expect(windowFrame(page)).toBeVisible();
-    await expect(page).toHaveURL(/\/productivity/);
+    await expect(page).toHaveURL(/\/analytics\/productivity/);
     expect(await page.evaluate(() => history.length)).toBe(length);
     await expect(rail(page).getByRole('button', { name: '분석 보드(창으로 열림, 눌러 앞으로)' })).toHaveAttribute('data-board-state', 'floating');
     await expect(mainHeading(page)).toBeVisible();
-    await chooseSystem(page, 'MARS');
-    await expect(page).not.toHaveURL(/\/board|\/productivity/);
+    await page.getByRole('link', { name: '사이클타임 상세' }).click();
+    await expect(page).toHaveURL(/\/analytics\/cycle-time/);
     await expect(windowFrame(page)).toBeVisible();
     await expect(chip(page)).toHaveCount(0);
     await expect(marks(page)).toHaveCount(2);
@@ -1939,7 +1939,7 @@ test.describe('분석 보드 창 (#893 893d)', () => {
     await page.getByRole('button', { name: '⋯ 창' }).click();
     await page.getByRole('menuitem', { name: '왼쪽 위' }).click();
     const before = await box(windowFrame(page));
-    await page.getByRole('button', { name: '최대화' }).click();
+    await page.getByRole('button', { name: '최대화', exact: true }).click();
     await expect(page).toHaveURL(/\/board\?sheet=dock/);
     await expect(windowFrame(page)).toHaveCount(0);
     await page.getByRole('button', { name: '창으로 보기' }).click();
