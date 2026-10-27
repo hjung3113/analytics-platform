@@ -13,7 +13,7 @@
     "test": { "dependsOn": ["transit"] },
     "build": {
       "dependsOn": ["transit", "^build"],
-      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/tooling/scripts/sdk-finalize-dist.mjs"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/tooling/sdk/sdk-finalize-dist.mjs"],
       "outputs": ["dist/**"]
     },
     "dev": { "cache": false, "persistent": true }
