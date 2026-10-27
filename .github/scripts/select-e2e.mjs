@@ -1,3 +1,4 @@
+process.exit(1); // TEMP #1019 PR-B fail-safe probe: the E2E selection step fails so its outputs are empty. Do not merge.
 // CI `changes` job (#1019): picks the E2E specs a change can affect, so a PR or a push to main runs only those. Node builtins only (no setup-node, no install).
 //
 //   e2e            'all'            every spec (the default for anything not provably limited)
