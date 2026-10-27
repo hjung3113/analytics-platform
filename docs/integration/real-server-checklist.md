@@ -136,7 +136,7 @@ Kernel은 받은 `ok`/`empty`의 kind가 선언과 다르면 `contract_violation
 
 ## 6. 시간
 
-- 설비 wall-clock(분석 기간·anchor)은 naive 문자열로 주고받고 time zone으로 옮기지 않는다(`formatDateTime`). 실제 시점(감사·활용률 epoch·timestamptz)은 `formatInstant`(06 §6.3).
+- 설비 wall-clock(분석 기간·`startedAt`)은 naive 문자열로 주고받고 time zone으로 옮기지 않는다(`formatDateTime`). 발생 식별 키 `anchor`는 시각이 아니라 불투명 숫자 문자열이다(Kernel §6.1). 실제 시점(감사·활용률 epoch·timestamptz)은 `formatInstant`(06 §6.3).
 - `from`/`to`는 `[from, to)`. 기본 기간은 `defaultRangeTo()` 기준으로 클라이언트가 절대값으로 채운 뒤 요청한다.
 
 ## 7. 아직 사람 결정이 필요한 것

@@ -94,7 +94,7 @@ describe('cycle-time endpoints', () => {
   });
 
   it('applies the tail threshold and bin range on the server', () => {
-    const rows = [10, 40, 80, 95].map((cycleMin, i) => ({ equipmentId: 'E', room: 'R', recipe: 'r', lotId: 'l', ppid: 'p', anchor: `2026-09-25T0${i}:00:00`, cycleMin, quality: 'unknown' as const }));
+    const rows = [10, 40, 80, 95].map((cycleMin, i) => ({ equipmentId: 'E', room: 'R', recipe: 'r', lotId: 'l', ppid: 'p', anchor: String(i + 1), startedAt: `2026-09-25T0${i}:00:00`, cycleMin, quality: 'unknown' as const }));
     expect(slowExecutions(rows, 'all', null, null, null, { from: '75-90', to: '90+' }).map(r => r.cycleMin)).toEqual([80, 95]);
     expect(slowExecutions(rows, 'p95', 40, 90, null, null).map(r => r.cycleMin)).toEqual([95]);
   });

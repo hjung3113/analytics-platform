@@ -20,8 +20,13 @@ export type Execution = {
   recipe: string;
   lotId: string;
   ppid: string;
-  /** Occurrence anchor. Full second string; lotId is not a substitute key. */
+  /**
+   * Occurrence anchor: the parser's RecordSequence as an opaque decimal string. Compared only for equality
+   * inside one equipmentId; never parsed as a time or ordered across equipment. lotId is not a substitute key.
+   */
   anchor: string;
+  /** Wall-clock start `YYYY-MM-DDTHH:mm:ss`. Display, bucketing and ordering only — not part of the key. */
+  startedAt: string;
   cycleMin: number;
   quality: Quality;
 };
@@ -225,12 +230,19 @@ export function cycleVersionOf(metric: ResolvedMetric): string | null {
   return metric.kind === 'unconfirmed' ? null : metric.metricVersion;
 }
 
-const ANCHOR = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})$/;
+const INSTANT = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})$/;
 
-/** Second-precision occurrence anchor (never shortened to join or display). */
+/** Wall-clock instant `YYYY-MM-DDTHH:mm:ss` (bucket and period boundaries, `startedAt`). Not the occurrence key. */
+export function isInstant(value: string | null): value is string {
+  if (!value || !INSTANT.test(value)) return false;
+  try { parseDateTime(value, 'instant'); return true; } catch { return false; }
+}
+
+const ANCHOR_KEY = /^(0|[1-9][0-9]{0,18})$/;
+
+/** Occurrence anchor syntax: canonical bigint decimal. A cheap guard that keeps free text out of the URL; the value stays opaque. */
 export function isAnchor(value: string | null): value is string {
-  if (!value || !ANCHOR.test(value)) return false;
-  try { parseDateTime(value, 'anchor'); return true; } catch { return false; }
+  return value !== null && ANCHOR_KEY.test(value);
 }
 
 export const BINS = [

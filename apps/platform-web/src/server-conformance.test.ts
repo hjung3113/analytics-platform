@@ -5,7 +5,7 @@ import { EQUIPMENT_AXES } from './equipmentAxes';
  * (docs/integration/real-server-checklist.md). The endpoint list is the mock assembly's own MOCK_ENDPOINTS (#153) plus its MODULE_MOCK_ENDPOINTS (#801) — lint lets exactly this test import it.
  */
 import { describe, expect, it } from 'vitest';
-import { createMockAdapter, defineMockAction, EQUIPMENT, getRole, setRole, USERS, type RoleId } from '@ap/mock-server';
+import { createMockAdapter, defineMockAction, EQUIPMENT, getRole, jobsForEquipmentDay, setRole, USERS, type RoleId } from '@ap/mock-server';
 import { describeServerConformance, type ConformanceCase } from '@ap/server-conformance';
 import { MOCK_AUDIT_EVENTS, MOCK_ENDPOINTS, MODULE_MOCK_ENDPOINTS } from './dev/mock-assembly';
 import { registry } from './menus';
@@ -14,6 +14,10 @@ import { defineAction, menuPermission, spaceId, type Permission } from '@ap/cont
 
 /** Exactly what the app registers: the mock assembly's lists, not a copy. */
 const endpoints = [...MOCK_ENDPOINTS, ...MODULE_MOCK_ENDPOINTS];
+
+/** A real RecordSequence from the mock: the first job of the equipment's day. */
+const OCCURRENCE_EQUIPMENT = 'MEM-PHOTO-0103';
+const OCCURRENCE_ANCHOR = jobsForEquipmentDay(EQUIPMENT.find(row => row.equipmentId === OCCURRENCE_EQUIPMENT)!, '2026-09-25')[0].anchor;
 
 const page = { page: 0, pageSize: 10, sorting: [] };
 const slowFilter = { tail: 'p95', granularity: 'hour', bucket: null, bin: null };
@@ -28,7 +32,7 @@ const PARAMS: Record<string, Record<string, unknown>> = {
   'analytics.productivity.trend': { kpi: 'occupancy', granularity: 'hour' },
   'analytics.productivity.breakdown': { axis: 'room' },
   'analytics.productivity.drill': { level: 'stgroup', room: 'PHOTO', stgroup: '' },
-  'analytics.execution.occurrence': { equipmentId: 'MEM-PHOTO-0103', entityType: 'job', anchor: '2026-09-25T10:00:00', metricVersion: '3' },
+  'analytics.execution.occurrence': { equipmentId: OCCURRENCE_EQUIPMENT, entityType: 'job', anchor: OCCURRENCE_ANCHOR, metricVersion: '3' },
   'analytics.cycle.trend': { granularity: 'hour' },
   'analytics.cycle.slow': { ...slowFilter, ...page },
   'analytics.cycle.export': { ...slowFilter, ids: null, sorting: [] },

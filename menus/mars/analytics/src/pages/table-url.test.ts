@@ -85,7 +85,12 @@ describe('parseSortParam / encodeSort', () => {
     }
   });
 
-  it.each(['nope:asc', 'cycleMin', 'cycleMin:up', 'cycleMin:ASC', 'cycleMin:asc:asc', ':asc', 'cycleMin1:asc', 'cycle_min:asc', ' cycleMin:asc'])('rejects %s', raw => {
+  it('sorts the start-time column by startedAt', () => {
+    expect(parseSortParam('startedAt:asc')).toEqual({ ok: true, id: 'startedAt', desc: false, explicit: true });
+    expect(encodeSort('startedAt', true)).toBe('startedAt:desc');
+  });
+
+  it.each(['anchor:asc', 'anchor:desc', 'nope:asc', 'cycleMin', 'cycleMin:up', 'cycleMin:ASC', 'cycleMin:asc:asc', ':asc', 'cycleMin1:asc', 'cycle_min:asc', ' cycleMin:asc'])('rejects %s', raw => {
     expect(parseSortParam(raw)).toEqual({ ok: false });
   });
 });

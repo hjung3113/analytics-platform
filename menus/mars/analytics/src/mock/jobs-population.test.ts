@@ -60,6 +60,6 @@ describe('screen 11 and 12 share one job population', () => {
     expect(cycleMinutes(job, '4')).toBe(job.cycleMinV4);
     expect(cycleMinutes(job, '3')).toBe(job.cycleMinV3);
     expect(job.cycleMinV4).toBeGreaterThan(job.cycleMinV3);
-    expect(job.anchor < '2026-09-26T08:00:00').toBe(true);
+    expect(job.startedAt < '2026-09-26T08:00:00').toBe(true);
   });
 });

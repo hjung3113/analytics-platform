@@ -4,9 +4,9 @@
  */
 import { bucketStart, parseDateTime, type PageSort } from '@ap/contracts';
 import { encodeTableSort, parseTableSort } from '@ap/components';
-import { BINS, bucketEnd, binIndex, isAnchor, type Granularity, type SlowExportFilter, type SlowFilter, type SlowRow, type TailMode } from '../endpoints';
+import { BINS, bucketEnd, binIndex, isInstant, type Granularity, type SlowExportFilter, type SlowFilter, type SlowRow, type TailMode } from '../endpoints';
 
-export const SORT_COLUMNS = ['cycleMin', 'delta', 'anchor', 'equipmentId', 'room', 'recipe', 'lotId', 'quality'] as const;
+export const SORT_COLUMNS = ['cycleMin', 'delta', 'startedAt', 'equipmentId', 'room', 'recipe', 'lotId', 'quality'] as const;
 export type SortColumn = (typeof SORT_COLUMNS)[number];
 export const DEFAULT_SORT = 'cycleMin:desc';
 
@@ -14,7 +14,7 @@ export function cycleTailFilterLabel(lang: 'ko' | 'en') {
   return lang === 'ko' ? '느린 실행 기준' : 'Slow-execution predicate';
 }
 
-const ANCHOR = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})$/;
+const INSTANT = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})$/;
 
 export function resolveGranularity(raw: string | null, hours: number | null): { ok: true; value: Granularity; explicit: boolean } | { ok: false } {
   if (raw === null || raw === '') return { ok: true, value: hours !== null && hours <= 48 ? 'hour' : 'day', explicit: false };
@@ -44,7 +44,7 @@ export function encodeSort(id: string, desc: boolean): string {
 /** §6.1 bucket: a naive datetime aligned to the grain boundary (bucketStart(bucket, grain) === bucket). No snapping; out-of-period but aligned stays valid. */
 export function parseBucket(raw: string | null, granularity: Granularity): { ok: true; value: string | null } | { ok: false } {
   if (raw === null || raw === '') return { ok: true, value: null };
-  if (!ANCHOR.test(raw)) return { ok: false };
+  if (!INSTANT.test(raw)) return { ok: false };
   try { parseDateTime(raw, 'bucket'); } catch { return { ok: false }; }
   return bucketStart(raw, granularity) === raw ? { ok: true, value: raw } : { ok: false };
 }
@@ -64,7 +64,7 @@ export function parseBin(raw: string | null): { ok: true; value: { from: string;
 }
 
 export function bucketContaining(instant: string, granularity: Granularity): string | null {
-  if (!isAnchor(instant)) return null;
+  if (!isInstant(instant)) return null;
   return bucketStart(instant, granularity);
 }
 

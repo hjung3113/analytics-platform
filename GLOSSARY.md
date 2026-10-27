@@ -111,7 +111,7 @@ _Avoid_: Job — Lot과 Job은 다른 개념이다(아래 Job 참고). Carrier�
 한 Lot이 **특정 시점에** 수행하는 작업(실행 인스턴스). 한 Lot이 하나의 Operation을 수행할 때도 여러 Job으로 나뉠 수 있다 — Lot:Job은 1:1이 아니다. XFR/FNC/PRC 동작의 시간 기반 생산성 분석은 이 Job 단위로 이뤄진다.
 
 **Occurrence** (`equipmentId`, `entityType`, `anchor`):
-파서가 완료한 실행 한 건을 가리키는 식별 키이며 세 값의 조합이다. Lot ID로 대체하지 않는다. anchor는 원천 시각의 전체 정밀도를 보존하는 불투명 키다. 분석 Context와 별개인 목적지 객체 ID로 전달한다([06 §6.1](docs/contract/kernel.md#61-식별자와-url-소유-상태-decided)).
+파서가 완료한 실행 한 건을 가리키는 식별 키이며 세 값의 조합이다. Lot ID로 대체하지 않는다. anchor는 파서의 RecordSequence를 담은 불투명 숫자 문자열로 시각이 아니며 한 설비 안에서만 같음을 비교한다. 시작 시각은 키와 별도 표시 필드다([ADR-0094](docs/adr/0094-occurrence-anchor-is-record-sequence.md)). 분석 Context와 별개인 목적지 객체 ID로 전달한다([06 §6.1](docs/contract/kernel.md#61-식별자와-url-소유-상태-decided)).
 
 **Recipe** (`prc_name`):
 PRC 로그의 `RecipeId`에 대응하는 값 — Lot이 특정 Module/Slot에서 진행하는 PRC 단계의 레시피다. 설비 자체의 고정 속성이 아니라 Lot(그리고 그 안의 PRC 단계)마다 달라질 수 있다. 지표 산출과 분석 모두에서 가장 많이 쓰이는 1급 분류 축이다.

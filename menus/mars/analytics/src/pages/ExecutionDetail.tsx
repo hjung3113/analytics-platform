@@ -30,6 +30,9 @@ export default function ExecutionDetail({ params }: PageProps) {
     valid && metricVersion !== null,
   );
 
+  const found = query.response?.data;
+  const startedAt = found && found.access === 'ok' ? found.execution.startedAt : null;
+
   const back = <ReturnLink />;
   const equipmentLink = <Button asChild variant="secondary" size="sm"><PlatformLink href={linkTo('equipment-detail', { params: { equipmentId }, returnTo: true })}>{ko ? '설비 상세' : 'Equipment detail'}</PlatformLink></Button>;
   const voc = <Button asChild size="sm"><PlatformLink href={linkTo('voc')}>{ko ? 'VOC 생성(예정)' : 'Create VOC (planned)'}</PlatformLink></Button>;
@@ -52,10 +55,11 @@ export default function ExecutionDetail({ params }: PageProps) {
       </p>
 
       <Panel title={ko ? 'Occurrence 식별' : 'Occurrence identity'} subtitle={ko ? '분석 Context와 별도입니다. Lot은 검색 보조이지 대체 키가 아닙니다.' : 'Separate from the analysis context. Lot is a search aid, not a substitute key.'}>
-        <div className="grid gap-3 sm:grid-cols-3" data-testid="occurrence-key">
+        <div className="grid gap-3 sm:grid-cols-4" data-testid="occurrence-key">
           <Identity label="EquipmentID" value={equipmentId} />
           <Identity label="entityType" value={entityType ?? '—'} />
           <Identity label="anchor" value={anchor ?? '—'} />
+          <Identity label={ko ? '시작 시각' : 'Start time'} value={startedAt ? startedAt.replace('T', ' ') : '—'} />
         </div>
       </Panel>
 
@@ -76,10 +80,10 @@ export default function ExecutionDetail({ params }: PageProps) {
   </PlatformPage>;
 }
 
-function OccurrenceBody({ execution, segments, ko, lang }: { execution: { room: string; recipe: string; lotId: string; ppid: string; anchor: string; cycleMin: number; quality: 'unknown' | 'review' }; segments: Segment[]; ko: boolean; lang: string }) {
-  const spanEnd = segments.reduce((max, segment) => segment.end > max ? segment.end : max, execution.anchor);
+function OccurrenceBody({ execution, segments, ko, lang }: { execution: { room: string; recipe: string; lotId: string; ppid: string; anchor: string; startedAt: string; cycleMin: number; quality: 'unknown' | 'review' }; segments: Segment[]; ko: boolean; lang: string }) {
+  const spanEnd = segments.reduce((max, segment) => segment.end > max ? segment.end : max, execution.startedAt);
   const axisEnd = spanEnd;
-  const totalSec = Math.max(1, secondsBetween(execution.anchor, axisEnd));
+  const totalSec = Math.max(1, secondsBetween(execution.startedAt, axisEnd));
   return <>
     <Panel title={ko ? '표시 속성' : 'Display attributes'} subtitle={ko ? '식별 키가 아닙니다.' : 'Not part of the identity key.'}>
       <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
@@ -100,19 +104,19 @@ function OccurrenceBody({ execution, segments, ko, lang }: { execution: { room: 
       </div>
       <div className="relative h-10 rounded-sm bg-surface-sunken" role="img" aria-label={ko ? '공정 구간 막대' : 'Process segment bars'}>
         {segments.map(segment => {
-          const left = (secondsBetween(execution.anchor, segment.start) / totalSec) * 100;
+          const left = (secondsBetween(execution.startedAt, segment.start) / totalSec) * 100;
           const width = Math.max(0.8, (secondsBetween(segment.start, segment.end) / totalSec) * 100);
           // eslint-disable-next-line shadcn/no-inline-styles -- segment left/width are per-segment percentages computed at runtime
           return <div key={`${segment.kind}-${segment.start}`} title={`${segment.kind} ${segment.module}/${segment.slot} ${segment.durationMin}`} className={`absolute top-1 bottom-1 ${SEGMENT_CLASS[segment.kind]}`} style={{ left: `${left}%`, width: `${width}%` }} />;
         })}
       </div>
       <div className="mt-1 flex justify-between text-tiny text-text-muted tabular">
-        <span>{execution.anchor.replace('T', ' ')}</span>
+        <span>{execution.startedAt.replace('T', ' ')}</span>
         <span>{axisEnd.replace('T', ' ')}</span>
       </div>
       <p className="mt-2 text-xs text-text-muted">{ko
-        ? '막대 위치는 초 단위 길이입니다. anchor 문자열은 반올림하지 않습니다. 정확한 값은 아래 표입니다.'
-        : 'Bar positions use second lengths. The anchor string is not rounded. Exact values are in the table below.'}</p>
+        ? '막대 위치는 초 단위 길이입니다. 시작 시각은 식별 키와 별도 필드에서 가져와 그대로 표시합니다. 정확한 값은 아래 표입니다.'
+        : 'Bar positions use second lengths. The start time comes from a field separate from the identity key and is shown as is. Exact values are in the table below.'}</p>
     </Panel>
 
     <Panel title={ko ? '구간 표' : 'Segment table'} subtitle={ko ? '부모 occurrence는 위 식별 키입니다. 별도 조인 키를 만들지 않습니다.' : 'The parent occurrence is the identity above. No extra join key is invented.'}>
@@ -149,8 +153,8 @@ function OccurrenceBody({ execution, segments, ko, lang }: { execution: { room: 
     <Panel title={ko ? '리니지' : 'Lineage'} subtitle={ko ? '논리 경로 예시입니다. 원천 경로와 지표 버전을 섞지 않습니다.' : 'An example logical path. The source path is not mixed with the metric version.'}>
       <p className="t-mono text-xs text-text-secondary">occurrence_directory → mart.productivity_hourly → execution-detail</p>
       <p className="mt-2 text-xs text-text-muted">{ko
-        ? `anchor ${execution.anchor} 를 그대로 보존합니다. 서버 envelope의 source는 프로토타입이 모든 조회에 찍는 값입니다.`
-        : `anchor ${execution.anchor} is kept verbatim. The envelope source is the value this prototype stamps on every query.`}</p>
+        ? `식별 키 anchor ${execution.anchor}는 불투명한 값이며 시각으로 읽지 않습니다. 서버 envelope의 source는 프로토타입이 모든 조회에 찍는 값입니다.`
+        : `The key anchor ${execution.anchor} is opaque and is not read as a time. The envelope source is the value this prototype stamps on every query.`}</p>
     </Panel>
   </>;
 }
@@ -166,8 +170,8 @@ function identityErrors(entityType: string | null, anchor: string | null, ko: bo
   const errors: string[] = [];
   if (!entityType) errors.push(ko ? '실행 종류가 주소에 없습니다. 목록에서 실행을 다시 여세요.' : 'The execution kind is missing from the address. Open the execution again from the list.');
   else if (!OCCURRENCE_ENTITY_TYPES.includes(entityType)) errors.push(ko ? '이 종류의 상세는 열 수 없습니다. 실행(job)만 열 수 있습니다.' : 'This kind of detail cannot be opened. Only an execution (job) can be opened.');
-  if (!anchor) errors.push(ko ? '시작 시각 키가 없습니다. 목록에서 실행을 다시 여세요.' : 'The start-time key is missing. Open the execution again from the list.');
-  else if (!isAnchor(anchor)) errors.push(ko ? '시작 시각 키의 형식이 올바르지 않습니다. 목록에서 실행을 다시 여세요.' : 'The start-time key is not in the expected form. Open the execution again from the list.');
+  if (!anchor) errors.push(ko ? '실행 키(anchor)가 없습니다. 목록에서 실행을 다시 여세요.' : 'The execution key (anchor) is missing. Open the execution again from the list.');
+  else if (!isAnchor(anchor)) errors.push(ko ? '실행 키(anchor)의 형식이 올바르지 않습니다. 목록에서 실행을 다시 여세요.' : 'The execution key (anchor) is not in the expected form. Open the execution again from the list.');
   return errors;
 }
 

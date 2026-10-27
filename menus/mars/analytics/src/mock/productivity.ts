@@ -49,7 +49,7 @@ export function computeKpis(equipment: Equipment[], from: string, to: string): K
   const dwellHours = jobs.reduce((sum, job) => sum + job.dwellMin / 60, 0);
   const occupiedHours = jobs.reduce((sum, job) => sum + job.occupiedMin / 60, 0);
   const observable = observableHours(from, to) * equipment.length;
-  const started = jobs.length + jobs.filter(job => fnv(job.equipmentId + '|' + job.anchor) % 20 === 0).length;
+  const started = jobs.length + jobs.filter(job => fnv(job.equipmentId + '|' + job.startedAt) % 20 === 0).length;
   const cycleValues = jobs.map(job => job.cycleMinV4);
   return {
     equipmentCount: equipment.length,
@@ -71,7 +71,7 @@ export function trendBuckets(equipment: Equipment[], from: string, to: string, g
     if (hours === 0) {
       return { start: bucket.start, known: false, jobs: null, p50: null, p95: null, occupancyPct: null, dwellPerJobH: null };
     }
-    const rows = jobs.filter(job => bucketStart(job.anchor, g) === bucket.start);
+    const rows = jobs.filter(job => bucketStart(job.startedAt, g) === bucket.start);
     const occupiedHours = rows.reduce((sum, job) => sum + job.occupiedMin / 60, 0);
     const dwellHours = rows.reduce((sum, job) => sum + job.dwellMin / 60, 0);
     const denominator = hours * equipment.length;

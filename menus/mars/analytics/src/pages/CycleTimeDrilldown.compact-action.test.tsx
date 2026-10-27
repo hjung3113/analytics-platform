@@ -20,7 +20,7 @@ const registry = createRegistry({
 const session = testSession(['analytics:view', 'platform:view'], { user: { id: 'analyst-a', name: 'analyst-a', title: { ko: '분석가', en: 'Analyst' } }, scopes: [{ id: 'MEM', label: 'MEM', grantedRooms: 1, totalRooms: 1 }] });
 const assessments = (['collection', 'processing_delay', 'coverage'] as const).map(kind => ({ kind, state: 'clear' as const }));
 const empty: ApiResponse<never> = { outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' };
-const slow = { equipmentId: 'EQ-1', room: 'PHOTO', recipe: 'R', lotId: 'L', ppid: 'P', anchor: '2026-09-26T01:02:03', cycleMin: 90, quality: 'review', delta: 5 };
+const slow = { equipmentId: 'EQ-1', room: 'PHOTO', recipe: 'R', lotId: 'L', ppid: 'P', anchor: '2456001', startedAt: '2026-09-26T01:02:03', cycleMin: 90, quality: 'review', delta: 5 };
 const adapter = testAdapter({
   session: () => session,
   menuQuery: async (req: MenuQuery) => req.endpoint === 'analytics.cycle.slow'
@@ -46,5 +46,9 @@ describe('CycleTimeDrilldown compact action', () => {
     // The first render of this page exceeds the 1s default wait under parallel load (#434, #437).
     const link = await screen.findByRole('link', { name: 'EQ-1 · 2026-09-26 01:02:03 상세' }, { timeout: 8000 });
     expect(link.getAttribute('href')).toContain('EQ-1');
+    // The row link carries the RecordSequence, never the start time.
+    const query = new URL(link.getAttribute('href')!, 'http://x').searchParams;
+    expect(query.get('anchor')).toBe('2456001');
+    expect(query.get('entityType')).toBe('job');
   });
 });

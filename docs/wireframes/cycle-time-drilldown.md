@@ -18,7 +18,7 @@
 | --- | --- |
 | 사이클타임 상세 | Full Page. 조건 설정·차트·실행 비교의 복잡한 Analysis Workspace([06](../contract/platform-ui-contract.md) §12.2/§20) |
 | 느린 실행 목록 | 같은 페이지의 Breakdown Table. 별도 Management 화면/route를 만들지 않음 |
-| occurrence 상세 | **Full Page**. 행에서 출발하지만 긴 anchor, 여러 공정 구간과 정확한 시각 표, 품질 원천, 리니지, VOC 직접 복귀를 함께 검토하는 deep-link 상세 작업. Drawer의 좁은 폭보다 전체 폭과 독립 URL이 적합(§20). 새 archetype을 만들지 않고 Analysis Workspace의 상세 surface로 구성 |
+| occurrence 상세 | **Full Page**. 행에서 출발하지만 여러 공정 구간과 정확한 시각 표, 품질 원천, 리니지, VOC 직접 복귀를 함께 검토하는 deep-link 상세 작업. Drawer의 좁은 폭보다 전체 폭과 독립 URL이 적합(§20). 새 archetype을 만들지 않고 Analysis Workspace의 상세 surface로 구성 |
 | VOC 생성/복귀 | **Cross-menu Context Link**. 생성 액션은 VOC 메뉴의 생성 진입점으로 이동하며 여기서 폼·Modal을 만들지 않음. 단일 확인인 소수초 구간 정렬 확인만 공통 Modal 사용 가능(§20/§22) |
 
 ## 3. SCREEN SPECIFICATION
@@ -27,7 +27,7 @@
 | --- | --- | --- |
 | Route | `/mars/cycle-time` | `/mars/execution-detail/:equipmentId` — 설비 ID만 경로 segment이고 `entityType`·`anchor`는 page key다 |
 | page-owned 키 | `granularity`(`hour\|day\|week`, 미지정이면 조회 기간 48시간 이하는 `hour`, 아니면 `day`), `percentile`(`p95\|p50\|all`, 기본 `p95` — 느린 실행 기준), `sort`(`<열>:asc\|desc`, 기본 `cycleMin:desc`), `page`, `bucket`(집계 단위 경계에 정렬된 naive 시각), `bin`(분포 구간 ID 또는 `from..to`). Global Context가 바뀌면 `page`·`bucket`·`bin`을 지운다 | `entityType`, `anchor`, `returnTo` |
-| 등록 값 밖의 값 | 다른 값으로 바꾸지 않고 오류로 보인다 | 키가 없거나 `entityType`이 `job`이 아니거나 anchor 형식이 틀리면 조회하지 않고 이유를 보인다(Lot·가까운 시각으로 복원하지 않음) |
+| 등록 값 밖의 값 | 다른 값으로 바꾸지 않고 오류로 보인다 | 키가 없거나 `entityType`이 `job`이 아니거나 anchor가 숫자 문자열 형식이 아니면 조회하지 않고 이유를 보인다(Lot·가까운 시각으로 복원하지 않음) |
 
 ### 3.1 Context Capability와 상태 계층
 
@@ -67,11 +67,11 @@ P = sourcePageState {
 }
 D = destinationOccurrence {
   equipmentId: EQ-0231, entityType: job,
-  anchor: 2026-09-23T08:12:00
+  anchor: 2456001   // RecordSequence (불투명 숫자 문자열)
 }
 ```
 
-값은 합성 예시다. 분석 grain은 Job으로 확정됐고 구현이 여는 `entityType`은 `job`뿐이다. 원천 entityType 목록과 매핑은 Open이다. Lot ID로 Job을 대체하지 않는다. anchor는 불투명 키로 **전체 정밀도/문자열을 보존**한다. UI 표시를 줄여도 전송·조인은 원본으로 한다. `lotId=LOT-240923-07`은 표시/검색용이지 D의 일부나 대체 키가 아니다. 동일 Lot 검색 결과가 여러 개면 개별 D를 선택한다. anchor 없는 행은 "식별 정보 부족"과 상세/VOC 진입 불가 이유를 표시하며 Lot으로 조인하지 않는다.
+값은 합성 예시다. 분석 grain은 Job으로 확정됐고 구현이 여는 `entityType`은 `job`뿐이다. 원천 entityType 목록과 매핑은 Open이다. Lot ID로 Job을 대체하지 않는다. anchor는 파서 RecordSequence를 담은 불투명 숫자 문자열이다([ADR-0094](../adr/0094-occurrence-anchor-is-record-sequence.md)). 시각이 아니고 숫자로 비교·정렬하지 않으며 한 설비 안에서만 같음을 비교한다. 상세는 시작 시각을 키와 별도 필드로 받아 표시한다. `lotId=LOT-240923-07`은 표시/검색용이지 D의 일부나 대체 키가 아니다. 동일 Lot 검색 결과가 여러 개면 개별 D를 선택한다. anchor 없는 행은 "식별 정보 부족"과 상세/VOC 진입 불가 이유를 표시하며 Lot으로 조인하지 않는다.
 
 | Hop | 목적지 객체 / 전달·복원 |
 | --- | --- |
@@ -108,7 +108,7 @@ KPI는 전체 기간 통계, 일별 값은 각 bucket 통계로 서로 단순 �
 - **조회 계약**: API는 소비 계층 view/mart·occurrence_directory 조인 결과를 읽는다. 원천 DB 직접 조회 금지. D의 entityType별 조인과 관계 키를 서버가 검증하고 lotId fallback을 허용하지 않는다. 기간 밖 공정 구간을 단순 global clip으로 잃지 않는 occurrence 조회가 필요하다. 근거: [01](../architecture/architecture-and-data-contract.md) 전체 아키텍처/대응, [06](../contract/kernel.md) §6.1; 전체 상세 구간 표현은 이 문서 Candidate.
 - **지표 정의 Open**: cycle-time metricId, Job grain의 시작/끝 이벤트, 기간 귀속(시작/완료), 미완료 제외, 분위수 알고리즘·동률, 단위·null·coverage 분모, bucket 경계가 확정돼야 한다. 구현의 버전·단위·완료 interval은 합성 값이다. 설비별/일별 P95를 평균하지 않으며 downsampling과 지표 계산을 분리한다. 근거: [01](../architecture/architecture-and-data-contract.md) 집계 가능성/대응, [02](../product/domain-menus.md) 생산성 분석/지표관리.
 - **Context/URL**: C와 P의 등록된 공개 스키마, 무손실 D, Return 계약이 필요하다. 반복 집합 정규화·공집합 표식, 단일값 중복 오류, 미등록 키 비적용, v 디코더, 지표 쌍 원자성은 전역 계약 그대로다. URL 없는 값을 세션으로 보충하지 않는다. Equipment Group Condition은 사용한 축 그대로 보존하며 현재 결과를 재평가할 수 있고, Selection은 명시 ID 목록을 그대로 유지한다. 근거: [06](../contract/kernel.md) §6.1/§6.4, [ADR-0002](../adr/0002-stgroup-materializes-to-equipment-ids.md), [11](productivity-overview.md) §3.1/§7.
-- **시간**: naive 초 정렬 `[from,to)`와 원천 anchor 전체 정밀도를 분리한다. Z/offset/한쪽 경계 누락은 오류. 기본 기간 공급과 defaultRangeTo/R 조건은 [06 CTX-TIME](../contract/kernel.md#ctx-time)을 소비하며 최초 Δ는 Open이다. 다중 설비 같은 축 집계는 요청 전체를 덮는 서버 timeDomain assertion 필요; 미확인/불일치면 error로 차단하고 단일 설비/분리 조회 안내. assertion 공급자는 Open이다.
+- **시간**: naive 초 정렬 `[from,to)`와 occurrence 키(anchor, 시각이 아님)를 분리한다. Z/offset/한쪽 경계 누락은 오류. 기본 기간 공급과 defaultRangeTo/R 조건은 [06 CTX-TIME](../contract/kernel.md#ctx-time)을 소비하며 최초 Δ는 Open이다. 다중 설비 같은 축 집계는 요청 전체를 덮는 서버 timeDomain assertion 필요; 미확인/불일치면 error로 차단하고 단일 설비/분리 조회 안내. assertion 공급자는 Open이다.
 - **타임라인/품질 Open**: 소비 계약의 공정 구간 이름·시작/끝·부모 occurrence 관계·겹침/null 의미·품질 필드와 statusSource가 필요하다. 빈 간격으로 대기나 불량을 추정하지 않는다. `01`/`02`만으로 구체 품질 스키마는 확정할 수 없다. 근거: [01](../architecture/architecture-and-data-contract.md) 대응, [02](../product/domain-menus.md) 허용 지표 경계.
 - **Data Trust/정합성**: KPI·차트·tail 목록·CSV는 같은 완료 계산 세대/기준시각을 사용한다. occurrence의 별도 조회 세대가 달라졌으면 재계산 차이를 표시한다. Updated/Data through/계산 기준시각을 분리하고 원천 계약/지표 버전을 혼동하지 않는다. coverage 원천이 없으면 Unknown. 근거: [01](../architecture/architecture-and-data-contract.md) mart 재계산 트리거, [06](../contract/components.md) §18–19.
 - **갱신**: 300s 폴링과 완료 세대 기반 재검증. 열린 occurrence는 완료 결과에 없을 수 있고 지연완료/마스터 소급/재분류/지표 변경으로 숫자가 변한다. R/H 정책(H=1h)과 창 밖 backfill 후보는 데이터 계층 소유; 이 화면에 새 실행 UI를 만들지 않는다. 근거: [01 갱신](../architecture/architecture-and-data-contract.md#refresh-policy)/[지연완료](../architecture/architecture-and-data-contract.md#late-arrival-policy), [02](../product/domain-menus.md) 최신성/커버리지.
@@ -119,7 +119,7 @@ KPI는 전체 기간 통계, 일별 값은 각 bucket 통계로 서로 단순 �
 | 규칙 / 검수 시나리오 | 근거 |
 | --- | --- |
 | Zoom/hover/brush만 하면 URL·KPI·Breakdown 불변. `선택 구간 분석`으로만 Time 변경, P95를 새 모집단/세대에서 재계산하고 chip 임계값도 갱신 | [06](../contract/platform-ui-contract.md) §6.1/§11/§16/§24; tail 재계산 UI Candidate |
-| 소수초 brush 적용은 외향 초 정렬 preview → 공통 확인 Modal. 확인 전 URL/조회 불변, 취소는 brush 유지. anchor는 절대 반올림하지 않음 | [06](../contract/platform-ui-contract.md) §6.1/§20 |
+| 소수초 brush 적용은 외향 초 정렬 preview → 공통 확인 Modal. 확인 전 URL/조회 불변, 취소는 brush 유지. 시작 시각 표시는 반올림하지 않음 | [06](../contract/platform-ui-contract.md) §6.1/§20 |
 | P95 선택/해제는 명시 Page Filter chip으로 현재 C의 tail 목록을 조회. 단일 mark 진입은 selectedOccurrence chip 추가 후 상세; 집계 mark는 단일 D 진입 금지 | [06](../contract/platform-ui-contract.md) §6/§16/§24 및 사용자 명시 규칙; predicate Candidate |
 | 목록 행 열기는 D만 목적지로 설정하고 C/P를 보존. C.selectedEquipmentIds=[A,B]에서 D.equipmentId=A를 열어도 [A,B] 유지. D가 선택 밖의 EQ-C여도 분석 복귀는 진입 전 [A,B] 그대로이며 EQ-C를 추가하지 않음. 불일치는 안내하고 허용 여부는 서버 Scope 검증; Context를 권한으로 사용하지 않음 | [06](../contract/kernel.md) §6.1/§17 |
 | anchor 누락/invalid D는 객체 조회 중단. Lot 검색 결과에서 온전한 D를 다시 선택하도록 안내. 누락을 Lot으로 복원하지 않음 | [06](../contract/kernel.md) §6.1 |
@@ -149,4 +149,4 @@ KPI는 전체 기간 통계, 일별 값은 각 bucket 통계로 서로 단순 �
 - **비교 모집단(Open — 이 화면 분석 로직 담당)**: "P95 이상 느린 실행"이 Recipe/PPID가 다른 Job을 어떤 비교 기준으로 묶는지 명시해야 한다. 혼합 Recipe 합성 행은 통계적 비교 가능성의 승인 근거가 아니다. 모집단 구성·분리/포함 기준은 이 메뉴가 정하며 Kernel 규칙으로 올리지 않는다.
 - **Module/Slot 타임라인(Open — 이 화면 데이터/표현 계약)**: XFR/FNC/PRC 로그의 grain은 EquipmentID 하위 Module/Slot으로 확정됐다([GLOSSARY](../../GLOSSARY.md)). 상세 구간과 데이터 표에 Module/Slot 참조 및 부모 Job occurrence 관계를 어떻게 표시·연결할지 정해야 한다. 현재 PRC 구간 중심 표현은 이 세부 단위를 표현하지 못하므로 완성된 타임라인 계약으로 보지 않는다. 화면 전체 재설계는 이번 범위에 포함하지 않는다.
 - CFG는 설비 단위 기록이며 Module 대상 정보는 개별 값의 속성이다. 분석 설정은 Job 시작 시점 값으로 충분하다. CFG cross-menu 이동은 Deferred이며 이 화면에 신규 이동을 추가하지 않는다(`06` §22).
-- anchor 전체 정밀도 보존은 계약이다. 현재 구현은 초 단위 anchor(`YYYY-MM-DDTHH:mm:ss`)만 열며 반올림·절단하지 않고 거부한다. 소수초 anchor의 무손실 왕복은 구현으로 확인하지 않았다.
+- anchor는 정규형 10진 문자열(`/^(0|[1-9][0-9]{0,18})$/`)만 열며 그 밖의 값(옛 시각 모양 포함)은 고치지 않는다. 화면은 요청 없이 "식별 키가 올바르지 않아 조회하지 않습니다" 메시지를 보이고, API를 직접 부르면 서버가 `missing`을 답한다. 키를 다시 만들면(체인 재구성·재처리) 저장된 링크가 `missing`이 될 수 있다. 실행 표의 시작 열 정렬은 `sort=startedAt:*`이다(옛 `sort=anchor:*`는 거절).
