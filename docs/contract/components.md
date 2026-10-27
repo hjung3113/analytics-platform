@@ -69,7 +69,7 @@ shadcn/ui + Radix 조합은 [04 프론트엔드 기술 스택](../architecture/f
 
 `Inspector`(`@ap/components`, **Candidate**)는 분석 화면의 보조 설정(대상·범례·옵션)을 `sections`(`id`·`title`·`icon`·`summary?`·`render`)로 한 번 선언하고 `form`으로 보인다. `stack`은 [WAI-ARIA APG 아코디언](https://www.w3.org/WAI/ARIA/apg/patterns/accordion/)을 따른다: 제목(`h3`) 안의 버튼이 `aria-expanded`·`aria-controls`를 갖고 Enter·Space로 바뀌며, 여러 섹션을 함께 열 수 있는 것이 기본이다(`defaultExpanded` 생략 = 모두 열림). 제목은 줄어들지 않고 접힌 섹션의 `summary`는 머리에 말줄임과 `title` 속성으로 남으며, 스택 전체가 스크롤하고 섹션 안은 스크롤하지 않는다([Carbon 아코디언](https://carbondesignsystem.com/components/accordion/usage/)의 원칙). 내용 패널은 `region`이 아니다(APG의 landmark 남용 경고). `rail`은 40 px 열에 섹션당 아이콘 버튼 하나이고, 버튼은 섹션 제목을 접근 가능한 이름으로 갖고 `@ap/ui` Tooltip이 포커스에서도 보인다. 클릭·Enter는 그 섹션을 비모달 Popover peek로 열고(오른쪽으로, 맨 위에 섹션 제목(`h3`)이 보이고 peek의 이름이 된다), Escape는 닫고 포커스를 그 버튼으로 돌리며, peek은 한 번에 하나다. 열린 버튼은 색만이 아니라 막대 표시와 `aria-expanded`로 드러난다. **섹션 내용은 질의를 소유하지 않는다**: 질의는 Inspector 위(메뉴)에 두고 결과를 `render`에 넘긴다. 섹션 토글·peek·`form` 전환은 Inspector 밖의 어떤 것도 다시 실행하지 않는다(`stack`은 섹션을 마운트한 채 유지, `rail`은 peek 중인 섹션만 마운트하고 닫힌 섹션의 `render`는 호출하지 않으며 `form` 전환 때 섹션 내용은 다시 마운트된다). 펼침 집합은 `persistKey`(정적 id)로 `platform:inspector-expanded:v1:<user>:<menu>:<persistKey>`에 기억하며(PanelWorkspace와 같은 사용자·메뉴 범위, 사용자나 라우팅된 메뉴가 없으면 메모리에만 둔다) `expanded`/`onExpandedChange`로 controlled도 된다. "모두 접으면 레일" 전이는 만들지 않는다(사용자 변형 컨펌 선행).
 
-후보(미구현): `PermissionGuard`(현재는 셸 `RouteOutlet`의 권한 게이트), `SavedViewSelector`(Deferred, §21).
+후보(미구현): `PermissionGuard`(현재는 셸 `RouteOutlet`의 권한 게이트), `SavedViewSelector`(§21 결정됨, 구현 #1011).
 
 `PageFilterBar`는 메뉴가 전달한 검색·정확 일치 텍스트·분류 선택·맞춤형 필드를 라벨과 함께 한 줄에 배치하고 공간이 부족하면 줄바꿈한다. 입력은 `@ap/ui` `Input`(40px), 분류 값은 `Select`를 사용하며 높이를 덮어쓰지 않는다. `onApply`를 주면 막대가 `<form>`이 되어 submit(적용 버튼·텍스트 입력의 Enter)만 적용으로 보낸다. 한글 조합 중 Enter는 적용하지 않는다. 필드 의미·URL page key·값 변경·초기화·draft 적용은 소비 화면이 소유하며, 알 수 없는 현재 Select 값은 선택 가능한 표시값으로 남긴다(ADR-0016).
 
@@ -123,7 +123,7 @@ Domain Component를 억지로 Platform Component로 승격하지 않는다.
 - Global Context
 - Permission Guard
 - Data Trust
-- Saved View Entry (기능 채택 시; 현재 Deferred)
+- Saved View Entry (§21 Decided, ADR-0092; 구현 #1011, mock 범위)
 - Error / Empty / Loading
 
 ### 2개 이상 메뉴에서 확인 후 공통화
