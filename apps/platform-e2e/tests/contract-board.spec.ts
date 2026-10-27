@@ -1827,3 +1827,208 @@ test.describe('분석 보드 최소화·복원 (#893 893c)', () => {
     await expect(page).toHaveURL(/\/board\?sheet=dock/);
   });
 });
+
+test.describe('분석 보드 창 (#893 893d)', () => {
+  const screenOf = (roomNames: string) => ({ menuId: 'productivity-overview', params: {}, query: `?v=1&scopeId=MEM&${PERIOD}&roomNames=${roomNames}` });
+  const rail = (page: Page) => page.getByRole('navigation', { name: '앱 레일' });
+  const chip = (page: Page) => page.getByRole('button', { name: '분석 보드 · 도킹' });
+  const windowFrame = (page: Page) => page.locator('[data-floating-mode="window"]');
+  const titleBar = (page: Page) => page.getByRole('group', { name: /분석 보드 창 제목줄/ });
+  const box = async (locator: Locator) => (await locator.boundingBox())!;
+
+  /** Seeds a two-pane board and lands on an ordinary screen with the board maximized over it. */
+  async function openMaximized(page: Page) {
+    await signInAs(page, 'engineer');
+    await page.addInitScript(({ value }) => {
+      const seeded = 'platform:board-fixture-seeded:engineer';
+      localStorage.setItem('platform:board-layout-engine', 'dock');
+      if (sessionStorage.getItem(seeded)) return;
+      localStorage.setItem('platform:board:engineer', JSON.stringify(value));
+      sessionStorage.setItem(seeded, '1');
+    }, { value: { v: 1, activeSheetId: 'dock', sheets: [{ id: 'dock', name: '도킹', layout: '1x2', selected: 0, panes: [screenOf('PHOTO'), screenOf('ETCH')] }] } });
+    await page.goto(PRODUCTIVITY);
+    await mainHeading(page).waitFor();
+    await rail(page).getByRole('button', { name: '분석 보드' }).click();
+    await expect(page).toHaveURL(/\/board\?sheet=dock/);
+    await expect(page.locator('[data-dock-layout] [data-pane-body]').first()).toBeVisible();
+  }
+  const markPanes = (page: Page) => page.locator('[data-pane-id]').evaluateAll(panes => panes.forEach(pane => { (pane as HTMLElement).dataset.dockProbe = 'same'; }));
+  const marks = (page: Page) => page.locator('[data-dock-probe="same"]');
+  async function openWindow(page: Page) {
+    await openMaximized(page);
+    await page.getByRole('button', { name: '창으로 보기' }).click();
+    await expect(windowFrame(page)).toBeVisible();
+  }
+
+  test('최대화 → 창으로 보기는 뒤 화면 주소로 replace되고, 뒤 화면 메뉴 이동 뒤에도 창과 보드 인스턴스가 남는다', async ({ page }) => {
+    await openMaximized(page);
+    await markPanes(page);
+    const length = await page.evaluate(() => history.length);
+    await page.getByRole('button', { name: '창으로 보기' }).click();
+    await expect(windowFrame(page)).toBeVisible();
+    await expect(page).toHaveURL(/\/analytics\/productivity/);
+    expect(await page.evaluate(() => history.length)).toBe(length);
+    // The pressed button is gone; focus is on the window's title bar, not `body` (UX-1), and its focus ring is drawn inside the window (UX-2).
+    await expect(titleBar(page)).toBeFocused();
+    // The ring only shows for keyboard focus: a key press first, then the title bar takes focus again.
+    await page.keyboard.press('Shift');
+    await titleBar(page).blur();
+    await titleBar(page).focus();
+    const ring = await titleBar(page).evaluate(el => getComputedStyle(el).boxShadow);
+    expect(ring).toContain('inset');
+    await expect(rail(page).getByRole('button', { name: '분석 보드(창으로 열림, 눌러 앞으로)' })).toHaveAttribute('data-board-state', 'floating');
+    await expect(mainHeading(page)).toBeVisible();
+    await page.getByRole('link', { name: '사이클타임 상세', exact: true }).click();
+    await expect(page).toHaveURL(/\/analytics\/cycle-time/);
+    await expect(windowFrame(page)).toBeVisible();
+    await expect(chip(page)).toHaveCount(0);
+    await expect(marks(page)).toHaveCount(2);
+    // The arrival focus belongs to the page behind, not to the board's heading.
+    await expect(mainHeading(page)).toBeFocused();
+    await evidence(page, test.info(), '보드 창 — 뒤 화면 이동 뒤에도 유지');
+  });
+
+  test('끌기·핸들·키·메뉴로 창을 옮기고 크기를 바꾸며, 영역 밖으로는 나가지 않는다', async ({ page }) => {
+    await openWindow(page);
+    const frame = windowFrame(page);
+    const area = await box(page.locator('[data-board-window-area]'));
+    const start = await box(frame);
+    // Drag the title bar.
+    const bar = await box(titleBar(page));
+    await page.mouse.move(bar.x + 40, bar.y + bar.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(bar.x + 120, bar.y + bar.height / 2 + 40, { steps: 6 });
+    await page.mouse.up();
+    const dragged = await box(frame);
+    expect(Math.round(dragged.x - start.x)).toBe(80);
+    expect(Math.round(dragged.y - start.y)).toBe(40);
+    // Resize with the south-east handle.
+    const handle = await box(frame.locator('[data-resize="se"]'));
+    await page.mouse.move(handle.x + 2, handle.y + 2);
+    await page.mouse.down();
+    await page.mouse.move(handle.x + 62, handle.y + 42, { steps: 6 });
+    await page.mouse.up();
+    const resized = await box(frame);
+    expect(Math.round(resized.width - dragged.width)).toBeGreaterThan(0);
+    // Keys: arrows move, Alt+arrows resize.
+    await titleBar(page).focus();
+    await page.keyboard.press('Shift+ArrowLeft');
+    expect(Math.round(resized.x - (await box(frame)).x)).toBe(48);
+    const keyed = await box(frame);
+    await page.keyboard.press('Alt+ArrowRight');
+    expect((await box(frame)).width).toBeGreaterThanOrEqual(keyed.width);
+    // Menu: a position preset puts it in a corner of the area, and it never leaves the area.
+    await page.getByRole('button', { name: '창 메뉴' }).click();
+    await page.getByRole('menuitem', { name: '오른쪽 아래' }).click();
+    const corner = await box(frame);
+    expect(Math.round(corner.x + corner.width)).toBeLessThanOrEqual(Math.round(area.x + area.width));
+    expect(Math.round(corner.y + corner.height)).toBeLessThanOrEqual(Math.round(area.y + area.height));
+    for (let i = 0; i < 40; i++) await page.keyboard.press('Shift+ArrowRight');
+    const pushed = await box(frame);
+    expect(Math.round(pushed.x + pushed.width)).toBeLessThanOrEqual(Math.round(area.x + area.width));
+  });
+
+  test('창 → 최소화는 주소를 바꾸지 않고 칩으로 포커스를 주며, 칩 복원은 창으로 돌아온다', async ({ page }) => {
+    await openWindow(page);
+    const url = page.url();
+    const length = await page.evaluate(() => history.length);
+    await page.getByRole('button', { name: '최소화' }).click();
+    await expect(chip(page)).toBeFocused();
+    await expect(windowFrame(page)).toHaveCount(0);
+    expect(page.url()).toBe(url);
+    await chip(page).click();
+    await expect(windowFrame(page)).toBeVisible();
+    expect(page.url()).toBe(url);
+    expect(await page.evaluate(() => history.length)).toBe(length);
+  });
+
+  test('창 → 최대화 → 다시 창으로 보기는 이전 위치·크기로 열린다', async ({ page }) => {
+    await openWindow(page);
+    await page.getByRole('button', { name: '창 메뉴' }).click();
+    await page.getByRole('menuitem', { name: '왼쪽 위' }).click();
+    const before = await box(windowFrame(page));
+    // The window stops under the ordinary screen's page header and never covers it (UX-3).
+    const head = await box(page.locator('[data-page-sticky-header] > header'));
+    expect(before.y).toBeGreaterThanOrEqual(Math.round(head.y + head.height));
+    await expect(mainHeading(page)).toBeVisible();
+    await page.getByRole('button', { name: '최대화', exact: true }).click();
+    await expect(page).toHaveURL(/\/board\?sheet=dock/);
+    await expect(page.locator('[data-board-heading]')).toBeFocused();
+    await expect(windowFrame(page)).toHaveCount(0);
+    await page.getByRole('button', { name: '창으로 보기' }).click();
+    await expect(windowFrame(page)).toBeVisible();
+    const after = await box(windowFrame(page));
+    expect(after).toEqual(before);
+  });
+
+  test('폭 800에서는 창 대신 최대화 표시로 열리고 안내 한 줄이 보이며 주소는 /board가 되지 않는다', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openMaximized(page);
+    await page.setViewportSize({ width: 1100, height: 900 });
+    await page.getByRole('button', { name: '창으로 보기' }).click();
+    await expect(page.locator('[data-floating-mode="fill"]')).toBeVisible();
+    await expect(page.getByText('창 대신 최대화 표시로 열립니다')).toBeVisible();
+    await expect(page).not.toHaveURL(/\/board/);
+    // `fill` is the maximized display: the whole area, no empty strip below (UX-5), the heading holds focus (UX-1), the rail does not say "window".
+    const filled = await box(page.locator('[data-floating-mode="fill"]'));
+    const areaBox = await box(page.locator('[data-board-window-area]'));
+    expect(Math.round(filled.height)).toBe(Math.round(areaBox.height));
+    await expect(page.locator('[data-board-heading]')).toBeFocused();
+    await expect(rail(page).getByRole('button', { name: '분석 보드(열림)' })).toBeVisible();
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expect(windowFrame(page)).toBeVisible();
+  });
+
+  test('토스트가 떠 있어도 레일 버튼으로 창 제목줄에 닿고, 창은 토스트 띠 위에 머문다', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openWindow(page);
+    await page.getByRole('button', { name: '창 메뉴' }).click();
+    await page.getByRole('menuitem', { name: '오른쪽 아래' }).click();
+    // A real toast: Delete on a pane tab empties the pane and raises the undo toast.
+    const tab = page.locator('[role="tab"][data-tab-panel-id]').nth(1);
+    await tab.focus();
+    await page.keyboard.press('Delete');
+    const toast = page.locator('[data-toast-item]').getByText('칸 2를 비웠습니다');
+    await expect(toast).toBeVisible();
+    // Hold the toast (a pointer inside waits its timer) while the boxes are read.
+    await toast.hover();
+    // Focus somewhere else, then the rail brings focus to the title bar whatever covers it.
+    await mainHeading(page).focus();
+    await rail(page).getByRole('button', { name: '분석 보드(창으로 열림, 눌러 앞으로)' }).click();
+    await expect(titleBar(page)).toBeFocused();
+    await expect(toast).toBeVisible();
+    const bar = await box(titleBar(page));
+    const frame = await box(windowFrame(page));
+    const area = await box(page.locator('[data-board-window-area]'));
+    const item = await box(page.locator('[data-toast-item]').first());
+    // The toast strip is reserved: the lowest window position leaves the shell's stack offset (16) plus one row (56) free at the bottom of the area ...
+    expect(area.y + area.height - (frame.y + frame.height)).toBeGreaterThanOrEqual(72);
+    // ... so the title bar, and the whole frame, end above the top edge of the visible toast.
+    expect(bar.y + bar.height).toBeLessThanOrEqual(item.y);
+    expect(frame.y + frame.height).toBeLessThanOrEqual(item.y);
+  });
+
+  test('폭 800의 최대화 표시(fill)에서 레일 버튼은 보드 제목으로 포커스를 옮기고 주소를 그대로 둔다', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openMaximized(page);
+    await page.setViewportSize({ width: 1100, height: 900 });
+    await page.getByRole('button', { name: '창으로 보기' }).click();
+    await expect(page.locator('[data-floating-mode="fill"]')).toBeVisible();
+    const url = page.url();
+    await mainHeading(page).focus();
+    const button = rail(page).getByRole('button', { name: '분석 보드(열림)' });
+    await button.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.locator('[data-board-heading]')).toBeFocused();
+    expect(page.url()).toBe(url);
+  });
+
+  test('창에서 닫기는 보드만 끝내고 뒤 화면 주소를 그대로 둔다', async ({ page }) => {
+    await openWindow(page);
+    const url = page.url();
+    await page.getByRole('button', { name: '보드 닫기' }).click();
+    await expect(windowFrame(page)).toHaveCount(0);
+    await expect(rail(page).getByRole('button', { name: '분석 보드', exact: true })).toHaveAttribute('data-board-state', 'closed');
+    expect(page.url()).toBe(url);
+  });
+});

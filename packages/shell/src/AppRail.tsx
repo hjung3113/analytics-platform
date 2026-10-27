@@ -24,7 +24,7 @@ export function AppRail() {
   const board = useBoardPresentation();
   const boardCopy = boardText(lang);
   // Three states told by words, not by colour: closed, open (this screen), minimized (a shape on the icon too).
-  const boardLabel = board.maximized ? boardCopy.railOpen : board.minimized ? boardCopy.railMinimized : boardCopy.railClosed;
+  const boardLabel = board.maximized ? boardCopy.railOpen : board.floating ? (board.windowFill ? boardCopy.railOpen : boardCopy.railFloating) : board.minimized ? boardCopy.railMinimized : boardCopy.railClosed;
   const vocLabel = lang === 'ko' ? 'VOC 등록' : 'File a VOC';
   return <TooltipProvider delayDuration={200}>
     <nav aria-label={lang === 'ko' ? '앱 레일' : 'App rail'} className="flex h-full w-(--rail-width) shrink-0 flex-col items-center gap-1.5 overflow-y-auto border-r border-border-subtle bg-surface-sidebar pb-3">
@@ -51,10 +51,11 @@ export function AppRail() {
           className="grid size-8 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover"><Search className="size-4" aria-hidden /></button>
       </TooltipTrigger><TooltipContent side="right">{t('searchPlaceholder')} · {shortcutLabel('K')}</TooltipContent></Tooltip>
       {showBoard && <Tooltip><TooltipTrigger asChild>
-        <button type="button" data-board-state={board.maximized ? 'open' : board.minimized ? 'minimized' : 'closed'} aria-label={boardLabel} aria-current={board.maximized ? 'page' : undefined}
-          onClick={() => { if (board.minimized) board.restore(boardCopy.announceRestored); else if (!board.maximized) board.open(); }}
-          className={cn('relative grid size-8 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover', board.maximized && 'bg-surface-row-selected text-accent-primary', board.minimized && 'text-accent-primary')}>
+        <button type="button" data-board-state={board.maximized ? 'open' : board.floating ? 'floating' : board.minimized ? 'minimized' : 'closed'} aria-label={boardLabel} aria-current={board.maximized ? 'page' : undefined}
+          onClick={() => { if (board.floating) board.focusWindow(); else if (board.minimized) board.restore(boardCopy.announceRestored); else if (!board.maximized) board.open(); }}
+          className={cn('relative grid size-8 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover', board.maximized && 'bg-surface-row-selected text-accent-primary', (board.minimized || board.floating) && 'text-accent-primary')}>
           <LayoutGrid className="size-4" aria-hidden />
+          {board.floating && <span data-board-floating-mark aria-hidden className="absolute bottom-0.5 right-0.5 size-2 rounded-xs bg-accent-primary" />}
           {board.minimized && <span data-board-minimized-mark aria-hidden className="absolute bottom-0.5 right-0.5 size-2 rounded-xs border border-accent-primary bg-surface-sidebar" />}
         </button>
       </TooltipTrigger><TooltipContent side="right">{boardLabel}</TooltipContent></Tooltip>}

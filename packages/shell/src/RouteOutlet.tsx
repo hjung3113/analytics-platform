@@ -12,24 +12,23 @@ import { RouteErrorBoundary } from './RouteErrorBoundary';
 import { useBoardPresentationSync } from './board/boardPresentation';
 
 // The board is a lazy chunk: only `/board` needs it, and the start-up chunk stays without it (#821, `pnpm check:lazy-chunks`).
-const BoardScreen = lazy(() => import('./board/BoardScreen').then(module => ({ default: module.BoardScreen })));
+const BoardHost = lazy(() => import('./board/BoardHost').then(module => ({ default: module.BoardHost })));
 
 /**
  * The main screen's outlet: `ScreenOutlet` for the URL-bound screen, and the analysis board (a platform screen, docs/16) beside it. The board is mounted
  * from the first time it is opened and stays mounted — the same React instance — while an ordinary screen is shown (minimized): its container is only
  * `hidden` and `inert`, never re-keyed or moved, so sheet, selection, drafts and results are still there when the user comes back. Before the first
- * open nothing of the board is loaded (ADR-0087).
+ * open nothing of the board is loaded (ADR-0087). The board's container is the child of `FloatingWindow` (ADR-0091): `off` while maximized or minimized,
+ * `window` or `fill` while it is a window — the same React place in every display, so the mode changes the frame, never the board's instance.
  */
 export function RouteOutlet() {
-  const { mounted, maximized } = useBoardPresentationSync();
+  const { mounted, maximized, floating } = useBoardPresentationSync();
   // Own boundaries, so the outlet works without the shell's (tests, other hosts); the fallback matches the shell's page fallback. The ordinary screen
   // has its own: a lazy screen that suspends under a shared boundary makes React hide the mounted board sibling and re-run its layout effects (ECharts disposed).
   const fallback = <div className="p-5"><LoadingBlock rows={6} height={320} /></div>;
   return <>
     {!maximized && <Suspense fallback={fallback}><ScreenOutlet /></Suspense>}
-    {mounted && <div data-board-host hidden={!maximized} inert={!maximized} aria-hidden={maximized ? undefined : true} className="h-full min-h-0">
-      <Suspense fallback={fallback}><BoardScreen Outlet={ScreenOutlet} visible={maximized} /></Suspense>
-    </div>}
+    {mounted && <Suspense fallback={maximized ? fallback : null}><BoardHost Outlet={ScreenOutlet} display={maximized ? 'maximized' : floating ? 'window' : 'minimized'} /></Suspense>}
   </>;
 }
 

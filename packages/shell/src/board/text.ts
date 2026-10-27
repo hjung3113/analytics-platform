@@ -148,9 +148,24 @@ const KO = {
   announceMinimized: '분석 보드를 최소화했습니다. 왼쪽 아래 칩으로 복원할 수 있습니다',
   announceRestored: '분석 보드를 복원했습니다',
   announceClosed: '분석 보드를 닫았습니다. 저장된 시트는 남아 있습니다',
+  floatWindow: '창으로 보기',
+  maximize: '최대화',
+  railFloating: '분석 보드(창으로 열림, 눌러 앞으로)',
+  announceFloated: '분석 보드를 창으로 보입니다',
+  announceMaximized: '분석 보드를 최대화했습니다',
+  windowTitle: (sheet: string | null) => (sheet ? `분석 보드 · ${sheet}` : '분석 보드'),
+  narrowNote: '창 대신 최대화 표시로 열립니다',
+  window: {
+    titleBar: '분석 보드 창 제목줄(방향키로 이동, Alt+방향키로 크기 조절)', menu: '창 메뉴', positionGroup: '위치', sizeGroup: '크기',
+    place: { 'top-left': '왼쪽 위', 'top-right': '오른쪽 위', 'bottom-left': '왼쪽 아래', 'bottom-right': '오른쪽 아래', center: '가운데' },
+    size: { small: '작게', medium: '중간', large: '크게' },
+    handle: { n: '위쪽 크기 조절', s: '아래쪽 크기 조절', e: '오른쪽 크기 조절', w: '왼쪽 크기 조절', nw: '왼쪽 위 크기 조절', ne: '오른쪽 위 크기 조절', sw: '왼쪽 아래 크기 조절', se: '오른쪽 아래 크기 조절' },
+    moved: (x: number, y: number) => `창을 가로 ${x}, 세로 ${y} 위치로 옮겼습니다`,
+    resized: (width: number, height: number) => `창 크기를 ${width}×${height}으로 바꿨습니다`,
+  },
 };
 
-type Strings<T> = { [K in keyof T]: T[K] extends (...args: infer A) => string ? (...args: A) => string : string };
+type Strings<T> = { [K in keyof T]: T[K] extends (...args: infer A) => string ? (...args: A) => string : T[K] extends object ? Strings<T[K]> : string };
 const EN: Strings<typeof KO> = {
   board: 'Analysis board',
   railEntry: 'Analysis board',
@@ -288,6 +303,21 @@ const EN: Strings<typeof KO> = {
   announceMinimized: 'Analysis board minimized. Restore it from the chip at the bottom left',
   announceRestored: 'Analysis board restored',
   announceClosed: 'Analysis board closed. Saved sheets are kept',
+  floatWindow: 'View as window',
+  maximize: 'Maximize',
+  railFloating: 'Analysis board (open as a window, press to bring forward)',
+  announceFloated: 'Analysis board shown as a window',
+  announceMaximized: 'Analysis board maximized',
+  windowTitle: (sheet: string | null) => (sheet ? `Analysis board · ${sheet}` : 'Analysis board'),
+  narrowNote: 'Opens maximized instead of a window',
+  window: {
+    titleBar: 'Analysis board window title bar (arrow keys move, Alt+arrows resize)', menu: 'Window menu', positionGroup: 'Position', sizeGroup: 'Size',
+    place: { 'top-left': 'Top left', 'top-right': 'Top right', 'bottom-left': 'Bottom left', 'bottom-right': 'Bottom right', center: 'Center' },
+    size: { small: 'Small', medium: 'Medium', large: 'Large' },
+    handle: { n: 'Resize top', s: 'Resize bottom', e: 'Resize right', w: 'Resize left', nw: 'Resize top left', ne: 'Resize top right', sw: 'Resize bottom left', se: 'Resize bottom right' },
+    moved: (x: number, y: number) => `Window moved to x ${x}, y ${y}`,
+    resized: (width: number, height: number) => `Window resized to ${width}×${height}`,
+  },
 };
 
 export type BoardText = Strings<typeof KO>;

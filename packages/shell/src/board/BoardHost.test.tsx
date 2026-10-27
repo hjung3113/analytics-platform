@@ -206,7 +206,7 @@ describe('board host: chip and rail (893c)', () => {
     expect(screen.getAllByRole('button', { name: /^분석 보드 · / })).toHaveLength(1);
     expect(button).toHaveAccessibleDescription('눌러 보드를 원래 자리로 복원합니다');
     const row = button.closest('[data-board-chip-row]')!;
-    expect(row.previousElementSibling).toBe(document.getElementById('platform-main'));
+    expect(row.previousElementSibling).toBe(document.getElementById('platform-main')!.parentElement); // the window's area box around main (893d2)
     expect(row.compareDocumentPosition(document.querySelector('[data-toast-anchor]')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(document.querySelector('[data-toast-stack]')!.className).toContain('bottom-16');
   });
