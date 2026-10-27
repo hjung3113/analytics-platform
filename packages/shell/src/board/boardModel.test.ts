@@ -296,6 +296,15 @@ describe('asStored', () => {
     const offTab = { ...start, sheets: [{ ...sheet, selectedPaneId: sheet.panes[1].id, tree: { ...sheet.tree, type: 'group' as const, panes: sheet.panes.map(p => p.id), active: sheet.panes[0].id } }] };
     expect(asStored(offTab).sheets[0].selectedPaneId).toBe(sheet.panes[0].id);
   });
+  it('puts a broken selection on the first pane even when another tab of its group is in front', () => {
+    const seed = freshBoard('시트');
+    const start = setLayout(seed, seed.sheets[0].id, '1x2');
+    const sheet = start.sheets[0];
+    const behind = { ...start, sheets: [{ ...sheet, selectedPaneId: 'gone', tree: { type: 'group' as const, panes: sheet.panes.map(p => p.id), active: sheet.panes[1].id } }] };
+    const opened = asStored(behind).sheets[0];
+    expect(opened.selectedPaneId).toBe(sheet.panes[0].id);
+    expect(opened.tree).toMatchObject({ active: sheet.panes[0].id });
+  });
 });
 
 describe('per-layout arrangement', () => {

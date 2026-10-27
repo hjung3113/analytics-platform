@@ -364,10 +364,10 @@ export function restoreLayout(board: Board, change: LayoutChange): Board | null 
 
 /**
  * A stored board as it is opened: the stored selection and each group's active tab are kept (docs/design/analysis-board.md §선택된 칸).
- * A selection that is no pane of its sheet becomes the first pane, and one that disagrees with its group's active tab gives way to that tab (`reconcileSelection`); the same object when nothing does.
+ * A selection that is no pane of its sheet becomes the first pane (put in front of its group, so it is not moved again to a background tab's group-mate), and one that disagrees with its group's active tab gives way to that tab (`reconcileSelection`); the same object when nothing does.
  */
 export const asStored = (board: Board): Board => {
-  const sheets = board.sheets.map(s => reconcileSelection(indexOfPane(s, s.selectedPaneId) < 0 ? { ...s, selectedPaneId: s.panes[0].id } : s));
+  const sheets = board.sheets.map(s => reconcileSelection(indexOfPane(s, s.selectedPaneId) < 0 ? { ...s, selectedPaneId: s.panes[0].id, tree: activateInTree(s.tree, s.panes[0].id) } : s));
   return sheets.every((s, i) => s === board.sheets[i]) ? board : { ...board, sheets };
 };
 
