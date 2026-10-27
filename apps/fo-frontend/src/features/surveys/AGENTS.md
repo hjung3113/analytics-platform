@@ -34,10 +34,12 @@ It does not own VOC creation, Finding persistence, Task mutation, or permission 
 - `apps/fo-frontend/src/routes/_authed/surveys/index.tsx` — Survey list route adapter: composes `SurveysScreen` with the `SurveyDetail` aside through a route-local seam (TanStack search/navigate).
 - `apps/fo-frontend/src/routes/_authed/surveys/$surveyId.tsx` — Survey builder and detail route; the non-builder branch uses `SurveyListScreen`.
 - `apps/fo-frontend/src/features/surveys/components/list/SurveyListScreen.tsx` — shared Survey list composition (toolbar, filters, create, detail slot) for the index and detail routes.
-- `apps/fo-frontend/src/routes/_authed/surveys/$surveyId.results.tsx` — Survey results presentation and outer metadata states.
+- `apps/fo-frontend/src/features/surveys/routes/SurveyResultsScreen.tsx` — bridge-safe Survey results screen (outer metadata states, header, summary) over the host seam. Entry `operator-screens/survey-results`; never imports `features/findings/public.ts` (the summary reaches `FindingRequestTaskDraftHost` and `useFindingDetail` by their own modules).
+- `apps/fo-frontend/src/routes/_authed/surveys/$surveyId.results.tsx` — results route adapter: `Route.useParams()` → `SurveyResultsScreen`.
 - `apps/fo-frontend/src/features/surveys/hooks/useSurveyResultsController.ts` — metadata/results/Follow-up reads, capability readiness, denial persistence, safe content selection, and document title.
 - `apps/fo-frontend/src/features/surveys/policy/resultsReadDenial.ts` — sticky denial key/default registration, denial merge, and results-read projection.
-- `apps/fo-frontend/src/routes/_authed/surveys/$surveyId.follow-up.tsx` — Survey follow-up route.
+- `apps/fo-frontend/src/features/surveys/routes/SurveyFollowUpScreen.tsx` — bridge-safe follow-up screen. `selection` (host-owned, controlled: no auto-select, a filter switch or a stale id goes through `onSelect(null)`) and `renderDetail(parts)` (the host places the detail parts in place); absent = the review's own selection with first-open auto-select and the standalone aside. Entry `operator-screens/survey-follow-up`.
+- `apps/fo-frontend/src/routes/_authed/surveys/$surveyId.follow-up.tsx` — Survey follow-up route adapter composing `SurveyFollowUpScreen` in `WorkbenchShell`.
 - `apps/fo-frontend/src/routes/_authed/surveys/participate.tsx` — answerable Surveys and response history.
 - `apps/fo-frontend/src/routes/_authed/surveys/$surveyId_.respond.tsx` — respondent form deep link.
 - `apps/fo-frontend/src/features/surveys/components/participation/SurveyParticipationScreens.tsx` — bridge-safe participation list and respondent form screens, used by the standalone routes (through `SurveyParticipationPage.tsx`) and the platform bridge (platform ADR-0071). Use `variant="embedded"` only in the platform.

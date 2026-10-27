@@ -1,17 +1,37 @@
+// The /surveys/:id/follow-up screen body, free of the router so the standalone route and the platform bridge mount one definition
+// (platform ADR-0071; #764 q). `selection` is the host's (the platform page key): present = controlled, nothing auto-selects;
+// absent = the review keeps the selection itself and opens on the first open item. `renderDetail` places the detail parts: the bridge
+// in its drawer, the standalone (absent) in the aside it always had.
+
 import {
   OutcomeFollowUpReview,
+  type OutcomeFollowUpSelection,
   SurveyFollowUpUnavailable,
 } from '@/features/surveys/components/results/OutcomeFollowUpReview';
 import { SurveyResultHeader } from '@/features/surveys/components/results/SurveyResultHeader';
 import { useOutcomeFollowUp } from '@/features/surveys/hooks/useOutcomeFollowUp';
 import { useSurvey, useSurveyResults } from '@/features/surveys/hooks/useSurveys';
 import { PERMISSION_BLOCKED_REASONS } from '@/lib/copy/permission-reasons';
+import type { ClosableDetailParts } from '@/lib/host/detail-parts';
 import { formatRecordDocumentTitle } from '@/lib/host/document-title-format';
 import { useHostTitle } from '@/lib/host/host-seam';
 import { Button, EmptyState, PermissionBlockedPanel } from '@ap/ui';
+import type { ReactNode } from 'react';
 import { useSurveyReadGate } from './SurveyPermissionGate';
 
-export function SurveyFollowUpRouteView({ surveyId }: { surveyId: string }) {
+export type SurveyFollowUpSelection = OutcomeFollowUpSelection;
+
+export type SurveyFollowUpScreenProps = {
+  surveyId: string;
+  selection?: SurveyFollowUpSelection | undefined;
+  renderDetail?: ((parts: ClosableDetailParts) => ReactNode) | undefined;
+};
+
+export function SurveyFollowUpScreen({
+  surveyId,
+  selection,
+  renderDetail,
+}: SurveyFollowUpScreenProps) {
   const surveyQuery = useSurvey(surveyId);
   const gate = useSurveyReadGate(surveyQuery.data?.primary_managed_system_id);
   const canReadFollowUp =
@@ -84,6 +104,8 @@ export function SurveyFollowUpRouteView({ surveyId }: { surveyId: string }) {
       resultsError={results.isError}
       resultsLoading={results.isLoading}
       survey={surveyQuery.data}
+      {...(selection !== undefined ? { selection } : {})}
+      {...(renderDetail !== undefined ? { renderDetail } : {})}
     />
   );
 }

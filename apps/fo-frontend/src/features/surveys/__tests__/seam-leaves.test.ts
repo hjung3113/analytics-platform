@@ -19,7 +19,7 @@ const SOURCES = [
   'components/results/SurveyResultHeader.tsx',
   'components/results/SurveyResultsSummary.tsx',
   'hooks/useSurveyResultsController.ts',
-  'routes/SurveyFollowUpRoute.tsx',
+  'routes/SurveyFollowUpScreen.tsx',
   'components/builder/hooks/useBuilderDirtyGuard.ts',
   'routes/SurveyBuilderScreen.tsx',
 ] as const;

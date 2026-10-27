@@ -90,6 +90,7 @@ function renderReview() {
     notifySuccess: vi.fn(),
     notify,
     dismiss: vi.fn(),
+    useHere: () => '/surveys/survey-1/follow-up',
   };
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 

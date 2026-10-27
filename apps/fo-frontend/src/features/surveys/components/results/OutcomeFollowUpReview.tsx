@@ -4,7 +4,8 @@ import { ApiError } from '@/lib/api/types';
 import { useIdempotencyKey } from '@/lib/api/useIdempotencyKey';
 import { SURVEY_QUESTION_KIND_LABELS } from '@/lib/copy/enum-labels';
 import { formatShortDate } from '@/lib/format/datetime';
-import { HostLink, useHostNotice, useHostSeam } from '@/lib/host/host-seam';
+import type { ClosableDetailParts } from '@/lib/host/detail-parts';
+import { HostLink, useHostHere, useHostNotice, useHostSeam } from '@/lib/host/host-seam';
 import {
   Button,
   DetailPanelHeader,
@@ -20,7 +21,7 @@ import {
 } from '@ap/ui';
 import type { OutcomeFollowUpItem, OutcomeFollowUpReadDto, SurveyResultDto } from '@fops/shared';
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import {
   invalidateOutcomeFollowUpAfterConflict,
   useMarkOutcomeFollowUpNoAction,
@@ -129,7 +130,26 @@ function DecisionReasonDialog({
   );
 }
 
-function OutcomeFollowUpDetailPanel({
+/** The selection a host owns (the platform page key); absent = the review keeps it in component state and auto-selects. */
+export type OutcomeFollowUpSelection = {
+  selectedId: string | null;
+  onSelect(id: string | null): void;
+};
+
+/** Frames the detail parts as the standalone aside; the bridge frames the same parts in its own drawer. */
+function renderStandaloneAside(parts: ClosableDetailParts): ReactNode {
+  return (
+    <aside
+      className="flex h-full min-h-0 flex-col bg-surface-detail"
+      data-testid="follow-up-detail-panel"
+    >
+      <DetailPanelHeader kind="survey" id={String(parts.title)} onClose={parts.requestClose} />
+      {parts.body}
+    </aside>
+  );
+}
+
+function OutcomeFollowUpDetail({
   item,
   survey,
   results,
@@ -137,6 +157,7 @@ function OutcomeFollowUpDetailPanel({
   resultsLoading,
   onClose,
   setDecisionNotice,
+  renderDetail,
 }: {
   item: OutcomeFollowUpItem;
   survey: Survey;
@@ -145,8 +166,10 @@ function OutcomeFollowUpDetailPanel({
   resultsLoading: boolean;
   onClose: (responseId: string) => void;
   setDecisionNotice: (notice: string | null) => void;
+  renderDetail: (parts: ClosableDetailParts) => ReactNode;
 }) {
   const { notify } = useHostNotice();
+  const here = useHostHere();
   const queryClient = useQueryClient();
   const { key: idempotencyKey, markConsumed } = useIdempotencyKey();
   const mark = useMarkOutcomeFollowUpNoAction(survey.id);
@@ -210,16 +233,8 @@ function OutcomeFollowUpDetailPanel({
   const excerptsUnavailable = responseExcerpts.length === 0;
   const dialogPending = mark.isPending || reopen.isPending;
 
-  return (
-    <aside
-      className="flex h-full min-h-0 flex-col bg-surface-detail"
-      data-testid="follow-up-detail-panel"
-    >
-      <DetailPanelHeader
-        kind="survey"
-        id={`응답 #${displayResponseNumber(item.response_number)}`}
-        onClose={() => onClose(item.response_id)}
-      />
+  const body = (
+    <>
       <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5">
         <h2 className="text-base font-semibold text-text-primary">후속 조치 필요</h2>
         <section className="space-y-2">
@@ -273,7 +288,7 @@ function OutcomeFollowUpDetailPanel({
                 capability={action.requestable_permission.permission}
                 key={action.id}
                 managedSystemId={action.requestable_permission.managed_system_id}
-                returnRouteIntent={`/surveys/${survey.id}/follow-up`}
+                returnRouteIntent={here}
               />
             ) : (
               <div className="space-y-1" key={action.id}>
@@ -372,8 +387,14 @@ function OutcomeFollowUpDetailPanel({
         reason={reason}
         setReason={setReason}
       />
-    </aside>
+    </>
   );
+
+  return renderDetail({
+    title: `응답 #${displayResponseNumber(item.response_number)}`,
+    body,
+    requestClose: () => onClose(item.response_id),
+  });
 }
 
 function EmptyReviewPage({
@@ -439,18 +460,40 @@ export function OutcomeFollowUpReview({
   results,
   resultsError = false,
   resultsLoading = false,
+  selection,
+  renderDetail,
 }: {
   survey: Survey;
   followUpRead: OutcomeFollowUpReadDto;
   results?: SurveyResultDto | undefined;
   resultsError?: boolean;
   resultsLoading?: boolean;
+  /** Controlled mode (the platform page key): nothing auto-selects, every change goes through `onSelect`. */
+  selection?: OutcomeFollowUpSelection | undefined;
+  renderDetail?: ((parts: ClosableDetailParts) => ReactNode) | undefined;
 }) {
-  const [activeFilter, setActiveFilter] = useState<ResolutionFilter>('open');
-  const [selectedResponseId, setSelectedResponseId] = useState<string | null>(
+  const [localSelectedId, setLocalSelectedId] = useState<string | null>(
     followUpRead.personal_access
       ? (followUpRead.items.find((item) => item.resolution === 'open')?.response_id ?? null)
       : null,
+  );
+  const controlled = selection !== undefined;
+  const selectedResponseId = controlled ? selection.selectedId : localSelectedId;
+  const onSelect = selection?.onSelect;
+  const setSelectedResponseId = (id: string | null) => {
+    if (onSelect) onSelect(id);
+    else setLocalSelectedId(id);
+  };
+  // The latest selection, so a decision that finishes after the user moved on does not clear the new one.
+  const latestSelectedId = useRef(selectedResponseId);
+  useEffect(() => {
+    latestSelectedId.current = selectedResponseId;
+  });
+  // A deep-linked selection opens on its own filter; otherwise the default is the open list.
+  const [activeFilter, setActiveFilter] = useState<ResolutionFilter>(
+    (followUpRead.personal_access
+      ? followUpRead.items.find((item) => item.response_id === selectedResponseId)?.resolution
+      : undefined) ?? 'open',
   );
   const [decisionNotice, setDecisionNotice] = useState<string | null>(null);
   const allItems = followUpRead.personal_access ? followUpRead.items : [];
@@ -461,9 +504,10 @@ export function OutcomeFollowUpReview({
       selectedResponseId &&
       !visibleItems.some((item) => item.response_id === selectedResponseId)
     ) {
-      setSelectedResponseId(null);
+      if (onSelect) onSelect(null);
+      else setLocalSelectedId(null);
     }
-  }, [selectedResponseId, visibleItems]);
+  }, [selectedResponseId, visibleItems, onSelect]);
 
   if (!followUpRead.personal_access) {
     return (
@@ -494,10 +538,30 @@ export function OutcomeFollowUpReview({
 
   function selectFilter(nextFilter: ResolutionFilter) {
     setActiveFilter(nextFilter);
+    // Controlled (bridge): a filter switch clears the selection, nothing auto-selects.
     setSelectedResponseId(
-      allItems.find((item) => item.resolution === nextFilter)?.response_id ?? null,
+      controlled
+        ? null
+        : (allItems.find((item) => item.resolution === nextFilter)?.response_id ?? null),
     );
   }
+
+  const detail = (frame: (parts: ClosableDetailParts) => ReactNode) =>
+    selectedItem ? (
+      <OutcomeFollowUpDetail
+        item={selectedItem}
+        key={selectedItem.response_id}
+        onClose={(responseId) => {
+          if (latestSelectedId.current === responseId) setSelectedResponseId(null);
+        }}
+        renderDetail={frame}
+        setDecisionNotice={setDecisionNotice}
+        resultsError={resultsError}
+        resultsLoading={resultsLoading}
+        results={results}
+        survey={survey}
+      />
+    ) : null;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-testid="survey-follow-up-review">
@@ -591,23 +655,10 @@ export function OutcomeFollowUpReview({
             </span>
           </div>
         }
-        detailPanel={
-          selectedItem ? (
-            <OutcomeFollowUpDetailPanel
-              item={selectedItem}
-              key={selectedItem.response_id}
-              onClose={(responseId) =>
-                setSelectedResponseId((current) => (current === responseId ? null : current))
-              }
-              setDecisionNotice={setDecisionNotice}
-              resultsError={resultsError}
-              resultsLoading={resultsLoading}
-              results={results}
-              survey={survey}
-            />
-          ) : null
-        }
+        detailPanel={selectedItem && !renderDetail ? detail(renderStandaloneAside) : null}
       />
+      {/* A host that frames the parts itself (the bridge drawer) gets them in place, not through the standalone detail slot. */}
+      {selectedItem && renderDetail ? detail(renderDetail) : null}
       {decisionNotice && <DecisionNotice message={decisionNotice} />}
       {resultsError && (
         <output className="sr-only">

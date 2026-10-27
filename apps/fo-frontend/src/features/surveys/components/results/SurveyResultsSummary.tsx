@@ -1,7 +1,8 @@
 import { RequestAccessButton } from '@/features/admin/public';
-import { FindingRequestTaskDraftHost, useFindingDetail } from '@/features/findings/public';
+import { FindingRequestTaskDraftHost } from '@/features/findings/components/FindingDetail/FindingRequestTaskDraftHost';
+import { useFindingDetail } from '@/features/findings/hooks/useFindingDetail';
 import { RATING_BAND_LABELS, SURVEY_RESULT_KIND_LABELS } from '@/lib/copy/enum-labels';
-import { HostLink, useHostSeam } from '@/lib/host/host-seam';
+import { HostLink, useHostHere, useHostSeam } from '@/lib/host/host-seam';
 import { Button, EmptyState } from '@ap/ui';
 import type { OutcomeFollowUpReadDto, SurveyResultDto } from '@fops/shared';
 import { FilePlus } from 'lucide-react';
@@ -134,6 +135,7 @@ function NextActions({
   results: SurveyResultDto;
   surveyId: string;
 }) {
+  const here = useHostHere();
   const [draftOpen, setDraftOpen] = useState(false);
   const [selectedFindingId, setSelectedFindingId] = useState<string | null>(null);
   const [readyFindingId, setReadyFindingId] = useState<string | null>(null);
@@ -184,7 +186,7 @@ function NextActions({
                 <RequestAccessButton
                   capability={action.requestable_permission.permission}
                   managedSystemId={action.requestable_permission.managed_system_id}
-                  returnRouteIntent={`/surveys/${surveyId}/results`}
+                  returnRouteIntent={here}
                 />
               </div>
             );
