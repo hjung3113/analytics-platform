@@ -439,4 +439,47 @@ describe('SurveyFollowUpScreen selection', () => {
     act(() => captured?.requestClose());
     expect(onSelect).toHaveBeenCalledWith(null);
   });
+
+  it('never calls the old onSelect when a pending decision settles after the review unmounted', async () => {
+    let settle: () => void = () => {};
+    markFollowUp.mockReturnValue(
+      new Promise<void>((resolve) => {
+        settle = resolve;
+      }),
+    );
+    const oldOnSelect = vi.fn();
+    const newOnSelect = vi.fn();
+    const { seam } = host();
+    const first = mount(
+      <SurveyFollowUpScreen
+        renderDetail={(parts) => <section>{parts.body}</section>}
+        selection={{ selectedId: 'r-1', onSelect: oldOnSelect }}
+        surveyId={SURVEY_ID}
+      />,
+      seam,
+    );
+    fireEvent.click(screen.getByRole('button', { name: '후속 조치 없음…' }));
+    fireEvent.change(screen.getByTestId('follow-up-decision-reason'), {
+      target: { value: '범위가 제한적입니다.' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '후속 조치 없음' }));
+    await waitFor(() => expect(markFollowUp).toHaveBeenCalledTimes(1));
+
+    first.unmount();
+    // A new review (another host owner) now holds a different selection.
+    mount(
+      <SurveyFollowUpScreen
+        renderDetail={(parts) => <section>{parts.body}</section>}
+        selection={{ selectedId: 'r-2', onSelect: newOnSelect }}
+        surveyId={SURVEY_ID}
+      />,
+      seam,
+    );
+    await act(async () => {
+      settle();
+      await Promise.resolve();
+    });
+    expect(oldOnSelect).not.toHaveBeenCalled();
+    expect(newOnSelect).not.toHaveBeenCalled();
+  });
 });

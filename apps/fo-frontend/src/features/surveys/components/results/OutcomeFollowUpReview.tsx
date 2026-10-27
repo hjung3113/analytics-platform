@@ -489,6 +489,15 @@ export function OutcomeFollowUpReview({
   useEffect(() => {
     latestSelectedId.current = selectedResponseId;
   });
+  // The survey this review currently serves; null once it unmounts, so a decision that finishes
+  // afterwards cannot call the host's selection callback of a review that no longer exists.
+  const liveSurveyId = useRef<string | null>(null);
+  useEffect(() => {
+    liveSurveyId.current = survey.id;
+    return () => {
+      liveSurveyId.current = null;
+    };
+  }, [survey.id]);
   // A deep-linked selection opens on its own filter; otherwise the default is the open list.
   const [activeFilter, setActiveFilter] = useState<ResolutionFilter>(
     (followUpRead.personal_access
@@ -552,6 +561,7 @@ export function OutcomeFollowUpReview({
         item={selectedItem}
         key={selectedItem.response_id}
         onClose={(responseId) => {
+          if (liveSurveyId.current !== survey.id) return;
           if (latestSelectedId.current === responseId) setSelectedResponseId(null);
         }}
         renderDetail={frame}
