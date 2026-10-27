@@ -8,7 +8,7 @@
 
 | 라벨 | 맡는 것 | 주로 소유하는 경로 | E2E 포트 |
 | --- | --- | --- | --- |
-| `lane:sdk` | 공개 패키지 계약·부품, 분석 작업 영역·MARS 이관(M7), SDK 품질(M8) | `packages/{contracts,ui,kernel,components,shell}`, `tooling/sdk-api`, `tooling/scripts/sdk-*`, `docs/contract/platform-ui-contract.md`, `docs/integration/sdk-*` | 4190 |
+| `lane:sdk` | 공개 패키지 계약·부품, 분석 작업 영역·MARS 이관(M7), SDK 품질(M8) | `packages/{contracts,ui,kernel,components,shell}`, `tooling/sdk/`, `docs/contract/platform-ui-contract.md`, `docs/integration/sdk-*` | 4190 |
 | `lane:platform` | 앱 조립·mock·실어댑터·서버 적합성, 견본 메뉴, 사내 적용(M4), 운영 콘솔 | `apps/platform-web`, `packages/{mock-server,http-adapter,server-conformance}`, `menus/*`(FeedbackOps 다리 메뉴 제외) | 4590 |
 | `lane:arch` | 리팩터링·폴더 구조·용어·경계 lint·CI·문서 구조 | `tooling/{eslint,gen-menu,tsconfig,css-selectors}`, `.github/workflows`, `docs/INDEX.md`, `docs/AGENTS.md`, `GLOSSARY.md` | 4690 |
 | `lane:fo` | FeedbackOps 이관(M6) | `apps/fo-*`, `packages/fo-*`, `docs/feedbackops/`, `ops/feedbackops/`, `packages/fo-bridge`, `menus/feedbackops/*`, `menus/_global/*`의 FeedbackOps 다리 | 4390 |

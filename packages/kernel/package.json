@@ -11,7 +11,7 @@
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "build": "tsc -p tsconfig.build.json && node ../../tooling/scripts/sdk-finalize-dist.mjs",
+    "build": "tsc -p tsconfig.build.json && node ../../tooling/sdk/sdk-finalize-dist.mjs",
     "test": "vitest run"
   },
   "dependencies": {

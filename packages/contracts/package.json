@@ -22,7 +22,7 @@
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "build": "tsc -p tsconfig.build.json && node ../../tooling/scripts/sdk-finalize-dist.mjs",
+    "build": "tsc -p tsconfig.build.json && node ../../tooling/sdk/sdk-finalize-dist.mjs",
     "check:pack": "node scripts/check-pack.mjs",
     "gen:vocab": "node scripts/vocab.mjs",
     "test": "node scripts/vocab.mjs --check"

@@ -4,7 +4,7 @@
 
 ## 작은 후속 (확인된 것)
 
-- **구현 안 함 — `sdk:consumer-check` CSS probe의 선택자 매칭 한계(#713 713f 점검 F2):** `hasCssSelector`(`tooling/scripts/sdk-css-probes.mjs`)는 원문 CSS를 정규식으로 보므로 복합 선택자(`.cls.other`, `.cls[attr]`)를 못 잡고(오탐), 이스케이프 식별자·선언 문자열 안의 선택자 모양 텍스트를 구분하지 못한다. 713f는 `>`·`+`·`~`·`)`만 더했다. 이유: probe는 패키지 전용 클래스 3개를 고르는 단순 검사라 CSS 파서를 들일 만큼의 수요가 없다. 다시 여는 조건: probe가 복합 선택자 클래스를 골라 CI가 오탐으로 실패할 때.
+- **구현 안 함 — `sdk:consumer-check` CSS probe의 선택자 매칭 한계(#713 713f 점검 F2):** `hasCssSelector`(`tooling/sdk/sdk-css-probes.mjs`)는 원문 CSS를 정규식으로 보므로 복합 선택자(`.cls.other`, `.cls[attr]`)를 못 잡고(오탐), 이스케이프 식별자·선언 문자열 안의 선택자 모양 텍스트를 구분하지 못한다. 713f는 `>`·`+`·`~`·`)`만 더했다. 이유: probe는 패키지 전용 클래스 3개를 고르는 단순 검사라 CSS 파서를 들일 만큼의 수요가 없다. 다시 여는 조건: probe가 복합 선택자 클래스를 골라 CI가 오탐으로 실패할 때.
 
 - **구현 안 함 — slice v0.17.0 마감 리뷰 Q2 나머지(보드 apply 칸 `QueryBar`의 `label.visible`):** 보드 apply 칸의 `QueryBar`가 `label.visible`을 트리거 글자로 그린다. 지우면 보이는 글자가 바뀐다. 결정: 팀장 2026-10-26, 현행 유지(문구 변경은 v0.17.0 완성도 범위 밖). 다시 열 조건: Context 바/`QueryBar` 문구를 손보는 이슈가 생길 때.
 

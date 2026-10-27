@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { SDK_PACKAGES, distTarget } from './sdk-exports.mjs';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const snapshotDirectory = join(repoRoot, 'tooling/sdk-api');
+const snapshotDirectory = join(repoRoot, 'tooling/sdk/api');
 const apiFilePattern = /\.api\.txt$/;
 
 function fail(message) {
@@ -646,7 +646,7 @@ function checkSnapshots(snapshots) {
     const actual = existsSync(path) ? readFileSync(path, 'utf8') : '';
     if (actual === expected) continue;
     mismatches += 1;
-    process.stdout.write(unifiedDiff(actual, expected, 'tooling/sdk-api/' + name) + '\n');
+    process.stdout.write(unifiedDiff(actual, expected, 'tooling/sdk/api/' + name) + '\n');
   }
 
   for (const name of currentNames.sort(compareText)) {
@@ -654,7 +654,7 @@ function checkSnapshots(snapshots) {
     mismatches += 1;
     const actual = readFileSync(join(snapshotDirectory, name), 'utf8');
     process.stdout.write('stale snapshot: ' + name + ' (its export entry no longer exists)\n');
-    process.stdout.write(unifiedDiff(actual, '', 'tooling/sdk-api/' + name) + '\n');
+    process.stdout.write(unifiedDiff(actual, '', 'tooling/sdk/api/' + name) + '\n');
   }
 
   if (mismatches > 0) {
