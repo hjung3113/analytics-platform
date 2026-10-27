@@ -3,7 +3,9 @@
 // `auth.ts` nor the `@/lib/api` barrel. `permissions.ts` re-exports the types and keeps its raw-`fetch` standalone
 // fetchers of the same names; the frontend never enforces permissions as truth (AGENTS.md), these only surface the answer.
 
-import { apiRequest } from './client';
+import type { PermissionRequestStatus } from '@fops/shared';
+
+import { apiClient, apiRequest } from './client';
 import { ApiError, ApiParseError } from './types';
 import { UnauthenticatedError } from './unauthenticated';
 
@@ -32,6 +34,20 @@ export interface PermissionCheckResponse {
 }
 
 export type CapabilityScope = { kind: 'all' } | { kind: 'scoped'; managed_system_ids: string[] };
+
+export interface AdminPermissionRequestRow {
+  id: string;
+  revision: number;
+  requester_actor_id: string;
+  requested_capability: string;
+  requested_managed_system_id: string | null;
+  requested_expiration: string | null;
+  reason: string;
+  status: PermissionRequestStatus;
+  created_at: string;
+}
+
+export type PermissionRequestReviewStatus = AdminPermissionRequestRow['status'] | 'all';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -89,4 +105,20 @@ export function fetchPermissionCheckViaClient(
   const params = new URLSearchParams({ capability });
   if (options?.managedSystemId) params.set('managed_system_id', options.managedSystemId);
   return read(`/me/permissions/check?${params.toString()}`, parsePermissionCheck, options?.signal);
+}
+
+/** The administrator's workspace-wide list on `client.ts`, including its host base path and unauthorized hook. */
+export async function fetchPermissionRequestsAllViaClient(
+  options?: { status?: PermissionRequestReviewStatus; signal?: AbortSignal } | AbortSignal,
+): Promise<{ requests: AdminPermissionRequestRow[]; count: number }> {
+  const normalized = options instanceof AbortSignal ? { signal: options } : options;
+  const params = new URLSearchParams();
+  if (normalized?.status) params.set('status', normalized.status);
+  const suffix = params.size > 0 ? `?${params.toString()}` : '';
+  const response = await apiClient<{ requests: AdminPermissionRequestRow[]; count: number }>(
+    'GET',
+    `/permissions/requests${suffix}`,
+    normalized?.signal ? { signal: normalized.signal } : {},
+  );
+  return response.data;
 }

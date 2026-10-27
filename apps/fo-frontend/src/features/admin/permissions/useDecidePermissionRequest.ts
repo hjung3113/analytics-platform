@@ -1,26 +1,20 @@
-import { permissionRequestsMineKey } from '@/lib/cross-system/usePermissionCheck';
-import { invalidateRecovery } from '@/lib/query/recovery';
-import type { ApprovePermissionRequest, PermissionDecisionResult } from "@fops/shared";
+import { mapUnknownError } from '@/lib/api/errorMapper';
 import {
-  type UseMutationResult,
-  useMutation,
-  useQueryClient,
-} from "@tanstack/react-query";
-import { toast } from "sonner";
-
-import {
-  type ApiError,
   type PermissionRequestDecisionAction,
   decidePermissionRequest,
-  mapUnknownError,
   permissionRequestAdminDetailKey,
+} from '@/lib/api/permission-admin';
+import {
   permissionRequestOwnerDetailKey,
-} from "@/lib/api";
+  permissionRequestsMineKey,
+} from '@/lib/api/permission-requests';
+import type { ApiError } from '@/lib/api/types';
+import { useHostNotice } from '@/lib/host/host-seam';
+import { invalidateRecovery } from '@/lib/query/recovery';
+import type { ApprovePermissionRequest, PermissionDecisionResult } from '@fops/shared';
+import { type UseMutationResult, useMutation, useQueryClient } from '@tanstack/react-query';
 
-export const permissionRequestsReviewKey = [
-  "permission-requests",
-  "review",
-] as const;
+export const permissionRequestsReviewKey = ['permission-requests', 'review'] as const;
 
 export interface DecidePermissionRequestArgs {
   id: string;
@@ -28,9 +22,9 @@ export interface DecidePermissionRequestArgs {
   action: PermissionRequestDecisionAction;
   reason: string;
   idempotencyKey: string;
-  selfApproval?: ApprovePermissionRequest["self_approval"];
-  grantedManagedSystemId?: ApprovePermissionRequest["granted_managed_system_id"];
-  expiration?: ApprovePermissionRequest["expiration"];
+  selfApproval?: ApprovePermissionRequest['self_approval'];
+  grantedManagedSystemId?: ApprovePermissionRequest['granted_managed_system_id'];
+  expiration?: ApprovePermissionRequest['expiration'];
 }
 
 export function useDecidePermissionRequest(
@@ -39,6 +33,7 @@ export function useDecidePermissionRequest(
   onSucceeded?: (result: PermissionDecisionResult) => void,
 ): UseMutationResult<PermissionDecisionResult, ApiError, DecidePermissionRequestArgs> {
   const queryClient = useQueryClient();
+  const { notify } = useHostNotice();
 
   return useMutation({
     mutationFn: ({
@@ -65,7 +60,7 @@ export function useDecidePermissionRequest(
     onSettled: (data) => onSettled?.(data !== undefined),
     onSuccess: async (data, args) => {
       onSucceeded?.(data);
-      toast.success('권한 요청이 처리되었습니다.');
+      notify({ tone: 'success', message: '권한 요청이 처리되었습니다.' });
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: permissionRequestsReviewKey }),
         queryClient.invalidateQueries({ queryKey: permissionRequestAdminDetailKey(args.id) }),
@@ -77,7 +72,7 @@ export function useDecidePermissionRequest(
       ]);
     },
     onError: async (error: ApiError, args) => {
-      toast.error(mapUnknownError(error).message);
+      notify({ tone: 'error', message: mapUnknownError(error).message });
       if (error.code === 'conflict.stale_write') {
         onStale?.();
         await Promise.all([

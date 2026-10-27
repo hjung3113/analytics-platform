@@ -6,9 +6,10 @@
 
 import type { ReactNode } from 'react';
 
-import type { FrontendPermissionState } from '@/lib/api';
-import { usePermissionCheck } from '@/lib/cross-system/usePermissionCheck';
+import type { FrontendPermissionState } from '@/lib/api/permission-reads';
+import { usePermissionCheckBridge } from '@/lib/cross-system/usePermissionCheckBridge';
 import { useWorkspaceActors } from '@/lib/cross-system/useWorkspaceActors';
+import { useHostHere } from '@/lib/host/host-seam';
 import { PermissionBlockedPanel } from '@ap/ui';
 import { RequestAccessButton } from './request-access-button.js';
 
@@ -23,7 +24,8 @@ export interface PermissionGateProps {
 }
 
 export function PermissionGate(props: PermissionGateProps) {
-  const query = usePermissionCheck({
+  const returnRouteIntent = useHostHere();
+  const query = usePermissionCheckBridge({
     capability: props.capability,
     ...(props.managedSystemId !== undefined ? { managedSystemId: props.managedSystemId } : {}),
   });
@@ -48,7 +50,7 @@ export function PermissionGate(props: PermissionGateProps) {
     // gate stays narrow.
     return (
       <div aria-live="polite">
-        {renderBlockedState('blocked_non_requestable', props, actors.actors)}
+        {renderBlockedState('blocked_non_requestable', props, actors.actors, returnRouteIntent)}
       </div>
     );
   }
@@ -57,7 +59,11 @@ export function PermissionGate(props: PermissionGateProps) {
 
   if (props.fallback !== undefined) return <>{props.fallback}</>;
 
-  return <div aria-live="polite">{renderBlockedState(query.data.state, props, actors.actors)}</div>;
+  return (
+    <div aria-live="polite">
+      {renderBlockedState(query.data.state, props, actors.actors, returnRouteIntent)}
+    </div>
+  );
 }
 
 type NonApprovedState = Exclude<FrontendPermissionState, 'approved'>;
@@ -116,6 +122,7 @@ function renderBlockedState(
   state: NonApprovedState,
   props: PermissionGateProps,
   workspaceActors: ReturnType<typeof useWorkspaceActors>['actors'],
+  returnRouteIntent: string,
 ) {
   const copy = STATE_COPY[state];
   const adminNames = workspaceActors
@@ -129,7 +136,7 @@ function renderBlockedState(
     return (
       <RequestAccessButton
         capability={props.capability}
-        returnRouteIntent={`${window.location.pathname}${window.location.search}`}
+        returnRouteIntent={returnRouteIntent}
         {...(props.managedSystemId !== undefined ? { managedSystemId: props.managedSystemId } : {})}
         renderTrigger={(open) => (
           <PermissionBlockedPanel

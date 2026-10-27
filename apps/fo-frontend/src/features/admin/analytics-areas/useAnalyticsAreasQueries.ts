@@ -1,6 +1,8 @@
 import { type QueryClient, useQuery } from '@tanstack/react-query';
 
-import { fetchEveryAnalyticsAreaPage, fetchManagedSystems, resolveActors } from '../../../lib/api';
+import { resolveActors } from '../../../lib/api/actors';
+import { fetchEveryAnalyticsAreaPage } from '../../../lib/api/analytics-areas-all';
+import { fetchManagedSystems } from '../../../lib/api/registry-reads';
 
 export const AA_KEY = ['analytics-areas'] as const;
 

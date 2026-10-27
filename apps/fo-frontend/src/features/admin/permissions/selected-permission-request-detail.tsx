@@ -2,7 +2,8 @@ import { Button } from '@ap/ui';
 import { useQuery } from '@tanstack/react-query';
 import * as React from 'react';
 
-import { fetchPermissionRequestAdminDetail, permissionRequestAdminDetailKey } from '@/lib/api';
+import { fetchPermissionRequestAdminDetail } from '@/lib/api/permission-admin';
+import { permissionRequestAdminDetailKey } from '@/lib/api/permission-requests';
 import { ADMIN_PERMISSIONS_COPY } from '@/lib/copy/admin-permissions';
 import { PermissionRequestDetail } from './permission-request-detail';
 

@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import type { AnalyticsAreaDto, ManagedSystemDto } from '../../../lib/api';
+import type { AnalyticsAreaDto, ManagedSystemDto } from '../../../lib/api/registry-reads';
 import { groupAreasByMs } from '../lib/groupAreasByMs.js';
 import { restoreFocus, useRestoreFocusAfterRefetch } from '../lib/restoreFocus.js';
 import { AnalyticsAreaSlideOver } from './AnalyticsAreaDetail.js';

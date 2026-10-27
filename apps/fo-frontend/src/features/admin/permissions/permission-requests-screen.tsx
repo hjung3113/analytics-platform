@@ -2,7 +2,7 @@ import { ListStateMessage } from '@/components/ListStateMessage';
 import { ListShell, ListTabs, type ListToolbarTab, ObjectRow } from '@ap/ui';
 import { OutlineBadge } from '@fops/ui';
 
-import type { AdminPermissionRequestRow } from '@/lib/api';
+import type { AdminPermissionRequestRow } from '@/lib/api/permission-reads';
 import { getCapabilityDisplayLabel } from '@/lib/copy/capabilities';
 import { formatDateOnly, formatDateTime } from '@/lib/format/datetime';
 import { shortId } from '@/lib/identity';

@@ -33,8 +33,8 @@ vi.mock('../settings/use-workspace-settings.js', () => ({
   useWorkspaceSettings: () => ({ data: undefined }),
 }));
 
-vi.mock('@/lib/auth/useMe', () => ({
-  useMe: () => ({ data: { actor: { id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc' } } }),
+vi.mock('@/lib/api/me', () => ({
+  useMeBridge: () => ({ data: { actor: { id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc' } } }),
 }));
 
 const REQUEST: AdminPermissionRequestRow = {

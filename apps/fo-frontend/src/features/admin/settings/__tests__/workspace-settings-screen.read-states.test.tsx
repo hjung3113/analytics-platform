@@ -7,8 +7,8 @@ import { resolveCoverageThresholds } from '@fops/shared';
 import { WorkspaceSettingsScreen } from '../WorkspaceSettingsScreen.js';
 
 const apiClientMock = vi.hoisted(() => vi.fn());
-vi.mock('@/lib/api', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/lib/api')>()),
+vi.mock('@/lib/api/client', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/client')>()),
   apiClient: apiClientMock,
 }));
 

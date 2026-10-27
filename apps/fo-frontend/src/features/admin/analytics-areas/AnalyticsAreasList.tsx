@@ -18,7 +18,8 @@ import { ManagedSystemMark, OutlineBadge } from '@fops/ui';
 import { Filter, Layers, Plus, Shield } from 'lucide-react';
 import type * as React from 'react';
 
-import type { AnalyticsAreaDto, ManagedSystemDto, ResolveActorsResponse } from '../../../lib/api';
+import type { ResolveActorsResponse } from '../../../lib/api/actors';
+import type { AnalyticsAreaDto, ManagedSystemDto } from '../../../lib/api/registry-reads';
 import { envelopeMessage } from '../lib/envelopeMessage.js';
 import { ADMIN_LIST_FOCUS_FALLBACK_ID } from '../lib/restoreFocus.js';
 import { scopeMark } from '../lib/scopeMark.js';

@@ -1,7 +1,7 @@
 import { useId, useState } from 'react';
 
+import { useMeBridge } from '@/lib/api/me';
 import { useIdempotencyKey } from '@/lib/api/useIdempotencyKey';
-import { useMe } from '@/lib/auth/useMe';
 import { ADMIN_PERMISSIONS_COPY } from '@/lib/copy/admin-permissions';
 import { Button, PanelSectionTitle, Textarea } from '@ap/ui';
 
@@ -25,7 +25,7 @@ export function PermissionGrantActionForm({
   const reasonId = useId();
   const { key: idempotencyKey, markConsumed } = useIdempotencyKey();
   const mutation = useRevokePermission(onGrantRevoked);
-  const me = useMe();
+  const me = useMeBridge();
   const workspaceSettings = useWorkspaceSettings();
   const submitLabel =
     kind === 'grants' ? ADMIN_PERMISSIONS_COPY.revokeGrant : ADMIN_PERMISSIONS_COPY.liftDeny;

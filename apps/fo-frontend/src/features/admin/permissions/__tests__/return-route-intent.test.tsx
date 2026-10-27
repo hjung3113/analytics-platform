@@ -21,6 +21,11 @@ vi.mock('@/lib/cross-system/usePermissionCheck', () => ({
   usePermissionCheck: usePermissionCheckMock,
 }));
 
+vi.mock('@/lib/cross-system/usePermissionCheckBridge', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/cross-system/usePermissionCheckBridge')>()),
+  usePermissionCheckBridge: usePermissionCheckMock,
+}));
+
 vi.mock('@tanstack/react-router', () => ({
   useSearch: () => ({}),
   useNavigate: () => vi.fn(),
@@ -55,6 +60,19 @@ const INBOX_SEAM: HostSeam = {
   notifySuccess: () => {},
   useNavigate: () => vi.fn(),
   useSearch: () => ({}),
+};
+
+const PERMISSION_GATE_SEAM: HostSeam = {
+  canLink: () => true,
+  Link: ({ to, children }) => <a href={to}>{children}</a>,
+  notifyError: () => {},
+  notifySuccess: () => {},
+  useHere: () => '/permission-state?selected=state-fixture',
+};
+
+const HOST_RETURN_INTENT_SEAM: HostSeam = {
+  ...PERMISSION_GATE_SEAM,
+  useHere: () => '/host/permission-state?selected=host-seam',
 };
 
 function InboxHarness() {
@@ -96,9 +114,11 @@ describe('permission request return routes', () => {
   test('AC-D8e three call sites pass distinct return_route_intent values', () => {
     render(
       withClient(
-        <PermissionGate capability="permission.state.fixture">
-          <p>protected fixture</p>
-        </PermissionGate>,
+        <HostSeamProvider value={PERMISSION_GATE_SEAM}>
+          <PermissionGate capability="permission.state.fixture">
+            <p>protected fixture</p>
+          </PermissionGate>
+        </HostSeamProvider>,
       ),
     );
     expect(screen.getByTestId('request-access-permission.state.fixture')).toBeInTheDocument();
@@ -155,6 +175,22 @@ describe('permission request return routes', () => {
         `/surveys/${SURVEY_ID}/results`,
         '/vocs?view=inbox',
       ]),
+    );
+  });
+
+  test('PermissionGate uses the host return intent', () => {
+    render(
+      withClient(
+        <HostSeamProvider value={HOST_RETURN_INTENT_SEAM}>
+          <PermissionGate capability="permission.host-intent.fixture">
+            <p>protected fixture</p>
+          </PermissionGate>
+        </HostSeamProvider>,
+      ),
+    );
+
+    expect(screen.getByTestId('request-access-permission.host-intent.fixture')).toHaveTextContent(
+      '/host/permission-state?selected=host-seam',
     );
   });
 });

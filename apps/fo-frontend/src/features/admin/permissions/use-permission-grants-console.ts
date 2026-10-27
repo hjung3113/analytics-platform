@@ -1,4 +1,4 @@
-import { fetchPermissionDenies, fetchPermissionGrants } from '@/lib/api/permissions';
+import { fetchPermissionDenies, fetchPermissionGrants } from '@/lib/api/permission-admin';
 import { useWorkspaceActors } from '@/lib/cross-system/useWorkspaceActors';
 import type { PermissionDenyAdminItem, PermissionGrantAdminItem } from '@fops/shared';
 import { useQuery, useQueryClient } from '@tanstack/react-query';

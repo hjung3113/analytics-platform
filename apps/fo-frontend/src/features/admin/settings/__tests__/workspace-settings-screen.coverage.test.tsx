@@ -26,10 +26,16 @@ import { WorkspaceSettingsForm } from '../WorkspaceSettingsScreen.js';
 import type { WorkspaceSettings } from '../use-workspace-settings.js';
 
 const apiClientMock = vi.hoisted(() => vi.fn());
-vi.mock('@/lib/api', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/lib/api')>()),
-  apiClient: apiClientMock,
-}));
+vi.mock('@/lib/api/client', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/api/client')>();
+  const routedApiClient = (...args: Parameters<typeof actual.apiClient>) => {
+    const [method, path, options] = args;
+    return path === '/workspace/settings'
+      ? apiClientMock(method, path, options)
+      : actual.apiClient(...args);
+  };
+  return { ...actual, apiClient: routedApiClient as typeof actual.apiClient };
+});
 
 const savedCoverage: CoverageThresholds = resolveCoverageThresholds();
 

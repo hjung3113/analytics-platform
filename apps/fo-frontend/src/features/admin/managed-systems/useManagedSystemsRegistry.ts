@@ -1,17 +1,18 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
+import { type ResolveActorsResponse, resolveActors } from '../../../lib/api/actors';
+import { fetchEveryAnalyticsAreaPage } from '../../../lib/api/analytics-areas-all';
+import {
+  fetchManagedSystemDefaultCandidates,
+  fetchManagedSystemDefaultDiagnostics,
+} from '../../../lib/api/managed-systems';
+import { fetchPermissionRequestsAllViaClient } from '../../../lib/api/permission-reads';
 import {
   type AnalyticsAreaDto,
   type ManagedSystemDto,
-  type ResolveActorsResponse,
-  fetchEveryAnalyticsAreaPage,
-  fetchManagedSystemDefaultCandidates,
-  fetchManagedSystemDefaultDiagnostics,
   fetchManagedSystems,
-  fetchPermissionRequestsAll,
-  resolveActors,
-} from '../../../lib/api';
+} from '../../../lib/api/registry-reads';
 import { groupAreasByMs } from '../lib/groupAreasByMs.js';
 
 // Shared by string with other screens' ['managed-systems', …] queries; the
@@ -42,7 +43,7 @@ export function useManagedSystemsRegistry(includeArchived: boolean): {
   });
   const requestsQuery = useQuery({
     queryKey: ['permission-requests', 'all'] as const,
-    queryFn: ({ signal }) => fetchPermissionRequestsAll(signal),
+    queryFn: ({ signal }) => fetchPermissionRequestsAllViaClient(signal),
     retry: false,
   });
 

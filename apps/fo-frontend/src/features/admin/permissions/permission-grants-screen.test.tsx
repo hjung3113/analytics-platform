@@ -42,7 +42,7 @@ vi.mock('sonner', () => ({
   Toaster: () => null,
   toast,
 }));
-vi.mock('@/lib/auth/useMe', () => ({ useMe: useMeMock }));
+vi.mock('@/lib/api/me', () => ({ useMeBridge: useMeMock }));
 vi.mock('../settings/use-workspace-settings.js', () => ({
   useWorkspaceSettings: useWorkspaceSettingsMock,
 }));
