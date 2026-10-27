@@ -51,9 +51,9 @@ export const styleLine = (i: MenuInputs): string => `@import "${menuPackage(i.fo
 export const depLine = (i: MenuInputs): string => `    "${menuPackage(i.folder)}": "workspace:*",`;
 
 /** The generated files, paths relative to `menus/<space>/<folder>/`. LF, trailing newline, UTF-8. */
-export const renderFiles = (i: MenuInputs): { relPath: string; content: string }[] => [
+export const renderFiles = (i: MenuInputs, date = new Date().toISOString().slice(0, 10)): { relPath: string; content: string }[] => [
   { relPath: 'package.json', content: packageJson(i) },
-  { relPath: 'CHANGELOG.md', content: `# ${menuPackage(i.folder)} 변경 기록\n\n내부 버전이며 발행하지 않는다. SDK 범위는 package.json의 ap.sdk를 따른다.\n\n## 0.1.0 — 2026-10-27\n\n- 초기 기록: ${i.labelKo} 화면과 manifest 스켈레톤.\n` },
+  { relPath: 'CHANGELOG.md', content: `# ${menuPackage(i.folder)} 변경 기록\n\n내부 버전이며 발행하지 않는다. SDK 범위는 package.json의 ap.sdk를 따른다.\n\n## 0.1.0 — ${date}\n\n- 초기 기록: ${i.labelKo} 화면과 manifest 스켈레톤.\n` },
   {
     relPath: 'tsconfig.json',
     content: `{"extends": "${PACKAGE_PREFIX}tsconfig/base.json", "include": ["src", "vitest.config.ts"]}\n`,

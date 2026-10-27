@@ -92,6 +92,33 @@ describe('remove', () => {
     expect(existsSync(join(root, 'menus', 'mars', FIXTURE_FOLDER))).toBe(true);
   });
 
+  it('removes a package with a different valid changelog date', () => {
+    const root = fresh();
+    generate(root);
+    const pkg = join(root, 'menus', 'mars', FIXTURE_FOLDER);
+    const changelog = join(pkg, 'CHANGELOG.md');
+    writeFileSync(changelog, readFileSync(changelog, 'utf8').replace(/(## 0\.1\.0 — )\d{4}-\d{2}-\d{2}/, '$12026-01-02'));
+    const result = runCli(['--remove', FIXTURE_GROUP], root);
+    expect(result.status, result.stderr).toBe(0);
+    expect(existsSync(pkg)).toBe(false);
+  });
+
+  it.each(['content', 'invalid date', 'impossible date'])('refuses a changelog with edited %s', edit => {
+    const root = fresh();
+    generate(root);
+    const pkg = join(root, 'menus', 'mars', FIXTURE_FOLDER);
+    const changelog = join(pkg, 'CHANGELOG.md');
+    const original = readFileSync(changelog, 'utf8');
+    const replacement = edit === 'impossible date' ? '$12026-02-30' : '$1invalid';
+    writeFileSync(changelog, edit === 'content' ? `${original}edited\n` : original.replace(/(## 0\.1\.0 — )\d{4}-\d{2}-\d{2}/, replacement));
+    const before = appSnapshot(root);
+    const result = runCli(['--remove', FIXTURE_GROUP], root);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toMatch(/CHANGELOG\.md was edited/);
+    expect(existsSync(pkg)).toBe(true);
+    expect(appSnapshot(root)).toEqual(before);
+  });
+
   it('dry-run --remove writes nothing', () => {
     const root = fresh();
     generate(root);

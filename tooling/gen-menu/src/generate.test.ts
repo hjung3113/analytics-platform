@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it, vi } from 'vitest';
 import ts from 'typescript';
 import { PACKAGE_PREFIX } from './prefix.ts';
 import { APP_PKG, MOCK_ASSEMBLY_TSX, MENUS_TS, STYLE_CSS, editSummary } from './generate.ts';
@@ -229,8 +229,10 @@ describe('generate in a temp workspace', () => {
     expect(res.status).toBe(0);
     expect(res.stdout.endsWith('next: pnpm install\n')).toBe(true);
 
-    const files = renderFiles(INPUTS);
     const pkgDir = join(root, 'menus', 'mars', INPUTS.folder);
+    const date = /^## 0\.1\.0 — (\d{4}-\d{2}-\d{2})$/m.exec(readFileSync(join(pkgDir, 'CHANGELOG.md'), 'utf8'))?.[1];
+    expect(date).toBeDefined();
+    const files = renderFiles(INPUTS, date);
     for (const f of files) {
       expect(readFileSync(join(pkgDir, f.relPath), 'utf8'), f.relPath).toBe(f.content);
     }
@@ -321,9 +323,19 @@ describe('global Line/PRC capabilities (#552)', () => {
 });
 
 it('generates version metadata and a matching changelog', () => {
-  const files = renderFiles(INPUTS);
+  const files = renderFiles(INPUTS, '2026-01-02');
   const pkg = JSON.parse(files.find(f => f.relPath === 'package.json')!.content) as { version: string; ap: { sdk: string } };
   expect(pkg.version).toBe('0.1.0');
   expect(pkg.ap.sdk).toBe('>=0.17.0 <0.18.0');
-  expect(files.find(f => f.relPath === 'CHANGELOG.md')?.content).toMatch(/^# @ap\/menu-gen-probe 변경 기록[\s\S]*^## 0\.1\.0 — /m);
+  expect(files.find(f => f.relPath === 'CHANGELOG.md')?.content).toMatch(/^# @ap\/menu-gen-probe 변경 기록[\s\S]*^## 0\.1\.0 — 2026-01-02$/m);
+});
+
+it('uses the current UTC date for a generated changelog', () => {
+  vi.useFakeTimers();
+  try {
+    vi.setSystemTime(new Date('2026-01-02T23:59:00Z'));
+    expect(renderFiles(INPUTS).find(f => f.relPath === 'CHANGELOG.md')?.content).toContain('## 0.1.0 — 2026-01-02\n');
+  } finally {
+    vi.useRealTimers();
+  }
 });
