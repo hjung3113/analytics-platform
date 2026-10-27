@@ -38,3 +38,4 @@ ADR=docs/adr/0090-repo-structure-by-branch.md
 if ! grep -q 'tooling/sdk/`(713l)' "$ADR"; then
   perl -pi -e 's{^(\| `tooling/` 비패키지[^\n]*)$}{$1\n| `tooling/` 결과(713l) | SDK 도구 `tooling/scripts/sdk-*`·스냅샷 `tooling/sdk-api` → `tooling/sdk/`(713l) |}' "$ADR"
 fi
+perl -pi -e 's{^- 정확한 문서 배치\(713j\)와 `tooling/` 경로\(713l\)는 아직 정해지지 않았다\. 정해지면 위 표에 한 줄로 되돌려 적는다\.$}{- 정확한 문서 배치(713j)와 `tooling/` 경로(713l)는 위 표에 적었다.}' "$ADR"
