@@ -1,4 +1,4 @@
-import { parseRouteSearch } from '@/lib/router/search';
+import { isSearchFieldValueValid, parseRouteSearch } from '@/lib/host/search-fields';
 import { z } from 'zod';
 
 // List filters + selection are URL state (docs/feedbackops/frontend/routes-and-layout.md
@@ -17,4 +17,10 @@ export type AnalyticsAreasSearch = z.infer<typeof analyticsAreasSearchSchema>;
 
 export function validateAnalyticsAreasSearch(raw: unknown) {
   return parseRouteSearch(analyticsAreasSearchSchema, raw);
+}
+
+/** Strict per-field check against {@link analyticsAreasSearchSchema}. `includeArchived` is a boolean in the schema (the router decodes `?includeArchived=true`); a host's value is the string `'true'`. */
+export function isAnalyticsAreasSearchValueValid(key: string, value: string): boolean {
+  if (key === 'includeArchived') return value === 'true';
+  return isSearchFieldValueValid(analyticsAreasSearchSchema, key, value);
 }

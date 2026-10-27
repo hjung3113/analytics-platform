@@ -7,14 +7,12 @@ import {
 } from '@/features/surveys/components/list/SurveyListScreen';
 import { useSurvey } from '@/features/surveys/hooks/useSurveys';
 import { useSurveyManageGate } from '@/features/surveys/routes/SurveyPermissionGate';
+import { validateSurveyDetailSearch } from '@/features/surveys/routes/surveys-search';
 import type { Survey } from '@/features/surveys/types';
 import { PERMISSION_BLOCKED_REASONS } from '@/lib/copy/permission-reasons';
 import { useManagedSystemNamesResult } from '@/lib/cross-system/useManagedSystemNames';
 import { useWorkspaceActors } from '@/lib/cross-system/useWorkspaceActors';
 import { formatRecordDocumentTitle, useDocumentTitle } from '@/lib/router/document-title';
-import { platformReturnField } from '@/lib/router/platform-return';
-import { recoverySearchFields } from '@/lib/router/recovery-search';
-import { parseRouteSearch } from '@/lib/router/search';
 import { DirtyConfirmation, EmptyState, PermissionBlockedPanel } from '@ap/ui';
 import {
   Outlet,
@@ -24,23 +22,8 @@ import {
   useNavigate,
 } from '@tanstack/react-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { z } from 'zod';
 
-const searchSchema = z
-  .object({
-    builder: z.boolean().optional(),
-    returnTo: recoverySearchFields.returnTo,
-    platformReturn: platformReturnField,
-    managedSystem: z.union([z.string().uuid(), z.literal('all')]).optional(),
-    'filter.analytics_area': z.union([z.string().uuid(), z.literal('unset')]).optional(),
-    status: z.literal('open').optional(),
-    follow_up: z.literal('needed').optional(),
-  })
-  .strict();
-
-export function validateSurveyDetailSearch(raw: unknown) {
-  return parseRouteSearch(searchSchema, raw);
-}
+export { validateSurveyDetailSearch };
 
 // #982: the router plugin skips code-splitting when the route component is an
 // exported local (hasExport check). The alias keeps SurveyDetailRoute exported

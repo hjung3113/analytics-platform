@@ -23,6 +23,8 @@
     "./operator-screens/entity-links": "./src/operator-screens/entity-links/index.ts",
     "./operator-screens/tasks-search": "./src/operator-screens/tasks-search/index.ts",
     "./operator-screens/findings-search": "./src/operator-screens/findings-search/index.ts",
+    "./operator-screens/surveys-search": "./src/operator-screens/surveys-search/index.ts",
+    "./operator-screens/admin-search": "./src/operator-screens/admin-search/index.ts",
     "./operator-screens/integration-search": "./src/operator-screens/integration-search/index.ts",
     "./operator-screens/findings": "./src/operator-screens/findings/index.ts",
     "./operator-screens/voc-triage": "./src/operator-screens/voc-triage/index.ts",

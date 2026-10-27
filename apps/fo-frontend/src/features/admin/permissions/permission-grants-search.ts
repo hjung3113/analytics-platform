@@ -1,5 +1,5 @@
 import { ADMIN_PERMISSIONS_COPY } from '@/lib/copy/admin-permissions';
-import { parseRouteSearch } from '@/lib/router/search';
+import { isSearchFieldValueValid, parseRouteSearch } from '@/lib/host/search-fields';
 import { z } from 'zod';
 
 export const permissionGrantsSearchSchema = z
@@ -14,6 +14,11 @@ export type PermissionGrantTab = 'grants' | 'denies';
 
 export function validatePermissionGrantsSearch(raw: unknown) {
   return parseRouteSearch(permissionGrantsSearchSchema, raw);
+}
+
+/** Strict per-field check against {@link permissionGrantsSearchSchema}. */
+export function isPermissionGrantsSearchValueValid(key: string, value: string): boolean {
+  return isSearchFieldValueValid(permissionGrantsSearchSchema, key, value);
 }
 
 export const permissionGrantTabs: Array<{ value: PermissionGrantTab; label: string }> = [

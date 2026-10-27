@@ -260,7 +260,7 @@ describe('FeedbackOps shared bridge pieces (ADR-0071)', () => {
     'lib/cross-system/analyticsAreasCatalog.ts',
     'features/findings/hooks/useFindingsList.ts',
     'features/admin/permissions/request-access-button.tsx',
-    'features/admin/permissions/permission-requests-search.ts',
+    'features/admin/permissions/permission-requests-schema.ts',
     'components/MyVocsRecoveryLink.tsx',
     'features/voc/components/create/AttachmentDropzone.tsx',
     'features/cross-system/create-finding/CreateFindingModal.tsx',
@@ -489,6 +489,37 @@ describe('FeedbackOps Findings search entry graph (ADR-0071 decision 9)', () => 
   it('reaches the search schema and no screen, router, layout, auth source or api module', () => {
     expect(searchReached).toEqual(
       expect.arrayContaining(['features/findings/routes/findings-search.ts', 'features/voc/routes/voc-search.ts', 'lib/host/search-fields.ts']),
+    );
+    expect(searchReached.filter(file => /^(?:routes|lib\/router|lib\/layout|lib\/auth|lib\/api)\/|\.tsx$/.test(file))).toEqual([]);
+    expect(search.unresolved).toEqual([]);
+    expect([...search.specifiers].filter(specifier => /^@tanstack\/(react-)?router|^sonner$/.test(specifier))).toEqual([]);
+  });
+});
+
+describe('FeedbackOps Surveys search entry graph (ADR-0071 decision 9)', () => {
+  const search = walk([join(FRONTEND_SRC, 'operator-screens/surveys-search/index.ts')]);
+  const searchReached = [...search.files.keys()].map(file => relative(FRONTEND_SRC, file));
+
+  it('reaches the search schemas and no screen, router, layout, auth source or api module', () => {
+    expect(searchReached).toEqual(expect.arrayContaining(['features/surveys/routes/surveys-search.ts', 'lib/host/search-fields.ts']));
+    expect(searchReached.filter(file => /^(?:routes|lib\/router|lib\/layout|lib\/auth|lib\/api)\/|\.tsx$/.test(file))).toEqual([]);
+    expect(search.unresolved).toEqual([]);
+    expect([...search.specifiers].filter(specifier => /^@tanstack\/(react-)?router|^sonner$/.test(specifier))).toEqual([]);
+  });
+});
+
+describe('FeedbackOps Admin search entry graph (ADR-0071 decision 9)', () => {
+  const search = walk([join(FRONTEND_SRC, 'operator-screens/admin-search/index.ts')]);
+  const searchReached = [...search.files.keys()].map(file => relative(FRONTEND_SRC, file));
+
+  it('reaches the search schemas and no screen, router, layout, auth source or api module', () => {
+    expect(searchReached).toEqual(
+      expect.arrayContaining([
+        'features/admin/analytics-areas/search.ts',
+        'features/admin/permissions/permission-grants-search.ts',
+        'features/admin/permissions/permission-requests-schema.ts',
+        'lib/host/search-fields.ts',
+      ]),
     );
     expect(searchReached.filter(file => /^(?:routes|lib\/router|lib\/layout|lib\/auth|lib\/api)\/|\.tsx$/.test(file))).toEqual([]);
     expect(search.unresolved).toEqual([]);

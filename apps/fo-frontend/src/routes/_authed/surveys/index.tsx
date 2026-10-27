@@ -7,39 +7,19 @@ import {
 } from '@/features/surveys/components/list/SurveyListScreen';
 import { useSurvey, useSurveys } from '@/features/surveys/hooks/useSurveys';
 import { useSurveyManageGate } from '@/features/surveys/routes/SurveyPermissionGate';
+import {
+  type SurveysSearch,
+  surveysSearchSchema,
+  validateSurveysSearch,
+} from '@/features/surveys/routes/surveys-search';
 export { CreateSurveyDialog } from '@/features/surveys/components/create/CreateSurveyDialog';
 import { useManagedSystemNamesResult } from '@/lib/cross-system/useManagedSystemNames';
 import { useWorkspaceActors } from '@/lib/cross-system/useWorkspaceActors';
 import { formatRecordDocumentTitle, useDocumentTitle } from '@/lib/router/document-title';
-import { platformReturnField } from '@/lib/router/platform-return';
-import { parseRouteSearch } from '@/lib/router/search';
 import { createFileRoute, useNavigate, useSearch } from '@tanstack/react-router';
 import * as React from 'react';
-import { z } from 'zod';
 
-// Selection + Managed System scope are URL state (docs/feedbackops/frontend/routes-and-layout.md
-// §URL State Rules): /surveys?managedSystem=:managedSystemId|all&selected=:surveyId.
-// Defaults (scope union / nothing selected) are omitted from the URL. `all` and an
-// absent managedSystem both query WITHOUT managed_system_id (the backend applies the
-// caller's effective scope union); a uuid is passed through as the backend's
-// `managed_system_id` query param. The route has no Managed System selector UI —
-// the URL param is supported for deep links only.
-export const surveysSearchSchema = z
-  .object({
-    platformReturn: platformReturnField,
-    managedSystem: z.union([z.string().uuid(), z.literal('all')]).optional(),
-    selected: z.string().uuid().optional(),
-    'filter.analytics_area': z.union([z.string().uuid(), z.literal('unset')]).optional(),
-    status: z.literal('open').optional(),
-    follow_up: z.literal('needed').optional(),
-  })
-  .strict();
-
-type SurveysSearch = z.infer<typeof surveysSearchSchema>;
-
-export function validateSurveysSearch(raw: unknown) {
-  return parseRouteSearch(surveysSearchSchema, raw);
-}
+export { surveysSearchSchema, validateSurveysSearch };
 
 // #982: the router plugin skips code-splitting when the route component is an
 // exported local (hasExport check). The alias keeps the page exported for

@@ -31,6 +31,7 @@ The canonical term is "Analytics Area" (per `docs/feedbackops/design/03-core-pla
 
 - `apps/fo-frontend/src/routes/_authed/admin/managed-systems.tsx` — mounts the Managed System registry.
 - `apps/fo-frontend/src/routes/_authed/admin/analytics-areas.tsx` — mounts Analytics Areas and wires the URL search schema in `apps/fo-frontend/src/features/admin/analytics-areas/search.ts`.
+- `apps/fo-frontend/src/operator-screens/admin-search/index.ts` — the platform bridge's router-free entry for the three admin search validators (`isAnalyticsAreasSearchValueValid`, `isPermissionGrantsSearchValueValid`, `isPermissionRequestsSearchValueValid`); the requests schema lives in `features/admin/permissions/permission-requests-schema.ts` (re-exported by `permission-requests-search.ts`) so the entry stays free of the enum-labels/`@fops/ui` barrel.
 - `apps/fo-frontend/src/routes/_authed/admin/permissions/requests.tsx` — mounts Permission Request review and validates URL state.
 - `apps/fo-frontend/src/routes/_authed/admin/permissions/grants.tsx` — mounts active grants and denies and validates URL state.
 - `apps/fo-frontend/src/routes/_authed/admin/settings.tsx` — mounts workspace settings.
