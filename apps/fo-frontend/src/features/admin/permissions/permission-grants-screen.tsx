@@ -8,6 +8,7 @@ import { getCapabilityDisplayLabel } from '@/lib/copy/capabilities';
 import { GLOSSARY } from '@/lib/copy/glossary';
 import { SCOPE_SELECTOR_COPY } from '@/lib/copy/managed-system-scope';
 import { formatDateOnly, formatDateTime } from '@/lib/format/datetime';
+import type { ClosableDetailParts } from '@/lib/host/detail-parts';
 import { shortId } from '@/lib/identity';
 
 import {
@@ -24,7 +25,17 @@ import {
 
 const PERMISSION_GRANTS_PANEL_ID = 'permission-grants-list-panel';
 
-export function PermissionGrantsScreen() {
+export type PermissionGrantsScreenProps = {
+  /** `false` = no first-item selection (per tab, or on a tab change); selection comes from the URL only. Default `true`. */
+  autoSelect?: boolean;
+  /** Absent = the detail fills `ListShell.detailPanel` (standalone). Present = the screen hands its parts here and renders the result in place. */
+  renderDetail?: (parts: ClosableDetailParts) => React.ReactNode;
+};
+
+export function PermissionGrantsScreen({
+  autoSelect = true,
+  renderDetail,
+}: PermissionGrantsScreenProps = {}) {
   const {
     grants,
     denies,
@@ -44,7 +55,7 @@ export function PermissionGrantsScreen() {
     handleTabChange,
     handleSelect,
     handleClose,
-  } = usePermissionGrantsConsole();
+  } = usePermissionGrantsConsole({ autoSelect });
   const [directGrantOpen, setDirectGrantOpen] = React.useState(false);
   const [directGrantDraft, setDirectGrantDraft] = React.useState<DirectGrantDraft | null>(null);
   const [readFollowUp, setReadFollowUp] = React.useState<
@@ -121,7 +132,33 @@ export function PermissionGrantsScreen() {
     ...(tab.value === 'denies' && denyCountKnown ? { badgeCount: denies.length } : {}),
   }));
 
-  return (
+  const detail = selected ? (
+    <PermissionGrantDetail
+      permission={selected}
+      actorNames={actorNames}
+      managedSystemNames={managedSystemNames}
+      onClose={handleClose}
+      onGrantRevoked={discardReturnedGrant}
+      onSuccess={handleClose}
+      {...(renderDetail ? { renderDetail } : {})}
+      {...(readFollowUpForSelection
+        ? {
+            onGrantReadFollowUp: () => {
+              setDirectGrantDraft({
+                actorId: readFollowUpForSelection.actorId,
+                capability: 'voc.read',
+                managedSystemId: readFollowUpForSelection.managedSystemId,
+                reason: readFollowUpForSelection.reason,
+                expirationDate: readFollowUpForSelection.expirationDate,
+              });
+              setDirectGrantOpen(true);
+            },
+          }
+        : {})}
+    />
+  ) : undefined;
+
+  const shell = (
     <ListShell
       toolbar={{
         title: ADMIN_PERMISSIONS_COPY.activeTitle,
@@ -192,33 +229,17 @@ export function PermissionGrantsScreen() {
           ))}
         </section>
       }
-      detailPanel={
-        selected ? (
-          <PermissionGrantDetail
-            permission={selected}
-            actorNames={actorNames}
-            managedSystemNames={managedSystemNames}
-            onClose={handleClose}
-            onGrantRevoked={discardReturnedGrant}
-            onSuccess={handleClose}
-            {...(readFollowUpForSelection
-              ? {
-                  onGrantReadFollowUp: () => {
-                    setDirectGrantDraft({
-                      actorId: readFollowUpForSelection.actorId,
-                      capability: 'voc.read',
-                      managedSystemId: readFollowUpForSelection.managedSystemId,
-                      reason: readFollowUpForSelection.reason,
-                      expirationDate: readFollowUpForSelection.expirationDate,
-                    });
-                    setDirectGrantOpen(true);
-                  },
-                }
-              : {})}
-          />
-        ) : undefined
-      }
+      {...(renderDetail ? {} : { detailPanel: detail })}
     />
+  );
+
+  return renderDetail ? (
+    <>
+      {shell}
+      {detail}
+    </>
+  ) : (
+    shell
   );
 }
 

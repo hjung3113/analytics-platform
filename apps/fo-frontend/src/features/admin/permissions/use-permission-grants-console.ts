@@ -2,18 +2,28 @@ import { fetchPermissionDenies, fetchPermissionGrants } from '@/lib/api/permissi
 import { useWorkspaceActors } from '@/lib/cross-system/useWorkspaceActors';
 import type { PermissionDenyAdminItem, PermissionGrantAdminItem } from '@fops/shared';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useSearch } from '@tanstack/react-router';
 import * as React from 'react';
 
 import { managedSystemsCatalogQuery } from '@/lib/cross-system/useManagedSystemNames';
-import type { PermissionGrantTab, PermissionGrantsSearch } from './permission-grants-search.js';
+import { useHostSearchWriter } from '@/lib/host/useHostSearchWriter';
+import {
+  type PermissionGrantTab,
+  validatePermissionGrantsSearch,
+} from './permission-grants-search.js';
 import { permissionDeniesListKey, permissionGrantsListKey } from './useRevokePermission.js';
 
 export type ActivePermission =
   | { kind: 'grants'; item: PermissionGrantAdminItem }
   | { kind: 'denies'; item: PermissionDenyAdminItem };
 
-export function usePermissionGrantsConsole(): {
+const GRANTS_PATH = '/admin/permissions/grants';
+
+/**
+ * `autoSelect` (default `true`) keeps the standalone rule: the first item of a tab is selected on that tab's first
+ * reconcile and on a tab change. The platform bridge passes `false`: selection comes from the URL only, a stale one is
+ * still dropped.
+ */
+export function usePermissionGrantsConsole({ autoSelect = true }: { autoSelect?: boolean } = {}): {
   grants: PermissionGrantAdminItem[];
   denies: PermissionDenyAdminItem[];
   visiblePermissions: ActivePermission[];
@@ -33,8 +43,7 @@ export function usePermissionGrantsConsole(): {
   handleSelect: (id: string) => void;
   handleClose: () => void;
 } {
-  const search = useSearch({ strict: false }) as PermissionGrantsSearch;
-  const navigate = useNavigate({ from: '/admin/permissions/grants' });
+  const { search, write } = useHostSearchWriter(GRANTS_PATH, validatePermissionGrantsSearch);
   const queryClient = useQueryClient();
   const returnedGrantCarry = React.useRef(new Map<string, PermissionGrantAdminItem>());
   const grantsQuery = useQuery({
@@ -99,43 +108,35 @@ export function usePermissionGrantsConsole(): {
     const nextVisible = next === 'grants' ? grants : denies;
     const selectionIsVisible =
       selectedId !== null && nextVisible.some((permission) => permission.id === selectedId);
-    const nextSelectedId = selectionIsVisible ? selectedId : (nextVisible[0]?.id ?? null);
-    void navigate({
-      to: '/admin/permissions/grants',
-      search: (prev) => {
-        const { tab: _tab, selected: _selected, ...rest } = prev;
-        return {
-          ...rest,
-          ...(next === 'denies' ? { tab: 'denies' as const } : {}),
-          ...(nextSelectedId !== null ? { selected: nextSelectedId } : {}),
-        };
-      },
+    const nextSelectedId = selectionIsVisible
+      ? selectedId
+      : autoSelect
+        ? (nextVisible[0]?.id ?? null)
+        : null;
+    write((prev) => {
+      const { tab: _tab, selected: _selected, ...rest } = prev;
+      return {
+        ...rest,
+        ...(next === 'denies' ? { tab: 'denies' as const } : {}),
+        ...(nextSelectedId !== null ? { selected: nextSelectedId } : {}),
+      };
     });
   }
 
   function handleSelect(id: string): void {
-    void navigate({
-      to: '/admin/permissions/grants',
-      search: (prev) => ({ ...prev, selected: id }),
-    });
+    write((prev) => ({ ...prev, selected: id }));
   }
 
   function handleCreatedGrant(id: string): void {
     initializedTabs.current.add('grants');
-    void navigate({
-      to: '/admin/permissions/grants',
-      search: (prev) => {
-        const { tab: _tab, selected: _selected, ...rest } = prev;
-        return { ...rest, selected: id };
-      },
+    write((prev) => {
+      const { tab: _tab, selected: _selected, ...rest } = prev;
+      return { ...rest, selected: id };
     });
   }
 
   function handleClose(): void {
-    void navigate({
-      to: '/admin/permissions/grants',
-      search: ({ selected: _selected, ...rest }) => rest,
-    });
+    write(({ selected: _selected, ...rest }) => rest);
   }
 
   React.useEffect(() => {
@@ -143,29 +144,25 @@ export function usePermissionGrantsConsole(): {
 
     const isFirstTabReconcile = !initializedTabs.current.has(activeTab);
     if (selectedId !== null && !visiblePermissions.some(({ item }) => item.id === selectedId)) {
-      const fallbackId = isFirstTabReconcile ? (visiblePermissions[0]?.item.id ?? null) : null;
+      const fallbackId =
+        autoSelect && isFirstTabReconcile ? (visiblePermissions[0]?.item.id ?? null) : null;
       initializedTabs.current.add(activeTab);
-      void navigate({
-        to: '/admin/permissions/grants',
-        replace: true,
-        search: ({ selected: _selected, ...rest }) =>
+      write(
+        ({ selected: _selected, ...rest }) =>
           fallbackId === null ? rest : { ...rest, selected: fallbackId },
-      });
+        { replace: true },
+      );
       return;
     }
 
     if (isFirstTabReconcile) {
       initializedTabs.current.add(activeTab);
       const firstVisibleId = visiblePermissions[0]?.item.id;
-      if (selectedId === null && firstVisibleId !== undefined) {
-        void navigate({
-          to: '/admin/permissions/grants',
-          replace: true,
-          search: (prev) => ({ ...prev, selected: firstVisibleId }),
-        });
+      if (autoSelect && selectedId === null && firstVisibleId !== undefined) {
+        write((prev) => ({ ...prev, selected: firstVisibleId }), { replace: true });
       }
     }
-  }, [activeQuery.isSuccess, activeTab, navigate, selectedId, visiblePermissions]);
+  }, [activeQuery.isSuccess, activeTab, autoSelect, selectedId, visiblePermissions, write]);
 
   return {
     grants,
