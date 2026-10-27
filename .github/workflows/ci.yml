@@ -30,7 +30,8 @@ concurrency:
 # workspace 검사(#1019)는 turbo 캐시로 바뀐 패키지와 그 의존자만 다시 돈다(`.turbo/cache`를 main push가 저장하고 PR은 복원만 한다). 전체·cold는 `full`일 때뿐이다:
 # `workflow_dispatch`의 `full=true`(릴리스 태그 전 수동), 또는 `changes`가 판단하지 못해 `full`이 'false'가 아닐 때(출력 없음 포함) → 캐시를 복원하지 않고 `TURBO_FORCE=true`.
 # `Platform workspace (pnpm monorepo)`는 병렬 두 Job(Platform static·Platform test)의 모음 Job이고, 하위 결과가 둘 다 정확히 success일 때만 통과한다.
-# E2E는 shard 3개 Job + 병합 Job(#666)이다.
+# E2E는 shard Job + 병합 Job(#666)이다. PR과 main push는 바뀐 것에 영향받는 spec만 돈다(`.github/scripts/select-e2e.mjs`, #1019): 판단하지 못하면 전부(shard 4개)이고, 전체는 `workflow_dispatch`의
+# `full=true`(릴리스 태그 전)에서도 돈다. main push의 기준은 직전 커밋이 아니라 CI가 green이었던 마지막 main SHA다(`last-green-main-sha.mjs`) — 실패한 spec은 green이 될 때까지 범위에 남는다.
 # FeedbackOps는 서브모듈이 아니라 일반 디렉터리(apps/fo-*·packages/fo-*·docs/feedbackops)라 checkout 옵션이 따로 없다(FeedbackOps CI는 feedbackops.yml). 프로토타입 4개 Job은 submodules: false를 명시한다.
 
 jobs:
@@ -38,10 +39,18 @@ jobs:
     name: Changes
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    # `actions: read` lists the earlier CI runs for the main-push baseline (this job only).
+    permissions:
+      contents: read
+      actions: read
     outputs:
       code: ${{ steps.classify.outputs.code }}
       site: ${{ steps.classify.outputs.site }}
       full: ${{ steps.classify.outputs.full }}
+      e2e: ${{ steps.e2e.outputs.e2e }}
+      e2e_base_path: ${{ steps.e2e.outputs.e2e_base_path }}
+      e2e_shards: ${{ steps.e2e.outputs.e2e_shards }}
+      e2e_total: ${{ steps.e2e.outputs.e2e_total }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -58,6 +67,24 @@ jobs:
           SHA: ${{ github.sha }}
           FULL_INPUT: ${{ inputs.full }}
         run: node .github/scripts/classify-changes.mjs
+      # Push to main only: the last main SHA whose CI run was green (empty when none/unreachable/API error → the E2E selection falls back to all).
+      - id: baseline
+        if: ${{ github.event_name == 'push' }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.run_id }}
+          SHA: ${{ github.sha }}
+        run: node .github/scripts/last-green-main-sha.mjs
+      # Which E2E specs the change can affect (rules in the script, with --self-test): e2e = all | none | base-path-only | a spec list; unknown anything → all.
+      - id: e2e
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          BASELINE: ${{ steps.baseline.outputs.sha }}
+          SHA: ${{ github.sha }}
+          FULL_INPUT: ${{ inputs.full }}
+        run: node .github/scripts/select-e2e.mjs
 
   python-codec:
     name: Python codec (kernel-context-url-scope)
@@ -303,15 +330,15 @@ jobs:
           TEST: ${{ needs.platform-test.result }}
         run: .github/scripts/require-success.sh "static=$STATIC" "test=$TEST"
 
-  # #666: the contract suite (~600 s of tests on one worker) runs as 3 Playwright shards in parallel. Each shard starts
+  # #666: the contract suite (~600 s of tests on one worker) runs as Playwright shards in parallel. Each shard starts
   # its own dev server and runs its contiguous slice serially (fullyParallel + workers: 1), so evidence stays in contract
-  # order. 3 shards: measured slices from run 39778668812 are 209/203/188 s against ~55 s fixed setup per job, which puts
-  # the E2E path at or under the workspace job; a 4th shard would save under a minute of wall clock for a fourth setup.
+  # order. A whole run uses 4 shards (e2e_total); a selected-spec run (#1019) is one shard with the spec list appended.
+  # Empty outputs (`changes` failed) fall back to the whole run: 4 shards, no spec list, base-path run.
   platform-contracts-e2e-shard:
-    name: Platform contracts (E2E shard ${{ matrix.shard }}/3)
+    name: Platform contracts (E2E shard ${{ matrix.shard }}/${{ needs.changes.outputs.e2e_total || '4' }})
     needs: changes
-    # Not a required check, so skipping it is safe; runs when `changes` failed (no output).
-    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
+    # Not a required check, so skipping it is safe (the aggregate below reads `e2e == 'none'` for the verdict); runs when `changes` failed (no output).
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' && needs.changes.outputs.e2e != 'none' }}
     runs-on: ubuntu-latest
     # #669: the shard time was never the test slices (≈220–250 s each, balanced) but `playwright install --with-deps`,
     # whose apt download of fonts/libnss3 from the runner mirror sometimes took 700+ s on one shard. The official image
@@ -326,7 +353,7 @@ jobs:
       # Every shard runs to the end so the merged report lists every failing contract, not only the first shard's.
       fail-fast: false
       matrix:
-        shard: [1, 2, 3]
+        shard: ${{ fromJSON(needs.changes.outputs.e2e_shards || '[1,2,3,4]') }}
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v6
@@ -342,19 +369,28 @@ jobs:
           test "$want" = "1.63.0" || { echo "::error::@playwright/test is $want but the E2E container is mcr.microsoft.com/playwright:v1.63.0-noble — bump both"; exit 1; }
       # pnpm forwards the flags to `playwright test` as they are (no `--`, which Playwright would read as file filters).
       # The blob reporter replaces the configured reporters; the final job merges the blobs into one contract report.
-      - run: pnpm e2e --shard=${{ matrix.shard }}/3 --reporter=list,blob
+      # A spec selection (#1019) is appended as positional paths relative to apps/platform-e2e; 'all' and empty (`changes` failed) run every spec.
+      # (A container job's default shell is `sh`: POSIX only.)
+      - name: Run contracts
+        if: ${{ needs.changes.outputs.e2e != 'base-path-only' }}
+        env:
+          E2E: ${{ needs.changes.outputs.e2e }}
+        run: |
+          set --
+          if [ "$E2E" != all ] && [ -n "$E2E" ]; then for s in $E2E; do set -- "$@" "tests/$s"; done; fi
+          pnpm e2e --shard=${{ matrix.shard }}/${{ needs.changes.outputs.e2e_total || '4' }} --reporter=list,blob "$@"
       # 하위 경로 배포(#318, ADR-0030): 별도 mock 빌드·preview(4191)에서 base 유지 계약을 확인한다.
-      # Runs once, on the lightest shard (the last slice), and regardless of the shard's own result.
-      - if: ${{ matrix.shard == 3 && !cancelled() }}
+      # Runs once, on the last shard, regardless of the shard's own result; skipped only when the selection says it is unaffected ('false'; empty = run).
+      - if: ${{ matrix.shard == fromJSON(needs.changes.outputs.e2e_total || '4') && needs.changes.outputs.e2e_base_path != 'false' && !cancelled() }}
         run: pnpm e2e:base-path
       - uses: actions/upload-artifact@v4
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && needs.changes.outputs.e2e != 'base-path-only' }}
         with:
           name: platform-e2e-blob-${{ matrix.shard }}
           path: apps/platform-e2e/blob-report/
           retention-days: 1
       - uses: actions/upload-artifact@v4
-        if: ${{ matrix.shard == 3 && !cancelled() }}
+        if: ${{ matrix.shard == fromJSON(needs.changes.outputs.e2e_total || '4') && needs.changes.outputs.e2e_base_path != 'false' && !cancelled() }}
         with:
           name: platform-e2e-base-path-report
           path: apps/platform-e2e/contract-report/base-path/
@@ -365,60 +401,67 @@ jobs:
   platform-contracts-e2e:
     name: Platform contracts (E2E)
     needs: [changes, platform-contracts-e2e-shard]
-    # Required check: always runs. On a Markdown-only PR only the verdict runs and passes; otherwise it also runs when a shard failed.
+    # Required check: always runs, never Skipped. A Markdown-only run or a run with no affected spec (e2e == 'none') only runs the verdict and passes;
+    # otherwise it also runs when a shard failed. MERGE_REPORT is 'false' only when there are no blobs to merge (nothing selected, or the base-path run alone);
+    # empty outputs (`changes` failed) → 'true', the whole run.
     if: ${{ !cancelled() }}
     env:
-      DOCS_ONLY: ${{ needs.changes.outputs.code == 'false' }}
+      MERGE_REPORT: ${{ needs.changes.outputs.code != 'false' && needs.changes.outputs.e2e != 'none' && needs.changes.outputs.e2e != 'base-path-only' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      # The verdict script needs only .github/scripts; the full tree only when a report is merged.
       - uses: actions/checkout@v5
-        if: ${{ env.DOCS_ONLY != 'true' && !cancelled() }}
+        if: ${{ !cancelled() }}
+        with:
+          sparse-checkout: ${{ env.MERGE_REPORT != 'true' && '.github/scripts' || '' }}
       - uses: pnpm/action-setup@v6
-        if: ${{ env.DOCS_ONLY != 'true' && !cancelled() }}
+        if: ${{ env.MERGE_REPORT == 'true' && !cancelled() }}
       - uses: actions/setup-node@v5
-        if: ${{ env.DOCS_ONLY != 'true' && !cancelled() }}
+        if: ${{ env.MERGE_REPORT == 'true' && !cancelled() }}
         with:
           node-version: '26.7.0'
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-        if: ${{ env.DOCS_ONLY != 'true' && !cancelled() }}
+        if: ${{ env.MERGE_REPORT == 'true' && !cancelled() }}
       - uses: actions/download-artifact@v4
-        if: ${{ env.DOCS_ONLY != 'true' && !cancelled() }}
+        if: ${{ env.MERGE_REPORT == 'true' && !cancelled() }}
         with:
           pattern: platform-e2e-blob-*
           path: apps/platform-e2e/blob-report
           merge-multiple: true
       # Writes contract-report/ (README.md, results.json, evidence/) and playwright-report/ as one serial run would.
       - run: pnpm --filter @ap/platform-e2e e2e:merge
-        if: ${{ env.DOCS_ONLY != 'true' && !cancelled() }}
+        if: ${{ env.MERGE_REPORT == 'true' && !cancelled() }}
       # After the merge: the contract reporter clears contract-report/ when it starts.
       - uses: actions/download-artifact@v4
-        if: ${{ env.DOCS_ONLY != 'true' && !cancelled() }}
+        if: ${{ env.MERGE_REPORT == 'true' && !cancelled() }}
         continue-on-error: true
         with:
           name: platform-e2e-base-path-report
           path: apps/platform-e2e/contract-report/base-path
       # 항목별 통과/실패 표를 Job 요약에 싣고, 증거 스크린샷은 아티팩트로 남긴다(#44). 실패해도 보고는 남긴다.
       - name: Contract report → job summary
-        if: ${{ env.DOCS_ONLY != 'true' && !cancelled() }}
+        if: ${{ env.MERGE_REPORT == 'true' && !cancelled() }}
         run: cat apps/platform-e2e/contract-report/README.md >> "$GITHUB_STEP_SUMMARY" || echo "contract report missing (suite did not start)" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
-        if: ${{ env.DOCS_ONLY != 'true' && !cancelled() }}
+        if: ${{ env.MERGE_REPORT == 'true' && !cancelled() }}
         with:
           name: platform-contract-report
           path: |
             apps/platform-e2e/contract-report/
             apps/platform-e2e/playwright-report/
           retention-days: 14
-      # The merge succeeds even when contracts failed; the verdict is the shards' result (failure, or skipped/cancelled
-      # when a shard never ran).
+      # The merge succeeds even when contracts failed; the verdict is the shards' result (failure, or skipped/cancelled when a shard never ran),
+      # except when nothing needed to run (docs-only, or e2e == 'none'). Table-tested in e2e-verdict.sh --self-test; writes the one-line "E2E: …" summary.
       - name: Shard verdict
         if: ${{ !cancelled() }}
-        run: |
-          echo "shards: ${{ needs.platform-contracts-e2e-shard.result }} (docs-only: $DOCS_ONLY)"
-          if [ "$DOCS_ONLY" = true ]; then exit 0; fi
-          test "${{ needs.platform-contracts-e2e-shard.result }}" = success
+        env:
+          CODE: ${{ needs.changes.outputs.code }}
+          E2E: ${{ needs.changes.outputs.e2e }}
+          E2E_BASE_PATH: ${{ needs.changes.outputs.e2e_base_path }}
+          SHARD_RESULT: ${{ needs.platform-contracts-e2e-shard.result }}
+        run: .github/scripts/e2e-verdict.sh
 
   # #608: the Pages workflow captures the intro site only on release, so a menu or shell change that broke `shots.mjs`
   # surfaced at the next deploy. This runs the same build → capture → assemble → check chain on the PR. Not a required
