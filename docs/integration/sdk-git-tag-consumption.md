@@ -4,7 +4,7 @@
 
 ## 시험 조건
 
-저장소 밖 임시 소비자(pnpm 11.1.1, Vite 8, Tailwind 4.3.3 + `@tailwindcss/vite`, TypeScript 5.9, React 19.3)가 이 저장소를 로컬 `file://` 클론의 태그로 받았다. 의존성 선언은 `"@ap/ui": "git+<저장소>#<태그>&path:/packages/ui"`다. 실제 원격(사설 GitHub, 사내 git 서버)과 소비자 개발 서버·테스트는 시험하지 않았다.
+저장소 밖 임시 소비자(pnpm 11.1.1, Vite 8, Tailwind 4.3.3 + `@tailwindcss/vite`, TypeScript 5.9, React 19.3)가 이 저장소를 로컬 `file://` 클론의 태그로 받았다. 의존성 선언은 `"@ap/ui": "git+<저장소>#<태그>&path:/packages/sdk/ui"`다. 실제 원격(사설 GitHub, 사내 git 서버)과 소비자 개발 서버·테스트는 시험하지 않았다.
 
 ## 결과
 

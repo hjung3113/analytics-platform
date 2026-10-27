@@ -27,26 +27,26 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(HERE, '..', '..', '..');
 
 const PRESETS: Record<string, Linter.Config[]> = {
-  'packages/contracts': contracts,
-  'packages/ui': ui,
-  'packages/kernel': kernel,
-  'packages/components': components,
-  'packages/shell': shell,
-  'packages/mock-server': mockServer,
-  'packages/http-adapter': httpAdapter,
+  'packages/sdk/contracts': contracts,
+  'packages/sdk/ui': ui,
+  'packages/sdk/kernel': kernel,
+  'packages/sdk/components': components,
+  'packages/sdk/shell': shell,
+  'packages/adapters/mock-server': mockServer,
+  'packages/adapters/http-adapter': httpAdapter,
   'modules/fixture': hostModule,
-  'packages/server-conformance': serverConformance,
+  'packages/adapters/server-conformance': serverConformance,
   'menus/_global/home': menu,
   'menus/mars/analytics': menu,
   'menus/bravo/metrics': menu,
-  'packages/fo-bridge': foBridge,
+  'packages/adapters/fo-bridge': foBridge,
   'menus/_global/my-activity': foBridgeMenu,
   'menus/feedbackops/fo-voc': foBridgeMenu,
   'apps/platform-web': app,
 };
 
 async function lint(relFile: string, code: string): Promise<Linter.LintMessage[]> {
-  const pkgDir = relFile.split('/').slice(0, relFile.startsWith('menus/') ? 3 : 2).join('/');
+  const pkgDir = relFile.split('/').slice(0, relFile.startsWith('menus/') || /^packages\/(sdk|adapters)\//.test(relFile) ? 3 : 2).join('/');
   const preset = PRESETS[pkgDir];
   if (!preset) throw new Error(`no preset mapped for ${pkgDir}`);
   const eslint = new ESLint({
@@ -60,10 +60,10 @@ async function lint(relFile: string, code: string): Promise<Linter.LintMessage[]
 
 const EQV = path.join(HERE, 'fixtures', 'eqv-module');
 
-/** The shell package with its fixture module directory under hostModuleDir, as packages/shell/eslint.config.js composes it. */
+/** The shell package with its fixture module directory under hostModuleDir, as packages/sdk/shell/eslint.config.js composes it. */
 const SHELL_FIXTURE_DIR = 'src/__fixtures__/module-fixture';
 async function lintShellFixture(relFile: string, code: string): Promise<Linter.LintMessage[]> {
-  const cwd = path.join(REPO_ROOT, 'packages/shell');
+  const cwd = path.join(REPO_ROOT, 'packages/sdk/shell');
   const eslint = new ESLint({ cwd, overrideConfigFile: true, overrideConfig: [...shell, ...hostModuleDir(SHELL_FIXTURE_DIR)] });
   const results = await eslint.lintText(code, { filePath: path.join(cwd, relFile) });
   return results[0]?.messages ?? [];
@@ -77,7 +77,7 @@ async function lintExternal(relFile: string, code: string): Promise<Linter.LintM
 }
 
 interface Row {
-  /** Repo-relative file path; space and group segments pick menu packages; other packages use two segments. */
+  /** Repo-relative file path; space and group segments pick menu packages; packages/sdk and packages/adapters packages use three, other packages two. */
   file: string;
   code: string;
   /** Expected rule id; '' means the code must lint clean; null is a linter report with no rule (an unused disable directive). */
@@ -90,49 +90,49 @@ const MENU = 'menus/_global/home/src/pages/x.tsx';
 
 const rows: Row[] = [
   // --- layer allowlists (1-19) ---
-  { file: 'packages/contracts/src/x.ts', code: `import type { X } from '@ap/kernel';`, rule: 'no-restricted-imports' },
-  { file: 'packages/contracts/src/x.ts', code: `import type { ReactNode } from 'react';`, rule: 'no-restricted-imports' },
-  { file: 'packages/contracts/src/x.ts', code: `export const n = 1;`, rule: '' },
-  { file: 'packages/ui/src/x.ts', code: `import { x } from '@ap/contracts';`, rule: 'no-restricted-imports' },
-  { file: 'packages/ui/src/x.ts', code: `import * as React from 'react';`, rule: '' },
-  { file: 'packages/ui/src/x.ts', code: `import { cn } from './utils/cn';`, rule: '' },
-  { file: 'packages/kernel/src/x.ts', code: `import { x } from '@ap/shell';`, rule: 'no-restricted-imports' },
-  { file: 'packages/kernel/src/x.ts', code: `import { x } from '@ap/mock-server';`, rule: 'no-restricted-imports' },
-  { file: 'packages/kernel/src/x.ts', code: `import { x } from '@ap/menu-home';`, rule: 'no-restricted-imports' },
-  { file: 'packages/kernel/src/x.ts', code: `import { x } from '@ap/contracts';`, rule: '' },
-  { file: 'packages/kernel/src/x.ts', code: `import { x } from '@ap/contracts/src/url';`, rule: 'no-restricted-imports' },
-  { file: 'packages/components/src/x.ts', code: `import { x } from '@ap/shell';`, rule: 'no-restricted-imports' },
-  { file: 'packages/components/src/x.ts', code: `import { x } from '@ap/kernel';`, rule: '' },
-  { file: 'packages/components/src/x.ts', code: `import { cn } from '@ap/ui';`, rule: '' },
-  { file: 'packages/components/src/x.ts', code: `import { readColorToken } from '@ap/ui/theme';`, rule: '' },
+  { file: 'packages/sdk/contracts/src/x.ts', code: `import type { X } from '@ap/kernel';`, rule: 'no-restricted-imports' },
+  { file: 'packages/sdk/contracts/src/x.ts', code: `import type { ReactNode } from 'react';`, rule: 'no-restricted-imports' },
+  { file: 'packages/sdk/contracts/src/x.ts', code: `export const n = 1;`, rule: '' },
+  { file: 'packages/sdk/ui/src/x.ts', code: `import { x } from '@ap/contracts';`, rule: 'no-restricted-imports' },
+  { file: 'packages/sdk/ui/src/x.ts', code: `import * as React from 'react';`, rule: '' },
+  { file: 'packages/sdk/ui/src/x.ts', code: `import { cn } from './utils/cn';`, rule: '' },
+  { file: 'packages/sdk/kernel/src/x.ts', code: `import { x } from '@ap/shell';`, rule: 'no-restricted-imports' },
+  { file: 'packages/sdk/kernel/src/x.ts', code: `import { x } from '@ap/mock-server';`, rule: 'no-restricted-imports' },
+  { file: 'packages/sdk/kernel/src/x.ts', code: `import { x } from '@ap/menu-home';`, rule: 'no-restricted-imports' },
+  { file: 'packages/sdk/kernel/src/x.ts', code: `import { x } from '@ap/contracts';`, rule: '' },
+  { file: 'packages/sdk/kernel/src/x.ts', code: `import { x } from '@ap/contracts/src/url';`, rule: 'no-restricted-imports' },
+  { file: 'packages/sdk/components/src/x.ts', code: `import { x } from '@ap/shell';`, rule: 'no-restricted-imports' },
+  { file: 'packages/sdk/components/src/x.ts', code: `import { x } from '@ap/kernel';`, rule: '' },
+  { file: 'packages/sdk/components/src/x.ts', code: `import { cn } from '@ap/ui';`, rule: '' },
+  { file: 'packages/sdk/components/src/x.ts', code: `import { readColorToken } from '@ap/ui/theme';`, rule: '' },
   { file: MENU, code: `import tokens from '@ap/ui/theme-tokens.json';`, rule: '' },
-  { file: 'packages/shell/src/x.ts', code: `import { readColorToken } from '@ap/ui/theme';`, rule: '' },
-  { file: 'packages/shell/src/x.ts', code: `import tokens from '@ap/ui/theme-tokens.json';`, rule: '' },
-  { file: 'packages/shell/src/x.ts', code: `import tokens from '@ap/ui/src/styles/tokens.css';`, rule: 'no-restricted-imports' },
+  { file: 'packages/sdk/shell/src/x.ts', code: `import { readColorToken } from '@ap/ui/theme';`, rule: '' },
+  { file: 'packages/sdk/shell/src/x.ts', code: `import tokens from '@ap/ui/theme-tokens.json';`, rule: '' },
+  { file: 'packages/sdk/shell/src/x.ts', code: `import tokens from '@ap/ui/src/styles/tokens.css';`, rule: 'no-restricted-imports' },
   { file: 'apps/platform-web/src/menus.ts', code: `import { readColorToken } from '@ap/ui/theme';`, rule: '' },
   { file: 'apps/platform-web/src/menus.ts', code: `import tokens from '@ap/ui/theme-tokens.json';`, rule: '' },
   { file: 'apps/platform-web/src/menus.ts', code: `import tokens from '@ap/ui/src/styles/tokens.css';`, rule: 'no-restricted-imports' },
-  { file: 'packages/shell/src/x.ts', code: `import { x } from '@ap/mock-server';`, rule: 'no-restricted-imports' },
-  { file: 'packages/shell/src/x.ts', code: `import { x } from '@ap/components';`, rule: '' },
-  { file: 'packages/shell/src/AppSidebar.tsx', code: `if (group.id === 'overview') render();`, rule: 'ap/no-shell-id-literal-comparison', token: 'Registry' },
-  { file: 'packages/shell/src/AppSidebar.tsx', code: `if ('home' === menu.id) render();`, rule: 'ap/no-shell-id-literal-comparison', token: 'Registry' },
-  { file: 'packages/shell/src/AppSidebar.tsx', code: `if (group.id === selectedGroupId) render();`, rule: '' },
+  { file: 'packages/sdk/shell/src/x.ts', code: `import { x } from '@ap/mock-server';`, rule: 'no-restricted-imports' },
+  { file: 'packages/sdk/shell/src/x.ts', code: `import { x } from '@ap/components';`, rule: '' },
+  { file: 'packages/sdk/shell/src/frame/AppSidebar.tsx', code: `if (group.id === 'overview') render();`, rule: 'ap/no-shell-id-literal-comparison', token: 'Registry' },
+  { file: 'packages/sdk/shell/src/frame/AppSidebar.tsx', code: `if ('home' === menu.id) render();`, rule: 'ap/no-shell-id-literal-comparison', token: 'Registry' },
+  { file: 'packages/sdk/shell/src/frame/AppSidebar.tsx', code: `if (group.id === selectedGroupId) render();`, rule: '' },
   // Registry ids are rejected whatever the local name or syntax (Codex review on #206, Opus P2-1).
-  { file: 'packages/shell/src/AppSidebar.tsx', code: `if (item.id === 'home') render();`, rule: 'ap/no-shell-id-literal-comparison', token: 'Registry' },
-  { file: 'packages/shell/src/AppSidebar.tsx', code: `const a = registry.groups.filter(g => g.id === 'overview');`, rule: 'ap/no-shell-id-literal-comparison', token: 'Registry' },
-  { file: 'packages/shell/src/AppSidebar.tsx', code: `const a = menus.filter(m => m.group === 'overview');`, rule: 'ap/no-shell-id-literal-comparison', token: 'Registry' },
-  { file: 'packages/shell/src/AppSidebar.tsx', code: `if (group?.id === 'overview') render();`, rule: 'ap/no-shell-id-literal-comparison', token: 'Registry' },
-  { file: 'packages/shell/src/AppSidebar.tsx', code: `if (route.menu.id === 'home') render();`, rule: 'ap/no-shell-id-literal-comparison', token: 'Registry' },
-  { file: 'packages/shell/src/AppSidebar.tsx', code: 'if (group.id === `overview`) render();', rule: 'ap/no-shell-id-literal-comparison', token: 'Registry' },
-  { file: 'packages/shell/src/AppSidebar.tsx', code: `switch (group.id) { case 'overview': break; }`, rule: 'ap/no-shell-id-literal-comparison', token: 'Registry' },
-  { file: 'packages/shell/src/AppSidebar.tsx', code: `if (['overview'].includes(group.id)) render();`, rule: 'ap/no-shell-id-literal-comparison', token: 'Registry' },
-  { file: 'packages/shell/src/AppSidebar.tsx', code: `const g = registry.groupById('overview');`, rule: 'ap/no-shell-id-literal-comparison', token: 'Registry' },
-  { file: 'packages/shell/src/AppSidebar.tsx', code: `if (r.menuId === 'home') render();`, rule: 'ap/no-shell-id-literal-comparison', token: 'Registry' },
-  { file: 'packages/shell/src/AppSidebar.tsx', code: `const g = registry.groupById(route.menu.group);`, rule: '' },
-  { file: 'packages/shell/src/AppSidebar.tsx', code: `if (tst.tone === 'danger') render();`, rule: '' },
-  { file: 'packages/mock-server/src/x.ts', code: `import { x } from '@ap/kernel';`, rule: 'no-restricted-imports' },
-  { file: 'packages/mock-server/src/x.ts', code: `import type { X } from 'react';`, rule: 'no-restricted-imports' },
-  { file: 'packages/mock-server/src/x.ts', code: `import { x } from '@ap/contracts';`, rule: '' },
+  { file: 'packages/sdk/shell/src/frame/AppSidebar.tsx', code: `if (item.id === 'home') render();`, rule: 'ap/no-shell-id-literal-comparison', token: 'Registry' },
+  { file: 'packages/sdk/shell/src/frame/AppSidebar.tsx', code: `const a = registry.groups.filter(g => g.id === 'overview');`, rule: 'ap/no-shell-id-literal-comparison', token: 'Registry' },
+  { file: 'packages/sdk/shell/src/frame/AppSidebar.tsx', code: `const a = menus.filter(m => m.group === 'overview');`, rule: 'ap/no-shell-id-literal-comparison', token: 'Registry' },
+  { file: 'packages/sdk/shell/src/frame/AppSidebar.tsx', code: `if (group?.id === 'overview') render();`, rule: 'ap/no-shell-id-literal-comparison', token: 'Registry' },
+  { file: 'packages/sdk/shell/src/frame/AppSidebar.tsx', code: `if (route.menu.id === 'home') render();`, rule: 'ap/no-shell-id-literal-comparison', token: 'Registry' },
+  { file: 'packages/sdk/shell/src/frame/AppSidebar.tsx', code: 'if (group.id === `overview`) render();', rule: 'ap/no-shell-id-literal-comparison', token: 'Registry' },
+  { file: 'packages/sdk/shell/src/frame/AppSidebar.tsx', code: `switch (group.id) { case 'overview': break; }`, rule: 'ap/no-shell-id-literal-comparison', token: 'Registry' },
+  { file: 'packages/sdk/shell/src/frame/AppSidebar.tsx', code: `if (['overview'].includes(group.id)) render();`, rule: 'ap/no-shell-id-literal-comparison', token: 'Registry' },
+  { file: 'packages/sdk/shell/src/frame/AppSidebar.tsx', code: `const g = registry.groupById('overview');`, rule: 'ap/no-shell-id-literal-comparison', token: 'Registry' },
+  { file: 'packages/sdk/shell/src/frame/AppSidebar.tsx', code: `if (r.menuId === 'home') render();`, rule: 'ap/no-shell-id-literal-comparison', token: 'Registry' },
+  { file: 'packages/sdk/shell/src/frame/AppSidebar.tsx', code: `const g = registry.groupById(route.menu.group);`, rule: '' },
+  { file: 'packages/sdk/shell/src/frame/AppSidebar.tsx', code: `if (tst.tone === 'danger') render();`, rule: '' },
+  { file: 'packages/adapters/mock-server/src/x.ts', code: `import { x } from '@ap/kernel';`, rule: 'no-restricted-imports' },
+  { file: 'packages/adapters/mock-server/src/x.ts', code: `import type { X } from 'react';`, rule: 'no-restricted-imports' },
+  { file: 'packages/adapters/mock-server/src/x.ts', code: `import { x } from '@ap/contracts';`, rule: '' },
 
   // --- hostModule (ADR-0053): contracts and ui (with CSS subpaths) only ---
   { file: 'modules/fixture/src/x.ts', code: `import { x } from '@ap/kernel';`, rule: 'no-restricted-imports' },
@@ -164,15 +164,15 @@ const rows: Row[] = [
   { file: 'menus/_global/home/src/pages/x.test.tsx', code: `const m = await import('@ap/kernel/testing');`, rule: '' },
   { file: 'menus/_global/home/src/pages/x.test.tsx', code: `import { x } from '@ap/kernel/src/platform';`, rule: 'no-restricted-imports' },
   { file: 'menus/_global/home/src/test-support.ts', code: `import { testAdapter } from '@ap/kernel/testing';`, rule: '' },
-  { file: 'packages/components/src/archetypes/PlatformPage.tsx', code: `import { testAdapter } from '@ap/kernel/testing';`, rule: 'no-restricted-imports' },
-  { file: 'packages/components/src/archetypes/__tests__/PlatformPage.test.tsx', code: `import { testAdapter } from '@ap/kernel/testing';`, rule: '' },
-  { file: 'packages/shell/src/AppShell.tsx', code: `import { testAdapter } from '@ap/kernel/testing';`, rule: 'no-restricted-imports' },
-  { file: 'packages/shell/src/AppShell.test.tsx', code: `import { testAdapter } from '@ap/kernel/testing';`, rule: '' },
-  { file: 'packages/shell/src/test-setup.ts', code: `import { testAdapter } from '@ap/kernel/testing';`, rule: '' },
+  { file: 'packages/sdk/components/src/archetypes/PlatformPage.tsx', code: `import { testAdapter } from '@ap/kernel/testing';`, rule: 'no-restricted-imports' },
+  { file: 'packages/sdk/components/src/archetypes/__tests__/PlatformPage.test.tsx', code: `import { testAdapter } from '@ap/kernel/testing';`, rule: '' },
+  { file: 'packages/sdk/shell/src/frame/AppShell.tsx', code: `import { testAdapter } from '@ap/kernel/testing';`, rule: 'no-restricted-imports' },
+  { file: 'packages/sdk/shell/src/frame/__tests__/AppShell.test.tsx', code: `import { testAdapter } from '@ap/kernel/testing';`, rule: '' },
+  { file: 'packages/sdk/shell/src/test-setup.ts', code: `import { testAdapter } from '@ap/kernel/testing';`, rule: '' },
   { file: 'apps/platform-web/src/menus.ts', code: `import { testAdapter } from '@ap/kernel/testing';`, rule: 'no-restricted-imports' },
   { file: 'apps/platform-web/src/menus.test.ts', code: `import { testAdapter } from '@ap/kernel/testing';`, rule: '' },
-  { file: 'packages/kernel/src/x.test.ts', code: `import { testAdapter } from '@ap/kernel/testing';`, rule: 'no-restricted-imports' },
-  { file: 'packages/server-conformance/src/x.test.ts', code: `import { testAdapter } from '@ap/kernel/testing';`, rule: 'no-restricted-imports' },
+  { file: 'packages/sdk/kernel/src/x.test.ts', code: `import { testAdapter } from '@ap/kernel/testing';`, rule: 'no-restricted-imports' },
+  { file: 'packages/adapters/server-conformance/src/x.test.ts', code: `import { testAdapter } from '@ap/kernel/testing';`, rule: 'no-restricted-imports' },
 
   // --- #413 (ADR-0040 extension): `@ap/components/testing` is test-only, for the layers above components ---
   { file: MENU, code: `import { stubCompactTableGeometry } from '@ap/components/testing';`, rule: 'no-restricted-imports' },
@@ -181,11 +181,11 @@ const rows: Row[] = [
   { file: 'menus/_global/home/src/pages/x.test.tsx', code: `const m = await import('@ap/components/testing');`, rule: '' },
   { file: 'apps/platform-web/src/menus.ts', code: `import { stubCompactTableGeometry } from '@ap/components/testing';`, rule: 'no-restricted-imports' },
   { file: 'apps/platform-web/src/menus.test.ts', code: `import { stubCompactTableGeometry } from '@ap/components/testing';`, rule: '' },
-  { file: 'packages/shell/src/AppShell.test.tsx', code: `import { stubCompactTableGeometry } from '@ap/components/testing';`, rule: '' },
-  { file: 'packages/components/src/x.ts', code: `import { stubCompactTableGeometry } from '@ap/components/testing';`, rule: 'no-restricted-imports' },
-  { file: 'packages/components/src/x.test.tsx', code: `import { stubCompactTableGeometry } from '@ap/components/testing';`, rule: 'no-restricted-imports' },
-  { file: 'packages/components/src/x.test.tsx', code: `import { stubCompactTableGeometry } from './testing';`, rule: '' },
-  { file: 'packages/kernel/src/x.test.ts', code: `import { stubCompactTableGeometry } from '@ap/components/testing';`, rule: 'no-restricted-imports' },
+  { file: 'packages/sdk/shell/src/frame/__tests__/AppShell.test.tsx', code: `import { stubCompactTableGeometry } from '@ap/components/testing';`, rule: '' },
+  { file: 'packages/sdk/components/src/x.ts', code: `import { stubCompactTableGeometry } from '@ap/components/testing';`, rule: 'no-restricted-imports' },
+  { file: 'packages/sdk/components/src/x.test.tsx', code: `import { stubCompactTableGeometry } from '@ap/components/testing';`, rule: 'no-restricted-imports' },
+  { file: 'packages/sdk/components/src/x.test.tsx', code: `import { stubCompactTableGeometry } from './testing';`, rule: '' },
+  { file: 'packages/sdk/kernel/src/x.test.ts', code: `import { stubCompactTableGeometry } from '@ap/components/testing';`, rule: 'no-restricted-imports' },
 
   // --- #160: the table engine is components-internal; menus ban it statically and dynamically ---
   { file: MENU, code: `import type { ColumnDef } from '@tanstack/react-table';`, rule: 'no-restricted-imports', token: 'table engine' },
@@ -198,29 +198,29 @@ const rows: Row[] = [
   { file: MENU, code: `const m = await import('@tanstack/react-table');`, rule: 'ap/restricted-import-source' },
   { file: 'menus/_global/home/src/mock/handlers.ts', code: `import { x } from '@tanstack/react-table';`, rule: 'no-restricted-imports', token: 'table engine' },
   { file: 'apps/platform-web/src/menus.ts', code: `import { x } from '@tanstack/react-table';`, rule: '' },
-  { file: 'packages/components/src/x.ts', code: `import { x } from '@tanstack/react-table';`, rule: '' },
-  { file: 'packages/shell/src/x.ts', code: `import { x } from '@tanstack/react-table';`, rule: '' },
+  { file: 'packages/sdk/components/src/x.ts', code: `import { x } from '@tanstack/react-table';`, rule: '' },
+  { file: 'packages/sdk/shell/src/x.ts', code: `import { x } from '@tanstack/react-table';`, rule: '' },
 
   // --- ADR-0086: the Kernel's query engine is kernel-internal; menus, components, shell and the app ban it statically and dynamically, kernel and the fo-bridge package pass ---
   { file: MENU, code: `import { useQuery } from '@tanstack/react-query';`, rule: 'no-restricted-imports', token: 'query engine' },
   { file: MENU, code: `import { useQuery } from '@tanstack/react-query/build/modern';`, rule: 'no-restricted-imports', token: 'query engine' },
   { file: MENU, code: `const m = await import('@tanstack/react-query');`, rule: 'ap/restricted-import-source' },
   { file: 'menus/_global/home/src/mock/handlers.ts', code: `import { useQuery } from '@tanstack/react-query';`, rule: 'no-restricted-imports', token: 'query engine' },
-  { file: 'packages/components/src/x.ts', code: `import { useQuery } from '@tanstack/react-query';`, rule: 'no-restricted-imports', token: 'query engine' },
-  { file: 'packages/components/src/x.ts', code: `const m = await import('@tanstack/react-query');`, rule: 'ap/restricted-import-source' },
-  { file: 'packages/shell/src/x.ts', code: `import { useQuery } from '@tanstack/react-query';`, rule: 'no-restricted-imports', token: 'query engine' },
-  { file: 'packages/shell/src/x.ts', code: `const m = await import('@tanstack/react-query');`, rule: 'ap/restricted-import-source' },
+  { file: 'packages/sdk/components/src/x.ts', code: `import { useQuery } from '@tanstack/react-query';`, rule: 'no-restricted-imports', token: 'query engine' },
+  { file: 'packages/sdk/components/src/x.ts', code: `const m = await import('@tanstack/react-query');`, rule: 'ap/restricted-import-source' },
+  { file: 'packages/sdk/shell/src/x.ts', code: `import { useQuery } from '@tanstack/react-query';`, rule: 'no-restricted-imports', token: 'query engine' },
+  { file: 'packages/sdk/shell/src/x.ts', code: `const m = await import('@tanstack/react-query');`, rule: 'ap/restricted-import-source' },
   { file: 'apps/platform-web/src/menus.ts', code: `import { useQuery } from '@tanstack/react-query';`, rule: 'no-restricted-imports', token: 'query engine' },
   { file: 'apps/platform-web/src/menus.ts', code: `const m = await import('@tanstack/react-query');`, rule: 'ap/restricted-import-source' },
-  { file: 'packages/kernel/src/x.ts', code: `import { useQuery } from '@tanstack/react-query';`, rule: '' },
-  { file: 'packages/kernel/src/x.ts', code: `const m = await import('@tanstack/react-query');`, rule: '' },
-  { file: 'packages/fo-bridge/src/nav-counts.tsx', code: `import { useQuery } from '@tanstack/react-query';`, rule: '' },
-  { file: 'packages/fo-bridge/src/pages/SavedViews.tsx', code: `import { useQuery } from '@tanstack/react-query';`, rule: '' },
+  { file: 'packages/sdk/kernel/src/x.ts', code: `import { useQuery } from '@tanstack/react-query';`, rule: '' },
+  { file: 'packages/sdk/kernel/src/x.ts', code: `const m = await import('@tanstack/react-query');`, rule: '' },
+  { file: 'packages/adapters/fo-bridge/src/nav-counts.tsx', code: `import { useQuery } from '@tanstack/react-query';`, rule: '' },
+  { file: 'packages/adapters/fo-bridge/src/pages/SavedViews.tsx', code: `import { useQuery } from '@tanstack/react-query';`, rule: '' },
 
   // --- ADR-0067 (#575): `@ap/components/dock` is a host-only entry (shell, app); the dock engine is components-internal ---
-  { file: 'packages/shell/src/x.ts', code: `import { DockLayout } from '@ap/components/dock';`, rule: '' },
-  { file: 'packages/shell/src/x.ts', code: `const m = await import('@ap/components/dock');`, rule: '' },
-  { file: 'packages/shell/src/x.test.tsx', code: `import { DockLayout } from '@ap/components/dock';`, rule: '' },
+  { file: 'packages/sdk/shell/src/x.ts', code: `import { DockLayout } from '@ap/components/dock';`, rule: '' },
+  { file: 'packages/sdk/shell/src/x.ts', code: `const m = await import('@ap/components/dock');`, rule: '' },
+  { file: 'packages/sdk/shell/src/x.test.tsx', code: `import { DockLayout } from '@ap/components/dock';`, rule: '' },
   { file: 'apps/platform-web/src/menus.ts', code: `import { DockLayout } from '@ap/components/dock';`, rule: '' },
   { file: 'apps/platform-web/src/menus.ts', code: `const m = await import('@ap/components/dock');`, rule: '' },
   { file: MENU, code: `import { DockLayout } from '@ap/components/dock';`, rule: 'no-restricted-imports', token: 'host-only' },
@@ -228,33 +228,33 @@ const rows: Row[] = [
   { file: 'menus/_global/home/src/pages/x.test.tsx', code: `import { DockLayout } from '@ap/components/dock';`, rule: 'no-restricted-imports', token: 'host-only' },
   { file: 'modules/fixture/src/x.ts', code: `import { DockLayout } from '@ap/components/dock';`, rule: 'no-restricted-imports', token: 'host-only' },
   { file: 'modules/fixture/src/x.ts', code: `const m = await import('@ap/components/dock');`, rule: 'ap/restricted-import-source' },
-  { file: 'packages/shell/src/x.ts', code: `import { x } from '@ap/components/dock/src/DockEngine';`, rule: 'no-restricted-imports' },
+  { file: 'packages/sdk/shell/src/x.ts', code: `import { x } from '@ap/components/dock/src/DockEngine';`, rule: 'no-restricted-imports' },
   { file: 'apps/platform-web/src/menus.ts', code: `import { x } from '@ap/components/dock/src/DockEngine';`, rule: 'no-restricted-imports' },
-  { file: 'packages/shell/src/x.ts', code: `import { DockviewReact } from 'dockview-react';`, rule: 'no-restricted-imports', token: 'ADR-0067' },
-  { file: 'packages/shell/src/x.ts', code: `import 'dockview-react/dist/styles/dockview.css';`, rule: 'no-restricted-imports', token: 'ADR-0067' },
-  { file: 'packages/shell/src/x.ts', code: `import { x } from 'dockview';`, rule: 'no-restricted-imports', token: 'ADR-0067' },
-  { file: 'packages/shell/src/x.ts', code: `import { x } from 'dockview-core';`, rule: 'no-restricted-imports', token: 'ADR-0067' },
-  { file: 'packages/shell/src/x.ts', code: `const m = await import('dockview-react');`, rule: 'ap/restricted-import-source' },
-  { file: 'packages/shell/src/x.test.tsx', code: `import { DockviewReact } from 'dockview-react';`, rule: 'no-restricted-imports', token: 'ADR-0067' },
+  { file: 'packages/sdk/shell/src/x.ts', code: `import { DockviewReact } from 'dockview-react';`, rule: 'no-restricted-imports', token: 'ADR-0067' },
+  { file: 'packages/sdk/shell/src/x.ts', code: `import 'dockview-react/dist/styles/dockview.css';`, rule: 'no-restricted-imports', token: 'ADR-0067' },
+  { file: 'packages/sdk/shell/src/x.ts', code: `import { x } from 'dockview';`, rule: 'no-restricted-imports', token: 'ADR-0067' },
+  { file: 'packages/sdk/shell/src/x.ts', code: `import { x } from 'dockview-core';`, rule: 'no-restricted-imports', token: 'ADR-0067' },
+  { file: 'packages/sdk/shell/src/x.ts', code: `const m = await import('dockview-react');`, rule: 'ap/restricted-import-source' },
+  { file: 'packages/sdk/shell/src/x.test.tsx', code: `import { DockviewReact } from 'dockview-react';`, rule: 'no-restricted-imports', token: 'ADR-0067' },
   { file: MENU, code: `import { DockviewReact } from 'dockview-react';`, rule: 'no-restricted-imports', token: 'ADR-0067' },
   { file: MENU, code: `const m = await import('dockview-react');`, rule: 'ap/restricted-import-source' },
   { file: 'menus/_global/home/src/mock/handlers.ts', code: `import { DockviewReact } from 'dockview-react';`, rule: 'no-restricted-imports', token: 'ADR-0067' },
   { file: 'apps/platform-web/src/menus.ts', code: `import { DockviewReact } from 'dockview-react';`, rule: 'no-restricted-imports', token: 'ADR-0067' },
   { file: 'apps/platform-web/src/menus.ts', code: `const m = await import('dockview-react');`, rule: 'ap/restricted-import-source' },
   { file: 'apps/platform-web/src/main.tsx', code: `import { DockviewReact } from 'dockview-react';`, rule: 'no-restricted-imports', token: 'ADR-0067' },
-  { file: 'packages/kernel/src/x.ts', code: `import { DockviewReact } from 'dockview-react';`, rule: 'no-restricted-imports', token: 'ADR-0067' },
-  { file: 'packages/ui/src/x.ts', code: `import { DockviewReact } from 'dockview-react';`, rule: 'no-restricted-imports', token: 'ADR-0067' },
+  { file: 'packages/sdk/kernel/src/x.ts', code: `import { DockviewReact } from 'dockview-react';`, rule: 'no-restricted-imports', token: 'ADR-0067' },
+  { file: 'packages/sdk/ui/src/x.ts', code: `import { DockviewReact } from 'dockview-react';`, rule: 'no-restricted-imports', token: 'ADR-0067' },
   { file: 'modules/fixture/src/x.ts', code: `import { DockviewReact } from 'dockview-react';`, rule: 'no-restricted-imports', token: 'ADR-0067' },
-  { file: 'packages/components/src/dock/DockEngine.tsx', code: `import { DockviewReact } from 'dockview-react';`, rule: '' },
-  { file: 'packages/components/src/dock/DockEngine.tsx', code: `import 'dockview-react/dist/styles/dockview.css';`, rule: '' },
-  { file: 'packages/components/src/dock/DockEngine.tsx', code: `const m = await import('dockview-react');`, rule: '' },
-  { file: 'packages/components/src/dock/DockLayout.test.tsx', code: `import { x } from 'dockview-core';`, rule: '' },
+  { file: 'packages/sdk/components/src/dock/DockEngine.tsx', code: `import { DockviewReact } from 'dockview-react';`, rule: '' },
+  { file: 'packages/sdk/components/src/dock/DockEngine.tsx', code: `import 'dockview-react/dist/styles/dockview.css';`, rule: '' },
+  { file: 'packages/sdk/components/src/dock/DockEngine.tsx', code: `const m = await import('dockview-react');`, rule: '' },
+  { file: 'packages/sdk/components/src/dock/DockLayout.test.tsx', code: `import { x } from 'dockview-core';`, rule: '' },
   // --- ADR-0076: `@ap/kernel/host` is the shell, components and app surface; menus use usePlatform() from `@ap/kernel` ---
-  { file: 'packages/shell/src/x.ts', code: `import { useHostPlatform } from '@ap/kernel/host';`, rule: '' },
-  { file: 'packages/shell/src/x.ts', code: `const m = await import('@ap/kernel/host');`, rule: '' },
-  { file: 'packages/shell/src/x.test.tsx', code: `import { useHostPlatform } from '@ap/kernel/host';`, rule: '' },
-  { file: 'packages/components/src/x.ts', code: `import { useHostPlatform } from '@ap/kernel/host';`, rule: '' },
-  { file: 'packages/components/src/x.test.tsx', code: `import { useHostPlatform } from '@ap/kernel/host';`, rule: '' },
+  { file: 'packages/sdk/shell/src/x.ts', code: `import { useHostPlatform } from '@ap/kernel/host';`, rule: '' },
+  { file: 'packages/sdk/shell/src/x.ts', code: `const m = await import('@ap/kernel/host');`, rule: '' },
+  { file: 'packages/sdk/shell/src/x.test.tsx', code: `import { useHostPlatform } from '@ap/kernel/host';`, rule: '' },
+  { file: 'packages/sdk/components/src/x.ts', code: `import { useHostPlatform } from '@ap/kernel/host';`, rule: '' },
+  { file: 'packages/sdk/components/src/x.test.tsx', code: `import { useHostPlatform } from '@ap/kernel/host';`, rule: '' },
   { file: 'apps/platform-web/src/menus.ts', code: `import { useHostPlatform } from '@ap/kernel/host';`, rule: '' },
   { file: 'apps/platform-web/src/main.tsx', code: `import { useHostPlatform } from '@ap/kernel/host';`, rule: '' },
   { file: MENU, code: `import { useHostPlatform } from '@ap/kernel/host';`, rule: 'no-restricted-imports', token: 'ADR-0076' },
@@ -314,17 +314,17 @@ const rows: Row[] = [
   { file: 'apps/platform-web/src/server-conformance.test.ts', code: `await import('@ap/menu-equipment/mock');`, rule: 'ap/restricted-import-source' },
   { file: 'apps/platform-web/src/published-metrics.test.ts', code: `import { equipmentMock } from '@ap/menu-equipment/mock';`, rule: 'no-restricted-imports' },
   // #145: the conformance kit is adapter-agnostic — contracts only, never the mock it judges, never React.
-  { file: 'packages/server-conformance/src/x.ts', code: `import { x } from '@ap/contracts';`, rule: '' },
-  { file: 'packages/server-conformance/src/x.ts', code: `import { x } from '@ap/mock-server';`, rule: 'no-restricted-imports' },
-  { file: 'packages/server-conformance/src/x.ts', code: `import { x } from '@ap/kernel';`, rule: 'no-restricted-imports' },
-  { file: 'packages/server-conformance/src/x.ts', code: `import React from 'react';`, rule: 'no-restricted-imports' },
+  { file: 'packages/adapters/server-conformance/src/x.ts', code: `import { x } from '@ap/contracts';`, rule: '' },
+  { file: 'packages/adapters/server-conformance/src/x.ts', code: `import { x } from '@ap/mock-server';`, rule: 'no-restricted-imports' },
+  { file: 'packages/adapters/server-conformance/src/x.ts', code: `import { x } from '@ap/kernel';`, rule: 'no-restricted-imports' },
+  { file: 'packages/adapters/server-conformance/src/x.ts', code: `import React from 'react';`, rule: 'no-restricted-imports' },
 
   // --- relative package escape (37-41) ---
-  { file: MENU, code: `import { x } from '../../../../../packages/contracts/src/url';`, rule: 'ap/no-relative-package-escape' },
+  { file: MENU, code: `import { x } from '../../../../../packages/sdk/contracts/src/url';`, rule: 'ap/no-relative-package-escape' },
   { file: 'menus/_global/home/src/index.ts', code: `import { x } from '../../../analytics/equipment/src/index';`, rule: 'ap/no-relative-package-escape' },
   { file: MENU, code: `import { x } from '../api';`, rule: '' },
-  { file: 'packages/kernel/src/platform.tsx', code: `import { x } from './registry';`, rule: '' },
-  { file: 'packages/kernel/src/platform.tsx', code: `import('../../menus/_global/home/src/index');`, rule: 'ap/no-relative-package-escape' },
+  { file: 'packages/sdk/kernel/src/platform.tsx', code: `import { x } from './registry';`, rule: '' },
+  { file: 'packages/sdk/kernel/src/platform.tsx', code: `import('../../menus/_global/home/src/index');`, rule: 'ap/no-relative-package-escape' },
 
   // --- hand-built query strings in menus (42-55) ---
   { file: MENU, code: `<a href="/equipment?v=1" />`, rule: 'ap/no-hand-built-url', token: 'query string' },
@@ -339,18 +339,18 @@ const rows: Row[] = [
   { file: MENU, code: `const label = 'Roles & access';`, rule: '' },
   { file: MENU, code: `navigate(linkTo('home'));`, rule: '' },
   { file: MENU, code: `const u = '/equipment?v=1'; <a href={u} />`, rule: '' },
-  { file: 'packages/contracts/src/x.ts', code: `export const q = '?' + params.toString();`, rule: '' },
-  { file: 'packages/kernel/src/x.ts', code: `navigate(pathname + buildQuery(global));`, rule: '' },
+  { file: 'packages/sdk/contracts/src/x.ts', code: `export const q = '?' + params.toString();`, rule: '' },
+  { file: 'packages/sdk/kernel/src/x.ts', code: `navigate(pathname + buildQuery(global));`, rule: '' },
 
   // --- web storage in menus (56-63) ---
   { file: MENU, code: `sessionStorage.getItem('k');`, rule: 'no-restricted-globals' },
   { file: MENU, code: `localStorage.setItem('k', 'v');`, rule: 'no-restricted-globals' },
   { file: MENU, code: `window.sessionStorage.getItem('k');`, rule: 'no-restricted-syntax', token: 'web storage' },
   { file: MENU, code: `globalThis.localStorage.setItem('k', 'v');`, rule: 'no-restricted-syntax', token: 'web storage' },
-  { file: 'packages/kernel/src/x.ts', code: `localStorage.setItem('k', 'v');`, rule: '' },
-  { file: 'packages/shell/src/x.ts', code: `localStorage.getItem('k');`, rule: '' },
-  { file: 'packages/components/src/x.ts', code: `localStorage.setItem('k', 'v');`, rule: '' },
-  { file: 'packages/mock-server/src/x.ts', code: `localStorage.getItem('k');`, rule: '' },
+  { file: 'packages/sdk/kernel/src/x.ts', code: `localStorage.setItem('k', 'v');`, rule: '' },
+  { file: 'packages/sdk/shell/src/x.ts', code: `localStorage.getItem('k');`, rule: '' },
+  { file: 'packages/sdk/components/src/x.ts', code: `localStorage.setItem('k', 'v');`, rule: '' },
+  { file: 'packages/adapters/mock-server/src/x.ts', code: `localStorage.getItem('k');`, rule: '' },
 
   // --- location writes and reads (64-73) ---
   { file: MENU, code: `window.location.href = '/x';`, rule: 'no-restricted-syntax', token: 'window.location' },
@@ -361,24 +361,24 @@ const rows: Row[] = [
   { file: MENU, code: `void window.location.origin;`, rule: '' },
   { file: MENU, code: `anchor.replace('T', ' ');`, rule: '' },
   { file: MENU, code: `a.href = URL.createObjectURL(blob);`, rule: '' },
-  { file: 'packages/kernel/src/x.ts', code: `window.history.replaceState(null, '', next);`, rule: '' },
+  { file: 'packages/sdk/kernel/src/x.ts', code: `window.history.replaceState(null, '', next);`, rule: '' },
   { file: MENU, code: `window?.location?.assign('/x');`, rule: '' },
 
   // --- F1: dynamic import / import() type / require must obey boundaries ---
   { file: 'menus/_global/home/src/api.test.ts', code: `const m = await import('@ap/mock-server');`, rule: 'ap/restricted-import-source' },
-  { file: 'packages/kernel/src/x.ts', code: `await import('@ap/shell');`, rule: 'ap/restricted-import-source' },
-  { file: 'packages/contracts/src/x.ts', code: `type X = import('react').ReactNode;`, rule: 'ap/restricted-import-source' },
+  { file: 'packages/sdk/kernel/src/x.ts', code: `await import('@ap/shell');`, rule: 'ap/restricted-import-source' },
+  { file: 'packages/sdk/contracts/src/x.ts', code: `type X = import('react').ReactNode;`, rule: 'ap/restricted-import-source' },
   { file: MENU, code: `require('@ap/mock-server');`, rule: 'ap/restricted-import-source' },
-  { file: MENU, code: `require('../../../../../packages/contracts/src/url');`, rule: 'ap/no-relative-package-escape' },
+  { file: MENU, code: `require('../../../../../packages/sdk/contracts/src/url');`, rule: 'ap/no-relative-package-escape' },
   { file: 'apps/platform-web/src/main.tsx', code: `import('@ap/mock-server/src/server');`, rule: 'ap/restricted-import-source' },
   { file: 'apps/platform-web/src/main.tsx', code: `await import('@ap/mock-server');`, rule: 'ap/restricted-import-source' },
   { file: 'menus/_global/home/src/api.ts', code: `import('@ap/mock-server/src/server');`, rule: 'ap/restricted-import-source' },
   { file: 'menus/_global/home/src/api.ts', code: `await import('@ap/mock-server');`, rule: 'ap/restricted-import-source' },
   { file: 'apps/platform-web/src/dev/DevTools.tsx', code: `await import('@ap/mock-server');`, rule: '' },
   { file: MENU, code: `lazy(() => import('./pages/X'));`, rule: '' },
-  { file: 'packages/kernel/src/x.ts', code: `await import('@ap/contracts');`, rule: '' },
+  { file: 'packages/sdk/kernel/src/x.ts', code: `await import('@ap/contracts');`, rule: '' },
   { file: MENU, code: `lazy(() => import('@ap/menu-equipment'));`, rule: 'ap/restricted-import-source' },
-  { file: 'packages/kernel/src/x.ts', code: `await import('@ap/mock-server');`, rule: 'ap/restricted-import-source' },
+  { file: 'packages/sdk/kernel/src/x.ts', code: `await import('@ap/mock-server');`, rule: 'ap/restricted-import-source' },
 
   // --- F1: globalThis.location writes ---
   { file: MENU, code: `globalThis.location.href = '/x';`, rule: 'no-restricted-syntax', token: 'window.location' },
@@ -399,8 +399,8 @@ const rows: Row[] = [
   { file: MENU, code: `navigate(linkTo('home') ?? linkTo('equipment'));`, rule: '' },
 
   // --- N2: relative sources in TS import type / import-equals escape ---
-  { file: MENU, code: `type X = typeof import('../../../../../packages/mock-server/src/index');`, rule: 'ap/no-relative-package-escape' },
-  { file: MENU, code: `import x = require('../../../../../packages/mock-server/src/index');`, rule: 'ap/no-relative-package-escape' },
+  { file: MENU, code: `type X = typeof import('../../../../../packages/adapters/mock-server/src/index');`, rule: 'ap/no-relative-package-escape' },
+  { file: MENU, code: `import x = require('../../../../../packages/adapters/mock-server/src/index');`, rule: 'ap/no-relative-package-escape' },
   { file: MENU, code: `type X = typeof import('../api');`, rule: '' },
 
   // --- menu mock handlers and composition-root registration (#113) ---
@@ -486,15 +486,15 @@ const rows: Row[] = [
   },
   { file: 'menus/_global/home/src/pages/Sample.tsx', code: `import { sampleMock } from '../mock';`, rule: 'ap/no-menu-mock-import' },
   // --- #154: the real-server adapter is contracts-only and reaches the app through src/real/** only ---
-  { file: 'packages/http-adapter/src/x.ts', code: `import { PortError } from '@ap/contracts';`, rule: '' },
-  { file: 'packages/http-adapter/src/x.ts', code: `import { x } from '@ap/kernel';`, rule: 'no-restricted-imports' },
-  { file: 'packages/http-adapter/src/x.ts', code: `import { x } from '@ap/mock-server';`, rule: 'no-restricted-imports' },
-  { file: 'packages/http-adapter/src/x.ts', code: `import type { ReactNode } from 'react';`, rule: 'no-restricted-imports' },
-  { file: 'packages/kernel/src/x.ts', code: `import { x } from '@ap/http-adapter';`, rule: 'no-restricted-imports' },
-  { file: 'packages/components/src/x.ts', code: `import { x } from '@ap/http-adapter';`, rule: 'no-restricted-imports' },
-  { file: 'packages/shell/src/x.ts', code: `import { x } from '@ap/http-adapter';`, rule: 'no-restricted-imports' },
-  { file: 'packages/mock-server/src/x.ts', code: `import { x } from '@ap/http-adapter';`, rule: 'no-restricted-imports' },
-  { file: 'packages/server-conformance/src/x.ts', code: `import { x } from '@ap/http-adapter';`, rule: 'no-restricted-imports' },
+  { file: 'packages/adapters/http-adapter/src/x.ts', code: `import { PortError } from '@ap/contracts';`, rule: '' },
+  { file: 'packages/adapters/http-adapter/src/x.ts', code: `import { x } from '@ap/kernel';`, rule: 'no-restricted-imports' },
+  { file: 'packages/adapters/http-adapter/src/x.ts', code: `import { x } from '@ap/mock-server';`, rule: 'no-restricted-imports' },
+  { file: 'packages/adapters/http-adapter/src/x.ts', code: `import type { ReactNode } from 'react';`, rule: 'no-restricted-imports' },
+  { file: 'packages/sdk/kernel/src/x.ts', code: `import { x } from '@ap/http-adapter';`, rule: 'no-restricted-imports' },
+  { file: 'packages/sdk/components/src/x.ts', code: `import { x } from '@ap/http-adapter';`, rule: 'no-restricted-imports' },
+  { file: 'packages/sdk/shell/src/x.ts', code: `import { x } from '@ap/http-adapter';`, rule: 'no-restricted-imports' },
+  { file: 'packages/adapters/mock-server/src/x.ts', code: `import { x } from '@ap/http-adapter';`, rule: 'no-restricted-imports' },
+  { file: 'packages/adapters/server-conformance/src/x.ts', code: `import { x } from '@ap/http-adapter';`, rule: 'no-restricted-imports' },
   { file: MENU, code: `import { x } from '@ap/http-adapter';`, rule: 'no-restricted-imports' },
   { file: 'menus/_global/home/src/mock/handlers.ts', code: `import { x } from '@ap/http-adapter';`, rule: 'no-restricted-imports' },
   { file: 'apps/platform-web/src/menus.ts', code: `import { x } from '@ap/http-adapter';`, rule: 'no-restricted-imports', token: 'src/real' },
@@ -523,10 +523,10 @@ const rows: Row[] = [
 // No platform package imports @fops/* any more: the design system moved into @ap/ui (ADR-0046, #441), @ap/ui included.
 // Exercise the root entry and deep imports through both static and dynamic syntax in each platform layer.
 const FEEDBACKOPS_BOUNDARY_FILES = [
-  'packages/ui/src/x.ts',
-  'packages/kernel/src/x.ts',
-  'packages/components/src/x.ts',
-  'packages/shell/src/x.ts',
+  'packages/sdk/ui/src/x.ts',
+  'packages/sdk/kernel/src/x.ts',
+  'packages/sdk/components/src/x.ts',
+  'packages/sdk/shell/src/x.ts',
   MENU,
   'apps/platform-web/src/menus.ts',
   'apps/platform-web/src/main.tsx',
@@ -564,7 +564,7 @@ rows.push(
   { file: BRIDGE, code: `void import('${OPERATOR_DASHBOARD}');`, rule: '' },
   { file: MENU, code: `import { DashboardScreen } from '${OPERATOR_DASHBOARD}';`, rule: 'no-restricted-imports', token: '@ap/ui' },
   { file: MENU, code: `void import('${OPERATOR_DASHBOARD}');`, rule: 'ap/restricted-import-source', token: '@ap/ui' },
-  { file: `${'packages/fo-bridge/src'}/fo/session.ts`, code: `import { x } from '${OPERATOR_DASHBOARD}';`, rule: 'no-restricted-imports', token: '@ap/ui' },
+  { file: `${'packages/adapters/fo-bridge/src'}/fo/session.ts`, code: `import { x } from '${OPERATOR_DASHBOARD}';`, rule: 'no-restricted-imports', token: '@ap/ui' },
 );
 // The operator VOC entries (#761): the FeedbackOps VOC bridge menu may import them (static and dynamic); a non-bridge menu and the fo-bridge runtime's eager code may not.
 const FO_VOC = 'menus/feedbackops/fo-voc/src/pages/x.tsx';
@@ -575,7 +575,7 @@ for (const entry of ['milestones', 'task-detail', 'tasks-search', 'voc-clusters'
     { file: FO_VOC, code: `void import('${source}');`, rule: '' },
     { file: MENU, code: `import { x } from '${source}';`, rule: 'no-restricted-imports', token: '@ap/ui' },
     { file: MENU, code: `void import('${source}');`, rule: 'ap/restricted-import-source', token: '@ap/ui' },
-    { file: `${'packages/fo-bridge/src'}/fo/session.ts`, code: `import { x } from '${source}';`, rule: 'no-restricted-imports', token: '@ap/ui' },
+    { file: `${'packages/adapters/fo-bridge/src'}/fo/session.ts`, code: `import { x } from '${source}';`, rule: 'no-restricted-imports', token: '@ap/ui' },
   );
 }
 for (const source of ['@fops/frontend', '@fops/frontend/src/main', '@fops/frontend/global-screens/FoScreenRoot', '@fops/ui', '@fops/shared']) {
@@ -586,7 +586,7 @@ for (const source of ['@fops/frontend', '@fops/frontend/src/main', '@fops/fronte
 }
 
 // `@ap/fo-bridge` (ADR-0071, ADR-0081): bridge runtime, importable by bridge menus (root) and the app; `/core` only, lazy pages may see the screen barrel.
-const FO_PKG = 'packages/fo-bridge/src';
+const FO_PKG = 'packages/adapters/fo-bridge/src';
 for (const source of ['@ap/kernel', '@ap/components', '@ap/ui', '@ap/contracts']) {
   rows.push({ file: `${FO_PKG}/fo/session.ts`, code: `import { x } from '${source}';`, rule: '' });
 }
@@ -611,11 +611,11 @@ rows.push(
   { file: BRIDGE, code: `import { foQueryClient } from '@ap/fo-bridge';`, rule: '' },
   { file: MENU, code: `import { foQueryClient } from '@ap/fo-bridge';`, rule: 'no-restricted-imports' },
   { file: MENU, code: `void import('@ap/fo-bridge');`, rule: 'ap/restricted-import-source' },
-  { file: 'packages/shell/src/x.ts', code: `import { foQueryClient } from '@ap/fo-bridge';`, rule: 'no-restricted-imports' },
-  { file: 'packages/components/src/x.ts', code: `import { foQueryClient } from '@ap/fo-bridge';`, rule: 'no-restricted-imports' },
-  { file: 'packages/kernel/src/x.ts', code: `import { foQueryClient } from '@ap/fo-bridge';`, rule: 'no-restricted-imports' },
-  { file: 'packages/ui/src/x.ts', code: `import { foQueryClient } from '@ap/fo-bridge';`, rule: 'no-restricted-imports' },
-  { file: 'packages/contracts/src/x.ts', code: `import { foQueryClient } from '@ap/fo-bridge';`, rule: 'no-restricted-imports' },
+  { file: 'packages/sdk/shell/src/x.ts', code: `import { foQueryClient } from '@ap/fo-bridge';`, rule: 'no-restricted-imports' },
+  { file: 'packages/sdk/components/src/x.ts', code: `import { foQueryClient } from '@ap/fo-bridge';`, rule: 'no-restricted-imports' },
+  { file: 'packages/sdk/kernel/src/x.ts', code: `import { foQueryClient } from '@ap/fo-bridge';`, rule: 'no-restricted-imports' },
+  { file: 'packages/sdk/ui/src/x.ts', code: `import { foQueryClient } from '@ap/fo-bridge';`, rule: 'no-restricted-imports' },
+  { file: 'packages/sdk/contracts/src/x.ts', code: `import { foQueryClient } from '@ap/fo-bridge';`, rule: 'no-restricted-imports' },
   // Bridge subpaths: only the app's main.tsx (slots), and bridge-menu tests (slots and lazy pages); production menu files see the root only.
   { file: BRIDGE, code: `import { setFoApi } from '@ap/fo-bridge/fo-api';`, rule: 'no-restricted-imports' },
   { file: 'menus/_global/my-activity/src/pages/x.test.tsx', code: `import { setFoApi } from '@ap/fo-bridge/fo-api';`, rule: '' },
@@ -682,7 +682,7 @@ rows.push(
   { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '@ap/fo-bridge/src/saved-views';`, rule: 'no-restricted-imports' },
 );
 
-// The fo-bridge menu test harness (#951): `kernel/testing` for exactly `packages/fo-bridge/src/testing.tsx`; `@ap/fo-bridge/testing` for bridge-menu test and test-support files only.
+// The fo-bridge menu test harness (#951): `kernel/testing` for exactly `packages/adapters/fo-bridge/src/testing.tsx`; `@ap/fo-bridge/testing` for bridge-menu test and test-support files only.
 rows.push(
   { file: `${FO_PKG}/testing.tsx`, code: `import { testAdapter } from '@ap/kernel/testing';`, rule: '' },
   { file: `${FO_PKG}/testing.tsx`, code: `const m = await import('@ap/kernel/testing');`, rule: '' },
@@ -702,13 +702,13 @@ rows.push(
 );
 
 rows.push(
-  { file: 'packages/ui/src/x.ts', code: `import { x } from '@fops/shared';`, rule: 'no-restricted-imports', token: '@ap/ui' },
-  { file: 'packages/ui/src/x.ts', code: `void import('@fops/shared');`, rule: 'ap/restricted-import-source', token: '@ap/ui' },
+  { file: 'packages/sdk/ui/src/x.ts', code: `import { x } from '@fops/shared';`, rule: 'no-restricted-imports', token: '@ap/ui' },
+  { file: 'packages/sdk/ui/src/x.ts', code: `void import('@fops/shared');`, rule: 'ap/restricted-import-source', token: '@ap/ui' },
 );
 
 // #228 design-system rules (options mirror FeedbackOps .oxlintrc.json). Shared components may style their own markup
 // but not restyle a primitive they import (#236 review).
-const COMPONENT_FILE = 'packages/components/src/X.tsx';
+const COMPONENT_FILE = 'packages/sdk/components/src/X.tsx';
 rows.push(
   { file: COMPONENT_FILE, code: `import { Input } from '@ap/ui';\nexport const X = () => <Input className="rounded-pill bg-accent-primary" />;`, rule: 'shadcn/no-restyle' },
   { file: COMPONENT_FILE, code: `export const X = () => <section className="rounded-md bg-surface-card p-3 text-xs" />;`, rule: '' },
@@ -726,25 +726,25 @@ rows.push(
   { file: MENU.replace('x.tsx', 'X.tsx'), code: `const TONE = 'text-red-500';\nexport const X = () => <div className={TONE} />;`, rule: 'shadcn/no-raw-colors' },
   // Review follow-up (2026-10-22): class constants in .ts files are checked too (not only .tsx), every UI preset.
   { file: 'menus/_global/home/src/tone.ts', code: `export const TONE = 'text-red-500';`, rule: 'shadcn/no-raw-colors' },
-  { file: 'packages/shell/src/chip.ts', code: `export const CHIP = 'text-[12px]';`, rule: 'shadcn/no-arbitrary-values' },
-  { file: 'packages/components/src/tone.ts', code: `export const TONE = 'bg-red-500';`, rule: 'shadcn/no-raw-colors' },
+  { file: 'packages/sdk/shell/src/chip.ts', code: `export const CHIP = 'text-[12px]';`, rule: 'shadcn/no-arbitrary-values' },
+  { file: 'packages/sdk/components/src/tone.ts', code: `export const TONE = 'bg-red-500';`, rule: 'shadcn/no-raw-colors' },
   { file: 'apps/platform-web/src/tone.ts', code: `export const TONE = 'bg-surface-card text-xs';`, rule: '' },
-  { file: 'packages/shell/src/chip.test.ts', code: `export const CHIP = 'text-[12px]';`, rule: '' },
-  { file: 'packages/ui/src/theme/tokens.generated.ts', code: `export const T = ['text-primary'];`, rule: '' },
+  { file: 'packages/sdk/shell/src/chip.test.ts', code: `export const CHIP = 'text-[12px]';`, rule: '' },
+  { file: 'packages/sdk/ui/src/theme/tokens.generated.ts', code: `export const T = ['text-primary'];`, rule: '' },
   // The --color-* variable shorthand bypasses both color rules; local layout variables stay allowed.
   { file: MENU.replace('x.tsx', 'X.tsx'), code: `export const X = () => <div className="bg-(--color-red-500)" />;`, rule: 'ap/no-color-var-shorthand' },
-  { file: 'packages/shell/src/chip.ts', code: 'export const C = `hover:text-(--color-accent-primary)`;', rule: 'ap/no-color-var-shorthand' },
-  { file: 'packages/shell/src/rail.ts', code: `export const W = 'w-(--rail-width)';`, rule: '' },
+  { file: 'packages/sdk/shell/src/chip.ts', code: 'export const C = `hover:text-(--color-accent-primary)`;', rule: 'ap/no-color-var-shorthand' },
+  { file: 'packages/sdk/shell/src/rail.ts', code: `export const W = 'w-(--rail-width)';`, rule: '' },
   // Radix primitives are wrapped once in @ap/ui (ADR-0046).
-  { file: 'packages/ui/src/x.ts', code: `import * as Dialog from '@radix-ui/react-dialog';\nexport { Dialog };`, rule: '' },
-  { file: 'packages/components/src/x.ts', code: `import * as Dialog from '@radix-ui/react-dialog';\nexport { Dialog };`, rule: 'no-restricted-imports', token: '@radix-ui' },
+  { file: 'packages/sdk/ui/src/x.ts', code: `import * as Dialog from '@radix-ui/react-dialog';\nexport { Dialog };`, rule: '' },
+  { file: 'packages/sdk/components/src/x.ts', code: `import * as Dialog from '@radix-ui/react-dialog';\nexport { Dialog };`, rule: 'no-restricted-imports', token: '@radix-ui' },
   { file: 'menus/_global/home/src/x.ts', code: `import { Slot } from '@radix-ui/react-slot';\nexport { Slot };`, rule: 'no-restricted-imports', token: '@radix-ui' },
   // React layers: Rules of Hooks (error) and effect dependencies (error); non-React layers do not load the plugin.
-  { file: 'packages/kernel/src/x.ts', code: `import { useState } from 'react';\nexport function f(on: boolean) { if (on) useState(0); }`, rule: 'react-hooks/rules-of-hooks' },
+  { file: 'packages/sdk/kernel/src/x.ts', code: `import { useState } from 'react';\nexport function f(on: boolean) { if (on) useState(0); }`, rule: 'react-hooks/rules-of-hooks' },
   { file: MENU.replace('x.tsx', 'X.tsx'), code: `import { useEffect } from 'react';\nexport function X({ n }: { n: number }) { useEffect(() => { void n; }, []); return null; }`, rule: 'react-hooks/exhaustive-deps' },
-  { file: 'packages/contracts/src/x.ts', code: `export function f(on: boolean) { return on; }`, rule: '' },
+  { file: 'packages/sdk/contracts/src/x.ts', code: `export function f(on: boolean) { return on; }`, rule: '' },
   // A disable comment that suppresses nothing fails.
-  { file: 'packages/kernel/src/x.ts', code: `// eslint-disable-next-line no-console\nexport const n = 1;`, rule: null, token: 'Unused eslint-disable' },
+  { file: 'packages/sdk/kernel/src/x.ts', code: `// eslint-disable-next-line no-console\nexport const n = 1;`, rule: null, token: 'Unused eslint-disable' },
 );
 
 describe('boundary + contract fixtures', () => {
@@ -769,7 +769,7 @@ describe('boundary + contract fixtures', () => {
     ['src/x.ts', `import { Screen } from './Screen';`, ''],
     ['src/deep/x.ts', `import { Screen } from '../Screen';`, ''],
     ['src/x.ts', `import { x } from '../../escape';`, 'ap/no-relative-package-escape'],
-    ['src/x.ts', `export * from '../../../../packages/contracts/src/url';`, 'ap/no-relative-package-escape'],
+    ['src/x.ts', `export * from '../../../../packages/sdk/contracts/src/url';`, 'ap/no-relative-package-escape'],
     ['src/x.ts', `import { x } from '@ap/kernel';`, 'no-restricted-imports'],
     ['src/x.ts', `import { readColorToken } from '@ap/ui/theme';`, ''],
     ['src/x.ts', `import tokens from '@ap/ui/theme-tokens.json';`, ''],
@@ -847,8 +847,8 @@ describe('query engine version lock', () => {
       const manifest = JSON.parse(await readFile(path.join(REPO_ROOT, 'packages', pkg, 'package.json'), 'utf8')) as { dependencies?: Record<string, string> };
       return manifest.dependencies?.['@tanstack/react-query'];
     };
-    const kernelVersion = await version('kernel');
+    const kernelVersion = await version('sdk/kernel');
     expect(kernelVersion).toMatch(/^\d+\.\d+\.\d+$/);
-    expect(await version('fo-bridge')).toBe(kernelVersion);
+    expect(await version('adapters/fo-bridge')).toBe(kernelVersion);
   });
 });

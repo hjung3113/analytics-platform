@@ -6,7 +6,7 @@
 // SHA256SUMS next to the tarballs and rejects archives that carry source, tests, tsconfigs or a loose @ap/* version.
 // `--out` must be absent or an empty directory (nothing in it is ever deleted); the five tarballs + SHA256SUMS are built in
 // the temp directory and moved into `--out` only after every step passed.
-// Tracked files are never touched; the only repo writes are the git-ignored `packages/<name>/dist` folders.
+// Tracked files are never touched; the only repo writes are the git-ignored `packages/sdk/<name>/dist` folders.
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
@@ -142,7 +142,7 @@ function main() {
 
     const tarballs = [];
     for (const name of SDK_PACKAGES) {
-      const packageRoot = join(repoRoot, 'packages', name);
+      const packageRoot = join(repoRoot, 'packages', 'sdk', name);
       const source = readJson(join(packageRoot, 'package.json'));
       // dist is git-ignored; clearing it keeps a deleted source file from lingering in the tarball.
       rmSync(join(packageRoot, 'dist'), { recursive: true, force: true });

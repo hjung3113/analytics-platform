@@ -8,10 +8,10 @@
 
 | 라벨 | 맡는 것 | 주로 소유하는 경로 | E2E 포트 |
 | --- | --- | --- | --- |
-| `lane:sdk` | 공개 패키지 계약·부품, 분석 작업 영역·MARS 이관(M7), SDK 품질(M8) | `packages/{contracts,ui,kernel,components,shell}`, `tooling/sdk/`, `docs/contract/platform-ui-contract.md`, `docs/integration/sdk-*` | 4190 |
-| `lane:platform` | 앱 조립·mock·실어댑터·서버 적합성, 견본 메뉴, 사내 적용(M4), 운영 콘솔 | `apps/platform-web`, `packages/{mock-server,http-adapter,server-conformance}`, `menus/*`(FeedbackOps 다리 메뉴 제외) | 4590 |
+| `lane:sdk` | 공개 패키지 계약·부품, 분석 작업 영역·MARS 이관(M7), SDK 품질(M8) | `packages/sdk/{contracts,ui,kernel,components,shell}`, `tooling/sdk/`, `docs/contract/platform-ui-contract.md`, `docs/integration/sdk-*` | 4190 |
+| `lane:platform` | 앱 조립·mock·실어댑터·서버 적합성, 견본 메뉴, 사내 적용(M4), 운영 콘솔 | `apps/platform-web`, `packages/adapters/{mock-server,http-adapter,server-conformance}`, `menus/*`(FeedbackOps 다리 메뉴 제외) | 4590 |
 | `lane:arch` | 리팩터링·폴더 구조·용어·경계 lint·CI·문서 구조 | `tooling/{eslint,gen-menu,tsconfig,css-selectors}`, `.github/workflows`, `docs/INDEX.md`, `docs/AGENTS.md`, `GLOSSARY.md` | 4690 |
-| `lane:fo` | FeedbackOps 이관(M6) | `apps/fo-*`, `packages/fo-*`, `docs/feedbackops/`, `ops/feedbackops/`, `packages/fo-bridge`, `menus/feedbackops/*`, `menus/_global/*`의 FeedbackOps 다리 | 4390 |
+| `lane:fo` | FeedbackOps 이관(M6) | `apps/fo-*`, `packages/fo-*`, `docs/feedbackops/`, `ops/feedbackops/`, `packages/adapters/fo-bridge`, `menus/feedbackops/*`, `menus/_global/*`의 FeedbackOps 다리 | 4390 |
 | `lane:ev` | equipment-visualization 이관의 AP 쪽(`tools` 공간, 호스트 모듈 fixture, EV tarball 버전 올리기) | 위 AP 경로. EV 저장소 쪽 일은 그 저장소의 `AGENTS.md`·이슈를 따르고 그 저장소의 Orca worktree에서 한다. `eqv-v*` 릴리스는 EV 규칙대로 내고 팀장에게 알린다 | 4490 |
 | `lane:site` | 소개 사이트 | `site/`(소개 페이지와 사이트 안 안내·캡처). 사내 적용·개발 가이드(`docs/integration/in-house-rollout.md` 등)는 `lane:platform` | 4790 |
 | `lane:ops` | 플랫폼 개발 밖의 부가 요청(사용자 2026-10-26): 운영 방식, conductor 프로필·함정·덧붙임, 에이전트 자산, 사용자가 시키는 조사·정리 보고서. 팀장이 직접 하지 않고 이 흐름에 넘긴다. 파일이 바뀌는 요청은 팀장이 `lane:ops` 이슈를 열어 배정한다(답만 하면 되는 질문은 이슈 없이). 전역 오케스트레이션 도구(conductor-engine·스킬)는 고치지 않고 `upstream-file.sh`로 conductor-engine 이슈를 올린다(PROFILE §Review) | `.agents/`(이 문서 `LANES.md` 제외), `docs/agents/` | 4990 |
@@ -25,7 +25,7 @@ E2E는 `E2E_PORT=<포트>`로, base-path E2E는 `E2E_BASE_PATH_PORT=<포트 + 1>
 
 위에서부터 묻고, 처음 맞는 것이 그 요청(또는 그 조각)의 분류다.
 
-1. **Kernel 책임:** 06 [§4](../../docs/contract/kernel.md#4-platform-kernel-responsibilities) 목록(셸, Registry, 전역 Context, URL, 권한·Scope, 감사, 계측 등)이나 Kernel 런타임 책임([`packages/kernel/AGENTS.md`](../../packages/kernel/AGENTS.md): 조회 수명주기·캐시·중복 제거 등)에 드는가. 계약·런타임(`packages/{contracts,kernel,shell}`)은 `lane:sdk`, 그 계약을 앱에 잇는 일(조립, mock, 실어댑터, 서버 적합성)은 `lane:platform`이다. 소비자 수를 기다리지 않는다. 06 계약을 바꾸는 결정은 사용자 몫이다(§흐름 세션).
+1. **Kernel 책임:** 06 [§4](../../docs/contract/kernel.md#4-platform-kernel-responsibilities) 목록(셸, Registry, 전역 Context, URL, 권한·Scope, 감사, 계측 등)이나 Kernel 런타임 책임([`packages/sdk/kernel/AGENTS.md`](../../packages/sdk/kernel/AGENTS.md): 조회 수명주기·캐시·중복 제거 등)에 드는가. 계약·런타임(`packages/sdk/{contracts,kernel,shell}`)은 `lane:sdk`, 그 계약을 앱에 잇는 일(조립, mock, 실어댑터, 서버 적합성)은 `lane:platform`이다. 소비자 수를 기다리지 않는다. 06 계약을 바꾸는 결정은 사용자 몫이다(§흐름 세션).
 2. **SDK 조각:** 메뉴마다 다른 것(위계, 단계 수, 줄 이름, 내려가는 조작, 업무 문구·권한)을 메뉴 선언으로 빼고 남는 것이 다른 메뉴도 그대로 쓸 수 있는 부품인가([ADR-0052](../../docs/adr/0052-rich-content-stays-in-the-sdk.md) 편입 기준). 그러면 `lane:sdk`이고 소비자 수와 관계없이 SDK에 둔다. 요구 문장의 도메인 용어는 [`GLOSSARY.md`](../../GLOSSARY.md)로 확인하고 조각의 이름·API에는 넣지 않는다.
    - **SDK 운영:** 특정 기능이 아니라 SDK 자체의 배포·품질(tarball·의존 고정, 성능, 테스트 안정성, 공개 API 스냅샷)이면 이 분류로 보고 `lane:sdk`다(#806, #706, #741).
 3. **메뉴 몫:** 남은 것, 곧 그 메뉴의 업무 의미(숫자·CRUD·상태 전이, 특정 차트 설정, 그 메뉴만의 Form — 06 §4 「Kernel이 소유하지 않는 것」, §13 Domain Component). 메뉴 요구가 공통 계약과 부딪히면 이것도 메뉴 몫이다 — 메뉴를 계약에 맞춘다(루트 `AGENTS.md`). 누가 하는지는 메뉴가 어디 있느냐로 정한다.
@@ -42,15 +42,15 @@ E2E는 `E2E_PORT=<포트>`로, base-path E2E는 `E2E_BASE_PATH_PORT=<포트 + 1>
 
 다음은 어느 흐름이든 고칠 수 있다. 다만 고치기 전에 팀장에게 `<흐름>: 착수 #n <경로>` 메시지(아래 전달 경로)를 보내고 같은 줄을 이슈 코멘트로 남긴다. 착수는 그 PR이 병합되거나 닫히면 끝난다. 팀장은 받은 착수를 열린 PR의 바뀐 파일(`gh pr diff <n> --name-only`)과 대조하고, 겹치면 나중에 착수한 흐름에 순서를 보낸다. rebase에서 표·목록 행이 겹치면 양쪽 행을 모두 남긴다.
 
-이 목록 중 아래 §흐름 세션 「병합」의 `merge.lock` 예외(O1, 루트 `AGENTS.md` 작업 흐름과 같은 말)는 **다섯 갈래뿐**이다: ① `packages/{contracts,kernel,components,shell}` 공개 API(판정 기준: `sdk:api` 스냅샷 `tooling/sdk/api/*.api.txt`나 그 패키지 `package.json`의 `exports`가 바뀜 — 병합 점검은 경로 패턴으로 잡아서 그 네 `package.json`이 바뀌면 `exports` 여부와 관계없이 걸린다), ② 루트 `package.json`, ③ `pnpm-lock.yaml`·`turbo.json`, ④ `.github/workflows`, ⑤ `apps/platform-e2e`. 이 다섯 갈래를 건드리는 PR은 CI가 끝나 병합할 때까지 `merge.lock`을 쥔다. 문서 행(`.planning/README.md`, ADR 표, 다음 릴리스 행, §Traps, `operations.md`)·`menus.ts`·06 계약 문서·FeedbackOps 다리 목록은 착수 알림 대상일 뿐 `merge.lock` 예외가 아니다 — 그 텍스트 충돌은 병합 때 GitHub가 막고 rebase로 푼다.
+이 목록 중 아래 §흐름 세션 「병합」의 `merge.lock` 예외(O1, 루트 `AGENTS.md` 작업 흐름과 같은 말)는 **다섯 갈래뿐**이다: ① `packages/sdk/{contracts,kernel,components,shell}` 공개 API(판정 기준: `sdk:api` 스냅샷 `tooling/sdk/api/*.api.txt`나 그 패키지 `package.json`의 `exports`가 바뀜 — 병합 점검은 경로 패턴으로 잡아서 그 네 `package.json`이 바뀌면 `exports` 여부와 관계없이 걸린다), ② 루트 `package.json`, ③ `pnpm-lock.yaml`·`turbo.json`, ④ `.github/workflows`, ⑤ `apps/platform-e2e`. 이 다섯 갈래를 건드리는 PR은 CI가 끝나 병합할 때까지 `merge.lock`을 쥔다. 문서 행(`.planning/README.md`, ADR 표, 다음 릴리스 행, §Traps, `operations.md`)·`menus.ts`·06 계약 문서·FeedbackOps 다리 목록은 착수 알림 대상일 뿐 `merge.lock` 예외가 아니다 — 그 텍스트 충돌은 병합 때 GitHub가 막고 rebase로 푼다.
 
-- `packages/contracts`·`packages/kernel`·`packages/components`·`packages/shell`의 공개 API(다른 흐름이 소비한다)
+- `packages/sdk/contracts`·`packages/sdk/kernel`·`packages/sdk/components`·`packages/sdk/shell`의 공개 API(다른 흐름이 소비한다)
 - `apps/platform-web/src/menus.ts`(`GROUPS`·`SPACES`), 06 계약 문서
 - 루트 `package.json`·`pnpm-lock.yaml`·`turbo.json`, `.github/workflows`
 - `apps/platform-e2e`(spec, `contract-report`) — 어느 흐름도 소유하지 않는다
 - `docs/integration/sdk-git-tag-consumption.md`의 "다음 릴리스" 행, `docs/adr/README.md` 표, ADR 번호(#598에 예약 코멘트, PROFILE §Traps)
 - `.agents/conductor/PROFILE.md` §Traps, `docs/agents/operations.md` — 흐름마다 맨 끝에 덧붙인다
-- FeedbackOps 다리 entry 목록 네 곳(FO `apps/fo-frontend/package.json` `exports`, `tooling/eslint/src/index.js` `FO_BRIDGE_ENTRIES`, `tooling/eslint/src/boundaries.test.ts` entry 배열, `packages/fo-bridge/src/fo-entry-graph.test.ts` describe — fo가 고치고 eslint 쪽은 arch가 소유, 합치는 법은 PROFILE §Traps), `menus/mars/hw-time`(M7은 sdk가 고치고 platform이 소유)
+- FeedbackOps 다리 entry 목록 네 곳(FO `apps/fo-frontend/package.json` `exports`, `tooling/eslint/src/index.js` `FO_BRIDGE_ENTRIES`, `tooling/eslint/src/boundaries.test.ts` entry 배열, `packages/adapters/fo-bridge/src/fo-entry-graph.test.ts` describe — fo가 고치고 eslint 쪽은 arch가 소유, 합치는 법은 PROFILE §Traps), `menus/mars/hw-time`(M7은 sdk가 고치고 platform이 소유)
 - `.planning/README.md`: 흐름 세션은 자기 이슈 줄만 고친다. 줄 순서·구성은 팀장이 바꾼다.
 
 ## 기계 자원(16GB)

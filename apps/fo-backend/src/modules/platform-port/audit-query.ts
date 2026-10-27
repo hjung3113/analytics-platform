@@ -1,5 +1,5 @@
-// Validation of `AuditTrailQuery` / `EntityRef` bodies (packages/contracts adapter.ts), mirroring
-// the reference semantics of packages/mock-server/src/audit.ts: unknown keys, wrong types, bad
+// Validation of `AuditTrailQuery` / `EntityRef` bodies (packages/sdk/contracts adapter.ts), mirroring
+// the reference semantics of packages/adapters/mock-server/src/audit.ts: unknown keys, wrong types, bad
 // ranges and unparsable instants are all one malformed-query answer, never a coercion.
 
 import { PLATFORM_AUDIT_ACTIONS, type PlatformAuditAction } from './audit-actions.js';

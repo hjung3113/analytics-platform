@@ -62,7 +62,7 @@ Screen mapping lives in `docs/frontend/ui-design-system.md`.
 
 ## Composed Components
 
-This list is the original prescriptive inventory and several entries were never built under these names, or at all. The shell shipped as `AppFrame` / `AppRail` / `AppSidebar` (`apps/fo-frontend/src/lib/layout/`), governed by ADR-0020, which supersedes the `AppShell` / `RoleLevelAwareSidebar` naming below. Route shells (`ListShell`, `PageShell`) and `ObjectRow` live in `@ap/ui` (`packages/ui/src/layout/`, `packages/ui/src/data/ObjectRow.tsx`). Treat the code and ADR-0020 as authoritative when they disagree with a name here. The Built Mapping section below maps design-time names to what shipped.
+This list is the original prescriptive inventory and several entries were never built under these names, or at all. The shell shipped as `AppFrame` / `AppRail` / `AppSidebar` (`apps/fo-frontend/src/lib/layout/`), governed by ADR-0020, which supersedes the `AppShell` / `RoleLevelAwareSidebar` naming below. Route shells (`ListShell`, `PageShell`) and `ObjectRow` live in `@ap/ui` (`packages/sdk/ui/src/layout/`, `packages/sdk/ui/src/data/ObjectRow.tsx`). Treat the code and ADR-0020 as authoritative when they disagree with a name here. The Built Mapping section below maps design-time names to what shipped.
 
 ```text
 AppShell (built as AppFrame)
@@ -93,7 +93,7 @@ AuditTimeline
 
 ## Built Mapping
 
-Names in the primitive table and the composed list above are design-time names. This table maps them to what shipped; `packages/fo-ui/src/index.ts` is the inventory of the 18 FeedbackOps-owned `@fops/ui` exports only; SDK parts (shells, `ObjectRow`, `RichEditor`, panels, toolbars, forms) are exported from `@ap/ui` (`packages/ui/src/index.ts`).
+Names in the primitive table and the composed list above are design-time names. This table maps them to what shipped; `packages/fo-ui/src/index.ts` is the inventory of the 18 FeedbackOps-owned `@fops/ui` exports only; SDK parts (shells, `ObjectRow`, `RichEditor`, panels, toolbars, forms) are exported from `@ap/ui` (`packages/sdk/ui/src/index.ts`).
 
 | Design-time name | Shipped as | Path |
 | --- | --- | --- |
@@ -108,7 +108,7 @@ Names in the primitive table and the composed list above are design-time names. 
 | DetailPanel, Panel | `DetailPanelHeader`, `DetailPanelReadingColumn`, `DetailPanelSectionNav` (mount the nav as a sibling above the scroll root; the cover is then the strip's overlap with the root), `PanelTitleBlock` (`inset=none`), `PanelSectionTitle` (`inset=panel`, `size=tiny`), `FieldRow`, `NestedTextBlock`, `Callout` | `@ap/ui` |
 | StatusBadge | shared `ReporterStatusBadge`, `InternalTaskBadge`; feature-local `SurveyStatusBadge`, `LinkStatusBadge`, `MilestoneStatusBadge` | `packages/fo-ui/src/badges/`, `apps/fo-frontend/src/features/surveys/components/`, `apps/fo-frontend/src/features/integration/components/`, `apps/fo-frontend/src/features/tasks/components/` |
 | SignalBadge | `SeverityBadge` (default accessible prefix `심각도`; full `ariaLabel` override for Task `우선순위`), `SeverityIndicator` (full `label` override; from `@ap/ui`), `UnassignedBadge`, `ManagedSystemPill`, `EntityIconBadge`, generic `OutlineBadge` | `packages/fo-ui/src/badges/`, `packages/fo-ui/src/indicators/` |
-| RichContentEditor | `RichEditor` + `RichContentRenderer` (from `@ap/ui`; FO keeps only the drift/sanitization helpers `allowlist-local.ts`, `sanitizeClient.ts`, `fixtures-local.ts` in `packages/fo-ui/src/rich-content/`) | `packages/ui/src/rich-content/` |
+| RichContentEditor | `RichEditor` + `RichContentRenderer` (from `@ap/ui`; FO keeps only the drift/sanitization helpers `allowlist-local.ts`, `sanitizeClient.ts`, `fixtures-local.ts` in `packages/fo-ui/src/rich-content/`) | `packages/sdk/ui/src/rich-content/` |
 | PublicUpdateComposer | feature-local `PublicUpdateComposer` | `apps/fo-frontend/src/features/voc/components/detail/` |
 | ConversationComposer | feature-local `ComposerSection` + `ComposerTabs` hosting `PublicUpdateComposer`, `ReporterReplyComposer`, `InternalCommentComposer` | `apps/fo-frontend/src/features/voc/components/detail/` |
 | Evidence inventory | feature-local `EvidenceContent`, `EvidenceMetadata`, `EvidenceRow`, `EvidencePanel` | `apps/fo-frontend/src/features/integration/components/` |

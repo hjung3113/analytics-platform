@@ -31,7 +31,7 @@ Committed Playwright visual regression harness. Baseline discipline lives in `ap
 
 ## Evidence rules
 
-- Before merging a PR that changes an FO screen or shared code in `packages/ui`, `packages/shell`, `packages/kernel`, or `packages/components`, run `visual.sh run <filter>` for the affected FO screens. This harness is not in CI, so skipping the run can leave baselines silently stale; #954 found 29 failures.
+- Before merging a PR that changes an FO screen or shared code in `packages/sdk/ui`, `packages/sdk/shell`, `packages/sdk/kernel`, or `packages/sdk/components`, run `visual.sh run <filter>` for the affected FO screens. This harness is not in CI, so skipping the run can leave baselines silently stale; #954 found 29 failures.
 - A new baseline is not evidence until it passes at least 3 reruns without `--update-snapshots`; its first run compared the image to itself.
 - The usual source of flake is an independently scrolling container, which `window.scrollTo(0, 0)` does not normalize. Wait for `document.fonts.ready`, then clamp the container to its end (`node.scrollTop = node.scrollHeight`); `scrollIntoView` still drifts with font loading. Comment that the container lookup depends on DOM structure.
 - The same pixel count failing on every rerun means a stale baseline or a real regression, not a flake (flake counts wobble). Compare `git log -- <baseline.png>` with `git log -- <component>`.

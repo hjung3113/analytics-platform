@@ -1,0 +1,580 @@
+import { Suspense, lazy, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { House } from 'lucide-react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { I18nProvider, PlatformProvider, createRegistry, PlatformLink } from '@ap/kernel';
+import { useHostPlatform } from '@ap/kernel/host';
+import { PlatformPage } from '@ap/components';
+import { CommandPalette } from '../CommandPalette';
+import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { groupId, spaceId, type GroupId } from '@ap/contracts';
+
+const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
+const page = lazy(async () => ({ default: () => null }));
+const menu = (id: string, group: GroupId, path: string, label: { ko: string; en: string }, over: object = {}) => ({
+  id, group, path, label, description: { ko: '', en: '' }, icon: House, permission: 'platform:view' as const,
+  requiresScope: false, context: noContext, pageType: 'overview' as const, features: noFeatures, pageKeys: [], ...over,
+});
+
+const registry = createRegistry({
+  spaces: [
+    testSpace({ id: spaceId('mars'), label: { ko: 'MARS', en: 'MARS' }, subtitle: { ko: '생산성 분석', en: 'Productivity analysis' }, homeMenuId: 'home' }),
+    testSpace({ id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations console' }, permission: 'console:access', homeMenuId: 'roles' }),
+  ],
+  groups: [
+    { id: groupId('overview'), label: { ko: '분석', en: 'Analytics' }, icon: House, space: spaceId('mars') },
+    { id: groupId('equipment'), label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: spaceId('mars') },
+    { id: groupId('admin'), label: { ko: '관리·감사', en: 'Administration' }, icon: House, space: spaceId('operations') },
+    { id: groupId('noticeVoc'), label: { ko: '공지·VOC', en: 'Notice & VOC' }, icon: House, space: null },
+  ],
+  menus: [
+    menu('home', groupId('overview'), '/home', { ko: '홈', en: 'Home' }, { primary: true, pageType: 'overview', component: page }),
+    menu('equipment', groupId('equipment'), '/equipment', { ko: '설비', en: 'Equipment' }, { primary: true, pageType: 'analysis', component: page }),
+    menu('roles', groupId('admin'), '/admin/roles', { ko: '권한', en: 'Roles' }, { primary: true, permission: 'console:access', pageType: 'management', component: page }),
+    menu('notices', groupId('noticeVoc'), '/notices', { ko: '공지', en: 'Notices' }, { primary: true, permission: 'notice:view', pageType: 'catalog' }),
+    menu('notices-detail', groupId('noticeVoc'), '/notices/:id', { ko: '공지 상세', en: 'Notice detail' }, { permission: 'notice:view', navHidden: true, parent: 'notices' }),
+  ],
+});
+
+const storage = memoryStorage();
+beforeEach(() => {
+  storage.clear();
+  Element.prototype.scrollIntoView = vi.fn();
+  vi.stubGlobal('localStorage', storage);
+  storage.setItem('platform:recent:u1', JSON.stringify([
+    { menuId: 'equipment', url: '/equipment?v=1', at: 2 },
+    { menuId: 'home', url: '/home?v=1', at: 1 },
+  ]));
+  window.history.replaceState(null, '', '/no-such-page');
+});
+afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); });
+
+function Open() {
+  const { setPaletteOpen } = useHostPlatform();
+  return <button type="button" onClick={() => setPaletteOpen(true)}>open palette</button>;
+}
+
+function mount(extra?: ReactNode, useRegistry = registry, permissions: Parameters<typeof testSession>[0] = ['platform:view', 'console:access', 'notice:view']) {
+  const session = testSession(permissions);
+  const forbidden = { outcome: 'forbidden' as const, data: null, assessments: [], trust: null, correlationId: 'fixture' };
+  const adapter = testAdapter({
+    session: () => session,
+    getEntity: async () => forbidden,
+    listAnnotations: async () => forbidden,
+  });
+  render(<I18nProvider><PlatformProvider adapter={adapter} registry={useRegistry}><Open />{extra}<CommandPalette /></PlatformProvider></I18nProvider>);
+  fireEvent.click(screen.getByRole('button', { name: 'open palette' }));
+}
+
+const subtitle = (id: string) => document.querySelector(`#${id} .text-tiny`)!.textContent;
+
+/** Explicit role, or the implicit list/listitem of a role-less ul/ol/li. presentation and none are not roles. */
+function ariaRole(el: Element): string | null {
+  const explicit = el.getAttribute('role');
+  if (explicit === 'presentation' || explicit === 'none') return null;
+  if (explicit) return explicit;
+  const tag = el.tagName.toLowerCase();
+  if (tag === 'ul' || tag === 'ol') return 'list';
+  if (tag === 'li') return 'listitem';
+  return null;
+}
+
+function nearestRole(el: Element): { el: Element; role: string } | null {
+  let current = el.parentElement;
+  while (current) {
+    const role = ariaRole(current);
+    if (role) return { el: current, role };
+    current = current.parentElement;
+  }
+  return null;
+}
+
+describe('CommandPalette space bundles (06 §9.1)', () => {
+  it('uses the palette scrim (#310)', () => {
+    mount();
+
+    const overlay = document.querySelector<HTMLElement>('[data-state="open"][class*="inset-0"]');
+    expect(overlay).toBeInTheDocument();
+    expect(overlay).toHaveClass('bg-accent-primary/16', 'backdrop-blur-xs');
+    expect(overlay).not.toHaveClass('bg-black/80');
+  });
+
+  it('does not list a menu navViews item as an option', () => {
+    const withViews = createRegistry({
+      spaces: registry.spaces, groups: registry.groups,
+      menus: registry.menus.map(m => m.path === '/equipment' ? { ...m, pageKeys: ['tab'], navViews: [{ id: 'mine', label: { ko: '내 설비', en: 'Mine' }, page: { tab: 'mine' } }] } : m),
+    });
+    mount(undefined, withViews);
+    expect(screen.getAllByRole('option').map(option => option.id)).toEqual(['palette-equipment', 'palette-home', 'palette-roles', 'palette-notices']);
+    expect(screen.queryByRole('option', { name: /내 설비/ })).toBeNull();
+  });
+
+  it('groups accessible spaces in registry order, then 플랫폼, and drops page type from the subtitle', () => {
+    mount();
+    expect(screen.getByRole('combobox', { name: '메뉴 검색' })).toHaveAttribute('placeholder', '이동할 메뉴를 입력하세요…');
+    expect(screen.getAllByRole('option').map(option => option.id)).toEqual([
+      'palette-equipment', 'palette-home', 'palette-roles', 'palette-notices',
+    ]);
+    expect(screen.getByRole('group', { name: 'MARS' })).toHaveAttribute('aria-labelledby', 'palette-heading-mars');
+    expect(screen.getByRole('group', { name: '운영 콘솔' })).toHaveAttribute('aria-labelledby', 'palette-heading-operations');
+    expect(screen.getByRole('group', { name: '플랫폼' })).toHaveAttribute('aria-labelledby', 'palette-heading-platform');
+    expect(document.getElementById('palette-heading-mars')).toHaveTextContent('MARS');
+    expect(subtitle('palette-home')).toBe('MARS › 분석 › 홈');
+    expect(subtitle('palette-equipment')).toBe('MARS › 설비관리 › 설비');
+    expect(document.getElementById('palette-heading-mars')).not.toHaveTextContent('생산성 분석');
+    expect(screen.getByRole('listbox').textContent).not.toContain('생산성 분석');
+    expect(subtitle('palette-roles')).toBe('운영 콘솔 › 관리·감사 › 권한');
+    expect(subtitle('palette-notices')).toBe('플랫폼 › 공지·VOC › 공지 · 예정');
+    expect(screen.getByRole('option', { name: /홈/ }).textContent).not.toContain('Overview');
+    expect(screen.getByRole('option', { name: /공지/ }).textContent).not.toContain('Catalog');
+    expect(screen.queryByRole('option', { name: /공지 상세/ })).toBeNull();
+  });
+
+  // MENUS order (notices, permission-gated survey, alerts, home) differs from GROUPS order (overview, myActivity, noticeVoc).
+  const globalOrderRegistry = createRegistry({
+    spaces: [testSpace({ id: spaceId('mars'), label: { ko: 'MARS', en: 'MARS' }, homeMenuId: 'equipment' })],
+    groups: [
+      { id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: null },
+      { id: groupId('myActivity'), label: { ko: '내 활동', en: 'My activity' }, icon: House, space: null },
+      { id: groupId('noticeVoc'), label: { ko: '공지·VOC', en: 'Notice & VOC' }, icon: House, space: null },
+      { id: groupId('equipment'), label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: spaceId('mars') },
+    ],
+    menus: [
+      menu('notices', groupId('noticeVoc'), '/notices', { ko: '공지', en: 'Notices' }, { primary: true, permission: 'notice:view', component: page }),
+      menu('surveys', groupId('myActivity'), '/surveys', { ko: '설문', en: 'Surveys' }, { permission: 'console:access', component: page }),
+      menu('alerts', groupId('myActivity'), '/alerts', { ko: '알림', en: 'Notifications' }, { primary: true, component: page }),
+      menu('start', groupId('overview'), '/', { ko: '플랫폼 홈', en: 'Platform home' }, { primary: true, component: page }),
+      menu('equipment', groupId('equipment'), '/equipment', { ko: '설비', en: 'Equipment' }, { primary: true, component: page }),
+    ],
+  });
+
+  it('lists the platform destinations in group order with the 플랫폼 › group › menu path, and omits one without permission', () => {
+    storage.clear();
+    mount(undefined, globalOrderRegistry, ['platform:view', 'notice:view']);
+    expect(screen.getAllByRole('option').map(option => option.id)).toEqual(['palette-equipment', 'palette-start', 'palette-alerts', 'palette-notices']);
+    expect(subtitle('palette-start')).toBe('플랫폼 › 개요 › 플랫폼 홈');
+    expect(subtitle('palette-alerts')).toBe('플랫폼 › 내 활동 › 알림');
+    expect(subtitle('palette-notices')).toBe('플랫폼 › 공지·VOC › 공지');
+    expect(screen.queryByRole('option', { name: /설문/ })).toBeNull();
+  });
+
+  it('finds global menus by 플랫폼 and hides empty bundles', () => {
+    mount();
+    fireEvent.change(screen.getByRole('combobox', { name: '메뉴 검색' }), { target: { value: '플랫폼' } });
+    expect(screen.getAllByRole('group')).toHaveLength(1);
+    expect(screen.getByRole('group', { name: '플랫폼' })).toBeTruthy();
+    expect(screen.getAllByRole('option').map(option => option.id)).toEqual(['palette-notices']);
+  });
+
+  it('uses the English accessible name, heading and Platform search', () => {
+    storage.setItem('platform:lang', 'en');
+    mount();
+    expect(screen.getByRole('combobox', { name: 'Search menus' })).toBeTruthy();
+    expect(screen.getByRole('group', { name: 'Platform' })).toBeTruthy();
+    fireEvent.change(screen.getByRole('combobox', { name: 'Search menus' }), { target: { value: 'Platform' } });
+    expect(screen.getAllByRole('option').map(option => option.id)).toEqual(['palette-notices']);
+    expect(subtitle('palette-notices')).toBe('Platform › Notice & VOC › Notices · Planned');
+  });
+
+  it('exposes each option as group inside listbox, with no list or listitem between them', () => {
+    mount();
+    const options = screen.getAllByRole('option');
+    expect(options.length).toBeGreaterThan(0);
+    for (const option of options) {
+      const group = nearestRole(option);
+      expect(group?.role).toBe('group');
+      expect(group && nearestRole(group.el)?.role).toBe('listbox');
+    }
+    const heading = document.getElementById('palette-heading-mars');
+    expect(heading).toBeTruthy();
+    expect(ariaRole(heading!)).toBeNull();
+    expect(heading!.closest('[role="option"]')).toBeNull();
+  });
+
+  it('moves across bundles with the arrow keys and scrolls the active option into view', () => {
+    const scroll = vi.fn();
+    Element.prototype.scrollIntoView = scroll;
+    mount();
+    const input = screen.getByRole('combobox', { name: '메뉴 검색' });
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    expect(input).toHaveAttribute('aria-activedescendant', 'palette-roles');
+    expect(scroll).toHaveBeenLastCalledWith({ block: 'nearest' });
+    expect(scroll.mock.instances.at(-1)).toBe(document.getElementById('palette-roles'));
+  });
+});
+
+
+const waitForClose = () => waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+const flushTimers = () => act(async () => { await vi.runAllTimersAsync(); });
+
+it.each(['Escape', 'X', 'shortcut', 'outside'])('returns to the rail opener after %s cancellation', async close => {
+  mount();
+  fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' });
+  await waitForClose();
+  const opener = screen.getByRole('button', { name: 'open palette' });
+  opener.focus();
+  fireEvent.click(opener);
+  await waitFor(() => expect(screen.getByRole('combobox')).toHaveFocus());
+  if (close === 'Escape') fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' });
+  if (close === 'X') fireEvent.click(screen.getByRole('button', { name: '닫기' }));
+  if (close === 'shortcut') fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+  if (close === 'outside') {
+    fireEvent.pointerDown(document.querySelector('.fixed.inset-0[data-state="open"]')!, { button: 0 });
+  }
+  await waitForClose();
+  expect(screen.queryByRole('dialog')).toBeNull();
+  await waitFor(() => expect(opener).toHaveFocus());
+});
+
+it.each(['Escape', 'X', 'shortcut', 'outside'])('returns to the pre-shortcut element after %s cancellation', async close => {
+  mount(<input aria-label="before shortcut" />);
+  fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' });
+  await waitForClose();
+  const opener = screen.getByRole('textbox', { name: 'before shortcut' });
+  opener.focus();
+  fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+  await waitFor(() => expect(screen.getByRole('combobox')).toHaveFocus());
+  if (close === 'Escape') fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' });
+  if (close === 'X') fireEvent.click(screen.getByRole('button', { name: '닫기' }));
+  if (close === 'shortcut') fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+  if (close === 'outside') fireEvent.pointerDown(document.querySelector('.fixed.inset-0[data-state="open"]')!, { button: 0 });
+  await waitForClose();
+  expect(screen.queryByRole('dialog')).toBeNull();
+  await waitFor(() => expect(opener).toHaveFocus());
+});
+
+function Destination() {
+  const { route } = useHostPlatform();
+  const heading = useRef<HTMLHeadingElement>(null);
+  useLayoutEffect(() => {
+    if (route?.menu.path !== '/home') return;
+    const timer = setTimeout(() => heading.current?.focus(), 0);
+    return () => clearTimeout(timer);
+  }, [route?.menu.path]);
+  return <h1 ref={heading} tabIndex={-1}>destination title</h1>;
+}
+it('does not restore the opener after Enter navigation', async () => {
+  mount(<Destination />);
+  fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' });
+  await waitForClose();
+  const opener = screen.getByRole('button', { name: 'open palette' });
+  opener.focus();
+  fireEvent.click(opener);
+  fireEvent.keyDown(screen.getByRole('combobox'), { key: 'ArrowDown' });
+  fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Enter' });
+  await waitForClose();
+  expect(window.location.pathname).toBe('/home');
+  await waitFor(() => expect(opener).not.toHaveFocus());
+  await waitFor(() => expect(screen.getByRole('heading', { name: 'destination title' })).toHaveFocus());
+});
+
+it('leaves composition Enter in the palette', () => {
+  mount();
+  fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Enter', isComposing: true });
+  expect(screen.getByRole('dialog')).toBeInTheDocument();
+  expect(window.location.pathname).toBe('/no-such-page');
+});
+it('falls back to platform main when the saved opener is removed', async () => {
+  mount(<main id="platform-main" tabIndex={-1} />);
+  fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' });
+  await waitForClose();
+  const opener = screen.getByRole('button', { name: 'open palette' });
+  opener.focus();
+  fireEvent.click(opener);
+  const parent = opener.parentNode!;
+  const sibling = opener.nextSibling;
+  opener.remove();
+  fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' });
+  await waitForClose();
+  await waitFor(() => expect(screen.getByRole('main')).toHaveFocus());
+  parent.insertBefore(opener, sibling);
+});
+
+
+it('restores the opener when the chosen result has the current URL', async () => {
+  mount();
+  fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' });
+  await waitForClose();
+  window.history.replaceState(null, '', '/home?v=1');
+  act(() => window.dispatchEvent(new PopStateEvent('popstate')));
+  const opener = screen.getByRole('button', { name: 'open palette' });
+  opener.focus();
+  fireEvent.click(opener);
+  fireEvent.click(screen.getByRole('option', { name: /홈/ }));
+  await waitForClose();
+  await waitFor(() => expect(opener).toHaveFocus());
+});
+
+it('ignores delayed close autofocus from an older opening generation', async () => {
+  vi.useFakeTimers();
+  mount(<input aria-label="new opener" />);
+  fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' });
+  await flushTimers();
+  const oldOpener = screen.getByRole('button', { name: 'open palette' });
+  oldOpener.focus();
+  fireEvent.click(oldOpener);
+  fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' });
+  const newOpener = screen.getByRole('textbox', { name: 'new opener' });
+  newOpener.focus();
+  fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+  await flushTimers();
+  expect(oldOpener).not.toHaveFocus();
+  expect(screen.getByRole('combobox')).toHaveFocus();
+  fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' });
+  await flushTimers();
+  expect(newOpener).toHaveFocus();
+});
+
+
+// Real page focus handoff; unlike Destination above, this fixture never focuses itself.
+function NavigationPage() {
+  return <PlatformPage>destination body</PlatformPage>;
+}
+function mountNavigation({ delayed = false, denied = false, url = '/home?v=1', cold = false } = {}) {
+  sessionStorage.clear();
+  window.history.replaceState(null, '', url);
+  let resolvePage!: (value: { default: typeof NavigationPage }) => void;
+  const DelayedPage = lazy(() => new Promise<{ default: typeof NavigationPage }>(resolve => { resolvePage = resolve; }));
+  const equipmentPath = '/equipment';
+  const focusRegistry = createRegistry({
+    spaces: registry.spaces, groups: registry.groups,
+    menus: registry.menus.map(m => m.path === equipmentPath
+      ? { ...m, pageKeys: ['filter'], context: cold ? { ...noContext, time: 'apply' as const } : noContext, initializesMetric: cold }
+      : m),
+  });
+  const allowed = testSession(['platform:view', 'console:access', 'notice:view']);
+  const refused = testSession(['platform:view', 'notice:view']);
+  const listeners = new Set<() => void>();
+  let currentSession = allowed;
+  let blocked = denied;
+  const adapter = testAdapter({
+    session: () => blocked ? refused : currentSession,
+    subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener); },
+    publishedMetrics: () => [{ metricId: 'CT', publishedVersion: '7' }],
+  });
+  function Routes() {
+    const { route, can, setPage, navigate, switchSpace, setPaletteOpen } = useHostPlatform();
+    const [showPalette, setShowPalette] = useState(true);
+    const Page = delayed && route?.menu.path === equipmentPath ? DelayedPage : NavigationPage;
+    return <>
+      <button onClick={() => { setPaletteOpen(true); setPaletteOpen(false); }}>batch palette</button>
+      <button onClick={() => setShowPalette(false)}>remove palette</button>
+      <button onClick={() => setShowPalette(true)}>mount palette</button>
+      <button onClick={() => setPaletteOpen(false)}>close absent palette</button>
+      {showPalette && <CommandPalette />}
+      <input aria-label="filter" onChange={e => setPage({ filter: e.target.value })} />
+      <PlatformLink href={cold ? '/equipment?v=1&metricId=CT' : '/equipment?v=1'}>equipment link</PlatformLink>
+      <PlatformLink href="/admin/roles?v=1">denied link</PlatformLink>
+      <button onClick={() => switchSpace(spaceId('operations'))}>switch operations</button>
+      <button onClick={() => switchSpace(spaceId('mars'))}>switch analytics</button>
+      <button onClick={() => navigate('/home?v=1')}>another navigation</button>
+      <button onClick={() => navigate('/equipment?v=1', { replace: true })}>replace navigation</button>
+      <button onClick={() => setPaletteOpen(true)}>reopen palette</button>
+      {route && can(route.menu.permission) && <Suspense fallback={<p>loading destination</p>}><Page key={route.menu.id} /></Suspense>}
+    </>;
+  }
+  render(<I18nProvider><PlatformProvider adapter={adapter} registry={focusRegistry}><Open /><Routes /></PlatformProvider></I18nProvider>);
+  return {
+    resolve: async () => { await act(async () => { resolvePage({ default: NavigationPage }); }); },
+    allow: () => act(() => { blocked = false; listeners.forEach(listener => listener()); }),
+    changeSession: () => act(() => { currentSession = { ...allowed, user: { ...allowed.user, id: 'u2' } }; listeners.forEach(listener => listener()); }),
+  };
+}
+function selectEquipment() {
+  fireEvent.click(screen.getByRole('button', { name: 'open palette' }));
+  fireEvent.change(screen.getByRole('combobox'), { target: { value: '설비' } });
+  fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Enter' });
+}
+
+describe('menu navigation page focus (06 §26)', () => {
+  it.each(['unmount', 'unmount then close', 'batch link', 'batch space'])('releases discarded palette blocking for %s', async action => {
+    mountNavigation();
+    if (action.startsWith('unmount')) {
+      fireEvent.click(screen.getByRole('button', { name: 'open palette' }));
+      fireEvent.click(screen.getByText('remove palette'));
+      await waitForClose();
+      if (action === 'unmount then close') fireEvent.click(screen.getByRole('button', { name: 'close absent palette' }));
+    } else fireEvent.click(screen.getByRole('button', { name: 'batch palette' }));
+    fireEvent.click(screen.getByRole(action === 'batch space' ? 'button' : 'link', { name: action === 'batch space' ? 'switch operations' : 'equipment link' }));
+    await waitForClose();
+    await waitFor(() => expect(screen.getByRole('heading', { name: action === 'batch space' ? '권한' : '설비' })).toHaveFocus());
+  });
+
+  it.each([false, true])('reclaims an open remounted palette before selection (cleanup settled=%s)', async settled => {
+    vi.useFakeTimers();
+    mountNavigation();
+    fireEvent.click(screen.getByRole('button', { name: 'open palette' }));
+    fireEvent.click(screen.getByText('remove palette'));
+    if (settled) await flushTimers();
+    fireEvent.click(screen.getByText('mount palette'));
+    // Run the old instance's delayed release while the new instance is still open.
+    await flushTimers();
+    expect(screen.getByRole('combobox')).toHaveFocus();
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: '설비' } });
+    fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Enter' });
+    await flushTimers();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByRole('heading', { name: '설비' })).toHaveFocus();
+  });
+
+  it('disposes palette blocking on a Provider session change', async () => {
+    const fixture = mountNavigation();
+    fireEvent.click(screen.getByRole('button', { name: 'open palette' }));
+    fixture.changeSession();
+    await waitForClose();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    fireEvent.click(screen.getByRole('link', { name: 'equipment link' }));
+    await waitForClose();
+    await waitFor(() => expect(screen.getByRole('heading', { name: '설비' })).toHaveFocus());
+  });
+
+  it('keeps a new palette generation blocked after an old delayed close', async () => {
+    vi.useFakeTimers();
+    mountNavigation();
+    fireEvent.click(screen.getByRole('button', { name: 'open palette' }));
+    fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' });
+    fireEvent.click(screen.getByRole('button', { name: 'reopen palette' }));
+    fireEvent.click(screen.getByText('equipment link'));
+    await flushTimers();
+    expect(document.querySelector('h1')).not.toHaveFocus();
+    expect(screen.getByRole('combobox')).toHaveFocus();
+  });
+
+  it('suppresses the tooltip only for navigation focus and preserves keyboard heading focus', async () => {
+    mountNavigation();
+    fireEvent.click(screen.getByRole('link', { name: 'equipment link' }));
+    await waitForClose();
+    const heading = screen.getByRole('heading', { name: '설비' });
+    await waitFor(() => expect(heading).toHaveFocus());
+    expect(screen.queryByRole('tooltip')).toBeNull();
+    expect(heading).not.toHaveAttribute('aria-describedby');
+    // jsdom has no native Tab traversal: dispatch Tab then focus its next target.
+    screen.getByRole('textbox', { name: 'filter' }).focus();
+    fireEvent.keyDown(document.activeElement!, { key: 'Tab' });
+    act(() => heading.focus());
+    await waitFor(() => expect(screen.getByRole('tooltip')).toBeInTheDocument());
+    act(() => screen.getByRole('textbox', { name: 'filter' }).focus());
+    await waitFor(() => expect(screen.queryByRole('tooltip')).toBeNull());
+    fireEvent.pointerMove(heading, { pointerType: 'mouse' });
+    await waitFor(() => expect(screen.getByRole('tooltip')).toBeInTheDocument());
+  });
+
+  it('focuses the new h1 after a PlatformLink pathname push', async () => {
+    mountNavigation();
+    fireEvent.click(screen.getByRole('link', { name: 'equipment link' }));
+    await waitForClose();
+    await waitFor(() => expect(screen.getByRole('heading', { name: '설비' })).toHaveFocus());
+  });
+
+  it.each([false, true])('keeps palette focus on the real h1 after cleanup (lazy=%s)', async delayed => {
+    const fixture = mountNavigation({ delayed });
+    selectEquipment();
+    await waitForClose();
+    if (delayed) await fixture.resolve();
+    await waitFor(() => expect(screen.getByRole('heading', { name: '설비' })).toHaveFocus());
+    await waitForClose();
+    await waitFor(() => expect(screen.getByRole('heading', { name: '설비' })).toHaveFocus());
+  });
+
+  it.each([false, true])('focuses space entry h1 (saved last screen=%s)', async saved => {
+    mountNavigation();
+    if (saved) sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ operations: '/admin/roles?v=1', mars: '/equipment?v=1&filter=stored' }));
+    fireEvent.click(screen.getByRole('button', { name: 'switch operations' }));
+    await waitForClose();
+    await waitFor(() => expect(screen.getByRole('heading', { name: '권한' })).toHaveFocus());
+    fireEvent.click(screen.getByRole('button', { name: 'switch analytics' }));
+    await waitForClose();
+    await waitFor(() => expect(screen.getByRole('heading', { name: saved ? '설비' : '홈' })).toHaveFocus());
+    const input = screen.getByRole('textbox', { name: 'filter' });
+    input.focus();
+    fireEvent.click(screen.getByRole('button', { name: 'switch analytics' }));
+    await waitForClose();
+    await waitFor(() => expect(input).toHaveFocus());
+  });
+
+  it('keeps filter focus for setPage on the same pathname', async () => {
+    mountNavigation({ url: '/equipment?v=1' });
+    const input = screen.getByRole('textbox', { name: 'filter' });
+    input.focus();
+    fireEvent.change(input, { target: { value: 'changed' } });
+    await waitForClose();
+    await waitFor(() => expect(input).toHaveFocus());
+    expect(new URLSearchParams(window.location.search).get('filter')).toBe('changed');
+  });
+
+  it.each([false, true])('does not focus h1 for palette same pathname (same URL=%s)', async same => {
+    mountNavigation({ url: same ? '/equipment?v=1' : '/equipment?v=1&filter=old' });
+    const opener = screen.getByRole('button', { name: 'open palette' });
+    opener.focus();
+    selectEquipment();
+    await waitForClose();
+    await waitFor(() => expect(opener).toHaveFocus());
+    expect(screen.getByRole('heading', { name: '설비' })).not.toHaveFocus();
+    expect(new URLSearchParams(window.location.search).get('filter')).toBeNull();
+  });
+
+  it.each([false, true])('preserves page focus across cold period and metric materialization (lazy=%s)', async delayed => {
+    const fixture = mountNavigation({ cold: true, delayed });
+    fireEvent.click(screen.getByRole('link', { name: 'equipment link' }));
+    await waitForClose();
+    const params = new URLSearchParams(window.location.search);
+    expect(params.get('from')).not.toBeNull();
+    expect(params.get('metricVersion')).toBe('7');
+    if (delayed) await fixture.resolve();
+    await waitFor(() => expect(screen.getByRole('heading', { name: '설비' })).toHaveFocus());
+  });
+
+  it('cancels denied page focus before permission-only recovery without another navigation', async () => {
+    const fixture = mountNavigation({ denied: true });
+    fireEvent.click(screen.getByRole('link', { name: 'denied link' }));
+    expect(screen.queryByRole('heading', { name: '권한' })).toBeNull();
+    const input = screen.getByRole('textbox', { name: 'filter' });
+    input.focus();
+    fixture.allow();
+    await waitForClose();
+    await waitFor(() => expect(screen.getByRole('heading', { name: '권한' })).not.toHaveFocus());
+    await waitFor(() => expect(input).toHaveFocus());
+  });
+
+  it.each(['navigation', 'history', 'reopen', 'denied'])('cancels a lazy palette request on %s', async action => {
+    const fixture = mountNavigation({ delayed: true, denied: action === 'denied' });
+    selectEquipment();
+    if (action === 'navigation') fireEvent.click(screen.getByRole('button', { name: 'another navigation' }));
+    if (action === 'history') act(() => {
+      window.history.replaceState(null, '', '/home?v=1');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+    if (action === 'reopen') fireEvent.click(screen.getByRole('button', { name: 'reopen palette' }));
+    if (action === 'denied') fireEvent.click(screen.getByRole('link', { name: 'denied link' }));
+    if (action === 'reopen') await waitFor(() => expect(screen.getByRole('combobox')).toHaveFocus());
+    else await waitForClose();
+    await fixture.resolve();
+    if (action === 'reopen') {
+      await waitFor(() => expect(screen.getByRole('combobox')).toHaveFocus());
+      fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' });
+      await waitForClose();
+      await waitFor(() => expect(screen.getByRole('heading', { name: '설비' })).not.toHaveFocus());
+    } else if (action === 'denied') {
+      const input = screen.getByRole('textbox', { name: 'filter' });
+      input.focus();
+      fixture.allow();
+      await waitForClose();
+      await waitFor(() => expect(input).toHaveFocus());
+    } else if (action === 'history') {
+      // Back across menus is itself a menu arrival (06 §26, #356 FIX1): the stale palette request is
+      // cancelled — its destination never mounts — and the destination title takes focus.
+      expect(screen.queryByRole('heading', { name: '설비' })).toBeNull();
+      await waitFor(() => expect(screen.getByRole('heading', { name: '홈' })).toHaveFocus());
+    } else expect(screen.getByRole('heading', { name: '홈' })).not.toHaveFocus();
+  });
+
+  it('does not focus h1 on replace navigation', async () => {
+    mountNavigation();
+    const input = screen.getByRole('textbox', { name: 'filter' });
+    input.focus();
+    fireEvent.click(screen.getByRole('button', { name: 'replace navigation' }));
+    await waitForClose();
+    await waitFor(() => expect(input).toHaveFocus());
+  });
+});

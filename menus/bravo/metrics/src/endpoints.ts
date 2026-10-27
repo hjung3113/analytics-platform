@@ -1,5 +1,5 @@
 /**
- * Metric query endpoints (packages/contracts/src/menu/menu-query.ts, #129).
+ * Metric query endpoints (packages/sdk/contracts/src/menu/menu-query.ts, #129).
  * Client-safe: declarations, the catalog record types, and pure helpers the page and the server share
  * (`versionDiff`). The synthetic catalog itself and every lookup live in `src/mock/` (the server half).
  */

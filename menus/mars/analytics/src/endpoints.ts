@@ -1,6 +1,6 @@
 import type { ThemeColorToken } from '@ap/ui/theme';
 /**
- * Analytics query endpoints (packages/contracts/src/menu/menu-query.ts, #114–#115).
+ * Analytics query endpoints (packages/sdk/contracts/src/menu/menu-query.ts, #114–#115).
  * Client-safe: declarations, params/data types and display constants only — computation
  * handlers live in `src/mock/` and never enter the client bundle.
  * Pages import from here, never from `src/mock/**`.

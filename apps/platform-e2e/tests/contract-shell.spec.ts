@@ -919,7 +919,7 @@ test.describe('메뉴 레지스트리 (06 §9.1 — console declarations read ba
   const DIRECT_FOCUS_URL = `${DIRECT_URL}?v=1&focus=equipment-master`;
   const NEEDLES = ['레지스트리', 'admin-registry', '메뉴 레지스트리'];
 
-  // Kernel per-user recent store (packages/kernel/src/platform.tsx): localStorage key
+  // Kernel per-user recent store (packages/sdk/kernel/src/platform.tsx): localStorage key
   // `platform:recent:${userId}` (userId = role id on the mock adapter), value Recent[] = { menuId, url, at }.
   // The denied operations row is seeded first (it must never surface) plus one row the role does own,
   // so a passing assertion means the visibleMenus guard filtered it — not that the list is simply empty.

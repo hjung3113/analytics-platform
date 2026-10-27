@@ -11,7 +11,7 @@ import { TEST_AXES } from '../../test-axes';
 import ChartCatalog from './ChartCatalog';
 
 const frames = vi.hoisted(() => [] as unknown[]);
-vi.mock('../../../../../../packages/components/src/chart/AnalysisChartFrame', async importOriginal => ({ ...await importOriginal<Record<string, unknown>>(),
+vi.mock('../../../../../../packages/sdk/components/src/chart/AnalysisChartFrame', async importOriginal => ({ ...await importOriginal<Record<string, unknown>>(),
   AnalysisChartFrame: (props: unknown) => { frames.push(props); return null; } }));
 const registry = createRegistry({
   permissions: [menuPermission('analytics:view')],

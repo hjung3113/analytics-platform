@@ -1,7 +1,7 @@
 // Platform permission vocabulary → FeedbackOps authorization (ADR-0069 decision 7).
 //
 // The platform's own permissions are a closed list (`KERNEL_PERMISSIONS` in the root
-// `packages/contracts/src/menu.ts`). This table maps every entry to the rule that grants it here;
+// `packages/sdk/contracts/src/menu.ts`). This table maps every entry to the rule that grants it here;
 // `permissions-vocabulary.test.ts` reads the generated `@ap/contracts/vocab.json` (`kernelPermissions`)
 // and fails when an entry is missing or listed twice (ADR-0068 "one vocabulary"). The menu permissions
 // an app declares (ADR-0072) are not listed: FeedbackOps grants none of them.

@@ -30,7 +30,7 @@ SDK의 뜻:
 
 ## 결과
 
-- **코드를 옮기기 전까지는 지금 규칙을 그대로 따른다.** 06 §13, [ADR-0010](0010-feedbackops-design-system-shared-on-tailwind-v4.md)·[ADR-0011](0011-design-direction-feedbackops-shell.md)·[ADR-0023](0023-feedbackops-primitive-shapes-and-sizes.md), [`packages/ui/AGENTS.md`](../../packages/ui/AGENTS.md)대로 `@ap/ui`는 `@fops/ui`를 재수출하고, primitive 변경은 FeedbackOps에 제안한다. 이 문서들의 "원본은 FeedbackOps" 서술은 소유 방향만 바뀌었다는 표시를 달고, 본문은 코드 이전 이슈에서 고친다. 이전 이슈는 SDK 첫 슬라이스에서 연다.
+- **코드를 옮기기 전까지는 지금 규칙을 그대로 따른다.** 06 §13, [ADR-0010](0010-feedbackops-design-system-shared-on-tailwind-v4.md)·[ADR-0011](0011-design-direction-feedbackops-shell.md)·[ADR-0023](0023-feedbackops-primitive-shapes-and-sizes.md), [`packages/ui/AGENTS.md`](../../packages/sdk/ui/AGENTS.md)대로 `@ap/ui`는 `@fops/ui`를 재수출하고, primitive 변경은 FeedbackOps에 제안한다. 이 문서들의 "원본은 FeedbackOps" 서술은 소유 방향만 바뀌었다는 표시를 달고, 본문은 코드 이전 이슈에서 고친다. 이전 이슈는 SDK 첫 슬라이스에서 연다.
 - #396 본문의 제목·목표와 ADR-0043과 어긋나는 절(§2 상위집합 전제, §3 기능별 원본 선정, §5·§6 두 조립 진입점, §7 두 호스트 공통 구현, §8·§10 독립 실행 조건, §9 primitive 소유, §11 대안 판정, §12 Open)을 이 ADR에 맞춘다. §7 안전 조건과 §8 착수 증거는 플랫폼 실행에 대해서만 그대로 둔다.
 - [프레임워크 통합 계획](../integration/framework-unification-plan.md)과 [플랫폼 탑재 설계](../integration/platform-hosting-design.md)의 어긋나는 서술은 각 문서 머리말에서 이 ADR이 우선한다고 표시한다. 세 프레임워크가 하는 일을 SDK가 다 덮는지 확인하는 **포괄 목록**(통합 계획 §2·§3 지도에서 출발)이 다음 설계 산출물이다(Open, [보드](../../.planning/README.md)).
 - 호스트 → 모듈 계약(ADR-0038·0039, 탑재 설계 §2)은 SDK의 중심으로 남는다. 다만 탑재 설계 §4의 "모듈 패키지는 `@ap/contracts`만 import"와 `@fops/ui` 배포·peer 행은 "앱이 SDK 프레임워크를 소비한다"와 맞지 않으므로 SDK 배포 단위를 설계할 때 다시 정한다(Open).

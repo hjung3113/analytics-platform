@@ -1,6 +1,6 @@
 // Platform port `recordUsage` + `usageSummary` (ADR-0069 decisions 1, 2, 4; #622). The module
 // writes its own `platform.usage_events` table. Validation mirrors the reference server
-// (`packages/mock-server/src/server.ts` recordUsage) and the binding UsageEvent rule of
+// (`packages/adapters/mock-server/src/server.ts` recordUsage) and the binding UsageEvent rule of
 // http-adapter-contract §1: identity fields only, the whole batch or nothing.
 
 import { and, count, countDistinct, eq, gte, lt, max, sql } from 'drizzle-orm';
@@ -10,7 +10,7 @@ import type { CheckService } from '../permissions/check-service.js';
 import type { AuditJudgement } from './audit-service.js';
 import { type PlatformActor, holdsPlatformPermission } from './permissions.js';
 
-/** `UsageVia` of the root `packages/contracts/src/adapter.ts`; `usage-vocabulary.test.ts` pins it. */
+/** `UsageVia` of the root `packages/sdk/contracts/src/adapter.ts`; `usage-vocabulary.test.ts` pins it. */
 export const PLATFORM_USAGE_VIA = [
   'sidebar',
   'switcher',

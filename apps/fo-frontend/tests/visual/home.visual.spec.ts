@@ -114,7 +114,7 @@ test.describe('/home visual harness', () => {
     await page.goto('/home');
     await expect(page.getByTestId('home-screen')).toBeVisible();
     // The [data-shell="page"] > .overflow-y-auto lookup depends on PageShell's
-    // DOM structure (packages/ui/src/layout/PageShell.tsx); polling the page
+    // DOM structure (packages/sdk/ui/src/layout/PageShell.tsx); polling the page
     // overflow also waits for the populated queues to render.
     await expect
       .poll(() =>

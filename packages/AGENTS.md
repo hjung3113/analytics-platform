@@ -6,17 +6,19 @@
 
 ## 패키지와 의존 방향
 
+폴더는 한 단계 묶여 있다(ADR-0090, #713): SDK 다섯은 `sdk/`, 어댑터·소비자 쪽 넷은 `adapters/`, FeedbackOps(`@fops/*`) `fo-shared/`·`fo-ui/`는 `packages/` 바로 아래다. 패키지 이름(`@ap/*`)과 공개 API는 폴더와 무관하다. 패키지 안에서 저장소 루트로 가는 상대 경로는 `../../../`다.
+
 | 패키지 | 역할 | import 가능 |
 | --- | --- | --- |
-| `contracts/` (`@ap/contracts`) | URL codec, manifest 메타데이터 타입, 응답·Trust envelope, `PlatformAdapter` 포트 | 없음 |
-| `ui/` (`@ap/ui`) | 토큰·Tailwind 테마, shadcn primitive, `Button`, `StatusBadge`, `cn` | 외부 라이브러리만 |
-| `kernel/` (`@ap/kernel`) | Registry 런타임, `PlatformProvider`, 전역 Context·URL·Scope 상태, 요청 수명주기(내부 엔진 `@tanstack/react-query`, ADR-0086), i18n | `contracts` + 외부 `@tanstack/react-query`(내부 전용) |
-| `components/` (`@ap/components`) | `PlatformPage`, 표·드로어·감사·신뢰 표시, 상태 화면, 차트 프레임 | `contracts`, `kernel`, `ui` |
-| `shell/` (`@ap/shell`) | AppShell, AppRail, AppSidebar, ScopeSelector, CommandPalette, GlobalContextBar, RouteOutlet | `contracts`, `kernel`, `components`, `ui` |
-| `fo-bridge/` (`@ap/fo-bridge`) | FeedbackOps 다리 런타임(세션 싱글턴·`FoBridge`·`hostLinks`·`fo-api`·Kernel 슬롯 값, ADR-0071·0081). 소비자 쪽이며 SDK 아님. 다리 메뉴와 앱 파일이 root를, 슬롯·API 서브패스는 앱 `main.tsx`만 import | `contracts`, `kernel`, `components`, `ui` + `@fops/frontend/global-screens/core` |
-| `mock-server/` (`@ap/mock-server`) | 개발용 서버 대역(`world`·`server`·`jobs`·`createMockAdapter`, 메뉴 조회 엔진 `serveEndpoint`·`defineMockEndpoint`). 앱이 주입. 메뉴별 핸들러는 각 메뉴 `src/mock/`이 소유. Tailwind 없음 | `contracts` |
-| `http-adapter/` (`@ap/http-adapter`) | 실서버 클라이언트(`bootstrapHttpAdapter` → `PlatformAdapter`, [전송 형식](../docs/integration/http-adapter-contract.md)). 앱의 운영 조립 `src/real/**`만 import | `contracts` |
-| `server-conformance/` (`@ap/server-conformance`) | 서버 경계 적합성 묶음(#145, #152 — 포트 메서드 포함). 어댑터 구현과 무관 — mock·실어댑터를 같은 잣대로. 앱 통합 테스트가 돌린다 | `contracts`(+ vitest) |
+| `sdk/contracts/` (`@ap/contracts`) | URL codec, manifest 메타데이터 타입, 응답·Trust envelope, `PlatformAdapter` 포트 | 없음 |
+| `sdk/ui/` (`@ap/ui`) | 토큰·Tailwind 테마, shadcn primitive, `Button`, `StatusBadge`, `cn` | 외부 라이브러리만 |
+| `sdk/kernel/` (`@ap/kernel`) | Registry 런타임, `PlatformProvider`, 전역 Context·URL·Scope 상태, 요청 수명주기(내부 엔진 `@tanstack/react-query`, ADR-0086), i18n | `contracts` + 외부 `@tanstack/react-query`(내부 전용) |
+| `sdk/components/` (`@ap/components`) | `PlatformPage`, 표·드로어·감사·신뢰 표시, 상태 화면, 차트 프레임 | `contracts`, `kernel`, `ui` |
+| `sdk/shell/` (`@ap/shell`) | AppShell, AppRail, AppSidebar, ScopeSelector, CommandPalette, GlobalContextBar, RouteOutlet | `contracts`, `kernel`, `components`, `ui` |
+| `adapters/fo-bridge/` (`@ap/fo-bridge`) | FeedbackOps 다리 런타임(세션 싱글턴·`FoBridge`·`hostLinks`·`fo-api`·Kernel 슬롯 값, ADR-0071·0081). 소비자 쪽이며 SDK 아님. 다리 메뉴와 앱 파일이 root를, 슬롯·API 서브패스는 앱 `main.tsx`만 import | `contracts`, `kernel`, `components`, `ui` + `@fops/frontend/global-screens/core` |
+| `adapters/mock-server/` (`@ap/mock-server`) | 개발용 서버 대역(`world`·`server`·`jobs`·`createMockAdapter`, 메뉴 조회 엔진 `serveEndpoint`·`defineMockEndpoint`). 앱이 주입. 메뉴별 핸들러는 각 메뉴 `src/mock/`이 소유. Tailwind 없음 | `contracts` |
+| `adapters/http-adapter/` (`@ap/http-adapter`) | 실서버 클라이언트(`bootstrapHttpAdapter` → `PlatformAdapter`, [전송 형식](../docs/integration/http-adapter-contract.md)). 앱의 운영 조립 `src/real/**`만 import | `contracts` |
+| `adapters/server-conformance/` (`@ap/server-conformance`) | 서버 경계 적합성 묶음(#145, #152 — 포트 메서드 포함). 어댑터 구현과 무관 — mock·실어댑터를 같은 잣대로. 앱 통합 테스트가 돌린다 | `contracts`(+ vitest) |
 
 ## 모든 패키지에 적용
 

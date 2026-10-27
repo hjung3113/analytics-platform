@@ -68,7 +68,7 @@ Kernel은 받은 `ok`/`empty`의 kind가 선언과 다르면 `contract_violation
 
 ### 등록 검증 (서버 기동 시)
 
-앱이 넘긴 메뉴 Registry로 엔드포인트 목록을 검증하고 하나라도 어긋나면 기동을 거부한다: 엔드포인트 id 중복 없음, `menuId`가 Registry에 있음, 권한 이름이 어떤 메뉴가 선언한 권한임, 엔드포인트가 `apply`한 키를 소유 메뉴도 `apply`함, 메뉴가 Scope를 요구하면 엔드포인트도 요구, Scope 없는 엔드포인트는 site 종속 키(`roomNames`·`condition`·`selection`·`lot`·`recipe`·`ppid`)를 `apply`할 수 없음(규칙 6), `limits.maxRows`는 양의 정수이고 페이지·커서 엔드포인트(`page`·`pageSize`·`cursor` paramKeys)가 아닐 것(규칙 7, #175). 원본: `packages/mock-server/src/adapter.ts` `createMockAdapter`.
+앱이 넘긴 메뉴 Registry로 엔드포인트 목록을 검증하고 하나라도 어긋나면 기동을 거부한다: 엔드포인트 id 중복 없음, `menuId`가 Registry에 있음, 권한 이름이 어떤 메뉴가 선언한 권한임, 엔드포인트가 `apply`한 키를 소유 메뉴도 `apply`함, 메뉴가 Scope를 요구하면 엔드포인트도 요구, Scope 없는 엔드포인트는 site 종속 키(`roomNames`·`condition`·`selection`·`lot`·`recipe`·`ppid`)를 `apply`할 수 없음(규칙 6), `limits.maxRows`는 양의 정수이고 페이지·커서 엔드포인트(`page`·`pageSize`·`cursor` paramKeys)가 아닐 것(규칙 7, #175). 원본: `packages/adapters/mock-server/src/adapter.ts` `createMockAdapter`.
 
 ### `menuAction` 판정 순서
 
@@ -87,13 +87,13 @@ Kernel은 받은 `ok`/`empty`의 kind가 선언과 다르면 `contract_violation
 
 전송은 `POST` + `Idempotency-Key`·`If-Match` 헤더가 기본 후보지만 정하는 주체는 HTTP 어댑터(#149)다 — 이 문서는 라우트나 헤더를 확정하지 않는다.
 
-**등록 검증 (서버 기동 시)** — 동작도 엔드포인트처럼 검증하고 하나라도 어긋나면 기동을 거부한다: 동작 id 중복 없음, `menuId`가 Registry에 있음, 권한 이름이 어떤 메뉴가 선언한 권한임, 메뉴가 Scope를 요구하면 동작도 요구, `invalidates`의 각 항목이 같은 `menuId`의 등록된 엔드포인트임, `concurrency: 'version'` 동작에는 현재 버전을 읽는 핸들러가 있음. 원본: `packages/mock-server/src/adapter.ts` `createMockAdapter`.
+**등록 검증 (서버 기동 시)** — 동작도 엔드포인트처럼 검증하고 하나라도 어긋나면 기동을 거부한다: 동작 id 중복 없음, `menuId`가 Registry에 있음, 권한 이름이 어떤 메뉴가 선언한 권한임, 메뉴가 Scope를 요구하면 동작도 요구, `invalidates`의 각 항목이 같은 `menuId`의 등록된 엔드포인트임, `concurrency: 'version'` 동작에는 현재 버전을 읽는 핸들러가 있음. 원본: `packages/adapters/mock-server/src/adapter.ts` `createMockAdapter`.
 
 ## 4. 적합성 묶음으로 확인하기
 
 필수 조회조건의 원본은 [플랫폼 계약 §5·§11](../contract/platform-ui-contract.md)이다. `EndpointSpec.requiredContext`는 apply capability만 선언하고, 구조적 투영 검사에 더해 null/누락을 거부한다. `[]`는 존재하는 명시적 공집합이다. `ConformanceCase.context?: Partial<GlobalContext>`에는 그 엔드포인트가 성공할 수 있는 앱 소유 표본을 넣는다. 하네스 Scope·기간과 합친 뒤 투영하며, 필수값의 유효 표본이 없으면 해당 엔드포인트 검사들을 `required Context: no valid sample`로 건너뛰었다고 표시한다(통과로 세지 않음). 표본이 있으면 관련 필드만 null/누락으로 바꾸어 각각 오류·데이터 없음 봉투를 검사한다. 보조 엔드포인트는 더 작은 투영을 가질 수 있다.
 
-[`@ap/server-conformance`](../../packages/server-conformance/AGENTS.md)는 §3의 1·3·4·6·10(그리고 표본이 있으면 9)을 엔드포인트 선언에서 도출해 검사한다(엔드포인트마다 성공 요청, 알 수 없는 키·비적용 키·적용 키 누락·`from` null·`metricVersion` 단독 거부, 권한 없으면 `forbidden`, 부여 안 된 site·`null` Scope `forbidden`, 명시적 공집합, kind 정확히 일치). 선언한 `maxRows`가 있고 표본 요청이 `oversizeParams`를 갖고 있으면(#175), 그 요청이 `too_large`로 데이터 없이 답하는지도 검사한다. 지금은 `apps/platform-web/src/server-conformance.test.ts`가 앱의 모든 메뉴 엔드포인트와 mock 어댑터로 돌리고, FeedbackOps 백엔드 통합 테스트 `apps/fo-backend/src/modules/platform-port/__tests__/platform-conformance.integration.test.ts`가 실서버에 실어댑터(`app.inject` 위 `fetch`)로 돌린다(#674) — 아직 없는 포트는 건너뛴 검사로 남아 실서버 준비 현황표가 된다.
+[`@ap/server-conformance`](../../packages/adapters/server-conformance/AGENTS.md)는 §3의 1·3·4·6·10(그리고 표본이 있으면 9)을 엔드포인트 선언에서 도출해 검사한다(엔드포인트마다 성공 요청, 알 수 없는 키·비적용 키·적용 키 누락·`from` null·`metricVersion` 단독 거부, 권한 없으면 `forbidden`, 부여 안 된 site·`null` Scope `forbidden`, 명시적 공집합, kind 정확히 일치). 선언한 `maxRows`가 있고 표본 요청이 `oversizeParams`를 갖고 있으면(#175), 그 요청이 `too_large`로 데이터 없이 답하는지도 검사한다. 지금은 `apps/platform-web/src/server-conformance.test.ts`가 앱의 모든 메뉴 엔드포인트와 mock 어댑터로 돌리고, FeedbackOps 백엔드 통합 테스트 `apps/fo-backend/src/modules/platform-port/__tests__/platform-conformance.integration.test.ts`가 실서버에 실어댑터(`app.inject` 위 `fetch`)로 돌린다(#674) — 아직 없는 포트는 건너뛴 검사로 남아 실서버 준비 현황표가 된다.
 
 실어댑터를 붙이면 같은 하네스를 실어댑터로 만든다. 사내에서 준비할 것:
 
@@ -130,7 +130,7 @@ Kernel은 받은 `ok`/`empty`의 kind가 선언과 다르면 `contract_violation
 ## 5. 세션·사용자
 
 - 클라이언트는 사용자 id·actor를 보내지 않는다. 사용자는 서버가 세션으로 찍는다(활용률·오류 보고·감사·내 VOC).
-- 시각은 계약마다 다르다. 감사·차트 주석·오류 보고는 서버가 기록 시각을 찍는다. 활용률 이벤트는 서버가 **수신 시각**을 찍고, `usageSummary`의 기간 필터·`lastUsedAt`은 그 수신 시각으로 계산한다. 이벤트의 `at`·`enteredAt`(클라이언트 epoch ms)은 모양(유한한 숫자 — FeedbackOps 구현(#622)은 정수 열에 담으려고 안전 정수만 받는다)을 검사한 뒤 버리지 않고 저장한다 — 하나라도 어긋나면 호출 전체를 거부한다. `enteredAt`은 같은 진입의 dwell을 하나로 합치는 키이고(보드 칸 이벤트는 `source: 'board'`와 `stayId`를 함께 저장하고 그 dwell은 (사용자, 세션, 메뉴, `source`, `stayId`)로 합친다), `dwellMs`는 클라이언트가 계산한 값이다(서버가 다시 계산하지 않음). 원본 동작: `packages/mock-server/src/server.ts` `recordUsage`·`aggregateUsage`.
+- 시각은 계약마다 다르다. 감사·차트 주석·오류 보고는 서버가 기록 시각을 찍는다. 활용률 이벤트는 서버가 **수신 시각**을 찍고, `usageSummary`의 기간 필터·`lastUsedAt`은 그 수신 시각으로 계산한다. 이벤트의 `at`·`enteredAt`(클라이언트 epoch ms)은 모양(유한한 숫자 — FeedbackOps 구현(#622)은 정수 열에 담으려고 안전 정수만 받는다)을 검사한 뒤 버리지 않고 저장한다 — 하나라도 어긋나면 호출 전체를 거부한다. `enteredAt`은 같은 진입의 dwell을 하나로 합치는 키이고(보드 칸 이벤트는 `source: 'board'`와 `stayId`를 함께 저장하고 그 dwell은 (사용자, 세션, 메뉴, `source`, `stayId`)로 합친다), `dwellMs`는 클라이언트가 계산한 값이다(서버가 다시 계산하지 않음). 원본 동작: `packages/adapters/mock-server/src/server.ts` `recordUsage`·`aggregateUsage`.
 - 인증은 FeedbackOps 방식(AuthProvider: Mock + OIDC 계열, 서버 세션)으로 정했다(#35). 실제 IdP 설정값은 사내 SSO 사양 확인 뒤.
 - 역할 소속의 원천은 IdP 그룹 claim 사양이 나올 때까지 보류(#98). 그 전에는 부여·회수 쓰기를 만들지 않는다.
 

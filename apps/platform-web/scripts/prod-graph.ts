@@ -8,7 +8,7 @@ export const ASSEMBLY_SPECIFIER = '#platform-assembly';
  * Pure so it can be unit-tested; scripts/check-prod-graph.ts feeds it the Rollup output.
  */
 const FORBIDDEN: { label: string; test: (id: string) => boolean }[] = [
-  { label: 'packages/mock-server/', test: id => id.includes('/packages/mock-server/') },
+  { label: 'packages/adapters/mock-server/', test: id => id.includes('/packages/adapters/mock-server/') },
   { label: '@ap/mock-server', test: id => /(^|\/)@ap\/mock-server(\/|$)/.test(id) },
   { label: 'menus/*/*/src/mock/', test: id => /\/menus\/[^/]+\/[^/]+\/src\/mock\//.test(id) },
   { label: 'apps/platform-web/src/dev/', test: id => id.includes('/apps/platform-web/src/dev/') },

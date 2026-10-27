@@ -1,0 +1,364 @@
+import { QueryHistoryControl } from './QueryHistoryControl';
+import { SavedViewControl } from '../saved-view/SavedViewControl';
+import { QueryBar } from './QueryBar';
+import { CalendarDays, ChevronDown, Link2, RotateCcw, X } from 'lucide-react';
+import { useContext, type ReactNode } from 'react';
+import { ContextBarLayout, MeasuringContext, useContextEditorState, useContextEditorFocusRecovery } from './ContextBarLayout';
+import { CONTEXT_CHIP, CONTEXT_CHIP_TONE } from './contextChip';
+import { CONTEXT_LABELS, labelledCondition, useEquipmentAxes, useI18n, type RequestState } from '@ap/kernel';
+import { useAdapterRequest, useHostPlatform } from '@ap/kernel/host';
+import { type Capability, type Condition, type ContextKey, formatDateTime, formatPeriod, periodShort, periodHours, periodSpan, type GlobalContext, type SelectionEvaluation, parseDateTime, shift } from '@ap/contracts';
+import { Button, cn, Popover, PopoverContent, PopoverTrigger, RadioGroup, RadioGroupItem } from '@ap/ui';
+import { SegmentedRadio, useCopyLink } from '@ap/components';
+import { isTrailingPeriod } from '../frame/trailingPeriod';
+
+const CONTEXT_KEYS: ContextKey[] = ['time', 'roomNames', 'line', 'prcGroup', 'condition', 'selection', 'lot', 'ppid', 'recipe', 'metric'];
+
+export function contextHasValue(global: GlobalContext): Record<ContextKey, boolean> {
+  return {
+    line: global.lineNames !== null, prcGroup: global.prcGroups !== null, time: global.from !== null, roomNames: global.roomNames !== null, condition: global.condition !== null, selection: global.selection !== null,
+    lot: global.lotIds !== null, ppid: global.ppid !== null, recipe: global.recipeIds !== null, metric: global.metricId !== null,
+  };
+}
+
+/** A context bar is drawn when any key is usable on this screen or already has a value (06 §11). */
+export function contextBarVisible(context: Record<ContextKey, Capability>, global: GlobalContext): boolean {
+  const has = contextHasValue(global);
+  return CONTEXT_KEYS.some(k => context[k] !== 'unsupported' || has[k]);
+}
+
+export function GlobalContextBar({ label, whenEmpty = null }: {
+  /** Board only: names the bar after its pane (visible text and region name). */
+  label?: { visible: string; region: string };
+  /** Board only: drawn where the bar would collapse to nothing, so the row keeps its height. */
+  whenEmpty?: ReactNode;
+} = {}) {
+  const { route } = useHostPlatform();
+  return route?.menu.query?.mode === 'apply' ? <QueryBar label={label} historySlot={<QueryHistoryControl />} viewSlot={<SavedViewControl />} /> : <LiveContextBar label={label} whenEmpty={whenEmpty} />;
+}
+
+function LiveContextBar({ label, whenEmpty }: { label?: { visible: string; region: string }; whenEmpty: ReactNode }) {
+  const { route, global, setGlobal, resetContext, url, scope, adapter } = useHostPlatform();
+  const { t, lang } = useI18n();
+  const axes = useEquipmentAxes();
+  const basisText = global.membershipBasis === 'asOf' ? ` · ${t('membershipAsOf')}` : '';
+  const copyLink = useCopyLink(lang === 'ko' ? '현재 Context가 담긴 링크를 복사했습니다. 받는 사람의 권한으로 서버가 다시 검증합니다.' : 'Copied a link with the current context. The server re-validates for the recipient.');
+  // Keep one request owner while the Selection editor moves between inline and overflow.
+  const input = { scopeId: global.scopeId, roomNames: global.roomNames, lineNames: global.lineNames, prcGroups: global.prcGroups, membershipBasis: global.membershipBasis, condition: global.condition, selection: global.selection };
+  const evaluation = useAdapterRequest(signal => adapter.evaluateSelection(input, signal), [input, scope.status],
+    scope.status === 'valid' && !!route && route.menu.context.selection !== 'unsupported');
+  if (!route) return whenEmpty;
+  const cap = route.menu.context;
+  const has = contextHasValue(global);
+  const shown = CONTEXT_KEYS.filter(k => cap[k] !== 'unsupported' || has[k]);
+  if (!shown.length) return whenEmpty;
+  const editable = (k: ContextKey) => cap[k] !== 'unsupported';
+
+  const controls = [
+    ...(shown.includes('time') ? [{ key: 'time' as const, applied: has.time, node: (editable('time') ? <PeriodControl cap={cap.time} /> : <CarriedChip k="time" cap={cap.time} value={global.from ? formatPeriod(global.from, global.to, lang) : ''} onRemove={() => setGlobal({ from: null, to: null })} />), compactNode: editable('time') ? <PeriodControl cap={cap.time} compact /> : <CarriedChip k="time" cap={cap.time} value={global.from ? formatPeriod(global.from, global.to, lang) : ''} onRemove={() => setGlobal({ from: null, to: null })} /> }] : []),
+    ...(shown.includes('roomNames') ? [{ key: 'roomNames' as const, applied: has.roomNames, node: (editable('roomNames') ? <RoomEditor cap={cap.roomNames} /> : <CarriedChip k="roomNames" cap={cap.roomNames} value={setText(global.roomNames, t)} onRemove={() => setGlobal({ roomNames: null })} />) }] : []),
+    ...(has.line ? [{ key: 'line' as const, applied: has.line, node: <CarriedChip k="line" cap={cap.line} value={setText(global.lineNames, t)} onRemove={() => setGlobal({ lineNames: null })} /> }] : []),
+    ...(has.prcGroup ? [{ key: 'prcGroup' as const, applied: has.prcGroup, node: <CarriedChip k="prcGroup" cap={cap.prcGroup} value={setText(global.prcGroups, t) + basisText} onRemove={() => setGlobal({ prcGroups: null })} /> }] : []),
+    ...(shown.includes('condition') ? [{ key: 'condition' as const, applied: has.condition, node: (editable('condition') ? <ConditionEditor cap={cap.condition} /> : <CarriedChip k="condition" cap={cap.condition} value={global.condition ? labelledCondition(global.condition, axes, lang) + basisText : ''} onRemove={() => setGlobal({ condition: null })} />) }] : []),
+    ...(shown.includes('selection') ? [{ key: 'selection' as const, applied: has.selection, node: (editable('selection') ? <SelectionEditor cap={cap.selection} evaluation={evaluation} /> : <CarriedChip k="selection" cap={cap.selection} value={setText(global.selection, t)} onRemove={() => setGlobal({ selection: null })} />) }] : []),
+    ...(has.lot ? [{ key: 'lot' as const, applied: has.lot, node: <CarriedChip k="lot" cap={cap.lot} value={setText(global.lotIds, t)} onRemove={() => setGlobal({ lotIds: null })} /> }] : []),
+    ...(has.ppid ? [{ key: 'ppid' as const, applied: has.ppid, node: <CarriedChip k="ppid" cap={cap.ppid} value={global.ppid!} onRemove={() => setGlobal({ ppid: null })} /> }] : []),
+    ...(has.recipe ? [{ key: 'recipe' as const, applied: has.recipe, node: <CarriedChip k="recipe" cap={cap.recipe} value={setText(global.recipeIds, t)} onRemove={() => setGlobal({ recipeIds: null })} /> }] : []),
+    ...(has.metric ? [{ key: 'metric' as const, applied: has.metric, node: <CarriedChip k="metric" cap={cap.metric} value={`${global.metricId}${global.metricVersion ? ` @ ${global.metricVersion}` : ` (${lang === 'ko' ? '버전 미정' : 'no version'})`}`} onRemove={() => setGlobal({ metricId: null, metricVersion: null })} /> }] : []),
+  ];
+  return <ContextBarLayout regionName={label?.region} controls={controls} revision={JSON.stringify([global, cap, lang, shown, evaluation.status, evaluation.data?.inCondition.length, label])} actions={compact => <span className="flex items-center gap-1">
+        <Button type="button" variant="ghost" size="toolbar" aria-label={lang === 'ko' ? '링크 복사' : 'Copy link'} title={lang === 'ko' ? '링크 복사' : 'Copy link'} onClick={() => copyLink(url)}>
+          <Link2 className="size-3.5" aria-hidden />{!compact && (lang === 'ko' ? '링크 복사' : 'Copy link')}
+        </Button>
+        <Button type="button" variant="ghost" size="toolbar" aria-label={t('reset')} title={t('reset')} onClick={resetContext}>
+          <RotateCcw className="size-3.5" aria-hidden />{!compact && t('reset')}
+        </Button>
+  </span>} />;
+}
+
+function setText(ids: string[] | null, t: (k: 'all' | 'explicitEmpty') => string): string {
+  if (ids === null) return t('all');
+  if (!ids.length) return t('explicitEmpty');
+  return ids.length <= 2 ? ids.join(', ') : `${ids[0]} +${ids.length - 1}`;
+}
+
+/** Exception status for names that replace the chip text (period button and group): applied adds nothing. */
+function capStatus(cap: Capability, t: (k: 'referenceOnly' | 'notUsed') => string): string {
+  return cap === 'reference' ? `, ${t('referenceOnly')}` : cap === 'unsupported' ? `, ${t('notUsed')}` : '';
+}
+
+function CapTag({ cap }: { cap: Capability }) {
+  const { t } = useI18n();
+  if (cap === 'apply') return null;
+
+  return <span className={cn('shrink-0 rounded-xs px-1 text-caption font-semibold', cap !== 'unsupported' ? 'bg-surface-sunken text-text-secondary' : 'bg-accent-warn-soft text-text-warning-label')}>
+    {cap === 'reference' ? t('referenceOnly') : t('notUsed')}
+  </span>;
+}
+
+function ChipShell({ label, value, cap, empty, children, ...rest }: { label: ReactNode; value: ReactNode; cap: Capability; empty?: boolean; children?: ReactNode } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
+  return <button type="button" {...rest}
+    className={cn(CONTEXT_CHIP, 'max-w-[22rem]',
+      cap === 'unsupported' ? 'border-dashed border-border-strong bg-transparent text-text-muted' : CONTEXT_CHIP_TONE,
+      empty && 'text-text-muted')}>
+    <span className="text-text-muted">{label}</span>
+    <span className="truncate font-medium tabular">{value}</span>
+    <CapTag cap={cap} />
+    {children}
+  </button>;
+}
+
+/** Preserved context the current page does not edit: never silently dropped (§6); removable explicitly. */
+function CarriedChip({ k, cap, value, onRemove }: { k: ContextKey; cap: Capability; value: string; onRemove: () => void }) {
+  const { tx, t, lang } = useI18n();
+  const { global } = useHostPlatform();
+  const fullValue = k === 'time' ? (global.from ? formatPeriod(global.from, global.to, lang) : t('selectPeriod')) : value;
+  return <span role={k === 'time' ? 'group' : undefined} aria-label={k === 'time' ? `${tx(CONTEXT_LABELS[k])}: ${fullValue}${capStatus(cap, t)}` : undefined} className={cn('inline-flex h-8 max-w-full min-w-0 items-center gap-1.5 rounded-sm border pl-2.5 pr-1 whitespace-nowrap text-xs',
+    cap === 'unsupported' ? 'border-dashed border-border-strong text-text-muted' : 'border-border-strong bg-surface-card')}
+    title={cap === 'unsupported' ? (lang === 'ko' ? 'URL에 보존되며 지원 메뉴로 이동하면 재검증 후 적용됩니다.' : 'Kept in the URL; re-validated and applied on a supporting page.') : undefined}>
+    <span className="text-text-muted">{tx(CONTEXT_LABELS[k])}</span>
+    <span className="min-w-0 max-w-48 truncate font-medium tabular" title={fullValue}>{value}</span>
+    <CapTag cap={cap} />
+    <button type="button" onClick={onRemove} aria-label={`${t('clear')} ${tx(CONTEXT_LABELS[k])}`} className="grid size-6 place-items-center rounded-xs hover:bg-surface-sunken"><X className="size-3" aria-hidden /></button>
+  </span>;
+}
+
+function PeriodControl({ cap, compact = false }: { cap: Capability; compact?: boolean }) {
+  const { global, setGlobal, defaultRangeTo } = useHostPlatform();
+  const { t, lang } = useI18n();
+  const [open, setOpen] = useContextEditorState('open', false);
+  const preserveRelocationFocus = useContextEditorFocusRecovery();
+  const periodName = `${t('period')}: ${global.from ? formatPeriod(global.from, global.to, lang) : t('selectPeriod')}`;
+  const h = periodHours(global);
+  const preset = isTrailingPeriod(global, defaultRangeTo, 24) ? '1d' : isTrailingPeriod(global, defaultRangeTo, 168) ? '7d' : global.from ? 'custom' : null;
+  const presets = [{ id: '1d', label: t('preset1d'), h: 24 }, { id: '7d', label: t('preset7d'), h: 168 }, { id: 'custom', label: t('presetCustom'), h: 0 }] as const;
+  const choose = (id: string) => {
+    const p = presets.find(x => x.id === id)!;
+    if (id === 'custom') { setOpen(true); return; }
+    setGlobal({ from: shift(defaultRangeTo, -p.h), to: defaultRangeTo });
+  };
+  const presetsControl = <SegmentedRadio
+      label={t('period')}
+      value={preset}
+      onChange={id => choose(id)}
+      // A custom period is already "selected" while it is applied; clicking it again reopens the editor.
+      onActivate={id => { if (id === 'custom') setOpen(true); }}
+      className="flex h-8 items-center"
+      options={presets.map(p => ({ value: p.id, label: p.label }))}
+    />;
+  return <div className="flex min-w-0 items-center gap-1">
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button type="button" className={cn('inline-flex h-8 items-center gap-2 rounded-sm border border-border-strong bg-surface-card px-2.5 whitespace-nowrap text-xs hover:border-border-control', compact ? 'w-full min-w-0' : 'min-w-[204px]')} title={periodName} aria-label={`${periodName}${capStatus(cap, t)}`}>
+          <CalendarDays className="size-4 shrink-0 text-text-muted" aria-hidden />
+          {global.from ? <span className="min-w-0 truncate font-medium tabular">{periodShort(global.from)} → {periodShort(global.to!)}</span> : <span className="min-w-0 truncate text-text-muted">{t('selectPeriod')}</span>}
+          {!compact && h !== null && <span className="text-text-muted tabular">({periodSpan(h, lang)})</span>}
+          <CapTag cap={cap} />
+          <ChevronDown className="size-3.5 shrink-0 text-text-muted" aria-hidden />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent onFocusOutside={preserveRelocationFocus} align="start" className="w-[22rem]">
+        {compact && <div className="mb-3">{presetsControl}</div>}
+        <CustomRange onDone={() => setOpen(false)} />
+      </PopoverContent>
+    </Popover>
+    {!compact && presetsControl}
+  </div>;
+}
+
+/** Calendar dates are inclusive in the UI and become [D1T00:00:00, (D2+1)T00:00:00) in the URL (§6.3). */
+function CustomRange({ onDone }: { onDone: () => void }) {
+  const { global, setGlobal, defaultRangeTo } = useHostPlatform();
+  const { t, lang } = useI18n();
+  const [mode, setMode] = useContextEditorState<'date' | 'time'>('mode', 'date');
+  const [start, setStart] = useContextEditorState('start', (global.from ?? shift(defaultRangeTo, -24)).slice(0, 10));
+  const [end, setEnd] = useContextEditorState('end', global.to ? shift(global.to, -24).slice(0, 10) : defaultRangeTo.slice(0, 10));
+  const [fromT, setFromT] = useContextEditorState('fromT', global.from ?? shift(defaultRangeTo, -24));
+  const [toT, setToT] = useContextEditorState('toT', global.to ?? defaultRangeTo);
+  let error: string | null = null;
+  let result: { from: string; to: string } | null = null;
+  try {
+    if (mode === 'date') {
+      const from = `${start}T00:00:00`;
+      const to = formatDateTime(new Date(parseDateTime(`${end}T00:00:00`, 'end').getTime() + 86_400_000));
+      if (from >= to) throw new Error(lang === 'ko' ? '시작일이 종료일보다 늦습니다.' : 'Start is after end.');
+      result = { from, to };
+    } else {
+      const from = fromT.length === 16 ? `${fromT}:00` : fromT; const to = toT.length === 16 ? `${toT}:00` : toT;
+      parseDateTime(from, 'from'); parseDateTime(to, 'to');
+      if (from >= to) throw new Error(lang === 'ko' ? '시작이 끝보다 앞서야 합니다.' : 'The start must be before the end.');
+      result = { from, to };
+    }
+  } catch (e) { error = e instanceof Error ? e.message : String(e); }
+  const input = 'h-8 w-full rounded-md border border-border-control bg-surface-card px-2 text-xs tabular';
+  return <form onSubmit={e => { e.preventDefault(); if (result) { setGlobal(result); onDone(); } }} onKeyDown={e => { if (e.key === 'Escape') onDone(); }} className="space-y-3 text-xs">
+    <SegmentedRadio
+      label={lang === 'ko' ? '입력 방식' : 'Input mode'}
+      value={mode}
+      onChange={setMode}
+      className="flex"
+      options={[
+        { value: 'date', label: lang === 'ko' ? '날짜 (양끝 포함)' : 'Dates (inclusive)' },
+        { value: 'time', label: lang === 'ko' ? '시각 (초 단위)' : 'Date-time (seconds)' },
+      ]}
+    />
+    {mode === 'date' ? <div className="grid grid-cols-2 gap-2">
+      <label className="space-y-1"><span className="text-text-secondary">{lang === 'ko' ? '시작일' : 'Start date'}</span><input type="date" className={input} value={start} onChange={e => setStart(e.target.value)} /></label>
+      <label className="space-y-1"><span className="text-text-secondary">{lang === 'ko' ? '종료일 (포함)' : 'End date (inclusive)'}</span><input type="date" className={input} value={end} onChange={e => setEnd(e.target.value)} /></label>
+    </div> : <div className="grid grid-cols-1 gap-2">
+      <label className="space-y-1"><span className="text-text-secondary">{lang === 'ko' ? '시작 시각' : 'Start time'}</span><input type="datetime-local" step={1} className={input} value={fromT} onChange={e => setFromT(e.target.value)} /></label>
+      <label className="space-y-1"><span className="text-text-secondary">{lang === 'ko' ? '끝 시각 (포함하지 않음)' : 'End time (not included)'}</span><input type="datetime-local" step={1} className={input} value={toT} onChange={e => setToT(e.target.value)} /></label>
+    </div>}
+    <p aria-live="polite" className={cn('rounded-md px-2 py-1.5 tabular', error ? 'bg-accent-danger-soft text-text-danger-label' : 'bg-surface-sunken text-text-secondary')}>
+      {error ?? (lang === 'ko' ? `조회: ${result!.from} ~ ${result!.to} (끝 시각은 포함하지 않음)` : `Range: ${result!.from} ~ ${result!.to} (end time is not included)`)}
+    </p>
+    <p className="text-tiny text-text-secondary">{lang === 'ko' ? '설비에 기록된 시각 기준이며, 시간대를 바꾸지 않습니다.' : "Times are the equipment's recorded clock and are not converted."}</p>
+    <div className="flex justify-end gap-2">
+      <Button type="button" size="sm" variant="secondary" onClick={onDone}>{t('cancel')}</Button>
+      <Button type="submit" size="sm" disabled={!result}>{t('apply')}</Button>
+    </div>
+  </form>;
+}
+
+type SetMode = 'absent' | 'some' | 'empty';
+function modeOf(ids: string[] | null): SetMode { return ids === null ? 'absent' : ids.length ? 'some' : 'empty'; }
+
+function SetEditor({ label, cap, value, options, absentLabel, onApply, note, search }: {
+  label: string; cap: Capability; value: string[] | null; options: { id: string; hint?: string; outside?: boolean }[];
+  absentLabel: string; onApply: (v: string[] | null) => void; note?: ReactNode; search?: boolean;
+}) {
+  const { t, lang } = useI18n();
+  const [open, setOpen] = useContextEditorState('open', false);
+  const preserveRelocationFocus = useContextEditorFocusRecovery();
+  const [mode, setMode] = useContextEditorState<SetMode>('mode', modeOf(value));
+  const [picked, setPicked] = useContextEditorState<string[]>('picked', value ?? []);
+  const [q, setQ] = useContextEditorState('q', '');
+  const reset = (o: boolean) => { setOpen(o); if (o) { setMode(modeOf(value)); setPicked(value ?? []); setQ(''); } };
+  const visible = options.filter(o => !q || o.id.toLowerCase().includes(q.toLowerCase()) || o.hint?.toLowerCase().includes(q.toLowerCase()));
+  return <Popover open={open} onOpenChange={reset}>
+    <PopoverTrigger asChild><ChipShell label={label} value={value === null ? absentLabel : value.length ? (value.length <= 2 ? value.join(', ') : `${value[0]} +${value.length - 1}`) : t('explicitEmpty')} cap={cap} empty={value === null}><ChevronDown className="size-3.5 text-text-muted" aria-hidden /></ChipShell></PopoverTrigger>
+    <PopoverContent onFocusOutside={preserveRelocationFocus} align="start" className="w-80">
+      <SegmentedRadio
+        label={label}
+        value={mode}
+        onChange={setMode}
+        className="mb-2 flex flex-wrap"
+        options={[
+          { value: 'absent', label: absentLabel },
+          { value: 'some', label: lang === 'ko' ? '명시 선택' : 'Explicit' },
+          { value: 'empty', label: t('explicitEmpty') },
+        ]}
+      />
+      {mode === 'some' && <>
+        {search && <input value={q} onChange={e => setQ(e.target.value)} placeholder={lang === 'ko' ? '검색…' : 'Search…'} aria-label={lang === 'ko' ? '검색' : 'Search'} className="mb-2 h-7 w-full rounded-md border border-border-control px-2" />}
+        <ul className="max-h-56 space-y-0.5 overflow-auto">
+          {visible.map(o => <li key={o.id}><label className="flex cursor-pointer items-center gap-2 rounded-sm px-1.5 py-1 hover:bg-surface-sunken">
+            <input type="checkbox" className="size-3.5 accent-accent-primary" checked={picked.includes(o.id)} onChange={() => setPicked(p => (p.includes(o.id) ? p.filter(x => x !== o.id) : [...p, o.id]))} />
+            <span className="t-mono">{o.id}</span>
+            {o.hint && <span className="truncate text-text-secondary">{o.hint}</span>}
+            {o.outside && <span className="ml-auto rounded-xs bg-accent-warn-soft px-1 text-caption text-text-warning-label">{lang === 'ko' ? '조건 밖' : 'outside'}</span>}
+          </label></li>)}
+        </ul>
+      </>}
+      {note && <div className="mt-2 rounded-md bg-surface-sunken px-2 py-1.5 text-tiny text-text-secondary">{note}</div>}
+      <div className="mt-3 flex justify-end gap-2">
+        <Button size="sm" variant="secondary" onClick={() => setOpen(false)}>{t('cancel')}</Button>
+        <Button size="sm" disabled={mode === 'some' && !picked.length}
+          onClick={() => { onApply(mode === 'absent' ? null : mode === 'empty' ? [] : picked); setOpen(false); }}>{t('apply')}</Button>
+      </div>
+    </PopoverContent>
+  </Popover>;
+}
+
+function RoomEditor({ cap }: { cap: Capability }) {
+  const { global, setGlobal, scope } = useHostPlatform();
+  const { t, lang } = useI18n();
+  return <SetEditor label={t('roomNames')} cap={cap} value={global.roomNames} absentLabel={t('all')} onApply={v => setGlobal({ roomNames: v })}
+    options={scope.grantedRooms.map(id => ({ id }))}
+    note={lang === 'ko' ? 'room_name은 요청 Scope 안의 조회 범위를 좁힐 뿐 권한을 부여하지 않습니다.' : 'room_name narrows the requested scope; it never grants access.'} />;
+}
+
+function ConditionEditor({ cap }: { cap: Capability }) {
+  const { global, setGlobal, adapter } = useHostPlatform();
+  const { t, lang } = useI18n();
+  const site = global.scopeId ?? '';
+  const [open, setOpen] = useContextEditorState('open', false);
+  const preserveRelocationFocus = useContextEditorFocusRecovery();
+  const axes = useEquipmentAxes();
+  // Derive the legacy single-axis/pair UI from injected metadata and server option records.
+  const groups = axes.filter(a => !a.dependsOn).map(a => {
+    const child = axes.find(candidate => candidate.dependsOn === a.id);
+    const fields = child ? [a.id, child.id] : [a.id];
+    return { id: a.id, fields, label: child ? `${a.label[lang]}+${child.label[lang]}` : a.label[lang] };
+  });
+  const current = global.condition;
+  const selected = current === null ? undefined : groups.find(group => Object.keys(current).length === group.fields.length && group.fields.every(id => current[id]?.length === 1));
+  const representable = current === null || selected !== undefined;
+  const currentValue = selected ? JSON.stringify(selected.fields.map(id => current![id][0])) : '';
+  const [axis, setAxis] = useContextEditorState<string>('axis', selected?.id ?? groups[0]?.id ?? '');
+  const [val, setVal] = useContextEditorState<string>('val', currentValue);
+  const measuring = useContext(MeasuringContext);
+  const choices = useAdapterRequest(signal => adapter.contextOptions(site, signal), site, open && !measuring && representable);
+  const group = groups.find(g => g.id === axis);
+  const all = choices.data;
+  const rawOptions = !all || !group ? [] : group.fields.length === 1
+    ? (Object.entries(all).find(([key]) => key === group.id)?.[1] ?? [])
+    : (Object.values(all).find(items => items.some(item => typeof item === 'object' && group.fields.every(id => Object.hasOwn(item, id)))) ?? []);
+  const options: { value: string; label: string; condition: Condition }[] = !group ? [] : rawOptions.flatMap(item => {
+    if (typeof item === 'string') return [{ value: JSON.stringify([item]), label: item, condition: { [group.id]: [item] } }];
+    const record = item as Record<string, string>;
+    return [{ value: JSON.stringify(group.fields.map(id => record[id])), label: group.fields.map(id => record[id]).join(' / '), condition: Object.fromEntries(group.fields.map(id => [id, [record[id]]])) }];
+  });
+  const summary = current ? labelledCondition(current, axes, lang) + (global.membershipBasis === 'asOf' ? ` · ${t('membershipAsOf')}` : '') : t('none');
+  const build = (): Condition | null => options.find(option => option.value === val)?.condition ?? null;
+  return <Popover open={open} onOpenChange={o => { setOpen(o); if (o) { setAxis(selected?.id ?? groups[0]?.id ?? ''); setVal(currentValue); } }}>
+    <PopoverTrigger asChild><ChipShell label={t('condition')} cap={cap} empty={!global.condition}
+      value={summary}><ChevronDown className="size-3.5 text-text-muted" aria-hidden /></ChipShell></PopoverTrigger>
+    <PopoverContent onFocusOutside={preserveRelocationFocus} align="start" className="w-80">
+      {representable ? <>
+      <SegmentedRadio
+        label={lang === 'ko' ? '조건 축 (하나만)' : 'Condition axis (one)'}
+        value={axis}
+        onChange={a => { setAxis(a); setVal(''); }}
+        className="mb-2 flex"
+        options={groups.map(g => ({ value: g.id, label: g.label }))}
+      />
+      {choices.status !== 'done' && <p role="status" className="px-2 py-1 text-text-secondary">{choices.status === 'error'
+        ? <>{lang === 'ko' ? '선택지를 불러오지 못했습니다.' : 'Could not load choices.'} <button type="button" className="text-accent-primary underline" onClick={choices.retry}>{t('retry')}</button></>
+        : (lang === 'ko' ? '선택지를 불러오는 중…' : 'Loading choices…')}</p>}
+      {/* Selection shape + text, not colour alone (06 §26): radio marker per option, arrow-key roving focus. */}
+      <RadioGroup orientation="vertical" aria-label={group?.label} value={val} onValueChange={setVal}
+        className="max-h-48 overflow-auto">
+        {options.map(({ label: o, value }) => <label key={value}
+          className={cn('flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1 text-left t-mono', val === value ? 'bg-accent-primary-soft text-accent-primary' : 'hover:bg-surface-sunken')}>
+          <RadioGroupItem value={value} />
+          <span className="min-w-0">{o}</span>
+        </label>)}
+      </RadioGroup>
+      <p className="mt-2 rounded-md bg-surface-sunken px-2 py-1.5 text-tiny text-text-secondary">{lang === 'ko' ? 'live 조건: 재방문 시 현재 소속으로 다시 평가됩니다. 조건 변경은 고정 Selection을 바꾸지 않습니다.' : 'Live condition: membership is re-evaluated on revisit. Changing it never alters the fixed Selection.'}</p>
+      </> : <p>{summary}</p>}
+      <div className="mt-3 flex justify-between gap-2">
+        <Button size="toolbar" variant="ghost" onClick={() => { setGlobal({ condition: null }); setOpen(false); }}>{t('clear')}</Button>
+        {representable && <span className="flex gap-2">
+          <Button size="sm" variant="secondary" onClick={() => setOpen(false)}>{t('cancel')}</Button>
+          <Button size="sm" disabled={!val || build() === null} onClick={() => { setGlobal({ condition: build() }); setOpen(false); }}>{t('apply')}</Button>
+        </span>}
+      </div>
+    </PopoverContent>
+  </Popover>;
+}
+
+function SelectionEditor({ cap, evaluation }: { cap: Capability; evaluation: RequestState<SelectionEvaluation> }) {
+  const { global, setGlobal } = useHostPlatform();
+  const { t, lang } = useI18n();
+  // Condition matching and grants are the server's job; the same result also feeds inert measurement.
+  const inCondition = evaluation.data?.inCondition ?? [];
+  const outside = evaluation.data?.outOfCondition ?? [];
+  const failed = evaluation.status === 'error';
+  const options = [...inCondition.map(e => ({ id: e.equipmentId, hint: `${e.room} · ${e.model}` })), ...outside.map(id => ({ id, hint: undefined, outside: true }))];
+  const count = failed ? (lang === 'ko' ? '확인 실패' : 'unavailable') : evaluation.status === 'done' ? String(inCondition.length) : '…';
+  return <SetEditor label={t('selection')} cap={cap} value={global.selection} search
+    absentLabel={global.condition ? (lang === 'ko' ? `조건 결과 전체 (${count})` : `All condition results (${count})`) : t('all')}
+    onApply={v => setGlobal({ selection: v })} options={options}
+    note={<>{lang === 'ko' ? 'Selection은 고정 EquipmentID 집합입니다.' : 'Selection is a fixed EquipmentID set.'}{failed && <span role="alert" className="mt-1 block text-text-danger-label">{lang === 'ko' ? '조건 결과를 확인하지 못했습니다.' : 'Could not evaluate the condition.'} <button type="button" className="text-accent-primary underline" onClick={evaluation.retry}>{t('retry')}</button></span>}{outside.length > 0 && <b className="mt-1 block text-text-warning-label">{lang === 'ko' ? `현재 조건 결과 밖 ${outside.length}대 — 자동 제거하지 않습니다.` : `${outside.length} outside the current condition — not removed automatically.`}</b>}</>} />;
+}

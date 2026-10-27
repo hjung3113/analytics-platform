@@ -169,9 +169,9 @@
 | ID | 요구 | 없으면 | 플랫폼이 보장하는 것 | 상태 | 근거 |
 | --- | --- | --- | --- | --- | --- |
 | R8.1 | 화면은 선언으로 등록한다 | 메뉴를 하나 더할 때마다 사이드바·경로·권한 코드를 고친다 | 화면 manifest(이름·경로·권한·지원 조건·화면 모양)를 선언하면 사이드바·Ctrl+K·breadcrumb·권한 게이트가 따라온다. 시작할 때 중복·경로 충돌·규칙 위반을 검사한다 | 동작 | [06 §5](../contract/kernel.md#5-menu-extension-contract), [패키지 경계](../integration/platform-packages.md) |
-| R8.2 | 새 화면이 처음부터 받는 것 | 표·차트·상태 화면·필터를 화면마다 새로 만든다 | 공통 부품(표, 차트 틀, 상세 패널, 감사 타임라인, 신뢰 표시, 상태 화면, 필터 줄, 레이아웃 5종, 드릴 경로)과 디자인 시스템 | 동작 | [06 §13](../contract/components.md#13-shared-component-layers), [components](../../packages/components/AGENTS.md) |
+| R8.2 | 새 화면이 처음부터 받는 것 | 표·차트·상태 화면·필터를 화면마다 새로 만든다 | 공통 부품(표, 차트 틀, 상세 패널, 감사 타임라인, 신뢰 표시, 상태 화면, 필터 줄, 레이아웃 5종, 드릴 경로)과 디자인 시스템 | 동작 | [06 §13](../contract/components.md#13-shared-component-layers), [components](../../packages/sdk/components/AGENTS.md) |
 | R8.3 | 서버 조회는 선언하고 플랫폼이 지킨다 | 화면마다 권한·조회 한도·조건 적용을 따로 구현하고 빠뜨린다 | 화면이 조회 엔드포인트(입력·권한·조회 범위·한도)를 선언하면, 요청 모양 검사와 상태 분류를 플랫폼이 하고 서버는 자기 선언 사본으로 판정한다 | 동작(mock 서버) | [ADR-0019](../adr/0019-menu-query-endpoint-declaration.md), [실서버 체크리스트](../integration/real-server-checklist.md) |
-| R8.4 | 계약을 자동으로 검사한다 | 새 화면이 주소·권한·상태 규칙을 어겨도 사용자가 발견한다 | 플랫폼 계약 E2E가 새 화면에도 같은 기준을 건다. 서버 적합성 묶음이 실서버가 같은 계약을 지키는지 검사한다 | 동작 | [platform-e2e](../../apps/platform-e2e/AGENTS.md), [server-conformance](../../packages/server-conformance/AGENTS.md) |
+| R8.4 | 계약을 자동으로 검사한다 | 새 화면이 주소·권한·상태 규칙을 어겨도 사용자가 발견한다 | 플랫폼 계약 E2E가 새 화면에도 같은 기준을 건다. 서버 적합성 묶음이 실서버가 같은 계약을 지키는지 검사한다 | 동작 | [platform-e2e](../../apps/platform-e2e/AGENTS.md), [server-conformance](../../packages/adapters/server-conformance/AGENTS.md) |
 | R8.5 | 구조와 디자인 규칙을 기계가 지킨다 | 리뷰어가 매번 같은 지적을 한다 | 의존 방향 경계 lint, 디자인 시스템 lint(대신 쓸 토큰·부품을 알려 준다), 운영 빌드에 mock이 섞이지 않았는지 CI 확인 | 동작 | [tooling](../../tooling/AGENTS.md), [ADR-0009](../adr/0009-production-assembly-injection.md) |
 | R8.6 | 서버 없이 화면을 끝까지 만든다 | 백엔드가 준비될 때까지 화면 개발이 멈춘다 | mock 서버와 응답 시나리오 도구(정상·느림·0건·권한 거부·과대·시간 초과·오류 등)로 상태 화면까지 만든다. 메뉴 생성기(`pnpm gen:menu`)가 뼈대를 만든다 | 동작 | [사내 적용 가이드](../integration/in-house-rollout.md), [tooling](../../tooling/AGENTS.md) |
 | R8.7 | 하위 경로·다른 주소에 배포한다 | 배포 경로가 바뀌면 링크가 깨진다 | 위치 어댑터 주입, 앱 안 주소 계약은 그대로 | 동작 | [ADR-0030](../adr/0030-location-adapter-base-path.md) |
