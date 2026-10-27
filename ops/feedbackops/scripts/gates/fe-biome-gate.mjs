@@ -24,6 +24,7 @@ import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { FO_ALLOWLIST_PREFIX, FO_BIOME_SCOPE, OPS_ROOT, REPO_ROOT } from '../../paths.mjs';
+import { parseChangedFiles } from './changed-files.mjs';
 
 const gateDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = REPO_ROOT;
@@ -44,16 +45,14 @@ const git = (...args) => {
 };
 
 const base = git('merge-base', 'HEAD', baseRef);
-const changed = git(
-  'diff',
-  '--name-only',
-  '--diff-filter=ACMR',
-  base,
-  'HEAD',
-  '--',
-  ...FO_BIOME_SCOPE,
+// Pure moves (R100) keep their content and are not "changed"; see changed-files.mjs. No pathspec on the diff: a move
+// from outside FO_BIOME_SCOPE would lose its old path and read as an add. The scope is applied to the result.
+const inScope = (path) =>
+  FO_BIOME_SCOPE.some((scope) => path === scope || path.startsWith(`${scope.replace(/\/$/, '')}/`));
+const changed = parseChangedFiles(
+  git('diff', '--name-status', '-M', '--diff-filter=ACMR', base, 'HEAD'),
 )
-  .split('\n')
+  .filter(inScope)
   .filter((path) => /\.(ts|tsx|js|jsx|mjs|cjs|json|jsonc)$/.test(path))
   .filter((path) => existsSync(join(repoRoot, path)));
 
@@ -116,7 +115,7 @@ const warnings = new Map();
 for (const diagnostic of report.diagnostics ?? []) {
   if (diagnostic.severity !== 'error' && diagnostic.severity !== 'warning') continue;
   const file = diagnostic.location?.path?.file ?? '(unknown)';
-  // Allowlist lines name files relative to the old FeedbackOps root; 713p2 moves that prefix with the files.
+  // Allowlist lines name apps and packages by repository path and docs relative to the old FeedbackOps root (713p3 moves the docs).
   const repoRelative = relative(repoRoot, resolve(OPS_ROOT, file)).split('\\').join('/');
   const named = repoRelative.startsWith(FO_ALLOWLIST_PREFIX)
     ? repoRelative.slice(FO_ALLOWLIST_PREFIX.length)

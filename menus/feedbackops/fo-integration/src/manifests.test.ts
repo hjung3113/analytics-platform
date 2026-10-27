@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { coverageRoute, entityLinksRoute, evidenceRoute, integrationDashboardRoute } from '@ap/fo-bridge';
 import { manifests } from './index';
 
-const FRONTEND = '../../../../products/feedbackops/apps/frontend/src/';
+const FRONTEND = '../../../../apps/fo-frontend/src/';
 const NAV_TREE = readFileSync(fileURLToPath(new URL(`${FRONTEND}routes/_authed.tsx`, import.meta.url)), 'utf8');
 const GLOSSARY = readFileSync(fileURLToPath(new URL(`${FRONTEND}lib/copy/glossary.ts`, import.meta.url)), 'utf8');
 /** The `NAV_TREE.integration` entry with this `href` and its raw `label:` expression. */

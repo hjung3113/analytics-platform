@@ -17,7 +17,7 @@
 --   * fops_core_audit_reader_owner — owns allowlisted scoped audit projections.
 --
 -- This file runs once when the Postgres container initialises an empty
--- data directory. Migration SQL (apps/backend/migrations/*.sql) does the
+-- data directory. Migration SQL (apps/fo-backend/migrations/*.sql) does the
 -- per-table GRANT/REVOKE work; this file only creates the roles, the
 -- database, and ensures `fops_migrate` owns it.
 -- Existing databases must provision the matching role and one-way membership

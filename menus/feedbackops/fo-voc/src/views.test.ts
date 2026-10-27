@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { inboxRoute, triageRoute } from '@ap/fo-bridge';
 import { manifests } from './index';
 
-const AUTHED = fileURLToPath(new URL('../../../../products/feedbackops/apps/frontend/src/routes/_authed.tsx', import.meta.url));
+const AUTHED = fileURLToPath(new URL('../../../../apps/fo-frontend/src/routes/_authed.tsx', import.meta.url));
 const NAV_TREE = readFileSync(AUTHED, 'utf8');
 const ROUTES = { 'fo-inbox': inboxRoute, 'fo-triage': triageRoute };
 
@@ -35,7 +35,7 @@ describe('VOC sidebar views', () => {
   });
 
   it('keeps the ko labels equal to the FeedbackOps glossary values', () => {
-    const glossary = readFileSync(fileURLToPath(new URL('../../../../products/feedbackops/apps/frontend/src/lib/copy/glossary.ts', import.meta.url)), 'utf8');
+    const glossary = readFileSync(fileURLToPath(new URL('../../../../apps/fo-frontend/src/lib/copy/glossary.ts', import.meta.url)), 'utf8');
     for (const { view } of VIEWS) expect(glossary, view.id).toContain(`'${view.label.ko}'`);
   });
 });

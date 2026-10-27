@@ -16,3 +16,33 @@ _site/
 # Pages demo captures
 _shots/
 .pnpm-store/
+
+# FeedbackOps (713p2): products/feedbackops/.gitignore의 경로 고정 항목 (앱이 apps/fo-*로 이동)
+# TanStack Router generated route tree
+apps/fo-frontend/src/routeTree.gen.ts
+# Pre-bundled Drizzle schema consumed by drizzle-kit (apps/fo-backend/scripts/bundle-schema.mjs)
+apps/fo-backend/.drizzle-schema/
+# Unanchored entries of the old file, kept at every depth under the FO apps and packages (the platform has its own rules)
+apps/fo-*/**/.vite
+apps/fo-*/**/report/
+apps/fo-*/**/coverage
+apps/fo-*/**/build
+apps/fo-*/**/*.log
+apps/fo-*/**/smoke-*.png
+apps/fo-*/**/visual-*.png
+packages/fo-*/**/.vite
+packages/fo-*/**/report/
+packages/fo-*/**/coverage
+packages/fo-*/**/build
+packages/fo-*/**/*.log
+# The bridge entry `@fops/frontend/operator-screens/coverage` (#762 c) is source, not a test-coverage report.
+!apps/fo-frontend/src/operator-screens/coverage/
+# .env files of the old file, at every depth under the FO apps and packages (.env.example stays tracked)
+apps/fo-*/**/.env
+apps/fo-*/**/.env.local
+apps/fo-*/**/.env.*.local
+apps/fo-*/**/.env.release
+packages/fo-*/**/.env
+packages/fo-*/**/.env.local
+packages/fo-*/**/.env.*.local
+packages/fo-*/**/.env.release

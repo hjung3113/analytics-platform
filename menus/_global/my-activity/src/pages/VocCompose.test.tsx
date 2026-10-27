@@ -8,7 +8,7 @@ import { json, registry, stubFetch, switchableAdapter, type Call } from '../fo/t
 import VocCompose from '@ap/fo-bridge/voc-compose-page';
 
 // ProseMirror refuses text in jsdom, so the editor is a textarea (FeedbackOps' own compose tests do the same). The path is the file `@fops/ui` resolves to.
-vi.mock('../../../../../products/feedbackops/packages/ui/src/index.ts', async importOriginal => ({
+vi.mock('../../../../../packages/fo-ui/src/index.ts', async importOriginal => ({
   ...(await importOriginal<Record<string, unknown>>()),
   RichEditor: ({ onChange }: { onChange: (doc: unknown) => void }) => (
     <textarea aria-label="상세 설명" onChange={e => onChange({ type: 'doc', content: e.target.value ? [{ type: 'paragraph', content: [{ type: 'text', text: e.target.value }] }] : [] })} />

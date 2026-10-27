@@ -1,0 +1,4 @@
+{
+  "tailwind": { "css": "../../apps/fo-frontend/src/styles.css" },
+  "aliases": { "ui": "./src" }
+}

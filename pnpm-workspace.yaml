@@ -8,8 +8,6 @@ packages:
   - menus/*/*
   - tooling/*
   - ops/*
-  - products/feedbackops/apps/*
-  - products/feedbackops/packages/*
 allowBuilds:
   "@biomejs/biome": true
   esbuild: true

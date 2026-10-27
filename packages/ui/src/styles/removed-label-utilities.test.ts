@@ -33,11 +33,13 @@ describe('removed platform label utilities (#210)', () => {
 
   it('no platform source uses a removed utility name', () => {
     const self = join(process.cwd(), 'src/styles/removed-label-utilities.test.ts');
-    // Token tests and generated theme names contain raw token names, not utility classes.
+    // Token tests and generated theme names contain raw token names, not utility classes
+    // (the FO token-fidelity test names FO-owned raw tokens).
     const allowed = new Set([
       self,
       join(process.cwd(), 'src/styles/tokens.test.ts'),
       join(process.cwd(), 'src/styles/__tests__/token-fidelity.test.ts'),
+      join(repo, 'packages/fo-ui/src/styles/__tests__/token-fidelity.test.ts'),
       join(process.cwd(), 'src/theme/tokens.generated.ts'),
     ]);
     const offenders = roots.flatMap(sources).filter(path => !allowed.has(path))

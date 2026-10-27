@@ -31,6 +31,9 @@ import { FO_BACKEND, FO_FRONTEND, FO_OPS, FO_SHARED, FO_UI, REPO_ROOT } from '..
 // map's constants, and messages print repository-relative paths.
 const ROOT = REPO_ROOT;
 const BACKEND_MODULES = `${FO_BACKEND}/src/modules`;
+// An app reaches its sibling app as `../../<folder>/…` (both live under apps/), so the pattern names the sibling by its
+// folder in the path map.
+const siblingImport = (dir) => new RegExp(`from\\s+['"]\\.\\./\\.\\./${basename(dir)}/`);
 const RULES = [
   {
     scope: FO_SHARED,
@@ -49,13 +52,13 @@ const RULES = [
   },
   {
     scope: FO_FRONTEND,
-    forbid: [/from\s+['"]@radix-ui\//, /from\s+['"]\.\.\/\.\.\/backend\//],
-    msg: 'apps/frontend must import primitives via @fops/ui, not @radix-ui/*; must not import apps/backend',
+    forbid: [/from\s+['"]@radix-ui\//, siblingImport(FO_BACKEND)],
+    msg: 'apps/frontend must import primitives via @fops/ui, not @radix-ui/*; must not import apps/fo-backend',
   },
   {
     scope: FO_BACKEND,
-    forbid: [/from\s+['"]@fops\/ui/, /from\s+['"]\.\.\/\.\.\/frontend\//],
-    msg: 'apps/backend must not import @fops/ui or apps/frontend',
+    forbid: [/from\s+['"]@fops\/ui/, siblingImport(FO_FRONTEND)],
+    msg: 'apps/backend must not import @fops/ui or apps/fo-frontend',
   },
   {
     scope: BACKEND_MODULES,

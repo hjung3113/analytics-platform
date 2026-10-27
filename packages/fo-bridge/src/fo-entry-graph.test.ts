@@ -8,8 +8,8 @@ import { describe, expect, it } from 'vitest';
  * What the bridge may reach inside FeedbackOps (platform ADR-0071): the entry's whole import graph (static, type,
  * re-export and dynamic specifiers) has no router, no login/session shell, no second network path. Source scan, no bundler.
  */
-const FO = fileURLToPath(new URL('../../../products/feedbackops', import.meta.url));
-const FRONTEND_SRC = join(FO, 'apps/frontend/src');
+const FO = fileURLToPath(new URL('../../..', import.meta.url));
+const FRONTEND_SRC = join(FO, 'apps/fo-frontend/src');
 const INBOX_PANEL_ENTRY = join(FRONTEND_SRC, 'global-screens/inbox-panel.ts');
 const ENTRIES = [join(FRONTEND_SRC, 'global-screens/index.ts'), join(FRONTEND_SRC, 'global-screens/core.ts'), INBOX_PANEL_ENTRY, join(FRONTEND_SRC, 'operator-screens/scope-picker/index.ts')];
 const DASHBOARD_ENTRY = join(FRONTEND_SRC, 'operator-screens/dashboard/index.ts');
@@ -17,8 +17,8 @@ const VOC_DETAIL_ENTRY = join(FRONTEND_SRC, 'operator-screens/voc-detail/index.t
 const TASK_DETAIL_ENTRY = join(FRONTEND_SRC, 'operator-screens/task-detail/index.ts');
 const FINDING_DETAIL_ENTRY = join(FRONTEND_SRC, 'operator-screens/finding-detail/index.ts');
 const PACKAGE_ENTRIES: Record<string, string> = {
-  '@fops/ui': join(FO, 'packages/ui/src/index.ts'),
-  '@fops/shared': join(FO, 'packages/shared/src/index.ts'),
+  '@fops/ui': join(FO, 'packages/fo-ui/src/index.ts'),
+  '@fops/shared': join(FO, 'packages/fo-shared/src/index.ts'),
 };
 const SPECIFIER = /(?:\bfrom\s*|\bimport\s*\(\s*|\bimport\s+)['"]([^'"]+)['"]/g;
 
@@ -113,7 +113,7 @@ describe('FeedbackOps bridge entry graph (ADR-0071)', () => {
   it('resolves every local import edge and walks past the package barrels', () => {
     expect(unresolved).toEqual([]);
     expect(files.size).toBeGreaterThan(60);
-    expect([...files.keys()].map(file => relative(FO, file))).toContain('packages/shared/src/notifications.ts');
+    expect([...files.keys()].map(file => relative(FO, file))).toContain('packages/fo-shared/src/notifications.ts');
   });
 
   it('imports no router', () => {
