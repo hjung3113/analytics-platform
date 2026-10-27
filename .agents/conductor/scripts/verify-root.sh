@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# 루트 검사를 순서대로 돌리고 단계마다 로그를 남긴다(PROFILE §Verify 2단계 · #1018 C3, O2).
+# Run the root checks in order and log each step (PROFILE §Verify, stage 2).
 #   verify-root.sh [--light] <log-dir>
-# 단계: lint → typecheck(잠금 없이) → test → build. test·build는 heavy.lock 아래에서 한 번에 묶어 돈다(with-lock.sh, purpose `verify-root foreground`. owner가 필요하니 Orca 밖에서는 WITH_LOCK_OWNER를 준다).
-# --light: lint·typecheck만 돌리고 heavy.lock을 잡지 않는다(Kernel·셸·공통 컴포넌트·mock 서버·apps/platform-web 조립을 건드리지 않는 노드, PROFILE §Verify).
-# 로그: <log-dir>/<step>.log — 전체 출력과 마지막 줄 `exit=<코드>`. 첫 실패에서 멈추고 그 단계의 코드를 종료 코드로 한다.
-# 끝에 단계마다 `step=<name> exit=<n> seconds=<s>`를 stdout에 출력한다.
-# 종료 코드: 0 통과 / 그 단계의 코드 / 3 capacity.sh가 start=no(잠금도 잡지 않고 이유 한 줄) / 75 heavy.lock이 이미 잡혀 있음(자식 test·build가 75를 내도 같은 값이라 구분되지 않는다) / 2 owner(ORCA_TERMINAL_HANDLE·WITH_LOCK_OWNER) 없음 / 64 인자 오류.
-# 워커 수·--concurrency는 넣지 않는다: turbo.json의 concurrency와 ~/.zshenv의 vitest 상한이 정한다. 필터(--filter='!@fops/*')는 루트 package.json 스크립트가 이미 갖고 있다.
+# Steps: lint → typecheck (without a lock) → test → build. Run test and build together under heavy.lock (with-lock.sh, purpose `verify-root foreground`; an owner is required, so set WITH_LOCK_OWNER outside Orca).
+# --light: run lint and typecheck only; do not acquire heavy.lock (for nodes that do not touch Kernel, shell, shared components, mock server, or apps/platform-web assembly; PROFILE §Verify).
+# Logs: <log-dir>/<step>.log — full output and final line `exit=<code>`. Stop at the first failure and return that step's code.
+# At the end, print `step=<name> exit=<n> seconds=<s>` to stdout for each step.
+# Exit codes: 0 success / that step's code / 3 if capacity.sh returns start=no (no lock is acquired; one-line reason) / 75 if heavy.lock is already held (the same value is returned if child test or build returns 75) / 2 if owner (ORCA_TERMINAL_HANDLE or WITH_LOCK_OWNER) is missing / 64 for invalid arguments.
+# Do not pass a worker count or --concurrency: turbo.json concurrency and the ~/.zshenv Vitest cap define them. The root package.json scripts already apply --filter='!@fops/*'.
 set -u
 
 light=0
@@ -15,11 +15,11 @@ if [ "${1:-}" = "--light" ]; then light=1; shift; fi
 logdir=$1
 mkdir -p "$logdir" || exit 64
 here=$(cd "$(dirname "$0")" && pwd)
-logdir=$(cd "$logdir" && pwd) || exit 64  # 절대 경로로 바꾼 뒤 저장소 루트로 이동한다
-cd "$(git rev-parse --show-toplevel)" || exit 64  # 하위 폴더에서 불러도 루트 검사를 돌린다
+logdir=$(cd "$logdir" && pwd) || exit 64  # Convert to an absolute path before changing to the repository root.
+cd "$(git rev-parse --show-toplevel)" || exit 64  # Run root checks even when invoked from a subdirectory.
 
 summary=""
-run_step() { # run_step <name> <command...> — 종료 코드를 그대로 돌려주고 로그·요약을 남긴다
+run_step() { # run_step <name> <command...> — return the exit code and record the log and summary.
   name=$1; shift
   start=$(date +%s)
   "$@" >"$logdir/$name.log" 2>&1
@@ -40,7 +40,7 @@ case "$cap" in
   *"start=no"*) echo "verify-root: capacity start=no — ${cap}" ; printf '%s' "$summary"; exit 3 ;;
 esac
 
-test_build() { # test → build를 한 잠금 안에서 이어 돌린다. 요약은 서브셸이라 파일로 넘긴다
+test_build() { # Run test → build under one lock. The subshell summary is passed through a file.
   for s in test build; do
     st=$(date +%s)
     pnpm "$s" >"$logdir/$s.log" 2>&1
@@ -56,5 +56,5 @@ bash "$here/with-lock.sh" heavy.lock "verify-root foreground" -- bash -c "$(decl
 rc=$?
 [ -s "$logdir/.tb-summary" ] && summary="${summary}$(cat "$logdir/.tb-summary")
 "
-[ "$rc" -eq 75 ] && echo "verify-root: heavy.lock이 이미 잡혀 있다" >&2
+[ "$rc" -eq 75 ] && echo "verify-root: heavy.lock is already held" >&2
 finish $rc

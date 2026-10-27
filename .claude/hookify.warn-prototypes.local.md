@@ -9,4 +9,4 @@ conditions:
     pattern: (^|/)archive/
 ---
 
-`archive/`는 통합 전 Kernel 프로토타입 보존 폴더다. 새 기능을 넣지 않는다(`archive/AGENTS.md`).
+`archive/` preserves pre-integration Kernel prototypes. Do not add new features (`archive/AGENTS.md`).

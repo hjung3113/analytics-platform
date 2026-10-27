@@ -1,11 +1,11 @@
-## analytics-platform 부록 (AP addendum)
+## analytics-platform addendum (AP addendum)
 
-- 기준 ref: `origin/main` (`git diff origin/main...HEAD`).
-- 코디네이터가 돌린 검사(패키지·루트 검사, E2E, 변이 검사)와 화면 증거는 `.review/W-<n>-VERIFY.md`에 있다.
-- 작업 파일에 성능 관점(perf)이 있으면 조회 횟수·불필요한 재조회·재렌더링·번들 크기 변화도 본다.
-- **계약·테스트 관점**: 건드린 06 계약(URL·Context·권한·Scope·조회 수명주기·메뉴 간 연결)과 관련 ADR을 따라가 본다.
-- **아키텍처 관점**: 의존 방향(`contracts → ui/kernel → components → shell → apps`), Kernel·공통 컴포넌트가 메뉴와 mock을 모르는지, 공통화 기준(06 §24 — 소비자 2–3곳), FeedbackOps primitive는 `@ap/ui`로만.
-- **측정·관찰 코드**: DOM 읽기가 `setState` updater 안에 있지 않은지, `MutationObserver`·`ResizeObserver`의 범위가 자기 행 영역을 빼고 필요한 만큼인지 먼저 본다(#384 — 본문 전체 subtree 관찰이 가상 행 스크롤마다 반응했다).
-- UI(UX 리뷰가 없을 때만): 레이아웃·위계·한국어 화면 문구·접근성(이름, 포커스, 키보드)·`DESIGN.md`와 이웃 화면과의 일관성.
-- 보고 기준의 AP 표기: `fix size: <파일>, ≈<줄>`과 `사용자 결정 필요: 예/아니오`(공통의 `owner decision needed`와 같은 뜻).
-- 보고서: 지적이 없으면 없다고 쓴다. 지적 칸은 `수정안` 포함.
+- Base ref: `origin/main` (`git diff origin/main...HEAD`).
+- Coordinator-run checks (package and root checks, E2E, mutation checks) and screen evidence are in `.review/W-<n>-VERIFY.md`.
+- If the task file includes a performance (`perf`) perspective, inspect query counts, unnecessary refetches, rerenders, and bundle-size changes.
+- **Contract and test perspective**: Follow the touched section 06 contracts (URL, Context, permissions, Scope, query lifecycle, cross-menu links) and related ADRs.
+- **Architecture perspective**: Check dependency direction (`contracts → ui/kernel → components → shell → apps`), that Kernel and shared components do not know about menus or mock, the commonization threshold (06 §24 — 2–3 consumers), and that FeedbackOps primitives use only `@ap/ui`.
+- **Measurement and observation code**: Check that DOM reads are outside `setState` updaters and that `MutationObserver` and `ResizeObserver` cover only the necessary area, excluding their own row's area, to avoid unnecessary triggers during virtual-row scrolling.
+- UI (only when there is no UX review): Check layout, hierarchy, Korean UI copy, accessibility (names, focus, keyboard), and consistency with `DESIGN.md` and neighboring screens.
+- AP report notation: `fix size: <file>, ≈<lines>` and `owner decision needed: yes/no`.
+- Report: State explicitly when there are no findings. Include `proposal` in the findings column.
