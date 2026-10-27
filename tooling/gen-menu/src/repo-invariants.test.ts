@@ -12,10 +12,11 @@ describe('CODEOWNERS menu folders', () => {
 
   it('requires an explicit entry for each group even when the system is covered', () => {
     expect(() => checkCodeowners(folders, owners)).not.toThrow();
+    expect(() => checkCodeowners(folders, owners.replace('/menus/mars/analytics/', 'menus/mars/analytics/'))).not.toThrow();
     expect(() => checkCodeowners(folders, owners.replace('/menus/mars/analytics/ @hjung3113\n', '# /menus/mars/analytics/ @hjung3113\n'))).toThrow(/menus\/mars\/analytics/);
   });
 
-  it.each(['/menus/mars/missing/', '/menus/missing/'])('rejects a nonexistent menu folder %s', path => {
+  it.each(['/menus/mars/missing/', '/menus/missing/', 'menus/mars/missing/', 'menus/missing/'])('rejects a nonexistent menu folder %s', path => {
     expect(() => checkCodeowners(folders, `${owners}${path} @hjung3113\n`)).toThrow(/nonexistent/);
   });
 });

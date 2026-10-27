@@ -69,7 +69,8 @@ const toBinding = (folder: string): string => folder.replace(/-([a-z0-9])/g, (_,
 /** Require explicit group entries and reject menu directory entries without a matching folder. */
 export function checkCodeowners(folders: string[], codeowners: string, systems = [...new Set(folders.map(f => f.split('/')[0]))]): void {
   const paths = codeowners.split(/\r?\n/).map(line => line.trim()).filter(line => line !== '' && !line.startsWith('#'))
-    .map(line => line.split(/\s+/)[0]);
+    .map(line => line.split(/\s+/)[0])
+    .map(path => path.startsWith('menus/') ? `/${path}` : path);
   const existing = new Set([...systems.map(system => `/menus/${system}/`), ...folders.map(folder => `/menus/${folder}/`)]);
   for (const path of paths) {
     if (path.startsWith('/menus/') && !existing.has(path)) throw new Error(`CODEOWNERS points to nonexistent menu folder: ${path}`);
