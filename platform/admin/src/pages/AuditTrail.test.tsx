@@ -188,11 +188,32 @@ describe('AuditTrail text filters (issue #50 review)', () => {
   });
 
   it('a single bad key outside the time fields quotes the field and raw value and adds no cause line', () => {
-    renderAudit('/admin/audit?type=bogus');
+    renderAudit('/admin/audit?type=9bogus');
     const alert = screen.getByRole('alert');
-    expect([...alert.querySelectorAll('p')].map(p => p.textContent)).toEqual(['대상 유형 “bogus”은 이 화면에서 쓸 수 없는 값입니다. 조건을 초기화하세요.']);
+    expect([...alert.querySelectorAll('p')].map(p => p.textContent)).toEqual(['대상 유형 “9bogus”은 이 화면에서 쓸 수 없는 값입니다. 조건을 초기화하세요.']);
     expect(alert.textContent).toContain('필터 값이 올바르지 않습니다');
     expect(alert.textContent).not.toContain('필터 값이 잘못되었습니다.');
+  });
+
+  it('a well-formed unknown type queries the adapter as written and keeps a raw option instead of selecting All', async () => {
+    const f = renderAudit('/admin/audit?type=Future.Type%3Av2&targetId=abc');
+    await waitFor(() => expect(f.calls[0]).toMatchObject({ type: 'Future.Type:v2', targetId: 'abc' }));
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(typeSelect().textContent).toContain('Future.Type:v2');
+    expect(typeSelect().textContent).not.toMatch(/^(전체|All)$/);
+    expect(new URLSearchParams(window.location.search).get('type')).toBe('Future.Type:v2');
+  });
+
+  it('a known real type shows its declared label and queries with the raw wire value', async () => {
+    const f = renderAudit('/admin/audit?type=voc');
+    await waitFor(() => expect(f.calls[0]).toMatchObject({ type: 'voc' }));
+    expect(typeSelect().textContent).not.toContain('voc');
+  });
+
+  it('a malformed type alerts and never issues an All query', async () => {
+    const f = renderAudit('/admin/audit?type=bad%20type');
+    expect(screen.getByRole('alert')).toBeTruthy();
+    expect(f.calls).toHaveLength(0);
   });
 
   it('a target id without a type keeps its cause sentence under the filter title', () => {
@@ -502,7 +523,7 @@ describe('AuditTrail draft + apply (ADR-0037)', () => {
   });
 
   it('a filter key error wins over a bad sort, and its 필터 초기화 leaves focus off BODY', () => {
-    renderAudit('/admin/audit?type=bogus&sort=nope');
+    renderAudit('/admin/audit?type=9bogus&sort=nope');
     const alert = screen.getByRole('alert');
     expect(screen.getAllByRole('alert')).toHaveLength(1);
     expect(within(alert).queryByRole('button', { name: '초기화' })).toBeNull();

@@ -25,6 +25,15 @@ describe('parseAuditKeys (#50 page keys)', () => {
     expect(parseAuditKeys(keys({ type: 'annotation', action: 'delete' }))).toMatchObject({ ok: true, filters: { type: 'annotation', action: 'delete' } });
   });
 
+  it.each(['equipment', 'voc', 'managed_system', 'Future.Type:v2-x', 'a'.repeat(80)])('accepts the opaque target type %s unchanged', type => {
+    expect(parseAuditKeys(keys({ type }))).toMatchObject({ ok: true, filters: { type } });
+  });
+
+  it('accepts targetId with a type and still rejects targetId alone', () => {
+    expect(parseAuditKeys(keys({ type: 'voc', targetId: '0b1c2d3e-0000-4000-8000-000000000001' }))).toMatchObject({ ok: true });
+    expect(auditKeyProblem(keys({ targetId: 'x' }))).toEqual({ key: 'targetId', reason: 'needs-type' });
+  });
+
   it.each<[string, { fromAt?: string; toAt?: string }, 'fromAt' | 'toAt']>([
     ['fromAt only', { fromAt: '2026-09-20T02:00:00.000Z' }, 'fromAt'],
     ['toAt only', { toAt: '2026-09-26T02:00:00.000Z' }, 'toAt'],
@@ -40,7 +49,13 @@ describe('parseAuditKeys (#50 page keys)', () => {
     ['naive instant', keys({ fromAt: '2026-09-20T02:00:00', toAt: '2026-09-26T02:00:00.000Z' })],
     ['fromAt at or after toAt', keys({ fromAt: '2026-09-26T02:00:00.000Z', toAt: '2026-09-20T02:00:00.000Z' })],
     ['fromAt equal to toAt', keys({ fromAt: '2026-09-26T02:00:00.000Z', toAt: '2026-09-26T02:00:00.000Z' })],
-    ['unknown type', keys({ type: 'nope' })],
+    ['type with a leading digit', keys({ type: '1voc' })],
+    ['empty type', keys({ type: '' })],
+    ['type with a space', keys({ type: 'voc x' })],
+    ['type with an ampersand', keys({ type: 'voc&x' })],
+    ['type with a hash', keys({ type: 'voc#x' })],
+    ['type over 80 chars', keys({ type: 'a'.repeat(81) })],
+    ['non-ASCII type', keys({ type: 'vocé' })],
     ['unknown action', keys({ action: 'purge' })],
     ['unknown source', keys({ source: 'cron' })],
     ['empty actor', keys({ actor: '' })],

@@ -97,6 +97,32 @@ test.describe('관리 레이아웃 필터 레일 (06 §12.6, ADR-0022)', () => {
     expect(query(page).has('actor')).toBe(false);
     await evidence(page, testInfo, 'management-audit-seven-filters');
   });
+
+  test('감사 대상 유형 필터는 알 수 없는 형식 유효 값을 유지하고 잘못된 값은 전체 조회로 넓히지 않는다 (#1091)', async ({ page }) => {
+    await signInAs(page, 'admin');
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const rail = page.getByRole('region', { name: '필터', exact: true });
+    const table = page.getByLabel('스크롤 가능한 행 영역', { exact: true }).getByRole('table');
+    const empty = page.getByText('조건에 맞는 결과가 없습니다');
+    // Positive control: the unfiltered query has rows, so an empty result below is caused by the type filter.
+    await page.goto('/operations/admin-audit');
+    await expect(table.getByRole('row').filter({ has: page.getByRole('link', { name: /상세$/ }) }).first()).toBeVisible();
+    await expect(empty).toHaveCount(0);
+    await page.goto('/operations/admin-audit?type=Future.Type%3Av2');
+    await expect(rail.getByRole('combobox', { name: '대상 유형' })).toContainText('Future.Type:v2');
+    await expect(empty).toBeVisible();
+    await expect(table).toHaveCount(0);
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    await page.reload();
+    await expect(rail.getByRole('combobox', { name: '대상 유형' })).toContainText('Future.Type:v2');
+    await expect(empty).toBeVisible();
+    await expect(table).toHaveCount(0);
+    expect(query(page).get('type')).toBe('Future.Type:v2');
+    await page.goto('/operations/admin-audit?type=9bad');
+    await expect(page.getByRole('alert')).toBeVisible();
+    await expect(table).toHaveCount(0);
+    await expect(empty).toHaveCount(0);
+  });
 });
 
 test.describe('PageFilterBar page-key 계약 (#54)', () => {

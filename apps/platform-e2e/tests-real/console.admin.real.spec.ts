@@ -42,8 +42,8 @@ test.describe('운영 콘솔 실서버 (06 §4·§9.1·§17)', () => {
     await evidence(page, testInfo, 'real-audit-empty');
   });
 
-  // Known contract defect #1091: the console accepts equipment/metric/annotation target types, the FeedbackOps backend only its own, so `type=equipment` ends in `Invalid audit filter`.
-  test.fixme('대상 유형 필터는 존재하지 않는 대상을 명시적 빈 결과로 보여준다 (#1091)', async ({ page }, testInfo) => {
+  // #1091 (ADR-0101): the type filter is an opaque token, so the console's own sample type is a normal zero on the real backend.
+  test('대상 유형 필터는 존재하지 않는 대상을 명시적 빈 결과로 보여준다 (#1091)', async ({ page }, testInfo) => {
     const targetId = randomUUID();
     const search = waitForAuditSearch(page, { type: 'equipment', targetId });
     await page.goto(`/operations/admin-audit?type=equipment&targetId=${targetId}`);
@@ -53,6 +53,25 @@ test.describe('운영 콘솔 실서버 (06 §4·§9.1·§17)', () => {
     await expect(mainHeading(page)).toHaveText('변경 감사');
     await expect(page.getByRole('main').getByText('조건에 맞는 결과가 없습니다')).toBeVisible();
     await evidence(page, testInfo, 'real-audit-target-empty');
+  });
+
+  test('실제 대상 유형 voc 필터는 잘못된 필터 오류 없이 답한다 (#1091)', async ({ page }, testInfo) => {
+    const search = waitForAuditSearch(page, { type: 'voc' });
+    await page.goto('/operations/admin-audit?type=voc');
+    const response = await search;
+    expect(response.status(), 'audit-trail search must return HTTP 200 for type=voc').toBe(200);
+    expect(['ok', 'empty'], 'type=voc is a valid filter: ok or empty, never error').toContain(((await response.json()) as { outcome?: string }).outcome);
+    await expect(mainHeading(page)).toHaveText('변경 감사');
+    await expect(page.getByText('Invalid audit filter')).toHaveCount(0);
+    await evidence(page, testInfo, 'real-audit-voc');
+  });
+
+  test('형식이 맞는 알 수 없는 대상 유형은 URL에 남고 빈 결과로 답한다 (#1091)', async ({ page }) => {
+    const search = waitForAuditSearch(page, { type: 'Future.Type:v2' });
+    await page.goto('/operations/admin-audit?type=Future.Type%3Av2');
+    expect(((await (await search).json()) as { outcome?: unknown }).outcome).toBe('empty');
+    await expect(page.getByRole('main').getByText('조건에 맞는 결과가 없습니다')).toBeVisible();
+    expect(new URL(page.url()).searchParams.get('type')).toBe('Future.Type:v2');
   });
 
   test('직접 URL에서 장비 메뉴 선언의 경로와 권한을 읽는다', async ({ page }, testInfo) => {

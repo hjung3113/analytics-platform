@@ -109,6 +109,7 @@
 
 | [0097](0097-platform-features-and-role-based-names.md) | FeedbackOps 제품·독립 앱·공간·인프라 이름을 제거하고 역할 이름으로 통합한다. `platform/<feature>/`는 Consumer 층, 옛 주소·SDK·권한 별칭 없음, migration 이력 원문 유지 | Decided(2026-10-28, 사용자; 세부 대응값은 코디네이터 위임·되돌릴 수 있음) — #1097. 0031·0045·0046 규칙 8·0066·0071·0073 규칙 11·0081·0090·0093 부분 대체; 구현 #597·#1098–#1102 |
 | [0098](0098-adapter-preferences-people-notices-ports.md) | PlatformAdapter에 사용자 설정(키 패치·1회 원자 가져오기)·사람 정확 조회·공지 관리 포트를 더하고 `defaultRangeTo`를 `string \| null`로 넓힌다. 스키마 원본 경계는 ADR-0097을 따른다 | Decided(2026-10-28, 사용자 #1096; 세부 설계는 팀장 위임·되돌릴 수 있음) — #1103. 서버 #1104·#1105·#1106 |
+| [0101](0101-opaque-audit-target-filter.md) | `auditTrail`의 `type` 필터는 불투명 ASCII 토큰(`[A-Za-z][A-Za-z0-9_.:-]{0,79}`)이다. 형식 맞는 미지 유형은 `empty`, 틀리면 `error`. 공개는 기존 SQL 투영만 결정한다 | Decided(2026-10-29, 팀장 위임·되돌릴 수 있음) — #1091 |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 

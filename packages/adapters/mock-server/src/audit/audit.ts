@@ -27,6 +27,10 @@ const AUDIT_SORT_FIELDS = ['at', 'actor', 'action', 'source', 'targetType'] as c
 /** Declared wire keys (issue #50) — anything else a client sends is an unknown key, not a silent no-op. */
 const AUDIT_QUERY_KEYS = ['type', 'actor', 'action', 'source', 'fromAt', 'toAt', 'targetId', 'page', 'pageSize', 'sort'] as const;
 
+/** Opaque, case-sensitive subject-type token for the `type` FILTER (ADR-0101); `AUDIT_TYPES` stays the seed-registration list (ADR-0048). Keep in lockstep
+ *  with the console (`platform/admin/src/audit-query.ts`) and server (`apps/platform-api/.../audit-query.ts`) copies. */
+const AUDIT_TYPE_TOKEN = /^[A-Za-z][A-Za-z0-9_.:-]{0,79}$/;
+
 /** True when the filter text is not a plain search token: empty, over 80 chars, or URL/whitespace-bearing. */
 function invalidFilterText(value: unknown): boolean {
   return typeof value !== 'string' || !value || value.length > 80 || /[?#&\s]/.test(value);
@@ -39,7 +43,7 @@ function invalidFilterText(value: unknown): boolean {
  */
 function invalidAuditQuery(query: AuditTrailQuery): boolean {
   if (Object.keys(query).some(key => !(AUDIT_QUERY_KEYS as readonly string[]).includes(key))) return true;
-  if (query.type !== undefined && (typeof query.type !== 'string' || !AUDIT_TYPES.includes(query.type))) return true;
+  if (query.type !== undefined && (typeof query.type !== 'string' || !AUDIT_TYPE_TOKEN.test(query.type))) return true;
   if (query.action !== undefined && !AUDIT_ACTIONS.includes(query.action)) return true;
   if (query.source !== undefined && !AUDIT_SOURCES.includes(query.source)) return true;
   if (query.actor !== undefined && invalidFilterText(query.actor)) return true;

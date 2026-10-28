@@ -295,7 +295,14 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
         trust: breaks.has('entity-audit-trust') ? { ...REF_TRUST, coverage: '98%' as unknown as number | null } : null,
       };
     },
-    auditTrail: async () => {
+    auditTrail: async query => {
+      // ADR-0101: `type` is an opaque token — a well-formed one nobody wrote is a zero (`empty`), a malformed one is `error`.
+      // 'console-auditTrail-type-rejected' rejects a well-formed unknown type; 'console-auditTrail-malformed-widened' widens a malformed one.
+      if (state.console && query.type !== undefined) {
+        const wellFormed = /^[A-Za-z][A-Za-z0-9_.:-]{0,79}$/.test(query.type);
+        if (!wellFormed) return breaks.has('console-auditTrail-malformed-widened') ? consoleGate('auditTrail', { items: [REF_EVENT], total: 1 }) : err('Invalid audit filter');
+        return breaks.has('console-auditTrail-type-rejected') ? err('Invalid audit filter') : { ...envelope, outcome: 'empty' as const, data: null };
+      }
       // adapter.ts zero rule: a zero is outcome `empty`. 'console-auditTrail-empty' empties the audit store
       // (still conforming); 'console-auditTrail-ok-zero' answers ok with an empty page — the kit must refuse it.
       if (breaks.has('console-auditTrail-ok-zero')) return consoleGate('auditTrail', { items: [], total: 0 });
@@ -769,6 +776,7 @@ describe('server conformance kit (#145)', () => {
       'port · accessDirectory without console:access → forbidden',
       'port · usageSummary as a console actor → ok',
       'port · usageSummary without console:access → forbidden',
+      'port · auditTrail type filter: well-formed unknown → empty, malformed → error',
       'port · accessDirectory is not mart data: no assessments, null trust',
       'port · saveAnnotation then listAnnotations at the same site returns the note',
       'port · a note saved at one site is not listed at another',
@@ -942,6 +950,8 @@ describe('server conformance kit (#145)', () => {
     // adapter.ts zero rule: ok with an empty page is a violation (a zero is outcome empty).
     ['console-auditTrail-ok-zero', 'port · auditTrail as a console actor → ok'],
     ['console-accessDirectory-ok', 'port · accessDirectory as a console actor → ok'],
+    ['console-auditTrail-type-rejected', 'port · auditTrail type filter: well-formed unknown → empty, malformed → error'],
+    ['console-auditTrail-malformed-widened', 'port · auditTrail type filter: well-formed unknown → empty, malformed → error'],
     ['console-auditTrail-permission', 'port · auditTrail without console:access → forbidden'],
     ['console-accessDirectory-permission', 'port · accessDirectory without console:access → forbidden'],
     ['console-usageSummary-permission', 'port · usageSummary without console:access → forbidden'],
