@@ -1,6 +1,7 @@
 import { apiResponseSchema, assessmentKindSchema, assessmentSchema, outcomeSchema, trustSchema } from './response.ts';
 import { endpointDeclarationSchema, menuQueryContextSchema, menuQuerySchema } from './menu-query.ts';
 import * as ports from './service-ports.ts';
+import * as views from './saved-view-commands.ts';
 import { z } from 'zod/v4';
 
 export { apiResponseSchema, assessmentKindSchema, assessmentSchema, outcomeSchema, trustSchema } from './response.ts';
@@ -27,6 +28,24 @@ export {
   jsonBytes,
 } from './service-ports.ts';
 export type { JsonValue } from './service-ports.ts';
+export {
+  SAVED_VIEW_COMMAND_MAX_BYTES,
+  SAVED_VIEW_COMMAND_MAX_DEPTH,
+  SAVED_VIEW_COMMAND_VERSION,
+  SAVED_VIEW_IMPORT_ROWS_MAX,
+  SAVED_VIEW_TOKEN_MAX,
+  isForbiddenSavedViewWireKey,
+  savedViewCommandSchema,
+  savedViewDraftSchema,
+  savedViewEntrySchema,
+  savedViewImportOutcomeSchema,
+  savedViewListItemSchema,
+  savedViewPatchSchema,
+  savedViewResponseSchemas,
+  savedViewSchema,
+  viewVisibilitySchema,
+} from './saved-view-commands.ts';
+export type { SavedViewCommand, SavedViewOp } from './saved-view-commands.ts';
 export { schemaFileText, toJsonSchema } from './export.ts';
 
 /**
@@ -56,4 +75,12 @@ export const SCHEMA_FILES: Readonly<Record<string, z.ZodType>> = {
   updateNoticeInput: ports.updateNoticeInputSchema,
   saveNoticeInput: ports.saveNoticeInputSchema,
   deleteNoticeInput: ports.deleteNoticeInputSchema,
+  savedViewCommand: views.savedViewCommandSchema,
+  savedViewDraft: views.savedViewDraftSchema,
+  savedViewPatch: views.savedViewPatchSchema,
+  viewVisibility: views.viewVisibilitySchema,
+  savedView: views.savedViewSchema,
+  savedViewEntry: views.savedViewEntrySchema,
+  savedViewListItem: views.savedViewListItemSchema,
+  savedViewImportOutcome: views.savedViewImportOutcomeSchema,
 };

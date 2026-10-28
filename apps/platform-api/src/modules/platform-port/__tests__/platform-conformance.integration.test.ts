@@ -57,6 +57,7 @@ const IMPLEMENTED: readonly PortMethod[] = [
   'readPreferences',
   'patchPreferences',
   'importPreferences',
+  'lookupPeople',
 ];
 
 /**
@@ -202,6 +203,8 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
   // The kit plans its checks when this file is collected, before beforeAll: the destination sample
   // is this object, and its id is filled in once the fixture Finding exists.
   const findingRef = { type: 'finding', id: '', scopeId: null };
+  // The granted actor's id, set once it is signed in; ports.visiblePersonId reads it at run time.
+  let grantedPersonId: string | undefined;
 
   async function signIn(account: Account, roleLevel: Role): Promise<string> {
     const externalId = `${PREFIX}-${account}-${n++}`;
@@ -258,6 +261,7 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
     // plain: a user with no grant → no features:access, the Finding is not readable.
     // console: admin → workspace.admin → console:access.
     const grantedId = await signIn('granted', 'developer');
+    grantedPersonId = grantedId;
     await signIn('plain', 'user');
     const adminId = await signIn('console', 'admin');
     await signIn('otherAnnotator', 'developer');
@@ -400,6 +404,11 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
         name: 'TypeError',
       },
       otherGrantedScopeId: 'no-second-site',
+      // The granted session's own person: visible to itself (the kit allows it), a real actor row in
+      // its workspace. A getter, because the kit plans checks before beforeAll signs the actor in.
+      get visiblePersonId() {
+        return grantedPersonId;
+      },
     },
     asGranted: (fn) => as('granted', fn),
     // The kit removes the entity permission and console:access; the granted developer holds no

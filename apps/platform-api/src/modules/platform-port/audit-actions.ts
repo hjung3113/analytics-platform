@@ -103,4 +103,12 @@ export const AUDIT_ACTION_BY_EVENT_TYPE: Record<AuditEventType, PlatformAuditAct
   voc_cluster_suggestion_confirmed: 'update',
   voc_cluster_suggestion_discarded: 'update',
   voc_cluster_suggestion_restored: 'update',
+  saved_view_official_requested: 'create',
+  saved_view_official_approved: 'update',
+  saved_view_official_rejected: 'update',
+  saved_view_official_revoked: 'retire',
+  saved_view_visibility_changed: 'update',
+  saved_view_group_created: 'create',
+  saved_view_group_updated: 'update',
+  saved_view_import_submitted: 'create',
 };

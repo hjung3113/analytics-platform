@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "results": {
+      "type": "array",
+      "items": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "legacyKey": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "imported",
+                  "already_imported"
+                ]
+              },
+              "id": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "legacyKey",
+              "status",
+              "id"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "legacyKey": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "const": "rejected"
+              },
+              "reason": {
+                "type": "string",
+                "enum": [
+                  "invalid",
+                  "forbidden",
+                  "unavailable"
+                ]
+              },
+              "detail": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "legacyKey",
+              "status",
+              "reason"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "defaults": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "object",
+            "properties": {
+              "menuId": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "menuId"
+            ],
+            "additionalProperties": false
+          },
+          "legacyKey": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "key",
+          "legacyKey",
+          "id"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "results",
+    "defaults"
+  ],
+  "additionalProperties": false
+}
