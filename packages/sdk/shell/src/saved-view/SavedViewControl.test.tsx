@@ -1,6 +1,7 @@
 import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { House } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { groupId, spaceId, type SavedViewSupport } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, diagnoseSavedView, useSavedViewSupport } from '@ap/kernel';
@@ -464,5 +465,102 @@ describe('store writes of the shell go through the hook and never reject', () =>
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(store.calls.filter(c => c === 'save')).toHaveLength(1);
     expect([...store.rows.values()][0]?.visibility).toEqual({ kind: 'groups', groupIds: ['g1'] });
+  });
+});
+
+// C1 (FIX1): a write that finishes after the user, the menu or the screen changed must not reach the new surface or the surviving Provider's toast.
+describe('late shell completions after the surface changed (C1)', () => {
+  let hideSurface: (hidden: boolean) => void = () => {};
+  function Gate({ children }: { children: ReactNode }) { const [hidden, setHidden] = useState(false); hideSurface = setHidden; return hidden ? null : <>{children}</>; }
+  function mountLive(store: FakeViewStore, url: string) {
+    window.history.replaceState(null, '', `/${url.replace(/^\//, '')}`);
+    let current = session;
+    const listeners = new Set<() => void>();
+    const adapter = testAdapter({ session: () => current, subscribe: l => { listeners.add(l); return () => { listeners.delete(l); }; } });
+    render(<I18nProvider><PlatformProvider registry={registry} adapter={adapter} savedViews={store}><Probe /><Gate><GlobalContextBar /></Gate><ToastProbe /></PlatformProvider></I18nProvider>);
+    const leave = {
+      user: () => { current = testSession(['platform:view'], { user: { id: 'u2', name: 'u2' } }); act(() => listeners.forEach(l => l())); },
+      revision: () => { act(() => listeners.forEach(l => l())); },
+      menu: () => { act(() => { platform.navigate(`/live?scopeId=MEM&${period}`); }); },
+      unmount: () => { act(() => hideSurface(true)); },
+    };
+    return leave;
+  }
+  const gateOf = () => { let release: () => void = () => {}; const promise = new Promise<void>(resolve => { release = resolve; }); return { promise, release }; };
+  const migrating = { ...baseSupport, menuSchemaVersion: 2 };
+
+  it.each(['user', 'menu', 'unmount'] as const)('shows no migration toast of the previous view when the %s changed meanwhile', async how => {
+    const user = userEvent.setup();
+    support = { ...migrating, migrate: (_from, view) => ({ ok: true, view: { ...view, menuSchemaVersion: 2 }, preview: [{ key: 'menuSchemaVersion', before: 1, after: 2 }] }) };
+    const store = createFakeViewStore([{ ...L1, name: '이전 뷰' } as never]);
+    const hold = gateOf();
+    const real = store.update;
+    store.update = async (...args) => { await hold.promise; return real(...args); };
+    const leave = mountLive(store, `/?scopeId=MEM&${period}`);
+    await user.click(await screen.findByRole('button', { name: /^저장된 뷰:/ }));
+    await user.click(await screen.findByRole('button', { name: '뷰 관리' }));
+    const dialog = await screen.findByRole('dialog', { name: '뷰 관리' });
+    await user.click(within(dialog).getByRole('radio', { name: /낡음·권한 부족/ }));
+    await user.click(within(dialog).getAllByRole('button', { name: /이전 뷰/ })[0]!);
+    await user.click(await within(dialog).findByRole('button', { name: '미리 본 내용으로 갱신' }));
+    leave[how]();
+    await act(async () => { hold.release(); });
+    await act(async () => {});
+    expect(toasts().join(' ')).not.toContain('이전 뷰');
+    expect(toasts().join(' ')).not.toContain('지금은 저장할 수 없습니다');
+  });
+
+  it.each([['user', 'ok'], ['user', 'refused'], ['revision', 'refused'], ['unmount', 'ok']] as const)('keeps a late share answer after %s changed (%s) away from the new surface', async (how, outcome) => {
+    const user = userEvent.setup();
+    const store = createFakeViewStore([]);
+    store.groups = GROUPS;
+    const hold = gateOf();
+    const real = store.setVisibility;
+    let sent = false;
+    store.setVisibility = async (...args) => { sent = true; await hold.promise; return outcome === 'ok' ? real(...args) : { ok: false as const, reason: 'forbidden' as const }; };
+    const leave = mountLive(store, `/?scopeId=MEM&${period}&roomNames=PHOTO`);
+    const picker = await startShare(user);
+    await user.click(within(picker).getByRole('button', { name: '공유 대상 저장' }));
+    await waitFor(() => expect(sent).toBe(true));
+    leave[how]();
+    await act(async () => { hold.release(); });
+    await act(async () => {});
+    expect(toasts().join(' ')).not.toContain('공유 뷰');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it.each(['user', 'revision'] as const)('does not merge a group created before the %s changed into the new surface', async how => {
+    const user = userEvent.setup();
+    const store = createFakeViewStore([]);
+    store.groups = GROUPS;
+    const hold = gateOf();
+    const real = store.createGroup;
+    let sent = false;
+    store.createGroup = async input => { sent = true; await hold.promise; return real(input); };
+    const leave = mountLive(store, `/?scopeId=MEM&${period}&roomNames=PHOTO`);
+    const picker = await startShare(user);
+    await user.click(within(picker).getByRole('button', { name: '새 그룹 만들기' }));
+    await user.type(screen.getByLabelText('그룹 이름'), '이전 사용자 그룹');
+    await user.click(screen.getByRole('button', { name: '그룹 만들기' }));
+    await waitFor(() => expect(sent).toBe(true));
+    leave[how]();
+    await act(async () => { hold.release(); });
+    await act(async () => {});
+    expect(screen.queryByText(/이전 사용자 그룹/)).toBeNull();
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it.each(['user', 'revision'] as const)('does not carry groups read before the %s changed into the new surface', async how => {
+    const user = userEvent.setup();
+    const store = createFakeViewStore([]);
+    store.groups = GROUPS;
+    const leave = mountLive(store, `/?scopeId=MEM&${period}&roomNames=PHOTO`);
+    await startShare(user);
+    store.groups = [];
+    leave[how]();
+    await act(async () => {});
+    expect(screen.queryByText(/야간조/)).toBeNull();
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 });

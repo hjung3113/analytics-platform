@@ -9,13 +9,26 @@ import { failureText, SaveViewDialog, ShareTargetPicker, ViewManagement, ViewSel
  * The Saved View selector of the query tool row (06 §21): current view, `수정됨`, the save menu and the requested `뷰 관리` surface.
  * Not the fo-bridge `savedViewsSlot` (a FeedbackOps sidebar slot). Drawn only with an injected store, a `features.savedView` menu and its
  * registered support, and never inside a board pane. Every store write goes through `useSavedViews`; the shell reads groups, approval requests and people from the host store only.
+ * The surface lives for one generation: when the store, session, revision, Scope, menu or support changes it is replaced, and anything a replaced or unmounted surface
+ * still awaits (a write, a pick, a group) ends without a toast or state change. The hook returns a completed Result unchanged; showing it is this surface's job while it is alive.
  */
 export function SavedViewControl() {
-  const { screenMode, savedViewStore } = useHostPlatform();
+  const { screenMode, savedViewStore, session, revision, scope, user, route } = useHostPlatform();
   const views = useSavedViews();
+  // The inputs that start a new `useSavedViews` generation, except `scope.status`: validating → valid keeps the same user, menu and Scope, so an open surface stays.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- the inputs are triggers only
+  const generation = useMemo(() => ({}), [savedViewStore, session, revision, scope.scopeId, user.id, route?.menu.id, views.support]);
   if (screenMode === 'pane' || views.status === 'disabled' || !savedViewStore || !views.support) return null;
-  return <Ready views={views} store={savedViewStore} support={views.support} />;
+  return <Ready key={generationKey(generation)} views={views} store={savedViewStore} support={views.support} />;
 }
+
+const generationKeys = new WeakMap<object, number>();
+let lastKey = 0;
+const generationKey = (generation: object): number => {
+  let key = generationKeys.get(generation);
+  if (key === undefined) { key = ++lastKey; generationKeys.set(generation, key); }
+  return key;
+};
 
 type Pending = { unit: 'condition-set' | 'menu-view'; name: string };
 const entriesOf = (items: readonly SavedViewListItem[]) => items.flatMap(item => item.denied ? [] : [item]);
@@ -25,8 +38,11 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
   const axes = useEquipmentAxes();
   const { lang, tx } = useI18n();
   const ko = lang === 'ko';
-  const { toast } = host;
   const userId = host.user.id;
+  // False once this surface was replaced or unmounted: its pending writes may finish, but nothing of theirs reaches the screen, the toasts or the parent.
+  const alive = useRef(true);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
+  const toast = (text: string, tone: Parameters<typeof host.toast>[1]) => { if (alive.current) host.toast(text, tone); };
   const wrapper = useRef<HTMLSpanElement>(null);
   const saveTrigger = useRef<HTMLButtonElement>(null);
   const [query, setQuery] = useState('');
@@ -157,6 +173,7 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
     try {
       if (!created.current) {
         const saved = await views.saveAs({ name: made.name, kind: made.unit });
+        if (!alive.current) return false;
         if (!saved.ok) return refused(saved.reason, false);
         created.current = { id: saved.value.view.id, version: saved.value.view.version };
       }
@@ -164,6 +181,7 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
       const at = { expectedVersion: version };
       const visibility: ViewVisibility = draft.mode === 'people' ? { kind: 'people', userIds: draft.people.map(p => p.userId) } : { kind: 'groups', groupIds: [...draft.groupIds] };
       const shared = draft.mode === 'private' ? null : draft.mode === 'official' ? await views.requestOfficial(id, at) : await views.setVisibility(id, visibility, at);
+      if (!alive.current) return false;
       if (shared !== null && !shared.ok) return refused(shared.reason, true);
       pending.current = null;
       created.current = null;
@@ -171,7 +189,7 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
       toast(draft.mode === 'official' ? (ko ? `"${made.name}" 뷰를 저장하고 공식 게시를 신청했습니다.` : `Saved "${made.name}" and asked for official publishing.`) : (ko ? `"${made.name}" 뷰를 저장하고 공유 대상을 정했습니다.` : `Saved "${made.name}" and set who can see it.`), 'info');
       return true;
     } catch {
-      return refused('unavailable', created.current !== null);
+      return alive.current ? refused('unavailable', created.current !== null) : false;
     }
   };
 

@@ -688,3 +688,49 @@ it('a write is not a selection intent: an in-flight pick still wins afterwards',
   expect(window.location.search).toBe(query(['L2']));
   expect(views.selected?.view.id).toBe('l2');
 });
+
+// FIX1 (C1): a completed group Result and a callback kept across a user change.
+it.each(['createGroup', 'updateGroup'] as const)('a late %s result after the revision changed is returned as is', async name => {
+  const store = createFakeStore([L1]);
+  const slow = deferred();
+  const answer = { ok: true, value: { group: { id: 'g9' } } };
+  stub(store, name, async () => { await slow.promise; return answer; });
+  const live = mountLive(store, `/${query(['L1'])}`);
+  await waitFor(() => expect(views.status).toBe('ready'));
+  let pending: Promise<unknown> | undefined;
+  act(() => { pending = call(name); });
+  live.notify();
+  await waitFor(() => expect(views.status).toBe('ready'));
+  const before = listCount(store);
+  let result: unknown;
+  await act(async () => { slow.release(); result = await pending; });
+  expect(result).toBe(answer);
+  expect(listCount(store)).toBe(before);
+});
+it.each(['update', 'createGroup'] as const)('%s kept from before a user change sends nothing, and a response held across it is returned as is without a refresh', async name => {
+  const store = createFakeStore([L1]);
+  const slow = deferred();
+  const answer = name === 'update' ? entryAt(4) : { ok: true, value: { group: { id: 'g9' } } };
+  const spy = stub(store, name, async () => { await slow.promise; return answer; });
+  let current = testSession(['platform:view']);
+  const listeners = new Set<() => void>();
+  window.history.replaceState(null, '', `/${query(['L1'])}`);
+  render(<I18nProvider><PlatformProvider registry={registry} adapter={testAdapter({ session: () => current, subscribe: l => { listeners.add(l); return () => { listeners.delete(l); }; } })} savedViews={store}><Probe /></PlatformProvider></I18nProvider>);
+  await waitFor(() => expect(views.status).toBe('ready'));
+  const kept = views[name] as (...args: unknown[]) => Promise<unknown>;
+  let pending: Promise<unknown> | undefined;
+  act(() => { pending = kept(...writes[name]); });
+  expect(spy).toHaveBeenCalledTimes(1);
+  current = testSession(['platform:view'], { user: { id: 'u2', name: 'u2' } });
+  act(() => listeners.forEach(l => l()));
+  await waitFor(() => expect(views.status).toBe('ready'));
+  const before = listCount(store);
+  let again: unknown;
+  await act(async () => { again = await kept(...writes[name]); });
+  expect(again).toEqual({ ok: false, reason: 'unavailable' });
+  expect(spy).toHaveBeenCalledTimes(1);
+  let result: unknown;
+  await act(async () => { slow.release(); result = await pending; });
+  expect(result).toBe(answer);
+  expect(listCount(store)).toBe(before);
+});
