@@ -166,9 +166,12 @@ and the `fops_*` roles. Pick one path; neither is done for you.
    hand), then replay and cut over:
 
    ```sh
+   # The final non-admin URLs stay in your shell for the cutover's migration, the seed and later migrations.
+   export DATABASE_URL='postgres://platform_app:platform_app@localhost:<port>/platform'
+   export DATABASE_URL_MIGRATE='postgres://platform_migrate:platform_migrate@localhost:<port>/platform'
    (
+     # only the admin URL (and, for port 5434, CUTOVER_ALLOW_DEV_DB=1) is scoped to this subshell
      export CUTOVER_ADMIN_URL='postgres://postgres:postgres@localhost:<port>/postgres'
-     export DATABASE_URL_MIGRATE='postgres://platform_migrate:platform_migrate@localhost:<port>/platform'
      bash ops/platform-api/scripts/db/cutover-0076-platform-identity.sh all
    )
    pnpm --filter @ap/platform-api db:seed
