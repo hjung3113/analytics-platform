@@ -26,6 +26,16 @@
 - 순차 Tab 루프는 넉넉한 상한(300)과 도달 단언을 함께 둔다. 실패하면 error-context 스냅숏으로 포커스 위치부터 본다(#356).
 - 끌어 놓기는 `locator.dragTo` 대신 사람처럼 끈다(누름 → 여러 단계 이동 → 목표 위 작은 이동 몇 번 → 놓기, dock 보드의 `dragTab`). `dragTo`는 목표에서 한 번만 움직여서, 끄는 사이 조회가 끝나 포인터 아래 요소가 바뀌면 브라우저가 놓기 없이 끌기를 끝낸다(main CI 39782412595, CPU 감속 6–8에서 20번 중 5–6번 재현). 그래도 놓기 직전에 포인터 아래 스켈레톤이 실제 내용으로 바뀌면 흉내 마우스는 새 요소에 dragover를 보내지 않아 놓기가 사라진다. 그래서 끌기 전에 놓을 칸의 내용이 다 그려질 때까지 기다린다(`panesLoaded`: 지표가 보이고 `aria-busy` 스켈레톤 0개, 진단 CI(`debug/dock-drag-flake`) 39899780320에서 60번 중 5번 → 39901103032에서 0번).
 
+## Real-server contract E2E (#593)
+
+- Real specs live in `tests-real/*.real.spec.ts`; `playwright.real.config.ts` uses `src/real/http-assembly.tsx` through Vite `--mode real`. The default config remains mock-only and must not discover `tests-real`.
+- Run from a caller-created throwaway database with `pnpm --filter @ap/platform-e2e run e2e:real`. The main config validates both database URLs before migration, core seed, and each rate-limit reset. It accepts only `fops_app` / `fops_migrate` roles on `localhost:5439`, with both URLs naming the same `feedbackops_<name>` database. It refuses the `feedbackops` template, other hosts/ports, URL overrides, and mismatches. Use `verify-db.sh create <name>`; never use `SEED_MODE=personas`.
+- The harness seeds core actors only (`mock-admin-1`, `mock-user-1`), logs them in through Vite, and saves separate storage states. It does not add grants. Before each test, `tests-real/support.ts` revalidates both URLs and deletes only `core.rate_limits` through the `fops_migrate` connection. Any browser response with status 429 fails the test.
+- Do not treat a shell heading as bridge success. Register the expected FeedbackOps GET before navigation, require its 2xx response, and assert that screen's loaded rows or explicit valid empty state. The usage table reads once per mount, so poll authenticated `GET /api/v1/platform/usage-summary?preset=all` directly when checking persisted visit deltas.
+- `E2E_PORT` selects the Vite port (default `4190`); `E2E_REAL_BACKEND_PORT` selects the backend port (default `3011`). `e2e:real` runs the backend-down screen in a separate Vite-only config after the healthy-backend specs.
+- Known audit contract defect [#1091](https://github.com/hjung3113/analytics-platform/issues/1091): the target-type filter test in `console.admin.real.spec.ts` is declared `test.fixme` and skipped (expected: HTTP 200 + `empty` + the explicit empty state). Active real specs are unaffected; the fixme is not claimed as passing. Remove `fixme` when #1091 is fixed.
+- See [`real-server-checklist.md`](../../docs/integration/real-server-checklist.md) for the accepted environment shape, covered contracts, and unavailable-on-real table. CI runs the default mock E2E config; no CI job executes real specs or the real assembly browser flow.
+
 ## 실행과 보고
 
 - 루트 `pnpm e2e`. 브라우저가 없으면 `pnpm --filter @ap/platform-e2e e2e:install`(Playwright 기본 캐시에 설치, 실행도 같은 캐시를 본다). `PLAYWRIGHT_BROWSERS_PATH`를 쓰면 설치와 실행에 같은 값을 준다. 다른 경로의 옛 브라우저 폴더를 재사용하지 않는다: 그 폴더에 지금 Playwright 버전이 찾는 리비전이 없으면 모든 테스트가 브라우저 실행에서 실패한다(#608).

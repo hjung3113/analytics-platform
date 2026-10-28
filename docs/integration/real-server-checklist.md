@@ -148,3 +148,72 @@ Kernel은 받은 `ok`/`empty`의 kind가 선언과 다르면 `contract_violation
 ### Condition map conformance (ADR-0059, #552)
 
 `ports.condition` supplies app-owned axis IDs and fixture values: cross-axis AND must narrow, within-axis OR equals the union, legacy v1 single-axis decoding preserves results, and `asOf` on a non-history axis returns an error. The sample also pins rejection of malformed Condition maps, empty axis arrays, scalar axis values, blank value IDs, scalar Line/PRC sets, invalid membership bases and orphaned `asOf`. `evaluateSelection` must explicitly reject invalid input; `menuQuery` returns an error envelope for fields the sampled endpoint applies. Without the sample the kit reports one visible skipped check. `lineNames` and `prcGroups` follow IdSet filtering; PRC membership history is server-owned. The mock alone evaluates PRC-only `asOf` as current membership because it has no history data.
+
+## 8. 실서버 브라우저 계약 검사 (#593)
+
+`apps/platform-e2e`의 `e2e:real`은 이 레포의 실조립(`apps/platform-web/src/real/http-assembly.tsx`)과 FeedbackOps 백엔드를 Vite 같은 origin 뒤에서 확인한다. 운영 조립의 실제 production build는 별도 명령으로 검사한다.
+
+### 준비와 실행
+
+1. 로컬 env 템플릿과 throwaway DB 컨테이너를 준비한다. 기존 `ops/feedbackops/.env`가 있으면 읽어 보고 그대로 둔다. 없을 때만 `.env.example`을 복사한다. `up`은 포트 5439에 `fops-verify` 컨테이너를 만들고(메모리 기본 상한 2g, `VERIFY_DB_MEMORY`로 조정) 템플릿 DB를 migrate한다. 이 호출이 컨테이너를 새로 만들었는지 기록해 둔다. 이미 떠 있던 컨테이너(다른 세션 소유일 수 있다)는 쓰기만 하고 멈추지 않는다.
+
+   ```sh
+   [ -f ops/feedbackops/.env ] || cp ops/feedbackops/.env.example ops/feedbackops/.env
+   export WAVE_STATE=/path/to/wave-scratch
+   docker inspect fops-verify >/dev/null 2>&1 && CREATED_CONTAINER=0 || CREATED_CONTAINER=1
+   bash ops/feedbackops/conductor/scripts/verify-db.sh up
+   ```
+
+2. 이름을 정해 throwaway DB를 만든다. helper는 `feedbackops_<name>`을 복제하고 `$WAVE_STATE/env.verify.<name>`을 만들며 해당 DB를 migrate한다. 생성된 env를 읽어 오고 core workspace ID와 포트를 정한다(`E2E_PORT` Vite 기본 `4190`, `E2E_REAL_BACKEND_PORT` 백엔드 기본 `3011`; 다른 세션이 쓰는 포트는 피한다).
+
+   ```sh
+   bash ops/feedbackops/conductor/scripts/verify-db.sh create 593-real
+   set -a
+   . "$WAVE_STATE/env.verify.593-real"
+   set +a
+   export WORKSPACE_ID=00000000-0000-0000-0000-000000000001
+   export E2E_PORT=4190 E2E_REAL_BACKEND_PORT=3011
+   ```
+
+3. harness가 받아들이는 DB URL은 helper가 만드는 다음 모양이다. 양쪽은 `localhost:5439`의 같은 `feedbackops_<name>`을 가리켜야 한다. `DATABASE_URL`은 `fops_app`, `DATABASE_URL_MIGRATE`는 `fops_migrate` 역할을 써야 한다. 비밀번호는 helper가 생성한 값을 그대로 쓴다. URL query/fragment, 원격 호스트, 포트 5434나 다른 포트, `feedbackops` 템플릿, 서로 다른 DB 이름은 거부된다.
+
+   ```text
+   DATABASE_URL=postgres://fops_app:fops_app@localhost:5439/feedbackops_<name>
+   DATABASE_URL_MIGRATE=postgres://fops_migrate:fops_migrate@localhost:5439/feedbackops_<name>
+   WORKSPACE_ID=00000000-0000-0000-0000-000000000001  # 저장소 core workspace ID; 표준 UUID도 허용
+   ```
+
+   설정은 전역 setup의 migration·core seed 전에, 그리고 매 테스트의 rate-limit cleanup 전에 두 URL을 다시 검사한다. 직접 SQL cleanup은 검증된 `DATABASE_URL_MIGRATE`의 `fops_migrate` 역할로 `DELETE FROM core.rate_limits`만 실행한다. seed는 `SEED_MODE=core`로 고정한다. `SEED_MODE=personas`는 사용하지 않는다. 검증을 우회해 로컬·원격 DB를 지정하지 않는다.
+
+4. 실제 production build와 suite를 실행한다. `e2e:real`은 정상 백엔드 사양을 끝낸 뒤 DB 없는 별도 설정에서 연결 실패 화면도 확인한다. 백엔드 준비 확인은 `/health`(liveness)다. `/health/ready`는 첨부 저장소까지 요구하는데 이 harness는 쓰지 않는다.
+
+   ```sh
+   pnpm --filter @ap/platform-web run build:real-prod
+   pnpm --filter @ap/platform-e2e run e2e:real
+   ```
+
+5. 결과와 관계없이 끝나자마자 정리한다. 이름이 있는 DB를 바로 drop하고, 이 실행이 컨테이너를 만든 경우(`CREATED_CONTAINER=1`)에만 `down`한다. 다른 세션의 컨테이너는 멈추지 않는다.
+
+   ```sh
+   bash ops/feedbackops/conductor/scripts/verify-db.sh drop 593-real
+   [ "$CREATED_CONTAINER" = 1 ] && bash ops/feedbackops/conductor/scripts/verify-db.sh down
+   ```
+
+core seed의 `mock-admin-1`·`mock-user-1`을 Vite origin의 `/auth/mock-login`으로 로그인하고 각 `storageState`를 분리한다. 매 테스트 전에 rate-limit bucket만 비우며, 브라우저 응답에서 예상치 못한 HTTP 429가 나오면 테스트를 실패시킨다.
+
+활용률 delta는 방문 표의 첫 렌더를 반복해서 읽지 않는다. 화면은 mount당 한 번 조회하므로 검사는 인증된 `GET /api/v1/platform/usage-summary?preset=all`을 다시 요청해 서버에 저장된 방문 delta를 poll한다. 플랫폼 홈의 Todo 슬롯은 모든 그룹이 비면 섹션 자체를 숨기는 계약이다. 홈 검사는 설문·알림·내 권한 요청 GET이 성공했는지와 업무 시스템 카드 렌더를 확인한다.
+
+### 검사 범위와 실서버에서 이용할 수 없는 항목
+
+| 구분 | 계약 | 이유 또는 범위 |
+| --- | --- | --- |
+| 실행 | 운영 콘솔의 메뉴 활용률 서버 집계 delta, 접근 카탈로그, 감사 빈 결과, 메뉴 레지스트리 직접 진입 | 두 접근 가능한 콘솔 메뉴의 방문 수가 각각 테스트 전보다 1 증가하는지 확인한다. 감사는 존재하지 않는 임의 행위자(`actor=<uuid>`, 대상 유형·ID 없음)로 `POST /api/v1/platform/audit-trail/search`가 200 `empty`로 답하고 화면이 명시적 빈 결과를 보이는지 확인한다. 대상 유형 필터는 콘솔과 백엔드 어휘가 달라 `Invalid audit filter`로 끝나는 열린 감사 계약 결함 [#1091](https://github.com/hjung3113/analytics-platform/issues/1091)이다. `console.admin.real.spec.ts`에 `test.fixme('… (#1091)')`로 선언해 두었다(`type=equipment&targetId=<UUID>`가 200 `empty`와 빈 결과 화면이어야 한다). 이 테스트는 건너뛰며 통과로 세지 않는다. |
+| 실행 | FeedbackOps 공간 대시보드·연동 화면, 홈·메뉴 검색·알림·내 VOC | 각 bridge/global 데이터 화면은 예상한 FeedbackOps GET의 2xx 응답과 실제 목록 또는 화면의 유효한 빈 결과를 확인한다. 홈은 Todo 세 원본 API가 성공하고 업무 시스템 카드가 표시되는지 확인한다. 홈 `공지` 카드의 메뉴 데이터 조회 `http_404`는 알려진 한계(#708, [backlog](../../.planning/backlog.md))라 이 검사가 덮지 않는다. |
+| 실행 | 관리자와 core 사용자 공간 접근, 로그인 전 직접 URL 이동, 백엔드 연결 실패 | 관리자는 콘솔/FeedbackOps에 접근하고 `mock-user-1`은 둘 다 보지 못한다. 미인증 이동은 로그인 경로에 돌아갈 주소를 보존한다. |
+| 사용 불가 | MARS·BRAVO·CLAS 분석, 설비·지표·차트·보드·저장된 뷰 및 site 범위 검사 | core 세션에는 site 범위가 없고 서버가 분석 메뉴 권한·메뉴 조회 포트를 제공하지 않는다. 권한·grant를 추가하지 않는다. |
+| 사용 불가 | FeedbackOps #251/#451의 MARS·BRAVO 바닥 블록 및 사이트 복귀 Context | 필요한 분석 메뉴 권한과 site scope가 core seed/실서버 세션에 없다. |
+| 사용 불가 | DevTools 역할 전환·응답 시나리오와 mock 가상 데이터 | real 조립에는 DevTools와 mock 어댑터 데이터가 없다. |
+
+### CI 상태
+
+이 PR은 real-server E2E CI job을 추가하지 않는다. CI의 기본 `playwright.config.ts`는 mock `tests/`만 실행하고 real spec을 실행하지 않는다. `.github/scripts/select-e2e.mjs`는 `tests-real`·real config 변경을 구체 spec으로 분류하지 못해 기본 mock suite 전체를 고를 수 있지만, 그것이 real assembly 검증을 뜻하지는 않는다. real-server browser 통합 회귀는 현재 CI에서 차단되지 않는다. job 보류 사유와 재개 조건은 [백로그](../../.planning/backlog.md)에 기록한다.

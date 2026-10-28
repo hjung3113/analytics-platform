@@ -217,3 +217,11 @@ GET /api/v1/platform/bootstrap
 10. Correlation ID 헤더 이름 — 사내 표준이 있는가? 받은 id를 형식 검사(`^[A-Za-z0-9._-]{1,128}$`) 뒤 envelope `correlationId`에 그대로 되돌려 줄 수 있는가? (§7, #151)
 11. rate limit을 둘 것인가, 둔다면 429 + `Retry-After`인가? (§2)
 12. 선언 버전 불일치를 헤더로 알릴지 — #154와 함께(선언 원본은 #148에서 TS로 정함). (§8)
+
+## 11. 실조립 브라우저 검증 (#593)
+
+위 HTTP 매핑은 주입된 실조립과 같은 origin의 Vite proxy를 거쳐 `pnpm --filter @ap/platform-e2e run e2e:real`로도 확인한다. 준비(env 템플릿·`up`·`create`)부터 정리(`drop`·`down`)까지의 순서는 [실서버 체크리스트 §8](real-server-checklist.md#8-실서버-브라우저-계약-검사-593)의 단계를 그대로 따른다. 허용되는 환경은 helper가 생성하는 `DATABASE_URL=postgres://fops_app:fops_app@localhost:5439/feedbackops_<name>`과 `DATABASE_URL_MIGRATE=postgres://fops_migrate:fops_migrate@localhost:5439/feedbackops_<name>`이며, 두 URL의 이름은 같고 `WORKSPACE_ID`는 저장소 core ID 또는 표준 UUID여야 한다. 하네스는 migration·core seed·rate-limit cleanup 전에 다른 호스트·포트, `feedbackops` 템플릿, URL 불일치, query/fragment override를 거부한다.
+
+real production assembly는 `pnpm --filter @ap/platform-web run build:real-prod`로 빌드한다. 브라우저 suite는 core actor만 seed하고 Vite를 거쳐 로그인하며 테스트 사이 `core.rate_limits`만 지운다. 예상치 못한 429는 테스트 실패다. `E2E_PORT` 기본값은 `4190`, `E2E_REAL_BACKEND_PORT` 기본값은 `3011`이다. Backend-down 화면은 Vite만 쓰는 별도 설정으로 검사한다. 검사 범위, 실서버에서 이용할 수 없는 항목 표, CI 상태는 [실서버 연결 체크리스트 §8](real-server-checklist.md#8-실서버-브라우저-계약-검사-593)을 본다. CI는 mock suite를 돌리지만 real-server browser job은 없다. 이 하네스는 #150의 남은 SSO 값을 해결하지 않는다.
+
+활용률 delta 검사는 mount당 한 번 읽는 화면 표를 재사용하지 않고, 저장된 집계를 `GET /api/v1/platform/usage-summary?preset=all`로 다시 읽는다. Bridge/global 화면 검사는 heading만으로 통과하지 않으며 예상된 FeedbackOps GET의 2xx 응답과 해당 화면의 실제 데이터 또는 유효한 빈 결과를 함께 요구한다.
