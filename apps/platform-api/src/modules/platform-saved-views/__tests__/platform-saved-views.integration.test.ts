@@ -1576,5 +1576,137 @@ describe.skipIf(!runIntegration)('platform saved views (#1105a, ADR-0099)', () =
         expect(before).toContain(extra);
       });
     });
+
+    describe('C4 limits count the normalized distinct targets', () => {
+      const people = async (count: number) => {
+        const ids: string[] = [];
+        for (let i = 0; i < count; i++) {
+          const { id } = await insertActorRow(dbHandle, {
+            workspaceId: WORKSPACE_ID,
+            externalId: `${PREFIX}-c4-${n++}`,
+            displayName: `${PREFIX} c4 person ${i}`,
+            roleLevel: 'user',
+          });
+          actorIds.push(id);
+          ids.push(id);
+        }
+        return ids;
+      };
+      const countOf = async (table: string, viewId: string) =>
+        (await q(`select count(*)::int as n from platform.${table} where view_id = $1`, [viewId]))
+          .rows[0].n;
+
+      it('200 groups plus one letter-case duplicate share; 201 distinct groups stay rejected', async () => {
+        const groups: string[] = [];
+        for (let i = 0; i < 201; i++) {
+          // Fixture provisioning exceeds the per-minute actor limit; the assertions below use normal limits.
+          if (i > 0 && i % 100 === 0) await q('delete from core.rate_limits');
+          const r = await call(alice, 'createGroup', {
+            name: `${PREFIX} c4g-${n++}`,
+            memberIds: [],
+          });
+          expect(r.ok, JSON.stringify(r)).toBe(true);
+          groups.push(r.value.group.id as string);
+        }
+        const exact = groups.slice(0, 200);
+        const v = await save(alice);
+        const visibility = {
+          kind: 'groups',
+          groupIds: [...exact, (exact[0] as string).toUpperCase()],
+        };
+        const shared = await call(alice, 'setVisibility', {
+          id: v.id,
+          visibility,
+          expectedVersion: v.version,
+        });
+        expect(shared.ok, JSON.stringify(shared)).toBe(true);
+        expect(await countOf('saved_view_group_shares', v.id)).toBe(200);
+        const before = await fullState();
+        const repeat = await call(alice, 'setVisibility', {
+          id: v.id,
+          visibility,
+          expectedVersion: shared.value.view.version,
+        });
+        expect(repeat.ok, JSON.stringify(repeat)).toBe(true);
+        expect(repeat.value.view.version).toBe(shared.value.view.version);
+        expect(await fullState()).toBe(before);
+        const over = await call(alice, 'setVisibility', {
+          id: v.id,
+          visibility: { kind: 'groups', groupIds: groups },
+          expectedVersion: shared.value.view.version,
+        });
+        expect(over).toMatchObject({ ok: false, reason: 'invalid', detail: 'too-many-groups' });
+        expect(await fullState()).toBe(before);
+      });
+
+      it('200 people plus one letter-case duplicate share; 201 distinct people stay rejected', async () => {
+        const ids = await people(201);
+        const exact = ids.slice(0, 200);
+        const v = await save(alice);
+        const visibility = {
+          kind: 'people',
+          userIds: [...exact, (exact[0] as string).toUpperCase()],
+        };
+        const shared = await call(alice, 'setVisibility', {
+          id: v.id,
+          visibility,
+          expectedVersion: v.version,
+        });
+        expect(shared.ok, JSON.stringify(shared)).toBe(true);
+        expect(await countOf('saved_view_people', v.id)).toBe(200);
+        const before = await fullState();
+        const repeat = await call(alice, 'setVisibility', {
+          id: v.id,
+          visibility,
+          expectedVersion: shared.value.view.version,
+        });
+        expect(repeat.value.view.version).toBe(shared.value.view.version);
+        expect(await fullState()).toBe(before);
+        const over = await call(alice, 'setVisibility', {
+          id: v.id,
+          visibility: { kind: 'people', userIds: ids },
+          expectedVersion: shared.value.view.version,
+        });
+        expect(over).toMatchObject({ ok: false, reason: 'invalid', detail: 'too-many-people' });
+        expect(await fullState()).toBe(before);
+      });
+
+      it('500 create and update members plus a letter-case duplicate pass; 501 distinct stay rejected', async () => {
+        const ids = await people(501);
+        const exact = ids.slice(0, 500);
+        const dup = (exact[0] as string).toUpperCase();
+        const created = await call(alice, 'createGroup', {
+          name: `${PREFIX} c4m-${n++}`,
+          memberIds: [...exact, dup],
+        });
+        expect(created.ok, JSON.stringify(created)).toBe(true);
+        expect(created.value.group.memberCount).toBe(500);
+        const tooMany = await call(alice, 'createGroup', {
+          name: `${PREFIX} c4m-${n++}`,
+          memberIds: ids,
+        });
+        expect(tooMany).toMatchObject({ ok: false, reason: 'invalid', detail: 'too-many-members' });
+
+        const empty = await call(alice, 'createGroup', {
+          name: `${PREFIX} c4u-${n++}`,
+          memberIds: [],
+        });
+        const id = empty.value.group.id as string;
+        const rejected = await call(alice, 'updateGroup', { id, patch: { addMembers: ids } });
+        expect(rejected).toMatchObject({
+          ok: false,
+          reason: 'invalid',
+          detail: 'too-many-members',
+        });
+        const patch = { addMembers: [...exact, dup] };
+        const updated = await call(alice, 'updateGroup', { id, patch });
+        expect(updated.ok, JSON.stringify(updated)).toBe(true);
+        expect(updated.value.group.memberCount).toBe(500);
+        const before = await fullState();
+        const repeat = await call(alice, 'updateGroup', { id, patch });
+        expect(repeat.ok, JSON.stringify(repeat)).toBe(true);
+        expect(await fullState()).toBe(before);
+      });
+    });
   });
 });

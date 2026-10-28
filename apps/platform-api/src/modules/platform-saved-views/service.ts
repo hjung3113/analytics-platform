@@ -361,19 +361,17 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
       let people: string[] = [];
       let groupIds: string[] = [];
       if (visibility.kind === 'people') {
-        const ids = unique(visibility.userIds);
-        if (ids.length > AUDIENCE_MAX) return fail('invalid', 'too-many-people');
-        const uuids = ids.map(asUuid);
+        const uuids = unique(visibility.userIds).map(asUuid);
         if (uuids.some((u) => u === null)) return fail('invalid', 'unknown person');
         people = unique(uuids as string[]);
+        if (people.length > AUDIENCE_MAX) return fail('invalid', 'too-many-people');
         if ((await repo.peopleByIds(tx, actor.workspaceId, people)).length !== people.length)
           return fail('invalid', 'unknown person');
       } else if (visibility.kind === 'groups') {
-        const ids = unique(visibility.groupIds);
-        if (ids.length > AUDIENCE_MAX) return fail('invalid', 'too-many-groups');
-        const uuids = ids.map(asUuid);
+        const uuids = unique(visibility.groupIds).map(asUuid);
         if (uuids.some((u) => u === null)) return fail('invalid', 'unknown group');
         groupIds = unique(uuids as string[]);
+        if (groupIds.length > AUDIENCE_MAX) return fail('invalid', 'too-many-groups');
         const existing = await repo.existingGroupIds(tx, actor.workspaceId, groupIds);
         // A group the actor cannot see is "unknown": its existence is not revealed.
         const newlyShared = groupIds.filter((g) => !view.groupIds.includes(g));
@@ -623,11 +621,10 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
     write(actor, async (tx, _standings, actor) => {
       const name = cmd.name.trim();
       if (!name || name.length > NAME_MAX || !isPgSafeString(name)) return fail('invalid', 'name');
-      const ids = unique(cmd.memberIds);
-      if (ids.length > GROUP_MEMBERS_MAX) return fail('invalid', 'too-many-members');
-      const uuids = ids.map(asUuid);
+      const uuids = unique(cmd.memberIds).map(asUuid);
       if (uuids.some((u) => u === null)) return fail('invalid', 'unknown person');
       const memberIds = unique(uuids as string[]);
+      if (memberIds.length > GROUP_MEMBERS_MAX) return fail('invalid', 'too-many-members');
       if ((await repo.peopleByIds(tx, actor.workspaceId, memberIds)).length !== memberIds.length)
         return fail('invalid', 'unknown person');
       // Creating a group changes no view's visibility; sharing a view to it is a separate call.
@@ -666,10 +663,10 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
         return fail('forbidden');
       const name = patch.name === undefined ? group.name : patch.name.trim();
       if (!name || name.length > NAME_MAX || !isPgSafeString(name)) return fail('invalid', 'name');
-      if (add.length > GROUP_MEMBERS_MAX) return fail('invalid', 'too-many-members');
       const addIds = add.map(asUuid);
       if (addIds.some((u) => u === null)) return fail('invalid', 'unknown person');
       const added = unique(addIds as string[]);
+      if (added.length > GROUP_MEMBERS_MAX) return fail('invalid', 'too-many-members');
       // Unknown or non-uuid removals are simply not members.
       const removed = unique(remove.map(asUuid).filter((u): u is string => u !== null));
       const memberIds = group.members.map((m) => m.id);

@@ -4,12 +4,16 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { Db } from '../../../db/client.js';
 import type { Tx } from '../../../db/tx.js';
-import { holdsPlatformPermission } from '../../platform-port/permissions.js';
 import type { CheckService } from '../../permissions/check-service.js';
+import { holdsPlatformPermission } from '../../platform-port/permissions.js';
 import { createSavedViewService } from '../service.js';
 
 const WS = '11111111-1111-4111-8111-111111111111';
-const ACTOR = { actor_id: '22222222-2222-4222-8222-222222222222', workspace_id: WS, role_level: 'user' };
+const ACTOR = {
+  actor_id: '22222222-2222-4222-8222-222222222222',
+  workspace_id: WS,
+  role_level: 'user',
+};
 
 const checkServiceOf = (allow: (tx: unknown) => boolean) => {
   const checkCapability = vi.fn(async (_a: unknown, _c: unknown, _s: unknown, o?: { tx?: Tx }) => ({
@@ -36,7 +40,9 @@ describe('write re-judges console:access after the lock', () => {
     const tx = {
       execute: vi.fn(async () => ({ rows: [] })),
     } as unknown as Tx;
-    const db = { transaction: async (work: (t: Tx) => Promise<unknown>) => work(tx) } as unknown as Db;
+    const db = {
+      transaction: async (work: (t: Tx) => Promise<unknown>) => work(tx),
+    } as unknown as Db;
     const check = checkServiceOf((given) => given === undefined); // allowed on the pool, denied on the tx
     const service = createSavedViewService({ db, checkService: check });
     const result = await service.execute(

@@ -71,9 +71,14 @@ async function holds(
     case 'every-session':
       return true;
     case 'workspace-admin': {
-      const decision = await checkService.checkCapability(actor, 'workspace.admin', {
-        workspace_id: actor.workspace_id,
-      }, options);
+      const decision = await checkService.checkCapability(
+        actor,
+        'workspace.admin',
+        {
+          workspace_id: actor.workspace_id,
+        },
+        options,
+      );
       return decision.allow;
     }
     case 'features-access': {
