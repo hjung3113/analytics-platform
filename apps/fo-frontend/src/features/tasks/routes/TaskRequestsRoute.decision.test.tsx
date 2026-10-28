@@ -2,6 +2,7 @@ import { getTaskRequest } from '@/lib/api';
 import * as barrel from '@/lib/api';
 import { ApiError } from '@/lib/api/types';
 import { useMe } from '@/lib/auth/useMe';
+import { TaskRequestsRoute } from '@/test/screen-host/features/tasks/routes/TaskRequestsRoute';
 import { taskRequestPage } from '@/test/task-request-pages';
 import type { ListTaskRequestsQuery } from '@fops/shared';
 import type { TaskRequestDto } from '@fops/shared';
@@ -11,7 +12,6 @@ import userEvent from '@testing-library/user-event';
 import * as React from 'react';
 import { useLayoutEffect, useSyncExternalStore } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { TaskRequestsRoute } from './TaskRequestsRoute';
 import {
   type DecisionDialogState,
   TaskRequestDecisionDialog,

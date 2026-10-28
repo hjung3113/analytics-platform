@@ -14,7 +14,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 import {
   IntegrationDashboardRouteShell,
   integrationDashboardSearchSchema,
-} from '../../../routes/_authed/integration';
+} from '@/test/screen-host/routes/_authed/integration/index';
 
 const MS_A = '77777777-0000-0000-0000-0000000000a1';
 const MS_B = '77777777-0000-0000-0000-0000000000b2';

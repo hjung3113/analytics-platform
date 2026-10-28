@@ -90,11 +90,10 @@ services:
       OIDC_ISSUER_URL: http://localhost:8080/default
       OIDC_CLIENT_ID: feedbackops-release-local
       OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:?set OIDC_CLIENT_SECRET in .env.release}
-      OIDC_REDIRECT_URI: http://localhost:4173/auth/callback
+      OIDC_REDIRECT_URI: ${OIDC_REDIRECT_URI:?Set the retained platform host /auth/callback URL}
       OIDC_SCOPES: openid email profile
       TRUSTED_PROXY_HOPS: "1"
       PUBLIC_ATTACHMENT_ORIGIN: "'self'"
-      PLATFORM_RETURN_ORIGINS: ""
       STORAGE_S3_ENDPOINT: http://minio:9000
       STORAGE_S3_REGION: us-east-1
       STORAGE_S3_BUCKET: ${STORAGE_S3_BUCKET:-fops-attachments}
@@ -118,26 +117,6 @@ services:
       retries: 10
       start_period: 15s
     mem_limit: 1g
-
-  frontend:
-    image: feedbackops-release-1060-frontend:local
-    build:
-      context: ../..
-      dockerfile: apps/fo-frontend/Dockerfile
-    environment:
-      BACKEND_URL: http://oidc:3001
-    ports:
-      - "4173:8080"
-    depends_on:
-      backend:
-        condition: service_started
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null --header 'Accept: text/html' http://127.0.0.1:8080/index.html || exit 1"]
-      interval: 10s
-      timeout: 3s
-      retries: 10
-      start_period: 5s
-    mem_limit: 128m
 
 volumes:
   release-postgres-data:

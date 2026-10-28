@@ -43,7 +43,7 @@ vi.mock('@tanstack/react-router', async (importOriginal) => ({
   useSearch: () => ({}),
 }));
 
-import { SurveysIndexRoute } from '@/routes/_authed/surveys/index';
+import { SurveysIndexRoute } from '@/test/surveys-host/screen';
 
 beforeAll(registerAnchorLinkHost);
 

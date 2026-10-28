@@ -1,9 +1,9 @@
 import { listTasks, updateTaskStatus } from '@/lib/api/tasks';
+import { TaskBoardRoute } from '@/test/screen-host/features/tasks/routes/TaskBoardRoute';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { TaskBoardRoute } from './TaskBoardRoute';
 import { boardList } from './taskBoardTestServer';
 
 const task = {

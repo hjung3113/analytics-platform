@@ -15,7 +15,7 @@ import { COVERAGE_METRIC_IDS, COVERAGE_METRIC_LABELS } from '@/lib/copy/coverage
 import {
   IntegrationCoverageRouteShell,
   validateIntegrationCoverageSearch,
-} from '../../../routes/_authed/integration/coverage';
+} from '@/test/screen-host/routes/_authed/integration/coverage';
 
 const MS_A = '77777777-0000-0000-0000-0000000000a1';
 const MS_B = '77777777-0000-0000-0000-0000000000b2';

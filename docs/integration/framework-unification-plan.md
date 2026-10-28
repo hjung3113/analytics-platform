@@ -128,7 +128,7 @@ EV가 이미 결정한 것: 독립 패키지가 정본·플랫폼은 얇은 소�
 
 | 구분 | 들어가는 것 | 남는 것(제품·호스트) |
 | --- | --- | --- |
-| 계약 | `PlatformAdapter`·`MenuQuery`·`EndpointSpec`·`ApiResponse`·URL codec·`feedbackops-link` codec·`Text`·`AuditEvent` | 메뉴별 `endpoints.ts` 선언 값, FO `@fops/shared` 스키마, EV `@eqv/core` 스키마 |
+| 계약 | `PlatformAdapter`·`MenuQuery`·`EndpointSpec`·`ApiResponse`·URL codec·`platform-inbound-link` codec·`Text`·`AuditEvent` | 메뉴별 `endpoints.ts` 선언 값, FO `@fops/shared` 스키마, EV `@eqv/core` 스키마 |
 | 런타임 | Registry 검증·`PlatformProvider`·`useMenuQuery`·`useMenuFetch`·`useDrill`·`PlatformLocation`·슬롯 | `SPACES`·`GROUPS`·공간 → Managed System 매핑·실어댑터·`createAssembly` |
 | UI | 토큰·primitive·`PlatformDataTable`·`DetailDrawer`·`PageFilterBar`·`StateView`·`AnalysisChartFrame`·레이아웃 슬롯 | 도메인 컴포넌트, FO 세 셸(두 번째 소비자 전까지), EV renderer |
 | 도구 | `gen:menu`, 경계·계약 lint 프리셋, tsconfig, 적합성 묶음, 공개 테스트 스텁(#381) | 레포별 conductor PROFILE(절차 자체는 전역 스킬) |

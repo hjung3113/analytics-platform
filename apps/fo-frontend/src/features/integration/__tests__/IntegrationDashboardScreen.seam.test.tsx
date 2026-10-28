@@ -1,16 +1,16 @@
 import { HOME_QUEUE_COPY } from '@/lib/copy/home';
 import { type HostSeam, HostSeamProvider } from '@/lib/host/host-seam';
+import {
+  RECOVERY_VISUAL_ID,
+  recoveryVisualDetail,
+  recoveryVisualList,
+} from '@/test/fixtures/recovery';
 import { DetailPanelSlotProvider } from '@ap/ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import {
-  RECOVERY_VISUAL_ID,
-  recoveryVisualDetail,
-  recoveryVisualList,
-} from '../../../../tests/visual/fixtures/recovery';
 import type { RecoveryPanelParts } from '../recovery/RecoveryPanel';
 import { IntegrationDashboardScreen } from '../routes/IntegrationDashboardScreen';
 

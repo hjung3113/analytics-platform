@@ -1,11 +1,17 @@
 import { LinkTaskModal } from '@/features/findings/components/FindingDetail/LinkTaskModal';
-import { CoverageRoute } from '@/features/integration/routes/CoverageRoute';
-import { IntegrationDashboardRoute } from '@/features/integration/routes/IntegrationDashboardRoute';
-import { HomeRoute, validateHomeSearch } from '@/routes/_authed/home';
+import {
+  RECOVERY_VISUAL_ID,
+  recoveryVisualDetail,
+  recoveryVisualHistory,
+  recoveryVisualList,
+} from '@/test/fixtures/recovery';
+import { CoverageRoute } from '@/test/screen-host/features/integration/routes/CoverageRoute';
+import { IntegrationDashboardRoute } from '@/test/screen-host/features/integration/routes/IntegrationDashboardRoute';
+import { HomeRoute, validateHomeSearch } from '@/test/screen-host/routes/_authed/home';
 import {
   IntegrationDashboardRouteShell,
   validateIntegrationDashboardSearch,
-} from '@/routes/_authed/integration';
+} from '@/test/screen-host/routes/_authed/integration/index';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import type { FindingDto } from '@fops/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -20,12 +26,6 @@ import {
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
-import {
-  RECOVERY_VISUAL_ID,
-  recoveryVisualDetail,
-  recoveryVisualHistory,
-  recoveryVisualList,
-} from '../../../../../tests/visual/fixtures/recovery';
 
 const ID = '11111111-1111-4111-8111-111111111111';
 const time = '2026-07-20T08:00:00.000Z';

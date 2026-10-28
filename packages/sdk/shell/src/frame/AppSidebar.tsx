@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
-import { ChevronLeft, ChevronRight, Clock3, ExternalLink, Star } from 'lucide-react';
-import { emptyGlobal, platformReturnFor, type NavView } from '@ap/contracts';
+import { ChevronLeft, ChevronRight, Clock3, Star } from 'lucide-react';
+import { emptyGlobal, type NavView } from '@ap/contracts';
 import { badgeCountText } from '@ap/components';
 import { type MenuEntry, PlatformLink, useI18n, useRecentVisits } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
@@ -110,7 +110,7 @@ function SidebarScope({ collapsed }: { collapsed: boolean }) {
 }
 
 function FeedbackOpsBlock({ collapsed }: { collapsed: boolean }) {
-  const { slots, route, currentSpace, sidebarSpace, accessibleSpaces, url, pathname, absoluteUrl, can, resolveLink } = useHostPlatform();
+  const { slots, route, currentSpace, sidebarSpace, accessibleSpaces, can, resolveLink } = useHostPlatform();
   const { tx, lang } = useI18n();
   const slot = slots.feedbackOps;
   // Only the space this sidebar is drawing, and only when the route is that space's menu.
@@ -119,10 +119,9 @@ function FeedbackOpsBlock({ collapsed }: { collapsed: boolean }) {
   if (route === null || currentSpace?.id !== sidebarSpace.id) return null;
   // No access to FeedbackOps → no block at all (ADR-0081 decision 8); the shell names no app permission, the slot does.
   if (slot.permission !== undefined && !can(slot.permission)) return null;
-  // The page this sidebar is drawing is where FeedbackOps links back to (FO ADR-0071); `url` re-renders the hrefs on every navigation.
-  // An in-shell entry opens in this tab with only its own page keys and the way back; no global Context is carried (ADR-0045, UX-9).
-  const entries = slot.entriesFor(sidebarSpace.id, platformReturnFor(absoluteUrl(url), absoluteUrl(pathname)))
-    ?.filter(entry => !('menuId' in entry) || resolveLink(entry.menuId, { global: emptyGlobal, page: entry.page, returnTo: true }).allowed);
+  // An entry opens in this tab with only its own page keys and the way back; no global Context is carried (ADR-0045, UX-9).
+  const entries = slot.entriesFor(sidebarSpace.id)
+    ?.filter(entry => resolveLink(entry.menuId, { global: emptyGlobal, page: entry.page, returnTo: true }).allowed);
   if (!entries || entries.length === 0) return null;
   const spaceName = tx(sidebarSpace.label);
   const heading = `FeedbackOps · ${spaceName}`;
@@ -131,35 +130,15 @@ function FeedbackOpsBlock({ collapsed }: { collapsed: boolean }) {
     <ul className="space-y-0.5">{entries.map(entry => {
       const Icon = entry.icon;
       const label = tx(entry.label);
-      if ('menuId' in entry) {
-        const inShellName = `${label} — ${spaceName}, FeedbackOps`;
-        const inShell = <PlatformLink via="sidebar" href={resolveLink(entry.menuId, { global: emptyGlobal, page: entry.page, returnTo: true }).href} aria-label={inShellName}
-          className={cn('flex min-h-8 items-center gap-2 rounded-md px-3 py-1.5 text-sm text-text-secondary hover:bg-surface-row-hover hover:text-text-primary', collapsed && 'justify-center px-0')}>
-          <Icon className="size-4 shrink-0" aria-hidden />
-          {!collapsed && <span className="min-w-0 flex-1 truncate">{label}</span>}
-        </PlatformLink>;
-        return <li key={entry.key}><Tooltip><TooltipTrigger asChild>{inShell}</TooltipTrigger><TooltipContent side="right">{inShellName}</TooltipContent></Tooltip></li>;
-      }
-      const name = lang === 'ko' ? `${label} — ${spaceName}, FeedbackOps, 새 탭` : `${label} — ${spaceName}, FeedbackOps, new tab`;
-      if (entry.href === null) {
-        const reason = lang === 'ko' ? 'FeedbackOps 주소가 설정되지 않아 열 수 없습니다' : 'FeedbackOps address is not configured';
-        const disabledName = `${label} — ${spaceName}, FeedbackOps — ${reason}`;
-        const disabled = <span role="link" aria-disabled="true" tabIndex={0} aria-label={disabledName}
-          className={cn('flex min-h-8 items-center gap-2 rounded-md px-3 py-1.5 text-sm text-text-muted', collapsed && 'justify-center px-0')}>
-          <Icon className="size-4 shrink-0" aria-hidden />
-          {!collapsed && <span className="min-w-0 flex-1 truncate">{label}</span>}
-        </span>;
-        return <li key={entry.key}><Tooltip><TooltipTrigger asChild>{disabled}</TooltipTrigger><TooltipContent side="right">{disabledName}</TooltipContent></Tooltip></li>;
-      }
-      const link = <a href={entry.href} target="_blank" rel="noopener noreferrer" aria-label={name}
+      const inShellName = `${label} — ${spaceName}, FeedbackOps`;
+      const inShell = <PlatformLink via="sidebar" href={resolveLink(entry.menuId, { global: emptyGlobal, page: entry.page, returnTo: true }).href} aria-label={inShellName}
         className={cn('flex min-h-8 items-center gap-2 rounded-md px-3 py-1.5 text-sm text-text-secondary hover:bg-surface-row-hover hover:text-text-primary', collapsed && 'justify-center px-0')}>
         <Icon className="size-4 shrink-0" aria-hidden />
-        {!collapsed && <><span className="min-w-0 flex-1 truncate">{label}</span><ExternalLink className="size-3.5 shrink-0" aria-hidden /></>}
-      </a>;
-      return <li key={entry.key}><Tooltip><TooltipTrigger asChild>{link}</TooltipTrigger><TooltipContent side="right">{name}</TooltipContent></Tooltip></li>;
+        {!collapsed && <span className="min-w-0 flex-1 truncate">{label}</span>}
+      </PlatformLink>;
+      return <li key={entry.key}><Tooltip><TooltipTrigger asChild>{inShell}</TooltipTrigger><TooltipContent side="right">{inShellName}</TooltipContent></Tooltip></li>;
     })}</ul>
-    {!collapsed && entries.some(entry => 'menuId' in entry) && <p className="px-3 pt-1 text-caption text-text-muted">{lang === 'ko' ? 'FeedbackOps로 이동합니다' : 'Opens in FeedbackOps'}</p>}
-    {!collapsed && entries.some(entry => 'href' in entry && entry.href !== null) && <p className="px-3 pt-1 text-caption text-text-muted"><span className="sr-only">{lang === 'ko' ? '외부 링크 표시는 새 탭에서 열립니다' : 'Items marked external open in a new tab'}</span><span aria-hidden><ExternalLink className="mr-1 inline size-3 align-[-0.125em]" aria-hidden />{lang === 'ko' ? '표시는 새 탭에서 열립니다' : 'marks open in a new tab'}</span></p>}
+    {!collapsed && <p className="px-3 pt-1 text-caption text-text-muted">{lang === 'ko' ? 'FeedbackOps로 이동합니다' : 'Opens in FeedbackOps'}</p>}
   </nav>;
 }
 

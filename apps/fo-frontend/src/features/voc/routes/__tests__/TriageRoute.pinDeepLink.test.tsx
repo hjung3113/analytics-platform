@@ -43,7 +43,7 @@ vi.mock('@/lib/cross-system/usePermissionCheckBridge', () => ({
 
 import { useMe } from '@/lib/auth/useMe';
 import { usePermissionCheckBridge as usePermissionCheck } from '@/lib/cross-system/usePermissionCheckBridge';
-import { TriageRoute } from '../TriageRoute';
+import { TriageRoute } from '@/test/screen-host/features/voc/routes/TriageRoute';
 
 const ADMIN_ME = {
   data: {

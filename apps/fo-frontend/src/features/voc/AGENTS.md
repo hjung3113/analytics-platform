@@ -1,5 +1,7 @@
 # VOC Feature Agent Guide
 
+#597: paths below describe semantic screen intents. Runtime registration belongs to platform menus and `@ap/fo-bridge`; standalone routes and `*Route` compositions are retired. Adapters under `src/test` are test-only.
+
 ## Ownership
 
 VOC owns frontend route composition for VOC submission, inbox, triage, reporter-facing status, public updates, and VOC detail panels.
@@ -8,7 +10,7 @@ It does not own Task status, Survey Response conversion, Finding persistence, or
 
 ## Route Boundary
 
-- Owns `/vocs` (single view-switching route covering inbox, triage, and create — see `apps/fo-frontend/src/routes/_authed/vocs.tsx`).
+- Owns `/vocs` (single view-switching route covering inbox, triage, and create — mapped by the platform bridge).
 - May start Create Finding or Request Task flows without losing VOC list/detail context.
 - VOC Clusters are a separate feature (`features/voc-cluster/`, mounted at `/voc-clusters`) — see its AGENTS.md.
 
@@ -37,16 +39,15 @@ It does not own Task status, Survey Response conversion, Finding persistence, or
 
 ## Key files
 
-- `apps/fo-frontend/src/routes/_authed/vocs.tsx` — VOC view branch for inbox, triage, and create.
 - `apps/fo-frontend/src/features/voc/routes/InboxScreen.tsx` (+ `useInboxState.ts`, `inbox-config.tsx`) — bridge-safe inbox/My VOC list (platform ADR-0071, entry `operator-screens/voc-inbox`): URL read/written through the host seam, detail via the host's `renderDetail`; `VocRouteShell` composes it with `VocDetailPanel`.
-- `apps/fo-frontend/src/features/voc/routes/TriageRoute.tsx` — triage permission gate, session processed count, and queue state.
-- `apps/fo-frontend/src/features/voc/routes/CreateRoute.tsx` — VOC creation route composition.
-- `apps/fo-frontend/src/features/voc/components/reporter/` — bridge-safe reporter perspective (`MyVocListScreen`, `ReporterVocDetail`) for the platform `내 VOC` (platform ADR-0071); the standalone `/vocs?view=my` is unchanged.
+- `apps/fo-frontend/src/test/screen-host/features/voc/routes/TriageRoute.tsx` — triage permission gate, session processed count, and queue state.
+- `apps/fo-frontend/src/features/voc/components/compose/VocComposeScreen.tsx` — retained VOC creation form, mounted by `packages/adapters/fo-bridge/src/pages/VocCompose.tsx`; shared form and drawer-host assertions cover creation. The standalone create route is retired (#597).
+- `apps/fo-frontend/src/features/voc/components/reporter/` — bridge-safe reporter perspective (`MyVocListScreen`, `ReporterVocDetail`) for the platform `내 VOC` (platform ADR-0071); the platform mounts the own-VOC surface.
 - `apps/fo-frontend/src/features/voc/components/list/VocList.tsx` — VOC list rows and loading/empty/error states.
 - `apps/fo-frontend/src/features/voc/components/triage/VocTriageScreen.tsx` — triage queue screen and selected panel.
 - `apps/fo-frontend/src/features/voc/components/triage/useVocTriageScreenController.ts` — screen-session selection history, Finding target, and queue action handlers.
 - `apps/fo-frontend/src/features/voc/components/triage/TriagePanel.tsx` — triage detail and actions.
-- `apps/fo-frontend/src/features/voc/components/detail/VocDetailPanel.tsx` — VOC detail and communication states.
+- `apps/fo-frontend/src/test/host-adapters/features/voc/components/detail/VocDetailPanel.tsx` — VOC detail and communication states.
 - `apps/fo-frontend/src/features/voc/components/detail/ReporterStatusChangeBlock.tsx` — reporter-facing status change copy and actions.
 - `apps/fo-frontend/src/features/voc/lib/triage-types.ts` — triage inputs and state types.
 - `apps/fo-frontend/src/features/voc/lib/triage-error-policy.ts` — triage mutation error classification.

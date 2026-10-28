@@ -33,7 +33,7 @@ export function undoNoticeRenderer(notice: HostNotice): (id: string | number) =>
  * `tanstackHost`'s). Call it from `beforeAll` (after the file's `vi.mock` calls, like `setup.ts`, which it overrides).
  */
 export async function registerNoticeHost(): Promise<void> {
-  const { tanstackHost } = await import('../lib/host/tanstack-host');
+  const { tanstackHost } = await import('@/test/host-adapters/lib/host/tanstack-host');
   registerDefaultHost({ ...tanstackHost, notify: noticeHost.notify, dismiss: noticeHost.dismiss });
 }
 

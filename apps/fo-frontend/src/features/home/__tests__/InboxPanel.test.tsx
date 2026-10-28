@@ -18,7 +18,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { HOME_INBOX_COPY } from '@/lib/copy/home';
 import { type HostSeam, HostSeamProvider } from '@/lib/host/host-seam';
-import { tanstackHost } from '@/lib/host/tanstack-host';
+import { tanstackHost } from '@/test/host-adapters/lib/host/tanstack-host';
 import { InboxPanel, notificationTarget } from '../InboxPanel';
 
 const VOC_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';

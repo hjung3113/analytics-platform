@@ -1,11 +1,11 @@
 import { PERMISSION_BLOCKED_REASONS } from '@/lib/copy/permission-reasons';
 import { usePermissionCheckBridge as usePermissionCheck } from '@/lib/cross-system/usePermissionCheckBridge';
+import { TriageRoute } from '@/test/screen-host/features/voc/routes/TriageRoute';
 import { registerTriageTestHost } from '@/test/triage-host';
 import { createPermissionRequestSchema } from '@fops/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { TriageRoute } from '../TriageRoute';
 
 let search: Record<string, string> = {};
 const useMeMock = vi.hoisted(() => vi.fn(() => ({ isLoading: false })));

@@ -12,7 +12,7 @@
 
 ## Design Consistency Rules
 
-- In-app navigation uses TanStack `<Link>` or `InternalLink`; a plain `<a href>` to an app path reloads the whole app (#840). Screens exported through `src/global-screens` (the platform bridge, platform ADR-0071) navigate and notify only through `lib/host` and never import TanStack Router or the `@/lib/api` barrel.
+- All 36 public screen/core entries are libraries mounted by the platform bridge (#597, ADR-0097). Public screens navigate and notify only through `lib/host`; never import TanStack Router, test adapters or the `@/lib/api` barrel into their reachable graph. Test-local memory-router hosts live under `src/test`; private legacy feature components still using TanStack keep that dependency. There is no standalone runtime, generated route tree, login or app layout.
 - Consume semantic tokens such as `--text-primary`, `--surface-detail`, and `--border-selected`; do not hard-code hex colors in screens.
 - `pnpm --filter @fops/ops lint:design` (`@shadcn/lint`, ADR-0062) checks restyled `@ap/ui` and `@fops/ui` components, raw colors, arbitrary values, and inline styles. Do not add findings; its messages suggest a variant or token, which you verify before applying. When the same override or hard-coded value repeats, add a shared token, variant, or component instead of repeating it. Mechanics: `ops/feedbackops/scripts/gates/AGENTS.md`.
 - Keep the visual model light, compact, and list-first. Avoid decorative cards, broad gradients, oversized hero sections, and empty whitespace.
@@ -34,7 +34,7 @@
 - Do not build repeated UI patterns directly inside screens. Create or reuse a feature-local component first, then compose it in the screen.
 - Before creating a new component, check `packages/fo-ui`, the feature's existing components, and `docs/feedbackops/frontend/component-inventory.md`.
 - Import shared parts (shadcn primitives, panel/toolbar/forms/feedback/layout shells, rich content, `cn`) from `@ap/ui` and FeedbackOps-owned components (badges, pickers, `LinkedEntityTrail`, `useDetailPanelSlot`) from `@fops/ui`; `@fops/ui` no longer re-exports `@ap/ui` names (#713q). Never import shadcn/Radix primitives directly.
-- The detail slot is `@ap/ui`'s (bundle 2b): `AppFrame` wraps its frame in `DetailPanelSlotProvider` and hosts the panel through `useDetailPanelSlotHost()`; shells forward `detailPanel` with `useDetailPanelSlot(node)` (from `@fops/ui`), which is `@ap/ui`'s `useDetailPanelContent` (`undefined` clears, `null` closes). There is no `DetailPanelSlotContext`; tests that render a shell with `detailPanel` mount `DetailPanelSlotProvider` plus a host element.
+- The detail slot is `@ap/ui`'s (bundle 2b): the consuming host wraps its frame in `DetailPanelSlotProvider` and hosts the panel through `useDetailPanelSlotHost()`; shells forward `detailPanel` with `useDetailPanelSlot(node)` (from `@fops/ui`), which is `@ap/ui`'s `useDetailPanelContent` (`undefined` clears, `null` closes). There is no `DetailPanelSlotContext`; tests that render a shell with `detailPanel` mount `DetailPanelSlotProvider` plus a host element.
 - Never import `@radix-ui/*` in `apps/fo-frontend` (enforced by `pnpm --filter @fops/ops check:boundaries`); use the `@ap/ui` primitives.
 - Use installed libraries, shadcn/Radix wrappers, and `lucide-react` before hand-rolling interaction behavior, accessibility primitives, icons, popovers, menus, tabs, dialogs, or form controls.
 - Add new tokens or variants to docs before using them broadly.
@@ -50,8 +50,8 @@
 The shipped UI is the authority for existing screens (root `AGENTS.md` → UI Authority, ADR-0060). For a new surface, start from the closest shipped screen; if `docs/feedbackops/design-prototype/` drew that surface, use it as a reference.
 
 - If neither the shipped UI nor the specs decide a behavior or visual question, check `docs/feedbackops/frontend/specs/`, `docs/feedbackops/design/`, and the ADRs. If all are silent, ask; do not fill the gap with framework defaults or personal taste. Record the resolution in the PR body.
-- For a layout-changing screen change, capture the page at desktop 1440 (the committed visual harness, or a temporary `tests/visual/zz-*.visual.spec.ts` capture spec deleted afterwards) and put the before/after in the PR body.
+- For layout-changing screens, capture the actual platform host at desktop 1440 and attach the intended before/after to the review under the repository visual workflow.
 
-## Visual Baselines
+## Visual Verification
 
-For a route with a committed Playwright visual harness (a spec in `apps/fo-frontend/tests/visual/*.visual.spec.ts`), the `test:visual` regression run is the visual check. Committed Playwright screenshot baselines change only in a commit that declares the intended visual change. Blanket `--update-snapshots` to silence red is forbidden. A baseline-change commit must state the intended change, attach or point to the Playwright diff, and have a changed-PNG count equal to the intended-screen count. Running, extending, and debugging the harness: `apps/fo-frontend/tests/visual/AGENTS.md`.
+The standalone Playwright visual harness and 25 stale non-CI specs are retired (#597). Platform visual reinforcement is explicitly not implemented in `.planning/backlog.md` (#954), with its reopen condition. Do not restore standalone capture scripts or treat unit tests as visual evidence. Browser/E2E and platform captures belong to the conductor when the worker brief prohibits them.

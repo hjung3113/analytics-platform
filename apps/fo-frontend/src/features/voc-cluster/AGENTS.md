@@ -1,10 +1,12 @@
 # VOC Cluster Feature Agent Guide
 
+#597: paths below describe semantic screen intents. Runtime registration belongs to platform menus and `@ap/fo-bridge`; standalone routes and `*Route` compositions are retired. Adapters under `src/test` are test-only.
+
 ## Ownership
 
 VOC Cluster owns frontend route composition and mutations for VOC Cluster list, detail, membership management, cluster-to-existing-Finding association, and cluster-originated Create Finding / Request Task flows (`useCreateVocCluster`, `useConfirmCluster`, `useAddClusterMember`, `useRemoveClusterMember`, `useVocClusterDetail`, `useVocClusterList`, `useCreateFindingFromCluster`, `useLinkExistingFindingToVocCluster`, `useRequestTaskFromCluster`).
 
-Screen components live in this feature folder: `components/ClusterListScreen.tsx` (the list page body), `components/detail/VocClusterListShell.tsx`, `components/detail/VocClusterDetailPanel.tsx` (`useClusterDetailParts` returns the detail as `DetailParts`), and `components/modals/` (`CreateClusterModal`, `AddVocModal`, `LinkExistingFindingModal`, `CreateFindingFromClusterModal`). The route files under `src/routes/_authed/voc-clusters/` own URL wiring only — they compose the screen under the default host and keep the after-create path navigation (`index.tsx`) and the path-param selection (`$clusterId.tsx`).
+Screen components live in this feature folder: `components/ClusterListScreen.tsx` (the list page body), `components/detail/VocClusterListShell.tsx`, `components/detail/VocClusterDetailPanel.tsx` (`useClusterDetailParts` returns the detail as `DetailParts`), and `components/modals/` (`CreateClusterModal`, `AddVocModal`, `LinkExistingFindingModal`, `CreateFindingFromClusterModal`). The platform menu and bridge own URL wiring and after-create navigation; `src/test/clusters-host` preserves list/path-selection behavior in memory-router tests.
 
 The list screen and the detail parts are bridge-safe (platform ADR-0071; entry `src/operator-screens/voc-clusters`, pinned in `packages/adapters/fo-bridge/src/fo-entry-graph.test.ts`): they reach navigation, links and notices only through `lib/host`, import no router, `sonner`, `lib/auth` or `@/lib/api` barrel, and read `selected`/`managedSystem` from the host search (`lib/cluster-search.ts` holds the schema). Finding links render only when the host `canLink`s the path.
 
@@ -14,7 +16,7 @@ It does not own VOC record lifecycle, reporter-facing VOC status, or Finding/Tas
 
 ## Route Boundary
 
-- Owns `/voc-clusters` and `/voc-clusters/$clusterId` (`apps/fo-frontend/src/routes/_authed/voc-clusters/`).
+- Owns `/voc-clusters` and `/voc-clusters/$clusterId` as semantic intents, mapped by the platform bridge.
 - A VOC Cluster groups existing VOC records (domain relationship to VOC); it is a separate top-level feature from `features/voc/`, not a sub-route of it.
 
 ## Invariants
@@ -30,9 +32,7 @@ It does not own VOC record lifecycle, reporter-facing VOC status, or Finding/Tas
 
 ## Key files
 
-- `apps/fo-frontend/src/routes/_authed/voc-clusters/index.tsx` — cluster list route (search schema export, after-create navigation).
 - `apps/fo-frontend/src/features/voc-cluster/components/ClusterListScreen.tsx` — list screen: selection through the host seam, first-row default, create dialog mount.
-- `apps/fo-frontend/src/routes/_authed/voc-clusters/$clusterId.tsx` — selected cluster route.
 - `apps/fo-frontend/src/features/voc-cluster/components/detail/VocClusterListShell.tsx` — cluster list and selected-detail shell.
 - `apps/fo-frontend/src/features/voc-cluster/components/detail/VocClusterDetailPanel.tsx` — cluster detail and actions.
 - `apps/fo-frontend/src/features/voc-cluster/components/detail/VocClusterMemberRow.tsx` — Cluster-local VOC member row.

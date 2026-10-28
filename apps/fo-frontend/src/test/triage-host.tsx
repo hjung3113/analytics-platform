@@ -12,7 +12,7 @@ export async function registerTriageTestHost(
   navigate: HostNavigate,
   options: { canLink?: (to: string) => boolean } = {},
 ): Promise<void> {
-  const { tanstackHost } = await import('../lib/host/tanstack-host');
+  const { tanstackHost } = await import('@/test/host-adapters/lib/host/tanstack-host');
   registerDefaultHost({
     ...tanstackHost,
     ...(options.canLink !== undefined ? { canLink: options.canLink } : {}),

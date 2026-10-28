@@ -1,5 +1,7 @@
 import { HostSeamProvider } from '@/lib/host/host-seam';
 import { registerAnchorLinkHost } from '@/test/anchor-link-host';
+import { areaReportFixture, unclassifiedAreaReportFixture } from '@/test/fixtures/area-report';
+import { COVERAGE_IDS as IDS } from '@/test/fixtures/coverage';
 import { areaReportLink } from '@fops/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
@@ -12,11 +14,6 @@ import {
 } from '@tanstack/react-router';
 import { cleanup, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeAll, expect, it } from 'vitest';
-import {
-  areaReportFixture,
-  unclassifiedAreaReportFixture,
-} from '../../../../tests/visual/fixtures/area-report';
-import { COVERAGE_IDS as IDS } from '../../../../tests/visual/fixtures/coverage';
 import { AnalyticsAreaReportTable } from '../components/AnalyticsAreaReportTable';
 
 beforeAll(async () => {
@@ -132,7 +129,7 @@ it.each([
   ['refuses', false],
   ['allows', true],
 ])('when the host %s the hrefs, count and review links follow canLink', async (_name, allowed) => {
-  const { tanstackHost } = await import('@/lib/host/tanstack-host');
+  const { tanstackHost } = await import('@/test/host-adapters/lib/host/tanstack-host');
   render(
     <HostSeamProvider
       value={{

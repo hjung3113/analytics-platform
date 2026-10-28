@@ -1,8 +1,7 @@
 // VocComposeScreen — the VOC form for the platform's `VOC 등록` drawer (platform ADR-0070 decisions 4–5, ADR-0071).
 //
-// One column for a 360–520px container (no viewport breakpoints). Built from the bridge-safe parts of
-// `VocCreateScreen`, which stays as it is for the standalone app: no router, no `@/lib/api` barrel, no reporter
-// card and no similar/semantic panels (they need the router and `/me`). The host seam carries the toasts.
+// One column for a 360–520px container (no viewport breakpoints). It is the only VOC creation screen: no router, no
+// `@/lib/api` barrel, no reporter card and no similar/semantic panels. The host seam carries the toasts.
 
 import { mapUnknownError } from '@/lib/api/errorMapper';
 import { uploadRichEditorAttachment } from '@/lib/attachments/rich-editor-upload';

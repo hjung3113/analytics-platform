@@ -14,7 +14,7 @@ vi.mock('@/features/voc/hooks/useVocEditDescriptionMutation', () => ({
 import { useVocEditDescriptionMutation } from '@/features/voc/hooks/useVocEditDescriptionMutation';
 import { ApiError } from '@/lib/api/types';
 import { type HostNotice, type HostSeam, HostSeamProvider } from '@/lib/host/host-seam';
-import { tanstackHost } from '@/lib/host/tanstack-host';
+import { tanstackHost } from '@/test/host-adapters/lib/host/tanstack-host';
 import { EditDescriptionModal } from '../EditDescriptionModal';
 
 const VOC = {

@@ -1,5 +1,5 @@
 import { GLOSSARY } from '@/lib/copy/glossary';
-import { TasksRouteView } from '@/routes/_authed/tasks';
+import { TasksRouteView } from '@/test/screen-host/routes/_authed/tasks';
 import { type TaskDto, listTasksQuerySchema } from '@fops/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen } from '@testing-library/react';
@@ -51,7 +51,7 @@ vi.mock('@ap/ui', async (importOriginal) => {
   };
 });
 
-vi.mock('../components/TaskDetailPanel', () => ({
+vi.mock('@/test/host-adapters/features/tasks/components/TaskDetailPanel', () => ({
   TaskDetailPanel: () => null,
 }));
 

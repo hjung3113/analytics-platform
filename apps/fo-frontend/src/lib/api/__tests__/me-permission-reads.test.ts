@@ -106,8 +106,6 @@ describe('/me retry (R2)', () => {
 
   it('rejects a malformed /me body', () => {
     expect(() => parseMeResponse({ actor: {}, workspace_id: 'w' })).toThrow('Malformed /me');
-    expect(() => parseMeResponse({ ...ME, platform_return_origins: [1] })).toThrow('Malformed /me');
-    expect(parseMeResponse({ ...ME, platform_return_origins: ['https://p'] })).toBeTruthy();
   });
 });
 

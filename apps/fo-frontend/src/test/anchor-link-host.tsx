@@ -6,7 +6,7 @@ import { registerDefaultHost } from '../lib/host/host-seam';
  * test without a router.
  */
 async function registerHost(here?: string): Promise<void> {
-  const { tanstackHost } = await import('../lib/host/tanstack-host');
+  const { tanstackHost } = await import('@/test/host-adapters/lib/host/tanstack-host');
   registerDefaultHost({
     ...tanstackHost,
     ...(here !== undefined ? { useHere: () => here } : {}),

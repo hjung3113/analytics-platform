@@ -4,12 +4,12 @@
 
 ## 파일
 
-`src/` 배치(ADR-0090, #713e): 루트에는 공개 진입점 `index.ts`, 생성 산출물 `vocab.json`(`exports`가 가리킨다), `globals.d.ts`, 갈래를 가로지르는 `guards.ts`·`i18n.ts`만 둔다. 나머지는 폴더다 — `adapter/`(포트·동작·감사·응답·페이징·선택 포트·상관 ID), `menu/`(메뉴 선언·조회 선언·필수 Context), `links/`(URL codec·`returnTo`·FeedbackOps 링크·적용 이력), `host/`(호스트 → 모듈 계약), `values/`(기간·측정값·시점). 아래 목록의 파일명은 이 폴더 안 파일이다. 공개 API는 `index.ts`뿐이라 이동은 import 경로만 바꾼다.
+`src/` 배치(ADR-0090, #713e): 루트에는 공개 진입점 `index.ts`, 생성 산출물 `vocab.json`(`exports`가 가리킨다), `globals.d.ts`, 갈래를 가로지르는 `guards.ts`·`i18n.ts`만 둔다. 나머지는 폴더다 — `adapter/`(포트·동작·감사·응답·페이징·선택 포트·상관 ID), `menu/`(메뉴 선언·조회 선언·필수 Context), `links/`(URL codec·`returnTo`·플랫폼 인바운드 링크·적용 이력), `host/`(호스트 → 모듈 계약), `values/`(기간·측정값·시점). 아래 목록의 파일명은 이 폴더 안 파일이다. 공개 API는 `index.ts`뿐이라 이동은 import 경로만 바꾼다.
 
 - `query-history.ts` — 적용 이력 저장 포트·항목·키와 결정적 정렬/id. 저장소가 병합·횟수·시각·20건 보존을 소유한다(06 §11).
 - `saved-view.ts` — 저장된 뷰 타입(조건 세트·메뉴 뷰, 공개 대상·승인 상태 별도 필드, 객체별 capability, `denied` 변형), 메뉴 선언 `SavedViewSupport`, 저장소 포트 `SavedViewStore`(`Result`: conflict·forbidden·unavailable·invalid), 순수 `validateSavedView`·`canTransition`. 결정은 [ADR-0092](../../../docs/adr/0092-saved-view-units-tiers-and-groups.md), 계약은 06 §21(kernel.md). 동작 테스트는 `apps/platform-web/src/saved-view-contract.test.ts`.
 - `url.ts` — 전역 Context URL codec(`parseQuery`, `buildQuery`, `isAppRelativePath` 등). 06 §6 URL 계약의 구현.
-- `feedbackops-link.ts` — FeedbackOps ↔ 플랫폼 딥링크 codec. 원본은 [통합 계약](../../../docs/integration/feedbackops-deeplink.md)이며 이 파일은 구현이다.
+- `platform-inbound-link.ts` — 플랫폼 인바운드 딥링크 codec(`PlatformHop`·`buildPlatformInboundLink`·`parsePlatformInboundLink`). 원본은 [통합 계약](../../../docs/integration/feedbackops-deeplink.md) §2이며 이 파일은 구현이다. 플랫폼 → FeedbackOps 아웃바운드 helper(`buildFeedbackOpsLink`·`parseFeedbackOpsLink`·`platformReturnFor`·`PLATFORM_RETURN_MAX`)는 독립 앱 폐기(#597, ADR-0097)로 제거했다.
 - `menu.ts` — `MenuMeta`(manifest 선언부; 선택 `aliases`는 옛 경로 별칭이고, manifest는 옛 경로를 `path`에 쓰고 `createRegistry`가 정규 경로로 바꿔 돌려준다, ADR-0093), `ContextKey`, `Capability`, `PageType`, 브랜드 id `GroupId`·`SpaceId`·`MenuPermission`(비공개 brand 심볼, 값 목록 없음)과 항등 캐스트 생성자 `groupId`·`spaceId`·`menuPermission`(리터럴을 유지해 앱이 자기 선언에서 좁은 타입을 얻는다. 모양 검사는 생성자가 아니라 `createRegistry`가 한다), Kernel 고유 권한 목록 `KERNEL_PERMISSIONS`와 `Permission = KernelPermission | MenuPermission`(ADR-0072: 그룹·공간·메뉴 권한의 값 목록은 앱이 선언하고 이 패키지는 갖지 않는다. 앱이 조립 파일에서 `createRegistry({ permissions })`로 선언하고 `registry.permissions`가 검증기·선택지가 공유하는 유일한 런타임 목록이다). manifest 기본값 `contextCapabilities(declared?)`(선언하지 않은 키는 모두 `unsupported`, 호출마다 새 객체)와 `NO_FEATURES`(모든 기능 꺼짐)는 메뉴 index와 `gen-menu` 템플릿이 함께 쓴다(#673).
 - `menu-query.ts` — 메뉴 조회 엔드포인트 선언 `EndpointSpec`·`AnyEndpointSpec`·`defineEndpoint`, 전송 요청 `MenuQuery`, 선언 기반 Context 투영 `projectContext`. 결정은 [ADR-0019](../../../docs/adr/0019-menu-query-endpoint-declaration.md), 서버 판정 순서는 [체크리스트 §3](../../../docs/integration/real-server-checklist.md)(필드명은 Candidate).
 - `menu.ts`의 `ConditionPreset`·`MenuMeta.conditionPresets`·`conditionPreset`과 `menu-query.ts`의 순수 `narrowCondition(condition, axes)`(남는 축이 없으면 `null`, `{}` 아님) — Condition 프리셋은 메뉴 조회의 투영만 좁히고 전역 Condition·URL은 그대로 둔다([ADR-0083](../../../docs/adr/0083-condition-presets.md), 06 §6.4). `projectContext`는 그대로 순수하며 좁힌 `g`를 받는다. 동작 테스트는 `apps/platform-web/src/menu-query-contract.test.ts`.
@@ -35,7 +35,7 @@
 
 - import 금지: React, DOM 타입, Node API, 다른 `@ap/*` 패키지, 외부 런타임 라이브러리.
 - 필드 추가·이름 변경은 계약 변경이다. 소비처(kernel, shell, 앱 mock 구현)를 같은 PR에서 맞추고, 06이나 패키지 경계 문서에 반영할 결정인지 먼저 판단한다. 필드 이름 대부분은 Candidate다.
-- 이 패키지에는 자체 동작 테스트가 없다(`test`는 `vocab.json`이 최신인지만 본다 — 어휘 목록을 바꾸면 `gen:vocab`을 돌려 함께 커밋한다). 계약 테스트는 앱 통합 테스트 `apps/platform-web/src/{url-contract,feedbackops-link,instant,menu-query-contract,contracts-helpers,measure}.test.ts`이므로 codec·선언을 바꾸면 함께 갱신한다. 배포 산출물과 소비자 환경 규칙은 [패키지 경계 §3](../../../docs/integration/platform-packages.md#3-패키지-구성)이 소유하고 `check:pack`이 확인한다. URL은 보정 없이 오류로 거부한다(06 §6).
+- 이 패키지에는 자체 동작 테스트가 없다(`test`는 `vocab.json`이 최신인지만 본다 — 어휘 목록을 바꾸면 `gen:vocab`을 돌려 함께 커밋한다). 계약 테스트는 앱 통합 테스트 `apps/platform-web/src/{url-contract,platform-inbound-link,instant,menu-query-contract,contracts-helpers,measure}.test.ts`이므로 codec·선언을 바꾸면 함께 갱신한다. 배포 산출물과 소비자 환경 규칙은 [패키지 경계 §3](../../../docs/integration/platform-packages.md#3-패키지-구성)이 소유하고 `check:pack`이 확인한다. URL은 보정 없이 오류로 거부한다(06 §6).
 - `PlatformAdapter`에 메서드를 추가하면 `pnpm typecheck`가 깨뜨리는 어댑터 구현(`@ap/kernel/testing`의 `testAdapter`, mock `packages/adapters/mock-server/src/adapter.ts`, `@ap/server-conformance` 테스트의 `referenceAdapter`)과 `@ap/server-conformance` 검사, [체크리스트 §2](../../../docs/integration/real-server-checklist.md)·[전송 형식 초안 §1](../../../docs/integration/http-adapter-contract.md) 표를 같은 PR에서 고친다.
 
 ## 검증

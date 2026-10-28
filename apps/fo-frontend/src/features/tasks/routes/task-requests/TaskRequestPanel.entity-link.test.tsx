@@ -33,7 +33,7 @@ vi.mock('./useTaskRequestConversion', async (importOriginal) => ({
 }));
 vi.mock('./useTaskRequestLink', () => ({ useTaskRequestLink: useLink }));
 
-import { TaskRequestPanel } from './TaskRequestPanel';
+import { TaskRequestPanel } from '@/test/host-adapters/features/tasks/routes/task-requests/TaskRequestPanel';
 import { convertedTaskSummaryFromEntityLinks } from './useTaskRequestConvertedTaskLink';
 
 const request: TaskRequestDto = {

@@ -5,7 +5,7 @@ repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 compose_file="$repo_root/docker-compose.release.yml"
 env_file="$repo_root/.env.release"
 project_name=feedbackops-release-1060
-frontend_url=http://localhost:4173
+backend_url=http://localhost:3001
 status=failed
 reason=unexpected-command-failure
 
@@ -39,7 +39,7 @@ if [[ "${1:-}" == "--down" ]]; then
 fi
 [[ "$#" -eq 0 ]] || fail "usage: image-smoke.sh [--down]"
 
-"${compose[@]}" build backend frontend migrate >&2
+"${compose[@]}" build backend migrate >&2
 "${compose[@]}" up -d postgres oidc minio >&2
 "${compose[@]}" up -d migrate >&2
 
@@ -59,7 +59,7 @@ done
 [[ "$migration_state" == exited && "$migration_exit_code" == 0 ]] \
   || fail "migration-failed-or-timed-out"
 
-"${compose[@]}" up -d minio-bootstrap backend frontend >&2
+"${compose[@]}" up -d minio-bootstrap backend >&2
 
 request() {
   local path="$1"
@@ -68,12 +68,12 @@ request() {
   response="$(curl --silent --show-error --max-time 10 \
     -H "Accept: $accept" \
     --write-out $'\n%{http_code}' \
-    "$frontend_url$path")" || return 1
+    "$backend_url$path")" || return 1
   response_status="${response##*$'\n'}"
   response_body="${response%$'\n'*}"
 }
 
-# Bounded wait: backend readiness (database, pg_boss, storage) through nginx.
+# Bounded wait: backend readiness (database, pg_boss, storage) directly (published through the OIDC provider's network namespace).
 ready_deadline=$((SECONDS + 120))
 ready=
 while ((SECONDS < ready_deadline)); do
@@ -83,19 +83,7 @@ while ((SECONDS < ready_deadline)); do
   fi
   sleep 2
 done
-[[ -n "$ready" ]] || fail "backend-readiness-through-nginx-timed-out"
-
-if ! request / text/html; then
-  fail "frontend-root-request-failed"
-fi
-[[ "$response_status" == 200 && "$response_body" == *"<!doctype html"* ]] \
-  || fail "frontend-root-was-not-html"
-
-if ! request '/vocs?release_smoke=1' text/html; then
-  fail "spa-deep-link-request-failed"
-fi
-[[ "$response_status" == 200 && "$response_body" == *"<!doctype html"* ]] \
-  || fail "spa-deep-link-did-not-fall-back-to-index"
+[[ -n "$ready" ]] || fail "backend-readiness-timed-out"
 
 if ! request /vocs application/json; then
   fail "json-api-request-failed"

@@ -140,7 +140,7 @@ export function TriageScreen(): React.ReactElement {
   // ── Handlers ────────────────────────────────────────────────────────────────
 
   // Every write folds on the latest pending search (several before the host acknowledges the first) and
-  // changes only its own keys; the rest (managedSystem, returnTo, platformReturn, …) rides along.
+  // changes only its own keys; the rest (managedSystem, returnTo, …) rides along.
   function triageWrite(
     changes: Readonly<Record<string, string | undefined>>,
     options?: { replace?: boolean },

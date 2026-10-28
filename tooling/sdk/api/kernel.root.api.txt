@@ -15,8 +15,8 @@ DrillState | type | type DrillState = { depth: number; enter: (key: string, valu
 DrillTrailStep | type | type DrillTrailStep = { key: string; label: @ap/contracts#Text; value: string; }
 EquipmentSearchParams | type | type EquipmentSearchParams = { context?: @ap/kernel#PortContext; enabled?: boolean; pageSize?: number; query?: string; }
 ErrorGuidance | type | type ErrorGuidance = { action: @ap/kernel#Key; cause: @ap/kernel#Key; code: null | string; }
-FeedbackOpsEntry | type | type FeedbackOpsEntry = { href: null | string; icon: LucideIcon; key: string; label: @ap/contracts#Text; } | { icon: LucideIcon; key: string; label: @ap/contracts#Text; menuId: string; page?: Record<string, string>; }
-FeedbackOpsSlot | type | type FeedbackOpsSlot = { entriesFor: (spaceId: @ap/contracts#SpaceId, platformReturn?: string) => null | readonly @ap/kernel#FeedbackOpsEntry[]; overall: null | { href: string; permission: @ap/contracts#Permission; }; permission?: @ap/contracts#Permission; }
+FeedbackOpsEntry | type | type FeedbackOpsEntry = { icon: LucideIcon; key: string; label: @ap/contracts#Text; menuId: string; page?: Record<string, string>; }
+FeedbackOpsSlot | type | type FeedbackOpsSlot = { entriesFor: (spaceId: @ap/contracts#SpaceId) => null | readonly @ap/kernel#FeedbackOpsEntry[]; permission?: @ap/contracts#Permission; }
 GroupDef | type | type GroupDef = @ap/kernel#ModuleGroupDef | @ap/kernel#PlatformGroupDef
 HomeTodoSlot | type | type HomeTodoSlot = { Todo: ComponentType; }
 I18nProvider | function | function I18nProvider({ children }: { children: ReactNode; }): import("react").JSX.Element

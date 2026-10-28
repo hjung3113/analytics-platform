@@ -251,7 +251,7 @@
 - **구현 안 함 — #553 idle 안내의 필수 항목 이름 통일:** 조회 바는 `공정`, 본문 idle 사유는 Kernel 공용 라벨(`CONTEXT_LABELS`)의 `room_name`으로 같은 항목을 다르게 부른다(UX 재확인 W-553B-UX2 UX-1, 경미). 이유: 공용 라벨을 바꾸면 Context 바·내보내기·오류 문구 등 모든 화면 표기가 함께 바뀌어 별도 문구 검토가 필요하다. 다시 열 조건: 다음 문구 정리 PR 또는 조회 바를 두 번째 메뉴에 적용할 때.
 - **구현 안 함 — 권한 없는 값을 주소에 직접 넣었을 때 조건 표시:** 데이터는 서버가 막지만 조건 칩·요약에는 입력한 값 문자열이 남는다(main과 같은 기존 동작, W-553B-UX2 Noticed). 이유: 새 누출이 아니고 표시 정책(숨김 vs "사용할 수 없음")은 #554 이력 복원의 무효값 표시와 함께 정하는 편이 맞다. #554는 이력 행에만 "현재 사용할 수 없음"을 적용했고 주소 칩 표시는 바꾸지 않았다(2026-10-21). 다시 열 조건: 조회 바를 두 번째 메뉴에 적용할 때.
 - **구현 안 함 — 히트맵 날짜 축 라벨 겹침:** 차트 카탈로그 히트맵(main)의 날짜 축 라벨이 1440에서 겹친다(#576 UX 리뷰 Noticed, 기존 동작). 이유: #576 범위 밖의 기존 차트 수정. 다시 열 조건: 히트맵을 다음에 고치거나 레인과 같은 정시 눈금 규칙을 다른 시간축에 넓힐 때.
-- **구현됨 — #594 사용자 메뉴의 'FeedbackOps 전체' 링크 제거(#764 p2, 2026-10-28):** 앱 슬롯이 `overall: null`을 돌려준다. SDK 타입의 `overall`과 `feedbackops-link.ts`의 `overall` 대상은 다른 앱을 위해 남긴다.
+- **구현됨 — #594 사용자 메뉴의 'FeedbackOps 전체' 링크 제거(#764 p2, 2026-10-28):** #597에서 SDK `overall`·외부 진입 helper도 제거했다. 플랫폼 메뉴 진입만 남는다.
 - **구현 안 함 — #594 운영자 상세의 미저장 편집과 VOC 등록 드로어 전환:** ADR-0070은 오른쪽 패널을 하나만 두고 초안을 지키게 했고, #594는 신고자 상세까지만 다룬다. 이유: 운영자 상세 편집 화면은 #595에서 옮긴다. 다시 열 조건: #595 운영자 상세가 들어올 때.
 - **구현 안 함 — VOC 드로어의 Correlation ID 칩(#655):** ADR-0070 결정 5는 "보이는 Correlation ID"를 칩으로 말하지만 Kernel에는 화면이 보이는 Correlation ID를 읽는 접근자가 없다(응답 데이터에서 `StateView`가 그릴 때만 나온다). 이유: 레일의 셸이 읽을 값이 없다. 다시 열 조건: Kernel이 보이는 Correlation ID를 노출할 때 — 그때 `freezeVocContext`에 칩 하나(`correlation`)를 더한다.
 - **구현 안 함 — VOC 드로어의 보드 칸 Context(#655):** 분석 보드 화면에서는 `분석 보드` 한 칩만 고정한다(`href` 없음). 이유: 칸은 자기 Context를 가지고(ADR-0049) 레일은 선택된 칸의 Context를 읽지 못한다. 다시 열 조건: 레일이 포커스된 칸의 Context를 읽을 수 있을 때.
@@ -333,3 +333,9 @@
 - **구현 안 함 — real-server E2E CI job (#593):** Postgres 서비스와 백엔드 빌드가 필요한 real-server E2E workflow/선택기 연결은 없다. 현재 real spec은 운영 콘솔과 bridge 화면 중심이고, FeedbackOps Backend integration은 서버 conformance를 검사하지만 Vite proxy·cookie·실제 조립 브라우저는 검사하지 않는다. 이유: #593의 현재 수락 기준은 throwaway DB의 real-assembly build와 real-server E2E이며 CI job은 요구되지 않았다. 따라서 브라우저 통합 회귀는 CI에서 차단되지 않는다. 다시 여는 조건: real spec 범위가 운영 콘솔+bridge 메뉴를 넘거나 real-adapter 회귀가 FO integration을 지나치는 경우.
 
 - **미구현 — contract-schemas 타입 검사 globals 결합:** `@ap/contracts` 원본 타입 동등성 검사가 형제 패키지의 host API 선언을 포함한다. 로컬 복제는 선언 drift를 만들고 DOM/Node 타입 전체 추가는 no-DOM 경계를 넓히므로 유지한다. 계약 타입의 공개 host 선언 경계가 생기거나 동등성 검사가 배포 선언을 소비할 때 다시 연다.
+- **구현 안 함 — 플랫폼 시각 회귀 보강(#597):** 독립 앱 시각 스펙 25개(`apps/fo-frontend/tests/visual`)와 그 하니스를 삭제했고 플랫폼 화면용 대체 시각 검사는 만들지 않았다. 이유: CI에서 돌지 않았고 기준 이미지가 낡았다(#954). 다시 여는 조건: 플랫폼 화면의 시각 회귀가 사용자 보고로 반복 확인되거나, 시각 검사를 CI에서 돌릴 안정된 기준 환경이 생길 때.
+- **구현 안 함 — `app-preview.py`·`nav-perf`의 독립 앱 의존(#597):** `ops/feedbackops/conductor/scripts/app-preview.py`와 `nav-perf`는 삭제된 독립 앱 Vite 설정을 띄운다. 이유: #597은 은퇴만 다루고 플랫폼 앱을 띄우는 대체 도구는 별도 설계가 필요하다. 다시 여는 조건: FeedbackOps 화면의 UX·성능 점검을 플랫폼 앱에서 다시 돌려야 할 때.
+
+- **구현 안 함 — 소개 사이트의 독립 FeedbackOps 연결 설명 갱신(#597):** `site/index.html`·`site/SOURCES.md` L94·L102와 관련 본문에는 은퇴한 `platformReturn`·`PLATFORM_RETURN_ORIGINS`·아웃바운드 helper 설명이 남는다. 이유: 이번 작업자는 브라우저·사이트 빌드 검증이 금지되어 공개 시각 자료의 전체 근거 대응을 검증할 수 없다. 원본 계약은 `docs/integration/feedbackops-deeplink.md`에 갱신했다. 다시 여는 조건: 다음 사이트 배포 전, ADR-0097의 셸 안 메뉴 이동·보존한 인바운드 계약으로 본문과 근거 행을 함께 교체하고 사이트 조립·캡처 검사를 통과시킬 때.
+
+- **구현 안 함 — VOC 등록 drawer의 표시되지 않는 필드에 대한 서버 422 알림(#597 C1 검토):** `useVocComposeController`는 서버 `detail.fields`를 `form.setError`로만 넣어 `attachment_ids`처럼 별도 오류 영역이 없는 필드는 알림 없이 남을 수 있다. 독립 앱의 이 알림 검사는 은퇴했고 유지되는 drawer는 11개 이상 첨부를 요청 전에 차단하는 검사를 가진다. 이유: 기존 drawer 동작의 차이이며 독립 앱 은퇴에서 오류 표시 정책을 새로 바꾸지 않았다. 다시 여는 조건: 서버가 이 drawer에서 비표시 필드의 422를 실제 반환하거나, 등록 오류 표시 계약을 다음에 변경할 때.

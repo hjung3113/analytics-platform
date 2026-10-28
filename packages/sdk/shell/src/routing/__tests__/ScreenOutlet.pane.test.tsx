@@ -182,28 +182,24 @@ describe('ScreenOutlet renders the pane screen with the same gates (ADR-0049)', 
 });
 
 describe('shell chrome outside a pane keeps following the main screen', () => {
-  const feedback = (returns: (string | undefined)[]): FeedbackOpsSlot => ({
-    entriesFor: (_space, platformReturn) => { returns.push(platformReturn); return [{ key: 'task', icon: ListTodo, label: { ko: 'Task', en: 'Task' }, href: `https://fo.example/?return=${encodeURIComponent(platformReturn ?? '')}` }]; },
-    overall: null,
-  });
+  const feedback: FeedbackOpsSlot = {
+    entriesFor: () => [{ key: 'task', icon: ListTodo, label: { ko: 'Task', en: 'Task' }, menuId: 'plain' }],
+  };
 
-  it('pane Context changes leave the sidebar links, FeedbackOps return URLs and the main Context untouched', async () => {
+  it('pane Context changes leave the sidebar links, FeedbackOps entry links and the main Context untouched', async () => {
     const { adapter } = fixtureAdapter(ANALYST);
-    const returns: (string | undefined)[] = [];
     mount(`/plain?${win}&scopeId=MEM`, [{ id: 'a', screen: paneOf('scoped', `?scopeId=S1&${win}`) }], adapter, {
-      slots: { feedbackOps: feedback(returns) }, outside: <AppSidebar collapsed={false} onToggle={() => {}} />,
+      slots: { feedbackOps: feedback }, outside: <AppSidebar collapsed={false} onToggle={() => {}} />,
     });
     await flush();
     const links = () => screen.getAllByRole('link').map(a => a.getAttribute('href')).join('\n');
     const before = links();
-    const returnBefore = returns.at(-1);
     expect(before).toContain('scopeId=MEM');
-    expect(returnBefore).toContain('/plain');
+    expect(screen.getByRole('link', { name: /^Task — .*FeedbackOps/ }).getAttribute('href')).toContain('/plain');
     await act(async () => { at('a').setGlobal({ scopeId: 'S2', roomNames: ['R1'] }); });
     await flush();
     expect(at('a').global.scopeId).toBe('S2');
     expect(links()).toBe(before);
-    expect(returns.at(-1)).toBe(returnBefore);
     expect(at('main').global.scopeId).toBe('MEM');
     expect(at('main').global.roomNames).toBeNull();
   });

@@ -1,4 +1,5 @@
 import { PermissionGate } from '@/features/admin/permissions/permission-gate';
+import { ManagedSystemScopePicker } from '@/operator-screens/scope-picker/ManagedSystemScopePicker';
 import { ownerDetailFixture } from '@/test/permission-details';
 import {
   DASHBOARD_ACTIONABLE_FINDINGS_ROUTE,
@@ -25,12 +26,9 @@ const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 vi.mock('sonner', () => ({ toast }));
 
 import { COVERAGE_METRIC_IDS, COVERAGE_METRIC_LABELS } from '@/lib/copy/coverage';
-import { HOME_QUEUE_COPY } from '@/lib/copy/home';
 import { registerDefaultHost } from '@/lib/host/host-seam';
-import { AppSidebar } from '@/lib/layout/AppSidebar';
-import { HomeRoute } from '@/routes/_authed/home';
-import { HomeScreen } from '../HomeScreen';
-import { homeSidebarEntries } from '../homeNavigation';
+import { HomeScreen } from '@/test/host-adapters/features/home/HomeScreen';
+import { HomeRoute } from '@/test/screen-host/routes/_authed/home';
 
 const response = {
   computed_at: '2026-10-13T00:00:00.000Z',
@@ -179,12 +177,13 @@ function ScopeHarness(): React.ReactElement {
   const [managedSystemId, setManagedSystemId] = React.useState<string | undefined>();
   return (
     <>
-      <AppSidebar
-        entries={homeSidebarEntries(undefined, true)}
+      <ManagedSystemScopePicker
+        isAdmin
+        workspaceWideScope
         managedSystems={[
           { id: '33333333-3333-4333-8333-333333333333', name: 'Finance', granted: true },
         ]}
-        onManagedSystemChange={setManagedSystemId}
+        onChange={setManagedSystemId}
       />
       <HomeScreen {...(managedSystemId !== undefined ? { managedSystemId } : {})} />
     </>
@@ -195,7 +194,7 @@ describe('HomeScreen route content', () => {
   const originalFetch = globalThis.fetch;
   // PermissionGate reads the host's current location; this file renders it without a router.
   beforeAll(async () => {
-    const { tanstackHost } = await import('@/lib/host/tanstack-host');
+    const { tanstackHost } = await import('@/test/host-adapters/lib/host/tanstack-host');
     registerDefaultHost({ ...tanstackHost, useHere: () => '/home' });
   });
   afterEach(() => {
@@ -221,28 +220,6 @@ describe('HomeScreen route content', () => {
     ).toBeInTheDocument();
     expect(screen.queryByText(/\d+개의 운영 갭/)).not.toBeInTheDocument();
     expect(screen.queryByTestId('home-queue-high-severity-unlinked')).toBeNull();
-  });
-
-  it('keeps a positive urgent Home sidebar queue badge neutral', () => {
-    const summary = dashboardSummarySchema.parse({
-      ...response,
-      action_queues: [
-        {
-          id: 'bad-outcome-no-followup',
-          severity: 'urgent',
-          count: 3,
-          next_action: { label: 'Review', route: '/surveys', intent: 'review' },
-          secondary_action: null,
-        },
-      ],
-    });
-
-    render(<AppSidebar entries={homeSidebarEntries(summary, true)} />);
-
-    const badge = screen.getByTestId('sidebar-count-queue-bad-outcome-no-followup');
-    expect(badge).toHaveTextContent('3');
-    expect(badge.className).toContain('bg-surface-row-selected');
-    expect(badge.className).not.toContain('text-accent-danger');
   });
 
   it('renders only the zero queue strip when every queue count is zero', async () => {
@@ -501,73 +478,6 @@ describe('HomeScreen route content', () => {
       'href',
       DASHBOARD_UNASSIGNED_VOC_ROUTE,
     );
-  });
-
-  it.each([
-    'unassigned-voc',
-    'high-severity-unlinked',
-    'actionable-finding-no-execution',
-    'released-task-unresolved-voc',
-    'bad-outcome-no-followup',
-    'permission-requests-pending',
-  ] as const)('sidebar label equals the card title for %s (#1179)', (id) => {
-    const summary = dashboardSummarySchema.parse({
-      ...response,
-      action_queues: [
-        {
-          id,
-          severity: 'warn',
-          count: 1,
-          next_action: { label: 'Review', route: '/findings', intent: 'review' },
-          secondary_action: null,
-        },
-      ],
-    });
-    const entries = homeSidebarEntries(summary, true);
-    expect(entries.find((entry) => entry.id === `queue-${id}`)?.label).toBe(
-      HOME_QUEUE_COPY[id].title,
-    );
-  });
-
-  it('renders a present zero queue in the sidebar', () => {
-    render(
-      <AppSidebar entries={homeSidebarEntries(dashboardSummarySchema.parse(response), true)} />,
-    );
-    expect(screen.getByTestId('sidebar-count-queue-unassigned-voc')).toHaveTextContent('0');
-    // #1179: the sidebar reuses the card title as the one queue name.
-    expect(screen.getByText('실행 계획 없는 Finding')).toBeInTheDocument();
-  });
-
-  it('omits permission-hidden queue ids from the sidebar', () => {
-    const absent = dashboardSummarySchema.parse({
-      ...response,
-      action_queues: response.action_queues.filter(
-        (queue) => queue.id !== 'permission-requests-pending',
-      ),
-    });
-    render(<AppSidebar entries={homeSidebarEntries(absent, true)} />);
-    expect(screen.queryByTestId('sidebar-nav-queue-permission-requests-pending')).toBeNull();
-    expect(screen.queryByTestId('sidebar-count-queue-permission-requests-pending')).toBeNull();
-  });
-
-  it.each([
-    { name: 'without queue data', summary: undefined },
-    { name: 'with queue data', summary: dashboardSummarySchema.parse(response) },
-  ])('omits prototype navigation placeholders $name', ({ summary }) => {
-    const openCommandPalette = vi.fn();
-    render(<AppSidebar entries={homeSidebarEntries(summary, true, openCommandPalette)} />);
-
-    const sidebar = within(screen.getByTestId('app-sidebar'));
-    // #611 restored the Command row as a real action (sidebar-nav-command);
-    // RECENT and the prototype's sample queue rows stay placeholders.
-    const commandRow = sidebar.getByTestId('sidebar-nav-command');
-    expect(commandRow).toBeInTheDocument();
-    fireEvent.click(commandRow);
-    expect(openCommandPalette).toHaveBeenCalledOnce();
-    expect(sidebar.queryByText('RECENT')).not.toBeInTheDocument();
-    expect(sidebar.queryByText('FIN-181 SSO 재인증')).not.toBeInTheDocument();
-    expect(sidebar.queryByText('VOC-2814 사이드 메뉴')).not.toBeInTheDocument();
-    expect(sidebar.queryByText('TASK-901 쿼리 플랜')).not.toBeInTheDocument();
   });
 
   it('maps urgent, warn, and info queues to their semantic color classes', async () => {
@@ -1580,10 +1490,6 @@ describe('HomeScreen route content', () => {
     expect(screen.getByText('내게 배정됨')).toBeInTheDocument();
     expect(screen.queryByText('Open My Work')).not.toBeInTheDocument();
     expect(screen.queryByText('My work')).not.toBeInTheDocument();
-
-    render(<AppSidebar entries={homeSidebarEntries(undefined, true)} />);
-    expect(screen.getByTestId('sidebar-nav-home')).toBeInTheDocument();
-    expect(screen.queryByTestId('sidebar-nav-my-work')).not.toBeInTheDocument();
   });
 
   it.each([

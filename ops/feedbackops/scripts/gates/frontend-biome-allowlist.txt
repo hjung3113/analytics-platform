@@ -46,11 +46,6 @@ apps/fo-frontend/src/features/tasks/routes/TaskBoardRoute.test.tsx lint/style/no
 apps/fo-frontend/src/features/tasks/routes/TaskBoardRoute.test.tsx lint/style/useImportType -- pre-existing on develop (1x, unchanged)
 apps/fo-frontend/src/features/tasks/routes/TaskListRoute.tsx format -- pre-existing on develop; the file predates biome formatting
 apps/fo-frontend/src/features/tasks/routes/TaskListRoute.tsx organizeImports -- pre-existing on develop; import order predates biome
-apps/fo-frontend/src/features/voc/components/create/VocCreateScreen.tsx format -- pre-existing on develop; the file predates biome formatting
-apps/fo-frontend/src/features/voc/components/create/VocCreateScreen.tsx organizeImports -- pre-existing on develop; import order predates biome
-apps/fo-frontend/src/features/voc/components/create/__tests__/VocCreateScreen.integration.test.tsx format -- pre-existing on develop; the file predates biome formatting
-apps/fo-frontend/src/features/voc/components/create/__tests__/VocCreateScreen.integration.test.tsx organizeImports -- pre-existing on develop; import order predates biome
-apps/fo-frontend/src/features/voc/components/create/__tests__/VocCreateScreen.integration.test.tsx lint/style/useImportType -- pre-existing on develop (1x, unchanged)
 apps/fo-frontend/src/features/voc/routes/InboxRoute.tsx lint/suspicious/noExplicitAny -- pre-existing on develop (10x, unchanged); the file's local slot types predate stricter typing
 apps/fo-frontend/src/lib/layout/AppSidebar.tsx format -- pre-existing on develop; dense single-line JSX predates biome formatting
 apps/fo-frontend/src/lib/layout/AppSidebar.tsx lint/a11y/useFocusableInteractive -- pre-existing on develop (1x, unchanged); the scope popover is a listbox of buttons
@@ -59,11 +54,11 @@ apps/fo-frontend/src/lib/layout/__tests__/AppSidebar.test.tsx format -- pre-exis
 apps/fo-frontend/src/lib/layout/__tests__/AppSidebar.test.tsx organizeImports -- pre-existing on develop; import order predates biome
 apps/fo-frontend/src/routes/_authed/voc-clusters/$clusterId.tsx format -- pre-existing on develop; the file predates biome formatting
 apps/fo-frontend/src/routes/_authed/voc-clusters/$clusterId.tsx organizeImports -- pre-existing on develop; import order predates biome
-apps/fo-frontend/src/routes/_authed/voc-clusters/__tests__/voc-cluster-shell.test.tsx format -- pre-existing on develop; the file predates biome formatting
-apps/fo-frontend/src/routes/_authed/voc-clusters/__tests__/voc-cluster-shell.test.tsx lint/a11y/noLabelWithoutControl -- pre-existing on develop (2x, unchanged); test-local harness markup
-apps/fo-frontend/src/routes/_authed/voc-clusters/__tests__/voc-cluster-shell.test.tsx lint/a11y/useButtonType -- pre-existing on develop (1x, unchanged); test-local harness markup
-apps/fo-frontend/src/routes/_authed/voc-clusters/__tests__/voc-cluster-shell.test.tsx lint/performance/noDelete -- pre-existing on develop (6x, unchanged); fixture teardown deletes optional keys
-apps/fo-frontend/src/routes/_authed/voc-clusters/__tests__/voc-cluster-shell.test.tsx lint/style/noNonNullAssertion -- pre-existing on develop (40x, unchanged); fixture lookups assert presence
+apps/fo-frontend/src/test/clusters-host/__tests__/voc-cluster-shell.test.tsx format -- pre-existing on develop; the file predates biome formatting
+apps/fo-frontend/src/test/clusters-host/__tests__/voc-cluster-shell.test.tsx lint/a11y/noLabelWithoutControl -- pre-existing on develop (2x, unchanged); test-local harness markup
+apps/fo-frontend/src/test/clusters-host/__tests__/voc-cluster-shell.test.tsx lint/a11y/useButtonType -- pre-existing on develop (1x, unchanged); test-local harness markup
+apps/fo-frontend/src/test/clusters-host/__tests__/voc-cluster-shell.test.tsx lint/performance/noDelete -- pre-existing on develop (6x, unchanged); fixture teardown deletes optional keys
+apps/fo-frontend/src/test/clusters-host/__tests__/voc-cluster-shell.test.tsx lint/style/noNonNullAssertion -- pre-existing on develop (40x, unchanged); fixture lookups assert presence
 docs/feedbackops/design-prototype/screen-voc.jsx format -- pre-existing on develop; the prototype is a design reference, not shipped code
 docs/feedbackops/design-prototype/screen-voc.jsx lint/a11y/useButtonType -- pre-existing on develop (10x, unchanged); prototype reference, not shipped code
 docs/feedbackops/design-prototype/screen-voc.jsx lint/a11y/useKeyWithClickEvents -- pre-existing on develop (2x, unchanged); prototype reference, not shipped code
@@ -234,9 +229,9 @@ apps/fo-backend/src/modules/voc/recommendations/__tests__/recommendations-routes
 apps/fo-backend/src/test-support/permissions-fixtures.ts lint/style/noUnusedTemplateLiteral -- pre-existing on develop (1x, unchanged by #517 Phase 1; import-path relocation only)
 apps/fo-backend/src/test-support/voc-fixtures.ts lint/suspicious/noImplicitAnyLet -- pre-existing on develop (1x, unchanged by #517 Phase 1; import-path relocation only)
 apps/fo-backend/src/test-support/voc-fixtures.ts lint/style/noUnusedTemplateLiteral -- pre-existing on develop (1x, unchanged by #517 Phase 1; import-path relocation only)
-apps/fo-frontend/src/routes/_authed/admin/permissions/requests.test.tsx lint/style/noNonNullAssertion -- pre-existing on develop (2x, unchanged by #524; decisionPosts()[0]! at two test call sites this branch did not touch)
-apps/fo-frontend/src/routes/_authed/admin/permissions/requests.test.tsx organizeImports -- pre-existing on develop; whole-file double-quote style predates biome, this branch only adds/edits individual test bodies
-apps/fo-frontend/src/routes/_authed/admin/permissions/requests.test.tsx format -- pre-existing on develop; whole-file double-quote style predates biome, this branch only adds/edits individual test bodies
+apps/fo-frontend/src/test/admin-host/permissions/requests.test.tsx lint/style/noNonNullAssertion -- pre-existing on develop (2x, unchanged by #524; decisionPosts()[0]! at two test call sites this branch did not touch)
+apps/fo-frontend/src/test/admin-host/permissions/requests.test.tsx organizeImports -- pre-existing on develop; whole-file double-quote style predates biome, this branch only adds/edits individual test bodies
+apps/fo-frontend/src/test/admin-host/permissions/requests.test.tsx format -- pre-existing on develop; whole-file double-quote style predates biome, this branch only adds/edits individual test bodies
 apps/fo-frontend/src/lib/layout/AppFrame.tsx organizeImports -- pre-existing on develop; import order predates biome, this branch adds a scopeControlEnabled prop only
 apps/fo-frontend/src/lib/layout/AppFrame.tsx format -- pre-existing on develop; import block/JSDoc predates biome formatting, this branch adds a scopeControlEnabled prop only
 packages/fo-ui/src/badges/__tests__/SeverityBadge.test.tsx lint/complexity/noForEach -- pre-existing on develop; the outer cases.forEach() this branch did not write, only added new it() blocks inside it
@@ -266,7 +261,6 @@ apps/fo-backend/src/modules/attachments/service.ts organizeImports -- pre-existi
 apps/fo-backend/src/modules/attachments/service.ts lint/suspicious/noImplicitAnyLet -- pre-existing on develop (2x, measured 2026-09-30; untouched lines)
 apps/fo-backend/src/modules/voc/jobs/released-review-candidates.ts format -- pre-existing on develop (measured 2026-09-30; #517 P2 moves the queue constant and payload type to the contract file)
 apps/fo-backend/src/modules/voc/jobs/released-review-candidates.ts organizeImports -- pre-existing on develop (measured 2026-09-30; #517 P2 moves the queue constant and payload type to the contract file)
-apps/fo-frontend/src/features/voc/components/create/useVocCreateController.ts lint/complexity/useLiteralKeys -- moved verbatim from VocCreateScreen.tsx, which carries the same 2x on develop (#517 Phase 3; bracket access kept for noPropertyAccessFromIndexSignature)
 apps/fo-backend/src/modules/voc/read/repository-list.ts lint/correctness/noUnusedVariables -- moved verbatim from voc/repo-read.ts, which carries the same 8x on develop (#517 Phase 3)
 apps/fo-backend/src/modules/voc/read/repository-list.ts lint/style/noNonNullAssertion -- moved verbatim from voc/repo-read.ts (pre-existing on develop; #517 Phase 3)
 apps/fo-backend/src/modules/voc/read/repository-conversation.ts lint/style/noNonNullAssertion -- moved verbatim from voc/repo-read.ts (pre-existing 2x on develop; #517 Phase 3)
@@ -314,11 +308,6 @@ apps/fo-frontend/src/lib/auth/useMe.ts organizeImports -- pre-existing on develo
 apps/fo-frontend/src/routes/__root.tsx organizeImports -- pre-existing on develop (measured 2026-09-30); #583 switches to createRootRouteWithContext
 apps/fo-frontend/src/routes/_authed/findings/$findingId.tsx format -- pre-existing on develop (measured 2026-09-30); #587 only changes the back link target
 apps/fo-frontend/src/routes/_authed/findings/$findingId.tsx organizeImports -- pre-existing on develop (measured 2026-09-30); #587 only changes the back link target
-apps/fo-frontend/src/features/voc/components/create/SimilarVocPanel.tsx format -- pre-existing on develop (measured 2026-09-30); #592 only relabels the same-Managed-System peer copy
-apps/fo-frontend/src/features/voc/components/create/SimilarVocPanel.tsx organizeImports -- pre-existing on develop (measured 2026-09-30); #592 only relabels the same-Managed-System peer copy
-apps/fo-frontend/src/features/voc/components/create/__tests__/SimilarVocPanel.test.tsx format -- pre-existing on develop (measured 2026-09-30); #592 only relabels the same-Managed-System peer copy
-apps/fo-frontend/src/features/voc/components/create/__tests__/SimilarVocPanel.test.tsx lint/style/noNonNullAssertion -- pre-existing on develop (measured 2026-09-30); #592 only relabels the same-Managed-System peer copy
-apps/fo-frontend/src/features/voc/components/create/__tests__/SimilarVocPanel.test.tsx organizeImports -- pre-existing on develop (measured 2026-09-30); #592 only relabels the same-Managed-System peer copy
 apps/fo-frontend/src/features/voc/components/detail/__tests__/SimilarVocSection.test.tsx format -- pre-existing on develop (measured 2026-09-30); #592 only relabels the same-Managed-System peer copy
 apps/fo-frontend/src/features/voc/components/triage/__tests__/ClusterSectionReadOnly.test.tsx format -- pre-existing on develop (measured 2026-09-30); #592 only relabels the same-Managed-System peer copy
 apps/fo-frontend/tests/visual/voc-create.visual.spec.ts format -- pre-existing on develop (measured 2026-09-30); #592 only relabels the same-Managed-System peer copy
@@ -437,9 +426,6 @@ packages/fo-ui/src/panel/__tests__/FieldRow.test.tsx organizeImports -- pre-exis
 packages/fo-ui/src/panel/__tests__/FieldRow.test.tsx format -- pre-existing on develop (measured 2026-10-06); #783 only migrates component-variant props in this file
 packages/fo-ui/src/panel/PanelSectionTitle.tsx lint/style/useImportType -- pre-existing on develop (measured 2026-10-06); #783 only migrates component-variant props in this file
 packages/fo-ui/src/panel/FieldRow.tsx lint/style/useImportType -- pre-existing on develop (measured 2026-10-06); #783 only migrates component-variant props in this file
-apps/fo-frontend/src/features/voc/components/create/SeverityDisclaimerCard.tsx lint/style/useImportType -- pre-existing on develop (measured 2026-10-06); #783 only migrates component-variant props in this file
-apps/fo-frontend/src/features/voc/components/create/SeverityDisclaimerCard.tsx organizeImports -- pre-existing on develop (measured 2026-10-06); #783 only migrates component-variant props in this file
-apps/fo-frontend/src/features/voc/components/create/SeverityDisclaimerCard.tsx format -- pre-existing on develop (measured 2026-10-06); #783 only migrates component-variant props in this file
 apps/fo-frontend/src/features/voc/components/list/VocRowSkeleton.tsx lint/a11y/useFocusableInteractive -- pre-existing on develop (measured 2026-10-06); #783 only migrates component-variant props in this file
 apps/fo-frontend/src/features/voc/components/list/VocRowSkeleton.tsx lint/a11y/useSemanticElements -- pre-existing on develop (measured 2026-10-06); #783 only migrates component-variant props in this file
 apps/fo-frontend/src/features/voc/components/list/VocRowSkeleton.tsx lint/correctness/noUnusedImports -- pre-existing on develop (measured 2026-10-06); #783 only migrates component-variant props in this file

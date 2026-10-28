@@ -1,7 +1,8 @@
 import * as barrel from '@/lib/api';
 import { useMe } from '@/lib/auth/useMe';
 import { registerDefaultHost } from '@/lib/host/host-seam';
-import { tanstackHost } from '@/lib/host/tanstack-host';
+import { tanstackHost } from '@/test/host-adapters/lib/host/tanstack-host';
+import { TaskRequestsRoute } from '@/test/screen-host/features/tasks/routes/TaskRequestsRoute';
 import { taskRequestPage } from '@/test/task-request-pages';
 import type { ListTaskRequestsQuery, TaskRequestDto } from '@fops/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -9,7 +10,6 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import * as React from 'react';
 import { useLayoutEffect, useSyncExternalStore } from 'react';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { TaskRequestsRoute } from './TaskRequestsRoute';
 
 const api = vi.hoisted(() => ({
   approveTaskRequest: vi.fn(),

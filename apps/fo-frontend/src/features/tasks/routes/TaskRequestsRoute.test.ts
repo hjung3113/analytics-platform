@@ -1,11 +1,11 @@
-import { describe, expect, it } from 'vitest';
 import {
   canApproveTaskRequest,
   canConvertTaskRequest,
   canLinkExistingTaskRequest,
   canRejectTaskRequest,
   canRequestEvidenceForTaskRequest,
-} from './TaskRequestsRoute';
+} from '@/test/screen-host/features/tasks/routes/TaskRequestsRoute';
+import { describe, expect, it } from 'vitest';
 
 describe('TaskRequestsRoute decision gating', () => {
   it.each(['pending_review', 'needs_more_evidence'] as const)(

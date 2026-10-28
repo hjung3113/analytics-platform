@@ -1,6 +1,6 @@
 # Frontend Documentation
 
-Frontend docs translate product intent into implementable UI contracts.
+Frontend docs translate product intent into implementable UI contracts. Since #597, `@fops/frontend` is a screen library mounted by the platform; it has no standalone Vite app, file-route tree, login shell, deployable frontend image, or visual runner. Its 36 public entries and feature behavior remain. The platform supplies navigation, session, permissions, notifications and detail hosting through the bridge. Tests use screen/bridge hosts; route generation is retired.
 
 Surface specs live under `docs/frontend/specs/`:
 
@@ -13,7 +13,7 @@ The user-facing mirror of these surfaces is `docs/USER-MANUAL.md` (text) and `do
 
 ```text
 1. docs/frontend/routes-and-layout.md
-   Owns app routes, URL state, list/detail behavior, panel behavior, and responsive navigation.
+   Owns semantic screen URL state, list/detail behavior and panel behavior; actual mounted URLs and navigation belong to platform menus and the bridge.
 
 2. docs/frontend/ui-design-system.md
    Owns reusable component patterns, state contracts, screen mapping, responsive behavior, and accessibility.

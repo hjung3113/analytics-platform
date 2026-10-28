@@ -6,7 +6,7 @@
 // and `selected` keep failing.
 import { describe, expect, test } from 'vitest';
 
-import { tasksSearchSchema } from '@/routes/_authed/tasks';
+import { tasksSearchSchema } from '@/test/screen-host/routes/_authed/tasks';
 
 const MS_ID = '99999999-9999-9999-9999-999999999901';
 

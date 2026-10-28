@@ -19,8 +19,6 @@ export interface MeResponse {
     role_level: string;
   };
   workspace_id: string;
-  /** GET /me only (ADR-0071); absent from POST /auth/mock-login. Treat undefined as []. */
-  platform_return_origins?: string[];
 }
 
 export class MeRequestError extends Error {
@@ -75,15 +73,9 @@ export function parseMeResponse(data: unknown): MeResponse {
   if (!isRecord(data) || !isRecord(data.actor) || typeof data.workspace_id !== 'string') {
     throw new TypeError('Malformed /me response');
   }
-  const { actor, platform_return_origins: origins } = data;
+  const { actor } = data;
   for (const key of ['id', 'external_id', 'email', 'display_name', 'role_level']) {
     if (typeof actor[key] !== 'string') throw new TypeError('Malformed /me response');
-  }
-  if (
-    origins !== undefined &&
-    !(Array.isArray(origins) && origins.every((o) => typeof o === 'string'))
-  ) {
-    throw new TypeError('Malformed /me response');
   }
   return data as unknown as MeResponse;
 }

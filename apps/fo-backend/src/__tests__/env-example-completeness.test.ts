@@ -33,9 +33,8 @@ interface SchemaKey {
 }
 
 function parseEnvSchemaKeys(source: string): SchemaKey[] {
-  // Locate the envSchema z.object({ ... }) block. Use the first
-  // `z.object({` that follows `const envSchema`.
-  const start = source.search(/const\s+envSchema\s*=\s*z\.object\(\{/);
+  // Locate the envSchema z.object({ ... }) block, allowing formatting whitespace.
+  const start = source.search(/const\s+envSchema\s*=\s*z\s*\.object\(\s*\{/);
   expect(start, 'could not locate envSchema in config.ts').toBeGreaterThanOrEqual(0);
   // Walk braces from the first '{' after `z.object(`.
   const objOpenRel = source.slice(start).search(/\{/);
@@ -126,6 +125,22 @@ function parseEnvExampleKeys(source: string): Set<string> {
 }
 
 describe('.env.example completeness (Slice 3 #22)', () => {
+  it.each(['z.object({', 'z\n  .object(\n    {'])(
+    'parses schema keys with %s formatting',
+    (opening) => {
+      const source = `const envSchema = ${opening}
+      REQUIRED: z.string(),
+      OPTIONAL: z.string().optional(),
+      DEFAULTED: z.string().default('value'),
+    });`;
+      expect(parseEnvSchemaKeys(source)).toEqual([
+        { name: 'REQUIRED', required: true },
+        { name: 'OPTIONAL', required: false },
+        { name: 'DEFAULTED', required: false },
+      ]);
+    },
+  );
+
   it('every envSchema key is documented in .env.example', () => {
     const schemaKeys = parseEnvSchemaKeys(fs.readFileSync(CONFIG_TS, 'utf8'));
     expect(schemaKeys.length, 'should discover at least one schema key').toBeGreaterThan(0);

@@ -1,5 +1,5 @@
-import { DOCUMENT_TITLE_COPY } from '@/lib/copy/document-titles';
-import { DocumentTitleProvider } from '@/lib/router/document-title';
+import { DOCUMENT_TITLE_COPY } from '@/test/host-adapters/lib/copy/document-titles';
+import { DocumentTitleProvider } from '@/test/host-adapters/lib/router/document-title';
 import {
   type AnswerableSurveysResponse,
   type MySurveyResponsesResponse,
@@ -50,16 +50,16 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
   };
 });
 
-import { AnswerableSurveysPanel } from '@/features/home/AnswerableSurveysPanel';
 import {
   RespondSurveyScreen,
   SurveyParticipationScreen,
 } from '@/features/surveys/components/participation/SurveyParticipationScreens';
+import { type HostLinkProps, HostSeamProvider } from '@/lib/host/host-seam';
+import { AnswerableSurveysPanel } from '@/test/host-adapters/features/home/AnswerableSurveysPanel';
 import {
   RespondSurveyPage,
   SurveyParticipationPage,
-} from '@/features/surveys/routes/SurveyParticipationPage';
-import { type HostLinkProps, HostSeamProvider } from '@/lib/host/host-seam';
+} from '@/test/host-adapters/features/surveys/routes/SurveyParticipationPage';
 
 const answerableSurveysFixture = answerableSurveysResponseSchema.parse({
   items: [

@@ -54,7 +54,6 @@ EquipmentSearchInput | type | type EquipmentSearchInput = { condition: @ap/contr
 EquipmentSearchPage | type | type EquipmentSearchPage = { items: @ap/contracts#EquipmentSummary[]; nextCursor: null | string; total?: number; }
 EquipmentSummary | type | type EquipmentSummary = { axes: Readonly<Record<string, readonly string[]>>; equipmentId: string; room: string; }
 ExpectedVersion | type | type ExpectedVersion = { expectedVersion: number; }
-FeedbackOpsTarget | type | type FeedbackOpsTarget = { kind: 'overall'; } | { kind: 'survey-detail'; platformReturn?: string; surveyId: string; } | { kind: 'survey-list'; managedSystemId: string; platformReturn?: string; } | { kind: 'task-list'; managedSystemId: string; platformReturn?: string; } | { kind: 'voc-create'; managedSystemId?: string; platformReturn?: string; } | { kind: 'voc-detail'; managedSystemId?: string; platformReturn?: string; vocId: string; } | { kind: 'voc-list'; managedSystemId: string; platformReturn?: string; }
 FieldError | type | type FieldError = { code: string; path: readonly string[]; }
 GLOBAL_KEYS | const | const GLOBAL_KEYS: Set<string>
 GlobalContext | type | type GlobalContext = { condition: @ap/contracts#Condition | null; from: null | string; lineNames: @ap/contracts#IdSet; lotIds: @ap/contracts#IdSet; membershipBasis: 'asOf' | null; metricId: null | string; metricVersion: null | string; ppid: null | string; prcGroups: @ap/contracts#IdSet; recipeIds: @ap/contracts#IdSet; roomNames: @ap/contracts#IdSet; scopeId: null | string; selection: @ap/contracts#IdSet; to: null | string; }
@@ -94,7 +93,6 @@ NoticeListPage | type | type NoticeListPage = { items: readonly @ap/contracts#No
 OUTCOMES | const | const OUTCOMES: readonly [ "ok", "empty", "error", "forbidden", "too_large", "timeout" ]
 Outcome | type | type Outcome = (typeof @ap/contracts#OUTCOMES)[number]
 PEOPLE_LOOKUP_MAX | const | const PEOPLE_LOOKUP_MAX: 200
-PLATFORM_RETURN_MAX | const | const PLATFORM_RETURN_MAX: 2048
 PORT_ERROR_CODES | const | const PORT_ERROR_CODES: readonly [ "invalid_input", "unknown_axis", "invalid_cursor", "invalid_period", "membership_basis_unsupported", "unknown_scope", "scope_forbidden", "room_forbidden" ]
 PREFERENCE_KEYS_MAX | const | const PREFERENCE_KEYS_MAX: 200
 PREFERENCE_KEY_PATTERN | const | const PREFERENCE_KEY_PATTERN: RegExp
@@ -163,7 +161,6 @@ ViewGroupEntry | type | type ViewGroupEntry = { capabilities: @ap/contracts#Grou
 ViewSharing | type | type ViewSharing = { approval: @ap/contracts#ViewApproval; approvalNote?: string; visibility: @ap/contracts#ViewVisibility; }
 ViewVisibility | type | type ViewVisibility = { groupIds: string[]; kind: 'groups'; } | { kind: 'official'; } | { kind: 'people'; userIds: string[]; } | { kind: 'private'; }
 bucketStart | function | function bucketStart(instant: string, grain: @ap/contracts#Grain): string
-buildFeedbackOpsLink | function | function buildFeedbackOpsLink(input: { origin: string; target: @ap/contracts#FeedbackOpsTarget; }): string
 buildPlatformInboundLink | function | function buildPlatformInboundLink(input: { context: @ap/contracts#GlobalContext; hop: @ap/contracts#PlatformHop; origin: string; returnTo?: string; }): string
 buildQuery | function | function buildQuery(g: @ap/contracts#GlobalContext, page?: @ap/contracts#Pair[], extras?: @ap/contracts#Pair[]): string
 canClientSum | function | function canClientSum(measure: Pick<@ap/contracts#MeasureMeta, 'reaggregation'>): boolean
@@ -194,13 +191,11 @@ missingRequiredContext | function | function missingRequiredContext(keys: readon
 narrowCondition | function | function narrowCondition(condition: @ap/contracts#Condition | null, axes: readonly string[]): @ap/contracts#Condition | null
 normalizeSet | function | function normalizeSet(values: string[], field?: string, urlKey?: string): string[]
 parseDateTime | function | function parseDateTime(value: string, field: string, urlKey?: string): Date
-parseFeedbackOpsLink | function | function parseFeedbackOpsLink(url: string, expectedOrigin: string): { target: @ap/contracts#FeedbackOpsTarget; }
 parsePlatformInboundLink | function | function parsePlatformInboundLink(url: string, expectedOrigin: string): { context: @ap/contracts#GlobalContext; extras: @ap/contracts#Pair[]; hop: @ap/contracts#PlatformHop; returnTo: null | string; }
 parseQuery | function | function parseQuery(search: string, pageKeys?: readonly string[]): @ap/contracts#ParsedQuery
 periodHours | function | function periodHours(g: { from: null | string; to: null | string; }): null | number
 periodShort | const | const periodShort: (instant: string) => string
 periodSpan | function | function periodSpan(hours: number, lang: 'en' | 'ko'): string
-platformReturnFor | function | function platformReturnFor(fullUrl: string, pathOnlyUrl: string): string | undefined
 projectContext | function | function projectContext<P, T>(spec: @ap/contracts#EndpointSpec<P, T>, g: @ap/contracts#GlobalContext): @ap/contracts#MenuQueryContext
 queryHistoryId | function | function queryHistoryId(query: string): string
 requiredContextError | function | function requiredContextError(keys: readonly @ap/contracts#ContextKey[], capabilities: Partial<Record<@ap/contracts#ContextKey, @ap/contracts#Capability>>): null | string

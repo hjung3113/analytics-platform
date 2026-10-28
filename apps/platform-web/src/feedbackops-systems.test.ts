@@ -54,14 +54,6 @@ describe('feedbackOpsSlot', () => {
     expect(entries[0]).toMatchObject({ menuId: 'fo-inbox', page: { managedSystem: uuid } });
     expect(entries[1]).toMatchObject({ menuId: 'fo-task-list', page: { managedSystem: uuid } });
     expect(entries[2]).toMatchObject({ menuId: 'fo-surveys', page: { managedSystem: uuid } });
-    expect(entries.some(entry => 'href' in entry)).toBe(false);
-  });
-
-  it('draws no platformReturn new-tab entry any more, and no overall link', () => {
-    const back = 'https://platform.example/analytics/cycle-time?v=1&scopeId=MEM';
-    const entries = feedbackOpsSlot().entriesFor(spaceId('mars'), back)!;
-    expect(entries.some(entry => 'href' in entry)).toBe(false);
-    expect(feedbackOpsSlot().overall).toBeNull();
   });
 
   it('gates the whole block on feedbackops:access', () => {

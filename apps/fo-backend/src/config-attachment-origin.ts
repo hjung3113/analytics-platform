@@ -25,9 +25,8 @@ type OriginIssue =
   | 'local_http_in_production'
   | 'scheme';
 
-// Shared origin grammar for the env vars that hold a bare origin
-// (PUBLIC_ATTACHMENT_ORIGIN, PLATFORM_RETURN_ORIGINS). Returns the first
-// failing rule; each caller words its own message.
+// Origin grammar for PUBLIC_ATTACHMENT_ORIGIN. Returns the first failing rule;
+// the caller words its own message.
 function checkOrigin(value: string, nodeEnv: string): OriginIssue | null {
   if (value.trim().length === 0) return 'empty';
   if (value.trim() !== value || /[\s;,]/.test(value)) return 'separator';
@@ -84,34 +83,4 @@ export function validateAttachmentOrigin(value: string, nodeEnv: string): string
     case 'scheme':
       return `${PREFIX} must use https (http is allowed only for localhost/127.0.0.1 outside production)`;
   }
-}
-
-// PLATFORM_RETURN_ORIGINS validation (ADR-0071): comma-separated bare origins
-// that may appear as the "return to platform" link target. Unset or empty =
-// feature off. Messages name the variable and never echo a value.
-export function parsePlatformReturnOrigins(
-  raw: string | undefined,
-  nodeEnv: string,
-): { origins: string[] } | { issue: string } {
-  const NAME = 'PLATFORM_RETURN_ORIGINS';
-  if (raw === undefined || raw === '') return { origins: [] };
-  const origins: string[] = [];
-  for (const entry of raw.split(',')) {
-    if (entry === '') {
-      return {
-        issue: `${NAME} must not contain empty entries (check for a trailing or doubled comma)`,
-      };
-    }
-    const reason = checkOrigin(entry, nodeEnv);
-    if (reason !== null) {
-      return {
-        issue: `${NAME} entries must be bare origins in canonical form (https://host[:port], lowercase host, no default port, no path, query, fragment, credentials, wildcards or whitespace; http only for localhost/127.0.0.1 outside production)`,
-      };
-    }
-    if (origins.includes(entry)) {
-      return { issue: `${NAME} must not list the same origin twice` };
-    }
-    origins.push(entry);
-  }
-  return { origins };
 }

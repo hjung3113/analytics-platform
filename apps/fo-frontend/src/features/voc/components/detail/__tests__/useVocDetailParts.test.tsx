@@ -18,7 +18,7 @@ vi.mock('@/features/voc/components/detail/VocDetailBody', () => ({
 import { useMeBridge } from '@/lib/api/me';
 import { useVocDetail } from '@/lib/cross-system/useVocDetail';
 import { type HostSeam, HostSeamProvider } from '@/lib/host/host-seam';
-import { tanstackHost } from '@/lib/host/tanstack-host';
+import { tanstackHost } from '@/test/host-adapters/lib/host/tanstack-host';
 import type { DetailCloseGuard } from '../useDetailCloseGuard';
 import { useVocDetailParts } from '../useVocDetailParts';
 import { DETAIL_ENVELOPE, makeDetailQuery, makeMeQuery } from './_fixtures';

@@ -82,7 +82,7 @@ main() {
   local checkout
   checkout=$(cd -- "$1" 2>/dev/null && pwd) || fail "checkout does not exist: $1" 2
   [[ -d "$checkout/$FO_FRONTEND" && -d "$checkout/$FO_SHARED" && -d "$checkout/$FO_UI" ]] || fail "not a FeedbackOps checkout: $checkout" 2
-  [[ -x "$SCRIPT_DIR/verify-db.sh" && -x "$SCRIPT_DIR/verify-be.sh" && -x "$SCRIPT_DIR/verify-fe.sh" && -x "$SCRIPT_DIR/visual.sh" ]] || fail 'release gate helper scripts are missing or not executable' 2
+  [[ -x "$SCRIPT_DIR/verify-db.sh" && -x "$SCRIPT_DIR/verify-be.sh" && -x "$SCRIPT_DIR/verify-fe.sh" ]] || fail 'release gate helper scripts are missing or not executable' 2
 
   git -C "$checkout" fetch origin develop main || fail 'could not refresh origin/develop and origin/main' 1
   local head_sha develop_sha dirty
@@ -107,7 +107,6 @@ main() {
   run_check 'verify-fe' "$logdir/verify-fe.log" "$SCRIPT_DIR/verify-fe.sh" "$checkout"
   run_check 'packages/fo-ui vitest' "$logdir/ui-vitest.log" bash -c 'cd "$1" && pnpm --filter @fops/ui exec vitest run' bash "$checkout"
   run_check 'gate:fe-lint --base origin/main' "$logdir/fe-lint.log" bash -c 'cd "$1" && pnpm -s --filter @fops/ops run gate:fe-lint --base origin/main' bash "$checkout"
-  run_check 'visual harness' "$logdir/visual.log" env VISUAL_ROOT="$checkout" "$SCRIPT_DIR/visual.sh" run
 
   printf "Next command: gh pr create --base main --head develop --title 'Release: develop -> main' --body 'Verified develop tip: %s'\n" "$TESTED_SHA"
   finish true 0

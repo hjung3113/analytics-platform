@@ -1,4 +1,12 @@
-import { parseAppSearch, stringifyAppSearch } from '@/lib/router/search-serialization';
+import { recoveryVisualList } from '@/test/fixtures/recovery';
+import {
+  parseAppSearch,
+  stringifyAppSearch,
+} from '@/test/host-adapters/lib/router/search-serialization';
+import {
+  IntegrationDashboardRouteShell,
+  validateIntegrationDashboardSearch,
+} from '@/test/screen-host/routes/_authed/integration/index';
 import { DetailPanelSlotProvider } from '@ap/ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
@@ -11,11 +19,6 @@ import {
 } from '@tanstack/react-router';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
-import { recoveryVisualList } from '../../../../tests/visual/fixtures/recovery';
-import {
-  IntegrationDashboardRouteShell,
-  validateIntegrationDashboardSearch,
-} from '../../../routes/_authed/integration';
 
 const ID = '11111111-1111-4111-8111-111111111111';
 const time = '2026-07-20T08:00:00.000Z';

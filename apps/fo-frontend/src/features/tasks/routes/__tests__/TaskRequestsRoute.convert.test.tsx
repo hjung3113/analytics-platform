@@ -5,6 +5,7 @@ import { listMilestones } from '@/lib/api/milestones';
 import { ApiError } from '@/lib/api/types';
 import { useMe } from '@/lib/auth/useMe';
 import { TASK_PRIORITY_LABELS } from '@/lib/copy/enum-labels';
+import { TaskRequestsRoute } from '@/test/screen-host/features/tasks/routes/TaskRequestsRoute';
 import { taskRequestPage } from '@/test/task-request-pages';
 import type { ListTaskRequestsQuery } from '@fops/shared';
 import {
@@ -17,7 +18,6 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type * as React from 'react';
 import { useLayoutEffect, useSyncExternalStore } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { TaskRequestsRoute } from '../TaskRequestsRoute';
 
 async function chooseOption(label: string, optionName: string): Promise<void> {
   fireEvent.click(screen.getByRole('combobox', { name: label }));

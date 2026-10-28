@@ -9,7 +9,11 @@ import { act, render, renderHook } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { parseAppSearch, stringifyAppSearch } from '@/lib/router/search-serialization';
+import { tanstackHost } from '@/test/host-adapters/lib/host/tanstack-host';
+import {
+  parseAppSearch,
+  stringifyAppSearch,
+} from '@/test/host-adapters/lib/router/search-serialization';
 import {
   HostSeamProvider,
   clearDefaultHost,
@@ -19,7 +23,6 @@ import {
   useHostSearch,
   useHostTitle,
 } from '../host-seam';
-import { tanstackHost } from '../tanstack-host';
 
 /** A router with the app's search codec, as `createAppRouter` builds it. */
 function routerAt(entry: string, probe: () => void) {

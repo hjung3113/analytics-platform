@@ -1,3 +1,4 @@
+import { TaskDetailPanel } from '@/test/host-adapters/features/tasks/components/TaskDetailPanel';
 import {
   type MilestoneDetailDto,
   type MilestoneDto,
@@ -8,7 +9,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { RenderResult } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { TaskDetailPanel } from './TaskDetailPanel';
 
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => vi.fn(),

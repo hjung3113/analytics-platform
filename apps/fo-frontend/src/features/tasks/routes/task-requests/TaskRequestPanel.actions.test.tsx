@@ -32,7 +32,7 @@ vi.mock('./useTaskRequestConvertedTaskLink', () => ({
 import { TASK_REQUEST_STATUS_LABELS as STATUS_LABELS } from '@/lib/copy/enum-labels';
 import { GLOSSARY } from '@/lib/copy/glossary';
 import { formatShortDateTime } from '@/lib/format/datetime';
-import { TaskRequestPanel } from './TaskRequestPanel';
+import { TaskRequestPanel } from '@/test/host-adapters/features/tasks/routes/task-requests/TaskRequestPanel';
 
 const request: TaskRequestDto = {
   id: '10000000-0000-0000-0000-000000000001',

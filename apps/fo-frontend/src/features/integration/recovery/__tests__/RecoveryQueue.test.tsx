@@ -1,5 +1,6 @@
-import { validateHomeSearch } from '@/routes/_authed/home';
-import { validateIntegrationDashboardSearch } from '@/routes/_authed/integration';
+import { useRecoveryQueue } from '@/test/host-adapters/features/integration/recovery/useRecoveryQueue';
+import { validateHomeSearch } from '@/test/screen-host/routes/_authed/home';
+import { validateIntegrationDashboardSearch } from '@/test/screen-host/routes/_authed/integration/index';
 import { DetailPanelSlotProvider, PageShell, useDetailPanelSlotHost } from '@ap/ui';
 import { QueryClient, QueryClientProvider, focusManager } from '@tanstack/react-query';
 import {
@@ -12,7 +13,6 @@ import {
 } from '@tanstack/react-router';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
-import { useRecoveryQueue } from '../useRecoveryQueue';
 
 const ID = 'r1_abcdefghijklmnopqrstuvw';
 const SECOND = 'r1_bbcdefghijklmnopqrstuvw';

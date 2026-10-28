@@ -85,7 +85,6 @@ async function openUserMenu() {
   await userEvent.setup().click(within(screen.getByRole('navigation', { name: '시스템 레일' })).getByRole('button', { name: '사용자 메뉴' }));
   return screen.getByRole('menu');
 }
-const overallItem = () => screen.queryByRole('menuitem', { name: 'FeedbackOps 전체 — 새 탭' });
 
 describe('rail space navigation', () => {
   it('omits all space buttons with only one accessible space and keeps global tools', () => {
@@ -362,10 +361,9 @@ it('opens the named slot and selected tab from URL focus/tab and clears focus on
 
 const feedbackSlot: FeedbackOpsSlot = {
   entriesFor: spaceId => spaceId === 'mars' ? [
-    { key: 'task', icon: ListTodo, label: { ko: 'Task', en: 'Task' }, href: 'https://example.test/task' },
-    { key: 'voc-create', icon: MessageSquarePlus, label: { ko: 'VOC 등록', en: 'File a VOC' }, href: 'https://example.test/new' },
+    { key: 'task', icon: ListTodo, label: { ko: 'Task', en: 'Task' }, menuId: 'home' },
+    { key: 'voc-create', icon: MessageSquarePlus, label: { ko: 'VOC 등록', en: 'File a VOC' }, menuId: 'home' },
   ] : spaceId === 'operations' ? [] : null,
-  overall: { href: 'https://example.test/all', permission: 'feedbackops:access' },
 };
 
 function globalShellRegistry(equipmentPermission: Permission = 'platform:view') {
@@ -446,9 +444,9 @@ describe('workspace shell layout (15 §3.1)', () => {
 
   it('draws each FeedbackOps entry with the icon the slot passes, whatever its key (ADR-0072)', () => {
     mount(['platform:view'], true, registry, { feedbackOps: { entriesFor: id => id === 'mars' ? [
-      { key: 'first', icon: Star, label: { ko: '첫째', en: 'First' }, href: 'https://example.test/a' },
-      { key: 'task', icon: Rocket, label: { ko: '둘째', en: 'Second' }, href: null },
-    ] : null, overall: null } });
+      { key: 'first', icon: Star, label: { ko: '첫째', en: 'First' }, menuId: 'home' },
+      { key: 'task', icon: Rocket, label: { ko: '둘째', en: 'Second' }, menuId: 'home' },
+    ] : null } });
     const block = screen.getByRole('navigation', { name: 'FeedbackOps · 분석' });
     const [first, second] = within(block).getAllByRole('link').map(link => link.querySelector('svg')!);
 
@@ -456,45 +454,34 @@ describe('workspace shell layout (15 §3.1)', () => {
     expect(second.classList.contains('lucide-rocket')).toBe(true);
   });
 
-  it('renders FeedbackOps entries in slot order outside the scroll region, and the overall link in the user menu', async () => {
+  it('renders FeedbackOps entries in slot order outside the scroll region', () => {
     mount(['platform:view', 'feedbackops:access'], true, registry, { feedbackOps: feedbackSlot });
     const block = screen.getByRole('navigation', { name: 'FeedbackOps · 분석' });
     const scroll = document.querySelector('.shell-scroll');
     expect(scroll?.contains(block)).toBe(false);
     const links = within(block).getAllByRole('link');
     expect(links.map(link => link.getAttribute('aria-label'))).toEqual([
-      'Task — 분석, FeedbackOps, 새 탭',
-      'VOC 등록 — 분석, FeedbackOps, 새 탭',
+      'Task — 분석, FeedbackOps',
+      'VOC 등록 — 분석, FeedbackOps',
     ]);
     expect([block.getAttribute('aria-label'), ...links.map(link => link.getAttribute('aria-label'))].join(' ')).not.toContain('FeedbackOps 검사 전용 시스템 부제');
     for (const link of links) {
-      expect(link).toHaveAttribute('target', '_blank');
-      expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+      expect(link.hasAttribute('target')).toBe(false);
       expect(link.hasAttribute('aria-current')).toBe(false);
-      expect(link.querySelectorAll('svg')).toHaveLength(2);
+      expect(link.querySelectorAll('svg')).toHaveLength(1);
     }
-    expect(within(block).getByText('외부 링크 표시는 새 탭에서 열립니다')).toBeTruthy();
-    expect(within(block).getByText('표시는 새 탭에서 열립니다').querySelector('svg')).toBeTruthy();
-    expect(within(block).queryByText('FeedbackOps로 이동합니다')).toBeNull();
-    const rail = screen.getByRole('navigation', { name: '시스템 레일' });
-    expect(within(rail).queryByRole('link', { name: /FeedbackOps 전체/ })).toBeNull();
-    await openUserMenu();
-    const overall = overallItem()!;
-    expect(overall).toHaveAttribute('href', 'https://example.test/all');
-    expect(overall).toHaveAttribute('target', '_blank');
-    expect(overall).toHaveAttribute('rel', 'noopener noreferrer');
+    expect(within(block).getByText('FeedbackOps로 이동합니다')).toBeTruthy();
   });
 
   it('shows only entry icons, in the same order, when the sidebar is collapsed', () => {
     localStorage.setItem('platform:sidebar-collapsed', '1');
     mount(['platform:view'], true, registry, { feedbackOps: feedbackSlot });
     const block = screen.getByRole('navigation', { name: 'FeedbackOps · 분석' });
-    expect(within(block).queryByText('외부 링크 표시는 새 탭에서 열립니다')).toBeNull();
     expect(block.textContent).not.toContain('FeedbackOps · 분석');
     const links = within(block).getAllByRole('link');
     expect(links.map(link => link.getAttribute('aria-label'))).toEqual([
-      'Task — 분석, FeedbackOps, 새 탭',
-      'VOC 등록 — 분석, FeedbackOps, 새 탭',
+      'Task — 분석, FeedbackOps',
+      'VOC 등록 — 분석, FeedbackOps',
     ]);
     for (const link of links) expect(link.querySelectorAll('svg')).toHaveLength(1);
   });
@@ -508,10 +495,10 @@ describe('workspace shell layout (15 §3.1)', () => {
     });
     const SYSTEM = '4f1b2c3d-5e6f-4a7b-8c9d-0e1f2a3b4c5d';
     const vocEntry = { key: 'voc', icon: MessagesSquare, label: { ko: 'VOC', en: 'VOC' }, menuId: 'fo-inbox', page: { managedSystem: SYSTEM } };
-    const taskEntry = { key: 'task', icon: ListTodo, label: { ko: 'Task', en: 'Task' }, href: 'https://example.test/task' };
-    const slotOf = (entries: FeedbackOpsSlot['entriesFor'] extends (...args: never[]) => infer R ? R : never, permission?: Permission): FeedbackOpsSlot => ({ entriesFor: id => id === 'mars' ? entries : null, overall: null, ...(permission ? { permission } : {}) });
+    const taskEntry = { key: 'task', icon: ListTodo, label: { ko: 'Task', en: 'Task' }, menuId: 'home' };
+    const slotOf = (entries: FeedbackOpsSlot['entriesFor'] extends (...args: never[]) => infer R ? R : never, permission?: Permission): FeedbackOpsSlot => ({ entriesFor: id => id === 'mars' ? entries : null, ...(permission ? { permission } : {}) });
 
-    it('opens VOC in the same tab with only v, managedSystem and returnTo; Task stays a new-tab link; both captions show', () => {
+    it('opens VOC in the same tab with only v, managedSystem and returnTo; the in-shell caption shows', () => {
       window.history.replaceState(null, '', '/mars/home?v=1&from=2026-10-01T00:00:00&to=2026-10-02T00:00:00&scopeId=MEM');
       mount(['platform:view', 'feedbackops:access'], true, foRegistry, { feedbackOps: slotOf([vocEntry, taskEntry], 'feedbackops:access') });
       const block = screen.getByRole('navigation', { name: 'FeedbackOps · 분석' });
@@ -524,21 +511,15 @@ describe('workspace shell layout (15 §3.1)', () => {
       expect([...href.searchParams.keys()].sort()).toEqual(['managedSystem', 'returnTo', 'v']);
       expect(href.searchParams.get('managedSystem')).toBe(SYSTEM);
       expect(href.searchParams.get('returnTo')).toBe('/mars/home?v=1&from=2026-10-01T00:00:00&to=2026-10-02T00:00:00&scopeId=MEM');
-      expect(task.getAttribute('aria-label')).toBe('Task — 분석, FeedbackOps, 새 탭');
-      expect(task).toHaveAttribute('target', '_blank');
+      expect(task.getAttribute('aria-label')).toBe('Task — 분석, FeedbackOps');
+      expect(task.hasAttribute('target')).toBe(false);
       expect(within(block).getByText('FeedbackOps로 이동합니다')).toBeTruthy();
-      expect(within(block).getByText('외부 링크 표시는 새 탭에서 열립니다')).toBeTruthy();
     });
 
-    it('draws only the in-shell caption when no new-tab entry is drawn, and VOC works with the origin missing while Task is disabled', () => {
+    it('draws the in-shell caption and the VOC link opens the registered menu', () => {
       mount(['platform:view', 'feedbackops:access'], true, foRegistry, { feedbackOps: slotOf([vocEntry]) });
-      let block = screen.getByRole('navigation', { name: 'FeedbackOps · 분석' });
+      const block = screen.getByRole('navigation', { name: 'FeedbackOps · 분석' });
       expect(within(block).getByText('FeedbackOps로 이동합니다')).toBeTruthy();
-      expect(within(block).queryByText('외부 링크 표시는 새 탭에서 열립니다')).toBeNull();
-      cleanup();
-      mount(['platform:view', 'feedbackops:access'], true, foRegistry, { feedbackOps: slotOf([vocEntry, { ...taskEntry, href: null }]) });
-      block = screen.getByRole('navigation', { name: 'FeedbackOps · 분석' });
-      expect(within(block).getAllByRole('link').map(link => link.getAttribute('aria-disabled'))).toEqual([null, 'true']);
       expect(within(block).getByRole('link', { name: 'VOC — 분석, FeedbackOps' }).getAttribute('href')).toContain('/mars/fo-inbox');
     });
 
@@ -549,13 +530,13 @@ describe('workspace shell layout (15 §3.1)', () => {
       localStorage.setItem('platform:sidebar-collapsed', '1');
       mount(['platform:view', 'feedbackops:access'], true, foRegistry, { feedbackOps: slotOf([vocEntry, taskEntry], 'feedbackops:access') });
       const block = screen.getByRole('navigation', { name: 'FeedbackOps · 분석' });
-      expect(within(block).getAllByRole('link').map(link => link.getAttribute('aria-label'))).toEqual(['VOC — 분석, FeedbackOps', 'Task — 분석, FeedbackOps, 새 탭']);
+      expect(within(block).getAllByRole('link').map(link => link.getAttribute('aria-label'))).toEqual(['VOC — 분석, FeedbackOps', 'Task — 분석, FeedbackOps']);
     });
 
     it('omits an in-shell entry whose menu the user cannot open', () => {
       mount(['platform:view'], true, foRegistry, { feedbackOps: slotOf([{ ...vocEntry, menuId: 'ops' }, taskEntry]) });
       const block = screen.getByRole('navigation', { name: 'FeedbackOps · 분석' });
-      expect(within(block).getAllByRole('link').map(link => link.getAttribute('aria-label'))).toEqual(['Task — 분석, FeedbackOps, 새 탭']);
+      expect(within(block).getAllByRole('link').map(link => link.getAttribute('aria-label'))).toEqual(['Task — 분석, FeedbackOps']);
     });
   });
 
@@ -563,60 +544,8 @@ describe('workspace shell layout (15 §3.1)', () => {
     ['null', null],
     ['empty', [] as const],
   ])('omits the block when entriesFor returns %s', (_label, entries) => {
-    mount(['platform:view'], true, registry, { feedbackOps: { entriesFor: () => entries, overall: null } });
+    mount(['platform:view'], true, registry, { feedbackOps: { entriesFor: () => entries } });
     expect(screen.queryByRole('navigation', { name: /^FeedbackOps/ })).toBeNull();
-    expect(within(screen.getByRole('navigation', { name: '시스템 레일' })).queryByRole('link', { name: /FeedbackOps 전체/ })).toBeNull();
-  });
-
-  it('keeps the overall user-menu link when the block is empty', async () => {
-    mount(['platform:view', 'feedbackops:access'], true, registry, { feedbackOps: { entriesFor: () => [], overall: { href: 'https://example.test/all', permission: 'feedbackops:access' } } });
-    expect(screen.queryByRole('navigation', { name: /^FeedbackOps/ })).toBeNull();
-    await openUserMenu();
-    expect(overallItem()).toBeTruthy();
-  });
-
-  it.each([
-    ['held', ['platform:view', 'feedbackops:access'] as Permission[], feedbackSlot, true],
-    ['not held', ['platform:view'] as Permission[], feedbackSlot, false],
-    ['slot overall null', ['platform:view', 'feedbackops:access'] as Permission[], { entriesFor: () => [], overall: null } as FeedbackOpsSlot, false],
-  ])('shows FeedbackOps 전체 only in the user menu and only when the permission is held (%s)', async (_label, permissions, slot, shown) => {
-    mount(permissions, true, registry, { feedbackOps: slot });
-    expect(within(screen.getByRole('navigation', { name: '시스템 레일' })).queryByRole('link', { name: /FeedbackOps 전체/ })).toBeNull();
-    await openUserMenu();
-    if (shown) expect(overallItem()).toHaveAttribute('href', 'https://example.test/all');
-    else expect(overallItem()).toBeNull();
-  });
-
-  it.each([
-    ['ko', 'FeedbackOps 주소가 설정되지 않아 열 수 없습니다'],
-    ['en', 'FeedbackOps address is not configured'],
-  ])('draws an entry with a null href as a focusable disabled link (%s)', (lang, reason) => {
-    localStorage.setItem('platform:lang', lang);
-    mount(['platform:view'], true, registry, { feedbackOps: { entriesFor: id => id === 'mars' ? [
-      { key: 'task', icon: ListTodo, label: { ko: 'Task', en: 'Task' }, href: null },
-      { key: 'voc-create', icon: MessageSquarePlus, label: { ko: 'VOC 등록', en: 'File a VOC' }, href: 'https://example.test/new' },
-    ] : null, overall: null } });
-    const block = screen.getByRole('navigation', { name: /^FeedbackOps/ });
-    const disabled = within(block).getAllByRole('link').find(link => link.getAttribute('aria-disabled') === 'true')!;
-    expect(disabled.tagName).toBe('SPAN');
-    expect(disabled.matches('a[href]')).toBe(false);
-    expect(disabled.getAttribute('tabindex')).toBe('0');
-    expect(disabled.getAttribute('aria-label')).toMatch(/^Task — .*FeedbackOps — /);
-    expect(disabled.getAttribute('aria-label')?.endsWith(reason)).toBe(true);
-    expect(disabled.className).toContain('text-text-muted');
-    expect(disabled.querySelectorAll('svg')).toHaveLength(1);
-    expect(block.querySelectorAll('a[href]')).toHaveLength(1);
-  });
-
-  it('drops the new-tab caption when every entry is disabled (UX-1)', () => {
-    localStorage.setItem('platform:sidebar-collapsed', '0');
-    mount(['platform:view'], true, registry, { feedbackOps: { entriesFor: id => id === 'mars' ? [
-      { key: 'voc-create', icon: MessageSquarePlus, label: { ko: 'VOC 등록', en: 'File a VOC' }, href: null },
-      { key: 'task', icon: ListTodo, label: { ko: 'Task', en: 'Task' }, href: null },
-    ] : null, overall: null } });
-    const block = screen.getByRole('navigation', { name: /^FeedbackOps/ });
-    expect(within(block).getAllByRole('link')).toHaveLength(2);
-    expect(within(block).queryByText('새 탭에서 열립니다')).toBeNull();
   });
 
   it('hides the sidebar, the rail sections and the current card on a global screen', () => {
@@ -646,24 +575,11 @@ describe('workspace shell layout (15 §3.1)', () => {
     expect(within(dialog).getByRole('button', { name: /분석/ }).hasAttribute('aria-current')).toBe(false);
   });
 
-  it('hands entriesFor the absolute URL of the page it draws as platformReturn (FO ADR-0071)', () => {
-    const returns: (string | undefined)[] = [];
-    window.history.replaceState(null, '', '/?v=1&scopeId=MEM&focus=entity');
-    mount(['platform:view'], true, registry, { feedbackOps: {
-      entriesFor: (spaceId, platformReturn) => { returns.push(platformReturn); return feedbackSlot.entriesFor(spaceId); },
-      overall: null,
-    } });
-    expect(screen.getByRole('navigation', { name: /^FeedbackOps/ })).toBeTruthy();
-    expect(window.location.search).toContain('focus=entity');
-    expect(returns.at(-1)).toBe(window.location.href);
-  });
-
   it('omits FeedbackOps on a space-denied direct URL and does not query that space', () => {
     const seen: string[] = [];
     window.history.replaceState(null, '', '/ops?v=1');
     mount(['platform:view'], true, registry, { feedbackOps: {
-      entriesFor: spaceId => { seen.push(spaceId); return [{ key: 'task', icon: ListTodo, label: { ko: 'Task', en: 'Task' }, href: 'https://example.test/task' }]; },
-      overall: null,
+      entriesFor: spaceId => { seen.push(spaceId); return [{ key: 'task', icon: ListTodo, label: { ko: 'Task', en: 'Task' }, menuId: 'home' }]; },
     } });
     expect(screen.queryByRole('navigation', { name: /^FeedbackOps/ })).toBeNull();
     expect(seen).not.toContain('operations');
@@ -680,8 +596,7 @@ describe('workspace shell layout (15 §3.1)', () => {
     };
     window.history.replaceState(null, '', '/ops?v=1');
     render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry} slots={{ feedbackOps: {
-      entriesFor: spaceId => { seen.push(spaceId); return [{ key: 'task', icon: ListTodo, label: { ko: 'Task', en: 'Task' }, href: 'https://example.test/task' }]; },
-      overall: null,
+      entriesFor: spaceId => { seen.push(spaceId); return [{ key: 'task', icon: ListTodo, label: { ko: 'Task', en: 'Task' }, menuId: 'home' }]; },
     } }}>
       <AppShell><input aria-label="editor" /></AppShell>
     </PlatformProvider></I18nProvider>);
@@ -699,8 +614,7 @@ describe('workspace shell layout (15 §3.1)', () => {
     const seen: string[] = [];
     window.history.replaceState(null, '', '/unregistered?v=1');
     mount(['platform:view', 'console:access'], true, registry, { feedbackOps: {
-      entriesFor: spaceId => { seen.push(spaceId); return [{ key: 'task', icon: ListTodo, label: { ko: 'Task', en: 'Task' }, href: 'https://example.test/task' }]; },
-      overall: null,
+      entriesFor: spaceId => { seen.push(spaceId); return [{ key: 'task', icon: ListTodo, label: { ko: 'Task', en: 'Task' }, menuId: 'home' }]; },
     } });
     expect(screen.queryByRole('navigation', { name: /^FeedbackOps/ })).toBeNull();
     expect(seen).toEqual([]);

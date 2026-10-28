@@ -1,19 +1,8 @@
 // @vitest-environment node
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { findingsRoute } from '@ap/fo-bridge';
 import { manifests } from './index';
 
-const AUTHED = fileURLToPath(new URL('../../../../apps/fo-frontend/src/routes/_authed.tsx', import.meta.url));
-const NAV_TREE = readFileSync(AUTHED, 'utf8');
-const GLOSSARY = readFileSync(fileURLToPath(new URL('../../../../apps/fo-frontend/src/lib/copy/glossary.ts', import.meta.url)), 'utf8');
-/** The `NAV_TREE.findings` entry with this `href` labels itself `GLOSSARY.<key>`; resolves that key to its text. */
-const navLabel = (href: string) => {
-  const at = NAV_TREE.indexOf(`href: '${href}'`);
-  const key = at === -1 ? undefined : /label: GLOSSARY\.(\w+)/.exec(NAV_TREE.slice(NAV_TREE.lastIndexOf('{', at), at))?.[1];
-  return key === undefined ? null : new RegExp(`\\b${key}: '([^']+)'`).exec(GLOSSARY)?.[1] ?? null;
-};
 const menu = manifests[0]!;
 
 describe('Findings manifests', () => {
@@ -29,7 +18,4 @@ describe('Findings manifests', () => {
     expect(menu.navViews).toBeUndefined();
   });
 
-  it('keeps the ko label equal to the FeedbackOps NAV_TREE.findings entry', () => {
-    expect(menu.label.ko).toBe(navLabel('/findings'));
-  });
 });

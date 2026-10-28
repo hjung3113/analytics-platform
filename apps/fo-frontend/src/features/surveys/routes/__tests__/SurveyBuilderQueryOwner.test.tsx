@@ -14,17 +14,15 @@ const { routeSearch } = vi.hoisted(() => ({ routeSearch: { current: {} as { buil
 
 vi.mock('@tanstack/react-router', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@tanstack/react-router')>()),
-  createFileRoute: () => () => ({
-    useParams: () => ({ surveyId: '11111111-1111-4111-8111-111111111111' }),
-    useSearch: () => routeSearch.current,
-  }),
+  useParams: () => ({ surveyId: '11111111-1111-4111-8111-111111111111' }),
+  useSearch: () => routeSearch.current,
   useMatchRoute: () => () => false,
   useNavigate: () => vi.fn(),
   useBlocker: () => ({ status: 'idle' }),
 }));
 
 import { SurveyBuilderScreen } from '@/features/surveys/routes/SurveyBuilderScreen';
-import { SurveyDetailRoute } from '@/routes/_authed/surveys/$surveyId';
+import { SurveyDetailRoute } from '@/test/surveys-host/detail';
 
 const DRAFT = { ...S1, status: 'draft' };
 let detailGets = 0;

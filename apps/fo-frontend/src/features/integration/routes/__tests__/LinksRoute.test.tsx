@@ -15,7 +15,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 import {
   IntegrationLinksRouteShell,
   integrationLinksSearchSchema,
-} from '../../../../routes/_authed/integration/links';
+} from '@/test/screen-host/routes/_authed/integration/links';
 
 const LINK_A = '11111111-0000-0000-0000-0000000000a1';
 const LINK_B = '22222222-0000-0000-0000-0000000000b1';

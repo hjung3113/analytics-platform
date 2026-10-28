@@ -4,6 +4,8 @@ import { ApiError } from '@/lib/api/types';
 import { TASK_PRIORITY_LABELS } from '@/lib/copy/enum-labels';
 import { GLOSSARY } from '@/lib/copy/glossary';
 import { REPORTER_STATUS_LABELS } from '@/lib/copy/reporter-status-labels';
+import { TaskDetailPanel } from '@/test/host-adapters/features/tasks/components/TaskDetailPanel';
+import { TaskListRoute } from '@/test/screen-host/features/tasks/routes/TaskListRoute';
 import {
   type MilestoneDetailDto,
   type TaskDetailDto,
@@ -15,8 +17,6 @@ import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type * as React from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { TaskDetailPanel } from '../components/TaskDetailPanel';
-import { TaskListRoute } from './TaskListRoute';
 
 vi.mock('@ap/ui', async () => {
   const actual = await vi.importActual<typeof import('@ap/ui')>('@ap/ui');

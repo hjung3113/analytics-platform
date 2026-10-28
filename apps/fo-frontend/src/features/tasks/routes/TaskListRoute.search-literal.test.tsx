@@ -3,8 +3,11 @@
 
 import { getTask, listTasks } from '@/lib/api';
 import { useMe } from '@/lib/auth/useMe';
-import { parseAppSearch, stringifyAppSearch } from '@/lib/router/search-serialization';
-import { TasksRouteView, validateTasksSearch } from '@/routes/_authed/tasks';
+import {
+  parseAppSearch,
+  stringifyAppSearch,
+} from '@/test/host-adapters/lib/router/search-serialization';
+import { TasksRouteView, validateTasksSearch } from '@/test/screen-host/routes/_authed/tasks';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   RouterProvider,

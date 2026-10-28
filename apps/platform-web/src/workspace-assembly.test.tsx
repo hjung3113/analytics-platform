@@ -224,10 +224,9 @@ describe('workspace assembly (#260)', () => {
     const slots = appSlots(assembly, fakeSlot, fakeVocCompose, fakeHomeTodo, fakeScopeControl, fakeNavCounts, fakeSection);
     expect(slots.topBarTools).toBe(assembly.topBarTools);
     // The real composition (#251): mapped spaces get three in-shell entries (VOC, Task, 설문); operations has no row.
-    expect(slots.feedbackOps?.entriesFor(spaceId('bravo'))?.map(entry => [entry.key, 'href' in entry ? entry.href : undefined])).toEqual([['voc', undefined], ['task', undefined], ['survey', undefined]]);
+    expect(slots.feedbackOps?.entriesFor(spaceId('bravo'))?.map(entry => entry.key)).toEqual(['voc', 'task', 'survey']);
     expect(slots.feedbackOps?.entriesFor(spaceId('operations'))).toBeNull();
-    expect(slots.feedbackOps?.overall).toBeNull();
-    expect(slots.feedbackOps?.entriesFor(spaceId('bravo'))?.map(entry => 'menuId' in entry ? entry.menuId : null)).toEqual(['fo-inbox', 'fo-task-list', 'fo-surveys']);
+    expect(slots.feedbackOps?.entriesFor(spaceId('bravo'))?.map(entry => entry.menuId)).toEqual(['fo-inbox', 'fo-task-list', 'fo-surveys']);
     expect(Object.keys(slots)).toEqual(['contextBar', 'topBarTools', 'feedbackOps', 'plannedSpaces', 'boardEntry', 'notifications', 'vocCompose', 'homeTodo', 'scopeControl', 'navCounts', 'spaceNavSection']);
     expect(slots.notifications).toBe(fakeSlot);
     expect(slots.vocCompose).toBe(fakeVocCompose);

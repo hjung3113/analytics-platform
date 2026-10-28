@@ -1,12 +1,12 @@
 import { useMe } from '@/lib/auth/useMe';
-import { TasksRouteView } from '@/routes/_authed/tasks';
+import { TaskBoardRoute } from '@/test/screen-host/features/tasks/routes/TaskBoardRoute';
+import { TaskListRoute } from '@/test/screen-host/features/tasks/routes/TaskListRoute';
+import { TasksRouteView } from '@/test/screen-host/routes/_authed/tasks';
 import { type TaskDto, listTasksQuerySchema } from '@fops/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { TaskBoardRoute } from './TaskBoardRoute';
-import { TaskListRoute } from './TaskListRoute';
 
 const navigate = vi.hoisted(() => vi.fn());
 vi.mock('@tanstack/react-router', async (importOriginal) => ({
@@ -44,7 +44,7 @@ vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api/registry-reads')>()),
   fetchManagedSystems: async () => ({ items: [] }),
 }));
-vi.mock('../components/TaskDetailPanel', () => ({
+vi.mock('@/test/host-adapters/features/tasks/components/TaskDetailPanel', () => ({
   TaskDetailPanel: ({ taskId }: { taskId: string }) => (
     <section data-testid="selected-task">{taskId}</section>
   ),

@@ -5,12 +5,7 @@ import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import {
-  IDS,
-  draftNoFinding,
-  emptyList,
-  populatedList,
-} from '../../../../../tests/visual/fixtures/voc-clusters';
+import { IDS, draftNoFinding, emptyList, populatedList } from '@/test/fixtures/voc-clusters';
 import { VocClusterListShell } from './VocClusterListShell';
 
 const apiRequestMock = vi.hoisted(() => vi.fn());

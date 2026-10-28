@@ -231,18 +231,6 @@
       "interval": 5,
       "fail": "node_modules incomplete: pnpm install --frozen-lockfile (Node 22)"
     },
-    "pre_steps": [
-      {
-        "run": [
-          "pnpm",
-          "--filter",
-          "@fops/frontend",
-          "build"
-        ],
-        "log": ".review/route-tree-build.log",
-        "fail": "frontend build failed (see .review/route-tree-build.log)"
-      }
-    ],
     "first_line": "Read {rules} first. Node 22 is at /opt/homebrew/opt/node@22/bin.",
     "templates": [
       {

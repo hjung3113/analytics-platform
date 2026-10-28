@@ -1,8 +1,11 @@
 import { getTask, listTasks } from '@/lib/api';
 import { ApiError } from '@/lib/api/types';
 import { useMe } from '@/lib/auth/useMe';
-import { parseAppSearch, stringifyAppSearch } from '@/lib/router/search-serialization';
-import { TasksRouteView, validateTasksSearch } from '@/routes/_authed/tasks';
+import {
+  parseAppSearch,
+  stringifyAppSearch,
+} from '@/test/host-adapters/lib/router/search-serialization';
+import { TasksRouteView, validateTasksSearch } from '@/test/screen-host/routes/_authed/tasks';
 import { type TaskDetailDto, listTasksQuerySchema } from '@fops/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
@@ -51,7 +54,7 @@ vi.mock('@/lib/api/registry-reads', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api/registry-reads')>()),
   fetchManagedSystems: async () => ({ items: [] }),
 }));
-vi.mock('../components/TaskDetailPanel', () => ({
+vi.mock('@/test/host-adapters/features/tasks/components/TaskDetailPanel', () => ({
   TaskDetailPanel: ({ taskId, onClose }: { taskId: string; onClose: () => void }) => (
     <section data-testid="detail">
       {taskId}

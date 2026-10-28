@@ -30,7 +30,6 @@ features/voc/hooks/useVocCreateMutation.ts 2
 features/voc/hooks/useVocEditDescriptionMutation.ts 2
 features/voc/hooks/useVocInternalCommentMutation.ts 2
 features/voc/hooks/useVocList.ts 2
-features/voc/hooks/useVocPreSubmitPeers.ts 2
 features/voc/hooks/useVocPublicUpdateMutation.ts 2
 features/voc/hooks/useVocRecommendations.ts 2
 features/voc/hooks/useVocReporterReplyMutation.ts 2

@@ -1,10 +1,10 @@
 import { TASK_LINK_MISSING_MESSAGE } from '@/lib/copy/tasks';
+import { TaskBoardRoute } from '@/test/screen-host/features/tasks/routes/TaskBoardRoute';
 import type { ListTasksQuery, TaskDto, TaskStatus } from '@fops/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { TaskBoardRoute } from './TaskBoardRoute';
 import { listBoardTasks, parseBoardQuery } from './taskBoardTestServer';
 
 // #1178: the board loads one bounded page per status column, groups the open set for the other

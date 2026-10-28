@@ -1,9 +1,6 @@
 import { z } from 'zod';
 
-import {
-  parsePlatformReturnOrigins,
-  validateAttachmentOrigin,
-} from './config-attachment-origin.js';
+import { validateAttachmentOrigin } from './config-attachment-origin.js';
 import { validateOidcConfig } from './config-oidc.js';
 
 const optionalEnvString = z.preprocess(
@@ -15,137 +12,115 @@ const optionalPositiveInt = z.preprocess(
   z.coerce.number().int().positive().optional(),
 );
 
-const envSchema = z.object({
-  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-  PORT: z.coerce.number().int().positive().default(3001),
-  HOST: z.string().default('0.0.0.0'),
-  // Connection used by the running application; should be the fops_app role
-  // (INSERT/SELECT/UPDATE/DELETE on non-audit tables, INSERT/SELECT only on
-  // core.audit_log per ADR-0008).
-  DATABASE_URL: z.string().url().optional(),
-  // Connection used exclusively by drizzle-kit migrations and operator scripts;
-  // should be the fops_migrate role (ALL on every table). Kept separate so the
-  // running app cannot accidentally mutate core.audit_log rows.
-  DATABASE_URL_MIGRATE: z.string().url().optional(),
-  AUTH_PROVIDER: z.enum(['mock', 'oidc']).default('mock'),
-  // OIDC env contract (issue #390, ADR-0006 amended 2026-09-22). Ignored
-  // (not required, not validated) when AUTH_PROVIDER=mock; required and
-  // rule-checked in superRefine when AUTH_PROVIDER=oidc. Validation
-  // messages never echo values (the secret, URLs that may carry
-  // credentials) — variable names and rule descriptions only.
-  OIDC_ISSUER_URL: z.string().optional(),
-  OIDC_CLIENT_ID: z.string().optional(),
-  OIDC_CLIENT_SECRET: z.string().optional(),
-  OIDC_REDIRECT_URI: z.string().optional(),
-  OIDC_SCOPES: z.string().default('openid email profile'),
-  WORKSPACE_ID: z.string().uuid().optional(),
-  WORKSPACE_NAME: z.string().default('FeedbackOps'),
-  // `personas` layers black-box test actors and grants over the core seed.
-  SEED_MODE: z.enum(['core', 'personas', 'scale']).default('core'),
-  // CSP `img-src`/`connect-src` origin for public attachment URLs (#402).
-  // Accepted: the quoted literal `'self'` (default, everything same-origin) or
-  // a bare origin `https://host[:port]`; outside production also
-  // `http://localhost[:port]` / `http://127.0.0.1[:port]`. Anything else —
-  // paths, query, credentials, wildcards, whitespace/separators, other
-  // schemes — fails config load via validateAttachmentOrigin.
-  PUBLIC_ATTACHMENT_ORIGIN: z.string().default("'self'"),
-  // Comma-separated bare origins allowed as the "return to platform" link
-  // target (ADR-0071). Unset or empty = feature off. Each entry follows the
-  // PUBLIC_ATTACHMENT_ORIGIN origin rules (minus 'self'); the server
-  // wires the parsed list into GET /me.
-  PLATFORM_RETURN_ORIGINS: z.string().optional(),
-  // Review HTTP-H-2: `trustProxy: true` is unconditional and lets clients
-  // spoof `X-Forwarded-For` to reset anon rate-limit buckets and audit IPs
-  // when no ingress is in front. Hop count restricts Fastify to trusting
-  // only the rightmost N entries of the X-Forwarded-For chain. Set to the
-  // number of trusted proxies between the client and Fastify (1 for a
-  // single ingress; 0 disables trust, identical to `false`). Defaults to
-  // 0 outside production so dev/test/CI cannot spoof.
-  TRUSTED_PROXY_HOPS: z.coerce.number().int().min(0).default(0),
-  NOTIFICATION_EMAIL_CHANNEL: z.enum(['mock', 'smtp']).default('mock'),
-  SMTP_HOST: optionalEnvString,
-  SMTP_PORT: optionalPositiveInt,
-  SMTP_USERNAME: optionalEnvString,
-  SMTP_PASSWORD: optionalEnvString,
-  SMTP_FROM: optionalEnvString,
-  VOC_SIMILARITY_PREVIEW: z.enum(['enabled', 'disabled']).default('enabled'),
-  EMBEDDING_PROVIDER: z.enum(['voyage', 'fake', 'disabled']).default('disabled'),
-  EMBEDDING_API_KEY: optionalEnvString,
-  EMBEDDING_VERSION: z.coerce.number().int().positive().default(1),
-}).superRefine((config, context) => {
-  const originIssue = validateAttachmentOrigin(config.PUBLIC_ATTACHMENT_ORIGIN, config.NODE_ENV);
-  if (originIssue) {
-    context.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['PUBLIC_ATTACHMENT_ORIGIN'],
-      message: originIssue,
-    });
-  }
-  const platformOrigins = parsePlatformReturnOrigins(
-    config.PLATFORM_RETURN_ORIGINS,
-    config.NODE_ENV,
-  );
-  if ('issue' in platformOrigins) {
-    context.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['PLATFORM_RETURN_ORIGINS'],
-      message: platformOrigins.issue,
-    });
-  }
-  for (const oidcIssue of validateOidcConfig({
-    authProvider: config.AUTH_PROVIDER,
-    nodeEnv: config.NODE_ENV,
-    issuerUrl: config.OIDC_ISSUER_URL,
-    clientId: config.OIDC_CLIENT_ID,
-    clientSecret: config.OIDC_CLIENT_SECRET,
-    redirectUri: config.OIDC_REDIRECT_URI,
-    scopes: config.OIDC_SCOPES,
-  }) ?? []) {
-    context.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: [oidcIssue.path],
-      message: oidcIssue.message,
-    });
-  }
-  if (config.EMBEDDING_PROVIDER === 'voyage' && !config.EMBEDDING_API_KEY) {
-    context.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['EMBEDDING_API_KEY'],
-      message: 'EMBEDDING_API_KEY is required when EMBEDDING_PROVIDER=voyage',
-    });
-  }
-  if (config.NOTIFICATION_EMAIL_CHANNEL === 'smtp') {
-    for (const variable of ['SMTP_HOST', 'SMTP_PORT', 'SMTP_FROM'] as const) {
-      if (config[variable] === undefined) {
+const envSchema = z
+  .object({
+    NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+    PORT: z.coerce.number().int().positive().default(3001),
+    HOST: z.string().default('0.0.0.0'),
+    // Connection used by the running application; should be the fops_app role
+    // (INSERT/SELECT/UPDATE/DELETE on non-audit tables, INSERT/SELECT only on
+    // core.audit_log per ADR-0008).
+    DATABASE_URL: z.string().url().optional(),
+    // Connection used exclusively by drizzle-kit migrations and operator scripts;
+    // should be the fops_migrate role (ALL on every table). Kept separate so the
+    // running app cannot accidentally mutate core.audit_log rows.
+    DATABASE_URL_MIGRATE: z.string().url().optional(),
+    AUTH_PROVIDER: z.enum(['mock', 'oidc']).default('mock'),
+    // OIDC env contract (issue #390, ADR-0006 amended 2026-09-22). Ignored
+    // (not required, not validated) when AUTH_PROVIDER=mock; required and
+    // rule-checked in superRefine when AUTH_PROVIDER=oidc. Validation
+    // messages never echo values (the secret, URLs that may carry
+    // credentials) — variable names and rule descriptions only.
+    OIDC_ISSUER_URL: z.string().optional(),
+    OIDC_CLIENT_ID: z.string().optional(),
+    OIDC_CLIENT_SECRET: z.string().optional(),
+    OIDC_REDIRECT_URI: z.string().optional(),
+    OIDC_SCOPES: z.string().default('openid email profile'),
+    WORKSPACE_ID: z.string().uuid().optional(),
+    WORKSPACE_NAME: z.string().default('FeedbackOps'),
+    // `personas` layers black-box test actors and grants over the core seed.
+    SEED_MODE: z.enum(['core', 'personas', 'scale']).default('core'),
+    // CSP `img-src`/`connect-src` origin for public attachment URLs (#402).
+    // Accepted: the quoted literal `'self'` (default, everything same-origin) or
+    // a bare origin `https://host[:port]`; outside production also
+    // `http://localhost[:port]` / `http://127.0.0.1[:port]`. Anything else —
+    // paths, query, credentials, wildcards, whitespace/separators, other
+    // schemes — fails config load via validateAttachmentOrigin.
+    PUBLIC_ATTACHMENT_ORIGIN: z.string().default("'self'"),
+    // Review HTTP-H-2: `trustProxy: true` is unconditional and lets clients
+    // spoof `X-Forwarded-For` to reset anon rate-limit buckets and audit IPs
+    // when no ingress is in front. Hop count restricts Fastify to trusting
+    // only the rightmost N entries of the X-Forwarded-For chain. Set to the
+    // number of trusted proxies between the client and Fastify (1 for a
+    // single ingress; 0 disables trust, identical to `false`). Defaults to
+    // 0 outside production so dev/test/CI cannot spoof.
+    TRUSTED_PROXY_HOPS: z.coerce.number().int().min(0).default(0),
+    NOTIFICATION_EMAIL_CHANNEL: z.enum(['mock', 'smtp']).default('mock'),
+    SMTP_HOST: optionalEnvString,
+    SMTP_PORT: optionalPositiveInt,
+    SMTP_USERNAME: optionalEnvString,
+    SMTP_PASSWORD: optionalEnvString,
+    SMTP_FROM: optionalEnvString,
+    VOC_SIMILARITY_PREVIEW: z.enum(['enabled', 'disabled']).default('enabled'),
+    EMBEDDING_PROVIDER: z.enum(['voyage', 'fake', 'disabled']).default('disabled'),
+    EMBEDDING_API_KEY: optionalEnvString,
+    EMBEDDING_VERSION: z.coerce.number().int().positive().default(1),
+  })
+  .superRefine((config, context) => {
+    const originIssue = validateAttachmentOrigin(config.PUBLIC_ATTACHMENT_ORIGIN, config.NODE_ENV);
+    if (originIssue) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['PUBLIC_ATTACHMENT_ORIGIN'],
+        message: originIssue,
+      });
+    }
+    for (const oidcIssue of validateOidcConfig({
+      authProvider: config.AUTH_PROVIDER,
+      nodeEnv: config.NODE_ENV,
+      issuerUrl: config.OIDC_ISSUER_URL,
+      clientId: config.OIDC_CLIENT_ID,
+      clientSecret: config.OIDC_CLIENT_SECRET,
+      redirectUri: config.OIDC_REDIRECT_URI,
+      scopes: config.OIDC_SCOPES,
+    }) ?? []) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [oidcIssue.path],
+        message: oidcIssue.message,
+      });
+    }
+    if (config.EMBEDDING_PROVIDER === 'voyage' && !config.EMBEDDING_API_KEY) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['EMBEDDING_API_KEY'],
+        message: 'EMBEDDING_API_KEY is required when EMBEDDING_PROVIDER=voyage',
+      });
+    }
+    if (config.NOTIFICATION_EMAIL_CHANNEL === 'smtp') {
+      for (const variable of ['SMTP_HOST', 'SMTP_PORT', 'SMTP_FROM'] as const) {
+        if (config[variable] === undefined) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [variable],
+            message: `${variable} is required when NOTIFICATION_EMAIL_CHANNEL=smtp`,
+          });
+        }
+      }
+      if (Boolean(config.SMTP_USERNAME) !== Boolean(config.SMTP_PASSWORD)) {
+        const missingCredential = config.SMTP_USERNAME ? 'SMTP_PASSWORD' : 'SMTP_USERNAME';
         context.addIssue({
           code: z.ZodIssueCode.custom,
-          path: [variable],
-          message: `${variable} is required when NOTIFICATION_EMAIL_CHANNEL=smtp`,
+          path: [missingCredential],
+          message:
+            'SMTP_USERNAME and SMTP_PASSWORD must be set together when NOTIFICATION_EMAIL_CHANNEL=smtp',
         });
       }
     }
-    if (Boolean(config.SMTP_USERNAME) !== Boolean(config.SMTP_PASSWORD)) {
-      const missingCredential = config.SMTP_USERNAME ? 'SMTP_PASSWORD' : 'SMTP_USERNAME';
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: [missingCredential],
-        message: 'SMTP_USERNAME and SMTP_PASSWORD must be set together when NOTIFICATION_EMAIL_CHANNEL=smtp',
-      });
-    }
-  }
-});
+  });
 
 export type AppConfig = z.infer<typeof envSchema>;
 
 export function loadConfig(): AppConfig {
   return envSchema.parse(process.env);
-}
-
-// Config load already rejected invalid values, so a parse issue cannot occur
-// here; an unset or empty variable yields `[]` (feature off).
-export function platformReturnOriginsOf(
-  config: Pick<AppConfig, 'PLATFORM_RETURN_ORIGINS' | 'NODE_ENV'>,
-): string[] {
-  const parsed = parsePlatformReturnOrigins(config.PLATFORM_RETURN_ORIGINS, config.NODE_ENV);
-  return 'origins' in parsed ? parsed.origins : [];
 }

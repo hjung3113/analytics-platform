@@ -10,7 +10,7 @@ import {
   type AuthedVocsRequest,
   jsonResponse,
   mountAuthedVocs,
-} from '../../../../test/mountAuthedVocs';
+} from '../../../../test/mountVocs';
 
 const MS = '00000000-0000-4000-8000-0000000000aa';
 const AREA = '11111111-1111-4111-8111-111111111111';

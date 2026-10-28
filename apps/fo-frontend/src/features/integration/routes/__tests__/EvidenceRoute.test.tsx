@@ -1,4 +1,5 @@
-import { validateEvidenceSearch } from '@/routes/_authed/integration/evidence';
+import { EvidenceRoute } from '@/test/screen-host/features/integration/routes/EvidenceRoute';
+import { validateEvidenceSearch } from '@/test/screen-host/routes/_authed/integration/evidence';
 import {
   getEvidenceInventoryResponseSchema,
   listEvidenceInventoryResponseSchema,
@@ -16,7 +17,6 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import userEvent from '@testing-library/user-event';
 import { type ReactNode, useLayoutEffect, useSyncExternalStore } from 'react';
 import { afterEach, expect, it, vi } from 'vitest';
-import { EvidenceRoute } from '../EvidenceRoute';
 
 const slot = vi.hoisted(() => {
   let node: unknown;
@@ -806,7 +806,7 @@ it.each(
       await act(async () =>
         router.navigate({
           to: '/integration/evidence',
-          search: (previous) => ({ ...previous, selected: ID }),
+          search: (previous: Record<string, unknown>) => ({ ...previous, selected: ID }),
         }),
       );
       await screen.findByRole('link', { name: 'Finding 보기' });

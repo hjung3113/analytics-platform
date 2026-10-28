@@ -1,16 +1,16 @@
 import { fetchCapabilityScope } from '@/lib/api';
-import { CreateSurveyDialog } from '@/routes/_authed/surveys/index';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import userEvent, { PointerEventsCheckLevel } from '@testing-library/user-event';
-import * as React from 'react';
-import { afterEach, expect, it, vi } from 'vitest';
 import {
   surveyCopySourceVisualFixture,
   surveyCopySourcesVisualFixture,
   surveyTemplateVisualFixture,
   surveyVisualFixture,
-} from '../../../../../tests/visual/fixtures/surveys';
+} from '@/test/fixtures/surveys';
+import { CreateSurveyDialog } from '@/test/surveys-host/screen';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent, { PointerEventsCheckLevel } from '@testing-library/user-event';
+import * as React from 'react';
+import { afterEach, expect, it, vi } from 'vitest';
 import { SurveyBuilder } from '../../components/builder/SurveyBuilder';
 import { SurveyList } from '../../components/list/SurveyList';
 import { useSurvey } from '../../hooks/useSurveys';

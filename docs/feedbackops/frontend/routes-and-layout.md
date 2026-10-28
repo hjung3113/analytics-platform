@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document defines route, URL state, and layout behavior for the FeedbackOps frontend.
+This document defines retained semantic screen URL state and list/detail behavior. #597 retires the standalone host. Paths below are screen intents consumed by the bridge, not deployed standalone routes or a redirect table. Actual platform menu URLs live in `menus/feedbackops/*` and `packages/adapters/fo-bridge/src/fo/*-routes.ts`. Old Home tabs, app rail/sidebar, login/bootstrap and file-route registration are retired; the platform owns those compositions. Test-local adapters may still exercise screen state through a memory router.
 
 Product UI intent lives in `docs/design/12-ui-ux-principles.md`.
 Reusable component contracts live in `docs/frontend/ui-design-system.md`.
@@ -31,7 +31,7 @@ Reusable component contracts live in `docs/frontend/ui-design-system.md`.
 /tasks?view=milestones&managedSystem=:managedSystemId|all&param=:milestoneId
 /integration?managedSystem=:managedSystemId|all
 /findings?q=:query&managedSystem=:managedSystemId|all&selected=:findingId&execution=none&assignment=assigned|unassigned&filter.analytics_area=:areaId|unset&status=active&returnTo=:encodedVocUrl
-/findings/:findingId (redirects to /findings?selected=:findingId)
+/findings?selected=:findingId (semantic selected-record intent)
 /integration/evidence?managedSystem=:managedSystemId|all&source=voc|survey_response|note&q=:query&selected=:highlightId&cursor=:opaqueCursor
 /integration/coverage?managedSystem=:managedSystemId|all
 /integration/links?managedSystem=:managedSystemId|all&status=active|stale|detached|revoked&type=related_to
@@ -45,16 +45,16 @@ Reusable component contracts live in `docs/frontend/ui-design-system.md`.
 | Deep-link route | Search keys | Omitted defaults |
 |---|---|---|
 | `/findings` | `q`, `managedSystem`, `selected`, `execution`, `assignment`, `filter.analytics_area`, `status`, `returnTo` | `managedSystem` for the caller's effective scope union (`all` is also accepted); `selected` when none is selected; `execution`, `assignment`, `filter.analytics_area` and `status` when unfiltered; `returnTo` unless the selected Finding was opened from a VOC flow |
-| `/vocs` | `view`, `tab`, `q`, `managedSystem`, `selected`, `filter.severity`, `filter.reporterStatus`, `filter.owner`, `filter.analytics_area`, `sort`, `action`, `returnTo`, `platformReturn` | `view` for the Inbox default; `action` unless the create form is open; `returnTo` unless opened from a recovery queue; `platformReturn` absent unless opened from an allowlisted platform link; `tab`, `q`, `selected`, filters and `sort` when unset (`sort` defaults to `created_at:desc`; Triage has no `sort` or `q`); `managedSystem` for the caller's effective scope union (`all` is also accepted). There is no `cursor` key: paging state never enters the URL. |
-| `/findings/:findingId` | `returnTo` | Redirects to `/findings?selected=:findingId`, preserving `returnTo` when supplied |
-| `/surveys` | `managedSystem`, `selected`, `filter.analytics_area`, `status`, `follow_up`, `platformReturn` | `platformReturn` absent unless opened from an allowlisted platform link; `managedSystem` for the caller's effective scope union (`all` is also accepted); `selected` when none is selected; `filter.analytics_area`, `status` (`open`) and `follow_up` (`needed`) when unfiltered |
-| `/surveys/:surveyId` | `managedSystem`, `filter.analytics_area`, `status`, `follow_up`, `builder`, `returnTo`, `platformReturn` | Same list-filter omissions as `/surveys`; `platformReturn` absent unless opened from an allowlisted platform link. Selection is the path `surveyId`, not a search key. `builder` unless the builder is open; `returnTo` unless opened from a recovery queue. The detail toolbar matches the index list (title, create, chips). Row selection and chip removal stay on `/surveys/:surveyId` and keep unrelated search. Close returns to `/surveys` with the remaining list context and drops `builder` and `returnTo`. |
+| `/vocs` | `view`, `tab`, `q`, `managedSystem`, `selected`, `filter.severity`, `filter.reporterStatus`, `filter.owner`, `filter.analytics_area`, `sort`, `action`, `returnTo` | `view` for the Inbox default; `action` unless the create form is open; `returnTo` unless opened from a recovery queue; `tab`, `q`, `selected`, filters and `sort` when unset (`sort` defaults to `created_at:desc`; Triage has no `sort` or `q`); `managedSystem` for the caller's effective scope union (`all` is also accepted). There is no `cursor` key: paging state never enters the URL. |
+| `/findings/:findingId` | `returnTo` | Retired standalone redirect; use the selected-record intent with `returnTo` |
+| `/surveys` | `managedSystem`, `selected`, `filter.analytics_area`, `status`, `follow_up` | `managedSystem` for the caller's effective scope union (`all` is also accepted); `selected` when none is selected; `filter.analytics_area`, `status` (`open`) and `follow_up` (`needed`) when unfiltered |
+| `/surveys/:surveyId` | `managedSystem`, `filter.analytics_area`, `status`, `follow_up`, `builder`, `returnTo` | Same list-filter omissions as `/surveys`. Selection is the path `surveyId`, not a search key. `builder` unless the builder is open; `returnTo` unless opened from a recovery queue. The detail toolbar matches the index list (title, create, chips). Row selection and chip removal stay on `/surveys/:surveyId` and keep unrelated search. Close returns to `/surveys` with the remaining list context and drops `builder` and `returnTo`. |
 | `/surveys/:surveyId/follow-up` | `returnTo` | `returnTo` unless opened from a recovery queue |
 | `/surveys/participate` | — | No search state |
 | `/surveys/:surveyId/respond` | — | No search state; respondent surfaces do not carry Managed System scope |
 | `/voc-clusters` | `managedSystem`, `selected` | `managedSystem` for the caller's effective scope union (`all` is also accepted); `selected` when none is selected |
 | `/voc-clusters/:clusterId` | — | No search state; the cluster id is the path param and the cluster list stays as the list context |
-| `/tasks` | `q`, `view`, `param`, `managedSystem`, `public_update`, `filter.analytics_area`, `status`, `status_group`, `overdue`, `reporter_update`, `returnTo`, `platformReturn` | `platformReturn` absent unless opened from an allowlisted platform link; `view` for the backlog list; `param` when none is selected; `managedSystem` for the caller's effective scope union (`all` is also accepted); `public_update` (`missing`) unless filtering the board, backlog or My list to Released Tasks missing a public update (the board shows it as a removable `ActiveFilterBar` chip); `filter.analytics_area`, `status`, `status_group` (`in-flight`), `overdue` (`true`) and `reporter_update` (`needed`) when unfiltered — these apply to backlog and My only, not the board |
+| `/tasks` | `q`, `view`, `param`, `managedSystem`, `public_update`, `filter.analytics_area`, `status`, `status_group`, `overdue`, `reporter_update`, `returnTo` | `view` for the backlog list; `param` when none is selected; `managedSystem` for the caller's effective scope union (`all` is also accepted); `public_update` (`missing`) unless filtering the board, backlog or My list to Released Tasks missing a public update (the board shows it as a removable `ActiveFilterBar` chip); `filter.analytics_area`, `status`, `status_group` (`in-flight`), `overdue` (`true`) and `reporter_update` (`needed`) when unfiltered — these apply to backlog and My only, not the board |
 | `/home` | `managedSystem`, `tab`, `category`, `selected`, `presentation`, `history`, `returnTo`, `cursor` | Dashboard tab, visible presentation, history=false and absent filters/selection/return/cursor; Home scope is a UUID when explicit |
 | `/integration` | `managedSystem`, `category`, `selected`, `presentation`, `history`, `returnTo`, `cursor` | `managedSystem` for the caller's effective scope union (`all` is also accepted); visible presentation, history=false and absent filters/selection/return/cursor |
 | `/integration/evidence` | `managedSystem`, `source`, `q`, `selected`, `cursor` | omit unfiltered defaults; selection uses a local highlight UUID; cursor is opaque |
@@ -63,7 +63,7 @@ Reusable component contracts live in `docs/frontend/ui-design-system.md`.
 | `/admin/permissions/requests` | `tab`, `selected`, `returnTo` | `tab` for the pending tab; `selected` when none is selected; `returnTo` unless opened from a recovery queue |
 | `/admin/permissions/grants` | `tab`, `selected` | `tab` for grants; `selected` when none is selected |
 
-**Return to platform (ADR-0071).** `/vocs`, `/tasks`, `/surveys` and `/surveys/:surveyId` accept `platformReturn=:absoluteUrl` (at most 2048 characters). Every other route's strict schema drops it, and the internal `returnTo` key is unaffected. `AppSidebar` shows a `플랫폼으로 돌아가기` same-tab link above the nav sections only when the URL's origin is exactly one of `platform_return_origins` from `GET /me`; otherwise nothing renders. The Survey detail's child routes (`/results`, `/follow-up`) inherit the key in the URL but never render the link. The key lives in the URL only: in-app navigation that rebuilds search may drop it.
+**Standalone return removed (#597).** `platformReturn`, `/me.platform_return_origins` and `PLATFORM_RETURN_ORIGINS` are retired. The platform keeps bounded internal `returnTo`; its URL/permission contract and retained feature filters are unchanged. Historical FO ADR-0071 describes the removed standalone design.
 
 Route naming rules:
 
@@ -122,46 +122,15 @@ Navigation is a discovery surface; backend permission checks remain authoritativ
 - Direct links to Admin routes still render their route-level blocked panel when the Actor is not approved; navigation visibility does not replace `PermissionGate`.
 ```
 
-Current sidebar entries live in `NAV_TREE` (`apps/fo-frontend/src/routes/_authed.tsx`), which owns route
-labels and destinations. `AppFrame` filters its `관리자` section entries using the same `workspace.admin` check
-as the Admin page gates. The section labels are `VOC`, `Triage 보기`, `보기`, `Finding`, `Task` (including
-Milestones), `연동`, `Survey`, and `관리자`. The Survey sidebar has `Survey 참여`
-at `/surveys/participate` followed by `Survey 관리` at `/surveys`; the active
-entry follows the participation and respondent routes versus the management
-routes. The Surveys rail destination opens `/surveys/participate`. The Home rail's entries come from `homeSidebarEntries`
-(`apps/fo-frontend/src/features/home/homeNavigation.tsx`); its sections are `FEEDBACKOPS` and `액션 큐`.
+Platform navigation, global command palette, identity bootstrap, login/logout and unknown-route/error composition belong to the platform Kernel/shell and application assembly. The retired standalone `NAV_TREE`, rail/sidebar, command palette and authenticated file-route guard are no longer runtime entry points. Backend session/OIDC and permission enforcement remain active.
 
-The bottom avatar in the global rail opens an account menu with the current Actor display name and Role Level plus logout. Logout revokes the session, clears the client query cache, then routes to `/login`; successful login clears prior Actor data and seeds the `['me']` identity from the login response before routing so a new Actor never sees prior Actor data.
+Count badges use the retained backend nav aggregation through the platform `@ap/fo-bridge/nav-counts` slot. Managed System selection uses `@ap/fo-bridge/scope-control` and the router-free `ManagedSystemScopePicker`; the host owns URL writes. Direct screen access still renders allowed content, summary-visible content, request-access, not-found or permission-denied states according to the backend and platform menu gates.
 
-### Global command palette (#611)
-
-`Ctrl+K` on Windows/Linux, `⌘K` on macOS (owner decision: most users are on Windows) toggles the palette mounted once in `AppFrame` (`apps/fo-frontend/src/lib/layout/command-palette/`). `platform.ts` (`isMacPlatform`/`shortcutLabel`) drives the binding and every visible hint — the Home sidebar `명령 메뉴` row (a `SidebarNavActionEntry`, an action not a route), and the palette footer — never a hard-coded `⌘`. The shortcut is ignored while an IME composition is active and `preventDefault`s the browser's own Ctrl+K binding.
-
-Commands derive from the existing nav sources (`AppRail.RAIL_ITEMS` + `NAV_TREE`) so labels never drift; Admin entries use the same `workspace.admin` approval as the sidebar (ADR-0056). The only create verb is `VOC 생성` (`/vocs?action=create`). A query matching `^(VOC|FIN|REQ|TASK)-[1-9][0-9]*$` shows one `열기` row that resolves `GET /nav/resolve?display_id=` (typed client `fetchNavResolve`, `navResolveResponseSchema`) and navigates to the returned route intent; missing/unreadable records show an inline `해당 항목을 찾을 수 없거나 접근 권한이 없습니다.` and keep the palette open. The palette does not synthesize commands the backend does not resolve; scope switching and recent records are out of scope for the first version.
-
-In production (`import.meta.env.PROD`), `/login` performs one full-page replace to `/auth/login?return_to=…`, preserving a safe internal `redirectTo` (what the `_authed` guard sends on a 401; `return_to` or `redirect` when absent) unchanged after validation against the backend OIDC rules, with `/home` as the fallback. Non-production keeps the mock-login picker; callback failures return backend JSON errors rather than redirecting to `/login`.
-
-The authenticated route guard reuses the shared `['me']` cache while it is fresh and revalidates it in the background on an authenticated entry when the cached identity is older than five minutes. A background 401 clears the client query cache and routes to `/login`, preserving the current URL in `redirectTo`.
-
-Count badges and global Managed System scope selection shipped in #143 (GlobalRail multi-domain IA, closed). Counts: backend aggregation in `apps/fo-backend/src/modules/nav/service.ts`, fetched via `apps/fo-frontend/src/lib/api/nav.ts` and passed through `AppFrame`, rendered as badges in `AppSidebar` (`NAV_TREE` count keys). Scope selector: `AppSidebar`'s `ManagedSystemScopeOption` control (`data-testid="scope-selector"`), backed by the `['managed-systems', 'scope-selector']` query in `AppFrame`.
-
-Routes may exist without being visible in navigation. Direct route access must restore AppShell and render allowed content, summary-visible content, request-access state, not_found, or permission_denied according to backend response.
-
-### Unknown routes and route errors
-
-- Authenticated unknown paths, including an unmatched suffix under a known route, render a centered `PageShell` inside the existing `AppFrame`, with a localized not-found message, Home link, and back action.
-- Unknown paths check the current identity before showing AppShell; a 401 still redirects to `/login` and preserves the requested URL.
-- Route errors render a localized `ListStateMessage` inside AppShell when identity is available, offer
-  retry, and keep raw error details in the console only. Standalone error content keeps the viewport-height
-  centering of the pending state; in-shell errors center within `AppFrame`. A `/me` rate-limit error uses the
-  existing "잠시 후 다시 시도하세요." message in a standalone state, and retry resets the identity query
-  before invalidating the router.
-- While the authenticated guard is resolving, the route shows a centered "불러오는 중…" state after the router's pending delay.
-- Search validation drops invalid and unrecognized fields independently, preserves valid fields, and clears dropped values from TanStack's merged search and the URL so each route uses its omitted defaults.
+Search validation drops invalid and unrecognized fields independently, preserves valid fields and clears dropped values from the host URL. Test-local memory routers exercise this behavior without restoring the standalone host.
 
 ## Home Queue Contract
 
-Home uses one shared route and container. It must not fork into separate
+The retained Dashboard body uses one shared composition. It must not fork into separate
 role-specific products. The backend provides the queue groups and summary-safe
 items the actor may see.
 
@@ -320,10 +289,10 @@ as the other surfaces.
   response history; `/surveys/:surveyId/respond` renders the respondent form.
 ```
 
-As built, the scope control is the `AppSidebar` scope selector (`data-testid="scope-selector"`):
+The platform bridge supplies `ManagedSystemScopeControl` over `ManagedSystemScopePicker`:
 
 ```text
-- It is rendered whenever the sidebar is expanded, for every Actor; it is disabled on Admin routes and on Survey respondent routes.
+- The host controls availability by surface; it is disabled on Admin and Survey respondent surfaces.
 - `All` ("전체 Managed System") is always offered; choosing it removes `managedSystem` from the URL.
 - Every workspace Managed System is listed. Systems outside the actor's `voc.read` scope (`GET /me/permissions/scope`), including Admin denies, are dimmed and marked `범위 밖`, with a note that names are workspace-visible and access is requested separately (#282).
 - The list is a real `listbox` of `option`s (`aria-selected` on the current value). ArrowUp/ArrowDown/Home/End move focus (no wrap), Enter/Space select, Esc closes (from the list or the trigger), Tab or a click elsewhere closes; selecting or Esc returns focus to the trigger. With a visible label (the platform `목록 범위`) the trigger's accessible name starts with it.

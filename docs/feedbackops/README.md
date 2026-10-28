@@ -74,7 +74,7 @@ pnpm --filter @fops/ops dev --env-mode=loose   # frontend on :3010, backend on :
 
 `turbo.json` passes `VITEST_MAX_FORKS`/`VITEST_MIN_FORKS` (and the `_THREADS`/`_WORKERS` variants) through strict mode, so exporting them caps `pnpm test` workers on a memory-constrained machine. Set each MAX/MIN pair together: vitest 2.x rejects a max below its default min (ncpu − 1) with `minThreads and maxThreads must not conflict`.
 
-`routeTree.gen.ts` is gitignored and generated deterministically by `pnpm --filter @fops/ops gen:routes`; frontend typecheck and test scripts run it first.
+The standalone route tree and its generator are retired (#597); the frontend package has no route generation step.
 
 Sign in from `/login`. Authentication is mock in local development; pick a persona by its external id (`mock-admin-1`, `mock-developer-1`, `mock-user-1`, …).
 
