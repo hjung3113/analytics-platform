@@ -11,7 +11,7 @@ Each open issue has one `lane:*` label. The assignment comment on the issue is t
 | `lane:sdk` | Public package contracts and parts, analysis workspace, SDK quality | `packages/sdk/*`, `tooling/sdk/`, `docs/contract/`, `docs/integration/sdk-*` | 4190 |
 | `lane:platform` | App assembly, mock/real adapters, server conformance, sample menus, in-house rollout | `apps/platform-web`, `packages/adapters/{mock-server,http-adapter,server-conformance}`, `menus/*` (not FO bridge menus) | 4590 |
 | `lane:arch` | Refactors, folder structure, glossary, boundary lint, CI, doc structure | `tooling/{eslint,gen-menu,tsconfig,css-selectors}`, `.github/workflows`, `docs/INDEX.md`, `docs/AGENTS.md`, `GLOSSARY.md` | 4690 |
-| `lane:fo` | FeedbackOps | `apps/fo-*`, `packages/fo-*`, `packages/adapters/fo-bridge`, `docs/feedbackops/`, `ops/feedbackops/`, `menus/feedbackops/*`, the FO bridges in `menus/_global/*` | 4390 |
+| `lane:fo` | FeedbackOps | `apps/platform-api`, `apps/feature-screens`, `packages/feature-shared`, `packages/feature-ui`, `packages/adapters/feature-bridge`, `docs/feedbackops/`, `ops/platform-api/`, `menus/feedbackops/*`, the FO bridges in `menus/_global/*` | 4390 |
 | `lane:ev` | equipment-visualization, AP side | `tools` space, host-module fixtures, EV tarball bumps | 4490 |
 | `lane:site` | Intro site | `site/` | 4790 |
 | `lane:ops` | Conductor profile, agent assets, owner-requested reports | `.agents/` (not this file), `docs/agents/` | 4990 |

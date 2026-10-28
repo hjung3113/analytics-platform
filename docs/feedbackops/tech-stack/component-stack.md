@@ -14,7 +14,7 @@ docs/design/12-ui-ux-principles.md
 
 It is not a generic package list. FeedbackOps has product-specific UI contracts that no third-party component library should own.
 
-The shipped component inventory is `packages/fo-ui/src/index.ts`. Component contracts and required states live in `docs/frontend/component-inventory.md`. This document owns library governance: which libraries are approved, which are not adopted, and how a new one is added.
+The shipped component inventory is `packages/feature-ui/src/index.ts`. Component contracts and required states live in `docs/frontend/component-inventory.md`. This document owns library governance: which libraries are approved, which are not adopted, and how a new one is added.
 
 ## Decision
 
@@ -72,19 +72,19 @@ The primitive source and the shared display components `ObjectRow`, `UserAvatar`
 upstream in ADR-0050. FeedbackOps-owned composed components live at:
 
 ```text
-packages/fo-ui/src/{badges,data,entity,feedback,forms,identity,indicators,layout,panel,permissions,rich-content,toolbar}/*
+packages/feature-ui/src/{badges,data,entity,feedback,forms,identity,indicators,layout,panel,permissions,rich-content,toolbar}/*
 ```
 
 `ObjectRow`, `UserAvatar`, `UserChip`, `ProgressMeter`,
 `SeverityIndicator`, `PermissionBlockedPanel`, and `StatusBadgeFrame` are imported from `@ap/ui`.
 FeedbackOps-owned badges, `LinkedEntityTrail`,
 and pickers remain local. Rich content (`RichEditor`, `RichContentRenderer`) is
-consumed from `@ap/ui` (upstream ADR-0052); `packages/fo-ui/src/rich-content/`
+consumed from `@ap/ui` (upstream ADR-0052); `packages/feature-ui/src/rich-content/`
 keeps only drift/sanitization helpers. `allowlist-local.ts` is the UI copy of the canonical shared
 contract and remains drift-tested.
 
-The shadcn primitives are not wrapped in `packages/fo-ui`; the `@fops/ui` public API (FeedbackOps-owned
-components and aliases only) is assembled by `packages/fo-ui/src/index.ts`.
+The shadcn primitives are not wrapped in `packages/feature-ui`; the `@fops/ui` public API (FeedbackOps-owned
+components and aliases only) is assembled by `packages/feature-ui/src/index.ts`.
 
 Recommended source:
 
@@ -106,12 +106,12 @@ Rules:
 Owned path:
 
 ```text
-packages/fo-ui/src/<area>/*
+packages/feature-ui/src/<area>/*
 ```
 
-Areas: `badges`, `data`, `entity`, `feedback`, `forms`, `identity`, `indicators`, `layout`, `panel`, `permissions`, `rich-content`, `toolbar`. Shared pickers live in `packages/fo-ui/src/components/*`; `Button` and the other shadcn primitives come from `@ap/ui`. The layout shells are exactly `PageShell`, `ListShell`, and `WorkbenchShell` (ADR-0020).
+Areas: `badges`, `data`, `entity`, `feedback`, `forms`, `identity`, `indicators`, `layout`, `panel`, `permissions`, `rich-content`, `toolbar`. Shared pickers live in `packages/feature-ui/src/components/*`; `Button` and the other shadcn primitives come from `@ap/ui`. The layout shells are exactly `PageShell`, `ListShell`, and `WorkbenchShell` (ADR-0020).
 
-Components that only one feature uses stay feature-local, under `apps/fo-frontend/src/features/<feature>/`.
+Components that only one feature uses stay feature-local, under `apps/feature-screens/src/features/<feature>/`.
 
 Rules:
 
@@ -129,9 +129,9 @@ Rules:
 Owned path:
 
 ```text
-apps/fo-frontend/src/features/*
-apps/fo-frontend/src/routes/*
-apps/fo-frontend/src/lib/*
+apps/feature-screens/src/features/*
+apps/feature-screens/src/routes/*
+apps/feature-screens/src/lib/*
 ```
 
 Screens compose product and domain components.
@@ -142,7 +142,7 @@ Rules:
 - Screens should not create one-off list, badge, permission, or detail panel implementations.
 - If a screen needs a new shared state or variant, add it to docs/frontend/ui-design-system.md and the relevant shared component first.
 - Keep components feature-local until a second real feature needs the same behavior.
-- Promote reusable components to packages/fo-ui only after their props, states, and token usage are stable enough for multiple consumers.
+- Promote reusable components to packages/feature-ui only after their props, states, and token usage are stable enough for multiple consumers.
 ```
 
 ## Approved MVP Stack
@@ -162,7 +162,7 @@ Use:
 
 ```text
 - shadcn/ui primitives sourced through the pinned `@ap/ui` SDK; FeedbackOps consumers import them from `@ap/ui`
-- Radix UI for accessible primitives (@radix-ui/react-* dependencies of packages/fo-ui)
+- Radix UI for accessible primitives (@radix-ui/react-* dependencies of packages/feature-ui)
 - lucide-react for icons
 - sonner for ephemeral mutation feedback
 - cmdk for the CommandPalette primitive
@@ -172,7 +172,7 @@ Constraints:
 
 ```text
 - sonner is only for transient feedback. Meaningful workflow state must also appear inline in rows, detail panels, or activity history.
-- cmdk is only the visual/interaction primitive. The product command palette is apps/fo-frontend/src/lib/layout/command-palette/ (see docs/frontend/routes-and-layout.md, Global command palette).
+- cmdk is only the visual/interaction primitive. The product command palette is apps/feature-screens/src/lib/layout/command-palette/ (see docs/frontend/routes-and-layout.md, Global command palette).
 - lucide-react requires an icon vocabulary so the same icon is not reused inconsistently across evidence, links, permissions, public updates, task requests, and risk signals.
 ```
 
@@ -296,7 +296,7 @@ They are not approved as direct visual systems.
 Any component copied from a registry must go through this process:
 
 ```text
-1. For a bundle-1 primitive, update the upstream analytics-platform SDK and consume a tagged `@ap/ui` release. Put FeedbackOps product and domain components in the matching `packages/fo-ui/src/<area>` folder.
+1. For a bundle-1 primitive, update the upstream analytics-platform SDK and consume a tagged `@ap/ui` release. Put FeedbackOps product and domain components in the matching `packages/feature-ui/src/<area>` folder.
 2. Normalize colors, spacing, radius, typography, focus rings, and density to `docs/frontend/ui-design-system.md` semantic tokens.
 3. Remove unrelated variants and decorative styling.
 4. Verify accessibility behavior.
@@ -440,10 +440,10 @@ Rules:
 
 ## Package Baseline
 
-As-built dependency direction (`apps/fo-frontend/package.json`, `packages/fo-ui/package.json`):
+As-built dependency direction (`apps/feature-screens/package.json`, `packages/feature-ui/package.json`):
 
 ```text
-apps/fo-frontend runtime dependencies:
+apps/feature-screens runtime dependencies:
 - react, react-dom (19)
 - @tanstack/react-router, @tanstack/react-query
 - react-hook-form, @hookform/resolvers, zod
@@ -452,17 +452,17 @@ apps/fo-frontend runtime dependencies:
 - @fontsource-variable/inter, @fontsource-variable/jetbrains-mono, pretendard
 - @fops/ui, @fops/shared (workspace)
 
-apps/fo-frontend styling dev dependencies:
+apps/feature-screens styling dev dependencies:
 - tailwindcss, @tailwindcss/vite (v4, ADR-0058)
 
-packages/fo-ui dependencies:
+packages/feature-ui dependencies:
 - @radix-ui/react-* (avatar, checkbox, dialog, dropdown-menu, hover-card, label, popover, radio-group, select, slot, tabs, toggle-group, tooltip)
 - @tiptap/* (core, react, pm, starter-kit, html, extension-link, extension-placeholder, extension-underline)
 - class-variance-authority, clsx, tailwind-merge
 - lucide-react, sonner
 ```
 
-shadcn/ui is not a normal runtime UI dependency; bundle-1 source files are shipped by the pinned `@ap/ui` package. FeedbackOps code imports the primitives from `@ap/ui`; `packages/fo-ui` keeps no shadcn files.
+shadcn/ui is not a normal runtime UI dependency; bundle-1 source files are shipped by the pinned `@ap/ui` package. FeedbackOps code imports the primitives from `@ap/ui`; `packages/feature-ui` keeps no shadcn files.
 Install reusable component dependencies at the workspace root or target package
 according to the chosen workspace manager; do not create per-app lockfiles.
 

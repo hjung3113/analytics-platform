@@ -15,7 +15,7 @@ mb=$(git merge-base "$base" "$head") || { echo "tier: no merge-base" >&2; exit 2
 root=$(git rev-parse --show-toplevel)
 . "$(dirname "$0")/shared-paths.sh"
 
-full_re='^(packages/sdk/(kernel|components|shell|ui|contracts)/|packages/adapters/(mock-server|http-adapter|server-conformance|fo-bridge)/|apps/platform-web/|apps/fo-backend/|apps/fo-frontend/|packages/fo-shared/)'
+full_re='^(packages/sdk/(kernel|components|shell|ui|contracts)/|packages/adapters/(mock-server|http-adapter|server-conformance|feature-bridge)/|apps/platform-web/|apps/platform-api/|apps/feature-screens/|packages/feature-shared/)'
 test_re='(/__tests__/|\.test\.[cm]?[jt]sx?$|\.spec\.[cm]?[jt]sx?$)'
 doc_re='\.md$'
 

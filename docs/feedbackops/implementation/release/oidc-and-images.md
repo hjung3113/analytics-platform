@@ -13,7 +13,7 @@ From the repository root, create the local interpolation file and inspect the Co
 
 The example values are local-only. The Compose project is always named feedbackops-release-1060; its Postgres and MinIO named volumes are project-owned. The Postgres port is not published on the host, so this stack does not use the development database on port 5434. The --env-file supplies Compose interpolation only; selected values are passed to each service explicitly so the running backend never receives DATABASE_URL_MIGRATE.
 
-Postgres initialization mounts [scripts/db/init.sql](../../../../ops/feedbackops/scripts/db/init.sql) and runs it as the postgres bootstrap superuser on an empty release-owned volume. Do not set POSTGRES_DB=feedbackops: init.sql creates that database itself. It also creates the fops_app and fops_migrate logins, their role memberships, and the vector extension. Their initial passwords are the literals fops_app and fops_migrate from that script; changing POSTGRES_PASSWORD changes only the bootstrap superuser password.
+Postgres initialization mounts [scripts/db/init.sql](../../../../ops/platform-api/scripts/db/init.sql) and runs it as the postgres bootstrap superuser on an empty release-owned volume. Do not set POSTGRES_DB=feedbackops: init.sql creates that database itself. It also creates the fops_app and fops_migrate logins, their role memberships, and the vector extension. Their initial passwords are the literals fops_app and fops_migrate from that script; changing POSTGRES_PASSWORD changes only the bootstrap superuser password.
 
 The initialization script runs only for an empty Postgres volume. Before reusing an existing volume, provision feedbackops owned by fops_migrate, both login roles with the script's passwords and NOINHERIT, all NOLOGIN owner roles and one-way memberships from the script, and the vector extension in feedbackops as a superuser. Do not assume the init script will repair an existing volume.
 
@@ -29,7 +29,7 @@ The migration job runs only drizzle-kit migrate; it never seeds. After it succee
 
 The tools image includes the backend development dependency closure because db:seed uses tsx. The command receives both DATABASE_URL (the fops_app runtime role used by the core seed) and DATABASE_URL_MIGRATE (the fops_migrate role used to create the seed team). It also receives the same WORKSPACE_ID as the backend. Core mode creates the Workspace, baseline Actors, Tableau and Power BI Managed Systems, Analytics Areas, team, and core VOC fixtures; it does not create personas or scale data.
 
-Before the backend starts, the release stack runs the existing idempotent apps/fo-backend/src/cli/storage-bootstrap.ts command against MinIO. It checks the configured bucket and creates it only when it is missing.
+Before the backend starts, the release stack runs the existing idempotent apps/platform-api/src/cli/storage-bootstrap.ts command against MinIO. It checks the configured bucket and creates it only when it is missing.
 
 The standalone web app is retired (#597), so the release stack has no frontend service: sign in through the platform host. Set `OIDC_REDIRECT_URI` in `.env.release` to the actual platform host ending in `/auth/callback`. Start login through that host’s `/auth/login`; the provider is http://localhost:8080/default and returns to the configured platform callback. The host must forward `/auth` to this backend. On the mock provider form, enter a new subject such as release-user-1. The JSON_CONFIG mapping returns sub, email, email_verified=true, and name based on that username.
 
@@ -43,7 +43,7 @@ The release stack publishes host ports 8080 (OIDC provider) and 3001 (backend, t
 
 ## Routes and image behavior
 
-The backend serves its own routes directly; there is no static web image or HTML-navigation split. The standalone nginx proxy (`/assets/*`, SPA fallback, `Accept: text/html` routing) was retired with the web app (#597). The auth routes are in apps/fo-backend/src/modules/auth/routes.ts (GET /auth/login, GET /auth/callback, POST /auth/logout), the attachment routes in apps/fo-backend/src/modules/attachments/routes.ts (POST /attachments, GET /attachments/:id/download), and health routes in apps/fo-backend/src/modules/core/health/routes.ts (GET /health, /health/live, /health/ready). The platform host reaches them through its own proxy seam. The local backend keeps PUBLIC_ATTACHMENT_ORIGIN at the quoted literal 'self' for same-origin downloads.
+The backend serves its own routes directly; there is no static web image or HTML-navigation split. The standalone nginx proxy (`/assets/*`, SPA fallback, `Accept: text/html` routing) was retired with the web app (#597). The auth routes are in apps/platform-api/src/modules/auth/routes.ts (GET /auth/login, GET /auth/callback, POST /auth/logout), the attachment routes in apps/platform-api/src/modules/attachments/routes.ts (POST /attachments, GET /attachments/:id/download), and health routes in apps/platform-api/src/modules/core/health/routes.ts (GET /health, /health/live, /health/ready). The platform host reaches them through its own proxy seam. The local backend keeps PUBLIC_ATTACHMENT_ORIGIN at the quoted literal 'self' for same-origin downloads.
 
 ## Company IdP and Kubernetes configuration
 

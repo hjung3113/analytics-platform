@@ -1,7 +1,7 @@
 ---
 paths:
-  - "packages/fo-ui/src/**"
-  - "apps/fo-frontend/src/features/**/*.tsx"
+  - "packages/feature-ui/src/**"
+  - "apps/feature-screens/src/features/**/*.tsx"
 ---
 
 # @ap/ui / @fops/ui traps

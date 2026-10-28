@@ -77,7 +77,7 @@ FeedbackOps Suite
 9. Dashboard는 단순 현황판이 아니라 Action Dashboard로 설계한다.
 10. 사내 AD 연동 후 기본 Role Level은 User로 둔다.
 11. 추가 권한은 Permission Request를 통해 요청하고 관리자가 승인한다.
-12. 최상위 내비게이션은 Home, VOC, Findings, Tasks, Integration, Surveys, Admin으로 제한한다 (`apps/fo-frontend/src/lib/layout/AppRail.tsx`).
+12. 최상위 내비게이션은 Home, VOC, Findings, Tasks, Integration, Surveys, Admin으로 제한한다 (`apps/feature-screens/src/lib/layout/AppRail.tsx`).
 13. Finding, Evidence, Entity Link, Coverage, Action Dashboard는 Integration Layer에 속한다.
 14. 한 팀이 여러 Managed System을 관리해도 VOC, Survey, Task 시스템을 Managed System별로 복제하지 않는다.
 15. Analytics Area는 하나의 Managed System에 속하며 MVP 권한 경계가 아니다.

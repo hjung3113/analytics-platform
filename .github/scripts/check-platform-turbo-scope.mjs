@@ -1,4 +1,4 @@
-// ADR-0066 (#642): FeedbackOps packages (`@fops/*`, including the `@fops/ops` tool package in ops/feedbackops) share the workspace but the root
+// ADR-0066 (#642): FeedbackOps packages (`@fops/*`, including the `@fops/ops` tool package in ops/platform-api) share the workspace but the root
 // scripts filter them out; FeedbackOps gates run via its own CI. Reads `pnpm <task> --dry=json` for each root task and fails
 // when the plan holds any FeedbackOps task, or when typecheck lost @ap/ui.
 //

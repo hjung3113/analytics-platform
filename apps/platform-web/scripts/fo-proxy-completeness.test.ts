@@ -6,8 +6,8 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { FO_API_PREFIX, realDevProxy } from './real-dev-proxy';
 const REPO_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
-const SERVER_TS = path.join(REPO_ROOT, 'apps/fo-backend/src/server.ts');
-const MODULES_DIR = path.join(REPO_ROOT, 'apps/fo-backend/src/modules');
+const SERVER_TS = path.join(REPO_ROOT, 'apps/platform-api/src/server.ts');
+const MODULES_DIR = path.join(REPO_ROOT, 'apps/platform-api/src/modules');
 const ROUTE_URL_PATTERNS: readonly RegExp[] = [
   /url:\s*['"`](\/[A-Za-z0-9/_\-:]*)['"`]/g,
   /\b(?:app|fastify)\.(?:get|post|put|patch|delete|head|options|all)\(\s*['"`](\/[A-Za-z0-9/_\-:]*)['"`]/g,
@@ -30,7 +30,7 @@ const PREFIXED_MODULES: Record<string, string> = { 'platform-port': '/api/v1/pla
 function collectBackendRoutes(): string[] {
   const urls: string[] = [];
   urls.push(...extractRouteUrls(fs.readFileSync(SERVER_TS, 'utf8')));
-  // Walk apps/fo-backend/src/modules/*/routes.ts AND *-routes.ts naming variants
+  // Walk apps/platform-api/src/modules/*/routes.ts AND *-routes.ts naming variants
   // (e.g. `auth/list-actors-routes.ts`), plus the direct `*.ts` children of
   // `modules/<name>/routes/` (e.g. `voc/routes/`) — no recursion, matching the
   // twin check's discovery.

@@ -1,0 +1,101 @@
+# Local Postgres for FeedbackOps development and integration tests.
+#
+# Usage:
+#   docker compose -f docker-compose.dev.yml up -d
+#   export DATABASE_URL_MIGRATE='postgres://fops_migrate:fops_migrate@localhost:5434/feedbackops'
+#   export DATABASE_URL='postgres://fops_app:fops_app@localhost:5434/feedbackops'
+#   pnpm --filter @fops/backend db:migrate
+#   pnpm --filter @fops/backend db:seed
+#
+# Why two roles: ADR-0008 requires that the application role cannot UPDATE or
+# DELETE rows in core.audit_log. The container initialises both roles up front;
+# per-table GRANT/REVOKE is owned by the migration SQL.
+
+name: feedbackops
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: feedbackops-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      # We deliberately do NOT set POSTGRES_DB; the init script creates the
+      # `feedbackops` database owned by fops_migrate so the migration role
+      # has DDL on its own DB without piggybacking on the superuser.
+    ports:
+      # Host 5434 -> container 5432 avoids clashing with a system-installed
+      # local Postgres on the default port. Both DATABASE_URL and
+      # DATABASE_URL_MIGRATE in docs should reference :5434.
+      - '5434:5432'
+    volumes:
+      - ./scripts/db/init.sql:/docker-entrypoint-initdb.d/00-init.sql:ro
+      - feedbackops-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 2s
+      timeout: 2s
+      retries: 20
+
+  # MinIO: S3-compatible object store for attachment storage (#22, ADR-0011 amended).
+  # Console: http://localhost:9001  |  S3 API: http://localhost:9000
+  # Bootstrap the bucket once with:
+  #   pnpm --filter @fops/backend exec tsx src/cli/storage-bootstrap.ts
+  minio:
+    image: minio/minio:RELEASE.2024-12-18T13-15-44Z
+    container_name: feedbackops-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: fops-minio
+      MINIO_ROOT_PASSWORD: fops-minio-secret-change-me
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    volumes:
+      - ./minio_data:/data
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # Keycloak as the interim OIDC IdP (#603). Opt in with `--profile auth`; the default
+  # `docker compose up` does not start it. Runbook: docs/feedbackops/implementation/release/keycloak-interim-idp.md
+  keycloak:
+    profiles: ['auth']
+    image: quay.io/keycloak/keycloak:26.7.5
+    container_name: feedbackops-keycloak
+    command: start-dev --import-realm
+    mem_limit: 1g
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      # Realm placeholders (deploy/keycloak/feedbackops-realm.json), local defaults.
+      KC_ALLOWED_EMAIL_PATTERN: '^[^@]+@example[.]com$'
+      FEEDBACKOPS_CLIENT_SECRET: local-dev-secret
+      FEEDBACKOPS_REDIRECT_URI: http://localhost:3011/auth/callback
+      FEEDBACKOPS_WEB_ORIGIN: http://localhost:3011
+      KC_SMTP_HOST: mailpit
+      KC_SMTP_PORT: '1025'
+      KC_SMTP_FROM: feedbackops@example.com
+      KC_REALM_FRONTEND_URL: http://localhost:8085
+    # Loopback only: a local IdP with admin/admin must not be reachable from the network.
+    ports:
+      - '127.0.0.1:8085:8080'
+    volumes:
+      - ./deploy/keycloak/feedbackops-realm.json:/opt/keycloak/data/import/feedbackops-realm.json:ro
+    depends_on:
+      - mailpit
+
+  # Mailpit: catches Keycloak's verification mail locally. UI http://localhost:8025 (loopback only);
+  # Keycloak reaches its SMTP port 1025 on the compose network, so that port is not published.
+  mailpit:
+    profiles: ['auth']
+    image: axllent/mailpit:v1.31.3
+    container_name: feedbackops-mailpit
+    mem_limit: 256m
+    ports:
+      - '127.0.0.1:8025:8025'
+
+volumes:
+  feedbackops-db-data:

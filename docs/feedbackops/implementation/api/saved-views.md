@@ -20,7 +20,7 @@ with that `surface` + `name`.
 
 On create and update, the `filter` object is parsed against the list-query
 schema for its selected surface: VOC, Tasks, Task Requests, or Findings. The
-mapping lives in `apps/fo-backend/src/modules/saved-views/service.ts`. The VOC
+mapping lives in `apps/platform-api/src/modules/saved-views/service.ts`. The VOC
 filter may carry `q` (the inbox search term) alongside the other list keys.
 
 For Tasks, Task Requests and Findings the persistence boundary uses the strict

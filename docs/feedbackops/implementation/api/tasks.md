@@ -359,7 +359,7 @@ loaded, so a missing Task is still `403 permission.denied` for a non-elevated
 actor. The screen keeps the section visible and treats that 403 as a
 permission-blocked panel.
 
-Shared DTO: `TaskCommentDto` in `packages/fo-shared/src/tasks/comments.ts`.
+Shared DTO: `TaskCommentDto` in `packages/feature-shared/src/tasks/comments.ts`.
 
 ```text
 id uuid

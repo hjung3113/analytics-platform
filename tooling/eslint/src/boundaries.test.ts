@@ -41,7 +41,7 @@ const PRESETS: Record<string, Linter.Config[]> = {
   'menus/_global/home': menu,
   'menus/mars/analytics': menu,
   'menus/bravo/metrics': menu,
-  'packages/adapters/fo-bridge': foBridge,
+  'packages/adapters/feature-bridge': foBridge,
   'menus/_global/my-activity': foBridgeMenu,
   'menus/feedbackops/fo-voc': foBridgeMenu,
   'apps/platform-web': app,
@@ -225,8 +225,8 @@ const rows: Row[] = [
   { file: 'apps/platform-web/src/menus.ts', code: `const m = await import('@tanstack/react-query');`, rule: 'ap/restricted-import-source' },
   { file: 'packages/sdk/kernel/src/x.ts', code: `import { useQuery } from '@tanstack/react-query';`, rule: '' },
   { file: 'packages/sdk/kernel/src/x.ts', code: `const m = await import('@tanstack/react-query');`, rule: '' },
-  { file: 'packages/adapters/fo-bridge/src/nav-counts.tsx', code: `import { useQuery } from '@tanstack/react-query';`, rule: '' },
-  { file: 'packages/adapters/fo-bridge/src/pages/SavedViews.tsx', code: `import { useQuery } from '@tanstack/react-query';`, rule: '' },
+  { file: 'packages/adapters/feature-bridge/src/nav-counts.tsx', code: `import { useQuery } from '@tanstack/react-query';`, rule: '' },
+  { file: 'packages/adapters/feature-bridge/src/pages/SavedViews.tsx', code: `import { useQuery } from '@tanstack/react-query';`, rule: '' },
 
   // --- ADR-0067 (#575): `@ap/components/dock` is a host-only entry (shell, app); the dock engine is components-internal ---
   { file: 'packages/sdk/shell/src/x.ts', code: `import { DockLayout } from '@ap/components/dock';`, rule: '' },
@@ -575,7 +575,7 @@ rows.push(
   { file: BRIDGE, code: `void import('${OPERATOR_DASHBOARD}');`, rule: '' },
   { file: MENU, code: `import { DashboardScreen } from '${OPERATOR_DASHBOARD}';`, rule: 'no-restricted-imports', token: '@ap/ui' },
   { file: MENU, code: `void import('${OPERATOR_DASHBOARD}');`, rule: 'ap/restricted-import-source', token: '@ap/ui' },
-  { file: `${'packages/adapters/fo-bridge/src'}/fo/session.ts`, code: `import { x } from '${OPERATOR_DASHBOARD}';`, rule: 'no-restricted-imports', token: '@ap/ui' },
+  { file: `${'packages/adapters/feature-bridge/src'}/fo/session.ts`, code: `import { x } from '${OPERATOR_DASHBOARD}';`, rule: 'no-restricted-imports', token: '@ap/ui' },
 );
 // The operator VOC entries (#761): the FeedbackOps VOC bridge menu may import them (static and dynamic); a non-bridge menu and the fo-bridge runtime's eager code may not.
 const FO_VOC = 'menus/feedbackops/fo-voc/src/pages/x.tsx';
@@ -586,7 +586,7 @@ for (const entry of ['milestones', 'task-detail', 'tasks-search', 'voc-clusters'
     { file: FO_VOC, code: `void import('${source}');`, rule: '' },
     { file: MENU, code: `import { x } from '${source}';`, rule: 'no-restricted-imports', token: '@ap/ui' },
     { file: MENU, code: `void import('${source}');`, rule: 'ap/restricted-import-source', token: '@ap/ui' },
-    { file: `${'packages/adapters/fo-bridge/src'}/fo/session.ts`, code: `import { x } from '${source}';`, rule: 'no-restricted-imports', token: '@ap/ui' },
+    { file: `${'packages/adapters/feature-bridge/src'}/fo/session.ts`, code: `import { x } from '${source}';`, rule: 'no-restricted-imports', token: '@ap/ui' },
   );
 }
 for (const source of ['@fops/frontend', '@fops/frontend/src/main', '@fops/frontend/global-screens/FoScreenRoot', '@fops/ui', '@fops/shared']) {
@@ -597,7 +597,7 @@ for (const source of ['@fops/frontend', '@fops/frontend/src/main', '@fops/fronte
 }
 
 // `@ap/fo-bridge` (ADR-0071, ADR-0081): bridge runtime, importable by bridge menus (root) and the app; `/core` only, lazy pages may see the screen barrel.
-const FO_PKG = 'packages/adapters/fo-bridge/src';
+const FO_PKG = 'packages/adapters/feature-bridge/src';
 for (const source of ['@ap/kernel', '@ap/components', '@ap/ui', '@ap/contracts']) {
   rows.push({ file: `${FO_PKG}/fo/session.ts`, code: `import { x } from '${source}';`, rule: '' });
 }
@@ -693,7 +693,7 @@ rows.push(
   { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '@ap/fo-bridge/src/saved-views';`, rule: 'no-restricted-imports' },
 );
 
-// The fo-bridge menu test harness (#951): `kernel/testing` for exactly `packages/adapters/fo-bridge/src/testing.tsx`; `@ap/fo-bridge/testing` for bridge-menu test and test-support files only.
+// The fo-bridge menu test harness (#951): `kernel/testing` for exactly `packages/adapters/feature-bridge/src/testing.tsx`; `@ap/fo-bridge/testing` for bridge-menu test and test-support files only.
 rows.push(
   { file: `${FO_PKG}/testing.tsx`, code: `import { testAdapter } from '@ap/kernel/testing';`, rule: '' },
   { file: `${FO_PKG}/testing.tsx`, code: `const m = await import('@ap/kernel/testing');`, rule: '' },
@@ -860,6 +860,6 @@ describe('query engine version lock', () => {
     };
     const kernelVersion = await version('sdk/kernel');
     expect(kernelVersion).toMatch(/^\d+\.\d+\.\d+$/);
-    expect(await version('adapters/fo-bridge')).toBe(kernelVersion);
+    expect(await version('adapters/feature-bridge')).toBe(kernelVersion);
   });
 });

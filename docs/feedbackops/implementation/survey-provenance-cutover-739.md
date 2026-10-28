@@ -129,7 +129,7 @@ Normal post-cutover route suites run through the repository integration gate on 
 throwaway DB as real `fops_app`/`fops_migrate`; run the whole touched Findings, Surveys
 and DB modules. The worker does not execute these suites or the migration.
 
-The previously named `apps/fo-backend/src/test-support/survey-provenance-upgrade.ts`
+The previously named `apps/platform-api/src/test-support/survey-provenance-upgrade.ts`
 harness is absent. Its old command must not be treated as executable verification.
 The conductor must restore or replace a standalone real-role legacy upgrade/history
 check on an empty dedicated throwaway database, outside Vitest global setup. Cover

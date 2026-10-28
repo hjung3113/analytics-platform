@@ -8,12 +8,12 @@ import { describe, expect, it } from 'vitest';
 
 const UI_ALLOWLIST_SOURCE = new URL('../../../packages/sdk/ui/src/rich-content/allowlist-local.ts', import.meta.url);
 const FEEDBACKOPS_ALLOWLIST_SOURCE = new URL(
-  '../../../packages/fo-shared/src/rich-content/allowlist.ts',
+  '../../../packages/feature-shared/src/rich-content/allowlist.ts',
   import.meta.url,
 );
 const UI_FIXTURES_SOURCE = new URL('../../../packages/sdk/ui/src/rich-content/fixtures-local.ts', import.meta.url);
 const FEEDBACKOPS_FIXTURES_SOURCE = new URL(
-  '../../../packages/fo-shared/src/rich-content/fixtures.ts',
+  '../../../packages/feature-shared/src/rich-content/fixtures.ts',
   import.meta.url,
 );
 
@@ -77,7 +77,7 @@ async function loadTypeScriptSource<T>(sourceUrl: URL, label: string): Promise<T
   const sourcePath = fileURLToPath(sourceUrl);
   if (!existsSync(sourcePath)) {
     throw new Error(
-      `Required ${label} source is missing at ${sourcePath}. The packages/fo-shared directory must be present before running this parity test.`,
+      `Required ${label} source is missing at ${sourcePath}. The packages/feature-shared directory must be present before running this parity test.`,
     );
   }
 

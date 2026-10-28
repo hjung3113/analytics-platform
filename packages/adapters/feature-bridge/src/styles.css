@@ -1,0 +1,22 @@
+@source "./";
+@source "../../../../apps/feature-screens/src/global-screens";
+@source "../../../../apps/feature-screens/src/features/home";
+@source "../../../../apps/feature-screens/src/features/surveys";
+@source "../../../../apps/feature-screens/src/features/voc";
+@source "../../../../apps/feature-screens/src/components";
+@source "../../../../apps/feature-screens/src/lib";
+@source "../../../../packages/feature-ui/src";
+@source "../../../../apps/feature-screens/src/operator-screens";
+@source "../../../../apps/feature-screens/src/features/integration/recovery";
+
+/*
+ * A FeedbackOps detail body (`FoDetailDrawer`) brings its own sticky section tabs, scroll area and bottom bar (it fills a flex column, as in the standalone panel).
+ * The shared drawer pads its content area by 12px (a one-tab drawer draws a region, not a tabpanel), which lets the body show above the tabs and below the bar (UX-3); this panel keeps only the side padding
+ * and lets the body fill it.
+ */
+:is([role="tabpanel"], [role="region"]):not([hidden]):has(> .fo-detail-body) {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-block: 0;
+}

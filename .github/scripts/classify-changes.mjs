@@ -17,7 +17,7 @@ import { fileURLToPath } from 'node:url';
 
 export const DOCS_ONLY = /(\.md$|^\.agents\/)/;
 // FeedbackOps frontend sources are bundled into the demo through the `@` alias; GLOSSARY.md feeds the site's banned-term check.
-const SITE_DIRS = /^(menus|packages|apps\/fo-frontend|apps\/platform-web|site|tooling|patches)\//;
+const SITE_DIRS = /^(menus|packages|apps\/feature-screens|apps\/platform-web|site|tooling|patches)\//;
 const SITE_FILES = /^(package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|GLOSSARY\.md|apps\/platform-e2e\/package\.json|\.github\/workflows\/(ci|pages)\.yml)$/;
 const ZERO_SHA = /^0+$/;
 
@@ -110,8 +110,8 @@ function selfTest() {
   check('pr: css-selectors.yml → site=false', pr(['.github/workflows/css-selectors.yml']).site, F);
   check('pr: e2e package.json → site=true', pr(['apps/platform-e2e/package.json']).site, T);
   check('pr: e2e spec only → site=false code=true', pr(['apps/platform-e2e/tests/a.spec.ts']), out(T, F, F));
-  check('pr: fo-frontend src → site=true', pr(['apps/fo-frontend/src/a.ts']).site, T);
-  check('pr: fo-backend src → site=false', pr(['apps/fo-backend/src/a.ts']).site, F);
+  check('pr: feature-screens src → site=true', pr(['apps/feature-screens/src/a.ts']).site, T);
+  check('pr: platform-api src → site=false', pr(['apps/platform-api/src/a.ts']).site, F);
   check('pr: computation failed (null) → everything cold', pr(null), out(T, T, T));
   // Push to main: code stays true, turbo decides the scope; undecidable base → cold.
   check('push: diff known → code=true site=true full=false', classify({ event: 'push', files: ['docs/a.md'] }), out(T, T, F));

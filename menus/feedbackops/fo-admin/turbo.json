@@ -6,10 +6,10 @@
       "dependsOn": ["@ap/components#transit", "@ap/contracts#transit", "@ap/fo-bridge#transit", "@ap/kernel#transit", "@ap/ui#transit"],
       "inputs": [
         "$TURBO_DEFAULT$",
-        "$TURBO_ROOT$/apps/fo-frontend/src/**",
-        "$TURBO_ROOT$/apps/fo-frontend/package.json",
-        "$TURBO_ROOT$/packages/fo-shared/src/**",
-        "$TURBO_ROOT$/packages/fo-ui/src/**"
+        "$TURBO_ROOT$/apps/feature-screens/src/**",
+        "$TURBO_ROOT$/apps/feature-screens/package.json",
+        "$TURBO_ROOT$/packages/feature-shared/src/**",
+        "$TURBO_ROOT$/packages/feature-ui/src/**"
       ]
     },
     "build": {

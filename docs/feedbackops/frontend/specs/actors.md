@@ -31,14 +31,14 @@ Actors only; teams retain their existing source (ADR-0018 teams stub).
 
 ## Schema
 
-- Zod: `packages/fo-shared/src/auth/list-actors.ts` → `listActorsResponseSchema`.
-- BE: `apps/fo-backend/src/modules/auth/list-actors-routes.ts`.
-- FE consumer: `apps/fo-frontend/src/lib/cross-system/useWorkspaceActors.ts`.
+- Zod: `packages/feature-shared/src/auth/list-actors.ts` → `listActorsResponseSchema`.
+- BE: `apps/platform-api/src/modules/auth/list-actors-routes.ts`.
+- FE consumer: `apps/feature-screens/src/lib/cross-system/useWorkspaceActors.ts`.
 
 ## Drift guards
 
-- Forward drift (BE→proxy): `apps/fo-frontend/src/__tests__/vite-proxy-completeness.test.ts`.
-- Reverse drift (FE→BE): `apps/fo-backend/src/__tests__/fe-call-endpoints-exist.test.ts`.
+- Forward drift (BE→proxy): `apps/feature-screens/src/__tests__/vite-proxy-completeness.test.ts`.
+- Reverse drift (FE→BE): `apps/platform-api/src/__tests__/fe-call-endpoints-exist.test.ts`.
 
 Both discover backend routes by reading source, and both must parse **either**
 fastify registration form — `app.route({ url: '/x' })` or the method shorthand

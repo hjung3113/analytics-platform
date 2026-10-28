@@ -41,7 +41,7 @@ FeedbackOps is the calm enterprise console for the moment after a complaint land
 
 - **Korean-first labels on Korean surfaces (#580).** Field labels and action buttons use Korean on Korean-language surfaces. Keep established product terms such as `VOC`, `Finding`, `Task`, `Task Request`, `Managed System`, `Analytics Area`, `Triage`, `Milestone`, and `Cluster` in English; a label may also stay English when Korean wording would be awkward. Copy mirrors the prototype everywhere else, including mixed-language references; do not translate user-entered data.
 - **Prototype copy is verbatim outside approved deviations.** `docs/feedbackops/design-prototype/screen-*.jsx` + `data.js` are the source of truth for labels, headers, button text, and microcopy except where ADR-0057 records an owner-approved deviation. No paraphrase, no "improvement," no marketing softening.
-- **One primary action per toolbar or panel.** Secondary actions live in subtle buttons, menus, or contextual rows (per `apps/fo-frontend/AGENTS.md`).
+- **One primary action per toolbar or panel.** Secondary actions live in subtle buttons, menus, or contextual rows (per `apps/feature-screens/AGENTS.md`).
 - **No marketing fluff.** No exclamation points in operational copy. No emoji in product surfaces. No em dashes inside UI strings (em dashes are allowed in docs like this one, not in shipped UI).
 - **Reporter-facing vs internal copy are physically separate surfaces.** Public Update, Reporter Reply, and Internal Comment are three distinct composers; their visual treatment must never collapse together.
 - **Permission-limited content speaks the request path, not the blank failure.** A blocked panel shows an approved summary or a "request access" CTA, never a stack trace and never silence.
@@ -62,15 +62,15 @@ What FeedbackOps deliberately is NOT, drawn from the locked decisions in `docs/f
 
 ## Design Principles
 
-Five strategic principles derived from `AGENTS.md`, `apps/fo-frontend/AGENTS.md`, ADR-0020, ADR-0021, and ADR-0060:
+Five strategic principles derived from `AGENTS.md`, `apps/feature-screens/AGENTS.md`, ADR-0020, ADR-0021, and ADR-0060:
 
 1. **Pack 17 light tokens only — no raw hex, no raw px outside the scale.** Per ADR-0021, the canonical palette is Samsung-light (`#f3f7fe` canvas, `#1428a0` accent, `#101828` text). Implementations consume semantic tokens (`--text-primary`, `--surface-detail`, `--border-selected`); raw hex in feature screens is a review block. Spacing uses the fixed scale (4 / 8 / 12 / 16 / 20 / 24 / 28 / 32 / 36 / 40 / 48 / 64). Radii are 6px for cards/buttons/inputs, 2px for tags, 4px for badges. New tokens are documented in docs/feedbackops/frontend/tokens.md and implemented in the pinned `@ap/ui` bundle before broad use.
 
 2. **Three-shell topology — `PageShell`, `ListShell`, `WorkbenchShell`, and nothing else.** ADR-0020 locks the route-layout vocabulary. Every screen classifies into one of the three. Backlog, Survey builder/result, and Roadmap are explicit *extensions* of those three, not new shells. All five header surfaces (sidebar system header, ListShell toolbar, WorkbenchShell toolbar, drawer panel header, Survey preview drawer header) share a single 50px baseline. Adding a fourth shell requires an ADR amendment.
 
-3. **The shipped UI is the UI authority (ADR-0060).** A change to an existing screen extends its current pattern and reuses `packages/fo-ui` and `apps/fo-frontend/src/lib/copy/*`. A new surface the prototype drew starts from that screen as a reference; otherwise it starts from the closest shipped screen. If the shipped UI, specs and ADRs are all silent, ask; do not fill the gap with framework defaults or personal taste.
+3. **The shipped UI is the UI authority (ADR-0060).** A change to an existing screen extends its current pattern and reuses `packages/feature-ui` and `apps/feature-screens/src/lib/copy/*`. A new surface the prototype drew starts from that screen as a reference; otherwise it starts from the closest shipped screen. If the shipped UI, specs and ADRs are all silent, ask; do not fill the gap with framework defaults or personal taste.
 
-4. **Visual regression against committed baselines.** Routes with a spec in `apps/fo-frontend/tests/visual/` run `test:visual` against their own committed baselines. A baseline changes only in a commit that declares the intended visual change (`apps/fo-frontend/AGENTS.md` → Visual Baselines).
+4. **Visual regression against committed baselines.** Routes with a spec in `apps/feature-screens/tests/visual/` run `test:visual` against their own committed baselines. A baseline changes only in a commit that declares the intended visual change (`apps/feature-screens/AGENTS.md` → Visual Baselines).
 
 5. **Trust by receipt — separate state machines, canonical cross-system links, no synthetic convenience columns.** Reporter-facing VOC status and internal Task status are separate state machines (Product Invariant). Cross-system history is canonical through `entity_links`, never through duplicated convenience columns. VOC is AD-authenticated internal voice and is never auto-created from Survey Response. Permission-limited content shows an approved summary or a request path, not a blank failure. Every visible state change in the UI maps to an auditable backend transition; the audit trail is the trust mechanism.
 
@@ -79,6 +79,6 @@ Five strategic principles derived from `AGENTS.md`, `apps/fo-frontend/AGENTS.md`
 - **WCAG 2.2 AA target inherited from ADR-0016 and re-validated under ADR-0021.** Dark-theme contrast guarantees do NOT transfer to the inverted light palette; every component contrast pair must be re-verified.
 - **Primary locale is Korean (`<html lang="ko">`) per ADR-0010** (amended 2026-09-24: no i18next catalog; chrome is inline or `lib/copy/*`, API errors are `errorMapper.ts` `CATALOG`), with English preserved verbatim for domain / role / system terms. No machine translation of either side.
 - **Icon-only controls require accessible labels.** `lucide-react` is the icon set; every icon-only button carries an `aria-label` or visible adjacent text.
-- **Keyboard focus, hover, selected, active, disabled, loading, error, and permission-limited states are visually distinct** (per `apps/fo-frontend/AGENTS.md`). Focus ring uses `--color-neon-lime` (now Samsung-blue `#1428a0`, name preserved for token continuity per ADR-0021).
+- **Keyboard focus, hover, selected, active, disabled, loading, error, and permission-limited states are visually distinct** (per `apps/feature-screens/AGENTS.md`). Focus ring uses `--color-neon-lime` (now Samsung-blue `#1428a0`, name preserved for token continuity per ADR-0021).
 - **Permission-limited surfaces are first-class.** `<PermissionBlockedPanel>` renders `blocked_not_requestable`, `summary_visible`, and `denied` states — never a blank failure, never a stack trace.
 - **Desktop-only scope in current slices.** Mobile / tablet shell behavior, RTL direction, and multi-pane shells are explicitly out of scope per ADR-0020; future ADRs will codify them. Pack 13 responsive scaffolding (sidebar drawer < 900px, detail-panel drill-in overlays) remains the floor.

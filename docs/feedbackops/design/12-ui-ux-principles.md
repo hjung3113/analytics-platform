@@ -28,7 +28,7 @@ Finding, Evidence, Entity Links, Coverage, Action Dashboard는 Integration Layer
 ## Global Layout
 
 ```text
-Top-Level Navigation (rail order, apps/fo-frontend/src/lib/layout/AppRail.tsx):
+Top-Level Navigation (rail order, apps/feature-screens/src/lib/layout/AppRail.tsx):
 - Home
 - VOC
 - Findings

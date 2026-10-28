@@ -39,10 +39,12 @@
               {
                 "prefix": [
                   "docs/feedbackops/",
-                  "apps/fo-",
-                  "packages/fo-",
-                  "packages/adapters/fo-bridge/",
-                  "ops/feedbackops/"
+                  "apps/platform-api/",
+                  "apps/feature-screens/",
+                  "packages/feature-shared/",
+                  "packages/feature-ui/",
+                  "packages/adapters/feature-bridge/",
+                  "ops/platform-api/"
                 ]
               },
               {
@@ -136,10 +138,12 @@
         "match": {
           "prefix": [
             "docs/feedbackops/",
-            "apps/fo-",
-            "packages/fo-",
-            "packages/adapters/fo-bridge/",
-            "ops/feedbackops/"
+            "apps/platform-api/",
+            "apps/feature-screens/",
+            "packages/feature-shared/",
+            "packages/feature-ui/",
+            "packages/adapters/feature-bridge/",
+            "ops/platform-api/"
           ]
         }
       },
@@ -259,8 +263,8 @@
         "copy_from_state": "env.verify.{issue}",
         "copy_to": ".review/env.verify",
         "task_lines": [
-          "FeedbackOps work: run commands from the repository root (installed for you; the tools are in `ops/feedbackops/`). Your own throwaway database (port 5439, never 5434): run only the integration files you added or touched, from the repository root, with",
-          "`FEEDBACKOPS_ENV_FILE={worktree}/.review/env.verify pnpm --filter @fops/backend test:integration <paths relative to apps/fo-backend>`."
+          "FeedbackOps work: run commands from the repository root (installed for you; the tools are in `ops/platform-api/`). Your own throwaway database (port 5439, never 5434): run only the integration files you added or touched, from the repository root, with",
+          "`FEEDBACKOPS_ENV_FILE={worktree}/.review/env.verify pnpm --filter @fops/backend test:integration <paths relative to apps/platform-api>`."
         ]
       }
     }

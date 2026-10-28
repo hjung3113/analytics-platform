@@ -194,7 +194,7 @@ VOC status.
 
 ## Adding a Field to an Owned Entity
 
-Update the owning Drizzle table in `apps/fo-backend/src/db/schema/<schema>.ts`, and update the wire contract separately: use `packages/fo-shared/src/<entity>/` where that shared schema exists; otherwise update the module's `routes.ts` request schemas and the frontend `apps/fo-frontend/src/lib/api/<entity>.ts` request types/response DTO. Generate the SQL migration and Drizzle metadata with `pnpm --filter backend db:generate`; if SQL is hand-written, follow [Migration Naming](#migration-naming) for the journal registration and snapshot refresh—never hand-edit `apps/fo-backend/migrations/meta/*.json`—and run `pnpm gate:db-migration-drift`. If the table uses column-level privileges, add the new column to the corresponding column-level grant for `fops_app` in the same migration; do not widen it to a table-level grant. Then update the owning service and required audit detail, the consuming UI, and the affected design/API docs in the same change. For example, `apps/fo-backend/src/db/schema/core.ts` defines the Drizzle table, `apps/fo-backend/migrations/0005_slice2_registry.sql` creates `core.managed_systems`, `apps/fo-backend/src/modules/managed-systems/routes.ts` defines its request schemas, `apps/fo-frontend/src/lib/api/managed-systems.ts` defines its wire DTO, `apps/fo-backend/src/modules/managed-systems/managed-system-service.ts` persists and audits it, `packages/fo-shared/src/audit/managed-system.ts` defines the audit detail schema (a column missing there is silently dropped from the audit snapshot), and `apps/fo-frontend/src/features/admin/managed-systems/ManagedSystemsScreen.tsx` exposes it. Amend an ADR when recording a compatible addition that leaves its decision in force; reopen the decision with a new ADR when changing or reversing it. For `managed_systems`, adding a column requires a dated amendment to ADR-0017 that updates the column list and audit detail; changing the semantics of `id`, `slug`, or `external_key` requires a new ADR reopening ADR-0017.
+Update the owning Drizzle table in `apps/platform-api/src/db/schema/<schema>.ts`, and update the wire contract separately: use `packages/feature-shared/src/<entity>/` where that shared schema exists; otherwise update the module's `routes.ts` request schemas and the frontend `apps/feature-screens/src/lib/api/<entity>.ts` request types/response DTO. Generate the SQL migration and Drizzle metadata with `pnpm --filter backend db:generate`; if SQL is hand-written, follow [Migration Naming](#migration-naming) for the journal registration and snapshot refresh—never hand-edit `apps/platform-api/migrations/meta/*.json`—and run `pnpm gate:db-migration-drift`. If the table uses column-level privileges, add the new column to the corresponding column-level grant for `fops_app` in the same migration; do not widen it to a table-level grant. Then update the owning service and required audit detail, the consuming UI, and the affected design/API docs in the same change. For example, `apps/platform-api/src/db/schema/core.ts` defines the Drizzle table, `apps/platform-api/migrations/0005_slice2_registry.sql` creates `core.managed_systems`, `apps/platform-api/src/modules/managed-systems/routes.ts` defines its request schemas, `apps/feature-screens/src/lib/api/managed-systems.ts` defines its wire DTO, `apps/platform-api/src/modules/managed-systems/managed-system-service.ts` persists and audits it, `packages/feature-shared/src/audit/managed-system.ts` defines the audit detail schema (a column missing there is silently dropped from the audit snapshot), and `apps/feature-screens/src/features/admin/managed-systems/ManagedSystemsScreen.tsx` exposes it. Amend an ADR when recording a compatible addition that leaves its decision in force; reopen the decision with a new ADR when changing or reversing it. For `managed_systems`, adding a column requires a dated amendment to ADR-0017 that updates the column list and audit detail; changing the semantics of `id`, `slug`, or `external_key` requires a new ADR reopening ADR-0017.
 
 ## Rich Content And Attachments
 
@@ -214,7 +214,7 @@ Migration `0016_voc_attachments_grants.sql` grants `DELETE ON voc.voc_attachment
 - **User-initiated paths** (Triage Console "remove attachment", EditDescriptionModal, etc.) MUST go through the service-layer archive: set `archived_at = now()`, `archived_by_actor_id = caller`. They never issue a `DELETE`.
 - **The purge worker** is the only legitimate row-deleter, and only against truly orphaned uploads that were never linked to a parent VOC or comment.
 
-The archive-over-delete invariant is enforced in `apps/fo-backend/src/modules/attachments/service.ts` (and surrounding tests), not by withholding the DB grant. Adding new code paths that issue `DELETE FROM voc.voc_attachments` requires explicit ADR-level justification — the purge worker is the lone exception.
+The archive-over-delete invariant is enforced in `apps/platform-api/src/modules/attachments/service.ts` (and surrounding tests), not by withholding the DB grant. Adding new code paths that issue `DELETE FROM voc.voc_attachments` requires explicit ADR-level justification — the purge worker is the lone exception.
 
 ## Index Requirements
 
@@ -247,7 +247,7 @@ Examples:
 `drizzle-kit generate` assigns the 4-digit sequence. Timestamp prefixes are not
 used in the current migrations directory.
 
-`apps/fo-backend/migrations/meta/*.json` files are Drizzle-generated metadata and
+`apps/platform-api/migrations/meta/*.json` files are Drizzle-generated metadata and
 must not be hand-edited. Commit them with their generated SQL migration. The
 root `pnpm gate:db-migration-drift` gate mechanically verifies that every
 `migrations/*.sql` file has exactly one `_journal.json` registration (and vice
@@ -390,7 +390,7 @@ is idempotent because it targets only currently `internal_only` rows.
 ## Seed Data
 
 The seed is a separate, idempotent command (`pnpm --filter @fops/backend db:seed`,
-`apps/fo-backend/src/seed/index.ts`), not part of a migration. It seeds:
+`apps/platform-api/src/seed/index.ts`), not part of a migration. It seeds:
 
 ```text
 - one workspace (WORKSPACE_ID)
@@ -398,7 +398,7 @@ The seed is a separate, idempotent command (`pnpm --filter @fops/backend db:seed
 - managed systems: Tableau and Power BI, default owner mock-admin-1
 - 5 analytics areas: Permission Management, Usage Analytics, and Dashboard Catalog under Tableau; Permission Management and Usage Analytics under Power BI
 - one fixture team, "[seed] VOC owner team", inserted through the fops_migrate URL because fops_app cannot insert core.teams (ADR-0019)
-- 12 deterministic VOC fixtures (display_id VOC-SEED-*) with three conversation rows each, and two permission-decision fixtures (apps/fo-backend/src/seed/voc-fixtures.ts)
+- 12 deterministic VOC fixtures (display_id VOC-SEED-*) with three conversation rows each, and two permission-decision fixtures (apps/platform-api/src/seed/voc-fixtures.ts)
 - SEED_MODE=personas or scale: mock-admin-2, mock-user-2, mock-developer-1, mock-developer-2, and permission grants for the two developers
 ```
 
@@ -475,7 +475,7 @@ No report tables, lifecycle storage, Area backfill, mandatory classification or 
 column are introduced. Grouped owner reads and metadata batching produce the API projection.
 Survey classification remains behind protected owner readers; `fops_app` gains no direct response/answer
 read grant. If batching requires a new protected reader, register it
-in `apps/fo-backend/migrations/meta/_journal.json`, narrowly grant the owner's
+in `apps/platform-api/migrations/meta/_journal.json`, narrowly grant the owner's
 needed columns, fix `search_path = pg_catalog`, revoke PUBLIC and preserve existing capability gates.
 Measure grouped query plans around 5k VOCs/5k Tasks before proposing an index; no preemptive materialized cache.
 
@@ -639,7 +639,7 @@ function body. `p_offset` is `bigint` so a far page returns no rows and the true
 
 ### #1109 approved Survey attachment extension (0066)
 
-`apps/fo-backend/migrations/0066_survey_evidence_attachment.sql` and its generated
+`apps/platform-api/migrations/0066_survey_evidence_attachment.sql` and its generated
 `meta/0066_snapshot.json`/journal extend the existing Survey provenance and Entity
 Links mutator functions. No storage table changes, new owners, app table grants or
 reader-owner widening are introduced. Exact column privileges and their purposes

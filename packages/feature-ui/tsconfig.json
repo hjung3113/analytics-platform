@@ -1,0 +1,11 @@
+{
+  "extends": "../../ops/platform-api/tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": ".",
+    "jsx": "react-jsx",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": ["react", "react-dom", "vitest/globals", "node"]
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx"]
+}

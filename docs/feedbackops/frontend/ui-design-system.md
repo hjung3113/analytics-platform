@@ -109,7 +109,7 @@ Rules:
 
 ### Responsive Behavior
 
-Desktop (≥1024px) only is built; the tablet/mobile rules below are the target contract, out of scope until responsive lands — `apps/fo-frontend/AGENTS.md`.
+Desktop (≥1024px) only is built; the tablet/mobile rules below are the target contract, out of scope until responsive lands — `apps/feature-screens/AGENTS.md`.
 
 Breakpoints:
 
@@ -482,7 +482,7 @@ Families:
 - permission-request-status
 ```
 
-Survey status labels (`apps/fo-frontend/src/lib/copy/enum-labels.ts`):
+Survey status labels (`apps/feature-screens/src/lib/copy/enum-labels.ts`):
 
 ```text
 - draft → 초안 (neutral)
@@ -1072,7 +1072,7 @@ Task Request UI labels:
 - Do not use Create Task for VOC, Finding, or Survey follow-up.
 ```
 
-The English action names above are the canonical semantics; rendered copy is Korean per ADR-0057 A2 (`apps/fo-frontend/src/lib/copy/*`).
+The English action names above are the canonical semantics; rendered copy is Korean per ADR-0057 A2 (`apps/feature-screens/src/lib/copy/*`).
 
 Task Board:
 

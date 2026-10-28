@@ -38,19 +38,19 @@
 
 ### 준비와 실행
 
-1. 로컬 env 템플릿과 throwaway DB 컨테이너를 준비한다. 기존 `ops/feedbackops/.env`가 있으면 읽어 보고 그대로 둔다. 없을 때만 `.env.example`을 복사한다. `up`은 포트 5439에 `fops-verify` 컨테이너를 만들고(메모리 기본 상한 2g, `VERIFY_DB_MEMORY`로 조정) 템플릿 DB를 migrate한다. 이 호출이 컨테이너를 새로 만들었는지 기록해 둔다. 이미 떠 있던 컨테이너(다른 세션 소유일 수 있다)는 쓰기만 하고 멈추지 않는다.
+1. 로컬 env 템플릿과 throwaway DB 컨테이너를 준비한다. 기존 `ops/platform-api/.env`가 있으면 읽어 보고 그대로 둔다. 없을 때만 `.env.example`을 복사한다. `up`은 포트 5439에 `fops-verify` 컨테이너를 만들고(메모리 기본 상한 2g, `VERIFY_DB_MEMORY`로 조정) 템플릿 DB를 migrate한다. 이 호출이 컨테이너를 새로 만들었는지 기록해 둔다. 이미 떠 있던 컨테이너(다른 세션 소유일 수 있다)는 쓰기만 하고 멈추지 않는다.
 
    ```sh
-   [ -f ops/feedbackops/.env ] || cp ops/feedbackops/.env.example ops/feedbackops/.env
+   [ -f ops/platform-api/.env ] || cp ops/platform-api/.env.example ops/platform-api/.env
    export WAVE_STATE=/path/to/wave-scratch
    docker inspect fops-verify >/dev/null 2>&1 && CREATED_CONTAINER=0 || CREATED_CONTAINER=1
-   bash ops/feedbackops/conductor/scripts/verify-db.sh up
+   bash ops/platform-api/conductor/scripts/verify-db.sh up
    ```
 
 2. 이름을 정해 throwaway DB를 만든다. helper는 `feedbackops_<name>`을 복제하고 `$WAVE_STATE/env.verify.<name>`을 만들며 해당 DB를 migrate한다. 생성된 env를 읽어 오고 core workspace ID와 포트를 정한다(`E2E_PORT` Vite 기본 `4190`, `E2E_REAL_BACKEND_PORT` 백엔드 기본 `3011`; 다른 세션이 쓰는 포트는 피한다).
 
    ```sh
-   bash ops/feedbackops/conductor/scripts/verify-db.sh create 593-real
+   bash ops/platform-api/conductor/scripts/verify-db.sh create 593-real
    set -a
    . "$WAVE_STATE/env.verify.593-real"
    set +a
@@ -78,8 +78,8 @@
 5. 결과와 관계없이 끝나자마자 정리한다. 이름이 있는 DB를 바로 drop하고, 이 실행이 컨테이너를 만든 경우(`CREATED_CONTAINER=1`)에만 `down`한다. 다른 세션의 컨테이너는 멈추지 않는다.
 
    ```sh
-   bash ops/feedbackops/conductor/scripts/verify-db.sh drop 593-real
-   [ "$CREATED_CONTAINER" = 1 ] && bash ops/feedbackops/conductor/scripts/verify-db.sh down
+   bash ops/platform-api/conductor/scripts/verify-db.sh drop 593-real
+   [ "$CREATED_CONTAINER" = 1 ] && bash ops/platform-api/conductor/scripts/verify-db.sh down
    ```
 
 core seed의 `mock-admin-1`·`mock-user-1`을 Vite origin의 `/auth/mock-login`으로 로그인하고 각 `storageState`를 분리한다. 매 테스트 전에 rate-limit bucket만 비우며, 브라우저 응답에서 예상치 못한 HTTP 429가 나오면 테스트를 실패시킨다.

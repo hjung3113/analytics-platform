@@ -77,7 +77,7 @@ titles, and other free text stay in their domain records and audit events.
   `task.assigned_to_me`, `task.released`, `permission_request.submitted`,
   `permission_request.decided`, or `permission_grant.revoked`.
 - The closed event set is `notificationEventTypeSchema` in
-  `packages/fo-shared/src/notifications.ts`.
+  `packages/feature-shared/src/notifications.ts`.
 - `unread_count` counts this Actor's unarchived rows whose `read_at` is null;
   it is independent of the current page, cursor, and unread filter.
 - Sets `cache-control: private, no-cache`. Invalid query parameters or cursor

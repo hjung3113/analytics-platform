@@ -40,7 +40,7 @@ importers:
         specifier: ^2.11.4
         version: 2.11.4
 
-  apps/fo-backend:
+  apps/platform-api:
     dependencies:
       '@aws-sdk/client-s3':
         specifier: ^3.726.0
@@ -62,7 +62,7 @@ importers:
         version: 10.2.1
       '@fops/shared':
         specifier: workspace:*
-        version: link:../../packages/fo-shared
+        version: link:../../packages/feature-shared
       drizzle-orm:
         specifier: 0.38.2
         version: 0.38.2(@types/pg@8.11.10)(@types/react@19.3.0)(pg@8.13.1)(react@19.3.0)
@@ -128,7 +128,7 @@ importers:
         specifier: 2.1.8
         version: 2.1.8(@types/node@22.10.2)(happy-dom@20.14.6)(jsdom@26.1.0)(lightningcss@1.32.0)
 
-  apps/fo-frontend:
+  apps/feature-screens:
     dependencies:
       '@ap/ui':
         specifier: workspace:*
@@ -144,10 +144,10 @@ importers:
         version: 5.3.0
       '@fops/shared':
         specifier: workspace:*
-        version: link:../../packages/fo-shared
+        version: link:../../packages/feature-shared
       '@fops/ui':
         specifier: workspace:*
-        version: link:../../packages/fo-ui
+        version: link:../../packages/feature-ui
       '@hookform/resolvers':
         specifier: 3.9.1
         version: 3.9.1(react-hook-form@7.54.2(react@19.3.0))
@@ -253,7 +253,7 @@ importers:
         version: link:../../packages/sdk/contracts
       '@ap/fo-bridge':
         specifier: workspace:*
-        version: link:../../packages/adapters/fo-bridge
+        version: link:../../packages/adapters/feature-bridge
       '@ap/http-adapter':
         specifier: workspace:*
         version: link:../../packages/adapters/http-adapter
@@ -510,7 +510,7 @@ importers:
         version: link:../../../packages/sdk/contracts
       '@ap/fo-bridge':
         specifier: workspace:*
-        version: link:../../../packages/adapters/fo-bridge
+        version: link:../../../packages/adapters/feature-bridge
       '@ap/kernel':
         specifier: workspace:*
         version: link:../../../packages/sdk/kernel
@@ -519,7 +519,7 @@ importers:
         version: link:../../../packages/sdk/ui
       '@fops/frontend':
         specifier: workspace:*
-        version: link:../../../apps/fo-frontend
+        version: link:../../../apps/feature-screens
       lucide-react:
         specifier: ^1.48.0
         version: 1.48.0(react@19.3.0)
@@ -715,7 +715,7 @@ importers:
         version: link:../../../packages/sdk/contracts
       '@ap/fo-bridge':
         specifier: workspace:*
-        version: link:../../../packages/adapters/fo-bridge
+        version: link:../../../packages/adapters/feature-bridge
       '@ap/kernel':
         specifier: workspace:*
         version: link:../../../packages/sdk/kernel
@@ -724,7 +724,7 @@ importers:
         version: link:../../../packages/sdk/ui
       '@fops/frontend':
         specifier: workspace:*
-        version: link:../../../apps/fo-frontend
+        version: link:../../../apps/feature-screens
       lucide-react:
         specifier: ^1.48.0
         version: 1.48.0(react@19.3.0)
@@ -779,7 +779,7 @@ importers:
         version: link:../../../packages/sdk/contracts
       '@ap/fo-bridge':
         specifier: workspace:*
-        version: link:../../../packages/adapters/fo-bridge
+        version: link:../../../packages/adapters/feature-bridge
       '@ap/kernel':
         specifier: workspace:*
         version: link:../../../packages/sdk/kernel
@@ -788,7 +788,7 @@ importers:
         version: link:../../../packages/sdk/ui
       '@fops/frontend':
         specifier: workspace:*
-        version: link:../../../apps/fo-frontend
+        version: link:../../../apps/feature-screens
       lucide-react:
         specifier: ^1.48.0
         version: 1.48.0(react@19.3.0)
@@ -843,7 +843,7 @@ importers:
         version: link:../../../packages/sdk/contracts
       '@ap/fo-bridge':
         specifier: workspace:*
-        version: link:../../../packages/adapters/fo-bridge
+        version: link:../../../packages/adapters/feature-bridge
       '@ap/kernel':
         specifier: workspace:*
         version: link:../../../packages/sdk/kernel
@@ -852,7 +852,7 @@ importers:
         version: link:../../../packages/sdk/ui
       '@fops/frontend':
         specifier: workspace:*
-        version: link:../../../apps/fo-frontend
+        version: link:../../../apps/feature-screens
       lucide-react:
         specifier: ^1.48.0
         version: 1.48.0(react@19.3.0)
@@ -907,7 +907,7 @@ importers:
         version: link:../../../packages/sdk/contracts
       '@ap/fo-bridge':
         specifier: workspace:*
-        version: link:../../../packages/adapters/fo-bridge
+        version: link:../../../packages/adapters/feature-bridge
       '@ap/kernel':
         specifier: workspace:*
         version: link:../../../packages/sdk/kernel
@@ -916,7 +916,7 @@ importers:
         version: link:../../../packages/sdk/ui
       '@fops/frontend':
         specifier: workspace:*
-        version: link:../../../apps/fo-frontend
+        version: link:../../../apps/feature-screens
       lucide-react:
         specifier: ^1.48.0
         version: 1.48.0(react@19.3.0)
@@ -971,7 +971,7 @@ importers:
         version: link:../../../packages/sdk/contracts
       '@ap/fo-bridge':
         specifier: workspace:*
-        version: link:../../../packages/adapters/fo-bridge
+        version: link:../../../packages/adapters/feature-bridge
       '@ap/kernel':
         specifier: workspace:*
         version: link:../../../packages/sdk/kernel
@@ -980,7 +980,7 @@ importers:
         version: link:../../../packages/sdk/ui
       '@fops/frontend':
         specifier: workspace:*
-        version: link:../../../apps/fo-frontend
+        version: link:../../../apps/feature-screens
       lucide-react:
         specifier: ^1.48.0
         version: 1.48.0(react@19.3.0)
@@ -1035,7 +1035,7 @@ importers:
         version: link:../../../packages/sdk/contracts
       '@ap/fo-bridge':
         specifier: workspace:*
-        version: link:../../../packages/adapters/fo-bridge
+        version: link:../../../packages/adapters/feature-bridge
       '@ap/kernel':
         specifier: workspace:*
         version: link:../../../packages/sdk/kernel
@@ -1044,7 +1044,7 @@ importers:
         version: link:../../../packages/sdk/ui
       '@fops/frontend':
         specifier: workspace:*
-        version: link:../../../apps/fo-frontend
+        version: link:../../../apps/feature-screens
       lucide-react:
         specifier: ^1.48.0
         version: 1.48.0(react@19.3.0)
@@ -1099,7 +1099,7 @@ importers:
         version: link:../../../packages/sdk/contracts
       '@ap/fo-bridge':
         specifier: workspace:*
-        version: link:../../../packages/adapters/fo-bridge
+        version: link:../../../packages/adapters/feature-bridge
       '@ap/kernel':
         specifier: workspace:*
         version: link:../../../packages/sdk/kernel
@@ -1108,7 +1108,7 @@ importers:
         version: link:../../../packages/sdk/ui
       '@fops/frontend':
         specifier: workspace:*
-        version: link:../../../apps/fo-frontend
+        version: link:../../../apps/feature-screens
       lucide-react:
         specifier: ^1.48.0
         version: 1.48.0(react@19.3.0)
@@ -1814,7 +1814,7 @@ importers:
         specifier: ^3.2.7
         version: 3.2.7(@types/node@26.6.3)(happy-dom@20.14.6)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)
 
-  ops/feedbackops:
+  ops/platform-api:
     devDependencies:
       '@biomejs/biome':
         specifier: 1.9.4
@@ -1829,7 +1829,7 @@ importers:
         specifier: 5.7.2
         version: 5.7.2
 
-  packages/adapters/fo-bridge:
+  packages/adapters/feature-bridge:
     dependencies:
       '@ap/components':
         specifier: workspace:*
@@ -1845,7 +1845,7 @@ importers:
         version: link:../../sdk/ui
       '@fops/frontend':
         specifier: workspace:*
-        version: link:../../../apps/fo-frontend
+        version: link:../../../apps/feature-screens
       '@tanstack/react-query':
         specifier: 5.62.7
         version: 5.62.7(react@19.3.0)
@@ -1956,7 +1956,7 @@ importers:
         specifier: ^3.2.7
         version: 3.2.7(@types/node@26.6.3)(happy-dom@20.14.6)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)
 
-  packages/fo-shared:
+  packages/feature-shared:
     dependencies:
       zod:
         specifier: 3.25.67
@@ -1969,14 +1969,14 @@ importers:
         specifier: 2.1.8
         version: 2.1.8(@types/node@26.6.3)(happy-dom@20.14.6)(jsdom@26.1.0)(lightningcss@1.32.0)
 
-  packages/fo-ui:
+  packages/feature-ui:
     dependencies:
       '@ap/ui':
         specifier: workspace:*
         version: link:../sdk/ui
       '@fops/shared':
         specifier: workspace:*
-        version: link:../fo-shared
+        version: link:../feature-shared
       '@formkit/auto-animate':
         specifier: 0.10.0
         version: 0.10.0(patch_hash=8170eba9200e0561f67c584494b1306b4dcd3f8d9b54465a95a0f4d55bc7d74b)

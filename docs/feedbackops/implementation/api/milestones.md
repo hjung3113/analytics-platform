@@ -2,7 +2,7 @@
 
 Index and global rules: [03-api-contracts.md](../03-api-contracts.md). This file is the normative contract for the sections below.
 
-Requirement source: FOP-TASK-004 (`docs/design/06-task-project-system.md` §FR-TASK-004). Shared schemas: `packages/fo-shared/src/milestones/index.ts`.
+Requirement source: FOP-TASK-004 (`docs/design/06-task-project-system.md` §FR-TASK-004). Shared schemas: `packages/feature-shared/src/milestones/index.ts`.
 
 ## Milestone Create Contract
 
@@ -193,7 +193,7 @@ no grouped child-Task row receives zeroes for every count and percentage.
 
 ADR-0050. The persisted set is `planning | in_progress | blocked | released`.
 The shared closed status schema is `milestoneStatusFilterSchema` in
-`packages/fo-shared/src/milestones/index.ts`.
+`packages/feature-shared/src/milestones/index.ts`.
 Create and PATCH accept `status` only inside that set. PATCH may move freely
 among the four values. Release does not depend on child Tasks: `planning` to
 `released` with zero child Tasks succeeds. Assign and convert do not consult
@@ -216,4 +216,4 @@ Milestone status. `blocked` is stored, not a list tab.
 - No Gantt or timeline endpoint.
 
 Shared DTOs: `MilestoneDto` / `MilestoneDetailDto` in
-`packages/fo-shared/src/milestones/index.ts`.
+`packages/feature-shared/src/milestones/index.ts`.

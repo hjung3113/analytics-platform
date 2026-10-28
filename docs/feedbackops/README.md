@@ -46,14 +46,20 @@ Five ideas carry the product:
 
 Requires Node 26.7 (root `.nvmrc`), [pnpm](https://pnpm.io/), and Docker (or your own PostgreSQL with the `pgvector` extension).
 
+### Existing MinIO data when relocating the ops directory (#1098 b)
+
+Before starting the relocated compose file, existing users must stop their own MinIO instance. Its ignored `./minio_data` bind mount was relative to `ops/feedbackops/`; moving tracked files does not move that data. Move the existing `ops/feedbackops/minio_data` directory to `ops/platform-api/minio_data` only after confirming that the destination does not exist; never overwrite an existing destination or start a fresh empty store in its place. If both exist, stop and resolve which data belongs to the instance before proceeding.
+
+Verify that the relocated compose file resolves `./minio_data` to the moved directory and, after starting, inspect the MinIO container's `/data` mount and confirm that the expected bucket and objects remain. The dev compose project is explicitly `feedbackops`, preserving the named Postgres volume prefix. Container names, volumes, DB/role/schema names, realm, bucket, ports and environment identity remain unchanged. The host must check and record whether local ignored data exists before performing this migration; the folder relocation worker does not move local data or launch compose.
+
 ```bash
 pnpm install
-docker compose -f ops/feedbackops/docker-compose.dev.yml up -d   # Postgres with pgvector on :5434, plus MinIO
-cp ops/feedbackops/.env.example ops/feedbackops/.env              # already points at the compose database
-set -a; . ./ops/feedbackops/.env; set +a                          # nothing loads .env for you
+docker compose -f ops/platform-api/docker-compose.dev.yml up -d   # Postgres with pgvector on :5434, plus MinIO
+cp ops/platform-api/.env.example ops/platform-api/.env              # already points at the compose database
+set -a; . ./ops/platform-api/.env; set +a                          # nothing loads .env for you
 ```
 
-`ops/feedbackops/.env.example` carries working `DATABASE_URL`, `DATABASE_URL_MIGRATE`, and `WORKSPACE_ID` values for the compose database. Neither app reads `.env` itself, so export it in every shell you run the commands below from (`pnpm --filter @fops/backend test:integration` sources it on its own).
+`ops/platform-api/.env.example` carries working `DATABASE_URL`, `DATABASE_URL_MIGRATE`, and `WORKSPACE_ID` values for the compose database. Neither app reads `.env` itself, so export it in every shell you run the commands below from (`pnpm --filter @fops/backend test:integration` sources it on its own).
 
 Create the schema and load demo data:
 
@@ -70,7 +76,7 @@ Run both apps:
 pnpm --filter @fops/ops dev --env-mode=loose   # frontend on :3010, backend on :3011
 ```
 
-`--env-mode=loose` is needed because Turborepo runs in strict env mode and would otherwise hide the exported `.env` variables from the backend. The backend port comes from `PORT` (`ops/feedbackops/.env.example` sets `3011`; the code default is `3001`), and the Vite proxy targets `3011`.
+`--env-mode=loose` is needed because Turborepo runs in strict env mode and would otherwise hide the exported `.env` variables from the backend. The backend port comes from `PORT` (`ops/platform-api/.env.example` sets `3011`; the code default is `3001`), and the Vite proxy targets `3011`.
 
 `turbo.json` passes `VITEST_MAX_FORKS`/`VITEST_MIN_FORKS` (and the `_THREADS`/`_WORKERS` variants) through strict mode, so exporting them caps `pnpm test` workers on a memory-constrained machine. Set each MAX/MIN pair together: vitest 2.x rejects a max below its default min (ncpu − 1) with `minThreads and maxThreads must not conflict`.
 
@@ -85,17 +91,17 @@ Sign in from `/login`. Authentication is mock in local development; pick a perso
 ## Layout
 
 ```
-apps/fo-backend      Fastify + Drizzle. Domain modules own their own permission checks.
-apps/fo-frontend     React + TanStack Router/Query + Vite.
-packages/fo-shared   Zod contracts shared by both. The API's actual shape lives here.
-packages/fo-ui       Design-system components. No domain imports.
+apps/platform-api      Fastify + Drizzle. Domain modules own their own permission checks.
+apps/feature-screens     React + TanStack Router/Query + Vite.
+packages/feature-shared   Zod contracts shared by both. The API's actual shape lives here.
+packages/feature-ui       Design-system components. No domain imports.
 docs/             Design, ADRs, implementation contracts, and the original prototype (reference).
 ```
 
 Two rules explain most of the structure:
 
 - **The backend is authoritative on permissions.** Frontend permission state is a display hint. A domain module decides access, and the advisory `GET /me/permissions/check` endpoint mirrors that decision so the UI cannot claim something the enforcing route would refuse.
-- **The shipped UI is the UI authority.** Existing screens, `apps/fo-frontend/src/lib/copy/*`, and the committed visual baselines decide layout and copy (ADR-0060). `docs/feedbackops/design-prototype/` is the original rendered prototype, kept as a reference for surfaces not built yet.
+- **The shipped UI is the UI authority.** Existing screens, `apps/feature-screens/src/lib/copy/*`, and the committed visual baselines decide layout and copy (ADR-0060). `docs/feedbackops/design-prototype/` is the original rendered prototype, kept as a reference for surfaces not built yet.
 
 ---
 

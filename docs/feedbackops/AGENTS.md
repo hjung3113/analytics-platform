@@ -8,7 +8,7 @@
 - Every changed line must trace to a user request, a documented invariant, or a failing verification.
 - If domain rules conflict with generic framework habits, follow the domain rules.
 - The standalone runtime is retired (#597, platform ADR-0097). Preserve the 36 `@fops/frontend` public entries, backend and bridge seams; the platform owns navigation/session/layout. Names remain unchanged until #1098–#1100.
-- Paths written as `docs/<x>` inside FeedbackOps docs name this tree (`docs/feedbackops/<x>`), and "root `AGENTS.md`" means this file. FeedbackOps code lives in `apps/fo-backend`, `apps/fo-frontend`, `packages/fo-shared`, `packages/fo-ui`; its tools in `ops/feedbackops/`; the repository root `AGENTS.md` is the platform's.
+- Paths written as `docs/<x>` inside FeedbackOps docs name this tree (`docs/feedbackops/<x>`), and "root `AGENTS.md`" means this file. FeedbackOps code lives in `apps/platform-api`, `apps/feature-screens`, `packages/feature-shared`, `packages/feature-ui`; its tools in `ops/platform-api/`; the repository root `AGENTS.md` is the platform's.
 
 ## Finish Line And Stops
 
@@ -17,7 +17,7 @@
 
 ## UI Authority
 
-The shipped UI is the authority for existing surfaces (ADR-0060): the components in `apps/fo-frontend` and `packages/fo-ui`, the copy modules in `apps/fo-frontend/src/lib/copy/*`, and their actual platform host. Behavior and acceptance criteria come from the specs and ADRs.
+The shipped UI is the authority for existing surfaces (ADR-0060): the components in `apps/feature-screens` and `packages/feature-ui`, the copy modules in `apps/feature-screens/src/lib/copy/*`, and their actual platform host. Behavior and acceptance criteria come from the specs and ADRs.
 
 - **Changing an existing screen:** extend its current pattern. Reuse the shared components and match neighbouring screens in layout, density, and copy. No prototype comparison is required.
 - **Building a new surface:** if `docs/feedbackops/design-prototype/` drew it, use that screen as a starting reference, not a contract. Otherwise mirror the closest shipped screen.
@@ -26,7 +26,7 @@ The shipped UI is the authority for existing surfaces (ADR-0060): the components
 - **Do NOT port from the prototype:** hash routing, `window` globals, `document.execCommand`, synthetic local data, draft-only API intent panels. Production routing is TanStack Router; rich text is TipTap (ADR-0002 / ADR-0011).
 - **Design review** looks at the rendered change (before/after) and the visual-harness diff.
 
-Frontend specifics (visual baselines): `apps/fo-frontend/AGENTS.md`.
+Frontend specifics (visual baselines): `apps/feature-screens/AGENTS.md`.
 
 ## Git Workflow
 
@@ -37,7 +37,7 @@ Frontend specifics (visual baselines): `apps/fo-frontend/AGENTS.md`.
 
 - No source code at the repo root. Cross-app code in `packages/*` only when both apps need it.
 - Product systems (VOC, Finding/Insight, Task, Survey, Dashboard, Permission, Entity Linking, Core Platform) are bounded contexts inside the app shells — not separate deployable apps. Do not create `systems/{system}/frontend|backend`.
-- Backend implementation lives under `apps/fo-backend/src/modules/*`. Frontend route composition lives under `apps/fo-frontend/src/features/*`.
+- Backend implementation lives under `apps/platform-api/src/modules/*`. Frontend route composition lives under `apps/feature-screens/src/features/*`.
 
 ## Required Reading
 
@@ -64,12 +64,12 @@ Authority follows subject; there is no universal conflict ladder.
 
 **USER-FACING COPY (labels, headers, buttons, microcopy) — when a source is silent, in order:**
 
-1. `apps/fo-frontend/src/lib/copy/*` and the wording the shipped screen already uses.
+1. `apps/feature-screens/src/lib/copy/*` and the wording the shipped screen already uses.
 2. `docs/feedbackops/design-prototype/` for a surface it drew that is not built yet.
 3. `docs/feedbackops/frontend/specs/*.md`.
 4. `GLOSSARY.md`.
 
-Shipped user-facing strings are implemented in `apps/fo-frontend/src/lib/copy/*`; update the matching module when canonical wording changes.
+Shipped user-facing strings are implemented in `apps/feature-screens/src/lib/copy/*`; update the matching module when canonical wording changes.
 
 **Per-domain pointers:** endpoint behavior → `docs/feedbackops/implementation/03-api-contracts.md` and `docs/feedbackops/implementation/api/`; DB + migrations → `04-database-and-migrations.md`; module ownership → `02-domain-module-boundaries.md`; permissions → `05-permission-policy.md`; entity links → `06-entity-linking-contract.md`; background jobs → `docs/feedbackops/adr/0009-background-jobs-with-pg-boss.md`; frontend routes → `docs/feedbackops/frontend/routes-and-layout.md`; component contracts → `docs/feedbackops/frontend/ui-design-system.md` + `component-inventory.md`. Visual token seed: `docs/feedbackops/frontend/tokens.md` (Pack 17 light tokens / ADR-0021 supersede Pack 20 prototype dark tokens for impl).
 
@@ -94,17 +94,17 @@ Shipped user-facing strings are implemented in `apps/fo-frontend/src/lib/copy/*`
 - Frontend feature folders follow these ownership boundaries: `home`, `my-work`, `voc`, `findings`, `voc-cluster`, `surveys`, `tasks`, `cross-system`, `integration`, `admin`.
 - Findings feature code lives in `features/findings/` and is mounted at top-level `/findings`. Integration owns the Evidence, Coverage, and Links UI boundaries. Evidence, Coverage, and Links routes stay under `/integration/*` (ADR-0065). VOC Clusters are implemented in `features/voc-cluster/` and mounted at the top-level `/voc-clusters` route.
 - Managed System Registry, Analytics Areas, Permission Requests, and workspace settings live under Admin routes.
-- `packages/fo-shared` must not import either app. `packages/fo-ui` must not call APIs or own domain mutations.
+- `packages/feature-shared` must not import either app. `packages/feature-ui` must not call APIs or own domain mutations.
 
 ## Verification
 
-- **The gate is `pnpm --filter @fops/backend test:integration` + `pnpm --filter @fops/ops typecheck` + `pnpm --filter @fops/ops check:boundaries` + `pnpm --filter @fops/ops gate:db-migration-drift` + `pnpm --filter @fops/ops gate:fe-typecheck` + `pnpm --filter @fops/ops gate:fe-lint` + `pnpm --filter @fops/ops lint:design`**. For changed screens, use the retained platform host for the repository browser/E2E and capture workflow; the standalone visual harness is retired (#597). `pnpm test` / `pnpm --filter @fops/backend test` alone is **not** the gate: the backend integration suites are env-gated and all skip without a database, so a green there covers only the unit path (#204). The integration command loads `.env` and **truncates + re-seeds the target database** before the run — point it at a throwaway database, never the dev database on 5434 (recipe: `apps/fo-backend/AGENTS.md` → Verification, provisioning a throwaway database). See `apps/fo-backend/AGENTS.md` → Verification for the env, the reset contract, and the `ALLOW_SKIPPED_INTEGRATION=1` opt-out.
-- **Where to run.** Run the gate commands from the repository root (FeedbackOps is part of the root pnpm workspace: root Node 26.7, pnpm 11 and `pnpm-lock.yaml`; install once at the repository root). The root scripts (`typecheck`, `check:boundaries`, `gate:*`, `lint:design`, …) belong to the workspace package `@fops/ops` in `ops/feedbackops/`: run them as `pnpm --filter @fops/ops <script>`.
-- **CI.** `.github/workflows/feedbackops.yml` (repo root; runs when `docs/feedbackops/**`, `apps/fo-*/**`, `packages/fo-*/**`, `ops/feedbackops/**`, `packages/sdk/ui/**`, or the root `package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`, `.nvmrc` change) runs this gate on PRs and pushes to `main`, through `ops/feedbackops/scripts/ci/gate.sh` (`static [--base <ref>]`, `unit`, `integration`); another CI can call the same script. Platform visual reinforcement is not implemented; `.planning/backlog.md` records the reason and reopen condition (#597/#954).
-- The FE lint gate diffs committed history against a base ref — pass `--base origin/main`. The standalone route-tree generator is retired and is not a prerequisite. Read `ops/feedbackops/scripts/gates/AGENTS.md` before running them or touching their baselines/allowlists.
+- **The gate is `pnpm --filter @fops/backend test:integration` + `pnpm --filter @fops/ops typecheck` + `pnpm --filter @fops/ops check:boundaries` + `pnpm --filter @fops/ops gate:db-migration-drift` + `pnpm --filter @fops/ops gate:fe-typecheck` + `pnpm --filter @fops/ops gate:fe-lint` + `pnpm --filter @fops/ops lint:design`**. For changed screens, use the retained platform host for the repository browser/E2E and capture workflow; the standalone visual harness is retired (#597). `pnpm test` / `pnpm --filter @fops/backend test` alone is **not** the gate: the backend integration suites are env-gated and all skip without a database, so a green there covers only the unit path (#204). The integration command loads `.env` and **truncates + re-seeds the target database** before the run — point it at a throwaway database, never the dev database on 5434 (recipe: `apps/platform-api/AGENTS.md` → Verification, provisioning a throwaway database). See `apps/platform-api/AGENTS.md` → Verification for the env, the reset contract, and the `ALLOW_SKIPPED_INTEGRATION=1` opt-out.
+- **Where to run.** Run the gate commands from the repository root (FeedbackOps is part of the root pnpm workspace: root Node 26.7, pnpm 11 and `pnpm-lock.yaml`; install once at the repository root). The root scripts (`typecheck`, `check:boundaries`, `gate:*`, `lint:design`, …) belong to the workspace package `@fops/ops` in `ops/platform-api/`: run them as `pnpm --filter @fops/ops <script>`.
+- **CI.** `.github/workflows/feedbackops.yml` (repo root; runs when `docs/feedbackops/**`, `apps/{platform-api,feature-screens}/**`, `packages/feature-*/**`, `ops/platform-api/**`, `packages/sdk/ui/**`, or the root `package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`, `.nvmrc` change) runs this gate on PRs and pushes to `main`, through `ops/platform-api/scripts/ci/gate.sh` (`static [--base <ref>]`, `unit`, `integration`); another CI can call the same script. Platform visual reinforcement is not implemented; `.planning/backlog.md` records the reason and reopen condition (#597/#954).
+- The FE lint gate diffs committed history against a base ref — pass `--base origin/main`. The standalone route-tree generator is retired and is not a prerequisite. Read `ops/platform-api/scripts/gates/AGENTS.md` before running them or touching their baselines/allowlists.
 - For behavior changes and bug fixes, write or update the failing test first, then make the smallest change that passes it. If TDD is not practical, state why and still add verification for the touched behavior.
 - Add or update tests for product invariants touched by the change.
-- For frontend work, verify desktop 1440 states when layout or interaction changes (see `apps/fo-frontend/AGENTS.md` → New Surfaces And Gaps and Visual Verification).
+- For frontend work, verify desktop 1440 states when layout or interaction changes (see `apps/feature-screens/AGENTS.md` → New Surfaces And Gaps and Visual Verification).
 - For backend work, verify permissions, entity link side effects, and audit behavior when touched.
 - If verification cannot run, report the exact command and blocker.
 - Docs-only changes (Markdown under `docs/`, `AGENTS.md`/`CLAUDE.md`, and `.claude/**/*.md`) need no gate run; confirm instead that every path, script, and symbol they name exists. Scripts and settings under `.claude/` are code: run them or say why not.
@@ -121,7 +121,7 @@ Test code is a liability. Fewer, sharper tests beat more tests.
 
 ## Workflow Operations
 
-Playbook for running a set of issues with workers (briefs, host verification, role-split review, merge, cleanup): the global `issue-wave-conductor` skill, with this repo's parts in `ops/feedbackops/conductor/PROFILE.md` (repo rules in `conductor.json` + `addenda/`, local tools in `ops/feedbackops/conductor/scripts/`). Reviewers are chosen per issue by `$ENGINE/review-plan.py`, where `$ENGINE` is `~/.agents/skills/issue-wave-conductor/scripts`. A code review runs on every non-copy change. A UX review drives throwaway-DB previews for screen changes. UI performance is measured, and a perf reviewer runs only on a regression. A code-quality review runs once per slice. Reviewer personas are global (`~/.agents/agents/review-*.md`); this repo's authority, checks and invariants for them are the `Review lens` sections of the profile. Integration runs use a throwaway database, never the dev database on port 5434.
+Playbook for running a set of issues with workers (briefs, host verification, role-split review, merge, cleanup): the global `issue-wave-conductor` skill, with this repo's parts in `ops/platform-api/conductor/PROFILE.md` (repo rules in `conductor.json` + `addenda/`, local tools in `ops/platform-api/conductor/scripts/`). Reviewers are chosen per issue by `$ENGINE/review-plan.py`, where `$ENGINE` is `~/.agents/skills/issue-wave-conductor/scripts`. A code review runs on every non-copy change. A UX review drives throwaway-DB previews for screen changes. UI performance is measured, and a perf reviewer runs only on a regression. A code-quality review runs once per slice. Reviewer personas are global (`~/.agents/agents/review-*.md`); this repo's authority, checks and invariants for them are the `Review lens` sections of the profile. Integration runs use a throwaway database, never the dev database on port 5434.
 
 ## PR Review Priorities
 

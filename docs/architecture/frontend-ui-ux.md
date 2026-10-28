@@ -10,7 +10,7 @@
 
 ## 프론트엔드 기술 스택 (Decided, 2026-09-25)
 
-**결정 근거**: FeedbackOps(`apps/fo-frontend`, `packages/fo-ui`)가 실사용 중인 비-백엔드 스택을 그대로 가져온다 — 이미 검증되고 채택 경험이 있어 마이그레이션 부담이 적다는 것이 사용자 판단이다. 테이블/차트는 FeedbackOps에 선례가 없어, 이 세션에서 Astra↔Opus 교차 검토로 실제 동작을 검증한 것을 그대로 채택한다(Unit B `archive/kernel-chart-frame/`, Unit C `archive/kernel-platform-table/`, 별도 worktree/브랜치 `hjung3113/kernel-context-url-scope`). FeedbackOps 자체 코드는 이 결정으로 소급 변경하지 않는다(AGENTS.md FeedbackOps 서브모듈 경계).
+**결정 근거**: FeedbackOps(`apps/feature-screens`, `packages/feature-ui`)가 실사용 중인 비-백엔드 스택을 그대로 가져온다 — 이미 검증되고 채택 경험이 있어 마이그레이션 부담이 적다는 것이 사용자 판단이다. 테이블/차트는 FeedbackOps에 선례가 없어, 이 세션에서 Astra↔Opus 교차 검토로 실제 동작을 검증한 것을 그대로 채택한다(Unit B `archive/kernel-chart-frame/`, Unit C `archive/kernel-platform-table/`, 별도 worktree/브랜치 `hjung3113/kernel-context-url-scope`). FeedbackOps 자체 코드는 이 결정으로 소급 변경하지 않는다(AGENTS.md FeedbackOps 서브모듈 경계).
 
 | 계층 | 채택(2026-09-25 결정) | 근거 | 현재 코드(2026-10-05) |
 | --- | --- | --- | --- |

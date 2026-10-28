@@ -1,16 +1,16 @@
 ---
 paths:
-  - "apps/fo-backend/migrations/**"
-  - "apps/fo-backend/src/db/**"
-  - "apps/fo-backend/drizzle.config.ts"
-  - "ops/feedbackops/scripts/db/**"
+  - "apps/platform-api/migrations/**"
+  - "apps/platform-api/src/db/**"
+  - "apps/platform-api/drizzle.config.ts"
+  - "ops/platform-api/scripts/db/**"
 ---
 
 # Database and migration traps
 
 Paths below are relative to the repository root (FeedbackOps moved from the frozen FeedbackOps repo, ADR-0072).
 
-Registering every migration in `migrations/meta/_journal.json` is a rule in `apps/fo-backend/AGENTS.md`. These are the other measured traps.
+Registering every migration in `migrations/meta/_journal.json` is a rule in `apps/platform-api/AGENTS.md`. These are the other measured traps.
 
 ## Permission walls are design
 
@@ -27,4 +27,4 @@ Registering every migration in `migrations/meta/_journal.json` is a rule in `app
 - Editing a migration that is already applied is silently skipped by the journal. Recreate the database, or run the SQL in the suite via `readFileSync`.
 - A JS `null` in `.values()` becomes SQL `NULL`, not JSON `null`, so a `NOT NULL` jsonb column fails at runtime with a green typecheck. Use `{}` or `'null'::jsonb`.
 - `CREATE EXTENSION vector` needs a superuser; `fops_migrate` is not one. `scripts/db/init.sql` creates it on a fresh volume only, and migration 0042 only asserts it.
-- A throwaway database must be created with `owner fops_migrate`: see `apps/fo-backend/AGENTS.md` → Verification → Provisioning a throwaway database.
+- A throwaway database must be created with `owner fops_migrate`: see `apps/platform-api/AGENTS.md` → Verification → Provisioning a throwaway database.
