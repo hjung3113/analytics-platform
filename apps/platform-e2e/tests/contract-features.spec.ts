@@ -155,7 +155,7 @@ test.describe('FeedbackOps 진입 링크 회귀(#451, 06 §22)', () => {
     await evidence(page, testInfo, 'feedbackops-query-keys');
   });
 
-  test('거부·미등록 경로와 feedbackops:access 없는 viewer의 BRAVO에는 공간 블록이 없다', async ({ page }, testInfo) => {
+  test('거부·미등록 경로와 features:access 없는 viewer의 BRAVO에는 공간 블록이 없다', async ({ page }, testInfo) => {
     await signInAs(page, 'viewer');
     // Menu denial inside a mapped space draws no block.
     await page.goto(PRODUCTIVITY);
@@ -171,7 +171,7 @@ test.describe('FeedbackOps 진입 링크 회귀(#451, 06 §22)', () => {
     await expect(page.getByRole('main')).toBeVisible();
     await expect(page.getByRole('navigation', { name: /^FeedbackOps/ })).toHaveCount(0);
 
-    // Without feedbackops:access there is no block at all, even in a space the viewer may enter (ADR-0081 decision 8).
+    // Without features:access there is no block at all, even in a space the viewer may enter (ADR-0081 decision 8).
     await page.goto('/bravo/metric-catalog');
     await expect(mainHeading(page)).toBeVisible();
     await expect(page.getByRole('navigation', { name: /^FeedbackOps/ })).toHaveCount(0);

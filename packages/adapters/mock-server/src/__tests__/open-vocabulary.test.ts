@@ -22,7 +22,7 @@ describe('a permission vocabulary handed to the mock adapter (ADR-0072)', () => 
     expect(held('engineer')).toContain(quality);
     expect(held('viewer')).not.toContain(quality);
     expect(held('engineer')).not.toContain('console:access');
-    expect(held('engineer')).not.toContain('feedbackops:access');
+    expect(held('engineer')).not.toContain('features:access');
     expect(held('viewer')).toEqual(['platform:view', 'notice:view', 'voc:view']);
   });
 

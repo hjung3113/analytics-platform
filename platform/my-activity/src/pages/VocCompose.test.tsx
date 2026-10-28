@@ -2,8 +2,8 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, type VocComposeContext } from '@ap/kernel';
 import { memoryStorage, ToastProbe } from '@ap/kernel/testing';
-import { setFoApi } from '@ap/feature-bridge/fo-api';
-import { foQueryClient } from '@ap/feature-bridge';
+import { setFeatureApi } from '@ap/feature-bridge/feature-api';
+import { featureQueryClient } from '@ap/feature-bridge';
 import { json, registry, stubFetch, switchableAdapter, type Call } from '../fo/test-support';
 import VocCompose from '@ap/feature-bridge/voc-compose-page';
 
@@ -62,11 +62,11 @@ beforeEach(() => {
   vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
   for (const fn of [onSubmitted, onCancel, onDirtyChange, onSessionLost]) fn.mockReset();
 });
-afterEach(() => { cleanup(); foQueryClient.clear(); setFoApi(null); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
+afterEach(() => { cleanup(); featureQueryClient.clear(); setFeatureApi(null); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 describe('VOC 등록 drawer content', () => {
   it('V1: without a FeedbackOps API shows 실서버 필요 and requests nothing', () => {
-    setFoApi(null);
+    setFeatureApi(null);
     const calls = stubFetch(handle());
     render(tree(CONTEXT));
     expect(screen.getByRole('status').textContent).toContain('실서버 필요');
@@ -74,11 +74,11 @@ describe('VOC 등록 drawer content', () => {
   });
 
   describe('with a FeedbackOps API', () => {
-    beforeEach(() => { setFoApi({ basePath: '/api/fo', onSessionLost }); });
+    beforeEach(() => { setFeatureApi({ basePath: '/api/fo', onSessionLost }); });
 
     it('V2: preselects the Managed System the factory maps, then a submit toasts 접수 완료 (default tone), refreshes 내 VOC and calls onSubmitted', async () => {
       const calls = stubFetch(handle());
-      const invalidate = vi.spyOn(foQueryClient, 'invalidateQueries');
+      const invalidate = vi.spyOn(featureQueryClient, 'invalidateQueries');
       render(tree(CONTEXT));
       const radio = await screen.findByRole('radio', { name: 'Analytics MS' });
       await waitFor(() => expect(radio.getAttribute('aria-checked')).toBe('true'));

@@ -15,7 +15,7 @@ export function shouldRetryQuery(failureCount: number, error: unknown): boolean 
   return failureCount < 3;
 }
 
-export function createFoQueryClient(): QueryClient {
+export function createFeatureQueryClient(): QueryClient {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: shouldRetryQuery } },
   });

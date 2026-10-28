@@ -1,10 +1,10 @@
 import { usePlatform } from '@ap/kernel';
-import { FoScreenPage, findingsRoute, useFindingsHere, useFindingsSearch } from '@ap/feature-bridge';
+import { FeatureScreenPage, findingsRoute, useFindingsHere, useFindingsSearch } from '@ap/feature-bridge';
 import { FindingsScreen } from '@ap/feature-screens/operator-screens/findings';
 import { isFindingsSearchValueValid } from '@ap/feature-screens/operator-screens/findings-search';
 import { FindingDetailDrawer } from './FindingDrawer';
 
-/** FO's `ListShell` would hand a returned node to the shell slot, which renders it outside the FeedbackOps providers (and over the list's denied and empty states); the page draws the detail itself, inside `FoBridge`. */
+/** FO's `ListShell` would hand a returned node to the shell slot, which renders it outside the FeedbackOps providers (and over the list's denied and empty states); the page draws the detail itself, inside `FeatureBridge`. */
 const noDetail = () => undefined;
 
 /**
@@ -14,8 +14,8 @@ const noDetail = () => undefined;
 export default function FoFindings() {
   const { pageParam, setPage } = usePlatform();
   const focus = pageParam('focus');
-  return <FoScreenPage route={findingsRoute} isValid={isFindingsSearchValueValid} useSearch={useFindingsSearch} useHere={useFindingsHere}
+  return <FeatureScreenPage route={findingsRoute} isValid={isFindingsSearchValueValid} useSearch={useFindingsSearch} useHere={useFindingsHere}
     detail={focus !== null && <FindingDetailDrawer key={focus} findingId={focus} onClose={() => setPage({ focus: null })} />}>
     <FindingsScreen renderDetail={noDetail} />
-  </FoScreenPage>;
+  </FeatureScreenPage>;
 }

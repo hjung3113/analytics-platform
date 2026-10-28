@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
-import { setFoApi } from '@ap/feature-bridge/fo-api';
+import { setFeatureApi } from '@ap/feature-bridge/feature-api';
 import { HostLink } from '@/lib/host/host-seam';
 import { mountAt, warmPages } from '../test-support';
 
@@ -31,8 +31,8 @@ const child = (menu: string) => `/feedbackops/${menu}/${SURVEY_A}`;
 const params = () => new URLSearchParams(window.location.search);
 
 beforeAll(warmPages, 60_000);
-beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); setFoApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
-afterEach(() => { cleanup(); setFoApi(null); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
+beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
+afterEach(() => { cleanup(); setFeatureApi(null); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
 describe('the Survey list context through the screens\' real links', () => {
   it('list → builder → Back keeps area, status and follow_up and focuses the Survey', async () => {

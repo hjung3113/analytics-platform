@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import { createRegistry } from '@ap/kernel';
-import { groupId, spaceId } from '@ap/contracts';
+import { groupId, menuPermissions, spaceId } from '@ap/contracts';
 import { UserCog } from 'lucide-react';
 import { analyticsAreasRoute, managedSystemsRoute, permissionGrantsRoute, permissionRequestsRoute, settingsRoute } from '@ap/feature-bridge';
 import { manifests } from './index';
@@ -40,8 +40,12 @@ describe('관리자 manifests', () => {
     expect(menu.navViews).toBeUndefined();
   });
 
-  it('requires console:access (the workspace-admin rule), never feedbackops:access alone', () => {
+  it('requires console:access (the workspace-admin rule), never features:access alone', () => {
     for (const entry of manifests) expect(entry.permission).toBe('console:access');
+  });
+
+  it('needs features:access AND console:access, so removing the space gate keeps the effective access', () => {
+    for (const entry of manifests) expect(menuPermissions(entry)).toEqual(['console:access', 'features:access']);
   });
 
   it('never aliases the operations /admin paths', () => {
@@ -51,14 +55,14 @@ describe('관리자 manifests', () => {
     }
   });
 
-  it('shows the section to a holder of console:access and not to a feedbackops:access-only user', () => {
+  it('shows the section to a holder of console:access and not to a features:access-only user', () => {
     const registry = createRegistry({
-      spaces: [{ id: spaceId('feedbackops'), label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'feedbackops:access', carriedPageKeys: ['managedSystem', 'returnTo'], homeMenuId: 'fo-home-stub' }],
+      spaces: [{ id: spaceId('feedbackops'), label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'features:access', carriedPageKeys: ['managedSystem', 'returnTo'], homeMenuId: 'fo-home-stub' }],
       groups: [{ id: groupId('foAdmin'), label: { ko: '관리자', en: 'Admin' }, icon: UserCog, space: spaceId('feedbackops') }],
       menus: harnessMenus,
     });
     const visible = (permissions: string[]) => registry.menus.filter(menu => !menu.navHidden && permissions.includes(menu.permission)).map(menu => menu.id);
-    expect(visible(['platform:view', 'feedbackops:access'])).toEqual([]);
-    expect(visible(['platform:view', 'feedbackops:access', 'console:access'])).toEqual(IDS);
+    expect(visible(['platform:view', 'features:access'])).toEqual([]);
+    expect(visible(['platform:view', 'features:access', 'console:access'])).toEqual(IDS);
   });
 });

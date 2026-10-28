@@ -101,7 +101,7 @@ export function operatorRoute({ foPath, foFixed, menuId, keys, foAbsent = {}, de
   };
 }
 
-/** A module-level `useSearch` hook for `FoBridge`: the current page read through one route table, as FO search strings. */
+/** A module-level `useSearch` hook for `FeatureBridge`: the current page read through one route table, as FO search strings. */
 export function routeSearch(route: OperatorRoute) {
   return function useRouteSearch(): Readonly<Record<string, string>> {
     // `url` and `page` are the kernel values that change with each navigation; the memo is keyed on them so
@@ -117,7 +117,7 @@ export function routeSearch(route: OperatorRoute) {
   };
 }
 
-/** A module-level `useHere` hook for `FoBridge`: the current page as the FeedbackOps path+query(+hash) of this route table. */
+/** A module-level `useHere` hook for `FeatureBridge`: the current page as the FeedbackOps path+query(+hash) of this route table. */
 export function routeHere(route: OperatorRoute) {
   const useRouteSearch = routeSearch(route);
   return function useRouteHere(): string {

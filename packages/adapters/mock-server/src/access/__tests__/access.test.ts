@@ -119,11 +119,11 @@ describe('accessDirectory (issue #49: the console access directory)', () => {
     expect(ids(page(res).items)).toEqual(['admin']);
   });
 
-  it('filters by feedbackops:access: only admin holds it, and the filter accepts the new value', async () => {
-    expect(USERS.admin.permissions).toContain('feedbackops:access');
-    expect(USERS.engineer.permissions).not.toContain('feedbackops:access');
-    expect(USERS.viewer.permissions).not.toContain('feedbackops:access');
-    const res = await accessDirectory({ permission: 'feedbackops:access' }, undefined, { role: 'admin', latency: 0 });
+  it('filters by features:access: only admin holds it, and the filter accepts the new value', async () => {
+    expect(USERS.admin.permissions).toContain('features:access');
+    expect(USERS.engineer.permissions).not.toContain('features:access');
+    expect(USERS.viewer.permissions).not.toContain('features:access');
+    const res = await accessDirectory({ permission: 'features:access' }, undefined, { role: 'admin', latency: 0 });
     expect(res.outcome).toBe('ok');
     expect(ids(page(res).items)).toEqual(['admin']);
   });

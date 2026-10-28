@@ -2,7 +2,7 @@ import { cleanup, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider } from '@ap/kernel';
 import { memoryStorage } from '@ap/kernel/testing';
-import { setFoApi } from '@ap/feature-bridge/fo-api';
+import { setFeatureApi } from '@ap/feature-bridge/feature-api';
 import { ID_A, ID_B, json, listOf, notification, registry, stubFetch, switchableAdapter } from '../fo/test-support';
 import HomeTodo from '@ap/feature-bridge/home-todo-page';
 
@@ -11,9 +11,9 @@ const request = { id: ID_A, requested_capability: 'voc.read', requested_managed_
 
 beforeEach(() => {
   vi.stubGlobal('localStorage', memoryStorage());
-  setFoApi({ basePath: '/api/fo', onSessionLost: vi.fn() });
+  setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() });
 });
-afterEach(() => { cleanup(); setFoApi(null); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); setFeatureApi(null); vi.unstubAllGlobals(); });
 
 describe('HomeTodo page', () => {
   it('C2 links the three groups to platform pages', async () => {

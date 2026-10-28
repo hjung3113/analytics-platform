@@ -112,7 +112,7 @@ function SidebarScope({ collapsed }: { collapsed: boolean }) {
 function FeedbackOpsBlock({ collapsed }: { collapsed: boolean }) {
   const { slots, route, currentSpace, sidebarSpace, accessibleSpaces, can, resolveLink } = useHostPlatform();
   const { tx, lang } = useI18n();
-  const slot = slots.feedbackOps;
+  const slot = slots.features;
   // Only the space this sidebar is drawing, and only when the route is that space's menu.
   // A denied-space URL and an unmatched path keep a fallback sidebar but must not query another space.
   if (!slot || sidebarSpace === null || !accessibleSpaces.some(space => space.id === sidebarSpace.id)) return null;

@@ -254,8 +254,8 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
     await app.ready();
 
     msId = await insertMsDirectly(migrateHandle, WORKSPACE_ID, `${PREFIX}-ms`, 'Conformance MS');
-    // granted: developer + finding.read → feedbackops:access and the Finding detail read.
-    // plain: a user with no grant → no feedbackops:access, the Finding is not readable.
+    // granted: developer + finding.read → features:access and the Finding detail read.
+    // plain: a user with no grant → no features:access, the Finding is not readable.
     // console: admin → workspace.admin → console:access.
     const grantedId = await signIn('granted', 'developer');
     await signIn('plain', 'user');
@@ -376,8 +376,8 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
     foreignScopeId: 'no-foreign-site',
     ports: {
       // FeedbackOps destinations are siteless (ADR-0069 decision 9). A Finding is read by the
-      // Finding detail rule, which every holder of feedbackops:access with finding.read passes.
-      entity: { ref: findingRef, permission: 'feedbackops:access' },
+      // Finding detail rule, which every holder of features:access with finding.read passes.
+      entity: { ref: findingRef, permission: 'features:access' },
       annotation: {
         chartId: 'conformance-chart',
         from: '2026-10-01T00:00:00',
@@ -405,7 +405,7 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
     // The kit removes the entity permission and console:access; the granted developer holds no
     // console:access, so that one is the granted account itself (checklist §4).
     withoutPermission: (permission, fn) => {
-      if (permission === 'feedbackops:access') return as('plain', fn);
+      if (permission === 'features:access') return as('plain', fn);
       if (permission === 'console:access') return as('granted', fn);
       throw new Error(`no account without ${permission}`);
     },

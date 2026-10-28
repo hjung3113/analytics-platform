@@ -21,13 +21,13 @@ export const UNDO_WINDOW_MS = 8000;
  * the shell never branches on it. It opens a registered menu in the same tab through the Context Link helper (ADR-0081 decision 7, #760):
  * only `page` and `returnTo` are carried, never the global Context. The shell draws it only while `resolveLink(...).allowed`.
  */
-export type FeedbackOpsEntry = { key: string; label: Text; menuId: string; page?: Record<string, string>; icon: LucideIcon };
+export type FeatureEntry = { key: string; label: Text; menuId: string; page?: Record<string, string>; icon: LucideIcon };
 /**
  * Space-scoped FeedbackOps entries from the app's Managed System mapping (ADR-0045).
  * `entriesFor` returns null for a space without a mapping; an absent slot draws no block.
  */
-export type FeedbackOpsSlot = {
-  entriesFor: (spaceId: SpaceId) => readonly FeedbackOpsEntry[] | null;
+export type FeatureSlot = {
+  entriesFor: (spaceId: SpaceId) => readonly FeatureEntry[] | null;
   /** Block gate: the shell draws the FeedbackOps block only while the user holds it (ADR-0081 decision 8). Absent = the block is not gated. */
   permission?: Permission;
 };
@@ -62,7 +62,7 @@ export type HomeTodoSlot = { Todo: ComponentType };
 /**
  * Slots the app fills at composition time (shell slots, plus `homeTodo`, which the home menu reads through `MenuPlatform`), so platform components never import the shell.
  * contextBar: rendered by PlatformPage above page content. topBarTools: extra controls at the bottom of the app rail (today the mock dev tools).
- * feedbackOps: space-scoped in-shell entries (ADR-0028, ADR-0045).
+ * features: space-scoped in-shell entries (ADR-0028, ADR-0045).
  * plannedSpaces: the system switcher's not-yet-available rows (ADR-0042, 15 §3.2).
  * boardEntry: the `분석 보드에 열기…` item `PlatformPage` appends to a board menu's `⋯` menu (docs/16 §6); components never import the shell.
  * scopeControl: a space's own sidebar list-scope control in place of the analytics `ScopeSelector` (ADR-0081 decision 4, 06 §8); `For` returns null for spaces that keep the default.
@@ -86,7 +86,7 @@ export type NavCountsSlot = { For: (spaceId: SpaceId) => ComponentType<{ childre
  * `Body` must be module-level (stable identity), like `scopeControl`'s component.
  */
 export type SpaceNavSectionSlot = { For: (spaceId: SpaceId) => { label: Text; Body: ComponentType } | null };
-export type PlatformSlots = { scopeControl?: ScopeControlSlot; contextBar?: ReactNode; topBarTools?: ReactNode; feedbackOps?: FeedbackOpsSlot; plannedSpaces?: readonly PlannedSpace[]; boardEntry?: ReactNode; notifications?: NotificationsSlot; vocCompose?: VocComposeSlot; homeTodo?: HomeTodoSlot; navCounts?: NavCountsSlot; spaceNavSection?: SpaceNavSectionSlot };
+export type PlatformSlots = { scopeControl?: ScopeControlSlot; contextBar?: ReactNode; topBarTools?: ReactNode; features?: FeatureSlot; plannedSpaces?: readonly PlannedSpace[]; boardEntry?: ReactNode; notifications?: NotificationsSlot; vocCompose?: VocComposeSlot; homeTodo?: HomeTodoSlot; navCounts?: NavCountsSlot; spaceNavSection?: SpaceNavSectionSlot };
 export type LinkOptions = { params?: Record<string, string>; page?: Record<string, string | null>; global?: Partial<GlobalContext>; returnTo?: boolean };
 export type LinkResolution = {
   href: string;

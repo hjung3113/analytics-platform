@@ -149,12 +149,12 @@ describe.skipIf(!runIntegration)('platform port /api/v1/platform (#620)', () => 
     it.each([
       [
         'admin',
-        ['console:access', 'feedbackops:access', 'notice:view', 'platform:view', 'voc:view'],
+        ['console:access', 'features:access', 'notice:view', 'platform:view', 'voc:view'],
         { ko: '관리자', en: 'Admin' },
       ],
       [
         'developer',
-        ['feedbackops:access', 'notice:view', 'platform:view', 'voc:view'],
+        ['features:access', 'notice:view', 'platform:view', 'voc:view'],
         { ko: '개발자', en: 'Developer' },
       ],
       ['user', ['notice:view', 'platform:view', 'voc:view'], { ko: '사용자', en: 'User' }],
@@ -187,12 +187,12 @@ describe.skipIf(!runIntegration)('platform port /api/v1/platform (#620)', () => 
       expect(before - asInstant).toBeLessThan(61_000);
     });
 
-    it('feedbackops:access follows grants, workspace denies, revocation and expiry for a user-level actor', async () => {
+    it('features:access follows grants, workspace denies, revocation and expiry for a user-level actor', async () => {
       const ms = await insertMsDirectly(dbHandle, WORKSPACE_ID, `${PREFIX}-ms-${n++}`, 'Port MS');
       msIds.push(ms);
       const admin = await newActor('admin');
       const has = async (cookie: string) =>
-        (await bootstrap(cookie)).session.user.permissions.includes('feedbackops:access');
+        (await bootstrap(cookie)).session.user.permissions.includes('features:access');
 
       const scoped = await newActor('user');
       expect(await has(scoped.cookie)).toBe(false);
@@ -247,7 +247,7 @@ describe.skipIf(!runIntegration)('platform port /api/v1/platform (#620)', () => 
 
       await grantCapability(dbHandle, WORKSPACE_ID, actor.id, 'finding.read', ms, admin.id);
       const flipped = await bootstrap(actor.cookie);
-      expect(flipped.session.user.permissions).toContain('feedbackops:access');
+      expect(flipped.session.user.permissions).toContain('features:access');
       expect(flipped.sessionVersion).not.toBe(first.sessionVersion);
     });
   });

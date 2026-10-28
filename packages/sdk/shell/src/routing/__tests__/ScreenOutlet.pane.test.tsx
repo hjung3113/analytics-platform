@@ -2,7 +2,7 @@ import { StrictMode, useEffect, useState, type ReactNode } from 'react';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { House, ListTodo } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { I18nProvider, PlatformProvider, createRegistry, mountModule, type FeedbackOpsSlot } from '@ap/kernel';
+import { I18nProvider, PlatformProvider, createRegistry, mountModule, type FeatureSlot } from '@ap/kernel';
 import { PaneScreenProvider, useHostPlatform, type PaneScreen } from '@ap/kernel/host';
 import { DetailPanelSlotProvider } from '@ap/ui';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
@@ -182,14 +182,14 @@ describe('ScreenOutlet renders the pane screen with the same gates (ADR-0049)', 
 });
 
 describe('shell chrome outside a pane keeps following the main screen', () => {
-  const feedback: FeedbackOpsSlot = {
+  const feedback: FeatureSlot = {
     entriesFor: () => [{ key: 'task', icon: ListTodo, label: { ko: 'Task', en: 'Task' }, menuId: 'plain' }],
   };
 
   it('pane Context changes leave the sidebar links, FeedbackOps entry links and the main Context untouched', async () => {
     const { adapter } = fixtureAdapter(ANALYST);
     mount(`/plain?${win}&scopeId=MEM`, [{ id: 'a', screen: paneOf('scoped', `?scopeId=S1&${win}`) }], adapter, {
-      slots: { feedbackOps: feedback }, outside: <AppSidebar collapsed={false} onToggle={() => {}} />,
+      slots: { features: feedback }, outside: <AppSidebar collapsed={false} onToggle={() => {}} />,
     });
     await flush();
     const links = () => screen.getAllByRole('link').map(a => a.getAttribute('href')).join('\n');

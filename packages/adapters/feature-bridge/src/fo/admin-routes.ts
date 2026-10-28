@@ -43,7 +43,7 @@ export const settingsRoute = operatorRoute({
   hash: { fragment: 'coverage', key: 'section' },
 });
 
-/** Module-level hooks: `FoBridge` memoizes its seam on their identities. */
+/** Module-level hooks: `FeatureBridge` memoizes its seam on their identities. */
 export const useManagedSystemsSearch = routeSearch(managedSystemsRoute);
 export const useManagedSystemsHere = routeHere(managedSystemsRoute);
 export const useAnalyticsAreasSearch = routeSearch(analyticsAreasRoute);

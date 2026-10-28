@@ -2,7 +2,7 @@ import { SearchX } from 'lucide-react';
 import { useI18n, usePlatform, type PageProps } from '@ap/kernel';
 import { PlatformPage, ReturnLink, StateMessage } from '@ap/components';
 import { ReporterVocDetail } from '@ap/feature-screens/global-screens';
-import { FoBridge } from '@ap/feature-bridge';
+import { FeatureBridge } from '@ap/feature-bridge';
 import { VOC_ID } from '../fo/voc-query';
 
 /**
@@ -22,6 +22,6 @@ export default function VocDetail({ params }: PageProps) {
     </PlatformPage>;
   }
   return <PlatformPage secondaryActions={pageParam('returnTo') !== null ? <ReturnLink /> : undefined}>
-    <FoBridge><ReporterVocDetail vocId={vocId} /></FoBridge>
+    <FeatureBridge><ReporterVocDetail vocId={vocId} /></FeatureBridge>
   </PlatformPage>;
 }

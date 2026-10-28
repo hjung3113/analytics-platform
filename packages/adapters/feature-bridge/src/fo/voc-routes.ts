@@ -34,7 +34,7 @@ export const clustersRoute = operatorRoute({
   detailPath: { key: 'selected', pattern: UUID_PATTERN },
 });
 
-/** Module-level hooks: `FoBridge` memoizes its seam on their identities (unrelated renders never rebuild it). */
+/** Module-level hooks: `FeatureBridge` memoizes its seam on their identities (unrelated renders never rebuild it). */
 export const useInboxSearch = routeSearch(inboxRoute);
 export const useInboxHere = routeHere(inboxRoute);
 export const useTriageSearch = routeSearch(triageRoute);

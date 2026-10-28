@@ -14,7 +14,7 @@ export const manifests: MenuEntry[] = [
   {
     id: 'fo-findings', primary: true, group: GROUP, label: { ko: '전체 Finding', en: 'All Findings' },
     description: { ko: 'Finding을 목록에서 찾아 상세를 열고 Evidence와 Task를 연결합니다', en: 'Find Findings in a list, open the detail and link Evidence and Tasks' },
-    path: '/feedbackops/findings', icon: ListChecks, permission: 'feedbackops:access', requiresScope: false, pageType: 'management',
+    path: '/feedbackops/findings', icon: ListChecks, permission: 'features:access', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['focus', 'q', 'area', 'status', 'execution', 'assignment', 'managedSystem', 'returnTo'],
     component: lazy(() => import('./pages/FoFindings')),

@@ -1,7 +1,7 @@
 import { ClipboardList, ListTodo, MessagesSquare } from 'lucide-react';
 import type { SpaceId } from '@ap/contracts';
 import { isUuid } from '@ap/feature-bridge';
-import type { FeedbackOpsEntry, FeedbackOpsSlot } from '@ap/kernel';
+import type { FeatureEntry, FeatureSlot } from '@ap/kernel';
 import type { SPACES } from './menus';
 
 /** The space ids `SPACES` declares, as plain literals, so a key that names no declared space fails typecheck. */
@@ -25,7 +25,7 @@ export function managedSystemFor(spaceId: string | null): string | null {
 }
 
 /** One bottom-block entry: an in-shell menu opened with the space's Managed System. */
-type Row = Pick<FeedbackOpsEntry, 'key' | 'label' | 'icon' | 'menuId'>;
+type Row = Pick<FeatureEntry, 'key' | 'label' | 'icon' | 'menuId'>;
 const ENTRIES: readonly Row[] = [
   { key: 'voc', icon: MessagesSquare, label: { ko: 'VOC', en: 'VOC' }, menuId: 'fo-inbox' },
   { key: 'task', icon: ListTodo, label: { ko: 'Task', en: 'Tasks' }, menuId: 'fo-task-list' },
@@ -33,13 +33,13 @@ const ENTRIES: readonly Row[] = [
 ];
 
 /** The FeedbackOps slot for the app; every FeedbackOps screen is a platform menu (ADR-0081 decision 6). */
-export function feedbackOpsSlot(): FeedbackOpsSlot {
+export function featureSlot(): FeatureSlot {
   return {
     entriesFor: (spaceId) => {
       const managedSystemId = managedSystemFor(spaceId);
       if (managedSystemId === null) return null;
-      return ENTRIES.map((row): FeedbackOpsEntry => ({ key: row.key, label: row.label, icon: row.icon, menuId: row.menuId, page: { managedSystem: managedSystemId } }));
+      return ENTRIES.map((row): FeatureEntry => ({ key: row.key, label: row.label, icon: row.icon, menuId: row.menuId, page: { managedSystem: managedSystemId } }));
     },
-    permission: 'feedbackops:access',
+    permission: 'features:access',
   };
 }

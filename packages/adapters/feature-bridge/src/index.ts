@@ -3,16 +3,16 @@
  * Imports `@ap/feature-screens/global-screens/core` only, so the eagerly loaded app code stays off the FeedbackOps screen barrel.
  */
 export { RejectedPage } from './fo/RejectedPage';
-export { FoScreenPage } from './fo/FoScreenPage';
+export { FeatureScreenPage } from './fo/FeatureScreenPage';
 export { UUID_PATTERN, isUuid } from './fo/uuid';
-export { foApi, setFoApi, type FoApi } from './fo-api';
-export { FoBridge, UnlinkedLink } from './fo/FoBridge';
+export { featureApi, setFeatureApi, type FeatureApi } from './feature-api';
+export { FeatureBridge, UnlinkedLink } from './fo/FeatureBridge';
 export { operatorRoute, routeHere, routeSearch, type OperatorRoute, type OperatorRouteSpec } from './fo/operator-route';
 export { hostLinks, permissionRequestsTarget, type PlatformTarget, type TargetOf } from './fo/links';
-export { foQueryClient, useFoSession } from './fo/session';
+export { featureQueryClient, useFeatureSession } from './fo/session';
 export { canSurveyLink, SURVEY_ID, SurveyLink, surveyTarget } from './fo/survey-links';
 export { canVocLink, VOC_ID, VocLink, vocListTarget, vocTarget } from './fo/voc-links';
-export { FoDetailDrawer } from './fo/FoDetailDrawer';
+export { FeatureDetailDrawer } from './fo/FeatureDetailDrawer';
 export { operatorHostLinks } from './fo/operator-links';
 export {
   milestonesRoute, myTasksRoute, taskBoardRoute, taskListRoute, taskRequestsRoute, useMilestonesHere, useMilestonesSearch, useMyTasksHere, useMyTasksSearch,

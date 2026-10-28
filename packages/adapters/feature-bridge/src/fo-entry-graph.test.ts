@@ -57,7 +57,7 @@ function walk(entries: string[]) {
 const { files, specifiers, unresolved } = walk(ENTRIES);
 const reached = [...files.keys()].map(file => relative(FRONTEND_SRC, file));
 
-const EAGER_MODULES = ['notifications-slot.tsx', 'voc-compose-slot.tsx', 'home-todo-slot.tsx', 'scope-control.tsx', 'nav-counts.tsx', 'saved-views.tsx', 'fo/FoBridge.tsx', 'fo/session.ts'];
+const EAGER_MODULES = ['notifications-slot.tsx', 'voc-compose-slot.tsx', 'home-todo-slot.tsx', 'scope-control.tsx', 'nav-counts.tsx', 'saved-views.tsx', 'fo/FeatureBridge.tsx', 'fo/session.ts'];
 const FOPS_FRONTEND_IMPORT = /\bimport\s+(?!type\b)[^;]*?from\s*['"]@ap\/feature-screens/;
 const FULL_ENTRY_IMPORT = /\bimport\s+(?!type\b)[^;]*?from\s*['"]@ap\/feature-screens\/global-screens['"]/;
 

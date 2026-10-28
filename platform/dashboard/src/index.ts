@@ -11,7 +11,7 @@ export const manifests: MenuEntry[] = [
   {
     id: 'fo-dashboard', primary: true, group: groupId('foDashboard'), label: { ko: '대시보드', en: 'Dashboard' },
     description: { ko: '처리할 VOC·Task·권한 요청과 설문 현황', en: 'VOC, Task, permission request and survey work to handle' },
-    path: '/feedbackops', icon: ListTodo, permission: 'feedbackops:access', requiresScope: false, pageType: 'management',
+    path: '/feedbackops', icon: ListTodo, permission: 'features:access', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES, pageKeys: ['managedSystem', 'returnTo'],
     component: lazy(() => import('./pages/FoDashboard')),
   },

@@ -7,7 +7,7 @@ import { I18nProvider } from '../../i18n';
 import { PlatformProvider } from '../../platform/platform';
 import { testAdapter, testSession } from '../../testing';
 import { createRegistry as create, routeParamNames, RegistryError, type GroupDef, type MenuEntry, type ModuleMenuEntry, type PlatformMenuEntry } from '../registry';
-import { groupId, KERNEL_PERMISSIONS, menuPermission, spaceId, type SpaceDef } from '@ap/contracts';
+import { groupId, KERNEL_PERMISSIONS, menuPermission, menuPermissions, spaceId, type SpaceDef } from '@ap/contracts';
 
 /** The fixtures' menus use `metrics:view`, which the app (here: the test) declares. */
 const createRegistry = (input: Parameters<typeof create>[0]) => create({ permissions: [menuPermission('metrics:view')], ...input });
@@ -491,5 +491,43 @@ describe('menu conditionPresets (06 §6.4, ADR-0083)', () => {
     it('renders when every preset axis is declared', () => {
       expect(() => mountWith([...axes, { id: 'team', label: { ko: 'Team', en: 'Team' }, membershipHistory: false }], '/a')).not.toThrow();
     });
+  });
+});
+
+describe('menu additionalPermissions (AND with the primary permission)', () => {
+  const modGroup: GroupDef = { id: 'fx:main', module: 'fx', label: { ko: '모', en: 'M' }, icon: House, space: spaceId('mars') };
+  const modMenu = (over: Partial<ModuleMenuEntry> = {}): ModuleMenuEntry => ({
+    id: 'fx-home', module: 'fx', group: 'fx:main', permission: 'fx:view', label: { ko: 'f', en: 'f' }, description: { ko: '', en: '' }, path: '/fx', icon: House,
+    requiresScope: false, context: none, pageType: 'catalog', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [], primary: true,
+    moduleScreen: () => null, ...over,
+  });
+  const gated = (additionalPermissions: readonly unknown[]) => createRegistry({ spaces, groups, menus: [{ ...catalog, additionalPermissions: additionalPermissions as never }] });
+
+  it('accepts a declared and a kernel grant', () => {
+    expect(() => gated(['features:access'])).not.toThrow();
+  });
+  it.each([
+    ['an empty list', [], /non-empty/],
+    ['the primary repeated', ['metrics:view'], /listed twice/],
+    ['a duplicate entry', ['features:access', 'features:access'], /listed twice/],
+    ['an unknown grant', ['nobody:view'], /not a platform permission/],
+    ['a malformed grant', ['features access'], /not a platform permission/],
+    ['the retired grant', ['feedbackops:access'], /not a platform permission/],
+  ])('rejects %s', (_name, extra, message) => {
+    expect(() => gated(extra)).toThrow(message);
+  });
+  it('rejects any list on a module menu and keeps the module namespace check', () => {
+    expect(() => createRegistry({ spaces, groups: [...groups, modGroup], menus: [catalog, modMenu({ additionalPermissions: ['features:access'] })] })).toThrow(/cannot declare additionalPermissions/);
+    expect(() => createRegistry({ spaces, groups: [...groups, modGroup], menus: [catalog, modMenu({ permission: 'other:view' })] })).toThrow(/needs the "fx:" prefix/);
+    expect(() => createRegistry({ spaces, groups: [...groups, modGroup], menus: [catalog, modMenu()] })).not.toThrow();
+  });
+  it('menuPermissions lists the primary first, then the extras; a module menu is its single permission', () => {
+    expect(menuPermissions({ ...catalog, additionalPermissions: ['features:access'] })).toEqual(['metrics:view', 'features:access']);
+    expect(menuPermissions(modMenu())).toEqual(['fx:view']);
+  });
+  it('rejects the retired kernel permission literal', () => {
+    expect(KERNEL_PERMISSIONS).toContain('features:access');
+    expect(KERNEL_PERMISSIONS as readonly string[]).not.toContain('feedbackops:access');
+    expect(() => createRegistry({ spaces: [{ ...analyticsSpace, permission: 'feedbackops:access' as never }], groups, menus: [catalog] })).toThrow(/not a platform permission/);
   });
 });

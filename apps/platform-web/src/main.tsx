@@ -5,7 +5,7 @@ import './style.css';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createBasePathLocation, I18nProvider, PlatformProvider } from '@ap/kernel';
-import { setFoApi } from '@ap/feature-bridge/fo-api';
+import { setFeatureApi } from '@ap/feature-bridge/feature-api';
 import { homeTodoSlot } from '@ap/feature-bridge/home-todo-slot';
 import { navCountsSlot } from '@ap/feature-bridge/nav-counts';
 import { notificationsSlot } from '@ap/feature-bridge/notifications-slot';
@@ -42,7 +42,7 @@ void startOrFail(root, async () => {
     return;
   }
   // The bridge screens' FeedbackOps API comes from the assembly (ADR-0071); mock builds have none → "실서버 필요".
-  setFoApi(assembly.feedbackOpsApi ?? null);
+  setFeatureApi(assembly.featureApi ?? null);
   root.render(
     <StrictMode>
       <I18nProvider>

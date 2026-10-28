@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
-import { setFoApi } from '@ap/feature-bridge/fo-api';
+import { setFeatureApi } from '@ap/feature-bridge/feature-api';
 import { useHostSeam } from '@/lib/host/host-seam';
 import { mountAt, warmPages } from '../test-support';
 
@@ -75,7 +75,7 @@ beforeEach(() => {
   vi.stubGlobal('fetch', request);
   fo.list.length = 0; fo.detailArgs.length = 0; fo.builder.length = 0; fo.results.length = 0; fo.followUp.length = 0; fo.requestClose.mockReset(); request.mockReset();
 });
-afterEach(() => { cleanup(); setFoApi(null); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
+afterEach(() => { cleanup(); setFeatureApi(null); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
 describe('Survey 관리 without a FeedbackOps API (mock preview)', () => {
   it.each([
@@ -92,7 +92,7 @@ describe('Survey 관리 without a FeedbackOps API (mock preview)', () => {
 });
 
 describe('Survey 관리 through the FeedbackOps bridge', () => {
-  beforeEach(() => { setFoApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
+  beforeEach(() => { setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
 
   it('mounts the list reading the page as the FO /surveys path with the host owning the title, and gives the screen no detail node', async () => {
     mountAt(`${LIST}?area=${AREA}&status=open&follow_up=needed&managedSystem=${SYSTEM}`);
@@ -137,7 +137,7 @@ describe('Survey 관리 through the FeedbackOps bridge', () => {
 const REJECTED = [['status', 'closed'], ['follow_up', 'x'], ['area', 'x'], ['managedSystem', 'x'], ['focus', 'not-a-uuid']] as const;
 
 describe('Survey 관리 with an invalid address value', () => {
-  beforeEach(() => { setFoApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
+  beforeEach(() => { setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
 
   it.each(REJECTED)('rejects an invalid %s=%s, keeps the address and requests nothing', async (key, value) => {
     const search = `?${key}=${encodeURIComponent(value)}`;
@@ -152,7 +152,7 @@ describe('Survey 관리 with an invalid address value', () => {
 });
 
 describe('the hidden Survey screens', () => {
-  beforeEach(() => { setFoApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
+  beforeEach(() => { setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
 
   it('mounts the builder reading the page as /surveys/<id>?builder=true with the list scope', async () => {
     mountAt(`${child('fo-survey-builder', SURVEY_A)}?status=open&managedSystem=${SYSTEM}`);

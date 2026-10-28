@@ -2,8 +2,8 @@ import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/re
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
-import { setFoApi } from '@ap/feature-bridge/fo-api';
-import { foQueryClient } from '@ap/feature-bridge';
+import { setFeatureApi } from '@ap/feature-bridge/feature-api';
+import { featureQueryClient } from '@ap/feature-bridge';
 import { ID_A, ID_B, json, mountAt, stubFetch, switchableAdapter, type Call } from '../fo/test-support';
 
 const origin = () => window.location.origin;
@@ -51,8 +51,8 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
-  foQueryClient.clear();
-  setFoApi(null);
+  featureQueryClient.clear();
+  setFeatureApi(null);
   vi.unstubAllGlobals();
   window.history.replaceState(null, '', '/');
 });
@@ -64,7 +64,7 @@ describe('Surveys without a FeedbackOps API (mock preview) — S1', () => {
     [`/surveys/${ID_A}/respond?v=1`, '설문 응답'], // legacy alias
     [`${RESPOND}?v=1`, '설문 응답'],
   ])('%s shows %s and 실서버 필요 and requests nothing', async (url, heading) => {
-    setFoApi(null);
+    setFeatureApi(null);
     const calls = surveyFetch();
     mountAt(switchableAdapter().adapter, url);
     expect(await screen.findByRole('heading', { name: heading })).toBeTruthy();
@@ -75,7 +75,7 @@ describe('Surveys without a FeedbackOps API (mock preview) — S1', () => {
 
 describe('Surveys through the FeedbackOps bridge', () => {
   const onSessionLost = vi.fn();
-  beforeEach(() => { onSessionLost.mockReset(); setFoApi({ basePath: '/api/fo', onSessionLost }); });
+  beforeEach(() => { onSessionLost.mockReset(); setFeatureApi({ basePath: '/api/fo', onSessionLost }); });
 
   it('S2: lists answerable surveys, links to the platform respond page with a returnTo, and opens the form', async () => {
     const calls = surveyFetch();

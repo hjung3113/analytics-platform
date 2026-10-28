@@ -6,7 +6,7 @@ import { I18nProvider, PlatformProvider, createRegistry, useDrill, usePlatform, 
 import { PlatformPage } from '../PlatformPage';
 import { DrillLayout, ReturnLink } from '../DrillLayout';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace , useToastsForTest } from '@ap/kernel/testing';
-import { groupId, spaceId } from '@ap/contracts';
+import { groupId, menuPermissions, spaceId } from '@ap/contracts';
 
 const features = { export: false, savedView: false, annotate: false, compare: false };
 const keys = ['drillRoom', 'drillStgroup', 'drillLine', 'drillEquipment'] as const;
@@ -389,7 +389,7 @@ it.each(['defaults', 'metric defaults', 'other navigation', 'history', 'denied']
       <button onClick={() => navigate('/mars/plain?v=1')}>other navigation</button>
       <button onClick={() => navigate(target)}>revisit</button>
       {route?.menu.id === 'detail' ? <PlatformPage key="detail"><ReturnLink /></PlatformPage>
-        : ready && can(route!.menu.permission) ? <PlatformPage key={route!.menu.id}>destination</PlatformPage> : null}</>;
+        : ready && menuPermissions(route!.menu).every(can) ? <PlatformPage key={route!.menu.id}>destination</PlatformPage> : null}</>;
   }
   // A denied route must cancel even while no PlatformPage can consume the request.
   const deniedSession = testSession([]);

@@ -1,8 +1,8 @@
 import { lazy, Suspense, type ComponentType } from 'react';
 import { spaceId } from '@ap/contracts';
 import { useI18n, type SpaceNavSectionSlot } from '@ap/kernel';
-import { foApi } from './fo-api';
-import { useFoSession } from './fo/session';
+import { featureApi } from './feature-api';
+import { useFeatureSession } from './fo/session';
 
 const FEEDBACKOPS = spaceId('feedbackops');
 
@@ -19,11 +19,11 @@ function Muted({ text }: { text: string }) {
  */
 function Body() {
   const { lang } = useI18n();
-  const session = useFoSession();
+  const session = useFeatureSession();
   const ko = lang === 'ko';
   const loading = <Muted text={ko ? '불러오는 중…' : 'Loading…'} />;
-  if (foApi() === null) return <Muted text={ko ? '실서버 필요' : 'Live server required'} />;
-  // The same wording `FoBridge` shows when the session is lost.
+  if (featureApi() === null) return <Muted text={ko ? '실서버 필요' : 'Live server required'} />;
+  // The same wording `FeatureBridge` shows when the session is lost.
   if (session.status === 'retired') return <Muted text={ko ? '세션이 만료되었습니다' : 'Your session has expired'} />;
   if (session.status !== 'ready') return loading;
   return <Suspense fallback={loading}><SavedViews /></Suspense>;

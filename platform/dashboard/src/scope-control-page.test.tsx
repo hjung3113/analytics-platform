@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { groupId, spaceId } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { memoryStorage, testAdapter, testSession } from '@ap/kernel/testing';
-import { setFoApi } from '@ap/feature-bridge/fo-api';
+import { setFeatureApi } from '@ap/feature-bridge/feature-api';
 import { scopeControlSlot } from '@ap/feature-bridge/scope-control';
 import { manifests } from './index';
 import { mountAt } from './test-support';
@@ -16,8 +16,8 @@ vi.mock('@ap/feature-screens/operator-screens/scope-picker', () => ({
 
 const SYSTEM = '33333333-3333-4333-8333-333333333333';
 
-beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); picker.props.length = 0; setFoApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
-afterEach(() => { cleanup(); setFoApi(null); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
+beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); picker.props.length = 0; setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
+afterEach(() => { cleanup(); setFeatureApi(null); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
 describe('목록 범위 picker (ready session)', () => {
   const Control = scopeControlSlot.For(spaceId('feedbackops'))!;
@@ -43,11 +43,11 @@ describe('scope change (FO parity, #762 k)', () => {
   const FOCUS = '55555555-5555-4555-8555-555555555555';
   const probe = (id: string, path: string, pageKeys: string[]) => ({ ...manifests[0]!, id, primary: false, path, pageKeys });
   const registry = createRegistry({
-    spaces: [{ id: spaceId('feedbackops'), label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'feedbackops:access', carriedPageKeys: ['managedSystem', 'returnTo'], homeMenuId: 'fo-dashboard' }],
+    spaces: [{ id: spaceId('feedbackops'), label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'features:access', carriedPageKeys: ['managedSystem', 'returnTo'], homeMenuId: 'fo-dashboard' }],
     groups: [{ id: groupId('foDashboard'), label: { ko: '대시보드', en: 'Dashboard' }, icon: ListTodo, space: spaceId('feedbackops') }],
     menus: [...manifests, probe('probe-area', '/feedbackops/probe-area', ['focus', 'managedSystem', 'area', 'returnTo']), probe('probe-cursor', '/feedbackops/probe-cursor', ['focus', 'managedSystem', 'cursor', 'returnTo'])],
   });
-  const session = testSession(['platform:view', 'feedbackops:access'], { user: { id: 'admin', name: 'admin', title: { ko: 'admin', en: 'admin' } } });
+  const session = testSession(['platform:view', 'features:access'], { user: { id: 'admin', name: 'admin', title: { ko: 'admin', en: 'admin' } } });
   const Control = scopeControlSlot.For(spaceId('feedbackops'))!;
 
   it.each<[string, string, string | undefined, Record<string, string | null>]>([
@@ -83,11 +83,11 @@ describe('관리자 group turns 목록 범위 off (#764 k, ADR-0081 d4)', () => 
   const S1 = '11111111-1111-4111-8111-111111111111';
   const probe = (id: string, path: string, group: string) => ({ ...manifests[0]!, id, primary: true, path, group: groupId(group), pageKeys: ['focus', 'managedSystem', 'returnTo'] }) as (typeof manifests)[number];
   const registry = createRegistry({
-    spaces: [{ id: spaceId('feedbackops'), label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'feedbackops:access', carriedPageKeys: ['managedSystem', 'returnTo'], homeMenuId: 'fo-dashboard' }],
+    spaces: [{ id: spaceId('feedbackops'), label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'features:access', carriedPageKeys: ['managedSystem', 'returnTo'], homeMenuId: 'fo-dashboard' }],
     groups: ['foDashboard', 'foAdmin', 'foVoc'].map(id => ({ id: groupId(id), label: { ko: id, en: id }, icon: ListTodo, space: spaceId('feedbackops') })),
     menus: [...manifests, probe('probe-admin', '/feedbackops/probe-admin', 'foAdmin'), probe('probe-voc', '/feedbackops/probe-voc', 'foVoc')],
   });
-  const session = testSession(['platform:view', 'feedbackops:access'], { user: { id: 'admin', name: 'admin', title: { ko: 'admin', en: 'admin' } } });
+  const session = testSession(['platform:view', 'features:access'], { user: { id: 'admin', name: 'admin', title: { ko: 'admin', en: 'admin' } } });
   const Control = scopeControlSlot.For(spaceId('feedbackops'))!;
   const mount = async (path: string) => {
     window.history.replaceState(null, '', `${path}?managedSystem=${S1}`);

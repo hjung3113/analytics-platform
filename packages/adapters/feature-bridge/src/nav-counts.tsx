@@ -4,7 +4,7 @@ import { spaceId } from '@ap/contracts';
 import { usePlatform, type NavCountsSlot } from '@ap/kernel';
 import { fetchNavCounts } from '@/lib/api/nav';
 import { NAV_COUNTS_QUERY_KEY } from '@/lib/query/navCounts';
-import { foQueryClient, useFoSession } from './fo/session';
+import { featureQueryClient, useFeatureSession } from './fo/session';
 
 const FEEDBACKOPS = spaceId('feedbackops');
 const SCOPE_KEY = 'managedSystem';
@@ -39,14 +39,14 @@ function toSlotCounts(counts: Readonly<Record<string, number | undefined>>): Rec
  * `retry: false` matches the FeedbackOps screens' observers of this key.
  */
 function useNavCounts(managedSystem: string | null): Record<string, number> | null {
-  const session = useFoSession();
+  const session = useFeatureSession();
   const scope = managedSystem ?? undefined;
   const { data, isError } = useQuery({
     queryKey: [...NAV_COUNTS_QUERY_KEY, scope] as const,
     queryFn: ({ signal }) => fetchNavCounts({ ...(scope !== undefined ? { managedSystemId: scope } : {}), signal }),
     enabled: session.status === 'ready',
     retry: false,
-  }, foQueryClient);
+  }, featureQueryClient);
   return session.status === 'ready' && !isError && data !== undefined ? toSlotCounts(data.counts) : null;
 }
 

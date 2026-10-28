@@ -6,8 +6,8 @@ import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { groupId, spaceId } from '@ap/contracts';
 import { useHostSearch } from '@/lib/host/host-seam';
-import { setFoApi } from '../fo-api';
-import { FoScreenPage } from './FoScreenPage';
+import { setFeatureApi } from '../feature-api';
+import { FeatureScreenPage } from './FeatureScreenPage';
 import { operatorRoute, routeHere, routeSearch } from './operator-route';
 
 const route = operatorRoute({ foPath: '/vocs', foFixed: { view: 'inbox' }, menuId: 'fo-inbox', keys: { selected: 'focus', managedSystem: 'managedSystem' } });
@@ -28,7 +28,7 @@ const session = testSession(['platform:view']);
 const adapter = testAdapter({ session: () => session });
 
 const mounted = vi.fn();
-/** Reads the seam's search from inside `FoBridge`, so it renders only where the bridge does. */
+/** Reads the seam's search from inside `FeatureBridge`, so it renders only where the bridge does. */
 function Screen({ label }: { label: string }) {
   const search = useHostSearch();
   mounted(label);
@@ -36,14 +36,14 @@ function Screen({ label }: { label: string }) {
 }
 const page = (isValid: (key: string, value: string) => boolean, detail?: ReactNode) =>
   <I18nProvider><PlatformProvider adapter={adapter} registry={registry}>
-    <FoScreenPage route={route} isValid={isValid} useSearch={useSearch} useHere={useHere} detail={detail}><Screen label="screen" /></FoScreenPage>
+    <FeatureScreenPage route={route} isValid={isValid} useSearch={useSearch} useHere={useHere} detail={detail}><Screen label="screen" /></FeatureScreenPage>
   </PlatformProvider></I18nProvider>;
 
-beforeEach(() => { setFoApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); mounted.mockClear(); });
-afterEach(() => { cleanup(); setFoApi(null); window.history.replaceState(null, '', '/'); });
+beforeEach(() => { setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); mounted.mockClear(); });
+afterEach(() => { cleanup(); setFeatureApi(null); window.history.replaceState(null, '', '/'); });
 
-describe('FoScreenPage', () => {
-  it('draws RejectedPage for a refused value: nothing inside FoBridge mounts and the address is kept', async () => {
+describe('FeatureScreenPage', () => {
+  it('draws RejectedPage for a refused value: nothing inside FeatureBridge mounts and the address is kept', async () => {
     window.history.replaceState(null, '', '/mars/fo-inbox?v=1&focus=bad');
     const url = window.location.href;
     render(page(() => false, <Screen label="detail" />));
@@ -52,7 +52,7 @@ describe('FoScreenPage', () => {
     expect(window.location.href).toBe(url);
   });
 
-  it('draws the screen and the detail inside FoBridge for an accepted value', async () => {
+  it('draws the screen and the detail inside FeatureBridge for an accepted value', async () => {
     window.history.replaceState(null, '', '/inbox?v=1&focus=ok');
     render(page(() => true, <Screen label="detail" />));
     expect(await screen.findByText(/^screen/)).toBeTruthy();

@@ -8,8 +8,8 @@ import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { memoryStorage, testAdapter, testSession } from '@ap/kernel/testing';
 import { fetchNavCounts } from '@/lib/api/nav';
 import { NAV_COUNTS_QUERY_KEY, invalidateNavCounts } from '@/lib/query/navCounts';
-import { setFoApi } from './fo-api';
-import { foQueryClient } from './fo/session';
+import { setFeatureApi } from './feature-api';
+import { featureQueryClient } from './fo/session';
 import { navCountsSlot } from './nav-counts';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -18,31 +18,31 @@ const SPACE = spaceId('feedbackops');
 const GROUP = groupId('foVoc');
 const Counts = navCountsSlot.For(SPACE)!;
 const registry = createRegistry({
-  spaces: [{ id: SPACE, label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'feedbackops:access', carriedPageKeys: ['managedSystem'], homeMenuId: 'fo-inbox' }],
+  spaces: [{ id: SPACE, label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, description: { ko: '목적', en: 'Purpose' }, permission: 'features:access', carriedPageKeys: ['managedSystem'], homeMenuId: 'fo-inbox' }],
   groups: [{ id: GROUP, label: { ko: 'VOC', en: 'VOC' }, icon: Inbox, space: SPACE }],
   menus: [{
     id: 'fo-inbox', primary: true, group: GROUP, label: { ko: '수신함', en: 'Inbox' }, description: { ko: '수신함', en: 'Inbox' },
-    path: '/feedbackops/vocs', icon: Inbox, permission: 'feedbackops:access', requiresScope: false, pageType: 'management',
+    path: '/feedbackops/vocs', icon: Inbox, permission: 'features:access', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES, pageKeys: ['managedSystem'], component: lazy(async () => ({ default: () => null })),
   }],
 });
 
 /** What a FeedbackOps screen does (TriageScreen): an active observer of the same key on the shared client. */
 function ScreenObserver() {
-  useQuery({ queryKey: [...NAV_COUNTS_QUERY_KEY, undefined] as const, queryFn: ({ signal }) => fetchNavCounts({ signal }), retry: false }, foQueryClient);
+  useQuery({ queryKey: [...NAV_COUNTS_QUERY_KEY, undefined] as const, queryFn: ({ signal }) => fetchNavCounts({ signal }), retry: false }, featureQueryClient);
   return null;
 }
 
 let root: Root | null = null;
 let host: HTMLElement | null = null;
 
-beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); foQueryClient.clear(); setFoApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
+beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); featureQueryClient.clear(); setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
 afterEach(() => {
   act(() => { root?.unmount(); });
   host?.remove();
   root = null;
   host = null;
-  setFoApi(null);
+  setFeatureApi(null);
   vi.unstubAllGlobals();
   window.history.replaceState(null, '', '/');
 });
@@ -57,7 +57,7 @@ describe('navCounts slot with an active FeedbackOps observer on the same key', (
     }));
     const seen: Array<Record<string, number> | null> = [];
     window.history.replaceState(null, '', '/feedbackops/vocs');
-    const session = testSession(['platform:view', 'feedbackops:access'], { user: { id: 'admin', name: 'admin', title: { ko: 'admin', en: 'admin' } } });
+    const session = testSession(['platform:view', 'features:access'], { user: { id: 'admin', name: 'admin', title: { ko: 'admin', en: 'admin' } } });
     host = document.createElement('div');
     document.body.append(host);
     root = createRoot(host);
@@ -76,7 +76,7 @@ describe('navCounts slot with an active FeedbackOps observer on the same key', (
     expect(calls).toEqual(['/api/fo/nav/counts']);
     n = 2;
     seen.length = 0;
-    await act(async () => { invalidateNavCounts(foQueryClient); });
+    await act(async () => { invalidateNavCounts(featureQueryClient); });
     await act(async () => { await vi.waitFor(() => expect(text()).toBe('{"fo-inbox":2}')); });
     expect(seen.filter(counts => counts === null)).toEqual([]);
     expect(calls).toEqual(['/api/fo/nav/counts', '/api/fo/nav/counts']);
@@ -85,7 +85,7 @@ describe('navCounts slot with an active FeedbackOps observer on the same key', (
   it('maps surveys.all to the Survey 관리 menu (fo-surveys), next to findings.all', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ counts: { 'findings.all': 3, 'surveys.all': 7 } }), { status: 200, headers: { 'content-type': 'application/json' } })));
     window.history.replaceState(null, '', '/feedbackops/vocs');
-    const session = testSession(['platform:view', 'feedbackops:access'], { user: { id: 'admin', name: 'admin', title: { ko: 'admin', en: 'admin' } } });
+    const session = testSession(['platform:view', 'features:access'], { user: { id: 'admin', name: 'admin', title: { ko: 'admin', en: 'admin' } } });
     host = document.createElement('div');
     document.body.append(host);
     root = createRoot(host);

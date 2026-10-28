@@ -27,7 +27,7 @@ describe('연동 manifests', () => {
     // `returnTo` is navigation state the FO space carries (#760), not a route-table filter key.
     const menu = byId(id);
     expect([...menu.pageKeys!].sort()).toEqual([...route.pageKeys, 'returnTo'].sort());
-    expect(menu).toMatchObject({ permission: 'feedbackops:access', requiresScope: false, pageType: 'management' });
+    expect(menu).toMatchObject({ permission: 'features:access', requiresScope: false, pageType: 'management' });
     expect(menu.navViews).toBeUndefined();
   });
 

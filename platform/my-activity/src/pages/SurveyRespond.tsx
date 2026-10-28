@@ -2,7 +2,7 @@ import { SearchX } from 'lucide-react';
 import { useI18n, usePlatform, type PageProps } from '@ap/kernel';
 import { PlatformPage, ReturnLink, StateMessage } from '@ap/components';
 import { RespondSurveyScreen } from '@ap/feature-screens/global-screens';
-import { FoBridge, canSurveyLink, SURVEY_ID, SurveyLink } from '@ap/feature-bridge';
+import { FeatureBridge, canSurveyLink, SURVEY_ID, SurveyLink } from '@ap/feature-bridge';
 
 /**
  * 설문 응답 (ADR-0070 decision 6, ADR-0071): one FeedbackOps respond form through the bridge. The survey ID is a path segment, so a
@@ -22,6 +22,6 @@ export default function SurveyRespond({ params }: PageProps) {
     </PlatformPage>;
   }
   return <PlatformPage secondaryActions={pageParam('returnTo') !== null ? <ReturnLink /> : undefined}>
-    <FoBridge canLink={canSurveyLink} Link={SurveyLink}><RespondSurveyScreen surveyId={surveyId} variant="embedded" /></FoBridge>
+    <FeatureBridge canLink={canSurveyLink} Link={SurveyLink}><RespondSurveyScreen surveyId={surveyId} variant="embedded" /></FeatureBridge>
   </PlatformPage>;
 }

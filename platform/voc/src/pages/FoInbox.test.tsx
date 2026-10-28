@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
-import { setFoApi } from '@ap/feature-bridge/fo-api';
+import { setFeatureApi } from '@ap/feature-bridge/feature-api';
 import { inboxRoute, triageRoute } from '@ap/feature-bridge';
 import { useHostSeam } from '@/lib/host/host-seam';
 import { manifests } from '../index';
@@ -42,14 +42,14 @@ const VOC_Z = 'a1821f1b-0000-4000-8000-00000000000f';
 
 beforeAll(warmPages, 60_000);
 beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); fo.inboxProps.length = 0; fo.detailArgs.length = 0; fo.requestClose.mockReset(); fo.mounts = 0; });
-afterEach(() => { cleanup(); setFoApi(null); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
+afterEach(() => { cleanup(); setFeatureApi(null); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
 describe('수신함 manifest', () => {
   it('declares the route table page keys, managedSystem included, and the permission of the space', () => {
     const inbox = manifests.find(menu => menu.id === 'fo-inbox')!;
     // `returnTo` is navigation state the FO space carries (#760), not a route-table filter key.
     expect([...inbox.pageKeys!].sort()).toEqual([...inboxRoute.pageKeys, 'returnTo'].sort());
-    expect(inbox).toMatchObject({ path: '/feedbackops/vocs', permission: 'feedbackops:access', requiresScope: false, label: { ko: '수신함', en: 'Inbox' } });
+    expect(inbox).toMatchObject({ path: '/feedbackops/vocs', permission: 'features:access', requiresScope: false, label: { ko: '수신함', en: 'Inbox' } });
     const triage = manifests.find(menu => menu.id === 'fo-triage')!;
     expect([...triage.pageKeys!].sort()).toEqual([...triageRoute.pageKeys, 'returnTo'].sort());
   });
@@ -66,7 +66,7 @@ describe('수신함 without a FeedbackOps API (mock preview)', () => {
 });
 
 describe('수신함 through the FeedbackOps bridge', () => {
-  beforeEach(() => { setFoApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
+  beforeEach(() => { setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
 
   it('renders the inbox view with the page read as the FO path, and links 수신함/Triage but not other routes', async () => {
     mountAt(`/feedbackops/vocs?q=pump&tab=unassigned&managedSystem=${SYSTEM}`);

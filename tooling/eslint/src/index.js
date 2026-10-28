@@ -58,20 +58,20 @@ const escapeRegex = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const devRegex = (devAllow = []) =>
   devAllow.length === 0 ? DEV_REGEX : `^(?!(?:${devAllow.map(escapeRegex).join('|')})$)${DEV_REGEX.slice(1)}`;
 
-// Menu subpaths: the FeedbackOps origin slot is src/main.tsx ONLY, and so are the feature-bridge package slot subpaths (the FO API slot fo-api and the notifications, VOC compose and home todo slots); each menu's exact `/mock` export is
+// Menu subpaths: the FeedbackOps origin slot is src/main.tsx ONLY, and so are the feature-bridge package slot subpaths (the FO API slot feature-api and the notifications, VOC compose and home todo slots); each menu's exact `/mock` export is
 // src/dev/** only. Every other menu subpath and any `*/src` import stays banned.
 // NOTE: the gitignore-style `*` in `menu-*/mock` also matches an empty name (no way to say
 // "one or more" here), so a `menu-/mock` source is not rejected on this side; the dynamic-import
 // side (import-source.js) uses `[^/]+` for the same pattern.
 const MENU_MOCK_SUBPATH = 'menu-*/mock';
-const FO_API_SUBPATH = 'feature-bridge/fo-api';
+const FO_API_SUBPATH = 'feature-bridge/feature-api';
 const NOTIFICATIONS_SLOT_SUBPATH = 'feature-bridge/notifications-slot';
 const VOC_COMPOSE_SLOT_SUBPATH = 'feature-bridge/voc-compose-slot';
 const HOME_TODO_SLOT_SUBPATH = 'feature-bridge/home-todo-slot';
 const SCOPE_CONTROL_SLOT_SUBPATH = 'feature-bridge/scope-control';
 const NAV_COUNTS_SLOT_SUBPATH = 'feature-bridge/nav-counts';
 const SAVED_VIEWS_SLOT_SUBPATH = 'feature-bridge/saved-views';
-// The feature-bridge menu test harness (`createFoMenuHarness`) subpath: test-only like `kernel/testing`, so only bridge-menu test files import it (FO_BRIDGE_TEST_SUBPATHS).
+// The feature-bridge menu test harness (`createFeatureMenuHarness`) subpath: test-only like `kernel/testing`, so only bridge-menu test files import it (FO_BRIDGE_TEST_SUBPATHS).
 const FO_BRIDGE_TESTING_SUBPATH = 'feature-bridge/testing';
 // Rule 8 exception (platform ADR-0071, ADR-0081): a bridge menu imports exactly these entries (the screen barrel, its eager-code subset `/core`,
 // the lazy notifications panel entry `/inbox-panel`, and the operator dashboard and VOC entries); no other feature package entry. the feature-bridge package imports `/core` only (FO_BRIDGE_PACKAGE_ENTRIES)

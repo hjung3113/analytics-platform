@@ -51,7 +51,7 @@ export const entityLinksRoute = operatorRoute({
   foAbsent: SCOPE_ALL,
 });
 
-/** Module-level hooks: `FoBridge` memoizes its seam on their identities. */
+/** Module-level hooks: `FeatureBridge` memoizes its seam on their identities. */
 export const useIntegrationDashboardSearch = routeSearch(integrationDashboardRoute);
 export const useIntegrationDashboardHere = routeHere(integrationDashboardRoute);
 export const useEvidenceSearch = routeSearch(evidenceRoute);

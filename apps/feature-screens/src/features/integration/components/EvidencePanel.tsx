@@ -18,7 +18,7 @@ export type EvidencePanelProps = {
   onRetry: () => void;
 };
 
-/** The panel as parts a host places: the standalone frames them in its detail slot, the bridge in `FoDetailDrawer`. */
+/** The panel as parts a host places: the standalone frames them in its detail slot, the bridge in `FeatureDetailDrawer`. */
 export function buildEvidencePanelParts(props: EvidencePanelProps): ClosableDetailParts {
   return { title: COPY.title, body: <EvidencePanelBody {...props} />, requestClose: props.onClose };
 }

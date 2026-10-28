@@ -3,7 +3,7 @@ import type { ReactElement, ReactNode } from 'react';
 
 import { type HostSeam, HostSeamProvider } from '@/lib/host/host-seam';
 
-export function FoScreenRoot({
+export function FeatureScreenRoot({
   client,
   host,
   children,

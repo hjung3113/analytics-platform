@@ -87,7 +87,7 @@ export const SPACES = [
   { id: spaceId('log-dev'), label: { ko: '표준 로그 개발', en: 'Standard log development' }, description: { ko: '설비 모델별 로그 개발 단계와 검증을 관리합니다.', en: 'Manage log development stages and validation per equipment model.' }, homeMenuId: 'log-my-queue' },
   { id: spaceId('improvement'), label: { ko: '개선 실행', en: 'Improvement execution' }, description: { ko: '개선 과제의 현장 적용과 효과를 관리합니다.', en: 'Manage field application and effect of improvement tasks.' }, homeMenuId: 'imp-my-tasks' },
   { id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations console' }, description: { ko: '권한·감사·메뉴 활용률을 운영합니다.', en: 'Operate permissions, audit, and menu usage.' }, permission: 'console:access', homeMenuId: 'admin-roles' },
-  { id: spaceId('feedbackops'), label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, subtitle: { ko: '피드백 운영', en: 'Feedback operations' }, description: { ko: 'VOC 접수부터 Finding·Task 실행까지 운영합니다.', en: 'Operate from VOC intake to Finding and Task execution.' }, permission: 'feedbackops:access', carriedPageKeys: ['managedSystem', 'returnTo'], homeMenuId: 'fo-dashboard' },
+  { id: spaceId('feedbackops'), label: { ko: 'FeedbackOps', en: 'FeedbackOps' }, subtitle: { ko: '피드백 운영', en: 'Feedback operations' }, description: { ko: 'VOC 접수부터 Finding·Task 실행까지 운영합니다.', en: 'Operate from VOC intake to Finding and Task execution.' }, permission: 'features:access', carriedPageKeys: ['managedSystem', 'returnTo'], homeMenuId: 'fo-dashboard' },
 ] satisfies readonly SpaceDef[];
 
 export const MENUS: MenuEntry[] = [

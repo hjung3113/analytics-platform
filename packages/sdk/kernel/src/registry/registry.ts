@@ -1,6 +1,6 @@
 import type { ComponentType, LazyExoticComponent } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import { GLOBAL_KEYS, KERNEL_PERMISSIONS, isAppRelativePath, parseQuery, requiredContextError, RETURN_TO_KEY, type ContextKey, type GroupId, type HostFeature, type MenuMeta, type MenuPermission, type ModuleScopedId, type ModuleScreenProps, type PageType, type Permission, type SpaceDef, type SpaceId, type Text } from '@ap/contracts';
+import { GLOBAL_KEYS, KERNEL_PERMISSIONS, isAppRelativePath, parseQuery, requiredContextError, RETURN_TO_KEY, menuPermissions, type ContextKey, type GroupId, type HostFeature, type MenuMeta, type MenuPermission, type ModuleScopedId, type ModuleScreenProps, type PageType, type Permission, type SpaceDef, type SpaceId, type Text } from '@ap/contracts';
 
 /** docs/06 §5: menus declare, the shell consumes. Metadata lives in @ap/contracts; this adds the React bindings. */
 export type PageProps = { params: Record<string, string> };
@@ -187,6 +187,16 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
       if (!m.permission.startsWith(`${m.module}:`)) fail(`Menu "${m.id}" of module "${m.module}" permission "${m.permission}" needs the "${m.module}:" prefix`);
       if (isPlatformPermission(m.permission)) fail(`Menu "${m.id}" of module "${m.module}" permission "${m.permission}" is a reserved platform permission`);
       if (reserved.has(m.module)) fail(`Menu "${m.id}" module "${m.module}" is a reserved platform namespace`);
+    }
+    if (m.additionalPermissions !== undefined) {
+      if (m.module !== undefined) fail(`Menu "${m.id}" of module "${m.module}" cannot declare additionalPermissions (one permission per module menu, ADR-0053)`);
+      if (!Array.isArray(m.additionalPermissions) || m.additionalPermissions.length === 0) fail(`Menu "${m.id}" additionalPermissions must be a non-empty list`);
+      const needed = new Set<string>();
+      for (const extra of menuPermissions(m)) {
+        if (!isPermissionShape(extra) || !isPlatformPermission(extra)) fail(`Menu "${m.id}" additional permission "${String(extra)}" is not a platform permission (kernel or declared)`);
+        if (needed.has(extra)) fail(`Menu "${m.id}" permission "${extra}" is listed twice`);
+        needed.add(extra);
+      }
     }
     if (groupOwner.get(m.group) !== m.module) fail(`Menu "${m.id}" and its group "${m.group}" belong to different modules`);
     if (m.parent !== undefined) {

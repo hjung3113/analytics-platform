@@ -1,9 +1,9 @@
 /** Fixtures shared by the Task page tests. */
 import { ClipboardList } from 'lucide-react';
-import { createFoMenuHarness } from '@ap/feature-bridge/testing';
+import { createFeatureMenuHarness } from '@ap/feature-bridge/testing';
 import { manifests } from './index';
 
-export const { registry, mountAt } = createFoMenuHarness({ manifests, homeMenuId: 'fo-tasks', group: { id: 'foTasks', label: { ko: 'Tasks', en: 'Tasks' }, icon: ClipboardList } });
+export const { registry, mountAt } = createFeatureMenuHarness({ manifests, homeMenuId: 'fo-tasks', group: { id: 'foTasks', label: { ko: 'Tasks', en: 'Tasks' }, icon: ClipboardList } });
 
 /**
  * Loads the lazy page modules (and the FeedbackOps screens behind them) before a file's first mount: a cold import can take

@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { mainHeading, query, signInAs } from './support';
 
 /**
- * FeedbackOps › 연동 (#762 p2): 연동 액션 대시보드, Evidence, 엔티티 링크 and 커버리지 as bridge menus. The e2e run uses the mock adapter, where `FoBridge` renders only `실서버 필요`,
+ * FeedbackOps › 연동 (#762 p2): 연동 액션 대시보드, Evidence, 엔티티 링크 and 커버리지 as bridge menus. The e2e run uses the mock adapter, where `FeatureBridge` renders only `실서버 필요`,
  * so no screen or drawer mounts here; the in-place drawers are covered by the page tests and the conductor's real-server check.
  */
 const EVIDENCE = '99999999-9999-4999-8999-999999999999';

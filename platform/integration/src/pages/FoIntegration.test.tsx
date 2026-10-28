@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { cleanup, fireEvent, screen, within } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
-import { setFoApi } from '@ap/feature-bridge/fo-api';
+import { setFeatureApi } from '@ap/feature-bridge/feature-api';
 import { useHostSeam } from '@/lib/host/host-seam';
 import { mountAt, warmPages } from '../test-support';
 
@@ -56,7 +56,7 @@ beforeEach(() => {
   vi.stubGlobal('fetch', request);
   fo.dashboard.length = 0; fo.evidence.length = 0; fo.coverage = 0; fo.links = 0; fo.requestClose.mockReset(); request.mockReset();
 });
-afterEach(() => { cleanup(); setFoApi(null); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
+afterEach(() => { cleanup(); setFeatureApi(null); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
 describe.each([
   ['/feedbackops/integration', '연동 액션 대시보드', 'dashboard'],
@@ -73,7 +73,7 @@ describe.each([
 });
 
 describe('연동 액션 대시보드 through the FeedbackOps bridge', () => {
-  beforeEach(() => { setFoApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
+  beforeEach(() => { setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
 
   it('mounts the screen reading the page as the FO /integration path and passes the standalone request-access renderer', async () => {
     mountAt(`/feedbackops/integration?category=unassigned-voc&history=true&managedSystem=${SYSTEM}`);
@@ -97,7 +97,7 @@ describe('연동 액션 대시보드 through the FeedbackOps bridge', () => {
 });
 
 describe('Evidence through the FeedbackOps bridge', () => {
-  beforeEach(() => { setFoApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
+  beforeEach(() => { setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
 
   it('mounts the screen reading the page as the FO /integration/evidence path', async () => {
     mountAt(`/feedbackops/evidence?source=voc&q=pump&managedSystem=${SYSTEM}`);
@@ -119,7 +119,7 @@ describe('Evidence through the FeedbackOps bridge', () => {
 });
 
 describe('커버리지 and 엔티티 링크 through the FeedbackOps bridge', () => {
-  beforeEach(() => { setFoApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
+  beforeEach(() => { setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
 
   it('mounts Coverage reading view and area as the FO /integration/coverage path, with no drawer', async () => {
     mountAt(`/feedbackops/coverage?view=areas&managedSystem=${SYSTEM}`);
@@ -157,7 +157,7 @@ const REJECTED = [
 ] as const;
 
 describe('연동 pages with an invalid address value', () => {
-  beforeEach(() => { setFoApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
+  beforeEach(() => { setFeatureApi({ basePath: '/api/fo', onSessionLost: vi.fn() }); });
 
   it.each(REJECTED)('%s rejects %s=%s, keeps the address and mounts no screen', async (path, key, value, testId) => {
     const search = `?${key}=${encodeURIComponent(value)}`;

@@ -3,7 +3,7 @@ import { mainHeading, query, signInAs } from './support';
 import { PRODUCTIVITY } from './contract-helpers';
 
 /**
- * FeedbackOps › Surveys (#764 p1): Survey 관리 and its hidden builder, results and follow-up screens as bridge menus. The e2e run uses the mock adapter, where `FoBridge` renders only `실서버 필요`,
+ * FeedbackOps › Surveys (#764 p1): Survey 관리 and its hidden builder, results and follow-up screens as bridge menus. The e2e run uses the mock adapter, where `FeatureBridge` renders only `실서버 필요`,
  * so no screen or drawer mounts here; the in-place drawer and the child screens are covered by the page tests and the conductor's real-server check.
  */
 const SURVEY = '99999999-9999-4999-8999-999999999999';

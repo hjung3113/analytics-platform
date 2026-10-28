@@ -75,13 +75,14 @@ function groupCapabilities(g: GroupRecord, a: Actor): GroupCapabilities {
 
 /** The only place scope, menu permission and sharing are judged; every read goes through it again. */
 /** `forced` skips reachability for the entry a mutation answers with (an admin's revoke makes the view unreachable to the admin). */
-type MenuPermissionOf = (menuId: string) => string | undefined;
+/** Every grant the menu needs (`menuPermissions`); the actor must hold all of them. `undefined` = unknown menu. */
+type MenuPermissionsOf = (menuId: string) => readonly string[] | undefined;
 type LocalSavedViewStoreOptions = {
   getStorage?: () => StoragePort;
   locks?: Locks | undefined;
   now?: () => number;
   getActor?: () => Actor;
-  menuPermissionOf?: MenuPermissionOf;
+  menuPermissionsOf?: MenuPermissionsOf;
   sessionPermissions?: () => readonly string[] | undefined;
 };
 /** A stored view; `pending` is an edit of the approved official copy waiting for (re)approval, kept apart so readers keep the approved content. */
@@ -89,17 +90,17 @@ type Stored = SavedView & { pending?: SavedView };
 /** The owner and an approver see the proposed change; everyone else the approved copy. */
 const shownTo = (v: Stored, a: Actor, owner: boolean): SavedView => { const { pending, ...published } = v; return pending && (owner || a.admin) ? pending : (published as SavedView); };
 /** Why this content is out of the actor's reach, or null. An unknown menu is denied, not waved through. */
-function denial(content: { kind: string; menuId?: string; context: { roomNames?: string[] | null } }, a: Actor, perm: MenuPermissionOf): string | null {
+function denial(content: { kind: string; menuId?: string; context: { roomNames?: string[] | null } }, a: Actor, perm: MenuPermissionsOf): string | null {
   const menuId = viewMenuId(content);
   if (menuId !== null) {
     const needed = perm(menuId);
     if (needed === undefined) return '알 수 없는 메뉴입니다.';
-    if (!a.permissions.includes(needed)) return '이 메뉴를 열 권한이 없습니다.';
+    if (!needed.every(p => a.permissions.includes(p))) return '이 메뉴를 열 권한이 없습니다.';
   }
   if (content.context.roomNames?.some(r => !a.rooms.includes(r))) return '조회 권한이 없는 공정이 포함되어 있습니다.';
   return null;
 }
-function evaluate(stored: Stored, a: Actor, groups: readonly GroupRecord[], perm: MenuPermissionOf, forced = false): SavedViewListItem | null {
+function evaluate(stored: Stored, a: Actor, groups: readonly GroupRecord[], perm: MenuPermissionsOf, forced = false): SavedViewListItem | null {
   const v = stored;
   const owner = v.ownerId === a.userId;
   const viaGroup = sharedGroups(v, groups).some(g => isMember(g, a) || isManager(g, a));
@@ -142,8 +143,8 @@ function proposalChanges(stored: Stored): string[] {
 type Tx = { buckets: Map<string, { ownerId: string; menuId: string | null; views: Stored[] }>; groups: GroupRecord[] | null; defaults: Map<string, string | null> };
 
 /** Browser-local simulation of a server ACL behind the SavedViewStore port. Mutations need the origin lock and fail closed without it. */
-export function createLocalSavedViewStore({ getStorage = () => localStorage, locks = typeof navigator === 'undefined' ? undefined : navigator.locks, now = Date.now, getActor, menuPermissionOf = () => undefined, sessionPermissions }: LocalSavedViewStoreOptions = {}): SavedViewStore {
-  const ev = (v: Stored, a: Actor, groups: readonly GroupRecord[], forced = false) => evaluate(v, a, groups, menuPermissionOf, forced);
+export function createLocalSavedViewStore({ getStorage = () => localStorage, locks = typeof navigator === 'undefined' ? undefined : navigator.locks, now = Date.now, getActor, menuPermissionsOf = () => undefined, sessionPermissions }: LocalSavedViewStoreOptions = {}): SavedViewStore {
+  const ev = (v: Stored, a: Actor, groups: readonly GroupRecord[], forced = false) => evaluate(v, a, groups, menuPermissionsOf, forced);
   /** The permission vocabulary is the real session's (what the Kernel judges menus by); the mock role fills it in before a session exists. */
   const actorNow = (): Actor => { const a = (getActor ?? (() => storedActor(getStorage())))(); const p = sessionPermissions?.(); return p ? { ...a, permissions: p } : a; };
   const readBucket = (storage: StoragePort, ownerId: string, menuId: string | null) => {
@@ -223,9 +224,9 @@ export function createLocalSavedViewStore({ getStorage = () => localStorage, loc
       const checked = validateSavedView(input); if (!checked.ok) return checked;
       const draft: SavedViewDraft = checked.value; const menuId = draft.kind === 'menu-view' ? draft.menuId : null;
       if (menuId?.includes('|')) return fail('invalid', 'menuId');
-      const unknownMenu = menuId !== null && menuPermissionOf(menuId) === undefined;
+      const unknownMenu = menuId !== null && menuPermissionsOf(menuId) === undefined;
       if (unknownMenu) return fail('invalid', 'unknown-menu');
-      if (denial(draft, c.actor, menuPermissionOf)) return fail('forbidden');
+      if (denial(draft, c.actor, menuPermissionsOf)) return fail('forbidden');
       const views = c.bucket(c.actor.userId, menuId); if (!views) return fail('unavailable');
       // Never derived from the remaining rows: a reused id would let an old default or an old version point at a new view.
       const seq = `${now().toString(36)}-${globalThis.crypto.randomUUID().slice(0, 8)}`;
@@ -243,7 +244,7 @@ export function createLocalSavedViewStore({ getStorage = () => localStorage, loc
       const merged = { ...content, ...patch };
       const checked = validateSavedView(merged); if (!checked.ok) return checked;
       // The edit is judged like a save: a context the editor may not read is refused before anything is written.
-      if (denial(merged as SavedView, c.actor, menuPermissionOf)) return fail('forbidden', 'context');
+      if (denial(merged as SavedView, c.actor, menuPermissionsOf)) return fail('forbidden', 'context');
       const next = { ...(merged as SavedView), id: view.id, ownerId: view.ownerId, version: view.version, updatedAt: view.updatedAt, visibility };
       // A personal edit of an official copy is a separate pending change: readers keep the approved copy, visibility is unchanged.
       if (isOfficial(stored)) return commit(c, { ...stored, pending: { ...next, approval: 'pending' } as SavedView }, c.actor, c.groups);

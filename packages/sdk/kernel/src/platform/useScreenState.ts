@@ -9,7 +9,7 @@ import { sameParams } from './preferences';
 import { dropResetKeys } from '../context/paneContext';
 import { dropDrillResetKeys } from '../context/drillReset';
 import { appliedQueryPolicy, useScreenDraft } from '../query/draft-state';
-import { buildQuery, carriesReturnTo, clientCorrelationId, ContractError, emptyGlobal, incompleteMetricPair, type GlobalContext, type Pair, type ParsedQuery, parseQuery, RETURN_TO_KEY, sameGlobal, shift, type SpaceDef, type Text, type UsageEvent, type UsageVia } from '@ap/contracts';
+import { buildQuery, carriesReturnTo, clientCorrelationId, ContractError, emptyGlobal, incompleteMetricPair, menuPermissions, type GlobalContext, type Pair, type ParsedQuery, parseQuery, RETURN_TO_KEY, sameGlobal, shift, type SpaceDef, type Text, type UsageEvent, type UsageVia } from '@ap/contracts';
 import type { HostPlatform, LinkOptions, LinkResolution, ReturnContextKey, ReturnOrigin, ScopeState } from './types';
 import { makeStayId, takeNavigation, type AppValue, type ScreenSource, type ScreenState } from './contexts';
 
@@ -247,7 +247,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   useLayoutEffect(() => {
     // A platform screen takes its own arrival focus; "no route" must not cancel the request for it.
     if (platformScreen !== null) return;
-    if (!route || routeContractError || !can(route.menu.permission) || !enters(route.menu) || metricInit.phase === 'blocked') pageNavigation.cancel();
+    if (!route || routeContractError || !menuPermissions(route.menu).every(can) || !enters(route.menu) || metricInit.phase === 'blocked') pageNavigation.cancel();
   }, [route, routeContractError, can, enters, metricInit.phase, pageNavigation, platformScreen]);
 
   // Usage events (docs/05 메뉴 활용률 계측): one `entry` per admitted stay and a `dwell` on leave, sent
@@ -262,7 +262,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   useEffect(() => {
     // An alias entry in the main screen is replaced by its canonical address next: it is not a stay, and it keeps the trail.
     if (countsUsage && mode === 'main' && route?.viaAlias) return;
-    if (!countsUsage || !route || routeContractError || !can(route.menu.permission) || !enters(route.menu)) {
+    if (!countsUsage || !route || routeContractError || !menuPermissions(route.menu).every(can) || !enters(route.menu)) {
       // The main screen is not a menu now (board, contract error, no access): the next entry's `fromMenuId` is null.
       if (mode === 'main' && countsUsage) usageNav.current.prev = null;
       return;

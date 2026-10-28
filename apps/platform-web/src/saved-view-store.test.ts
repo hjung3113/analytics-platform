@@ -1,4 +1,4 @@
-import { beforeEach, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
 import type { SavedViewDraft, SavedViewEntry, SavedViewListItem, SavedViewStore } from '@ap/contracts';
 import { createLocalSavedViewStore, savedViewDefaultStorageKey, savedViewGroupsStorageKey, savedViewsStorageKey } from './saved-view-store';
@@ -6,14 +6,15 @@ import { createLocalSavedViewStore, savedViewDefaultStorageKey, savedViewGroupsS
 const MENU = 'productivity-overview';
 const storage = memoryStorage();
 const as = (role: 'engineer' | 'admin' | 'viewer') => storage.setItem('platform:role', JSON.stringify(role));
-const permissionOf = (id: string) => ({ 'productivity-overview': 'analytics:view', 'equipment-master': 'equipment:view' } as Record<string, string>)[id];
+const PERMISSIONS: Record<string, string[]> = { 'productivity-overview': ['analytics:view'], 'equipment-master': ['equipment:view'], 'needs-both': ['platform:view', 'console:access'] };
+const permissionOf = (id: string) => PERMISSIONS[id];
 beforeEach(() => { storage.clear(); as('engineer'); });
 // Emulates the origin lock: requests serialize across independent store instances.
 let tail = Promise.resolve();
 const locks = { request: async <T,>(_name: string, callback: () => T | Promise<T>): Promise<T> => {
   const result = tail.then(callback); tail = result.then(() => undefined, () => undefined); return result;
 } };
-const store = (): SavedViewStore => createLocalSavedViewStore({ getStorage: () => storage, locks, now: () => 5, menuPermissionOf: permissionOf });
+const store = (): SavedViewStore => createLocalSavedViewStore({ getStorage: () => storage, locks, now: () => 5, menuPermissionsOf: permissionOf });
 const key = (userId: string, menuId: string | null = MENU) => ({ userId, menuId });
 const ENG = 'engineer'; const ADMIN = 'admin';
 const draft = (name = '새 뷰'): SavedViewDraft => ({ schemaVersion: 1, kind: 'menu-view', name, menuId: MENU, menuSchemaVersion: 2, context: { relativePeriod: { hours: 24 } }, page: { grain: ['hour'] }, chartOptions: {}, layout: null, panels: null });
@@ -161,7 +162,7 @@ it('concurrent writes from independent instances are serialized by the lock; wit
   expect(results.every(r => r.ok)).toBe(true);
   expect(new Set(visible(await a.list(key(ENG))).map(i => i.view.id)).size).toBe(visible(await a.list(key(ENG))).length);
   expect(visible(await a.list(key(ENG))).map(i => i.view.name)).toEqual(expect.arrayContaining(['x', 'y', 'z']));
-  const closed = createLocalSavedViewStore({ getStorage: () => storage, locks: undefined, now: () => 5, menuPermissionOf: permissionOf });
+  const closed = createLocalSavedViewStore({ getStorage: () => storage, locks: undefined, now: () => 5, menuPermissionsOf: permissionOf });
   const snapshot = storage.getItem(savedViewsStorageKey(ENG, MENU));
   expect(await closed.save(draft('n'))).toMatchObject({ ok: false, reason: 'unavailable' });
   expect(storage.getItem(savedViewsStorageKey(ENG, MENU))).toBe(snapshot);
@@ -194,7 +195,7 @@ it('searchPeople separates same-named people by affiliation and honors an aborte
   expect(await s.searchPeople('김민준', aborted.signal)).toEqual([]);
 });
 
-const withRegistry = (): SavedViewStore => createLocalSavedViewStore({ getStorage: () => storage, locks, now: () => 5, menuPermissionOf: permissionOf });
+const withRegistry = (): SavedViewStore => createLocalSavedViewStore({ getStorage: () => storage, locks, now: () => 5, menuPermissionsOf: permissionOf });
 
 it('C2: a menu outside the seed table is judged by the registry permission; unknown menus are rejected; denied is exactly {id, denied, reason}', async () => {
   const s = withRegistry();
@@ -214,7 +215,7 @@ it('C3: editing an official copy keeps readers on the approved content until re-
   const official = { ...byName(await s.list(key(ENG)), '공식 생산성 일일 점검').view, ownerId: ENG, id: `${ENG}|${MENU}|9` };
   storage.setItem(savedViewsStorageKey(ENG, MENU), JSON.stringify({ schemaVersion: 1, views: [official] }));
   ok(await s.update(official.id, { name: '공식 (수정)' }, { expectedVersion: official.version }));
-  const reader = createLocalSavedViewStore({ getStorage: () => storage, locks, now: () => 5, getActor: () => ({ userId: 'viewer', admin: false, permissions: ['analytics:view'], rooms: ['PHOTO'] }), menuPermissionOf: permissionOf });
+  const reader = createLocalSavedViewStore({ getStorage: () => storage, locks, now: () => 5, getActor: () => ({ userId: 'viewer', admin: false, permissions: ['analytics:view'], rooms: ['PHOTO'] }), menuPermissionsOf: permissionOf });
   const asViewer = await reader.get(official.id);
   expect(asViewer).toMatchObject({ view: { name: official.name, approval: 'approved', visibility: { kind: 'official' } } });
   as('admin');
@@ -304,4 +305,26 @@ it('an edit of an official copy lists what the proposal changes and a rejection 
   ok(await store().decide(official.id, 'reject', '근거 부족', { expectedVersion: edited.view.version }));
   as('engineer');
   expect((await store().listApprovalRequests(key(ENG)))[0]).toMatchObject({ rejectReason: '근거 부족' });
+});
+
+// A menu that needs two grants (menuPermissions): each grant alone is not enough on any path, both are, revoking one denies an existing view.
+describe('a menu requiring platform:view AND console:access', () => {
+  let held: string[] = [];
+  const asHolder = (): SavedViewStore => createLocalSavedViewStore({ getStorage: () => storage, locks, now: () => 5, getActor: () => ({ userId: ENG, admin: false, permissions: held, rooms: ['PHOTO'] }), menuPermissionsOf: permissionOf });
+  const both = { ...draft('둘 다'), menuId: 'needs-both' } as SavedViewDraft;
+  it.each([[['platform:view']], [['console:access']], [[]]])('denies saving with %j', async grants => {
+    held = grants;
+    expect(await asHolder().save(both)).toMatchObject({ ok: false, reason: 'forbidden' });
+  });
+  it('saves, reads and updates with both grants; one revoked denies the existing view and the update', async () => {
+    held = ['platform:view', 'console:access'];
+    const s = asHolder(); const saved = ok(await s.save(both));
+    expect(visible(await s.list(key(ENG, 'needs-both'))).map(i => i.view.name)).toContain('둘 다');
+    ok(await s.update(saved.view.id, { name: '수정' }, { expectedVersion: saved.view.version }));
+    for (const left of [['platform:view'], ['console:access']]) {
+      held = left;
+      expect(await s.get(saved.view.id)).toEqual({ id: saved.view.id, denied: true, reason: expect.any(String) });
+      expect(await s.update(saved.view.id, { name: '막힘' }, { expectedVersion: saved.view.version + 1 })).toMatchObject({ ok: false });
+    }
+  });
 });
