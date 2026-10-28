@@ -298,6 +298,14 @@ describe('wiring invariants against a fixture repo', () => {
     expect(() => checkWiring(shape)).toThrow(/'\.\.\.stray'/);
   });
 
+  it('rejects a manifests import and matching spread of a package that is not an app dependency', () => {
+    const shape = loadShape(fresh());
+    shape.menusTs = shape.menusTs
+      .replace('// <gen:menu-imports>\n', `// <gen:menu-imports>\nimport { manifests as unlisted } from '${PACKAGE_PREFIX}menu-unlisted';\n`)
+      .replace('  ...foAdmin,\n', '  ...foAdmin,\n  ...unlisted,\n');
+    expect(() => checkWiring(shape)).toThrow(/'\.\.\.unlisted'.*no matching manifests import of a menu dependency/);
+  });
+
   it('rejects a package that is not an app dependency', () => {
     const shape = loadShape(fresh());
     shape.packageNames['platform/home'] = `${PACKAGE_PREFIX}menu-orphan`;
@@ -342,6 +350,13 @@ describe('wiring invariants against a fixture repo', () => {
       .replace('// <gen:menu-mock-imports>\n', `// <gen:menu-mock-imports>\nimport { strayMock } from '${PACKAGE_PREFIX}menu-stray/mock';\n`)
       .replace('  ...qualityMock,', '  ...qualityMock,\n  ...strayMock,');
     expect(() => checkWiring(shape)).toThrow(/menu-stray\/mock/);
+  });
+
+  it('rejects a platform/gen-probe package folder with no other probe token in the app files', () => {
+    const shape = loadShape(fresh());
+    expect(() => checkNoProbe(shape, false)).not.toThrow();
+    shape.folders.push('platform/gen-probe');
+    expect(() => checkNoProbe(shape, false)).toThrow(/probe leftover: gen-probe package folder exists/);
   });
 
   it('skips the probe-name check only under GEN_MENU_PROBE', () => {

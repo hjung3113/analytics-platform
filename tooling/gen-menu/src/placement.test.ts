@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { PACKAGE_PREFIX } from './prefix.ts';
 import { MENUS_TS } from './generate.ts';
+import { renderFiles, type MenuInputs } from './templates.ts';
 import { FIXTURE_FOLDER, FIXTURE_GROUP, GEN_ARGS, appSnapshot, makeFixture, menusTree, removeFixture, runCli } from './fixture.ts';
 
 /** Placement: `menus/<space>/<folder>` for domain systems, `platform/<folder>` for platform features (ADR-0097). */
@@ -159,6 +160,26 @@ describe('placement roots', () => {
       expect(res.stderr).toMatch(/metadata path mismatch/);
       expect(appSnapshot(root)).toEqual(before);
       expect(menusTree(root)).toEqual(tree);
+    });
+
+    it('refuses a consistently forged folder (metadata, physical folder, files, wiring) whose group is not that folder\'s name', () => {
+      const root = generated();
+      const dir = join(root, 'platform', FIXTURE_FOLDER);
+      const forged = { ...JSON.parse(readFileSync(metaOf(root), 'utf8')), folder: 'other' } as MenuInputs;
+      const date = /^## 0\.1\.0 — (\d{4}-\d{2}-\d{2})$/m.exec(readFileSync(join(dir, 'CHANGELOG.md'), 'utf8'))?.[1] as string;
+      renameSync(dir, join(root, 'platform', 'other'));
+      for (const f of renderFiles(forged, date)) writeFileSync(join(root, 'platform/other', f.relPath), f.content);
+      writeFileSync(join(root, 'platform/other/.gen-menu.json'), JSON.stringify(forged));
+      for (const rel of Object.keys(appSnapshot(root))) {
+        const path = join(root, rel);
+        writeFileSync(path, readFileSync(path, 'utf8').split(`${PACKAGE_PREFIX}menu-${FIXTURE_FOLDER}`).join(`${PACKAGE_PREFIX}menu-other`));
+      }
+      const before = appSnapshot(root);
+      const res = runCli(['--remove', FIXTURE_GROUP], root);
+      expect(res.status).toBe(1);
+      expect(res.stderr).toMatch(/metadata path mismatch: platform\/other\/\.gen-menu\.json/);
+      expect(appSnapshot(root)).toEqual(before);
+      expect(existsSync(join(root, 'platform/other'))).toBe(true);
     });
 
     it.each([['malformed JSON', '{'], ['non-object JSON', 'null']])('refuses %s', (_label, text) => {
