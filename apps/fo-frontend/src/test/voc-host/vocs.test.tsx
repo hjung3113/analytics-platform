@@ -3,7 +3,6 @@
 // Tests zod search schema validation and per-view shell selection:
 //   inbox / my → ListShell title
 //   triage     → WorkbenchShell "Triage Console"
-//   create     → PageShell "New VOC"
 //   invalid    → zod parse throws
 //
 // Testing strategy: follows the per-route component pattern used by
@@ -14,7 +13,6 @@
 // Without a DetailPanelSlotProvider the shells' detail-slot registration
 // is a no-op, so these mounts need no AppFrame.
 
-import { VOC_SEVERITY_DISCLAIMER } from '@/lib/copy/voc';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   Outlet,
@@ -243,52 +241,6 @@ describe('/vocs route shell selection', () => {
     });
     // WorkbenchShell wrapper still present.
     expect(document.querySelector('[data-shell="workbench"]')).not.toBeNull();
-  });
-
-  test('resolves /vocs?action=create to PageShell with 새 VOC 작성', async () => {
-    stubFetchMe();
-    const { router, qc } = buildHarness({ initialPath: '/vocs?action=create' });
-    render(
-      <QueryClientProvider client={qc}>
-        <RouterProvider router={router} />
-      </QueryClientProvider>,
-    );
-    await waitFor(() => {
-      expect(screen.getByText('새 VOC 작성')).toBeInTheDocument();
-    });
-    const backLink = screen.getByRole('link', { name: '수신함' });
-    expect(backLink).toHaveAttribute('href', '/vocs?view=inbox');
-  });
-
-  test('places the severity help line below the create title and before the form', async () => {
-    stubFetchMe();
-    const { router, qc } = buildHarness({ initialPath: '/vocs?action=create' });
-    render(
-      <QueryClientProvider client={qc}>
-        <RouterProvider router={router} />
-      </QueryClientProvider>,
-    );
-
-    const title = await screen.findByRole('heading', { name: '새 VOC 작성' });
-    const helpLine = await screen.findByText(VOC_SEVERITY_DISCLAIMER);
-    const formTitle = screen.getByRole('textbox', { name: '제목' });
-    expect(title.compareDocumentPosition(helpLine) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(
-      helpLine.compareDocumentPosition(formTitle) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-  });
-
-  test('uses 내 VOC as the create back link when nav counts omit Inbox', async () => {
-    stubFetchMe({});
-    const { router, qc } = buildHarness({ initialPath: '/vocs?action=create' });
-    render(
-      <QueryClientProvider client={qc}>
-        <RouterProvider router={router} />
-      </QueryClientProvider>,
-    );
-
-    const backLink = await screen.findByRole('link', { name: '내 VOC' });
-    expect(backLink).toHaveAttribute('href', '/vocs?view=my');
   });
 
   test('defaults to Inbox when no view param supplied', async () => {

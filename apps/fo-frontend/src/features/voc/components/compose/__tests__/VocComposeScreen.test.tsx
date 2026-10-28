@@ -5,7 +5,7 @@ import { configureApiClient } from '@/lib/api/client';
 import { type HostSeam, HostSeamProvider } from '@/lib/host/host-seam';
 import { SHARED_ALLOWLISTS } from '@fops/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { VocComposeScreen, type VocComposeScreenProps } from '../VocComposeScreen';
@@ -130,6 +130,7 @@ function mount(over: Partial<VocComposeScreenProps> = {}) {
   return {
     seam,
     props,
+    client,
     rerender: (next: Partial<VocComposeScreenProps>) => view.rerender(tree({ ...props, ...next })),
   };
 }
@@ -402,5 +403,129 @@ describe('<VocComposeScreen> narrow drawer layout and helper texts (UX-3, UX-4)'
     installFetch();
     mount();
     expect(await screen.findByText(text)).toBeTruthy();
+  });
+});
+
+// Migrated from the retired standalone create screen suite (#597): the same assertions over the retained drawer screen.
+describe('<VocComposeScreen> required fields and independent choices (migrated from VocCreateScreen)', () => {
+  it('names the missing required fields next to the disabled submit button and clears the line when all are set', async () => {
+    installFetch();
+    mount();
+    await screen.findByRole('radio', { name: 'Analytics MS' });
+    expect(screen.getByTestId('voc-submit-missing')).toHaveTextContent(
+      '필수 항목: 제목, 상세 설명, Managed System',
+    );
+    expect(screen.getByRole('button', { name: 'VOC 제출' })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Analytics MS' }));
+    fireEvent.change(screen.getByRole('textbox', { name: /제목/ }), {
+      target: { value: '테스트 제목입니다' },
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId('voc-submit-missing')).toHaveTextContent('필수 항목: 상세 설명'),
+    );
+
+    fireEvent.change(screen.getByTestId('mock-rich-editor'), {
+      target: { value: '재현 절차와 기대 동작' },
+    });
+    await waitFor(() => expect(screen.queryByTestId('voc-submit-missing')).toBeNull());
+  });
+
+  it('submits the source and the Analytics Area as independent values without a warning dialog', async () => {
+    installFetch();
+    mount();
+    fireEvent.click(await screen.findByRole('radio', { name: 'Analytics MS' }));
+    fireEvent.click(
+      within(screen.getByRole('radiogroup', { name: '출처' })).getByRole('radio', {
+        name: '타인 대신 보고',
+      }),
+    );
+    fireEvent.click(await screen.findByRole('radio', { name: 'Usage AA' }));
+    fireEvent.change(screen.getByRole('textbox', { name: /제목/ }), {
+      target: { value: '분류와 출처가 독립적인 VOC' },
+    });
+    fireEvent.blur(screen.getByRole('textbox', { name: /제목/ }));
+    fireEvent.change(screen.getByTestId('mock-rich-editor'), {
+      target: { value: '재현 절차와 기대 동작' },
+    });
+    await submit();
+
+    await waitFor(() => expect(postBody()).toBeDefined());
+    expect(postBody()).toMatchObject({
+      primary_managed_system_id: MS_ID,
+      analytics_area_id: AA_ID,
+      source_context: 'proxy_report',
+      title: '분류와 출처가 독립적인 VOC',
+      attachment_ids: [],
+    });
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+});
+
+describe('<VocComposeScreen> Managed System list states (migrated from VocCreateScreen)', () => {
+  it('shows the empty-state copy when the user has no Managed System', async () => {
+    installFetch();
+    const base = globalThis.fetch;
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) =>
+      new URL(String(input), 'http://x').pathname === '/api/fo/managed-systems'
+        ? json({ items: [], total: 0 })
+        : base(input, init),
+    ) as typeof fetch;
+    mount();
+    expect(await screen.findByText('선택할 수 있는 Managed System이 없습니다')).toBeTruthy();
+    expect(screen.queryByTestId('ms-picker')).toBeNull();
+  });
+
+  it('a background 401 on the Managed System list keeps the draft mounted and shows the login copy', async () => {
+    installFetch();
+    const base = globalThis.fetch;
+    let listFails = false;
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) =>
+      listFails && new URL(String(input), 'http://x').pathname === '/api/fo/managed-systems'
+        ? json({ code: 'auth.session_required', message: 'Unauthorized' }, 401)
+        : base(input, init),
+    ) as typeof fetch;
+    const { client } = mount();
+    await screen.findByTestId('ms-picker');
+    fireEvent.change(screen.getByRole('textbox', { name: /제목/ }), {
+      target: { value: '작성 중인 VOC' },
+    });
+
+    listFails = true;
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: ['managed-systems', { includeArchived: false }] });
+    });
+
+    await waitFor(() => expect(screen.getByText('로그인이 필요합니다.')).toBeTruthy());
+    expect(screen.getByRole('textbox', { name: /제목/ })).toHaveValue('작성 중인 VOC');
+  });
+});
+
+describe('<VocComposeScreen> attachment errors block the submit (migrated from VocCreateScreen)', () => {
+  it('an attachment row in error shows the alert and disables the submit until the row is removed', async () => {
+    installFetch();
+    mount();
+    await fillAndPick();
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'VOC 제출' })).not.toBeDisabled(),
+    );
+    expect(screen.queryByTestId('attachment-submit-blocked-alert')).toBeNull();
+
+    const input = screen
+      .getByTestId('attachment-dropzone')
+      .querySelector('input[type="file"]') as HTMLInputElement;
+    const big = new File(['x'], 'big.png', { type: 'image/png' });
+    Object.defineProperty(big, 'size', { value: 26 * 1024 * 1024, configurable: true });
+    fireEvent.change(input, { target: { files: [big] } });
+
+    const alert = await screen.findByTestId('attachment-submit-blocked-alert');
+    expect(alert.textContent).toContain('첨부 파일에 오류가 있어 제출할 수 없습니다');
+    expect(screen.getByRole('button', { name: 'VOC 제출' })).toBeDisabled();
+
+    fireEvent.click(screen.getByLabelText('첨부 제거'));
+    await waitFor(() => expect(screen.queryByTestId('attachment-submit-blocked-alert')).toBeNull());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'VOC 제출' })).not.toBeDisabled(),
+    );
   });
 });

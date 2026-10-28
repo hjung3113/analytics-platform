@@ -74,7 +74,7 @@ export function useVocComposeController({
       // A 401 already retired the bridge session (`onSessionLost`); the host shows the expiry state, not a toast.
       if (err.status === 401) return;
       if (err.code === 'validation.failed') {
-        // Same mapping as the standalone create screen: server field errors land on their fields.
+        // Server field errors land on their fields.
         const fields = (err.detail as { fields?: unknown } | undefined)?.fields;
         if (Array.isArray(fields)) {
           let mapped = false;

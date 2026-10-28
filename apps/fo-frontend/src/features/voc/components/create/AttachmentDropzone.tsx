@@ -44,7 +44,7 @@ export interface AttachmentDropzoneProps {
    * itself does NOT render the alert (the parent owns the action bar).
    */
   onErrorCountChange?: (errorCount: number) => void;
-  /** Announces a failed upload; absent in the standalone app, which toasts through `sonner`. */
+  /** Announces a failed upload; the host seam supplies it. */
   notifyError?: (message: string) => void;
 }
 

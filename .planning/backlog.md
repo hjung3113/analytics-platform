@@ -337,3 +337,5 @@
 - **구현 안 함 — `app-preview.py`·`nav-perf`의 독립 앱 의존(#597):** `ops/feedbackops/conductor/scripts/app-preview.py`와 `nav-perf`는 삭제된 독립 앱 Vite 설정을 띄운다. 이유: #597은 은퇴만 다루고 플랫폼 앱을 띄우는 대체 도구는 별도 설계가 필요하다. 다시 여는 조건: FeedbackOps 화면의 UX·성능 점검을 플랫폼 앱에서 다시 돌려야 할 때.
 
 - **구현 안 함 — 소개 사이트의 독립 FeedbackOps 연결 설명 갱신(#597):** `site/index.html`·`site/SOURCES.md` L94·L102와 관련 본문에는 은퇴한 `platformReturn`·`PLATFORM_RETURN_ORIGINS`·아웃바운드 helper 설명이 남는다. 이유: 이번 작업자는 브라우저·사이트 빌드 검증이 금지되어 공개 시각 자료의 전체 근거 대응을 검증할 수 없다. 원본 계약은 `docs/integration/feedbackops-deeplink.md`에 갱신했다. 다시 여는 조건: 다음 사이트 배포 전, ADR-0097의 셸 안 메뉴 이동·보존한 인바운드 계약으로 본문과 근거 행을 함께 교체하고 사이트 조립·캡처 검사를 통과시킬 때.
+
+- **구현 안 함 — VOC 등록 drawer의 표시되지 않는 필드에 대한 서버 422 알림(#597 C1 검토):** `useVocComposeController`는 서버 `detail.fields`를 `form.setError`로만 넣어 `attachment_ids`처럼 별도 오류 영역이 없는 필드는 알림 없이 남을 수 있다. 독립 앱의 이 알림 검사는 은퇴했고 유지되는 drawer는 11개 이상 첨부를 요청 전에 차단하는 검사를 가진다. 이유: 기존 drawer 동작의 차이이며 독립 앱 은퇴에서 오류 표시 정책을 새로 바꾸지 않았다. 다시 여는 조건: 서버가 이 drawer에서 비표시 필드의 422를 실제 반환하거나, 등록 오류 표시 계약을 다음에 변경할 때.

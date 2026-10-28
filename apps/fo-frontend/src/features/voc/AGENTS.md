@@ -41,7 +41,7 @@ It does not own Task status, Survey Response conversion, Finding persistence, or
 
 - `apps/fo-frontend/src/features/voc/routes/InboxScreen.tsx` (+ `useInboxState.ts`, `inbox-config.tsx`) — bridge-safe inbox/My VOC list (platform ADR-0071, entry `operator-screens/voc-inbox`): URL read/written through the host seam, detail via the host's `renderDetail`; `VocRouteShell` composes it with `VocDetailPanel`.
 - `apps/fo-frontend/src/test/screen-host/features/voc/routes/TriageRoute.tsx` — triage permission gate, session processed count, and queue state.
-- `apps/fo-frontend/src/test/screen-host/features/voc/routes/CreateRoute.tsx` — VOC creation route composition.
+- `apps/fo-frontend/src/features/voc/components/compose/VocComposeScreen.tsx` — retained VOC creation form, mounted by `packages/adapters/fo-bridge/src/pages/VocCompose.tsx`; shared form and drawer-host assertions cover creation. The standalone create route is retired (#597).
 - `apps/fo-frontend/src/features/voc/components/reporter/` — bridge-safe reporter perspective (`MyVocListScreen`, `ReporterVocDetail`) for the platform `내 VOC` (platform ADR-0071); the platform mounts the own-VOC surface.
 - `apps/fo-frontend/src/features/voc/components/list/VocList.tsx` — VOC list rows and loading/empty/error states.
 - `apps/fo-frontend/src/features/voc/components/triage/VocTriageScreen.tsx` — triage queue screen and selected panel.
