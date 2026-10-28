@@ -3,7 +3,7 @@
 사내 도입 소개 페이지다. 제품 코드가 아니며 pnpm workspace 밖 정적 HTML/CSS/classic JS만 사용한다. workspace 패키지 import·외부 CDN·fetch·분석 스크립트를 넣지 않는다.
 
 - 모든 사실·숫자는 SOURCES.md 행과 대응해야 한다. 새 주장은 원장 행부터 추가한다. 합성 값은 예시로 표시한다.
-- 문구는 `~합니다` 짧은 사실 문장, 제목은 기능 이름(GLOSSARY 용어), 기술 이름 대신 할 수 있는 일, 안 되는 것은 '아직 안 됨 → 예정 #n'. 광고·대비 수사 금지(#607).
+- 제목·카드·도식·요약은 명사형·핵심어를 먼저 쓴다(#1057). 동작·정확성·제약 설명은 `~합니다` 짧은 사실 문장으로 쓴다. 제목은 기능 이름(GLOSSARY 용어), 기술 이름 대신 할 수 있는 일, 안 되는 것은 '아직 안 됨 → 예정 #n'. 광고·대비 수사 금지(#607).
 - 색·폰트·반경은 제품 토큰을 소비한다. 값을 복제하지 않는다. site.css에는 색 literal을 넣지 않는다.
 - 조립: `node site/scripts/assemble.mjs --out "$TMPDIR/ap-site" --site-base / --assumption`
 - 미리보기: `python3 -m http.server -d "$TMPDIR/ap-site" 8080` → `http://127.0.0.1:8080/`

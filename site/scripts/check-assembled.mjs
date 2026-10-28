@@ -310,7 +310,7 @@ if (options.browser) {
       await tab.evaluate(() => document.fonts.ready);
       const inDetails = await tab.evaluate(() => Boolean(document.getElementById("shot-dialog")?.closest("details")));
       inDetails ? fail(`${width}px: #shot-dialog가 <details> 안에 있음`) : pass(`${width}px: #shot-dialog는 <details> 밖`);
-      const sections = await tab.evaluate(() => [...document.querySelectorAll("section[id]")].filter((s) => [...s.querySelectorAll(".shot-zoom")].some((b) => b.offsetParent !== null)).map((s) => s.id));
+      const sections = await tab.evaluate(() => [...document.querySelectorAll("section[id]")].filter((s) => [...s.querySelectorAll(".shot-zoom")].some((b) => b.offsetParent !== null && !b.closest("details:not([open])"))).map((s) => s.id));
       let tested = 0;
       for (const id of sections) {
         const button = tab.locator(`section#${id} .shot-zoom:visible`).first();
