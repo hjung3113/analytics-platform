@@ -33,7 +33,7 @@
 **6. 상태 근거 서비스** — 수집·파서 지연·coverage 판정의 `statusSource`·`observedAt` 공급자. 없으면 모니터링 메뉴(#51)를 열 수 없다(#37).
 
 <a id="q7"></a>
-**7. 공개 계약 산출물 형식** — 형식은 Zod → JSON Schema로 정해졌다(ADR-0095, #148 끝). 남은 것은 URL `v` 폐기(sunset) 정책.
+**7. 공개 계약 산출물 형식** — 형식은 Zod → JSON Schema로 정해졌다(ADR-0096, #148 끝). 남은 것은 URL `v` 폐기(sunset) 정책.
 
 <a id="q8"></a>
 **8. 디자인 바인딩 잔여** — 대용량 성능 측정. 다크모드는 Deferred(05).

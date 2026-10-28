@@ -31,6 +31,6 @@
 - **Q4와 명시적 공집합 (사용자, 게이트):** 06 §5 "메뉴가 선언하는 정보"에 조회 엔드포인트를 더했고, 명시적 공집합은 원천 조회 없이 `empty`·assessments 없음·trust 없음으로 답하는 예외로 06 §19에 적었다.
 - **Q5:** 엔드포인트 권한은 데이터 접근 권한이라 메뉴 manifest 권한과 달라도 된다(`home`은 `platform:view` 메뉴이면서 공지 조회에 `notice:view`를 요구한다). 등록 때는 `menuId`와 권한 이름의 실재만 검사한다. 처음 "같아야 한다"였던 것을 같은 날 이 사례로 고쳤고, 결정 기록에는 고친 이의 이름이 따로 없다.
 - **Q6·Q7:** `respondent_history` kind는 플랫폼 어휘에 두고 두 번째 소비자가 나오면 재검토한다. 이행은 2개 화면 검증 → 사람 확인 게이트 → 생성기 전환 → 나머지 패키지별 이전 → `serve` 제거 순서였고 모두 끝났다.
-- **Q2 선언 원본(TS ↔ FastAPI codegen)은 Decided(2026-10-28) — TS가 원본이다([ADR-0095](0095-contract-schemas-zod-source-and-reference-implementations.md), [#148](https://github.com/hjung3113/analytics-platform/issues/148)).** 응답·파라미터는 Zod 스키마이고 JSON Schema로 내보내며, FastAPI는 그것에서 Pydantic을 생성한다. 선언의 필드명·타입 모양은 Candidate로 남는다.
+- **Q2 선언 원본(TS ↔ FastAPI codegen)은 Decided(2026-10-28) — TS가 원본이다([ADR-0096](0096-contract-schemas-zod-source-and-reference-implementations.md), [#148](https://github.com/hjung3113/analytics-platform/issues/148)).** 응답·파라미터는 Zod 스키마이고 JSON Schema로 내보내며, FastAPI는 그것에서 Pydantic을 생성한다. 선언의 필드명·타입 모양은 Candidate로 남는다.
 - 소비자가 늘 때까지 미룬 것: 메뉴 쓰기(mutation) 엔드포인트, 위젯 요청 묶음·스트리밍, 공개 스키마 codegen, manifest ↔ 엔드포인트 Context 역방향 교차 검증(이전 메뉴가 3개 이상일 때).
 - 설계 경과(이슈 진단, 이행 단계 1–12, #98 영향)는 git 이력에 남는다(PR #109–#143). 이 ADR이 설계 기록 문서 `menu-query-port.md`를 대체한다.

@@ -240,7 +240,7 @@ FeedbackOps는 플랫폼에 합친다 — 모두가 쓰는 기능은 플랫폼 �
 | --- | --- | --- | --- |
 | R10.1 | 사내 SSO로 한 번 로그인, FeedbackOps와 세션 공유 | 사내 답 대기 | #150 |
 | R10.2 | 사내 배포 환경(on-prem·망분리·CI·지원 브라우저) | 사내 답 대기 | #151 |
-| R10.3 | 사내 플랫폼 API와 실어댑터, 적합성 묶음 통과 | 실어댑터 동작. 참조 서버는 FeedbackOps 백엔드 플랫폼 포트([ADR-0069](../adr/0069-platform-port-in-feedbackops-backend.md)). 실서버 대상 적합성 하네스·사내 배포는 대기 | #155, #154, #149 (#148은 ADR-0095로 닫음) |
+| R10.3 | 사내 플랫폼 API와 실어댑터, 적합성 묶음 통과 | 실어댑터 동작. 참조 서버는 FeedbackOps 백엔드 플랫폼 포트([ADR-0069](../adr/0069-platform-port-in-feedbackops-backend.md)). 실서버 대상 적합성 하네스·사내 배포는 대기 | #155, #154, #149 (#148은 ADR-0096로 닫음) |
 | R10.4 | 망분리: 앱이 외부 네트워크(CDN·폰트·분석 스크립트)를 부르지 않는다 | 요구. 사내 환경 확인과 함께 검증 | #151 |
 | R10.5 | 동시 사용자 약 100명, 데이터 보존 무제한, 사이트 하나로 시작해 늘린다 | Decided(조직 요구값) | [03](../architecture/backend-stack.md), [05](../overview/roadmap-and-open-questions.md) |
 | R10.6 | 접근성 하한(키보드, 색만으로 상태를 나타내지 않음, 대비)과 성능 하한 | 동작(lint·E2E가 일부 검사) | [06 §26](../contract/platform-ui-contract.md#26-accessibility-baseline)·[§27](../contract/platform-ui-contract.md#27-performance-ux-baseline) |

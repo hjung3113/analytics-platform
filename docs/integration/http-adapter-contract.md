@@ -188,7 +188,7 @@ GET /api/v1/platform/bootstrap
 
 - 경로 버전 `/api/v1` [제안]. 호환이 깨지는 변경만 `/api/v2`(필드 추가는 v1 안에서 — 단, 서버가 모르는 키를 거부하므로 **요청** 필드 추가는 서버 먼저 배포).
 - 클라이언트 번들과 서버의 엔드포인트 선언 사본이 다를 때: 모르는 엔드포인트 id는 200 + `error`(체크리스트 §3 1단계), 선언과 다른 kind는 Kernel `contract_violation`. 이것만으로도 화면에 드러나지만 원인이 버전 차이인지 알 수 없다.
-- 선언 버전 헤더(예: 클라이언트가 `X-Platform-Declarations: <hash>`를 보내고 서버가 다르면 응답에 표시)를 둘지는 **Open([#154])**. 선언 원본은 TS로 정해졌고([ADR-0095](../adr/0095-contract-schemas-zod-source-and-reference-implementations.md), #148) 산출물 `endpoints.json`의 해시를 양쪽이 공유할 수 있다. 켜는 시점은 실서버 적합성 하네스(#154)와 함께 정한다.
+- 선언 버전 헤더(예: 클라이언트가 `X-Platform-Declarations: <hash>`를 보내고 서버가 다르면 응답에 표시)를 둘지는 **Open([#154])**. 선언 원본은 TS로 정해졌고([ADR-0096](../adr/0096-contract-schemas-zod-source-and-reference-implementations.md), #148) 산출물 `endpoints.json`의 해시를 양쪽이 공유할 수 있다. 켜는 시점은 실서버 적합성 하네스(#154)와 함께 정한다.
 
 대안(한 줄): 헤더 버전(`Accept: application/vnd...v1+json`) — 프록시·로그에서 보이지 않아 기각.
 
