@@ -123,6 +123,15 @@ describe('endpoint declaration', () => {
     expect(endpointDeclarationSchema.safeParse({ ...base, context: { time: 'unsupported' } }).success).toBe(false);
   });
 
+  it.each([[0, false], [-1, false], [1.5, false], [1, true]])('maxRows %s is valid: %s', (maxRows, valid) => {
+    expect(endpointDeclarationSchema.safeParse({ ...base, limits: { maxRows } }).success).toBe(valid);
+  });
+
+  it('emits maxRows as a positive integer', () => {
+    const limits = (toJsonSchema(endpointDeclarationSchema).properties as Record<string, { properties: Record<string, unknown> }>).limits;
+    expect(limits.properties.maxRows).toMatchObject({ type: 'integer', exclusiveMinimum: 0 });
+  });
+
   it('capability vocabulary is exactly apply and reference, in runtime and artifact', () => {
     expect(contextCapabilitySchema.options).toEqual(['apply', 'reference']);
     const context = (toJsonSchema(endpointDeclarationSchema).properties as Record<string, { properties: Record<string, unknown> }>).context;

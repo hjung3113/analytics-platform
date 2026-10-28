@@ -16,6 +16,8 @@
 | 8. FeedbackOps 합류 (M6) | 플랫폼에 합친다 — 전역 기능 + `피드백 운영` 업무 시스템, 서버는 FeedbackOps 백엔드에서 출발, 독립 앱 은퇴(ADR-0066, 2026-10-21, M5 대체) — 지도 #598 |
 | 9. 멀티 워크스페이스 셸 | **완료** — v0.5.0(#250, ADR-0026·0027·0028), 공간 진입·메뉴 열기 판정 Kernel화(#264) v0.6.0 |
 
+v0.20 정리: 계약 스키마 maxRows 검증, 실서버 E2E 도우미·운영 규칙 소유권, 산출물 형식 규칙 링크를 정리했다.
+
 ## 다음 할 일
 
 다음 세션은 여기서 시작한다. 갈래마다 지금 열린 일만 적는다. 이슈별 흐름은 `lane:*` 라벨이고, 세션 분담·팀장·릴리스 담당은 [`LANES.md`](../.agents/conductor/LANES.md)다(2026-10-26). 끝난 일의 기록은 닫힌 이슈·ADR·[릴리스](https://github.com/hjung3113/analytics-platform/releases)(앱 [`v0.19.0`](https://github.com/hjung3113/analytics-platform/releases/tag/v0.19.0), SDK [`sdk-v0.19.0`](https://github.com/hjung3113/analytics-platform/releases/tag/sdk-v0.19.0))에 있다.

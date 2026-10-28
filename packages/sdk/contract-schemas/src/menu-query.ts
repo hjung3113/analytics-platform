@@ -81,6 +81,6 @@ export const endpointDeclarationSchema = z.object({
   context: contextCapabilities,
   requiredContext: z.array(z.enum(CONTEXT_KEYS)).optional(),
   kinds: z.array(z.enum(ASSESSMENT_KINDS)),
-  limits: z.object({ maxHours: z.number().optional(), maxRows: z.number().optional() }).optional(),
+  limits: z.object({ maxHours: z.number().optional(), maxRows: z.number().int().positive().optional() }).optional(),
   mergeTimeDomain: z.boolean(),
 });

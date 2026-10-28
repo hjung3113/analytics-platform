@@ -6,15 +6,12 @@ import {
   mainHeading,
   test,
   waitForFoRead,
+  waitForHomeReads,
 } from './support';
 
 test.describe('플랫폼 홈과 전역 화면 실서버 (ADR-0070, 06 §9.1)', () => {
   test('홈은 core 권한으로 접근 가능한 업무 시스템만 노출한다', async ({ page }, testInfo) => {
-    const homeReads = [
-      waitForFoRead(page, '/me/answerable-surveys'),
-      waitForFoRead(page, '/notifications', { unread: 'true', limit: '100' }),
-      waitForFoRead(page, '/permission-requests/mine', { status: 'all' }),
-    ];
+    const homeReads = waitForHomeReads(page);
     await page.goto('/home');
     await expectSuccessfulFoReads(homeReads);
     await expect(mainHeading(page)).toHaveText('플랫폼 홈');
@@ -30,11 +27,7 @@ test.describe('플랫폼 홈과 전역 화면 실서버 (ADR-0070, 06 §9.1)', (
   });
 
   test('메뉴 검색으로 운영 콘솔의 레지스트리로 이동한다', async ({ page }, testInfo) => {
-    const homeReads = [
-      waitForFoRead(page, '/me/answerable-surveys'),
-      waitForFoRead(page, '/notifications', { unread: 'true', limit: '100' }),
-      waitForFoRead(page, '/permission-requests/mine', { status: 'all' }),
-    ];
+    const homeReads = waitForHomeReads(page);
     await page.goto('/home');
     await expectSuccessfulFoReads(homeReads);
     await expect(page.getByRole('region', { name: '업무 시스템' })).toBeVisible();

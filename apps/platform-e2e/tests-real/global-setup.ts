@@ -3,10 +3,11 @@ import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { request } from '@playwright/test';
 import { requireSafeRealDatabaseEnv } from './database-safety';
+import { parsePort } from './port';
 
 const ROOT = resolve(import.meta.dirname, '../../..');
 const STATE_DIR = resolve(import.meta.dirname, '../test-results-real/auth');
-const PORT = process.env.E2E_PORT ?? '4190';
+const PORT = parsePort('E2E_PORT', 4190);
 const ORIGIN = `http://127.0.0.1:${PORT}`;
 
 function runBackendScript(script: 'db:migrate' | 'db:seed'): void {
