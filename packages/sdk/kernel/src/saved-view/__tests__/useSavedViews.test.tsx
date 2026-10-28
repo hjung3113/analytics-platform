@@ -4,7 +4,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { buildQuery, emptyGlobal, groupId, spaceId, type SavedViewSupport } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, useSavedViewSupport, usePlatform, type MenuPlatform } from '../../index';
 import { useHostPlatform, useSavedViews, type SavedViews } from '../../host';
-import { createFakeSavedViewStore as createFakeStore, noContext, testAdapter, testSavedView as viewOf, testSession, testSpace, type FakeSavedViewStore as FakeStore } from '../../testing';
+import { createFakeSavedViewStore as createFakeStore, noContext, testAdapter, testSavedView as viewOf, testSession, testSpace, testViewCapabilities, type FakeSavedViewStore as FakeStore } from '../../testing';
 /** A promise the test resolves by hand, to finish a store call out of order. */
 function deferred(): { promise: Promise<void>; release: () => void } {
   let release = () => {};
@@ -546,4 +546,191 @@ it('without a server anchor a relative view is unavailable and writes nothing; a
   await act(async () => { outcome = await views.select('l2'); });
   expect(outcome).toEqual({ ok: true, unsupported: [] });
   expect(window.location.search).toBe(query(['L2']));
+});
+
+// Shell writes (#1105): the seven store writes the shell used to call directly go through the hook.
+const writes = {
+  update: ['l1', { name: 'renamed' }, { expectedVersion: 1 }],
+  setVisibility: ['l1', { kind: 'people', userIds: ['u2'] }, { expectedVersion: 1 }],
+  requestOfficial: ['l1', { expectedVersion: 1 }],
+  decide: ['l1', 'approve', 'ok', { expectedVersion: 1 }],
+  revoke: ['l1', { expectedVersion: 1 }],
+  createGroup: [{ name: 'g', memberIds: ['u2'] }],
+  updateGroup: ['g1', { name: 'n' }],
+} as const;
+type WriteName = keyof typeof writes;
+const writeNames = Object.keys(writes) as WriteName[];
+const entryWriteNames: WriteName[] = ['update', 'setVisibility', 'requestOfficial', 'decide', 'revoke'];
+const call = (name: WriteName) => (views[name] as (...args: unknown[]) => Promise<unknown>)(...writes[name]);
+const stub = (store: FakeStore, name: WriteName, impl: (...args: unknown[]) => Promise<unknown>) => { const spy = vi.fn(impl); (store as unknown as Record<string, unknown>)[name] = spy; return spy; };
+const listCount = (store: FakeStore) => store.reads.filter(read => read === 'list').length;
+const entryAt = (version: number, id = 'l1') => ({ ok: true as const, value: { view: { ...L1, id, version }, capabilities: testViewCapabilities } });
+
+it.each(writeNames)('%s passes its arguments to the store and returns the store Result unchanged', async name => {
+  const store = createFakeStore([L1]);
+  const answer = { ok: false, reason: 'conflict' };
+  const spy = stub(store, name, async () => answer);
+  mount(store, `/${query(['L1'])}`);
+  await waitFor(() => expect(views.status).toBe('ready'));
+  let result: unknown;
+  await act(async () => { result = await call(name); });
+  expect(spy).toHaveBeenCalledWith(...writes[name]);
+  expect(result).toBe(answer);
+});
+it.each(writeNames)('%s turns a thrown store call into unavailable instead of rejecting', async name => {
+  const store = createFakeStore([L1]);
+  stub(store, name, async () => { throw new Error('offline'); });
+  mount(store, `/${query(['L1'])}`);
+  await waitFor(() => expect(views.status).toBe('ready'));
+  let result: unknown;
+  await act(async () => { result = await call(name); });
+  expect(result).toEqual({ ok: false, reason: 'unavailable' });
+});
+it.each(writeNames)('%s sends nothing without an enabled Saved View screen', async name => {
+  const store = createFakeStore([L1]);
+  const spy = stub(store, name, async () => ({ ok: true, value: null }));
+  mount(store, '/plain');
+  await act(async () => {});
+  let result: unknown;
+  await act(async () => { result = await call(name); });
+  expect(result).toEqual({ ok: false, reason: 'unavailable' });
+  expect(spy).not.toHaveBeenCalled();
+});
+it.each(writeNames.flatMap(name => (['revision', 'unmount'] as const).map(how => [name, how] as const)))('%s kept from before a %s change sends nothing', async (name, how) => {
+  const store = createFakeStore([L1]);
+  const spy = stub(store, name, async () => ({ ok: true, value: null }));
+  const live = mountLive(store, `/${query(['L1'])}`);
+  await waitFor(() => expect(views.status).toBe('ready'));
+  const kept = (views[name] as (...args: unknown[]) => Promise<unknown>);
+  if (how === 'revision') { live.notify(); await waitFor(() => expect(views.status).toBe('ready')); } else live.ui.unmount();
+  let result: unknown;
+  await act(async () => { result = await kept(...writes[name]); });
+  expect(result).toEqual({ ok: false, reason: 'unavailable' });
+  expect(spy).not.toHaveBeenCalled();
+});
+it.each(entryWriteNames)('%s refreshes the view list after a current ok, and a failed Result does not', async name => {
+  const store = createFakeStore([L1]);
+  mount(store, `/${query(['L1'])}`);
+  await waitFor(() => expect(views.status).toBe('ready'));
+  stub(store, name, async () => ({ ok: false, reason: 'conflict' }));
+  const before = listCount(store);
+  await act(async () => { await call(name); });
+  expect(listCount(store)).toBe(before);
+  stub(store, name, async () => entryAt(2));
+  await act(async () => { await call(name); });
+  await waitFor(() => expect(listCount(store)).toBeGreaterThan(before));
+});
+it.each(['createGroup', 'updateGroup'] as const)('%s does not refresh the view list', async name => {
+  const store = createFakeStore([L1]);
+  stub(store, name, async () => ({ ok: true, value: { group: { id: 'g1' } } }));
+  mount(store, `/${query(['L1'])}`);
+  await waitFor(() => expect(views.status).toBe('ready'));
+  const before = listCount(store);
+  await act(async () => { await call(name); });
+  await act(async () => {});
+  expect(listCount(store)).toBe(before);
+});
+it.each(entryWriteNames)('a late %s result after the generation changed is returned as is but refreshes and selects nothing', async name => {
+  const store = createFakeStore([L1]);
+  const slow = deferred();
+  const answer = entryAt(5);
+  stub(store, name, async () => { await slow.promise; return answer; });
+  const live = mountLive(store, `/${query(['L1'])}`);
+  await waitFor(() => expect(views.status).toBe('ready'));
+  await act(async () => { await views.select('l1'); });
+  let pending: Promise<unknown> | undefined;
+  act(() => { pending = call(name); });
+  live.notify();
+  await waitFor(() => expect(views.status).toBe('ready'));
+  const before = listCount(store);
+  let result: unknown;
+  await act(async () => { slow.release(); result = await pending; });
+  expect(result).toBe(answer);
+  expect(listCount(store)).toBe(before);
+  expect(views.selected?.view.version).toBe(1);
+});
+it('a completed write for the selected view shows its returned version until the list answers, and never rolls a newer one back', async () => {
+  const store = createFakeStore([L1]);
+  mount(store, `/${query(['L1'])}`);
+  await waitFor(() => expect(views.status).toBe('ready'));
+  await act(async () => { await views.select('l1'); });
+  store.listHold = deferred().promise;
+  stub(store, 'update', async () => entryAt(3));
+  stub(store, 'setVisibility', async () => entryAt(2));
+  await act(async () => { await views.update('l1', { name: 'a' }, { expectedVersion: 1 }); });
+  expect(views.selected?.view.version).toBe(3);
+  await act(async () => { await views.setVisibility('l1', { kind: 'private' }, { expectedVersion: 1 }); });
+  expect(views.selected?.view.version).toBe(3);
+});
+it('a completed write for another view than the selected one leaves the selection alone', async () => {
+  const store = createFakeStore([L1, L2]);
+  mount(store, `/${query(['L1'])}`);
+  await waitFor(() => expect(views.status).toBe('ready'));
+  await act(async () => { await views.select('l1'); });
+  store.listHold = deferred().promise;
+  stub(store, 'requestOfficial', async () => entryAt(4, 'l2'));
+  await act(async () => { await views.requestOfficial('l2', { expectedVersion: 1 }); });
+  expect(views.selected?.view.id).toBe('l1');
+  expect(views.selected?.view.version).toBe(1);
+});
+it('a write is not a selection intent: an in-flight pick still wins afterwards', async () => {
+  const store = createFakeStore([L1, L2]);
+  mount(store, `/${query(['L1'])}`);
+  await waitFor(() => expect(views.status).toBe('ready'));
+  await act(async () => { await views.select('l1'); });
+  const slow = deferred();
+  store.getHold.set('l2', slow.promise);
+  let picking: Promise<unknown> | undefined;
+  act(() => { picking = views.select('l2'); });
+  stub(store, 'revoke', async () => entryAt(2));
+  await act(async () => { await views.revoke('l1', { expectedVersion: 1 }); });
+  await act(async () => { slow.release(); await picking; });
+  expect(window.location.search).toBe(query(['L2']));
+  expect(views.selected?.view.id).toBe('l2');
+});
+
+// FIX1 (C1): a completed group Result and a callback kept across a user change.
+it.each(['createGroup', 'updateGroup'] as const)('a late %s result after the revision changed is returned as is', async name => {
+  const store = createFakeStore([L1]);
+  const slow = deferred();
+  const answer = { ok: true, value: { group: { id: 'g9' } } };
+  stub(store, name, async () => { await slow.promise; return answer; });
+  const live = mountLive(store, `/${query(['L1'])}`);
+  await waitFor(() => expect(views.status).toBe('ready'));
+  let pending: Promise<unknown> | undefined;
+  act(() => { pending = call(name); });
+  live.notify();
+  await waitFor(() => expect(views.status).toBe('ready'));
+  const before = listCount(store);
+  let result: unknown;
+  await act(async () => { slow.release(); result = await pending; });
+  expect(result).toBe(answer);
+  expect(listCount(store)).toBe(before);
+});
+it.each(['update', 'createGroup'] as const)('%s kept from before a user change sends nothing, and a response held across it is returned as is without a refresh', async name => {
+  const store = createFakeStore([L1]);
+  const slow = deferred();
+  const answer = name === 'update' ? entryAt(4) : { ok: true, value: { group: { id: 'g9' } } };
+  const spy = stub(store, name, async () => { await slow.promise; return answer; });
+  let current = testSession(['platform:view']);
+  const listeners = new Set<() => void>();
+  window.history.replaceState(null, '', `/${query(['L1'])}`);
+  render(<I18nProvider><PlatformProvider registry={registry} adapter={testAdapter({ session: () => current, subscribe: l => { listeners.add(l); return () => { listeners.delete(l); }; } })} savedViews={store}><Probe /></PlatformProvider></I18nProvider>);
+  await waitFor(() => expect(views.status).toBe('ready'));
+  const kept = views[name] as (...args: unknown[]) => Promise<unknown>;
+  let pending: Promise<unknown> | undefined;
+  act(() => { pending = kept(...writes[name]); });
+  expect(spy).toHaveBeenCalledTimes(1);
+  current = testSession(['platform:view'], { user: { id: 'u2', name: 'u2' } });
+  act(() => listeners.forEach(l => l()));
+  await waitFor(() => expect(views.status).toBe('ready'));
+  const before = listCount(store);
+  let again: unknown;
+  await act(async () => { again = await kept(...writes[name]); });
+  expect(again).toEqual({ ok: false, reason: 'unavailable' });
+  expect(spy).toHaveBeenCalledTimes(1);
+  let result: unknown;
+  await act(async () => { slow.release(); result = await pending; });
+  expect(result).toBe(answer);
+  expect(listCount(store)).toBe(before);
 });
