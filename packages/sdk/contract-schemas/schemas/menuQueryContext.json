@@ -37,9 +37,11 @@
     "roomNames": {
       "anyOf": [
         {
+          "uniqueItems": true,
           "type": "array",
           "items": {
-            "type": "string"
+            "type": "string",
+            "pattern": "[^\\t-\\r\\x1c-\\x20\\x85\\xa0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]"
           }
         },
         {
@@ -50,14 +52,19 @@
     "condition": {
       "anyOf": [
         {
+          "minProperties": 1,
           "type": "object",
           "propertyNames": {
-            "type": "string"
+            "type": "string",
+            "pattern": "[^\\t-\\r\\x1c-\\x20\\x85\\xa0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]"
           },
           "additionalProperties": {
+            "uniqueItems": true,
+            "minItems": 1,
             "type": "array",
             "items": {
-              "type": "string"
+              "type": "string",
+              "pattern": "[^\\t-\\r\\x1c-\\x20\\x85\\xa0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]"
             }
           }
         },
@@ -69,9 +76,11 @@
     "lineNames": {
       "anyOf": [
         {
+          "uniqueItems": true,
           "type": "array",
           "items": {
-            "type": "string"
+            "type": "string",
+            "pattern": "[^\\t-\\r\\x1c-\\x20\\x85\\xa0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]"
           }
         },
         {
@@ -82,9 +91,11 @@
     "prcGroups": {
       "anyOf": [
         {
+          "uniqueItems": true,
           "type": "array",
           "items": {
-            "type": "string"
+            "type": "string",
+            "pattern": "[^\\t-\\r\\x1c-\\x20\\x85\\xa0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]"
           }
         },
         {
@@ -106,9 +117,11 @@
     "selection": {
       "anyOf": [
         {
+          "uniqueItems": true,
           "type": "array",
           "items": {
-            "type": "string"
+            "type": "string",
+            "pattern": "[^\\t-\\r\\x1c-\\x20\\x85\\xa0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]"
           }
         },
         {
@@ -119,9 +132,11 @@
     "lotIds": {
       "anyOf": [
         {
+          "uniqueItems": true,
           "type": "array",
           "items": {
-            "type": "string"
+            "type": "string",
+            "pattern": "[^\\t-\\r\\x1c-\\x20\\x85\\xa0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]"
           }
         },
         {
@@ -142,9 +157,11 @@
     "recipeIds": {
       "anyOf": [
         {
+          "uniqueItems": true,
           "type": "array",
           "items": {
-            "type": "string"
+            "type": "string",
+            "pattern": "[^\\t-\\r\\x1c-\\x20\\x85\\xa0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]"
           }
         },
         {

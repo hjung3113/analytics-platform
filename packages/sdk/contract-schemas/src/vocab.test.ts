@@ -1,7 +1,7 @@
 import { OUTCOMES } from '@ap/contracts';
 import vocab from '@ap/contracts/vocab.json';
 import { describe, expect, it } from 'vitest';
-import { ASSESSMENT_KINDS, ASSESSMENT_REASONS, ASSESSMENT_STATES, CONTEXT_KEYS, OUTCOME_VALUES } from './vocab.ts';
+import { APPLIED_CAPABILITIES, ASSESSMENT_KINDS, ASSESSMENT_REASONS, ASSESSMENT_STATES, CONTEXT_KEYS, OUTCOME_VALUES } from './vocab.ts';
 import { outcomeSchema } from './index.ts';
 
 describe('vocabulary lists match @ap/contracts', () => {
@@ -18,6 +18,7 @@ describe('vocabulary lists match @ap/contracts', () => {
     ['assessment states', ASSESSMENT_STATES],
     ['assessment reasons', ASSESSMENT_REASONS],
     ['context keys', CONTEXT_KEYS],
+    ['applied capabilities', APPLIED_CAPABILITIES],
   ])('%s are non-empty and distinct', (_name, values) => {
     expect(values.length).toBeGreaterThan(0);
     expect(new Set(values).size).toBe(values.length);

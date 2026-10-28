@@ -1,6 +1,6 @@
 // Type equivalence between the Zod sources and the hand-written @ap/contracts types (ADR-0096). `tsc --noEmit` (the package's
 // `typecheck`) proves it; `vitest run` only loads the file, because `expectTypeOf` is a no-op at runtime.
-import type { ApiResponse, Assessment, AssessmentKind, AnyEndpointSpec, MenuQuery, MenuQueryContext, Outcome, Trust } from '@ap/contracts';
+import type { ApiResponse, Capability, Assessment, AssessmentKind, AnyEndpointSpec, MenuQuery, MenuQueryContext, Outcome, Trust } from '@ap/contracts';
 import { describe, expectTypeOf, it } from 'vitest';
 import { z } from 'zod/v4';
 import {
@@ -13,6 +13,8 @@ import {
   outcomeSchema,
   trustSchema,
 } from './index.ts';
+import { contextCapabilitySchema } from './menu-query.ts';
+import { APPLIED_CAPABILITIES } from './vocab.ts';
 
 /** Readonly arrays and properties are a source-type nicety; the wire shape is mutable. Mapping also flattens intersections. */
 type Wire<T> = T extends readonly (infer U)[] ? Wire<U>[] : T extends object ? { -readonly [K in keyof T]: Wire<T[K]> } : T;
@@ -40,6 +42,11 @@ describe('schemas and @ap/contracts types are the same type', () => {
   it('menu query and its context', () => {
     expectTypeOf<Wire<z.infer<typeof menuQueryContextSchema>>>().toEqualTypeOf<Wire<MenuQueryContext>>();
     expectTypeOf<Wire<z.infer<typeof menuQuerySchema>>>().toEqualTypeOf<Wire<MenuQuery>>();
+  });
+
+  it('declarable capabilities are Capability without unsupported', () => {
+    expectTypeOf<z.infer<typeof contextCapabilitySchema>>().toEqualTypeOf<Exclude<Capability, 'unsupported'>>();
+    expectTypeOf<(typeof APPLIED_CAPABILITIES)[number]>().toEqualTypeOf<Exclude<Capability, 'unsupported'>>();
   });
 
   it('endpoint declaration (data part of EndpointSpec)', () => {

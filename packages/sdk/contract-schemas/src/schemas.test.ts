@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { apiResponseSchema, assessmentSchema, endpointDeclarationSchema, menuQueryContextSchema, menuQuerySchema, toJsonSchema, trustSchema } from './index.ts';
 import { z } from 'zod/v4';
+import { contextCapabilitySchema } from './menu-query.ts';
+import { CONTEXT_KEYS } from './vocab.ts';
 
 const trust = { updatedAt: '2026-10-28T09:00:00+09:00', dataThrough: null, coverage: null, provisional: false, source: 'mes' };
 
@@ -61,6 +63,52 @@ describe('MenuQuery context', () => {
     expect(menuQueryContextSchema.safeParse({ membershipBasis: 'other' }).success).toBe(false);
   });
 
+  const SET_KEYS = ['roomNames', 'lineNames', 'prcGroups', 'selection', 'lotIds', 'recipeIds'] as const;
+
+  it.each(SET_KEYS)('%s: rejects duplicate, blank and whitespace-only IDs; keeps null, [] and untrimmed IDs', (key) => {
+    const ok = (value: unknown) => menuQueryContextSchema.safeParse({ [key]: value }).success;
+    expect(ok(['b', 'a'])).toBe(true);
+    expect(ok([])).toBe(true);
+    expect(ok(null)).toBe(true);
+    expect(ok([' a ', 'A', 'a'])).toBe(true);
+    expect(ok(['b', 'b'])).toBe(false);
+    expect(ok([''])).toBe(false);
+    expect(ok(['\u3000 \t'])).toBe(false);
+    expect(ok(['\ud800'])).toBe(false);
+  });
+
+  it.each(SET_KEYS)('%s: JSON Schema carries uniqueItems and non-blank item pattern', (key) => {
+    const props = toJsonSchema(menuQueryContextSchema).properties as Record<string, { anyOf: Record<string, unknown>[] }>;
+    const array = props[key].anyOf.find((branch) => branch.type === 'array');
+    expect(array).toMatchObject({ uniqueItems: true, items: { type: 'string', pattern: expect.any(String) } });
+    const pattern = new RegExp((array!.items as { pattern: string }).pattern);
+    expect(pattern.test('a')).toBe(true);
+    expect(pattern.test(' a ')).toBe(true);
+    expect(pattern.test('')).toBe(false);
+    expect(pattern.test(' \u00a0\u2003\u3000')).toBe(false);
+  });
+
+  it('condition: non-empty map of non-empty, distinct, non-blank value lists', () => {
+    const ok = (condition: unknown) => menuQueryContextSchema.safeParse({ condition }).success;
+    expect(ok({ maker: ['a', 'b'], model: ['x'] })).toBe(true);
+    expect(ok(null)).toBe(true);
+    expect(ok({ maker: [] })).toBe(false);
+    expect(ok({ maker: [''] })).toBe(false);
+    expect(ok({ maker: ['a', 'a'] })).toBe(false);
+    expect(ok({ '': ['a'] })).toBe(false);
+    expect(ok({})).toBe(false);
+  });
+
+  it('condition: JSON Schema carries the same constraints', () => {
+    const props = toJsonSchema(menuQueryContextSchema).properties as Record<string, { anyOf: Record<string, unknown>[] }>;
+    const map = props.condition.anyOf.find((branch) => branch.type === 'object');
+    expect(map).toMatchObject({
+      minProperties: 1,
+      propertyNames: { type: 'string', pattern: expect.any(String) },
+      additionalProperties: { type: 'array', minItems: 1, uniqueItems: true, items: { type: 'string', pattern: expect.any(String) } },
+    });
+  });
+
   it('MenuQuery takes any params; the artifact lists the key as required', () => {
     expect(menuQuerySchema.safeParse({ endpoint: 'a.b', context: {}, params: null }).success).toBe(true);
     expect(toJsonSchema(menuQuerySchema).required).toEqual(['endpoint', 'context', 'params']);
@@ -73,6 +121,12 @@ describe('endpoint declaration', () => {
   it('accepts a declaration and rejects `unsupported` as a declared capability', () => {
     expect(endpointDeclarationSchema.safeParse(base).success).toBe(true);
     expect(endpointDeclarationSchema.safeParse({ ...base, context: { time: 'unsupported' } }).success).toBe(false);
+  });
+
+  it('capability vocabulary is exactly apply and reference, in runtime and artifact', () => {
+    expect(contextCapabilitySchema.options).toEqual(['apply', 'reference']);
+    const context = (toJsonSchema(endpointDeclarationSchema).properties as Record<string, { properties: Record<string, unknown> }>).context;
+    expect(Object.values(context.properties)).toEqual(CONTEXT_KEYS.map(() => ({ type: 'string', enum: ['apply', 'reference'] })));
   });
 
   it('rejects an unknown assessment kind; the artifact forbids unknown keys', () => {
