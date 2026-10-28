@@ -28,13 +28,13 @@ export type DraftStore = ReturnType<typeof createDraftStore>;
 export type DraftInputs = {
   history?: QueryHistoryStore; revision: number; currentRevision: () => number; allowed: boolean;
   store?: DraftStore; menu: MenuEntry | null; identity: string; session: Session; url: string;
-  global: GlobalContext; page: Pair[]; extras: Pair[]; defaultRangeTo: string; scope: ScopeState;
+  global: GlobalContext; page: Pair[]; extras: Pair[]; defaultRangeTo: string | null; scope: ScopeState;
   adapter: PlatformAdapter; axes: readonly EquipmentAxisDescriptor[]; invalid: boolean;
   commit: (next: string, how: 'push') => boolean;
   setGlobal: QueryDraft['setDraftGlobal']; setPage: QueryDraft['setDraftPage'];
 };
 function defaults(input: DraftInputs): Values {
-  return { global: { ...emptyGlobal, scopeId: input.global.scopeId, ...(input.menu?.context.time === 'apply' ? { from: shift(input.defaultRangeTo, -24), to: input.defaultRangeTo } : {}) }, page: [] };
+  return { global: { ...emptyGlobal, scopeId: input.global.scopeId, ...(input.menu?.context.time === 'apply' && input.defaultRangeTo !== null ? { from: shift(input.defaultRangeTo, -24), to: input.defaultRangeTo } : {}) }, page: [] };
 }
 function initial(input: DraftInputs): Values {
   return input.global.from === null && input.global.to === null && !input.invalid

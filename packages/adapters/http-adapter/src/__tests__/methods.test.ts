@@ -7,6 +7,10 @@ const PAGE = { items: [], nextCursor: null };
 const USAGE_EVENT = { name: 'entry', menuId: 'home', spaceId: null, path: '/home', at: 1, sessionId: 's1' } as const;
 const REPORT = { correlationId: 'client-abc', menuId: 'home', spaceId: null, path: '/home', name: 'Error' };
 
+const TEXT = { ko: '제목', en: 'Title' };
+const NOTICE_CREATE = { title: TEXT, content: TEXT, scopeId: null, until: '2026-10-30T00:00:00', idempotencyKey: 'k-1' };
+const NOTICE_DELETE = { id: 'N-1', expectedVersion: 'v1', idempotencyKey: 'k-2' };
+
 type Http = { method: 'GET' | 'POST'; path: string; search?: string; body?: unknown; csrf?: boolean; keepalive?: boolean; correlationId?: string };
 type Row = { http: Http | null; reply?: unknown; call: (a: PlatformAdapter) => unknown };
 
@@ -98,6 +102,37 @@ const TABLE = {
     reply: ENVELOPE,
     call: (a) => a.deleteAnnotation({ chartId: 'c1', scopeId: 'fab-a', id: 'n1' }),
   },
+  readPreferences: {
+    http: { method: 'GET', path: '/api/v1/platform/preferences' },
+    reply: ENVELOPE,
+    call: (a) => a.readPreferences(),
+  },
+  patchPreferences: {
+    http: { method: 'POST', path: '/api/v1/platform/preferences/patch', csrf: true, body: { set: { lang: 'ko' }, remove: ['recents'] } },
+    reply: ENVELOPE,
+    call: (a) => a.patchPreferences({ set: { lang: 'ko' }, remove: ['recents'] }),
+  },
+  importPreferences: {
+    http: { method: 'POST', path: '/api/v1/platform/preferences/import', csrf: true, body: { values: { lang: 'ko' } } },
+    reply: ENVELOPE,
+    call: (a) => a.importPreferences({ values: { lang: 'ko' } }),
+  },
+  lookupPeople: {
+    http: { method: 'POST', path: '/api/v1/platform/people/lookup', body: { ids: ['u1', 'u2'] } },
+    reply: { items: [] },
+    call: (a) => a.lookupPeople(['u1', 'u2']),
+  },
+  listNotices: { http: { method: 'GET', path: '/api/v1/platform/notices' }, reply: ENVELOPE, call: (a) => a.listNotices() },
+  saveNotice: {
+    http: { method: 'POST', path: '/api/v1/platform/notices/save', csrf: true, body: NOTICE_CREATE },
+    reply: ACTION_OK,
+    call: (a) => a.saveNotice(NOTICE_CREATE),
+  },
+  deleteNotice: {
+    http: { method: 'POST', path: '/api/v1/platform/notices/delete', csrf: true, body: NOTICE_DELETE },
+    reply: ACTION_OK,
+    call: (a) => a.deleteNotice(NOTICE_DELETE),
+  },
 } satisfies Record<keyof PlatformAdapter, Row>;
 
 const entries = Object.entries(TABLE as Record<string, Row>);
@@ -163,5 +198,58 @@ describe('method table', () => {
     const { adapter, sent } = await ready(() => json(ENVELOPE));
     await adapter.listAnnotations({ chartId: 'c1', scopeId: null });
     expect(sent()[0]!.search).toBe('?chartId=c1');
+  });
+
+  it('notice writes carry the idempotency key and the version as headers, and the key in the body', async () => {
+    const { adapter, sent } = await ready(() => json(ACTION_OK));
+    await adapter.saveNotice({ ...NOTICE_CREATE, id: 'N-1', expectedVersion: 'v3' });
+    await adapter.deleteNotice(NOTICE_DELETE);
+    const [save, remove] = sent() as [Call, Call];
+    expect(save.headers['Idempotency-Key']).toBe('k-1');
+    expect(save.headers['If-Match']).toBe('v3');
+    expect(remove.headers['Idempotency-Key']).toBe('k-2');
+    expect(remove.headers['If-Match']).toBe('v1');
+    expect(sent().map((c) => c.headers['X-CSRF-Token'])).toEqual(['t1', 't1']);
+  });
+
+  it('a create sends no If-Match', async () => {
+    const { adapter, sent } = await ready(() => json(ACTION_OK));
+    await adapter.saveNotice(NOTICE_CREATE);
+    expect(sent()[0]!.headers['If-Match']).toBeUndefined();
+  });
+
+  it('a notice write whose answer is lost is unknown, not error (the write may have applied)', async () => {
+    const { adapter } = await ready(() => json({}, { status: 503 }));
+    expect(await adapter.saveNotice(NOTICE_CREATE)).toMatchObject({ outcome: 'unknown', data: null });
+  });
+
+  it('lookupPeople returns the items and turns a judged 4xx into a PortError', async () => {
+    const member = { userId: 'u1', displayName: 'Kim', affiliation: 'Fab' };
+    const ok = await ready(() => json({ items: [member] }));
+    expect(await ok.adapter.lookupPeople(['u1'])).toEqual([member]);
+    const bad = await ready(() => json({ code: 'invalid_input', message: 'too many ids', field: 'ids' }, { status: 400 }));
+    await expect(bad.adapter.lookupPeople(['u1'])).rejects.toMatchObject({ code: 'invalid_input', field: 'ids' });
+  });
+
+  it('forwards the AbortSignal of the preference, people and notice reads', async () => {
+    const controller = new AbortController();
+    const { adapter, sent } = await ready(() => json(ENVELOPE));
+    await adapter.readPreferences(controller.signal);
+    await adapter.listNotices(controller.signal);
+    expect(sent().every((c) => c.init.signal !== undefined && c.init.signal !== null)).toBe(true);
+    controller.abort();
+    await expect(adapter.readPreferences(controller.signal)).rejects.toMatchObject({ name: 'AbortError' });
+  });
+
+  it('every port sends its own request even for an argument it cannot read (backend drift guard calls with a placeholder)', async () => {
+    const placeholder = { toString: () => 'x' } as never;
+    const { adapter, sent } = await ready(() => json({ items: [] }));
+    const calls = [
+      () => adapter.readPreferences(placeholder), () => adapter.listNotices(placeholder), () => adapter.patchPreferences(placeholder), () => adapter.importPreferences(placeholder), () => adapter.lookupPeople(placeholder),
+      () => adapter.saveNotice(placeholder), () => adapter.deleteNotice(placeholder),
+    ];
+    for (const call of calls) expect(() => { void Promise.resolve(call()).catch(() => undefined); }).not.toThrow();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(sent()).toHaveLength(calls.length);
   });
 });

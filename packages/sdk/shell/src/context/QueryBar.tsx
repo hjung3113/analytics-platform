@@ -79,12 +79,12 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
   };
   const g = draft.global;
   const [range, setRange] = useState({ from: g.from ?? '', to: g.to ?? '' });
-  const [periodEditor, setPeriodEditor] = useState({ mode: 'range' as 'reference' | 'range', reference: platform.defaultRangeTo.slice(0, 10), invalidReference: false });
+  const [periodEditor, setPeriodEditor] = useState({ mode: 'range' as 'reference' | 'range', reference: day(platform.defaultRangeTo), invalidReference: false });
   const [rangeSource, setRangeSource] = useState(`${g.from}|${g.to}`);
   if (rangeSource !== `${g.from}|${g.to}`) {
     setRangeSource(`${g.from}|${g.to}`);
     setRange({ from: g.from ?? '', to: g.to ?? '' });
-    setPeriodEditor(previous => ({ ...previous, reference: (g.from ?? platform.defaultRangeTo).slice(0, 10), invalidReference: false }));
+    setPeriodEditor(previous => ({ ...previous, reference: day(g.from ?? platform.defaultRangeTo), invalidReference: false }));
   }
   const context: PortContext = { scopeId: g.scopeId ?? '', roomNames: g.roomNames, lineNames: g.lineNames, prcGroups: g.prcGroups, condition: g.condition, membershipBasis: g.membershipBasis, period: g.from && g.to ? { from: g.from, to: g.to } : null };
   const cap = route!.menu.context;
@@ -112,8 +112,8 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
   const actions = <div role="group" aria-label={ko ? '조회 조건 동작' : 'Query actions'} className={board ? 'flex shrink-0 items-center gap-2' : 'flex flex-wrap items-center gap-2'}>
     {changes > 0 ? <span className="text-xs text-text-secondary">{ko ? `미적용 변경 ${changes}개 · 공유에서 제외` : `${changes} unapplied changes · excluded from sharing`}</span>
       : notApplied && <span className="text-xs text-text-secondary">{ko ? '아직 조회 조건을 적용하지 않았습니다.' : 'No query conditions have been applied yet.'}</span>}
-    <Button type="button" variant="ghost" size="toolbar" onClick={() => { revert(); setPeriodEditor({ mode: 'range', reference: (global.from ?? platform.defaultRangeTo).slice(0, 10), invalidReference: false }); setRangeSource('revert'); setEditError(null); }}>{ko ? '초안 되돌리기' : 'Revert draft'}</Button>
-    <Button type="button" variant="ghost" size="toolbar" onClick={() => { reset(); setPeriodEditor({ mode: 'range', reference: platform.defaultRangeTo.slice(0, 10), invalidReference: false }); setRangeSource('reset'); setEditError(null); }}>{ko ? '조건 초기화' : 'Reset conditions'}</Button>
+    <Button type="button" variant="ghost" size="toolbar" onClick={() => { revert(); setPeriodEditor({ mode: 'range', reference: day(global.from ?? platform.defaultRangeTo), invalidReference: false }); setRangeSource('revert'); setEditError(null); }}>{ko ? '초안 되돌리기' : 'Revert draft'}</Button>
+    <Button type="button" variant="ghost" size="toolbar" onClick={() => { reset(); setPeriodEditor({ mode: 'range', reference: day(platform.defaultRangeTo), invalidReference: false }); setRangeSource('reset'); setEditError(null); }}>{ko ? '조건 초기화' : 'Reset conditions'}</Button>
     <Button type="button" size="toolbar" disabled={!canApply || reasons.length > 0} aria-describedby={reasonId} onClick={apply}>{ko ? '적용' : 'Apply'}</Button>
     {historySlot}
     {stableView.present && <span ref={stableView.adopt} className="contents" />}
@@ -148,7 +148,7 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
     <fieldset className="min-w-0 rounded-md border border-border-subtle p-2">
       <legend className="px-1 text-xs font-medium text-text-secondary">{ko ? '기간과 Scope' : 'Period and query scope'}</legend>
       <div className="flex flex-wrap items-start gap-3">
-        {cap.time === 'apply' && <PeriodFields global={g} range={range} setRange={setRange} write={patch => { setRange({ from: patch.from ?? '', to: patch.to ?? '' }); setPeriodEditor(previous => ({ ...previous, reference: (patch.from ?? platform.defaultRangeTo).slice(0, 10), invalidReference: false })); write(patch); }} periodEditor={periodEditor} setPeriodEditor={setPeriodEditor} invalid={invalid('time') || periodInputInvalid} reasonId={reasonId} reportInvalid={() => setEditError(ko ? '유효한 시작·종료 시각을 입력하세요.' : 'Enter valid start and end times.')} />}
+        {cap.time === 'apply' && <PeriodFields global={g} range={range} setRange={setRange} write={patch => { setRange({ from: patch.from ?? '', to: patch.to ?? '' }); setPeriodEditor(previous => ({ ...previous, reference: day(patch.from ?? platform.defaultRangeTo), invalidReference: false })); write(patch); }} periodEditor={periodEditor} setPeriodEditor={setPeriodEditor} invalid={invalid('time') || periodInputInvalid} reasonId={reasonId} reportInvalid={() => setEditError(ko ? '유효한 시작·종료 시각을 입력하세요.' : 'Enter valid start and end times.')} />}
         {cap.roomNames === 'apply' && <SetField name={ko ? '공정' : 'Process'} values={g.roomNames} options={scope.status === 'valid' && scope.validatedFor === session ? scope.grantedRooms.map(value => ({ value, label: value })) : []} onChange={roomNames => write({ roomNames })} invalid={invalid('roomNames')} reasonId={reasonId} />}
         {cap.line === 'apply' && <AxisField axisId="lineNames" name={tx(CONTEXT_LABELS.line)} values={g.lineNames} context={context} parents={g.roomNames === null ? {} : { roomNames: g.roomNames }} onChange={lineNames => write({ lineNames })} invalid={invalid('line')} reasonId={reasonId} />}
         {cap.prcGroup === 'apply' && <AxisField axisId="prcGroups" name={tx(CONTEXT_LABELS.prcGroup)} values={g.prcGroups} context={context} parents={{ ...(g.roomNames === null ? {} : { roomNames: g.roomNames }), ...(g.lineNames === null ? {} : { lineNames: g.lineNames }) }} onChange={prcGroups => write({ prcGroups })} invalid={invalid('prcGroup')} reasonId={reasonId} />}
@@ -250,6 +250,8 @@ function EquipmentField({ context, ...props }: Omit<SetFieldProps, 'name' | 'opt
     {props.values?.some(value => !result.items.some(item => item.equipmentId === value)) && <p className="max-w-56 text-xs text-text-secondary">{ko ? '현재 불러온 후보에 없음. 선택한 ID는 유지합니다.' : 'Not in currently loaded candidates. Selected IDs are kept.'}</p>}
   </div>;
 }
+/** The calendar day of a wall-clock anchor; blank when the server has none (never a browser-clock date). */
+const day = (value: string | null) => (value === null ? '' : value.slice(0, 10));
 function PeriodFields({ global: g, range, setRange, write, invalid, reasonId, reportInvalid, periodEditor, setPeriodEditor }: { periodEditor: { mode: 'reference' | 'range'; reference: string; invalidReference: boolean }; setPeriodEditor: (value: { mode: 'reference' | 'range'; reference: string; invalidReference: boolean }) => void; range: { from: string; to: string }; setRange: (value: { from: string; to: string }) => void; global: GlobalContext; write: (patch: Partial<GlobalContext>) => void; invalid: boolean; reasonId: string; reportInvalid: () => void }) {
   const { defaultRangeTo } = useHostPlatform();
   const { lang } = useI18n();
@@ -267,13 +269,13 @@ function PeriodFields({ global: g, range, setRange, write, invalid, reasonId, re
   const hours = periodHours(g);
   const ends = (hoursBack: number) => isTrailingPeriod(g, defaultRangeTo, hoursBack);
   const presets = [
-    { label: ko ? '최근 24시간' : 'Last 24 hours', pressed: ends(24), apply: () => { setMode('range'); write({ from: shift(defaultRangeTo, -24), to: defaultRangeTo }); } },
-    { label: ko ? '최근 7일' : 'Last 7 days', pressed: ends(168), apply: () => { setMode('range'); write({ from: shift(defaultRangeTo, -168), to: defaultRangeTo }); } },
-    { label: ko ? '오늘' : 'Today', pressed: g.from === `${defaultRangeTo.slice(0, 10)}T00:00:00` && hours === 24, apply: () => date(defaultRangeTo.slice(0, 10)) },
+    { label: ko ? '최근 24시간' : 'Last 24 hours', pressed: ends(24), apply: () => { if (defaultRangeTo === null) return; setMode('range'); write({ from: shift(defaultRangeTo, -24), to: defaultRangeTo }); } },
+    { label: ko ? '최근 7일' : 'Last 7 days', pressed: ends(168), apply: () => { if (defaultRangeTo === null) return; setMode('range'); write({ from: shift(defaultRangeTo, -168), to: defaultRangeTo }); } },
+    { label: ko ? '오늘' : 'Today', pressed: defaultRangeTo !== null && g.from === `${defaultRangeTo.slice(0, 10)}T00:00:00` && hours === 24, apply: () => { if (defaultRangeTo !== null) date(defaultRangeTo.slice(0, 10)); } },
   ];
   return <div className="grid min-w-0 flex-1 basis-full gap-1 text-xs text-text-secondary" role="group" aria-label={ko ? '기간' : 'Period'}>
     <div className="flex flex-wrap items-center gap-1">
-      {presets.map(p => <Button key={p.label} type="button" size="toolbar" variant={p.pressed ? 'secondary' : 'ghost'} aria-pressed={p.pressed} onClick={p.apply}>{p.label}</Button>)}
+      {presets.map(p => <Button key={p.label} type="button" size="toolbar" variant={p.pressed ? 'secondary' : 'ghost'} aria-pressed={p.pressed} disabled={defaultRangeTo === null} onClick={p.apply}>{p.label}</Button>)}
       {/* Presets pick a range, the pair picks how to type one: a divider keeps two pressed buttons from reading as one choice. */}
       <span aria-hidden className="mx-1 h-5 w-px bg-border-subtle" data-period-divider />
       <Button type="button" size="toolbar" variant={mode === 'reference' ? 'secondary' : 'ghost'} aria-pressed={mode === 'reference'} onClick={() => setMode('reference')}>{ko ? '기준일' : 'Reference date'}</Button>

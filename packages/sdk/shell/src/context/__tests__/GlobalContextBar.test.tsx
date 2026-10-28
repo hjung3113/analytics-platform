@@ -60,10 +60,10 @@ afterEach(() => {
 const bar = () => screen.getByRole('region', { name: '전역 Context' });
 const visibleContextLabel = () => Array.from(bar().querySelectorAll('span'))
   .some(label => label.textContent === '전역 Context' && !label.closest('[data-context-measuring]'));
-function mount(extra = '', lang: 'ko' | 'en' = 'ko', period = true, menus = registry) {
+function mount(extra = '', lang: 'ko' | 'en' = 'ko', period = true, menus = registry, serverAdapter = adapter) {
   localStorage.setItem('platform:lang', lang);
   window.history.replaceState(null, '', `/?v=1&scopeId=MEM${period ? '&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00' : ''}${extra}`);
-  return render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter} registry={menus}><GlobalContextBar /></PlatformProvider></I18nProvider>);
+  return render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={serverAdapter} registry={menus}><GlobalContextBar /></PlatformProvider></I18nProvider>);
 }
 function width(value: number) { act(() => { barWidth = value; resize?.(); }); }
 const inlineKeys = () => Array.from(bar().querySelectorAll('[data-context-key]'), el => el.getAttribute('data-context-key'));
@@ -446,5 +446,32 @@ describe('lossless legacy pair values (#552)', () => {
     await screen.findAllByRole('radio', { name: 'X / Y / Z' });
     fireEvent.click(screen.getByRole('button', { name: '적용' }));
     expect(new URLSearchParams(window.location.search).get('equipmentGroup')).toBe('{"maker":["X"],"model":["Y / Z"]}');
+  });
+});
+
+describe('no server anchor: defaultRangeTo is null (ADR-0098)', () => {
+  const noAnchor = testAdapter({ ...adapter, defaultRangeTo: () => null });
+  const today = new Date().toISOString().slice(0, 4);
+
+  it('turns the relative presets off but keeps an explicit period readable', () => {
+    mount('', 'ko', true, registry, noAnchor);
+    const period = within(bar()).getByRole('button', { name: /^기간:/ });
+    expect(period).toHaveAttribute('title', '기간: 09-25 09:00 → 09-26 09:00 (24h)');
+    for (const name of ['1일', '7일']) expect(within(bar()).getByRole('radio', { name })).toBeDisabled();
+  });
+
+  it('does not write a period when a disabled preset is pressed', () => {
+    mount('', 'ko', false, registry, noAnchor);
+    fireEvent.click(within(bar()).getByRole('radio', { name: '1일' }));
+    expect(window.location.search).not.toMatch(/from=/);
+  });
+
+  it('opens the custom editor blank: no browser-clock or invented date', () => {
+    mount('', 'ko', false, registry, noAnchor);
+    fireEvent.click(within(bar()).getByRole('button', { name: /^기간:/ }));
+    const dialog = screen.getByRole('dialog');
+    for (const input of Array.from(dialog.querySelectorAll('input[type="date"]'))) expect((input as HTMLInputElement).value).toBe('');
+    expect(dialog.textContent ?? '').not.toContain(today);
+    expect(within(bar()).getByRole('radio', { name: '1일' })).toBeDisabled();
   });
 });

@@ -1,5 +1,6 @@
 export * from './adapter/action.js';
 export * from './adapter/adapter.js';
+export * from './adapter/service-ports.js';
 export { clientCorrelationId } from './adapter/correlation.js';
 export * from './adapter/audit.js';
 export * from './adapter/audit-order.js';

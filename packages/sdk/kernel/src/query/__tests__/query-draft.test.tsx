@@ -522,3 +522,42 @@ it('a menu without presets sends the whole Condition', async () => {
   expect(sentConditions(send)).toEqual([fullCondition]);
   expect(presetView).toBeNull();
 });
+
+// No server anchor (defaultRangeTo null, ADR-0098): the draft stays empty and no query runs; nothing is dated from the browser clock.
+it('without a server anchor the apply draft has no default period, cannot apply, and an explicit period is kept', async () => {
+  window.history.replaceState(null, '', '/');
+  const send = vi.fn(async () => ({ outcome: 'ok' as const, data: 7, assessments: [], trust: null, correlationId: 'result' }));
+  const session = testSession(['platform:view']);
+  const adapter = testAdapter({ session: () => session, menuQuery: send, defaultRangeTo: () => null });
+  const requiring = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: menu.label, icon: House, space: spaceId('mars') }], menus: [{ ...menu, query: { mode: 'apply' as const, required: { context: ['time' as const] } } }] });
+  render(<I18nProvider><PlatformProvider registry={requiring} adapter={adapter}><Probe /></PlatformProvider></I18nProvider>);
+  expect(draft.draft.global.from).toBeNull();
+  expect(draft.draft.global.to).toBeNull();
+  expect(window.location.search).toBe('');
+  expect(draft.missing.length).toBeGreaterThan(0);
+  expect(draft.canApply).toBe(false);
+  expect(send).not.toHaveBeenCalled();
+  cleanup();
+  window.history.replaceState(null, '', '/?from=2026-09-01T00:00:00&to=2026-09-02T00:00:00');
+  render(<I18nProvider><PlatformProvider registry={requiring} adapter={adapter}><Probe /></PlatformProvider></I18nProvider>);
+  expect(draft.draft.global.from).toBe('2026-09-01T00:00:00');
+  expect(platform.global.to).toBe('2026-09-02T00:00:00');
+});
+
+it('without a server anchor a live-mode screen is not given a materialized default period', async () => {
+  const liveMenu = { ...menu, query: undefined };
+  const liveRegistry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: menu.label, icon: House, space: spaceId('mars') }], menus: [liveMenu] });
+  const replace = vi.spyOn(window.history, 'replaceState');
+  window.history.replaceState(null, '', '/');
+  replace.mockClear();
+  const session = testSession(['platform:view']);
+  const render1 = (anchor: string | null) => render(<I18nProvider><PlatformProvider registry={liveRegistry} adapter={testAdapter({ session: () => session, defaultRangeTo: () => anchor })}><Probe /></PlatformProvider></I18nProvider>);
+  render1(null);
+  await act(async () => {});
+  expect(window.location.search).toBe('');
+  expect(platform.global.from).toBeNull();
+  cleanup();
+  render1('2026-09-26T09:00:00');
+  await waitFor(() => expect(window.location.search).toContain('from=2026-09-25T09%3A00%3A00'));
+  replace.mockRestore();
+});

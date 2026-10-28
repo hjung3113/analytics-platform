@@ -7,6 +7,8 @@ import type { ApiResponse } from './response.js';
 import type { Condition, IdSet } from '../links/url.js';
 import type { MenuQuery } from '../menu/menu-query.js';
 import type { ActionResponse, MenuAction } from './action.js';
+import type { GroupMember } from '../links/saved-view.js';
+import type { DeleteNoticeInput, NoticeListPage, Notice, PreferencesImport, PreferencesPatch, PreferencesSnapshot, SaveNoticeInput } from './service-ports.js';
 
 /**
  * Kernel port to the platform server (docs/integration/platform-packages.md §4). The kernel consumes it;
@@ -205,8 +207,11 @@ export type PlatformAdapter = {
   menuQuery(req: MenuQuery, signal?: AbortSignal): Promise<ApiResponse<unknown>>;
   /** Menu write (packages/sdk/contracts/src/adapter/action.ts, docs/adr/0054-write-port-declared-actions-idempotency-version.md). The server resolves `req.action` to its own copy of the declaration; permission and concurrency never travel in the request. Never throws for a judged request. */
   menuAction(req: MenuAction, signal?: AbortSignal): Promise<ActionResponse<unknown>>;
-  /** Anchor for default periods (naive wall-clock, docs/06 §6.3). */
-  defaultRangeTo(): string;
+  /**
+   * Anchor for default periods (naive wall-clock, docs/06 §6.3). `null` = the server has no anchor: the client never
+   * substitutes the browser clock, a timezone conversion, the epoch or any invented date (ADR-0098).
+   */
+  defaultRangeTo(): string | null;
   /**
    * Menu usage events (docs/05 메뉴 활용률 계측). No userId field — the server stamps SessionUser.id.
    * Fire-and-forget from the kernel: no AbortSignal, failures are silent, navigation never blocks.
@@ -273,6 +278,43 @@ export type PlatformAdapter = {
    * Answers the deleted id. Not mart data: trust stays null, assessments stay empty.
    */
   deleteAnnotation(ref: AnnotationRef & { id: string }, signal?: AbortSignal): Promise<ApiResponse<{ id: string }>>;
+  /**
+   * The signed-in user's server-held preferences (ADR-0098). No identity argument: the server reads the session. Not
+   * mart data: trust stays null, assessments stay empty. `importedAt` is null until the one-time local import commits.
+   */
+  readPreferences(signal?: AbortSignal): Promise<ApiResponse<PreferencesSnapshot>>;
+  /**
+   * Patches keys of the session user's preferences: `set` stores (null stores null), `remove` deletes; the other keys
+   * are untouched. A key in both `set` and `remove`, an out-of-grammar key or a value that is not JSON is outcome `error`; an oversized value, request or an account total over
+   * the key limit is `too_large` (a failed patch changes nothing). Answers the whole snapshot after the write.
+   */
+  patchPreferences(patch: PreferencesPatch, signal?: AbortSignal): Promise<ApiResponse<PreferencesSnapshot>>;
+  /**
+   * One-time, atomic import of browser-held values (ADR-0098): a key the server already holds wins, only missing keys
+   * are saved, all in one commit, and `importedAt` is stamped in that commit. The answer carries the snapshot after the
+   * commit, so `importedAt !== null` is the acknowledgement. After completion it is a permanent no-op (answers the
+   * current snapshot, writes nothing), so a key deleted later is never resurrected from another device.
+   */
+  importPreferences(input: PreferencesImport, signal?: AbortSignal): Promise<ApiResponse<PreferencesSnapshot>>;
+  /**
+   * Exact lookup of people by opaque user ids (batch, at most PEOPLE_LOOKUP_MAX). Returns only the visible people the
+   * session may see: an unknown or unavailable id is simply absent (never an error, never private data), so callers keep
+   * an id fallback. Not a name search and never capped by one. No console role or grant data.
+   */
+  lookupPeople(ids: readonly string[], signal?: AbortSignal): Promise<readonly GroupMember[]>;
+  /**
+   * Management list of platform notices including expired ones (notice:view). Not the Home banner (`home.notices`
+   * menu query). Not mart data: trust null, assessments empty.
+   */
+  listNotices(signal?: AbortSignal): Promise<ApiResponse<NoticeListPage>>;
+  /**
+   * Creates (no `id`) or updates (`id` + `expectedVersion`) one notice; console:access. The server stamps identity and
+   * times; a supplied author/time/unknown key is `invalid`. A stale `expectedVersion` is `conflict`; a retry with the
+   * same `idempotencyKey` is answered `replayed`. Direct calls do not refresh the Home banner (#1106).
+   */
+  saveNotice(input: SaveNoticeInput, signal?: AbortSignal): Promise<ActionResponse<Notice>>;
+  /** Deletes one notice; console:access, optimistic `expectedVersion`, replay-safe `idempotencyKey`. */
+  deleteNotice(input: DeleteNoticeInput, signal?: AbortSignal): Promise<ActionResponse<{ id: string }>>;
   /**
    * Announces that the session or server-side state changed. The kernel then re-reads the session,
    * re-validates the scope when the session changed, and hides every earlier query result.

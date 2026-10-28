@@ -1,6 +1,6 @@
 // Type equivalence between the Zod sources and the hand-written @ap/contracts types (ADR-0096). `tsc --noEmit` (the package's
 // `typecheck`) proves it; `vitest run` only loads the file, because `expectTypeOf` is a no-op at runtime.
-import type { ApiResponse, Capability, Assessment, AssessmentKind, AnyEndpointSpec, MenuQuery, MenuQueryContext, Outcome, Trust } from '@ap/contracts';
+import type { CreateNoticeInput, DeleteNoticeInput, GroupMember, JsonValue, Notice, NoticeListPage, PreferencesImport, PreferencesPatch, PreferencesSnapshot, SaveNoticeInput, UpdateNoticeInput, ApiResponse, Capability, Assessment, AssessmentKind, AnyEndpointSpec, MenuQuery, MenuQueryContext, Outcome, Trust } from '@ap/contracts';
 import { describe, expectTypeOf, it } from 'vitest';
 import { z } from 'zod/v4';
 import {
@@ -12,6 +12,18 @@ import {
   menuQuerySchema,
   outcomeSchema,
   trustSchema,
+  createNoticeInputSchema,
+  deleteNoticeInputSchema,
+  groupMemberSchema,
+  jsonValueSchema,
+  noticeListPageSchema,
+  noticeSchema,
+  peopleLookupResponseSchema,
+  preferencesImportSchema,
+  preferencesPatchSchema,
+  preferencesSnapshotSchema,
+  saveNoticeInputSchema,
+  updateNoticeInputSchema,
 } from './index.ts';
 import { contextCapabilitySchema } from './menu-query.ts';
 import { APPLIED_CAPABILITIES } from './vocab.ts';
@@ -51,5 +63,20 @@ describe('schemas and @ap/contracts types are the same type', () => {
 
   it('endpoint declaration (data part of EndpointSpec)', () => {
     expectTypeOf<Wire<z.infer<typeof endpointDeclarationSchema>>>().toEqualTypeOf<Wire<EndpointDeclaration>>();
+  });
+
+  it('preferences, people and notices ports (ADR-0098)', () => {
+    expectTypeOf<z.infer<typeof jsonValueSchema>>().toEqualTypeOf<JsonValue>();
+    expectTypeOf<Wire<z.infer<typeof preferencesSnapshotSchema>>>().toEqualTypeOf<Wire<PreferencesSnapshot>>();
+    expectTypeOf<Wire<z.infer<typeof preferencesPatchSchema>>>().toEqualTypeOf<Wire<PreferencesPatch>>();
+    expectTypeOf<Wire<z.infer<typeof preferencesImportSchema>>>().toEqualTypeOf<Wire<PreferencesImport>>();
+    expectTypeOf<Wire<z.infer<typeof groupMemberSchema>>>().toEqualTypeOf<Wire<GroupMember>>();
+    expectTypeOf<Wire<z.infer<typeof peopleLookupResponseSchema>>['items']>().toEqualTypeOf<Wire<GroupMember>[]>();
+    expectTypeOf<Wire<z.infer<typeof noticeSchema>>>().toEqualTypeOf<Wire<Notice>>();
+    expectTypeOf<Wire<z.infer<typeof noticeListPageSchema>>>().toEqualTypeOf<Wire<NoticeListPage>>();
+    expectTypeOf<Wire<z.infer<typeof createNoticeInputSchema>>>().toEqualTypeOf<Wire<CreateNoticeInput>>();
+    expectTypeOf<Wire<z.infer<typeof updateNoticeInputSchema>>>().toEqualTypeOf<Wire<UpdateNoticeInput>>();
+    expectTypeOf<Wire<z.infer<typeof saveNoticeInputSchema>>>().toEqualTypeOf<Wire<SaveNoticeInput>>();
+    expectTypeOf<Wire<z.infer<typeof deleteNoticeInputSchema>>>().toEqualTypeOf<Wire<DeleteNoticeInput>>();
   });
 });

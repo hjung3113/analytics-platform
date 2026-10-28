@@ -133,6 +133,7 @@ function PeriodControl({ cap, compact = false }: { cap: Capability; compact?: bo
   const choose = (id: string) => {
     const p = presets.find(x => x.id === id)!;
     if (id === 'custom') { setOpen(true); return; }
+    if (defaultRangeTo === null) return;
     setGlobal({ from: shift(defaultRangeTo, -p.h), to: defaultRangeTo });
   };
   const presetsControl = <SegmentedRadio
@@ -142,6 +143,8 @@ function PeriodControl({ cap, compact = false }: { cap: Capability; compact?: bo
       // A custom period is already "selected" while it is applied; clicking it again reopens the editor.
       onActivate={id => { if (id === 'custom') setOpen(true); }}
       className="flex h-8 items-center"
+      // No server anchor: the relative presets have nothing to count back from, so the group is off; the period button still opens the custom editor.
+      disabled={defaultRangeTo === null}
       options={presets.map(p => ({ value: p.id, label: p.label }))}
     />;
   return <div className="flex min-w-0 items-center gap-1">
@@ -169,10 +172,10 @@ function CustomRange({ onDone }: { onDone: () => void }) {
   const { global, setGlobal, defaultRangeTo } = useHostPlatform();
   const { t, lang } = useI18n();
   const [mode, setMode] = useContextEditorState<'date' | 'time'>('mode', 'date');
-  const [start, setStart] = useContextEditorState('start', (global.from ?? shift(defaultRangeTo, -24)).slice(0, 10));
-  const [end, setEnd] = useContextEditorState('end', global.to ? shift(global.to, -24).slice(0, 10) : defaultRangeTo.slice(0, 10));
-  const [fromT, setFromT] = useContextEditorState('fromT', global.from ?? shift(defaultRangeTo, -24));
-  const [toT, setToT] = useContextEditorState('toT', global.to ?? defaultRangeTo);
+  const [start, setStart] = useContextEditorState('start', (global.from ?? (defaultRangeTo === null ? '' : shift(defaultRangeTo, -24))).slice(0, 10));
+  const [end, setEnd] = useContextEditorState('end', global.to ? shift(global.to, -24).slice(0, 10) : (defaultRangeTo ?? '').slice(0, 10));
+  const [fromT, setFromT] = useContextEditorState('fromT', global.from ?? (defaultRangeTo === null ? '' : shift(defaultRangeTo, -24)));
+  const [toT, setToT] = useContextEditorState('toT', global.to ?? defaultRangeTo ?? '');
   let error: string | null = null;
   let result: { from: string; to: string } | null = null;
   try {

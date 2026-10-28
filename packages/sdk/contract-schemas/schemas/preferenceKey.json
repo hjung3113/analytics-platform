@@ -1,0 +1,5 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "string",
+  "pattern": "^(?:favorites|recents|lastScope|lang|columns:[A-Za-z0-9_.-]{1,100})$"
+}

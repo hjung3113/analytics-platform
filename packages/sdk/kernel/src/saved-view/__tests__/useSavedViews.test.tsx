@@ -527,3 +527,23 @@ it('a personal default overtaken by the user\'s own pick is not applied again', 
   expect(window.location.search).toBe(query(['L2']));
   expect(views.selected?.view.id).toBe('l2');
 });
+
+// No server anchor (defaultRangeTo null, ADR-0098): a relative period has nothing to count back from.
+function mountNoAnchor(store: FakeStore, url = '/') {
+  window.history.replaceState(null, '', url);
+  return render(<I18nProvider><PlatformProvider registry={registry} adapter={testAdapter({ session: () => session, defaultRangeTo: () => null })} savedViews={store}><Probe /></PlatformProvider></I18nProvider>);
+}
+it('without a server anchor a relative view is unavailable and writes nothing; an absolute view still restores', async () => {
+  const relative = viewOf({ id: 'rel', name: 'Last 24h', context: { relativePeriod: { hours: 24 }, lineNames: ['L1'] } });
+  const store = createFakeStore([relative, L2]);
+  mountNoAnchor(store);
+  await waitFor(() => expect(views.status).toBe('ready'));
+  const before = window.location.href;
+  let outcome: Awaited<ReturnType<SavedViews['select']>> | undefined;
+  await act(async () => { outcome = await views.select('rel'); });
+  expect(outcome).toEqual({ ok: false, reason: 'unavailable' });
+  expect(window.location.href).toBe(before);
+  await act(async () => { outcome = await views.select('l2'); });
+  expect(outcome).toEqual({ ok: true, unsupported: [] });
+  expect(window.location.search).toBe(query(['L2']));
+});

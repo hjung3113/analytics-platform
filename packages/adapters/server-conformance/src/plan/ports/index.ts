@@ -4,6 +4,7 @@ import { planClientErrorChecks } from './client-error';
 import { planConsoleChecks } from './console';
 import { planEntityAuditChecks } from './entity-audit';
 import { planEntityChecks } from './entity';
+import { planServiceChecks } from './services';
 import { planSiteChecks } from './sites';
 import { planSnapshotChecks } from './snapshots';
 import type { AtSite } from './shared';
@@ -31,6 +32,7 @@ export function planPortChecks(harness: ServerConformanceHarness): ConformanceCh
     ...planAnnotationChecks(harness),
     ...planUsageChecks(harness),
     ...planClientErrorChecks(harness),
+    ...planServiceChecks(harness),
   ];
   const siteScopedEntity = entityRef.scopeId !== null;
   for (const check of siteEntityChecks) {

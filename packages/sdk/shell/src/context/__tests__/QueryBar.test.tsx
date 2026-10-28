@@ -288,3 +288,34 @@ it('asks the equipment port once for a typed search, after typing pauses, not pe
   const queries = (searchEquipment.mock.calls as unknown as [{ query?: string }][]).map(([request]) => request.query);
   expect(queries).toEqual(['EQ-0']);
 });
+
+it('no server anchor (defaultRangeTo null): no default period is invented, relative presets are off, the gate asks for a period', async () => {
+  mount('', { defaultRangeTo: () => null });
+  await waitFor(() => expect(platform.scope.status).toBe('valid'));
+  expect(platform.defaultRangeTo).toBeNull();
+  expect(draft.draft.global.from).toBeNull();
+  expect(draft.draft.global.to).toBeNull();
+  expect(window.location.search).not.toMatch(/from=|to=/);
+  for (const name of ['최근 24시간', '최근 7일', '오늘']) expect(screen.getByRole('button', { name })).toBeDisabled();
+  expect(screen.getByRole('button', { name: '적용' })).toBeDisabled();
+  expect(draft.missing.length).toBeGreaterThan(0);
+  expect(send).not.toHaveBeenCalled();
+});
+
+it('no server anchor: an explicit period in the address still applies and queries', async () => {
+  mount('&from=2026-01-01T00:00:00&to=2026-01-02T00:00:00&roomNames=PHOTO', { defaultRangeTo: () => null });
+  await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+  expect(platform.global.from).toBe('2026-01-01T00:00:00');
+  expect(platform.global.to).toBe('2026-01-02T00:00:00');
+  expect(screen.getByRole('button', { name: '최근 24시간' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: '최근 24시간' })).toHaveAttribute('aria-pressed', 'false');
+});
+
+it('no server anchor: the custom range editor starts blank', async () => {
+  mount('', { defaultRangeTo: () => null });
+  await waitFor(() => expect(platform.scope.status).toBe('valid'));
+  fireEvent.click(screen.getByRole('button', { name: '직접 범위' }));
+  for (const label of ['시작 시각', '종료 시각 (제외)']) expect(screen.getByLabelText(label)).toHaveValue('');
+  fireEvent.click(screen.getByRole('button', { name: '기준일' }));
+  expect(screen.getByLabelText('기준일')).toHaveValue('');
+});

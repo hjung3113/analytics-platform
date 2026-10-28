@@ -19,7 +19,7 @@ export function hasExplicitContext(current: Applied): boolean {
 }
 
 /** The saved copy restricted to what this menu supports, with a relative period resolved: the shape `viewState` compares with the applied state. */
-export function savedStateOf(view: SavedView, support: SavedViewSupport, anchor: string): SavedState {
+export function savedStateOf(view: SavedView, support: SavedViewSupport, anchor: string | null): SavedState {
   const fields = supportedFields(support);
   const context: SavedViewContext = {};
   for (const [key, value] of Object.entries(resolveContext(view.context, anchor)) as [keyof SavedViewContext, never][]) if (fields.has(key)) context[key] = value;
@@ -28,7 +28,7 @@ export function savedStateOf(view: SavedView, support: SavedViewSupport, anchor:
 }
 
 /** What a view stores that this menu cannot restore (06 §6.4): derived from the saved copy, so it is the same right after a pick and after a reload. */
-export function unsupportedOf(view: SavedView, support: SavedViewSupport, anchor: string): Unsupported[] {
+export function unsupportedOf(view: SavedView, support: SavedViewSupport, anchor: string | null): Unsupported[] {
   const fields = supportedFields(support);
   const found: Unsupported[] = [];
   const note = (item: Unsupported) => { if (!found.some(u => u.kind === item.kind && u.key === item.key)) found.push(item); };
@@ -46,7 +46,7 @@ export function comparableApplied(view: SavedView, applied: SavedState): SavedSt
  * Applies a view to the current address: supported keys are replaced by the view, unsupported ones are listed and left out, other page
  * keys and `extras` stay as they are. A `default` source applies only to a bare route. Pure: the caller writes `href` with one `replace` (default) or a push (picked).
  */
-export function restoreSavedView(input: { view: SavedView; support: SavedViewSupport; current: Applied; extras: Pair[]; pathname: string; anchor: string; source: RestoreSource }): RestoreResult {
+export function restoreSavedView(input: { view: SavedView; support: SavedViewSupport; current: Applied; extras: Pair[]; pathname: string; anchor: string | null; source: RestoreSource }): RestoreResult {
   const { view, support, current } = input;
   if (view.kind === 'menu-view' && view.menuId !== support.menuId) return { ok: false, reason: 'wrong-menu' };
   if (view.kind === 'menu-view' && view.menuSchemaVersion !== support.menuSchemaVersion) return { ok: false, reason: 'stale-schema' };

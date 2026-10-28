@@ -1,5 +1,6 @@
 import type {
   AccessDirectoryPage,
+  ActionResponse,
   AccessDirectoryQuery,
   AnnotationInput,
   AnnotationRef,
@@ -14,7 +15,11 @@ import type {
   EntityAuditRequest,
   EntityRef,
   EquipmentSearchPage,
+  GroupMember,
+  Notice,
+  PreferencesSnapshot,
   PlatformAdapter,
+  NoticeListPage,
   ScopeCheck,
   SelectionEvaluation,
   SelectionInput,
@@ -23,7 +28,7 @@ import type {
   UsageRange,
   UsageSummary,
 } from '@ap/contracts';
-import { isRecord } from '@ap/contracts';
+import { isRecord, type MenuAction } from '@ap/contracts';
 import { envelopeCall, actionCall, plainCall, portCall, TransportError, type CallContext, type PlainReply } from './calls/calls.js';
 import type { SessionStore } from './session/session.js';
 import type { Transport } from './calls/transport.js';
@@ -104,6 +109,23 @@ export function createHttpAdapter(config: AdapterConfig): PlatformAdapter {
     deleteAnnotation: (ref, signal): Promise<ApiResponse<{ id: string }>> =>
       envelope({ method: 'POST', path: `${PLATFORM}/annotations/delete`, body: { chartId: ref.chartId, scopeId: ref.scopeId, id: ref.id } }, signal, true),
 
+    // Preferences (ADR-0098): the session user is the cookie's, never a field. Writes are CSRF POSTs; a patch is a POST because `Transport` has no PATCH.
+    readPreferences: (signal): Promise<ApiResponse<PreferencesSnapshot>> => envelope({ method: 'GET', path: `${PLATFORM}/preferences` }, signal),
+    patchPreferences: (patch, signal): Promise<ApiResponse<PreferencesSnapshot>> => envelope({ method: 'POST', path: `${PLATFORM}/preferences/patch`, body: patch }, signal, true),
+    importPreferences: (input, signal): Promise<ApiResponse<PreferencesSnapshot>> => envelope({ method: 'POST', path: `${PLATFORM}/preferences/import`, body: input }, signal, true),
+
+    // People: an exact id batch. A judged 4xx `{code,message,field?}` is a PortError like the selection ports; a missing person is simply absent.
+    async lookupPeople(ids, signal) {
+      return shaped<{ items: readonly GroupMember[] }>(await portCall(context, { method: 'POST', path: `${PLATFORM}/people/lookup`, body: { ids } }, signal), (r) => Array.isArray(r['items'])).items;
+    },
+
+    // Notices: reads are envelopes, writes are action envelopes carrying `Idempotency-Key` and `If-Match` (the version) like `menuAction`.
+    listNotices: (signal): Promise<ApiResponse<NoticeListPage>> => envelope({ method: 'GET', path: `${PLATFORM}/notices` }, signal),
+    saveNotice: (input, signal) =>
+      actionCall(context, { method: 'POST', path: `${PLATFORM}/notices/save`, body: input }, noticeAction('notice.save', input), signal) as Promise<ActionResponse<Notice>>,
+    deleteNotice: (input, signal) =>
+      actionCall(context, { method: 'POST', path: `${PLATFORM}/notices/delete`, body: input }, noticeAction('notice.delete', input), signal) as Promise<ActionResponse<{ id: string }>>,
+
     async recordUsage(events: readonly UsageEvent[]) {
       try {
         const value = await plainCall(
@@ -132,6 +154,10 @@ export function createHttpAdapter(config: AdapterConfig): PlatformAdapter {
     },
   };
 }
+
+/** The write headers of a notice request come from its own fields; the body is sent as given (no client-side pre-validation). */
+const noticeAction = (action: string, input: { idempotencyKey: string; expectedVersion?: string }): MenuAction =>
+  ({ action, context: {}, input, idempotencyKey: input.idempotencyKey, ...(input.expectedVersion === undefined ? {} : { expectedVersion: input.expectedVersion }) });
 
 /** 422 means the server could not even parse the body: a judged rejection, so it resolves (contract §2.2). */
 const isUnparsableBody = (error: unknown) => error instanceof TransportError && error.code === 'http_422';

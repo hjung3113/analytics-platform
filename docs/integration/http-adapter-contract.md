@@ -28,7 +28,7 @@
 | --- | --- | --- | --- |
 | `session()` | (부트스트랩) `GET /api/v1/platform/bootstrap` | — | `{ session, publishedMetrics, defaultRangeTo, sessionVersion, csrfToken, generation? }` — §3 |
 | `publishedMetrics()` | (부트스트랩) 같은 응답 | — | 위 `publishedMetrics` |
-| `defaultRangeTo()` | (부트스트랩) 같은 응답 | — | 위 `defaultRangeTo`(naive wall-clock `YYYY-MM-DDTHH:mm:ss`, 06 §6.3) |
+| `defaultRangeTo()` | (부트스트랩) 같은 응답 | — | 위 `defaultRangeTo`(naive wall-clock `YYYY-MM-DDTHH:mm:ss`, 06 §6.3) 또는 `null`(서버에 기준점 없음, [ADR-0098](../adr/0098-adapter-preferences-people-notices-ports.md)) — 키 누락·형식 오류는 부트스트랩 거부 |
 | `subscribe(onChange)` | (네트워크 없음) 어댑터 내부 등록 + 폴링 `GET /api/v1/platform/session-state` | — | `{ sessionVersion: string, generation?: string }` — §4 |
 | `validateScope(scopeId)` | `GET /api/v1/platform/scopes/{scopeId}/check` | 경로 `scopeId` | `ScopeCheck` |
 | `contextOptions(scopeId)` | `GET /api/v1/platform/context-options?scopeId=…` | 쿼리 `scopeId` | `ConditionOptions` |
@@ -48,6 +48,16 @@
 | `listAnnotations(ref)` | `GET /api/v1/platform/annotations?chartId=…&scopeId=…` — FeedbackOps 구현(#622): 게이트만, 항상 `forbidden`(`analytics:view`를 아무도 갖지 않는다) — 백로그 | 쿼리(`scopeId` 없으면 빼고 보냄 → 서버 `forbidden`) | `ApiResponse<{ items: ChartAnnotation[] }>` |
 | `saveAnnotation(input)` | `POST /api/v1/platform/annotations` — FeedbackOps 구현(#622): 게이트만, CSRF 뒤 항상 `forbidden` — 백로그 | `AnnotationInput`(작성자·`at`·`id` 없음 — 있으면 거부) | `ApiResponse<ChartAnnotation>` |
 | `deleteAnnotation(ref)` | `POST /api/v1/platform/annotations/delete` — FeedbackOps 구현(#622): 게이트만, CSRF 뒤 항상 `forbidden` — 백로그 | `{ chartId, scopeId, id }`(그 밖의 키는 `saveAnnotation`과 같이 거부) | `ApiResponse<{ id: string }>` |
+| `readPreferences()` | `GET /api/v1/platform/preferences` — 세션 사용자의 설정([ADR-0098](../adr/0098-adapter-preferences-people-notices-ports.md), 구현 #1104). 사용자 id는 쿠키의 것이고 요청에 싣지 않는다 | — | `ApiResponse<PreferencesSnapshot>`(`{ values, importedAt }`, trust `null`) |
+| `patchPreferences(patch)` | `POST /api/v1/platform/preferences/patch` + `X-CSRF-Token`(`Transport`에 PATCH가 없어 POST) | `{ set?, remove? }` — 겹치는 키·문법 밖 키·상한 초과·알 수 없는 키는 `error`(`too_large`) | `ApiResponse<PreferencesSnapshot>`(쓴 뒤 전체) |
+| `importPreferences(input)` | `POST /api/v1/platform/preferences/import` + `X-CSRF-Token` — 원자적 1회, 서버 값이 이기고 완료 뒤 no-op | `{ values }` | `ApiResponse<PreferencesSnapshot>`(`importedAt !== null`이 완료 확인) |
+| `lookupPeople(ids)` | `POST /api/v1/platform/people/lookup` — 정확한 id 일괄(최대 200). 없는·볼 수 없는 id는 빠진다 | `{ ids }` | `{ items: GroupMember[] }` — 어댑터는 `items`를 돌려준다. 판정된 4xx `{code,message,field?}`는 `PortError`(선택 포트와 같다) |
+| `listNotices()` | `GET /api/v1/platform/notices` — 관리 목록(만료 포함, `notice:view`) | — | `ApiResponse<NoticeListPage>` |
+| `saveNotice(input)` | `POST /api/v1/platform/notices/save` + 헤더 `Idempotency-Key`(= `input.idempotencyKey`)·`If-Match`(`expectedVersion`이 있을 때만)·`X-CSRF-Token` — `console:access`, 만들기는 id·작성자·시각 금지 | `CreateNoticeInput` \| `UpdateNoticeInput`(본문에도 키·버전을 싣는다) | `ActionResponse<Notice>`(`menuAction`과 같은 변환: 답을 못 받으면 `unknown`) |
+| `deleteNotice(input)` | `POST /api/v1/platform/notices/delete` + 같은 헤더 | `{ id, expectedVersion, idempotencyKey }` | `ActionResponse<{ id }>` |
+
+**`signal` 전파(새 포트 공통):** 읽기 포트는 호출자의 `AbortSignal`을 전송에 그대로 연결한다(중단은 `AbortError`). 첫 인수가 `signal`인 `readPreferences`·`listNotices`는 실제 `AbortSignal`이 아닌 값이 와도(드리프트 점검의 자리표시 인수) 동기 예외나 요청 생략 없이 요청을 보낸다. 쓰기(`patchPreferences`·`importPreferences`·`saveNotice`·`deleteNotice`)도 같은 방식으로 신호를 전달하되 보낸 쓰기는 되돌리지 못한다. 어댑터는 본문을 보내기 전에 클라이언트 쪽에서 검증하지 않는다 — 판정은 서버 몫이다.
+
 
 FeedbackOps의 `auditTrail`·`entityAudit`(#621, [ADR-0069](../adr/0069-platform-port-in-feedbackops-backend.md) 결정 6·7·9): 응답의 `AuditEvent`에는 `changes`·`reason`을 싣지 않는다(사유·메모 본문과 민감 detail은 내보내지 않는다). `target.type`은 FeedbackOps `subject_type` 18종(voc, finding, task, task_request, entity_link, voc_cluster, permission_request, permission_grant, permission_deny, survey, survey_question, managed_system, analytics_area, milestone, attachment, public_update_review_candidate, voc_cluster_suggestion, workspace)이고 `scopeId`는 항상 `null`이다. SQL이 셋을 뺀다: ① 설문 응답 주체·event와 한쪽 끝이 `survey_response`인 `entity_link` 행, ② `detail.capability`가 비민감 허용 목록(`CAPABILITY_META.sensitive = false`)에 없는 권한 행(민감 권한 요청의 수정·취소·결정 이력 포함), ③ `detail.sensitive = true` 행. 빠진 행은 `items`·`total`·`targetId` 필터·페이지에 나타나지 않는다. `page`는 안전한 정수(≤ 2^53−1)만 받고, 끝을 넘은 먼 페이지는 `ok`·`items: []`·실제 `total`이다. `entityAudit`의 `type`은 voc·finding·voc_cluster·task_request·task만 받으며 그 밖(`survey_response` 포함)은 `error`, 읽을 수 없거나 없는 대상은 모두 `forbidden`이다. `sync` 액션에 대응하는 FeedbackOps event는 아직 없다.
 
@@ -120,7 +130,7 @@ envelope 메서드는 **reject하지 않는다**(체크리스트 §2). 실패는
 
 ```
 GET /api/v1/platform/bootstrap
-200 { "session": Session, "publishedMetrics": PublishedMetric[], "defaultRangeTo": "2026-10-02T09:00:00",
+200 { "session": Session, "publishedMetrics": PublishedMetric[], "defaultRangeTo": "2026-10-02T09:00:00" | null,
       "sessionVersion": "…", "csrfToken": "…", "generation": "…" }
 401 → 로그인 필요(§6)
 ```
