@@ -754,7 +754,7 @@ Migration `0070_voc_similarity_preview.sql` precreates
 Cleanup nulls expired vectors while preserving vector_expires_at, deletes request
 tombstones only after 24h, and deletes only ended UTC budget windows. New app
 SELECT/INSERT/UPDATE/DELETE grants are confined to these two operational tables;
-invoker triggers deny fops_app DELETE of live tombstones/windows.
+invoker triggers deny platform_app DELETE of live tombstones/windows.
 
 
 ## Authorized VOC no-follow-up decision (#1226)

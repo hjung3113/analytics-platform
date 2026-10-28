@@ -1,7 +1,7 @@
 import { deleteRecoveryFixtureParents } from '../../../test-support/recovery-fixtures.js';
 // Released Task Public Update review candidate routes (#180).
 //
-// All route requests run through the low-privilege fops_app server handle.
+// All route requests run through the low-privilege platform_app server handle.
 // The migrate handle is used only to create/delete append-only link/audit rows
 // that the product role is deliberately not permitted to mutate.
 

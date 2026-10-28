@@ -6,12 +6,12 @@
 //    the SQL low band is the classification input, so drift here changes who
 //    is poor.
 // 2. Count matrix: survey.count_negative_outcome_without_followup, called
-//    directly as fops_app, implements decisions 1-6 (low band, closed outcome
+//    directly as platform_app, implements decisions 1-6 (low band, closed outcome
 //    surveys only, anonymity threshold, generated_finding + current Finding
 //    status, current no_follow_up decision).
 //
 // All seeding and teardown run through the migrate handle; the functions
-// under test are called through the app handle so EXECUTE for fops_app is
+// under test are called through the app handle so EXECUTE for platform_app is
 // itself part of the proof.
 import { randomUUID } from 'node:crypto';
 import { deleteRecoveryFixtureParents } from '../../test-support/recovery-fixtures.js';

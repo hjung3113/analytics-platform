@@ -201,7 +201,7 @@ Milestone status. `blocked` is stored, not a list tab.
 
 ## Not implemented
 
-- No DELETE route and no hard delete; `fops_app` holds SELECT, INSERT, UPDATE
+- No DELETE route and no hard delete; `platform_app` holds SELECT, INSERT, UPDATE
   on `task.milestones`.
 - No per-milestone Task create or listing route. A Task may receive
   `milestone_id` during Task Request conversion

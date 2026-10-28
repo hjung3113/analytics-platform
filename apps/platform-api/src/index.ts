@@ -1,5 +1,5 @@
 // Backend runtime entry. Boot order is fixed by ADR-0009:22-27:
-//   1. Connect Drizzle pool (fops_app) and assert the runtime DB role (#402).
+//   1. Connect Drizzle pool (platform_app) and assert the runtime DB role (#402).
 //   2. Start pg-boss against the same Postgres.
 //   3. Register module jobs (registerCoreJobs, …).
 //   4. Build and listen Fastify HTTP.
@@ -13,6 +13,7 @@
 
 import { loadConfig } from './config.js';
 import { createDb } from './db/client.js';
+import { IdentityNotReadyError, assertPlatformIdentityReady } from './db/identity-readiness.js';
 import { RuntimeRoleError, assertRuntimeDbRole } from './db/runtime-role.js';
 import { toJobLog } from './lib/job-log.js';
 import { initBoss, shutdownBoss } from './lib/jobs.js';
@@ -35,24 +36,26 @@ import { buildServer } from './server.js';
 const config = loadConfig();
 if (!config.WORKSPACE_ID) throw new Error('WORKSPACE_ID is required for recovery reconciliation');
 if (!config.DATABASE_URL) {
-  console.error('DATABASE_URL is required to start the backend (fops_app role).');
+  console.error('DATABASE_URL is required to start the backend (platform_app role).');
   process.exit(1);
 }
 
 const dbHandle = createDb(config.DATABASE_URL);
 
 // #402 (ADR-0008): fail fast unless the runtime connection is actually
-// authenticated as the plain fops_app role. The guard queries the connected
-// role (current_user), not the URL text, so a URL pointed at fops_migrate or
+// authenticated as the plain platform_app role. The guard queries the connected
+// role (current_user), not the URL text, so a URL pointed at platform_migrate or
 // any privileged role is rejected before pg-boss or HTTP start. Migration and
 // seed CLIs use DATABASE_URL_MIGRATE and never enter this guard.
 try {
   await assertRuntimeDbRole(dbHandle.pool);
+  // #1100 a: refuse a database whose role rename ran but whose 0076 guards are not committed.
+  await assertPlatformIdentityReady(dbHandle.pool);
 } catch (err) {
   // Only guard rejections carry safe, curated messages; a driver error (e.g.
   // connection refused) is reported by name so it can never echo a DSN.
   console.error(
-    err instanceof RuntimeRoleError
+    err instanceof RuntimeRoleError || err instanceof IdentityNotReadyError
       ? err.message
       : `runtime DB role check failed (${err instanceof Error ? err.name : 'unknown error'}); verify DATABASE_URL is reachable`,
   );

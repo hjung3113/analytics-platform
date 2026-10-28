@@ -50,7 +50,7 @@ export interface VocClusterAutogenShadowResult {
 }
 
 export interface VocClusterAutogenShadowDeps {
-  /** The handler's query and writes use the application's fops_app role. */
+  /** The handler's query and writes use the application's platform_app role. */
   db: Db;
   embeddingVersion: number;
   embeddingEnabled: boolean;

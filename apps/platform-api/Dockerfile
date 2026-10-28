@@ -36,6 +36,14 @@ RUN pnpm --filter @ap/platform-api deploy --prod --config.inject-workspace-packa
 
 FROM build AS migrate
 WORKDIR /workspace/apps/platform-api
+# Job-only admin cutover (#1100 a): the release `cutover` service runs this image with an admin URL that the
+# backend never receives. It needs psql, the script and its target validator at the repository-relative paths
+# the script resolves (/workspace/ops/platform-api/...); init.sql ships with them for operators on a bare volume.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends postgresql-client \
+  && rm -rf /var/lib/apt/lists/*
+COPY ops/platform-api/paths.sh /workspace/ops/platform-api/paths.sh
+COPY ops/platform-api/scripts/db/cutover-0076-platform-identity.sh ops/platform-api/scripts/db/pg-target.mjs ops/platform-api/scripts/db/init.sql /workspace/ops/platform-api/scripts/db/
 COPY --chmod=755 apps/platform-api/docker-migrate-entrypoint.sh /usr/local/bin/migrate-entrypoint
 USER node
 ENTRYPOINT ["/usr/local/bin/migrate-entrypoint"]

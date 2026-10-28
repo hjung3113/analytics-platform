@@ -120,7 +120,7 @@ describe.skipIf(!runIntegration)('permission request decisions', () => {
   //
   // Deletion order follows the FK graph into core.actors: requests, grants and
   // denies, then the per-actor session/idempotency/rate-limit rows, then the
-  // audit rows (migrate role — fops_app holds no DELETE on core.audit_log by
+  // audit rows (migrate role — platform_app holds no DELETE on core.audit_log by
   // design, ADR-0008/0019), and only then the actors themselves.
   async function cleanupFixtures(): Promise<void> {
     const actorPattern = `(external_id like 'mock-dev-read-perm-decision-%'
@@ -1549,7 +1549,7 @@ describe.skipIf(!runIntegration)('permission request decisions', () => {
             const result = await db.pool.query<{
               count: number;
             }>(`select count(*)::int as count
-          from pg_stat_activity where datname = current_database() and usename = 'fops_app'
+          from pg_stat_activity where datname = current_database() and usename = 'platform_app'
           and wait_event_type = 'Lock' and query like '%"core"."actors"%' and query like '%for update%'`);
             expect(result.rows[0]?.count).toBe(count);
           },

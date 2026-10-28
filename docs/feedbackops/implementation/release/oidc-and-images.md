@@ -11,23 +11,27 @@ From the repository root, create the local interpolation file and inspect the Co
     cp .env.release.example .env.release
     docker compose --project-name feedbackops-release-1060 --env-file .env.release -f docker-compose.release.yml config
 
-The example values are local-only. The Compose project is always named feedbackops-release-1060; its Postgres and MinIO named volumes are project-owned. The Postgres port is not published on the host, so this stack does not use the development database on port 5434. The --env-file supplies Compose interpolation only; selected values are passed to each service explicitly so the running backend never receives DATABASE_URL_MIGRATE.
+The example values are local-only. The Compose project is named feedbackops-release-1060 by default (`RELEASE_PROJECT_NAME` overrides it); its Postgres and MinIO named volumes are project-owned. The Postgres port is not published on the host, so this stack does not use the development database on port 5434. The --env-file supplies Compose interpolation only; selected values are passed to each service explicitly so the running backend never receives DATABASE_URL_MIGRATE.
 
-Postgres initialization mounts [scripts/db/init.sql](../../../../ops/platform-api/scripts/db/init.sql) and runs it as the postgres bootstrap superuser on an empty release-owned volume. Do not set POSTGRES_DB=feedbackops: init.sql creates that database itself. It also creates the fops_app and fops_migrate logins, their role memberships, and the vector extension. Their initial passwords are the literals fops_app and fops_migrate from that script; changing POSTGRES_PASSWORD changes only the bootstrap superuser password.
+Postgres initialization mounts [scripts/db/init.sql](../../../../ops/platform-api/scripts/db/init.sql) and runs it as the postgres bootstrap superuser on an empty release-owned volume. Do not set POSTGRES_DB: init.sql creates the `platform` database itself. It also creates the replay bootstrap logins **fops_app** and **fops_migrate** (not platform_*), the other seven NOLOGIN owner roles with their memberships, and the vector extension. Their initial passwords are the literals platform_app and platform_migrate from that script, which are the passwords the final roles keep; changing POSTGRES_PASSWORD changes only the bootstrap superuser password. No platform_app or platform_migrate role exists until the cutover below renames them.
 
-The initialization script runs only for an empty Postgres volume. Before reusing an existing volume, provision feedbackops owned by fops_migrate, both login roles with the script's passwords and NOINHERIT, all NOLOGIN owner roles and one-way memberships from the script, and the vector extension in feedbackops as a superuser. Do not assume the init script will repair an existing volume.
+The initialization script runs only for an empty Postgres volume. Before reusing an existing volume, provision `platform` (or run the cutover below on an existing `feedbackops` database) owned by the migrate role, both login roles with the script's passwords and NOINHERIT, all NOLOGIN owner roles and one-way memberships from the script, and the vector extension in the database as a superuser. Do not assume the init script will repair an existing volume.
 
 ## Build, migrate, seed, and start
 
-The smoke script builds the backend and migration images, starts Postgres, the OIDC provider, and MinIO, then starts the migration job and waits up to three minutes for it to exit successfully. Only after migration succeeds does it start bucket provisioning, and the backend; it then probes the backend routes directly and waits up to two minutes for database, pg-boss, and storage readiness:
+The smoke script builds the backend and migration images, starts Postgres, the OIDC provider, and MinIO, then runs the one-off `cutover` job (below) and starts the migration job and waits up to three minutes for it to exit successfully. Only after migration succeeds does it start bucket provisioning, and the backend; it then probes the backend routes directly and waits up to two minutes for database, pg-boss, and storage readiness:
 
     bash scripts/release/image-smoke.sh
 
-The migration job runs only drizzle-kit migrate; it never seeds. After it succeeds and before logging in, run the repeatable core baseline seed from the migration/tools image:
+A new release volume must be cut over once before the migration job: the job-only `cutover` service (compose profile `cutover`, same image as `migrate`) replays migrations 0000–0075 as the bootstrap fops_migrate, renames the roles and database with the postgres superuser URL, then runs the ordinary drizzle-kit migrate as platform_migrate. It runs inside the compose network because Postgres publishes no host port, and only that container receives the superuser credential: a password-free admin URL (`postgresql://postgres@postgres:5432/postgres`) plus `PGPASSWORD` taken from POSTGRES_PASSWORD, so a password with URL-reserved characters (`@ : / ? # %`) works unchanged. `backend` and `migrate` get neither:
+
+    docker compose --project-name feedbackops-release-1060 --env-file .env.release -f docker-compose.release.yml run --rm cutover
+
+It is safe to repeat. `image-smoke.sh` runs it; its effective target is validated before any connection, as described in [the database identity section](../04-database-and-migrations.md#database-and-role-identity-1100-a-adr-0097-migration-0076). The `migrate` service itself stays plain: it runs only drizzle-kit migrate as platform_migrate and never needs an admin credential, so on a volume that was not cut over it fails closed. It never seeds. For a parallel check, export `RELEASE_PROJECT_NAME`, `RELEASE_BACKEND_PORT` and `RELEASE_OIDC_PORT` before `image-smoke.sh` (defaults: `feedbackops-release-1060`, 3001, 8080). After it succeeds and before logging in, run the repeatable core baseline seed from the migration/tools image:
 
     docker compose --project-name feedbackops-release-1060 --env-file .env.release -f docker-compose.release.yml run --rm -e SEED_MODE=core migrate node_modules/.bin/tsx src/seed/index.ts
 
-The tools image includes the backend development dependency closure because db:seed uses tsx. The command receives both DATABASE_URL (the fops_app runtime role used by the core seed) and DATABASE_URL_MIGRATE (the fops_migrate role used to create the seed team). It also receives the same WORKSPACE_ID as the backend. Core mode creates the Workspace, baseline Actors, Tableau and Power BI Managed Systems, Analytics Areas, team, and core VOC fixtures; it does not create personas or scale data.
+The tools image includes the backend development dependency closure because db:seed uses tsx. The command receives both DATABASE_URL (the platform_app runtime role used by the core seed) and DATABASE_URL_MIGRATE (the platform_migrate role used to create the seed team). It also receives the same WORKSPACE_ID as the backend. Core mode creates the Workspace, baseline Actors, Tableau and Power BI Managed Systems, Analytics Areas, team, and core VOC fixtures; it does not create personas or scale data.
 
 Before the backend starts, the release stack runs the existing idempotent apps/platform-api/src/cli/storage-bootstrap.ts command against MinIO. It checks the configured bucket and creates it only when it is missing.
 
@@ -60,8 +64,8 @@ Register the exact callback URI https://<public-host>/auth/callback. The company
 For Kubernetes, supply non-secret runtime config through the workload environment and secrets through Kubernetes Secret objects per ADR-0013:
 
 - Runtime config: NODE_ENV=production, HOST, PORT, AUTH_PROVIDER=oidc, WORKSPACE_ID, TRUSTED_PROXY_HOPS, PUBLIC_ATTACHMENT_ORIGIN, OIDC_ISSUER_URL, OIDC_CLIENT_ID, OIDC_REDIRECT_URI, OIDC_SCOPES, and STORAGE_S3_ENDPOINT, STORAGE_S3_REGION, STORAGE_S3_BUCKET, STORAGE_S3_FORCE_PATH_STYLE.
-- Runtime secrets: DATABASE_URL for fops_app, OIDC_CLIENT_SECRET, STORAGE_S3_ACCESS_KEY_ID, and STORAGE_S3_SECRET_ACCESS_KEY. If enabled, also supply SMTP_PASSWORD with SMTP_HOST, SMTP_PORT, SMTP_USERNAME, and SMTP_FROM; or EMBEDDING_API_KEY when EMBEDDING_PROVIDER=voyage.
-- Migration job only: DATABASE_URL_MIGRATE for fops_migrate. Do not mount it in the backend workload.
+- Runtime secrets: DATABASE_URL for platform_app, OIDC_CLIENT_SECRET, STORAGE_S3_ACCESS_KEY_ID, and STORAGE_S3_SECRET_ACCESS_KEY. If enabled, also supply SMTP_PASSWORD with SMTP_HOST, SMTP_PORT, SMTP_USERNAME, and SMTP_FROM; or EMBEDDING_API_KEY when EMBEDDING_PROVIDER=voyage.
+- Migration job only: DATABASE_URL_MIGRATE for platform_migrate. Do not mount it in the backend workload.
 
 The images emit backend structured JSON logs to stdout per ADR-0013. They do not add metrics or tracing. No ADR-0013 amendment is needed for this local stack: its deployment, health, logging, and secret-handling facts remain accurate.
 

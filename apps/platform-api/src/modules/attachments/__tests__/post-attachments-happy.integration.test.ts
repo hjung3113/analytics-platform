@@ -35,7 +35,7 @@ import { buildServer } from '../../../server.js';
 
 const APP_URL = process.env.DATABASE_URL ?? '';
 // This suite asserts on core.audit_log and has to clear it between tests, and
-// fops_app holds no DELETE there by design (ADR-0008/0019) — so the migrate
+// platform_app holds no DELETE there by design (ADR-0008/0019) — so the migrate
 // role is a hard requirement, not an optional extra.
 const MIGRATE_URL = process.env.DATABASE_URL_MIGRATE ?? '';
 const WORKSPACE_ID = process.env.WORKSPACE_ID ?? '';

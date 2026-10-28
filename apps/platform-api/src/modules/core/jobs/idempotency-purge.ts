@@ -14,7 +14,7 @@ import { sql } from 'drizzle-orm';
 import type { PgBoss } from 'pg-boss';
 
 import type { Db } from '../../../db/client.js';
-import { type JobLog, JOB_WORK_OPTIONS, withJobLogging } from '../../../lib/job-log.js';
+import { JOB_WORK_OPTIONS, type JobLog, withJobLogging } from '../../../lib/job-log.js';
 
 /** Queue name. Format: `<module>.<action>` per ADR-0009. */
 export const IDEMPOTENCY_PURGE_QUEUE = 'core.idempotency_purge';
@@ -80,7 +80,7 @@ export async function registerIdempotencyPurge(
   boss: PgBoss,
   deps: { db: Db; log: JobLog },
 ): Promise<void> {
-  // F-010: fops_app no longer holds EXECUTE on `pgboss.create_queue` (per
+  // F-010: platform_app no longer holds EXECUTE on `pgboss.create_queue` (per
   // migration 0003) because that function performs DDL (CREATE TABLE,
   // ATTACH PARTITION). Slice 1's single queue (`core.idempotency_purge`)
   // is pre-created in migration 0003 itself, so this boot path only has

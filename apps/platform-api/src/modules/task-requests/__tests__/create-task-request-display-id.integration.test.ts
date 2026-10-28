@@ -102,7 +102,7 @@ describe.skipIf(!runIntegration)('task request display_id assignment (#142)', ()
         ]);
       }
       // Automatic routing records diagnostics (FK no action) before the suite's
-      // requests can be deleted; go through the migrate role (fops_app has no
+      // requests can be deleted; go through the migrate role (platform_app has no
       // DELETE here).
       await migrateHandle.pool.query(
         'delete from core.responsibility_default_failures where workspace_id = $1',

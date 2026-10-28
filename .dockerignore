@@ -15,6 +15,10 @@
 !packages/feature-ui
 !ops/platform-api/package.json
 !ops/platform-api/tsconfig.base.json
+!ops/platform-api/paths.sh
+!ops/platform-api/scripts/db/cutover-0076-platform-identity.sh
+!ops/platform-api/scripts/db/pg-target.mjs
+!ops/platform-api/scripts/db/init.sql
 
 **/node_modules
 **/dist

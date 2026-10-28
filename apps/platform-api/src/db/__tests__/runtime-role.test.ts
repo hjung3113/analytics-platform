@@ -21,7 +21,7 @@ interface RoleRow {
   rolreplication: boolean;
 }
 
-function safeRow(name = 'fops_app'): RoleRow {
+function safeRow(name = 'platform_app'): RoleRow {
   return {
     name,
     session_name: name,
@@ -46,7 +46,7 @@ function fakePool(rows: RoleRow[]): { pool: Pick<pg.Pool, 'query'>; queryTexts: 
 }
 
 describe('assertRuntimeDbRole', () => {
-  it('passes for fops_app with all unsafe attributes false', async () => {
+  it('passes for platform_app with all unsafe attributes false', async () => {
     const { pool, queryTexts } = fakePool([safeRow()]);
     await expect(assertRuntimeDbRole(pool)).resolves.toBeUndefined();
     // The guard must ask Postgres who the session is, not parse the URL.
@@ -55,14 +55,14 @@ describe('assertRuntimeDbRole', () => {
   });
 
   it('rejects a different role name, naming it and no URL', async () => {
-    const { pool } = fakePool([safeRow('fops_migrate')]);
+    const { pool } = fakePool([safeRow('platform_migrate')]);
     const err = await assertRuntimeDbRole(pool).then(
       () => undefined,
       (e: unknown) => e as Error,
     );
     expect(err).toBeInstanceOf(Error);
-    expect(err?.message).toContain('fops_migrate');
-    expect(err?.message).toContain('fops_app');
+    expect(err?.message).toContain('platform_migrate');
+    expect(err?.message).toContain('platform_app');
     expect(err?.message).toMatch(/DATABASE_URL_MIGRATE only for migrations\/seeds/);
     expect(err?.message).not.toMatch(/postgres:|:\/\//);
   });
@@ -73,11 +73,11 @@ describe('assertRuntimeDbRole', () => {
     ['rolcreatedb', 'createdb'],
     ['rolbypassrls', 'bypassrls'],
     ['rolreplication', 'replication'],
-  ])('rejects fops_app with %s set', async (column, attribute) => {
+  ])('rejects platform_app with %s set', async (column, attribute) => {
     const row = { ...safeRow(), [column]: true };
     const { pool } = fakePool([row]);
     await expect(assertRuntimeDbRole(pool)).rejects.toThrow(
-      `role fops_app has unsafe attribute ${attribute}`,
+      `role platform_app has unsafe attribute ${attribute}`,
     );
   });
 
@@ -86,7 +86,7 @@ describe('assertRuntimeDbRole', () => {
     await expect(assertRuntimeDbRole(pool)).rejects.toThrow(/no pg_roles entry/);
   });
 
-  it('rejects when the session user differs from fops_app (SET ROLE / startup role / pooler)', async () => {
+  it('rejects when the session user differs from platform_app (SET ROLE / startup role / pooler)', async () => {
     const { pool } = fakePool([{ ...safeRow(), session_name: 'postgres' }]);
     const err = await assertRuntimeDbRole(pool).then(
       () => undefined,
@@ -98,13 +98,23 @@ describe('assertRuntimeDbRole', () => {
   });
 
   it('rejects membership in a privileged role', async () => {
-    const { pool } = fakePool([{ ...safeRow(), privileged_member_of: 'fops_migrate' }]);
+    const { pool } = fakePool([{ ...safeRow(), privileged_member_of: 'platform_migrate' }]);
     const err = await assertRuntimeDbRole(pool).then(
       () => undefined,
       (e: unknown) => e as Error,
     );
     expect(err).toBeInstanceOf(Error);
-    expect(err?.message).toContain('fops_migrate');
+    expect(err?.message).toContain('platform_migrate');
     expect(err?.message).toMatch(/member/);
+  });
+
+  it('accepts only the plain platform_app role: the retired fops_app name has no fallback', async () => {
+    const { pool, queryTexts } = fakePool([safeRow('fops_app')]);
+    const err = await assertRuntimeDbRole(pool).then(
+      () => undefined,
+      (e: unknown) => e as Error,
+    );
+    expect(err?.message).toMatch(/must connect as platform_app \(got "fops_app"\)/);
+    expect(queryTexts[0]).not.toContain('fops_');
   });
 });

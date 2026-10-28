@@ -121,9 +121,9 @@ export async function insertPublicUpdateReviewCandidateDirectly(
  *
  * Cleanup order:
  *   1. permission_grants (references actors)
- *   2. voc_permission_decisions_seed_fixture (fops_app has DELETE on this table)
+ *   2. voc_permission_decisions_seed_fixture (platform_app has DELETE on this table)
  *   3. voc.vocs — conversation tables (public_updates, reporter_replies, internal_comments)
- *      have ON DELETE CASCADE on voc_id, so cascade automatically. fops_app has no
+ *      have ON DELETE CASCADE on voc_id, so cascade automatically. platform_app has no
  *      DELETE on conversation tables; they are append-only at the product layer.
  *   4. analytics_areas, managed_systems (MS delete requires no voc referencing it)
  *   5. sessions, idempotency_keys, rate_limits, actors
@@ -155,7 +155,7 @@ export async function cleanupReadTestTables(
   // 1b. Access requests raised by those actors. `permission_requests
   //     .requester_actor_id` is the second FK into core.actors (after
   //     audit_log) that blocks the actor delete at the end of this helper;
-  //     fops_app does hold DELETE here, so the app pool is enough.
+  //     platform_app does hold DELETE here, so the app pool is enough.
   await dbHandle.pool.query(
     `delete from permission.permission_requests
       where workspace_id = $1
@@ -165,7 +165,7 @@ export async function cleanupReadTestTables(
     [workspaceId],
   );
 
-  // 2. Clean permission decisions seed fixture (fops_app has DELETE).
+  // 2. Clean permission decisions seed fixture (platform_app has DELETE).
   await dbHandle.pool.query(
     `delete from voc.voc_permission_decisions_seed_fixture
       where voc_id in (
@@ -185,7 +185,7 @@ export async function cleanupReadTestTables(
   ]);
 
   // 3. Delete VOCs — conversation tables cascade automatically (ON DELETE CASCADE).
-  //    fops_app has DELETE on voc.vocs, but NOT on conversation tables.
+  //    platform_app has DELETE on voc.vocs, but NOT on conversation tables.
   await dbHandle.pool.query(
     `delete from voc.vocs
       where primary_managed_system_id in (
@@ -248,7 +248,7 @@ export async function cleanupReadTestTables(
   //    failure aborts the whole afterAll hook, which is why every fixture
   //    after it leaked into the next run (#205).
   //
-  //    fops_app has no DELETE on core.audit_log by design (ADR-0008/0019), so
+  //    platform_app has no DELETE on core.audit_log by design (ADR-0008/0019), so
   //    this one statement has to go through the migrate role. When
   //    DATABASE_URL_MIGRATE is not exported the suites that call this helper
   //    are gated off anyway, so skipping is safe.
@@ -287,7 +287,7 @@ async function clearAuditLogForDevActors(workspaceId: string): Promise<void> {
  * suite's mock-user-plain-* actors, #731 FIX1). Order mirrors that cleanup:
  * permission grants/denies/requests (FK into core.actors), idempotency keys,
  * rate limits (authenticated actor-id key or loopback IP fallback), sessions,
- * audit rows through the migrate role (fops_app has no DELETE on
+ * audit rows through the migrate role (platform_app has no DELETE on
  * core.audit_log), then the actors themselves.
  */
 export async function cleanupTestActorsByExternalIdPrefix(

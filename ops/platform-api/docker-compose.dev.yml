@@ -1,11 +1,21 @@
 # Local Postgres for FeedbackOps development and integration tests.
 #
-# Usage:
+# Usage on a NEW volume (run from ops/platform-api). init.sql creates database `platform` and the replay bootstrap
+# roles fops_* with the final dev passwords; the cutover replays history as fops_migrate, renames the roles to
+# platform_* with an admin connection, then runs the ordinary platform_migrate migration:
 #   docker compose -f docker-compose.dev.yml up -d
-#   export DATABASE_URL_MIGRATE='postgres://fops_migrate:fops_migrate@localhost:5434/feedbackops'
-#   export DATABASE_URL='postgres://fops_app:fops_app@localhost:5434/feedbackops'
-#   pnpm --filter @ap/platform-api db:migrate
+#   # The final non-admin URLs stay in your shell: the cutover (as platform_migrate), the seed and later migrations use them.
+#   export DATABASE_URL='postgres://platform_app:platform_app@localhost:5434/platform'
+#   export DATABASE_URL_MIGRATE='postgres://platform_migrate:platform_migrate@localhost:5434/platform'
+#   (  # a subshell: the superuser URL and the dev opt-in must not leak into the later seed/server commands
+#     export CUTOVER_ADMIN_URL='postgres://postgres:postgres@localhost:5434/postgres'
+#     export CUTOVER_ALLOW_DEV_DB=1   # 5434 is the developer database: a deliberate opt-in
+#     bash scripts/db/cutover-0076-platform-identity.sh all
+#   )
 #   pnpm --filter @ap/platform-api db:seed
+# Later migrations need no admin login: pnpm --filter @ap/platform-api db:migrate (as platform_migrate).
+# A pre-existing local volume still holds the old `feedbackops` database and fops_* roles: see
+# docs/feedbackops/implementation/04-database-and-migrations.md, "Local developer database recreation".
 #
 # Why two roles: ADR-0008 requires that the application role cannot UPDATE or
 # DELETE rows in core.audit_log. The container initialises both roles up front;
@@ -21,8 +31,9 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       # We deliberately do NOT set POSTGRES_DB; the init script creates the
-      # `feedbackops` database owned by fops_migrate so the migration role
-      # has DDL on its own DB without piggybacking on the superuser.
+      # `platform` database owned by fops_migrate until the 0076 cutover
+      # renames the role to platform_migrate, so the migration role has DDL
+      # on its own DB without piggybacking on the superuser.
     ports:
       # Host 5434 -> container 5432 avoids clashing with a system-installed
       # local Postgres on the default port. Both DATABASE_URL and

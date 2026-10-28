@@ -1,7 +1,7 @@
 import { deleteRecoveryFixtureParents } from '../../../test-support/recovery-fixtures.js';
 import { waitForResponseEvidenceWaiters } from '../../../test-support/response-evidence-barrier.js';
 // Route-level contract for the only permitted Survey Response -> Finding command.
-// It deliberately uses the fops_app server path and the fops_migrate handle only
+// It deliberately uses the platform_app server path and the platform_migrate handle only
 // for fixtures, observable persistence assertions, and deterministic cleanup.
 
 import { randomUUID } from 'node:crypto';
@@ -1175,7 +1175,9 @@ describe.skipIf(!runIntegration)('POST /survey-responses/:id/create-finding (#18
     const active = await approve(source, creator.cookie);
     // The Finding is inserted before evidence highlights. Removing only this
     // privilege makes the request fail after that insert and pins tx rollback.
-    await migrateHandle.pool.query('revoke insert on finding.evidence_highlights from fops_app');
+    await migrateHandle.pool.query(
+      'revoke insert on finding.evidence_highlights from platform_app',
+    );
     try {
       expect(
         (
@@ -1187,7 +1189,7 @@ describe.skipIf(!runIntegration)('POST /survey-responses/:id/create-finding (#18
       ).toBe(500);
     } finally {
       await migrateHandle.pool.query(
-        'grant select, insert, update on finding.evidence_highlights to fops_app',
+        'grant select, insert, update on finding.evidence_highlights to platform_app',
       );
     }
     expect(await counts(source.responseId)).toEqual({
@@ -1963,12 +1965,12 @@ describe.skipIf(!runIntegration)('POST /survey-responses/:id/create-finding (#18
     expect(await attachmentResidue(target.id, reader.id)).toEqual(before);
     const operator = await migrateHandle.pool.connect();
     try {
-      await operator.query('set role fops_entity_links_survey_mutator_owner');
+      await operator.query('set role platform_entity_links_survey_mutator_owner');
       await operator.query(
-        'revoke execute on function core.create_survey_finding_link(uuid,uuid,uuid,text,uuid,uuid) from fops_app',
+        'revoke execute on function core.create_survey_finding_link(uuid,uuid,uuid,text,uuid,uuid) from platform_app',
       );
       const privilege = await operator.query<{ can_execute: boolean }>(
-        "select has_function_privilege('fops_app', 'core.create_survey_finding_link(uuid,uuid,uuid,text,uuid,uuid)', 'EXECUTE') as can_execute",
+        "select has_function_privilege('platform_app', 'core.create_survey_finding_link(uuid,uuid,uuid,text,uuid,uuid)', 'EXECUTE') as can_execute",
       );
       expect(privilege.rows[0]?.can_execute).toBe(false);
       expect(
@@ -1978,7 +1980,7 @@ describe.skipIf(!runIntegration)('POST /survey-responses/:id/create-finding (#18
     } finally {
       try {
         await operator.query(
-          'grant execute on function core.create_survey_finding_link(uuid,uuid,uuid,text,uuid,uuid) to fops_app',
+          'grant execute on function core.create_survey_finding_link(uuid,uuid,uuid,text,uuid,uuid) to platform_app',
         );
       } finally {
         try {

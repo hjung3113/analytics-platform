@@ -1,9 +1,9 @@
 // Background job runtime helpers (ADR-0009).
 //
 // `initBoss` constructs a pg-boss instance against the same Postgres reachable
-// via DATABASE_URL (fops_app role). pg-boss's own bootstrap migrations are
+// via DATABASE_URL (platform_app role). pg-boss's own bootstrap migrations are
 // disabled — the `pgboss` schema, tables, and stored functions are installed
-// by Drizzle migration 0002 running as fops_migrate, so the running app never
+// by Drizzle migration 0002 running as platform_migrate, so the running app never
 // needs DDL privileges (option (A) in the Slice 1 spec; ADR-0008 spirit).
 //
 // `shutdownBoss` resolves only after pg-boss has finished stopping. Callers
@@ -30,10 +30,10 @@ export async function initBoss(opts: InitBossOptions): Promise<Boss> {
   const boss = new PgBoss({
     connectionString: opts.connectionString,
     schema: 'pgboss',
-    // ADR-0008 + Slice 1 spec choice (A): the running fops_app role has no
+    // ADR-0008 + Slice 1 spec choice (A): the running platform_app role has no
     // DDL on pgboss.*; the schema is owned by migration 0002. If pg-boss is
     // upgraded to a new schema version, a follow-up Drizzle migration runs
-    // `getMigrationPlans('pgboss', N)` as fops_migrate. Boot must never
+    // `getMigrationPlans('pgboss', N)` as platform_migrate. Boot must never
     // try to migrate from the request-handling process.
     migrate: false,
     createSchema: false,

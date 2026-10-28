@@ -78,7 +78,7 @@ export async function revokeApprovedExcerpt(
   redacted_excerpt: string;
   revoked_now: boolean;
 } | null> {
-  // #569: fops_app has no SELECT on response_id, so the (response, approval)
+  // #569: platform_app has no SELECT on response_id, so the (response, approval)
   // binding check runs in the definer; the app then revokes by approval id only.
   const approval = await tx.execute<{
     question_id: string;
@@ -186,7 +186,7 @@ export async function readApprovedResponseExcerpts(
     approvedExcerptIds.map((id) => sql`${id}`),
     sql`, `,
   )}]::uuid[]`;
-  // #569: reads the per-response binding in the definer; fops_app cannot
+  // #569: reads the per-response binding in the definer; platform_app cannot
   // filter the approvals table on response_id directly.
   const result = await tx.execute<{
     approved_excerpt_id: string;
@@ -199,7 +199,7 @@ export async function readApprovedResponseExcerpts(
 }
 
 /**
- * Direct fops_app metadata projection. Unlike readResponseTextCandidate this
+ * Direct platform_app metadata projection. Unlike readResponseTextCandidate this
  * cannot reach survey_response_answers, so resolving a template label never
  * crosses the audited raw-answer seam.
  */

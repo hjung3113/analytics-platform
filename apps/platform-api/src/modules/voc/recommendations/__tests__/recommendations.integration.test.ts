@@ -216,7 +216,7 @@ describe.skipIf(!runIntegration)('voc recommendations (#168)', () => {
     return Number(res.rows[0]?.cnt ?? 0);
   }
 
-  /** Children before parents; fops_app holds no DELETE on the decision table. */
+  /** Children before parents; platform_app holds no DELETE on the decision table. */
   async function cleanup(): Promise<void> {
     if (!ops) return;
     const systems = `(select id from core.managed_systems where workspace_id = $1 and slug like $2)`;

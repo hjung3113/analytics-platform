@@ -49,11 +49,11 @@ describe.skipIf(!runIntegration)('Saved Survey definition reuse (#1074)', () => 
     migrateHandle = createDb(MIGRATE_URL);
     expect(
       (await appHandle.pool.query<{ role: string }>('select current_user as role')).rows[0]?.role,
-    ).toBe('fops_app');
+    ).toBe('platform_app');
     expect(
       (await migrateHandle.pool.query<{ role: string }>('select current_user as role')).rows[0]
         ?.role,
-    ).toBe('fops_migrate');
+    ).toBe('platform_migrate');
     app = await buildServer({ config: loadConfig(), dbHandle: appHandle });
     await app.ready();
     adminCookie = await loginAs(app, 'mock-admin-1');

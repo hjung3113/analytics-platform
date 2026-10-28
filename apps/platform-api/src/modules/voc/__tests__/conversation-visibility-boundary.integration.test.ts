@@ -1,7 +1,7 @@
 // Conversation visibility-boundary integration tests — Slice 7a-3 #181.
 //
 // The app handle is deliberately low privilege. Fixture writes and persistence
-// checks use fops_migrate; the append-only assertions use fops_app directly.
+// checks use platform_migrate; the append-only assertions use platform_app directly.
 // Gate: DATABASE_URL + DATABASE_URL_MIGRATE + WORKSPACE_ID.
 
 import { randomUUID } from 'node:crypto';
@@ -314,7 +314,7 @@ describe.skipIf(!runIntegration)('conversation visibility boundaries (#181)', ()
     ['voc_public_updates', 'public_update'],
     ['voc_reporter_replies', 'reporter_reply'],
     ['voc_internal_comments', 'internal_comment'],
-  ] as const)('fops_app cannot UPDATE or DELETE append-only %s', async (table, kind) => {
+  ] as const)('platform_app cannot UPDATE or DELETE append-only %s', async (table, kind) => {
     const { ids } = await seedConversation();
     const id = ids[kind][0];
     await expect(

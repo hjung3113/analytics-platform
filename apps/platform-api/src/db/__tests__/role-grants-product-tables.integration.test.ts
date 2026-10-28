@@ -1,7 +1,7 @@
 /**
  * Slice 3 #22 — DB role grants drift check for product tables.
  *
- * Asserts that `fops_app` holds exactly the DML privileges each product-schema
+ * Asserts that `platform_app` holds exactly the DML privileges each product-schema
  * base table is designed for — no more, no less. Most product tables are
  * full-DML (SELECT/INSERT/UPDATE/DELETE), but several are intentionally
  * append-only or read-only per migration 0010 (`0010_slice3_voc_foundation.sql`):
@@ -65,7 +65,7 @@ const SURVEY_AGGREGATE_FUNCTIONS = [
   'read_result_response_count',
 ] as const;
 
-// Tables intentionally narrower than full-DML for fops_app, keyed by the
+// Tables intentionally narrower than full-DML for platform_app, keyed by the
 // fully-qualified `schema.table` name. Grants come from the cited migrations.
 //
 // A table absent from this map is asserted as full-DML. That default is why a
@@ -178,7 +178,7 @@ describe.skipIf(!runIntegration)('ADR-0008 role grants — product tables (Slice
     await appHandle?.close();
   });
 
-  it('fops_app holds exactly the designed DML privileges on every product-schema base table', async () => {
+  it('platform_app holds exactly the designed DML privileges on every product-schema base table', async () => {
     const { rows: tables } = await migrateHandle.pool.query<{
       table_schema: string;
       table_name: string;
@@ -222,7 +222,7 @@ describe.skipIf(!runIntegration)('ADR-0008 role grants — product tables (Slice
       const { rows: grants } = await migrateHandle.pool.query<{ privilege_type: string }>(
         `select privilege_type
              from information_schema.role_table_grants
-            where grantee = 'fops_app'
+            where grantee = 'platform_app'
               and table_schema = $1
               and table_name = $2`,
         [t.table_schema, t.table_name],
@@ -230,11 +230,11 @@ describe.skipIf(!runIntegration)('ADR-0008 role grants — product tables (Slice
       const got = new Set(grants.map((g) => g.privilege_type));
       for (const priv of DML_PRIVILEGES) {
         if (expected.has(priv) && !got.has(priv)) {
-          failures.push(`fops_app missing GRANT ${priv} ON ${fq}; add to a new migration`);
+          failures.push(`platform_app missing GRANT ${priv} ON ${fq}; add to a new migration`);
         }
         if (!expected.has(priv) && got.has(priv)) {
           failures.push(
-            `fops_app has unexpected GRANT ${priv} ON ${fq}; ${fq} is narrower than full-DML by design (see the migration that created it) — REVOKE it or update EXPECTED_GRANTS if the design changed`,
+            `platform_app has unexpected GRANT ${priv} ON ${fq}; ${fq} is narrower than full-DML by design (see the migration that created it) — REVOKE it or update EXPECTED_GRANTS if the design changed`,
           );
         }
       }
@@ -243,20 +243,20 @@ describe.skipIf(!runIntegration)('ADR-0008 role grants — product tables (Slice
     expect(failures, failures.join('\n')).toEqual([]);
   });
 
-  it('fops_app reaches survey response aggregates only through the registered definer functions', async () => {
+  it('platform_app reaches survey response aggregates only through the registered definer functions', async () => {
     const { rows } = await migrateHandle.pool.query<{
       proname: string;
       app_execute: boolean;
       public_execute: boolean;
     }>(
       `select p.proname,
-              pg_catalog.has_function_privilege('fops_app', p.oid, 'EXECUTE') as app_execute,
+              pg_catalog.has_function_privilege('platform_app', p.oid, 'EXECUTE') as app_execute,
               pg_catalog.has_function_privilege('public', p.oid, 'EXECUTE') as public_execute
          from pg_catalog.pg_proc p
          join pg_catalog.pg_namespace n on n.oid = p.pronamespace
          join pg_catalog.pg_roles owner_role on owner_role.oid = p.proowner
         where n.nspname = 'survey'
-          and owner_role.rolname = 'fops_survey_aggregate_owner'
+          and owner_role.rolname = 'platform_survey_aggregate_owner'
         order by p.proname`,
     );
     expect(rows.map((row) => row.proname)).toEqual(SURVEY_AGGREGATE_FUNCTIONS);
@@ -269,11 +269,11 @@ describe.skipIf(!runIntegration)('ADR-0008 role grants — product tables (Slice
     );
   });
 
-  it('fops_app UPDATE on review candidates is limited to resolution columns', async () => {
+  it('platform_app UPDATE on review candidates is limited to resolution columns', async () => {
     const { rows } = await migrateHandle.pool.query<{ column_name: string }>(
       `select column_name
            from information_schema.column_privileges
-          where grantee = 'fops_app'
+          where grantee = 'platform_app'
             and table_schema = 'voc'
             and table_name = 'public_update_review_candidates'
             and privilege_type = 'UPDATE'
@@ -293,9 +293,9 @@ describe.skipIf(!runIntegration)('ADR-0008 role grants — product tables (Slice
       has_truncate: boolean;
     }>(
       `select
-           has_table_privilege('fops_app', 'voc.public_update_review_candidates', 'UPDATE') as has_table_update,
-           has_table_privilege('fops_app', 'voc.public_update_review_candidates', 'DELETE') as has_delete,
-           has_table_privilege('fops_app', 'voc.public_update_review_candidates', 'TRUNCATE') as has_truncate`,
+           has_table_privilege('platform_app', 'voc.public_update_review_candidates', 'UPDATE') as has_table_update,
+           has_table_privilege('platform_app', 'voc.public_update_review_candidates', 'DELETE') as has_delete,
+           has_table_privilege('platform_app', 'voc.public_update_review_candidates', 'TRUNCATE') as has_truncate`,
     );
     expect(tablePrivileges[0]).toEqual({
       has_table_update: false,
@@ -304,11 +304,11 @@ describe.skipIf(!runIntegration)('ADR-0008 role grants — product tables (Slice
     });
   });
 
-  it('fops_app UPDATE on VOC no-follow-up decisions is limited to decision columns', async () => {
+  it('platform_app UPDATE on VOC no-follow-up decisions is limited to decision columns', async () => {
     const { rows } = await migrateHandle.pool.query<{ column_name: string }>(
       `select column_name
            from information_schema.column_privileges
-          where grantee = 'fops_app'
+          where grantee = 'platform_app'
             and table_schema = 'voc'
             and table_name = 'no_follow_up_decisions'
             and privilege_type = 'UPDATE'
@@ -328,9 +328,9 @@ describe.skipIf(!runIntegration)('ADR-0008 role grants — product tables (Slice
       has_truncate: boolean;
     }>(
       `select
-           has_table_privilege('fops_app', 'voc.no_follow_up_decisions', 'UPDATE') as has_table_update,
-           has_table_privilege('fops_app', 'voc.no_follow_up_decisions', 'DELETE') as has_delete,
-           has_table_privilege('fops_app', 'voc.no_follow_up_decisions', 'TRUNCATE') as has_truncate`,
+           has_table_privilege('platform_app', 'voc.no_follow_up_decisions', 'UPDATE') as has_table_update,
+           has_table_privilege('platform_app', 'voc.no_follow_up_decisions', 'DELETE') as has_delete,
+           has_table_privilege('platform_app', 'voc.no_follow_up_decisions', 'TRUNCATE') as has_truncate`,
     );
     expect(tablePrivileges[0]).toEqual({
       has_table_update: false,
@@ -339,11 +339,11 @@ describe.skipIf(!runIntegration)('ADR-0008 role grants — product tables (Slice
     });
   });
 
-  it('fops_app UPDATE on outcome follow-up decisions is limited to transition columns', async () => {
+  it('platform_app UPDATE on outcome follow-up decisions is limited to transition columns', async () => {
     const { rows } = await migrateHandle.pool.query<{ column_name: string }>(
       `select column_name
            from information_schema.column_privileges
-          where grantee = 'fops_app'
+          where grantee = 'platform_app'
             and table_schema = 'survey'
             and table_name = 'outcome_follow_up_decisions'
             and privilege_type = 'UPDATE'
@@ -361,9 +361,9 @@ describe.skipIf(!runIntegration)('ADR-0008 role grants — product tables (Slice
       has_truncate: boolean;
     }>(
       `select
-           has_table_privilege('fops_app', 'survey.outcome_follow_up_decisions', 'UPDATE') as has_table_update,
-           has_table_privilege('fops_app', 'survey.outcome_follow_up_decisions', 'DELETE') as has_delete,
-           has_table_privilege('fops_app', 'survey.outcome_follow_up_decisions', 'TRUNCATE') as has_truncate`,
+           has_table_privilege('platform_app', 'survey.outcome_follow_up_decisions', 'UPDATE') as has_table_update,
+           has_table_privilege('platform_app', 'survey.outcome_follow_up_decisions', 'DELETE') as has_delete,
+           has_table_privilege('platform_app', 'survey.outcome_follow_up_decisions', 'TRUNCATE') as has_truncate`,
     );
     expect(tablePrivileges[0]).toEqual({
       has_table_update: false,
@@ -372,11 +372,11 @@ describe.skipIf(!runIntegration)('ADR-0008 role grants — product tables (Slice
     });
   });
 
-  it('fops_app UPDATE on notifications is limited to read, archive, and email claim columns', async () => {
+  it('platform_app UPDATE on notifications is limited to read, archive, and email claim columns', async () => {
     const { rows: columns } = await migrateHandle.pool.query<{ column_name: string }>(
       `select column_name
            from information_schema.column_privileges
-          where grantee = 'fops_app'
+          where grantee = 'platform_app'
             and table_schema = 'core'
             and table_name = 'notifications'
             and privilege_type = 'UPDATE'
@@ -394,9 +394,9 @@ describe.skipIf(!runIntegration)('ADR-0008 role grants — product tables (Slice
       has_truncate: boolean;
     }>(
       `select
-           has_table_privilege('fops_app', 'core.notifications', 'UPDATE') as has_table_update,
-           has_table_privilege('fops_app', 'core.notifications', 'DELETE') as has_delete,
-           has_table_privilege('fops_app', 'core.notifications', 'TRUNCATE') as has_truncate`,
+           has_table_privilege('platform_app', 'core.notifications', 'UPDATE') as has_table_update,
+           has_table_privilege('platform_app', 'core.notifications', 'DELETE') as has_delete,
+           has_table_privilege('platform_app', 'core.notifications', 'TRUNCATE') as has_truncate`,
     );
     expect(tablePrivileges[0]).toEqual({
       has_table_update: false,
@@ -444,7 +444,7 @@ describe.skipIf(!runIntegration)('ADR-0008 role grants — product tables (Slice
     }
   });
 
-  it('fops_app may submit survey responses (INSERT-only, #185 migration 0037)', async () => {
+  it('platform_app may submit survey responses (INSERT-only, #185 migration 0037)', async () => {
     const actor = await migrateHandle.pool.query<{ id: string }>(
       'select id from core.actors where workspace_id = $1 order by created_at limit 1',
       [WORKSPACE_ID],
@@ -506,12 +506,12 @@ describe.skipIf(!runIntegration)('ADR-0008 role grants — product tables (Slice
 
   it('#1109 mutator witness extensions confer no raw-answer or owner-role access to app', async () => {
     for (const role of [
-      'fops_survey_provenance_mutator_owner',
-      'fops_entity_links_survey_mutator_owner',
+      'platform_survey_provenance_mutator_owner',
+      'platform_entity_links_survey_mutator_owner',
     ]) {
       const result = await migrateHandle.pool.query(
         `
-        select pg_has_role('fops_app',$1::name,'MEMBER') as app_member,
+        select pg_has_role('platform_app',$1::name,'MEMBER') as app_member,
           has_any_column_privilege($1::name,'survey.survey_response_answers','SELECT,INSERT,UPDATE') as answers,
           has_schema_privilege($1::name,'survey','CREATE') as survey_create,
           has_schema_privilege($1::name,'core','CREATE') as core_create`,

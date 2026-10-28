@@ -1,5 +1,5 @@
 import { deleteRecoveryFixtureParents } from '../../../../test-support/recovery-fixtures.js';
-// #512 — shadow measurements use the real fops_app query/write role and
+// #512 — shadow measurements use the real platform_app query/write role and
 // deterministic pgvector rows; migrateHandle is fixture setup/teardown only.
 
 import { randomUUID } from 'node:crypto';

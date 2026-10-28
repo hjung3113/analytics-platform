@@ -14,7 +14,7 @@ import { deleteRecoveryFixtureParents } from '../../../test-support/recovery-fix
 // hermetic against concurrent suites sharing the database.
 //
 // Gate: DATABASE_URL + DATABASE_URL_MIGRATE (migrate pool owns core.audit_log
-// and core.idempotency_keys cleanup; fops_app cannot DELETE from audit_log).
+// and core.idempotency_keys cleanup; platform_app cannot DELETE from audit_log).
 
 import { randomUUID } from 'node:crypto';
 

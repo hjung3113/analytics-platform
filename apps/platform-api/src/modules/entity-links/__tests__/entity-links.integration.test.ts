@@ -1,7 +1,7 @@
 // POST/GET/PATCH /entity-links integration tests — Slice 4.1 #112 + Slice 4.2 #113.
 //
 // Gate: DATABASE_URL + WORKSPACE_ID + DATABASE_URL_MIGRATE. The migrate role is
-// required because core.entity_links is append-only to fops_app.
+// required because core.entity_links is append-only to platform_app.
 
 import { randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';

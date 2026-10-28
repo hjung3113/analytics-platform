@@ -77,7 +77,7 @@ function checkDrizzleHistory() {
   // Always override DATABASE_URL_MIGRATE with an unreachable URL, even when
   // the calling shell/CI has a real one set — this gate must never be able
   // to reach a live database (dev or otherwise), regardless of environment.
-  const safeMigrateUrl = 'postgres://fops_migrate@127.0.0.1:1/drizzle_gate_no_database';
+  const safeMigrateUrl = 'postgres://platform_migrate@127.0.0.1:1/drizzle_gate_no_database';
   console.error(
     'migration drift: forcing DATABASE_URL_MIGRATE to an unreachable URL for drizzle-kit check',
   );
@@ -124,7 +124,7 @@ function sha256File(path) {
 // throwaway copy. Like checkDrizzleHistory, the URL is forced unreachable so
 // no step of this gate can ever touch a live database.
 function checkSchemaDrift() {
-  const safeMigrateUrl = 'postgres://fops_migrate@127.0.0.1:1/drizzle_gate_no_database';
+  const safeMigrateUrl = 'postgres://platform_migrate@127.0.0.1:1/drizzle_gate_no_database';
   const scratchDir = mkdtempSync(join(tmpdir(), 'db-migration-drift-gate-'));
   const scratchOut = join(scratchDir, 'migrations');
   // process.exit() below skips `finally`, so clean up from an exit hook too

@@ -7,11 +7,11 @@
    `FEEDBACKOPS_ENV_FILE=<abs worktree>/.review/env.verify pnpm --filter @ap/platform-api test:integration <files>`
    (paths relative to `apps/platform-api`). Run **only the integration files you added or touched**, never the full
    suite, never another env file, never `.env`; the runner refuses port 5434 (the dev database). Each run
-   truncates and re-seeds that database, which is expected. The suites run as the low-priv `fops_app` role: write
+   truncates and re-seeds that database, which is expected. The suites run as the low-priv `platform_app` role: write
    the tests so they pass under it. Report the command and its result. If your task adds a migration, the issue
    database does not have it (you cannot migrate): skip the suites that need it and say so; the conductor
    recreates the database and runs them.
-3. **Permission walls are design.** Do not add or widen any GRANT, do not change `fops_app`/`fops_migrate` roles, and
+3. **Permission walls are design.** Do not add or widen any GRANT, do not change `platform_app`/`platform_migrate` roles, and
    do not add migrations unless the task says so. If a change seems to need a wider grant, stop and write that in
    the report instead.
 4. Behaviour-preserving refactor: every existing test keeps its setup, fixtures and assertions. The error code, HTTP

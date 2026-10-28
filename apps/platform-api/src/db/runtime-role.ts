@@ -1,18 +1,18 @@
 // Runtime boot guard for the `node dist/index` entry (issue #402, ADR-0008).
 //
-// The running app must connect as the plain `fops_app` DML role. Instead of
+// The running app must connect as the plain `platform_app` DML role. Instead of
 // trusting the DATABASE_URL text, this guard asks Postgres who the connection
 // is actually authenticated as (`current_user`) and inspects that role's
 // attributes in pg_roles, so a misconfigured or swapped URL fails at boot
 // rather than at the first privilege error.
 //
 // Scope: called only from src/index.ts. Migration/seed CLIs (drizzle-kit,
-// src/seed/*) connect as fops_migrate via DATABASE_URL_MIGRATE and must NOT
+// src/seed/*) connect as platform_migrate via DATABASE_URL_MIGRATE and must NOT
 // pass through this guard. buildServer and tests are unaffected.
 
 import type pg from 'pg';
 
-const RUNTIME_ROLE = 'fops_app';
+const RUNTIME_ROLE = 'platform_app';
 
 // pg_roles attributes that would let the runtime role escalate past its
 // DML-only grant set. Checked individually so the error names the offender.
@@ -56,7 +56,7 @@ export async function assertRuntimeDbRole(pool: Pick<pg.Pool, 'query'>): Promise
               where m.rolname <> current_user
                 and pg_has_role(current_user, m.oid, 'MEMBER')
                 and (m.rolsuper or m.rolcreaterole or m.rolcreatedb or m.rolbypassrls
-                     or m.rolreplication or m.rolname = 'fops_migrate'
+                     or m.rolreplication or m.rolname = 'platform_migrate'
                      or m.rolname in ('pg_write_all_data', 'pg_read_all_data',
                        'pg_execute_server_program', 'pg_read_server_files',
                        'pg_write_server_files', 'pg_signal_backend'))

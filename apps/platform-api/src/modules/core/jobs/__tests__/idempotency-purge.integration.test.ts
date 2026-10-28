@@ -3,7 +3,7 @@
 // cron scheduling is covered separately in boot.integration.test.ts so we
 // don't pay the 60s scheduler tick latency here.
 //
-// Requires a running Postgres with both fops_app and fops_migrate roles
+// Requires a running Postgres with both platform_app and platform_migrate roles
 // and the Slice 1 + #6 migrations applied (see role-grants integration
 // test header for full setup).
 

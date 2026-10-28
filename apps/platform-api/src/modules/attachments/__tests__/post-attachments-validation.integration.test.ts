@@ -3,7 +3,7 @@
 // Mirrors the live harness pattern from
 // modules/voc/__tests__/create-voc.integration.test.ts:
 //   * buildServer + cookie session via POST /auth/mock-login.
-//   * fops_app pool for cleanup of session + rate-limit + idempotency rows.
+//   * platform_app pool for cleanup of session + rate-limit + idempotency rows.
 //
 // Gate: DATABASE_URL + WORKSPACE_ID. Without DATABASE_URL the suite skips.
 //

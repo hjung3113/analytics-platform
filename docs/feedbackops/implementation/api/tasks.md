@@ -349,7 +349,7 @@ POST /tasks/:id/milestone
 `GET /tasks/:id/comments` and `POST /tasks/:id/comments` are the Task
 progress-note timeline (`docs/adr/0049-finding-task-progress-notes.md`,
 FR-TASK-003). Rows live in `task.task_comments`. There is no edit or delete
-route. `fops_app` may only `SELECT` and `INSERT`. These are the internal
+route. `platform_app` may only `SELECT` and `INSERT`. These are the internal
 comments this system means. They are not VOC Internal Comments, and they are
 not Finding progress notes ([findings.md](findings.md) §Progress notes).
 

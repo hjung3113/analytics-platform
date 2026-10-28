@@ -158,8 +158,8 @@ describe.skipIf(!runIntegration)(
           `create function ${clockSchema}.now() returns timestamptz language sql stable as
            $$ select coalesce(nullif(current_setting('test.clock', true), '')::timestamptz, pg_catalog.now()) $$`,
         );
-        await admin.pool.query(`grant usage on schema ${clockSchema} to fops_app`);
-        await admin.pool.query(`grant execute on function ${clockSchema}.now() to fops_app`);
+        await admin.pool.query(`grant usage on schema ${clockSchema} to platform_app`);
+        await admin.pool.query(`grant execute on function ${clockSchema}.now() to platform_app`);
       } finally {
         await admin.close();
       }

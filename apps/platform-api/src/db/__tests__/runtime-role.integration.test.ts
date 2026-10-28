@@ -1,9 +1,9 @@
 // Integration tests for the runtime DB role guard (#402).
 //
-// Requires a running Postgres with both fops_app and fops_migrate roles and
+// Requires a running Postgres with both platform_app and platform_migrate roles and
 // the Slice 1 migration applied (see role-grants.integration.test.ts for the
 // full docker-compose/pnpm recipe). The guard resolves for the DATABASE_URL
-// (fops_app) connection and rejects for the DATABASE_URL_MIGRATE (fops_migrate)
+// (platform_app) connection and rejects for the DATABASE_URL_MIGRATE (platform_migrate)
 // connection. When the integration env is not exported, the suite is skipped —
 // unit-level tests still run on machines without Docker.
 
@@ -32,17 +32,17 @@ describe.skipIf(!runIntegration)('runtime DB role guard (#402)', () => {
     await migrateHandle?.close();
   });
 
-  it('resolves when connected as fops_app (DATABASE_URL)', async () => {
+  it('resolves when connected as platform_app (DATABASE_URL)', async () => {
     await expect(assertRuntimeDbRole(appHandle.pool)).resolves.toBeUndefined();
   });
 
-  it('rejects when connected as fops_migrate (DATABASE_URL_MIGRATE)', async () => {
+  it('rejects when connected as platform_migrate (DATABASE_URL_MIGRATE)', async () => {
     const err = await assertRuntimeDbRole(migrateHandle.pool).then(
       () => undefined,
       (e: unknown) => e as Error,
     );
     expect(err).toBeInstanceOf(Error);
-    expect(err?.message).toContain('fops_migrate');
-    expect(err?.message).toMatch(/must connect as fops_app \(got "fops_migrate"\)/);
+    expect(err?.message).toContain('platform_migrate');
+    expect(err?.message).toMatch(/must connect as platform_app \(got "platform_migrate"\)/);
   });
 });

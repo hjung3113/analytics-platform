@@ -30,7 +30,7 @@ describe.skipIf(!runIntegration)('Survey response evidence access 0039/0040/0057
   const rawText = 'raw response text that may only cross the definer boundary';
   const otherRawText = 'a second answer must not be returned for the first question';
 
-  it('pins the 0040 highlight approval identity FK and unchanged fops_app SELECT surface', async () => {
+  it('pins the 0040 highlight approval identity FK and unchanged platform_app SELECT surface', async () => {
     const columns = await migrateHandle.pool.query<{ is_nullable: string }>(
       `select is_nullable
          from information_schema.columns
@@ -53,7 +53,7 @@ describe.skipIf(!runIntegration)('Survey response evidence access 0039/0040/0057
       },
     ]);
     const privileges = await migrateHandle.pool.query<{ can_select: boolean }>(
-      "select has_table_privilege('fops_app', 'finding.evidence_highlights', 'SELECT') as can_select",
+      "select has_table_privilege('platform_app', 'finding.evidence_highlights', 'SELECT') as can_select",
     );
     expect(privileges.rows).toEqual([{ can_select: true }]);
   });
@@ -220,14 +220,17 @@ describe.skipIf(!runIntegration)('Survey response evidence access 0039/0040/0057
     // #718 adds read_my_answerable_surveys (open, not-yet-answered Survey discovery).
     // #569 adds read_response_excerpt_approval (revoke binding check) and
     // read_approved_response_excerpts (per-response active approval projection);
-    // fops_app no longer selects excerpt_approvals.response_id directly.
+    // platform_app no longer selects excerpt_approvals.response_id directly.
     expect(functions).toHaveLength(8);
     for (const fn of functions) {
-      expect(fn.owner).toBe('fops_survey_evidence_reader_owner');
+      expect(fn.owner).toBe('platform_survey_evidence_reader_owner');
       expect(fn.prosecdef).toBe(true);
       expect(fn.proconfig).toContain('search_path=pg_catalog');
       expect(fn.privilege_types).toEqual(['EXECUTE']);
-      expect(fn.execute_principals).toEqual(['fops_app', 'fops_survey_evidence_reader_owner']);
+      expect(fn.execute_principals).toEqual([
+        'platform_app',
+        'platform_survey_evidence_reader_owner',
+      ]);
     }
     expect(functions.map((fn) => [fn.proname, fn.provolatile])).toEqual([
       ['lock_response_evidence_subject', 'v'],
@@ -251,10 +254,10 @@ describe.skipIf(!runIntegration)('Survey response evidence access 0039/0040/0057
       `select owner_role.rolcanlogin, owner_role.rolinherit,
               pg_catalog.has_schema_privilege(owner_role.rolname, 'survey', 'CREATE') as schema_create,
               pg_catalog.has_schema_privilege(owner_role.rolname, 'survey', 'USAGE') as schema_usage,
-              pg_catalog.pg_has_role('fops_migrate', owner_role.rolname, 'MEMBER') as migrate_is_owner_member,
-              pg_catalog.pg_has_role(owner_role.rolname, 'fops_migrate', 'MEMBER') as owner_is_migrate_member
+              pg_catalog.pg_has_role('platform_migrate', owner_role.rolname, 'MEMBER') as migrate_is_owner_member,
+              pg_catalog.pg_has_role(owner_role.rolname, 'platform_migrate', 'MEMBER') as owner_is_migrate_member
          from pg_catalog.pg_roles owner_role
-        where owner_role.rolname = 'fops_survey_evidence_reader_owner'`,
+        where owner_role.rolname = 'platform_survey_evidence_reader_owner'`,
     );
     expect(role).toEqual([
       {
@@ -270,14 +273,14 @@ describe.skipIf(!runIntegration)('Survey response evidence access 0039/0040/0057
     const { rows: ownerTablePrivileges } = await migrateHandle.pool.query(
       `select table_schema, table_name, privilege_type
          from information_schema.table_privileges
-        where grantee = 'fops_survey_evidence_reader_owner'
+        where grantee = 'platform_survey_evidence_reader_owner'
         order by table_schema, table_name, privilege_type`,
     );
     expect(ownerTablePrivileges).toEqual([]);
     const { rows: ownerColumnPrivileges } = await migrateHandle.pool.query<{ privilege: string }>(
       `select table_name || '.' || column_name || '.' || privilege_type as privilege
          from information_schema.column_privileges
-        where grantee = 'fops_survey_evidence_reader_owner'
+        where grantee = 'platform_survey_evidence_reader_owner'
           and table_schema = 'survey'
         order by table_name, column_name, privilege_type`,
     );
@@ -338,7 +341,7 @@ describe.skipIf(!runIntegration)('Survey response evidence access 0039/0040/0057
        select tables.table_name,
               coalesce(array_agg(privilege_kinds.privilege_type order by privilege_kinds.privilege_type)
                 filter (where has_table_privilege(
-                  'fops_app', format('survey.%I', tables.table_name), privilege_kinds.privilege_type
+                  'platform_app', format('survey.%I', tables.table_name), privilege_kinds.privilege_type
                 )), '{}'::text[]) as privilege_types
          from tables
          cross join privilege_kinds
@@ -374,7 +377,7 @@ describe.skipIf(!runIntegration)('Survey response evidence access 0039/0040/0057
                 filter (where privilege_type = 'UPDATE')::text[] as update_columns,
               array_agg(distinct privilege_type order by privilege_type)::text[] as privilege_types
          from information_schema.column_privileges
-        where grantee = 'fops_app'
+        where grantee = 'platform_app'
           and table_schema = 'survey'
           and table_name in ('survey_responses', 'survey_response_answers', 'survey_response_excerpt_approvals')
         group by table_name
@@ -416,7 +419,7 @@ describe.skipIf(!runIntegration)('Survey response evidence access 0039/0040/0057
   it('pins #739 owners, callable ACLs, and denied private table access', async () => {
     const functions = await migrateHandle.pool.query(
       `select p.proname,r.rolname as owner,p.prosecdef,p.proconfig,
-          has_function_privilege('fops_app',p.oid,'EXECUTE') as app_execute,
+          has_function_privilege('platform_app',p.oid,'EXECUTE') as app_execute,
           exists(select 1 from aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
                  where a.grantee=0 and a.privilege_type='EXECUTE') as public_execute
          from pg_proc p join pg_namespace n on n.oid=p.pronamespace
@@ -428,7 +431,7 @@ describe.skipIf(!runIntegration)('Survey response evidence access 0039/0040/0057
     expect(functions.rows).toEqual([
       {
         proname: 'bind_finding_response',
-        owner: 'fops_survey_provenance_mutator_owner',
+        owner: 'platform_survey_provenance_mutator_owner',
         prosecdef: true,
         proconfig: ['search_path=pg_catalog'],
         app_execute: true,
@@ -436,7 +439,7 @@ describe.skipIf(!runIntegration)('Survey response evidence access 0039/0040/0057
       },
       {
         proname: 'bind_highlight_response',
-        owner: 'fops_survey_provenance_mutator_owner',
+        owner: 'platform_survey_provenance_mutator_owner',
         prosecdef: true,
         proconfig: ['search_path=pg_catalog'],
         app_execute: true,
@@ -444,7 +447,7 @@ describe.skipIf(!runIntegration)('Survey response evidence access 0039/0040/0057
       },
       {
         proname: 'read_finding_highlight_evidence',
-        owner: 'fops_survey_evidence_reader_owner',
+        owner: 'platform_survey_evidence_reader_owner',
         prosecdef: true,
         proconfig: ['search_path=pg_catalog'],
         app_execute: true,
@@ -452,13 +455,13 @@ describe.skipIf(!runIntegration)('Survey response evidence access 0039/0040/0057
       },
     ]);
     for (const owner of [
-      'fops_survey_evidence_reader_owner',
-      'fops_survey_provenance_mutator_owner',
+      'platform_survey_evidence_reader_owner',
+      'platform_survey_provenance_mutator_owner',
     ]) {
       const role = await migrateHandle.pool.query(
-        `select rolcanlogin,rolinherit,pg_has_role('fops_app',rolname,'MEMBER') as app_member,
-            pg_has_role(rolname,'fops_migrate','MEMBER') as reverse_member,
-            pg_has_role('fops_migrate',rolname,'MEMBER') as migrate_member
+        `select rolcanlogin,rolinherit,pg_has_role('platform_app',rolname,'MEMBER') as app_member,
+            pg_has_role(rolname,'platform_migrate','MEMBER') as reverse_member,
+            pg_has_role('platform_migrate',rolname,'MEMBER') as migrate_member
            from pg_roles where rolname=$1`,
         [owner],
       );
@@ -477,8 +480,8 @@ describe.skipIf(!runIntegration)('Survey response evidence access 0039/0040/0057
         code: '42501',
       });
       const writes = await migrateHandle.pool.query(
-        `select has_table_privilege('fops_survey_evidence_reader_owner',$1,'INSERT,UPDATE,DELETE') as reader_write,
-            has_table_privilege('fops_survey_aggregate_owner',$1,'INSERT,UPDATE,DELETE') as aggregate_write`,
+        `select has_table_privilege('platform_survey_evidence_reader_owner',$1,'INSERT,UPDATE,DELETE') as reader_write,
+            has_table_privilege('platform_survey_aggregate_owner',$1,'INSERT,UPDATE,DELETE') as aggregate_write`,
         [`survey.${table}`],
       );
       expect(writes.rows).toEqual([{ reader_write: false, aggregate_write: false }]);
@@ -645,9 +648,9 @@ describe.skipIf(!runIntegration)('Survey response evidence access 0039/0040/0057
     expect(crossWorkspaceExcerpts.rows).toEqual([]);
   });
 
-  // #569: fops_app must not link a respondent (core.audit_log submission row) to
+  // #569: platform_app must not link a respondent (core.audit_log submission row) to
   // approved excerpt text through excerpt_approvals.response_id.
-  it('denies fops_app response_id on excerpt approvals and the audit-log respondent join', async () => {
+  it('denies platform_app response_id on excerpt approvals and the audit-log respondent join', async () => {
     await expect(
       appHandle.pool.query('select response_id from survey.survey_response_excerpt_approvals'),
     ).rejects.toMatchObject({ code: '42501' });
@@ -675,7 +678,7 @@ describe.skipIf(!runIntegration)('Survey response evidence access 0039/0040/0057
       [workspaceId, actorId, probeEvent, responseId],
     );
     // The issue's join — respondent (audit submission actor) to approved excerpt
-    // text — now fails instead of returning rows as fops_app.
+    // text — now fails instead of returning rows as platform_app.
     await expect(
       appHandle.pool.query(
         `select al.actor_id as respondent_actor_id, a.redacted_excerpt
@@ -750,14 +753,14 @@ describe.skipIf(!runIntegration)('Survey response evidence access 0039/0040/0057
   it('#1109 selection resolver has only explicit app EXECUTE and the existing mutator owner', async () => {
     const result = await migrateHandle.pool.query(`
       select pg_get_userbyid(p.proowner) as owner, p.prosecdef, p.proconfig,
-        has_function_privilege('fops_app',p.oid,'EXECUTE') as app_execute,
+        has_function_privilege('platform_app',p.oid,'EXECUTE') as app_execute,
         exists(select 1 from aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
           where a.grantee=0 and a.privilege_type='EXECUTE') as public_execute
       from pg_proc p where p.oid='survey.lock_attachment_response(uuid,uuid)'::regprocedure
     `);
     expect(result.rows).toEqual([
       {
-        owner: 'fops_survey_provenance_mutator_owner',
+        owner: 'platform_survey_provenance_mutator_owner',
         prosecdef: true,
         proconfig: ['search_path=pg_catalog'],
         app_execute: true,

@@ -18,7 +18,7 @@ import { sql } from 'drizzle-orm';
 import type { PgBoss } from 'pg-boss';
 
 import type { Db } from '../../../db/client.js';
-import { type JobLog, JOB_WORK_OPTIONS, withJobLogging } from '../../../lib/job-log.js';
+import { JOB_WORK_OPTIONS, type JobLog, withJobLogging } from '../../../lib/job-log.js';
 
 /** Queue name. Format: `<module>.<action>` per ADR-0009. */
 export const RATE_LIMITS_PURGE_QUEUE = 'core.rate_limits_purge';
@@ -51,7 +51,7 @@ export async function purgeExpiredRateLimits(deps: {
 /**
  * Wire the handler + hourly cron into pg-boss. Idempotent — same contract
  * as `registerIdempotencyPurge`. Queue is pre-created in migration 0004
- * because fops_app does not hold EXECUTE on `pgboss.create_queue`'s DDL
+ * because platform_app does not hold EXECUTE on `pgboss.create_queue`'s DDL
  * branch (F-010 / ADR-0008).
  */
 export async function registerRateLimitsPurge(

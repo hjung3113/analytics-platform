@@ -1,6 +1,6 @@
 // Fastify request augmentation. `req.session` is populated by the
 // `requireSession` middleware; `app.db` is the runtime Drizzle handle
-// (fops_app role) wired in `buildServer`.
+// (platform_app role) wired in `buildServer`.
 
 import 'fastify';
 import type { PgBoss } from 'pg-boss';

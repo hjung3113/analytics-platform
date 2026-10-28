@@ -4,8 +4,8 @@ import { cleanupResponsibilityFailures } from '../../../test-support/responsibil
 //
 // Mirrors create-voc.integration.test.ts harness:
 //   * buildServer + cookie session via POST /auth/mock-login.
-//   * fops_app pool for product-table cleanup.
-//   * fops_migrate pool for core.audit_log cleanup.
+//   * platform_app pool for product-table cleanup.
+//   * platform_migrate pool for core.audit_log cleanup.
 //
 // Gate: DATABASE_URL + WORKSPACE_ID. Without DATABASE_URL_MIGRATE the suite
 // runs but skips audit-log assertions gracefully (matches POST suite).
@@ -161,7 +161,7 @@ async function insertDevActor(
 }
 
 // Grants voc.triage for a managed system. Returns grant id.
-// Uses APP_URL pool — fops_app has INSERT on permission.permission_grants.
+// Uses APP_URL pool — platform_app has INSERT on permission.permission_grants.
 async function grantVocTriage(
   dbHandle: DbHandle,
   workspaceId: string,
@@ -197,7 +197,7 @@ async function getAuditTypes(vocId: string): Promise<string[]> {
       // Same-transaction rows tie on created_at: id is defaultRandom()
       // (core.ts:210) and created_at is defaultNow() (core.ts:225), so neither
       // encodes insert order. ctid does: core.audit_log is append-only for
-      // fops_app (UPDATE denied by role grants), so ctid order == insert order
+      // platform_app (UPDATE denied by role grants), so ctid order == insert order
       // and the sequence below becomes deterministic.
       `select event_type from core.audit_log where subject_id = $1
        order by created_at asc, ctid asc`,

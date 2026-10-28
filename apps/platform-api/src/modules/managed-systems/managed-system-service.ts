@@ -10,7 +10,7 @@
 //      capability vocab; workspace.admin satisfies every Slice 2 mutation.
 //   3. Domain INSERT/UPDATE inside the transaction.
 //   4. Audit row in the SAME transaction (ADR-0008 role separation
-//      guarantees fops_app can INSERT-only on core.audit_log).
+//      guarantees platform_app can INSERT-only on core.audit_log).
 //   5. Idempotency record (optional).
 //
 // Archive cascade: per ADR-0017 archiving a Managed System archives every

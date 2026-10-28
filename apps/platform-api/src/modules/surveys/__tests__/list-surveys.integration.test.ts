@@ -1,4 +1,4 @@
-// HTTP list seam only; the conductor executes this with fops_app/fops_migrate.
+// HTTP list seam only; the conductor executes this with platform_app/platform_migrate.
 import { randomUUID } from 'node:crypto';
 import { listSurveysResponseSchema } from '@ap/feature-shared';
 import type { FastifyInstance } from 'fastify';

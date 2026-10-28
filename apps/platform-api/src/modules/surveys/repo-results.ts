@@ -9,7 +9,7 @@ export type SurveyResultAggregateRow = {
   bucket_count: number;
 };
 
-/** The fops_app role may use only these aggregate-only SECURITY DEFINER functions. */
+/** The platform_app role may use only these aggregate-only SECURITY DEFINER functions. */
 export async function readSurveyResultAggregates(
   db: Db,
   workspaceId: string,

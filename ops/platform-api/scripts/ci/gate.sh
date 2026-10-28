@@ -53,6 +53,8 @@ stage_static() {
 stage_static_extra() {
   step node "$FO_OPS/scripts/check-boundaries.test.mjs"
   step node "$FO_OPS/scripts/test-integration.test.mjs"
+  step node "$FO_OPS/scripts/db/cutover-0076.test.mjs"
+  step node apps/platform-e2e/tests-real/database-safety.test.ts
   step fo gate:db-migration-drift
   step fo gate:fe-typecheck
 }
@@ -64,14 +66,23 @@ stage_unit() {
 }
 
 stage_integration() {
-  local admin_url="${CI_PG_ADMIN_URL:?set CI_PG_ADMIN_URL to a disposable Postgres superuser URL}"
-  local host port
-  read -r host port < <(node -e 'const u = new URL(process.argv[1]); console.log(u.hostname, u.port || "5432")' "$admin_url")
+  local raw_admin_url="${CI_PG_ADMIN_URL:?set CI_PG_ADMIN_URL to a disposable Postgres superuser URL}"
+  local admin_url host port
+  # Validate the EFFECTIVE target before any connection (scripts/db/pg-target.mjs): query overrides, PGPORT defaults
+  # and zero-padded ports must not hide the development database from the check below.
+  admin_url="$(PG_TARGET_URL="$raw_admin_url" node "$FO_OPS/scripts/db/pg-target.mjs" canonical PG_TARGET_URL)" || {
+    echo "gate.sh integration: refusing CI_PG_ADMIN_URL (see the diagnosis above)" >&2
+    exit 2
+  }
+  host="$(PG_TARGET_URL="$admin_url" node "$FO_OPS/scripts/db/pg-target.mjs" part PG_TARGET_URL host)"
+  port="$(PG_TARGET_URL="$admin_url" node "$FO_OPS/scripts/db/pg-target.mjs" part PG_TARGET_URL port)"
   # 5434 is the development database (docker-compose.dev.yml); this stage truncates.
   if [ "$port" = "5434" ]; then
     echo "gate.sh integration: refusing port 5434 (the development database)" >&2
     exit 2
   fi
+  # psql and the cutover must connect where the check above looked.
+  unset PGHOST PGHOSTADDR PGPORT PGUSER PGDATABASE PGSERVICE PGSERVICEFILE PGOPTIONS
 
   step psql "$admin_url" -X -q -v ON_ERROR_STOP=1 -f "$FO_OPS/scripts/db/init.sql"
 
@@ -81,16 +92,18 @@ stage_integration() {
   trap "rm -f '$env_file'" EXIT
   grep -Ev '^DATABASE_URL(_MIGRATE)?=' "$FO_OPS/.env.example" > "$env_file"
   {
-    echo "DATABASE_URL=postgres://fops_app:fops_app@$host:$port/feedbackops"
-    echo "DATABASE_URL_MIGRATE=postgres://fops_migrate:fops_migrate@$host:$port/feedbackops"
+    echo "DATABASE_URL=postgres://platform_app:platform_app@$host:$port/platform"
+    echo "DATABASE_URL_MIGRATE=postgres://platform_migrate:platform_migrate@$host:$port/platform"
   } >> "$env_file"
 
+  # Fresh provisioning: init.sql created the replay roles and database `platform`; the cutover replays
+  # history through 0075, renames the roles to the final identity, then runs db:migrate as platform_migrate.
   (
     set -a
     # shellcheck disable=SC1090
     . "$env_file"
     set +a
-    step pnpm --filter @ap/platform-api db:migrate
+    step env CUTOVER_ADMIN_URL="$admin_url" bash "$FO_OPS/scripts/db/cutover-0076-platform-identity.sh" all
   )
   step env FEEDBACKOPS_ENV_FILE="$env_file" pnpm --filter @ap/platform-api test:integration
 }

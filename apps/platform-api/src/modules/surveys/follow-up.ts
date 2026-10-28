@@ -3,7 +3,7 @@ import { captureOutcomeRecovery, finishOutcomeRecovery } from './recovery-presen
 // Outcome follow-up decisions (ADR-0055, issue #510 part B). The surveys
 // module owns the mark-no-follow-up / reopen-follow-up commands; the
 // classification itself runs inside the SECURITY DEFINER function
-// survey.read_outcome_follow_up_state, because fops_app cannot read response
+// survey.read_outcome_follow_up_state, because platform_app cannot read response
 // or answer rows.
 //
 // Single transaction contract per command (AGENTS.md, ADR-0008/0015):

@@ -1,6 +1,6 @@
 import { createDb } from '../db/client.js';
 
-/** Diagnostics are append-only for fops_app; teardown uses migrate, scoped to suite systems. */
+/** Diagnostics are append-only for platform_app; teardown uses migrate, scoped to suite systems. */
 export async function cleanupResponsibilityFailures(workspaceId: string, systemSlugPrefix: string) {
   const url = process.env.DATABASE_URL_MIGRATE;
   if (!url) throw new Error('responsibility fixture cleanup requires DATABASE_URL_MIGRATE');

@@ -2,7 +2,7 @@
 
 ## Ownership
 
-Milestones owns `task.milestones` (create, read, update — no delete; `fops_app`
+Milestones owns `task.milestones` (create, read, update — no delete; `platform_app`
 has no DELETE grant and both FKs are ON DELETE RESTRICT). Reads of Tasks or
 Findings go through those modules' `index.ts` seams, never their repos.
 
