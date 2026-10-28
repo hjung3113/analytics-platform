@@ -1,6 +1,6 @@
 # @ap/contract-schemas
 
-Zod wire-contract schemas and JSON Schema 2020-12 artifacts, implementing #1086 (stage 2 of #531). [ADR-0096](https://github.com/hjung3113/analytics-platform/blob/main/docs/adr/0096-contract-schemas-zod-source-and-reference-implementations.md) owns the source-direction decision. This private workspace package is outside `SDK_PACKAGES`; `pnpm sdk:schemas` produces a release asset, rather than a sixth installable SDK package.
+Zod wire-contract schemas and JSON Schema 2020-12 artifacts, implementing ADR-0096 implementation stage 1 (#1086, stage 2 of #531). [ADR-0096](https://github.com/hjung3113/analytics-platform/blob/main/docs/adr/0096-contract-schemas-zod-source-and-reference-implementations.md) owns the source-direction decision. This private workspace package is outside `SDK_PACKAGES`; `pnpm sdk:schemas` produces a release asset, rather than a sixth installable SDK package.
 
 ## Editing schemas
 

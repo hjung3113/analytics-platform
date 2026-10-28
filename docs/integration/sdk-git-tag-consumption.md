@@ -23,11 +23,13 @@
 
 ## 변경 기록
 
+팀장은 SDK 태그를 낼 때 `pnpm sdk:schemas --version X.Y.Z --out <empty-or-absent-schemas-dir>`로 자산을 만들고 `gh release upload sdk-vX.Y.Z <schemas-dir>/contract-schemas-X.Y.Z.tgz <schemas-dir>/SHA256SUMS-schemas`로 함께 올린다. [릴리스 순서](../../.agents/conductor/LANES.md#lead)를 따른다.
+
 스냅샷 줄이 삭제되거나 바뀌면 같은 PR에서 이 표에 기록하고, [ADR-0044](../adr/0044-sdk-source-in-platform-repo-released-separately.md)에 따라 한 SDK 릴리스 전에 소비자에게 예고한다.
 
 | 버전 | 패키지 | 바뀐 공개 API | 이전 방법 |
 | --- | --- | --- | --- |
-| 다음 릴리스 | (다섯 패키지 외) | 공개 API 변경 없음(#1086). 새 Release 자산 `contract-schemas-<ver>.tgz`(+ `SHA256SUMS-schemas`): `schemas/*.json`(JSON Schema 2020-12), `endpoints.json`, `vocab.json`, `README.md`. 형식 규칙(정수는 안전 정수 범위 `integer`, instant는 `format: date-time`+`pattern`, wall-clock은 `pattern`만, 고정 필드 객체는 `additionalProperties: false`)은 [산출물 형식 규칙](../../packages/sdk/contract-schemas/AGENTS.md#artifact-format-rules)이 소유한다 | 없음 — 다섯 tarball은 그대로다. 서버 쪽에서 스키마를 받으려면 Release의 이 자산을 쓴다 |
+| `sdk-v0.20.0` | (다섯 패키지 외) `@ap/contract-schemas` | 새 private 계약 스키마 패키지와 Release 자산 `contract-schemas-0.20.0.tgz`(+ `SHA256SUMS-schemas`): `schemas/*.json`(JSON Schema 2020-12), `endpoints.json`, `vocab.json`, `README.md`(#1086, 구현 PR #1090). `limits.maxRows`는 양의 정수다. [산출물 형식 규칙](../../packages/sdk/contract-schemas/AGENTS.md#artifact-format-rules)이 형식을 소유한다. 다섯 설치용 SDK 패키지의 공개 API 변경은 없다 | 기존 다섯 tarball 소비자는 코드 변경 없이 업그레이드한다. 서버 소비자는 Release 자산과 checksum을 받아 검증한 뒤 스키마를 사용한다. Pydantic 자동 생성·drift CI와 참조 어댑터는 아직 구현하지 않았다 |
 | `sdk-v0.19.0` | contracts | 추가(#1008) — `Trust`에 선택 필드 `sourceLogicVersions?: string[]`(조회 구간의 파서 로직 버전들, 있으면 비어 있지 않고 중복 없음, 모르면 생략·`[]` 금지). | 없음 — 선택 필드라 기존 서버·소비자는 그대로 컴파일된다. 서버는 구간의 버전 집합을 알 때 보내고(하나뿐이어도 된다), 모르면 생략한다 |
 | `sdk-v0.19.0` | components | 동작 바뀜(#1008b) — `DataTrustIndicator`가 `Trust.sourceLogicVersions`를 표시한다(둘 이상이면 혼재 배지, 하나 이상이면 상세 행) | API 변경 없음 — 새 prop 없이 기존 Trust 필드를 표시한다 |
 | `sdk-v0.19.0` | kernel | 추가·동작 바뀜(#1050) — `createRegistry`에 선택 옵션 `reservedRoots?: readonly string[]`(앱이 Registry 밖에서 서비스하는 루트, 모양이 id가 아니면 `RegistryError`). Kernel이 스스로 예약하는 공간 id는 `board`·`api`·`auth`뿐이고 앱 메뉴 루트(`home`·`survey`·`voc`·`notifications`·`notices`·`permission-requests`)는 더 예약하지 않는다. `@ap/kernel/testing`에 저장된 뷰 대역 `createFakeSavedViewStore`·`testSavedView`·`testViewCapabilities`·`FakeSavedViewStore` 추가(테스트 전용) | `sdk-v0.18.0`까지 Kernel이 스스로 막던 앱 메뉴 루트(`home`·`survey`·`voc`·`notifications`·`notices`·`permission-requests`)를 계속 막으려면 `createRegistry({ reservedRoots: […] })`로 선언한다. 선언하지 않으면 그 id의 공간이 허용된다. 저장된 뷰 대역을 직접 만들어 쓰던 테스트는 `@ap/kernel/testing`의 대역으로 바꿀 수 있다(선택) |
