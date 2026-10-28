@@ -37,6 +37,21 @@
 | `apps/platform-e2e` | (검사) | 조립된 앱을 브라우저로 띄워 플랫폼 계약을 검사하는 Playwright 블랙박스 테스트와 항목별 보고(#44) | 없음 | 없음(`@ap/*` import 금지, 브라우저로만 관찰) |
 | `tooling/*` | 개발 환경 | 공유 tsconfig, lint 설정(경계·계약 규칙), 메뉴 생성기 | — | — |
 
+### 플랫폼 기능 Consumer 루트 (Decided 2026-10-28)
+
+[ADR-0097](../adr/0097-platform-features-and-role-based-names.md)이 정한 목표 배치에서 `platform/<feature>/`는 **Consumer 층**이며 SDK가 아니다. 기능 메뉴는 한 단계, 업무 시스템 메뉴 `menus/<system>/<group>/`는 두 단계다. 플랫폼 기능의 공간 소속은 앱의 `GROUPS` 선언에서만 읽으며 폴더에서 추정하지 않는다. 생성기는 `space: null` 그룹을 `platform/`에 만들고, 업무 시스템 메뉴의 폴더·공간 일치 검사는 유지한다. 용어는 [GLOSSARY](../../GLOSSARY.md)가 소유한다. 폴더 이동은 #1098에서 구현하며 아래 기존 경로 표는 그 전의 코드 상태다.
+
+```text
+SDK (contracts → ui/kernel → components → shell)
+                  ▲
+                  │ consume; SDK never imports consumers
+       platform/<feature>/    menus/<system>/<group>/
+                  ▲                   ▲
+                  └── apps/platform-web ┘
+```
+
+규칙 8의 목표 경계는 접두어가 아닌 명시적인 기능 패키지 집합으로 판정한다. `@ap/*`로 이름을 바꿔도 SDK가 기능 서버·화면·공유·UI·다리를 import할 수 없으며 기존 다리의 정확한 공개 진입점 예외만 유지한다. 코어 서버의 새 포트는 `@ap/contract-schemas` 런타임 import를 허용하되 Kernel·셸·메뉴는 허용하지 않는다(ADR-0073 규칙 11 부분 대체). 패키지 이름·두 경계 lint·turbo 가드는 #1098 r에서 함께 전환한다.
+
 ### 의존 방향
 
 `@ap/ui`가 primitive를 소유하며 플랫폼 패키지와 앱은 그 공개 export를 사용한다. `@fops/ui`는 `@ap/ui`에 의존하고 호환 re-export를 제공하지 않는다(ADR-0046).

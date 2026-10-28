@@ -105,6 +105,8 @@
 | [0095](0095-dual-backend-fastify-core-fastapi-analytics.md) | 서버는 둘이다 — Fastify 코어가 유일한 입구(세션·권한·감사·알림)이고 FastAPI는 분석 데이터만 내부에서 맡는다. DB 인스턴스 하나·스키마별 소유, Zod → JSON Schema → Pydantic 한 방향. 권한 claim·부여는 설계 남음(#1087) | Decided(2026-10-28) — 사용자 "추천대로", D1·D2·D6·D7 결정. ADR-0066 결정 6·0069 결정 8·0043 개정 |
 | [0096](0096-contract-schemas-zod-source-and-reference-implementations.md) | 서버 계약 원본은 TS의 Zod 스키마(→ JSON Schema → Pydantic), SDK는 계약에 더해 선택해서 쓰는 참조 구현을 낸다 | Decided(2026-10-28) — #148 닫음 |
 
+| [0097](0097-platform-features-and-role-based-names.md) | FeedbackOps 제품·독립 앱·공간·인프라 이름을 제거하고 역할 이름으로 통합한다. `platform/<feature>/`는 Consumer 층, 옛 주소·SDK·권한 별칭 없음, migration 이력 원문 유지 | Decided(2026-10-28, 사용자; 세부 대응값은 코디네이터 위임·되돌릴 수 있음) — #1097. 0031·0045·0046 규칙 8·0066·0071·0073 규칙 11·0081·0090·0093 부분 대체; 구현 #597·#1098–#1102 |
+
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 
 ## 형식

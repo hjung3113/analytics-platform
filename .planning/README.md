@@ -37,6 +37,10 @@
 
 작업 규칙은 루트 `AGENTS.md`, 작업자 함정은 [`docs/agents/operations.md`](../docs/agents/operations.md). 작업자 배정은 전역 `routing.tsv`가 원본이다.
 
+## v0.20.1 기능 통합
+
+범위 원본은 [#1096](https://github.com/hjung3113/analytics-platform/issues/1096)의 사용자 결정이다. 이름·호환 정책·소비자 루트는 [ADR-0097](../docs/adr/0097-platform-features-and-role-based-names.md)으로 결정했다(#1097 완료). 코드·인프라 이름 변경은 아직 구현 안 함: #597 독립 앱 은퇴 → #1098 b·r·c(폴더·패키지·플랫폼 기능 루트) → #1099 공개 이름·공간·권한, #1100 인프라 이름, #1101 문서, #1102 ESLint 전환. 새 메뉴 배치는 실제 앱 시안 아티팩트의 사용자 선택을 따른다.
+
 ## 결정 대기 — 사람이 고를 것
 
 이슈가 있는 것:
