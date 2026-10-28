@@ -14,7 +14,7 @@
 | 바뀌는 것 | 그대로인 것 |
 | --- | --- |
 | 운영 조립 모듈(`createAssembly` → 실어댑터, `AP_PLATFORM_ASSEMBLY`, #154; 이 레포의 실서버 조립은 `apps/platform-web/src/real/http-assembly.tsx` + `@ap/http-adapter`) | Kernel(`@ap/kernel`)·셸·공통 컴포넌트·`@ap/contracts` 타입 |
-| 운영 빌드에서 mock 핸들러·dev 도구 제외(#153 완료 — CI `check:prod-graph`) | 메뉴 화면(`menus/*/*/src/pages`)과 엔드포인트 선언(`menus/*/*/src/endpoints.ts`) |
+| 운영 빌드에서 mock 핸들러·dev 도구 제외(#153 완료 — CI `check:prod-graph`) | 메뉴 화면(`menus/*/*/src/pages`·`platform/*/src/pages`)과 엔드포인트 선언(`menus/*/*/src/endpoints.ts`·`platform/*/src/endpoints.ts`) |
 | 서버: 메뉴 `src/mock/` 계산 → 사내 FastAPI 핸들러(파서 Postgres·mart SQL, #155) | 판정 규칙(체크리스트 §3 순서), 06 §19 응답 envelope, URL·딥링크 계약 |
 | 인증: Mock 역할 전환 → 사내 SSO 세션(#150) | 개발·E2E는 계속 mock으로 돈다(`pnpm dev`·`pnpm e2e`) |
 

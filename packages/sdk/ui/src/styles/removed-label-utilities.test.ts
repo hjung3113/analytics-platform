@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 // FeedbackOps pair `text-text-*-label`. Tailwind silently ignores unknown classes, so a stale name would build and
 // render in the inherited colour (a contrast regression). Scan the platform sources for the removed names.
 const repo = join(process.cwd(), '../../..');
-const roots = ['packages', 'menus', 'apps'].map(dir => join(repo, dir));
+const roots = ['packages', 'menus', 'platform', 'apps'].map(dir => join(repo, dir));
 // Raw variable names (`--text-*-label`, `token('text-*-label')`) are the FeedbackOps-owned tokens and stay valid.
 const REMOVED = /(?<![\w-]|token\(['"])text-(success|info|warning|danger)-label\b/;
 

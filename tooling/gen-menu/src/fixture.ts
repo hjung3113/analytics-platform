@@ -34,20 +34,18 @@ export function appSnapshot(root: string): Record<string, string> {
   return Object.fromEntries(paths.map(p => [p, readFileSync(join(root, p), 'utf8')]));
 }
 
-/** Files under menus/, relative to the workspace root, sorted. */
+/** Files under menus/ and platform/, relative to the workspace root, sorted. */
 export function menusTree(root: string): string[] {
   const out: string[] = [];
   const walk = (dir: string, base: string): void => {
     for (const e of readdirSync(dir, { withFileTypes: true })) {
-      const rel = base === '' ? e.name : `${base}/${e.name}`;
+      const rel = `${base}/${e.name}`;
       if (e.isDirectory()) walk(join(dir, e.name), rel);
-      else out.push(`menus/${rel}`);
+      else out.push(rel);
     }
   };
-  const menusDir = join(root, 'menus');
-  for (const e of readdirSync(menusDir, { withFileTypes: true })) {
-    if (e.isDirectory()) walk(join(menusDir, e.name), e.name);
-    else out.push(`menus/${e.name}`);
+  for (const consumerRoot of ['menus', 'platform']) {
+    if (existsSync(join(root, consumerRoot))) walk(join(root, consumerRoot), consumerRoot);
   }
   return out.sort();
 }
@@ -128,7 +126,7 @@ const existingMenuIndex = `export const manifests = [
 /** Temp workspace with genProbe already in GROUPS, markers, and one existing menu. */
 export function makeFixture(variants: { menusTs?: string; appPkg?: string; extraGroups?: string[]; existingMenuIndex?: string; mockAssemblyTsx?: string } = {}): string {
   const root = mkdtempSync(join(tmpdir(), 'gen-menu-test-'));
-  writeFileSync(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - apps/*\n  - packages/*\n  - menus/*/*\n  - tooling/*\n');
+  writeFileSync(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - apps/*\n  - packages/*\n  - menus/*/*\n  - platform/*\n  - tooling/*\n');
   mkdirSync(join(root, 'apps/platform-web/src/dev'), { recursive: true });
   writeFileSync(join(root, 'apps/platform-web/src/menus.ts'), variants.menusTs ?? fixtureMenusTsText(variants.extraGroups ?? []));
   writeFileSync(join(root, 'apps/platform-web/src/dev/mock-assembly.tsx'), variants.mockAssemblyTsx ?? mockAssemblyTsx);

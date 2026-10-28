@@ -37,7 +37,8 @@
         "$TURBO_ROOT$/packages/*/package.json",
         "$TURBO_ROOT$/packages/sdk/*/package.json",
         "$TURBO_ROOT$/packages/adapters/*/package.json",
-        "$TURBO_ROOT$/menus/*/*/package.json"
+        "$TURBO_ROOT$/menus/*/*/package.json",
+        "$TURBO_ROOT$/platform/*/package.json"
       ],
       "outputs": []
     },

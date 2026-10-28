@@ -1,5 +1,5 @@
 import type { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -39,6 +39,21 @@ describe('probe revert restores the lockfile (#805)', () => {
     const calls: { args: string[]; lock: string }[] = [];
     const steps = buildRevertSteps(snapshots, root, recordingSpawn(root, calls));
     steps[path]();
+    steps.install();
+    expect(readFileSync(join(root, 'pnpm-lock.yaml'), 'utf8')).toBe(SNAPSHOT_LOCK);
+    expect(calls).toEqual([{ args: ['install', '--frozen-lockfile'], lock: SNAPSHOT_LOCK }]);
+  });
+});
+
+describe('probe revert fallback follows the placement', () => {
+  it('platform placement: fallbackRestore removes platform/gen-probe, and the frozen install still restores the lockfile', () => {
+    const root = tempRoot('lockfileVersion: rewritten by a re-resolve\n');
+    mkdirSync(join(root, 'platform/gen-probe/src'), { recursive: true });
+    writeFileSync(join(root, 'platform/gen-probe/src/index.ts'), 'export const manifests = [];\n');
+    const calls: { args: string[]; lock: string }[] = [];
+    const steps = buildRevertSteps(snapshots, root, recordingSpawn(root, calls), 'platform');
+    steps.fallbackRestore();
+    expect(existsSync(join(root, 'platform/gen-probe'))).toBe(false);
     steps.install();
     expect(readFileSync(join(root, 'pnpm-lock.yaml'), 'utf8')).toBe(SNAPSHOT_LOCK);
     expect(calls).toEqual([{ args: ['install', '--frozen-lockfile'], lock: SNAPSHOT_LOCK }]);

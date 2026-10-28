@@ -13,11 +13,11 @@
 @import "@ap/menu-admin/styles.css";
 @import "@ap/menu-clas/styles.css";
 @import "@ap/menu-hw-time/styles.css";
-@import "@ap/menu-fo-dashboard/styles.css";
-@import "@ap/menu-fo-voc/styles.css";
-@import "@ap/menu-fo-findings/styles.css";
-@import "@ap/menu-fo-tasks/styles.css";
-@import "@ap/menu-fo-integration/styles.css";
-@import "@ap/menu-fo-surveys/styles.css";
-@import "@ap/menu-fo-admin/styles.css";
+@import "@ap/menu-dashboard/styles.css";
+@import "@ap/menu-voc/styles.css";
+@import "@ap/menu-findings/styles.css";
+@import "@ap/menu-tasks/styles.css";
+@import "@ap/menu-integration/styles.css";
+@import "@ap/menu-surveys/styles.css";
+@import "@ap/menu-feature-admin/styles.css";
 /* </gen:menu-styles> */

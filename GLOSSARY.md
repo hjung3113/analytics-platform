@@ -135,7 +135,7 @@ _Avoid_: FlowId — 파서(`context_recognized_parser`) 쪽 raw 필드명이며,
 _Avoid_: 포털, 앱 — 앱은 이 플랫폼을 조립해 띄우는 단위(`apps/*`)다.
 
 **플랫폼 기능** (platform feature):
-플랫폼이 공통으로 제공하는 VOC·설문·Task·Finding·관리 같은 사용자 기능. SDK 위에서 동작하는 Consumer이며 업무 시스템 메뉴와 구별한다([ADR-0097](docs/adr/0097-platform-features-and-role-based-names.md)).
+플랫폼이 공통으로 제공하는 VOC·설문·Task·Finding·관리 같은 사용자 기능. SDK 위에서 동작하는 Consumer이며 업무 시스템 메뉴와 구별한다([ADR-0097](docs/adr/0097-platform-features-and-role-based-names.md)). 메뉴 조립 패키지는 한 단계 `platform/<feature>/`에 두고 업무 시스템 메뉴는 두 단계 `menus/<system>/<group>/`에 둔다. 공간은 폴더가 아니라 `GROUPS`가 정한다.
 _Avoid_: FeedbackOps, 피드백 운영 — 과거 제품·업무 시스템 이름이다.
 
 **Kernel** (`@ap/kernel`):

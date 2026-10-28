@@ -1,5 +1,6 @@
 import ts from 'typescript';
 import { PACKAGE_PREFIX } from './prefix.ts';
+import type { PlacementRoot } from './package-location.ts';
 
 export type PageType = 'overview' | 'analysis' | 'management' | 'catalog' | 'workflow';
 
@@ -10,6 +11,8 @@ export type MenuInputs = {
   group: string;
   folder: string;
   space: string | null;
+  /** Which root holds the package (`menus/<space>/<folder>` or `platform/<folder>`); absent in metadata written before platform/ existed (read as `menus`). */
+  placement?: PlacementRoot;
   menuId: string;
   page: string;
   path: string;
@@ -50,7 +53,7 @@ export const styleLine = (i: MenuInputs): string => `@import "${menuPackage(i.fo
 /** apps/platform-web/package.json dependency insert. */
 export const depLine = (i: MenuInputs): string => `    "${menuPackage(i.folder)}": "workspace:*",`;
 
-/** The generated files, paths relative to `menus/<space>/<folder>/`. LF, trailing newline, UTF-8. */
+/** The generated files, paths relative to the package folder. LF, trailing newline, UTF-8. */
 export const renderFiles = (i: MenuInputs, date = new Date().toISOString().slice(0, 10)): { relPath: string; content: string }[] => [
   { relPath: 'package.json', content: packageJson(i) },
   { relPath: 'CHANGELOG.md', content: `# ${menuPackage(i.folder)} 변경 기록\n\n내부 버전이며 발행하지 않는다. SDK 범위는 package.json의 ap.sdk를 따른다.\n\n## 0.1.0 — ${date}\n\n- 초기 기록: ${i.labelKo} 화면과 manifest 스켈레톤.\n` },

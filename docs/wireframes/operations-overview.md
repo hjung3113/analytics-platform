@@ -2,7 +2,7 @@
 
 > 상태(2026-10-09): 플랫폼 홈은 카드 런처로 바뀌었다([ADR-0028](../adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md), [15 §3.1](../design/multi-workspace-ui.md)). 아래 절 중 그룹 바로가기·페이지 유형 라벨·운영 개요 랜딩으로 적힌 부분은 그 결정으로 대체된다. 공지·즐겨찾기·최근 방문의 데이터 규칙은 그대로다.
 
-상태: 화면 계약 노트. 구현은 `menus/_global/home`이고 배치·시각은 구현과 [DESIGN](../../DESIGN.md)이 기준이다. 이 문서는 아래 계약·소유 경계·결정 상태만 소유한다.
+상태: 화면 계약 노트. 구현은 `platform/home`이고 배치·시각은 구현과 [DESIGN](../../DESIGN.md)이 기준이다. 이 문서는 아래 계약·소유 경계·결정 상태만 소유한다.
 
 이 문서는 `app-shell.md` §4 WIREFRAME의 "하위 화면 content slot"에 들어가는 첫 화면 — 운영 개요(랜딩) — 만 소유한다. 셸 자체의 배치·헤더·내비게이션·전역 Context Bar는 07의 범위이며 여기서 재정의하지 않는다. 전역 계약 원본은 `../contract/platform-ui-contract.md`다.
 
@@ -45,7 +45,7 @@
 
 ## 4. LAYOUT BOUNDARY
 
-배치는 구현(`menus/_global/home/src/pages/OperationsHome.tsx`)이 기준이다. 셸 content slot 안에 업무 시스템 카드, `내 할 일`(Kernel 슬롯 `homeTodo`가 있고 할 일이 있을 때만), 즐겨찾기·최근 방문 2열, 공지 배너가 그 순서로 놓이고, 셸의 헤더·내비게이션·Breadcrumb·전역 Context Bar는 바꾸지 않는다. 이 화면은 Context Bar를 **숨기거나 비우지 않는다** — 다른 화면에서 넘어온 전역 Context가 있으면 셸이 그대로 보존하고 "이 화면에서는 미적용"으로 표시한다(`06` §6.4). 이 화면 자체가 Context를 필터로 소비하지 않을 뿐이다.
+배치는 구현(`platform/home/src/pages/OperationsHome.tsx`)이 기준이다. 셸 content slot 안에 업무 시스템 카드, `내 할 일`(Kernel 슬롯 `homeTodo`가 있고 할 일이 있을 때만), 즐겨찾기·최근 방문 2열, 공지 배너가 그 순서로 놓이고, 셸의 헤더·내비게이션·Breadcrumb·전역 Context Bar는 바꾸지 않는다. 이 화면은 Context Bar를 **숨기거나 비우지 않는다** — 다른 화면에서 넘어온 전역 Context가 있으면 셸이 그대로 보존하고 "이 화면에서는 미적용"으로 표시한다(`06` §6.4). 이 화면 자체가 Context를 필터로 소비하지 않을 뿐이다.
 
 - 즐겨찾기 **추가** 컨트롤(☆)은 각 목적지 화면에 있으며 이 랜딩 화면이 소유하지 않는다 — 이 화면은 이미 추가된 항목의 목록·제거만 다룬다.
 - 사이드바의 즐겨찾기/최근방문(07 소유, 상시 축약 노출)과 이 화면 본문의 즐겨찾기/최근방문(전체 목록)은 같은 데이터를 다른 밀도로 보여준다 — 별도 데이터 소스가 아니다.
@@ -64,7 +64,7 @@ React 컴포넌트 이름이나 API 선언이 아니다. 슬롯 결합 규칙은
 
 ## 6. DATA REQUIREMENTS
 
-- **Context capability 선언(매니페스트 `menus/_global/home`)**: Time·roomNames·condition·selection·Lot·PPID·Recipe·metric 모두 `unsupported`, `pageType: overview`, `requiresScope: false`, `pageKeys: []`, `primary: true`, 권한 `platform:view`. 지원하지 않는 전달 Context는 위 보존 규칙(§4)대로 미적용 표시만 한다.
+- **Context capability 선언(매니페스트 `platform/home`)**: Time·roomNames·condition·selection·Lot·PPID·Recipe·metric 모두 `unsupported`, `pageType: overview`, `requiresScope: false`, `pageKeys: []`, `primary: true`, 권한 `platform:view`. 지원하지 않는 전달 Context는 위 보존 규칙(§4)대로 미적용 표시만 한다.
 - 이 화면은 메뉴 레지스트리를 직접 조회·필터링하지 않는다. Kernel이 현재 사용자·Scope 기준으로 이미 판정한 "접근 가능한 그룹" 목록을 소비해 그대로 렌더링한다(`06` §4/§5). 페이지가 별도로 권한 로직을 구현하는 것은 금지된 패턴이다(`06` §5 금지 목록).
 - 진입 시 권한 재검증은 이미 Decided다(`06` §6.2 "재적용 전에 현재 Scope에서 ... 권한의 유효성을 다시 검증", §17 매 요청 재검증). 이 문서에서 Open인 것은 재검증 **결과의 화면 표현**(항목을 숨길지 비활성 표시할지)뿐이다.
 - **즐겨찾기는 목적지 화면의 ID만 저장한다(Decided, 2026-09-24, [07 §6](app-shell.md#6-data-requirements)도 같이 갱신함)** — 즐겨찾기 자체에는 마지막 조회 Context(기간·설비·필터 등)를 저장하지 않으므로, 클릭 시 그 화면이 자체적으로 물질화하는 기본 Context로 진입한다(예: 기간 화면이면 `defaultRangeTo` 기준 기본 구간, `06` §6.3). **이는 다른 화면에서 지금 들고 온 전달 Context를 지운다는 뜻이 아니다** — Context Link helper의 보존 규칙(`06` §6.4)은 즐겨찾기 클릭에도 그대로 적용되며, 전달된 Context가 있으면 그 목적지가 지원하는 한 계속 적용된다. 서버 권한 재검증도 그대로 적용된다(§6 재검증 규칙).

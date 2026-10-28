@@ -60,3 +60,5 @@ Append new traps at the end, one bullet each: the symptom, then what to do. No d
 - Codex workers under workspace-write cannot edit protected `.agents/` files. Have the conductor apply permitted agent-asset edits before dispatch and exclude those writes from the worker brief; keep product and test changes in the worker, and preserve host edits on resume ([conductor-engine#153](https://github.com/hjung3113/conductor-engine/issues/153)).
 
 - After #1098 r, active package names are `@ap/platform-api`, `@ap/feature-screens`, `@ap/feature-shared`, `@ap/feature-ui`, `@ap/platform-api-ops`, and `@ap/feature-bridge`; old `@fops/*` / `@ap/fo-bridge` examples above are historical. Root tasks now include feature packages; use the ops `feature:*` commands only for an explicit feature-only aggregate, never a nested root task. (2026-10-29, #1098)
+
+- After #1098 c, built-in feature consumers live at one level under `platform/<feature>/`; domain-system consumers stay `menus/<system>/<group>/`. GROUPS remains the sole space authority for platform features; folder and package moves do not rename runtime IDs or public symbols (#1099 owns those choices). (2026-10-29, #1098)

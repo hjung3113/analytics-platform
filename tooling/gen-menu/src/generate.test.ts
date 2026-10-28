@@ -11,6 +11,7 @@ const INPUTS: MenuInputs = {
   group: FIXTURE_GROUP,
   folder: FIXTURE_FOLDER,
   space: 'mars',
+  placement: 'menus',
   menuId: 'gen-probe',
   page: 'GenProbe',
   path: '/gen-probe',
@@ -229,9 +230,11 @@ describe('generate in a temp workspace', () => {
     writeFileSync(path, readFileSync(path, 'utf8').replace("icon: LayoutDashboard, space: spaceId('mars')", `icon: LayoutDashboard, space: ${space === null ? 'null' : "spaceId('mars')"}`));
     const result = runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
     expect(result.status, result.stderr).toBe(0);
-    const location = `menus/${space ?? '_global'}/${FIXTURE_FOLDER}`;
+    const location = space === null ? `platform/${FIXTURE_FOLDER}` : `menus/${space}/${FIXTURE_FOLDER}`;
     expect(result.stdout).toContain(`${location}/src/index.ts`);
-    expect(JSON.parse(readFileSync(join(root, location, '.gen-menu.json'), 'utf8')).space).toBe(space);
+    const meta = JSON.parse(readFileSync(join(root, location, '.gen-menu.json'), 'utf8'));
+    expect(meta.space).toBe(space);
+    expect(meta.placement).toBe(space === null ? 'platform' : 'menus');
   });
 
   it('writes the file set and the six edits, bytes equal the templates', () => {
@@ -270,7 +273,7 @@ describe('generate in a temp workspace', () => {
     const depAt = pkgLines.indexOf(depLine(INPUTS));
     expect(depAt).toBeGreaterThan(-1);
     expect(pkgLines[depAt + 1]).toContain(`${PACKAGE_PREFIX}menu-home`);
-    for (const line of editSummary({ root, inputs: INPUTS, files: [], packageDir: pkgDir, edits: [] })) {
+    for (const line of editSummary({ root, inputs: INPUTS, files: [], packageDir: pkgDir, packageRel: 'menus/mars/gen-probe', edits: [] })) {
       expect(res.stdout).toContain(line);
     }
   });
@@ -314,7 +317,7 @@ describe('generate in a temp workspace', () => {
     for (const f of renderFiles(INPUTS)) {
       expect(res.stdout).toContain(`menus/mars/${INPUTS.folder}/${f.relPath}`);
     }
-    for (const line of editSummary({ root, inputs: INPUTS, files: [], packageDir: '', edits: [] })) {
+    for (const line of editSummary({ root, inputs: INPUTS, files: [], packageDir: '', packageRel: 'menus/mars/gen-probe', edits: [] })) {
       expect(res.stdout).toContain(line);
     }
     expect(appSnapshot(root)).toEqual(snapshot);

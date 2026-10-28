@@ -1,4 +1,3 @@
-import { spaceFolder } from './menu-layout.ts';
 import { parseArgs } from 'node:util';
 import {
   GenMenuError, applyGenerate, editSummary, planGenerate, resolveRoot,
@@ -8,11 +7,13 @@ import { applyRemove, planRemove } from './remove.ts';
 const USAGE = `gen:menu — scaffold one skeleton menu package for an existing sidebar group
 
 Usage:
-  pnpm gen:menu <group> [--menu <id>] [--label-ko <s>] [--label-en <s>] [--path <route>] [--page-type <archetype>] [--dry-run] [--root <dir>]
+  pnpm gen:menu <group> [--menu <id>] [--label-ko <s>] [--label-en <s>] [--path <route>] [--page-type <archetype>] [--platform] [--dry-run] [--root <dir>]
   pnpm gen:menu --remove <group> [--dry-run] [--root <dir>]
 
 <group> must already exist in GROUPS (apps/platform-web/src/menus.ts), the app's declaration;
 the generator does not add sidebar groups.
+Placement: a group whose GROUPS space is null always goes to platform/<folder>. A group with a named space goes to
+menus/<space>/<folder>, or to platform/<folder> when --platform is given. --remove finds the package in either root.
 Archetypes: overview | analysis | management | catalog | workflow (default overview).`;
 
 type Args = {
@@ -23,6 +24,7 @@ type Args = {
   'label-en'?: string;
   path?: string;
   'page-type'?: string;
+  platform: boolean;
   'dry-run': boolean;
   root?: string;
 };
@@ -38,6 +40,7 @@ function parse(argv: string[]): { values: Args; positionals: string[] } {
       'label-en': { type: 'string' },
       path: { type: 'string' },
       'page-type': { type: 'string' },
+      platform: { type: 'boolean', default: false },
       'dry-run': { type: 'boolean', default: false },
       root: { type: 'string' },
     },
@@ -64,6 +67,10 @@ function run(argv: string[]): void {
         console.error(`gen:menu: --remove does not take --${flag}`);
         process.exit(1);
       }
+    }
+    if (values.platform) {
+      console.error('gen:menu: --remove does not take --platform');
+      process.exit(1);
     }
   }
 
@@ -93,8 +100,9 @@ function run(argv: string[]): void {
     labelEn: values['label-en'],
     path: values.path,
     pageType: values['page-type'],
+    platform: values.platform,
   });
-  const pkgDir = `menus/${spaceFolder(plan.inputs.space)}/${plan.inputs.folder}`;
+  const pkgDir = plan.packageRel;
   if (dryRun) {
     console.log('gen:menu: dry run — nothing written');
     for (const f of plan.files) console.log(`  create ${pkgDir}/${f.relPath}`);

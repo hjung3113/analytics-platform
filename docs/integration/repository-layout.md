@@ -16,12 +16,13 @@ FeedbackOps 원본 개발을 유지하면서 동일 체크아웃에서 코드를
 | `DESIGN.md`, `GLOSSARY.md` | 플랫폼 디자인 방향, 도메인 용어 |
 | `.planning/` | 남은 일·결정 대기(원본은 GitHub 이슈) |
 | `.agents/` | 플랫폼 에이전트 스킬·참고자료·보고서 |
-| `package.json`, `pnpm-workspace.yaml`, `turbo.json` | 플랫폼 pnpm workspace 루트(`apps/*`, `packages/*`(FeedbackOps `feature-*`), `packages/sdk/*`, `packages/adapters/*`, `menus/*/*`, `tooling/*`) |
+| `package.json`, `pnpm-workspace.yaml`, `turbo.json` | 플랫폼 pnpm workspace 루트(`apps/*`, `packages/*`(FeedbackOps `feature-*`), `packages/sdk/*`, `packages/adapters/*`, `menus/*/*`, `platform/*`, `tooling/*`) |
 | `apps/platform-web/` | 플랫폼 앱(조립 지점, dev 도구) |
 | `apps/platform-e2e/` | 플랫폼 계약 E2E(Playwright 블랙박스) |
 | `packages/sdk/` | SDK 패키지 `contracts`·`ui`·`kernel`·`components`·`shell`(`@ap/*`, 공개 API). 경계는 [패키지 경계](platform-packages.md) |
 | `packages/adapters/` | 어댑터·소비자 쪽 패키지 `mock-server`·`http-adapter`·`server-conformance`·`feature-bridge`(`@ap/*`, SDK 아님). 경계는 [패키지 경계](platform-packages.md) |
-| `menus/` | 공간별 `menus/<space>/<group>/` 메뉴 Consumer 패키지(`@ap/menu-<group>`, 전역은 `_global`) |
+| `menus/` | 업무 시스템 메뉴 Consumer 패키지 `menus/<system>/<group>/`(`@ap/menu-<group>`). 공간은 폴더가 원본이고 `GROUPS`와 일치를 검사 |
+| `platform/` | 플랫폼 기능 Consumer 패키지 `platform/<feature>/`(`@ap/menu-<name>`: 홈·내 활동·공지·운영 콘솔·FeedbackOps 화면). 한 단계, SDK 아님. 공간은 `GROUPS`만 정한다 |
 | `tooling/` | 공유 도구: tsconfig, eslint 경계 규칙, `gen-menu`, `css-selectors` |
 | `archive/` | 통합 전 Kernel 단위 프로토타입(개별 npm 프로젝트, workspace 밖). 보존 |
 | `apps/{platform-api,feature-screens}`, `packages/feature-*`, `docs/feedbackops/` | FeedbackOps 앱·패키지·문서(루트 workspace의 일부, 이력 합류 `c73c55c5`, [ADR-0090](../adr/0090-repo-structure-by-branch.md)) |

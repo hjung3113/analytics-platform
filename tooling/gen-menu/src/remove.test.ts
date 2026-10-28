@@ -18,8 +18,7 @@ describe('remove', () => {
     const menusPath = join(root, 'apps/platform-web/src/menus.ts');
     const text = readFileSync(menusPath, 'utf8');
     writeFileSync(menusPath, text.replace("icon: LayoutDashboard, space: spaceId('mars')", `icon: LayoutDashboard, space: ${space === null ? 'null' : "spaceId('mars')"}`));
-    const spaceFolder = space ?? '_global';
-    const parent = join(root, 'menus', spaceFolder);
+    const parent = join(root, space === null ? 'platform' : `menus/${space}`);
     mkdirSync(parent, { recursive: true });
     writeFileSync(join(parent, 'OWNER'), 'keep');
     const before = appSnapshot(root);
@@ -36,13 +35,14 @@ describe('remove', () => {
     expect(appSnapshot(root)).toEqual(before);
   });
 
-  it('removes an empty global space directory', () => {
+  it('keeps the platform root after removing its last generated package', () => {
     const root = fresh();
     const path = join(root, 'apps/platform-web/src/menus.ts');
     writeFileSync(path, readFileSync(path, 'utf8').replace("icon: LayoutDashboard, space: spaceId('mars')", 'icon: LayoutDashboard, space: null'));
     generate(root);
     expect(runCli(['--remove', FIXTURE_GROUP], root).status).toBe(0);
-    expect(existsSync(join(root, 'menus/_global'))).toBe(false);
+    expect(existsSync(join(root, 'platform'))).toBe(true);
+    expect(existsSync(join(root, 'platform', FIXTURE_FOLDER))).toBe(false);
   });
 
   it.each(['duplicate', 'space', 'folder'])('refuses %s metadata ownership without writes', mode => {
@@ -51,7 +51,7 @@ describe('remove', () => {
     const pkg = join(root, 'menus/mars', FIXTURE_FOLDER);
     const metaPath = join(pkg, '.gen-menu.json');
     if (mode === 'duplicate') {
-      cpSync(pkg, join(root, 'menus/_global', FIXTURE_FOLDER), { recursive: true });
+      cpSync(pkg, join(root, 'platform', FIXTURE_FOLDER), { recursive: true });
     } else {
       const meta = JSON.parse(readFileSync(metaPath, 'utf8'));
       meta[mode] = 'wrong';

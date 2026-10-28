@@ -9,9 +9,9 @@ Each open issue has one `lane:*` label. The assignment comment on the issue is t
 | Label | Owns | Main paths | E2E port |
 | --- | --- | --- | --- |
 | `lane:sdk` | Public package contracts and parts, analysis workspace, SDK quality | `packages/sdk/*`, `tooling/sdk/`, `docs/contract/`, `docs/integration/sdk-*` | 4190 |
-| `lane:platform` | App assembly, mock/real adapters, server conformance, sample menus, in-house rollout | `apps/platform-web`, `packages/adapters/{mock-server,http-adapter,server-conformance}`, `menus/*` (not FO bridge menus) | 4590 |
+| `lane:platform` | App assembly, mock/real adapters, server conformance, sample menus, in-house rollout | `apps/platform-web`, `packages/adapters/{mock-server,http-adapter,server-conformance}`, `menus/*`, `platform/{admin,home,my-activity,notice-voc}` (not FO bridge consumers) | 4590 |
 | `lane:arch` | Refactors, folder structure, glossary, boundary lint, CI, doc structure | `tooling/{eslint,gen-menu,tsconfig,css-selectors}`, `.github/workflows`, `docs/INDEX.md`, `docs/AGENTS.md`, `GLOSSARY.md` | 4690 |
-| `lane:fo` | FeedbackOps | `apps/platform-api`, `apps/feature-screens`, `packages/feature-shared`, `packages/feature-ui`, `packages/adapters/feature-bridge`, `docs/feedbackops/`, `ops/platform-api/`, `menus/feedbackops/*`, the FO bridges in `menus/_global/*` | 4390 |
+| `lane:fo` | FeedbackOps | `apps/platform-api`, `apps/feature-screens`, `packages/feature-shared`, `packages/feature-ui`, `packages/adapters/feature-bridge`, `docs/feedbackops/`, `ops/platform-api/`, `platform/{dashboard,voc,findings,tasks,integration,surveys,feature-admin}`, the FO bridges in `platform/{home,my-activity,notice-voc}` | 4390 |
 | `lane:ev` | equipment-visualization, AP side | `tools` space, host-module fixtures, EV tarball bumps | 4490 |
 | `lane:site` | Intro site | `site/` | 4790 |
 | `lane:ops` | Conductor profile, agent assets, owner-requested reports | `.agents/` (not this file), `docs/agents/` | 4990 |
@@ -101,7 +101,7 @@ On a rebase, keep both sides of a conflicting table or list row.
 - **SDK release timing:** a lane adds only the "next release" row in `docs/integration/sdk-git-tag-consumption.md`. The lead releases the SDK when that row exists and main CI is green, and at once if a lane is waiting for it.
 - **Release:**
   1. Run the slice-close `review-quality` (plus a `review-ux` walk-through if screens changed).
-  2. Draft the release-docs PR. Do steps 1–2 alongside the last PRs' reviews. In it, set menus `ap.sdk` and the gen-menu `SDK_RANGE` to the new SDK range (`menus/AGENTS.md`); nothing else updates them, and v0.18 shipped with the old range.
+  2. Draft the release-docs PR. Do steps 1–2 alongside the last PRs' reviews. In it, set consumer packages in `menus/` and `platform/` `ap.sdk` and the gen-menu `SDK_RANGE` to the new SDK range (`menus/AGENTS.md`, `platform/AGENTS.md`); nothing else updates them, and v0.18 shipped with the old range.
   3. Run a one-off doc audit with the `review-doc` role and [addenda/doc-audit.md](addenda/doc-audit.md). Fold its findings into the release-docs PR.
   4. Run a full cold CI on the SHA to tag: `gh workflow run ci.yml --ref main -f full=true`. PR and main-push CI run only what changed (turbo cache; E2E specs picked by `.github/scripts/select-e2e.mjs`), so this run is the only whole, cold gate. Take the run id from `gh run list --workflow ci.yml --event workflow_dispatch --limit 1 --json databaseId` and require `headSha` = tag SHA and `success`. Rerun it if the SHA moves.
   5. Tag `sdk-v*` with the tarballs and a GitHub Release; at tag time also run `pnpm sdk:schemas --version X.Y.Z --out <empty-or-absent-schemas-dir>` and `gh release upload sdk-vX.Y.Z <schemas-dir>/contract-schemas-X.Y.Z.tgz <schemas-dir>/SHA256SUMS-schemas`. Ask the owner before tagging an app `v0.x`. For an app release, the site lane updates `site/`.

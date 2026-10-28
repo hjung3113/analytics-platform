@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document defines retained semantic screen URL state and list/detail behavior. #597 retires the standalone host. Paths below are screen intents consumed by the bridge, not deployed standalone routes or a redirect table. Actual platform menu URLs live in `menus/feedbackops/*` and `packages/adapters/feature-bridge/src/fo/*-routes.ts`. Old Home tabs, app rail/sidebar, login/bootstrap and file-route registration are retired; the platform owns those compositions. Test-local adapters may still exercise screen state through a memory router.
+This document defines retained semantic screen URL state and list/detail behavior. #597 retires the standalone host. Paths below are screen intents consumed by the bridge, not deployed standalone routes or a redirect table. Actual platform menu URLs live in the FeedbackOps menu packages under `platform/` and `packages/adapters/feature-bridge/src/fo/*-routes.ts`. Old Home tabs, app rail/sidebar, login/bootstrap and file-route registration are retired; the platform owns those compositions. Test-local adapters may still exercise screen state through a memory router.
 
 Product UI intent lives in `docs/design/12-ui-ux-principles.md`.
 Reusable component contracts live in `docs/frontend/ui-design-system.md`.

@@ -6,7 +6,11 @@ import { GROUPS_END, MOCK_ASSEMBLY_TSX, MENUS_TS, GenMenuError, checkInsideRoot,
 
 export const PROBE_FOLDER = 'gen-probe';
 export const PROBE_SPACE = 'mars';
-export const PROBE_PACKAGE_REL = `menus/${PROBE_SPACE}/${PROBE_FOLDER}`;
+/** The probe runs once per placement root: a domain menu in `menus/<space>/` and a platform feature in `platform/`. */
+export const PROBE_PLACEMENTS = ['menus', 'platform'] as const;
+export type ProbePlacement = (typeof PROBE_PLACEMENTS)[number];
+export const probePackageRel = (placement: ProbePlacement): string =>
+  placement === 'menus' ? `menus/${PROBE_SPACE}/${PROBE_FOLDER}` : `platform/${PROBE_FOLDER}`;
 export const PROBE_TEST_REL = 'apps/platform-web/src/gen-probe.test.ts';
 export const PROBE_GROUPS_ROW = `  { id: groupId('genProbe'), label: { ko: '생성 확인', en: 'Gen probe' }, icon: LayoutDashboard, space: spaceId('${PROBE_SPACE}') },`;
 
@@ -35,7 +39,7 @@ export function preflightReservedPaths(root: string): void {
   const realRoot = realpathSync(root);
   const writeTargets = [MENUS_TS, MOCK_ASSEMBLY_TSX, PROBE_TEST_REL];
   for (const rel of writeTargets) checkInsideRoot(realRoot, join(root, rel), rel);
-  for (const rel of [PROBE_TEST_REL, PROBE_PACKAGE_REL]) {
+  for (const rel of [PROBE_TEST_REL, ...PROBE_PLACEMENTS.map(probePackageRel)]) {
     try {
       lstatSync(join(root, rel));
     } catch {

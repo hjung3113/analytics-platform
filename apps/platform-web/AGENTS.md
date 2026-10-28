@@ -1,6 +1,6 @@
 # apps/platform-web — 조립 지점
 
-플랫폼 패키지를 조립하는 앱(dev·테스트에서는 mock 어댑터를 주입한다). 메뉴 화면은 [`menus/*/*`](../../menus/AGENTS.md) 패키지가 두고, 앱은 조립 지점이다(루트 `AGENTS.md`).
+플랫폼 패키지를 조립하는 앱(dev·테스트에서는 mock 어댑터를 주입한다). 메뉴 화면은 [`menus/*/*`](../../menus/AGENTS.md)·[`platform/*`](../../platform/AGENTS.md) 패키지가 두고, 앱은 조립 지점이다(루트 `AGENTS.md`).
 
 ## 폴더
 
@@ -12,7 +12,7 @@
 - `src/query-history-store.ts` — SDK 이력 포트의 현재 브라우저 로컬 구현(06 §11). 튜플 키·schema 검증·Web Locks 직렬화·20건 병합/보존을 소유하고 `main.tsx`에서 주입한다. 저장 예외는 고정 비민감 오류로 거부하며 내용은 계측에 보내지 않는다.
 - `src/saved-view-store.ts`·`src/saved-view-seed.ts` — SDK 저장된 뷰 포트(`SavedViewStore`, 06 §21)의 브라우저 로컬 mock 구현(#1011c). 서버 ACL의 시뮬레이션이다: 현재 사용자는 `platform:role` 세션 역할에서 얻고 사용자 ID는 mock 세션의 `user.id`(`engineer|admin|viewer`)와 같으며, 메뉴 권한은 `main.tsx`가 Registry에서 주입한 조회로 판정하고(미등록 메뉴는 거부), 공식 게시본의 편집은 승인된 사본과 분리된 승인 대기 변경본으로 보관하며, 객체별 capability·승인/그룹 전이·conflict·사람 디렉터리를 여기서만 계산한다(서버 저장·감사·`PlatformAdapter` 확장 없음). 키는 사용자·메뉴 JSON 튜플(`platform:saved-views:v1:`·`…-default:v1:`·`…-groups:v1:`), 변경은 Web Locks 하나로 직렬화하고 락이 없으면 닫힌다. 시드(한 줄의 가상 인물, 권한 밖·낡은·승인 대기 뷰)는 `saved-view-seed.ts`. `main.tsx`가 `PlatformProvider savedViews`로 주입한다.
 - `src/menus.ts` — IA 공간(`SPACES`, `satisfies readonly SpaceDef[]`로 id 리터럴 유지)·그룹(`GROUPS`, 행마다 `space`; `hideLabelWhenSingle`은 선택적 사이드바 표시 선언)·앱이 쓰는 메뉴 권한(`PERMISSIONS`)을 `groupId`·`spaceId`·`menuPermission`으로 선언하고 `createRegistry({ …, permissions: PERMISSIONS, reservedRoots: APP_RESERVED_ROOTS })`에 넘긴다(ADR-0072; `reservedRoots`는 앱이 Registry 밖에서 서비스하는 `home`·`survey`·`voc`·`notifications`·`notices`·`permission-requests`로, 공간 id가 이를 가로채지 못하게 한다 — Kernel은 `board`·`api`·`auth`만 안다, 06 §6.4)과 `menus/*/*`의 모든 `@ap/menu-*` 패키지 `manifests` 연결(`MENUS`), `createRegistry` 호출. 화면 lazy import는 각 메뉴 패키지가 소유한다. 패키지 연결(import·spread)은 `gen:menu` 마커 영역이며 `pnpm gen:menu`가 쓴다 — `SPACES`·`GROUPS`는 손으로 쓴다.
-- 메뉴 화면과 그 화면 전용 합성 데이터(`data.ts`)는 `menus/<space>/<group>/src/pages/`에 있다(이행한 화면의 계산은 `src/mock/`).
+- 메뉴 화면과 그 화면 전용 합성 데이터(`data.ts`)는 `menus/<space>/<group>/src/pages/`(플랫폼 기능은 `platform/<feature>/src/pages/`)에 있다(이행한 화면의 계산은 `src/mock/`).
 - 서버 대역은 `packages/adapters/mock-server`다. 앱에 남는 것은 `src/dev/mock-assembly.tsx`·`src/dev/DevTools.tsx`와 실제 Registry·contracts를 함께 보는 통합 테스트 `src/*.test.ts`(파일명 = 검증 대상)다. 적합성 묶음 `src/server-conformance.test.ts`는 `MOCK_ENDPOINTS`와 `MODULE_MOCK_ENDPOINTS`를 그대로 읽고(lint가 그 import만 허용), 엔드포인트가 params를 선언하면 이 테스트의 `PARAMS` 표에 표본을 넣어야 통과한다(EV `eqv.topview-events`는 선언한 `limits.maxHours: 8` 때문에 사례별 `context`로 fixture의 30분 구간을 쓴다). 역할 어휘는 `[...registry.permissions, ...modulePermissions(registry)]`다.
 - `src/dev/DevTools.tsx` — 역할 전환·응답 시나리오 시뮬레이터(`topBarTools` 슬롯, 레일 아래). 운영 코드 아님.
 
@@ -20,7 +20,7 @@
 
 - 메뉴 화면 작성법은 [README "페이지 작성 가이드"](README.md#페이지-작성-가이드-consumer-규칙)가 원본이다. 요약: 최상위 `PlatformPage`, 메뉴 데이터 조회는 `useMenuQuery(endpoint, params)` + `QueryView`(운영 콘솔의 Kernel 저장소 조회만 `usePlatformQuery` 예외, ADR-0019), 이동은 `linkTo()`, page 상태는 등록된 `pageKeys`만.
 - 페이지는 `packages/*`를 수정하지 않는다. 공통 부품이 부족하면 필요 사항을 보고하고 플랫폼 작업으로 올린다.
-- 메뉴를 추가하면 해당 그룹 패키지(`menus/<space>/<group>/src/index.ts`)의 `manifests`에 선언하고 06 §5(Menu Extension Contract)·§29(Platform Done)를 확인한다. 메뉴 화면 3개 이상 연속 제작은 사용자에게 범위를 먼저 확인한다.
+- 메뉴를 추가하면 해당 그룹 패키지(`menus/<space>/<group>/src/index.ts` 또는 `platform/<feature>/src/index.ts`)의 `manifests`에 선언하고 06 §5(Menu Extension Contract)·§29(Platform Done)를 확인한다. 메뉴 화면 3개 이상 연속 제작은 사용자에게 범위를 먼저 확인한다.
 - `@ap/mock-server`는 화면이 직접 import하지 않는다 — 규칙은 [menus/AGENTS.md](../../menus/AGENTS.md). 운영 빌드 제외는 `check:prod-graph`.
 - 디자인 시스템 CSS(`@ap/ui`의 `styles/*`)는 앱이 개별로 가져오지 않는다 — `src/style.css`는 `@ap/ui/styles.css`만 `@import`한다([packages/sdk/ui/AGENTS.md](../../packages/sdk/ui/AGENTS.md)).
 
