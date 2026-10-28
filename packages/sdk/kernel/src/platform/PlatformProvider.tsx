@@ -9,6 +9,9 @@ import { createRefreshEpochs } from '../query/refresh-epochs';
 import { createQueryClient, invalidateEndpoints, removeOtherGenerations, startQueryEngine, type QueryEngine } from '../query/query-engine';
 import { menuPermissions, type EquipmentAxisDescriptor, type ModuleScopedId, type Permission, type PlatformAdapter, type QueryHistoryStore, type SavedViewStore, type SpaceDef, type SpaceId } from '@ap/contracts';
 import type { PlatformSlots, Recent, Toast, ToastOptions } from './types';
+import { PreferenceContext, usePreferenceState } from './preferenceContext';
+import { createPreferenceController, type PreferenceController } from './preferenceController';
+import { ServerLanguage, textFor } from '../i18n';
 import { decodeFavorites, decodeRecent, decodeScopeId, readPreference, writePreference } from './preferences';
 import { AppContext, OverlayContext, RecentContext, ToastsContext, type AppValue, type OverlayState, type UsageNavTrail } from './contexts';
 import { MainScreenProvider } from './MainScreenProvider';
@@ -16,6 +19,9 @@ import { createSupportRegistry } from '../saved-view/useSavedViewSupport';
 
 const NO_EQUIPMENT_AXES: readonly EquipmentAxisDescriptor[] = [];
 const NO_SLOTS: PlatformSlots = {};
+/** A visit goes first; an earlier visit of the same menu is dropped; the list keeps 12. */
+const flipFavorite = (list: readonly string[], menuId: string): string[] => list.includes(menuId) ? list.filter(id => id !== menuId) : [...list, menuId];
+const mergeVisit = (list: readonly Recent[], visit: Recent): Recent[] => [visit, ...list.filter(r => r.menuId !== visit.menuId)].slice(0, 12);
 const browserLocation = createBrowserLocation();
 
 function counterStore(adapter: PlatformAdapter) {
@@ -25,7 +31,7 @@ function counterStore(adapter: PlatformAdapter) {
 
 /** Fallback tab-session id when sessionStorage is unavailable (privacy mode, tests). One per JS runtime. */
 let fallbackUsageSession: string | null = null;
-export function PlatformProvider({ adapter, registry, location = browserLocation, slots = NO_SLOTS, equipmentAxes = NO_EQUIPMENT_AXES, queryHistory, savedViews, spaceIdMigrations, children }: { spaceIdMigrations?: Readonly<Record<string, string>>; queryHistory?: QueryHistoryStore; savedViews?: SavedViewStore; equipmentAxes?: readonly EquipmentAxisDescriptor[]; location?: PlatformLocation; adapter: PlatformAdapter; registry: Registry; slots?: PlatformSlots; children: ReactNode }) {
+export function PlatformProvider({ adapter, registry, location = browserLocation, slots = NO_SLOTS, equipmentAxes = NO_EQUIPMENT_AXES, queryHistory, savedViews, spaceIdMigrations, serverPreferences = false, children }: { serverPreferences?: boolean; spaceIdMigrations?: Readonly<Record<string, string>>; queryHistory?: QueryHistoryStore; savedViews?: SavedViewStore; equipmentAxes?: readonly EquipmentAxisDescriptor[]; location?: PlatformLocation; adapter: PlatformAdapter; registry: Registry; slots?: PlatformSlots; children: ReactNode }) {
   const { menuById } = registry;
   // The Registry never sees `equipmentAxes`, so a Condition preset naming an unknown axis surfaces here (06 §6.4, ADR-0083).
   for (const menu of registry.menus) {
@@ -67,9 +73,27 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
     const pageNavigation = createPageNavigation(initialUrl, () => paletteFocus.isBlocked() || switcherFocus.isBlocked(), registry.canonicalHref);
     return { pageNavigation, paletteFocus, switcherFocus };
   });
-  const [favorites, setFavorites] = useState<string[]>(() => readPreference(`platform:favorites:${userId}`, decodeFavorites, []));
-  const [recent, setRecent] = useState<Recent[]>(() => readPreference(`platform:recent:${userId}`, decodeRecent, []));
-  const [lastScope, setLastScope] = useState<string | null>(() => readPreference(`platform:lastScope:${userId}`, decodeScopeId, null));
+  // Server preferences (opt-in): one controller per adapter / user / revision, so an old generation can never apply to a new one.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `revision` is a deliberate trigger: a server-side change starts a new generation
+  const preferences = useMemo(() => (serverPreferences ? createPreferenceController({ adapter, userId }) : null), [serverPreferences, adapter, userId, revision]);
+  useEffect(() => {
+    if (!preferences) return;
+    preferences.start();
+    return () => preferences.stop();
+  }, [preferences]);
+  const preferenceState = usePreferenceState(preferences);
+  const [localFavorites, setFavorites] = useState<string[]>(() => serverPreferences ? [] : readPreference(`platform:favorites:${userId}`, decodeFavorites, []));
+  const [localRecent, setRecent] = useState<Recent[]>(() => serverPreferences ? [] : readPreference(`platform:recent:${userId}`, decodeRecent, []));
+  const [localLastScope, setLastScope] = useState<string | null>(() => serverPreferences ? null : readPreference(`platform:lastScope:${userId}`, decodeScopeId, null));
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `preferenceState.version` is the trigger: the controller is read through it
+  const serverFavorites = useMemo(() => preferences ? decodeFavorites(preferences.get('favorites')) ?? [] : null, [preferences, preferenceState.version]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- same trigger
+  const serverRecent = useMemo(() => preferences ? decodeRecent(preferences.get('recents')) ?? [] : null, [preferences, preferenceState.version]);
+  const serverScope = preferences ? decodeScopeId(preferences.get('lastScope')) ?? null : null;
+  // Server mode: a favorite toggled before the account's list is known is an ordered edit on the account lane of the controller (it survives a controller replacement of the same account) and is applied to the delivered list.
+  const favorites = serverFavorites ?? localFavorites;
+  const recent = serverRecent ?? localRecent;
+  const lastScope = preferences ? serverScope : localLastScope;
   // Tab-scoped usage session id (docs/05): sessionStorage, never localStorage — tabs must not share it.
   const [savedViewSupports] = useState(createSupportRegistry);
   const [usageSessionId] = useState(() => {
@@ -88,9 +112,11 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
   const [loadedFor, setLoadedFor] = useState(userId);
   if (loadedFor !== userId) {
     setLoadedFor(userId);
-    setFavorites(readPreference(`platform:favorites:${userId}`, decodeFavorites, []));
-    setRecent(readPreference(`platform:recent:${userId}`, decodeRecent, []));
-    setLastScope(readPreference(`platform:lastScope:${userId}`, decodeScopeId, null));
+    if (!serverPreferences) {
+      setFavorites(readPreference(`platform:favorites:${userId}`, decodeFavorites, []));
+      setRecent(readPreference(`platform:recent:${userId}`, decodeRecent, []));
+      setLastScope(readPreference(`platform:lastScope:${userId}`, decodeScopeId, null));
+    }
   }
   const [toasts, setToasts] = useState<Toast[]>([]);
   const { open: paletteOpen, session: paletteSession, setOpen: setPaletteOpen } = useFocusGate(paletteFocus, session);
@@ -142,6 +168,19 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
     else if (durations.current.has(id)) armToast(id);
   }, [armToast]);
 
+  // A failed read / import / write keeps the local data and the pending intent; the person is told once per failure.
+  const failure = preferenceState.failure;
+  useEffect(() => {
+    if (failure !== null && preferences) toast(textFor('preferencesUnsaved', preferences.get('lang') === 'en' ? 'en' : 'ko'), 'warning');
+  }, [failure, preferences, toast]);
+  // A bounded recovery trigger: the browser coming back online retries the failed step once per event (no timer, no loop). A permanent too-large import is not retried.
+  useEffect(() => {
+    if (failure === null || failure === 'import_too_large' || !preferences) return;
+    const retry = () => preferences.retry();
+    window.addEventListener('online', retry);
+    return () => window.removeEventListener('online', retry);
+  }, [failure, preferences]);
+
   const can = useCallback((p: Permission | ModuleScopedId) => user.permissions.includes(p), [user]);
   // Space entry gate (06 §9.1): a space without permission is open to every signed-in user.
   const canEnter = useCallback((space: SpaceDef) => !space.permission || can(space.permission), [can]);
@@ -182,24 +221,52 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
   );
 
   const toggleFavorite = useCallback((menuId: string) => {
+    if (preferences) {
+      preferences.update('favorites', current => flipFavorite(decodeFavorites(current) ?? [], menuId));
+      return;
+    }
     setFavorites(list => {
-      const next = list.includes(menuId) ? list.filter(id => id !== menuId) : [...list, menuId];
+      const next = flipFavorite(list, menuId);
       writePreference(`platform:favorites:${userId}`, next);
       return next;
     });
-  }, [userId]);
+  }, [userId, preferences]);
 
   // `readRecent` reads this ref: it follows the state in a layout effect and at once in `recordVisit` (never written during render).
   const recentRef = useRef(recent);
   useLayoutEffect(() => { recentRef.current = recent; }, [recent]);
   const readRecent = useCallback((): readonly Recent[] => recentRef.current, []);
+  // Server mode: a visit made before the account's list is known waits here and is merged into the list the server (or the legacy import) delivers.
+  const queuedVisits = useRef<{ controller: PreferenceController | null; visits: Recent[] }>({ controller: null, visits: [] });
+  useEffect(() => {
+    const queue = queuedVisits.current;
+    if (!preferences || preferenceState.status !== 'ready' || queue.controller !== preferences || queue.visits.length === 0) return;
+    queuedVisits.current = { controller: preferences, visits: [] };
+    preferences.set('recents', queue.visits.reduce<Recent[]>((list, visit) => mergeVisit(list, visit), decodeRecent(preferences.get('recents')) ?? []));
+  }, [preferences, preferenceState.status, preferenceState.version]);
   const recordVisit = useCallback((menuId: string, url: string) => {
-    const next = [{ menuId, url: stripReturnToFromUrl(url), at: Date.now() }, ...recentRef.current.filter(r => r.menuId !== menuId)].slice(0, 12);
+    const visit: Recent = { menuId, url: stripReturnToFromUrl(url), at: Date.now() };
+    if (preferences) {
+      if (preferences.state().status !== 'ready') {
+        const queue = queuedVisits.current;
+        queuedVisits.current = { controller: preferences, visits: [...(queue.controller === preferences ? queue.visits : []), visit] };
+        return;
+      }
+      const merged = mergeVisit(decodeRecent(preferences.get('recents')) ?? [], visit);
+      recentRef.current = merged;
+      preferences.set('recents', merged);
+      return;
+    }
+    const next = mergeVisit(recentRef.current, visit);
     recentRef.current = next;
     writePreference(`platform:recent:${userId}`, next);
     setRecent(next);
-  }, [userId]);
-  const rememberScope = useCallback((scopeId: string) => { setLastScope(scopeId); writePreference(`platform:lastScope:${userId}`, scopeId); }, [userId]);
+  }, [userId, preferences]);
+  const rememberScope = useCallback((scopeId: string) => {
+    if (preferences) { preferences.set('lastScope', scopeId); return; }
+    setLastScope(scopeId);
+    writePreference(`platform:lastScope:${userId}`, scopeId);
+  }, [userId, preferences]);
   // Latest session user id, readable from a usage effect's cleanup at call time: a role switch
   // re-renders before the previous effect's cleanup runs, so the closure's own userId is stale there.
   const userIdRef = useRef(userId);
@@ -230,7 +297,9 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
       <ToastsContext.Provider value={toasts}>
         <OverlayContext.Provider value={overlay}>
           <RecentContext.Provider value={recent}>
-            <MainScreenProvider app={value}>{children}</MainScreenProvider>
+            <PreferenceContext.Provider value={preferences}>
+              {preferences ? <ServerLanguage><MainScreenProvider app={value}>{children}</MainScreenProvider></ServerLanguage> : <MainScreenProvider app={value}>{children}</MainScreenProvider>}
+            </PreferenceContext.Provider>
           </RecentContext.Provider>
         </OverlayContext.Provider>
       </ToastsContext.Provider>
