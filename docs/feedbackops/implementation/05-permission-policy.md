@@ -542,3 +542,5 @@ no-op/replay writes no second event. Details contain pair/MS/revision/version/
 hashes/score/cut and resulting Cluster reference, never prose/titles. Automatic
 suggestion generation and read-only paid preview emit operational logs, no
 `system.` event or domain audit. No new system actor is needed.
+
+Platform saved-view events (#1105a, ADR-0099) are `saved_view_official_requested|approved|rejected|revoked`, `saved_view_visibility_changed`, `saved_view_group_created|updated` and `saved_view_import_submitted` (subjects `saved_view` / `saved_view_group`); details carry ids, version and counts only. The platform audit projection's subject allowlist is unchanged, so they are not returned by the platform audit trail.

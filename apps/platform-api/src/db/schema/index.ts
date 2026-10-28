@@ -18,3 +18,4 @@ export * from './dashboard.js';
 export * from './platform.js';
 export * from './platform-preferences.js';
 export * from './survey-recovery.js';
+export * from './platform-saved-views.js';

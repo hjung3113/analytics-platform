@@ -87,6 +87,7 @@ import {
   permissionsRoutes,
 } from './modules/permissions/index.js';
 import { PLATFORM_PORT_PREFIX, platformPortRoutes } from './modules/platform-port/index.js';
+import { platformSavedViewRoutes } from './modules/platform-saved-views/index.js';
 import { createSavedViewsService, savedViewsRoutes } from './modules/saved-views/index.js';
 import {
   createSurveysService,
@@ -787,6 +788,14 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     vocReadService,
     findingsService,
     tasksService,
+  });
+  // Saved views share the platform prefix with the port above; the sub-paths do not overlap (#1105, ADR-0099).
+  await app.register(platformSavedViewRoutes, {
+    prefix: PLATFORM_PORT_PREFIX,
+    sessionService,
+    checkService,
+    workspaceId,
+    db: dbHandle.db,
   });
   await app.register(navRoutes, {
     sessionService,

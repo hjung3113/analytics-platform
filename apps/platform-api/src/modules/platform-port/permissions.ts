@@ -6,6 +6,7 @@
 // and fails when an entry is missing or listed twice (ADR-0068 "one vocabulary"). The menu permissions
 // an app declares (ADR-0072) are not listed: FeedbackOps grants none of them.
 
+import type { Tx } from '../../db/tx.js';
 import type { CheckService } from '../permissions/check-service.js';
 
 export type PlatformPermissionRule =
@@ -54,31 +55,41 @@ export async function holdsPlatformPermission(
   checkService: CheckService,
   actor: PlatformActor,
   permission: string,
+  options: { tx?: Tx } = {},
 ): Promise<boolean> {
   const entry = PLATFORM_PERMISSION_TABLE.find((e) => e.permission === permission);
-  return entry ? holds(checkService, actor, entry.rule) : false;
+  return entry ? holds(checkService, actor, entry.rule, options) : false;
 }
 
 async function holds(
   checkService: CheckService,
   actor: PlatformActor,
   rule: PlatformPermissionRule,
+  options: { tx?: Tx } = {},
 ): Promise<boolean> {
   switch (rule) {
     case 'every-session':
       return true;
     case 'workspace-admin': {
-      const decision = await checkService.checkCapability(actor, 'workspace.admin', {
-        workspace_id: actor.workspace_id,
-      });
+      const decision = await checkService.checkCapability(
+        actor,
+        'workspace.admin',
+        {
+          workspace_id: actor.workspace_id,
+        },
+        options,
+      );
       return decision.allow;
     }
     case 'features-access': {
       if (actor.role_level === 'developer' || actor.role_level === 'admin') return true;
       for (const capability of FEATURES_ACCESS_CAPABILITIES) {
-        const scope = await checkService.capabilityScope(actor, capability, {
-          workspace_id: actor.workspace_id,
-        });
+        const scope = await checkService.capabilityScope(
+          actor,
+          capability,
+          { workspace_id: actor.workspace_id },
+          options,
+        );
         if (scope.kind === 'all' || scope.managed_system_ids.length > 0) return true;
       }
       return false;
