@@ -1175,4 +1175,406 @@ describe.skipIf(!runIntegration)('platform saved views (#1105a, ADR-0099)', () =
       expect(res.statusCode).toBe(422);
     });
   });
+  describe('final-review fixes (C1–C6)', () => {
+    const groupState = async () =>
+      JSON.stringify([
+        (
+          await q(
+            'select group_id, actor_id, is_member, is_manager from platform.saved_view_group_members where group_id in (select id from platform.saved_view_groups where created_by = any($1)) order by group_id, actor_id',
+            [actorIds],
+          )
+        ).rows,
+        (
+          await q(
+            'select id, name from platform.saved_view_groups where created_by = any($1) order by id',
+            [actorIds],
+          )
+        ).rows,
+      ]);
+    const fullState = async () =>
+      JSON.stringify([await rowSnapshot(), await groupState(), (await audits()).length]);
+
+    /**
+     * Lock barrier: a second connection (migrate pool; the app pool has max 10, so the request runs on another
+     * connection) holds the workspace advisory lock, `start` is issued, and `change` runs only once pg_locks shows
+     * the request WAITING on that very lock (and the request is still unsettled). A request that never queues
+     * fails the test instead of passing on a timeout.
+     */
+    async function afterLockWait<T>(start: () => Promise<T>, change: () => Promise<unknown>) {
+      const holder = await migrate.pool.connect();
+      try {
+        await holder.query('begin');
+        await holder.query('select pg_advisory_xact_lock(hashtextextended($1, 0))', [
+          `platform-saved-views:${WORKSPACE_ID}`,
+        ]);
+        let settled = false;
+        const pending = start().finally(() => {
+          settled = true;
+        });
+        const deadline = Date.now() + 15_000;
+        for (;;) {
+          const { rows } = await holder.query(
+            `with k as (select hashtextextended($1, 0) as v)
+             select count(*)::int as n from pg_locks, k
+             where locktype = 'advisory' and not granted and pid <> pg_backend_pid()
+               and classid = ((v >> 32) & 4294967295)::oid and objid = (v & 4294967295)::oid`,
+            [`platform-saved-views:${WORKSPACE_ID}`],
+          );
+          if (rows[0].n > 0) break;
+          if (Date.now() > deadline)
+            throw new Error('the request never queued on the workspace lock');
+          await new Promise((resolve) => setTimeout(resolve, 25));
+        }
+        expect(settled).toBe(false);
+        await change();
+        await holder.query('commit');
+        return await pending;
+      } catch (error) {
+        await holder.query('rollback').catch(() => undefined);
+        throw error;
+      } finally {
+        holder.release();
+      }
+    }
+
+    describe('C2 console:access is judged again after the workspace lock', () => {
+      const grantApprover = async (g: Acct) => {
+        await q(
+          "insert into permission.permission_grants (workspace_id, actor_id, capability, granted_by_actor_id) values ($1, $2, 'workspace.admin', $3)",
+          [WORKSPACE_ID, g.id, admin.id],
+        );
+      };
+      const changes: Array<[string, (g: Acct) => Promise<unknown>]> = [
+        [
+          'grant revoked',
+          (g) =>
+            q(
+              "update permission.permission_grants set revoked_at = now(), revoked_by_actor_id = $2, revoked_reason = 'lock-wait' where actor_id = $1 and capability = 'workspace.admin'",
+              [g.id, admin.id],
+            ),
+        ],
+        [
+          'explicit deny',
+          (g) =>
+            q(
+              "insert into permission.permission_denies (workspace_id, actor_id, capability, reason, created_by_actor_id) values ($1, $2, 'workspace.admin', 'lock-wait', $3)",
+              [WORKSPACE_ID, g.id, admin.id],
+            ),
+        ],
+        [
+          'grant expired',
+          (g) =>
+            q(
+              "update permission.permission_grants set expires_at = now() - interval '1 second' where actor_id = $1 and capability = 'workspace.admin'",
+              [g.id],
+            ),
+        ],
+      ];
+      type Scenario = { run: () => Promise<Any>; reason: string };
+      const scenarios: Record<string, (g: Acct) => Promise<Scenario>> = {
+        approve: async (g) => {
+          const v = await save(alice, menuDraft(`lock-approve-${n++}`));
+          const r = await call(alice, 'requestOfficial', { id: v.id, expectedVersion: v.version });
+          return {
+            run: () =>
+              call(g, 'decide', {
+                id: v.id,
+                decision: 'approve',
+                expectedVersion: r.value.view.version,
+              }),
+            reason: 'invalid',
+          };
+        },
+        revoke: async (g) => {
+          const v = await save(alice, menuDraft(`lock-revoke-${n++}`));
+          const r = await call(alice, 'requestOfficial', { id: v.id, expectedVersion: v.version });
+          const a = await call(admin, 'decide', {
+            id: v.id,
+            decision: 'approve',
+            expectedVersion: r.value.view.version,
+          });
+          return {
+            run: () => call(g, 'revoke', { id: v.id, expectedVersion: a.value.view.version }),
+            reason: 'forbidden',
+          };
+        },
+        'console group edit': async (g) => {
+          const created = await call(alice, 'createGroup', {
+            name: `${PREFIX} lock-g-${n++}`,
+            memberIds: [bob.id],
+          });
+          return {
+            run: () =>
+              call(g, 'updateGroup', {
+                id: created.value.group.id,
+                patch: { addMembers: [carol.id], name: 'taken over' },
+              }),
+            reason: 'invalid',
+          };
+        },
+      };
+
+      it.each(
+        Object.keys(scenarios).flatMap((op) =>
+          changes.map(([label, change]) => [op, label, change] as const),
+        ),
+      )(
+        '%s is refused when the grant is lost while waiting on the lock (%s); state, version and audit stay',
+        async (op, _label, change) => {
+          const g = await account('user');
+          await grantApprover(g);
+          const scenario = await (scenarios[op] as (g: Acct) => Promise<Scenario>)(g);
+          const before = await fullState();
+          const result = await afterLockWait(scenario.run, () => change(g));
+          expect(result.ok, JSON.stringify(result)).toBe(false);
+          expect(result.reason).toBe(scenario.reason);
+          expect(await fullState()).toBe(before);
+        },
+      );
+
+      it('control: with the grant intact the same waiting approval commits (the barrier is not what refuses it)', async () => {
+        const g = await account('user');
+        await grantApprover(g);
+        const scenario = await (scenarios.approve as (g: Acct) => Promise<Scenario>)(g);
+        const before = await audits(['saved_view_official_approved']);
+        const result = await afterLockWait(scenario.run, async () => undefined);
+        expect(result.ok, JSON.stringify(result)).toBe(true);
+        expect(result.value.view.approval).toBe('approved');
+        expect(await audits(['saved_view_official_approved'])).toHaveLength(before.length + 1);
+      });
+    });
+
+    describe('C1 import identity strings are checked before SQL', () => {
+      it.each(['bad\u0000token', 'bad\ud800token'])(
+        'token %j is a normal invalid envelope and writes nothing',
+        async (importToken) => {
+          const a = await account('user');
+          const before = await fullState();
+          const res = await call(a, 'importLocal', {
+            importToken,
+            rows: [{ legacyKey: 'lk-t', draft: condDraft('t') }],
+            defaults: [],
+          });
+          expect(res).toEqual({ ok: false, reason: 'invalid', detail: 'unicode' });
+          expect(await fullState()).toBe(before);
+        },
+      );
+
+      it('a bad legacyKey (NUL / lone surrogate) is rejected alone; good rows and their default commit, retry recovers', async () => {
+        const a = await account('user');
+        const token = uid('imp');
+        const first = await call(a, 'importLocal', {
+          importToken: token,
+          rows: [
+            { legacyKey: 'lk-good', draft: menuDraft('good') },
+            { legacyKey: 'lk-\u0000', draft: menuDraft('nul') },
+            { legacyKey: 'lk-\ud800', draft: menuDraft('lone') },
+          ],
+          defaults: [
+            { key: KEY, legacyKey: 'lk-good' },
+            { key: KEY, legacyKey: 'lk-\u0000' },
+          ],
+        });
+        expect(first.ok, JSON.stringify(first)).toBe(true);
+        const unicode = (legacyKey: string) => ({
+          legacyKey,
+          status: 'rejected',
+          reason: 'invalid',
+          detail: 'unicode',
+        });
+        expect(first.value.results[0]).toMatchObject({ legacyKey: 'lk-good', status: 'imported' });
+        expect(first.value.results.slice(1)).toEqual([unicode('lk-\u0000'), unicode('lk-\ud800')]);
+        const goodId = first.value.results[0].id;
+        expect(first.value.defaults).toEqual([{ key: KEY, legacyKey: 'lk-good', id: goodId }]);
+        expect(await call(a, 'getDefaultId', { key: KEY })).toBe(goodId);
+        const mapped = await q(
+          'select legacy_key from platform.saved_view_imports where actor_id = $1 and import_token = $2',
+          [a.id, token],
+        );
+        expect(mapped.rows).toEqual([{ legacy_key: 'lk-good' }]);
+        const submitted = (await audits(['saved_view_import_submitted'])).filter((r) =>
+          r.detail.view_ids?.includes(goodId),
+        );
+        expect(submitted).toHaveLength(1);
+        expect(submitted[0].detail).toMatchObject({ imported: 1, rejected: 2 });
+        const retry = await call(a, 'importLocal', {
+          importToken: token,
+          rows: [
+            { legacyKey: 'lk-good', draft: menuDraft('good') },
+            { legacyKey: 'lk-fixed', draft: menuDraft('nul') },
+          ],
+          defaults: [],
+        });
+        expect(retry.value.results.map((r: Any) => r.status)).toEqual([
+          'already_imported',
+          'imported',
+        ]);
+      });
+    });
+
+    describe('C3 an edit that opens an official application is audited', () => {
+      it('official edit and rejected→pending each write one requested event (ids only); no-op and failed calls write none', async () => {
+        const v = await save(alice, menuDraft('audit-official'));
+        const requested = async () =>
+          (await audits(['saved_view_official_requested'])).filter((r) => r.subject_id === v.id);
+        let cur = (await call(alice, 'requestOfficial', { id: v.id, expectedVersion: v.version }))
+          .value.view;
+        cur = (
+          await call(admin, 'decide', {
+            id: v.id,
+            decision: 'approve',
+            expectedVersion: cur.version,
+          })
+        ).value.view;
+        expect(await requested()).toHaveLength(1);
+        const edited = await call(alice, 'update', {
+          id: v.id,
+          patch: { name: 'audit-official secret title' },
+          expectedVersion: cur.version,
+        });
+        expect(edited.ok).toBe(true);
+        let events = await requested();
+        expect(events).toHaveLength(2);
+        expect(events[1].detail).toEqual({ view_id: v.id, version: edited.value.view.version });
+        expect(JSON.stringify(events[1])).not.toContain('secret title');
+        const same = await call(alice, 'update', {
+          id: v.id,
+          patch: { name: 'audit-official secret title' },
+          expectedVersion: edited.value.view.version,
+        });
+        expect(same.ok).toBe(true);
+        const stale = await call(alice, 'update', {
+          id: v.id,
+          patch: { name: 'stale write' },
+          expectedVersion: cur.version,
+        });
+        expect(stale.ok).toBe(false);
+        expect(await requested()).toHaveLength(2);
+        const rejected = await call(admin, 'decide', {
+          id: v.id,
+          decision: 'reject',
+          note: 'n',
+          expectedVersion: edited.value.view.version,
+        });
+        const again = await call(alice, 'update', {
+          id: v.id,
+          patch: { name: 'audit-official third' },
+          expectedVersion: rejected.value.view.version,
+        });
+        expect(again.value.view.approval).toBe('pending');
+        events = await requested();
+        expect(events).toHaveLength(3);
+        expect(events[2].detail).toEqual({ view_id: v.id, version: again.value.view.version });
+      });
+    });
+
+    describe('C4 share targets are de-duplicated after UUID normalization', () => {
+      it('the same group in two letter cases is one share, never a 500; a repeat is a no-op', async () => {
+        const v = await save(alice);
+        const g = (
+          await call(alice, 'createGroup', { name: `${PREFIX} c4-${n++}`, memberIds: [bob.id] })
+        ).value.group.id as string;
+        const visibility = { kind: 'groups', groupIds: [g, g.toUpperCase()] };
+        const shared = await call(alice, 'setVisibility', {
+          id: v.id,
+          visibility,
+          expectedVersion: v.version,
+        });
+        expect(shared.ok, JSON.stringify(shared)).toBe(true);
+        const count = async () =>
+          (
+            await q(
+              'select count(*)::int as n from platform.saved_view_group_shares where view_id = $1',
+              [v.id],
+            )
+          ).rows[0].n;
+        expect(await count()).toBe(1);
+        const audited = (await audits(['saved_view_visibility_changed'])).length;
+        const repeat = await call(alice, 'setVisibility', {
+          id: v.id,
+          visibility,
+          expectedVersion: shared.value.view.version,
+        });
+        expect(repeat.value.view.version).toBe(shared.value.view.version);
+        expect(await count()).toBe(1);
+        expect((await audits(['saved_view_visibility_changed'])).length).toBe(audited);
+      });
+
+      it('the same person in two letter cases is one share', async () => {
+        const v = await save(alice);
+        const r = await call(alice, 'setVisibility', {
+          id: v.id,
+          visibility: { kind: 'people', userIds: [bob.id, bob.id.toUpperCase()] },
+          expectedVersion: v.version,
+        });
+        expect(r.ok, JSON.stringify(r)).toBe(true);
+        expect(
+          (
+            await q(
+              'select count(*)::int as n from platform.saved_view_people where view_id = $1',
+              [v.id],
+            )
+          ).rows[0].n,
+        ).toBe(1);
+      });
+    });
+
+    describe('C5 group membership is judged on the final set', () => {
+      it('500 cap and no-op follow remove-then-add; the last manager stays protected', async () => {
+        const ids: string[] = [];
+        for (let i = 0; i < 501; i++) {
+          const { id } = await insertActorRow(dbHandle, {
+            workspaceId: WORKSPACE_ID,
+            externalId: `${PREFIX}-m-${n++}`,
+            displayName: `${PREFIX} member ${i}`,
+            roleLevel: 'user',
+          });
+          actorIds.push(id);
+          ids.push(id);
+        }
+        const members = ids.slice(0, 500);
+        const extra = ids[500] as string;
+        const created = await call(alice, 'createGroup', {
+          name: `${PREFIX} c5-${n++}`,
+          memberIds: members,
+        });
+        expect(created.ok, JSON.stringify(created)).toBe(true);
+        const id = created.value.group.id as string;
+        expect(created.value.group.memberCount).toBe(500);
+
+        let before = await fullState();
+        const over = await call(alice, 'updateGroup', { id, patch: { addMembers: [extra] } });
+        expect(over).toMatchObject({ ok: false, reason: 'invalid', detail: 'too-many-members' });
+        expect(await fullState()).toBe(before);
+
+        const noop = await call(alice, 'updateGroup', {
+          id,
+          patch: { addMembers: [members[1]], removeMembers: [members[1]] },
+        });
+        expect(noop.ok).toBe(true);
+        expect(await fullState()).toBe(before);
+
+        const lastManager = await call(alice, 'updateGroup', {
+          id,
+          patch: { addMembers: [alice.id], removeMembers: [alice.id] },
+        });
+        expect(lastManager).toMatchObject({ ok: false, detail: 'last-manager' });
+        expect(await fullState()).toBe(before);
+
+        const swap = await call(alice, 'updateGroup', {
+          id,
+          patch: { addMembers: [extra], removeMembers: [members[0]] },
+        });
+        expect(swap.ok, JSON.stringify(swap)).toBe(true);
+        expect(swap.value.group.memberCount).toBe(500);
+        const updates = (await audits(['saved_view_group_updated'])).filter(
+          (r) => r.subject_id === id,
+        );
+        expect(updates).toHaveLength(1);
+        expect(updates[0].detail).toMatchObject({ added_ids: [extra], removed_ids: [members[0]] });
+        before = await fullState();
+        expect(before).toContain(extra);
+      });
+    });
+  });
 });

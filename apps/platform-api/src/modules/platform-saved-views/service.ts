@@ -91,7 +91,10 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
   const now = deps.now ?? Date.now;
   const audit = createAuditService();
 
-  async function actorOf(session: SavedViewSession): Promise<ActorContext> {
+  /** The session's role in the actor handed to a command, so a write can re-judge it after the lock. */
+  const sessions = new WeakMap<ActorContext, SavedViewSession>();
+
+  async function actorOf(session: SavedViewSession, tx?: Tx): Promise<ActorContext> {
     const approver = await holdsPlatformPermission(
       deps.checkService,
       {
@@ -100,8 +103,11 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
         role_level: session.roleLevel,
       },
       'console:access',
+      tx ? { tx } : {},
     );
-    return { id: session.actorId, workspaceId: session.workspaceId, approver };
+    const actor = { id: session.actorId, workspaceId: session.workspaceId, approver };
+    sessions.set(actor, session);
+    return actor;
   }
 
   function read<T>(work: (tx: Tx) => Promise<T>): Promise<T> {
@@ -111,15 +117,21 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
     });
   }
 
-  /** One workspace-serialized transaction; a `Failure` from `work` rolls everything back (rows and audit). */
+  /**
+   * One workspace-serialized transaction; a `Failure` from `work` rolls everything back (rows and audit).
+   * `console:access` is judged again inside the transaction after the lock, so a grant revoked, denied or expired
+   * while this call waited never authorizes it; `work` receives that fresh actor and must use it.
+   */
   async function write<T>(
-    actor: ActorContext,
-    work: (tx: Tx, standings: Standings) => Promise<ResultOf<T>>,
+    stale: ActorContext,
+    work: (tx: Tx, standings: Standings, actor: ActorContext) => Promise<ResultOf<T>>,
   ): Promise<ResultOf<T>> {
     try {
       return await deps.db.transaction(async (tx) => {
-        await repo.lockWorkspace(tx, actor.workspaceId);
-        const result = await work(tx, await repo.standingsOf(tx, actor));
+        await repo.lockWorkspace(tx, stale.workspaceId);
+        const session = sessions.get(stale) as SavedViewSession;
+        const actor = await actorOf(session, tx);
+        const result = await work(tx, await repo.standingsOf(tx, actor), actor);
         if (!result.ok) throw new Abort(result);
         return result;
       });
@@ -221,7 +233,7 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
     });
 
   const save = (actor: ActorContext, draft: SavedViewDraftIn) =>
-    write(actor, async (tx, standings) => {
+    write(actor, async (tx, standings, actor) => {
       if (!isPgSafeDeep(draft)) return fail('invalid', 'unicode');
       const id = await repo.insertView(tx, {
         workspaceId: actor.workspaceId,
@@ -237,7 +249,7 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
     });
 
   const update = (actor: ActorContext, cmd: CommandOf<'update'>) =>
-    write(actor, async (tx, standings) => {
+    write(actor, async (tx, standings, actor) => {
       const t = await target(
         tx,
         actor,
@@ -286,13 +298,23 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
               pending: { name, content, approval: 'pending', note: null } satisfies Pending,
             }
           : { ...view, name, content };
-      return ok(
-        entryOf(await repo.writeView(tx, actor.workspaceId, next, now()), actor, standings),
-      );
+      const written = await repo.writeView(tx, actor.workspaceId, next, now());
+      // The new pending proposal is an application like `requestOfficial`: it is audited the same way, ids only.
+      if (view.visibilityKind === 'official')
+        await record(
+          tx,
+          actor,
+          'saved_view_official_requested',
+          'saved_view',
+          view.id,
+          'Official publication requested',
+          { view_id: view.id, version: written.version },
+        );
+      return ok(entryOf(written, actor, standings));
     });
 
   const remove = (actor: ActorContext, id: string) =>
-    write(actor, async (tx, standings) => {
+    write(actor, async (tx, standings, actor) => {
       const uuid = asUuid(id);
       const view = uuid ? await repo.viewById(tx, actor.workspaceId, uuid) : null;
       if (!view || !isReachable(view, actor, standings)) return fail('invalid', 'not-found');
@@ -302,7 +324,7 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
     });
 
   const setDefault = (actor: ActorContext, menuId: string | null, id: string | null) =>
-    write(actor, async (tx, standings) => {
+    write(actor, async (tx, standings, actor) => {
       if (menuId !== null && !isPgSafeString(menuId)) return fail('invalid', 'menuId');
       if (id === null) {
         await repo.putDefault(tx, actor, menuId, null);
@@ -322,7 +344,7 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
       : read(async (tx) => usableDefault(tx, actor, await repo.standingsOf(tx, actor), menuId));
 
   const setVisibility = (actor: ActorContext, cmd: CommandOf<'setVisibility'>) =>
-    write(actor, async (tx, standings) => {
+    write(actor, async (tx, standings, actor) => {
       const { visibility } = cmd;
       if (visibility.kind === 'official') return fail('invalid', 'use requestOfficial');
       const t = await target(
@@ -343,7 +365,7 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
         if (ids.length > AUDIENCE_MAX) return fail('invalid', 'too-many-people');
         const uuids = ids.map(asUuid);
         if (uuids.some((u) => u === null)) return fail('invalid', 'unknown person');
-        people = uuids as string[];
+        people = unique(uuids as string[]);
         if ((await repo.peopleByIds(tx, actor.workspaceId, people)).length !== people.length)
           return fail('invalid', 'unknown person');
       } else if (visibility.kind === 'groups') {
@@ -351,7 +373,7 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
         if (ids.length > AUDIENCE_MAX) return fail('invalid', 'too-many-groups');
         const uuids = ids.map(asUuid);
         if (uuids.some((u) => u === null)) return fail('invalid', 'unknown group');
-        groupIds = uuids as string[];
+        groupIds = unique(uuids as string[]);
         const existing = await repo.existingGroupIds(tx, actor.workspaceId, groupIds);
         // A group the actor cannot see is "unknown": its existence is not revealed.
         const newlyShared = groupIds.filter((g) => !view.groupIds.includes(g));
@@ -404,7 +426,7 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
     });
 
   const requestOfficial = (actor: ActorContext, cmd: CommandOf<'requestOfficial'>) =>
-    write(actor, async (tx, standings) => {
+    write(actor, async (tx, standings, actor) => {
       const t = await target(
         tx,
         actor,
@@ -434,7 +456,7 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
     });
 
   const decide = (actor: ActorContext, cmd: CommandOf<'decide'>) =>
-    write(actor, async (tx, standings) => {
+    write(actor, async (tx, standings, actor) => {
       const note = cmd.note?.trim() || null;
       if (note !== null && (note.length > NOTE_MAX || !isPgSafeString(note)))
         return fail('invalid', 'note');
@@ -493,7 +515,7 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
     });
 
   const revoke = (actor: ActorContext, cmd: CommandOf<'revoke'>) =>
-    write(actor, async (tx, standings) => {
+    write(actor, async (tx, standings, actor) => {
       const t = await target(
         tx,
         actor,
@@ -598,14 +620,14 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
     );
 
   const createGroup = (actor: ActorContext, cmd: CommandOf<'createGroup'>) =>
-    write(actor, async (tx) => {
+    write(actor, async (tx, _standings, actor) => {
       const name = cmd.name.trim();
       if (!name || name.length > NAME_MAX || !isPgSafeString(name)) return fail('invalid', 'name');
       const ids = unique(cmd.memberIds);
       if (ids.length > GROUP_MEMBERS_MAX) return fail('invalid', 'too-many-members');
       const uuids = ids.map(asUuid);
       if (uuids.some((u) => u === null)) return fail('invalid', 'unknown person');
-      const memberIds = uuids as string[];
+      const memberIds = unique(uuids as string[]);
       if ((await repo.peopleByIds(tx, actor.workspaceId, memberIds)).length !== memberIds.length)
         return fail('invalid', 'unknown person');
       // Creating a group changes no view's visibility; sharing a view to it is a separate call.
@@ -631,7 +653,7 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
     });
 
   const updateGroup = (actor: ActorContext, cmd: CommandOf<'updateGroup'>) =>
-    write(actor, async (tx) => {
+    write(actor, async (tx, _standings, actor) => {
       const gid = asUuid(cmd.id);
       const group = gid ? await repo.groupById(tx, actor.workspaceId, gid) : null;
       const view = group ? groupEntry(group, actor) : null;
@@ -647,24 +669,34 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
       if (add.length > GROUP_MEMBERS_MAX) return fail('invalid', 'too-many-members');
       const addIds = add.map(asUuid);
       if (addIds.some((u) => u === null)) return fail('invalid', 'unknown person');
-      const added = addIds as string[];
-      if ((await repo.peopleByIds(tx, actor.workspaceId, added)).length !== added.length)
-        return fail('invalid', 'unknown person');
+      const added = unique(addIds as string[]);
       // Unknown or non-uuid removals are simply not members.
-      const removed = remove.map(asUuid).filter((u): u is string => u !== null);
+      const removed = unique(remove.map(asUuid).filter((u): u is string => u !== null));
       const memberIds = group.members.map((m) => m.id);
+      // Remove first, then add: a plain member named in both stays untouched (a manager would lose the role).
+      const keeps = (id: string) =>
+        added.includes(id) && memberIds.includes(id) && !group.managerIds.includes(id);
       const removedEffective = removed.filter(
-        (id) => memberIds.includes(id) || group.managerIds.includes(id),
+        (id) => (memberIds.includes(id) || group.managerIds.includes(id)) && !keeps(id),
       );
       if (group.managerIds.length > 0 && group.managerIds.every((m) => removed.includes(m)))
         return fail('invalid', 'last-manager');
-      const addedEffective = added.filter((id) => !memberIds.includes(id) || removed.includes(id));
+      const addedEffective = added.filter(
+        (id) => !memberIds.includes(id) || removedEffective.includes(id),
+      );
+      const finalMembers = unique([
+        ...memberIds.filter((id) => !removedEffective.includes(id)),
+        ...addedEffective,
+      ]);
+      if (finalMembers.length > GROUP_MEMBERS_MAX) return fail('invalid', 'too-many-members');
+      if ((await repo.peopleByIds(tx, actor.workspaceId, added)).length !== added.length)
+        return fail('invalid', 'unknown person');
       const renamed = name !== group.name;
       if (removedEffective.length === 0 && addedEffective.length === 0 && !renamed)
         return ok(view.entry);
       if (renamed) await repo.renameGroup(tx, actor.workspaceId, group.id, name);
       await repo.removeFromGroup(tx, group.id, removedEffective);
-      await repo.addToGroup(tx, group.id, added);
+      await repo.addToGroup(tx, group.id, addedEffective);
       await record(
         tx,
         actor,
@@ -717,93 +749,109 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
   // ---- one-time browser import ----
 
   const importLocal = (actor: ActorContext, cmd: CommandOf<'importLocal'>) =>
-    write<ImportOutcomeJson>(actor, async (tx, standings) => {
-      const results: ImportOutcomeJson['results'] = [];
-      const committed = new Map<string, string>();
-      const created: string[] = [];
-      let already = 0;
-      for (const row of cmd.rows) {
-        const hash = hashOf(row.draft);
-        const prior = await repo.importRowOf(tx, actor, cmd.importToken, row.legacyKey);
-        if (prior) {
-          if (prior.contentHash !== hash) {
-            results.push({
-              legacyKey: row.legacyKey,
-              status: 'rejected',
-              reason: 'invalid',
-              detail: 'import-token-reuse',
-            });
-            continue;
+    // The token reaches SQL as text: a value PostgreSQL cannot store is a normal `invalid`, before any statement.
+    !isPgSafeString(cmd.importToken)
+      ? Promise.resolve(fail('invalid', 'unicode'))
+      : write<ImportOutcomeJson>(actor, async (tx, standings, actor) => {
+          const results: ImportOutcomeJson['results'] = [];
+          const committed = new Map<string, string>();
+          const created: string[] = [];
+          let already = 0;
+          for (const row of cmd.rows) {
+            if (!isPgSafeString(row.legacyKey)) {
+              results.push({
+                legacyKey: row.legacyKey,
+                status: 'rejected',
+                reason: 'invalid',
+                detail: 'unicode',
+              });
+              continue;
+            }
+            const hash = hashOf(row.draft);
+            const prior = await repo.importRowOf(tx, actor, cmd.importToken, row.legacyKey);
+            if (prior) {
+              if (prior.contentHash !== hash) {
+                results.push({
+                  legacyKey: row.legacyKey,
+                  status: 'rejected',
+                  reason: 'invalid',
+                  detail: 'import-token-reuse',
+                });
+                continue;
+              }
+              already += 1;
+              committed.set(row.legacyKey, prior.viewId);
+              results.push({
+                legacyKey: row.legacyKey,
+                status: 'already_imported',
+                id: prior.viewId,
+              });
+              continue;
+            }
+            if (!isPgSafeDeep(row.draft)) {
+              results.push({
+                legacyKey: row.legacyKey,
+                status: 'rejected',
+                reason: 'invalid',
+                detail: 'unicode',
+              });
+              continue;
+            }
+            try {
+              // A savepoint per row: one row failing rolls back only itself.
+              const id = await tx.transaction(async (sp) => {
+                const viewId = await repo.insertView(sp, {
+                  workspaceId: actor.workspaceId,
+                  ownerId: actor.id,
+                  kind: row.draft.kind,
+                  menuId: row.draft.kind === 'menu-view' ? row.draft.menuId : null,
+                  name: row.draft.name.trim(),
+                  content: bodyOf(row.draft),
+                  now: now(),
+                });
+                await repo.insertImportRow(sp, actor, cmd.importToken, row.legacyKey, hash, viewId);
+                return viewId;
+              });
+              created.push(id);
+              committed.set(row.legacyKey, id);
+              results.push({ legacyKey: row.legacyKey, status: 'imported', id });
+            } catch {
+              results.push({ legacyKey: row.legacyKey, status: 'rejected', reason: 'unavailable' });
+            }
           }
-          already += 1;
-          committed.set(row.legacyKey, prior.viewId);
-          results.push({ legacyKey: row.legacyKey, status: 'already_imported', id: prior.viewId });
-          continue;
-        }
-        if (!isPgSafeDeep(row.draft)) {
-          results.push({
-            legacyKey: row.legacyKey,
-            status: 'rejected',
-            reason: 'invalid',
-            detail: 'unicode',
-          });
-          continue;
-        }
-        try {
-          // A savepoint per row: one row failing rolls back only itself.
-          const id = await tx.transaction(async (sp) => {
-            const viewId = await repo.insertView(sp, {
-              workspaceId: actor.workspaceId,
-              ownerId: actor.id,
-              kind: row.draft.kind,
-              menuId: row.draft.kind === 'menu-view' ? row.draft.menuId : null,
-              name: row.draft.name.trim(),
-              content: bodyOf(row.draft),
-              now: now(),
-            });
-            await repo.insertImportRow(sp, actor, cmd.importToken, row.legacyKey, hash, viewId);
-            return viewId;
-          });
-          created.push(id);
-          committed.set(row.legacyKey, id);
-          results.push({ legacyKey: row.legacyKey, status: 'imported', id });
-        } catch {
-          results.push({ legacyKey: row.legacyKey, status: 'rejected', reason: 'unavailable' });
-        }
-      }
-      const defaults: ImportOutcomeJson['defaults'] = [];
-      for (const d of cmd.defaults) {
-        const viewId = committed.get(d.legacyKey);
-        const menuId = d.key.menuId;
-        if (!viewId || (menuId !== null && !isPgSafeString(menuId))) continue;
-        const view = await repo.viewById(tx, actor.workspaceId, viewId);
-        if (!view || view.ownerId !== actor.id || view.menuId !== menuId) continue;
-        const current = await usableDefault(tx, actor, standings, menuId);
-        if (current === null) {
-          await repo.putDefault(tx, actor, menuId, view.id);
-        } else if (current !== view.id) {
-          continue; // a server default that already works is never overwritten
-        }
-        defaults.push({ key: { menuId }, legacyKey: d.legacyKey, id: view.id });
-      }
-      if (created.length > 0) {
-        await record(
-          tx,
-          actor,
-          'saved_view_import_submitted',
-          'saved_view',
-          created[0] as string,
-          'Browser saved views imported',
-          {
-            imported: created.length,
-            already_imported: already,
-            rejected: results.filter((r) => r.status === 'rejected').length,
-            view_ids: created,
-          },
-        );
-      }
-      return ok({ results, defaults });
-    });
+          const defaults: ImportOutcomeJson['defaults'] = [];
+          for (const d of cmd.defaults) {
+            const viewId = committed.get(d.legacyKey);
+            const menuId = d.key.menuId;
+            if (!viewId || (menuId !== null && !isPgSafeString(menuId))) continue;
+            const view = await repo.viewById(tx, actor.workspaceId, viewId);
+            if (!view || view.ownerId !== actor.id || view.menuId !== menuId) continue;
+            const current = await usableDefault(tx, actor, standings, menuId);
+            if (current === null) {
+              await repo.putDefault(tx, actor, menuId, view.id);
+            } else if (current !== view.id) {
+              continue; // a server default that already works is never overwritten
+            }
+            defaults.push({ key: { menuId }, legacyKey: d.legacyKey, id: view.id });
+          }
+          if (created.length > 0) {
+            await record(
+              tx,
+              actor,
+              'saved_view_import_submitted',
+              'saved_view',
+              created[0] as string,
+              'Browser saved views imported',
+              {
+                imported: created.length,
+                already_imported: already,
+                rejected: results.filter((r) => r.status === 'rejected').length,
+                view_ids: created,
+              },
+            );
+          }
+          return ok({ results, defaults });
+        });
 
   /** Runs one parsed command for the session's actor. The response is exactly the port's return shape. */
   async function execute(session: SavedViewSession, cmd: SavedViewCommandIn): Promise<unknown> {
