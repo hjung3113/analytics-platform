@@ -1,10 +1,11 @@
 # 서버는 둘이다 — Fastify 코어가 유일한 입구이고 FastAPI는 분석 데이터만 내부에서 맡는다
 
-- Status: **Proposed (2026-10-28)** — D1·D2·D6·D7은 사용자 확인 전까지 Proposed다. 확인되면 Decided로 바꾼다. 권한 부분(아래 「설계 남음」)은 이 ADR이 정하지 않는다.
-- Decider: 사용자 — 2026-10-26 "백엔드 두 개(Fastify + FastAPI)를 함께 쓰는 것은 OK. 각 스택의 강점이 살도록 역할을 나눠 설계". 분담 자체(D1)·입구(D2)·Python CI(D6)·데이터 자산 허브(D7)는 추천안이며 사용자 확인 대기. 되돌릴 수 있는 추천(D3 DB 인스턴스, 작업 큐, 신원 토큰 서명, 시간 예산)은 코디네이터 추천으로 적는다.
+- Status: **Decided (2026-10-28)** — D1·D2·D6·D7은 사용자 결정이다. 권한 부분(아래 「설계 남음」)은 이 ADR이 정하지 않는다.
+- Decider: 사용자 — 2026-10-26 "백엔드 두 개(Fastify + FastAPI)를 함께 쓰는 것은 OK. 각 스택의 강점이 살도록 역할을 나눠 설계". 2026-10-28 "추천대로": 분담(D1)·입구 하나(D2)·Python CI 필수 검사(D6)·데이터 자산 허브 FastAPI 소유(D7)를 추천안대로 결정했다. D3 DB 인스턴스, 작업 큐, 신원 토큰 서명, 시간 예산은 코디네이터 추천(되돌릴 수 있음)으로 둔다.
 - Scope: [#940](https://github.com/hjung3113/analytics-platform/issues/940)(설계 초안 §0–§6). 관련: [#155](https://github.com/hjung3113/analytics-platform/issues/155), [#531](https://github.com/hjung3113/analytics-platform/issues/531), [#148](https://github.com/hjung3113/analytics-platform/issues/148), [#593](https://github.com/hjung3113/analytics-platform/issues/593), [#151](https://github.com/hjung3113/analytics-platform/issues/151), [#540](https://github.com/hjung3113/analytics-platform/issues/540), [#552](https://github.com/hjung3113/analytics-platform/issues/552), [#555](https://github.com/hjung3113/analytics-platform/issues/555).
 - Amends: [ADR-0066](0066-feedbackops-merges-into-platform.md) 결정 6, [ADR-0069](0069-platform-port-in-feedbackops-backend.md) 결정 8의 다시 볼 조건, [ADR-0043](0043-platform-sdk-is-the-app-contract-and-unified-framework.md) 서버 문장.
 - 구현 없음. 이 ADR은 결정만 남기고, 구현은 아래 「단계」의 이슈가 이어받는다.
+- 분담을 다시 여는 조건: 사내 백엔드 담당 합의([#155](https://github.com/hjung3113/analytics-platform/issues/155)·[#149](https://github.com/hjung3113/analytics-platform/issues/149))가 이 결정과 다를 때.
 
 ## 맥락
 
@@ -15,7 +16,7 @@
 
 ## 결정
 
-### 1. 분담 (D1, Proposed)
+### 1. 분담 (D1, Decided)
 
 | 기능 | 소유 | 이유 |
 | --- | --- | --- |
@@ -34,14 +35,14 @@
 | `menuAction` | 엔드포인트 소유자 | 분석 도메인 쓰기(마스터, 사용자 정의 설비 그룹)는 FastAPI |
 | 비동기 export job(#555) | FastAPI | 단계마다 ACL을 다시 판정하는데 그 판정이 엔드포인트 판정과 같고 파일도 같은 데이터에서 나온다 |
 | 로더·파서·ETL | 파서 저장소 + FastAPI | 적재는 파서 소유(#37). mart 재계산·지연 완료·세대는 FastAPI 작업자 |
-| 데이터 자산 허브(#540) (D7, Proposed) | FastAPI가 통째로 | 가져오기·검증·버전·재사용 읽기는 데이터 쪽 일이다 |
+| 데이터 자산 허브(#540) (D7, Decided) | FastAPI가 통째로 | 가져오기·검증·버전·재사용 읽기는 데이터 쪽 일이다 |
 | 설비 조건 평가(#552) | FastAPI | `listAxisOptions`·`searchEquipment`·`resolveSelection` |
 | 저장된 보기·워크스페이스(#294·#554) | Fastify | 사용자 소유 상태·공유·감사. 내용은 URL 계약 모양이라 TS 코덱으로 검증한다 |
 | `publishedMetrics`·`defaultRangeTo`·세대(#165) | FastAPI가 원천 | FastAPI가 뷰로 내고 Fastify의 bootstrap·session-state가 그 뷰를 읽어 넘긴다 |
 
 분석 조회도 FastAPI가 맡는 이유: 얇은 SQL 조회만 보면 두 스택의 차이는 작지만, 조회는 TS로 재계산은 Python으로 나누면 mart 지식이 두 언어로 갈라진다.
 
-### 2. 입구는 하나 (D2, Proposed)
+### 2. 입구는 하나 (D2, Decided)
 
 - 앞단(#151)은 `/api/fo/*`(접두사 제거)·`/api/*`·`/auth/*`를 모두 Fastify로 보낸다. FastAPI는 내부망에만 열린다. 브라우저는 FastAPI를 직접 부르지 않는다.
 - Fastify가 소유자 표(`server-routing.json`: endpoint·action·entity type → 상류 서버)를 보고 넘긴다. 본문의 id·type으로 고르는 경로(`menu-query`·`menu-action`·`platform/entity`·`entity/audit`)와 경로째 넘기는 것(`platform/axis-options`·`equipment-search`·`selection-resolve`·`/api/v1/export-jobs/**`)이 있다. 계약이 endpoint id를 본문에 두므로 클라이언트도 `real-dev-proxy.ts`도 바꾸지 않는다.
@@ -89,7 +90,7 @@
 
 - `X-Correlation-Id`(ADR-0069 결정 5)는 Fastify가 확정해 헤더와 `cid` claim으로 넘기고, FastAPI는 로그 `request_id`와 envelope `correlationId`에 그대로 쓴다. 작업 payload에도 같은 id를 싣는다. pino와 structlog의 로그 필드 이름을 맞춘다. OTel은 #151에서 수집처가 정해진 뒤 붙인다.
 - `dev:real`은 Vite 프록시를 그대로 쓰고 Fastify가 `ANALYTICS_UPSTREAM`(uvicorn)으로 넘긴다. throwaway DB 하나에 drizzle, 이어서 Alembic 순서로 마이그레이션하고 파서 DB는 합성 fixture로 대신한다.
-- `apps/analytics-api`(uv)는 pnpm workspace 밖에 둔다. **Python CI job(ruff·pyright·pytest·스키마 drift)을 main 필수 검사로 넣는다(D6, Proposed).**
+- `apps/analytics-api`(uv)는 pnpm workspace 밖에 둔다. **Python CI job(ruff·pyright·pytest·스키마 drift)을 main 필수 검사로 넣는다(D6, Decided).**
 - `@ap/server-conformance`를 (a) 기존 FO 통합(Fastify만), (b) Postgres + Fastify + FastAPI에 실제 `@ap/http-adapter`를 붙인 전체 스택 두 가지로 돌린다. 체크리스트 §3에 "소유자 표가 모든 엔드포인트를 정확히 한 번씩 덮는다"는 CI 검사를 넣는다.
 
 ### 9. 금지
@@ -111,7 +112,7 @@
 
 | 단계 | 내용 |
 | --- | --- |
-| P0 | 이 ADR (D1·D2·D6·D7 확인 대기) |
+| P0 | 이 ADR로 D1·D2·D6·D7 결정(사용자 2026-10-28), 권한 설계는 #1087에 남김 |
 | P1 | Fastify 전달기와 토큰 발급, 최소 스키마(envelope·MenuQuery + `equipment.master.page`), Pydantic 생성과 drift 검사, `apps/analytics-api` 골격, 전체 스택 적합성 검사. **선행 권한 부여 구현은 「설계 남음」** |
 | P2 | `equipment.master.export` 기반 export job(#555): 객체 저장소, 감사, outbox 알림 |
 | P3 | #552 축·설비 조회, 지표·기본 기간·세대 뷰(#165), mart 작업자(#37 합의 뒤) |
@@ -134,7 +135,7 @@
 - **(A) FastAPI만 쓴다(docs/03 원안):** 이미 구현·검증된 세션·권한·감사·알림·적합성 검사를 다시 만들어야 한다. ADR-0066이 이미 Fastify에서 출발하기로 했다.
 - **(B) Fastify만 쓴다:** 사내 요구값(FastAPI)과 Python 작업자 도구(polars·duckdb·XLSX·통계)를 포기하고 mart 지식을 TS로 옮긴다.
 - **(C) 두 서버가 각각 공개 출처:** 세션·권한·감사가 갈라지고(ADR-0069 기각 사유) CORS·두 번째 출처가 생긴다.
-- **(D, 채택·Proposed) Fastify 단일 입구 + 내부 FastAPI:** 인증·권한·감사는 한 곳에 두고 분석 데이터의 강점만 가져온다. 대가는 전달 한 홉, 내부 토큰, 두 번째 CI job, 두 마이그레이션 도구다.
+- **(D, 채택·Decided) Fastify 단일 입구 + 내부 FastAPI:** 인증·권한·감사는 한 곳에 두고 분석 데이터의 강점만 가져온다. 대가는 전달 한 홉, 내부 토큰, 두 번째 CI job, 두 마이그레이션 도구다.
 
 ## 결과
 
