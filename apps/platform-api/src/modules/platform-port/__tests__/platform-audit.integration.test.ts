@@ -66,6 +66,8 @@ describe.skipIf(!runIntegration)('platform port audit reads (#621)', () => {
   let pagedOrder: string[] = [];
   let tieOrder: string[] = [];
   const seeded: Record<string, string> = {};
+  const excludedSurveyResponseId = randomUUID();
+  const excludedOutsideId = randomUUID();
 
   const post = (path: string, payload: unknown, cookie?: string) =>
     app.inject({
@@ -182,7 +184,11 @@ describe.skipIf(!runIntegration)('platform port audit reads (#621)', () => {
       subjectId: vocWithEvents,
       hours: 2,
     });
-    await seedAudit('E', { eventType: 'task_status_changed', subjectType: 'task', hours: 2 });
+    await seedAudit('E', {
+      eventType: 'task_status_changed',
+      subjectType: 'task',
+      hours: 2,
+    });
     await seedAudit('C', {
       eventType: 'voc_cluster_member_removed',
       subjectType: 'voc_cluster',
@@ -256,6 +262,19 @@ describe.skipIf(!runIntegration)('platform port audit reads (#621)', () => {
       subjectType: 'survey',
       hours: 6,
     });
+    // #1091: released event + non-sensitive detail, so ONLY the SQL subject-type allowlist keeps these two hidden.
+    await seedAudit('x5', {
+      eventType: 'voc_created',
+      subjectType: 'survey_response',
+      subjectId: excludedSurveyResponseId,
+      hours: 6,
+    });
+    await seedAudit('x6', {
+      eventType: 'voc_created',
+      subjectType: 'outside_allowlist',
+      subjectId: excludedOutsideId,
+      hours: 6,
+    });
     await seedAudit('x4', {
       eventType: 'permission_needs_more_info',
       subjectType: 'permission_request',
@@ -314,7 +333,11 @@ describe.skipIf(!runIntegration)('platform port audit reads (#621)', () => {
       expect(res.headers['cache-control']).toBe('no-store');
       const body = res.json<Envelope>();
       expect(body.correlationId).toBe(res.headers['x-correlation-id']);
-      expect(body).toMatchObject({ outcome: 'ok', assessments: [], trust: null });
+      expect(body).toMatchObject({
+        outcome: 'ok',
+        assessments: [],
+        trust: null,
+      });
       expect(body.data).toEqual({
         total: 1,
         items: [
@@ -339,7 +362,8 @@ describe.skipIf(!runIntegration)('platform port audit reads (#621)', () => {
       const body = await mine({ pageSize: 100 });
       expect(body.data?.total).toBe(5);
       const ids = idsOf(body);
-      for (const key of ['x1', 'x2', 'x3', 'x4']) expect(ids).not.toContain(seeded[key]);
+      for (const key of ['x1', 'x2', 'x3', 'x4', 'x5', 'x6'])
+        expect(ids).not.toContain(seeded[key]);
       expect(ids).toHaveLength(5);
     });
 
@@ -401,7 +425,10 @@ describe.skipIf(!runIntegration)('platform port audit reads (#621)', () => {
       const last = await mine({ page: 3, pageSize: 2 });
       expect(idsOf(last)).toEqual([seeded.A]);
       const past = await mine({ page: 9, pageSize: 2 });
-      expect(past).toMatchObject({ outcome: 'ok', data: { items: [], total: 5 } });
+      expect(past).toMatchObject({
+        outcome: 'ok',
+        data: { items: [], total: 5 },
+      });
     });
 
     it.each([
@@ -411,7 +438,10 @@ describe.skipIf(!runIntegration)('platform port audit reads (#621)', () => {
     ])(
       'a far page (%s) is ok with [] and the true total — no 500, no reset to page 1',
       async (_name, paging) => {
-        expect(await mine(paging)).toMatchObject({ outcome: 'ok', data: { items: [], total: 5 } });
+        expect(await mine(paging)).toMatchObject({
+          outcome: 'ok',
+          data: { items: [], total: 5 },
+        });
       },
     );
 
@@ -436,8 +466,13 @@ describe.skipIf(!runIntegration)('platform port audit reads (#621)', () => {
       ['unknown key', { nope: 1 }],
       ['bad action', { action: 'explode' }],
       ['bad source', { source: 'robot' }],
-      ['survey_response type', { type: 'survey_response' }],
-      ['unknown type', { type: 'equipment' }],
+      ['type with a leading digit', { type: '1voc' }],
+      ['empty type', { type: '' }],
+      ['type with a space', { type: 'voc x' }],
+      ['type with &', { type: 'voc&x' }],
+      ['type with #', { type: 'voc#x' }],
+      ['type over 80 chars', { type: 'a'.repeat(81) }],
+      ['non-string type', { type: 5 }],
       ['empty actor', { actor: '' }],
       ['actor with whitespace', { actor: 'a b' }],
       ['actor with ?', { actor: 'a?b' }],
@@ -455,8 +490,51 @@ describe.skipIf(!runIntegration)('platform port audit reads (#621)', () => {
       ['array body', []],
     ])('malformed query (%s) → 200 error envelope', async (_name, query) => {
       const body = await search(query as Record<string, unknown>);
-      expect(body).toMatchObject({ outcome: 'error', data: null, message: expect.any(String) });
+      expect(body).toMatchObject({
+        outcome: 'error',
+        data: null,
+        message: expect.any(String),
+      });
       expect(body.message).not.toMatch(/select|uuid|sql/i);
+    });
+
+    it('a well-formed unknown type is the normal empty answer (data null), never an error', async () => {
+      for (const query of [
+        { type: 'equipment' },
+        { type: 'Future.Type:v2' },
+        { type: 'equipment', targetId: randomUUID() },
+      ]) {
+        expect(await mine(query)).toMatchObject({
+          outcome: 'empty',
+          data: null,
+        });
+      }
+    });
+
+    // The rows exist with released event types and non-sensitive detail: only the SQL subject-type allowlist hides them,
+    // so each answer must equal a never-used type (no existence oracle) and the parser must not be what hides them.
+    it.each([
+      ['survey_response', () => excludedSurveyResponseId],
+      ['outside_allowlist', () => excludedOutsideId],
+    ])('seeded excluded subject type %s answers like a never-used type', async (type, id) => {
+      const never = await mine({ type: 'never_used_type' });
+      expect(never).toMatchObject({ outcome: 'empty', data: null });
+      for (const query of [{ type }, { type, targetId: id() }, { type, page: 2 }]) {
+        const body = await mine(query);
+        expect(body).toMatchObject({
+          outcome: never.outcome,
+          data: never.data,
+        });
+        expect(body.message).toBe(never.message);
+        expect(JSON.stringify(body)).not.toContain(id());
+      }
+    });
+
+    it('a known type returns exact identities; permission still precedes validation for unknown types', async () => {
+      expect(idsOf(await mine({ type: 'voc', pageSize: 100 })).sort()).toEqual(byIdAsc('A', 'B'));
+      expect(idsOf(await mine({ type: 'managed_system', targetId: msId }))).toEqual([seeded.D]);
+      expect((await search({ type: 'Future.Type:v2' }, userCookie)).outcome).toBe('forbidden');
+      expect((await search({ type: '1bad' }, userCookie)).outcome).toBe('forbidden');
     });
 
     it('invalid JSON → 200 error envelope', async () => {
@@ -481,7 +559,13 @@ describe.skipIf(!runIntegration)('platform port audit reads (#621)', () => {
   describe('entityAudit', () => {
     it('401 without a session cookie', async () => {
       expect(
-        (await post('/entity/audit', { type: 'voc', id: vocWithEvents, scopeId: null })).statusCode,
+        (
+          await post('/entity/audit', {
+            type: 'voc',
+            id: vocWithEvents,
+            scopeId: null,
+          })
+        ).statusCode,
       ).toBe(401);
     });
 
@@ -544,7 +628,11 @@ describe.skipIf(!runIntegration)('platform port audit reads (#621)', () => {
         strangerCookie,
       );
       for (const body of [missing, malformed, unreadable]) {
-        expect(body).toMatchObject({ outcome: 'forbidden', data: null, message: 'Not readable' });
+        expect(body).toMatchObject({
+          outcome: 'forbidden',
+          data: null,
+          message: 'Not readable',
+        });
       }
     });
 
@@ -563,7 +651,12 @@ describe.skipIf(!runIntegration)('platform port audit reads (#621)', () => {
     describe('cursor pages (#857, ADR-0085)', () => {
       const pageOf = (cursor?: unknown, id = vocPaged, cookie = adminCookie) =>
         entityAudit(
-          { type: 'voc', id, scopeId: null, ...(cursor === undefined ? {} : { cursor }) },
+          {
+            type: 'voc',
+            id,
+            scopeId: null,
+            ...(cursor === undefined ? {} : { cursor }),
+          },
           cookie,
         );
 

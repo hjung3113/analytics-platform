@@ -5,7 +5,7 @@ import { Minus, ArrowRight } from 'lucide-react';
 import { ManagementLayout, RowAction, PageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, FilterUrlWarning, TableUrlWarning, useManagementFilters, useTableUrlState } from '@ap/components';
 import { Input, StatusBadge } from '@ap/ui';
 import { auditDestination } from '../audit-destination';
-import { ACTION_LABEL, AUDIT_PAGE_KEYS, SORT_FIELDS, SOURCE_LABEL, TYPE_LABEL, auditKeyProblem, parseAuditKeys, type AuditKeyProblem, type AuditTargetType } from '../audit-query';
+import { ACTION_LABEL, AUDIT_PAGE_KEYS, SORT_FIELDS, SOURCE_LABEL, TYPE_LABEL, auditKeyProblem, parseAuditKeys, type AuditKeyProblem } from '../audit-query';
 import { AUDIT_TIME_FIELD_EXAMPLE, instantToLocalField, localFieldToInstant, viewerTimeZone, type LocalFieldFailure } from '../audit-window';
 
 type Lang = keyof Text;
@@ -153,10 +153,15 @@ export default function AuditTrail() {
     setTimeTouched(current => ({ ...current, [key]: true }));
     setTimeError(current => ({ ...current, [key]: null }));
   };
+  // A well-formed type outside the declared labels (URL or draft) stays selectable as its raw text, never All.
+  const typeLabels: Record<string, Text> = { ...TYPE_LABEL };
+  for (const current of [raw.type, draft.values.type]) {
+    if (current && !Object.hasOwn(typeLabels, current)) typeLabels[current] = { ko: current, en: current };
+  }
   const select = (key: 'type' | 'action' | 'source', label: string, labels: Record<string, Text>) =>
     ({ kind: 'select', key, label, value: draft.values[key], emptyOptionLabel: ko ? '전체' : 'All', options: Object.entries(labels).map(([value, text]) => ({ value, label: text[lang] })), onValueChange: (value: string) => draft.set(key, value) }) as const;
   const filters = <PageFilterBar orientation="column" label={ko ? '감사 필터' : 'Audit filters'} fields={[
-      select('type', ko ? '대상 유형' : 'Type', TYPE_LABEL),
+      select('type', ko ? '대상 유형' : 'Type', typeLabels),
       select('action', ko ? '작업' : 'Action', ACTION_LABEL),
       select('source', ko ? '출처' : 'Source', SOURCE_LABEL),
       { kind: 'text', key: 'actor', label: ko ? '행위자 정확 일치' : 'Exact actor', value: draft.values.actor, onValueChange: value => draft.set('actor', value) },
@@ -169,7 +174,7 @@ export default function AuditTrail() {
     { id: 'actor', header: ko ? '행위자' : 'Actor', size: 130, cell: row => mono(row.actor) },
     { id: 'action', header: ko ? '작업' : 'Action', size: 110, cell: row => ACTION_LABEL[row.action][lang] },
     { id: 'source', header: ko ? '출처' : 'Source', size: 100, cell: row => <StatusBadge tone={row.source === 'system' ? 'neutral' : 'info'}>{SOURCE_LABEL[row.source][lang]}</StatusBadge> },
-    { id: 'targetType', header: ko ? '대상 유형' : 'Target type', value: row => row.target.type, size: 110, cell: row => Object.hasOwn(TYPE_LABEL, row.target.type) ? TYPE_LABEL[row.target.type as AuditTargetType][lang] : mono(row.target.type) },
+    { id: 'targetType', header: ko ? '대상 유형' : 'Target type', value: row => row.target.type, size: 110, cell: row => Object.hasOwn(TYPE_LABEL, row.target.type) ? TYPE_LABEL[row.target.type][lang] : mono(row.target.type) },
     { id: 'targetId', header: ko ? '대상 ID' : 'Target ID', sortable: false, value: row => row.target.id, size: 170, cell: row => mono(row.target.id) },
     { id: 'scopeId', header: ko ? '사이트' : 'Site', sortable: false, size: 90, cell: row => row.target.scopeId ?? '—' },
     { id: 'changes', header: ko ? '변경 필드' : 'Changed fields', sortable: false, size: 220, cell: row => row.changes ? Object.keys(row.changes).sort().join(', ') : '—' },

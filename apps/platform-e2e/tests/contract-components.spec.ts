@@ -97,6 +97,26 @@ test.describe('관리 레이아웃 필터 레일 (06 §12.6, ADR-0022)', () => {
     expect(query(page).has('actor')).toBe(false);
     await evidence(page, testInfo, 'management-audit-seven-filters');
   });
+
+  test('감사 대상 유형 필터는 알 수 없는 형식 유효 값을 유지하고 잘못된 값은 전체 조회로 넓히지 않는다 (#1091)', async ({ page }) => {
+    await signInAs(page, 'admin');
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const searches: unknown[] = [];
+    page.on('request', request => {
+      if (request.method() === 'POST' && request.url().includes('audit-trail')) searches.push(request.postDataJSON());
+    });
+    await page.goto('/operations/admin-audit?type=Future.Type%3Av2');
+    const rail = page.getByRole('region', { name: '필터', exact: true });
+    await expect(rail.getByRole('combobox', { name: '대상 유형' })).toContainText('Future.Type:v2');
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    await page.reload();
+    await expect(rail.getByRole('combobox', { name: '대상 유형' })).toContainText('Future.Type:v2');
+    expect(query(page).get('type')).toBe('Future.Type:v2');
+    searches.length = 0;
+    await page.goto('/operations/admin-audit?type=9bad');
+    await expect(page.getByRole('alert')).toBeVisible();
+    expect(searches).toEqual([]);
+  });
 });
 
 test.describe('PageFilterBar page-key 계약 (#54)', () => {

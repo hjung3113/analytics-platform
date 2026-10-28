@@ -3,6 +3,7 @@
 - Status: Decided (2026-10-22) — 코디네이터 결정. 사용자가 합류 진행을 위임했다. 되돌릴 수 있다.
 - Amended (2026-10-22, #623): 결정 9의 "provider `canRead`"를 "소유 모듈의 상세 읽기 판정(`resolveVocReference`·`getFinding`·`getTask`)"으로, 결정 6의 `entityAudit` 게이트도 같은 판정으로 바꿨다. `entityAudit`의 type은 voc·finding·task 셋으로 좁혔다.
 - Amended (2026-10-22, #651): 결정 3(O13)·결정 4(CSRF)의 FeedbackOps 경로 부분을 [ADR-0071](0071-feedbackops-screen-bridge-and-api-fo-edge-prefix.md) 결정 3·4가 바꿨다(경로는 옮기지 않고 플랫폼 앞단이 `/api/fo`를 뗀다).
+- Amended (2026-10-29, #1091): 전역 `auditTrail`의 `type` **필터** 문법은 [ADR-0101](0101-opaque-audit-target-filter.md)이 소유한다(형식 맞는 미지 유형은 `empty`). 결정 6·7의 SQL 투영(공개 18종·민감 제외)은 그대로이며 유일한 공개 경계다.
 - Scope: [#593](https://github.com/hjung3113/analytics-platform/issues/593)과 단위 이슈 [#620](https://github.com/hjung3113/analytics-platform/issues/620)–[#623](https://github.com/hjung3113/analytics-platform/issues/623). [합류 설계](../integration/feedbackops-merge-design.md) §4·§7의 O9·O10·O11·O13·O14·O16·O19·O20을 닫는다.
 - 바탕: [ADR-0066](0066-feedbackops-merges-into-platform.md) 결정 6(실서버는 FeedbackOps 백엔드에서 출발), [ADR-0068](0068-permission-scope-and-business-system-link.md)(부여 체계 하나, `console:access`는 승인 권한이 아님), [HTTP 어댑터 계약](../integration/http-adapter-contract.md)(Candidate).
 

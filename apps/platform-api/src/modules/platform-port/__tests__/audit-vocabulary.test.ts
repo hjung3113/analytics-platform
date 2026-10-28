@@ -3,6 +3,7 @@ import { AUDIT_EVENT_TYPES, CAPABILITIES, isSensitiveCapability } from '@ap/feat
 import { describe, expect, it } from 'vitest';
 
 import { AUDIT_ACTION_BY_EVENT_TYPE, PLATFORM_AUDIT_ACTIONS } from '../audit-actions.js';
+import { parseAuditQuery } from '../audit-query.js';
 import { toAuditEvent } from '../audit-service.js';
 import { platformVocab } from './platform-vocab.js';
 
@@ -80,5 +81,38 @@ describe('0074 permission allowlist vs the capability registry', () => {
     if (list === undefined) throw new Error('capability allowlist not found in 0074');
     const listed = [...list.matchAll(/'([^']+)'/g)].map((m) => m[1] as string).sort();
     expect(listed).toEqual(CAPABILITIES.filter((c) => !isSensitiveCapability(c)).sort());
+  });
+});
+
+describe('parseAuditQuery type token (#1091, ADR-0101)', () => {
+  it.each(['voc', 'equipment', 'managed_system', 'Future.Type:v2-x', 'a'.repeat(80)])(
+    'accepts %s unchanged',
+    (type) => {
+      expect(parseAuditQuery({ type })).toMatchObject({ type });
+    },
+  );
+
+  it('accepts targetId with a type and rejects targetId alone', () => {
+    expect(parseAuditQuery({ type: 'voc', targetId: 'x' })).toMatchObject({
+      type: 'voc',
+      targetId: 'x',
+    });
+    expect(parseAuditQuery({ targetId: 'x' })).toBeNull();
+  });
+
+  it.each([
+    '',
+    '1voc',
+    'voc x',
+    'voc&x',
+    'voc#x',
+    'voc?x',
+    ' voc',
+    'vocé',
+    'a'.repeat(81),
+    5,
+    null,
+  ])('rejects %j', (type) => {
+    expect(parseAuditQuery({ type })).toBeNull();
   });
 });

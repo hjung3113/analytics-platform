@@ -119,7 +119,13 @@ describe('auditTrail (issue #50: the console audit log)', () => {
     ['naive fromAt', { fromAt: '2026-09-20T02:00:00', toAt: '2026-09-26T02:00:00.000Z' }],
     ['fromAt at or after toAt', { fromAt: '2026-09-26T02:00:00.000Z', toAt: '2026-09-20T02:00:00.000Z' }],
     ['fromAt equal to toAt', { fromAt: '2026-09-26T02:00:00.000Z', toAt: '2026-09-26T02:00:00.000Z' }],
-    ['unknown type', { type: 'nope' }],
+    ['type with a leading digit', { type: '1voc' }],
+    ['empty type', { type: '' }],
+    ['type with a space', { type: 'voc x' }],
+    ['type with an ampersand', { type: 'voc&x' }],
+    ['type with a hash', { type: 'voc#x' }],
+    ['type over 80 chars', { type: 'a'.repeat(81) }],
+    ['non-string type', { type: 7 as unknown as string }],
     ['targetId without type', { targetId: 'cycle_time' }],
     ['empty actor', { actor: '' }],
     ['page 0', { page: 0 }],
@@ -131,6 +137,14 @@ describe('auditTrail (issue #50: the console audit log)', () => {
     expect(res.outcome).toBe('error');
     expect(res.message).toBe('Invalid audit filter');
     expect(body(res)).not.toContain('게시 확정');
+  });
+
+  it.each([['nope'], ['voc'], ['Future.Type:v2-x']])('answers the well-formed unknown type %s with empty and null data, not an error', async type => {
+    for (const query of [{ type }, { type, targetId: 'missing-id' }, { type, page: 2 }]) {
+      const res = await auditTrail(query, undefined, { role: 'admin', latency: 0 });
+      expect(res.outcome).toBe('empty');
+      expect(res.data).toBeNull();
+    }
   });
 
   it('answers a page past the end with ok, an empty page and the true total', async () => {

@@ -54,6 +54,30 @@ export function planConsoleChecks(harness: ServerConformanceHarness): Conformanc
       ),
     });
   }
+  // ADR-0101: the auditTrail `type` filter is an opaque token. A well-formed type nobody has written is a zero
+  // (`empty`, null data); a malformed one is `error`. Generic on purpose: the check names no domain type.
+  checks.push({
+    id: 'port · auditTrail type filter: well-formed unknown → empty, malformed → error',
+    uses: ['auditTrail'],
+    mode: 'console',
+    run: async () => {
+      const unknown = await adapter.auditTrail({ type: 'Conformance.Unused:type-1' });
+      if (unknown.outcome !== 'empty' || unknown.data !== null) {
+        return `a well-formed type that matches nothing: expected empty with null data, got ${describeResponse(unknown)} (checklist §2 auditTrail)`;
+      }
+      const withId = await adapter.auditTrail({ type: 'Conformance.Unused:type-1', targetId: 'conformance-missing-id' });
+      if (withId.outcome !== 'empty' || withId.data !== null) {
+        return `a well-formed type with a targetId that matches nothing: expected empty with null data, got ${describeResponse(withId)}`;
+      }
+      for (const type of ['1leading-digit', 'has space', 'a&b', 'a'.repeat(81)]) {
+        const bad = await adapter.auditTrail({ type });
+        if (bad.outcome !== 'error' || bad.data !== null) {
+          return `a malformed type (${JSON.stringify(type.slice(0, 20))}): expected error with null data, got ${describeResponse(bad)} — never widened to all types`;
+        }
+      }
+      return null;
+    },
+  });
   checks.push({
     id: 'port · accessDirectory is not mart data: no assessments, null trust',
     uses: ['accessDirectory'],

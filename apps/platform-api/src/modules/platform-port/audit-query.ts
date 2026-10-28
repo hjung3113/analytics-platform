@@ -4,27 +4,12 @@
 
 import { PLATFORM_AUDIT_ACTIONS, type PlatformAuditAction } from './audit-actions.js';
 
-/** FeedbackOps `target.type` vocabulary: the subject types the SQL projection releases. */
-export const AUDIT_TRAIL_SUBJECT_TYPES = [
-  'voc',
-  'finding',
-  'task',
-  'task_request',
-  'entity_link',
-  'voc_cluster',
-  'permission_request',
-  'permission_grant',
-  'permission_deny',
-  'survey',
-  'survey_question',
-  'managed_system',
-  'analytics_area',
-  'milestone',
-  'attachment',
-  'public_update_review_candidate',
-  'voc_cluster_suggestion',
-  'workspace',
-] as const;
+/**
+ * An opaque, case-sensitive subject-type token (ADR-0101): no trimming or normalization. Accepting a filter never
+ * releases a row; the SQL projection alone decides visibility. Keep in lockstep with the console
+ * (`platform/admin/src/audit-query.ts`) and mock (`packages/adapters/mock-server/src/audit/audit.ts`) copies.
+ */
+const AUDIT_TYPE_TOKEN = /^[A-Za-z][A-Za-z0-9_.:-]{0,79}$/;
 
 /** Entity types `getEntity` and `entityAudit` answer (ADR-0069 decision 9): the shared read gate's types. */
 export const ENTITY_READABLE_TYPES = ['voc', 'finding', 'task'] as const;
@@ -106,10 +91,7 @@ export function parseAuditQuery(body: unknown): ParsedAuditQuery | null {
     return null;
   }
   const { type, actor, action, source, fromAt, toAt, targetId, page, pageSize, sort } = body;
-  if (
-    type !== undefined &&
-    (typeof type !== 'string' || !(AUDIT_TRAIL_SUBJECT_TYPES as readonly string[]).includes(type))
-  ) {
+  if (type !== undefined && (typeof type !== 'string' || !AUDIT_TYPE_TOKEN.test(type))) {
     return null;
   }
   if (action !== undefined && !(PLATFORM_AUDIT_ACTIONS as readonly unknown[]).includes(action)) {
