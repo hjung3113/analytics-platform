@@ -1,0 +1,658 @@
+[
+  {
+    "id": "analytics.chartCatalog",
+    "menuId": "chart-catalog",
+    "paramKeys": [
+      "kind"
+    ],
+    "permission": "analytics:view",
+    "requiresScope": true,
+    "context": {
+      "time": "apply"
+    },
+    "kinds": [
+      "collection",
+      "coverage"
+    ],
+    "mergeTimeDomain": true
+  },
+  {
+    "id": "analytics.cycle.dist",
+    "menuId": "cycle-time",
+    "paramKeys": [],
+    "permission": "analytics:view",
+    "requiresScope": true,
+    "context": {
+      "time": "apply",
+      "roomNames": "apply",
+      "line": "apply",
+      "prcGroup": "apply",
+      "condition": "apply",
+      "selection": "apply",
+      "lot": "apply",
+      "ppid": "apply",
+      "recipe": "apply",
+      "metric": "apply"
+    },
+    "requiredContext": [
+      "time",
+      "roomNames"
+    ],
+    "kinds": [
+      "collection",
+      "processing_delay",
+      "coverage"
+    ],
+    "limits": {
+      "maxHours": 744
+    },
+    "mergeTimeDomain": true
+  },
+  {
+    "id": "analytics.cycle.export",
+    "menuId": "cycle-time",
+    "paramKeys": [
+      "tail",
+      "granularity",
+      "bucket",
+      "bin",
+      "ids",
+      "sorting"
+    ],
+    "permission": "analytics:view",
+    "requiresScope": true,
+    "context": {
+      "time": "apply",
+      "roomNames": "apply",
+      "line": "apply",
+      "prcGroup": "apply",
+      "condition": "apply",
+      "selection": "apply",
+      "lot": "apply",
+      "ppid": "apply",
+      "recipe": "apply",
+      "metric": "apply"
+    },
+    "requiredContext": [
+      "time",
+      "roomNames"
+    ],
+    "kinds": [
+      "collection",
+      "processing_delay",
+      "coverage"
+    ],
+    "limits": {
+      "maxHours": 744,
+      "maxRows": 50000
+    },
+    "mergeTimeDomain": true
+  },
+  {
+    "id": "analytics.cycle.kpi",
+    "menuId": "cycle-time",
+    "paramKeys": [],
+    "permission": "analytics:view",
+    "requiresScope": true,
+    "context": {
+      "time": "apply",
+      "roomNames": "apply",
+      "line": "apply",
+      "prcGroup": "apply",
+      "condition": "apply",
+      "selection": "apply",
+      "lot": "apply",
+      "ppid": "apply",
+      "recipe": "apply",
+      "metric": "apply"
+    },
+    "requiredContext": [
+      "time",
+      "roomNames"
+    ],
+    "kinds": [
+      "collection",
+      "processing_delay",
+      "coverage"
+    ],
+    "limits": {
+      "maxHours": 744
+    },
+    "mergeTimeDomain": true
+  },
+  {
+    "id": "analytics.cycle.slow",
+    "menuId": "cycle-time",
+    "paramKeys": [
+      "tail",
+      "granularity",
+      "bucket",
+      "bin",
+      "page",
+      "pageSize",
+      "sorting"
+    ],
+    "permission": "analytics:view",
+    "requiresScope": true,
+    "context": {
+      "time": "apply",
+      "roomNames": "apply",
+      "line": "apply",
+      "prcGroup": "apply",
+      "condition": "apply",
+      "selection": "apply",
+      "lot": "apply",
+      "ppid": "apply",
+      "recipe": "apply",
+      "metric": "apply"
+    },
+    "requiredContext": [
+      "time",
+      "roomNames"
+    ],
+    "kinds": [
+      "collection",
+      "processing_delay",
+      "coverage"
+    ],
+    "limits": {
+      "maxHours": 744
+    },
+    "mergeTimeDomain": true
+  },
+  {
+    "id": "analytics.cycle.trend",
+    "menuId": "cycle-time",
+    "paramKeys": [
+      "granularity"
+    ],
+    "permission": "analytics:view",
+    "requiresScope": true,
+    "context": {
+      "time": "apply",
+      "roomNames": "apply",
+      "line": "apply",
+      "prcGroup": "apply",
+      "condition": "apply",
+      "selection": "apply",
+      "lot": "apply",
+      "ppid": "apply",
+      "recipe": "apply",
+      "metric": "apply"
+    },
+    "requiredContext": [
+      "time",
+      "roomNames"
+    ],
+    "kinds": [
+      "collection",
+      "processing_delay",
+      "coverage"
+    ],
+    "limits": {
+      "maxHours": 744
+    },
+    "mergeTimeDomain": true
+  },
+  {
+    "id": "analytics.execution.occurrence",
+    "menuId": "execution-detail",
+    "paramKeys": [
+      "equipmentId",
+      "entityType",
+      "anchor",
+      "metricVersion"
+    ],
+    "permission": "analytics:view",
+    "requiresScope": true,
+    "context": {},
+    "kinds": [
+      "collection",
+      "processing_delay",
+      "coverage"
+    ],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "analytics.productivity.attention",
+    "menuId": "productivity-overview",
+    "paramKeys": [],
+    "permission": "analytics:view",
+    "requiresScope": true,
+    "context": {
+      "time": "apply",
+      "roomNames": "apply",
+      "condition": "apply",
+      "selection": "apply",
+      "ppid": "apply",
+      "recipe": "apply"
+    },
+    "kinds": [
+      "collection",
+      "processing_delay",
+      "coverage"
+    ],
+    "limits": {
+      "maxHours": 2160
+    },
+    "mergeTimeDomain": true
+  },
+  {
+    "id": "analytics.productivity.breakdown",
+    "menuId": "productivity-overview",
+    "paramKeys": [
+      "axis"
+    ],
+    "permission": "analytics:view",
+    "requiresScope": true,
+    "context": {
+      "time": "apply",
+      "roomNames": "apply",
+      "condition": "apply",
+      "selection": "apply",
+      "ppid": "apply",
+      "recipe": "apply"
+    },
+    "kinds": [
+      "collection",
+      "processing_delay",
+      "coverage"
+    ],
+    "limits": {
+      "maxHours": 2160
+    },
+    "mergeTimeDomain": true
+  },
+  {
+    "id": "analytics.productivity.drill",
+    "menuId": "productivity-overview",
+    "paramKeys": [
+      "level",
+      "room",
+      "stgroup"
+    ],
+    "permission": "analytics:view",
+    "requiresScope": true,
+    "context": {
+      "time": "apply",
+      "roomNames": "apply",
+      "condition": "apply",
+      "selection": "apply",
+      "ppid": "apply",
+      "recipe": "apply"
+    },
+    "kinds": [
+      "collection",
+      "processing_delay",
+      "coverage"
+    ],
+    "limits": {
+      "maxHours": 2160
+    },
+    "mergeTimeDomain": true
+  },
+  {
+    "id": "analytics.productivity.kpis",
+    "menuId": "productivity-overview",
+    "paramKeys": [],
+    "permission": "analytics:view",
+    "requiresScope": true,
+    "context": {
+      "time": "apply",
+      "roomNames": "apply",
+      "condition": "apply",
+      "selection": "apply",
+      "ppid": "apply",
+      "recipe": "apply"
+    },
+    "kinds": [
+      "collection",
+      "processing_delay",
+      "coverage",
+      "time_domain"
+    ],
+    "limits": {
+      "maxHours": 2160
+    },
+    "mergeTimeDomain": true
+  },
+  {
+    "id": "analytics.productivity.trend",
+    "menuId": "productivity-overview",
+    "paramKeys": [
+      "kpi",
+      "granularity"
+    ],
+    "permission": "analytics:view",
+    "requiresScope": true,
+    "context": {
+      "time": "apply",
+      "roomNames": "apply",
+      "condition": "apply",
+      "selection": "apply",
+      "ppid": "apply",
+      "recipe": "apply"
+    },
+    "kinds": [
+      "collection",
+      "processing_delay",
+      "coverage"
+    ],
+    "limits": {
+      "maxHours": 2160
+    },
+    "mergeTimeDomain": true
+  },
+  {
+    "id": "clas.operationTime",
+    "menuId": "operation-time",
+    "paramKeys": [
+      "eqp"
+    ],
+    "permission": "analytics:view",
+    "requiresScope": true,
+    "context": {
+      "time": "apply",
+      "roomNames": "apply"
+    },
+    "kinds": [
+      "collection",
+      "coverage"
+    ],
+    "limits": {
+      "maxHours": 2160
+    },
+    "mergeTimeDomain": true
+  },
+  {
+    "id": "equipment.master.export",
+    "menuId": "equipment-master",
+    "paramKeys": [
+      "q",
+      "status",
+      "maker",
+      "ids",
+      "sorting"
+    ],
+    "permission": "equipment:view",
+    "requiresScope": true,
+    "context": {
+      "roomNames": "apply",
+      "condition": "apply",
+      "selection": "apply"
+    },
+    "kinds": [
+      "collection",
+      "processing_delay",
+      "coverage"
+    ],
+    "limits": {
+      "maxRows": 50000
+    },
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "equipment.master.makers",
+    "menuId": "equipment-master",
+    "paramKeys": [],
+    "permission": "equipment:view",
+    "requiresScope": true,
+    "context": {
+      "roomNames": "apply",
+      "condition": "apply",
+      "selection": "apply"
+    },
+    "kinds": [
+      "collection",
+      "processing_delay",
+      "coverage"
+    ],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "equipment.master.page",
+    "menuId": "equipment-master",
+    "paramKeys": [
+      "q",
+      "status",
+      "maker",
+      "page",
+      "pageSize",
+      "sorting"
+    ],
+    "permission": "equipment:view",
+    "requiresScope": true,
+    "context": {
+      "roomNames": "apply",
+      "condition": "apply",
+      "selection": "apply"
+    },
+    "kinds": [
+      "collection",
+      "processing_delay",
+      "coverage"
+    ],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "home.notices",
+    "menuId": "home",
+    "paramKeys": [
+      "targetScopeId"
+    ],
+    "permission": "notice:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "hwTime.exportRows",
+    "menuId": "hw-time-steps",
+    "paramKeys": [
+      "drillModule",
+      "drillMotion",
+      "ids",
+      "sorting"
+    ],
+    "permission": "analytics:view",
+    "requiresScope": true,
+    "context": {
+      "time": "apply",
+      "roomNames": "apply",
+      "condition": "apply",
+      "selection": "apply",
+      "ppid": "apply",
+      "recipe": "apply"
+    },
+    "kinds": [
+      "collection",
+      "processing_delay",
+      "coverage"
+    ],
+    "limits": {
+      "maxRows": 120
+    },
+    "mergeTimeDomain": true
+  },
+  {
+    "id": "hwTime.levelRows",
+    "menuId": "hw-time-steps",
+    "paramKeys": [
+      "drillModule",
+      "drillMotion"
+    ],
+    "permission": "analytics:view",
+    "requiresScope": true,
+    "context": {
+      "time": "apply",
+      "roomNames": "apply",
+      "condition": "apply",
+      "selection": "apply",
+      "ppid": "apply",
+      "recipe": "apply"
+    },
+    "kinds": [
+      "collection",
+      "processing_delay",
+      "coverage"
+    ],
+    "mergeTimeDomain": true
+  },
+  {
+    "id": "hwTime.tableRows",
+    "menuId": "hw-time-steps",
+    "paramKeys": [
+      "drillModule",
+      "drillMotion",
+      "page",
+      "pageSize",
+      "sorting"
+    ],
+    "permission": "analytics:view",
+    "requiresScope": true,
+    "context": {
+      "time": "apply",
+      "roomNames": "apply",
+      "condition": "apply",
+      "selection": "apply",
+      "ppid": "apply",
+      "recipe": "apply"
+    },
+    "kinds": [
+      "collection",
+      "processing_delay",
+      "coverage"
+    ],
+    "mergeTimeDomain": true
+  },
+  {
+    "id": "hwTime.trend",
+    "menuId": "hw-time-steps",
+    "paramKeys": [
+      "rowIds"
+    ],
+    "permission": "analytics:view",
+    "requiresScope": true,
+    "context": {
+      "time": "apply",
+      "roomNames": "apply",
+      "condition": "apply",
+      "selection": "apply",
+      "ppid": "apply",
+      "recipe": "apply"
+    },
+    "kinds": [
+      "collection",
+      "processing_delay",
+      "coverage"
+    ],
+    "mergeTimeDomain": true
+  },
+  {
+    "id": "metrics.catalog.export",
+    "menuId": "metric-catalog",
+    "paramKeys": [
+      "q",
+      "status",
+      "domain",
+      "lang",
+      "ids",
+      "sorting"
+    ],
+    "permission": "metrics:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [
+      "processing_delay"
+    ],
+    "limits": {
+      "maxRows": 50000
+    },
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "metrics.catalog.list",
+    "menuId": "metric-catalog",
+    "paramKeys": [
+      "q",
+      "status",
+      "domain",
+      "lang"
+    ],
+    "permission": "metrics:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [
+      "processing_delay"
+    ],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "metrics.catalog.page",
+    "menuId": "metric-catalog",
+    "paramKeys": [
+      "q",
+      "status",
+      "domain",
+      "lang",
+      "page",
+      "pageSize",
+      "sorting"
+    ],
+    "permission": "metrics:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [
+      "processing_delay"
+    ],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "metrics.definition",
+    "menuId": "metric-detail",
+    "paramKeys": [
+      "metricId",
+      "version"
+    ],
+    "permission": "metrics:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [
+      "processing_delay"
+    ],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "metrics.pair",
+    "menuId": "metric-catalog",
+    "paramKeys": [
+      "viewedId",
+      "pageVersion"
+    ],
+    "permission": "metrics:view",
+    "requiresScope": false,
+    "context": {
+      "metric": "apply"
+    },
+    "kinds": [
+      "processing_delay"
+    ],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "metrics.usage",
+    "menuId": "metric-detail",
+    "paramKeys": [
+      "metricId",
+      "version"
+    ],
+    "permission": "metrics:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [
+      "processing_delay"
+    ],
+    "mergeTimeDomain": false
+  }
+]

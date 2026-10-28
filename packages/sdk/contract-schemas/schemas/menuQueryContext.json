@@ -1,0 +1,194 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "scopeId": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "from": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "to": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "roomNames": {
+      "anyOf": [
+        {
+          "uniqueItems": true,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "[^\\t-\\r\\x1c-\\x20\\x85\\xa0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]"
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "condition": {
+      "anyOf": [
+        {
+          "minProperties": 1,
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "pattern": "[^\\t-\\r\\x1c-\\x20\\x85\\xa0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]"
+          },
+          "additionalProperties": {
+            "uniqueItems": true,
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "[^\\t-\\r\\x1c-\\x20\\x85\\xa0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]"
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "lineNames": {
+      "anyOf": [
+        {
+          "uniqueItems": true,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "[^\\t-\\r\\x1c-\\x20\\x85\\xa0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]"
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "prcGroups": {
+      "anyOf": [
+        {
+          "uniqueItems": true,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "[^\\t-\\r\\x1c-\\x20\\x85\\xa0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]"
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "membershipBasis": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "asOf"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "selection": {
+      "anyOf": [
+        {
+          "uniqueItems": true,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "[^\\t-\\r\\x1c-\\x20\\x85\\xa0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]"
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "lotIds": {
+      "anyOf": [
+        {
+          "uniqueItems": true,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "[^\\t-\\r\\x1c-\\x20\\x85\\xa0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]"
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "ppid": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "recipeIds": {
+      "anyOf": [
+        {
+          "uniqueItems": true,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "[^\\t-\\r\\x1c-\\x20\\x85\\xa0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]"
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "metricId": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "metricVersion": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "additionalProperties": false
+}

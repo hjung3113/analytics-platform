@@ -6,11 +6,12 @@
 
 ## 패키지와 의존 방향
 
-폴더는 한 단계 묶여 있다(ADR-0090, #713): SDK 다섯은 `sdk/`, 어댑터·소비자 쪽 넷은 `adapters/`, FeedbackOps(`@fops/*`) `fo-shared/`·`fo-ui/`는 `packages/` 바로 아래다. 패키지 이름(`@ap/*`)과 공개 API는 폴더와 무관하다. 패키지 안에서 저장소 루트로 가는 상대 경로는 `../../../`다.
+폴더는 한 단계 묶여 있다(ADR-0090, #713): SDK 다섯과 배포하지 않는 `contract-schemas`는 `sdk/`, 어댑터·소비자 쪽 넷은 `adapters/`, FeedbackOps(`@fops/*`) `fo-shared/`·`fo-ui/`는 `packages/` 바로 아래다. 패키지 이름(`@ap/*`)과 공개 API는 폴더와 무관하다. 패키지 안에서 저장소 루트로 가는 상대 경로는 `../../../`다.
 
 | 패키지 | 역할 | import 가능 |
 | --- | --- | --- |
 | `sdk/contracts/` (`@ap/contracts`) | URL codec, manifest 메타데이터 타입, 응답·Trust envelope, `PlatformAdapter` 포트 | 없음 |
+| `sdk/contract-schemas/` (`@ap/contract-schemas`) | 계약 스키마 원본(Zod)과 JSON Schema 2020-12 산출물·`endpoints.json`(ADR-0096). 배포 tarball이 아니라 `pnpm sdk:schemas`의 Release 자산이며 소비자 없음(`SDK_PACKAGES`에 없음) | 런타임 `zod`만(테스트만 `contracts`) |
 | `sdk/ui/` (`@ap/ui`) | 토큰·Tailwind 테마, shadcn primitive, `Button`, `StatusBadge`, `cn` | 외부 라이브러리만 |
 | `sdk/kernel/` (`@ap/kernel`) | Registry 런타임, `PlatformProvider`, 전역 Context·URL·Scope 상태, 요청 수명주기(내부 엔진 `@tanstack/react-query`, ADR-0086), i18n | `contracts` + 외부 `@tanstack/react-query`(내부 전용) |
 | `sdk/components/` (`@ap/components`) | `PlatformPage`, 표·드로어·감사·신뢰 표시, 상태 화면, 차트 프레임 | `contracts`, `kernel`, `ui` |

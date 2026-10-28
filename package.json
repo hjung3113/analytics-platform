@@ -11,6 +11,7 @@
     "dev": "turbo run dev --filter=@ap/platform-web",
     "docs:links": "node .github/scripts/check-doc-links.mjs",
     "sdk:pack": "node tooling/sdk/sdk-pack.mjs",
+    "sdk:schemas": "node tooling/sdk/sdk-schemas.mjs",
     "sdk:consumer-check": "node tooling/sdk/sdk-consumer-check.mjs",
     "sdk:api": "node tooling/sdk/sdk-api-snapshot.mjs",
     "check:lazy-chunks": "node tooling/scripts/check-lazy-chunks.mjs",

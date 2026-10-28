@@ -1,0 +1,7 @@
+{
+  "extends": "@ap/tsconfig/base.json",
+  // Same library set as @ap/contracts: no DOM and no React. The type-equivalence tests read @ap/contracts' sources, whose
+  // one host API (URLSearchParams) is declared in its globals.d.ts, so that file is included explicitly.
+  "compilerOptions": { "lib": ["ES2022"], "types": [] },
+  "include": ["src", "../contracts/src/globals.d.ts"]
+}

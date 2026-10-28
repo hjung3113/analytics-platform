@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 import {
   app,
   components,
+  contractSchemas,
   contracts,
   foBridge,
   foBridgeMenu,
@@ -28,6 +29,7 @@ const REPO_ROOT = path.resolve(HERE, '..', '..', '..');
 
 const PRESETS: Record<string, Linter.Config[]> = {
   'packages/sdk/contracts': contracts,
+  'packages/sdk/contract-schemas': contractSchemas,
   'packages/sdk/ui': ui,
   'packages/sdk/kernel': kernel,
   'packages/sdk/components': components,
@@ -93,6 +95,15 @@ const rows: Row[] = [
   { file: 'packages/sdk/contracts/src/x.ts', code: `import type { X } from '@ap/kernel';`, rule: 'no-restricted-imports' },
   { file: 'packages/sdk/contracts/src/x.ts', code: `import type { ReactNode } from 'react';`, rule: 'no-restricted-imports' },
   { file: 'packages/sdk/contracts/src/x.ts', code: `export const n = 1;`, rule: '' },
+  // --- contractSchemas (ADR-0096): zod only in src; tests may read @ap/contracts and its vocab.json ---
+  { file: 'packages/sdk/contract-schemas/src/x.ts', code: `import { z } from 'zod/v4';`, rule: '' },
+  { file: 'packages/sdk/contract-schemas/src/x.ts', code: `import type { X } from '@ap/contracts';`, rule: 'no-restricted-imports' },
+  { file: 'packages/sdk/contract-schemas/src/x.ts', code: `import { x } from '@ap/kernel';`, rule: 'no-restricted-imports' },
+  { file: 'packages/sdk/contract-schemas/src/x.ts', code: `import type { ReactNode } from 'react';`, rule: 'no-restricted-imports' },
+  { file: 'packages/sdk/contract-schemas/src/x.test.ts', code: `import type { Trust } from '@ap/contracts';`, rule: '' },
+  { file: 'packages/sdk/contract-schemas/src/x.test.ts', code: `import vocab from '@ap/contracts/vocab.json';`, rule: '' },
+  { file: 'packages/sdk/contract-schemas/src/x.test.ts', code: `import { x } from '@ap/kernel';`, rule: 'no-restricted-imports' },
+  { file: 'packages/sdk/contract-schemas/src/x.test.ts', code: `import { x } from '@ap/contracts/src/url';`, rule: 'no-restricted-imports' },
   { file: 'packages/sdk/ui/src/x.ts', code: `import { x } from '@ap/contracts';`, rule: 'no-restricted-imports' },
   { file: 'packages/sdk/ui/src/x.ts', code: `import * as React from 'react';`, rule: '' },
   { file: 'packages/sdk/ui/src/x.ts', code: `import { cn } from './utils/cn';`, rule: '' },
