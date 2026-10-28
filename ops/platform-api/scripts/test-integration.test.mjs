@@ -101,10 +101,19 @@ try {
   const probe = `#!/usr/bin/env node
 process.stdout.write(JSON.stringify({ db: ['DATABASE_URL', 'DATABASE_URL_MIGRATE', 'WORKSPACE_ID'].some(k => k in process.env), optedOut: process.env.ALLOW_SKIPPED_INTEGRATION === '1' }));
 `;
-  for (const bin of ['vitest', 'pnpm']) {
-    writeFileSync(join(dir, bin), probe);
-    chmodSync(join(dir, bin), 0o755);
-  }
+  // pnpm stub: `pnpm run build:schemas` only records the call (no probe output); any other
+  // invocation (the integration script's `pnpm exec vitest run`) emits the probe.
+  const buildLog = join(dir, 'pnpm-build.log');
+  const pnpmStub = `#!/usr/bin/env node
+const { appendFileSync } = require('node:fs');
+if (process.argv[2] === 'run' && process.argv[3] === 'build:schemas' && process.argv.length === 4) {
+  appendFileSync(${JSON.stringify(buildLog)}, 'build:schemas\\n');
+  process.exit(0);
+}
+${probe.replace('#!/usr/bin/env node\n', '')}`;
+  writeFileSync(join(dir, 'vitest'), probe);
+  writeFileSync(join(dir, 'pnpm'), pnpmStub);
+  for (const bin of ['vitest', 'pnpm']) chmodSync(join(dir, bin), 0o755);
   const caller = {
     ...process.env,
     PATH: `${dir}:${process.env.PATH}`,
@@ -116,6 +125,7 @@ process.stdout.write(JSON.stringify({ db: ['DATABASE_URL', 'DATABASE_URL_MIGRATE
   };
   const root = spawnSync('bash', ['-c', manifest.scripts.test], { env: caller, encoding: 'utf8' });
   assert.equal(root.status, 0, root.stderr);
+  assert.equal(readFileSync(buildLog, 'utf8'), 'build:schemas\n', 'runtime schemas built once');
   assert.deepEqual(JSON.parse(root.stdout), { db: false, optedOut: true });
   console.log(
     'ok - actual root backend command strips all reset inputs with a populated caller env',

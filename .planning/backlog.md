@@ -4,6 +4,8 @@
 
 ## 작은 후속 (확인된 것)
 
+- **구현 안 함 — platform-api의 plain Node 시작과 feature-shared 런타임 산출물:** `@ap/feature-shared`는 `src/index.ts`를 export하고 build가 `--noEmit`인 반면 소스 barrel은 `.js`를 참조해 `node dist/index.js`가 `src/enums/index.js`를 찾지 못한다. main `a1ab81ecb`와 #1098 r 직전 `9e1239d9f` 모두 frozen install·백엔드 build 뒤 같은 오류를 재현했다(2026-10-29); r 회귀가 아니다. 이유: #1104 설정 영속화 범위 밖인 기존 패키지 런타임 구성이다. `tsx` 로더를 쓴 실행은 가능하다. 다시 여는 조건: 백엔드 운영 배포 또는 plain Node 시작을 사용하는 작업에서 feature-shared의 emitted JS export·의존 빌드 순서를 함께 맞출 때.
+
 - **구현 안 함 — 통합 계획 조사 기록 이동(v0.20 문서 점검 A1):** `docs/integration/framework-unification-plan.md`의 유효한 #396 전략·미구현 범위를 현행 소유 문서와 backlog에 연결하고 조사 본문을 `docs/research/`로 옮기는 일은 하지 않았다. 이유: 릴리스 문서 PR 범위 밖이다. 다시 여는 조건: #396 다음 작업 또는 해당 문서를 다시 고칠 때.
 
 - **구현 완료 — `build:real-prod` CI 성공 검사(#1098 r, v0.20 마감 리뷰 Q7):** `ci.yml`의 static Job이 mock lazy/SDK 검사 뒤 DB-free 운영 빌드를 실행한다. 강제 mock graph/build 실패 guard도 유지한다.

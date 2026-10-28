@@ -116,6 +116,17 @@ describe('preferences', () => {
     expect(preferencesImportSchema.safeParse({ values: many }).success).toBe(false);
   });
 
+  it('patch: set and remove together hold at most PREFERENCE_KEYS_MAX keys; the size message is the one the server maps to too_large', () => {
+    const keys = (n: number, p: string) => Array.from({ length: n }, (_, i) => `columns:${p}${i}`);
+    const set = (n: number) => Object.fromEntries(keys(n, 's').map((k) => [k, 1]));
+    expect(preferencesPatchSchema.safeParse({ set: set(100), remove: keys(100, 'r') }).success).toBe(true);
+    expect(preferencesPatchSchema.safeParse({ remove: keys(PREFERENCE_KEYS_MAX, 'r') }).success).toBe(true);
+    const over = preferencesPatchSchema.safeParse({ set: set(1), remove: keys(PREFERENCE_KEYS_MAX, 'r') });
+    expect(over.success).toBe(false);
+    expect(over.error?.issues.map((issue) => issue.message)).toEqual([`at most ${PREFERENCE_KEYS_MAX} keys`]);
+    expect(preferencesPatchSchema.safeParse({ set: set(100), remove: keys(101, 'r') }).success).toBe(false);
+  });
+
   it('the artifact carries the representable constraints', () => {
     const patch = toJsonSchema(preferencesPatchSchema) as { properties: Record<string, Record<string, unknown>> };
     expect(patch.properties['remove']).toMatchObject({ type: 'array', uniqueItems: true });

@@ -66,6 +66,18 @@
     },
     "@ap/platform-api-ops#lint": {
       "cache": false
+    },
+    "@ap/platform-api#typecheck": {
+      "dependsOn": [
+        "transit",
+        "@ap/contract-schemas#build"
+      ]
+    },
+    "@ap/platform-api#test": {
+      "dependsOn": [
+        "transit",
+        "@ap/contract-schemas#build"
+      ]
     }
   }
 }
