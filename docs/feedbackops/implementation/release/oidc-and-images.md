@@ -6,7 +6,7 @@ The local run verifies OIDC discovery/code flow, backend session issuance and re
 
 ## Prepare the isolated release project
 
-From the repository root, create the local interpolation file and inspect the Compose configuration:
+All commands below run from `ops/platform-api` (where `docker-compose.release.yml`, `.env.release.example` and `scripts/release/` live). Create the local interpolation file and inspect the operator Compose configuration:
 
     cp .env.release.example .env.release
     docker compose --project-name platform-api --env-file .env.release -f docker-compose.release.yml config
@@ -25,11 +25,20 @@ The smoke script builds the backend and migration images, starts Postgres, the O
 
 A new release volume must be cut over once before the migration job: the job-only `cutover` service (compose profile `cutover`, same image as `migrate`) replays migrations 0000–0075 as the bootstrap fops_migrate, renames the roles and database with the postgres superuser URL, then runs the ordinary drizzle-kit migrate as platform_migrate. It runs inside the compose network because Postgres publishes no host port, and only that container receives the superuser credential: a password-free admin URL (`postgresql://postgres@postgres:5432/postgres`) plus `PGPASSWORD` taken from POSTGRES_PASSWORD, so a password with URL-reserved characters (`@ : / ? # %`) works unchanged. `backend` and `migrate` get neither:
 
+    # operator example (operator project and volumes), not for the smoke
     docker compose --project-name platform-api --env-file .env.release -f docker-compose.release.yml run --rm cutover
 
-It is safe to repeat. `image-smoke.sh` runs it; its effective target is validated before any connection, as described in [the database identity section](../04-database-and-migrations.md#database-and-role-identity-1100-a-adr-0097-migration-0076). The `migrate` service itself stays plain: it runs only drizzle-kit migrate as platform_migrate and never needs an admin credential, so on a volume that was not cut over it fails closed. It never seeds. For a parallel check, export `RELEASE_PROJECT_NAME`, `RELEASE_BACKEND_PORT` and `RELEASE_OIDC_PORT` before `image-smoke.sh` (defaults: `platform-api-smoke`, 3001, 8080; the operator projects `platform-api` and `feedbackops-release-1060` are refused). After it succeeds and before logging in, run the repeatable core baseline seed from the migration/tools image:
+It is safe to repeat. `image-smoke.sh` runs it; its effective target is validated before any connection, as described in [the database identity section](../04-database-and-migrations.md#database-and-role-identity-1100-a-adr-0097-migration-0076). The `migrate` service itself stays plain: it runs only drizzle-kit migrate as platform_migrate and never needs an admin credential, so on a volume that was not cut over it fails closed. It never seeds. For a parallel check, export `RELEASE_PROJECT_NAME`, `RELEASE_BACKEND_PORT` and `RELEASE_OIDC_PORT` before `image-smoke.sh` (defaults: `platform-api-smoke`, 3001, 8080; the operator projects `platform-api` and `feedbackops-release-1060` are refused). After it succeeds and before logging in, seed the smoke stack with the repeatable core baseline seed from the migration/tools image. `image-smoke.sh` exports its project, volume names and `RELEASE_OWNER=smoke` only inside its own process, so the seed command must set them itself. Run it in a subshell so nothing leaks into your shell. The default smoke project is `platform-api-smoke`; for a custom project set `RELEASE_PROJECT_NAME` to the same value you gave `image-smoke.sh`:
 
-    docker compose --project-name platform-api --env-file .env.release -f docker-compose.release.yml run --rm -e SEED_MODE=core migrate node_modules/.bin/tsx src/seed/index.ts
+    (
+      export RELEASE_PROJECT_NAME="${RELEASE_PROJECT_NAME:-platform-api-smoke}"
+      export RELEASE_OWNER=smoke
+      export RELEASE_POSTGRES_VOLUME="${RELEASE_PROJECT_NAME}_smoke-postgres-data"
+      export RELEASE_MINIO_VOLUME="${RELEASE_PROJECT_NAME}_smoke-minio-data"
+      docker compose --project-name "$RELEASE_PROJECT_NAME" --env-file .env.release -f docker-compose.release.yml run --rm -e SEED_MODE=core migrate node_modules/.bin/tsx src/seed/index.ts
+    )
+
+With the default project this selects `platform-api-smoke`, `platform-api-smoke_smoke-postgres-data` and `platform-api-smoke_smoke-minio-data`. Never point this command at the operator project `platform-api`: it would write the fixtures into operator data. `bash scripts/release/image-smoke.sh --print-identity` shows the names.
 
 The tools image includes the backend development dependency closure because db:seed uses tsx. The command receives both DATABASE_URL (the platform_app runtime role used by the core seed) and DATABASE_URL_MIGRATE (the platform_migrate role used to create the seed team). It also receives the same WORKSPACE_ID as the backend. Core mode creates the Workspace, baseline Actors, Tableau and Power BI Managed Systems, Analytics Areas, team, and core VOC fixtures; it does not create personas or scale data.
 
@@ -71,13 +80,11 @@ The images emit backend structured JSON logs to stdout per ADR-0013. They do not
 
 ## Stop and cleanup
 
-To stop the stack and remove its database and object-storage volumes, use the script's project-scoped option:
+To stop the smoke stack and remove its database and object-storage volumes, use the script's project-scoped option (with the same `RELEASE_PROJECT_NAME` as the run, if you set one):
 
     bash scripts/release/image-smoke.sh --down
 
-Before any build, start or `--down`, the script lists the project's containers and volumes (and the two volumes it would mount) and refuses unless every one carries the ownership label `platform.release.owner=smoke` (set from `RELEASE_OWNER`, which the script exports; operators leave it unset, so their resources are labelled `operator`). A custom `RELEASE_PROJECT_NAME` that points at an operator stack is therefore refused with nothing started, built or removed; its own previous smoke stack is accepted, so reruns work. Resources created before the label existed count as foreign. If you run the equivalent Compose command by hand it must use the smoke project, the smoke volume variables and `RELEASE_OWNER=smoke` (`--print-identity` shows the names):
-
-    docker compose --project-name platform-api-smoke --env-file .env.release -f docker-compose.release.yml down -v
+Before any build, start or `--down`, the script lists the project's containers and volumes (and the two volumes it would mount) and refuses unless every one carries the ownership label `platform.release.owner=smoke` (set from `RELEASE_OWNER`, which the script exports; operators leave it unset, so their resources are labelled `operator`). A custom `RELEASE_PROJECT_NAME` that points at an operator stack is therefore refused with nothing started, built or removed; its own previous smoke stack is accepted, so reruns work. Resources created before the label existed count as foreign. Do not run `docker compose ... down -v` by hand: a project name alone does not isolate the explicitly named volumes, and a manual command skips this ownership check.
 
 #597: release compose deploys backend and infrastructure only. Set `OIDC_REDIRECT_URI` to the retained platform host ending in `/auth/callback` (the platform edge forwards `/auth`); compose requires this value instead of guessing a backend port. Standalone frontend image, SPA fallback, visual runner and external return origin configuration are retired. Backend image smoke, health checks and integration gates remain.
 
