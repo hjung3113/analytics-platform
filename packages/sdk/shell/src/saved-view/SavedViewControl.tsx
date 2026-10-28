@@ -8,7 +8,7 @@ import { failureText, SaveViewDialog, ShareTargetPicker, ViewManagement, ViewSel
 /**
  * The Saved View selector of the query tool row (06 §21): current view, `수정됨`, the save menu and the requested `뷰 관리` surface.
  * Not the fo-bridge `savedViewsSlot` (a FeedbackOps sidebar slot). Drawn only with an injected store, a `features.savedView` menu and its
- * registered support, and never inside a board pane. It reads the store through `useSavedViews` and, for sharing and approval, the host store.
+ * registered support, and never inside a board pane. Every store write goes through `useSavedViews`; the shell reads groups, approval requests and people from the host store only.
  */
 export function SavedViewControl() {
   const { screenMode, savedViewStore } = useHostPlatform();
@@ -20,7 +20,7 @@ export function SavedViewControl() {
 type Pending = { unit: 'condition-set' | 'menu-view'; name: string };
 const entriesOf = (items: readonly SavedViewListItem[]) => items.flatMap(item => item.denied ? [] : [item]);
 
-function Ready({ views, store, support }: { views: SavedViews; store: SavedViewStore; support: SavedViewSupport }) {
+function Ready({ views, store, support }: { views: SavedViews; store: Pick<SavedViewStore, 'listGroups' | 'listApprovalRequests' | 'searchPeople'>; support: SavedViewSupport }) {
   const host = useHostPlatform();
   const axes = useEquipmentAxes();
   const { lang, tx } = useI18n();
@@ -163,12 +163,11 @@ function Ready({ views, store, support }: { views: SavedViews; store: SavedViewS
       const { id, version } = created.current;
       const at = { expectedVersion: version };
       const visibility: ViewVisibility = draft.mode === 'people' ? { kind: 'people', userIds: draft.people.map(p => p.userId) } : { kind: 'groups', groupIds: [...draft.groupIds] };
-      const shared = draft.mode === 'private' ? null : draft.mode === 'official' ? await store.requestOfficial(id, at) : await store.setVisibility(id, visibility, at);
+      const shared = draft.mode === 'private' ? null : draft.mode === 'official' ? await views.requestOfficial(id, at) : await views.setVisibility(id, visibility, at);
       if (shared !== null && !shared.ok) return refused(shared.reason, true);
       pending.current = null;
       created.current = null;
       if (shared === null) { toast(ko ? `"${made.name}" 뷰를 저장했습니다.` : `Saved "${made.name}".`, 'info'); return true; }
-      views.refresh();
       toast(draft.mode === 'official' ? (ko ? `"${made.name}" 뷰를 저장하고 공식 게시를 신청했습니다.` : `Saved "${made.name}" and asked for official publishing.`) : (ko ? `"${made.name}" 뷰를 저장하고 공유 대상을 정했습니다.` : `Saved "${made.name}" and set who can see it.`), 'info');
       return true;
     } catch {
@@ -179,11 +178,12 @@ function Ready({ views, store, support }: { views: SavedViews; store: SavedViewS
   const migrate = async (id: string) => {
     const item = entriesOf(items).find(entry => entry.view.id === id);
     const diagnosis = diagnoses[id];
-    const next = diagnosis?.status === 'stale' ? diagnosis.migration?.apply() : undefined;
-    if (!item || !next) return;
+    if (!item || diagnosis?.status !== 'stale' || !diagnosis.migration) return;
+    let next: SavedView;
+    try { next = diagnosis.migration.apply(); } catch { report({ ok: false, reason: 'unavailable' }, ''); return; }
     const done = ko ? `"${item.view.name}" 뷰를 새 버전으로 갱신했습니다.` : `Updated "${item.view.name}" to the new version.`;
     const patch = next.kind === 'menu-view' ? { menuSchemaVersion: support.menuSchemaVersion, context: next.context, page: next.page, chartOptions: next.chartOptions, layout: next.layout, panels: next.panels } : { context: next.context };
-    if (report(await store.update(id, patch, { expectedVersion: item.view.version }), done)) views.refresh();
+    report(await views.update(id, patch, { expectedVersion: item.view.version }), done);
   };
 
   const excluded = views.unsupported.map(item => item.key);
@@ -215,13 +215,13 @@ function Ready({ views, store, support }: { views: SavedViews; store: SavedViewS
     <ShareTargetPicker
       open={shareOpen} onOpenChange={next => { setShareOpen(next); if (!next) { pending.current = null; created.current = null; setShareError(null); } }} value={{ mode: 'groups', people: [], groupIds: [] }}
       groups={{ ...groups, retry: () => setGroupTick(n => n + 1) }} currentUserId={userId} searchPeople={searchPeople}
-      onCreateGroup={input => store.createGroup(input)}
-      onUpdateGroup={store.updateGroup} onConfirm={confirmShare} confirmError={shareError}
+      onCreateGroup={views.createGroup}
+      onUpdateGroup={views.updateGroup} onConfirm={confirmShare} confirmError={shareError}
     />
     <ViewManagement
       open={manageOpen} onOpenChange={next => { setManageOpen(next); if (!next) setReturnFocus(n => n + 1); }} entries={items} diagnoses={diagnoses} requests={requests} currentUserId={userId} personName={id => people.get(id) ?? id} groupName={id => groupNames.get(id) ?? id}
-      onDecide={async (id, decision, noteText, expectedVersion) => { const result = await store.decide(id, decision, noteText, { expectedVersion }); if (result.ok) views.refresh(); return result; }}
-      onRevoke={async (id, expectedVersion) => { const result = await store.revoke(id, { expectedVersion }); if (result.ok) views.refresh(); return result; }}
+      onDecide={async (id, decision, noteText, expectedVersion) => { return views.decide(id, decision, noteText, { expectedVersion }); }}
+      onRevoke={async (id, expectedVersion) => { return views.revoke(id, { expectedVersion }); }}
       onMigrate={id => { void migrate(id); }}
     />
     <DirtyConfirmation

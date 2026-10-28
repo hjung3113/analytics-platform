@@ -43,6 +43,8 @@
 
 **어댑터 포트 [#1103](https://github.com/hjung3113/analytics-platform/issues/1103) (포트·계약·mock·HTTP 어댑터·적합성·문서 범위 완료, `sdk-v0.21.0`용 — [ADR-0098](../docs/adr/0098-adapter-preferences-people-notices-ports.md)).** 결정 두 건을 닫았다(#1096): `defaultRangeTo`는 `string | null`(서버에 기준점 없음), 사용자 설정은 서버 포트와 1회 원자 가져오기. 계약·mock·HTTP 어댑터·적합성·문서가 이 이슈의 범위이고, 서버 모듈 #1104(설정, 브라우저 → 서버 이전 런타임 포함)·#1105(사람 조회 화면 연결)·#1106(공지, Home 배너 갱신)은 아직 구현 안 함(서버 영속·이전·공지 구현은 #1103 범위가 아니다).
 
+**저장된 뷰 쓰기 관문 [#1105](https://github.com/hjung3113/analytics-platform/issues/1105) SDK 노드 (완료, `sdk-v0.21.0`용, 이슈는 열림).** 셸 `SavedViewControl`의 공유·승인·이행·그룹 쓰기가 모두 Kernel `useSavedViews`를 거치고 이행 `apply()` 예외도 `unavailable` 안내로 처리한다(백로그 v0.18 마감 리뷰 Q6 완료). 서버 노드(사람 조회 화면 연결 등)는 이 노드 범위가 아니고 그대로 남는다.
+
 ## 결정 대기 — 사람이 고를 것
 
 이슈가 있는 것:

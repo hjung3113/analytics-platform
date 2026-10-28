@@ -1,5 +1,5 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { validateSavedView, type JsonValue, type Result, type SavedViewDraft, type SavedViewEntry, type SavedViewListItem, type SavedViewSupport } from '@ap/contracts';
+import { validateSavedView, type JsonValue, type Result, type SavedViewDraft, type SavedViewEntry, type SavedViewListItem, type SavedViewStore, type SavedViewSupport } from '@ap/contracts';
 import { useHostPlatform } from '../platform/platform';
 import { AppContext } from '../platform/contexts';
 import { captureApplied, viewState, type ViewState } from './capture';
@@ -29,6 +29,29 @@ export type SavedViews = {
   revertToSaved: () => Promise<SelectOutcome>;
   remove: (id: string) => Promise<Result<null>>;
   setDefault: (id: string | null) => Promise<Result<null>>;
+  /**
+   * The shell's only write path for sharing, approval, migration and groups; same signatures as the store port, so a caller cannot send what the port would not take.
+   * A call that was never sent (no enabled screen, a callback kept from an older store/session/revision/Scope/menu or an unmounted screen) or whose store call threw
+   * returns `unavailable`. A store call that completed returns its Result unchanged, also when the generation changed meanwhile: the write happened, and reporting
+   * it as unavailable would make a retry create a second group or share a stale version. Late results of an older generation refresh and select nothing.
+   * These are not selection intents: they neither count as the user's latest pick nor discard one in flight.
+   *
+   * `update`: raw patch at an `expectedVersion` (migration, rename): unlike `saveToSelected` it does not capture the applied conditions.
+   * On ok the view list refreshes; when the returned view is the selected one it shows the returned version until the list answers (a newer version is kept).
+   */
+  update: SavedViewStore['update'];
+  /** On ok: same refresh and selected-view version rule as `update`. */
+  setVisibility: SavedViewStore['setVisibility'];
+  /** On ok: same refresh and selected-view version rule as `update`. */
+  requestOfficial: SavedViewStore['requestOfficial'];
+  /** On ok: same refresh and selected-view version rule as `update`. */
+  decide: SavedViewStore['decide'];
+  /** On ok: same refresh and selected-view version rule as `update`. */
+  revoke: SavedViewStore['revoke'];
+  /** Groups are not views: no view-list refresh (the share picker merges the groups it made). */
+  createGroup: SavedViewStore['createGroup'];
+  /** Groups are not views: no view-list refresh. */
+  updateGroup: SavedViewStore['updateGroup'];
   refresh: () => void;
 };
 
@@ -108,8 +131,8 @@ export function useSavedViews(): SavedViews {
   const unsupported = useMemo(() => selected && support ? unsupportedOf(selected.view, support, anchor) : NO_UNSUPPORTED, [selected, support, anchor]);
 
   // Latest values for async callbacks. `intent` numbers the user's latest restore/pick/save: a result that arrives after a newer one, a changed address or generation, or the screen's unmount is dropped.
-  const live = useRef({ gen, host, selectedId });
-  useEffect(() => { live.current = { gen, host, selectedId }; });
+  const live = useRef({ gen, host, selectedId, selectedVersion: selected?.view.version ?? null });
+  useEffect(() => { live.current = { gen, host, selectedId, selectedVersion: selected?.view.version ?? null }; });
   // A default whose read was overtaken by a newer generation or a moved address (scope check done, the Kernel completing the address) was never judged: the entry is armed again.
   // Capped per entry: every retry needs a new discard, and the cap ends a generation or address that keeps changing.
   const entered = useRef<object | null>(null);
@@ -239,10 +262,31 @@ export function useSavedViews(): SavedViews {
     if (result.ok && !stale(at)) refresh();
     return result;
   }, [enabled, store, gen, userId, menuId, refresh]);
+  // Store writes of the shell: sent only from the current generation; the Result of a completed call is returned unchanged, `after` runs only for a current ok.
+  const write = useCallback(async <T,>(send: (store: SavedViewStore) => Promise<Result<T>>, after?: (value: T, at: object) => void): Promise<Result<T>> => {
+    const at = gen;
+    if (!enabled || stale(at)) return OFF;
+    let result: Result<T>;
+    try { result = await send(store); } catch { return OFF; }
+    if (result.ok && !stale(at)) after?.(result.value, at);
+    return result;
+  }, [enabled, store, gen]);
+  // A written view that is still the selected one is the new snapshot, unless a newer version is already shown; picks and the selection stay untouched.
+  const viewWritten = useCallback((entry: SavedViewEntry, at: object) => {
+    if (live.current.selectedId === entry.view.id && !((live.current.selectedVersion ?? 0) > entry.view.version)) setFresh(previous => previous?.gen === at && previous.entry.view.id === entry.view.id && previous.entry.view.version > entry.view.version ? previous : { gen: at, entry });
+    refresh();
+  }, [refresh]);
+  const update = useCallback<SavedViewStore['update']>((id, patch, opts) => write(s => s.update(id, patch, opts), viewWritten), [write, viewWritten]);
+  const setVisibility = useCallback<SavedViewStore['setVisibility']>((id, visibility, opts) => write(s => s.setVisibility(id, visibility, opts), viewWritten), [write, viewWritten]);
+  const requestOfficial = useCallback<SavedViewStore['requestOfficial']>((id, opts) => write(s => s.requestOfficial(id, opts), viewWritten), [write, viewWritten]);
+  const decide = useCallback<SavedViewStore['decide']>((id, decision, note, opts) => write(s => s.decide(id, decision, note, opts), viewWritten), [write, viewWritten]);
+  const revoke = useCallback<SavedViewStore['revoke']>((id, opts) => write(s => s.revoke(id, opts), viewWritten), [write, viewWritten]);
+  const createGroup = useCallback<SavedViewStore['createGroup']>(input => write(s => s.createGroup(input)), [write]);
+  const updateGroup = useCallback<SavedViewStore['updateGroup']>((id, patch) => write(s => s.updateGroup(id, patch)), [write]);
 
   return useMemo((): SavedViews => ({
     status, support: support ?? null, menuViews, conditionSets, defaultId, selected, state, unsupported,
-    select, clearSelection, saveAs, saveToSelected, revertToSaved, remove, setDefault, refresh,
-  }), [status, support, menuViews, conditionSets, defaultId, selected, state, unsupported, select, clearSelection, saveAs, saveToSelected, revertToSaved, remove, setDefault, refresh]);
+    select, clearSelection, saveAs, saveToSelected, revertToSaved, remove, setDefault, update, setVisibility, requestOfficial, decide, revoke, createGroup, updateGroup, refresh,
+  }), [status, support, menuViews, conditionSets, defaultId, selected, state, unsupported, select, clearSelection, saveAs, saveToSelected, revertToSaved, remove, setDefault, update, setVisibility, requestOfficial, decide, revoke, createGroup, updateGroup, refresh]);
 }
 const NOOP_SUBSCRIBE = () => () => {};
