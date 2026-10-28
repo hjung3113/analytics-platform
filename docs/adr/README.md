@@ -102,6 +102,7 @@
 | [0092](0092-saved-view-units-tiers-and-groups.md) | 저장된 뷰는 조건 세트 + 메뉴 뷰 두 단위, 소유는 개인 → 그룹(조직 팀 \| 커스텀) → 공식, 공유는 권한을 주지 않는다. UI는 조회 도구행의 현재 뷰 선택기 + 요청형 뷰 관리 표면(대안: A 탭 줄 / B 드롭다운 / C 상시 패널 — B 기본 + C 정보 구조) | Decided(2026-10-27, 사용자 + 시안 선택은 Astra 위임·코디네이터 기록, 되돌릴 수 있다) · #294 · 구현 #1011 |
 | [0093](0093-canonical-paths-from-space-and-menu-id.md) | 메뉴 정규 경로는 `/{공간 id}/{메뉴 id 슬러그}` + `:param`으로 유도하고 manifest 경로는 옛 별칭으로 둔다 (대안: manifest가 슬러그를 선언 — 유도 선택) | Decided(2026-10-27) |
 | [0094](0094-occurrence-anchor-is-record-sequence.md) | occurrence anchor는 파서 RecordSequence를 담은 불투명 숫자 문자열이고 시작 시각은 별도 표시 필드다 (대안: B `시각#순번` 합성값 / C 시각 유지 + 서버 해소 — 기각) | Decided(2026-10-27, 사용자) · #1007 |
+| [0095](0095-dual-backend-fastify-core-fastapi-analytics.md) | 서버는 둘이다 — Fastify 코어가 유일한 입구(세션·권한·감사·알림)이고 FastAPI는 분석 데이터만 내부에서 맡는다. DB 인스턴스 하나·스키마별 소유, Zod → JSON Schema → Pydantic 한 방향. 권한 claim·부여는 설계 남음(#1087) | Proposed(2026-10-28) — D1·D2·D6·D7 사용자 확인 대기. ADR-0066 결정 6·0069 결정 8·0043 개정 |
 | [0096](0096-contract-schemas-zod-source-and-reference-implementations.md) | 서버 계약 원본은 TS의 Zod 스키마(→ JSON Schema → Pydantic), SDK는 계약에 더해 선택해서 쓰는 참조 구현을 낸다 | Decided(2026-10-28) — #148 닫음 |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.

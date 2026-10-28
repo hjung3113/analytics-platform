@@ -12,6 +12,7 @@
 - **디자인 시스템 결정도 플랫폼 소유다.** 토큰·primitive 모양·크기·상태 같은 디자인 시스템 결정의 원본은 플랫폼(SDK)이다. FeedbackOps 디자인 시스템은 플랫폼으로 발전시킨 출발점이고, 지금 값이 SDK의 초기값이 된다.
 - **의존 방향은 SDK ← 제품 하나뿐이다.** FeedbackOps·equipment-visualization·analytics-platform 앱과 사내 앱이 SDK의 플랫폼 프레임워크를 소비한다. SDK는 어떤 제품 저장소의 패키지도 import하지 않는다. 그래서 지금 있는 `@ap/ui → @fops/ui` 간선(패키지 경계 §3 규칙 8이 허용)은 목표 구조에서 없어지고, 토큰·primitive 코드는 SDK로 옮겨 FeedbackOps가 SDK에서 받아 쓴다.
 - **이름은 플랫폼 쪽에 맞춘다.** SDK 패키지는 플랫폼 접두사 아래에 두고, 흡수한 조각의 개념·API 이름도 플랫폼 용어로 맞춘다(세부 이름은 Candidate). 최종 접두사는 [패키지 경계](../integration/platform-packages.md) §8의 일괄 변경 절차로 바꾸며, 시점은 [통합 계획](../integration/framework-unification-plan.md) Q1 권고대로 배포 단계 직전이다. 그때까지는 `@ap/`다.
+- **서버는 계약만 SDK가 정한다.** 산출물은 언어 중립이고 Fastify·FastAPI 참조 구현을 둔다. 어떤 엔드포인트를 어느 서버가 맡을지는 앱 배포의 소유자 표가 정한다([ADR-0095](0095-dual-backend-fastify-core-fastapi-analytics.md), Proposed).
 - **독립 실행은 SDK 책임이 아니다.** 같은 화면을 플랫폼 밖에서 돌릴지, 그 호스트를 어떻게 만들지는 각 제품이 정하고 책임진다. SDK는 독립 호스트를 제공하거나 검증하지 않는다.
 
 ## Considered Options
