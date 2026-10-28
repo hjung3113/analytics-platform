@@ -21,7 +21,7 @@
 | `publishedMetrics()` | 지표별 게시 버전 스냅샷 — `metricId`만 온 진입점을 보완한다. |
 | `contextOptions`·`evaluateSelection` | 조건 축 선택지, 조건 결과·조건 밖 선택. 조건 판정은 서버 책임이다. |
 | `defaultRangeTo()` | 기본 기간의 기준 시각(wall-clock, 06 §6.3). 기준점이 없으면 `null`(브라우저 시계·epoch·지어낸 날짜로 채우지 않는다, [ADR-0098](../adr/0098-adapter-preferences-people-notices-ports.md)). |
-| `readPreferences`·`patchPreferences`·`importPreferences` | 세션 사용자의 설정(사용자 id를 받지 않는다 — 알 수 없는 키는 거부). 키 문법·크기 상한은 ADR-0098. 쓰기는 키 패치(`null`은 값, `remove`는 삭제, 겹침 거부). 가져오기는 한 커밋에서 없는 키만 저장하고 `importedAt`을 찍으며 완료 뒤 영구 no-op. 답은 `ApiResponse`(trust `null`, assessments `[]`), 판정 실패는 `error`/`too_large`. 사용자 간 격리. |
+| `readPreferences`·`patchPreferences`·`importPreferences` | 세션 사용자의 설정(사용자 id를 받지 않는다 — 알 수 없는 키는 거부). 키 문법·크기 상한은 ADR-0098. 쓰기는 키 패치(`null`은 값, `remove`는 삭제, 겹침 거부). 가져오기는 한 커밋에서 없는 키만 저장하고 `importedAt`을 찍으며 완료 뒤 영구 no-op. 답은 `ApiResponse`(trust `null`, assessments `[]`), 판정 실패는 `error`/`too_large`. 사용자 간 격리. 상태: 이 레포 코어 서버가 구현(`platform.preferences`, 키 200개·값 64KiB·요청 256KiB, 계정 합계 키 200개 초과는 `too_large`, 한 트랜잭션 행 잠금, #1104 서버 단계). 브라우저 쪽 수명주기(로컬 저장소 이전·`Kernel` 저장 포트)는 아직 없다(#1104b 미구현). |
 | `lookupPeople` | 정확한 id 일괄(최대 200) → `GroupMember`(`userId`·`displayName`·`affiliation`)만. 세션이 볼 수 있는 사람만, 없는·볼 수 없는 id는 빠진다(자리표시·비공개 데이터 없음). 입력 오류(중복 id 포함)만 `PortError('invalid_input')`. |
 | `listNotices`·`saveNotice`·`deleteNotice` | 읽기 `notice:view`, 쓰기 `console:access`. `listNotices`는 만료 포함 관리 목록이며 데이터 범위(site 지정 공지)를 지킨다. 쓰기는 `ActionResponse`: 서버가 id·작성자·시각을 찍고 만들기에 id·작성자·시각·알 수 없는 키는 `invalid`, 수정·삭제는 `expectedVersion` 불일치 `conflict`(현재 버전을 싣는다), 같은 `idempotencyKey` 재시도는 `replayed: true`(다른 입력으로 재사용하면 `invalid`). Home 배너(`home.notices`) 갱신은 #1106. |
 | `menuQuery(req)` | §3 판정 순서 전부. 메뉴 데이터는 모두 이 한 메서드로 온다. |

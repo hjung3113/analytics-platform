@@ -22,6 +22,7 @@ import { requireCsrf } from './csrf.js';
 import { createEntityReader } from './entity-read.js';
 import { envelope } from './envelope.js';
 import { holdsPlatformPermission, resolvePlatformPermissions } from './permissions.js';
+import { createPlatformPreferencesService } from './preferences.js';
 import { sessionVersionOf } from './session-version.js';
 import { titleFor } from './titles.js';
 import { createPlatformUsageService, parseUsageBatch } from './usage.js';
@@ -72,6 +73,7 @@ export const platformPortRoutes: FastifyPluginAsync<PlatformPortOptions> = async
   const access = createAccessDirectoryService({ db: opts.db, checkService: opts.checkService });
   const usage = createPlatformUsageService({ db: opts.db, checkService: opts.checkService });
   const clientErrors = createPlatformClientErrorService({ db: opts.db });
+  const prefs = createPlatformPreferencesService({ db: opts.db });
   const csrf = requireCsrf(opts.sessionService);
 
   // A body that is not valid JSON is a judged malformed request (HTTP 200 + `error` envelope,
@@ -257,6 +259,35 @@ export const platformPortRoutes: FastifyPluginAsync<PlatformPortOptions> = async
     if (!report) return { accepted: false };
     await clientErrors.reportClientError(actorOf(loaded), req.id, report);
     return { accepted: true };
+  });
+
+  // Preferences (ADR-0098): the session user's own state, so no permission beyond the session; identity is never read from
+  // the body (the shared schemas are strict). Writes need CSRF; every judged result is HTTP 200 + envelope.
+  app.get('/preferences', async (req, reply) => {
+    const loaded = await authenticate(req, reply, true);
+    if (!loaded) return reply;
+    const result = await prefs.read(actorOf(loaded));
+    return envelope(req, result.outcome, result.data ?? null, result.message);
+  });
+
+  app.post('/preferences/patch', { preHandler: csrf }, async (req, reply) => {
+    const loaded = await authenticate(req, reply, true);
+    if (!loaded) return reply;
+    const result = await prefs.patch(
+      actorOf(loaded),
+      req.body === MALFORMED_BODY ? null : req.body,
+    );
+    return envelope(req, result.outcome, result.data ?? null, result.message);
+  });
+
+  app.post('/preferences/import', { preHandler: csrf }, async (req, reply) => {
+    const loaded = await authenticate(req, reply, true);
+    if (!loaded) return reply;
+    const result = await prefs.import(
+      actorOf(loaded),
+      req.body === MALFORMED_BODY ? null : req.body,
+    );
+    return envelope(req, result.outcome, result.data ?? null, result.message);
   });
 
   // Annotations are a gate only (#622 decision 6): `analytics:view` is never granted and FeedbackOps

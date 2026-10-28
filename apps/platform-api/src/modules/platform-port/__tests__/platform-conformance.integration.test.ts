@@ -54,6 +54,9 @@ const IMPLEMENTED: readonly PortMethod[] = [
   'usageSummary',
   'recordUsage',
   'reportClientError',
+  'readPreferences',
+  'patchPreferences',
+  'importPreferences',
 ];
 
 /**
@@ -301,6 +304,7 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
       for (const [table, column] of [
         ['platform.usage_events', 'actor_id'],
         ['platform.client_errors', 'actor_id'],
+        ['platform.preferences', 'actor_id'],
         ['core.audit_log', 'actor_id'],
         ['permission.permission_grants', 'actor_id'],
         ['permission.permission_denies', 'actor_id'],

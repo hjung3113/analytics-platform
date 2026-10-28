@@ -42,6 +42,9 @@ importers:
 
   apps/platform-api:
     dependencies:
+      '@ap/contract-schemas':
+        specifier: workspace:*
+        version: link:../../packages/sdk/contract-schemas
       '@aws-sdk/client-s3':
         specifier: ^3.726.0
         version: 3.1154.0

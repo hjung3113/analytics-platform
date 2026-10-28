@@ -18,13 +18,14 @@
     "db:seed": "tsx src/seed/index.ts"
   },
   "dependencies": {
+    "@ap/contract-schemas": "workspace:*",
+    "@ap/feature-shared": "workspace:*",
     "@aws-sdk/client-s3": "^3.726.0",
     "@aws-sdk/lib-storage": "^3.726.0",
     "@fastify/cookie": "11.0.2",
     "@fastify/helmet": "13.0.1",
     "@fastify/multipart": "^9.0.1",
     "@fastify/rate-limit": "10.2.1",
-    "@ap/feature-shared": "workspace:*",
     "drizzle-orm": "0.38.2",
     "fastify": "5.2.0",
     "fastify-type-provider-zod": "4.0.2",

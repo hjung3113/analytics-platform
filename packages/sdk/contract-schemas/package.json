@@ -4,10 +4,15 @@
   "version": "0.0.0",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./source": "./src/index.ts"
   },
   "scripts": {
     "lint": "eslint .",
+    "build": "rm -rf dist && tsc -p tsconfig.runtime.json",
     "typecheck": "tsc --noEmit",
     "gen:schemas": "node scripts/gen-schemas.mjs",
     "gen:endpoints": "UPDATE_ENDPOINTS=1 vitest run --config vitest.endpoints.config.mjs",
