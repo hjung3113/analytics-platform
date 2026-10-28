@@ -61,12 +61,7 @@ Platform wire contracts for a server outside this workspace (ADR-0096). Generate
 - \`endpoints.json\` — every menu endpoint declaration (\`paramKeys\` is the list of allowed params keys), sorted by \`id\`.
 - \`vocab.json\` — the closed vocabularies (kernel permissions, usage vias, audit actions, outcomes).
 
-Format rules: fixed-shape objects set \`additionalProperties: false\`; the Condition map instead types its arbitrary axis keys
-(non-blank IDs mapped to a non-empty list of distinct non-blank IDs, at least one axis); integers carry safe-integer bounds;
-instants (\`Trust.updatedAt\`, \`dataThrough\`, \`Assessment.observedAt\`) are \`format: date-time\` plus a \`pattern\` that requires
-an offset or Z; \`from\`/\`to\` are wall-clock \`YYYY-MM-DDTHH:mm:ss\` by \`pattern\` only, so the pattern alone does not establish
-calendar validity (for example 2026-02-30); servers must validate that separately. ID sets are \`uniqueItems\` arrays of non-blank
-IDs; canonical code-point order and valid Unicode (no lone surrogates) are server boundary requirements JSON Schema cannot carry.
+Format rules: https://github.com/hjung3113/analytics-platform/blob/main/packages/sdk/contract-schemas/AGENTS.md#artifact-format-rules
 Verify the archive with \`SHA256SUMS-schemas\`.
 `;
 }

@@ -58,6 +58,15 @@ export function waitForFoRead(
   });
 }
 
+/** Register the three home reads before navigation. */
+export function waitForHomeReads(page: Page): Promise<Response>[] {
+  return [
+    waitForFoRead(page, '/me/answerable-surveys'),
+    waitForFoRead(page, '/notifications', { unread: 'true', limit: '100' }),
+    waitForFoRead(page, '/permission-requests/mine', { status: 'all' }),
+  ];
+}
+
 export async function expectSuccessfulFoReads(reads: readonly Promise<Response>[]): Promise<void> {
   const responses = await Promise.all(reads);
   for (const response of responses) {

@@ -10,7 +10,6 @@ export interface SafeRealDatabaseEnv {
   readonly app: SafeDatabaseTarget;
   readonly migrate: SafeDatabaseTarget;
   readonly database: string;
-  readonly suffix: string;
   readonly workspaceId: string;
 }
 
@@ -68,5 +67,5 @@ export function requireSafeRealDatabaseEnv(env: NodeJS.ProcessEnv = process.env)
     throw new Error('WORKSPACE_ID is required and must be a UUID.');
   }
 
-  return { app, migrate, database: app.database, suffix: app.database.slice('feedbackops_'.length), workspaceId };
+  return { app, migrate, database: app.database, workspaceId };
 }

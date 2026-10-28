@@ -4,16 +4,12 @@ import {
   expectSuccessfulFoReads,
   mainHeading,
   test,
-  waitForFoRead,
+  waitForHomeReads,
 } from './support';
 
 test.describe('core 사용자 공간 접근 거부 (06 §9.1)', () => {
   test('mock-user-1은 콘솔과 FeedbackOps 공간을 보지 못하고 콘솔 직접 URL이 거부된다', async ({ page }, testInfo) => {
-    const homeReads = [
-      waitForFoRead(page, '/me/answerable-surveys'),
-      waitForFoRead(page, '/notifications', { unread: 'true', limit: '100' }),
-      waitForFoRead(page, '/permission-requests/mine', { status: 'all' }),
-    ];
+    const homeReads = waitForHomeReads(page);
     await page.goto('/home');
     await expectSuccessfulFoReads(homeReads);
     await expect(mainHeading(page)).toHaveText('플랫폼 홈');

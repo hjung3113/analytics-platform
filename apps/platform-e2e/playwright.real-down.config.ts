@@ -1,8 +1,8 @@
 import { defineConfig } from '@playwright/test';
 
-const rawPort = process.env.E2E_PORT;
-const PORT = rawPort === undefined ? 4190 : /^[0-9]+$/.test(rawPort) ? Number.parseInt(rawPort, 10) : 0;
-if (PORT < 1 || PORT > 65535) throw new Error(`E2E_PORT must be an integer port in 1..65535, got ${JSON.stringify(rawPort)}`);
+import { parsePort } from './tests-real/port';
+
+const PORT = parsePort('E2E_PORT', 4190);
 const BASE_URL = `http://127.0.0.1:${PORT}`;
 
 /** Exercises the assembly's backend-down screen without the healthy backend or database setup. */

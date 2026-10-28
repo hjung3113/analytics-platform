@@ -2,21 +2,13 @@ import { resolve } from 'node:path';
 import { defineConfig } from '@playwright/test';
 import { requireSafeRealDatabaseEnv } from './tests-real/database-safety';
 
-/** Same whole-string integer 1..65535 rule as the default mock E2E config. */
-const parsePort = (name: string, fallback: number): number => {
-  const raw = process.env[name];
-  if (raw === undefined) return fallback;
-  const port = /^[0-9]+$/.test(raw) ? Number.parseInt(raw, 10) : 0;
-  if (port < 1 || port > 65535) throw new Error(`${name} must be an integer port in 1..65535, got ${JSON.stringify(raw)}`);
-  return port;
-};
+import { parsePort } from './tests-real/port';
 
 const databaseEnv = requireSafeRealDatabaseEnv();
 const PORT = parsePort('E2E_PORT', 4190);
 const BACKEND_PORT = parsePort('E2E_REAL_BACKEND_PORT', 3011);
 if (PORT === BACKEND_PORT) throw new Error('E2E_PORT and E2E_REAL_BACKEND_PORT must be different ports.');
 
-const ROOT = resolve(import.meta.dirname, '../..');
 const BASE_URL = `http://127.0.0.1:${PORT}`;
 const stateDir = resolve(import.meta.dirname, 'test-results-real/auth');
 
